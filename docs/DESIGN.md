@@ -396,7 +396,10 @@ body[data-touch="large"] { --hit: 56px; }
 export const COURT_BG = '#1f7a46';           // 다크·라이트 공통 (라이트 #2f9e5c 는 흰 라인 3.41:1
                                              // 로 떨어지고 격자·존이 전부 무효가 되어 폐기)
 export const OBJ_STROKE = 'rgba(255,255,255,.92)';   // 흰선/코트 5.34:1
-export const ARROW_CASING = 'rgba(0,0,0,.62)';       // 검정/코트 3.93:1 — 화살표 대비 확보
+export const ARROW_CASING = '#000000';               // 검정(불투명)/코트 3.93:1
+// [2] 2026-08-08 정정. 원래 'rgba(0,0,0,.62)' 였으나 알파 .62 를 코트(#1f7a46) 위에
+// 합성한 실제 색은 rgb(12,46,27) 이고 코트 대비가 2.75:1 로, 케이싱이 존재하는 목적인
+// 3:1(WCAG 1.4.11)을 못 채운다. 주석의 3.93 은 알파 1.0 일 때만 성립하는 값이었다.
 
 export const CATEGORY_COLORS: Record<string, string> = {
   '공격': '#d93a3a', '수비': '#1f6bb8', '슈팅': '#e08a12',
@@ -2710,7 +2713,7 @@ main (padding:22px 30px 46px, max-width:1180)
 ### 7.2 포커스 표시 — `src/styles/a11y.css`
 
 ```css
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: inherit; }
+:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; border-radius: inherit; }  /* [1] */
 .on-accent:focus-visible { outline-color: var(--accent-ink-strong); box-shadow: 0 0 0 4px var(--accent); }
 
 /* SVG 는 브라우저별 outline 렌더가 불안정 + accent 는 코트 위에서 라이트 1.17:1 → 이중 링 */
@@ -2728,6 +2731,15 @@ main (padding:22px 30px 46px, max-width:1180)
                    border-radius:8px; font-weight:700; }
 ```
 프로토타입은 포커스 스타일이 전무하다 — 위 CSS 가 그 결함을 정면으로 메운다.
+
+**[1] 2026-08-08 정정.** 초판은 `outline: 2px solid var(--accent)` 였다 — §7.1 표가 바로 위에서
+"light accent-as-text ❌ (2.49–2.90) → `--accent-text`(5.12–5.97)" 를 이미 판정해뒀는데, 그 조치가
+이 포커스 링 규칙에만 안 붙어 있던 계약서 자체의 누락이었다(구현 오류 아님). 라이트 테마에서
+`--accent` 를 outline 색으로 쓰면 인접 표면(`--bg`/`--panel`/`--panel-2`/`--elev`) 전부에서
+2.49~2.90:1 로 SC 1.4.11 의 3:1 미달이었다. `--accent-text` 로 교체하면 다크는 값이 동일해
+무영향(15.29/14.21/14.73/12.76, accent == accent-text), 라이트는 5.12/5.97/5.55/5.31 로 전부
+3:1 을 넘는다. `src/styles/a11y.css`·`src/styles/tokens.css` 양쪽의 중복 `:focus-visible` 정의를
+함께 고쳤다(후자는 로드 순서상 항상 a11y.css 에 덮이지만, 순서가 바뀔 미래를 대비해 값을 맞춰둔다).
 
 ### 7.3 터치 타깃
 

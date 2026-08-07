@@ -94,8 +94,13 @@ export function satOverlap(a: ChairPose, b: ChairPose, marginPx: number): SatRes
   return satBetween(cornersA, chairAxes(a.theta), cornersB, chairAxes(b.theta), marginPx);
 }
 
+// minor 회귀(§10.4): 정확히 marginPx 만큼 떨어진 두 휠체어가 부동소수 오차(예: 2.3e-14)로
+// "겹침" 판정을 받는 knife-edge 를 막는다. satBetween 의 조기 분리 판정(overlap<=0)은 그대로
+// 두고(다른 축의 최솟값 추적에 영향 없음), 최종 겹침 여부만 엡실론 이상일 때로 좁힌다.
+const OVERLAP_EPS_PX = 1e-9;
+
 export function chairsOverlap(a: ChairPose, b: ChairPose, marginPx: number): boolean {
-  return satOverlap(a, b, marginPx).depth > 0;
+  return satOverlap(a, b, marginPx).depth > OVERLAP_EPS_PX;
 }
 
 /** 컨테이너(bounds)는 축정렬 사각형이므로 hull 의 x/y 투영만으로 포함 여부가 결정된다
@@ -253,34 +258,155 @@ export function clampPointToBounds(p: Vec2, r: number, b: Bounds): Vec2 {
 }
 
 const ESCAPE_SLOP_PX = 0.01;
-const ESCAPE_PASSES = 4;
+const ESCAPE_PASSES = 8;
+// 압착 축 수직 방향(통로를 따라) 탐색 범위·정밀도. hullRadiusPx*2 는 어떤 두 장애물 사이든
+// 휠체어 하나의 전체 길이(REAR..FRONT)를 벗어나기에 충분한 여유다(실측 근거는 fix 참고).
+const ESCAPE_SEARCH_MAX_PX = CHAIR.hullRadiusPx * 2 + 8;
+const ESCAPE_SEARCH_STEPS = 64;
+const ESCAPE_SEARCH_REFINE_ITERS = 30;
+// 두 법선의 내적이 이보다 작으면(즉 충분히 반대 방향이면) "압착"으로 간주한다.
+const SQUEEZE_DOT_THRESHOLD = -0.3;
 
-/** 최종 안전망: 두 휠체어(또는 휠체어·벽) 사이에 낀 점을 압착 축 수직 방향으로 밀어낸다.
- *  Resolver.solvePosition 은 양쪽 static 에서 반대 임펄스를 받아 상쇄되므로 스스로 못 빠져나온다
- *  (§5.6). 여러 장애물에 동시에 눌린 경우를 위해 몇 패스 반복한다. */
+interface Push {
+  depth: number;
+  normal: Vec2;
+}
+
+/** escapePinned 이 다루는 장애물 하나(휠체어 OBB 또는 벽 한 면)를 균일하게 표현한다.
+ *  hitAt 은 같은 장애물을 다른 위치에서 재평가할 수 있게 한다 — 압착 탐색이 "이 장애물이
+ *  더 이상 막지 않는 지점"을 찾을 때 필요하다. */
+interface Obstacle {
+  hitAt(q: Vec2, r: number): Push | null;
+}
+
+function wallHitAt(q: Vec2, r: number, b: Bounds): Push | null {
+  // 4면을 한 함수로 — 여러 면에 동시에 걸치면 가장 깊은 침투만 보고한다(코너 대응).
+  const violations: Push[] = [];
+  if (q.x < r) violations.push({ depth: r - q.x, normal: { x: 1, y: 0 } });
+  if (q.x > b.w - r) violations.push({ depth: q.x - (b.w - r), normal: { x: -1, y: 0 } });
+  if (q.y < r) violations.push({ depth: r - q.y, normal: { x: 0, y: 1 } });
+  if (q.y > b.h - r) violations.push({ depth: q.y - (b.h - r), normal: { x: 0, y: -1 } });
+  if (violations.length === 0) return null;
+  let worst = violations[0]!;
+  for (const v of violations) if (v.depth > worst.depth) worst = v;
+  return worst;
+}
+
+function buildObstacles(chairs: readonly ChairPose[], bounds: Bounds): Obstacle[] {
+  const obstacles: Obstacle[] = chairs.map((chair) => ({
+    hitAt: (q, r) => circleObbPush(q, r, chair),
+  }));
+  obstacles.push({ hitAt: (q, r) => wallHitAt(q, r, bounds) });
+  return obstacles;
+}
+
+interface ActiveHit extends Push {
+  obstacle: Obstacle;
+}
+
+function activeHits(p: Vec2, r: number, obstacles: readonly Obstacle[]): ActiveHit[] {
+  const hits: ActiveHit[] = [];
+  for (const obstacle of obstacles) {
+    const hit = obstacle.hitAt(p, r);
+    if (hit) hits.push({ ...hit, obstacle });
+  }
+  return hits;
+}
+
+/** 서로 가장 반대 방향인(내적이 가장 음수인) 두 히트를 압착 쌍으로 고른다. 명확히 반대가
+ *  아니면(SQUEEZE_DOT_THRESHOLD 미만이 없으면) null — 압착이 아니라 그냥 겹침이다. */
+function findSqueezePair(hits: readonly ActiveHit[]): [ActiveHit, ActiveHit] | null {
+  let bestDot = SQUEEZE_DOT_THRESHOLD;
+  let pair: [ActiveHit, ActiveHit] | null = null;
+  for (let i = 0; i < hits.length; i++) {
+    for (let j = i + 1; j < hits.length; j++) {
+      const dot = hits[i]!.normal.x * hits[j]!.normal.x + hits[i]!.normal.y * hits[j]!.normal.y;
+      if (dot < bestDot) {
+        bestDot = dot;
+        pair = [hits[i]!, hits[j]!];
+      }
+    }
+  }
+  return pair;
+}
+
+/** 압착 쌍 중 하나라도 더 이상 막지 않는 지점인지(=압착이 풀렸는지) 확인한다. 나머지 잔여
+ *  겹침(있다면)은 이후 패스의 단일 장애물 밀기가 안전하게(반대편 저항 없이) 처리한다. */
+const pairBroken = (q: Vec2, r: number, pair: readonly [ActiveHit, ActiveHit]): boolean =>
+  pair[0].obstacle.hitAt(q, r) === null || pair[1].obstacle.hitAt(q, r) === null;
+
+/** 압착 축(pair[0].normal) 의 수직 방향(통로를 따라)으로 선형 탐색 + 이분정밀화해 탈출점을
+ *  찾는다. 양쪽 방향을 모두 시도하고, 탐색 범위 안에서 찾지 못하면 null(호출자가 폴백). */
+function searchTangentEscape(
+  p: Vec2,
+  r: number,
+  pair: readonly [ActiveHit, ActiveHit],
+): Vec2 | null {
+  const axis = pair[0].normal;
+  const t: Vec2 = { x: -axis.y, y: axis.x };
+  for (const sign of [1, -1] as const) {
+    const dir: Vec2 = { x: t.x * sign, y: t.y * sign };
+    let lo = 0;
+    let hi = -1;
+    for (let i = 1; i <= ESCAPE_SEARCH_STEPS; i++) {
+      const dist = (ESCAPE_SEARCH_MAX_PX * i) / ESCAPE_SEARCH_STEPS;
+      const cand: Vec2 = { x: p.x + dir.x * dist, y: p.y + dir.y * dist };
+      if (pairBroken(cand, r, pair)) {
+        hi = dist;
+        break;
+      }
+      lo = dist;
+    }
+    if (hi < 0) continue; // 이 방향으로는 탐색 범위 안에서 못 찾음 — 반대 방향 시도
+    let loD = lo;
+    let hiD = hi;
+    for (let k = 0; k < ESCAPE_SEARCH_REFINE_ITERS; k++) {
+      const mid = (loD + hiD) / 2;
+      const cand: Vec2 = { x: p.x + dir.x * mid, y: p.y + dir.y * mid };
+      if (pairBroken(cand, r, pair)) hiD = mid;
+      else loD = mid;
+    }
+    return { x: p.x + dir.x * hiD, y: p.y + dir.y * hiD };
+  }
+  return null;
+}
+
+/** 최종 안전망: 두 휠체어(또는 휠체어·벽) 사이에 낀 점을 빼낸다. Resolver.solvePosition 은
+ *  양쪽 static 에서 반대 임펄스를 받아 상쇄되므로 스스로 못 빠져나온다(§5.6).
+ *
+ *  압착(두 장애물이 반대 방향으로 동시에 침투) 이 감지되면 표면 법선(=압착 축) 이 아니라
+ *  그 **수직** 방향(통로를 따라)으로 탐색해 빠져나간다 — 법선 방향 push 는 두 장애물 사이를
+ *  영원히 왕복할 뿐 원리적으로 탈출할 수 없다(실측: 4패스든 50패스든 고정점에 멈춤).
+ *  벽도 다른 장애물과 동일한 hitAt 계약으로 취급해 같은 해결기 안에서 함께 푼다 — push 뒤에
+ *  별도 clampPointToBounds 를 걸면 서로 되돌리는 왕복이 생긴다(실측 D4). */
 export function escapePinned(
   p: Vec2,
   r: number,
   chairs: readonly ChairPose[],
   bounds: Bounds,
 ): Vec2 {
+  const obstacles = buildObstacles(chairs, bounds);
   let out: Vec2 = { x: p.x, y: p.y };
   for (let pass = 0; pass < ESCAPE_PASSES; pass++) {
-    let moved = false;
-    for (const chair of chairs) {
-      const hit = circleObbPush(out, r, chair);
-      if (hit) {
-        out = {
-          x: out.x + hit.normal.x * (hit.depth + ESCAPE_SLOP_PX),
-          y: out.y + hit.normal.y * (hit.depth + ESCAPE_SLOP_PX),
-        };
-        moved = true;
+    const hits = activeHits(out, r, obstacles);
+    if (hits.length === 0) break;
+
+    const pair = findSqueezePair(hits);
+    if (pair) {
+      const escaped = searchTangentEscape(out, r, pair);
+      if (escaped) {
+        out = escaped;
+        continue;
       }
+      // 탐색 범위 안에서 못 찾음(극단적으로 긴 통로) — 아래 단일-장애물 밀기로 폴백.
     }
-    const clamped = clampPointToBounds(out, r, bounds);
-    if (clamped.x !== out.x || clamped.y !== out.y) moved = true;
-    out = clamped;
-    if (!moved) break;
+
+    let worst = hits[0]!;
+    for (const h of hits) if (h.depth > worst.depth) worst = h;
+    out = {
+      x: out.x + worst.normal.x * (worst.depth + ESCAPE_SLOP_PX),
+      y: out.y + worst.normal.y * (worst.depth + ESCAPE_SLOP_PX),
+    };
   }
   return out;
 }

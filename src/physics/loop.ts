@@ -8,6 +8,10 @@ export interface PhysicsLoop {
   /** pointerup 이후 정착 구간을 요청한다. atRest() 가 참이 되거나 ms 가 지나면 자동으로 stop 한다
    *  (§5.9 settleMaxMs 는 하드 컷이 아니라 안전망 — 정상 경로는 atRest() 조기 종료). */
   requestSettle(ms?: number): void;
+  /** blocker 회귀(§5.8): 정착 대기 중(settleDeadline 이 살아있는 상태) 새 드래그가 시작되면
+   *  반드시 호출해야 한다 — 안 하면 이전 requestSettle 이 남긴 데드라인이 살아있다가 드래그
+   *  도중 공이 잠깐 멈추는 순간(atRest()===true) 루프가 stop() 되어 휠체어가 얼어붙는다. */
+  cancelSettle(): void;
 }
 
 export function createLoop(o: {
@@ -69,5 +73,9 @@ export function createLoop(o: {
     if (!running) start();
   }
 
-  return { start, stop, isRunning, requestSettle };
+  function cancelSettle(): void {
+    settleDeadline = null;
+  }
+
+  return { start, stop, isRunning, requestSettle, cancelSettle };
 }

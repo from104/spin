@@ -102,12 +102,18 @@ export function createPhysicsWorld(
   const world: WorldHandles = createWorld(courtW, courtH);
   const kindOf = new Map<CastId, 'chair' | 'ball' | 'cone'>();
   let session: DragSession | null = null;
+  // major 회귀(§5.8): 공개 step(dtS) 에 넘어온 가변 dt 를 Engine.update 에 그대로 넣지 않기
+  // 위한 고정-timestep 누산기(loop.ts 의 프레임 누산 로직과 동일한 패턴). substep() 자신은
+  // 인자를 무시하고 항상 PHYS.dtS/dtMs 만 쓴다 — 내부 루프(loop.start())는 이미 항상 고정 dt 로
+  // 호출하지만, 공개 계약(§5.13 step(dtS))에는 그 보장이 없었다(50ms 를 넣으면 그 프레임에
+  // 모든 속도가 3배가 되는 실측 버그).
+  let stepAccMs = 0;
 
-  function substep(dtS: number): void {
-    if (session) stepDrag(session, world, limits, bounds, dtS);
-    Matter.Engine.update(world.engine, dtS * 1000);
+  function substep(_dtS: number): void {
+    if (session) stepDrag(session, world, limits, bounds, PHYS.dtS);
+    Matter.Engine.update(world.engine, PHYS.dtMs);
     world.applySpeedClamps();
-    world.applyRollingDecel(dtS);
+    world.applyRollingDecel(PHYS.dtS);
     escapePinnedAll(world, bounds);
     if (session?.releasing && releaseDone(session, world, performance.now())) {
       const done = session;
@@ -151,7 +157,15 @@ export function createPhysicsWorld(
     },
 
     step(dtS) {
-      substep(dtS);
+      // §5.8: 가변 dt 를 그대로 엔진에 넣지 않는다. loop.ts 와 동일한 고정-substep 누산.
+      stepAccMs += dtS * 1000;
+      let n = 0;
+      while (stepAccMs >= PHYS.dtMs && n < PHYS.maxSubsteps) {
+        substep(PHYS.dtS);
+        stepAccMs -= PHYS.dtMs;
+        n++;
+      }
+      if (n === PHYS.maxSubsteps) stepAccMs = 0; // 밀린 시간은 버린다(몰아치기 금지, loop.ts 와 동일)
     },
 
     read(out) {
@@ -170,6 +184,19 @@ export function createPhysicsWorld(
 
     beginDrag(hit, grabWorld) {
       if (!DRAGGABLE_KINDS.has(hit.kind)) return null;
+
+      // major 회귀(§5.11 "사용자가 다시 탭" 종료 조건): 이전 세션(드래그 중이든 릴리스
+      // 체이스 중이든)을 endDrag 없이 덮어쓰면 버려진 대상이 마지막 substep 의 잔여 속도를
+      // 유지한 static body 로 남아 고스트 푸시를 일으킨다(§5.4/§2.7 실측). 새 세션을 만들기
+      // 전에 반드시 정상 종료(freeze)시킨다.
+      if (session) {
+        endDrag(session, world);
+        session = null;
+      }
+      // blocker 회귀(§5.8): 이전 릴리스가 requestSettle 을 걸어 둔 채였다면 그 데드라인을
+      // 지운다 — 안 하면 새 드래그 도중 공이 잠깐 멎는 순간 루프가 스스로 stop 되어 버린다.
+      loop.cancelSettle();
+
       const pose: ChairPose =
         hit.kind === 'ball' || hit.kind === 'cone'
           ? { ...world.pointOf(hit.id as CastId), theta: 0 }

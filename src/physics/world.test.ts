@@ -484,9 +484,22 @@ describe('escapePinnedAll(§5.6 최종 안전망)', () => {
 });
 
 describe('터널링 마진 자동 검증(§5.8 — 상한을 올리면 이 테스트가 먼저 깨진다)', () => {
-  it('드래그 휠체어 substep 변위 < 공 반지름 + 차체 반폭', () => {
-    const lim = DEFAULT_DRAG_LIMITS;
-    const chairSubstep = PHYS.dtS * (lim.vLinPxPerS + lim.omegaRadPerS * CHAIR.hullRadiusPx);
+  // minor 회귀(§10.3): DEFAULT_DRAG_LIMITS(=기본값 10/30 km/h)만 검사하면 사용자가 설정에서
+  // 상한(§2.5 linearKmhRange/bumperKmhRange)을 올려도 이 테스트가 전혀 깨지지 않는다 —
+  // "상한을 올리면 이 테스트가 먼저 깨진다"는 §5.8 계약 문구를 실제로 지키려면 상한 자체를
+  // 검사 대상에 넣어야 한다.
+  it('드래그 휠체어 substep 변위(설정 가능한 상한) < 공 반지름 + 차체 반폭', () => {
+    const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmhRange[1]);
+    const omega = kmhToPxPerS(DEFAULT_LIMITS.bumperKmhRange[1]) / CHAIR.pivotToFrontPx;
+    const chairSubstep = PHYS.dtS * (vLin + omega * CHAIR.hullRadiusPx);
+    expect(chairSubstep).toBeLessThan(BALL.radiusPx + CHAIR.widthPx / 2);
+  });
+
+  it('드래그 휠체어 substep 변위(상한 × 편집 속도 배수 최댓값 4, §4.4/storage/prefs.ts clamp) < 공 반지름 + 차체 반폭', () => {
+    const editorSpeedMultiplierMax = 4; // storage/prefs.ts: clamp(editorSpeedMultiplier, 1, 4)
+    const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmhRange[1]) * editorSpeedMultiplierMax;
+    const omega = (kmhToPxPerS(DEFAULT_LIMITS.bumperKmhRange[1]) / CHAIR.pivotToFrontPx) * editorSpeedMultiplierMax;
+    const chairSubstep = PHYS.dtS * (vLin + omega * CHAIR.hullRadiusPx);
     expect(chairSubstep).toBeLessThan(BALL.radiusPx + CHAIR.widthPx / 2);
   });
 

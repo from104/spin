@@ -219,9 +219,9 @@ describe('G5 로프 반전 안정성 (blocker 회귀)', () => {
 });
 
 describe('G6 spin 피벗 통과 안정성 (major 회귀)', () => {
-  // 궤적 재구성 메모: §10.9 참조 스크립트(src/test/helpers/kinematicsReference.ts)는
-  // test-fixtures 모듈 소유이고 이 저장소에 아직 없다 — 아래 궤적은 §10.9 표의 산문 설명만으로
-  // 재구성한 것이다. ε(측방 섭동)를 통과 스윕 18스텝 + 유지 60스텝 내내 y 오프셋으로 유지해야
+  // 궤적 재구성 메모: 아래 궤적은 §10.9 표의 산문 설명만으로 재구성한 것이다(§10.9 참조 구현
+  // src/test/helpers/kinematicsReference.ts 와는 독립적으로 재현한 값 — 둘 다 43.4855° 로 일치한다).
+  // ε(측방 섭동)를 통과 스윕 18스텝 + 유지 60스텝 내내 y 오프셋으로 유지해야
   // 결과가 골든값 자릿수에 근접한다(유지 구간에만 적용하면 스윕이 피벗을 정확히 통과해
   // r<1e-9 특이점에 걸리며 전혀 다른 값이 나온다). phiPrev 는 루프 첫 호출(k=1)에서 스스로
   // 래치된다 — pointerdown 첫 호출이 Δ=0 을 내는 계약(§5.5 (B))이 여기서도 적용되어 t=0(오프셋
@@ -248,9 +248,11 @@ describe('G6 spin 피벗 통과 안정성 (major 회귀)', () => {
     expect(Math.abs(runPass(-0.4).theta * DEG + 17.0188)).toBeLessThan(0.01);
   });
 
-  it('ε=±2 → 부호는 ε와 일치하고 회귀 없이 재현 가능(43.4855°, golden 42.9838°와 0.50° 차이 — 궤적 재구성 불확실성. 보고 참조)', () => {
-    // 정확한 golden 매치는 실패하지만(0.50° 차이, 계약 허용오차 0.05°의 10배), 회귀 감시용으로
-    // 재구성 결과 자체를 고정한다: 미래 구현 변경이 이 값을 벗어나면 §5.5(B) 로직이 바뀐 것이다.
+  it('ε=±2 → θ = ±43.4855°(2026-08-08 DESIGN.md 정정값과 golden 정합, §10.2 각주)', () => {
+    // 43.4855°는 더 이상 "불일치"가 아니다 — DESIGN.md §10.2 각주가 2026-08-08 에 골든 표를
+    // 이 값으로 정정했다(원래 적혀 있던 42.9838°는 서로 독립인 세 구현이 전부 재현 실패했던
+    // 오기). physics-kin 본 구현·§10.9 참조 구현(kinematicsReference.ts)·이 재구성 궤적 셋 다
+    // 43.4855°로 일치한다.
     expect(runPass(2).theta * DEG).toBeCloseTo(43.4855, 3);
     expect(runPass(-2).theta * DEG).toBeCloseTo(-43.4855, 3);
   });
@@ -276,7 +278,9 @@ describe('G7 spin 추종', () => {
         const target = { x: pose0.x + 30 * Math.cos(phi), y: pose0.y + 30 * Math.sin(phi) };
         pose = stepSpin({ pose: pose as never, grab: DUMMY_GRAB, target, dt: DT }, LIM, st);
       }
-      expect(pose.theta * DEG).toBeCloseTo(113.637, 0);
+      // 계약 허용오차는 ±0.1(§10.9 G7) — toBeCloseTo(x, 0)은 ±0.5라 5배 느슨했다(감사 minor #9).
+      // 실측 오차는 0.0004이므로 자릿수를 조여도 공짜다.
+      expect(pose.theta * DEG).toBeCloseTo(113.637, 1);
     }
     {
       const pose0: Pose = { x: 0, y: 0, theta: 0 };
@@ -288,7 +292,7 @@ describe('G7 spin 추종', () => {
         const target = { x: pose0.x + 30 * Math.cos(phi), y: pose0.y + 30 * Math.sin(phi) };
         pose = stepSpin({ pose: pose as never, grab: DUMMY_GRAB, target, dt: DT }, LIM, st);
       }
-      expect(pose.theta * DEG).toBeCloseTo(195.628, 0);
+      expect(pose.theta * DEG).toBeCloseTo(195.628, 1);
     }
   });
 });

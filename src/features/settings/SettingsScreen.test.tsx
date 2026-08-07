@@ -68,6 +68,42 @@ describe('SettingsScreen — 화면', () => {
     await userEvent.setup().click(screen.getByRole('radio', { name: '130%' }));
     expect(loadPrefs().a11y.uiScale).toBe(1.3);
   });
+
+  // 감사 2026-08-08 major #1 회귀 — 이 토글은 SettingsScreen 에서 prefs 로 저장되기만 하고
+  // 어떤 렌더러도 읽지 않았다. 소비처(GridOverlay/CourtStage) 배선은 render 쪽 테스트가 맡고,
+  // 여기서는 "설정 화면이 이 값을 여전히 정상적으로 쓰고 읽는다"만 확인한다.
+  it('격자 칸 라벨 표시 토글이 prefs.showGridLabels 를 뒤집는다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    const toggle = screen.getByRole('switch', { name: '격자 칸 라벨 표시' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await userEvent.setup().click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(loadPrefs().showGridLabels).toBe(false);
+  });
+
+  // 감사 2026-08-08 minor — 기본값은 defaultCourtMode:null → "항상 묻기".
+  it('기본 코트 모드를 "하프" 로 바꾸면 prefs.defaultCourtMode 가 갱신된다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    expect(screen.getByRole('radio', { name: '항상 묻기' })).toHaveAttribute('aria-checked', 'true');
+    await userEvent.setup().click(screen.getByRole('radio', { name: '하프' }));
+    expect(loadPrefs().defaultCourtMode).toBe('half');
+  });
+});
+
+describe('SettingsScreen — 시연 (minor #5, 이전에는 설정 화면에 노출되지 않았다)', () => {
+  it('화면 꺼짐 방지·자동 전체화면 토글이 각각 prefs.present 에 반영된다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    const wakeLock = screen.getByRole('switch', { name: '화면 꺼짐 방지' });
+    const autoFs = screen.getByRole('switch', { name: '자동 전체화면' });
+    expect(wakeLock).toHaveAttribute('aria-checked', 'true'); // 기본값 true
+    expect(autoFs).toHaveAttribute('aria-checked', 'false'); // 기본값 false
+
+    const user = userEvent.setup();
+    await user.click(wakeLock);
+    expect(loadPrefs().present.wakeLock).toBe(false);
+    await user.click(autoFs);
+    expect(loadPrefs().present.autoFullscreen).toBe(true);
+  });
 });
 
 describe('SettingsScreen — 팀 색상', () => {
@@ -112,6 +148,18 @@ describe('SettingsScreen — 물리', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '기본값으로 복원' }));
     await waitFor(() => expect(screen.getByRole('slider', { name: '후방 견인 경계' })).toHaveValue('0.12'));
     expect(loadPrefs().physics).toEqual({});
+  });
+});
+
+describe('SettingsScreen — 물리 설명문 (minor 회귀)', () => {
+  // 감사 2026-08-08 minor — "놓은 뒤 자동 재생에만 적용"이라는 옛 설명은 실제 동작(드래그 중
+  // 속도 상한에도 곱해진다, EditorProvider.tsx vLinPxPerS/omegaRadPerS)과 달랐다. 동작이
+  // 계약(prefs.ts §5.11 주석)에 맞으므로 설명문 쪽을 고쳤다 — "자동 재생에만" 문구가 다시
+  // 나타나지 않는지 확인한다.
+  it('"편집 속도 배수" 설명이 드래그에도 적용됨을 밝힌다("자동 재생에만"이라고 말하지 않는다)', () => {
+    render(<SettingsScreen />, { wrapper });
+    expect(screen.getByText('드래그와 놓은 뒤 이어가기, 둘 다의 속도 상한에 곱해집니다')).toBeInTheDocument();
+    expect(screen.queryByText(/자동 재생에만 적용/)).toBeNull();
   });
 });
 

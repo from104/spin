@@ -1,7 +1,7 @@
 // §4.6 설정 상태. localStorage 동기 읽기(storage/prefs.ts)를 감싸는 얇은 Provider — god-context
 // 금지 원칙에 따라 state 컨텍스트와 actions 컨텍스트를 분리한다(actions 만 쓰는 컴포넌트가
 // prefs 변경에 리렌더되지 않는다).
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Preferences, PhysicsParams } from '../../storage/prefs.ts';
 import { loadPrefs, savePrefs, resolvePhysics, resetPrefs as resetPrefsStorage } from '../../storage/prefs.ts';
@@ -44,6 +44,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const state = useMemo<SettingsState>(() => ({ prefs, physics: resolvePhysics(prefs), persistFailed }), [prefs, persistFailed]);
   const actions = useMemo<SettingsActions>(() => ({ setPrefs, resetPrefs: doReset }), [setPrefs, doReset]);
+
+  // §7.8 a11y.reduceMotion — '항상 켬'(='always')은 JS 트윈만 0ms 로 만드는 걸로는 부족하다
+  // (감사 minor #11): CSS 애니메이션·트랜지션은 OS 의 prefers-reduced-motion 미디어쿼리만 보고
+  // 돌아서, OS 설정이 없는 사용자가 앱 안에서 '항상 켬' 을 골라도 CSS 모션이 안 꺼진다.
+  // 'system'(=OS 따름)일 때는 CSS 의 @media (prefers-reduced-motion: reduce) 가 이미 알아서
+  // 처리하므로 여기서 손댈 필요가 없다 — 'always' 로 명시적으로 켰을 때만 루트에 data 속성을
+  // 걸어 CSS 쪽에서도 강제로 끌 수 있게 한다.
+  // (styles 담당 에이전트에게 필요한 CSS: `:root[data-reduce-motion="true"] *, ::before, ::after
+  // { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+  //   transition-duration: 0.01ms !important; scroll-behavior: auto !important; }`)
+  useEffect(() => {
+    if (prefs.a11y.reduceMotion === 'always') {
+      document.documentElement.dataset.reduceMotion = 'true';
+    } else {
+      delete document.documentElement.dataset.reduceMotion;
+    }
+  }, [prefs.a11y.reduceMotion]);
 
   return (
     <SettingsActionsContext.Provider value={actions}>

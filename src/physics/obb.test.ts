@@ -100,6 +100,16 @@ describe('경계', () => {
   });
 });
 
+describe('chairsOverlap 부동소수 knife-edge (minor 회귀)', () => {
+  it('정확히 CHAIR_SEP_PX 만큼 떨어진 두 휠체어는 겹침이 아니다', () => {
+    // 실측(감사): 이 간격에서 satOverlap(...).depth = 2.275957200481571e-14 (엄밀히는 0이어야
+    // 할 부동소수 잔차) — depth>0 로만 판정하면 "겹침"으로 잘못 보고한다.
+    const a: ChairPose = { x: 500, y: 500, theta: 0 };
+    const b: ChairPose = { x: 500, y: 500 + CHAIR.widthPx + CHAIR_SEP_PX, theta: 0 };
+    expect(chairsOverlap(a, b, CHAIR_SEP_PX)).toBe(false);
+  });
+});
+
 describe('clampPointToBounds', () => {
   it('반지름을 고려한다 (공 중심이 벽면에 정확히 닿지 않는다)', () => {
     const bounds: Bounds = { w: 100, h: 100 };
@@ -132,24 +142,42 @@ function distToChairRect(p: Vec2, pose: ChairPose): number {
 }
 
 describe('escapePinned', () => {
-  it('CHAIR_SEP_PX 간격의 이웃 휠체어 곁에서 한쪽에 낀 공을 어느 OBB 와도 안 겹치게 밀어낸다', () => {
-    // bounds 원점 근처에 두면 escapePinned 의 clampPointToBounds 단계가 탈출 결과를 도로
-    // 경계 안으로 눌러버려 이 테스트의 의도(휠체어에서 밀려나는지)와 무관하게 실패한다 —
-    // bounds 중앙 근처에 배치한다.
+  it('blocker 회귀(§5.6): 통로 폭 < 공 지름인 두 휠체어 사이에 실제로 낀 공을 빼낸다', () => {
+    // §10.4 문구 그대로: 두 휠체어 사이(통로 폭 = CHAIR_SEP_PX+0.1 ≈ 0.5px, 공 지름
+    // 8.25px 보다 훨씬 좁다) 한가운데 공을 두고 어느 OBB 와도 안 겹치는 지점으로 밀어내는지
+    // 검증한다. bounds 중앙 근처에 배치해 clampPointToBounds 단계가 개입하지 않게 한다.
     const a: ChairPose = { x: 500, y: 500, theta: 0 };
-    // 정확히 CHAIR_SEP_PX 만큼만 띄우면 부동소수 오차로 겹침 판정의 경계(depth≈0)에 걸릴 수
-    // 있어, 여유 0.1px 를 더해 "최소 간격까지 붙인" 의도를 안정적으로 표현한다.
     const b: ChairPose = { x: 500, y: 500 + CHAIR.widthPx + CHAIR_SEP_PX + 0.1, theta: 0 };
-    expect(chairsOverlap(a, b, CHAIR_SEP_PX)).toBe(false);
+    expect(chairsOverlap(a, b, CHAIR_SEP_PX)).toBe(false); // 휠체어끼리는 안 겹침(통로만 좁음)
 
     const ballR = 4.125; // BALL.radiusPx
-    // a 내부 깊숙이(반대쪽 모서리 방향)에 낀 공 — b 와는 애초에 겹치지 않는 위치
-    const pinned: Vec2 = { x: 510, y: 495 };
-    expect(distToChairRect(pinned, a)).toBeLessThan(-ballR); // 전제: a 와 겹침
+    // 두 휠체어가 마주보는 긴 변 사이 틈의 정중앙 — 어느 한쪽에 치우치지 않고 양쪽 모두에 낀 점.
+    const gapY = (500 + CHAIR.widthPx / 2 + (500 + CHAIR.widthPx + CHAIR_SEP_PX + 0.1 - CHAIR.widthPx / 2)) / 2;
+    const pinned: Vec2 = { x: 510, y: gapY };
+    expect(distToChairRect(pinned, a)).toBeLessThan(ballR); // 전제: a 와 겹침
+    expect(distToChairRect(pinned, b)).toBeLessThan(ballR); // 전제: b 와도 겹침(=진짜 압착)
 
     const out = escapePinned(pinned, ballR, [a, b], BOUNDS);
     expect(distToChairRect(out, a)).toBeGreaterThanOrEqual(ballR - 1e-6);
     expect(distToChairRect(out, b)).toBeGreaterThanOrEqual(ballR - 1e-6);
+  });
+
+  it('blocker 회귀(§5.6): 휠체어와 벽 사이에 낀 공도 빼낸다(법선 push→clamp 왕복 금지)', () => {
+    // 벽에 바짝 붙은 휠체어 — 벽이 미는 방향(+x)과 휠체어가 미는 방향(-x)이 정확히 반대라
+    // 예전 구현은 두 지점 사이를 왕복했다(실측 D4).
+    const bounds: Bounds = { w: 2000, h: 2000 };
+    const chair: ChairPose = { x: 10, y: 500, theta: 0 };
+    const ballR = 4.125;
+    const pinned: Vec2 = { x: 3, y: 500 }; // 벽(x<r)과 휠체어 rear 근처(x=3, local lx=-7) 모두 침범
+    expect(pinned.x).toBeLessThan(ballR); // 전제: 벽과 겹침
+    expect(distToChairRect(pinned, chair)).toBeLessThan(ballR); // 전제: 휠체어와도 겹침
+
+    const out = escapePinned(pinned, ballR, [chair], bounds);
+    expect(out.x).toBeGreaterThanOrEqual(ballR - 1e-6); // 벽 밖(안쪽)
+    expect(out.x).toBeLessThanOrEqual(bounds.w - ballR + 1e-6);
+    expect(out.y).toBeGreaterThanOrEqual(-1e-6);
+    expect(out.y).toBeLessThanOrEqual(bounds.h + 1e-6);
+    expect(distToChairRect(out, chair)).toBeGreaterThanOrEqual(ballR - 1e-6); // 휠체어 밖
   });
 
   it('겹치지 않는 점은 그대로 반환한다(안전 no-op)', () => {

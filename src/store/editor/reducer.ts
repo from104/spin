@@ -88,10 +88,13 @@ export function uiReducer(s: EditorState, a: EditorAction): EditorState {
     case 'STEP_SELECT':
       return a.id === s.stepId ? s : { ...s, stepId: a.id };
     case 'SAVED':
-      // 저장 성공 시각. 그 시점의 present.updatedAt 을 새 기준선으로 삼는다(§4.5/4.3 낙관적
-      // 동시성의 expectedUpdatedAt 비교 기준을 갱신 — 안 그러면 저장 직후 자기 자신의 쓰기를
-      // "다른 탭에서 수정됨" 으로 오판한다).
-      return { ...s, savedAt: a.at, baselineUpdatedAt: s.present.updatedAt };
+      // 저장 성공 시각(a.at)은 useAutosave 가 putDrill 응답으로 받은 *실제 저장된* updatedAt 이다
+      // — 이 값을 새 기준선으로 삼는다(§4.5/4.3 낙관적 동시성의 expectedUpdatedAt 비교 기준 갱신).
+      // s.present.updatedAt 은 쓰면 안 된다: 로컬 편집 리듀서(model/edits.ts)는 updatedAt 을
+      // 절대 건드리지 않으므로(§6.7) present.updatedAt 은 드릴을 처음 연 시점 값에 영구히 고정돼
+      // 있다 — 그걸 기준선으로 삼으면 두 번째 자동저장부터 항상 낡은 값과 비교해 매번 거짓
+      // E_CONFLICT 가 난다(회귀: useAutosave.test.tsx '연속 두 번 저장…').
+      return { ...s, savedAt: a.at, baselineUpdatedAt: a.at };
     case 'DRILL_LOAD':
       return {
         ...s,

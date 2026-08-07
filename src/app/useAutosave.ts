@@ -39,15 +39,6 @@ export function useAutosave(enabled: boolean = true): AutosaveApi {
   // (§6.7 "딥카피 0회") 참조 동일성만으로 "저장할 내용이 있는지" 판단할 수 있다.
   // updatedAt 은 저장 시점에만 바뀌므로(§4.3 putDrill touch) 이 판단에 쓸 수 없다.
   const lastAttemptedRef = useRef(state.present);
-  // CAS 비교 기준을 직접 들고 있는다 — store/editor/reducer.ts 의 SAVED 케이스가
-  // `baselineUpdatedAt: s.present.updatedAt` 로 재기준하는데, present.updatedAt 은 로컬 편집으로는
-  // 절대 안 바뀌므로(§6.7, edits.ts 어디도 updatedAt 을 안 건드린다) 그 값은 "이 드릴을 처음
-  // 열었을 때의" updatedAt 에 영구히 고정돼 있다 — 즉 두 번째 자동저장부터 항상 낡은 값과
-  // 비교하게 되어 매번 거짓 E_CONFLICT 가 난다(재현: 이 파일의 테스트). 그래서 `state.baselineUpdatedAt`
-  // 을 신뢰하지 않고 실제로 저장에 성공한 시각을 직접 추적한다. dispatch(SAVED) 는 그대로
-  // 보낸다 — savedAt(“저장됨” 표시용)은 정확하고, screen-editor 가 store 를 고치면 이 우회는
-  // 자연히 무해해진다.
-  const confirmedBaselineRef = useRef(state.baselineUpdatedAt);
 
   const clearTimer = () => {
     if (timerRef.current !== null) {
@@ -67,8 +58,7 @@ export function useAutosave(enabled: boolean = true): AutosaveApi {
     setStatus('saving');
     try {
       const { repo } = await resolveDrillRepo();
-      const saved = await repo.putDrill(s.present, { expectedUpdatedAt: confirmedBaselineRef.current });
-      confirmedBaselineRef.current = saved.updatedAt;
+      const saved = await repo.putDrill(s.present, { expectedUpdatedAt: s.baselineUpdatedAt });
       dispatch({ type: 'SAVED', at: saved.updatedAt });
       setStatus('saved');
     } catch (e) {

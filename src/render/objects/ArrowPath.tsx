@@ -47,6 +47,12 @@ export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, selected, a
         strokeDasharray={style.dash || undefined}
         markerEnd={`url(#${markerId})`}
       />
+      {/* §7.2 포커스 표시. 다른 4종(공·콘·의자·메모)은 원/사각형으로 이미 focus-ind-*
+       * 을 붙였는데 화살표만 빠져 있었다 — `.court-obj { outline:none }` 이 브라우저 기본
+       * 포커스 링을 죽이므로 대체 링이 없으면 키보드 포커스가 전혀 안 보인다.
+       * 경로형이라 같은 `d` 를 재사용해 화살표 자체를 감싸는 halo 로 그린다. */}
+      <path className="focus-ind-outer" d={d} />
+      <path className="focus-ind-inner" d={d} />
     </g>
   );
 });

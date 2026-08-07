@@ -66,7 +66,7 @@ export function EditorScreen() {
 
   const providerKey = useMemo(() => (state.status === 'ready' ? state.drill.id : null), [state]);
 
-  if (state.status === 'picking') return <CourtPicker onPick={(mode) => void handlePick(mode)} />;
+  if (state.status === 'picking') return <CourtPicker defaultMode={prefs.defaultCourtMode} onPick={(mode) => void handlePick(mode)} />;
 
   if (state.status === 'loading') {
     return (

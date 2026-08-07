@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { CourtSurface } from './CourtSurface.tsx';
+import { COURT_DEFS } from '../model/court.ts';
 
 function renderCourt(mode: 'full' | 'half' | 'flat', variant: 'editor' | 'present' | 'thumb') {
   return render(
@@ -60,6 +61,44 @@ describe('HalfCourtLines', () => {
     const spots = c.querySelectorAll('g[fill="#f5f5f5"] > circle');
     expect(spots).toHaveLength(2);
     expect(c.querySelector('circle[fill="#ffffff"]')).toBeNull();
+  });
+});
+
+// 감사 2026-08-08 minor #7 회귀 — COURT_DEFS.goalPosts/cornerCuts/spotMarks 를 courtLines
+// 컴포넌트가 실제로 읽는지 확인한다. 리터럴 좌표로 되돌아가면(진실 공급원이 다시 둘로 갈라지면)
+// COURT_DEFS 값을 바꿔도 렌더가 따라가지 않으므로 이 테스트가 깨진다.
+describe('courtLines — COURT_DEFS 가 단일 진실 공급원이다(minor #7)', () => {
+  it('COURT_DEFS.full.goalPosts 를 바꾸면 킥인 원 중심도 따라간다', () => {
+    const original = COURT_DEFS.full.goalPosts;
+    COURT_DEFS.full.goalPosts = [{ x: 999, y: 888 }, ...original.slice(1)];
+    try {
+      const c = renderCourt('full', 'editor');
+      expect(c.querySelector('g[fill="#f5f5f5"] > circle[cx="999"][cy="888"]')).not.toBeNull();
+    } finally {
+      COURT_DEFS.full.goalPosts = original;
+    }
+  });
+
+  it('COURT_DEFS.half.cornerCuts 를 바꾸면 모서리컷 path 도 따라간다', () => {
+    const original = COURT_DEFS.half.cornerCuts;
+    COURT_DEFS.half.cornerCuts = ['M1,2 L3,4', ...original.slice(1)];
+    try {
+      const c = renderCourt('half', 'editor');
+      expect(c.querySelector('path[d="M1,2 L3,4"]')).not.toBeNull();
+    } finally {
+      COURT_DEFS.half.cornerCuts = original;
+    }
+  });
+
+  it('COURT_DEFS.full.spotMarks 를 바꾸면 골 십자 위치도 따라간다', () => {
+    const original = COURT_DEFS.full.spotMarks;
+    COURT_DEFS.full.spotMarks = [{ x: 200, y: 300 }, original[1]!];
+    try {
+      const c = renderCourt('full', 'editor'); // editor: dy=3, dx=3.5 → M196.5,297 L203.5,303 ...
+      expect(c.querySelector('path[d="M196.5,297 L203.5,303 M203.5,297 L196.5,303"]')).not.toBeNull();
+    } finally {
+      COURT_DEFS.full.spotMarks = original;
+    }
   });
 });
 

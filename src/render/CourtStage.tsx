@@ -65,6 +65,8 @@ export interface CourtStageProps {
   writer: TransformWriter;
   controller: CourtStagePointerController;
   showGrid: boolean;
+  /** prefs.showGridLabels — showGrid 가 꺼져 있으면 어차피 GridOverlay 자체가 그려지지 않는다. */
+  showGridLabels: boolean;
   showRuleZones: boolean;
   chairs: readonly ObjectLayerChair[];
   balls: readonly BallId[];
@@ -102,6 +104,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     writer,
     controller,
     showGrid,
+    showGridLabels,
     showRuleZones,
     chairs,
     balls,
@@ -294,7 +297,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       </defs>
       <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
       <CourtSurface mode={mode} variant={variant} />
-      {showGrid && <GridOverlay mode={mode} />}
+      {showGrid && <GridOverlay mode={mode} showLabels={showGridLabels} />}
       <RuleZones mode={mode} visible={showRuleZones} />
       <ObjectLayer
         writer={writer}

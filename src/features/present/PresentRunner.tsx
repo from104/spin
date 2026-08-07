@@ -519,7 +519,10 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
             </button>
           </div>
         </div>
-        <div style={{ maxWidth: 1080, margin: '16px auto 0', display: 'flex', gap: 9 }}>
+        {/* 막대는 시각적으로 6px 이지만 버튼 자체는 44px 여야 한다 — §7.3 이 정한 절대 하한은
+            24px(WCAG 2.5.8)이고 6px 막대를 그대로 버튼으로 두면 손가락으로 못 짚는다.
+            편집기 TransportBar 와 같은 방식(투명 히트 래퍼 + 안쪽 span 막대). */}
+        <div style={{ maxWidth: 1080, margin: '10px auto 0', display: 'flex', gap: 9 }}>
           {drill.steps.map((s, i) => (
             <button
               key={s.id}
@@ -529,12 +532,27 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
               onClick={() => seekToStep(i)}
               style={{
                 flex: 1,
-                height: 6,
-                borderRadius: 3,
-                background: i === stepIndex ? 'var(--accent)' : i < stepIndex ? 'var(--muted)' : 'var(--border)',
-                transition: 'background .2s ease',
+                height: 44,
+                minHeight: 44,
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                background: 'none',
+                border: 'none',
               }}
-            />
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  height: 6,
+                  borderRadius: 3,
+                  background: i === stepIndex ? 'var(--accent)' : i < stepIndex ? 'var(--muted)' : 'var(--border)',
+                  transition: 'background .2s ease',
+                }}
+              />
+            </button>
           ))}
         </div>
       </div>

@@ -44,8 +44,11 @@ a:hover {
 }
 
 /* Focus & Accessibility */
+/* a11y.css 가 이 뒤에 로드되며 같은 선택자를 다시 정의해 실제로는 그쪽 값이 이긴다(§7.2).
+ * 그래도 두 정의가 어긋나 있으면 로드 순서가 바뀔 때 라이트 테마가 다시 3:1 미달로
+ * 돌아가므로, 여기서도 --accent-text 로 맞춰 둔다(근거는 a11y.css 상단 주석). */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: 2px;
 }
 
@@ -55,6 +58,18 @@ a:hover {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* §7.8 — SettingsProvider.tsx 가 a11y.reduceMotion==='always' 일 때 documentElement 에
+ * data-reduce-motion="true" 를 심는다(위 미디어쿼리는 OS 설정에만 반응해, OS 에 reduced-motion
+ * 이 없는 사용자가 앱 안에서 '항상 켬' 을 골라도 여기까지 안 왔다 — 감사 minor #11 접합 누락).
+ * 위 블록과 동일한 억제 선언을 속성 셀렉터로도 걸어 JS 트윈(0ms 처리는 EditorProvider/
+ * PresentStage 가 이미 담당)과 별개로 CSS 애니메이션·트랜지션도 강제로 죽인다. */
+:root[data-reduce-motion="true"] * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 /* Body */
@@ -110,14 +125,6 @@ body[data-touch="large"] {
   --hit: 56px;
 }
 
-/* Animations */
-@keyframes livepulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.3;
-    transform: scale(0.65);
-  }
-}
+/* livepulse 애니메이션(재생중 점 깜빡임)은 프로토타입 잔재로 정의만 되고 아무 곳에서도 안 쓰인다
+ * (TransportBar.tsx 의 재생중 표시는 정적 점 + 텍스트로 이미 구현돼 있다). 배선할 자리가
+ * TransportBar.tsx 인데 그 파일은 이 수리 배정 범위 밖이라 죽은 CSS를 제거하는 쪽을 택했다. */

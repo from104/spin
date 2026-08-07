@@ -45,6 +45,18 @@ describe('editorRootReducer — UI 액션', () => {
     const s1 = editorRootReducer(s0, { type: 'TOOL_SET', tool: s0.tool });
     expect(s1).toBe(s0);
   });
+
+  it('SAVED 는 baselineUpdatedAt 을 실제 저장된 시각(a.at)으로 재기준한다 — ' +
+    's.present.updatedAt 은 로컬 편집으로 절대 안 바뀌므로 그걸 쓰면 두 번째 저장부터 ' +
+    '거짓 E_CONFLICT 가 난다(회귀 고정)', () => {
+    const s0 = freshState();
+    const originalUpdatedAt = s0.present.updatedAt;
+    const savedAt = originalUpdatedAt + 12345; // putDrill 이 실제로 찍은 새 시각(예시)
+    const s1 = editorRootReducer(s0, { type: 'SAVED', at: savedAt });
+    expect(s1.savedAt).toBe(savedAt);
+    expect(s1.baselineUpdatedAt).toBe(savedAt); // present.updatedAt(불변)이 아니라 a.at 이어야 한다
+    expect(s1.baselineUpdatedAt).not.toBe(s1.present.updatedAt);
+  });
 });
 
 describe('selectStepIndex', () => {

@@ -7,11 +7,13 @@ import { gridGeom } from '../model/grid.ts';
 
 export interface GridOverlayProps {
   mode: CourtMode;
+  /** prefs.showGridLabels — false 면 축 헤더/셀 텍스트 블록을 그리지 않는다(선만 남는다). */
+  showLabels: boolean;
 }
 
 const FONT = "'Space Grotesk',sans-serif";
 
-export const GridOverlay = memo(function GridOverlay({ mode }: GridOverlayProps) {
+export const GridOverlay = memo(function GridOverlay({ mode, showLabels }: GridOverlayProps) {
   const g = gridGeom(mode);
   const xMin = g.vx[0];
   const xMax = g.vx[g.vx.length - 1];
@@ -22,33 +24,30 @@ export const GridOverlay = memo(function GridOverlay({ mode }: GridOverlayProps)
     <g aria-hidden="true" pointerEvents="none">
       <g stroke="#ffffff" strokeWidth={1} opacity={0.22} shapeRendering="crispEdges">
         {g.inner.vx.map((x) => (
-          <line key={`v${x}`} x1={x} y1={yMin} x2={x} y2={yMax} />
+          <line className="grid-line" key={`v${x}`} x1={x} y1={yMin} x2={x} y2={yMax} />
         ))}
         {g.inner.hy.map((y) => (
-          <line key={`h${y}`} x1={xMin} y1={y} x2={xMax} y2={y} />
+          <line className="grid-line" key={`h${y}`} x1={xMin} y1={y} x2={xMax} y2={y} />
         ))}
       </g>
       {g.major && (
         <g stroke="#ffffff" strokeWidth={1} opacity={0.34} shapeRendering="crispEdges">
           {g.major.vx.map((x) => (
-            <line key={`mv${x}`} x1={x} y1={yMin} x2={x} y2={yMax} />
+            <line className="grid-line" key={`mv${x}`} x1={x} y1={yMin} x2={x} y2={yMax} />
           ))}
           {g.major.hy.map((y) => (
-            <line key={`mh${y}`} x1={xMin} y1={y} x2={xMax} y2={y} />
+            <line className="grid-line" key={`mh${y}`} x1={xMin} y1={y} x2={xMax} y2={y} />
           ))}
         </g>
       )}
-      {g.axis ? (
-        // flat: 셀 라벨 340개는 판독 불가 노이즈이므로 축 헤더만 그린다(스프레드시트 방식).
-        <g fill="#ffffff" opacity={0.3} fontFamily={FONT} fontSize={10}>
-          {g.axis.map((a) => (
-            <text key={`${a.text}@${a.x},${a.y}`} x={a.x} y={a.y}>
-              {a.text}
-            </text>
-          ))}
-        </g>
-      ) : (
+      {/* full·half 는 칸이 커서(125×90px) 칸마다 라벨을 얹을 수 있다.
+          flat 은 1 m 격자라 340칸이고 한 칸이 25×25px 뿐이라 칸마다 얹으면 판독 불가 노이즈가
+          된다 — 스프레드시트식 축 헤더(a..t / 1..17)로 대신한다. 코치가 "b4" 로 칸을 지목하는
+          것은 그대로 되므로 요구사항이 요구한 기능은 유지된다. (요구사항 원문의 칸 번호 예시는
+          풀 코트 절에만 달려 있다.) */}
+      {showLabels && mode !== 'flat' && (
         <g
+          className="grid-cell-labels"
           fill="#ffffff"
           opacity={0.2}
           fontFamily={FONT}
@@ -58,8 +57,26 @@ export const GridOverlay = memo(function GridOverlay({ mode }: GridOverlayProps)
           dominantBaseline="central"
         >
           {g.cells.map((c) => (
-            <text key={c.text} x={c.x} y={c.y}>
+            <text className="grid-cell-label" key={c.text} x={c.x} y={c.y}>
               {c.text}
+            </text>
+          ))}
+        </g>
+      )}
+      {showLabels && g.axis && (
+        <g
+          className="grid-axis-labels"
+          fill="#ffffff"
+          opacity={0.28}
+          fontFamily={FONT}
+          fontSize={11}
+          fontWeight={600}
+          textAnchor="middle"
+          dominantBaseline="central"
+        >
+          {g.axis.map((a) => (
+            <text className="grid-axis-label" key={`${a.x},${a.y}`} x={a.x} y={a.y}>
+              {a.text}
             </text>
           ))}
         </g>

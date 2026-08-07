@@ -45,6 +45,11 @@ export interface Preferences {
     reduceMotion: 'system' | 'always';
     singleKeyShortcuts: 'on' | 'modifier' | 'off';
   };
+  // iosPwa: DESIGN.md §6.9 "iPhone Safari 최초 진입 시 1회 안내" 배너의 노출 여부(껐다 켬).
+  // degradedStorage: DESIGN.md §4.8 열화 모드 상시 경고를 다시 보지 않기 설정. 두 필드 모두
+  // 소비하는 배너 컴포넌트가 아직 없다(감사 2026-08-08 minor — src/features/present/*,
+  // app-shell 쪽 작업으로 이 담당(settings/render/editor) 범위 밖이라 배선하지 않았다).
+  // 마이그레이션 호환을 위해 필드·기본값·검증은 그대로 유지한다.
   hints: { iosPwa: boolean; degradedStorage: boolean };
   physics: PhysicsOverride;
 }

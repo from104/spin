@@ -35,6 +35,7 @@ export interface EditorStageProps {
   onPlayerPlaced(): void;
   showToast(message: string, action?: { label: string; onAction(): void }): void;
   showGrid: boolean;
+  showGridLabels: boolean;
   showRuleZones: boolean;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
 }
@@ -49,7 +50,7 @@ function nearestCell(mode: CourtMode, p: { x: number; y: number }): { col: numbe
 const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note']);
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showRuleZones, onEraseIds },
+  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, onEraseIds },
   stageRef,
 ) {
   const pointer = useEditorPointer({
@@ -204,11 +205,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         const base = cursor ? gridCellCenter(mode, cursor.col, cursor.row) : gridCellCenter(mode, 0, 0);
         if (e.key === 'Enter') {
           e.preventDefault();
+          e.stopPropagation(); // §7.5d: 전역 스텝 이동(Enter 자체는 무관하나 배치 확정이 다른 리스너로 새지 않게 통일)
           pointer.placeAtCursor(base);
           return;
         }
         if (e.key.startsWith('Arrow')) {
           e.preventDefault();
+          e.stopPropagation(); // §7.5d 배치 커서 이동이 useEditorKeyboard 전역 스텝 이동(ArrowLeft/Right)과 이중 발화하지 않도록 차단
           if (e.shiftKey) {
             const step25 = 12.5;
             const p = { x: base.x, y: base.y };
@@ -261,6 +264,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       writer={writer}
       controller={pointer.controller}
       showGrid={showGrid}
+      showGridLabels={showGridLabels}
       showRuleZones={showRuleZones}
       chairs={chairs}
       balls={balls}

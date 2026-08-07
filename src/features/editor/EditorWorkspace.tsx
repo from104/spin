@@ -13,7 +13,7 @@ import { useAppNav } from '../../app/useAppHistory.ts';
 import { useEditorDispatch, useEditorState, useEditorWorld, useEditorWriter } from '../../store/editor/EditorProvider.tsx';
 import { selectStepIndex } from '../../store/editor/reducer.ts';
 import { usePlaybackActions, usePlaybackState } from '../../store/playback/PlaybackProvider.tsx';
-import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
+import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import { ToolRail, type UnplacedChair } from './ToolRail.tsx';
@@ -32,6 +32,7 @@ export function EditorWorkspace() {
   const worldRef = useEditorWorld();
   const writer = useEditorWriter();
   const { prefs, physics } = useSettingsState();
+  const { setPrefs } = useSettingsActions();
   const nav = useAppNav();
   const toast = useToast();
   const autosave = useAutosave();
@@ -45,9 +46,13 @@ export function EditorWorkspace() {
   const stageRef = useRef<CourtStageHandle | null>(null);
   const helpTriggerRef = useRef<HTMLElement | null>(null);
   const [pendingPlayerId, setPendingPlayerId] = useState<ChairId | null>(null);
-  const [showGrid, setShowGrid] = useState(prefs.showGrid);
-  const [showRuleZones, setShowRuleZones] = useState(prefs.showRuleZones);
   const [helpOpen, setHelpOpen] = useState(false);
+  // 격자·규칙존 토글은 로컬 state 가 아니라 prefs 를 직접 신뢰값으로 쓴다 — 로컬 state 였을 때는
+  // 화면을 벗어났다 돌아오면(EditorWorkspace 재마운트) 항상 prefs 값으로 리셋됐다(감사 지적).
+  const showGrid = prefs.showGrid;
+  const showRuleZones = prefs.showRuleZones;
+  const toggleGrid = useCallback(() => setPrefs({ showGrid: !prefs.showGrid }), [prefs.showGrid, setPrefs]);
+  const toggleRuleZones = useCallback(() => setPrefs({ showRuleZones: !prefs.showRuleZones }), [prefs.showRuleZones, setPrefs]);
 
   usePhysicsRenderLoop(worldRef, writer);
   useStepPlayback(drill, state.stepId, dispatch);
@@ -123,8 +128,8 @@ export function EditorWorkspace() {
     onPrevStep: () => gotoStep(-1),
     onNextStep: () => gotoStep(1),
     onTogglePlay: () => playbackActions.toggle(),
-    onToggleGrid: () => setShowGrid((v) => !v),
-    onToggleRuleZones: () => setShowRuleZones((v) => !v),
+    onToggleGrid: toggleGrid,
+    onToggleRuleZones: toggleRuleZones,
     onZoomIn: () => stageRef.current?.zoomBy(INTERACT.zoomStep),
     onZoomOut: () => stageRef.current?.zoomBy(1 / INTERACT.zoomStep),
     onZoomReset: () => stageRef.current?.resetZoom(),
@@ -178,6 +183,7 @@ export function EditorWorkspace() {
               onPlayerPlaced={() => setPendingPlayerId(null)}
               showToast={(m, a) => toast.show(m, a ? { action: a } : undefined)}
               showGrid={showGrid}
+              showGridLabels={prefs.showGridLabels}
               showRuleZones={showRuleZones}
               onEraseIds={eraseIds}
             />
@@ -187,9 +193,9 @@ export function EditorWorkspace() {
             onZoomOut={() => stageRef.current?.zoomBy(1 / INTERACT.zoomStep)}
             onZoomReset={() => stageRef.current?.resetZoom()}
             showGrid={showGrid}
-            onToggleGrid={() => setShowGrid((v) => !v)}
+            onToggleGrid={toggleGrid}
             showRuleZones={showRuleZones}
-            onToggleRuleZones={() => setShowRuleZones((v) => !v)}
+            onToggleRuleZones={toggleRuleZones}
           />
         </div>
 

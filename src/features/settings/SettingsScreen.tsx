@@ -18,6 +18,7 @@ import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { TEAM_COLOR_CHOICES, inkFor } from '../../core/colors.ts';
 import { FORMATIONS } from '../../model/defaults.ts';
+import { COURT_MODES, type CourtMode } from '../../model/court.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
@@ -30,6 +31,8 @@ const COLOR_NAMES: Record<string, string> = {
   '#e08a12': '주황',
   '#7c5cd6': '보라',
 };
+
+const COURT_MODE_SHORT_LABELS: Record<CourtMode, string> = { full: '풀', half: '하프', flat: '플랫' };
 
 export function SettingsScreen() {
   const { prefs, physics, persistFailed, setPrefs } = useSettings();
@@ -126,12 +129,40 @@ export function SettingsScreen() {
           <Row title="상대 팀 색상" desc="상대 팀 칩에 적용됩니다">
             <TeamColorSwatches ariaLabel="상대 팀 색상" value={prefs.teams.away.color} otherValue={prefs.teams.home.color} onChange={(c) => setPrefs({ teams: { ...prefs.teams, away: { ...prefs.teams.away, color: c } } })} />
           </Row>
-          <Row title="기본 포메이션" desc="새 드릴 생성 시 초기 배치" borderBottom={false}>
+          <Row title="기본 포메이션" desc="새 드릴 생성 시 초기 배치">
             <Segmented
               ariaLabel="기본 포메이션"
               value={prefs.defaultFormation}
               onChange={(v) => setPrefs({ defaultFormation: v })}
               options={FORMATIONS.map((f) => ({ value: f, label: f }))}
+            />
+          </Row>
+          <Row title="기본 코트 모드" desc="새 드릴을 만들 때 코트 선택 화면에서 미리 강조 표시됩니다(선택은 매번 확인)" borderBottom={false}>
+            <Segmented
+              ariaLabel="기본 코트 모드"
+              value={prefs.defaultCourtMode ?? 'ask'}
+              onChange={(v) => setPrefs({ defaultCourtMode: v === 'ask' ? null : (v as CourtMode) })}
+              options={[
+                { value: 'ask', label: '항상 묻기' },
+                ...COURT_MODES.map((m) => ({ value: m, label: COURT_MODE_SHORT_LABELS[m] })),
+              ]}
+            />
+          </Row>
+        </Section>
+
+        <Section title="시연">
+          <Row title="화면 꺼짐 방지" desc="시연 중 기기 화면이 자동으로 잠기지 않게 합니다">
+            <Toggle
+              checked={prefs.present.wakeLock}
+              onChange={(v) => setPrefs({ present: { ...prefs.present, wakeLock: v } })}
+              ariaLabel="화면 꺼짐 방지"
+            />
+          </Row>
+          <Row title="자동 전체화면" desc="시연 화면으로 이동하면 자동으로 전체화면을 시도합니다" borderBottom={false}>
+            <Toggle
+              checked={prefs.present.autoFullscreen}
+              onChange={(v) => setPrefs({ present: { ...prefs.present, autoFullscreen: v } })}
+              ariaLabel="자동 전체화면"
             />
           </Row>
         </Section>
@@ -223,7 +254,7 @@ export function SettingsScreen() {
           />
           <SliderRow
             label="편집 속도 배수"
-            desc="드래그로 놓은 뒤 이어지는 자동 재생에만 적용됩니다"
+            desc="드래그와 놓은 뒤 이어가기, 둘 다의 속도 상한에 곱해집니다"
             ariaLabel="편집 속도 배수"
             value={physics.editorSpeedMultiplier}
             min={1}

@@ -6,9 +6,12 @@ import { COURT_BG } from '../../core/colors.ts';
 
 export interface CourtPickerProps {
   onPick(mode: CourtMode): void;
+  /** prefs.defaultCourtMode — 설정에서 미리 골라 둔 코트를 강조해 준다. 선택은 여전히
+   *  사용자가 카드를 눌러야 확정된다("드릴 생성 시 1회" 원칙은 유지, §6.8). */
+  defaultMode?: CourtMode | null;
 }
 
-export function CourtPicker({ onPick }: CourtPickerProps) {
+export function CourtPicker({ onPick, defaultMode = null }: CourtPickerProps) {
   return (
     <main
       id="main"
@@ -45,7 +48,7 @@ export function CourtPicker({ onPick }: CourtPickerProps) {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {COURT_MODES.map((mode) => (
-            <CourtOption key={mode} mode={mode} onPick={() => onPick(mode)} />
+            <CourtOption key={mode} mode={mode} recommended={mode === defaultMode} onPick={() => onPick(mode)} />
           ))}
         </div>
       </div>
@@ -53,14 +56,14 @@ export function CourtPicker({ onPick }: CourtPickerProps) {
   );
 }
 
-function CourtOption({ mode, onPick }: { mode: CourtMode; onPick(): void }) {
+function CourtOption({ mode, recommended, onPick }: { mode: CourtMode; recommended: boolean; onPick(): void }) {
   const def = COURT_DEFS[mode];
   return (
     <button
       type="button"
       onClick={onPick}
       style={{
-        border: '1px solid var(--border)',
+        border: recommended ? '1px solid var(--accent)' : '1px solid var(--border)',
         borderRadius: 16,
         background: 'var(--panel)',
         padding: 18,
@@ -69,8 +72,28 @@ function CourtOption({ mode, onPick }: { mode: CourtMode; onPick(): void }) {
         gap: 14,
         textAlign: 'left',
         minHeight: 'var(--hit)',
+        position: 'relative',
       }}
     >
+      {recommended && (
+        <span
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            fontSize: '0.625rem',
+            fontWeight: 700,
+            letterSpacing: 0.3,
+            color: 'var(--accent-text)',
+            background: 'var(--elev)',
+            border: '1px solid var(--accent)',
+            borderRadius: 999,
+            padding: '2px 8px',
+          }}
+        >
+          기본값
+        </span>
+      )}
       <div style={{ height: 158, borderRadius: 11, background: COURT_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}>
         <CourtPreview mode={mode} />
       </div>

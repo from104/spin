@@ -49,6 +49,23 @@ describe('SettingsProvider', () => {
     spy.mockRestore();
   });
 
+  it('a11y.reduceMotion=\'always\' 면 document.documentElement 에 data-reduce-motion=\'true\' 를 건다' +
+    '(CSS 모션도 끌 수 있게 — 감사 minor #11 회귀)', () => {
+    delete document.documentElement.dataset.reduceMotion;
+    const { result } = renderHook(() => useSettings(), { wrapper });
+    expect(document.documentElement.dataset.reduceMotion).toBeUndefined();
+
+    act(() => {
+      result.current.setPrefs({ a11y: { ...result.current.prefs.a11y, reduceMotion: 'always' } });
+    });
+    expect(document.documentElement.dataset.reduceMotion).toBe('true');
+
+    act(() => {
+      result.current.setPrefs({ a11y: { ...result.current.prefs.a11y, reduceMotion: 'system' } });
+    });
+    expect(document.documentElement.dataset.reduceMotion).toBeUndefined();
+  });
+
   it('resetPrefs 가 PREFS_KEY 를 지우고 기본값으로 되돌린다', () => {
     const { result } = renderHook(() => useSettings(), { wrapper });
     act(() => {

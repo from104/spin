@@ -115,6 +115,13 @@ export function useEditorKeyboard(deps: EditorKeyboardDeps): void {
         }
       }
 
+      if (d.singleKeyMode === 'off') return;
+      const isEraseKey = lower === 'e' || e.key === '8';
+      if (isEraseKey && !e.altKey) return; // §7.5f: E 는 기본값에서도 수식키 필요
+      if (d.singleKeyMode === 'modifier' && !e.altKey) return;
+
+      // §7.5f/WCAG 2.1.4: g·z 도 다른 단일 문자키와 동일하게 singleKeyMode 게이트를 통과해야 한다
+      // (계약이 z 를 이 설정의 존재 이유로 직접 지목한다) — 위 gate 뒤로 옮김.
       if (lower === 'g') {
         d.onToggleGrid();
         return;
@@ -123,11 +130,6 @@ export function useEditorKeyboard(deps: EditorKeyboardDeps): void {
         d.onToggleRuleZones();
         return;
       }
-
-      if (d.singleKeyMode === 'off') return;
-      const isEraseKey = lower === 'e' || e.key === '8';
-      if (isEraseKey && !e.altKey) return; // §7.5f: E 는 기본값에서도 수식키 필요
-      if (d.singleKeyMode === 'modifier' && !e.altKey) return;
 
       if (lower === 'c' && d.tool === 'cone') {
         d.onConeToggle(); // §6.10 "C 두 번도 토글"
