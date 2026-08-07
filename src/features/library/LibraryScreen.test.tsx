@@ -1,0 +1,127 @@
+// §6.11 목록 화면. 탭 전환, 빈 상태(§작업지시), 카드 액션(복제·삭제·되돌리기), 세션 드로어
+// 진입을 확인한다. ToastProvider 를 함께 마운트해 실제 토스트 표시까지 검증한다.
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { LibraryScreen } from './LibraryScreen.tsx';
+import type { HomeNav } from '../home/nav.ts';
+import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
+import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
+import { ToastHost } from '../../ui/ToastHost.tsx';
+import { idbDrillRepo } from '../../storage/drillRepo.ts';
+import { createSession } from '../../storage/sessionRepo.ts';
+
+function makeNav(): HomeNav {
+  return {
+    newDrill: vi.fn(),
+    openDrill: vi.fn(),
+    goLibrary: vi.fn(),
+    openSession: vi.fn(),
+    presentDrill: vi.fn(),
+    presentSession: vi.fn(),
+  };
+}
+
+function ToastHostBridge() {
+  const { toasts, dismiss } = useToast();
+  return <ToastHost toasts={toasts} onDismiss={dismiss} />;
+}
+
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <LibraryProvider>
+    <ToastProvider>
+      {children}
+      <ToastHostBridge />
+    </ToastProvider>
+  </LibraryProvider>
+);
+
+describe('LibraryScreen — 드릴 탭', () => {
+  it('드릴이 없으면 빈 상태를 보여주고 새 드릴 만들기가 nav.newDrill 을 호출한다', async () => {
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(/아직 만든 드릴이 없습니다/)).toBeInTheDocument());
+    await userEvent.setup().click(screen.getByRole('button', { name: '새 드릴 만들기' }));
+    expect(nav.newDrill).toHaveBeenCalledTimes(1);
+  });
+
+  it('카드를 열면 nav.openDrill 이 호출된다', async () => {
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '카드 열기 테스트' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('카드 열기 테스트')).toBeInTheDocument());
+    await userEvent.setup().click(screen.getByRole('button', { name: '카드 열기 테스트 열기' }));
+    expect(nav.openDrill).toHaveBeenCalledTimes(1);
+  });
+
+  it('복제하면 카드가 하나 늘고 토스트가 뜬다', async () => {
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '복제 대상' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('복제 대상')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '복제 대상 더보기' }));
+    await user.click(screen.getByRole('menuitem', { name: '복제' }));
+
+    await waitFor(() => expect(screen.getByText('복제 대상 (사본)')).toBeInTheDocument());
+    expect(await screen.findByRole('status')).toHaveTextContent('복제했습니다');
+  });
+
+  it('삭제하면 카드가 사라지고 되돌리기로 복구된다', async () => {
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '삭제 대상' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('삭제 대상')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '삭제 대상 더보기' }));
+    await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+    await waitFor(() => expect(screen.queryByText('삭제 대상')).not.toBeInTheDocument());
+
+    const toast = await screen.findByRole('status');
+    await user.click(within(toast).getByRole('button', { name: '되돌리기' }));
+    await waitFor(() => expect(screen.getByText('삭제 대상')).toBeInTheDocument());
+  });
+
+  it('카테고리 필터로 목록을 좁힌다', async () => {
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '공격 드릴', category: '공격' });
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '수비 드릴', category: '수비' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('공격 드릴')).toBeInTheDocument());
+    expect(screen.getByText('수비 드릴')).toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByRole('radio', { name: '수비' }));
+    await waitFor(() => expect(screen.queryByText('공격 드릴')).not.toBeInTheDocument());
+    expect(screen.getByText('수비 드릴')).toBeInTheDocument();
+  });
+});
+
+describe('LibraryScreen — 세션 탭', () => {
+  it('initialTab="sessions" 로 열면 세션 탭이 활성화된다', async () => {
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} initialTab="sessions" />, { wrapper });
+    await waitFor(() => expect(screen.getByRole('tab', { name: '세션' })).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.getByText(/아직 만든 세션이 없습니다/)).toBeInTheDocument();
+  });
+
+  it('세션이 있으면 [시연] 버튼이 nav.presentSession 을 호출한다', async () => {
+    const s = await createSession({ title: '목요 세션' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} initialTab="sessions" />, { wrapper });
+    await waitFor(() => expect(screen.getByText('목요 세션')).toBeInTheDocument());
+
+    await userEvent.setup().click(screen.getByRole('button', { name: '목요 세션 시연 시작' }));
+    expect(nav.presentSession).toHaveBeenCalledWith(s.id);
+  });
+
+  it('initialOpenSessionId 로 열면 드로어가 자동으로 열리고 제목에 포커스된다', async () => {
+    const s = await createSession({ title: '자동 오픈 세션' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} initialTab="sessions" initialOpenSessionId={s.id} />, { wrapper });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: '자동 오픈 세션' })).toHaveFocus());
+  });
+});

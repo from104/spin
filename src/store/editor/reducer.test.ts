@@ -1,0 +1,108 @@
+// §10.7 store — editorRootReducer 조합 · selectStepIndex.
+import { describe, expect, it } from 'vitest';
+import { createDrill } from '../../model/defaults.ts';
+import type { Drill } from '../../model/drill.ts';
+import { editorRootReducer, initEditorState, selectStepIndex } from './reducer.ts';
+import type { EditorState } from './reducer.ts';
+
+function freshState(): EditorState {
+  const d: Drill = createDrill({ courtMode: 'full', formation: '1-2-1' });
+  return initEditorState(d);
+}
+
+describe('editorRootReducer — UI 액션', () => {
+  it('TOOL_SET 이 실제로 상태를 바꾼다(withHistory 가 삼키지 않는다)', () => {
+    const s0 = freshState();
+    const s1 = editorRootReducer(s0, { type: 'TOOL_SET', tool: 'ball' });
+    expect(s1).not.toBe(s0);
+    expect(s1.tool).toBe('ball');
+    expect(s1.present).toBe(s0.present); // 드릴 데이터는 안 건드림
+  });
+
+  it('SELECT_SET/SELECT_TOGGLE/SELECT_CLEAR 가 selection 을 바꾼다', () => {
+    const s0 = freshState();
+    const s1 = editorRootReducer(s0, { type: 'SELECT_SET', ids: ['a', 'b'] });
+    expect([...s1.selection]).toEqual(['a', 'b']);
+    const s2 = editorRootReducer(s1, { type: 'SELECT_TOGGLE', id: 'a' });
+    expect([...s2.selection]).toEqual(['b']);
+    const s3 = editorRootReducer(s2, { type: 'SELECT_CLEAR' });
+    expect(s3.selection.size).toBe(0);
+  });
+
+  it('STEP_SELECT 이 stepId 를 바꾼다', () => {
+    const s0 = freshState();
+    let d = s0.present;
+    const withStep2 = editorRootReducer(s0, { type: 'STEP_ADD', afterIndex: 0 });
+    d = withStep2.present;
+    const newStepId = d.steps[1]!.id;
+    const s2 = editorRootReducer(withStep2, { type: 'STEP_SELECT', id: newStepId });
+    expect(s2.stepId).toBe(newStepId);
+    expect(s2).not.toBe(withStep2);
+  });
+
+  it('항등 액션(같은 tool 재지정)은 참조를 그대로 돌려준다', () => {
+    const s0 = freshState();
+    const s1 = editorRootReducer(s0, { type: 'TOOL_SET', tool: s0.tool });
+    expect(s1).toBe(s0);
+  });
+});
+
+describe('selectStepIndex', () => {
+  it('없는 stepId 에는 0 을 반환한다', () => {
+    const s0 = freshState();
+    const bogus: EditorState = { ...s0, stepId: 'st_doesnotexist' as EditorState['stepId'] };
+    expect(selectStepIndex(bogus)).toBe(0);
+  });
+  it('존재하는 stepId 의 인덱스를 반환한다', () => {
+    const s0 = freshState();
+    const withStep2 = editorRootReducer(s0, { type: 'STEP_ADD', afterIndex: 0 });
+    const s1 = editorRootReducer(withStep2, { type: 'STEP_SELECT', id: withStep2.present.steps[1]!.id });
+    expect(selectStepIndex(s1)).toBe(1);
+  });
+});
+
+describe('STEP_DELETE — 불변식 4: stepId 재지정', () => {
+  it('현재 선택 스텝을 지우면 steps[min(idx, len-1)] 로 재지정된다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // 2 steps
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // 3 steps
+    const ids = s.present.steps.map((st) => st.id);
+    s = editorRootReducer(s, { type: 'STEP_SELECT', id: ids[2]! }); // 마지막(3번째) 선택
+    const s2 = editorRootReducer(s, { type: 'STEP_DELETE', id: ids[2]! });
+    expect(s2.present.steps).toHaveLength(2);
+    expect(s2.stepId).toBe(s2.present.steps[1]!.id); // min(2, 2-1)=1 → 남은 마지막 스텝
+    expect(s2.present.steps.some((st) => st.id === s2.stepId)).toBe(true);
+  });
+
+  it('선택하지 않은 다른 스텝을 지우면 stepId 는 그대로다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // 2 steps
+    const firstId = s.present.steps[0]!.id;
+    const secondId = s.present.steps[1]!.id;
+    s = editorRootReducer(s, { type: 'STEP_SELECT', id: firstId });
+    const s2 = editorRootReducer(s, { type: 'STEP_DELETE', id: secondId });
+    expect(s2.stepId).toBe(firstId);
+    expect(s2.present.steps).toHaveLength(1);
+  });
+
+  it('스텝이 1개뿐이면 no-op(동일 참조)이다', () => {
+    const s0 = freshState();
+    const s1 = editorRootReducer(s0, { type: 'STEP_DELETE', id: s0.stepId });
+    expect(s1).toBe(s0);
+  });
+});
+
+describe('drillReducer 위임 — 대표 경로', () => {
+  it('OBJECT_ADD(ball) 이 현재 스텝에 공을 추가한다', () => {
+    const s0 = freshState();
+    const before = s0.present.cast.balls.length;
+    const s1 = editorRootReducer(s0, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 10, y: 10 } });
+    expect(s1.present.cast.balls.length).toBe(before + 1);
+  });
+
+  it('META_SET 이 present 를 바꾼다', () => {
+    const s0 = freshState();
+    const s1 = editorRootReducer(s0, { type: 'META_SET', patch: { title: '새 이름' } });
+    expect(s1.present.title).toBe('새 이름');
+  });
+});
