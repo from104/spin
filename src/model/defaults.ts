@@ -1,0 +1,186 @@
+// §3.9 기본값 — 포메이션·기본 캐스트·기본 배치·드릴 생성.
+import type { Vec2 } from '../core/units.ts';
+import { newId } from '../core/ids.ts';
+import { radToStoredDeg, RAD } from '../core/angle.ts';
+import { KNOWN_CATEGORIES } from '../core/colors.ts';
+import { CHAIR_SEP_PX } from '../core/constants.ts';
+import { COURT_DEFS, type CourtMode } from './court.ts';
+import { poseFromStored, type StoredChairPose } from './chair.ts';
+import type { ChairId, BallId } from '../core/ids.ts';
+import type { ChairDef, DrillCast, DrillStep, DrillLevel, TeamSide, TeamStyle, Drill, PoseMap } from './drill.ts';
+import { CURRENT_DRILL_SCHEMA } from './drill.ts';
+import { chairsOverlap } from '../physics/obb.ts';
+
+export type FormationName = '1-2-1' | '2-1-1' | '1-1-2';
+export const FORMATIONS = ['1-2-1', '2-1-1', '1-1-2'] as const;
+
+export const DEFAULT_TEAMS: Readonly<Record<TeamSide, TeamStyle>> = Object.freeze({
+  home: Object.freeze({ label: '우리 팀', color: '#d93a3a', gkColor: '#f2c811' }),
+  away: Object.freeze({ label: '상대', color: '#1f6bb8', gkColor: '#22a95b' }),
+});
+
+type Slot = 'G' | '2' | '3' | '4';
+const SLOTS: Slot[] = ['G', '2', '3', '4'];
+
+export function defaultCast(): DrillCast {
+  const chairs: ChairDef[] = [];
+  for (const team of ['home', 'away'] as const) {
+    for (const number of SLOTS) {
+      chairs.push({ id: newId('ch'), team, number, isGk: number === 'G' });
+    }
+  }
+  return { chairs, balls: [{ id: newId('bl') }], cones: [] };
+}
+
+// 풀 코트 기본 배치 — 피벗 좌표(px). §3.9 표 그대로.
+const FULL_POSITIONS: Record<FormationName, Record<TeamSide, Record<Slot, Vec2>>> = {
+  '1-2-1': {
+    home: { G: { x: 62.5, y: 250 }, '2': { x: 310, y: 115 }, '3': { x: 310, y: 385 }, '4': { x: 352, y: 250 } },
+    away: { G: { x: 737.5, y: 250 }, '2': { x: 490, y: 385 }, '3': { x: 490, y: 115 }, '4': { x: 448, y: 250 } },
+  },
+  '2-1-1': {
+    home: { G: { x: 62.5, y: 250 }, '2': { x: 190, y: 250 }, '3': { x: 295, y: 169 }, '4': { x: 352, y: 250 } },
+    away: { G: { x: 737.5, y: 250 }, '2': { x: 610, y: 250 }, '3': { x: 505, y: 331 }, '4': { x: 448, y: 250 } },
+  },
+  '1-1-2': {
+    home: { G: { x: 62.5, y: 250 }, '2': { x: 220, y: 250 }, '3': { x: 355, y: 133 }, '4': { x: 355, y: 367 } },
+    away: { G: { x: 737.5, y: 250 }, '2': { x: 580, y: 250 }, '3': { x: 445, y: 367 }, '4': { x: 445, y: 133 } },
+  },
+};
+const FULL_BALL: Vec2 = { x: 400, y: 250 };
+
+// 하프 코트 기본 배치 — 포메이션 무관 단일 배치. 홈 GK 는 배치하지 않는다(D7 실사용례).
+const HALF_POSITIONS: Record<TeamSide, Partial<Record<Slot, Vec2>>> = {
+  home: { '2': { x: 140, y: 163.75 }, '3': { x: 352, y: 163.75 }, '4': { x: 250, y: 83.75 } },
+  away: { G: { x: 250, y: 388.25 }, '2': { x: 250, y: 281.25 }, '3': { x: 330, y: 240.25 } },
+};
+const HALF_BALL: Vec2 = { x: 250, y: 121 };
+
+// 플랫 코트 기본 배치 — 포메이션 무관 단일 배치.
+const FLAT_X: Record<Slot, number> = { G: 100, '2': 200, '3': 300, '4': 400 };
+const FLAT_POSITIONS: Record<TeamSide, Record<Slot, Vec2>> = {
+  home: { G: { x: FLAT_X.G, y: 120 }, '2': { x: FLAT_X['2'], y: 120 }, '3': { x: FLAT_X['3'], y: 120 }, '4': { x: FLAT_X['4'], y: 120 } },
+  away: { G: { x: FLAT_X.G, y: 305 }, '2': { x: FLAT_X['2'], y: 305 }, '3': { x: FLAT_X['3'], y: 305 }, '4': { x: FLAT_X['4'], y: 305 } },
+};
+const FLAT_BALL: Vec2 = { x: 250, y: 212.5 };
+
+function posFor(mode: CourtMode, formation: FormationName, team: TeamSide, number: string): Vec2 | undefined {
+  const slot = (SLOTS as string[]).includes(number) ? (number as Slot) : undefined;
+  if (!slot) return undefined;
+  if (mode === 'full') return FULL_POSITIONS[formation][team][slot];
+  if (mode === 'half') return HALF_POSITIONS[team][slot];
+  return FLAT_POSITIONS[team][slot];
+}
+
+function ballPosFor(mode: CourtMode): Vec2 {
+  if (mode === 'full') return FULL_BALL;
+  if (mode === 'half') return HALF_BALL;
+  return FLAT_BALL;
+}
+
+/** 시그니처를 string 으로 넓히고 내부에서 FORMATIONS 폴백한다(validate.ts 의 이중 방어와 합치). */
+export function defaultStep(mode: CourtMode, f: string, cast: DrillCast): DrillStep {
+  const formation: FormationName = (FORMATIONS as readonly string[]).includes(f) ? (f as FormationName) : '1-2-1';
+  const { homeHeadingDeg, awayHeadingDeg } = COURT_DEFS[mode];
+
+  const chairs: PoseMap<ChairId, StoredChairPose> = {};
+  for (const def of cast.chairs) {
+    const p = posFor(mode, formation, def.team, def.number);
+    if (!p) continue; // 예: half 코트 홈 GK — cast 에는 있고 pose 는 없다
+    const headingDeg = def.team === 'home' ? homeHeadingDeg : awayHeadingDeg;
+    chairs[def.id] = { x: p.x, y: p.y, angleDeg: radToStoredDeg(headingDeg * RAD) };
+  }
+
+  const balls: PoseMap<BallId, Vec2> = {};
+  const ballPos = ballPosFor(mode);
+  for (const b of cast.balls) balls[b.id] = { x: ballPos.x, y: ballPos.y };
+
+  return {
+    id: newId('st'),
+    name: '스텝 1',
+    note: '',
+    chairs,
+    balls,
+    cones: {},
+    arrows: [],
+    notes: [],
+  };
+}
+
+/** 개발 모드 전용 불변식 assert(§3.9) — 두 휠체어 OBB 가 겹치면 콘솔에만 경고한다.
+ *  validate.ts 와 달리 여기는 우리 자신이 만든 데이터라 절대 발생해선 안 되는 내부 버그 신호이므로
+ *  throw 대신 console.assert 로 개발 중에만 드러낸다(런타임 "절대 throw 하지 않는다" 원칙은 유지). */
+function assertNoOverlap(mode: CourtMode, step: DrillStep): void {
+  if (!import.meta.env.DEV) return;
+  const poses = Object.values(step.chairs)
+    .filter((p): p is StoredChairPose => p !== undefined)
+    .map(poseFromStored);
+  for (let i = 0; i < poses.length; i++) {
+    for (let j = i + 1; j < poses.length; j++) {
+      console.assert(!chairsOverlap(poses[i]!, poses[j]!, CHAIR_SEP_PX), `[defaults] ${mode} 기본 배치에서 휠체어 OBB 겹침 발견`);
+    }
+  }
+}
+
+export function createDrill(init: {
+  title?: string;
+  courtMode: CourtMode;
+  category?: string;
+  level?: DrillLevel;
+  formation?: FormationName;
+  durationMin?: number;
+  teams?: Record<TeamSide, TeamStyle>;
+}): Drill {
+  const now = Date.now();
+  const cast = defaultCast();
+  const formation = init.formation ?? '1-2-1';
+  const teams = structuredClone(init.teams ?? DEFAULT_TEAMS);
+  const step = defaultStep(init.courtMode, formation, cast);
+  assertNoOverlap(init.courtMode, step);
+  return {
+    schemaVersion: CURRENT_DRILL_SCHEMA,
+    id: newId('dr'),
+    title: init.title ?? '새 드릴',
+    category: init.category ?? KNOWN_CATEGORIES[0],
+    level: init.level ?? '초급',
+    durationMin: init.durationMin ?? 10,
+    tags: [],
+    courtMode: init.courtMode,
+    formation,
+    teams,
+    cast,
+    steps: [step],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/** §3.10 코트 전환. half↔flat 은 viewBox 동일(500×425)이므로 항등 변환. full↔(half|flat) 은
+ *  규격·종횡비가 달라 배치를 보존할 수 없으므로 defaultStep 으로 명시적으로 리셋한다. */
+export function cloneToCourt(d: Drill, mode: CourtMode): Drill {
+  if (d.courtMode === mode) return d;
+  const now = Date.now();
+  const isHalfFlat = (m: CourtMode): boolean => m === 'half' || m === 'flat';
+
+  if (isHalfFlat(d.courtMode) && isHalfFlat(mode)) {
+    return { ...structuredClone(d), id: newId('dr'), courtMode: mode, createdAt: now, updatedAt: now };
+  }
+
+  const cast = structuredClone(d.cast);
+  const teams = structuredClone(d.teams);
+  const step = defaultStep(mode, d.formation, cast);
+  const suffix = mode === 'full' ? ' (풀)' : mode === 'half' ? ' (하프)' : ' (플랫)';
+  const prefix = '[코트 전환 — 배치를 다시 만들어야 합니다] ';
+  return {
+    ...d,
+    id: newId('dr'),
+    title: `${d.title}${suffix}`,
+    description: `${prefix}${d.description ?? ''}`.trim(),
+    courtMode: mode,
+    teams,
+    cast,
+    steps: [step],
+    createdAt: now,
+    updatedAt: now,
+  };
+}

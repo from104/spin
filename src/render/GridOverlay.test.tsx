@@ -1,0 +1,60 @@
+// §3.3 격자 렌더 검증. 좌표 정확성은 model/grid.test.ts 가 이미 검산했으므로 여기서는
+// "그 좌표대로 선·라벨이 실제로 그려지는가" + "aria-hidden/pointer-events:none 필수 규약"만 본다.
+import { describe, expect, it } from 'vitest';
+import { render } from '@testing-library/react';
+import { GridOverlay } from './GridOverlay.tsx';
+
+function renderGrid(mode: 'full' | 'half' | 'flat') {
+  return render(
+    <svg>
+      <GridOverlay mode={mode} />
+    </svg>,
+  ).container;
+}
+
+describe('GridOverlay', () => {
+  it('루트 <g> 는 aria-hidden + pointer-events:none 이 필수다(§3.3)', () => {
+    const c = renderGrid('full');
+    const root = c.querySelector('g');
+    expect(root).toHaveAttribute('aria-hidden', 'true');
+    expect(root).toHaveAttribute('pointer-events', 'none');
+  });
+
+  it('full: 내부 세로선 5개·가로선 4개, opacity .22, 셀 라벨 30개(a1…f5)', () => {
+    const c = renderGrid('full');
+    const lineGroup = c.querySelector('g[opacity="0.22"]');
+    expect(lineGroup).not.toBeNull();
+    expect(lineGroup!.querySelectorAll('line')).toHaveLength(5 + 4);
+
+    const labelGroup = c.querySelector('g[opacity="0.2"]');
+    const labels = labelGroup!.querySelectorAll('text');
+    expect(labels).toHaveLength(30);
+    expect(labels[0]).toHaveTextContent('a1');
+    expect(labels[labels.length - 1]).toHaveTextContent('f5');
+    expect(labelGroup).toHaveAttribute('font-size', '18');
+  });
+
+  it('half: 내부 세로선 4개·가로선 2개, 셀 라벨 15개(a1…e3)', () => {
+    const c = renderGrid('half');
+    const lineGroup = c.querySelector('g[opacity="0.22"]');
+    expect(lineGroup!.querySelectorAll('line')).toHaveLength(4 + 2);
+    const labels = c.querySelectorAll('g[opacity="0.2"] text');
+    expect(labels).toHaveLength(15);
+    expect(labels[0]).toHaveTextContent('a1');
+    expect(labels[labels.length - 1]).toHaveTextContent('e3');
+  });
+
+  it('flat: 강조선(.34) 존재, 셀 라벨 대신 축 헤더(열 20개+행 17개=37개)만 그린다', () => {
+    const c = renderGrid('flat');
+    const major = c.querySelector('g[opacity="0.34"]');
+    expect(major).not.toBeNull();
+    // major.vx 5개 + major.hy 4개 = line 9개
+    expect(major!.querySelectorAll('line')).toHaveLength(5 + 4);
+
+    expect(c.querySelector('g[opacity="0.2"]')).toBeNull(); // 셀 라벨 340개는 노이즈이므로 없어야 한다
+    const axisGroup = c.querySelector('g[opacity="0.3"]');
+    const axisTexts = axisGroup!.querySelectorAll('text');
+    expect(axisTexts).toHaveLength(20 + 17);
+    expect(axisGroup).toHaveAttribute('font-size', '10');
+  });
+});

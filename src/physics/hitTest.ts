@@ -1,0 +1,215 @@
+// 포인터 → 대상/존 판정, 존 핸들 배치. §5.12.
+import type { Vec2 } from '../core/units.ts';
+import { CHAIR, BALL, CONE, INTERACT } from '../core/constants.ts';
+import type { ChairId, BallId, ConeId, NoteId, ArrowId } from '../core/ids.ts';
+import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
+import { chairCorners, projectGrab, pointAtLever } from '../model/chair.ts';
+import type { ArrowKind } from '../model/arrow.ts';
+import { ARROW_STYLES } from '../model/arrow.ts';
+
+/** §6.10 편집기 도구 8종의 key. 원 소유자는 store/screen-editor(Wave 3/4)지만, hitTest 의
+ *  `HitContext` 시그니처가 §5.12 계약에 `tool: ToolId` 로 이미 못박혀 있고 physics-world 는
+ *  Wave 2 라 그 모듈들이 아직 없다. 의존 그래프(§9)상 store 가 physics-world 를 의존하므로
+ *  여기서 정의해 두면 store 가 그대로 import 해 쓸 수 있다(반대 방향 의존은 없다). */
+export type ToolId = 'select' | 'route' | 'pass' | 'ball' | 'cone' | 'player' | 'note' | 'erase';
+
+/** §5.12/§6.5 가 참조하는 히트 반경 상한. 값의 출처는 §6.5(render-stage 소유 `hitRadius.ts`)지만
+ *  그 파일은 별도 Wave(3)의 별도 모듈 소유라 physics-world 가 import 할 수 없다(의존 방향 위반).
+ *  숫자 자체는 계약값이므로 여기 독립적으로 복제해 둔다 — 값을 바꿀 땐 §6.5 도 함께 바꿔야 한다. */
+const HIT_R_MAX_PX = { chair: 21.25, ball: 11.25, cone: 8.75, note: 12.5 } as const;
+
+export interface HitResult {
+  kind: 'chair' | 'ball' | 'cone' | 'note' | 'arrow' | 'arrowHandle' | 'zoneHandle';
+  id: string;
+  s?: number; // chair 직접 드래그: 축 방향 정규 위치
+  zone?: DragZone; // zoneHandle
+  which?: 'from' | 'ctrl' | 'to'; // arrowHandle
+}
+
+export interface HitContext {
+  zones: ZoneConfig;
+  pxPerUnit: number;
+  pointerType: string;
+  selectedChairId: ChairId | null;
+  selectedArrowId: ArrowId | null;
+  handlesVisible: boolean;
+  tool: ToolId;
+}
+
+/** hitTest 가 필요로 하는 장면의 최소 스냅샷. 물리 world 의 현재 포즈(휠체어)와 공/콘 좌표,
+ *  그리고 model 이 담고 있는 메모·화살표를 한 프레임 분 그러모은 것 — 이 타입도 model 이 아니라
+ *  physics-world 가 정의한다(model 은 순수 데이터 스키마만 소유하고, "이번 프레임에 무엇이
+ *  어디 있는지"를 조립하는 건 물리/렌더 경계의 일이라 §8 어디에도 소유자가 없다). */
+export interface SceneSnapshot {
+  chairs: ReadonlyArray<{ id: ChairId; pose: ChairPose }>;
+  balls: ReadonlyArray<{ id: BallId; p: Vec2 }>;
+  cones: ReadonlyArray<{ id: ConeId; p: Vec2 }>;
+  notes: ReadonlyArray<{ id: NoteId; p: Vec2 }>;
+  arrows: ReadonlyArray<{ id: ArrowId; kind: ArrowKind; from: Vec2; ctrl: Vec2; to: Vec2 }>;
+}
+
+export function zoneHandles(
+  pose: ChairPose,
+  pxPerUnit: number,
+): Array<{ zone: DragZone; lever: number; pos: Vec2; hitR: number; viewR: number }> {
+  const zones: DragZone[] = ['towRear', 'translate', 'spin', 'towFront'];
+  return zones.map((zone) => {
+    const lever = INTERACT.handleLeverPx[zone];
+    return {
+      zone,
+      lever,
+      pos: pointAtLever(pose, lever),
+      hitR: INTERACT.handleHitRadiusCssPx / pxPerUnit,
+      viewR: INTERACT.handleViewRadiusCssPx / pxPerUnit,
+    };
+  });
+}
+
+export const handlesVisible = (pxPerUnit: number, pointerType: string, forced: boolean): boolean =>
+  forced || (pointerType === 'touch' && pxPerUnit < INTERACT.zoneDirectMinPxPerUnit);
+
+const dist = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.y - b.y);
+
+/** 픽 반지름(자기 반지름 + CSS px 패드를 월드 단위로 환산, §6.5 상한으로 캡). */
+function pickRadius(ownRadiusPx: number, cap: number, pxPerUnit: number): number {
+  return Math.min(ownRadiusPx + INTERACT.pickPadCssPx / pxPerUnit, cap);
+}
+
+/** 볼록사각형(순서 있는 4점) 내부 판정 — 부호 있는 외적이 전부 같은 부호면 내부. */
+function pointInConvexQuad(p: Vec2, quad: readonly Vec2[]): boolean {
+  let sign = 0;
+  for (let i = 0; i < quad.length; i++) {
+    const a = quad[i]!;
+    const b = quad[(i + 1) % quad.length]!;
+    const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    if (cross !== 0) {
+      const s = cross > 0 ? 1 : -1;
+      if (sign === 0) sign = s;
+      else if (s !== sign) return false;
+    }
+  }
+  return true;
+}
+
+function distPointToSegment(p: Vec2, a: Vec2, b: Vec2): number {
+  const abx = b.x - a.x;
+  const aby = b.y - a.y;
+  const len2 = abx * abx + aby * aby;
+  let t = len2 > 0 ? ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2 : 0;
+  t = Math.min(1, Math.max(0, t));
+  return Math.hypot(p.x - (a.x + abx * t), p.y - (a.y + aby * t));
+}
+
+function bezierPoint(from: Vec2, ctrl: Vec2, to: Vec2, t: number): Vec2 {
+  const mt = 1 - t;
+  return {
+    x: mt * mt * from.x + 2 * mt * t * ctrl.x + t * t * to.x,
+    y: mt * mt * from.y + 2 * mt * t * ctrl.y + t * t * to.y,
+  };
+}
+
+/** 2차 베지에 곡선까지의 최단거리 근사(16 세그먼트 폴리라인 샘플링). 화살표 stroke 히트에만 쓴다. */
+function distPointToQuadBezier(p: Vec2, from: Vec2, ctrl: Vec2, to: Vec2): number {
+  let min = Infinity;
+  let prev = from;
+  for (let i = 1; i <= 16; i++) {
+    const cur = bezierPoint(from, ctrl, to, i / 16);
+    const d = distPointToSegment(p, prev, cur);
+    if (d < min) min = d;
+    prev = cur;
+  }
+  return min;
+}
+
+/** §5.12 우선순위 5: 휠체어 hull + grabPadPx. body frame 축정렬 박스 확장(형상을 기하학적으로
+ *  부풀리지 않고 body frame ax/lat 경계만 pad 만큼 넓힌다 — projectGrab 과 같은 좌표계라 값이
+ *  일관된다). */
+function chairPadHit(pose: ChairPose, p: Vec2, pad: number): { ax: number; lat: number; s: number } | null {
+  const g = projectGrab(pose, p);
+  const rear = -CHAIR.pivotToRearPx - pad;
+  const front = CHAIR.pivotToFrontPx + pad;
+  const halfW = CHAIR.widthPx / 2 + pad;
+  if (g.ax < rear || g.ax > front) return null;
+  if (Math.abs(g.lat) > halfW) return null;
+  return g;
+}
+
+export function hitTest(p: Vec2, scene: SceneSnapshot, ctx: HitContext): HitResult | null {
+  const { pxPerUnit } = ctx;
+
+  // 1) 공 / 콘 / 메모 — 자기 픽 반지름. 여러 후보 중 가장 가까운 것을 고른다.
+  let best: { kind: 'ball' | 'cone' | 'note'; id: string; d: number } | null = null;
+  for (const b of scene.balls) {
+    const r = pickRadius(BALL.radiusPx, HIT_R_MAX_PX.ball, pxPerUnit);
+    const d = dist(p, b.p);
+    if (d <= r && (!best || d < best.d)) best = { kind: 'ball', id: b.id, d };
+  }
+  for (const c of scene.cones) {
+    const r = pickRadius(CONE.radiusPx, HIT_R_MAX_PX.cone, pxPerUnit);
+    const d = dist(p, c.p);
+    if (d <= r && (!best || d < best.d)) best = { kind: 'cone', id: c.id, d };
+  }
+  for (const n of scene.notes) {
+    const r = pickRadius(0, HIT_R_MAX_PX.note, pxPerUnit);
+    const d = dist(p, n.p);
+    if (d <= r && (!best || d < best.d)) best = { kind: 'note', id: n.id, d };
+  }
+  if (best) return { kind: best.kind, id: best.id };
+
+  // 2) 어떤 휠체어든 정확한 OBB 본체(pad 없음).
+  for (const c of scene.chairs) {
+    if (pointInConvexQuad(p, chairCorners(c.pose))) return { kind: 'chair', id: c.id, s: projectGrab(c.pose, p).s };
+  }
+
+  // 3) 선택된 화살표의 핸들(from/ctrl/to).
+  if (ctx.selectedArrowId) {
+    const a = scene.arrows.find((x) => x.id === ctx.selectedArrowId);
+    if (a) {
+      const hitR = INTERACT.handleHitRadiusCssPx / pxPerUnit;
+      const candidates: Array<{ which: 'from' | 'ctrl' | 'to'; pt: Vec2 }> = [
+        { which: 'from', pt: a.from },
+        { which: 'ctrl', pt: a.ctrl },
+        { which: 'to', pt: a.to },
+      ];
+      let nearest: { which: 'from' | 'ctrl' | 'to'; d: number } | null = null;
+      for (const c of candidates) {
+        const d = dist(p, c.pt);
+        if (d <= hitR && (!nearest || d < nearest.d)) nearest = { which: c.which, d };
+      }
+      if (nearest) return { kind: 'arrowHandle', id: a.id, which: nearest.which };
+    }
+  }
+
+  // 4) 선택된 휠체어의 존 핸들(표시 중일 때만, 최근접 1개).
+  if (ctx.handlesVisible && ctx.selectedChairId) {
+    const c = scene.chairs.find((x) => x.id === ctx.selectedChairId);
+    if (c) {
+      const handles = zoneHandles(c.pose, pxPerUnit);
+      let nearest: { zone: DragZone; d: number } | null = null;
+      for (const h of handles) {
+        const d = dist(p, h.pos);
+        if (d <= h.hitR && (!nearest || d < nearest.d)) nearest = { zone: h.zone, d };
+      }
+      if (nearest) return { kind: 'zoneHandle', id: c.id, zone: nearest.zone };
+    }
+  }
+
+  // 5) 휠체어 hull + grabPadPx — 후보가 여럿이면 |lat| 최소.
+  let padBest: { id: string; s: number; lat: number } | null = null;
+  for (const c of scene.chairs) {
+    const g = chairPadHit(c.pose, p, ctx.zones.grabPadPx);
+    if (g && (!padBest || Math.abs(g.lat) < Math.abs(padBest.lat))) padBest = { id: c.id, s: g.s, lat: g.lat };
+  }
+  if (padBest) return { kind: 'chair', id: padBest.id, s: padBest.s };
+
+  // 6) 화살표 stroke.
+  let arrowBest: { id: string; d: number } | null = null;
+  for (const a of scene.arrows) {
+    const tol = ARROW_STYLES[a.kind].width / 2 + INTERACT.pickPadCssPx / pxPerUnit;
+    const d = distPointToQuadBezier(p, a.from, a.ctrl, a.to);
+    if (d <= tol && (!arrowBest || d < arrowBest.d)) arrowBest = { id: a.id, d };
+  }
+  if (arrowBest) return { kind: 'arrow', id: arrowBest.id };
+
+  return null;
+}

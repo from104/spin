@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "id": "dr_fixture_v1_001",
+  "title": "1-2-1 스핀 전개 드릴",
+  "category": "패턴 플레이",
+  "level": "중급",
+  "durationMin": 15,
+  "tags": ["스핀", "패스", "풀코트"],
+  "description": "v1 스키마 마이그레이션·직렬화 왕복 검증용 픽스처. 전 필드를 채워 v2 마이그레이션 테스트가 손실을 잡아낼 수 있게 한다.",
+  "courtMode": "full",
+  "formation": "1-2-1",
+  "teams": {
+    "home": { "label": "우리 팀", "color": "#d93a3a", "gkColor": "#f2c811" },
+    "away": { "label": "상대", "color": "#1f6bb8", "gkColor": "#22a95b" }
+  },
+  "cast": {
+    "chairs": [
+      { "id": "ch_home_gk", "team": "home", "number": "G", "isGk": true, "role": "GK" },
+      { "id": "ch_home_2", "team": "home", "number": "2", "isGk": false, "role": "DF" },
+      { "id": "ch_home_3", "team": "home", "number": "3", "isGk": false, "role": "WG" },
+      {
+        "id": "ch_home_4",
+        "team": "home",
+        "number": "4",
+        "isGk": false,
+        "role": "PM",
+        "name": "플레이메이커",
+        "color": "#ffcc00"
+      },
+      { "id": "ch_away_gk", "team": "away", "number": "G", "isGk": true, "role": "GK" },
+      { "id": "ch_away_2", "team": "away", "number": "2", "isGk": false, "role": "DF" },
+      { "id": "ch_away_3", "team": "away", "number": "3", "isGk": false, "role": "WG" },
+      { "id": "ch_away_4", "team": "away", "number": "4", "isGk": false, "role": "PM" }
+    ],
+    "balls": [{ "id": "bl_main" }],
+    "cones": [
+      { "id": "cn_a", "colorIndex": 0 },
+      { "id": "cn_b", "colorIndex": 1 }
+    ]
+  },
+  "steps": [
+    {
+      "id": "st_step1",
+      "name": "초기 대형",
+      "note": "홈 4번이 볼을 소유한 1-2-1 초기 배치. 어웨이는 대칭 수비 라인을 유지한다.",
+      "chairs": {
+        "ch_home_gk": { "x": 62.5, "y": 250, "angleDeg": 0 },
+        "ch_home_2": { "x": 310, "y": 115, "angleDeg": 0 },
+        "ch_home_3": { "x": 310, "y": 385, "angleDeg": 0 },
+        "ch_home_4": { "x": 352, "y": 250, "angleDeg": 0 },
+        "ch_away_gk": { "x": 737.5, "y": 250, "angleDeg": 180 },
+        "ch_away_2": { "x": 490, "y": 385, "angleDeg": 180 },
+        "ch_away_3": { "x": 490, "y": 115, "angleDeg": 180 },
+        "ch_away_4": { "x": 448, "y": 250, "angleDeg": 180 }
+      },
+      "balls": { "bl_main": { "x": 400, "y": 250 } },
+      "cones": {
+        "cn_a": { "x": 200, "y": 100 },
+        "cn_b": { "x": 600, "y": 400 }
+      },
+      "arrows": [
+        {
+          "id": "ar_move1",
+          "kind": "move",
+          "from": { "x": 352, "y": 250 },
+          "ctrl": { "x": 352, "y": 215 },
+          "to": { "x": 352, "y": 180 },
+          "color": "#38bdf8"
+        }
+      ],
+      "notes": [
+        {
+          "id": "nt_note1",
+          "x": 100,
+          "y": 460,
+          "text": "GK 커버리지 확인",
+          "size": 16,
+          "color": "#f2c811",
+          "align": "start"
+        }
+      ]
+    },
+    {
+      "id": "st_step2",
+      "name": "스핀 후 패스",
+      "note": "홈 4번이 제자리 스핀으로 방향을 바꾼 뒤 3번에게 패스한다. 콘 B는 이 스텝에서 철거된다.",
+      "durationMs": 900,
+      "chairs": {
+        "ch_home_gk": { "x": 62.5, "y": 250, "angleDeg": 0 },
+        "ch_home_2": { "x": 310, "y": 115, "angleDeg": 0 },
+        "ch_home_3": { "x": 310, "y": 385, "angleDeg": 0 },
+        "ch_home_4": { "x": 352, "y": 180, "angleDeg": 15 },
+        "ch_away_gk": { "x": 737.5, "y": 250, "angleDeg": 180 },
+        "ch_away_2": { "x": 490, "y": 385, "angleDeg": 180 },
+        "ch_away_3": { "x": 490, "y": 115, "angleDeg": 180 },
+        "ch_away_4": { "x": 448, "y": 250, "angleDeg": 180 }
+      },
+      "balls": { "bl_main": { "x": 370, "y": 220 } },
+      "cones": {
+        "cn_a": { "x": 200, "y": 100 }
+      },
+      "arrows": [
+        {
+          "id": "ar_move1",
+          "kind": "move",
+          "from": { "x": 352, "y": 180 },
+          "ctrl": { "x": 330, "y": 190 },
+          "to": { "x": 310, "y": 200 }
+        },
+        {
+          "id": "ar_pass1",
+          "kind": "pass",
+          "from": { "x": 370, "y": 220 },
+          "ctrl": { "x": 340, "y": 300 },
+          "to": { "x": 310, "y": 385 }
+        }
+      ],
+      "notes": [
+        {
+          "id": "nt_note2",
+          "x": 400,
+          "y": 40,
+          "text": "패스 타이밍 강조"
+        }
+      ]
+    }
+  ],
+  "createdAt": 1732000000000,
+  "updatedAt": 1732003600000
+}

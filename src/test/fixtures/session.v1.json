@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "se_fixture_v1_001",
+  "title": "화요일 정기훈련",
+  "note": "우천 시 실내 코트 B로 대체",
+  "scheduledAt": 1732280400000,
+  "location": "체육관 A",
+  "items": [
+    {
+      "id": "it_001",
+      "drillId": "dr_fixture_v1_001",
+      "titleCache": "1-2-1 스핀 전개 드릴",
+      "durationMinCache": 15,
+      "categoryCache": "패턴 플레이",
+      "durationOverrideMin": 20,
+      "note": "워밍업 후 진행 — 천천히",
+      "restAfterMin": 5
+    },
+    {
+      "id": "it_002",
+      "drillId": "dr_fixture_v1_002",
+      "titleCache": "2-1-1 수비 전환 드릴",
+      "durationMinCache": 12,
+      "categoryCache": "수비",
+      "durationOverrideMin": 10,
+      "note": "집중 반복, 콘 간격 좁게",
+      "restAfterMin": 3
+    }
+  ],
+  "drillIds": ["dr_fixture_v1_001", "dr_fixture_v1_002"],
+  "createdAt": 1732000500000,
+  "updatedAt": 1732004200000
+}
