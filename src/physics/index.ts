@@ -69,6 +69,10 @@ export interface PhysicsWorldApi {
   load(cast: DrillCast, step: DrillStep, mode: CourtMode): void;
   step(dtS: number): void;
   read(out?: PhysicsSnapshot): PhysicsSnapshot;
+  /** 물리를 거치지 않은 권위 있는 재배치(키보드 이동 등)를 바디에 밀어 넣는다.
+   *  이걸 안 하면 상태와 물리가 어긋나 다음 드래그가 개체를 옛 자리로 되돌린다.
+   *  순간이동이지 던지기가 아니므로 잔여 속도는 지운다. */
+  setPose(id: CastId, pose: { x: number; y: number; theta?: number }): void;
   beginDrag(hit: HitResult, grabWorld: Vec2): DragHandle | null;
   zoneAt(id: ChairId, worldPt: Vec2): DragZone | null;
   isSettled(): boolean;
@@ -180,6 +184,19 @@ export function createPhysicsWorld(
         }
       }
       return snap;
+    },
+
+    setPose(id, pose) {
+      const kind = kindOf.get(id);
+      if (!kind) return;
+      if (kind === 'chair') {
+        world.setChairPose(id as ChairId, { x: pose.x, y: pose.y, theta: pose.theta ?? 0 }, false);
+      } else {
+        world.setPoint(id, { x: pose.x, y: pose.y }, false);
+      }
+      // driven=false 는 임펄스를 주입하지 않을 뿐 잔여 속도를 지우지 않는다(§5.11 실측).
+      // 키보드 이동 뒤에 개체가 스스로 미끄러지면 안 되므로 확실히 멈춘다.
+      world.freeze(id);
     },
 
     beginDrag(hit, grabWorld) {

@@ -146,3 +146,38 @@ describe('격자 칸 라벨 배선 사슬 (major 회귀: prefs → EditorWorkspa
     expect(container.querySelectorAll('.grid-line').length).toBeGreaterThan(0);
   });
 });
+
+describe('키보드 이동 후 물리 동기화 (회귀)', () => {
+  /** 코트 위 개체의 translate 좌표를 읽는다. */
+  function poseOf(el: Element): { x: number; y: number } {
+    const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(el.getAttribute('transform') ?? '');
+    return { x: Number(m?.[1] ?? NaN), y: Number(m?.[2] ?? NaN) };
+  }
+
+  it('키보드로 옮긴 개체를 마우스로 잡아도 옛 자리로 되돌아가지 않는다', async () => {
+    // 회귀: OBJECT_NUDGE 가 리듀서만 갱신하고 물리 바디는 그대로였다. 그래서 키보드로 옮긴
+    // 개체를 잡는 순간 beginDrag 가 world.chairPose() 로 낡은 자세를 읽어와 개체가 튀었다.
+    // 키보드 조작은 §7.5 접근성 요건이라 이 경로가 특히 중요하다.
+    const user = userEvent.setup();
+    render(<EditorScreen />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: /풀 코트/ }));
+    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+
+    const stage = screen.getByRole('application', { name: '코트 편집 영역' });
+    const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
+    const holder = chair.closest('g[transform]') as SVGGElement;
+    const start = poseOf(holder);
+
+    // 키보드로 오른쪽으로 크게(Shift = 25px) 두 번 민다
+    chair.focus();
+    await user.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}');
+    const nudged = poseOf(holder);
+    expect(nudged.x).toBeGreaterThan(start.x + 40); // 25 × 2 만큼 이동
+
+    // 이제 마우스로 살짝 잡았다 놓는다 — 낡은 물리 자세를 읽으면 여기서 start 로 튄다
+    chair.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 0, clientY: 0, pointerId: 1 }));
+    window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 1, clientY: 0, pointerId: 1 }));
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 1, clientY: 0, pointerId: 1 }));
+    await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(start.x + 40));
+  }, 30000);
+});

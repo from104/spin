@@ -6,7 +6,7 @@ import { forwardRef, useCallback, useMemo, useState } from 'react';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
-import type { ArrowId, ChairId } from '../../core/ids.ts';
+import type { ArrowId, CastId, ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
@@ -112,14 +112,20 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     (id: string, dx: number, dy: number, dThetaRad: number) => {
       if (isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn')) {
         dispatch({ type: 'OBJECT_NUDGE', id, d: { x: dx, y: dy }, dTheta: dThetaRad });
+        // 물리 바디에도 같은 이동을 밀어 넣는다(회귀): 리듀서만 갱신하면 상태와 물리가 어긋나,
+        // 키보드로 옮긴 개체를 다음에 마우스로 잡는 순간 beginDrag 가 낡은 자세를 읽어와
+        // 옛 자리로 되돌린다. 키보드 조작은 §7.5 접근성 요건이라 이 경로가 특히 중요하다.
+        const cur = worldRef.current?.read()[id];
+        if (cur) worldRef.current?.setPose(id as CastId, { x: cur.x + dx, y: cur.y + dy, theta: cur.theta + dThetaRad });
         return;
       }
       if (isId(id, 'nt')) {
+        // 메모는 물리 바디가 없다(§5.3 캐스트만 바디를 가진다) — 상태만 갱신하면 된다.
         const note = step.notes.find((n) => n.id === id);
         if (note) dispatch({ type: 'NOTE_SET', note: { ...note, x: note.x + dx, y: note.y + dy } });
       }
     },
-    [dispatch, step.notes],
+    [dispatch, step.notes, worldRef],
   );
 
   const handleObjectKeyDown = useCallback(

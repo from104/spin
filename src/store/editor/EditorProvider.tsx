@@ -75,15 +75,22 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
     };
   }, [state.present.courtMode]);
 
-  // §6.7 물리 재동기화(blocker 수정): 로스터·코트가 바뀔 때만 world.load 를 다시 부른다.
+  // §6.7 물리 재동기화(blocker 수정): 로스터·코트가 바뀔 때 world.load 를 다시 부른다.
   // [state.present] 전체에 걸면 메모 6글자 타이핑에 25바디 월드가 6번 재생성되고, PLACE_COMMIT 이
-  // writeFrame 을 강제해 굴러가던 공이 제자리로 스냅된다. stepId 는 의도적으로 deps 밖이다.
+  // writeFrame 을 강제해 굴러가던 공이 제자리로 스냅된다 — 그래서 present 전체는 deps 에 없다.
+  //
+  // stepId·epoch 은 반드시 있어야 한다(회귀): 이 둘이 빠져 있던 동안 스텝을 넘기면 화면만
+  // 트윈되고 물리 바디는 이전 스텝 위치에 머물렀다. 그 상태에서 개체를 잡으면 beginDrag 가
+  // world.chairPose() 로 낡은 자세를 읽어와 개체가 이전 스텝 자리로 튀었다.
+  // 두 값은 "편집이 아닌 이유로 표시 자세 집합이 통째로 바뀌었다"는 신호다 —
+  // stepId=스텝 전환, epoch=되돌리기/다시하기·스텝 추가삭제 같은 시점 점프.
+  // 평범한 자세 편집은 steps 만 바꾸고 이 둘을 건드리지 않으므로 재로드가 일어나지 않는다.
   useEffect(() => {
     const idx = selectStepIndex(state);
     const currentStep = state.present.steps[idx];
     if (currentStep) worldRef.current?.load(state.present.cast, currentStep, state.present.courtMode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.present.cast, state.present.courtMode]);
+  }, [state.present.cast, state.present.courtMode, state.stepId, state.epoch]);
 
   // §6.7 스텝 전환 트윈(blocker 수정): 진입점 하나에서 트윈/즉시를 분기한다. immediate=true 는
   // 구조 변경·시점 점프(epoch 증가)에만 — 조건 없이 writeFrame 하면 .6s 전환이 사라진다.
