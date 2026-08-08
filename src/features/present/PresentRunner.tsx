@@ -250,19 +250,36 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
     [drill, starts, baseMs, playbackActions],
   );
 
+  const interstitialTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (interstitialTimer.current !== null) window.clearTimeout(interstitialTimer.current);
+    },
+    [],
+  );
+
   const goDrill = useCallback(
     (delta: number) => {
       if (drills.length < 2) return;
       const next = clamp(drillIndex + delta, 0, drills.length - 1);
       if (next === drillIndex) return;
       const target = drills[next]!;
+
+      // 코트를 **먼저** 새 드릴의 첫 스텝으로 바꾼다. 예전에는 이 네 줄이 아래 setTimeout 안에
+      // 있어서, 오버레이가 "다음 드릴: B" 를 알리는 2초 동안 코트가 이전 드릴 위치에 그대로
+      // 머물렀다 — 체육관에서 보면 전환이 실패한 것처럼 보인다. 이제 오버레이 뒤로 새 드릴의
+      // 시작 배치가 비쳐서, 코치가 제목을 읽는 동안 팀이 대형을 미리 볼 수 있다.
+      setDrillIndex(next);
+      setStepIndex(0);
+      playbackActions.resetMs();
+      setSeekToken((v) => v + 1);
+
       setInterstitial(target);
       liveRegion.say(`다음 드릴: ${target.title}`);
-      window.setTimeout(() => {
-        setDrillIndex(next);
-        setStepIndex(0);
-        playbackActions.resetMs();
-        setSeekToken((v) => v + 1);
+      // 빠르게 연속 전환하면 이전 타이머가 남아 새 오버레이를 조기에 지운다 — 매번 갈아끼운다.
+      if (interstitialTimer.current !== null) window.clearTimeout(interstitialTimer.current);
+      interstitialTimer.current = window.setTimeout(() => {
+        interstitialTimer.current = null;
         setInterstitial(null);
       }, 2000);
     },

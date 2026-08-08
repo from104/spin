@@ -179,3 +179,48 @@ describe('PresentRunner — 세션 시연', () => {
     await waitFor(() => expect(screen.getByLabelText('세션 진행 2/2')).toBeInTheDocument(), { timeout: 3000 });
   }, 8000);
 });
+
+describe('세션 드릴 전환 — 전환 안내 중 코트 상태', () => {
+  /** 오브젝트의 transform 을 모아 위치 지문을 만든다. */
+  function poseFingerprint(): string {
+    return Array.from(document.querySelectorAll('g[transform]'))
+      .map((g) => g.getAttribute('transform')!)
+      .filter((t) => t.startsWith('translate'))
+      .join('|');
+  }
+
+  /** 전 개체를 dx 만큼 옮긴 1스텝 드릴 — 두 드릴의 위치가 확실히 다르게 만든다. */
+  async function makeShiftedDrill(title: string, dx: number): Promise<Drill> {
+    const base = await idbDrillRepo.createDrill({ courtMode: 'full', title, durationMin: 5 });
+    const s0 = base.steps[0]!;
+    const step = {
+      ...s0,
+      id: newId('st'),
+      name: `${title} 스텝`,
+      chairs: Object.fromEntries(Object.entries(s0.chairs).map(([id, p]) => [id, { ...p!, x: p!.x + dx }])),
+    };
+    return idbDrillRepo.putDrill({ ...base, steps: [step] }, { touch: false });
+  }
+
+  it('"다음 드릴" 안내가 떠 있는 2초 동안에도 코트는 이미 새 드릴 배치를 보여준다', async () => {
+    // 회귀: 예전에는 드릴 교체가 통째로 2초 setTimeout 안에 있어서, 안내가 "다음 드릴: B" 를
+    // 알리는 내내 코트가 A 의 위치에 머물렀다. 체육관에서 보면 전환이 실패한 것처럼 보인다.
+    const user = userEvent.setup();
+    const a = await makeShiftedDrill(`전환A ${++seq}`, 0);
+    const b = await makeShiftedDrill(`전환B ${seq}`, 250);
+    const session = await createSession({ title: `전환 세션 ${seq}` });
+    await addDrillToSession(session.id, a.id);
+    await addDrillToSession(session.id, b.id);
+
+    render(<PresentRunner target={{ kind: 'session', sessionId: session.id }} nav={makeNav()} />, { wrapper });
+    await screen.findByRole('img', { name: /시연 화면/ });
+    await waitFor(() => expect(poseFingerprint().length).toBeGreaterThan(0));
+    const atA = poseFingerprint();
+
+    await user.click(screen.getByRole('button', { name: '다음 스텝' }));
+
+    // 안내 오버레이가 아직 떠 있는 시점(2초 이내)에 코트가 이미 바뀌어 있어야 한다.
+    await waitFor(() => expect(poseFingerprint()).not.toBe(atA), { timeout: 1500 });
+    expect(screen.queryAllByText(new RegExp(`전환B ${seq}`)).length).toBeGreaterThan(0);
+  }, 30000);
+});
