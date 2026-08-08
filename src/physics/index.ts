@@ -29,6 +29,7 @@ import {
 } from './drag.ts';
 import type { DragSession } from './drag.ts';
 import type { HitContext, HitResult } from './hitTest.ts';
+import { grabPoint as grabPointOf } from './kinematics.ts';
 
 export { CAT, applyStaticSurface, createChairBody, createBallBody, createConeBody, createWalls } from './bodies.ts';
 export { ENGINE_OPTS, createWorld, freezeKinematic, clampBodySpeed, applyRollingDecel, escapePinnedAll } from './world.ts';
@@ -62,6 +63,9 @@ export interface PhysicsSnapshot {
 }
 export interface DragHandle {
   readonly zone: DragZone | null;
+  /** 지금 잡고 있는 지점(앵커)의 월드 좌표. 리시(연결선)는 피벗이 아니라 여기서 나가야 한다 —
+   *  로프는 실제로 이 점에 묶여 있고(§5.5 C), 피벗에서 그리면 어느 존을 잡았든 똑같아 보인다. */
+  readonly grabPoint: Vec2 | null;
   move(worldPt: Vec2, nowMs: number): void;
   end(): void;
 }
@@ -225,6 +229,14 @@ export function createPhysicsWorld(
       const handle: DragHandle = {
         get zone() {
           return session?.zone ?? null;
+        },
+        get grabPoint() {
+          if (!session) return null;
+          const cur: ChairPose =
+            session.kind === 'chair'
+              ? world.chairPose(session.id as ChairId)
+              : { ...world.pointOf(session.id), theta: 0 };
+          return grabPointOf(cur, session.grab);
         },
         move(worldPt, nowMs) {
           if (session) updateDragTarget(session, worldPt, nowMs);

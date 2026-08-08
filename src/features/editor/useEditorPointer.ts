@@ -354,11 +354,19 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         if (id && kind) {
           const cur = ctx.worldRef.current?.read()?.[id];
           if (cur) {
-            const d = Math.hypot(cur.x - world.x, cur.y - world.y);
+            // 리시는 **잡은 지점(앵커)** 에서 나가야 한다. 예전에는 피벗(cur)에서 그려서
+            // 어느 존을 잡았든 선이 늘 회전축 한가운데에 붙어 보였고, 그래서 조작 자체가
+            // 피벗을 끄는 것처럼 읽혔다. 로프는 실제로 앵커에 묶여 있다(§5.5 C).
+            const anchor = dragHandleRef.current?.grabPoint ?? { x: cur.x, y: cur.y };
+            const d = Math.hypot(anchor.x - world.x, anchor.y - world.y);
             const leashPx = INTERACT.leashVisibleAtPx / metricsRef.current.pxPerUnit;
             if (d > leashPx) {
-              selectionOverlayRef.current?.setLeash({ x: cur.x, y: cur.y }, world);
-              selectionOverlayRef.current?.setGhost(kind, world.x, world.y, kind === 'chair' ? cur.theta : 0);
+              selectionOverlayRef.current?.setLeash(anchor, world);
+              // 고스트도 "앵커가 포인터에 닿았을 때의 자세" 로 놓는다 — 피벗을 포인터에
+              // 두면 앞범퍼를 잡았을 때 차체 한 칸만큼 어긋나 보인다.
+              const offX = anchor.x - cur.x;
+              const offY = anchor.y - cur.y;
+              selectionOverlayRef.current?.setGhost(kind, world.x - offX, world.y - offY, kind === 'chair' ? cur.theta : 0);
             } else {
               selectionOverlayRef.current?.setLeash(null, null);
               selectionOverlayRef.current?.setGhost(null, 0, 0, 0);
