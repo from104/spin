@@ -197,23 +197,73 @@ describe('G4 후방 견인 부호', () => {
   });
 });
 
-describe('G5 로프 반전 안정성 (blocker 회귀)', () => {
-  it('40px 뒤로 끈 뒤 되밀기 — ε=±1,±0.2 모두 |θ|<0.01°', () => {
-    for (const eps of [1, -1, 0.2, -0.2]) {
-      const pose0: Pose = { x: 0, y: 0, theta: 0 };
-      const grab = latchFromSLat(0.06, 0);
-      const G0 = grabPoint(pose0 as never, grab);
-      let pose: Pose = pose0;
+describe('G5 로프 이완 · 견인 회전 (blocker 회귀)', () => {
+  // 2026-08-09 정정: 이완 판정을 "로프 방향과 90°를 넘는가"(err·eB<0)에서
+  // "목표점이 로프 원 안인가"(|T−P| < rho)로 바꿨다. 앞의 것은 옆으로 비스듬히 끄는
+  // 정상 제스처까지 회전을 죽였다(전방 앵커 135° 방향 1초 → θ=0.0°, 미끄러지기만 함).
+  // 아래 세 성질이 동시에 성립해야 한다.
+
+  it('끌어 놓고 살짝 되밀어 미세 조정하면 차체가 돌지 않는다 (원래 가드의 목적)', () => {
+    // 매 드래그마다 일어나는 동작이라 여기서 방향이 흔들리면 못 쓴다.
+    for (const s of [1.0, 0.0]) {
+      const grab = latchFromSLat(s, 0);
+      const dir = s >= 0.5 ? 1 : -1;
+      for (const eps of [1, -1, 0.2, -0.2]) {
+        let pose: Pose = { x: 300, y: 250, theta: 0 };
+        const G0 = grabPoint(pose as never, grab);
+        for (let k = 1; k <= 84; k++) {
+          const t = k * DT;
+          pose = stepTow({ pose: pose as never, grab, target: { x: G0.x + dir * 40 * Math.min(1, t / 0.6), y: G0.y }, dt: DT }, LIM);
+        }
+        const Gc = grabPoint(pose as never, grab);
+        for (let k = 0; k < 84; k++) {
+          pose = stepTow({ pose: pose as never, grab, target: { x: Gc.x - dir * 6, y: Gc.y + eps }, dt: DT }, LIM);
+        }
+        expect(Math.abs(pose.theta * DEG)).toBeLessThan(0.01);
+      }
+    }
+  });
+
+  it('로프 원 밖으로 크게 되밀면 회전하되, 그 양이 섭동에 연속이다', () => {
+    // 반대편까지 끌고 가면 도는 게 물리적으로 맞다. 문제였던 것은 회전 여부가 아니라
+    // 손떨림 0.2px 에 ∓167° 로 갈리던 것 — 반경 게인으로 연속이 됐는지를 본다.
+    const grab = latchFromSLat(1.0, 0);
+    const run = (eps: number): number => {
+      let pose: Pose = { x: 300, y: 250, theta: 0 };
+      const G0 = grabPoint(pose as never, grab);
       for (let k = 1; k <= 84; k++) {
         const t = k * DT;
-        const target = { x: G0.x - 40 * Math.min(1, t / 0.6), y: G0.y };
-        pose = stepTow({ pose: pose as never, grab, target, dt: DT }, LIM);
+        pose = stepTow({ pose: pose as never, grab, target: { x: G0.x + 40 * Math.min(1, t / 0.6), y: G0.y }, dt: DT }, LIM);
       }
       for (let k = 0; k < 84; k++) {
-        const target = { x: G0.x, y: G0.y + eps };
-        pose = stepTow({ pose: pose as never, grab, target, dt: DT }, LIM);
+        pose = stepTow({ pose: pose as never, grab, target: { x: G0.x - 40, y: G0.y + eps }, dt: DT }, LIM);
       }
-      expect(Math.abs(pose.theta * DEG)).toBeLessThan(0.01);
+      return pose.theta * DEG;
+    };
+    const big = run(1);
+    const small = run(0.2);
+    // 부호는 섭동 부호를 따르고, 크기는 섭동에 비례한다(반전·폭주 없음)
+    expect(Math.sign(big)).toBe(1);
+    expect(Math.sign(run(-1))).toBe(-1);
+    expect(Math.abs(run(-1) + big)).toBeLessThan(0.01); // 좌우 대칭
+    expect(Math.abs(small)).toBeLessThan(Math.abs(big)); // 작은 섭동 → 작은 회전
+    expect(Math.abs(big)).toBeLessThan(30); // 폭주하지 않는다(예전엔 167°)
+  });
+
+  it('앵커를 비스듬히 끌면 차체가 따라 돈다 (사용자 신고 회귀)', () => {
+    // 신고: "앞뒤 앵커의 드래그 각도가 급하면 칩 회전이 안 된다. 자연스럽지 않다."
+    for (const [s, label] of [
+      [1.0, '전방 앵커'],
+      [0.0, '후방 앵커'],
+    ] as const) {
+      const grab = latchFromSLat(s, 0);
+      const start: Pose = { x: 300, y: 250, theta: 0 };
+      const G0 = grabPoint(start as never, grab);
+      // 로프 방향과 135° — 예전 가드(err·eB<0)가 회전을 완전히 죽이던 각도
+      const target = { x: G0.x + (s >= 0.5 ? -90 : 90), y: G0.y + 90 };
+      let pose: Pose = start;
+      for (let k = 0; k < 120; k++) pose = stepTow({ pose: pose as never, grab, target, dt: DT }, LIM);
+      expect(Math.abs(pose.theta * DEG), `${label} 가 돌지 않았다`).toBeGreaterThan(30);
     }
   });
 });

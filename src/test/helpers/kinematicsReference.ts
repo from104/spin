@@ -123,7 +123,10 @@ export function stepSpinGolden(
   return { x: pose.x, y: pose.y, theta: pose.theta + delta };
 }
 
-/** (C) tow — §5.5. 단방향 로프(밀 수 없음) + 로프 길이 정확 유지. */
+/** (C) tow — §5.5. 단방향 로프(밀 수 없음) + 로프 길이 정확 유지 + 피벗 통과 반경 게인.
+ *  이완 판정은 "목표점이 로프 원 안인가"(|T−P| < rho) 다 — 링크 길이가 rho 로 고정이므로
+ *  원 안쪽 점은 압축 없이는 닿을 수 없다. 로프 방향과의 각도로 판정하면 옆으로 비스듬히 끄는
+ *  정상 제스처까지 회전이 죽는다(2026-08-09 정정). */
 export function stepTowGolden(
   pose: ChairPoseGolden,
   grab: GrabLatchGolden,
@@ -133,8 +136,9 @@ export function stepTowGolden(
   const eB = unitFwdGolden(pose.theta + grab.beta);
   const g = grabPointGolden(pose, grab);
   const err = { x: target.x - g.x, y: target.y - g.y };
-  const alongB = err.x * eB.x + err.y * eB.y;
-  if (alongB < 0) {
+  const toPivotX = target.x - pose.x;
+  const toPivotY = target.y - pose.y;
+  if (Math.hypot(toPivotX, toPivotY) < grab.rho) {
     // 로프 이완 — 밀 수 없다. 회전 없이 평행 이동만.
     const d = clampMagGolden(err, GOLDEN_PARAMS.vLin * dt);
     return { x: pose.x + d.x, y: pose.y + d.y, theta: pose.theta };
@@ -153,7 +157,9 @@ export function stepTowGolden(
   const d = { x: gt.x - pr.x, y: gt.y - pr.y };
   const thetaR = Math.atan2(d.y, d.x) - grab.beta;
   const maxDelta = GOLDEN_PARAMS.omega * dt;
-  const delta = Math.max(-maxDelta, Math.min(maxDelta, wrapPiGolden(thetaR - pose.theta)));
+  // 반경 게인 — 잡은 점이 피벗 위를 지날 때 헤딩이 정의되지 않는 특이점을 감쇠한다.
+  const turnGain = Math.min(1, rLen / Math.max(grab.rho * 0.5, 1e-6));
+  const delta = Math.max(-maxDelta, Math.min(maxDelta, wrapPiGolden(thetaR - pose.theta) * turnGain));
   const thetaP = pose.theta + delta;
   const eB2 = unitFwdGolden(thetaP + grab.beta);
   const pr2 = { x: gt.x - grab.rho * eB2.x, y: gt.y - grab.rho * eB2.y };
