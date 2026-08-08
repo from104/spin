@@ -4,6 +4,18 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // cube 밖(gofu 등 같은 LAN)에서 붙을 수 있게 0.0.0.0 바인딩.
+    // 기본값(localhost)이면 cube 안에서만 열린다.
+    host: true,
+    // Vite 의 DNS 리바인딩 보호. IP 로 붙을 땐 필요 없지만 http://cube:5173 처럼
+    // 호스트명으로 붙으려면 여기 있어야 통과한다.
+    allowedHosts: ['cube', 'cube.local'],
+  },
+  preview: {
+    host: true,
+    allowedHosts: ['cube', 'cube.local'],
+  },
   test: {
     environment: 'jsdom',
     globals: true,
