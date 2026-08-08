@@ -53,6 +53,13 @@ export const ConeMark = memo(function ConeMark({
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
+      {/* 선택 링 — ChairChip·BallDot 과 같은 2겹 규약 */}
+      {selected && (
+        <g className="sel-ring" pointerEvents="none">
+          <circle cx={0} cy={0} r={9.5} fill="none" stroke="rgba(0,0,0,.65)" strokeWidth={4} />
+          <circle cx={0} cy={0} r={9.5} fill="none" stroke="var(--accent)" strokeWidth={2} strokeDasharray="4.5 3" />
+        </g>
+      )}
       <path d={TRIANGLE_D} fill={fill} stroke={OBJ_STROKE} strokeWidth={1.6} />
       {colorIndex === 1 && <path d={BASE_D} fill={fill} stroke={OBJ_STROKE} strokeWidth={1.6} />}
       <circle className="focus-ind-outer" cx={0} cy={0} r={9} />

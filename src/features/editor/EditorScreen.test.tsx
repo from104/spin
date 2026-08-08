@@ -181,3 +181,37 @@ describe('키보드 이동 후 물리 동기화 (회귀)', () => {
     await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(start.x + 40));
   }, 30000);
 });
+
+describe('선택 표시와 4개 드래그 존', () => {
+  async function openEditor() {
+    const user = userEvent.setup();
+    render(<EditorScreen />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: /풀 코트/ }));
+    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+    return { user, stage: screen.getByRole('application', { name: '코트 편집 영역' }) };
+  }
+
+  it('선택 전에는 선택 링·존 커서·핸들이 하나도 없다', async () => {
+    const { stage } = await openEditor();
+    expect(stage.querySelectorAll('.sel-ring')).toHaveLength(0);
+    expect(stage.querySelectorAll('.court-obj rect[style*="cursor"]')).toHaveLength(0);
+  });
+
+  it('휠체어를 고르면 선택 링 1개와 존 커서 4개(=4존)가 그 칩에만 생긴다', async () => {
+    // 코트에 9대가 있으므로 "선택된 것에만" 이 지켜지는지가 핵심이다 —
+    // 전부에 붙으면 어느 칩이 조작 대상인지 흐려진다.
+    const { user, stage } = await openEditor();
+    // jsdom 은 getBoundingClientRect 가 0 이라 포인터→월드 변환이 성립하지 않는다.
+    // 선택 자체는 키보드 경로(§7.5)로 하고, 그 결과 렌더만 본다.
+    const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
+    chair.focus();
+    await user.keyboard('{Enter}');
+
+    expect(stage.querySelectorAll('.sel-ring')).toHaveLength(1);
+    const zoneRects = stage.querySelectorAll('.court-obj rect[style*="cursor"]');
+    expect(zoneRects).toHaveLength(4); // towRear · translate · spin · towFront
+    // 네 구간의 커서가 서로 달라야 어느 게 무슨 동작인지 구분된다
+    const cursors = new Set(Array.from(zoneRects).map((r) => r.getAttribute('style')));
+    expect(cursors.size).toBe(4);
+  });
+});

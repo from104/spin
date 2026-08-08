@@ -62,6 +62,12 @@ export function EditorWorkspace() {
     badge: '편집중',
     primary: { label: autosave.status === 'saving' ? '저장 중…' : '저장', onAction: () => void autosave.flush() },
     presentButton: { onAction: () => nav.go('present') },
+    history: {
+      canUndo: state.past.length > 0,
+      canRedo: state.future.length > 0,
+      onUndo: () => dispatch({ type: 'UNDO' }),
+      onRedo: () => dispatch({ type: 'REDO' }),
+    },
     courtSwitch: {
       value: drill.courtMode,
       locked: true,

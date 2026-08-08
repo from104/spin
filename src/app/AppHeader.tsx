@@ -10,7 +10,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { CSSProperties, ReactNode } from 'react';
 import { Button } from '../ui/Button.tsx';
 import { Segmented } from '../ui/Segmented.tsx';
-import { IconLock, IconPresent, IconSearch } from '../ui/icons.tsx';
+import { IconLock, IconPresent, IconSearch, IconUndo, IconRedo } from '../ui/icons.tsx';
 import type { CourtMode } from '../model/court.ts';
 
 export interface HeaderPrimaryAction {
@@ -40,6 +40,15 @@ export interface HeaderConfig {
   presentButton?: { onAction(): void } | null;
   search?: HeaderSearch | null;
   courtSwitch?: HeaderCourtSwitch | null;
+  /** 편집기 되돌리기/다시하기. 단축키(Ctrl+Z/Y)만으로는 존재를 알 수 없어 버튼으로도 낸다. */
+  history?: HeaderHistory | null;
+}
+
+export interface HeaderHistory {
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo(): void;
+  onRedo(): void;
 }
 
 const EMPTY_CONFIG: HeaderConfig = { title: '' };
@@ -75,7 +84,10 @@ function headerConfigEqual(a: HeaderConfig, b: HeaderConfig): boolean {
     a.search?.placeholder === b.search?.placeholder &&
     !!a.courtSwitch === !!b.courtSwitch &&
     a.courtSwitch?.value === b.courtSwitch?.value &&
-    a.courtSwitch?.locked === b.courtSwitch?.locked
+    a.courtSwitch?.locked === b.courtSwitch?.locked &&
+    !!a.history === !!b.history &&
+    a.history?.canUndo === b.history?.canUndo &&
+    a.history?.canRedo === b.history?.canRedo
   );
 }
 
@@ -103,6 +115,7 @@ export function useAppHeader(config: HeaderConfig): void {
     !!config.presentButton,
     config.search ? [config.search.value, config.search.placeholder ?? ''] : null,
     config.courtSwitch ? [config.courtSwitch.value, config.courtSwitch.locked ?? true] : null,
+    config.history ? [config.history.canUndo, config.history.canRedo] : null,
   ]);
 
   useEffect(() => {
@@ -116,6 +129,14 @@ export function useAppHeader(config: HeaderConfig): void {
       presentButton: c.presentButton ? { onAction: () => latest.current.presentButton?.onAction() } : null,
       search: c.search
         ? { value: c.search.value, placeholder: c.search.placeholder, onChange: (v) => latest.current.search?.onChange(v) }
+        : null,
+      history: c.history
+        ? {
+            canUndo: c.history.canUndo,
+            canRedo: c.history.canRedo,
+            onUndo: () => latest.current.history?.onUndo(),
+            onRedo: () => latest.current.history?.onRedo(),
+          }
         : null,
       courtSwitch: c.courtSwitch
         ? {
@@ -199,6 +220,7 @@ export function AppHeader({ config: override }: { config?: HeaderConfig }) {
       </div>
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+        {config.history && <HistoryControl cfg={config.history} />}
         {config.courtSwitch && <CourtSwitchControl cfg={config.courtSwitch} />}
 
         {config.search && (
@@ -315,6 +337,48 @@ function CourtSwitchControl({ cfg }: { cfg: HeaderCourtSwitch }) {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** 되돌리기·다시하기. 단축키(Ctrl+Z / Ctrl+Shift+Z)만 있으면 기능이 있다는 사실 자체를
+ *  알 수 없어 버튼으로도 낸다. 히스토리가 비면 disabled 로 두되(자명한 비활성), 툴팁에
+ *  단축키를 적어 키보드 사용자가 옮겨갈 수 있게 한다. */
+function HistoryControl({ cfg }: { cfg: HeaderHistory }) {
+  const btn = (enabled: boolean) => ({
+    width: 44,
+    height: 44,
+    borderRadius: '0.625rem',
+    border: '1px solid var(--border)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: enabled ? 'var(--text)' : 'var(--faint-text)',
+    opacity: enabled ? 1 : 0.45,
+    cursor: enabled ? 'pointer' : 'default',
+  });
+  return (
+    <div style={{ display: 'flex', gap: '0.25rem' }}>
+      <button
+        type="button"
+        aria-label="되돌리기"
+        title="되돌리기 (Ctrl+Z)"
+        disabled={!cfg.canUndo}
+        onClick={cfg.onUndo}
+        style={btn(cfg.canUndo)}
+      >
+        <IconUndo />
+      </button>
+      <button
+        type="button"
+        aria-label="다시하기"
+        title="다시하기 (Ctrl+Shift+Z)"
+        disabled={!cfg.canRedo}
+        onClick={cfg.onRedo}
+        style={btn(cfg.canRedo)}
+      >
+        <IconRedo />
+      </button>
     </div>
   );
 }

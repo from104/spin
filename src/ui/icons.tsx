@@ -290,3 +290,23 @@ export function IconGripDots({ size = 16, ...rest }: IconProps) {
     </svg>
   );
 }
+
+/** 되돌리기 — 반시계 화살표. 다시하기(IconRedo)와 좌우 대칭이라 나란히 놓으면 방향이 읽힌다. */
+export function IconUndo({ size = 17, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
+    </svg>
+  );
+}
+
+/** 다시하기 — IconUndo 의 좌우 반전. */
+export function IconRedo({ size = 17, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M15 14l5-5-5-5" />
+      <path d="M20 9H10a6 6 0 0 0 0 12h3" />
+    </svg>
+  );
+}

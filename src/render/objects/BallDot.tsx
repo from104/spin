@@ -36,6 +36,13 @@ export const BallDot = memo(function BallDot({ id, writer, selected, active, ari
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
+      {/* 선택 링 — 어두운 밑선 + 액센트 파선 2겹(ChairChip 과 동일한 근거: 한 겹이면 개체 색과 겹쳐 사라진다) */}
+      {selected && (
+        <g className="sel-ring" pointerEvents="none">
+          <circle cx={0} cy={0} r={BALL.viewRadiusPx + 4} fill="none" stroke="rgba(0,0,0,.65)" strokeWidth={4.5} />
+          <circle cx={0} cy={0} r={BALL.viewRadiusPx + 4} fill="none" stroke="var(--accent)" strokeWidth={2.2} strokeDasharray="5 3.5" />
+        </g>
+      )}
       <circle cx={0} cy={0} r={BALL.viewRadiusPx} fill={BALL_FILL} stroke="#fff" strokeWidth={2.4} />
       <circle className="focus-ind-outer" cx={0} cy={0} r={BALL.viewRadiusPx + 5} />
       <circle className="focus-ind-inner" cx={0} cy={0} r={BALL.viewRadiusPx + 5} />

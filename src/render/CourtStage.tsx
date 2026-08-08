@@ -26,6 +26,7 @@ import { ArrowMarkers } from './ArrowMarkers.tsx';
 import { ObjectLayer, type ObjectLayerChair, type ObjectLayerCone } from './ObjectLayer.tsx';
 import { SelectionOverlay, type SelectionOverlayHandle } from './SelectionOverlay.tsx';
 import { ZoneHandles } from './ZoneHandles.tsx';
+import type { ZoneConfig } from '../model/chair.ts';
 import { ArrowHandles } from './ArrowHandles.tsx';
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
@@ -74,6 +75,8 @@ export interface CourtStageProps {
   notes: readonly NoteLabelData[];
   arrows: readonly Arrow[];
   selection: ReadonlySet<string>;
+  /** 편집기에서만 넘긴다 — 차체 위 4개 존에 존별 마우스 커서를 얹는다. */
+  zoneCursors?: ZoneConfig | null;
   /** 로빙 tabindex 대상(§7.5b). */
   activeId: string | null;
   initialFrame?: Readonly<Record<string, { x: number; y: number; theta: number }>>;
@@ -112,6 +115,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     notes,
     arrows,
     selection,
+    zoneCursors,
     activeId,
     initialFrame,
     onObjectPointerDown,
@@ -308,6 +312,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
         arrows={arrows}
         markerUid={markerUid}
         selection={selection}
+        zoneCursors={zoneCursors}
         activeId={activeId}
         initialFrame={initialFrame}
         onObjectPointerDown={onObjectPointerDown}

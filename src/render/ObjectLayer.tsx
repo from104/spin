@@ -13,6 +13,7 @@ import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 import type { Arrow } from '../model/arrow.ts';
 import type { NoteLabel as NoteLabelData } from '../model/drill.ts';
 import type { TransformWriter } from './transformWriter.ts';
+import type { ZoneConfig } from '../model/chair.ts';
 import { ChairChip } from './objects/ChairChip.tsx';
 import { BallDot } from './objects/BallDot.tsx';
 import { ConeMark } from './objects/ConeMark.tsx';
@@ -40,6 +41,8 @@ export interface ObjectLayerProps {
   /** ArrowMarkers 가 이 SVG 루트에 만든 `useId()` 접두사. */
   markerUid: string;
   selection: ReadonlySet<string>;
+  /** 편집기에서만 넘긴다 — 차체 위 4개 존에 존별 마우스 커서를 얹는다. */
+  zoneCursors?: ZoneConfig | null;
   /** 로빙 tabindex 대상(§7.5b `aria-activedescendant`). */
   activeId: string | null;
   /** 마운트 첫 페인트에 즉시 확정할 프레임(§6.2 요건 2) — 드릴 재마운트·스텝 점프 직후에도 채운다. */
@@ -57,6 +60,7 @@ export function ObjectLayer({
   arrows,
   markerUid,
   selection,
+  zoneCursors,
   activeId,
   initialFrame,
   onObjectPointerDown,
@@ -112,6 +116,7 @@ export function ObjectLayer({
           selected={selection.has(c.id)}
           active={activeId === c.id}
           ariaLabel={c.ariaLabel}
+          zoneCursors={zoneCursors}
           onPointerDown={onObjectPointerDown}
           onKeyDown={onObjectKeyDown}
         />

@@ -254,6 +254,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     return { x: snap.x, y: snap.y, theta: snap.theta };
   }, [selection, worldRef]);
 
+  // 휠체어를 고르면 4개 드래그 포인트를 항상 보여준다. 예전에는 pointer.handlesVisibleForSelection
+  // (터치 + 많이 축소했을 때)에만 떠서, 마우스 사용자는 4존이 존재한다는 사실 자체를 알 수 없었다 —
+  // 차체 어디를 잡느냐로 동작이 갈리는 게 이 앱의 핵심 조작이라 선택 즉시 상시 노출한다.
+  const showZoneHandles = selectedChair !== null;
+
   const selectedArrow = useMemo(() => {
     const id = Array.from(selection).find((x) => isId(x, 'ar')) as ArrowId | undefined;
     return id ? (step.arrows.find((a) => a.id === id) ?? null) : null;
@@ -278,12 +283,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       notes={step.notes}
       arrows={arrows}
       selection={selection}
+      zoneCursors={zones}
       activeId={activeId}
       initialFrame={initialFrame}
       onObjectKeyDown={handleObjectKeyDown}
       onContainerKeyDown={handleContainerKeyDown}
       selectionOverlayRef={pointer.selectionOverlayRef}
-      zoneHandles={{ pose: selectedChair, visible: pointer.handlesVisibleForSelection, activeZone: pointer.activeZone }}
+      zoneHandles={{ pose: selectedChair, visible: showZoneHandles, activeZone: pointer.activeZone }}
       arrowHandles={{ arrow: selectedArrow }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />
