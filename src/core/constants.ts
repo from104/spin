@@ -121,11 +121,12 @@ export const INTERACT = {
   handleViewRadiusCssPx: 11,
   /** 핸들의 월드 고정 레버(px). 렌더 위치와 래치 레버가 같은 함수에서 나와야 스냅이 없다.
    *
-   *  앞뒤 두 핸들(towRear·towFront)은 "줄을 매달아 끌고 간다"는 컨셉이므로 차체에서 확실히
-   *  떨어뜨려 놓는다 — 차체는 뒤끝 −7.5, 앞범퍼 +30 이니 각각 42.5 px(1.7 m) 씩 띄운 값이다.
+   *  앞뒤 두 핸들(towRear·towFront)은 "줄을 매달아 끌고 간다"는 컨셉이므로 차체에서 떼어 놓는다.
+   *  차체는 뒤끝 −7.5, 앞범퍼 +30 이니 아래 값은 양쪽 다 **15 px(0.6 m)** 씩 띄운 것이다.
    *  붙여 놓으면 몸통에 얹힌 안쪽 두 핸들과 구분이 안 되고, 끌고 가는 동작이라는 것도 안 읽힌다.
-   *  레버가 길어지면 로프도 길어져 견인이 덜 예민해진다(rho 가 곧 로프 길이, §5.5 C). */
-  handleLeverPx: { towRear: -50, translate: 0, spin: 22.5, towFront: 72.5 } as const,
+   *  반대로 너무 떼면(42.5 px 로 해봤다) 기본 포메이션에서 옆 칩까지 넘어가 소속이 헷갈리고
+   *  손이 멀어 조작이 번거롭다. 15 px 이 "떨어져 있다"가 읽히는 최소치다. */
+  handleLeverPx: { towRear: -22.5, translate: 0, spin: 22.5, towFront: 45 } as const,
   pickPadCssPx: 6,
   releaseChaseMs: 4000, // 손을 뗀 뒤 목표까지 계속 따라감
   leashVisibleAtPx: 4, // |T−G| 가 이보다 크면 리시·고스트 표시

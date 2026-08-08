@@ -246,18 +246,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     [activeId, cursor, dispatch, drill.courtMode, order, pointer, stageRef, tool],
   );
 
-  const selectedChair = useMemo(() => {
-    const id = Array.from(selection).find((x) => isId(x, 'ch')) as ChairId | undefined;
-    if (!id) return null;
-    const snap = worldRef.current?.read()[id];
-    if (!snap) return null;
-    return { x: snap.x, y: snap.y, theta: snap.theta };
-  }, [selection, worldRef]);
-
-  // 휠체어를 고르면 4개 드래그 포인트를 항상 보여준다. 예전에는 pointer.handlesVisibleForSelection
-  // (터치 + 많이 축소했을 때)에만 떠서, 마우스 사용자는 4존이 존재한다는 사실 자체를 알 수 없었다 —
-  // 차체 어디를 잡느냐로 동작이 갈리는 게 이 앱의 핵심 조작이라 선택 즉시 상시 노출한다.
-  const showZoneHandles = selectedChair !== null;
+  // 선택된 휠체어 id 만 넘긴다 — 좌표는 ZoneHandles 가 writer 팔로워로 직접 따라간다.
+  // 예전에는 여기서 월드 pose 를 useMemo 로 읽어 넘겼는데, deps 가 [selection] 이라
+  // 칩을 드래그해도 갱신되지 않아 핸들만 선택 시점 자리에 남았다(= 따로 놀았다).
+  const selectedChairId = useMemo(
+    () => (Array.from(selection).find((x) => isId(x, 'ch')) as ChairId | undefined) ?? null,
+    [selection],
+  );
 
   const selectedArrow = useMemo(() => {
     const id = Array.from(selection).find((x) => isId(x, 'ar')) as ArrowId | undefined;
@@ -289,7 +284,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       onObjectKeyDown={handleObjectKeyDown}
       onContainerKeyDown={handleContainerKeyDown}
       selectionOverlayRef={pointer.selectionOverlayRef}
-      zoneHandles={{ pose: selectedChair, visible: showZoneHandles, activeZone: pointer.activeZone }}
+      zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
       arrowHandles={{ arrow: selectedArrow }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />

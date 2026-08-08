@@ -135,7 +135,12 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       pointerType: metricsRef.current.pointerType,
       selectedChairId,
       selectedArrowId,
-      handlesVisible: computeHandlesVisible(metricsRef.current.pxPerUnit, metricsRef.current.pointerType, ctx.forceHandlesVisible),
+      // 히트 게이트는 **화면에 보이는 것과 같아야** 한다(회귀): 예전에는 여기만
+      // computeHandlesVisible(터치 + 많이 축소)로 판정해서, 마우스에서는 핸들이 그려져
+      // 있는데도 hitTest 가 zoneHandle 을 절대 돌려주지 않았다 — 특히 차체 밖 앞뒤 핸들은
+      // 눌러도 빈 코트로 떨어져 선택만 해제됐다. 렌더가 "선택된 칩이면 표시" 이므로
+      // 히트도 같은 조건을 쓴다.
+      handlesVisible: selectedChairId !== null,
       tool,
     };
   }, []);

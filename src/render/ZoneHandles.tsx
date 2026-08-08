@@ -1,12 +1,19 @@
-// §5.12/§6.4 존 핸들. 렌더 위치는 물리-world 의 `zoneHandles()` 와 **같은 함수**
-// (`model/chair.ts` 의 `pointAtLever`)에서 나온다 — 다른 값을 쓰면 핸들을 잡을 때
-// 41px(1.65m) 스냅이 생긴다(§5.12 blocker). render-stage 는 physics 런타임을 의존하지 않으므로
-// (§8) physics-world 의 zoneHandles() 를 호출하지 않고, 그 함수가 내부적으로 쓰는 것과
-// 동일한 model 함수를 직접 호출해 일치를 보장한다.
+// §5.12/§6.4 존 핸들.
+//
+// 좌표계: 핸들은 **차체 로컬 프레임**에 그리고, 그룹 전체가 TransformWriter 의 팔로워로
+// 등록되어 칩과 똑같은 transform 을 받는다. 로컬에서 핸들 위치는 그냥 (lever, 0) 이므로
+// 물리쪽 `zoneHandles()`(= `pointAtLever`)와 정의상 같은 점이 된다 — §5.12 blocker 가 경고한
+// "렌더 위치와 래치 레버가 다르면 41px 스냅" 이 구조적으로 불가능해진다.
+//
+// 예전에는 월드 좌표를 React 로 계산해 그렸는데, 그 값이 선택 시점의 pose 로 고정돼
+// 칩을 드래그하면 핸들만 제자리에 남았다(= 따로 놀았다). 60fps 로 움직이는 것은 React 가
+// 아니라 writer 여야 한다(§6.1 규칙 1).
+import { useEffect, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { INTERACT } from '../core/constants.ts';
-import type { ChairPose, DragZone } from '../model/chair.ts';
-import { pointAtLever } from '../model/chair.ts';
+import { CHAIR, INTERACT } from '../core/constants.ts';
+import type { ChairId } from '../core/ids.ts';
+import type { DragZone } from '../model/chair.ts';
+import type { TransformWriter } from './transformWriter.ts';
 import { ZONE_CURSOR, ZONE_GLYPH } from './zoneCursors.ts';
 
 const ZONE_ORDER: readonly DragZone[] = ['towRear', 'translate', 'spin', 'towFront'];
@@ -18,16 +25,26 @@ const ZONE_LABEL: Record<DragZone, string> = {
 };
 
 export interface ZoneHandlesProps {
-  pose: ChairPose | null;
+  /** 선택된 휠체어. null 이면 아무것도 그리지 않는다(§ 선택된 칩에만 표시). */
+  chairId: ChairId | null;
+  writer: TransformWriter;
   pxPerUnit: number;
-  visible: boolean;
   /** 현재 hover 중이거나(마우스/펜) 드래그로 래치된 존 — 강조 표시(§5.12 hover 프리뷰). */
   activeZone: DragZone | null;
   onPointerDown?(zone: DragZone, e: ReactPointerEvent<SVGGElement>): void;
 }
 
-export function ZoneHandles({ pose, pxPerUnit, visible, activeZone, onPointerDown }: ZoneHandlesProps) {
-  if (!visible || !pose) return null;
+export function ZoneHandles({ chairId, writer, pxPerUnit, activeZone, onPointerDown }: ZoneHandlesProps) {
+  const ref = useRef<SVGGElement | null>(null);
+
+  useEffect(() => {
+    if (!chairId) return;
+    writer.registerFollower(chairId, ref.current);
+    return () => writer.registerFollower(chairId, null);
+  }, [writer, chairId]);
+
+  if (!chairId) return null;
+
   const viewR = INTERACT.handleViewRadiusCssPx / pxPerUnit;
   const hitR = INTERACT.handleHitRadiusCssPx / pxPerUnit;
   // 차체 위에 얹히는 두 핸들(평행 이동·제자리 회전)은 시각적으로 줄인다 — 전체 코트가 보이는
@@ -36,39 +53,24 @@ export function ZoneHandles({ pose, pxPerUnit, visible, activeZone, onPointerDow
   const INNER_SCALE = 0.68;
 
   return (
-    <g aria-hidden="true">
+    <g ref={ref} aria-hidden="true">
       {ZONE_ORDER.map((zone) => {
         const lever = INTERACT.handleLeverPx[zone];
-        const pos = pointAtLever(pose, lever);
         const active = zone === activeZone;
-        const onBody = Math.abs(lever) <= 33;
+        // 차체 실제 범위(뒤끝 −7.5 ~ 앞범퍼 +30) 안이냐로 판정한다. 매직넘버로 두면
+        // 레버 값을 조정할 때마다 어긋난다.
+        const onBody = lever >= -CHAIR.pivotToRearPx && lever <= CHAIR.pivotToFrontPx;
         const r = onBody ? viewR * INNER_SCALE : viewR;
         const glyphScale = (r * 0.78) / 6;
         return (
-          <g key={zone} transform={`translate(${pos.x} ${pos.y})`}>
+          <g key={zone} transform={`translate(${lever} 0)`}>
             {/* 피벗 → 핸들 리더 라인 — 어느 휠체어 소속인지 알린다. 차체 밖 핸들에만 그린다
                 (차체 안쪽 핸들은 선이 몸통에 묻혀 지저분하기만 하다). */}
             {!onBody && (
-              <line
-                x1={0}
-                y1={0}
-                x2={pose.x - pos.x}
-                y2={pose.y - pos.y}
-                stroke="rgba(0,0,0,.5)"
-                strokeWidth={2.6}
-                strokeLinecap="round"
-              />
-            )}
-            {!onBody && (
-              <line
-                x1={0}
-                y1={0}
-                x2={pose.x - pos.x}
-                y2={pose.y - pos.y}
-                stroke="rgba(255,255,255,.7)"
-                strokeWidth={1}
-                strokeDasharray="3 3"
-              />
+              <>
+                <line x1={0} y1={0} x2={-lever} y2={0} stroke="rgba(0,0,0,.5)" strokeWidth={2.6} strokeLinecap="round" />
+                <line x1={0} y1={0} x2={-lever} y2={0} stroke="rgba(255,255,255,.7)" strokeWidth={1} strokeDasharray="3 3" />
+              </>
             )}
             <circle
               r={hitR}

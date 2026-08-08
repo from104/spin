@@ -14,11 +14,11 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent a
 import type { Vec2 } from '../core/units.ts';
 import { COURT_BG } from '../core/colors.ts';
 import { COURT_DEFS, type CourtMode } from '../model/court.ts';
-import type { ChairPose, DragZone } from '../model/chair.ts';
+import type { DragZone } from '../model/chair.ts';
 import type { Arrow } from '../model/arrow.ts';
 import { arrowColor } from '../model/arrow.ts';
 import type { NoteLabel as NoteLabelData } from '../model/drill.ts';
-import type { BallId } from '../core/ids.ts';
+import type { BallId, ChairId } from '../core/ids.ts';
 import { CourtSurface, type CourtLineVariant } from './CourtSurface.tsx';
 import { GridOverlay } from './GridOverlay.tsx';
 import { RuleZones } from './RuleZones.tsx';
@@ -86,8 +86,8 @@ export interface CourtStageProps {
   ariaDescribedBy?: string;
   selectionOverlayRef?: Ref<SelectionOverlayHandle>;
   zoneHandles?: {
-    pose: ChairPose | null;
-    visible: boolean;
+    /** 선택된 휠체어 id. null 이면 그리지 않는다. 위치는 writer 팔로워로 따라간다. */
+    chairId: ChairId | null;
     activeZone: DragZone | null;
     onPointerDown?: (zone: DragZone, e: ReactPointerEvent<SVGGElement>) => void;
   };
@@ -321,9 +321,9 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       <SelectionOverlay ref={selectionOverlayRef} />
       {zoneHandlesProps && (
         <ZoneHandles
-          pose={zoneHandlesProps.pose}
+          chairId={zoneHandlesProps.chairId}
+          writer={writer}
           pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
-          visible={zoneHandlesProps.visible}
           activeZone={zoneHandlesProps.activeZone}
           onPointerDown={zoneHandlesProps.onPointerDown}
         />
