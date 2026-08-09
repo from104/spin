@@ -18,6 +18,7 @@ import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
 import type { ObjectLayerChair, ObjectLayerCone } from '../../render/ObjectLayer.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
+import { ZONE_CURSOR_DRAGGING } from '../../render/zoneCursors.ts';
 import { useEditorPointer } from './useEditorPointer.ts';
 
 export interface EditorStageProps {
@@ -284,6 +285,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       onObjectKeyDown={handleObjectKeyDown}
       onContainerKeyDown={handleContainerKeyDown}
       selectionOverlayRef={pointer.selectionOverlayRef}
+      dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
       arrowHandles={{ arrow: selectedArrow }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}

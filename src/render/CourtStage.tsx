@@ -96,6 +96,9 @@ export interface CourtStageProps {
     onPointerDown?: (which: 'from' | 'ctrl' | 'to', e: ReactPointerEvent<SVGGElement>) => void;
   };
   keyboardCursor?: { visible: boolean; x: number; y: number; label?: string | null };
+  /** 드래그 중 스테이지 전체에 거는 커서. 포인터 캡처로 커서가 개체 밖으로 나가도
+   *  잡고 있다는 표시가 유지되어야 하므로 컨테이너에 건다. */
+  dragCursor?: string | null;
 }
 
 const STAGE_STYLE: CSSProperties = { touchAction: 'none', userSelect: 'none', width: '100%', height: '100%', display: 'block' };
@@ -126,6 +129,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     zoneHandles: zoneHandlesProps,
     arrowHandles: arrowHandlesProps,
     keyboardCursor,
+    dragCursor,
   },
   ref,
 ) {
@@ -289,7 +293,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       aria-describedby={ariaDescribedBy}
       tabIndex={0}
       className="stage-svg"
-      style={STAGE_STYLE}
+      style={dragCursor ? { ...STAGE_STYLE, cursor: dragCursor } : STAGE_STYLE}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
