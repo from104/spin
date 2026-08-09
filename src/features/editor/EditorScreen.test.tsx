@@ -154,6 +154,20 @@ describe('키보드 이동 후 물리 동기화 (회귀)', () => {
     return { x: Number(m?.[1] ?? NaN), y: Number(m?.[2] ?? NaN) };
   }
 
+  /** 무대에 viewBox 와 1:1 인 실측 rect 를 물린다.
+   *
+   *  jsdom 의 getBoundingClientRect 는 전부 0 이라 computeMetrics 의 pxPerUnit 이 0 이 되고,
+   *  clientToWorld 가 0 으로 나눠 월드 좌표가 통째로 NaN 이 된다. 그러면 포인터가 어디를
+   *  찍든 히트테스트가 성립하지 않아 "마우스로 잡는" 경로가 조용히 아무 일도 안 한다.
+   *  rect 를 viewBox 와 같은 크기·원점 0 으로 주면 pxPerUnit=1, offX=offY=0 이 되어
+   *  client = world − viewBox원점 이라는 1:1 대응이 성립한다(→ toClient). */
+  function stubStageRect(stage: Element): (w: { x: number; y: number }) => { clientX: number; clientY: number } {
+    const [vx, vy, vw, vh] = (stage.getAttribute('viewBox') ?? '0 0 0 0').split(/\s+/).map(Number) as [number, number, number, number];
+    stage.getBoundingClientRect = () =>
+      ({ x: 0, y: 0, left: 0, top: 0, right: vw, bottom: vh, width: vw, height: vh, toJSON: () => ({}) }) as DOMRect;
+    return (w) => ({ clientX: w.x - vx, clientY: w.y - vy });
+  }
+
   it('키보드로 옮긴 개체를 마우스로 잡아도 옛 자리로 되돌아가지 않는다', async () => {
     // 회귀: OBJECT_NUDGE 가 리듀서만 갱신하고 물리 바디는 그대로였다. 그래서 키보드로 옮긴
     // 개체를 잡는 순간 beginDrag 가 world.chairPose() 로 낡은 자세를 읽어와 개체가 튀었다.
@@ -164,6 +178,7 @@ describe('키보드 이동 후 물리 동기화 (회귀)', () => {
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
 
     const stage = screen.getByRole('application', { name: '코트 편집 영역' });
+    const toClient = stubStageRect(stage);
     const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
     const holder = chair.closest('g[transform]') as SVGGElement;
     const start = poseOf(holder);
@@ -174,11 +189,30 @@ describe('키보드 이동 후 물리 동기화 (회귀)', () => {
     const nudged = poseOf(holder);
     expect(nudged.x).toBeGreaterThan(start.x + 40); // 25 × 2 만큼 이동
 
-    // 이제 마우스로 살짝 잡았다 놓는다 — 낡은 물리 자세를 읽으면 여기서 start 로 튄다
-    chair.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 0, clientY: 0, pointerId: 1 }));
-    window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 1, clientY: 0, pointerId: 1 }));
-    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 1, clientY: 0, pointerId: 1 }));
-    await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(start.x + 40));
+    // 이제 밀린 자리를 마우스로 정확히 집었다 놓는다 — 낡은 물리 자세를 읽으면 여기서 start 로 튄다.
+    // ⚠️ 포인터 사건은 반드시 무대 안쪽 엘리먼트에 쏜다. CourtStage 는 네 핸들러를 전부
+    // <svg role="application"> 의 React prop 으로 달아두므로(§6.4), window 에 디스패치하면
+    // 버블링이 무대까지 닿지 않아 잡는 동작이 통째로 일어나지 않는다.
+    const grab = toClient(nudged);
+    chair.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, ...grab, pointerId: 1 }));
+    // 잡기가 진짜로 성립했는지 못을 박는다. 무대에 드래그 커서가 붙는 것이 유일하게 믿을 만한
+    // 증거다 — 이건 controller.onPointerDown(=beginDrag)까지 갔어야만 생긴다. (선택 링은
+    // 증거가 못 된다: 선택은 개체별 DOM 핸들러가 하므로 드래그가 죽어 있어도 1개가 된다.)
+    // 이 단언이 없으면, 잡기 경로가 통째로 죽어도 아래 위치 단언은 키보드 결과를 다시 읽을
+    // 뿐이라 초록불이 뜬다 — 실제로 setPointerCapture 예외로 그렇게 죽어 있었다.
+    await waitFor(() => expect(stage.getAttribute('style') ?? '').toContain('cursor:'));
+    // 오른쪽으로 확실히 끈다. 여기서 개체가 실제로 따라와야 rect 스텁(=유한한 월드 좌표)이
+    // 제 일을 한 것이다 — rect 가 0 이면 월드가 NaN 이라 끌어도 제자리에 머문다.
+    // ⏱ 물리는 rAF tick 에서만 전진한다(§6.4). 89개 파일을 병렬로 돌리면 jsdom 의 타이머가
+    // 굶어 기본 1000ms 안에 몇 틱 못 돈다 — 파일 단독으로는 통과하는데 전체 실행에서만
+    // 깨지는 형태가 된다. 넉넉히 준다(테스트 자체 예산 30s).
+    const DRAG = 30;
+    const SETTLE = { timeout: 10_000 };
+    chair.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: grab.clientX + DRAG, clientY: grab.clientY, pointerId: 1 }));
+    await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(nudged.x + DRAG / 2), SETTLE);
+    chair.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: grab.clientX + DRAG, clientY: grab.clientY, pointerId: 1 }));
+    // 그리고 start 로 튀지 않았다 — 끈 방향(오른쪽)으로 갔지, 옛 자리로 돌아가지 않았다.
+    await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(nudged.x), SETTLE);
   }, 30000);
 });
 
