@@ -18,6 +18,13 @@ export function FullCourtLines({ variant }: FullCourtLinesProps) {
   // spotMarks 중심(112.5/687.5, 250)에서 dx=3.5, dy=variant 별 3(editor)/3.5(present) 만큼
   // 벌린 X 표시 두 개.
   const crossDy = variant === 'present' ? 3.5 : 3;
+  // ★ 외곽선·하프라인·센터서클·골지역을 **COURT_DEFS 에서 파생**한다(리터럴 금지).
+  //   2026-08-10 마진을 1.5 m 로 넓히며 COURT_DEFS 좌표를 전부 옮겼는데 여기 리터럴이 옛
+  //   자리에 남아, 외곽선만 제자리이고 골대·골지역이 선 밖으로 삐져나왔다(기현 실기 신고).
+  //   파일 상단 주석은 진작 "좌표 출처는 COURT_DEFS 하나뿐" 이라고 적혀 있었지만 사실이
+  //   아니었다 — minor #7 가드가 goalPosts/cornerCuts/spotMarks 만 봤기 때문이다.
+  const S = DEF.surface;
+  const [gzL, gzR] = DEF.ruleZones; // 좌·우 골 지역
   const crossD = DEF.spotMarks.map(({ x, y }) => {
     const x1 = x - 3.5;
     const x2 = x + 3.5;
@@ -29,16 +36,16 @@ export function FullCourtLines({ variant }: FullCourtLinesProps) {
   return (
     <>
       <g fill="none" stroke="#ffffff" strokeLinecap="butt">
-        <rect x={25} y={25} width={750} height={450} strokeWidth={w.outline} />
-        <line x1={400} y1={25} x2={400} y2={475} strokeWidth={w.outline} />
-        <circle cx={400} cy={250} r={75} strokeWidth={w.outline} />
+        <rect x={S.x} y={S.y} width={S.w} height={S.h} strokeWidth={w.outline} />
+        <line x1={S.x + S.w / 2} y1={S.y} x2={S.x + S.w / 2} y2={S.y + S.h} strokeWidth={w.outline} />
+        <circle cx={S.x + S.w / 2} cy={S.y + S.h / 2} r={75} strokeWidth={w.outline} />
         {DEF.cornerCuts.map((d) => (
           <path key={d} d={d} strokeWidth={w.outline} />
         ))}
-        <path d="M25,150 L150,150 L150,350 L25,350" strokeWidth={w.goalArea} />
-        <path d="M775,150 L650,150 L650,350 L775,350" strokeWidth={w.goalArea} />
+        <path d={`M${S.x},${gzL!.y} L${gzL!.x + gzL!.w},${gzL!.y} L${gzL!.x + gzL!.w},${gzL!.y + gzL!.h} L${S.x},${gzL!.y + gzL!.h}`} strokeWidth={w.goalArea} />
+        <path d={`M${S.x + S.w},${gzR!.y} L${gzR!.x},${gzR!.y} L${gzR!.x},${gzR!.y + gzR!.h} L${S.x + S.w},${gzR!.y + gzR!.h}`} strokeWidth={w.goalArea} />
       </g>
-      <circle cx={400} cy={250} r={w.centerR} fill="#ffffff" />
+      <circle cx={S.x + S.w / 2} cy={S.y + S.h / 2} r={w.centerR} fill="#ffffff" />
       {w.goalCross !== undefined && (
         <g fill="none" stroke="#ffffff" strokeWidth={w.goalCross} strokeLinecap="round">
           {crossD.map((d) => (

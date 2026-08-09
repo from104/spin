@@ -13,6 +13,9 @@ const DEF = COURT_DEFS.half;
 
 export function HalfCourtLines({ variant }: HalfCourtLinesProps) {
   const w = COURT_LINE_WEIGHTS[variant];
+  // ★ FullCourtLines 와 같은 이유로 좌표를 COURT_DEFS 에서 파생한다(리터럴 금지).
+  const S = DEF.surface;
+  const gz = DEF.ruleZones[0]!;
 
   // 골 십자: spotMarks 중심(250, 312.5)에서 dx=dy=3.5 로 벌린 X 표시 하나 — full 과 달리
   // variant 별 .5px 분기가 마크업에 없다(그대로 보존).
@@ -27,13 +30,19 @@ export function HalfCourtLines({ variant }: HalfCourtLinesProps) {
   return (
     <>
       <g fill="none" stroke="#ffffff" strokeLinecap="butt">
-        <path d="M25,25 L25,400 L475,400 L475,25" strokeWidth={w.outline} />
-        <line x1={25} y1={25} x2={475} y2={25} strokeWidth={w.outline} />
-        <path d="M175,25 A75,75 0 0 0 325,25" strokeWidth={w.outline} />
+        <path
+          d={`M${S.x},${S.y} L${S.x},${S.y + S.h} L${S.x + S.w},${S.y + S.h} L${S.x + S.w},${S.y}`}
+          strokeWidth={w.outline}
+        />
+        <line x1={S.x} y1={S.y} x2={S.x + S.w} y2={S.y} strokeWidth={w.outline} />
+        <path d={`M${S.x + S.w / 2 - 75},${S.y} A75,75 0 0 0 ${S.x + S.w / 2 + 75},${S.y}`} strokeWidth={w.outline} />
         {DEF.cornerCuts.map((d) => (
           <path key={d} d={d} strokeWidth={w.outline} />
         ))}
-        <path d="M150,400 L150,275 L350,275 L350,400" strokeWidth={w.goalArea} />
+        <path
+          d={`M${gz.x},${S.y + S.h} L${gz.x},${gz.y} L${gz.x + gz.w},${gz.y} L${gz.x + gz.w},${S.y + S.h}`}
+          strokeWidth={w.goalArea}
+        />
       </g>
       {w.goalCross !== undefined && (
         <g fill="none" stroke="#ffffff" strokeWidth={w.goalCross} strokeLinecap="round">

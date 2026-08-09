@@ -19,7 +19,7 @@ describe('FullCourtLines', () => {
     const outline = c.querySelector('rect[width="750"][height="450"]');
     expect(outline).not.toBeNull();
     expect(outline).toHaveAttribute('stroke-width', '3');
-    expect(c.querySelector('line[x1="400"]')).not.toBeNull();
+    expect(c.querySelector('line[x1="412.5"]')).not.toBeNull(); // 하프라인 = 경기면 중앙
     expect(c.querySelector('circle[r="75"]')).not.toBeNull();
     // 모서리컷 4개 + 골지역 2개 = path 6개 (골십자 X표시 path 는 stroke-linecap=round 인 별도 g)
     const straightPaths = c.querySelectorAll('g[stroke-linecap="butt"] > path');
@@ -55,8 +55,8 @@ describe('FullCourtLines', () => {
 describe('HalfCourtLines', () => {
   it('editor: 외곽 path·하프라인·센터서클 호·골지역 1개를 그리고 골대 원·센터점은 없다 (§5.4)', () => {
     const c = renderCourt('half', 'editor');
-    expect(c.querySelector('path[d^="M25,25 L25,400"]')).not.toBeNull();
-    expect(c.querySelector('path[d^="M175,25 A75,75"]')).not.toBeNull();
+    expect(c.querySelector('path[d^="M37.5,37.5 L37.5,412.5"]')).not.toBeNull();
+    expect(c.querySelector('path[d^="M187.5,37.5 A75,75"]')).not.toBeNull();
     expect(c.querySelectorAll('g[fill="#f5f5f5"] > circle')).toHaveLength(0);
     expect(c.querySelector('circle[fill="#ffffff"]')).toBeNull();
   });
@@ -111,6 +111,55 @@ describe('FlatCourtLines', () => {
     for (const variant of ['editor', 'present', 'thumb'] as const) {
       const c = renderCourt('flat', variant);
       expect(c.querySelectorAll('svg > *').length).toBe(0);
+    }
+  });
+});
+
+// ── 외곽선도 COURT_DEFS 를 따라간다 (2026-08-10 회귀) ─────────────────────────────────────
+// ⚠️ minor #7 가드는 goalPosts/cornerCuts/spotMarks 만 봤다. 그래서 외곽선·하프라인·
+//    센터서클·골지역이 **리터럴로 남아 있는데도** 전부 초록불이었고, 마진을 1.5 m 로
+//    넓히자 외곽선만 옛 자리에 남아 골대와 골지역이 선 밖으로 삐져나왔다(기현 실기 신고).
+//    파일 상단 주석은 진작 "좌표 출처는 COURT_DEFS 하나뿐" 이라고 적혀 있었다 — 주석이
+//    사실인지 확인하는 테스트가 없었을 뿐이다.
+describe('courtLines — 외곽선·골지역도 COURT_DEFS 에서 파생된다', () => {
+  it('full: surface 를 바꾸면 외곽선 rect 가 따라간다', () => {
+    const original = COURT_DEFS.full.surface;
+    COURT_DEFS.full.surface = { x: 11, y: 22, w: 333, h: 444 };
+    try {
+      const c = renderCourt('full', 'editor');
+      expect(c.querySelector('rect[x="11"][y="22"][width="333"][height="444"]')).not.toBeNull();
+      // 하프라인·센터서클도 경기면 중앙에서 나온다.
+      expect(c.querySelector('line[x1="177.5"]')).not.toBeNull();
+    } finally {
+      COURT_DEFS.full.surface = original;
+    }
+  });
+
+  it('full: ruleZones 를 바꾸면 골 지역 path 가 따라간다', () => {
+    const original = COURT_DEFS.full.ruleZones;
+    COURT_DEFS.full.ruleZones = [
+      { x: 37.5, y: 100, w: 60, h: 70 },
+      { x: 600, y: 100, w: 60, h: 70 },
+    ];
+    try {
+      const c = renderCourt('full', 'editor');
+      const paths = Array.from(c.querySelectorAll('path')).map((p) => p.getAttribute('d') ?? '');
+      expect(paths.some((d) => d.includes('97.5,100'))).toBe(true); // 좌측 골지역 우상단
+      expect(paths.some((d) => d.includes('600,100'))).toBe(true); // 우측 골지역 좌상단
+    } finally {
+      COURT_DEFS.full.ruleZones = original;
+    }
+  });
+
+  it('half: surface 를 바꾸면 외곽 path 와 센터 호가 따라간다', () => {
+    const original = COURT_DEFS.half.surface;
+    COURT_DEFS.half.surface = { x: 10, y: 20, w: 300, h: 200 };
+    try {
+      const c = renderCourt('half', 'editor');
+      expect(c.querySelector('path[d^="M10,20 L10,220"]')).not.toBeNull();
+      expect(c.querySelector('path[d^="M85,20 A75,75"]')).not.toBeNull(); // 중앙 160 − 75
+    } finally {
+      COURT_DEFS.half.surface = original;
     }
   });
 });
