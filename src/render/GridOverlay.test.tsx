@@ -44,20 +44,20 @@ describe('GridOverlay', () => {
     expect(labels[labels.length - 1]).toHaveTextContent('e3');
   });
 
-  it('flat: 강조선(.34) 존재, 칸 라벨 대신 축 헤더(a..t / 1..17)를 그린다', () => {
+  it('flat: 강조선(.34) 존재, 칸 라벨 대신 축 헤더(a..u / 1..18)를 그린다', () => {
     const c = renderGrid('flat');
     const major = c.querySelector('g[opacity="0.34"]');
     expect(major).not.toBeNull();
     // major.vx 5개 + major.hy 4개 = line 9개
     expect(major!.querySelectorAll('line')).toHaveLength(5 + 4);
 
-    // 1 m 격자는 340칸이고 한 칸이 25×25px 뿐이라 칸마다 라벨을 얹으면 판독 불가 노이즈다.
+    // 1 m 격자는 378칸이고 한 칸이 25×25px 뿐이라 칸마다 라벨을 얹으면 판독 불가 노이즈다.
     // 스프레드시트식 축 헤더로 대신한다 — "b4" 로 칸을 지목하는 것은 그대로 된다.
     expect(c.querySelectorAll('.grid-cell-label')).toHaveLength(0);
     const axis = c.querySelectorAll('.grid-axis-label');
-    expect(axis).toHaveLength(20 + 17); // 열 a..t + 행 1..17
+    expect(axis).toHaveLength(21 + 18); // 열 a..u + 행 1..18
     expect(axis[0]).toHaveTextContent('a');
-    expect(axis[axis.length - 1]).toHaveTextContent('17');
+    expect(axis[axis.length - 1]).toHaveTextContent('18');
   });
 
   it('showLabels=false 면 세 모드 모두 라벨 텍스트가 하나도 그려지지 않는다(설정 "격자 칸 라벨 표시" 토글 배선, major #1)', () => {

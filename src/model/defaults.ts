@@ -32,37 +32,39 @@ export function defaultCast(): DrillCast {
   return { chairs, balls: [{ id: newId('bl') }], cones: [] };
 }
 
-// 풀 코트 기본 배치 — 피벗 좌표(px). §3.9 표 그대로.
+// 풀 코트 기본 배치 — 피벗 좌표(px). §3.9 표에서 **사방 +12.5 px 이동**한 값이다:
+// 2026-08-10 코트 외곽 마진을 1.0 → 1.5 m 로 넓히면서 viewBox 원점 대비 경기면이 그만큼
+// 밀렸다. 이걸 안 옮기면 기본 포메이션이 코트에서 0.5 m 치우친다(§3.2 court.ts 주석 참고).
 const FULL_POSITIONS: Record<FormationName, Record<TeamSide, Record<Slot, Vec2>>> = {
   '1-2-1': {
-    home: { G: { x: 62.5, y: 250 }, '2': { x: 310, y: 115 }, '3': { x: 310, y: 385 }, '4': { x: 352, y: 250 } },
-    away: { G: { x: 737.5, y: 250 }, '2': { x: 490, y: 385 }, '3': { x: 490, y: 115 }, '4': { x: 448, y: 250 } },
+    home: { G: { x: 75, y: 262.5 }, '2': { x: 322.5, y: 127.5 }, '3': { x: 322.5, y: 397.5 }, '4': { x: 364.5, y: 262.5 } },
+    away: { G: { x: 750, y: 262.5 }, '2': { x: 502.5, y: 397.5 }, '3': { x: 502.5, y: 127.5 }, '4': { x: 460.5, y: 262.5 } },
   },
   '2-1-1': {
-    home: { G: { x: 62.5, y: 250 }, '2': { x: 190, y: 250 }, '3': { x: 295, y: 169 }, '4': { x: 352, y: 250 } },
-    away: { G: { x: 737.5, y: 250 }, '2': { x: 610, y: 250 }, '3': { x: 505, y: 331 }, '4': { x: 448, y: 250 } },
+    home: { G: { x: 75, y: 262.5 }, '2': { x: 202.5, y: 262.5 }, '3': { x: 307.5, y: 181.5 }, '4': { x: 364.5, y: 262.5 } },
+    away: { G: { x: 750, y: 262.5 }, '2': { x: 622.5, y: 262.5 }, '3': { x: 517.5, y: 343.5 }, '4': { x: 460.5, y: 262.5 } },
   },
   '1-1-2': {
-    home: { G: { x: 62.5, y: 250 }, '2': { x: 220, y: 250 }, '3': { x: 355, y: 133 }, '4': { x: 355, y: 367 } },
-    away: { G: { x: 737.5, y: 250 }, '2': { x: 580, y: 250 }, '3': { x: 445, y: 367 }, '4': { x: 445, y: 133 } },
+    home: { G: { x: 75, y: 262.5 }, '2': { x: 232.5, y: 262.5 }, '3': { x: 367.5, y: 145.5 }, '4': { x: 367.5, y: 379.5 } },
+    away: { G: { x: 750, y: 262.5 }, '2': { x: 592.5, y: 262.5 }, '3': { x: 457.5, y: 379.5 }, '4': { x: 457.5, y: 145.5 } },
   },
 };
-const FULL_BALL: Vec2 = { x: 400, y: 250 };
+const FULL_BALL: Vec2 = { x: 412.5, y: 262.5 };
 
 // 하프 코트 기본 배치 — 포메이션 무관 단일 배치. 홈 GK 는 배치하지 않는다(D7 실사용례).
 const HALF_POSITIONS: Record<TeamSide, Partial<Record<Slot, Vec2>>> = {
-  home: { '2': { x: 140, y: 163.75 }, '3': { x: 352, y: 163.75 }, '4': { x: 250, y: 83.75 } },
-  away: { G: { x: 250, y: 388.25 }, '2': { x: 250, y: 281.25 }, '3': { x: 330, y: 240.25 } },
+  home: { '2': { x: 152.5, y: 176.25 }, '3': { x: 364.5, y: 176.25 }, '4': { x: 262.5, y: 96.25 } },
+  away: { G: { x: 262.5, y: 400.75 }, '2': { x: 262.5, y: 293.75 }, '3': { x: 342.5, y: 252.75 } },
 };
-const HALF_BALL: Vec2 = { x: 250, y: 121 };
+const HALF_BALL: Vec2 = { x: 262.5, y: 133.5 };
 
 // 플랫 코트 기본 배치 — 포메이션 무관 단일 배치.
-const FLAT_X: Record<Slot, number> = { G: 100, '2': 200, '3': 300, '4': 400 };
+const FLAT_X: Record<Slot, number> = { G: 112.5, '2': 212.5, '3': 312.5, '4': 412.5 };
 const FLAT_POSITIONS: Record<TeamSide, Record<Slot, Vec2>> = {
-  home: { G: { x: FLAT_X.G, y: 120 }, '2': { x: FLAT_X['2'], y: 120 }, '3': { x: FLAT_X['3'], y: 120 }, '4': { x: FLAT_X['4'], y: 120 } },
-  away: { G: { x: FLAT_X.G, y: 305 }, '2': { x: FLAT_X['2'], y: 305 }, '3': { x: FLAT_X['3'], y: 305 }, '4': { x: FLAT_X['4'], y: 305 } },
+  home: { G: { x: FLAT_X.G, y: 132.5 }, '2': { x: FLAT_X['2'], y: 132.5 }, '3': { x: FLAT_X['3'], y: 132.5 }, '4': { x: FLAT_X['4'], y: 132.5 } },
+  away: { G: { x: FLAT_X.G, y: 317.5 }, '2': { x: FLAT_X['2'], y: 317.5 }, '3': { x: FLAT_X['3'], y: 317.5 }, '4': { x: FLAT_X['4'], y: 317.5 } },
 };
-const FLAT_BALL: Vec2 = { x: 250, y: 212.5 };
+const FLAT_BALL: Vec2 = { x: 262.5, y: 225 };
 
 function posFor(mode: CourtMode, formation: FormationName, team: TeamSide, number: string): Vec2 | undefined {
   const slot = (SLOTS as string[]).includes(number) ? (number as Slot) : undefined;

@@ -8,9 +8,9 @@ import type { ThumbSpec } from '../model/thumb.ts';
 describe('CourtThumbnail', () => {
   it('mode 별 viewBox 는 COURT_DEFS 의 vbW/vbH 그대로다', () => {
     const { container: full } = render(<CourtThumbnail mode="full" />);
-    expect(full.querySelector('svg')).toHaveAttribute('viewBox', '0 0 800 500');
+    expect(full.querySelector('svg')).toHaveAttribute('viewBox', '0 0 825 525');
     const { container: half } = render(<CourtThumbnail mode="half" />);
-    expect(half.querySelector('svg')).toHaveAttribute('viewBox', '0 0 500 425');
+    expect(half.querySelector('svg')).toHaveAttribute('viewBox', '0 0 525 450');
   });
 
   it('thumb 이 없으면 코트만 그리고 오브젝트 레이어는 없다', () => {

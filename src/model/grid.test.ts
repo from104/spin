@@ -6,19 +6,19 @@ describe('gridGeom full — 6열×5행, 5 m × 3.6 m', () => {
   const g = gridGeom('full');
 
   it('vx / inner.vx', () => {
-    expect(g.vx).toEqual([25, 150, 275, 400, 525, 650, 775]);
-    expect(g.inner.vx).toEqual([150, 275, 400, 525, 650]);
+    expect(g.vx).toEqual([37.5, 162.5, 287.5, 412.5, 537.5, 662.5, 787.5]);
+    expect(g.inner.vx).toEqual([162.5, 287.5, 412.5, 537.5, 662.5]);
   });
 
   it('hy / inner.hy', () => {
-    expect(g.hy).toEqual([25, 115, 205, 295, 385, 475]);
-    expect(g.inner.hy).toEqual([115, 205, 295, 385]);
+    expect(g.hy).toEqual([37.5, 127.5, 217.5, 307.5, 397.5, 487.5]);
+    expect(g.inner.hy).toEqual([127.5, 217.5, 307.5, 397.5]);
   });
 
   it('셀 중심 · 라벨 a1…f5', () => {
     expect(g.cells).toHaveLength(30);
-    const xs = [87.5, 212.5, 337.5, 462.5, 587.5, 712.5];
-    const ys = [70, 160, 250, 340, 430];
+    const xs = [100, 225, 350, 475, 600, 725];
+    const ys = [82.5, 172.5, 262.5, 352.5, 442.5];
     const first = g.cells.find((c) => c.col === 0 && c.row === 0)!;
     expect(first).toMatchObject({ text: 'a1', x: xs[0], y: ys[0] });
     const last = g.cells.find((c) => c.col === 5 && c.row === 4)!;
@@ -34,10 +34,10 @@ describe('gridGeom full — 6열×5행, 5 m × 3.6 m', () => {
     expect(g.axis).toBeUndefined();
   });
 
-  it('내부선이 코트 라인과 겹친다 (x=150·650 골 지역, x=400 하프라인)', () => {
-    expect(g.inner.vx).toContain(150);
-    expect(g.inner.vx).toContain(650);
-    expect(g.inner.vx).toContain(400);
+  it('내부선이 코트 라인과 겹친다 (x=162.5·662.5 골 지역, x=412.5 하프라인)', () => {
+    expect(g.inner.vx).toContain(162.5);
+    expect(g.inner.vx).toContain(662.5);
+    expect(g.inner.vx).toContain(412.5);
   });
 });
 
@@ -45,19 +45,19 @@ describe('gridGeom half — 5열×3행, 3.6 m × 5 m', () => {
   const g = gridGeom('half');
 
   it('vx / inner.vx', () => {
-    expect(g.vx).toEqual([25, 115, 205, 295, 385, 475]);
-    expect(g.inner.vx).toEqual([115, 205, 295, 385]);
+    expect(g.vx).toEqual([37.5, 127.5, 217.5, 307.5, 397.5, 487.5]);
+    expect(g.inner.vx).toEqual([127.5, 217.5, 307.5, 397.5]);
   });
 
   it('hy / inner.hy', () => {
-    expect(g.hy).toEqual([25, 150, 275, 400]);
-    expect(g.inner.hy).toEqual([150, 275]);
+    expect(g.hy).toEqual([37.5, 162.5, 287.5, 412.5]);
+    expect(g.inner.hy).toEqual([162.5, 287.5]);
   });
 
   it('셀 중심 · 라벨 a1…e3', () => {
     expect(g.cells).toHaveLength(15);
-    const xs = [70, 160, 250, 340, 430];
-    const ys = [87.5, 212.5, 337.5];
+    const xs = [82.5, 172.5, 262.5, 352.5, 442.5];
+    const ys = [100, 225, 350];
     const first = g.cells.find((c) => c.col === 0 && c.row === 0)!;
     expect(first).toMatchObject({ text: 'a1', x: xs[0], y: ys[0] });
     const last = g.cells.find((c) => c.col === 4 && c.row === 2)!;
@@ -68,30 +68,30 @@ describe('gridGeom half — 5열×3행, 3.6 m × 5 m', () => {
     }
   });
 
-  it('y=275 는 하프 코트 골 지역 상단 라인과 일치', () => {
-    expect(g.inner.hy).toContain(275);
+  it('y=287.5 는 하프 코트 골 지역 상단 라인과 일치', () => {
+    expect(g.inner.hy).toContain(287.5);
   });
 });
 
-describe('gridGeom flat — 1 m 격자, 20열×17행', () => {
+describe('gridGeom flat — 1 m 격자, 21열×18행', () => {
   const g = gridGeom('flat');
 
-  it('vx: 0,25,…,500 (21개) / inner: 양끝 제외', () => {
-    expect(g.vx).toHaveLength(21);
+  it('vx: 0,25,…,525 (22개) / inner: 양끝 제외', () => {
+    expect(g.vx).toHaveLength(22);
     expect(g.vx[0]).toBe(0);
-    expect(g.vx[20]).toBe(500);
-    expect(g.vx).toEqual(Array.from({ length: 21 }, (_, i) => i * 25));
+    expect(g.vx[21]).toBe(525);
+    expect(g.vx).toEqual(Array.from({ length: 22 }, (_, i) => i * 25));
     expect(g.inner.vx).toEqual(g.vx.slice(1, -1));
-    expect(g.inner.vx).toHaveLength(19);
+    expect(g.inner.vx).toHaveLength(20);
   });
 
-  it('hy: 0,25,…,425 (18개) / inner: 양끝 제외', () => {
-    expect(g.hy).toHaveLength(18);
+  it('hy: 0,25,…,450 (19개) / inner: 양끝 제외', () => {
+    expect(g.hy).toHaveLength(19);
     expect(g.hy[0]).toBe(0);
-    expect(g.hy[17]).toBe(425);
-    expect(g.hy).toEqual(Array.from({ length: 18 }, (_, i) => i * 25));
+    expect(g.hy[18]).toBe(450);
+    expect(g.hy).toEqual(Array.from({ length: 19 }, (_, i) => i * 25));
     expect(g.inner.hy).toEqual(g.hy.slice(1, -1));
-    expect(g.inner.hy).toHaveLength(16);
+    expect(g.inner.hy).toHaveLength(17);
   });
 
   it('major.vx = 0,125,250,375,500 / major.hy = 0,125,250,375', () => {
@@ -101,8 +101,8 @@ describe('gridGeom flat — 1 m 격자, 20열×17행', () => {
     });
   });
 
-  it('셀 중심 x = 12.5+25i, y = 12.5+25j (a1…t17)', () => {
-    expect(g.cells).toHaveLength(340);
+  it('셀 중심 x = 12.5+25i, y = 12.5+25j (a1…u18)', () => {
+    expect(g.cells).toHaveLength(378);
     const first = g.cells.find((c) => c.col === 0 && c.row === 0)!;
     expect(first).toMatchObject({ text: 'a1', x: 12.5, y: 12.5 });
     const last = g.cells.find((c) => c.col === 19 && c.row === 16)!;
@@ -116,15 +116,15 @@ describe('gridGeom flat — 1 m 격자, 20열×17행', () => {
   it('axis 헤더: 열 문자 x=12.5+25i,y=9 · 행 숫자 x=8,y=12.5+25j', () => {
     expect(g.axis).toBeDefined();
     const axis = g.axis!;
-    expect(axis).toHaveLength(20 + 17);
+    expect(axis).toHaveLength(21 + 18);
     const colA = axis.find((a) => a.text === 'a')!;
     expect(colA).toEqual({ text: 'a', x: 12.5, y: 9 });
-    const colT = axis.find((a) => a.text === 't')!;
-    expect(colT).toEqual({ text: 't', x: 12.5 + 25 * 19, y: 9 });
+    const colU = axis.find((a) => a.text === 'u')!;
+    expect(colU).toEqual({ text: 'u', x: 12.5 + 25 * 20, y: 9 });
     const row1 = axis.find((a) => a.text === '1')!;
     expect(row1).toEqual({ text: '1', x: 8, y: 12.5 });
-    const row17 = axis.find((a) => a.text === '17')!;
-    expect(row17).toEqual({ text: '17', x: 8, y: 12.5 + 25 * 16 });
+    const row18 = axis.find((a) => a.text === '18')!;
+    expect(row18).toEqual({ text: '18', x: 8, y: 12.5 + 25 * 17 });
   });
 });
 

@@ -93,10 +93,11 @@ describe('validateDrill — 보정', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const p = r.value.steps[0]!.balls['bl_a' as never]!;
+    // flat viewBox 는 마진 1.5 m 반영 후 525×450 이다(half 와 동일해야 한다, D12).
     expect(p.x).toBeGreaterThanOrEqual(0);
-    expect(p.x).toBeLessThanOrEqual(500);
+    expect(p.x).toBeLessThanOrEqual(525);
     expect(p.y).toBeGreaterThanOrEqual(0);
-    expect(p.y).toBeLessThanOrEqual(425);
+    expect(p.y).toBeLessThanOrEqual(450);
   });
 
   it("formation:'4-4-2' 이고 steps:[] 인 파일이 throw 없이 통과한다", () => {

@@ -6,15 +6,18 @@ import { createTransformWriter } from './transformWriter.ts';
 import { CourtStage, type CourtStageHandle, type CourtStagePointerController } from './CourtStage.tsx';
 import { INTERACT } from '../core/constants.ts';
 
+/** 기본 rect 는 **풀 코트 viewBox 와 같은 825×525** 다 — 그래야 client↔world 가 1:1 이 되어
+ *  좌표 단언이 읽기 쉽다. 마진을 1.5 m 로 넓히며 viewBox 가 800×500 → 825×525 가 됐고,
+ *  스텁을 안 따라 바꾸면 'meet' 여백 때문에 중심이 어긋난다(실제로 412.5 가 나왔다). */
 function stubSvgLayout(container: HTMLElement, rect: Partial<DOMRect> = {}): void {
   const svg = container.querySelector('svg')!;
   vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
     left: 0,
     top: 0,
-    width: 800,
-    height: 500,
-    right: 800,
-    bottom: 500,
+    width: 825,
+    height: 525,
+    right: 825,
+    bottom: 525,
     x: 0,
     y: 0,
     toJSON: () => ({}),
@@ -46,7 +49,7 @@ function makeController(): CourtStagePointerController & {
 }
 
 describe('CourtStage — 레이어 구조(§6.6)', () => {
-  it('svg 루트가 role=application, tabIndex=0, viewBox=0 0 800 500(풀코트)를 갖는다', () => {
+  it('svg 루트가 role=application, tabIndex=0, viewBox=0 0 825 525(풀코트)를 갖는다', () => {
     const writer = createTransformWriter();
     const controller = makeController();
     const { container } = render(
@@ -70,7 +73,7 @@ describe('CourtStage — 레이어 구조(§6.6)', () => {
     const svg = container.querySelector('svg')!;
     expect(svg).toHaveAttribute('role', 'application');
     expect(svg).toHaveAttribute('tabindex', '0');
-    expect(svg).toHaveAttribute('viewBox', '0 0 800 500');
+    expect(svg).toHaveAttribute('viewBox', '0 0 825 525');
   });
 });
 
@@ -225,7 +228,7 @@ describe('CourtStage — 줌(§6.4/§7.3)', () => {
     expect(w!).toBeLessThan(800);
   });
 
-  it('resetZoom 은 풀코트 기본 viewBox(0 0 800 500)로 되돌린다', () => {
+  it('resetZoom 은 풀코트 기본 viewBox(0 0 825 525)로 되돌린다', () => {
     const writer = createTransformWriter();
     const controller = makeController();
     const ref = createRef<CourtStageHandle>();
@@ -254,6 +257,6 @@ describe('CourtStage — 줌(§6.4/§7.3)', () => {
       ref.current!.resetZoom();
     });
     const svg = container.querySelector('svg')!;
-    expect(svg).toHaveAttribute('viewBox', '0 0 800 500');
+    expect(svg).toHaveAttribute('viewBox', '0 0 825 525');
   });
 });

@@ -1,4 +1,10 @@
 // 코트 정의. §3.2. 좌표는 검산된 확정값 — 표와 다르게 고치지 않는다.
+//
+// 2026-08-10 기현 지시로 **코트 외곽 마진을 1.0 → 1.5 m** 로 넓혔다. 경기면(surface)의 실치수는
+// 그대로이고 viewBox 가 사방 12.5 px 씩 커졌다 — 마진은 코트를 줄이는 것이 아니라 판을 넓히는
+// 것이다. 라인 밖 배치(킥인·코너 세트피스, D26)에 휠체어(길이 1.5 m)가 온전히 서려면 1.0 m
+// 로는 모자랐다. 그래서 아래 좌표는 전부 옛 표에서 +12.5 씩 옮겨진 값이다.
+// court.test.ts 의 '코트 외곽 마진' 불변식이 네 변을 모두 붙잡고 있다.
 import type { Vec2 } from '../core/units.ts';
 
 export type CourtMode = 'full' | 'half' | 'flat';
@@ -34,25 +40,25 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
     label: '풀 코트',
     dims: '30 × 18 m',
     desc: '규격 최대 크기의 전체 코트. 4v4 전술 전개와 전환 훈련에 적합합니다.',
-    vbW: 800,
-    vbH: 500,
-    surface: { x: 25, y: 25, w: 750, h: 450 },
+    vbW: 825,
+    vbH: 525,
+    surface: { x: 37.5, y: 37.5, w: 750, h: 450 },
     ruleZones: [
-      { x: 25, y: 150, w: 125, h: 200 },
-      { x: 650, y: 150, w: 125, h: 200 },
+      { x: 37.5, y: 162.5, w: 125, h: 200 },
+      { x: 662.5, y: 162.5, w: 125, h: 200 },
     ],
     goalPosts: [
-      { x: 25, y: 175 },
-      { x: 25, y: 325 },
-      { x: 775, y: 175 },
-      { x: 775, y: 325 },
+      { x: 37.5, y: 187.5 },
+      { x: 37.5, y: 337.5 },
+      { x: 787.5, y: 187.5 },
+      { x: 787.5, y: 337.5 },
     ],
-    cornerCuts: ['M25,50 L50,25', 'M750,25 L775,50', 'M775,450 L750,475', 'M50,475 L25,450'],
+    cornerCuts: ['M37.5,62.5 L62.5,37.5', 'M762.5,37.5 L787.5,62.5', 'M787.5,462.5 L762.5,487.5', 'M62.5,487.5 L37.5,462.5'],
     spotMarks: [
-      { x: 112.5, y: 250 },
-      { x: 687.5, y: 250 },
+      { x: 125, y: 262.5 },
+      { x: 700, y: 262.5 },
     ],
-    grid: { cols: 6, rows: 5, cellW: 125, cellH: 90, origin: { x: 25, y: 25 } },
+    grid: { cols: 6, rows: 5, cellW: 125, cellH: 90, origin: { x: 37.5, y: 37.5 } },
     homeHeadingDeg: 0,
     awayHeadingDeg: 180,
   },
@@ -61,17 +67,17 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
     label: '하프 코트',
     dims: '18 × 15 m · 90° 회전',
     desc: '공격 진영만 세로로 확대. 마무리·세트피스 훈련에 적합합니다.',
-    vbW: 500,
-    vbH: 425,
-    surface: { x: 25, y: 25, w: 450, h: 375 },
-    ruleZones: [{ x: 150, y: 275, w: 200, h: 125 }],
+    vbW: 525,
+    vbH: 450,
+    surface: { x: 37.5, y: 37.5, w: 450, h: 375 },
+    ruleZones: [{ x: 162.5, y: 287.5, w: 200, h: 125 }],
     goalPosts: [
-      { x: 175, y: 400 },
-      { x: 325, y: 400 },
+      { x: 187.5, y: 412.5 },
+      { x: 337.5, y: 412.5 },
     ],
-    cornerCuts: ['M25,375 L50,400', 'M450,400 L475,375'],
-    spotMarks: [{ x: 250, y: 312.5 }],
-    grid: { cols: 5, rows: 3, cellW: 90, cellH: 125, origin: { x: 25, y: 25 } },
+    cornerCuts: ['M37.5,387.5 L62.5,412.5', 'M462.5,412.5 L487.5,387.5'],
+    spotMarks: [{ x: 262.5, y: 325 }],
+    grid: { cols: 5, rows: 3, cellW: 90, cellH: 125, origin: { x: 37.5, y: 37.5 } },
     homeHeadingDeg: 90,
     awayHeadingDeg: 270,
   },
@@ -80,14 +86,16 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
     label: '플랫 코트',
     dims: '라인 없음',
     desc: '하프 코트에서 라인을 제거한 자유 배치용. 위치 개념 설명에 적합합니다.',
-    vbW: 500,
-    vbH: 425,
-    surface: { x: 0, y: 0, w: 500, h: 425 },
+    // ⚠️ viewBox 는 half 와 **정확히 같아야** 한다(D12) — half↔flat 이 좌표를 보존하는
+    // 무손실 전환인 근거가 그것이다. half 가 마진 1.5 m 로 커지면 여기도 같이 커진다.
+    vbW: 525,
+    vbH: 450,
+    surface: { x: 0, y: 0, w: 525, h: 450 },
     ruleZones: [],
     goalPosts: [],
     cornerCuts: [],
     spotMarks: [],
-    grid: { cols: 20, rows: 17, cellW: 25, cellH: 25, origin: { x: 0, y: 0 } },
+    grid: { cols: 21, rows: 18, cellW: 25, cellH: 25, origin: { x: 0, y: 0 } },
     homeHeadingDeg: 90,
     awayHeadingDeg: 270,
   },
