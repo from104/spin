@@ -538,3 +538,70 @@ describe('createWorld 의 collisionStart 훅 배선', () => {
     expect(() => Events.trigger(w.engine, 'collisionStart', { pairs: [] })).not.toThrow();
   });
 });
+
+// ── 무게 위계 (§5.4, 2026-08-10 기현 지시) ────────────────────────────────────────────────
+// 전술판의 "보드게임 느낌" 은 결국 **무엇이 얼마나 밀리느냐**다. 실물 질량:
+//   휠체어(사람 포함) 120~150 kg · 공 1.3 kg · 콘 0.3 kg
+//
+// ⚠️ 이 describe 가 생기기 전에는 콘 질량을 **500 kg 으로 바꿔도 물리 테스트 71개가 전부
+//    통과했다**. 즉 질량은 어떤 테스트에도 걸려 있지 않았다 — "다 통과했으니 안전하다" 가
+//    아니라 "아무도 안 보고 있었다" 였다.
+describe('무게 위계 — 질량이 실제로 바디에 적용된다', () => {
+  it('공·콘의 matter 질량이 상수와 정확히 같다', () => {
+    // setMass 가 조용히 빠지거나 덮어써지면(생성 옵션 순서 문제 등) 여기서 잡힌다.
+    const ball = createBallBody({ x: 0, y: 0 });
+    const cone = createConeBody({ x: 0, y: 0 });
+    expect(ball.mass).toBeCloseTo(BALL.massKg, 6);
+    expect(cone.mass).toBeCloseTo(CONE.massKg, 6);
+  });
+
+  it('공이 콘보다 무겁다 — 콘은 가볍지만 마찰이 커서 멀리 못 간다', () => {
+    // 질량만 보면 콘(0.3)이 공(1.3)보다 가벼워 더 튕겨야 한다. 실제로 "콘이 공보다 덜
+    // 민감하게" 느껴지는 이유는 마찰이다 — 아래 거동 테스트가 그 결과를 못박는다.
+    expect(CONE.massKg).toBeLessThan(BALL.massKg);
+    expect(CONE.friction).toBeGreaterThan(BALL.friction);
+    expect(CONE.frictionAir).toBeGreaterThan(BALL.frictionAir);
+  });
+});
+
+describe('무게 위계 — 같은 힘으로 밀었을 때 공이 콘보다 훨씬 멀리 간다', () => {
+  /** 휠체어를 같은 속도로 전진시켜 대상(공/콘)을 밀고, 휠체어가 멈춘 뒤 대상이 최종적으로
+   *  얼마나 이동했는지 잰다. */
+  function pushDistance(kind: 'ball' | 'cone'): number {
+    const w = createWorld(BOUNDS.w, BOUNDS.h);
+    const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmh);
+    let pose: ChairPose = { x: -60, y: 200, theta: 0 };
+    w.addChair(chairId(), pose);
+    const startX = 40;
+    if (kind === 'ball') w.addBall(ballId(), { x: startX, y: 200 });
+    else w.addCone(coneId(), { x: startX, y: 200 });
+    const body = findBody(w, kind);
+
+    // 120 substep 밀고(=2초), 그 뒤 휠체어를 세운 채 480 substep 굴러가게 둔다.
+    for (let i = 0; i < 120; i++) {
+      pose = { x: pose.x + vLin * PHYS.dtS, y: pose.y, theta: 0 };
+      w.setChairPose(chairId(), pose, true);
+      Engine.update(w.engine, PHYS.dtMs);
+      w.applySpeedClamps();
+      w.applyRollingDecel(PHYS.dtS);
+    }
+    for (let i = 0; i < 480; i++) {
+      w.setChairPose(chairId(), pose, false);
+      Engine.update(w.engine, PHYS.dtMs);
+      w.applySpeedClamps();
+      w.applyRollingDecel(PHYS.dtS);
+    }
+    return body.position.x - startX;
+  }
+
+  it('둘 다 실제로 밀린다', () => {
+    expect(pushDistance('ball')).toBeGreaterThan(10);
+    expect(pushDistance('cone')).toBeGreaterThan(10);
+  });
+
+  it('공이 콘보다 최소 2배 멀리 간다 — 이게 "콘은 공보다 덜 민감" 의 실체다', () => {
+    const ball = pushDistance('ball');
+    const cone = pushDistance('cone');
+    expect(ball).toBeGreaterThan(cone * 2);
+  });
+});

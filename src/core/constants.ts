@@ -33,7 +33,7 @@ export const BALL = {
   polySides: 16,
   polyRadiusPx: 4.1650148,
   inradiusPx: 4.0849852,
-  massKg: 1.0,
+  massKg: 1.3, // FIPFA 실물
   restitution: 0.45,
   friction: 0.02,
   frictionStatic: 0.05,
@@ -52,7 +52,7 @@ export const CONE = {
   inradiusPx: 3.07083631,
   viewWidthPx: 10,
   viewHeightPx: 9,
-  massKg: 2.0,
+  massKg: 0.3, // 실물 콘
   restitution: 0.05,
   friction: 0.4,
   frictionStatic: 0.6,
