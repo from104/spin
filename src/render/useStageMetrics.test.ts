@@ -97,3 +97,112 @@ describe('zoomAt', () => {
     expect(v.y + v.h).toBeLessThanOrEqual(def.vbH + CHAIR.hullRadiusPx + 1e-6);
   });
 });
+
+// ── 표시 회전(§6.4 태블릿) ───────────────────────────────────────────────────────────────
+import { rotForRect, screenDeltaToWorld, worldToClient as w2c } from './useStageMetrics.ts';
+import type { StageRot } from './useStageMetrics.ts';
+
+describe('rotForRect — 코트 영역이 세로로 길면 90°', () => {
+  it('가로로 길면 0', () => {
+    expect(rotForRect(1000, 600)).toBe(0);
+  });
+  it('세로로 길면 90', () => {
+    expect(rotForRect(600, 1000)).toBe(90);
+  });
+  it('정사각형은 돌리지 않는다 — 미세한 폭 변화로 판이 홱홱 돌면 안 된다', () => {
+    expect(rotForRect(800, 800)).toBe(0);
+    expect(rotForRect(790, 800)).toBe(0); // 0.9875 — 임계(0.95) 위
+  });
+  it('0 크기(jsdom 초기 렌더)에서도 터지지 않고 0', () => {
+    expect(rotForRect(0, 0)).toBe(0);
+  });
+});
+
+describe('회전 상태의 clientToWorld ↔ worldToClient 왕복', () => {
+  const views: StageView[] = [
+    { x: 0, y: 0, w: 800, h: 500 }, // 풀
+    { x: 0, y: 0, w: 500, h: 425 }, // 하프·플랫
+    { x: -30, y: 12, w: 400, h: 250 }, // 줌·팬 상태
+  ];
+  const rots: StageRot[] = [0, 90];
+
+  for (const rot of rots) {
+    for (const view of views) {
+      it(`rot=${rot} view=${view.w}×${view.h} 에서 월드→클라이언트→월드가 항등`, () => {
+        const m = computeMetrics(rect(37, 19, 900, 1200), view, rot);
+        for (const p of [
+          { x: view.x, y: view.y },
+          { x: view.x + view.w, y: view.y + view.h },
+          { x: view.x + view.w / 3, y: view.y + view.h / 7 },
+        ]) {
+          const c = w2c(m, p.x, p.y);
+          const back = clientToWorld(m, c.clientX, c.clientY);
+          expect(back.x).toBeCloseTo(p.x, 6);
+          expect(back.y).toBeCloseTo(p.y, 6);
+        }
+      });
+    }
+  }
+});
+
+describe('회전이 실제로 축을 바꾼다 (항등이면 회전이 아니다)', () => {
+  const view: StageView = { x: 0, y: 0, w: 800, h: 500 };
+
+  it('rot=90 이면 상자의 가로·세로가 뒤바뀐다', () => {
+    // 세로로 긴 스테이지에 풀 코트(800×500)를 넣는다.
+    const flat = computeMetrics(rect(0, 0, 600, 1000), view, 0);
+    const turned = computeMetrics(rect(0, 0, 600, 1000), view, 90);
+    // 안 돌리면 폭에 맞춰 600×375 — 높이의 62%가 빈다.
+    expect(flat.pxPerUnit).toBeCloseTo(600 / 800, 6); // 0.75
+    // 돌리면 상자가 500×800 이 되어 폭에 맞춰 600×960 — 화면을 거의 채운다.
+    expect(turned.pxPerUnit).toBeCloseTo(600 / 500, 6); // 1.2
+    expect(turned.pxPerUnit).toBeGreaterThan(flat.pxPerUnit * 1.5);
+  });
+
+  it('월드의 가로축이 화면의 세로축이 된다 — 풀 코트 두 골대가 위아래로 간다', () => {
+    const m = computeMetrics(rect(0, 0, 500, 800), view, 90);
+    const left = w2c(m, 25, 250); // 월드 왼쪽 골
+    const right = w2c(m, 775, 250); // 월드 오른쪽 골
+    expect(left.clientY).toBeLessThan(right.clientY); // 화면에서 위/아래로 갈린다
+    expect(left.clientX).toBeCloseTo(right.clientX, 6); // 같은 세로선 위
+  });
+
+  it('하프 코트의 골(아래)이 화면 왼쪽으로 간다 — 시계방향이라는 계약', () => {
+    // 반시계로 구현하면 오른쪽으로 가서 공격 방향이 오른→왼쪽이 된다(전술도 관례에 어긋남).
+    const half: StageView = { x: 0, y: 0, w: 500, h: 425 };
+    const m = computeMetrics(rect(0, 0, 400, 800), half, 90);
+    const goal = w2c(m, 250, 400); // 골 라인(아래)
+    const top = w2c(m, 250, 25); // 반대편(위)
+    expect(goal.clientX).toBeLessThan(top.clientX);
+  });
+});
+
+describe('screenDeltaToWorld — 화살표는 화면 기준이어야 한다(§7.5)', () => {
+  it('회전이 없으면 그대로', () => {
+    expect(screenDeltaToWorld({ rot: 0 }, 25, 0)).toEqual({ x: 25, y: 0 });
+    expect(screenDeltaToWorld({ rot: 0 }, 0, 25)).toEqual({ x: 0, y: 25 });
+  });
+
+  it('rot=90 이면 화면 오른쪽(+x)이 월드 −y 가 된다', () => {
+    // 이 매핑이 없으면 세로 화면에서 ArrowRight 가 개체를 아래로 내려보낸다.
+    // -0 과 +0 은 toEqual 이 구분하므로 성분으로 비교한다.
+    const right = screenDeltaToWorld({ rot: 90 }, 25, 0);
+    expect(right.x).toBe(0);
+    expect(right.y).toBe(-25);
+    const down = screenDeltaToWorld({ rot: 90 }, 0, 25);
+    expect(down.x).toBe(25);
+    expect(down.y).toBeCloseTo(0, 10); // -0 이라 toBe(0) 은 Object.is 로 실패한다
+  });
+
+  it('화면 델타를 월드로 옮긴 뒤 다시 화면으로 그리면 원래 방향이다', () => {
+    // 왕복으로 부호 실수를 잡는다 — 부호 하나만 틀려도 위 두 테스트는 통과할 수 있다.
+    const view: StageView = { x: 0, y: 0, w: 800, h: 500 };
+    const m = computeMetrics(rect(0, 0, 500, 800), view, 90);
+    const start = { x: 400, y: 250 };
+    const d = screenDeltaToWorld(m, 30, 0); // 화면에서 오른쪽으로 30
+    const a = w2c(m, start.x, start.y);
+    const b = w2c(m, start.x + d.x, start.y + d.y);
+    expect(b.clientX).toBeGreaterThan(a.clientX); // 화면에서도 오른쪽
+    expect(b.clientY).toBeCloseTo(a.clientY, 6);
+  });
+});

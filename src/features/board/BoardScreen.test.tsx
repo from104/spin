@@ -7,7 +7,7 @@
 //
 // 헤더까지 함께 렌더한다: 코트 전환 세그먼트가 헤더에 있어서, "리셋 상태에서만 전환"
 // 게이트를 화면 끝에서 확인하려면 AppHeader 가 트리에 있어야 한다.
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -405,4 +405,59 @@ describe('[드릴로 저장] — 전술판을 정식 드릴로 승격', () => {
       expect(Number(screen.getByTestId('library-drill-count').textContent)).toBe(inStorage);
     });
   }, 20000);
+});
+
+describe('태블릿 세로 레이아웃 (§6.4)', () => {
+  /** jsdom 에는 matchMedia 가 없다. 스텁을 안 깔면 useIsPortrait 이 항상 false 를 돌려주고
+   *  세로 경로는 **한 줄도 실행되지 않은 채** 스위트가 초록불이 된다. */
+  function stubOrientation(portrait: boolean) {
+    const listeners = new Set<() => void>();
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: (q: string) => ({
+        matches: q.includes('portrait') ? portrait : !portrait,
+        media: q,
+        addEventListener: (_: string, fn: () => void) => listeners.add(fn),
+        removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
+        addListener: (fn: () => void) => listeners.add(fn),
+        removeListener: (fn: () => void) => listeners.delete(fn),
+        dispatchEvent: () => true,
+      }),
+    });
+  }
+
+  // 스텁이 다른 describe 로 새면(파일 순서가 바뀌면) 엉뚱한 테스트가 세로로 돌아간다.
+  afterEach(() => {
+    delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+  });
+
+  it('가로에서는 속성이 상시 보이고 시트 손잡이가 없다', async () => {
+    stubOrientation(false);
+    await openBoard('full');
+    expect(screen.getByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /속성/ })).toBeNull();
+  });
+
+  it('세로에서는 속성이 하단 시트로 내려가고 기본은 접혀 있다', async () => {
+    stubOrientation(true);
+    await openBoard('full');
+
+    // 도구는 그대로 있다(아래로 내려갔을 뿐).
+    expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument();
+    // 속성은 접혀 있어 DOM 에 없다 — display:none 으로 두면 보이지 않는 입력이 탭 순서에 남는다.
+    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
+    const handle = screen.getByRole('button', { name: /속성/ });
+    expect(handle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('세로에서 손잡이를 누르면 속성이 펼쳐진다', async () => {
+    stubOrientation(true);
+    const { user } = await openBoard('full');
+
+    await user.click(screen.getByRole('button', { name: /속성/ }));
+
+    expect(await screen.findByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /속성/ })).toHaveAttribute('aria-expanded', 'true');
+  });
 });

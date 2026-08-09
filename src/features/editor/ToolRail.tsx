@@ -25,19 +25,37 @@ export interface ToolRailProps {
   pendingPlayerId: ChairId | null;
   onArmPlayer(id: ChairId): void;
   courtLabel: string;
+  /** 태블릿 세로에서는 레일을 화면 아래에 가로로 눕힌다(§6.4). 세로 화면에서 왼쪽 레일 두 개
+   *  (앱·도구)가 폭을 168px 먹으면 코트가 그만큼 좁아진다. */
+  orientation?: 'vertical' | 'horizontal';
 }
 
-const RAIL_STYLE = {
+const RAIL_BASE = {
   flex: 'none',
-  width: 66,
-  borderRight: '1px solid var(--border)',
   background: 'var(--panel)',
   display: 'flex',
-  flexDirection: 'column' as const,
   alignItems: 'center',
   gap: 5,
-  padding: '13px 0',
   position: 'relative' as const,
+};
+
+const RAIL_STYLE = {
+  ...RAIL_BASE,
+  width: 66,
+  borderRight: '1px solid var(--border)',
+  flexDirection: 'column' as const,
+  padding: '13px 0',
+};
+
+/** 가로 레일 — 세로 화면 하단. 도구가 8개라 좁은 태블릿에서는 넘칠 수 있어 가로 스크롤을 연다
+ *  (줄바꿈하면 레일 높이가 들쭉날쭉해져 코트 크기가 흔들린다). */
+const RAIL_STYLE_H = {
+  ...RAIL_BASE,
+  borderTop: '1px solid var(--border)',
+  flexDirection: 'row' as const,
+  justifyContent: 'center',
+  padding: '8px 13px',
+  overflowX: 'auto' as const,
 };
 
 export function ToolRail({
@@ -51,12 +69,18 @@ export function ToolRail({
   pendingPlayerId,
   onArmPlayer,
   courtLabel,
+  orientation = 'vertical',
 }: ToolRailProps) {
+  const horiz = orientation === 'horizontal';
+  // 세로 레일은 버튼 오른쪽으로, 가로 레일은 버튼 **위쪽**으로 편다 — 아래로 펴면 화면 밖이다.
+  const flyoutAnchor = horiz
+    ? { bottom: '100%', left: 0, marginBottom: 8 }
+    : { left: '100%', top: 0, marginLeft: 8 };
   const coneFlyoutId = useId();
   const playerFlyoutId = useId();
 
   return (
-    <nav aria-label="도구" style={RAIL_STYLE}>
+    <nav aria-label="도구" style={horiz ? RAIL_STYLE_H : RAIL_STYLE}>
       {TOOLS.map((t) => {
         const active = t.id === tool;
         const isBallCapped = t.id === 'ball' && ballCount >= ballMax;
@@ -156,9 +180,7 @@ export function ToolRail({
                 aria-label="콘 색상"
                 style={{
                   position: 'absolute',
-                  left: '100%',
-                  top: 0,
-                  marginLeft: 8,
+                  ...flyoutAnchor,
                   zIndex: 20,
                   display: 'flex',
                   gap: 6,
@@ -203,9 +225,7 @@ export function ToolRail({
                 aria-label="배치할 선수"
                 style={{
                   position: 'absolute',
-                  left: '100%',
-                  top: 0,
-                  marginLeft: 8,
+                  ...flyoutAnchor,
                   zIndex: 20,
                   display: 'flex',
                   flexDirection: 'column',

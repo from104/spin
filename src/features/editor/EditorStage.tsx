@@ -15,6 +15,7 @@ import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import { COURT_DEFS, gridCellCenter, cellLabelAt, type CourtMode } from '../../model/court.ts';
 import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
+import { screenDeltaToWorld } from '../../render/useStageMetrics.ts';
 import type { ObjectLayerChair, ObjectLayerCone } from '../../render/ObjectLayer.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
@@ -134,26 +135,34 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       const small = 2.5;
       const big = 25;
       const d = e.shiftKey ? big : small;
+      // ★ 화살표는 **화면 기준**이다(§7.5). 스테이지가 90° 돌아 있으면 월드 축과 어긋나므로
+      //   화면 델타를 월드 델타로 옮겨서 넘긴다 — 안 그러면 세로 화면에서 오른쪽 키가 개체를
+      //   아래로 내려보낸다(보이는 것과 손이 어긋난다).
+      const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+      const move = (sx: number, sy: number): void => {
+        const w = screenDeltaToWorld({ rot }, sx, sy);
+        nudge(id, w.x, w.y, 0);
+      };
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault();
           e.stopPropagation();
-          nudge(id, -d, 0, 0);
+          move(-d, 0);
           return;
         case 'ArrowRight':
           e.preventDefault();
           e.stopPropagation();
-          nudge(id, d, 0, 0);
+          move(d, 0);
           return;
         case 'ArrowUp':
           e.preventDefault();
           e.stopPropagation();
-          nudge(id, 0, -d, 0);
+          move(0, -d);
           return;
         case 'ArrowDown':
           e.preventDefault();
           e.stopPropagation();
-          nudge(id, 0, d, 0);
+          move(0, d);
           return;
         case '[':
           if (isId(id, 'ch')) {
@@ -219,13 +228,14 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         if (e.key.startsWith('Arrow')) {
           e.preventDefault();
           e.stopPropagation(); // §7.5d 배치 커서 이동이 useEditorKeyboard 전역 스텝 이동(ArrowLeft/Right)과 이중 발화하지 않도록 차단
+          const curRot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
           if (e.shiftKey) {
             const step25 = 12.5;
-            const p = { x: base.x, y: base.y };
-            if (e.key === 'ArrowLeft') p.x -= step25;
-            else if (e.key === 'ArrowRight') p.x += step25;
-            else if (e.key === 'ArrowUp') p.y -= step25;
-            else p.y += step25;
+            // 배치 커서도 화면 기준이어야 한다(§7.5) — 위 개체 이동과 같은 규칙.
+            const sx = e.key === 'ArrowLeft' ? -step25 : e.key === 'ArrowRight' ? step25 : 0;
+            const sy = e.key === 'ArrowUp' ? -step25 : e.key === 'ArrowDown' ? step25 : 0;
+            const dw = screenDeltaToWorld({ rot: curRot }, sx, sy);
+            const p = { x: base.x + dw.x, y: base.y + dw.y };
             const cell = nearestCell(mode, p);
             setCursor(cell);
             liveRegion.say(cellLabelAt(mode, gridCellCenter(mode, cell.col, cell.row)) ?? '');
@@ -234,10 +244,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           const cur2 = cursor ?? nearestCell(mode, base);
           const { cols, rows } = COURT_DEFS[mode].grid;
           let { col, row } = cur2;
-          if (e.key === 'ArrowLeft') col = Math.max(0, col - 1);
-          else if (e.key === 'ArrowRight') col = Math.min(cols - 1, col + 1);
-          else if (e.key === 'ArrowUp') row = Math.max(0, row - 1);
-          else if (e.key === 'ArrowDown') row = Math.min(rows - 1, row + 1);
+          // 화면 기준 한 칸을 월드 격자의 (열,행) 증감으로 옮긴다. 회전 시 화면 오른쪽은
+          // 월드 −y(= 행 감소)다 — 이 변환이 없으면 세로 화면에서 좌우 키가 위아래로 움직인다.
+          const sdx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+          const sdy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+          const dcell = screenDeltaToWorld({ rot: curRot }, sdx, sdy);
+          col = Math.min(cols - 1, Math.max(0, col + Math.round(dcell.x)));
+          row = Math.min(rows - 1, Math.max(0, row + Math.round(dcell.y)));
           setCursor({ col, row });
           liveRegion.say(`${cellLabelAt(mode, gridCellCenter(mode, col, row)) ?? ''} 칸`);
           return;

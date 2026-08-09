@@ -8,6 +8,7 @@ import type { ChairId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import { ZONE_CURSOR } from '../zoneCursors.ts';
+import { useUprightTransform } from '../stageRot.tsx';
 
 export interface ChairChipProps {
   id: ChairId;
@@ -57,6 +58,7 @@ export const ChairChip = memo(function ChairChip({
 }: ChairChipProps) {
   const bodyRef = useRef<SVGGElement | null>(null);
   const counterRef = useRef<SVGGElement | null>(null);
+  const upright = useUprightTransform();
 
   useEffect(() => {
     writer.register(id, bodyRef.current);
@@ -151,18 +153,22 @@ export const ChairChip = memo(function ChairChip({
       <g transform={`translate(${CHAIR.centroidOffsetPx} 0)`}>
         {/* writer 가 rotate(-θ) 를 기록한다 — 등번호는 절대 회전하지 않는다(§3.4). */}
         <g ref={counterRef}>
-          <text
-            x={0}
-            y={0}
-            fontFamily={FONT}
-            fontSize={20}
-            fontWeight={700}
-            fill={ink}
-            textAnchor="middle"
-            dominantBaseline="central"
-          >
-            {number}
-          </text>
+          {/* 스테이지가 90° 돌아 있으면 그만큼 더 되돌린다(§6.4). writer 가 쓰는 위 <g> 안쪽에
+              두므로 두 회전이 곱해지고, 60fps 프레임 루프는 이 존재를 모른다. */}
+          <g transform={upright}>
+            <text
+              x={0}
+              y={0}
+              fontFamily={FONT}
+              fontSize={20}
+              fontWeight={700}
+              fill={ink}
+              textAnchor="middle"
+              dominantBaseline="central"
+            >
+              {number}
+            </text>
+          </g>
         </g>
       </g>
       <rect

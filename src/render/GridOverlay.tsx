@@ -4,6 +4,7 @@
 import { memo } from 'react';
 import type { CourtMode } from '../model/court.ts';
 import { gridGeom } from '../model/grid.ts';
+import { uprightAt, useStageRot } from './stageRot.tsx';
 
 export interface GridOverlayProps {
   mode: CourtMode;
@@ -14,6 +15,8 @@ export interface GridOverlayProps {
 const FONT = "'Space Grotesk',sans-serif";
 
 export const GridOverlay = memo(function GridOverlay({ mode, showLabels }: GridOverlayProps) {
+  // 판이 돌아도 칸 이름은 바로 서 있어야 읽힌다(§6.4).
+  const rot = useStageRot();
   const g = gridGeom(mode);
   const xMin = g.vx[0];
   const xMax = g.vx[g.vx.length - 1];
@@ -57,7 +60,7 @@ export const GridOverlay = memo(function GridOverlay({ mode, showLabels }: GridO
           dominantBaseline="central"
         >
           {g.cells.map((c) => (
-            <text className="grid-cell-label" key={c.text} x={c.x} y={c.y}>
+            <text className="grid-cell-label" key={c.text} x={c.x} y={c.y} transform={uprightAt(rot, c.x, c.y)}>
               {c.text}
             </text>
           ))}
@@ -75,7 +78,7 @@ export const GridOverlay = memo(function GridOverlay({ mode, showLabels }: GridO
           dominantBaseline="central"
         >
           {g.axis.map((a) => (
-            <text className="grid-axis-label" key={`${a.x},${a.y}`} x={a.x} y={a.y}>
+            <text className="grid-axis-label" key={`${a.x},${a.y}`} x={a.x} y={a.y} transform={uprightAt(rot, a.x, a.y)}>
               {a.text}
             </text>
           ))}

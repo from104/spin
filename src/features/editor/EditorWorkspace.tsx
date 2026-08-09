@@ -16,12 +16,14 @@ import { selectStepIndex } from '../../store/editor/reducer.ts';
 import { usePlaybackActions, usePlaybackState } from '../../store/playback/PlaybackProvider.tsx';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
+import { useIsPortrait } from '../../ui/useIsPortrait.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import { ToolRail, type UnplacedChair } from './ToolRail.tsx';
 import { EditorStage } from './EditorStage.tsx';
 import { StageControls } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
 import { BoardBar } from './BoardBar.tsx';
+import { BottomSheet } from './BottomSheet.tsx';
 import { InspectorPanel } from './InspectorPanel.tsx';
 import { HelpModal } from './HelpModal.tsx';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
@@ -70,6 +72,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const helpTriggerRef = useRef<HTMLElement | null>(null);
   const [pendingPlayerId, setPendingPlayerId] = useState<ChairId | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  // 세로 화면(§6.4 태블릿): 도구·속성을 아래로 내려 코트가 폭을 다 쓰게 한다.
+  const portrait = useIsPortrait();
+  const [sheetOpen, setSheetOpen] = useState(false);
   // 격자·규칙존 토글은 로컬 state 가 아니라 prefs 를 직접 신뢰값으로 쓴다 — 로컬 state 였을 때는
   // 화면을 벗어났다 돌아오면(EditorWorkspace 재마운트) 항상 prefs 값으로 리셋됐다(감사 지적).
   const showGrid = prefs.showGrid;
@@ -203,24 +208,51 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       return { id: c.id, number: c.number, color, ink: inkFor(color) };
     });
 
+  // 두 배치가 **같은 컴포넌트 인스턴스**를 쓰도록 조각으로 뽑는다. 가로/세로에서 각각 따로
+  // 렌더하면 방향이 바뀔 때 언마운트–재마운트가 일어나 인스펙터의 펼침 상태 같은 것이 날아간다.
+  const toolRail = (
+    <ToolRail
+      tool={state.tool}
+      onSelectTool={(t) => dispatch({ type: 'TOOL_SET', tool: t })}
+      coneSlot={state.coneSlot}
+      onConeSlotChange={(slot) => dispatch({ type: 'CONE_SLOT_SET', slot })}
+      ballCount={drill.cast.balls.length}
+      ballMax={BALL.maxCount}
+      unplacedChairs={unplacedChairs}
+      pendingPlayerId={pendingPlayerId}
+      onArmPlayer={armPlayer}
+      courtLabel={{ full: '풀 코트', half: '하프 코트', flat: '플랫 코트' }[drill.courtMode]}
+      orientation={portrait ? 'horizontal' : 'vertical'}
+    />
+  );
+
+  const inspector = (
+    <InspectorPanel
+      drill={drill}
+      step={step}
+      stepIndex={stepIndex}
+      dispatch={dispatch}
+      selection={state.selection}
+      pendingPlayerId={pendingPlayerId}
+      onArmPlayer={armPlayer}
+      onEraseIds={eraseIds}
+      showSteps={!isBoard}
+      layout={portrait ? 'sheet' : 'side'}
+    />
+  );
+
   return (
-    <main id="main" tabIndex={-1} style={{ flex: 1, display: 'flex', minHeight: 0, outline: 'none' }}>
+    <main
+      id="main"
+      tabIndex={-1}
+      // 세로 화면은 위→아래로 쌓는다(§6.4): 코트가 폭을 다 쓰고, 도구·속성이 아래로 간다.
+      style={{ flex: 1, display: 'flex', flexDirection: portrait ? 'column' : 'row', minHeight: 0, outline: 'none' }}
+    >
       <span id="court-help" className="sr-only">
         방향키로 커서 이동, Enter로 배치, Alt+←/→로 개체 순회
       </span>
 
-      <ToolRail
-        tool={state.tool}
-        onSelectTool={(t) => dispatch({ type: 'TOOL_SET', tool: t })}
-        coneSlot={state.coneSlot}
-        onConeSlotChange={(slot) => dispatch({ type: 'CONE_SLOT_SET', slot })}
-        ballCount={drill.cast.balls.length}
-        ballMax={BALL.maxCount}
-        unplacedChairs={unplacedChairs}
-        pendingPlayerId={pendingPlayerId}
-        onArmPlayer={armPlayer}
-        courtLabel={{ full: '풀 코트', half: '하프 코트', flat: '플랫 코트' }[drill.courtMode]}
-      />
+      {!portrait && toolRail}
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: 'var(--panel-2)' }}>
         <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 24px' }}>
@@ -275,17 +307,16 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         )}
       </div>
 
-      <InspectorPanel
-        drill={drill}
-        step={step}
-        stepIndex={stepIndex}
-        dispatch={dispatch}
-        selection={state.selection}
-        pendingPlayerId={pendingPlayerId}
-        onArmPlayer={armPlayer}
-        onEraseIds={eraseIds}
-        showSteps={!isBoard}
-      />
+      {portrait ? (
+        <>
+          {toolRail}
+          <BottomSheet label="속성" open={sheetOpen} onToggle={() => setSheetOpen((v) => !v)}>
+            {inspector}
+          </BottomSheet>
+        </>
+      ) : (
+        inspector
+      )}
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpTriggerRef} />
     </main>

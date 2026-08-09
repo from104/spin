@@ -5,6 +5,7 @@ import { memo, useEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { NoteId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
+import { useUprightTransform } from '../stageRot.tsx';
 
 export interface NoteLabelProps {
   id: NoteId;
@@ -35,6 +36,7 @@ export const NoteLabel = memo(function NoteLabel({
   onPointerDown,
   onKeyDown,
 }: NoteLabelProps) {
+  const upright = useUprightTransform();
   const ref = useRef<SVGGElement | null>(null);
 
   useEffect(() => {
@@ -54,9 +56,12 @@ export const NoteLabel = memo(function NoteLabel({
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
+      {/* 판이 돌아도 메모는 바로 선다(§6.4). */}
+      <g transform={upright}>
       <text x={0} y={0} fontFamily={FONT} fontSize={size} fontWeight={600} fill={color} textAnchor={align} dominantBaseline="central">
         {text}
       </text>
+      </g>
       <rect className="focus-ind-outer" x={-size * 2} y={-size * 0.9} width={size * 4} height={size * 1.8} rx={4} />
       <rect className="focus-ind-inner" x={-size * 2} y={-size * 0.9} width={size * 4} height={size * 1.8} rx={4} />
     </g>

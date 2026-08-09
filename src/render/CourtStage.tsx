@@ -30,7 +30,8 @@ import type { ZoneConfig } from '../model/chair.ts';
 import { ArrowHandles } from './ArrowHandles.tsx';
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
-import { computeMetrics, clientToWorld, zoomAt, type StageView, type StageMetrics } from './useStageMetrics.ts';
+import { StageRotProvider } from './stageRot.tsx';
+import { computeMetrics, clientToWorld, rotForRect, zoomAt, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
 import { raf } from './rafLoop.ts';
 
 export interface PointerMeta {
@@ -147,17 +148,33 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     setView({ x: 0, y: 0, w: def.vbW, h: def.vbH });
   }, [mode, def.vbW, def.vbH]);
 
+  // 표시 회전(§6.4 태블릿). **svg 가 실제로 차지한 상자**로 정한다 — 창이 아니라. 인스펙터가
+  // 옆에 있느냐 아래로 내려갔느냐에 따라 같은 창에서도 판단이 달라져야 하기 때문이다.
+  const [rot, setRot] = useState<StageRot>(0);
   const metricsRef = useRef<StageMetrics | null>(null);
   const refreshMetrics = useCallback((): StageMetrics | null => {
     const svg = svgRef.current;
     if (!svg) return null;
-    const m = computeMetrics(svg.getBoundingClientRect(), viewRef.current);
+    const rect = svg.getBoundingClientRect();
+    const nextRot = rotForRect(rect.width, rect.height);
+    const m = computeMetrics(rect, viewRef.current, nextRot);
     metricsRef.current = m;
+    setRot(nextRot); // 같은 값이면 React 가 리렌더를 생략한다
     return m;
   }, []);
   useEffect(() => {
     refreshMetrics();
   }, [refreshMetrics, view]);
+
+  // 크기가 바뀌면 회전 판정을 다시 한다. 창 리사이즈뿐 아니라 **레이아웃 변경**(세로에서
+  // 인스펙터가 아래로 내려가 코트 폭이 넓어지는 것)도 잡아야 하므로 ResizeObserver 를 쓴다.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => refreshMetrics());
+    ro.observe(svg);
+    return () => ro.disconnect();
+  }, [refreshMetrics]);
 
   // 단일 활성 포인터(드래그) 상태 — ref 로만 들고 다닌다(§6.4: 리렌더를 유발하지 않는다).
   const activePointerId = useRef<number | null>(null);
@@ -286,7 +303,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   return (
     <svg
       ref={svgRef}
-      viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
+      viewBox={rot === 90 ? `0 0 ${view.h} ${view.w}` : `${view.x} ${view.y} ${view.w} ${view.h}`}
       preserveAspectRatio="xMidYMid meet"
       role="application"
       aria-label="코트 편집 영역"
@@ -303,39 +320,47 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       <defs>
         <ArrowMarkers uid={markerUid} colors={usedColors} />
       </defs>
-      <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
-      <CourtSurface mode={mode} variant={variant} />
-      {showGrid && <GridOverlay mode={mode} showLabels={showGridLabels} />}
-      <RuleZones mode={mode} visible={showRuleZones} />
-      <ObjectLayer
-        writer={writer}
-        chairs={chairs}
-        balls={balls}
-        cones={cones}
-        notes={notes}
-        arrows={arrows}
-        markerUid={markerUid}
-        selection={selection}
-        zoneCursors={zoneCursors}
-        activeId={activeId}
-        initialFrame={initialFrame}
-        onObjectPointerDown={onObjectPointerDown}
-        onObjectKeyDown={onObjectKeyDown}
-      />
-      <SelectionOverlay ref={selectionOverlayRef} />
-      {zoneHandlesProps && (
-        <ZoneHandles
-          chairId={zoneHandlesProps.chairId}
+      {/* ★ 표시 회전(§6.4 태블릿). 월드 콘텐츠 전체를 이 하나로 돌린다 — 아래 자식들은
+          회전을 전혀 모른다. 좌표·물리·모델은 그대로이고 바라보는 각도만 바뀐다.
+          시계방향 90°: 월드 (x,y) → 상자 (view.y+view.h−y, x−view.x). viewBox 가 이미
+          상자 원점이라 view 오프셋을 여기서 함께 상쇄한다. */}
+      <StageRotProvider rot={rot}>
+      <g transform={rot === 90 ? `translate(${view.y + view.h} ${-view.x}) rotate(90)` : undefined}>
+        <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
+        <CourtSurface mode={mode} variant={variant} />
+        {showGrid && <GridOverlay mode={mode} showLabels={showGridLabels} />}
+        <RuleZones mode={mode} visible={showRuleZones} />
+        <ObjectLayer
           writer={writer}
-          pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
-          activeZone={zoneHandlesProps.activeZone}
-          onPointerDown={zoneHandlesProps.onPointerDown}
+          chairs={chairs}
+          balls={balls}
+          cones={cones}
+          notes={notes}
+          arrows={arrows}
+          markerUid={markerUid}
+          selection={selection}
+          zoneCursors={zoneCursors}
+          activeId={activeId}
+          initialFrame={initialFrame}
+          onObjectPointerDown={onObjectPointerDown}
+          onObjectKeyDown={onObjectKeyDown}
         />
-      )}
-      {arrowHandlesProps && (
-        <ArrowHandles arrow={arrowHandlesProps.arrow} pxPerUnit={metricsRef.current?.pxPerUnit ?? 1} onPointerDown={arrowHandlesProps.onPointerDown} />
-      )}
-      {keyboardCursor && <KeyboardCursor visible={keyboardCursor.visible} x={keyboardCursor.x} y={keyboardCursor.y} label={keyboardCursor.label} />}
+        <SelectionOverlay ref={selectionOverlayRef} />
+        {zoneHandlesProps && (
+          <ZoneHandles
+            chairId={zoneHandlesProps.chairId}
+            writer={writer}
+            pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
+            activeZone={zoneHandlesProps.activeZone}
+            onPointerDown={zoneHandlesProps.onPointerDown}
+          />
+        )}
+        {arrowHandlesProps && (
+          <ArrowHandles arrow={arrowHandlesProps.arrow} pxPerUnit={metricsRef.current?.pxPerUnit ?? 1} onPointerDown={arrowHandlesProps.onPointerDown} />
+        )}
+        {keyboardCursor && <KeyboardCursor visible={keyboardCursor.visible} x={keyboardCursor.x} y={keyboardCursor.y} label={keyboardCursor.label} />}
+      </g>
+      </StageRotProvider>
     </svg>
   );
 });
