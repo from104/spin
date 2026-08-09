@@ -29,13 +29,22 @@ export interface StageView {
  *  왼쪽으로 가고 공격 방향이 왼→오른쪽이 된다(전술도 관례). 반시계면 오른→왼쪽이 된다. */
 export type StageRot = 0 | 90;
 
-/** 이 종횡비부터 세로로 본다. 정사각형(1.0)에서 미세한 폭 변화로 판이 홱홱 돌지 않도록
- *  히스테리시스 대신 단순 임계로 두되, 판정 기준을 1.0 이 아니라 살짝 세로 쪽에 둔다. */
-const PORTRAIT_RATIO = 0.95;
+/** 돌려서 이만큼은 더 커져야 돌린다. 1.0 으로 두면 근소한 차이에도 판이 홱홱 돌고, 정사각형
+ *  근처에서는 폭이 몇 px 만 변해도 뒤집힌다. 8% 는 "눈에 띄게 커질 때만" 의 어림값이다. */
+const ROTATE_GAIN = 1.08;
 
-export function rotForRect(width: number, height: number): StageRot {
-  if (width <= 0 || height <= 0) return 0;
-  return width / height < PORTRAIT_RATIO ? 90 : 0;
+/** **어느 방향이 더 크게 들어가는가**로 정한다.
+ *
+ *  처음에는 "상자가 세로로 길면 돌린다" 로 했는데 실기에서 틀렸다 — iPad 세로에서 도구·속성을
+ *  아래로 내리고 나면 코트 영역이 865×870 처럼 **거의 정사각형**이 된다. 상자만 보면 가로라
+ *  안 돌지만, 그 안에서 풀 코트(1.6:1)는 위아래로 크게 남는다. 반대로 하프 코트(1.18:1)는
+ *  같은 상자에서 돌리면 오히려 작아진다. 즉 답은 상자 모양이 아니라 **코트와 상자의 조합**에
+ *  달려 있고, 그것을 직접 재는 것이 곧 "긴 축을 긴 축에 맞춘다" 는 원칙 그 자체다. */
+export function rotForFit(rect: { width: number; height: number }, view: StageView): StageRot {
+  if (rect.width <= 0 || rect.height <= 0 || view.w <= 0 || view.h <= 0) return 0;
+  const flat = Math.min(rect.width / view.w, rect.height / view.h);
+  const turned = Math.min(rect.width / view.h, rect.height / view.w);
+  return turned > flat * ROTATE_GAIN ? 90 : 0;
 }
 
 export interface StageMetrics {
@@ -136,7 +145,7 @@ export function useStageMetrics(svgRef: RefObject<SVGSVGElement | null>, view: S
     const rect = svg.getBoundingClientRect();
     // 회전은 **svg 가 실제로 차지한 상자**로 정한다(창이 아니라). 인스펙터가 폭을 먹느냐,
     // 하단으로 내려갔느냐에 따라 같은 창에서도 판단이 달라져야 한다.
-    const next = rotForRect(rect.width, rect.height);
+    const next = rotForFit(rect, viewRef.current);
     const m = computeMetrics(rect, viewRef.current, next);
     metricsRef.current = m;
     setRot(next); // 같은 값이면 React 가 리렌더를 생략한다

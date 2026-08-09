@@ -31,7 +31,7 @@ import { ArrowHandles } from './ArrowHandles.tsx';
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
 import { StageRotProvider } from './stageRot.tsx';
-import { computeMetrics, clientToWorld, rotForRect, zoomAt, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
+import { computeMetrics, clientToWorld, rotForFit, zoomAt, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
 import { raf } from './rafLoop.ts';
 
 export interface PointerMeta {
@@ -151,15 +151,24 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   // 표시 회전(§6.4 태블릿). **svg 가 실제로 차지한 상자**로 정한다 — 창이 아니라. 인스펙터가
   // 옆에 있느냐 아래로 내려갔느냐에 따라 같은 창에서도 판단이 달라져야 하기 때문이다.
   const [rot, setRot] = useState<StageRot>(0);
+  // ★ 현재 rot 의 사본. refreshMetrics 는 pointerdown·화살표키마다 불리는 **읽기** 함수인데,
+  //   여기서 매번 setRot 을 부르면 값이 같아도 React 가 한 번 더 렌더한다. 그 렌더가 다시
+  //   ResizeObserver 를 깨우면 서로를 끝없이 밀어 렌더러가 멈춘다(실제로 그렇게 얼었다 —
+  //   jsdom 에는 ResizeObserver 가 없어 단위 테스트로는 잡히지 않았다).
+  //   값이 **정말 바뀔 때만** 상태를 건드린다.
+  const rotRef = useRef<StageRot>(0);
   const metricsRef = useRef<StageMetrics | null>(null);
   const refreshMetrics = useCallback((): StageMetrics | null => {
     const svg = svgRef.current;
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
-    const nextRot = rotForRect(rect.width, rect.height);
+    const nextRot = rotForFit(rect, viewRef.current);
     const m = computeMetrics(rect, viewRef.current, nextRot);
     metricsRef.current = m;
-    setRot(nextRot); // 같은 값이면 React 가 리렌더를 생략한다
+    if (rotRef.current !== nextRot) {
+      rotRef.current = nextRot;
+      setRot(nextRot);
+    }
     return m;
   }, []);
   useEffect(() => {
@@ -167,13 +176,26 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   }, [refreshMetrics, view]);
 
   // 크기가 바뀌면 회전 판정을 다시 한다. 창 리사이즈뿐 아니라 **레이아웃 변경**(세로에서
-  // 인스펙터가 아래로 내려가 코트 폭이 넓어지는 것)도 잡아야 하므로 ResizeObserver 를 쓴다.
+  // 속성 시트가 열려 코트가 낮아지는 것)도 잡아야 하므로 ResizeObserver 를 쓴다.
+  //
+  // 콜백은 rAF 로 미룬다: ResizeObserver 콜백 안에서 곧바로 레이아웃을 읽고 상태를 바꾸면
+  // 브라우저가 같은 프레임 안에서 관측을 다시 돌려 "ResizeObserver loop" 로 들어간다.
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => refreshMetrics());
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      if (raf) return; // 한 프레임에 한 번만
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        refreshMetrics();
+      });
+    });
     ro.observe(svg);
-    return () => ro.disconnect();
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, [refreshMetrics]);
 
   // 단일 활성 포인터(드래그) 상태 — ref 로만 들고 다닌다(§6.4: 리렌더를 유발하지 않는다).

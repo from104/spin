@@ -99,22 +99,57 @@ describe('zoomAt', () => {
 });
 
 // ── 표시 회전(§6.4 태블릿) ───────────────────────────────────────────────────────────────
-import { rotForRect, screenDeltaToWorld, worldToClient as w2c } from './useStageMetrics.ts';
+import { rotForFit, screenDeltaToWorld, worldToClient as w2c } from './useStageMetrics.ts';
 import type { StageRot } from './useStageMetrics.ts';
 
-describe('rotForRect — 코트 영역이 세로로 길면 90°', () => {
-  it('가로로 길면 0', () => {
-    expect(rotForRect(1000, 600)).toBe(0);
+/** 위 rect() 헬퍼의 축약 — 원점이 0 인 상자. */
+const rectOf = (w: number, h: number): DOMRect => rect(0, 0, w, h);
+
+describe('rotForFit — 어느 방향이 더 크게 들어가는가', () => {
+  const full: StageView = { x: 0, y: 0, w: 800, h: 500 }; // 1.6:1
+  const half: StageView = { x: 0, y: 0, w: 500, h: 425 }; // 1.18:1
+
+  it('가로로 긴 상자에서 풀 코트는 돌리지 않는다', () => {
+    expect(rotForFit({ width: 1200, height: 700 }, full)).toBe(0);
   });
-  it('세로로 길면 90', () => {
-    expect(rotForRect(600, 1000)).toBe(90);
+
+  it('세로로 긴 상자에서 풀 코트는 돌린다', () => {
+    expect(rotForFit({ width: 750, height: 1100 }, full)).toBe(90);
   });
-  it('정사각형은 돌리지 않는다 — 미세한 폭 변화로 판이 홱홱 돌면 안 된다', () => {
-    expect(rotForRect(800, 800)).toBe(0);
-    expect(rotForRect(790, 800)).toBe(0); // 0.9875 — 임계(0.95) 위
+
+  it('⚠️ 거의 정사각형 상자에서는 돌려도 이득이 없어 돌리지 않는다', () => {
+    // 실기 회귀: iPad 세로에서 도구·속성을 아래로 내리면 코트 영역이 865×870 이 된다.
+    // "상자가 세로면 돌린다" 로 판정하면 여기서 1% 이득에 판이 통째로 뒤집힌다.
+    expect(rotForFit({ width: 865, height: 870 }, full)).toBe(0);
   });
+
+  it('⚠️ 하프 코트는 세로 상자에서도 이득이 작으면 안 돌린다', () => {
+    // 하프(1.18:1)는 풀(1.6:1)보다 정사각형에 가까워 회전 이득이 훨씬 작다.
+    // 코트마다 답이 다르다는 것이 "상자 모양만으로는 못 정한다" 는 근거다.
+    expect(rotForFit({ width: 865, height: 870 }, half)).toBe(0);
+    expect(rotForFit({ width: 700, height: 1200 }, half)).toBe(90);
+  });
+
+  it('돌린 쪽이 실제로 더 커질 때만 90 을 돌려준다', () => {
+    // 판정과 결과가 어긋나지 않는지 — computeMetrics 로 직접 재서 대조한다.
+    for (const rect of [
+      { width: 1200, height: 700 },
+      { width: 750, height: 1100 },
+      { width: 865, height: 870 },
+      { width: 400, height: 1600 },
+    ]) {
+      for (const view of [full, half]) {
+        const decided = rotForFit(rect, view);
+        const d = rectOf(rect.width, rect.height);
+        const flat = computeMetrics(d, view, 0).pxPerUnit;
+        const turned = computeMetrics(d, view, 90).pxPerUnit;
+        if (decided === 90) expect(turned).toBeGreaterThan(flat);
+      }
+    }
+  });
+
   it('0 크기(jsdom 초기 렌더)에서도 터지지 않고 0', () => {
-    expect(rotForRect(0, 0)).toBe(0);
+    expect(rotForFit({ width: 0, height: 0 }, full)).toBe(0);
   });
 });
 

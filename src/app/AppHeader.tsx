@@ -175,12 +175,16 @@ const COURT_SWITCH_OPTIONS = [
 
 const HEADER_STYLE: CSSProperties = {
   flex: 'none',
-  height: '3.875rem',
+  // ⚠️ 높이를 고정하지 않는다. 태블릿 세로처럼 폭이 좁으면 우측 조작부(되돌리기·코트 전환·
+  //    주 액션)가 62px 한 줄에 다 안 들어가 화면 밖으로 잘려 나간다(실기에서 '드릴로 저장'
+  //    이 반 잘린 채 겹쳐 보였다). 잘라 없애느니 두 줄로 흐르게 둔다.
   minHeight: 62,
   display: 'flex',
   alignItems: 'center',
+  flexWrap: 'wrap',
+  rowGap: '0.5rem',
   gap: '0.875rem',
-  padding: '0 1.5rem',
+  padding: '0.5rem 1.5rem',
   borderBottom: '1px solid var(--border)',
   background: 'var(--panel)',
 };
@@ -196,7 +200,7 @@ export function AppHeader({ config: override }: { config?: HeaderConfig }) {
 
   return (
     <header style={HEADER_STYLE}>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: '1 1 12rem' }}>
         <div style={{ fontSize: '0.9375rem', fontWeight: 700, letterSpacing: '-0.02rem', display: 'flex', alignItems: 'center', gap: '0.5625rem' }}>
           <span
             style={{
@@ -223,10 +227,23 @@ export function AppHeader({ config: override }: { config?: HeaderConfig }) {
             </span>
           )}
         </div>
-        {config.subtitle && <div style={{ fontSize: '0.71875rem', color: 'var(--faint-text)', marginTop: '0.125rem' }}>{config.subtitle}</div>}
+        {config.subtitle && (
+          <div
+            style={{
+              fontSize: '0.71875rem',
+              color: 'var(--faint-text)',
+              marginTop: '0.125rem',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {config.subtitle}
+          </div>
+        )}
       </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+      <div style={{ marginLeft: 'auto', flex: 'none', display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
         {config.history && <HistoryControl cfg={config.history} />}
         {config.courtSwitch && <CourtSwitchControl cfg={config.courtSwitch} />}
 

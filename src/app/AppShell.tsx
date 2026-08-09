@@ -182,7 +182,7 @@ export function AppShell() {
         <StageTargetContext.Provider value={stageTarget}>
           <PresentTargetContext.Provider value={presentTarget}>
             <SkipLink />
-            <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
+            <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
               <AppRail />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <AppHeader config={staticHeaderConfig} />

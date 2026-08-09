@@ -1,0 +1,57 @@
+/* §6.4 앱 셸 가둠 — 웹앱을 태블릿 앱처럼 창 안에 붙잡아 둔다.
+ *
+ * 나중에 태블릿 앱으로 포팅할 때 그대로 이어지도록, 브라우저가 페이지에 대해 하는 일
+ * (스크롤·튕김·당겨서 새로고침·더블탭 확대·롱프레스 메뉴)을 여기서 전부 끈다. 앱 안의
+ * 스크롤은 각 패널이 자기 영역에서만 한다(인스펙터·목록 화면 등).
+ */
+
+/* 페이지 자체는 **절대** 스크롤하지 않는다. 이게 없으면 코트가 조금만 커져도 창 밖으로
+ * 밀려나고, 하단 바(트랜스포트·전술판 바·속성 시트)가 화면 아래로 사라진다. */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  /* 당겨서 새로고침 · 고무줄 반동 차단. 앱이 창 안에서 끝난다는 느낌의 핵심이다. */
+  overscroll-behavior: none;
+}
+
+/* ⚠️ 100vh 를 쓰지 않는다. iOS Safari 의 100vh 는 **주소창이 가린 영역까지 포함**해서,
+ * 주소창이 보이는 동안 앱이 화면보다 커지고 하단 바가 접힌 곳으로 내려간다.
+ * dvh(동적 뷰포트)가 그 문제의 표준 해답이고, 모르는 브라우저는 앞줄 vh 로 물러난다. */
+html {
+  height: 100vh;
+  height: 100dvh;
+}
+
+body {
+  /* 배경을 여기까지 깔아야 safe-area 여백(노치·홈 인디케이터 자리)이 앱 색으로 채워진다. */
+  background: var(--bg);
+  /* 더블탭 확대를 끈다(탭·스크롤은 그대로). 코트 자체는 stage-svg 가 touch-action:none 으로
+   * 브라우저 제스처를 통째로 가져간다 — 핀치는 코트 줌이 되어야 하기 때문이다. */
+  touch-action: manipulation;
+  /* 가로 회전 시 iOS 가 글자를 제멋대로 키우는 것을 막는다. */
+  -webkit-text-size-adjust: 100%;
+  /* 코트 위 개체를 길게 눌렀을 때 "이미지 복사" 같은 시스템 메뉴가 뜨지 않게. */
+  -webkit-touch-callout: none;
+  /* 드래그 도중 UI 글자가 파랗게 잡히는 것 방지. 입력 요소는 바로 아래에서 되살린다. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 위 user-select:none 의 예외 — 입력·편집 가능한 곳에서는 선택·복사가 되어야 한다.
+ * (제목·예상 시간 같은 인스펙터 입력들이 여기 해당한다.) */
+input,
+textarea,
+select,
+[contenteditable='true'] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* viewport-fit=cover 로 화면 끝까지 그리는 대신, 실제 UI 는 안전 영역 안쪽에 둔다.
+ * 이게 없으면 세로 iPad 의 홈 인디케이터가 하단 바 위에 겹치고, 가로에서는 좌측 앱 레일이
+ * 노치에 먹힌다. 여백은 body 배경색으로 채워진다. */
+#root {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
