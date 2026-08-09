@@ -17,9 +17,17 @@ export const CHAIR = {
   hullRadiusPx: 32.5,
   rearCornerPx: 14.57738,
   trackM: 0.65,
-  /** 문서값. matter body 에 절대 설정 금지 — setStatic 이 Infinity 로 강제하며
-   *  setMass 호출 시 inertia = NaN 이 된다(실측). 'push' 모드 도입 시에만 쓴다. */
+  /** 문서값(사람 포함 120~150 kg). 예전에는 "matter body 에 절대 설정 금지" 였다 — static
+   *  body 에 setMass 를 부르면 inertia 가 NaN 이 되기 때문이다(실측). 2026-08-10 'push' 모드
+   *  도입으로 휠체어가 dynamic 이 되면서 그 제약이 풀렸고, 아래 massKg 가 실제로 적용된다. */
   massKgDoc: 150,
+  /** 실제 바디 질량. 120~150 의 중간값. 골대(80)보다 무겁고 공(1.3)·콘(0.3)보다 훨씬 무겁다 —
+   *  이 순서가 곧 "무엇이 얼마나 밀리느냐" 의 위계다(§5.4). */
+  massKg: 135,
+  /** dynamic 이 되면서 필요해진 감쇠. 이게 없으면 한 번 밀린 휠체어가 **영원히 미끄러진다**
+   *  (중력도, 구름 감속도 없는 평면 시뮬레이션이다). 값이 큰 이유는 실물 파워체어가
+   *  구동륜 저항 때문에 밀린 뒤 곧 서기 때문 — "묵직하게 밀린다" 의 절반은 이 감쇠다. */
+  frictionAir: 0.35,
   restitution: 0.1,
   friction: 0.15,
   frictionStatic: 0.5,

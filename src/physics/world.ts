@@ -1,12 +1,12 @@
 // 엔진 생성 · 개체 관리 · 포즈 read/write · freeze · 저속반발 훅. §5.4, §5.9.
 import * as Matter from 'matter-js';
-import { PHYS, BALL, CONE, GOAL } from '../core/constants.ts';
+import { PHYS, BALL, CHAIR, CONE, GOAL } from '../core/constants.ts';
 import type { Vec2 } from '../core/units.ts';
 import type { ChairPose } from '../model/chair.ts';
 import type { ChairId, BallId, ConeId, CastId } from '../core/ids.ts';
 import type { Bounds, PoseBuffer } from './types.ts';
 import { escapePinned } from './obb.ts';
-import { createChairBody, createBallBody, createConeBody, createGoalPostBody, createWalls } from './bodies.ts';
+import { applyStaticSurface, createChairBody, createBallBody, createConeBody, createGoalPostBody, createWalls } from './bodies.ts';
 
 const { Engine, Body, Composite, Events } = Matter;
 
@@ -79,6 +79,13 @@ export interface WorldHandles {
   addGoalPost(id: string, p: Vec2): void;
   remove(id: CastId): void;
   setChairPose(id: ChairId, pose: ChairPose, driven: boolean): void;
+  /** 드래그 중인 휠체어만 static 으로 바꾼다(§5.4 'push' 모드).
+   *
+   *  ⚠️ 이 구분이 없으면 §5.4 골든값이 전부 무너진다: **구동 중인 dynamic 바디는 static 처럼
+   *  운동량을 전달하지 못하고 반동으로 밀려난다**(실측 — 공 밀기 정상속도 2.78 → 0.64 m/s,
+   *  스핀킥 10.06 → 5.34 m/s). 잡은 칩은 손이 쥔 것이므로 권위가 있어야 하고, 대기 중인
+   *  칩만 dynamic 이어서 밀린다. */
+  setChairDragging(id: ChairId, dragging: boolean): void;
   setPoint(id: CastId, p: Vec2, driven: boolean): void;
   freeze(id: CastId): void;
   chairPose(id: ChairId): ChairPose;
@@ -154,6 +161,20 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
       if (!b) return;
       Composite.remove(engine.world, b);
       bodies.delete(id);
+    },
+    setChairDragging(id, dragging) {
+      const b = bodies.get(id);
+      if (!b || b.isStatic === dragging) return;
+      Body.setStatic(b, dragging);
+      if (!dragging) {
+        // setStatic(false) 는 _original 에서 되살리지만, 우리가 준 질량·관성은 거기 없다.
+        Body.setMass(b, CHAIR.massKg);
+        Body.setInertia(b, Infinity);
+        Body.setVelocity(b, { x: 0, y: 0 });
+        Body.setAngularVelocity(b, 0);
+      }
+      // setStatic 은 어느 방향이든 restitution=0/friction=1 로 덮어쓴다(§5.3).
+      applyStaticSurface(b, CHAIR.restitution, CHAIR.friction, CHAIR.frictionStatic);
     },
     setChairPose(id, pose, driven) {
       const b = requireChair(id);

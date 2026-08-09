@@ -28,21 +28,29 @@ export function applyStaticSurface(b: Matter.Body, e: number, mu: number, muS: n
 }
 
 /** body.position === 피벗 P 가 되도록 만든다. 이 순서를 절대 바꾸지 말 것(§5.3):
- *  1) 각도 0 에서 centroid 를 피벗 앞쪽 off 에 놓고 생성 (mass/density 절대 넘기지 않는다 —
- *     static + setMass 는 inertia=NaN, §2.7 실측)
+ *  1) 각도 0 에서 centroid 를 피벗 앞쪽 off 에 놓고 생성
  *  2) setCentre(relative:true) 로 기준점을 피벗으로 되돌림 — 이 오프셋은 월드 좌표라 각도 0
  *     에서 해야 로컬=월드로 정확하다(θ≠0 에서 하면 최대 13 px 이탈, 실측)
  *  3) 마지막에 회전 — 이제 피벗 기준으로 회전된다
- *  4) setStatic 이 덮어쓴 표면계수를 되돌린다 */
+ *  4) 질량·관성 (생성 옵션이 아니라 여기서 — setCentre 가 관성을 다시 계산한다)
+ *
+ *  ★ 2026-08-10 'push' 모드: **static 이 아니다**. 휠체어끼리 서로 밀리게 하려면 dynamic
+ *  이어야 한다(static–static 은 matter 가 아예 충돌시키지 않는다). 옛 주석의 "mass 절대 금지"
+ *  는 static + setMass 가 inertia=NaN 이 되기 때문이었고, dynamic 에서는 해당하지 않는다.
+ *
+ *  회전 관성은 Infinity 로 막는다 — 부딪힐 때마다 차체가 팽이처럼 도는 것은 실물에도 없고
+ *  (구동륜이 방향을 잡는다) 판을 읽기 어렵게 만든다. 회전은 드래그(4존 운동학)만이 만든다. */
 export function createChairBody(pose: ChairPose): Matter.Body {
   const off = CHAIR.centroidOffsetPx;
   const b = Bodies.rectangle(pose.x + off, pose.y, CHAIR.lengthPx, CHAIR.widthPx, {
-    isStatic: true,
     label: 'chair',
-    collisionFilter: { category: CAT.CHAIR, mask: CAT.BALL | CAT.CONE | CAT.WALL | CAT.GOAL, group: 0 },
+    frictionAir: CHAIR.frictionAir,
+    collisionFilter: { category: CAT.CHAIR, mask: CAT.CHAIR | CAT.BALL | CAT.CONE | CAT.WALL | CAT.GOAL, group: 0 },
   });
   Body.setCentre(b, { x: -off, y: 0 }, true);
   if (pose.theta !== 0) Body.setAngle(b, pose.theta);
+  Body.setMass(b, CHAIR.massKg);
+  Body.setInertia(b, Infinity);
   applyStaticSurface(b, CHAIR.restitution, CHAIR.friction, CHAIR.frictionStatic);
   return b;
 }

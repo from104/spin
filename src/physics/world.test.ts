@@ -30,6 +30,12 @@ const coneId = (n = 0) => `cn_test${n}` as ConeId;
 /** 대형 코트(터널링/충돌 여유가 충분한) 기본 bounds. */
 const BOUNDS: Bounds = { w: 4000, h: 4000 };
 
+/** 같은 label 의 바디를 **추가한 순서대로** 모두. 휠체어 두 대를 구분해야 하는
+ *  'push' 모드 테스트에서 쓴다. */
+function findBodies(w: WorldHandles, label: string): Matter.Body[] {
+  return Composite.allBodies(w.engine.world).filter((x) => x.label === label);
+}
+
 function findBody(w: WorldHandles, label: string): Matter.Body {
   const b = Composite.allBodies(w.engine.world).find((x) => x.label === label);
   if (!b) throw new Error(`no body with label ${label}`);
@@ -60,10 +66,18 @@ describe('createChairBody — 피벗 정렬(§5.3)', () => {
     }
   });
 
-  it('setMass NaN blocker 회귀: inverseInertia 는 finite, inverseMass 는 0', () => {
+  it("'push' 모드 이후 휠체어 바디 계약: dynamic·질량 135kg·회전 관성 무한", () => {
+    // 옛 계약은 "inverseMass === 0"(= static)이었다. 2026-08-10 'push' 모드로 대기 중인
+    // 휠체어가 dynamic 이 되면서 뒤집혔다 — 그래야 서로 밀린다(static–static 은 matter 가
+    // 아예 충돌시키지 않는다). 드래그 중인 칩만 setChairDragging 으로 static 이 된다.
     const b = createChairBody({ x: 0, y: 0, theta: 0 });
-    expect(Number.isFinite(b.inverseInertia)).toBe(true);
-    expect(b.inverseMass).toBe(0);
+    expect(b.isStatic).toBe(false);
+    expect(b.mass).toBeCloseTo(CHAIR.massKg, 6);
+    expect(b.inverseMass).toBeCloseTo(1 / CHAIR.massKg, 9);
+    // 회전 관성은 무한 — 부딪힐 때마다 차체가 팽이처럼 돌면 판을 읽을 수 없다.
+    expect(b.inverseInertia).toBe(0);
+    // 감쇠가 없으면 한 번 밀린 칩이 영원히 미끄러진다(중력도 구름 감속도 없는 평면이다).
+    expect(b.frictionAir).toBe(CHAIR.frictionAir);
   });
 
   it('applyStaticSurface 회귀: 휠체어·벽의 restitution/friction 이 표의 값과 일치', () => {
@@ -99,6 +113,8 @@ describe('static 휠체어가 공을 민다(§5.4 실측)', () => {
     const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmh); // 69.4444 px/s
     let pose: ChairPose = { x: -60, y: 200, theta: 0 }; // 전방(+x) 을 향해 정지
     w.addChair(chairId(), pose);
+    // §5.4 'push' 모드: 구동되는 칩은 앱에서 **드래그 중**이라 static 이다. 하네스도 같게 맞춘다.
+    w.setChairDragging(chairId(), true);
     w.addBall(ballId(), { x: 40, y: 200 }); // 전방 30px 지점 앞의 정지한 공
 
     const ball = findBody(w, 'ball');
@@ -118,7 +134,7 @@ describe('static 휠체어가 공을 민다(§5.4 실측)', () => {
     expect(Math.abs(lastSpeedMs - 2.7778)).toBeLessThan(0.02 * 2.7778);
   });
 
-  it('8 m/s 공이 대기 static 휠체어를 강타해도 휠체어는 정확히 이동/회전하지 않는다', () => {
+  it('8 m/s 공이 대기 휠체어를 강타해도 사실상 제자리다 — 135 kg 대 1.3 kg', () => {
     const w = createWorld(BOUNDS.w, BOUNDS.h);
     w.addChair(chairId(), { x: 400, y: 200, theta: 0 });
     w.addBall(ballId(), { x: 300, y: 200 });
@@ -131,8 +147,11 @@ describe('static 휠체어가 공을 민다(§5.4 실측)', () => {
       w.applySpeedClamps();
     }
     const after = w.chairPose(chairId());
-    expect(after.x).toBe(before.x);
-    expect(after.y).toBe(before.y);
+    // 옛 계약은 "정확히 0" 이었다(static). 이제 대기 칩은 dynamic 이라 아주 조금 밀린다 —
+    // 그게 "공에는 사실상 안 밀린다" 의 실체다(135 kg 대 1.3 kg). 5 px = 0.19 m.
+    expect(Math.abs(after.x - before.x)).toBeLessThan(5);
+    expect(Math.abs(after.y - before.y)).toBeLessThan(1);
+    // 회전 관성이 무한이므로 각도는 **정확히** 그대로다.
     expect(after.theta).toBe(before.theta);
   });
 });
@@ -200,6 +219,8 @@ describe('스핀킥(§2.7 실측: ω=6.9444 rad/s)', () => {
     const leadIn = 0.3;
     let theta = -leadIn;
     w.addChair(chairId(), { x: 2000, y: 2000, theta });
+    // §5.4 'push' 모드: 구동되는 칩은 앱에서 **드래그 중**이라 static 이다. 하네스도 같게 맞춘다.
+    w.setChairDragging(chairId(), true);
     w.addBall(ballId(), { x: 2000, y: 2000 + radiusPx }); // 로컬 (0, r) — theta=0 기준 피벗 옆
     const ball = findBody(w, 'ball');
 
@@ -322,6 +343,8 @@ describe('freeze 회귀(§5.4 실측: 미실행 시 1초 후 47.3px/1.30m/s 고�
     w.addBall(ballId(), { x: 2000 + CHAIR.pivotToFrontPx + BALL.radiusPx + 0.45, y: 2000 });
     const chair = findBody(w, 'chair');
     const ball = findBody(w, 'ball');
+    // 이 시나리오는 "드래그를 끝내는 걸 잊은" 상황이므로 칩은 드래그 중(static)이다(§5.4).
+    w.setChairDragging(chairId(), true);
     setPosition3(chair, { x: chair.position.x + 0.5, y: chair.position.y }, true);
     return { w, ball };
   };
@@ -350,6 +373,8 @@ describe('enableSleeping 관통 회귀(§5.4 — 문서화용, 절대 true 로 �
   it('static 휠체어가 sleeping 인 공 위를 지나가도 공이 움직이지 않는다(버그 재현)', () => {
     const engine = Engine.create({ ...ENGINE_OPTS, enableSleeping: true });
     const chair = createChairBody({ x: -500, y: 0, theta: 0 }); // 멀리서 시작
+    // 이 테스트는 **구동되는(=드래그 중인)** 휠체어가 잠든 공을 지나가는 상황이다(§5.4).
+    Body.setStatic(chair, true);
     const ball = createBallBody({ x: 0, y: 0 });
     ball.sleepThreshold = 30;
     Composite.add(engine.world, [chair, ball]);
@@ -572,6 +597,8 @@ describe('무게 위계 — 같은 힘으로 밀었을 때 공이 콘보다 훨�
     const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmh);
     let pose: ChairPose = { x: -60, y: 200, theta: 0 };
     w.addChair(chairId(), pose);
+    // §5.4 'push' 모드: 구동되는 칩은 앱에서 **드래그 중**이라 static 이다. 하네스도 같게 맞춘다.
+    w.setChairDragging(chairId(), true);
     const startX = 40;
     if (kind === 'ball') w.addBall(ballId(), { x: startX, y: 200 });
     else w.addCone(coneId(), { x: startX, y: 200 });
@@ -655,6 +682,8 @@ describe('골대 — 공에는 안 밀리고 휠체어에는 밀린다', () => {
     const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmh);
     let pose: ChairPose = { x: GOAL_AT.x - 100, y: GOAL_AT.y, theta: 0 };
     w.addChair(chairId(), pose);
+    // §5.4 'push' 모드: 구동되는 칩은 앱에서 **드래그 중**이라 static 이다. 하네스도 같게 맞춘다.
+    w.setChairDragging(chairId(), true);
 
     for (let i = 0; i < 240; i++) {
       pose = { x: pose.x + vLin * PHYS.dtS, y: pose.y, theta: 0 };
@@ -676,5 +705,94 @@ describe('골대 — 공에는 안 밀리고 휠체어에는 밀린다', () => {
   it('회전하지 않는다 — 포스트가 빙글빙글 도는 것은 실물에도 없다', () => {
     const g = createGoalPostBody(GOAL_AT);
     expect(g.inverseInertia).toBe(0);
+  });
+});
+
+// ── 'push' 모드 1단계 (§5.4, 2026-08-10 기현 지시) ────────────────────────────────────────
+// "휠체어칩을 이동하며 부딪히면 휠체어와 골대는 묵직하게 밀린다."
+//
+// 이전에는 휠체어끼리 **충돌 자체가 없었다**(static–static + 마스크에서 CHAIR 제외).
+// 겹치지 않게 막는 일은 물리가 아니라 기하(resolveMotion 의 SAT 클리핑)가 했다 — 그래서
+// 느낌이 "밀린다" 가 아니라 "벽에 막힌다" 였다.
+describe("'push' 모드 — 드래그 중인 휠체어가 대기 중인 휠체어를 민다", () => {
+  it('대기 칩은 dynamic, 드래그 칩은 static 이다', () => {
+    const w = createWorld(BOUNDS.w, BOUNDS.h);
+    w.addChair(chairId(0), { x: 200, y: 200, theta: 0 });
+    w.addChair(chairId(1), { x: 400, y: 200, theta: 0 });
+    w.setChairDragging(chairId(0), true);
+    expect(findBodies(w, 'chair')[0]!.isStatic).toBe(true);
+    expect(findBodies(w, 'chair')[1]!.isStatic).toBe(false);
+  });
+
+  it('드래그를 끝내면 다시 dynamic 이 되고 질량·관성이 살아 있다', () => {
+    // setStatic(false) 는 _original 에서 되살리는데 우리가 준 질량은 거기 없다 — 다시 넣어야 한다.
+    const w = createWorld(BOUNDS.w, BOUNDS.h);
+    w.addChair(chairId(0), { x: 200, y: 200, theta: 0 });
+    w.setChairDragging(chairId(0), true);
+    w.setChairDragging(chairId(0), false);
+    const b = findBodies(w, 'chair')[0]!;
+    expect(b.isStatic).toBe(false);
+    expect(b.mass).toBeCloseTo(CHAIR.massKg, 6);
+    expect(b.inverseInertia).toBe(0);
+  });
+
+  it('밀어붙이면 대기 칩이 실제로 밀려난다', () => {
+    const w = createWorld(BOUNDS.w, BOUNDS.h);
+    const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmh);
+    let pose: ChairPose = { x: 200, y: 200, theta: 0 };
+    w.addChair(chairId(0), pose);
+    w.addChair(chairId(1), { x: 200 + CHAIR.lengthPx + 8, y: 200, theta: 0 });
+    w.setChairDragging(chairId(0), true);
+    const startX = w.chairPose(chairId(1)).x;
+
+    for (let i = 0; i < 240; i++) {
+      pose = { x: pose.x + vLin * PHYS.dtS, y: pose.y, theta: 0 };
+      w.setChairPose(chairId(0), pose, true);
+      Engine.update(w.engine, PHYS.dtMs);
+      w.applySpeedClamps();
+    }
+    expect(w.chairPose(chairId(1)).x - startX).toBeGreaterThan(20);
+  });
+
+  it('밀린 칩은 손을 뗀 뒤 곧 선다 — 감쇠가 없으면 영원히 미끄러진다', () => {
+    const w = createWorld(BOUNDS.w, BOUNDS.h);
+    const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmh);
+    let pose: ChairPose = { x: 200, y: 200, theta: 0 };
+    w.addChair(chairId(0), pose);
+    w.addChair(chairId(1), { x: 200 + CHAIR.lengthPx + 8, y: 200, theta: 0 });
+    w.setChairDragging(chairId(0), true);
+
+    for (let i = 0; i < 120; i++) {
+      pose = { x: pose.x + vLin * PHYS.dtS, y: pose.y, theta: 0 };
+      w.setChairPose(chairId(0), pose, true);
+      Engine.update(w.engine, PHYS.dtMs);
+      w.applySpeedClamps();
+    }
+    // 손을 뗀다 — 더 이상 밀지 않는다.
+    const mid = w.chairPose(chairId(1)).x;
+    for (let i = 0; i < 240; i++) {
+      Engine.update(w.engine, PHYS.dtMs);
+      w.applySpeedClamps();
+    }
+    const after = w.chairPose(chairId(1)).x;
+    expect(after - mid).toBeLessThan(6); // 관성으로 조금 더 가되 곧 선다
+    expect(w.allAtRest()).toBe(true);
+  });
+
+  it('부딪혀도 차체가 돌지 않는다 — 회전 관성 무한', () => {
+    const w = createWorld(BOUNDS.w, BOUNDS.h);
+    const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmh);
+    // 정면이 아니라 비스듬히 민다(회전이 생기기 쉬운 조건).
+    let pose: ChairPose = { x: 200, y: 190, theta: 0 };
+    w.addChair(chairId(0), pose);
+    w.addChair(chairId(1), { x: 200 + CHAIR.lengthPx + 8, y: 200, theta: 0 });
+    w.setChairDragging(chairId(0), true);
+    for (let i = 0; i < 180; i++) {
+      pose = { x: pose.x + vLin * PHYS.dtS, y: pose.y, theta: 0 };
+      w.setChairPose(chairId(0), pose, true);
+      Engine.update(w.engine, PHYS.dtMs);
+      w.applySpeedClamps();
+    }
+    expect(w.chairPose(chairId(1)).theta).toBe(0);
   });
 });

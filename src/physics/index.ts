@@ -5,6 +5,7 @@ import type { Vec2 } from '../core/units.ts';
 import { kmhToPxPerS } from '../core/units.ts';
 import { CHAIR, DEFAULT_LIMITS, DEFAULT_ZONES, GOAL, PHYS } from '../core/constants.ts';
 import type { ChairId, CastId } from '../core/ids.ts';
+import { isId } from '../core/ids.ts';
 import type { ChairPose, DragZone } from '../model/chair.ts';
 import { classifyZone, poseFromStored, projectGrab } from '../model/chair.ts';
 import type { DrillCast, DrillStep } from '../model/drill.ts';
@@ -298,6 +299,9 @@ export function createPhysicsWorld(
           : world.chairPose(hit.id as ChairId);
 
       session = beginDragSession(hit, grabWorld, internalHitContext(), pose);
+      // 잡은 칩은 손의 권위를 갖는다 — static 이라야 §5.4 골든값(공 밀기·스핀킥)이 유지된다.
+      // 대기 중인 칩만 dynamic 이어서 밀린다(world.setChairDragging 주석).
+      if (isId(session.id, 'ch')) world.setChairDragging(session.id as ChairId, true);
       loop.start();
 
       const handle: DragHandle = {

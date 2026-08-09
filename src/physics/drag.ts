@@ -4,6 +4,7 @@ import { INTERACT, CHAIR_SEP_PX, RESOLVE_ITERS, BALL, CONE } from '../core/const
 import type { ChairPose, DragZone } from '../model/chair.ts';
 import { classifyZone } from '../model/chair.ts';
 import type { CastId, ChairId } from '../core/ids.ts';
+import { isId } from '../core/ids.ts';
 import type { Bounds, DragLimits, GrabLatch, KinInput, ZoneState } from './types.ts';
 import { grabFrom, grabFromLever, grabPoint, clampMag, stepZone } from './kinematics.ts';
 import { resolveMotion, clampPointToBounds } from './obb.ts';
@@ -75,7 +76,18 @@ export function stepDrag(s: DragSession, w: WorldHandles, lim: DragLimits, b: Bo
     const cur = w.chairPose(chairId);
     const input: KinInput = { pose: cur, grab: s.grab, target: s.target, dt: dtS };
     const raw = stepZone(s.zone!, input, lim, s.zoneState);
-    const fin = resolveMotion(cur, raw, w.otherChairPoses(chairId), b, CHAIR_SEP_PX, RESOLVE_ITERS);
+    // ★ 'push' 모드(§5.4, 2026-08-10): 다른 휠체어를 **기하로 막지 않는다**. 빈 배열이다.
+    //
+    // 예전에는 여기서 SAT 로 이웃 칩에 닿기 직전까지 잘라냈다 — 휠체어끼리 물리 충돌이
+    // 아예 없었기 때문에(static–static + 마스크 제외) 기하가 그 일을 대신했다. 그래서 느낌이
+    // "밀린다" 가 아니라 "벽에 막힌다" 였다.
+    //
+    // 이제 대기 칩이 dynamic 이므로 겹침은 물리가 푼다(밀려난다). 여기서 계속 잘라내면
+    // 잡은 칩이 이웃에 닿는 순간 멈춰서, 아무리 dynamic 으로 만들어도 미는 장면이 나오지
+    // 않는다 — 그래서 이 둘은 한 조각으로 같이 바뀌어야 했다.
+    //
+    // 경계(벽)는 그대로 막는다: 코트 밖으로 나가는 것은 물리가 풀어 줄 문제가 아니다.
+    const fin = resolveMotion(cur, raw, [], b, CHAIR_SEP_PX, RESOLVE_ITERS);
     w.setChairPose(chairId, fin, /* driven */ true);
     return;
   }
@@ -115,4 +127,6 @@ export function releaseDone(s: DragSession, w: WorldHandles, nowMs: number): boo
  *  부르는 오케스트레이터(index.ts) 몫이다 — endDrag 자체는 world 에 대한 단발 커밋만 한다. */
 export function endDrag(s: DragSession, w: WorldHandles): void {
   w.freeze(s.id);
+  // 손을 뗐으니 이 칩도 다시 밀릴 수 있는 몸이 된다(§5.4 'push' 모드).
+  if (isId(s.id, 'ch')) w.setChairDragging(s.id as ChairId, false);
 }
