@@ -26,13 +26,18 @@ import { EditorWorkspace } from '../editor/EditorWorkspace.tsx';
 const PERSIST_DEBOUNCE_MS = 500;
 
 /** 전술판의 시작 코트는 `prefs.defaultCourtMode` 다 — CourtPicker 가 은퇴하면서 그 설정이
- *  죽은 필드가 되지 않도록 여기가 유일한 소비처가 됐다(감사 minor #4 의 후신). */
+ *  죽은 필드가 되지 않도록 여기가 유일한 소비처가 됐다(감사 minor #4 의 후신).
+ *
+ *  **코트는 비어 있다**(empty, 2026-08-10 기현 지시). 전술판에서는 기본 포메이션이 의미가
+ *  없다 — 무엇을 그릴지 모르는 판에 8대가 깔려 있으면 매번 치우는 일부터 해야 한다.
+ *  선수는 인스펙터 명단에서 하나씩 놓고, 공·콘은 도구로 만든다. */
 function makeBoardDrill(prefs: Preferences, mode?: CourtMode): Drill {
   return createDrill({
     title: '자유 전술판',
     courtMode: mode ?? prefs.defaultCourtMode ?? 'full',
     formation: prefs.defaultFormation,
     teams: prefs.teams,
+    empty: true,
   });
 }
 
@@ -93,7 +98,7 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
 
   const onReset = useCallback(() => {
     swap(state.present.courtMode);
-    toast.show('전술판을 초기화했습니다. 이제 코트 형태를 바꿀 수 있습니다.');
+    toast.show('코트를 비웠습니다. 이제 코트 형태를 바꿀 수 있습니다.');
   }, [state.present.courtMode, swap, toast]);
 
   const onSaveAsDrill = useCallback(() => {

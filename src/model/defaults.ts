@@ -80,6 +80,11 @@ function ballPosFor(mode: CourtMode): Vec2 {
   return FLAT_BALL;
 }
 
+/** 아무것도 배치되지 않은 스텝. 휠체어·공·콘 전부 미배치이므로 코트가 비어 있다. */
+export function emptyStep(_mode: CourtMode): DrillStep {
+  return { id: newId('st'), name: '스텝 1', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [] };
+}
+
 /** 시그니처를 string 으로 넓히고 내부에서 FORMATIONS 폴백한다(validate.ts 의 이중 방어와 합치). */
 export function defaultStep(mode: CourtMode, f: string, cast: DrillCast): DrillStep {
   const formation: FormationName = (FORMATIONS as readonly string[]).includes(f) ? (f as FormationName) : '1-2-1';
@@ -132,12 +137,23 @@ export function createDrill(init: {
   formation?: FormationName;
   durationMin?: number;
   teams?: Record<TeamSide, TeamStyle>;
+  /** 코트를 **비운 채** 만든다(§6.8 자유 전술판, 2026-08-10 기현 지시).
+   *
+   *  전술판에서는 기본 포메이션이 의미가 없다 — 무엇을 그릴지 모르는 빈 판에 8대가 미리
+   *  깔려 있으면 매번 치우는 일부터 해야 한다. 선수는 명단(인스펙터)에 남아 있어 하나씩
+   *  놓을 수 있고, 공·콘은 도구로 새로 만든다.
+   *
+   *  ⚠️ 공은 cast 에서도 뺀다. 미배치인 채 cast 에만 남으면 어떤 UI 로도 놓을 수 없는데
+   *  (공 도구는 addBall 로 **새** 공을 만든다) 공 10개 상한에는 계속 잡힌다 — 놓지도 못하는
+   *  유령이 한 자리를 먹는다. */
+  empty?: boolean;
 }): Drill {
   const now = Date.now();
   const cast = defaultCast();
+  if (init.empty) cast.balls = [];
   const formation = init.formation ?? '1-2-1';
   const teams = structuredClone(init.teams ?? DEFAULT_TEAMS);
-  const step = defaultStep(init.courtMode, formation, cast);
+  const step = init.empty ? emptyStep(init.courtMode) : defaultStep(init.courtMode, formation, cast);
   assertNoOverlap(init.courtMode, step);
   return {
     schemaVersion: CURRENT_DRILL_SCHEMA,

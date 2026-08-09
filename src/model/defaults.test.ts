@@ -106,3 +106,32 @@ describe('cloneToCourt', () => {
     expect(cloneToCourt(d, 'full')).toBe(d);
   });
 });
+
+// ── 빈 코트 (§6.8 자유 전술판, 2026-08-10 기현 지시) ──────────────────────────────────────
+describe('createDrill({ empty: true }) — 전술판용 빈 코트', () => {
+  it('코트에 아무것도 놓여 있지 않다', () => {
+    const d = createDrill({ courtMode: 'full', empty: true });
+    const s = d.steps[0]!;
+    expect(Object.keys(s.chairs)).toHaveLength(0);
+    expect(Object.keys(s.balls)).toHaveLength(0);
+    expect(Object.keys(s.cones)).toHaveLength(0);
+  });
+
+  it('선수 8명은 명단에 남는다 — 비었다고 팀까지 없어지면 안 된다', () => {
+    const d = createDrill({ courtMode: 'full', empty: true });
+    expect(d.cast.chairs).toHaveLength(8);
+  });
+
+  it('⚠️ 공은 cast 에서도 뺀다 — 놓지도 못하는 유령이 10개 상한을 먹는다', () => {
+    // 공 도구는 addBall 로 **새** 공을 만든다(edits.ts). 미배치인 채 cast 에만 남은 공은
+    // 어떤 UI 로도 놓을 수 없는데 LIMITS.maxBalls 에는 계속 잡힌다.
+    const d = createDrill({ courtMode: 'full', empty: true });
+    expect(d.cast.balls).toHaveLength(0);
+  });
+
+  it('empty 를 안 주면 예전처럼 기본 포메이션이 깔린다 (드릴 편집 쪽은 그대로다)', () => {
+    const d = createDrill({ courtMode: 'full' });
+    expect(Object.keys(d.steps[0]!.chairs).length).toBeGreaterThan(0);
+    expect(d.cast.balls).toHaveLength(1);
+  });
+});

@@ -21,7 +21,8 @@ import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { loadPrefs, makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
-import { BOARD_KEY } from '../../storage/board.ts';
+import { BOARD_KEY, saveBoard } from '../../storage/board.ts';
+import { createDrill } from '../../model/defaults.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import { BoardScreen } from './BoardScreen.tsx';
 
@@ -59,9 +60,14 @@ function Wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-/** 전술판을 지정한 코트로 연다. 코트는 prefs 로 정해지므로 render 전에 심는다. */
-async function openBoard(court: 'full' | 'half' | 'flat' = 'full') {
+/** 전술판을 지정한 코트로 연다. 코트는 prefs 로 정해지므로 render 전에 심는다.
+ *
+ *  `placed: true` 면 **개체가 놓인 판**을 스냅샷으로 심어서 연다. 전술판은 2026-08-10 부터
+ *  **빈 코트로 시작**하므로(기현 지시), 칩을 만지는 테스트는 판을 채운 상태에서 열어야 한다.
+ *  스냅샷 경로를 그대로 타므로 "저장된 판 되살리기" 도 겸사겸사 검증된다. */
+async function openBoard(court: 'full' | 'half' | 'flat' = 'full', opts: { placed?: boolean } = {}) {
   localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: court }));
+  if (opts.placed) saveBoard(createDrill({ courtMode: court, formation: '1-2-1' }), true);
   const user = userEvent.setup();
   const { unmount } = render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
@@ -75,7 +81,7 @@ beforeEach(() => {
 describe('자유 전술판 (대문)', () => {
   it('코트 고르기 단계 없이 도구·코트·속성 3영역이 바로 뜬다', async () => {
     // 재편의 핵심 요구 — 대문에 판이 "상시 떠 있다". 진입 장벽(CourtPicker)이 없어야 한다.
-    const { stage } = await openBoard();
+    const { stage } = await openBoard('full', { placed: true });
     expect(stage).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^선택/ })).toHaveAttribute('aria-pressed', 'true');
@@ -168,7 +174,7 @@ describe('키보드 이동 후 물리 동기화 (회귀)', () => {
     // 회귀: OBJECT_NUDGE 가 리듀서만 갱신하고 물리 바디는 그대로였다. 그래서 키보드로 옮긴
     // 개체를 잡는 순간 beginDrag 가 world.chairPose() 로 낡은 자세를 읽어와 개체가 튀었다.
     // 키보드 조작은 §7.5 접근성 요건이라 이 경로가 특히 중요하다.
-    const { user, stage } = await openBoard();
+    const { user, stage } = await openBoard('full', { placed: true });
     const toClient = stubStageRect(stage);
     const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
     const holder = chair.closest('g[transform]') as SVGGElement;
@@ -209,7 +215,7 @@ describe('키보드 이동 후 물리 동기화 (회귀)', () => {
 
 describe('선택 표시와 4개 드래그 존', () => {
   it('선택 전에는 선택 링·존 커서·핸들이 하나도 없다', async () => {
-    const { stage } = await openBoard();
+    const { stage } = await openBoard('full', { placed: true });
     expect(stage.querySelectorAll('.sel-ring')).toHaveLength(0);
     expect(stage.querySelectorAll('.court-obj rect[style*="cursor"]')).toHaveLength(0);
   });
@@ -217,7 +223,7 @@ describe('선택 표시와 4개 드래그 존', () => {
   it('휠체어를 고르면 선택 링 1개와 존 커서 4개(=4존)가 그 칩에만 생긴다', async () => {
     // 코트에 9대가 있으므로 "선택된 것에만" 이 지켜지는지가 핵심이다 —
     // 전부에 붙으면 어느 칩이 조작 대상인지 흐려진다.
-    const { user, stage } = await openBoard();
+    const { user, stage } = await openBoard('full', { placed: true });
     // jsdom 은 getBoundingClientRect 가 0 이라 포인터→월드 변환이 성립하지 않는다.
     // 선택 자체는 키보드 경로(§7.5)로 하고, 그 결과 렌더만 본다.
     const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
@@ -255,7 +261,7 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
   });
 
   it('한 번이라도 편집하면 잠긴다', async () => {
-    const { user, stage } = await openBoard('full');
+    const { user, stage } = await openBoard('full', { placed: true });
     await nudgeSomething(user, stage);
     await waitFor(() => expect(screen.getByRole('radiogroup', { name: LOCKED })).toBeInTheDocument());
   });
@@ -263,7 +269,7 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
   it('잠긴 상태에서 눌러도 코트가 바뀌지 않고, 이유를 알려준다', async () => {
     // §6.10 공 도구 제한과 같은 패턴 — 네이티브 disabled 가 아니라 aria-disabled + 토스트라
     // 키보드·스크린리더 사용자도 "왜 안 되는지" 를 들을 수 있어야 한다.
-    const { user, stage } = await openBoard('full');
+    const { user, stage } = await openBoard('full', { placed: true });
     await nudgeSomething(user, stage);
     const locked = await screen.findByRole('radiogroup', { name: LOCKED });
 
@@ -273,12 +279,13 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
     expect(await screen.findByText(/초기화하면 코트 형태를 바꿀 수 있습니다/)).toBeInTheDocument();
   });
 
-  it('초기화하면 다시 열린다', async () => {
-    const { user, stage } = await openBoard('full');
+  it('코트를 비우면 다시 열린다', async () => {
+    const { user, stage } = await openBoard('full', { placed: true });
     await nudgeSomething(user, stage);
     await screen.findByRole('radiogroup', { name: LOCKED });
 
-    await user.click(screen.getByRole('button', { name: '전술판 초기화' }));
+    await user.click(screen.getByRole('button', { name: '코트 비우기' }));
+    await user.click(await screen.findByRole('button', { name: '비우기' })); // 확인 다이얼로그
 
     await waitFor(() => expect(screen.getByRole('radiogroup', { name: UNLOCKED })).toBeInTheDocument());
   });
@@ -321,7 +328,7 @@ describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', ()
     // ⚠️ 런타임의 past.length 만으로 판정하면 여기서 무너진다 — 다시 열린 판이 새 "초기
     // 상태" 가 되어 past 가 비므로, dirty 인데도 전환이 열려 배치가 소리 없이 날아간다.
     // 그래서 pristine 을 스냅샷에 함께 저장한다(storage/board.ts).
-    const { user, stage, unmount } = await openBoard('full');
+    const { user, stage, unmount } = await openBoard('full', { placed: true });
     const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
     chair.focus();
     await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
@@ -459,5 +466,70 @@ describe('태블릿 세로 레이아웃 (§6.4)', () => {
 
     expect(await screen.findByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /속성/ })).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
+describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', () => {
+  it('처음 열면 코트에 개체가 하나도 없다', () => {
+    // "전술판에서 기본 배치는 의미가 없다" — 무엇을 그릴지 모르는 판에 8대가 깔려 있으면
+    // 매번 치우는 일부터 해야 한다.
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    render(<BoardScreen />, { wrapper: Wrapper });
+    const stage = screen.getByRole('application', { name: '코트 편집 영역' });
+    expect(stage.querySelectorAll('.court-obj')).toHaveLength(0);
+  });
+
+  it('선수는 명단에 남아 있어 하나씩 놓을 수 있다', async () => {
+    // 비었다고 선수까지 없어지면 안 된다 — 8대가 인스펙터 명단에 '미배치' 로 있어야 한다.
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    render(<BoardScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument());
+    expect(screen.getAllByRole('button', { name: '배치' }).length).toBe(8);
+  });
+
+});
+
+describe('코트 비우기 — 되돌릴 수 없으므로 반드시 확인을 받는다', () => {
+  async function openAndClickClear() {
+    const r = await openBoard('full', { placed: true });
+    await r.user.click(screen.getByRole('button', { name: '코트 비우기' }));
+    return r;
+  }
+
+  const objs = () => screen.getByRole('application', { name: '코트 편집 영역' }).querySelectorAll('.court-obj').length;
+
+  it('버튼만 눌러서는 지워지지 않는다 — 확인 다이얼로그가 뜬다', async () => {
+    const before = (await openBoard('full', { placed: true })) && objs();
+    expect(before).toBeGreaterThan(0);
+    await userEvent.setup().click(screen.getByRole('button', { name: '코트 비우기' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(objs()).toBe(before); // 아직 그대로다
+  });
+
+  it('취소하면 아무것도 사라지지 않는다', async () => {
+    const { user } = await openAndClickClear();
+    const before = objs();
+    await user.click(screen.getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(objs()).toBe(before);
+  });
+
+  it('비우기를 누르면 코트가 빈다', async () => {
+    const { user } = await openAndClickClear();
+    expect(objs()).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: '비우기' }));
+    await waitFor(() => expect(objs()).toBe(0));
+  });
+
+  it('비운 뒤에도 선수는 명단에 남는다 — 다시 놓을 수 있어야 한다', async () => {
+    const { user } = await openAndClickClear();
+    await user.click(screen.getByRole('button', { name: '비우기' }));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: '배치' }).length).toBe(8));
+  });
+
+  it('비우면 코트 전환 잠금이 풀린다', async () => {
+    const { user } = await openAndClickClear();
+    await user.click(screen.getByRole('button', { name: '비우기' }));
+    await waitFor(() => expect(screen.getByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument());
   });
 });
