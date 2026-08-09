@@ -17,6 +17,7 @@ import { COURT_DEFS } from '../model/court.ts';
 
 import type { DragLimits, Bounds } from './types.ts';
 import { createWorld, escapePinnedAll } from './world.ts';
+import { escapePinned } from './obb.ts';
 import type { WorldHandles } from './world.ts';
 import { createLoop } from './loop.ts';
 import type { PhysicsLoop } from './loop.ts';
@@ -87,8 +88,13 @@ export interface PhysicsWorldApi {
   /** `골대 원위치`. 순간이동이 아니라 **0.5초 동안 구동해 밀고 들어간다** — 그 자리에 개체가
    *  있으면 물리로 비켜내고, 상한을 넘으면 정확한 좌표로 스냅한다(남은 겹침은 escapePinned).
    *  순간이동으로 하면 낀 개체가 튀어나가듯 빠져 버그처럼 보이고, 거부하면 버튼이 안 듣는
-   *  막다른 길이 된다(기현과 합의, 2026-08-10). */
-  resetGoals(): void;
+   *  막다른 길이 된다(기현과 합의, 2026-08-10).
+   *
+   *  ⚠️ 밀어낼 수 있는 것은 **dynamic 인 것뿐**이다(공·콘). 휠체어는 `isStatic` 이라 무한
+   *  질량이어서 골대가 밀 수 없다 — 벽을 미는 것과 같다. 그 경우 원위치로 못 가므로
+   *  `blocked` 로 알린다. 조용히 실패하면 사용자는 버튼이 고장난 줄 알고 계속 누른다
+   *  (실제로 그렇게 신고됐다). 휠체어를 dynamic 으로 바꾸면 이 제약은 사라진다. */
+  resetGoals(): { blocked: number };
   /** 골대가 원위치에서 벗어나 있는가 — 버튼 활성 판단용. */
   goalsDisplaced(): boolean;
   dispose(): void;
@@ -124,6 +130,8 @@ export function createPhysicsWorld(
   const goalHome: Array<{ id: string; p: Vec2 }> = [];
   /** 0 이 아니면 복귀 구동 중. 이 시각을 넘기면 스냅한다. */
   let goalReturnUntilMs = 0;
+  /** 이번 복귀에서 휠체어에 막힌 골대들. */
+  const blockedHomes = new Set<string>();
   let session: DragSession | null = null;
   // major 회귀(§5.8): 공개 step(dtS) 에 넘어온 가변 dt 를 Engine.update 에 그대로 넣지 않기
   // 위한 고정-timestep 누산기(loop.ts 의 프레임 누산 로직과 동일한 패턴). substep() 자신은
@@ -132,6 +140,16 @@ export function createPhysicsWorld(
   // 모든 속도가 3배가 되는 실측 버그).
   let stepAccMs = 0;
 
+  /** 원위치가 휠체어에 막혀 있는가. 휠체어는 static 이라 골대가 밀어낼 수 없으므로, 막혀
+   *  있으면 아무리 밀어도 못 들어간다 — 강제로 스냅하면 리졸버가 즉시 도로 뱉어내고 골대는
+   *  다시 "벗어난" 상태가 된다(그래서 버튼을 여러 번 눌러야 하는 것처럼 보였다). */
+  function homeBlockedByChair(home: Vec2): boolean {
+    const chairs: ChairPose[] = [];
+    for (const [id, kind] of kindOf) if (kind === 'chair') chairs.push(world.chairPose(id as ChairId));
+    const out = escapePinned(home, GOAL.radiusPx, chairs, bounds);
+    return out.x !== home.x || out.y !== home.y;
+  }
+
   /** 원위치 복귀를 한 substep 만큼 진행한다. 구동(driven=true)이라 접촉면 속도가 물리적으로
    *  전달되어 길에 있는 개체를 자연스럽게 밀어낸다 — 순간이동에는 없는 성질이다. */
   function driveGoalsHome(): void {
@@ -139,6 +157,7 @@ export function createPhysicsWorld(
     const stepPx = (GOAL.returnPxPerS * PHYS.dtMs) / 1000;
     let allHome = true;
     for (const g of goalHome) {
+      if (blockedHomes.has(g.id)) continue; // 못 들어갈 곳으로 계속 밀면 제자리걸음만 한다
       const cur = world.pointOf(g.id as CastId);
       const dx = g.p.x - cur.x;
       const dy = g.p.y - cur.y;
@@ -153,9 +172,11 @@ export function createPhysicsWorld(
     // 상한을 넘기면 스냅한다 — 벽에 낀 휠체어 때문에 영원히 미는 상태에 갇히지 않게.
     if (allHome || performance.now() >= goalReturnUntilMs) {
       for (const g of goalHome) {
-        world.setPoint(g.id as CastId, g.p, false);
+        // 막힌 곳에는 스냅하지 않는다 — 넣어도 리졸버가 즉시 뱉어내고, 그 튐이 버그로 보인다.
+        if (!blockedHomes.has(g.id)) world.setPoint(g.id as CastId, g.p, false);
         world.freeze(g.id as CastId);
       }
+      blockedHomes.clear();
       goalReturnUntilMs = 0;
     }
   }
@@ -308,9 +329,14 @@ export function createPhysicsWorld(
     },
 
     resetGoals() {
-      if (goalHome.length === 0) return;
+      if (goalHome.length === 0) return { blocked: 0 };
+      blockedHomes.clear();
+      for (const g of goalHome) {
+        if (homeBlockedByChair(g.p)) blockedHomes.add(g.id);
+      }
       goalReturnUntilMs = performance.now() + GOAL.returnMaxMs;
       loop.requestSettle(PHYS.settleMaxMs);
+      return { blocked: blockedHomes.size };
     },
 
     goalsDisplaced() {

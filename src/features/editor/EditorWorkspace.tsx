@@ -298,7 +298,12 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           <BoardBar
             courtLocked={!boardPristine}
             onReset={() => board?.onReset()}
-            onResetGoals={() => worldRef.current?.resetGoals()}
+            onResetGoals={() => {
+              // 막혀 있으면 반드시 말해 준다. 조용히 실패하면 "버튼이 고장났나" 하며 계속
+              // 누르게 된다(실제 신고). 휠체어는 static 이라 골대가 밀어낼 수 없다.
+              const r = worldRef.current?.resetGoals();
+              if (r && r.blocked > 0) toast.show('골대 자리에 휠체어가 있어 되돌리지 못했습니다. 휠체어를 옮긴 뒤 다시 눌러 주세요.');
+            }}
           />
         ) : (
           <TransportBar

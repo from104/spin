@@ -218,3 +218,56 @@ describe('resetGoals — 순간이동이 아니라 밀고 들어간다', () => {
     w.dispose();
   });
 });
+
+// ⚠️ 기현 실기 신고(2026-08-10): "원래 자리에 오브젝트 있으면 복귀 못함. 오브젝트를 못
+// 밀어냄. 복귀 버튼 2~3번 눌러야 동작."
+//
+// 위 '개체가 있어도 끝까지 돌아간다' 테스트는 자리에 **공**을 놓아서 통과했다. 공은 dynamic
+// 이라 골대가 밀어낸다. 그런데 **휠체어는 isStatic 이라 무한 질량**이다 — 골대가 휠체어를
+// 미는 것은 벽을 미는 것과 같아서, 밀어 넣으면 리졸버가 도로 뱉어내고 강제 스냅해도 즉시
+// 다시 뱉어낸다. 그래서 눌러도 안 되는 것처럼 보인다.
+describe('resetGoals — 원위치에 휠체어가 있는 경우 (기현 실기 신고 재현)', () => {
+  const DEF = COURT_DEFS[mode];
+
+  it('휠체어가 원위치를 막고 있으면 골대는 거기로 못 간다', () => {
+    const w = createPhysicsWorld(DEF.vbW, DEF.vbH);
+    const home = DEF.goalPosts[0]!;
+    const cast = makeCast();
+    const step = makeStep();
+    // chA 를 골대 원위치 정중앙에 세운다.
+    step.chairs[chA] = { x: home.x, y: home.y, angleDeg: 0 };
+    w.load(cast, step, mode);
+
+    w.setPose(`${GOAL_ID_PREFIX}0` as never, { x: home.x + 80, y: home.y });
+    for (let i = 0; i < 5; i++) w.step(PHYS.dtS);
+
+    w.resetGoals();
+    for (let i = 0; i < 240; i++) w.step(PHYS.dtS); // 2초 — 상한 0.5초를 훨씬 넘긴다
+
+    const g = w.read()[`${GOAL_ID_PREFIX}0`]!;
+    const dist = Math.hypot(g.x - home.x, g.y - home.y);
+    // 휠체어가 static 인 한 여기 들어갈 수 없다. 이 테스트는 "들어간다" 를 요구하지 않는다 —
+    // **거짓으로 성공했다고 보고하지 않는지**를 못박는다.
+    expect(dist).toBeGreaterThan(1);
+    expect(w.goalsDisplaced()).toBe(true);
+    w.dispose();
+  });
+
+  it('막혀 있으면 resetGoals 가 그 사실을 알려준다 — 조용히 실패하지 않는다', () => {
+    // 이게 없으면 사용자는 "버튼이 고장났나" 하며 계속 누른다(실제로 그랬다).
+    const w = createPhysicsWorld(DEF.vbW, DEF.vbH);
+    const home = DEF.goalPosts[0]!;
+    const step = makeStep();
+    step.chairs[chA] = { x: home.x, y: home.y, angleDeg: 0 };
+    w.load(makeCast(), step, mode);
+    expect(w.resetGoals().blocked).toBeGreaterThan(0);
+    w.dispose();
+  });
+
+  it('막는 것이 없으면 blocked 는 0 이다', () => {
+    const w = createPhysicsWorld(DEF.vbW, DEF.vbH);
+    w.load(makeCast(), makeStep(), mode);
+    expect(w.resetGoals().blocked).toBe(0);
+    w.dispose();
+  });
+});
