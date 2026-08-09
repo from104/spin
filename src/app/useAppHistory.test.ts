@@ -22,9 +22,9 @@ describe('useAppHistory', () => {
   });
 
   it('이미 쌓인 history.state 가 있으면 그걸 우선한다(새로고침 재마운트)', () => {
-    window.history.pushState({ screen: 'editor', depth: 2 }, '');
+    window.history.pushState({ screen: 'settings', depth: 2 }, '');
     const { result } = renderHook(() => useAppHistory('home'));
-    expect(result.current.screen).toBe('editor');
+    expect(result.current.screen).toBe('settings');
   });
 
   it('go(next) 는 pushState + depth++ 를 하고 화면을 바꾼다', () => {
@@ -33,9 +33,9 @@ describe('useAppHistory', () => {
     expect(result.current.screen).toBe('library');
     expect(window.history.state).toEqual({ screen: 'library', depth: 1 });
 
-    act(() => result.current.go('editor'));
-    expect(result.current.screen).toBe('editor');
-    expect(window.history.state).toEqual({ screen: 'editor', depth: 2 });
+    act(() => result.current.go('settings'));
+    expect(result.current.screen).toBe('settings');
+    expect(window.history.state).toEqual({ screen: 'settings', depth: 2 });
   });
 
   it('back(fallback) 은 depth 0 이면 go(fallback) 과 동일하게 동작한다(pushState, 히스토리 소진 안 함)', () => {
@@ -48,7 +48,7 @@ describe('useAppHistory', () => {
 
   it('depth > 0 에서 back() 은 history.back() 을 호출한다(go(fallback) 으로 새지 않는다)', () => {
     const { result } = renderHook(() => useAppHistory('home'));
-    act(() => result.current.go('editor')); // depth 1
+    act(() => result.current.go('settings')); // depth 1
     act(() => result.current.go('present')); // depth 2
 
     act(() => result.current.back('library'));
@@ -59,13 +59,13 @@ describe('useAppHistory', () => {
 
   it('popstate(브라우저 뒤로/앞으로가기)를 받으면 화면과 depth 를 그 엔트리로 갱신한다', () => {
     const { result } = renderHook(() => useAppHistory('home'));
-    act(() => result.current.go('editor')); // depth 1
+    act(() => result.current.go('settings')); // depth 1
     act(() => result.current.go('present')); // depth 2
 
     act(() => {
-      window.dispatchEvent(new PopStateEvent('popstate', { state: { screen: 'editor', depth: 1 } }));
+      window.dispatchEvent(new PopStateEvent('popstate', { state: { screen: 'settings', depth: 1 } }));
     });
-    expect(result.current.screen).toBe('editor');
+    expect(result.current.screen).toBe('settings');
 
     // depth 가 실제로 1로 되돌아왔는지는 그 다음 back() 이 fallback 으로 새지 않는 것으로 확인한다.
     act(() => result.current.back('home'));
@@ -74,7 +74,7 @@ describe('useAppHistory', () => {
 
   it('popstate 로 depth 0 까지 돌아온 뒤에는 back(fallback) 이 다시 fallback 으로 동작한다', () => {
     const { result } = renderHook(() => useAppHistory('home'));
-    act(() => result.current.go('editor')); // depth 1
+    act(() => result.current.go('settings')); // depth 1
 
     act(() => {
       window.dispatchEvent(new PopStateEvent('popstate', { state: { screen: 'home', depth: 0 } }));

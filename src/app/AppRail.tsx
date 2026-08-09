@@ -1,6 +1,6 @@
 // §6.8 / 프로토타입 template.html 84px 앱 레일. 5개 화면 + 테마 토글.
 import type { ComponentType } from 'react';
-import { IconEditor, IconHome, IconLibrary, IconMoon, IconPresent, IconSettings, IconSun } from '../ui/icons.tsx';
+import { IconHome, IconLibrary, IconMoon, IconPresent, IconSettings, IconSun } from '../ui/icons.tsx';
 import type { IconProps } from '../ui/icons.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
@@ -10,7 +10,6 @@ import type { Screen } from './screens.ts';
 const NAV_ITEMS: ReadonlyArray<{ key: Screen; Icon: ComponentType<IconProps> }> = [
   { key: 'home', Icon: IconHome },
   { key: 'library', Icon: IconLibrary },
-  { key: 'editor', Icon: IconEditor },
   { key: 'present', Icon: IconPresent },
   { key: 'settings', Icon: IconSettings },
 ];

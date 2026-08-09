@@ -30,6 +30,7 @@ import { SessionTab } from './SessionTab.tsx';
 import { SessionDrawer } from './SessionDrawer.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
 import type { HomeNav, LibraryTab } from '../home/nav.ts';
+import { HomeDashboard } from '../home/HomeDashboard.tsx';
 import { commitDrills, commitSession, exportAllDrills, exportOneDrill, exportOneSession, readImportFile } from './transfer.ts';
 import type { ImportPreview } from './transfer.ts';
 import type { ImportResolution } from '../../storage/transfer.ts';
@@ -144,6 +145,8 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
   return (
     <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '22px 30px 46px', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+        {/* 2026-08-09 재편: 대문이 자유 전술판이 되면서 훈련 현황 대시보드가 여기로 왔다. */}
+        <HomeDashboard nav={nav} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <div role="tablist" aria-label="라이브러리" style={{ display: 'flex', gap: 4, padding: 3, border: '1px solid var(--border)', borderRadius: 10 }}>
             <TabButton active={tab === 'drills'} onClick={() => setTab('drills')} controls="library-panel-drills">

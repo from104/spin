@@ -64,6 +64,11 @@ export function withHistory<S extends HistoryState>(reducer: (s: S, a: EditorAct
     if (a.type === 'COMMIT_BREAK') {
       return s.lastCommit === null ? s : { ...s, lastCommit: null };
     }
+    // 전술판 갈아끼우기 — past/future 를 **비운다**(쌓지 않는다). 이유는 actions.ts 의
+    // BOARD_SET 주석 참고. epoch 을 올려 물리 월드를 즉시 새 코트로 재구성시킨다.
+    if (a.type === 'BOARD_SET') {
+      return { ...s, past: [], present: a.drill, future: [], lastCommit: null, epoch: s.epoch + 1 };
+    }
     // 드래그 세션: PLACE_BEGIN 이 경계를 열고(past 에 push, present 불변), PLACE_COMMIT 이
     // past 를 건드리지 않고 present 만 교체한다 — 드래그 1회 = undo 1회(§6.7).
     if (a.type === 'PLACE_BEGIN') {

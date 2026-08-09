@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 
 describe('AppRail', () => {
-  it('5개 화면 링크 + aria-current="page" 를 현재 화면에 표시한다', () => {
+  it('4개 화면 링크 + aria-current="page" 를 현재 화면에 표시한다', () => {
     render(
       <Harness>
         <AppRail />
@@ -31,8 +31,11 @@ describe('AppRail', () => {
     );
     const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
     expect(nav).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '대문' })).toHaveAttribute('aria-current', 'page');
-    for (const label of ['목록', '편집기', '시연', '설정']) {
+    // 2026-08-09 재편: 대문 라벨은 '전술판' 이 됐고 '편집기' 는 레일에서 사라졌다
+    // (드릴 편집은 전술판과 같은 자리에 뜬다 — screens.ts 주석).
+    expect(screen.getByRole('button', { name: '전술판' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('button', { name: '편집기' })).toBeNull();
+    for (const label of ['목록', '시연', '설정']) {
       expect(screen.getByRole('button', { name: label })).not.toHaveAttribute('aria-current');
     }
   });

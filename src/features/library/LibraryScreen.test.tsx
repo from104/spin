@@ -37,12 +37,17 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   </LibraryProvider>
 );
 
+/** 2026-08-09 재편으로 목록 화면 상단에 훈련 현황 대시보드가 얹혔다(HomeDashboard). 그 안의
+ *  "최근 작업한 드릴" 목록이 아래 드릴 그리드와 같은 제목을 갖기 때문에, 전역 getByText 는
+ *  이제 두 개를 찾아 모호해진다 — 탭 패널로 좁혀서 "그리드에 있는가" 를 묻는다. */
+const panel = () => screen.getByRole('tabpanel');
+
 describe('LibraryScreen — 드릴 탭', () => {
   it('드릴이 없으면 빈 상태를 보여주고 새 드릴 만들기가 nav.newDrill 을 호출한다', async () => {
     const nav = makeNav();
     render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText(/아직 만든 드릴이 없습니다/)).toBeInTheDocument());
-    await userEvent.setup().click(screen.getByRole('button', { name: '새 드릴 만들기' }));
+    await waitFor(() => expect(within(panel()).getByText(/아직 만든 드릴이 없습니다/)).toBeInTheDocument());
+    await userEvent.setup().click(within(panel()).getByRole('button', { name: '새 드릴 만들기' }));
     expect(nav.newDrill).toHaveBeenCalledTimes(1);
   });
 
@@ -50,7 +55,7 @@ describe('LibraryScreen — 드릴 탭', () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '카드 열기 테스트' });
     const nav = makeNav();
     render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('카드 열기 테스트')).toBeInTheDocument());
+    await waitFor(() => expect(within(panel()).getByText('카드 열기 테스트')).toBeInTheDocument());
     await userEvent.setup().click(screen.getByRole('button', { name: '카드 열기 테스트 열기' }));
     expect(nav.openDrill).toHaveBeenCalledTimes(1);
   });
@@ -59,13 +64,13 @@ describe('LibraryScreen — 드릴 탭', () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '복제 대상' });
     const nav = makeNav();
     render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('복제 대상')).toBeInTheDocument());
+    await waitFor(() => expect(within(panel()).getByText('복제 대상')).toBeInTheDocument());
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '복제 대상 더보기' }));
     await user.click(screen.getByRole('menuitem', { name: '복제' }));
 
-    await waitFor(() => expect(screen.getByText('복제 대상 (사본)')).toBeInTheDocument());
+    await waitFor(() => expect(within(panel()).getByText('복제 대상 (사본)')).toBeInTheDocument());
     expect(await screen.findByRole('status')).toHaveTextContent('복제했습니다');
   });
 
@@ -73,16 +78,16 @@ describe('LibraryScreen — 드릴 탭', () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '삭제 대상' });
     const nav = makeNav();
     render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('삭제 대상')).toBeInTheDocument());
+    await waitFor(() => expect(within(panel()).getByText('삭제 대상')).toBeInTheDocument());
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '삭제 대상 더보기' }));
     await user.click(screen.getByRole('menuitem', { name: '삭제' }));
-    await waitFor(() => expect(screen.queryByText('삭제 대상')).not.toBeInTheDocument());
+    await waitFor(() => expect(within(panel()).queryByText('삭제 대상')).not.toBeInTheDocument());
 
     const toast = await screen.findByRole('status');
     await user.click(within(toast).getByRole('button', { name: '되돌리기' }));
-    await waitFor(() => expect(screen.getByText('삭제 대상')).toBeInTheDocument());
+    await waitFor(() => expect(within(panel()).getByText('삭제 대상')).toBeInTheDocument());
   });
 
   it('카테고리 필터로 목록을 좁힌다', async () => {
@@ -90,12 +95,12 @@ describe('LibraryScreen — 드릴 탭', () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '수비 드릴', category: '수비' });
     const nav = makeNav();
     render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('공격 드릴')).toBeInTheDocument());
-    expect(screen.getByText('수비 드릴')).toBeInTheDocument();
+    await waitFor(() => expect(within(panel()).getByText('공격 드릴')).toBeInTheDocument());
+    expect(within(panel()).getByText('수비 드릴')).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole('radio', { name: '수비' }));
-    await waitFor(() => expect(screen.queryByText('공격 드릴')).not.toBeInTheDocument());
-    expect(screen.getByText('수비 드릴')).toBeInTheDocument();
+    await waitFor(() => expect(within(panel()).queryByText('공격 드릴')).not.toBeInTheDocument());
+    expect(within(panel()).getByText('수비 드릴')).toBeInTheDocument();
   });
 });
 

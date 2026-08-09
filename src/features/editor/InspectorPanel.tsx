@@ -23,6 +23,10 @@ export interface InspectorPanelProps {
   pendingPlayerId: ChairId | null;
   onArmPlayer(id: ChairId): void;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
+  /** 스텝 섹션(목록·복제·삭제·추가)을 낼지. 자유 전술판은 1장짜리라 false 다(§6.8 재편) —
+   *  하단 트랜스포트만 감추고 여기를 놔두면 화면에 없는 2번째 스텝을 만들 수 있어, 판이
+   *  조용히 여러 장이 된다(눈으로는 알 수 없다). 기본값은 드릴 편집 쪽인 true. */
+  showSteps?: boolean;
 }
 
 const SECTION_LABEL: CSSProperties = { fontSize: '0.65625rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--faint-text)', marginBottom: 11, textTransform: 'uppercase' };
@@ -38,7 +42,17 @@ const inputStyle: CSSProperties = {
 };
 const ROLE_OPTIONS = ['', 'GK', 'DF', 'WG', 'PM'];
 
-export function InspectorPanel({ drill, step, stepIndex, dispatch, selection, pendingPlayerId, onArmPlayer, onEraseIds }: InspectorPanelProps) {
+export function InspectorPanel({
+  drill,
+  step,
+  stepIndex,
+  dispatch,
+  selection,
+  pendingPlayerId,
+  onArmPlayer,
+  onEraseIds,
+  showSteps = true,
+}: InspectorPanelProps) {
   return (
     <aside aria-label="드릴 속성" style={{ flex: 'none', width: 312, borderLeft: '1px solid var(--border)', background: 'var(--panel)', overflowY: 'auto' }}>
       <DrillInfoSection drill={drill} dispatch={dispatch} />
@@ -46,8 +60,12 @@ export function InspectorPanel({ drill, step, stepIndex, dispatch, selection, pe
       <RosterSection drill={drill} step={step} dispatch={dispatch} pendingPlayerId={pendingPlayerId} onArmPlayer={onArmPlayer} onEraseIds={onEraseIds} />
       <Divider />
       <SelectionSection drill={drill} step={step} selection={selection} dispatch={dispatch} onEraseIds={onEraseIds} />
-      <Divider />
-      <StepsSection drill={drill} stepIndex={stepIndex} dispatch={dispatch} />
+      {showSteps && (
+        <>
+          <Divider />
+          <StepsSection drill={drill} stepIndex={stepIndex} dispatch={dispatch} />
+        </>
+      )}
     </aside>
   );
 }

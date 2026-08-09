@@ -20,6 +20,12 @@ export type EditorAction =
   | { type: 'STEP_SELECT'; id: StepId } // ★ index 가 아니라 id
   | { type: 'SAVED'; at: number }
   | { type: 'COMMIT_BREAK' } // 키 리피트 경계
+  // 자유 전술판 전용 — 판 갈아끼우기(코트 전환·초기화). 히스토리를 **쌓지 않고 비운다**.
+  // DRILL_LOAD 로 대신할 수 없다: 그건 COMMIT 이라 past 에 한 칸 쌓이므로, 코트를 한 번
+  // 바꾸는 순간 past.length > 0 이 되어 "리셋 상태에서만 전환" 게이트가 스스로 닫혀버린다
+  // (두 번째 전환이 불가능해진다). 전환 결과는 언제나 그 코트의 기본 배치이므로 되돌릴
+  // 과거가 있는 것 자체가 의미 없다.
+  | { type: 'BOARD_SET'; drill: Drill }
   // 드릴 데이터 (히스토리 커밋)
   | { type: 'DRILL_LOAD'; drill: Drill }
   | {

@@ -1,5 +1,5 @@
 // §6.8 그대로: go 는 history.pushState + depth++, back 은 depth > 0 이면 history.back() + depth--,
-// 아니면 go(fallback). 시연 종료는 반드시 back('editor') — go 로 하면 히스토리에 쌓여 뒤로가기가
+// 아니면 go(fallback). 시연 종료는 반드시 back('home') — go 로 하면 히스토리에 쌓여 뒤로가기가
 // 시연 재진입 토글이 되고, autoFullscreen 기본 ON 이 제스처 없는 requestFullscreen 거부를 부른다.
 //
 // depth 는 "이 세션에서 useAppHistory 로 쌓은 in-app 엔트리 수" 다. window.history.state 에
@@ -14,7 +14,7 @@ interface NavEntry {
   depth: number;
 }
 
-const SCREEN_SET: ReadonlySet<string> = new Set<Screen>(['home', 'library', 'editor', 'present', 'settings']);
+const SCREEN_SET: ReadonlySet<string> = new Set<Screen>(['home', 'library', 'present', 'settings']);
 
 function isNavEntry(v: unknown): v is NavEntry {
   return (

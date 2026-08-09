@@ -1,38 +1,34 @@
-// §6.8/§6.10 편집기 화면 진입점. `useEditorTarget()`(app-shell 계약 밖 확장, AppShell.tsx 헤더
-// 주석 참고)로 "새 드릴이면 코트부터 고른다"/"기존 드릴이면 불러온다"를 가른다.
+// §6.8 드릴 편집 — 대문(home) 자리에 자유 전술판 대신 뜨는 쪽. 무엇을 열지는
+// `useStageTarget()`(app-shell 계약 밖 확장, AppShell.tsx 헤더 주석 참고)이 정한다.
 //
-// 이탈(다른 모듈에 필요한 것 — 보고에도 남긴다): §6.8 은 편집기 헤더에 "(editor && courtMode)"
-// 조건으로 시연 버튼을 요구하지만, app-shell(AppShell.tsx)이 내려주는 통로는
-// `useEditorTarget()`/`usePresentTarget()` **읽기 전용** getter 뿐이다 — editor 화면이 자기
-// drillId 로 PresentTargetContext 값을 채울 setter 가 없다(home/library 는 `HomeNav.presentDrill`
-// 를 받지만 그 prop 은 editor 화면에는 내려오지 않는다). 현재는 `nav.go('present')` 만 호출해
-// 화면은 전환되지만 PresentScreen 이 `usePresentTarget() === null` 로 빈 상태를 그린다 —
-// app-shell 쪽에 `useSetPresentTarget()` 같은 통로 추가를 요청한다(§8 파일 소유권상 이 파일은
-// src/app/AppShell.tsx 를 고칠 수 없다).
+// 2026-08-09 재편 전에는 이 화면이 "새 드릴이면 코트부터 고른다"(CourtPicker)도 겸했다. 지금은
+// 새 드릴이 전술판에서 그린 뒤 [드릴로 저장] 으로 태어나므로 그 분기가 없다 — 이 화면은
+// **이미 있는 드릴을 여는 일**만 한다. `prefs.defaultCourtMode` 는 전술판의 시작 코트로
+// 옮겨갔다(BoardScreen.makeBoardDrill).
+//
+// 이탈(그대로 남아 있음): §6.8 은 편집기 헤더의 시연 버튼을 요구하지만 app-shell 이 내려주는
+// 통로는 읽기 전용 getter 뿐이라, `nav.go('present')` 만 호출하면 PresentScreen 이
+// `usePresentTarget() === null` 로 빈 상태를 그린다. app-shell 쪽에 setter 추가가 필요하다.
 import { useEffect, useMemo, useState } from 'react';
 import type { Drill } from '../../model/drill.ts';
-import type { CourtMode } from '../../model/court.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
-import { useEditorTarget } from '../../app/AppShell.tsx';
+import { useStageTarget } from '../../app/AppShell.tsx';
 import { useAppNav } from '../../app/useAppHistory.ts';
-import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { EditorProvider } from '../../store/editor/EditorProvider.tsx';
 import { PlaybackProvider } from '../../store/playback/PlaybackProvider.tsx';
-import { CourtPicker } from './CourtPicker.tsx';
 import { EditorWorkspace } from './EditorWorkspace.tsx';
 
-type LoadState = { status: 'loading' } | { status: 'picking' } | { status: 'ready'; drill: Drill } | { status: 'error'; message: string };
+type LoadState = { status: 'loading' } | { status: 'ready'; drill: Drill } | { status: 'error'; message: string };
 
 export function EditorScreen() {
-  const target = useEditorTarget();
+  const target = useStageTarget();
   const nav = useAppNav();
-  const { prefs } = useSettingsState();
   const toast = useToast();
-  const [state, setState] = useState<LoadState>(target.kind === 'new' ? { status: 'picking' } : { status: 'loading' });
+  const [state, setState] = useState<LoadState>({ status: 'loading' });
 
   useEffect(() => {
-    if (target.kind !== 'existing') return;
+    if (target.kind !== 'drill') return;
     let cancelled = false;
     setState({ status: 'loading' });
     (async () => {
@@ -57,16 +53,7 @@ export function EditorScreen() {
     };
   }, [target, toast]);
 
-  const handlePick = async (mode: CourtMode) => {
-    const { repo } = await resolveDrillRepo();
-    const created = await repo.createDrill({ courtMode: mode, formation: prefs.defaultFormation, teams: prefs.teams });
-    repo.markOpen(created.id, true);
-    setState({ status: 'ready', drill: created });
-  };
-
   const providerKey = useMemo(() => (state.status === 'ready' ? state.drill.id : null), [state]);
-
-  if (state.status === 'picking') return <CourtPicker defaultMode={prefs.defaultCourtMode} onPick={(mode) => void handlePick(mode)} />;
 
   if (state.status === 'loading') {
     return (
@@ -94,7 +81,7 @@ export function EditorScreen() {
   return (
     <EditorProvider key={providerKey} drill={state.drill}>
       <PlaybackProvider>
-        <EditorWorkspace />
+        <EditorWorkspace mode="drill" />
       </PlaybackProvider>
     </EditorProvider>
   );

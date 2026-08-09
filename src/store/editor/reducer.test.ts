@@ -118,3 +118,53 @@ describe('drillReducer 위임 — 대표 경로', () => {
     expect(s1.present.title).toBe('새 이름');
   });
 });
+
+describe('BOARD_SET — 자유 전술판 갈아끼우기 (§6.8)', () => {
+  it('히스토리를 쌓지 않고 비운다 — 그래야 코트를 두 번 이상 바꿀 수 있다', () => {
+    // 회귀 방어: DRILL_LOAD 로 대신하면 past 에 한 칸 쌓여 "리셋 상태에서만 전환" 게이트가
+    // 첫 전환 직후 스스로 닫힌다. 여기서 past 가 비어 있는지가 그 게이트의 전제다.
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 100, y: 100 } });
+    expect(s.past.length).toBeGreaterThan(0); // 편집이 쌓였다
+
+    const half = createDrill({ courtMode: 'half', formation: '1-2-1' });
+    s = editorRootReducer(s, { type: 'BOARD_SET', drill: half });
+
+    expect(s.past).toHaveLength(0);
+    expect(s.future).toHaveLength(0);
+    expect(s.present).toBe(half);
+    expect(s.present.courtMode).toBe('half');
+  });
+
+  it('연달아 세 번 바꿔도 매번 past 가 비어 있다', () => {
+    let s = freshState();
+    for (const mode of ['half', 'flat', 'full'] as const) {
+      s = editorRootReducer(s, { type: 'BOARD_SET', drill: createDrill({ courtMode: mode, formation: '1-2-1' }) });
+      expect(s.past).toHaveLength(0);
+      expect(s.present.courtMode).toBe(mode);
+    }
+  });
+
+  it('stepId·선택·도구를 새 판 기준으로 되돌린다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'TOOL_SET', tool: 'ball' });
+    s = editorRootReducer(s, { type: 'SELECT_SET', ids: ['ch_x'] });
+    const oldStepId = s.stepId;
+
+    const next = createDrill({ courtMode: 'flat', formation: '1-2-1' });
+    s = editorRootReducer(s, { type: 'BOARD_SET', drill: next });
+
+    expect(s.stepId).toBe(next.steps[0]!.id);
+    expect(s.stepId).not.toBe(oldStepId);
+    expect(s.tool).toBe('select');
+    expect(s.selection.size).toBe(0);
+    // selectStepIndex 가 0 으로 떨어져 무증상으로 가려지지 않는지 — 실제로 찾아져야 한다.
+    expect(next.steps.findIndex((st) => st.id === s.stepId)).toBe(0);
+  });
+
+  it('epoch 을 올린다 — 물리 월드가 새 코트로 재구성되는 신호', () => {
+    const s0 = freshState();
+    const s1 = editorRootReducer(s0, { type: 'BOARD_SET', drill: createDrill({ courtMode: 'half' }) });
+    expect(s1.epoch).toBe(s0.epoch + 1);
+  });
+});

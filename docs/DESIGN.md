@@ -59,7 +59,15 @@
 | D9 | 화살표 종류 | 2: `pass/move/shot` / 3: `move/pass + emphasis` | **`move / pass / shot` 3종** | 프로토타입 3스타일과 1:1 |
 | D10 | 화살표 앵커링 | 3: `fromRef/toRef` / 2: 없음 | **없음 (생성 시 1회 스냅만)** | 스텝 간 참조 무결성 문제를 하나 더 만든다. §11-R3 |
 | D11 | 메모 | 2: 스텝 로컬 / 3: cast 개체 | **스텝 로컬 `DrillStep.notes`** | 물리 개체가 아니고 보간 대상도 아니다 |
-| D12 | 코트 모드 전환 | 1: 미언급 / 2: `cloneToCourt` 전면 / 3: v1 불변 | **드릴 레벨 불변. `cloneToCourt` 는 `half ↔ flat` 만 좌표 보존, `full ↔ *` 은 배치 리셋** | full 30×18 m 와 half 18×15 m 는 어떤 아핀 변환으로도 같은 전술이 안 된다. half/flat 은 viewBox 동일 → 항등 |
+| D12 | 코트 모드 전환 | 1: 미언급 / 2: `cloneToCourt` 전면 / 3: v1 불변 | **드릴 레벨 불변. `cloneToCourt` 는 `half ↔ flat` 만 좌표 보존, `full ↔ *` 은 배치 리셋** ※재편 각주 참조 | full 30×18 m 와 half 18×15 m 는 어떤 아핀 변환으로도 같은 전술이 안 된다. half/flat 은 viewBox 동일 → 항등 |
+
+> **※ D12 재편 각주 (2026-08-09, 기현 지시).** 드릴에서는 위 결정 그대로 **불변**이다. 새로
+> 생긴 **자유 전술판(§6.8 재편)에서만** 코트를 자유롭게 바꿀 수 있는데, 그것도 **판이 리셋
+> 상태일 때만** 연다. D12 가 막으려던 손실("배치를 옮겨 담을 수 없다")은 *잃을 배치가 있을
+> 때* 생기므로, 전환 가능 조건을 "잃을 배치가 없는 상태"로 한정하면 손실이 원천적으로
+> 발생하지 않는다 — 경고 대화상자도, `cloneToCourt` 의 배치 리셋 경로도 타지 않는다.
+> 판정은 `past.length === 0` **AND** 스냅샷의 `pristine`(둘 다 필요한 이유는
+> `src/storage/board.ts` 주석). 전환 자체는 `createDrill` 로 그 코트의 기본 배치를 새로 만든다.
 | D13 | 하프 코트 90° | 3: 세로 월드로 정의, `horiz/vert` 분기 삭제 | **채택.** 칩 스프라이트는 +x 정본 1개 + `rotate(θ)` | 물리 각도와 렌더가 같은 변수를 공유. 분기 소멸 |
 
 ### 1.2 물리 (설계안 1 + 심사 blocker 전량 반영)
@@ -2532,7 +2540,21 @@ export function useAppHistory(initial?: Screen): {
 뒤로가기가 시연 재진입 토글이 되고, `autoFullscreen` 이 기본 ON 이라 제스처 없이 호출된
 `requestFullscreen` 이 거부 → `pseudo` 폴백으로 떨어져 CSS 의사 전체화면에 갇힌다.
 
-react-router 미도입 근거: 화면 5개·중첩 라우트 0·URL 공유가 제품 시나리오에 없음(드릴 공유는
+> **※ §6.8 재편 각주 (2026-08-09, 기현 지시).** 화면 키가 **5개 → 4개**가 됐다:
+> `home | library | present | settings`. `editor` 는 별도 화면 키에서 **없앴다** — 대문에
+> **자유 전술판이 상시 떠 있고**, 드릴을 열면 **같은 자리에 같은 컴포넌트**
+> (`EditorWorkspace`)가 `mode='drill'` 로 뜬다. 무엇이 떠 있는지는 화면 키가 아니라
+> `AppShell` 의 `StageTarget`(`board | drill`)이 정한다.
+> · 전술판 = 1장짜리(스텝·트랜스포트 없음), `drillRepo` 자동저장 없음, 스냅샷 1장만
+>   `localStorage`(`src/storage/board.ts`), 코트 전환 가능(D12 재편 각주), `[드릴로 저장]` 으로 승격.
+> · 드릴 = 스텝·트랜스포트·자동저장 있음, 코트 불변.
+> · 옛 대문의 훈련 현황 대시보드는 **목록 화면 상단**으로 옮겼다(`HomeDashboard`).
+> · `CourtPicker` 는 은퇴했다. `prefs.defaultCourtMode` 는 전술판의 시작 코트가 됐다.
+> · 시연 종료는 `back('editor')` → **`back('home')`**.
+> · 헤더: `home` 은 정적 헤더를 받지 않는다(화면이 `useAppHeader` 로 직접 선언). 정적 config 를
+>   주면 `AppHeader` 의 config prop 이 Context 를 덮어써 그 헤더가 통째로 사라진다.
+
+react-router 미도입 근거: 화면 4개·중첩 라우트 0·URL 공유가 제품 시나리오에 없음(드릴 공유는
 `.json` 파일). 실제로 필요한 건 시스템 뒤로가기 하나뿐이고 그건 40줄이다. 라우터를 두면
 전체화면 해제와 라우트 pop 이 같은 키 입력에 이중 동작할 위험이 있다.
 

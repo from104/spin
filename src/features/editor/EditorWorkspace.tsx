@@ -5,6 +5,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { isId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
+import type { CourtMode } from '../../model/court.ts';
 import { BALL, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
@@ -20,13 +21,33 @@ import { ToolRail, type UnplacedChair } from './ToolRail.tsx';
 import { EditorStage } from './EditorStage.tsx';
 import { StageControls } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
+import { BoardBar } from './BoardBar.tsx';
 import { InspectorPanel } from './InspectorPanel.tsx';
 import { HelpModal } from './HelpModal.tsx';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
 import { useStepPlayback } from './useStepPlayback.ts';
 import { usePhysicsRenderLoop } from './usePhysicsRenderLoop.ts';
 
-export function EditorWorkspace() {
+/** 자유 전술판일 때만 내려오는 조작부. 판을 갈아끼우는 일(코트 전환·초기화)과 정식 드릴로의
+ *  승격은 저장소를 만지므로 화면(screen-board) 책임이고, 여기서는 호출만 한다. */
+export interface BoardControls {
+  /** 저장본이 리셋 상태였는가. 런타임의 `past.length === 0` 와 **AND** 로 코트 전환 게이트를
+   *  만든다 — 저장본까지 봐야 하는 이유는 storage/board.ts 의 pristine 주석 참고. */
+  pristine: boolean;
+  onCourtChange(mode: CourtMode): void;
+  onReset(): void;
+  onSaveAsDrill(): void;
+}
+
+export interface EditorWorkspaceProps {
+  /** 'board' = 대문의 자유 전술판(1장짜리·스텝 없음·자동저장 없음·코트 전환 가능),
+   *  'drill' = 정식 드릴 편집(스텝·자동저장 있음·코트 불변). 판을 그리는 부분은 완전히 같다. */
+  mode?: 'board' | 'drill';
+  board?: BoardControls;
+}
+
+export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps = {}) {
+  const isBoard = mode === 'board';
   const state = useEditorState();
   const dispatch = useEditorDispatch();
   const worldRef = useEditorWorld();
@@ -35,7 +56,9 @@ export function EditorWorkspace() {
   const { setPrefs } = useSettingsActions();
   const nav = useAppNav();
   const toast = useToast();
-  const autosave = useAutosave();
+  // 전술판은 drillRepo 에 자동저장하지 않는다 — 목록에 뜨지 않는 임시 판이다(스냅샷 1장은
+  // 화면 쪽이 storage/board.ts 로 따로 들고 있다). 훅 자체는 조건 없이 부른다(훅 규칙).
+  const autosave = useAutosave(!isBoard);
   const { playing, speed } = usePlaybackState();
   const playbackActions = usePlaybackActions();
 
@@ -57,23 +80,50 @@ export function EditorWorkspace() {
   usePhysicsRenderLoop(worldRef, writer);
   useStepPlayback(drill, state.stepId, dispatch);
 
-  useAppHeader({
-    title: drill.title,
-    badge: '편집중',
-    primary: { label: autosave.status === 'saving' ? '저장 중…' : '저장', onAction: () => void autosave.flush() },
-    presentButton: { onAction: () => nav.go('present') },
-    history: {
-      canUndo: state.past.length > 0,
-      canRedo: state.future.length > 0,
-      onUndo: () => dispatch({ type: 'UNDO' }),
-      onRedo: () => dispatch({ type: 'REDO' }),
-    },
-    courtSwitch: {
-      value: drill.courtMode,
-      locked: true,
-      onLockedAttempt: () => toast.show('코트 형태는 드릴을 만든 뒤에는 바꿀 수 없습니다.'),
-    },
-  });
+  // ★ 코트 자유 전환 게이트(§6.8 재편, 기현 결정) — **판이 리셋 상태일 때만** 연다.
+  //
+  // D12 는 full↔half 전환이 배치를 보존할 수 없다고 못박았다(30×18m 와 18×15m 는 어떤 아핀
+  // 변환으로도 같은 전술이 안 된다). 경고를 띄우고 날리는 대신, 잃을 배치가 없을 때로 전환을
+  // 한정해 손실 자체를 만들지 않는다.
+  //
+  // 두 조건을 **모두** 봐야 한다. past.length 만 보면 편집된 판을 저장하고 다시 열었을 때
+  // 그 판이 새 기준선이 되어 past 가 비므로 dirty 인데도 열린다(storage/board.ts pristine 주석).
+  const boardPristine = isBoard && (board?.pristine ?? false) && state.past.length === 0;
+
+  const history = {
+    canUndo: state.past.length > 0,
+    canRedo: state.future.length > 0,
+    onUndo: () => dispatch({ type: 'UNDO' }),
+    onRedo: () => dispatch({ type: 'REDO' }),
+  };
+
+  useAppHeader(
+    isBoard
+      ? {
+          title: '자유 전술판',
+          subtitle: '코트를 자유롭게 바꿔가며 그려 보세요. 마음에 들면 드릴로 저장합니다.',
+          primary: { label: '드릴로 저장', onAction: () => board?.onSaveAsDrill() },
+          history,
+          courtSwitch: {
+            value: drill.courtMode,
+            locked: !boardPristine,
+            onChange: (m) => board?.onCourtChange(m),
+            onLockedAttempt: () => toast.show('전술판을 초기화하면 코트 형태를 바꿀 수 있습니다.'),
+          },
+        }
+      : {
+          title: drill.title,
+          badge: '편집중',
+          primary: { label: autosave.status === 'saving' ? '저장 중…' : '저장', onAction: () => void autosave.flush() },
+          presentButton: { onAction: () => nav.go('present') },
+          history,
+          courtSwitch: {
+            value: drill.courtMode,
+            locked: true,
+            onLockedAttempt: () => toast.show('코트 형태는 드릴을 만든 뒤에는 바꿀 수 없습니다.'),
+          },
+        },
+  );
 
   const eraseIds = useCallback(
     (ids: string[], scope: 'onward' | 'thisStep') => {
@@ -130,7 +180,9 @@ export function EditorWorkspace() {
     onUndo: () => dispatch({ type: 'UNDO' }),
     onRedo: () => dispatch({ type: 'REDO' }),
     onSave: () => void autosave.flush(),
-    onDuplicateStep: () => dispatch({ type: 'STEP_DUPLICATE', id: state.stepId }),
+    // 전술판은 1장짜리다 — 스텝 복제 단축키가 살아 있으면 화면에 없는 2번째 스텝이 생겨
+    // 판이 조용히 두 장이 된다(하단 바에 스텝 UI 가 없어 눈으로는 알 수 없다).
+    onDuplicateStep: isBoard ? () => {} : () => dispatch({ type: 'STEP_DUPLICATE', id: state.stepId }),
     onPrevStep: () => gotoStep(-1),
     onNextStep: () => gotoStep(1),
     onTogglePlay: () => playbackActions.toggle(),
@@ -205,15 +257,22 @@ export function EditorWorkspace() {
           />
         </div>
 
-        <TransportBar
-          steps={drill.steps}
-          stepId={state.stepId}
-          onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
-          playing={playing}
-          onTogglePlay={() => playbackActions.toggle()}
-          speed={speed}
-          onCycleSpeed={() => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5)}
-        />
+        {isBoard ? (
+          <BoardBar
+            courtLocked={!boardPristine}
+            onReset={() => board?.onReset()}
+          />
+        ) : (
+          <TransportBar
+            steps={drill.steps}
+            stepId={state.stepId}
+            onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
+            playing={playing}
+            onTogglePlay={() => playbackActions.toggle()}
+            speed={speed}
+            onCycleSpeed={() => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5)}
+          />
+        )}
       </div>
 
       <InspectorPanel
@@ -225,6 +284,7 @@ export function EditorWorkspace() {
         pendingPlayerId={pendingPlayerId}
         onArmPlayer={armPlayer}
         onEraseIds={eraseIds}
+        showSteps={!isBoard}
       />
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpTriggerRef} />

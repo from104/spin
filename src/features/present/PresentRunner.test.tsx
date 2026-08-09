@@ -124,7 +124,8 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
 
     await userEvent.click(screen.getByRole('button', { name: '시연 종료' }));
-    expect(nav.back).toHaveBeenCalledWith('editor');
+    // 재편으로 편집기가 home 자리로 들어왔다 — 시연을 나가면 그 드릴 편집으로 돌아간다.
+    expect(nav.back).toHaveBeenCalledWith('home');
 
     await userEvent.click(screen.getByRole('button', { name: '편집으로' }));
     expect(nav.back).toHaveBeenCalledTimes(2);

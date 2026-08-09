@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { HomeScreen } from './HomeScreen.tsx';
+import { HomeDashboard } from './HomeDashboard.tsx';
 import type { HomeNav } from './nav.ts';
 import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
@@ -24,10 +24,10 @@ function makeNav(): HomeNav {
 
 const wrapper = ({ children }: { children: ReactNode }) => <LibraryProvider>{children}</LibraryProvider>;
 
-describe('HomeScreen', () => {
+describe('HomeDashboard', () => {
   it('드릴이 없으면 빈 상태와 새 드릴 만들기 CTA 를 보여준다', async () => {
     const nav = makeNav();
-    render(<HomeScreen nav={nav} />, { wrapper });
+    render(<HomeDashboard nav={nav} />, { wrapper });
     await waitFor(() => expect(screen.getByText('아직 만든 드릴이 없습니다.')).toBeInTheDocument());
     expect(screen.getByText('예정된 세션이 없습니다.')).toBeInTheDocument();
 
@@ -38,7 +38,7 @@ describe('HomeScreen', () => {
   it('최근 드릴과 통계를 실데이터로 렌더한다', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '측면 돌파', category: '공격' });
     const nav = makeNav();
-    render(<HomeScreen nav={nav} />, { wrapper });
+    render(<HomeDashboard nav={nav} />, { wrapper });
 
     await waitFor(() => expect(screen.getByText('측면 돌파')).toBeInTheDocument());
     expect(screen.getByText('전체 드릴')).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe('HomeScreen', () => {
     const scheduledAt = Date.now() + 3600_000;
     const s = await createSession({ title: '수요 훈련', scheduledAt });
     const nav = makeNav();
-    render(<HomeScreen nav={nav} />, { wrapper });
+    render(<HomeDashboard nav={nav} />, { wrapper });
 
     const whenText = formatSessionWhen(scheduledAt);
     await waitFor(() => expect(screen.getByText(whenText)).toBeInTheDocument());

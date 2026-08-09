@@ -96,6 +96,9 @@ export function uiReducer(s: EditorState, a: EditorAction): EditorState {
       // E_CONFLICT 가 난다(회귀: useAutosave.test.tsx '연속 두 번 저장…').
       return { ...s, savedAt: a.at, baselineUpdatedAt: a.at };
     case 'DRILL_LOAD':
+    case 'BOARD_SET':
+      // 판이 통째로 바뀌므로 stepId 를 새 드릴의 것으로 옮긴다 — 안 옮기면 selectStepIndex 가
+      // 못 찾아 0 으로 떨어지고(무증상), 선택은 사라진 개체 id 를 계속 들고 있게 된다.
       return {
         ...s,
         stepId: a.drill.steps[0]!.id,

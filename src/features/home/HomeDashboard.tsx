@@ -1,5 +1,10 @@
-// §6.11(대문 카드) · 부록 A: 대문 화면. 마크업은 docs/prototype/template.html 93–161행을
+// §6.11(대문 카드) · 부록 A: 훈련 현황 대시보드. 마크업은 docs/prototype/template.html 93–161행을
 // 그대로 이식하되, 정적 sc-for 목데이터 대신 LibraryProvider 의 실데이터로 채운다(하드코딩 금지).
+//
+// 2026-08-09 재편: 대문(home)이 자유 전술판 차지가 되면서 이 내용은 **목록 화면 상단**으로
+// 옮겨왔다(기현 결정). 목록이 이미 드릴·세션 탭을 갖고 있어 "최근 항목"·"다음 세션" 이 같은
+// 맥락에 붙고, 전술판은 순수하게 판으로 남는다. 그래서 여기는 더 이상 화면이 아니라 섹션이다
+// — `<main id="main">` 은 LibraryScreen 이 렌더한다(한 화면에 main 이 둘이면 §7.5a 위반).
 //
 // 내비게이션: §8 "screen-home-library 의존은 store, render-court, ui-kit, model, storage 뿐"
 // — app-shell 을 import 하지 않는다. 화면 전환·헤더 주 액션은 app-shell 이 내려주는 `HomeNav`
@@ -21,11 +26,11 @@ import type { DrillId, SessionId } from '../../core/ids.ts';
 const MAX_RECENT = 4;
 const MAX_SESSION_DRILLS = 4;
 
-export interface HomeScreenProps {
+export interface HomeDashboardProps {
   nav: HomeNav;
 }
 
-export function HomeScreen({ nav }: HomeScreenProps) {
+export function HomeDashboard({ nav }: HomeDashboardProps) {
   const { drills, sessions } = useLibrary();
   const recent = drills.slice(0, MAX_RECENT);
   const stats = computeHomeStats(drills, sessions.length, countUpcomingSessions(sessions.map((s) => s.session), 7));
@@ -38,9 +43,8 @@ export function HomeScreen({ nav }: HomeScreenProps) {
   const openSession = (id: SessionId) => nav.openSession(id);
 
   return (
-    <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '26px 30px 46px', background: 'var(--bg)' }}>
-      <div style={{ maxWidth: 1120, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22 }}>
-        {/* 히어로 */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 22, marginBottom: 24 }}>
+      {/* 히어로 */}
         <section
           style={{
             position: 'relative',
@@ -205,9 +209,8 @@ export function HomeScreen({ nav }: HomeScreenProps) {
               <NextSessionCard next={next} onOpen={() => openSession(next.session.id)} />
             )}
           </div>
-        </section>
-      </div>
-    </main>
+      </section>
+    </div>
   );
 }
 

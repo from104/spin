@@ -38,24 +38,26 @@ import type { Screen } from './screens.ts';
 // 화면 컴포넌트 — screen-home-library/screen-editor/screen-present/screen-settings 소유(§8).
 // Wave 4 는 이 다섯 모듈이 병렬로 진행되므로, 형제 모듈의 산출물이 아직 없는 동안은 이 import
 // 가 타입체크를 막는다(정상 — 통합 시점에 다시 확인한다). 최종 보고서에 명시.
-import { HomeScreen } from '../features/home/HomeScreen.tsx';
 import { LibraryScreen } from '../features/library/LibraryScreen.tsx';
+import { BoardScreen } from '../features/board/BoardScreen.tsx';
 import { EditorScreen } from '../features/editor/EditorScreen.tsx';
 import { PresentScreen } from '../features/present/PresentScreen.tsx';
 import { SettingsScreen } from '../features/settings/SettingsScreen.tsx';
 
 // ── 화면 간 라우팅 대상 (계약 밖 확장 — DESIGN.md 가 안 정한 부분을 메운다) ──────────────────
-export type EditorTarget = { kind: 'new' } | { kind: 'existing'; drillId: DrillId };
+/** `home` 자리에 무엇이 떠 있는지. 2026-08-09 재편으로 `editor` 화면 키가 없어지면서,
+ *  "자유 전술판이냐 드릴 편집이냐" 는 화면 키가 아니라 이 값이 정한다(screens.ts 주석 참고).
+ *  기본값이 board 인 것이 곧 "대문에 전술판이 상시 떠 있다" 는 요구다. */
+export type StageTarget = { kind: 'board' } | { kind: 'drill'; drillId: DrillId };
 export type PresentTarget = { kind: 'drill'; drillId: DrillId } | { kind: 'session'; sessionId: SessionId };
 
-const EditorTargetContext = createContext<EditorTarget>({ kind: 'new' });
+const StageTargetContext = createContext<StageTarget>({ kind: 'board' });
 const PresentTargetContext = createContext<PresentTarget | null>(null);
 
-/** screen-editor 가 지금 편집기를 무엇으로 채울지 알아내는 통로 — EditorScreen 은 app-shell 에
- *  의존해도 되는 화면이라(§8 "전부") 이 훅을 직접 부를 수 있다. 대상이 'new' 면 CourtPicker 부터
- *  보여주는 게 screen-editor 소관이다(§6.8/§6.10). */
-export function useEditorTarget(): EditorTarget {
-  return useContext(EditorTargetContext);
+/** home 자리의 화면들(BoardScreen/EditorScreen)이 자기가 무엇을 그릴지 알아내는 통로 —
+ *  둘 다 app-shell 에 의존해도 되는 화면이라(§8 "전부") 이 훅을 직접 부를 수 있다. */
+export function useStageTarget(): StageTarget {
+  return useContext(StageTargetContext);
 }
 /** screen-present 가 무엇을 시연할지 알아내는 통로. 레일에서 직접 '시연'을 눌러 들어온 경우
  *  등 대상이 없을 수 있다 — null 이면 화면이 자체적으로 빈 상태를 그린다. */
@@ -66,19 +68,22 @@ export function usePresentTarget(): PresentTarget | null {
 /** HomeNav(=LibraryNav) 구현체 — useAppHistory().go 위에 "무엇을 열지"까지 함께 기록한다. */
 function useHomeNavAdapter(
   nav: AppHistoryApi,
-  setEditorTarget: (t: EditorTarget) => void,
+  setStageTarget: (t: StageTarget) => void,
   setPresentTarget: (t: PresentTarget) => void,
   setLibraryIntent: (i: { tab?: LibraryTab; openSessionId?: SessionId } | null) => void,
 ): HomeNav {
   return useMemo<HomeNav>(
     () => ({
+      // "새 드릴" = 전술판으로 데려가기. 새 드릴은 전술판에서 그린 뒤 [드릴로 저장] 으로
+      // 승격시키는 것이 재편 후의 주 경로다(§6.8). 여기서 판을 초기화하지는 **않는다** —
+      // 목록에서 버튼 하나 눌렀다고 그리던 판이 날아가면 안 된다.
       newDrill: () => {
-        setEditorTarget({ kind: 'new' });
-        nav.go('editor');
+        setStageTarget({ kind: 'board' });
+        nav.go('home');
       },
       openDrill: (id) => {
-        setEditorTarget({ kind: 'existing', drillId: id });
-        nav.go('editor');
+        setStageTarget({ kind: 'drill', drillId: id });
+        nav.go('home');
       },
       goLibrary: (opts) => {
         setLibraryIntent(opts ?? null);
@@ -97,7 +102,7 @@ function useHomeNavAdapter(
         nav.go('present');
       },
     }),
-    [nav, setEditorTarget, setPresentTarget, setLibraryIntent],
+    [nav, setStageTarget, setPresentTarget, setLibraryIntent],
   );
 }
 
@@ -109,12 +114,12 @@ function useHomeNavAdapter(
 function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | undefined {
   const { search, setSearch } = useLibrary();
   switch (screen) {
-    case 'home':
-      return {
-        title: SCREEN_TITLES.home,
-        subtitle: SCREEN_SUBTITLES.home,
-        primary: { label: '새 드릴', icon: <IconPlus size={15} />, onAction: nav.newDrill },
-      };
+    // ★ 'home' 은 이제 여기서 다루지 않는다(undefined 로 떨어진다). 2026-08-09 재편으로 home
+    // 자리에는 자유 전술판/드릴 편집이 뜨고, 둘 다 useAppHeader 로 자기 헤더를 선언한다 —
+    // 코트 전환 세그먼트·[드릴로 저장]·되돌리기처럼 Provider 안쪽 값이 필요해서다.
+    // 여기서 정적 config 를 돌려주면 AppHeader 의 config prop 이 Context 를 **덮어써서**
+    // 그 헤더가 통째로 사라진다(실제로 그랬다 — 테스트는 AppHeader 를 config 없이 렌더해서
+    // 못 잡았고, 앱을 띄워 보고서야 드러났다).
     case 'library':
       return {
         title: SCREEN_TITLES.library,
@@ -129,14 +134,18 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
   }
 }
 
-function renderScreen(screen: Screen, nav: HomeNav, libraryIntent: { tab?: LibraryTab; openSessionId?: SessionId } | null) {
+function renderScreen(
+  screen: Screen,
+  stage: StageTarget,
+  nav: HomeNav,
+  libraryIntent: { tab?: LibraryTab; openSessionId?: SessionId } | null,
+) {
   switch (screen) {
     case 'home':
-      return <HomeScreen nav={nav} />;
+      // 같은 자리, 같은 EditorWorkspace — board 냐 drill 이냐만 다르다(§6.8 재편).
+      return stage.kind === 'board' ? <BoardScreen /> : <EditorScreen />;
     case 'library':
       return <LibraryScreen nav={nav} initialTab={libraryIntent?.tab} initialOpenSessionId={libraryIntent?.openSessionId} />;
-    case 'editor':
-      return <EditorScreen />;
     case 'present':
       return <PresentScreen />;
     case 'settings':
@@ -149,10 +158,10 @@ export function AppShell() {
   const { toasts, dismiss } = useToast();
   const isFirstRender = useRef(true);
 
-  const [editorTarget, setEditorTarget] = useState<EditorTarget>({ kind: 'new' });
+  const [stageTarget, setStageTarget] = useState<StageTarget>({ kind: 'board' });
   const [presentTarget, setPresentTarget] = useState<PresentTarget | null>(null);
   const [libraryIntent, setLibraryIntent] = useState<{ tab?: LibraryTab; openSessionId?: SessionId } | null>(null);
-  const homeNav = useHomeNavAdapter(nav, setEditorTarget, setPresentTarget, setLibraryIntent);
+  const homeNav = useHomeNavAdapter(nav, setStageTarget, setPresentTarget, setLibraryIntent);
   const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav);
 
   // §7.6: 화면 전환(go·back·popstate 전부) 시 <main id="main"> 에 포커스 + 라이브 리전 발표.
@@ -170,20 +179,20 @@ export function AppShell() {
   return (
     <AppNavProvider value={nav}>
       <HeaderProvider>
-        <EditorTargetContext.Provider value={editorTarget}>
+        <StageTargetContext.Provider value={stageTarget}>
           <PresentTargetContext.Provider value={presentTarget}>
             <SkipLink />
             <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
               <AppRail />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <AppHeader config={staticHeaderConfig} />
-                {renderScreen(nav.screen, homeNav, libraryIntent)}
+                {renderScreen(nav.screen, stageTarget, homeNav, libraryIntent)}
               </div>
             </div>
             <ToastHost toasts={toasts} onDismiss={dismiss} />
             <LiveRegion />
           </PresentTargetContext.Provider>
-        </EditorTargetContext.Provider>
+        </StageTargetContext.Provider>
       </HeaderProvider>
     </AppNavProvider>
   );

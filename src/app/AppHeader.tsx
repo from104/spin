@@ -21,10 +21,16 @@ export interface HeaderPrimaryAction {
 }
 export interface HeaderCourtSwitch {
   value: CourtMode;
-  /** v1 에서 코트 모드는 불변이다(§6.8) — locked 는 사실상 항상 true. 클릭해도 바뀌지 않고
-   *  onLockedAttempt 로 토스트를 띄우는 쪽(공 도구 제한 §6.10 과 동일 패턴)이 이 값을 쓴다. */
+  /** 드릴 편집에서 코트 모드는 불변이다(§6.8/D12) — 거기서는 항상 true 다. 클릭해도 바뀌지
+   *  않고 onLockedAttempt 로 토스트를 띄우는 쪽(공 도구 제한 §6.10 과 동일 패턴)이 이 값을 쓴다.
+   *
+   *  자유 전술판(§6.8 재편)에서만 false 가 될 수 있다. 그것도 **판이 리셋 상태일 때만** —
+   *  D12 대로 full↔half 전환은 배치를 보존할 수 없으므로, 잃을 배치가 없을 때로 한정해
+   *  손실 자체를 원천 차단한다. 그 판정은 화면 쪽 책임이고 여기는 결과만 받는다. */
   locked?: boolean;
   onLockedAttempt?(): void;
+  /** locked=false 일 때만 불린다. */
+  onChange?(mode: CourtMode): void;
 }
 export interface HeaderSearch {
   value: string;
@@ -143,6 +149,7 @@ export function useAppHeader(config: HeaderConfig): void {
             value: c.courtSwitch.value,
             locked: c.courtSwitch.locked ?? true,
             onLockedAttempt: () => latest.current.courtSwitch?.onLockedAttempt?.(),
+            onChange: (m) => latest.current.courtSwitch?.onChange?.(m),
           }
         : null,
     });
@@ -284,7 +291,7 @@ function CourtSwitchControl({ cfg }: { cfg: HeaderCourtSwitch }) {
       <Segmented
         ariaLabel="코트 형태"
         value={cfg.value}
-        onChange={() => {}}
+        onChange={(v) => cfg.onChange?.(v as CourtMode)}
         options={COURT_SWITCH_OPTIONS}
         dense
       />

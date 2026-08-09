@@ -110,7 +110,7 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
     };
   }, [target]);
 
-  const backFallback: Screen = target?.kind === 'session' ? 'library' : 'editor';
+  const backFallback: Screen = target?.kind === 'session' ? 'library' : 'home';
   const exit = useCallback(() => nav.back(backFallback), [nav, backFallback]);
 
   const reduceMotion = effectiveReduceMotion(prefs.a11y.reduceMotion);
