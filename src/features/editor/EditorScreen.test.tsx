@@ -210,8 +210,12 @@ describe('선택 표시와 4개 드래그 존', () => {
     expect(stage.querySelectorAll('.sel-ring')).toHaveLength(1);
     const zoneRects = stage.querySelectorAll('.court-obj rect[style*="cursor"]');
     expect(zoneRects).toHaveLength(4); // towRear · translate · spin · towFront
-    // 네 구간의 커서가 서로 달라야 어느 게 무슨 동작인지 구분된다
-    const cursors = new Set(Array.from(zoneRects).map((r) => r.getAttribute('style')));
-    expect(cursors.size).toBe(4);
+    const cursors = Array.from(zoneRects).map((r) => decodeURIComponent(r.getAttribute('style') ?? ''));
+
+    // 앞뒤 견인은 **일부러 같은 커서**(줄 쥔 손)다 — 마우스 커서는 회전시킬 수 없어서
+    // 방향을 그리면 차체가 도는 순간 엉뚱한 쪽을 가리킨다. 방향은 리시와 핸들이 보여 준다.
+    expect(cursors[0]).toBe(cursors[3]);
+    // 가운데 둘은 서로도, 견인과도 달라야 한다
+    expect(new Set(cursors).size).toBe(3);
   });
 });
