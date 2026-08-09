@@ -100,3 +100,31 @@ describe('PWA — 홈 화면에 추가하면 전체화면 (태블릿 앱 포팅 
     expect(indexHtml).toMatch(/rel="manifest"\s+href="\/manifest\.webmanifest"/);
   });
 });
+
+describe('세로 축 플렉스 사슬 — 코트가 아래 도구를 밀어내지 않는다 (§6.4)', () => {
+  // jsdom 은 레이아웃을 하지 않으므로 이 결함은 단위 테스트로 절대 잡히지 않는다.
+  // 실제 증상: 세로에서 코트가 회전하면 아래 도구·속성이 화면 밖으로 밀려나 안 보인다.
+  const workspace = read('src/features/editor/EditorWorkspace.tsx');
+
+  it('코트 컬럼에 minHeight:0 이 있다', () => {
+    // 세로 배치에서 이 div 는 수직 주축의 플렉스 항목이다. 기본값 min-height:auto 면
+    // 안쪽 <svg> 가 viewBox 의 고유 종횡비로 높이를 정해버린다(회전 시 500×800 = 세로로 김).
+    const courtColumn = workspace
+      .split('\n')
+      .find((l) => l.includes("flexDirection: 'column'") && l.includes("background: 'var(--panel-2)'"));
+    expect(courtColumn, '코트 컬럼 div 를 찾지 못했다 — 선택자가 낡았다').toBeDefined();
+    expect(courtColumn!).toContain('minHeight: 0');
+    // minWidth:0 은 가로 배치용이라 이걸 대신하지 못한다. 둘 다 있어야 한다.
+    expect(courtColumn!).toContain('minWidth: 0');
+  });
+
+  it('세로 배치의 바깥 main 에도 minHeight:0 이 있다', () => {
+    const main = workspace.split('\n').find((l) => l.includes('flexDirection: portrait'));
+    expect(main, 'main 의 방향 전환 스타일을 찾지 못했다').toBeDefined();
+    expect(main!).toContain('minHeight: 0');
+  });
+
+  it('스테이지 영역도 줄어들 수 있다', () => {
+    expect(workspace).toMatch(/flex: 1, minHeight: 0, position: 'relative'/);
+  });
+});
