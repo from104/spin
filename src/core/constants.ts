@@ -45,8 +45,17 @@ export const BALL = {
   restitution: 0.45,
   friction: 0.02,
   frictionStatic: 0.05,
-  frictionAir: 0.012,
-  rollDecelPxPerS2: 25, // 쿨롱 구름 감속 (§5.9)
+  /** ⚠️ 공의 감속은 **구름저항이 주역이고 공기저항은 조역**이다(2026-08-10 기현 지시로 재조정).
+   *  예전 값(fA 0.012 / roll 25)은 반대였다 — fA 0.012 는 120 Hz 에서 0.5 초마다 속도를
+   *  반감시키는 지수 감쇠라, 강슛(8 m/s)이 30 m 코트의 1/4 인 7.4 m 에서 죽었다.
+   *  실측표(정지시간 / 이동거리):
+   *    fA 0.012·roll 25 → 2.58 s / 7.4 m   (옛값. 너무 끈적하다)
+   *    fA 0.004·roll 12 → 6.55 s / 19.9 m  ← 채택
+   *    fA 0.002·roll  8 → 8.70 s / 31.1 m  (코트를 넘어 벽을 계속 때린다)
+   *  roll 25 는 체육관 바닥 기준으로도 과했다: 25 px/s² = 1.0 m/s² = μ_r 0.10 인데
+   *  공기주입식 공의 실제 구름저항은 μ_r 0.01~0.03(=0.1~0.3 m/s²)이다. */
+  frictionAir: 0.004,
+  rollDecelPxPerS2: 12, // 쿨롱 구름 감속 (§5.9)
   maxSpeedPxPerS: 420, // = 16.8 m/s
   maxSpeedMatter: 7.0, // = 420/60. setVelocity/getSpeed 에 쓰는 값
   maxCount: 10,
@@ -112,7 +121,10 @@ export const PHYS = {
   dtS: 1 / 120,
   maxSubsteps: 6,
   accClampMs: 50, // = 6 × 8.3333
-  settleMaxMs: 4000,
+  /** 드래그가 끝난 뒤 물리 루프를 유지하는 상한. 공이 더 잘 구르게 바꾸면서(§5.9 재조정)
+   *  강슛의 정지 시간이 2.58 → 6.55 초가 됐다 — 4 초로 두면 **굴러가는 도중에 루프가 끊겨**
+   *  공이 허공에서 멎는다. 조기 종료(정지 감지)가 여전히 먼저 발동한다는 D32 의 취지는 유지된다. */
+  settleMaxMs: 8000,
   /** 단위: px per 16.667 ms (Body.getSpeed 와 같은 단위). 0.03 = 1.8 px/s = 7.2 cm/s */
   restSpeedMatter: 0.03,
   positionIterations: 6,

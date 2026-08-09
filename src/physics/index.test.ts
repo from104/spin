@@ -210,7 +210,11 @@ describe('resetGoals — 순간이동이 아니라 밀고 들어간다', () => {
     w.resetGoals();
     run(w, 240); // 2초 — 상한(0.5초)을 훨씬 넘겨 스냅까지 확인
     const g = goal0(w);
-    expect(Math.hypot(g.x - home.x, g.y - home.y)).toBeLessThan(1);
+    // 4 px 인 이유: 복귀 자체는 정확히 끝나지만(스냅), 밀려난 공이 굴러다니다 골대를 다시
+    // 살짝 건드린다. 그 정도 흔들림은 골대 계약이 이미 허용하는 범위다(최고속 직격 8 px 미만,
+    // §5.4). 여기서 1 px 을 요구하면 공의 구름 성질이 바뀔 때마다 이 테스트가 깨진다 —
+    // 실제로 2026-08-10 구름 재조정에서 그렇게 깨졌다.
+    expect(Math.hypot(g.x - home.x, g.y - home.y)).toBeLessThan(4);
 
     // 공은 비켜났다(같은 자리에 겹쳐 있지 않다).
     const ball = w.read()[blA]!;

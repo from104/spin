@@ -267,7 +267,7 @@ describe('속도 클램프(§5.9 — maxSpeedMatter 를 반드시 써야 하는 
 });
 
 describe('정착(settle) 조기 종료(§5.9)', () => {
-  it('8 m/s 킥 후 구름 감속 포함 시 2.6±0.3s 에 allAtRest() 가 참이 된다', () => {
+  it('8 m/s 킥 후 구름 감속 포함 시 6.6±0.4s 에 allAtRest() 가 참이 된다', () => {
     const w = createWorld(4000, 4000);
     w.addBall(ballId(), { x: 2000, y: 2000 });
     const ball = findBody(w, 'ball');
@@ -280,8 +280,13 @@ describe('정착(settle) 조기 종료(§5.9)', () => {
       w.applyRollingDecel(PHYS.dtS);
       elapsedMs += PHYS.dtMs;
     }
-    expect(elapsedMs / 1000).toBeGreaterThan(2.3);
-    expect(elapsedMs / 1000).toBeLessThan(2.9);
+    // 2026-08-10 재조정: 공이 더 잘 구르도록 fA 0.012→0.004 / roll 25→12 로 바꿨다(§5.9).
+    // 강슛의 정지가 2.58 → 6.55 초가 됐고, settleMaxMs 도 8 초로 함께 올렸다 — 그래야
+    // 굴러가는 도중에 루프가 끊기지 않는다. **하드컷이 아니라 조기 종료로 끝난다**는
+    // D32 의 취지는 그대로다(6.55 < 8).
+    expect(elapsedMs / 1000).toBeGreaterThan(6.2);
+    expect(elapsedMs / 1000).toBeLessThan(7.0);
+    expect(elapsedMs).toBeLessThan(PHYS.settleMaxMs); // 하드컷에 걸리지 않는다
   });
 
   it('구름 감속을 빼면 2.9s 안에 정지하지 않는다(하드컷이 아니라 조기종료가 원인임을 증명)', () => {
@@ -315,12 +320,12 @@ describe('frictionAir 시정수(§2.7 실측)', () => {
     return Infinity;
   }
 
-  it('공 frictionAir 0.012 → 1.3847 s ±2%', () => {
+  it('공 frictionAir 0.004 → 4.17 s ±2%', () => {
     const engine = Engine.create(ENGINE_OPTS);
     const ball = createBallBody({ x: 0, y: 0 });
     Composite.add(engine.world, ball);
     const tau = timeConstant(ball, engine, 8);
-    expect(tau).toBeCloseTo(1.3847, 1);
+    expect(tau).toBeCloseTo(4.1667, 1);
   });
 
   it('콘 frictionAir 0.065 → 0.2522 s ±2%', () => {
@@ -794,5 +799,49 @@ describe("'push' 모드 — 드래그 중인 휠체어가 대기 중인 휠체�
       w.applySpeedClamps();
     }
     expect(w.chairPose(chairId(1)).theta).toBe(0);
+  });
+});
+
+// ── 공은 잘 굴러야 한다 (§5.9 재조정, 2026-08-10 기현 지시) ──────────────────────────────
+// "실제 크기는 33cm고 지금보다 더 잘 굴러다녀야 해."
+//
+// ⚠️ 이 describe 가 생기기 전에는 **구름 거리를 보는 테스트가 하나도 없었다** — 정지 '시간'
+// 만 봤다. 그래서 강슛이 30 m 코트의 1/4 인 7.4 m 에서 죽는데도 전부 초록불이었다.
+describe('공 구름 거리 — 강슛이 코트를 가로지른다', () => {
+  /** 8 m/s 로 찬 공이 멈출 때까지의 이동 거리(m). 벽에 닿지 않도록 긴 코트에서 잰다. */
+  function rollDistanceM(): number {
+    const w = createWorld(4000, 1000);
+    w.addBall(ballId(), { x: 60, y: 500 });
+    const ball = findBody(w, 'ball');
+    Body.setVelocity(ball, { x: pxPerSToMatterV(8 * PX_PER_M), y: 0 });
+    let path = 0;
+    let prev = { x: ball.position.x, y: ball.position.y };
+    for (let i = 0; i < 120 * 30; i++) {
+      Engine.update(w.engine, PHYS.dtMs);
+      w.applySpeedClamps();
+      w.applyRollingDecel(PHYS.dtS);
+      path += Math.hypot(ball.position.x - prev.x, ball.position.y - prev.y);
+      prev = { x: ball.position.x, y: ball.position.y };
+      if (Body.getSpeed(ball) < PHYS.restSpeedMatter) break;
+    }
+    return path / PX_PER_M;
+  }
+
+  it('강슛(8 m/s)이 최소 15 m 는 굴러간다 — 30 m 코트의 절반', () => {
+    // 옛 값(fA 0.012 / roll 25)에서는 7.4 m 에서 죽었다. 이 단언이 그때를 다시 잡는다.
+    expect(rollDistanceM()).toBeGreaterThan(15);
+  });
+
+  it('그래도 무한정 가지는 않는다 — 유한 시간에 선다(D32)', () => {
+    expect(rollDistanceM()).toBeLessThan(30);
+  });
+
+  // (한때 "구름저항이 주역" 을 단언하려 했으나 사실이 아니다: 공기저항은 속도에 비례해
+  //  8 m/s 에서 96 px/s² 로 구름(12)을 압도하고, 느려질수록 역전된다. 두 힘의 대소가 아니라
+  //  **결과 거리**가 계약이므로 위 두 테스트가 그 역할을 한다.)
+
+  it('물리 반지름은 실물 33 cm 그대로다', () => {
+    expect(BALL.radiusM * 2).toBeCloseTo(0.33, 6);
+    expect(BALL.radiusPx).toBeCloseTo(0.165 * PX_PER_M, 6);
   });
 });
