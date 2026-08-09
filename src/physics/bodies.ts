@@ -1,12 +1,12 @@
 // body 생성. §5.3. matter 실측(§2.7)이 강제하는 생성 순서를 그대로 코드로 옮긴다.
 import * as Matter from 'matter-js';
 import type { Vec2 } from '../core/units.ts';
-import { CHAIR, BALL, CONE, WALL } from '../core/constants.ts';
+import { CHAIR, BALL, CONE, GOAL, WALL } from '../core/constants.ts';
 import type { ChairPose } from '../model/chair.ts';
 
 const { Body, Bodies } = Matter;
 
-export const CAT = { CHAIR: 0x0001, BALL: 0x0002, CONE: 0x0004, WALL: 0x0008 } as const;
+export const CAT = { CHAIR: 0x0001, BALL: 0x0002, CONE: 0x0004, WALL: 0x0008, GOAL: 0x0010 } as const;
 
 /** `setStatic` 이 만드는 `_original` 은 @types/matter-js 에 없다(런타임에는 존재 — Body.js 확인).
  *  restore 경로(§5.3 applyStaticSurface)에서만 쓰는 좁은 확장 타입. */
@@ -39,7 +39,7 @@ export function createChairBody(pose: ChairPose): Matter.Body {
   const b = Bodies.rectangle(pose.x + off, pose.y, CHAIR.lengthPx, CHAIR.widthPx, {
     isStatic: true,
     label: 'chair',
-    collisionFilter: { category: CAT.CHAIR, mask: CAT.BALL | CAT.CONE | CAT.WALL, group: 0 },
+    collisionFilter: { category: CAT.CHAIR, mask: CAT.BALL | CAT.CONE | CAT.WALL | CAT.GOAL, group: 0 },
   });
   Body.setCentre(b, { x: -off, y: 0 }, true);
   if (pose.theta !== 0) Body.setAngle(b, pose.theta);
@@ -65,7 +65,7 @@ export function createBallBody(p: Vec2): Matter.Body {
     frictionAir: BALL.frictionAir,
     collisionFilter: {
       category: CAT.BALL,
-      mask: CAT.CHAIR | CAT.CONE | CAT.WALL | CAT.BALL,
+      mask: CAT.CHAIR | CAT.CONE | CAT.WALL | CAT.BALL | CAT.GOAL,
       group: 0,
     },
   });
@@ -84,12 +84,35 @@ export function createConeBody(p: Vec2): Matter.Body {
     frictionAir: CONE.frictionAir,
     collisionFilter: {
       category: CAT.CONE,
-      mask: CAT.CHAIR | CAT.BALL | CAT.WALL | CAT.CONE,
+      mask: CAT.CHAIR | CAT.BALL | CAT.WALL | CAT.CONE | CAT.GOAL,
       group: 0,
     },
   });
   b.circleRadius = CONE.radiusPx;
   Body.setMass(b, CONE.massKg);
+  Body.setInertia(b, Infinity);
+  return b;
+}
+
+/** 골대 포스트. **static 이 아니다** — 실제 코트에서도 휠체어에 밀리도록 만들어져 있다
+ *  (안 밀리면 안전 사고가 난다, §5.4 GOAL 주석). 공에는 밀리지 않아야 하므로 질량과 마찰을
+ *  둘 다 크게 잡는다. 회전은 막는다(setInertia Infinity) — 포스트가 빙글빙글 도는 것은
+ *  실물에도 없고 화면에서도 산만하다. */
+export function createGoalPostBody(p: Vec2): Matter.Body {
+  const b = Bodies.polygon(p.x, p.y, GOAL.polySides, GOAL.radiusPx, {
+    label: 'goal',
+    restitution: GOAL.restitution,
+    friction: GOAL.friction,
+    frictionStatic: GOAL.frictionStatic,
+    frictionAir: GOAL.frictionAir,
+    collisionFilter: {
+      category: CAT.GOAL,
+      mask: CAT.CHAIR | CAT.BALL | CAT.CONE | CAT.WALL,
+      group: 0,
+    },
+  });
+  b.circleRadius = GOAL.radiusPx;
+  Body.setMass(b, GOAL.massKg);
   Body.setInertia(b, Infinity);
   return b;
 }

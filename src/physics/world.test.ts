@@ -1,12 +1,12 @@
 // §10.3 physics-world matter 통합 테스트. §2.7 실측 로그의 지뢰밭을 하나씩 회귀로 고정한다.
 import { describe, expect, it } from 'vitest';
 import * as Matter from 'matter-js';
-import { BALL, CHAIR, CONE, PHYS, WALL, DEFAULT_LIMITS } from '../core/constants.ts';
+import { BALL, CHAIR, CONE, GOAL, PHYS, WALL, DEFAULT_LIMITS } from '../core/constants.ts';
 import { kmhToPxPerS, matterVToPxPerS, pxPerSToMatterV, PX_PER_M } from '../core/units.ts';
 import type { ChairId, BallId, ConeId } from '../core/ids.ts';
 import type { ChairPose } from '../model/chair.ts';
 import type { Bounds, DragLimits } from './types.ts';
-import { CAT, applyStaticSurface, createBallBody, createChairBody, createConeBody, createWalls } from './bodies.ts';
+import { CAT, applyStaticSurface, createBallBody, createChairBody, createConeBody, createGoalPostBody, createWalls } from './bodies.ts';
 import { ENGINE_OPTS, applyRollingDecel, clampBodySpeed, createWorld, escapePinnedAll, freezeKinematic } from './world.ts';
 import type { WorldHandles } from './world.ts';
 import type { DragSession } from './drag.ts';
@@ -603,5 +603,78 @@ describe('무게 위계 — 같은 힘으로 밀었을 때 공이 콘보다 훨�
     const ball = pushDistance('ball');
     const cone = pushDistance('cone');
     expect(ball).toBeGreaterThan(cone * 2);
+  });
+});
+
+// ── 골대 (§5.4, 2026-08-10 기현 지시) ─────────────────────────────────────────────────────
+// "실제 코트에서 골대는 고정되어 있지 않다. 휠체어에는 밀리지만 공에는 안 밀리는 질량으로
+//  만들어졌다. 안 밀리면 안전에 문제가 생기기 때문이다."
+//
+// GOAL.massKg 는 그럴듯한 실물값이 아니라 **아래 두 테스트를 동시에 만족시키려고 고른 값**이다.
+// 두 테스트가 그 값을 양쪽에서 붙잡는다 — 너무 가벼우면 첫 번째가, 너무 무거우면 두 번째가 깨진다.
+describe('골대 — 공에는 안 밀리고 휠체어에는 밀린다', () => {
+  const GOAL_AT = { x: 300, y: 200 };
+
+  function worldWithGoal(): { w: WorldHandles; goal: Matter.Body } {
+    const w = createWorld(BOUNDS.w, BOUNDS.h);
+    const g = createGoalPostBody(GOAL_AT);
+    Composite.add(w.engine.world, g);
+    return { w, goal: g };
+  }
+
+  /** 공을 주어진 속도로 골대에 맞히고, 골대가 최종적으로 얼마나 밀렸는지 잰다(px). */
+  function ballHitShift(speedMatter: number): number {
+    const { w, goal } = worldWithGoal();
+    w.addBall(ballId(), { x: GOAL_AT.x - 60, y: GOAL_AT.y });
+    const ball = findBody(w, 'ball');
+    Body.setVelocity(ball, { x: speedMatter, y: 0 });
+    for (let i = 0; i < 240; i++) {
+      Engine.update(w.engine, PHYS.dtMs);
+      w.applySpeedClamps();
+      w.applyRollingDecel(PHYS.dtS);
+    }
+    return Math.abs(goal.position.x - GOAL_AT.x);
+  }
+
+  it('경기에서 흔한 속도의 공에는 사실상 부동이다', () => {
+    // 규정 최고속의 1/3 (≈5.6 m/s) — 실제 패스·슛 대부분이 이 아래다.
+    expect(ballHitShift(BALL.maxSpeedMatter / 3)).toBeLessThan(1.5);
+  });
+
+  it('규정 최고속(16.8 m/s) 직격에도 자리를 지킨다 — 살짝 흔들릴 뿐', () => {
+    // ⚠️ 여기서 0 을 요구하면 안 된다. 질량을 5배(60→300 kg) 올려도 변위가 5.13→4.93 px
+    // 로 거의 줄지 않는데, 이 잔여분은 충격량이 아니라 **터널링 후 위치 보정**이 만드는
+    // 바닥값이기 때문이다(16.8 m/s = substep 당 7 px 이동, 반지름 합 9.1 px).
+    // 질량으로 이길 수 있는 값이 아니므로 "눈에 띄지만 자리를 지킨다" 를 계약으로 삼는다.
+    // 8 px = 0.3 m.
+    expect(ballHitShift(BALL.maxSpeedMatter)).toBeLessThan(8);
+  });
+
+  it('휠체어가 밀면 확실히 밀린다 — 안 밀리면 실제 코트에서 안전 문제다', () => {
+    const { w, goal } = worldWithGoal();
+    const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmh);
+    let pose: ChairPose = { x: GOAL_AT.x - 100, y: GOAL_AT.y, theta: 0 };
+    w.addChair(chairId(), pose);
+
+    for (let i = 0; i < 240; i++) {
+      pose = { x: pose.x + vLin * PHYS.dtS, y: pose.y, theta: 0 };
+      w.setChairPose(chairId(), pose, true);
+      Engine.update(w.engine, PHYS.dtMs);
+      w.applySpeedClamps();
+      w.applyRollingDecel(PHYS.dtS);
+    }
+    expect(goal.position.x - GOAL_AT.x).toBeGreaterThan(20);
+  });
+
+  it('공보다는 무겁고 휠체어보다는 가볍다', () => {
+    const g = createGoalPostBody(GOAL_AT);
+    expect(g.mass).toBeCloseTo(GOAL.massKg, 6);
+    expect(g.mass).toBeGreaterThan(BALL.massKg * 10);
+    expect(g.mass).toBeLessThan(CHAIR.massKgDoc); // 휠체어+사람보다는 가볍다
+  });
+
+  it('회전하지 않는다 — 포스트가 빙글빙글 도는 것은 실물에도 없다', () => {
+    const g = createGoalPostBody(GOAL_AT);
+    expect(g.inverseInertia).toBe(0);
   });
 });
