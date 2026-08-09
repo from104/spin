@@ -73,6 +73,8 @@ export interface CourtStageProps {
   chairs: readonly ObjectLayerChair[];
   balls: readonly BallId[];
   cones: readonly ObjectLayerCone[];
+  /** 골대 포스트 id. 편집기만 넘긴다(§5.4). */
+  goals?: readonly string[];
   notes: readonly NoteLabelData[];
   arrows: readonly Arrow[];
   selection: ReadonlySet<string>;
@@ -116,6 +118,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     chairs,
     balls,
     cones,
+    goals,
     notes,
     arrows,
     selection,
@@ -357,6 +360,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           chairs={chairs}
           balls={balls}
           cones={cones}
+          goals={goals}
           notes={notes}
           arrows={arrows}
           markerUid={markerUid}

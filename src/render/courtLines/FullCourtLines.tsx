@@ -48,7 +48,9 @@ export function FullCourtLines({ variant }: FullCourtLinesProps) {
       )}
       {w.spotR !== undefined && (
         <g fill="#f5f5f5" stroke="#c2410c" strokeWidth={w.spotSw}>
-          {DEF.goalPosts.map((p) => (
+          {/* 편집기에서는 골대가 물리 바디라 ObjectLayer 가 그린다(§5.4) — 여기 정적 원을
+              같이 그리면 원위치 표시와 실제 골대가 겹쳐 두 개로 보인다. */}
+          {(variant === 'editor' ? [] : DEF.goalPosts).map((p) => (
             <circle key={`${p.x},${p.y}`} cx={p.x} cy={p.y} r={w.spotR} />
           ))}
         </g>

@@ -298,6 +298,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           <BoardBar
             courtLocked={!boardPristine}
             onReset={() => board?.onReset()}
+            onResetGoals={() => worldRef.current?.resetGoals()}
           />
         ) : (
           <TransportBar

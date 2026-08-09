@@ -16,6 +16,7 @@ import type { TransformWriter } from './transformWriter.ts';
 import type { ZoneConfig } from '../model/chair.ts';
 import { ChairChip } from './objects/ChairChip.tsx';
 import { BallDot } from './objects/BallDot.tsx';
+import { GoalPost } from './objects/GoalPost.tsx';
 import { ConeMark } from './objects/ConeMark.tsx';
 import { NoteLabel } from './objects/NoteLabel.tsx';
 import { ArrowPath } from './objects/ArrowPath.tsx';
@@ -36,6 +37,8 @@ export interface ObjectLayerProps {
   chairs: readonly ObjectLayerChair[];
   balls: readonly BallId[];
   cones: readonly ObjectLayerCone[];
+  /** 골대 포스트 id(`gp_0`…). 편집기에서만 넘긴다 — 시연·썸네일은 코트 라인의 정적 표시를 쓴다. */
+  goals?: readonly string[];
   notes: readonly NoteLabelData[];
   arrows: readonly Arrow[];
   /** ArrowMarkers 가 이 SVG 루트에 만든 `useId()` 접두사. */
@@ -56,6 +59,7 @@ export function ObjectLayer({
   chairs,
   balls,
   cones,
+  goals,
   notes,
   arrows,
   markerUid,
@@ -82,6 +86,9 @@ export function ObjectLayer({
 
   return (
     <>
+      {(goals ?? []).map((gid) => (
+        <GoalPost key={gid} id={gid} writer={writer} />
+      ))}
       {cones.map((c) => (
         <ConeMark
           key={c.id}

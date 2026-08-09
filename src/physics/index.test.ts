@@ -1,7 +1,7 @@
 // physics-world 공개 진입점(createPhysicsWorld) 회귀. §5.8/§5.11 감사 지적을 고정한다.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as Matter from 'matter-js';
-import { createPhysicsWorld } from './index.ts';
+import { createPhysicsWorld, GOAL_ID_PREFIX } from './index.ts';
 import * as dragModule from './drag.ts';
 import * as loopModule from './loop.ts';
 import { BALL, CHAIR, PHYS } from '../core/constants.ts';
@@ -9,6 +9,7 @@ import type { ChairId, BallId, StepId } from '../core/ids.ts';
 import type { DrillCast, DrillStep } from '../model/drill.ts';
 import type { HitResult } from './hitTest.ts';
 import type { CourtMode } from '../model/court.ts';
+import { COURT_DEFS } from '../model/court.ts';
 
 const chA = 'ch_a' as ChairId;
 const chB = 'ch_b' as ChairId;
@@ -151,5 +152,69 @@ describe('정착 취소 배선 (blocker 회귀: §5.8 "정착 대기 중 새 드
     expect(cancelCount).toBeGreaterThan(0);
 
     api.dispose();
+  });
+});
+
+// ── 골대 원위치 (§5.4, 2026-08-10 기현 합의) ──────────────────────────────────────────────
+describe('resetGoals — 순간이동이 아니라 밀고 들어간다', () => {
+  const DEF = COURT_DEFS[mode];
+
+  function loaded() {
+    const w = createPhysicsWorld(DEF.vbW, DEF.vbH);
+    w.load(makeCast(), makeStep(), mode);
+    return w;
+  }
+  const run = (w: ReturnType<typeof createPhysicsWorld>, n: number) => {
+    for (let i = 0; i < n; i++) w.step(PHYS.dtS);
+  };
+  const goal0 = (w: ReturnType<typeof createPhysicsWorld>) => w.read()[`${GOAL_ID_PREFIX}0`]!;
+
+  it('코트 정의의 골대가 스냅샷에 들어온다 — 여기 없으면 화면이 따라오지 못한다', () => {
+    const w = loaded();
+    const snap = w.read();
+    const home = COURT_DEFS[mode].goalPosts;
+    expect(home.length).toBeGreaterThan(0);
+    home.forEach((p, i) => {
+      const s = snap[`${GOAL_ID_PREFIX}${i}`];
+      expect(s, `${GOAL_ID_PREFIX}${i} 가 스냅샷에 없다`).toBeDefined();
+      expect(s!.x).toBeCloseTo(p.x, 3);
+      expect(s!.y).toBeCloseTo(p.y, 3);
+    });
+    w.dispose();
+  });
+
+  it('밀린 골대를 원위치로 되돌린다', () => {
+    const w = loaded();
+    const home = COURT_DEFS[mode].goalPosts[0]!;
+    // 휠체어로 밀지 않고 직접 옮겨 놓는다(이 테스트의 관심사는 복귀다).
+    w.setPose(`${GOAL_ID_PREFIX}0` as never, { x: home.x + 60, y: home.y + 40 });
+    run(w, 5);
+    expect(w.goalsDisplaced()).toBe(true);
+
+    w.resetGoals();
+    run(w, 120); // 1초
+    const g = goal0(w);
+    expect(Math.hypot(g.x - home.x, g.y - home.y)).toBeLessThan(1);
+    expect(w.goalsDisplaced()).toBe(false);
+    w.dispose();
+  });
+
+  it('원위치 자리에 개체가 있어도 끝까지 돌아간다 — 막다른 길이 없다', () => {
+    // 합의한 동작: 거부하거나 순간이동하지 않고, 구동해 밀어내고 마지막에 스냅한다.
+    const w = loaded();
+    const home = COURT_DEFS[mode].goalPosts[0]!;
+    w.setPose(`${GOAL_ID_PREFIX}0` as never, { x: home.x + 80, y: home.y });
+    w.setPose(blA, { x: home.x, y: home.y }); // 원위치 정중앙에 공을 놓는다
+    run(w, 5);
+
+    w.resetGoals();
+    run(w, 240); // 2초 — 상한(0.5초)을 훨씬 넘겨 스냅까지 확인
+    const g = goal0(w);
+    expect(Math.hypot(g.x - home.x, g.y - home.y)).toBeLessThan(1);
+
+    // 공은 비켜났다(같은 자리에 겹쳐 있지 않다).
+    const ball = w.read()[blA]!;
+    expect(Math.hypot(ball.x - home.x, ball.y - home.y)).toBeGreaterThan(1);
+    w.dispose();
   });
 });

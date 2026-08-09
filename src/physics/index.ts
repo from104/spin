@@ -3,7 +3,7 @@
 import * as Matter from 'matter-js';
 import type { Vec2 } from '../core/units.ts';
 import { kmhToPxPerS } from '../core/units.ts';
-import { CHAIR, DEFAULT_LIMITS, DEFAULT_ZONES, PHYS } from '../core/constants.ts';
+import { CHAIR, DEFAULT_LIMITS, DEFAULT_ZONES, GOAL, PHYS } from '../core/constants.ts';
 import type { ChairId, CastId } from '../core/ids.ts';
 import type { ChairPose, DragZone } from '../model/chair.ts';
 import { classifyZone, poseFromStored, projectGrab } from '../model/chair.ts';
@@ -13,6 +13,7 @@ import type { DrillCast, DrillStep } from '../model/drill.ts';
 // 예외를 인정받았다(§8). 런타임 값(COURT_DEFS 등)은 쓰지 않는다: 코트 픽셀 크기는
 // createPhysicsWorld(courtW, courtH) 생성 시점에 호출자가 넘긴다(벽은 그때 이미 고정).
 import type { CourtMode } from '../model/court.ts';
+import { COURT_DEFS } from '../model/court.ts';
 
 import type { DragLimits, Bounds } from './types.ts';
 import { createWorld, escapePinnedAll } from './world.ts';
@@ -58,6 +59,9 @@ export const DEFAULT_DRAG_LIMITS: DragLimits = {
   omegaRadPerS: kmhToPxPerS(DEFAULT_LIMITS.bumperKmh) / CHAIR.pivotToFrontPx,
 };
 
+/** 골대 포스트 id 접두사. cast 가 아니므로 CastId 체계(ch_/bl_/cn_)와 섞이지 않게 따로 둔다. */
+export const GOAL_ID_PREFIX = 'gp_';
+
 export interface PhysicsSnapshot {
   [id: string]: { x: number; y: number; theta: number };
 }
@@ -80,6 +84,13 @@ export interface PhysicsWorldApi {
   beginDrag(hit: HitResult, grabWorld: Vec2): DragHandle | null;
   zoneAt(id: ChairId, worldPt: Vec2): DragZone | null;
   isSettled(): boolean;
+  /** `골대 원위치`. 순간이동이 아니라 **0.5초 동안 구동해 밀고 들어간다** — 그 자리에 개체가
+   *  있으면 물리로 비켜내고, 상한을 넘으면 정확한 좌표로 스냅한다(남은 겹침은 escapePinned).
+   *  순간이동으로 하면 낀 개체가 튀어나가듯 빠져 버그처럼 보이고, 거부하면 버튼이 안 듣는
+   *  막다른 길이 된다(기현과 합의, 2026-08-10). */
+  resetGoals(): void;
+  /** 골대가 원위치에서 벗어나 있는가 — 버튼 활성 판단용. */
+  goalsDisplaced(): boolean;
   dispose(): void;
 }
 
@@ -108,7 +119,11 @@ export function createPhysicsWorld(
 ): PhysicsWorldApi {
   const bounds: Bounds = { w: courtW, h: courtH };
   const world: WorldHandles = createWorld(courtW, courtH);
-  const kindOf = new Map<CastId, 'chair' | 'ball' | 'cone'>();
+  const kindOf = new Map<CastId, 'chair' | 'ball' | 'cone' | 'goal'>();
+  /** 골대 포스트의 **원위치**. 코트 정의에서 오고 드릴에는 저장되지 않는다(§5.4 GOAL). */
+  const goalHome: Array<{ id: string; p: Vec2 }> = [];
+  /** 0 이 아니면 복귀 구동 중. 이 시각을 넘기면 스냅한다. */
+  let goalReturnUntilMs = 0;
   let session: DragSession | null = null;
   // major 회귀(§5.8): 공개 step(dtS) 에 넘어온 가변 dt 를 Engine.update 에 그대로 넣지 않기
   // 위한 고정-timestep 누산기(loop.ts 의 프레임 누산 로직과 동일한 패턴). substep() 자신은
@@ -117,8 +132,37 @@ export function createPhysicsWorld(
   // 모든 속도가 3배가 되는 실측 버그).
   let stepAccMs = 0;
 
+  /** 원위치 복귀를 한 substep 만큼 진행한다. 구동(driven=true)이라 접촉면 속도가 물리적으로
+   *  전달되어 길에 있는 개체를 자연스럽게 밀어낸다 — 순간이동에는 없는 성질이다. */
+  function driveGoalsHome(): void {
+    if (goalReturnUntilMs === 0) return;
+    const stepPx = (GOAL.returnPxPerS * PHYS.dtMs) / 1000;
+    let allHome = true;
+    for (const g of goalHome) {
+      const cur = world.pointOf(g.id as CastId);
+      const dx = g.p.x - cur.x;
+      const dy = g.p.y - cur.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist <= stepPx) {
+        world.setPoint(g.id as CastId, g.p, true);
+        continue;
+      }
+      allHome = false;
+      world.setPoint(g.id as CastId, { x: cur.x + (dx / dist) * stepPx, y: cur.y + (dy / dist) * stepPx }, true);
+    }
+    // 상한을 넘기면 스냅한다 — 벽에 낀 휠체어 때문에 영원히 미는 상태에 갇히지 않게.
+    if (allHome || performance.now() >= goalReturnUntilMs) {
+      for (const g of goalHome) {
+        world.setPoint(g.id as CastId, g.p, false);
+        world.freeze(g.id as CastId);
+      }
+      goalReturnUntilMs = 0;
+    }
+  }
+
   function substep(_dtS: number): void {
     if (session) stepDrag(session, world, limits, bounds, PHYS.dtS);
+    driveGoalsHome();
     Matter.Engine.update(world.engine, PHYS.dtMs);
     world.applySpeedClamps();
     world.applyRollingDecel(PHYS.dtS);
@@ -138,7 +182,7 @@ export function createPhysicsWorld(
   });
 
   const api: PhysicsWorldApi = {
-    load(cast, step, _mode) {
+    load(cast, step, mode) {
       for (const id of kindOf.keys()) world.remove(id);
       kindOf.clear();
       session = null;
@@ -162,6 +206,15 @@ export function createPhysicsWorld(
         world.addCone(cd.id, p);
         kindOf.set(cd.id, 'cone');
       }
+      // 골대는 cast 가 아니라 **코트 정의**에서 온다(드릴에 저장되지 않는다, §5.4 GOAL).
+      goalHome.length = 0;
+      goalReturnUntilMs = 0;
+      COURT_DEFS[mode].goalPosts.forEach((p, i) => {
+        const id = `${GOAL_ID_PREFIX}${i}`;
+        world.addGoalPost(id, p);
+        kindOf.set(id as CastId, 'goal');
+        goalHome.push({ id, p });
+      });
     },
 
     step(dtS) {
@@ -252,6 +305,19 @@ export function createPhysicsWorld(
       if (kindOf.get(id) !== 'chair') return null;
       const pose = world.chairPose(id);
       return classifyZone(projectGrab(pose, worldPt).s, DEFAULT_ZONES);
+    },
+
+    resetGoals() {
+      if (goalHome.length === 0) return;
+      goalReturnUntilMs = performance.now() + GOAL.returnMaxMs;
+      loop.requestSettle(PHYS.settleMaxMs);
+    },
+
+    goalsDisplaced() {
+      return goalHome.some((g) => {
+        const cur = world.pointOf(g.id as CastId);
+        return Math.hypot(cur.x - g.p.x, cur.y - g.p.y) > 0.5;
+      });
     },
 
     isSettled() {

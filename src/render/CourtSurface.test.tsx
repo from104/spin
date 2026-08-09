@@ -26,12 +26,11 @@ describe('FullCourtLines', () => {
     expect(straightPaths).toHaveLength(6);
   });
 
-  it('킥인 원(#f5f5f5) 4개, 골 십자 2개를 그린다 — editor 굵기는 r=4/sw=1.5, cross sw=2.2', () => {
+  it('editor: 골 십자 2개는 그리되 골대 원은 그리지 않는다 (§5.4)', () => {
+    // 편집기에서 골대는 물리 바디라 ObjectLayer 가 그린다 — 휠체어에 밀리기 때문이다.
+    // 코트 라인이 같은 자리에 정적 원을 또 그리면 밀린 골대와 원위치 표시가 겹쳐 두 개로 보인다.
     const c = renderCourt('full', 'editor');
-    const spots = c.querySelectorAll('g[fill="#f5f5f5"] > circle');
-    expect(spots).toHaveLength(4);
-    expect(spots[0].parentElement).toHaveAttribute('stroke-width', '1.5');
-    spots.forEach((s) => expect(s).toHaveAttribute('r', '4'));
+    expect(c.querySelectorAll('g[fill="#f5f5f5"] > circle')).toHaveLength(0);
     const crossGroup = Array.from(c.querySelectorAll('g')).find((g) => g.getAttribute('stroke-width') === '2.2');
     expect(crossGroup?.querySelectorAll('path')).toHaveLength(2);
   });
@@ -54,13 +53,17 @@ describe('FullCourtLines', () => {
 });
 
 describe('HalfCourtLines', () => {
-  it('editor: 외곽 path·하프라인·센터서클 호·골지역 1개·킥인 원 2개를 그리고 센터점은 없다', () => {
+  it('editor: 외곽 path·하프라인·센터서클 호·골지역 1개를 그리고 골대 원·센터점은 없다 (§5.4)', () => {
     const c = renderCourt('half', 'editor');
     expect(c.querySelector('path[d^="M25,25 L25,400"]')).not.toBeNull();
     expect(c.querySelector('path[d^="M175,25 A75,75"]')).not.toBeNull();
-    const spots = c.querySelectorAll('g[fill="#f5f5f5"] > circle');
-    expect(spots).toHaveLength(2);
+    expect(c.querySelectorAll('g[fill="#f5f5f5"] > circle')).toHaveLength(0);
     expect(c.querySelector('circle[fill="#ffffff"]')).toBeNull();
+  });
+
+  it('present 에는 골대 원 2개가 그대로 남는다 — 시연·썸네일은 물리가 돌지 않는다', () => {
+    const c = renderCourt('half', 'present');
+    expect(c.querySelectorAll('g[fill="#f5f5f5"] > circle')).toHaveLength(2);
   });
 });
 
@@ -68,11 +71,12 @@ describe('HalfCourtLines', () => {
 // 컴포넌트가 실제로 읽는지 확인한다. 리터럴 좌표로 되돌아가면(진실 공급원이 다시 둘로 갈라지면)
 // COURT_DEFS 값을 바꿔도 렌더가 따라가지 않으므로 이 테스트가 깨진다.
 describe('courtLines — COURT_DEFS 가 단일 진실 공급원이다(minor #7)', () => {
-  it('COURT_DEFS.full.goalPosts 를 바꾸면 킥인 원 중심도 따라간다', () => {
+  it('COURT_DEFS.full.goalPosts 를 바꾸면 골대 원 중심도 따라간다', () => {
     const original = COURT_DEFS.full.goalPosts;
     COURT_DEFS.full.goalPosts = [{ x: 999, y: 888 }, ...original.slice(1)];
     try {
-      const c = renderCourt('full', 'editor');
+      // editor 는 이제 정적 원을 안 그리므로 present 로 본다(§5.4).
+      const c = renderCourt('full', 'present');
       expect(c.querySelector('g[fill="#f5f5f5"] > circle[cx="999"][cy="888"]')).not.toBeNull();
     } finally {
       COURT_DEFS.full.goalPosts = original;

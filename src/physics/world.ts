@@ -1,12 +1,12 @@
 // 엔진 생성 · 개체 관리 · 포즈 read/write · freeze · 저속반발 훅. §5.4, §5.9.
 import * as Matter from 'matter-js';
-import { PHYS, BALL, CONE } from '../core/constants.ts';
+import { PHYS, BALL, CONE, GOAL } from '../core/constants.ts';
 import type { Vec2 } from '../core/units.ts';
 import type { ChairPose } from '../model/chair.ts';
 import type { ChairId, BallId, ConeId, CastId } from '../core/ids.ts';
 import type { Bounds, PoseBuffer } from './types.ts';
 import { escapePinned } from './obb.ts';
-import { createChairBody, createBallBody, createConeBody, createWalls } from './bodies.ts';
+import { createChairBody, createBallBody, createConeBody, createGoalPostBody, createWalls } from './bodies.ts';
 
 const { Engine, Body, Composite, Events } = Matter;
 
@@ -74,6 +74,9 @@ export interface WorldHandles {
   addChair(id: ChairId, pose: ChairPose): void;
   addBall(id: BallId, p: Vec2): void;
   addCone(id: ConeId, p: Vec2): void;
+  /** 골대 포스트. cast 가 아니므로 CastId 가 아닌 합성 id(`gp_0` …)를 쓴다 — 드릴 모델에
+   *  저장되지 않고 코트 정의에서만 나온다(§5.4 GOAL). */
+  addGoalPost(id: string, p: Vec2): void;
   remove(id: CastId): void;
   setChairPose(id: ChairId, pose: ChairPose, driven: boolean): void;
   setPoint(id: CastId, p: Vec2, driven: boolean): void;
@@ -139,6 +142,11 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
     addCone(id, p) {
       const b = createConeBody(p);
       bodies.set(id, b);
+      Composite.add(engine.world, b);
+    },
+    addGoalPost(id, p) {
+      const b = createGoalPostBody(p);
+      bodies.set(id as CastId, b);
       Composite.add(engine.world, b);
     },
     remove(id) {
@@ -234,7 +242,10 @@ export function escapePinnedAll(w: WorldHandles, bounds: Bounds): void {
   }
   for (const b of Composite.allBodies(w.engine.world)) {
     if (b.isStatic) continue;
-    const radius = b.label === 'ball' ? BALL.radiusPx : b.label === 'cone' ? CONE.radiusPx : undefined;
+    // 골대도 포함한다(§5.4): dynamic 이 된 이상 휠체어와 벽 사이에 낄 수 있는데, 그러면
+    // Resolver 가 양쪽에서 반대 임펄스를 받아 상쇄되어 스스로 못 빠져나온다 — 공·콘과 같은 사정이다.
+    const radius =
+      b.label === 'ball' ? BALL.radiusPx : b.label === 'cone' ? CONE.radiusPx : b.label === 'goal' ? GOAL.radiusPx : undefined;
     if (radius === undefined) continue;
     const p = { x: b.position.x, y: b.position.y };
     const out = escapePinned(p, radius, allChairs, bounds);

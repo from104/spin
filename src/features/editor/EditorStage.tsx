@@ -14,6 +14,7 @@ import type { EditorAction } from '../../store/editor/actions.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import { COURT_DEFS, gridCellCenter, cellLabelAt, type CourtMode } from '../../model/court.ts';
+import { GOAL_ID_PREFIX } from '../../physics/index.ts';
 import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
 import { screenDeltaToWorld } from '../../render/useStageMetrics.ts';
 import type { ObjectLayerChair, ObjectLayerCone } from '../../render/ObjectLayer.tsx';
@@ -100,6 +101,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   const arrows = useMemo(() => (pointer.arrowDraft ? [...step.arrows, pointer.arrowDraft] : step.arrows), [step.arrows, pointer.arrowDraft]);
 
   const initialFrame = useMemo(() => poseFrame(step), [step]);
+
+  // 골대 포스트 id — 물리(physics/index.load)가 코트 정의에서 같은 순서로 만든다. 드릴에
+  // 저장되지 않으므로 여기서 개수만 맞춰 주면 writer 가 위치를 흘려보낸다(§5.4 GOAL).
+  const goals = useMemo(
+    () => COURT_DEFS[drill.courtMode].goalPosts.map((_, i) => `${GOAL_ID_PREFIX}${i}`),
+    [drill.courtMode],
+  );
 
   // §7.5b 순회 순서: 팀A 선수 → 팀B 선수 → 공 → 콘 → 메모 → 화살표.
   const order = useMemo(() => {
@@ -289,6 +297,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       chairs={chairs}
       balls={balls}
       cones={cones}
+      goals={goals}
       notes={step.notes}
       arrows={arrows}
       selection={selection}

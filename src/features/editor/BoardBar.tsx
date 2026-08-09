@@ -10,9 +10,11 @@ export interface BoardBarProps {
   /** 코트 전환이 잠겨 있는가(= 판이 리셋 상태가 아니다). */
   courtLocked: boolean;
   onReset(): void;
+  /** 골대만 원위치로. 휠체어에 밀린 골대를 되돌린다(§5.4) — 판 전체는 건드리지 않는다. */
+  onResetGoals(): void;
 }
 
-export function BoardBar({ courtLocked, onReset }: BoardBarProps) {
+export function BoardBar({ courtLocked, onReset, onResetGoals }: BoardBarProps) {
   return (
     <div style={{ flex: 'none', borderTop: '1px solid var(--border)', background: 'var(--panel)', padding: '12px 24px 15px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, maxWidth: 940, margin: '0 auto' }}>
@@ -31,6 +33,27 @@ export function BoardBar({ courtLocked, onReset }: BoardBarProps) {
           }}
         >
           전술판 초기화
+        </button>
+
+        {/* 골대는 휠체어에 밀려서만 움직이므로(임의로 못 옮긴다) 되돌리는 길이 여기밖에 없다.
+            항상 켜 둔다 — 안 밀린 상태에서 눌러도 무해하고, 활성 여부를 물으려면 물리 상태를
+            매 프레임 들여다봐야 한다. */}
+        <button
+          type="button"
+          onClick={onResetGoals}
+          style={{
+            minHeight: 44,
+            padding: '0 14px',
+            borderRadius: 9,
+            border: '1px solid var(--border)',
+            background: 'transparent',
+            color: 'var(--muted)',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            flex: 'none',
+          }}
+        >
+          골대 원위치
         </button>
 
         <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: '0.6875rem', color: 'var(--faint-text)' }}>
