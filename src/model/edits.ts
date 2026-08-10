@@ -146,6 +146,22 @@ function removeFromStep(s: DrillStep, id: CastId): DrillStep {
   return cones === s.cones ? s : { ...s, cones };
 }
 
+/** 어느 스텝에도 pose 가 남지 않은 공·콘을 cast 에서 버린다.
+ *
+ * ⚠️ 이걸 빼먹으면 **지운 개체가 보이지 않는 채로 cast 에 남는다**(유령). 2026-08-10 공개판에서
+ * 실제로 터진 결함이다(서권일 제보): 공 10개를 놓고 지우개로 전부 지우면 화면은 비었는데
+ * `cast.balls.length` 는 그대로 10 이라, 배치 상한(`useEditorPointer` 의 `ballMax`)이 `10/10`
+ * 에 붙박여 **공을 다시는 놓을 수 없다.** 콘은 상한이 없어 증상만 안 보일 뿐 똑같이 부푼다.
+ *
+ * 휠체어는 **제외한다** — 배치되지 않은 휠체어가 명단에 남는 것은 의도된 동작이고
+ * (ToolRail 의 '미배치 선수'), 여기서 버리면 선수가 명단에서 사라진다. */
+function pruneOrphanCast(d: Drill): Drill {
+  const balls = d.cast.balls.filter((b) => d.steps.some((s) => s.balls[b.id] !== undefined));
+  const cones = d.cast.cones.filter((c) => d.steps.some((s) => s.cones[c.id] !== undefined));
+  if (balls.length === d.cast.balls.length && cones.length === d.cast.cones.length) return d;
+  return { ...d, cast: { ...d.cast, balls, cones } };
+}
+
 /** 기본 '삭제': 이 스텝부터 끝까지 pose 를 지운다. */
 export function removeFromStepOnward(d: Drill, i: number, id: CastId): Drill {
   let changed = false;
@@ -155,7 +171,7 @@ export function removeFromStepOnward(d: Drill, i: number, id: CastId): Drill {
     if (next !== s) changed = true;
     return next;
   });
-  return changed ? { ...d, steps } : d;
+  return changed ? pruneOrphanCast({ ...d, steps }) : d;
 }
 
 export function removeFromThisStepOnly(d: Drill, i: number, id: CastId): Drill {
@@ -163,7 +179,7 @@ export function removeFromThisStepOnly(d: Drill, i: number, id: CastId): Drill {
   if (!step) return d;
   const next = removeFromStep(step, id);
   if (next === step) return d;
-  return replaceStep(d, i, next);
+  return pruneOrphanCast(replaceStep(d, i, next));
 }
 
 /** cast + 전 스텝에서 완전히 제거. */
@@ -244,7 +260,8 @@ export function deleteStep(d: Drill, i: number): Drill {
   if (i < 0 || i >= d.steps.length) return d;
   const steps = d.steps.slice();
   steps.splice(i, 1);
-  return { ...d, steps };
+  // 그 스텝에만 있던 공·콘은 여기서 유령이 된다 — 지우개와 같은 결함이다. pruneOrphanCast 참고.
+  return pruneOrphanCast({ ...d, steps });
 }
 
 export function moveStep(d: Drill, from: number, to: number): Drill {

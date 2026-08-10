@@ -230,3 +230,67 @@ describe('moveStep', () => {
     expect(moved.steps.map((s) => s.id)).toEqual([ids[1], ids[2], ids[0]]);
   });
 });
+
+// 2026-08-10 공개판 제보(서권일): "공 10개 다 넣고 지우개로 지우면 공 배치가 안 됩니다".
+// 삭제가 스텝의 pose 만 지우고 cast 는 그대로 두어, 보이지 않는 개체가 상한을 계속 차지했다.
+// 배치 상한은 `cast.balls.length` 를 세므로(useEditorPointer 의 ballMax) 10/10 에서 굳는다.
+describe('유령 cast 정리 — 어디에도 없는 개체는 명단에서 사라진다', () => {
+  it('지우개로 마지막 pose 를 지우면 cast 에서도 빠진다 → 다시 놓을 수 있다', () => {
+    let d = freshDrill();
+    // 기본 드릴에 공 1개가 이미 있다. 상한(10)까지 채운다.
+    while (d.cast.balls.length < 10) d = addBall(d, 0, { x: 100, y: 100 });
+    expect(d.cast.balls).toHaveLength(10);
+
+    for (const b of [...d.cast.balls]) d = removeFromStepOnward(d, 0, b.id);
+
+    expect(d.cast.balls, '지운 공이 유령으로 남아 상한을 계속 차지한다').toHaveLength(0);
+    // 상한이 풀렸는지 = 실제 증상의 해소
+    d = addBall(d, 0, { x: 200, y: 200 });
+    expect(d.cast.balls).toHaveLength(1);
+  });
+
+  it('다른 스텝에 pose 가 남아 있으면 cast 에 남는다', () => {
+    let d = freshDrill();
+    d = addStepAfter(d, 0);
+    d = addBall(d, 0, { x: 50, y: 50 });
+    const id = d.cast.balls[d.cast.balls.length - 1]!.id;
+
+    d = removeFromThisStepOnly(d, 0, id);
+
+    expect(d.steps[0]!.balls[id]).toBeUndefined();
+    expect(d.steps[1]!.balls[id], '이 스텝만 삭제인데 뒤 스텝까지 지워졌다').toBeDefined();
+    expect(d.cast.balls.some((b) => b.id === id), '아직 쓰이는 공을 명단에서 버렸다').toBe(true);
+  });
+
+  it('콘도 같이 정리된다 (상한이 없어 증상만 안 보일 뿐 같은 결함)', () => {
+    let d = freshDrill();
+    d = addCone(d, 0, { x: 60, y: 60 }, 0);
+    const id = d.cast.cones[0]!.id;
+    d = removeFromStepOnward(d, 0, id);
+    expect(d.cast.cones).toHaveLength(0);
+  });
+
+  it('스텝 삭제로 유일한 pose 가 사라져도 유령이 남지 않는다', () => {
+    let d = freshDrill();
+    d = addStepAfter(d, 0);
+    // 스텝 1 에만 공을 놓는다(addBall 은 i 이후에만 채운다).
+    d = addBall(d, 1, { x: 70, y: 70 });
+    const id = d.cast.balls[d.cast.balls.length - 1]!.id;
+    expect(d.steps[0]!.balls[id]).toBeUndefined();
+
+    d = deleteStep(d, 1);
+
+    expect(d.cast.balls.some((b) => b.id === id), '스텝 삭제가 유령 공을 남겼다').toBe(false);
+  });
+
+  it('휠체어는 pose 가 없어도 명단에 남는다 — 미배치 선수는 의도된 상태다', () => {
+    let d = freshDrill();
+    const id = d.cast.chairs[0]!.id;
+    const before = d.cast.chairs.length;
+
+    d = removeFromStepOnward(d, 0, id);
+
+    expect(d.steps[0]!.chairs[id]).toBeUndefined();
+    expect(d.cast.chairs, '코트에서 뺀 선수가 명단에서 사라졌다').toHaveLength(before);
+  });
+});
