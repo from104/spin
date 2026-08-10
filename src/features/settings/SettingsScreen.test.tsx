@@ -3,6 +3,7 @@
 // downloadBlob 은 <a> 클릭을 트리거한다 — jsdom 에서 no-op 이지만 URL.createObjectURL 은
 // jsdom 미구현이라 모킹한다(features/library/transfer.test.ts 와 동일 패턴).
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { DEFAULT_ZONES } from '../../core/constants.ts';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -133,7 +134,8 @@ describe('SettingsScreen — 물리', () => {
   it('존 경계 슬라이더를 조정하면 즉시 표시가 바뀌고 저장된다', () => {
     render(<SettingsScreen />, { wrapper });
     const slider = screen.getByRole('slider', { name: '후방 견인 경계' });
-    expect(slider).toHaveValue('0.12');
+    // 리터럴로 두면 기본값을 조정할 때마다 슬라이더 동작과 무관하게 빨간불이 뜬다.
+    expect(slider).toHaveValue(String(DEFAULT_ZONES.sTowRearMax));
     // userEvent 는 range 타이핑을 지원하지 않으므로 fireEvent.change 로 직접 갱신한다.
     fireEvent.change(slider, { target: { value: '0.18' } });
     expect(loadPrefs().physics.zones?.sTowRearMax).toBe(0.18);
@@ -146,7 +148,7 @@ describe('SettingsScreen — 물리', () => {
     expect(loadPrefs().physics.zones?.sTowRearMax).toBe(0.18);
 
     await userEvent.setup().click(screen.getByRole('button', { name: '기본값으로 복원' }));
-    await waitFor(() => expect(screen.getByRole('slider', { name: '후방 견인 경계' })).toHaveValue('0.12'));
+    await waitFor(() => expect(screen.getByRole('slider', { name: '후방 견인 경계' })).toHaveValue(String(DEFAULT_ZONES.sTowRearMax)));
     expect(loadPrefs().physics).toEqual({});
   });
 });

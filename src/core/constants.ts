@@ -143,11 +143,20 @@ export const DEFAULT_LIMITS = {
   bumperKmhRange: [10, 36] as const,
 } as const;
 
+/** 휠체어 드래그 존 경계. s∈[0,1] 이 **차체 그 자체**다(s=0 뒤끝, s=1 앞범퍼).
+ *
+ * 2026-08-11 기현 지시로 차체를 둘로만 나눈다:
+ *   · 뒤 1/3 (s ≤ 1/3, 로컬 x ≤ 5) → **그대로 이동**
+ *   · 앞 2/3 (s > 1/3)            → **제자리 회전**
+ * 견인(towRear·towFront)은 차체 **밖** 가이드 핸들에만 남긴다 — 경계를 0 과 1 에 두면
+ * 차체 안에서는 절대 견인으로 잡히지 않고, 앞뒤로 뻗은 가이드를 잡아야만 견인이 된다.
+ * 예전 값(0.12 / 0.32 / 0.85)은 차체를 네 토막으로 잘라, 등번호 근처를 잡아도 견인이
+ * 걸리는 일이 있었다. */
 export const DEFAULT_ZONES = {
-  sTowRearMax: 0.12, // s ≤ 0.12          → towRear
-  sSpinMin: 0.32, // 0.12 < s < 0.32   → translate
-  // 0.32 ≤ s < 0.85   → spin
-  sTowFrontMin: 0.85, // s ≥ 0.85          → towFront  (= 볼가드 뒷면)
+  sTowRearMax: 0, // s ≤ 0            → towRear  (차체 뒤끝 **밖** = 후방 가이드)
+  sSpinMin: 1 / 3, // 0 < s ≤ 1/3      → translate (뒤 1/3 = 그대로 이동)
+  // 1/3 < s < 1      → spin      (앞 2/3 = 제자리 회전)
+  sTowFrontMin: 1, // s ≥ 1            → towFront (앞범퍼 **밖** = 전방 가이드)
   grabPadPx: 10, // 히트영역 팽창 (축 앞뒤 + 측방), 0.4 m
 } as const;
 
@@ -162,9 +171,14 @@ export const INTERACT = {
   dragArmCssPx: 4, // 이만큼 움직여야 드래그 개시 (tapMaxMoveCssPx 보다 작아야 함)
   tapMaxMoveCssPx: 6,
   tapMaxMs: 350,
-  /** 이 배율 미만이면 터치에서 직접 존 잡기를 끄고 핸들만 쓴다.
-   *  24 CSS px / (0.20·37.5 px) = 3.2  (가장 좁은 '평행 이동' 밴드 기준, WCAG 2.5.8) */
-  zoneDirectMinPxPerUnit: 3.2,
+  /** 이 배율 미만이면 터치에서 직접 존 잡기를 끄고 핸들만 쓴다. 기준은 **가장 좁은 밴드가
+   *  터치 최소 타깃(24 CSS px, WCAG 2.5.8)을 확보하는 배율**이다.
+   *
+   *  2026-08-11 재편으로 차체가 둘로만 나뉘면서 가장 좁은 밴드가 '그대로 이동' = 차체의
+   *  1/3 = 12.5 px 이 됐다(예전에는 0.20·37.5 = 7.5 px). 24 / 12.5 = 1.92 —
+   *  즉 예전보다 **더 작게 축소해도** 손가락으로 직접 잡을 수 있다. 유도식을 그대로 두고
+   *  값만 남겨 두면 주석이 거짓말이 되므로 함께 옮긴다. */
+  zoneDirectMinPxPerUnit: 1.92,
   handleHitRadiusCssPx: 22,
   handleViewRadiusCssPx: 11,
   /** 핸들의 월드 고정 레버(px). 렌더 위치와 래치 레버가 같은 함수에서 나와야 스냅이 없다.

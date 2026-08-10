@@ -199,10 +199,10 @@ export function SettingsScreen() {
         <Section title="물리" desc="휠체어 드래그 4존 경계와 속도 상한을 조정합니다. 값을 조정하면 이웃한 경계가 순서를 지키도록 자동으로 밀립니다.">
           <SliderRow
             label="후방 견인 경계"
-            desc="이 지점 이하를 잡으면 후방 견인 존"
+            desc="이 지점 이하를 잡으면 후방 견인 존. 0 이면 차체 밖 가이드로만 견인한다"
             ariaLabel="후방 견인 경계"
             value={physics.zones.sTowRearMax}
-            min={0.04}
+            min={0}
             max={0.18}
             step={0.01}
             format={(v) => v.toFixed(2)}
@@ -221,11 +221,11 @@ export function SettingsScreen() {
           />
           <SliderRow
             label="전방 견인 시작"
-            desc="이 지점부터 전방 견인 존"
+            desc="이 지점부터 전방 견인 존. 1 이면 차체 밖 가이드로만 견인한다"
             ariaLabel="전방 견인 시작"
             value={physics.zones.sTowFrontMin}
             min={0.6}
-            max={0.96}
+            max={1}
             step={0.01}
             format={(v) => v.toFixed(2)}
             onChange={(v) => patchZone('sTowFrontMin', v)}

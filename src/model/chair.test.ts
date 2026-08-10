@@ -8,19 +8,30 @@ const L = 37.5;
 const S_PIVOT = 0.2;
 const axFor = (s: number): number => (s - S_PIVOT) * L;
 
+// 2026-08-11 기현 지시로 차체를 **둘로만** 나눈다: 뒤 1/3 그대로 이동, 앞 2/3 제자리 회전.
+// 견인은 차체 밖 가이드 전용이라 경계가 s=0(뒤끝)·s=1(앞범퍼)에 딱 붙는다.
 describe('classifyZone — §2.5 경계값 (리터럴, 부동소수 잡음 없이)', () => {
   // s 를 기하 왕복 없이 리터럴로 직접 넣어 정확한 <=/< 경계를 확인한다.
-  it('towRear ↔ translate 경계는 0.12 (포함)', () => {
-    expect(classifyZone(0.12, DEFAULT_ZONES)).toBe('towRear');
-    expect(classifyZone(0.120001, DEFAULT_ZONES)).toBe('translate');
+  it('towRear ↔ translate 경계는 차체 뒤끝 s=0 (towRear 쪽 포함)', () => {
+    expect(classifyZone(0, DEFAULT_ZONES)).toBe('towRear');
+    expect(classifyZone(0.000001, DEFAULT_ZONES)).toBe('translate');
   });
-  it('translate ↔ spin 경계는 0.32 (spin 쪽 포함)', () => {
-    expect(classifyZone(0.319999, DEFAULT_ZONES)).toBe('translate');
-    expect(classifyZone(0.32, DEFAULT_ZONES)).toBe('spin');
+  it('translate ↔ spin 경계는 1/3 (spin 쪽 포함)', () => {
+    expect(classifyZone(1 / 3 - 0.000001, DEFAULT_ZONES)).toBe('translate');
+    expect(classifyZone(1 / 3, DEFAULT_ZONES)).toBe('spin');
   });
-  it('spin ↔ towFront 경계는 0.85 (towFront 쪽 포함)', () => {
-    expect(classifyZone(0.849999, DEFAULT_ZONES)).toBe('spin');
-    expect(classifyZone(0.85, DEFAULT_ZONES)).toBe('towFront');
+  it('spin ↔ towFront 경계는 앞범퍼 s=1 (towFront 쪽 포함)', () => {
+    expect(classifyZone(0.999999, DEFAULT_ZONES)).toBe('spin');
+    expect(classifyZone(1, DEFAULT_ZONES)).toBe('towFront');
+  });
+
+  it('차체 안(0<s<1)에서는 절대 견인이 잡히지 않는다', () => {
+    // 이것이 이번 재편의 핵심이다. 예전에는 차체 양끝 얇은 띠가 견인이라, 등번호 근처를
+    // 잡았는데 휠체어가 끌려가는 일이 있었다.
+    for (let s = 0.01; s < 1; s += 0.01) {
+      const z = classifyZone(s, DEFAULT_ZONES);
+      expect(z === 'translate' || z === 'spin', `s=${s.toFixed(2)} 에서 ${z}`).toBe(true);
+    }
   });
 });
 
@@ -28,13 +39,13 @@ describe('projectGrab · classifyZone — 4존 내부값 기하 왕복 (θ 무�
   // 경계에서 살짝 떨어진 값만 쓴다 — 기하 왕복(dot product)의 부동소수 오차가
   // 정확히 경계에 걸린 리터럴을 반대쪽으로 밀어낼 수 있기 때문(경계 자체는 위에서 리터럴로 검증).
   const cases: Array<[number, DragZone]> = [
-    [0.1, 'towRear'],
-    [0.15, 'translate'],
-    [0.31, 'translate'],
+    [-0.1, 'towRear'], // 차체 뒤끝 밖 = 후방 가이드
+    [0.05, 'translate'],
+    [0.3, 'translate'],
     [0.5, 'spin'],
-    [0.84, 'spin'],
-    [0.9, 'towFront'],
-    [0.95, 'towFront'],
+    [0.95, 'spin'],
+    [1.1, 'towFront'], // 앞범퍼 밖 = 전방 가이드
+    [1.3, 'towFront'],
   ];
 
   for (const theta of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {

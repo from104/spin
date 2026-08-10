@@ -34,6 +34,16 @@ const SEL_PAD = 3.5;
 /** s∈[0,1] 을 차체 로컬 x 로 옮긴다. s=0 이 뒤끝(−pivotToRear), s=1 이 앞범퍼(+pivotToFront). */
 const sToX = (s: number): number => -CHAIR.pivotToRearPx + s * CHAIR.lengthPx;
 
+/** 선택된 차체에 비치는 존 음영(기현 지시 2026-08-11). 그대로 이동이 진하고 제자리 회전이
+ *  약하다 — 강도 차이가 곧 "여기를 잡으면 통째로 끌린다 / 여기는 제자리에서 돈다" 의 신호다.
+ *  견인은 차체 밖 가이드 전용이라 차체에는 칠할 것이 없다. */
+const ZONE_TINT: Record<'towRear' | 'translate' | 'spin' | 'towFront', string> = {
+  towRear: 'transparent',
+  translate: 'rgba(255,255,255,.22)',
+  spin: 'rgba(255,255,255,.07)',
+  towFront: 'transparent',
+};
+
 /** 존 경계로 차체를 4구간으로 자른다. 경계값은 설정에서 바뀔 수 있어 매번 계산한다. */
 function zoneSpans(z: ZoneConfig): { zone: 'towRear' | 'translate' | 'spin' | 'towFront'; x0: number; x1: number }[] {
   return [
@@ -137,17 +147,37 @@ export const ChairChip = memo(function ChairChip({
           **선택된 칩에만** 얹는다: 코트에 9대가 있는데 전부 존 커서를 물고 있으면
           어느 칩이 조작 대상인지 흐려지고, 지나가기만 해도 커서가 계속 바뀌어 시끄럽다. */}
       {selected && zoneCursors &&
-        zoneSpans(zoneCursors).map((z) => (
-          <rect
-            key={z.zone}
-            x={z.x0}
-            y={-HALF_W}
-            width={z.x1 - z.x0}
-            height={CHAIR.widthPx}
-            fill="transparent"
-            style={{ cursor: ZONE_CURSOR[z.zone] }}
-          />
-        ))}
+        zoneSpans(zoneCursors)
+          // 견인 존은 폭이 0 이다(경계가 차체 양끝에 붙어 있다) — 그리면 보이지 않는 0폭
+          // 사각형이 커서만 물고 늘어진다.
+          .filter((z) => z.x1 - z.x0 > 0.01)
+          .map((z) => (
+            <rect
+              key={z.zone}
+              x={z.x0}
+              y={-HALF_W}
+              width={z.x1 - z.x0}
+              height={CHAIR.widthPx}
+              // 2026-08-11 기현 지시: 뒤 1/3(그대로 이동)은 **진하게**, 앞 2/3(제자리 회전)은
+              // **약하게** 비친다. 어디를 잡으면 어떻게 되는지 커서만이 아니라 눈으로도
+              // 보여야 한다 — 터치에는 커서가 없다(태블릿이 1순위 대상이다).
+              fill={ZONE_TINT[z.zone]}
+              style={{ cursor: ZONE_CURSOR[z.zone] }}
+            />
+          ))}
+      {/* 두 구역의 경계선. 음영 차이만으로는 팀 색이 밝을 때 거의 안 보인다. */}
+      {selected && zoneCursors && (
+        <line
+          x1={sToX(zoneCursors.sSpinMin)}
+          y1={-HALF_W}
+          x2={sToX(zoneCursors.sSpinMin)}
+          y2={HALF_W}
+          stroke="rgba(255,255,255,.55)"
+          strokeWidth={1}
+          strokeDasharray="2 2"
+          pointerEvents="none"
+        />
+      )}
       {/* 머리 = 피벗 = 원점 */}
       <circle cx={0} cy={0} r={4.2} fill="rgba(255,255,255,.92)" />
       <g transform={`translate(${CHAIR.centroidOffsetPx} 0)`}>

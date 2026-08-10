@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEG } from './angle.ts';
-import { BALL, CHAIR, CONE, DEFAULT_LIMITS, DEFAULT_ZONES } from './constants.ts';
+import { BALL, CHAIR, CONE, DEFAULT_LIMITS, DEFAULT_ZONES, INTERACT } from './constants.ts';
 import { kmhToPxPerS } from './units.ts';
 
 // §2.6 유도값 표 — 실제 상수·함수에서 그대로 나오는지 확인 (오케스트레이터 지시사항).
@@ -51,28 +51,36 @@ describe('§2.6 유도값', () => {
   it('콘 substep 최대 변위 = maxSpeedPxPerS/120 = 2.0 px', () => {
     expect(CONE.maxSpeedPxPerS / 120).toBeCloseTo(2.0, 6);
   });
-  it('tow 최소 레버 = (sTowRearMax − sPivot)·lengthPx ≈ −3.0 px', () => {
-    const lever = (DEFAULT_ZONES.sTowRearMax - CHAIR.sPivot) * CHAIR.lengthPx;
-    expect(lever).toBeCloseTo(-3.0, 6);
+  it('터치 직접 잡기 문턱이 가장 좁은 밴드에서 유도된다 (WCAG 2.5.8 · 24 CSS px)', () => {
+    // 주석이 유도식을 적어 놓았는데 값만 낡는 일을 막는다(2026-08-10 코트 외곽선 사고와 같은 부류).
+    const narrowestBandPx = (DEFAULT_ZONES.sSpinMin - DEFAULT_ZONES.sTowRearMax) * CHAIR.lengthPx;
+    expect(INTERACT.zoneDirectMinPxPerUnit).toBeCloseTo(24 / narrowestBandPx, 2);
   });
-  it('spin 레버 범위 ≈ 4.5 … 24.375 px', () => {
-    const lo = (DEFAULT_ZONES.sSpinMin - CHAIR.sPivot) * CHAIR.lengthPx;
-    const hi = (DEFAULT_ZONES.sTowFrontMin - CHAIR.sPivot) * CHAIR.lengthPx;
-    expect(lo).toBeCloseTo(4.5, 6);
-    expect(hi).toBeCloseTo(24.375, 6);
+  // 2026-08-11 재편: 차체는 뒤 1/3(그대로 이동) + 앞 2/3(제자리 회전) 둘뿐이고, 견인은
+  // 차체 밖 가이드 전용이다. 그래서 견인 경계 레버가 차체 양끝과 **정확히** 일치해야 한다.
+  it('견인 경계가 차체 양끝에 딱 붙는다 — 차체 안에 견인 띠가 없다', () => {
+    const rearLever = (DEFAULT_ZONES.sTowRearMax - CHAIR.sPivot) * CHAIR.lengthPx;
+    const frontLever = (DEFAULT_ZONES.sTowFrontMin - CHAIR.sPivot) * CHAIR.lengthPx;
+    expect(rearLever).toBeCloseTo(-CHAIR.pivotToRearPx, 6); // −7.5 px
+    expect(frontLever).toBeCloseTo(CHAIR.pivotToFrontPx, 6); // +30 px
   });
-  it('towFront 최소 레버 = (sTowFrontMin − sPivot)·lengthPx ≈ 24.375 px', () => {
-    const lever = (DEFAULT_ZONES.sTowFrontMin - CHAIR.sPivot) * CHAIR.lengthPx;
-    expect(lever).toBeCloseTo(24.375, 6);
+  it('그대로 이동 ↔ 제자리 회전 경계 레버 = 5.0 px (뒤끝에서 1/3 지점)', () => {
+    const lever = (DEFAULT_ZONES.sSpinMin - CHAIR.sPivot) * CHAIR.lengthPx;
+    expect(lever).toBeCloseTo(5.0, 6);
+    // 뒤끝(−7.5)에서 5.0 까지가 12.5 px = 차체 길이의 정확히 1/3
+    expect(lever + CHAIR.pivotToRearPx).toBeCloseTo(CHAIR.lengthPx / 3, 6);
   });
-  it('존 폭(px) rear/trans/spin/front ≈ 4.5 / 7.5 / 19.875 / 5.625', () => {
+  it('존 폭(px) rear/trans/spin/front = 0 / 12.5 / 25 / 0', () => {
     const rear = DEFAULT_ZONES.sTowRearMax * CHAIR.lengthPx;
     const trans = (DEFAULT_ZONES.sSpinMin - DEFAULT_ZONES.sTowRearMax) * CHAIR.lengthPx;
     const spin = (DEFAULT_ZONES.sTowFrontMin - DEFAULT_ZONES.sSpinMin) * CHAIR.lengthPx;
     const front = (1 - DEFAULT_ZONES.sTowFrontMin) * CHAIR.lengthPx;
-    expect(rear).toBeCloseTo(4.5, 6);
-    expect(trans).toBeCloseTo(7.5, 6);
-    expect(spin).toBeCloseTo(19.875, 6);
-    expect(front).toBeCloseTo(5.625, 6);
+    expect(rear).toBeCloseTo(0, 6);
+    expect(trans).toBeCloseTo(12.5, 6);
+    expect(spin).toBeCloseTo(25, 6);
+    expect(front).toBeCloseTo(0, 6);
+    // 뒤 1/3 : 앞 2/3
+    expect(spin / trans).toBeCloseTo(2, 6);
+    expect(trans + spin).toBeCloseTo(CHAIR.lengthPx, 6);
   });
 });

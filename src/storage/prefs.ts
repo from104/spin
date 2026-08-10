@@ -179,9 +179,12 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
  *  항상 towRear 를 돌려줘 4존 조작이 통째로 죽는다. */
 export function resolvePhysics(p: Preferences): PhysicsParams {
   const z = { ...DEFAULT_ZONES, ...(p.physics.zones ?? {}) };
-  const sTowRearMax = clamp(z.sTowRearMax, 0.04, 0.18);
+  // 하한 0 · 상한 1 을 허용한다 — 기본값이 바로 그 두 끝이다(차체 안에서는 견인이 잡히지
+  // 않고 앞뒤 가이드로만 견인한다, DEFAULT_ZONES 주석 참고). 예전 하한 0.04·상한 0.96 은
+  // 기본값 자체를 잘라내 차체 양끝에 얇은 견인 띠를 되살려 놓았다.
+  const sTowRearMax = clamp(z.sTowRearMax, 0, 0.18);
   const sSpinMin = clamp(z.sSpinMin, sTowRearMax + 0.04, 0.45);
-  const sTowFrontMin = clamp(z.sTowFrontMin, sSpinMin + 0.1, 0.96);
+  const sTowFrontMin = clamp(z.sTowFrontMin, sSpinMin + 0.1, 1);
   const linearKmh = clamp(p.physics.linearKmh ?? DEFAULT_LIMITS.linearKmh, 4, 16);
   const bumperKmh = clamp(p.physics.bumperKmh ?? DEFAULT_LIMITS.bumperKmh, 10, bumperKmhMax(linearKmh));
   const editorSpeedMultiplier = clamp(p.physics.editorSpeedMultiplier ?? 1, 1, 4);

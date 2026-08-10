@@ -220,7 +220,7 @@ describe('선택 표시와 4개 드래그 존', () => {
     expect(stage.querySelectorAll('.court-obj rect[style*="cursor"]')).toHaveLength(0);
   });
 
-  it('휠체어를 고르면 선택 링 1개와 존 커서 4개(=4존)가 그 칩에만 생긴다', async () => {
+  it('휠체어를 고르면 선택 링 1개와 차체 두 구역이 그 칩에만 생긴다', async () => {
     // 코트에 9대가 있으므로 "선택된 것에만" 이 지켜지는지가 핵심이다 —
     // 전부에 붙으면 어느 칩이 조작 대상인지 흐려진다.
     const { user, stage } = await openBoard('full', { placed: true });
@@ -231,15 +231,30 @@ describe('선택 표시와 4개 드래그 존', () => {
     await user.keyboard('{Enter}');
 
     expect(stage.querySelectorAll('.sel-ring')).toHaveLength(1);
+    // 2026-08-11 재편: 차체는 **둘**로만 나뉜다(뒤 1/3 그대로 이동 · 앞 2/3 제자리 회전).
+    // 견인은 차체 밖 가이드 핸들 전용이라 차체 위에 견인 구역이 없다.
     const zoneRects = stage.querySelectorAll('.court-obj rect[style*="cursor"]');
-    expect(zoneRects).toHaveLength(4); // towRear · translate · spin · towFront
+    expect(zoneRects).toHaveLength(2);
     const cursors = Array.from(zoneRects).map((r) => decodeURIComponent(r.getAttribute('style') ?? ''));
+    expect(new Set(cursors).size, '두 구역이 같은 커서를 쓰면 구분이 안 된다').toBe(2);
+  });
 
-    // 앞뒤 견인은 **일부러 같은 커서**(줄 쥔 손)다 — 마우스 커서는 회전시킬 수 없어서
-    // 방향을 그리면 차체가 도는 순간 엉뚱한 쪽을 가리킨다. 방향은 리시와 핸들이 보여 준다.
-    expect(cursors[0]).toBe(cursors[3]);
-    // 가운데 둘은 서로도, 견인과도 달라야 한다
-    expect(new Set(cursors).size).toBe(3);
+  it('차체 뒤 1/3(그대로 이동)이 앞 2/3(제자리 회전)보다 진하다', async () => {
+    // 기현 지시: "뒤 1/3 진하게 흐리게 · 앞 2/3 약하게 흐리게". 터치에는 커서가 없으므로
+    // 어디를 잡으면 어떻게 되는지 **눈으로** 보이는 것이 태블릿에서는 유일한 단서다.
+    const { user, stage } = await openBoard('full', { placed: true });
+    const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
+    chair.focus();
+    await user.keyboard('{Enter}');
+
+    const rects = Array.from(stage.querySelectorAll('.court-obj rect[style*="cursor"]'));
+    expect(rects).toHaveLength(2);
+    const alphaOf = (el: Element): number => Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(el.getAttribute('fill') ?? '')?.[1] ?? 0);
+    const widthOf = (el: Element): number => Number(el.getAttribute('width') ?? 0);
+    // 앞쪽(폭이 큰 쪽)이 제자리 회전 = 2/3, 뒤쪽이 그대로 이동 = 1/3.
+    const [narrow, wide] = rects.slice().sort((a, b) => widthOf(a) - widthOf(b));
+    expect(widthOf(wide!) / widthOf(narrow!), '앞:뒤 = 2:1 이 아니다').toBeCloseTo(2, 3);
+    expect(alphaOf(narrow!), '그대로 이동 구역이 더 진해야 한다').toBeGreaterThan(alphaOf(wide!));
   });
 });
 

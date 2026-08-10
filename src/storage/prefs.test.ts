@@ -1,5 +1,6 @@
 // §10.6 prefs. localStorage 는 jsdom 환경에서 기본 제공된다.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { DEFAULT_ZONES } from '../core/constants.ts';
 import {
   PREFS_KEY,
   makeDefaultPrefs,
@@ -93,8 +94,9 @@ describe('resolvePhysics', () => {
     prefs.physics = { zones: { sTowRearMax: 0.15 } };
     const p = resolvePhysics(prefs);
     expect(p.zones.sTowRearMax).toBe(0.15);
-    expect(p.zones.sSpinMin).toBe(0.32); // DEFAULT_ZONES.sSpinMin
-    expect(p.zones.sTowFrontMin).toBe(0.85);
+    // 리터럴로 두면 기본값을 바꿀 때마다 "따라간다" 는 뜻과 무관하게 빨간불이 뜬다.
+    expect(p.zones.sSpinMin).toBe(DEFAULT_ZONES.sSpinMin);
+    expect(p.zones.sTowFrontMin).toBe(DEFAULT_ZONES.sTowFrontMin);
     expect(p.zones.grabPadPx).toBe(10);
   });
 });
@@ -102,7 +104,7 @@ describe('resolvePhysics', () => {
 describe('prunePhysics', () => {
   it('기본값과 같은 항목은 걷어낸다', () => {
     const pruned = prunePhysics({
-      zones: { sTowRearMax: 0.12, sSpinMin: 0.32, sTowFrontMin: 0.85, grabPadPx: 10 },
+      zones: { ...DEFAULT_ZONES },
       linearKmh: 10,
       bumperKmh: 30,
       editorSpeedMultiplier: 1,
@@ -111,7 +113,7 @@ describe('prunePhysics', () => {
   });
   it('기본값과 다른 항목만 남긴다', () => {
     const pruned = prunePhysics({
-      zones: { sTowRearMax: 0.16, sSpinMin: 0.32, sTowFrontMin: 0.85, grabPadPx: 10 },
+      zones: { ...DEFAULT_ZONES, sTowRearMax: 0.16 },
       linearKmh: 12,
       bumperKmh: 30,
       editorSpeedMultiplier: 1,
