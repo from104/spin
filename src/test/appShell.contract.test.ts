@@ -125,6 +125,49 @@ describe('세로 축 플렉스 사슬 — 코트가 아래 도구를 밀어내�
   });
 
   it('스테이지 영역도 줄어들 수 있다', () => {
-    expect(workspace).toMatch(/flex: 1, minHeight: 0, position: 'relative'/);
+    // 속성 **순서**가 아니라 있고 없음을 본다 — 순서로 걸면 무해한 정렬 변경에도 빨간불이 뜬다.
+    const stage = workspace.split('\n').find((l) => l.includes("padding: '20px 24px'"));
+    expect(stage, '스테이지 영역 div 를 찾지 못했다 — 선택자가 낡았다').toBeDefined();
+    for (const prop of ['flex: 1', 'minHeight: 0', 'minWidth: 0', "position: 'relative'"]) {
+      expect(stage!, `스테이지 영역에 ${prop} 이 없다`).toContain(prop);
+    }
+  });
+});
+
+// 2026-08-11 기현 결정: 도구·개체를 **판 오른쪽에 몰고**, 트레이가 별도 패널이 아니라
+// "판의 오른쪽 일부"로 보이게 한다. 실제 전술판에서 말이 놓여 있는 가장자리 연출이다.
+// jsdom 은 레이아웃도 색도 계산하지 않으므로 이 결정은 여기서만 지킬 수 있다.
+describe('개체 트레이는 판의 일부다 (§6.10 재편)', () => {
+  const workspace = read('src/features/editor/EditorWorkspace.tsx');
+  const rail = read('src/features/editor/ToolRail.tsx');
+  const lines = workspace.split('\n');
+
+  it('트레이는 한 곳에서만 렌더된다', () => {
+    // 예전에는 가로/세로에서 각각 렌더했다. 두 번 렌더하면 방향 전환 때 언마운트–재마운트가
+    // 일어나 트레이의 펼침 상태(콘 색·선수 목록)가 날아간다.
+    const hits = lines.filter((l) => l.trim() === '{toolRail}');
+    expect(hits).toHaveLength(1);
+  });
+
+  it('트레이가 판(--panel-2 패널) **안**에 있다', () => {
+    const panelAt = lines.findIndex((l) => l.includes("flexDirection: 'column'") && l.includes("background: 'var(--panel-2)'"));
+    const trayAt = lines.findIndex((l) => l.trim() === '{toolRail}');
+    const stageAt = lines.findIndex((l) => l.includes("padding: '20px 24px'"));
+    expect(panelAt).toBeGreaterThanOrEqual(0);
+    expect(trayAt, '트레이가 판 바깥으로 나갔다 — 별도 패널처럼 보인다').toBeGreaterThan(panelAt);
+    expect(trayAt, '트레이가 코트보다 앞에 있다 — 판 오른쪽이 아니다').toBeGreaterThan(stageAt);
+  });
+
+  it('트레이 배경이 판과 같은 색이다 — 패널 경계가 보이면 안 된다', () => {
+    const base = rail.match(/const RAIL_BASE = \{[^}]*\}/s)?.[0] ?? '';
+    expect(base).toContain("background: 'var(--panel-2)'");
+    expect(base, '별도 패널 색을 쓰면 판에서 떨어져 보인다').not.toContain("background: 'var(--panel)'");
+  });
+
+  it('플라이아웃이 코트 쪽(왼쪽)으로 펴진다', () => {
+    // 트레이가 오른쪽으로 옮겨졌으므로 `left:'100%'` 를 그대로 두면 콘 색·선수 목록이
+    // 화면 밖으로 나가 통째로 잘린다. 실기에서만 드러나는 종류다.
+    expect(rail).toContain("right: '100%'");
+    expect(rail, '왼쪽 레일 시절의 오른쪽 펼침이 남아 있다').not.toContain("left: '100%'");
   });
 });

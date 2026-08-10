@@ -19,6 +19,9 @@ import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { useIsPortrait } from '../../ui/useIsPortrait.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import { ToolRail, type UnplacedChair } from './ToolRail.tsx';
+import { useTrayDrag } from './useTrayDrag.ts';
+import { placeObject } from './placement.ts';
+import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
 import { StageControls } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
@@ -74,6 +77,8 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const [helpOpen, setHelpOpen] = useState(false);
   // 세로 화면(§6.4 태블릿): 도구·속성을 아래로 내려 코트가 폭을 다 쓰게 한다.
   const portrait = useIsPortrait();
+  // 트레이(도구·개체)를 판의 어느 변에 붙일지. 가로 화면이면 판 **오른쪽**, 세로면 판 아래.
+  const trayAxis = portrait ? ('column' as const) : ('row' as const);
   const [sheetOpen, setSheetOpen] = useState(false);
   // 격자·규칙존 토글은 로컬 state 가 아니라 prefs 를 직접 신뢰값으로 쓴다 — 로컬 state 였을 때는
   // 화면을 벗어났다 돌아오면(EditorWorkspace 재마운트) 항상 prefs 값으로 리셋됐다(감사 지적).
@@ -176,6 +181,25 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     [dispatch],
   );
 
+  // 트레이에서 코트로 끌어다 놓기(§6.10). 놓는 규칙은 placement.ts 가 갖는다 — 탭 경로와
+  // 같은 함수를 써야 "탭으로는 10개에서 막히는데 드래그로는 11개째가 놓인다" 가 안 생긴다.
+  const tray = useTrayDrag({
+    stageRef,
+    onDrop: (item, world) => {
+      placeObject(item.kind, world, {
+        drill,
+        coneSlot: state.coneSlot,
+        ballMax: BALL.maxCount,
+        // 끌고 있는 칩이 곧 배치 대상이다. 트레이에서 미리 고른 선수(pendingPlayerId)와
+        // 다를 수 있으므로 **드래그가 이긴다**.
+        pendingPlayerId: item.chairId ?? pendingPlayerId,
+        dispatch,
+        showToast: (m) => toast.show(m),
+        onPlayerPlaced: () => setPendingPlayerId(null),
+      });
+    },
+  });
+
   useEditorKeyboard({
     tool: state.tool,
     singleKeyMode: prefs.a11y.singleKeyShortcuts,
@@ -223,6 +247,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       onArmPlayer={armPlayer}
       courtLabel={{ full: '풀 코트', half: '하프 코트', flat: '플랫 코트' }[drill.courtMode]}
       orientation={portrait ? 'horizontal' : 'vertical'}
+      onItemPointerDown={tray.start}
     />
   );
 
@@ -252,46 +277,50 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         방향키로 커서 이동, Enter로 배치, Alt+←/→로 개체 순회
       </span>
 
-      {!portrait && toolRail}
-
       {/* ★ minHeight:0 이 반드시 있어야 한다(§6.4). 세로 배치에서 이 div 는 수직 주축의 플렉스
           항목이 되는데, 기본값 min-height:auto 는 "내용만큼은 줄어들지 않는다" 는 뜻이다.
           그러면 안쪽 <svg> 가 viewBox 의 **고유 종횡비**로 자기 높이를 정해버리고 — 회전하면
           500×800 이라 세로로 길다 — 코트가 아래 도구·속성을 화면 밖으로 밀어낸다.
           minWidth:0 은 가로 배치용이라 이걸 대신해 주지 못한다(축이 다르다). */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, background: 'var(--panel-2)' }}>
-        <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 24px' }}>
-          <div style={{ position: 'relative', width: '100%', height: '100%', filter: 'drop-shadow(0 18px 30px rgba(0,0,0,.45))' }}>
-            <EditorStage
-              ref={stageRef}
-              drill={drill}
-              step={step}
-              tool={state.tool}
-              coneSlot={state.coneSlot}
-              selection={state.selection}
-              dispatch={dispatch}
-              worldRef={worldRef}
-              writer={writer}
-              zones={physics.zones}
-              ballMax={BALL.maxCount}
-              pendingPlayerId={pendingPlayerId}
-              onPlayerPlaced={() => setPendingPlayerId(null)}
-              showToast={(m, a) => toast.show(m, a ? { action: a } : undefined)}
+        {/* 판 본체 = 코트 + 트레이. 둘은 **한 장의 판**이다(기현 결정 2026-08-11): 개체를 별도
+            패널에 두면 UI 서랍처럼 보이지만, 판에 붙여 두면 실제 전술판에서 말이 놓여 있는
+            가장자리처럼 읽힌다. 그래서 트레이는 이 안에 들어오고 배경도 판과 같은 색을 쓴다. */}
+        <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', flexDirection: trayAxis }}>
+          <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 24px' }}>
+            <div style={{ position: 'relative', width: '100%', height: '100%', filter: 'drop-shadow(0 18px 30px rgba(0,0,0,.45))' }}>
+              <EditorStage
+                ref={stageRef}
+                drill={drill}
+                step={step}
+                tool={state.tool}
+                coneSlot={state.coneSlot}
+                selection={state.selection}
+                dispatch={dispatch}
+                worldRef={worldRef}
+                writer={writer}
+                zones={physics.zones}
+                ballMax={BALL.maxCount}
+                pendingPlayerId={pendingPlayerId}
+                onPlayerPlaced={() => setPendingPlayerId(null)}
+                showToast={(m, a) => toast.show(m, a ? { action: a } : undefined)}
+                showGrid={showGrid}
+                showGridLabels={prefs.showGridLabels}
+                showRuleZones={showRuleZones}
+                onEraseIds={eraseIds}
+              />
+            </div>
+            <StageControls
+              onZoomIn={() => stageRef.current?.zoomBy(INTERACT.zoomStep)}
+              onZoomOut={() => stageRef.current?.zoomBy(1 / INTERACT.zoomStep)}
+              onZoomReset={() => stageRef.current?.resetZoom()}
               showGrid={showGrid}
-              showGridLabels={prefs.showGridLabels}
+              onToggleGrid={toggleGrid}
               showRuleZones={showRuleZones}
-              onEraseIds={eraseIds}
+              onToggleRuleZones={toggleRuleZones}
             />
           </div>
-          <StageControls
-            onZoomIn={() => stageRef.current?.zoomBy(INTERACT.zoomStep)}
-            onZoomOut={() => stageRef.current?.zoomBy(1 / INTERACT.zoomStep)}
-            onZoomReset={() => stageRef.current?.resetZoom()}
-            showGrid={showGrid}
-            onToggleGrid={toggleGrid}
-            showRuleZones={showRuleZones}
-            onToggleRuleZones={toggleRuleZones}
-          />
+          {toolRail}
         </div>
 
         {isBoard ? (
@@ -319,14 +348,24 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       </div>
 
       {portrait ? (
-        <>
-          {toolRail}
-          <BottomSheet label="속성" open={sheetOpen} onToggle={() => setSheetOpen((v) => !v)}>
-            {inspector}
-          </BottomSheet>
-        </>
+        <BottomSheet label="속성" open={sheetOpen} onToggle={() => setSheetOpen((v) => !v)}>
+          {inspector}
+        </BottomSheet>
       ) : (
         inspector
+      )}
+
+      {/* 끌고 있는 말의 고스트. 코트 축척(pxPerUnit)에 맞춰 **실제 놓일 크기**로 그린다 —
+          고정 크기로 그리면 손을 뗀 순간 개체가 갑자기 커지거나 작아져 어긋나 보인다.
+          위치는 리렌더 없이 transform 으로 직접 쓴다(useTrayDrag). */}
+      {tray.dragging && (
+        <div
+          ref={tray.ghostRef}
+          aria-hidden
+          style={{ position: 'fixed', left: 0, top: 0, zIndex: 60, pointerEvents: 'none', willChange: 'transform' }}
+        >
+          <TrayGhost item={tray.dragging} pxPerUnit={tray.pxPerUnit} drill={drill} coneSlot={state.coneSlot} />
+        </div>
       )}
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpTriggerRef} />

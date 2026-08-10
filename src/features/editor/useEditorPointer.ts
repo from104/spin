@@ -22,14 +22,13 @@ import type { EditorAction } from '../../store/editor/actions.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { poseToStored } from '../../model/chair.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
-import { COURT_DEFS } from '../../model/court.ts';
 import type { Arrow, ArrowKind } from '../../model/arrow.ts';
 import { defaultCtrl } from '../../model/arrow.ts';
 import type { CourtStageHandle, PointerMeta, CourtStagePointerController } from '../../render/CourtStage.tsx';
 import type { SelectionOverlayHandle, SelectionShape } from '../../render/SelectionOverlay.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
+import { placeObject } from './placement.ts';
 
-const BALL_LIMIT_MSG = '공은 최대 10개까지 놓을 수 있습니다.';
 const ZONE_LABEL: Record<DragZone, string> = {
   towRear: '후방 견인',
   translate: '평행 이동',
@@ -180,39 +179,20 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     [buildScene, buildHitContext],
   );
 
-  /** 배치 도구 공용 — pointerdown 과 §7.5d 키보드 커서 Enter 가 함께 쓴다. */
+  /** 배치 도구 공용 — pointerdown 과 §7.5d 키보드 커서 Enter 가 함께 쓴다.
+   *  규칙 자체는 placement.ts 가 갖는다(트레이 드래그와 같은 규칙을 써야 한다). */
   const placeAt = useCallback((world: Vec2) => {
     const ctx = ctxRef.current;
-    if (ctx.tool === 'ball') {
-      if (ctx.drill.cast.balls.length >= ctx.ballMax) {
-        ctx.showToast(BALL_LIMIT_MSG);
-        return;
-      }
-      ctx.dispatch({ type: 'OBJECT_ADD', kind: 'ball', at: world });
-      return;
-    }
-    if (ctx.tool === 'cone') {
-      ctx.dispatch({ type: 'OBJECT_ADD', kind: 'cone', at: world, colorIndex: ctx.coneSlot });
-      return;
-    }
-    if (ctx.tool === 'note') {
-      const id = newId('nt');
-      ctx.dispatch({ type: 'NOTE_SET', note: { id, x: world.x, y: world.y, text: '' } });
-      ctx.dispatch({ type: 'SELECT_SET', ids: [id] });
-      return;
-    }
-    if (ctx.tool === 'player') {
-      if (!ctx.pendingPlayerId) {
-        ctx.showToast('먼저 도구 레일에서 배치할 선수를 고르세요.');
-        return;
-      }
-      const def = ctx.drill.cast.chairs.find((c) => c.id === ctx.pendingPlayerId);
-      if (!def) return;
-      const headingDeg = def.team === 'home' ? COURT_DEFS[ctx.drill.courtMode].homeHeadingDeg : COURT_DEFS[ctx.drill.courtMode].awayHeadingDeg;
-      ctx.dispatch({ type: 'CHAIR_PLACE', id: ctx.pendingPlayerId, pose: { x: world.x, y: world.y, angleDeg: headingDeg } });
-      ctx.dispatch({ type: 'SELECT_SET', ids: [ctx.pendingPlayerId] });
-      ctx.onPlayerPlaced();
-    }
+    if (ctx.tool !== 'ball' && ctx.tool !== 'cone' && ctx.tool !== 'note' && ctx.tool !== 'player') return;
+    placeObject(ctx.tool, world, {
+      drill: ctx.drill,
+      coneSlot: ctx.coneSlot,
+      ballMax: ctx.ballMax,
+      pendingPlayerId: ctx.pendingPlayerId,
+      dispatch: ctx.dispatch,
+      showToast: (m) => ctx.showToast(m),
+      onPlayerPlaced: ctx.onPlayerPlaced,
+    });
   }, []);
 
   /** 물리 드래그 정착 시점의 위치를 스텝에 커밋한다. 값이 실제로 바뀐 것만 새 맵을 만든다 —
