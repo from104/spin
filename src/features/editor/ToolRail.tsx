@@ -11,6 +11,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
+import { CHAIR } from '../../core/constants.ts';
 import { TOOLS } from './toolDefs.ts';
 import type { TrayDragItem } from './useTrayDrag.ts';
 
@@ -45,6 +46,24 @@ export interface ToolRailProps {
   onItemPointerDown?(item: TrayDragItem, e: ReactPointerEvent, onTap: () => void): void;
 }
 
+/** 트레이 칩의 화면 크기. 코트 칩과 **같은 비율**(37.5 : 25 = 1.5 : 1)이라야 같은 물건으로
+ *  읽힌다. 세로 트레이에 두 개씩 들어가는 폭에서 역산했다(33·33·간격 5 = 71). */
+const TRAY_CHIP_W = 33;
+const TRAY_CHIP_H = (TRAY_CHIP_W * CHAIR.widthPx) / CHAIR.lengthPx;
+/** 칩을 감싸는 상자. 배치 여부와 상관없이 같은 크기라야 칸이 어긋나지 않고, 테두리·여백을
+ *  안쪽으로 넣어야(border-box) 선택 테두리가 붙었다 떨어질 때 줄이 밀리지 않는다. */
+const TRAY_CHIP_BOX = {
+  flex: 'none' as const,
+  boxSizing: 'border-box' as const,
+  width: TRAY_CHIP_W + 6,
+  height: TRAY_CHIP_H + 6,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+/** 칩 두 개 + 간격. 이 값이 세로 트레이의 폭을 정한다. */
+const TRAY_CHIP_ROW_MAX = (TRAY_CHIP_W + 6) * 2 + 5;
+
 /** 트레이는 **판의 일부**다(기현 결정 2026-08-11) — 배경을 코트 패널과 같은 `--panel-2` 로 두어
  *  패널 경계가 보이지 않게 하고, 대신 안쪽 그림자로 얕은 홈을 판다. 실제 전술판에서 말이
  *  놓여 있는 가장자리처럼 보이게 하는 것이 목적이라, 별도 패널 색(`--panel`)을 쓰지 않는다. */
@@ -64,6 +83,9 @@ const RAIL_STYLE = {
   flexDirection: 'column' as const,
   alignItems: 'center',
   padding: '13px 0',
+  // 개체 그룹은 스크롤 컨테이너라 min-content 기여가 0 이다 — 안쪽 칩 줄이 아무리 넓어도
+  // 트레이를 벌리지 못하고 조용히 잘린다. 폭은 여기서 못박는다.
+  minWidth: TRAY_CHIP_ROW_MAX,
 };
 
 /** 가로 트레이 — 세로 화면에서 판 아래. 항목이 많아 좁은 태블릿에서는 넘칠 수 있어 가로
@@ -97,6 +119,63 @@ const BTN_STYLE = {
   justifyContent: 'center',
   gap: 3,
 };
+
+
+/** 코트 칩의 축소판. 좌표계를 코트와 **똑같이** 쓰고(뷰박스가 곧 차체) 스케일만 다르므로,
+ *  차체 치수를 바꾸면 트레이도 따라온다 — 두 곳에 숫자를 적어 두면 반드시 어긋난다.
+ *
+ *  코트에서 휠체어는 가로로 놓인다(앞이 오른쪽). 트레이만 세로로 세워 두면 같은 말이
+ *  두 모습으로 보인다 — 머리(피벗)와 볼가드가 어느 쪽인지도 사라진다. */
+function TrayChairArt({ color, ink, number, empty }: { color?: string; ink?: string; number: string; empty?: boolean }) {
+  const half = CHAIR.widthPx / 2;
+  return (
+    <svg
+      aria-hidden
+      width={TRAY_CHIP_W}
+      height={TRAY_CHIP_H}
+      viewBox={`${-CHAIR.pivotToRearPx} ${-half} ${CHAIR.lengthPx} ${CHAIR.widthPx}`}
+      style={{ display: 'block', overflow: 'visible' }}
+    >
+      <rect
+        x={-CHAIR.pivotToRearPx}
+        y={-half}
+        width={CHAIR.lengthPx}
+        height={CHAIR.widthPx}
+        rx={5}
+        fill={empty ? 'none' : color}
+        stroke={empty ? 'var(--border-strong)' : 'rgba(255,255,255,.92)'}
+        strokeWidth={2.2}
+        strokeDasharray={empty ? '5 4' : undefined}
+      />
+      {!empty && (
+        <>
+          {/* 볼가드(앞) · 머리(피벗) — 어느 쪽이 앞인지 알려 주는 두 표식 */}
+          <rect
+            x={CHAIR.pivotToFrontPx - CHAIR.guardPx}
+            y={-half}
+            width={CHAIR.guardPx}
+            height={CHAIR.widthPx}
+            rx={2}
+            fill="rgba(255,255,255,.24)"
+            stroke="rgba(255,255,255,.92)"
+            strokeWidth={1.4}
+          />
+          <circle cx={0} cy={0} r={4.2} fill="rgba(255,255,255,.92)" />
+        </>
+      )}
+      <text
+        x={CHAIR.centroidOffsetPx}
+        y={0}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={empty ? 'var(--faint-text)' : ink}
+        style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: (20 * 2) / 3 }}
+      >
+        {number}
+      </text>
+    </svg>
+  );
+}
 
 /** 개체 **상자**. 트레이의 개체는 코트에 "그리는" 것이 아니라 상자에서 꺼내는 것이고,
  *  코트에서 도로 끌어다 넣으면 상자로 돌아간다. 안쪽 그림자로 얕게 파인 홈을 만들어
@@ -232,7 +311,9 @@ export function ToolRail({
             flexWrap: 'wrap',
             justifyContent: 'center',
             gap: 5,
-            maxWidth: horiz ? undefined : 66,
+            // 세로 트레이는 이 줄이 폭을 정한다 — maxWidth 만 두면 부모(nav)가 더 좁을 때
+            // 조용히 한 줄에 하나만 들어가고, 선수 8명이면 트레이가 두 배로 길어진다.
+            ...(horiz ? {} : { width: TRAY_CHIP_ROW_MAX, minWidth: TRAY_CHIP_ROW_MAX }),
           }}
         >
           {chairSlots.map((c) => {
@@ -244,23 +325,9 @@ export function ToolRail({
                   key={c.id}
                   aria-hidden="true"
                   title={`${c.number}번 — 코트에 나가 있습니다. 코트에서 이리로 끌어다 놓으면 돌아옵니다.`}
-                  style={{
-                    flex: 'none',
-                    width: 28,
-                    height: 36,
-                    borderRadius: 7,
-                    border: '1.5px dashed var(--border-strong)',
-                    color: 'var(--faint-text)',
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: 0.55,
-                  }}
+                  style={{ ...TRAY_CHIP_BOX, opacity: 0.5 }}
                 >
-                  {c.number}
+                  <TrayChairArt number={c.number} empty />
                 </span>
               );
             }
@@ -273,25 +340,15 @@ export function ToolRail({
                 title={`${c.number}번 — 끌어다 놓거나 탭한 뒤 코트를 누르세요`}
                 {...dragProps({ kind: 'player', chairId: c.id }, () => onArmPlayer(c.id))}
                 style={{
+                  ...TRAY_CHIP_BOX,
                   touchAction: 'none',
                   position: 'relative',
-                  flex: 'none',
-                  width: 28,
-                  height: 36,
                   borderRadius: 7,
-                  background: c.color,
-                  color: c.ink,
-                  border: armed ? '2px solid var(--accent)' : '1.5px solid rgba(255,255,255,.85)',
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: '0.8125rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 4px rgba(0,0,0,.4)',
+                  border: armed ? '2px solid var(--accent)' : '2px solid transparent',
+                  filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.45))',
                 }}
               >
-                {c.number}
+                <TrayChairArt color={c.color} ink={c.ink} number={c.number} />
               </button>
             );
           })}
