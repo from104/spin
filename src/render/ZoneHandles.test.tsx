@@ -7,7 +7,7 @@ import { render } from '@testing-library/react';
 import { ZoneHandles } from './ZoneHandles.tsx';
 import { createTransformWriter } from './transformWriter.ts';
 import { pointAtLever } from '../model/chair.ts';
-import { INTERACT } from '../core/constants.ts';
+import { CHAIR, INTERACT } from '../core/constants.ts';
 import { DEG } from '../core/angle.ts';
 import type { ChairPose } from '../model/chair.ts';
 import type { ChairId } from '../core/ids.ts';
@@ -31,7 +31,7 @@ describe('ZoneHandles', () => {
     expect(container.querySelectorAll('circle')).toHaveLength(0);
   });
 
-  it('4개 핸들을 차체 로컬 (lever, 0) 에 그린다', () => {
+  it('차체 밖 견인 가이드 둘만 그린다 — 차체 안에는 핸들이 없다', () => {
     const writer = createTransformWriter();
     const { container } = render(
       <svg>
@@ -40,8 +40,17 @@ describe('ZoneHandles', () => {
     );
     const groups = Array.from(container.querySelectorAll('g[transform^="translate("]'));
     const locals = groups.map((g) => g.getAttribute('transform'));
-    for (const zone of ['towRear', 'translate', 'spin', 'towFront'] as const) {
-      expect(locals).toContain(`translate(${INTERACT.handleLeverPx[zone]} 0)`);
+    // 2026-08-11 기현 지시: 차체 안쪽 가이드는 없애고 앞뒤 바깥만 남긴다. 차체 두 구역은
+    // 음영과 마우스 커서로 이미 표시되므로 같은 자리에 핸들까지 얹으면 등번호만 가린다.
+    expect(groups).toHaveLength(2);
+    for (const zone of ['towRear', 'towFront'] as const) {
+      const lever = INTERACT.handleLeverPx[zone];
+      expect(locals).toContain(`translate(${lever} 0)`);
+      // 견인 가이드는 정의상 차체 **밖**이어야 한다(뒤끝 −7.5 ~ 앞범퍼 +30).
+      expect(lever < -CHAIR.pivotToRearPx || lever > CHAIR.pivotToFrontPx).toBe(true);
+    }
+    for (const zone of ['translate', 'spin'] as const) {
+      expect(locals).not.toContain(`translate(${INTERACT.handleLeverPx[zone]} 0)`);
     }
   });
 

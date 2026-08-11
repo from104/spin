@@ -10,13 +10,20 @@
 // 아니라 writer 여야 한다(§6.1 규칙 1).
 import { useEffect, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { CHAIR, INTERACT } from '../core/constants.ts';
+import { INTERACT } from '../core/constants.ts';
 import type { ChairId } from '../core/ids.ts';
 import type { DragZone } from '../model/chair.ts';
 import type { TransformWriter } from './transformWriter.ts';
 import { ZONE_CURSOR, ZONE_GLYPH } from './zoneCursors.ts';
 
-const ZONE_ORDER: readonly DragZone[] = ['towRear', 'translate', 'spin', 'towFront'];
+/** 화면에 그리는 핸들은 **차체 밖 견인 가이드 둘뿐**이다(기현 지시 2026-08-11).
+ *
+ *  2구역 재편 뒤로 차체 자체가 곧 '뒤 절반 = 그대로 이동 / 앞 절반 = 제자리 회전' 이고,
+ *  그 둘은 음영과 마우스 커서로 이미 표시된다. 같은 자리에 핸들까지 얹으면 등번호를 가리고
+ *  무엇을 잡아야 하는지가 오히려 흐려진다. 반대로 견인은 차체 밖에서만 잡히므로
+ *  가이드가 없으면 그런 조작이 있다는 것 자체를 알 수 없다 — 그래서 앞뒤만 남긴다.
+ *  차체 위 커서 변형은 ChairChip 이 계속 담당한다. */
+const ZONE_ORDER: readonly DragZone[] = ['towRear', 'towFront'];
 const ZONE_LABEL: Record<DragZone, string> = {
   towRear: '후방 견인',
   translate: '평행 이동',
@@ -47,31 +54,18 @@ export function ZoneHandles({ chairId, writer, pxPerUnit, activeZone, onPointerD
 
   const viewR = INTERACT.handleViewRadiusCssPx / pxPerUnit;
   const hitR = INTERACT.handleHitRadiusCssPx / pxPerUnit;
-  // 차체 위에 얹히는 두 핸들(평행 이동·제자리 회전)은 시각적으로 줄인다 — 전체 코트가 보이는
-  // 기본 배율에서 차체 폭이 60 CSS px 밖에 안 돼, 바깥 핸들과 같은 크기면 등번호를 덮는다.
-  // 히트 반경(§7.3 44px)은 줄이지 않으므로 터치 타깃은 그대로다.
-  const INNER_SCALE = 0.68;
+  const glyphScale = (viewR * 0.78) / 6;
 
   return (
     <g ref={ref} aria-hidden="true">
       {ZONE_ORDER.map((zone) => {
         const lever = INTERACT.handleLeverPx[zone];
         const active = zone === activeZone;
-        // 차체 실제 범위(뒤끝 −7.5 ~ 앞범퍼 +30) 안이냐로 판정한다. 매직넘버로 두면
-        // 레버 값을 조정할 때마다 어긋난다.
-        const onBody = lever >= -CHAIR.pivotToRearPx && lever <= CHAIR.pivotToFrontPx;
-        const r = onBody ? viewR * INNER_SCALE : viewR;
-        const glyphScale = (r * 0.78) / 6;
         return (
           <g key={zone} transform={`translate(${lever} 0)`}>
-            {/* 피벗 → 핸들 리더 라인 — 어느 휠체어 소속인지 알린다. 차체 밖 핸들에만 그린다
-                (차체 안쪽 핸들은 선이 몸통에 묻혀 지저분하기만 하다). */}
-            {!onBody && (
-              <>
-                <line x1={0} y1={0} x2={-lever} y2={0} stroke="rgba(0,0,0,.5)" strokeWidth={2.6} strokeLinecap="round" />
-                <line x1={0} y1={0} x2={-lever} y2={0} stroke="rgba(255,255,255,.7)" strokeWidth={1} strokeDasharray="3 3" />
-              </>
-            )}
+            {/* 피벗 → 핸들 리더 라인 — 어느 휠체어 소속인지 알린다. */}
+            <line x1={0} y1={0} x2={-lever} y2={0} stroke="rgba(0,0,0,.5)" strokeWidth={2.6} strokeLinecap="round" />
+            <line x1={0} y1={0} x2={-lever} y2={0} stroke="rgba(255,255,255,.7)" strokeWidth={1} strokeDasharray="3 3" />
             <circle
               r={hitR}
               fill="transparent"
@@ -79,7 +73,7 @@ export function ZoneHandles({ chairId, writer, pxPerUnit, activeZone, onPointerD
               onPointerDown={(e) => onPointerDown?.(zone, e)}
             />
             {/* 어두운 테두리를 먼저 깔아 밝은 차체·코트 어디에 놓여도 원의 경계가 살아 있게 한다. */}
-            <circle r={r} fill={active ? 'var(--accent)' : '#ffffff'} stroke="rgba(0,0,0,.75)" strokeWidth={2} pointerEvents="none">
+            <circle r={viewR} fill={active ? 'var(--accent)' : '#ffffff'} stroke="rgba(0,0,0,.75)" strokeWidth={2} pointerEvents="none">
               <title>{ZONE_LABEL[zone]}</title>
             </circle>
             <g transform={`scale(${glyphScale})`} pointerEvents="none">
