@@ -28,6 +28,11 @@ export interface ChairChipProps {
 
 const FONT = "'Space Grotesk',sans-serif";
 const HALF_W = CHAIR.widthPx / 2;
+/** 칩에 찍는 글자(등번호와 골키퍼 'G') 크기. 2026-08-11 기현 지시로 20 의 2/3 로 줄였다 —
+ *  칩 위에 존 음영·선택 링·가이드가 겹치면서 글자가 차체를 꽉 채워 답답했다.
+ *  유도식을 남겨 둔다: 원래 20, 지금 20 × 2/3. 값만 바꾸면 근거가 사라진다. */
+const LABEL_FONT_PX = (20 * 2) / 3;
+
 /** 선택 링 여백(월드 px). 차체 테두리(2.2)와 겹치지 않게 띄운다. */
 const SEL_PAD = 3.5;
 
@@ -179,7 +184,7 @@ export const ChairChip = memo(function ChairChip({
               x={0}
               y={0}
               fontFamily={FONT}
-              fontSize={20}
+              fontSize={LABEL_FONT_PX}
               fontWeight={700}
               fill={ink}
               textAnchor="middle"
