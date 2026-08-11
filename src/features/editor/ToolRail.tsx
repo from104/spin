@@ -46,23 +46,27 @@ export interface ToolRailProps {
   onItemPointerDown?(item: TrayDragItem, e: ReactPointerEvent, onTap: () => void): void;
 }
 
-/** 트레이 칩의 화면 크기. 코트 칩과 **같은 비율**(37.5 : 25 = 1.5 : 1)이라야 같은 물건으로
- *  읽힌다. 세로 트레이에 두 개씩 들어가는 폭에서 역산했다(33·33·간격 5 = 71). */
-const TRAY_CHIP_W = 33;
-const TRAY_CHIP_H = (TRAY_CHIP_W * CHAIR.widthPx) / CHAIR.lengthPx;
+/** 트레이 칩의 화면 크기. 코트 칩과 **같은 비율**(37.5 : 25)이되 **세로로 세워서** 쓴다
+ *  (기현 지시 2026-08-11): 트레이는 세로 레일이라, 칩을 눕히면 두 개가 한 줄에 못 들어가
+ *  줄당 하나가 되고 선수 8명이면 트레이가 두 배로 길어진다.
+ *
+ *  세워도 같은 물건으로 읽히는 이유는 비율·머리·볼가드가 그대로이기 때문이다 — 코트에서
+ *  위를 향한 휠체어와 똑같은 그림이다. */
+const TRAY_CHIP_H = 33;
+const TRAY_CHIP_W = (TRAY_CHIP_H * CHAIR.widthPx) / CHAIR.lengthPx;
 /** 칩을 감싸는 상자. 배치 여부와 상관없이 같은 크기라야 칸이 어긋나지 않고, 테두리·여백을
  *  안쪽으로 넣어야(border-box) 선택 테두리가 붙었다 떨어질 때 줄이 밀리지 않는다. */
 const TRAY_CHIP_BOX = {
   flex: 'none' as const,
   boxSizing: 'border-box' as const,
-  width: TRAY_CHIP_W + 6,
+  width: TRAY_CHIP_W + 8,
   height: TRAY_CHIP_H + 6,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
 };
 /** 칩 두 개 + 간격. 이 값이 세로 트레이의 폭을 정한다. */
-const TRAY_CHIP_ROW_MAX = (TRAY_CHIP_W + 6) * 2 + 5;
+const TRAY_CHIP_ROW_MAX = (TRAY_CHIP_W + 8) * 2 + 5;
 
 /** 트레이는 **판의 일부**다(기현 결정 2026-08-11) — 배경을 코트 패널과 같은 `--panel-2` 로 두어
  *  패널 경계가 보이지 않게 하고, 대신 안쪽 그림자로 얕은 홈을 판다. 실제 전술판에서 말이
@@ -133,9 +137,12 @@ function TrayChairArt({ color, ink, number, empty }: { color?: string; ink?: str
       aria-hidden
       width={TRAY_CHIP_W}
       height={TRAY_CHIP_H}
-      viewBox={`${-CHAIR.pivotToRearPx} ${-half} ${CHAIR.lengthPx} ${CHAIR.widthPx}`}
+      // 차체 좌표계는 코트와 **같다**(앞이 +x). 뷰박스만 가로세로를 바꿔 잡고 안쪽을 -90°
+      // 돌려 앞이 위를 보게 한다 — 그림 자체를 다시 그리면 두 곳이 어긋나기 시작한다.
+      viewBox={`${-half} ${-CHAIR.pivotToFrontPx} ${CHAIR.widthPx} ${CHAIR.lengthPx}`}
       style={{ display: 'block', overflow: 'visible' }}
     >
+      <g transform="rotate(-90)">
       <rect
         x={-CHAIR.pivotToRearPx}
         y={-half}
@@ -163,16 +170,21 @@ function TrayChairArt({ color, ink, number, empty }: { color?: string; ink?: str
           <circle cx={0} cy={0} r={4.2} fill="rgba(255,255,255,.92)" />
         </>
       )}
-      <text
-        x={CHAIR.centroidOffsetPx}
-        y={0}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill={empty ? 'var(--faint-text)' : ink}
-        style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: (20 * 2) / 3 }}
-      >
-        {number}
-      </text>
+      {/* 등번호는 되돌려 세운다. 코트에서도 칩이 아무리 돌아도 숫자는 절대 눕지 않는다
+          (§3.4 — writer 가 rotate(-θ) 를 기록한다). 여기서는 그 θ 가 고정 90° 다. */}
+      <g transform={`translate(${CHAIR.centroidOffsetPx} 0) rotate(90)`}>
+        <text
+          x={0}
+          y={0}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill={empty ? 'var(--faint-text)' : ink}
+          style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: (20 * 2) / 3 }}
+        >
+          {number}
+        </text>
+      </g>
+      </g>
     </svg>
   );
 }
