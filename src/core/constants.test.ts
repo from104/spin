@@ -56,7 +56,7 @@ describe('§2.6 유도값', () => {
     const narrowestBandPx = (DEFAULT_ZONES.sSpinMin - DEFAULT_ZONES.sTowRearMax) * CHAIR.lengthPx;
     expect(INTERACT.zoneDirectMinPxPerUnit).toBeCloseTo(24 / narrowestBandPx, 2);
   });
-  // 2026-08-11 재편: 차체는 뒤 1/3(그대로 이동) + 앞 2/3(제자리 회전) 둘뿐이고, 견인은
+  // 2026-08-11 재편: 차체는 뒤 1/2(그대로 이동) + 앞 1/2(제자리 회전) 둘뿐이고, 견인은
   // 차체 밖 가이드 전용이다. 그래서 견인 경계 레버가 차체 양끝과 **정확히** 일치해야 한다.
   it('견인 경계가 차체 양끝에 딱 붙는다 — 차체 안에 견인 띠가 없다', () => {
     const rearLever = (DEFAULT_ZONES.sTowRearMax - CHAIR.sPivot) * CHAIR.lengthPx;
@@ -64,23 +64,23 @@ describe('§2.6 유도값', () => {
     expect(rearLever).toBeCloseTo(-CHAIR.pivotToRearPx, 6); // −7.5 px
     expect(frontLever).toBeCloseTo(CHAIR.pivotToFrontPx, 6); // +30 px
   });
-  it('그대로 이동 ↔ 제자리 회전 경계 레버 = 5.0 px (뒤끝에서 1/3 지점)', () => {
+  it('그대로 이동 ↔ 제자리 회전 경계 레버 = 11.25 px (차체 한가운데)', () => {
     const lever = (DEFAULT_ZONES.sSpinMin - CHAIR.sPivot) * CHAIR.lengthPx;
-    expect(lever).toBeCloseTo(5.0, 6);
-    // 뒤끝(−7.5)에서 5.0 까지가 12.5 px = 차체 길이의 정확히 1/3
-    expect(lever + CHAIR.pivotToRearPx).toBeCloseTo(CHAIR.lengthPx / 3, 6);
+    expect(lever).toBeCloseTo(11.25, 6);
+    // 뒤끝(−7.5)에서 11.25 까지가 18.75 px = 차체 길이의 정확히 1/2
+    expect(lever + CHAIR.pivotToRearPx).toBeCloseTo(CHAIR.lengthPx / 2, 6);
   });
-  it('존 폭(px) rear/trans/spin/front = 0 / 12.5 / 25 / 0', () => {
+  it('존 폭(px) rear/trans/spin/front = 0 / 18.75 / 18.75 / 0', () => {
     const rear = DEFAULT_ZONES.sTowRearMax * CHAIR.lengthPx;
     const trans = (DEFAULT_ZONES.sSpinMin - DEFAULT_ZONES.sTowRearMax) * CHAIR.lengthPx;
     const spin = (DEFAULT_ZONES.sTowFrontMin - DEFAULT_ZONES.sSpinMin) * CHAIR.lengthPx;
     const front = (1 - DEFAULT_ZONES.sTowFrontMin) * CHAIR.lengthPx;
     expect(rear).toBeCloseTo(0, 6);
-    expect(trans).toBeCloseTo(12.5, 6);
-    expect(spin).toBeCloseTo(25, 6);
+    expect(trans).toBeCloseTo(18.75, 6);
+    expect(spin).toBeCloseTo(18.75, 6);
     expect(front).toBeCloseTo(0, 6);
-    // 뒤 1/3 : 앞 2/3
-    expect(spin / trans).toBeCloseTo(2, 6);
+    // 뒤 1/2 : 앞 1/2 — 반반
+    expect(spin / trans).toBeCloseTo(1, 6);
     expect(trans + spin).toBeCloseTo(CHAIR.lengthPx, 6);
   });
 });

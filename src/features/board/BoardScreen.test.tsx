@@ -231,7 +231,7 @@ describe('선택 표시와 4개 드래그 존', () => {
     await user.keyboard('{Enter}');
 
     expect(stage.querySelectorAll('.sel-ring')).toHaveLength(1);
-    // 2026-08-11 재편: 차체는 **둘**로만 나뉜다(뒤 1/3 그대로 이동 · 앞 2/3 제자리 회전).
+    // 2026-08-11 재편: 차체는 **둘**로만 나뉜다(뒤 1/2 그대로 이동 · 앞 1/2 제자리 회전).
     // 견인은 차체 밖 가이드 핸들 전용이라 차체 위에 견인 구역이 없다.
     const zoneRects = stage.querySelectorAll('.court-obj rect[style*="cursor"]');
     expect(zoneRects).toHaveLength(2);
@@ -239,8 +239,8 @@ describe('선택 표시와 4개 드래그 존', () => {
     expect(new Set(cursors).size, '두 구역이 같은 커서를 쓰면 구분이 안 된다').toBe(2);
   });
 
-  it('차체 뒤 1/3(그대로 이동)이 앞 2/3(제자리 회전)보다 진하다', async () => {
-    // 기현 지시: "뒤 1/3 진하게 흐리게 · 앞 2/3 약하게 흐리게". 터치에는 커서가 없으므로
+  it('차체 뒤 절반(그대로 이동)이 앞 절반(제자리 회전)보다 진하다', async () => {
+    // 기현 지시: "뒤 진하게 흐리게 · 앞 약하게 흐리게". 터치에는 커서가 없으므로
     // 어디를 잡으면 어떻게 되는지 **눈으로** 보이는 것이 태블릿에서는 유일한 단서다.
     const { user, stage } = await openBoard('full', { placed: true });
     const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
@@ -251,10 +251,11 @@ describe('선택 표시와 4개 드래그 존', () => {
     expect(rects).toHaveLength(2);
     const alphaOf = (el: Element): number => Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(el.getAttribute('fill') ?? '')?.[1] ?? 0);
     const widthOf = (el: Element): number => Number(el.getAttribute('width') ?? 0);
-    // 앞쪽(폭이 큰 쪽)이 제자리 회전 = 2/3, 뒤쪽이 그대로 이동 = 1/3.
-    const [narrow, wide] = rects.slice().sort((a, b) => widthOf(a) - widthOf(b));
-    expect(widthOf(wide!) / widthOf(narrow!), '앞:뒤 = 2:1 이 아니다').toBeCloseTo(2, 3);
-    expect(alphaOf(narrow!), '그대로 이동 구역이 더 진해야 한다').toBeGreaterThan(alphaOf(wide!));
+    const xOf = (el: Element): number => Number(el.getAttribute('x') ?? 0);
+    // 반반이라 폭으로는 앞뒤를 못 가른다 — 차체 로컬 x 가 작은 쪽이 뒤(그대로 이동)다.
+    const [rear, front] = rects.slice().sort((a, b) => xOf(a) - xOf(b));
+    expect(widthOf(rear!) / widthOf(front!), '앞뒤가 반반이 아니다').toBeCloseTo(1, 3);
+    expect(alphaOf(rear!), '그대로 이동 구역이 더 진해야 한다').toBeGreaterThan(alphaOf(front!));
   });
 });
 

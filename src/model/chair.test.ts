@@ -16,9 +16,12 @@ describe('classifyZone — §2.5 경계값 (리터럴, 부동소수 잡음 없�
     expect(classifyZone(0, DEFAULT_ZONES)).toBe('towRear');
     expect(classifyZone(0.000001, DEFAULT_ZONES)).toBe('translate');
   });
-  it('translate ↔ spin 경계는 1/3 (spin 쪽 포함)', () => {
-    expect(classifyZone(1 / 3 - 0.000001, DEFAULT_ZONES)).toBe('translate');
-    expect(classifyZone(1 / 3, DEFAULT_ZONES)).toBe('spin');
+  it('translate ↔ spin 경계는 기본값 지점 (spin 쪽 포함)', () => {
+    // 뜻은 "경계가 spin 쪽에 포함된다" 이지 "0.5 다" 가 아니다 — 리터럴로 두면
+    // 경계를 옮길 때마다 뜻과 무관하게 빨간불이 뜬다.
+    const b = DEFAULT_ZONES.sSpinMin;
+    expect(classifyZone(b - 0.000001, DEFAULT_ZONES)).toBe('translate');
+    expect(classifyZone(b, DEFAULT_ZONES)).toBe('spin');
   });
   it('spin ↔ towFront 경계는 앞범퍼 s=1 (towFront 쪽 포함)', () => {
     expect(classifyZone(0.999999, DEFAULT_ZONES)).toBe('spin');

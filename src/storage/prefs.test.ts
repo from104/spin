@@ -1,6 +1,6 @@
 // §10.6 prefs. localStorage 는 jsdom 환경에서 기본 제공된다.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DEFAULT_ZONES } from '../core/constants.ts';
+import { DEFAULT_LIMITS, DEFAULT_ZONES } from '../core/constants.ts';
 import {
   PREFS_KEY,
   makeDefaultPrefs,
@@ -98,6 +98,19 @@ describe('resolvePhysics', () => {
     expect(p.zones.sSpinMin).toBe(DEFAULT_ZONES.sSpinMin);
     expect(p.zones.sTowFrontMin).toBe(DEFAULT_ZONES.sTowFrontMin);
     expect(p.zones.grabPadPx).toBe(10);
+  });
+
+  it('아무것도 override 하지 않으면 DEFAULT_ZONES 가 클램프에 잘리지 않고 그대로 나온다', () => {
+    // 회귀: sSpinMin 클램프 상한이 0.45 로 남아 있어, 기본값을 1/3 에서 1/2 로 옮기자
+    // 아무도 손대지 않았는데 0.45 로 잘려 경계가 조용히 어긋났다.
+    // 클램프 상한이 기본값보다 낮으면 설정이 저절로 기본값과 달라진다.
+    const p = resolvePhysics(makeDefaultPrefs());
+    expect(p.zones.sTowRearMax).toBe(DEFAULT_ZONES.sTowRearMax);
+    expect(p.zones.sSpinMin).toBe(DEFAULT_ZONES.sSpinMin);
+    expect(p.zones.sTowFrontMin).toBe(DEFAULT_ZONES.sTowFrontMin);
+    expect(p.zones.grabPadPx).toBe(DEFAULT_ZONES.grabPadPx);
+    expect(p.linearKmh).toBe(DEFAULT_LIMITS.linearKmh);
+    expect(p.bumperKmh).toBe(DEFAULT_LIMITS.bumperKmh);
   });
 });
 

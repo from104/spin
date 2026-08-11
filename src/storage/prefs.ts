@@ -183,7 +183,11 @@ export function resolvePhysics(p: Preferences): PhysicsParams {
   // 않고 앞뒤 가이드로만 견인한다, DEFAULT_ZONES 주석 참고). 예전 하한 0.04·상한 0.96 은
   // 기본값 자체를 잘라내 차체 양끝에 얇은 견인 띠를 되살려 놓았다.
   const sTowRearMax = clamp(z.sTowRearMax, 0, 0.18);
-  const sSpinMin = clamp(z.sSpinMin, sTowRearMax + 0.04, 0.45);
+  // 상한 0.9 는 뒤따르는 sTowFrontMin ≥ sSpinMin + 0.1 이 1 을 넘지 않게 남겨 둔 여유다.
+  // 예전 0.45 는 기본값이 1/3 이던 시절에는 안 걸렸지만, 반반(0.5)으로 옮기자 **기본값을
+  // 그대로 0.45 로 잘라** 경계가 조용히 어긋났다. 클램프 상한이 기본값보다 낮으면
+  // 아무도 손대지 않아도 설정이 기본값과 달라진다 — 아래 회귀 테스트로 못박았다.
+  const sSpinMin = clamp(z.sSpinMin, sTowRearMax + 0.04, 0.9);
   const sTowFrontMin = clamp(z.sTowFrontMin, sSpinMin + 0.1, 1);
   const linearKmh = clamp(p.physics.linearKmh ?? DEFAULT_LIMITS.linearKmh, 4, 16);
   const bumperKmh = clamp(p.physics.bumperKmh ?? DEFAULT_LIMITS.bumperKmh, 10, bumperKmhMax(linearKmh));
