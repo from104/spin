@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { CHAIR } from '../../core/constants.ts';
 import type { ReactNode } from 'react';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { LibraryProvider, useLibraryState } from '../../store/library/LibraryProvider.tsx';
@@ -217,7 +218,8 @@ describe('선택 표시와 4개 드래그 존', () => {
   it('선택 전에는 선택 링·존 커서·핸들이 하나도 없다', async () => {
     const { stage } = await openBoard('full', { placed: true });
     expect(stage.querySelectorAll('.sel-ring')).toHaveLength(0);
-    expect(stage.querySelectorAll('.court-obj rect[style*="cursor"]')).toHaveLength(0);
+    expect(stage.querySelectorAll('.court-obj rect.zone-cursor')).toHaveLength(0);
+    expect(stage.querySelectorAll('.court-obj rect.zone-tint')).toHaveLength(0);
   });
 
   it('휠체어를 고르면 선택 링 1개와 차체 두 구역이 그 칩에만 생긴다', async () => {
@@ -233,10 +235,36 @@ describe('선택 표시와 4개 드래그 존', () => {
     expect(stage.querySelectorAll('.sel-ring')).toHaveLength(1);
     // 2026-08-11 재편: 차체는 **둘**로만 나뉜다(뒤 1/2 그대로 이동 · 앞 1/2 제자리 회전).
     // 견인은 차체 밖 가이드 핸들 전용이라 차체 위에 견인 구역이 없다.
-    const zoneRects = stage.querySelectorAll('.court-obj rect[style*="cursor"]');
+    const zoneRects = stage.querySelectorAll('.court-obj rect.zone-cursor');
     expect(zoneRects).toHaveLength(2);
     const cursors = Array.from(zoneRects).map((r) => decodeURIComponent(r.getAttribute('style') ?? ''));
     expect(new Set(cursors).size, '두 구역이 같은 커서를 쓰면 구분이 안 된다').toBe(2);
+  });
+
+  it('존 커서 레이어가 차체의 마지막 자식이라 등번호·머리 위에서도 커서가 바뀐다', async () => {
+    // 회귀: 예전에는 음영 사각형이 커서까지 맡았는데 그 위에 등번호·머리·포커스 링이 얹혀,
+    // 정작 눈이 가는 한가운데에서 커서가 기본 화살표로 돌아갔다. SVG 는 뒤에 온 형제가
+    // 위에 그려지므로 커서 레이어는 마지막이어야 한다.
+    const { user, stage } = await openBoard('full', { placed: true });
+    const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
+    chair.focus();
+    await user.keyboard('{Enter}');
+
+    const kids = Array.from(chair.children);
+    const cursorRects = kids.filter((el) => el.classList.contains('zone-cursor'));
+    expect(cursorRects).toHaveLength(2);
+    // 커서 레이어 뒤에는 아무것도 없어야 한다
+    const lastNonCursor = kids.findLastIndex((el) => !el.classList.contains('zone-cursor'));
+    const firstCursor = kids.findIndex((el) => el.classList.contains('zone-cursor'));
+    expect(firstCursor, '커서 레이어보다 뒤에 그려지는 요소가 있다').toBeGreaterThan(lastNonCursor);
+    // 세로로는 차체 폭 전체를 덮는다
+    for (const r of cursorRects) {
+      expect(Number(r.getAttribute('height'))).toBeCloseTo(CHAIR.widthPx, 6);
+      expect(Number(r.getAttribute('y'))).toBeCloseTo(-CHAIR.widthPx / 2, 6);
+    }
+    // 가로로는 둘이 합쳐 차체 길이를 빈틈없이 덮는다
+    const total = cursorRects.reduce((a, r) => a + Number(r.getAttribute('width')), 0);
+    expect(total).toBeCloseTo(CHAIR.lengthPx, 6);
   });
 
   it('차체 뒤 절반(그대로 이동)이 앞 절반(제자리 회전)보다 진하다', async () => {
@@ -247,7 +275,9 @@ describe('선택 표시와 4개 드래그 존', () => {
     chair.focus();
     await user.keyboard('{Enter}');
 
-    const rects = Array.from(stage.querySelectorAll('.court-obj rect[style*="cursor"]'));
+    // 음영(zone-tint)과 커서(zone-cursor)는 별개 레이어다 — 커서 레이어가 등번호·머리 위에서도
+    // 동작하려면 차체의 마지막 자식이어야 하는데, 그 자리에 색을 칠하면 등번호가 흐려진다.
+    const rects = Array.from(stage.querySelectorAll('.court-obj rect.zone-tint'));
     expect(rects).toHaveLength(2);
     const alphaOf = (el: Element): number => Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(el.getAttribute('fill') ?? '')?.[1] ?? 0);
     const widthOf = (el: Element): number => Number(el.getAttribute('width') ?? 0);

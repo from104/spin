@@ -10,7 +10,7 @@
 // 아니라 writer 여야 한다(§6.1 규칙 1).
 import { useEffect, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { INTERACT } from '../core/constants.ts';
+import { CHAIR, INTERACT } from '../core/constants.ts';
 import type { ChairId } from '../core/ids.ts';
 import type { DragZone } from '../model/chair.ts';
 import type { TransformWriter } from './transformWriter.ts';
@@ -61,11 +61,15 @@ export function ZoneHandles({ chairId, writer, pxPerUnit, activeZone, onPointerD
       {ZONE_ORDER.map((zone) => {
         const lever = INTERACT.handleLeverPx[zone];
         const active = zone === activeZone;
+        // 리더 라인은 **차체 앞에서 멈춘다**. 예전에는 피벗까지 그어 차체를 가로질렀는데,
+        // 몸통을 덮어 지저분한 데다 포인터까지 가로채 등번호 근처에서 존 커서가 죽었다.
+        const bodyEdge = lever < 0 ? -CHAIR.pivotToRearPx : CHAIR.pivotToFrontPx;
+        const leaderEnd = bodyEdge - lever; // 핸들 로컬 좌표
         return (
           <g key={zone} transform={`translate(${lever} 0)`}>
-            {/* 피벗 → 핸들 리더 라인 — 어느 휠체어 소속인지 알린다. */}
-            <line x1={0} y1={0} x2={-lever} y2={0} stroke="rgba(0,0,0,.5)" strokeWidth={2.6} strokeLinecap="round" />
-            <line x1={0} y1={0} x2={-lever} y2={0} stroke="rgba(255,255,255,.7)" strokeWidth={1} strokeDasharray="3 3" />
+            {/* 핸들 → 차체 리더 라인 — 어느 휠체어 소속인지 알린다. 포인터는 통과시킨다. */}
+            <line x1={0} y1={0} x2={leaderEnd} y2={0} stroke="rgba(0,0,0,.5)" strokeWidth={2.6} strokeLinecap="round" pointerEvents="none" />
+            <line x1={0} y1={0} x2={leaderEnd} y2={0} stroke="rgba(255,255,255,.7)" strokeWidth={1} strokeDasharray="3 3" pointerEvents="none" />
             <circle
               r={hitR}
               fill="transparent"

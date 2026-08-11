@@ -141,9 +141,10 @@ export const ChairChip = memo(function ChairChip({
         stroke="rgba(255,255,255,.92)"
         strokeWidth={1.4}
       />
-      {/* 차체 위 4개 존에 각각 다른 커서를 얹는다 — 어디를 잡느냐로 동작이 갈리므로
-          누르기 전에 커서만 보고 알 수 있어야 한다. 투명 사각형이라 그림에는 영향이 없고,
-          onPointerDown 은 부모 <g> 로 버블링되므로 기존 히트 처리도 그대로다.
+      {/* 두 구역의 음영. 어디를 잡으면 어떻게 되는지 커서만이 아니라 눈으로도 보여야 한다 —
+          터치에는 커서가 없다(태블릿이 1순위 대상이다). 순수 시각용이라 pointer-events 를 끄고,
+          커서·히트는 아래 최상단 레이어가 맡는다(등번호·머리 위에서도 커서가 바뀌게 하려면
+          그 요소들보다 뒤에 와야 한다).
           **선택된 칩에만** 얹는다: 코트에 9대가 있는데 전부 존 커서를 물고 있으면
           어느 칩이 조작 대상인지 흐려지고, 지나가기만 해도 커서가 계속 바뀌어 시끄럽다. */}
       {selected && zoneCursors &&
@@ -154,6 +155,7 @@ export const ChairChip = memo(function ChairChip({
           .map((z) => (
             <rect
               key={z.zone}
+              className="zone-tint"
               x={z.x0}
               y={-HALF_W}
               width={z.x1 - z.x0}
@@ -162,22 +164,9 @@ export const ChairChip = memo(function ChairChip({
               // **약하게** 비친다. 어디를 잡으면 어떻게 되는지 커서만이 아니라 눈으로도
               // 보여야 한다 — 터치에는 커서가 없다(태블릿이 1순위 대상이다).
               fill={ZONE_TINT[z.zone]}
-              style={{ cursor: ZONE_CURSOR[z.zone] }}
+              pointerEvents="none"
             />
           ))}
-      {/* 두 구역의 경계선. 음영 차이만으로는 팀 색이 밝을 때 거의 안 보인다. */}
-      {selected && zoneCursors && (
-        <line
-          x1={sToX(zoneCursors.sSpinMin)}
-          y1={-HALF_W}
-          x2={sToX(zoneCursors.sSpinMin)}
-          y2={HALF_W}
-          stroke="rgba(255,255,255,.55)"
-          strokeWidth={1}
-          strokeDasharray="2 2"
-          pointerEvents="none"
-        />
-      )}
       {/* 머리 = 피벗 = 원점 */}
       <circle cx={0} cy={0} r={4.2} fill="rgba(255,255,255,.92)" />
       <g transform={`translate(${CHAIR.centroidOffsetPx} 0)`}>
@@ -217,6 +206,25 @@ export const ChairChip = memo(function ChairChip({
         height={CHAIR.widthPx + 6}
         rx={8}
       />
+      {/* 존 커서 레이어 — **차체의 마지막 자식**이어야 한다. 예전에는 음영 사각형이 커서까지
+          맡았는데 그 위에 등번호·머리·포커스 링이 얹혀, 정작 눈이 가는 한가운데에서는 커서가
+          기본 화살표로 돌아갔다. 투명하고 그림에 영향이 없으며, onPointerDown 은 부모 <g> 로
+          버블링되므로 히트 처리도 그대로다. 세로로는 차체 폭 전체를 덮는다. */}
+      {selected && zoneCursors &&
+        zoneSpans(zoneCursors)
+          .filter((z) => z.x1 - z.x0 > 0.01)
+          .map((z) => (
+            <rect
+              key={`cur-${z.zone}`}
+              className="zone-cursor"
+              x={z.x0}
+              y={-HALF_W}
+              width={z.x1 - z.x0}
+              height={CHAIR.widthPx}
+              fill="transparent"
+              style={{ cursor: ZONE_CURSOR[z.zone] }}
+            />
+          ))}
     </g>
   );
 });
