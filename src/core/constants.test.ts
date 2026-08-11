@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEG } from './angle.ts';
-import { BALL, CHAIR, CONE, DEFAULT_LIMITS, DEFAULT_ZONES, INTERACT } from './constants.ts';
+import { BALL, CHAIR, CONE, DEFAULT_LIMITS, DEFAULT_ZONES, INTERACT, PHYS, WALL } from './constants.ts';
 import { kmhToPxPerS } from './units.ts';
 
 // §2.6 유도값 표 — 실제 상수·함수에서 그대로 나오는지 확인 (오케스트레이터 지시사항).
@@ -82,5 +82,20 @@ describe('§2.6 유도값', () => {
     // 뒤 1/2 : 앞 1/2 — 반반
     expect(spin / trans).toBeCloseTo(1, 6);
     expect(trans + spin).toBeCloseTo(CHAIR.lengthPx, 6);
+  });
+});
+
+describe('공·콘 드래그 상한은 터널링 방지선이다', () => {
+  it('벽 두께보다 작다 — 한 substep 에 벽을 뛰어넘지 않는다', () => {
+    // 값 자체가 아니라 "왜 상한이 있는가" 를 못박는다. 이 관계가 깨지면 빠르게 끌 때
+    // 공이 벽을 통과한다.
+    expect(INTERACT.pointDragMaxPxPerSubstep).toBeLessThan(WALL.thicknessPx);
+  });
+
+  it('손으로 끄는 속도에서 뒤처지지 않을 만큼은 크다', () => {
+    // 기현 지시: 공·콘은 이동 배치 시 속도 제한 없음. 상한이 낮으면 "제한 없음" 이 아니라
+    // 그냥 느린 것이 된다 — 풀 코트(800px)를 0.5초 안에 가로지를 수 있어야 한다.
+    const pxPerSecond = INTERACT.pointDragMaxPxPerSubstep / PHYS.dtS;
+    expect(800 / pxPerSecond).toBeLessThan(0.5);
   });
 });

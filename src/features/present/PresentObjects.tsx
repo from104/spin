@@ -82,7 +82,7 @@ export const PresentBallMark = memo(function PresentBallMark({ id, writer, opaci
 export const PresentConeMark = memo(function PresentConeMark({ def, writer, opacityWriter }: { def: ConeDef; writer: TransformWriter; opacityWriter: OpacityWriter }) {
   return (
     <Fade id={def.id} opacityWriter={opacityWriter}>
-      <ConeMark id={def.id} writer={writer} colorIndex={def.colorIndex} selected={false} active={false} ariaLabel={`콘 ${def.colorIndex === 0 ? '주황' : '분홍'}`} />
+      <ConeMark id={def.id} writer={writer} colorIndex={def.colorIndex} selected={false} active={false} ariaLabel={`콘 ${def.colorIndex === 0 ? '주황' : '파랑'}`} />
     </Fade>
   );
 });

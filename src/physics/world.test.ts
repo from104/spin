@@ -1,7 +1,7 @@
 // §10.3 physics-world matter 통합 테스트. §2.7 실측 로그의 지뢰밭을 하나씩 회귀로 고정한다.
 import { describe, expect, it } from 'vitest';
 import * as Matter from 'matter-js';
-import { BALL, CHAIR, CONE, GOAL, PHYS, WALL, DEFAULT_LIMITS } from '../core/constants.ts';
+import { BALL, CHAIR, CONE, GOAL, INTERACT, PHYS, WALL, DEFAULT_LIMITS } from '../core/constants.ts';
 import { kmhToPxPerS, matterVToPxPerS, pxPerSToMatterV, PX_PER_M } from '../core/units.ts';
 import type { ChairId, BallId, ConeId } from '../core/ids.ts';
 import type { ChairPose } from '../model/chair.ts';
@@ -417,7 +417,7 @@ describe('allAtRest — static 은 항상 rest(§5.4 실측: static deltaTime 16
 describe('공/콘 드래그(§5.11)', () => {
   const LIM: DragLimits = DEFAULT_DRAG_LIMITS;
 
-  it('포인터를 substep 당 50px 로 순간이동시켜도 body 변위 ≤ 3.0px', () => {
+  it('포인터를 순간이동시켜도 body 변위는 터널링 방지선 안에 머문다', () => {
     const w = createWorld(4000, 4000);
     w.addBall(ballId(), { x: 2000, y: 2000 });
     const ball = findBody(w, 'ball');
@@ -434,12 +434,17 @@ describe('공/콘 드래그(§5.11)', () => {
       releaseStartMs: 0,
       samples: [],
     };
+    // 값이 아니라 **성질**을 본다: 한 substep 변위가 상한을 넘지 않고, 그 상한이 벽 두께보다
+    // 작다. 리터럴로 두면 상한을 조정할 때마다(2026-08-11 공·콘 속도 제한 해제) 뜻과 무관하게
+    // 빨간불이 뜬다 — 공·콘은 손이 움직이는 대로 따라와야 하고, 상한은 터널링 방지선일 뿐이다.
+    const cap = INTERACT.pointDragMaxPxPerSubstep;
+    expect(cap).toBeLessThan(WALL.thicknessPx);
     for (let i = 0; i < 20; i++) {
       const before = { x: ball.position.x, y: ball.position.y };
-      session.target = { x: session.target.x + 50, y: 2000 };
+      session.target = { x: session.target.x + cap * 4, y: 2000 };
       stepDrag(session, w, LIM, BOUNDS, PHYS.dtS);
       const disp = Math.hypot(ball.position.x - before.x, ball.position.y - before.y);
-      expect(disp).toBeLessThanOrEqual(3.0 + 1e-6);
+      expect(disp).toBeLessThanOrEqual(cap + 1e-6);
     }
   });
 

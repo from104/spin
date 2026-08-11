@@ -58,7 +58,7 @@ export const BALL = {
   rollDecelPxPerS2: 12, // 쿨롱 구름 감속 (§5.9)
   maxSpeedPxPerS: 420, // = 16.8 m/s
   maxSpeedMatter: 7.0, // = 420/60. setVelocity/getSpeed 에 쓰는 값
-  maxCount: 10,
+  maxCount: 8, // 기현 지시 2026-08-11 (10 → 8). 트레이 상자에 남은 개수로 표시된다.
 } as const;
 
 export const CONE = {
@@ -77,6 +77,9 @@ export const CONE = {
   rollDecelPxPerS2: 25,
   maxSpeedPxPerS: 240,
   maxSpeedMatter: 4.0,
+  /** 색상별 상한(기현 지시 2026-08-11). 주황 8개 + 파랑 8개 = 코트 위 최대 16개.
+   *  공(8개)과 같은 상자 은유라 개수 규칙도 같은 자리에 둔다. */
+  maxCountPerColor: 8,
 } as const;
 
 /** 골대 포스트(§5.4 무게 위계, 2026-08-10 기현 지시).
@@ -193,7 +196,17 @@ export const INTERACT = {
   pickPadCssPx: 6,
   releaseChaseMs: 4000, // 손을 뗀 뒤 목표까지 계속 따라감
   leashVisibleAtPx: 4, // |T−G| 가 이보다 크면 리시·고스트 표시
-  pointDragMaxPxPerSubstep: 3.0, // 공·콘 드래그 (= 360 px/s = 14.4 m/s)
+  /** 공·콘 드래그의 substep 당 변위 상한.
+   *
+   *  이 값은 **UX 속도 제한이 아니라 터널링 방지선**이다. 공과 콘은 실제 파워체어 속도를
+   *  흉내 낼 이유가 없다(기현 지시 2026-08-11: 공·콘은 이동 배치 시 속도 제한 없음) —
+   *  손이 움직이는 대로 따라와야 한다. 예전 3.0 은 360 px/s 라 800px 코트를 가로지르는 데
+   *  2.2초가 걸려, 끌면 개체가 한참 뒤처졌다.
+   *
+   *  상한을 유지하는 유일한 이유는 한 substep 에 벽을 뛰어넘지 않게 하는 것이다.
+   *  벽 두께 WALL.thicknessPx(40) 보다 작아야 한다 — 25 px/substep = 3000 px/s 로
+   *  코트 횡단 0.27초, 손으로 끄는 속도로는 체감되지 않는다. */
+  pointDragMaxPxPerSubstep: 25,
   zoomMin: 1,
   zoomMax: 6,
   zoomStep: 1.25,

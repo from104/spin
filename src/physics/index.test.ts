@@ -324,3 +324,33 @@ describe('setLimits — 살아 있는 월드의 속도 상한 (하단 스위치)
     api.dispose();
   });
 });
+
+describe('속도 상한은 휠체어에만 걸린다 (기현 지시 2026-08-11)', () => {
+  // 10 km/h 는 **파워체어**의 속도다. 공과 콘은 코치의 손이 판 위에서 옮기는 말이지
+  // 주행하는 물건이 아니라, 여기에 같은 상한을 걸면 판을 짜는 내내 손을 기다리게 된다.
+  // 유일한 제동은 터널링 방지선(pointDragMaxPxPerSubstep)이고 그건 UX 제한이 아니다.
+  function ballTravel(limits: typeof DEFAULT_DRAG_LIMITS): number {
+    const api = createPhysicsWorld(4000, 4000, limits);
+    api.load(makeCast(), makeStep(), mode);
+    const from = api.read()[blA]!;
+    const hit: HitResult = { kind: 'ball', id: blA };
+    const h = api.beginDrag(hit, from)!;
+    h.move({ x: from.x + 2000, y: from.y }, performance.now());
+    h.move({ x: from.x + 2000, y: from.y }, performance.now() + 20);
+    for (let i = 0; i < 12; i++) api.step(PHYS.dtS); // 0.1초
+    const moved = api.read()[blA]!.x - from.x;
+    api.dispose();
+    return moved;
+  }
+
+  it('상한을 켜도 공은 느려지지 않는다', () => {
+    const limited = ballTravel(DEFAULT_DRAG_LIMITS);
+    const unlimited = ballTravel({ vLinPxPerS: 1e6, omegaRadPerS: 1e4 });
+    expect(limited).toBeCloseTo(unlimited, 6);
+  });
+
+  it('공은 0.1초 만에 파워체어 상한 거리보다 훨씬 멀리 간다', () => {
+    // 상한이 걸렸다면 0.1초에 약 6.9px 이다. 그보다 한 자릿수 위로 움직여야 한다.
+    expect(ballTravel(DEFAULT_DRAG_LIMITS)).toBeGreaterThan(DEFAULT_DRAG_LIMITS.vLinPxPerS * 0.1 * 10);
+  });
+});

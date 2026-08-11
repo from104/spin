@@ -13,9 +13,13 @@ import { newId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
 import type { Drill } from '../../model/drill.ts';
 import { COURT_DEFS } from '../../model/court.ts';
+import { BALL, CONE } from '../../core/constants.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 
-export const BALL_LIMIT_MSG = '공은 최대 10개까지 놓을 수 있습니다.';
+// 개수를 문장에 박아 두면 상한을 바꿀 때 안내만 옛말이 된다(실제로 10 → 8 때 그랬다).
+export const BALL_LIMIT_MSG = `공은 최대 ${BALL.maxCount}개까지 놓을 수 있습니다.`;
+export const coneLimitMsg = (slot: 0 | 1): string =>
+  `${slot === 0 ? '주황' : '파랑'} 콘은 최대 ${CONE.maxCountPerColor}개까지 놓을 수 있습니다.`;
 export const PLAYER_UNARMED_MSG = '먼저 트레이에서 배치할 선수를 고르세요.';
 
 /** 코트에 '놓을 수 있는' 도구만. select/route/pass/erase 는 배치가 아니다. */
@@ -46,6 +50,13 @@ export function placeObject(kind: PlaceKind, world: Vec2, d: PlaceDeps): boolean
   }
 
   if (kind === 'cone') {
+    // 콘도 공과 같은 상자 은유다 — 색상별로 8개씩. 상한은 cast 기준이라 유령이 남으면
+    // 여기서 영영 막힌다(pruneOrphanCast 책임, 공 쪽 주석과 같은 이유).
+    const sameColor = d.drill.cast.cones.filter((c) => c.colorIndex === d.coneSlot).length;
+    if (sameColor >= CONE.maxCountPerColor) {
+      d.showToast(coneLimitMsg(d.coneSlot));
+      return false;
+    }
     d.dispatch({ type: 'OBJECT_ADD', kind: 'cone', at: world, colorIndex: d.coneSlot });
     return true;
   }

@@ -26,3 +26,12 @@ if (!Element.prototype.setPointerCapture) {
     return captured.get(this)?.has(pointerId) ?? false
   }
 }
+
+// jsdom 은 document.elementFromPoint 를 구현하지 않는다(레이아웃이 없어 답할 수가 없다).
+// 없는 채로 두면 "트레이에 놓아 개체 빼기"(useEditorPointer.isOverTray) 경로가 pointerup 마다
+// TypeError 를 던지고, 그 예외는 React 이벤트 디스패치에 삼켜져 테스트는 초록불로 지나간다.
+// 항상 null(= 아무것도 안 맞음)을 돌려주는 스텁을 깔아 경로가 실제로 실행되게 한다.
+// 트레이 판정 자체를 검증하는 테스트는 이 스텁을 자기 값으로 덮어쓴다.
+if (!document.elementFromPoint) {
+  document.elementFromPoint = () => null
+}

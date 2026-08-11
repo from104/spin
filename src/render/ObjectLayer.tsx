@@ -97,7 +97,7 @@ export function ObjectLayer({
           colorIndex={c.colorIndex}
           selected={selection.has(c.id)}
           active={activeId === c.id}
-          ariaLabel={`콘 ${c.colorIndex === 0 ? '주황' : '분홍'}`}
+          ariaLabel={`콘 ${c.colorIndex === 0 ? '주황' : '파랑'}`}
           onPointerDown={onObjectPointerDown}
           onKeyDown={onObjectKeyDown}
         />

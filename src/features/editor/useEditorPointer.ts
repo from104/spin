@@ -38,6 +38,18 @@ const ZONE_LABEL: Record<DragZone, string> = {
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
+/** 손을 뗀 화면 좌표가 트레이 위인가 = 코트에서 빼낼 것인가.
+ *
+ *  좌표로 찾는 이유: 드래그 중에는 코트 SVG 가 포인터를 캡처하고 있어 이벤트 대상이 언제나
+ *  코트다(§6.4). elementFromPoint 는 캡처와 무관하게 기하로 답한다.
+ *  pointercancel 은 좌표가 없어 null 로 들어오며, 그때는 빼지 않는다 — 시스템 제스처에
+ *  가로채였을 뿐인데 개체가 사라지면 안 된다. */
+export function isOverTray(client: { x: number; y: number } | null): boolean {
+  if (!client) return false;
+  const el = document.elementFromPoint(client.x, client.y);
+  return !!el?.closest('[data-tray]');
+}
+
 export interface UseEditorPointerOptions {
   drill: Drill;
   step: DrillStep;
@@ -393,10 +405,15 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     [eraseAt],
   );
 
-  const onPointerUp = useCallback(() => {
+  const onPointerUp = useCallback((client: { x: number; y: number } | null) => {
     const ctx = ctxRef.current;
 
     if (dragHandleRef.current) {
+      const id = draggedIdRef.current;
+      // 트레이 위에 놓았으면 코트에서 빼낸다 — 개체가 "원래 있던 자리"(주차 슬롯·상자)로
+      // 돌아가는 동작이다.
+      const overTray = isOverTray(client);
+
       dragHandleRef.current.end(); // §5.11 릴리스 체이스 시작 — 물리가 스스로 정착까지 굴린다
       dragHandleRef.current = null;
       draggedIdRef.current = null;
@@ -404,6 +421,13 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       setActiveZone(null);
       selectionOverlayRef.current?.setLeash(null, null);
       selectionOverlayRef.current?.setGhost(null, 0, 0, 0);
+
+      if (overTray && id) {
+        // 되돌리기 한 번으로 살아나야 한다 — 커밋을 먼저 하면 "옮김 + 뺌" 두 단계가 쌓인다.
+        ctx.dispatch({ type: 'OBJECT_REMOVE', id: id as ChairId | BallId | ConeId, scope: 'onward' });
+        ctx.dispatch({ type: 'SELECT_CLEAR' });
+        return;
+      }
       commitDragResult();
       return;
     }

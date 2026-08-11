@@ -27,7 +27,10 @@ export const TEAM_COLOR_CHOICES = ['#d93a3a', '#1f6bb8', '#e08a12', '#7c5cd6'] a
 export const GK_HOME_COLOR = '#f2c811'; // 어두운 잉크 10.51:1
 export const GK_AWAY_COLOR = '#22a95b'; // 어두운 잉크 5.56:1 (흰 글자였으면 3.05:1 실패)
 export const BALL_FILL = '#fbbf24';
-export const CONE_COLORS = ['#ff6b1a', '#ec4899'] as const; // 슬롯 0, 1
+/** 훈련 콘 2색(기현 지시 2026-08-11: 주황·파랑). 슬롯 0, 1.
+ *  파랑은 원정팀(#1f6bb8)·이동 화살표(#38bdf8)와 겹치지 않게 고른 값이다.
+ *  주황과의 이색각 분리도 확인했다(적색맹 0.84 · 녹색맹 0.95 — 콘 구분 임계 0.25). */
+export const CONE_COLORS = ['#ff6b1a', '#2563eb'] as const;
 export const ARROW_COLORS = { move: '#38bdf8', pass: '#fbbf24', shot: '#fbbf24' } as const;
 
 const srgb = (v: number): number => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);

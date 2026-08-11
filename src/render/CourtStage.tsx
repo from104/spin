@@ -50,7 +50,9 @@ export interface CourtStagePointerController {
   /** rAF 틱 1회당 정확히 1번 호출된다(§6.4 "물리 호출은 rAF tick 하나에서만"). */
   onPointerMove(world: Vec2, nowMs: number): void;
   /** pointerup·pointercancel·두 번째 포인터의 핀치 전환 — 전부 이 하나로 합류한다. */
-  onPointerUp(): void;
+  /** 손을 뗀 화면 좌표. 트레이 위에 놓았는지(=코트에서 빼기) 판정하는 데 쓴다.
+   *  pointercancel 은 좌표가 없으므로 null 이다 — 그때는 트레이 판정을 하지 않는다. */
+  onPointerUp(client: { x: number; y: number } | null): void;
 }
 
 export interface CourtStageHandle {
@@ -203,6 +205,9 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
 
   // 단일 활성 포인터(드래그) 상태 — ref 로만 들고 다닌다(§6.4: 리렌더를 유발하지 않는다).
   const activePointerId = useRef<number | null>(null);
+  /** 마지막 포인터 화면 좌표. onPointerUp 이벤트에는 좌표가 있지만 endInteraction 은
+   *  pointercancel·언마운트 등 여러 경로에서 불려 이벤트가 없을 수 있어 따로 들고 있는다. */
+  const lastClientRef = useRef<{ x: number; y: number } | null>(null);
   const targetRef = useRef<Vec2 | null>(null);
   const rafUnsub = useRef<(() => void) | null>(null);
 
@@ -221,7 +226,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     stopRafLoop();
     activePointerId.current = null;
     targetRef.current = null;
-    controller.onPointerUp();
+    controller.onPointerUp(lastClientRef.current);
+    lastClientRef.current = null;
   }, [controller, stopRafLoop]);
 
   const handlePointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
@@ -295,6 +301,9 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   };
 
   const handlePointerEnd = (e: ReactPointerEvent<SVGSVGElement>): void => {
+    if (e.pointerId === activePointerId.current && e.type !== 'pointercancel') {
+      lastClientRef.current = { x: e.clientX, y: e.clientY };
+    }
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinchStartView.current = null;
     if (e.pointerId !== activePointerId.current) return;

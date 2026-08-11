@@ -6,7 +6,7 @@ import { useCallback, useRef, useState } from 'react';
 import { isId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
 import type { CourtMode } from '../../model/court.ts';
-import { BALL, INTERACT } from '../../core/constants.ts';
+import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
 import { useAppHeader } from '../../app/AppHeader.tsx';
@@ -18,7 +18,7 @@ import { useSettingsActions, useSettingsState } from '../../store/settings/Setti
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { useIsPortrait } from '../../ui/useIsPortrait.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
-import { ToolRail, type UnplacedChair } from './ToolRail.tsx';
+import { ToolRail, type ChairSlot } from './ToolRail.tsx';
 import { useTrayDrag } from './useTrayDrag.ts';
 import { placeObject } from './placement.ts';
 import { TrayGhost } from './TrayGhost.tsx';
@@ -188,7 +188,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     onDrop: (item, world) => {
       placeObject(item.kind, world, {
         drill,
-        coneSlot: state.coneSlot,
+        // 끌고 있는 상자가 곧 색이다. 트레이에서 미리 고른 색(state.coneSlot)과
+        // 다를 수 있으므로 **드래그가 이긴다** — pendingPlayerId 와 같은 규칙.
+        coneSlot: item.coneSlot ?? state.coneSlot,
         ballMax: BALL.maxCount,
         // 끌고 있는 칩이 곧 배치 대상이다. 트레이에서 미리 고른 선수(pendingPlayerId)와
         // 다를 수 있으므로 **드래그가 이긴다**.
@@ -224,13 +226,18 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     onShowHelp: () => setHelpOpen(true),
   });
 
-  const unplacedChairs: UnplacedChair[] = drill.cast.chairs
-    .filter((c) => step.chairs[c.id] === undefined)
-    .map((c) => {
-      const teamStyle = drill.teams[c.team];
-      const color = c.color ?? (c.isGk ? teamStyle.gkColor : teamStyle.color);
-      return { id: c.id, number: c.number, color, ink: inkFor(color) };
-    });
+  // 주차 슬롯 은유(기현 지시 2026-08-11): 배치된 선수도 자리를 비워 두고 남긴다.
+  // 예전에는 배치되면 목록에서 사라져 트레이가 들쭉날쭉했고, 코트에서 빼냈을 때 어디로
+  // 돌아가는지도 보이지 않았다.
+  // 색깔별 재고. 상자가 색마다 따로라 합계로는 어느 쪽이 찼는지 알 수 없다.
+  const coneCounts: [number, number] = [0, 0];
+  for (const c of drill.cast.cones) coneCounts[c.colorIndex] += 1;
+
+  const chairSlots: ChairSlot[] = drill.cast.chairs.map((c) => {
+    const teamStyle = drill.teams[c.team];
+    const color = c.color ?? (c.isGk ? teamStyle.gkColor : teamStyle.color);
+    return { id: c.id, number: c.number, color, ink: inkFor(color), placed: step.chairs[c.id] !== undefined };
+  });
 
   // 두 배치가 **같은 컴포넌트 인스턴스**를 쓰도록 조각으로 뽑는다. 가로/세로에서 각각 따로
   // 렌더하면 방향이 바뀔 때 언마운트–재마운트가 일어나 인스펙터의 펼침 상태 같은 것이 날아간다.
@@ -241,8 +248,10 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       coneSlot={state.coneSlot}
       onConeSlotChange={(slot) => dispatch({ type: 'CONE_SLOT_SET', slot })}
       ballCount={drill.cast.balls.length}
+      coneCounts={coneCounts}
+      coneMax={CONE.maxCountPerColor}
       ballMax={BALL.maxCount}
-      unplacedChairs={unplacedChairs}
+      chairSlots={chairSlots}
       pendingPlayerId={pendingPlayerId}
       onArmPlayer={armPlayer}
       courtLabel={{ full: '풀 코트', half: '하프 코트', flat: '플랫 코트' }[drill.courtMode]}

@@ -22,6 +22,8 @@ export interface TrayDragItem {
   kind: PlaceKind;
   /** 'player' 일 때 어떤 휠체어를 끌고 있는지. 트레이가 칩마다 자기 id 를 준다. */
   chairId?: ChairId;
+  /** 'cone' 일 때 어느 색 상자에서 꺼냈는지. 색마다 상자가 따로라 도구 상태와 어긋날 수 있다. */
+  coneSlot?: 0 | 1;
 }
 
 export interface UseTrayDragOptions {
