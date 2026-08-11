@@ -31,8 +31,13 @@ import { ArrowHandles } from './ArrowHandles.tsx';
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
 import { StageRotProvider } from './stageRot.tsx';
-import { computeMetrics, clientToWorld, rotForFit, zoomAt, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
+import { computeMetrics, clientToWorld, rotForFit, zoomAt, panView, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
 import { raf } from './rafLoop.ts';
+
+/** 더블클릭 판정. OS 기본값(대개 500ms)보다 짧게 잡는다 — 판 위에서는 같은 자리를 두 번
+ *  누르는 일이 흔해서, 길면 무심코 이동이 무장된다. */
+const DBL_CLICK_MS = 350;
+const DBL_CLICK_SLOP_PX = 12;
 
 export interface PointerMeta {
   pointerType: string;
@@ -64,6 +69,9 @@ export interface CourtStageHandle {
 }
 
 export interface CourtStageProps {
+  /** 더블클릭으로 판 이동을 무장할 수 있는가. 배치·지우개 도구에서는 꺼야 한다 —
+   *  같은 자리에 콘 두 개를 빨리 찍는 것이 더블클릭으로 읽혀 두 번째가 삼켜진다. */
+  allowPan?: boolean;
   mode: CourtMode;
   variant: CourtLineVariant;
   writer: TransformWriter;
@@ -110,6 +118,7 @@ const STAGE_STYLE: CSSProperties = { touchAction: 'none', userSelect: 'none', wi
 
 export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function CourtStage(
   {
+    allowPan = false,
     mode,
     variant,
     writer,
@@ -211,6 +220,27 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   const targetRef = useRef<Vec2 | null>(null);
   const rafUnsub = useRef<(() => void) | null>(null);
 
+  // ── 판 이동(더블클릭 후 끌기, 기현 지시 2026-08-11) ──────────────────────────
+  //
+  // 확대는 되는데 이동이 없어서, 200% 에서 코트 왼쪽 절반은 볼 방법이 없었다.
+  //
+  // 한 손가락 끌기는 고무줄 선택이, 두 손가락은 핀치 줌이 이미 쓴다. 남은 손짓 중
+  // **더블클릭 후 끌기**를 쓴다 — 모드 버튼을 하나 더 만들지 않아도 되고, 잘못 눌러도
+  // 손을 떼면 끝난다. 무장한 동안 커서는 십자가다(터치에는 커서가 없어 무장 자체가
+  // 그 손짓 안에 들어 있다: 더블탭한 손가락을 떼지 않고 그대로 끌면 바로 밀린다).
+  const [panArmed, setPanArmed] = useState(false);
+  const panArmedRef = useRef(false);
+  const setArmed = useCallback((v: boolean): void => {
+    panArmedRef.current = v;
+    setPanArmed(v);
+  }, []);
+  /** 직전 pointerdown 의 시각·좌표. 더블클릭 판정용. */
+  const lastDownRef = useRef<{ t: number; x: number; y: number } | null>(null);
+  /** 이동 중인 포인터의 직전 화면 좌표. null 이면 이동 중이 아니다. */
+  const panFromRef = useRef<Vec2 | null>(null);
+  /** 이 이동 제스처에서 판이 실제로 밀렸는가 — 제자리 더블클릭은 무장만 하고 끝난다. */
+  const panMovedRef = useRef(false);
+
   // 두 손가락 핀치 상태.
   const pointers = useRef<Map<number, Vec2>>(new Map());
   const pinchStartDist = useRef(1);
@@ -245,6 +275,25 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     if (pointers.current.size > 2) return; // 세 번째 이상은 완전 무시
 
     if (activePointerId.current !== null) return;
+
+    // 더블클릭이면 이동을 무장한다. 이미 무장돼 있으면 그대로 이동을 시작한다 —
+    // "더블클릭하고 손을 뗀 뒤 끌기" 와 "더블클릭한 채로 끌기" 가 둘 다 통한다.
+    const prev = lastDownRef.current;
+    const isDouble =
+      !!prev &&
+      e.timeStamp - prev.t < DBL_CLICK_MS &&
+      Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < DBL_CLICK_SLOP_PX;
+    lastDownRef.current = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+
+    if (allowPan && (isDouble || panArmedRef.current)) {
+      if (isDouble) setArmed(true);
+      panFromRef.current = { x: e.clientX, y: e.clientY };
+      panMovedRef.current = false;
+      activePointerId.current = e.pointerId;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      // 컨트롤러에는 알리지 않는다 — 알리면 같은 손짓이 고무줄 선택도 함께 시작한다.
+      return;
+    }
 
     // 터치 엣지 스와이프(OS 뒤로가기 제스처)는 스테이지가 가로채지 않는다.
     if (e.pointerType === 'touch' && (e.clientX < 20 || e.clientX > window.innerWidth - 20)) {
@@ -293,6 +342,19 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     }
 
     if (e.pointerId !== activePointerId.current) return;
+
+    if (panFromRef.current) {
+      const m0 = metricsRef.current;
+      if (!m0) return;
+      const from = panFromRef.current;
+      // 손이 잡은 것은 **판**이다 — 오른쪽으로 끌면 창은 왼쪽으로 간다(부호 반전).
+      const d = screenDeltaToWorld(m0, (from.x - e.clientX) / m0.pxPerUnit, (from.y - e.clientY) / m0.pxPerUnit);
+      panFromRef.current = { x: e.clientX, y: e.clientY };
+      if (d.x !== 0 || d.y !== 0) panMovedRef.current = true;
+      setView((v) => panView(v, def, d));
+      return;
+    }
+
     const m = metricsRef.current;
     if (!m) return;
     // ★ pointermove 에서 물리를 직접 호출하지 않는다 — ref 에 기록만 한다(§6.4).
@@ -307,10 +369,33 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinchStartView.current = null;
     if (e.pointerId !== activePointerId.current) return;
+
+    if (panFromRef.current) {
+      panFromRef.current = null;
+      activePointerId.current = null;
+      // 실제로 민 뒤에는 무장을 푼다. 제자리 더블클릭(아직 끌지 않음)이면 무장을 유지해
+      // 다음 끌기가 곧 이동이 되게 한다 — 커서 십자가가 그동안 상태를 알려 준다.
+      if (panMovedRef.current) setArmed(false);
+      return;
+    }
     endInteraction();
   };
 
   useEffect(() => stopRafLoop, [stopRafLoop]);
+
+  // 무장한 채로 잊어버리면 다음 끌기가 선택 대신 이동이 되어 "선택이 안 된다" 가 된다.
+  // Esc 로 풀 수 있어야 하고, 도구를 바꾸면(allowPan 이 꺼지면) 저절로 풀려야 한다.
+  useEffect(() => {
+    if (!allowPan) setArmed(false);
+  }, [allowPan, setArmed]);
+  useEffect(() => {
+    if (!panArmed) return;
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape') setArmed(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [panArmed, setArmed]);
 
   useImperativeHandle(
     ref,
@@ -344,7 +429,13 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       aria-describedby={ariaDescribedBy}
       tabIndex={0}
       className="stage-svg"
-      style={dragCursor ? { ...STAGE_STYLE, cursor: dragCursor } : STAGE_STYLE}
+      style={
+        panArmed
+          ? { ...STAGE_STYLE, cursor: 'crosshair' }
+          : dragCursor
+            ? { ...STAGE_STYLE, cursor: dragCursor }
+            : STAGE_STYLE
+      }
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}

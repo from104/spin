@@ -100,6 +100,18 @@ export function screenDeltaToWorld(m: Pick<StageMetrics, 'rot'>, dx: number, dy:
 /** `view` 는 코트 viewBox 를 `CHAIR.hullRadiusPx` 만큼 확장한 범위 안에 머문다.
  *  줌 배율은 가로 기준(def.vbW / view.w)으로 추적하고 `INTERACT.zoomMin..zoomMax` 로 clamp 한다.
  *  `focus`(포인터·핀치 중심)를 view 안 상대 위치(fx,fy)로 고정한 채 스케일한다. */
+/** view 가 머무를 수 있는 범위. 코트 viewBox 를 `CHAIR.hullRadiusPx` 만큼 넓힌 만큼이다 —
+ *  라인 밖에 놓인 개체와 밀려난 골대까지는 보여야 하지만, 그 너머 빈 공간까지 헤매게 두면
+ *  "판을 잃어버리는" 일이 생긴다. 줌과 이동이 같은 범위를 써야 어긋나지 않는다. */
+export function clampViewToCourt(view: StageView, def: CourtDef): StageView {
+  const margin = CHAIR.hullRadiusPx;
+  const maxX = Math.max(-margin, def.vbW + margin - view.w);
+  const maxY = Math.max(-margin, def.vbH + margin - view.h);
+  return { ...view, x: clamp(view.x, -margin, maxX), y: clamp(view.y, -margin, maxY) };
+}
+
+/** 줌 배율은 가로 기준(def.vbW / view.w)으로 추적하고 `INTERACT.zoomMin..zoomMax` 로 clamp 한다.
+ *  `focus`(포인터·핀치 중심)를 view 안 상대 위치(fx,fy)로 고정한 채 스케일한다. */
 export function zoomAt(view: StageView, def: CourtDef, focus: Vec2, factor: number): StageView {
   const curZoom = def.vbW / view.w;
   const nextZoom = clamp(curZoom * factor, INTERACT.zoomMin, INTERACT.zoomMax);
@@ -107,15 +119,14 @@ export function zoomAt(view: StageView, def: CourtDef, focus: Vec2, factor: numb
   const h = def.vbH / nextZoom;
   const fx = view.w > 0 ? (focus.x - view.x) / view.w : 0.5;
   const fy = view.h > 0 ? (focus.y - view.y) / view.h : 0.5;
+  return clampViewToCourt({ x: focus.x - fx * w, y: focus.y - fy * h, w, h }, def);
+}
 
-  const margin = CHAIR.hullRadiusPx;
-  const minX = -margin;
-  const minY = -margin;
-  const maxX = Math.max(minX, def.vbW + margin - w);
-  const maxY = Math.max(minY, def.vbH + margin - h);
-  const x = clamp(focus.x - fx * w, minX, maxX);
-  const y = clamp(focus.y - fy * h, minY, maxY);
-  return { x, y, w, h };
+/** 판을 **월드 델타만큼 민다**. 손이 잡은 것은 판이므로 화면에서 오른쪽으로 끌면 view 는
+ *  왼쪽으로 간다 — 부호는 호출자가 이미 뒤집어 넘긴다(화면 델타 → 월드 델타 변환이
+ *  회전(rot)까지 함께 처리해야 해서 여기서 다시 손대면 두 곳에서 뒤집힌다). */
+export function panView(view: StageView, def: CourtDef, d: Vec2): StageView {
+  return clampViewToCourt({ ...view, x: view.x + d.x, y: view.y + d.y }, def);
 }
 
 export interface UseStageMetricsResult {

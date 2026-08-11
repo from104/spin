@@ -286,6 +286,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
 
   return (
     <CourtStage
+      // 선택 도구에서만 이동을 무장한다 — 배치 도구에서는 같은 자리에 콘 두 개를 빨리
+      // 찍는 것이 더블클릭으로 읽혀 두 번째가 삼켜진다.
+      allowPan={tool === 'select'}
       ref={stageRef}
       mode={drill.courtMode}
       variant="editor"
