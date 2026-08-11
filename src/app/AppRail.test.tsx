@@ -1,5 +1,7 @@
 // §6.8/§7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page". 레일 클릭이 실제로 useAppNav().go
 // 를 호출해 화면을 바꾸는지, 테마 토글이 SettingsProvider 로 영속화되는지 확인한다.
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -61,5 +63,18 @@ describe('AppRail', () => {
     expect(screen.getByRole('button', { name: '다크 테마로 전환' })).toBeInTheDocument();
     const saved = JSON.parse(window.localStorage.getItem('spin.prefs') ?? '{}');
     expect(saved.theme).toBe('light');
+  });
+});
+
+describe('버전 표시', () => {
+  it('레일 하단에 package.json 의 버전을 그대로 보여준다', () => {
+    // 값의 출처를 package.json 하나로 묶어 둔 것을 못박는다 — 화면에 리터럴로 박으면
+    // 릴리스 때 반드시 어긋나고, 어긋나도 아무 테스트가 빨간불이 되지 않는다.
+    // vitest 는 프로젝트 루트에서 돈다. import.meta.url 은 변환 단계에서 file: 스킴이
+    // 아니어서 못 쓴다.
+    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf-8')) as { version: string };
+    render(<AppRail />, { wrapper: Harness });
+    const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
+    expect(nav).toHaveTextContent(`v${pkg.version}`);
   });
 });

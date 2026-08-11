@@ -117,6 +117,22 @@ export function AppRail() {
       >
         {isDark ? <IconSun /> : <IconMoon />}
       </button>
+
+      {/* 버전 — 값은 package.json 하나에서만 나온다(vite define). 화면에 박아 두면
+          릴리스 때 반드시 어긋난다. 사용자가 "지금 뭘 보고 있는지" 를 말할 수 있어야
+          제보를 커밋에 붙일 수 있어서 눈에 띄지 않게, 그러나 항상 보이게 둔다. */}
+      <span
+        style={{
+          marginTop: 8,
+          fontFamily: "'Space Grotesk', sans-serif",
+          fontSize: '0.625rem',
+          fontWeight: 600,
+          letterSpacing: '0.02em',
+          color: 'var(--faint-text)',
+        }}
+      >
+        v{__APP_VERSION__}
+      </span>
     </nav>
   );
 }

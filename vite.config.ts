@@ -1,9 +1,15 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// 버전 문자열은 package.json 하나에서만 나온다 — 화면에 박아 두면 릴리스 때 반드시 어긋난다.
+// package.json 을 import 하면 번들에 파일 전체가 들어가므로 값만 뽑아 주입한다.
+const pkgVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')).version
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: { __APP_VERSION__: JSON.stringify(pkgVersion) },
   server: {
     // cube 밖(gofu 등 같은 LAN)에서 붙을 수 있게 0.0.0.0 바인딩.
     // 기본값(localhost)이면 cube 안에서만 열린다.
