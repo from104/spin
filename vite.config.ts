@@ -20,15 +20,19 @@ export default defineConfig({
     // 새 코드는 5174 에 뜨고 브라우저는 17시간 된 5173 을 계속 보고 있었다.
     // cube 에서 curl 로 확인해도 낡은 서버가 200 을 주므로 끝까지 안 잡힌다.
     strictPort: true,
-    // Vite 의 DNS 리바인딩 보호. IP 로 붙을 땐 필요 없지만 http://cube:5173 처럼
-    // 호스트명으로 붙으려면 여기 있어야 통과한다.
-    allowedHosts: ['cube', 'cube.local'],
+    // Vite 의 DNS 리바인딩 보호. IP 로 붙을 땐 필요 없지만 호스트명으로 붙으려면 여기 있어야
+    // 통과한다(없으면 403 "Blocked request").
+    //  · cube / cube.local — 같은 LAN 에서 호스트명으로
+    //  · .ts.net           — 테일넷 MagicDNS(cube.tail4fa6d9.ts.net). 앞 점은 하위 도메인
+    //    와일드카드다. 테일넷은 방화벽을 따로 열 필요가 없다 — ts-input 체인이 ufw 보다
+    //    앞에서 tailscale0 인입을 전부 통과시킨다(실측).
+    allowedHosts: ['cube', 'cube.local', '.ts.net'],
   },
   preview: {
     host: true,
     port: 4173,
     strictPort: true,
-    allowedHosts: ['cube', 'cube.local'],
+    allowedHosts: ['cube', 'cube.local', '.ts.net'],
   },
   test: {
     environment: 'jsdom',
