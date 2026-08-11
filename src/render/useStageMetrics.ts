@@ -129,6 +129,29 @@ export function panView(view: StageView, def: CourtDef, d: Vec2): StageView {
   return clampViewToCourt({ ...view, x: view.x + d.x, y: view.y + d.y }, def);
 }
 
+/** 화면 가장자리 자동 밀기 속도(**화면** px/s). 포인터가 상자 가장자리 띠 안으로 들어간
+ *  깊이에 제곱으로 비례한다. 바깥으로 나가도 최고 속도에서 멈춘다 — 손이 화면 밖으로
+ *  많이 나갔다고 판이 더 빨리 달아나면 되돌아올 수 없다.
+ *
+ *  부호는 "포인터가 간 쪽으로 창이 따라간다" 다: 왼쪽 띠에 들어가면 창이 왼쪽(−x)으로 간다.
+ *  판을 손으로 미는 것(부호 반전)과 반대이므로 한곳에 몰아 둔다. */
+export function edgePanVelocity(
+  rect: { left: number; top: number; right: number; bottom: number },
+  client: Vec2,
+  bandPx: number,
+  maxPxPerS: number,
+): Vec2 {
+  const axis = (lo: number, hi: number, p: number): number => {
+    const inLo = bandPx - (p - lo); // 왼/위 가장자리로부터의 침투 깊이
+    const inHi = bandPx - (hi - p);
+    const depth = inLo > 0 ? -inLo : inHi > 0 ? inHi : 0;
+    if (depth === 0 || bandPx <= 0) return 0;
+    const t = clamp(Math.abs(depth) / bandPx, 0, 1);
+    return Math.sign(depth) * t * t * maxPxPerS;
+  };
+  return { x: axis(rect.left, rect.right, client.x), y: axis(rect.top, rect.bottom, client.y) };
+}
+
 export interface UseStageMetricsResult {
   /** 리렌더를 유발하지 않는 실측치. 히트테스트·좌표변환은 항상 이 ref 를 읽는다. */
   metricsRef: RefObject<StageMetrics | null>;

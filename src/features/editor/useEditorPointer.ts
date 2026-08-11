@@ -24,7 +24,7 @@ import { poseToStored } from '../../model/chair.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
 import type { Arrow, ArrowKind } from '../../model/arrow.ts';
 import { defaultCtrl } from '../../model/arrow.ts';
-import type { CourtStageHandle, PointerMeta, CourtStagePointerController } from '../../render/CourtStage.tsx';
+import type { CourtStageHandle, PointerMeta, PointerDownResult, CourtStagePointerController } from '../../render/CourtStage.tsx';
 import type { SelectionOverlayHandle, SelectionShape } from '../../render/SelectionOverlay.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { placeObject } from './placement.ts';
@@ -254,7 +254,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   }, []);
 
   const onPointerDown = useCallback(
-    (world: Vec2, meta: PointerMeta) => {
+    (world: Vec2, meta: PointerMeta): PointerDownResult | void => {
       const ctx = ctxRef.current;
       const m = ctx.stageRef.current?.refreshMetrics();
       metricsRef.current = { pxPerUnit: m?.pxPerUnit ?? metricsRef.current.pxPerUnit, pointerType: meta.pointerType };
@@ -297,7 +297,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         rubberRef.current = { start: world, additive };
         rubberRectRef.current = { x: world.x, y: world.y, w: 0, h: 0 };
         selectionOverlayRef.current?.setRubberBand(rubberRectRef.current);
-        return;
+        // 확대해 놓고 선택을 시작하면 화면 밖 개체는 어떤 방법으로도 사각형에 넣을 수 없다 —
+        // 손을 떼면 선택이 끝나고, 떼지 않으면 판을 밀 수 없다. 가장자리에서 판이 따라온다.
+        return { edgePan: true };
       }
       if (hit.kind === 'zoneHandle') {
         const handle = ctx.worldRef.current?.beginDrag(hit, world) ?? null;

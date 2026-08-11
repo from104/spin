@@ -12,6 +12,7 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, Ref } from 'react';
 import type { Vec2 } from '../core/units.ts';
+import { INTERACT } from '../core/constants.ts';
 import { COURT_BG } from '../core/colors.ts';
 import { COURT_DEFS, type CourtMode } from '../model/court.ts';
 import type { DragZone } from '../model/chair.ts';
@@ -31,7 +32,7 @@ import { ArrowHandles } from './ArrowHandles.tsx';
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
 import { StageRotProvider } from './stageRot.tsx';
-import { computeMetrics, clientToWorld, rotForFit, zoomAt, panView, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
+import { computeMetrics, clientToWorld, rotForFit, zoomAt, panView, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
 import { raf } from './rafLoop.ts';
 
 /** 더블클릭 판정. OS 기본값(대개 500ms)보다 짧게 잡는다 — 판 위에서는 같은 자리를 두 번
@@ -50,8 +51,16 @@ export interface PointerMeta {
 
 /** store(Wave3) 가 구현해 주입하는 포인터 의미론 — 히트테스트·물리 드래그·러버밴드 판단은
  *  전부 이 안에서 일어난다. CourtStage 는 좌표만 넘긴다. */
+/** pointerdown 이 시작한 드래그의 성격. CourtStage 는 히트테스트를 하지 않아 무엇을 잡았는지
+ *  모른다 — 판단은 컨트롤러가 하고, 그 결과만 여기로 돌려준다. */
+export interface PointerDownResult {
+  /** 포인터가 화면 가장자리로 가면 판을 저절로 밀 것인가(고무줄 선택).
+   *  개체를 잡은 드래그에는 켜지 않는다 — 잡은 개체가 화면 밖으로 딸려 나간다. */
+  edgePan?: boolean;
+}
+
 export interface CourtStagePointerController {
-  onPointerDown(world: Vec2, meta: PointerMeta): void;
+  onPointerDown(world: Vec2, meta: PointerMeta): PointerDownResult | void;
   /** rAF 틱 1회당 정확히 1번 호출된다(§6.4 "물리 호출은 rAF tick 하나에서만"). */
   onPointerMove(world: Vec2, nowMs: number): void;
   /** pointerup·pointercancel·두 번째 포인터의 핀치 전환 — 전부 이 하나로 합류한다. */
@@ -219,6 +228,10 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   const lastClientRef = useRef<{ x: number; y: number } | null>(null);
   const targetRef = useRef<Vec2 | null>(null);
   const rafUnsub = useRef<(() => void) | null>(null);
+  /** 드래그 중 포인터의 **화면** 좌표. 가장자리 자동 밀기는 판이 움직여도 손은 제자리이므로,
+   *  월드 좌표만 들고 있으면 사각형이 자라지 않는다 — 매 프레임 여기서 다시 환산한다. */
+  const dragClientRef = useRef<Vec2 | null>(null);
+  const edgePanRef = useRef(false);
 
   // ── 판 이동(더블클릭 후 끌기, 기현 지시 2026-08-11) ──────────────────────────
   //
@@ -251,11 +264,42 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     rafUnsub.current = null;
   }, []);
 
+  /** 고무줄 선택 중 포인터가 가장자리 띠에 들어가 있으면 판을 그만큼 민다.
+   *
+   *  민 뒤에는 **같은 화면 좌표를 다시 월드로 환산한다** — 손은 제자리인데 판이 움직였으므로
+   *  포인터 아래의 월드 좌표가 달라졌다. 이걸 빠뜨리면 판만 흐르고 사각형은 그 자리에 멈춘다.
+   *
+   *  환산에 쓰는 view 는 **직전 프레임 것**이다(setView 는 다음 렌더에 반영된다). 최고 속도에서
+   *  한 프레임 = 15px 이라 사각형이 그만큼 뒤따르는데, 개체 히트 반경보다 작아 실사용에서
+   *  드러나지 않는다. setView 의 함수형 갱신을 포기하면 정확해지지만, 렌더가 한 프레임
+   *  밀릴 때 이동이 통째로 멎는다 — 15px 뒤처지는 쪽이 낫다.
+   *  pxPerUnit·offX·offY 는 배율이 그대로라 바뀌지 않는다. view 만 갈아 끼우면 된다. */
+  const stepEdgePan = useCallback(
+    (dtMs: number): void => {
+      const client = dragClientRef.current;
+      const m = metricsRef.current;
+      if (!client || !m) return;
+      const v = edgePanVelocity(m.rect, client, INTERACT.edgePanBandPx, INTERACT.edgePanMaxPxPerS);
+      if (v.x === 0 && v.y === 0) return;
+      const dt = Math.min(dtMs, 50) / 1000; // 탭 전환으로 프레임이 밀려도 한 번에 튀지 않게
+      const d = screenDeltaToWorld(m, (v.x * dt) / m.pxPerUnit, (v.y * dt) / m.pxPerUnit);
+      setView((prev) => {
+        const next = panView(prev, def, d);
+        if (next.x === prev.x && next.y === prev.y) return prev; // 끝까지 갔다 — 헛돌지 않게
+        return next;
+      });
+      targetRef.current = clientToWorld({ ...m, view: viewRef.current }, client.x, client.y);
+    },
+    [def, metricsRef],
+  );
+
   const endInteraction = useCallback((): void => {
     if (activePointerId.current === null) return;
     stopRafLoop();
     activePointerId.current = null;
     targetRef.current = null;
+    dragClientRef.current = null;
+    edgePanRef.current = false;
     controller.onPointerUp(lastClientRef.current);
     lastClientRef.current = null;
   }, [controller, stopRafLoop]);
@@ -310,7 +354,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     const world = clientToWorld(m, e.clientX, e.clientY);
     targetRef.current = world;
 
-    controller.onPointerDown(world, {
+    dragClientRef.current = { x: e.clientX, y: e.clientY };
+    const res = controller.onPointerDown(world, {
       pointerType: e.pointerType,
       button: e.button,
       shiftKey: e.shiftKey,
@@ -318,8 +363,10 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       ctrlKey: e.ctrlKey,
       altKey: e.altKey,
     });
+    edgePanRef.current = !!res?.edgePan;
 
-    rafUnsub.current = raf.add((_dt, now) => {
+    rafUnsub.current = raf.add((dtMs, now) => {
+      if (edgePanRef.current) stepEdgePan(dtMs);
       const t = targetRef.current;
       if (t) controller.onPointerMove(t, now); // ★ 물리 호출은 rAF tick 하나에서만(§6.4)
     });
@@ -359,6 +406,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     if (!m) return;
     // ★ pointermove 에서 물리를 직접 호출하지 않는다 — ref 에 기록만 한다(§6.4).
     // 120Hz 태블릿의 coalesced 이벤트를 그대로 반영해도 rAF tick 이 한 번만 소비한다.
+    dragClientRef.current = { x: e.clientX, y: e.clientY };
     targetRef.current = clientToWorld(m, e.clientX, e.clientY);
   };
 
