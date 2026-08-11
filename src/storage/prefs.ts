@@ -22,6 +22,10 @@ export interface PhysicsParams {
   linearKmh: number;
   bumperKmh: number;
   editorSpeedMultiplier: number; // 1.0 기본. 드래그/놓은 뒤 이어가기에만 적용(§5.11)
+  /** 개체 이동 속도 제한. 끄면 잡은 개체가 포인터를 즉시 따라온다 —
+   *  실제 파워체어 속도(10 km/h)를 지키는 것과 판을 빨리 짜는 것은 다른 목적이라
+   *  화면에서 바로 오갈 수 있어야 한다. */
+  speedLimit: boolean;
 }
 /** 중첩을 타입에서 푼다. Partial<PhysicsParams> 는 zones 를 부분 저장할 수 없어 슬라이더 하나만
  *  만져도 나머지 기본값이 박제된다. */
@@ -108,6 +112,7 @@ function sanitizePhysicsOverride(raw: unknown): PhysicsOverride {
   if (typeof raw.editorSpeedMultiplier === 'number' && Number.isFinite(raw.editorSpeedMultiplier)) {
     out.editorSpeedMultiplier = raw.editorSpeedMultiplier;
   }
+  if (typeof raw.speedLimit === 'boolean') out.speedLimit = raw.speedLimit;
   return out;
 }
 
@@ -192,8 +197,10 @@ export function resolvePhysics(p: Preferences): PhysicsParams {
   const linearKmh = clamp(p.physics.linearKmh ?? DEFAULT_LIMITS.linearKmh, 4, 16);
   const bumperKmh = clamp(p.physics.bumperKmh ?? DEFAULT_LIMITS.bumperKmh, 10, bumperKmhMax(linearKmh));
   const editorSpeedMultiplier = clamp(p.physics.editorSpeedMultiplier ?? 1, 1, 4);
+  const speedLimit = p.physics.speedLimit ?? true;
   return {
     zones: { sTowRearMax, sSpinMin, sTowFrontMin, grabPadPx: z.grabPadPx },
+    speedLimit,
     linearKmh,
     bumperKmh,
     editorSpeedMultiplier,
@@ -214,6 +221,8 @@ export function prunePhysics(v: PhysicsParams | PhysicsOverride): PhysicsOverrid
   if (v.linearKmh !== undefined && v.linearKmh !== DEFAULT_LIMITS.linearKmh) out.linearKmh = v.linearKmh;
   if (v.bumperKmh !== undefined && v.bumperKmh !== DEFAULT_LIMITS.bumperKmh) out.bumperKmh = v.bumperKmh;
   if (v.editorSpeedMultiplier !== undefined && v.editorSpeedMultiplier !== 1) out.editorSpeedMultiplier = v.editorSpeedMultiplier;
+  // 기본값이 true 이므로 false 일 때만 남긴다.
+  if (v.speedLimit === false) out.speedLimit = false;
   return out;
 }
 

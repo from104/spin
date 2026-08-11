@@ -83,6 +83,11 @@ export interface PhysicsWorldApi {
    *  이걸 안 하면 상태와 물리가 어긋나 다음 드래그가 개체를 옛 자리로 되돌린다.
    *  순간이동이지 던지기가 아니므로 잔여 속도는 지운다. */
   setPose(id: CastId, pose: { x: number; y: number; theta?: number }): void;
+  /** 속도 상한을 살아 있는 월드에 즉시 반영한다(설정 토글용).
+   *  드래그 도중에 바꿔도 안전하다 — stepDrag 는 매 substep 이 값을 새로 읽고, 세션 상태에는
+   *  vLin/ω 가 저장돼 있지 않다. 다만 §5.11 릴리스 체이스가 진행 중이면 남은 거리를 새 속도로
+   *  마저 달린다(이전 속도로 계산된 목표점은 그대로다). */
+  setLimits(next: DragLimits): void;
   beginDrag(hit: HitResult, grabWorld: Vec2): DragHandle | null;
   zoneAt(id: ChairId, worldPt: Vec2): DragZone | null;
   isSettled(): boolean;
@@ -122,8 +127,10 @@ function internalHitContext(): HitContext {
 export function createPhysicsWorld(
   courtW: number,
   courtH: number,
-  limits: DragLimits = DEFAULT_DRAG_LIMITS,
+  initialLimits: DragLimits = DEFAULT_DRAG_LIMITS,
 ): PhysicsWorldApi {
+  // 상수가 아니라 가변 홀더다 — setLimits 로 살아 있는 월드의 상한을 바꾼다.
+  let limits: DragLimits = initialLimits;
   const bounds: Bounds = { w: courtW, h: courtH };
   const world: WorldHandles = createWorld(courtW, courtH);
   const kindOf = new Map<CastId, 'chair' | 'ball' | 'cone' | 'goal'>();
@@ -263,6 +270,10 @@ export function createPhysicsWorld(
         }
       }
       return snap;
+    },
+
+    setLimits(next) {
+      limits = next;
     },
 
     setPose(id, pose) {

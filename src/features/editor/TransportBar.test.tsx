@@ -6,6 +6,11 @@ import { render, screen } from '@testing-library/react';
 import { TransportBar, clampTimelineHit } from './TransportBar.tsx';
 import type { DrillStep } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
+import type { ReactNode } from 'react';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// 하단 바에 속도 제한 스위치가 들어가면서 설정 컨텍스트가 필요해졌다.
+const wrapper = ({ children }: { children: ReactNode }) => <SettingsProvider>{children}</SettingsProvider>;
 
 function makeSteps(n: number): DrillStep[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -62,6 +67,7 @@ describe('TransportBar 스텝 타임라인 히트 영역', () => {
     const steps = makeSteps(4);
     render(
       <TransportBar steps={steps} stepId={steps[0]!.id} onSelectStep={noop} playing={false} onTogglePlay={noop} speed={1} onCycleSpeed={noop} />,
+      { wrapper },
     );
     const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(4);
@@ -76,6 +82,7 @@ describe('TransportBar 스텝 타임라인 히트 영역', () => {
     const steps = makeSteps(19); // 430/18 ≈ 23.9px < 24
     render(
       <TransportBar steps={steps} stepId={steps[0]!.id} onSelectStep={noop} playing={false} onTogglePlay={noop} speed={1} onCycleSpeed={noop} />,
+      { wrapper },
     );
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
     const bar = screen.getByRole('progressbar', { name: '스텝 진행' });

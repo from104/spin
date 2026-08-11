@@ -20,6 +20,8 @@ import type { Drill } from '../../model/drill.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import { effectiveStepMs } from '../../model/playback.ts';
 import { createPhysicsWorld } from '../../physics/index.ts';
+import type { DragLimits } from '../../physics/types.ts';
+import type { PhysicsParams } from '../../storage/prefs.ts';
 import type { PhysicsWorldApi } from '../../physics/index.ts';
 import { createTransformWriter } from '../../render/transformWriter.ts';
 import type { TransformWriter } from '../../render/transformWriter.ts';
@@ -44,6 +46,23 @@ function effectiveReduceMotion(setting: 'system' | 'always'): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/** 설정값 → 물리 속도 상한.
+ *
+ *  speedLimit 을 끄면 상한을 사실상 없앤다. Infinity 를 쓰지 않는 이유: clampMag 가
+ *  `len <= m` 비교라 Infinity 여도 동작하지만, 그 값이 clamp 이외의 산술
+ *  (§5.5 tow 의 vGrab = vLin + ω·rho)에 들어가면 NaN 을 만든다. 한 프레임에 판을 가로지르고도
+ *  남는 큰 유한값이면 목적은 같고 수치는 안전하다. */
+const NO_LIMIT_PX_PER_S = 1e6;
+const NO_LIMIT_RAD_PER_S = 1e4;
+
+function limitsFrom(p: PhysicsParams): DragLimits {
+  if (!p.speedLimit) return { vLinPxPerS: NO_LIMIT_PX_PER_S, omegaRadPerS: NO_LIMIT_RAD_PER_S };
+  return {
+    vLinPxPerS: kmhToPxPerS(p.linearKmh) * p.editorSpeedMultiplier,
+    omegaRadPerS: (kmhToPxPerS(p.bumperKmh) / CHAIR.pivotToFrontPx) * p.editorSpeedMultiplier,
+  };
+}
+
 export function EditorProvider({ drill, children }: { drill: Drill; children: ReactNode }) {
   const [state, dispatch] = useReducer(editorRootReducer, drill, initEditorState);
   const { prefs, physics } = useSettingsState();
@@ -56,17 +75,12 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
   const prevEpochRef = useRef(state.epoch);
 
   // 물리 엔진 인스턴스는 React state 로 들지 않는다(ref) — courtMode 는 드릴 레벨 불변(§3.2)이라
-  // DRILL_LOAD 로 코트가 다른 드릴을 불러올 때만 재생성한다. limits 는 재생성 시점의 설정값을
-  // 스냅샷으로 읽는다(편집 도중 설정 화면에서 배수를 바꿔도 이번 세션 물리에는 즉시 반영되지
-  // 않는다 — 살아있는 드래그 세션 도중 vLin/ω 가 바뀌면 §5.11 릴리스 체이스 계산이 뒤틀린다).
+  // DRILL_LOAD 로 코트가 다른 드릴을 불러올 때만 재생성한다. limits 는 생성 시점의 설정값으로
+  // 시작하고, 이후 변경은 아래 effect 가 setLimits 로 살아 있는 월드에 밀어 넣는다.
   useEffect(() => {
     const mode = state.present.courtMode;
     const { vbW, vbH } = COURT_DEFS[mode];
-    const p = physicsRef.current;
-    const limits = {
-      vLinPxPerS: kmhToPxPerS(p.linearKmh) * p.editorSpeedMultiplier,
-      omegaRadPerS: (kmhToPxPerS(p.bumperKmh) / CHAIR.pivotToFrontPx) * p.editorSpeedMultiplier,
-    };
+    const limits = limitsFrom(physicsRef.current);
     const world = createPhysicsWorld(vbW, vbH, limits);
     worldRef.current = world;
     return () => {
@@ -74,6 +88,12 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
       if (worldRef.current === world) worldRef.current = null;
     };
   }, [state.present.courtMode]);
+
+  // 속도 상한을 살아 있는 월드에 즉시 반영한다. 하단 스위치로 껐다 켜는 값이라 다음 월드
+  // 재생성(= 코트 전환)까지 기다리게 하면 스위치가 고장 난 것처럼 보인다.
+  useEffect(() => {
+    worldRef.current?.setLimits(limitsFrom(physics));
+  }, [physics]);
 
   // §6.7 물리 재동기화(blocker 수정): 로스터·코트가 바뀔 때 world.load 를 다시 부른다.
   // [state.present] 전체에 걸면 메모 6글자 타이핑에 25바디 월드가 6번 재생성되고, PLACE_COMMIT 이

@@ -1,7 +1,7 @@
 // physics-world 공개 진입점(createPhysicsWorld) 회귀. §5.8/§5.11 감사 지적을 고정한다.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as Matter from 'matter-js';
-import { createPhysicsWorld, GOAL_ID_PREFIX } from './index.ts';
+import { createPhysicsWorld, DEFAULT_DRAG_LIMITS, GOAL_ID_PREFIX } from './index.ts';
 import * as dragModule from './drag.ts';
 import * as loopModule from './loop.ts';
 import { BALL, CHAIR, PHYS } from '../core/constants.ts';
@@ -273,5 +273,54 @@ describe('resetGoals — 원위치에 휠체어가 있는 경우 (기현 실기 
     w.load(makeCast(), makeStep(), mode);
     expect(w.resetGoals().blocked).toBe(0);
     w.dispose();
+  });
+});
+
+describe('setLimits — 살아 있는 월드의 속도 상한 (하단 스위치)', () => {
+  /** 전방 견인 핸들을 멀리 끌고 n substep 진행시킨 뒤 이동량을 잰다. */
+  function travel(api: ReturnType<typeof createPhysicsWorld>, substeps: number): number {
+    const before = api.read()[chA]!.x;
+    for (let i = 0; i < substeps; i++) api.step(PHYS.dtS);
+    return api.read()[chA]!.x - before;
+  }
+
+  it('상한을 풀면 같은 시간에 훨씬 멀리 간다', () => {
+    const api = createPhysicsWorld(4000, 4000);
+    api.load(makeCast(), makeStep(), mode);
+
+    // 판 오른쪽 멀리를 목표로 잡는다 — 상한이 걸리면 그 속도로만 접근한다.
+    const hit: HitResult = { kind: 'chair', id: chA, zone: 'translate', s: 0.3 };
+    const h = api.beginDrag(hit, { x: 300, y: 300 })!;
+    h.move({ x: 3000, y: 300 }, performance.now());
+    h.move({ x: 3000, y: 300 }, performance.now() + 20); // arm
+
+    const limited = travel(api, 120); // 1초
+    expect(limited).toBeGreaterThan(0);
+    // 기본 상한 69.4444 px/s → 1초에 그 언저리. 여유를 둬도 100px 을 넘지 않는다.
+    expect(limited).toBeLessThan(100);
+
+    // 드래그 도중에 상한을 푼다 — 스위치를 누르는 그 상황이다.
+    api.setLimits({ vLinPxPerS: 1e6, omegaRadPerS: 1e4 });
+    const unlimited = travel(api, 120);
+
+    expect(unlimited).toBeGreaterThan(limited * 5);
+    api.dispose();
+  });
+
+  it('상한을 다시 걸면 즉시 느려진다', () => {
+    const api = createPhysicsWorld(4000, 4000);
+    api.load(makeCast(), makeStep(), mode);
+    const hit: HitResult = { kind: 'chair', id: chA, zone: 'translate', s: 0.3 };
+    const h = api.beginDrag(hit, { x: 300, y: 300 })!;
+    h.move({ x: 3000, y: 300 }, performance.now());
+    h.move({ x: 3000, y: 300 }, performance.now() + 20);
+
+    api.setLimits({ vLinPxPerS: 1e6, omegaRadPerS: 1e4 });
+    const fast = travel(api, 12);
+    api.setLimits(DEFAULT_DRAG_LIMITS);
+    const slow = travel(api, 12);
+
+    expect(slow).toBeLessThan(fast);
+    api.dispose();
   });
 });

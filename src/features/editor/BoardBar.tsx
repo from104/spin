@@ -8,6 +8,7 @@ import { useId, useRef, useState } from 'react';
 // 화면에 남지 않는다 — 스크린리더 사용자에게도 상시 근거가 필요하다.
 
 import { Modal } from '../../ui/Modal.tsx';
+import { SpeedLimitSwitch } from './SpeedLimitSwitch.tsx';
 import { Button } from '../../ui/Button.tsx';
 
 export interface BoardBarProps {
@@ -66,6 +67,8 @@ export function BoardBar({ courtLocked, onReset, onResetGoals }: BoardBarProps) 
         >
           골대 원위치
         </button>
+
+        <SpeedLimitSwitch />
 
         <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: '0.6875rem', color: 'var(--faint-text)' }}>
           {courtLocked

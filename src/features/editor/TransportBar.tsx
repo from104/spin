@@ -9,6 +9,7 @@ import type { DrillStep } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
 import type { PlaybackSpeed } from '../../store/playback/PlaybackProvider.tsx';
 import { IconChevronPrev, IconChevronNext, IconPlay, IconPause } from '../../ui/icons.tsx';
+import { SpeedLimitSwitch } from './SpeedLimitSwitch.tsx';
 
 export interface TransportBarProps {
   steps: readonly DrillStep[];
@@ -238,6 +239,8 @@ export function TransportBar({ steps, stepId, onSelectStep, playing, onTogglePla
         >
           {speed}×
         </button>
+
+        <SpeedLimitSwitch />
       </div>
     </div>
   );
