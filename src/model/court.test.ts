@@ -32,14 +32,27 @@ describe('COURT_DEFS', () => {
       { x: 700, y: 262.5 },
     ]);
     expect(d.grid).toEqual({ cols: 6, rows: 5, cellW: 125, cellH: 90, origin: { x: 37.5, y: 37.5 } });
-    expect(d.homeHeadingDeg).toBe(0);
-    expect(d.awayHeadingDeg).toBe(180);
+    // 골대는 좌우에 있지만 처음 놓을 때는 세로로 세운다(기현 지시 2026-08-11).
+    expect(d.homeHeadingDeg).toBe(90);
+    expect(d.awayHeadingDeg).toBe(270);
     // 검증: 750/30 = 450/18 = 25 px/m, 골 폭 150 px = 6 m, 골 지역 125×200 px = 5×8 m
     expect(d.surface.w / 30).toBe(25);
     expect(d.surface.h / 18).toBe(25);
     expect(d.goalPosts[1].y - d.goalPosts[0].y).toBe(150);
     expect(d.ruleZones[0].w).toBe(125);
     expect(d.ruleZones[0].h).toBe(200);
+  });
+
+  it('세 코트 모두 처음에는 세로로 세운다 — 코트를 바꿔도 서 있는 모습이 같다', () => {
+    // 풀 코트만 공격 축(좌우)을 따라 0°/180° 였는데, 판을 짤 때 필요한 것은 "지금 어디를
+    // 보고 있는가" 가 아니라 "누가 어디에 있는가" 다(기현 지시 2026-08-11). 방향은 그
+    // 다음에 돌려 잡는다. 하나만 다르면 코트를 바꿀 때마다 말이 통째로 눕는다.
+    for (const d of Object.values(COURT_DEFS)) {
+      expect(d.homeHeadingDeg, d.mode).toBe(90);
+      expect(d.awayHeadingDeg, d.mode).toBe(270);
+      // 두 팀은 여전히 마주 본다 — 같으면 어느 쪽이 우리 편인지 한눈에 안 보인다.
+      expect(Math.abs(d.homeHeadingDeg - d.awayHeadingDeg), d.mode).toBe(180);
+    }
   });
 
   it('half', () => {

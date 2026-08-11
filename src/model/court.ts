@@ -59,8 +59,12 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
       { x: 700, y: 262.5 },
     ],
     grid: { cols: 6, rows: 5, cellW: 125, cellH: 90, origin: { x: 37.5, y: 37.5 } },
-    homeHeadingDeg: 0,
-    awayHeadingDeg: 180,
+    // 처음 놓을 때는 **세로로 세워 둔다**(기현 지시 2026-08-11). 골대가 좌우에 있으니
+    // 공격 축을 따르면 0°/180°(가로)가 맞지만, 판을 짤 때 필요한 것은 "지금 어디를
+    // 보고 있는가" 가 아니라 "누가 어디에 있는가" 다 — 방향은 그 다음에 돌려 잡는다.
+    // 하프·플랫과 같은 값이라 코트를 바꿔도 말이 서 있는 모습이 달라지지 않는다.
+    homeHeadingDeg: 90,
+    awayHeadingDeg: 270,
   },
   half: {
     mode: 'half',
