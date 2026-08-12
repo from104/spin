@@ -23,7 +23,7 @@ const FULL = {
   coneMax: CONE.maxCountPerColor,
 };
 
-type RailExtras = Pick<ToolRailProps, 'tray' | 'onTrayChange' | 'drillUses'>;
+type RailExtras = Pick<ToolRailProps, 'tray' | 'onTrayChange' | 'drillUses' | 'orientation'>;
 
 function ControlledRail({ chairSlots, ...extras }: { chairSlots?: ChairSlot[] } & RailExtras) {
   const [tool, setTool] = useState<ToolId>('select');
@@ -311,6 +311,51 @@ describe('ToolRail — 서랍은 위쪽 좌표를 건드리지 않는다 (§3 �
       return was !== undefined && was.y !== b.y;
     });
     expect(moved.map((b) => b.name)).toEqual(['설명']);
+  });
+});
+
+// 2026-08-12 3차 검증관 지적: 위의 좌표 모형은 **세로 트레이만** 쟀다. 가로 트레이(세로 화면 —
+// 태블릿을 무릎에 세우는 그 자세다. EditorWorkspace 가 portrait 이면 실제로 이 경로를 쓴다)는
+// `justifyContent:'center'` 였고, 그래서 끝에 붙는 서랍 폭이 앞쪽 표적을 **전부** 왼쪽으로
+// 밀었다 — 실측 작도 114px · 설명 57px · 둘 다 171px → 85.5px 이동. §3 이 이 설계를 택한
+// 근거가 하필 그 자세에서 무효였다.
+//
+// jsdom 에 레이아웃이 없으므로 x 를 재는 대신 **flexbox 의미론으로 증명한다**: row 이고
+// 시작 정렬이며 서랍 내용이 문서 순서상 뒤라면, 끝에 폭이 붙어도 앞 항목은 원리적으로 못 움직인다.
+// 세 조건을 AND 로 묶지 않고 따로 단언한다 — 묶으면 하나가 깨져도 다른 것이 대신 걸러 준다.
+describe('ToolRail — 가로 트레이(세로 화면)에서도 서랍이 앞쪽을 밀지 않는다 (§3 불변식 1)', () => {
+  const rail = () => screen.getByRole('navigation', { name: '도구' });
+
+  it('주축이 row 이고 **시작 정렬**이다 — center 면 끝에 붙는 폭이 앞을 절반만큼 민다', () => {
+    render(<ControlledRail chairSlots={SLOTS} orientation="horizontal" />);
+    expect(rail().style.flexDirection).toBe('row');
+    expect(rail().style.justifyContent).toBe('flex-start');
+  });
+
+  it('넘칠 때 첫 항목에 손이 닿는다 — 중앙정렬이면 시작 쪽 넘침을 scrollLeft 로 못 간다', () => {
+    // 7인치 세로에서 표적 13개(약 741px)는 이미 넘친다. center 였다면 **1번 선수가 영영
+    // 안 잡힌다** — 좌표가 밀리는 것보다 나쁜 고장이라 따로 단언한다.
+    render(<ControlledRail chairSlots={SLOTS} orientation="horizontal" />);
+    expect(rail().style.overflowX).toBe('auto');
+    expect(rail().style.justifyContent).not.toBe('center');
+  });
+
+  it('서랍 내용은 앞쪽 표적보다 뒤에 있다 — 위 두 조건과 합쳐 앞이 안 밀림이 증명된다', async () => {
+    render(<ControlledRail chairSlots={SLOTS} orientation="horizontal" />);
+    const user = userEvent.setup();
+    await user.click(handle('작도'));
+    const first = screen.getByRole('button', { name: '2번 선수 배치' });
+    const erase = screen.getByRole('button', { name: /지우개/ });
+    for (const opened of ['이동', '패스']) {
+      const el = screen.getByRole('button', { name: new RegExp(opened) });
+      expect(first.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING, opened).toBeTruthy();
+      expect(erase.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING, opened).toBeTruthy();
+    }
+  });
+
+  it('대조군: 세로 트레이는 row 가 아니다 — 위 단언이 두 배치를 뭉뚱그리지 않는다', () => {
+    render(<ControlledRail chairSlots={SLOTS} />);
+    expect(rail().style.flexDirection).toBe('column');
   });
 });
 

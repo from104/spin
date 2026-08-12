@@ -23,6 +23,7 @@ import { courtPadCss } from '../../app/chromeBudget.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import { createRuleOverlay } from '../../render/ruleOverlay.ts';
 import { ToolRail, type ChairSlot, type TrayDrawers } from './ToolRail.tsx';
+import { drillUsesOf } from './drillUses.ts';
 import { useTrayDrag } from './useTrayDrag.ts';
 import { placeObject } from './placement.ts';
 import { TrayGhost } from './TrayGhost.tsx';
@@ -302,13 +303,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // 그 드릴은 화살표를 쓰는 드릴이고, 1번 스텝을 보고 있는 사람에게도 서랍이 준비돼 있어야 한다.
   // 고급자가 만든 것을 초보자가 받아 열었을 때 *"이 드릴에 있는 것을 나는 왜 못 만드나"* 가
   // 생기지 않게 하는 것이 목적이라, 판단 기준은 현재 스텝이 아니라 드릴이다.
-  const drillUses = useMemo(
-    () => ({
-      draw: drill.steps.some((s) => s.arrows.length > 0),
-      note: drill.steps.some((s) => s.notes.length > 0),
-    }),
-    [drill.steps],
-  );
+  const drillUses = useMemo(() => drillUsesOf(drill), [drill]);
   // 서랍 개폐를 prefs 에 남긴다 — §3 불변식 2 의 *'영구히'* 를 기기 재시작 너머로 들고 가는
   // 자리가 3.0 이 세워 둔 `prefs.tray` 다(판이 아니라 prefs 인 이유: 판마다 서랍이 다르면
   // 표적 좌표가 판마다 달라진다).

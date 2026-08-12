@@ -19,10 +19,11 @@
 // 5. sr-only 는 **요소 종류로 거르지 않는다** — sr-only 인 상호작용 컨트롤(SkipLink)은 포커스
 //    순회에 실제로 나타나는 표적이므로 센다.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { AppShell } from '../app/AppShell.tsx';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { LibraryProvider } from '../store/library/LibraryProvider.tsx';
+import { makeDefaultPrefs, PREFS_KEY } from '../storage/prefs.ts';
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
 
 const BUDGET = 40;
@@ -111,6 +112,35 @@ describe('첫 화면 표적 예산 [E-5]', () => {
     // 내역을 고치는 결정과 함께가 아니면 이 상한을 올리지 마라.
     const names = targets.map((el) => el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 20) ?? el.tagName);
     expect(targets.length, `표적 ${targets.length}개:\n${names.join('\n')}`).toBeLessThanOrEqual(BUDGET);
+  });
+
+  // 2026-08-12 3차 검증관 지적: 위 게이트는 매번 localStorage 를 비우고 재므로 **실사용 경로를
+  // 못 본다.** seed 드릴에 화살표 8곳·메모 2곳이 있어 §3 불변식 3 이 두 서랍을 다 열고, 개폐는
+  // `prefs.tray` 에 남는다 — **seed 드릴을 한 번 열면 그 뒤 전술판은 영구히 서랍이 열린 상태**다.
+  // 그 상태의 실측이 40 이라 여유가 0 이고, 5.4 의 [포메이션 채우기] 1 이 오면 41 = 초과다.
+  // 게이트가 그것을 못 잡으면 예산은 종이 위에만 있는 것이다.
+  it(`서랍이 둘 다 열린 실사용 상태도 ${BUDGET} 이하다 — seed 드릴을 한 번 열면 이 상태가 영구다`, async () => {
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ ...makeDefaultPrefs(), tray: { draw: true, note: true } }),
+    );
+    await openFirstScreen();
+    const targets = countTargets(document.body);
+    const names = targets.map((el) => el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 20) ?? el.tagName);
+    expect(targets.length, `서랍 열림 표적 ${targets.length}개:\n${names.join('\n')}`).toBeLessThanOrEqual(BUDGET);
+  });
+
+  it('대조군: 서랍을 열면 표적이 실제로 는다 — 위 it 이 같은 화면을 두 번 센 것이 아니다', async () => {
+    // 이게 없으면 prefs 주입이 무시돼도(예: 키가 바뀌어도) 위 it 이 조용히 통과한다.
+    await openFirstScreen();
+    const closed = countTargets(document.body).length;
+    cleanup();
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ ...makeDefaultPrefs(), tray: { draw: true, note: true } }),
+    );
+    await openFirstScreen();
+    expect(countTargets(document.body).length).toBeGreaterThan(closed);
   });
 
   it('대조군: 셈이 화면 전 구역을 실제로 보고 있다 — 구역별 표적이 최소 1개씩 잡힌다', async () => {
