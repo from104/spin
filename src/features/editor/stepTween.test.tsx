@@ -126,12 +126,23 @@ async function seedDrill() {
   return { drill, arBoth, arExit, ntBoth, ntEnter, chairId: Object.keys(s0.chairs)[0]! };
 }
 
-async function mountEditor() {
+async function mountEditor(settleId: string) {
   render(<EditorScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-  // 마운트 직후 프레임을 몇 개 흘려 등록·초기 기록을 안정시킨다.
-  flush(16);
-  flush(16);
+  // 마운트 직후 초기 기록이 화면에 닿기까지는 (a) 드릴 비동기 로드 → (b) 칩 렌더 → (c) rAF
+  // 프레임의 세 단계가 있다. 원래 여기 있던 고정 flush(16) 2회는 (a)가 위 waitFor 안에 이미
+  // 끝났다는 가정인데, 병렬 전체 실행으로 기계가 밀리면 (a)가 그 뒤로 넘어와 두 프레임이
+  // 빈 큐에 헛돌고, 뒤늦게 큐에 든 초기 기록 프레임은 아무도 안 굴려 transform 이 빈 채
+  // 남았다(전체 실행에서만 간헐 빨간불이던 그 플레이크 — 단독 실행은 늘 초록불). 재시도마다
+  // 한 프레임씩 굴리며 초기 transform 이 실제로 쓰일 때까지 기다린다 — 시한 초과면 행(hang)이
+  // 아니라 단언 실패로 죽는다.
+  await waitFor(
+    () => {
+      flush(16);
+      expect(document.getElementById(`obj-${settleId}`)?.getAttribute('transform') ?? '').toMatch(/translate\(/);
+    },
+    { timeout: 3000 },
+  );
 }
 
 const objEl = (id: string): SVGGElement => document.getElementById(`obj-${id}`) as unknown as SVGGElement;
@@ -146,7 +157,7 @@ const fadeClassOf = (id: string): string => objEl(id).parentElement!.getAttribut
 describe('3.10 — 편집기 스텝 전환(실조립)', () => {
   it('휠체어·화살표·메모가 중간값을 지나 도착한다 — 화살표는 id 로 짝지은 세 점 보간', async () => {
     const { arBoth, ntBoth, ntEnter, chairId, drill } = await seedDrill();
-    await mountEditor();
+    await mountEditor(chairId);
 
     const chairX0 = txOf(chairId);
     expect(dOf(arBoth)).toBe('M100,100 Q150,125 200,100');
@@ -188,8 +199,8 @@ describe('3.10 — 편집기 스텝 전환(실조립)', () => {
   });
 
   it('한쪽에만 있는 화살표·메모는 페이드로 퇴장/등장한다(edits.ts D6 크로스페이드 전제)', async () => {
-    const { arExit, ntEnter } = await seedDrill();
-    await mountEditor();
+    const { arExit, ntEnter, chairId } = await seedDrill();
+    await mountEditor(chairId);
 
     expect(fadeClassOf(arExit)).toBe(''); // 전환 전에는 페이드가 없다(대조군)
 
@@ -212,7 +223,7 @@ describe('3.10 — 편집기 스텝 전환(실조립)', () => {
   it('reduce-motion 이면 즉시 스냅이고 페이드도 없다(트윈 ms=0 과 같은 규칙)', async () => {
     stubReduceMotion();
     const { arBoth, arExit, ntBoth, chairId } = await seedDrill();
-    await mountEditor();
+    await mountEditor(chairId);
     const chairX0 = txOf(chairId);
 
     fireEvent.click(screen.getByRole('button', { name: '다음 스텝' }));
