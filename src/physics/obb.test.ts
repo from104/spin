@@ -11,6 +11,7 @@ import {
   outOfBounds,
   resolveMotion,
   satOverlap,
+  separateOverlaps,
 } from './obb.ts';
 import type { Bounds } from './types.ts';
 
@@ -185,5 +186,92 @@ describe('escapePinned', () => {
     const far: Vec2 = { x: 500, y: 500 };
     const out = escapePinned(far, 4.125, [a], BOUNDS);
     expect(out).toEqual(far);
+  });
+});
+
+describe('separateOverlaps (§4.2 P0-1 기하 분리 폴백)', () => {
+  const worst = (poses: readonly ChairPose[]): number => {
+    let d = 0;
+    for (let i = 0; i < poses.length; i++) {
+      for (let j = i + 1; j < poses.length; j++) {
+        const o = satOverlap(poses[i]!, poses[j]!, 0).depth;
+        if (o > d) d = o;
+      }
+    }
+    return d;
+  };
+
+  it('겹치지 않은 칩들은 한 픽셀도 움직이지 않는다(안전 no-op)', () => {
+    const poses: ChairPose[] = [
+      { x: 100, y: 100, theta: 0 },
+      { x: 200, y: 100, theta: 0 },
+      { x: 100, y: 200, theta: Math.PI / 2 },
+    ];
+    expect(separateOverlaps(poses, BOUNDS)).toEqual(poses);
+  });
+
+  it('맞물린 두 칩을 떼어 놓는다 — 최소침투축으로 절반씩', () => {
+    // A 뒷면 x=525, B 앞면 x=537.5 → 겹침 12.5. 세로 겹침(25)보다 작으므로 최소축은 x 다.
+    const poses: ChairPose[] = [
+      { x: 500 + CHAIR.pivotToRearPx + 25, y: 500, theta: 0 },
+      { x: 500 + CHAIR.pivotToRearPx, y: 500, theta: 0 },
+    ];
+    expect(worst(poses)).toBeCloseTo(12.5, 9); // 전제
+    const out = separateOverlaps(poses, BOUNDS);
+    expect(worst(out)).toBeLessThanOrEqual(0);
+    // 양쪽이 정확히 같은 만큼, 서로 반대로, x 축으로만 움직인다.
+    expect(out[0]!.x - poses[0]!.x).toBeCloseTo(6.255, 9);
+    expect(poses[1]!.x - out[1]!.x).toBeCloseTo(6.255, 9);
+    expect(out[0]!.y).toBe(poses[0]!.y);
+    expect(out[1]!.y).toBe(poses[1]!.y);
+  });
+
+  it('벽에 막혀 물러설 자리가 없는 칩의 몫은 상대가 받는다 (P0-1 의 실제 배치)', () => {
+    // 뒷면을 왼쪽 벽에 붙인 칩(피벗 7.5) 위에 다른 칩이 12.5 px 얹혀 있다. 반씩 나누면
+    // 벽 쪽 절반이 통째로 버려져 겹침이 남는다 — 그래서 남은 몫을 상대에게 넘긴다.
+    const poses: ChairPose[] = [
+      { x: CHAIR.pivotToRearPx + 25, y: 500, theta: 0 },
+      { x: CHAIR.pivotToRearPx, y: 500, theta: 0 },
+    ];
+    const out = separateOverlaps(poses, BOUNDS);
+    expect(worst(out)).toBeLessThanOrEqual(0);
+    expect(out[1]!).toEqual(poses[1]!); // 벽 쪽 칩은 한 픽셀도 안 움직인다
+    expect(out[0]!.x - poses[0]!.x).toBeCloseTo(12.51, 9); // 전부 반대쪽이 물러난다
+  });
+
+  it('각도는 건드리지 않는다 — 안전망이 사용자가 놓은 방향을 바꾸지 않는다', () => {
+    const poses: ChairPose[] = [
+      { x: 500, y: 500, theta: 0.7 },
+      { x: 505, y: 505, theta: -1.2 },
+    ];
+    const out = separateOverlaps(poses, BOUNDS);
+    expect(worst(poses)).toBeGreaterThan(0); // 전제: 실제로 겹쳐 있다
+    expect(out.map((p) => p.theta)).toEqual([0.7, -1.2]);
+  });
+
+  it('떼어 놓느라 판 밖으로 나가지는 않는다 — 벽에 붙은 쌍', () => {
+    // 왼쪽 벽에 뒷면을 붙인 칩(피벗 7.5) 위에 다른 칩을 얹는다. 왼쪽으로 밀 자리가 없다.
+    const bounds: Bounds = { w: 400, h: 400 };
+    const poses: ChairPose[] = [
+      { x: CHAIR.pivotToRearPx, y: 200, theta: 0 },
+      { x: CHAIR.pivotToRearPx + 8, y: 200, theta: 0 },
+    ];
+    const out = separateOverlaps(poses, bounds);
+    expect(worst(out)).toBeLessThanOrEqual(0);
+    for (const p of out) expect(outOfBounds(p, bounds).depth).toBeLessThanOrEqual(1e-9);
+  });
+
+  it('해가 없는 배치에서는 겹침이 남는다 — 보장이 아니라 최선의 1회다', () => {
+    // 세로 40 px 판에 폭 25 px 칩 두 대 = 50 px. 둘 다 판 안에 두려면 최소 10 px 은 겹친다.
+    const bounds: Bounds = { w: 400, h: 40 };
+    const poses: ChairPose[] = [
+      { x: 200, y: 20, theta: 0 },
+      { x: 200, y: 20, theta: 0 },
+    ];
+    const out = separateOverlaps(poses, bounds);
+    expect(worst(out)).toBeCloseTo(2 * CHAIR.widthPx - bounds.h, 6); // 기하가 허락하는 최솟값
+    for (const p of out) expect(outOfBounds(p, bounds).depth).toBeLessThanOrEqual(1e-9);
+    // 무한 루프에 빠지지 않고 유한 패스로 끝난다는 것 자체가 이 함수의 계약이다.
+    expect(out).toHaveLength(2);
   });
 });

@@ -18,7 +18,7 @@ import { COURT_DEFS } from '../model/court.ts';
 
 import type { DragLimits, Bounds } from './types.ts';
 import { createWorld, escapePinnedAll } from './world.ts';
-import { escapePinned } from './obb.ts';
+import { escapePinned, satOverlap, separateOverlaps } from './obb.ts';
 import type { WorldHandles } from './world.ts';
 import { createLoop } from './loop.ts';
 import type { PhysicsLoop } from './loop.ts';
@@ -156,6 +156,10 @@ export function createPhysicsWorld(
   /** 이번 복귀에서 휠체어에 막힌 골대들. */
   const blockedHomes = new Set<string>();
   let session: DragSession | null = null;
+  /** 정착 구간의 상한 **시각**(§4.2 P0-1). 0 이면 구간이 열려 있지 않다. loop 안의
+   *  settleDeadline 과 같은 값이지만 그쪽은 밖에서 읽을 수 없고, 겹침 감시가 "상한에 닿았나"
+   *  를 스스로 알아야 기하 분리 폴백을 그 프레임에 끼워 넣을 수 있다. */
+  let settleUntilMs = 0;
   /** 정착 완료 통지 구독자(§4.2 P0-2). 통지 중에 해제해도 안전하도록 복사해서 순회한다. */
   const settleListeners = new Set<SettleListener>();
   // major 회귀(§5.8): 공개 step(dtS) 에 넘어온 가변 dt 를 Engine.update 에 그대로 넣지 않기
@@ -217,7 +221,7 @@ export function createPhysicsWorld(
       const done = session;
       session = null;
       endDrag(done, world);
-      loop.requestSettle(PHYS.settleMaxMs);
+      openSettle();
     }
   }
 
@@ -243,10 +247,94 @@ export function createPhysicsWorld(
     for (const cb of [...settleListeners]) cb(snap);
   }
 
+  /** 정착 구간을 연다. loop 의 데드라인과 겹침 감시의 상한을 **같은 값**으로 맞추는 것이
+   *  이 함수의 전부다 — `loop.requestSettle` 을 직접 부르면 상한이 어긋나 기하 분리 폴백이
+   *  영영 안 돌거나(내 상한이 더 늦다) 물리에 기회를 덜 준다(더 이르다). */
+  function openSettle(): void {
+    settleUntilMs = performance.now() + PHYS.settleMaxMs;
+    loop.requestSettle(PHYS.settleMaxMs);
+  }
+
+  /** 정착 구간을 닫는다(새 드래그가 시작될 때). §5.8 blocker 회귀 참조. */
+  function closeSettle(): void {
+    settleUntilMs = 0;
+    loop.cancelSettle();
+  }
+
+  /** 손이 쥐고 있지 않은 휠체어들의 현재 포즈.
+   *
+   *  드래그 중인 칩을 빼는 이유: 그 칩은 static 이라 물리가 밀어낼 수 없고, 그 겹침은
+   *  사용자가 지금 손으로 만들고 있는 것이다(손을 떼면 endDrag 가 dynamic 으로 되돌려 그때
+   *  물리가 푼다). 빼지 않으면 칩을 이웃에 붙여 쥐고 있는 동안 판이 영영 안 서고(resetGoals
+   *  가 정착 구간을 여는 경우), 상한이 지나면 **사용자가 쥐고 있는 칩을 기하로 옮겨 버린다.** */
+  function unheldChairs(): Array<{ id: ChairId; pose: ChairPose }> {
+    const out: Array<{ id: ChairId; pose: ChairPose }> = [];
+    for (const [id, kind] of kindOf) {
+      if (kind !== 'chair' || session?.id === id) continue;
+      out.push({ id: id as ChairId, pose: world.chairPose(id as ChairId) });
+    }
+    return out;
+  }
+
+  /** 서로 겹친 쌍이 하나라도 있는가. margin 0 — 순수 겹침만 본다(CHAIR_SEP_PX 를 넣으면
+   *  나란히 선 두 칩이 영영 "겹침" 이 된다). 문턱이 왜 0 이 아닌지는 PHYS.overlapRestPx 참조. */
+  function anyOverlap(chairs: ReadonlyArray<{ pose: ChairPose }>): boolean {
+    for (let i = 0; i < chairs.length; i++) {
+      for (let j = i + 1; j < chairs.length; j++) {
+        if (satOverlap(chairs[i]!.pose, chairs[j]!.pose, 0).depth > PHYS.overlapRestPx) return true;
+      }
+    }
+    return false;
+  }
+
+  /** 기하 분리 1회 — 상한에 닿았을 때만 부른다. 물리에도 되먹여야 곧바로 뜨는 정착 통지의
+   *  스냅샷과 화면이 같아진다(driven=false — 밀어낸 것이지 던진 것이 아니다). */
+  function separateNow(chairs: ReadonlyArray<{ id: ChairId; pose: ChairPose }>): void {
+    const fixed = separateOverlaps(
+      chairs.map((c) => c.pose),
+      bounds,
+    );
+    chairs.forEach((c, i) => {
+      const p = fixed[i]!;
+      if (p.x === c.pose.x && p.y === c.pose.y) return;
+      world.setChairPose(c.id, p, false);
+      world.freeze(c.id);
+    });
+  }
+
+  /** loop 에 넘기는 정착 술어(§4.2 P0-1 겹친 휠체어 자가 분리).
+   *
+   *  `world.allAtRest()` 의 뜻은 **그대로 둔다** — 그건 "속도가 0 인가" 이고 §5.9 조기 종료
+   *  골든이 정확히 그 뜻에 기대고 있다. 문제는 그 판정이 겹침을 **원리적으로 볼 수 없다**는
+   *  것이다: matter 의 위치 해결(Resolver.postSolvePosition)은 positionPrev 까지 같이 옮겨
+   *  속도를 만들지 않으므로, 12.5 px 겹친 두 칩도 속도로는 완벽한 정지다. 그래서 endDrag 가
+   *  칩을 dynamic 으로 되돌린 그 프레임 끝에서 곧바로 stop() 이 걸려 **위치 해결이 한 번도
+   *  못 돌았다**(실측: 한 substep 만 더 돌면 12.50 → 2.728, 두 번이면 0).
+   *
+   *  그래서 겹침이 남아 있는 동안 루프를 붙잡는다. 상한은 정착 구간과 같은 PHYS.settleMaxMs
+   *  이고, 상한에 닿으면 기하 분리를 1회 강제하고 끝낸다 — 해가 없는 배치(칩 두 대가 안
+   *  들어가는 좁은 판)에서 무릎 위 태블릿의 배터리를 태우지 않는다.
+   *
+   *  ※ 공개 `isSettled()` 는 여기 얽히지 않는다. 그건 §5.13 계약 그대로 "속도가 0 인가" 이고,
+   *    "판이 다 섰다" 를 밖에 알리는 신호는 onSettled 통지다. */
+  function settleReady(): boolean {
+    if (performance.now() < settleUntilMs) {
+      // 정상 경로: 속도가 0 이고(기존 판정 그대로) 겹침도 없어야 판이 다 선 것이다.
+      return world.allAtRest() && !anyOverlap(unheldChairs());
+    }
+    // 상한 도달. 루프는 어차피 이 프레임에 멎는다(loop 의 데드라인이 같은 값이다) — 나가기
+    // 전에 남은 겹침을 기하로 한 번 푼다. 안 그러면 8 초를 태우고도 겹친 채로 끝난다.
+    // (정착 구간은 openSettle 로만 열기 때문에, 이 술어가 불리는 동안 settleUntilMs 는 항상
+    //  살아 있다 — 0 인 채로 여기 오는 경로는 없다.)
+    const chairs = unheldChairs();
+    if (anyOverlap(chairs)) separateNow(chairs);
+    return true;
+  }
+
   const loop: PhysicsLoop = createLoop({
     step: substep,
     render: () => {}, // 렌더 보간은 render-stage 소관 — read() 를 직접 호출해 읽어간다.
-    atRest: () => world.allAtRest(),
+    atRest: settleReady,
     onSettle: notifySettled,
   });
 
@@ -255,6 +343,7 @@ export function createPhysicsWorld(
       for (const id of kindOf.keys()) world.remove(id);
       kindOf.clear();
       session = null;
+      settleUntilMs = 0;
       loop.stop();
 
       for (const c of cast.chairs) {
@@ -332,7 +421,7 @@ export function createPhysicsWorld(
       }
       // blocker 회귀(§5.8): 이전 릴리스가 requestSettle 을 걸어 둔 채였다면 그 데드라인을
       // 지운다 — 안 하면 새 드래그 도중 공이 잠깐 멎는 순간 루프가 스스로 stop 되어 버린다.
-      loop.cancelSettle();
+      closeSettle();
 
       const pose: ChairPose =
         hit.kind === 'ball' || hit.kind === 'cone'
@@ -380,7 +469,7 @@ export function createPhysicsWorld(
         if (homeBlockedByChair(g.p)) blockedHomes.add(g.id);
       }
       goalReturnUntilMs = performance.now() + GOAL.returnMaxMs;
-      loop.requestSettle(PHYS.settleMaxMs);
+      openSettle();
       return { blocked: blockedHomes.size };
     },
 
@@ -406,6 +495,7 @@ export function createPhysicsWorld(
       kindOf.clear();
       settleListeners.clear();
       session = null;
+      settleUntilMs = 0;
     },
   };
 

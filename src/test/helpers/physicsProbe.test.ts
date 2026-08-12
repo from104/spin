@@ -3,11 +3,13 @@
 // 앞의 두 describe 는 **계기 자신**을 검산한다(자를 먼저 재는 일): 프레임↔substep 이 1:1 인가,
 // 겹침 깊이가 해석적으로 맞는가. 뒤의 describe 가 본론이다.
 //
-// ⚠️ 마지막 describe 가 못박는 것은 **지금의 버그**다(P0-1). 손을 뗀 칩이 dynamic 으로 돌아온
-// 직후, 겹침 12.50 px 를 안은 채 isSettled()===true 가 떠서 루프가 그 프레임에 죽는다 —
-// 물리는 그 겹침을 풀 기회를 **한 substep 도** 얻지 못한다. 1.3 이 이 버그를 고치면 이 골든값
-// (12.50 / 2.728 / "정지 후 0 substep")은 반드시 갱신해야 한다. 그때 갱신해야 할 것은 이
-// 파일뿐이고 하네스(physicsProbe.ts)는 그대로다.
+// 2026-08-12(1.3): 마지막 describe 는 원래 **버그를 계약으로** 굳혀 놓았다 — 손을 뗀 칩이
+// dynamic 으로 돌아온 직후 겹침 12.50 px 를 안은 채 isSettled()===true 가 떠서 루프가 그
+// 프레임에 죽고, 물리는 겹침을 풀 기회를 한 substep 도 얻지 못했다. 자가 분리를 넣으면서 그
+// 골든을 **고친 뒤의 동작**으로 갱신했다: 12.50 은 그대로 재현되고(원인은 여전히 거기 있다),
+// 그 뒤가 "0 substep 으로 방치" 에서 "다음 두 substep 에 2.728 → 0" 으로 바뀐다. 하네스
+// (physicsProbe.ts)는 한 줄도 바뀌지 않았다 — 계기가 아니라 판이 바뀐 것이다.
+// 루프 계약 자체(상한 8초·기하 분리 폴백·쥔 칩 제외)는 physics/selfSeparate.test.ts 가 본다.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPhysicsProbe } from './physicsProbe.ts';
 import { CHAIR, DEFAULT_LIMITS, PHYS } from '../../core/constants.ts';
@@ -77,7 +79,7 @@ describe('physicsProbe 자기 검산 — 겹침 깊이 계기', () => {
 });
 
 // ── 본론 ────────────────────────────────────────────────────────────────────────────
-describe('P0-1 — 손을 뗀 그 프레임에 루프가 죽는다(겹친 채로)', () => {
+describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다', () => {
   // 시나리오: 벽에 딱 붙여 세워 둔 칩(B) 위로 다른 칩(A)을 끌어다 놓고, 잠깐 멈췄다가 손을 뗀다.
   //
   //  · B 는 뒷면이 벽면(x=0)에 닿아 있다 → 피벗 x = 7.5
@@ -124,57 +126,73 @@ describe('P0-1 — 손을 뗀 그 프레임에 루프가 죽는다(겹친 채로
     probe.dispose();
   });
 
-  it('손을 떼면 그 프레임에 endDrag·requestSettle·stop 이 한꺼번에 일어난다', () => {
+  it('손을 떼면 그 프레임에 endDrag·requestSettle 이 일어나지만 stop 은 따라붙지 않는다', () => {
     const probe = draggedIntoWallChip();
     const releaseFrame = probe.frame(); // 다음에 기록될 프레임 = 릴리스가 완결될 프레임
 
     probe.endDrag();
     const framesToStop = probe.runUntilLoopStops({ maxFrames: 60 });
 
-    // 릴리스 체이스는 목표에 이미 닿아 있어 첫 substep 에 끝난다(§5.11 |T−G| < 1px).
-    expect(framesToStop).toBe(1);
-
+    // 릴리스 체이스 자체는 목표에 이미 닿아 있어 첫 substep 에 끝난다(§5.11 |T−G| < 1px).
     const end = probe.sessionEvents.find((e) => e.kind === 'endDrag')!;
     expect(end.id).toBe(chA);
     expect(end.frame).toBe(releaseFrame);
 
-    // 같은 프레임에 requestSettle → (atRest 이므로) 즉시 stop. 그 사이에 낀 substep 은 없다.
+    // 하지만 판은 아직 서지 않았다 — 12.50 px 이 겹쳐 있으므로 루프가 30 프레임 더 남는다.
+    // (고치기 전에는 이 값이 1 이었고, 그 1 이 곧 P0-1 이었다.)
+    expect(framesToStop).toBe(30);
+
+    // 릴리스 프레임의 루프 사건은 settle 뿐이다.
     const tail = probe.loopEvents.filter((e) => e.frame === releaseFrame).map((e) => e.kind);
-    expect(tail).toEqual(['settle', 'stop']);
+    expect(tail).toEqual(['settle']);
+    // stop 은 그 30 프레임의 **마지막** 프레임에 온다(릴리스 프레임 자신이 그중 첫 프레임이다).
+    const stop = probe.loopEvents.find((e) => e.kind === 'stop')!;
+    expect(stop.frame).toBe(releaseFrame + 29);
 
     probe.dispose();
   });
 
-  it('★ 겹침 12.50 px + isSettled()===true 로 루프가 죽고, 그 뒤 물리는 한 substep 도 못 돈다', () => {
+  it('★ 겹침 12.50 px 는 손을 뗀 뒤 두 substep 만에 2.728 → 0 으로 풀린다', () => {
     const probe = draggedIntoWallChip();
+    const releaseFrame = probe.frame();
     probe.endDrag();
+
+    // (1) 릴리스 프레임: 겹침 12.50 과 "정착"(속도 0)이 같은 행에 있다. **원인은 그대로다** —
+    //     allAtRest 는 여전히 겹침을 못 본다. 달라진 것은 그 판정이 루프를 끄지 못한다는 것뿐이다.
+    probe.stepFrames(1);
+    const held = probe.trace.at(-1)!;
+    expect(held.frame).toBe(releaseFrame);
+    expect(held.substeps).toBe(1); // endDrag 를 품은 substep
+    expect(held.settled).toBe(true);
+    expect(held.running).toBe(true); // ★ 고치기 전에는 여기가 false 였다
+    expect(held.depths[`${chA}|${chB}`]).toBeCloseTo(12.5, 6);
+
+    // (2) 다음 프레임 — 위치 해결이 처음으로 돈다. 12.50 → 2.728, 그리고 칩이 19.5 px 튀어나간다.
+    probe.stepFrames(1);
+    const first = probe.trace.at(-1)!;
+    expect(first.substeps).toBe(1);
+    expect(first.depths[`${chA}|${chB}`]).toBeCloseTo(2.728, 3);
+    expect(first.poses[chA]!.x - DRAG_TO_X).toBeCloseTo(19.544, 2);
+    // 튀는 동안에는 속도가 붙어 isSettled() 가 비로소 false 가 된다(정지 → 이동 → 정지).
+    expect(first.settled).toBe(false);
+
+    // (3) 그 다음 프레임에 겹침이 0 이 된다. 푸는 데 필요했던 것은 8.3 ms 두 조각뿐이었다.
+    probe.stepFrames(1);
+    expect(probe.trace.at(-1)!.depths[`${chA}|${chB}`]).toBe(0);
+
+    // (4) 루프는 겹침이 풀린 뒤에도 칩이 실제로 설 때까지(속도 기준, 기존 판정 그대로) 남는다.
+    expect(probe.isRunning()).toBe(true);
     probe.runUntilLoopStops({ maxFrames: 60 });
-
-    // (1) 루프가 죽은 그 프레임 — 겹침과 "정착" 이 같은 행에 있다. 이것이 P0-1 의 물증이다.
     const dead = probe.trace.at(-1)!;
-    expect(dead.substeps).toBe(1); // endDrag 를 품은 마지막 substep
-    expect(dead.running).toBe(false);
+    expect(dead.frame).toBe(releaseFrame + 29); // 릴리스 프레임 포함 30 프레임의 마지막
+    expect(dead.depths[`${chA}|${chB}`]).toBe(0);
     expect(dead.settled).toBe(true);
-    expect(dead.depths[`${chA}|${chB}`]).toBeCloseTo(12.5, 6);
 
-    // (2) 그 뒤로는 프레임을 아무리 흘려도 **한 substep 도 돌지 않는다** — rAF 가 없다.
+    // (5) 그 뒤로는 프레임을 아무리 흘려도 한 substep 도 돌지 않는다 — 다 선 판이다.
     probe.stepFrames(30);
     const after = probe.trace.slice(dead.frame + 1);
-    expect(after).toHaveLength(30);
     expect(after.reduce((s, r) => s + r.substeps, 0)).toBe(0);
-    expect(after.every((r) => r.settled && !r.running)).toBe(true);
-    expect(after.at(-1)!.depths[`${chA}|${chB}`]).toBeCloseTo(12.5, 6); // 겹침 그대로 방치
-
-    // (3) 반사실: 루프가 딱 한 프레임만 더 돌았다면 겹침은 12.50 → 2.728 로 떨어졌다.
-    //     푸는 데 필요한 것은 8.3 ms 한 조각뿐이었다.
-    probe.forceSteps(1);
-    const revived = probe.trace.at(-1)!;
-    expect(revived.substeps).toBe(1);
-    expect(revived.depths[`${chA}|${chB}`]).toBeCloseTo(2.728, 3);
-    // 그리고 그 한 조각이 칩을 19.5 px 튀어나가게 한다 — 화면에서는 "손 떼자마자 순간이동" 이다.
-    expect(revived.poses[chA]!.x - DRAG_TO_X).toBeCloseTo(19.544, 2);
-    // 튀는 동안에는 속도가 붙어 isSettled() 가 비로소 false 가 된다(정지 → 이동 → 정지).
-    expect(revived.settled).toBe(false);
+    expect(after.at(-1)!.depths[`${chA}|${chB}`]).toBe(0);
 
     probe.dispose();
   });

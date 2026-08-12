@@ -130,6 +130,18 @@ export const PHYS = {
   settleMaxMs: 8000,
   /** 단위: px per 16.667 ms (Body.getSpeed 와 같은 단위). 0.03 = 1.8 px/s = 7.2 cm/s */
   restSpeedMatter: 0.03,
+  /** 정착 판정에서 "아직 겹쳐 있다" 로 볼 최소 침투 깊이(px). §4.2 P0-1 자가 분리.
+   *
+   *  0 으로 둘 수 없다: matter Resolver 는 접촉을 정확히 0 이 아니라 **slop 만큼 파묻힌 채로**
+   *  쉬게 둔다(Body.slop 0.05 × slopDampen(dt/16.667=0.5) = 0.025 px — 휠체어 16대를 한 점에
+   *  쌓아 실측한 수렴값도 정확히 0.025 다). 0 을 문턱으로 삼으면 정상적으로 맞닿아 선 두 칩이
+   *  영영 "겹침" 으로 읽혀 손을 뗄 때마다 루프가 상한 8초를 다 태운다 — 무릎 위 태블릿에서
+   *  그건 곧 배터리다.
+   *
+   *  0.5 px 은 slop 의 20 배이고 실제 크기로는 2 cm(1 px = 4 cm)라 화면에서 보이지 않는다.
+   *  반대쪽 여유도 충분하다: 실측에서 손 뗀 순간의 겹침은 12.50 px 이고 한 substep 뒤 2.728 px
+   *  이라, 이 문턱이 "아직 겹쳤다" 를 놓칠 구간이 없다. */
+  overlapRestPx: 0.5,
   positionIterations: 6,
   velocityIterations: 4,
   constraintIterations: 2,

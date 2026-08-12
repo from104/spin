@@ -410,3 +410,82 @@ export function escapePinned(
   }
   return out;
 }
+
+// 기하 분리 폴백의 패스 수. 칩이 셋 이상 얽히면 한 쌍을 떼면서 다른 쌍이 생기므로 한 패스로는
+// 부족하고, 해가 없는 배치에서는 몇 패스를 돌든 남는다 — 4 는 "될 배치는 되고, 안 될 배치에
+// 시간을 안 쓰는" 절충이다(이 함수는 상한에 닿았을 때 딱 한 번 불린다).
+const SEPARATE_PASSES = 4;
+
+/** pose 를 dir(단위벡터) 방향으로 **판 안에 머무는 한** 최대 dist 만큼 옮기고 실제로 옮긴
+ *  거리를 돌려준다. 이미 판 밖이면 0 을 돌려준다 — 그건 아래 되밀기 단계가 따로 처리한다. */
+function shiftWithin(p: ChairPose, dir: Vec2, dist: number, b: Bounds): number {
+  const corners = chairHullCorners(p);
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const c of corners) {
+    if (c.x < minX) minX = c.x;
+    if (c.x > maxX) maxX = c.x;
+    if (c.y < minY) minY = c.y;
+    if (c.y > maxY) maxY = c.y;
+  }
+  let t = dist;
+  if (dir.x < 0) t = Math.min(t, minX / -dir.x);
+  else if (dir.x > 0) t = Math.min(t, (b.w - maxX) / dir.x);
+  if (dir.y < 0) t = Math.min(t, minY / -dir.y);
+  else if (dir.y > 0) t = Math.min(t, (b.h - maxY) / dir.y);
+  if (!(t > 0)) return 0;
+  p.x += dir.x * t;
+  p.y += dir.y * t;
+  return t;
+}
+
+/** 겹친 휠체어들을 **기하로** 떼어 놓는다(§4.2 P0-1 자가 분리의 폴백).
+ *
+ *  정상 경로는 matter 의 위치 해결이다. 이 함수는 상한(PHYS.settleMaxMs) 안에 물리가 겹침을
+ *  못 푼 경우에만 **한 번** 불린다 — 칩 두 대가 들어갈 자리가 없는 판처럼 해가 아예 없는
+ *  배치에서 루프가 영원히 돌지 않게 하는 안전망이다.
+ *
+ *  각 쌍을 최소침투벡터(MTV) 방향으로 **절반씩 양쪽으로** 민다. 한쪽만 밀려면 "누가 침범했나"
+ *  를 알아야 하는데 여기까지 온 시점에는 속도가 이미 0 이라 알 방법이 없다. 다만 벽에 붙어
+ *  물러설 자리가 없는 칩의 몫은 **상대에게 넘긴다** — 반씩 나눠 놓고 한쪽이 벽에 막히면 그
+ *  절반이 통째로 버려져, P0-1 의 실제 배치(벽에 붙은 칩 위에 얹힌 칩)에서 겹침이 남는다.
+ *
+ *  각도는 건드리지 않는다. 회전 관성이 무한이라 물리도 칩을 돌리지 않고(§5.3), 사용자가 놓은
+ *  방향을 안전망이 바꾸는 것은 "겹침을 푼다" 의 범위를 넘는다.
+ *
+ *  ⚠️ **최선을 다한 1회이지 보장이 아니다.** 해가 없는 배치에서는 겹침이 남는다. */
+export function separateOverlaps(poses: readonly ChairPose[], bounds: Bounds): ChairPose[] {
+  const out: ChairPose[] = poses.map((p) => ({ ...p }));
+  for (let pass = 0; pass < SEPARATE_PASSES; pass++) {
+    let moved = false;
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        const a = out[i]!;
+        const b = out[j]!;
+        const r = satOverlap(a, b, 0);
+        if (r.depth <= OVERLAP_EPS_PX || !r.axis) continue;
+        // axis 는 satBetween 이 A→B 방향으로 정렬해 둔다. 딱 붙은 채로 끝나지 않게 슬롭을 얹는다.
+        const need = r.depth + ESCAPE_SLOP_PX;
+        const back: Vec2 = { x: -r.axis.x, y: -r.axis.y };
+        const doneA = shiftWithin(a, back, need / 2, bounds);
+        const doneB = shiftWithin(b, r.axis, need - doneA, bounds);
+        if (doneA + doneB < need) shiftWithin(a, back, need - doneA - doneB, bounds);
+        moved = true;
+      }
+    }
+    // 들어올 때 이미 판 밖이던 칩(물리가 벽 너머로 밀어낸 경우)을 되민다. 안 하면 이 안전망이
+    // P0-3(코트 밖 고착)을 그대로 남긴다.
+    for (const p of out) {
+      const v = outOfBounds(p, bounds);
+      if (v.depth <= 0 || !v.axis) continue;
+      // axis 는 바깥을 향한다 — 그만큼 되돌리면 hull 이 정확히 경계에 닿는다.
+      p.x -= v.axis.x * v.depth;
+      p.y -= v.axis.y * v.depth;
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  return out;
+}

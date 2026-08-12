@@ -23,9 +23,10 @@
 // rAF/performance.now 는 loop.test.ts:8-31 의 관용구대로 결정적으로 흉내낸다. 목킹 없이 jsdom
 // 실 rAF 를 두면 await 하는 순간 프레임이 몰래 끼어들어 이중 스텝이 된다.
 //
-// ⚠️ 이 하네스가 지금 못박고 있는 것은 **버그다**(P0-1: endDrag 직후 겹친 채로 루프가 죽고
-// isSettled()===true). 1.3 이 그 버그를 고치면 physicsProbe.test.ts 의 골든값(깊이·프레임 수)은
-// 반드시 갱신해야 한다 — 하네스 자체(이 파일)는 그대로 쓸 수 있게 만들었다.
+// 이 하네스는 처음에 **버그를 못박기 위해** 만들어졌다(P0-1: endDrag 직후 겹친 채로 루프가
+// 죽고 isSettled()===true). 1.3 이 그 버그를 고치면서 physicsProbe.test.ts 의 골든값은
+// 갱신됐지만 **이 파일은 한 줄도 바뀌지 않았다**(court 탈출구 하나만 늘었다) — 계기와 판정을
+// 따로 두었기 때문이다. 앞으로도 판이 바뀌면 골든만 고치고 계기는 그대로 둘 것.
 import * as Matter from 'matter-js';
 import { vi } from 'vitest';
 import { PHYS } from '../../core/constants.ts';
@@ -62,6 +63,12 @@ export interface ProbePoint {
 export interface ProbeSetup {
   /** 코트 모드. 벽·골대는 여기서 나온다(기본 'full' = 825×525). */
   mode?: CourtMode;
+  /** 벽까지의 판 크기를 직접 준다(기본은 mode 의 viewBox). **칩이 들어갈 자리가 없는 판**을
+   *  만들 때만 쓴다 — 정착 상한의 안전망(§4.2 P0-1 기하 분리 폴백)을 시험하려면 물리가 영영
+   *  못 푸는 겹침이 필요한데, 정규 코트에는 그런 배치가 없다(실측: 휠체어 16대를 한 점에 쌓아도
+   *  120 프레임 안에 matter 의 slop 0.025 px 까지 풀린다). 골대는 mode 좌표 그대로 놓이므로
+   *  판 밖에 남는다 — 벽과 충돌하지 않는 마스크라(bodies.ts CAT) 아무 영향도 주지 않는다. */
+  court?: { w: number; h: number };
   chairs?: readonly ProbeChair[];
   balls?: readonly ProbePoint[];
   cones?: readonly ProbePoint[];
@@ -277,7 +284,7 @@ export function createPhysicsProbe(setup: ProbeSetup = {}): PhysicsProbe {
     notes: [],
   };
 
-  const api = createPhysicsWorld(def.vbW, def.vbH, setup.limits);
+  const api = createPhysicsWorld(setup.court?.w ?? def.vbW, setup.court?.h ?? def.vbH, setup.limits);
   api.load(cast, step, mode);
 
   for (const c of chairs) kindOf.set(c.id, 'chair');
