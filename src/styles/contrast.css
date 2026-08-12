@@ -1,0 +1,177 @@
+/* §5.6 고대비 · 강제색(forced colors) 대응.
+ *
+ * 이 파일이 생기기 전, 저장소 전체의 `@media` 는 `prefers-reduced-motion` 과 `print` 둘뿐이었다 —
+ * 접근성 축에서 **저시력 사용자가 통째로 빠져 있었다.**
+ *
+ * 계약 테스트: styles/contrast.test.tsx · styles/forcedColorsTeam.test.tsx. jsdom 은 CSS 를 적용하지 않으므로 **여기 있는 규칙이
+ * 하나 사라져도 렌더 테스트는 전건 초록불이다.** 그 테스트가 이 파일의 유일한 그물이다.
+ *
+ * ── 블록 순서가 계약이다 ────────────────────────────────────────────────────────────
+ * ① 판 제외(무조건) → ② prefers-contrast: less → ③ prefers-contrast: more → ④ forced-colors
+ * `forced-colors: active` 는 CSS Media Queries 5 에 따라 `prefers-contrast` 도 함께 매치시킨다
+ * (팔레트 대비에 따라 more/less, 아니면 custom). 즉 ③ 과 ④ 는 **동시에 켜지는 조합이 있다** —
+ * 그때는 시스템 팔레트 쪽이 이겨야 하므로 ④ 가 뒤에 온다. 순서를 바꾸면 강제색 화면에서 우리
+ * hex 값이 시스템 색을 덮어쓴다(contrast.test.tsx 가 인덱스로 못박는다). */
+
+/* ────────────────────────────────────────────────────────────────────────────────────
+ * ① 판(board)은 강제색 치환에서 **제외**한다.
+ *
+ * ⚠️ 이 두 줄을 지우면 4.6 이 만든 팀 구분 채널이 죽는다. 근거(추측 아님, 계산이다):
+ *   · 강제색 모드는 fill 과 stroke 를 **둘 다** 같은 전경색(CanvasText)으로 바꾼다. 그러면
+ *     상대팀 차체는 "CanvasText 면 위에 CanvasText 파선" 이 되어 대비 1.00:1 — 파선이 그려지긴
+ *     하지만 **보이지 않는다.** `stroke-dasharray="5 3"` 는 마크업에 그대로 남으므로 마크업
+ *     단언은 통과한다(헛통과). 검산은 contrastMath.dashChannelVisible / forcedColorsTeam.test.tsx.
+ *   · 같은 치환으로 **대체 채널이 하나도 없는 것 넷**이 함께 죽는다: 등번호(글자 fill 이 차체
+ *     fill 과 같아진다 — 4.6 이 번호 접두를 일부러 안 붙였다), 팀 색, 골키퍼 표시(색이 전부다),
+ *     §3.5 개별 색 지정. 반면 콘(실루엣)·화살표(파선·굵기)는 치환해도 산다 — 즉 판을 빼는
+ *     이유는 "색 밖 채널이 없어서" 가 아니라 **저 넷에만 없어서**다(대조군까지 테스트에 있다).
+ *   · 제외한 채로 두면 흰 테두리(rgba(255,255,255,.92))가 기본 팀 색 위에서 4.06~4.88:1,
+ *     코트 위에서 4.78:1 이라 파선이 실제로 보이고 등번호는 4.5:1 이상을 유지한다. 즉 **판을
+ *     제외하는 쪽만이 완료 판정("코치가 우리 팀과 상대 팀을 구분할 수 있는가")을 만족한다.**
+ *   · 부작용으로 판만 색이 남는다("UI 는 흑백인데 코트만 초록"). 그건 사고가 아니라 의도다 —
+ *     판은 크롬이 아니라 **코치가 그린 그림**이고, 시스템 팔레트에는 전경색이 사실상 둘뿐이라
+ *     팀 2색 + 골키퍼 2색 + 개별 색을 담을 자리가 없다. 사진·차트를 강제색에서 빼는 것과 같은
+ *     판단이다. 대신 ④ 에서 시스템 색 테두리를 둘러 '그림 영역'임을 표시한다.
+ * 썸네일(CourtThumbnail)에는 일부러 걸지 않았다 — 거기에는 애초에 파선 표식이 없고(render/
+ * teamMark.ts 머리말: 둘레 38px 에 주기 8px 은 뭉갠다) 팀 판별이 과업이 아닌 화면이다. */
+.stage-svg,
+.spin-print-court {
+  forced-color-adjust: none;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────
+ * ② prefers-contrast: less — 눈부심·시각 피로(광과민)로 대비를 **낮춰** 달라고 한 사용자.
+ * 글자·아이콘 색은 건드리지 않는다. 그쪽을 낮추면 AA(4.5:1) 아래로 내려가 "요청대로 해줬더니
+ * 못 읽는" 상태가 된다. 낮출 수 있는 것은 **장식**뿐이다 — 격자선(GridOverlay 가 스스로
+ * "장식이다" 라고 적어 둔 레이어)과 규칙 존의 면. 규칙 존의 기능은 면이 아니라 파선 테두리가
+ * 나르므로(RuleZones.tsx 머리말) 테두리는 얇게만 하고 없애지 않는다.
+ *
+ * ⚠️ 규칙 존 갈고리가 클래스가 아니라 **파선 패턴 속성**인 이유: RuleZones.tsx 에 `className`
+ * 을 한 줄 붙였더니 화면/내보내기 마크업 동일성 계약(features/export/courtLines.contract.test.ts
+ * 의 full·half)과 판 DOM 바이트 스냅샷(EditorWorkspace.narrow.test.tsx)이 **동시에** 깨졌다
+ * (2026-08-13 실측, 3건). 판 마크업은 다른 항목들이 바이트 단위로 못박아 둔 자산이라 여기서
+ * 건드리지 않는다. 대신 존을 그 자체로 식별하는 값(`stroke-dasharray="8 6"`)을 셀렉터로 쓰고,
+ * 그 문자열이 컴포넌트와 어긋나면 styles/contrast.test.tsx 가 양쪽을 같이 읽어 빨개진다. */
+@media (prefers-contrast: less) {
+  .grid-line {
+    stroke-width: 0.75;
+  }
+  .stage-svg rect[stroke-dasharray="8 6"] {
+    opacity: 0.08;
+    stroke-width: 1.6;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────
+ * ③ prefers-contrast: more — 저시력 사용자. 토큰만 갈아끼운다(컴포넌트는 한 줄도 안 고친다).
+ * 값은 전부 WCAG 상대휘도로 계산했고, 기준은 **AAA(7:1)** 다. 표면(--bg/--panel/--panel-2/
+ * --elev) 은 그대로 두고 그 위에 얹는 색만 올린다 — 표면까지 바꾸면 판·인쇄·PNG 의 색 계산
+ * (core/colors.ts)이 전부 어긋난다. 괄호 안은 네 표면에 대한 **최솟값**이다. */
+@media (prefers-contrast: more) {
+  /* :root 만 쓰면 tokens.css 의 [data-theme="light"] 와 특정도가 같아 로드 순서로 라이트를
+   * 덮어쓴다. :not() 으로 다크에만 걸어 두 블록이 **배타**가 되게 한다. */
+  :root:not([data-theme="light"]) {
+    --text: #ffffff; /* 13.60 → 16.04 */
+    --muted: #c8d4e0; /* 6.10 → 10.66 */
+    --faint: #aebdcc; /* 3.21 → 8.37 */
+    --faint-text: #c8d4e0; /* 5.19 → 10.66 */
+    --border: #8794a3; /* 1.13 → 5.19 (비텍스트 3:1) */
+    --border-strong: #c8d4e0; /* 1.54 → 10.66 */
+    --accent-ink-strong: #000000; /* accent 위 15.29 → 16.71 */
+  }
+  :root[data-theme="light"] {
+    --text: #000000; /* 15.49 → 18.02 */
+    --muted: #2b3540; /* 5.34 → 10.69 */
+    --faint: #3a4450; /* 2.55 → 8.49 */
+    --faint-text: #2b3540; /* 4.58 → 10.69 */
+    --accent-text: #243b00; /* 5.12 → 10.60 (포커스 링·링크가 이 색이다) */
+    --border: #626c78; /* 1.12 → 4.58 */
+    --border-strong: #2b3540; /* 1.39 → 10.69 */
+    --accent-ink-strong: #000000; /* accent 위 5.83 → 7.23 */
+  }
+
+  /* 포커스 링을 굵힌다. a11y.css 의 `outline: 2px solid var(--accent-text)` 를 색은 그대로 두고
+   * 굵기·간격만 덮는다(색은 위 토큰이 이미 올렸다). */
+  :focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+  /* 판 위 개체의 이중 포커스 링(검정 5 / 흰 파선 2.5)도 같은 비율로 굵힌다.
+   * ⚠️ 굵기만 바꾼다 — 색을 바꾸면 코트 위 3.93:1 / 5.34:1 계산이 무너진다(a11y.css 하단). */
+  .court-obj:focus-visible .focus-ind-outer {
+    stroke-width: 7;
+  }
+  .court-obj:focus-visible .focus-ind-inner {
+    stroke-width: 3.5;
+  }
+
+  /* 판 위 장식·존. CSS 는 SVG 표현 속성(strokeWidth={2} 등)을 이기므로 컴포넌트를 안 고치고도
+   * 굵힐 수 있다. 좌표는 건드리지 않는다(§10 좌표 리터럴 금지 — 여기에 x/y 는 한 개도 없다). */
+  .grid-line {
+    stroke-width: 1.8;
+  }
+  .stage-svg rect[stroke-dasharray="8 6"] {
+    opacity: 0.22;
+    stroke-width: 3.2;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────
+ * ④ forced-colors: active — Windows 고대비 등 시스템이 팔레트를 강제하는 모드.
+ *
+ * ⚠️ 이 블록 안에서는 **hex 색을 쓰지 마라.** 강제색 팔레트는 사용자가 고른 것이고 라이트/다크
+ * 어느 쪽인지도 알 수 없다 — 우리 hex 를 넣는 순간 그 사용자의 팔레트와 충돌해 우리가 만든
+ * 대비가 사라진다. 시스템 색 키워드(Canvas·CanvasText·Highlight·HighlightText)만 쓴다.
+ * contrast.test.tsx 가 이 블록에 hex 가 없음을 못박는다.
+ *
+ * 강제색이 **없애는** 것들을 이 저장소에서 전부 찾아 처리했다:
+ *   · `background-image` → none: 저장소에 배경 이미지·그라디언트가 **한 곳도 없다**(확인함).
+ *   · `box-shadow` → none: 10곳. 그중 의미를 나르는 것은 `.on-accent:focus-visible` 의 4px
+ *     헤일로 하나뿐이라 아래에서 outline 으로 대체한다. 나머지(드로어·토스트·인스펙터·카드)는
+ *     전부 `1px solid var(--border-strong)` 테두리를 **함께** 갖고 있고 border-color 는 강제색
+ *     에서 CanvasText 로 살아남는다 — 즉 경계가 사라지지 않는다. 예외는 ToolRail 의 안쪽 그림자
+ *     (홈 표현)인데 그건 장식이라 사라져도 기능 손실이 없다.
+ *   · `background-color` → Canvas: **여기가 이 저장소의 실질적 결함이다.** '켜짐/선택됨'을
+ *     accent 배경 하나로만 말하는 자리가 10곳이 넘는다(Button primary · Segmented · 라이브러리
+ *     탭 · 앱 레일 · 트랜스포트 재생). 전부 Canvas 로 뭉개져 **켜짐과 꺼짐이 같은 그림**이 된다. */
+@media (forced-colors: active) {
+  /* 판을 '그림 영역'으로 테두리 친다 — ① 로 판만 색이 남으므로, 그 경계가 어디까지인지
+   * 시스템 색으로 알려 준다. outline 은 레이아웃을 밀지 않는다(border 는 민다). */
+  .stage-svg,
+  .spin-print-court {
+    outline: 1px solid CanvasText;
+  }
+
+  /* '선택됨' 을 시스템 팔레트의 선택색으로 되살린다.
+   * `.on-accent` 는 "이 요소의 배경이 accent 다" 를 뜻하는 기존 클래스라 그대로 갈고리로 쓴다.
+   * ARIA 상태는 그 클래스가 없는 자리(인스펙터 토글·앱 레일·세그먼티드)를 덮는다.
+   * ⚠️ `.court-obj` 제외는 필수다 — 판 위 칩도 aria-pressed 를 쓰는데(ChairChip.tsx) SVG <g>
+   * 에 HTML 배경/아웃라인을 얹으면 칩이 시스템 색 상자로 덮인다. */
+  .on-accent,
+  [aria-pressed="true"]:not(.court-obj),
+  [aria-checked="true"],
+  [aria-selected="true"],
+  [aria-current]:not([aria-current="false"]) {
+    background: Highlight;
+    color: HighlightText;
+    outline: 1px solid HighlightText;
+    outline-offset: -1px;
+  }
+
+  /* 포커스는 Highlight 로. 단, 위에서 배경이 Highlight 가 된 요소 위에서는 Highlight 링이
+   * 배경에 묻히므로 CanvasText 로 바꾼다. 4px accent 헤일로(box-shadow)는 강제색이 지우므로
+   * 굵은 outline 이 그 자리를 대신한다. */
+  :focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+  .on-accent:focus-visible,
+  [aria-pressed="true"]:not(.court-obj):focus-visible,
+  [aria-checked="true"]:focus-visible,
+  [aria-selected="true"]:focus-visible,
+  [aria-current]:not([aria-current="false"]):focus-visible {
+    box-shadow: none;
+    outline: 3px solid CanvasText;
+    outline-offset: 2px;
+  }
+}
