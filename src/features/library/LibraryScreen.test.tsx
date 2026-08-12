@@ -14,6 +14,7 @@ import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
+import { SUMMARY_BUILD } from '../../model/summary.ts';
 import { createSession, deleteSession, listSessions } from '../../storage/sessionRepo.ts';
 import { formatSessionWhen } from '../../model/session.ts';
 
@@ -145,6 +146,75 @@ describe('LibraryScreen — 드릴 탭', () => {
     await userEvent.setup().click(screen.getByRole('radio', { name: '수비' }));
     await waitFor(() => expect(within(panel()).queryByText('공격 드릴')).not.toBeInTheDocument());
     expect(within(panel()).getByText('수비 드릴')).toBeInTheDocument();
+  });
+});
+
+describe('LibraryScreen — 난이도 그룹 정렬의 성능 계약 (로드맵 3.6)', () => {
+  it('세 난이도가 다 있으면 헤더가 초급 → 중급 → 고급 — 저장 순서와도 수정 최신순과도 다르다', async () => {
+    // 위의 기존 it 은 중급이 **빈** 그룹이라 중급의 자리가 안 박혀 있었다 — DRILL_LEVELS 가
+    // ['초급','고급','중급'] 으로 어긋나도 초록불이었다. 생성을 중→고→초 순으로 해서 저장 순서
+    // (중·고·초)와도 store 의 수정 최신순(초·고·중)과도 다른 표시 순서를 단언한다.
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '중급 압박', level: '중급' });
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '고급 슈팅', level: '고급' });
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '초급 드리블', level: '초급' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('중급 압박')).toBeInTheDocument());
+
+    const headings = within(panel()).getAllByRole('heading', { level: 2 });
+    expect(headings.map((h) => h.textContent)).toEqual(['초급', '중급', '고급']);
+    expect(within(within(panel()).getByRole('region', { name: '중급 드릴' })).getByText('중급 압박')).toBeInTheDocument();
+  });
+
+  it('그룹은 요약 필드 비교만으로 만들어진다 — 본문 로드 0회 · rebuildAllSummaries 0회', async () => {
+    // 3.6 완료 판정의 성능 계약을 스파이로 못박는다. "0회" 단언에는 대조군이 둘 붙는다 —
+    // (a) 같은 객체의 listDrillSummaries 는 걸렸다(스파이가 안 붙어서 0회인 게 아니다)
+    // (b) 삭제(되돌리기 원본 보관)는 getDrill 을 실제로 1회 연다(그 스파이도 산 스파이다).
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '초급 드리블', level: '초급' });
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '고급 슈팅', level: '고급' });
+    const rebuild = vi.spyOn(idbDrillRepo, 'rebuildAllSummaries');
+    const getDrill = vi.spyOn(idbDrillRepo, 'getDrill');
+    const loadDrill = vi.spyOn(idbDrillRepo, 'loadDrill');
+    const list = vi.spyOn(idbDrillRepo, 'listDrillSummaries');
+    try {
+      const nav = makeNav();
+      render(<LibraryScreen nav={nav} />, { wrapper });
+      await waitFor(() => expect(within(panel()).getByText('고급 슈팅')).toBeInTheDocument());
+      expect(within(panel()).getByRole('region', { name: '초급 드릴' })).toBeInTheDocument(); // 그룹이 실제로 섰다
+
+      expect(list.mock.calls.length).toBeGreaterThanOrEqual(1); // 대조군 (a)
+      expect(rebuild).not.toHaveBeenCalled();
+      expect(getDrill).not.toHaveBeenCalled();
+      expect(loadDrill).not.toHaveBeenCalled();
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: '고급 슈팅 더보기' }));
+      await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+      await waitFor(() => expect(getDrill).toHaveBeenCalledTimes(1)); // 대조군 (b)
+      expect(rebuild).not.toHaveBeenCalled(); // 삭제 후 재조회에서도 전역 재구축은 없다
+
+      // 계약의 나머지 반쪽 — 그룹핑은 build:1 요약만으로 성립한다. 요약에 뭔가를 실어 build 를
+      // 올릴 일이 생기면(예: 4차 목록 배지) **상승과 재구축 경로를 같은 커밋에** 싣고 이 단언도
+      // 그때 함께 갱신하라. 근거는 summary.ts 상단 주석(§7 3.2/3.3 결정).
+      expect(SUMMARY_BUILD).toBe(1);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('난이도를 고쳐 저장하면 카드가 새 그룹으로 옮겨 간다 — putDrill 이 요약을 같은 트랜잭션에서 다시 쓴다', async () => {
+    // 전역 재구축 없이도 그룹이 낡지 않는 이유가 바로 이 경로다. putDrill 이 본문만 쓰고 요약을
+    // 안 다시 쓰면(낡은 요약) 카드는 초급 그룹에 남는다 — 그 회귀를 여기서 잡는다.
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '승급 드릴', level: '초급' });
+    await idbDrillRepo.putDrill({ ...d, level: '고급' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('승급 드릴')).toBeInTheDocument());
+
+    expect(within(within(panel()).getByRole('region', { name: '고급 드릴' })).getByText('승급 드릴')).toBeInTheDocument();
+    // 대조군 — 초급 그룹 자체가 사라졌다. 옛 요약이 살아남아 카드가 두 그룹에 걸치거나
+    // 초급에 남으면 여기서 잡힌다.
+    expect(within(panel()).queryByRole('region', { name: '초급 드릴' })).toBeNull();
   });
 });
 

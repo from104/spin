@@ -217,9 +217,14 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
             {drills.length === 0 ? (
               <EmptyDrills hasFilter={!!category || !!search} onCreate={goNewDrill} />
             ) : (
-              // 판 걸이(계획서 2.2): 난이도 그룹 헤더(초급 → 중급 → 고급)로 **정렬**한다 —
-              // 난이도 필터를 하나 더 얹는 대신 0클릭으로 나눠 보여준다(빈 그룹은 헤더도 없다).
-              // 그룹 안 순서는 store 가 주는 순서(수정 최신순) 그대로다.
+              // 판 걸이(계획서 2.2)로 들어와 로드맵 3.6 으로 확정: 난이도 그룹 헤더(초급 → 중급
+              // → 고급)로 **정렬**한다 — 난이도 필터를 하나 더 얹는 대신 0클릭으로 나눠 보여준다
+              // (빈 그룹은 헤더도 없다). 그룹 안 순서는 store 가 주는 순서(수정 최신순) 그대로다.
+              // 성능 계약(3.6 완료 판정): 비교 대상은 **요약(DrillSummary.level)뿐**이다 — 본문을
+              // 열지 않고, SUMMARY_BUILD 를 올리지 않고, 호출자 0 인 rebuildAllSummaries 를 신설
+              // 하지 않는다. 요약은 putDrill 이 본문과 같은 트랜잭션에서 다시 쓰므로 전역 재구축
+              // 없이도 낡지 않는다(validateDrill 이 level 을 DRILL_LEVELS 로 보정해 저장하므로 세
+              // 그룹 어디에도 안 걸리는 요약은 존재하지 않는다 — 카드가 조용히 증발할 구멍 없음).
               DRILL_LEVELS.map((level) => {
                 const group = drills.filter((d) => d.level === level);
                 if (group.length === 0) return null;
