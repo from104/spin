@@ -80,8 +80,24 @@ export function zoneHandles(
   });
 }
 
-export const handlesVisible = (pxPerUnit: number, pointerType: string, forced: boolean): boolean =>
-  forced || (pointerType === 'touch' && pxPerUnit < INTERACT.zoneDirectMinPxPerUnit);
+/** 2존 모드(= 핸들 전용 조작)가 걸려 있는가. §5.12 계약의 그 함수이고, 5.5 이전까지
+ *  **소비처가 0** 이던 죽은 배선이다(2026-08-13 rg 실측: 정의 1 + re-export 1 + 호출 1,
+ *  그 호출의 결과를 읽는 곳 0).
+ *
+ *  ⚠️ 2026-08-13(5.5, 결정 ④) **자동 배율 문턱을 뗐다.** 예전 식은
+ *  `forced || (pointerType === 'touch' && pxPerUnit < INTERACT.zoneDirectMinPxPerUnit)` 였고
+ *  그 상수는 1.28 이다. 되살리면 안 되는 이유는 둘이다.
+ *   ① 실측 배율 분포(7인치 0.663 · narrow 0.891 · PC 핀 0.899 · PC 오버레이 1.151 ·
+ *      27인치 1.675)가 문턱 1.28 을 여러 번 넘나든다 — 그대로 두면 **줌이 조작 규칙을
+ *      바꾸는 사고**가 된다(§9-④).
+ *   ② 7인치 태블릿은 0.663 이라 문턱이 **늘** 참이다. 즉 자동 분기를 남기면 결정 ④ 의
+ *      *"2존 기본 OFF"* 가 하필 이 앱의 1순위 기기에서만 거짓말이 된다.
+ *
+ *  두 인자를 지우지 않고 남긴 이유: 이 함수의 계약(§5.12)과 호출부를 그대로 두면서,
+ *  *"배율과 포인터 종류를 무엇으로 넣어도 답이 안 바뀐다"* 를 **단언 가능한 성질**로 만들기
+ *  위해서다. `src/physics/twoZone.test.ts` 의 그 매트릭스가 자동 문턱의 부활을 막는 자물쇠다 —
+ *  지우면 다음 사람이 ①②를 모른 채 한 줄로 되돌려 놓는다. */
+export const handlesVisible = (_pxPerUnit: number, _pointerType: string, forced: boolean): boolean => forced;
 
 const dist = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.y - b.y);
 

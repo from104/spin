@@ -50,6 +50,7 @@ export {
 export type { DragSession } from './drag.ts';
 export { hitTest, forgivingRadius, zoneHandles, handlesVisible } from './hitTest.ts';
 export type { HitResult, HitContext, SceneSnapshot, ToolId } from './hitTest.ts';
+export { applyTwoZone, twoZoneViewConfig, TWO_ZONE_BODY } from './twoZone.ts';
 
 /** §2.6 유도값과 정확히 일치(검산): kmhToPxPerS(10) = 69.4444444,
  *  kmhToPxPerS(30)/CHAIR.pivotToFrontPx(=30) = 6.9444444. bumperKmh 는 "앞범퍼 선속도" 이므로

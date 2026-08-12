@@ -41,7 +41,13 @@ export function beginDrag(hit: HitResult, world: Vec2, ctx: HitContext, pose: Ch
 
   if (hit.kind === 'chair') {
     // hitTest() 는 kind:'chair' 히트에 항상 s 를 채운다(§5.12 우선순위 2·5).
-    const zone = classifyZone(hit.s!, ctx.zones);
+    //
+    // ⚠️ `hit.zone` 이 있으면 그것이 **이긴다** — 2존 모드(§9 결정 ④ · 5.5)가 차체 전체를
+    // 한 존으로 합치는 유일한 통로다(physics/twoZone.ts:applyTwoZone). 이 `??` 를 지우고
+    // 언제나 classifyZone 을 부르면 토글이 켜져 있어도 앞 절반이 계속 제자리 회전이 된다.
+    // hitTest() 는 차체 히트에 zone 을 채우지 않으므로, 아무도 입히지 않은 히트는
+    // 지금까지와 한 글자도 다르지 않게 s 로 갈린다.
+    const zone = hit.zone ?? classifyZone(hit.s!, ctx.zones);
     return { kind: 'chair', id: hit.id as ChairId, zone, grab: grabFrom(pose, world), zoneState: {}, ...base };
   }
   if (hit.kind === 'zoneHandle') {
