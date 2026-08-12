@@ -62,16 +62,25 @@ async function openDrill() {
   return { user, drill: created, stage: screen.getByRole('application', { name: '코트 편집 영역' }) };
 }
 
+/** 코트 우상단 [속성]로 인스펙터를 편다 — 2026-08-12 결정 ③A 로 기본 접힘 오버레이가 됐다. */
+async function openInspector(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: '속성' }));
+  return screen.getByRole('complementary', { name: '드릴 속성' });
+}
+
 describe('드릴 편집 모드', () => {
-  it('저장된 드릴을 열면 도구·코트·속성 3영역이 렌더된다', async () => {
-    const { stage } = await openDrill();
+  it('저장된 드릴을 열면 도구·코트가 뜨고, [속성]으로 인스펙터를 붙일 수 있다', async () => {
+    const { stage, user } = await openDrill();
     expect(stage).toBeInTheDocument();
-    expect(screen.getByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
+    // 기본 접힘 — 판을 덮지 않는다.
+    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
+    expect(await openInspector(user)).toBeInTheDocument();
   });
 
   it('전술판과 달리 스텝 UI 가 있다', async () => {
     // 재편의 갈림점 — 같은 컴포넌트지만 여기서만 스텝이 산다(EditorWorkspace 의 mode prop).
-    await openDrill();
+    const { user } = await openDrill();
+    await openInspector(user);
     expect(screen.getByRole('button', { name: '스텝 추가' })).toBeInTheDocument();
     expect(screen.getByText(/^스텝 1 ·/)).toBeInTheDocument();
   });
@@ -94,9 +103,12 @@ describe('드릴 편집 모드', () => {
   it('배치 도구 + 코트 포커스에서 ArrowRight 는 스텝을 넘기지 않고 배치 커서만 이동한다(§7.5d)', async () => {
     const { user, stage } = await openDrill();
 
-    // 스텝 3개로 만든다(기본 1개 + 추가 2회).
+    // 스텝 3개로 만든다(기본 1개 + 추가 2회). 스텝 추가는 인스펙터 안에 있다.
+    await openInspector(user);
     await user.click(screen.getByRole('button', { name: '스텝 추가' }));
     await user.click(screen.getByRole('button', { name: '스텝 추가' }));
+    // 시트를 닫아 코트를 원래대로 되돌린다 — 이 테스트가 보려는 것은 키 입력 경로다.
+    await user.click(screen.getByRole('button', { name: '속성 닫기' }));
 
     // 공 도구를 켠다(배치 도구). 도구 레일로 범위를 좁힌다 — 스텝 추가로 놓인 기본 공
     // 개체도 SVG 상에서 동일한 aria-label="공" 을 갖는다.

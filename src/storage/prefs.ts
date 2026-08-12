@@ -39,6 +39,10 @@ export interface Preferences {
   showGrid: boolean;
   showGridLabels: boolean;
   showRuleZones: boolean;
+  /** 편집기 인스펙터를 판 옆에 **붙박이**로 둘지(결정 ③A). 기본은 false = 판 위 오버레이 시트다.
+   *  기기를 옮겨도 따라오는 취향이라 prefs 에 남기고, 좁은 컨테이너(<1100)에서는 이 값이
+   *  true 여도 오버레이로 물러난다(features/editor/inspectorLayout.ts). */
+  inspectorPinned: boolean;
   teams: Record<TeamSide, TeamStyle>;
   defaultFormation: FormationName;
   defaultCourtMode: CourtMode | null;
@@ -72,6 +76,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   showGrid: true,
   showGridLabels: true,
   showRuleZones: true,
+  inspectorPinned: false,
   teams: structuredClone(DEFAULT_TEAMS),
   defaultFormation: '1-2-1',
   defaultCourtMode: null,
@@ -163,6 +168,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     showGrid: bool(raw.showGrid, d.showGrid),
     showGridLabels: bool(raw.showGridLabels, d.showGridLabels),
     showRuleZones: bool(raw.showRuleZones, d.showRuleZones),
+    inspectorPinned: bool(raw.inspectorPinned, d.inspectorPinned),
     teams,
     defaultFormation,
     defaultCourtMode,

@@ -2,7 +2,7 @@
 // 그리는 조립부. `<nav aria-label="도구">` `<div role="application">`(CourtStage 가 직접 렌더)
 // `<aside aria-label="드릴 속성">` 세 영역과 하단 트랜스포트로 프로토타입 236–400행 레이아웃을
 // 그대로 이식한다.
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { isId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
 import type { CourtMode } from '../../model/court.ts';
@@ -26,7 +26,9 @@ import { EditorStage } from './EditorStage.tsx';
 import { StageControls } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
 import { BoardBar } from './BoardBar.tsx';
-import { BottomSheet } from './BottomSheet.tsx';
+import { InspectorHost } from './InspectorHost.tsx';
+import { inspectorMode } from './inspectorLayout.ts';
+import { useContainerWidth } from './useContainerWidth.ts';
 import { InspectorPanel } from './InspectorPanel.tsx';
 import { HelpModal } from './HelpModal.tsx';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
@@ -79,11 +81,22 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const portrait = useIsPortrait();
   // 트레이(도구·개체)를 판의 어느 변에 붙일지. 가로 화면이면 판 **오른쪽**, 세로면 판 아래.
   const trayAxis = portrait ? ('column' as const) : ('row' as const);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  // ★ 인스펙터(결정 ③A) — **기본 접힘 오버레이**. 핀 취향만 prefs 에 남고 여닫힘은 로컬이다:
+  //   여닫힘까지 저장하면 태블릿에서 열어 둔 채 앱을 닫은 사람이 다음에 PC 에서 판을 가린
+  //   채로 만나게 된다. 대신 **핀을 켜 둔 사람은 열린 채로 시작한다** — 붙박이를 골라 놓고
+  //   매번 다시 열어야 하면 핀이 아니다.
+  const pinned = prefs.inspectorPinned;
+  const [inspectorOpen, setInspectorOpen] = useState(pinned);
+  const inspectorPanelId = useId();
+  const inspectorTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [workspaceRef, workspaceWidth] = useContainerWidth<HTMLElement>();
   // 격자·규칙존 토글은 로컬 state 가 아니라 prefs 를 직접 신뢰값으로 쓴다 — 로컬 state 였을 때는
   // 화면을 벗어났다 돌아오면(EditorWorkspace 재마운트) 항상 prefs 값으로 리셋됐다(감사 지적).
   const showGrid = prefs.showGrid;
   const showRuleZones = prefs.showRuleZones;
+  // 시트의 포커스 이펙트가 이 함수의 identity 에 걸려 있다 — 렌더마다 새로 만들면 제목으로
+  // 포커스를 계속 빼앗는다(InspectorHost 의 이펙트 주석).
+  const closeInspector = useCallback(() => setInspectorOpen(false), []);
   const toggleGrid = useCallback(() => setPrefs({ showGrid: !prefs.showGrid }), [prefs.showGrid, setPrefs]);
   const toggleRuleZones = useCallback(() => setPrefs({ showRuleZones: !prefs.showRuleZones }), [prefs.showRuleZones, setPrefs]);
 
@@ -274,16 +287,25 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       onArmPlayer={armPlayer}
       onEraseIds={eraseIds}
       showSteps={!isBoard}
-      layout={portrait ? 'sheet' : 'side'}
     />
   );
+
+  const inspectorLayout = inspectorMode({ open: inspectorOpen, pinned, containerWidthPx: workspaceWidth });
 
   return (
     <main
       id="main"
+      ref={workspaceRef}
       tabIndex={-1}
       // 세로 화면은 위→아래로 쌓는다(§6.4): 코트가 폭을 다 쓰고, 도구·속성이 아래로 간다.
-      style={{ flex: 1, display: 'flex', flexDirection: portrait ? 'column' : 'row', minHeight: 0, outline: 'none' }}
+      // 다만 **붙박이 인스펙터가 서면 가로로 돌린다** — 세로 배치에서 width:312 는 교차축
+      // 크기가 되어 패널이 판 아래에 납작하게 눕는다. 붙박이는 컨테이너 폭 ≥1100 에서만
+      // 성립하므로(inspectorLayout) 그때는 오른쪽에 세울 폭이 반드시 있다.
+      // position:relative 는 오버레이 시트의 기준 상자다 — 이것이 없으면 시트가 화면 전체를
+      // 기준으로 떠서 레일·헤더 위까지 덮는다.
+      // ⚠️ 아래 style 객체는 **한 줄**이어야 한다 — appShell.contract.test.ts 가 방향 전환이 적힌
+      // 그 줄에서 minHeight:0 을 함께 찾는다(세로 축 플렉스 사슬은 jsdom 이 못 잡아 소스로 지킨다).
+      style={{ flex: 1, display: 'flex', flexDirection: portrait && inspectorLayout !== 'pinned' ? 'column' : 'row', minHeight: 0, outline: 'none', position: 'relative' }}
     >
       <span id="court-help" className="sr-only">
         방향키로 커서 이동, Enter로 배치, Alt+←/→로 개체 순회
@@ -331,6 +353,10 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
               onToggleGrid={toggleGrid}
               showRuleZones={showRuleZones}
               onToggleRuleZones={toggleRuleZones}
+              inspectorOpen={inspectorOpen}
+              onToggleInspector={() => setInspectorOpen((v) => !v)}
+              inspectorPanelId={inspectorPanelId}
+              inspectorButtonRef={inspectorTriggerRef}
             />
           </div>
           {toolRail}
@@ -360,13 +386,20 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         )}
       </div>
 
-      {portrait ? (
-        <BottomSheet label="속성" open={sheetOpen} onToggle={() => setSheetOpen((v) => !v)}>
-          {inspector}
-        </BottomSheet>
-      ) : (
-        inspector
-      )}
+      <InspectorHost
+        id={inspectorPanelId}
+        open={inspectorOpen}
+        pinned={pinned}
+        containerWidthPx={workspaceWidth}
+        edge={portrait ? 'bottom' : 'side'}
+        onClose={closeInspector}
+        // 핀은 **모양만** 바꾼다. 여닫힘을 함께 건드리면 붙박이로 바꾼 순간 패널이 사라졌다
+        // 다시 나타나며 인스펙터가 재마운트된다(완료 판정 (b) 가 막는 것이 정확히 이것이다).
+        onTogglePin={() => setPrefs({ inspectorPinned: !pinned })}
+        returnFocusRef={inspectorTriggerRef}
+      >
+        {inspector}
+      </InspectorHost>
 
       {/* 끌고 있는 말의 고스트. 코트 축척(pxPerUnit)에 맞춰 **실제 놓일 크기**로 그린다 —
           고정 크기로 그리면 손을 뗀 순간 개체가 갑자기 커지거나 작아져 어긋나 보인다.

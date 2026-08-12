@@ -27,9 +27,6 @@ export interface InspectorPanelProps {
    *  하단 트랜스포트만 감추고 여기를 놔두면 화면에 없는 2번째 스텝을 만들 수 있어, 판이
    *  조용히 여러 장이 된다(눈으로는 알 수 없다). 기본값은 드릴 편집 쪽인 true. */
   showSteps?: boolean;
-  /** 'side' = 우측 312px 고정(가로 화면), 'sheet' = 하단 시트 안(세로 화면, §6.4).
-   *  시트 안에서는 폭·좌측 테두리·자체 스크롤을 벗는다 — 스크롤은 시트가 맡는다. */
-  layout?: 'side' | 'sheet';
 }
 
 const SECTION_LABEL: CSSProperties = { fontSize: '0.65625rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--faint-text)', marginBottom: 11, textTransform: 'uppercase' };
@@ -55,18 +52,12 @@ export function InspectorPanel({
   onArmPlayer,
   onEraseIds,
   showSteps = true,
-  layout = 'side',
 }: InspectorPanelProps) {
-  const sheet = layout === 'sheet';
   return (
-    <aside
-      aria-label="드릴 속성"
-      style={
-        sheet
-          ? { background: 'var(--panel)' }
-          : { flex: 'none', width: 312, borderLeft: '1px solid var(--border)', background: 'var(--panel)', overflowY: 'auto' }
-      }
-    >
+    // 폭·테두리·스크롤은 **껍데기(InspectorHost)** 가 갖는다. 2026-08-12 결정 ③A 전에는 이
+    // 컴포넌트가 가로 화면에서 스스로 312px 을 차지했는데, 그러면 같은 인스턴스를 오버레이와
+    // 붙박이 사이에서 옮길 때 자기 자리 계산이 두 곳으로 갈라진다.
+    <aside aria-label="드릴 속성" style={{ background: 'var(--panel)' }}>
       <DrillInfoSection drill={drill} dispatch={dispatch} />
       <Divider />
       <RosterSection drill={drill} step={step} dispatch={dispatch} pendingPlayerId={pendingPlayerId} onArmPlayer={onArmPlayer} onEraseIds={onEraseIds} />

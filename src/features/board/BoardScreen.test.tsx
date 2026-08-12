@@ -91,6 +91,17 @@ async function openBoard(
   return { user, unmount, stage: screen.getByRole('application', { name: '코트 편집 영역' }) };
 }
 
+/** 인스펙터를 편다. 2026-08-12 결정 ③A 로 속성은 **기본 접힘 오버레이**가 됐다 — 명단·스텝을
+ *  보려면 먼저 코트 우상단 [속성]을 눌러야 한다(그 전에는 DOM 에 아예 없다, §7.5 탭 순서). */
+async function openInspector(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: '속성' }));
+  return screen.getByRole('complementary', { name: '드릴 속성' });
+}
+
+/** 시트의 DOM id. useId 산출물이라 값을 예측할 수 없으므로 트리거의 aria-controls 로 찾는다 —
+ *  그 둘이 어긋나면(=배선 사고) 이 헬퍼를 쓰는 테스트가 전부 빨간불이 된다. */
+const sheetIdOf = (): string => screen.getByRole('button', { name: '속성' }).getAttribute('aria-controls')!;
+
 /** 코트 위 개체의 translate 좌표를 읽는다. */
 function poseOf(el: Element): { x: number; y: number } {
   const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(el.getAttribute('transform') ?? '');
@@ -116,19 +127,24 @@ beforeEach(() => {
 });
 
 describe('자유 전술판 (대문)', () => {
-  it('코트 고르기 단계 없이 도구·코트·속성 3영역이 바로 뜬다', async () => {
+  it('코트 고르기 단계 없이 도구·코트가 바로 뜨고, 속성은 한 번의 탭으로 붙는다', async () => {
     // 재편의 핵심 요구 — 대문에 판이 "상시 떠 있다". 진입 장벽(CourtPicker)이 없어야 한다.
-    const { stage } = await openBoard('full', { placed: true });
+    // 2026-08-12 결정 ③A: 속성은 3영역 중 하나가 아니라 **기본 접힘 오버레이**다.
+    const { stage, user } = await openBoard('full', { placed: true });
     expect(stage).toBeInTheDocument();
-    expect(screen.getByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
     expect(screen.getByRole('button', { name: /^선택/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByRole('heading', { name: '어떤 코트로 진행하십니까?' })).toBeNull();
+
+    expect(await openInspector(user)).toBeInTheDocument();
   });
 
   it('전술판은 1장짜리다 — 스텝 UI 가 없다', async () => {
     // 하단 트랜스포트만 감추고 인스펙터의 스텝 섹션을 놔두면 화면에 없는 2번째 스텝을
     // 만들 수 있다(눈으로는 알 수 없다). 둘 다 없어야 한다.
-    await openBoard();
+    // **인스펙터를 펴 놓고** 확인한다 — 접혀 있으면 아무것도 없는 게 당연해서 통과가 공짜다.
+    const { user } = await openBoard();
+    await openInspector(user);
     expect(screen.queryByRole('button', { name: '스텝 추가' })).toBeNull();
     expect(screen.queryByText(/^스텝 1 ·/)).toBeNull();
   });
@@ -551,11 +567,21 @@ describe('태블릿 세로 레이아웃 (§6.4)', () => {
     delete (window as unknown as { matchMedia?: unknown }).matchMedia;
   });
 
-  it('가로에서는 속성이 상시 보이고 시트 손잡이가 없다', async () => {
+  // 2026-08-12 결정 ③A 로 이 describe 의 전제가 뒤집혔다: 가로에서도 속성은 자리를 차지하지
+  // 않는다. 방향이 가르는 것은 **어느 변에서 시트가 올라오는가** 뿐이다.
+  it('가로에서도 속성은 기본 접힘이다 — 열어도 판을 밀어내지 않는다', async () => {
     stubOrientation(false);
-    await openBoard('full');
-    expect(screen.getByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /속성/ })).toBeNull();
+    const { user } = await openBoard('full');
+    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
+
+    const main = document.getElementById('main')!;
+    const inflowBefore = [...main.children].filter((c) => (c as HTMLElement).style.position !== 'absolute').length;
+
+    await openInspector(user);
+    // 시트는 흐름 밖(absolute)이라 코트 상자를 나눠 갖는 형제가 늘지 않는다 — 완료 판정 (a).
+    const inflowAfter = [...main.children].filter((c) => (c as HTMLElement).style.position !== 'absolute').length;
+    expect(inflowAfter).toBe(inflowBefore);
+    expect(document.getElementById(sheetIdOf())!.style.position).toBe('absolute');
   });
 
   it('세로에서는 속성이 하단 시트로 내려가고 기본은 접혀 있다', async () => {
@@ -566,18 +592,22 @@ describe('태블릿 세로 레이아웃 (§6.4)', () => {
     expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument();
     // 속성은 접혀 있어 DOM 에 없다 — display:none 으로 두면 보이지 않는 입력이 탭 순서에 남는다.
     expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
-    const handle = screen.getByRole('button', { name: /속성/ });
+    const handle = screen.getByRole('button', { name: '속성' });
     expect(handle).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('세로에서 손잡이를 누르면 속성이 펼쳐진다', async () => {
+  it('세로에서 손잡이를 누르면 속성이 아래에서 올라온다', async () => {
     stubOrientation(true);
     const { user } = await openBoard('full');
 
-    await user.click(screen.getByRole('button', { name: /속성/ }));
+    await user.click(screen.getByRole('button', { name: '속성' }));
 
     expect(await screen.findByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /속성/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: '속성' })).toHaveAttribute('aria-expanded', 'true');
+    // 세로는 아래에서, 가로는 오른쪽에서 — 붙박이가 설 자리에서 미끄러진다.
+    const sheet = document.getElementById(sheetIdOf())!;
+    expect(sheet.style.bottom).toBe('0px');
+    expect(sheet.style.top).toBe('');
   });
 });
 
@@ -594,8 +624,10 @@ describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', (
   it('선수는 명단에 남아 있어 하나씩 놓을 수 있다', async () => {
     // 비었다고 선수까지 없어지면 안 된다 — 8대가 인스펙터 명단에 '미배치' 로 있어야 한다.
     localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    const user = userEvent.setup();
     render(<BoardScreen />, { wrapper: Wrapper });
-    await waitFor(() => expect(screen.getByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+    await openInspector(user);
     expect(screen.getAllByRole('button', { name: '배치' }).length).toBe(8);
   });
 
@@ -636,6 +668,7 @@ describe('코트 비우기 — 되돌릴 수 없으므로 반드시 확인을 �
   it('비운 뒤에도 선수는 명단에 남는다 — 다시 놓을 수 있어야 한다', async () => {
     const { user } = await openAndClickClear();
     await user.click(screen.getByRole('button', { name: '비우기' }));
+    await openInspector(user);
     await waitFor(() => expect(screen.getAllByRole('button', { name: '배치' }).length).toBe(8));
   });
 
