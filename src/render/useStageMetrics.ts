@@ -129,6 +129,26 @@ export function panView(view: StageView, def: CourtDef, d: Vec2): StageView {
   return clampViewToCourt({ ...view, x: view.x + d.x, y: view.y + d.y }, def);
 }
 
+/** 화면 CSS px 델타만큼 **창을 민다** — 창이 그 방향으로 간다(판을 손으로 잡아 미는 것과
+ *  부호가 반대다. 그쪽은 호출자가 뒤집어 넘긴다).
+ *
+ *  회전·배율 환산을 이 한곳에 모은다: 키보드 팬(§4.4 P2-1 Ctrl+방향키)과 가장자리 자동
+ *  밀기가 같은 식을 써야, 판이 90° 돌아간 세로 태블릿에서 두 경로가 서로 다른 쪽으로 가는
+ *  일이 없다. `screenDeltaToWorld` 를 지나지 않으면 오른쪽 키가 판을 아래로 내려보낸다.
+ *
+ *  `pxPerUnit` 이 0 이면(레이아웃 전·측정 실패) 아무 일도 하지 않는다 — 0 으로 나눈
+ *  Infinity 가 view 에 들어가면 판을 영영 잃는다. */
+export function panViewByScreen(
+  view: StageView,
+  def: CourtDef,
+  m: Pick<StageMetrics, 'rot' | 'pxPerUnit'>,
+  dxCssPx: number,
+  dyCssPx: number,
+): StageView {
+  if (!(m.pxPerUnit > 0)) return view;
+  return panView(view, def, screenDeltaToWorld(m, dxCssPx / m.pxPerUnit, dyCssPx / m.pxPerUnit));
+}
+
 /** 화면 가장자리 자동 밀기 속도(**화면** px/s). 포인터가 상자 가장자리 띠 안으로 들어간
  *  깊이에 제곱으로 비례한다. 바깥으로 나가도 최고 속도에서 멈춘다 — 손이 화면 밖으로
  *  많이 나갔다고 판이 더 빨리 달아나면 되돌아올 수 없다.

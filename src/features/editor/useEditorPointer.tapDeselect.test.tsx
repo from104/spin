@@ -123,6 +123,7 @@ function useHarness() {
     singleKeyMode: 'on',
     selectionSize: state.selection.size,
     onSelectTool: noop,
+    onPanView: noop,
     onConeToggle: noop,
     onUndo: noop,
     onRedo: noop,

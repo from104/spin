@@ -12,6 +12,7 @@ function baseDeps(overrides: Partial<EditorKeyboardDeps>): EditorKeyboardDeps {
     singleKeyMode: 'on',
     selectionSize: 0,
     onSelectTool: vi.fn(),
+    onPanView: vi.fn(),
     onConeToggle: vi.fn(),
     onUndo: vi.fn(),
     onRedo: vi.fn(),
@@ -126,5 +127,90 @@ describe('useEditorKeyboard — [A-3] Esc = 선택 해제', () => {
     modal.unmount();
     pressOnBody('Escape');
     expect(deps.onSelectionClear).toHaveBeenCalledTimes(1);
+  });
+});
+
+// §4.4 P2-1 — Ctrl/Cmd + 방향키 = 판 이동. 방향키 소비자 셋(전역 스텝 이동 ←→ · 개체 이동 ·
+// 배치 커서)과 Shift(화살표 끝점 §4.3 1.11) · Alt(개체 순회) 가 이미 차 있어 **Ctrl 만 비어
+// 있었다**. 이 파일은 전역 층만 잰다 — 개체·커서 층이 수식키를 흘려보내는지는 EditorStage
+// 쪽(BoardScreen.test.tsx)이 따로 문다.
+describe('useEditorKeyboard — Ctrl/Cmd + 방향키는 판을 민다', () => {
+  const STEP = 64; // INTERACT.keyPanStepCssPx
+
+  it('네 방향이 각각 화면 델타로 나간다 — 창이 키 방향으로 간다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+
+    press('ArrowRight', { ctrlKey: true });
+    expect(deps.onPanView).toHaveBeenLastCalledWith(STEP, 0);
+    press('ArrowLeft', { ctrlKey: true });
+    expect(deps.onPanView).toHaveBeenLastCalledWith(-STEP, 0);
+    press('ArrowDown', { ctrlKey: true });
+    expect(deps.onPanView).toHaveBeenLastCalledWith(0, STEP);
+    press('ArrowUp', { ctrlKey: true });
+    expect(deps.onPanView).toHaveBeenLastCalledWith(0, -STEP);
+    expect(deps.onPanView).toHaveBeenCalledTimes(4);
+  });
+
+  it('Cmd(meta) 도 같다 — 이 저장소는 Ctrl 과 Cmd 를 한 몸으로 다룬다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('ArrowRight', { metaKey: true });
+    expect(deps.onPanView).toHaveBeenCalledWith(STEP, 0);
+  });
+
+  it('기본 동작을 막는다 — macOS 의 Cmd+←/→ 는 브라우저 뒤로/앞으로다', () => {
+    // 막지 않으면 판을 밀려던 손짓이 화면을 통째로 떠난다.
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    const e = new KeyboardEvent('keydown', { key: 'ArrowLeft', metaKey: true, bubbles: true, cancelable: true });
+    document.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(true);
+  });
+
+  it('수식키 없는 방향키는 그대로 스텝 이동이다 (대조군)', () => {
+    // 이 대조군이 없으면 "Ctrl 에서 팬이 돈다" 가 '방향키가 전부 팬이 됐다' 로도 통과한다.
+    const deps = baseDeps({ selectionSize: 0 });
+    renderHook(() => useEditorKeyboard(deps));
+    press('ArrowRight');
+    press('ArrowLeft');
+    expect(deps.onNextStep).toHaveBeenCalledTimes(1);
+    expect(deps.onPrevStep).toHaveBeenCalledTimes(1);
+    expect(deps.onPanView).not.toHaveBeenCalled();
+  });
+
+  it('Alt+방향키도 팬이 아니다 — 그 자리는 개체 순회(§7.5b)가 쓴다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('ArrowRight', { altKey: true });
+    expect(deps.onPanView).not.toHaveBeenCalled();
+  });
+
+  it('텍스트 입력 중에는 팬하지 않는다 — Ctrl+←/→ 는 필드의 단어 점프다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(deps.onPanView).not.toHaveBeenCalled();
+    input.remove();
+  });
+
+  it('singleKeyMode=off 여도 팬은 살아 있다 — 수식키 조합은 WCAG 2.1.4 대상이 아니다', () => {
+    // Ctrl+Z(되돌리기)와 같은 층이다. 여기서 막히면 단일키를 끈 사용자가 판을 못 민다.
+    const deps = baseDeps({ singleKeyMode: 'off' as SingleKeyMode });
+    renderHook(() => useEditorKeyboard(deps));
+    press('ArrowRight', { ctrlKey: true });
+    expect(deps.onPanView).toHaveBeenCalledWith(STEP, 0);
+  });
+
+  it('같은 mod 분기의 이웃들을 가리지 않는다 — Ctrl+Z·Ctrl+Delete 는 그대로다 (대조군)', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('z', { ctrlKey: true });
+    press('Delete', { ctrlKey: true });
+    expect(deps.onUndo).toHaveBeenCalledTimes(1);
+    expect(deps.onEraseSelection).toHaveBeenCalledTimes(1);
+    expect(deps.onPanView).not.toHaveBeenCalled();
   });
 });

@@ -258,6 +258,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     onZoomIn: () => stageRef.current?.zoomBy(INTERACT.zoomStep),
     onZoomOut: () => stageRef.current?.zoomBy(1 / INTERACT.zoomStep),
     onZoomReset: () => stageRef.current?.resetZoom(),
+    // §4.4 P2-1 — 판 이동. 화면 델타를 그대로 넘긴다: 회전(rot)·배율 환산은 무대가 자기
+    // 실측으로 해야 맞다(여기서 미리 곱하면 인스펙터가 열려 판이 돌아간 순간 어긋난다).
+    onPanView: (dx, dy) => stageRef.current?.panByScreen(dx, dy),
     onEraseSelection: (scope) => eraseIds(Array.from(state.selection), scope),
     onShowHelp: () => setHelpOpen(true),
     // [A-3] Esc = 선택 해제. 2단 히트(1.6) 이후 붐비는 코트에서 "빈 곳 탭" 이 사라져도

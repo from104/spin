@@ -281,6 +281,16 @@ export const INTERACT = {
    *  띠에 들어서는 순간 판이 홱 튀어 조준을 잃는다. */
   edgePanBandPx: 56,
   edgePanMaxPxPerS: 900,
+
+  /** Ctrl/Cmd + 방향키 한 번에 창이 가는 거리(**화면** CSS px, §4.4 P2-1).
+   *
+   *  화면 기준이라 배율이 달라져도 손이 느끼는 걸음이 같다(settleSnapCssPx 와 같은 이유).
+   *  월드 px 로 두면 6배 확대에서 한 번 누를 때마다 판이 통째로 지나간다.
+   *
+   *  64 는 "한 번 눌러 옮겨진 것이 보이되 지나치지는 않는" 눈금이다 — 히트 타깃(44)보다
+   *  크게 잡아야 한 번 눌렀을 때 개체 하나 폭 이상 움직인 것이 읽히고, 태블릿 세로
+   *  코트 폭(≈500)을 8번 안에 훑는다. 연타는 브라우저 키 반복이 대신한다. */
+  keyPanStepCssPx: 64,
 } as const;
 
 export const PLAYBACK = {

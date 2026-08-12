@@ -782,3 +782,77 @@ describe('화살표 개체의 키보드 조작 (§4.3 1.11)', () => {
     await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(start.x + 20));
   });
 });
+
+// §4.4 P2-1 — Ctrl/Cmd + 방향키는 **판의 것**이다. 방향키를 먼저 먹는 두 층(개체 이동 ·
+// 배치 커서)이 전부 stopPropagation 을 걸어 전역(document)까지 못 가게 하므로, 그 두 층이
+// 수식키를 흘려보내지 않으면 "개체를 고르거나 공 도구를 든 순간 판을 밀 수 없는" 상태가
+// 된다. 전역 층의 판정 자체는 useEditorKeyboard.test.tsx 가 따로 잰다 — 여기서 재는 것은
+// **키가 거기까지 도달하는가** 다.
+describe('Ctrl+방향키는 개체·배치 커서를 지나 전역까지 간다 (§4.4 P2-1)', () => {
+  /** document 까지 올라온 keydown 을 받아 적는다. 중간에서 stopPropagation 이 걸리면 비어 있다. */
+  function watchDocument(): { keys: string[]; stop(): void } {
+    const keys: string[] = [];
+    const on = (e: Event): void => void keys.push((e as KeyboardEvent).key);
+    document.addEventListener('keydown', on);
+    return { keys, stop: () => document.removeEventListener('keydown', on) };
+  }
+
+  const FROM = { x: 100, y: 100 };
+  const CTRL = { x: 150, y: 80 };
+  const TO = { x: 200, y: 100 };
+
+  function arrowPoints(el: Element): { x: number; y: number } {
+    const d = el.querySelector('path')?.getAttribute('d') ?? '';
+    const m = /^M(-?[\d.]+),(-?[\d.]+)/.exec(d);
+    return { x: Number(m?.[1] ?? NaN), y: Number(m?.[2] ?? NaN) };
+  }
+
+  it('개체에 포커스가 있어도 화살표는 꿈쩍 않고 키는 전역까지 간다', async () => {
+    // 화살표를 쓰는 이유: 물리 바디가 없어 좌표가 리듀서 산출물 그대로다(정착으로 흔들리지 않는다).
+    const id = newId('ar');
+    saveBoard(setArrow(createDrill({ courtMode: 'full', formation: '1-2-1' }), 0, { id, kind: 'pass', from: { ...FROM }, ctrl: { ...CTRL }, to: { ...TO } }), false);
+    const { user, stage } = await openBoard('full');
+    const arrow = stage.querySelector(`#obj-${id}`) as SVGGElement;
+    expect(arrow).not.toBeNull();
+
+    const w = watchDocument();
+    try {
+      arrow.focus();
+      await user.keyboard('{Control>}{ArrowRight}{/Control}');
+      expect(arrowPoints(arrow)).toEqual(FROM); // 개체는 한 톨도 안 움직였다
+      expect(w.keys).toContain('ArrowRight'); // 그리고 전역까지 갔다
+
+      // 대조군 — 수식키가 없으면 개체가 먹고(2.5px) 전역까지 **가지 않는다**.
+      // 이 짝이 없으면 위 단언이 '리스너가 아예 안 걸렸다' 로도 통과한다.
+      w.keys.length = 0;
+      await user.keyboard('{ArrowRight}');
+      await waitFor(() => expect(arrowPoints(arrow).x).toBe(FROM.x + 2.5));
+      expect(w.keys).toEqual([]);
+    } finally {
+      w.stop();
+    }
+  });
+
+  it('배치 도구 + 코트 포커스에서도 배치 커서가 아니라 판의 것이다 (§7.5d 와 충돌하지 않는다)', async () => {
+    const { user, stage } = await openBoard('full', { placed: true });
+    const toolRail = screen.getByRole('navigation', { name: '도구' });
+    await user.click(within(toolRail).getByRole('button', { name: '공' }));
+    stage.focus();
+    const live = document.querySelector('[aria-live="polite"]');
+
+    const w = watchDocument();
+    try {
+      await user.keyboard('{Control>}{ArrowRight}{/Control}');
+      expect(live?.textContent ?? '').not.toContain('칸'); // 커서는 뜨지 않았다
+      expect(w.keys).toContain('ArrowRight');
+
+      // 대조군 — 수식키 없는 방향키는 여전히 배치 커서 몫이고 전역까지 가지 않는다(§7.5d).
+      w.keys.length = 0;
+      await user.keyboard('{ArrowRight}');
+      await waitFor(() => expect(live?.textContent ?? '').toContain('칸'));
+      expect(w.keys).toEqual([]);
+    } finally {
+      w.stop();
+    }
+  });
+});

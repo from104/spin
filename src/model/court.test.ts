@@ -1,6 +1,6 @@
 // §3.2 검산 — COURT_DEFS 확정 좌표 하드코딩 검증
 import { describe, it, expect } from 'vitest';
-import { COURT_DEFS, gridLabel, gridCellCenter, cellLabelAt, clampToViewBox } from './court.ts';
+import { COURT_DEFS, gridLabel, gridCellCenter, cellLabelAt, clampToViewBox, isOnSurface } from './court.ts';
 import { PX_PER_M } from '../core/units.ts';
 
 describe('COURT_DEFS', () => {
@@ -214,5 +214,57 @@ describe('코트 외곽 마진은 사방 1.5 m 다', () => {
     expect(d.surface).toEqual({ x: 0, y: 0, w: d.vbW, h: d.vbH });
     expect(d.grid.cols * d.grid.cellW).toBeCloseTo(d.vbW, 6);
     expect(d.grid.rows * d.grid.cellH).toBeCloseTo(d.vbH, 6);
+  });
+});
+
+// §4.4 P2-1 — 마진 띠가 곧 판의 프레임이다. `isOnSurface` 는 그 경계의 **유일한 출처**이고,
+// 편집기의 "여기서 시작한 드래그는 판 이동인가 고무줄인가" 판정 전체가 이 한 줄에 걸려 있다.
+describe('isOnSurface — 경기면 안인가 (판의 프레임 경계)', () => {
+  it('한가운데는 경기면이다', () => {
+    expect(isOnSurface('full', { x: 412.5, y: 262.5 })).toBe(true);
+    expect(isOnSurface('half', { x: 262.5, y: 225 })).toBe(true);
+  });
+
+  it('마진 띠(사방 37.5px)는 경기면이 아니다 — 네 변을 모두 본다', () => {
+    // 한 변만 재면 좌측만 고치고 넘어간 구현이 통과한다(심사관이 "좌측만의 문제가 아니다"
+    // 라고 짚은 그 자리다).
+    const d = COURT_DEFS.full;
+    expect(isOnSurface('full', { x: d.surface.x - 1, y: 262.5 })).toBe(false); // 왼쪽
+    expect(isOnSurface('full', { x: d.surface.x + d.surface.w + 1, y: 262.5 })).toBe(false); // 오른쪽
+    expect(isOnSurface('full', { x: 412.5, y: d.surface.y - 1 })).toBe(false); // 위
+    expect(isOnSurface('full', { x: 412.5, y: d.surface.y + d.surface.h + 1 })).toBe(false); // 아래
+  });
+
+  it('라인 위(경계선)는 경기면으로 친다 — 선 위에 세운 개체를 고무줄로 걸 수 있어야 한다', () => {
+    const d = COURT_DEFS.full;
+    expect(isOnSurface('full', { x: d.surface.x, y: d.surface.y })).toBe(true);
+    expect(isOnSurface('full', { x: d.surface.x + d.surface.w, y: d.surface.y + d.surface.h })).toBe(true);
+    // 대조군 — 경계에서 아주 조금만 나가면 곧바로 프레임이다(경계가 '포함'이지 '느슨함'이 아니다).
+    expect(isOnSurface('full', { x: d.surface.x - 0.001, y: d.surface.y })).toBe(false);
+  });
+
+  it('네 모서리도 프레임이다 — 두 축이 각각 걸린다', () => {
+    expect(isOnSurface('full', { x: 10, y: 10 })).toBe(false);
+    expect(isOnSurface('full', { x: 815, y: 515 })).toBe(false);
+  });
+
+  it('flat 은 마진이 없다 — 라인이 없는 판에는 테두리도 없다', () => {
+    // 여기가 true 로 남아야 flat 에서 고무줄 선택이 판 전체에서 살아 있다.
+    const d = COURT_DEFS.flat;
+    expect(isOnSurface('flat', { x: 1, y: 1 })).toBe(true);
+    expect(isOnSurface('flat', { x: d.vbW - 1, y: d.vbH - 1 })).toBe(true);
+    // 판 바깥(viewBox 밖)은 flat 에서도 프레임이다 — 확대해서 밀면 도달할 수 있는 자리다.
+    expect(isOnSurface('flat', { x: -5, y: 100 })).toBe(false);
+  });
+
+  it('경계는 COURT_DEFS.surface 를 그대로 읽는다 — 마진이 또 바뀌면 규칙이 따라온다', () => {
+    // 편집기에 37.5 를 다시 적어 두면 이 대조가 성립하지 않는다. 세 코트 전부에서
+    // "surface 안 = true / 한 픽셀 밖 = false" 가 정의로부터 유도된다.
+    for (const mode of ['full', 'half', 'flat'] as const) {
+      const s = COURT_DEFS[mode].surface;
+      expect(isOnSurface(mode, { x: s.x + s.w / 2, y: s.y + s.h / 2 })).toBe(true);
+      expect(isOnSurface(mode, { x: s.x - 1, y: s.y + s.h / 2 })).toBe(false);
+      expect(isOnSurface(mode, { x: s.x + s.w / 2, y: s.y + s.h + 1 })).toBe(false);
+    }
   });
 });

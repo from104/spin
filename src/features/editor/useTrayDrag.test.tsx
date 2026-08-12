@@ -30,6 +30,7 @@ function Harness({ onDrop, onTap }: { onDrop: (i: TrayDragItem, w: { x: number; 
   const stageRef = useRef<CourtStageHandle | null>({
     zoomBy: () => {},
     resetZoom: () => {},
+    panByScreen: () => {},
     refreshMetrics: () => METRICS,
     focusContainer: () => {},
   });

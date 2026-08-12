@@ -32,7 +32,7 @@ import { ArrowHandles } from './ArrowHandles.tsx';
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
 import { StageRotProvider } from './stageRot.tsx';
-import { computeMetrics, clientToWorld, rotForFit, zoomAt, panView, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
+import { computeMetrics, clientToWorld, rotForFit, zoomAt, panView, panViewByScreen, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
 import { raf } from './rafLoop.ts';
 
 /** 더블클릭 판정. OS 기본값(대개 500ms)보다 짧게 잡는다 — 판 위에서는 같은 자리를 두 번
@@ -57,6 +57,14 @@ export interface PointerDownResult {
   /** 포인터가 화면 가장자리로 가면 판을 저절로 밀 것인가(고무줄 선택).
    *  개체를 잡은 드래그에는 켜지 않는다 — 잡은 개체가 화면 밖으로 딸려 나간다. */
   edgePan?: boolean;
+  /** 이 손짓은 판을 미는 것이다(§4.4 P2-1 마진 띠 = 판의 프레임).
+   *
+   *  판정은 컨트롤러가 한다 — 마진 위에 개체가 서 있을 수 있고(킥인·코너 세트피스 D26),
+   *  무엇을 잡았는지는 히트테스트를 가진 쪽만 안다. CourtStage 는 좌표만 알 뿐이라
+   *  "여기는 마진이다" 를 스스로 판단하면 마진에 놓인 휠체어를 영영 못 잡게 된다.
+   *
+   *  켜지면 고무줄도 rAF 물리 틱도 열지 않는다 — 이 드래그가 미는 것은 개체가 아니라 판이다. */
+  pan?: boolean;
 }
 
 export interface CourtStagePointerController {
@@ -72,6 +80,9 @@ export interface CourtStagePointerController {
 export interface CourtStageHandle {
   zoomBy(factor: number, focusClient?: { x: number; y: number }): void;
   resetZoom(): void;
+  /** §4.4 P2-1 키보드 팬 — **화면** CSS px 델타만큼 창을 민다(창이 그 방향으로 간다).
+   *  회전·배율 환산은 `panViewByScreen` 이 하므로 호출자는 화면에서 본 방향만 넘기면 된다. */
+  panByScreen(dxCssPx: number, dyCssPx: number): void;
   refreshMetrics(): StageMetrics | null;
   /** §7.5c Esc — 코트 컨테이너로 포커스 복귀. */
   focusContainer(): void;
@@ -255,6 +266,10 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   const panFromRef = useRef<Vec2 | null>(null);
   /** 이 이동 제스처에서 판이 실제로 밀렸는가 — 제자리 더블클릭은 무장만 하고 끝난다. */
   const panMovedRef = useRef(false);
+  /** 이 이동이 **컨트롤러 판정**(§4.4 P2-1 마진 띠)에서 시작됐는가.
+   *  더블클릭 무장 이동과 달리 컨트롤러에 pointerdown 을 이미 전달했으므로 pointerup 도
+   *  짝을 맞춰 돌려줘야 한다 — 안 그러면 "down 은 갔는데 up 은 안 온" 세션이 남는다. */
+  const framePanRef = useRef(false);
 
   // 두 손가락 핀치 상태.
   const pointers = useRef<Map<number, Vec2>>(new Map());
@@ -284,9 +299,10 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       const v = edgePanVelocity(m.rect, client, INTERACT.edgePanBandPx, INTERACT.edgePanMaxPxPerS);
       if (v.x === 0 && v.y === 0) return;
       const dt = Math.min(dtMs, 50) / 1000; // 탭 전환으로 프레임이 밀려도 한 번에 튀지 않게
-      const d = screenDeltaToWorld(m, (v.x * dt) / m.pxPerUnit, (v.y * dt) / m.pxPerUnit);
       setView((prev) => {
-        const next = panView(prev, def, d);
+        // 키보드 팬과 **같은 환산**을 쓴다(§4.4 P2-1) — 두 경로가 각자 회전을 다루면
+        // 세로 태블릿에서 한쪽만 축이 어긋난다.
+        const next = panViewByScreen(prev, def, m, v.x * dt, v.y * dt);
         if (next.x === prev.x && next.y === prev.y) return prev; // 끝까지 갔다 — 헛돌지 않게
         return next;
       });
@@ -302,6 +318,11 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     targetRef.current = null;
     dragClientRef.current = null;
     edgePanRef.current = false;
+    // 이동 세션도 여기서 끊는다. 두 번째 손가락이 내려와 핀치로 전환될 때 이 함수가 불리는데,
+    // 그때 `panFromRef` 를 남겨 두면 활성 포인터만 사라진 채 이동 세션이 영영 살아 있어
+    // **다음 드래그가 선택 대신 이동이 된다**(손을 뗄 때 그 세션을 지울 주인이 없다).
+    panFromRef.current = null;
+    framePanRef.current = false;
     controller.onPointerUp(lastClientRef.current);
     lastClientRef.current = null;
   }, [controller, stopRafLoop]);
@@ -365,6 +386,20 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       ctrlKey: e.ctrlKey,
       altKey: e.altKey,
     });
+    if (res?.pan) {
+      // §4.4 P2-1 — 컨트롤러가 "여기는 경기면 밖(판의 프레임)이고 잡을 개체도 없다" 고 판정했다.
+      // 더블클릭 무장과 **같은 이동 세션**으로 합류시킨다: 미는 코드가 두 벌이 되면 부호·클램프가
+      // 언젠가 갈라진다. 무장(panArmed)은 건드리지 않는다 — 마진을 한 번 끌었다고 코트 안까지
+      // 이동 모드가 되면 다음 선택이 통째로 사라진다.
+      framePanRef.current = true;
+      panFromRef.current = { x: e.clientX, y: e.clientY };
+      panMovedRef.current = false;
+      // 고무줄도 물리 틱도 열지 않는다. targetRef 를 비워 두지 않으면 rAF 가 없어도
+      // 다음 세션이 낡은 목표를 물려받는다.
+      targetRef.current = null;
+      dragClientRef.current = null;
+      return;
+    }
     edgePanRef.current = !!res?.edgePan;
 
     rafUnsub.current = raf.add((dtMs, now) => {
@@ -426,6 +461,15 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       // 실제로 민 뒤에는 무장을 푼다. 제자리 더블클릭(아직 끌지 않음)이면 무장을 유지해
       // 다음 끌기가 곧 이동이 되게 한다 — 커서 십자가가 그동안 상태를 알려 준다.
       if (panMovedRef.current) setArmed(false);
+      if (framePanRef.current) {
+        framePanRef.current = false;
+        // 컨트롤러에 down 을 전달했으면 up 도 전달한다(§4.4 P2-1). 판을 **실제로 민** 뒤에는
+        // 좌표를 넘기지 않는다 — client===null 은 이 저장소에서 이미 "손을 뗐지만 탭이 아니다"
+        // 라는 뜻이고(pointercancel), 그래야 마진을 끌고 나서 선택이 풀리지 않는다.
+        // 제자리에서 톡 친 경우에만 좌표가 가고, 컨트롤러가 빈 곳 탭과 똑같이 선택을 푼다.
+        controller.onPointerUp(panMovedRef.current ? null : lastClientRef.current);
+      }
+      lastClientRef.current = null;
       return;
     }
     endInteraction();
@@ -460,6 +504,13 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       },
       resetZoom() {
         setView({ x: 0, y: 0, w: def.vbW, h: def.vbH });
+      },
+      panByScreen(dxCssPx, dyCssPx) {
+        // 회전은 창 크기에 따라 바뀌므로 **누를 때마다** 다시 잰다 — 캐시된 rot 으로 밀면
+        // 인스펙터가 열려 판이 돌아간 직후 첫 입력이 반대로 간다.
+        const m = refreshMetrics() ?? metricsRef.current;
+        if (!m) return;
+        setView((v) => panViewByScreen(v, def, m, dxCssPx, dyCssPx));
       },
       refreshMetrics,
       focusContainer() {

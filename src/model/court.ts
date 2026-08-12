@@ -121,6 +121,23 @@ export function cellLabelAt(mode: CourtMode, p: Vec2): string | null {
   return gridLabel(col, row);
 }
 
+/** 경기면(라인 안쪽) 위인가. §4.4 P2-1 — **판의 프레임이 어디서부터인가**를 정하는 유일한 출처다.
+ *
+ *  마진 1.5 m(37.5 px, 2026-08-10 확장)은 코트가 아니라 판의 테두리다. 그래서 그 위에서 시작한
+ *  드래그는 고무줄 선택이 아니라 판 이동이 된다(useEditorPointer). 경계를 코트 정의 옆에 두는
+ *  이유는 마진이 또 바뀌었을 때 규칙이 저절로 따라오게 하기 위해서다 — 편집기에 37.5 를 다시
+ *  적으면 그날부터 두 곳이 갈라진다.
+ *
+ *  **라인 위는 경기면으로 친다**(경계 포함). 라인 위에 세운 개체를 고무줄로 걸 수 없으면
+ *  "선 위에 놓지 마라" 라는 규칙을 판이 몰래 만드는 셈이다.
+ *
+ *  `flat` 은 surface 가 viewBox 전체라 마진이 0 이다 — 라인이 없는 판에는 테두리도 없고,
+ *  viewBox 밖(판 바깥 여백)만 프레임이다. */
+export function isOnSurface(mode: CourtMode, p: Vec2): boolean {
+  const { x, y, w, h } = COURT_DEFS[mode].surface;
+  return p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h;
+}
+
 /** 개체 좌표는 viewBox 안으로만 클램프한다 (경기면 밖 대기 배치 허용) */
 export function clampToViewBox(mode: CourtMode, p: Vec2): Vec2 {
   const { vbW, vbH } = COURT_DEFS[mode];

@@ -164,6 +164,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
 
   const handleObjectKeyDown = useCallback(
     (id: string, e: ReactKeyboardEvent<SVGGElement>) => {
+      // §4.4 P2-1 — Ctrl/Cmd 가 붙은 키는 개체의 것이 아니다. 아래 분기는 전부
+      // stopPropagation 을 걸어 전역(document) 핸들러까지 못 가게 하므로, 수식키를 그냥
+      // 흘려보내지 않으면 **개체를 고른 순간 판을 밀 수도(Ctrl+방향키) 지울 수도(Ctrl+Delete)
+      // 없는** 상태가 된다. preventDefault 도 하지 않는다 — 판정은 전역이 한다.
+      if (e.ctrlKey || e.metaKey) return;
       const small = 2.5;
       const big = 25;
       const isArrow = isId(id, 'ar');
@@ -268,6 +273,10 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         document.getElementById(`obj-${nextId}`)?.focus({ preventScroll: true });
         return;
       }
+      // §4.4 P2-1 — Ctrl/Cmd + 방향키(판 이동)는 배치 커서보다 앞선다. 아래 커서 분기가
+      // stopPropagation 을 걸므로 여기서 먼저 물러나지 않으면, 공·콘 도구를 든 동안에는
+      // 판이 움직이지 않는다(배치는 화면 밖 자리에도 해야 하므로 그때야말로 팬이 필요하다).
+      if (e.ctrlKey || e.metaKey) return;
       // §7.5d 키보드 배치 커서 — 배치 도구가 활성이고 포커스가 컨테이너 자신일 때만.
       if (PLACEMENT_TOOLS.has(tool) && e.target === e.currentTarget) {
         const mode = drill.courtMode;

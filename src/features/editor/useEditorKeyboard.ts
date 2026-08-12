@@ -2,6 +2,7 @@
 // WCAG 2.1.4 준수: 문자/숫자 단일 키는 `a11y.singleKeyShortcuts`(on/modifier/off) 를 따르고,
 // 파괴적 동작(E, Delete)은 그 설정과 무관하게 항상 수식키(Alt)를 요구한다(§7.5f 본문).
 import { useEffect, useRef } from 'react';
+import { INTERACT } from '../../core/constants.ts';
 import { isEditableTarget, isInteractiveTarget } from '../../ui/keyboard.ts';
 import type { ToolId } from '../../physics/index.ts';
 import { toolForKey } from './toolDefs.ts';
@@ -27,6 +28,9 @@ export interface EditorKeyboardDeps {
   onZoomOut(): void;
   onZoomReset(): void;
   onEraseSelection(scope: 'onward' | 'thisStep'): void;
+  /** §4.4 P2-1 Ctrl/Cmd + 방향키 — **화면** CSS px 델타만큼 창을 민다. 회전 환산은 받는 쪽
+   *  (`CourtStageHandle.panByScreen`)의 몫이라 여기서는 화면에서 본 방향만 정한다. */
+  onPanView(dxCssPx: number, dyCssPx: number): void;
   onShowHelp(): void;
   /** §4.3 P1-2 [A-3] Esc = 선택 해제. 2단 히트가 켜지면 붐비는 코트에서 "빈 곳 탭 → 해제"
    *  가 사라지므로, 포인터와 무관한 이 전역 경로가 해제를 보장한다. */
@@ -86,6 +90,30 @@ export function useEditorKeyboard(deps: EditorKeyboardDeps): void {
           e.preventDefault();
           d.onEraseSelection(e.altKey ? 'thisStep' : 'onward');
           return;
+        }
+        // §4.4 P2-1 판 이동. 방향키 소비자 셋(전역 스텝 이동 ←→ · 개체 이동 · 배치 커서)과
+        // Shift(화살표 끝점, §4.3 1.11) · Alt(개체 순회)가 이미 차 있어 **Ctrl/Cmd 만 비어
+        // 있다**. 여기가 mod 분기 안이라는 사실 자체가 그 셋과의 충돌을 막는다 — 전역 스텝
+        // 이동은 아래 `!e.altKey` 블록이고 이 분기는 그보다 앞에서 return 한다.
+        // 개체 이동·배치 커서는 EditorStage 가 stopPropagation 으로 먼저 먹으므로 그쪽에서
+        // 수식키를 흘려보내야 한다(EditorStage 의 같은 절 주석).
+        //
+        // 부호는 **창이 키 방향으로 간다**: 오른쪽 키를 누르면 판의 오른쪽이 보인다.
+        // 포인터로 테두리를 잡아 끄는 쪽은 반대(판이 손을 따라온다)인데, 그 반전은 손이
+        // 판을 쥐고 있다는 감각에서 나오고 키에는 쥘 것이 없다. 가장자리 자동 밀기가 이미
+        // "창이 손을 따라간다" 로 같은 편에 서 있다(edgePanVelocity 주석).
+        //
+        // macOS 의 Cmd+←/→ 는 브라우저 뒤로/앞으로다 — preventDefault 로 막는다. 막지 않으면
+        // 판을 밀려던 손짓이 화면을 통째로 떠난다.
+        {
+          const step = INTERACT.keyPanStepCssPx;
+          const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+          const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+          if (dx !== 0 || dy !== 0) {
+            e.preventDefault();
+            d.onPanView(dx, dy);
+            return;
+          }
         }
         return;
       }

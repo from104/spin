@@ -22,6 +22,7 @@ import type { EditorAction } from '../../store/editor/actions.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { formationSlots } from '../../model/defaults.ts';
 import { poseToStored } from '../../model/chair.ts';
+import { isOnSurface } from '../../model/court.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
 import type { Arrow, ArrowKind } from '../../model/arrow.ts';
 import { defaultCtrl } from '../../model/arrow.ts';
@@ -432,6 +433,21 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       const additive = meta.shiftKey || meta.metaKey;
       const hit = hitTest(world, buildScene(), buildHitContext('select'));
       if (!hit) {
+        // §4.4 P2-1 — **어디서 시작했는가**가 이 손짓의 뜻을 정한다: 경기면 밖 마진(1.5 m)은
+        // 코트가 아니라 판의 테두리이고, 테두리를 잡으면 판이 따라온다. 히트테스트 **뒤**에
+        // 두는 것이 이 규칙의 전부다 — 마진에는 킥인·코너 세트피스용 개체가 정당하게 서 있고
+        // (D26), 순서를 뒤집으면 그 개체들을 영영 잡을 수 없게 된다.
+        //
+        // edgePan 은 여기서 켜지 않는다. 그것은 **고무줄이 이미 시작된 뒤에** 도는 기능이라
+        // (심사관 1 이 [치명]으로 짚은 edgePanBandPx=56 충돌의 해소가 바로 이 분리다) 판을
+        // 직접 미는 손짓에는 낄 자리가 없다.
+        if (!isOnSurface(ctx.drill.courtMode, world)) {
+          // 제자리에서 톡 친 경우에는 빈 곳 탭과 똑같이 선택이 풀려야 한다 — 마진 탭은 지금까지
+          // 크기 0 짜리 고무줄로 그 일을 해 왔고, 없애면 해제 경로 하나가 조용히 사라진다([A-3]).
+          // 실제로 민 뒤에는 CourtStage 가 client=null 로 up 을 넘겨 이 세션이 탭이 아님을 알린다.
+          if (!additive) tapDeselectRef.current = { start: world, moved: false };
+          return { pan: true };
+        }
         rubberRef.current = { start: world, additive };
         rubberRectRef.current = { x: world.x, y: world.y, w: 0, h: 0 };
         selectionOverlayRef.current?.setRubberBand(rubberRectRef.current);
