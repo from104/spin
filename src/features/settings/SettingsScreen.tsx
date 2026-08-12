@@ -204,6 +204,11 @@ export function SettingsScreen() {
           <Row title="큰 터치 타깃" desc="버튼·트레이 칩·코트 위 집기 반경이 44 → 56px 로 커집니다(글자 크기는 UI 배율이 담당)">
             <Toggle checked={prefs.a11y.largeTargets} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, largeTargets: v } })} ariaLabel="큰 터치 타깃" />
           </Row>
+          {/* §9 결정 ④ · 5.5 — 기본 OFF. 자동(배율) 게이트를 쓰지 않는 이유는
+              physics/hitTest.ts 의 handlesVisible 머리말에 실측 배율 분포와 함께 적어 뒀다. */}
+          <Row title="2존 모드" desc="차체 아무 곳을 잡아도 통째로 움직입니다. 제자리 회전·견인은 차체 밖 앞뒤 가이드로만 합니다">
+            <Toggle checked={prefs.a11y.twoZone} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, twoZone: v } })} ariaLabel="2존 모드" />
+          </Row>
           <Row title="놓임 소리·진동" desc="개체를 놓거나 막히거나 트레이로 되돌릴 때 짧은 소리와 진동으로 알립니다">
             <Toggle checked={prefs.a11y.sound} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, sound: v } })} ariaLabel="놓임 소리·진동" />
           </Row>
