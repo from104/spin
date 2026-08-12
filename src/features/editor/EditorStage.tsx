@@ -40,6 +40,8 @@ export interface EditorStageProps {
   showGrid: boolean;
   showGridLabels: boolean;
   showRuleZones: boolean;
+  /** §7.3 "큰 터치 타깃". 2단 히트(§4.3 P1-2)의 2차 패스 반경만 44 → 56 CSS px 로 키운다. */
+  largeTargets: boolean;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
 }
 
@@ -53,7 +55,7 @@ function nearestCell(mode: CourtMode, p: { x: number; y: number }): { col: numbe
 const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note']);
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, onEraseIds },
+  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, onEraseIds },
   stageRef,
 ) {
   const pointer = useEditorPointer({
@@ -72,6 +74,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     onPlayerPlaced,
     showToast,
     forceHandlesVisible: false,
+    largeTargets,
   });
 
   const [rovingId, setRovingId] = useState<string | null>(null);

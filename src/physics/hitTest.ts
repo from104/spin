@@ -15,8 +15,16 @@ export type ToolId = 'select' | 'route' | 'pass' | 'ball' | 'cone' | 'player' | 
 
 /** §5.12/§6.5 가 참조하는 히트 반경 상한. 값의 출처는 §6.5(render-stage 소유 `hitRadius.ts`)지만
  *  그 파일은 별도 Wave(3)의 별도 모듈 소유라 physics-world 가 import 할 수 없다(의존 방향 위반).
- *  숫자 자체는 계약값이므로 여기 독립적으로 복제해 둔다 — 값을 바꿀 땐 §6.5 도 함께 바꿔야 한다. */
-const HIT_R_MAX_PX = { chair: 21.25, ball: 11.25, cone: 8.75, note: 12.5 } as const;
+ *  숫자 자체는 계약값이므로 여기 독립적으로 복제해 둔다 — 값을 바꿀 땐 §6.5 도 함께 바꿔야 한다.
+ *
+ *  ⚠️ 이 상한은 **1차(엄격) 패스에만** 걸린다. 2차 패스에 걸면 저배율에서 두 패스의 반경이
+ *  똑같아져(예: 공, s=0.663 에서 둘 다 11.25) 2단 히트가 통째로 무의미해진다 — 관대한 패스가
+ *  가장 필요한 배율이 하필 상한이 물리는 배율이다.
+ *
+ *  note 22: 메모는 자기 반지름이 0 이라 픽 반경이 `min(6/s, 상한)` 뿐인데, 12.5 는 s<0.48
+ *  에서 그 6/s 를 잘라 화면상 메모를 점점 작게 만들었다. 메모는 휠체어(21.25)와 자리를
+ *  다투지 않으므로(§4.3 P1-2) 상한만 그 위로 올려 잘림을 없앤다. */
+const HIT_R_MAX_PX = { chair: 21.25, ball: 11.25, cone: 8.75, note: 22 } as const;
 
 export interface HitResult {
   kind: 'chair' | 'ball' | 'cone' | 'note' | 'arrow' | 'arrowHandle' | 'zoneHandle';
@@ -34,6 +42,11 @@ export interface HitContext {
   selectedArrowId: ArrowId | null;
   handlesVisible: boolean;
   tool: ToolId;
+  /** §7.3 히트 타깃(CSS px). 기본 `INTERACT.hitTargetCssPx`(44), "큰 터치 타깃" 설정에서 56.
+   *  **2차 패스 반경에만** 쓴다 — 1차 패스는 지금까지와 한 픽셀도 달라지지 않는다.
+   *  선택 사항인 이유: 히트 결과가 이 값에 좌우되는 건 2차 패스뿐이라, 값을 모르는 호출부는
+   *  기본 44 로 두면 예전과 같은 판정을 받는다(테스트 픽스처도 그대로 쓸 수 있다). */
+  hitCssPx?: number;
 }
 
 /** hitTest 가 필요로 하는 장면의 최소 스냅샷. 물리 world 의 현재 포즈(휠체어)와 공/콘 좌표,
@@ -134,29 +147,73 @@ function chairPadHit(pose: ChairPose, p: Vec2, pad: number): { ax: number; lat: 
   return g;
 }
 
-export function hitTest(p: Vec2, scene: SceneSnapshot, ctx: HitContext): HitResult | null {
+/** 한 패스가 쓰는 반경 묶음(전부 월드 px). **우선순위 표는 두 패스가 완전히 같고, 이 숫자만
+ *  다르다** — 그게 2단 히트(§4.3 P1-2)의 전부다. */
+interface PickRadii {
+  ball: number;
+  cone: number;
+  note: number;
+  /** 휠체어 hull 을 body frame 에서 넓히는 패드(우선순위 5) */
+  chairPad: number;
+  /** 화살표 핸들·존 핸들 반경(우선순위 3·4) */
+  handle: number;
+  /** 화살표 stroke 반두께에 더하는 여유(우선순위 6) */
+  arrowPad: number;
+}
+
+/** 1차(엄격) 패스 — **지금까지의 유일한 패스이고, 한 픽셀도 바뀌지 않았다.** */
+function strictRadii(ctx: HitContext): PickRadii {
+  const s = ctx.pxPerUnit;
+  return {
+    ball: pickRadius(BALL.radiusPx, HIT_R_MAX_PX.ball, s),
+    cone: pickRadius(CONE.radiusPx, HIT_R_MAX_PX.cone, s),
+    note: pickRadius(0, HIT_R_MAX_PX.note, s),
+    chairPad: ctx.zones.grabPadPx,
+    handle: INTERACT.handleHitRadiusCssPx / s,
+    arrowPad: INTERACT.pickPadCssPx / s,
+  };
+}
+
+/** 2차(관대) 패스의 월드 반경. **2차 패스를 돌지 않는 상황이면 null** 이다 — 곧 '호출 0회'.
+ *
+ *  [A-2] `tool === 'select'` 에서만 돈다. `eraseAt` 이 같은 hitTest 를 부르므로(§4.3 P1-2)
+ *  무조건 돌리면 지우개가 **반경 22 CSS px 짜리 파괴 도구**가 된다 — 파괴적 동작에 수식키를
+ *  요구하는 규칙(useEditorKeyboard.ts, WCAG 2.1.4)과 정면 충돌이다. 배치 도구도 같다:
+ *  44 CSS px 안에 뭔가 있으면 콘을 나란히 못 놓게 된다.
+ *
+ *  [D-4] "큰 터치 타깃" 설정이 켜지면 호출부가 `hitCssPx = 56` 을 넣어 반경도 함께 커진다.
+ *  그래야 그 설정 설명문이 코트 위에서도 사실이 된다.
+ *
+ *  배율이 0 이하면(무대 측정 전) 반경이 Infinity 가 되어 판 위 아무거나 잡힌다 — 그럴 바엔
+ *  2차 패스를 걸지 않는다. */
+export function forgivingRadius(ctx: HitContext): number | null {
+  if (ctx.tool !== 'select') return null;
+  if (!(ctx.pxPerUnit > 0)) return null;
+  return (ctx.hitCssPx ?? INTERACT.hitTargetCssPx) / 2 / ctx.pxPerUnit;
+}
+
+/** §5.12 우선순위 표. 반경만 주입받는다(위 PickRadii 주석 참고). */
+function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii): HitResult | null {
   const { pxPerUnit } = ctx;
 
   // 1) 공 / 콘 / 메모 — 자기 픽 반지름. 여러 후보 중 가장 가까운 것을 고른다.
   let best: { kind: 'ball' | 'cone' | 'note'; id: string; d: number } | null = null;
   for (const b of scene.balls) {
-    const r = pickRadius(BALL.radiusPx, HIT_R_MAX_PX.ball, pxPerUnit);
     const d = dist(p, b.p);
-    if (d <= r && (!best || d < best.d)) best = { kind: 'ball', id: b.id, d };
+    if (d <= r.ball && (!best || d < best.d)) best = { kind: 'ball', id: b.id, d };
   }
   for (const c of scene.cones) {
-    const r = pickRadius(CONE.radiusPx, HIT_R_MAX_PX.cone, pxPerUnit);
     const d = dist(p, c.p);
-    if (d <= r && (!best || d < best.d)) best = { kind: 'cone', id: c.id, d };
+    if (d <= r.cone && (!best || d < best.d)) best = { kind: 'cone', id: c.id, d };
   }
   for (const n of scene.notes) {
-    const r = pickRadius(0, HIT_R_MAX_PX.note, pxPerUnit);
     const d = dist(p, n.p);
-    if (d <= r && (!best || d < best.d)) best = { kind: 'note', id: n.id, d };
+    if (d <= r.note && (!best || d < best.d)) best = { kind: 'note', id: n.id, d };
   }
   if (best) return { kind: best.kind, id: best.id };
 
-  // 2) 어떤 휠체어든 정확한 OBB 본체(pad 없음).
+  // 2) 어떤 휠체어든 정확한 OBB 본체(pad 없음). 반경과 무관하므로 2차 패스에서는 절대
+  //    새로 걸리지 않는다 — 그래도 표를 통째로 유지해야 "같은 우선순위" 가 참이 된다.
   for (const c of scene.chairs) {
     if (pointInConvexQuad(p, chairCorners(c.pose))) return { kind: 'chair', id: c.id, s: projectGrab(c.pose, p).s };
   }
@@ -165,7 +222,6 @@ export function hitTest(p: Vec2, scene: SceneSnapshot, ctx: HitContext): HitResu
   if (ctx.selectedArrowId) {
     const a = scene.arrows.find((x) => x.id === ctx.selectedArrowId);
     if (a) {
-      const hitR = INTERACT.handleHitRadiusCssPx / pxPerUnit;
       const candidates: Array<{ which: 'from' | 'ctrl' | 'to'; pt: Vec2 }> = [
         { which: 'from', pt: a.from },
         { which: 'ctrl', pt: a.ctrl },
@@ -174,7 +230,7 @@ export function hitTest(p: Vec2, scene: SceneSnapshot, ctx: HitContext): HitResu
       let nearest: { which: 'from' | 'ctrl' | 'to'; d: number } | null = null;
       for (const c of candidates) {
         const d = dist(p, c.pt);
-        if (d <= hitR && (!nearest || d < nearest.d)) nearest = { which: c.which, d };
+        if (d <= r.handle && (!nearest || d < nearest.d)) nearest = { which: c.which, d };
       }
       if (nearest) return { kind: 'arrowHandle', id: a.id, which: nearest.which };
     }
@@ -188,16 +244,16 @@ export function hitTest(p: Vec2, scene: SceneSnapshot, ctx: HitContext): HitResu
       let nearest: { zone: DragZone; d: number } | null = null;
       for (const h of handles) {
         const d = dist(p, h.pos);
-        if (d <= h.hitR && (!nearest || d < nearest.d)) nearest = { zone: h.zone, d };
+        if (d <= r.handle && (!nearest || d < nearest.d)) nearest = { zone: h.zone, d };
       }
       if (nearest) return { kind: 'zoneHandle', id: c.id, zone: nearest.zone };
     }
   }
 
-  // 5) 휠체어 hull + grabPadPx — 후보가 여럿이면 |lat| 최소.
+  // 5) 휠체어 hull + 패드 — 후보가 여럿이면 |lat| 최소.
   let padBest: { id: string; s: number; lat: number } | null = null;
   for (const c of scene.chairs) {
-    const g = chairPadHit(c.pose, p, ctx.zones.grabPadPx);
+    const g = chairPadHit(c.pose, p, r.chairPad);
     if (g && (!padBest || Math.abs(g.lat) < Math.abs(padBest.lat))) padBest = { id: c.id, s: g.s, lat: g.lat };
   }
   if (padBest) return { kind: 'chair', id: padBest.id, s: padBest.s };
@@ -205,11 +261,29 @@ export function hitTest(p: Vec2, scene: SceneSnapshot, ctx: HitContext): HitResu
   // 6) 화살표 stroke.
   let arrowBest: { id: string; d: number } | null = null;
   for (const a of scene.arrows) {
-    const tol = ARROW_STYLES[a.kind].width / 2 + INTERACT.pickPadCssPx / pxPerUnit;
+    const tol = ARROW_STYLES[a.kind].width / 2 + r.arrowPad;
     const d = distPointToQuadBezier(p, a.from, a.ctrl, a.to);
     if (d <= tol && (!arrowBest || d < arrowBest.d)) arrowBest = { id: a.id, d };
   }
   if (arrowBest) return { kind: 'arrow', id: arrowBest.id };
 
   return null;
+}
+
+/** §5.12 히트테스트 — **2단(엄격 → 관대)**, §4.3 P1-2.
+ *
+ *  1차는 예전 그대로다. 1차가 **아무것도 반환하지 않았을 때만** 같은 표를 화면 기준
+ *  히트 타깃(기본 44 CSS px = 반경 22/s 월드)으로 한 번 더 훑는다. "빗나감 → 선택 해제" 가
+ *  (select 도구에서) "빗나감 → 44 CSS px 안의 가장 앞선 후보" 로 바뀌는 것이 이 변화의 전부다.
+ *
+ *  §6.5 blocker 를 밟지 않는 근거: blocker 는 *"저배율에서 공 히트 원이 휠체어보다 커져
+ *  볼 캐리어를 영영 못 잡는다"* 인데, 그 시나리오에서는 **1차가 이미 휠체어를 반환하므로
+ *  2차가 실행되지 않는다**(hitTest.contract.test.ts 첫 it 이 그 근거를 붙잡고 있다). */
+export function hitTest(p: Vec2, scene: SceneSnapshot, ctx: HitContext): HitResult | null {
+  const strict = scanPass(p, scene, ctx, strictRadii(ctx));
+  if (strict) return strict;
+
+  const r = forgivingRadius(ctx);
+  if (r === null) return null;
+  return scanPass(p, scene, ctx, { ball: r, cone: r, note: r, chairPad: r, handle: r, arrowPad: r });
 }

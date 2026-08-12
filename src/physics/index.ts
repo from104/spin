@@ -48,7 +48,7 @@ export {
   endDrag,
 } from './drag.ts';
 export type { DragSession } from './drag.ts';
-export { hitTest, zoneHandles, handlesVisible } from './hitTest.ts';
+export { hitTest, forgivingRadius, zoneHandles, handlesVisible } from './hitTest.ts';
 export type { HitResult, HitContext, SceneSnapshot, ToolId } from './hitTest.ts';
 
 /** §2.6 유도값과 정확히 일치(검산): kmhToPxPerS(10) = 69.4444444,

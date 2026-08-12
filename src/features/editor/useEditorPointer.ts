@@ -71,6 +71,9 @@ export interface UseEditorPointerOptions {
   onPlayerPlaced(): void;
   showToast(message: string, action?: { label: string; onAction(): void }): void;
   forceHandlesVisible: boolean;
+  /** §7.3 "큰 터치 타깃" 설정. 2단 히트(§4.3 P1-2)의 **2차 패스 반경**만 44 → 56 CSS px 로
+   *  키운다 — 그 설정 설명문이 버튼에서만 참이고 코트 위에서는 거짓이던 것을 닫는 배선이다. */
+  largeTargets: boolean;
 }
 
 export interface UseEditorPointerResult {
@@ -164,6 +167,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 히트도 같은 조건을 쓴다.
       handlesVisible: selectedChairId !== null,
       tool,
+      // [D-4] 2차 패스 반경만 이 값을 쓴다. 1차 패스는 이 값과 무관하다.
+      hitCssPx: ctx.largeTargets ? INTERACT.hitTargetLargeCssPx : INTERACT.hitTargetCssPx,
     };
   }, []);
 

@@ -316,6 +316,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 showGrid={showGrid}
                 showGridLabels={prefs.showGridLabels}
                 showRuleZones={showRuleZones}
+                largeTargets={prefs.a11y.largeTargets}
                 onEraseIds={eraseIds}
               />
             </div>
