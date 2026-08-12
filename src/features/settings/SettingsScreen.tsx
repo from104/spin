@@ -10,10 +10,12 @@
 // 부트 스크립트(index.html)가 심어 둔 테마와 App.tsx 의 ThemeEffects 가 uiScale·큰 터치 타깃
 // 부작용을 이미 처리하므로(§4.6/§7.4), 이 화면은 prefs 를 쓰기만 하면 된다 — 별도로
 // document.documentElement 를 건드리지 않는다.
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useSettings } from '../../store/settings/SettingsProvider.tsx';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
+import { loadPrefs } from '../../storage/prefs.ts';
+import { Modal } from '../../ui/Modal.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { TEAM_COLOR_CHOICES, inkFor } from '../../core/colors.ts';
@@ -23,7 +25,7 @@ import { Segmented } from '../../ui/Segmented.tsx';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { IconCheck } from '../../ui/icons.tsx';
-import { exportAllDrillsToFile } from './dataExport.ts';
+import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
 
 const COLOR_NAMES: Record<string, string> = {
   '#d93a3a': '빨강',
@@ -36,8 +38,19 @@ const COURT_MODE_SHORT_LABELS: Record<CourtMode, string> = { full: '풀', half: 
 
 export function SettingsScreen() {
   const { prefs, physics, persistFailed, setPrefs } = useSettings();
-  const { drills } = useLibrary();
+  const { refresh } = useLibrary();
   const toast = useToast();
+
+  // ── §6.1b 기기 이사 파일 읽기 ────────────────────────────────────────────────────────────
+  // 고른 파일을 곧바로 복원하지 않는다. 복원은 남의 기기 내용을 이 기기에 섞는 일이고, 그중
+  // **설정 복원은 되돌릴 수 없는 접근성 사고**가 될 수 있어서(largeTargets·uiScale 이 말없이
+  // 바뀐다) 반드시 한 번 묻는다. 그 물음이 곧 체크박스 하나짜리 모달이다.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [withPrefs, setWithPrefs] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const restoreBtnRef = useRef<HTMLButtonElement | null>(null);
+  const restoreDialogId = useId();
 
   // savePrefs 가 처음 실패한 순간(Safari 프라이빗 모드 등)에만 1회 안내한다(§4.6).
   const notifiedRef = useRef(false);
@@ -57,13 +70,27 @@ export function SettingsScreen() {
   };
   const restorePhysicsDefaults = () => setPrefs({ physics: {} });
 
-  const handleExportAll = async () => {
-    if (drills.length === 0) {
-      toast.show('내보낼 드릴이 없습니다.');
-      return;
+  const runRestore = async () => {
+    const file = pendingFile;
+    if (!file || restoring) return;
+    setRestoring(true);
+    try {
+      const report = await restoreBackupFromFile(file, { prefs: withPrefs ? 'replace' : 'skip' });
+      // ★ 목록을 다시 읽는다. LibraryProvider 는 앱 최상단에서 한 번만 로드하므로(App.tsx),
+      //   빼면 IDB 에는 들어왔는데 목록에는 새로고침 전까지 안 뜬다 = "복원이 안 된 것" 으로 보인다.
+      await refresh();
+      // ★ 설정을 덮었다면 React 상태도 저장소에서 다시 읽어야 한다. 안 그러면 화면은 옛 값을
+      //   보여주고, 그 상태에서 스위치 하나만 건드려도 **방금 복원한 설정이 통째로 되돌아간다**
+      //   (setPrefs 가 화면의 옛 prefs 위에 패치를 얹어 저장하기 때문).
+      if (report.prefs === 'restored') setPrefs(loadPrefs());
+      toast.show(backupReportLine(report));
+    } catch (e) {
+      toast.show(e instanceof Error && e.message.length > 0 ? e.message : '기기 이사 파일을 읽지 못했습니다.');
+    } finally {
+      setRestoring(false);
+      setPendingFile(null);
+      setWithPrefs(false);
     }
-    const n = await exportAllDrillsToFile(drills.map((d) => d.id));
-    toast.show(n > 0 ? `드릴 ${n}개를 내보냈습니다.` : '내보낼 드릴이 없습니다.');
   };
 
   return (
@@ -274,10 +301,25 @@ export function SettingsScreen() {
           </div>
         </Section>
 
-        <Section title="데이터">
-          <Row title="드릴 내보내기" desc="전체 드릴을 JSON으로 저장해 팀과 공유" borderBottom={false}>
-            <Button variant="secondary" aria-disabled={drills.length === 0} onClick={() => void handleExportAll()}>
-              내보내기
+        {/* §6.1b/§6.4 — **내보내기는 여기 없다.** [보드] 하단 [내보내기] 하나로 모았다(2026-08-12,
+            4.7). 옛 '드릴 내보내기' 는 목록 화면에도 같은 버튼이 있던 중복이었고, 담기는 것이
+            드릴뿐이라 세션·설정·전술판이 어떤 파일에도 안 들어가는 **거짓 백업**이었다.
+            남은 것은 그 파일을 다시 여는 길이다. */}
+        <Section title="데이터" desc="기기 이사 파일은 [보드] 화면 아래 [내보내기] → [기기 이사 파일]에서 만듭니다.">
+          <Row title="기기 이사 파일 읽기" desc="다른 기기에서 만든 SPIN 백업(.spin.json)을 이 기기로 가져옵니다" borderBottom={false}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = ''; // 같은 파일을 다시 골라도 change 가 오게 한다
+                if (f) setPendingFile(f);
+              }}
+            />
+            <Button ref={restoreBtnRef} variant="secondary" onClick={() => fileInputRef.current?.click()}>
+              파일 고르기
             </Button>
           </Row>
         </Section>
@@ -286,6 +328,55 @@ export function SettingsScreen() {
           SPIN · Strategy Planner for INclusive football
         </div>
       </div>
+
+      <Modal
+        open={pendingFile !== null}
+        onClose={() => {
+          setPendingFile(null);
+          setWithPrefs(false);
+        }}
+        titleId={restoreDialogId}
+        title="이 파일을 읽을까요?"
+        returnFocusRef={restoreBtnRef}
+      >
+        <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+          <strong>{pendingFile?.name}</strong>
+          <br />
+          드릴과 세션은 <strong>사본으로 추가</strong>됩니다 — 이 기기에 있는 것은 지워지지 않습니다.
+        </p>
+        {/* ⚠️ 기본값은 **꺼짐**이다(storage/transfer.ts RestoreBackupOptions 의 근거). 백업 파일은
+            드릴을 얻으려고 남에게서 받는 경우가 기기 이사만큼 흔한데, 그때 설정을 통째로 덮으면
+            큰 표적·UI 배율·단일키 단축키가 말없이 바뀐다 — 이 앱 주 사용자에게는 접근성 사고다.
+            그래서 그 사실을 체크박스 옆 문구로 **화면에 드러낸다**(4.1 이 4.7 에 넘긴 요구). */}
+        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 16, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={withPrefs}
+            onChange={(e) => setWithPrefs(e.target.checked)}
+            style={{ marginTop: 3, width: 18, height: 18, flex: 'none' }}
+          />
+          <span style={{ fontSize: '0.78125rem', lineHeight: 1.6 }}>
+            설정도 함께 복원
+            <span style={{ display: 'block', color: 'var(--faint-text)', fontSize: '0.71875rem' }}>
+              끄면 이 기기의 테마·UI 배율·큰 터치 타깃 같은 설정이 그대로 유지됩니다. 기기를 옮기는 중이라면 켜세요.
+            </span>
+          </span>
+        </label>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setPendingFile(null);
+              setWithPrefs(false);
+            }}
+          >
+            취소
+          </Button>
+          <Button variant="primary" aria-disabled={restoring} onClick={() => void runRestore()}>
+            {restoring ? '읽는 중…' : '읽기'}
+          </Button>
+        </div>
+      </Modal>
     </main>
   );
 }

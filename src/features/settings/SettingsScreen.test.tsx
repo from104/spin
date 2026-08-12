@@ -1,5 +1,5 @@
 // §4.6/§6.8/§7.4 설정 화면. 각 컨트롤이 실제 SettingsProvider/localStorage 에 반영되는지,
-// 팀 색상 상호 배제(§7.8)와 물리 슬라이더·기본값 복원, 데이터 내보내기(§4.7) 흐름을 확인한다.
+// 팀 색상 상호 배제(§7.8)와 물리 슬라이더·기본값 복원, 기기 이사 파일 읽기(§6.1b) 흐름을 확인한다.
 // downloadBlob 은 <a> 클릭을 트리거한다 — jsdom 에서 no-op 이지만 URL.createObjectURL 은
 // jsdom 미구현이라 모킹한다(features/library/transfer.test.ts 와 동일 패턴).
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -18,8 +18,9 @@ import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
-import { loadPrefs } from '../../storage/prefs.ts';
+import { loadPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
+import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
 
 function ToastHostBridge() {
   const { toasts, dismiss } = useToast();
@@ -176,18 +177,86 @@ describe('SettingsScreen — 물리 설명문 (minor 회귀)', () => {
   });
 });
 
-describe('SettingsScreen — 데이터 내보내기', () => {
-  it('드릴이 없으면 안내 토스트만 띄운다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('button', { name: '내보내기' }));
-    expect(await screen.findByText('내보낼 드릴이 없습니다.')).toBeInTheDocument();
-  });
-
-  it('드릴이 있으면 전체를 내보내고 개수를 알린다', async () => {
+// 2026-08-12(4.7) — 여기 있던 '데이터 내보내기' 두 it 은 **버튼째 사라졌다.** 설정의
+// [드릴 내보내기]는 목록 화면에도 같은 것이 있던 중복이었고(계획서 §6.1b "둘 다 제거"),
+// 담기는 것이 드릴뿐이라 세션·설정·전술판이 어떤 파일에도 안 들어가는 거짓 백업이었다.
+// 쓰는 곳은 [보드] 하단 [내보내기] 하나이고(§6.4), 이 화면에는 **읽는 쪽**만 남는다.
+describe('SettingsScreen — 데이터: 내보내기는 여기 없다', () => {
+  it('내보내기 버튼이 이 화면에 없다 — 중복 제거의 완료 판정', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '측면 돌파', category: '공격' });
     render(<SettingsScreen />, { wrapper });
-    await waitFor(() => expect(screen.getByRole('button', { name: '내보내기' })).not.toHaveAttribute('aria-disabled', 'true'));
-    await userEvent.setup().click(screen.getByRole('button', { name: '내보내기' }));
-    expect(await screen.findByText('드릴 1개를 내보냈습니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '전체 내보내기' })).toBeNull();
+    // 대조군 — 화면이 실제로 그려졌고 '데이터' 구역도 살아 있다(빈 화면이라 통과한 것이 아니다).
+    expect(screen.getByRole('button', { name: '파일 고르기' })).toBeInTheDocument();
+  });
+
+  it('만드는 곳을 말해 준다 — 사라진 기능을 찾는 사람이 막다른 길에 서지 않는다', () => {
+    render(<SettingsScreen />, { wrapper });
+    expect(screen.getByText(/\[보드\] 화면 아래 \[내보내기\]/)).toBeInTheDocument();
+  });
+});
+
+describe('SettingsScreen — 기기 이사 파일 읽기 (§6.1b)', () => {
+  /** backup 봉투 한 벌을 파일로 만든다. 지금 저장소 상태를 그대로 싣는다. */
+  async function backupFile(name = 'SPIN_백업_20260812.spin.json'): Promise<File> {
+    const text = await exportBackupFile(await collectBackup()).text();
+    return new File([text], name, { type: 'application/json' });
+  }
+
+  async function pick(file: File) {
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input, '파일 입력이 없다').not.toBeNull();
+    fireEvent.change(input, { target: { files: [file] } });
+  }
+
+  it('파일을 고르면 곧바로 복원하지 않고 먼저 묻는다 — 설정 체크박스는 꺼진 채로 나온다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    expect(screen.queryByRole('dialog')).toBeNull(); // 대조군: 처음엔 없다
+    await pick(await backupFile());
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('SPIN_백업_20260812.spin.json')).toBeInTheDocument();
+    const check = within(dialog).getByRole('checkbox', { name: /설정도 함께 복원/ });
+    // ⚠️ 기본 꺼짐 — 남의 백업으로 드릴만 받을 때 접근성 설정이 말없이 바뀌면 사고다.
+    expect(check).not.toBeChecked();
+    expect(within(dialog).getByText(/큰 터치 타깃 같은 설정이 그대로 유지됩니다/)).toBeInTheDocument();
+  });
+
+  it('[읽기]를 누르면 드릴이 들어오고 세 숫자를 보고한다', async () => {
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '백업용 드릴' });
+    const file = await backupFile();
+    render(<SettingsScreen />, { wrapper });
+    await pick(file);
+    await userEvent.setup().click(await screen.findByRole('button', { name: '읽기' }));
+    expect(await screen.findByText(/드릴 \d+개 가져옴 · \d+개 실패 · \d+개 건너뜀/)).toBeInTheDocument();
+    // 체크박스를 안 켰으므로 설정은 그대로다 — 보고 줄이 그 사실을 말한다.
+    expect(screen.getByText(/설정은 그대로 둠/)).toBeInTheDocument();
+  });
+
+  it('설정도 함께 복원을 켜면 화면의 설정 컨트롤이 **그 자리에서** 새 값으로 바뀐다', async () => {
+    // ⚠️ 이게 없으면 복원 직후 화면은 옛 값을 보여주고, 그 상태에서 스위치 하나만 건드려도
+    //    방금 복원한 설정이 통째로 되돌아간다(setPrefs 가 화면의 옛 prefs 위에 패치를 얹는다).
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadPrefs(), theme: 'light' }));
+    const file = await backupFile(); // 이 파일의 테마는 라이트
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadPrefs(), theme: 'dark' }));
+
+    render(<SettingsScreen />, { wrapper });
+    // 대조군 — 시작은 다크다(파일과 다른 값에서 출발해야 변화가 의미를 갖는다).
+    expect(screen.getByRole('radio', { name: '다크' })).toHaveAttribute('aria-checked', 'true');
+
+    await pick(file);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('checkbox', { name: /설정도 함께 복원/ }));
+    await user.click(screen.getByRole('button', { name: '읽기' }));
+    await waitFor(() => expect(screen.getByRole('radio', { name: '라이트' })).toHaveAttribute('aria-checked', 'true'));
+    expect(loadPrefs().theme).toBe('light');
+  });
+
+  it('백업이 아닌 파일은 사유를 말한다 — 조용히 아무 일도 안 일어나면 안 된다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    await pick(new File(['그냥 글자'], 'x.json', { type: 'application/json' }));
+    await userEvent.setup().click(await screen.findByRole('button', { name: '읽기' }));
+    expect(await screen.findByRole('status')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull(); // 실패해도 물음은 닫힌다
   });
 });
