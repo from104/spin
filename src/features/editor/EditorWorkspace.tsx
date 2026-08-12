@@ -79,7 +79,12 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const step = drill.steps[stepIndex] ?? drill.steps[0]!;
 
   const stageRef = useRef<CourtStageHandle | null>(null);
+  // 3.9 — 도움말은 문이 둘이라 돌아갈 곳도 둘이다. **버튼**으로 열면 그 버튼으로 돌아간다
+  // (Safari 는 클릭이 버튼에 포커스를 주지 않아 Modal 의 openedBy 폴백이 body 가 된다 —
+  // ref 로 못박는다). **Shift+?** 로 열면 ref 를 비워 폴백이 이기게 한다 — 열던 순간의
+  // 포커스(코트·개체)로 돌아가야지, 쓴 적도 없는 버튼으로 끌려가면 안 된다.
   const helpTriggerRef = useRef<HTMLElement | null>(null);
+  const helpButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pendingPlayerId, setPendingPlayerId] = useState<ChairId | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   // 세로 화면(§6.4 태블릿): 도구·속성을 아래로 내려 코트가 폭을 다 쓰게 한다.
@@ -271,7 +276,10 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     // 실측으로 해야 맞다(여기서 미리 곱하면 인스펙터가 열려 판이 돌아간 순간 어긋난다).
     onPanView: (dx, dy) => stageRef.current?.panByScreen(dx, dy),
     onEraseSelection: (scope) => eraseIds(Array.from(state.selection), scope),
-    onShowHelp: () => setHelpOpen(true),
+    onShowHelp: () => {
+      helpTriggerRef.current = null; // 키보드 문 — openedBy 폴백(열던 순간의 포커스)이 이긴다
+      setHelpOpen(true);
+    },
     // [A-3] Esc = 선택 해제. 2단 히트(1.6) 이후 붐비는 코트에서 "빈 곳 탭" 이 사라져도
     // 해제가 가능해야 한다. 재탭 해제(useEditorPointer)와 함께 대체 경로 한 쌍이다.
     onSelectionClear: () => dispatch({ type: 'SELECT_CLEAR' }),
@@ -420,6 +428,11 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
               onToggleInspector={() => setInspectorOpen((v) => !v)}
               inspectorPanelId={inspectorPanelId}
               inspectorButtonRef={inspectorTriggerRef}
+              onShowHelp={() => {
+                helpTriggerRef.current = helpButtonRef.current; // 버튼 문 — 닫히면 이 버튼으로
+                setHelpOpen(true);
+              }}
+              helpButtonRef={helpButtonRef}
             />
           </div>
           {toolRail}

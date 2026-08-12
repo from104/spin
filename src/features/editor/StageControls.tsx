@@ -19,6 +19,14 @@ export interface StageControlsProps {
   onToggleInspector(): void;
   inspectorPanelId: string;
   inspectorButtonRef?: RefObject<HTMLButtonElement | null>;
+  /** 도움말 열기(3.9 [E-4]) — 버튼이 없으면 도움말은 Shift+? 를 이미 아는 사람만 여는 문서다.
+   *  이 묶음에 두는 이유는 [속성]과 같다: 코트 우상단은 어느 방향·어느 폭에서도 비어 있고,
+   *  떠 있으므로 레이아웃 폭·높이를 먹지 않는다. **맨 끝에 단다** — 기존 버튼 좌표가 한 픽셀도
+   *  안 움직여야 한다(§3 불변식 1 과 같은 규율).
+   *  버튼 ref 를 밖으로 내는 이유: Safari 는 클릭이 버튼에 포커스를 주지 않아 Modal 의
+   *  openedBy 폴백이 body 가 된다 — 닫힐 때 돌아올 곳을 ref 로 못박아야 한다(3.9 완료 판정). */
+  onShowHelp(): void;
+  helpButtonRef?: RefObject<HTMLButtonElement | null>;
 }
 
 const BTN: CSSProperties = {
@@ -45,6 +53,8 @@ export function StageControls({
   onToggleInspector,
   inspectorPanelId,
   inspectorButtonRef,
+  onShowHelp,
+  helpButtonRef,
 }: StageControlsProps) {
   return (
     <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 10 }}>
@@ -92,6 +102,16 @@ export function StageControls({
         }}
       >
         속성
+      </button>
+      <button
+        type="button"
+        ref={helpButtonRef}
+        aria-label="도움말"
+        aria-haspopup="dialog"
+        onClick={onShowHelp}
+        style={{ ...BTN, marginTop: 6, fontSize: '1rem', fontWeight: 700 }}
+      >
+        ?
       </button>
     </div>
   );

@@ -131,7 +131,7 @@ describe('트레이 DOM — 칩·폭이 --hit 파생 calc 로 걸려 있다', ()
 
 // ── ② DOM 배선 — 코트 위·하단 바 (§5.4 "한 픽셀도 안 커진다" 목록의 복구) ──────
 
-describe('StageControls — 6개 전부 --hit', () => {
+describe('StageControls — 7개 전부 --hit', () => {
   it('버튼 묶음이 var(--hit) 정사각이다', () => {
     render(
       <StageControls
@@ -145,9 +145,12 @@ describe('StageControls — 6개 전부 --hit', () => {
         inspectorOpen={false}
         onToggleInspector={() => {}}
         inspectorPanelId="p"
+        onShowHelp={() => {}}
       />,
     );
-    const names = ['확대', '축소', '줌 초기화', '격자 표시 전환', '골 지역 가이드 전환', '속성'];
+    // 3.9 에서 도움말이 **맨 끝에** 들어와 7개가 됐다 — §3 예산 내역 '스테이지 컨트롤 6
+    // (줌 3 + 토글 2 + 도움말 1)' + 인스펙터 손잡이 1 이 이 묶음의 전부다.
+    const names = ['확대', '축소', '줌 초기화', '격자 표시 전환', '골 지역 가이드 전환', '속성', '도움말'];
     for (const name of names) {
       const btn = screen.getByRole('button', { name });
       expect(btn.style.width, name).toBe('var(--hit)');

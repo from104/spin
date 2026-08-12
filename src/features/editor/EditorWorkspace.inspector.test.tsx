@@ -156,11 +156,11 @@ describe('Esc 우선순위 — 판 위에서는 선택 해제, 시트 안에서�
 
     // Shift+? — 편집기 전역 단축키. 시트는 Escape 외에는 아무것도 가로채지 않는다.
     await user.keyboard('{Shift>}?{/Shift}');
-    const help = await screen.findByRole('dialog', { name: '키보드 단축키' });
+    const help = await screen.findByRole('dialog', { name: '도움말' });
 
     await user.keyboard('{Escape}');
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '키보드 단축키' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '도움말' })).toBeNull());
     expect(help).not.toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
   });
