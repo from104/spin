@@ -1,16 +1,27 @@
 // §6.11/부록A: 목록 화면 드릴 카드. 마크업은 template.html 172–205행을 그대로 이식하되,
 // 썸네일은 정적 dots/arrow 대신 CourtThumbnail(§3.11 ThumbSpec)로 실제 첫 스텝을 그린다.
+//
+// 2026-08-12 판 걸이(계획서 2.2 [드릴] 탭 · 로드맵 2.7):
+// · 썸네일 상자가 320/192 고정이 아니라 **그 드릴 코트의 실제 비율**(COURT_DEFS viewBox)이다 —
+//   하프/플랫(525×450)이 풀(825×525) 틀에 레터박스로 눌려 보이던 것을 없앤다.
+// · 카드 하단에 상시 노출 [시연] 44px — 단일 드릴 시연이 3단계에서 1클릭이 된다.
+//   계획서의 "상시 노출 [열기]" 는 별도 버튼이 아니라 **카드면 전체 버튼**이 담당한다(어차피
+//   44px 를 훌쩍 넘는 상시 노출 표적이고, 같은 이름의 버튼을 둘 두면 보조기술에 중복 표적이 된다).
+// · 케밥 3항목 유지, '내보내기' 라벨은 계획서 표기대로 '파일로 내보내기'.
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { CourtThumbnail } from '../../render/CourtThumbnail.tsx';
 import { Pill } from '../../ui/Pill.tsx';
-import { IconClock, IconLevel, IconListSteps } from '../../ui/icons.tsx';
+import { IconClock, IconLevel, IconListSteps, IconPlay } from '../../ui/icons.tsx';
 import { categoryColor } from '../../core/colors.ts';
+import { COURT_DEFS } from '../../model/court.ts';
 import type { DrillSummary } from '../../model/summary.ts';
 
 export interface DrillCardProps {
   drill: DrillSummary;
   onOpen(): void;
+  /** 판 걸이 카드의 상시 노출 [시연] — nav.presentDrill 로 직행하는 1클릭 경로다(2.7). */
+  onPresent(): void;
   onDuplicate(): void;
   onDelete(): void;
   onExport(): void;
@@ -27,7 +38,7 @@ function IconMore({ size = 16 }: { size?: number }) {
   );
 }
 
-export function DrillCard({ drill, onOpen, onDuplicate, onDelete, onExport }: DrillCardProps) {
+export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport }: DrillCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
@@ -71,10 +82,18 @@ export function DrillCard({ drill, onOpen, onDuplicate, onDelete, onExport }: Dr
         type="button"
         onClick={onOpen}
         aria-label={`${drill.title} 열기`}
-        style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left' }}
+        style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', flex: 1 }}
       >
-        <div style={{ position: 'relative', aspectRatio: '320/192', borderBottom: '1px solid var(--border)' }}>
+        {/* 코트 비율 상자 — 카드마다 자기 코트의 viewBox 비율. svg 는 상자를 꽉 채운다(fill prop). */}
+        <div
+          style={{
+            position: 'relative',
+            aspectRatio: `${COURT_DEFS[drill.courtMode].vbW} / ${COURT_DEFS[drill.courtMode].vbH}`,
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
           <CourtThumbnail
+            fill
             mode={drill.courtMode}
             thumb={drill.thumb}
             teamColors={{
@@ -109,6 +128,33 @@ export function DrillCard({ drill, onOpen, onDuplicate, onDelete, onExport }: Dr
           </div>
         </div>
       </button>
+
+      {/* 상시 노출 [시연] 44px — 세션 행(SessionTab.tsx)과 같은 라벨 관용구(`… 시연 시작`).
+          카드면 버튼 안에 넣으면 버튼 중첩이라 형제로 둔다. */}
+      <div style={{ padding: '0 11px 11px', display: 'flex' }}>
+        <button
+          type="button"
+          onClick={onPresent}
+          aria-label={`${drill.title} 시연 시작`}
+          className="on-accent"
+          style={{
+            flex: 1,
+            minHeight: 44,
+            borderRadius: 11,
+            background: 'var(--accent)',
+            color: 'var(--accent-ink-strong)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 7,
+            fontSize: '0.8125rem',
+            fontWeight: 700,
+          }}
+        >
+          <IconPlay size={14} />
+          시연
+        </button>
+      </div>
 
       <div style={{ position: 'absolute', top: 8, right: 8 }} ref={menuRef}>
         <button
@@ -168,7 +214,7 @@ export function DrillCard({ drill, onOpen, onDuplicate, onDelete, onExport }: Dr
                 onExport();
               }}
             >
-              내보내기
+              파일로 내보내기
             </MenuItem>
             <MenuItem
               tone="danger"

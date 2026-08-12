@@ -90,6 +90,37 @@ describe('LibraryScreen — 드릴 탭', () => {
     await waitFor(() => expect(within(panel()).getByText('삭제 대상')).toBeInTheDocument());
   });
 
+  it('카드의 [시연] 1클릭이 nav.presentDrill 을 그 드릴 id 로 호출한다 — openDrill 은 안 불린다', async () => {
+    // 판 걸이(로드맵 2.7) 완료 판정의 절반: 목록 → 시연 직행 경로. 나머지 절반(presentDrill →
+    // presentTarget 세움)은 AppShell.wiring.test.tsx 가 어댑터 층에서 붙잡는다.
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '시연 직행 드릴' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('시연 직행 드릴')).toBeInTheDocument());
+
+    await userEvent.setup().click(screen.getByRole('button', { name: '시연 직행 드릴 시연 시작' }));
+    expect(nav.presentDrill).toHaveBeenCalledTimes(1);
+    expect(nav.presentDrill).toHaveBeenCalledWith(d.id);
+    expect(nav.openDrill).not.toHaveBeenCalled(); // 대조군: [시연] 이 열기를 겸하면 여기서 잡힌다
+  });
+
+  it('난이도 그룹 헤더로 초급 → 고급 순서로 나뉘고, 빈 그룹(중급)은 헤더가 없다', async () => {
+    // 판 걸이(계획서 2.2): 필터가 아니라 0클릭 그룹 **정렬**. 생성은 고급을 먼저 해서
+    // "저장 순서가 우연히 초급→고급" 으로 통과하는 가짜 초록불을 막는다.
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '고급 슈팅', level: '고급' });
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '초급 드리블', level: '초급' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('고급 슈팅')).toBeInTheDocument());
+
+    const headings = within(panel()).getAllByRole('heading', { level: 2 });
+    expect(headings.map((h) => h.textContent)).toEqual(['초급', '고급']);
+    expect(within(panel()).queryByText('중급')).not.toBeInTheDocument();
+    // 카드가 자기 난이도 섹션 안에 들어 있는지까지 — 헤더만 있고 배속이 틀리는 회귀를 막는다.
+    expect(within(within(panel()).getByRole('region', { name: '초급 드릴' })).getByText('초급 드리블')).toBeInTheDocument();
+    expect(within(within(panel()).getByRole('region', { name: '고급 드릴' })).getByText('고급 슈팅')).toBeInTheDocument();
+  });
+
   it('카테고리 필터로 목록을 좁힌다', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '공격 드릴', category: '공격' });
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '수비 드릴', category: '수비' });

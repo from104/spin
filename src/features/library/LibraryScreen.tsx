@@ -9,11 +9,13 @@
 // `<main id="main" tabIndex={-1}>` 는 §7.5a 대로 이 화면이 직접 렌더한다.
 //
 // 이탈(계약과 다른 점): 프로토타입 헤더의 "시연" 버튼은 `(isEditor && courtMode) || isLibrary` 로
-// 목록 화면에서 항상 뜨지만, 목록 화면에는 "지금 무엇을 시연할지"를 가리키는 단일 대상이 없다
-// (드릴 카드에는 애초에 시연 개념이 없고, 세션은 여러 개가 동시에 존재할 수 있다). 세션 탭의
-// 행마다 있는 [시연] 44×44 버튼이 그 자리를 대신한다. 같은 이유로 헤더 주 액션도 세션 탭에서
-// "새 세션"으로 바뀌지 않는다(app-shell 의 정적 헤더 계산은 탭 상태를 모른다) — 대신 세션 탭
-// 본문에 자체 "새 세션" 진입점(빈 상태 CTA)을 둔다.
+// 목록 화면에서 항상 뜨지만, **화면 단위**로는 "지금 무엇을 시연할지"를 가리키는 단일 대상이
+// 없어서(드릴도 세션도 여러 개가 동시에 보인다) 헤더 전역 [시연] 은 두지 않는다. 대신 시연은
+// **행/카드 단위**다 — 세션 행의 [시연] 44×44 에 더해, 2026-08-12 판 걸이(로드맵 2.7)로 드릴
+// 카드에도 상시 노출 [시연] 이 생겨 단일 드릴 시연이 1클릭이 됐다(nav.presentDrill 직행).
+// 옛 주석의 "드릴 카드에는 애초에 시연 개념이 없다" 는 문장은 이 시점부터 무효다. 같은 이유로
+// 헤더 주 액션도 세션 탭에서 "새 세션"으로 바뀌지 않는다(app-shell 의 정적 헤더 계산은 탭
+// 상태를 모른다) — 대신 세션 탭 본문에 자체 "새 세션" 진입점(빈 상태 CTA)을 둔다.
 import { useEffect, useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
@@ -22,6 +24,7 @@ import { Segmented } from '../../ui/Segmented.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
+import { DRILL_LEVELS } from '../../model/drill.ts';
 import { deleteSession as repoDeleteSession, getSession } from '../../storage/sessionRepo.ts';
 import type { SessionId } from '../../core/ids.ts';
 import type { DrillSummary } from '../../model/summary.ts';
@@ -69,6 +72,8 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
     setDrawerSessionId(s.id);
   };
   const presentSession = (id: SessionId) => nav.presentSession(id);
+  // 판 걸이(2.7): 카드 [시연] 1클릭 → app-shell 어댑터가 presentTarget 을 세우고 시연으로 간다.
+  const presentDrill = (id: DrillSummary['id']) => nav.presentDrill(id);
 
   // ── 드릴 카드 액션 ──────────────────────────────────────────────────────────────────────
   const handleDuplicate = async (d: DrillSummary) => {
@@ -193,18 +198,41 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
             {drills.length === 0 ? (
               <EmptyDrills hasFilter={!!category || !!search} onCreate={goNewDrill} />
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 18 }}>
-                {drills.map((d) => (
-                  <DrillCard
-                    key={d.id}
-                    drill={d}
-                    onOpen={() => openDrill(d.id)}
-                    onDuplicate={() => void handleDuplicate(d)}
-                    onDelete={() => void handleDelete(d)}
-                    onExport={() => void handleExport(d)}
-                  />
-                ))}
-              </div>
+              // 판 걸이(계획서 2.2): 난이도 그룹 헤더(초급 → 중급 → 고급)로 **정렬**한다 —
+              // 난이도 필터를 하나 더 얹는 대신 0클릭으로 나눠 보여준다(빈 그룹은 헤더도 없다).
+              // 그룹 안 순서는 store 가 주는 순서(수정 최신순) 그대로다.
+              DRILL_LEVELS.map((level) => {
+                const group = drills.filter((d) => d.level === level);
+                if (group.length === 0) return null;
+                return (
+                  <section key={level} aria-label={`${level} 드릴`} style={{ marginBottom: 28 }}>
+                    <h2
+                      style={{
+                        fontSize: '0.8125rem',
+                        fontWeight: 700,
+                        color: 'var(--muted)',
+                        letterSpacing: 0.3,
+                        marginBottom: 12,
+                      }}
+                    >
+                      {level}
+                    </h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 18 }}>
+                      {group.map((d) => (
+                        <DrillCard
+                          key={d.id}
+                          drill={d}
+                          onOpen={() => openDrill(d.id)}
+                          onPresent={() => presentDrill(d.id)}
+                          onDuplicate={() => void handleDuplicate(d)}
+                          onDelete={() => void handleDelete(d)}
+                          onExport={() => void handleExport(d)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })
             )}
           </div>
         ) : (

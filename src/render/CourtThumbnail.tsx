@@ -41,11 +41,14 @@ export interface CourtThumbnailProps {
   thumb?: ThumbSpec;
   teamColors?: ThumbTeamColors;
   className?: string;
+  /** true 면 부모 상자를 절대배치로 꽉 채운다 — 호출부가 상자를 코트 비율로 잡아 두는
+   *  판 걸이 카드(DrillCard, 2026-08-12)용. 기본 false(기존 호출부 무변화). */
+  fill?: boolean;
 }
 
 const coneTriangle = (x: number, y: number): string => `M${x},${y - 5} L${x + 5},${y + 4} L${x - 5},${y + 4} Z`;
 
-export function CourtThumbnail({ mode, thumb, teamColors = DEFAULT_TEAM_COLORS, className }: CourtThumbnailProps) {
+export function CourtThumbnail({ mode, thumb, teamColors = DEFAULT_TEAM_COLORS, className, fill = false }: CourtThumbnailProps) {
   const def = COURT_DEFS[mode];
 
   return (
@@ -53,6 +56,7 @@ export function CourtThumbnail({ mode, thumb, teamColors = DEFAULT_TEAM_COLORS, 
       viewBox={`0 0 ${def.vbW} ${def.vbH}`}
       preserveAspectRatio="xMidYMid meet"
       className={className}
+      style={fill ? { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' } : undefined}
       role="img"
       aria-label={`${def.label} 미리보기`}
     >
