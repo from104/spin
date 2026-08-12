@@ -1,4 +1,4 @@
-// §6.8 재편 — 대문(home)에 상시 떠 있는 자유 전술판. 드릴 편집기와 **같은 컴포넌트**
+// §6.8 재편 — 대문(board)에 상시 떠 있는 자유 전술판. 드릴 편집기와 **같은 컴포넌트**
 // (EditorWorkspace)를 mode='board' 로 쓴다. 판을 그리는 부분(도구·코트·속성)은 한 줄도 다르지
 // 않고, 다른 것은 이 화면이 쥐고 있는 세 가지뿐이다:
 //
@@ -116,7 +116,7 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
         // — 사용자에겐 "저장이 안 된 것" 으로 보인다(실제로 그렇게 보였다).
         await refresh();
         toast.show(`'${title}' 드릴로 저장했습니다.`, {
-          action: { label: '목록에서 보기', onAction: () => nav.go('library') },
+          action: { label: '목록에서 보기', onAction: () => nav.go('drills') },
         });
       } catch {
         toast.show('드릴로 저장하지 못했습니다. 저장 공간을 확인해 주세요.');

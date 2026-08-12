@@ -1,4 +1,4 @@
-// §10.8 화면 스모크 — **드릴 편집 모드**. 자유 전술판과 같은 자리(home)에 같은 컴포넌트
+// §10.8 화면 스모크 — **드릴 편집 모드**. 자유 전술판과 같은 자리(board)에 같은 컴포넌트
 // (EditorWorkspace)로 뜨되, 전술판에 없는 것들(스텝·트랜스포트·자동저장·코트 불변)이 여기서만
 // 살아 있는지 확인한다. 판을 그리는 부분 자체는 BoardScreen.test.tsx 가 덮는다.
 //
@@ -30,7 +30,7 @@ vi.mock('../../app/AppShell.tsx', () => ({
 const { EditorScreen } = await import('./EditorScreen.tsx');
 
 function Wrapper({ children }: { children: ReactNode }) {
-  const nav: AppHistoryApi = { screen: 'home', go: () => {}, back: () => {} };
+  const nav: AppHistoryApi = { screen: 'board', go: () => {}, back: () => {} };
   return (
     <SettingsProvider>
       <ToastProvider>

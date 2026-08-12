@@ -17,7 +17,9 @@ export interface HomeNav {
   newDrill(): void;
   openDrill(id: DrillId): void;
   goLibrary(opts?: { tab?: LibraryTab; openSessionId?: SessionId }): void;
-  /** §6.11 "카드 전체가 버튼 → go('library') + 세션 탭 + 해당 드로어 열기"의 축약. */
+  /** §6.11 "카드 전체가 버튼 → go('drills') + 세션 탭 + 해당 드로어 열기"의 축약.
+   *  (2026-08-12 개명: 화면 키 'library' → 'drills'. 이 파일의 계약 자체는 안 바뀐다 —
+   *  화면 키를 아는 것은 app-shell 쪽 어댑터뿐이다.) */
   openSession(id: SessionId): void;
   presentDrill(id: DrillId): void;
   presentSession(id: SessionId): void;

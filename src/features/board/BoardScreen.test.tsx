@@ -44,7 +44,7 @@ function Toasts() {
 }
 
 function Wrapper({ children }: { children: ReactNode }) {
-  const nav: AppHistoryApi = { screen: 'home', go: () => {}, back: () => {} };
+  const nav: AppHistoryApi = { screen: 'board', go: () => {}, back: () => {} };
   return (
     <SettingsProvider>
       <LibraryProvider>

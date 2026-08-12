@@ -11,7 +11,7 @@ import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 
 function Harness({ children }: { children: ReactNode }) {
-  const nav = useAppHistory('home');
+  const nav = useAppHistory('board');
   return (
     <SettingsProvider>
       <AppNavProvider value={nav}>{children}</AppNavProvider>
@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 
 describe('AppRail', () => {
-  it('4개 화면 링크 + aria-current="page" 를 현재 화면에 표시한다', () => {
+  it('3개 레일 링크 + aria-current="page" 를 현재 화면에 표시한다', () => {
     render(
       <Harness>
         <AppRail />
@@ -33,13 +33,30 @@ describe('AppRail', () => {
     );
     const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
     expect(nav).toBeInTheDocument();
-    // 2026-08-09 재편: 대문 라벨은 '전술판' 이 됐고 '편집기' 는 레일에서 사라졌다
-    // (드릴 편집은 전술판과 같은 자리에 뜬다 — screens.ts 주석).
-    expect(screen.getByRole('button', { name: '전술판' })).toHaveAttribute('aria-current', 'page');
+    // 2026-08-09 재편: '편집기' 는 레일에서 사라졌다(드릴 편집은 판과 같은 자리에 뜬다).
+    // 2026-08-12 재편(계획서 2.1): 라벨이 [보드][드릴][설정] 3단이 됐고 '시연' 도 빠졌다 —
+    // 레일로 시연에 들어와 봤자 대상이 없어 빈 화면만 뜨는 자리였다.
+    expect(screen.getByRole('button', { name: '보드' })).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('button', { name: '편집기' })).toBeNull();
-    for (const label of ['목록', '시연', '설정']) {
+    expect(screen.queryByRole('button', { name: '시연' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '전술판' })).toBeNull();
+    for (const label of ['드릴', '설정']) {
       expect(screen.getByRole('button', { name: label })).not.toHaveAttribute('aria-current');
     }
+  });
+
+  it('시연 중에는 [드릴] 에 aria-current 가 붙는다 — 레일에 없는 화면이 남의 자리를 빌린다', () => {
+    // 레일이 StageTarget 을 모른 채 화면 키만 보고 접는 것이 계약이다(SCREEN_TO_RAIL).
+    // 이 매핑이 없으면 시연 중에는 세 버튼 어디에도 현재 표시가 없다.
+    window.history.replaceState({ screen: 'present', depth: 1 }, '');
+    render(
+      <Harness>
+        <AppRail />
+      </Harness>,
+    );
+    expect(screen.getByRole('button', { name: '드릴' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: '보드' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('button', { name: '설정' })).not.toHaveAttribute('aria-current');
   });
 
   it('레일 버튼을 클릭하면 useAppNav().go 가 실제로 불려 화면이 바뀐다', async () => {

@@ -54,7 +54,7 @@ describe('PresentRunner — 대상 없음/에러', () => {
     render(<PresentRunner target={null} nav={nav} />, { wrapper });
     expect(await screen.findByText('시연할 드릴을 목록에서 선택하세요.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '목록으로' }));
-    expect(nav.back).toHaveBeenCalledWith('library');
+    expect(nav.back).toHaveBeenCalledWith('drills');
   });
 
   it('존재하지 않는 드릴이면 에러 상태를 보여준다', async () => {
@@ -117,15 +117,16 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
   });
 
-  it('우상단 [시연 종료]·헤더 [편집으로] 모두 nav.back(\'editor\') 를 부른다', async () => {
+  it("우상단 [시연 종료]·헤더 [편집으로] 모두 nav.back('board') 를 부른다", async () => {
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
     await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
 
     await userEvent.click(screen.getByRole('button', { name: '시연 종료' }));
-    // 재편으로 편집기가 home 자리로 들어왔다 — 시연을 나가면 그 드릴 편집으로 돌아간다.
-    expect(nav.back).toHaveBeenCalledWith('home');
+    // 재편으로 편집기가 board 자리로 들어왔다 — 시연을 나가면 그 드릴 편집으로 돌아간다.
+    // (2026-08-12 개명: 'home' → 'board'. 세션 시연이면 fallback 은 'drills' 다.)
+    expect(nav.back).toHaveBeenCalledWith('board');
 
     await userEvent.click(screen.getByRole('button', { name: '편집으로' }));
     expect(nav.back).toHaveBeenCalledTimes(2);

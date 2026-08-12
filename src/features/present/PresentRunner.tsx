@@ -110,7 +110,7 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
     };
   }, [target]);
 
-  const backFallback: Screen = target?.kind === 'session' ? 'library' : 'home';
+  const backFallback: Screen = target?.kind === 'session' ? 'drills' : 'board';
   const exit = useCallback(() => nav.back(backFallback), [nav, backFallback]);
 
   const reduceMotion = effectiveReduceMotion(prefs.a11y.reduceMotion);
@@ -149,7 +149,7 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   useAppHeader({
     title: headerTitle,
     subtitle: '팀 앞에서 드릴을 단계별로 보여주세요',
-    primary: { label: backFallback === 'library' ? '목록으로' : '편집으로', onAction: exit },
+    primary: { label: backFallback === 'drills' ? '목록으로' : '편집으로', onAction: exit },
   });
 
   if (load.status === 'loading') {
@@ -164,7 +164,7 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
     return (
       <main id="main" tabIndex={-1} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, outline: 'none' }}>
         <p style={{ color: 'var(--faint-text)', fontSize: '0.875rem' }}>시연할 드릴을 목록에서 선택하세요.</p>
-        <Button variant="primary" onClick={() => nav.back('library')}>
+        <Button variant="primary" onClick={() => nav.back('drills')}>
           목록으로
         </Button>
       </main>
@@ -175,7 +175,7 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
     return (
       <main id="main" tabIndex={-1} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, outline: 'none' }}>
         <p style={{ color: 'var(--faint-text)', fontSize: '0.875rem' }}>{load.message}</p>
-        <Button variant="primary" onClick={() => nav.back('library')}>
+        <Button variant="primary" onClick={() => nav.back('drills')}>
           목록으로
         </Button>
       </main>

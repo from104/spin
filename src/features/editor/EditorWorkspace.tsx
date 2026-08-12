@@ -125,7 +125,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           title: drill.title,
           badge: '편집중',
           primary: { label: autosave.status === 'saving' ? '저장 중…' : '저장', onAction: () => void autosave.flush() },
-          presentButton: { onAction: () => nav.go('present') },
+          presentButton: { onAction: () => nav.go('present', { kind: 'drill', id: drill.id }) },
           history,
           courtSwitch: {
             value: drill.courtMode,

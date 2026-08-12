@@ -1,18 +1,22 @@
-// §6.8 / 프로토타입 template.html 84px 앱 레일. 5개 화면 + 테마 토글.
+// §6.8 / 프로토타입 template.html 84px 앱 레일. 3단 + 테마 토글.
+//
+// 2026-08-12 재편(계획서 2.1): 레일 항목이 화면 키와 1:1 이 아니게 됐다. `present` 는 화면
+// 키로 살아 있지만 레일에서는 빠진다 — 레일로 시연에 들어오면 대상이 없어 빈 화면만 뜬다.
+// 시연 중 활성은 SCREEN_TO_RAIL 이 [드릴]로 접는다. 이 컴포넌트는 여전히 **화면 키만** 보고
+// StageTarget 은 모른다(레일이 편집기 상태에 결합되는 것을 막는다).
 import type { ComponentType } from 'react';
-import { IconHome, IconLibrary, IconMoon, IconPresent, IconSettings, IconSun } from '../ui/icons.tsx';
+import { IconHome, IconLibrary, IconMoon, IconSettings, IconSun } from '../ui/icons.tsx';
 import type { IconProps } from '../ui/icons.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
-import { SCREEN_NAV_LABELS } from './screens.ts';
-import type { Screen } from './screens.ts';
+import { RAIL_ITEMS, SCREEN_NAV_LABELS, SCREEN_TO_RAIL } from './screens.ts';
+import type { RailKey } from './screens.ts';
 
-const NAV_ITEMS: ReadonlyArray<{ key: Screen; Icon: ComponentType<IconProps> }> = [
-  { key: 'home', Icon: IconHome },
-  { key: 'library', Icon: IconLibrary },
-  { key: 'present', Icon: IconPresent },
-  { key: 'settings', Icon: IconSettings },
-];
+const RAIL_ICONS: Record<RailKey, ComponentType<IconProps>> = {
+  board: IconHome,
+  drills: IconLibrary,
+  settings: IconSettings,
+};
 
 /** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page". */
 export function AppRail() {
@@ -67,8 +71,9 @@ export function AppRail() {
         SPIN
       </div>
 
-      {NAV_ITEMS.map(({ key, Icon }) => {
-        const active = screen === key;
+      {RAIL_ITEMS.map((key) => {
+        const Icon = RAIL_ICONS[key];
+        const active = SCREEN_TO_RAIL[screen] === key;
         return (
           <button
             key={key}
