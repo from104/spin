@@ -17,6 +17,8 @@ import { usePlaybackActions, usePlaybackState } from '../../store/playback/Playb
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { useIsPortrait } from '../../ui/useIsPortrait.ts';
+import { useIsNarrow } from '../../ui/useIsNarrow.ts';
+import { courtPadCss } from '../../app/chromeBudget.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import { ToolRail, type ChairSlot } from './ToolRail.tsx';
 import { useTrayDrag } from './useTrayDrag.ts';
@@ -79,6 +81,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const [helpOpen, setHelpOpen] = useState(false);
   // 세로 화면(§6.4 태블릿): 도구·속성을 아래로 내려 코트가 폭을 다 쓰게 한다.
   const portrait = useIsPortrait();
+  // 좁은 창(§5.1): 크롬 예산을 줄인다. 여기서 걷어내는 것은 코트 래퍼 패딩 한 행이고,
+  // 나머지 행(레일·헤더·하단 바·트레이)은 각자 담당 항목이 같은 boolean 으로 줄인다.
+  const narrow = useIsNarrow();
   // 트레이(도구·개체)를 판의 어느 변에 붙일지. 가로 화면이면 판 **오른쪽**, 세로면 판 아래.
   const trayAxis = portrait ? ('column' as const) : ('row' as const);
   // ★ 인스펙터(결정 ③A) — **기본 접힘 오버레이**. 핀 취향만 prefs 에 남고 여닫힘은 로컬이다:
@@ -321,7 +326,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
             패널에 두면 UI 서랍처럼 보이지만, 판에 붙여 두면 실제 전술판에서 말이 놓여 있는
             가장자리처럼 읽힌다. 그래서 트레이는 이 안에 들어오고 배경도 판과 같은 색을 쓴다. */}
         <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', flexDirection: trayAxis }}>
-          <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 24px' }}>
+          {/* 패딩은 크롬 예산의 한 행이다(§5.2 '코트 래퍼 좌우 48 → 24 · 상하 40 → 16').
+              숫자를 여기 직접 적지 않는다 — 예산표와 화면이 갈라지면 표가 거짓말을 한다. */}
+          <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: courtPadCss(narrow) }}>
             <div style={{ position: 'relative', width: '100%', height: '100%', filter: 'drop-shadow(0 18px 30px rgba(0,0,0,.45))' }}>
               <EditorStage
                 ref={stageRef}

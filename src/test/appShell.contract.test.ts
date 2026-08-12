@@ -126,7 +126,9 @@ describe('세로 축 플렉스 사슬 — 코트가 아래 도구를 밀어내�
 
   it('스테이지 영역도 줄어들 수 있다', () => {
     // 속성 **순서**가 아니라 있고 없음을 본다 — 순서로 걸면 무해한 정렬 변경에도 빨간불이 뜬다.
-    const stage = workspace.split('\n').find((l) => l.includes("padding: '20px 24px'"));
+    // 선택자가 리터럴 '20px 24px' 에서 옮겨 왔다(2.3): 이 패딩은 이제 크롬 예산의 한 행이라
+    // 좁은 창에서 값이 달라진다. 상수 모듈을 부르는 호출 자체가 리터럴보다 오래 간다.
+    const stage = workspace.split('\n').find((l) => l.includes('padding: courtPadCss('));
     expect(stage, '스테이지 영역 div 를 찾지 못했다 — 선택자가 낡았다').toBeDefined();
     for (const prop of ['flex: 1', 'minHeight: 0', 'minWidth: 0', "position: 'relative'"]) {
       expect(stage!, `스테이지 영역에 ${prop} 이 없다`).toContain(prop);
@@ -152,7 +154,7 @@ describe('개체 트레이는 판의 일부다 (§6.10 재편)', () => {
   it('트레이가 판(--panel-2 패널) **안**에 있다', () => {
     const panelAt = lines.findIndex((l) => l.includes("flexDirection: 'column'") && l.includes("background: 'var(--panel-2)'"));
     const trayAt = lines.findIndex((l) => l.trim() === '{toolRail}');
-    const stageAt = lines.findIndex((l) => l.includes("padding: '20px 24px'"));
+    const stageAt = lines.findIndex((l) => l.includes('padding: courtPadCss('));
     expect(panelAt).toBeGreaterThanOrEqual(0);
     expect(trayAt, '트레이가 판 바깥으로 나갔다 — 별도 패널처럼 보인다').toBeGreaterThan(panelAt);
     expect(trayAt, '트레이가 코트보다 앞에 있다 — 판 오른쪽이 아니다').toBeGreaterThan(stageAt);
