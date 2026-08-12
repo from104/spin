@@ -78,6 +78,34 @@ describe('① 판을 강제색에서 제외한다 — 미디어쿼리 **밖**에
     expect(readFileSync('src/render/CourtStage.tsx', 'utf-8')).toContain('className="stage-svg"');
     expect(readFileSync('src/features/print/printDom.ts', 'utf-8')).toContain("'spin-print-court'");
   });
+
+  // ⚠️ 2026-08-13 5차 검증 — 위 단언만으로는 **구멍이 통과했다.** 셀렉터가 부르는 이름이
+  // 마크업에 있는지만 보고, *코트를 그리는 SVG 루트가 몇 개인지*는 아무도 묻지 않았기 때문이다.
+  // 실측: 편집기(CourtStage) ✓ · 인쇄(PrintCourt) ✓ · **시연(PresentStage) ✗** 인 채로
+  // 2220 테스트가 전건 초록이었다. 시연 화면은 편집기와 **같은 CourtSurface · 같은 ChairChip ·
+  // 같은 teamMarkFor** 를 쓰므로, 강제색에서 색 밖 채널이 없는 넷(등번호·팀 색·골키퍼 표시·
+  // §3.5 개별 색)이 편집기와 똑같이 죽는다 — 그런데 코치가 선수에게 **보여 주는** 화면은 이쪽이다.
+  // 아래는 이름 확인이 아니라 **열거 확인**이다: 코트를 그리는 루트를 하나 더 만들면서 갈고리를
+  // 빠뜨리면 여기가 빨개진다.
+  describe('코트를 그리는 SVG 루트 전량이 제외 갈고리를 단다 (화면 축 열거)', () => {
+    const ROOTS = [
+      { name: '편집기 판', file: 'src/render/CourtStage.tsx' },
+      { name: '시연 화면', file: 'src/features/present/PresentStage.tsx' },
+      { name: '인쇄 코트', file: 'src/features/print/PrintCourt.tsx' },
+    ] as const;
+
+    it('대조군 — 열거가 실제로 3개이고, 셋 다 같은 판 그림(CourtSurface)을 그린다', () => {
+      // 0개라서 통과 / 목록이 비어 통과 를 막는다. 그리고 "같은 그림을 그리는가" 가
+      // 곧 "같은 규칙이 적용돼야 하는가" 의 근거다.
+      expect(ROOTS.length).toBe(3);
+      for (const { file } of ROOTS) expect(readFileSync(file, 'utf-8')).toContain('CourtSurface');
+    });
+
+    it.each(ROOTS)('$name ($file)', ({ file }) => {
+      const src = readFileSync(file, 'utf-8');
+      expect(src.includes('className="stage-svg"') || src.includes('PRINT_COURT_CLASS')).toBe(true);
+    });
+  });
 });
 
 // ── ② 토큰 대비 ──────────────────────────────────────────────────────────────────────

@@ -169,6 +169,14 @@ export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, on
       preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label={`${def.label} 시연 화면`}
+      // ⚠️ 강제색(Windows 고대비) 제외 갈고리다 — 장식이 아니다. `.stage-svg` 는
+      // styles/contrast.css 의 `forced-color-adjust: none` 이 부르는 이름이고, 이 줄이 없으면
+      // **시연 화면에서만** 팀 색·등번호·골키퍼 표시·§3.5 개별 색이 전부 같은 전경색으로
+      // 치환된다(2026-08-13 5차 검증 실측: 편집기 ✓ · 인쇄 ✓ · 시연 ✗ 였다). 시연은 코치가
+      // 선수에게 보여 주는 화면이라, 편집기에서는 구분되던 두 팀이 여기서만 뭉개진다.
+      // 같은 판·같은 ChairChip·같은 teamMarkFor 를 쓰므로 제외 근거도 편집기와 글자 그대로 같다.
+      // styles/contrast.test.tsx 의 '코트를 그리는 SVG 루트 전량' 이 이 줄을 붙잡고 있다.
+      className="stage-svg"
       style={{ display: 'block', width: '100%', height: '100%', filter: 'drop-shadow(0 22px 40px rgba(0,0,0,.5))' }}
     >
       <defs>
