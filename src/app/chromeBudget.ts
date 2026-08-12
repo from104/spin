@@ -81,7 +81,10 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
     // PC 행(1055×604 · 742×604)이 이 93 으로 계산된 값이다.
     wide: 93,
     narrow: 93,
-    owner: '2.4 — `--hit` 실배선 + 트레이 93/117',
+    // 실제 폭은 trayMetrics.ts 의 trayRailWidthPx(--hit 파생): 기본 44 → 93, 큰 터치 타깃 56 → 117.
+    // 이 행은 기본값(44)이다 — 예산은 상한이 아니라 "설정을 안 건드린 화면"의 값이고, 56 의
+    // 추가 24px 는 폭 여유(§5.4)에서 나온다. chromeBudget.test.ts 가 함수와 이 행을 대조한다.
+    owner: '2.4 (완료) — `--hit` 실배선 + 트레이 93/117',
   },
   {
     id: 'courtPadX',

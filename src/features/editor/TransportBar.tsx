@@ -87,8 +87,8 @@ export function TransportBar({ steps, stepId, onSelectStep, playing, onTogglePla
             disabled={!canPrev}
             onClick={goPrev}
             style={{
-              width: 44,
-              height: 44,
+              width: 'var(--hit)',
+              height: 'var(--hit)',
               borderRadius: 9,
               border: '1px solid var(--border)',
               display: 'flex',
@@ -106,8 +106,9 @@ export function TransportBar({ steps, stepId, onSelectStep, playing, onTogglePla
             disabled={steps.length < 2}
             onClick={onTogglePlay}
             style={{
-              width: 48,
-              height: 48,
+              // 주 액션은 이전/다음보다 한 뼘 크다 — 그 위계(+4px)를 --hit 위에서도 유지한다.
+              width: 'calc(var(--hit) + 4px)',
+              height: 'calc(var(--hit) + 4px)',
               borderRadius: 11,
               background: 'var(--accent)',
               color: 'var(--accent-ink-strong)',
@@ -126,8 +127,8 @@ export function TransportBar({ steps, stepId, onSelectStep, playing, onTogglePla
             disabled={!canNext}
             onClick={goNext}
             style={{
-              width: 44,
-              height: 44,
+              width: 'var(--hit)',
+              height: 'var(--hit)',
               borderRadius: 9,
               border: '1px solid var(--border)',
               display: 'flex',
@@ -156,7 +157,7 @@ export function TransportBar({ steps, stepId, onSelectStep, playing, onTogglePla
               {idx + 1}/{steps.length}
             </span>
           </div>
-          <div ref={trackRef} style={{ height: 44, display: 'flex', alignItems: 'center' }}>
+          <div ref={trackRef} style={{ height: 'var(--hit)', display: 'flex', alignItems: 'center' }}>
             {showTimelineNodes ? (
               <div role="tablist" aria-label="스텝 진행" style={{ display: 'flex', gap: 3, width: '100%', height: '100%', alignItems: 'center' }}>
                 {steps.map((s, i) => (
@@ -169,8 +170,8 @@ export function TransportBar({ steps, stepId, onSelectStep, playing, onTogglePla
                     onClick={() => onSelectStep(s.id)}
                     style={{
                       flex: 1,
-                      height: 44,
-                      minHeight: 44,
+                      height: 'var(--hit)',
+                      minHeight: 'var(--hit)',
                       display: 'flex',
                       alignItems: 'center',
                       background: 'transparent',
@@ -178,7 +179,7 @@ export function TransportBar({ steps, stepId, onSelectStep, playing, onTogglePla
                       padding: 0,
                     }}
                   >
-                    {/* 시각 6px 막대는 그대로 두고, 버튼 자체(투명 히트 래퍼)를 44px 로 키운다(§7.3) */}
+                    {/* 시각 6px 막대는 그대로 두고, 버튼 자체(투명 히트 래퍼)를 --hit 로 키운다(§7.3·§5.4) */}
                     <span
                       aria-hidden
                       style={{
@@ -227,7 +228,7 @@ export function TransportBar({ steps, stepId, onSelectStep, playing, onTogglePla
             display: 'flex',
             alignItems: 'center',
             gap: 7,
-            minHeight: 44,
+            minHeight: 'var(--hit)',
             fontSize: '0.71875rem',
             color: 'var(--muted)',
             border: '1px solid var(--border)',

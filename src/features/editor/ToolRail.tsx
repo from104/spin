@@ -13,6 +13,7 @@ import type { ToolId } from '../../physics/index.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
 import { CHAIR } from '../../core/constants.ts';
 import { TOOLS } from './toolDefs.ts';
+import { CHIP_BOX_H_CSS, CHIP_H_CSS, CHIP_ROW_GAP, CHIP_W_CSS, TRAY_ROW_MAX_CSS } from './trayMetrics.ts';
 import type { TrayDragItem } from './useTrayDrag.ts';
 
 /** 트레이의 선수 주차 슬롯. 배치 여부와 상관없이 **전원**이 자리를 유지한다 —
@@ -46,27 +47,27 @@ export interface ToolRailProps {
   onItemPointerDown?(item: TrayDragItem, e: ReactPointerEvent, onTap: () => void): void;
 }
 
-/** 트레이 칩의 화면 크기. 코트 칩과 **같은 비율**(37.5 : 25)이되 **세로로 세워서** 쓴다
- *  (기현 지시 2026-08-11): 트레이는 세로 레일이라, 칩을 눕히면 두 개가 한 줄에 못 들어가
- *  줄당 하나가 되고 선수 8명이면 트레이가 두 배로 길어진다.
+/** 트레이 칩의 화면 크기 — **전부 `--hit` 파생이다**(§5.4). 이전에는 33px 고정이라 칩 상자가
+ *  30×39, 이 앱 주력 조작(끌어다 놓기)의 손잡이가 44 미달이었다. 이제 상자 가로가 정확히
+ *  `--hit` 이다: 기본 44 → 상자 44×60, 큰 터치 타깃 56 → 상자 56×78.
  *
- *  세워도 같은 물건으로 읽히는 이유는 비율·머리·볼가드가 그대로이기 때문이다 — 코트에서
- *  위를 향한 휠체어와 똑같은 그림이다. */
-const TRAY_CHIP_H = 33;
-const TRAY_CHIP_W = (TRAY_CHIP_H * CHAIR.widthPx) / CHAIR.lengthPx;
+ *  칩은 코트 칩과 **같은 비율**(37.5 : 25)이되 **세로로 세워서** 쓴다(기현 지시 2026-08-11):
+ *  트레이는 세로 레일이라, 칩을 눕히면 두 개가 한 줄에 못 들어가 줄당 하나가 되고 선수
+ *  8명이면 트레이가 두 배로 길어진다. 세워도 같은 물건으로 읽히는 이유는 비율·머리·볼가드가
+ *  그대로이기 때문이다 — 코트에서 위를 향한 휠체어와 똑같은 그림이다. */
+/** 치수 식은 trayMetrics.ts 에 있다 — 크롬 예산 테스트와 화면이 같은 식을 쓰기 위해서다. */
+
 /** 칩을 감싸는 상자. 배치 여부와 상관없이 같은 크기라야 칸이 어긋나지 않고, 테두리·여백을
  *  안쪽으로 넣어야(border-box) 선택 테두리가 붙었다 떨어질 때 줄이 밀리지 않는다. */
 const TRAY_CHIP_BOX = {
   flex: 'none' as const,
   boxSizing: 'border-box' as const,
-  width: TRAY_CHIP_W + 8,
-  height: TRAY_CHIP_H + 6,
+  width: 'var(--hit)',
+  height: CHIP_BOX_H_CSS,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
 };
-/** 칩 두 개 + 간격. 이 값이 세로 트레이의 폭을 정한다. */
-const TRAY_CHIP_ROW_MAX = (TRAY_CHIP_W + 8) * 2 + 5;
 
 /** 트레이는 **판의 일부**다(기현 결정 2026-08-11) — 배경을 코트 패널과 같은 `--panel-2` 로 두어
  *  패널 경계가 보이지 않게 하고, 대신 안쪽 그림자로 얕은 홈을 판다. 실제 전술판에서 말이
@@ -81,7 +82,9 @@ const RAIL_BASE = {
 
 const RAIL_STYLE = {
   ...RAIL_BASE,
-  width: 78,
+  // 폭 = 칩 줄(§5.4). 크롬 예산의 toolRail 행(wide/narrow 93)이 이 식의 hit=44 값이고,
+  // 큰 터치 타깃(56)이면 117 이다 — trayRailWidthPx 가 같은 식을 픽셀로 계산한다.
+  width: TRAY_ROW_MAX_CSS,
   // 판 오른쪽 가장자리의 홈. 선 하나로 자르면 다시 별도 패널로 보인다.
   boxShadow: 'inset 7px 0 12px -10px rgba(0,0,0,.55)',
   flexDirection: 'column' as const,
@@ -89,7 +92,7 @@ const RAIL_STYLE = {
   padding: '13px 0',
   // 개체 그룹은 스크롤 컨테이너라 min-content 기여가 0 이다 — 안쪽 칩 줄이 아무리 넓어도
   // 트레이를 벌리지 못하고 조용히 잘린다. 폭은 여기서 못박는다.
-  minWidth: TRAY_CHIP_ROW_MAX,
+  minWidth: TRAY_ROW_MAX_CSS,
 };
 
 /** 가로 트레이 — 세로 화면에서 판 아래. 항목이 많아 좁은 태블릿에서는 넘칠 수 있어 가로
@@ -116,6 +119,10 @@ const BTN_STYLE = {
   position: 'relative' as const,
   width: 52,
   height: 50,
+  // 큰 터치 타깃이면 52×50 도 56 까지 자란다(§5.4 — 트레이의 손잡이는 전부 --hit 을 따른다).
+  // 기본 44 에서는 min 이 지기 때문에 52×50 그대로다.
+  minWidth: 'var(--hit)',
+  minHeight: 'var(--hit)',
   borderRadius: 11,
   display: 'flex',
   flexDirection: 'column' as const,
@@ -135,12 +142,11 @@ function TrayChairArt({ color, ink, number, empty }: { color?: string; ink?: str
   return (
     <svg
       aria-hidden
-      width={TRAY_CHIP_W}
-      height={TRAY_CHIP_H}
       // 차체 좌표계는 코트와 **같다**(앞이 +x). 뷰박스만 가로세로를 바꿔 잡고 안쪽을 -90°
       // 돌려 앞이 위를 보게 한다 — 그림 자체를 다시 그리면 두 곳이 어긋나기 시작한다.
+      // 크기는 CSS 로 --hit 파생이다(§5.4) — 뷰박스 좌표계라 안쪽 그림·등번호가 통째로 스케일된다.
       viewBox={`${-half} ${-CHAIR.pivotToFrontPx} ${CHAIR.widthPx} ${CHAIR.lengthPx}`}
-      style={{ display: 'block', overflow: 'visible' }}
+      style={{ display: 'block', overflow: 'visible', width: CHIP_W_CSS, height: CHIP_H_CSS }}
     >
       <g transform="rotate(-90)">
       <rect
@@ -325,10 +331,10 @@ export function ToolRail({
             flexDirection: horiz ? 'row' : 'row',
             flexWrap: 'wrap',
             justifyContent: 'center',
-            gap: 5,
+            gap: CHIP_ROW_GAP,
             // 세로 트레이는 이 줄이 폭을 정한다 — maxWidth 만 두면 부모(nav)가 더 좁을 때
             // 조용히 한 줄에 하나만 들어가고, 선수 8명이면 트레이가 두 배로 길어진다.
-            ...(horiz ? {} : { width: TRAY_CHIP_ROW_MAX, minWidth: TRAY_CHIP_ROW_MAX }),
+            ...(horiz ? {} : { width: TRAY_ROW_MAX_CSS, minWidth: TRAY_ROW_MAX_CSS }),
           }}
         >
           {chairSlots.map((c) => {

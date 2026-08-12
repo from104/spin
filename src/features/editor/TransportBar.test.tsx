@@ -62,7 +62,7 @@ describe('clampTimelineHit (§7.3 min(44, track/(n-1)))', () => {
 describe('TransportBar 스텝 타임라인 히트 영역', () => {
   const noop = () => {};
 
-  it('여유 있는 트랙에서는 role=tab 버튼을 렌더하고 히트 높이가 44px 다', () => {
+  it('여유 있는 트랙에서는 role=tab 버튼을 렌더하고 히트 높이가 --hit(≥44) 다', () => {
     mockTrackWidth(700);
     const steps = makeSteps(4);
     render(
@@ -72,7 +72,8 @@ describe('TransportBar 스텝 타임라인 히트 영역', () => {
     const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(4);
     for (const tab of tabs) {
-      expect(tab.style.height).toBe('44px'); // 회귀 포인트: 과거엔 6px 이었다
+      expect(tab.style.height).toBe('var(--hit)'); // 회귀 포인트: 과거엔 6px 이었다. 2.4 부터 --hit 파생(기본 44)
+
     }
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });

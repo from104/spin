@@ -1,5 +1,5 @@
 // §6.4 줌 컨트롤(a11y blocker — "줌/팬은 필수 기능이다") + 격자/골 지역 가이드 토글.
-// 코트 위 우상단에 떠 있는 44×44 버튼 묶음.
+// 코트 위 우상단에 떠 있는 --hit×--hit(기본 44, 큰 터치 타깃 56) 버튼 묶음 — §5.4 실배선.
 import type { CSSProperties, RefObject } from 'react';
 import { IconPlus } from '../../ui/icons.tsx';
 
@@ -22,8 +22,8 @@ export interface StageControlsProps {
 }
 
 const BTN: CSSProperties = {
-  width: 44,
-  height: 44,
+  width: 'var(--hit)',
+  height: 'var(--hit)',
   borderRadius: 10,
   display: 'flex',
   alignItems: 'center',

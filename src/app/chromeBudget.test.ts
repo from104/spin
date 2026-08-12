@@ -26,6 +26,7 @@ import {
 } from './chromeBudget.ts';
 import type { ChromeAxis, ChromeState, Size } from './chromeBudget.ts';
 import { INSPECTOR_PIN_MIN_PX, canPinInspector } from '../features/editor/inspectorLayout.ts';
+import { trayRailWidthPx } from '../features/editor/trayMetrics.ts';
 import { NARROW_MAX_PX } from '../ui/useIsNarrow.ts';
 import { COURT_DEFS } from '../model/court.ts';
 import { computeMetrics, rotForFit } from '../render/useStageMetrics.ts';
@@ -280,10 +281,18 @@ describe('예산표가 실제 소스와 어긋나지 않는다', () => {
     );
   });
 
-  it('트레이 폭 78 — 2.4 가 93 으로 올릴 때 이 행이 함께 움직여야 한다', () => {
-    expect(read('src/features/editor/ToolRail.tsx'), '트레이 폭을 바꿨다면 toolRail 행의 now 도 함께 고쳐라').toContain(
-      `width: ${row('toolRail').now}`,
-    );
+  it('트레이 폭은 --hit 파생이고, hit=44 값이 예산의 wide/narrow 다 (2.4)', () => {
+    // §16.1 사전 등록 그대로 2.4 에서 깨졌고, 등록문("now 를 새 실측값으로")과 달리 now=78 은
+    // 남긴다 — now 는 재편 **이전** 실측값이라(ChromeRow 주석) 위 '현재' 열(523·0.6073)이 전부
+    // 이 값으로 계산된다. 대신 결합을 리터럴 텍스트에서 **함수 import** 로 올린다: 트레이 폭이
+    // 더는 소스의 단일 리터럴이 아니라 --hit 파생 식이기 때문이다(§5.4, FALSIFICATION §17.1).
+    expect(trayRailWidthPx(44)).toBe(row('toolRail').wide);
+    expect(trayRailWidthPx(44)).toBe(row('toolRail').narrow);
+    expect(trayRailWidthPx(44)).toBe(93);
+    // 큰 터치 타깃(--hit 56)이면 117. 좁은 폭 합계 117 과 같은 숫자인 것은 우연이다 — 묶지 마라.
+    expect(trayRailWidthPx(56)).toBe(117);
+    // 리터럴 78 이 되살아나면 함수와 화면이 갈라진 것이다.
+    expect(read('src/features/editor/ToolRail.tsx')).not.toContain('width: 78');
   });
 
   it('코트 래퍼 패딩은 리터럴이 아니라 예산에서 온다', () => {

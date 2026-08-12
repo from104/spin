@@ -96,11 +96,12 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
   it('넓은 창의 판 DOM 이 2.3 이전과 바이트 동일하다', async () => {
     stubMedia({ portrait: false, narrow: false });
     const main = await openBoard();
-    // ⚠️ 이 해시는 **2.3 작업 전 코드**로 렌더한 결과다. 좁은 경로를 얹은 뒤에도 같아야
-    //    PC 사용자에게 회귀가 없다는 말이 성립한다. 손으로 고쳐 맞추지 마라 —
-    //    깨졌다면 아래 뼈대 스냅샷의 diff 가 무엇이 달라졌는지 알려 준다.
+    // ⚠️ 이 해시는 **2.3 작업 전 코드**로 렌더한 결과였고, 2.4(`--hit` 실배선)가 §16.1 사전
+    //    등록대로 갱신했다 — 뼈대 diff 전수 검사로 움직인 줄 전부가 --hit 파생(트레이 칩·폭,
+    //    StageControls·BoardBar·속도 스위치)뿐임을 확인한 값이다(FALSIFICATION §17.2).
+    //    손으로 고쳐 맞추지 마라 — 깨졌다면 아래 뼈대 스냅샷의 diff 가 무엇이 달라졌는지 알려 준다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '0085b7189c9cf4afc5984b069b3f35409618ec08cc8e0cc17383c66e40a30e57',
+      '8e90eae3079d5363cdf75fa367044186f887013340d2c50734ae72fe2046fb04',
     );
   });
 

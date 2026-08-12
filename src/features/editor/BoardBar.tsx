@@ -34,7 +34,7 @@ export function BoardBar({ courtLocked, onReset, onResetGoals }: BoardBarProps) 
           ref={clearBtnRef}
           onClick={() => setConfirmOpen(true)}
           style={{
-            minHeight: 44,
+            minHeight: 'var(--hit)',
             padding: '0 16px',
             borderRadius: 9,
             border: '1px solid var(--border-strong)',
@@ -54,7 +54,7 @@ export function BoardBar({ courtLocked, onReset, onResetGoals }: BoardBarProps) 
           type="button"
           onClick={onResetGoals}
           style={{
-            minHeight: 44,
+            minHeight: 'var(--hit)',
             padding: '0 14px',
             borderRadius: 9,
             border: '1px solid var(--border)',

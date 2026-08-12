@@ -28,7 +28,7 @@ export function SpeedLimitSwitch() {
         alignItems: 'center',
         gap: 9,
         flex: 'none',
-        minHeight: 44,
+        minHeight: 'var(--hit)',
         padding: '0 14px',
         borderRadius: 9,
         // 켜짐이 기본이자 '사실적인' 상태다. 꺼졌을 때를 액센트로 강조한다 —

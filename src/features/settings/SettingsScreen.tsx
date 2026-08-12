@@ -168,7 +168,7 @@ export function SettingsScreen() {
         </Section>
 
         <Section title="접근성">
-          <Row title="큰 터치 타깃" desc="컨트롤의 히트 영역만 커집니다(시각 크기는 UI 배율이 담당)">
+          <Row title="큰 터치 타깃" desc="버튼·트레이 칩·코트 위 집기 반경이 44 → 56px 로 커집니다(글자 크기는 UI 배율이 담당)">
             <Toggle checked={prefs.a11y.largeTargets} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, largeTargets: v } })} ariaLabel="큰 터치 타깃" />
           </Row>
           <Row title="놓임 소리·진동" desc="개체를 놓거나 막히거나 트레이로 되돌릴 때 짧은 소리와 진동으로 알립니다">
