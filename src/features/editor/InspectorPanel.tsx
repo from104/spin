@@ -9,6 +9,7 @@ import { ARROW_STYLES, arrowColor } from '../../model/arrow.ts';
 import type { Drill, DrillLevel, DrillStep } from '../../model/drill.ts';
 import { DRILL_LEVELS } from '../../model/drill.ts';
 import { COURT_DEFS } from '../../model/court.ts';
+import { LIMITS } from '../../model/validate.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
@@ -41,6 +42,10 @@ const inputStyle: CSSProperties = {
   width: '100%',
 };
 const ROLE_OPTIONS = ['', 'GK', 'DF', 'WG', 'PM'];
+// 스텝 시간 override 의 사람 단위(초) 범위. 기본 간격이 0.8~2.4s(PLAYBACK.stepIntervalMs)이므로
+// 하한은 그보다 짧은 0.5, 상한은 한 스텝을 오래 세워 두고 설명하는 경우까지 60 이면 넉넉하다.
+const STEP_SEC_MIN = 0.5;
+const STEP_SEC_MAX = 60;
 
 export function InspectorPanel({
   drill,
@@ -57,7 +62,18 @@ export function InspectorPanel({
     // 폭·테두리·스크롤은 **껍데기(InspectorHost)** 가 갖는다. 2026-08-12 결정 ③A 전에는 이
     // 컴포넌트가 가로 화면에서 스스로 312px 을 차지했는데, 그러면 같은 인스턴스를 오버레이와
     // 붙박이 사이에서 옮길 때 자기 자리 계산이 두 곳으로 갈라진다.
-    <aside aria-label="드릴 속성" style={{ background: 'var(--panel)' }}>
+    // 위 여백은 **여기**가 갖는다. 맨 앞 구역이 showSteps 에 따라 갈리므로(스텝 메타 ↔ 드릴 정보)
+    // 첫 구역이 자기 상단 패딩을 들고 있으면 전술판에서 그 17px 이 통째로 사라진다.
+    <aside aria-label="드릴 속성" style={{ background: 'var(--panel)', paddingTop: 17 }}>
+      {showSteps && (
+        <>
+          {/* ★ 맨 위다. 인스펙터를 여는 가장 잦은 이유가 "지금 이 스텝에 자막을 적는 것" 인데,
+              오버레이 시트는 세로 화면에서 min(340px, 62%) 라 아래 구역은 굴려야 닿는다(2.2).
+              제목·난이도는 드릴당 한 번 적고 마는 값이라 뒤로 물러난다. */}
+          <StepMetaSection step={step} stepIndex={stepIndex} stepCount={drill.steps.length} dispatch={dispatch} />
+          <Divider />
+        </>
+      )}
       <DrillInfoSection drill={drill} dispatch={dispatch} />
       <Divider />
       <RosterSection drill={drill} step={step} dispatch={dispatch} pendingPlayerId={pendingPlayerId} onArmPlayer={onArmPlayer} onEraseIds={onEraseIds} />
@@ -86,9 +102,107 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+// ── 3.1 스텝 메타 입력 ────────────────────────────────────────────────────────────────
+//
+// 리듀서(STEP_META)·히스토리 병합(COALESCE_TYPES)은 처음부터 다 있었고 **dispatch 하는 곳만
+// 0** 이었다 — 그래서 시연이 코치에게 읽어 주는 문장(PresentRunner.tsx:497-501 이 step.name 을
+// 크게, step.note 를 문단으로 읽는다)을 앱 안에서 만들 방법이 없었다. 여기가 그 입구다.
+//
+// ★ 세 입력 모두 **비제어(defaultValue) + `key={step.id}`**.
+//   제어로 바꾸면 글자마다 React 가 DOM value 를 되쓰면서 한글 IME 조합에 손을 댄다 — 입에 문
+//   젓가락으로 치는 사용자에게 조합이 끊기는 것은 그대로 오타다. 비제어의 대가가 *"스텝을
+//   넘겨도 옛 스텝 글자가 남는다"* 인데, key 가 스텝마다 요소를 갈아 끼워 그것을 막는다.
+//   (같은 함정을 :248 예상 시간 입력이 `key={drill.durationMin}` 으로 이미 알고 있다.)
+//   되돌리기로 값이 바뀐 경우는 이 패널의 다른 비제어 입력들과 같다 — 화면에 옛 글자가 남는다.
+//   key 를 epoch 로 바꾸면 해결되지만 그러면 판 조작마다 입력이 재마운트돼 포커스가 날아간다.
+//
+// ★ dispatch 는 blur 가 아니라 **change** 다(이 패널의 다른 입력과 다르다). 두 이유:
+//   (1) 적는 동안 하단 칩 라벨·스텝 목록이 따라 움직여야 "무엇을 적고 있는지"가 판에서 보인다.
+//   (2) STEP_META 는 COALESCE_TYPES 라 700ms/5s 창 안의 연속 타이핑이 되돌리기 **한 칸**으로
+//       합쳐진다(history.ts coalesceKeyOf → `STEP_META:${id}`). 글자마다 undo 가 쌓이지 않는다.
+function StepMetaSection({
+  step,
+  stepIndex,
+  stepCount,
+  dispatch,
+}: {
+  step: DrillStep;
+  stepIndex: number;
+  stepCount: number;
+  dispatch: Dispatch<EditorAction>;
+}) {
+  const patch = (p: { name?: string; note?: string; durationMs?: number }) => dispatch({ type: 'STEP_META', id: step.id, patch: p });
+  // 스텝 시간은 모델이 ms, 사람이 읽는 단위는 초다. 비워 두면 재생 속도 기본값을 쓴다
+  // (model/playback.ts effectiveStepMs 의 `?? baseMs`).
+  const sec = step.durationMs !== undefined ? String(step.durationMs / 1000) : '';
+  return (
+    <div style={{ padding: '0 17px' }}>
+      <div style={SECTION_LABEL}>
+        스텝 {stepIndex + 1} / {stepCount}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <Field label="스텝 이름">
+          <input
+            key={step.id}
+            type="text"
+            defaultValue={step.name}
+            maxLength={LIMITS.stepNameLen}
+            placeholder="예: 측면 전개"
+            onChange={(e) => patch({ name: e.target.value })}
+            style={inputStyle}
+          />
+        </Field>
+        <Field label="스텝 메모">
+          <textarea
+            key={step.id}
+            defaultValue={step.note}
+            maxLength={LIMITS.noteLen}
+            rows={3}
+            placeholder="이 스텝에서 코치가 말할 문장"
+            onChange={(e) => patch({ note: e.target.value })}
+            style={{ ...inputStyle, minHeight: 72, padding: '0.5rem 0.6875rem', resize: 'vertical' }}
+          />
+        </Field>
+        <div style={{ fontSize: '0.6875rem', color: 'var(--faint-text)', lineHeight: 1.45, marginTop: -4 }}>
+          시연 화면이 이름과 메모를 코치에게 그대로 읽어 줍니다.
+        </div>
+        <Field label="스텝 시간(초)">
+          <input
+            key={step.id}
+            type="number"
+            inputMode="decimal"
+            min={STEP_SEC_MIN}
+            max={STEP_SEC_MAX}
+            step={0.5}
+            defaultValue={sec}
+            placeholder="기본"
+            title="비워 두면 재생 속도의 기본 간격을 씁니다."
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              if (raw === '') {
+                patch({ durationMs: undefined }); // 지우면 override 해제 — 기본 간격으로 돌아간다
+                return;
+              }
+              const v = Number(raw);
+              if (!Number.isFinite(v) || v <= 0) return; // 타이핑 도중의 '-' · '.' 는 아직 값이 아니다
+              patch({ durationMs: Math.round(Math.min(Math.max(v, STEP_SEC_MIN), STEP_SEC_MAX) * 1000) });
+            }}
+            // 상한을 넘겨 적었으면 손을 뗄 때 실제 저장된 값으로 되돌려 보여 준다. 비제어라
+            // 화면과 모델이 갈라질 수 있는 유일한 자리가 여기(클램프)다.
+            onBlur={(e) => {
+              e.target.value = step.durationMs !== undefined ? String(step.durationMs / 1000) : '';
+            }}
+            style={inputStyle}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
 function DrillInfoSection({ drill, dispatch }: { drill: Drill; dispatch: Dispatch<EditorAction> }) {
   return (
-    <div style={{ padding: '17px 17px 0' }}>
+    <div style={{ padding: '0 17px' }}>
       <div style={SECTION_LABEL}>드릴 정보</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         <Field label="제목">
