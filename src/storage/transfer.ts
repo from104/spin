@@ -234,22 +234,26 @@ export async function commitDrillImports(
     let finalDoc: Drill;
     if (resolution === 'overwrite') {
       finalDoc = { ...structuredClone(candidate.doc), id: origId, updatedAt: Date.now() };
-    } else {
-      // 'copy' — 드릴 id 만 새로 발급한다. 스텝·개체 id 는 드릴 스코프라 그대로 안전.
-      const newDrillId = existing ? newId('dr') : origId;
-      let title = candidate.doc.title;
-      if (existing) {
-        let candTitle = `${candidate.doc.title} (사본)`;
-        let n = 2;
-        while (existingTitles.has(candTitle)) {
-          candTitle = `${candidate.doc.title} (사본 ${n})`;
-          n++;
-        }
-        title = candTitle;
-        existingTitles.add(title);
+    } else if (existing) {
+      // 'copy' + 충돌 — 진짜 사본이다. 드릴 id 만 새로 발급한다(스텝·개체 id 는 드릴 스코프라
+      // 그대로 안전). 이 문서는 지금 이 기기에서 새로 만들어진 것이므로 createdAt/updatedAt 을
+      // 지금으로 찍는 것이 맞다(5.0 ① — 예외 쪽).
+      let candTitle = `${candidate.doc.title} (사본)`;
+      let n = 2;
+      while (existingTitles.has(candTitle)) {
+        candTitle = `${candidate.doc.title} (사본 ${n})`;
+        n++;
       }
+      existingTitles.add(candTitle);
       const now = Date.now();
-      finalDoc = { ...structuredClone(candidate.doc), id: newDrillId, title, createdAt: now, updatedAt: now };
+      finalDoc = { ...structuredClone(candidate.doc), id: newId('dr'), title: candTitle, createdAt: now, updatedAt: now };
+    } else {
+      // 'copy' + 충돌 없음 — id 도 내용도 파일 그대로 들어온다. ⚠️ createdAt/updatedAt 을
+      // **보존한다**(5.0 ① 결정, 2026-08-13): 기기 이사는 "같은 드릴이 옮겨간 것" 이지 새로
+      // 만든 것이 아니다. 여기서 now 를 찍으면 세션(createdAt 보존)과 비대칭이 되고,
+      // `drillSummaries.by_updatedAt` 인덱스가 이미 있어 "최근 수정순" 정렬이 붙는 순간
+      // 기기 이사 직후의 정렬이 전부 "방금" 으로 뭉개진다.
+      finalDoc = structuredClone(candidate.doc);
     }
 
     const summary = buildSummary(finalDoc);
@@ -349,6 +353,14 @@ export interface RestoreBackupOptions {
   board?: 'auto' | 'skip' | 'replace';
 }
 
+/** 전술판 복원 결과. ⚠️ 옛 'skipped' 하나가 **서로 다른 두 사유**를 뭉개고 있었다(5.0 ②a,
+ *  2026-08-13): "파일에 판이 없다"(정상 — 할 일이 없다)와 "로컬 판이 편집 중이라 덮지 않았다"
+ *  (사용자가 [전술판 교체]를 켜면 해소된다)는 사용자가 해야 할 일이 다르다. 토스트가 그 둘을
+ *  다르게 말하려면 보고가 먼저 갈라져 있어야 한다 — 다시 합치면 dataExport.ts 의
+ *  backupReportLine 이 이유를 지어내거나 침묵하는 것 둘 중 하나로 돌아간다.
+ *  'skipped' 는 이제 **정책상 건너뜀**(mode:'skip')만 뜻한다. */
+export type BoardRestoreResult = 'restored' | 'skipped' | 'none-in-file' | 'kept-local-edited' | 'unreadable';
+
 export interface BackupRestoreReport {
   /** 파일에 들어 있던 개수 — 커밋된 개수와의 차이가 곧 "조용히 건너뛴 손상 항목" 이다(§6.1c
    *  '보고하되 묻지 않는다' 가 이 숫자를 읽는다). */
@@ -359,7 +371,7 @@ export interface BackupRestoreReport {
   sessionsSkipped: SessionId[];
   sessionsFailed: number;
   prefs: 'restored' | 'skipped' | 'unreadable';
-  board: 'restored' | 'skipped' | 'unreadable';
+  board: BoardRestoreResult;
 }
 
 async function existingSessionFor(id: SessionId): Promise<TrainingSession | undefined> {
@@ -369,6 +381,30 @@ async function existingSessionFor(id: SessionId): Promise<TrainingSession | unde
   } catch {
     return undefined;
   }
+}
+
+/** 5.0 ① — 복원 전용 세션 쓰기. `putSession` 을 부르지 않는 유일한 이유는 그 함수가 updatedAt 을
+ *  **무조건 지금으로** 찍기 때문이다(sessionRepo.ts "유일한 쓰기 경로... updatedAt 을 찍는다").
+ *  편집 경로에서는 그게 맞지만, 기기 이사는 "같은 세션이 옮겨간 것" 이라 파일의 시각을 보존해야
+ *  한다 — 드릴 쪽(commitDrillImports 의 무충돌 copy)과 같은 결정이다. `listSessions` 가
+ *  `by_updatedAt` 인덱스로 정렬하므로, 여기서 now 를 찍으면 이사 직후 세션 목록 순서가 전부
+ *  "방금" 으로 뭉개진다. ⚠️ putSession 의 불변식(drillIds = refDrillIds(items) 재계산)은
+ *  **호출자가 이미 마친 문서만** 받는 것으로 지킨다 — 이 함수를 다른 곳에서 재사용하지 마라. */
+async function putSessionPreservingTimes(s: TrainingSession): Promise<TrainingSession> {
+  const db = await getDB().catch((e) => {
+    throw toStorageError(e, 'E_DB_UNAVAILABLE');
+  });
+  beginWrite();
+  try {
+    const tx = db.transaction('sessions', 'readwrite');
+    tx.store.put(s);
+    await tx.done;
+  } catch (e) {
+    throw toStorageError(e, 'E_DB_UNAVAILABLE');
+  } finally {
+    endWrite();
+  }
+  return s;
 }
 
 /** 'unreadable' 은 **로컬 설정을 그대로 둔다**는 뜻이다. 읽을 수 없는 파일을 만났을 때 기본값으로
@@ -383,16 +419,19 @@ function restorePrefsFrom(raw: unknown): 'restored' | 'unreadable' {
   return 'restored';
 }
 
-function restoreBoardFrom(raw: unknown, mode: NonNullable<RestoreBackupOptions['board']>): 'restored' | 'skipped' | 'unreadable' {
+function restoreBoardFrom(raw: unknown, mode: NonNullable<RestoreBackupOptions['board']>): BoardRestoreResult {
   if (mode === 'skip') return 'skipped';
-  if (!isRecord(raw)) return 'skipped'; // 파일에 판이 없다(null) — 정상
+  if (!isRecord(raw)) return 'none-in-file'; // 파일에 판이 없다(null) — 정상, 할 일이 없다
   const mig = migrateDoc(raw.drill, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
   if (!mig.ok) return 'unreadable';
   const v = validateDrill(mig.doc);
   if (!v.ok) return 'unreadable';
   if (mode === 'auto') {
     const local = loadBoard();
-    if (local && !local.pristine) return 'skipped'; // 편집 중인 판은 건드리지 않는다
+    // ⚠️ 편집 중인 판은 목록에 뜨지도 않고 되돌릴 수도 없는 단 한 장이라 auto 는 덮지 않는다.
+    //    다만 그 사실을 'skipped' 로 뭉개면 사용자는 이유도, 회피책([전술판 교체] 재시도)도
+    //    영영 모른다 — 그래서 별도 사유로 돌려준다(5.0 ②a).
+    if (local && !local.pristine) return 'kept-local-edited';
   }
   return saveBoard(v.value, raw.pristine === true) ? 'restored' : 'unreadable';
 }
@@ -451,11 +490,13 @@ export async function restoreBackup(file: SpinFile, opts: RestoreBackupOptions =
       continue;
     }
     // id 는 같은데 내용이 다르다 = 로컬에서 그 세션을 고쳤다. 덮어쓰면 그 편집이 사라지므로
-    // 드릴의 'copy' 와 같은 규칙으로 새 id + (사본) 을 준다.
+    // 드릴의 'copy' 와 같은 규칙으로 새 id + (사본) 을 준다 — 사본은 지금 새로 만들어진
+    // 문서이므로 createdAt/updatedAt 도 지금이다(5.0 ①). 충돌이 없으면 파일의 시각을 보존한다.
+    const now = Date.now();
     const doc: TrainingSession = local
-      ? { ...remapped, id: newId('se'), title: `${remapped.title} (사본)`, createdAt: Date.now() }
+      ? { ...remapped, id: newId('se'), title: `${remapped.title} (사본)`, createdAt: now, updatedAt: now }
       : remapped;
-    const put = await putSession(doc);
+    const put = await putSessionPreservingTimes(doc);
     sessionsWritten.push(put.id);
   }
 

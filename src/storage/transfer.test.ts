@@ -546,7 +546,9 @@ describe('backup 봉투 — 자유 전술판 복원 정책', () => {
     const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: fileBoard }));
 
     const report = await restoreBackup(file);
-    expect(report.board).toBe('skipped');
+    // 5.0 ②a — 옛 'skipped' 는 "파일에 판 없음" 과 이 경우를 뭉갰다. 여기는 **로컬이 편집 중**
+    // 쪽이므로 사유가 그대로 드러나야 토스트가 다음 행동([전술판 교체])을 말할 수 있다.
+    expect(report.board).toBe('kept-local-edited');
     expect(loadBoard()?.drill.title).toBe('작업 중인 판');
 
     // 대조군 — 손대지 않은 판(pristine:true)이면 같은 파일이 복원된다. "무엇을 넣어도 skip" 이 아니다.
@@ -557,12 +559,102 @@ describe('backup 봉투 — 자유 전술판 복원 정책', () => {
     localStorage.removeItem(BOARD_KEY);
   });
 
-  it('파일에 판이 없으면(null) 로컬 판을 건드리지 않는다', async () => {
+  it('파일에 판이 없으면(null) 로컬 판을 건드리지 않는다 — 사유는 none-in-file 로 구분된다', async () => {
     saveBoard(createDrill({ courtMode: 'full', title: '남아 있어야 할 판' }), true);
     const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: null }));
     const report = await restoreBackup(file, { board: 'replace' });
-    expect(report.board).toBe('skipped');
+    // 5.0 ②a — "파일에 판 없음"(할 일이 없다)을 "편집 중이라 안 덮음"(체크박스로 해소)과
+    // 같은 값으로 돌려주면 토스트가 둘 중 하나에 대해 거짓말한다.
+    expect(report.board).toBe('none-in-file');
     expect(loadBoard()?.drill.title).toBe('남아 있어야 할 판');
     localStorage.removeItem(BOARD_KEY);
+  });
+
+  it("board:'replace' 는 편집 중인 로컬 판도 덮는다 — [전술판 교체] 체크박스가 여는 유일한 길(5.0 ②b)", async () => {
+    saveBoard(createDrill({ courtMode: 'full', title: '희생될 편집 중 판' }), false);
+    const fileBoard = { schemaVersion: 1, pristine: false, drill: createDrill({ courtMode: 'full', title: '백업에서 온 판' }) };
+    const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: fileBoard }));
+
+    const report = await restoreBackup(file, { board: 'replace' });
+    expect(report.board).toBe('restored');
+    expect(loadBoard()?.drill.title).toBe('백업에서 온 판');
+
+    // 대조군 — 같은 상황에서 'skip' 정책은 여전히 'skipped' 다(정책 스킵과 사유 스킵은 별개 값).
+    saveBoard(createDrill({ courtMode: 'full', title: '다시 편집 중' }), false);
+    const report2 = await restoreBackup(file, { board: 'skip' });
+    expect(report2.board).toBe('skipped');
+    expect(loadBoard()?.drill.title).toBe('다시 편집 중');
+    localStorage.removeItem(BOARD_KEY);
+  });
+});
+
+// ── 5.0 ① — 복원한 문서의 createdAt/updatedAt (2026-08-13 결정: 보존한다) ─────────────────────
+//
+// 기기 이사는 "같은 문서가 옮겨간 것" 이다. 충돌 없이 id 그대로 들어오는 드릴·세션이 now 를
+// 받으면, by_updatedAt 인덱스(드릴 요약·세션 목록 둘 다)가 있는 한 "최근 수정순" 이 이사 직후
+// 전부 "방금" 으로 뭉개진다. 예외는 **충돌로 새 id 를 받은 진짜 사본** — 그 문서는 이 기기에서
+// 지금 만들어진 것이니 now 가 맞다. 두 경우를 모두 단언한다(한쪽만 찌르면 §7 헛통과 2형).
+describe('backup 봉투 — 복원한 시각 보존 (5.0 ①)', () => {
+  // 하드코딩한 과거 시각 — Date.now() 가 절대 돌려줄 수 없는 값이라 "보존" 과 "재발급" 이
+  // 밀리초 경합 없이 갈린다.
+  const CREATED = Date.parse('2025-03-01T00:00:00Z');
+  const UPDATED = Date.parse('2025-06-15T12:00:00Z');
+
+  function pastSession(items: TrainingSession['items'] = [], drillIds: TrainingSession['drillIds'] = []): TrainingSession {
+    return { schemaVersion: CURRENT_SESSION_SCHEMA, id: newId('se'), title: '시각 보존 세션', items, drillIds, createdAt: CREATED, updatedAt: UPDATED };
+  }
+
+  it('충돌 없는 드릴·세션은 createdAt·updatedAt 이 파일 그대로다 — 세션과 드릴이 대칭이다', async () => {
+    await wipeAll();
+    const fileDrill: Drill = { ...createDrill({ courtMode: 'full', title: '시각 보존 드릴' }), createdAt: CREATED, updatedAt: UPDATED };
+    const fileSession = pastSession();
+    const file = parseSpinFile(backupEnvelope({ drills: [fileDrill], sessions: [fileSession], prefs: makeDefaultPrefs(), board: null }));
+
+    const before = Date.now();
+    const report = await restoreBackup(file);
+    expect(report.drills.written).toEqual([fileDrill.id]); // 대조군: 정말 무충돌 경로였다
+
+    const storedDrill = await (await getDB()).get('drills', fileDrill.id);
+    expect(storedDrill?.createdAt).toBe(CREATED);
+    expect(storedDrill?.updatedAt).toBe(UPDATED); // 여기가 now 면 "최근 수정순" 이 이사 직후 무의미해진다
+    expect(storedDrill?.updatedAt).toBeLessThan(before); // 대조군: now 로는 절대 통과할 수 없는 단언
+
+    // by_updatedAt 인덱스의 실제 소재지인 **요약**까지 같은 시각이어야 한다(드릴만 보존하고
+    // 요약이 now 면 목록 정렬은 여전히 망가진다 — buildSummary 가 d.updatedAt 을 복사한다).
+    const summary = (await idbDrillRepo.listDrillSummaries()).find((s) => s.id === fileDrill.id);
+    expect(summary?.updatedAt).toBe(UPDATED);
+    expect(summary?.createdAt).toBe(CREATED);
+
+    const storedSession = await (await getDB()).get('sessions', fileSession.id);
+    expect(storedSession?.createdAt).toBe(CREATED);
+    expect(storedSession?.updatedAt).toBe(UPDATED); // putSession 을 그대로 쓰면 여기가 now 가 된다
+    await wipeAll();
+  });
+
+  it('충돌로 새 id 를 받은 진짜 사본은 지금 시각을 받는다 — 보존의 예외 쪽도 단언한다', async () => {
+    await wipeAll();
+    const local = await idbDrillRepo.createDrill({ courtMode: 'full', title: '로컬에서 고친 드릴' });
+    const fileDrill: Drill = { ...structuredClone(local), title: '파일 쪽 다른 내용', createdAt: CREATED, updatedAt: UPDATED };
+    const localSession = await createSession({ title: '로컬 세션' });
+    const fileSession: TrainingSession = { ...pastSession(), id: localSession.id, title: '파일 쪽 다른 세션' };
+    const file = parseSpinFile(backupEnvelope({ drills: [fileDrill], sessions: [fileSession], prefs: makeDefaultPrefs(), board: null }));
+
+    const before = Date.now();
+    const report = await restoreBackup(file); // 기본 drillConflict:'copy'
+    const copyId = report.drills.idMap.get(local.id);
+    expect(copyId).toBeDefined();
+    expect(copyId).not.toBe(local.id); // 대조군: 정말 충돌 → 사본 경로였다
+
+    const copy = await (await getDB()).get('drills', copyId!);
+    expect(copy?.createdAt).toBeGreaterThanOrEqual(before); // 사본은 지금 만들어진 문서다
+    expect(copy?.updatedAt).toBeGreaterThanOrEqual(before);
+
+    const sessionCopyId = report.sessionsWritten[0]!;
+    expect(sessionCopyId).not.toBe(localSession.id);
+    const sessionCopy = await (await getDB()).get('sessions', sessionCopyId);
+    expect(sessionCopy?.title).toBe('파일 쪽 다른 세션 (사본)');
+    expect(sessionCopy?.createdAt).toBeGreaterThanOrEqual(before);
+    expect(sessionCopy?.updatedAt).toBeGreaterThanOrEqual(before);
+    await wipeAll();
   });
 });
