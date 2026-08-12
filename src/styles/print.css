@@ -1,0 +1,183 @@
+/* §6.3 인쇄 = PDF. `window.print()` + 이 파일 하나로 못박는다(계획서 6.3 ㉡ 채택).
+ *
+ * PDF 라이브러리를 넣지 않는 이유는 폰트다: 저장소에 TTF/OTF 가 0개고 woff2 만 있으며,
+ * 한글 벡터 텍스트를 넣으려면 1 MB 넘는 폰트 자산을 새로 들여야 한다(dist 4.2 MB 중 3.9 MB 가
+ * 이미 폰트다). 브라우저의 "PDF 로 저장" 은 **문서 컨텍스트**에서 인쇄하므로 fonts.css 의
+ * Pretendard 가 그대로 먹고, 코트 SVG 는 벡터로 나간다. 의존성 0 · 바이트 0 · 완전 오프라인.
+ *
+ * ⚠️ 이 파일은 **가장 나중에** import 되어야 한다(main.tsx). 같은 특정도면 나중 것이 이기는데,
+ * 여기서 되돌리는 선언들의 원본이 appShell.css 에 있기 때문이다. `!important` 를 함께 쓰는 것은
+ * 2중 안전장치일 뿐 순서를 대신하지 못한다 — import 순서는 styles/print.test.ts 가 못박는다.
+ */
+
+/* 인쇄 트리는 화면에 존재하지 않는 것처럼 있어야 한다. 화면 컴포넌트에 @media print 를
+ * 덕지덕지 붙이는 대신 **별개 트리**를 두는 것이 6.3 의 설계다(features/print/). */
+.spin-print {
+  display: none;
+}
+
+@media print {
+  /* ── 1순위 [A-11] 앱 셸 가둠 해제 ────────────────────────────────────────────────────
+   * appShell.css:10-27 은 `html, body, #root { height:100%; overflow:hidden }` 을 못박고
+   * `#root` 에 safe-area 패딩을 준다 — 웹앱을 태블릿 앱처럼 창 안에 붙잡아 두기 위한 것이다.
+   * **그 상태로 인쇄하면 60스텝짜리 드릴 시트가 1페이지로 잘린다.** 문서가 창 높이에서
+   * 끝나고 나머지는 overflow:hidden 이 삼키기 때문이다. 아래 해제가 인쇄의 전제 조건이고,
+   * 이게 없으면 이 파일의 나머지 전부가 무의미하다. */
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    /* 당겨서 새로고침·고무줄 반동 차단(화면용)은 종이에서 의미가 없다. */
+    overscroll-behavior: auto !important;
+  }
+
+  body {
+    /* var(--bg) 는 테마 토큰이다 — 다크 테마 사용자가 인쇄하면 종이 전체가 잉크로 덮인다. */
+    background: #fff !important;
+    color: #000 !important;
+    /* 화면 전용 제스처 억제. 인쇄 미리보기에서 본문을 긁어 복사하는 것까지 막을 이유는 없다. */
+    touch-action: auto !important;
+    user-select: auto !important;
+    -webkit-user-select: auto !important;
+  }
+
+  /* 테마가 다크여도 인쇄는 흰 종이 기준이다. 브라우저 기본 UI(폼 컨트롤)까지 라이트로 맞춘다. */
+  :root {
+    color-scheme: light !important;
+  }
+
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+    /* viewport-fit=cover 의 노치·홈 인디케이터 여백. 종이에는 노치가 없다. */
+    padding: 0 !important;
+    /* 화면 트리를 통째로 접는다. **고정 위치 바**(하단 트랜스포트·전술판 바·속성 시트)를
+     * 없애는 가장 확실한 수단이다 — position:fixed 요소는 인쇄 시 장마다 되풀이해 찍히거나
+     * 첫 장 본문 위에 겹친다. 인쇄 트리는 body 포털이라(PrintRoot.tsx) 여기 없다. */
+    display: none !important;
+  }
+
+  .spin-print {
+    display: block !important;
+    font-family: 'Pretendard', system-ui, sans-serif;
+    color: #000;
+    background: #fff;
+  }
+
+  /* ⚠️ 이게 없으면 브라우저가 "배경 그래픽" 을 지워 **코트(#1f7a46)가 하얗게** 인쇄된다.
+   * 코트가 사라지면 개체 위치가 아무 뜻도 없는 점 무더기가 된다. 대체 수단은 없다 —
+   * 사용자가 인쇄 대화상자에서 '배경 그래픽' 을 매번 체크하게 할 수는 없다. */
+  .spin-print,
+  .spin-print * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 코트가 가로로 긴 판이라(825×525, 1.571:1) 세로 A4 에 넣으면 그림이 절반 크기가 된다. */
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  .spin-print-page {
+    /* 한 장 = 한 스텝(또는 표지·드릴). 장이 쪼개지면 코트 그림이 두 장에 걸쳐 잘린다. */
+    break-inside: avoid;
+    break-after: page;
+    /* 구형 엔진 폴백. 새 속성만 쓰면 사파리 계열에서 장 나눔이 통째로 무시된다. */
+    page-break-inside: avoid;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    gap: 4mm;
+  }
+  /* 마지막 장 뒤에 강제 개행을 넣으면 **빈 종이 한 장**이 더 나온다. */
+  .spin-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .spin-print-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 6mm;
+    border-bottom: 0.4mm solid #000;
+    padding-bottom: 1.5mm;
+  }
+  .spin-print-title {
+    font-size: 14pt;
+    font-weight: 700;
+  }
+  .spin-print-num {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-size: 11pt;
+    font-weight: 700;
+  }
+  .spin-print-h1 {
+    font-size: 20pt;
+    font-weight: 800;
+  }
+  .spin-print-meta,
+  .spin-print-prep,
+  .spin-print-note,
+  .spin-print-objective {
+    font-size: 10.5pt;
+    line-height: 1.45;
+  }
+  .spin-print-dim {
+    font-size: 9.5pt;
+    color: #444;
+  }
+  .spin-print-steptitle {
+    font-size: 12pt;
+    font-weight: 700;
+  }
+  .spin-print-steps,
+  .spin-print-points {
+    font-size: 10pt;
+    line-height: 1.5;
+    padding-left: 6mm;
+  }
+  .spin-print-steps li,
+  .spin-print-points li {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* 코트 그림. **높이**로 잡는 것이 핵심이다 — 폭 100% 로 두면 viewBox 종횡비 때문에 높이가
+   * 종이보다 커져 머리글·메모가 다음 장으로 밀린다(그러면 "1페이지 = 1스텝" 이 깨진다). */
+  .spin-print-court {
+    display: block;
+    margin: 0 auto;
+    height: 110mm;
+    width: auto;
+    max-width: 100%;
+  }
+  /* 세션 계획서의 드릴 장은 스텝 목록이 함께 실려 그림 자리가 좁다. */
+  [data-print-page='drill'] .spin-print-court {
+    height: 82mm;
+  }
+
+  .spin-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+  .spin-print-table th,
+  .spin-print-table td {
+    border: 0.25mm solid #666;
+    padding: 1.2mm 2mm;
+    text-align: left;
+    vertical-align: top;
+  }
+  .spin-print-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .spin-print-table tr[data-missing='true'] {
+    color: #666;
+    text-decoration: line-through;
+  }
+}

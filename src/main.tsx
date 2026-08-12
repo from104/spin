@@ -5,6 +5,10 @@ import './styles/tokens.css'
 import './styles/appShell.css'
 import './styles/a11y.css'
 import './index.css'
+// ⚠️ 인쇄 스타일은 **맨 마지막**이어야 한다 — appShell.css 의 가둠(height:100%·overflow:hidden·
+// safe-area 패딩)을 @media print 에서 되돌리는 파일이라, 같은 특정도에서 나중에 와야 이긴다.
+// 앞으로 옮기면 60스텝 드릴 시트가 1페이지로 잘린다(styles/print.test.ts 가 순서를 못박는다).
+import './styles/print.css'
 import App from './app/App.tsx'
 
 createRoot(document.getElementById('root')!).render(
