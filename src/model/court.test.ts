@@ -1,6 +1,20 @@
 // §3.2 검산 — COURT_DEFS 확정 좌표 하드코딩 검증
 import { describe, it, expect } from 'vitest';
-import { COURT_DEFS, gridLabel, gridCellCenter, cellLabelAt, clampToViewBox, isOnSurface } from './court.ts';
+import {
+  COURT_DEFS,
+  COURT_SIZES,
+  COURT_SIZE_LABELS,
+  DEFAULT_COURT_SIZE,
+  FULL_COURT_DEFS,
+  courtDefFor,
+  normalizeCourtSize,
+  gridLabel,
+  gridCellCenter,
+  cellLabelAt,
+  clampToViewBox,
+  isOnSurface,
+  type CourtSize,
+} from './court.ts';
 import { PX_PER_M } from '../core/units.ts';
 
 describe('COURT_DEFS', () => {
@@ -175,21 +189,31 @@ describe('코트 외곽 마진은 사방 1.5 m 다', () => {
   const MARGIN_M = 1.5;
   const MARGIN_PX = MARGIN_M * PX_PER_M;
 
-  for (const mode of ['full', 'half'] as const) {
-    it(`${mode}: 네 변의 여백이 모두 ${MARGIN_M} m`, () => {
-      const d = COURT_DEFS[mode];
+  // §5.1 — 마진 불변식은 **코트 크기 3단 전부**에서 성립해야 한다. 한 단만 재면
+  // 30×18 만 고치고 넘어간 구현이 통과한다(2026-08-11 '좌측만의 문제가 아니다' 와 같은 형태).
+  const CASES: Array<{ name: string; def: () => (typeof COURT_DEFS)['full']; m: [number, number] }> = [
+    { name: 'full 30×18', def: () => FULL_COURT_DEFS['30x18'], m: [30, 18] },
+    { name: 'full 28×15', def: () => FULL_COURT_DEFS['28x15'], m: [28, 15] },
+    { name: 'full 25×14', def: () => FULL_COURT_DEFS['25x14'], m: [25, 14] },
+    { name: 'half', def: () => COURT_DEFS.half, m: [18, 15] },
+  ];
+
+  for (const { name, def, m } of CASES) {
+    it(`${name}: 네 변의 여백이 모두 ${MARGIN_M} m`, () => {
+      const d = def();
       expect(d.surface.x).toBeCloseTo(MARGIN_PX, 6);
       expect(d.surface.y).toBeCloseTo(MARGIN_PX, 6);
       expect(d.vbW - (d.surface.x + d.surface.w)).toBeCloseTo(MARGIN_PX, 6);
       expect(d.vbH - (d.surface.y + d.surface.h)).toBeCloseTo(MARGIN_PX, 6);
     });
 
-    it(`${mode}: 경기면 실치수는 그대로다 — 마진은 코트를 줄이는 것이 아니라 판을 넓히는 것`, () => {
-      const d = COURT_DEFS[mode];
-      const expectW = mode === 'full' ? 30 : 18;
-      const expectH = mode === 'full' ? 18 : 15;
-      expect(d.surface.w / PX_PER_M).toBeCloseTo(expectW, 6);
-      expect(d.surface.h / PX_PER_M).toBeCloseTo(expectH, 6);
+    it(`${name}: 경기면 실치수는 그대로다 — 마진은 코트를 줄이는 것이 아니라 판을 넓히는 것`, () => {
+      const d = def();
+      expect(d.surface.w / PX_PER_M).toBeCloseTo(m[0], 6);
+      expect(d.surface.h / PX_PER_M).toBeCloseTo(m[1], 6);
+      // 25 px = 1 m 검산 — 각 단마다 따로 성립한다(§9 ② 표).
+      expect(d.surface.w / m[0]).toBe(PX_PER_M);
+      expect(d.surface.h / m[1]).toBe(PX_PER_M);
     });
   }
 
@@ -214,6 +238,177 @@ describe('코트 외곽 마진은 사방 1.5 m 다', () => {
     expect(d.surface).toEqual({ x: 0, y: 0, w: d.vbW, h: d.vbH });
     expect(d.grid.cols * d.grid.cellW).toBeCloseTo(d.vbW, 6);
     expect(d.grid.rows * d.grid.cellH).toBeCloseTo(d.vbH, 6);
+  });
+});
+
+// ── §5.1 코트 크기 3단 (FIPFA Laws 2025 · §9 결정 ②) ────────────────────────────────────────
+//
+// 체육관마다 바닥이 다르다. 28×15 는 표준 농구 코트라 국내에서 가장 흔하다.
+// 여기서 붙잡는 것 넷: ① 확정 viewBox 표 ② 규격 고정값이 크기를 안 탄다 ③ 기본값은 30×18 이다
+// ④ 좌표 헬퍼가 크기를 **실제로 본다**(안 보면 25×14 판 밖 좌표가 살아남는다).
+describe('§5.1 코트 크기 3단', () => {
+  it('§9 ② 표의 viewBox 확정값 — 825×525 / 775×450 / 700×425', () => {
+    expect(FULL_COURT_DEFS['30x18'].vbW).toBe(825);
+    expect(FULL_COURT_DEFS['30x18'].vbH).toBe(525);
+    expect(FULL_COURT_DEFS['28x15'].vbW).toBe(775);
+    expect(FULL_COURT_DEFS['28x15'].vbH).toBe(450);
+    expect(FULL_COURT_DEFS['25x14'].vbW).toBe(700);
+    expect(FULL_COURT_DEFS['25x14'].vbH).toBe(425);
+    // 경기면도 표 그대로: 750×450 / 700×375 / 625×350
+    expect(FULL_COURT_DEFS['30x18'].surface).toEqual({ x: 37.5, y: 37.5, w: 750, h: 450 });
+    expect(FULL_COURT_DEFS['28x15'].surface).toEqual({ x: 37.5, y: 37.5, w: 700, h: 375 });
+    expect(FULL_COURT_DEFS['25x14'].surface).toEqual({ x: 37.5, y: 37.5, w: 625, h: 350 });
+  });
+
+  it('세 단이 서로 다른 판이다 — 대조군(같은 객체를 세 번 세어 통과하는 것을 막는다)', () => {
+    const sizes = COURT_SIZES;
+    expect(sizes).toHaveLength(3);
+    const areas = sizes.map((s) => FULL_COURT_DEFS[s].surface.w * FULL_COURT_DEFS[s].surface.h);
+    expect(new Set(areas).size).toBe(3);
+    expect(new Set(sizes.map((s) => FULL_COURT_DEFS[s].dims)).size).toBe(3);
+    expect(new Set(sizes.map((s) => COURT_SIZE_LABELS[s])).size).toBe(3);
+    // 크기가 커질수록 판도 커진다(순서가 뒤집혀 있으면 표를 잘못 옮긴 것이다).
+    expect(FULL_COURT_DEFS['30x18'].vbW).toBeGreaterThan(FULL_COURT_DEFS['28x15'].vbW);
+    expect(FULL_COURT_DEFS['28x15'].vbW).toBeGreaterThan(FULL_COURT_DEFS['25x14'].vbW);
+  });
+
+  it('dims 는 사람이 읽는 치수를 적는다', () => {
+    expect(FULL_COURT_DEFS['30x18'].dims).toBe('30 × 18 m');
+    expect(FULL_COURT_DEFS['28x15'].dims).toBe('28 × 15 m');
+    expect(FULL_COURT_DEFS['25x14'].dims).toBe('25 × 14 m');
+  });
+
+  // ⚠️ 이것이 5.1 의 규격 판정이다. Laws 는 골대·골 지역·페널티 마크·코너 삼각형을 **절대
+  // 치수**로 적는다(대조 노트 '1. 경기장'). 코트가 작아져도 골대는 6 m 다. 비례로 만들면
+  // 25×14 코트의 골대가 5 m 가 되어 앱이 규칙을 잘못 가르친다.
+  it('규격 고정값은 코트 크기를 타지 않는다 — 골대 6 m · 골 지역 8×5 m · 페널티 3.5 m · 코너 1 m', () => {
+    for (const size of COURT_SIZES) {
+      const d = FULL_COURT_DEFS[size];
+      // 골대 폭 6 m (한쪽 골포스트 쌍의 간격)
+      expect((d.goalPosts[1]!.y - d.goalPosts[0]!.y) / PX_PER_M, size).toBeCloseTo(6, 9);
+      expect((d.goalPosts[3]!.y - d.goalPosts[2]!.y) / PX_PER_M, size).toBeCloseTo(6, 9);
+      // 골 지역 8 m 폭 × 5 m 깊이, 좌우 두 개
+      for (const z of d.ruleZones) {
+        expect(z.w / PX_PER_M, size).toBeCloseTo(5, 9);
+        expect(z.h / PX_PER_M, size).toBeCloseTo(8, 9);
+      }
+      expect(d.ruleZones).toHaveLength(2);
+      // 페널티 마크 — 각 골라인에서 3.5 m
+      expect((d.spotMarks[0]!.x - d.surface.x) / PX_PER_M, size).toBeCloseTo(3.5, 9);
+      expect((d.surface.x + d.surface.w - d.spotMarks[1]!.x) / PX_PER_M, size).toBeCloseTo(3.5, 9);
+      // 코너 삼각형 4개, 각 코너에서 1 m
+      expect(d.cornerCuts, size).toHaveLength(4);
+    }
+    // 대조군 — 고정값이 같다는 것이 "세 def 이 통째로 같다" 는 뜻이 아니다.
+    expect(FULL_COURT_DEFS['30x18'].goalPosts[2]!.x).not.toBe(FULL_COURT_DEFS['25x14'].goalPosts[2]!.x);
+  });
+
+  it('코트 위 표식은 전부 경기면 경계 안이다 — 2026-08-11 "골대가 선 밖" 사고의 3단 판', () => {
+    for (const size of COURT_SIZES) {
+      const d = FULL_COURT_DEFS[size];
+      for (const p of [...d.goalPosts, ...d.spotMarks]) {
+        expect(isOnSurface('full', p, size), `${size} ${JSON.stringify(p)}`).toBe(true);
+      }
+      for (const z of d.ruleZones) {
+        expect(isOnSurface('full', { x: z.x, y: z.y }, size), size).toBe(true);
+        expect(isOnSurface('full', { x: z.x + z.w, y: z.y + z.h }, size), size).toBe(true);
+      }
+      // 골 지역 둘이 겹치지 않는다 — 25 m 코트에서 5+5 m 가 코트를 다 먹지 않는다.
+      expect(d.ruleZones[0]!.x + d.ruleZones[0]!.w, size).toBeLessThan(d.ruleZones[1]!.x);
+    }
+  });
+
+  it('격자는 세 단 모두 6×5 로 경기면을 정확히 덮는다', () => {
+    for (const size of COURT_SIZES) {
+      const d = FULL_COURT_DEFS[size];
+      expect(d.grid.cols, size).toBe(6);
+      expect(d.grid.rows, size).toBe(5);
+      expect(d.grid.origin, size).toEqual({ x: d.surface.x, y: d.surface.y });
+      expect(d.grid.cols * d.grid.cellW, size).toBeCloseTo(d.surface.w, 6);
+      expect(d.grid.rows * d.grid.cellH, size).toBeCloseTo(d.surface.h, 6);
+    }
+    // 대조군 — 칸의 미터 치수는 크기마다 다르다(같으면 격자가 안 따라온 것이다).
+    expect(FULL_COURT_DEFS['30x18'].grid.cellW).not.toBe(FULL_COURT_DEFS['25x14'].grid.cellW);
+  });
+
+  it('세 단 모두 헤딩은 90/270 — 크기를 바꿔도 서 있는 모습이 같다', () => {
+    for (const size of COURT_SIZES) {
+      expect(FULL_COURT_DEFS[size].homeHeadingDeg, size).toBe(90);
+      expect(FULL_COURT_DEFS[size].awayHeadingDeg, size).toBe(270);
+      expect(FULL_COURT_DEFS[size].mode, size).toBe('full');
+    }
+  });
+
+  // §9 ② 부기 — 기본 코트는 30×18 을 유지한다. 이걸 옮기면 기존 사용자의 드릴이 전부 다른
+  // 코트에서 열린다(좌표는 그대로인데 판만 작아져 선수가 라인 밖에 선다).
+  it('⚠️ 기본 크기는 30×18 이고 COURT_DEFS.full 이 그것과 같은 판이다', () => {
+    expect(DEFAULT_COURT_SIZE).toBe('30x18');
+    expect(COURT_DEFS.full).toBe(FULL_COURT_DEFS['30x18']);
+    expect(COURT_DEFS.full.vbW).toBe(825);
+    expect(COURT_DEFS.full.vbH).toBe(525);
+    // 크기를 안 주고 부르면 예전과 정확히 같은 판이 나온다 — 기존 소비처 전부의 계약이다.
+    expect(courtDefFor('full')).toBe(COURT_DEFS.full);
+    expect(courtDefFor('half')).toBe(COURT_DEFS.half);
+    expect(courtDefFor('flat')).toBe(COURT_DEFS.flat);
+  });
+
+  it('courtDefFor 는 full 에서만 크기를 본다 — 하프·플랫은 3단을 따라가지 않는다', () => {
+    for (const size of COURT_SIZES) {
+      expect(courtDefFor('full', size)).toBe(FULL_COURT_DEFS[size]);
+      // 하프·플랫은 어떤 크기를 줘도 같은 판이다(근거는 court.ts 주석 셋).
+      expect(courtDefFor('half', size), size).toBe(COURT_DEFS.half);
+      expect(courtDefFor('flat', size), size).toBe(COURT_DEFS.flat);
+    }
+    // 대조군 — full 은 크기를 무시하지 **않는다**.
+    expect(courtDefFor('full', '25x14')).not.toBe(courtDefFor('full', '30x18'));
+    // half↔flat viewBox 동일(D12)은 크기 3단이 들어와도 그대로다.
+    expect(courtDefFor('flat', '25x14').vbW).toBe(courtDefFor('half', '25x14').vbW);
+    expect(courtDefFor('flat', '25x14').vbH).toBe(courtDefFor('half', '25x14').vbH);
+  });
+
+  it('normalizeCourtSize — 깨진 값은 던지지 않고 기본으로 접는다', () => {
+    for (const size of COURT_SIZES) expect(normalizeCourtSize(size)).toBe(size);
+    for (const bad of ['full', '30X18', '', null, undefined, 42, {}, ['30x18']]) {
+      expect(normalizeCourtSize(bad), String(bad)).toBe(DEFAULT_COURT_SIZE);
+    }
+    // 깨진 크기를 그대로 courtDefFor 에 넣어도 기본 판이 나온다(런타임에 undefined 를 안 뱉는다).
+    expect(courtDefFor('full', 'nope' as CourtSize)).toBe(FULL_COURT_DEFS[DEFAULT_COURT_SIZE]);
+  });
+
+  // ⚠️ 여기가 "size 인자를 안 넘기면 무슨 일이 나는가" 를 눈으로 보는 자리다. 네 헬퍼가
+  // 전부 크기를 봐야 한다 — 하나라도 30×18 로 굳어 있으면 25×14 드릴에서 조용히 틀린다.
+  it('좌표 헬퍼 넷이 크기를 실제로 본다 (clamp · isOnSurface · cellLabelAt · gridCellCenter)', () => {
+    const outside = { x: 800, y: 400 }; // 30×18 판(825×525) 안, 25×14 판(700×425) 밖
+    expect(clampToViewBox('full', outside, '30x18')).toEqual({ x: 800, y: 400 });
+    expect(clampToViewBox('full', outside, '25x14')).toEqual({ x: 700, y: 400 });
+    expect(clampToViewBox('full', outside, '28x15')).toEqual({ x: 775, y: 400 });
+
+    const nearGoal = { x: 700, y: 262.5 }; // 30×18 경기면 안, 25×14 경기면(37.5..662.5) 밖
+    expect(isOnSurface('full', nearGoal, '30x18')).toBe(true);
+    expect(isOnSurface('full', nearGoal, '25x14')).toBe(false);
+
+    expect(cellLabelAt('full', { x: 680, y: 262.5 }, '30x18')).toBe('f3');
+    expect(cellLabelAt('full', { x: 680, y: 262.5 }, '25x14')).toBeNull(); // 격자 밖
+
+    expect(gridCellCenter('full', 0, 0, '30x18')).toEqual({ x: 100, y: 82.5 });
+    expect(gridCellCenter('full', 0, 0, '25x14')).not.toEqual({ x: 100, y: 82.5 });
+    // 대조군 — 인자를 생략하면 넷 다 예전 그대로다(기본 크기 = 30×18).
+    expect(clampToViewBox('full', outside)).toEqual({ x: 800, y: 400 });
+    expect(isOnSurface('full', nearGoal)).toBe(true);
+    expect(cellLabelAt('full', { x: 680, y: 262.5 })).toBe('f3');
+    expect(gridCellCenter('full', 0, 0)).toEqual({ x: 100, y: 82.5 });
+  });
+
+  it('셀 중심 → 셀 이름 왕복이 세 단 전부에서 성립한다', () => {
+    for (const size of COURT_SIZES) {
+      for (let c = 0; c < 6; c++) {
+        for (let r = 0; r < 5; r++) {
+          expect(cellLabelAt('full', gridCellCenter('full', c, r, size), size), `${size} ${c},${r}`).toBe(gridLabel(c, r));
+        }
+      }
+      // 대조군 — 격자 밖(마진 띠)은 세 단 모두 null 이다.
+      expect(cellLabelAt('full', { x: 10, y: 10 }, size), size).toBeNull();
+    }
   });
 });
 
