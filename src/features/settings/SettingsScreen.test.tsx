@@ -70,6 +70,17 @@ describe('SettingsScreen — 화면', () => {
     expect(loadPrefs().a11y.uiScale).toBe(1.3);
   });
 
+  // §4.3 P1-4 — 이 화면은 값만 쓴다. 실제로 소리를 끄는 배선은 app-shell 이 진다
+  // (src/app/themeEffects.cues.test.tsx). 여기서는 "끌 수 있는가" 만 본다.
+  it('놓임 소리·진동 토글이 prefs.a11y.sound 를 뒤집는다 — 기본은 켬이다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    const toggle = screen.getByRole('switch', { name: '놓임 소리·진동' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await userEvent.setup().click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(loadPrefs().a11y.sound).toBe(false);
+  });
+
   // 감사 2026-08-08 major #1 회귀 — 이 토글은 SettingsScreen 에서 prefs 로 저장되기만 하고
   // 어떤 렌더러도 읽지 않았다. 소비처(GridOverlay/CourtStage) 배선은 render 쪽 테스트가 맡고,
   // 여기서는 "설정 화면이 이 값을 여전히 정상적으로 쓰고 읽는다"만 확인한다.

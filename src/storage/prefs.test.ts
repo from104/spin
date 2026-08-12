@@ -176,3 +176,32 @@ describe('loadPrefs / patchPrefs / resetPrefs', () => {
     expect(loadPrefs().loop).toBe(false);
   });
 });
+
+// §4.3 P1-4 — 놓임 소리·진동 스위치. 스키마를 올리지 않고 넣은 필드라, 옛 저장본이
+// 어떻게 접히는지가 계약의 전부다.
+describe('a11y.sound (P1-4)', () => {
+  it('기본은 켬이다 — 시선을 화면에서 떼게 하는 기능이라 기본 끔이면 존재하지 않는 기능이 된다', () => {
+    expect(makeDefaultPrefs().a11y.sound).toBe(true);
+  });
+
+  it('이 키가 없는 옛 저장본은 켬으로 접힌다 — 스키마를 올리지 않은 이유가 이것이다', () => {
+    const old = makeDefaultPrefs() as unknown as Record<string, unknown>;
+    old.a11y = { largeTargets: false, uiScale: 1, reduceMotion: 'system', singleKeyShortcuts: 'on' };
+    localStorage.setItem(PREFS_KEY, JSON.stringify(old));
+    expect(loadPrefs().a11y.sound).toBe(true);
+    // 대조군 — 같은 저장본의 이웃 필드는 저장된 값을 그대로 읽는다(전부 기본값으로 리셋된 것이 아니다).
+    expect(loadPrefs().a11y.singleKeyShortcuts).toBe('on');
+  });
+
+  it('꺼 둔 값은 그대로 살아 돌아온다', () => {
+    savePrefs({ ...makeDefaultPrefs(), a11y: { ...makeDefaultPrefs().a11y, sound: false } });
+    expect(loadPrefs().a11y.sound).toBe(false);
+  });
+
+  it("불리언이 아닌 쓰레기는 기본값으로 접는다 — 'off' 라고 써 있어도 켬이다", () => {
+    expect(validatePrefs({ a11y: { sound: 'off' } }).value.a11y.sound).toBe(true);
+    expect(validatePrefs({ a11y: { sound: 0 } }).value.a11y.sound).toBe(true);
+    // 대조군 — 진짜 false 는 통과한다.
+    expect(validatePrefs({ a11y: { sound: false } }).value.a11y.sound).toBe(false);
+  });
+});

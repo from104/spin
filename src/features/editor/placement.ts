@@ -15,6 +15,7 @@ import type { Drill } from '../../model/drill.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import { BALL, CONE } from '../../core/constants.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
+import { cues } from '../../ui/cues.ts';
 
 // 개수를 문장에 박아 두면 상한을 바꿀 때 안내만 옛말이 된다(실제로 10 → 8 때 그랬다).
 export const BALL_LIMIT_MSG = `공은 최대 ${BALL.maxCount}개까지 놓을 수 있습니다.`;
@@ -36,8 +37,20 @@ export interface PlaceDeps {
   onPlayerPlaced(): void;
 }
 
-/** 실제로 놓였으면 true. 상한 초과·대상 미선택이면 안내를 띄우고 false. */
+/** 실제로 놓였으면 true. 상한 초과·대상 미선택이면 안내를 띄우고 false.
+ *
+ *  §4.3 P1-4 놓임 '탁' 도 여기서 낸다 — 이 파일이 존재하는 이유(경로 셋이 같은 규칙을
+ *  쓴다)가 그대로 소리에도 적용된다. 경로마다 따로 울리면 "탭으로는 소리가 나는데 트레이로
+ *  끌면 안 난다" 가 조용히 생긴다.
+ *  **실패했을 때는 울리지 않는다**: 상한 초과·대상 미선택은 토스트(`role="status"`)가
+ *  이미 말하고 있고, 놓이지도 않았는데 놓임 소리가 나면 그 신호는 거짓말이다. */
 export function placeObject(kind: PlaceKind, world: Vec2, d: PlaceDeps): boolean {
+  const placed = placeObjectInner(kind, world, d);
+  if (placed) cues.play('drop');
+  return placed;
+}
+
+function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): boolean {
   if (kind === 'ball') {
     // 상한은 cast 기준이다. 지운 공이 cast 에 남아 있으면 여기서 영영 막힌다 —
     // 그 유령을 만들지 않는 책임은 model/edits.ts 의 pruneOrphanCast 에 있다.

@@ -48,6 +48,11 @@ export interface Preferences {
     uiScale: 1 | 1.15 | 1.3;
     reduceMotion: 'system' | 'always';
     singleKeyShortcuts: 'on' | 'modifier' | 'off';
+    /** §4.3 P1-4 놓임·막힘·상자 빔의 소리와 진동(한 스위치다 — ui/cues.ts 머리말 ③).
+     *  '모션 줄이기' 와 같은 층에 둔다: 둘 다 "판이 손에 어떻게 느껴지는가" 설정이다.
+     *  기본 켬 — 이 기능의 존재 이유가 *시선을 화면에서 떼는 것*이라, 기본 끔이면 설정을
+     *  파고든 사람에게만 존재하는 기능이 된다. 끄는 데는 한 번의 탭이 든다. */
+    sound: boolean;
   };
   // iosPwa: DESIGN.md §6.9 "iPhone Safari 최초 진입 시 1회 안내" 배너의 노출 여부(껐다 켬).
   // degradedStorage: DESIGN.md §4.8 열화 모드 상시 경고를 다시 보지 않기 설정. 두 필드 모두
@@ -71,7 +76,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   defaultFormation: '1-2-1',
   defaultCourtMode: null,
   present: { autoFullscreen: false, wakeLock: true },
-  a11y: { largeTargets: false, uiScale: 1, reduceMotion: 'system', singleKeyShortcuts: 'on' },
+  a11y: { largeTargets: false, uiScale: 1, reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true },
   hints: { iosPwa: true, degradedStorage: true },
   physics: {},
 });
@@ -170,6 +175,9 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
       uiScale,
       reduceMotion,
       singleKeyShortcuts,
+      // 스키마를 올리지 않는다 — 옛 저장본에는 이 키가 없고, 없으면 기본값(켬)을 받는다.
+      // `sound: 'yes'` 같은 쓰레기도 bool() 이 기본값으로 접는다.
+      sound: bool(a11yRaw.sound, d.a11y.sound),
     },
     hints: {
       iosPwa: bool(hintsRaw.iosPwa, d.hints.iosPwa),

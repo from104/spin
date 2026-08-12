@@ -7,6 +7,7 @@ import { BALL, CONE } from '../../core/constants.ts';
 import { newId } from '../../core/ids.ts';
 import type { Drill } from '../../model/drill.ts';
 import { createDrill } from '../../model/defaults.ts';
+import { cues } from '../../ui/cues.ts';
 
 function deps(over: { balls?: number; cones?: (0 | 1)[]; coneSlot?: 0 | 1 } = {}) {
   const drill: Drill = createDrill({ courtMode: 'full', empty: true });
@@ -82,5 +83,36 @@ describe('placeObject — 선수', () => {
     expect(placeObject('player', AT, d)).toBe(false);
     expect(dispatch).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith(PLAYER_UNARMED_MSG);
+  });
+});
+
+// §4.3 P1-4 — 놓임 '탁' 도 이 함수가 낸다. 경로가 셋인데 소리를 경로마다 붙이면
+// "탭으로는 소리가 나는데 트레이로 끌면 안 난다" 가 조용히 생긴다(이 파일이 존재하는 이유와 같다).
+describe('placeObject — 놓임 신호 (P1-4)', () => {
+  it('놓인 종류마다 전부 같은 신호를 한 번씩 낸다', () => {
+    const play = vi.spyOn(cues, 'play').mockImplementation(() => {});
+    const chairId = newId('ch');
+    for (const kind of ['ball', 'cone', 'note'] as const) {
+      play.mockClear();
+      const { d } = deps();
+      expect(placeObject(kind, AT, d)).toBe(true);
+      expect(play.mock.calls, kind).toEqual([['drop']]);
+    }
+    play.mockClear();
+    const { d } = deps();
+    d.drill.cast.chairs = [{ id: chairId, team: 'home', number: '2', isGk: false }];
+    d.pendingPlayerId = chairId;
+    expect(placeObject('player', AT, d)).toBe(true);
+    expect(play.mock.calls).toEqual([['drop']]);
+    play.mockRestore();
+  });
+
+  it('막혀서 못 놓으면 울리지 않는다 — 토스트가 이미 말한다(두 통보가 겹치지 않는다)', () => {
+    const play = vi.spyOn(cues, 'play').mockImplementation(() => {});
+    const { d, showToast } = deps({ balls: BALL.maxCount });
+    expect(placeObject('ball', AT, d)).toBe(false);
+    expect(play).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledTimes(1); // 대조군 — 아무 일도 안 일어난 것이 아니다
+    play.mockRestore();
   });
 });

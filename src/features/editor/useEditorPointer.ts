@@ -29,8 +29,11 @@ import type { CourtStageHandle, PointerMeta, PointerDownResult, CourtStagePointe
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { SelectionOverlayHandle, SelectionShape } from '../../render/SelectionOverlay.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
+import { cues } from '../../ui/cues.ts';
 import { placeObject } from './placement.ts';
 import { snapOnSettle } from './snapOnSettle.ts';
+import { blockCueLimits, initialBlockCue, stepBlockCue } from './blockCue.ts';
+import type { BlockCueState } from './blockCue.ts';
 
 const ZONE_LABEL: Record<DragZone, string> = {
   towRear: '후방 견인',
@@ -136,6 +139,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   const boundaryOpenRef = useRef(false);
   /** 정착 완료 통지의 구독 해제 함수(§4.2 P0-2). 일회성이라 받는 즉시 스스로 끊는다. */
   const settleOffRef = useRef<(() => void) | null>(null);
+  /** §4.3 P1-4 막힘 '툭' 의 판정 상태(blockCue.ts). 드래그 세션마다 새로 시작한다 —
+   *  지난 드래그의 마지막 표본이 남아 있으면 다음 드래그 첫 프레임이 유령 '툭' 을 낸다. */
+  const blockCueRef = useRef<BlockCueState>(initialBlockCue);
 
   const buildScene = useCallback((): SceneSnapshot => {
     const ctx = ctxRef.current;
@@ -339,6 +345,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     boundaryOpenRef.current = false;
     settleOffRef.current?.();
     settleOffRef.current = null;
+    blockCueRef.current = initialBlockCue;
   }, []);
 
   /** 손을 뗀 뒤 **물리가 다 선 시점**에 한 번 더 커밋한다(§4.2 P0-2).
@@ -385,6 +392,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       const m = ctx.stageRef.current?.refreshMetrics();
       metricsRef.current = { pxPerUnit: m?.pxPerUnit ?? metricsRef.current.pxPerUnit, pointerType: meta.pointerType };
       tapDeselectRef.current = null; // 재탭 해제 세션은 pointerdown 마다 새로 판정한다
+      // §4.3 P1-4 — 판 위의 **첫 사용자 제스처**가 여기다. 놓임 소리는 pointerup 에 나는데,
+      // 그때 컨텍스트를 처음 열면 자동재생 정책상 'suspended' 로 태어나 첫 '탁' 이 통째로
+      // 삼켜진다. 소리가 꺼져 있으면 이 호출은 아무것도 열지 않는다(cues.ts 계약 ①).
+      cues.arm();
 
       if (ctx.tool === 'ball' || ctx.tool === 'cone' || ctx.tool === 'note' || ctx.tool === 'player') {
         placeAt(world);
@@ -518,6 +529,16 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
             const anchor = dragHandleRef.current?.grabPoint ?? { x: cur.x, y: cur.y };
             const d = Math.hypot(anchor.x - world.x, anchor.y - world.y);
             const leashPx = INTERACT.leashVisibleAtPx / metricsRef.current.pxPerUnit;
+            // §4.3 P1-4 막힘 '툭'. 판정은 blockCue.ts 가 하고 여기는 표본만 먹인다 —
+            // 리시가 보이는 문턱과 **같은 값**을 넘긴다(둘이 어긋나면 화면에 리시가 없는데
+            // 소리만 나는 상태가 생긴다).
+            const block = stepBlockCue(
+              blockCueRef.current,
+              { gapPx: d, at: { x: cur.x, y: cur.y }, nowMs },
+              blockCueLimits(metricsRef.current.pxPerUnit, INTERACT.leashVisibleAtPx),
+            );
+            blockCueRef.current = block.state;
+            if (block.impact !== null) cues.play('blocked', block.impact);
             if (d > leashPx) {
               selectionOverlayRef.current?.setLeash(anchor, world);
               // 고스트도 "앵커가 포인터에 닿았을 때의 자세" 로 놓는다 — 피벗을 포인터에
@@ -607,11 +628,19 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       selectionOverlayRef.current?.setRing(null, 0, 0, 0);
 
       if (overTray && id) {
+        // §4.3 P1-4 상자 빔 — 개체가 판을 떠나 상자로 돌아간다. '탁' 과 소리의 종류가 달라야
+        // 눈을 안 쓰고도 "놓았다" 와 "뺐다" 가 갈린다.
+        cues.play('trayReturn');
         // 되돌리기 한 번으로 살아나야 한다 — 커밋을 먼저 하면 "옮김 + 뺌" 두 단계가 쌓인다.
         ctx.dispatch({ type: 'OBJECT_REMOVE', id: id as ChairId | BallId | ConeId, scope: 'onward' });
         ctx.dispatch({ type: 'SELECT_CLEAR' });
         return;
       }
+      // §4.3 P1-4 놓임 '탁'. **pointercancel(client === null)에는 울리지 않는다** — 시스템
+      // 제스처에 뺏긴 것이지 놓은 것이 아니다(같은 이유로 isOverTray 도 cancel 에는 안 뺀다).
+      // [D-7] 여기서 라이브 리전에 아무것도 쓰지 않는 것이 이 줄의 절반이다: 같은 사건을
+      // 소리와 발화로 두 번 통보하면 스크린리더 사용자에게는 그냥 소음이 된다.
+      if (client !== null) cues.play('drop');
       commitDragResult();
       // 손 떼는 자리는 아직 최종이 아니다 — 물리가 다 선 뒤 한 번 더 커밋한다(§4.2 P0-2).
       // 스냅(§4.3 P1-3)도 그 재커밋 경로 안에서만 걸린다.
