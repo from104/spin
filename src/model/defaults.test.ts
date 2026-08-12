@@ -2,9 +2,9 @@
 import { describe, expect, it } from 'vitest';
 import { CHAIR, BALL } from '../core/constants.ts';
 import { chairsOverlap } from '../physics/obb.ts';
-import { COURT_MODES } from './court.ts';
+import { COURT_MODES, COURT_SIZES, DEFAULT_COURT_SIZE, courtDefFor, isOnSurface } from './court.ts';
 import { chairCorners, poseFromStored, type ChairPose } from './chair.ts';
-import { FORMATIONS, createDrill, defaultCast, defaultStep, cloneToCourt } from './defaults.ts';
+import { FORMATIONS, createDrill, defaultCast, defaultStep, cloneToCourt, formationSlots } from './defaults.ts';
 import type { Vec2 } from '../core/units.ts';
 
 // 원 중심(ball)과 회전 사각형(chair hull) 사이의 표면 거리. 전체 hull 기준이라
@@ -62,6 +62,160 @@ describe('기본 배치 불변식 (createDrill 직후, §3.9)', () => {
       });
     }
   }
+});
+
+// ── §5.1 코트 크기 3단 — 기본 배치도 함께 옮겨진다 ──────────────────────────────────────────
+//
+// 완료 판정 원문: *"30×18 기준 좌표를 25×14 코트에 그대로 놓으면 선수가 코트 밖에 선다.
+// 각 코트마다 '전부 surface 안' 을 단언하라."*
+describe('§5.1 기본 배치가 코트 크기 3단을 따라간다', () => {
+  for (const size of COURT_SIZES) {
+    for (const formation of FORMATIONS) {
+      it(`full ${size} · ${formation}: 8대 전부 surface 안(차체 네 귀퉁이까지) · 겹침 없음 · 공-가드 ≥2px`, () => {
+        const d = createDrill({ courtMode: 'full', courtSize: size, formation });
+        const step = d.steps[0]!;
+        const poses = d.cast.chairs.map((c) => step.chairs[c.id]).filter((p): p is NonNullable<typeof p> => p !== undefined);
+        expect(poses).toHaveLength(8); // 대조군 — 0대를 재고 통과하는 것을 막는다
+
+        for (const p of poses) {
+          // 피벗만이 아니라 **차체 hull 네 귀퉁이**가 전부 경기면 안이다. 피벗만 재면
+          // 골라인에 걸터앉은 배치가 통과한다.
+          expect(isOnSurface('full', p, size), `pivot ${JSON.stringify(p)}`).toBe(true);
+          for (const c of chairCorners(poseFromStored(p))) {
+            expect(isOnSurface('full', c, size), `corner ${JSON.stringify(c)}`).toBe(true);
+          }
+        }
+
+        const chairPoses = poses.map(poseFromStored);
+        for (let i = 0; i < chairPoses.length; i++) {
+          for (let j = i + 1; j < chairPoses.length; j++) {
+            expect(chairsOverlap(chairPoses[i]!, chairPoses[j]!, 4), `${i}-${j}`).toBe(false);
+          }
+        }
+
+        for (const ball of d.cast.balls) {
+          const bp = step.balls[ball.id];
+          if (!bp) continue;
+          expect(isOnSurface('full', bp, size)).toBe(true);
+          expect(Math.min(...chairPoses.map((p) => ballSurfaceGapToChair(bp, p)))).toBeGreaterThanOrEqual(2 - 1e-6);
+        }
+      });
+    }
+  }
+
+  // ⚠️ 이 대조군이 없으면 위 스위트는 "비례 사상이 아무 일도 안 해도" 전부 초록불일 수 있다 —
+  // 30×18 좌표가 우연히 작은 코트에도 들어갈 수 있기 때문이다. 실제로는 안 들어간다:
+  it('대조군 — 30×18 표 좌표를 그대로 25×14 에 놓으면 코트 밖이다', () => {
+    const big = formationSlots('full', '1-2-1', '30x18');
+    const outside = big.filter((p) => !isOnSurface('full', p, '25x14'));
+    // away GK(x=750) 를 비롯해 여러 자리가 25×14 경기면(37.5..662.5) 밖으로 나간다.
+    expect(outside.length).toBeGreaterThan(0);
+    expect(big.some((p) => p.x > courtDefFor('full', '25x14').surface.x + courtDefFor('full', '25x14').surface.w)).toBe(true);
+    // 그런데 옮겨 놓은 좌표는 하나도 안 나간다.
+    const moved = formationSlots('full', '1-2-1', '25x14');
+    expect(moved).toHaveLength(big.length);
+    expect(moved.filter((p) => !isOnSurface('full', p, '25x14'))).toHaveLength(0);
+    // 그리고 실제로 **다른 좌표**다(항등 사상이라 통과한 것이 아니다).
+    expect(moved).not.toEqual(big);
+  });
+
+  it('기본 크기(30×18)의 좌표는 한 픽셀도 안 움직인다 — 기존 드릴이 달라 보이지 않는다', () => {
+    // §9 ② 부기의 핵심. 표를 그대로 돌려주는 조기 반환이 살아 있어야 한다.
+    for (const formation of FORMATIONS) {
+      expect(formationSlots('full', formation, '30x18'), formation).toEqual(formationSlots('full', formation));
+    }
+    const d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    const homeGk = d.cast.chairs.find((c) => c.team === 'home' && c.isGk)!;
+    const awayGk = d.cast.chairs.find((c) => c.team === 'away' && c.isGk)!;
+    expect(d.steps[0]!.chairs[homeGk.id]).toMatchObject({ x: 75, y: 262.5 });
+    expect(d.steps[0]!.chairs[awayGk.id]).toMatchObject({ x: 750, y: 262.5 });
+    expect(d.steps[0]!.balls[d.cast.balls[0]!.id]).toEqual({ x: 412.5, y: 262.5 });
+    expect(d.courtSize).toBe('30x18');
+  });
+
+  it('공은 세 단 모두 경기면 한가운데다', () => {
+    for (const size of COURT_SIZES) {
+      const d = createDrill({ courtMode: 'full', courtSize: size });
+      const s = courtDefFor('full', size).surface;
+      const bp = d.steps[0]!.balls[d.cast.balls[0]!.id]!;
+      expect(bp.x, size).toBeCloseTo(s.x + s.w / 2, 6);
+      expect(bp.y, size).toBeCloseTo(s.y + s.h / 2, 6);
+    }
+    // 대조군 — 세 코트의 한가운데가 같은 자리였다면 위 루프는 아무것도 안 재는 것이다.
+    const centers = COURT_SIZES.map((size) => {
+      const d = createDrill({ courtMode: 'full', courtSize: size });
+      return d.steps[0]!.balls[d.cast.balls[0]!.id]!.x;
+    });
+    expect(new Set(centers).size).toBe(3);
+  });
+
+  it('하프·플랫은 크기 3단을 따라가지 않는다 — 어떤 크기를 줘도 배치가 같다', () => {
+    for (const mode of ['half', 'flat'] as const) {
+      const base = defaultStep(mode, '1-2-1', defaultCast());
+      for (const size of COURT_SIZES) {
+        const cast = defaultCast();
+        const step = defaultStep(mode, '1-2-1', cast, size);
+        // id 는 매번 새로 나므로 좌표만 비교한다.
+        expect(Object.values(step.chairs).map((p) => ({ x: p!.x, y: p!.y })), `${mode} ${size}`).toEqual(
+          Object.values(base.chairs).map((p) => ({ x: p!.x, y: p!.y })),
+        );
+      }
+    }
+  });
+
+  it('courtSize 를 안 주면 30×18 이고, 준 값은 드릴에 남는다', () => {
+    expect(createDrill({ courtMode: 'full' }).courtSize).toBe(DEFAULT_COURT_SIZE);
+    for (const size of COURT_SIZES) {
+      expect(createDrill({ courtMode: 'full', courtSize: size }).courtSize).toBe(size);
+      // 하프·플랫도 **들고 다닌다** — 풀로 돌아왔을 때 고른 크기가 사라지면 안 된다.
+      expect(createDrill({ courtMode: 'half', courtSize: size }).courtSize).toBe(size);
+    }
+  });
+});
+
+describe('§5.1 cloneToCourt 와 코트 크기', () => {
+  it('크기를 바꾸면 새 드릴이 되고 배치가 그 크기의 기본값으로 리셋된다', () => {
+    const d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    const small = cloneToCourt(d, 'full', '25x14');
+    expect(small).not.toBe(d);
+    expect(small.courtSize).toBe('25x14');
+    expect(small.courtMode).toBe('full');
+    expect(small.title).toContain('25 × 14 m');
+    expect(small.description).toContain('코트 전환');
+    // 배치가 새 코트 안에 있다(옛 좌표를 그대로 들고 오지 않았다).
+    for (const p of Object.values(small.steps[0]!.chairs)) {
+      expect(isOnSurface('full', p!, '25x14')).toBe(true);
+    }
+    // 대조군 — 원본은 그대로다.
+    expect(d.courtSize).toBe('30x18');
+  });
+
+  it('크기·모드가 둘 다 그대로면 동일 참조를 돌려준다 (헛클론 방지)', () => {
+    const d = createDrill({ courtMode: 'full', courtSize: '28x15' });
+    expect(cloneToCourt(d, 'full')).toBe(d);
+    expect(cloneToCourt(d, 'full', '28x15')).toBe(d);
+    // 대조군 — 크기가 다르면 클론이다.
+    expect(cloneToCourt(d, 'full', '30x18')).not.toBe(d);
+  });
+
+  it('풀 → 하프 → 풀 왕복에서 고른 크기가 살아남는다', () => {
+    const d = createDrill({ courtMode: 'full', courtSize: '28x15' });
+    const half = cloneToCourt(d, 'half');
+    expect(half.courtSize).toBe('28x15'); // 하프에서는 판을 안 바꾸지만 값은 들고 있다
+    const back = cloneToCourt(half, 'full');
+    expect(back.courtSize).toBe('28x15');
+    const s = courtDefFor('full', '28x15').surface;
+    for (const p of Object.values(back.steps[0]!.chairs)) {
+      expect(p!.x).toBeLessThanOrEqual(s.x + s.w);
+    }
+  });
+
+  it('하프↔플랫 항등 전환도 크기를 잃지 않는다', () => {
+    const d = createDrill({ courtMode: 'half', courtSize: '25x14' });
+    const flat = cloneToCourt(d, 'flat');
+    expect(flat.courtSize).toBe('25x14');
+    expect(flat.steps[0]!.chairs).toEqual(d.steps[0]!.chairs); // 항등은 그대로다
+  });
 });
 
 describe('하프 코트 기본 배치', () => {

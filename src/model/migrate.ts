@@ -32,6 +32,21 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
       return out;
     },
   },
+  {
+    from: 2,
+    to: 3,
+    describe: 'drill v2→v3: 코트 크기 3단(courtSize) — 옛 드릴은 30×18 로 못박는다',
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      // ⚠️ **이 한 줄이 "기존 드릴이 지금과 똑같이 보인다" 의 전부다.** courtSize 를 안 새기면
+      // 기본값이 언젠가 28×15 로 옮겨졌을 때 옛 드릴이 통째로 다른 코트에서 열린다 —
+      // 좌표는 30×18 인데 판만 작아지므로 선수가 라인 밖에 선다.
+      // 기본값을 `court.ts` 에서 끌어오지 않고 리터럴로 박는 이유는 위 체인과 같다:
+      // 마이그레이션은 **그때의 기본값**을 적어 둔 역사다.
+      if (typeof out.courtSize !== 'string') out.courtSize = '30x18';
+      return out;
+    },
+  },
 ];
 export const SESSION_MIGRATIONS: DocMigration[] = [];
 /** prefs 는 여기서 처음으로 체인이 생긴다(§7 3.0). **v1 → v2 로 한 번만 올린다** — 트레이 서랍·

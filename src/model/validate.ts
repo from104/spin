@@ -3,7 +3,7 @@
 import { newId } from '../core/ids.ts';
 import type { ChairId, BallId, ConeId, StepId, ArrowId, NoteId, DrillId, SessionId, ItemId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
-import { COURT_MODES, clampToViewBox, type CourtMode } from './court.ts';
+import { COURT_MODES, COURT_SIZES, DEFAULT_COURT_SIZE, clampToViewBox, type CourtMode, type CourtSize } from './court.ts';
 import { FORMATIONS, defaultStep, DEFAULT_TEAMS } from './defaults.ts';
 import { CURRENT_DRILL_SCHEMA, DRILL_LEVELS } from './drill.ts';
 import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, PoseMap, NoteLabel } from './drill.ts';
@@ -64,7 +64,7 @@ const pushRepair = (repairs: Repair[], path: string, message: string, destructiv
 
 // ---- §3.8 단계 6/7/8/9 결합: 좌표 유한성 → 각도 보정 → 클램프 → 반올림 -----------------------
 
-function sanitizeChairPose(raw: unknown, mode: CourtMode): StoredChairPose | null {
+function sanitizeChairPose(raw: unknown, mode: CourtMode, size: CourtSize): StoredChairPose | null {
   if (!isRecord(raw)) return null;
   const x = typeof raw.x === 'number' ? raw.x : NaN;
   const y = typeof raw.y === 'number' ? raw.y : NaN;
@@ -72,7 +72,7 @@ function sanitizeChairPose(raw: unknown, mode: CourtMode): StoredChairPose | nul
   let a = typeof raw.angleDeg === 'number' ? raw.angleDeg : NaN;
   if (!Number.isFinite(a)) a = 0; // 7
   else if (Math.abs(a) > 36000) a = ((a % 360) + 360) % 360; // 7
-  const clamped = clampToViewBox(mode, { x, y }); // 8
+  const clamped = clampToViewBox(mode, { x, y }, size); // 8
   return {
     x: Math.round(clamped.x * 10) / 10, // 9
     y: Math.round(clamped.y * 10) / 10,
@@ -80,12 +80,12 @@ function sanitizeChairPose(raw: unknown, mode: CourtMode): StoredChairPose | nul
   };
 }
 
-function sanitizeVec(raw: unknown, mode: CourtMode): Vec2 | null {
+function sanitizeVec(raw: unknown, mode: CourtMode, size: CourtSize): Vec2 | null {
   if (!isRecord(raw)) return null;
   const x = typeof raw.x === 'number' ? raw.x : NaN;
   const y = typeof raw.y === 'number' ? raw.y : NaN;
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-  const clamped = clampToViewBox(mode, { x, y });
+  const clamped = clampToViewBox(mode, { x, y }, size);
   return { x: Math.round(clamped.x * 10) / 10, y: Math.round(clamped.y * 10) / 10 };
 }
 
@@ -277,10 +277,10 @@ function sanitizeArrows(raw: unknown, repairs: Repair[]): Arrow[] {
   return out;
 }
 
-function sanitizeNote(raw: unknown, mode: CourtMode, repairs: Repair[]): NoteLabel | null {
+function sanitizeNote(raw: unknown, mode: CourtMode, size: CourtSize, repairs: Repair[]): NoteLabel | null {
   if (!isRecord(raw)) return null;
   const id = typeof raw.id === 'string' && raw.id.length > 0 ? (raw.id as NoteId) : newId('nt');
-  const p = sanitizeVec(raw, mode);
+  const p = sanitizeVec(raw, mode, size);
   if (!p) return null;
   let text = typeof raw.text === 'string' ? raw.text : '';
   if (text.length > LIMITS.noteLen) {
@@ -294,12 +294,12 @@ function sanitizeNote(raw: unknown, mode: CourtMode, repairs: Repair[]): NoteLab
   return note;
 }
 
-function sanitizeNotes(raw: unknown, mode: CourtMode, repairs: Repair[]): NoteLabel[] {
+function sanitizeNotes(raw: unknown, mode: CourtMode, size: CourtSize, repairs: Repair[]): NoteLabel[] {
   const arr = Array.isArray(raw) ? raw : [];
   const seen = new Set<string>();
   let out: NoteLabel[] = [];
   for (const item of arr) {
-    const n = sanitizeNote(item, mode, repairs);
+    const n = sanitizeNote(item, mode, size, repairs);
     if (!n) continue;
     let id = n.id;
     if (seen.has(id)) {
@@ -339,6 +339,17 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
 
   const repairs: Repair[] = [];
   const courtMode = doc.courtMode as CourtMode;
+
+  // 1b. §5.1 코트 크기 3단. **courtMode 와 달리 없어도 실패가 아니다** — v2 이전 드릴에는 이
+  //     필드가 없고, 없으면 30×18 이다(§9 ② "기본 코트는 30×18 을 유지"). 여기서 정한 값이
+  //     아래 클램프(8단계)와 defaultStep(11단계)까지 그대로 흘러간다: 25×14 드릴의 좌표를
+  //     825×525 로 클램프하면 판 밖에 있는 개체가 그대로 살아남는다.
+  let courtSize: CourtSize = DEFAULT_COURT_SIZE;
+  if (typeof doc.courtSize === 'string' && (COURT_SIZES as readonly string[]).includes(doc.courtSize)) {
+    courtSize = doc.courtSize as CourtSize;
+  } else if (doc.courtSize !== undefined) {
+    pushRepair(repairs, 'courtSize', `알 수 없는 코트 크기 '${String(doc.courtSize)}' → '${DEFAULT_COURT_SIZE}'`, false);
+  }
 
   // 2. formation 정규화 — defaultStep 호출(11)보다 반드시 먼저.
   let formation = typeof doc.formation === 'string' ? doc.formation : '1-2-1';
@@ -446,7 +457,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
         orphanDropped = true;
         continue;
       }
-      const pose = sanitizeChairPose(val, courtMode);
+      const pose = sanitizeChairPose(val, courtMode, courtSize);
       if (pose) chairsMap[key as ChairId] = pose;
     }
     const ballsMap: PoseMap<BallId, Vec2> = {};
@@ -456,7 +467,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
         orphanDropped = true;
         continue;
       }
-      const p = sanitizeVec(val, courtMode);
+      const p = sanitizeVec(val, courtMode, courtSize);
       if (p) ballsMap[key as BallId] = p;
     }
     const conesMap: PoseMap<ConeId, Vec2> = {};
@@ -466,13 +477,13 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
         orphanDropped = true;
         continue;
       }
-      const p = sanitizeVec(val, courtMode);
+      const p = sanitizeVec(val, courtMode, courtSize);
       if (p) conesMap[key as ConeId] = p;
     }
     if (orphanDropped) pushRepair(repairs, 'steps.pose', 'cast 에 없는 pose 제거', true);
 
     const arrows = sanitizeArrows(rawStep.arrows, repairs);
-    const notes = sanitizeNotes(rawStep.notes, courtMode, repairs);
+    const notes = sanitizeNotes(rawStep.notes, courtMode, courtSize, repairs);
 
     stepsOut.push({
       id,
@@ -493,7 +504,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
   // 11. steps 빔 → defaultStep.
   if (stepsOut.length === 0) {
     pushRepair(repairs, 'steps', '스텝이 비어 있어 기본 스텝을 생성함', false);
-    stepsOut = [defaultStep(courtMode, formation, cast)];
+    stepsOut = [defaultStep(courtMode, formation, cast, courtSize)];
   }
 
   const drill: Drill = {
@@ -514,6 +525,11 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     ...(sets !== undefined ? { sets } : {}),
     ...(intervalSec !== undefined ? { intervalSec } : {}),
     courtMode,
+    // §5.1 — **스프레드가 아니라 항상 쓴다.** courtMode·level·formation 과 같은 부류다:
+    // 값이 없다는 것이 "미지정" 이 아니라 "30×18" 이라는 뜻이므로, 검증을 지난 드릴은 언제나
+    // 자기 코트 크기를 알고 있어야 한다. 이 한 줄을 빼면 28×15 로 만든 드릴이 IDB 왕복
+    // 한 번에 30×18 로 되돌아간다(조립부에 안 적힌 필드는 소리 없이 증발한다).
+    courtSize,
     formation,
     teams,
     cast,

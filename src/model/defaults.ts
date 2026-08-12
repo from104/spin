@@ -4,7 +4,7 @@ import { newId } from '../core/ids.ts';
 import { radToStoredDeg, RAD } from '../core/angle.ts';
 import { KNOWN_CATEGORIES } from '../core/colors.ts';
 import { CHAIR_SEP_PX } from '../core/constants.ts';
-import { COURT_DEFS, type CourtMode } from './court.ts';
+import { FULL_COURT_DEFS, DEFAULT_COURT_SIZE, courtDefFor, type CourtMode, type CourtSize, type Rect } from './court.ts';
 import { poseFromStored, type StoredChairPose } from './chair.ts';
 import type { ChairId, BallId } from '../core/ids.ts';
 import type { ChairDef, DrillCast, DrillStep, DrillLevel, TeamSide, TeamStyle, Drill, PoseMap } from './drill.ts';
@@ -66,33 +66,60 @@ const FLAT_POSITIONS: Record<TeamSide, Record<Slot, Vec2>> = {
 };
 const FLAT_BALL: Vec2 = { x: 262.5, y: 225 };
 
-function posFor(mode: CourtMode, formation: FormationName, team: TeamSide, number: string): Vec2 | undefined {
+// ── §5.1 코트 크기 3단 — 기본 배치를 함께 옮긴다 ────────────────────────────────────────────
+//
+// 위 `FULL_POSITIONS` 는 **30×18(825×525) 기준 표 하나뿐**이다. 그 좌표를 25×14(700×425) 코트에
+// 그대로 놓으면 선수가 라인 밖 — 심하면 판 밖 — 에 선다: 예를 들어 away GK 는 x=750 인데
+// 25×14 의 경기면 오른쪽 끝은 662.5 다(87.5 px = 3.5 m 밖).
+//
+// 그래서 표는 한 벌만 유지하고 **경기면 사각형 사이의 비례 사상**으로 옮긴다. 세 벌을 손으로
+// 적으면 포메이션을 하나 손볼 때마다 세 곳을 고쳐야 하고, 그중 하나를 빠뜨린 날 그 코트에서만
+// 배치가 어긋난다(규칙 10 이 막으려는 사고와 같은 형태다).
+//
+// **왜 비례인가** — 포메이션은 "골라인에서 몇 m" 가 아니라 "코트를 어떻게 나눠 서는가" 다.
+// 절대 거리로 옮기면 25 m 코트에서 앞뒤 간격이 그대로라 두 팀이 서로의 진영으로 밀려든다.
+// 비례 사상은 경기면 → 경기면의 전단사라 **"전부 surface 안" 이 크기와 무관하게 보존된다**
+// (defaults.test.ts 가 3단 × 3포메이션 × 8대를 전부 찌른다).
+function scaleIntoSurface(p: Vec2, from: Rect, to: Rect): Vec2 {
+  const u = (p.x - from.x) / from.w;
+  const v = (p.y - from.y) / from.h;
+  // 0.1 px 로 접는다 — validateDrill 9단계가 어차피 같은 자리에서 반올림한다. 여기서 안 접으면
+  // 저장 직후 값과 다시 읽은 값이 부동소수 끝자리에서 달라져 sameDrill 이 '다르다' 고 본다.
+  return { x: Math.round((to.x + u * to.w) * 10) / 10, y: Math.round((to.y + v * to.h) * 10) / 10 };
+}
+
+function posFor(mode: CourtMode, formation: FormationName, team: TeamSide, number: string, size: CourtSize = DEFAULT_COURT_SIZE): Vec2 | undefined {
   const slot = (SLOTS as string[]).includes(number) ? (number as Slot) : undefined;
   if (!slot) return undefined;
-  if (mode === 'full') return FULL_POSITIONS[formation][team][slot];
   if (mode === 'half') return HALF_POSITIONS[team][slot];
-  return FLAT_POSITIONS[team][slot];
+  if (mode === 'flat') return FLAT_POSITIONS[team][slot];
+  const base = FULL_POSITIONS[formation][team][slot];
+  // 기본 크기는 **표를 그대로** 돌려준다. 항등 사상을 부동소수로 계산시키면 75 가 75.00000000000001
+  // 이 되어, 크기 3단을 넣었다는 이유만으로 기존 드릴의 좌표가 전부 흔들린다.
+  if (size === DEFAULT_COURT_SIZE) return base;
+  return scaleIntoSurface(base, FULL_COURT_DEFS[DEFAULT_COURT_SIZE].surface, courtDefFor('full', size).surface);
 }
 
 /** 기본 배치가 쓰는 슬롯 좌표 전부(§4.3 P1-3 정착 스냅 후보 ④). 팀·번호는 상관없고 **자리**만
  *  필요하므로 좌표만 모아 돌려준다. 위 표를 유일한 출처로 두기 위한 통로다 — 스냅 쪽에서
  *  좌표를 다시 적으면 포메이션을 손볼 때마다 둘이 어긋난다. */
-export function formationSlots(mode: CourtMode, f: string): Vec2[] {
+export function formationSlots(mode: CourtMode, f: string, size?: CourtSize): Vec2[] {
   const formation: FormationName = (FORMATIONS as readonly string[]).includes(f) ? (f as FormationName) : '1-2-1';
   const out: Vec2[] = [];
   for (const team of ['home', 'away'] as const) {
     for (const slot of SLOTS) {
-      const p = posFor(mode, formation, team, slot);
+      const p = posFor(mode, formation, team, slot, size);
       if (p) out.push(p);
     }
   }
   return out;
 }
 
-function ballPosFor(mode: CourtMode): Vec2 {
-  if (mode === 'full') return FULL_BALL;
+function ballPosFor(mode: CourtMode, size: CourtSize = DEFAULT_COURT_SIZE): Vec2 {
   if (mode === 'half') return HALF_BALL;
-  return FLAT_BALL;
+  if (mode === 'flat') return FLAT_BALL;
+  if (size === DEFAULT_COURT_SIZE) return FULL_BALL;
+  return scaleIntoSurface(FULL_BALL, FULL_COURT_DEFS[DEFAULT_COURT_SIZE].surface, courtDefFor('full', size).surface);
 }
 
 /** 아무것도 배치되지 않은 스텝. 휠체어·공·콘 전부 미배치이므로 코트가 비어 있다. */
@@ -101,20 +128,20 @@ export function emptyStep(_mode: CourtMode): DrillStep {
 }
 
 /** 시그니처를 string 으로 넓히고 내부에서 FORMATIONS 폴백한다(validate.ts 의 이중 방어와 합치). */
-export function defaultStep(mode: CourtMode, f: string, cast: DrillCast): DrillStep {
+export function defaultStep(mode: CourtMode, f: string, cast: DrillCast, size?: CourtSize): DrillStep {
   const formation: FormationName = (FORMATIONS as readonly string[]).includes(f) ? (f as FormationName) : '1-2-1';
-  const { homeHeadingDeg, awayHeadingDeg } = COURT_DEFS[mode];
+  const { homeHeadingDeg, awayHeadingDeg } = courtDefFor(mode, size);
 
   const chairs: PoseMap<ChairId, StoredChairPose> = {};
   for (const def of cast.chairs) {
-    const p = posFor(mode, formation, def.team, def.number);
+    const p = posFor(mode, formation, def.team, def.number, size);
     if (!p) continue; // 예: half 코트 홈 GK — cast 에는 있고 pose 는 없다
     const headingDeg = def.team === 'home' ? homeHeadingDeg : awayHeadingDeg;
     chairs[def.id] = { x: p.x, y: p.y, angleDeg: radToStoredDeg(headingDeg * RAD) };
   }
 
   const balls: PoseMap<BallId, Vec2> = {};
-  const ballPos = ballPosFor(mode);
+  const ballPos = ballPosFor(mode, size);
   for (const b of cast.balls) balls[b.id] = { x: ballPos.x, y: ballPos.y };
 
   return {
@@ -147,6 +174,9 @@ function assertNoOverlap(mode: CourtMode, step: DrillStep): void {
 export function createDrill(init: {
   title?: string;
   courtMode: CourtMode;
+  /** §5.1 코트 크기 3단. **생략하면 30×18** — §9 ② 부기("기본 코트는 30×18 을 유지")를 지키는
+   *  자리다. 새 드릴은 언제나 이 키를 갖고 태어난다(교육 필드와 같은 규약). */
+  courtSize?: CourtSize;
   category?: string;
   level?: DrillLevel;
   formation?: FormationName;
@@ -167,8 +197,9 @@ export function createDrill(init: {
   const cast = defaultCast();
   if (init.empty) cast.balls = [];
   const formation = init.formation ?? '1-2-1';
+  const courtSize = init.courtSize ?? DEFAULT_COURT_SIZE;
   const teams = structuredClone(init.teams ?? DEFAULT_TEAMS);
-  const step = init.empty ? emptyStep(init.courtMode) : defaultStep(init.courtMode, formation, cast);
+  const step = init.empty ? emptyStep(init.courtMode) : defaultStep(init.courtMode, formation, cast, courtSize);
   assertNoOverlap(init.courtMode, step);
   return {
     schemaVersion: CURRENT_DRILL_SCHEMA,
@@ -188,6 +219,7 @@ export function createDrill(init: {
     sets: 0,
     intervalSec: 0,
     courtMode: init.courtMode,
+    courtSize,
     formation,
     teams,
     cast,
@@ -197,21 +229,35 @@ export function createDrill(init: {
   };
 }
 
-/** §3.10 코트 전환. half↔flat 은 viewBox 동일(500×425)이므로 항등 변환. full↔(half|flat) 은
- *  규격·종횡비가 달라 배치를 보존할 수 없으므로 defaultStep 으로 명시적으로 리셋한다. */
-export function cloneToCourt(d: Drill, mode: CourtMode): Drill {
-  if (d.courtMode === mode) return d;
+/** §3.10 코트 전환. half↔flat 은 viewBox 동일(525×450)이므로 항등 변환. full↔(half|flat) 은
+ *  규격·종횡비가 달라 배치를 보존할 수 없으므로 defaultStep 으로 명시적으로 리셋한다.
+ *
+ *  §5.1 이후 **크기 전환(30×18 ↔ 28×15 ↔ 25×14)도 같은 문 하나로 지나간다.** 크기를 바꾸면
+ *  viewBox 가 통째로 달라지고(825×525 → 700×425) 종횡비까지 달라지므로(1.667 → 1.786),
+ *  '풀 → 풀' 이라도 배치는 보존할 수 없다 — 모드 전환과 정확히 같은 이유다.
+ *  ⚠️ 좌표를 비례로 늘려 옮기는 길은 **택하지 않았다**: 화살표·메모·콘까지 전부 같은 사상을
+ *  받아야 하고, 그중 하나(예: 화살표 ctrl)를 빠뜨리면 궤적만 어긋난 판이 조용히 만들어진다.
+ *  기본 배치(defaults)는 비례로 옮기지만 그것은 **우리가 만든 8개 좌표**라 전수 단언이 가능하다.
+ *
+ *  `size` 를 생략하면 드릴이 들고 있던 크기를 그대로 유지한다 — 하프로 갔다가 풀로 돌아와도
+ *  고른 코트가 살아 있다. */
+export function cloneToCourt(d: Drill, mode: CourtMode, size?: CourtSize): Drill {
+  const nextSize = size ?? d.courtSize ?? DEFAULT_COURT_SIZE;
+  const prevSize = d.courtSize ?? DEFAULT_COURT_SIZE;
+  // full 이 아닌 코트에서는 크기가 판을 바꾸지 않으므로 '전환' 이 아니다(들고만 다닌다).
+  const sizeChanged = nextSize !== prevSize && (mode === 'full' || d.courtMode === 'full');
+  if (d.courtMode === mode && !sizeChanged) return d;
   const now = Date.now();
   const isHalfFlat = (m: CourtMode): boolean => m === 'half' || m === 'flat';
 
   if (isHalfFlat(d.courtMode) && isHalfFlat(mode)) {
-    return { ...structuredClone(d), id: newId('dr'), courtMode: mode, createdAt: now, updatedAt: now };
+    return { ...structuredClone(d), id: newId('dr'), courtMode: mode, courtSize: nextSize, createdAt: now, updatedAt: now };
   }
 
   const cast = structuredClone(d.cast);
   const teams = structuredClone(d.teams);
-  const step = defaultStep(mode, d.formation, cast);
-  const suffix = mode === 'full' ? ' (풀)' : mode === 'half' ? ' (하프)' : ' (플랫)';
+  const step = defaultStep(mode, d.formation, cast, nextSize);
+  const suffix = mode === 'full' ? ` (풀 ${courtDefFor('full', nextSize).dims})` : mode === 'half' ? ' (하프)' : ' (플랫)';
   const prefix = '[코트 전환 — 배치를 다시 만들어야 합니다] ';
   return {
     ...d,
@@ -219,6 +265,7 @@ export function cloneToCourt(d: Drill, mode: CourtMode): Drill {
     title: `${d.title}${suffix}`,
     description: `${prefix}${d.description ?? ''}`.trim(),
     courtMode: mode,
+    courtSize: nextSize,
     teams,
     cast,
     steps: [step],

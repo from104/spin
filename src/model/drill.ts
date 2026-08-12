@@ -1,7 +1,7 @@
 // §3.5 드릴 스키마 (cast·스텝·드릴 본체). 화살표 부분은 arrow.ts 로 분리.
 import type { Vec2 } from '../core/units.ts';
 import type { ChairId, BallId, ConeId, DrillId, StepId, NoteId } from '../core/ids.ts';
-import type { CourtMode } from './court.ts';
+import type { CourtMode, CourtSize } from './court.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
 
@@ -60,8 +60,14 @@ export interface TeamStyle {
   gkColor: string;
 }
 /** v2 = §7 3.2/3.3 교육 필드 + 훈련량. **3.2 와 3.3 을 한 상승에 태웠다** — 나눠 올리면
- *  migrate 를 두 번 돌고 "교육 필드는 아는데 훈련량은 모르는" 중간 버전 파일이 세상에 남는다. */
-export const CURRENT_DRILL_SCHEMA = 2;
+ *  migrate 를 두 번 돌고 "교육 필드는 아는데 훈련량은 모르는" 중간 버전 파일이 세상에 남는다.
+ *
+ *  v3 = §7 5.1 코트 크기 3단(`courtSize`). **여기서 도장을 올리는 이유는 "필드가 하나 늘어서"
+ *  가 아니다** — 좌표의 뜻이 바뀌기 때문이다. courtSize:'25x14' 드릴의 좌표는 700×425 판 위의
+ *  값인데, 이 필드를 모르는 옛 앱은 그것을 825×525 판에 그린다. 파일은 멀쩡히 열리고 아무 경고도
+ *  없이 **틀린 전술 그림**이 나온다. 도장을 올려 두면 옛 앱이 too-new 로 정직하게 거절한다.
+ *  (봉투 버전 ENVELOPE_VERSION 은 1 그대로다 — 그릇이 아니라 내용의 버전이다.) */
+export const CURRENT_DRILL_SCHEMA = 3;
 
 export interface Drill {
   schemaVersion: number;
@@ -91,6 +97,22 @@ export interface Drill {
   sets?: number; // 세트 수 (0~99)
   intervalSec?: number; // 세트 간 인터벌(초) (0~600)
   courtMode: CourtMode; // 드릴 레벨 불변
+  // ── §5.1 코트 크기 3단 (2026-08-13, §9 결정 ②) ────────────────────────────────────────────
+  //
+  // **왜 `courtMode` 에 접지 않고 별도 필드인가** (두 길 중 ②를 택한 근거):
+  //  ① `'full30' | 'full28' | 'full25' | 'half' | 'flat'` 로 접으면 `CourtMode` 를 읽는 자리가
+  //     전부 대상이 된다 — `COURT_MODES` 화이트리스트 · `Record<CourtMode, CourtDef>` ·
+  //     `cloneToCourt` 의 isHalfFlat · 화면의 코트 선택 UI · `m === 'full'` 비교 9곳. 그중
+  //     한 곳만 놓쳐도 "28×15 는 풀 코트가 아니다" 라고 판단하는 분기가 생긴다.
+  //  ② 크기는 **모드와 직교하는 축**이다. 하프로 갔다 풀로 돌아왔을 때 고른 크기가 남아 있어야
+  //     하는데, 접어 넣으면 그 정보가 전환 순간 사라진다.
+  //  대가는 스키마 도장 상승(v2→v3)과 화이트리스트·마이그레이션·backup 봉투 세 관문인데,
+  //  그 셋은 이 저장소에 이미 규약과 테스트가 있다(3차의 확립된 수법).
+  //
+  // ⚠️ optional 인 것은 타입 편의다 — **없으면 '30x18'** 이고, 값을 채우는 자리는 셋뿐이다:
+  // `createDrill`(새 드릴) · `DRILL_MIGRATIONS` v2→v3(옛 파일) · 설정/편집 UI(사람).
+  // 필수로 만들면 저장소 곳곳의 `Drill` 리터럴이 한꺼번에 컴파일 오류가 난다(§3.2 필드와 같은 판단).
+  courtSize?: CourtSize;
   formation: string; // 생성 시 쓴 포메이션. 표시용
   teams: Record<TeamSide, TeamStyle>; // 생성 시 prefs 에서 structuredClone 으로 복사
   cast: DrillCast;

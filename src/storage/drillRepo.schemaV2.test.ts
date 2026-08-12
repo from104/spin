@@ -9,7 +9,7 @@ import drillV1Raw from '../test/fixtures/drill.v1.json?raw';
 import { getDB } from './db.ts';
 import { idbDrillRepo } from './drillRepo.ts';
 import { newId } from '../core/ids.ts';
-import type { Drill } from '../model/drill.ts';
+import { CURRENT_DRILL_SCHEMA, type Drill } from '../model/drill.ts';
 import type { DrillId } from '../core/ids.ts';
 
 const v1: Record<string, unknown> = JSON.parse(drillV1Raw);
@@ -56,12 +56,17 @@ describe('3.2/3.3 v1 레코드 열기', () => {
       // (3) 무엇이 일어났는지 남는다 — 마이그레이션은 비파괴 repair 로 기록된다.
       expect(res.repairs.some((r) => r.path === 'schemaVersion' && r.message.includes('v1→v2'))).toBe(true);
       expect(res.repairs.every((r) => !r.destructive)).toBe(true);
+
+      // (4) §5.1 — v2→v3 도 같은 길로 올라온다. 옛 드릴은 **30×18 로 못박혀** 열린다:
+      // 이 한 줄이 "기존 드릴이 지금과 똑같이 보인다" 를 실제 IDB 경로에서 확인하는 자리다.
+      expect(res.drill.courtSize).toBe('30x18');
+      expect(res.repairs.some((r) => r.path === 'schemaVersion' && r.message.includes('v2→v3'))).toBe(true);
     } finally {
       idbDrillRepo.markOpen(id, false);
     }
   });
 
-  it('기회적 되쓰기가 저장된 레코드 자체를 v2 로 올린다 — 다음 열기부터는 마이그레이션이 없다', async () => {
+  it('기회적 되쓰기가 저장된 레코드 자체를 최신 스키마로 올린다 — 다음 열기부터는 마이그레이션이 없다', async () => {
     const id = await seedV1();
     const first = await idbDrillRepo.loadDrill(id);
     expect(first.status).toBe('ok');
@@ -69,7 +74,7 @@ describe('3.2/3.3 v1 레코드 열기', () => {
     const db = await getDB();
     await vi.waitFor(async () => {
       const stored = await db.get('drills', id);
-      expect(stored?.schemaVersion).toBe(2); // 되쓰기는 fire-and-forget 이라 기다린다(행 없음 — 실패는 단언 실패다)
+      expect(stored?.schemaVersion).toBe(CURRENT_DRILL_SCHEMA); // 되쓰기는 fire-and-forget 이라 기다린다(행 없음 — 실패는 단언 실패다)
     });
     const stored = await db.get('drills', id);
     expect(stored?.objective).toBe('');

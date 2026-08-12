@@ -51,12 +51,15 @@ describe('3.2/3.3 마이그레이션 — 구 버전 드릴 파일이 v2 로 올�
     expect((doc.steps as unknown[]).length).toBeGreaterThan(0);
   });
 
-  it('스키마 도장이 정확히 한 칸(1 → 2) 오르고 마이그레이션은 1회만 적용된다', () => {
+  it('스키마 도장이 v1 에서 최신까지 오르고 각 단계는 정확히 1회만 적용된다', () => {
+    // 5.1 에서 체인이 v2→v3(코트 크기 3단)까지 길어졌다. 길이를 숫자로 박으면 다음 상승 때
+    // 또 고쳐야 하고, 무엇보다 **어떤 단계가 돌았는지**를 못 본다 — 순서째로 단언한다.
     const r = migrateDoc(v1, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.doc.schemaVersion).toBe(2);
-    expect(r.applied).toHaveLength(1);
+    expect(r.doc.schemaVersion).toBe(CURRENT_DRILL_SCHEMA);
+    expect(r.applied).toEqual(DRILL_MIGRATIONS.map((m) => m.describe));
+    expect(r.applied.length).toBeGreaterThanOrEqual(2); // 대조군 — 체인이 비어서 통과한 것이 아니다
 
     // 이미 v2 인 문서를 다시 통과시키면 아무것도 안 한다(같은 단계에서 두 번 올리지 않는다).
     const again = migrateDoc(r.doc, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
@@ -87,7 +90,7 @@ describe('3.2/3.3 마이그레이션 — 구 버전 드릴 파일이 v2 로 올�
     expect(v.ok).toBe(true);
     if (!v.ok) return;
     expect(v.repairs).toHaveLength(0); // 기본값이 곧 validate 가 만드는 값이어야 한다
-    expect(v.value.schemaVersion).toBe(2);
+    expect(v.value.schemaVersion).toBe(CURRENT_DRILL_SCHEMA);
   });
 });
 
