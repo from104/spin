@@ -1,11 +1,12 @@
 // screen-home-library 가져오기/내보내기 오케스트레이션. storage/transfer.ts 자체의 세부 규칙은
 // storage 모듈이 이미 검증했으므로(§10.6), 여기서는 화면이 그 함수를 올바른 순서로 조합하는지만 본다.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { defaultResolution, readImportFile, commitDrills, commitSession, exportOneDrill, exportAllDrills } from './transfer.ts';
+import { defaultResolution, readImportFile, commitDrills, commitSession, exportOneDrill, exportAllDrills, buildImportReport, importReportLine } from './transfer.ts';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { createSession } from '../../storage/sessionRepo.ts';
 import { createDrill } from '../../model/defaults.ts';
-import { exportDrillFile, exportSessionFile } from '../../storage/transfer.ts';
+import { exportDrillFile, exportSessionFile, exportLibraryFile, type ImportOutcome } from '../../storage/transfer.ts';
+import type { DrillId } from '../../core/ids.ts';
 
 // downloadBlob 은 <a> 클릭을 트리거한다 — jsdom 에서 no-op 이지만 URL.createObjectURL 은
 // jsdom 미구현이라 모킹한다.
@@ -76,6 +77,83 @@ describe('readImportFile / commitDrills', () => {
     const outcome = await commitDrills(preview.drills, new Map());
     const savedSession = await commitSession(preview.session.doc, outcome);
     expect(savedSession.items[0]!.drillId).toBe(d.id); // identical→skip 은 항등 매핑
+  });
+});
+
+// §6.1c / 로드맵 4.2 — 가져오기 보고. 손상 항목은 prepareDrillCandidates 가 후보에서 조용히
+// 빼 버리므로 outcome 만 봐서는 존재 자체가 안 보인다. drillsInFile(검증 전 원본 수)과의 차로
+// 복원하는 것이 보고의 핵심이고, 여기서 그 산식을 못박는다.
+describe('가져오기 보고 (§6.1c / 로드맵 4.2)', () => {
+  const asFile = (text: string): File => ({ text: async () => text } as unknown as File);
+
+  /** 계획서 4.2 완료 판정 픽스처 — 성한 7 + 깨진 3. 깨진 3개는 서로 다른 관문에서 죽는다:
+   *  null(레코드 아님) · 문자열(레코드 아님) · schemaVersion 9999(too-new). */
+  const brokenLibraryText = async (): Promise<string> => {
+    const good = Array.from({ length: 7 }, (_, i) => createDrill({ courtMode: 'full', title: `성한 ${i}` }));
+    const envelope = JSON.parse(await exportLibraryFile(good).text()) as { payload: unknown[] };
+    envelope.payload.push(null, '깨진 문자열', { schemaVersion: 9999, id: 'dr_too_new' });
+    return JSON.stringify(envelope);
+  };
+
+  it("깨진 3 + 성한 7 파일 → 보고는 7·3·0 이고, 다이얼로그 후보에 깨진 항목이 끼지 않는다", async () => {
+    const preview = await readImportFile(asFile(await brokenLibraryText()));
+    if (preview.kind !== 'drills') throw new Error('unreachable');
+    expect(preview.drillsInFile).toBe(10); // 검증 전 원본 수
+    // 완료 판정 후반부 "다이얼로그 항목 수는 증가하지 않는다": ImportDialog 는 preview.drills
+    // 에서만 항목을 만들므로, 깨진 3개가 후보에 없다는 이 단언이 곧 그 보증이다.
+    expect(preview.drills).toHaveLength(7);
+    const outcome = await commitDrills(preview.drills, new Map());
+    const report = buildImportReport(preview.drillsInFile, outcome);
+    expect(report).toEqual({ imported: 7, failed: 3, skipped: 0 });
+    // 세 숫자가 "전부" 나오는지 — 0 도 숨기지 않는다. 정확한 전문 비교라 슬롯이 뒤바뀌면 잡힌다.
+    expect(importReportLine(report)).toBe('7개 가져옴 · 3개 실패 · 0개 건너뜀');
+  });
+
+  it('대조군: 깨진 항목이 0개면 실패도 0 — 산식이 "무엇을 넣어도 실패 3" 이 아니다', async () => {
+    const good = [createDrill({ courtMode: 'full', title: '대조 A' }), createDrill({ courtMode: 'full', title: '대조 B' })];
+    const preview = await readImportFile(asFile(await exportLibraryFile(good).text()));
+    if (preview.kind !== 'drills') throw new Error('unreachable');
+    expect(preview.drillsInFile).toBe(2);
+    const outcome = await commitDrills(preview.drills, new Map());
+    const report = buildImportReport(preview.drillsInFile, outcome);
+    expect(report).toEqual({ imported: 2, failed: 0, skipped: 0 });
+    expect(importReportLine(report)).toBe('2개 가져옴 · 0개 실패 · 0개 건너뜀');
+  });
+
+  it('세 번째 숫자는 건너뜀 — identical→skip 이 실패로 새지 않는다', async () => {
+    const d = createDrill({ courtMode: 'full', title: '이미 있는 드릴' });
+    await idbDrillRepo.putDrill(d, { touch: false });
+    const preview = await readImportFile(asFile(await exportDrillFile(d).text()));
+    if (preview.kind !== 'drills') throw new Error('unreachable');
+    const outcome = await commitDrills(preview.drills, new Map());
+    const report = buildImportReport(preview.drillsInFile, outcome);
+    expect(report).toEqual({ imported: 0, failed: 0, skipped: 1 });
+    expect(importReportLine(report)).toBe('0개 가져옴 · 0개 실패 · 1개 건너뜀');
+  });
+
+  it('커밋 단계 실패(outcome.failed)도 손상 수와 합산된다 — 순수 산식 검증', () => {
+    const id = (s: string) => s as DrillId;
+    const outcome: ImportOutcome = {
+      idMap: new Map(),
+      written: [id('dr_a'), id('dr_b'), id('dr_c'), id('dr_d'), id('dr_e')],
+      skipped: [id('dr_f'), id('dr_g')],
+      failed: [{ id: id('dr_h'), reason: 'IDB 쓰기 실패' }],
+    };
+    // 파일 10 − 후보 8(5+2+1) = 손상 2, 실패 합계 = 손상 2 + 커밋 실패 1 = 3
+    expect(buildImportReport(10, outcome)).toEqual({ imported: 5, failed: 3, skipped: 2 });
+    // 대조군: 후보 전원이 세 배열에 있으면(파일 8 = 후보 8) 손상은 0, 실패는 커밋 실패분만 남는다
+    expect(buildImportReport(8, outcome)).toEqual({ imported: 5, failed: 1, skipped: 2 });
+  });
+
+  it('세션 파일도 payload.drills 의 검증 전 원본 수를 센다', async () => {
+    const d = createDrill({ courtMode: 'full', title: '세션 보고 드릴' });
+    const session = await createSession({ title: '보고 세션' });
+    const envelope = JSON.parse(await exportSessionFile(session, [d]).text()) as { payload: { drills: unknown[] } };
+    envelope.payload.drills.push(null); // 깨진 드릴 1
+    const preview = await readImportFile(asFile(JSON.stringify(envelope)));
+    if (preview.kind !== 'session') throw new Error('unreachable');
+    expect(preview.drillsInFile).toBe(2);
+    expect(preview.drills).toHaveLength(1);
   });
 });
 

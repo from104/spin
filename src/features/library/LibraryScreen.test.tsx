@@ -17,6 +17,8 @@ import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { SUMMARY_BUILD } from '../../model/summary.ts';
 import { createSession, deleteSession, listSessions } from '../../storage/sessionRepo.ts';
 import { formatSessionWhen } from '../../model/session.ts';
+import { createDrill } from '../../model/defaults.ts';
+import { exportLibraryFile } from '../../storage/transfer.ts';
 
 function makeNav(): HomeNav {
   return {
@@ -356,5 +358,31 @@ describe('LibraryScreen — 이동 통로는 HomeNav prop 하나뿐이다 (계�
     } finally {
       quiet.mockRestore();
     }
+  });
+});
+
+// §6.1c / 로드맵 4.2 — 가져오기 보고. 산식 자체는 transfer.test.ts 가 검증하므로, 여기서는
+// "그 세 숫자가 실제 토스트까지 도달하는가" 와 "보고를 위해 다이얼로그가 늘지 않는가"(컨트롤
+// 예산 §3)만 붙잡는다.
+describe('LibraryScreen — 가져오기 보고 토스트 (로드맵 4.2)', () => {
+  it('깨진 3 + 성한 7 파일 → 토스트에 세 숫자가 전부 뜨고, 다이얼로그는 열리지 않는다', async () => {
+    const good = Array.from({ length: 7 }, (_, i) => createDrill({ courtMode: 'full', title: `보고 성한 ${i}` }));
+    const envelope = JSON.parse(await exportLibraryFile(good).text()) as { payload: unknown[] };
+    envelope.payload.push(null, '깨진 문자열', { schemaVersion: 9999 });
+    const file = new File([JSON.stringify(envelope)], 'SPIN_보고.spin.json', { type: 'application/json' });
+
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.setup().upload(input, file);
+
+    // 세 숫자 "전부" — 0(건너뜀)도 숨기지 않는다. 부분 문자열이 아니라 전문이 계약이다.
+    const toast = await screen.findByRole('status');
+    expect(toast).toHaveTextContent('7개 가져옴 · 3개 실패 · 0개 건너뜀');
+    // 컨트롤 예산(§3): 보고는 자동으로 사라지는 토스트뿐 — 충돌 없는 가져오기에 다이얼로그가
+    // 새로 생기면 여기서 잡힌다.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // 대조군: "실패 3" 이 성한 것까지 버린 결과가 아니다 — 성한 카드가 실제로 그려진다.
+    await waitFor(() => expect(within(panel()).getByText('보고 성한 0')).toBeInTheDocument());
   });
 });

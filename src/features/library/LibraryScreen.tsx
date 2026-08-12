@@ -37,7 +37,7 @@ import { SessionDrawer } from './SessionDrawer.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
 import type { HomeNav, LibraryTab } from '../home/nav.ts';
 import { defaultLibraryTab } from '../home/nav.ts';
-import { commitDrills, commitSession, exportAllDrills, exportOneDrill, exportOneSession, readImportFile } from './transfer.ts';
+import { buildImportReport, commitDrills, commitSession, exportAllDrills, exportOneDrill, exportOneSession, importReportLine, readImportFile } from './transfer.ts';
 import type { ImportPreview } from './transfer.ts';
 import type { ImportResolution } from '../../storage/transfer.ts';
 
@@ -140,10 +140,11 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
     const outcome = await commitDrills(preview.drills, resolutions);
     if (preview.kind === 'session') await commitSession(preview.session.doc, outcome);
     await refresh();
-    const parts = [`${outcome.written.length}개 가져옴`];
-    if (outcome.skipped.length) parts.push(`${outcome.skipped.length}개 건너뜀`);
-    if (outcome.failed.length) parts.push(`${outcome.failed.length}개 실패`);
-    toast.show(parts.join(' · '));
+    // §6.1c/로드맵 4.2 — 보고는 이 토스트 한 줄이 전부다(컨트롤 예산 §3: 보고용 버튼·다이얼로그
+    // 항목을 더하지 않는다. 토스트는 자동으로 사라지므로 예산 밖이다). ⚠️ outcome 만 세면 안 된다:
+    // 검증에서 탈락한 손상 항목은 후보조차 못 돼 outcome 어디에도 없다 — drillsInFile 과의 차로
+    // 만 드러난다(buildImportReport 참고).
+    toast.show(importReportLine(buildImportReport(preview.drillsInFile, outcome)));
     setImportPreview(null);
   };
 
