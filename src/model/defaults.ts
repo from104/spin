@@ -51,7 +51,11 @@ const FULL_POSITIONS: Record<FormationName, Record<TeamSide, Record<Slot, Vec2>>
 };
 const FULL_BALL: Vec2 = { x: 412.5, y: 262.5 };
 
-// 하프 코트 기본 배치 — 포메이션 무관 단일 배치. 홈 GK 는 배치하지 않는다(D7 실사용례).
+// 하프 코트 기본 배치 — 포메이션 무관 단일 배치. **6자리뿐이다**: 홈 GK 는 배치하지 않고
+// (D7 실사용례) 상대 4번도 자리가 없다 — 하프는 공격 진영 한쪽이라 8대가 설 자리가 아니다.
+// 2026-08-13(5.4): 이 줄은 원래 홈 GK 만 적고 있었는데 실제로는 away '4' 도 빠져 있었다.
+// 어느 자리가 비는지는 `COURT_FILL_SPECS.half.unplaced`(fillPreset.ts)가 표로 못박고 있고,
+// 여기서 한 자리를 더하거나 빼면 그 표와 어긋나 fillPreset.test.ts 가 먼저 빨개진다.
 const HALF_POSITIONS: Record<TeamSide, Partial<Record<Slot, Vec2>>> = {
   home: { '2': { x: 152.5, y: 176.25 }, '3': { x: 364.5, y: 176.25 }, '4': { x: 262.5, y: 96.25 } },
   away: { G: { x: 262.5, y: 400.75 }, '2': { x: 262.5, y: 293.75 }, '3': { x: 342.5, y: 252.75 } },
@@ -115,7 +119,9 @@ export function formationSlots(mode: CourtMode, f: string, size?: CourtSize): Ve
   return out;
 }
 
-function ballPosFor(mode: CourtMode, size: CourtSize = DEFAULT_COURT_SIZE): Vec2 {
+/** 기본 배치의 공 자리. §5.4 [포메이션으로 채우기] 가 **같은 좌표**를 써야 해서 export 했다 —
+ *  채우기 쪽에서 공 자리를 다시 적으면 '새 드릴' 과 '채우기' 의 공이 다른 데 놓인다. */
+export function ballPosFor(mode: CourtMode, size: CourtSize = DEFAULT_COURT_SIZE): Vec2 {
   if (mode === 'half') return HALF_BALL;
   if (mode === 'flat') return FLAT_BALL;
   if (size === DEFAULT_COURT_SIZE) return FULL_BALL;
