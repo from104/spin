@@ -25,6 +25,7 @@ import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
 import type { Arrow, ArrowKind } from '../../model/arrow.ts';
 import { defaultCtrl } from '../../model/arrow.ts';
 import type { CourtStageHandle, PointerMeta, PointerDownResult, CourtStagePointerController } from '../../render/CourtStage.tsx';
+import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { SelectionOverlayHandle, SelectionShape } from '../../render/SelectionOverlay.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { placeObject } from './placement.ts';
@@ -58,6 +59,9 @@ export interface UseEditorPointerOptions {
   selection: ReadonlySet<string>;
   dispatch: Dispatch<EditorAction>;
   worldRef: EditorWorldRef;
+  /** §4.3 P1-1 — 잡은 개체에 `chip--held` 를 붙이는 유일한 경로. selection 을 props 로 내려
+   *  렌더로 표현하면 §6.1 규칙 1 위반이라, 60fps transform 을 쓰는 층에 직접 부탁한다. */
+  writer: TransformWriter;
   stageRef: RefObject<CourtStageHandle | null>;
   zones: ZoneConfig;
   ballMax: number;
@@ -306,6 +310,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         dragHandleRef.current = handle;
         draggedIdRef.current = hit.id;
         dragKindRef.current = 'chair';
+        if (handle) ctx.writer.setHeld(hit.id, true);
         setActiveZone(handle?.zone ?? hit.zone ?? null);
         if (handle?.zone) liveRegion.say(`${ZONE_LABEL[handle.zone]} 잡음`);
         return;
@@ -322,6 +327,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         dragHandleRef.current = handle;
         draggedIdRef.current = hit.id;
         dragKindRef.current = shapeOf(hit.kind);
+        // 잡힌 개체는 판에서 뜬다(§4.3 P1-1). 실제로 물리 드래그가 시작된 경우에만 —
+        // 손을 대기만 하고 잡히지 않았는데 뜨면 그 신호는 거짓말이 된다.
+        if (handle) ctx.writer.setHeld(hit.id, true);
         if (hit.kind === 'chair') setActiveZone(handle?.zone ?? null);
         setHandlesVisibleForSelection(computeHandlesVisible(metricsRef.current.pxPerUnit, meta.pointerType, ctx.forceHandlesVisible));
         return;
@@ -417,6 +425,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       const overTray = isOverTray(client);
 
       dragHandleRef.current.end(); // §5.11 릴리스 체이스 시작 — 물리가 스스로 정착까지 굴린다
+      // 손을 뗐으니 칩을 판에 내려놓는다. 트레이로 빼는 경로보다 **먼저** 해야 한다 —
+      // 개체가 사라진 뒤에는 되돌릴 노드가 없어 held 표시가 다음 마운트로 새어 나간다.
+      // pointercancel(client=null)도 이 경로로 들어오므로 시스템 제스처에 뺏겨도 풀린다.
+      if (id) ctx.writer.setHeld(id, false);
       dragHandleRef.current = null;
       draggedIdRef.current = null;
       dragKindRef.current = null;

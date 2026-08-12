@@ -11,6 +11,10 @@ export interface TransformWriter {
   registerFollower(id: string, el: SVGGElement | null): void;
   write(id: string, x: number, y: number, rad: number): void;
   writeFrame(frame: Readonly<Record<string, { x: number; y: number; theta: number }>>): void;
+  /** §4.3 P1-1 '잡히면 칩이 판에서 뜬다'. 잡은 개체에 `chip--held` 를 붙이고 배율을 얹는다.
+   *  드래그 시작·종료에 **딱 두 번** 호출한다 — selection 을 props 로 내리는 것은 §6.1 규칙 1
+   *  위반이므로 60fps transform 을 쓰는 이 층에서 className 도 함께 토글한다. */
+  setHeld(id: string, held: boolean): void;
   snapshot(): Record<string, { x: number; y: number; theta: number }>;
   clear(): void;
 }
@@ -24,6 +28,15 @@ interface Pose {
 const EPS_PX = 0.1;
 const EPS_RAD = 1e-3;
 
+/** 잡힌 개체가 판에서 뜨는 배율(§4.3 P1-1). 그림자와 함께 "손에 들려 있다" 를 만든다. */
+const HELD_SCALE = 1.06;
+/** 그림자는 CSS 가 그린다(styles/a11y.css). 배율은 왜 CSS 가 아닌가:
+ *  SVG 의 `transform` **표현 속성**은 CSS `transform` **속성**에 매핑되고, 스타일시트 규칙이
+ *  표현 속성을 이긴다. `.chip--held { transform: scale(1.06) }` 를 쓰는 순간 여기서 쓴
+ *  translate·rotate 가 통째로 덮여 잡은 칩이 원점으로 순간이동한다 — 그래서 배율만은
+ *  transform 문자열 **뒤에** 곱해 쓴다(회전 뒤 = 개체 로컬 원점 기준 = 피벗 기준 확대). */
+const HELD_CLASS = 'chip--held';
+
 /** §6.2 구현 요건 1: 클로저 지역 함수로 정의한다. 객체 리터럴 메서드로 만들면
  *  `raf.add(writer.writeFrame)` 처럼 메서드만 떼어 넘기는 순간 `this` 가 undefined 라
  *  즉시 크래시한다(ESM strict) — 여기 함수들은 애초에 `this` 를 쓰지 않는다. */
@@ -34,9 +47,14 @@ export function createTransformWriter(): TransformWriter {
   const prev = new Map<string, Pose>();
   // 마지막으로 기록된 프레임 전체 — register() 가 늦게 마운트된 노드에 즉시 흘려보낼 때 쓴다.
   const frame = new Map<string, Pose>();
+  // 지금 손에 들려 있는 개체. 마운트 순서와 무관하게 유지돼야 한다(드래그 중 재등록).
+  const held = new Set<string>();
 
-  function applyMain(el: SVGGElement, x: number, y: number, rad: number): void {
-    el.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(rad * DEG).toFixed(2)})`);
+  function applyMain(el: SVGGElement, id: string, x: number, y: number, rad: number): void {
+    const base = `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(rad * DEG).toFixed(2)})`;
+    // 부속 그룹(follower)도 같은 배율을 받는다 — 존 핸들만 제자리 크기로 남으면 잡은 칩과
+    // 가이드가 어긋난다(registerFollower 의 "**같은** transform" 계약).
+    el.setAttribute('transform', held.has(id) ? `${base} scale(${HELD_SCALE})` : base);
   }
   function applyCounter(el: SVGGElement, rad: number): void {
     el.setAttribute('transform', `rotate(${(-rad * DEG).toFixed(2)})`);
@@ -48,10 +66,12 @@ export function createTransformWriter(): TransformWriter {
       return;
     }
     els.set(id, el);
+    // 잡힌 채로 노드가 새로 마운트되면(스텝 점프·재시드) 표시가 사라지므로 여기서도 맞춘다.
+    el.classList.toggle(HELD_CLASS, held.has(id));
     // 요건 2: 마지막 프레임을 즉시 기록한다 — 안 하면 마운트 첫 페인트에 개체가 원점에
     // 겹치고, 아무도 write 하지 않는 경로(드릴 재마운트)에서는 영구 고착한다.
     const p = frame.get(id);
-    if (p) applyMain(el, p.x, p.y, p.theta);
+    if (p) applyMain(el, id, p.x, p.y, p.theta);
   }
 
   function registerFollower(id: string, el: SVGGElement | null): void {
@@ -61,7 +81,7 @@ export function createTransformWriter(): TransformWriter {
     }
     followers.set(id, el);
     const p = frame.get(id);
-    if (p) applyMain(el, p.x, p.y, p.theta);
+    if (p) applyMain(el, id, p.x, p.y, p.theta);
   }
 
   function registerCounter(id: string, el: SVGGElement | null): void {
@@ -84,11 +104,11 @@ export function createTransformWriter(): TransformWriter {
     }
     prev.set(id, { x, y, theta: rad });
     const el = els.get(id);
-    if (el) applyMain(el, x, y, rad);
+    if (el) applyMain(el, id, x, y, rad);
     const counter = counters.get(id);
     if (counter) applyCounter(counter, rad);
     const follower = followers.get(id);
-    if (follower) applyMain(follower, x, y, rad);
+    if (follower) applyMain(follower, id, x, y, rad);
   }
 
   function writeFrame(f: Readonly<Record<string, Pose>>): void {
@@ -97,6 +117,21 @@ export function createTransformWriter(): TransformWriter {
       const p = f[id]!;
       write(id, p.x, p.y, p.theta);
     }
+  }
+
+  function setHeld(id: string, next: boolean): void {
+    if (held.has(id) === next) return; // 같은 상태면 DOM 을 건드리지 않는다(요건 3 과 같은 규율)
+    if (next) held.add(id);
+    else held.delete(id);
+    const el = els.get(id);
+    if (el) el.classList.toggle(HELD_CLASS, next);
+    // 배율이 바뀌었으니 transform 을 곧바로 다시 쓴다 — write() 의 EPS 비교는 좌표만 보므로
+    // 여기서 쓰지 않으면 다음 좌표 변화가 올 때까지 뜨지 않는다(놓자마자 멈춘 칩은 영영).
+    const p = frame.get(id);
+    if (!p) return;
+    if (el) applyMain(el, id, p.x, p.y, p.theta);
+    const follower = followers.get(id);
+    if (follower) applyMain(follower, id, p.x, p.y, p.theta);
   }
 
   function snapshot(): Record<string, Pose> {
@@ -111,7 +146,8 @@ export function createTransformWriter(): TransformWriter {
     followers.clear();
     prev.clear();
     frame.clear();
+    held.clear();
   }
 
-  return { register, registerCounter, registerFollower, write, writeFrame, snapshot, clear };
+  return { register, registerCounter, registerFollower, write, writeFrame, setHeld, snapshot, clear };
 }

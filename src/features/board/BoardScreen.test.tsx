@@ -8,10 +8,11 @@
 // 헤더까지 함께 렌더한다: 코트 전환 세그먼트가 헤더에 있어서, "리셋 상태에서만 전환"
 // 게이트를 화면 끝에서 확인하려면 AppHeader 가 트리에 있어야 한다.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CHAIR } from '../../core/constants.ts';
-import type { ReactNode } from 'react';
+import { Profiler } from 'react';
+import type { ProfilerOnRenderCallback, ReactNode } from 'react';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { LibraryProvider, useLibraryState } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
@@ -65,14 +66,47 @@ function Wrapper({ children }: { children: ReactNode }) {
  *
  *  `placed: true` 면 **개체가 놓인 판**을 스냅샷으로 심어서 연다. 전술판은 2026-08-10 부터
  *  **빈 코트로 시작**하므로(기현 지시), 칩을 만지는 테스트는 판을 채운 상태에서 열어야 한다.
- *  스냅샷 경로를 그대로 타므로 "저장된 판 되살리기" 도 겸사겸사 검증된다. */
-async function openBoard(court: 'full' | 'half' | 'flat' = 'full', opts: { placed?: boolean } = {}) {
+ *  스냅샷 경로를 그대로 타므로 "저장된 판 되살리기" 도 겸사겸사 검증된다.
+ *
+ *  `onRender` 를 주면 판 서브트리를 `<Profiler>` 로 감싼다 — "드래그 중 React 리렌더 0회"
+ *  (§6.1 규칙 1)를 화면 끝에서 세는 유일한 방법이다. */
+async function openBoard(
+  court: 'full' | 'half' | 'flat' = 'full',
+  opts: { placed?: boolean; onRender?: ProfilerOnRenderCallback } = {},
+) {
   localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: court }));
   if (opts.placed) saveBoard(createDrill({ courtMode: court, formation: '1-2-1' }), true);
   const user = userEvent.setup();
-  const { unmount } = render(<BoardScreen />, { wrapper: Wrapper });
+  const tree = opts.onRender ? (
+    <Profiler id="board" onRender={opts.onRender}>
+      <BoardScreen />
+    </Profiler>
+  ) : (
+    <BoardScreen />
+  );
+  const { unmount } = render(tree, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
   return { user, unmount, stage: screen.getByRole('application', { name: '코트 편집 영역' }) };
+}
+
+/** 코트 위 개체의 translate 좌표를 읽는다. */
+function poseOf(el: Element): { x: number; y: number } {
+  const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(el.getAttribute('transform') ?? '');
+  return { x: Number(m?.[1] ?? NaN), y: Number(m?.[2] ?? NaN) };
+}
+
+/** 무대에 viewBox 와 1:1 인 실측 rect 를 물린다.
+ *
+ *  jsdom 의 getBoundingClientRect 는 전부 0 이라 computeMetrics 의 pxPerUnit 이 0 이 되고,
+ *  clientToWorld 가 0 으로 나눠 월드 좌표가 통째로 NaN 이 된다. 그러면 포인터가 어디를
+ *  찍든 히트테스트가 성립하지 않아 "마우스로 잡는" 경로가 조용히 아무 일도 안 한다.
+ *  rect 를 viewBox 와 같은 크기·원점 0 으로 주면 pxPerUnit=1, offX=offY=0 이 되어
+ *  client = world − viewBox원점 이라는 1:1 대응이 성립한다(→ toClient). */
+function stubStageRect(stage: Element): (w: { x: number; y: number }) => { clientX: number; clientY: number } {
+  const [vx, vy, vw, vh] = (stage.getAttribute('viewBox') ?? '0 0 0 0').split(/\s+/).map(Number) as [number, number, number, number];
+  stage.getBoundingClientRect = () =>
+    ({ x: 0, y: 0, left: 0, top: 0, right: vw, bottom: vh, width: vw, height: vh, toJSON: () => ({}) }) as DOMRect;
+  return (w) => ({ clientX: w.x - vx, clientY: w.y - vy });
 }
 
 beforeEach(() => {
@@ -151,26 +185,6 @@ describe('격자 칸 라벨 배선 사슬 (major 회귀: prefs → EditorWorkspa
 });
 
 describe('키보드 이동 후 물리 동기화 (회귀)', () => {
-  /** 코트 위 개체의 translate 좌표를 읽는다. */
-  function poseOf(el: Element): { x: number; y: number } {
-    const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(el.getAttribute('transform') ?? '');
-    return { x: Number(m?.[1] ?? NaN), y: Number(m?.[2] ?? NaN) };
-  }
-
-  /** 무대에 viewBox 와 1:1 인 실측 rect 를 물린다.
-   *
-   *  jsdom 의 getBoundingClientRect 는 전부 0 이라 computeMetrics 의 pxPerUnit 이 0 이 되고,
-   *  clientToWorld 가 0 으로 나눠 월드 좌표가 통째로 NaN 이 된다. 그러면 포인터가 어디를
-   *  찍든 히트테스트가 성립하지 않아 "마우스로 잡는" 경로가 조용히 아무 일도 안 한다.
-   *  rect 를 viewBox 와 같은 크기·원점 0 으로 주면 pxPerUnit=1, offX=offY=0 이 되어
-   *  client = world − viewBox원점 이라는 1:1 대응이 성립한다(→ toClient). */
-  function stubStageRect(stage: Element): (w: { x: number; y: number }) => { clientX: number; clientY: number } {
-    const [vx, vy, vw, vh] = (stage.getAttribute('viewBox') ?? '0 0 0 0').split(/\s+/).map(Number) as [number, number, number, number];
-    stage.getBoundingClientRect = () =>
-      ({ x: 0, y: 0, left: 0, top: 0, right: vw, bottom: vh, width: vw, height: vh, toJSON: () => ({}) }) as DOMRect;
-    return (w) => ({ clientX: w.x - vx, clientY: w.y - vy });
-  }
-
   it('키보드로 옮긴 개체를 마우스로 잡아도 옛 자리로 되돌아가지 않는다', async () => {
     // 회귀: OBJECT_NUDGE 가 리듀서만 갱신하고 물리 바디는 그대로였다. 그래서 키보드로 옮긴
     // 개체를 잡는 순간 beginDrag 가 world.chairPose() 로 낡은 자세를 읽어와 개체가 튀었다.
@@ -212,6 +226,56 @@ describe('키보드 이동 후 물리 동기화 (회귀)', () => {
     // 그리고 start 로 튀지 않았다 — 끈 방향(오른쪽)으로 갔지, 옛 자리로 돌아가지 않았다.
     await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(nudged.x), SETTLE);
   }, 30000);
+});
+
+describe('§4.3 P1-1 잡히면 칩이 판에서 뜬다', () => {
+  // 지금 "잡혔다" 신호는 마우스 커서와 리시선뿐인데 **터치에는 커서가 없다** — 1순위 대상이
+  // 무릎 위 태블릿이므로 그 신호는 손가락 사용자에게 존재하지 않는 것과 같다.
+  it('드래그 시작에 chip--held 가 붙고, 끄는 동안 React 리렌더가 0 이며, 놓으면 떨어진다', async () => {
+    let renders = 0;
+    const { stage } = await openBoard('full', {
+      placed: true,
+      onRender: () => {
+        renders += 1;
+      },
+    });
+    const toClient = stubStageRect(stage);
+    const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
+    const grab = toClient(poseOf(chair));
+
+    // 잡기 전에는 아무 칩도 떠 있지 않다
+    expect(stage.querySelectorAll('.chip--held')).toHaveLength(0);
+
+    chair.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, ...grab, pointerId: 1 }));
+    // 잡기가 진짜로 성립했는지 못을 박는다(위 회귀 테스트와 같은 근거 — 무대 드래그 커서).
+    await waitFor(() => expect(stage.getAttribute('style') ?? '').toContain('cursor:'));
+
+    expect(chair.classList.contains('chip--held'), '잡은 칩에 chip--held 가 붙어야 한다').toBe(true);
+    expect(stage.querySelectorAll('.chip--held'), '잡은 칩 하나에만 붙는다').toHaveLength(1);
+    // 배율은 transform 뒤에 곱해 쓴다 — CSS 로 쓰면 표현 속성을 덮어 칩이 원점으로 튄다.
+    expect(chair.getAttribute('transform')).toContain('scale(1.06)');
+
+    // ── 여기부터가 §6.1 규칙 1 의 판정: 끄는 동안 React 는 한 번도 렌더하지 않는다.
+    // props 로 selection·잡힘을 내리면 이 단언이 곧바로 빨간불이 된다.
+    const before = renders;
+    // 계수기가 실제로 도는지 먼저 확인한다 — Profiler 배선이 끊기면 "0회" 는 공허한 참이다.
+    expect(before, 'Profiler 가 마운트 렌더조차 못 세고 있다').toBeGreaterThan(0);
+    act(() => {
+      for (let i = 1; i <= 6; i += 1) {
+        chair.dispatchEvent(
+          new PointerEvent('pointermove', { bubbles: true, clientX: grab.clientX + i * 4, clientY: grab.clientY, pointerId: 1 }),
+        );
+      }
+    });
+    expect(renders - before, '드래그 중 React 리렌더가 일어났다').toBe(0);
+    expect(chair.classList.contains('chip--held'), '끄는 동안 표시가 유지돼야 한다').toBe(true);
+    expect(chair.getAttribute('transform')).toContain('scale(1.06)');
+
+    chair.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: grab.clientX + 24, clientY: grab.clientY, pointerId: 1 }));
+    await waitFor(() => expect(chair.classList.contains('chip--held')).toBe(false));
+    // 놓은 뒤에는 배율도 함께 떨어진다 — 릴리스 체이스가 매 프레임 다시 써도 그대로다.
+    expect(chair.getAttribute('transform')).not.toContain('scale');
+  }, 20000);
 });
 
 describe('선택 표시와 4개 드래그 존', () => {

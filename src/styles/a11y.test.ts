@@ -76,6 +76,26 @@ describe('§7.8 a11y.reduceMotion="always" 접합부 — SettingsProvider 가 do
   });
 });
 
+describe('§4.3 P1-1 접합부 — TransformWriter 가 붙이는 .chip--held 를 CSS 가 실제로 소비한다', () => {
+  // 클래스 토글(transformWriter.setHeld)만 살아 있고 규칙이 사라지면 "잡혔다" 신호가 통째로
+  // 보이지 않게 되는데, DOM 단언은 그래도 전부 초록불이다 — 위 §7.8 과 같은 이유로 소스
+  // 텍스트에 못을 박는다. 이 신호의 수신자는 커서가 없는 터치 사용자다(1순위 대상).
+  const a11yCss = CSS_FILES['a11y.css']!;
+
+  it('.chip--held 규칙이 있고 그림자로 판에서 띄운다', () => {
+    const match = a11yCss.match(/\.chip--held\s*\{([^}]*)\}/);
+    expect(match, 'a11y.css 에 .chip--held 규칙이 있어야 한다').toBeTruthy();
+    expect(match![1]!).toMatch(/filter:\s*drop-shadow\(/);
+  });
+
+  it('.chip--held 는 transform 을 건드리지 않는다 (SVG 표현 속성을 덮으면 칩이 원점으로 튄다)', () => {
+    // CSS transform 속성은 SVG transform 표현 속성을 이긴다 — 여기에 scale 을 쓰는 순간
+    // TransformWriter 가 쓴 translate·rotate 가 통째로 사라진다. 배율은 writer 소관이다.
+    const body = a11yCss.match(/\.chip--held\s*\{([^}]*)\}/)![1]!;
+    expect(body).not.toMatch(/(^|[\s;])transform\s*:/);
+  });
+});
+
 describe('다크 테마는 accent == accent-text 라 값 변경이 무영향이다', () => {
   const DARK_ACCENT_TEXT = '#c2f74e';
   const DARK_SURFACES: Record<string, string> = {

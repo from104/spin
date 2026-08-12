@@ -64,6 +64,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     selection,
     dispatch,
     worldRef,
+    writer,
     stageRef: stageRef as RefObject<CourtStageHandle | null>,
     zones,
     ballMax,
