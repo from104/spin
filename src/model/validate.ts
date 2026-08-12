@@ -32,6 +32,15 @@ export const LIMITS = {
   noteLen: 600,
   tagCount: 12,
   tagLen: 24,
+  // §3.2/3.3 교육 필드. 숫자 상한은 "깨진 파일 방어" 이자 인스펙터 입력의 min/max 단일 출처다.
+  objectiveLen: 200,
+  equipmentLen: 120,
+  coachingPointCount: 6,
+  coachingPointLen: 80,
+  playersNeededMax: 30, // 코트 위 8 + 교체·피더까지
+  repsMax: 99,
+  setsMax: 99,
+  intervalSecMax: 600, // 10분
   maxSteps: 60,
   maxBalls: 10,
   maxChairsPerTeam: 4,
@@ -83,6 +92,48 @@ function sanitizeFreeVec(raw: unknown): Vec2 | null {
   const y = typeof raw.y === 'number' ? raw.y : NaN;
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   return { x, y };
+}
+
+// ---- §3.2/3.3 교육 필드 -------------------------------------------------------------------------
+// 셋 다 값이 없으면 **키를 만들지 않는다** — `{objective: undefined}` 는 structuredClone(IDB)이
+// 보존하고 JSON 이 지우므로, 그 한 줄이 export 왕복으로 의미가 달라지는 문서를 만든다(edits.ts
+// `omitKey` 주석의 함정과 같다). 그래서 반환 타입이 `T | undefined` 이고 조립부가 스프레드로 붙인다.
+
+function sanitizeText(raw: unknown, max: number, path: string, label: string, repairs: Repair[]): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  if (raw.length <= max) return raw;
+  pushRepair(repairs, path, `${label} 길이 상한(${max}) 초과 — 절단`, true);
+  return raw.slice(0, max);
+}
+
+/** 0 = 미지정인 개수 필드(필요 인원·반복·세트·인터벌). 정수·0..max 로 접는다. */
+function sanitizeCount(raw: unknown, max: number, path: string, label: string, repairs: Repair[]): number | undefined {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
+  const v = Math.min(Math.max(Math.round(raw), 0), max);
+  if (v !== raw) pushRepair(repairs, path, `${label} 을(를) 0~${max} 정수로 보정`, true);
+  return v;
+}
+
+/** 코칭 포인트는 **불릿 배열**이다(4차 PDF 가 줄마다 하나씩 찍는다). 빈 줄은 정보가 0 이므로
+ *  버린다 — 인스펙터의 textarea 도 같은 규칙으로 접어 넣으므로 저장·재읽기가 항등이다. */
+function sanitizeCoachingPoints(raw: unknown, repairs: Repair[]): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  let cut = false;
+  let out = raw
+    .filter((x): x is string => typeof x === 'string')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((s) => {
+      if (s.length <= LIMITS.coachingPointLen) return s;
+      cut = true;
+      return s.slice(0, LIMITS.coachingPointLen);
+    });
+  if (cut) pushRepair(repairs, 'coachingPoints', `코칭 포인트 길이 상한(${LIMITS.coachingPointLen}) 초과 — 절단`, true);
+  if (out.length > LIMITS.coachingPointCount) {
+    pushRepair(repairs, 'coachingPoints', `코칭 포인트 개수 상한(${LIMITS.coachingPointCount}) 초과 — 뒤에서 절단`, true);
+    out = out.slice(0, LIMITS.coachingPointCount);
+  }
+  return out;
 }
 
 // ---- cast 파싱 (타입 체크 + 3: id 중복 제거) ------------------------------------------------
@@ -312,6 +363,15 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     : '초급';
   const durationMin = typeof doc.durationMin === 'number' && Number.isFinite(doc.durationMin) ? doc.durationMin : 10;
   const description = typeof doc.description === 'string' ? doc.description : undefined;
+  // §3.2/3.3 — 조립부(아래 `const drill`)에도 **반드시** 같이 적어야 한다. 여기서 파싱만 하고
+  // 조립부에 안 적으면 IDB 왕복에서 소리 없이 증발한다.
+  const objective = sanitizeText(doc.objective, LIMITS.objectiveLen, 'objective', '목적', repairs);
+  const coachingPoints = sanitizeCoachingPoints(doc.coachingPoints, repairs);
+  const equipment = sanitizeText(doc.equipment, LIMITS.equipmentLen, 'equipment', '필요 장비', repairs);
+  const playersNeeded = sanitizeCount(doc.playersNeeded, LIMITS.playersNeededMax, 'playersNeeded', '필요 인원', repairs);
+  const reps = sanitizeCount(doc.reps, LIMITS.repsMax, 'reps', '반복', repairs);
+  const sets = sanitizeCount(doc.sets, LIMITS.setsMax, 'sets', '세트', repairs);
+  const intervalSec = sanitizeCount(doc.intervalSec, LIMITS.intervalSecMax, 'intervalSec', '인터벌', repairs);
 
   let tags = Array.isArray(doc.tags) ? doc.tags.filter((t): t is string => typeof t === 'string') : [];
   let tagTruncated = false;
@@ -435,6 +495,14 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     durationMin,
     tags,
     ...(description !== undefined ? { description } : {}),
+    // ★ 화이트리스트 조립부 — **여기 없는 필드는 IDB 왕복에서 소리 없이 증발한다.**
+    ...(objective !== undefined ? { objective } : {}),
+    ...(coachingPoints !== undefined ? { coachingPoints } : {}),
+    ...(playersNeeded !== undefined ? { playersNeeded } : {}),
+    ...(equipment !== undefined ? { equipment } : {}),
+    ...(reps !== undefined ? { reps } : {}),
+    ...(sets !== undefined ? { sets } : {}),
+    ...(intervalSec !== undefined ? { intervalSec } : {}),
     courtMode,
     formation,
     teams,

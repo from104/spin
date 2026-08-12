@@ -6,7 +6,33 @@ export interface DocMigration {
   describe: string;
   migrate(doc: Record<string, unknown>): Record<string, unknown>;
 }
-export const DRILL_MIGRATIONS: DocMigration[] = []; // v1 에서는 비어 있다
+/** 드릴 v1 → v2 (§7 3.2/3.3). **한 번만 올린다** — 교육 필드와 훈련량을 나눠 올리면 migrate 를
+ *  두 번 돌고, "교육 필드는 아는데 훈련량은 모르는" 중간 버전 파일이 세상에 남는다.
+ *
+ *  PREFS_MIGRATIONS 와 같은 규칙 셋을 그대로 따른다: (a) **없거나 형상이 어긋난 자리만** 채운다 —
+ *  기존 값은 하나도 덮어쓰지 않는다 (b) 기본값을 리터럴로 박는다(마이그레이션은 *그때의* 기본값을
+ *  적어 둔 역사다) (c) 알 수 없는 필드는 그대로 통과시킨다 — 여기서 거르면 화이트리스트가 두 곳이
+ *  되고, 실제 거르는 자리는 validateDrill 하나여야 한다.
+ *
+ *  숫자 셋(필요 인원·반복·세트·인터벌)의 기본값이 1 이 아니라 **0(미지정)** 인 이유는 drill.ts
+ *  주석 참고 — 정하지도 않은 "1회 × 1세트" 를 4차 PDF 가 사실인 양 찍게 두지 않는다. */
+export const DRILL_MIGRATIONS: DocMigration[] = [
+  {
+    from: 1,
+    to: 2,
+    describe: 'drill v1→v2: 교육 필드(목적·코칭 포인트·필요 인원·필요 장비) + 훈련량(반복·세트·인터벌)',
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      if (typeof out.objective !== 'string') out.objective = '';
+      if (!Array.isArray(out.coachingPoints)) out.coachingPoints = [];
+      if (typeof out.equipment !== 'string') out.equipment = '';
+      for (const k of ['playersNeeded', 'reps', 'sets', 'intervalSec']) {
+        if (typeof out[k] !== 'number' || !Number.isFinite(out[k])) out[k] = 0;
+      }
+      return out;
+    },
+  },
+];
 export const SESSION_MIGRATIONS: DocMigration[] = [];
 /** prefs 는 여기서 처음으로 체인이 생긴다(§7 3.0). **v1 → v2 로 한 번만 올린다** — 트레이 서랍·
  *  seed 도장·2존 모드를 나눠 올리면 3차에 만든 백업 파일과 5차에 만든 백업 파일의 스키마가 서로

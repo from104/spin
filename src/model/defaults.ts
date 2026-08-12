@@ -178,6 +178,15 @@ export function createDrill(init: {
     level: init.level ?? '초급',
     durationMin: init.durationMin ?? 10,
     tags: [],
+    // §3.2/3.3 교육 필드 — 새 드릴도 **키를 갖고 태어난다**(옛 파일은 DRILL_MIGRATIONS v1→v2 가
+    // 같은 값으로 채운다). 숫자 0 은 '미지정' 이다 — drill.ts 주석 참고.
+    objective: '',
+    coachingPoints: [],
+    playersNeeded: 0,
+    equipment: '',
+    reps: 0,
+    sets: 0,
+    intervalSec: 0,
     courtMode: init.courtMode,
     formation,
     teams,

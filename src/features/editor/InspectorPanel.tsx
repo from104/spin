@@ -26,7 +26,11 @@ export interface InspectorPanelProps {
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
   /** 스텝 섹션(목록·복제·삭제·추가)을 낼지. 자유 전술판은 1장짜리라 false 다(§6.8 재편) —
    *  하단 트랜스포트만 감추고 여기를 놔두면 화면에 없는 2번째 스텝을 만들 수 있어, 판이
-   *  조용히 여러 장이 된다(눈으로는 알 수 없다). 기본값은 드릴 편집 쪽인 true. */
+   *  조용히 여러 장이 된다(눈으로는 알 수 없다). 기본값은 드릴 편집 쪽인 true.
+   *
+   *  실질적으로 **"드릴 편집기 모드인가"** 를 뜻하게 됐다 — 3.2 교육 필드도 이 깃발을 탄다.
+   *  전술판의 드릴은 목록(drillRepo)이 아니라 localStorage 스냅샷(storage/board.ts)에만 살고
+   *  4차 PDF 계획서에 실리지 않으므로, 그 화면에서 목적·코칭 포인트는 적을 이유가 없는 칸이다. */
   showSteps?: boolean;
 }
 
@@ -75,6 +79,12 @@ export function InspectorPanel({
         </>
       )}
       <DrillInfoSection drill={drill} dispatch={dispatch} />
+      {showSteps && (
+        <>
+          <Divider />
+          <TeachingSection drill={drill} dispatch={dispatch} />
+        </>
+      )}
       <Divider />
       <RosterSection drill={drill} step={step} dispatch={dispatch} pendingPlayerId={pendingPlayerId} onArmPlayer={onArmPlayer} onEraseIds={onEraseIds} />
       <Divider />
@@ -258,6 +268,140 @@ function DrillInfoSection({ drill, dispatch }: { drill: Drill; dispatch: Dispatc
           <span style={{ fontWeight: 600, textAlign: 'right' }}>{COURT_DEFS[drill.courtMode].label}</span>
           <span style={{ color: 'var(--muted)' }}>포메이션</span>
           <span style={{ fontWeight: 600, textAlign: 'right' }}>{drill.formation}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 3.2 교육 필드 + 3.3 훈련량 ────────────────────────────────────────────────────────────
+//
+// 결정 ⑦ = **(B) 중간** 이 정한 그대로다: 목적 · 코칭 포인트 · 필요 인원 · 필요 장비 +
+// 반복/세트/인터벌. 성공 기준 · 변형(progression/regression) · 드릴간 참조는 **없다**(§8).
+// `durationMin` 하나로는 *"3회 × 2세트"* 를 표현할 수 없고, 4차 PDF 세션 계획서의 실용성이
+// 정확히 그 지점에서 갈린다 — 그래서 3.2 와 3.3 이 한 스키마 상승(v1→v2)에 함께 탔다.
+//
+// ★ 커밋 시점이 위 StepMetaSection 과 **반대로 blur** 다. 스텝 메타는 적는 동안 칩 라벨이
+//   따라와야 해서 change 였지만, 이 값들을 읽는 것은 판이 아니라 계획서다 — 적는 동안 따라올
+//   것이 없으므로 되돌리기 한 칸이 "한 번 고쳐 쓴 것" 과 같아지는 blur 가 맞고, 제목 · 예상
+//   시간과도 같은 관용구가 된다.
+//
+// ★ 비제어(defaultValue) + `key={그 필드의 현재 값}`. 제어로 가면 글자마다 React 가 DOM value
+//   를 되쓰며 한글 IME 조합을 건드린다(3.1 과 같은 이유). key 는 **모델이 스스로 바뀐** 경우
+//   (되돌리기 · 클램프)에만 요소를 갈아 끼운다 — 커밋이 blur 라 그때 포커스는 이미 떠나 있다.
+//
+// ★ 커밋값을 blur 에서 **DOM 에 되쓴다**. 클램프(999 → 30)와 정규화(빈 줄 제거)로 화면과
+//   모델이 갈라질 수 있는데, 값이 그대로면 dispatch 도 key 변경도 없어 되쓰기가 유일한 수단이다.
+type MetaPatch = Extract<EditorAction, { type: 'META_SET' }>['patch'];
+
+/** 0 = 미지정인 개수 칸(필요 인원 · 반복 · 세트 · 인터벌). 0 은 **빈 칸으로 보여 준다** —
+ *  '0회' 라고 적힌 계획서는 거짓이고, 지울 수 없는 칸은 "안 정했다" 를 표현할 수 없다. */
+function CountField({ label, value, max, onCommit }: { label: string; value: number; max: number; onCommit(v: number): void }) {
+  const show = (v: number) => (v === 0 ? '' : String(v));
+  return (
+    <Field label={label}>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={max}
+        step={1}
+        key={value}
+        defaultValue={show(value)}
+        placeholder="미정"
+        onBlur={(e) => {
+          const raw = e.target.value.trim();
+          const n = raw === '' ? 0 : Math.round(Number(raw));
+          const v = Number.isFinite(n) ? Math.min(Math.max(n, 0), max) : 0;
+          e.target.value = show(v);
+          if (v !== value) onCommit(v);
+        }}
+        style={inputStyle}
+      />
+    </Field>
+  );
+}
+
+/** 화면의 여러 줄 ↔ 모델의 문자열 배열. validate.ts `sanitizeCoachingPoints` 와 **같은 규칙**이라
+ *  저장 → 다시 읽기가 항등이다(다르면 손을 뗄 때와 다시 연 뒤의 글자가 달라진다). */
+function parsePoints(text: string): string[] {
+  return text
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .slice(0, LIMITS.coachingPointCount)
+    .map((s) => s.slice(0, LIMITS.coachingPointLen));
+}
+
+function TeachingSection({ drill, dispatch }: { drill: Drill; dispatch: Dispatch<EditorAction> }) {
+  const set = (patch: MetaPatch) => dispatch({ type: 'META_SET', patch });
+  const objective = drill.objective ?? '';
+  const equipment = drill.equipment ?? '';
+  const points = drill.coachingPoints ?? [];
+  const pointsText = points.join('\n');
+  return (
+    <div style={{ padding: '0 17px' }}>
+      <div style={SECTION_LABEL}>교육</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <Field label="목적">
+          <textarea
+            key={objective}
+            defaultValue={objective}
+            maxLength={LIMITS.objectiveLen}
+            rows={2}
+            placeholder="예: 측면에서 받아 골문 쪽으로 방향을 트는 습관"
+            onBlur={(e) => {
+              const v = e.target.value.trim().slice(0, LIMITS.objectiveLen);
+              e.target.value = v;
+              if (v !== objective) set({ objective: v });
+            }}
+            style={{ ...inputStyle, minHeight: 56, padding: '0.5rem 0.6875rem', resize: 'vertical' }}
+          />
+        </Field>
+        <Field label="코칭 포인트">
+          <textarea
+            key={pointsText}
+            defaultValue={pointsText}
+            rows={3}
+            placeholder={'한 줄에 하나씩\n예: 받기 전에 몸을 연다'}
+            onBlur={(e) => {
+              const next = parsePoints(e.target.value);
+              e.target.value = next.join('\n');
+              if (next.length !== points.length || next.some((s, i) => s !== points[i])) set({ coachingPoints: next });
+            }}
+            style={{ ...inputStyle, minHeight: 72, padding: '0.5rem 0.6875rem', resize: 'vertical' }}
+          />
+        </Field>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,2fr)', gap: '9px 10px' }}>
+          <CountField
+            label="필요 인원(명)"
+            value={drill.playersNeeded ?? 0}
+            max={LIMITS.playersNeededMax}
+            onCommit={(v) => set({ playersNeeded: v })}
+          />
+          <Field label="필요 장비">
+            <input
+              type="text"
+              key={equipment}
+              defaultValue={equipment}
+              maxLength={LIMITS.equipmentLen}
+              placeholder="공 2 · 콘 6 · 조끼 8"
+              onBlur={(e) => {
+                const v = e.target.value.trim().slice(0, LIMITS.equipmentLen);
+                e.target.value = v;
+                if (v !== equipment) set({ equipment: v });
+              }}
+              style={inputStyle}
+            />
+          </Field>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: '9px 10px' }}>
+          <CountField label="반복(회)" value={drill.reps ?? 0} max={LIMITS.repsMax} onCommit={(v) => set({ reps: v })} />
+          <CountField label="세트" value={drill.sets ?? 0} max={LIMITS.setsMax} onCommit={(v) => set({ sets: v })} />
+          <CountField label="인터벌(초)" value={drill.intervalSec ?? 0} max={LIMITS.intervalSecMax} onCommit={(v) => set({ intervalSec: v })} />
+        </div>
+        <div style={{ fontSize: '0.6875rem', color: 'var(--faint-text)', lineHeight: 1.45, marginTop: -4 }}>
+          코칭 포인트는 한 줄에 하나씩 적습니다. 비운 칸은 훈련 계획서에 나오지 않습니다.
         </div>
       </div>
     </div>

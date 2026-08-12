@@ -28,9 +28,33 @@ export type EditorAction =
   | { type: 'BOARD_SET'; drill: Drill }
   // 드릴 데이터 (히스토리 커밋)
   | { type: 'DRILL_LOAD'; drill: Drill }
+  // ⚠️ patch 에 `{objective: undefined}` 같은 **명시적 undefined 를 실어 보내지 마라** —
+  // drillReducer 가 `{...d, ...patch}` 로 얕게 병합하므로 그 키가 undefined 인 채 남고,
+  // structuredClone(IDB)은 그것을 보존하는데 JSON 은 지운다(§3.7 omitKey 와 같은 함정).
+  // 인스펙터는 언제나 구체값('' · 0 · [])을 보낸다.
   | {
       type: 'META_SET';
-      patch: Partial<Pick<Drill, 'title' | 'category' | 'level' | 'durationMin' | 'tags' | 'description' | 'formation'>>;
+      patch: Partial<
+        Pick<
+          Drill,
+          // 드릴 신원
+          | 'title'
+          | 'category'
+          | 'level'
+          | 'durationMin'
+          | 'tags'
+          | 'description'
+          | 'formation'
+          // §3.2 교육 필드 + §3.3 훈련량
+          | 'objective'
+          | 'coachingPoints'
+          | 'playersNeeded'
+          | 'equipment'
+          | 'reps'
+          | 'sets'
+          | 'intervalSec'
+        >
+      >;
     }
   | { type: 'STEP_ADD'; afterIndex: number }
   | { type: 'STEP_DUPLICATE'; id: StepId }
