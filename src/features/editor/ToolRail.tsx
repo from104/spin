@@ -7,7 +7,7 @@
 //
 // 기능 도구는 모드라서 끌 것이 없다. 그래서 아래쪽에 따로 모은다.
 import { Fragment, useId } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
@@ -280,8 +280,11 @@ export function ToolRail({
       if (onItemPointerDown) onItemPointerDown(item, e, onTap);
     },
     // 끌어다 놓기를 못 쓰는 환경(키보드·보조기기 포함)에서도 탭은 되어야 한다.
-    onClick: () => {
-      if (!onItemPointerDown) onTap();
+    // 배선된 경로에서는 마우스 탭을 pointerdown(useTrayDrag 문턱)이 처리하므로, 여기서
+    // 조건 없이 onTap 을 부르면 **이중 발화**다. 키보드 활성화(Enter·Space)는 pointerdown
+    // 없이 click 만 오고 그때 detail 이 0 이다 — 그 경우만 통과시킨다(§5.6).
+    onClick: (e: ReactMouseEvent) => {
+      if (!onItemPointerDown || e.detail === 0) onTap();
     },
   });
 

@@ -192,6 +192,59 @@ describe('ToolRail — 끌어다 놓기 연결', () => {
     expect(onItem.mock.calls[0]![0]).toEqual({ kind: 'cone', coneSlot: 1 });
   });
 
+  it('배선된 상태에서도 키보드 Enter 로 칩을 집을 수 있다(§5.6 복구)', async () => {
+    // 주 사용자는 입에 문 젓가락으로 타이핑한다 — 키보드 경로가 죽으면 트레이가 통째로 닫힌다.
+    // 키보드 활성화는 pointerdown 없이 click(detail=0)만 오므로, 드래그가 배선돼 있어도
+    // onTap(=onArmPlayer)이 그대로 발화해야 한다.
+    const onItem = vi.fn<ItemDown>();
+    const onArm = vi.fn();
+    render(
+      <ToolRail
+        tool="select"
+        onSelectTool={() => {}}
+        coneSlot={0}
+        onConeSlotChange={() => {}}
+        {...FULL}
+        chairSlots={SLOTS}
+        pendingPlayerId={null}
+        onArmPlayer={onArm}
+        courtLabel="풀 코트"
+        onItemPointerDown={onItem}
+      />,
+    );
+    const user = userEvent.setup();
+    screen.getByRole('button', { name: '2번 선수 배치' }).focus();
+    await user.keyboard('{Enter}');
+    expect(onArm).toHaveBeenCalledTimes(1);
+    expect(onArm).toHaveBeenCalledWith('ch_a');
+    expect(onItem).not.toHaveBeenCalled();
+  });
+
+  it('배선된 상태의 마우스 탭은 한 번만 발화한다 — pointerdown 경로와 click 이 겹치지 않는다', async () => {
+    // 실제 배선(useTrayDrag)은 문턱을 못 넘긴 탭에서 onTap 을 부른다. 그 뒤에 따라오는
+    // click(detail=1)까지 onTap 을 부르면 이중 발화다 — 그게 §5.6 이 경계한 전형적 실패다.
+    const onItem = vi.fn<ItemDown>((_item, _e, onTap) => onTap());
+    const onArm = vi.fn();
+    render(
+      <ToolRail
+        tool="select"
+        onSelectTool={() => {}}
+        coneSlot={0}
+        onConeSlotChange={() => {}}
+        {...FULL}
+        chairSlots={SLOTS}
+        pendingPlayerId={null}
+        onArmPlayer={onArm}
+        courtLabel="풀 코트"
+        onItemPointerDown={onItem}
+      />,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '2번 선수 배치' }));
+    expect(onItem).toHaveBeenCalledTimes(1);
+    expect(onArm).toHaveBeenCalledTimes(1);
+  });
+
   it('기능 도구는 끌 수 없다 — 모드라서 끌 것이 없다', async () => {
     const onItem = vi.fn<ItemDown>();
     renderWithDrag(onItem);
