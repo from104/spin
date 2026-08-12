@@ -11,7 +11,7 @@ import { useLayoutEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 import type { Arrow } from '../model/arrow.ts';
-import type { NoteLabel as NoteLabelData } from '../model/drill.ts';
+import type { NoteLabel as NoteLabelData, TeamSide } from '../model/drill.ts';
 import type { TransformWriter } from './transformWriter.ts';
 import type { ZoneConfig } from '../model/chair.ts';
 import { ChairChip } from './objects/ChairChip.tsx';
@@ -24,6 +24,10 @@ import { ArrowPath } from './objects/ArrowPath.tsx';
 export interface ObjectLayerChair {
   id: ChairId;
   color: string;
+  /** 팀 소속. 4.6 이 더한 **색이 아닌 팀 채널**(테두리 파선·볼가드 톤)의 입력이다.
+   *  ⚠️ 필수로 둔다 — 선택으로 내리면 새 호출자가 조용히 빠뜨리고, 그 칩만 색 하나로
+   *  갈리는 상태로 돌아간다(흑백 인쇄·색각 이상에서 구분 불가). */
+  team: TeamSide;
   number: string;
   ariaLabel: string;
 }
@@ -137,6 +141,7 @@ export function ObjectLayer({
           id={c.id}
           writer={writer}
           color={c.color}
+          team={c.team}
           number={c.number}
           selected={selection.has(c.id)}
           active={activeId === c.id}

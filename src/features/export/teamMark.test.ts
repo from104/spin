@@ -1,5 +1,12 @@
 // 4.4 — 팀 표식이 **한 함수에서만** 나오는지, 그리고 그 함수가 화면 렌더러와 갈라지지
-// 않는지. 4.6(흑백 인쇄 대책)이 고칠 자리가 여기 하나임을 이 파일이 붙잡는다.
+// 않는지.
+//
+// 4.6 갱신: 예전에는 화면(`chairColorFor`)과 내보내기(`teamMarkFor`)가 같은 규칙을 **각자
+// 적어 두고** 이 파일이 둘을 대조했다. 4.6 이 색 밖 채널(테두리 파선·볼가드 톤)을 더하면서
+// 규칙을 `src/render/teamMark.ts` 하나로 모았고, 이제 `chairColorFor` 는 그 함수를 그대로
+// 부른다 — 그래서 둘을 대조하는 단언은 **동어반복**이 된다. 대신 §3.5 규칙(개별 색 > GK 색 >
+// 팀 색)을 기대값으로 직접 적어 못박는다. 두 곳이 다시 갈라지는 사고는 이제 타입이 아니라
+// '복제가 없다'는 사실이 막는다.
 import { describe, expect, it } from 'vitest';
 import { inkFor, OBJ_STROKE } from '../../core/colors.ts';
 import { chairColorFor } from '../present/PresentObjects.tsx';
@@ -8,15 +15,16 @@ import { teamMarkFor } from './teamMark.ts';
 import { chairDef, makeFrame, TEAMS } from './sceneFixture.ts';
 
 describe('teamMarkFor — 화면 렌더러와 같은 색을 낸다', () => {
-  // ★ 드리프트 가드: 색 규칙(§3.5 "ChairDef.color 개별 지정이 팀 색을 덮어쓴다")을 두 곳에
-  //   적어 두었으므로, 둘이 갈라지면 여기서 빨간불이 된다.
+  // ★ §3.5 색 규칙을 기대값으로 직접 적는다(위 머리말 참고 — 대조 대상이 사라졌다).
   it.each([
-    ['필드 플레이어', chairDef('ch_1', 'home', '4')],
-    ['골키퍼', chairDef('ch_2', 'home', 'G', true)],
-    ['원정 골키퍼', chairDef('ch_3', 'away', 'G', true)],
-    ['개별 색 지정', { ...chairDef('ch_4', 'away', '2'), color: '#7c5cd6' }],
-  ])('%s', (_label, def) => {
-    expect(teamMarkFor(def, TEAMS).fill).toBe(chairColorFor(def, TEAMS));
+    ['필드 플레이어', chairDef('ch_1', 'home', '4'), TEAMS.home.color],
+    ['골키퍼', chairDef('ch_2', 'home', 'G', true), TEAMS.home.gkColor],
+    ['원정 골키퍼', chairDef('ch_3', 'away', 'G', true), TEAMS.away.gkColor],
+    ['개별 색 지정', { ...chairDef('ch_4', 'away', '2'), color: '#7c5cd6' }, '#7c5cd6'],
+  ])('%s', (_label, def, expected) => {
+    expect(teamMarkFor(def, TEAMS).fill).toBe(expected);
+    // 화면 렌더러도 같은 값을 낸다 — 이제 같은 함수를 부르므로 이건 '복제가 없다'의 확인이다.
+    expect(chairColorFor(def, TEAMS)).toBe(expected);
   });
 
   it('글자색은 채움색 밝기에서 나온다', () => {
@@ -25,15 +33,19 @@ describe('teamMarkFor — 화면 렌더러와 같은 색을 낸다', () => {
     expect(teamMarkFor(chairDef('ch_2', 'home', '4'), TEAMS).ink).not.toBe(teamMarkFor(chairDef('ch_3', 'home', 'G', true), TEAMS).ink);
   });
 
-  it('테두리는 지금 팀과 무관하다 — 4.6 이 채울 자리가 비어 있다', () => {
+  it('테두리 패턴이 팀을 가른다 — 4.6 이 채운 자리', () => {
     const home = teamMarkFor(chairDef('ch_1', 'home', '4'), TEAMS);
     const away = teamMarkFor(chairDef('ch_2', 'away', '4'), TEAMS);
+    // 테두리 '색'은 여전히 팀과 무관하다(둘 다 흰 선) — 팀을 가르는 것은 **패턴**이다.
     expect(home.stroke).toBe(OBJ_STROKE);
     expect(away.stroke).toBe(OBJ_STROKE);
-    expect(home.strokeDash).toBeUndefined();
-    // 즉 지금 두 팀을 가르는 채널은 **fill 하나뿐**이다. 4.6 이 닫을 결함을 여기 못박아 둔다.
+    expect(home.strokeDash).toBeUndefined(); // 우리팀 = 실선
+    expect(away.strokeDash).toBe('5 3'); // 상대팀 = 파선
+    // 4.4 시절 여기 있던 단언(`home.strokeDash === away.strokeDash`)이 곧 결함의 기술이었다.
+    // 이제는 fill 도, strokeDash 도, guardFill 도 셋 다 갈린다.
     expect(home.fill).not.toBe(away.fill);
-    expect(home.strokeDash).toBe(away.strokeDash);
+    expect(home.strokeDash).not.toBe(away.strokeDash);
+    expect(home.guardFill).not.toBe(away.guardFill);
   });
 });
 

@@ -18,17 +18,22 @@ import { ChairChip } from '../../render/objects/ChairChip.tsx';
 import { BallDot } from '../../render/objects/BallDot.tsx';
 import { ConeMark } from '../../render/objects/ConeMark.tsx';
 import { ArrowPath } from '../../render/objects/ArrowPath.tsx';
+import { teamMarkFor } from '../../render/teamMark.ts';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { OpacityWriter } from './opacityWriter.ts';
 import type { ChairDef, ConeDef, TeamSide, TeamStyle } from '../../model/drill.ts';
 import type { RenderFrame } from '../../model/playback.ts';
 import type { BallId } from '../../core/ids.ts';
 
-/** ChairDef.color 개별 지정이 팀 색을 덮어쓴다(§3.5 주석 그대로) — GK 는 팀별 GK 색. */
+/** ChairDef.color 개별 지정이 팀 색을 덮어쓴다(§3.5 주석 그대로) — GK 는 팀별 GK 색.
+ *
+ *  4.6 부터 규칙 본체는 `render/teamMark.ts` 하나에 있다. 예전에는 같은 식이 여기와
+ *  `features/export/teamMark.ts` 두 곳에 적혀 있었고 대조 테스트로 드리프트를 막았는데,
+ *  4.6 이 색 밖 채널(테두리 파선·볼가드 톤)을 더하면서 **세 경로가 같은 표식을 봐야 한다**는
+ *  요구가 생겼다. 복제를 셋으로 늘리는 대신 아래층으로 내리고 여기는 색만 꺼내 쓴다 —
+ *  ⚠️ 여기서 규칙을 다시 손으로 적으면 화면과 종이의 팀 표식이 갈라진다. */
 export function chairColorFor(def: ChairDef, teams: Record<TeamSide, TeamStyle>): string {
-  if (def.color) return def.color;
-  const team = teams[def.team];
-  return def.isGk ? team.gkColor : team.color;
+  return teamMarkFor(def, teams).fill;
 }
 
 // memo — opacity 는 이 컴포넌트들의 prop 이 아니라 opacityWriter 가 DOM 에 직접 쓴다(위 헤더
@@ -62,6 +67,7 @@ export const PresentChairMark = memo(function PresentChairMark({
         id={def.id}
         writer={writer}
         color={chairColorFor(def, teams)}
+        team={def.team}
         number={def.number}
         selected={false}
         active={false}

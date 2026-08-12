@@ -15,7 +15,7 @@ describe('ChairChip', () => {
     const writer = createTransformWriter();
     const { container } = render(
       <svg>
-        <ChairChip id={'ch_1' as ChairId} writer={writer} color="#d93a3a" number="4" selected={false} active={false} ariaLabel="A팀 4번" />
+        <ChairChip id={'ch_1' as ChairId} writer={writer} color="#d93a3a" team="home" number="4" selected={false} active={false} ariaLabel="A팀 4번" />
       </svg>,
     );
     const body = container.querySelector(`#obj-ch_1`)!;
@@ -36,7 +36,7 @@ describe('ChairChip', () => {
     writer.write('ch_1', 5, 5, 0);
     const { unmount, container } = render(
       <svg>
-        <ChairChip id={'ch_1' as ChairId} writer={writer} color="#d93a3a" number="4" selected={false} active={false} ariaLabel="A팀 4번" />
+        <ChairChip id={'ch_1' as ChairId} writer={writer} color="#d93a3a" team="home" number="4" selected={false} active={false} ariaLabel="A팀 4번" />
       </svg>,
     );
     expect(container.querySelector('#obj-ch_1')?.getAttribute('transform')).toBe('translate(5.00 5.00) rotate(0.00)');

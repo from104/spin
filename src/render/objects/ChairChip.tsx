@@ -7,6 +7,8 @@ import { inkFor } from '../../core/colors.ts';
 import type { ChairId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
+import type { TeamSide } from '../../model/drill.ts';
+import { teamPatternFor } from '../teamMark.ts';
 import { ZONE_CURSOR } from '../zoneCursors.ts';
 import { useUprightTransform } from '../stageRot.tsx';
 
@@ -14,6 +16,10 @@ export interface ChairChipProps {
   id: ChairId;
   writer: TransformWriter;
   color: string;
+  /** 팀 소속. **색이 아닌 채널**(테두리 파선·볼가드 톤)의 유일한 입력이다 — 4.6.
+   *  ⚠️ 선택(optional)으로 내리지 마라. 필수라서 새 호출자가 생길 때 tsc 가 먼저 잡는다.
+   *  빠뜨리면 그 칩은 색 하나로만 갈리는 상태로 조용히 돌아간다(색각 이상·흑백 인쇄 결함). */
+  team: TeamSide;
   number: string;
   selected: boolean;
   /** 로빙 tabindex 대상(§7.5b `aria-activedescendant`). */
@@ -63,6 +69,7 @@ export const ChairChip = memo(function ChairChip({
   id,
   writer,
   color,
+  team,
   number,
   selected,
   active,
@@ -85,6 +92,11 @@ export const ChairChip = memo(function ChairChip({
   }, [writer, id]);
 
   const ink = inkFor(color);
+  // 4.6 — 색 밖의 팀 채널. 화면에도 넣는 이유는 인쇄 때문만이 아니다: 적록 색각 이상(남성
+  // 약 8%)에게는 #d93a3a / #1f6bb8 이 화면에서 이미 같은 색이다. 근거·크기 검산은
+  // src/render/teamMark.ts 머리말. ⚠️ 아래 두 값을 리터럴로 되돌리면 그 사용자에게 판이
+  // 통째로 무의미해진다.
+  const pattern = teamPatternFor(team);
 
   return (
     <g
@@ -134,6 +146,7 @@ export const ChairChip = memo(function ChairChip({
         fill={color}
         stroke="rgba(255,255,255,.92)"
         strokeWidth={2.2}
+        strokeDasharray={pattern.strokeDash}
       />
       {/* 볼가드 s∈[0.85,1.00] — 전방 견인 존의 시각적 힌트 */}
       <rect
@@ -142,7 +155,7 @@ export const ChairChip = memo(function ChairChip({
         width={CHAIR.guardPx}
         height={CHAIR.widthPx}
         rx={2}
-        fill="rgba(255,255,255,.24)"
+        fill={pattern.guardFill}
         stroke="rgba(255,255,255,.92)"
         strokeWidth={1.4}
       />

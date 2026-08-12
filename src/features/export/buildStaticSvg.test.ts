@@ -29,6 +29,7 @@ function editorChipMarkup(): string {
       id: 'ch_x' as ChairId,
       writer: createTransformWriter(),
       color: '#d93a3a',
+      team: 'home',
       number: '4',
       selected: true,
       active: true,

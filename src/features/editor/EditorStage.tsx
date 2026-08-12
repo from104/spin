@@ -111,6 +111,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       out.push({
         id: def.id,
         color,
+        // 팀 소속을 그대로 실어 보낸다 — 색 밖의 팀 표식(4.6)의 입력이다.
+        team: def.team,
         number: def.number,
         ariaLabel: `${teamStyle.label} ${def.number}번${def.role ? ` · ${def.role}` : ''}`,
       });

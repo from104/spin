@@ -22,7 +22,7 @@ function renderLayer(initialFrame?: Record<string, { x: number; y: number; theta
     <svg>
       <ObjectLayer
         writer={writer}
-        chairs={[{ id: chairId, color: '#d93a3a', number: '4', ariaLabel: 'A팀 4번 선수' }]}
+        chairs={[{ id: chairId, color: '#d93a3a', team: 'home', number: '4', ariaLabel: 'A팀 4번 선수' }]}
         balls={[ballId]}
         cones={[{ id: coneId, colorIndex: 0 }]}
         notes={notes}
@@ -95,7 +95,7 @@ describe('ObjectLayer — 선택/활성 상태 반영', () => {
       <svg>
         <ObjectLayer
           writer={writer}
-          chairs={[{ id: chairId, color: '#d93a3a', number: '4', ariaLabel: 'A팀 4번 선수' }]}
+          chairs={[{ id: chairId, color: '#d93a3a', team: 'home', number: '4', ariaLabel: 'A팀 4번 선수' }]}
           balls={[ballId]}
           cones={[]}
           notes={[]}
