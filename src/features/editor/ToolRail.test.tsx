@@ -41,12 +41,123 @@ function ControlledRail(props: { chairSlots?: ChairSlot[] }) {
   );
 }
 
+/** 도구를 **밖에서** 쥔 렌더 — 단축키(R·P·T)로 도구가 바뀐 상황을 그대로 흉내낸다.
+ *  ToolRail 은 단축키를 스스로 듣지 않는다(useEditorKeyboard 가 듣고 tool 을 내려준다). */
+function renderWithTool(tool: ToolId, onSelectTool: (t: ToolId) => void = () => {}) {
+  return render(
+    <ToolRail
+      tool={tool}
+      onSelectTool={onSelectTool}
+      coneSlot={0}
+      onConeSlotChange={() => {}}
+      {...FULL}
+      chairSlots={SLOTS}
+      pendingPlayerId={null}
+      onArmPlayer={() => {}}
+      courtLabel="풀 코트"
+    />,
+  );
+}
+
+/** 기능 구역 안의 표적만 센다 — 첫 화면 표적 예산(2.5)이 세는 것과 같은 단위다. */
+const functionTargets = () =>
+  [...document.querySelectorAll<HTMLElement>('[aria-label="기능"] button')].map(
+    (b) => b.textContent?.trim() ?? '',
+  );
+
 describe('ToolRail — 기능 구역', () => {
-  it('모드 도구 5종을 렌더한다', () => {
+  it('모드 도구는 3표적이다 — 선택 · 작도 손잡이 · 지우개 (3.-1)', () => {
+    // 5종을 상시 노출하면 §3 의 미착수분(도움말·빈 판 채우기·둘째 서랍)이 들어올 때
+    // 2.5 게이트(≤40)가 빨간불이 된다. 접는 것이지 없애는 게 아니다 — 아래 it 들이 그 증명.
     render(<ControlledRail />);
-    for (const label of ['선택', '이동', '패스', '메모', '지우개']) {
+    expect(functionTargets()).toHaveLength(3);
+    for (const label of ['선택', '작도', '지우개']) {
       expect(screen.getByRole('button', { name: new RegExp(`^${label}`) })).toBeInTheDocument();
     }
+  });
+
+  it('접힌 3종(이동·패스·메모)은 닫힌 서랍 안이라 첫 화면 표적이 아니다', () => {
+    // 숨기기(display:none)가 아니라 **DOM 에 없음**이라야 표적 수가 실제로 준다.
+    render(<ControlledRail />);
+    for (const label of ['이동', '패스', '메모']) {
+      expect(screen.queryByRole('button', { name: new RegExp(`^${label}`) }), label).toBeNull();
+    }
+    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('손잡이를 누르면 서랍이 열리고 접힌 3종이 나온다', async () => {
+    render(<ControlledRail />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /^작도/ }));
+    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'true');
+    for (const label of ['이동', '패스', '메모']) {
+      expect(screen.getByRole('button', { name: new RegExp(`^${label}`) }), label).toBeInTheDocument();
+    }
+    expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();
+  });
+
+  it('서랍이 열려도 위쪽 항목의 자리가 그대로다 — 조준 대상이 사용 중에 이동하지 않는다', async () => {
+    // §3 불변식 1. jsdom 에는 레이아웃이 없으므로 **문서 순서**로 잰다: 서랍 이전 항목들의
+    // 순서열이 개폐 전후로 한 칸도 안 밀리고, 새로 난 3칸은 전부 뒤에 붙는다.
+    render(<ControlledRail chairSlots={SLOTS} />);
+    // 손잡이 표식(▸/▾)은 여는 방향이라 개폐로 바뀐다 — 자리를 재는 데 쓰면 안 된다.
+    const order = () =>
+      [...document.querySelectorAll<HTMLElement>('nav button')].map(
+        (b) => b.getAttribute('aria-label') ?? (b.textContent ?? '').replace(/[▸▾]/g, '').trim(),
+      );
+    const before = order();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /^작도/ }));
+    const after = order();
+    expect(after.slice(0, before.length)).toEqual(before);
+    expect(after.slice(before.length)).toEqual(['이동', '패스', '메모']);
+  });
+
+  it('단축키로 접힌 도구가 켜지면 서랍이 스스로 열린다 — 잠긴 기능 0개(§3 불변식 2)', () => {
+    // R·P·T 는 접힌 상태에서도 살아 있다. 도구만 바뀌고 서랍이 닫혀 있으면 활성 도구가
+    // 화면에 없는 상태가 되고, 그게 정확히 '잠긴 기능'이다.
+    renderWithTool('pass');
+    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /^패스/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('한 번 열린 서랍은 도구가 선택으로 돌아가도 닫히지 않는다 — 배운 자리가 사라지지 않는다', () => {
+    const { rerender } = renderWithTool('note');
+    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'true');
+    rerender(
+      <ToolRail
+        tool="select"
+        onSelectTool={() => {}}
+        coneSlot={0}
+        onConeSlotChange={() => {}}
+        {...FULL}
+        chairSlots={SLOTS}
+        pendingPlayerId={null}
+        onArmPlayer={() => {}}
+        courtLabel="풀 코트"
+      />,
+    );
+    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /^메모/ })).toBeInTheDocument();
+  });
+
+  it('서랍 안 도구를 누르면 그 도구가 켜진다 — 접었지 없애지 않았다', async () => {
+    const onSelectTool = vi.fn<(t: ToolId) => void>();
+    renderWithTool('select', onSelectTool);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /^작도/ }));
+    await user.click(screen.getByRole('button', { name: /^이동/ }));
+    expect(onSelectTool).toHaveBeenCalledWith('route');
+    // 대조군: 손잡이 자체는 도구를 고르지 않는다(열고 닫기만 한다) — 위 1회가 전부다.
+    expect(onSelectTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('손잡이도 --hit 손잡이다 — 서랍을 여는 것이 44 미만이면 접은 값이 없다', () => {
+    render(<ControlledRail />);
+    const handle = screen.getByRole('button', { name: /^작도/ });
+    expect(handle.style.minWidth).toBe('var(--hit)');
+    expect(handle.style.minHeight).toBe('var(--hit)');
+    expect(handle.style.width).toBe('52px');
   });
 
   it("'선수' 는 모드 버튼이 아니라 칩으로 놓인다", () => {
