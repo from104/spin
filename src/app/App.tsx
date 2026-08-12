@@ -2,10 +2,12 @@
 // EditorProvider/PlaybackProvider 는 여기 없다 — "editor 화면에서만"/"editor·present 화면
 // 공용"(§6.7 표) 이라 화면을 실제로 마운트하는 screen-editor/screen-present 가 그 화면 트리
 // 안에서 직접 마운트한다. App 은 앱 전역 3종(Settings·Library·Toast)만 책임진다.
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { cues } from '../ui/cues.ts';
-import { SettingsProvider, useSettingsState } from '../store/settings/SettingsProvider.tsx';
-import { LibraryProvider } from '../store/library/LibraryProvider.tsx';
+import { resolveDrillRepo } from '../storage/drillRepo.ts';
+import { seedDrillsOnce } from '../storage/seed.ts';
+import { SettingsProvider, useSettingsActions, useSettingsState } from '../store/settings/SettingsProvider.tsx';
+import { LibraryProvider, useLibraryActions } from '../store/library/LibraryProvider.tsx';
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
 import { AppShell } from './AppShell.tsx';
 
@@ -43,11 +45,54 @@ export function ThemeEffects() {
   return null;
 }
 
+/** §3 seed 드릴 1회 심기(3.8). `ThemeEffects` 와 같은 자리·같은 모양이다 — 아무것도 안 그리고
+ *  prefs 를 한 번 읽어 부작용 하나를 배선하는 조각. export 는 테스트용이다.
+ *
+ *  **왜 LibraryProvider 안이 아니라 여기인가**: 저장소를 쥔 쪽은 LibraryProvider 지만, 거기에
+ *  넣으면 그 Provider 가 `SettingsProvider` **없이는 못 서는 물건**이 된다. 지금 그것을 단독으로
+ *  마운트하는 테스트가 셋 있고(`LibraryProvider.test.tsx` · `LibraryScreen.test.tsx` ·
+ *  `SessionDrawer.test.tsx`), 그 중 둘은 `screen-home-library` 소유다. app-shell 은 의존이 전부
+ *  열려 있는 유일한 모듈이라(§8) 두 Provider 를 함께 보는 조립은 원래 이쪽 몫이다.
+ *
+ *  **순서가 계약이다**: 심기 → 도장. 도장을 먼저 찍으면 심기가 실패한 기기에서 온보딩이 영영
+ *  사라진다. 반대 순서의 위험(도장을 못 찍어 다음 실행에 또 심기)은 `storage/seed.ts` 의
+ *  자물쇠 ②(같은 제목이 이미 있으면 안 심는다)가 받는다.
+ *
+ *  **ref 가드는 StrictMode 때문이다**(main.tsx). 이중 마운트에서 effect 가 두 번 도는데 ref 는
+ *  remount 를 건너 살아남는다. 대신 **취소 플래그는 두지 않는다** — 첫 회를 취소하면 심기는
+ *  이미 나갔는데 도장과 목록 갱신만 빠지는, 가장 나쁜 절반 상태가 된다. */
+export function SeedDrills() {
+  const { prefs } = useSettingsState();
+  const { setPrefs } = useSettingsActions();
+  const { refresh } = useLibraryActions();
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (prefs.seeded || startedRef.current) return;
+    startedRef.current = true;
+    void (async () => {
+      try {
+        const { repo } = await resolveDrillRepo();
+        const outcome = await seedDrillsOnce(repo, { seeded: false });
+        setPrefs({ seeded: true });
+        if (outcome.seeded) await refresh();
+      } catch {
+        // IDB 열화·쿼터 초과. 도장을 안 찍었으니 다음 실행에서 다시 시도한다 — 온보딩 드릴
+        // 셋이 없다고 앱이 못 뜰 이유는 없으므로 조용히 넘긴다(§4.5 "드릴 목록은 살아있어야").
+        startedRef.current = false;
+      }
+    })();
+  }, [prefs.seeded, setPrefs, refresh]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <SettingsProvider>
       <ThemeEffects />
       <LibraryProvider>
+        <SeedDrills />
         <ToastProvider>
           <AppShell />
         </ToastProvider>
