@@ -436,3 +436,15 @@ describe('3.0 알 수 없는 미래 버전', () => {
     expect(r).toEqual({ ok: false, reason: 'too-new', found: CURRENT_PREFS_SCHEMA + 1, supported: CURRENT_PREFS_SCHEMA });
   });
 });
+
+// ── 5.0 ④(2026-08-13) — 죽은 export UI_KEY('spin.ui') 삭제 ────────────────────────────────────
+// 호출자 0곳이었다(rg 로 문자열 'spin.ui' 까지 확인 — 남은 곳은 docs/DESIGN.md 의 옛 스냅숏뿐).
+// 남겨 두면 다음 사람이 "이 키는 왜 backup 봉투에 안 들어가지" 를 다시 조사한다.
+describe('사라진 계약 — UI_KEY 는 이 모듈에 없다 (5.0 ④)', () => {
+  it('UI_KEY 가 더 이상 export 되지 않는다', async () => {
+    const mod: Record<string, unknown> = await import('./prefs.ts');
+    expect('UI_KEY' in mod).toBe(false);
+    // 대조군 — 이 검사가 모듈을 실제로 읽었다(이름을 틀려 빈 객체를 본 것이 아니다).
+    expect(mod.PREFS_KEY).toBe('spin.prefs');
+  });
+});

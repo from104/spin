@@ -14,7 +14,10 @@ import type { Repair } from '../model/validate.ts';
 import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
 
 export const PREFS_KEY = 'spin.prefs';
-export const UI_KEY = 'spin.ui';
+// `UI_KEY = 'spin.ui'` 는 여기 없다(5.0 ④ 로 삭제, 2026-08-13). 호출자 0곳인 죽은 export 였고
+// — rg 로 문자열 'spin.ui' 까지 확인, 남은 곳은 docs/DESIGN.md 의 옛 스냅숏뿐 — 남겨 두면
+// 다음 사람이 "이 키는 왜 백업(backup 봉투)에 안 들어가지" 를 다시 조사하게 된다.
+// 이 앱이 localStorage 에 쓰는 키는 PREFS_KEY 와 board.ts 의 BOARD_KEY 둘뿐이다.
 /** 3.0 에서 1 → 2. 트레이 서랍·seed 도장·2존 모드를 **한 번에** 태운 상승이다(§7 E-6) —
  *  네 필드를 따로 올렸으면 여기까지 오는 동안 백업 파일의 스키마가 네 갈래로 갈라졌다. */
 export const CURRENT_PREFS_SCHEMA = 2;
