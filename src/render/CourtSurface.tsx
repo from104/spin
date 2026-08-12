@@ -17,14 +17,20 @@ export interface CourtLineWeights {
   /** thumb 은 킥인 원을 그리지 않는다. */
   spotR?: number;
   spotSw?: number;
-  centerR: number;
+  /** 센터 마크(15 cm "X") 선 굵기.
+   *
+   *  ⚠️ 5.3 이전에는 이 자리가 `centerR`(흰 **점**의 반지름 4.5/5/2)이었다. 점을 지운 이유는
+   *  규격이다 — Laws 2025 의 중앙 표시는 점이 아니라 **15 cm X** 하나이고, 반지름 4.5 px 짜리
+   *  점은 지름 36 cm 로 그 마크보다 2.4 배 크다. X 를 그 점 아래 그리면 통째로 가려진다.
+   *  같은 커밋에서 규정에 없는 센터 서클(r=75)도 지웠다(§9 결정 ⑧). */
+  centerMark: number;
 }
 
-// §6.6 표: editor 3/2.8/2.2/r4·sw1.5/r4.5 · present 3.2/3/2.4/r4.4·sw1.6/r5 · thumb 4/3.25/—/—/r2
+// §6.6 표: editor 3/2.8/2.2/r4·sw1.5/X2.2 · present 3.2/3/2.4/r4.4·sw1.6/X2.4 · thumb 4/3.25/—/—/X2
 export const COURT_LINE_WEIGHTS: Record<CourtLineVariant, CourtLineWeights> = {
-  editor: { outline: 3, goalArea: 2.8, goalCross: 2.2, spotR: 4, spotSw: 1.5, centerR: 4.5 },
-  present: { outline: 3.2, goalArea: 3, goalCross: 2.4, spotR: 4.4, spotSw: 1.6, centerR: 5 },
-  thumb: { outline: 4, goalArea: 3.25, centerR: 2 },
+  editor: { outline: 3, goalArea: 2.8, goalCross: 2.2, spotR: 4, spotSw: 1.5, centerMark: 2.2 },
+  present: { outline: 3.2, goalArea: 3, goalCross: 2.4, spotR: 4.4, spotSw: 1.6, centerMark: 2.4 },
+  thumb: { outline: 4, goalArea: 3.25, centerMark: 2 },
 };
 
 export interface CourtSurfaceProps {

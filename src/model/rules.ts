@@ -24,8 +24,8 @@ import { mToPx, type Vec2 } from '../core/units.ts';
 import type { Rect } from './court.ts';
 import type { TeamSide } from './drill.ts';
 
-/** 3 m. 25 px/m 이므로 75 월드px — 우연히 지금 그려지는 센터 서클과 같은 반지름이다
- *  (계획서 §9-⑧: 그 원은 규정에 없어 5.3 에서 지운다. 링이 그 자리를 대신한다). */
+/** 3 m. 25 px/m 이므로 75 월드px — 옛 센터 서클과 우연히 반지름이 같았다. 그 원은 규정에
+ *  없어 5.3 이 지웠고(§9 결정 ⑧), 3 m 감각은 **공을 따라다니는 이 링**이 대신한다. */
 export const RING_R_PX = mToPx(3);
 const RING_R2 = RING_R_PX * RING_R_PX;
 

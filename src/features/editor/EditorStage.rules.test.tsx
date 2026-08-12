@@ -95,7 +95,9 @@ function mount(drill: Drill, showRuleZones = true) {
   return { ...view, writer, rules, say };
 }
 
-/** 링은 그룹 원점에 그려져 cx 가 없다 — 코트의 센터 서클(같은 r=75, cx 있음)과 구별된다. */
+/** 링은 그룹 원점에 그려져 cx 가 없다. 5.3 이전에는 코트에 같은 r=75 인 센터 서클(cx 있음)이
+ *  있어서 이 조건이 둘을 갈랐다 — 그 원은 §9 결정 ⑧ 으로 지워졌지만 조건은 그대로 둔다
+ *  (되살아나면 링 테스트가 그 원을 링으로 착각해 조용히 초록불이 된다). */
 function ring(container: HTMLElement): { follower: Element; state: Element } | null {
   const circle = container.querySelector(`circle[r="${RING_R_PX}"]:not([cx])`);
   if (!circle) return null;

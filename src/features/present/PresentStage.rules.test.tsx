@@ -83,9 +83,10 @@ const announced = (): string => (liveRegion.el?.textContent ?? '').replace(/​/
 
 /** 링 = 반지름 75 원을 담은 그룹. 바깥 그룹이 TransformWriter 팔로워다.
  *
- *  ⚠️ `cx` 가 **없는** 것으로 고른다: 지금 코트에는 반지름이 똑같이 75 인 원이 하나 더 있다
- *  (규정에 없는 센터 서클 — 계획서 §9-⑧ 이 5.3 에서 지우기로 확정했다). 링은 그룹 원점에
- *  그려지므로 cx/cy 를 갖지 않고, 센터 서클은 코트 중앙 좌표를 갖는다. */
+ *  ⚠️ `cx` 가 **없는** 것으로 고른다. 원래 이유는 코트에 반지름이 똑같이 75 인 원이 하나 더
+ *  있었기 때문이다(규정에 없는 센터 서클). 5.3 이 그 원을 지웠지만 선택자는 **그대로 둔다** —
+ *  아래 '[결정 ⑧ 완료]' 가 "cx 있는 r=75 원은 없다" 를 재고 있어서, 선택자를 느슨하게 풀면
+ *  센터 서클이 되살아났을 때 링 테스트가 그 원을 링으로 착각해 전부 초록불이 된다. */
 function ring(container: HTMLElement): { follower: Element; state: Element } | null {
   const circle = container.querySelector(`circle[r="${RING_R_PX}"]:not([cx])`);
   if (!circle) return null;
@@ -136,12 +137,15 @@ describe('PresentStage — 3 m 링이 시연 경로에도 붙는다', () => {
     expect(layer.getAttribute('pointer-events')).toBe('none');
   });
 
-  it('[결정 ⑧] 아직 남아 있는 센터 서클과 반지름이 같다 — 그래서 시각 언어를 다르게 쓴다', () => {
-    // 5.3 이 규정에 없는 센터 서클(실선 r=75)을 지울 때까지 두 원이 겹쳐 보이는 구간이 있다.
-    // 규칙은 파선, 코트는 실선 — 이 차이가 그 구간을 견딘다.
+  it('[결정 ⑧ 완료] 코트에는 이제 반지름 75 원이 **없다** — 링만 남고 시각 언어는 그대로 파선이다', () => {
+    // ⚠️ 이 단언은 승격된 것이다. 옛 판은 "아직 남아 있는 센터 서클과 반지름이 같으니 시각
+    //    언어(실선/파선)를 다르게 쓴다" 를 쟀다. 5.3 이 규정에 없는 센터 서클을 지웠으므로
+    //    이제 재야 하는 것은 **그 원이 없다는 것**이다 — 되돌아오면 공이 센터에 있을 때 실선
+    //    원과 파선 링이 같은 자리에 겹친다.
     const { container } = mount(CLEAN);
-    const center = container.querySelector(`circle[r="${RING_R_PX}"][cx]`)!;
-    expect(center.getAttribute('stroke-dasharray')).toBeNull(); // 코트 = 실선
+    expect(container.querySelector(`circle[r="${RING_R_PX}"][cx]`)).toBeNull();
+    // 대조군 — 부재 단언이 헛것이 아니다: cx 없는 링은 실제로 있고, 파선이다.
+    expect(ring(container)).not.toBeNull();
     expect(ring(container)!.state.getAttribute('stroke-dasharray')).toBe('8 6'); // 규칙 = 파선
   });
 });

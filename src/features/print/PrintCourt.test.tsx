@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { createDrill } from '../../model/defaults.ts';
+import { COURT_DEFS } from '../../model/court.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { ArrowId, NoteId } from '../../core/ids.ts';
 import { PrintCourt } from './PrintCourt.tsx';
@@ -69,6 +70,37 @@ describe('PrintCourt — 이 스텝에 놓인 것만, 놓인 자리에 그린다
     expect(container.querySelectorAll('[data-print-chair],[data-print-ball],[data-print-cone],[data-print-arrow],[data-print-note]')).toHaveLength(0);
     // 그래도 코트 자체는 그려진다(그림이 통째로 빈 것이 아니다).
     expect(container.querySelector('svg')).not.toBeNull();
+  });
+});
+
+// ── 5.2 · 5.3: 종이도 같은 코트를 그린다 ────────────────────────────────────────────────────
+// PrintCourt 는 `CourtSurface` 를 그대로 쓰므로 규격 변경이 **저절로** 따라온다. 그래도 여기서
+// 한 번 실제로 재는 이유는, "저절로 되겠지" 가 화면과 인쇄물이 다른 코트를 그리게 두는 그 가정이기
+// 때문이다(내보내기 쪽은 마크업이 손으로 옮겨져 있어 courtLines.contract.test.ts 가 따로 지킨다).
+describe('인쇄 코트도 FIPFA 규격을 따른다 (5.2 인크로치먼트 · 5.3 센터 마크)', () => {
+  it('인크로치먼트 마크 4개와 센터 마크가 종이에도 실리고, 센터 서클은 없다', () => {
+    const { drill, step } = fixture();
+    const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" />);
+    const def = COURT_DEFS[drill.courtMode];
+    const ds = Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d') ?? '');
+    expect(def.encroachMarks).toHaveLength(4); // 대조군: 0개라서 통과하는 길을 막는다
+    for (const d of def.encroachMarks) expect(ds).toContain(d);
+    expect(ds).toContain(def.centerMark);
+    // §9 결정 ⑧ — 규정에 없는 3 m 원은 종이에도 없다.
+    expect(container.querySelector('circle[r="75"]')).toBeNull();
+    expect(container.querySelector('circle[fill="#ffffff"]')).toBeNull();
+    // 대조군: 원 자체는 그려진다(골대 4개 + 공 1개) — 부재 단언이 헛것이 아니다.
+    expect(container.querySelectorAll('circle').length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('하프 코트 인쇄물은 마크가 2개이고 센터 마크가 없다 — 코트 모드를 실제로 탄다', () => {
+    const base = createDrill({ courtMode: 'half', formation: '1-2-1' });
+    const { container } = render(<PrintCourt drill={base} step={base.steps[0]!} ariaLabel="코트" />);
+    const ds = Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d') ?? '');
+    for (const d of COURT_DEFS.half.encroachMarks) expect(ds).toContain(d);
+    for (const d of COURT_DEFS.full.encroachMarks) expect(ds).not.toContain(d); // 풀 좌표가 아니다
+    expect(ds).not.toContain(COURT_DEFS.full.centerMark);
+    expect(COURT_DEFS.half.centerMark).toBeNull();
   });
 });
 

@@ -1,5 +1,9 @@
 // 하프 코트 라인. template.html 285–303행(editor)·441–459행(present) 마크업을 좌표 그대로
 // 이식하고 굵기만 variant 로 분기한다. 센터점(circle fill white)은 하프 마크업에 없다 — 추가하지 않는다.
+// ⚠️ 이 두 번째 줄은 **5.3 이 확인하고 그대로 둔 결정**이다(계획서 §5차 5.3 행: "HalfCourtLines.tsx:2
+// 주석은 옳으니 뒤집지 않는다"). 5.3 이 풀 코트에 넣은 **센터 마크(15 cm X)도 여기에는 없다** —
+// 하프 코트는 공격 진영만 그리는 훈련용 구획이라 판 위에 하프라인이 없고, 위쪽 변에 X 를 찍으면
+// 코치가 경기면의 끝을 중앙으로 읽는다. 되돌리면(= 여기에 X 를 넣으면) 그 오독이 되살아난다.
 //
 // 좌표 출처는 COURT_DEFS.half 하나뿐이다(진실 공급원 통일 — 감사 2026-08-08 minor).
 import { COURT_DEFS } from '../../model/court.ts';
@@ -35,8 +39,15 @@ export function HalfCourtLines({ variant }: HalfCourtLinesProps) {
           strokeWidth={w.outline}
         />
         <line x1={S.x} y1={S.y} x2={S.x + S.w} y2={S.y} strokeWidth={w.outline} />
-        <path d={`M${S.x + S.w / 2 - 75},${S.y} A75,75 0 0 0 ${S.x + S.w / 2 + 75},${S.y}`} strokeWidth={w.outline} />
+        {/* ⚠️ 여기 있던 **센터 서클 반원**(`A75,75`)을 지웠다 — 5.3/§9 결정 ⑧. 반지름 3 m 원은
+            Laws 2025 에 없다(전문 50쪽에 "circle" 0회). 되돌리면 하프 코트 위쪽 변이 다시 일반
+            축구의 센터 서클처럼 보인다. 대신 **센터 마크는 넣지 않는다** — 이 판에는 하프라인이
+            없다(파일 머리말과 court.ts 의 `half.centerMark: null` 이 같은 근거를 적어 뒀다). */}
         {DEF.cornerCuts.map((d) => (
+          <path key={d} d={d} strokeWidth={w.outline} />
+        ))}
+        {/* 5.2 — 인크로치먼트 마크. 골대가 하나뿐이라 **2개**다(풀은 4개). */}
+        {DEF.encroachMarks.map((d) => (
           <path key={d} d={d} strokeWidth={w.outline} />
         ))}
         <path

@@ -57,6 +57,13 @@ export interface CourtDef {
   goalPosts: Vec2[];
   cornerCuts: string[];
   spotMarks: Vec2[];
+  /** **코너킥 인크로치먼트 마크**(Laws 2025 신설, §5.2). SVG path `d` 문자열 — `cornerCuts` 와
+   *  같은 규약이다. 골대마다 2개이므로 풀 **4개** · 하프 2개 · 플랫 0개다.
+   *  기준점은 코너가 아니라 **골포스트**다 — 근거는 `goalEncroachMarks` 머리말 ⚠️. */
+  encroachMarks: string[];
+  /** **센터 마크**(15 cm "X", §5.3). 하프라인 중점에 하나. 하프라인을 그리지 않는 판은 `null`
+   *  이다 — 하프·플랫이 그렇다(`HalfCourtLines.tsx` 머리말이 근거를 적어 뒀다). */
+  centerMark: string | null;
   grid: { cols: number; rows: number; cellW: number; cellH: number; origin: Vec2 };
   homeHeadingDeg: number;
   awayHeadingDeg: number;
@@ -79,11 +86,49 @@ const AREA_DEPTH_PX = 5 * PX_PER_M; // 골 지역 깊이 5 m
 const AREA_HALF_PX = 4 * PX_PER_M; // 골 지역 폭 8 m 의 반
 const PENALTY_PX = 3.5 * PX_PER_M; // 페널티 마크 — 골라인에서 3.5 m
 const CORNER_PX = 1 * PX_PER_M; // 코너 삼각형 — 각 코너에서 1 m, 필드 안쪽
+// ── §5.2 코너킥 인크로치먼트 마크 (Laws 2025 신설) ───────────────────────────────────────────
+const ENCROACH_INSET_PX = 1 * PX_PER_M; // 골포스트에서 **골 안쪽으로** 1 m
+/** 마크가 골라인 밖으로 뻗는 길이. **Laws 는 이 길이를 적지 않는다** — 규정이 정하는 것은
+ *  "어디서 시작하는가"(포스트 안쪽 1 m)와 "어느 쪽으로 긋는가"(골라인에 수직, 필드 밖)뿐이다.
+ *  그래서 0.5 m 는 규격이 아니라 **그리기 선택**이고, 근거는 심판 구역 1.5 m 의 1/3 이라는 것이다
+ *  — 마크가 판 가장자리(viewBox)에 닿지 않고, 세 코트 크기에서 마진이 같으므로 셋 다 같은 여유를
+ *  갖는다. courtMarks.test.ts 가 '끝점이 viewBox 안' 을 세 크기 전부에서 잰다. */
+const ENCROACH_LEN_PX = 0.5 * PX_PER_M;
+/** §5.3 센터 마크 — 하프라인 중점의 **15 cm "X"**. Laws 2025 전문(50쪽)에 *"circle"* 이 0회
+ *  나온다: 파워체어 풋볼에는 센터 서클이 없고 이 X 만 있다(§9 결정 ⑧). */
+const CENTER_MARK_PX = 0.15 * PX_PER_M;
 // 격자는 **상대 좌표계**다. 코트가 작아져도 6×5 를 유지한다 — 코치가 쓰는 말은 "a1 쪽" 이지
 // "5 m 칸" 이 아니고, 칸 수가 크기마다 달라지면 같은 드릴을 다른 코트에서 설명할 수 없다.
 // (그 대신 칸의 미터 치수는 크기마다 달라진다: 30×18 은 5.0×3.6 m, 25×14 는 4.17×2.8 m.)
 const GRID_COLS = 6;
 const GRID_ROWS = 5;
+
+/** 한 골대(포스트 두 개)의 코너킥 인크로치먼트 마크 2개를 만든다.
+ *
+ *  ⚠️ **코너에서 재는 거리가 아니다.** Laws 2025 Law 17 은 *"각 골포스트 안쪽 1 m"* 라고 적는다 —
+ *  기준점은 코너가 아니라 **포스트**다. 코너 삼각형도 마침 1 m 라(위 `CORNER_PX`) 둘을 헷갈리기
+ *  딱 좋은데, 코너 기준으로 그리면 코트가 커질수록 마크가 골대에서 멀어져 **코치가 규칙을 잘못
+ *  배운다**(코너킥 때 골 지역 수비수가 서야 하는 자리가 바로 이 마크 뒤다).
+ *
+ *  `a`·`b` 는 **같은 골대**의 두 포스트(순서 무관), `out` 은 골라인에 수직인 **필드 밖** 단위벡터다.
+ *  포스트 좌표를 그대로 받으므로 코트 크기가 바뀌어도 저절로 따라온다(규칙 10 — 리터럴 금지). */
+function goalEncroachMarks(a: Vec2, b: Vec2, out: Vec2): string[] {
+  const len = Math.hypot(b.x - a.x, b.y - a.y); // 골대 폭 6 m — 크기 3단에서 변하지 않는다
+  const ux = (b.x - a.x) / len;
+  const uy = (b.y - a.y) / len;
+  const mark = (p: Vec2): string =>
+    `M${p.x},${p.y} L${p.x + out.x * ENCROACH_LEN_PX},${p.y + out.y * ENCROACH_LEN_PX}`;
+  return [
+    mark({ x: a.x + ux * ENCROACH_INSET_PX, y: a.y + uy * ENCROACH_INSET_PX }),
+    mark({ x: b.x - ux * ENCROACH_INSET_PX, y: b.y - uy * ENCROACH_INSET_PX }),
+  ];
+}
+
+/** 센터 마크 — 중점 `c` 를 중심으로 한 변 15 cm 인 "X" 두 획. */
+function centerMarkD(c: Vec2): string {
+  const r = CENTER_MARK_PX / 2;
+  return `M${c.x - r},${c.y - r} L${c.x + r},${c.y + r} M${c.x + r},${c.y - r} L${c.x - r},${c.y + r}`;
+}
 
 function buildFullCourt(lengthM: number, widthM: number, desc: string): CourtDef {
   const w = lengthM * PX_PER_M;
@@ -93,6 +138,14 @@ function buildFullCourt(lengthM: number, widthM: number, desc: string): CourtDef
   const x1 = x0 + w;
   const y1 = y0 + h;
   const cy = y0 + h / 2;
+  // 골포스트 4개. 인크로치먼트 마크가 **이 배열을 그대로 받아** 파생되므로, 골대가 움직이면
+  // 마크도 같이 움직인다(둘이 갈라질 자리 자체가 없다).
+  const posts: Vec2[] = [
+    { x: x0, y: cy - GOAL_HALF_PX },
+    { x: x0, y: cy + GOAL_HALF_PX },
+    { x: x1, y: cy - GOAL_HALF_PX },
+    { x: x1, y: cy + GOAL_HALF_PX },
+  ];
   return {
     mode: 'full',
     label: '풀 코트',
@@ -105,12 +158,14 @@ function buildFullCourt(lengthM: number, widthM: number, desc: string): CourtDef
       { x: x0, y: cy - AREA_HALF_PX, w: AREA_DEPTH_PX, h: 2 * AREA_HALF_PX },
       { x: x1 - AREA_DEPTH_PX, y: cy - AREA_HALF_PX, w: AREA_DEPTH_PX, h: 2 * AREA_HALF_PX },
     ],
-    goalPosts: [
-      { x: x0, y: cy - GOAL_HALF_PX },
-      { x: x0, y: cy + GOAL_HALF_PX },
-      { x: x1, y: cy - GOAL_HALF_PX },
-      { x: x1, y: cy + GOAL_HALF_PX },
+    goalPosts: posts,
+    // 좌우 골대 각각 2개 → 4개. 필드 밖 방향은 좌골대가 −x, 우골대가 +x 다.
+    encroachMarks: [
+      ...goalEncroachMarks(posts[0]!, posts[1]!, { x: -1, y: 0 }),
+      ...goalEncroachMarks(posts[2]!, posts[3]!, { x: 1, y: 0 }),
     ],
+    // 하프라인의 중점 = 경기면 중심. 풀 코트에만 하프라인이 있으므로 센터 마크도 여기뿐이다.
+    centerMark: centerMarkD({ x: x0 + w / 2, y: cy }),
     cornerCuts: [
       `M${x0},${y0 + CORNER_PX} L${x0 + CORNER_PX},${y0}`,
       `M${x1 - CORNER_PX},${y0} L${x1},${y0 + CORNER_PX}`,
@@ -138,6 +193,13 @@ export const FULL_COURT_DEFS: Record<CourtSize, CourtDef> = {
   '25x14': buildFullCourt(25, 14, '규격 최소 크기. 좁은 체육관·소규모 훈련장에 맞춘 코트입니다.'),
 };
 
+/** 하프 코트의 골포스트. 인크로치먼트 마크가 이 배열에서 파생되도록 이름을 준 것뿐이다
+ *  (풀 코트의 `posts` 와 같은 이유 — 골대와 마크가 갈라질 자리를 없앤다). */
+const HALF_GOAL_POSTS: Vec2[] = [
+  { x: 187.5, y: 412.5 },
+  { x: 337.5, y: 412.5 },
+];
+
 export const COURT_DEFS: Record<CourtMode, CourtDef> = {
   // ⚠️ **같은 객체**를 가리킨다(사본이 아니다). `COURT_DEFS.full` 을 읽는 기존 소비처 전부가
   // 크기 3단 도입 뒤에도 정확히 예전 값을 본다는 것이 이 한 줄의 뜻이다 — 크기를 아는 코드는
@@ -162,10 +224,14 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
     vbH: 450,
     surface: { x: 37.5, y: 37.5, w: 450, h: 375 },
     ruleZones: [{ x: 162.5, y: 287.5, w: 200, h: 125 }],
-    goalPosts: [
-      { x: 187.5, y: 412.5 },
-      { x: 337.5, y: 412.5 },
-    ],
+    goalPosts: HALF_GOAL_POSTS,
+    // 골대가 하나뿐이라 마크는 2개. 하프 코트의 골라인은 아래쪽 변이므로 필드 밖은 +y 다.
+    encroachMarks: goalEncroachMarks(HALF_GOAL_POSTS[0]!, HALF_GOAL_POSTS[1]!, { x: 0, y: 1 }),
+    // ⚠️ **센터 마크는 없다**(§5.3, 계획서가 못박은 자리다). 이 판에는 하프라인이 그려지지
+    //    않는다 — 위쪽 변은 경기면의 끝이지 "중앙" 이 아니고, 그 선 위에 X 를 찍으면 코치가
+    //    코트 바깥 가장자리를 센터로 읽는다. 파일 머리말의 "센터점은 하프 마크업에 없다 —
+    //    추가하지 않는다"(HalfCourtLines.tsx:2)와 같은 판단이고, 그 주석은 뒤집지 않는다.
+    centerMark: null,
     cornerCuts: ['M37.5,387.5 L62.5,412.5', 'M462.5,412.5 L487.5,387.5'],
     spotMarks: [{ x: 262.5, y: 325 }],
     grid: { cols: 5, rows: 3, cellW: 90, cellH: 125, origin: { x: 37.5, y: 37.5 } },
@@ -184,6 +250,10 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
     surface: { x: 0, y: 0, w: 525, h: 450 },
     ruleZones: [],
     goalPosts: [],
+    // 라인이 하나도 없는 자유판이다 — 골대가 없으니 인크로치먼트 마크도, 하프라인이 없으니
+    // 센터 마크도 없다.
+    encroachMarks: [],
+    centerMark: null,
     cornerCuts: [],
     spotMarks: [],
     grid: { cols: 21, rows: 18, cellW: 25, cellH: 25, origin: { x: 0, y: 0 } },

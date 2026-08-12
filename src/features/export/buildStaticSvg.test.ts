@@ -215,8 +215,11 @@ describe('buildStaticSvg — 규칙 오버레이(3 m 링 · 골 지역)', () => 
   it('켜면 공마다 3 m 링이 하나씩 생기고, 깨끗하면 흰 파선이다', () => {
     const doc = parse(buildStaticSvg(makeFrame(), ringOpts));
     const rings = [...doc.querySelectorAll('circle')].filter((c) => c.getAttribute('r') === '75');
-    // 센터 서클(r=75, 실선 흰색)이 코트 라인에 하나 있고 링이 2개(케이싱+본선) 더 붙는다.
-    expect(rings.length).toBe(3);
+    // ⚠️ 옛 판은 3개였다 — 링 2개(케이싱+본선)에 **코트의 센터 서클**(r=75 실선 흰색)이 하나
+    //    더 있었기 때문이다. 5.3 이 그 원을 지웠으므로(§9 결정 ⑧) 이제 정확히 2개다.
+    //    이 숫자가 다시 3이 되면 규정에 없는 원이 내보낸 그림에 되살아난 것이다.
+    expect(rings.length).toBe(2);
+    expect(rings.filter((c) => c.hasAttribute('cx'))).toHaveLength(0); // 링은 그룹 원점에 그려진다
     expect(doc.documentElement.outerHTML.includes(RULE_ALERT_STROKE)).toBe(false);
   });
 
