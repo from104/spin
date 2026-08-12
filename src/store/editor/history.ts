@@ -88,6 +88,9 @@ export function withHistory<S extends HistoryState>(reducer: (s: S, a: EditorAct
     const next = reducer(s, a);
     if (next === s.present) return s; // 변화 없음 — 히스토리·리렌더 억제
 
+    // ⚠ 이 Set 은 PLACE_COMMIT·PLACE_SETTLE 을 통제하지 못한다 — 위의 조기 분기가 둘을 먼저
+    //   가로채므로 여기까지 오지 않는다. [A-4] epoch 불변을 실제로 지키는 자리는 그 분기다.
+    //   (2026-08-12 검증관 FV-1: Set 에 'PLACE_SETTLE' 을 넣어도 아무 테스트도 빨간불이 안 됐다.)
     const epoch = EPOCH_BUMP_TYPES.has(a.type) ? s.epoch + 1 : s.epoch;
     const key = coalesceKeyOf(a, s.present.id);
     const now = Date.now();

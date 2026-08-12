@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
-import { BALL, DEFAULT_ZONES } from '../../core/constants.ts';
+import { BALL, DEFAULT_ZONES, INTERACT, PHYS } from '../../core/constants.ts';
 import type { ChairId } from '../../core/ids.ts';
 import { poseToStored } from '../../model/chair.ts';
 import { createDrill } from '../../model/defaults.ts';
@@ -136,6 +136,39 @@ describe('정착 후 재커밋 (P0-2)', () => {
       // ⑤ [A-4] epoch 불변. 올라가면 EditorProvider 가 world.load 로 바디를 전량 재생성하고
       //    → 다시 정착 → 다시 재커밋으로 **무한 루프**가 된다.
       expect(result.current.state.epoch).toBe(epoch0);
+    },
+    30000,
+  );
+
+  // 2026-08-12 검증관 지적(FV-4): 억제 창의 **리듀서 계약**(SETTLE_ARM → settleHoldUntil)과
+  // **소비자 계약**(창이 열려 있으면 putDrill 1회)은 각각 단언돼 있었는데, 둘을 잇는 생산자
+  // 배선은 아무도 안 봤다 — useEditorPointer 의 dispatch 를 지워도 전체 스위트가 초록불이었다.
+  // 회귀하면 드래그당 IDB 쓰기가 2회로 돌아가고, useAutosave.flush() 의 savingRef 경로 때문에
+  // **정작 저장돼야 할 정착 좌표를 실은 두 번째 쓰기가 조용히 사라진다.** 조용한 데이터 유실이다.
+  it(
+    '손을 떼면 자동저장 억제 창이 열리고, 정착 재커밋이 그것을 닫는다 (A-5 생산자 배선)',
+    async () => {
+      const { drill, chairId } = makeDrill();
+      const { result } = mount(drill);
+      const poseOf = () => result.current.state.present.steps[0]!.chairs[chairId]!;
+      expect(result.current.state.settleHoldUntil).toBe(0);
+
+      const ctrl = () => result.current.pointer.controller;
+      act(() => void ctrl().onPointerDown({ x: START.x, y: START.y }, META));
+      act(() => ctrl().onPointerMove({ x: START.x + DRAG_DX, y: START.y }, 0));
+
+      const before = Date.now();
+      act(() => ctrl().onPointerUp(null));
+
+      // ① 창이 열린다. 마감은 체이스 상한 + 정착 상한 — 통지가 영영 안 와도 스스로 풀리도록
+      //    불리언이 아니라 **절대 시각**이어야 한다.
+      const until = result.current.state.settleHoldUntil;
+      expect(until).toBeGreaterThan(before);
+      expect(until).toBeLessThanOrEqual(Date.now() + INTERACT.releaseChaseMs + PHYS.settleMaxMs);
+
+      // ② 정착 재커밋이 닫는다. 안 닫히면 자동저장이 최대 12초 동안 잠긴 채로 남는다.
+      await waitFor(() => expect(poseOf().x).toBeGreaterThan(START.x + 40), { timeout: 20000, interval: 40 });
+      expect(result.current.state.settleHoldUntil).toBe(0);
     },
     30000,
   );
