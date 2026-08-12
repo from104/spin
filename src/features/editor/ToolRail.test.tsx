@@ -4,10 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { ToolRail, type ChairSlot, type ToolRailProps } from './ToolRail.tsx';
+import { ToolRail, type ChairSlot, type ToolRailProps, type TrayDrawers } from './ToolRail.tsx';
 import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import { BALL, CONE } from '../../core/constants.ts';
+import { CHIP_BOX_H_CSS, trayChipBoxPx } from './trayMetrics.ts';
 
 const SLOTS: ChairSlot[] = [
   { id: 'ch_a' as ChairId, number: '2', color: '#d93a3a', ink: '#fff', placed: false },
@@ -22,7 +23,9 @@ const FULL = {
   coneMax: CONE.maxCountPerColor,
 };
 
-function ControlledRail(props: { chairSlots?: ChairSlot[] }) {
+type RailExtras = Pick<ToolRailProps, 'tray' | 'onTrayChange' | 'drillUses'>;
+
+function ControlledRail({ chairSlots, ...extras }: { chairSlots?: ChairSlot[] } & RailExtras) {
   const [tool, setTool] = useState<ToolId>('select');
   const [coneSlot, setConeSlot] = useState<0 | 1>(0);
   const [pending, setPending] = useState<ChairId | null>(null);
@@ -33,17 +36,18 @@ function ControlledRail(props: { chairSlots?: ChairSlot[] }) {
       coneSlot={coneSlot}
       onConeSlotChange={setConeSlot}
       {...FULL}
-      chairSlots={props.chairSlots ?? []}
+      chairSlots={chairSlots ?? []}
       pendingPlayerId={pending}
       onArmPlayer={setPending}
       courtLabel="풀 코트"
+      {...extras}
     />
   );
 }
 
 /** 도구를 **밖에서** 쥔 렌더 — 단축키(R·P·T)로 도구가 바뀐 상황을 그대로 흉내낸다.
  *  ToolRail 은 단축키를 스스로 듣지 않는다(useEditorKeyboard 가 듣고 tool 을 내려준다). */
-function renderWithTool(tool: ToolId, onSelectTool: (t: ToolId) => void = () => {}) {
+function renderWithTool(tool: ToolId, onSelectTool: (t: ToolId) => void = () => {}, extras: RailExtras = {}) {
   return render(
     <ToolRail
       tool={tool}
@@ -55,6 +59,7 @@ function renderWithTool(tool: ToolId, onSelectTool: (t: ToolId) => void = () => 
       pendingPlayerId={null}
       onArmPlayer={() => {}}
       courtLabel="풀 코트"
+      {...extras}
     />,
   );
 }
@@ -62,68 +67,75 @@ function renderWithTool(tool: ToolId, onSelectTool: (t: ToolId) => void = () => 
 /** 기능 구역 안의 표적만 센다 — 첫 화면 표적 예산(2.5)이 세는 것과 같은 단위다. */
 const functionTargets = () =>
   [...document.querySelectorAll<HTMLElement>('[aria-label="기능"] button')].map(
-    (b) => b.textContent?.trim() ?? '',
+    (b) => b.textContent?.replace(/[▸▾]/g, '').trim() ?? '',
   );
 
+const handle = (label: '작도' | '설명') => screen.getByRole('button', { name: new RegExp(`^${label}`) });
+const expanded = (label: '작도' | '설명') => handle(label).getAttribute('aria-expanded');
+const hasTool = (label: string) => screen.queryByRole('button', { name: new RegExp(`^${label}`) }) !== null;
+
 describe('ToolRail — 기능 구역', () => {
-  it('모드 도구는 3표적이다 — 선택 · 작도 손잡이 · 지우개 (3.-1)', () => {
-    // 5종을 상시 노출하면 §3 의 미착수분(도움말·빈 판 채우기·둘째 서랍)이 들어올 때
+  it('모드 도구는 4표적이다 — 선택 · 지우개 · 작도 손잡이 · 설명 손잡이 (3.7)', () => {
+    // 5종 상시 노출로 되돌리면 §3 의 미착수분(도움말 1 · 빈 판 채우기 1)이 들어올 때
     // 2.5 게이트(≤40)가 빨간불이 된다. 접는 것이지 없애는 게 아니다 — 아래 it 들이 그 증명.
     render(<ControlledRail />);
-    expect(functionTargets()).toHaveLength(3);
-    for (const label of ['선택', '작도', '지우개']) {
-      expect(screen.getByRole('button', { name: new RegExp(`^${label}`) })).toBeInTheDocument();
-    }
+    expect(functionTargets()).toEqual(['선택', '지우개', '작도', '설명']);
   });
 
   it('접힌 3종(이동·패스·메모)은 닫힌 서랍 안이라 첫 화면 표적이 아니다', () => {
     // 숨기기(display:none)가 아니라 **DOM 에 없음**이라야 표적 수가 실제로 준다.
     render(<ControlledRail />);
     for (const label of ['이동', '패스', '메모']) {
-      expect(screen.queryByRole('button', { name: new RegExp(`^${label}`) }), label).toBeNull();
+      expect(hasTool(label), label).toBe(false);
     }
-    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(expanded('작도')).toBe('false');
+    expect(expanded('설명')).toBe('false');
   });
 
-  it('손잡이를 누르면 서랍이 열리고 접힌 3종이 나온다', async () => {
+  it('작도 손잡이를 누르면 이동·패스가 나온다 — 메모는 그대로 접혀 있다(대조군)', async () => {
     render(<ControlledRail />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /^작도/ }));
-    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'true');
-    for (const label of ['이동', '패스', '메모']) {
-      expect(screen.getByRole('button', { name: new RegExp(`^${label}`) }), label).toBeInTheDocument();
-    }
+    await user.click(handle('작도'));
+    expect(expanded('작도')).toBe('true');
     expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();
+    for (const label of ['이동', '패스']) expect(hasTool(label), label).toBe(true);
+    // 대조군이 없으면 "손잡이 아무거나 누르면 전부 열린다" 인 구현도 통과한다.
+    expect(hasTool('메모')).toBe(false);
+    expect(expanded('설명')).toBe('false');
   });
 
-  it('서랍이 열려도 위쪽 항목의 자리가 그대로다 — 조준 대상이 사용 중에 이동하지 않는다', async () => {
-    // §3 불변식 1. jsdom 에는 레이아웃이 없으므로 **문서 순서**로 잰다: 서랍 이전 항목들의
-    // 순서열이 개폐 전후로 한 칸도 안 밀리고, 새로 난 3칸은 전부 뒤에 붙는다.
-    render(<ControlledRail chairSlots={SLOTS} />);
-    // 손잡이 표식(▸/▾)은 여는 방향이라 개폐로 바뀐다 — 자리를 재는 데 쓰면 안 된다.
-    const order = () =>
-      [...document.querySelectorAll<HTMLElement>('nav button')].map(
-        (b) => b.getAttribute('aria-label') ?? (b.textContent ?? '').replace(/[▸▾]/g, '').trim(),
-      );
-    const before = order();
+  it('설명 손잡이를 누르면 메모가 나온다 — 이동·패스는 그대로 접혀 있다(대조군)', async () => {
+    // 서랍을 둘로 가른 값이 여기 있다: 코트에 설명만 붙이는 사람이 화살표 2종을 상시
+    // 표적으로 떠안지 않는다. 한 서랍이면 이 it 이 성립하지 않는다.
+    render(<ControlledRail />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /^작도/ }));
-    const after = order();
-    expect(after.slice(0, before.length)).toEqual(before);
-    expect(after.slice(before.length)).toEqual(['이동', '패스', '메모']);
+    await user.click(handle('설명'));
+    expect(expanded('설명')).toBe('true');
+    expect(screen.getByRole('group', { name: '설명 도구' })).toBeInTheDocument();
+    expect(hasTool('메모')).toBe(true);
+    for (const label of ['이동', '패스']) expect(hasTool(label), label).toBe(false);
+    expect(expanded('작도')).toBe('false');
   });
 
-  it('단축키로 접힌 도구가 켜지면 서랍이 스스로 열린다 — 잠긴 기능 0개(§3 불변식 2)', () => {
+  it('단축키로 접힌 도구가 켜지면 **그 도구가 든** 서랍만 열린다 — 잠긴 기능 0개(§3 불변식 2)', () => {
     // R·P·T 는 접힌 상태에서도 살아 있다. 도구만 바뀌고 서랍이 닫혀 있으면 활성 도구가
     // 화면에 없는 상태가 되고, 그게 정확히 '잠긴 기능'이다.
     renderWithTool('pass');
-    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(expanded('작도')).toBe('true');
     expect(screen.getByRole('button', { name: /^패스/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(expanded('설명'), '엉뚱한 서랍이 함께 열렸다').toBe('false');
+  });
+
+  it('T(메모)는 설명 서랍을 연다 — 작도는 닫힌 채다(반대 방향 대조군)', () => {
+    renderWithTool('note');
+    expect(expanded('설명')).toBe('true');
+    expect(screen.getByRole('button', { name: /^메모/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(expanded('작도')).toBe('false');
   });
 
   it('한 번 열린 서랍은 도구가 선택으로 돌아가도 닫히지 않는다 — 배운 자리가 사라지지 않는다', () => {
     const { rerender } = renderWithTool('note');
-    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(expanded('설명')).toBe('true');
     rerender(
       <ToolRail
         tool="select"
@@ -137,27 +149,28 @@ describe('ToolRail — 기능 구역', () => {
         courtLabel="풀 코트"
       />,
     );
-    expect(screen.getByRole('button', { name: /^작도/ })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: /^메모/ })).toBeInTheDocument();
+    expect(expanded('설명')).toBe('true');
+    expect(hasTool('메모')).toBe(true);
   });
 
   it('서랍 안 도구를 누르면 그 도구가 켜진다 — 접었지 없애지 않았다', async () => {
     const onSelectTool = vi.fn<(t: ToolId) => void>();
     renderWithTool('select', onSelectTool);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /^작도/ }));
+    await user.click(handle('작도'));
     await user.click(screen.getByRole('button', { name: /^이동/ }));
     expect(onSelectTool).toHaveBeenCalledWith('route');
     // 대조군: 손잡이 자체는 도구를 고르지 않는다(열고 닫기만 한다) — 위 1회가 전부다.
     expect(onSelectTool).toHaveBeenCalledTimes(1);
   });
 
-  it('손잡이도 --hit 손잡이다 — 서랍을 여는 것이 44 미만이면 접은 값이 없다', () => {
+  it('손잡이 둘 다 --hit 손잡이다 — 서랍을 여는 것이 44 미만이면 접은 값이 없다', () => {
     render(<ControlledRail />);
-    const handle = screen.getByRole('button', { name: /^작도/ });
-    expect(handle.style.minWidth).toBe('var(--hit)');
-    expect(handle.style.minHeight).toBe('var(--hit)');
-    expect(handle.style.width).toBe('52px');
+    for (const label of ['작도', '설명'] as const) {
+      expect(handle(label).style.minWidth, label).toBe('var(--hit)');
+      expect(handle(label).style.minHeight, label).toBe('var(--hit)');
+      expect(handle(label).style.width, label).toBe('52px');
+    }
   });
 
   it("'선수' 는 모드 버튼이 아니라 칩으로 놓인다", () => {
@@ -166,6 +179,242 @@ describe('ToolRail — 기능 구역', () => {
     expect(screen.queryByRole('button', { name: /^선수$/ })).toBeNull();
     expect(screen.getByRole('button', { name: '2번 선수 배치' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'G번 선수 배치' })).toBeInTheDocument();
+  });
+});
+
+// ─── 세로 트레이의 **좌표 모형** ────────────────────────────────────────────────
+// jsdom 에는 레이아웃이 없다 — `getBoundingClientRect()` 가 전부 0 을 돌려주므로 *"서랍을
+// 열어도 위쪽 항목이 한 픽셀도 안 움직인다"*(§3 불변식 1)를 브라우저에게 물어볼 수 없다.
+// 그래서 트레이가 실제로 쓰는 **flex 상자 모형을 여기서 다시 계산한다**: 세로 트레이는 column
+// 중첩이고 칩 줄만 row 이며, 높이·gap·padding·margin 이 전부 인라인 style 에 선언돼 있다.
+// `var(--hit)`·`calc(...)` 는 §5.4 기본 44 로 푼다 — trayMetrics 의 픽셀 함수와 같은 해석이다.
+//
+// **문서 순서보다 강한 이유**: 순서가 그대로여도 위쪽 어딘가의 높이·gap·padding 이 바뀌면
+// 아래 항목의 y 는 움직인다. 그 경우를 잡는다(3.-1 은 순서로만 쟀고 이 자리를 열어 뒀다).
+// **못 보는 것**: CSS 파일 쪽 규칙과 `order`. 흐름 밖(position:absolute)·화면 밖(sr-only)은
+// 아예 세지 않는다 — 실제 CSS 도 그것들에 세로 자리를 주지 않는다.
+const HIT_PX = 44;
+
+/** 세로 치수 하나를 픽셀로. 못 푸는 문자열은 0 이다(그 자리는 아래 대조군 it 이 지킨다). */
+function pxOf(v: string): number {
+  if (!v) return 0;
+  if (v === CHIP_BOX_H_CSS) return trayChipBoxPx(HIT_PX).h;
+  if (v === 'var(--hit)') return HIT_PX;
+  const m = /^(-?[\d.]+)px$/.exec(v.trim());
+  return m ? Number(m[1]) : 0;
+}
+
+interface TrayBox {
+  name: string;
+  y: number;
+  h: number;
+}
+
+/** 이름 — 스크린리더 이름이 있으면 그것, 없으면 흐름 안 텍스트(배지·활성 링은 absolute 라 뺀다). */
+function nameOf(el: HTMLElement): string {
+  const label = el.getAttribute('aria-label');
+  if (label) return label;
+  const clone = el.cloneNode(true) as HTMLElement;
+  for (const d of [...clone.querySelectorAll<HTMLElement>('*')]) if (d.style.position === 'absolute') d.remove();
+  return (clone.textContent ?? '').replace(/[▸▾]/g, '').replace(/\s+/g, ' ').trim() || '·';
+}
+
+/** 한 상자를 재고 자기 세로 크기(margin 포함)를 돌려준다. 선언된 높이가 있으면 잎이다 —
+ *  버튼·칩·구분선이 그렇고, 그 안쪽(아이콘·라벨)은 상자 크기를 바꾸지 못하므로 안 들어간다.
+ *  jsdom 은 축약형을 longhand 로 펼쳐 두므로 `marginTop` 쪽만 읽는다(둘 다 읽으면 이중 계산). */
+function measure(el: HTMLElement, y: number, out: TrayBox[]): number {
+  const mt = pxOf(el.style.marginTop);
+  const marginY = mt + pxOf(el.style.marginBottom);
+  const own = Math.max(pxOf(el.style.height), pxOf(el.style.minHeight));
+  if (own > 0) {
+    out.push({ name: nameOf(el), y: y + mt, h: own });
+    return own + marginY;
+  }
+  const pt = pxOf(el.style.paddingTop);
+  const gap = pxOf(el.style.gap);
+  const row = el.style.flexDirection === 'row';
+  const top = y + mt + pt;
+  let cursor = top;
+  let tallest = 0;
+  let n = 0;
+  for (const child of [...el.children] as HTMLElement[]) {
+    if (child.style.position === 'absolute') continue; // 흐름 밖
+    if (child.classList.contains('sr-only')) continue; // 화면 밖(실제 CSS 도 absolute 다)
+    if (!row && n > 0) cursor += gap;
+    const h = measure(child, cursor, out);
+    if (row) tallest = Math.max(tallest, h);
+    else cursor += h;
+    n += 1;
+  }
+  return (row ? tallest : cursor - top) + pt + pxOf(el.style.paddingBottom) + marginY;
+}
+
+/** 트레이의 모든 상자를 문서 순서 + y 좌표로. */
+function trayBoxes(): TrayBox[] {
+  const out: TrayBox[] = [];
+  measure(document.querySelector<HTMLElement>('nav[data-tray]')!, 0, out);
+  return out;
+}
+
+const boxY = (boxes: TrayBox[], name: string): number => boxes.find((b) => b.name === name)!.y;
+
+describe('ToolRail — 서랍은 위쪽 좌표를 건드리지 않는다 (§3 불변식 1)', () => {
+  // 이 앱의 주 사용자는 마우스를 오른발로, 타이핑을 입에 문 젓가락으로 한다 — 표적의 **절대
+  // 위치로 공간 기억**을 만든다. 항목이 삽입돼 아래가 밀리면 그 기억이 깨진다. 점진 공개를
+  // 버리고 서랍을 고른 유일한 이유가 이것이라, 여기가 이 항목의 본체다.
+  const ABOVE = ['2번 선수 배치', 'G번 선수 배치', '공', '주황 콘', '파랑 콘', '선택', '지우개'];
+
+  it('대조군: 좌표 모형이 실제로 재고 있다 — 상자마다 다른 y 를 갖는다', () => {
+    // 모형이 전부 0 을 돌려주면 아래 두 it 은 영원히 초록불이다. 그 헛통과를 먼저 막는다.
+    render(<ControlledRail chairSlots={SLOTS} />);
+    const boxes = trayBoxes();
+    for (const name of ABOVE) expect(boxes.some((b) => b.name === name), name).toBe(true);
+    expect(boxY(boxes, '공')).toBeGreaterThan(boxY(boxes, '2번 선수 배치'));
+    expect(boxY(boxes, '선택')).toBeGreaterThan(boxY(boxes, '파랑 콘'));
+    expect(boxY(boxes, '지우개')).toBe(boxY(boxes, '선택') + 50 + 5); // 버튼 50 + 기능 구역 gap 5
+    // 칩 두 개는 같은 줄이다(row) — 세로 좌표가 같아야 모형이 wrap 을 흉내내고 있는 것이다.
+    expect(boxY(boxes, 'G번 선수 배치')).toBe(boxY(boxes, '2번 선수 배치'));
+  });
+
+  it('작도를 열어도 위쪽 항목 7개의 y 가 한 픽셀도 안 움직인다', async () => {
+    render(<ControlledRail chairSlots={SLOTS} />);
+    const before = trayBoxes();
+    const user = userEvent.setup();
+    await user.click(handle('작도'));
+    const after = trayBoxes();
+    for (const name of ABOVE) expect(boxY(after, name), name).toBe(boxY(before, name));
+    // 새로 난 칸은 전부 뒤에 붙는다 — 앞쪽 상자열이 통째로 같다.
+    expect(after.slice(0, before.length - 1)).toEqual(before.slice(0, before.length - 1));
+  });
+
+  it('마지막 서랍(설명)을 열면 트레이의 **어느 상자도** 안 움직인다', async () => {
+    // 첫 서랍보다 강한 형태다: 뒤에 아무것도 없으므로 y 가 하나도 안 바뀐다.
+    render(<ControlledRail chairSlots={SLOTS} />);
+    const before = trayBoxes();
+    const user = userEvent.setup();
+    await user.click(handle('설명'));
+    expect(trayBoxes().slice(0, before.length)).toEqual(before);
+  });
+
+  it('작도를 열면 밀리는 것은 **설명 손잡이 하나뿐**이다 — 서랍 사이의 대가를 못박는다', async () => {
+    // 손잡이 둘을 붙여 놓으면 이 밀림도 없앨 수 있지만, 그러면 열린 서랍이 둘일 때 내용물이
+    // 한 줄로 이어져 어느 것이 어느 서랍에서 나왔는지가 사라진다. 감수한 대가가 **정확히
+    // 얼마인지** 숫자로 남긴다: 이동·패스 두 칸(50×2) + gap 5×2.
+    render(<ControlledRail chairSlots={SLOTS} />);
+    const before = trayBoxes();
+    const user = userEvent.setup();
+    await user.click(handle('작도'));
+    const after = trayBoxes();
+    expect(boxY(after, '설명') - boxY(before, '설명')).toBe(50 * 2 + 5 * 2);
+    const moved = after.filter((b) => {
+      const was = before.find((p) => p.name === b.name);
+      return was !== undefined && was.y !== b.y;
+    });
+    expect(moved.map((b) => b.name)).toEqual(['설명']);
+  });
+});
+
+describe('ToolRail — 서랍 개폐를 prefs.tray 에 남긴다 (§3 불변식 2 의 "영구히")', () => {
+  const OPEN_DRAW: TrayDrawers = { draw: true, note: false };
+
+  it('저장된 개폐로 시작한다 — 작도만 열린 채, 설명은 닫힌 채(대조군)', () => {
+    render(<ControlledRail tray={OPEN_DRAW} />);
+    expect(expanded('작도')).toBe('true');
+    expect(hasTool('이동')).toBe(true);
+    expect(expanded('설명')).toBe('false');
+  });
+
+  it('저장된 개폐로 시작한다 — 설명만 열린 채(반대 방향)', () => {
+    // 두 필드를 한 it 에 AND 로 묶으면 `draw` 를 두 곳에 다 꽂은 구현이 통과한다.
+    render(<ControlledRail tray={{ draw: false, note: true }} />);
+    expect(expanded('설명')).toBe('true');
+    expect(hasTool('메모')).toBe(true);
+    expect(expanded('작도')).toBe('false');
+  });
+
+  it('손잡이로 열면 그 서랍만 참이 되어 위로 올라간다', async () => {
+    const onTrayChange = vi.fn<(t: TrayDrawers) => void>();
+    render(<ControlledRail tray={{ draw: false, note: false }} onTrayChange={onTrayChange} />);
+    // 대조군: 저장값과 같은 상태로 시작했으므로 아직 한 번도 안 불렸다(안 그러면 왕복이 돈다).
+    expect(onTrayChange).not.toHaveBeenCalled();
+    const user = userEvent.setup();
+    await user.click(handle('설명'));
+    expect(onTrayChange).toHaveBeenCalledTimes(1);
+    expect(onTrayChange).toHaveBeenCalledWith({ draw: false, note: true });
+  });
+
+  it('손잡이로 닫으면 닫힌 값이 올라간다 — 저장은 양방향이다', async () => {
+    const onTrayChange = vi.fn<(t: TrayDrawers) => void>();
+    render(<ControlledRail tray={OPEN_DRAW} onTrayChange={onTrayChange} />);
+    const user = userEvent.setup();
+    await user.click(handle('작도'));
+    expect(onTrayChange).toHaveBeenCalledWith({ draw: false, note: false });
+  });
+
+  it('단축키가 연 서랍도 올라간다 — 세션이 끝나면 사라지는 "영구히" 는 영구가 아니다', () => {
+    const onTrayChange = vi.fn<(t: TrayDrawers) => void>();
+    renderWithTool('route', () => {}, { tray: { draw: false, note: false }, onTrayChange });
+    expect(onTrayChange).toHaveBeenCalledWith({ draw: true, note: false });
+  });
+
+  it('저장값이 바깥에서 바뀌면(설정 초기화) 그쪽을 따른다', () => {
+    const onTrayChange = vi.fn<(t: TrayDrawers) => void>();
+    const { rerender } = render(<ControlledRail tray={OPEN_DRAW} onTrayChange={onTrayChange} />);
+    expect(expanded('작도')).toBe('true');
+    rerender(<ControlledRail tray={{ draw: false, note: false }} onTrayChange={onTrayChange} />);
+    expect(expanded('작도')).toBe('false');
+    // 그리고 되돌려 밀지 않는다 — 밀면 "초기화했는데 서랍만 안 먹는" 한 갈래가 생긴다.
+    expect(onTrayChange).not.toHaveBeenCalled();
+  });
+
+  it('배선이 없어도 세션 안에서는 열린다 — 저장 없는 경로가 안 죽었다', async () => {
+    // 시연·테스트처럼 prefs 가 없는 자리에서도 트레이는 그대로 동작해야 한다.
+    render(<ControlledRail />);
+    const user = userEvent.setup();
+    await user.click(handle('작도'));
+    expect(expanded('작도')).toBe('true');
+  });
+});
+
+describe('ToolRail — 남의 드릴을 열면 자동 개방 (§3 불변식 3)', () => {
+  it('화살표를 쓰는 드릴이면 작도가 열린 채로 시작한다 — 설명은 닫힌 채(대조군)', () => {
+    // *"이 드릴에 있는 것을 나는 왜 못 만드나"* 가 생기지 않게 하는 것이 이 규칙의 목적이다.
+    render(<ControlledRail drillUses={{ draw: true, note: false }} />);
+    expect(expanded('작도')).toBe('true');
+    expect(expanded('설명')).toBe('false');
+  });
+
+  it('코트 메모를 쓰는 드릴이면 설명이 열린 채로 시작한다(반대 방향)', () => {
+    render(<ControlledRail drillUses={{ draw: false, note: true }} />);
+    expect(expanded('설명')).toBe('true');
+    expect(expanded('작도')).toBe('false');
+  });
+
+  it('드릴이 **바뀌는 순간**에도 열린다 — 화면 안에서 판을 갈아끼워도 마찬가지다', () => {
+    const { rerender } = render(<ControlledRail drillUses={{ draw: false, note: false }} />);
+    expect(expanded('작도')).toBe('false');
+    rerender(<ControlledRail drillUses={{ draw: true, note: false }} />);
+    expect(expanded('작도')).toBe('true');
+  });
+
+  it('자동으로 열린 서랍도 손잡이로 닫을 수 있다 — 드릴 내용은 계속 보는 것이 아니라 바뀌는 순간만 본다', async () => {
+    // 계속 보면(레벨 판정) 화살표가 든 드릴에서 손잡이가 눌러도 안 닫히는 버튼이 된다.
+    render(<ControlledRail drillUses={{ draw: true, note: false }} />);
+    const user = userEvent.setup();
+    await user.click(handle('작도'));
+    expect(expanded('작도')).toBe('false');
+  });
+
+  it('드릴에서 화살표를 다 지워도 서랍은 안 닫힌다 — 여는 쪽으로만 움직인다', () => {
+    const { rerender } = render(<ControlledRail drillUses={{ draw: true, note: false }} />);
+    rerender(<ControlledRail drillUses={{ draw: false, note: false }} />);
+    expect(expanded('작도')).toBe('true');
+  });
+
+  it('자동 개방도 저장값으로 올라간다 — 다음에 열 때 다시 계산하지 않는다', () => {
+    const onTrayChange = vi.fn<(t: TrayDrawers) => void>();
+    render(<ControlledRail tray={{ draw: false, note: false }} onTrayChange={onTrayChange} drillUses={{ draw: false, note: true }} />);
+    expect(onTrayChange).toHaveBeenCalledWith({ draw: false, note: true });
   });
 });
 

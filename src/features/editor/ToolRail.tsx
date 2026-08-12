@@ -6,14 +6,14 @@
 // 동작한다(이미 그 방법을 익힌 사용자가 있다 — 김경일님이 방에서 대신 설명해 준 그 경로).
 //
 // 기능 도구는 모드라서 끌 것이 없다. 그래서 아래쪽에 따로 모은다.
-import { Fragment, useId, useState } from 'react';
+import { Fragment, useEffect, useId, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
 import { CHAIR } from '../../core/constants.ts';
 import { numberedName } from '../../model/chairLabel.ts';
-import { IconToolRoute } from '../../ui/icons.tsx';
+import { IconToolNote, IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
 import { CHIP_BOX_H_CSS, CHIP_H_CSS, CHIP_ROW_GAP, CHIP_W_CSS, TRAY_ROW_MAX_CSS } from './trayMetrics.ts';
 import type { TrayDragItem } from './useTrayDrag.ts';
@@ -47,6 +47,15 @@ export interface ToolRailProps {
   pendingPlayerId: ChairId | null;
   onArmPlayer(id: ChairId): void;
   courtLabel: string;
+  /** 서랍 개폐의 **저장값**(3.0 `prefs.tray`). 화면의 신뢰값은 안쪽 state 이고 이 값은 그
+   *  초기값이자 기기 재시작 너머의 기억이다. 없으면 개폐가 세션(컴포넌트 수명) 안에서만 산다. */
+  tray?: TrayDrawers;
+  /** 개폐가 바뀔 때마다 부른다 — §3 불변식 2 의 *'영구히'* 를 실제로 영구로 만드는 배선이다.
+   *  EditorWorkspace 가 `setPrefs({ tray })` 로 잇는다. */
+  onTrayChange?(next: TrayDrawers): void;
+  /** 이 드릴이 실제로 **쓰는** 것 — 화살표가 있으면 `draw`, 코트 메모가 있으면 `note`(§3 불변식 3).
+   *  드릴이 **바뀌는 순간**에만 본다: 계속 보면 화살표가 든 드릴에서 손잡이가 안 닫히는 버튼이 된다. */
+  drillUses?: TrayDrawers;
   /** 태블릿 세로에서는 트레이를 판 **아래**에 가로로 눕힌다(§6.4). */
   orientation?: 'vertical' | 'horizontal';
   /** 끌어다 놓기 연결(useTrayDrag.start). 없으면 탭만 동작한다 — 테스트·프리젠터용. */
@@ -120,29 +129,51 @@ const CONE_SLOT_NAMES = ['주황', '파랑'] as const;
 /** 모드 도구 — 끌 것이 없다. 'player' 는 트레이에 칩으로 직접 놓이므로 여기서 뺀다
  *  (키보드 단축키 a/6 은 toolDefs 에 그대로 살아 있다).
  *
- *  ⚠️ 3.-1 로 이 5종이 **상시 3표적**(선택 · 작도 손잡이 · 지우개)이 됐다. 첫 화면 표적
- *  실측이 37/40 이라 §3 이 예고한 미착수분(도움말 1 · 서랍 손잡이 · 빈 판 채우기 1)이
- *  들어오면 2.5 게이트가 빨간불이 된다 — 예산은 여기서 낸다.
+ *  ⚠️ 3.-1 로 이 5종이 상시 3표적이 됐고, 3.7 이 서랍을 §3 대로 둘로 가르며 **상시 4표적**
+ *  (선택 · 지우개 · 작도 손잡이 · 설명 손잡이)이 됐다. 첫 화면 표적 실측 36/40 — §3 이 예고한
+ *  미착수분(도움말 1 · 빈 판 채우기 1)까지 들어와도 38 이다. 예산은 여기서 낸다.
  *
- *  **무엇을 남기고 무엇을 접었나**(§3 트레이 그림의 `기능: [선택] [지우개]` + `▸ 작도`):
+ *  **무엇을 남기고 무엇을 접었나**(§3 트레이 그림의 `기능: [선택] [지우개]` + `▸ 작도` `▸ 설명`):
  *  - `select` 는 접을 수 없다 — 개체를 고르고 옮기는 기본 모드이자 다른 모드에서 빠져나오는
  *    유일한 상시 출구다. 이걸 두 번 눌러야 하는 자리로 보내면 모든 조작이 한 번씩 비싸진다.
  *  - `erase` 도 남긴다 — 잘못 놓은 것을 지우는 일은 초보자가 **가장 자주** 하는 일이고,
  *    단축키 E 는 파괴적이라 §7.5f 가 Alt 를 요구한다(=키보드만으로는 한 손잡이가 아니다).
- *  - `route`·`pass`·`note` 는 접는다. 셋 다 "판 위에 그려 넣는 것"이라 한 서랍에 모이고,
- *    **드릴을 만들 때 쓰는 도구지 판을 읽을 때 쓰는 도구가 아니다** — 첫 화면에서 이 셋이
- *    상시 표적일 필요가 없다. 접힌 뒤에도 단축키 R·P·T 는 그대로 살아 있고, 그것으로
- *    도구가 켜지면 서랍이 그 순간 열린다(§3 불변식 2 — 잠긴 기능 0개).
+ *  - `route`·`pass`·`note` 는 접는다. 셋 다 "판 위에 그려 넣는 것"이지 **드릴을 만들 때 쓰는
+ *    도구지 판을 읽을 때 쓰는 도구가 아니다** — 첫 화면에서 상시 표적일 필요가 없다. 다만
+ *    한 서랍이 아니라 둘이다(아래 `DRAWERS` 주석). 접힌 뒤에도 단축키 R·P·T 는 그대로 살아
+ *    있고, 그것으로 도구가 켜지면 그 서랍이 그 순간 열린다(§3 불변식 2 — 잠긴 기능 0개).
  *  발 마우스·입 젓가락 사용자 기준으로 "표적 2개를 줄이는 것 vs 두 번 누르게 하는 것"을
  *  항목마다 저울질한 결과다: 접힌 셋은 **한 세션에 한 번** 서랍을 열면 그 뒤로는 예전과 같은
  *  1회 조준이고(열린 서랍은 다시 닫히지 않는다), 남긴 둘은 매 조작마다 오가는 도구다. */
 const ALWAYS_TOOLS = TOOLS.filter((t) => t.id === 'select' || t.id === 'erase');
-const DRAWER_TOOLS = TOOLS.filter((t) => t.id === 'route' || t.id === 'pass' || t.id === 'note');
-const DRAWER_TOOL_IDS: ReadonlySet<ToolId> = new Set(DRAWER_TOOLS.map((t) => t.id));
-/** 서랍 이름. §3 은 최종적으로 `작도`(화살표)와 `설명`(메모·3m 링) 둘로 나눈다 — 3m 링(2.12)이
- *  아직 도구가 아니라 지금 나누면 `설명` 서랍에 메모 하나만 들어간다. 3.7 이 prefs.tray 로
- *  개폐를 저장할 때 둘로 가른다. */
-const DRAWER_LABEL = '작도';
+
+/** §3 트레이 서랍 2개의 개폐 상태. `prefs.tray` 와 **같은 모양**이다(3.0 이 세워 둔 필드) —
+ *  그쪽이 이 값을 기기 재시작 너머로 들고 가는 저장소이고, 화면의 신뢰값은 컴포넌트 state 다. */
+export interface TrayDrawers {
+  draw: boolean;
+  note: boolean;
+}
+type DrawerKey = keyof TrayDrawers;
+const CLOSED: TrayDrawers = { draw: false, note: false };
+
+/** 서랍 표 — 이름 · 손잡이 아이콘 · 담긴 도구. **3.-1 은 셋을 한 서랍(`작도`)에 몰아 두었고
+ *  3.7 이 §3 대로 가른다.** 그때의 유보 사유(3m 링이 아직 도구가 아니라 `설명` 이 한 칸짜리
+ *  서랍이 된다)는 지금도 사실이지만, 가르는 이유가 그보다 크다: 서랍은 **접는 장치가 아니라
+ *  고르는 장치**다. 한 서랍에 몰아 두면 코트 위에 설명만 붙이는 사람(시연용 판을 다듬는 코치)이
+ *  이동·패스 화살표까지 상시 표적으로 떠안고, 반대로 화살표만 그리는 사람은 메모를 떠안는다.
+ *
+ *  ⚠️ 이 갈림에서 **메모가 `작도` 에서 `설명` 으로 한 칸 옮겨 간다.** 개폐로 움직이는 것이
+ *  아니라 **재편으로** 움직이는 것이라 §3 불변식 1 위반은 아니다(FALSIFICATION §26.6 이
+ *  3.-1 에서 미리 예고해 둔 이동이다) — 그래도 자리를 옮긴 것은 사실이라 커밋 메시지에 적는다. */
+const DRAWERS = [
+  { key: 'draw', label: '작도', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'route' || t.id === 'pass') },
+  { key: 'note', label: '설명', Icon: IconToolNote, tools: TOOLS.filter((t) => t.id === 'note') },
+] as const satisfies readonly { key: DrawerKey; label: string; Icon: typeof IconToolRoute; tools: readonly ToolDef[] }[];
+
+/** 도구 → 그 도구가 든 서랍. 단축키 R·P·T 로 접힌 도구가 켜졌을 때 **어느** 서랍을 열지 판별한다. */
+const DRAWER_OF_TOOL: ReadonlyMap<ToolId, DrawerKey> = new Map(
+  DRAWERS.flatMap((d) => d.tools.map((t) => [t.id, d.key] as const)),
+);
 
 const BTN_STYLE = {
   position: 'relative' as const,
@@ -314,6 +345,9 @@ export function ToolRail({
   pendingPlayerId,
   onArmPlayer,
   courtLabel,
+  tray,
+  onTrayChange,
+  drillUses,
   orientation = 'vertical',
   onItemPointerDown,
 }: ToolRailProps) {
@@ -324,15 +358,53 @@ export function ToolRail({
   const ballHintId = useId();
   const coneHintId = useId();
   const drawerId = useId();
-  // 서랍 개폐. 3.0 이 `prefs.tray` 를 세우기 전까지는 세션(컴포넌트 수명) 안에서만 산다 —
-  // 저장 포맷을 여기서 미리 건드리면 3.0 이 스키마를 두 번 올리게 된다.
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const drawerToolActive = DRAWER_TOOL_IDS.has(tool);
-  // §3 불변식 2 — 단축키 R·P·T 는 접힌 상태에서도 살아 있고, **누르는 순간 서랍이 열린다.**
+
+  // ─── 서랍 개폐 (§3 불변식 2·3) ────────────────────────────────────────────────
+  // 신뢰값은 **여기 state** 다. `prefs.tray` 는 그 값을 기기 재시작 너머로 들고 가는 저장소이고,
+  // 방향은 하나다: 밖에서 온 값이 이기고(adopt), 안에서 난 변화만 밖으로 밀어 올린다(effect).
+  // 화면이 prefs 를 직접 신뢰값으로 쓰지 못하는 이유는 아래 '렌더 중 갱신' 주석에 있다 —
+  // 부모 state 를 렌더 중에 고치는 것은 React 가 막는다.
+  const uses = drillUses ?? CLOSED;
+  const toolDrawer = DRAWER_OF_TOOL.get(tool);
+  const [open, setOpen] = useState<TrayDrawers>(() => ({
+    draw: (tray?.draw ?? false) || uses.draw || toolDrawer === 'draw',
+    note: (tray?.note ?? false) || uses.note || toolDrawer === 'note',
+  }));
+
+  // 저장값이 **바깥에서** 바뀌면(설정 초기화) 그쪽을 따른다. 안 그러면 아래 effect 가 곧바로
+  // 되돌려 놓아 "초기화했는데 서랍만 안 먹는" 한 갈래가 생긴다.
+  const [seenTray, setSeenTray] = useState(tray);
+  if (tray !== seenTray) {
+    setSeenTray(tray);
+    if (tray) setOpen(tray);
+  }
+
+  // 불변식 2 — 단축키 R·P·T 는 접힌 상태에서도 살아 있고, **누르는 순간 그 서랍이 열린다.**
   // 렌더 중 갱신인 이유: effect 로 미루면 도구가 바뀐 프레임에 '활성 도구가 화면에 없는' 한
-  // 틱이 열린다. 조건이 `!drawerOpen` 이라 재귀하지 않고, 한 번 열린 서랍은 손잡이로만 닫힌다
+  // 틱이 열린다. `!open[...]` 가드가 있어 재귀하지 않고, 한 번 열린 서랍은 손잡이로만 닫힌다
   // (도구를 선택으로 되돌려도 다시 접히지 않는다 — 접히면 방금 배운 자리가 사라진다).
-  if (!drawerOpen && drawerToolActive) setDrawerOpen(true);
+  if (toolDrawer && !open[toolDrawer]) setOpen((o) => ({ ...o, [toolDrawer]: true }));
+
+  // 불변식 3 — 남의 드릴을 열면 그 드릴이 쓰는 말에 맞춰 서랍이 열린다. 드릴이 **바뀌는
+  // 순간**만 본다(계속 보면 화살표가 든 드릴에서 손잡이가 눌러도 안 닫히는 버튼이 된다).
+  // 여는 쪽으로만 움직인다 — 마지막 화살표를 지웠다고 서랍이 닫히면 방금 배운 자리가 사라진다.
+  const usesKey = `${uses.draw}|${uses.note}`;
+  const [seenUses, setSeenUses] = useState(usesKey);
+  if (usesKey !== seenUses) {
+    setSeenUses(usesKey);
+    if ((uses.draw && !open.draw) || (uses.note && !open.note)) {
+      setOpen((o) => ({ draw: o.draw || uses.draw, note: o.note || uses.note }));
+    }
+  }
+
+  // 안에서 난 변화를 저장값으로 밀어 올린다. 값이 같으면 부르지 않는다 — 부르면 setPrefs 가
+  // 새 prefs 를 만들고 그것이 다시 내려와 무한 왕복이 된다.
+  useEffect(() => {
+    if (!onTrayChange) return;
+    if (tray && tray.draw === open.draw && tray.note === open.note) return;
+    onTrayChange(open);
+  }, [open, tray, onTrayChange]);
+
   const ballRemaining = Math.max(0, ballMax - ballCount);
   const isBallCapped = ballRemaining <= 0;
 
@@ -553,58 +625,73 @@ export function ToolRail({
           <ToolButton key={t.id} def={t} active={t.id === tool} onSelect={() => onSelectTool(t.id)} />
         ))}
 
-        {/* 서랍 손잡이 — **처음부터 보인다. 닫혀 있을 뿐이다**(§3). 손잡이와 그 안의 도구는
-            기능 구역의 **맨 끝**이라, 서랍이 열려도 위쪽(선수 칩·상자·선택·지우개) 좌표가
-            한 픽셀도 안 움직인다(§3 불변식 1 — 조준 대상이 사용 중에 이동하지 않는다).
-            그래서 지우개가 손잡이 앞으로 올라왔다: 지우개를 끝에 두면 서랍을 열 때마다
-            지우개가 아래로 밀린다. */}
-        <button
-          type="button"
-          aria-expanded={drawerOpen}
-          aria-controls={drawerOpen ? drawerId : undefined}
-          title={`${DRAWER_LABEL} — ${DRAWER_TOOLS.map((t) => `${t.label}(${t.digit})`).join(' · ')}`}
-          onClick={() => setDrawerOpen((o) => !o)}
-          style={{ ...BTN_STYLE, color: drawerToolActive ? 'var(--accent-text)' : 'var(--muted)' }}
-        >
-          {drawerToolActive && <ActiveRing />}
-          <span style={{ position: 'relative', display: 'flex' }}>
-            <IconToolRoute />
-          </span>
-          <span
-            style={{
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              fontSize: '0.6875rem',
-              fontWeight: 600,
-            }}
-          >
-            {DRAWER_LABEL}
-            {/* 여는 방향 표식. 이름에는 안 들어간다 — 상태는 aria-expanded 가 말한다. */}
-            <span aria-hidden style={{ fontSize: '0.5625rem', lineHeight: 1 }}>{drawerOpen ? '▾' : '▸'}</span>
-          </span>
-        </button>
+        {/* 서랍 손잡이 2개 — **처음부터 보인다. 닫혀 있을 뿐이다**(§3). 손잡이도 내용물도
+            기능 구역의 **맨 끝**이라, 서랍이 열려도 위쪽(선수 칩·상자·선택·지우개) 좌표가 한
+            픽셀도 안 움직인다(§3 불변식 1 — 조준 대상이 사용 중에 이동하지 않는다). 그래서
+            지우개가 손잡이 앞으로 올라왔다: 지우개를 끝에 두면 서랍을 열 때마다 밀린다.
 
-        {/* 닫힌 서랍은 **DOM 에 없다** — 첫 화면 표적 예산(2.5)의 대상은 '보이는 표적'이고,
-            숨긴 채 두면 키보드 순회에는 남아 예산만 못 줄이고 조준만 어려워진다. */}
-        {drawerOpen && (
-          <div
-            id={drawerId}
-            role="group"
-            aria-label={`${DRAWER_LABEL} 도구`}
-            style={{
-              display: 'flex',
-              flexDirection: horiz ? 'row' : 'column',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            {DRAWER_TOOLS.map((t) => (
-              <ToolButton key={t.id} def={t} active={t.id === tool} onSelect={() => onSelectTool(t.id)} />
-            ))}
-          </div>
-        )}
+            서랍 **사이**의 대가 하나는 감수한다 — 첫 서랍(작도)을 열면 둘째 손잡이(설명)가
+            그 내용물만큼 아래로 밀린다. 대안은 손잡이 둘을 붙여 놓고 내용물을 그 아래로 모으는
+            것인데, 그러면 열린 서랍이 둘일 때 [이동][패스][메모]가 한 줄로 이어져 **어느 것이
+            어느 서랍에서 나왔는지가 사라진다** — 손잡이 옆에 붙어 있지 않은 것은 서랍이 아니다.
+            밀림이 한 번뿐이라는 점이 이 선택의 근거다: 서랍은 열면 그대로 남고(prefs.tray),
+            그 뒤로는 두 손잡이 모두 영구히 같은 자리다. */}
+        {DRAWERS.map((d) => {
+          const isOpen = open[d.key];
+          const active = d.tools.some((t) => t.id === tool);
+          const panelId = `${drawerId}-${d.key}`;
+          return (
+            <Fragment key={d.key}>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={isOpen ? panelId : undefined}
+                title={`${d.label} — ${d.tools.map((t) => `${t.label}(${t.digit})`).join(' · ')}`}
+                onClick={() => setOpen((o) => ({ ...o, [d.key]: !o[d.key] }))}
+                style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
+              >
+                {active && <ActiveRing />}
+                <span style={{ position: 'relative', display: 'flex' }}>
+                  <d.Icon />
+                </span>
+                <span
+                  style={{
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    fontSize: '0.6875rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {d.label}
+                  {/* 여는 방향 표식. 이름에는 안 들어간다 — 상태는 aria-expanded 가 말한다. */}
+                  <span aria-hidden style={{ fontSize: '0.5625rem', lineHeight: 1 }}>{isOpen ? '▾' : '▸'}</span>
+                </span>
+              </button>
+
+              {/* 닫힌 서랍은 **DOM 에 없다** — 첫 화면 표적 예산(2.5)의 대상은 '보이는 표적'이고,
+                  숨긴 채 두면 키보드 순회에는 남아 예산만 못 줄이고 조준만 어려워진다. */}
+              {isOpen && (
+                <div
+                  id={panelId}
+                  role="group"
+                  aria-label={`${d.label} 도구`}
+                  style={{
+                    display: 'flex',
+                    flexDirection: horiz ? 'row' : 'column',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                >
+                  {d.tools.map((t) => (
+                    <ToolButton key={t.id} def={t} active={t.id === tool} onSelect={() => onSelectTool(t.id)} />
+                  ))}
+                </div>
+              )}
+            </Fragment>
+          );
+        })}
       </div>
 
       {!horiz && (
