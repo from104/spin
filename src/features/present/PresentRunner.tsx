@@ -17,6 +17,7 @@ import { getSession } from '../../storage/sessionRepo.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { TrainingSession } from '../../model/session.ts';
 import { effectiveStepMs } from '../../model/playback.ts';
+import { hasChairName, numberedName } from '../../model/chairLabel.ts';
 import { PLAYBACK } from '../../core/constants.ts';
 import { categoryColor } from '../../core/colors.ts';
 import { clamp } from '../../core/geom.ts';
@@ -228,6 +229,13 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
   const [stepIndex, setStepIndex] = useState(0);
   const [seekToken, setSeekToken] = useState(0);
   const currentStep = drill.steps[stepIndex];
+
+  // §3.4 — 실명을 적어 둔 선수만, 드릴 단위로 한 번 만든다. 스텝마다 다시 만들면 60fps
+  // 재생 중에 배열이 매 프레임 새로 생긴다(자막 아래 한 줄이 그럴 이유가 없다).
+  const namedRoster = useMemo(
+    () => drill.cast.chairs.filter(hasChairName).map((c) => numberedName(c.number, c.name)),
+    [drill],
+  );
 
   const baseMs = PLAYBACK.stepIntervalMs[playback.speed];
   const starts = useMemo(() => stepStartsMs(drill.steps, baseMs), [drill, baseMs]);
@@ -499,6 +507,17 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
               <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: categoryColor(drill.category), flex: 'none' }} />
             </div>
             {currentStep?.note && <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.55, maxWidth: 760 }}>{currentStep.note}</p>}
+            {/* §7 3.4 선수 실명 — **번호 ↔ 사람을 잇는 범례**다. 코트의 칩은 등번호만 찍고
+                (2026-08-11 등번호 2/3 크기 결정) 접근성 트리에서는 통째로 aria-hidden 이라
+                (PresentStage) 이름을 적어 둔 코치에게 그 이름이 시연에서 한 번도 안 나왔다.
+                이름을 **적은 선수만** 싣는다: 안 적었으면 이 줄 자체가 없고, 절반만 적었으면
+                적은 절반만 나온다 — 번호뿐인 항목을 나열하면 코트에 이미 있는 정보를 옮겨
+                적는 것이라 자막이 길어지기만 한다. */}
+            {namedRoster.length > 0 && (
+              <p aria-label="선수 명단" style={{ fontSize: 12.5, color: 'var(--faint-text)', lineHeight: 1.5, marginTop: 5, maxWidth: 760 }}>
+                {namedRoster.join(' · ')}
+              </p>
+            )}
           </div>
           <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
             <button

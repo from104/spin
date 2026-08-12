@@ -12,6 +12,7 @@ import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
 import { CHAIR } from '../../core/constants.ts';
+import { numberedName } from '../../model/chairLabel.ts';
 import { IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
 import { CHIP_BOX_H_CSS, CHIP_H_CSS, CHIP_ROW_GAP, CHIP_W_CSS, TRAY_ROW_MAX_CSS } from './trayMetrics.ts';
@@ -24,6 +25,10 @@ export interface ChairSlot {
   number: string;
   color: string;
   ink: string;
+  /** §3.4 선수 실명. 칩에 **그리지는 않는다** — 52px 폭에 이름이 들어가지 않고, 등번호를 2/3
+   *  크기로 줄여 놓은 2026-08-11 결정과도 충돌한다. 손잡이 **이름**(스크린리더)과 툴팁에만
+   *  실린다: 눈으로는 번호로 찾고, 소리로는 사람 이름으로 찾는다. */
+  name?: string;
   /** 코트에 나가 있는가. 참이면 빈 슬롯(점선)으로 그리고 끌 수 없다. */
   placed: boolean;
 }
@@ -393,13 +398,16 @@ export function ToolRail({
         >
           {chairSlots.map((c) => {
             const armed = pendingPlayerId === c.id;
+            // §3.4 — 이름이 있으면 '2번 김민수', 없으면 예전 그대로 '2번'. 형식은 model/chairLabel
+            // 이 쥔다(트레이·시연·계획서가 같은 말로 부르게).
+            const who = numberedName(c.number, c.name);
             // 나가 있는 선수는 **빈 자리**로 남긴다. 버튼이 아니라 표식이라 끌 수도, 누를 수도 없다.
             if (c.placed) {
               return (
                 <span
                   key={c.id}
                   aria-hidden="true"
-                  title={`${c.number}번 — 코트에 나가 있습니다. 코트에서 이리로 끌어다 놓으면 돌아옵니다.`}
+                  title={`${who} — 코트에 나가 있습니다. 코트에서 이리로 끌어다 놓으면 돌아옵니다.`}
                   style={{ ...TRAY_CHIP_BOX, opacity: 0.5 }}
                 >
                   <TrayChairArt number={c.number} empty />
@@ -411,8 +419,8 @@ export function ToolRail({
                 key={c.id}
                 type="button"
                 aria-pressed={armed}
-                aria-label={`${c.number}번 선수 배치`}
-                title={`${c.number}번 — 끌어다 놓거나 탭한 뒤 코트를 누르세요`}
+                aria-label={`${who} 선수 배치`}
+                title={`${who} — 끌어다 놓거나 탭한 뒤 코트를 누르세요`}
                 {...dragProps({ kind: 'player', chairId: c.id }, () => onArmPlayer(c.id))}
                 style={{
                   ...TRAY_CHIP_BOX,

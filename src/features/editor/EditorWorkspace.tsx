@@ -33,6 +33,7 @@ import { BoardBar } from './BoardBar.tsx';
 import { InspectorHost } from './InspectorHost.tsx';
 import { inspectorMode } from './inspectorLayout.ts';
 import { useContainerWidth } from './useContainerWidth.ts';
+import { useKnownTags } from './useKnownTags.ts';
 import { InspectorPanel } from './InspectorPanel.tsx';
 import { HelpModal } from './HelpModal.tsx';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
@@ -94,6 +95,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   //   매번 다시 열어야 하면 핀이 아니다.
   const pinned = prefs.inspectorPinned;
   const [inspectorOpen, setInspectorOpen] = useState(pinned);
+  // §3.5 — 기존 태그는 인스펙터가 **열린 뒤에** 읽는다. 열지도 않은 사람에게 목록 IDB 읽기를
+  // 시킬 이유가 없고(오버레이가 기본 접힘이다), 전술판에서는 아예 읽지 않는다.
+  const knownTags = useKnownTags(!isBoard && inspectorOpen);
   const inspectorPanelId = useId();
   const inspectorTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [workspaceRef, workspaceWidth] = useContainerWidth<HTMLElement>();
@@ -283,7 +287,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const chairSlots: ChairSlot[] = drill.cast.chairs.map((c) => {
     const teamStyle = drill.teams[c.team];
     const color = c.color ?? (c.isGk ? teamStyle.gkColor : teamStyle.color);
-    return { id: c.id, number: c.number, color, ink: inkFor(color), placed: step.chairs[c.id] !== undefined };
+    return { id: c.id, number: c.number, name: c.name, color, ink: inkFor(color), placed: step.chairs[c.id] !== undefined };
   });
 
   // 두 배치가 **같은 컴포넌트 인스턴스**를 쓰도록 조각으로 뽑는다. 가로/세로에서 각각 따로
@@ -317,6 +321,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       pendingPlayerId={pendingPlayerId}
       onArmPlayer={armPlayer}
       onEraseIds={eraseIds}
+      knownTags={knownTags}
       showSteps={!isBoard}
     />
   );

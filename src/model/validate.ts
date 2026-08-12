@@ -32,6 +32,11 @@ export const LIMITS = {
   noteLen: 600,
   tagCount: 12,
   tagLen: 24,
+  // §3.5 설명 · §3.4 선수 실명. 둘 다 **원래 상한이 없었다** — 문자열이면 그대로 통과했다.
+  // 인스펙터에 입력 칸이 생기는 순간(3.4/3.5) 붙여넣기 한 번으로 IDB 에 수십 KB 가 들어가고,
+  // 그 값이 목록 카드·계획서·트레이 손잡이 이름까지 밀고 들어간다.
+  descriptionLen: 400,
+  chairNameLen: 24, // 등번호 칩 옆에 붙는 이름이다. 길면 트레이 손잡이 이름이 문단이 된다
   // §3.2/3.3 교육 필드. 숫자 상한은 "깨진 파일 방어" 이자 인스펙터 입력의 min/max 단일 출처다.
   objectiveLen: 200,
   equipmentLen: 120,
@@ -155,7 +160,11 @@ function parseChairs(raw: unknown, repairs: Repair[]): ChairDef[] {
     const isGk = typeof item.isGk === 'boolean' ? item.isGk : false;
     const def: ChairDef = { id: id as ChairId, team, number, isGk };
     if (typeof item.role === 'string') def.role = item.role;
-    if (typeof item.name === 'string') def.name = item.name;
+    // §3.4 — 이름은 **길이만** 접는다. 공백 정리는 하지 않는다: 정상 파일마다 repairs 가
+    // 붙으면 "일부 데이터를 자동으로 보정했습니다" 토스트가 열 때마다 뜬다. 공백뿐인 이름을
+    // 이름으로 안 치는 판단은 화면 쪽(`hasChairName`)이 한다.
+    const nm = sanitizeText(item.name, LIMITS.chairNameLen, 'cast.chairs.name', '선수 이름', repairs);
+    if (nm !== undefined) def.name = nm;
     if (typeof item.color === 'string') def.color = item.color;
     out.push(def);
   }
@@ -362,7 +371,8 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     ? (doc.level as DrillLevel)
     : '초급';
   const durationMin = typeof doc.durationMin === 'number' && Number.isFinite(doc.durationMin) ? doc.durationMin : 10;
-  const description = typeof doc.description === 'string' ? doc.description : undefined;
+  // §3.5 — 3.4/3.5 로 입력 칸이 생기기 전까지 이 값은 아무도 못 적는 죽은 필드라 상한이 없었다.
+  const description = sanitizeText(doc.description, LIMITS.descriptionLen, 'description', '설명', repairs);
   // §3.2/3.3 — 조립부(아래 `const drill`)에도 **반드시** 같이 적어야 한다. 여기서 파싱만 하고
   // 조립부에 안 적으면 IDB 왕복에서 소리 없이 증발한다.
   const objective = sanitizeText(doc.objective, LIMITS.objectiveLen, 'objective', '목적', repairs);

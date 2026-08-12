@@ -8,6 +8,7 @@ import { KNOWN_CATEGORIES, TEAM_COLOR_CHOICES, inkFor } from '../../core/colors.
 import { ARROW_STYLES, arrowColor } from '../../model/arrow.ts';
 import type { Drill, DrillLevel, DrillStep } from '../../model/drill.ts';
 import { DRILL_LEVELS } from '../../model/drill.ts';
+import { chairName } from '../../model/chairLabel.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
@@ -24,6 +25,10 @@ export interface InspectorPanelProps {
   pendingPlayerId: ChairId | null;
   onArmPlayer(id: ChairId): void;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
+  /** §3.5 — 이 저장소에 **이미 쓰이고 있는** 태그(useKnownTags). 태그를 자유 텍스트로 두면
+   *  '수비'·'수비 '·'수비연습' 이 각각 다른 태그가 되어 검색이 조용히 나빠지므로, 화면은
+   *  기존 것을 칩으로 먼저 내놓는다. 비어 있으면(첫 드릴·전술판) 새로 만들기 칸만 남는다. */
+  knownTags?: readonly string[];
   /** 스텝 섹션(목록·복제·삭제·추가)을 낼지. 자유 전술판은 1장짜리라 false 다(§6.8 재편) —
    *  하단 트랜스포트만 감추고 여기를 놔두면 화면에 없는 2번째 스텝을 만들 수 있어, 판이
    *  조용히 여러 장이 된다(눈으로는 알 수 없다). 기본값은 드릴 편집 쪽인 true.
@@ -60,6 +65,7 @@ export function InspectorPanel({
   pendingPlayerId,
   onArmPlayer,
   onEraseIds,
+  knownTags = [],
   showSteps = true,
 }: InspectorPanelProps) {
   return (
@@ -83,6 +89,8 @@ export function InspectorPanel({
         <>
           <Divider />
           <TeachingSection drill={drill} dispatch={dispatch} />
+          <Divider />
+          <TagsSection drill={drill} dispatch={dispatch} knownTags={knownTags} />
         </>
       )}
       <Divider />
@@ -408,6 +416,129 @@ function TeachingSection({ drill, dispatch }: { drill: Drill; dispatch: Dispatch
   );
 }
 
+// ── 3.5 태그 · 설명 ──────────────────────────────────────────────────────────────────────
+//
+// **태그는 자유 텍스트가 아니라 칩 선택식이다**(§7 3.5). 자유 텍스트로 두면 '수비'·'수비 '·
+// '수비연습' 이 각각 다른 태그가 되고, 그 결과는 "태그가 늘었다" 가 아니라 **검색이 가끔 안
+// 된다** 로 나타난다 — 사용자는 그것을 자기 탓으로 겪는다. 그래서 이미 쓰고 있는 태그를 먼저
+// 칩으로 내놓고(useKnownTags), 새로 만드는 칸은 그 아래 한 단 내려 둔다.
+//
+// 상한은 validate 와 **같은 상수**를 읽는다(12개 / 24자). 화면이 먼저 막지 않으면 저장할 때
+// 조용히 잘려서 "적었는데 없어졌다" 가 된다.
+// 높이는 `--hit` 이다(§7.3 · §5.4) — 태그 고르기는 장식이 아니라 실제로 조준하는 표적이고,
+// 이 앱의 주 사용자는 발 마우스·입 젓가락이다. 알약 모양이 커 보이더라도 32px 로 줄이지 마라.
+const TAG_CHIP_BASE: CSSProperties = {
+  minHeight: 'var(--hit)',
+  padding: '0 0.75rem',
+  borderRadius: 999,
+  fontSize: '0.75rem',
+  fontWeight: 600,
+  maxWidth: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+function TagsSection({ drill, dispatch, knownTags }: { drill: Drill; dispatch: Dispatch<EditorAction>; knownTags: readonly string[] }) {
+  const [draft, setDraft] = useState('');
+  const tags = drill.tags;
+  const selected = new Set(tags);
+  // 후보 = 이미 붙인 것 + 남들이 쓰는 것. 붙인 것을 먼저 세워야 "지금 이 드릴이 무엇인가" 가
+  // 한 줄에서 읽히고, 목록이 길어져도 켜진 칩이 스크롤 아래로 밀려나지 않는다.
+  const candidates = [...tags, ...knownTags.filter((t) => !selected.has(t))];
+  const full = tags.length >= LIMITS.tagCount;
+
+  const commit = (next: string[]) => dispatch({ type: 'META_SET', patch: { tags: next } });
+  const toggle = (t: string) => {
+    if (selected.has(t)) commit(tags.filter((x) => x !== t));
+    else if (!full) commit([...tags, t]);
+  };
+  const addDraft = () => {
+    const t = draft.trim().slice(0, LIMITS.tagLen);
+    setDraft('');
+    // 빈 값·중복·상한 초과는 **조용히 버린다**. 여기서 토스트를 띄우면 태그 하나 만드는 데
+    // 화면 반대편에 알림이 뜨는데, 실패의 이유가 칩 목록에 이미 보인다(같은 칩이 켜져 있다).
+    if (!t || selected.has(t) || full) return;
+    commit([...tags, t]);
+  };
+
+  const description = drill.description ?? '';
+  return (
+    <div style={{ padding: '0 17px' }}>
+      <div style={SECTION_LABEL}>태그 · 설명</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <div role="group" aria-label="태그" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {candidates.map((t) => {
+            const on = selected.has(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={on}
+                // 상한에 닿으면 **켜진 칩은 계속 누를 수 있어야 한다** — 끌 수 없으면 12개에서
+                // 영영 못 빠져나온다.
+                disabled={!on && full}
+                onClick={() => toggle(t)}
+                style={{
+                  ...TAG_CHIP_BASE,
+                  border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                  background: on ? 'var(--accent)' : 'var(--elev)',
+                  color: on ? 'var(--accent-ink-strong)' : 'var(--text)',
+                  opacity: !on && full ? 0.4 : 1,
+                }}
+              >
+                {t}
+              </button>
+            );
+          })}
+          {candidates.length === 0 && <span style={{ fontSize: '0.6875rem', color: 'var(--faint-text)' }}>아직 만든 태그가 없습니다.</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Field label="새 태그">
+              <input
+                type="text"
+                value={draft}
+                maxLength={LIMITS.tagLen}
+                disabled={full}
+                placeholder={full ? `태그는 ${LIMITS.tagCount}개까지` : '예: 수비 전환'}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  // ⚠️ 한글 조합 중의 Enter 는 **조합 확정**이지 제출이 아니다. 이 가드가 없으면
+                  // '수비' 를 적다 확정하는 순간 '수'·'수비' 두 태그가 생긴다.
+                  if (e.nativeEvent.isComposing) return;
+                  e.preventDefault();
+                  addDraft();
+                }}
+                style={inputStyle}
+              />
+            </Field>
+          </div>
+          <Button variant="secondary" onClick={addDraft} disabled={full || draft.trim().length === 0}>
+            추가
+          </Button>
+        </div>
+        <Field label="설명">
+          <textarea
+            key={description}
+            defaultValue={description}
+            maxLength={LIMITS.descriptionLen}
+            rows={3}
+            placeholder="이 드릴을 언제·왜 쓰는지 한두 문장"
+            onBlur={(e) => {
+              const v = e.target.value.trim().slice(0, LIMITS.descriptionLen);
+              e.target.value = v;
+              if (v !== description) dispatch({ type: 'META_SET', patch: { description: v } });
+            }}
+            style={{ ...inputStyle, minHeight: 72, padding: '0.5rem 0.6875rem', resize: 'vertical' }}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
 function RosterSection({
   drill,
   step,
@@ -461,7 +592,9 @@ function RosterSection({
                 >
                   {def.number}
                 </span>
-                <span style={{ fontSize: '0.78125rem', fontWeight: 600, flex: 1, textAlign: 'left' }}>{def.name || (def.isGk ? 'GK' : `${teamStyle.label} ${def.number}`)}</span>
+                {/* §3.4 — 부르는 규칙은 model/chairLabel 이 쥔다. 트레이·시연 자막·4차 계획서가
+                    같은 함수를 읽어야 같은 선수가 자리마다 다른 이름으로 불리지 않는다. */}
+                <span style={{ fontSize: '0.78125rem', fontWeight: 600, flex: 1, textAlign: 'left' }}>{chairName(def, drill.teams)}</span>
                 <span style={{ fontSize: '0.6875rem', color: 'var(--faint-text)' }}>{placed ? (def.role ?? '') : '미배치'}</span>
               </button>
               {!placed && (
@@ -473,11 +606,26 @@ function RosterSection({
               )}
               {open && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 0 12px 29px' }}>
+                  {/* §3.4 — 이 칸이 트레이 손잡이 이름 · 시연 범례 · 4차 계획서를 한꺼번에 바꾼다.
+                      · `key`+blur 되비침: 3.2 가 [교육] 칸에 붙인 것과 같은 두 겹이다. 없으면
+                        되돌리기(Ctrl+Z) 뒤에도 칸에 방금 지운 글자가 남아 화면과 모델이 갈린다.
+                      · 커밋값은 **언제나 구체값('')** 이다. `undefined` 를 실으면 얕은 병합
+                        (`{...cur, ...patch}`)이 그 키를 undefined 인 채 남기고 structuredClone(IDB)
+                        은 보존하는데 JSON 은 지운다 — 같은 드릴이 저장 경로에 따라 달라진다
+                        (actions.ts 의 META_SET 금지와 같은 함정). 빈 문자열을 '이름 없음' 으로
+                        읽는 판단은 model/chairLabel 의 `hasChairName` 한 곳이 한다. */}
                   <Field label="이름">
                     <input
                       type="text"
+                      key={def.name ?? ''}
                       defaultValue={def.name ?? ''}
-                      onBlur={(e) => dispatch({ type: 'CHAIR_DEF', id: def.id, patch: { name: e.target.value || undefined } })}
+                      maxLength={LIMITS.chairNameLen}
+                      placeholder={chairName({ ...def, name: '' }, drill.teams)}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim().slice(0, LIMITS.chairNameLen);
+                        e.target.value = v;
+                        if (v !== (def.name ?? '')) dispatch({ type: 'CHAIR_DEF', id: def.id, patch: { name: v } });
+                      }}
                       style={inputStyle}
                     />
                   </Field>
