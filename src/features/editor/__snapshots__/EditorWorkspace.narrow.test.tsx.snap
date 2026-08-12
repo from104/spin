@@ -62,5 +62,7 @@ exports[`narrow === false — PC 경로는 한 바이트도 안 바뀐다 > 넓�
 · · · · button display: flex; align-items: center; gap: 9px; flex: 0 0 auto; min-height: var(--hit); padding: 0px 14px; border-radius: 9px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 0.75rem; font-weight: 700;
 · · · · · span position: relative; width: 34px; height: 20px; border-radius: 10px; flex: 0 0 auto; background: var(--accent); transition: background .16s ease;
 · · · · · · span position: absolute; top: 3px; left: 17px; width: 14px; height: 14px; border-radius: 50%; background: rgb(255, 255, 255); transition: left .16s ease; box-shadow: 0 1px 3px rgba(0,0,0,.35);
-· · · · p flex: 1 1 0%; min-width: 0px; margin: 0px; font-size: 0.6875rem; color: var(--faint-text);"
+· · · · div flex: 1 1 0%; min-width: 0px; display: flex; flex-direction: column; gap: 2px;
+· · · · · p margin: 0px; font-size: 0.6875rem; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted);
+· · · · · p margin: 0px; font-size: 0.6875rem; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--faint-text);"
 `;

@@ -19,6 +19,16 @@ export const PLAY_EXTRA_PX = 4;
 
 export const bottomBarPadCss = (): string => `${BOTTOM_BAR_PAD_PX.top}px ${BOTTOM_BAR_PAD_PX.x}px ${BOTTOM_BAR_PAD_PX.bottom}px`;
 
+/** 바 안내 문구(§3.11 코트 설명 + 잠금 사유) 줄 치수. 행 높이는 버튼(--hit)이 정하므로
+ *  **문구 두 줄의 합이 --hit 이하**여야 문구가 바 높이에 영향을 주지 않는다 — 예산 132 의
+ *  '하단 바 64' 행이 그 전제 위에 서 있다. 그래서 각 줄은 nowrap+ellipsis 로 한 줄에
+ *  고정한다: 폭이 좁아질 때 줄이 접혀 4줄이 되면(≈66px) 바가 조용히 자라 예산이 깨진다. */
+export const BAR_HINT_FONT_PX = 11; // = 0.6875rem. BoardBar 의 CSS 문자열과 같은 값이어야 한다
+export const BAR_HINT_LINE_HEIGHT = 1.45;
+export const BAR_HINT_GAP_PX = 2;
+/** 문구 두 줄 스택의 세로 합. 테스트가 이 값 ≤ hit 을 단언한다. */
+export const barHintStackPx = (): number => Math.ceil(BAR_HINT_FONT_PX * BAR_HINT_LINE_HEIGHT) * 2 + BAR_HINT_GAP_PX;
+
 const barHeightPx = (contentPx: number): number => BOTTOM_BAR_BORDER_PX + BOTTOM_BAR_PAD_PX.top + contentPx + BOTTOM_BAR_PAD_PX.bottom;
 
 /** 드릴 편집 하단 바. 한 줄 안에서 가장 큰 것이 재생 버튼(--hit + 4)이다. 기본 44 → **64**. */

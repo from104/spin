@@ -220,7 +220,7 @@ describe('TransportBar — 이전/재생/다음·스텝 칩·속도가 --hit 파
 
 describe('BoardBar — 비우기·골대 원위치·속도 스위치가 --hit 파생', () => {
   it('세 손잡이 전부 minHeight var(--hit)', () => {
-    render(<BoardBar courtLocked={false} onReset={() => {}} onResetGoals={() => {}} />, { wrapper: settingsWrapper });
+    render(<BoardBar courtMode="full" courtLocked={false} onReset={() => {}} onResetGoals={() => {}} />, { wrapper: settingsWrapper });
     for (const name of ['코트 비우기', '골대 원위치']) {
       expect(screen.getByRole('button', { name }).style.minHeight, name).toBe('var(--hit)');
     }

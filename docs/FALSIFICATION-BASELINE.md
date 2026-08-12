@@ -1837,3 +1837,46 @@ EditorProvider.tsx:115-132 의 상한 경로와 같은 규칙이라는 완료 �
 138 파일 1457 테스트 전부 통과(3차 병행 작업들의 증가분 포함) · `tsc -b --noEmit` 클린 ·
 oxlint **32건 유지**(`effectiveReduceMotion` 을 EditorProvider 에서 export 하면 33이 된다 —
 fast-refresh 린트. 그래서 tween.ts 로 옮겼다).
+
+## 25. 3.11 `CourtDef.desc` 되살리기 — 착수 후 기록 (2026-08-12)
+
+렌더 참조 0건이던 `CourtDef.desc` 3줄을 BoardBar 가 되살렸다. pristine 잠금 사유 <p> 하나가
+있던 자리에 **문구 스택 <div>**(desc 위 · 잠금 사유 아래)이 들어간다 — 같은 슬롯을 조건으로
+나누면 잠기는 순간 설명이 사라지므로(자리 다툼) 딴 줄로 공존시켰다.
+
+### 25.1 세로 예산 132 — 바 높이가 한 픽셀도 안 변한 근거
+
+행 높이는 버튼(`--hit` 44)이 정하므로 **문구 두 줄 합 ≤ 44** 면 바(60)는 문구와 무관하다.
+그 합은 `barHintStackPx()` = ceil(11 × 1.45) × 2 + 2 = **34** 로 식이 됐고(bottomBarMetrics),
+줄이 접혀 4줄(≈66)이 되는 길은 **nowrap+ellipsis** 로 막았다(잘린 전문은 title, 스크린리더는
+시각 말줄임과 무관하게 전문을 읽는다). jsdom 은 실높이를 못 재므로 BoardBar.test.tsx 가
+①식 ≤ 44 ②nowrap/ellipsis/줄높이 스타일 문자열 ③스택이 버튼과 같은 행 안(parentElement 동치)
+세 층으로 나눠 단언한다.
+
+### 25.2 사전 등록 소비 — 1건 (§3 "판 DOM 에 층을 더하는 모든 항목")
+
+`EditorWorkspace.narrow.test.tsx` 해시·뼈대 스냅샷이 빨간불 — §16.1 절차 그대로 **HTML 전수
+diff**(줄 단위)를 떴다: **치환 1건**뿐(그 <p> 자리 그대로 <div>+<p>×2, 삭제·이동 0건). 뼈대
+스냅샷 diff 도 정확히 그 세 줄이다. 해시를 `c52f0f2c…` 로 갱신(네 번째 갱신자)하고 테스트
+주석에 적었다. 그 밖의 사전 등록 소비 0건, 예상 밖 빨간불 0건.
+
+### 25.3 반증 실험 — 7건 (전부 단언 실패로 죽는다, 행 없음)
+
+| # | 되돌린 것 | 빨간불 |
+|---|---|---|
+| F1 | desc 줄 제거(잠금 사유만 원복) | 10 it. 대조군 초록불: 잠금 사유 단독 it — 공존 AND 의 반쪽이 따로 잡힌다 |
+| F2 | 두 문구를 한 <p> 로 병합 | 10 it — "딴 <p>" 단언 + getByText 전문 일치가 양쪽에서 잡는다 |
+| F3 | `whiteSpace: 'nowrap'` 만 제거 | **정확히 1 it**(nowrap 단언) — AND 로 안 묶고 속성마다 따로 찔렀다는 확인 |
+| F4 | `BAR_HINT_LINE_HEIGHT` 1.45 → 2.0 | 2 it — 식(46 > 44) + DOM 리터럴('1.45') 이 **둘 다** 울린다 = 상수와 화면이 실제로 묶였다 |
+| F5 | 문구 스택을 행 밖(형제 블록)으로 이동 | 정확히 1 it(parentElement 동치) — 바가 자라는 유일한 경로가 잡힌다 |
+| F6 | `courtMode` 무시하고 항상 full 의 desc | 5 it(half·flat 계열). 대조군 초록불: full 행 |
+| F7 | EditorWorkspace 배선을 `courtMode="half"` 고정으로 절단 | narrow 해시 1 it — 단위 테스트 밖의 배선도 해시가 지킨다 |
+
+원복은 전부 스크래치패드 백업본 복사(git checkout 미사용 — 다른 에이전트가 같은 트리에서
+model/* 을 만지는 중이다), 실험 후 diff -q 로 바이트 동일 확인.
+
+### 25.4 게이트
+
+BoardBar.test.tsx 13 it 신규 · 전체 스위트/tsc/oxlint 는 커밋 직전 실측을 커밋 메시지 검증란에
+기록한다. `validate.ts` 화이트리스트·`migrate.ts`·`spin.prefs.theme` 은 이 항목이 저장 포맷을
+건드리지 않으므로 무관하다(desc 는 COURT_DEFS 정적 데이터다 — 드릴 파일에 저장되지 않는다).

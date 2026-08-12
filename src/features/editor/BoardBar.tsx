@@ -10,9 +10,25 @@ import { useId, useRef, useState } from 'react';
 import { Modal } from '../../ui/Modal.tsx';
 import { SpeedLimitSwitch } from './SpeedLimitSwitch.tsx';
 import { Button } from '../../ui/Button.tsx';
-import { bottomBarPadCss } from './bottomBarMetrics.ts';
+import { BAR_HINT_GAP_PX, BAR_HINT_LINE_HEIGHT, bottomBarPadCss } from './bottomBarMetrics.ts';
+import { COURT_DEFS } from '../../model/court.ts';
+import type { CourtMode } from '../../model/court.ts';
+
+/** 문구 한 줄의 공통 스타일(§3.11). nowrap+ellipsis 는 멋이 아니라 **높이 보증**이다 —
+ *  줄이 접히면 문구 스택이 --hit 를 넘어 바가 자란다(bottomBarMetrics 의 barHintStackPx 주석).
+ *  잘린 전문은 title 로 남긴다. 스크린리더는 시각 말줄임과 무관하게 전문을 읽는다. */
+const HINT_LINE_STYLE = {
+  margin: 0,
+  fontSize: '0.6875rem', // = BAR_HINT_FONT_PX(11). bottomBarMetrics.test 가 등식을 붙잡는다
+  lineHeight: BAR_HINT_LINE_HEIGHT,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+} as const;
 
 export interface BoardBarProps {
+  /** 지금 판의 코트. §3.11 — COURT_DEFS[mode].desc 를 여기서 되살린다. */
+  courtMode: CourtMode;
   /** 코트 전환이 잠겨 있는가(= 판이 리셋 상태가 아니다). */
   courtLocked: boolean;
   onReset(): void;
@@ -20,12 +36,19 @@ export interface BoardBarProps {
   onResetGoals(): void;
 }
 
-export function BoardBar({ courtLocked, onReset, onResetGoals }: BoardBarProps) {
+export function BoardBar({ courtMode, courtLocked, onReset, onResetGoals }: BoardBarProps) {
   // 비우기는 **되돌릴 수 없다**(BOARD_SET 이 히스토리를 비운다 — actions.ts 주석).
   // 그래서 반드시 확인을 받는다. 되돌리기로 살릴 수 있는 조작이었다면 물을 이유가 없다.
   const [confirmOpen, setConfirmOpen] = useState(false);
   const confirmId = useId();
   const clearBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  // §3.11 — 렌더 참조 0건이던 CourtDef.desc 를 여기서 되살린다. 코트 세그먼트가 §5.2 에서
+  // 하단 바로 내려오면 이 줄이 그 세그먼트의 설명이 된다 — 자리를 먼저 잡아 두는 셈이다.
+  const desc = COURT_DEFS[courtMode].desc;
+  const lockHint = courtLocked
+    ? '코트 형태를 바꾸려면 먼저 코트를 비우세요 — 풀 코트와 하프 코트는 규격이 달라 배치를 옮겨 담을 수 없습니다.'
+    : '지금은 코트 형태를 자유롭게 바꿀 수 있습니다.';
 
   return (
     // 세로 여백은 TransportBar 와 **같은 출처**에서 온다(bottomBarMetrics) — 크롬 예산의
@@ -73,11 +96,17 @@ export function BoardBar({ courtLocked, onReset, onResetGoals }: BoardBarProps) 
 
         <SpeedLimitSwitch />
 
-        <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: '0.6875rem', color: 'var(--faint-text)' }}>
-          {courtLocked
-            ? '코트 형태를 바꾸려면 먼저 코트를 비우세요 — 풀 코트와 하프 코트는 규격이 달라 배치를 옮겨 담을 수 없습니다.'
-            : '지금은 코트 형태를 자유롭게 바꿀 수 있습니다.'}
-        </p>
+        {/* §3.11 — 코트 설명(desc)과 잠금 사유가 **딴 줄로 공존**한다. 같은 슬롯을 조건으로
+            나눠 쓰면 잠기는 순간 설명이 사라진다 — 그건 공존이 아니라 자리 다툼이다.
+            두 줄(≈34px)은 버튼(--hit 44)보다 낮아 바 높이(60)는 한 픽셀도 안 변한다. */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: BAR_HINT_GAP_PX }}>
+          <p title={desc} style={{ ...HINT_LINE_STYLE, color: 'var(--muted)' }}>
+            {desc}
+          </p>
+          <p title={lockHint} style={{ ...HINT_LINE_STYLE, color: 'var(--faint-text)' }}>
+            {lockHint}
+          </p>
+        </div>
       </div>
 
       <Modal

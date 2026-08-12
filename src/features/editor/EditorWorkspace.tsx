@@ -403,6 +403,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
 
         {isBoard ? (
           <BoardBar
+            courtMode={drill.courtMode}
             courtLocked={!boardPristine}
             onReset={() => board?.onReset()}
             onResetGoals={() => {
