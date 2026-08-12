@@ -1,5 +1,6 @@
 // §6.8 화면 골격의 실제 레이아웃 — 프로토타입 template.html 의 앱 레일(84px)+헤더(62px)+본문
-// 구조를 그대로 옮긴다. useAppHistory 를 여기서 정확히 한 번만 불러 AppNavProvider 로 내려보낸다
+// 구조를 그대로 옮긴다. **좁은 창에서는 그 레일이 0 이 되고 헤더 좌측 세그먼트가 대신 선다**
+// (3.-2 §5.2 — 폭 예산 117 중 84 가 그 행이다). useAppHistory 를 여기서 정확히 한 번만 불러 AppNavProvider 로 내려보낸다
 // (useAppHistory.ts 상단 주석 — 여러 곳에서 각자 부르면 popstate 가 없는 go()/back() 호출이
 // 서로 어긋난다).
 //
@@ -22,6 +23,7 @@
 //    화면 스위치 바깥에 별도 <main> 을 두지 않는다(board/drills 쪽과 상호 확인 완료).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { SkipLink } from '../ui/SkipLink.tsx';
+import { useIsNarrow } from '../ui/useIsNarrow.ts';
 import { LiveRegion, liveRegion } from '../ui/LiveRegion.tsx';
 import { ToastHost } from '../ui/ToastHost.tsx';
 import { IconPlus } from '../ui/icons.tsx';
@@ -207,6 +209,11 @@ export function AppShell() {
   const { toasts, dismiss } = useToast();
   const { drills, sessions } = useLibrary();
   const isFirstRender = useRef(true);
+  // 3.-2 §5.2 — 좁으면 84px 레일을 걷고 같은 3항목을 헤더 좌측 세그먼트로 세운다. **판정은
+  // 여기 한 번뿐이다**: 레일과 세그먼트가 같은 boolean 을 나눠 써야 "둘 다 서 있다/둘 다
+  // 없다" 는 프레임이 열리지 않는다. 판 위에 오버레이로 얹지 않는 이유는 AppNavSegment.tsx
+  // 머리말(edgePanBandPx=56 충돌)에 있다.
+  const narrow = useIsNarrow();
 
   /** 라이브 리전 발표문이 쓸 제목 조회. 목록 요약·세션은 앱 최상단에서 이미 한 번 읽혀 있으므로
    *  (LibraryProvider) 여기서 저장소를 새로 열지 않는다 — 발표가 비동기가 되면 화면이 바뀐
@@ -274,9 +281,9 @@ export function AppShell() {
           <PresentTargetContext.Provider value={presentTarget}>
             <SkipLink />
             <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
-              <AppRail />
+              {!narrow && <AppRail />}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <AppHeader config={staticHeaderConfig} />
+                <AppHeader config={staticHeaderConfig} narrow={narrow} />
                 {renderScreen(nav.screen, stageTarget, homeNav, libraryIntent)}
               </div>
             </div>

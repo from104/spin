@@ -12,6 +12,8 @@ import { Button } from '../ui/Button.tsx';
 import { Segmented } from '../ui/Segmented.tsx';
 import { IconLock, IconPresent, IconSearch, IconUndo, IconRedo } from '../ui/icons.tsx';
 import type { CourtMode } from '../model/court.ts';
+import { AppNavSegment } from './AppNavSegment.tsx';
+import { headerPadCss } from './navChrome.ts';
 
 export interface HeaderPrimaryAction {
   label: string;
@@ -184,7 +186,6 @@ const HEADER_STYLE: CSSProperties = {
   flexWrap: 'wrap',
   rowGap: '0.5rem',
   gap: '0.875rem',
-  padding: '0.5rem 1.5rem',
   borderBottom: '1px solid var(--border)',
   background: 'var(--panel)',
 };
@@ -193,13 +194,19 @@ const HEADER_STYLE: CSSProperties = {
  *  app-shell 에 의존할 수 없어(§8) useAppHeader 로 스스로를 알릴 수 없으므로 AppShell 이 정적으로
  *  계산해 여기 꽂는다. `config` 를 생략하면(editor/present) HeaderProvider 구독으로 돌아간다 —
  *  그 두 화면은 courtMode·저장 상태처럼 화면 전용 Provider 안의 값이 필요해서 useAppHeader 로
- *  스스로 선언해야 한다. */
-export function AppHeader({ config: override }: { config?: HeaderConfig }) {
+ *  스스로 선언해야 한다.
+ *
+ *  `narrow` (3.-2): 좁은 창이면 84px 레일 대신 **헤더 좌측 3칸 세그먼트**가 내비를 진다.
+ *  이 boolean 을 헤더가 스스로 `useIsNarrow()` 로 구하지 않고 **AppShell 에게서 받는** 이유는,
+ *  레일과 세그먼트가 같은 판정을 나눠 갖게 하기 위해서다 — 훅을 두 곳에서 부르면 두 state 가
+ *  각자 갱신되는 프레임에 둘 다 서거나 둘 다 없는 순간이 열린다. */
+export function AppHeader({ config: override, narrow = false }: { config?: HeaderConfig; narrow?: boolean }) {
   const ctx = useContext(HeaderContext);
   const config = override ?? ctx?.config ?? EMPTY_CONFIG;
 
   return (
-    <header style={HEADER_STYLE}>
+    <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow) }}>
+      {narrow && <AppNavSegment />}
       <div style={{ minWidth: 0, flex: '1 1 12rem' }}>
         <div style={{ fontSize: '0.9375rem', fontWeight: 700, letterSpacing: '-0.02rem', display: 'flex', alignItems: 'center', gap: '0.5625rem' }}>
           <span

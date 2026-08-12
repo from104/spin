@@ -58,7 +58,9 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
     // `edgePanBandPx=56` 띠와 겹쳐 가장자리 자동 밀기가 레일에 먹힌다(§5.2 [치명] 2번을
     // 원인째 제거). 갈 곳은 헤더 좌측 3칸 세그먼트다.
     narrow: 0,
-    owner: '미지정 — 2차 표에 "레일을 헤더로 접는다" 행이 없다(§5.2 만 서술)',
+    // AppShell 이 `useIsNarrow()` 로 갈라 좁으면 <AppRail> 을 아예 렌더하지 않는다 — 이 0 은
+    // 이제 예고가 아니라 실측이다(AppShell.wiring.test.tsx 가 DOM 의 레일 폭을 이 행과 대조한다).
+    owner: '3.-2 (완료) — 레일을 헤더 좌측 3칸 세그먼트(AppNavSegment)로 접는다',
   },
   {
     id: 'inspector',

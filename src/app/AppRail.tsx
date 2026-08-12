@@ -4,19 +4,15 @@
 // 키로 살아 있지만 레일에서는 빠진다 — 레일로 시연에 들어오면 대상이 없어 빈 화면만 뜬다.
 // 시연 중 활성은 SCREEN_TO_RAIL 이 [드릴]로 접는다. 이 컴포넌트는 여전히 **화면 키만** 보고
 // StageTarget 은 모른다(레일이 편집기 상태에 결합되는 것을 막는다).
-import type { ComponentType } from 'react';
-import { IconHome, IconLibrary, IconMoon, IconSettings, IconSun } from '../ui/icons.tsx';
-import type { IconProps } from '../ui/icons.tsx';
+//
+// 3.-2: **좁은 창에서는 이 컴포넌트가 아예 서지 않는다** — AppShell 이 `useIsNarrow()` 로 갈라
+// AppNavSegment(헤더 좌측 3칸)를 대신 세운다. 여기 84 는 크롬 예산의 appRail 행 `wide` 값이고,
+// 그래서 이 폭을 바꾸면 chromeBudget.test.ts 의 소스 대조가 빨간불이 된다.
+import { IconMoon, IconSun } from '../ui/icons.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, SCREEN_TO_RAIL } from './screens.ts';
-import type { RailKey } from './screens.ts';
-
-const RAIL_ICONS: Record<RailKey, ComponentType<IconProps>> = {
-  board: IconHome,
-  drills: IconLibrary,
-  settings: IconSettings,
-};
+import { RAIL_ICONS } from './navChrome.ts';
 
 /** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page". */
 export function AppRail() {

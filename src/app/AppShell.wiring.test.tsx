@@ -19,11 +19,12 @@
 // 이 파일은 **2.1 재편 후**의 배선을 못박는다. 화면 키('board'/'drills'/'present'/'settings')와
 // 레일 라벨을 상수 참조가 아니라 리터럴로 적는다 — 상수를 읽어 쓰면 키를 잘못 바꿔도 테스트가
 // 함께 따라 움직여 아무것도 못 잡는다.
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { DrillId, SessionId } from '../core/ids.ts';
 import type { HomeNav, LibraryTab } from '../features/home/nav.ts';
+import { CHROME_ROWS } from './chromeBudget.ts';
 
 // vi.mock 팩토리는 import 보다 위로 끌어올려지므로 이 파일 상단의 const 를 볼 수 없다.
 // vi.hoisted 로 같이 끌어올린 값만 목과 단언이 함께 쓸 수 있다.
@@ -634,5 +635,87 @@ describe('AppShell 배선 — 정적 헤더 대 Context 헤더', () => {
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
     expect(within(header()).getByText('편집기가 선언한 헤더')).toBeInTheDocument();
     expect(within(header()).queryByText('보드가 선언한 헤더')).toBeNull();
+  });
+});
+
+// ── 3.-2 좁은 창: 레일이 헤더 좌측 세그먼트로 접힌다 ──────────────────────────────────
+// §5.2 가 확정한 `AppRail 84 → 0`. 폭 예산 117 중 84 가 이 한 행이라, 여기가 안 걷히면
+// §5.4 의 '남는 폭'이 172 가 아니라 88 이 되어 `--hit` 56 에서 트레이 117 을 못 댄다.
+// 항목 자체의 계약(라벨·테마·버전·세로 예산)은 AppNavSegment.test.tsx 가 본다.
+
+/** jsdom 에는 matchMedia 가 없다. 안 깔면 `useIsNarrow` 가 넓은 쪽으로 굳어(2.3 폴백) 좁은
+ *  경로가 한 줄도 실행되지 않은 채 이 describe 가 통째로 초록불이 된다. */
+function stubMedia(narrow: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (q: string) => ({
+      matches: q.includes('max-width') ? narrow : false,
+      media: q,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => true,
+    }),
+  });
+}
+
+/** 그 내비가 **폭 예산에 기여하는 픽셀**. 레일은 가로 흐름에서 자기 폭을 선언하고(84),
+ *  헤더 안 세그먼트는 코트 상자를 옆으로 밀지 않으므로 0 이다 — 그 0/84 를 예산 행과 직접
+ *  대조하는 것이 이 항목의 완료 판정이다. */
+const navChromeWidthPx = (nav: HTMLElement, header: HTMLElement): number =>
+  header.contains(nav) ? 0 : Number.parseInt(nav.style.width || '0', 10);
+
+describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접힌다 (3.-2)', () => {
+  const railRow = CHROME_ROWS.find((r) => r.id === 'appRail')!;
+
+  afterEach(() => {
+    delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+  });
+
+  it('좁으면 레일이 사라지고 같은 3항목이 헤더 안에 선다 — 폭 기여가 84 → 0', async () => {
+    stubMedia(true);
+    await renderShell();
+    // 이름은 그대로다(좁다고 다른 앱이 되면 안 된다). getByRole 은 둘이면 던지므로 이 한 줄이
+    // "레일과 세그먼트가 동시에 서 있지 않다" 까지 함께 본다.
+    const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
+    expect(header().contains(nav)).toBe(true);
+    expect(navChromeWidthPx(nav, header())).toBe(railRow.narrow);
+    expect(railRow.narrow).toBe(0);
+    for (const l of RAIL_LABELS) expect(within(nav).getByRole('button', { name: l })).toBeInTheDocument();
+  });
+
+  it('대조군: 넓으면 레일이 헤더 밖에 서고 폭은 예산의 wide 84 다', async () => {
+    stubMedia(false);
+    await renderShell();
+    const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
+    expect(header().contains(nav)).toBe(false);
+    expect(navChromeWidthPx(nav, header())).toBe(railRow.wide);
+    expect(railRow.wide).toBe(84);
+  });
+
+  it('좁아도 SCREEN_TO_RAIL 매핑이 그대로다 — 시연 중 활성은 [드릴]', async () => {
+    stubMedia(true);
+    await renderShell();
+    const user = userEvent.setup();
+
+    expectRailActive('보드');
+    await user.click(screen.getByRole('button', { name: '드릴' }));
+    expectRailActive('드릴');
+    await user.click(screen.getByRole('button', { name: '드릴 시연' }));
+    expectOnlyScreen('screen-present');
+    expectRailActive('드릴');
+  });
+
+  it('키보드 순회가 헤더 → 판 순이다 — 내비가 화면보다 앞에 있다', async () => {
+    // 좁은 창에서 내비가 헤더 **뒤**(주 액션 옆)로 가면 탭 순서가 판을 지나갔다가 돌아온다.
+    stubMedia(true);
+    await renderShell();
+    const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
+    const board = screen.getByTestId('screen-board');
+    expect(nav.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // 헤더 안에서도 좌측 첫 칸이다 — 제목·되돌리기보다 앞.
+    expect(header().firstElementChild!.contains(nav)).toBe(true);
   });
 });
