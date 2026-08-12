@@ -50,6 +50,13 @@ export interface ObjectLayerProps {
   activeId: string | null;
   /** 마운트 첫 페인트에 즉시 확정할 프레임(§6.2 요건 2) — 드릴 재마운트·스텝 점프 직후에도 채운다. */
   initialFrame?: Readonly<Record<string, { x: number; y: number; theta: number }>>;
+  /** 3.10 스텝 전환의 등장/퇴장 페이드 — 시연(interpolateSteps)의 opacity 규칙과 같은 그림.
+   *  키 = 화살표/메모 id, 값 = 방향. 'out' 은 이전 스텝에만 있던 개체(호출자가 arrows/notes
+   *  목록에 함께 실어 보낸다)라 조작 대상이 아니다 — pointer-events 를 CSS 가 끊는다.
+   *  움직임 자체는 CSS 애니메이션이 그린다(§6.1 규칙 준수: React 는 프레임을 구동하지 않는다). */
+  fades?: Readonly<Record<string, 'in' | 'out'>>;
+  /** 페이드 지속(ms). stepTransitionMs 와 같은 값이어야 위치 트윈과 한 시계로 끝난다. */
+  fadeMs?: number;
   onObjectPointerDown?(id: string, e: ReactPointerEvent<SVGGElement>): void;
   onObjectKeyDown?(id: string, e: ReactKeyboardEvent<SVGGElement>): void;
 }
@@ -67,9 +74,18 @@ export function ObjectLayer({
   zoneCursors,
   activeId,
   initialFrame,
+  fades,
+  fadeMs,
   onObjectPointerDown,
   onObjectKeyDown,
 }: ObjectLayerProps) {
+  // 화살표·메모의 페이드 래퍼 속성. 래퍼 <g> 는 **항상** 두고 클래스만 바꾼다 — 전환 중에만
+  // 감쌌다 벗기면 React 가 자식을 재마운트해 포커스가 떨어지고 writer 등록이 한 번 더 돈다.
+  const fadeProps = (id: string): { className?: string; style?: { animationDuration: string } } => {
+    const dir = fades?.[id];
+    if (!dir || !fadeMs) return {};
+    return { className: dir === 'in' ? 'court-fade-in' : 'court-fade-out', style: { animationDuration: `${fadeMs}ms` } };
+  };
   // §6.2: ObjectLayer 는 마운트/재마운트마다 최초 프레임을 페인트 전에 확정한다 —
   // 안 하면 마운트 첫 페인트에 개체 전부가 viewBox 원점에 겹치고, 아무도 write 하지
   // 않는 경로(시연의 `key={drillId}` 드릴 재마운트)에서는 영구 고착한다.
@@ -103,15 +119,17 @@ export function ObjectLayer({
         />
       ))}
       {arrows.map((a) => (
-        <ArrowPath
-          key={a.id}
-          arrow={a}
-          markerUid={markerUid}
-          selected={selection.has(a.id)}
-          active={activeId === a.id}
-          onPointerDown={onObjectPointerDown}
-          onKeyDown={onObjectKeyDown}
-        />
+        <g key={a.id} {...fadeProps(a.id)}>
+          <ArrowPath
+            arrow={a}
+            markerUid={markerUid}
+            writer={writer}
+            selected={selection.has(a.id)}
+            active={activeId === a.id}
+            onPointerDown={onObjectPointerDown}
+            onKeyDown={onObjectKeyDown}
+          />
+        </g>
       ))}
       {chairs.map((c) => (
         <ChairChip
@@ -141,20 +159,21 @@ export function ObjectLayer({
         />
       ))}
       {notes.map((n) => (
-        <NoteLabel
-          key={n.id}
-          id={n.id}
-          writer={writer}
-          text={n.text}
-          size={n.size}
-          color={n.color}
-          align={n.align}
-          selected={selection.has(n.id)}
-          active={activeId === n.id}
-          ariaLabel={`메모: ${n.text}`}
-          onPointerDown={onObjectPointerDown}
-          onKeyDown={onObjectKeyDown}
-        />
+        <g key={n.id} {...fadeProps(n.id)}>
+          <NoteLabel
+            id={n.id}
+            writer={writer}
+            text={n.text}
+            size={n.size}
+            color={n.color}
+            align={n.align}
+            selected={selection.has(n.id)}
+            active={activeId === n.id}
+            ariaLabel={`메모: ${n.text}`}
+            onPointerDown={onObjectPointerDown}
+            onKeyDown={onObjectKeyDown}
+          />
+        </g>
       ))}
     </>
   );

@@ -115,6 +115,9 @@ export interface CourtStageProps {
   /** 로빙 tabindex 대상(§7.5b). */
   activeId: string | null;
   initialFrame?: Readonly<Record<string, { x: number; y: number; theta: number }>>;
+  /** 3.10 스텝 전환 등장/퇴장 페이드 — ObjectLayer 로 그대로 내린다. */
+  fades?: Readonly<Record<string, 'in' | 'out'>>;
+  fadeMs?: number;
   onObjectPointerDown?: (id: string, e: ReactPointerEvent<SVGGElement>) => void;
   onObjectKeyDown?: (id: string, e: ReactKeyboardEvent<SVGGElement>) => void;
   onContainerKeyDown?: (e: ReactKeyboardEvent<SVGSVGElement>) => void;
@@ -169,6 +172,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     zoneCursors,
     activeId,
     initialFrame,
+    fades,
+    fadeMs,
     onObjectPointerDown,
     onObjectKeyDown,
     onContainerKeyDown,
@@ -593,6 +598,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           zoneCursors={zoneCursors}
           activeId={activeId}
           initialFrame={initialFrame}
+          fades={fades}
+          fadeMs={fadeMs}
           onObjectPointerDown={onObjectPointerDown}
           onObjectKeyDown={onObjectKeyDown}
         />

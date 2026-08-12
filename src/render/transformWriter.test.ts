@@ -2,6 +2,7 @@
 /// <reference types="node" />
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { arrowPointKey } from '../model/arrow.ts';
 import { createTransformWriter } from './transformWriter.ts';
 
 function makeG(): SVGGElement {
@@ -85,6 +86,115 @@ describe('createTransformWriter', () => {
     const el = makeG();
     writer.register('a', el);
     expect(el.getAttribute('transform')).toBeNull(); // 지워진 프레임에는 아무 값도 없다
+  });
+});
+
+/** ArrowPath 처럼 같은 d 를 공유하는 path 여러 장을 품은 화살표 <g>. */
+function makeArrowG(paths = 2): { g: SVGGElement; ds: () => (string | null)[] } {
+  const g = makeG();
+  for (let i = 0; i < paths; i++) g.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'path'));
+  return { g, ds: () => Array.from(g.querySelectorAll('path')).map((p) => p.getAttribute('d')) };
+}
+
+describe('registerArrow — 화살표 d 재조립(3.10)', () => {
+  const arId = 'ar_test000000000a';
+  const keys = { f: arrowPointKey(arId, 'from'), c: arrowPointKey(arId, 'ctrl'), t: arrowPointKey(arId, 'to') };
+
+  it('세 점이 프레임에 실리면 그룹의 모든 path 에 같은 d 를 쓴다', () => {
+    const writer = createTransformWriter();
+    const { g, ds } = makeArrowG(3);
+    writer.registerArrow(arId, g);
+    writer.writeFrame({
+      [keys.f]: { x: 0, y: 0, theta: 0 },
+      [keys.c]: { x: 50, y: 25, theta: 0 },
+      [keys.t]: { x: 100, y: 0, theta: 0 },
+    });
+    // arrowPath 와 같은 문자열(0.01 반올림) — React 가 렌더한 d 와 한 글자도 안 어긋나야 한다.
+    expect(ds()).toEqual(['M0,0 Q50,25 100,0', 'M0,0 Q50,25 100,0', 'M0,0 Q50,25 100,0']);
+    // 화살표 그룹에 transform 은 절대 쓰지 않는다(모양 변화는 transform 으로 표현이 안 된다).
+    expect(g.getAttribute('transform')).toBeNull();
+  });
+
+  it('writeFrame → registerArrow 순서(재마운트)에서도 d 를 즉시 재생한다', () => {
+    const writer = createTransformWriter();
+    writer.writeFrame({
+      [keys.f]: { x: 1, y: 1, theta: 0 },
+      [keys.c]: { x: 2, y: 2, theta: 0 },
+      [keys.t]: { x: 3, y: 3, theta: 0 },
+    });
+    const { g, ds } = makeArrowG();
+    writer.registerArrow(arId, g);
+    expect(ds()).toEqual(['M1,1 Q2,2 3,3', 'M1,1 Q2,2 3,3']);
+  });
+
+  it('점이 하나라도 없으면 React 가 렌더한 d 를 덮지 않는다', () => {
+    const writer = createTransformWriter();
+    const { g, ds } = makeArrowG(1);
+    g.querySelector('path')!.setAttribute('d', 'M9,9 Q9,9 9,9');
+    writer.registerArrow(arId, g);
+    writer.writeFrame({ [keys.f]: { x: 0, y: 0, theta: 0 } }); // from 만 — ctrl/to 없음
+    expect(ds()).toEqual(['M9,9 Q9,9 9,9']);
+  });
+
+  it('EPS 미만 변화에서는 d 를 다시 쓰지 않는다(정지 화살표의 GC 규율 — 요건 3과 동일)', () => {
+    const writer = createTransformWriter();
+    const { g } = makeArrowG(1);
+    writer.registerArrow(arId, g);
+    const full = {
+      [keys.f]: { x: 0, y: 0, theta: 0 },
+      [keys.c]: { x: 50, y: 25, theta: 0 },
+      [keys.t]: { x: 100, y: 0, theta: 0 },
+    };
+    writer.writeFrame(full);
+    const spy = vi.spyOn(g.querySelector('path')!, 'setAttribute');
+    writer.writeFrame(full); // 같은 프레임 — 아무 것도 안 쓴다
+    expect(spy).not.toHaveBeenCalled();
+    // 대조군 — 한 점이라도 EPS 이상 움직이면 쓴다(스파이가 실제로 걸려 있음을 증명).
+    writer.writeFrame({ ...full, [keys.t]: { x: 120, y: 0, theta: 0 } });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(g.querySelector('path')!.getAttribute('d')).toBe('M0,0 Q50,25 120,0');
+  });
+
+  it('한 프레임에 세 점이 같이 와도 d 조립은 화살표당 한 번이다(writeFrame 배칭)', () => {
+    const writer = createTransformWriter();
+    const { g } = makeArrowG(1);
+    writer.registerArrow(arId, g);
+    writer.writeFrame({
+      [keys.f]: { x: 0, y: 0, theta: 0 },
+      [keys.c]: { x: 1, y: 1, theta: 0 },
+      [keys.t]: { x: 2, y: 2, theta: 0 },
+    });
+    const spy = vi.spyOn(g.querySelector('path')!, 'setAttribute');
+    writer.writeFrame({
+      [keys.f]: { x: 10, y: 0, theta: 0 },
+      [keys.c]: { x: 11, y: 1, theta: 0 },
+      [keys.t]: { x: 12, y: 2, theta: 0 },
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('registerArrow(id, null) 해제·clear 이후에는 그 노드에 더 쓰지 않는다', () => {
+    const writer = createTransformWriter();
+    const { g, ds } = makeArrowG(1);
+    writer.registerArrow(arId, g);
+    writer.writeFrame({
+      [keys.f]: { x: 0, y: 0, theta: 0 },
+      [keys.c]: { x: 1, y: 1, theta: 0 },
+      [keys.t]: { x: 2, y: 2, theta: 0 },
+    });
+    writer.registerArrow(arId, null);
+    writer.writeFrame({
+      [keys.f]: { x: 90, y: 0, theta: 0 },
+      [keys.c]: { x: 91, y: 1, theta: 0 },
+      [keys.t]: { x: 92, y: 2, theta: 0 },
+    });
+    expect(ds()).toEqual(['M0,0 Q1,1 2,2']); // 해제 후 값 그대로
+  });
+
+  it('snapshot 에 화살표 점 항목이 함께 실린다 — frameSync 의 from 이 화살표를 안다', () => {
+    const writer = createTransformWriter();
+    writer.writeFrame({ [keys.f]: { x: 5, y: 6, theta: 0 } });
+    expect(writer.snapshot()[keys.f]).toEqual({ x: 5, y: 6, theta: 0 });
   });
 });
 

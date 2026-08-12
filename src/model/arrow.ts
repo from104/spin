@@ -1,5 +1,6 @@
 // §3.5(화살표 부분) — 2차 베지에 화살표. D8/D9.
 import type { Vec2 } from '../core/units.ts';
+import { isId } from '../core/ids.ts';
 import type { ArrowId } from '../core/ids.ts';
 
 export type ArrowKind = 'move' | 'pass' | 'shot';
@@ -25,8 +26,10 @@ export const arrowColor = (a: Arrow): string => a.color ?? ARROW_STYLES[a.kind].
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
-/** `M${from} Q${ctrl} ${to}`, 좌표 0.01 반올림. */
-export function arrowPath(a: Arrow): string {
+/** `M${from} Q${ctrl} ${to}`, 좌표 0.01 반올림. 세 점만 쓰므로 Arrow 전체가 아니어도 된다 —
+ *  스텝 전환 트윈(§6.7/3.10)이 보간 중인 세 점만으로 같은 문자열을 조립한다(반올림까지 같아야
+ *  트윈 종점의 d 와 React 가 렌더한 d 가 한 글자도 안 어긋난다). */
+export function arrowPath(a: Pick<Arrow, 'from' | 'ctrl' | 'to'>): string {
   const f = `${round2(a.from.x)},${round2(a.from.y)}`;
   const c = `${round2(a.ctrl.x)},${round2(a.ctrl.y)}`;
   const t = `${round2(a.to.x)},${round2(a.to.y)}`;
@@ -67,4 +70,23 @@ export function nudgeArrow(a: Arrow, part: ArrowPart, d: Vec2): Arrow {
   const mv = (p: Vec2): Vec2 => ({ x: p.x + d.x, y: p.y + d.y });
   if (part === 'whole') return { ...a, from: mv(a.from), ctrl: mv(a.ctrl), to: mv(a.to) };
   return { ...a, [part]: mv(a[part]) };
+}
+
+/** §6.7/3.10 스텝 전환 트윈의 화살표 프레임 키. 화살표는 transform 하나로 표현이 안 된다
+ *  (세 점이 각자 움직인다) — 점 하나를 프레임 항목 하나(`${id}@from` 등)로 싣고, DOM 쪽
+ *  (transformWriter.registerArrow)이 세 점을 모아 `d` 를 다시 조립한다. 구분자 `@` 는 id
+ *  문자집합(접두 2자 + '_' + base36)에 없어 실제 개체 id 와 절대 충돌하지 않는다.
+ *  생산자(store/editor/tween.poseFrame)와 소비자(render/transformWriter)가 다른 레이어라
+ *  둘 다 이미 import 하는 이 모듈이 키 규약의 단일 출처다. */
+export const ARROW_POINT_SEP = '@';
+export function arrowPointKey(id: string, point: ArrowHandle): string {
+  return `${id}${ARROW_POINT_SEP}${point}`;
+}
+export function parseArrowPointKey(key: string): { id: ArrowId; point: ArrowHandle } | null {
+  const i = key.indexOf(ARROW_POINT_SEP);
+  if (i < 0) return null;
+  const id = key.slice(0, i);
+  if (!isId(id, 'ar')) return null;
+  const point = key.slice(i + 1);
+  return point === 'from' || point === 'ctrl' || point === 'to' ? { id, point } : null;
 }

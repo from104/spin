@@ -2,7 +2,7 @@
 // 캡처·레이어 순서는 CourtStage 소관, 히트테스트·물리 드래그 의미론은 useEditorPointer 소관,
 // 이 파일은 그 둘을 조립하고 §7.5 키보드 계약(로빙 tabindex·개체 순회·키보드 배치 커서)만
 // 더한다.
-import { forwardRef, useCallback, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
@@ -11,10 +11,10 @@ import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
-import type { Drill, DrillStep } from '../../model/drill.ts';
+import type { Drill, DrillStep, NoteLabel } from '../../model/drill.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
-import type { ArrowHandle, ArrowPart } from '../../model/arrow.ts';
+import type { Arrow, ArrowHandle, ArrowPart } from '../../model/arrow.ts';
 import { COURT_DEFS, gridCellCenter, cellLabelAt, type CourtMode } from '../../model/court.ts';
 import { GOAL_ID_PREFIX } from '../../physics/index.ts';
 import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
@@ -49,6 +49,12 @@ export interface EditorStageProps {
   /** §7.3 "큰 터치 타깃". 2단 히트(§4.3 P1-2)의 2차 패스 반경만 44 → 56 CSS px 로 키운다. */
   largeTargets: boolean;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
+  /** 3.10 — 시점 점프 감지(§6.7 immediate 와 같은 규칙: undo/redo·스텝 추가삭제). 점프에는
+   *  트윈과 마찬가지로 등장/퇴장 페이드도 걸지 않는다. */
+  epoch?: number;
+  /** 이 스텝으로의 전환 시간(ms) — 반드시 stepTransitionMs(tween.ts) 값으로 준다. 트윈(위치·
+   *  화살표)과 페이드(등장/퇴장)가 같은 시계로 끝나야 한다. 0/미지정 = 페이드 없음. */
+  transitionMs?: number;
 }
 
 function nearestCell(mode: CourtMode, p: { x: number; y: number }): { col: number; row: number } {
@@ -66,7 +72,7 @@ const ARROW_AIM_ORDER: readonly ArrowHandle[] = ['to', 'from', 'ctrl'];
 const ARROW_AIM_LABEL: Record<ArrowHandle, string> = { to: '끝점', from: '시작점', ctrl: '굽힘점' };
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, onEraseIds },
+  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, onEraseIds, epoch = 0, transitionMs = 0 },
   stageRef,
 ) {
   const pointer = useEditorPointer({
@@ -125,9 +131,81 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     [drill.cast.cones, step.cones],
   );
 
-  const arrows = useMemo(() => (pointer.arrowDraft ? [...step.arrows, pointer.arrowDraft] : step.arrows), [step.arrows, pointer.arrowDraft]);
+  // ── 3.10 스텝 전환 (1) 프레임 소유권 ─────────────────────────────────────────
+  // 같은 장 안의 편집(NOTE_SET·ARROW_SET 등)은 이 층이 즉시 다시 쓴다 — 메모·화살표는 물리
+  // 바디가 없어 이 재적용만이 DOM 에 닿는 경로다(§4.3 P1-5). 그러나 **스텝 전환의 프레임은
+  // frameSync(EditorProvider §6.7)가 소유한다**: 전환에서도 참조를 갈아 끼우면 ObjectLayer 의
+  // layout effect(자식이라 부모보다 먼저 돈다)가 도착 프레임을 먼저 써 버려, 트윈 시작점
+  // 스냅샷이 from==to 가 되고 .6s 전환이 통째로 사라진다(3.10 실측: 실제로 그렇게 죽어 있었다).
+  const ownedFrameRef = useRef<{ stepId: string; step: DrillStep; frame: Record<string, { x: number; y: number; theta: number }> } | null>(null);
+  {
+    const prev = ownedFrameRef.current;
+    if (prev === null || (prev.stepId === step.id && prev.step !== step)) {
+      ownedFrameRef.current = { stepId: step.id, step, frame: poseFrame(step) };
+    } else if (prev.stepId !== step.id) {
+      // 전환 — 프레임 참조를 유지해 ObjectLayer 재적용을 억제한다(트윈이 쓴다).
+      ownedFrameRef.current = { stepId: step.id, step, frame: prev.frame };
+    }
+  }
+  const initialFrame = ownedFrameRef.current!.frame;
 
-  const initialFrame = useMemo(() => poseFrame(step), [step]);
+  // ── 3.10 스텝 전환 (2) 등장/퇴장 페이드 ──────────────────────────────────────
+  // 시연(model/playback.ts interpolateSteps)의 opacity 크로스페이드와 같은 그림을 편집기
+  // 재생에도 만든다. id 로 짝을 짓고(§3.5 duplicateStep 의 id 보존이 전제), 한쪽에만 있는
+  // 화살표·메모를 transitionMs 동안 CSS 애니메이션(a11y.css)으로 거두고/띄운다 — 프레임
+  // 구동은 컴포지터 몫이라 §6.1 규칙 1(React 는 프레임을 구동하지 않는다)과 어긋나지 않는다.
+  const [fade, setFade] = useState<{ fades: Record<string, 'in' | 'out'>; ms: number; exitArrows: readonly Arrow[]; exitNotes: readonly NoteLabel[] } | null>(null);
+  const prevStepRef = useRef(step);
+  const prevEpochRef = useRef(epoch);
+  const fadeInputRef = useRef({ step, transitionMs });
+  fadeInputRef.current = { step, transitionMs };
+  // 직전 커밋의 스텝(편집 반영분 포함)을 기억한다 — passive effect 라 아래 layout effect 보다
+  // 늦게 돌아, 전환 커밋의 layout effect 는 항상 "이전 스텝의 마지막 내용"을 읽는다.
+  useEffect(() => {
+    prevStepRef.current = step;
+  });
+  useLayoutEffect(() => {
+    const prevStep = prevStepRef.current;
+    const immediate = epoch !== prevEpochRef.current;
+    prevEpochRef.current = epoch;
+    const { step: cur, transitionMs: ms } = fadeInputRef.current;
+    if (prevStep.id === cur.id) return; // 마운트·epoch 단독 변화 — 전환이 아니다
+    if (immediate || ms <= 0) {
+      setFade(null); // reduce-motion·시점 점프 — 즉시 스냅(트윈의 ms=0 경로와 같은 규칙)
+      return;
+    }
+    const curArrow = new Set(cur.arrows.map((a) => a.id));
+    const curNote = new Set(cur.notes.map((n) => n.id));
+    const prevArrow = new Set(prevStep.arrows.map((a) => a.id));
+    const prevNote = new Set(prevStep.notes.map((n) => n.id));
+    const exitArrows = prevStep.arrows.filter((a) => !curArrow.has(a.id));
+    const exitNotes = prevStep.notes.filter((n) => !curNote.has(n.id));
+    const fades: Record<string, 'in' | 'out'> = {};
+    for (const a of cur.arrows) if (!prevArrow.has(a.id)) fades[a.id] = 'in';
+    for (const n of cur.notes) if (!prevNote.has(n.id)) fades[n.id] = 'in';
+    for (const a of exitArrows) fades[a.id] = 'out';
+    for (const n of exitNotes) fades[n.id] = 'out';
+    if (Object.keys(fades).length === 0) {
+      setFade(null);
+      return;
+    }
+    setFade({ fades, ms, exitArrows, exitNotes });
+    const timer = window.setTimeout(() => setFade(null), ms);
+    return () => window.clearTimeout(timer);
+    // step 내용·transitionMs 는 ref 로 읽는다 — 편집마다 페이드 타이머가 리셋되면 안 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step.id, epoch]);
+
+  // 퇴장 중인 개체는 목록에 남겨 함께 그린다. step.arrows/notes(키보드 순회·히트테스트의
+  // 출처)가 아니라 **그리기 목록에만** 넣으므로 조작 대상이 되지는 않는다.
+  const arrows = useMemo(() => {
+    const base = fade && fade.exitArrows.length > 0 ? [...step.arrows, ...fade.exitArrows] : step.arrows;
+    return pointer.arrowDraft ? [...base, pointer.arrowDraft] : base;
+  }, [step.arrows, pointer.arrowDraft, fade]);
+  const notes = useMemo(
+    () => (fade && fade.exitNotes.length > 0 ? [...step.notes, ...fade.exitNotes] : step.notes),
+    [step.notes, fade],
+  );
 
   // 골대 포스트 id — 물리(physics/index.load)가 코트 정의에서 같은 순서로 만든다. 드릴에
   // 저장되지 않으므로 여기서 개수만 맞춰 주면 writer 가 위치를 흘려보낸다(§5.4 GOAL).
@@ -366,12 +444,14 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       balls={balls}
       cones={cones}
       goals={goals}
-      notes={step.notes}
+      notes={notes}
       arrows={arrows}
       selection={selection}
       zoneCursors={zones}
       activeId={activeId}
       initialFrame={initialFrame}
+      fades={fade?.fades}
+      fadeMs={fade?.ms}
       onObjectKeyDown={handleObjectKeyDown}
       onContainerKeyDown={handleContainerKeyDown}
       selectionOverlayRef={pointer.selectionOverlayRef}

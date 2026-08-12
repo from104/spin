@@ -14,11 +14,10 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 import type { Dispatch, MutableRefObject, ReactNode } from 'react';
 import { kmhToPxPerS } from '../../core/units.ts';
-import { CHAIR, PLAYBACK } from '../../core/constants.ts';
+import { CHAIR } from '../../core/constants.ts';
 import { easeStandard } from '../../core/geom.ts';
 import type { Drill } from '../../model/drill.ts';
 import { COURT_DEFS } from '../../model/court.ts';
-import { effectiveStepMs } from '../../model/playback.ts';
 import { createPhysicsWorld } from '../../physics/index.ts';
 import type { DragLimits } from '../../physics/types.ts';
 import type { PhysicsParams } from '../../storage/prefs.ts';
@@ -30,7 +29,7 @@ import { useSettingsState } from '../settings/SettingsProvider.tsx';
 import type { EditorAction } from './actions.ts';
 import type { EditorState } from './reducer.ts';
 import { editorRootReducer, initEditorState, selectStepIndex } from './reducer.ts';
-import { poseFrame, startTween } from './tween.ts';
+import { effectiveReduceMotion, poseFrame, startTween, stepTransitionMs } from './tween.ts';
 import type { TweenHandle } from './tween.ts';
 
 export type EditorWorldRef = MutableRefObject<PhysicsWorldApi | null>;
@@ -39,12 +38,6 @@ const EditorStateContext = createContext<EditorState | null>(null);
 const EditorDispatchContext = createContext<Dispatch<EditorAction> | null>(null);
 const EditorWorldContext = createContext<EditorWorldRef | null>(null);
 const EditorWriterContext = createContext<TransformWriter | null>(null);
-
-function effectiveReduceMotion(setting: 'system' | 'always'): boolean {
-  if (setting === 'always') return true;
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
 
 /** 설정값 → 물리 속도 상한.
  *
@@ -72,7 +65,12 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
   const writerRef = useRef<TransformWriter | null>(null);
   if (!writerRef.current) writerRef.current = createTransformWriter();
   const tweenRef = useRef<TweenHandle | null>(null);
-  const prevEpochRef = useRef(state.epoch);
+  // null = 아직 한 번도 frameSync 를 돌지 않았다(마운트). §6.7 이 명시한 immediate 목록에
+  // "드릴 로드·코트 재마운트"가 들어 있다 — 마운트를 트윈(0.6s)으로 돌리면 그 동안 트윈이
+  // 마운트 시점 프레임을 매 tick 다시 써서, 마운트 직후 0.6초 안의 화살표·메모 편집을
+  // 소리 없이 되돌린다(3.10 실측: 보드 화살표 키보드 테스트가 정확히 이걸 잡았다.
+  // 휠체어·공·콘은 물리 펌프가 나중에 구독돼 매 tick 이기므로 이 결함이 안 보였을 뿐이다).
+  const prevEpochRef = useRef<number | null>(null);
 
   // 물리 엔진 인스턴스는 React state 로 들지 않는다(ref) — courtMode 는 드릴 레벨 불변(§3.2)이라
   // DRILL_LOAD 로 코트가 다른 드릴을 불러올 때만 재생성한다. limits 는 생성 시점의 설정값으로
@@ -119,14 +117,12 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
     const idx = selectStepIndex(state);
     const currentStep = state.present.steps[idx];
     if (!currentStep) return;
-    const immediate = state.epoch !== prevEpochRef.current;
+    const immediate = prevEpochRef.current === null || state.epoch !== prevEpochRef.current;
     prevEpochRef.current = state.epoch;
     tweenRef.current?.cancel();
     const from = writer.snapshot();
     const to = poseFrame(currentStep);
-    const reduce = effectiveReduceMotion(prefs.a11y.reduceMotion);
-    const baseMs = effectiveStepMs(currentStep, PLAYBACK.stepIntervalMs[1]);
-    const ms = immediate || reduce ? 0 : PLAYBACK.transitionMsFor(baseMs);
+    const ms = stepTransitionMs(currentStep, { immediate, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion) });
     tweenRef.current = startTween(from, to, ms, easeStandard, raf.add, writer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.stepId, state.epoch]);

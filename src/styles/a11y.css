@@ -36,6 +36,46 @@
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5));
 }
 
+/* 3.10 스텝 전환의 등장/퇴장 페이드 — 시연(interpolateSteps)의 opacity 규칙을 편집기에도.
+ * 지속시간은 인라인 animation-duration(= stepTransitionMs, 위치 트윈과 같은 시계)이 정하고,
+ * 곡선은 easeStandard = cubic-bezier(.4,0,.2,1)(core/geom.ts) 그대로다. 'both' 라 전환이
+ * 끝난 뒤 목록에서 빠지기까지 한두 프레임 밀려도 퇴장 개체가 되살아나 보이지 않는다.
+ * 퇴장 개체는 이미 이 스텝에 없는 것이라 조작 대상이 아니다 — pointer-events 를 여기서 끊는다. */
+.court-fade-in {
+  animation: court-fade-in 600ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.court-fade-out {
+  animation: court-fade-out 600ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  pointer-events: none;
+}
+@keyframes court-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes court-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* reduce-motion 이면 JS(stepTransitionMs=0)가 애초에 페이드를 만들지 않는다 — 이 가드는
+ * 그 판정과 CSS 가 어긋나는 창(설정 전환 직후 등)에 개체가 어중간한 투명도로 남는 것을 막는다. */
+@media (prefers-reduced-motion: reduce) {
+  .court-fade-in,
+  .court-fade-out {
+    animation: none;
+  }
+  .court-fade-out {
+    opacity: 0;
+  }
+}
+
 .focus-ind-outer {
   opacity: 0;
   fill: none;

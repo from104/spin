@@ -1777,3 +1777,63 @@ appHeader 행이 코트 세그먼트(약 210)와 주 액션(약 120)을 하단 �
 (`chrome-error://chromewebdata/`) 브라우저 실측을 하지 못했다. 그러므로 §23.2 의 '두 줄 흐름'
 위험은 계산과 근거로만 서 있다. **0.5(실기 검증 경로)에서 1024×600·800×480 두 폭의 헤더가 한
 줄인지 눈으로 확인할 것** — 두 줄이면 그것은 이 행이 아니라 appHeader 행이 갚아야 할 빚이다.
+
+## 24. 3.10 편집기 재생이 화살표·메모를 트윈한다 (★B-2) — 착수 후 기록 (2026-08-12)
+
+### 24.1 전제가 틀려 있었다 — "chairs/balls/cones 만 다룬다"가 아니라 **아무것도 트윈되지 않았다**
+
+계획서 3.10 행은 `tween.ts:22-36` 이 휠체어·공·콘만 다뤄 화살표·메모가 튄다고 썼다. 착수 실측
+(EditorScreen 실조립 + rAF 수동 큐)은 더 나빴다: **스텝 전환에서 아무것도 트윈되지 않았다.**
+`[다음 스텝]` 클릭 직후 휠체어 transform 이 이미 도착값(75→255 즉시)이었다. 원인은 EditorStage 의
+`initialFrame = useMemo(poseFrame(step), [step])` — 스텝 전환 커밋마다 새 참조가 되고, ObjectLayer
+의 layout effect(자식이라 부모보다 먼저 돈다)가 도착 프레임을 먼저 `writeFrame` 해 **frameSync 의
+트윈 시작점 스냅샷이 from==to 로 덮였다.** §6.7 이 "조건 없이 writeFrame 하면 .6s 전환이 통째로
+사라진다"고 경고한 바로 그 모양이 조립 층에서 재현돼 있었던 것이다. 순수 조각 테스트
+(tween.test.ts)만 있고 조립 테스트가 없어 아무도 몰랐다 — 그래서 이번 고정 테스트
+(`stepTween.test.tsx`)는 전부 **실조립**으로 짰다.
+
+### 24.2 무엇을 바꿨나
+
+| 층 | 무엇 |
+|---|---|
+| `EditorStage` | 프레임 소유권 분리: 같은 장 안의 편집(P1-5 의 메모·화살표 경로)만 재적용하고 **스텝 전환의 프레임은 frameSync 소유** — 전환 커밋에서는 initialFrame 참조를 유지해 재적용을 억제 |
+| `tween.ts poseFrame` | 화살표 세 점을 `${id}@from/ctrl/to` 키(model/arrow.ts 규약)로 싣는다 — frameAt 의 선형 보간·id 짝짓기가 시연 interpolateSteps 와 같은 그림이 된다 |
+| `transformWriter` | `registerArrow`: 세 점이 모이면 그룹의 모든 `<path>` 에 `d` 재조립(문자열은 `arrowPath` 그대로 — React 렌더값과 자리수까지 동일). writeFrame 은 화살표당 1회 조립으로 배칭 |
+| `ArrowPath` | writer 등록 + effect deps 에 `arrow` 객체 — React 가 d 를 다시 쓸 때마다 writer 가 되찾는다(없으면 전환 커밋에서 React 의 도착 d 가 EPS 비교를 뚫고 살아남아 화살표만 즉시 도착한다) |
+| `startTween` | 시작 프레임(e=0)을 구독 전에 동기로 1회 write — 다음 스텝에만 있는 개체의 원점 1프레임 플래시 제거 |
+| `EditorStage`+`ObjectLayer`+`a11y.css` | 한쪽에만 있는 화살표·메모의 등장/퇴장 페이드(CSS 애니메이션, `stepTransitionMs` 와 같은 시계·같은 `cubic-bezier(.4,0,.2,1)`) — 퇴장 개체는 그리기 목록에만 남고 조작 대상이 아니다 |
+| `EditorProvider` | **마운트를 immediate 로**(§6.7 명시 목록의 '드릴 로드·재마운트'). 종전엔 마운트가 0.6s 트윈이라 그동안 트윈이 마운트 프레임을 매 tick 다시 써서, 마운트 직후 0.6초 안의 화살표·메모 편집을 소리 없이 되돌렸다 — BoardScreen 화살표 키보드 테스트 3건이 정확히 이걸 잡아 줬다(24.3) |
+
+reduce-motion 은 트윈·페이드 모두 `stepTransitionMs`(단일 출처) 의 0ms 판정을 탄다 —
+EditorProvider.tsx:115-132 의 상한 경로와 같은 규칙이라는 완료 판정 그대로다.
+
+### 24.3 사전 등록 소비 — 0건 · 예상 밖 빨간불 — 3건(모두 이 작업 안에서 원인 규명 후 해소)
+
+§3 표의 사전 등록은 한 건도 걸리지 않았다. 작업 중 빨간불:
+
+1. `tween.test.ts` 2 it (진행/취소의 frames 길이) — startTween 의 "시작 프레임 동기 1회" 는 내가
+   바꾼 계약이다. 단언을 지우지 않고 새 계약(길이 +1, 시작값 from)으로 갱신 + 근거 주석.
+2. `BoardScreen.test.tsx` 화살표 키보드 4 it — 위 24.2 의 마운트 트윈 결함이 원인. **테스트는 한
+   글자도 안 바꿨다.** 마운트 immediate 수정으로 초록불 복귀. (휠체어·공·콘에서 같은 결함이 안
+   보였던 이유: 물리 펌프가 트윈보다 늦게 구독돼 매 tick 이겼기 때문. 화살표·메모에는 그 경쟁자가
+   없어서 이번에 처음 드러났다.)
+
+### 24.4 반증 실험 — 6건 (전부 단언 실패로 죽는다, 행 없음)
+
+| # | 되돌린 것 | 빨간불 |
+|---|---|---|
+| F1 | poseFrame 의 화살표 세 점 싣기 제거 | tween.test 화살표 항목 it + 실조립 "클릭 직후 이전 스텝 값"(300≠200) — 화살표만 즉시 도착 |
+| F2 | EditorStage 프레임 소유권 억제 원복(무조건 재적용) | 실조립 휠체어 "클릭 직후"가 255(도착값) — 24.1 의 죽은 트윈 그대로 재현 |
+| F3 | startTween 시작 프레임 동기 write 제거 | 등장 메모 transform 부재(TypeError로 원점 플래시 검출) + tween.test 길이 단언 2 it |
+| F4 | ArrowPath effect deps 를 `arrow` → `arrow.id` 로 약화 | 실조립 화살표 300≠200 — React 도착 d 를 못 되찾는다 |
+| F5 | 퇴장 화살표 그리기 목록 병합 제거 | 페이드 it "expected null to be truthy" — 퇴장 개체가 전환 중 DOM 에 없다 |
+| F6 | EditorProvider 마운트 immediate 원복 | BoardScreen 화살표 키보드 3 it — 마운트 0.6s 트윈이 편집을 되돌린다 |
+
+스파이 단언(EPS d 미기록)에는 대조군(한 점 이동 시 1회 호출)을 붙였고, "클릭 직후·중간·완주" AND
+검증은 개체(휠체어/화살표/메모)와 시점마다 따로 찔렀다.
+
+### 24.5 게이트
+
+138 파일 1457 테스트 전부 통과(3차 병행 작업들의 증가분 포함) · `tsc -b --noEmit` 클린 ·
+oxlint **32건 유지**(`effectiveReduceMotion` 을 EditorProvider 에서 export 하면 33이 된다 —
+fast-refresh 린트. 그래서 tween.ts 로 옮겼다).

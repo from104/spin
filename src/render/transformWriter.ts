@@ -2,10 +2,17 @@
 // 절대 렌더하지 않는다(§6.1 규칙 1) — 그래서 상위 리렌더가 일어나도 여기서 쓴 값이
 // 되돌려지지 않는다.
 import { DEG } from '../core/angle.ts';
+import { arrowPath, arrowPointKey, parseArrowPointKey } from '../model/arrow.ts';
 
 export interface TransformWriter {
   register(id: string, el: SVGGElement | null): void;
   registerCounter(id: string, el: SVGGElement | null): void;
+  /** 화살표 `<g>`(§6.6 ArrowPath). 화살표는 transform 이 아니라 **`d` 재조립**으로 움직인다 —
+   *  세 점(from/ctrl/to)이 각자 움직여 transform 하나로는 모양 변화를 표현할 수 없다.
+   *  프레임에는 점이 `${id}@from` 식 키(model/arrow.ts 규약)로 실리고, 세 점이 다 모이면
+   *  그룹 안의 모든 `<path>` 에 같은 `d` 를 쓴다(케이싱·본선·포커스 링이 전부 같은 d 를 쓰는
+   *  ArrowPath 구조 전제). */
+  registerArrow(id: string, el: SVGGElement | null): void;
   /** 개체와 **같은** transform 을 받는 부속 그룹(존 핸들 등). 개체 본체와 별개의 SVG 위치에
    *  그려지면서도 60fps 로 함께 움직여야 하는 오버레이용 — 본체 <g> 안에 넣을 수 없을 때 쓴다.
    *
@@ -54,6 +61,7 @@ export function createTransformWriter(): TransformWriter {
   const els = new Map<string, SVGGElement>();
   const counters = new Map<string, SVGGElement>();
   const followers = new Map<string, Follower>();
+  const arrowEls = new Map<string, SVGGElement>();
   const prev = new Map<string, Pose>();
   // 마지막으로 기록된 프레임 전체 — register() 가 늦게 마운트된 노드에 즉시 흘려보낼 때 쓴다.
   const frame = new Map<string, Pose>();
@@ -96,6 +104,32 @@ export function createTransformWriter(): TransformWriter {
     if (p) applyMain(el, id, p.x, p.y, p.theta, f.scaleWithHeld);
   }
 
+  /** 프레임에 실린 세 점으로 `d` 를 다시 조립해 그룹의 모든 `<path>` 에 쓴다. 점이 하나라도
+   *  없으면(트윈이 이 화살표를 아직 만진 적 없음) React 가 렌더한 d 를 그대로 둔다.
+   *  querySelectorAll 을 캐시하지 않는 이유: 선택 하이라이트 path 가 selected 토글로 생겼다
+   *  없어져 자식 집합이 변한다 — 화살표는 스텝당 소수라 매번 조회해도 비용이 없다. */
+  function applyArrow(id: string): void {
+    const el = arrowEls.get(id);
+    if (!el) return;
+    const f = frame.get(arrowPointKey(id, 'from'));
+    const c = frame.get(arrowPointKey(id, 'ctrl'));
+    const t = frame.get(arrowPointKey(id, 'to'));
+    if (!f || !c || !t) return;
+    const d = arrowPath({ from: f, ctrl: c, to: t });
+    for (const p of el.querySelectorAll('path')) p.setAttribute('d', d);
+  }
+
+  function registerArrow(id: string, el: SVGGElement | null): void {
+    if (!el) {
+      arrowEls.delete(id);
+      return;
+    }
+    arrowEls.set(id, el);
+    // register 와 같은 요건 2 — 트윈 중 재마운트(등장/퇴장 페이드로 같은 id 가 다시 붙는 경로)에
+    // 마지막 프레임의 d 를 즉시 재생한다.
+    applyArrow(id);
+  }
+
   function registerCounter(id: string, el: SVGGElement | null): void {
     if (!el) {
       counters.delete(id);
@@ -106,15 +140,27 @@ export function createTransformWriter(): TransformWriter {
     if (p) applyCounter(el, p.theta);
   }
 
-  function write(id: string, x: number, y: number, rad: number): void {
+  /** frame/prev 갱신 + EPS 비교(요건 3)만 하고 DOM 은 건드리지 않는다. 바뀌었으면 true. */
+  function writePose(id: string, x: number, y: number, rad: number): boolean {
     frame.set(id, { x, y, theta: rad });
     const p = prev.get(id);
     // 요건 3: 숫자로 먼저 비교하고 바뀐 것만 문자열화한다 — 정지 개체가 프레임마다
     // 임시 문자열을 만들지 않게 한다(콘 40개 × 60fps = GC 스파이크).
     if (p && Math.abs(p.x - x) < EPS_PX && Math.abs(p.y - y) < EPS_PX && Math.abs(p.theta - rad) < EPS_RAD) {
-      return;
+      return false;
     }
     prev.set(id, { x, y, theta: rad });
+    return true;
+  }
+
+  function write(id: string, x: number, y: number, rad: number): void {
+    if (!writePose(id, x, y, rad)) return;
+    // 화살표 점 키(`ar_…@from` 등)는 transform 대상이 아니라 d 재조립 대상이다.
+    const ap = parseArrowPointKey(id);
+    if (ap) {
+      applyArrow(ap.id);
+      return;
+    }
     const el = els.get(id);
     if (el) applyMain(el, id, x, y, rad);
     const counter = counters.get(id);
@@ -124,11 +170,20 @@ export function createTransformWriter(): TransformWriter {
   }
 
   function writeFrame(f: Readonly<Record<string, Pose>>): void {
+    // 화살표는 한 프레임에 세 점이 같이 오므로, write() 로 낱개 처리하면 d 를 최대 세 번
+    // 조립한다 — 여기서 모아 화살표당 한 번만 조립한다.
+    let dirtyArrows: Set<string> | null = null;
     // 요건 4: for...in 대신 Object.keys().
     for (const id of Object.keys(f)) {
       const p = f[id]!;
-      write(id, p.x, p.y, p.theta);
+      const ap = parseArrowPointKey(id);
+      if (ap === null) {
+        write(id, p.x, p.y, p.theta);
+        continue;
+      }
+      if (writePose(id, p.x, p.y, p.theta)) (dirtyArrows ??= new Set()).add(ap.id);
     }
+    if (dirtyArrows) for (const id of dirtyArrows) applyArrow(id);
   }
 
   function setHeld(id: string, next: boolean): void {
@@ -156,10 +211,11 @@ export function createTransformWriter(): TransformWriter {
     els.clear();
     counters.clear();
     followers.clear();
+    arrowEls.clear();
     prev.clear();
     frame.clear();
     held.clear();
   }
 
-  return { register, registerCounter, registerFollower, write, writeFrame, setHeld, snapshot, clear };
+  return { register, registerCounter, registerArrow, registerFollower, write, writeFrame, setHeld, snapshot, clear };
 }

@@ -3,9 +3,11 @@
 // 호환되는 최소 인터페이스(TweenWriter/RafAdd)만 두고, 실제 구현체는 렌더 레이어가 주입한다
 // (TS 는 구조적 타이핑이라 createTransformWriter()/raf.add 가 이 타입을 그대로 만족한다).
 import { isId } from '../../core/ids.ts';
+import { PLAYBACK } from '../../core/constants.ts';
 import type { DrillStep } from '../../model/drill.ts';
 import { poseFromStored, type ChairPose } from '../../model/chair.ts';
-import { interpChair } from '../../model/playback.ts';
+import { arrowPointKey } from '../../model/arrow.ts';
+import { effectiveStepMs, interpChair } from '../../model/playback.ts';
 
 export type PoseXYT = { x: number; y: number; theta: number };
 
@@ -44,7 +46,33 @@ export function poseFrame(step: DrillStep): Record<string, PoseXYT> {
   for (const n of step.notes) {
     out[n.id] = { x: n.x, y: n.y, theta: 0 };
   }
+  // 화살표(3.10) — 세 점을 각각 한 항목으로 싣는다(키 규약은 model/arrow.ts 참조). 그러면
+  // frameAt 의 일반 선형 보간(아래, isId 'ch' 가 아니므로)이 점 단위로 그대로 적용돼, 시연
+  // (model/playback.ts interpolateSteps)의 "from/ctrl/to 각 성분을 선형 보간"과 같은 그림이
+  // 된다. id 로 짝을 짓는 것도 공짜다 — 키에 화살표 id 가 들어 있다.
+  for (const a of step.arrows) {
+    out[arrowPointKey(a.id, 'from')] = { x: a.from.x, y: a.from.y, theta: 0 };
+    out[arrowPointKey(a.id, 'ctrl')] = { x: a.ctrl.x, y: a.ctrl.y, theta: 0 };
+    out[arrowPointKey(a.id, 'to')] = { x: a.to.x, y: a.to.y, theta: 0 };
+  }
   return out;
+}
+
+/** reduce-motion 실효값. 원래 EditorProvider 지역 함수였는데 3.10 에서 EditorStage(등장/퇴장
+ *  페이드)도 같은 판정을 쓰게 되어 여기로 왔다 — 컴포넌트 파일에서 export 하면 fast refresh
+ *  린트(react/only-export-components)가 걸린다. */
+export function effectiveReduceMotion(setting: 'system' | 'always'): boolean {
+  if (setting === 'always') return true;
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** §6.7 전환 시간의 단일 출처 — EditorProvider(위치·화살표 트윈)와 EditorStage(등장/퇴장
+ *  페이드)가 **같은 시계**를 써야 한다. 이 식을 다른 곳에서 재조립하지 마라: 한쪽만 숫자가
+ *  바뀌면 페이드가 끝났는데 위치는 아직 가는 중(또는 그 반대)이 된다. */
+export function stepTransitionMs(to: DrillStep, opts: { immediate: boolean; reduceMotion: boolean }): number {
+  if (opts.immediate || opts.reduceMotion) return 0;
+  return PLAYBACK.transitionMsFor(effectiveStepMs(to, PLAYBACK.stepIntervalMs[1]));
 }
 
 function lerp(a: number, b: number, e: number): number {
@@ -90,6 +118,12 @@ export function startTween(
     writer.writeFrame(to);
     return { cancel() {} };
   }
+  // 시작 프레임(e=ease(0))을 구독 전에 **동기로** 한 번 쓴다. 스텝 전환 커밋으로 새로 마운트된
+  // 개체(다음 스텝에만 있는 메모 등)는 writer 의 frame 맵에 아직 없어 register 재생을 못 받는데,
+  // 첫 raf tick 은 다음 프레임에야 온다 — 이 한 번이 없으면 그 개체가 원점(viewBox 좌상단)에
+  // 그려진 채 한 프레임 페인트된다(§4.3 P1-5 가 잡은 것과 같은 증상). frameAt(…, 0) 은 등장
+  // 개체에 to 값을, 나머지에 from 값을 준다.
+  writer.writeFrame(frameAt(from, to, ease(0)));
   let elapsed = 0;
   let done = false;
   let unsubscribe: (() => void) | null = null;
