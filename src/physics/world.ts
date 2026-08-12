@@ -5,7 +5,7 @@ import type { Vec2 } from '../core/units.ts';
 import type { ChairPose } from '../model/chair.ts';
 import type { ChairId, BallId, ConeId, CastId } from '../core/ids.ts';
 import type { Bounds, PoseBuffer } from './types.ts';
-import { escapePinned } from './obb.ts';
+import { escapePinned, pushChairIntoBounds } from './obb.ts';
 import { applyStaticSurface, createChairBody, createBallBody, createConeBody, createGoalPostBody, createWalls } from './bodies.ts';
 
 const { Engine, Body, Composite, Events } = Matter;
@@ -255,12 +255,28 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
 /** §5.6 최종 안전망(escapePinned)을 월드 전체 dynamic body 에 적용한다. 매 substep 의
  *  `Engine.update` 직후 호출한다(§5.8 loop 의사코드 `escapePinnedAll()`). WorldHandles 가
  *  otherChairPoses 를 특정 id 기준으로만 주므로, 여기서는 engine 을 직접 순회해 "모든" 휠체어
- *  포즈를 모은다. */
+ *  포즈를 모은다.
+ *
+ *  §4.2 P0-3: **휠체어도 대상이다.** 잡은 칩은 drag.ts 의 resolveMotion 이 판 안에서만
+ *  움직이게 하지만 **밀려나는 쪽** 칩에는 그 보장이 없었다 — 잡은 칩(static)과 벽(static)
+ *  사이에 끼면 Resolver 가 넘치는 만큼을 양쪽에 반씩 나눠 주고, 그 절반이 곧 벽 너머다
+ *  (실측: 825×525 코트에서 밀린 칩이 피벗 x=-5, 차체 뒤끝 -12.5 로 나가 그대로 굳었다). */
 export function escapePinnedAll(w: WorldHandles, bounds: Bounds): void {
   const allChairs: ChairPose[] = [];
   for (const b of Composite.allBodies(w.engine.world)) {
-    if (b.label === 'chair') allChairs.push({ x: b.position.x, y: b.position.y, theta: b.angle });
+    if (b.label !== 'chair') continue;
+    const pose: ChairPose = { x: b.position.x, y: b.position.y, theta: b.angle };
+    allChairs.push(pose);
+    // 잡은 칩은 static 이고 drag.ts 가 이미 막는다 — 손이 쥔 것을 안전망이 옮기지 않는다.
+    if (b.isStatic) continue;
+    const out = pushChairIntoBounds(pose, bounds);
+    if (out.x === pose.x && out.y === pose.y) continue;
+    setPosition3(b, out, false);
+    // 아래 원(공·콘·골대) 탈출이 **되돌린 뒤의** 차체를 보게 같은 배열을 갱신한다.
+    pose.x = out.x;
+    pose.y = out.y;
   }
+
   for (const b of Composite.allBodies(w.engine.world)) {
     if (b.isStatic) continue;
     // 골대도 포함한다(§5.4): dynamic 이 된 이상 휠체어와 벽 사이에 낄 수 있는데, 그러면

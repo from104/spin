@@ -9,6 +9,7 @@ import {
   clampPointToBounds,
   escapePinned,
   outOfBounds,
+  pushChairIntoBounds,
   resolveMotion,
   satOverlap,
   separateOverlaps,
@@ -98,6 +99,54 @@ describe('경계', () => {
     const r = outOfBounds(pose, bounds);
     expect(r.depth).toBeGreaterThan(0);
     expect(r.axis).not.toBeNull();
+  });
+});
+
+describe('pushChairIntoBounds (§4.2 P0-3 판 밖 고착 방지)', () => {
+  const bounds: Bounds = { w: 400, h: 300 };
+  /** hull 이 판을 벗어난 깊이(≤0 이면 판 안). */
+  const out = (p: ChairPose): number => outOfBounds(p, bounds).depth;
+
+  it('판 안이면 한 픽셀도 움직이지 않는다 — 임의 θ 20개에서 안전 no-op', () => {
+    for (let i = 0; i < 20; i++) {
+      const theta = (i / 20) * Math.PI * 2 - Math.PI;
+      // hullRadiusPx(32.5) 이내로 안쪽에 두면 어떤 회전에도 판을 안 벗어난다.
+      const pose: ChairPose = { x: 200, y: 150, theta };
+      expect(pushChairIntoBounds(pose, bounds)).toEqual({ x: 200, y: 150 });
+    }
+  });
+
+  it('왼쪽 벽을 파고든 칩을 hull 이 정확히 경계에 닿는 지점까지 되민다 (P0-3 실측 배치)', () => {
+    // 실측: 드래그 중인 static 칩과 벽 사이에 낀 칩이 피벗 x=-5(차체 뒤끝 -12.5)로 나갔다.
+    const pinned: ChairPose = { x: -5, y: 262.5, theta: 0 };
+    expect(out(pinned)).toBeCloseTo(12.5, 9); // 전제: 12.5 px 나가 있다
+    const fixed = pushChairIntoBounds(pinned, bounds);
+    expect(fixed).toEqual({ x: CHAIR.pivotToRearPx, y: 262.5 }); // 뒷면이 x=0 에 닿는다
+    expect(out({ ...fixed, theta: 0 })).toBeCloseTo(0, 12); // 더도 덜도 아니게
+  });
+
+  it('모서리에 두 면을 동시에 침범해도 **한 번에** 푼다', () => {
+    const corner: ChairPose = { x: -3, y: -4, theta: 0 };
+    const fixed = pushChairIntoBounds(corner, bounds);
+    expect(fixed).toEqual({ x: CHAIR.pivotToRearPx, y: CHAIR.widthPx / 2 });
+    expect(out({ ...fixed, theta: 0 })).toBeCloseTo(0, 12);
+  });
+
+  it('피벗이 아니라 hull 로 판정한다 — 회전한 차체는 피벗이 판 안이어도 밖으로 나간다', () => {
+    // θ=π/2 → 차체가 세로로 선다. 피벗 y=5 는 판 안이지만 뒷면(로컬 -7.5)이 y=-2.5 로 나간다.
+    const spun: ChairPose = { x: 200, y: 5, theta: Math.PI / 2 };
+    expect(out(spun)).toBeGreaterThan(0);
+    const fixed = pushChairIntoBounds(spun, bounds);
+    expect(fixed.x).toBe(200); // 나가지 않은 축은 그대로
+    expect(fixed.y).toBeCloseTo(CHAIR.pivotToRearPx, 9);
+    expect(out({ ...fixed, theta: spun.theta })).toBeLessThanOrEqual(1e-9);
+  });
+
+  it('오른쪽·아래 벽도 같은 방식으로 — 되민 뒤 hull 이 경계에 닿는다', () => {
+    const far: ChairPose = { x: bounds.w - 10, y: bounds.h + 5, theta: 0 };
+    const fixed = pushChairIntoBounds(far, bounds);
+    expect(fixed).toEqual({ x: bounds.w - CHAIR.pivotToFrontPx, y: bounds.h - CHAIR.widthPx / 2 });
+    expect(out({ ...fixed, theta: 0 })).toBeCloseTo(0, 12);
   });
 });
 

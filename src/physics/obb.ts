@@ -128,6 +128,40 @@ export function outOfBounds(p: ChairPose, b: Bounds): SatResult {
   return worst.depth > 0 ? worst : { depth: worst.depth, axis: null };
 }
 
+/** 판 밖으로 밀려난 휠체어를 판 안으로 되민다(§4.2 P0-3 "판 밖은 존재하지 않는다").
+ *  hull 이 정확히 경계에 닿는 지점까지만 옮기고, **각도는 건드리지 않는다**(안전망이 사용자가
+ *  놓은 방향을 바꾸지 않는다 — separateOverlaps 와 같은 이유).
+ *
+ *  outOfBounds 처럼 hull 의 x/y 투영만 보면 되므로(축정렬 사각형) 네 면을 **한 번에** 민다 —
+ *  가장 깊은 면 하나씩 반복해 밀면 모서리에 걸린 칩이 두 패스를 먹는다.
+ *
+ *  ⚠️ 이것은 §5.6 이 금지하는 "resolveMotion 뒤에 붙이는 clampPoseToBounds" 가 **아니다**.
+ *  그건 드래그 경로(잡은 칩)의 이야기이고 — 거기 clamp 를 붙이면 spin 중 피벗이 밀려
+ *  '제자리 회전' 계약이 깨진다 — 여기는 substep 이 끝난 뒤 도는 최종 안전망(escapePinnedAll)
+ *  이다. 잡은 칩은 이 경로에 들어오지 않는다(world.ts 가 static 을 건너뛴다). */
+export function pushChairIntoBounds(p: ChairPose, b: Bounds): Vec2 {
+  const corners = chairHullCorners(p);
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const c of corners) {
+    if (c.x < minX) minX = c.x;
+    if (c.x > maxX) maxX = c.x;
+    if (c.y < minY) minY = c.y;
+    if (c.y > maxY) maxY = c.y;
+  }
+  // 판보다 큰 hull(회전한 차체가 안 들어가는 좁은 판)에서는 **왼쪽/위쪽 면을 우선**한다 —
+  // 양쪽을 동시에 만족시킬 수 없으므로 어느 쪽이든 하나를 골라야 하고, 결정적이면 된다.
+  let dx = 0;
+  let dy = 0;
+  if (maxX > b.w) dx = b.w - maxX;
+  if (minX < 0) dx = -minX;
+  if (maxY > b.h) dy = b.h - maxY;
+  if (minY < 0) dy = -minY;
+  return { x: p.x + dx, y: p.y + dy };
+}
+
 /** 벽 + 다른 휠체어 전부를 한 술어로 묶는다 — 별도 clampPoseToBounds 단계를 두면
  *  spin 중 피벗이 밀려 "제자리 회전" 계약이 깨진다(§5.6). 가장 심한(depth 최대) 위반을 반환. */
 export function blockedAt(

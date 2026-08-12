@@ -28,7 +28,7 @@ const PAIR = `${chA}|${chB}`;
 /** 코트 왼쪽 벽의 안쪽 면은 정확히 x=0 이다(§5.7). */
 const WALL_X = 0;
 const Y = 262.5; // full 코트 세로 중앙
-const DRAG_TO_X = 20;
+const DRAG_TO_X = 30;
 const HOLD_FRAMES = 140;
 
 afterEach(() => {
@@ -36,7 +36,9 @@ afterEach(() => {
 });
 
 /** physicsProbe.test.ts 의 P0-1 배치 그대로: 벽에 뒷면을 붙여 세워 둔 칩(B) 위로 다른
- *  칩(A)을 끌어다 놓고, 잠깐 멈춘 상태. 이때의 겹침은 해석적으로 정확히 12.50 px 다. */
+ *  칩(A)을 끌어다 놓고, 잠깐 멈춘 상태. B 앞면 x=37.5 · A 뒷면 x=22.5 라 겹침은 해석적으로
+ *  정확히 15.00 px 다. B 가 벽 너머로 밀려나지 않는 것은 §4.2 P0-3 의 안전망이 매 substep
+ *  되돌리기 때문이다(1.4 이전에는 B 가 피벗 x=-5 까지 나갔고, 그때의 겹침은 12.50 이었다). */
 function draggedIntoWallChip() {
   const probe = createPhysicsProbe({
     chairs: [
@@ -54,24 +56,24 @@ function draggedIntoWallChip() {
 describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다', () => {
   it('★ 벽에 붙은 칩 위에 놓고 손을 떼면 스스로 벌어진다 — 정착 후 겹침 0', () => {
     const probe = draggedIntoWallChip();
-    expect(probe.depthBetween(chA, chB)).toBeCloseTo(12.5, 6); // 전제: 손 뗄 때 12.50 겹쳐 있다
+    expect(probe.depthBetween(chA, chB)).toBeCloseTo(15, 6); // 전제: 손 뗄 때 15.00 겹쳐 있다
 
     probe.endDrag();
-    // 30 프레임 = 0.25 초. 내역: 겹침이 루프를 붙잡는 2 프레임 + 밀려난 칩이 서서 allAtRest 가
-    // 참이 되기까지의 28 프레임(위치 해결이 준 속도가 frictionAir 로 죽는 시간).
-    expect(probe.runUntilLoopStops({ maxFrames: 300 })).toBe(30);
+    // 3 프레임. 내역: 겹침이 루프를 붙잡는 릴리스 프레임 + 위치 해결이 도는 2 프레임.
+    // (속도는 내내 0 이다 — 위치 해결은 속도를 만들지 않으므로 루프를 붙드는 것은 겹침뿐이다.)
+    expect(probe.runUntilLoopStops({ maxFrames: 300 })).toBe(3);
 
     // ★ 완료 판정: 두 경로(matter Collision / obb SAT) 모두에서 겹침이 0 이다.
     expect(probe.depthBetween(chA, chB)).toBe(0);
     expect(probe.chairSatDepth(chA, chB)).toBe(0);
     // 벽에 붙은 쪽은 물러설 자리가 없으므로 밀려난 것은 얹힌 쪽이다.
-    expect(probe.api.read()[chA]!.x).toBeGreaterThan(DRAG_TO_X + 20);
+    expect(probe.api.read()[chA]!.x).toBeGreaterThan(DRAG_TO_X + 10);
     expect(probe.trace.at(-1)!.settled).toBe(true);
 
     probe.dispose();
   });
 
-  it('손 뗀 그 프레임에는 멎지 않는다 — 12.50 px 겹침이 루프를 붙잡는다', () => {
+  it('손 뗀 그 프레임에는 멎지 않는다 — 15.00 px 겹침이 루프를 붙잡는다', () => {
     const probe = draggedIntoWallChip();
     const releaseFrame = probe.frame(); // 릴리스 체이스가 완결될 프레임
 
@@ -81,7 +83,7 @@ describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다'
     const row = probe.trace.at(-1)!;
     expect(row.frame).toBe(releaseFrame);
     expect(row.substeps).toBe(1); // endDrag 를 품은 그 substep
-    expect(row.depths[PAIR]).toBeCloseTo(12.5, 6);
+    expect(row.depths[PAIR]).toBeCloseTo(15, 6);
     // 속도로만 보면 완벽한 정지다 — allAtRest 의 뜻은 그대로 두었다.
     expect(row.settled).toBe(true);
     // ★ 그런데도 루프는 살아 있다. 이 한 줄이 1.3 의 전부다(고치기 전에는 false 였다).
@@ -106,7 +108,7 @@ describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다'
     const b = seen[0]![chB]!;
     // 통지 좌표로 다시 재도 겹치지 않는다 — 재커밋이 겹친 좌표를 모델에 쓰는 일이 없다.
     expect(satOverlap(a, b, 0).depth).toBeLessThanOrEqual(0);
-    expect(a.x).toBeGreaterThan(DRAG_TO_X + 20); // 손 떼던 자리에 머물지 않는다
+    expect(a.x).toBeGreaterThan(DRAG_TO_X + 10); // 손 떼던 자리에 머물지 않는다
 
     probe.dispose();
   });
@@ -138,7 +140,7 @@ describe('P0-1 — 붙잡지 않는 것들', () => {
   it('손이 쥐고 있는 칩의 겹침은 붙잡지 않는다 — 그건 사용자가 만들고 있는 겹침이다', () => {
     const probe = draggedIntoWallChip(); // 손은 그대로 쥐고 있다
     const separate = vi.spyOn(obbModule, 'separateOverlaps');
-    expect(probe.depthBetween(chA, chB)).toBeCloseTo(12.5, 6);
+    expect(probe.depthBetween(chA, chB)).toBeCloseTo(15, 6);
 
     // 쥔 채로 [골대 원위치] 를 누르면 드래그 도중에 정착 구간이 열린다.
     probe.api.resetGoals();
@@ -148,7 +150,7 @@ describe('P0-1 — 붙잡지 않는 것들', () => {
     expect(probe.runUntilLoopStops({ maxFrames: 60 })).toBeLessThan(5);
     expect(separate).not.toHaveBeenCalled();
     expect(probe.api.read()[chA]!.x).toBeCloseTo(DRAG_TO_X, 6); // 쥔 칩은 제자리
-    expect(probe.depthBetween(chA, chB)).toBeCloseTo(12.5, 6);
+    expect(probe.depthBetween(chA, chB)).toBeCloseTo(15, 6);
 
     probe.dispose();
   });
@@ -198,9 +200,12 @@ describe('P0-1 — 상한 8초와 기하 분리 폴백', () => {
       ],
       watch: [[chA, chB]],
     });
-    // 먼저 물리에게 실컷 기회를 준다 — 그래도 4.99 px 겹친 대치 상태로 굳는다.
+    // 먼저 물리에게 실컷 기회를 준다 — 그래도 겹친 대치 상태로 굳는다. 물리가 서로를
+    // 판 밖으로 밀어내면 §4.2 P0-3 의 안전망이 매 substep 되돌리므로(1.4), 대치 상태는
+    // **판이 허락하는 최솟값 10 px** 그대로다(1.4 이전에는 둘 다 2.5 px 씩 판 밖으로 나간
+    // 채 4.99 px 로 굳었다 — 겹침이 더 얕아 보였던 것은 판 밖으로 새어 나간 만큼이다).
     probe.forceSteps(30);
-    expect(probe.chairSatDepth(chA, chB)).toBeCloseTo(4.9875, 3);
+    expect(probe.chairSatDepth(chA, chB)).toBeCloseTo(2 * CHAIR.widthPx - COURT.h, 6);
     expect(probe.trace.at(-1)!.settled).toBe(true); // 속도로는 이미 정지다
 
     const separate = vi.spyOn(obbModule, 'separateOverlaps');
