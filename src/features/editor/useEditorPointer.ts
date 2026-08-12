@@ -13,13 +13,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Dispatch, RefObject } from 'react';
 import type { Vec2 } from '../../core/units.ts';
 import { isId, newId } from '../../core/ids.ts';
-import type { ArrowId, BallId, ChairId, ConeId, NoteId } from '../../core/ids.ts';
-import { INTERACT } from '../../core/constants.ts';
+import type { ArrowId, BallId, CastId, ChairId, ConeId, NoteId } from '../../core/ids.ts';
+import { INTERACT, PHYS } from '../../core/constants.ts';
 import { hitTest, handlesVisible as computeHandlesVisible } from '../../physics/index.ts';
-import type { HitContext, HitResult, SceneSnapshot, ToolId, DragHandle } from '../../physics/index.ts';
+import type { HitContext, HitResult, PhysicsSnapshot, SceneSnapshot, ToolId, DragHandle } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
+import { formationSlots } from '../../model/defaults.ts';
 import { poseToStored } from '../../model/chair.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
 import type { Arrow, ArrowKind } from '../../model/arrow.ts';
@@ -29,6 +30,7 @@ import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { SelectionOverlayHandle, SelectionShape } from '../../render/SelectionOverlay.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { placeObject } from './placement.ts';
+import { snapOnSettle } from './snapOnSettle.ts';
 
 const ZONE_LABEL: Record<DragZone, string> = {
   towRear: '후방 견인',
@@ -119,6 +121,11 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   const arrowHandleDragRef = useRef<{ arrowId: ArrowId; which: 'from' | 'ctrl' | 'to' } | null>(null);
   const eraseSessionRef = useRef<{ touched: Set<string>; count: number } | null>(null);
   const metricsRef = useRef({ pxPerUnit: 1, pointerType: 'mouse' });
+  /** 이 드래그가 히스토리 경계(PLACE_BEGIN)를 이미 열었는가. 정착 재커밋은 경계를 다시 열지
+   *  않는다 — '드래그 1회 = undo 1회'(§6.7 history.ts:72-80). */
+  const boundaryOpenRef = useRef(false);
+  /** 정착 완료 통지의 구독 해제 함수(§4.2 P0-2). 일회성이라 받는 즉시 스스로 끊는다. */
+  const settleOffRef = useRef<(() => void) | null>(null);
 
   const buildScene = useCallback((): SceneSnapshot => {
     const ctx = ctxRef.current;
@@ -211,21 +218,57 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     });
   }, []);
 
-  /** 물리 드래그 정착 시점의 위치를 스텝에 커밋한다. 값이 실제로 바뀐 것만 새 맵을 만든다 —
-   *  참조를 그대로 재사용해야 PLACE_COMMIT 리듀서의 무변화 no-op 가드(§6.7)가 작동해서, 그냥
-   *  클릭만 해서 잡았다 뗀(이동 없는) 선택도 undo 스택을 더럽히지 않는다. */
-  const commitDragResult = useCallback(() => {
+  /** 정착 스냅(§4.3 P1-3)을 이번에 놓은 개체 **하나에만** 적용해 그 좌표를 돌려준다.
+   *  스냅되지 않았으면 null. 물리에 되먹이는 것은 호출자 몫이다. */
+  const snapSettledPose = useCallback((id: string, snap: PhysicsSnapshot): Vec2 | null => {
     const ctx = ctxRef.current;
-    const snap = ctx.worldRef.current?.read();
-    if (!snap) return;
-    const step = ctx.step;
+    const self = snap[id];
+    if (!self) return null;
+    // 이웃 = 판 위의 다른 캐스트 개체. 골대(gp_*)는 뺀다 — 원위치는 이미 세트피스 후보다.
+    const neighbors: Vec2[] = [];
+    for (const [oid, op] of Object.entries(snap)) {
+      if (oid === id) continue;
+      if (isId(oid, 'ch') || isId(oid, 'bl') || isId(oid, 'cn')) neighbors.push({ x: op.x, y: op.y });
+    }
+    const out = snapOnSettle(
+      { x: self.x, y: self.y },
+      {
+        mode: ctx.drill.courtMode,
+        pxPerUnit: metricsRef.current.pxPerUnit,
+        neighbors,
+        slots: formationSlots(ctx.drill.courtMode, ctx.drill.formation),
+      },
+    );
+    return out.target === null ? null : { x: out.x, y: out.y };
+  }, []);
+
+  /** 물리 좌표를 스텝에 커밋한다. 값이 실제로 바뀐 것만 새 맵을 만든다 — 참조를 그대로
+   *  재사용해야 PLACE_COMMIT 리듀서의 무변화 no-op 가드(§6.7)가 작동해서, 그냥 클릭만 해서
+   *  잡았다 뗀(이동 없는) 선택도 undo 스택을 더럽히지 않는다.
+   *
+   *  `snapId` 가 있으면 그 개체에만 정착 스냅을 건다(§4.3 P1-3). **손을 뗀 시점 커밋에서는
+   *  절대 넘기지 않는다**(A-6/E-1): 그때 스냅해 봐야 뒤이은 정착 재커밋이 물리 좌표로 덮어써
+   *  통째로 무효화된다. 스냅은 이 재커밋 경로 *안에서만* 산다. */
+  const commitPoses = useCallback((snap: PhysicsSnapshot, step: DrillStep, snapId: string | null): void => {
+    const ctx = ctxRef.current;
+    const snapped = snapId ? snapSettledPose(snapId, snap) : null;
+    if (snapId && snapped) {
+      // 모델만 옮기면 물리 바디가 스냅 전 자리에 남는다 — epoch 을 올리지 않으므로(A-4)
+      // world.load 가 고쳐 주지 않는다. 다음 드래그가 낡은 자세를 읽고 칩이 되튄다.
+      const cur = snap[snapId]!;
+      ctx.worldRef.current?.setPose(snapId as CastId, { x: snapped.x, y: snapped.y, theta: cur.theta });
+    }
+    const posOf = (id: string, p: { x: number; y: number }): { x: number; y: number } =>
+      id === snapId && snapped ? snapped : p;
+
     let chairs = step.chairs;
     let balls = step.balls;
     let cones = step.cones;
     let changed = false;
     for (const [id, p] of Object.entries(snap)) {
       if (isId(id, 'ch') && id in step.chairs) {
-        const stored = poseToStored({ x: p.x, y: p.y, theta: p.theta });
+        const q = posOf(id, p);
+        const stored = poseToStored({ x: q.x, y: q.y, theta: p.theta });
         const cur = step.chairs[id as ChairId]!;
         if (cur.x !== stored.x || cur.y !== stored.y || cur.angleDeg !== stored.angleDeg) {
           if (chairs === step.chairs) chairs = { ...step.chairs };
@@ -233,8 +276,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           changed = true;
         }
       } else if (isId(id, 'bl') && id in step.balls) {
-        const x = round1(p.x);
-        const y = round1(p.y);
+        const q = posOf(id, p);
+        const x = round1(q.x);
+        const y = round1(q.y);
         const cur = step.balls[id as BallId]!;
         if (cur.x !== x || cur.y !== y) {
           if (balls === step.balls) balls = { ...step.balls };
@@ -242,8 +286,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           changed = true;
         }
       } else if (isId(id, 'cn') && id in step.cones) {
-        const x = round1(p.x);
-        const y = round1(p.y);
+        const q = posOf(id, p);
+        const x = round1(q.x);
+        const y = round1(q.y);
         const cur = step.cones[id as ConeId]!;
         if (cur.x !== x || cur.y !== y) {
           if (cones === step.cones) cones = { ...step.cones };
@@ -252,10 +297,75 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         }
       }
     }
-    if (!changed) return;
-    ctx.dispatch({ type: 'PLACE_BEGIN' });
-    ctx.dispatch({ type: 'PLACE_COMMIT', stepId: step.id, chairs, balls, cones });
+    if (changed && !boundaryOpenRef.current) {
+      // 히스토리 경계는 이 드래그에서 **한 번만** 연다(드래그 1회 = undo 1회, history.ts:72-80).
+      // 손을 뗀 시점에 값이 하나도 안 바뀌었다면(체이스가 아직 갈 길이 남아 있다) 경계는
+      // 여기 정착 시점에 열린다 — 어느 쪽이든 이 드래그가 남기는 undo 는 하나다.
+      ctx.dispatch({ type: 'PLACE_BEGIN' });
+      boundaryOpenRef.current = true;
+    }
+    if (snapId === null) {
+      if (changed) ctx.dispatch({ type: 'PLACE_COMMIT', stepId: step.id, chairs, balls, cones });
+    } else {
+      // 정착 통지는 **좌표가 안 바뀌었어도** 반드시 디스패치한다 — 자동저장 억제 창을 닫는
+      // 것이 이 액션의 두 번째 일이다(A-5). 리듀서는 같은 참조를 받으면 드릴은 그대로 두고
+      // 창만 닫는다(§6.7 PLACE_COMMIT 무변화 no-op 가드와 같은 경로).
+      ctx.dispatch({ type: 'PLACE_SETTLE', stepId: step.id, chairs, balls, cones });
+    }
+  }, [snapSettledPose]);
+
+  const commitDragResult = useCallback(() => {
+    const ctx = ctxRef.current;
+    const snap = ctx.worldRef.current?.read();
+    if (!snap) return;
+    commitPoses(snap, ctx.step, null);
+  }, [commitPoses]);
+
+  /** 새 드래그를 시작할 때 앞선 드래그의 잔재를 끊는다 — 히스토리 경계 플래그와, 아직 오지
+   *  않은 정착 통지 구독. 구독을 남겨 두면 이번 드래그의 정착 통지에 옛 개체까지 스냅된다. */
+  const resetDragSession = useCallback(() => {
+    boundaryOpenRef.current = false;
+    settleOffRef.current?.();
+    settleOffRef.current = null;
   }, []);
+
+  /** 손을 뗀 뒤 **물리가 다 선 시점**에 한 번 더 커밋한다(§4.2 P0-2).
+   *
+   *  `handle.end()` 는 릴리스 체이스(최대 4초)를 시작만 한다 — 그 직후 읽은 좌표는 "손 떼던
+   *  순간의 자리" 다. 속도 제한이 켜져 있으면 선속 69.4 px/s 라 750 px 코트 횡단에 10초가
+   *  걸리므로, 화면에서는 칩이 손을 따라가 멈췄는데 모델에는 출발점 근처가 남는다. 그 상태로
+   *  스텝을 넘겼다 돌아오면(world.load 가 모델 좌표로 바디를 재생성) 칩이 옛 자리로 되돌아간다.
+   *
+   *  구독은 **일회성**이다: 정착 통지는 골대 원위치 복귀 등 드래그가 아닌 이유로도 오므로
+   *  (physics/index.ts onSettled 주석), 이번 드래그의 첫 통지만 받고 바로 끊는다. */
+  const armSettleRecommit = useCallback(
+    (id: string) => {
+      const ctx = ctxRef.current;
+      const world = ctx.worldRef.current;
+      if (!world) return; // 구독할 곳이 없으면 억제 창도 열지 않는다(영영 안 닫힌다)
+      const stepId = ctx.step.id;
+      settleOffRef.current?.();
+      settleOffRef.current = null;
+      // 억제 창의 마감 = 체이스 상한 + 정착 상한. 이 안에 통지가 안 오면(스텝 전환으로
+      // world.load 가 끼어드는 경우) 자동저장이 스스로 풀린다.
+      ctx.dispatch({ type: 'SETTLE_ARM', until: Date.now() + INTERACT.releaseChaseMs + PHYS.settleMaxMs });
+      settleOffRef.current = world.onSettled((settled) => {
+        settleOffRef.current?.();
+        settleOffRef.current = null;
+        const c = ctxRef.current;
+        // 끌던 **그 스텝에 여전히 머물러 있을 때만** 재커밋한다. 스텝을 넘겼거나 지웠다면
+        // EditorProvider 가 이미 world.load 로 바디를 새 스텝 좌표로 갈아 끼웠으므로, 지금
+        // 스냅샷은 이 드래그의 결과가 아니다 — 옛 스텝에 쓰면 남의 좌표를 덮어쓴다.
+        // 그때는 저장 억제 창만 닫고 조용히 물러난다.
+        if (c.step.id !== stepId) {
+          c.dispatch({ type: 'SETTLE_ARM', until: 0 });
+          return;
+        }
+        commitPoses(settled, c.step, id);
+      });
+    },
+    [commitPoses],
+  );
 
   const onPointerDown = useCallback(
     (world: Vec2, meta: PointerMeta): PointerDownResult | void => {
@@ -306,6 +416,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return { edgePan: true };
       }
       if (hit.kind === 'zoneHandle') {
+        resetDragSession();
         const handle = ctx.worldRef.current?.beginDrag(hit, world) ?? null;
         dragHandleRef.current = handle;
         draggedIdRef.current = hit.id;
@@ -323,6 +434,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       if (hit.kind === 'chair' || hit.kind === 'ball' || hit.kind === 'cone') {
         const nextSel = additive ? toggleId(ctx.selection, hit.id) : [hit.id];
         ctx.dispatch({ type: 'SELECT_SET', ids: nextSel });
+        resetDragSession();
         const handle = ctx.worldRef.current?.beginDrag(hit, world) ?? null;
         dragHandleRef.current = handle;
         draggedIdRef.current = hit.id;
@@ -342,7 +454,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         if (note) noteDragRef.current = { id: note.id, offset: { x: world.x - note.x, y: world.y - note.y } };
       }
     },
-    [buildScene, buildHitContext, eraseAt, placeAt],
+    [buildScene, buildHitContext, eraseAt, placeAt, resetDragSession],
   );
 
   const onPointerMove = useCallback(
@@ -443,6 +555,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
       commitDragResult();
+      // 손 떼는 자리는 아직 최종이 아니다 — 물리가 다 선 뒤 한 번 더 커밋한다(§4.2 P0-2).
+      // 스냅(§4.3 P1-3)도 그 재커밋 경로 안에서만 걸린다.
+      if (id) armSettleRecommit(id);
       return;
     }
 
@@ -498,7 +613,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         ctx.dispatch({ type: 'SELECT_CLEAR' });
       }
     }
-  }, [arrowDraft, buildScene, commitDragResult, commitEraseToast]);
+  }, [arrowDraft, armSettleRecommit, buildScene, commitDragResult, commitEraseToast]);
 
   const controller = useMemo<CourtStagePointerController>(() => ({ onPointerDown, onPointerMove, onPointerUp }), [onPointerDown, onPointerMove, onPointerUp]);
 

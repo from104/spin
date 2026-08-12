@@ -34,6 +34,13 @@ export interface EditorState extends HistoryState {
   selection: ReadonlySet<string>;
   savedAt: number | null;
   baselineUpdatedAt: number;
+  /** 자동저장 억제 창의 마감 시각(epoch ms). 0 이면 억제 없음. §4.2 A-5.
+   *
+   *  손을 뗀 순간 열리고(SETTLE_ARM) 정착 재커밋이 닫는다(PLACE_SETTLE). useAutosave 는 이
+   *  시각까지 디바운스 타이머를 미뤄, 드래그 1회가 IDB CAS 쓰기 **1회**가 되게 한다.
+   *  절대 시각인 것이 중요하다 — 정착 통지가 영영 안 와도(스텝 전환으로 world.load 가
+   *  끼어들면 그렇게 된다) 마감이 지나면 스스로 풀린다. 불리언 깃발이면 그때 영구히 잠긴다. */
+  settleHoldUntil: number;
 }
 
 /** §6.7: "현재 스텝의 소유자는 EditorState.stepId 하나뿐이다. index 는 파생한다." */
@@ -55,6 +62,7 @@ export function initEditorState(drill: Drill): EditorState {
     selection: new Set<string>(),
     savedAt: null,
     baselineUpdatedAt: drill.updatedAt,
+    settleHoldUntil: 0,
   };
 }
 
@@ -85,6 +93,12 @@ export function uiReducer(s: EditorState, a: EditorAction): EditorState {
       return { ...s, selection: toggleSet(s.selection, a.id) };
     case 'SELECT_CLEAR':
       return s.selection.size === 0 ? s : { ...s, selection: new Set<string>() };
+    case 'SETTLE_ARM':
+      return a.until === s.settleHoldUntil ? s : { ...s, settleHoldUntil: a.until };
+    case 'PLACE_SETTLE':
+      // 정착이 끝났으니 자동저장 억제 창을 닫는다. 좌표가 하나도 안 바뀌었어도(드릴 리듀서가
+      // no-op 로 통과하는 경우) 창은 반드시 닫아야 한다 — 안 그러면 저장이 마감까지 밀린다.
+      return s.settleHoldUntil === 0 ? s : { ...s, settleHoldUntil: 0 };
     case 'STEP_SELECT':
       return a.id === s.stepId ? s : { ...s, stepId: a.id };
     case 'SAVED':
@@ -106,6 +120,9 @@ export function uiReducer(s: EditorState, a: EditorAction): EditorState {
         selection: new Set<string>(),
         savedAt: null,
         baselineUpdatedAt: a.drill.updatedAt,
+        // 판이 통째로 바뀌면 물리 월드도 재생성된다 — 진행 중이던 정착의 통지는 영영 오지
+        // 않으므로 억제 창을 여기서 닫는다(마감까지 저장을 미룰 이유가 없다).
+        settleHoldUntil: 0,
       };
     case 'STEP_DELETE': {
       // ★ 불변식 4(§6.7): 삭제되는 스텝이 지금 선택된 스텝일 때만 재지정한다. 다른 스텝을
@@ -169,7 +186,10 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return updateChairDef(d, a.id, a.patch);
     case 'OBJECT_NUDGE':
       return applyNudge(d, i, a.id, a.d, a.dTheta);
-    case 'PLACE_COMMIT': {
+    // 정착 재커밋(PLACE_SETTLE)은 좌표 교체라는 점에서 PLACE_COMMIT 과 완전히 같다 —
+    // 다른 것은 히스토리 거동이 아니라 **시점**뿐이라 드릴 리듀서는 한 갈래를 공유한다.
+    case 'PLACE_COMMIT':
+    case 'PLACE_SETTLE': {
       const idx = d.steps.findIndex((st) => st.id === a.stepId);
       if (idx < 0) return d;
       const step = d.steps[idx]!;

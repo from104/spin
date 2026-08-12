@@ -67,6 +67,8 @@ export const GOAL_ID_PREFIX = 'gp_';
 export interface PhysicsSnapshot {
   [id: string]: { x: number; y: number; theta: number };
 }
+/** 정착 완료 통지의 수신자. 인자는 **정착이 끝난 그 순간의** 스냅샷이다(§4.2 P0-2). */
+export type SettleListener = (snapshot: PhysicsSnapshot) => void;
 export interface DragHandle {
   readonly zone: DragZone | null;
   /** 지금 잡고 있는 지점(앵커)의 월드 좌표. 리시(연결선)는 피벗이 아니라 여기서 나가야 한다 —
@@ -91,6 +93,19 @@ export interface PhysicsWorldApi {
   beginDrag(hit: HitResult, grabWorld: Vec2): DragHandle | null;
   zoneAt(id: ChairId, worldPt: Vec2): DragZone | null;
   isSettled(): boolean;
+  /** **정착 완료 통지**(§4.2 P0-2). requestSettle 로 열린 정착 구간이 스스로 닫히는 순간 —
+   *  릴리스 체이스가 끝나고 판 위의 모든 것이 멎은 그 프레임 — 에 한 번 불린다. 반환값은 구독
+   *  해제 함수다.
+   *
+   *  왜 필요한가: `handle.end()` 는 릴리스 체이스(최대 4초)를 **시작만** 한다. 그 직후에 읽은
+   *  스냅샷은 "손 떼던 순간의 자리" 이지 "칩이 실제로 선 자리" 가 아니다 — 속도 제한이 켜져
+   *  있으면 선속 69.4 px/s 라 코트 횡단에 10초가 걸린다. 이 통지가 없으면 화면과 모델이
+   *  영구히 어긋나고, 스텝을 넘겼다 돌아오는 순간(world.load) 칩이 옛 자리로 되돌아간다.
+   *
+   *  ⚠️ 통지는 **드래그 전용이 아니다**. `resetGoals()` 도 정착을 요청하므로 그쪽 정착에도
+   *  불린다 — "이번 통지가 내 드래그의 것인가" 는 구독자가 판단한다(한 번 쓰고 바로 해제하는
+   *  일회성 구독이 가장 안전하다). */
+  onSettled(cb: SettleListener): () => void;
   /** `골대 원위치`. 순간이동이 아니라 **0.5초 동안 구동해 밀고 들어간다** — 그 자리에 개체가
    *  있으면 물리로 비켜내고, 상한을 넘으면 정확한 좌표로 스냅한다(남은 겹침은 escapePinned).
    *  순간이동으로 하면 낀 개체가 튀어나가듯 빠져 버그처럼 보이고, 거부하면 버튼이 안 듣는
@@ -141,6 +156,8 @@ export function createPhysicsWorld(
   /** 이번 복귀에서 휠체어에 막힌 골대들. */
   const blockedHomes = new Set<string>();
   let session: DragSession | null = null;
+  /** 정착 완료 통지 구독자(§4.2 P0-2). 통지 중에 해제해도 안전하도록 복사해서 순회한다. */
+  const settleListeners = new Set<SettleListener>();
   // major 회귀(§5.8): 공개 step(dtS) 에 넘어온 가변 dt 를 Engine.update 에 그대로 넣지 않기
   // 위한 고정-timestep 누산기(loop.ts 의 프레임 누산 로직과 동일한 패턴). substep() 자신은
   // 인자를 무시하고 항상 PHYS.dtS/dtMs 만 쓴다 — 내부 루프(loop.start())는 이미 항상 고정 dt 로
@@ -204,10 +221,33 @@ export function createPhysicsWorld(
     }
   }
 
+  /** api.read() 의 알맹이. 정착 통지가 `api` 객체 리터럴보다 먼저 만들어지는 loop 안에서
+   *  스냅샷을 떠야 해서 따로 뺐다. */
+  function readSnapshot(out?: PhysicsSnapshot): PhysicsSnapshot {
+    const snap: PhysicsSnapshot = out ?? {};
+    for (const [id, kind] of kindOf) {
+      if (kind === 'chair') {
+        const p = world.chairPose(id as ChairId);
+        snap[id] = { x: p.x, y: p.y, theta: p.theta };
+      } else {
+        const p = world.pointOf(id);
+        snap[id] = { x: p.x, y: p.y, theta: 0 };
+      }
+    }
+    return snap;
+  }
+
+  function notifySettled(): void {
+    if (settleListeners.size === 0) return;
+    const snap = readSnapshot();
+    for (const cb of [...settleListeners]) cb(snap);
+  }
+
   const loop: PhysicsLoop = createLoop({
     step: substep,
     render: () => {}, // 렌더 보간은 render-stage 소관 — read() 를 직접 호출해 읽어간다.
     atRest: () => world.allAtRest(),
+    onSettle: notifySettled,
   });
 
   const api: PhysicsWorldApi = {
@@ -259,17 +299,7 @@ export function createPhysicsWorld(
     },
 
     read(out) {
-      const snap: PhysicsSnapshot = out ?? {};
-      for (const [id, kind] of kindOf) {
-        if (kind === 'chair') {
-          const p = world.chairPose(id as ChairId);
-          snap[id] = { x: p.x, y: p.y, theta: p.theta };
-        } else {
-          const p = world.pointOf(id);
-          snap[id] = { x: p.x, y: p.y, theta: 0 };
-        }
-      }
-      return snap;
+      return readSnapshot(out);
     },
 
     setLimits(next) {
@@ -365,10 +395,16 @@ export function createPhysicsWorld(
       return world.allAtRest();
     },
 
+    onSettled(cb) {
+      settleListeners.add(cb);
+      return () => settleListeners.delete(cb);
+    },
+
     dispose() {
       loop.stop();
       world.destroy();
       kindOf.clear();
+      settleListeners.clear();
       session = null;
     },
   };

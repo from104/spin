@@ -77,6 +77,56 @@ describe('PLACE_BEGIN + PLACE_COMMIT', () => {
   });
 });
 
+// §4.2 P0-2 — 정착 후 재커밋. 손을 뗀 뒤 물리가 계속 굴러가 최종 좌표가 달라지므로 커밋이
+// 한 번 더 필요한데, 그것이 두 번째 undo 단계가 되면 사용자는 되돌리기를 두 번 눌러야 한다.
+describe('PLACE_SETTLE — 경계를 다시 열지 않는 재커밋', () => {
+  function moved(s: EditorState, id: string, dx: number) {
+    const step0 = s.present.steps[0]!;
+    const before = step0.chairs[id as never]!;
+    return { ...step0.chairs, [id]: { x: before.x + dx, y: before.y, angleDeg: before.angleDeg } };
+  }
+
+  it('PLACE_BEGIN → PLACE_COMMIT → PLACE_SETTLE 은 그래도 undo 1회다', () => {
+    let s = freshState();
+    const id = firstChairId(s);
+    const step0 = s.present.steps[0]!;
+    const before = step0.chairs[id as never]!;
+
+    s = editorRootReducer(s, { type: 'PLACE_BEGIN' });
+    s = editorRootReducer(s, { type: 'PLACE_COMMIT', stepId: step0.id, chairs: moved(s, id, 10) as never, balls: step0.balls, cones: step0.cones });
+    s = editorRootReducer(s, { type: 'PLACE_SETTLE', stepId: step0.id, chairs: moved(s, id, 140) as never, balls: step0.balls, cones: step0.cones });
+
+    expect(s.past).toHaveLength(1); // 재커밋이 경계를 열면 2가 된다
+    expect(s.present.steps[0]!.chairs[id as never]!.x).toBe(before.x + 150);
+
+    const undone = editorRootReducer(s, { type: 'UNDO' });
+    expect(undone.present.steps[0]!.chairs[id as never]).toEqual(before);
+    expect(undone.past).toHaveLength(0);
+  });
+
+  it('[A-4] epoch 을 올리지 않는다 — 올리면 world.load → 재정착 → 무한 루프다', () => {
+    let s = freshState();
+    const id = firstChairId(s);
+    const step0 = s.present.steps[0]!;
+    const e0 = s.epoch;
+    s = editorRootReducer(s, { type: 'PLACE_SETTLE', stepId: step0.id, chairs: moved(s, id, 40) as never, balls: step0.balls, cones: step0.cones });
+    expect(s.epoch).toBe(e0);
+  });
+
+  it('좌표가 그대로여도 자동저장 억제 창(settleHoldUntil)은 닫는다 (A-5)', () => {
+    // 통지가 왔는데 창이 안 닫히면 저장이 마감(체이스+정착 상한)까지 밀린다.
+    let s = freshState();
+    const step0 = s.present.steps[0]!;
+    s = editorRootReducer(s, { type: 'SETTLE_ARM', until: 1_700_000_000_000 });
+    expect(s.settleHoldUntil).toBe(1_700_000_000_000);
+
+    const same = editorRootReducer(s, { type: 'PLACE_SETTLE', stepId: step0.id, chairs: step0.chairs, balls: step0.balls, cones: step0.cones });
+    expect(same.settleHoldUntil).toBe(0);
+    expect(same.present).toBe(s.present); // 드릴은 손대지 않는다(무변화 no-op 가드)
+    expect(same.past).toHaveLength(0);
+  });
+});
+
 describe('epoch — 구조 변경·시점 점프에만 증가', () => {
   it('META_SET/STEP_META/PLACE_COMMIT/OBJECT_NUDGE 는 epoch 를 증가시키지 않는다', () => {
     let s = freshState();

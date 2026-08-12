@@ -18,6 +18,10 @@ export function createLoop(o: {
   step: (dtSeconds: number) => void;
   render: (alpha: number) => void;
   atRest: () => boolean;
+  /** 정착 구간이 **스스로 닫힌** 순간에 한 번 불린다(멈춤 감지 또는 상한 도달). 밖에서 부른
+   *  stop()·cancelSettle() 에는 불리지 않는다 — "판이 다 섰다" 를 뜻하는 신호이지 "루프가
+   *  꺼졌다" 가 아니기 때문이다(§4.2 P0-2 정착 후 재커밋이 이 구분에 기댄다). */
+  onSettle?: () => void;
 }): PhysicsLoop {
   let running = false;
   let rafId = 0;
@@ -44,6 +48,8 @@ export function createLoop(o: {
     if (settleDeadline !== null && (o.atRest() || now >= settleDeadline)) {
       settleDeadline = null;
       stop();
+      // stop() 뒤에 알린다 — 통지를 받은 쪽이 isRunning()==false 인 "다 선 판" 을 보게 한다.
+      o.onSettle?.();
       return;
     }
     rafId = requestAnimationFrame(frame);

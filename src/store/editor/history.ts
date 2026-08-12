@@ -74,7 +74,12 @@ export function withHistory<S extends HistoryState>(reducer: (s: S, a: EditorAct
     if (a.type === 'PLACE_BEGIN') {
       return { ...s, past: pushPast(s.past, s.present), future: [], lastCommit: null };
     }
-    if (a.type === 'PLACE_COMMIT') {
+    // PLACE_SETTLE 은 PLACE_COMMIT 과 **정확히 같은 히스토리 거동**을 갖는다(§4.2 P0-2):
+    // past 를 건드리지 않고 present 만 교체한다. 정착은 사용자의 두 번째 편집이 아니라 같은
+    // 드래그의 뒤늦은 결과이므로 undo 한 번에 통째로 되돌아가야 한다.
+    // ★ epoch 도 절대 올리지 않는다(A-4). 올리면 EditorProvider 가 world.load 로 바디를 전량
+    //   재생성하고 → 다시 정착 → 다시 PLACE_SETTLE 로 **무한 루프**가 된다.
+    if (a.type === 'PLACE_COMMIT' || a.type === 'PLACE_SETTLE') {
       const next = reducer(s, a);
       return next === s.present ? s : { ...s, present: next };
     }

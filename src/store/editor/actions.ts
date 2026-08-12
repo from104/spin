@@ -50,6 +50,19 @@ export type EditorAction =
       balls: PoseMap<BallId, Vec2>;
       cones: PoseMap<ConeId, Vec2>;
     } // 경계 닫기 (past 안 건드림)
+  // ★ 정착 후 재커밋(§4.2 P0-2). PLACE_COMMIT 과 결과는 같지만 **의미가 다르다**: 손을 뗀
+  // 시점이 아니라 물리가 다 선 시점의 좌표다. 경계를 새로 열지 않는 것은 PLACE_COMMIT 과
+  // 같고(드래그 1회 = undo 1회), 추가로 자동저장 억제 창(settleHoldUntil)을 닫는다.
+  | {
+      type: 'PLACE_SETTLE';
+      stepId: StepId;
+      chairs: PoseMap<ChairId, StoredChairPose>;
+      balls: PoseMap<BallId, Vec2>;
+      cones: PoseMap<ConeId, Vec2>;
+    }
+  // 자동저장 억제 창을 연다(§4.2 A-5). 손을 뗀 시점에 걸고, 정착 재커밋이 닫는다 — 이게
+  // 없으면 드래그 1회에 IDB CAS 쓰기가 두 번 나간다(디바운스 800ms < 정착 시간).
+  | { type: 'SETTLE_ARM'; until: number }
   | { type: 'ARROW_SET'; arrow: Arrow }
   | { type: 'ARROW_REMOVE'; id: ArrowId }
   | { type: 'NOTE_SET'; note: NoteLabel }
@@ -72,6 +85,7 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'CHAIR_DEF',
   'OBJECT_NUDGE',
   'PLACE_COMMIT',
+  'PLACE_SETTLE',
   'ARROW_SET',
   'ARROW_REMOVE',
   'NOTE_SET',

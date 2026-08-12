@@ -2,6 +2,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import type { ChairId, StepId } from '../core/ids.ts';
+import type { StoredChairPose } from '../model/chair.ts';
+import type { PoseMap } from '../model/drill.ts';
 import { idbDrillRepo } from '../storage/drillRepo.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { EditorProvider, useEditorDispatch, useEditorState } from '../store/editor/EditorProvider.tsx';
@@ -165,5 +168,88 @@ describe('useAutosave', () => {
       expect(stored?.title).toBe('디바운스 저장');
     },
     2000,
+  );
+});
+
+// §4.2 A-5 — 정착 억제 창. 드래그는 커밋을 **두 번** 만든다: 손을 뗀 시점(PLACE_COMMIT)과
+// 물리가 다 선 시점(PLACE_SETTLE, §4.2 P0-2). 정착이 디바운스 800ms 를 넘으면 그 사이에
+// 타이머가 터져 IDB CAS 쓰기가 두 번 나가고, 그 두 번째는 첫 번째가 아직 날아가는 중이면
+// (savingRef) 조용히 **버려진다** — 정작 저장돼야 할 정착 좌표가 유실된다.
+describe('useAutosave — 드래그 1회당 IDB 쓰기 횟수', () => {
+  /** 드래그 두 단계를 그대로 흉내내는 액션 묶음. 좌표만 다르고 형태는 같다. */
+  function poseSetter(step: { id: StepId; chairs: Record<string, StoredChairPose | undefined> }) {
+    const chairId = Object.keys(step.chairs)[0] as ChairId;
+    return {
+      chairId,
+      at: (x: number) => ({ ...step.chairs, [chairId]: { ...step.chairs[chairId]!, x } }) as PoseMap<ChairId, StoredChairPose>,
+    };
+  }
+
+  it(
+    '억제 창이 열려 있으면 정착이 끝난 뒤 **한 번만** 쓴다',
+    async () => {
+      const drill = await makeStoredDrill();
+      const { result } = renderHook(() => useHarness(), { wrapper: makeWrapper(drill) });
+      const step = result.current.state.present.steps[0]!;
+      const { chairId, at } = poseSetter(step);
+      const putSpy = vi.spyOn(idbDrillRepo, 'putDrill');
+      const empty = { balls: step.balls, cones: step.cones };
+
+      // 손을 뗀 순간: 억제 창을 열고 "가다 만 자리" 를 커밋한다.
+      act(() => {
+        result.current.dispatch({ type: 'SETTLE_ARM', until: Date.now() + 4000 });
+        result.current.dispatch({ type: 'PLACE_BEGIN' });
+        result.current.dispatch({ type: 'PLACE_COMMIT', stepId: step.id, chairs: at(300), ...empty });
+      });
+      expect(result.current.state.settleHoldUntil).toBeGreaterThan(Date.now());
+
+      // 디바운스(800ms)가 지나도 아직 안 쓴다 — 정착이 끝나지 않았다.
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 950));
+      });
+      expect(putSpy).not.toHaveBeenCalled();
+
+      // 정착 재커밋이 창을 닫는다 → 그 뒤 800ms 에 딱 한 번.
+      act(() => result.current.dispatch({ type: 'PLACE_SETTLE', stepId: step.id, chairs: at(400), ...empty }));
+      expect(result.current.state.settleHoldUntil).toBe(0);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 950));
+      });
+      expect(putSpy).toHaveBeenCalledTimes(1);
+
+      // 저장된 것은 정착 좌표다. 첫 커밋(300)이 저장되면 재커밋이 유실된 것이다.
+      const stored = await idbDrillRepo.getDrill(drill.id);
+      expect(stored?.steps[0]?.chairs[chairId]?.x).toBe(400);
+    },
+    6000,
+  );
+
+  it(
+    '대조군 — 억제 창이 없으면 같은 순서가 쓰기 2회가 된다',
+    async () => {
+      // 이 대조군이 없으면 위 테스트는 "원래 한 번이었다" 로도 통과한다.
+      const drill = await makeStoredDrill();
+      const { result } = renderHook(() => useHarness(), { wrapper: makeWrapper(drill) });
+      const step = result.current.state.present.steps[0]!;
+      const { at } = poseSetter(step);
+      const putSpy = vi.spyOn(idbDrillRepo, 'putDrill');
+      const empty = { balls: step.balls, cones: step.cones };
+
+      act(() => {
+        result.current.dispatch({ type: 'PLACE_BEGIN' });
+        result.current.dispatch({ type: 'PLACE_COMMIT', stepId: step.id, chairs: at(300), ...empty });
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 950));
+      });
+      expect(putSpy).toHaveBeenCalledTimes(1);
+
+      act(() => result.current.dispatch({ type: 'PLACE_SETTLE', stepId: step.id, chairs: at(400), ...empty }));
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 950));
+      });
+      expect(putSpy).toHaveBeenCalledTimes(2);
+    },
+    6000,
   );
 });

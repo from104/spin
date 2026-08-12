@@ -77,16 +77,28 @@ export function useAutosave(enabled: boolean = true): AutosaveApi {
   }, [enabled, dispatch]);
 
   // 커밋(= present 참조 변경) 후 800ms 디바운스.
+  //
+  // ★ 정착 억제 창(§4.2 A-5): 드래그는 커밋을 **두 번** 만든다 — 손을 뗀 시점(PLACE_COMMIT)과
+  //   물리가 다 선 시점(PLACE_SETTLE). 정착이 800ms 를 넘으면 그 사이에 디바운스가 터져 IDB
+  //   CAS 쓰기가 두 번 나가고, 그 두 번째는 첫 번째가 아직 날아가는 중이면(savingRef) 조용히
+  //   **버려진다** — 정착 좌표가 저장되지 않는다. 그래서 첫 커밋의 타이머를 억제 창 마감까지
+  //   미뤄 두 커밋을 한 번의 쓰기로 합친다.
+  //   마감은 절대 시각이라 정착 통지가 영영 안 와도(스텝 전환으로 world.load 가 끼어들면
+  //   그렇게 된다) 그 시각에 타이머가 스스로 터진다 — 저장이 영구히 멎지 않는다.
   useEffect(() => {
     if (!enabled || conflictRef.current) return;
     clearTimer();
-    timerRef.current = window.setTimeout(() => {
-      timerRef.current = null;
-      void flush();
-    }, AUTOSAVE_DEBOUNCE_MS);
+    const holdMs = state.settleHoldUntil - Date.now();
+    timerRef.current = window.setTimeout(
+      () => {
+        timerRef.current = null;
+        void flush();
+      },
+      holdMs > 0 ? holdMs : AUTOSAVE_DEBOUNCE_MS,
+    );
     return clearTimer;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.present, enabled]);
+  }, [state.present, state.settleHoldUntil, enabled]);
 
   // visibilitychange:hidden 플러시 — 탭 전환·기기 화면 잠금에도 유실 없이 저장한다.
   useEffect(() => {

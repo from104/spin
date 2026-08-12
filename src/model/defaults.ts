@@ -74,6 +74,21 @@ function posFor(mode: CourtMode, formation: FormationName, team: TeamSide, numbe
   return FLAT_POSITIONS[team][slot];
 }
 
+/** 기본 배치가 쓰는 슬롯 좌표 전부(§4.3 P1-3 정착 스냅 후보 ④). 팀·번호는 상관없고 **자리**만
+ *  필요하므로 좌표만 모아 돌려준다. 위 표를 유일한 출처로 두기 위한 통로다 — 스냅 쪽에서
+ *  좌표를 다시 적으면 포메이션을 손볼 때마다 둘이 어긋난다. */
+export function formationSlots(mode: CourtMode, f: string): Vec2[] {
+  const formation: FormationName = (FORMATIONS as readonly string[]).includes(f) ? (f as FormationName) : '1-2-1';
+  const out: Vec2[] = [];
+  for (const team of ['home', 'away'] as const) {
+    for (const slot of SLOTS) {
+      const p = posFor(mode, formation, team, slot);
+      if (p) out.push(p);
+    }
+  }
+  return out;
+}
+
 function ballPosFor(mode: CourtMode): Vec2 {
   if (mode === 'full') return FULL_BALL;
   if (mode === 'half') return HALF_BALL;

@@ -194,6 +194,14 @@ export const INTERACT = {
    *  손이 멀어 조작이 번거롭다. 15 px 이 "떨어져 있다"가 읽히는 최소치다. */
   handleLeverPx: { towRear: -22.5, translate: 0, spin: 22.5, towFront: 45 } as const,
   pickPadCssPx: 6,
+  /** **정착 스냅** 문턱(§4.3 P1-3). 화면 기준 거리다 — 줌을 해도 손끝이 느끼는 여유가 같아야
+   *  하므로 월드 px 로 두면 안 된다(확대할수록 스냅이 강해져 조준을 빼앗긴다).
+   *
+   *  6 CSS px 은 탭 판정(tapMaxMoveCssPx)과 히트 팽창(pickPadCssPx)과 같은 값이다 — "손이
+   *  흔들린 정도" 로 이미 이 저장소가 쓰고 있는 눈금이라 새 숫자를 만들 이유가 없다.
+   *  드래그 **중에는 절대 쓰지 않는다**: 체이스·속도 제한 위에 얹으면 따라오던 칩이 갑자기
+   *  튄다. 오직 정착 완료 재커밋 경로에서만 쓴다. */
+  settleSnapCssPx: 6,
   releaseChaseMs: 4000, // 손을 뗀 뒤 목표까지 계속 따라감
   leashVisibleAtPx: 4, // |T−G| 가 이보다 크면 리시·고스트 표시
   /** 공·콘 드래그의 substep 당 변위 상한.
