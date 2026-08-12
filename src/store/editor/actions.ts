@@ -28,6 +28,17 @@ export type EditorAction =
   | { type: 'BOARD_SET'; drill: Drill }
   // 드릴 데이터 (히스토리 커밋)
   | { type: 'DRILL_LOAD'; drill: Drill }
+  // §5.4 배치 프리셋([포메이션으로 채우기] · 세트피스 3종). `model/fillPreset.applyPlacement`
+  // 가 만든 판을 통째로 앉힌다.
+  //
+  // ⚠️ **DRILL_LOAD 로 대신할 수 없다.** DRILL_LOAD 는 uiReducer 에서 stepId 를 첫 스텝으로
+  //    되돌리고 선택·저장 기준선까지 리셋한다 — 3번 스텝에서 프리셋을 누르면 1번 스텝으로
+  //    끌려간다. 이 액션은 uiReducer 에 갈래가 **없어서**(default 통과) 시점을 건드리지 않는다.
+  // ⚠️ CHAIR_PLACE 8번으로 대신할 수도 없다: 되돌리기가 8칸이 되고 물리 월드가 8번 재생성된다.
+  //    EPOCH_BUMP_TYPES 에 들어 있는 것이 중요하다 — 그래야 EditorProvider 가 world.load 로
+  //    바디를 새 좌표에 다시 세우고 writeFrame 이 즉시 그린다(안 그러면 모델만 바뀌고 화면의
+  //    칩은 옛 자리에 남는다).
+  | { type: 'PRESET_APPLY'; drill: Drill }
   // ⚠️ patch 에 `{objective: undefined}` 같은 **명시적 undefined 를 실어 보내지 마라** —
   // drillReducer 가 `{...d, ...patch}` 로 얕게 병합하므로 그 키가 undefined 인 채 남고,
   // structuredClone(IDB)은 그것을 보존하는데 JSON 은 지운다(§3.7 omitKey 와 같은 함정).
@@ -97,6 +108,7 @@ export type EditorAction =
 /** 드릴 데이터를 바꾸는 액션 전부(§6.7 COMMIT_TYPES) — withHistory 가 drillReducer 를 태우는 기준. */
 export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'DRILL_LOAD',
+  'PRESET_APPLY',
   'META_SET',
   'STEP_ADD',
   'STEP_DUPLICATE',
@@ -130,6 +142,7 @@ export const EPOCH_BUMP_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'UNDO',
   'REDO',
   'DRILL_LOAD',
+  'PRESET_APPLY',
   'STEP_ADD',
   'STEP_DUPLICATE',
   'STEP_DELETE',

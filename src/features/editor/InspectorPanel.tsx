@@ -15,6 +15,7 @@ import type { EditorAction } from '../../store/editor/actions.ts';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
+import { PlacementPresets } from './PlacementPresets.tsx';
 
 export interface InspectorPanelProps {
   drill: Drill;
@@ -85,6 +86,12 @@ export function InspectorPanel({
         </>
       )}
       <DrillInfoSection drill={drill} dispatch={dispatch} />
+      {/* §5.4 배치 프리셋. **드릴 정보 바로 아래**다 — 프리셋이 무엇을 놓을지가 그 위의
+          코트·포메이션 값에 달려 있어서, 읽은 자리에서 바로 누르는 순서가 된다.
+          ⚠️ 이 구역을 판(하단 바·트레이)으로 옮기면 첫 화면 표적이 4개 늘어 예산 게이트가
+          빨개진다(PlacementPresets.tsx 머리말 ⚠️⚠️ — 여유가 0 이다). */}
+      <Divider />
+      <PlacementPresets drill={drill} stepIndex={stepIndex} dispatch={dispatch} />
       {showSteps && (
         <>
           <Divider />

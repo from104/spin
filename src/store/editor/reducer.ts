@@ -148,6 +148,11 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
   switch (a.type) {
     case 'DRILL_LOAD':
       return a.drill;
+    // §5.4 배치 프리셋 — 이미 다 만들어진 판을 그대로 앉힌다. 좌표를 만드는 일은 순수 함수
+    // (model/fillPreset.ts · model/setPiece.ts)가 하고 여기서는 아무것도 계산하지 않는다:
+    // 성질(전부 surface 안 · 5 m 이격 · 겹침 없음)이 리듀서 안에 있으면 단언이 닿지 않는다.
+    case 'PRESET_APPLY':
+      return a.drill;
     case 'META_SET':
       return { ...d, ...a.patch };
     case 'STEP_ADD':
