@@ -48,6 +48,10 @@ export interface EditorStageProps {
   showRuleZones: boolean;
   /** §7.3 "큰 터치 타깃". 2단 히트(§4.3 P1-2)의 2차 패스 반경만 44 → 56 CSS px 로 키운다. */
   largeTargets: boolean;
+  /** §9 결정 ④ · 5.5 — **2존 모드**. 켜면 차체 전체가 하나의 '평행 이동' 존이 되고(드래그),
+   *  차체 위 존 음영·커서도 한 구간으로 접힌다(그리기). 회전·견인은 차체 밖 앞뒤 가이드 전용.
+   *  기본 false. */
+  twoZone?: boolean;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
   /** 3.10 — 시점 점프 감지(§6.7 immediate 와 같은 규칙: undo/redo·스텝 추가삭제). 점프에는
    *  트윈과 마찬가지로 등장/퇴장 페이드도 걸지 않는다. */
@@ -72,7 +76,7 @@ const ARROW_AIM_ORDER: readonly ArrowHandle[] = ['to', 'from', 'ctrl'];
 const ARROW_AIM_LABEL: Record<ArrowHandle, string> = { to: '끝점', from: '시작점', ctrl: '굽힘점' };
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, onEraseIds, epoch = 0, transitionMs = 0 },
+  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, epoch = 0, transitionMs = 0 },
   stageRef,
 ) {
   const pointer = useEditorPointer({
@@ -90,7 +94,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     pendingPlayerId,
     onPlayerPlaced,
     showToast,
-    forceHandlesVisible: false,
+    // 5.5 — 접근성 설정의 2존 토글이 `handlesVisible(…, forced)` 의 `forced` 로 들어가는 자리.
+    forceHandlesVisible: twoZone,
     largeTargets,
   });
 
@@ -449,7 +454,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       notes={notes}
       arrows={arrows}
       selection={selection}
-      zoneCursors={zones}
+      // 5.5 — 차체 음영·커서도 같은 진실을 말해야 한다. 2존인데 앞 2/3 에 '제자리 회전' 음영이
+      // 남아 있으면 판이 거짓말을 한다(잡으면 실제로는 통째로 밀린다). ⚠️ `zones` 를 그대로
+      // 넘기지 마라 — 이 값은 드래그 판정과 **같은 스위치**(useEditorPointer 안의
+      // handlesVisible 호출)에서 나온다. 되돌리면 그림과 판정이 갈라진다.
+      zoneCursors={pointer.zoneCursors}
       activeId={activeId}
       initialFrame={initialFrame}
       fades={fade?.fades}

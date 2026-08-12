@@ -15,7 +15,7 @@ import type { Vec2 } from '../../core/units.ts';
 import { isId, newId } from '../../core/ids.ts';
 import type { ArrowId, BallId, CastId, ChairId, ConeId, NoteId } from '../../core/ids.ts';
 import { INTERACT, PHYS } from '../../core/constants.ts';
-import { hitTest, handlesVisible as computeHandlesVisible } from '../../physics/index.ts';
+import { hitTest, handlesVisible as computeHandlesVisible, applyTwoZone, twoZoneViewConfig } from '../../physics/index.ts';
 import type { HitContext, HitResult, PhysicsSnapshot, SceneSnapshot, ToolId, DragHandle } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import type { EditorAction } from '../../store/editor/actions.ts';
@@ -74,6 +74,9 @@ export interface UseEditorPointerOptions {
   pendingPlayerId: ChairId | null;
   onPlayerPlaced(): void;
   showToast(message: string, action?: { label: string; onAction(): void }): void;
+  /** §9 결정 ④ · 5.5 — 접근성 설정의 **2존 모드** 토글. `handlesVisible(…, forced)` 의
+   *  `forced` 로 그대로 들어가고, 그 반환값이 차체 히트를 하나의 '평행 이동' 존으로 접는다
+   *  (physics/twoZone.ts). 기본 false. */
   forceHandlesVisible: boolean;
   /** §7.3 "큰 터치 타깃" 설정. 2단 히트(§4.3 P1-2)의 **2차 패스 반경**만 44 → 56 CSS px 로
    *  키운다 — 그 설정 설명문이 버튼에서만 참이고 코트 위에서는 거짓이던 것을 닫는 배선이다. */
@@ -84,7 +87,15 @@ export interface UseEditorPointerResult {
   controller: CourtStagePointerController;
   selectionOverlayRef: RefObject<SelectionOverlayHandle | null>;
   activeZone: DragZone | null;
-  handlesVisibleForSelection: boolean;
+  /** 이번 포인터 세션에 2존 모드가 걸렸는가 = `handlesVisible()` 의 반환값 그대로.
+   *  5.5 이전에는 이 값을 **아무도 읽지 않았다**(반환값 소비처 0). 지금은 이 값이
+   *  `applyTwoZone` 을 통해 실제 드래그 존을 정하고, 여기 노출된 값은 그 사실을 화면 쪽에서
+   *  다시 볼 수 있게 남긴다. */
+  twoZoneEngaged: boolean;
+  /** 차체 위 존 음영·마우스 커서(ChairChip)가 쓸 경계표. **드래그 판정과 같은 스위치에서
+   *  나온다** — 두 갈래로 두면 판이 "여기는 회전" 이라고 그려 놓고 잡으면 통째로 밀리는,
+   *  화면이 조작 규칙을 잘못 가르치는 상태가 생긴다. */
+  zoneCursors: ZoneConfig;
   arrowDraft: Arrow | null;
   /** §7.5d 키보드 커서 Enter — pointerdown 과 같은 배치 로직을 재사용한다. */
   placeAtCursor(world: Vec2): void;
@@ -116,7 +127,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   const selectionOverlayRef = useRef<SelectionOverlayHandle | null>(null);
   const [activeZone, setActiveZone] = useState<DragZone | null>(null);
   const [arrowDraft, setArrowDraft] = useState<Arrow | null>(null);
-  const [handlesVisibleForSelection, setHandlesVisibleForSelection] = useState(false);
+  const [twoZoneEngaged, setTwoZoneEngaged] = useState(false);
 
   const dragHandleRef = useRef<DragHandle | null>(null);
   const draggedIdRef = useRef<string | null>(null);
@@ -143,6 +154,14 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   /** §4.3 P1-4 막힘 '툭' 의 판정 상태(blockCue.ts). 드래그 세션마다 새로 시작한다 —
    *  지난 드래그의 마지막 표본이 남아 있으면 다음 드래그 첫 프레임이 유령 '툭' 을 낸다. */
   const blockCueRef = useRef<BlockCueState>(initialBlockCue);
+
+  /** §9 결정 ④ · 5.5 — 그림 쪽 소비처. `handlesVisible()` 은 배율·포인터 종류를 보지 않으므로
+   *  (hitTest.ts 머리말) 포인터가 아직 판에 닿기 전인 렌더 시점에도 답이 확정된다 —
+   *  그래서 음영과 판정이 어긋날 틈이 없다. */
+  const zoneCursors = useMemo(
+    () => twoZoneViewConfig(opts.zones, computeHandlesVisible(metricsRef.current.pxPerUnit, metricsRef.current.pointerType, opts.forceHandlesVisible)),
+    [opts.zones, opts.forceHandlesVisible],
+  );
 
   const buildScene = useCallback((): SceneSnapshot => {
     const ctx = ctxRef.current;
@@ -431,7 +450,15 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
 
       // select
       const additive = meta.shiftKey || meta.metaKey;
-      const hit = hitTest(world, buildScene(), buildHitContext('select'));
+      // §9 결정 ④ · 5.5 — **`handlesVisible()` 반환값의 첫 소비처**다. 켜져 있으면 차체 히트에
+      // zone:'translate' 를 입혀(applyTwoZone) 차체 전체가 한 덩어리로 움직이게 한다.
+      // ⚠️ 이 두 줄을 지우면 토글이 화면에만 남고 판 위에서는 아무 일도 일어나지 않는다 —
+      // 5.5 이전이 정확히 그 상태였다(계산만 되고 버려지던 죽은 배선).
+      const twoZone = computeHandlesVisible(metricsRef.current.pxPerUnit, meta.pointerType, ctx.forceHandlesVisible);
+      setTwoZoneEngaged(twoZone);
+      const raw = hitTest(world, buildScene(), buildHitContext('select'));
+      const hit = raw === null ? null : applyTwoZone(raw, twoZone);
+
       if (!hit) {
         // §4.4 P2-1 — **어디서 시작했는가**가 이 손짓의 뜻을 정한다: 경기면 밖 마진(1.5 m)은
         // 코트가 아니라 판의 테두리이고, 테두리를 잡으면 판이 따라온다. 히트테스트 **뒤**에
@@ -499,7 +526,6 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           if (cur) selectionOverlayRef.current?.setRing(dragKindRef.current, cur.x, cur.y, cur.theta);
         }
         if (hit.kind === 'chair') setActiveZone(handle?.zone ?? null);
-        setHandlesVisibleForSelection(computeHandlesVisible(metricsRef.current.pxPerUnit, meta.pointerType, ctx.forceHandlesVisible));
         return;
       }
       // note / arrow
@@ -733,7 +759,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     controller,
     selectionOverlayRef,
     activeZone,
-    handlesVisibleForSelection,
+    twoZoneEngaged,
+    zoneCursors,
     arrowDraft,
     placeAtCursor: placeAt,
   };

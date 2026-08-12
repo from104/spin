@@ -403,6 +403,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 showGridLabels={prefs.showGridLabels}
                 showRuleZones={showRuleZones}
                 largeTargets={prefs.a11y.largeTargets}
+                twoZone={prefs.a11y.twoZone}
                 onEraseIds={eraseIds}
                 epoch={state.epoch}
                 // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와
