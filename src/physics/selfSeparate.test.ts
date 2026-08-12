@@ -142,12 +142,19 @@ describe('P0-1 — 붙잡지 않는 것들', () => {
     const separate = vi.spyOn(obbModule, 'separateOverlaps');
     expect(probe.depthBetween(chA, chB)).toBeCloseTo(15, 6);
 
-    // 쥔 채로 [골대 원위치] 를 누르면 드래그 도중에 정착 구간이 열린다.
+    // 쥔 채로 [골대 원위치] 를 누른다(태블릿에서 두 번째 손가락으로 누르면 실제로 눌린다).
     probe.api.resetGoals();
-    // 쥔 칩을 겹침 감시에서 빼지 않으면 여기서 8초(960 프레임)를 태우고 사용자가 쥐고 있는
-    // 칩을 기하로 옮겨 버린다. (드래그 중에 정착 구간이 열린다는 것 자체는 resetGoals 의
-    // 오래된 §5.8 위험이고 1.3 의 범위가 아니다 — 여기서 보는 것은 "겹침이 붙잡지 않는다" 다.)
-    expect(probe.runUntilLoopStops({ maxFrames: 60 })).toBeLessThan(5);
+    // 2026-08-12(1.5): 이 테스트는 원래 `runUntilLoopStops(...)<5` 를 단언했다 — 즉 **드래그
+    // 도중에 루프가 죽는 것**을 전제로 서 있었고, 위 주석이 그것을 "resetGoals 의 오래된
+    // §5.8 위험이고 1.3 의 범위가 아니다" 로 미뤄 두었다. 1.5 가 그 위험을 닫았다(드래그
+    // 세션이 살아 있으면 정착 구간을 아예 열지 않는다) — 그래서 루프는 이제 안 죽는다.
+    //
+    // 이 it 이 재려던 것("쥔 칩을 겹침 감시에서 빼지 않으면 8초를 태우고 사용자가 쥐고 있는
+    // 칩을 기하로 옮겨 버린다")은 그대로 살아 있고, 오히려 **더 세게** 잴 수 있게 됐다:
+    // 8 초(960 프레임)를 실제로 넘겨 놓고도 아무 일이 없어야 한다.
+    const beyondSettleMax = Math.ceil(PHYS.settleMaxMs / PHYS.dtMs) + 20;
+    probe.stepFrames(beyondSettleMax);
+    expect(probe.isRunning()).toBe(true); // 손이 판 위에 있는 동안은 루프가 산다
     expect(separate).not.toHaveBeenCalled();
     expect(probe.api.read()[chA]!.x).toBeCloseTo(DRAG_TO_X, 6); // 쥔 칩은 제자리
     expect(probe.depthBetween(chA, chB)).toBeCloseTo(15, 6);

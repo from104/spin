@@ -27,6 +27,10 @@
 // 죽고 isSettled()===true). 1.3 이 그 버그를 고치면서 physicsProbe.test.ts 의 골든값은
 // 갱신됐지만 **이 파일은 한 줄도 바뀌지 않았다**(court 탈출구 하나만 늘었다) — 계기와 판정을
 // 따로 두었기 때문이다. 앞으로도 판이 바뀌면 골든만 고치고 계기는 그대로 둘 것.
+//
+// 1.5(알려진 이슈 #2, 편집 중 멈춤)에서 **눈금 하나를 더 붙였다**: ProbeFrame.rafPending —
+// 물리 루프가 그 프레임에 물고 있는 rAF 콜백 수다. 판정이 아니라 계기의 확장이라(기존 골든은
+// 한 줄도 안 바뀐다) 위 원칙과 어긋나지 않는다. 왜 필요한가는 그 필드 주석에 있다.
 import * as Matter from 'matter-js';
 import { vi } from 'vitest';
 import { PHYS } from '../../core/constants.ts';
@@ -92,6 +96,13 @@ export interface ProbeFrame {
   poses: PhysicsSnapshot;
   /** watch 한 쌍의 겹침 깊이(px). 분리돼 있으면 0. 키는 `a|b`. */
   depths: Record<string, number>;
+  /** 프레임이 끝난 시점에 **물리 루프가 물고 있는 rAF 콜백 수**(§4.2 1.5 계측).
+   *
+   *  loop.ts 의 재예약 지점은 frame() 꼬리 하나뿐이라 정상 상태는 항상 0(멎음) 또는 1(살아
+   *  있음)이다. 2 이상은 rAF 체인이 **갈라졌다**는 뜻 — 같은 프레임에 step 이 여러 번 돌고
+   *  체인 하나가 죽어도 다른 하나가 살아남아 "멈춘 줄 알았는데 계속 도는" 상태가 된다.
+   *  체인 분화는 브라우저 멈춤의 고전적 원인이라 매 프레임 세어 둔다(알려진 이슈 #2). */
+  rafPending: number;
 }
 
 export type LoopEventKind = 'start' | 'stop' | 'settle' | 'cancelSettle';
@@ -120,6 +131,8 @@ export interface PhysicsProbe {
   frame(): number;
   tMs(): number;
   isRunning(): boolean;
+  /** 지금 물리 루프가 물고 있는 rAF 콜백 수. ProbeFrame.rafPending 과 같은 값이다. */
+  rafPending(): number;
   /** 겹침을 매 프레임 기록할 쌍을 추가한다. 이미 등록된 쌍이면 무시한다. */
   watch(a: string, b: string): void;
   /** 지금 이 순간의 겹침 깊이(px). 분리돼 있으면 0. */
@@ -321,6 +334,7 @@ export function createPhysicsProbe(setup: ProbeSetup = {}): PhysicsProbe {
       settled: api.isSettled(),
       poses: api.read(),
       depths,
+      rafPending: pending.length,
     });
     frame += 1;
   }
@@ -341,6 +355,7 @@ export function createPhysicsProbe(setup: ProbeSetup = {}): PhysicsProbe {
     frame: () => frame,
     tMs: () => nowMs,
     isRunning,
+    rafPending: () => pending.length,
     watch(a, b) {
       const key = pairKey(a, b);
       if (!watched.has(key)) watched.set(key, [a, b]);
@@ -422,12 +437,12 @@ export function createPhysicsProbe(setup: ProbeSetup = {}): PhysicsProbe {
       throw new Error(`physicsProbe: ${maxFrames} 프레임 안에 루프가 멎지 않았다\n${probe.formatTrace()}`);
     },
     formatTrace() {
-      const head = `frame     t(ms) sub run settled ${[...watched.keys()].join(' ')}`;
+      const head = `frame     t(ms) sub run settled raf ${[...watched.keys()].join(' ')}`;
       const rows = trace.map((r) => {
         const d = [...watched.keys()].map((k) => (r.depths[k] ?? 0).toFixed(2)).join(' ');
         return `${String(r.frame).padStart(5)} ${r.tMs.toFixed(1).padStart(9)} ${String(r.substeps).padStart(3)} ${
           r.running ? ' ● ' : ' ○ '
-        } ${r.settled ? '  ✓   ' : '  ✗   '} ${d}`;
+        } ${r.settled ? '  ✓   ' : '  ✗   '} ${String(r.rafPending).padStart(3)} ${d}`;
       });
       const ev = loopEvents.map((e) => `  loop  f${e.frame} ${e.kind}`);
       const se = sessionEvents.map((e) => `  drag  f${e.frame} ${e.kind}${e.id ? ` ${e.id}` : ''}`);
