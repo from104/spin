@@ -18,7 +18,14 @@ export interface TweenHandle {
   cancel(): void;
 }
 
-/** DrillStep → TransformWriter.writeFrame 입력용 평탄 포즈 맵. 공/콘은 theta=0(렌더에서 무시). */
+/** DrillStep → TransformWriter.writeFrame 입력용 평탄 포즈 맵. 공/콘/메모는 theta=0(렌더에서 무시).
+ *
+ *  ⚠️ 메모가 빠져 있었다(§4.3 P1-5 의 다섯 번째 원인). `NoteLabel` 은 다른 개체와 똑같이
+ *  `writer.register` 로 자리를 받는데 이 맵에도, 물리 스냅샷(`world.read()` — 메모는 바디가
+ *  없다)에도 없었으므로 **아무도 메모의 transform 을 쓰지 않았다.** 결과: 코트 어디를 탭해
+ *  만든 메모든 전부 viewBox 원점(판 왼쪽 위 마진)에 그려졌다 — 탭한 자리에는 아무것도 안
+ *  나타나는 것이 "메모 도구 무반응" 의 실체 중 하나다. 메모 드래그·키보드 이동도 같은 경로로
+ *  화면에 반영된다(NOTE_SET → step 교체 → ObjectLayer 의 initialFrame 재적용). */
 export function poseFrame(step: DrillStep): Record<string, PoseXYT> {
   const out: Record<string, PoseXYT> = {};
   for (const [id, p] of Object.entries(step.chairs)) {
@@ -33,6 +40,9 @@ export function poseFrame(step: DrillStep): Record<string, PoseXYT> {
   for (const [id, p] of Object.entries(step.cones)) {
     if (!p) continue;
     out[id] = { x: p.x, y: p.y, theta: 0 };
+  }
+  for (const n of step.notes) {
+    out[n.id] = { x: n.x, y: n.y, theta: 0 };
   }
   return out;
 }

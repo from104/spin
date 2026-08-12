@@ -1,6 +1,6 @@
 // 포인터 → 대상/존 판정, 존 핸들 배치. §5.12.
 import type { Vec2 } from '../core/units.ts';
-import { CHAIR, BALL, CONE, INTERACT } from '../core/constants.ts';
+import { CHAIR, BALL, CONE, NOTE, INTERACT } from '../core/constants.ts';
 import type { ChairId, BallId, ConeId, NoteId, ArrowId } from '../core/ids.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
 import { chairCorners, projectGrab, pointAtLever } from '../model/chair.ts';
@@ -21,9 +21,11 @@ export type ToolId = 'select' | 'route' | 'pass' | 'ball' | 'cone' | 'player' | 
  *  똑같아져(예: 공, s=0.663 에서 둘 다 11.25) 2단 히트가 통째로 무의미해진다 — 관대한 패스가
  *  가장 필요한 배율이 하필 상한이 물리는 배율이다.
  *
- *  note 22: 메모는 자기 반지름이 0 이라 픽 반경이 `min(6/s, 상한)` 뿐인데, 12.5 는 s<0.48
- *  에서 그 6/s 를 잘라 화면상 메모를 점점 작게 만들었다. 메모는 휠체어(21.25)와 자리를
- *  다투지 않으므로(§4.3 P1-2) 상한만 그 위로 올려 잘림을 없앤다. */
+ *  note 22: 메모는 휠체어(21.25)와 자리를 다투지 않으므로(§4.3 P1-2) 상한을 12.5 에서 올려
+ *  저배율의 잘림을 없앴다. 값 22 는 `NOTE.ringRadiusPx`(선택 링 반지름)와 **같아야 한다** —
+ *  §4.3 P1-5 로 메모가 실제로 그려지는 쪽지 칩이 되면서, 상한이 링보다 작으면 "링 안을
+ *  눌렀는데 안 잡힌다" 가 되기 때문이다. 칩 외접원(NOTE.hitRadiusPx = 20)보다 크므로
+ *  어떤 배율에서도 상한이 칩 **안쪽**을 자르지 않는다. */
 const HIT_R_MAX_PX = { chair: 21.25, ball: 11.25, cone: 8.75, note: 22 } as const;
 
 export interface HitResult {
@@ -167,7 +169,9 @@ function strictRadii(ctx: HitContext): PickRadii {
   return {
     ball: pickRadius(BALL.radiusPx, HIT_R_MAX_PX.ball, s),
     cone: pickRadius(CONE.radiusPx, HIT_R_MAX_PX.cone, s),
-    note: pickRadius(0, HIT_R_MAX_PX.note, s),
+    // 메모의 자기 반지름은 0 이 아니다(§4.3 P1-5): 이제 32×24 쪽지 칩이 실제로 그려지고,
+    // 그 칩의 외접원이 20 이다. 0 이면 s=1 에서 픽 원이 6 px — 칩 안을 눌러도 안 잡혔다.
+    note: pickRadius(NOTE.hitRadiusPx, HIT_R_MAX_PX.note, s),
     chairPad: ctx.zones.grabPadPx,
     handle: INTERACT.handleHitRadiusCssPx / s,
     arrowPad: INTERACT.pickPadCssPx / s,

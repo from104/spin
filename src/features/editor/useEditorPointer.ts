@@ -435,6 +435,15 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         draggedIdRef.current = hit.id;
         dragKindRef.current = 'chair';
         if (handle) ctx.writer.setHeld(hit.id, true);
+        // §6.6 setRing — **지금 잡고 있는 것**의 링. 개체가 자기 <g> 안에 그리는 링은 위 레이어
+        // 개체에 가린다(§3.5 z-order 콘 → 화살표 → 휠체어 → 공 → 메모) — 콘을 잡고 휠체어 밑으로
+        // 끌면 무엇을 잡았는지가 화면에서 사라진다. SelectionOverlay 는 ObjectLayer **뒤에**
+        // 그려지므로 절대 가리지 않는다. 러버밴드·리시·고스트와 같은 층(직접 DOM)인 이유도 같다:
+        // 드래그 중에는 60fps 로 따라가야 해서 React 를 거칠 수 없다(§6.1 규칙 1).
+        if (handle) {
+          const cur = ctx.worldRef.current?.read()?.[hit.id];
+          if (cur) selectionOverlayRef.current?.setRing('chair', cur.x, cur.y, cur.theta);
+        }
         setActiveZone(handle?.zone ?? hit.zone ?? null);
         if (handle?.zone) liveRegion.say(`${ZONE_LABEL[handle.zone]} 잡음`);
         return;
@@ -458,6 +467,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         // 잡힌 개체는 판에서 뜬다(§4.3 P1-1). 실제로 물리 드래그가 시작된 경우에만 —
         // 손을 대기만 하고 잡히지 않았는데 뜨면 그 신호는 거짓말이 된다.
         if (handle) ctx.writer.setHeld(hit.id, true);
+        if (handle) {
+          const cur = ctx.worldRef.current?.read()?.[hit.id];
+          if (cur) selectionOverlayRef.current?.setRing(dragKindRef.current, cur.x, cur.y, cur.theta);
+        }
         if (hit.kind === 'chair') setActiveZone(handle?.zone ?? null);
         setHandlesVisibleForSelection(computeHandlesVisible(metricsRef.current.pxPerUnit, meta.pointerType, ctx.forceHandlesVisible));
         return;
@@ -469,7 +482,11 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       ctx.dispatch({ type: 'SELECT_SET', ids: nextSel });
       if (hit.kind === 'note') {
         const note = ctx.step.notes.find((n) => n.id === hit.id);
-        if (note) noteDragRef.current = { id: note.id, offset: { x: world.x - note.x, y: world.y - note.y } };
+        if (note) {
+          noteDragRef.current = { id: note.id, offset: { x: world.x - note.x, y: world.y - note.y } };
+          // 메모는 물리 바디가 없어 리시도 고스트도 안 뜬다 — 이 링이 유일한 '잡았다' 신호다.
+          selectionOverlayRef.current?.setRing('note', note.x, note.y, 0);
+        }
       }
     },
     [buildScene, buildHitContext, eraseAt, placeAt, resetDragSession],
@@ -497,6 +514,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
             // 리시는 **잡은 지점(앵커)** 에서 나가야 한다. 예전에는 피벗(cur)에서 그려서
             // 어느 존을 잡았든 선이 늘 회전축 한가운데에 붙어 보였고, 그래서 조작 자체가
             // 피벗을 끄는 것처럼 읽혔다. 로프는 실제로 앵커에 묶여 있다(§5.5 C).
+            selectionOverlayRef.current?.setRing(kind, cur.x, cur.y, kind === 'chair' ? cur.theta : 0);
             const anchor = dragHandleRef.current?.grabPoint ?? { x: cur.x, y: cur.y };
             const d = Math.hypot(anchor.x - world.x, anchor.y - world.y);
             const leashPx = INTERACT.leashVisibleAtPx / metricsRef.current.pxPerUnit;
@@ -530,7 +548,13 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       if (noteDragRef.current) {
         const { id, offset } = noteDragRef.current;
         const note = ctx.step.notes.find((n) => n.id === id);
-        if (note) ctx.dispatch({ type: 'NOTE_SET', note: { ...note, x: world.x - offset.x, y: world.y - offset.y } });
+        if (note) {
+          const nx = world.x - offset.x;
+          const ny = world.y - offset.y;
+          ctx.dispatch({ type: 'NOTE_SET', note: { ...note, x: nx, y: ny } });
+          // 좌표는 리렌더를 거쳐 오지만 링은 안 거친다 — 리렌더가 늦어도 링은 제자리다.
+          selectionOverlayRef.current?.setRing('note', nx, ny, 0);
+        }
         return;
       }
 
@@ -580,6 +604,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       setActiveZone(null);
       selectionOverlayRef.current?.setLeash(null, null);
       selectionOverlayRef.current?.setGhost(null, 0, 0, 0);
+      selectionOverlayRef.current?.setRing(null, 0, 0, 0);
 
       if (overTray && id) {
         // 되돌리기 한 번으로 살아나야 한다 — 커밋을 먼저 하면 "옮김 + 뺌" 두 단계가 쌓인다.
@@ -616,6 +641,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
 
     if (noteDragRef.current) {
       noteDragRef.current = null;
+      selectionOverlayRef.current?.setRing(null, 0, 0, 0);
       if (tapDeselect) ctx.dispatch({ type: 'SELECT_CLEAR' }); // [A-3] 메모 재탭
       return;
     }

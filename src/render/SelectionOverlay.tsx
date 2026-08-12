@@ -5,6 +5,7 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 import type { Vec2 } from '../core/units.ts';
 import { DEG } from '../core/angle.ts';
+import { NOTE } from '../core/constants.ts';
 
 export type SelectionShape = 'chair' | 'ball' | 'cone' | 'note';
 
@@ -17,7 +18,9 @@ export interface SelectionOverlayHandle {
   setGhost(shape: SelectionShape | null, x: number, y: number, theta: number): void;
 }
 
-const RING_ROUND_R: Record<Exclude<SelectionShape, 'chair'>, number> = { ball: 12, cone: 9, note: 22 };
+/** 메모만 상수에서 온다 — 링·히트 상한·쪽지 칩이 같은 숫자를 쓰지 않으면 §4.3 P1-5 의
+ *  "보이는데 안 잡힌다" 가 되살아난다(NOTE 머리말 참고). */
+const RING_ROUND_R: Record<Exclude<SelectionShape, 'chair'>, number> = { ball: 12, cone: 9, note: NOTE.ringRadiusPx };
 const hide = (el: SVGElement | null): void => {
   if (el) el.style.display = 'none';
 };

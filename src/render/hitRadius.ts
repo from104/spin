@@ -11,6 +11,8 @@
 // 이름만 다시 붙여 준다(로컬 복제가 아니다).
 //
 // note 22: physics 쪽 복제본(`hitTest.ts`)과 함께 12.5 → 22. 이유는 그쪽 주석 참고.
+// §4.3 P1-5 이후로는 `NOTE.ringRadiusPx`(선택 링 반지름)와도 **같은 값**이다 — 메모가 실제로
+// 그려지는 쪽지 칩이 되면서, 상한이 링보다 작으면 링 안을 눌러도 안 잡히게 된다.
 import { INTERACT } from '../core/constants.ts';
 
 export const HIT_R_MAX_PX = { chair: 21.25, ball: 11.25, cone: 8.75, note: 22 } as const;

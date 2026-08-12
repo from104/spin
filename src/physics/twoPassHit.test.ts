@@ -164,7 +164,8 @@ describe('메모 상한 22 (§4.3 P1-2)', () => {
   it('저배율에서 메모의 1차 반경이 12.5 로 잘리지 않는다', () => {
     const id = noteId(1);
     const scene: SceneSnapshot = { ...emptyScene(), notes: [{ id, p: { x: 300, y: 300 } }] };
-    // s=0.2 → 메모 1차 반경 = min(0 + 6/0.2, 상한) = min(30, 22) = 22. 옛 상한 12.5 였다면 잘렸다.
+    // s=0.2 → 메모 1차 반경 = min(NOTE.hitRadiusPx + 6/0.2, 상한) = min(50, 22) = 22.
+    // 옛 상한 12.5 였다면 잘렸다(자기 반지름은 §4.3 P1-5 로 0 → 20 이 됐지만 이 구간은 상한이 정한다).
     // 2차 패스가 답을 대신 내지 못하도록 **지우개**로 잰다(2차가 없는 도구다).
     const ctx: HitContext = { ...baseCtx, pxPerUnit: 0.2, tool: 'erase' };
     expect(hitTest({ x: 315, y: 300 }, scene, ctx)).toEqual({ kind: 'note', id }); // 15px — 옛 상한이면 빗나갔다
