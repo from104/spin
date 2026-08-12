@@ -19,6 +19,7 @@ import { StageControls } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
 import { BoardBar } from './BoardBar.tsx';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
 import { CHROME_ROWS, courtBoxPx, courtScale } from '../../app/chromeBudget.ts';
 import type { ChromeState } from '../../app/chromeBudget.ts';
 import { COURT_DEFS } from '../../model/court.ts';
@@ -221,10 +222,25 @@ describe('TransportBar — 이전/재생/다음·스텝 칩·속도가 --hit 파
   });
 });
 
-describe('BoardBar — 비우기·골대 원위치·속도 스위치가 --hit 파생', () => {
+// 2026-08-12(4.7): [골대 원위치]가 이 바에서 확인 모달로 내려가고 그 자리에 [내보내기]가 왔다
+// (근거는 BoardBar.tsx 머리말 ⚠️ — 첫 화면 표적 예산 여유가 0 이었다). 바에 상주하는 손잡이
+// 셋의 히트 크기 계약은 그대로다.
+describe('BoardBar — 비우기·내보내기·속도 스위치가 --hit 파생', () => {
   it('세 손잡이 전부 minHeight var(--hit)', () => {
-    render(<BoardBar courtMode="full" courtLocked={false} onReset={() => {}} onResetGoals={() => {}} />, { wrapper: settingsWrapper });
-    for (const name of ['코트 비우기', '골대 원위치']) {
+    render(
+      <BoardBar
+        courtMode="full"
+        courtLocked={false}
+        onReset={() => {}}
+        onResetGoals={() => {}}
+        drill={createDrill({ courtMode: 'full', title: '자유 전술판', empty: true })}
+        showGrid={false}
+        showRuleZones={false}
+      />,
+      // 내보내기 시트가 useToast 를 쓴다 — 프로바이더 밖이면 던진다.
+      { wrapper: ({ children }: { children: ReactNode }) => <SettingsProvider><ToastProvider>{children}</ToastProvider></SettingsProvider> },
+    );
+    for (const name of ['코트 비우기', '내보내기']) {
       expect(screen.getByRole('button', { name }).style.minHeight, name).toBe('var(--hit)');
     }
     expect(screen.getByRole('switch', { name: '개체 이동 속도 제한' }).style.minHeight).toBe('var(--hit)');

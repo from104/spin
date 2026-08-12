@@ -437,6 +437,12 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           <BoardBar
             courtMode={drill.courtMode}
             courtLocked={!boardPristine}
+            // 내보내기 시트(§6.4)가 굽는 것은 **지금 리듀서가 들고 있는 판**이다 — 물리 세계가
+            // 아니라 모델이다. 드래그는 커밋 스냅에서 모델로 들어오므로(§4.3) 손을 뗀 뒤의
+            // 배치가 그림·인쇄에 그대로 나온다.
+            drill={drill}
+            showGrid={showGrid}
+            showRuleZones={showRuleZones}
             onReset={() => board?.onReset()}
             onResetGoals={() => {
               // 막혀 있으면 반드시 말해 준다. 조용히 실패하면 "버튼이 고장났나" 하며 계속

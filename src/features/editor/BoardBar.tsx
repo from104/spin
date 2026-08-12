@@ -6,6 +6,18 @@ import { useId, useRef, useState } from 'react';
 // 여기가 코트 전환 **잠금 사유**를 말하는 유일한 자리다. 헤더의 세그먼트는 잠기면 클릭 시
 // 토스트를 띄우지만(§6.10 공 도구 제한과 같은 패턴), 토스트는 사라지므로 "왜 못 바꾸는지"가
 // 화면에 남지 않는다 — 스크린리더 사용자에게도 상시 근거가 필요하다.
+//
+// ⚠️ **[골대 원위치]는 2026-08-12(4.7) 에 이 바에서 확인 모달 안으로 내려갔다. 되돌리지 마라 —
+//    되돌리면 첫 화면 표적 예산이 41 이 되어 `src/test/boardTargetBudget.test.tsx` 의
+//    "서랍이 둘 다 열린 실사용 상태" it 이 빨개진다.**
+//    실측(2026-08-12): 서랍 둘 다 열린 상태 40 = 상한 40, 여유 0. §6.4 가 이 바에 [내보내기]
+//    1개를 요구했으므로 같은 바에서 1개를 내줘야 했고, 후보는 셋뿐이었다 —
+//    [코트 비우기]·[개체 이동 속도 제한]은 예산 게이트의 대조군이 구역 표본으로 직접 이름을
+//    찍어 두었고(=지우면 게이트가 세는 규칙째 헐거워진다), 남는 것이 [골대 원위치]였다.
+//    골대는 **휠체어에 밀려서만** 움직이는 드문 사고이고(GoalPost.tsx), 코트를 비우면 어차피
+//    판이 새로 서면서 골대도 제자리로 간다 — 즉 '코트를 되돌리는 곳' 은 원래 하나였고 그
+//    모달이 그 자리다. 대가는 발견성이다: 밀린 골대만 되돌리려면 [코트 비우기] → 모달 →
+//    [골대만 원위치] 로 한 단계가 늘었다. 5.4 가 예산을 더 쓰지 않고 자리를 벌면 되돌려도 된다.
 
 import { Modal } from '../../ui/Modal.tsx';
 import { SpeedLimitSwitch } from './SpeedLimitSwitch.tsx';
@@ -13,6 +25,8 @@ import { Button } from '../../ui/Button.tsx';
 import { BAR_HINT_GAP_PX, BAR_HINT_LINE_HEIGHT, bottomBarPadCss } from './bottomBarMetrics.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import type { CourtMode } from '../../model/court.ts';
+import type { Drill } from '../../model/drill.ts';
+import { ExportSheet } from '../export/ExportSheet.tsx';
 
 /** 문구 한 줄의 공통 스타일(§3.11). nowrap+ellipsis 는 멋이 아니라 **높이 보증**이다 —
  *  줄이 접히면 문구 스택이 --hit 를 넘어 바가 자란다(bottomBarMetrics 의 barHintStackPx 주석).
@@ -32,16 +46,23 @@ export interface BoardBarProps {
   /** 코트 전환이 잠겨 있는가(= 판이 리셋 상태가 아니다). */
   courtLocked: boolean;
   onReset(): void;
-  /** 골대만 원위치로. 휠체어에 밀린 골대를 되돌린다(§5.4) — 판 전체는 건드리지 않는다. */
+  /** 골대만 원위치로. 휠체어에 밀린 골대를 되돌린다(§5.4) — 판 전체는 건드리지 않는다.
+   *  손잡이는 [코트 비우기] 확인 모달 안에 있다(머리말 ⚠️). */
   onResetGoals(): void;
+  /** 지금 판 한 벌 — 내보내기 시트가 그림·인쇄를 여기서 굽는다(§6.4). */
+  drill: Drill;
+  showGrid: boolean;
+  showRuleZones: boolean;
 }
 
-export function BoardBar({ courtMode, courtLocked, onReset, onResetGoals }: BoardBarProps) {
+export function BoardBar({ courtMode, courtLocked, onReset, onResetGoals, drill, showGrid, showRuleZones }: BoardBarProps) {
   // 비우기는 **되돌릴 수 없다**(BOARD_SET 이 히스토리를 비운다 — actions.ts 주석).
   // 그래서 반드시 확인을 받는다. 되돌리기로 살릴 수 있는 조작이었다면 물을 이유가 없다.
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const confirmId = useId();
   const clearBtnRef = useRef<HTMLButtonElement | null>(null);
+  const exportBtnRef = useRef<HTMLButtonElement | null>(null);
 
   // §3.11 — 렌더 참조 0건이던 CourtDef.desc 를 여기서 되살린다. 코트 세그먼트가 §5.2 에서
   // 하단 바로 내려오면 이 줄이 그 세그먼트의 설명이 된다 — 자리를 먼저 잡아 두는 셈이다.
@@ -73,12 +94,13 @@ export function BoardBar({ courtMode, courtLocked, onReset, onResetGoals }: Boar
           코트 비우기
         </button>
 
-        {/* 골대는 휠체어에 밀려서만 움직이므로(임의로 못 옮긴다) 되돌리는 길이 여기밖에 없다.
-            항상 켜 둔다 — 안 밀린 상태에서 눌러도 무해하고, 활성 여부를 물으려면 물리 상태를
-            매 프레임 들여다봐야 한다. */}
+        {/* §6.4 — 내보내기는 여기 하나뿐이다. 헤더가 아니라 하단 바인 이유는 narrow 헤더가
+            52px 한 줄이기 때문이고(§5.2), 시트(3항목)는 닫혀 있으면 DOM 에 없어 예산 밖이다. */}
         <button
           type="button"
-          onClick={onResetGoals}
+          ref={exportBtnRef}
+          onClick={() => setExportOpen(true)}
+          aria-haspopup="dialog"
           style={{
             minHeight: 'var(--hit)',
             padding: '0 14px',
@@ -91,7 +113,7 @@ export function BoardBar({ courtMode, courtLocked, onReset, onResetGoals }: Boar
             flex: 'none',
           }}
         >
-          골대 원위치
+          내보내기
         </button>
 
         <SpeedLimitSwitch />
@@ -121,6 +143,22 @@ export function BoardBar({ courtMode, courtLocked, onReset, onResetGoals }: Boar
           <br />
           선수는 오른쪽 명단에 남아 있어 다시 놓을 수 있습니다.
         </p>
+        {/* 밀린 골대만 되돌리는 길. 예산 때문에 바에서 여기로 내려왔다(머리말 ⚠️) —
+            **판을 건드리지 않는 동작**이므로 파괴적 버튼 줄에 섞지 않고 위에 따로 둔다. */}
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6, marginBottom: 10 }}>
+            골대만 휠체어에 밀렸다면 판을 비울 필요가 없습니다.
+          </p>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setConfirmOpen(false);
+              onResetGoals();
+            }}
+          >
+            골대만 원위치
+          </Button>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
           <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
             취소
@@ -136,6 +174,19 @@ export function BoardBar({ courtMode, courtLocked, onReset, onResetGoals }: Boar
           </Button>
         </div>
       </Modal>
+
+      {/* ⚠️ 시트는 **닫혀 있어도 마운트된 채**여야 한다 — [인쇄]를 고르면 시트가 닫히고,
+          인쇄 트리(PrintRoot)는 이 컴포넌트 안에 산다. 조건부로 렌더하면 인쇄가 시작되기 전에
+          트리가 사라져 백지가 인쇄된다(ExportSheet.tsx 머리말). 닫힌 시트의 표적은 0개다. */}
+      <ExportSheet
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        drill={drill}
+        stepIndex={0}
+        showGrid={showGrid}
+        showRuleZones={showRuleZones}
+        returnFocusRef={exportBtnRef}
+      />
     </div>
   );
 }
