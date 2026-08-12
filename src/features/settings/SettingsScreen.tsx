@@ -18,6 +18,7 @@ import { loadPrefs } from '../../storage/prefs.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
+import { INTERACT } from '../../core/constants.ts';
 import { TEAM_COLOR_CHOICES, inkFor } from '../../core/colors.ts';
 import { FORMATIONS } from '../../model/defaults.ts';
 import { COURT_MODES, type CourtMode } from '../../model/court.ts';
@@ -56,6 +57,16 @@ export function SettingsScreen() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const restoreBtnRef = useRef<HTMLButtonElement | null>(null);
   const restoreDialogId = useId();
+
+  // ── 6.1 물리 6종은 닫힌 서랍 ────────────────────────────────────────────────────────────
+  // 물리 슬라이더는 대부분의 코치가 평생 안 만지는 값인데 펼쳐져 있으면 정말 필요한 접근성
+  // 설정을 화면 아래로 밀어낸다. 그래서 기본 **닫힘**이다. prefs 필드가 아니라 지역 상태인
+  // 이유: 개폐는 기기 따라다닐 취향이 아니고, 규칙 8(validatePrefs 화이트리스트) 대상만 는다.
+  // ⚠️ 닫혀 있어도 저장된 오버라이드는 resolvePhysics(§5.11)를 그대로 지난다 — "안 보이면
+  // 기본값으로 돌아간다" 가 되는 순간 재앙이다. SettingsScreen.test.tsx '서랍이 닫혀 있어도
+  // 저장값은 살아 있다' 가 그 가드다.
+  const [physicsOpen, setPhysicsOpen] = useState(false);
+  const physicsDrawerId = useId();
 
   // savePrefs 가 처음 실패한 순간(Safari 프라이빗 모드 등)에만 1회 안내한다(§4.6).
   const notifiedRef = useRef(false);
@@ -200,19 +211,42 @@ export function SettingsScreen() {
           </Row>
         </Section>
 
+        {/* 6.2 — 2.11(소리·햅틱)·5.5(2존)·5.6(고대비)이 각자 다른 차수에 붙으며 흩어진 것을
+            한 섹션으로 정렬한다. 배열 순서는 "판을 만지는 손(타깃·2존) → 손끝·귀(소리·진동) →
+            눈(고대비·모션) → 키보드(단축키)". 각 설명문은 코드를 따라가 실측한 사실만 말한다 —
+            a11yAlignment.test.tsx 가 문장마다 실제 동작(INTERACT 상수·applyTwoZone·cueSpec·
+            stepTransitionMs·contrast.css)을 짝지어 못박는다. */}
         <Section title="접근성">
-          <Row title="큰 터치 타깃" desc="버튼·트레이 칩·코트 위 집기 반경이 44 → 56px 로 커집니다(글자 크기는 UI 배율이 담당)">
+          {/* 44→56 을 리터럴로 적지 않는다 — INTERACT 상수가 바뀌면 설명문이 거짓이 되는 자리라
+              숫자를 상수에서 직접 읽는다(tokens.css --hit 44/56px 와의 일치는 계약 테스트가 잰다). */}
+          <Row
+            title="큰 터치 타깃"
+            desc={`버튼·트레이 칩·코트 위 집기 반경이 ${INTERACT.hitTargetCssPx} → ${INTERACT.hitTargetLargeCssPx}px 로 커집니다(글자 크기는 UI 배율이 담당)`}
+          >
             <Toggle checked={prefs.a11y.largeTargets} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, largeTargets: v } })} ariaLabel="큰 터치 타깃" />
           </Row>
           {/* §9 결정 ④ · 5.5 — 기본 OFF. 자동(배율) 게이트를 쓰지 않는 이유는
-              physics/hitTest.ts 의 handlesVisible 머리말에 실측 배율 분포와 함께 적어 뒀다. */}
+              physics/hitTest.ts 의 handlesVisible 머리말에 실측 배율 분포와 함께 적어 뒀다.
+              설명문의 두 문장 = applyTwoZone(차체→translate) + zoneHandle 은 안 덮음, 그대로다. */}
           <Row title="2존 모드" desc="차체 아무 곳을 잡아도 통째로 움직입니다. 제자리 회전·견인은 차체 밖 앞뒤 가이드로만 합니다">
             <Toggle checked={prefs.a11y.twoZone} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, twoZone: v } })} ariaLabel="2존 모드" />
           </Row>
+          {/* 세 사건(놓기·막힘·트레이 복귀)은 cueSpec 의 CueKind 전부와 1:1 이다 — 사건을
+              더하거나 빼면 이 문장도 같은 커밋에서 고쳐라(a11yAlignment.test.tsx 가 잰다). */}
           <Row title="놓임 소리·진동" desc="개체를 놓거나 막히거나 트레이로 되돌릴 때 짧은 소리와 진동으로 알립니다">
             <Toggle checked={prefs.a11y.sound} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, sound: v } })} ariaLabel="놓임 소리·진동" />
           </Row>
-          <Row title="모션 줄이기" desc="전환 애니메이션을 줄입니다">
+          {/* 5.6 고대비는 **스위치가 없다** — prefers-contrast/forced-colors 미디어쿼리
+              (styles/contrast.css, 소유는 6.5·6.6)가 기기 설정을 자동으로 따르기 때문이다.
+              앱 안에 별도 토글을 만들면 시스템 설정과 싸우는 두 번째 스위치가 된다. 그래도
+              행이 있는 이유: 저시력 사용자가 "이 앱은 고대비를 아느냐" 를 설정 화면에서 찾기
+              때문이다 — 없으면 지원하면서도 지원 안 하는 앱으로 보인다. */}
+          <Row title="고대비·강제 색상" desc="스위치가 따로 없습니다 — 기기의 고대비·강제 색상 설정을 켜면 앱이 자동으로 따릅니다">
+            <span style={{ flex: 'none', fontSize: '0.75rem', fontWeight: 600, color: 'var(--faint-text)' }}>시스템 따름</span>
+          </Row>
+          {/* '줄입니다' 가 아니라 '끕니다' — 실효값이 켜지면 stepTransitionMs 가 0 을 돌려줘
+              (store/editor/tween.ts) 트윈·페이드가 생기지도 않는다. 옛 문구는 절반만 사실이었다. */}
+          <Row title="모션 줄이기" desc="전환 애니메이션을 끕니다 — 스텝을 넘기면 개체가 즉시 다음 위치로 갑니다">
             <Segmented
               ariaLabel="모션 줄이기"
               value={prefs.a11y.reduceMotion}
@@ -237,79 +271,101 @@ export function SettingsScreen() {
           </Row>
         </Section>
 
-        <Section title="물리" desc="휠체어 드래그 4존 경계와 속도 상한을 조정합니다. 값을 조정하면 이웃한 경계가 순서를 지키도록 자동으로 밀립니다.">
-          <SliderRow
-            label="후방 견인 경계"
-            desc="이 지점 이하를 잡으면 후방 견인 존. 0 이면 차체 밖 가이드로만 견인한다"
-            ariaLabel="후방 견인 경계"
-            value={physics.zones.sTowRearMax}
-            min={0}
-            max={0.18}
-            step={0.01}
-            format={(v) => v.toFixed(2)}
-            onChange={(v) => patchZone('sTowRearMax', v)}
-          />
-          <SliderRow
-            label="제자리 회전 시작"
-            desc="이 지점부터 제자리 회전 존"
-            ariaLabel="제자리 회전 시작"
-            value={physics.zones.sSpinMin}
-            min={0.22}
-            max={0.45}
-            step={0.01}
-            format={(v) => v.toFixed(2)}
-            onChange={(v) => patchZone('sSpinMin', v)}
-          />
-          <SliderRow
-            label="전방 견인 시작"
-            desc="이 지점부터 전방 견인 존. 1 이면 차체 밖 가이드로만 견인한다"
-            ariaLabel="전방 견인 시작"
-            value={physics.zones.sTowFrontMin}
-            min={0.6}
-            max={1}
-            step={0.01}
-            format={(v) => v.toFixed(2)}
-            onChange={(v) => patchZone('sTowFrontMin', v)}
-          />
-          <SliderRow
-            label="전후진 속도 상한"
-            desc="직선 이동·견인의 최고 속도"
-            ariaLabel="전후진 속도 상한"
-            value={physics.linearKmh}
-            min={4}
-            max={16}
-            step={0.5}
-            format={(v) => `${v.toFixed(1)} km/h`}
-            onChange={(v) => patchSpeed('linearKmh', v)}
-          />
-          <SliderRow
-            label="회전(앞범퍼) 속도 상한"
-            desc="제자리 회전·견인 시 각속도의 최고 속도"
-            ariaLabel="회전 속도 상한"
-            value={physics.bumperKmh}
-            min={10}
-            max={bumperKmhMax(physics.linearKmh)}
-            step={1}
-            format={(v) => `${Math.round(v)} km/h`}
-            onChange={(v) => patchSpeed('bumperKmh', v)}
-          />
-          <SliderRow
-            label="편집 속도 배수"
-            desc="드래그와 놓은 뒤 이어가기, 둘 다의 속도 상한에 곱해집니다"
-            ariaLabel="편집 속도 배수"
-            value={physics.editorSpeedMultiplier}
-            min={1}
-            max={4}
-            step={0.5}
-            format={(v) => `${v.toFixed(1)}배`}
-            onChange={(v) => patchSpeed('editorSpeedMultiplier', v)}
-            borderBottom={false}
-          />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, marginTop: 4, borderTop: '1px solid var(--border)' }}>
-            <Button variant="secondary" onClick={restorePhysicsDefaults}>
-              기본값으로 복원
+        {/* 6.1 — 슬라이더 6종 + [기본값으로 복원]은 physicsOpen 일 때만 DOM 에 있다.
+            ⚠️ 저장값·클램프는 이 서랍과 무관하다: patchZone/patchSpeed 는 prefs.physics 에
+            쓰기만 하고, 읽는 쪽(resolvePhysics, prefs.ts)은 화면이 닫혀 있든 아예 안 열렸든
+            같은 값을 받는다 — 6.1 완료 판정이 "prefs.ts 는 한 줄도 안 바뀐다" 인 이유다. */}
+        <Section title="물리" desc="휠체어 드래그 4존 경계와 속도 상한을 조정합니다. 값을 조정하면 이웃한 경계가 순서를 지키도록 자동으로 밀립니다. 서랍이 닫혀 있어도 조정해 둔 값은 계속 적용됩니다.">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '13px 0', borderBottom: physicsOpen ? '1px solid var(--border)' : undefined, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 220px', minWidth: 180 }}>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 650 }}>물리 세부 조정</div>
+              <div style={{ fontSize: '0.71875rem', color: 'var(--faint-text)', marginTop: 2 }}>대부분의 팀은 기본값이면 충분합니다</div>
+            </div>
+            {/* 이름은 '세부 조정' 으로 고정하고 상태는 aria-expanded 로만 말한다(disclosure 패턴) —
+                이름이 '펼치기/접기' 로 바뀌면 스크린리더 사용자가 같은 버튼을 두 개로 배운다. */}
+            <Button variant="secondary" aria-expanded={physicsOpen} aria-controls={physicsDrawerId} onClick={() => setPhysicsOpen((o) => !o)}>
+              세부 조정
+              <span aria-hidden style={{ fontSize: '0.625rem' }}>
+                {physicsOpen ? '▲' : '▼'}
+              </span>
             </Button>
           </div>
+          {physicsOpen && (
+            <div id={physicsDrawerId} style={{ display: 'flex', flexDirection: 'column' }}>
+              <SliderRow
+                label="후방 견인 경계"
+                desc="이 지점 이하를 잡으면 후방 견인 존. 0 이면 차체 밖 가이드로만 견인한다"
+                ariaLabel="후방 견인 경계"
+                value={physics.zones.sTowRearMax}
+                min={0}
+                max={0.18}
+                step={0.01}
+                format={(v) => v.toFixed(2)}
+                onChange={(v) => patchZone('sTowRearMax', v)}
+              />
+              <SliderRow
+                label="제자리 회전 시작"
+                desc="이 지점부터 제자리 회전 존"
+                ariaLabel="제자리 회전 시작"
+                value={physics.zones.sSpinMin}
+                min={0.22}
+                max={0.45}
+                step={0.01}
+                format={(v) => v.toFixed(2)}
+                onChange={(v) => patchZone('sSpinMin', v)}
+              />
+              <SliderRow
+                label="전방 견인 시작"
+                desc="이 지점부터 전방 견인 존. 1 이면 차체 밖 가이드로만 견인한다"
+                ariaLabel="전방 견인 시작"
+                value={physics.zones.sTowFrontMin}
+                min={0.6}
+                max={1}
+                step={0.01}
+                format={(v) => v.toFixed(2)}
+                onChange={(v) => patchZone('sTowFrontMin', v)}
+              />
+              <SliderRow
+                label="전후진 속도 상한"
+                desc="직선 이동·견인의 최고 속도"
+                ariaLabel="전후진 속도 상한"
+                value={physics.linearKmh}
+                min={4}
+                max={16}
+                step={0.5}
+                format={(v) => `${v.toFixed(1)} km/h`}
+                onChange={(v) => patchSpeed('linearKmh', v)}
+              />
+              <SliderRow
+                label="회전(앞범퍼) 속도 상한"
+                desc="제자리 회전·견인 시 각속도의 최고 속도"
+                ariaLabel="회전 속도 상한"
+                value={physics.bumperKmh}
+                min={10}
+                max={bumperKmhMax(physics.linearKmh)}
+                step={1}
+                format={(v) => `${Math.round(v)} km/h`}
+                onChange={(v) => patchSpeed('bumperKmh', v)}
+              />
+              <SliderRow
+                label="편집 속도 배수"
+                desc="드래그와 놓은 뒤 이어가기, 둘 다의 속도 상한에 곱해집니다"
+                ariaLabel="편집 속도 배수"
+                value={physics.editorSpeedMultiplier}
+                min={1}
+                max={4}
+                step={0.5}
+                format={(v) => `${v.toFixed(1)}배`}
+                onChange={(v) => patchSpeed('editorSpeedMultiplier', v)}
+                borderBottom={false}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, marginTop: 4, borderTop: '1px solid var(--border)' }}>
+                <Button variant="secondary" onClick={restorePhysicsDefaults}>
+                  기본값으로 복원
+                </Button>
+              </div>
+            </div>
+          )}
         </Section>
 
         {/* §6.1b/§6.4 — **내보내기는 여기 없다.** [보드] 하단 [내보내기] 하나로 모았다(2026-08-12,

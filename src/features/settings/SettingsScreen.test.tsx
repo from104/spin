@@ -18,7 +18,7 @@ import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
-import { loadPrefs, PREFS_KEY } from '../../storage/prefs.ts';
+import { loadPrefs, makeDefaultPrefs, resolvePhysics, savePrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { loadBoard, saveBoard } from '../../storage/board.ts';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
@@ -144,9 +144,54 @@ describe('SettingsScreen — 팀 색상', () => {
   });
 });
 
-describe('SettingsScreen — 물리', () => {
-  it('존 경계 슬라이더를 조정하면 즉시 표시가 바뀌고 저장된다', () => {
+// 6.1(2026-08-13) — 물리 6종은 **닫힌 서랍**이 됐다. 아래 세 테스트(존 경계 · 기본값 복원 ·
+// 편집 속도 배수 설명)는 원래 펼쳐진 화면을 전제로 했는데, 단언을 지우지 않고 '서랍을 연다'
+// 단계를 앞에 붙여 승격시켰다(선례: 4.6 이 4.4 의 자리표시 단언을 반대 단언으로 승격).
+describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
+  /** [세부 조정] 서랍을 연다. 이름은 상태와 무관하게 고정이고 개폐는 aria-expanded 가 말한다. */
+  async function openPhysicsDrawer() {
+    await userEvent.setup().click(screen.getByRole('button', { name: '세부 조정' }));
+  }
+
+  it('서랍은 닫힌 채로 태어난다 — 슬라이더가 DOM 에 없고, 열면 6종이 나온다', async () => {
     render(<SettingsScreen />, { wrapper });
+    const disclosure = screen.getByRole('button', { name: '세부 조정' });
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryAllByRole('slider')).toHaveLength(0);
+    // 대조군 — 빈 화면이라 슬라이더가 없는 것이 아니다: 접근성 설정은 그대로 보인다.
+    expect(screen.getByRole('switch', { name: '큰 터치 타깃' })).toBeInTheDocument();
+
+    await openPhysicsDrawer();
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('slider')).toHaveLength(6); // 존 3 + 속도 2 + 배수 1
+  });
+
+  it('⚠️ 서랍이 닫혀 있어도 저장값은 살아 있다 — 안 보인다고 기본값으로 돌아가면 재앙이다', async () => {
+    // 다른 기기(또는 지난 세션)에서 조정해 둔 오버라이드가 이미 저장돼 있다.
+    const d = makeDefaultPrefs();
+    savePrefs({ ...d, physics: { zones: { sTowRearMax: 0.18 }, linearKmh: 6 } });
+
+    render(<SettingsScreen />, { wrapper });
+    expect(screen.queryAllByRole('slider')).toHaveLength(0); // 서랍은 닫혀 있다
+
+    // 닫힌 채로 **다른 설정을 저장**해 본다 — setPrefs 병합이 physics 를 흘리면 여기서 죽는다.
+    await userEvent.setup().click(screen.getByRole('switch', { name: '격자 표시' }));
+    expect(loadPrefs().showGrid).toBe(false);
+    expect(loadPrefs().physics).toEqual({ zones: { sTowRearMax: 0.18 }, linearKmh: 6 });
+    // 판정 경로(resolvePhysics)에도 여전히 닿는다 — 화면에 안 보이는 것과 적용은 별개다.
+    const resolved = resolvePhysics(loadPrefs());
+    expect(resolved.zones.sTowRearMax).toBe(0.18);
+    expect(resolved.linearKmh).toBe(6);
+
+    // 열면 저장값 그대로 그려진다 — 기본값으로 그려지면 다음 슬라이더 조작이 저장값을 덮는다.
+    await userEvent.setup().click(screen.getByRole('button', { name: '세부 조정' }));
+    expect(screen.getByRole('slider', { name: '후방 견인 경계' })).toHaveValue('0.18');
+    expect(screen.getByRole('slider', { name: '전후진 속도 상한' })).toHaveValue('6');
+  });
+
+  it('존 경계 슬라이더를 조정하면(서랍을 열면 나온다) 즉시 표시가 바뀌고 저장된다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    await openPhysicsDrawer();
     const slider = screen.getByRole('slider', { name: '후방 견인 경계' });
     // 리터럴로 두면 기본값을 조정할 때마다 슬라이더 동작과 무관하게 빨간불이 뜬다.
     expect(slider).toHaveValue(String(DEFAULT_ZONES.sTowRearMax));
@@ -155,8 +200,9 @@ describe('SettingsScreen — 물리', () => {
     expect(loadPrefs().physics.zones?.sTowRearMax).toBe(0.18);
   });
 
-  it('기본값으로 복원하면 physics 오버라이드가 비워진다', async () => {
+  it('기본값으로 복원하면(서랍을 열면 나온다) physics 오버라이드가 비워진다', async () => {
     render(<SettingsScreen />, { wrapper });
+    await openPhysicsDrawer();
     const slider = screen.getByRole('slider', { name: '후방 견인 경계' });
     fireEvent.change(slider, { target: { value: '0.18' } });
     expect(loadPrefs().physics.zones?.sTowRearMax).toBe(0.18);
@@ -171,9 +217,10 @@ describe('SettingsScreen — 물리 설명문 (minor 회귀)', () => {
   // 감사 2026-08-08 minor — "놓은 뒤 자동 재생에만 적용"이라는 옛 설명은 실제 동작(드래그 중
   // 속도 상한에도 곱해진다, EditorProvider.tsx vLinPxPerS/omegaRadPerS)과 달랐다. 동작이
   // 계약(prefs.ts §5.11 주석)에 맞으므로 설명문 쪽을 고쳤다 — "자동 재생에만" 문구가 다시
-  // 나타나지 않는지 확인한다.
-  it('"편집 속도 배수" 설명이 드래그에도 적용됨을 밝힌다("자동 재생에만"이라고 말하지 않는다)', () => {
+  // 나타나지 않는지 확인한다. 6.1 이후 이 문장은 서랍을 열어야 나온다.
+  it('"편집 속도 배수" 설명이 드래그에도 적용됨을 밝힌다("자동 재생에만"이라고 말하지 않는다)', async () => {
     render(<SettingsScreen />, { wrapper });
+    await userEvent.setup().click(screen.getByRole('button', { name: '세부 조정' }));
     expect(screen.getByText('드래그와 놓은 뒤 이어가기, 둘 다의 속도 상한에 곱해집니다')).toBeInTheDocument();
     expect(screen.queryByText(/자동 재생에만 적용/)).toBeNull();
   });
