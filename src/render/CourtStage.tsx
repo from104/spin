@@ -16,7 +16,7 @@ import { INTERACT } from '../core/constants.ts';
 import { COURT_BG } from '../core/colors.ts';
 import { COURT_DEFS, type CourtMode } from '../model/court.ts';
 import type { DragZone } from '../model/chair.ts';
-import type { Arrow } from '../model/arrow.ts';
+import type { Arrow, ArrowHandle } from '../model/arrow.ts';
 import { arrowColor } from '../model/arrow.ts';
 import type { NoteLabel as NoteLabelData } from '../model/drill.ts';
 import type { BallId, ChairId } from '../core/ids.ts';
@@ -115,7 +115,9 @@ export interface CourtStageProps {
   };
   arrowHandles?: {
     arrow: Arrow | null;
-    onPointerDown?: (which: 'from' | 'ctrl' | 'to', e: ReactPointerEvent<SVGGElement>) => void;
+    /** 키보드 조준점(§4.3 1.11) — Shift+방향키가 옮길 점. null 이면 강조하지 않는다. */
+    activePart?: ArrowHandle | null;
+    onPointerDown?: (which: ArrowHandle, e: ReactPointerEvent<SVGGElement>) => void;
   };
   keyboardCursor?: { visible: boolean; x: number; y: number; label?: string | null };
   /** 드래그 중 스테이지 전체에 거는 커서. 포인터 캡처로 커서가 개체 밖으로 나가도
@@ -530,7 +532,12 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           />
         )}
         {arrowHandlesProps && (
-          <ArrowHandles arrow={arrowHandlesProps.arrow} pxPerUnit={metricsRef.current?.pxPerUnit ?? 1} onPointerDown={arrowHandlesProps.onPointerDown} />
+          <ArrowHandles
+            arrow={arrowHandlesProps.arrow}
+            pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
+            activePart={arrowHandlesProps.activePart ?? null}
+            onPointerDown={arrowHandlesProps.onPointerDown}
+          />
         )}
         {keyboardCursor && <KeyboardCursor visible={keyboardCursor.visible} x={keyboardCursor.x} y={keyboardCursor.y} label={keyboardCursor.label} />}
       </g>

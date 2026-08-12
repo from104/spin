@@ -51,3 +51,20 @@ export function defaultCtrl(from: Vec2, to: Vec2, bow: number = 0): Vec2 {
 export function moveEndpoint(a: Arrow, which: 'from' | 'to', p: Vec2): Arrow {
   return which === 'from' ? { ...a, from: p } : { ...a, to: p };
 }
+
+/** 포인터로 잡을 수 있는 화살표의 세 점(ArrowHandles 가 그리는 것과 같은 집합). */
+export type ArrowHandle = 'from' | 'ctrl' | 'to';
+/** 키보드 조작 대상 — 'whole' 은 화살표 전체다. */
+export type ArrowPart = 'whole' | ArrowHandle;
+
+/** §7.5c 화살표 키보드 미세조정 — 델타만큼 민다.
+ *
+ *  `'whole'` 은 세 점을 함께 밀어 **모양(굽힘·길이·방향)을 그대로 유지한 채** 통째로 옮긴다.
+ *  나머지는 그 점 **하나만** 옮긴다 — 핸들 드래그(useEditorPointer.ts 의 arrowHandleDrag)와
+ *  같은 의미다. 끝점을 옮길 때 `ctrl` 이 따라오지 않으므로 곧던 화살표는 조금 휘는데, 그것도
+ *  마우스로 끌었을 때와 똑같다. 두 입력 경로가 같은 결과를 내는 것이 §7.5 의 요구다. */
+export function nudgeArrow(a: Arrow, part: ArrowPart, d: Vec2): Arrow {
+  const mv = (p: Vec2): Vec2 => ({ x: p.x + d.x, y: p.y + d.y });
+  if (part === 'whole') return { ...a, from: mv(a.from), ctrl: mv(a.ctrl), to: mv(a.to) };
+  return { ...a, [part]: mv(a[part]) };
+}

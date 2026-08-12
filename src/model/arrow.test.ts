@@ -1,7 +1,7 @@
 // §3.5 화살표 — defaultCtrl 편차, arrowPath 형식·반올림.
 import { describe, expect, it } from 'vitest';
 import { newId } from '../core/ids.ts';
-import { arrowPath, defaultCtrl, moveEndpoint, type Arrow } from './arrow.ts';
+import { arrowPath, defaultCtrl, moveEndpoint, nudgeArrow, type Arrow } from './arrow.ts';
 
 describe('defaultCtrl', () => {
   it('bow=30 일 때 t=0.5 편차가 30 ± 0.01 이다', () => {
@@ -52,5 +52,65 @@ describe('moveEndpoint', () => {
     expect(moved.to).toEqual({ x: 9, y: 9 });
     expect(moved.from).toEqual(a.from);
     expect(moved.id).toBe(a.id);
+  });
+});
+
+describe('nudgeArrow (§7.5c 키보드)', () => {
+  const base = (): Arrow => ({
+    id: newId('ar'),
+    kind: 'pass',
+    from: { x: 0, y: 0 },
+    ctrl: { x: 50, y: -20 },
+    to: { x: 100, y: 0 },
+    color: '#abcdef',
+  });
+
+  it("'whole' 은 세 점을 함께 밀어 모양을 그대로 유지한다", () => {
+    const a = base();
+    const m = nudgeArrow(a, 'whole', { x: 2.5, y: -2.5 });
+    expect(m.from).toEqual({ x: 2.5, y: -2.5 });
+    expect(m.ctrl).toEqual({ x: 52.5, y: -22.5 });
+    expect(m.to).toEqual({ x: 102.5, y: -2.5 });
+    // 모양 유지 = 세 점의 상대 위치가 한 점도 안 변했다.
+    expect({ x: m.ctrl.x - m.from.x, y: m.ctrl.y - m.from.y }).toEqual({ x: a.ctrl.x - a.from.x, y: a.ctrl.y - a.from.y });
+    expect({ x: m.to.x - m.from.x, y: m.to.y - m.from.y }).toEqual({ x: a.to.x - a.from.x, y: a.to.y - a.from.y });
+  });
+
+  it("'to' 는 끝점 하나만 옮긴다 (from·ctrl 불변 — 핸들 드래그와 같은 의미)", () => {
+    const a = base();
+    const m = nudgeArrow(a, 'to', { x: 2.5, y: 0 });
+    expect(m.to).toEqual({ x: 102.5, y: 0 });
+    expect(m.from).toEqual(a.from);
+    expect(m.ctrl).toEqual(a.ctrl);
+  });
+
+  it("'from' 과 'ctrl' 도 각각 그 점만 옮긴다", () => {
+    const a = base();
+    const f = nudgeArrow(a, 'from', { x: 0, y: 2.5 });
+    expect(f.from).toEqual({ x: 0, y: 2.5 });
+    expect(f.ctrl).toEqual(a.ctrl);
+    expect(f.to).toEqual(a.to);
+    const c = nudgeArrow(a, 'ctrl', { x: -2.5, y: 0 });
+    expect(c.ctrl).toEqual({ x: 47.5, y: -20 });
+    expect(c.from).toEqual(a.from);
+    expect(c.to).toEqual(a.to);
+  });
+
+  it('id·kind·color 를 보존하고 원본을 건드리지 않는다', () => {
+    const a = base();
+    const snapshot = structuredClone(a);
+    const m = nudgeArrow(a, 'whole', { x: 7, y: 7 });
+    expect(m.id).toBe(a.id);
+    expect(m.kind).toBe('pass');
+    expect(m.color).toBe('#abcdef');
+    expect(a).toEqual(snapshot); // 불변
+  });
+
+  it('델타 0 이면 좌표가 그대로다 (연산 자체가 값을 흔들지 않는다)', () => {
+    const a = base();
+    const m = nudgeArrow(a, 'whole', { x: 0, y: 0 });
+    expect(m.from).toEqual(a.from);
+    expect(m.ctrl).toEqual(a.ctrl);
+    expect(m.to).toEqual(a.to);
   });
 });

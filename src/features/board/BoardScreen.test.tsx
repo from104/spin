@@ -25,6 +25,8 @@ import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { loadPrefs, makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { BOARD_KEY, saveBoard } from '../../storage/board.ts';
 import { createDrill } from '../../model/defaults.ts';
+import { setArrow } from '../../model/edits.ts';
+import { newId } from '../../core/ids.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import { BoardScreen } from './BoardScreen.tsx';
 
@@ -641,5 +643,107 @@ describe('코트 비우기 — 되돌릴 수 없으므로 반드시 확인을 �
     const { user } = await openAndClickClear();
     await user.click(screen.getByRole('button', { name: '비우기' }));
     await waitFor(() => expect(screen.getByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument());
+  });
+});
+
+describe('화살표 개체의 키보드 조작 (§4.3 1.11)', () => {
+  // 화살표는 전술 드릴에서 '누가 **어디로**'의 본체인데, 여기가 비어 있는 동안 유일한 조작
+  // 경로가 12px 이상 드래그 + 반경 22 CSS px 핸들 3개의 정밀 드래그였다. 주 사용자는 마우스를
+  // 오른발로 쓴다 — 그 경로는 사실상 없는 기능이다. 화면 끝(실제 BoardScreen)에서 확인한다.
+  const FROM = { x: 100, y: 100 };
+  const CTRL = { x: 150, y: 80 };
+  const TO = { x: 200, y: 100 };
+
+  /** 화살표 하나를 심은 전술판을 연다. */
+  async function openWithArrow() {
+    const id = newId('ar');
+    const drill = setArrow(createDrill({ courtMode: 'full', formation: '1-2-1' }), 0, {
+      id,
+      kind: 'pass',
+      from: { ...FROM },
+      ctrl: { ...CTRL },
+      to: { ...TO },
+    });
+    saveBoard(drill, false);
+    const opened = await openBoard('full');
+    const el = opened.stage.querySelector(`#obj-${id}`) as SVGGElement | null;
+    expect(el).not.toBeNull(); // 심은 화살표가 실제로 그려졌다 — 아래 단언들의 전제
+    return { ...opened, arrow: el! };
+  }
+
+  /** 그려진 `d`("M… Q… …")를 세 점으로 되읽는다. 모델이 아니라 **화면**을 읽는 것이 요점이다. */
+  function pointsOf(el: Element): { from: { x: number; y: number }; ctrl: { x: number; y: number }; to: { x: number; y: number } } {
+    const d = el.querySelector('path')?.getAttribute('d') ?? '';
+    const m = /^M(-?[\d.]+),(-?[\d.]+) Q(-?[\d.]+),(-?[\d.]+) (-?[\d.]+),(-?[\d.]+)$/.exec(d);
+    if (!m) throw new Error(`화살표 경로를 읽지 못했다: ${d}`);
+    const n = m.slice(1).map(Number) as [number, number, number, number, number, number];
+    return { from: { x: n[0], y: n[1] }, ctrl: { x: n[2], y: n[3] }, to: { x: n[4], y: n[5] } };
+  }
+
+  it('방향키로 화살표 전체가 2.5px 움직인다 (모양은 그대로)', async () => {
+    const { user, arrow } = await openWithArrow();
+    expect(pointsOf(arrow)).toEqual({ from: FROM, ctrl: CTRL, to: TO });
+
+    arrow.focus();
+    await user.keyboard('{ArrowRight}');
+    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x + 2.5));
+    let p = pointsOf(arrow);
+    expect(p.ctrl.x).toBe(CTRL.x + 2.5);
+    expect(p.to.x).toBe(TO.x + 2.5);
+    expect([p.from.y, p.ctrl.y, p.to.y]).toEqual([FROM.y, CTRL.y, TO.y]); // 세로는 안 움직였다
+
+    await user.keyboard('{ArrowDown}{ArrowDown}');
+    await waitFor(() => expect(pointsOf(arrow).from.y).toBe(FROM.y + 5));
+    p = pointsOf(arrow);
+    expect(p.ctrl.y).toBe(CTRL.y + 5);
+    expect(p.to.y).toBe(TO.y + 5);
+  });
+
+  it('Shift+방향키는 끝점(화살촉)만 옮긴다 — 시작점·굽힘점은 그대로다', async () => {
+    const { user, arrow } = await openWithArrow();
+    arrow.focus();
+    await user.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}');
+    await waitFor(() => expect(pointsOf(arrow).to.x).toBe(TO.x + 5));
+    const p = pointsOf(arrow);
+    expect(p.from).toEqual(FROM);
+    expect(p.ctrl).toEqual(CTRL);
+    // 화살표에서 Shift 는 '25px 큰 걸음'이 아니다(§4.3 1.11 충돌 해소) — 걸음은 2.5px 고정.
+    expect(p.to.x - TO.x).toBe(5);
+  });
+
+  it('[ / ] 로 조준점을 바꾸면 Shift+방향키가 그 점을 옮긴다 (끝점 → 시작점 → 굽힘점)', async () => {
+    const { user, arrow, stage } = await openWithArrow();
+    arrow.focus();
+    await user.keyboard('{Enter}'); // 선택 — 핸들이 그려진다
+    await waitFor(() => expect(arrow.getAttribute('aria-pressed')).toBe('true'));
+
+    await user.keyboard(']');
+    const live = document.querySelector('[aria-live="polite"]');
+    await waitFor(() => expect(live?.textContent ?? '').toContain('시작점'));
+    // 조준점이 화면에도 보인다 — 무엇이 움직일지 눈으로 알 수 없으면 키가 있어도 못 쓴다.
+    await waitFor(() => expect(stage.querySelectorAll('.arrow-handle-aim').length).toBe(1));
+
+    await user.keyboard('{Shift>}{ArrowLeft}{/Shift}');
+    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x - 2.5));
+    expect(pointsOf(arrow).to).toEqual(TO);
+
+    await user.keyboard(']'); // → 굽힘점
+    await waitFor(() => expect(live?.textContent ?? '').toContain('굽힘점'));
+    await user.keyboard('{Shift>}{ArrowUp}{/Shift}');
+    await waitFor(() => expect(pointsOf(arrow).ctrl.y).toBe(CTRL.y - 2.5));
+    const p = pointsOf(arrow);
+    expect(p.from.x).toBe(FROM.x - 2.5); // 앞서 옮긴 시작점은 그대로
+    expect(p.to).toEqual(TO);
+  });
+
+  it('다른 개체(휠체어)의 Shift = 25px 큰 걸음은 그대로다', async () => {
+    // 화살표만 Shift 의 뜻이 다르다. 나머지 개체의 계약을 건드리면 그게 곧 회귀다.
+    const { user, stage } = await openWithArrow();
+    const chair = stage.querySelector('g[id^="obj-ch_"]') as SVGGElement;
+    const holder = chair.closest('g[transform]') as SVGGElement;
+    const start = poseOf(holder);
+    chair.focus();
+    await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
+    await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(start.x + 20));
   });
 });

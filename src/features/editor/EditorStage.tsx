@@ -13,6 +13,8 @@ import { poseFrame } from '../../store/editor/tween.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
+import { nudgeArrow } from '../../model/arrow.ts';
+import type { ArrowHandle, ArrowPart } from '../../model/arrow.ts';
 import { COURT_DEFS, gridCellCenter, cellLabelAt, type CourtMode } from '../../model/court.ts';
 import { GOAL_ID_PREFIX } from '../../physics/index.ts';
 import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
@@ -54,6 +56,11 @@ function nearestCell(mode: CourtMode, p: { x: number; y: number }): { col: numbe
 
 const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note']);
 
+/** §4.3 1.11 화살표 조준점 순환 순서. 첫 항목이 기본값이다 — 전술에서 화살표는 '누가
+ *  **어디로**'라 조준 대상이 압도적으로 끝점(화살촉)이다. */
+const ARROW_AIM_ORDER: readonly ArrowHandle[] = ['to', 'from', 'ctrl'];
+const ARROW_AIM_LABEL: Record<ArrowHandle, string> = { to: '끝점', from: '시작점', ctrl: '굽힘점' };
+
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
   { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, onEraseIds },
   stageRef,
@@ -79,6 +86,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
 
   const [rovingId, setRovingId] = useState<string | null>(null);
   const [cursor, setCursor] = useState<{ col: number; row: number } | null>(null);
+  // Shift+방향키가 옮길 화살표의 점. **화살표 id 와 함께** 들고 있으므로 다른 화살표로
+  // 넘어가면 자동으로 기본값(끝점)으로 돌아간다 — 옆 화살표에서 굽힘점이 움직이는 사고를
+  // 막는 데 별도의 초기화 effect 가 필요 없다.
+  const [arrowAim, setArrowAim] = useState<{ id: string; part: ArrowHandle } | null>(null);
+  const aimOf = useCallback((id: string): ArrowHandle => (arrowAim?.id === id ? arrowAim.part : ARROW_AIM_ORDER[0]!), [arrowAim]);
 
   const chairs = useMemo<ObjectLayerChair[]>(() => {
     const out: ObjectLayerChair[] = [];
@@ -123,7 +135,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   const activeId = selection.size > 0 ? (Array.from(selection)[0] ?? null) : (rovingId ?? order[0] ?? null);
 
   const nudge = useCallback(
-    (id: string, dx: number, dy: number, dThetaRad: number) => {
+    (id: string, dx: number, dy: number, dThetaRad: number, arrowPart: ArrowPart = 'whole') => {
       if (isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn')) {
         dispatch({ type: 'OBJECT_NUDGE', id, d: { x: dx, y: dy }, dTheta: dThetaRad });
         // 물리 바디에도 같은 이동을 밀어 넣는다(회귀): 리듀서만 갱신하면 상태와 물리가 어긋나,
@@ -137,22 +149,44 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         // 메모는 물리 바디가 없다(§5.3 캐스트만 바디를 가진다) — 상태만 갱신하면 된다.
         const note = step.notes.find((n) => n.id === id);
         if (note) dispatch({ type: 'NOTE_SET', note: { ...note, x: note.x + dx, y: note.y + dy } });
+        return;
+      }
+      if (isId(id, 'ar')) {
+        // 화살표 개체(§4.3 1.11). 메모와 같이 물리 바디가 없다. 여기가 비어 있던 탓에
+        // 화살표는 **키보드로 전혀 움직이지 않았다** — 유일한 조작 경로가 12px 드래그와
+        // 반경 22 CSS px 핸들 3개의 정밀 드래그뿐이었다(발 마우스·입 젓가락에는 사실상 없는 기능).
+        const arrow = step.arrows.find((a) => a.id === id);
+        if (arrow) dispatch({ type: 'ARROW_SET', arrow: nudgeArrow(arrow, arrowPart, { x: dx, y: dy }) });
       }
     },
-    [dispatch, step.notes, worldRef],
+    [dispatch, step.arrows, step.notes, worldRef],
   );
 
   const handleObjectKeyDown = useCallback(
     (id: string, e: ReactKeyboardEvent<SVGGElement>) => {
       const small = 2.5;
       const big = 25;
-      const d = e.shiftKey ? big : small;
-      // ★ 화살표는 **화면 기준**이다(§7.5). 스테이지가 90° 돌아 있으면 월드 축과 어긋나므로
+      const isArrow = isId(id, 'ar');
+      // 화살표 개체에서만 Shift 의 뜻이 다르다(§4.3 1.11 의 Shift 충돌 해소):
+      //   다른 개체 — Shift = 25px 큰 걸음.
+      //   화살표   — Shift = **조준점 하나만** 옮기기(걸음은 2.5px 로 고정).
+      // 화살표는 '어디로'를 그리는 개체라 큰 걸음보다 끝점 조준이 압도적으로 중요하고,
+      // 큰 걸음을 얹을 빈 수식키가 없다(Alt=개체 순회·파괴적 동작, Ctrl=줌·저장 및 §4.4 P2-1
+      // 판 팬 예약). 대신 화살표 전체 이동은 2.5px 연타(히스토리 병합)로, 조준점 전환은
+      // 아래 `[`/`]` 로 준다.
+      const d = e.shiftKey && !isArrow ? big : small;
+      // ★ 방향키는 **화면 기준**이다(§7.5). 스테이지가 90° 돌아 있으면 월드 축과 어긋나므로
       //   화면 델타를 월드 델타로 옮겨서 넘긴다 — 안 그러면 세로 화면에서 오른쪽 키가 개체를
       //   아래로 내려보낸다(보이는 것과 손이 어긋난다).
       const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
       const move = (sx: number, sy: number): void => {
         const w = screenDeltaToWorld({ rot }, sx, sy);
+        if (isArrow && e.shiftKey) {
+          const part = aimOf(id);
+          if (arrowAim?.id !== id) setArrowAim({ id, part }); // 조준점을 화면에도 표시한다
+          nudge(id, w.x, w.y, 0, part);
+          return;
+        }
         nudge(id, w.x, w.y, 0);
       };
       switch (e.key) {
@@ -177,19 +211,26 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           move(0, d);
           return;
         case '[':
+        case ']': {
+          const back = e.key === '[';
           if (isId(id, 'ch')) {
             e.preventDefault();
             e.stopPropagation();
-            nudge(id, 0, 0, -(e.shiftKey ? 15 : 5) * RAD);
+            nudge(id, 0, 0, (back ? -1 : 1) * (e.shiftKey ? 15 : 5) * RAD);
+            return;
           }
-          return;
-        case ']':
-          if (isId(id, 'ch')) {
+          if (isArrow) {
+            // 휠체어에서 `[`/`]` 가 "이 개체의 모양을 바꾸는 키"인 것과 같은 자리다 —
+            // 화살표에는 회전이 없으므로 **조준점 전환**을 여기에 둔다(끝점 → 시작점 → 굽힘점).
             e.preventDefault();
             e.stopPropagation();
-            nudge(id, 0, 0, (e.shiftKey ? 15 : 5) * RAD);
+            const cur = ARROW_AIM_ORDER.indexOf(aimOf(id));
+            const next = ARROW_AIM_ORDER[(cur + (back ? ARROW_AIM_ORDER.length - 1 : 1)) % ARROW_AIM_ORDER.length]!;
+            setArrowAim({ id, part: next });
+            liveRegion.say(`화살표 ${ARROW_AIM_LABEL[next]} 조준 — Shift+방향키로 옮깁니다`);
           }
           return;
+        }
         case 'Enter':
         case ' ':
           e.preventDefault();
@@ -207,7 +248,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           return;
       }
     },
-    [dispatch, nudge, onEraseIds],
+    [aimOf, arrowAim, dispatch, nudge, onEraseIds],
   );
 
   const handleContainerKeyDown = useCallback(
@@ -316,7 +357,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       selectionOverlayRef={pointer.selectionOverlayRef}
       dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
-      arrowHandles={{ arrow: selectedArrow }}
+      // activePart: Shift+방향키가 무엇을 옮길지 눈에 보이게 한다. 조준을 실제로 쓴 뒤에만
+      // 켜므로(= arrowAim 이 이 화살표에 걸린 뒤) 마우스만 쓰는 사람에게는 지금 그림 그대로다.
+      arrowHandles={{ arrow: selectedArrow, activePart: selectedArrow && arrowAim?.id === selectedArrow.id ? arrowAim.part : null }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />
   );

@@ -2,19 +2,21 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { Vec2 } from '../core/units.ts';
 import { INTERACT } from '../core/constants.ts';
-import type { Arrow } from '../model/arrow.ts';
+import type { Arrow, ArrowHandle } from '../model/arrow.ts';
 
 export interface ArrowHandlesProps {
   arrow: Arrow | null;
   pxPerUnit: number;
-  onPointerDown?(which: 'from' | 'ctrl' | 'to', e: ReactPointerEvent<SVGGElement>): void;
+  /** 키보드 조준점(§4.3 1.11) — Shift+방향키가 옮길 점을 링으로 표시한다. */
+  activePart?: ArrowHandle | null;
+  onPointerDown?(which: ArrowHandle, e: ReactPointerEvent<SVGGElement>): void;
 }
 
-export function ArrowHandles({ arrow, pxPerUnit, onPointerDown }: ArrowHandlesProps) {
+export function ArrowHandles({ arrow, pxPerUnit, activePart = null, onPointerDown }: ArrowHandlesProps) {
   if (!arrow) return null;
   const viewR = INTERACT.handleViewRadiusCssPx / pxPerUnit;
   const hitR = INTERACT.handleHitRadiusCssPx / pxPerUnit;
-  const points: ReadonlyArray<{ which: 'from' | 'ctrl' | 'to'; p: Vec2 }> = [
+  const points: ReadonlyArray<{ which: ArrowHandle; p: Vec2 }> = [
     { which: 'from', p: arrow.from },
     { which: 'ctrl', p: arrow.ctrl },
     { which: 'to', p: arrow.to },
@@ -27,6 +29,11 @@ export function ArrowHandles({ arrow, pxPerUnit, onPointerDown }: ArrowHandlesPr
       {points.map(({ which, p }) => (
         <g key={which} transform={`translate(${p.x} ${p.y})`}>
           <circle r={hitR} fill="transparent" onPointerDown={(e) => onPointerDown?.(which, e)} />
+          {/* 조준 링 — 키보드로 조준점을 바꿨을 때만 그린다. 마우스만 쓰면 activePart 가 null
+           *  이라 지금까지의 그림과 한 픽셀도 다르지 않다. */}
+          {which === activePart && (
+            <circle className="arrow-handle-aim" r={viewR * 2} fill="none" stroke="var(--accent)" strokeWidth={1.6 / pxPerUnit} pointerEvents="none" />
+          )}
           <circle
             r={viewR}
             fill={which === 'ctrl' ? 'var(--accent)' : '#ffffff'}
