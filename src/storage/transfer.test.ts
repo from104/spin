@@ -12,6 +12,9 @@ import {
   prepareSessionImport,
   commitDrillImports,
   commitSessionImport,
+  collectBackup,
+  exportBackupFile,
+  restoreBackup,
   type SpinFile,
 } from './transfer.ts';
 import { StorageError } from './errors.ts';
@@ -19,10 +22,15 @@ import { idbDrillRepo } from './drillRepo.ts';
 import { createSession, addDrillToSession } from './sessionRepo.ts';
 import { findReferrers } from './drillRepo.ts';
 import { getDB } from './db.ts';
+import { PREFS_KEY, CURRENT_PREFS_SCHEMA, makeDefaultPrefs, savePrefs, loadPrefs } from './prefs.ts';
+import { BOARD_KEY, saveBoard, loadBoard } from './board.ts';
 import { createDrill } from '../model/defaults.ts';
 import { newId } from '../core/ids.ts';
 import type { Drill } from '../model/drill.ts';
+import { CURRENT_DRILL_SCHEMA } from '../model/drill.ts';
 import type { TrainingSession } from '../model/session.ts';
+import { CURRENT_SESSION_SCHEMA } from '../model/session.ts';
+import { SUMMARY_BUILD } from '../model/summary.ts';
 
 describe('slugify', () => {
   it('한글을 유지한다 — 금지문자 집합([\\x00-\\x1f<>:"/\\\\|?*])에 공백은 없어 그대로 남는다', () => {
@@ -282,5 +290,279 @@ describe('getDB 재사용 확인(스모크)', () => {
   it('storage 모듈들이 같은 spin DB 를 공유한다', async () => {
     const db = await getDB();
     expect(db.name).toBe('spin');
+  });
+});
+
+// ---- backup 봉투 계약 표(§6.1b / 로드맵 4.1) ----------------------------------------------------
+//
+// 이 블록은 **파일 맨 끝에 둔다** — wipeAll() 이 IDB 스토어 3개와 localStorage 2키를 비우기
+// 때문이다. 위 블록들 사이에 끼워 넣으면 그 아래 테스트가 남의 데이터를 전제한 채 깨진다.
+
+async function wipeAll(): Promise<void> {
+  const db = await getDB();
+  await db.clear('drills');
+  await db.clear('drillSummaries');
+  await db.clear('sessions');
+  localStorage.removeItem(PREFS_KEY);
+  localStorage.removeItem(BOARD_KEY);
+}
+
+function backupEnvelope(payload: unknown, envelope = ENVELOPE_VERSION): string {
+  return JSON.stringify({ spin: 'backup', envelope, app: 'SPIN', exportedAt: Date.now(), payload });
+}
+
+describe('backup 봉투 — 라운드트립', () => {
+  it('내보내고 → 지우고 → 가져오면 드릴·세션·설정·자유 전술판이 전부 돌아온다', async () => {
+    await wipeAll();
+
+    const drill = await idbDrillRepo.createDrill({ courtMode: 'full', title: '이사 드릴' });
+    const session = await createSession({ title: '이사 세션', location: '체육관 B' });
+    await addDrillToSession(session.id, drill.id);
+    savePrefs({ ...makeDefaultPrefs(), theme: 'light', a11y: { ...makeDefaultPrefs().a11y, uiScale: 1.3, largeTargets: true }, tray: { draw: true, note: false } });
+    const boardDrill = createDrill({ courtMode: 'full', title: '이사 전술판' });
+    saveBoard(boardDrill, false);
+
+    const blob = exportBackupFile(await collectBackup());
+    const text = await blob.text();
+
+    // 대조군 — 정말로 지워졌는지 먼저 확인한다. 안 그러면 "지우지 않아서 통과" 가 된다.
+    await wipeAll();
+    expect((await idbDrillRepo.loadDrill(drill.id)).status).toBe('missing');
+    expect(await (await getDB()).get('sessions', session.id)).toBeUndefined();
+    expect(loadPrefs().theme).toBe('dark'); // 기본값으로 되돌아간 상태
+    expect(loadBoard()).toBeNull();
+
+    const file = parseSpinFile(text);
+    expect(file.spin).toBe('backup');
+    const report = await restoreBackup(file, { prefs: 'replace' });
+
+    expect(report.drills.failed).toEqual([]);
+    expect(report.drills.written).toEqual([drill.id]); // 충돌이 없으므로 id 가 그대로 돌아온다
+    const back = await idbDrillRepo.loadDrill(drill.id);
+    expect(back.status).toBe('ok');
+    if (back.status === 'ok') expect(back.drill.title).toBe('이사 드릴');
+
+    expect(report.sessionsWritten).toEqual([session.id]);
+    const backSession = await (await getDB()).get('sessions', session.id);
+    expect(backSession?.title).toBe('이사 세션');
+    expect(backSession?.location).toBe('체육관 B');
+    expect(backSession?.items.map((i) => i.drillId)).toEqual([drill.id]);
+
+    expect(report.prefs).toBe('restored');
+    const prefs = loadPrefs();
+    expect(prefs.theme).toBe('light');
+    expect(prefs.a11y.uiScale).toBe(1.3);
+    expect(prefs.a11y.largeTargets).toBe(true);
+    expect(prefs.tray.draw).toBe(true); // validate.ts 화이트리스트가 신형 필드를 통과시킨다
+
+    expect(report.board).toBe('restored');
+    expect(loadBoard()?.drill.title).toBe('이사 전술판');
+    expect(loadBoard()?.pristine).toBe(false);
+
+    await wipeAll();
+  });
+
+  it('봉투는 payload 의 schemaVersion 을 그대로 싣는다 — 아무 버전도 올리지 않는다', async () => {
+    await wipeAll();
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '버전 확인' });
+    await createSession({ title: '버전 확인 세션' });
+    savePrefs(makeDefaultPrefs());
+    const parsed = JSON.parse(await exportBackupFile(await collectBackup()).text()) as {
+      envelope: number;
+      payload: { drills: Drill[]; sessions: TrainingSession[]; prefs: { schemaVersion: number } };
+    };
+    expect(parsed.envelope).toBe(1); // ENVELOPE_VERSION — backup 이 늘었다고 올리지 않는다
+    expect(parsed.payload.drills[0]!.schemaVersion).toBe(CURRENT_DRILL_SCHEMA); // 2
+    expect(parsed.payload.sessions[0]!.schemaVersion).toBe(CURRENT_SESSION_SCHEMA); // 1
+    expect(parsed.payload.prefs.schemaVersion).toBe(CURRENT_PREFS_SCHEMA); // 2
+    await wipeAll();
+  });
+});
+
+describe('backup 봉투 — 거부 경로', () => {
+  it('envelope 가 지원 버전보다 크면 E_SCHEMA_TOO_NEW (대조군: 같은 payload 를 envelope 1 로 주면 파싱된다)', () => {
+    const payload = { drills: [], sessions: [], prefs: makeDefaultPrefs(), board: null };
+    try {
+      parseSpinFile(backupEnvelope(payload, ENVELOPE_VERSION + 1));
+      expect.unreachable();
+    } catch (e) {
+      expect((e as StorageError).code).toBe('E_SCHEMA_TOO_NEW');
+    }
+    expect(parseSpinFile(backupEnvelope(payload)).spin).toBe('backup');
+  });
+
+  it('restoreBackup 은 backup 이 아닌 봉투를 E_UNSUPPORTED_KIND(kind) 로 거부한다', async () => {
+    const libraryFile: SpinFile = { spin: 'library', envelope: 1, app: 'SPIN', exportedAt: Date.now(), payload: [] };
+    await expect(restoreBackup(libraryFile)).rejects.toMatchObject({ code: 'E_UNSUPPORTED_KIND' });
+    try {
+      await restoreBackup(libraryFile);
+    } catch (e) {
+      expect((e as StorageError).message).toContain('(library)');
+    }
+    // 대조군 — backup 봉투는 같은 경로를 통과한다(무엇을 넣어도 거부하는 게 아니다).
+    const ok = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: null }));
+    await expect(restoreBackup(ok)).resolves.toMatchObject({ drillsInFile: 0 });
+  });
+
+  it('backup 봉투를 드릴 가져오기에 넣으면 E_UNSUPPORTED_KIND(backup) — 기존 3 kind 판별을 깨지 않는다', async () => {
+    const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: null }));
+    await expect(prepareDrillImport(file)).rejects.toMatchObject({ code: 'E_UNSUPPORTED_KIND' });
+    try {
+      await prepareDrillImport(file);
+    } catch (e) {
+      expect((e as StorageError).message).toContain('(backup)');
+    }
+    await expect(prepareSessionImport(file)).rejects.toMatchObject({ code: 'E_UNSUPPORTED_KIND' });
+  });
+});
+
+describe('backup 봉투 — 세션 참조 리맵', () => {
+  it('드릴 id 가 충돌해 새 id 를 받으면 복원된 세션도 새 id 를 가리킨다', async () => {
+    await wipeAll();
+    const local = await idbDrillRepo.createDrill({ courtMode: 'full', title: '로컬에서 고친 드릴' });
+    const fileDrill: Drill = { ...structuredClone(local), title: '백업 파일 쪽 내용' }; // 같은 id, 다른 내용
+    const fileSession: TrainingSession = {
+      schemaVersion: CURRENT_SESSION_SCHEMA,
+      id: newId('se'),
+      title: '리맵 대상 세션',
+      items: [{ id: newId('it'), drillId: local.id, titleCache: fileDrill.title, durationMinCache: fileDrill.durationMin, categoryCache: fileDrill.category }],
+      drillIds: [local.id],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const file = parseSpinFile(backupEnvelope({ drills: [fileDrill], sessions: [fileSession], prefs: makeDefaultPrefs(), board: null }));
+
+    const report = await restoreBackup(file);
+    const remapped = report.drills.idMap.get(local.id);
+    expect(remapped).toBeDefined();
+    expect(remapped).not.toBe(local.id); // 충돌 → 사본 id 발급
+
+    const stored = await (await getDB()).get('sessions', report.sessionsWritten[0]!);
+    expect(stored?.items[0]!.drillId).toBe(remapped);
+    expect(stored?.drillIds).toEqual([remapped]);
+
+    // 대조군(부재 단언) — 옛 id 를 가리킨 채로 남아 있으면 missing 경고도 안 뜨는 조용한 오배선이다.
+    const refsNew = await findReferrers(remapped!);
+    expect(refsNew.some((r) => r.id === stored!.id)).toBe(true);
+    const refsOld = await findReferrers(local.id);
+    expect(refsOld.some((r) => r.id === stored!.id)).toBe(false);
+
+    await wipeAll();
+  });
+
+  it('같은 백업을 두 번 복원해도 드릴·세션이 불어나지 않는다(멱등)', async () => {
+    await wipeAll();
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '멱등 드릴' });
+    const s = await createSession({ title: '멱등 세션' });
+    await addDrillToSession(s.id, d.id);
+    const file = parseSpinFile(await exportBackupFile(await collectBackup()).text());
+
+    await restoreBackup(file);
+    const afterFirst = { drills: await idbDrillRepo.countDrills(), sessions: (await (await getDB()).getAll('sessions')).length };
+    const second = await restoreBackup(file);
+    expect(await idbDrillRepo.countDrills()).toBe(afterFirst.drills);
+    expect((await (await getDB()).getAll('sessions')).length).toBe(afterFirst.sessions);
+    expect(second.drills.skipped).toEqual([d.id]); // 'identical' → skip
+    expect(second.sessionsSkipped).toEqual([s.id]);
+    expect(second.sessionsWritten).toEqual([]);
+    await wipeAll();
+  });
+});
+
+describe('backup 봉투 — 복원한 드릴의 요약(B-6)', () => {
+  it('복원한 드릴이 목록에 제목과 함께 보인다 — commitDrillImports 가 드릴과 요약을 한 트랜잭션에 쓴다', async () => {
+    await wipeAll();
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '요약 확인 드릴' });
+    const file = parseSpinFile(await exportBackupFile(await collectBackup()).text());
+    await wipeAll();
+    expect(await idbDrillRepo.listDrillSummaries()).toHaveLength(0); // 대조군: 지워진 상태
+
+    await restoreBackup(file);
+
+    const list = await idbDrillRepo.listDrillSummaries();
+    expect(list).toHaveLength(1);
+    expect(list[0]!.id).toBe(d.id);
+    expect(list[0]!.title).toBe('요약 확인 드릴'); // 빈칸이면 목록에서 제목 없는 카드가 된다
+    expect(list[0]!.stepCount).toBeGreaterThan(0);
+    expect(list[0]!.thumb.chairs.length).toBeGreaterThan(0);
+    expect(list[0]!.build).toBe(SUMMARY_BUILD); // build 를 올리지 않았다(요약 재구축 경로 불필요)
+
+    // 검색(searchKey)까지 살아 있어야 목록에서 찾아진다. 대조군으로 없는 말은 0건.
+    expect(await idbDrillRepo.listDrillSummaries({ search: '요약 확인' })).toHaveLength(1);
+    expect(await idbDrillRepo.listDrillSummaries({ search: '없는드릴제목' })).toHaveLength(0);
+
+    await wipeAll();
+  });
+});
+
+describe('backup 봉투 — prefs 복원 정책', () => {
+  it("기본값은 'skip' — 남의 백업을 읽어도 테마·접근성 설정이 말없이 바뀌지 않는다", async () => {
+    savePrefs({ ...makeDefaultPrefs(), theme: 'dark', a11y: { ...makeDefaultPrefs().a11y, largeTargets: true } });
+    const filePrefs = { ...makeDefaultPrefs(), theme: 'light' as const, a11y: { ...makeDefaultPrefs().a11y, largeTargets: false } };
+    const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: filePrefs, board: null }));
+
+    const report = await restoreBackup(file);
+    expect(report.prefs).toBe('skipped');
+    expect(loadPrefs().theme).toBe('dark');
+    expect(loadPrefs().a11y.largeTargets).toBe(true); // 로컬 접근성 설정 그대로
+    localStorage.removeItem(PREFS_KEY);
+  });
+
+  it("prefs:'replace' 면 복원하고, spin.prefs 의 theme 은 **최상위 문자열**로 남는다", async () => {
+    savePrefs({ ...makeDefaultPrefs(), theme: 'dark' });
+    const filePrefs = { ...makeDefaultPrefs(), theme: 'light' as const, a11y: { ...makeDefaultPrefs().a11y, uiScale: 1.15 as const } };
+    const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: filePrefs, board: null }));
+
+    const report = await restoreBackup(file, { prefs: 'replace' });
+    expect(report.prefs).toBe('restored');
+
+    // ⚠️ index.html:26-33 부트 스크립트는 마이그레이션도 파서도 없이 이 모양을 그대로 읽는다.
+    const rawJson = JSON.parse(localStorage.getItem(PREFS_KEY)!) as Record<string, unknown>;
+    expect(Object.keys(rawJson)).toContain('theme');
+    expect(typeof rawJson.theme).toBe('string');
+    expect(rawJson.theme).toBe('light');
+    // 대조군 — 중첩되지 않았다는 부재 단언. theme 이 a11y 나 다른 가지 밑으로 들어가면 깜빡인다.
+    expect((rawJson.a11y as Record<string, unknown>).theme).toBeUndefined();
+    expect(loadPrefs().a11y.uiScale).toBe(1.15);
+    localStorage.removeItem(PREFS_KEY);
+  });
+
+  it('읽을 수 없는 prefs(더 새 앱의 schemaVersion)는 로컬 설정을 지우지 않는다', async () => {
+    savePrefs({ ...makeDefaultPrefs(), theme: 'light' });
+    const tooNew = { ...makeDefaultPrefs(), schemaVersion: CURRENT_PREFS_SCHEMA + 1, theme: 'dark' as const };
+    const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: tooNew, board: null }));
+
+    const report = await restoreBackup(file, { prefs: 'replace' });
+    expect(report.prefs).toBe('unreadable');
+    expect(loadPrefs().theme).toBe('light'); // 기본값으로 되돌리지도 않는다
+    localStorage.removeItem(PREFS_KEY);
+  });
+});
+
+describe('backup 봉투 — 자유 전술판 복원 정책', () => {
+  it("기본 'auto' 는 편집 중인 로컬 판(pristine:false)을 덮어쓰지 않는다", async () => {
+    saveBoard(createDrill({ courtMode: 'full', title: '작업 중인 판' }), false);
+    const fileBoard = { schemaVersion: 1, pristine: false, drill: createDrill({ courtMode: 'full', title: '백업 속 판' }) };
+    const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: fileBoard }));
+
+    const report = await restoreBackup(file);
+    expect(report.board).toBe('skipped');
+    expect(loadBoard()?.drill.title).toBe('작업 중인 판');
+
+    // 대조군 — 손대지 않은 판(pristine:true)이면 같은 파일이 복원된다. "무엇을 넣어도 skip" 이 아니다.
+    saveBoard(createDrill({ courtMode: 'full', title: '기본 배치 그대로' }), true);
+    const report2 = await restoreBackup(file);
+    expect(report2.board).toBe('restored');
+    expect(loadBoard()?.drill.title).toBe('백업 속 판');
+    localStorage.removeItem(BOARD_KEY);
+  });
+
+  it('파일에 판이 없으면(null) 로컬 판을 건드리지 않는다', async () => {
+    saveBoard(createDrill({ courtMode: 'full', title: '남아 있어야 할 판' }), true);
+    const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: null }));
+    const report = await restoreBackup(file, { board: 'replace' });
+    expect(report.board).toBe('skipped');
+    expect(loadBoard()?.drill.title).toBe('남아 있어야 할 판');
+    localStorage.removeItem(BOARD_KEY);
   });
 });

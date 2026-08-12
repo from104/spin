@@ -2,6 +2,12 @@
 // 들고 있고 두 벌은 어긋난다. envelope > ENVELOPE_VERSION → E_SCHEMA_TOO_NEW, 모르는 spin 값 →
 // E_UNSUPPORTED_KIND(kind). 'drillSet' 은 파싱은 되고(SpinFile 유니온에 존재) 커밋만 거부한다 —
 // prepareDrillImport/prepareSessionImport 가 자신이 다루지 않는 spin 종류를 받으면 여기서 던진다.
+//
+// §6.1b 'backup'(기기 이사 파일)이 여섯 번째 kind 로 들어온다. **봉투 버전도, payload 스키마
+// 버전도 올리지 않는다** — ENVELOPE_VERSION 은 1 그대로고 payload 안의 드릴은 schemaVersion 2,
+// prefs 는 2, 세션은 1, 판은 1 을 그대로 싣는다. 봉투 버전과 문서 스키마 버전은 별개 축이라,
+// 담는 그릇이 하나 늘었다고 문서 버전을 올리면 migrate.ts 의 마이그레이션 계약(v1→v2 를 "한 번만
+// 올린다" 는 결정)이 통째로 흔들리고 기존 파일이 전부 too-new 가 된다.
 import { getDB, beginWrite, endWrite, toStorageError } from './db.ts';
 import { StorageError, STORAGE_ERROR_MESSAGES } from './errors.ts';
 import type { Drill } from '../model/drill.ts';
@@ -9,17 +15,20 @@ import { CURRENT_DRILL_SCHEMA } from '../model/drill.ts';
 import type { TrainingSession, SessionItem } from '../model/session.ts';
 import { CURRENT_SESSION_SCHEMA } from '../model/session.ts';
 import { validateDrill, validateSession, type Repair } from '../model/validate.ts';
-import { migrateDoc, DRILL_MIGRATIONS, SESSION_MIGRATIONS } from '../model/migrate.ts';
+import { migrateDoc, DRILL_MIGRATIONS, SESSION_MIGRATIONS, PREFS_MIGRATIONS } from '../model/migrate.ts';
 import { refDrillIds, remapRefs } from '../model/refs.ts';
 import { buildSummary } from '../model/summary.ts';
 import { newId } from '../core/ids.ts';
-import type { DrillId } from '../core/ids.ts';
+import type { DrillId, SessionId } from '../core/ids.ts';
 import type { Preferences } from './prefs.ts';
+import { CURRENT_PREFS_SCHEMA, validatePrefs, savePrefs, loadPrefs } from './prefs.ts';
+import type { BoardSnapshot } from './board.ts';
+import { CURRENT_BOARD_SCHEMA, loadBoard, saveBoard } from './board.ts';
 import { putSession } from './sessionRepo.ts';
 
 export const ENVELOPE_VERSION = 1;
-export type SpinFileKind = 'drill' | 'session' | 'library' | 'prefs' | 'drillSet';
-const KNOWN_KINDS: readonly SpinFileKind[] = ['drill', 'session', 'library', 'prefs', 'drillSet'];
+export type SpinFileKind = 'drill' | 'session' | 'library' | 'prefs' | 'drillSet' | 'backup';
+const KNOWN_KINDS: readonly SpinFileKind[] = ['drill', 'session', 'library', 'prefs', 'drillSet', 'backup'];
 
 export interface SpinEnvelopeBase {
   spin: SpinFileKind;
@@ -28,11 +37,24 @@ export interface SpinEnvelopeBase {
   exportedAt: number;
 }
 
+/** §6.1b 기기 이사 파일의 payload. **이 앱이 영구 저장하는 네 곳이 전부 여기에 모인다** —
+ *  IDB `drills` · IDB `sessions` · localStorage `spin.prefs` · localStorage `spin.board`.
+ *  하나라도 빠지면 사용자는 "백업했다" 고 믿은 채로 그것을 잃는다(이 항목의 존재 이유다).
+ *  판(board)은 한 번도 연 적이 없으면 없는 것이 정상이라 `null` 을 허용한다 — 없는 것을 빈
+ *  기본 판으로 채워 내보내면 복원이 남의 기기 판을 기본값으로 덮어쓰는 길이 열린다. */
+export interface BackupPayload {
+  drills: Drill[];
+  sessions: TrainingSession[];
+  prefs: Preferences;
+  board: BoardSnapshot | null;
+}
+
 export type SpinFile =
   | (SpinEnvelopeBase & { spin: 'drill'; payload: Drill })
   | (SpinEnvelopeBase & { spin: 'session'; payload: { session: TrainingSession; drills: Drill[] } })
   | (SpinEnvelopeBase & { spin: 'library'; payload: Drill[] })
   | (SpinEnvelopeBase & { spin: 'prefs'; payload: Preferences })
+  | (SpinEnvelopeBase & { spin: 'backup'; payload: BackupPayload })
   | (SpinEnvelopeBase & { spin: 'drillSet'; payload: unknown }); // 파싱은 되고 커밋만 거부
 
 export type ImportConflict = 'none' | 'identical' | 'exists';
@@ -96,14 +118,19 @@ function canonical(v: unknown): unknown {
   return typeof v === 'number' ? Math.round(v * 10) / 10 : v;
 }
 
-function stripUpdatedAt(d: Drill): Omit<Drill, 'updatedAt'> {
+function stripUpdatedAt<T extends { updatedAt: number }>(d: T): Omit<T, 'updatedAt'> {
   const { updatedAt, ...rest } = d;
   void updatedAt;
   return rest;
 }
 
-export const sameDrill = (a: Drill, b: Drill): boolean =>
+/** 저장 문서 2개가 "같은 내용" 인가 — updatedAt 만 다른 것은 같다고 본다. 드릴과 세션이 공유한다
+ *  (세션 쪽 사용처: restoreBackup 의 id 충돌 판정. 같은 백업을 두 번 복원해도 세션이 두 벌로
+ *  불어나지 않게 하는 유일한 장치다). */
+const sameSaved = <T extends { updatedAt: number }>(a: T, b: T): boolean =>
   JSON.stringify(canonical(stripUpdatedAt(a))) === JSON.stringify(canonical(stripUpdatedAt(b)));
+
+export const sameDrill = (a: Drill, b: Drill): boolean => sameSaved(a, b);
 
 // ---- 가져오기 준비 ----------------------------------------------------------------------------
 
@@ -271,4 +298,170 @@ export function exportSessionFile(s: TrainingSession, drills: Drill[]): Blob {
 }
 export function exportLibraryFile(ds: Drill[]): Blob {
   return toBlob(toEnvelope('library', ds));
+}
+
+// ---- backup 봉투 — 기기 이사 파일(§6.1b) --------------------------------------------------------
+//
+// 여기에는 **봉투를 만들고 읽는 것까지만** 둔다. 파일 이름·다운로드·화면 안내는 4.7(설정 화면)이
+// 붙인다. 화면에서 부를 세 함수: collectBackup() → exportBackupFile() → (파일 선택) →
+// parseSpinFile() → restoreBackup().
+
+/** 백업을 모은다. 드릴은 IDB 레코드를 **날것 그대로** 싣는다 — validateDrill 을 태우면 손상돼
+ *  열리지 않던 레코드가 백업 파일에서 아예 사라져, 사용자가 나중에 손으로 고칠 기회까지 잃는다.
+ *  검증은 복원 쪽(prepareDrillCandidates)에서 한다. */
+export async function collectBackup(): Promise<BackupPayload> {
+  const db = await getDB().catch((e) => {
+    throw toStorageError(e, 'E_DB_UNAVAILABLE');
+  });
+  const drills = await db.getAll('drills');
+  const sessions = await db.getAll('sessions');
+  const board = loadBoard();
+  return {
+    drills,
+    sessions,
+    prefs: loadPrefs(),
+    board: board ? { schemaVersion: CURRENT_BOARD_SCHEMA, pristine: board.pristine, drill: board.drill } : null,
+  };
+}
+
+export function exportBackupFile(p: BackupPayload): Blob {
+  return toBlob(toEnvelope('backup', p));
+}
+
+/** 복원 정책. 기본값은 전부 **"남의 기기에 있는 것을 지우지 않는다"** 쪽으로 잡혀 있다. */
+export interface RestoreBackupOptions {
+  /** 드릴 id 가 로컬과 충돌할 때(내용이 다를 때) 무엇을 할지. 기본 'copy' —
+   *  §4.7 의 "포커스 기본값은 사본으로 추가" 와 같은 값이다. */
+  drillConflict?: ImportResolution;
+  /** ⚠️ prefs 기본값이 'skip' 인 것은 실수가 아니다. 백업 파일은 **드릴을 얻으려고 남에게서
+   *  받는 경우**(코치끼리 주고받기)가 기기 이사만큼 흔한데, 그때 통째로 덮어쓰면 테마뿐 아니라
+   *  a11y(큰 표적·UI 배율·단일키 단축키·모션 줄이기)가 말없이 바뀐다. 이 앱의 주 사용자는 발
+   *  마우스·입 젓가락 사용자라 `largeTargets`/`uiScale` 이 조용히 꺼지는 것은 접근성 사고다.
+   *  기기 이사(설정도 가져오고 싶다)는 화면에서 체크박스 하나로 'replace' 를 넘긴다.
+   *
+   *  **필드별 병합은 하지 않는다** — prefs 는 validatePrefs 가 전 필드를 채워 돌려주므로
+   *  "로컬에 없는 필드만 채운다" 는 규칙이 아무것도 안 하는 규칙이 되고, 임의로 반쪽만 섞으면
+   *  두 기기 어디에도 없던 제3의 설정 상태가 생긴다. 통째로 두거나 통째로 바꾸거나 둘 뿐이다. */
+  prefs?: 'skip' | 'replace';
+  /** 자유 전술판. 기본 'auto' = **로컬 판이 없거나 pristine(기본 배치 그대로)일 때만** 복원한다.
+   *  편집 중인 판은 목록에 뜨지도 않고 되돌릴 수도 없는 단 한 장이라, 덮어쓰면 복구 경로가 0 이다.
+   *  BoardSnapshot.pristine 이 바로 그 판정을 위해 저장본까지 따라다니는 필드다(board.ts 주석). */
+  board?: 'auto' | 'skip' | 'replace';
+}
+
+export interface BackupRestoreReport {
+  /** 파일에 들어 있던 개수 — 커밋된 개수와의 차이가 곧 "조용히 건너뛴 손상 항목" 이다(§6.1c
+   *  '보고하되 묻지 않는다' 가 이 숫자를 읽는다). */
+  drillsInFile: number;
+  sessionsInFile: number;
+  drills: ImportOutcome;
+  sessionsWritten: SessionId[];
+  sessionsSkipped: SessionId[];
+  sessionsFailed: number;
+  prefs: 'restored' | 'skipped' | 'unreadable';
+  board: 'restored' | 'skipped' | 'unreadable';
+}
+
+async function existingSessionFor(id: SessionId): Promise<TrainingSession | undefined> {
+  try {
+    const db = await getDB();
+    return await db.get('sessions', id);
+  } catch {
+    return undefined;
+  }
+}
+
+/** 'unreadable' 은 **로컬 설정을 그대로 둔다**는 뜻이다. 읽을 수 없는 파일을 만났을 때 기본값으로
+ *  되돌리면, 복원에 실패했으면서 사용자 설정까지 지우는 최악이 된다. */
+function restorePrefsFrom(raw: unknown): 'restored' | 'unreadable' {
+  const mig = migrateDoc(raw, PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+  if (!mig.ok) return 'unreadable'; // too-new(더 새 앱의 설정) / no-path(형상 불일치) 둘 다
+  // savePrefs 는 Preferences 를 통째로 JSON 화한다 — theme 은 **최상위 문자열**로 남는다.
+  // ⚠️ index.html:26-33 부트 스크립트가 첫 페인트 전에 `spin.prefs.theme` 을 날것으로 읽는다.
+  // 복원 경로가 여기서 중첩 구조를 쓰면 복원 직후 새로고침에서 테마가 한 번 깜빡인다.
+  savePrefs(validatePrefs(mig.doc).value);
+  return 'restored';
+}
+
+function restoreBoardFrom(raw: unknown, mode: NonNullable<RestoreBackupOptions['board']>): 'restored' | 'skipped' | 'unreadable' {
+  if (mode === 'skip') return 'skipped';
+  if (!isRecord(raw)) return 'skipped'; // 파일에 판이 없다(null) — 정상
+  const mig = migrateDoc(raw.drill, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
+  if (!mig.ok) return 'unreadable';
+  const v = validateDrill(mig.doc);
+  if (!v.ok) return 'unreadable';
+  if (mode === 'auto') {
+    const local = loadBoard();
+    if (local && !local.pristine) return 'skipped'; // 편집 중인 판은 건드리지 않는다
+  }
+  return saveBoard(v.value, raw.pristine === true) ? 'restored' : 'unreadable';
+}
+
+/** 기기 이사 파일을 되돌린다.
+ *
+ *  **B-6(요약) 결정 — 길 ①: 드릴마다 buildSummary 를 직접 부른다.** 복원은 `commitDrillImports`
+ *  를 그대로 지나가고, 그 함수는 드릴과 요약을 **하나의 readwrite 트랜잭션에서 함께** 쓴다
+ *  (transfer.ts 의 `buildSummary(finalDoc)`). 그래서 복원한 드릴은 목록에 제목·썸네일과 함께
+ *  즉시 나타난다 — 아래 "복원한 드릴이 목록에 제목과 함께 보인다" 테스트가 이것을 못박는다.
+ *
+ *  길 ②(끝에서 `rebuildAllSummaries()`)를 택하지 않은 이유는 **그 함수가 이 상황에서 no-op**
+ *  이기 때문이다: 구현이 `if (s.build >= SUMMARY_BUILD) continue` 라 방금 쓴 build:1 요약은
+ *  전부 건너뛴다. 요약 스토어를 통째로 훑는 비용만 내고 고치는 것은 0개다. 즉 길 ② 를 부르면
+ *  "복원이 요약을 만든다" 는 **거짓 안전감**만 얻는다. `SUMMARY_BUILD` 는 1 그대로 둔다 —
+ *  summary.ts 주석의 근거 3개가 그대로 유효하고, 복원 경로에 build 를 올릴 이유는 없다.
+ *  (build 를 올려야 할 날이 오면 그때 재구축 경로를 **같은 커밋에서** 만든다.) */
+export async function restoreBackup(file: SpinFile, opts: RestoreBackupOptions = {}): Promise<BackupRestoreReport> {
+  if (file.spin !== 'backup') {
+    throw new StorageError('E_UNSUPPORTED_KIND', STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND(file.spin));
+  }
+  const raw: unknown = file.payload;
+  if (!isRecord(raw)) throw new StorageError('E_INVALID_FILE', STORAGE_ERROR_MESSAGES.E_INVALID_FILE());
+  const drillsRaw = Array.isArray(raw.drills) ? (raw.drills as unknown[]) : [];
+  const sessionsRaw = Array.isArray(raw.sessions) ? (raw.sessions as unknown[]) : [];
+
+  // 1) 드릴 먼저. 세션 리맵이 이 idMap 을 필요로 하므로 순서를 바꿀 수 없다.
+  const onExists = opts.drillConflict ?? 'copy';
+  const candidates = await prepareDrillCandidates(drillsRaw);
+  const drills = await commitDrillImports(
+    candidates.map((candidate) => ({
+      candidate,
+      // 'identical' 은 이미 같은 내용이 로컬에 있다 — 쓰면 (사본) 만 늘어난다.
+      resolution: candidate.conflict === 'identical' ? 'skip' : candidate.conflict === 'exists' ? onExists : 'copy',
+    })),
+  );
+
+  // 2) 세션. **반드시 remapRefs 를 지난다** — 드릴이 충돌로 새 id 를 받았는데 세션이 옛 id 를
+  //    가리키면 그 항목은 missing 도 아니고(로컬의 다른 드릴이 그 id 를 갖고 있다) 경고도 안 뜬다.
+  const sessionsWritten: SessionId[] = [];
+  const sessionsSkipped: SessionId[] = [];
+  let sessionsFailed = 0;
+  for (const rawSession of sessionsRaw) {
+    const mig = migrateDoc(rawSession, SESSION_MIGRATIONS, CURRENT_SESSION_SCHEMA);
+    const v = mig.ok ? validateSession(mig.doc) : undefined;
+    if (!v || !v.ok) {
+      sessionsFailed++;
+      continue;
+    }
+    const items = remapRefs(v.value.items, drills.idMap);
+    const remapped: TrainingSession = { ...v.value, items, drillIds: refDrillIds(items) };
+    const local = await existingSessionFor(remapped.id);
+    if (local && sameSaved(local, remapped)) {
+      // 같은 백업을 두 번 복원해도 세션이 불어나지 않는다(멱등).
+      sessionsSkipped.push(local.id);
+      continue;
+    }
+    // id 는 같은데 내용이 다르다 = 로컬에서 그 세션을 고쳤다. 덮어쓰면 그 편집이 사라지므로
+    // 드릴의 'copy' 와 같은 규칙으로 새 id + (사본) 을 준다.
+    const doc: TrainingSession = local
+      ? { ...remapped, id: newId('se'), title: `${remapped.title} (사본)`, createdAt: Date.now() }
+      : remapped;
+    const put = await putSession(doc);
+    sessionsWritten.push(put.id);
+  }
+
+  // 3) 설정·판. 옵션 기본값의 근거는 RestoreBackupOptions 주석에 있다.
+  const prefs = (opts.prefs ?? 'skip') === 'replace' ? restorePrefsFrom(raw.prefs) : 'skipped';
+  const board = restoreBoardFrom(raw.board, opts.board ?? 'auto');
+
+  return { drillsInFile: drillsRaw.length, sessionsInFile: sessionsRaw.length, drills, sessionsWritten, sessionsSkipped, sessionsFailed, prefs, board };
 }
