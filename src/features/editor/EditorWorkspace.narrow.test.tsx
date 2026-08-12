@@ -93,7 +93,10 @@ function layoutSkeleton(root: HTMLElement): string {
 }
 
 describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () => {
-  it('넓은 창의 판 DOM 이 2.3 이전과 바이트 동일하다', async () => {
+  // ⚠ 이름을 정확히 읽어라: 비교 대상은 **현재 기준선** 이지 '재편 전' 이 아니다. 2.4·2.10·2.12 가
+  //   각각 정당하게 갱신했고 2차 종료 시점에 재편 전과는 223줄이 다르다(인스펙터 aside 128줄이
+  //   기본 화면에서 빠진 것이 최대 항목 — 결정 ③A). 'PC 화면은 재편 전과 같다' 로 읽으면 틀린다.
+  it('넓은 창의 판 DOM 이 현재 기준선과 바이트 동일하다', async () => {
     stubMedia({ portrait: false, narrow: false });
     const main = await openBoard();
     // ⚠️ 이 해시는 **2.3 작업 전 코드**로 렌더한 결과였고, 그 뒤 세 번 갱신됐다:
