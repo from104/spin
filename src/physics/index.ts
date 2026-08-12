@@ -6,7 +6,7 @@ import { kmhToPxPerS } from '../core/units.ts';
 import { CHAIR, DEFAULT_LIMITS, DEFAULT_ZONES, GOAL, PHYS } from '../core/constants.ts';
 import type { ChairId, CastId } from '../core/ids.ts';
 import { isId } from '../core/ids.ts';
-import type { ChairPose, DragZone } from '../model/chair.ts';
+import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
 import { classifyZone, poseFromStored, projectGrab } from '../model/chair.ts';
 import type { DrillCast, DrillStep } from '../model/drill.ts';
 // ★ 타입 전용 의존. §8 의 physics-world 의존 목록에는 court 가 없지만, PhysicsWorldApi.load()
@@ -91,6 +91,15 @@ export interface PhysicsWorldApi {
    *  vLin/ω 가 저장돼 있지 않다. 다만 §5.11 릴리스 체이스가 진행 중이면 남은 거리를 새 속도로
    *  마저 달린다(이전 속도로 계산된 목표점은 그대로다). */
   setLimits(next: DragLimits): void;
+  /** 휠체어 드래그 **존 경계**를 살아 있는 월드에 즉시 반영한다(설정 → 물리 슬라이더 3종).
+   *
+   *  ⚠️ 2026-08-13 5차 검증에서 고친 결함이다. 이 통로가 없던 동안 `internalHitContext()` 가
+   *  `DEFAULT_ZONES` 를 **하드코딩**해서, 설정의 '후방 견인 경계 / 제자리 회전 시작 / 전방 견인
+   *  시작' 을 옮겨도 실제 드래그 판정은 언제나 기본값으로 갈렸다. 음영·커서만
+   *  `prefs.physics.zones` 를 따라 움직였으므로 **판이 "여기는 제자리 회전" 이라고 칠해 놓은
+   *  곳을 잡으면 평행 이동이 되는** 상태였다(2존 모드와 정확히 같은 종류의 거짓말이다).
+   *  되돌리면 physics/zonesWiring.test.ts 가 빨개진다. */
+  setZones(next: ZoneConfig): void;
   beginDrag(hit: HitResult, grabWorld: Vec2): DragHandle | null;
   zoneAt(id: ChairId, worldPt: Vec2): DragZone | null;
   isSettled(): boolean;
@@ -127,10 +136,15 @@ const DRAGGABLE_KINDS: ReadonlySet<HitResult['kind']> = new Set(['chair', 'zoneH
 /** beginDrag 내부에서 쓰는 최소 HitContext. 여기서 필요한 건 zones(존 경계) 뿐이다 —
  *  drag.beginDrag 는 hit.kind==='chair' 일 때만 ctx.zones 로 classifyZone 을 다시 계산하고,
  *  나머지 필드(pxPerUnit·pointerType·…)는 UI 히트테스트 우선순위 판단에만 쓰여 여기서는
- *  읽히지 않는다(hitTest() 자체는 render-stage 가 별도로 호출한다). */
-function internalHitContext(): HitContext {
+ *  읽히지 않는다(hitTest() 자체는 render-stage 가 별도로 호출한다).
+ *
+ *  ⚠️ `zones` 를 인자로 받는다 — 예전에는 `DEFAULT_ZONES` 리터럴이었고, 그것이 설정 슬라이더를
+ *  통째로 무효화하던 자리다(setZones 주석의 실측 참고). 기본값을 남겨 둔 이유는 이 함수를
+ *  부르는 자리가 월드 안뿐이라 항상 실제 값이 넘어오지만, 인자 없이 부르면 예전과 같은
+ *  동작이 되도록 해 호출부를 하나라도 빠뜨렸을 때 **조용히 다른 값**이 되지 않게 하기 위해서다. */
+function internalHitContext(zones: ZoneConfig = DEFAULT_ZONES): HitContext {
   return {
-    zones: DEFAULT_ZONES,
+    zones,
     pxPerUnit: 1,
     pointerType: 'mouse',
     selectedChairId: null,
@@ -144,9 +158,13 @@ export function createPhysicsWorld(
   courtW: number,
   courtH: number,
   initialLimits: DragLimits = DEFAULT_DRAG_LIMITS,
+  initialZones: ZoneConfig = DEFAULT_ZONES,
 ): PhysicsWorldApi {
   // 상수가 아니라 가변 홀더다 — setLimits 로 살아 있는 월드의 상한을 바꾼다.
   let limits: DragLimits = initialLimits;
+  // 존 경계도 같은 이유로 가변 홀더다 — setZones 로 살아 있는 월드의 판정 경계를 바꾼다.
+  // ⚠️ 이 변수가 없으면 설정의 물리 슬라이더 3종이 화면(음영)만 바꾸고 판정은 못 바꾼다.
+  let zones: ZoneConfig = initialZones;
   const bounds: Bounds = { w: courtW, h: courtH };
   const world: WorldHandles = createWorld(courtW, courtH);
   const kindOf = new Map<CastId, 'chair' | 'ball' | 'cone' | 'goal'>();
@@ -419,6 +437,10 @@ export function createPhysicsWorld(
       limits = next;
     },
 
+    setZones(next) {
+      zones = next;
+    },
+
     setPose(id, pose) {
       const kind = kindOf.get(id);
       if (!kind) return;
@@ -452,7 +474,7 @@ export function createPhysicsWorld(
           ? { ...world.pointOf(hit.id as CastId), theta: 0 }
           : world.chairPose(hit.id as ChairId);
 
-      session = beginDragSession(hit, grabWorld, internalHitContext(), pose);
+      session = beginDragSession(hit, grabWorld, internalHitContext(zones), pose);
       // 잡은 칩은 손의 권위를 갖는다 — static 이라야 §5.4 골든값(공 밀기·스핀킥)이 유지된다.
       // 대기 중인 칩만 dynamic 이어서 밀린다(world.setChairDragging 주석).
       if (isId(session.id, 'ch')) world.setChairDragging(session.id as ChairId, true);
@@ -483,7 +505,7 @@ export function createPhysicsWorld(
     zoneAt(id, worldPt) {
       if (kindOf.get(id) !== 'chair') return null;
       const pose = world.chairPose(id);
-      return classifyZone(projectGrab(pose, worldPt).s, DEFAULT_ZONES);
+      return classifyZone(projectGrab(pose, worldPt).s, zones);
     },
 
     resetGoals() {

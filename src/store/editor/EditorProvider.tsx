@@ -79,7 +79,10 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
     const mode = state.present.courtMode;
     const { vbW, vbH } = COURT_DEFS[mode];
     const limits = limitsFrom(physicsRef.current);
-    const world = createPhysicsWorld(vbW, vbH, limits);
+    // ⚠️ 존 경계도 **생성 시점에** 넘긴다. 아래 effect 가 setZones 로 따라붙지만, 코트 전환
+    // 직후 첫 드래그는 그 effect 보다 앞설 수 있다 — 그때 기본 존으로 갈리면 사용자는
+    // "코트를 바꿨더니 슬라이더가 초기화됐다" 로 겪는다(setLimits 와 같은 이유·같은 모양).
+    const world = createPhysicsWorld(vbW, vbH, limits, physicsRef.current.zones);
     worldRef.current = world;
     return () => {
       world.dispose();
@@ -91,6 +94,10 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
   // 재생성(= 코트 전환)까지 기다리게 하면 스위치가 고장 난 것처럼 보인다.
   useEffect(() => {
     worldRef.current?.setLimits(limitsFrom(physics));
+    // ⚠️ 2026-08-13 5차 검증 — 이 한 줄이 없던 동안 설정의 물리 존 슬라이더 3종이 **판정에
+    // 전혀 반영되지 않았다**. 음영·커서는 EditorWorkspace → EditorStage 로 따로 흘러 슬라이더를
+    // 따라갔으므로, 판이 '제자리 회전' 이라 칠한 곳을 잡으면 평행 이동이 되는 상태였다.
+    worldRef.current?.setZones(physics.zones);
   }, [physics]);
 
   // §6.7 물리 재동기화(blocker 수정): 로스터·코트가 바뀔 때 world.load 를 다시 부른다.
