@@ -37,7 +37,7 @@ import { SessionDrawer } from './SessionDrawer.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
 import type { HomeNav, LibraryTab } from '../home/nav.ts';
 import { defaultLibraryTab } from '../home/nav.ts';
-import { buildImportReport, commitDrills, commitSession, exportAllDrills, exportOneDrill, exportOneSession, importReportLine, readImportFile } from './transfer.ts';
+import { buildImportReport, commitDrills, commitSession, exportOneDrill, exportOneSession, importReportLine, readImportFile } from './transfer.ts';
 import type { ImportPreview } from './transfer.ts';
 import type { ImportResolution } from '../../storage/transfer.ts';
 
@@ -196,17 +196,11 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
             <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
               가져오기
             </Button>
-            {tab === 'drills' && drills.length > 0 && (
-              <Button
-                variant="secondary"
-                onClick={async () => {
-                  await exportAllDrills(drills.map((d) => d.id));
-                  toast.show('전체 드릴을 내보냈습니다.');
-                }}
-              >
-                전체 내보내기
-              </Button>
-            )}
+            {/* §6.1b — 2026-08-12(4.7) 에 [전체 내보내기]가 여기서 사라졌다. 설정 화면에도 **같은
+                버튼**이 있던 중복이었고(계획서 §6.1b "둘 다 제거"), 담기는 것이 드릴뿐이라
+                세션·설정·자유 전술판이 어떤 파일에도 안 들어갔다 — 백업했다고 믿게 만드는
+                거짓말이었다. 통째로 담는 파일은 [보드] 하단 [내보내기] → [기기 이사 파일] 하나뿐이고,
+                여기 카드마다 있는 [파일로 내보내기](드릴 1개)는 공유용으로 그대로 남는다. */}
           </div>
         </div>
 

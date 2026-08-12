@@ -9,7 +9,6 @@ import {
   commitSessionImport,
   exportDrillFile,
   exportSessionFile,
-  exportLibraryFile,
   type SpinFile,
   type ImportCandidate,
   type ImportResolution,
@@ -27,12 +26,12 @@ export async function exportOneDrill(id: DrillId): Promise<void> {
   downloadBlob(exportDrillFile(d), drillFileName(d));
 }
 
-export async function exportAllDrills(ids: DrillId[]): Promise<void> {
-  const { repo } = await resolveDrillRepo();
-  const map = await repo.getDrills(ids);
-  const drills = ids.map((id) => map.get(id)).filter((d): d is Drill => d !== undefined);
-  downloadBlob(exportLibraryFile(drills), `SPIN_전체_${ymdLocal(Date.now())}.spin.json`);
-}
+// ⚠️ `exportAllDrills`(= 목록의 [전체 내보내기])는 2026-08-12(4.7)에 **삭제됐다. 되살리지 마라.**
+//    library 봉투는 `Drill[]` 뿐이라 세션(IDB sessions)·설정(spin.prefs)·자유 전술판(spin.board)이
+//    아무 파일에도 안 들어간다 — 계획서 §6.1b 가 그것을 '기능 부족이 아니라 거짓말' 이라 부르고
+//    쓰기 중단을 확정했다(읽기는 계속 지원한다: parseSpinFile 의 'library' 분기는 그대로다).
+//    통째로 담는 파일이 필요하면 `storage/transfer.ts` 의 collectBackup/exportBackupFile 이고,
+//    그 진입점은 [보드] 하단 [내보내기] → [기기 이사 파일] 하나뿐이다(§6.4).
 
 export async function exportOneSession(session: TrainingSession): Promise<void> {
   const { repo } = await resolveDrillRepo();

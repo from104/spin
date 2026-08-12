@@ -1,7 +1,7 @@
 // screen-home-library 가져오기/내보내기 오케스트레이션. storage/transfer.ts 자체의 세부 규칙은
 // storage 모듈이 이미 검증했으므로(§10.6), 여기서는 화면이 그 함수를 올바른 순서로 조합하는지만 본다.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { defaultResolution, readImportFile, commitDrills, commitSession, exportOneDrill, exportAllDrills, buildImportReport, importReportLine } from './transfer.ts';
+import { defaultResolution, readImportFile, commitDrills, commitSession, exportOneDrill, buildImportReport, importReportLine } from './transfer.ts';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { createSession } from '../../storage/sessionRepo.ts';
 import { createDrill } from '../../model/defaults.ts';
@@ -157,7 +157,7 @@ describe('가져오기 보고 (§6.1c / 로드맵 4.2)', () => {
   });
 });
 
-describe('exportOneDrill / exportAllDrills', () => {
+describe('exportOneDrill — 드릴 1개 공유 파일(살아 있는 계약)', () => {
   it('다운로드를 트리거한다', async () => {
     const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '내보내기 테스트' });
     await exportOneDrill(d.id);
@@ -168,15 +168,14 @@ describe('exportOneDrill / exportAllDrills', () => {
     expect(JSON.parse(text).spin).toBe('drill');
   });
 
-  it('전체 내보내기는 library 봉투를 만든다', async () => {
-    const d1 = await idbDrillRepo.createDrill({ courtMode: 'full', title: 'A' });
-    const d2 = await idbDrillRepo.createDrill({ courtMode: 'full', title: 'B' });
-    await exportAllDrills([d1.id, d2.id]);
-    const [blob, filename] = vi.mocked(downloadBlob).mock.calls.at(-1)!;
-    expect(filename).toMatch(/^SPIN_전체_\d{8}\.spin\.json$/);
-    const text = await (blob as Blob).text();
-    const parsed = JSON.parse(text);
-    expect(parsed.spin).toBe('library');
-    expect(parsed.payload).toHaveLength(2);
+  // 여기 있던 '전체 내보내기는 library 봉투를 만든다' 는 2026-08-12(4.7)에 **사라져야 하는 계약**
+  // 이라 함께 지웠다(계획서 §6.1b: library 봉투 쓰기 중단). 대신 그 자리를 대신하는 계약은
+  // src/features/export/ExportSheet.test.tsx 의 "IDB 의 드릴이 실제로 담긴 backup 봉투가 파일로
+  // 떨어진다" 이고, 거기서 `parsed.spin === 'backup'` 을 단언한다.
+  it('모듈이 더 이상 전체 내보내기를 내보내지 않는다 — 되살아나면 여기가 먼저 운다', async () => {
+    const mod: Record<string, unknown> = await import('./transfer.ts');
+    expect('exportAllDrills' in mod).toBe(false);
+    // 대조군: 이 검사가 모듈을 실제로 읽었다(오타로 빈 객체를 본 것이 아니다).
+    expect(typeof mod.exportOneDrill).toBe('function');
   });
 });
