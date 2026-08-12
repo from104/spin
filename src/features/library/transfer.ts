@@ -74,6 +74,15 @@ export async function readImportFile(file: File): Promise<ImportPreview> {
     return { kind: 'session', file: parsed, drills, session, drillsInFile: rawDrillCount(parsed) };
   }
   if (parsed.spin === 'prefs') return { kind: 'unsupported', reason: '설정 파일은 설정 화면에서 가져오세요.' };
+  // ⚠️ backup 을 마지막 폴백으로 흘리지 마라. §6.1b 이후 [기기 이사 파일]은 이 앱이 만드는
+  //    **유일한 통짜 백업**이고, 그것을 여기서 '지원하지 않는 파일 형식입니다' 로 떨구면
+  //    코치가 방금 자기가 만든 파일을 열려다 **파일이 잘못됐다는 말**을 듣는다. 여는 자리가
+  //    다른 화면일 뿐이라는 사실을 문구가 직접 말해야 한다(버튼 이름을 그대로 부른다).
+  //    목록에서 실제로 복원까지 하게 만드는 것은 별개다 — 설정 화면의 '설정도 함께 복원'
+  //    체크박스와 전술판 정책(RestoreBackupOptions)을 여기로 옮겨야 하는 결정이라 미뤘다.
+  if (parsed.spin === 'backup') {
+    return { kind: 'unsupported', reason: '기기 이사 파일은 설정 화면의 [기기 이사 파일 읽기]에서 엽니다.' };
+  }
   return { kind: 'unsupported', reason: '지원하지 않는 파일 형식입니다.' };
 }
 

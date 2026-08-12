@@ -179,3 +179,39 @@ describe('exportOneDrill — 드릴 1개 공유 파일(살아 있는 계약)', (
     expect(typeof mod.exportOneDrill).toBe('function');
   });
 });
+
+// ── 4차 검증(2026-08-13) — 자기 앱이 만든 파일을 자기 앱이 "형식이 이상하다" 고 거절하던 자리
+//
+// §6.1b 로 [기기 이사 파일]이 backup 봉투의 **유일한 산출물**이 됐는데, 목록 화면의
+// readImportFile 은 그 kind 를 마지막 폴백('지원하지 않는 파일 형식입니다.')으로 떨궜다.
+// 코치가 방금 [보드]→[내보내기]→[기기 이사 파일]로 만든 자기 파일을 목록에서 열면, 문구가
+// **파일이 잘못됐다고 말한다.** 실제로는 여는 자리가 다른 화면일 뿐이다. 4.1 과 4.7 이 둘 다
+// "내 소유 파일이 아니라 안 고쳤다" 로 남겼고 그래서 아무도 안 고쳤다.
+// 여기서 고치는 것은 **문구뿐**이다 — 목록에서 백업을 실제로 복원하게 하는 것은 화면 흐름
+// (설정 체크박스·전술판 정책)까지 옮겨야 하는 별개 결정이라 손대지 않는다.
+describe('가져오기 — 다른 화면 파일의 안내 (4차 검증)', () => {
+  it('backup 봉투는 "형식이 이상하다" 가 아니라 **설정 화면으로 보낸다**', async () => {
+    const env = JSON.stringify({ spin: 'backup', envelope: 1, app: 'SPIN', exportedAt: Date.now(), payload: { drills: [], sessions: [], board: null } });
+    const res = await readImportFile(new File([env], 'SPIN_백업_20260813.spin.json', { type: 'application/json' }));
+    expect(res.kind).toBe('unsupported');
+    if (res.kind !== 'unsupported') return;
+    expect(res.reason).toContain('설정');
+    expect(res.reason).toContain('기기 이사 파일 읽기'); // 실제 버튼 이름을 그대로 부른다
+    // ★ 옛 문구로 되돌아가면 여기가 운다.
+    expect(res.reason).not.toBe('지원하지 않는 파일 형식입니다.');
+  });
+
+  it('대조군: 진짜로 모르는 kind 는 여전히 일반 문구다 — backup 만 특별대우한다', async () => {
+    const env = JSON.stringify({ spin: 'drillSet', envelope: 1, app: 'SPIN', exportedAt: Date.now(), payload: {} });
+    const res = await readImportFile(new File([env], 'x.spin.json', { type: 'application/json' }));
+    expect(res.kind).toBe('unsupported');
+    if (res.kind !== 'unsupported') return;
+    expect(res.reason).toBe('지원하지 않는 파일 형식입니다.');
+  });
+
+  it('대조군: 성한 drill 봉투는 여전히 그대로 열린다 — 분기를 더하면서 정상 경로를 막지 않았다', async () => {
+    const d = createDrill({ courtMode: 'full', title: '정상 경로' });
+    const res = await readImportFile(new File([await exportDrillFile(d).text()], 'd.spin.json', { type: 'application/json' }));
+    expect(res.kind).toBe('drills');
+  });
+});
