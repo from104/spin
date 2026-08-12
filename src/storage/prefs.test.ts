@@ -1,8 +1,10 @@
 // §10.6 prefs. localStorage 는 jsdom 환경에서 기본 제공된다.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DEFAULT_LIMITS, DEFAULT_ZONES } from '../core/constants.ts';
+import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
 import {
   PREFS_KEY,
+  CURRENT_PREFS_SCHEMA,
   makeDefaultPrefs,
   loadPrefs,
   savePrefs,
@@ -203,5 +205,234 @@ describe('a11y.sound (P1-4)', () => {
     expect(validatePrefs({ a11y: { sound: 0 } }).value.a11y.sound).toBe(true);
     // 대조군 — 진짜 false 는 통과한다.
     expect(validatePrefs({ a11y: { sound: false } }).value.a11y.sound).toBe(false);
+  });
+
+  it('haptic 은 독립 필드가 아니다 — 소리와 진동은 한 스위치다(ui/cues.ts ③)', () => {
+    // 필드를 쪼개면 스피커 없는 기기에서 '소리 끔 + 진동 켬' 이라는, 사용자가 구분할 수 없는
+    // 두 상태가 생긴다. 3.0 이 sound/haptic 을 하나로 확정한 근거를 여기 못박아 둔다.
+    const a11y = makeDefaultPrefs().a11y as unknown as Record<string, unknown>;
+    expect(Object.keys(a11y)).not.toContain('haptic');
+    // 대조군 — 그 자리를 대신하는 필드는 실재한다(키가 통째로 없어서 통과한 것이 아니다).
+    expect(Object.keys(a11y)).toContain('sound');
+  });
+});
+
+// ---- 3.0 prefs 스키마 확장 (v1 → v2, 한 번에) -------------------------------------------------
+// tray(서랍 2개) · seeded(seed 1회 도장) · a11y.twoZone(2존 모드, 5.5 용 값만).
+// sound/haptic 은 2.11 이 `a11y.sound` 하나로 이미 넣었으므로 여기서 늘리지 않는다.
+
+/** 상승 직전(v1) 저장본. 사용자가 실제로 만졌을 법한 값을 골고루 담아 둔다 — 전부 기본값이면
+ *  "기존 값을 안 잃는다" 를 단언해도 기본값과 구분되지 않아 아무것도 증명하지 못한다. */
+const makeV1Doc = (): Record<string, unknown> => ({
+  schemaVersion: 1,
+  theme: 'light',
+  playbackSpeed: 2,
+  loop: true,
+  showGrid: false,
+  showGridLabels: false,
+  showRuleZones: false,
+  inspectorPinned: true,
+  teams: { home: { label: '우리', color: '#123abc', gkColor: '#ffffff' }, away: { label: '상대', color: '#abc123', gkColor: '#000000' } },
+  defaultFormation: '2-1-1',
+  defaultCourtMode: 'half',
+  present: { autoFullscreen: true, wakeLock: false },
+  a11y: { largeTargets: true, uiScale: 1.3, reduceMotion: 'always', singleKeyShortcuts: 'off', sound: false },
+  hints: { iosPwa: false, degradedStorage: false },
+  physics: { linearKmh: 12, zones: { sTowRearMax: 0.16 } },
+});
+
+/** index.html:26-33 부트 스크립트의 재현. 키도 로직도 그쪽과 **같은 리터럴**이어야 한다 —
+ *  PREFS_KEY 상수를 쓰면 키를 바꿔도 이 테스트가 함께 따라가 버려 불변식을 못 지킨다. */
+function bootScriptTheme(): string {
+  try {
+    const p = JSON.parse(localStorage.getItem('spin.prefs') || '{}') as { theme?: unknown };
+    return p.theme === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
+describe('3.0 스키마 상승 자체', () => {
+  it('스키마는 딱 한 칸 올랐다 — 2 다', () => {
+    expect(CURRENT_PREFS_SCHEMA).toBe(2);
+  });
+
+  it('체인은 1→2 한 단계뿐이고 끊긴 곳이 없다 — 같은 단계에서 두 번 올리면 중간 버전 파일이 세상에 남는다', () => {
+    expect(PREFS_MIGRATIONS).toHaveLength(CURRENT_PREFS_SCHEMA - 1);
+    for (let v = 1; v < CURRENT_PREFS_SCHEMA; v += 1) {
+      const steps = PREFS_MIGRATIONS.filter((m) => m.from === v);
+      expect(steps, `v${v} 에서 나가는 길`).toHaveLength(1);
+      expect(steps[0]!.to).toBe(v + 1);
+    }
+  });
+
+  it('v1 문서는 마이그레이션 경로를 찾는다 — 체인이 비어 있으면 no-path 로 떨어진다', () => {
+    const r = migrateDoc(makeV1Doc(), PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.applied).toHaveLength(1);
+    expect(r.doc.schemaVersion).toBe(2);
+  });
+
+  it('이미 v2 인 문서에는 아무 단계도 돌지 않는다', () => {
+    const r = migrateDoc({ ...makeV1Doc(), schemaVersion: 2 }, PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.applied).toEqual([]);
+    expect(r.changed).toBe(false);
+  });
+
+  it('마이그레이션 산출물 자체가 새 필드를 들고 나온다 — validatePrefs 의 방어에 기대지 않는다', () => {
+    const r = migrateDoc(makeV1Doc(), PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.doc.tray).toEqual({ draw: false, note: false });
+    expect(r.doc.seeded).toBe(false);
+    expect((r.doc.a11y as Record<string, unknown>).twoZone).toBe(false);
+  });
+});
+
+describe('3.0 새 필드의 기본값', () => {
+  it('서랍 둘은 닫힌 채로 시작한다 — 손잡이는 보이므로 잠긴 기능은 0개다(§3 불변식 2)', () => {
+    expect(makeDefaultPrefs().tray.draw).toBe(false);
+    expect(makeDefaultPrefs().tray.note).toBe(false);
+  });
+  it('seeded 는 false 로 시작한다 — 아직 아무것도 심지 않았다', () => {
+    expect(makeDefaultPrefs().seeded).toBe(false);
+  });
+  it('2존 모드는 기본 OFF 다 (결정 ④)', () => {
+    expect(makeDefaultPrefs().a11y.twoZone).toBe(false);
+  });
+});
+
+describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 하나도 안 잃는다', () => {
+  beforeEach(() => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(makeV1Doc()));
+  });
+
+  it('새 필드 세 개가 기본값으로 채워진다', () => {
+    const p = loadPrefs();
+    expect(p.tray).toEqual({ draw: false, note: false });
+    expect(p.seeded).toBe(false);
+    expect(p.a11y.twoZone).toBe(false);
+  });
+
+  it('schemaVersion 도장이 2 로 갱신된다', () => {
+    expect(loadPrefs().schemaVersion).toBe(2);
+  });
+
+  // 아래는 "기존 값을 안 잃는다" 를 필드별로 따로 찌른다. 한 it 에 몰아 AND 로 묶으면
+  // 어느 필드가 증발했는지 못 읽는다.
+  it('최상위 값이 살아 돌아온다', () => {
+    const p = loadPrefs();
+    expect(p.theme).toBe('light');
+    expect(p.playbackSpeed).toBe(2);
+    expect(p.loop).toBe(true);
+    expect(p.showGrid).toBe(false);
+    expect(p.showGridLabels).toBe(false);
+    expect(p.showRuleZones).toBe(false);
+    expect(p.inspectorPinned).toBe(true);
+    expect(p.defaultFormation).toBe('2-1-1');
+    expect(p.defaultCourtMode).toBe('half');
+  });
+  it('teams 가 살아 돌아온다', () => {
+    expect(loadPrefs().teams).toEqual(makeV1Doc().teams);
+  });
+  it('present 가 살아 돌아온다', () => {
+    expect(loadPrefs().present).toEqual({ autoFullscreen: true, wakeLock: false });
+  });
+  it('a11y 의 이웃 필드가 살아 돌아온다 — twoZone 을 끼워 넣으면서 형제를 지우지 않는다', () => {
+    const p = loadPrefs();
+    expect(p.a11y.largeTargets).toBe(true);
+    expect(p.a11y.uiScale).toBe(1.3);
+    expect(p.a11y.reduceMotion).toBe('always');
+    expect(p.a11y.singleKeyShortcuts).toBe('off');
+    expect(p.a11y.sound).toBe(false);
+  });
+  it('hints 가 살아 돌아온다', () => {
+    expect(loadPrefs().hints).toEqual({ iosPwa: false, degradedStorage: false });
+  });
+  it('physics override 가 살아 돌아온다', () => {
+    expect(loadPrefs().physics).toEqual({ linearKmh: 12, zones: { sTowRearMax: 0.16 } });
+  });
+});
+
+describe('3.0 저장 왕복 — 화이트리스트 조립부에 안 적힌 필드는 소리 없이 증발한다', () => {
+  it('tray.draw 만 열어 저장해도 다시 읽으면 열려 있다', () => {
+    savePrefs({ ...makeDefaultPrefs(), tray: { draw: true, note: false } });
+    expect(loadPrefs().tray.draw).toBe(true);
+    expect(loadPrefs().tray.note).toBe(false); // 대조군 — 둘이 함께 켜진 것이 아니다
+  });
+  it('tray.note 만 열어 저장해도 다시 읽으면 열려 있다', () => {
+    savePrefs({ ...makeDefaultPrefs(), tray: { draw: false, note: true } });
+    expect(loadPrefs().tray.note).toBe(true);
+    expect(loadPrefs().tray.draw).toBe(false);
+  });
+  it('seeded 도장은 저장 왕복을 견딘다 — 증발하면 seed 를 지운 사람에게 매번 되살아난다', () => {
+    savePrefs({ ...makeDefaultPrefs(), seeded: true });
+    expect(loadPrefs().seeded).toBe(true);
+  });
+  it('a11y.twoZone 은 저장 왕복을 견딘다', () => {
+    const d = makeDefaultPrefs();
+    savePrefs({ ...d, a11y: { ...d.a11y, twoZone: true } });
+    expect(loadPrefs().a11y.twoZone).toBe(true);
+    expect(loadPrefs().a11y.sound).toBe(true); // 대조군 — a11y 가 통째로 갈린 것이 아니다
+  });
+  it('patchPrefs 로 서랍만 만져도 나머지 prefs 는 그대로다', () => {
+    savePrefs({ ...makeDefaultPrefs(), theme: 'light', seeded: true });
+    const { prefs } = patchPrefs({ tray: { draw: true, note: true } });
+    expect(prefs.tray).toEqual({ draw: true, note: true });
+    expect(prefs.theme).toBe('light');
+    expect(prefs.seeded).toBe(true);
+  });
+
+  it('불리언이 아닌 쓰레기는 기본값으로 접는다', () => {
+    expect(validatePrefs({ tray: { draw: 'open', note: 1 } }).value.tray).toEqual({ draw: false, note: false });
+    expect(validatePrefs({ tray: 'open' }).value.tray).toEqual({ draw: false, note: false });
+    expect(validatePrefs({ seeded: 'yes' }).value.seeded).toBe(false);
+    expect(validatePrefs({ a11y: { twoZone: 'on' } }).value.a11y.twoZone).toBe(false);
+    // 대조군 — 진짜 true 는 통과한다(무엇을 넣어도 false 가 나오는 것이 아니다).
+    expect(validatePrefs({ tray: { draw: true, note: true } }).value.tray).toEqual({ draw: true, note: true });
+    expect(validatePrefs({ seeded: true }).value.seeded).toBe(true);
+    expect(validatePrefs({ a11y: { twoZone: true } }).value.a11y.twoZone).toBe(true);
+  });
+});
+
+describe('3.0 이후에도 spin.prefs.theme 은 최상위 문자열이다 (index.html:26-33 부트 스크립트 전제)', () => {
+  it('저장 키는 리터럴 spin.prefs 다 — 부트 스크립트가 이 문자열을 박아 두고 읽는다', () => {
+    expect(PREFS_KEY).toBe('spin.prefs');
+  });
+
+  it('스키마 2 로 저장한 뒤에도 부트 스크립트가 light 를 읽는다', () => {
+    savePrefs({ ...makeDefaultPrefs(), theme: 'light' });
+    expect(bootScriptTheme()).toBe('light');
+    // 첫 페인트 전에 도는 스크립트라 마이그레이션을 못 거친다 — 날것의 JSON 최상위에 있어야 한다.
+    const raw = JSON.parse(localStorage.getItem('spin.prefs')!) as Record<string, unknown>;
+    expect(typeof raw.theme).toBe('string');
+    expect(raw.schemaVersion).toBe(2);
+  });
+
+  it('대조군 — dark 로 저장하면 부트 스크립트도 dark 를 읽는다', () => {
+    savePrefs({ ...makeDefaultPrefs(), theme: 'dark' });
+    expect(bootScriptTheme()).toBe('dark');
+  });
+
+  it('v1 저장본을 읽어 되쓰는 상승 경로가 테마를 옮기지 않는다', () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(makeV1Doc())); // theme:'light'
+    expect(bootScriptTheme()).toBe('light'); // 상승 전
+    savePrefs(loadPrefs()); // 기회적 되쓰기
+    expect(bootScriptTheme()).toBe('light'); // 상승 후에도 같은 자리에서 읽힌다
+  });
+});
+
+describe('3.0 알 수 없는 미래 버전', () => {
+  it('바로 다음 버전(3)도 거부하고 완전한 기본값으로 되돌린다 — 기존 too-new 정책 그대로', () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeV1Doc(), schemaVersion: CURRENT_PREFS_SCHEMA + 1 }));
+    expect(loadPrefs()).toEqual(makeDefaultPrefs());
+  });
+
+  it('거부는 loadPrefs 가 아니라 migrateDoc 이 판정한다', () => {
+    const r = migrateDoc({ schemaVersion: CURRENT_PREFS_SCHEMA + 1 }, PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+    expect(r).toEqual({ ok: false, reason: 'too-new', found: CURRENT_PREFS_SCHEMA + 1, supported: CURRENT_PREFS_SCHEMA });
   });
 });

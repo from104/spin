@@ -15,7 +15,9 @@ import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
 
 export const PREFS_KEY = 'spin.prefs';
 export const UI_KEY = 'spin.ui';
-export const CURRENT_PREFS_SCHEMA = 1;
+/** 3.0 에서 1 → 2. 트레이 서랍·seed 도장·2존 모드를 **한 번에** 태운 상승이다(§7 E-6) —
+ *  네 필드를 따로 올렸으면 여기까지 오는 동안 백업 파일의 스키마가 네 갈래로 갈라졌다. */
+export const CURRENT_PREFS_SCHEMA = 2;
 
 export interface PhysicsParams {
   zones: ZoneConfig;
@@ -55,8 +57,19 @@ export interface Preferences {
     /** §4.3 P1-4 놓임·막힘·상자 빔의 소리와 진동(한 스위치다 — ui/cues.ts 머리말 ③).
      *  '모션 줄이기' 와 같은 층에 둔다: 둘 다 "판이 손에 어떻게 느껴지는가" 설정이다.
      *  기본 켬 — 이 기능의 존재 이유가 *시선을 화면에서 떼는 것*이라, 기본 끔이면 설정을
-     *  파고든 사람에게만 존재하는 기능이 된다. 끄는 데는 한 번의 탭이 든다. */
+     *  파고든 사람에게만 존재하는 기능이 된다. 끄는 데는 한 번의 탭이 든다.
+     *
+     *  **`haptic` 은 따로 두지 않는다**(3.0 확정). 소리와 진동은 한 스위치다 — ui/cues.ts 머리말
+     *  ③ 이 "둘을 같은 if 에 묶으면 태블릿 무음 모드에서 신호가 통째로 사라진다" 를 이유로
+     *  *채널만* 독립시켰지 설정은 하나로 못박아 뒀다. 필드를 쪼개면 스피커 없는 기기에서
+     *  '소리 끔 + 진동 켬' 이라는, 사용자가 구분할 수 없는 두 상태가 생긴다. */
     sound: boolean;
+    /** 2존 모드(결정 ④ · 5.5). ON 이면 차체 전체가 이동이고 회전·견인은 차체 밖 가이드로만 한다 —
+     *  `handlesVisible(pxPerUnit, pointerType, forced)` 의 `forced` 가 이 값을 받는다.
+     *  **기본 OFF**: 자동 배율 게이트로 켜면 줌이 조작 규칙을 바꾸는 사고가 된다(§9-④).
+     *  3.0 은 **값만** 심는다 — 소비처 배선은 5.5 다. 지금 넣어 두는 이유는 그때 스키마를
+     *  한 번 더 올리지 않기 위해서다. */
+    twoZone: boolean;
   };
   // iosPwa: DESIGN.md §6.9 "iPhone Safari 최초 진입 시 1회 안내" 배너의 노출 여부(껐다 켬).
   // degradedStorage: DESIGN.md §4.8 열화 모드 상시 경고를 다시 보지 않기 설정. 두 필드 모두
@@ -64,6 +77,14 @@ export interface Preferences {
   // app-shell 쪽 작업으로 이 담당(settings/render/editor) 범위 밖이라 배선하지 않았다).
   // 마이그레이션 호환을 위해 필드·기본값·검증은 그대로 유지한다.
   hints: { iosPwa: boolean; degradedStorage: boolean };
+  /** §3 트레이 서랍 2개(작도 · 설명)의 개폐 상태. 둘 다 기본 닫힘 — 손잡이는 처음부터 보이므로
+   *  닫혀 있어도 잠긴 기능은 0개다. 단축키 R·P·T 를 누르면 그 서랍이 **영구히** 열리고(§3 불변식 2)
+   *  그 '영구히' 를 기기 재시작 너머로 들고 가는 것이 이 필드다. 기기를 옮겨도 따라오는 취향이라
+   *  드릴이 아니라 prefs 에 산다 — 판마다 서랍이 다르면 표적 좌표가 판마다 달라진다. */
+  tray: { draw: boolean; note: boolean };
+  /** seed 드릴 3개를 이미 심었는가(3.8). **"드릴이 0개인가" 로 대신할 수 없다** — 그러면 seed 를
+   *  지운 사람에게 매번 되살아난다. 심은 사실만 기록하는 1회성 도장이다. */
+  seeded: boolean;
   physics: PhysicsOverride;
 }
 
@@ -81,8 +102,10 @@ export const makeDefaultPrefs = (): Preferences => ({
   defaultFormation: '1-2-1',
   defaultCourtMode: null,
   present: { autoFullscreen: false, wakeLock: true },
-  a11y: { largeTargets: false, uiScale: 1, reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true },
+  a11y: { largeTargets: false, uiScale: 1, reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true, twoZone: false },
   hints: { iosPwa: true, degradedStorage: true },
+  tray: { draw: false, note: false },
+  seeded: false,
   physics: {},
 });
 
@@ -154,6 +177,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
   const presentRaw = isRecord(raw.present) ? raw.present : {};
   const a11yRaw = isRecord(raw.a11y) ? raw.a11y : {};
   const hintsRaw = isRecord(raw.hints) ? raw.hints : {};
+  const trayRaw = isRecord(raw.tray) ? raw.tray : {};
 
   const uiScale: 1 | 1.15 | 1.3 = a11yRaw.uiScale === 1.15 || a11yRaw.uiScale === 1.3 ? a11yRaw.uiScale : 1;
   const reduceMotion: 'system' | 'always' = a11yRaw.reduceMotion === 'always' ? 'always' : 'system';
@@ -184,11 +208,16 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
       // 스키마를 올리지 않는다 — 옛 저장본에는 이 키가 없고, 없으면 기본값(켬)을 받는다.
       // `sound: 'yes'` 같은 쓰레기도 bool() 이 기본값으로 접는다.
       sound: bool(a11yRaw.sound, d.a11y.sound),
+      twoZone: bool(a11yRaw.twoZone, d.a11y.twoZone),
     },
     hints: {
       iosPwa: bool(hintsRaw.iosPwa, d.hints.iosPwa),
       degradedStorage: bool(hintsRaw.degradedStorage, d.hints.degradedStorage),
     },
+    // 이 화이트리스트 조립부에 안 적힌 필드는 저장 왕복에서 **소리 없이 증발한다**.
+    // 모델에 필드를 넣었으면 여기도 같은 커밋에서 넣고, 왕복 테스트로 못박아라.
+    tray: { draw: bool(trayRaw.draw, d.tray.draw), note: bool(trayRaw.note, d.tray.note) },
+    seeded: bool(raw.seeded, d.seeded),
     physics: sanitizePhysicsOverride(raw.physics),
   };
   return { value, repairs };
