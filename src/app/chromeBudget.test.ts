@@ -27,6 +27,7 @@ import {
 import type { ChromeAxis, ChromeState, Size } from './chromeBudget.ts';
 import { INSPECTOR_PIN_MIN_PX, canPinInspector } from '../features/editor/inspectorLayout.ts';
 import { trayRailWidthPx } from '../features/editor/trayMetrics.ts';
+import { boardBarHeightPx, transportBarHeightPx } from '../features/editor/bottomBarMetrics.ts';
 import { NARROW_MAX_PX } from '../ui/useIsNarrow.ts';
 import { COURT_DEFS } from '../model/court.ts';
 import { computeMetrics, rotForFit } from '../render/useStageMetrics.ts';
@@ -75,8 +76,11 @@ describe('예산 합계 — 못박은 값', () => {
     // 커진다(§5.4). §5.3 의 PC 두 행이 이 93 으로 계산된 값이다 — 78 로 두면 표가 안 맞는다.
     expect(chromeWidthPx(pcOverlay)).toBe(225);
     expect(chromeWidthPx(pcPinned)).toBe(538);
-    // 세로는 넓은 창에서 재편 전과 같다. 헤더 52·하단 바 64 는 좁은 창에서만 값을 낸다.
-    expect(chromeHeightPx(pcOverlay)).toBe(CHROME_HEIGHT_NOW_PX);
+    // 세로는 헤더(62, 미지정 행)만 재편 전 값이다. 하단 바는 **넓은 창에서도 64** 다 —
+    // 라벨줄이 사라진 것은 화면이 좁아서가 아니라 스텝 조작이 인스펙터에서 내려왔기
+    // 때문이라(2.10), 트레이 93 과 같은 이유로 기기와 무관하다.
+    expect(chromeHeightPx(pcOverlay)).toBe(166);
+    expect(CHROME_HEIGHT_NOW_PX - chromeHeightPx(pcOverlay)).toBe(30); // 하단 바가 돌려준 30px
   });
 
   it('인스펙터 행만 narrow 가 아니라 자기 모드가 정한다', () => {
@@ -134,26 +138,34 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
     expect(after.w / 825).toBeGreaterThan(after.h / 525);
   });
 
-  it('1280×800 PC — 오버레이 +25.4%, [고정] 핀은 −2.0%', () => {
+  // [2.10 정정] 계획서 §5.3 의 PC 두 행은 하단 바가 넓은 창에서 94 로 남는다는 전제로
+  // 계산돼 있었다(상자 높이 604). 사진 뭉치가 라벨줄을 흡수하며 그 전제가 깨졌다 —
+  // **세로 상자가 30px 커진다.** 폭이 제약인 두 경우(핀·1920)는 축척이 그대로이고, 세로가
+  // 제약이던 오버레이만 1.1505 → 1.2076 으로 오른다. 표가 화면보다 작게 말하고 있었으므로
+  // 이 갱신은 손해가 아니라 이득의 반영이다.
+  it('1280×800 PC — 오버레이 +31.6%, [고정] 핀은 −2.0%', () => {
     const view = { w: 1280, h: 800 };
     const before = nowBox(view);
     const overlay = courtBoxPx(view, pcOverlay);
     const pinned = courtBoxPx(view, pcPinned);
     expect(before).toEqual({ w: 757, h: 604 });
-    expect(overlay).toEqual({ w: 1055, h: 604 });
-    expect(pinned).toEqual({ w: 742, h: 604 });
+    expect(overlay).toEqual({ w: 1055, h: 634 });
+    expect(pinned).toEqual({ w: 742, h: 634 });
     expect(px(before)).toBeCloseTo(0.9176, 4);
-    expect(px(overlay)).toBeCloseTo(1.1505, 4);
+    expect(px(overlay)).toBeCloseTo(1.2076, 4);
+    // 핀은 **폭**이 제약이라 세로 30px 이 남아도 축척이 안 변한다 — 하단 바 갱신이 이 행을
+    // 건드리지 않는다는 것을 함께 못박는다(0.8994 는 2.3 이 계산한 그 값 그대로다).
     expect(px(pinned)).toBeCloseTo(0.8994, 4);
-    expect((px(overlay) / px(before) - 1) * 100).toBeCloseTo(25.4, 1);
+    expect(pinned.w / 825).toBeLessThan(pinned.h / 525);
+    expect((px(overlay) / px(before) - 1) * 100).toBeCloseTo(31.6, 1);
     // 핀 상태가 지금보다 2% 작다는 것은 감수한 손해다(원인은 트레이 78→93). 이 부호가
     // 뒤집히면 §5.3 '정직한 인정 2번' 이 거짓이 되므로 함께 못박는다.
     expect((px(pinned) / px(before) - 1) * 100).toBeCloseTo(-2.0, 1);
   });
 
-  it('1920×1080 PC 핀 — 1.675', () => {
+  it('1920×1080 PC 핀 — 1.675 (하단 바 −30 에도 폭 제약이라 그대로다)', () => {
     const box = courtBoxPx({ w: 1920, h: 1080 }, pcPinned);
-    expect(box).toEqual({ w: 1382, h: 884 });
+    expect(box).toEqual({ w: 1382, h: 914 });
     expect(px(box)).toBeCloseTo(1.6749, 3);
     expect(courtScale('full', box).pxPerMeter).toBeCloseTo(41.9, 1);
   });
@@ -299,5 +311,21 @@ describe('예산표가 실제 소스와 어긋나지 않는다', () => {
     const workspace = read('src/features/editor/EditorWorkspace.tsx');
     expect(workspace).toContain('padding: courtPadCss(');
     expect(workspace, '리터럴 패딩이 되살아나면 예산표와 화면이 갈라진다').not.toContain("padding: '20px 24px'");
+  });
+
+  it('하단 바 높이는 --hit 파생이고, hit=44 값이 예산의 wide/narrow 다 (2.10)', () => {
+    // §16.1 은 이 행에 *"테스트는 없다 — 높이가 단일 리터럴이 아니라 합성값이라 텍스트로 못
+    // 건다"* 고 적어 뒀다. 합성값을 **식 하나로 모으면**(bottomBarMetrics) 텍스트가 아니라
+    // 함수로 걸 수 있다 — 트레이가 2.4 에서 간 길과 같다.
+    expect(transportBarHeightPx(44)).toBe(row('transportBar').wide);
+    expect(transportBarHeightPx(44)).toBe(row('transportBar').narrow);
+    expect(transportBarHeightPx(44)).toBe(64);
+    // 예산 행은 **두 바 중 큰 쪽**이다(행 주석). 전술판 바가 더 커지면 이 행이 거짓이 된다.
+    expect(boardBarHeightPx(44)).toBeLessThanOrEqual(row('transportBar').wide);
+    // 두 바가 같은 출처에서 세로 여백을 받는지 — 한쪽만 리터럴로 되돌아가면 예산이 조용히 틀어진다.
+    for (const f of ['src/features/editor/TransportBar.tsx', 'src/features/editor/BoardBar.tsx']) {
+      expect(read(f), f).toContain('padding: bottomBarPadCss()');
+      expect(read(f), `${f} — 옛 리터럴 패딩이 되살아났다`).not.toContain("padding: '12px 24px 15px'");
+    }
   });
 });

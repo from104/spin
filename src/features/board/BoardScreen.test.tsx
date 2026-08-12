@@ -146,7 +146,9 @@ describe('자유 전술판 (대문)', () => {
     const { user } = await openBoard();
     await openInspector(user);
     expect(screen.queryByRole('button', { name: '스텝 추가' })).toBeNull();
-    expect(screen.queryByText(/^스텝 1 ·/)).toBeNull();
+    // 2.10: 하단 바의 스텝 UI 는 사진 뭉치 + [한 장 더 찍기] 다(옛 "스텝 1 · 이름" 라벨줄이 아니다).
+    expect(screen.queryByRole('tablist', { name: '스텝' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '한 장 더 찍기' })).toBeNull();
   });
 
   it('편집기 격자·규칙존 토글이 prefs 에 반영된다(다른 화면 갔다 와도 유지, minor #6)', async () => {

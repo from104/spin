@@ -2,7 +2,7 @@
 // 그리는 조립부. `<nav aria-label="도구">` `<div role="application">`(CourtStage 가 직접 렌더)
 // `<aside aria-label="드릴 속성">` 세 영역과 하단 트랜스포트로 프로토타입 236–400행 레이아웃을
 // 그대로 이식한다.
-import { useCallback, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { isId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
 import type { CourtMode } from '../../model/court.ts';
@@ -190,6 +190,24 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     },
     [dispatch, drill.steps, state],
   );
+
+  // [한 장 더 찍기](§4.4 P2-3)는 **한 번**의 조작이어야 한다 — 찍고 나면 방금 찍은 장이
+  // 손에 들려 있어야지, 옛 장을 든 채 새 장이 옆에 쌓이면 다음 동작이 엉뚱한 판에 들어간다.
+  // STEP_ADD 는 새 스텝의 id 를 돌려주지 않으므로(리듀서는 순수하다) 커밋된 뒤 **바로 뒤**
+  // 스텝을 고른다 — addStepAfter 가 i+1 에 꽂는 것이 그 함수의 계약이다(edits.ts).
+  // 인스펙터의 [스텝 추가]는 이 경로를 타지 않는다(거기서는 목록이 통째로 보인다).
+  const [addedAfter, setAddedAfter] = useState<number | null>(null);
+  const addStepHere = useCallback(() => {
+    const i = selectStepIndex(state);
+    setAddedAfter(i);
+    dispatch({ type: 'STEP_ADD', afterIndex: i });
+  }, [dispatch, state]);
+  useEffect(() => {
+    if (addedAfter === null) return;
+    setAddedAfter(null);
+    const added = drill.steps[addedAfter + 1];
+    if (added) dispatch({ type: 'STEP_SELECT', id: added.id });
+  }, [addedAfter, drill.steps, dispatch]);
 
   const armPlayer = useCallback(
     (id: ChairId) => {
@@ -382,9 +400,11 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           />
         ) : (
           <TransportBar
-            steps={drill.steps}
+            drill={drill}
             stepId={state.stepId}
             onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
+            onReorderStep={(id, toIndex) => dispatch({ type: 'STEP_REORDER', id, toIndex })}
+            onAddStep={addStepHere}
             playing={playing}
             onTogglePlay={() => playbackActions.toggle()}
             speed={speed}

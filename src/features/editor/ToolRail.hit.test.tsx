@@ -23,8 +23,10 @@ import { CHROME_ROWS, courtBoxPx, courtScale } from '../../app/chromeBudget.ts';
 import type { ChromeState } from '../../app/chromeBudget.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import { BALL, CONE } from '../../core/constants.ts';
-import type { ChairId, StepId } from '../../core/ids.ts';
-import type { DrillStep } from '../../model/drill.ts';
+import type { ChairId } from '../../core/ids.ts';
+import type { Drill } from '../../model/drill.ts';
+import { createDrill } from '../../model/defaults.ts';
+import { addStepAfter } from '../../model/edits.ts';
 
 // ── ① 픽셀 식 — §5.4 표 재현 ────────────────────────────────────────────────
 
@@ -162,27 +164,36 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function steps(n: number): DrillStep[] {
-  return Array.from({ length: n }, (_, i) => ({
-    id: `st_hit_${i}` as StepId,
-    name: `스텝${i}`,
-    note: '',
-    chairs: {},
-    balls: {},
-    cones: {},
-    arrows: [],
-    notes: [],
-  }));
+/** 2.10 이 트랜스포트를 사진 뭉치로 재편하며 `steps` prop 이 `drill` 로 바뀌었다(칩이 스텝마다
+ *  판을 그리려면 cast·팀 색·코트가 함께 필요하다). §16.1/§17.3 사전 등록대로 **선택자만** 옮기고
+ *  `--hit` 파생 단언은 그대로 둔다 — 44 리터럴로 돌아가면 그건 갱신이 아니라 회귀다. */
+function drillOf(n: number): Drill {
+  let d = createDrill({ courtMode: 'full' });
+  for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
+  return d;
+}
+
+function renderTransport(d: Drill) {
+  render(
+    <TransportBar
+      drill={d}
+      stepId={d.steps[0]!.id}
+      onSelectStep={() => {}}
+      onReorderStep={() => {}}
+      onAddStep={() => {}}
+      playing={false}
+      onTogglePlay={() => {}}
+      speed={1}
+      onCycleSpeed={() => {}}
+    />,
+    { wrapper: settingsWrapper },
+  );
 }
 
 describe('TransportBar — 이전/재생/다음·스텝 칩·속도가 --hit 파생', () => {
-  it('이전/다음 44 → var(--hit), 재생은 +4px 위계를 유지한다', () => {
-    const st = steps(3);
-    render(
-      <TransportBar steps={st} stepId={st[0]!.id} onSelectStep={() => {}} playing={false} onTogglePlay={() => {}} speed={1} onCycleSpeed={() => {}} />,
-      { wrapper: settingsWrapper },
-    );
-    for (const name of ['이전 스텝', '다음 스텝']) {
+  it('이전/다음/한 장 더 찍기 44 → var(--hit), 재생은 +4px 위계를 유지한다', () => {
+    renderTransport(drillOf(3));
+    for (const name of ['이전 스텝', '다음 스텝', '한 장 더 찍기']) {
       const btn = screen.getByRole('button', { name });
       expect(btn.style.width, name).toBe('var(--hit)');
       expect(btn.style.height, name).toBe('var(--hit)');
@@ -194,20 +205,14 @@ describe('TransportBar — 이전/재생/다음·스텝 칩·속도가 --hit 파
     expect(speed.style.minHeight).toBe('var(--hit)');
   });
 
-  it('스텝 칩(role=tab)의 히트 높이가 var(--hit) 다', () => {
-    // TransportBar.test.tsx 의 "과거엔 6px" 회귀 포인트와 같은 자리 — 이제 44 리터럴도 아니다.
-    // jsdom 의 트랙 실측은 0 이라 노드 렌더가 중단되므로(§7.3 hard floor) 폭을 흉내낸다.
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-      width: 700, height: 44, top: 0, left: 0, right: 700, bottom: 44, x: 0, y: 0, toJSON() {},
-    } as DOMRect);
-    const st = steps(3);
-    render(
-      <TransportBar steps={st} stepId={st[0]!.id} onSelectStep={() => {}} playing={false} onTogglePlay={() => {}} speed={1} onCycleSpeed={() => {}} />,
-      { wrapper: settingsWrapper },
-    );
+  it('스텝 칩(role=tab)의 히트 높이·최소폭이 var(--hit) 다', () => {
+    // TransportBar.test.tsx 의 "과거엔 6px" 회귀 포인트와 같은 자리 — 이제 44 리터럴도 아니고,
+    // 트랙 폭을 흉내 낼 필요도 없다(칩은 트랙을 나눠 갖지 않는다).
+    renderTransport(drillOf(3));
     for (const tab of screen.getAllByRole('tab')) {
       expect(tab.style.height).toBe('var(--hit)');
       expect(tab.style.minHeight).toBe('var(--hit)');
+      expect(tab.style.minWidth).toBe('var(--hit)');
     }
     expect(screen.getAllByRole('tab')).toHaveLength(3);
   });

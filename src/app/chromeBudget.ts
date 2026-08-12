@@ -110,13 +110,18 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
     id: 'transportBar',
     axis: 'height',
     label: '하단 바(트랜스포트)',
-    // ≈94 는 실측이다(재생 48 + 라벨줄 + 패딩 12/15 + border 1). 전술판의 BoardBar 는 라벨줄이
-    // 없어 더 짧으므로 예산은 **더 큰 쪽**으로 잡는다 — 예산은 상한이라야 쓸모가 있다.
+    // ≈94 는 재편 **이전** 실측이다(재생 48 + 라벨줄 + 패딩 12/15 + border 1). 전술판의
+    // BoardBar 는 라벨줄이 없어 더 짧으므로 예산은 **더 큰 쪽**으로 잡는다 — 예산은 상한이라야
+    // 쓸모가 있다.
     now: 94,
-    wide: 94,
-    // 라벨줄을 스텝 칩 안으로 흡수. 재생 48 + 패딩 7/8 + border 1 = 64.
+    // **넓은 창에서도 64 다.** 라벨줄을 스텝 칩 안으로 흡수한 것은 좁은 화면 때문이 아니라
+    // 스텝 조작이 인스펙터(26×22 버튼)에서 하단 바로 내려왔기 때문이라(§4.4 P2-3), 트레이 93
+    // 과 같은 이유로 기기와 무관하게 줄어든다. 실제 값은 bottomBarMetrics.ts 가 --hit 에서
+    // 파생한다: transportBarHeightPx(44)=64 · boardBarHeightPx(44)=60 — 큰 쪽이 이 행이다.
+    wide: 64,
+    // 재생 48 + 패딩 7/8 + border 1 = 64.
     narrow: 64,
-    owner: '2.10 — 스텝 사진 뭉치 스크러버(TransportBar 높이 ≤64)',
+    owner: '2.10 (완료) — 스텝 사진 뭉치 스크러버(TransportBar 높이 ≤64)',
   },
   {
     id: 'courtPadY',

@@ -10,6 +10,7 @@ import { useId, useRef, useState } from 'react';
 import { Modal } from '../../ui/Modal.tsx';
 import { SpeedLimitSwitch } from './SpeedLimitSwitch.tsx';
 import { Button } from '../../ui/Button.tsx';
+import { bottomBarPadCss } from './bottomBarMetrics.ts';
 
 export interface BoardBarProps {
   /** 코트 전환이 잠겨 있는가(= 판이 리셋 상태가 아니다). */
@@ -27,7 +28,9 @@ export function BoardBar({ courtLocked, onReset, onResetGoals }: BoardBarProps) 
   const clearBtnRef = useRef<HTMLButtonElement | null>(null);
 
   return (
-    <div style={{ flex: 'none', borderTop: '1px solid var(--border)', background: 'var(--panel)', padding: '12px 24px 15px' }}>
+    // 세로 여백은 TransportBar 와 **같은 출처**에서 온다(bottomBarMetrics) — 크롬 예산의
+    // '하단 바' 행은 두 바 중 큰 쪽이라, 한쪽만 줄이면 예산이 조용히 틀어진다.
+    <div style={{ flex: 'none', borderTop: '1px solid var(--border)', background: 'var(--panel)', padding: bottomBarPadCss() }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, maxWidth: 940, margin: '0 auto' }}>
         <button
           type="button"

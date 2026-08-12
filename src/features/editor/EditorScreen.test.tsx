@@ -80,9 +80,33 @@ describe('드릴 편집 모드', () => {
   it('전술판과 달리 스텝 UI 가 있다', async () => {
     // 재편의 갈림점 — 같은 컴포넌트지만 여기서만 스텝이 산다(EditorWorkspace 의 mode prop).
     const { user } = await openDrill();
+    // 2.10 재편: 하단 바가 **스텝 사진 뭉치**다(옛 "스텝 1 · 이름" 라벨줄은 칩 안으로 들어갔다).
+    // 인스펙터를 열지 않아도 스텝 조작이 화면에 있어야 한다 — 그것이 P2-3 의 목적이다.
+    expect(screen.getByRole('tablist', { name: '스텝' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(/^스텝 1/);
+    expect(screen.getByRole('button', { name: '한 장 더 찍기' })).toBeInTheDocument();
     await openInspector(user);
     expect(screen.getByRole('button', { name: '스텝 추가' })).toBeInTheDocument();
-    expect(screen.getByText(/^스텝 1 ·/)).toBeInTheDocument();
+  });
+
+  // §4.4 P2-3 — "[한 장 더 찍기] 1버튼". 인스펙터(오버레이)를 열고 26×22 버튼을 찾아 누르던
+  // 경로가 하단 바의 44px 버튼 **한 번**이 됐는지, 그리고 찍은 뒤 그 장이 손에 들리는지 본다.
+  // 찍고도 옛 장이 선택돼 있으면 다음 조작이 엉뚱한 판에 들어간다.
+  it('[한 장 더 찍기] 한 번으로 새 장이 뒤에 쌓이고 그 장이 선택된다', async () => {
+    const { user } = await openDrill();
+    expect(screen.getAllByRole('tab')).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
+
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(/^스텝 2/);
+
+    // 대조군 — 인스펙터의 [스텝 추가]는 이 경로가 아니다(목록이 통째로 보이는 자리라 선택을
+    // 옮기지 않는다). 여기가 함께 움직이면 두 경로가 한 배선을 공유하게 된 것이다.
+    await openInspector(user);
+    await user.click(screen.getByRole('button', { name: '스텝 추가' }));
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(/^스텝 2/);
   });
 
   it('코트 형태는 드릴 레벨 불변이다 (D12) — 잠긴 채로 뜬다', async () => {
@@ -117,12 +141,13 @@ describe('드릴 편집 모드', () => {
 
     stage.focus();
     expect(stage).toHaveFocus();
-    expect(screen.getByText(/^스텝 1 ·/)).toBeInTheDocument();
+    // 2.10 이후 '지금 몇 번째 스텝인가' 의 출처는 라벨줄이 아니라 선택된 사진 칩이다.
+    expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(/^스텝 1/);
 
     fireEvent.keyDown(stage, { key: 'ArrowRight' });
 
     // 스텝은 그대로(§7.5d) — 전역 useEditorKeyboard 의 ArrowRight→onNextStep 이 새지 않았다.
-    expect(screen.getByText(/^스텝 1 ·/)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(/^스텝 1/);
     // 대신 배치 커서가 실제로 움직였다(라이브 리전에 '칸' 안내가 찍힌다).
     const live = document.querySelector('[aria-live="polite"]');
     expect(live?.textContent ?? '').toContain('칸');

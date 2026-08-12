@@ -15,8 +15,15 @@ export interface ThumbSpec {
 
 export const THUMB_CAPS = { chairs: 8, balls: 4, cones: 8, arrows: 3 } as const;
 
+/** 드릴 요약(목록 카드)용 — 첫 스텝. */
 export function buildThumb(d: Drill): ThumbSpec {
-  const step = d.steps[0];
+  return buildStepThumb(d, 0);
+}
+
+/** 스텝 **한 장**의 요약. 트랜스포트의 사진 뭉치가 스텝마다 이걸 그린다(§4.4 P2-3).
+ *  캡(THUMB_CAPS)은 목록 카드와 같은 값을 쓴다 — 44px 칩에서는 더더욱 다 안 보인다. */
+export function buildStepThumb(d: Drill, i: number): ThumbSpec {
+  const step = d.steps[i];
   const chairs: ThumbSpec['chairs'] = [];
   const balls: ThumbSpec['balls'] = [];
   const cones: ThumbSpec['cones'] = [];
