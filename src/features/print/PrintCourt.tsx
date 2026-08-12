@@ -8,8 +8,9 @@
 //     **같은 DOM id 가 60번** 생긴다(화살표 id 는 스텝 사이에 유지된다 — 트윈이 그렇게 쓴다).
 //  ③ `focus-ind-*`·선택 링·존 커서는 종이에 필요 없다.
 // 그래서 `PresentObjects.tsx` 가 문서화한 "좌표를 props 로 받는 전용 정적 렌더러" 패턴을
-// 따르되, 코트 라인은 `CourtSurface` 를, 색·기하는 core 상수를, 팀 색 규칙은 `chairColorFor`
-// 를, 메모 칩 모양은 `noteChip.ts` 를 **그대로 재사용**한다 — 숫자를 새로 만들지 않는다.
+// 따르되, 코트 라인은 `CourtSurface` 를, 색·기하는 core 상수를, 팀 표식(색 + 4.6 이 더한
+// 파선·가드 톤)은 `render/teamMark.ts` 를, 메모 칩 모양은 `noteChip.ts` 를 **그대로 재사용**한다
+// — 숫자를 새로 만들지 않는다.
 //
 // 4.4 의 `buildStaticSvg`(PNG 직렬화용)와 겹치는 부분이 생기면 4.7 이 통합을 판단한다.
 // 다만 둘의 요구가 같지 않다는 것은 미리 적어 둔다: PNG 는 스타일시트 없는 SVG 라 `var(--)`
@@ -18,14 +19,14 @@
 // 별개다 — 다크 테마 사용자가 인쇄해도 **종이는 언제나 같아야** 하기 때문이다.
 import { useId } from 'react';
 import { CHAIR, BALL, NOTE } from '../../core/constants.ts';
-import { COURT_BG, OBJ_STROKE, BALL_FILL, CONE_COLORS, ARROW_CASING, NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL, inkFor } from '../../core/colors.ts';
+import { COURT_BG, OBJ_STROKE, BALL_FILL, CONE_COLORS, ARROW_CASING, NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL } from '../../core/colors.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import { ARROW_STYLES, arrowColor, arrowPath } from '../../model/arrow.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
 import { NOTE_PLACEHOLDER, noteChipPathD, noteChipWidthPx, noteFoldPathD } from '../../render/objects/noteChip.ts';
-import { chairColorFor } from '../present/PresentObjects.tsx';
+import { teamMarkFor } from '../../render/teamMark.ts';
 import { PRINT_COURT_CLASS } from './printDom.ts';
 
 const HALF_W = CHAIR.widthPx / 2;
@@ -100,9 +101,11 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
       {drill.cast.chairs.map((c) => {
         const pose = step.chairs[c.id];
         if (!pose) return null;
-        const color = chairColorFor(c, drill.teams);
-        // 4.6(흑백 인쇄 팀 구분)이 손댈 자리가 **여기**다 — 지금 팀은 `fill` 색 하나로만
-        // 갈린다. 모양·테두리 패턴·번호 접두 중 무엇을 더하든 이 <g> 안에서 끝난다.
+        // 4.6 — 팀 구분은 여기서 **색 하나로 갈리지 않는다.** `teamMarkFor` 가 채움색과 함께
+        // 테두리 파선(주 채널)·볼가드 톤(보조 채널)까지 준다. 이 그림은 흑백 레이저로 뽑히는
+        // 것이 정상 경로라, ⚠️ strokeDasharray 나 guardFill 을 리터럴로 되돌리면 종이 위에서
+        // 두 팀이 확정적으로 같아진다(근거·크기 검산은 src/render/teamMark.ts 머리말).
+        const mark = teamMarkFor(c, drill.teams);
         return (
           <g key={c.id} data-print-chair={c.id} transform={`translate(${pose.x} ${pose.y}) rotate(${pose.angleDeg})`}>
             <rect
@@ -111,9 +114,10 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
               width={CHAIR.lengthPx}
               height={CHAIR.widthPx}
               rx={5}
-              fill={color}
+              fill={mark.fill}
               stroke={OBJ_STROKE}
               strokeWidth={2.2}
+              strokeDasharray={mark.strokeDash}
             />
             <rect
               x={CHAIR.pivotToFrontPx - CHAIR.guardPx}
@@ -121,7 +125,7 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
               width={CHAIR.guardPx}
               height={CHAIR.widthPx}
               rx={2}
-              fill="rgba(255,255,255,.24)"
+              fill={mark.guardFill}
               stroke={OBJ_STROKE}
               strokeWidth={1.4}
             />
@@ -136,7 +140,7 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
                   fontFamily={NUM_FONT}
                   fontSize={LABEL_FONT_PX}
                   fontWeight={700}
-                  fill={inkFor(color)}
+                  fill={mark.ink}
                   textAnchor="middle"
                   dominantBaseline="central"
                 >

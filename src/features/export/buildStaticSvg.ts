@@ -289,7 +289,9 @@ function markerKey(color: string): string {
 }
 
 /** 휠체어 — 차체 · 볼가드 · 머리(피벗). 등번호는 여기 없다(★[A-9] 캔버스가 그린다).
- *  팀을 구분하는 값은 전부 `teamMarkFor` 하나에서 온다 — 4.6 이 고칠 자리다. */
+ *  팀을 구분하는 값은 전부 `teamMarkFor` 하나에서 온다(4.6 이 파선·가드 톤까지 거기 모았다).
+ *  ⚠️ `stroke-dasharray` 와 볼가드 `fill` 을 여기서 리터럴로 되돌리면 흑백 인쇄에서 두 팀이
+ *  다시 같아진다 — src/render/teamMark.ts 머리말의 근거 참고. */
 function chairsMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   const halfW = CHAIR.widthPx / 2;
   let out = '';
@@ -302,7 +304,7 @@ function chairsMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
       `<rect x="${num(-CHAIR.pivotToRearPx)}" y="${num(-halfW)}" width="${num(CHAIR.lengthPx)}" height="${num(CHAIR.widthPx)}" rx="5"` +
       ` fill="${safeColor(m.fill, '#888888')}" stroke="${m.stroke}" stroke-width="${num(m.strokeWidth)}"${dash}/>` +
       `<rect x="${num(CHAIR.pivotToFrontPx - CHAIR.guardPx)}" y="${num(-halfW)}" width="${num(CHAIR.guardPx)}" height="${num(CHAIR.widthPx)}" rx="2"` +
-      ` fill="rgba(255,255,255,.24)" stroke="${OBJ_STROKE}" stroke-width="1.4"/>` +
+      ` fill="${m.guardFill}" stroke="${OBJ_STROKE}" stroke-width="1.4"/>` +
       `<circle cx="0" cy="0" r="4.2" fill="${OBJ_STROKE}"/>` +
       `</g>`;
   }
