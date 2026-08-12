@@ -18,11 +18,13 @@ import { COURT_DEFS, type CourtMode } from '../model/court.ts';
 import type { DragZone } from '../model/chair.ts';
 import type { Arrow, ArrowHandle } from '../model/arrow.ts';
 import { arrowColor } from '../model/arrow.ts';
-import type { NoteLabel as NoteLabelData } from '../model/drill.ts';
+import type { NoteLabel as NoteLabelData, TeamSide } from '../model/drill.ts';
 import type { BallId, ChairId } from '../core/ids.ts';
 import { CourtSurface, type CourtLineVariant } from './CourtSurface.tsx';
 import { GridOverlay } from './GridOverlay.tsx';
 import { RuleZones } from './RuleZones.tsx';
+import { RuleOverlay } from './RuleOverlay.tsx';
+import type { RuleOverlayApi, RuleRosterEntry } from './ruleOverlay.ts';
 import { ArrowMarkers } from './ArrowMarkers.tsx';
 import { ObjectLayer, type ObjectLayerChair, type ObjectLayerCone } from './ObjectLayer.tsx';
 import { SelectionOverlay, type SelectionOverlayHandle } from './SelectionOverlay.tsx';
@@ -131,6 +133,15 @@ export interface CourtStageProps {
     onPointerDown?: (which: ArrowHandle, e: ReactPointerEvent<SVGGElement>) => void;
   };
   keyboardCursor?: { visible: boolean; x: number; y: number; label?: string | null };
+  /** §4.4 P2-4 규칙 오버레이(3 m 링 + 골 지역 3인). 넘기면 `showRuleZones` 와 **같은 스위치**로
+   *  켜진다 — 규칙 존을 감춘 사람에게 규칙 경고만 남기지 않기 위해서다. 시연 화면은 CourtStage 를
+   *  쓰지 않으므로(PresentStage.tsx:1) 같은 오버레이를 그쪽에 **따로** 건다. */
+  ruleOverlay?: {
+    rules: RuleOverlayApi;
+    /** 이 스텝의 선수 명단(팀·골키퍼). 좌표는 writer 프레임에서 온다. */
+    roster: readonly RuleRosterEntry[];
+    teams: Record<TeamSide, { label: string }>;
+  };
   /** 드래그 중 스테이지 전체에 거는 커서. 포인터 캡처로 커서가 개체 밖으로 나가도
    *  잡고 있다는 표시가 유지되어야 하므로 컨테이너에 건다. */
   dragCursor?: string | null;
@@ -166,6 +177,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     zoneHandles: zoneHandlesProps,
     arrowHandles: arrowHandlesProps,
     keyboardCursor,
+    ruleOverlay,
     dragCursor,
   },
   ref,
@@ -556,6 +568,18 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
         <CourtSurface mode={mode} variant={variant} />
         {showGrid && <GridOverlay mode={mode} showLabels={showGridLabels} />}
         <RuleZones mode={mode} visible={showRuleZones} />
+        {/* 개체 **아래**에 둔다 — 링은 공 주위 3 m 를 덮으므로 위에 깔면 칩을 가린다. */}
+        {ruleOverlay && (
+          <RuleOverlay
+            mode={mode}
+            visible={showRuleZones}
+            writer={writer}
+            rules={ruleOverlay.rules}
+            ballIds={balls}
+            roster={ruleOverlay.roster}
+            teams={ruleOverlay.teams}
+          />
+        )}
         <ObjectLayer
           writer={writer}
           chairs={chairs}

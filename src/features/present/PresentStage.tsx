@@ -16,6 +16,8 @@ import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playbac
 import { PLAYBACK } from '../../core/constants.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { RuleZones } from '../../render/RuleZones.tsx';
+import { RuleOverlay } from '../../render/RuleOverlay.tsx';
+import { createRuleOverlay, type RuleRosterEntry } from '../../render/ruleOverlay.ts';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
 import { createTransformWriter } from '../../render/transformWriter.ts';
 import { raf } from '../../render/rafLoop.ts';
@@ -50,15 +52,32 @@ export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, on
   // 읽기 전용이라 이 화면 안에서 cast 가 바뀔 일이 없다).
   const writer = useMemo(() => createTransformWriter(), []);
   const opacityWriter = useMemo(() => createOpacityWriter(), []);
+  // §4.4 P2-4 — 편집기와 **같은 오버레이**를 시연에도 건다. 여기는 물리가 아니라 sampleDrill
+  // 보간 경로라(파일 머리말) 한쪽만 배선하면 시연에서 링이 공을 따라오지 않는다.
+  const rules = useMemo(() => createRuleOverlay(), []);
   useEffect(() => () => {
     writer.clear();
     opacityWriter.clear();
-  }, [writer, opacityWriter]);
+    rules.clear();
+  }, [writer, opacityWriter, rules]);
 
   const [arrows, setArrows] = useState<RenderFrame['arrows']>([]);
   const [notes, setNotes] = useState<RenderFrame['notes']>([]);
+  // 링을 그릴 공을 고르는 데만 쓴다 — 스텝이 바뀔 때만 갱신되므로 60fps 리렌더가 아니다
+  // (화살표·메모는 원래 매 프레임 state 로 다시 그린다 — 파일 머리말).
+  const [stepIdx, setStepIdx] = useState(0);
   const stepIndexRef = useRef(-1);
   const endedRef = useRef(false);
+
+  const ruleRoster = useMemo<RuleRosterEntry[]>(
+    () => drill.cast.chairs.map((c) => ({ id: c.id, team: c.team, isGk: c.isGk })),
+    [drill.cast.chairs],
+  );
+  const ruleBallIds = useMemo(() => {
+    const s = drill.steps[stepIdx];
+    if (!s) return [];
+    return drill.cast.balls.filter((b) => s.balls[b.id] !== undefined).map((b) => b.id as string);
+  }, [drill.cast.balls, drill.steps, stepIdx]);
 
   // 화살표에 실제로 쓰인 색만 마커로 만든다(§6.6) — 프레임마다 바뀌는 `arrows` 배열이 아니라
   // 드릴 전체를 한 번 훑어 계산한다. 그래야 재생 중 매 프레임 <marker> DOM 이 재생성되지 않는다.
@@ -91,16 +110,24 @@ export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, on
       const visibleCones = new Set(frame.cones.map((c) => c.id));
       for (const def2 of drill.cast.cones) if (!visibleCones.has(def2.id)) opacityWriter.write(def2.id, 0);
 
+      // §4.4 P2-4 규칙 판정 — **이 프레임의 좌표**로 한다(스텝 사이 보간 중간값 포함).
+      // 프레임이 만든 객체를 그대로 다시 쓰므로 프레임당 새로 만드는 것은 이 얕은 표 하나다.
+      const rulePoses: Record<string, { x: number; y: number }> = {};
+      for (const c of frame.chairs) rulePoses[c.id] = c;
+      for (const b of frame.balls) rulePoses[b.id] = b;
+      rules.write(rulePoses);
+
       setArrows(frame.arrows);
       setNotes(frame.notes);
 
       if (frame.stepIndex !== stepIndexRef.current) {
         stepIndexRef.current = frame.stepIndex;
+        setStepIdx(frame.stepIndex);
         const step = drill.steps[frame.stepIndex];
         if (step) onStepChange?.(frame.stepIndex, step);
       }
     },
-    [drill, writer, opacityWriter, onStepChange],
+    [drill, writer, opacityWriter, rules, onStepChange],
   );
 
   const sampleNow = useCallback((): RenderFrame => {
@@ -150,6 +177,7 @@ export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, on
       <rect width={def.vbW} height={def.vbH} rx={16} fill={COURT_BG} />
       <CourtSurface mode={mode} variant="present" />
       <RuleZones mode={mode} visible={showRuleZones} />
+      <RuleOverlay mode={mode} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} roster={ruleRoster} teams={drill.teams} />
       {/* 개체 자체는 접근성 트리에서 뺀다 — 실제 서술은 아래 스텝 이름·메모(텍스트)와
           §7.5e 라이브 리전(스텝 전환 발표)이 맡는다. render-stage 리프가 강제하는
           role="button" 은 시연에서 실제로 클릭 가능하지 않아 노출하면 오히려 오도한다. */}

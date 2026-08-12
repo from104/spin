@@ -21,6 +21,7 @@ import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
 import { screenDeltaToWorld } from '../../render/useStageMetrics.ts';
 import type { ObjectLayerChair, ObjectLayerCone } from '../../render/ObjectLayer.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
+import type { RuleOverlayApi, RuleRosterEntry } from '../../render/ruleOverlay.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { ZONE_CURSOR_DRAGGING } from '../../render/zoneCursors.ts';
 import { useEditorPointer } from './useEditorPointer.ts';
@@ -34,6 +35,9 @@ export interface EditorStageProps {
   dispatch: Dispatch<EditorAction>;
   worldRef: EditorWorldRef;
   writer: TransformWriter;
+  /** §4.4 P2-4 규칙 오버레이. 프레임을 흘려보내는 쪽은 usePhysicsRenderLoop 이라 인스턴스는
+   *  워크스페이스가 만든다 — 여기서는 명단만 붙여 무대로 내린다. */
+  rules?: RuleOverlayApi;
   zones: ZoneConfig;
   ballMax: number;
   pendingPlayerId: ChairId | null;
@@ -62,7 +66,7 @@ const ARROW_AIM_ORDER: readonly ArrowHandle[] = ['to', 'from', 'ctrl'];
 const ARROW_AIM_LABEL: Record<ArrowHandle, string> = { to: '끝점', from: '시작점', ctrl: '굽힘점' };
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, onEraseIds },
+  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, onEraseIds },
   stageRef,
 ) {
   const pointer = useEditorPointer({
@@ -109,6 +113,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   }, [drill.cast.chairs, drill.teams, step.chairs]);
 
   const balls = useMemo(() => drill.cast.balls.filter((b) => step.balls[b.id] !== undefined).map((b) => b.id), [drill.cast.balls, step.balls]);
+
+  // §4.4 P2-4 규칙 판정용 명단 — **이 스텝에 판 위에 있는** 휠체어만. 위 `chairs` 와 같은
+  // 필터를 쓰지만 담는 것이 다르다(저쪽은 색·등번호, 이쪽은 팀·골키퍼).
+  const ruleRoster = useMemo<RuleRosterEntry[]>(
+    () => drill.cast.chairs.filter((d) => step.chairs[d.id] !== undefined).map((d) => ({ id: d.id, team: d.team, isGk: d.isGk })),
+    [drill.cast.chairs, step.chairs],
+  );
   const cones = useMemo<ObjectLayerCone[]>(
     () => drill.cast.cones.filter((c) => step.cones[c.id] !== undefined).map((c) => ({ id: c.id, colorIndex: c.colorIndex })),
     [drill.cast.cones, step.cones],
@@ -366,6 +377,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       selectionOverlayRef={pointer.selectionOverlayRef}
       dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
+      ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams } : undefined}
       // activePart: Shift+방향키가 무엇을 옮길지 눈에 보이게 한다. 조준을 실제로 쓴 뒤에만
       // 켜므로(= arrowAim 이 이 화살표에 걸린 뒤) 마우스만 쓰는 사람에게는 지금 그림 그대로다.
       arrowHandles={{ arrow: selectedArrow, activePart: selectedArrow && arrowAim?.id === selectedArrow.id ? arrowAim.part : null }}

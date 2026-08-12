@@ -2,7 +2,7 @@
 // 그리는 조립부. `<nav aria-label="도구">` `<div role="application">`(CourtStage 가 직접 렌더)
 // `<aside aria-label="드릴 속성">` 세 영역과 하단 트랜스포트로 프로토타입 236–400행 레이아웃을
 // 그대로 이식한다.
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
 import type { CourtMode } from '../../model/court.ts';
@@ -20,6 +20,7 @@ import { useIsPortrait } from '../../ui/useIsPortrait.ts';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
 import { courtPadCss } from '../../app/chromeBudget.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
+import { createRuleOverlay } from '../../render/ruleOverlay.ts';
 import { ToolRail, type ChairSlot } from './ToolRail.tsx';
 import { useTrayDrag } from './useTrayDrag.ts';
 import { placeObject } from './placement.ts';
@@ -105,7 +106,10 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const toggleGrid = useCallback(() => setPrefs({ showGrid: !prefs.showGrid }), [prefs.showGrid, setPrefs]);
   const toggleRuleZones = useCallback(() => setPrefs({ showRuleZones: !prefs.showRuleZones }), [prefs.showRuleZones, setPrefs]);
 
-  usePhysicsRenderLoop(worldRef, writer);
+  // §4.4 P2-4 규칙 오버레이. writer 와 달리 store 가 아니라 여기서 만든다 — 화면을 벗어나면
+  // 링·존 노드도 함께 사라지므로 판정 상태를 판 밖까지 들고 다닐 이유가 없다.
+  const rules = useMemo(() => createRuleOverlay(), []);
+  usePhysicsRenderLoop(worldRef, writer, rules);
   useStepPlayback(drill, state.stepId, dispatch);
 
   // ★ 코트 자유 전환 게이트(§6.8 재편, 기현 결정) — **판이 리셋 상태일 때만** 연다.
@@ -361,6 +365,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 dispatch={dispatch}
                 worldRef={worldRef}
                 writer={writer}
+                rules={rules}
                 zones={physics.zones}
                 ballMax={BALL.maxCount}
                 pendingPlayerId={pendingPlayerId}

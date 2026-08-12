@@ -96,15 +96,19 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
   it('넓은 창의 판 DOM 이 2.3 이전과 바이트 동일하다', async () => {
     stubMedia({ portrait: false, narrow: false });
     const main = await openBoard();
-    // ⚠️ 이 해시는 **2.3 작업 전 코드**로 렌더한 결과였고, 그 뒤 두 번 갱신됐다:
+    // ⚠️ 이 해시는 **2.3 작업 전 코드**로 렌더한 결과였고, 그 뒤 세 번 갱신됐다:
     //    2.4(`--hit` 실배선 — 트레이 칩·폭, StageControls·BoardBar·속도 스위치),
     //    2.10(하단 바 세로 여백 12/15 → 7/8 — 사진 뭉치가 라벨줄을 흡수하며 두 바가 같은
-    //    리듬을 쓰게 됐다. BoardBar 는 60, TransportBar 는 64 다).
-    //    두 번 다 **HTML 전수 diff** 로 움직인 줄이 그것뿐임을 확인한 뒤에 갱신했다 —
-    //    2.10 의 diff 는 정확히 1줄(하단 바 padding)이었다(FALSIFICATION §17.2/§18).
+    //    리듬을 쓰게 됐다. BoardBar 는 60, TransportBar 는 64 다),
+    //    2.12(§4.4 P2-4 규칙 오버레이 층이 코트 `<svg>` 안에 들어왔다).
+    //    세 번 다 **HTML 전수 diff** 로 움직인 줄이 그것뿐임을 확인한 뒤에 갱신했다 —
+    //    2.10 의 diff 는 정확히 1줄(하단 바 padding)이었고(FALSIFICATION §17.2/§18),
+    //    2.12 의 diff 는 **삽입 1건**(`<g aria-hidden pointer-events="none">` 규칙 층. 빈
+    //    전술판이라 공이 없어 링은 0개이고 골 지역 표시 2개가 opacity 0 으로 숨어 있다).
+    //    상자 뼈대는 한 줄도 안 움직였다 — 크롬 예산은 이 층을 먹지 않는다.
     //    손으로 고쳐 맞추지 마라 — 깨졌다면 아래 뼈대 스냅샷의 diff 가 무엇이 달라졌는지 알려 준다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '671f28eede08094ee0a5b86a5905ba30b10e80e3766a21e4d81a65a073ed8275',
+      'c0d8dc32fc0f286095e93c3ce03abc52bddcf8702d2ac00aea64f2e8ff13f978',
     );
   });
 

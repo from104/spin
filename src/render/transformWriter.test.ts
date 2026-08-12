@@ -226,3 +226,40 @@ describe('setHeld — §4.3 P1-1 "잡히면 칩이 판에서 뜬다"', () => {
     expect(second.classList.contains('chip--held')).toBe(false);
   });
 });
+
+describe('registerFollower — 잡힘 배율 선택 (§4.4 P2-4 3 m 링)', () => {
+  it('기본은 칩과 **함께** 커진다 — 존 핸들은 칩에서 떨어지면 안 된다', () => {
+    const writer = createTransformWriter();
+    const follower = makeG();
+    writer.registerFollower('ch1', follower);
+    writer.write('ch1', 100, 50, 0);
+    writer.setHeld('ch1', true);
+    expect(follower.getAttribute('transform')).toBe('translate(100.00 50.00) rotate(0.00) scale(1.06)');
+  });
+
+  it('scaleWithHeld:false 면 잡아도 배율이 붙지 않는다 — 3 m 는 잡아도 3 m 다', () => {
+    // 링은 길이 자체가 의미다: 판정은 75px 로 하는데 그림만 6% 커지면 "둘이 안에 있는데
+    // 링이 안 붉다" 가 눈에 보인다.
+    const writer = createTransformWriter();
+    const ring = makeG();
+    writer.registerFollower('bl1', ring, { scaleWithHeld: false });
+    writer.write('bl1', 100, 50, 0);
+    writer.setHeld('bl1', true);
+    expect(ring.getAttribute('transform')).toBe('translate(100.00 50.00) rotate(0.00)');
+    // 잡은 채로 움직여도 마찬가지다(드래그 중 매 프레임).
+    writer.write('bl1', 120, 60, 0);
+    expect(ring.getAttribute('transform')).toBe('translate(120.00 60.00) rotate(0.00)');
+  });
+
+  it('잡힌 채로 늦게 등록돼도 각자의 규칙을 따른다', () => {
+    const writer = createTransformWriter();
+    writer.write('bl1', 10, 20, 0);
+    writer.setHeld('bl1', true);
+    const scaled = makeG();
+    const plain = makeG();
+    writer.registerFollower('bl1', scaled);
+    expect(scaled.getAttribute('transform')).toBe('translate(10.00 20.00) rotate(0.00) scale(1.06)');
+    writer.registerFollower('bl1', plain, { scaleWithHeld: false });
+    expect(plain.getAttribute('transform')).toBe('translate(10.00 20.00) rotate(0.00)');
+  });
+});

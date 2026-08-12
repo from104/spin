@@ -8,14 +8,20 @@
 import { useEffect } from 'react';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
+import type { RuleOverlayApi } from '../../render/ruleOverlay.ts';
 import { raf } from '../../render/rafLoop.ts';
 
-export function usePhysicsRenderLoop(worldRef: EditorWorldRef, writer: TransformWriter): void {
+/** `rules` 는 §4.4 P2-4 규칙 오버레이(3 m 링·골 지역 3인). **같은 스냅샷**을 자세와 판정에 함께
+ *  흘려보낸다 — 판정 쪽에서 `read()` 를 한 번 더 부르면 물리 루프(§5.8, 앱 rAF 와 별개 인스턴스)가
+ *  그 사이에 한 스텝을 돌 수 있어 "링은 붉은데 아무도 안 들어와 있다" 가 한 프레임씩 보인다. */
+export function usePhysicsRenderLoop(worldRef: EditorWorldRef, writer: TransformWriter, rules?: RuleOverlayApi): void {
   useEffect(() => {
     return raf.add(() => {
       const w = worldRef.current;
       if (!w) return;
-      writer.writeFrame(w.read());
+      const frame = w.read();
+      writer.writeFrame(frame);
+      rules?.write(frame);
     });
-  }, [worldRef, writer]);
+  }, [worldRef, writer, rules]);
 }

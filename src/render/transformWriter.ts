@@ -7,8 +7,13 @@ export interface TransformWriter {
   register(id: string, el: SVGGElement | null): void;
   registerCounter(id: string, el: SVGGElement | null): void;
   /** 개체와 **같은** transform 을 받는 부속 그룹(존 핸들 등). 개체 본체와 별개의 SVG 위치에
-   *  그려지면서도 60fps 로 함께 움직여야 하는 오버레이용 — 본체 <g> 안에 넣을 수 없을 때 쓴다. */
-  registerFollower(id: string, el: SVGGElement | null): void;
+   *  그려지면서도 60fps 로 함께 움직여야 하는 오버레이용 — 본체 <g> 안에 넣을 수 없을 때 쓴다.
+   *
+   *  `scaleWithHeld:false` 는 잡힘 배율(1.06)만 빼고 따라간다 — **길이가 곧 의미인** 오버레이용이다.
+   *  3 m 링(§4.4 P2-4)은 공을 잡았다고 3.18 m 가 되면 안 된다: 판정은 75px 로 하는데 그림만
+   *  커지면 "둘이 안에 있는데 링이 안 붉다" 가 눈에 보인다. 존 핸들은 반대로 칩과 **함께**
+   *  커져야 하므로(가이드가 칩에서 떨어져 보인다) 기본값은 true 다. */
+  registerFollower(id: string, el: SVGGElement | null, opts?: { scaleWithHeld?: boolean }): void;
   write(id: string, x: number, y: number, rad: number): void;
   writeFrame(frame: Readonly<Record<string, { x: number; y: number; theta: number }>>): void;
   /** §4.3 P1-1 '잡히면 칩이 판에서 뜬다'. 잡은 개체에 `chip--held` 를 붙이고 배율을 얹는다.
@@ -23,6 +28,11 @@ interface Pose {
   x: number;
   y: number;
   theta: number;
+}
+
+interface Follower {
+  el: SVGGElement;
+  scaleWithHeld: boolean;
 }
 
 const EPS_PX = 0.1;
@@ -43,18 +53,19 @@ const HELD_CLASS = 'chip--held';
 export function createTransformWriter(): TransformWriter {
   const els = new Map<string, SVGGElement>();
   const counters = new Map<string, SVGGElement>();
-  const followers = new Map<string, SVGGElement>();
+  const followers = new Map<string, Follower>();
   const prev = new Map<string, Pose>();
   // 마지막으로 기록된 프레임 전체 — register() 가 늦게 마운트된 노드에 즉시 흘려보낼 때 쓴다.
   const frame = new Map<string, Pose>();
   // 지금 손에 들려 있는 개체. 마운트 순서와 무관하게 유지돼야 한다(드래그 중 재등록).
   const held = new Set<string>();
 
-  function applyMain(el: SVGGElement, id: string, x: number, y: number, rad: number): void {
+  function applyMain(el: SVGGElement, id: string, x: number, y: number, rad: number, scaleWithHeld = true): void {
     const base = `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(rad * DEG).toFixed(2)})`;
     // 부속 그룹(follower)도 같은 배율을 받는다 — 존 핸들만 제자리 크기로 남으면 잡은 칩과
-    // 가이드가 어긋난다(registerFollower 의 "**같은** transform" 계약).
-    el.setAttribute('transform', held.has(id) ? `${base} scale(${HELD_SCALE})` : base);
+    // 가이드가 어긋난다(registerFollower 의 "**같은** transform" 계약). 예외는 규칙 링처럼
+    // 길이 자체가 의미인 오버레이뿐이다(scaleWithHeld:false).
+    el.setAttribute('transform', scaleWithHeld && held.has(id) ? `${base} scale(${HELD_SCALE})` : base);
   }
   function applyCounter(el: SVGGElement, rad: number): void {
     el.setAttribute('transform', `rotate(${(-rad * DEG).toFixed(2)})`);
@@ -74,14 +85,15 @@ export function createTransformWriter(): TransformWriter {
     if (p) applyMain(el, id, p.x, p.y, p.theta);
   }
 
-  function registerFollower(id: string, el: SVGGElement | null): void {
+  function registerFollower(id: string, el: SVGGElement | null, opts?: { scaleWithHeld?: boolean }): void {
     if (!el) {
       followers.delete(id);
       return;
     }
-    followers.set(id, el);
+    const f: Follower = { el, scaleWithHeld: opts?.scaleWithHeld ?? true };
+    followers.set(id, f);
     const p = frame.get(id);
-    if (p) applyMain(el, id, p.x, p.y, p.theta);
+    if (p) applyMain(el, id, p.x, p.y, p.theta, f.scaleWithHeld);
   }
 
   function registerCounter(id: string, el: SVGGElement | null): void {
@@ -108,7 +120,7 @@ export function createTransformWriter(): TransformWriter {
     const counter = counters.get(id);
     if (counter) applyCounter(counter, rad);
     const follower = followers.get(id);
-    if (follower) applyMain(follower, id, x, y, rad);
+    if (follower) applyMain(follower.el, id, x, y, rad, follower.scaleWithHeld);
   }
 
   function writeFrame(f: Readonly<Record<string, Pose>>): void {
@@ -131,7 +143,7 @@ export function createTransformWriter(): TransformWriter {
     if (!p) return;
     if (el) applyMain(el, id, p.x, p.y, p.theta);
     const follower = followers.get(id);
-    if (follower) applyMain(follower, id, p.x, p.y, p.theta);
+    if (follower) applyMain(follower.el, id, p.x, p.y, p.theta, follower.scaleWithHeld);
   }
 
   function snapshot(): Record<string, Pose> {

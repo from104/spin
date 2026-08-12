@@ -1,0 +1,295 @@
+// §4.4 P2-4 — 어댑터 계약. "언제 색이 바뀌고 언제 말하는가" 가 여기 전부 들어 있다.
+// (무엇이 반칙인가는 model/rules.test.ts, 그림은 RuleOverlay.test.tsx.)
+/// <reference types="node" />
+import { readFileSync } from 'node:fs';
+import { describe, expect, it, vi } from 'vitest';
+import { RULE_ALERT_STROKE, RULE_CLEAR_MS, RULE_DASH, RULE_OK_STROKE, createRuleOverlay, type RuleOverlayContext } from './ruleOverlay.ts';
+import { COURT_DEFS } from '../model/court.ts';
+import type { TeamSide } from '../model/drill.ts';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const g = (): SVGGElement => document.createElementNS(SVG_NS, 'g');
+
+const GZ = COURT_DEFS.full.ruleZones;
+const BALL_ID = 'bl_1';
+
+function chair(id: string, team: TeamSide, isGk = false) {
+  return { id, team, isGk };
+}
+
+const ROSTER = [chair('ch_a', 'home'), chair('ch_b', 'home'), chair('ch_c', 'away'), chair('ch_d', 'away')];
+
+function ctx(over: Partial<RuleOverlayContext> = {}): RuleOverlayContext {
+  return {
+    enabled: true,
+    roster: ROSTER,
+    goalAreas: GZ,
+    teamLabels: { home: '레드', away: '블루' },
+    ...over,
+  };
+}
+
+/** 공 하나 + 홈 2명·원정 1명이 그 3 m 안에 = 2-on-1 성립. */
+const VIOLATING = {
+  [BALL_ID]: { x: 400, y: 260 },
+  ch_a: { x: 410, y: 260 },
+  ch_b: { x: 390, y: 260 },
+  ch_c: { x: 420, y: 260 },
+};
+/** 같은 배치인데 홈 한 명이 링 밖(200px)으로 나갔다 = 깨끗하다. */
+const CLEAN = {
+  [BALL_ID]: { x: 400, y: 260 },
+  ch_a: { x: 410, y: 260 },
+  ch_b: { x: 600, y: 260 },
+  ch_c: { x: 420, y: 260 },
+};
+
+function harness(over: Partial<RuleOverlayContext> = {}) {
+  const say = vi.fn();
+  let t = 0;
+  const api = createRuleOverlay({ say, now: () => t });
+  const ring = g();
+  const zone0 = g();
+  api.setContext(ctx(over));
+  api.registerRing(BALL_ID, ring);
+  api.registerZone(0, zone0);
+  return { api, ring, zone0, say, tick: (ms: number) => (t += ms), at: (ms: number) => (t = ms) };
+}
+
+describe('ruleOverlay — 링의 상태', () => {
+  it('깨끗하면 흰 파선이고 보인다', () => {
+    const h = harness();
+    h.api.write(CLEAN);
+    expect(h.ring.getAttribute('opacity')).toBe('1');
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    expect(h.ring.getAttribute('stroke-dasharray')).toBe(RULE_DASH);
+  });
+
+  it('위반이면 실선 + 경고색으로 바뀐다 — 색 말고 **파선/실선**도 함께 바뀐다', () => {
+    const h = harness();
+    h.api.write(VIOLATING);
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+    expect(h.ring.getAttribute('stroke-dasharray')).toBe('none');
+    expect(h.ring.getAttribute('opacity')).toBe('1');
+  });
+
+  it('이 프레임에 좌표가 없는 공의 링은 숨는다', () => {
+    const h = harness();
+    h.api.write({ ch_a: { x: 0, y: 0 } });
+    expect(h.ring.getAttribute('opacity')).toBe('0');
+    // 대조군: 좌표가 돌아오면 다시 보인다.
+    h.api.write(CLEAN);
+    expect(h.ring.getAttribute('opacity')).toBe('1');
+  });
+
+  it('처음 등록된 링은 곧바로 보인다 — write 가 한 번도 안 와도(일시정지한 시연)', () => {
+    const say = vi.fn();
+    const api = createRuleOverlay({ say, now: () => 0 });
+    const ring = g();
+    api.setContext(ctx());
+    api.registerRing(BALL_ID, ring);
+    expect(ring.getAttribute('opacity')).toBe('1');
+    expect(ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+  });
+
+  it('상태가 그대로면 DOM 을 건드리지 않는다', () => {
+    const h = harness();
+    h.api.write(CLEAN);
+    const spy = vi.spyOn(h.ring, 'setAttribute');
+    h.api.write(CLEAN);
+    h.api.write(CLEAN);
+    expect(spy).toHaveBeenCalledTimes(0);
+    // 대조군: 실제로 바뀌는 프레임에서는 쓴다(그래야 '0회'가 스파이 미장착이 아님이 증명된다).
+    h.api.write(VIOLATING);
+    expect(spy.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it('해지하면 그 노드는 더 이상 갱신되지 않는다', () => {
+    const h = harness();
+    h.api.write(CLEAN);
+    h.api.registerRing(BALL_ID, null);
+    h.api.write(VIOLATING);
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+  });
+});
+
+describe('ruleOverlay — 골 지역 표시', () => {
+  const inZone = (i: number) => ({ x: GZ[0]!.x + 10 + i * 10, y: GZ[0]!.y + 10 });
+  const three = {
+    ch_a: inZone(0),
+    ch_b: inZone(1),
+    ch_e: inZone(2),
+  };
+
+  it('깨끗하면 숨어 있다', () => {
+    const h = harness();
+    h.api.write(CLEAN);
+    expect(h.zone0.getAttribute('opacity')).toBe('0');
+  });
+
+  it('같은 팀 3명이면 나타나고 경고색이 된다', () => {
+    const h = harness({ roster: [...ROSTER, chair('ch_e', 'home')] });
+    h.api.write(three);
+    expect(h.zone0.getAttribute('opacity')).toBe('1');
+    expect(h.zone0.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+    // 대조군: 한 명을 빼면 곧바로 숨는다.
+    h.api.write({ ch_a: three.ch_a, ch_b: three.ch_b });
+    expect(h.zone0.getAttribute('opacity')).toBe('0');
+  });
+
+  it('존이 없는 코트(flat)에서는 아무 일도 하지 않는다', () => {
+    const h = harness({ goalAreas: COURT_DEFS.flat.ruleZones, roster: [...ROSTER, chair('ch_e', 'home')] });
+    h.api.write(three);
+    expect(h.zone0.getAttribute('opacity')).toBe('0');
+  });
+});
+
+describe('ruleOverlay — 라이브 리전 발화 [D-6]', () => {
+  it('위반이 시작되면 딱 한 번 말한다 — 이어지는 60프레임은 조용하다', () => {
+    const h = harness();
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 60; i++) {
+      h.tick(16);
+      h.api.write(VIOLATING);
+    }
+    expect(h.say).toHaveBeenCalledTimes(1);
+  });
+
+  it('문구에 팀 이름과 인원 문턱이 들어간다', () => {
+    const h = harness();
+    h.api.write(VIOLATING);
+    const said = h.say.mock.calls[0]![0] as string;
+    expect(said).toContain('레드');
+    expect(said).toContain('2명 이상');
+    expect(said).toContain('2-on-1');
+    expect(said).not.toContain('블루'); // 걸린 팀만 말한다
+  });
+
+  it('골 지역 3인은 다른 문구로 말한다', () => {
+    const h = harness({ roster: [chair('ch_a', 'away'), chair('ch_b', 'away'), chair('ch_e', 'away')] });
+    h.api.write({ ch_a: { x: GZ[0]!.x + 10, y: GZ[0]!.y + 10 }, ch_b: { x: GZ[0]!.x + 20, y: GZ[0]!.y + 10 }, ch_e: { x: GZ[0]!.x + 30, y: GZ[0]!.y + 10 } });
+    const said = h.say.mock.calls[0]![0] as string;
+    expect(said).toContain('골 지역');
+    expect(said).toContain('3명 이상');
+    expect(said).toContain('블루');
+  });
+
+  it('해소는 말하지 않는다 — 코치가 알아야 하는 것은 "지금 반칙" 뿐이다', () => {
+    const h = harness();
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(1);
+    h.tick(1000);
+    h.api.write(CLEAN);
+    h.api.write(CLEAN);
+    expect(h.say).toHaveBeenCalledTimes(1);
+  });
+
+  it('문턱 위에서 떠는 개체가 발화를 연타하지 않는다 — 짧게 풀렸다 다시 걸리면 조용하다', () => {
+    const h = harness();
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(1);
+    h.tick(RULE_CLEAR_MS - 100);
+    h.api.write(CLEAN);
+    h.tick(16);
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(1);
+  });
+
+  it('충분히 깨끗했다가 다시 걸리면 새 사건으로 말한다', () => {
+    const h = harness();
+    h.api.write(VIOLATING);
+    h.api.write(CLEAN); // cleanSince 시작
+    h.tick(RULE_CLEAR_MS + 1);
+    h.api.write(CLEAN); // 여기서 해소 확정
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(2);
+  });
+
+  it('위반 조합이 바뀌면 곧바로 다시 말한다 (링 → 링 + 골 지역)', () => {
+    const h = harness({ roster: [...ROSTER, chair('ch_e', 'home'), chair('ch_f', 'home')] });
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(1);
+    h.api.write({
+      ...VIOLATING,
+      ch_e: { x: GZ[0]!.x + 10, y: GZ[0]!.y + 10 },
+      ch_f: { x: GZ[0]!.x + 20, y: GZ[0]!.y + 10 },
+      ch_b: { x: GZ[0]!.x + 30, y: GZ[0]!.y + 10 },
+    });
+    // ch_b 가 존으로 옮겨가 링은 풀렸지만 존이 걸렸다 — 조합이 달라졌으니 새 발화다.
+    expect(h.say).toHaveBeenCalledTimes(2);
+    expect(h.say.mock.calls[1]![0]).toContain('골 지역');
+  });
+});
+
+describe('ruleOverlay — 스위치', () => {
+  it('꺼져 있으면 판정도 발화도 하지 않는다', () => {
+    const h = harness({ enabled: false });
+    const spy = vi.spyOn(h.ring, 'setAttribute');
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(0);
+    expect(spy).toHaveBeenCalledTimes(0);
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+  });
+
+  it('켜면 곧바로 판정과 발화가 산다 — 위 "0회" 의 대조군', () => {
+    const h = harness({ enabled: false });
+    h.api.write(VIOLATING);
+    h.api.setContext(ctx({ enabled: true }));
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(1);
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+  });
+
+  it('껐다 켜면 같은 위반을 다시 말한다 — 꺼진 동안의 기억을 들고 있지 않는다', () => {
+    const h = harness();
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(1);
+    h.api.setContext(ctx({ enabled: false }));
+    h.api.write(VIOLATING);
+    h.api.setContext(ctx({ enabled: true }));
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(2);
+  });
+
+  it('등록·문맥이 프레임보다 늦게 와도 그 프레임으로 곧바로 판정한다 (마운트 순서)', () => {
+    // 시연은 **레이아웃 이펙트**에서 첫 프레임을 흘리고, 링 등록·setContext 는 그보다 뒤에
+    // 오는 패시브 이펙트다. 이 보정이 없으면 일시정지로 열린 시연에서 1스텝의 반칙이
+    // 영영 발표되지 않는다(다음 프레임이 오지 않으므로).
+    const say = vi.fn();
+    const api = createRuleOverlay({ say, now: () => 0 });
+    const ring = g();
+    api.write(VIOLATING);
+    expect(say).toHaveBeenCalledTimes(0); // 아직 아무 문맥도 없다
+    api.registerRing(BALL_ID, ring);
+    api.setContext(ctx());
+    expect(ring.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+    expect(say).toHaveBeenCalledTimes(1);
+  });
+
+  it('clear() 는 등록·상태·문맥을 모두 버린다', () => {
+    const h = harness();
+    h.api.write(VIOLATING);
+    h.api.clear();
+    h.api.write(VIOLATING);
+    expect(h.say).toHaveBeenCalledTimes(1); // clear 뒤에는 enabled=false 라 말하지 않는다
+  });
+});
+
+describe('ruleOverlay — 소리는 쓰지 않는다 (2.11 큐 어댑터 판정)', () => {
+  // 왜 안 쓰는가:
+  //   ① 2.11 의 세 신호는 전부 **손이 판에 닿는 순간**이다(놓임·막힘·트레이 반환) — 한 동작에
+  //      한 번 울린다. 규칙 위반은 동작이 아니라 **상태**라, 문턱 위에서 드래그하면 같은
+  //      드래그 안에서 여러 번 켜졌다 꺼진다(그래서 발화 쪽에는 400ms 히스테리시스가 있다).
+  //   ② 시연 재생은 스텝마다 위반을 여러 번 지나간다 — 코치가 말하는 동안 계속 울린다.
+  //   ③ [D-6] 이 요구한 라이브 리전 발화와 **같은 사건**을 두 채널로 통보하게 된다. 2.11 이
+  //      [D-7] 로 잠근 이중 통보가 바로 그것이다.
+  // 실기(0.5)에서 "눈을 떼고도 알고 싶다" 가 확인되면 그때 얹을 자리는 여기 announce() 하나다.
+  it('규칙 오버레이 두 파일 중 어느 것도 큐 어댑터를 부르지 않는다', () => {
+    const sources = ['src/render/ruleOverlay.ts', 'src/render/RuleOverlay.tsx'].map((p) => readFileSync(p, 'utf-8'));
+    // 대조군 — 같은 grep 이 실제 소비처는 찾아낸다(찾지 못하면 위 단언이 공허하다).
+    const consumer = readFileSync('src/features/editor/useEditorPointer.ts', 'utf-8');
+    expect(consumer).toContain("from '../../ui/cues.ts'");
+    for (const src of sources) expect(src).not.toContain('cues');
+  });
+});
