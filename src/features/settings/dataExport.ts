@@ -15,12 +15,24 @@
 // 서로 다르게 거짓말한다.
 import { parseSpinFile, restoreBackup } from '../../storage/transfer.ts';
 import type { BackupRestoreReport, RestoreBackupOptions } from '../../storage/transfer.ts';
+import { StorageError } from '../../storage/errors.ts';
 import { readTextFile } from '../../storage/files.ts';
 
 /** 파일 하나 → 복원 보고. 파싱 실패·kind 불일치는 StorageError 로 그대로 던진다(화면이 문구를
  *  토스트로 옮긴다) — 여기서 삼키면 "아무 일도 안 일어난 것처럼" 보인다. */
 export async function restoreBackupFromFile(file: File, opts: RestoreBackupOptions = {}): Promise<BackupRestoreReport> {
-  return restoreBackup(parseSpinFile(await readTextFile(file)), opts);
+  const parsed = parseSpinFile(await readTextFile(file));
+  // ⚠️ library 를 restoreBackup 의 일반 거절('이 버전에서 지원하지 않는 파일 종류입니다
+  //    (library)')로 흘리지 마라(5.0 ③, 2026-08-13). 어제(4.7)까지 [전체 내보내기]가 만들던
+  //    **유일한 백업 파일**이 바로 library 봉투라, 그 파일은 사용자 손에 반드시 존재한다 —
+  //    "지원하지 않는다" 는 거짓말이고(드릴 목록에서는 여전히 열린다), 길을 안 알려주면 코치는
+  //    자기 백업이 죽었다고 믿는다. a509d76 과 같은 수법이다: 공용 메시지
+  //    (STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND)는 건드리지 않고 **이 화면에서만** kind 를
+  //    특별대우한다. 진짜 모르는 kind(drillSet 등)는 그대로 restoreBackup 의 일반 문구를 받는다.
+  if (parsed.spin === 'library') {
+    throw new StorageError('E_UNSUPPORTED_KIND', '드릴 모음 파일은 [드릴 목록]의 [가져오기]에서 엽니다.');
+  }
+  return restoreBackup(parsed, opts);
 }
 
 /** 토스트 한 줄. 0 이어도 숫자를 숨기지 않는다(4.2 `importReportLine` 과 같은 규율) — 10개짜리
@@ -34,10 +46,20 @@ export function backupReportLine(r: BackupRestoreReport): string {
   const failed = broken + r.drills.failed.length;
   const sessions = `세션 ${r.sessionsWritten.length}개 가져옴 · ${r.sessionsSkipped.length + r.sessionsFailed}개 건너뜀`;
   const prefs = r.prefs === 'restored' ? '설정 복원함' : r.prefs === 'unreadable' ? '설정은 읽을 수 없어 그대로 둠' : '설정은 그대로 둠';
-  // ⚠️ 'skipped' 는 두 가지를 뭉뚱그린다 — 파일에 판이 없었거나(정상), 로컬 판이 편집 중이라
-  //    덮지 않았거나(storage/transfer.ts restoreBoardFrom). 둘을 가르는 정보가 보고에 없으므로
-  //    **이유를 지어내지 않는다**. 이유까지 말하려면 먼저 그 보고를 나눠야 한다.
+  // 5.0 ②a(2026-08-13) — 옛 'skipped' 하나가 "파일에 판이 없다"(정상) 와 "로컬 판이 편집 중이라
+  // 덮지 않았다" 를 뭉갰고, 토스트는 '전술판은 그대로 둠' 이라고만 해 **이유를 안 말했다.**
+  // 보고(BoardRestoreResult)를 갈랐으므로 이제 둘을 다르게 말한다. 편집 중 쪽은 문구가
+  // **다음 행동**까지 말해야 한다 — [전술판 교체] 체크박스(SettingsScreen 복원 모달)가 그 길이고,
+  // 그 이름을 여기서 그대로 부른다(a509d76 의 "버튼 이름을 그대로 부른다" 규율).
   const board =
-    r.board === 'restored' ? ' · 전술판 복원함' : r.board === 'unreadable' ? ' · 전술판은 읽을 수 없어 그대로 둠' : ' · 전술판은 그대로 둠';
+    r.board === 'restored'
+      ? ' · 전술판 복원함'
+      : r.board === 'unreadable'
+        ? ' · 전술판은 읽을 수 없어 그대로 둠'
+        : r.board === 'none-in-file'
+          ? ' · 전술판은 파일에 없음'
+          : r.board === 'kept-local-edited'
+            ? ' · 전술판은 이 기기에서 편집 중이라 그대로 둠 — 함께 복원하려면 [전술판 교체]를 켜고 다시 읽으세요'
+            : ' · 전술판은 그대로 둠';
   return `드릴 ${r.drills.written.length}개 가져옴 · ${failed}개 실패 · ${r.drills.skipped.length}개 건너뜀 · ${sessions} · ${prefs}${board}`;
 }

@@ -19,8 +19,10 @@ import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
 import { loadPrefs, PREFS_KEY } from '../../storage/prefs.ts';
+import { loadBoard, saveBoard } from '../../storage/board.ts';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
+import { createDrill } from '../../model/defaults.ts';
 
 function ToastHostBridge() {
   const { toasts, dismiss } = useToast();
@@ -250,6 +252,52 @@ describe('SettingsScreen — 기기 이사 파일 읽기 (§6.1b)', () => {
     await user.click(screen.getByRole('button', { name: '읽기' }));
     await waitFor(() => expect(screen.getByRole('radio', { name: '라이트' })).toHaveAttribute('aria-checked', 'true'));
     expect(loadPrefs().theme).toBe('light');
+  });
+
+  // ── 5.0 ②b(2026-08-13) — 편집 중인 자유 전술판을 백업에서 되살리는 길 ──────────────────────
+  // 전에는 runRestore 가 board 옵션을 아예 안 넘겨 항상 'auto' 였고, board:'replace' 를 여는
+  // UI 가 저장소 어디에도 없었다 — 편집 중인 판은 백업에서 **영영** 못 되살렸다. 회피책([코트
+  // 비우기] 후 재시도)은 아무도 알 수 없었다. 이 체크박스는 [보드] 초기 화면이 아니라 설정
+  // 화면의 닫힌 모달 안이므로 §3 표적 예산(≤40) 밖이다(boardTargetBudget.test.tsx 규칙 1).
+
+  it('전술판 교체 체크박스가 꺼진 채로 나온다 — 파괴적 동작의 기본값은 끔이다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    await pick(await backupFile());
+    const dialog = await screen.findByRole('dialog');
+    const check = within(dialog).getByRole('checkbox', { name: /전술판 교체/ });
+    expect(check).not.toBeChecked();
+    // 대조군 — 설정 체크박스와 별개의 컨트롤이다(하나를 켜도 다른 하나가 안 켜진다).
+    expect(within(dialog).getByRole('checkbox', { name: /설정도 함께 복원/ })).not.toBeChecked();
+  });
+
+  it('끈 채 읽으면 편집 중인 판은 남고, 토스트가 **이유와 다음 행동**을 말한다', async () => {
+    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }), false);
+    const file = await backupFile(); // 이 파일에는 판이 들어 있다
+    saveBoard(createDrill({ courtMode: 'full', title: '이 기기의 편집 중 판' }), false);
+
+    render(<SettingsScreen />, { wrapper });
+    await pick(file);
+    await userEvent.setup().click(await screen.findByRole('button', { name: '읽기' }));
+
+    // 옛 토스트는 '전술판은 그대로 둠' 이라고만 해 이유를 안 말했다(5.0 ②a 가 사유를 갈랐다).
+    expect(await screen.findByText(/편집 중이라 그대로 둠/)).toBeInTheDocument();
+    expect(screen.getByText(/\[전술판 교체\]를 켜고 다시 읽으세요/)).toBeInTheDocument();
+    expect(loadBoard()?.drill.title).toBe('이 기기의 편집 중 판'); // 판은 실제로 안 덮였다
+  });
+
+  it('켜고 읽으면 편집 중인 판이 파일 속 판으로 바뀐다 — 체크박스가 실제로 replace 를 배선한다', async () => {
+    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }), false);
+    const file = await backupFile();
+    saveBoard(createDrill({ courtMode: 'full', title: '희생될 편집 중 판' }), false);
+
+    render(<SettingsScreen />, { wrapper });
+    await pick(file);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('checkbox', { name: /전술판 교체/ }));
+    await user.click(screen.getByRole('button', { name: '읽기' }));
+
+    await waitFor(() => expect(loadBoard()?.drill.title).toBe('백업 속 판'));
+    expect(await screen.findByText(/전술판 복원함/)).toBeInTheDocument();
   });
 
   it('백업이 아닌 파일은 사유를 말한다 — 조용히 아무 일도 안 일어나면 안 된다', async () => {

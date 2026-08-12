@@ -47,6 +47,11 @@ export function SettingsScreen() {
   // 바뀐다) 반드시 한 번 묻는다. 그 물음이 곧 체크박스 하나짜리 모달이다.
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [withPrefs, setWithPrefs] = useState(false);
+  // 5.0 ②b(2026-08-13) — 편집 중인 자유 전술판을 백업에서 되살리는 **유일한 길**. 기본 'auto' 는
+  // pristine 이 아닌 로컬 판을 절대 덮지 않으므로(storage/transfer.ts restoreBoardFrom),
+  // 이 체크박스가 없으면 board:'replace' 를 여는 UI 가 0곳이라 회피책([코트 비우기] 후 재시도)을
+  // 아는 사람만 복원할 수 있었다. 파괴적 동작이라 기본값은 반드시 꺼짐 — withPrefs 와 같은 규율.
+  const [withBoard, setWithBoard] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const restoreBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -75,7 +80,7 @@ export function SettingsScreen() {
     if (!file || restoring) return;
     setRestoring(true);
     try {
-      const report = await restoreBackupFromFile(file, { prefs: withPrefs ? 'replace' : 'skip' });
+      const report = await restoreBackupFromFile(file, { prefs: withPrefs ? 'replace' : 'skip', board: withBoard ? 'replace' : 'auto' });
       // ★ 목록을 다시 읽는다. LibraryProvider 는 앱 최상단에서 한 번만 로드하므로(App.tsx),
       //   빼면 IDB 에는 들어왔는데 목록에는 새로고침 전까지 안 뜬다 = "복원이 안 된 것" 으로 보인다.
       await refresh();
@@ -90,6 +95,7 @@ export function SettingsScreen() {
       setRestoring(false);
       setPendingFile(null);
       setWithPrefs(false);
+      setWithBoard(false);
     }
   };
 
@@ -334,6 +340,7 @@ export function SettingsScreen() {
         onClose={() => {
           setPendingFile(null);
           setWithPrefs(false);
+          setWithBoard(false);
         }}
         titleId={restoreDialogId}
         title="이 파일을 읽을까요?"
@@ -362,12 +369,30 @@ export function SettingsScreen() {
             </span>
           </span>
         </label>
+        {/* ⚠️ 5.0 ②b — 기본값 **꺼짐**. 켜면 편집 중인 자유 전술판까지 백업 속 판으로 덮는다 —
+            그 판은 목록에 뜨지 않고 되돌릴 수도 없는 단 한 장이라(board.ts), 파괴적 동작을
+            기본으로 켤 수 없다. 끈 채로 읽으면 'auto': 로컬 판이 기본 배치 그대로일 때만 복원. */}
+        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 12, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={withBoard}
+            onChange={(e) => setWithBoard(e.target.checked)}
+            style={{ marginTop: 3, width: 18, height: 18, flex: 'none' }}
+          />
+          <span style={{ fontSize: '0.78125rem', lineHeight: 1.6 }}>
+            전술판 교체
+            <span style={{ display: 'block', color: 'var(--faint-text)', fontSize: '0.71875rem' }}>
+              켜면 이 기기의 자유 전술판을 파일 속 판으로 덮어씁니다. 끄면 편집 중인 판은 그대로 두고, 손대지 않은 판일 때만 복원합니다.
+            </span>
+          </span>
+        </label>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
           <Button
             variant="secondary"
             onClick={() => {
               setPendingFile(null);
               setWithPrefs(false);
+              setWithBoard(false);
             }}
           >
             취소

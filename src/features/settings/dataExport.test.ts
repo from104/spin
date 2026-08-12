@@ -136,9 +136,61 @@ describe('backupReportLine — 숫자를 숨기지 않는다', () => {
     expect(backupReportLine({ ...base, prefs: 'unreadable' })).toContain('설정은 읽을 수 없어');
   });
 
-  it('전술판 줄은 이유를 지어내지 않는다 — skipped 는 두 가지를 뭉뚱그린다', () => {
-    expect(backupReportLine(base)).toContain('전술판은 그대로 둠');
-    expect(backupReportLine(base)).not.toContain('편집 중');
+  // 5.0 ②a(2026-08-13) — 옛 계약("skipped 는 두 가지를 뭉뚱그리므로 이유를 지어내지 않는다")은
+  // 보고가 갈라지면서 **삭제가 아니라 승격**됐다: 이제 사유가 실제로 오므로 지어내는 것이 아니라
+  // 전달한다.
+  it('전술판 줄이 사유를 가른다 — "파일에 없음" 과 "편집 중" 은 다른 문장이다', () => {
+    expect(backupReportLine({ ...base, board: 'none-in-file' })).toContain('전술판은 파일에 없음');
     expect(backupReportLine({ ...base, board: 'restored' })).toContain('전술판 복원함');
+    // 대조군 — 파일에 없던 것을 "편집 중이라 안 덮었다" 고 말하면 그게 바로 지어낸 이유다.
+    expect(backupReportLine({ ...base, board: 'none-in-file' })).not.toContain('편집 중');
+    expect(backupReportLine(base)).toContain('전술판은 그대로 둠'); // 정책 skip 은 중립 문구 유지
+  });
+
+  it('편집 중 쪽 문구는 **무엇을 하면 되는지**까지 말한다 — [전술판 교체] 체크박스를 이름으로 부른다', () => {
+    const line = backupReportLine({ ...base, board: 'kept-local-edited' });
+    expect(line).toContain('편집 중이라 그대로 둠');
+    expect(line).toContain('[전술판 교체]'); // 복원 모달 체크박스의 실제 이름(SettingsScreen)
+    expect(line).toContain('다시 읽으세요'); // 다음 행동: 켜고 재시도
+  });
+});
+
+// ── 5.0 ③(2026-08-13) — 옛 [전체 내보내기]가 만들던 library 파일을 여기 넣었을 때 ──────────────
+//
+// 어제(4.7 이전)까지 library 봉투가 이 앱의 **유일한 백업 파일**이었으므로 사용자 손에 반드시
+// 존재한다. restoreBackup 의 일반 거절('이 버전에서 지원하지 않는 파일 종류입니다 (library)')은
+// 거짓말이다 — 지원한다, 여는 자리가 [드릴 목록]일 뿐이다. a509d76(목록이 backup 을 설정으로
+// 보내던 고침)의 반대 방향을 같은 수법으로 고친다: 공용 메시지는 그대로, 이 화면에서만 특별대우.
+describe('restoreBackupFromFile — 다른 화면 파일의 안내 (5.0 ③)', () => {
+  it('library 봉투는 "지원하지 않는다" 가 아니라 [드릴 목록]으로 보낸다', async () => {
+    const env = JSON.stringify({ spin: 'library', envelope: 1, app: 'SPIN', exportedAt: Date.now(), payload: [] });
+    await expect(restoreBackupFromFile(fileOf(env, 'SPIN_드릴전체_20260811.spin.json'))).rejects.toMatchObject({ code: 'E_UNSUPPORTED_KIND' });
+    try {
+      await restoreBackupFromFile(fileOf(env));
+      expect.unreachable();
+    } catch (e) {
+      const msg = (e as Error).message;
+      expect(msg).toContain('[드릴 목록]'); // 어디로 가야 하는지
+      expect(msg).toContain('[가져오기]'); // 그 화면의 실제 버튼 이름을 그대로 부른다
+      // ★ 일반 거절 문구로 되돌아가면 여기가 운다 — 사용자는 자기 백업이 죽었다고 믿게 된다.
+      expect(msg).not.toContain('지원하지 않는');
+    }
+  });
+
+  it('대조군: 진짜 모르는 kind(drillSet)는 여전히 일반 문구다 — library 만 특별대우한다', async () => {
+    const env = JSON.stringify({ spin: 'drillSet', envelope: 1, app: 'SPIN', exportedAt: Date.now(), payload: {} });
+    try {
+      await restoreBackupFromFile(fileOf(env));
+      expect.unreachable();
+    } catch (e) {
+      expect((e as Error).message).toContain('지원하지 않는 파일 종류');
+      expect((e as Error).message).toContain('(drillSet)');
+    }
+  });
+
+  it('대조군: 성한 backup 봉투는 그대로 열린다 — 분기를 더하면서 정상 경로를 막지 않았다', async () => {
+    const report = await restoreBackupFromFile(await backupFile());
+    expect(report.drills.failed).toEqual([]);
+    expect(typeof report.drillsInFile).toBe('number');
   });
 });
