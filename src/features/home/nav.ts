@@ -26,3 +26,12 @@ export interface HomeNav {
 }
 
 export type LibraryNav = HomeNav;
+
+/** 목록 화면에 **아무 초기 의도 없이** 들어왔을 때 어느 탭이 서는가(계획서 2.9 · 안 2 이식).
+ *  세션이 하나도 없으면 [세션] 탭은 빈 상태 안내뿐이라 첫 화면으로 세울 값이 없다 — 그때는
+ *  [드릴]이 기본이고, 세션이 하나라도 있으면 "오늘 뭘 하지" 가 먼저이므로 [세션]이 기본이다.
+ *  화면 전환을 아는 쪽(app-shell)과 탭을 그리는 쪽(LibraryScreen)이 **같은 규칙**을 써야
+ *  뒤로가기가 어긋나지 않으므로, 규칙 자체는 두 쪽이 함께 보는 이 계약 파일에 둔다. */
+export function defaultLibraryTab(sessionCount: number): LibraryTab {
+  return sessionCount > 0 ? 'sessions' : 'drills';
+}

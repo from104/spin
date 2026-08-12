@@ -76,11 +76,17 @@ function presentFromNav(screen: Screen, target: NavTarget | undefined): PresentT
   return null;
 }
 
+/** 목록 화면의 초기 의도(어느 탭 · 어느 드로어). **대상이 없는 drills 엔트리는 "의도 없음"** 이라
+ *  빈 의도를 돌려준다 — board 의 "대상이 없으면 지금 값을 그대로 둔다"(손에 든 판은 들렀다 와도
+ *  그대로)와 갈리는 지점이고, 그것이 계약이다. 목록은 손에 든 물건이 아니라 들어올 때마다 새로
+ *  여는 화면이라, 앞서 열었던 탭·드로어가 뒤 엔트리에서 따라오면 **뒤로가기가 어긋난다**(계획서
+ *  2.9: 탭 전환은 엔트리를 쌓고 뒤로가기는 정확히 이전 탭으로 돌아와야 한다). 탭을 안 실은
+ *  엔트리로 돌아오면 LibraryScreen 이 세션 개수로 기본 탭을 다시 정한다(defaultLibraryTab). */
 function intentFromNav(screen: Screen, target: NavTarget | undefined): { tab?: LibraryTab; openSessionId?: SessionId } | null {
-  if (screen !== 'drills' || !target) return null;
-  if (target.kind === 'tab') return { tab: target.tab };
-  if (target.kind === 'session') return { tab: 'sessions', openSessionId: target.id as SessionId };
-  return null;
+  if (screen !== 'drills') return null;
+  if (target?.kind === 'tab') return { tab: target.tab };
+  if (target?.kind === 'session') return { tab: 'sessions', openSessionId: target.id as SessionId };
+  return {};
 }
 
 /** board 자리의 화면들(BoardScreen/EditorScreen)이 자기가 무엇을 그릴지 알아내는 통로 —
@@ -228,8 +234,9 @@ export function AppShell() {
   const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav);
 
   // 브라우저 뒤로/앞으로가기로 돌아온 엔트리가 대상을 싣고 있으면 그 대상으로 되돌린다.
-  // 없으면(대상 없는 엔트리) 지금 값을 그대로 둔다 — 레일 [보드]는 대상을 안 싣고, 그것이
-  // 곧 "들렀다 와도 손에 든 판은 그대로" 라는 계약이다(2.1 원칙 2).
+  // 스테이지·시연은 없으면(대상 없는 엔트리) 지금 값을 그대로 둔다 — 레일 [보드]는 대상을
+  // 안 싣고, 그것이 곧 "들렀다 와도 손에 든 판은 그대로" 라는 계약이다(2.1 원칙 2).
+  // **목록 의도만 반대다**: 빈 의도도 값이라 그대로 심는다(intentFromNav 주석).
   const navTarget = nav.target;
   useEffect(() => {
     const s = stageFromNav(nav.screen, navTarget);

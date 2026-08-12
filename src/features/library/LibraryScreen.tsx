@@ -1,7 +1,10 @@
 // §6.11: 목록 화면 = 드릴 그리드(부록A 마크업 이식) + "목록 화면의 탭"으로 얹은 세션 탭.
 //
 // 내비게이션·헤더: §8 "screen-home-library 의존은 store, render-court, ui-kit, model, storage
-// 뿐" — app-shell 을 import 하지 않는다(HomeScreen.tsx 상단 주석과 같은 이유). 화면 전환은
+// 뿐" — app-shell 을 import 하지 않는다. **이동은 통로가 하나다**: 화면 전환도 탭 전환도 전부
+// `HomeNav` prop 으로만 나간다(계획서 2.8). `useAppNav()` 를 여기서 직접 부르면 같은 이동이 두
+// 경로로 일어나 히스토리가 어긋난다 — 탭은 로컬 state 로만 바뀌고 주소만 따로 쌓이거나, 반대로
+// 두 번 쌓인다. 그 계약은 `features/home/nav.test.ts` 가 소스 정적 검사로 못박는다. 화면 전환은
 // app-shell 이 내려주는 `HomeNav` prop 으로, 검색창·주 액션 라벨은 app-shell 이 정적으로 계산해
 // 헤더에 꽂는다(§ AppHeader.tsx) — 이 화면은 헤더를 선언하지 않는다. 대문에서 "세션 탭으로 진입
 // + 드로어 열기" 처럼 화면 전환과 함께 실어야 하는 초기 상태는 `initialTab`/`initialOpenSessionId`
@@ -33,7 +36,7 @@ import { SessionTab } from './SessionTab.tsx';
 import { SessionDrawer } from './SessionDrawer.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
 import type { HomeNav, LibraryTab } from '../home/nav.ts';
-import { HomeDashboard } from '../home/HomeDashboard.tsx';
+import { defaultLibraryTab } from '../home/nav.ts';
 import { commitDrills, commitSession, exportAllDrills, exportOneDrill, exportOneSession, readImportFile } from './transfer.ts';
 import type { ImportPreview } from './transfer.ts';
 import type { ImportResolution } from '../../storage/transfer.ts';
@@ -50,20 +53,35 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
   const { drills, sessions, category, search, setCategory, duplicateDrill, deleteDrill, createSession, refresh } = useLibrary();
   const toast = useToast();
 
-  const [tab, setTab] = useState<LibraryTab>(initialTab ?? 'drills');
+  const sessionCount = sessions.length;
+  const [tab, setTab] = useState<LibraryTab>(() => initialTab ?? defaultLibraryTab(sessionCount));
   const [drawerSessionId, setDrawerSessionId] = useState<SessionId | null>(initialOpenSessionId ?? null);
   const drawerTriggerRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
-  // initialTab/initialOpenSessionId 는 화면이 다시 마운트될 때(예: 홈 → 목록 재진입)마다
-  // app-shell 이 새 값을 내려줄 수 있다 — 첫 렌더 이후 값이 바뀌면 반영한다.
+  // initialTab 은 **NavEntry 가 싣고 온 탭**이다(app-shell 이 history.state 의 {kind:'tab'} 을
+  // 풀어 내려준다) — 뒤로가기로 돌아오면 여기로 그 탭이 다시 들어오므로, 값이 바뀔 때마다
+  // 반영해야 뒤로가기가 정확히 돌아온다(계획서 2.9). 탭을 안 싣고 들어온 엔트리(레일로 그냥
+  // 진입)는 undefined 로 오고, 그때는 **세션 개수**가 기본 탭을 정한다. 개수는 IDB 를 비동기로
+  // 읽어 오므로 첫 렌더에는 아직 0 이다 — 그래서 sessionCount 도 의존성에 들어간다. 사용자가
+  // 직접 고른 탭은 nav.goLibrary 를 거쳐 initialTab 으로 되돌아오므로 이 재계산에 덮이지 않는다.
   useEffect(() => {
-    if (initialTab) setTab(initialTab);
-  }, [initialTab]);
+    setTab(initialTab ?? defaultLibraryTab(sessionCount));
+  }, [initialTab, sessionCount]);
   useEffect(() => {
     if (initialOpenSessionId) setDrawerSessionId(initialOpenSessionId);
   }, [initialOpenSessionId]);
+
+  // 탭 전환도 **이동**이다(계획서 2.9) — 로컬 state 만 바꾸면 뒤로가기가 탭을 건너뛴다.
+  // 통로는 하나뿐이라 여기서도 useAppNav 가 아니라 HomeNav prop 으로 나간다(2.8). 로컬 state 를
+  // 함께 세우는 것은 낙관 갱신이다: app-shell 왕복(NavEntry → initialTab)을 기다리면 탭이 한
+  // 프레임 늦게 바뀌고, nav 가 없는 단독 렌더(테스트·스토리)에서는 아예 안 바뀐다.
+  const selectTab = (next: LibraryTab) => {
+    if (next === tab) return; // 같은 탭을 다시 눌러 히스토리를 쌓지 않는다
+    setTab(next);
+    nav.goLibrary({ tab: next });
+  };
 
   const openDrill = (id: DrillSummary['id']) => nav.openDrill(id);
   const goNewDrill = () => nav.newDrill();
@@ -150,14 +168,15 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
   return (
     <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '22px 30px 46px', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-        {/* 2026-08-09 재편: 대문이 자유 전술판이 되면서 훈련 현황 대시보드가 여기로 왔다. */}
-        <HomeDashboard nav={nav} />
+        {/* 2026-08-12(계획서 2.8): 여기 얹혀 있던 HomeDashboard 를 **지웠다**. 히어로·통계 4칸이
+            목록 맨 위 한 화면을 통째로 먹어 정작 드릴 그리드가 늘 접힘 아래에 있었다. 살아남은
+            것은 '다음 세션' 스트립 하나뿐이고, 그건 SessionTab 머리로 옮겼다. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <div role="tablist" aria-label="라이브러리" style={{ display: 'flex', gap: 4, padding: 3, border: '1px solid var(--border)', borderRadius: 10 }}>
-            <TabButton active={tab === 'drills'} onClick={() => setTab('drills')} controls="library-panel-drills">
+            <TabButton active={tab === 'drills'} onClick={() => selectTab('drills')} controls="library-panel-drills">
               드릴
             </TabButton>
-            <TabButton active={tab === 'sessions'} onClick={() => setTab('sessions')} controls="library-panel-sessions">
+            <TabButton active={tab === 'sessions'} onClick={() => selectTab('sessions')} controls="library-panel-sessions">
               세션
             </TabButton>
           </div>

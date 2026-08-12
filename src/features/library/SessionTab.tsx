@@ -1,13 +1,19 @@
 // §6.11 "(세션 탭) 세션 리스트 행 (요일·시각 Space Grotesk 17px/700 + 장소 / 세션명 + 카테고리 점 /
 // 총 시간 + "N개 드릴" + [시연] 44×44)". 프로토타입에 없던 탭이라 §6.11 서술을 그대로 마크업화한다.
+//
+// 2026-08-12(계획서 2.8): HomeDashboard 를 지우면서 그 '다음 세션' 카드 하나만 여기 **머리**로
+// 흡수했다. 대시보드의 나머지(히어로·통계 4칸·최근 드릴)는 되살리지 않는다 — 목록 위에 얹혀
+// 첫 화면 표적 예산만 먹고 드릴 그리드를 접힘 아래로 밀어냈던 것이 제거 이유다. 남긴 것은
+// "다음에 뭘 하지" 라는 질문 하나뿐이고, 그 답은 세션 탭에서 물어야 맥락이 맞는다.
 import { useId, useRef, useState } from 'react';
-import { formatSessionWhen } from '../../model/session.ts';
+import { formatSessionWhen, pickNextSession } from '../../model/session.ts';
 import type { ResolvedSession } from '../../model/session.ts';
 import { categoryColor } from '../../core/colors.ts';
 import { IconPlay, IconPlus } from '../../ui/icons.tsx';
 import { Button } from '../../ui/Button.tsx';
 
 const MAX_DOTS = 4;
+const MAX_STRIP_DRILLS = 4;
 
 export interface SessionTabProps {
   sessions: ResolvedSession[];
@@ -41,12 +47,69 @@ export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, on
     );
   }
 
+  // 시각이 잡힌 세션 중 가장 가까운 것 하나. 전부 '미정' 이면 스트립 자체가 안 뜬다 —
+  // 없는 것을 "없습니다" 라고 알리는 빈 카드는 대시보드에서 자리만 먹던 그것이다.
+  const nextRaw = pickNextSession(sessions.map((s) => s.session));
+  const next = nextRaw ? sessions.find((s) => s.session.id === nextRaw.id) : undefined;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {next && <NextSessionStrip resolved={next} onOpen={() => onOpen(next.session.id)} />}
       {sessions.map((s) => (
         <SessionRow key={s.session.id} resolved={s} onOpen={() => onOpen(s.session.id)} onPresent={() => onPresent(s.session.id)} onDelete={() => onDelete(s.session.id)} onExport={() => onExport(s.session.id)} />
       ))}
     </div>
+  );
+}
+
+/** 목록 머리의 '다음 세션' 한 줄. 아래 행과 같은 세션을 한 번 더 보여주지만 **행에 없는 것**을
+ *  싣는다 — 편성된 드릴 이름이다. 표적은 하나(스트립 전체가 열기 버튼)로 둔다: [시연] 을 여기
+ *  또 두면 같은 이름의 버튼이 화면에 둘이 되어 보조기술에 중복 표적이 된다(2.7 의 [열기] 판단과
+ *  같은 이유). 시연은 바로 아래 행의 44×44 [시연] 이 이미 맡고 있다. */
+function NextSessionStrip({ resolved, onOpen }: { resolved: ResolvedSession; onOpen(): void }) {
+  const { session, items, totalMin } = resolved;
+  const shown = items.slice(0, MAX_STRIP_DRILLS);
+  const more = items.length - shown.length;
+  const when = session.scheduledAt !== undefined ? formatSessionWhen(session.scheduledAt) : '미정';
+
+  return (
+    <section
+      aria-label="다음 세션"
+      style={{
+        border: '1px solid var(--accent)',
+        borderRadius: 14,
+        background: 'color-mix(in srgb, var(--accent) 8%, var(--panel))',
+        padding: '12px 16px 14px',
+        marginBottom: 8,
+      }}
+    >
+      <div style={{ fontSize: '0.71875rem', fontWeight: 700, letterSpacing: 0.4, color: 'var(--accent-text)', marginBottom: 6 }}>다음 세션</div>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`다음 세션 ${session.title} 편성 열기`}
+        style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 16, minHeight: 'var(--hit)', flexWrap: 'wrap' }}
+      >
+        <span style={{ flex: 'none', fontFamily: "'Space Grotesk', sans-serif", fontSize: '1.0625rem', fontWeight: 700 }}>{when}</span>
+        <span style={{ minWidth: 0, flex: 1, fontSize: '0.875rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {session.title}
+        </span>
+        <span style={{ flex: 'none', fontSize: '0.78125rem', color: 'var(--muted)', fontWeight: 600 }}>
+          {[session.location, `${totalMin}분`, `${items.length}개 드릴`].filter(Boolean).join(' · ')}
+        </span>
+      </button>
+      {shown.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginTop: 8 }}>
+          {shown.map((it) => (
+            <span key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', opacity: it.missing ? 0.5 : 1 }}>
+              <span aria-hidden style={{ flex: 'none', width: 7, height: 7, borderRadius: '50%', background: categoryColor(it.categoryCache) }} />
+              {it.missing ? `${it.titleCache} (삭제됨)` : it.titleCache}
+            </span>
+          ))}
+          {more > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--faint-text)' }}>+{more}개 더</span>}
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -632,3 +632,83 @@ PresentScreen 은 `usePresentTarget()` 배선만 하는 얇은 래퍼라, 그걸
 `getBoundingClientRect` 를 스텁해 `useContainerWidth` → 호스트 경로를 실제로 통과시킨다.
 
 원복 후 **121 파일 1166 테스트 초록불**, `tsc -b --noEmit` 클린(내 파일 0), oxlint 경고 33건.
+
+---
+
+## 15. 2.8 HomeDashboard 제거 + 통로 정리 · 2.9 세션 0개면 드릴 탭 — 착수 후 기록 (2026-08-12)
+
+§3 표의 사전 등록은 한 줄도 안 밟았다(2.8·2.9 도 등록된 항목이 없다). `world.test.ts` 무변경.
+
+### 15.1 **새로 등록** — 이 커밋이 의도적으로 없앤 테스트 10 it
+
+계획서 2.8 이 "HomeDashboard 를 **삭제**한다" 이므로, 그 화면과 그 화면만의 헬퍼를 검증하던
+테스트도 함께 없어진다. **빨간불이 나서 지운 것이 아니라 검증 대상이 사라진 것**이다 — 아래가
+그 사전 등록이고, 다음 사람이 "테스트 수가 줄었다" 를 회귀로 오판하지 않게 하는 자리다.
+
+| 없앤 파일 | it 수 | 없앤 이유 |
+|---|---|---|
+| `src/features/home/HomeDashboard.test.tsx` | 3 | 대상 컴포넌트 `HomeDashboard.tsx` 를 삭제했다(계획서 2.2 화면 트리 "HomeDashboard 는 목록 상단에서 **제거**") |
+| `src/features/home/format.test.ts` | 7 | `format.ts`(`formatRelative`·`countUpcomingSessions`·`computeHomeStats`)의 **유일한 소비자가 HomeDashboard 였다**. 파일 머리말부터 *"대문의 '최근 작업한 드릴' 상대시각 표기"* 라고 적혀 있다 — 대문이 없어지면 죽은 코드다. 남겨 두면 "누가 쓰는지 모를 순수 함수 + 그 테스트" 가 되어 다음 사람이 되살릴 근거로 삼는다 |
+
+살린 것은 계획서가 지시한 **'다음 세션' 스트립 하나**뿐이고 `SessionTab` 머리로 옮겼다.
+대시보드의 나머지(히어로·통계 4칸·최근 드릴 목록)는 **되살리지 않는다** — 목록 맨 위 한 화면을
+통째로 먹어 드릴 그리드가 늘 접힘 아래에 있던 것이 제거 이유이므로, 그것을 다시 얹으면 2.8 이
+한 일이 없어진다. 계획서 §8 "하지 않을 것" 과 같은 무게로 읽어라.
+
+순증: 삭제 10 it, 신설 17 it(`nav.test.ts` 4 · `LibraryScreen.test.tsx` 8 · `SessionTab.test.tsx` 3 ·
+`AppShell.wiring.test.tsx` 2) → **120 파일 1173 테스트**(2.2 직후 121/1166 에서 파일 -1, it +7).
+
+### 15.2 같은 커밋에서 계약이 바뀐 것 — `intentFromNav` 이 **빈 의도**를 돌려준다
+
+`AppShell.tsx` 의 `intentFromNav` 는 대상 없는 `drills` 엔트리에 `null`(= "지금 값을 그대로 둔다")
+을 돌려줬다. 이제 `{}`(= "초기 의도 없음")을 돌려준다. `board` 의 stage 와 **일부러 갈라놓은** 것이다:
+
+- **board**: 대상 없는 엔트리는 "들렀다 와도 손에 든 판은 그대로"(2.1 원칙 2) — 유지.
+- **drills**: 목록은 손에 든 물건이 아니라 들어올 때마다 새로 여는 화면이다. 앞서 열었던 탭·드로어가
+  뒤 엔트리로 따라오면 **뒤로가기가 어긋난다** — 2.9 의 완료 판정("탭 상태가 NavEntry 에 실려
+  뒤로가기가 정확히 돌아온다")이 정확히 이 지점에서 깨진다. 탭을 안 실은 엔트리로 돌아오면
+  `LibraryScreen` 이 `defaultLibraryTab(sessionCount)` 로 기본 탭을 다시 정한다.
+
+기존 단언은 하나도 안 뒤집혔다(`AppShell.wiring.test.tsx` 의 `data-initial-tab` 은 어느 쪽이든
+`''` 이다). 그래서 이 변경을 **관측 가능하게** 만드는 it 두 개를 새로 넣었다 — F2 가 그 증거다.
+
+### 15.3 "두 통로가 섞이지 않는다" 를 무엇으로 단언했나 (계획서 2.8 의 ⚠️)
+
+조사가 짚은 충돌은 *한 화면이 `HomeNav` prop 통로와 `useAppNav` 직접 통로를 함께 쓰면 같은 이동이
+두 경로로 일어나 히스토리가 어긋난다* 는 것이다. **`HomeNav` prop 하나로 통일**했다(§8 소유권 표가
+`screen-home-library` 에 app-shell 의존을 안 주므로 선택지가 하나뿐이다). 탭 전환도 이동이라
+`nav.goLibrary({tab})` 로 나간다.
+
+단언은 두 층이다 — 한 층만으로는 못 잡는다:
+
+| 층 | 어디 | 무엇을 잡나 |
+|---|---|---|
+| 소스 정적 검사 | `features/home/nav.test.ts` | `src/features/home/**`·`src/features/library/**` 의 **소스 파일(테스트 제외)** 어디에도 `…/app/…` import 가 없다. 런타임 렌더는 "그 코드 경로를 안 밟았을 뿐" 인 경우를 못 가르는데, 이건 import 한 줄만 있어도 잡는다 |
+| 런타임 대조군 | `LibraryScreen.test.tsx` | `AppNavProvider` **없이** 렌더해도 목록이 멀쩡히 돌고 탭 전환이 `nav.goLibrary` 로 나간다 + *같은 트리에서 `useAppNav` 를 부르면 실제로 던진다* 는 대조군. 대조군이 없으면 앞 단언이 "그냥 안 던지네" 로 공짜 통과한다 |
+
+정적 검사기 자체에도 대조군을 붙였다(`appShellImports` 가 진짜 검출하는가 · `appState.ts` 같은
+남의 이름을 거짓 양성으로 잡지 않는가 · 스캔이 파일을 0개 읽고 통과하지 않는가).
+
+### 15.4 반증 실검 8건 (임시 수정 → 빨간불 → 스크래치패드 백업본에서 원복, `git checkout` 미사용)
+
+| # | 되돌린 것 | 빨간불 |
+|---|---|---|
+| F1 | 탭 클릭이 `nav.goLibrary` 를 안 부름(로컬 state 만) | 1 it — LibraryScreen 만. 배선 목을 쓰는 wiring 은 초록불 = 화면 층과 셸 층이 따로 잡힌다 |
+| F2 | `intentFromNav` 을 옛 동작(`!target → null`)으로 | 2 it — wiring 만(탭 왕복 · 드로어 비따라옴). LibraryScreen 은 초록불 = F1 의 반대쪽 |
+| F3 | 탭 동기화를 옛 `if (initialTab) setTab(initialTab)` 으로 | 2 it — 기본 탭 1 · 뒤로가기 1 |
+| F3b | 의존성에서 **`sessionCount` 만** 제거(비동기 재동기화만 끔) | 1 it — 기본 탭만. F3 의 두 조건을 따로 찌른 것이다(AND 로 묶인 검증은 조건마다 따로) |
+| F4 | `defaultLibraryTab` 이 늘 `'drills'` | 2 it — nav 단위 1 · LibraryScreen 통합 1 (순수 규칙과 그 소비가 따로 잡힌다) |
+| F5 | 스트립이 `pickNextSession` 대신 `sessions[0]` 을 무조건 건다 | 6 it — SessionTab 2 · LibraryScreen 4. 넓게 번지는 이유는 스트립이 제목을 한 번 더 실어 기존 `getByText` 가 다중 매치가 되기 때문이다(그 자체가 "무조건 그리면 안 된다" 의 근거다) |
+| F6 | 스트립이 편성 드릴 이름을 안 싣는다(행을 그대로 베끼기만) | 1 it — SessionTab. F5 와 다른 자리를 찌른다: **뜨는가**와 **행에 없는 것을 싣는가**가 각각 잡힌다 |
+| F7 | `LibraryScreen` 이 `…/app/useAppHistory.ts` 를 import | 1 it — nav.test 정적 검사. 런타임 4파일은 전부 초록불 = 이 층이 아니면 아무도 안 잡는다 |
+| F8 | 같은 탭 재클릭 가드(`if (next === tab) return`) 제거 | 1 it — 히스토리에 헛 엔트리가 쌓인다 |
+
+원복 후 구현 4파일(`nav.ts`·`LibraryScreen.tsx`·`SessionTab.tsx`·`AppShell.tsx`)이 백업본과
+`diff -q` 바이트 동일. **120 파일 1173 테스트 초록불**, `tsc -b --noEmit` 클린, oxlint 33건.
+
+### 15.5 테스트 위생 1건 — `LibraryScreen.test.tsx` 에 저장소 초기화를 넣었다
+
+fake-indexeddb 는 파일 하나가 끝날 때까지 살아 있어 앞 테스트가 만든 드릴·세션이 뒤 테스트로
+샌다. 2.9 부터 **기본 탭을 세션 개수가 정하므로**, 새어 든 세션 하나가 그대로 판정을 뒤집는다
+(실측: 초기화 없이는 '탭 전환' it 이 *"이미 세션 탭이라 클릭이 no-op"* 으로 빨간불이었다).
+`beforeEach` 로 드릴·세션을 전부 지운다 — 기존 it 들의 단언은 하나도 안 바꿨다.

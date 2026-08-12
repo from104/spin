@@ -75,6 +75,10 @@ vi.mock('../features/library/LibraryScreen.tsx', async () => {
         <button type="button" onClick={() => nav.openSession(FIXTURE.sessionId as SessionId)}>
           세션 열기
         </button>
+        {/* 2.9: 진짜 LibraryScreen 의 탭 버튼이 하는 일 — 탭 전환도 HomeNav prop 통로로만 나간다. */}
+        <button type="button" onClick={() => nav.goLibrary({ tab: 'sessions' })}>
+          세션 탭으로
+        </button>
         <button type="button" onClick={() => nav.newDrill()}>
           빈 판으로
         </button>
@@ -279,6 +283,51 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     const lib = screen.getByTestId('screen-library');
     expect(lib).toHaveAttribute('data-initial-tab', 'sessions');
     expect(lib).toHaveAttribute('data-open-session', FIXTURE.sessionId);
+  });
+
+  it('탭 전환이 NavEntry 에 실리고, 뒤로가기가 이전 탭으로 정확히 돌아온다 (계획서 2.9)', async () => {
+    await renderShell();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: '드릴' }));
+    // 레일로 그냥 들어온 엔트리는 탭을 안 싣는다 = "초기 의도 없음" → 화면이 기본 탭을 정한다.
+    const before = window.history.state;
+    expect(before).toEqual({ screen: 'drills', depth: 1 });
+    expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', '');
+
+    await user.click(screen.getByRole('button', { name: '세션 탭으로' }));
+    expect(window.history.state).toEqual({ screen: 'drills', depth: 2, target: { kind: 'tab', tab: 'sessions' } });
+    expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', 'sessions');
+
+    // 뒤로가기 — 브라우저가 돌려주는 것은 위에서 실제로 쌓였던 그 엔트리다.
+    await act(async () => {
+      window.dispatchEvent(new PopStateEvent('popstate', { state: before }));
+    });
+    expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', '');
+  });
+
+  it('목록 의도는 엔트리마다 새로 정해진다 — 앞서 연 드로어가 뒤 엔트리로 따라오지 않는다', async () => {
+    // board 의 stage 와 갈리는 지점(intentFromNav 주석). 손에 든 판은 따라오지만 목록은
+    // 들어올 때마다 새로 여는 화면이라, 따라오면 뒤로가기가 어긋난다.
+    await renderShell();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: '드릴' }));
+    await user.click(screen.getByRole('button', { name: '세션 열기' }));
+    expect(screen.getByTestId('screen-library')).toHaveAttribute('data-open-session', FIXTURE.sessionId);
+
+    await user.click(screen.getByRole('button', { name: '보드' }));
+    await user.click(screen.getByRole('button', { name: '드릴' }));
+    const lib = screen.getByTestId('screen-library');
+    expect(lib).toHaveAttribute('data-open-session', '');
+    expect(lib).toHaveAttribute('data-initial-tab', '');
+
+    // 대조군 — 같은 왕복에서 stage 는 반대로 **따라온다**(2.1 원칙 2). 두 계약이 서로 다른
+    // 규칙이라는 것을 한 테스트 안에서 보인다.
+    await user.click(screen.getByRole('button', { name: '드릴 열기' }));
+    await user.click(screen.getByRole('button', { name: '설정' }));
+    await user.click(screen.getByRole('button', { name: '보드' }));
+    expectOnlyScreen('screen-editor');
   });
 });
 
