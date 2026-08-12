@@ -224,6 +224,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     onZoomReset: () => stageRef.current?.resetZoom(),
     onEraseSelection: (scope) => eraseIds(Array.from(state.selection), scope),
     onShowHelp: () => setHelpOpen(true),
+    // [A-3] Esc = 선택 해제. 2단 히트(1.6) 이후 붐비는 코트에서 "빈 곳 탭" 이 사라져도
+    // 해제가 가능해야 한다. 재탭 해제(useEditorPointer)와 함께 대체 경로 한 쌍이다.
+    onSelectionClear: () => dispatch({ type: 'SELECT_CLEAR' }),
   });
 
   // 주차 슬롯 은유(기현 지시 2026-08-11): 배치된 선수도 자리를 비워 두고 남긴다.

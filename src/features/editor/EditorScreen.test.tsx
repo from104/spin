@@ -115,4 +115,21 @@ describe('드릴 편집 모드', () => {
     const live = document.querySelector('[aria-live="polite"]');
     expect(live?.textContent ?? '').toContain('칸');
   }, 30000);
+
+  // §4.3 P1-2 [A-3] — Esc = 선택 해제(전역). 2단 히트(1.6) 이후 붐비는 코트에서 "빈 곳 탭 →
+  // 해제" 가 사라지므로, 포커스가 어디에 있든 통하는 해제 수단이 있어야 한다. EditorStage
+  // 컨테이너의 Esc(§7.5c)는 **코트에 포커스가 있을 때만** 듣는다 — 여기서는 포커스를 코트
+  // 밖으로 빼서 EditorWorkspace 의 전역 배선(useEditorKeyboard.onSelectionClear)만 남긴다.
+  it('Esc 는 포커스가 코트 밖에 있어도 선택을 해제한다 ([A-3] 전역 경로)', async () => {
+    const { stage } = await openDrill();
+    const chair = stage.querySelector('.court-obj') as SVGGElement;
+
+    chair.focus();
+    fireEvent.keyDown(chair, { key: 'Enter' }); // §7.5c SELECT_TOGGLE
+    expect(chair).toHaveAttribute('aria-pressed', 'true');
+
+    (document.activeElement as HTMLElement | null)?.blur();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(chair).toHaveAttribute('aria-pressed', 'false');
+  }, 30000);
 });

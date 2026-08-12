@@ -123,6 +123,13 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   const noteDragRef = useRef<{ id: NoteId; offset: Vec2 } | null>(null);
   const arrowHandleDragRef = useRef<{ arrowId: ArrowId; which: 'from' | 'ctrl' | 'to' } | null>(null);
   const eraseSessionRef = useRef<{ touched: Set<string>; count: number } | null>(null);
+  /** §4.3 P1-2 [A-3] — "선택된 개체 재탭 = 해제" 세션. 2단 히트가 켜지면 붐비는 코트에서
+   *  "빈 곳 탭 → 해제"(아래 rubberRef 경로)가 사라지므로, **이미 선택된** 개체를 additive
+   *  없이 다시 눌렀다가 탭 임계(INTERACT.tapMaxMoveCssPx) 안에서 손을 떼면 SELECT_CLEAR 로
+   *  물러난다. 움직였으면(=드래그) 선택은 그대로다.
+   *  350ms/12px 안의 빠른 재탭은 여기 도달하지 않는다 — CourtStage 가 더블클릭 팬 무장으로
+   *  먼저 삼킨다(CourtStage.tsx DBL_CLICK_* — 그 계약은 P2-1 이 명시적으로 남긴다). */
+  const tapDeselectRef = useRef<{ start: Vec2; moved: boolean } | null>(null);
   const metricsRef = useRef({ pxPerUnit: 1, pointerType: 'mouse' });
   /** 이 드래그가 히스토리 경계(PLACE_BEGIN)를 이미 열었는가. 정착 재커밋은 경계를 다시 열지
    *  않는다 — '드래그 1회 = undo 1회'(§6.7 history.ts:72-80). */
@@ -377,6 +384,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       const ctx = ctxRef.current;
       const m = ctx.stageRef.current?.refreshMetrics();
       metricsRef.current = { pxPerUnit: m?.pxPerUnit ?? metricsRef.current.pxPerUnit, pointerType: meta.pointerType };
+      tapDeselectRef.current = null; // 재탭 해제 세션은 pointerdown 마다 새로 판정한다
 
       if (ctx.tool === 'ball' || ctx.tool === 'cone' || ctx.tool === 'note' || ctx.tool === 'player') {
         placeAt(world);
@@ -437,6 +445,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
       if (hit.kind === 'chair' || hit.kind === 'ball' || hit.kind === 'cone') {
+        // [A-3] 이미 선택된 개체의 재탭이면 해제 후보로 문다 — 판정은 up 에서(움직였으면 드래그다).
+        // additive 는 아래 toggleId 가 pointerdown 시점에 즉시 빼 주므로 여기 대상이 아니다.
+        if (!additive && ctx.selection.has(hit.id)) tapDeselectRef.current = { start: world, moved: false };
         const nextSel = additive ? toggleId(ctx.selection, hit.id) : [hit.id];
         ctx.dispatch({ type: 'SELECT_SET', ids: nextSel });
         resetDragSession();
@@ -452,6 +463,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
       // note / arrow
+      // [A-3] 메모·화살표도 같은 재탭 해제 계약을 따른다 — 개체 종류가 규칙을 바꾸면 안 된다.
+      if (!additive && ctx.selection.has(hit.id)) tapDeselectRef.current = { start: world, moved: false };
       const nextSel = additive ? toggleId(ctx.selection, hit.id) : [hit.id];
       ctx.dispatch({ type: 'SELECT_SET', ids: nextSel });
       if (hit.kind === 'note') {
@@ -465,6 +478,14 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   const onPointerMove = useCallback(
     (world: Vec2, nowMs: number) => {
       const ctx = ctxRef.current;
+
+      // [A-3] 탭 임계를 넘는 순간 이 세션은 드래그다 — 한 번 넘었으면 되돌아와도 드래그다
+      // (러버밴드의 tapPx 판정과 같은 임계·같은 화면 기준 환산).
+      const tap = tapDeselectRef.current;
+      if (tap && !tap.moved) {
+        const tapPx = INTERACT.tapMaxMoveCssPx / metricsRef.current.pxPerUnit;
+        if (Math.hypot(world.x - tap.start.x, world.y - tap.start.y) > tapPx) tap.moved = true;
+      }
 
       if (dragHandleRef.current) {
         dragHandleRef.current.move(world, nowMs);
@@ -535,6 +556,13 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   const onPointerUp = useCallback((client: { x: number; y: number } | null) => {
     const ctx = ctxRef.current;
 
+    // [A-3] 재탭 해제 판정 — 어느 경로로 끝나든 세션은 여기서 소거한다. pointercancel
+    // (client=null)은 탭이 아니다: 시스템 제스처에 뺏겼을 뿐인데 선택까지 풀리면 안 된다
+    // (isOverTray 가 cancel 에 개체를 지우지 않는 것과 같은 원칙).
+    const tapSession = tapDeselectRef.current;
+    tapDeselectRef.current = null;
+    const tapDeselect = tapSession !== null && !tapSession.moved && client !== null;
+
     if (dragHandleRef.current) {
       const id = draggedIdRef.current;
       // 트레이 위에 놓았으면 코트에서 빼낸다 — 개체가 "원래 있던 자리"(주차 슬롯·상자)로
@@ -563,6 +591,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 손 떼는 자리는 아직 최종이 아니다 — 물리가 다 선 뒤 한 번 더 커밋한다(§4.2 P0-2).
       // 스냅(§4.3 P1-3)도 그 재커밋 경로 안에서만 걸린다.
       if (id) armSettleRecommit(id);
+      // [A-3] 제자리 탭이었다 — 물리 정리(위)는 전부 마치고 선택만 물린다. 이동이 없었으니
+      // 커밋은 no-op 가드로 걸러져 undo 스택도 더럽히지 않는다.
+      if (tapDeselect) ctx.dispatch({ type: 'SELECT_CLEAR' });
       return;
     }
 
@@ -585,6 +616,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
 
     if (noteDragRef.current) {
       noteDragRef.current = null;
+      if (tapDeselect) ctx.dispatch({ type: 'SELECT_CLEAR' }); // [A-3] 메모 재탭
       return;
     }
     if (arrowHandleDragRef.current) {
@@ -617,7 +649,11 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       } else if (!additive) {
         ctx.dispatch({ type: 'SELECT_CLEAR' });
       }
+      return;
     }
+
+    // [A-3] 화살표 몸통은 어떤 드래그 세션도 만들지 않아 여기까지 흘러온다 — 재탭 해제만 판정.
+    if (tapDeselect) ctx.dispatch({ type: 'SELECT_CLEAR' });
   }, [arrowDraft, armSettleRecommit, buildScene, commitDragResult, commitEraseToast]);
 
   const controller = useMemo<CourtStagePointerController>(() => ({ onPointerDown, onPointerMove, onPointerUp }), [onPointerDown, onPointerMove, onPointerUp]);

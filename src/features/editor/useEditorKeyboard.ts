@@ -28,6 +28,9 @@ export interface EditorKeyboardDeps {
   onZoomReset(): void;
   onEraseSelection(scope: 'onward' | 'thisStep'): void;
   onShowHelp(): void;
+  /** §4.3 P1-2 [A-3] Esc = 선택 해제. 2단 히트가 켜지면 붐비는 코트에서 "빈 곳 탭 → 해제"
+   *  가 사라지므로, 포인터와 무관한 이 전역 경로가 해제를 보장한다. */
+  onSelectionClear(): void;
 }
 
 /** 전역(document) 키다운 — 개체가 아니라 화면 전체를 대상으로 하는 단축키. */
@@ -88,6 +91,24 @@ export function useEditorKeyboard(deps: EditorKeyboardDeps): void {
       }
 
       if (editable) return;
+
+      // §4.3 P1-2 [A-3] — Esc = 선택 해제(전역). Esc 소비자들과의 우선순위:
+      //   1) 모달(ui/Modal.tsx — 도움말·전술판 초기화 확인)이 열려 있으면 모달이 이긴다 —
+      //      Modal 이 document **캡처** 단계에서 stopPropagation 하므로 여기(버블)에는
+      //      도달조차 않는다. 이 순서는 코드가 아니라 등록 단계가 보장한다.
+      //   2) 텍스트 입력 중에는 발화하지 않는다 — 바로 위 editable 반환. IME 조합 취소·
+      //      필드 자체의 Esc 의미를 빼앗으면 안 된다.
+      //   3) CourtStage 의 팬 무장 해제(window 리스너)와는 **동시에** 발화한다 — 둘 다
+      //      "일시 상태를 물린다" 라 충돌이 아니며, 그래서 여기서 stopPropagation 을 걸지
+      //      않는다(걸면 무장이 영영 안 풀린다).
+      //   4) 스테이지에 포커스가 있으면 EditorStage 컨테이너 핸들러도 같은 SELECT_CLEAR 를
+      //      디스패치한다 — 리듀서의 size===0 no-op 가드가 중복을 흡수한다.
+      // singleKeyMode 게이트보다 앞이다: Esc 는 문자키가 아니라 취소 키라 WCAG 2.1.4 의
+      // 단일 문자키 제한 대상이 아니다(Delete 와 같은 층).
+      if (e.key === 'Escape') {
+        d.onSelectionClear();
+        return;
+      }
 
       if (e.key === '?' && e.shiftKey) {
         e.preventDefault();
