@@ -124,7 +124,7 @@ describe('트레이 DOM — 칩·폭이 --hit 파생 calc 로 걸려 있다', ()
     expect(wrap.style.width).toBe('100%');
     expect(wrap.style.minWidth, '옛 93 못박음이 남아 있다').toBe('');
     // 중앙정렬이면 5열에서 8칩이 1행 5·2행 3 일 때 2행이 1행 아래에 안 맞춰 선다
-    // (RAIL_STYLE_H:130-138 경고와 **같은 이유가 wrap 축에서 재현**되는 것이다).
+    // (RAIL_STYLE_H:156-164 경고와 **같은 이유가 wrap 축에서 재현**되는 것이다).
     expect(wrap.style.justifyContent).toBe('flex-start');
     expect(wrap.style.flexWrap).toBe('wrap');
   });
