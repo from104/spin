@@ -32,6 +32,13 @@ export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', re
     (first ?? panel)?.focus({ preventScroll: true });
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // IME 조합 중의 Esc 는 **조합 취소**이지 닫기가 아니다. InspectorHost.tsx 머리말이 이미
+      // 지키는 규율("입력 중(INPUT/TEXTAREA/SELECT)에는 먹지 않는다 — IME 조합 취소를 빼앗지
+      // 않기 위해서고, useEditorKeyboard 의 editable 가드와 같은 규칙이다")을 Modal 로 옮긴 것.
+      // keyCode 229 는 isComposing 이 아직 서지 않은 조합 keydown 의 레거시 신호(구형 IME 경로).
+      // 2026-08-14 확인: 지금 Modal 6개 사용처에 텍스트 입력은 0개라 **잠재** 결함이다 — 모달에
+      // 텍스트 편집기가 들어가는 라운드에서 이 가드가 없으면 한글 조합 취소가 모달을 통째로 닫는다.
+      if (e.isComposing || e.keyCode === 229) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
         onClose();
@@ -56,7 +63,11 @@ export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', re
     document.addEventListener('keydown', onKeyDown, true);
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
-      (returnFocusRef?.current ?? openedByRef.current)?.focus({ preventScroll: true });
+      const back = returnFocusRef?.current ?? openedByRef.current;
+      // InspectorHost.tsx:85 의 back?.isConnected 검사와 같은 형태. 검사가 없으면 화면 전환으로
+      // 트리거가 이미 DOM 에서 떼어진 채 닫힐 때 떼어진 노드에 focus 를 걸게 되고, 그 호출이
+      // 새 화면이 잡아 둔 포커스를 <body> 로 떨어뜨린다 — §7.6 포커스 복귀가 깨진다.
+      if (back?.isConnected) back.focus({ preventScroll: true });
     };
     // open 전환 시에만 다시 바인딩한다 — onClose/returnFocusRef identity 변화로 트랩을 재설정하지 않는다.
   }, [open]);
