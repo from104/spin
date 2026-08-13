@@ -300,7 +300,13 @@ export function createPhysicsProbe(setup: ProbeSetup = {}): PhysicsProbe {
   };
 
   const api = createPhysicsWorld(setup.court?.w ?? def.vbW, setup.court?.h ?? def.vbH, setup.limits);
-  api.load(cast, step, mode);
+  // ⚠️ 네 번째 인자 `setup.size` 를 빼지 마라. 빼면 **벽은 그 크기, 골대는 30×18** 인 잡종
+  // 월드가 된다(2026-08-13 6차 검증 실측: size '25x14' 에서 gp_2 가 (662.5,137.5) 대신
+  // (787.5,187.5) 에 섰고, 프레임을 흘리면 벽에 밀려 (695,187.5) 로 클램프됐다). 6.4 가
+  // size 를 더할 때 `def`(벽·viewBox)에만 잇고 여기를 빠뜨려, **아무 테스트도 빨개지지 않은
+  // 채** 계기가 거짓말할 준비를 하고 있었다 — 이 하네스는 1.1~1.4 와 §6.4 물리 주장의 유일한
+  // 계기이므로 그 오답은 기능이 없는 것보다 나쁘다. 가드는 physicsProbeCourtSize.test.ts.
+  api.load(cast, step, mode, setup.size);
 
   for (const c of chairs) kindOf.set(c.id, 'chair');
   for (const b of balls) kindOf.set(b.id, 'ball');
