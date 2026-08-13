@@ -76,10 +76,27 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
   // 만든다, §6.7). pristine 을 같이 저장해야 다음에 열었을 때 게이트가 정확해진다.
   const pristineRef = useRef(pristine);
   pristineRef.current = pristine;
+  const presentRef = useRef(state.present);
+  presentRef.current = state.present;
   useEffect(() => {
     const t = window.setTimeout(() => saveBoard(state.present, pristineRef.current), PERSIST_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [state.present]);
+
+  // 언마운트 플러시. 위 정리 함수는 타이머를 **저장 없이** 걷으므로, 마지막 편집 뒤 500ms 안에
+  // 화면을 떠나면 그 편집이 조용히 사라진다. 드릴 자동저장은 처음부터 이 이펙트를 갖고 있었다
+  // (useAutosave.ts 끝 "화면 전환 시 동기 플러시") — 전술판만 없었다.
+  //
+  // 2026-08-14 에 고치는 이유: 그전에는 [보드]가 드릴 편집을 그대로 두는 바람에 판↔드릴 왕복이
+  // 드물었다. 그 결함을 고친 지금은 왕복이 일상 조작이라 이 창이 매번 열린다.
+  // saveBoard 는 동기 localStorage 이고 절대 throw 하지 않으므로(storage/board.ts) 정리
+  // 함수에서 그대로 부를 수 있다. 마운트당 한 번만 걸어 최신 값은 ref 로 읽는다 — 의존성에
+  // present 를 넣으면 **편집할 때마다** 저장이 돌아 디바운스가 통째로 무의미해진다.
+  useEffect(() => {
+    return () => {
+      saveBoard(presentRef.current, pristineRef.current);
+    };
+  }, []);
 
   const swap = useCallback(
     (mode: CourtMode, size?: CourtSize) => {

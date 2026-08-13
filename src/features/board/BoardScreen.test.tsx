@@ -489,6 +489,26 @@ describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', ()
     expect(screen.queryByRole('radiogroup', { name: '코트 형태' })).toBeNull();
   }, 20000);
 
+  it('디바운스가 터지기 전에 화면을 떠나도 마지막 편집이 남는다 (언마운트 플러시)', async () => {
+    // 2026-08-14 레일 [보드] 분리로 판↔드릴 왕복이 일상 조작이 되면서 열린 창이다. 저장
+    // 이펙트의 정리 함수는 타이머를 **저장 없이** 걷으므로, 마지막 편집 뒤 500ms 안에 떠나면
+    // 그 편집이 조용히 사라진다. 드릴 자동저장에는 처음부터 있던 이펙트가 전술판에만 없었다.
+    const { user, stage, unmount } = await openBoard('full', { placed: true });
+    await waitFor(() => expect(localStorage.getItem(BOARD_KEY)).not.toBeNull(), { timeout: 5000 });
+    const before = localStorage.getItem(BOARD_KEY)!;
+
+    const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
+    chair.focus();
+    await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
+
+    // ★ 기다리지 않는다. 기다리면 디바운스가 제 힘으로 터져 이 테스트가 아무것도 안 본다.
+    unmount();
+
+    const after = localStorage.getItem(BOARD_KEY)!;
+    expect(after).not.toEqual(before);
+    expect(JSON.parse(after).pristine).toBe(false);
+  }, 20000);
+
   it('리셋 상태로 저장된 판을 다시 열면 여전히 열려 있다 (게이트가 무조건 잠그는 것은 아니다)', async () => {
     const { unmount } = await openBoard('full');
     await waitFor(
