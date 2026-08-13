@@ -128,7 +128,14 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // ⚠️ 여기 넘기는 것은 **측정값이 아니다**: narrow 는 matchMedia, 인스펙터 모드는 `<main>` 폭
   // (인스펙터가 어느 모드든 안 변한다 — useContainerWidth.ts 머리말)에서 온다. 코트 상자를
   // 재서 넣으면 되먹임이 되살아난다.
-  const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, inspector: inspectorLayout });
+  //
+  // ⚠️ 2026-08-14 P5 — `portrait` 를 **반드시 함께 넘겨야 한다.** 세로에서 트레이는 폭이 아니라
+  // 판 아래 **띠**(132px)라, 이 boolean 이 빠지면 예산이 폭에서 93 을 잘못 빼고 높이에서 132 를
+  // 안 빼서 코트 상자를 딴 모양으로 답한다. P4 까지는 그 오차가 rot 을 못 뒤집었지만 띠가
+  // 76 → 132 로 커지면서 뒤집는 창이 생겼다 — 실측: **768×1024 세로(아이패드)에서 올바른 답은
+  // 0 인데 안 넘기면 90 이 나온다**(현실 세로 창 22191칸 중 35%가 갈린다. 전수 대조는
+  // useStageRot.portrait.test.ts). 새 boolean 이 아니라 §5.1 이 이미 못박은 둘 중 하나다.
+  const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, portrait, inspector: inspectorLayout });
   // ★ 코트 칸의 종횡비(§4.1, 2026-08-14 P3) — 판 덩어리 안에서 코트가 **자기 비율만큼만**
   // 차지하게 하는 한 줄이다. 남는 폭은 트레이가 먹는다 = 옛 레터박스 86px 이 그대로 벤치가 된다.
   // 입력은 `def`(courtMode·courtSize)와 `rot` 뿐이다 — 줌도 측정값도 안 들어간다(그 이유는

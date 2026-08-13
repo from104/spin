@@ -120,14 +120,18 @@ export function stageRotHoldQuery(box: StageRotHoldBox): string {
  *  창 크기를 고정해 두고 렌더하므로 그것으로 충분하고, 없는 API 를 흉내내다 조용히 틀린 답을
  *  주는 것보다 낫다. */
 export function useStageRot(mode: CourtMode, size: CourtSize | undefined, state: ChromeState): StageRot {
-  const { narrow, inspector } = state;
+  // ⚠️ 2026-08-14 P5 — `portrait` 를 여기서 **빠뜨리면 안 된다.** 아래 `here` 는 이펙트가 다시
+  // 쓰는 상태 사본인데, 초기 useState 는 `state` 통째로 쓰고 이펙트는 `here` 를 쓴다. 한쪽만
+  // portrait 를 알면 **첫 렌더와 그 다음이 다른 답**을 내고, 그것은 곧 창을 건드리지도 않았는데
+  // 판이 도는 것이다(P1 이 없앤 쌍안정과 증상이 같아 원인 추적이 특히 어렵다).
+  const { narrow, portrait, inspector } = state;
   // safe-area 도 **원시값 넷으로 풀어** 둔다 — 객체째로 들고 있으면 호출부가 매 렌더 새로 만든
   // 리터럴에 이펙트가 매번 다시 걸린다(그리고 exhaustive-deps 가 정확히 그걸 지적한다).
   const { top: saTop, right: saRight, bottom: saBottom, left: saLeft } = state.safeArea ?? SAFE_AREA_NONE;
   const [rot, setRot] = useState<StageRot>(() => stageRotFor(mode, size, state, viewportSizePx()));
 
   useEffect(() => {
-    const here: ChromeState = { narrow, inspector, safeArea: { top: saTop, right: saRight, bottom: saBottom, left: saLeft } };
+    const here: ChromeState = { narrow, portrait, inspector, safeArea: { top: saTop, right: saRight, bottom: saBottom, left: saLeft } };
     let disposed = false;
     let off: (() => void) | null = null;
 
@@ -160,7 +164,7 @@ export function useStageRot(mode: CourtMode, size: CourtSize | undefined, state:
       off?.();
     };
     // state 객체는 호출부에서 매 렌더 새로 만들어지므로 **원시값으로 풀어** 건다.
-  }, [mode, size, narrow, inspector, saTop, saRight, saBottom, saLeft]);
+  }, [mode, size, narrow, portrait, inspector, saTop, saRight, saBottom, saLeft]);
 
   return rot;
 }
