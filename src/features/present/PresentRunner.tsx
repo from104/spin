@@ -27,6 +27,7 @@ import { Button } from '../../ui/Button.tsx';
 import { IconChevronNext, IconChevronPrev, IconClose, IconPause, IconPlay } from '../../ui/icons.tsx';
 import { IconFullscreenEnter, IconFullscreenExit, IconHelp, IconLoop } from './icons.tsx';
 import { PresentStage } from './PresentStage.tsx';
+import { progressCellState } from './progressCells.ts';
 import { HelpOverlay } from './HelpOverlay.tsx';
 import { useFullscreen } from './useFullscreen.ts';
 import { useWakeLock } from './useWakeLock.ts';
@@ -453,6 +454,11 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
               type="button"
               aria-label={`${i + 1}번째 드릴: ${d.title}`}
               aria-current={i === drillIndex ? 'step' : undefined}
+              // ★ 6.6 — 강제색(Windows 고대비)에서 지나간 칸(--muted)과 남은 칸(--border)은
+              // **둘 다 Canvas** 가 되어 "어디까지 했는가" 가 통째로 사라진다(현재 칸만 Highlight
+              // 로 남는다). 이 갈고리가 styles/contrast.css ④ 에서 시스템 색으로 되살아난다.
+              // ⚠️ 갈고리는 **막대 그 자체인 요소**에 붙어야 한다 — 여기서는 버튼이 곧 4px 막대다.
+              data-progress={progressCellState(i, drillIndex)}
               onClick={() => {
                 if (i === drillIndex) return;
                 goDrill(i - drillIndex);
@@ -579,6 +585,10 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
             >
               <span
                 aria-hidden="true"
+                // ★ 6.6 — 위 세션 줄과 **같은 갈고리**. 다만 여기서 막대는 버튼이 아니라 이
+                // 안쪽 span 이다(버튼은 §7.3 하한을 채우는 44px 투명 히트 래퍼다). 갈고리를
+                // 버튼에 붙이면 강제색에서 44px 짜리 덩어리가 통째로 칠해진다.
+                data-progress={progressCellState(i, stepIndex)}
                 style={{
                   display: 'block',
                   width: '100%',

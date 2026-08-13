@@ -7,17 +7,54 @@
 //   ② prefers-contrast: more 의 토큰이 실제로 대비를 **올린다** — 기준선 값과 같이 재서
 //      "무엇을 넣어도 통과" 를 막는다. less 는 반대 방향으로 내려간다(양쪽에 단언을 둔다).
 //   ③ forced-colors 블록에는 hex 가 **하나도 없다**(사용자 팔레트와 싸우지 않는다).
-//   ④ CSS 가 부르는 이름(.stage-svg·.grid-line·.on-accent·규칙 존의 파선 패턴)이 마크업에
-//      **실제로** 있다. 한쪽만 개명하면 규칙은 살아 있는데 아무것도 안 맞는 상태가 된다.
+//   ④ CSS 가 부르는 이름(.stage-svg·.grid-line·.on-accent·규칙 존의 파선 패턴·진행 막대의
+//      data-progress)이 마크업에 **실제로** 있다. 한쪽만 개명하면 규칙은 살아 있는데 아무것도
+//      안 맞는 상태가 된다. ⚠️ '이름이 있는가' 만 묻지 마라 — 그 이름을 **달아야 하는 자리가
+//      몇 개인가**까지 물어야 한다(커밋 119dea0 이 그 수법의 선례다. ① 과 ④ 둘 다 그렇게 쓴다).
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Button } from '../ui/Button.tsx';
 import { GridOverlay } from '../render/GridOverlay.tsx';
 import { RuleZones } from '../render/RuleZones.tsx';
+import { PresentRunner } from '../features/present/PresentRunner.tsx';
+import { progressCellState } from '../features/present/progressCells.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+import { ToastProvider } from '../store/toast/ToastProvider.tsx';
+import { HeaderProvider } from '../app/AppHeader.tsx';
+import { idbDrillRepo } from '../storage/drillRepo.ts';
+import { addDrillToSession, createSession } from '../storage/sessionRepo.ts';
+import { newId } from '../core/ids.ts';
+import type { TrainingSession } from '../model/session.ts';
 import { blockOf, declarations, declarationsOf, stripCssComments } from './cssContract.ts';
 import { contrastRatio } from './contrastMath.ts';
+
+/** 시연 화면을 띄우는 최소 껍데기(PresentRunner.test.tsx 와 같은 구성 — AppHeader 는 필요 없다). */
+const PresentWrapper = ({ children }: { children: ReactNode }) => (
+  <SettingsProvider>
+    <ToastProvider>
+      <HeaderProvider>{children}</HeaderProvider>
+    </ToastProvider>
+  </SettingsProvider>
+);
+
+/** 드릴 3개 × 스텝 3개짜리 세션. **3개씩**인 이유: 가운데로 옮겨야 한 줄 안에서
+ *  지나간 칸·현재 칸·남은 칸이 **동시에** 나온다(2개면 'todo' 나 'done' 중 하나가 안 생긴다). */
+async function makeProgressFixture(): Promise<{ session: TrainingSession }> {
+  const tag = Math.random().toString(36).slice(2, 7);
+  const session = await createSession({ title: `진행 막대 세션 ${tag}` });
+  for (let d = 0; d < 3; d++) {
+    const base = await idbDrillRepo.createDrill({ courtMode: 'full', title: `진행 드릴 ${tag}-${d}`, durationMin: 5 });
+    const s0 = base.steps[0]!;
+    const steps = [0, 1, 2].map((i) => ({ ...s0, id: newId('st'), name: `스텝 ${i + 1}` }));
+    const drill = await idbDrillRepo.putDrill({ ...base, steps }, { touch: false });
+    await addDrillToSession(session.id, drill.id);
+  }
+  return { session };
+}
 
 const read = (p: string): string => stripCssComments(readFileSync(p, 'utf-8'));
 const contrastCss = read('src/styles/contrast.css');
@@ -274,6 +311,50 @@ describe('④ CSS 가 부르는 이름이 마크업에 실제로 붙어 있다',
     const lines = container.querySelectorAll('line.grid-line');
     expect(lines.length).toBeGreaterThan(0);
     expect(lines[0]!.parentElement!.getAttribute('stroke-width')).toBe('1');
+  });
+
+  // ★ 6.6 — 진행 막대. 앞선 ① 의 교훈("이름 확인 → 열거 확인", 커밋 119dea0)을 그대로 따른다:
+  // "CSS 가 부르는 이름이 마크업에 있는가" 만 물으면 **줄을 하나 빠뜨려도 초록**이다.
+  // 시연 화면에는 진행을 칸으로 보여 주는 줄이 **둘**이고(세션 드릴 줄 · 스텝 줄), 그 둘은
+  // 서로 다른 요소에 갈고리를 단다(세션은 버튼이 곧 막대, 스텝은 44px 히트 래퍼 안의 span).
+  // 그래서 아래는 **두 줄을 실제로 렌더해 칸을 열거**한다.
+  describe('진행 막대 — 시연의 **두 줄 전부**가 data-progress 를 단다 (화면 축 열거)', () => {
+    const cells = (row: Element): string[] => Array.from(row.querySelectorAll('[data-progress]')).map((el) => el.getAttribute('data-progress')!);
+
+    it('대조군 — 순수 함수가 세 상태를 실제로 갈라 준다(빈 배열끼리 비교해 통과하지 못한다)', () => {
+      expect([0, 1, 2].map((i) => progressCellState(i, 1))).toEqual(['done', 'current', 'todo']);
+    });
+
+    it('CSS 가 그 두 값을 실제로 부른다 — 갈고리와 규칙이 짝이다', () => {
+      expect(forcedBlock!).toContain('[data-progress="done"]');
+      expect(forcedBlock!).toContain('[data-progress="todo"]');
+      // ⚠️ 인라인 style 을 이기려면 중요 선언이어야 한다(contrast.css ④ 의 ⚠️ 주석 참고).
+      // 이 한 단어가 빠지면 규칙은 살아 있는데 화면은 그대로다 — 마크업 단언으로는 안 잡힌다.
+      expect(blockOf(forcedBlock!, '[data-progress="done"]')).toMatch(/background:\s*CanvasText\s*!important/);
+      // 남은 칸은 배경이 아니라 테두리로 말한다(강제색이 이미 Canvas 로 만들어 준다).
+      expect(blockOf(forcedBlock!, '[data-progress="todo"]')).toMatch(/outline:\s*1px solid CanvasText/);
+    });
+
+    it('★ 두 줄 모두 지나간 칸/현재 칸/남은 칸을 열거한다 (한 줄만 고치면 여기서 빨개진다)', async () => {
+      // 가운데(2/3)로 옮겨야 세 상태가 **한 줄 안에 동시에** 나온다 — 첫 칸에서 재면
+      // 'done' 이 아예 안 나와서 "지나간 칸 갈고리가 없어도 통과" 한다(5차 검증관이 지적한
+      // 함정: 축을 하나 덜 찌르면 반증이 초록이다).
+      const { session } = await makeProgressFixture();
+      render(<PresentRunner target={{ kind: 'session', sessionId: session.id }} nav={{ back: () => {} }} />, { wrapper: PresentWrapper });
+      await screen.findByRole('button', { name: '2번 스텝으로 이동' });
+
+      // ── 스텝 줄 ──
+      await userEvent.click(screen.getByRole('button', { name: '2번 스텝으로 이동' }));
+      await waitFor(() => expect(screen.getByText('STEP 2/3')).toBeInTheDocument());
+      const stepRow = screen.getByRole('button', { name: '2번 스텝으로 이동' }).parentElement!;
+      expect(cells(stepRow), '스텝 줄에 진행 갈고리가 없다').toEqual(['done', 'current', 'todo']);
+
+      // ── 세션 드릴 줄 ── (드릴을 옮기면 스텝은 0 으로 돌아가므로 순서가 이렇다)
+      await userEvent.click(screen.getByRole('button', { name: /2번째 드릴/ }));
+      await waitFor(() => expect(screen.getByLabelText('세션 진행 2/3')).toBeInTheDocument(), { timeout: 3000 });
+      const drillRow = screen.getByLabelText('세션 진행 2/3');
+      expect(cells(drillRow), '세션 드릴 줄에 진행 갈고리가 없다').toEqual(['done', 'current', 'todo']);
+    }, 20000);
   });
 
   it('주 버튼이 .on-accent 를 단다 (강제색에서 Highlight 로 되살릴 갈고리)', () => {
