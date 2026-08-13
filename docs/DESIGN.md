@@ -42,6 +42,28 @@
 
 ---
 
+### 0.1 재편 정정 색인 — **이 문서를 읽기 전에 반드시 본다** (2026-08-13, 6차 6.3)
+
+이 계약서는 **v1 착수 시점(2026-08-08 이전)의 확정본**이다. 그 뒤 2026-08 재편(커밋 60여 개,
+테스트 874 → 2468)이 여러 조항을 무효화했다. **문장을 지우지 않는다 — 기록이기 때문이다.**
+대신 무효가 된 자리마다 `※ 정정` 각주를 달았고, 그 자리를 여기 한 곳에 모은다.
+
+| 절 | 무효가 된 진술 | 사실 (2026-08-13) | 코드 출처 |
+|---|---|---|---|
+| §2.9 / §7.1 | `OBJ_STROKE` 흰선/코트 **5.34:1** | **4.78:1** (5.34 는 불투명 흰색 기준. 실제는 알파 .92 합성) | `src/core/colors.ts` |
+| §3.2 | 코트 1종, 마진 1.0 m | **풀 코트 3단**(825×525 / 775×450 / 700×425) · 마진 **1.5 m** | `model/court.ts` `courtDefFor` |
+| §3.11 | 썸네일 역산에 **센터서클 r=75 → r=30** 검산 | **센터 서클은 삭제됐다**(§9 결정 ⑧, 5.3) | `courtLines/FullCourtLines.tsx` |
+| §4.6 | `export const UI_KEY = 'spin.ui'` | **삭제됨**(5.0 ④ — 죽은 export) | `src/storage/prefs.ts` |
+| §5.12 | `handlesVisible = forced \|\| (touch && pxPerUnit < 1.28)` | **자동 배율 문턱을 뗐다** — `forced` 만 본다(5.5 결정 ④) | `physics/hitTest.ts:100` |
+| §6.8 | 화면 키 5개 `home\|library\|editor\|present\|settings` | **4개** `board\|drills\|present\|settings` + 레일 3항목 | `src/app/screens.ts` |
+| §8 | 소유권 표의 모듈 15종 | 화면 모듈이 **개명·분화**했다(아래 §8 각주) | `src/features/` |
+
+**여기 없는 것도 어긋나 있을 수 있다.** 이 문서에 적힌 `파일:행` 참조는 재편으로 파일이
+옮겨지고 늘어나 **대부분 어긋나 있다.** 6.3 은 자기가 손댄 문단의 참조만 실제로 열어 확인했다.
+숫자가 필요하면 이 문서가 아니라 **코드를 읽어라** — 문서와 코드가 다르면 **코드가 사실이다.**
+
+---
+
 ## 1. 확정 결정 — 설계안 간 충돌 해소
 
 ### 1.1 좌표계·단위·개체 ID (세 설계안이 모두 건드린 영역)
@@ -403,11 +425,19 @@ body[data-touch="large"] { --hit: 56px; }
 ```ts
 export const COURT_BG = '#1f7a46';           // 다크·라이트 공통 (라이트 #2f9e5c 는 흰 라인 3.41:1
                                              // 로 떨어지고 격자·존이 전부 무효가 되어 폐기)
-export const OBJ_STROKE = 'rgba(255,255,255,.92)';   // 흰선/코트 5.34:1
+export const OBJ_STROKE = 'rgba(255,255,255,.92)';   // 흰선/코트 4.78:1  ※ 정정 2026-08-13
 export const ARROW_CASING = '#000000';               // 검정(불투명)/코트 3.93:1
 // [2] 2026-08-08 정정. 원래 'rgba(0,0,0,.62)' 였으나 알파 .62 를 코트(#1f7a46) 위에
 // 합성한 실제 색은 rgb(12,46,27) 이고 코트 대비가 2.75:1 로, 케이싱이 존재하는 목적인
 // 3:1(WCAG 1.4.11)을 못 채운다. 주석의 3.93 은 알파 1.0 일 때만 성립하는 값이었다.
+// [3] 2026-08-13(6.3) 정정 — **흰색 쪽도 같은 함정이었다.** OBJ_STROKE 의 "5.34:1" 은 불투명
+// 흰색 기준이고, 알파 .92 를 코트 위에 합성한 실제 값은 **4.78:1** 이다. [2] 가 검정 쪽만
+// 고치고 흰색 쪽은 3차수 동안 그대로 뒀다. 기준(비텍스트 3:1)은 어느 쪽으로 세어도 넘으므로
+// **조치가 아니라 숫자 정정**이다. 이제 `src/test/docsMatchCode.test.ts` 가 colors.ts 의 그
+// 한 줄을 파일에서 읽어 `contrastRatio(compositeOver(OBJ_STROKE, COURT_BG), COURT_BG)` 와
+// 대조한다 — 주석과 계산이 갈라지면 그 테스트가 먼저 빨개진다.
+// 6.5(2026-08-13)가 더한 짝: `OBJ_STROKE_DARK = 'rgba(0,0,0,.92)'` — 밝은 차체(상대휘도 ≥ .25)
+// 위에서 테두리를 뒤집는다. 코트 위 3.75:1.
 
 export const CATEGORY_COLORS: Record<string, string> = {
   '공격': '#d93a3a', '수비': '#1f6bb8', '슈팅': '#e08a12',
@@ -513,13 +543,44 @@ export function clampToViewBox(mode: CourtMode, p: Vec2): Vec2;
 > · `model/defaults.ts` 의 기본 배치(FULL/HALF/FLAT_POSITIONS·BALL)도 같은 +12.5 를 받았다 —
 >   안 옮기면 기본 포메이션이 0.5 m 치우친다.
 > · 네 변의 여백은 `court.test.ts` 의 '코트 외곽 마진' 불변식이 붙잡는다.
-| home / away heading | 0° / 180° | 90° / 270° | 90° / 270° |
+| home / away heading | 90° / 270° | 90° / 270° | 90° / 270° |
 | desc | 프로토타입 `courtDefs` 문자열 그대로 | 〃 | 〃 |
 
 `desc` 는 `logic.js` 의 한국어 설명 3개를 그대로 옮긴다.
 
 **검증**: 750/30 = 450/18 = 25 px/m ✓ · 골 폭 150 px = 6 m ✓ · 골 지역 125×200 px = 5×8 m ✓
-· flat 500/25 = 20, 425/25 = 17 (나머지 0) ✓
+· flat 525/25 = 21, 450/25 = 18 (나머지 0) ✓
+
+> **※ 정정 각주 (2026-08-13, 6.3). 위 시그니처·표에서 세 가지가 무효다.**
+>
+> **① 풀 코트는 3단이다** (5.1 · §9 결정 ②, FIPFA Laws 2025). `COURT_DEFS[mode]` 를 직접
+> 읽으면 풀 코트는 **언제나 30×18** 로 읽힌다 — 크기를 아는 코드는 전부
+> `courtDefFor(mode, size)` 를 지난다. 좌표는 손으로 세 벌 적지 않고 `buildFullCourt(m, m)`
+> 하나가 파생시킨다(리터럴 금지 규칙 10).
+>
+> | `CourtSize` | 규정상 자리 | vbW × vbH | surface | grid 칸 |
+> |---|---|---|---|---|
+> | `'30x18'` (기본) | 최대 | 825 × 525 | 37.5,37.5,750,450 | 125 × 90 |
+> | `'28x15'` | 표준(농구 코트) | 775 × 450 | 37.5,37.5,700,375 | 116.67 × 75 |
+> | `'25x14'` | 최소 | 700 × 425 | 37.5,37.5,625,350 | 104.17 × 70 |
+>
+> **크기에 비례하는 것은 경기면 사각형뿐이다.** 골대 폭(6 m)·골 지역(8×5 m)·페널티 마크
+> (3.5 m)·코너 삼각형(1 m)·마진(1.5 m)은 Laws 가 절대 치수로 적는다. 격자는 **칸 수 6×5 를
+> 유지**하고 칸의 치수만 달라진다. **하프·플랫은 3단을 따라가지 않는다**(근거 셋은
+> `court.ts` 의 `COURT_DEFS.half` 머리말). 기본값을 `'28x15'` 로 옮기면 안 되는 이유도
+> 그 파일의 ⚠️ 에 있다 — 옛 드릴이 전부 작은 코트에서 열려 선수가 라인 밖에 선다.
+>
+> **② `CourtDef` 에 필드 둘이 더 있다** (5.2 · 5.3):
+> `encroachMarks: string[]` — 코너킥 인크로치먼트 마크(Laws 2025 신설). **각 골포스트
+> 안쪽 1 m** 에서 골라인에 수직으로 필드 밖 0.5 m. 풀 4개 · 하프 2개 · 플랫 0개.
+> 기준점이 코너가 아니라 **포스트**인 것이 핵심이다(코너 삼각형도 마침 1 m 라 헷갈린다).
+> `centerMark: string \| null` — 하프라인 중점의 15 cm "X". **풀 코트만** 값이 있다.
+>
+> **③ 좌표 조회 함수들이 `size` 를 받는다**: `courtDefFor(mode, size?)` ·
+> `gridCellCenter(mode, col, row, size?)` · `cellLabelAt(mode, p, size?)` ·
+> `isOnSurface(mode, p, size?)` · `clampToViewBox(mode, p, size?)`.
+> ⚠️ `clampToViewBox` 에서 `size` 를 빼먹으면 25×14 드릴(vb 700×425)의 좌표가 825×525 로
+> 클램프돼 **판 밖 개체가 그대로 살아남는다**.
 
 ### 3.3 격자 — `src/model/grid.ts` (좌표 전량 계산 확정)
 
@@ -1003,6 +1064,22 @@ export function buildSummary(d: Drill): DrillSummary;   // 약 700 B/건
 · `stroke 4 → 1.6`, `3.25 → 1.3` ✓. 따라서 `CourtThumbnail` 은 `FullCourtLines` 를 그대로 쓴다.
 half/flat 은 `scale = min(320/500, 192/425) = 0.45176471`, `translate(47.058824, 0)`.
 
+> **※ 정정 각주 (2026-08-13, 6.3). 위 역산 검산은 세 군데가 무효다** — 그러나 **결론
+> ("`CourtThumbnail` 은 `FullCourtLines` 를 그대로 쓴다")은 그대로 유효하다.** 근거만 갱신한다.
+>
+> 1. **`센터서클 r=75 → r=30` 은 이제 존재하지 않는 도형의 검산이다.** 센터 서클은 5.3(§9
+>    결정 ⑧)에서 **삭제**됐다 — Laws 2025 전문 50쪽에 *"circle"* 이 0회 나온다. 지금 그
+>    자리에 있는 것은 15 cm "X"(`centerMark`)뿐이고, 3 m 감각은 2.12 의 *공을 따라다니는
+>    파선 링*이 맡는다. 이 줄을 근거로 센터 서클을 되살리면 앱이 **파워체어 풋볼에 없는
+>    선을 다시 가르친다**(`courtMarks.test.ts` 의 '어느 판에도 센터 서클의 자리가 없다' 가
+>    그 가드다).
+> 2. **좌표가 사방 +12.5 px 옮겨졌다**(마진 1.0 → 1.5 m, 2026-08-10). 경기면은
+>    `25,25,750×450` 이 아니라 `37.5,37.5,750×450` 이고, 하프라인은 x=400 이 아니라 **412.5** 다.
+> 3. **`scale`/`translate` 계산은 아예 안 쓴다.** 반응형은 SVG 자체(viewBox)에 맡긴다 —
+>    `CourtThumbnail.tsx:59` 가 `viewBox={\`0 0 ${def.vbW} ${def.vbH}\`}` 하나로 끝낸다.
+>    그리고 그 `def` 는 `COURT_DEFS[mode]` 가 아니라 **`courtDefFor(mode, size)`** 다(6.4) —
+>    썸네일도 코트 크기 3단을 따라간다.
+
 ### 3.12 참조 · 세션 — `src/model/refs.ts`, `src/model/session.ts`
 
 "순서 있는 드릴 참조" 는 세션과 (미래의) 드릴 셋이 공유한다. **제네릭이어야 한다** —
@@ -1304,8 +1381,8 @@ localStorage 를 쓰는 이유: 테마는 **첫 페인트 전에 동기로** 읽
 
 ```ts
 export const PREFS_KEY = 'spin.prefs';
-export const UI_KEY = 'spin.ui';
-export const CURRENT_PREFS_SCHEMA = 1;
+export const UI_KEY = 'spin.ui';        // ※ 정정 2026-08-13: 삭제됨 (아래 각주)
+export const CURRENT_PREFS_SCHEMA = 1;  // ※ 정정 2026-08-13: 지금은 2 (3.0 이 v1→v2)
 
 export interface PhysicsParams {
   zones: ZoneConfig;
@@ -1387,6 +1464,34 @@ const bumperKmh    = clamp(p.physics.bumperKmh ?? 30, 10, bumperKmhMax(linearKmh
 document.documentElement.dataset.theme=p.theme==='light'?'light':'dark'}
 catch(e){document.documentElement.dataset.theme='dark'}</script>
 ```
+⚠️ 이 스크립트가 첫 페인트 전에 읽으므로 **`spin.prefs` 의 `theme` 은 최상위 문자열로 남아야
+한다.** 중첩시키거나 이름을 바꾸면 매 실행마다 흰 화면이 번쩍인다(재편 내내 지킨 불변식이다).
+
+> **※ 정정 각주 (2026-08-13, 6.3). §4.6 에서 무효가 된 것 넷.**
+>
+> **① `UI_KEY = 'spin.ui'` 는 삭제됐다** (5.0 ④). 호출자 0곳인 죽은 export 였다.
+> `src/storage/prefs.test.ts:443` 이 *"UI_KEY 는 이 모듈에 없다"* 를 **부재 단언**으로
+> 지킨다 — 되살리면 그 테스트가 빨개진다.
+>
+> **② `CURRENT_PREFS_SCHEMA` 는 2 다** (3.0 ★E-6 이 v1→v2 를 **한 커밋에** 올렸다).
+> 나눠서 올렸으면 `PREFS_MIGRATIONS` 를 네 번 손보고 3차·5차에 만든 백업 파일이 서로 다른
+> 스키마가 됐을 것이다.
+>
+> **③ `Preferences` 에 필드가 늘었다.** v2 에서 더해진 것: `inspectorPinned`(결정 ③A —
+> PC 인스펙터 고정 핀) · `a11y.sound`(놓임·막힘·상자 빔의 소리+진동. **한 스위치다** —
+> 쪼개면 사용자가 구분할 수 없는 두 상태가 생긴다) · `a11y.twoZone`(결정 ④, 기본 OFF) ·
+> `tray: { draw, note }`(§3 트레이 서랍 2개의 개폐) · `seeded`(seed 드릴 1회성 도장).
+> ⚠️ **`src/storage/prefs.ts` 의 화이트리스트 조립부에 이름이 없는 필드는 localStorage
+> 왕복에서 소리 없이 사라진다** — 필드를 더할 때 세 곳(`makeDefaultPrefs` · `validatePrefs`
+> · `PREFS_MIGRATIONS`)을 같이 손봐야 하는 이유다.
+>
+> **④ `resolvePhysics` 의 리터럴은 상수로 옮겨졌다.** 위 코드블록의 `?? 10` / `?? 30` 은
+> 지금 `DEFAULT_LIMITS.linearKmh` / `.bumperKmh` 다(§2.5). 값은 같다.
+>
+> **아직 사실인 것**(재편이 건드리지 않았다): `savePrefs` 는 절대 throw 하지 않는다 ·
+> `validatePrefs` 의 화이트리스트 조립 · `resolvePhysics` 의 존 경계 정렬·클램프 ·
+> 물리 6종 슬라이더의 기본값·범위 표. 6.1 은 그 6종을 **닫힌 서랍**으로 옮겼을 뿐
+> (`git diff src/storage/prefs.ts` 0줄) 판정 경로를 한 글자도 바꾸지 않았다.
 
 ### 4.7 내보내기 / 가져오기 — `src/storage/transfer.ts`, `files.ts`
 
@@ -1434,6 +1539,30 @@ export function drillFileName(d: Drill): string;
 export function readTextFile(f: File): Promise<string>;
 export function downloadBlob(blob: Blob, filename: string): void;
 ```
+
+> **※ 정정 각주 (2026-08-13, 6.3). 4차(내보내기)가 §4.7 에 더한 것과 뺀 것.**
+>
+> **① 여섯 번째 kind `'backup'` 이 생겼다** (4.7 · §6.1b — 기기 이사 파일).
+> `BackupPayload = { drills, sessions, prefs, board }` — **이 앱이 영구 저장하는 네 곳이
+> 전부 여기 모인다**(IDB `drills` · IDB `sessions` · localStorage `spin.prefs` ·
+> localStorage `spin.board`). 하나라도 빠지면 사용자는 "백업했다" 고 믿은 채 그것을 잃는다.
+> `board` 는 한 번도 연 적 없으면 `null` 이 정상이다 — 없는 것을 빈 기본 판으로 채워
+> 내보내면 복원이 남의 기기 판을 기본값으로 **덮어쓰는 길**이 열린다.
+> ⚠️ **봉투 버전도 payload 스키마 버전도 올리지 않았다** — `ENVELOPE_VERSION` 은 1 그대로다.
+> 담는 그릇이 하나 늘었다고 문서 버전을 올리면 기존 파일이 전부 `E_SCHEMA_TOO_NEW` 가 된다.
+>
+> **② `exportLibraryFile` 은 프로덕션 호출자가 0 이다** (4.7 §6.1b — 목록의 [전체 내보내기]
+> 제거). `parseSpinFile` 은 `'library'` 를 **여전히 읽는다** — 옛 파일을 가진 사용자를 버리지
+> 않기 위해서다. 즉 이 kind 는 **읽기 전용**이 됐고, 함수는 테스트 픽스처 빌더로만 남아 있다.
+> 같은 이유로 `'prefs'` kind 도 **읽기만** 한다(쓰는 함수가 없다. `backup` 이 대신한다).
+>
+> **③ 내보내기 진입점이 하나로 통합됐다** (§6.4): [보드] 하단 [내보내기] 1개 →
+> 3항목 시트(드릴 `.json` / PNG / 인쇄). 설정 화면의 [전체 내보내기]는
+> **[기기 이사 파일 읽기]**(복원 쪽)로 바뀌었다.
+>
+> **④ 파일로 나가지만 앱이 도로 읽지 않는 것 둘**: PNG(4.4 — 자립 SVG 문자열을 구워
+> 래스터화. `features/export/`)와 인쇄(4.5 — `window.print()` + `@media print`.
+> `features/print/`). 둘 다 봉투가 아니므로 `SpinFileKind` 에 없다.
 
 **`commitSessionImport` 은 반드시 리맵한다** — 없으면 "사본으로 추가"(기본 선택지)가 세션 항목을
 조용히 로컬의 다른 드릴로 연결하고, `missing` 도 아니라 아무 경고가 뜨지 않는다:
@@ -2101,6 +2230,22 @@ export const handlesVisible = (pxPerUnit: number, pointerType: string, forced: b
   forced || (pointerType === 'touch' && pxPerUnit < INTERACT.zoneDirectMinPxPerUnit);
 ```
 
+> **※ 정정 각주 (2026-08-13, 5.5 결정 ④ · 6.3 기록). 위 `handlesVisible` 식은 무효다.**
+> 지금은 **`forced` 만 본다**:
+> ```ts
+> export const handlesVisible = (_pxPerUnit: number, _pointerType: string, forced: boolean): boolean => forced;
+> ```
+> **자동 배율 문턱(`pxPerUnit < INTERACT.zoneDirectMinPxPerUnit`, 상수 1.28)을 뗀 이유 둘:**
+> ① 실측 배율 분포(7인치 0.663 · narrow 0.891 · PC 핀 0.899 · PC 오버레이 1.151 ·
+> 27인치 1.675)가 문턱 1.28 을 **여러 번 넘나든다** — 그대로 두면 *줌이 조작 규칙을 바꾸는
+> 사고*가 된다. ② 7인치 태블릿은 0.663 이라 문턱이 **늘 참**이다. 즉 자동 분기를 남기면
+> 결정 ④ 의 *"2존 기본 OFF"* 가 하필 이 앱의 1순위 기기에서만 거짓말이 된다.
+>
+> **인자 둘을 지우지 않고 남긴 것은 의도다.** 계약(§5.12)과 호출부를 그대로 두면서
+> *"배율과 포인터 종류를 무엇으로 넣어도 답이 안 바뀐다"* 를 **단언 가능한 성질**로 만들기
+> 위해서다 — `src/physics/twoZone.test.ts` 의 매트릭스가 자동 문턱의 부활을 막는 자물쇠다.
+> `forced` 를 넣는 곳은 설정 [접근성] > **2존 모드** 토글(`prefs.a11y.twoZone`, 기본 OFF)이다.
+
 **히트 우선순위 (이 순서로만)**
 1. 공 / 콘 / 메모 — **자기 픽 반지름** (`r + pickPadCssPx/pxPerUnit`, 상한 §7.3)
 2. **어떤 휠체어든 정확한 OBB 본체** (pad 없음)
@@ -2587,6 +2732,32 @@ export function useAppHistory(initial?: Screen): {
 > · 헤더: `home` 은 정적 헤더를 받지 않는다(화면이 `useAppHeader` 로 직접 선언). 정적 config 를
 >   주면 `AppHeader` 의 config prop 이 Context 를 덮어써 그 헤더가 통째로 사라진다.
 
+> **※ §6.8 재편 각주 2 (2026-08-12, 계획서 2.1 — 3단 레일). 화면 키를 늘리지도 줄이지도
+> 않았다: `home` → `board`, `library` → `drills` **개명만** 했다.** 위 2026-08-09 결정은
+> 전부 그대로 유효하다. 확정형은 `src/app/screens.ts` 에 있다:
+>
+> | | 값 |
+> |---|---|
+> | `Screen` (`SCREEN_ORDER`) | `board` · `drills` · `present` · `settings` — **4개** |
+> | `RailKey` (`RAIL_ITEMS`) | `board`(보드) · `drills`(드릴) · `settings`(설정) — **3개** |
+>
+> · **레일이 화면 키와 1:1 이 아니게 된 것**이 이번 재편의 유일한 구조 변화다. `present` 는
+>   화면 키로 남되 **레일에서는 빠진다** — 레일로 들어오면 대상이 없어 *"시연할 드릴을
+>   목록에서 선택하세요"* 만 뜨기 때문이다. 시연 중 레일 활성은 `SCREEN_TO_RAIL` 이 [드릴]로
+>   접는다(레일이 편집기 내부 상태에 결합되는 것을 막는 명시적 상수 맵).
+> · **옛 키 관용 경로**: `LEGACY_SCREEN_KEYS = { home: 'board', library: 'drills' }`.
+>   사용자가 열어 둔 탭의 `history.state` 에 옛 키가 그대로 들어 있어, 지우면 그 탭들의
+>   뒤로가기 이력이 통째로 무효가 된다. **한시적**이다 — 배포 후 한 사이클이 지나면 없앤다.
+> · 시연 종료는 `back('home')` → **`back('board')`**.
+> · 좁은 창(§5.1 boolean `narrow`)에서는 세로 레일이 **헤더 좌측 3칸 세그먼트**로 접힌다.
+>   같은 3항목·같은 아이콘을 쓴다(`app/navChrome.ts` 의 `RAIL_ICONS` 가 그 사실의 단일 출처).
+> · 옛 대문의 훈련 현황 대시보드(`HomeDashboard`)는 2.8/2.9 에서 **걷어냈다**.
+> · **인쇄는 화면 키가 아니다**(4.5). `src/features/print/` 의 React 트리가 평소
+>   `display:none` 으로 붙어 있다가 `@media print` 에서만 보인다.
+> · ⚠️ **§3 첫 화면 표적 예산 ≤ 40.** [보드] 초기 화면 실측 37 / 서랍 둘 다 열림 40 — **여유 0**.
+>   새 컨트롤은 초기 DOM 에 없는 곳(시트·서랍·모달·인스펙터 오버레이)에 넣는다.
+>   `src/test/boardTargetBudget.test.tsx` 가 게이트다.
+
 react-router 미도입 근거: 화면 4개·중첩 라우트 0·URL 공유가 제품 시나리오에 없음(드릴 공유는
 `.json` 파일). 실제로 필요한 건 시스템 뒤로가기 하나뿐이고 그건 40줄이다. 라우터를 두면
 전체화면 해제와 라우트 pop 이 같은 키 입력에 이중 동작할 위험이 있다.
@@ -2598,6 +2769,18 @@ react-router 미도입 근거: 화면 4개·중첩 라우트 0·URL 공유가 �
 **헤더 조건부 표시** (프로토타입 `renderVals` 그대로): 코트 스위치 `(editor|present) && courtMode`
 / 검색 `library` / 시연 버튼 `(editor && courtMode) || library` / 주 액션
 `home|library → 새 드릴`, `editor → 저장`, `present → 편집으로`.
+
+> **※ 정정 각주 (2026-08-13, 6.3).** 위 **헤더 조건부 표시** 규칙은 화면 키 개명 전 문장이고
+> (`home|library`·`editor`), `CourtPicker` 도 은퇴했다. 아래 **코트 모드 스위치 불변** 조항은
+> 두 갈래로 갈렸다:
+> · **드릴** — 여전히 불변이다(코트가 바뀌면 저장된 배치가 갈 곳을 잃는다).
+> · **자유 전술판([보드])** — **판이 pristine 일 때만** 코트 형태(full/half/flat)와
+>   **코트 규격 3단**(6.4)을 바꿀 수 있다. 판 위 개체가 0인 상태에서만 열리므로
+>   *"코트를 줄였더니 선수가 밖에 서 있다"* 가 구조적으로 불가능하다.
+>   규격 select 는 **인스펙터 오버레이 시트 안**에 있다(규칙: 표적 예산 ≤ 40, 여유 0).
+>   하프·플랫에서는 select 를 내지 않고 *"규격 3단은 풀 코트에만 적용됩니다"* 라고 말한다 —
+>   골라도 판이 안 변하는 컨트롤은 판이 거짓말하는 것과 같기 때문이다.
+> 아래 `aria-disabled` + 토스트 패턴 자체는 여전히 유효한 계약이다.
 
 **코트 모드 스위치는 v1 에서 불변이다** (프로토타입은 "변경할 수 없습니다" 안내와 `pickCourt`
 스위치가 자기모순이다). 처리 방식은 공 도구 제한(§6.10)과 **동일 패턴**:
@@ -2759,7 +2942,7 @@ main (padding:22px 30px 46px, max-width:1180)
 | light `--accent-ink/--accent` **2.90** | ❌ | accent 배경 위 글자는 `--accent-ink-strong`(5.83) |
 | light accent-as-text `/--panel` **2.90** `/--panel-2` **2.70** `/--bg` **2.49** | ❌ | `--accent-text`(5.97/5.55/5.12) |
 | dark accent-as-text `/--panel` 14.21 | ✅ | `--accent-text = var(--accent)` |
-| 코트 위 흰 외곽선 `/#1f7a46` **5.34** | ✅ | 유지 |
+| 코트 위 흰 외곽선 `/#1f7a46` ~~5.34~~ → **4.78** | ✅ | 유지 (아래 각주 ①) |
 | 코트 `#2f9e5c`(라이트): 흰 라인 **3.41**, 격자 .14 **1.21**, 규칙존 **1.12** | ❌ | **라이트 코트 배경 폐기.** 양 테마 모두 `#1f7a46` |
 | 화살표 `#38bdf8/#1f7a46` **2.49** · `#fbbf24` **3.20** | ❌/△ | 검정 케이싱(**3.93**) 필수 |
 | 규칙존 accent .10 합성 **1.19** | ❌ | 흰 .14 + 파선 흰 테두리(5.34) |
@@ -2775,6 +2958,28 @@ main (padding:22px 30px 46px, max-width:1180)
 그러면 상대 GK(`#22a95b`)가 3.05:1, 앰버 팀색(`#e08a12`)이 2.69:1 로 읽히지 않는다.
 등번호는 §7.5 "색에 의존하지 않는 팀 구분" 의 유일한 대체 표식이므로 이건 기능 요건이다.
 홈 GK 잉크가 `#3a2e00` → `#14200a` 로 바뀌지만 육안 차이는 없다.
+
+> **※ 정정 각주 (2026-08-13, 6.3). §7.1 에서 갱신된 것 셋.**
+>
+> **① `OBJ_STROKE` 는 4.78:1 이다** (5.34 아님). 5.34 는 **불투명 흰색** 기준이고 실제로 쓰는
+> 값은 알파 .92 라, 코트(`#1f7a46`) 위에 합성하면 rgb(240,246,242) → **4.78:1** 이다.
+> 같은 표의 `규칙존 … 파선 흰 테두리(5.34)` 행도 같은 값이므로 **4.78** 로 읽어야 한다.
+> 기준(비텍스트 3:1)은 어느 쪽으로 세어도 넘으므로 **조치가 아니라 숫자 정정**이다.
+> `src/test/docsMatchCode.test.ts` 가 `colors.ts` 의 그 한 줄을 파일에서 읽어 계산과 대조한다.
+>
+> **② 팀 구분은 색 밖에도 채널이 있다** (4.6 · 6.5). 상대팀 칩은 **파선 테두리**를 갖고,
+> 6.5 부터 **차체가 밝은 칩(상대휘도 ≥ .25)은 테두리가 검정(`OBJ_STROKE_DARK`)으로 뒤집힌다** —
+> 임계는 등번호 잉크가 흰색에서 검정으로 바뀌는 바로 그 지점이라, 눈으로 보는 규칙이
+> *"글자가 검은 칩은 테두리도 검다"* 한 문장이 된다. 흰 테두리 고정이던 시절의 실측
+> (`#e08a12` 2.50 · `#22a95b` 2.80 · `#f2c811` 1.55 — **기본 설정의 어웨이 GK 가 여기 걸렸다**)이
+> 그 이유다. ⚠️ **공·콘·메모는 아직 이 규칙 밖이다**(흰 테두리 고정) — 아래 §7 남은 구멍.
+>
+> **③ 고대비·강제색 축이 생겼다** (5.6 · 6.6). `prefers-contrast` 와 `forced-colors: active`
+> 대응이 `src/styles/contrast.css` 에 있고, CSS 는 jsdom 이 못 보므로 **파일을 텍스트로 읽는
+> 계약 테스트**(`contrast.test.tsx` · `cssContract.ts`)가 그것을 지킨다.
+> ⚠️ 강제색에서 *'켜짐'* 을 되살리는 규칙은 **`!important` 가 필수다** — 이 저장소의 켜짐
+> 배경은 거의 전부 인라인 `style` 이고(대표: `src/ui/Button.tsx`), 캐스케이드는 오리진·중요도를
+> 선택자보다 먼저 보므로 일반 author 규칙은 인라인에 진다(6.6 이 실측으로 찾은 결함).
 
 ### 7.2 포커스 표시 — `src/styles/a11y.css`
 
@@ -3023,6 +3228,39 @@ export const isInteractiveTarget = (t: EventTarget | null): boolean =>
 
 **설치 필요**: `pnpm add -D fake-indexeddb` (미설치). `src/test/setup.ts` 에
 `import 'fake-indexeddb/auto'` 추가.
+
+> **※ §8 정정 각주 (2026-08-13, 6.3).** 표의 **원칙**("한 파일은 정확히 한 모듈이 쓴다. 다른
+> 모듈의 파일을 수정해야 하면 작업을 멈추고 보고한다")은 재편 내내 그대로 지켰다 — 실제로
+> 6.5 는 6.4 와 겹친 두 파일을 **헝크 단위로만** 커밋했고, 6.1 은 자기 것이 아닌 수정을
+> 스테이징하지 않았다. 바뀐 것은 **표의 내용**이다.
+>
+> **⚠️ 파일 경계는 "고치지 말라" 는 뜻이지 "못 본 척하라" 는 뜻이 아니다.** 4차에서 둘,
+> 5차에서 또 둘이 *"내 소유 파일이 아니라 안 고쳤다"* 고만 적어 결함이 그대로 넘어갈 뻔했다
+> (앱이 자기 백업 파일을 거절 / 물리 존 슬라이더가 판정에 안 감). 경계 밖 발견은
+> **파일:행 + 무엇이 왜 잘못됐는지 + 재현 방법**을 보고에 적는다.
+>
+> **화면 모듈 3종이 개명·분화했다** (2.1 · 4차 · 6.4):
+>
+> | 옛 모듈 키 | 지금 |
+> |---|---|
+> | `screen-home-library` | `src/features/home/`(`nav.ts` 만 남았다) · `src/features/library/` · **`src/features/board/`**(신설 — 자유 전술판) |
+> | `screen-editor` | `src/features/editor/` — `CourtPicker` **은퇴**, `EditorWorkspace`·`BoardBar`·`InspectorPanel`·`ToolRail`·`placement.ts`·`snapOnSettle.ts` 등으로 분화 |
+> | (없었음) | **`src/features/export/`**(4.4 — 자립 SVG · PNG 래스터) · **`src/features/print/`**(4.5 — 인쇄 전용 React 트리) |
+>
+> **모듈 안에서 늘어난 파일 중 표에 없던 것들** (전수는 아니다):
+> `core/colors.ts` 에 `OBJ_STROKE_DARK`·`strokeFor` · `model/court.ts` 에 `CourtSize`·
+> `FULL_COURT_DEFS`·`courtDefFor` · `model/setPiece.ts`·`fillPreset.ts` ·
+> `physics/twoZone.ts` · `storage/board.ts`(자유 전술판 스냅샷) ·
+> `render/teamMark.ts`·`stageRot.tsx`·`courtLines/` · `app/navChrome.ts`·`chromeBudget.ts`·
+> `announce.ts`·`screens.ts` · `styles/contrast.css`·`print.css`·`contrastMath.ts`·`cssContract.ts`
+> (뒤 둘은 **테스트 전용 순수 모듈**이다 — 프로덕션 번들이 import 하지 않는다).
+>
+> **`src/test/` 는 이제 픽스처만 두는 자리가 아니다.** 여러 모듈을 **가로지르는 게이트**가 산다:
+> `boardTargetBudget.test.tsx`(§3 표적 예산 ≤ 40) · `courtSizeConsumers.test.tsx`(새 `COURT_DEFS`
+> 소비처가 생기면 먼저 빨개진다) · `courtSizeScreens.test.tsx`(코트를 그리는 화면 5개를
+> **배열로 열거**한다 — 새 진입점이 생기면 행을 더해야 게이트가 그 화면을 본다) ·
+> `docsMatchCode.test.ts`(6.3 — 문서·주석의 숫자를 코드 상수와 대조). 이것들은 어느 한 모듈의
+> 소유가 아니라 **재편의 불변식**이다.
 
 ---
 
