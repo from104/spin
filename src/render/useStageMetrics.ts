@@ -1,8 +1,6 @@
 // §6.4 좌표 변환 · 줌. `getScreenCTM()` 을 쓰지 않는 이유: jsdom 에 없어서 단위 테스트가
 // 불가능하고, Safari 에서 CSS transform 조상 아래 부정확한 사례가 보고된다.
 // `preserveAspectRatio="xMidYMid meet"` 역산은 순수 함수라 테스트 가능하다.
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { RefObject } from 'react';
 import type { Vec2 } from '../core/units.ts';
 import { clamp } from '../core/geom.ts';
 import { CHAIR, INTERACT } from '../core/constants.ts';
@@ -180,75 +178,21 @@ export function edgePanVelocity(
   return { x: axis(rect.left, rect.right, client.x), y: axis(rect.top, rect.bottom, client.y) };
 }
 
-export interface UseStageMetricsResult {
-  /** 리렌더를 유발하지 않는 실측치. 히트테스트·좌표변환은 항상 이 ref 를 읽는다. */
-  metricsRef: RefObject<StageMetrics | null>;
-  /** 히트 반경 계산용 디바운스(100ms) state 사본. */
-  pxPerUnit: number;
-  /** 표시 회전. **위에서 내려온 값을 그대로 돌려준다**(2026-08-14 §4.2) — 여기서 정하지 않는다. */
-  rot: StageRot;
-  /** 드래그 시작 시 다시 읽는다 — ResizeObserver 는 위치 이동(스크롤·URL바 접힘)을 관측하지 않는다. */
-  refresh(): StageMetrics | null;
-}
-
-const PX_PER_UNIT_DEBOUNCE_MS = 100;
-
-/** ⚠️ 2026-08-14 §4.2 로 **시그니처가 바뀌었다**: `rot` 을 인자로 받는다.
- *
- *  옛 경로는 `refresh()` 안에서 `rotForFit(svg.getBoundingClientRect(), view)` 로 회전을 **스스로**
- *  정했다. 그 한 줄이 P3(코트 칸이 rot 에 맞춰 자기 종횡비로 줄어듦) 위에서 고리를 닫아
- *  쌍안정을 만든다 — 되돌리면 useStageRot.test.ts 의 소스 계약과 세로 창 회전 테스트가 함께
- *  빨간불이 된다. 회전을 정하는 곳은 이제 `useStageRot`(창 크기) 하나뿐이다. */
-export function useStageMetrics(svgRef: RefObject<SVGSVGElement | null>, view: StageView, rot: StageRot): UseStageMetricsResult {
-  const metricsRef = useRef<StageMetrics | null>(null);
-  const [pxPerUnit, setPxPerUnit] = useState(1);
-  const viewRef = useRef(view);
-  viewRef.current = view;
-  // 렌더마다 사본을 새로 쓴다 — refresh 의 identity 를 고정해 둬야(deps 에 rot 을 넣지 않아야)
-  // 회전이 뒤집힐 때마다 아래 구독 이펙트가 통째로 다시 걸리지 않는다.
-  const rotRef = useRef<StageRot>(rot);
-  rotRef.current = rot;
-
-  const refresh = useCallback((): StageMetrics | null => {
-    const svg = svgRef.current;
-    if (!svg) return null;
-    const rect = svg.getBoundingClientRect();
-    const m = computeMetrics(rect, viewRef.current, rotRef.current);
-    metricsRef.current = m;
-    return m;
-  }, [svgRef]);
-
-  useEffect(() => {
-    const m = refresh();
-    if (m) setPxPerUnit(m.pxPerUnit);
-
-    let timer: number | null = null;
-    const scheduleStateSync = (): void => {
-      const next = refresh();
-      if (timer !== null) window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        timer = null;
-        if (next) setPxPerUnit(next.pxPerUnit);
-      }, PX_PER_UNIT_DEBOUNCE_MS);
-    };
-
-    const vv = window.visualViewport;
-    vv?.addEventListener('resize', scheduleStateSync);
-    vv?.addEventListener('scroll', scheduleStateSync);
-    window.addEventListener('resize', scheduleStateSync);
-    // capture 단계 scroll — 스테이지를 담은 어떤 조상이 스크롤돼도 좌표가 어긋난다(§6.4).
-    window.addEventListener('scroll', scheduleStateSync, true);
-
-    return () => {
-      vv?.removeEventListener('resize', scheduleStateSync);
-      vv?.removeEventListener('scroll', scheduleStateSync);
-      window.removeEventListener('resize', scheduleStateSync);
-      window.removeEventListener('scroll', scheduleStateSync, true);
-      if (timer !== null) window.clearTimeout(timer);
-    };
-    // view.w/h(줌 배율)가 바뀌면 즉시 재계산해야 한다. rot 이 뒤집혀도 마찬가지다 —
-    // computeMetrics 의 offX/offY 가 rot 에 따라 달라지므로 낡은 metrics 로는 좌표가 어긋난다.
-  }, [refresh, view.w, view.h, rot]);
-
-  return { metricsRef, pxPerUnit, rot, refresh };
-}
+// ── 2026-08-14 7차 검증: 여기 있던 `useStageMetrics` 훅을 **지웠다** ────────────────────────
+// 무엇이었나: `svgRef` 를 ResizeObserver/visualViewport 로 구독해 `computeMetrics` 를 다시 돌리고
+// `pxPerUnit` 을 디바운스로 state 에 흘리던 훅(+ `UseStageMetricsResult`). **호출자가 0곳이었다** —
+// v0.1.0(abb4963) 시점에도 이미 0곳이라 이번 재설계가 만든 빚이 아니다. CourtStage 가 같은 일을
+// 자기 안에 따로 구현해 두었고(rotRef · metricsRef · refreshMetrics), 화면이 실제로 도는 것은
+// 그쪽 한 벌뿐이다.
+//
+// 왜 지웠나: P1(§4.2)이 지시대로 이 훅의 시그니처에 `rot` 을 얹고 *"회전을 정하는 곳은 이제
+// useStageRot 하나뿐"* 이라는 규율 주석까지 달아 두면서, **죽은 코드가 살아 있는 코드와 같은
+// 규율을 지키는 척하게 됐다.** 이 저장소가 실제로 크게 데인 사고가 정확히 그 형태다 — 물리
+// 프로브가 코트 크기를 골대까지 안 넘겨 잡종 월드를 만들었는데 2468 전건 초록이었던 일(*"하네스도
+// 검증 대상이다"*). 같은 모듈 안에 `rotForFit` 의 소비자가 두 벌 있으면, 다음 사람이 어느 쪽이
+// 진짜인지 헤매다 죽은 쪽을 고치고 초록불을 받는다. P1·P3·P5 가 세 라운드 연속으로 이 사실을
+// 보고했지만 *"내 소유 파일이 아니라"* 로 남아 있었다.
+//
+// 되살릴 일이 생기면 `git show abb4963:src/render/useStageMetrics.ts` 에 옛 전문이 있다. 다만
+// 되살릴 때는 **CourtStage 쪽을 지워 한 벌로 만들어라** — 두 벌이 된 것이 문제였지 훅이 문제가
+// 아니었다. 이 파일에 남은 것은 전부 순수 함수다(rotForFit · computeMetrics · zoomAt · panBy …).
