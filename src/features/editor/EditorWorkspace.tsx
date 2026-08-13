@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
-import type { CourtMode } from '../../model/court.ts';
+import { DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
@@ -48,6 +48,9 @@ export interface BoardControls {
    *  만든다 — 저장본까지 봐야 하는 이유는 storage/board.ts 의 pristine 주석 참고. */
   pristine: boolean;
   onCourtChange(mode: CourtMode): void;
+  /** §6.4 코트 크기 3단. 코트 형태 전환과 **같은 문**(pristine)을 지난다 — 그래야 판 위에
+   *  개체가 하나도 없을 때만 규격이 바뀌어 "코트를 줄였더니 선수가 밖에 서 있다" 가 없다. */
+  onCourtSizeChange(size: CourtSize): void;
   onReset(): void;
   onSaveAsDrill(): void;
 }
@@ -336,6 +339,18 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const inspector = (
     <InspectorPanel
       drill={drill}
+      // §6.4 크기 선택은 **인스펙터(오버레이 시트)** 안이다 — 첫 화면 표적 예산(≤40, 여유 0)을
+      // 한 칸도 쓰지 않기 위해서다(계획서 §3 · boardTargetBudget.test.tsx). 시트는 닫혀 있으면
+      // DOM 에 아예 없다(InspectorHost 의 mode==='hidden' → null).
+      courtSizeSwitch={
+        board
+          ? {
+              value: drill.courtSize ?? DEFAULT_COURT_SIZE,
+              locked: !boardPristine,
+              onChange: (s: CourtSize) => board.onCourtSizeChange(s),
+            }
+          : undefined
+      }
       step={step}
       stepIndex={stepIndex}
       dispatch={dispatch}
@@ -437,6 +452,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         {isBoard ? (
           <BoardBar
             courtMode={drill.courtMode}
+            courtSize={drill.courtSize}
             courtLocked={!boardPristine}
             // 내보내기 시트(§6.4)가 굽는 것은 **지금 리듀서가 들고 있는 판**이다 — 물리 세계가
             // 아니라 모델이다. 드래그는 커밋 스냅에서 모델로 들어오므로(§4.3) 손을 뗀 뒤의
