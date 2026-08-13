@@ -56,8 +56,12 @@ function limitsFrom(p: PhysicsParams): DragLimits {
   };
 }
 
-export function EditorProvider({ drill, children }: { drill: Drill; children: ReactNode }) {
-  const [state, dispatch] = useReducer(editorRootReducer, drill, initEditorState);
+/** `init` 은 **이어 여는** 경우에만 준다 — 자유 전술판이 다른 화면에 들렀다 돌아올 때
+ *  되돌리기 이력·선택·활성 도구까지 그대로 이어받는 통로다(features/board/boardSession.ts).
+ *  드릴 편집기는 안 쓴다: 드릴은 저장소가 원본이고, 이력은 여는 순간부터 새로 시작한다.
+ *  지연 초기화라 **첫 렌더에서 한 번만** 읽힌다 — 이후 이 prop 이 바뀌어도 무시된다. */
+export function EditorProvider({ drill, init, children }: { drill: Drill; init?: EditorState; children: ReactNode }) {
+  const [state, dispatch] = useReducer(editorRootReducer, drill, (d) => init ?? initEditorState(d));
   const { prefs, physics } = useSettingsState();
   const worldRef = useRef<PhysicsWorldApi | null>(null);
   const physicsRef = useRef(physics);

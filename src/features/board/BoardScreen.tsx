@@ -13,6 +13,7 @@ import { COURT_SIZE_LABELS, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize }
 import { createDrill } from '../../model/defaults.ts';
 import { newId } from '../../core/ids.ts';
 import { loadBoard, saveBoard } from '../../storage/board.ts';
+import { readBoardSession, writeBoardSession } from './boardSession.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import type { Preferences } from '../../storage/prefs.ts';
 import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
@@ -46,10 +47,20 @@ function makeBoardDrill(prefs: Preferences, mode?: CourtMode, size?: CourtSize):
 export function BoardScreen() {
   const { prefs } = useSettingsState();
   // 최초 1회만 판을 정한다. prefs 가 바뀌었다고 그리던 판을 갈아엎으면 안 된다.
-  const [boot] = useState(() => loadBoard() ?? { drill: makeBoardDrill(prefs), pristine: true });
+  //
+  // 부팅 출처는 셋이고 **순서가 곧 계약**이다(2026-08-14 기현님 지시 — boardSession.ts 머리말):
+  //   ① 세션 캐시 — 이 세션에서 판을 떠났다 돌아온 경우. 이력·선택·도구까지 그대로 잇는다.
+  //   ② localStorage 스냅샷 — 새로고침·새 세션. 배치는 살아나고 이력은 새로 시작한다.
+  //   ③ 새 판 — 저장본이 없다.
+  const [boot] = useState(() => {
+    const session = readBoardSession();
+    if (session) return { drill: session.state.present, pristine: session.pristineBase, init: session.state };
+    const snap = loadBoard();
+    return snap ? { ...snap, init: undefined } : { drill: makeBoardDrill(prefs), pristine: true, init: undefined };
+  });
 
   return (
-    <EditorProvider drill={boot.drill}>
+    <EditorProvider drill={boot.drill} init={boot.init}>
       {/* 설정 [재생] > '마지막 스텝에서 반복'. 전술판 재생(useStepPlayback)도 같은 스위치를 본다. */}
       <PlaybackProvider initialLoop={prefs.loop}>
         <BoardHost bootPristine={boot.pristine} />
@@ -78,6 +89,13 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
   pristineRef.current = pristine;
   const presentRef = useRef(state.present);
   presentRef.current = state.present;
+  // 세션 캐시에 실을 것들. `pristineBase` 는 `pristine`(= base && past.length===0)이 아니라
+  // **기준선 자체**다 — 파생값을 저장하면 이력을 그대로 이어받은 판이 다음 마운트에서
+  // base=false 로 굳어, 판을 비워도(past 가 0 이 돼도) 코트 전환이 영영 안 열린다.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const pristineBaseRef = useRef(pristineBase);
+  pristineBaseRef.current = pristineBase;
   useEffect(() => {
     const t = window.setTimeout(() => saveBoard(state.present, pristineRef.current), PERSIST_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
@@ -95,6 +113,9 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
   useEffect(() => {
     return () => {
       saveBoard(presentRef.current, pristineRef.current);
+      // 같은 자리에서 세션 캐시도 채운다. 디스크에는 배치만, 메모리에는 상태 전부 —
+      // 둘의 역할 분담은 boardSession.ts 머리말에 있다.
+      writeBoardSession({ state: stateRef.current, pristineBase: pristineBaseRef.current });
     };
   }, []);
 

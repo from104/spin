@@ -24,6 +24,7 @@ import { ToastHost } from '../../ui/ToastHost.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { loadPrefs, makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { BOARD_KEY, saveBoard } from '../../storage/board.ts';
+import { clearBoardSession } from './boardSession.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { setArrow } from '../../model/edits.ts';
 import { newId } from '../../core/ids.ts';
@@ -124,6 +125,9 @@ function stubStageRect(stage: Element): (w: { x: number; y: number }) => { clien
 
 beforeEach(() => {
   localStorage.clear(); // prefs + 전술판 스냅샷(BOARD_KEY) 둘 다 비운다
+  // 세션 캐시는 모듈 전역이라 **테스트 사이에 새어 나간다** — 안 끊으면 앞 테스트가 놓은
+  // 배치와 이력을 다음 테스트가 이어받아 연다(boardSession.ts 머리말).
+  clearBoardSession();
 });
 
 describe('자유 전술판 (대문)', () => {
@@ -482,6 +486,11 @@ describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', ()
     unmount();
     expect(screen.queryByRole('application', { name: '코트 편집 영역' })).toBeNull();
 
+    // ★ 2026-08-14 부터 **언마운트만으로는 새로고침이 아니다** — 세션 캐시가 상태를 들고 있어
+    //   다시 render 하면 그쪽이 먼저 읽힌다(BoardScreen 부팅 순서 ①). 안 끊으면 이 테스트가
+    //   보려는 스냅샷 경로가 한 줄도 안 돌고 초록불이 된다.
+    clearBoardSession();
+
     // 새로 마운트 = 새로고침 후 다시 방문. prefs 는 그대로, 스냅샷만 살아 있다.
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
@@ -520,10 +529,55 @@ describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', ()
       { timeout: 5000 },
     );
     unmount();
+    clearBoardSession(); // 위와 같은 이유 — 새로고침을 흉내내려면 세션을 끊어야 한다
 
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
     expect(screen.getByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument();
+  }, 20000);
+});
+
+// ── 판을 떠났다 돌아오면 같은 판이다 (2026-08-14 기현님 지시) ────────────────────────────
+// *"보드는 누를 때마다 새 화면이 아니라 항상 상태나 배치를 저장하고 불러와야 한다."*
+// 배치는 원래도 돌아왔다(위 describe). 안 돌아오던 것은 이력·선택·도구다 — 되돌리기가 죽은
+// 채로 열리니 배치가 같아도 **다른 판을 새로 연 것처럼** 읽혔다.
+describe('세션 왕복 — 떠났다 오면 새 판이 아니다', () => {
+  it('되돌리기 이력이 이어진다 — 돌아와서 곧바로 되돌릴 수 있다', async () => {
+    const { user, stage, unmount } = await openBoard('full', { placed: true });
+    const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
+    const before = poseOf(chair);
+    chair.focus();
+    await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
+    const moved = poseOf(stage.querySelectorAll('.court-obj')[0]!);
+    expect(moved.x).not.toBe(before.x);
+
+    // 판을 떠난다(= 레일 [드릴]·[설정]). 캐시는 언마운트 정리에서 채워진다.
+    unmount();
+    render(<BoardScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+
+    // ① 배치가 그대로다
+    const back = screen.getByRole('application', { name: '코트 편집 영역' });
+    expect(poseOf(back.querySelectorAll('.court-obj')[0]!).x).toBe(moved.x);
+    // ② 그리고 되돌리기가 **살아 있다** — 이것이 이 커밋 전에는 죽어 있던 자리다.
+    const undo = screen.getByRole('button', { name: '되돌리기' });
+    expect(undo).toBeEnabled();
+    await user.click(undo);
+    await waitFor(() =>
+      expect(poseOf(screen.getByRole('application', { name: '코트 편집 영역' }).querySelectorAll('.court-obj')[0]!).x).toBe(before.x),
+    );
+  }, 20000);
+
+  it('코트 전환 게이트의 기준선도 이어진다 — 편집한 판은 돌아와도 잠겨 있다', async () => {
+    // 파생값(pristine)이 아니라 기준선(pristineBase)을 실어야 하는 이유의 화면 끝 확인.
+    const { user, stage, unmount } = await openBoard('full', { placed: true });
+    (stage.querySelectorAll('.court-obj')[0] as SVGGElement).focus();
+    await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
+
+    unmount();
+    render(<BoardScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+    expect(screen.getByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
   }, 20000);
 });
 

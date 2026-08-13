@@ -35,3 +35,18 @@ if (!Element.prototype.setPointerCapture) {
 if (!document.elementFromPoint) {
   document.elementFromPoint = () => null
 }
+
+// 자유 전술판의 세션 캐시(features/board/boardSession.ts)는 **모듈 전역**이다. 앱에는 판이
+// 하나뿐이라 그것이 옳은 수명이지만, 한 파일 안에서 BoardScreen 을 여러 번 렌더하는 테스트는
+// 앞 테스트가 놓은 배치와 이력을 그대로 이어받아 열게 된다 — 실제로 21개 파일 중 넷이
+// 그렇게 빨간불이 났다(2026-08-14).
+//
+// 파일마다 beforeEach 를 적게 하지 않고 여기서 한 번에 끊는다: 새 테스트 파일이 이 위생 규칙을
+// **잊을 수 있는 형태로 두지 않기 위해서**다. 새로고침을 흉내내는 테스트는 여전히 자기 안에서
+// 직접 clearBoardSession() 을 불러야 한다(언마운트 하나로는 세션이 안 끊긴다).
+import { beforeEach } from 'vitest'
+import { clearBoardSession } from '../features/board/boardSession.ts'
+
+beforeEach(() => {
+  clearBoardSession()
+})
