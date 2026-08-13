@@ -220,6 +220,67 @@ describe('chairOverlap — 축정렬 사각형(SAT)', () => {
     expect(chairOverlapsRect(0, 0, 1.234, huge.x, huge.y, huge.w, huge.h)).toBe(true);
   });
 
+  // ── 2026-08-13 검증관 추가 — **SAT 의 반대 방향**을 아무도 안 재고 있었다 ────────────────────
+  // 위 'AABB 가 겹쳐도 …' 는 SAT 의 **거짓** 쪽(분리 축을 찾아 '밖' 이라고 말하는 힘)만 잰다.
+  // **참** 쪽 — *"꼭짓점은 하나도 서로 안 들어갔는데 변이 교차하니까 겹침"* — 은 아무 단언도
+  // 없었다. 실측으로 확인했다: `chairOverlapsRect` 를 흔한 오구현인 **"꼭짓점 포함 검사만"**
+  // (차체 꼭짓점 4개가 존 안인가 + 존 꼭짓점 4개가 차체 안인가)으로 통째로 바꿔도
+  // **저장소 2661 테스트가 전건 초록이었다.** 아래 두 단언만이 그것을 잡는다.
+  //
+  // ⚠️ 지금의 `CourtDef.ruleZones` 로는 이 배치가 **안 나온다** — 골 지역이 최소 125 px 인데
+  //    차체 대각선은 45.07 px 라 존을 가로지를 수가 없다. 그래도 못박는 이유:
+  //    ① `chairOverlapsRect` 는 존 전용이 아니라 **일반 사각형** API 다(머리말이 SAT 이라고
+  //       적어 뒀고, 크기 0 인 사각형까지 계약에 들어 있다).
+  //    ② 세트피스 쪽에는 이미 **얇고 긴** 사각형 개념이 있다(인크로치먼트 마크·골라인 띠).
+  //       그런 좁은 사각형에 이 함수를 한 번이라도 쓰는 날, 오구현은 **조용히 '안 걸림'** 이
+  //       되고 그것은 화면에 아무 표시도 남기지 않는 실패다.
+  it('★ 변만 교차해도 겹침이다 — 꼭짓점은 서로 하나도 안 들어간 배치(SAT 의 참 쪽)', () => {
+    const chair = { x: 300, y: 200 };
+    // θ=0 차체: x ∈ [292.5, 330], y ∈ [187.5, 212.5]. 존은 그보다 **좁고 길다**.
+    const zone = { x: 300, y: 140, w: 10, h: 120 };
+    for (const c of chairCorners({ ...chair, theta: 0 })) {
+      const inZone = c.x >= zone.x && c.x <= zone.x + zone.w && c.y >= zone.y && c.y <= zone.y + zone.h;
+      expect(inZone, `차체 꼭짓점 (${c.x},${c.y}) 이 존 안이면 이 케이스가 뜻을 잃는다`).toBe(false);
+    }
+    for (const p of [
+      { x: zone.x, y: zone.y },
+      { x: zone.x + zone.w, y: zone.y },
+      { x: zone.x + zone.w, y: zone.y + zone.h },
+      { x: zone.x, y: zone.y + zone.h },
+    ]) {
+      expect(chairPointDist2(chair.x, chair.y, 0, p.x, p.y), `존 꼭짓점 (${p.x},${p.y}) 이 차체 안`).toBeGreaterThan(1);
+    }
+    expect(chairOverlapsRect(chair.x, chair.y, 0, zone.x, zone.y, zone.w, zone.h), '십자로 교차하는데 못 잡았다').toBe(true);
+    // 대조군 — 같은 존을 차체 오른쪽 끝 **밖**으로 밀면 정말로 안 겹친다(부재 단언이 헛것이 아니다).
+    expect(chairOverlapsRect(chair.x, chair.y, 0, zone.x + 40, zone.y, zone.w, zone.h)).toBe(false);
+  });
+
+  it('★ 같은 것을 비스듬(37°)에서도 — 축정렬만 맞춘 구현이 빠져나가지 못하게', () => {
+    const theta = (37 * Math.PI) / 180;
+    const corners = chairCorners({ x: 300, y: 200, theta });
+    const xs = corners.map((c) => c.x).sort((a, b) => a - b);
+    const ys = corners.map((c) => c.y);
+    // 꼭짓점 x 중 **가운데 둘 사이**의 세로 띠 — 어떤 차체 꼭짓점도 이 x 범위 안이 아니다.
+    const zone = { x: xs[1]! + 0.5, y: Math.min(...ys) - 10, w: xs[2]! - xs[1]! - 1, h: Math.max(...ys) - Math.min(...ys) + 20 };
+    expect(zone.w, '띠에 폭이 있어야 케이스가 성립한다').toBeGreaterThan(1);
+    for (const c of corners) {
+      const inZone = c.x >= zone.x && c.x <= zone.x + zone.w && c.y >= zone.y && c.y <= zone.y + zone.h;
+      expect(inZone, `37° 차체 꼭짓점 (${c.x},${c.y}) 이 존 안`).toBe(false);
+    }
+    // 존 꼭짓점은 전부 차체 AABB 위·아래로 10 px 벗어나 있으므로 차체 안일 수 없다.
+    for (const p of [
+      { x: zone.x, y: zone.y },
+      { x: zone.x + zone.w, y: zone.y },
+      { x: zone.x + zone.w, y: zone.y + zone.h },
+      { x: zone.x, y: zone.y + zone.h },
+    ]) {
+      expect(chairPointDist2(300, 200, theta, p.x, p.y), `존 꼭짓점 (${p.x},${p.y}) 이 차체 안`).toBeGreaterThan(1);
+    }
+    expect(chairOverlapsRect(300, 200, theta, zone.x, zone.y, zone.w, zone.h)).toBe(true);
+    // 대조군 — 띠를 차체 오른쪽 밖(hullRadius 너머)으로 밀면 안 겹친다.
+    expect(chairOverlapsRect(300, 200, theta, 300 + CHAIR.hullRadiusPx + 1, zone.y, zone.w, zone.h)).toBe(false);
+  });
+
   it('네 방향 모두에서 완전히 벗어나면 밖이다 — 부재 단언이 헛것이 아님을 대조군이 잰다', () => {
     for (const [tag, theta] of THETAS) {
       // 차체 hull 반지름 상한은 32.5 px(CHAIR.hullRadiusPx) — 그보다 멀면 어떤 각도든 밖이다.
