@@ -181,7 +181,17 @@ export function SettingsScreen() {
               options={FORMATIONS.map((f) => ({ value: f, label: f }))}
             />
           </Row>
-          <Row title="기본 코트 모드" desc="새 드릴을 만들 때 코트 선택 화면에서 미리 강조 표시됩니다(선택은 매번 확인)" borderBottom={false}>
+          {/* ⚠️ 2026-08-13(6차 검증) 정정. 옛 문구는 *"새 드릴을 만들 때 코트 선택 화면에서 미리
+              강조 표시됩니다(선택은 매번 확인)"* 였는데 **두 조각 다 거짓**이었다:
+                ① '코트 선택 화면'(CourtPicker)은 2026-08-09 재편에서 은퇴했다
+                   (BoardScreen.tsx:28 · EditorScreen.tsx:4 가 그 은퇴를 기록한다).
+                ② '새 드릴' 과도 무관하다 — 이 값의 **유일한** 프로덕션 소비처는
+                   BoardScreen.tsx:37 `mode ?? prefs.defaultCourtMode ?? 'full'`, 즉 전술판이
+                   뜰 때의 코트다(rg 실측: 설정 화면 자신 말고는 그 한 줄뿐).
+              그리고 '항상 묻기'(=null)는 **아무것도 묻지 않는다** — 위 `?? 'full'` 이 조용히
+              풀 코트로 접는다. 항목을 없앨지는 기현님 결정이라(§7.2 7차 표) 문구만 사실로
+              돌린다. 되돌리면 settingsDescTruth.test.tsx 가 빨개진다. */}
+          <Row title="기본 코트 모드" desc="[보드] 전술판이 뜰 때의 코트입니다(만들어 둔 드릴은 각자 자기 코트를 기억합니다). '항상 묻기' 는 풀 코트로 엽니다" borderBottom={false}>
             <Segmented
               ariaLabel="기본 코트 모드"
               value={prefs.defaultCourtMode ?? 'ask'}
