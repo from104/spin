@@ -42,7 +42,13 @@ describe('기본 배치 불변식 (createDrill 직후, §3.9)', () => {
         }
 
         // 모든 hull 이 viewBox 안.
-        const { vbW, vbH } = { vbW: d.courtMode === 'full' ? 800 : 500, vbH: d.courtMode === 'full' ? 500 : 425 };
+        //
+        // ⚠️ 2026-08-13(6.3) — 여기 **손으로 적은 800×500 / 500×425** 가 있었다. 그 숫자는
+        //    코트 마진이 1.0 m 이던 시절 값이고 지금은 825×525 / 525×450 이다. 손-숫자가
+        //    실제보다 **작아서** 단언이 우연히 더 엄격했을 뿐, 값 자체는 거짓이었고 어떤
+        //    테스트도 그것을 잡지 못했다(문서 드리프트가 테스트 안으로 들어온 형태다).
+        //    좌표의 유일한 출처는 courtDefFor 다(규칙 10) — 여기에 숫자를 다시 적지 마라.
+        const { vbW, vbH } = courtDefFor(d.courtMode, d.courtSize);
         for (const pose of chairPoses) {
           for (const c of chairCorners(pose)) {
             expect(c.x).toBeGreaterThanOrEqual(-1e-6);

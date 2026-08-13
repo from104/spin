@@ -226,9 +226,10 @@ describe.each(PALETTES)('B) 판을 강제색에서 빼면 판이 판독 가능�
   });
 
   it('테두리는 **코트 위**에서도 3:1 을 넘는다 — 파선의 틈으로 코트가 드러나는 바깥 채널', () => {
-    // ⚠️ colors.ts 의 OBJ_STROKE 주석은 "흰선/코트 5.34:1" 이라고 적고 있으나 그 값은 불투명
-    // 흰색 기준이다. 알파 .92 를 코트(#1f7a46) 위에 실제로 합성하면 4.78:1 이다 — 기준(3:1)은
-    // 넉넉히 넘지만 숫자는 주석과 다르다(같은 함정을 ARROW_CASING 주석이 이미 기록해 뒀다).
+    // 알파 .92 흰색을 코트(#1f7a46) 위에 실제로 합성하면 4.78:1 이다 — 기준(3:1)은 넉넉히
+    // 넘는다. **2026-08-13(6.3) 갱신**: 여기 있던 *"colors.ts 주석은 5.34 라고 적는다"* 는
+    // 지적은 해소됐다. 그 주석이 4.78 로 고쳐졌고, `src/test/docsMatchCode.test.ts` 가
+    // 그 한 줄을 파일에서 읽어 이 계산과 대조한다(같은 함정을 ARROW_CASING 주석이 이미 기록).
     const onCourt = contrastRatio(compositeOver(OBJ_STROKE, COURT_BG), COURT_BG);
     expect(onCourt).toBeGreaterThanOrEqual(NON_TEXT_MIN);
     expect(onCourt).toBeCloseTo(4.78, 1);
