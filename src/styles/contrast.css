@@ -149,14 +149,24 @@
    * `.on-accent` 는 "이 요소의 배경이 accent 다" 를 뜻하는 기존 클래스라 그대로 갈고리로 쓴다.
    * ARIA 상태는 그 클래스가 없는 자리(인스펙터 토글·앱 레일·세그먼티드)를 덮는다.
    * ⚠️ `.court-obj` 제외는 필수다 — 판 위 칩도 aria-pressed 를 쓰는데(ChairChip.tsx) SVG <g>
-   * 에 HTML 배경/아웃라인을 얹으면 칩이 시스템 색 상자로 덮인다. */
+   * 에 HTML 배경/아웃라인을 얹으면 칩이 시스템 색 상자로 덮인다.
+   *
+   * ⚠️⚠️ `!important` 두 개는 **작동 조건**이다(2026-08-13, 6.6 이 옆에서 같은 함정에 걸려
+   * 발견). 이 저장소의 UI 색은 거의 전부 **인라인 style** 로 들어간다 — 예: ui/Button.tsx 의
+   * `background: variant === 'primary' ? 'var(--accent)' : …`. 캐스케이드 정렬은 '오리진·중요도'
+   * 를 선택자보다 **먼저** 보므로, 일반 author 규칙은 인라인 일반 선언에 **진다**(중요 author
+   * 선언만 인라인을 이긴다). 즉 `!important` 없이 쓰면 위 background/color 는 인라인 값에 밀리고
+   * 그 값은 강제색이 Canvas 로 뭉개, **켜짐과 꺼짐이 같은 그림**이라는 이 블록이 고치려던
+   * 상태가 그대로 남는다. 살아남는 것은 outline 뿐이다(인라인에 outline 을 쓰는 자리가 없다).
+   * jsdom 은 CSS 를 적용하지 않아 이 소실을 렌더 테스트로는 잡을 수 없다 — contrast.test.tsx 가
+   * 문자열로 못박는다. */
   .on-accent,
   [aria-pressed="true"]:not(.court-obj),
   [aria-checked="true"],
   [aria-selected="true"],
   [aria-current]:not([aria-current="false"]) {
-    background: Highlight;
-    color: HighlightText;
+    background: Highlight !important;
+    color: HighlightText !important;
     outline: 1px solid HighlightText;
     outline-offset: -1px;
   }

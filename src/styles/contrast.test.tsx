@@ -269,6 +269,23 @@ describe('③ forced-colors 블록은 시스템 팔레트만 쓴다', () => {
     }
   });
 
+  it('⚠️ 그 배경/글자색이 **중요 선언**이다 — 아니면 인라인 style 에 밀려 아무 일도 안 한다', () => {
+    // 2026-08-13 발견(6.6 이 옆에서 같은 함정에 걸렸다). 캐스케이드 정렬은 오리진·중요도를
+    // 선택자보다 먼저 본다 → 일반 author 규칙 < 인라인 일반 선언 < 중요 author 규칙.
+    // 이 저장소의 '켜짐' 배경은 거의 전부 인라인이라(아래 대조군), !important 가 빠지면 이
+    // 규칙은 살아 있는 채로 화면에서 사라진다 — jsdom 이 CSS 를 안 붙이므로 렌더 테스트로는
+    // 영영 안 잡히는 형태다.
+    const rule = blockOf(forcedBlock!, '.on-accent,\n  [aria-pressed="true"]:not(.court-obj),\n  [aria-checked="true"],\n  [aria-selected="true"],\n  [aria-current]:not([aria-current="false"])');
+    expect(rule, '갈고리 목록이 바뀌었다면 이 선택자 문자열도 같이 고쳐야 한다').not.toBeNull();
+    expect(rule!).toMatch(/background:\s*Highlight\s*!important/);
+    expect(rule!).toMatch(/color:\s*HighlightText\s*!important/);
+    // 대조군 — '인라인이라 진다' 는 전제가 실제로 성립한다. ui/Button.tsx 의 주 버튼 배경은
+    // 클래스가 아니라 style 객체 안에 있다(여기가 거짓이면 위 !important 는 근거를 잃는다).
+    const btn = readFileSync('src/ui/Button.tsx', 'utf-8');
+    expect(btn).toContain("background: variant === 'primary' ? 'var(--accent)'");
+    expect(btn).toContain('style={{ ...base, ...style }}');
+  });
+
   it('⚠️ 판 위 칩(.court-obj)은 그 규칙에서 제외한다 — SVG <g> 에 HTML 배경을 얹으면 칩이 상자로 덮인다', () => {
     expect(forcedBlock!).toContain('[aria-pressed="true"]:not(.court-obj)');
   });
