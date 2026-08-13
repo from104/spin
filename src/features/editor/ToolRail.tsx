@@ -22,6 +22,11 @@ import {
   CHIP_W_CSS,
   TOOL_BTN_H,
   TOOL_BTN_W,
+  TRAY_BAND_2ROW_CSS,
+  TRAY_BAND_DIVIDER_MARGIN_X,
+  TRAY_BAND_DIVIDER_MARGIN_Y,
+  TRAY_BAND_PAD_X,
+  TRAY_BAND_PAD_Y,
   TRAY_DIVIDER_H,
   TRAY_DIVIDER_MARGIN_Y,
   TRAY_GAP,
@@ -150,11 +155,31 @@ const RAIL_STYLE = {
 };
 
 /** 가로 트레이 — 세로 화면에서 판 아래. 항목이 많아 좁은 태블릿에서는 넘칠 수 있어 가로
- *  스크롤을 연다(줄바꿈하면 트레이 높이가 들쭉날쭉해져 코트 크기가 흔들린다). */
+ *  스크롤을 연다.
+ *
+ *  ── 2026-08-14 P5: **1행 76px → 2행 132px 띠** (설계서 §4.7) ──────────────────────────
+ *  옛 결정(지우지 않는다): *"줄바꿈하면 트레이 높이가 들쭉날쭉해져 코트 크기가 흔들린다."*
+ *  그 걱정은 지금도 옳고, 그래서 wrap 을 여는 대신 **높이를 못박았다** — `height` 가 고정이면
+ *  줄이 몇 개로 흐르든 코트가 받는 상자는 한 픽셀도 안 변한다(들쭉날쭉의 원인은 wrap 이 아니라
+ *  `height:auto` 였다). 넘치는 줄은 `overflowY:'auto'` 가 받는다.
+ *
+ *  왜 2행인가 — **축척 절벽이 상한을 정한다.** 띠를 올리면 가용 높이가 줄고 176px 에서
+ *  `rotForFit` 이 90 → 0 으로 뒤집혀 480×800 세로 full 코트의 축척이 0.5976 → 0.5527 로 뚝
+ *  떨어진다. 상한 175(`TRAY_BAND_MAX_PX`)는 그 문턱에서 딱 떨어지는 값이고, 132/156 은 그
+ *  아래다. 3행(≈182+)은 상한 밖이라 **2행이 물리적 최대다.** 대가는 세로 full 코트 축척
+ *  0.7176 → 0.6497(**−9.5%**) 하나뿐이고, 가로 전 기기는 이 상수를 안 쓴다.
+ *
+ *  ⚠️ **세로 전용 서랍안은 기각됐다 — 되살리지 마라**(2026-08-14 기현님 확정). 서랍을 여는
+ *  순간 띠가 76 → 132 가 되어 **코트 축척이 0.7176 → 0.6497 로 바뀐다 = 판 위 모든 개체가
+ *  움직인다.** *"컨트롤을 열었더니 판이 줄었다"* 는 발 마우스·입 젓가락 사용자에게 스크롤보다
+ *  나쁘다. 서랍이 승인된 대체재인 것은 맞지만 **판 크기를 바꾸는 서랍은 아니었다.** 띠 높이는
+ *  개폐·내용·드릴과 무관하게 **상수**라야 한다 — 그것이 `height` 를 못박은 두 번째 이유다. */
 const RAIL_STYLE_H = {
   ...RAIL_BASE,
   boxShadow: 'inset 0 7px 12px -10px rgba(0,0,0,.55)',
   flexDirection: 'row' as const,
+  flexWrap: 'wrap' as const,
+  height: TRAY_BAND_2ROW_CSS,
   alignItems: 'center',
   // ⚠️ **'center' 로 되돌리지 마라.** 두 가지가 동시에 깨진다(2026-08-12 3차 검증 실측).
   //  ① §3 불변식 1 이 무효가 된다 — 서랍 내용물은 주축 **끝**에 붙는데 중앙정렬이면 끝에
@@ -167,8 +192,18 @@ const RAIL_STYLE_H = {
   //     **1번 선수가 영영 안 잡힌다.**
   // 대가는 트레이가 넓을 때 내용이 왼쪽에 붙는 것뿐이다 — 도구 모음의 통상적인 모양이다.
   justifyContent: 'flex-start',
-  padding: '8px 13px',
+  // ⚠️ **교차축에도 같은 규칙이 필요하다**(2026-08-14 P5). wrap 이 열리는 순간 `align-content`
+  //    가 살아나는데 기본값 `stretch`(또는 `center`)면 ① 줄이 하나일 때와 둘일 때 **첫 줄의 y 가
+  //    달라진다** — 서랍을 열어 줄이 하나 늘면 선수 칩이 통째로 위로 올라간다(§3 불변식 1 위반,
+  //    justifyContent 를 flex-start 로 둔 것과 **같은 이유의 세로판**) ② 3행으로 넘칠 때 위쪽
+  //    넘침은 scrollTop 으로 갈 수 없어 첫 줄에 손이 안 닿는다(위 ②의 세로판).
+  alignContent: 'flex-start',
+  padding: `${TRAY_BAND_PAD_Y}px ${TRAY_BAND_PAD_X}px`,
   overflowX: 'auto' as const,
+  // 띠 높이가 고정이므로 내용이 2행을 넘으면(좁은 세로 기기에서 실제로 넘는다 —
+  // trayBandLayoutAt 주석의 480×800 실측 182px) 여기가 유일한 도달 경로가 된다.
+  // 세로 기둥(RAIL_STYLE)에는 절대 붙이지 마라: 거기서는 벤치 구역 하나만 스크롤러다.
+  overflowY: 'auto' as const,
 };
 
 const BALL_TOOL = TOOLS.find((t) => t.id === 'ball')!;
@@ -482,7 +517,13 @@ export function ToolRail({
         flex: 'none',
         alignSelf: 'stretch',
         ...(horiz
-          ? { width: TRAY_DIVIDER_H, margin: '6px 4px', background: 'var(--border)' }
+          ? // 값은 옛 리터럴 '6px 4px' 와 바이트 동일하다 — 상수로 올린 이유는 띠 줄나눔 모형
+            // (trayBandLayoutAt)이 구분선 폭 9(= 1 + 4×2)를 **같은 상수에서** 세게 하기 위해서다.
+            {
+              width: TRAY_DIVIDER_H,
+              margin: `${TRAY_BAND_DIVIDER_MARGIN_Y}px ${TRAY_BAND_DIVIDER_MARGIN_X}px`,
+              background: 'var(--border)',
+            }
           : { height: TRAY_DIVIDER_H, margin: `${TRAY_DIVIDER_MARGIN_Y}px 12px`, background: 'var(--border)' }),
       }}
     />

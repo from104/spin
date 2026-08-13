@@ -10,12 +10,14 @@
 // 조치를 갈라 두는 것이 요점이다. 값이 여기 있으니 조치가 아직 안 온 행도 예산에서는 이미
 // 보이고, 조치가 왔을 때 이 표를 함께 고치지 않으면 아래 계약 테스트가 빨간불이 된다.
 import { PX_PER_M } from '../core/units.ts';
+import { INTERACT } from '../core/constants.ts';
 import { courtDefFor } from '../model/court.ts';
 import type { CourtMode, CourtSize } from '../model/court.ts';
 import { rotForFit } from '../render/useStageMetrics.ts';
 import type { StageRot } from '../render/useStageMetrics.ts';
 import { inspectorChromeWidthPx } from '../features/editor/inspectorLayout.ts';
 import type { InspectorMode } from '../features/editor/inspectorLayout.ts';
+import { trayBandHeightPx } from '../features/editor/trayMetrics.ts';
 
 export type ChromeAxis = 'width' | 'height';
 
@@ -98,14 +100,29 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
     // 이 행은 기본값(44)이다 — 예산은 상한이 아니라 "설정을 안 건드린 화면"의 값이고, 56 의
     // 추가 24px 는 폭 여유(§5.4)에서 나온다. chromeBudget.test.ts 가 함수와 이 행을 대조한다.
     //
-    // ⚠️ **이 행은 세로 배치를 아직 모른다**(P1·P2 가 보고한 구멍이 그대로다): axis 가 'width' 로
-    // 못박혀 있는데 세로 화면에서 트레이는 판 **아래 띠**가 되어 폭이 아니라 높이를 먹는다.
-    // 그래서 `courtBoxPx({w:480,h:800}, narrow)` 는 363×668 을 답하지만 설계서 §4.7 이 같은
-    // 기기에 적은 가용 상자는 456×592 다. **P5(세로 2행 띠)가 ChromeState 에 portrait 축을
-    // 들이면서 함께 고쳐야 한다** — 설계서 §5-P5 의 `courtBoxPx({w:480,h:800},{portrait:true,…})
-    // === {w:456,h:536}` 항목이 바로 그 수리를 전제하고 있다. P3 는 값을 안 건드리므로 여기서
-    // 고치지 않는다(고치면 chromeBudget.test.ts 가 '무변경 통과' 조건을 잃는다).
+    // ── 2026-08-14 P5: **세로 배치를 알게 됐다** (P1·P2·P3 가 보고한 구멍의 수리) ──────────
+    // 옛 기록(지우지 않는다): *"axis 가 'width' 로 못박혀 있는데 세로 화면에서 트레이는 판 아래
+    // 띠가 되어 폭이 아니라 높이를 먹는다. 그래서 `courtBoxPx({w:480,h:800}, narrow)` 는
+    // 363×668 을 답하지만 설계서 §4.7 이 같은 기기에 적은 가용 상자는 456×592 다."*
+    // 이 행 자체는 여전히 axis:'width' 이고 값도 93 그대로다 — 고친 것은 `chromeRowPx` 다:
+    // **세로 배치(`state.portrait`)에서 이 행은 0 을 답하고, 대신 아래 `trayBand` 행이 산다.**
+    // 두 행은 서로의 반대이고 **동시에 켜지지 않는다**(트레이는 한 번에 한 축만 먹는다).
     owner: '2.4 (완료) — `--hit` 실배선 + 트레이 93/117 · 2026-08-14 P3 에서 뜻이 "최소폭" 으로',
+  },
+  {
+    id: 'trayBand',
+    axis: 'height',
+    label: '세로 트레이 띠(2행)',
+    // 재편 **이전** 열은 0 이다. 옛 예산표에는 세로 축이 아예 없었고(§5.3 실측표는 전부 가로
+    // 기기다), 여기에 76 을 적으면 '현재' 합계 196 이 거짓이 된다 — now 는 "그때 실제로 이
+    // 표가 세던 값" 이지 "그때 화면에 있던 값" 이 아니다.
+    now: 0,
+    // 실제 값은 trayMetrics 의 trayBandHeightPx(--hit 파생): 44 → 132, 56 → 156. 이 행도
+    // toolRail·transportBar 와 같은 이유로 **기기와 무관하다**(띠가 2행인 것은 창이 좁아서가
+    // 아니라 칩 줄과 도구 줄이 둘 다 있어야 하기 때문이다).
+    wide: trayBandHeightPx(INTERACT.hitTargetCssPx),
+    narrow: trayBandHeightPx(INTERACT.hitTargetCssPx),
+    owner: '2026-08-14 P5 — 세로 2행 띠(설계서 §4.7). 상한 175px 은 trayMetrics 의 TRAY_BAND_MAX_PX',
   },
   {
     id: 'courtPadX',
@@ -186,15 +203,27 @@ export interface ChromeState {
   narrow: boolean;
   /** 인스펙터가 지금 **가로 흐름에서** 폭을 먹는가(2.2 inspectorLayout). 오버레이·닫힘은 0 이다. */
   inspector: InspectorMode;
+  /** `useIsPortrait()` — 트레이가 판 **오른쪽 기둥**이 아니라 **아래 띠**인가(2026-08-14 P5).
+   *
+   *  ⚠️ **분기 boolean 을 늘리는 것이 아니다**(§5.1 은 `useIsPortrait`·`useIsNarrow` 둘로
+   *  못박혀 있다) — 그 둘 중 하나를 예산표가 **드디어 읽게 된 것**이다. 없으면 false 이고,
+   *  그때의 답은 P4 까지와 한 자리도 다르지 않다(모든 기존 호출부가 그 자리에 있다). */
+  portrait?: boolean;
   /** 없으면 0. 실기(§5.3 확정 배율)는 안드로이드 태블릿 기준 상한이라 safe-area 가 0 이다. */
   safeArea?: SafeAreaInsets;
 }
 
-/** 한 행이 **지금** 먹는 값. 인스펙터만 narrow 가 아니라 자기 모드가 정한다 — 같은 PC 에서도
- *  핀이면 313, 오버레이면 0 이라 boolean 두 개로는 답이 안 나오는 유일한 행이다. */
+/** 한 행이 **지금** 먹는 값. 세 행만 narrow 가 아니라 다른 것이 정한다:
+ *   · `inspector` — 자기 모드. 같은 PC 에서도 핀이면 313, 오버레이면 0 이다.
+ *   · `toolRail`·`trayBand` — **배치 축**. 트레이는 한 번에 한 축만 먹으므로 둘은 서로의
+ *     반대이고 절대 동시에 켜지지 않는다. 이 배타성이 깨지면 세로 기기에서 트레이가 폭과
+ *     높이를 이중으로 빼앗아 코트 상자가 실제보다 작게 계산된다. */
 export function chromeRowPx(row: ChromeRow, state: ChromeState): number {
   if (row.id === 'inspector') return inspectorChromeWidthPx(state.inspector);
-  return state.narrow ? row.narrow : row.wide;
+  const here = state.narrow ? row.narrow : row.wide;
+  if (row.id === 'toolRail') return state.portrait ? 0 : here;
+  if (row.id === 'trayBand') return state.portrait ? here : 0;
+  return here;
 }
 
 const sumAxis = (axis: ChromeAxis, state: ChromeState): number =>
