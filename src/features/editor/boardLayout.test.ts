@@ -73,6 +73,12 @@ const DEVICES = [
   { name: '1280×800', w: 1280, h: 800 },
   { name: '1920×1080', w: 1920, h: 1080 },
   { name: '480×800 (세로)', w: 480, h: 800 },
+  // ⚠️ 여섯 번째는 §4.6 표에 없다. **가로 창인데 rot 90 인 국면**이 위 다섯에는 한 번도 안
+  // 나오기 때문에 넣었다(2026-08-14 전수 표본으로 확인 — 다섯 기기에서 rot 90 은 480×800
+  // 세로 하나뿐이었다). 인스펙터를 붙박이로 세운 세로로 긴 데스크톱 창이 그 자리다:
+  // 1100×900 핀 → 가용 655×734 → 코트 상자가 세로로 길어 판이 선다. "어느 축을 안 찔렀나" 를
+  // 스스로 묻고 메운 칸이라, 아래 '축 열거' it 이 이 칸의 존재를 매번 다시 확인한다.
+  { name: '1100×900 (세로로 긴 데스크톱 창)', w: 1100, h: 900 },
 ] as const;
 const HITS = [44, 56] as const;
 const INSPECTORS = ['hidden', 'overlay', 'pinned'] as const;
@@ -106,6 +112,45 @@ describe('★ 인접축 빈틈 0 — 코트 칸 오른쪽 변 === 트레이 왼�
     }
     // 축을 실제로 다 돌았는지 — 루프가 조용히 0회 돌면 위 단언은 전부 없는 것이다.
     expect(checked).toBeGreaterThanOrEqual(5 * 2 * 2 * 9);
+  });
+
+  it('★ 축 열거: 두 국면과 두 회전이 **실제로** 표본에 다 들어 있다', () => {
+    // "어느 축을 안 찔렀나" — 이 저장소가 실제로 겪은 헛통과 형태다(구현자 셋이 세로만 찔러
+    // 가로에서 §3 불변식이 절반만 성립한 채 통과했다). 위 전수 루프가 **한 국면만** 돌고 있으면
+    // "빈틈 0" 은 절반만 증명된 것이라, 표본 자체를 여기서 분류해 둘 다 있음을 못박는다.
+    const seen = new Map<string, string[]>();
+    for (const dev of DEVICES) {
+      for (const state of states(dev.w)) {
+        for (const hit of HITS) {
+          const avail = alignBoxPx(dev, state, hit);
+          if (avail.w <= 0 || avail.h <= 0) continue;
+          for (const mode of COURT_MODES) {
+            for (const size of COURT_SIZES) {
+              const rot = courtScale(mode, { w: avail.w - trayRailWidthPx(hit), h: avail.h }, size).rot;
+              const ar = courtCellAspectRatio(mode, size, rot);
+              const split = boardSplitPx(avail, ar, hit);
+              // 세로 제약 = 코트가 자기 종횡비를 온전히 지킨다(레터박스 0). 폭 제약 = 못 지키고
+              // shrink 하며 트레이가 하한에서 멈춘다 — 오늘과 정확히 같은 배치다.
+              const regime = split.courtW >= avail.h * ar - 1e-6 ? '세로 제약' : '폭 제약';
+              const key = `${regime}/rot${rot}`;
+              seen.set(key, [...(seen.get(key) ?? []), `${dev.name} ${state.inspector} hit${hit} ${mode} ${size}`]);
+              if (regime === '폭 제약') expect(split.trayW, key).toBe(trayRailWidthPx(hit));
+              else expect(split.courtW, key).toBeCloseTo(avail.h * ar, 6);
+            }
+          }
+        }
+      }
+    }
+    // 네 칸 모두 비어 있지 않아야 한다. 하나라도 비면 그 축을 안 찌른 것이다.
+    for (const key of ['세로 제약/rot0', '세로 제약/rot90', '폭 제약/rot0', '폭 제약/rot90']) {
+      expect(seen.get(key)?.length ?? 0, `${key} 표본이 0개다 — 이 축을 안 찔렀다`).toBeGreaterThan(0);
+    }
+    // 가로 창에서도 rot 90 이 나온다 — 세로 기기 하나에만 기대고 있지 않다.
+    expect(
+      seen.get('폭 제약/rot90')!.some((s) => s.startsWith('1100×900')) ||
+        seen.get('세로 제약/rot90')!.some((s) => s.startsWith('1100×900')),
+      '가로 창의 rot 90 표본이 없다',
+    ).toBe(true);
   });
 
   it('대조군: 판 덩어리에 gap 이 8px 있었다면 등식이 깨진다', () => {
