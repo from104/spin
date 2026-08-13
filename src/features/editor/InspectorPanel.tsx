@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { CSSProperties, Dispatch, ReactNode } from 'react';
 import { isId } from '../../core/ids.ts';
 import type { ArrowId, ChairId, NoteId } from '../../core/ids.ts';
-import { KNOWN_CATEGORIES, TEAM_COLOR_CHOICES, inkFor } from '../../core/colors.ts';
+import { KNOWN_CATEGORIES, TEAM_COLOR_CHOICES, TEAM_COLOR_NAMES, inkFor } from '../../core/colors.ts';
 import { ARROW_STYLES, arrowColor } from '../../model/arrow.ts';
 import type { Drill, DrillLevel, DrillStep } from '../../model/drill.ts';
 import { DRILL_LEVELS } from '../../model/drill.ts';
@@ -708,7 +708,9 @@ function RosterSection({
                 type="button"
                 onClick={() => setExpanded(open ? null : def.id)}
                 aria-expanded={open}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, width: '100%' }}
+                /* 44 리터럴이면 설정의 큰 터치 타깃(--hit: 44→56)을 켜도 이 행만 안 커진다
+                   (2026-08-14 선행 수리 — '스텝 추가' 버튼과 같은 결함이었다). */
+                style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 'var(--hit)', width: '100%' }}
               >
                 <span
                   aria-hidden
@@ -793,7 +795,8 @@ function RosterSection({
                         key={c}
                         type="button"
                         onClick={() => dispatch({ type: 'CHAIR_DEF', id: def.id, patch: { color: c } })}
-                        aria-label={c}
+                        /* hex 를 라벨로 두면 스크린리더가 '빨강' 대신 "#d93a3a" 를 읽는다 (2026-08-14 선행 수리). */
+                        aria-label={TEAM_COLOR_NAMES[c]}
                         style={{ width: 26, height: 26, borderRadius: 7, background: c, border: def.color === c ? '2px solid var(--accent)' : '1px solid var(--border)' }}
                       />
                     ))}
@@ -995,7 +998,8 @@ function StepsSection({ drill, stepIndex, dispatch }: { drill: Drill; stepIndex:
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
-            minHeight: 44,
+            // 44 리터럴이면 큰 터치 타깃(--hit: 44→56)을 켜도 이 버튼만 안 커진다 (2026-08-14 선행 수리).
+            minHeight: 'var(--hit)',
             border: '1px dashed var(--border-strong)',
             borderRadius: 11,
             color: 'var(--faint-text)',

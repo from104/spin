@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { BALL_FILL, CATEGORY_COLORS, CONE_COLORS, GK_AWAY_COLOR, GK_HOME_COLOR, inkFor, relLuminance } from './colors.ts';
+import {
+  BALL_FILL,
+  CATEGORY_COLORS,
+  CONE_COLORS,
+  GK_AWAY_COLOR,
+  GK_HOME_COLOR,
+  TEAM_COLOR_CHOICES,
+  TEAM_COLOR_NAMES,
+  inkFor,
+  relLuminance,
+} from './colors.ts';
 
 /** sRGB 감마 역변환 — colors.ts 내부 함수와 동일. 테스트가 독립적으로 다시 구현한다. */
 const srgb = (v: number): number => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
@@ -81,5 +91,17 @@ describe('콘 2색', () => {
 
   it('흰 테두리가 코트 녹색 대비 3:1 을 넘는다 (SC 1.4.11 — 콘의 식별 근거)', () => {
     expect(contrastRatio('#ffffff', COURT_BG_DARK)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('TEAM_COLOR_NAMES — 스와치 aria-label 용 한국어 이름 (2026-08-14 선행 수리)', () => {
+  // aria-label 이 hex 면 스크린리더가 '빨강' 대신 "#d93a3a" 를 낱글자로 읽는다.
+  // 이름 맵이 선택지를 전부 덮는지(빠지면 라벨이 undefined 로 사라진다)를 값 수준에서도 못박는다 —
+  // 타입 수준(Record<유니언, string>)은 as 캐스팅 한 줄로 뚫리기 때문이다.
+  it.each(TEAM_COLOR_CHOICES)('%s 에 이름이 있고 그 이름은 hex 가 아니다', (c) => {
+    const name = TEAM_COLOR_NAMES[c];
+    expect(name).toBeTruthy();
+    expect(name).not.toMatch(/^#/);
+    expect(name.length).toBeGreaterThan(0);
   });
 });
