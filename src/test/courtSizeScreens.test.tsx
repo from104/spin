@@ -49,6 +49,7 @@ const SCREENS: Screen[] = [
     svg(mode, size) {
       const { container } = render(
         <CourtStage
+          rot={0}
           mode={mode}
           size={size}
           variant="editor"

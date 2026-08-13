@@ -9,6 +9,7 @@ import { render, act } from '@testing-library/react';
 import { createRef } from 'react';
 import { createTransformWriter } from './transformWriter.ts';
 import { CourtStage, type CourtStageHandle, type CourtStagePointerController, type PointerDownResult } from './CourtStage.tsx';
+import type { StageRot } from './useStageMetrics.ts';
 
 /** 기본 rect 는 풀 코트 viewBox 와 같은 825×525 — client↔world 가 1:1 이라 좌표가 읽힌다. */
 function stubSvgLayout(container: HTMLElement, rect: Partial<DOMRect> = {}): SVGSVGElement {
@@ -59,12 +60,16 @@ function makeController(verdict: PointerDownResult | void): Spy {
   };
 }
 
-function mount(controller: CourtStagePointerController, ref?: React.RefObject<CourtStageHandle | null>) {
+/** `rot` 은 2026-08-14 §4.2 로 **prop** 이 됐다(옛 코드는 무대가 svg rect 를 재서 스스로 정했다).
+ *  그래서 세로 판을 재려면 rect 스텁만이 아니라 이 값도 함께 넘겨야 한다 — 두 곳이 갈라지면
+ *  좌표 변환과 그림이 어긋나므로, 그 어긋남이 테스트에서도 보이게 일부러 따로 받는다. */
+function mount(controller: CourtStagePointerController, ref?: React.RefObject<CourtStageHandle | null>, rot: StageRot = 0) {
   return render(
     <CourtStage
       ref={ref}
       allowPan
       mode="full"
+      rot={rot}
       variant="editor"
       writer={createTransformWriter()}
       controller={controller}
@@ -237,8 +242,9 @@ describe('panByScreen — 키보드 팬(§4.4 P2-1)이 회전을 통과한다', 
   it('세로 화면(rot 90): 같은 호출이 월드 −y 로 간다 — screenDeltaToWorld 를 지났다', () => {
     // 이 변환을 빠뜨리면 세로 태블릿에서 오른쪽 키가 판을 아래로 내려보낸다.
     const ref = createRef<CourtStageHandle>();
-    const { container } = mount(makeController(undefined), ref);
-    // 세로 상자 — rotForFit 이 90 을 고른다(코트 긴 축을 화면 긴 축에 맞춘다).
+    // 세로 상자 + 위에서 내려온 rot 90(코트 긴 축을 화면 긴 축에 맞춘다). 예전에는 rect 만
+    // 스텁하면 무대가 스스로 90 을 골랐다 — 그 자기결정이 §4.2 쌍안정의 원인이라 뒤집혔다.
+    const { container } = mount(makeController(undefined), ref, 90);
     const svg = stubSvgLayout(container, { width: 525, height: 825, right: 525, bottom: 825 });
     act(() => ref.current!.zoomBy(2));
     expect(svg.getAttribute('viewBox')).toBe('0 0 262.5 412.5'); // 돌아간 상자다

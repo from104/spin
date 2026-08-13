@@ -20,6 +20,7 @@ import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { useIsPortrait } from '../../ui/useIsPortrait.ts';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
 import { courtPadCss } from '../../app/chromeBudget.ts';
+import { useStageRot } from '../../app/useStageRot.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import { createRuleOverlay } from '../../render/ruleOverlay.ts';
 import { ToolRail, type ChairSlot, type TrayDrawers } from './ToolRail.tsx';
@@ -110,6 +111,19 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const inspectorPanelId = useId();
   const inspectorTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [workspaceRef, workspaceWidth] = useContainerWidth<HTMLElement>();
+  const inspectorLayout = inspectorMode({ open: inspectorOpen, pinned, containerWidthPx: workspaceWidth });
+  // ★ 표시 회전(§4.2, 2026-08-14 재설계) — **창 크기에서 정해 판으로 내려보낸다.**
+  //
+  // 무대가 자기 rect 를 재서 정하던 것을 뒤집었다. P3 가 코트 칸을 rot 에 맞춰 자기 종횡비로
+  // 줄이면 "rect → rot → rect" 고리가 닫히는데, 그 고리는 **쌍안정**이라 0 과 90 이 둘 다
+  // 자기모순 없이 안정하다 — 7인치 세로 456×592 에서 축척이 0.5527 이 되기도 0.7176 이 되기도
+  // 하고(23% 차이) 창을 어떤 순서로 줄였는지에 따라 갈려 재현이 안 된다. 근거·숫자·회귀
+  // 테스트는 app/useStageRot.ts 와 그 테스트에 있다.
+  //
+  // ⚠️ 여기 넘기는 것은 **측정값이 아니다**: narrow 는 matchMedia, 인스펙터 모드는 `<main>` 폭
+  // (인스펙터가 어느 모드든 안 변한다 — useContainerWidth.ts 머리말)에서 온다. 코트 상자를
+  // 재서 넣으면 되먹임이 되살아난다.
+  const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, inspector: inspectorLayout });
   // 격자·규칙존 토글은 로컬 state 가 아니라 prefs 를 직접 신뢰값으로 쓴다 — 로컬 state 였을 때는
   // 화면을 벗어났다 돌아오면(EditorWorkspace 재마운트) 항상 prefs 값으로 리셋됐다(감사 지적).
   const showGrid = prefs.showGrid;
@@ -380,8 +394,6 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     />
   );
 
-  const inspectorLayout = inspectorMode({ open: inspectorOpen, pinned, containerWidthPx: workspaceWidth });
-
   return (
     <main
       id="main"
@@ -418,6 +430,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
               <EditorStage
                 ref={stageRef}
                 drill={drill}
+                rot={stageRot}
                 step={step}
                 tool={state.tool}
                 coneSlot={state.coneSlot}

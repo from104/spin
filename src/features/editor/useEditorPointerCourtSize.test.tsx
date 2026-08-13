@@ -164,6 +164,7 @@ describe('§6.4 ④ 키보드 배치 커서가 그 코트의 격자 위에 선�
     const stageRef = createRef<CourtStageHandle>();
     const { container } = render(
       <EditorStage
+        rot={0}
         ref={stageRef}
         drill={drill}
         step={drill.steps[0]!}

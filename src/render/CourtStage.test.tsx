@@ -54,6 +54,7 @@ describe('CourtStage — 레이어 구조(§6.6)', () => {
     const controller = makeController();
     const { container } = render(
       <CourtStage
+        rot={0}
         mode="full"
         variant="editor"
         writer={writer}
@@ -83,6 +84,7 @@ describe('CourtStage — 포인터 위임(§6.4)', () => {
     const controller = makeController();
     const { container } = render(
       <CourtStage
+        rot={0}
         mode="full"
         variant="editor"
         writer={writer}
@@ -114,6 +116,7 @@ describe('CourtStage — 포인터 위임(§6.4)', () => {
     const controller = makeController();
     const { container } = render(
       <CourtStage
+        rot={0}
         mode="full"
         variant="editor"
         writer={writer}
@@ -142,6 +145,7 @@ describe('CourtStage — 포인터 위임(§6.4)', () => {
     const controller = makeController();
     const { container } = render(
       <CourtStage
+        rot={0}
         mode="full"
         variant="editor"
         writer={writer}
@@ -170,6 +174,7 @@ describe('CourtStage — 포인터 위임(§6.4)', () => {
     const controller = makeController();
     const { container } = render(
       <CourtStage
+        rot={0}
         mode="full"
         variant="editor"
         writer={writer}
@@ -200,6 +205,7 @@ describe('CourtStage — 줌(§6.4/§7.3)', () => {
     const ref = createRef<CourtStageHandle>();
     const { container } = render(
       <CourtStage
+        rot={0}
         ref={ref}
         mode="full"
         variant="editor"
@@ -234,6 +240,7 @@ describe('CourtStage — 줌(§6.4/§7.3)', () => {
     const ref = createRef<CourtStageHandle>();
     const { container } = render(
       <CourtStage
+        rot={0}
         ref={ref}
         mode="full"
         variant="editor"

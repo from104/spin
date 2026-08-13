@@ -77,6 +77,7 @@ function mount(drill: Drill, showRuleZones = true) {
   const rules = createRuleOverlay({ say, now: () => 0 });
   const view = render(
     <EditorStage
+      rot={0}
       drill={drill}
       step={drill.steps[0]!}
       tool="select"

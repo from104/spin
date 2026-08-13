@@ -39,7 +39,15 @@ const ROTATE_GAIN = 1.08;
  *  아래로 내리고 나면 코트 영역이 865×870 처럼 **거의 정사각형**이 된다. 상자만 보면 가로라
  *  안 돌지만, 그 안에서 풀 코트(1.6:1)는 위아래로 크게 남는다. 반대로 하프 코트(1.18:1)는
  *  같은 상자에서 돌리면 오히려 작아진다. 즉 답은 상자 모양이 아니라 **코트와 상자의 조합**에
- *  달려 있고, 그것을 직접 재는 것이 곧 "긴 축을 긴 축에 맞춘다" 는 원칙 그 자체다. */
+ *  달려 있고, 그것을 직접 재는 것이 곧 "긴 축을 긴 축에 맞춘다" 는 원칙 그 자체다.
+ *
+ *  ⚠️ 2026-08-14 재설계(§4.2) 이후 **이 함수를 `<svg>` 실측 rect 로 부르는 자리는 없다.**
+ *  화면이 쓰는 유일한 호출자는 `courtScale`(chromeBudget.ts)이고, 그쪽 입력은 창 크기에서
+ *  계산한 코트 상자다. 실측 rect 를 다시 여기 넣으면 P3(코트 칸이 자기 종횡비로 맞춰짐) 위에서
+ *  고리가 닫히며 **쌍안정**이 되살아난다 — 0 과 90 이 둘 다 고정점이라 창을 줄인 순서에 따라
+ *  축척이 23% 달라지고 재현이 안 된다(useStageRot.ts 머리말 · useStageRot.test.ts 의 쌍안정 절).
+ *  useStageRot.test.ts 의 소스 계약이 "프로덕션에서 chromeBudget 말고는 아무도 안 부른다" 를
+ *  못박고 있다. */
 export function rotForFit(rect: { width: number; height: number }, view: StageView): StageRot {
   if (rect.width <= 0 || rect.height <= 0 || view.w <= 0 || view.h <= 0) return 0;
   const flat = Math.min(rect.width / view.w, rect.height / view.h);
@@ -177,8 +185,7 @@ export interface UseStageMetricsResult {
   metricsRef: RefObject<StageMetrics | null>;
   /** 히트 반경 계산용 디바운스(100ms) state 사본. */
   pxPerUnit: number;
-  /** 표시 회전. **디바운스하지 않는다** — viewBox 와 `<g>` 변환이 이 값으로 그려지므로, 늦으면
-   *  회전 직후 한 프레임 동안 좌표계와 그림이 어긋난다. */
+  /** 표시 회전. **위에서 내려온 값을 그대로 돌려준다**(2026-08-14 §4.2) — 여기서 정하지 않는다. */
   rot: StageRot;
   /** 드래그 시작 시 다시 읽는다 — ResizeObserver 는 위치 이동(스크롤·URL바 접힘)을 관측하지 않는다. */
   refresh(): StageMetrics | null;
@@ -186,23 +193,28 @@ export interface UseStageMetricsResult {
 
 const PX_PER_UNIT_DEBOUNCE_MS = 100;
 
-export function useStageMetrics(svgRef: RefObject<SVGSVGElement | null>, view: StageView): UseStageMetricsResult {
+/** ⚠️ 2026-08-14 §4.2 로 **시그니처가 바뀌었다**: `rot` 을 인자로 받는다.
+ *
+ *  옛 경로는 `refresh()` 안에서 `rotForFit(svg.getBoundingClientRect(), view)` 로 회전을 **스스로**
+ *  정했다. 그 한 줄이 P3(코트 칸이 rot 에 맞춰 자기 종횡비로 줄어듦) 위에서 고리를 닫아
+ *  쌍안정을 만든다 — 되돌리면 useStageRot.test.ts 의 소스 계약과 세로 창 회전 테스트가 함께
+ *  빨간불이 된다. 회전을 정하는 곳은 이제 `useStageRot`(창 크기) 하나뿐이다. */
+export function useStageMetrics(svgRef: RefObject<SVGSVGElement | null>, view: StageView, rot: StageRot): UseStageMetricsResult {
   const metricsRef = useRef<StageMetrics | null>(null);
   const [pxPerUnit, setPxPerUnit] = useState(1);
-  const [rot, setRot] = useState<StageRot>(0);
   const viewRef = useRef(view);
   viewRef.current = view;
+  // 렌더마다 사본을 새로 쓴다 — refresh 의 identity 를 고정해 둬야(deps 에 rot 을 넣지 않아야)
+  // 회전이 뒤집힐 때마다 아래 구독 이펙트가 통째로 다시 걸리지 않는다.
+  const rotRef = useRef<StageRot>(rot);
+  rotRef.current = rot;
 
   const refresh = useCallback((): StageMetrics | null => {
     const svg = svgRef.current;
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
-    // 회전은 **svg 가 실제로 차지한 상자**로 정한다(창이 아니라). 인스펙터가 폭을 먹느냐,
-    // 하단으로 내려갔느냐에 따라 같은 창에서도 판단이 달라져야 한다.
-    const next = rotForFit(rect, viewRef.current);
-    const m = computeMetrics(rect, viewRef.current, next);
+    const m = computeMetrics(rect, viewRef.current, rotRef.current);
     metricsRef.current = m;
-    setRot(next); // 같은 값이면 React 가 리렌더를 생략한다
     return m;
   }, [svgRef]);
 
@@ -234,8 +246,9 @@ export function useStageMetrics(svgRef: RefObject<SVGSVGElement | null>, view: S
       window.removeEventListener('scroll', scheduleStateSync, true);
       if (timer !== null) window.clearTimeout(timer);
     };
-    // view.w/h(줌 배율)가 바뀌면 즉시 재계산해야 한다.
-  }, [refresh, view.w, view.h]);
+    // view.w/h(줌 배율)가 바뀌면 즉시 재계산해야 한다. rot 이 뒤집혀도 마찬가지다 —
+    // computeMetrics 의 offX/offY 가 rot 에 따라 달라지므로 낡은 metrics 로는 좌표가 어긋난다.
+  }, [refresh, view.w, view.h, rot]);
 
   return { metricsRef, pxPerUnit, rot, refresh };
 }

@@ -34,7 +34,7 @@ import { ArrowHandles } from './ArrowHandles.tsx';
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
 import { StageRotProvider } from './stageRot.tsx';
-import { computeMetrics, clientToWorld, rotForFit, zoomAt, panView, panViewByScreen, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
+import { computeMetrics, clientToWorld, zoomAt, panView, panViewByScreen, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
 import { raf } from './rafLoop.ts';
 
 /** 더블클릭 판정. OS 기본값(대개 500ms)보다 짧게 잡는다 — 판 위에서는 같은 자리를 두 번
@@ -98,6 +98,12 @@ export interface CourtStageProps {
   /** §5.1/§6.4 코트 크기 3단. **viewBox 가 통째로 달라진다**(825×525 · 775×450 · 700×425) —
    *  빼먹으면 28×15 드릴을 열어도 판은 30×18 로 그려지고, 그 순간 판이 거짓말을 시작한다. */
   size?: CourtSize;
+  /** §6.4 표시 회전. **위에서 내려온다**(2026-08-14 §4.2 — 아래 rot 상태 주석의 경위 참고).
+   *
+   *  ⚠️ 선택 prop 으로 만들지 마라. 기본값 0 을 두면 배선이 끊겨도 화면이 "안 돌아간 판" 으로
+   *  조용히 그려져, 세로 태블릿에서 축척이 23% 작아진 것을 아무도 빨간불로 못 만난다. 필수
+   *  prop 이면 tsc 가 EditorWorkspace → EditorStage → CourtStage 사슬 전체를 대신 지켜 준다. */
+  rot: StageRot;
   variant: CourtLineVariant;
   writer: TransformWriter;
   controller: CourtStagePointerController;
@@ -163,6 +169,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     allowPan = false,
     mode,
     size,
+    rot,
     variant,
     writer,
     controller,
@@ -208,35 +215,40 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     setView({ x: 0, y: 0, w: def.vbW, h: def.vbH });
   }, [mode, size, def.vbW, def.vbH]);
 
-  // 표시 회전(§6.4 태블릿). **svg 가 실제로 차지한 상자**로 정한다 — 창이 아니라. 인스펙터가
-  // 옆에 있느냐 아래로 내려갔느냐에 따라 같은 창에서도 판단이 달라져야 하기 때문이다.
-  const [rot, setRot] = useState<StageRot>(0);
-  // ★ 현재 rot 의 사본. refreshMetrics 는 pointerdown·화살표키마다 불리는 **읽기** 함수인데,
-  //   여기서 매번 setRot 을 부르면 값이 같아도 React 가 한 번 더 렌더한다. 그 렌더가 다시
-  //   ResizeObserver 를 깨우면 서로를 끝없이 밀어 렌더러가 멈춘다(실제로 그렇게 얼었다 —
-  //   jsdom 에는 ResizeObserver 가 없어 단위 테스트로는 잡히지 않았다).
-  //   값이 **정말 바뀔 때만** 상태를 건드린다.
-  const rotRef = useRef<StageRot>(0);
+  // 표시 회전(§6.4 태블릿)은 **prop 으로 내려온다**(2026-08-14 §4.2, 기현님 재설계).
+  //
+  // 2026-08-11 까지는 여기서 `rotForFit(svg.getBoundingClientRect(), view)` 로 **svg 가 실제로
+  // 차지한 상자**를 재서 정했다 — "인스펙터가 폭을 먹느냐 아래로 내려갔느냐에 따라 같은 창에서도
+  // 판단이 달라져야 한다" 는 이유였다. **그 이유는 지금도 맞고, 답도 같다**: 인스펙터 모드는
+  // 크롬 예산의 한 행이라 `useStageRot` 이 창 크기와 함께 그것까지 넣고 계산한다(chromeBudget).
+  // 뒤집은 것은 *어디서 재는가* 하나다. 재설계 P3 가 코트 칸을 rot 에 맞춰 자기 종횡비로
+  // 줄이는 순간 "rect → rot → rect" 고리가 닫히고, 그 고리는 **쌍안정**이라 0 과 90 이 둘 다
+  // 자기모순 없이 안정하다(7인치 세로 456×592 에서 px/u 0.5527 vs 0.7176 — 23% 차이가 창을
+  // 줄인 순서에 따라 갈린다). 근거와 숫자는 useStageRot.ts 머리말에 있다.
+  //
+  // ★ 옛 rotRef 주석이 기록한 사고도 여기서 원인째 사라진다: refreshMetrics 는 pointerdown·
+  //   화살표키마다 불리는 **읽기** 함수인데 그 안에서 setRot 을 부르면, 값이 같아도 React 가 한 번
+  //   더 렌더하고 그 렌더가 ResizeObserver 를 깨워 서로를 끝없이 밀어 렌더러가 멈췄다(jsdom 에는
+  //   ResizeObserver 가 없어 단위 테스트로는 안 잡혔다). 이제 이 함수는 상태를 아예 안 건드린다.
+  const rotRef = useRef<StageRot>(rot);
+  rotRef.current = rot;
   const metricsRef = useRef<StageMetrics | null>(null);
   const refreshMetrics = useCallback((): StageMetrics | null => {
     const svg = svgRef.current;
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
-    const nextRot = rotForFit(rect, viewRef.current);
-    const m = computeMetrics(rect, viewRef.current, nextRot);
+    const m = computeMetrics(rect, viewRef.current, rotRef.current);
     metricsRef.current = m;
-    if (rotRef.current !== nextRot) {
-      rotRef.current = nextRot;
-      setRot(nextRot);
-    }
     return m;
   }, []);
   useEffect(() => {
     refreshMetrics();
-  }, [refreshMetrics, view]);
+    // rot 이 뒤집히면 offX/offY 가 함께 뒤집힌다 — 낡은 metrics 로 첫 포인터를 받으면 좌표가 어긋난다.
+  }, [refreshMetrics, view, rot]);
 
-  // 크기가 바뀌면 회전 판정을 다시 한다. 창 리사이즈뿐 아니라 **레이아웃 변경**(세로에서
+  // 크기가 바뀌면 실측 rect 를 다시 읽는다. 창 리사이즈뿐 아니라 **레이아웃 변경**(세로에서
   // 속성 시트가 열려 코트가 낮아지는 것)도 잡아야 하므로 ResizeObserver 를 쓴다.
+  // 이제 이 경로는 상태를 하나도 바꾸지 않는다(metricsRef 만 갱신) — 되먹임 고리가 없다.
   //
   // 콜백은 rAF 로 미룬다: ResizeObserver 콜백 안에서 곧바로 레이아웃을 읽고 상태를 바꾸면
   // 브라우저가 같은 프레임 안에서 관측을 다시 돌려 "ResizeObserver loop" 로 들어간다.
@@ -530,8 +542,9 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
         setView({ x: 0, y: 0, w: def.vbW, h: def.vbH });
       },
       panByScreen(dxCssPx, dyCssPx) {
-        // 회전은 창 크기에 따라 바뀌므로 **누를 때마다** 다시 잰다 — 캐시된 rot 으로 밀면
-        // 인스펙터가 열려 판이 돌아간 직후 첫 입력이 반대로 간다.
+        // **누를 때마다** 다시 잰다 — 캐시된 metrics 로 밀면 인스펙터가 열려 판이 돌아간 직후
+        // 첫 입력이 반대로 간다. (2026-08-14: 회전 자체는 이제 prop 이라 늘 최신이고, 여기서
+        // 다시 읽는 것은 **rect** 다 — ResizeObserver 가 위치 이동은 관측하지 않는다.)
         const m = refreshMetrics() ?? metricsRef.current;
         if (!m) return;
         setView((v) => panViewByScreen(v, def, m, dxCssPx, dyCssPx));

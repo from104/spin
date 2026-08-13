@@ -20,6 +20,7 @@ import { courtDefFor, gridCellCenter, cellLabelAt, type CourtMode, type CourtSiz
 import { GOAL_ID_PREFIX } from '../../physics/index.ts';
 import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
 import { screenDeltaToWorld } from '../../render/useStageMetrics.ts';
+import type { StageRot } from '../../render/useStageMetrics.ts';
 import type { ObjectLayerChair, ObjectLayerCone } from '../../render/ObjectLayer.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { RuleOverlayApi, RuleRosterEntry } from '../../render/ruleOverlay.ts';
@@ -29,6 +30,10 @@ import { useEditorPointer } from './useEditorPointer.ts';
 
 export interface EditorStageProps {
   drill: Drill;
+  /** §6.4 표시 회전. **워크스페이스가 창 크기에서 정해 내려보낸다**(2026-08-14 §4.2 —
+   *  `useStageRot`). 여기서는 한 톨도 손대지 않고 무대로 넘길 뿐이다: 중간에서 다시 계산하면
+   *  그 순간 판정하는 곳이 둘이 되고, 둘이 어긋나면 좌표 변환과 그림이 갈라진다. */
+  rot: StageRot;
   step: DrillStep;
   tool: ToolId;
   coneSlot: 0 | 1;
@@ -77,7 +82,7 @@ const ARROW_AIM_ORDER: readonly ArrowHandle[] = ['to', 'from', 'ctrl'];
 const ARROW_AIM_LABEL: Record<ArrowHandle, string> = { to: '끝점', from: '시작점', ctrl: '굽힘점' };
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, step, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, epoch = 0, transitionMs = 0 },
+  { drill, rot, step, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, epoch = 0, transitionMs = 0 },
   stageRef,
 ) {
   const pointer = useEditorPointer({
@@ -457,6 +462,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       ref={stageRef}
       mode={drill.courtMode}
       size={drill.courtSize}
+      rot={rot}
       variant="editor"
       writer={writer}
       controller={pointer.controller}

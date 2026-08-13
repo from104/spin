@@ -190,6 +190,7 @@ describe('판이 거짓말하지 않는다 — 차체 음영이 판정과 같은
     const { drill, chairId } = makeDrill(mode);
     const { container } = render(
       <EditorStage
+        rot={0}
         drill={drill}
         step={drill.steps[0]!}
         tool="select"
