@@ -50,7 +50,8 @@ export function BoardScreen() {
 
   return (
     <EditorProvider drill={boot.drill}>
-      <PlaybackProvider>
+      {/* 설정 [재생] > '마지막 스텝에서 반복'. 전술판 재생(useStepPlayback)도 같은 스위치를 본다. */}
+      <PlaybackProvider initialLoop={prefs.loop}>
         <BoardHost bootPristine={boot.pristine} />
       </PlaybackProvider>
     </EditorProvider>

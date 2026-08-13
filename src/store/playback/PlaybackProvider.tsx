@@ -28,10 +28,27 @@ export interface PlaybackActions {
 const PlaybackStateContext = createContext<PlaybackState | null>(null);
 const PlaybackActionsContext = createContext<PlaybackActions | null>(null);
 
-export function PlaybackProvider({ children, initialSpeed = 1 }: { children: ReactNode; initialSpeed?: PlaybackSpeed }) {
+export function PlaybackProvider({
+  children,
+  initialSpeed = 1,
+  initialLoop = false,
+}: {
+  children: ReactNode;
+  initialSpeed?: PlaybackSpeed;
+  /** 설정 [재생] > '마지막 스텝에서 반복'(`prefs.loop`)의 초기값.
+   *
+   *  ⚠️ 2026-08-13(6차 검증) 이전에는 이 prop 이 **없었고** loop 가 `useState(false)` 하드코딩
+   *  이었다. `initialSpeed` 는 있는데 이것만 없어서, `prefs.loop` 는 저장·마이그레이션·검증·
+   *  백업까지 전부 왕복하면서 **재생에는 한 번도 닿지 않았다**(프로덕션 소비처가 설정 토글
+   *  자기 자신 1곳뿐이었다). 설정 행의 *"끝나면 처음 스텝으로 되돌아갑니다"* 가 거짓이던
+   *  기간이다. 되돌리면 playbackLoopPref.test.tsx 의 ①②④ 가 빨개진다. */
+  initialLoop?: boolean;
+}) {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeedState] = useState<PlaybackSpeed>(initialSpeed);
-  const [loop, setLoopState] = useState(false);
+  // 초기값일 뿐이다 — 시연 화면의 [반복] 버튼은 그대로 이 세션 안에서 값을 뒤집는다.
+  // 설정은 "어느 쪽으로 켜고 시작하는가" 만 정하고, 판단은 코치에게 남긴다.
+  const [loop, setLoopState] = useState(initialLoop);
   const elapsedRef = useRef(0);
   const playingRef = useRef(false);
   const speedRef = useRef<PlaybackSpeed>(initialSpeed);

@@ -19,6 +19,7 @@ import { useAppNav } from '../../app/useAppHistory.ts';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { EditorProvider } from '../../store/editor/EditorProvider.tsx';
 import { PlaybackProvider } from '../../store/playback/PlaybackProvider.tsx';
+import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { EditorWorkspace } from './EditorWorkspace.tsx';
 
 type LoadState = { status: 'loading' } | { status: 'ready'; drill: Drill } | { status: 'error'; message: string };
@@ -27,6 +28,7 @@ export function EditorScreen() {
   const target = useStageTarget();
   const nav = useAppNav();
   const toast = useToast();
+  const { prefs } = useSettingsState();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
   useEffect(() => {
@@ -82,7 +84,8 @@ export function EditorScreen() {
 
   return (
     <EditorProvider key={providerKey} drill={state.drill}>
-      <PlaybackProvider>
+      {/* 설정 [재생] > '마지막 스텝에서 반복'. 편집기 재생(useStepPlayback)이 이 값을 본다. */}
+      <PlaybackProvider initialLoop={prefs.loop}>
         <EditorWorkspace mode="drill" />
       </PlaybackProvider>
     </EditorProvider>

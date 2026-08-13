@@ -185,7 +185,7 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   }
 
   return (
-    <PlaybackProvider initialSpeed={prefs.playbackSpeed}>
+    <PlaybackProvider initialSpeed={prefs.playbackSpeed} initialLoop={prefs.loop}>
       <PresentBody
         rootRef={rootRef}
         load={load}
