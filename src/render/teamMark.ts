@@ -52,7 +52,7 @@
 // 복제를 **없앤다** — 이 파일은 React 도 DOM 도 없는 순수 모듈이고, render 층은 화면·인쇄·
 // 내보내기 셋 다가 이미 의존하는 아래층이다. 표식이 한 곳에서만 나오지 않으면 "화면에선
 // 구분되는데 종이에선 안 되는" 상태가 조용히 생긴다 — 그게 이 항목이 막으려는 사고다.
-import { inkFor, OBJ_STROKE } from '../core/colors.ts';
+import { inkFor, strokeFor } from '../core/colors.ts';
 import type { ChairDef, TeamSide, TeamStyle } from '../model/drill.ts';
 
 /** 색이 아닌 채널로 팀을 가르는 값. 팀 소속(`TeamSide`)에서만 나온다 —
@@ -83,7 +83,10 @@ export function teamPatternFor(team: TeamSide): TeamPattern {
 export interface TeamMark {
   /** 차체 채움색. */
   fill: string;
-  /** 차체 테두리색. */
+  /** 차체 테두리색. **차체 밝기로 뒤집힌다**(6.5 — colors.ts `strokeFor`). 칩의 선은 전부
+   *  이 값 하나다: 차체 테두리 · 볼가드 테두리 · 머리(피벗) 점. 한 칩 안에서 흰 선과 어두운
+   *  선이 섞이면 "이 칩의 선 색" 이라는 규칙이 사라지고, 밝은 차체에서 어떤 선이 보이는지가
+   *  요소마다 달라진다. */
   stroke: string;
   strokeWidth: number;
   /** 차체 테두리 파선 패턴. `undefined` = 실선. 색을 지워도 남는 **주 채널**이다. */
@@ -109,7 +112,10 @@ export function teamMarkFor(def: ChairDef, teams: Record<TeamSide, TeamStyle>): 
   const pattern = teamPatternFor(def.team);
   return {
     fill,
-    stroke: OBJ_STROKE,
+    // ⚠️ 6.5 — 여기를 OBJ_STROKE 고정으로 되돌리면 밝은 차체(#e08a12 2.50 · GK어웨이 #22a95b
+    // 2.80 · GK홈 #f2c811 1.55)에서 파선 테두리가 3:1 아래로 내려가 **4.6 의 주 채널이
+    // 기본 설정에서 사라진다.** 근거·전수 검산은 core/colors.ts 의 strokeFor.
+    stroke: strokeFor(fill),
     strokeWidth: CHAIR_STROKE_W,
     strokeDash: pattern.strokeDash,
     guardFill: pattern.guardFill,

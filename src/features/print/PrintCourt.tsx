@@ -115,7 +115,9 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
               height={CHAIR.widthPx}
               rx={5}
               fill={mark.fill}
-              stroke={OBJ_STROKE}
+              // ⚠️ 6.5 — 여기가 OBJ_STROKE 리터럴이면 **종이만** 밝은 차체에서 파선을 잃는다
+              // (PNG 는 이미 m.stroke 를 쓰고 있었다 — 실제로 갈라져 있던 자리다).
+              stroke={mark.stroke}
               strokeWidth={2.2}
               strokeDasharray={mark.strokeDash}
             />

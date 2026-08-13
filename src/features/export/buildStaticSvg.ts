@@ -319,8 +319,10 @@ function chairsMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
       `<rect x="${num(-CHAIR.pivotToRearPx)}" y="${num(-halfW)}" width="${num(CHAIR.lengthPx)}" height="${num(CHAIR.widthPx)}" rx="5"` +
       ` fill="${safeColor(m.fill, '#888888')}" stroke="${m.stroke}" stroke-width="${num(m.strokeWidth)}"${dash}/>` +
       `<rect x="${num(CHAIR.pivotToFrontPx - CHAIR.guardPx)}" y="${num(-halfW)}" width="${num(CHAIR.guardPx)}" height="${num(CHAIR.widthPx)}" rx="2"` +
-      ` fill="${m.guardFill}" stroke="${OBJ_STROKE}" stroke-width="1.4"/>` +
-      `<circle cx="0" cy="0" r="4.2" fill="${OBJ_STROKE}"/>` +
+      // ⚠️ 6.5 — 가드 테두리·머리 점도 차체 테두리와 **같은 선 색**이다(m.stroke). 여기만
+      // OBJ_STROKE 로 되돌리면 밝은 차체에서 한 칩 안에 보이는 선과 안 보이는 선이 섞인다.
+      ` fill="${m.guardFill}" stroke="${m.stroke}" stroke-width="1.4"/>` +
+      `<circle cx="0" cy="0" r="4.2" fill="${m.stroke}"/>` +
       `</g>`;
   }
   return out;

@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { CHAIR } from '../../core/constants.ts';
-import { inkFor } from '../../core/colors.ts';
+import { inkFor, strokeFor } from '../../core/colors.ts';
 import type { ChairId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
@@ -92,6 +92,11 @@ export const ChairChip = memo(function ChairChip({
   }, [writer, id]);
 
   const ink = inkFor(color);
+  // ⚠️ 6.5 — 칩의 선 색은 차체 밝기로 뒤집힌다(밝은 차체 → 어두운 선). 리터럴
+  // `rgba(255,255,255,.92)` 로 되돌리면 **화면에서만** 밝은 차체의 파선이 사라진다
+  // (PNG·인쇄는 teamMarkFor 를 거치므로 멀쩡한 채로 — 종이와 화면이 갈라지는 사고다).
+  // 실측: #e08a12 2.50 → 7.28 · GK어웨이 #22a95b 2.80 → 6.44 · GK홈 #f2c811 1.55 → 11.84.
+  const stroke = strokeFor(color);
   // 4.6 — 색 밖의 팀 채널. 화면에도 넣는 이유는 인쇄 때문만이 아니다: 적록 색각 이상(남성
   // 약 8%)에게는 #d93a3a / #1f6bb8 이 화면에서 이미 같은 색이다. 근거·크기 검산은
   // src/render/teamMark.ts 머리말. ⚠️ 아래 두 값을 리터럴로 되돌리면 그 사용자에게 판이
@@ -144,7 +149,7 @@ export const ChairChip = memo(function ChairChip({
         height={CHAIR.widthPx}
         rx={5}
         fill={color}
-        stroke="rgba(255,255,255,.92)"
+        stroke={stroke}
         strokeWidth={2.2}
         strokeDasharray={pattern.strokeDash}
       />
@@ -156,7 +161,7 @@ export const ChairChip = memo(function ChairChip({
         height={CHAIR.widthPx}
         rx={2}
         fill={pattern.guardFill}
-        stroke="rgba(255,255,255,.92)"
+        stroke={stroke}
         strokeWidth={1.4}
       />
       {/* 두 구역의 음영. 어디를 잡으면 어떻게 되는지 커서만이 아니라 눈으로도 보여야 한다 —
@@ -186,7 +191,7 @@ export const ChairChip = memo(function ChairChip({
             />
           ))}
       {/* 머리 = 피벗 = 원점 */}
-      <circle cx={0} cy={0} r={4.2} fill="rgba(255,255,255,.92)" />
+      <circle cx={0} cy={0} r={4.2} fill={stroke} />
       <g transform={`translate(${CHAIR.centroidOffsetPx} 0)`}>
         {/* writer 가 rotate(-θ) 를 기록한다 — 등번호는 절대 회전하지 않는다(§3.4). */}
         <g ref={counterRef}>

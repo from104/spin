@@ -28,7 +28,7 @@ import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 import type { ChairDef, Drill, DrillStep, TeamSide, TeamStyle } from '../model/drill.ts';
 import type { RenderFrame } from '../model/playback.ts';
 import { DEFAULT_TEAMS } from '../model/defaults.ts';
-import { COURT_BG, GK_AWAY_COLOR, GK_HOME_COLOR, OBJ_STROKE, TEAM_COLOR_CHOICES } from '../core/colors.ts';
+import { COURT_BG, GK_AWAY_COLOR, GK_HOME_COLOR, OBJ_STROKE, strokeFor, TEAM_COLOR_CHOICES } from '../core/colors.ts';
 import { buildStaticSvg } from '../features/export/buildStaticSvg.ts';
 import { PrintCourt } from '../features/print/PrintCourt.tsx';
 import { ChairChip } from '../render/objects/ChairChip.tsx';
@@ -234,17 +234,23 @@ describe.each(PALETTES)('B) 판을 강제색에서 빼면 판이 판독 가능�
     expect(onCourt).toBeCloseTo(4.78, 1);
   });
 
-  it('⚠️ 알려진 구멍 — **밝은** 차체 색에서는 흰 파선이 차체 위에서 안 보인다 (4.6 표식의 경계)', () => {
-    // 임계는 상대휘도 약 .25 (colors.ts 의 inkFor 임계와 사실상 같은 자리다). 실측:
-    //   #d93a3a 4.06 · #1f6bb8 4.88 · #7c5cd6 4.36 · #e08a12 2.50 · #22a95b 2.80 · #f2c811 1.55
-    // 즉 팀 색 팔레트 4색 중 3색만 안전하고, 원정 골키퍼(#22a95b)와 주황(#e08a12)은 미달이다.
-    // 그때도 위의 바깥 채널(코트 4.78:1)은 남으므로 표식이 통째로 사라지진 않는다.
-    // 고치려면 테두리색을 차체 밝기로 뒤집어야 하는데(inkFor 와 같은 방식) 그건 4.6 소유
-    // 파일(render/teamMark.ts)이라 5.6 은 손대지 않고 숫자로 못박아 보고만 한다.
-    const onFill = TEAM_COLOR_CHOICES.map((c) => contrastRatio(compositeOver(OBJ_STROKE, c), c));
-    expect(onFill.filter((r) => r >= NON_TEXT_MIN)).toHaveLength(3);
+  it('★ 6.5 로 **메워진** 구멍 — 밝은 차체에서도 파선이 보인다 (팔레트 4색 + 골키퍼 2색 전수)', () => {
+    // ── 여기 있던 '⚠️ 알려진 구멍' 을 6.5 가 메웠다. 숫자는 지우지 않고 방향만 뒤집는다. ──
+    // 5.6 당시(흰 테두리 **고정**): #d93a3a 4.06 · #1f6bb8 4.88 · #7c5cd6 4.36 ·
+    //   **#e08a12 2.50** · **#22a95b 2.80** · **#f2c811 1.55** — 4색 중 3색만 안전했고,
+    //   #22a95b 는 DEFAULT_TEAMS.away.gkColor 라 **기본 설정에서 이미** 발생했다.
+    // 6.5(테두리를 차체 밝기로 뒤집은 뒤): 같은 계산으로 7.28 · 6.44 · 11.84 — 전수 통과.
+    // 대조군은 아래 두 줄(옛 고정 테두리로는 여전히 실패한다)과 teamMarkContrast.test.tsx 의
+    // RGB 큐브 전수 탐색이 맡는다.
+    const all = [...TEAM_COLOR_CHOICES, GK_HOME_COLOR, GK_AWAY_COLOR];
+    const ratios = all.map((c) => contrastRatio(compositeOver(strokeFor(c), c), c));
+    expect(ratios.filter((r) => r >= NON_TEXT_MIN)).toHaveLength(all.length);
+    for (const c of all) expect(dashChannelVisible(c, strokeFor(c), '5 3'), `${c} 파선`).toBe(true);
+    // 대조군 — 옛 방식(흰 테두리 고정)이었다면 이 셋은 지금도 실패한다. 즉 위 통과는
+    // "판정이 헐거워져서" 가 아니라 **선 색이 실제로 뒤집혀서** 나온 것이다.
     expect(dashChannelVisible('#e08a12', OBJ_STROKE, '5 3')).toBe(false);
     expect(dashChannelVisible(GK_AWAY_COLOR, OBJ_STROKE, '5 3')).toBe(false);
+    expect(dashChannelVisible(GK_HOME_COLOR, OBJ_STROKE, '5 3')).toBe(false);
   });
 
   it.each(PATHS)('%s — 세 경로 모두 파선을 실제로 그린다', (_p, chipOf) => {
@@ -268,7 +274,13 @@ describe('C) 그 선택을 실행하는 것은 CSS 한 곳뿐이다', () => {
     expect(thumb).not.toContain('teamPatternFor');
   });
 
-  it('흰 테두리 상수가 여전히 OBJ_STROKE 다 — 리터럴로 갈라지면 위 계산이 거짓이 된다', () => {
+  it('테두리색이 상수(strokeFor)에서 나온다 — 리터럴로 갈라지면 위 계산이 거짓이 된다', () => {
+    // 기본 팀 색은 둘 다 어두워서(L .181 / .143) 흰 테두리 쪽으로 떨어진다 — 위 B) 의 4.06 /
+    // 4.88 계산이 여전히 이 값 위에 서 있다.
     expect(teamMarkFor(defOf('away'), TEAMS).stroke).toBe(OBJ_STROKE);
+    expect(teamMarkFor(defOf('home'), TEAMS).stroke).toBe(OBJ_STROKE);
+    // 대조군 — 밝은 차체에서는 실제로 다른 값이 나온다(6.5). 상수를 지나지 않으면 여기가 빨개진다.
+    expect(teamMarkFor(defOf('away', GK_HOME_COLOR), TEAMS).stroke).toBe(strokeFor(GK_HOME_COLOR));
+    expect(teamMarkFor(defOf('away', GK_HOME_COLOR), TEAMS).stroke).not.toBe(OBJ_STROKE);
   });
 });
