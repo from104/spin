@@ -261,10 +261,14 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     expectOnlyScreen('screen-editor');
     expect(window.history.state).toMatchObject({ screen: 'board' });
 
-    // 화면 키는 계속 'board' 이므로 다른 화면을 들렀다 와도 stage 는 drill 그대로다.
+    // ⚠️ 2026-08-14 뒤집힘. 여기는 원래 `expectOnlyScreen('screen-editor')` 였다 — 레일이
+    // 대상을 안 실어서 stage 가 drill 그대로 남는 것을 "들렀다 와도 손에 든 판은 그대로"
+    // 라고 못박고 있었다. 기현님 지시로 폐기: *"드릴 편집 하다가 보드를 누르면 드릴 내용이
+    // 보드로 가는데 절대 금지다. 그 둘은 별개다 절대적으로."*
     await user.click(screen.getByRole('button', { name: '설정' }));
     await user.click(screen.getByRole('button', { name: '보드' }));
-    expectOnlyScreen('screen-editor');
+    expectOnlyScreen('screen-board');
+    expect(window.history.state).toMatchObject({ screen: 'board', target: { kind: 'board' } });
 
     // nav.newDrill = setStageTarget({kind:'board'}) + go('board', {kind:'board'}) — 같은 자리를 판으로 되돌린다.
     await user.click(screen.getByRole('button', { name: '드릴' }));
@@ -308,8 +312,7 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
   });
 
   it('목록 의도는 엔트리마다 새로 정해진다 — 앞서 연 드로어가 뒤 엔트리로 따라오지 않는다', async () => {
-    // board 의 stage 와 갈리는 지점(intentFromNav 주석). 손에 든 판은 따라오지만 목록은
-    // 들어올 때마다 새로 여는 화면이라, 따라오면 뒤로가기가 어긋난다.
+    // 들어올 때마다 새로 여는 화면이라, 앞서 연 드로어가 따라오면 뒤로가기가 어긋난다.
     await renderShell();
     const user = userEvent.setup();
 
@@ -323,12 +326,75 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     expect(lib).toHaveAttribute('data-open-session', '');
     expect(lib).toHaveAttribute('data-initial-tab', '');
 
-    // 대조군 — 같은 왕복에서 stage 는 반대로 **따라온다**(2.1 원칙 2). 두 계약이 서로 다른
-    // 규칙이라는 것을 한 테스트 안에서 보인다.
+    // ⚠️ 여기 있던 대조군은 *"같은 왕복에서 stage 는 반대로 따라온다"* 였다(2.1 원칙 2).
+    // 2026-08-14 기현님 지시로 폐기 — 이제 stage 도 목록 의도와 **같이** 안 따라온다.
+    // 남은 차이는 대상 없는 엔트리(back 대체 경로)뿐이고 그건 아래 describe 가 본다.
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
     await user.click(screen.getByRole('button', { name: '설정' }));
     await user.click(screen.getByRole('button', { name: '보드' }));
+    expectOnlyScreen('screen-board');
+  });
+});
+
+// ── [보드]와 드릴 편집은 별개다 (2026-08-14 기현님 지시) ──────────────────────────────
+// *"드릴 편집 하다가 보드를 누르면 드릴 내용이 보드로 가는데 절대 금지다. 그 둘은 별개다
+// 절대적으로."* — 원인은 레일이 `go('board')` 를 대상 없이 부른 것이었다(navChrome.ts 의
+// RAIL_NAV_TARGETS 주석에 전말). **금지 사항은 테스트로 못박는다.**
+describe('AppShell 배선 — 레일 [보드]는 언제나 자유 전술판이다', () => {
+  it('드릴 편집 중에 눌러도 그 드릴이 board 자리에 남지 않는다', async () => {
+    await renderShell();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: '드릴' }));
+    await user.click(screen.getByRole('button', { name: '드릴 열기' }));
     expectOnlyScreen('screen-editor');
+
+    // 다른 화면을 경유하지 않는다 — 편집기에서 곧장 누르는 것이 기현님이 실제로 한 조작이다.
+    await user.click(screen.getByRole('button', { name: '보드' }));
+    expectOnlyScreen('screen-board');
+    expectRailActive('보드');
+    // 원인 자체를 본다: 엔트리에 대상이 실려야 stageFromNav 가 board 를 돌려준다.
+    expect(window.history.state).toMatchObject({ screen: 'board', target: { kind: 'board' } });
+  });
+
+  it('그래도 편집하던 드릴은 뒤로가기로 그대로 돌아온다 — 버리는 게 아니라 가르는 것이다', async () => {
+    await renderShell();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: '드릴' }));
+    await user.click(screen.getByRole('button', { name: '드릴 열기' }));
+    const drillEntry = window.history.state as unknown;
+    expect(drillEntry).toMatchObject({ target: { kind: 'drill', id: FIXTURE.drillId } });
+
+    await user.click(screen.getByRole('button', { name: '보드' }));
+    expectOnlyScreen('screen-board');
+
+    await act(async () => {
+      window.dispatchEvent(new PopStateEvent('popstate', { state: drillEntry }));
+    });
+    expectOnlyScreen('screen-editor');
+  });
+
+  it('좁은 창의 헤더 세그먼트도 같다 — 한 표(RAIL_NAV_TARGETS)를 나눠 쓴다', async () => {
+    // 이 계약이 컴포넌트마다 따로 적혀 있으면 **좁은 창에서만 드릴이 새는** 앱이 된다.
+    // 여기서 stubMedia 를 쓰므로 아래 afterEach 대신 이 테스트가 직접 지운다.
+    stubMedia(true);
+    try {
+      await renderShell();
+      const user = userEvent.setup();
+      const nav = () => screen.getByRole('navigation', { name: '주요 메뉴' });
+      expect(header().contains(nav())).toBe(true); // 레일이 아니라 세그먼트를 누르고 있다
+
+      await user.click(within(nav()).getByRole('button', { name: '드릴' }));
+      await user.click(screen.getByRole('button', { name: '드릴 열기' }));
+      expectOnlyScreen('screen-editor');
+
+      await user.click(within(nav()).getByRole('button', { name: '보드' }));
+      expectOnlyScreen('screen-board');
+      expect(window.history.state).toMatchObject({ screen: 'board', target: { kind: 'board' } });
+    } finally {
+      delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+    }
   });
 });
 

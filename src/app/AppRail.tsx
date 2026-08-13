@@ -12,7 +12,7 @@ import { IconMoon, IconSun } from '../ui/icons.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, SCREEN_TO_RAIL } from './screens.ts';
-import { RAIL_ICONS } from './navChrome.ts';
+import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
 
 /** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page". */
 export function AppRail() {
@@ -75,7 +75,7 @@ export function AppRail() {
             key={key}
             type="button"
             aria-current={active ? 'page' : undefined}
-            onClick={() => go(key)}
+            onClick={() => go(key, RAIL_NAV_TARGETS[key])}
             style={{
               position: 'relative',
               width: 64,

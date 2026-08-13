@@ -13,7 +13,7 @@ import { IconMoon, IconSun } from '../ui/icons.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, SCREEN_TO_RAIL } from './screens.ts';
-import { RAIL_ICONS } from './navChrome.ts';
+import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
 
 /** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page" — 레일과 **같은 이름·같은 계약**
  *  이다. 좁은 창에서 이름이 바뀌면 스크린리더 사용자에게는 다른 앱이 된다. */
@@ -36,7 +36,7 @@ export function AppNavSegment() {
               key={key}
               type="button"
               aria-current={active ? 'page' : undefined}
-              onClick={() => go(key)}
+              onClick={() => go(key, RAIL_NAV_TARGETS[key])}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',

@@ -12,6 +12,7 @@
 import type { ComponentType } from 'react';
 import { IconBoard, IconLibrary, IconSettings } from '../ui/icons.tsx';
 import type { IconProps } from '../ui/icons.tsx';
+import type { NavTarget } from './useAppHistory.ts';
 import type { RailKey } from './screens.ts';
 
 /** 레일 3항목의 아이콘. 레일과 헤더 세그먼트가 **같은 그림**을 써야 좁은 창으로 넘어간 사용자가
@@ -20,6 +21,29 @@ export const RAIL_ICONS: Record<RailKey, ComponentType<IconProps>> = {
   board: IconBoard,
   drills: IconLibrary,
   settings: IconSettings,
+};
+
+/** 레일 3항목이 history 엔트리에 싣고 가는 대상. 아이콘과 같은 이유로 여기 한 곳에 둔다 —
+ *  레일과 헤더 세그먼트가 각자 정하면 **좁은 창에서만 다르게 동작하는** 내비가 된다.
+ *
+ *  ⚠️ **[보드]는 `{ kind: 'board' }` 를 반드시 싣는다.** 2026-08-14 기현님 지시:
+ *  *"드릴 편집 하다가 보드를 누르면 드릴 내용이 보드로 가는데 절대 금지다. 그 둘은 별개다
+ *  절대적으로."*
+ *
+ *  그전에는 레일이 대상 없이 `go('board')` 만 불렀고, AppShell 의 `stageFromNav` 는 대상 없는
+ *  엔트리에 null 을 돌려 **StageTarget 을 그대로 뒀다**. 그래서 드릴을 편집하다 [보드]를 누르면
+ *  화면 키는 board 로 가고 레일 활성도 [보드]로 옮겨 가는데 자리에는 여전히 그 드릴이 떠 있었다
+ *  — 사용자에게는 *"드릴 내용이 보드로 갔다"* 로 보인다.
+ *
+ *  옛 계약은 *"들렀다 와도 손에 든 판은 그대로"*(계획서 2.1 원칙 2)였다. 그 문장이 맞는 것은
+ *  손에 든 것이 **자유 전술판일 때뿐**이고, 드릴일 때는 판과 드릴을 섞어 버린다. 지금은
+ *  레일이 목적지를 **명시**하므로 그 갈림 자체가 없다. 대상 없는 board 엔트리(= `back('board')`
+ *  의 대체 경로)에 대한 `stageFromNav` 의 관용은 그대로 둔다 — 시연을 끝내고 돌아오는 길은
+ *  자기가 나왔던 자리로 돌아가야 한다. */
+export const RAIL_NAV_TARGETS: Record<RailKey, NavTarget | undefined> = {
+  board: { kind: 'board' },
+  drills: undefined,
+  settings: undefined,
 };
 
 /** 헤더 안쪽 여백. 좁으면 상하 4·좌우 12 로 줄인다.
