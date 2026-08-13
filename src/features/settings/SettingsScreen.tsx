@@ -19,7 +19,7 @@ import { Modal } from '../../ui/Modal.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
-import { TEAM_COLOR_CHOICES, inkFor } from '../../core/colors.ts';
+import { TEAM_COLOR_CHOICES, TEAM_COLOR_NAMES, inkFor } from '../../core/colors.ts';
 import { FORMATIONS } from '../../model/defaults.ts';
 import { COURT_MODES, type CourtMode } from '../../model/court.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
@@ -28,12 +28,14 @@ import { Button } from '../../ui/Button.tsx';
 import { IconCheck } from '../../ui/icons.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
 
-const COLOR_NAMES: Record<string, string> = {
-  '#d93a3a': '빨강',
-  '#1f6bb8': '파랑',
-  '#e08a12': '주황',
-  '#7c5cd6': '보라',
-};
+// ⚠️ 2026-08-14 7차 검증 — 여기 있던 로컬 `COLOR_NAMES` 를 지우고 `core/colors.ts` 의
+// `TEAM_COLOR_NAMES` 를 쓴다. 두 벌이던 시절의 함정: 로컬 맵은 `Record<string, string>` 이라
+// **어떤 색이 빠져도 tsc 가 아무 말을 안 했다.** 반면 `TEAM_COLOR_NAMES` 의 키는
+// `(typeof TEAM_COLOR_CHOICES)[number]` 유니언이라 선택지에 색을 하나 추가하면 tsc 가 이름을
+// **먼저 요구한다.** 즉 옛 구조에서는 색을 추가하는 순간 팔레트·개체 라벨은 새 이름을 얻는데
+// 설정 화면의 스와치만 조용히 `#c8102e` 를 낱글자로 읽는 상태가 됐다(값이 같아 눈으로는
+// 안 보이고, 5차·6차 라운드에서 두 번 보고됐지만 "내 소유가 아니라" 는 이유로 남아 있었다).
+// 되돌리면 SettingsScreen.colorName.test.tsx 의 '단일 출처' it 이 빨간불이 된다.
 
 const COURT_MODE_SHORT_LABELS: Record<CourtMode, string> = { full: '풀', half: '하프', flat: '플랫' };
 
@@ -592,7 +594,7 @@ function TeamColorSwatches({ ariaLabel, value, otherValue, onChange }: TeamColor
             role="radio"
             aria-checked={active}
             aria-disabled={disabled || undefined}
-            aria-label={`팀 색상: ${COLOR_NAMES[c] ?? c}`}
+            aria-label={`팀 색상: ${TEAM_COLOR_NAMES[c]}`}
             tabIndex={active ? 0 : -1}
             onClick={() => pick(c)}
             onKeyDown={(e) => {
