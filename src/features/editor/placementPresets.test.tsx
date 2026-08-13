@@ -237,6 +237,7 @@ describe('§5.4 PRESET_APPLY — 시점(스텝·선택)을 건드리지 않는�
         pendingPlayerId={null}
         onArmPlayer={() => {}}
         onEraseIds={() => {}}
+        onResetGoals={() => {}}
         showSteps={false}
       />,
     );

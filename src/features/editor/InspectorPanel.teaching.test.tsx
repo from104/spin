@@ -185,6 +185,7 @@ describe('3.2/3.3 이 구역이 있는 곳과 없는 곳', () => {
         pendingPlayerId={null}
         onArmPlayer={() => {}}
         onEraseIds={() => {}}
+        onResetGoals={() => {}}
         showSteps={showSteps}
       />,
     );
@@ -222,6 +223,7 @@ describe('3.2/3.3 값이 안 바뀌면 커밋하지 않는다', () => {
         pendingPlayerId={null}
         onArmPlayer={() => {}}
         onEraseIds={() => {}}
+        onResetGoals={() => {}}
       />,
     );
 

@@ -44,6 +44,16 @@ export interface InspectorPanelProps {
    *  '수비'·'수비 '·'수비연습' 이 각각 다른 태그가 되어 검색이 조용히 나빠지므로, 화면은
    *  기존 것을 칩으로 먼저 내놓는다. 비어 있으면(첫 드릴·전술판) 새로 만들기 칸만 남는다. */
   knownTags?: readonly string[];
+  /** §5.4 [골대 원위치] — 휠체어에 밀린 골대를 **코트 정의 자리**로 되돌린다. 판 위의 다른
+   *  것은 건드리지 않는다.
+   *
+   *  ⚠️ **optional 로 만들지 마라.** 이 버튼의 병력이 정확히 그 실패다: 4.7 이 하단 바에서
+   *     [코트 비우기] 확인 모달 안으로 내렸고(예산), 6차 검증관은 "기능은 살아 있다" 로 통과
+   *     시켰는데, **2026-08-13 기현님(이 앱의 주 사용자)이 "골대 원위치 버튼 어디있나?" 로
+   *     신고했다.** 아무도 *"찾을 수 있는가"* 를 안 물은 것이다. optional 이면 조립부 하나가
+   *     안 넘겼을 때 버튼이 소리 없이 사라지고, 그 상태로 전건 초록이 된다 — 필수로 두면
+   *     tsc 가 대신 물어 준다. */
+  onResetGoals(): void;
   /** 스텝 섹션(목록·복제·삭제·추가)을 낼지. 자유 전술판은 1장짜리라 false 다(§6.8 재편) —
    *  하단 트랜스포트만 감추고 여기를 놔두면 화면에 없는 2번째 스텝을 만들 수 있어, 판이
    *  조용히 여러 장이 된다(눈으로는 알 수 없다). 기본값은 드릴 편집 쪽인 true.
@@ -81,6 +91,7 @@ export function InspectorPanel({
   pendingPlayerId,
   onArmPlayer,
   onEraseIds,
+  onResetGoals,
   knownTags = [],
   showSteps = true,
 }: InspectorPanelProps) {
@@ -100,7 +111,7 @@ export function InspectorPanel({
           <Divider />
         </>
       )}
-      <DrillInfoSection drill={drill} dispatch={dispatch} courtSizeSwitch={courtSizeSwitch} />
+      <DrillInfoSection drill={drill} dispatch={dispatch} courtSizeSwitch={courtSizeSwitch} onResetGoals={onResetGoals} />
       {/* §5.4 배치 프리셋. **드릴 정보 바로 아래**다 — 프리셋이 무엇을 놓을지가 그 위의
           코트·포메이션 값에 달려 있어서, 읽은 자리에서 바로 누르는 순서가 된다.
           ⚠️ 이 구역을 판(하단 바·트레이)으로 옮기면 첫 화면 표적이 4개 늘어 예산 게이트가
@@ -296,7 +307,17 @@ function StepMetaSection({
   );
 }
 
-function DrillInfoSection({ drill, dispatch, courtSizeSwitch }: { drill: Drill; dispatch: Dispatch<EditorAction>; courtSizeSwitch?: CourtSizeSwitch }) {
+function DrillInfoSection({
+  drill,
+  dispatch,
+  courtSizeSwitch,
+  onResetGoals,
+}: {
+  drill: Drill;
+  dispatch: Dispatch<EditorAction>;
+  courtSizeSwitch?: CourtSizeSwitch;
+  onResetGoals(): void;
+}) {
   return (
     <div style={{ padding: '0 17px' }}>
       <div style={SECTION_LABEL}>드릴 정보</div>
@@ -356,7 +377,45 @@ function DrillInfoSection({ drill, dispatch, courtSizeSwitch }: { drill: Drill; 
           <span style={{ color: 'var(--muted)' }}>포메이션</span>
           <span style={{ fontWeight: 600, textAlign: 'right' }}>{drill.formation}</span>
         </div>
+        <GoalResetField drill={drill} onResetGoals={onResetGoals} />
       </div>
+    </div>
+  );
+}
+
+/** §5.4 [골대 원위치] — **찾을 수 있는 자리**(2026-08-13 기현님 실기 신고: *"골대 원위치 버튼
+ *  어디있나?"*).
+ *
+ *  ── 왜 인스펙터인가 ────────────────────────────────────────────────────────────
+ *  · 첫 화면 표적 예산이 40/40, **여유 0** 이다(src/test/boardTargetBudget.test.tsx 의 "서랍이
+ *    둘 다 열린 실사용 상태" it 이 40 을 찍는다). 하단 바·헤더·스테이지 컨트롤은 전부 초기
+ *    상태 DOM 이라 한 칸도 못 쓴다. 인스펙터는 **닫혀 있으면 DOM 에 아예 없어**(InspectorHost 의
+ *    mode==='hidden' → null) 예산 밖이다.
+ *  · 선례가 있다: §6.4 코트 크기 3단 선택도 같은 이유로 여기 산다. 인스펙터에는 이미 **판
+ *    수준 설정**이 살고 있고, 골대 원위치는 그 이웃이다.
+ *  · 자리는 [드릴 정보] 구역의 **맨 끝** — 바로 위 두 줄이 '코트 / 포메이션' 이다. 읽은 자리에서
+ *    누른다. 아래로 더 내리지 않은 이유는 §5.4 배치 프리셋이 *"드릴 정보 바로 아래"* 를 자기
+ *    근거로 들고 있어서다(그 사이에 구역을 끼우면 그 근거가 깨진다).
+ *
+ *  ── ⚠️ 점진 공개 금지(§8) ──────────────────────────────────────────────────────
+ *  "골대가 밀렸을 때만 버튼이 나타난다" 로 만들지 마라. 발 마우스·입 젓가락 사용자는 버튼의
+ *  **절대 위치**로 공간 기억을 만든다 — 표적이 사용 중에 이동하면 그 기억이 무너진다.
+ *  그래서 여기서 바뀌는 것은 **비활성 여부와 설명뿐**이고, 그 판정도 판 상태가 아니라 **코트
+ *  종류**다(플랫 코트에는 골대가 아예 없다 — COURT_DEFS.flat.goalPosts 가 []). 코트 종류는
+ *  판이 비어 있을 때만 바뀌므로 "쓰는 도중에 움직이는 표적" 이 아니다.
+ *  좌표·개수의 유일한 출처는 `courtDefFor` 다(리터럴 금지). */
+function GoalResetField({ drill, onResetGoals }: { drill: Drill; onResetGoals(): void }) {
+  const hasGoals = courtDefFor(drill.courtMode, drill.courtSize).goalPosts.length > 0;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <Button variant="secondary" fullWidth disabled={!hasGoals} onClick={onResetGoals}>
+        골대 원위치
+      </Button>
+      <span style={{ fontSize: '0.6875rem', color: 'var(--faint-text)', lineHeight: 1.45 }}>
+        {hasGoals
+          ? '휠체어에 밀린 골대를 규격 자리로 되돌립니다. 판 위의 나머지는 그대로 둡니다.'
+          : '플랫 코트에는 골대가 없습니다.'}
+      </span>
     </div>
   );
 }

@@ -263,6 +263,7 @@ describe('3.5 전술판', () => {
         pendingPlayerId={null}
         onArmPlayer={() => {}}
         onEraseIds={() => {}}
+        onResetGoals={() => {}}
         knownTags={['수비 전환']}
         showSteps={false}
       />,

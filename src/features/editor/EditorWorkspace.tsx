@@ -336,6 +336,18 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     />
   );
 
+  // §5.4 [골대 원위치] — **두 손잡이가 부르는 하나의 핸들러**다.
+  //   ① 인스펙터 [드릴 정보] 맨 끝(2026-08-13 기현님 신고로 생긴 주 자리)
+  //   ② [코트 비우기] 확인 모달 안의 [골대만 원위치](4.7 이 만든 자리 — 남겨 둔다)
+  // 두 곳이 각자 world 를 부르면 "막혔을 때 알린다" 같은 규칙이 한쪽에서만 사라진다.
+  // 같은 참조를 넘기는 것을 EditorWorkspace.resetGoals.test.tsx 의 소스 계약이 못박는다.
+  const resetGoals = useCallback(() => {
+    // 막혀 있으면 반드시 말해 준다. 조용히 실패하면 "버튼이 고장났나" 하며 계속
+    // 누르게 된다(실제 신고). 휠체어는 static 이라 골대가 밀어낼 수 없다.
+    const r = worldRef.current?.resetGoals();
+    if (r && r.blocked > 0) toast.show('골대 자리에 휠체어가 있어 되돌리지 못했습니다. 휠체어를 옮긴 뒤 다시 눌러 주세요.');
+  }, [worldRef, toast]);
+
   const inspector = (
     <InspectorPanel
       drill={drill}
@@ -358,6 +370,11 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       pendingPlayerId={pendingPlayerId}
       onArmPlayer={armPlayer}
       onEraseIds={eraseIds}
+      // ⚠️ 드릴 편집기에도 **똑같이** 내려간다. 골대는 두 모드 다 물리 바디이고(EditorStage 의
+      //    goals 는 courtDefFor 에서 오지 mode 를 안 본다), 휠체어에 밀리는 사고도 두 모드 다
+      //    난다 — 그런데 4.7 이후 되돌릴 손잡이는 **전술판 하단 바의 모달 안에만** 있어서 드릴
+      //    편집 중에 밀린 골대는 되돌릴 길이 아예 없었다(2026-08-13 확인).
+      onResetGoals={resetGoals}
       knownTags={knownTags}
       showSteps={!isBoard}
     />
@@ -461,12 +478,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
             showGrid={showGrid}
             showRuleZones={showRuleZones}
             onReset={() => board?.onReset()}
-            onResetGoals={() => {
-              // 막혀 있으면 반드시 말해 준다. 조용히 실패하면 "버튼이 고장났나" 하며 계속
-              // 누르게 된다(실제 신고). 휠체어는 static 이라 골대가 밀어낼 수 없다.
-              const r = worldRef.current?.resetGoals();
-              if (r && r.blocked > 0) toast.show('골대 자리에 휠체어가 있어 되돌리지 못했습니다. 휠체어를 옮긴 뒤 다시 눌러 주세요.');
-            }}
+            onResetGoals={resetGoals}
           />
         ) : (
           <TransportBar
