@@ -2,17 +2,20 @@
 // 폐기됐다 — 쓰지 않는다. 흰 .14 채움 + 파선 흰 테두리(5.34:1)로 대체한다: 면이 아니라
 // 파선 테두리가 기능을 전달한다.
 import { memo } from 'react';
-import { COURT_DEFS, type CourtMode } from '../model/court.ts';
+import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 
 export interface RuleZonesProps {
   mode: CourtMode;
+  /** §6.4 — 골 지역(8×5 m)의 **깊이는 절대 치수라 안 변하지만 자리는 변한다**: 골라인이
+   *  코트 크기를 따라 움직이기 때문이다(25×14 의 오른쪽 골 지역 x=537.5, 30×18 은 662.5). */
+  size?: CourtSize;
   /** 프로토타입 `showRuleZones` 토글과 동일 — 기본은 숨김. */
   visible: boolean;
 }
 
-export const RuleZones = memo(function RuleZones({ mode, visible }: RuleZonesProps) {
+export const RuleZones = memo(function RuleZones({ mode, size, visible }: RuleZonesProps) {
   if (!visible) return null;
-  const zones = COURT_DEFS[mode].ruleZones;
+  const zones = courtDefFor(mode, size).ruleZones;
   if (zones.length === 0) return null;
 
   return (

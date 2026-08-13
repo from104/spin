@@ -1,5 +1,9 @@
 // 격자 좌표. §3.3 — 좌표 전량 계산 확정. 표와 정확히 일치해야 한다.
-import { COURT_DEFS, gridLabel, gridCellCenter, type CourtMode } from './court.ts';
+//
+// §6.4(2026-08-13) — **격자는 코트 크기 3단을 따라간다.** 칸 수(6×5)는 크기와 무관하지만
+// 칸의 픽셀 치수는 경기면에서 나오므로 30×18 은 125×90, 28×15 는 116.67×75, 25×14 는
+// 104.17×70 이다. 그래서 이 파일의 유일한 좌표 출처는 `courtDefFor(mode, size)` 다.
+import { courtDefFor, gridLabel, gridCellCenter, normalizeCourtSize, type CourtMode, type CourtSize } from './court.ts';
 
 export interface GridGeom {
   vx: number[];
@@ -21,8 +25,8 @@ function majorLines(originPx: number, cellPx: number, count: number, step = 5): 
 const FLAT_AXIS_COL_Y = 9;
 const FLAT_AXIS_ROW_X = 8;
 
-function computeGridGeom(mode: CourtMode): GridGeom {
-  const { cols, rows, cellW, cellH, origin } = COURT_DEFS[mode].grid;
+function computeGridGeom(mode: CourtMode, size: CourtSize): GridGeom {
+  const { cols, rows, cellW, cellH, origin } = courtDefFor(mode, size).grid;
 
   const vx: number[] = [];
   for (let i = 0; i <= cols; i++) vx.push(origin.x + i * cellW);
@@ -34,7 +38,7 @@ function computeGridGeom(mode: CourtMode): GridGeom {
   const cells: GridGeom['cells'] = [];
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      const { x, y } = gridCellCenter(mode, col, row);
+      const { x, y } = gridCellCenter(mode, col, row, size);
       cells.push({ text: gridLabel(col, row), x, y, col, row });
     }
   }
@@ -57,13 +61,23 @@ function computeGridGeom(mode: CourtMode): GridGeom {
 }
 
 // 모듈 레벨 캐시 — 매 렌더마다 재계산하지 않는다 (§6.4).
-const cache = new Map<CourtMode, GridGeom>();
+//
+// ⚠️ **키는 `mode|size` 다. size 를 빼면 안 된다.** 2026-08-13 이전에는 `Map<CourtMode, GridGeom>`
+//    이었고, 그래서 30×18 판을 한 번 그린 뒤 25×14 를 열면 **첫 코트의 격자가 그대로 재사용**됐다
+//    (칸 폭 125 px 對 104.17 px — 20 px 어긋난 선이 그려지고, 그 격자에서 나온 스냅 앵커·키보드
+//    배치 커서까지 전부 남의 코트 것이 된다). 캐시 미스가 아니라 **오답**이라 화면만 봐서는
+//    영영 못 찾는다. gridCourtSize.test.ts 의 '크기 A 뒤 크기 B' 두 방향 테스트가 이 줄의 가드다
+//    (그 파일이 vi.resetModules 로 **캐시가 빈 모듈**을 새로 들여오는 이유가 이것이다).
+const cache = new Map<string, GridGeom>();
 
-export function gridGeom(mode: CourtMode): GridGeom {
-  let geom = cache.get(mode);
+export function gridGeom(mode: CourtMode, size?: CourtSize): GridGeom {
+  // 깨진 값이 캐시를 오염시키지 않도록 키를 만들기 전에 접는다 — courtDefFor 와 같은 규약이다.
+  const s = normalizeCourtSize(size);
+  const key = `${mode}|${s}`;
+  let geom = cache.get(key);
   if (!geom) {
-    geom = computeGridGeom(mode);
-    cache.set(mode, geom);
+    geom = computeGridGeom(mode, s);
+    cache.set(key, geom);
   }
   return geom;
 }

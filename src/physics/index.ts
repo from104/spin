@@ -9,12 +9,14 @@ import { isId } from '../core/ids.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
 import { classifyZone, poseFromStored, projectGrab } from '../model/chair.ts';
 import type { DrillCast, DrillStep } from '../model/drill.ts';
-// ★ 타입 전용 의존. §8 의 physics-world 의존 목록에는 court 가 없지만, PhysicsWorldApi.load()
-// 시그니처(§5.13)가 CourtMode 를 요구한다 — physics-kin 이 이미 "core, (타입만) court" 로 같은
-// 예외를 인정받았다(§8). 런타임 값(COURT_DEFS 등)은 쓰지 않는다: 코트 픽셀 크기는
-// createPhysicsWorld(courtW, courtH) 생성 시점에 호출자가 넘긴다(벽은 그때 이미 고정).
-import type { CourtMode } from '../model/court.ts';
-import { COURT_DEFS } from '../model/court.ts';
+// ★ §8 의 physics-world 의존 목록에는 court 가 없지만, PhysicsWorldApi.load() 시그니처(§5.13)가
+// CourtMode 를 요구한다 — physics-kin 이 이미 "core, (타입만) court" 로 같은 예외를 인정받았다(§8).
+// 런타임 값은 **골포스트 좌표 하나뿐**이다(§5.4 GOAL: 골대는 드릴이 아니라 코트 정의에서 온다).
+// 코트 픽셀 크기(벽)는 여전히 createPhysicsWorld(courtW, courtH) 생성 시점에 호출자가 넘긴다.
+// 조회는 반드시 `courtDefFor(mode, size)` 로 한다 — `COURT_DEFS[mode]` 는 풀 코트를 언제나
+// 30×18 로 읽으므로 25×14 판에서 골대가 경기면 밖에 선다(§6.4).
+import type { CourtMode, CourtSize } from '../model/court.ts';
+import { courtDefFor } from '../model/court.ts';
 
 import type { DragLimits, Bounds } from './types.ts';
 import { createWorld, escapePinnedAll } from './world.ts';
@@ -79,7 +81,10 @@ export interface DragHandle {
   end(): void;
 }
 export interface PhysicsWorldApi {
-  load(cast: DrillCast, step: DrillStep, mode: CourtMode): void;
+  /** §6.4 — `size` 는 **골대를 어디에 세우는가**를 정한다(§5.1 코트 크기 3단).
+   *  ⚠️ 빼먹으면 25×14 판에서도 골포스트가 30×18 자리(y=187.5/337.5)에 서서, 공이
+   *  **경기면 밖 허공의 골대**에 맞고 튄다. 생략하면 30×18 — `courtDefFor` 와 같은 규약이다. */
+  load(cast: DrillCast, step: DrillStep, mode: CourtMode, size?: CourtSize): void;
   step(dtS: number): void;
   read(out?: PhysicsSnapshot): PhysicsSnapshot;
   /** 물리를 거치지 않은 권위 있는 재배치(키보드 이동 등)를 바디에 밀어 넣는다.
@@ -381,7 +386,7 @@ export function createPhysicsWorld(
   });
 
   const api: PhysicsWorldApi = {
-    load(cast, step, mode) {
+    load(cast, step, mode, size) {
       for (const id of kindOf.keys()) world.remove(id);
       kindOf.clear();
       session = null;
@@ -409,7 +414,7 @@ export function createPhysicsWorld(
       // 골대는 cast 가 아니라 **코트 정의**에서 온다(드릴에 저장되지 않는다, §5.4 GOAL).
       goalHome.length = 0;
       goalReturnUntilMs = 0;
-      COURT_DEFS[mode].goalPosts.forEach((p, i) => {
+      courtDefFor(mode, size).goalPosts.forEach((p, i) => {
         const id = `${GOAL_ID_PREFIX}${i}`;
         world.addGoalPost(id, p);
         kindOf.set(id as CastId, 'goal');

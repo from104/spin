@@ -250,7 +250,7 @@ export function TransportBar({ drill, stepId, onSelectStep, onReorderStep, onAdd
                     // 어느 쪽도 --hit 밑으로 안 간다.
                     height: 'var(--hit)',
                     minHeight: 'var(--hit)',
-                    width: stepChipWidthCss(drill.courtMode),
+                    width: stepChipWidthCss(drill.courtMode, drill.courtSize),
                     minWidth: 'var(--hit)',
                     padding: 0,
                     borderRadius: 7,
@@ -267,7 +267,7 @@ export function TransportBar({ drill, stepId, onSelectStep, onReorderStep, onAdd
                   }}
                 >
                   <span aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
-                    <CourtThumbnail fill mode={drill.courtMode} thumb={thumbs.get(s.id)} teamColors={teamColors} />
+                    <CourtThumbnail fill mode={drill.courtMode} size={drill.courtSize} thumb={thumbs.get(s.id)} teamColors={teamColors} />
                   </span>
                   <span
                     aria-hidden="true"

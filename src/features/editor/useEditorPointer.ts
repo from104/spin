@@ -272,9 +272,12 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       { x: self.x, y: self.y },
       {
         mode: ctx.drill.courtMode,
+        // §6.4 — 앵커도 슬롯도 **이 판의 크기**에서 나와야 한다. 빼면 25×14 판에서 칩이
+        // 30×18 의 골포스트·격자로 빨려 들어간다(snapOnSettle 의 anchorCache 주석 ⚠️).
+        size: ctx.drill.courtSize,
         pxPerUnit: metricsRef.current.pxPerUnit,
         neighbors,
-        slots: formationSlots(ctx.drill.courtMode, ctx.drill.formation),
+        slots: formationSlots(ctx.drill.courtMode, ctx.drill.formation, ctx.drill.courtSize),
       },
     );
     return out.target === null ? null : { x: out.x, y: out.y };
@@ -468,7 +471,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         // edgePan 은 여기서 켜지 않는다. 그것은 **고무줄이 이미 시작된 뒤에** 도는 기능이라
         // (심사관 1 이 [치명]으로 짚은 edgePanBandPx=56 충돌의 해소가 바로 이 분리다) 판을
         // 직접 미는 손짓에는 낄 자리가 없다.
-        if (!isOnSurface(ctx.drill.courtMode, world)) {
+        if (!isOnSurface(ctx.drill.courtMode, world, ctx.drill.courtSize)) {
           // 제자리에서 톡 친 경우에는 빈 곳 탭과 똑같이 선택이 풀려야 한다 — 마진 탭은 지금까지
           // 크기 0 짜리 고무줄로 그 일을 해 왔고, 없애면 해제 경로 하나가 조용히 사라진다([A-3]).
           // 실제로 민 뒤에는 CourtStage 가 client=null 로 up 을 넘겨 이 세션이 탭이 아님을 알린다.

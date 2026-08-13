@@ -10,8 +10,8 @@
 // 조치를 갈라 두는 것이 요점이다. 값이 여기 있으니 조치가 아직 안 온 행도 예산에서는 이미
 // 보이고, 조치가 왔을 때 이 표를 함께 고치지 않으면 아래 계약 테스트가 빨간불이 된다.
 import { PX_PER_M } from '../core/units.ts';
-import { COURT_DEFS } from '../model/court.ts';
-import type { CourtMode } from '../model/court.ts';
+import { courtDefFor } from '../model/court.ts';
+import type { CourtMode, CourtSize } from '../model/court.ts';
 import { rotForFit } from '../render/useStageMetrics.ts';
 import type { StageRot } from '../render/useStageMetrics.ts';
 import { inspectorChromeWidthPx } from '../features/editor/inspectorLayout.ts';
@@ -220,8 +220,8 @@ export interface CourtScale {
  *
  *  회전을 `rotForFit` 에서 **빌려 온다.** 여기에 "세로로 길면 돌린다" 를 다시 적으면 화면은
  *  ROTATE_GAIN 1.08 로 돌고 예산표는 안 도는 순간이 생겨, 표가 화면과 다른 숫자를 말하게 된다. */
-export function courtScale(mode: CourtMode, box: Size): CourtScale {
-  const def = COURT_DEFS[mode];
+export function courtScale(mode: CourtMode, box: Size, size?: CourtSize): CourtScale {
+  const def = courtDefFor(mode, size);
   const rot = rotForFit({ width: box.w, height: box.h }, { x: 0, y: 0, w: def.vbW, h: def.vbH });
   // 'meet' 역산. computeMetrics 와 같은 식이되 그쪽은 DOMRect 를 받으므로(실측 전용) 여기서
   // 다시 쓴다 — 두 식이 같다는 것은 chromeBudget.test.ts 가 computeMetrics 와 대조해 지킨다.

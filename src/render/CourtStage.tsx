@@ -14,7 +14,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent a
 import type { Vec2 } from '../core/units.ts';
 import { INTERACT } from '../core/constants.ts';
 import { COURT_BG } from '../core/colors.ts';
-import { COURT_DEFS, type CourtMode } from '../model/court.ts';
+import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 import type { DragZone } from '../model/chair.ts';
 import type { Arrow, ArrowHandle } from '../model/arrow.ts';
 import { arrowColor } from '../model/arrow.ts';
@@ -95,6 +95,9 @@ export interface CourtStageProps {
    *  같은 자리에 콘 두 개를 빨리 찍는 것이 더블클릭으로 읽혀 두 번째가 삼켜진다. */
   allowPan?: boolean;
   mode: CourtMode;
+  /** §5.1/§6.4 코트 크기 3단. **viewBox 가 통째로 달라진다**(825×525 · 775×450 · 700×425) —
+   *  빼먹으면 28×15 드릴을 열어도 판은 30×18 로 그려지고, 그 순간 판이 거짓말을 시작한다. */
+  size?: CourtSize;
   variant: CourtLineVariant;
   writer: TransformWriter;
   controller: CourtStagePointerController;
@@ -156,6 +159,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   {
     allowPan = false,
     mode,
+    size,
     variant,
     writer,
     controller,
@@ -187,7 +191,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   },
   ref,
 ) {
-  const def = COURT_DEFS[mode];
+  const def = courtDefFor(mode, size);
   const markerUid = useId();
   const usedColors = useMemo(() => Array.from(new Set(arrows.map((a) => arrowColor(a)))), [arrows]);
 
@@ -199,7 +203,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   // 코트 모드가 바뀌면(전환 불가지만 재마운트 등 방어적으로) 줌을 리셋한다.
   useEffect(() => {
     setView({ x: 0, y: 0, w: def.vbW, h: def.vbH });
-  }, [mode, def.vbW, def.vbH]);
+  }, [mode, size, def.vbW, def.vbH]);
 
   // 표시 회전(§6.4 태블릿). **svg 가 실제로 차지한 상자**로 정한다 — 창이 아니라. 인스펙터가
   // 옆에 있느냐 아래로 내려갔느냐에 따라 같은 창에서도 판단이 달라져야 하기 때문이다.
@@ -570,13 +574,14 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       <StageRotProvider rot={rot}>
       <g transform={rot === 90 ? `translate(${view.y + view.h} ${-view.x}) rotate(90)` : undefined}>
         <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
-        <CourtSurface mode={mode} variant={variant} />
-        {showGrid && <GridOverlay mode={mode} showLabels={showGridLabels} />}
-        <RuleZones mode={mode} visible={showRuleZones} />
+        <CourtSurface mode={mode} size={size} variant={variant} />
+        {showGrid && <GridOverlay mode={mode} size={size} showLabels={showGridLabels} />}
+        <RuleZones mode={mode} size={size} visible={showRuleZones} />
         {/* 개체 **아래**에 둔다 — 링은 공 주위 3 m 를 덮으므로 위에 깔면 칩을 가린다. */}
         {ruleOverlay && (
           <RuleOverlay
             mode={mode}
+            size={size}
             visible={showRuleZones}
             writer={writer}
             rules={ruleOverlay.rules}

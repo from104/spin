@@ -1,7 +1,7 @@
 // §6.6 레이어 구조 — 코트 라인 디스패처. mode·variant 에만 반응하는 React.memo.
 import { memo } from 'react';
 import type { ComponentType } from 'react';
-import type { CourtMode } from '../model/court.ts';
+import type { CourtMode, CourtSize } from '../model/court.ts';
 import { FullCourtLines } from './courtLines/FullCourtLines.tsx';
 import { HalfCourtLines } from './courtLines/HalfCourtLines.tsx';
 import { FlatCourtLines } from './courtLines/FlatCourtLines.tsx';
@@ -36,9 +36,15 @@ export const COURT_LINE_WEIGHTS: Record<CourtLineVariant, CourtLineWeights> = {
 export interface CourtSurfaceProps {
   mode: CourtMode;
   variant: CourtLineVariant;
+  /** §5.1/§6.4 코트 크기 3단. **full 에서만 의미가 있다** — 하프·플랫은 3단을 따라가지 않는다
+   *  (근거는 court.ts 의 COURT_DEFS 주석 셋: 규격 부재 · 격자 붕괴 · flat 파급).
+   *  디스패처는 세 컴포넌트에 **똑같이** 넘기고, Half/Flat 은 그 prop 을 **읽지 않는다**.
+   *  여기서 모드로 분기해 "넘길지 말지" 를 고르면 그 분기가 court.ts 의 판단과 갈라진다 —
+   *  판단은 한 곳(court.ts)에만 있어야 하고, 이 파일은 그것을 되풀이하지 않는다. */
+  size?: CourtSize;
 }
 
-const LINES: Record<CourtMode, ComponentType<{ variant: CourtLineVariant }>> = {
+const LINES: Record<CourtMode, ComponentType<{ variant: CourtLineVariant; size?: CourtSize }>> = {
   full: FullCourtLines,
   half: HalfCourtLines,
   flat: FlatCourtLines,
@@ -46,7 +52,7 @@ const LINES: Record<CourtMode, ComponentType<{ variant: CourtLineVariant }>> = {
 
 /** 코트 라인만 그린다. 배경 사각형(COURT_BG)은 이 컴포넌트를 담는 쪽(CourtStage/CourtThumbnail
  *  /CourtPreview)이 그린다 — §6.6 레이어 구조에서 배경 rect 는 CourtSurface 의 형제 노드다. */
-export const CourtSurface = memo(function CourtSurface({ mode, variant }: CourtSurfaceProps) {
+export const CourtSurface = memo(function CourtSurface({ mode, variant, size }: CourtSurfaceProps) {
   const Lines = LINES[mode];
-  return <Lines variant={variant} />;
+  return <Lines variant={variant} size={size} />;
 });

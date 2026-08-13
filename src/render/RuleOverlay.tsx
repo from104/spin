@@ -12,7 +12,7 @@
 // 위치는 React 가 아니라 TransformWriter 팔로워가 쓴다(§6.1 규칙 1) — ZoneHandles 가 같은
 // 실수로 '핸들만 제자리에 남는' 버그를 낸 전례가 있다(ZoneHandles.tsx:6-10).
 import { useEffect, useRef } from 'react';
-import { COURT_DEFS, type CourtMode, type Rect } from '../model/court.ts';
+import { courtDefFor, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
 import type { TeamSide } from '../model/drill.ts';
 import { RING_R_PX } from '../model/rules.ts';
 import type { TransformWriter } from './transformWriter.ts';
@@ -85,6 +85,9 @@ function RuleZoneMark({ index, zone, rules }: ZoneMarkProps) {
 
 export interface RuleOverlayProps {
   mode: CourtMode;
+  /** §6.4 코트 크기 3단 — 골 지역 사각형의 자리가 크기마다 다르다. 빼먹으면 판정(2인 규칙)이
+   *  **남의 코트 사각형**으로 돌아간다. */
+  size?: CourtSize;
   /** prefs.showRuleZones — 규칙 존과 **같은 스위치**다. 새 설정을 만들지 않는다(§3.0 E-6:
    *  prefs 스키마 확장은 한 커밋에 모은다). 끄면 판정도 발화도 함께 멎는다. */
   visible: boolean;
@@ -97,8 +100,8 @@ export interface RuleOverlayProps {
   teams: Record<TeamSide, { label: string }>;
 }
 
-export function RuleOverlay({ mode, visible, writer, rules, ballIds, roster, teams }: RuleOverlayProps) {
-  const goalAreas = COURT_DEFS[mode].ruleZones;
+export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, roster, teams }: RuleOverlayProps) {
+  const goalAreas = courtDefFor(mode, size).ruleZones;
 
   useEffect(() => {
     rules.setContext({ enabled: visible, roster, goalAreas, teamLabels: { home: teams.home.label, away: teams.away.label } });

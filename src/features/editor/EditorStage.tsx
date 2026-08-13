@@ -15,7 +15,7 @@ import type { Drill, DrillStep, NoteLabel } from '../../model/drill.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
 import type { Arrow, ArrowHandle, ArrowPart } from '../../model/arrow.ts';
-import { COURT_DEFS, gridCellCenter, cellLabelAt, type CourtMode } from '../../model/court.ts';
+import { courtDefFor, gridCellCenter, cellLabelAt, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { GOAL_ID_PREFIX } from '../../physics/index.ts';
 import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
 import { screenDeltaToWorld } from '../../render/useStageMetrics.ts';
@@ -61,8 +61,8 @@ export interface EditorStageProps {
   transitionMs?: number;
 }
 
-function nearestCell(mode: CourtMode, p: { x: number; y: number }): { col: number; row: number } {
-  const { cols, rows, cellW, cellH, origin } = COURT_DEFS[mode].grid;
+function nearestCell(mode: CourtMode, p: { x: number; y: number }, size?: CourtSize): { col: number; row: number } {
+  const { cols, rows, cellW, cellH, origin } = courtDefFor(mode, size).grid;
   const col = Math.min(cols - 1, Math.max(0, Math.floor((p.x - origin.x) / cellW)));
   const row = Math.min(rows - 1, Math.max(0, Math.floor((p.y - origin.y) / cellH)));
   return { col, row };
@@ -217,8 +217,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   // 골대 포스트 id — 물리(physics/index.load)가 코트 정의에서 같은 순서로 만든다. 드릴에
   // 저장되지 않으므로 여기서 개수만 맞춰 주면 writer 가 위치를 흘려보낸다(§5.4 GOAL).
   const goals = useMemo(
-    () => COURT_DEFS[drill.courtMode].goalPosts.map((_, i) => `${GOAL_ID_PREFIX}${i}`),
-    [drill.courtMode],
+    // §6.4 — 개수만 맞추면 되지만 **크기도 따라야 한다**: 25×14 는 골포스트가 여전히 4개라
+    // 개수로는 사고가 안 드러나고, 물리(load)가 courtDefFor 로 세운 자리와 여기 id 목록이
+    // 갈라지면 골대가 화면에서 사라진다(writer 가 쓸 노드가 없다).
+    () => courtDefFor(drill.courtMode, drill.courtSize).goalPosts.map((_, i) => `${GOAL_ID_PREFIX}${i}`),
+    [drill.courtMode, drill.courtSize],
   );
 
   // §7.5b 순회 순서: 팀A 선수 → 팀B 선수 → 공 → 콘 → 메모 → 화살표.
@@ -376,7 +379,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // §7.5d 키보드 배치 커서 — 배치 도구가 활성이고 포커스가 컨테이너 자신일 때만.
       if (PLACEMENT_TOOLS.has(tool) && e.target === e.currentTarget) {
         const mode = drill.courtMode;
-        const base = cursor ? gridCellCenter(mode, cursor.col, cursor.row) : gridCellCenter(mode, 0, 0);
+        const size = drill.courtSize;
+        const base = cursor ? gridCellCenter(mode, cursor.col, cursor.row, size) : gridCellCenter(mode, 0, 0, size);
         if (e.key === 'Enter') {
           e.preventDefault();
           e.stopPropagation(); // §7.5d: 전역 스텝 이동(Enter 자체는 무관하나 배치 확정이 다른 리스너로 새지 않게 통일)
@@ -394,13 +398,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
             const sy = e.key === 'ArrowUp' ? -step25 : e.key === 'ArrowDown' ? step25 : 0;
             const dw = screenDeltaToWorld({ rot: curRot }, sx, sy);
             const p = { x: base.x + dw.x, y: base.y + dw.y };
-            const cell = nearestCell(mode, p);
+            const cell = nearestCell(mode, p, size);
             setCursor(cell);
-            liveRegion.say(cellLabelAt(mode, gridCellCenter(mode, cell.col, cell.row)) ?? '');
+            liveRegion.say(cellLabelAt(mode, gridCellCenter(mode, cell.col, cell.row, size), size) ?? '');
             return;
           }
-          const cur2 = cursor ?? nearestCell(mode, base);
-          const { cols, rows } = COURT_DEFS[mode].grid;
+          const cur2 = cursor ?? nearestCell(mode, base, size);
+          const { cols, rows } = courtDefFor(mode, size).grid;
           let { col, row } = cur2;
           // 화면 기준 한 칸을 월드 격자의 (열,행) 증감으로 옮긴다. 회전 시 화면 오른쪽은
           // 월드 −y(= 행 감소)다 — 이 변환이 없으면 세로 화면에서 좌우 키가 위아래로 움직인다.
@@ -410,12 +414,12 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           col = Math.min(cols - 1, Math.max(0, col + Math.round(dcell.x)));
           row = Math.min(rows - 1, Math.max(0, row + Math.round(dcell.y)));
           setCursor({ col, row });
-          liveRegion.say(`${cellLabelAt(mode, gridCellCenter(mode, col, row)) ?? ''} 칸`);
+          liveRegion.say(`${cellLabelAt(mode, gridCellCenter(mode, col, row, size), size) ?? ''} 칸`);
           return;
         }
       }
     },
-    [activeId, cursor, dispatch, drill.courtMode, order, pointer, stageRef, tool],
+    [activeId, cursor, dispatch, drill.courtMode, drill.courtSize, order, pointer, stageRef, tool],
   );
 
   // 선택된 휠체어 id 만 넘긴다 — 좌표는 ZoneHandles 가 writer 팔로워로 직접 따라간다.
@@ -431,8 +435,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     return id ? (step.arrows.find((a) => a.id === id) ?? null) : null;
   }, [selection, step.arrows]);
 
-  const cursorWorld = cursor && PLACEMENT_TOOLS.has(tool) ? gridCellCenter(drill.courtMode, cursor.col, cursor.row) : null;
-  const cursorLabel = cursorWorld ? cellLabelAt(drill.courtMode, cursorWorld) : null;
+  const cursorWorld = cursor && PLACEMENT_TOOLS.has(tool) ? gridCellCenter(drill.courtMode, cursor.col, cursor.row, drill.courtSize) : null;
+  const cursorLabel = cursorWorld ? cellLabelAt(drill.courtMode, cursorWorld, drill.courtSize) : null;
 
   return (
     <CourtStage
@@ -441,6 +445,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       allowPan={tool === 'select'}
       ref={stageRef}
       mode={drill.courtMode}
+      size={drill.courtSize}
       variant="editor"
       writer={writer}
       controller={pointer.controller}

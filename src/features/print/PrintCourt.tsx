@@ -20,7 +20,7 @@
 import { useId } from 'react';
 import { CHAIR, BALL, NOTE } from '../../core/constants.ts';
 import { COURT_BG, OBJ_STROKE, BALL_FILL, CONE_COLORS, ARROW_CASING, NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL } from '../../core/colors.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import { courtDefFor } from '../../model/court.ts';
 import { ARROW_STYLES, arrowColor, arrowPath } from '../../model/arrow.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
@@ -36,14 +36,16 @@ const NUM_FONT = "'Space Grotesk',sans-serif";
 const TEXT_FONT = "'Pretendard',sans-serif";
 
 export interface PrintCourtProps {
-  drill: Pick<Drill, 'courtMode' | 'cast' | 'teams'>;
+  drill: Pick<Drill, 'courtMode' | 'courtSize' | 'cast' | 'teams'>;
   step: DrillStep;
   /** 그림 설명. 스크린리더가 아니라 **인쇄 미리보기의 대체 텍스트**를 위한 것이기도 하다. */
   ariaLabel: string;
 }
 
 export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
-  const def = COURT_DEFS[drill.courtMode];
+  // §6.4 — 종이도 판과 같은 코트여야 한다. 인쇄는 '나가서 쓰는' 마지막 단계라 여기서
+  // 크기가 갈라지면 코치는 실제 체육관 바닥과 다른 판을 들고 나간다.
+  const def = courtDefFor(drill.courtMode, drill.courtSize);
   // 마커 id 는 SVG 루트마다 유일해야 한다(§6.6). 한 문서에 60장이 동시에 있으므로 여기서
   // 고정 id 를 쓰면 url(#…) 이 전부 첫 장을 가리켜 2장부터 화살촉이 사라진다.
   const uid = useId().replace(/:/g, '');
@@ -61,7 +63,7 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
         <ArrowMarkers uid={uid} colors={usedColors} />
       </defs>
       <rect width={def.vbW} height={def.vbH} rx={10} fill={COURT_BG} />
-      <CourtSurface mode={drill.courtMode} variant="present" />
+      <CourtSurface mode={drill.courtMode} size={drill.courtSize} variant="present" />
 
       {/* §3.5 렌더 레이어 순서: 코트면 → 콘 → 화살표 → 휠체어 → 공 → 메모.
           (격자·규칙존·선택 링은 종이에 싣지 않는다 — §6.2 의 PNG 포함 목록과 같은 판단이다.) */}
@@ -128,10 +130,10 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
               height={CHAIR.widthPx}
               rx={2}
               fill={mark.guardFill}
-              stroke={OBJ_STROKE}
+              stroke={mark.stroke}
               strokeWidth={1.4}
             />
-            <circle cx={0} cy={0} r={4.2} fill={OBJ_STROKE} />
+            <circle cx={0} cy={0} r={4.2} fill={mark.stroke} />
             <g transform={`translate(${CHAIR.centroidOffsetPx} 0)`}>
               {/* 등번호는 절대 회전하지 않는다(§3.4). 화면에서는 writer 가 rotate(-θ) 를 쓰고,
                   종이에서는 각도가 고정이므로 그 값을 그대로 마크업에 적는다. */}

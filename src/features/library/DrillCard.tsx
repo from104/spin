@@ -14,7 +14,7 @@ import { CourtThumbnail } from '../../render/CourtThumbnail.tsx';
 import { Pill } from '../../ui/Pill.tsx';
 import { IconClock, IconLevel, IconListSteps, IconPlay } from '../../ui/icons.tsx';
 import { categoryColor } from '../../core/colors.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import { courtDefFor } from '../../model/court.ts';
 import type { DrillSummary } from '../../model/summary.ts';
 
 export interface DrillCardProps {
@@ -66,6 +66,10 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuOpen]);
 
+  // §6.4 — 카드 상자의 비율은 그 드릴의 **크기까지** 따라간다. 크기를 빼면 25×14 드릴만
+  // 30×18 비율 상자 안에 그려져 위아래에 검은 띠가 남는다(썸네일은 xMidYMid meet 이다).
+  const courtDef = courtDefFor(drill.courtMode, drill.courtSize);
+
   return (
     <div
       style={{
@@ -88,13 +92,14 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
         <div
           style={{
             position: 'relative',
-            aspectRatio: `${COURT_DEFS[drill.courtMode].vbW} / ${COURT_DEFS[drill.courtMode].vbH}`,
+            aspectRatio: `${courtDef.vbW} / ${courtDef.vbH}`,
             borderBottom: '1px solid var(--border)',
           }}
         >
           <CourtThumbnail
             fill
             mode={drill.courtMode}
+            size={drill.courtSize}
             thumb={drill.thumb}
             teamColors={{
               home: drill.teams.home.color,

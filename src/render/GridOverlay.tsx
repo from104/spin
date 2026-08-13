@@ -2,22 +2,24 @@
 // 격자 라벨은 장식이다(코트 대비 1.5:1 이하, 어떤 WCAG 기준도 통과 못함). 셀 주소의 권위 있는
 // 출처는 인스펙터·aria-live 리전이므로 이 레이어는 aria-hidden + pointer-events:none 이 필수다.
 import { memo } from 'react';
-import type { CourtMode } from '../model/court.ts';
+import type { CourtMode, CourtSize } from '../model/court.ts';
 import { gridGeom } from '../model/grid.ts';
 import { uprightAt, useStageRot } from './stageRot.tsx';
 
 export interface GridOverlayProps {
   mode: CourtMode;
+  /** §6.4 코트 크기 3단. 칸 수(6×5)는 그대로지만 **칸의 픽셀 폭이 달라진다**(125 → 104.17). */
+  size?: CourtSize;
   /** prefs.showGridLabels — false 면 축 헤더/셀 텍스트 블록을 그리지 않는다(선만 남는다). */
   showLabels: boolean;
 }
 
 const FONT = "'Space Grotesk',sans-serif";
 
-export const GridOverlay = memo(function GridOverlay({ mode, showLabels }: GridOverlayProps) {
+export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels }: GridOverlayProps) {
   // 판이 돌아도 칸 이름은 바로 서 있어야 읽힌다(§6.4).
   const rot = useStageRot();
-  const g = gridGeom(mode);
+  const g = gridGeom(mode, size);
   const xMin = g.vx[0];
   const xMax = g.vx[g.vx.length - 1];
   const yMin = g.hy[0];

@@ -23,8 +23,8 @@ import { Modal } from '../../ui/Modal.tsx';
 import { SpeedLimitSwitch } from './SpeedLimitSwitch.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { BAR_HINT_GAP_PX, BAR_HINT_LINE_HEIGHT, bottomBarPadCss } from './bottomBarMetrics.ts';
-import { COURT_DEFS } from '../../model/court.ts';
-import type { CourtMode } from '../../model/court.ts';
+import { courtDefFor } from '../../model/court.ts';
+import type { CourtMode, CourtSize } from '../../model/court.ts';
 import type { Drill } from '../../model/drill.ts';
 import { ExportSheet } from '../export/ExportSheet.tsx';
 
@@ -41,8 +41,10 @@ const HINT_LINE_STYLE = {
 } as const;
 
 export interface BoardBarProps {
-  /** 지금 판의 코트. §3.11 — COURT_DEFS[mode].desc 를 여기서 되살린다. */
+  /** 지금 판의 코트. §3.11 — courtDefFor(mode, size).desc 를 여기서 되살린다. */
   courtMode: CourtMode;
+  /** §6.4 — 크기 3단. desc 는 크기마다 다른 문장이다('규격 최대' / '표준 농구 코트' / '규격 최소'). */
+  courtSize?: CourtSize;
   /** 코트 전환이 잠겨 있는가(= 판이 리셋 상태가 아니다). */
   courtLocked: boolean;
   onReset(): void;
@@ -55,7 +57,7 @@ export interface BoardBarProps {
   showRuleZones: boolean;
 }
 
-export function BoardBar({ courtMode, courtLocked, onReset, onResetGoals, drill, showGrid, showRuleZones }: BoardBarProps) {
+export function BoardBar({ courtMode, courtSize, courtLocked, onReset, onResetGoals, drill, showGrid, showRuleZones }: BoardBarProps) {
   // 비우기는 **되돌릴 수 없다**(BOARD_SET 이 히스토리를 비운다 — actions.ts 주석).
   // 그래서 반드시 확인을 받는다. 되돌리기로 살릴 수 있는 조작이었다면 물을 이유가 없다.
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -66,7 +68,7 @@ export function BoardBar({ courtMode, courtLocked, onReset, onResetGoals, drill,
 
   // §3.11 — 렌더 참조 0건이던 CourtDef.desc 를 여기서 되살린다. 코트 세그먼트가 §5.2 에서
   // 하단 바로 내려오면 이 줄이 그 세그먼트의 설명이 된다 — 자리를 먼저 잡아 두는 셈이다.
-  const desc = COURT_DEFS[courtMode].desc;
+  const desc = courtDefFor(courtMode, courtSize).desc;
   const lockHint = courtLocked
     ? '코트 형태를 바꾸려면 먼저 코트를 비우세요 — 풀 코트와 하프 코트는 규격이 달라 배치를 옮겨 담을 수 없습니다.'
     : '지금은 코트 형태를 자유롭게 바꿀 수 있습니다.';

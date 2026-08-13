@@ -1,18 +1,23 @@
 // 풀 코트 라인. template.html 259–279행(editor)·413–439행(present) 마크업을 좌표 그대로
 // 이식하고 굵기만 variant 로 분기한다 — 좌표를 새로 만들지 않는다.
 //
-// 좌표 출처는 COURT_DEFS.full 하나뿐이다(진실 공급원 통일 — 감사 2026-08-08 minor). 이전에는
-// cornerCuts/goalPosts/spotMarks 와 동일한 좌표가 이 파일에 리터럴로 중복돼 있었다.
-import { COURT_DEFS } from '../../model/court.ts';
+// 좌표 출처는 `courtDefFor('full', size)` 하나뿐이다(진실 공급원 통일 — 감사 2026-08-08 minor).
+// 이전에는 cornerCuts/goalPosts/spotMarks 와 동일한 좌표가 이 파일에 리터럴로 중복돼 있었다.
+//
+// ⚠️ 2026-08-13(§6.4) 까지 이 파일은 `const DEF = COURT_DEFS.full` 을 **모듈 로드 시 한 번** 읽었다.
+//    그래서 코트 크기 3단(§5.1)이 모델에는 있는데 **판에는 한 픽셀도 나타나지 않았다** — 28×15 로
+//    저장된 드릴을 열어도 라인은 30×18 이 그려졌다. size 를 prop 으로 받는 이 구조가 그 수정이다.
+import { courtDefFor, DEFAULT_COURT_SIZE, type CourtSize } from '../../model/court.ts';
 import { COURT_LINE_WEIGHTS, type CourtLineVariant } from '../CourtSurface.tsx';
 
 export interface FullCourtLinesProps {
   variant: CourtLineVariant;
+  /** §5.1 코트 크기 3단. 생략하면 30×18 — `courtDefFor` 와 같은 규약이다. */
+  size?: CourtSize;
 }
 
-const DEF = COURT_DEFS.full;
-
-export function FullCourtLines({ variant }: FullCourtLinesProps) {
+export function FullCourtLines({ variant, size = DEFAULT_COURT_SIZE }: FullCourtLinesProps) {
+  const DEF = courtDefFor('full', size);
   const w = COURT_LINE_WEIGHTS[variant];
   // 골 십자 좌표는 editor 259행대와 present 413행대에서 .5px 차이가 난다 — 그대로 보존한다.
   // spotMarks 중심(112.5/687.5, 250)에서 dx=3.5, dy=variant 별 3(editor)/3.5(present) 만큼

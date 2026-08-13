@@ -9,7 +9,7 @@
 // DOM 을 직접 갱신한다. 화살표·메모만 React state 로 다시 그린다(그 파일 헤더 주석 근거).
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { COURT_BG } from '../../core/colors.ts';
-import { COURT_DEFS, type CourtMode } from '../../model/court.ts';
+import { courtDefFor, type CourtMode } from '../../model/court.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { arrowColor } from '../../model/arrow.ts';
 import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playback.ts';
@@ -41,7 +41,9 @@ const emptyFrame = (): RenderFrame => ({ stepIndex: 0, t: 0, chairs: [], balls: 
 
 export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, onStepChange, onEnded }: PresentStageProps) {
   const mode: CourtMode = drill.courtMode;
-  const def = COURT_DEFS[mode];
+  // §6.4 — 시연 화면도 드릴의 코트 크기를 따라간다. 여기가 빠지면 28×15 드릴을 시연할 때만
+  // 판이 30×18 로 커져, 편집 화면과 시연 화면이 서로 다른 코트를 보여 준다.
+  const def = courtDefFor(mode, drill.courtSize);
   const markerUid = useId();
 
   const playback = usePlaybackState();
@@ -183,9 +185,9 @@ export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, on
         <ArrowMarkers uid={markerUid} colors={usedColors} />
       </defs>
       <rect width={def.vbW} height={def.vbH} rx={16} fill={COURT_BG} />
-      <CourtSurface mode={mode} variant="present" />
-      <RuleZones mode={mode} visible={showRuleZones} />
-      <RuleOverlay mode={mode} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} roster={ruleRoster} teams={drill.teams} />
+      <CourtSurface mode={mode} size={drill.courtSize} variant="present" />
+      <RuleZones mode={mode} size={drill.courtSize} visible={showRuleZones} />
+      <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} roster={ruleRoster} teams={drill.teams} />
       {/* 개체 자체는 접근성 트리에서 뺀다 — 실제 서술은 아래 스텝 이름·메모(텍스트)와
           §7.5e 라이브 리전(스텝 전환 발표)이 맡는다. render-stage 리프가 강제하는
           role="button" 은 시연에서 실제로 클릭 가능하지 않아 노출하면 오히려 오도한다. */}

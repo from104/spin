@@ -96,6 +96,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
       const frame = { ...interpolateSteps(drill, step, step, 1), stepIndex };
       const { blob } = await rasterizeFrameToPng(frame, {
         mode: drill.courtMode,
+        // §6.4 — 그림도 판과 **같은 코트**여야 한다. 이 한 줄이 없으면 28×15 로 그린 판이
+        // 30×18 캔버스에 구워져, 카톡으로 보낸 그림만 코트가 다르다.
+        size: drill.courtSize,
         teams: drill.teams,
         showGrid,
         showRuleZones,

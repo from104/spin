@@ -9,7 +9,7 @@ import { ARROW_STYLES, arrowColor } from '../../model/arrow.ts';
 import type { Drill, DrillLevel, DrillStep } from '../../model/drill.ts';
 import { DRILL_LEVELS } from '../../model/drill.ts';
 import { chairName } from '../../model/chairLabel.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import { courtDefFor, COURT_SIZES, COURT_SIZE_LABELS, DEFAULT_COURT_SIZE, type CourtSize } from '../../model/court.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import { Button } from '../../ui/Button.tsx';
@@ -17,8 +17,22 @@ import { IconPlus } from '../../ui/icons.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { PlacementPresets } from './PlacementPresets.tsx';
 
+/** §6.4 코트 크기 3단 선택. **자유 전술판에서만** 내려온다(드릴은 코트가 불변이다 — 헤더의
+ *  코트 세그먼트와 같은 규칙). `locked` 는 판이 리셋 상태가 **아니라는** 뜻이고, 그때는 select
+ *  대신 잠금 사유를 읽는 텍스트가 선다.
+ *
+ *  ⚠️ 이 컨트롤이 **인스펙터 안**에 있는 이유는 첫 화면 표적 예산(§3, 상한 40 · 실측 여유 0)이다.
+ *     하단 바나 헤더로 옮기면 `src/test/boardTargetBudget.test.tsx` 가 빨개진다. */
+export interface CourtSizeSwitch {
+  value: CourtSize;
+  /** 판이 비어 있지 않아 크기를 바꿀 수 없다. */
+  locked: boolean;
+  onChange(size: CourtSize): void;
+}
+
 export interface InspectorPanelProps {
   drill: Drill;
+  courtSizeSwitch?: CourtSizeSwitch;
   step: DrillStep;
   stepIndex: number;
   dispatch: Dispatch<EditorAction>;
@@ -59,6 +73,7 @@ const STEP_SEC_MAX = 60;
 
 export function InspectorPanel({
   drill,
+  courtSizeSwitch,
   step,
   stepIndex,
   dispatch,
@@ -85,7 +100,7 @@ export function InspectorPanel({
           <Divider />
         </>
       )}
-      <DrillInfoSection drill={drill} dispatch={dispatch} />
+      <DrillInfoSection drill={drill} dispatch={dispatch} courtSizeSwitch={courtSizeSwitch} />
       {/* §5.4 배치 프리셋. **드릴 정보 바로 아래**다 — 프리셋이 무엇을 놓을지가 그 위의
           코트·포메이션 값에 달려 있어서, 읽은 자리에서 바로 누르는 순서가 된다.
           ⚠️ 이 구역을 판(하단 바·트레이)으로 옮기면 첫 화면 표적이 4개 늘어 예산 게이트가
@@ -111,6 +126,62 @@ export function InspectorPanel({
         </>
       )}
     </aside>
+  );
+}
+
+/** §6.4 — **코트 크기 3단을 고르는 유일한 UI.**
+ *
+ *  세 갈래다.
+ *   ① 풀 코트 + 바꿀 수 있다(전술판이 비어 있다) → `<select>`.
+ *   ② 풀 코트인데 잠겼거나(판이 더럽다) 드릴 편집이다 → 값을 **읽기 전용**으로 보여 준다.
+ *   ③ 하프·플랫 → 값은 들고 다니지만 판을 바꾸지 않는다(court.ts COURT_DEFS 주석 근거 셋).
+ *      그래서 select 를 내면 **판이 거짓말한다**(골라도 아무것도 안 변한다). 대신 그 사실을 적는다.
+ *
+ *  ⚠️ 크기를 바꾸면 판이 **그 크기의 빈 판으로 새로 선다**(BoardScreen.onCourtSizeChange).
+ *     좌표를 비례로 옮기지 않는 이유는 `cloneToCourt` 머리말의 판단과 같다 — 화살표 ctrl 같은
+ *     것 하나만 빠뜨려도 궤적만 어긋난 판이 조용히 만들어진다. 게이트가 pristine 이라
+ *     **잃을 배치가 애초에 없다.** */
+function CourtSizeField({ drill, sw }: { drill: Drill; sw?: CourtSizeSwitch }) {
+  const size = drill.courtSize ?? DEFAULT_COURT_SIZE;
+  const hintStyle: CSSProperties = { fontSize: '0.6875rem', color: 'var(--faint-text)', lineHeight: 1.45 };
+
+  if (drill.courtMode !== 'full') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)' }}>
+        <span>코트 크기</span>
+        <span style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.78125rem' }}>{COURT_SIZE_LABELS[size]}</span>
+        <span style={hintStyle}>규격 3단은 풀 코트에만 적용됩니다. 하프·플랫은 훈련용 구획이라 따라갈 규정값이 없습니다.</span>
+      </div>
+    );
+  }
+
+  if (!sw || sw.locked) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)' }}>
+        <span>코트 크기</span>
+        <span style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.78125rem' }}>{COURT_SIZE_LABELS[size]}</span>
+        <span style={hintStyle}>
+          {sw
+            ? '코트 크기를 바꾸려면 먼저 코트를 비우세요 — 규격이 달라 배치를 옮겨 담을 수 없습니다.'
+            : '코트 크기는 드릴을 만든 뒤에는 바꿀 수 없습니다.'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Field label="코트 크기">
+        <select value={size} onChange={(e) => sw.onChange(e.target.value as CourtSize)} style={inputStyle}>
+          {COURT_SIZES.map((s) => (
+            <option key={s} value={s}>
+              {COURT_SIZE_LABELS[s]}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <span style={hintStyle}>바꾸면 그 규격의 빈 판이 새로 섭니다. 지금 판은 비어 있어 잃을 배치가 없습니다.</span>
+    </>
   );
 }
 
@@ -225,7 +296,7 @@ function StepMetaSection({
   );
 }
 
-function DrillInfoSection({ drill, dispatch }: { drill: Drill; dispatch: Dispatch<EditorAction> }) {
+function DrillInfoSection({ drill, dispatch, courtSizeSwitch }: { drill: Drill; dispatch: Dispatch<EditorAction>; courtSizeSwitch?: CourtSizeSwitch }) {
   return (
     <div style={{ padding: '0 17px' }}>
       <div style={SECTION_LABEL}>드릴 정보</div>
@@ -278,9 +349,10 @@ function DrillInfoSection({ drill, dispatch }: { drill: Drill; dispatch: Dispatc
             style={inputStyle}
           />
         </Field>
+        <CourtSizeField drill={drill} sw={courtSizeSwitch} />
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '9px 14px', fontSize: '0.78125rem' }}>
           <span style={{ color: 'var(--muted)' }}>코트</span>
-          <span style={{ fontWeight: 600, textAlign: 'right' }}>{COURT_DEFS[drill.courtMode].label}</span>
+          <span style={{ fontWeight: 600, textAlign: 'right' }}>{courtDefFor(drill.courtMode, drill.courtSize).label}</span>
           <span style={{ color: 'var(--muted)' }}>포메이션</span>
           <span style={{ fontWeight: 600, textAlign: 'right' }}>{drill.formation}</span>
         </div>

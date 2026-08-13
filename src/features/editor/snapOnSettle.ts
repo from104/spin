@@ -12,8 +12,8 @@
 // 금지: 마진을 1.5 m 로 넓혔을 때 리터럴이 옛 자리에 남아 실제로 사고가 났다).
 import type { Vec2 } from '../../core/units.ts';
 import { INTERACT } from '../../core/constants.ts';
-import type { CourtMode } from '../../model/court.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import type { CourtMode, CourtSize } from '../../model/court.ts';
+import { courtDefFor, normalizeCourtSize } from '../../model/court.ts';
 import { gridGeom } from '../../model/grid.ts';
 
 /** 어디에 붙었는가. null 이면 문턱 안에 아무것도 없어 좌표를 그대로 둔 것이다. */
@@ -26,6 +26,9 @@ export interface SnapResult extends Vec2 {
 
 export interface SnapContext {
   mode: CourtMode;
+  /** §6.4 — 이 판의 코트 크기. 생략하면 30×18 이다(`courtDefFor` 와 같은 규약).
+   *  ⚠️ 빼먹으면 25×14 판에서 앵커가 30×18 것이 되어 칩이 **판 밖 골포스트**에 붙는다. */
+  size?: CourtSize;
   /** 화면 배율(CSS px per 월드 px). 6 CSS px 문턱을 월드 거리로 환산하는 데 쓴다. */
   pxPerUnit: number;
   /** ③ 축 정렬 후보가 되는 **이웃** 좌표. 자기 자신은 빼고 넣는다(자기 축에 붙는 것은 항등). */
@@ -56,9 +59,9 @@ function pathPoints(d: string): Vec2[] {
   return out;
 }
 
-function computeAnchors(mode: CourtMode): CourtAnchors {
-  const def = COURT_DEFS[mode];
-  const g = gridGeom(mode);
+function computeAnchors(mode: CourtMode, size: CourtSize): CourtAnchors {
+  const def = courtDefFor(mode, size);
+  const g = gridGeom(mode, size);
   const spots: Vec2[] = [...def.spotMarks, ...def.goalPosts];
   for (const d of def.cornerCuts) spots.push(...pathPoints(d));
 
@@ -74,12 +77,21 @@ function computeAnchors(mode: CourtMode): CourtAnchors {
   return { spots, gridX: g.vx, gridY: g.hy, lineX, lineY };
 }
 
-const anchorCache = new Map<CourtMode, CourtAnchors>();
-function anchorsOf(mode: CourtMode): CourtAnchors {
-  let a = anchorCache.get(mode);
+// ⚠️ **키는 `mode|size` 다. size 를 빼면 안 된다.** gridGeom 의 캐시와 같은 사고를 공유한다:
+//    2026-08-13 이전 키는 `CourtMode` 뿐이라, 30×18 판을 한 번 만진 뒤 25×14 를 열면 스냅 앵커가
+//    **첫 코트 것**으로 굳었다. 골포스트(x=37.5 vs 37.5 는 같아도 y 는 187.5 對 137.5)·코너컷·
+//    골 지역 경계가 전부 남의 코트라, 대충 놓은 칩이 **판 밖 87.5 px** 로 빨려 들어간다.
+//    이 저장소에서 스냅은 발 마우스·입 젓가락 사용자의 정밀 조준을 면제하는 장치이므로
+//    (파일 머리말) 그 오답은 기능이 없는 것보다 나쁘다.
+//    snapOnSettleCourtSize.test.ts 의 '크기 A 로 데운 캐시가 크기 B 에 새지 않는다' 가 이 줄의
+//    가드다 — 그 파일은 vi.resetModules 로 **캐시가 빈 모듈**을 새로 들여와 데운 순서를 통제한다.
+const anchorCache = new Map<string, CourtAnchors>();
+function anchorsOf(mode: CourtMode, size: CourtSize): CourtAnchors {
+  const key = `${mode}|${size}`;
+  let a = anchorCache.get(key);
   if (!a) {
-    a = computeAnchors(mode);
-    anchorCache.set(mode, a);
+    a = computeAnchors(mode, size);
+    anchorCache.set(key, a);
   }
   return a;
 }
@@ -112,7 +124,7 @@ export function snapOnSettle(p: Vec2, ctx: SnapContext): SnapResult {
   // 빨려 들어간다 — 그럴 땐 스냅하지 않는다.
   if (!(ctx.pxPerUnit > 0)) return { x: p.x, y: p.y, target: null };
   const t = INTERACT.settleSnapCssPx / ctx.pxPerUnit;
-  const a = anchorsOf(ctx.mode);
+  const a = anchorsOf(ctx.mode, normalizeCourtSize(ctx.size));
 
   // ── 점 후보 ────────────────────────────────────────────────────────────────────
   // 같은 거리면 먼저 담긴 쪽이 이긴다 — 구체적인 것(세트피스)부터 담는다.

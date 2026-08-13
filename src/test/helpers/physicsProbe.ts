@@ -37,8 +37,8 @@ import { PHYS } from '../../core/constants.ts';
 import type { Vec2 } from '../../core/units.ts';
 import type { BallId, CastId, ChairId, ConeId, StepId } from '../../core/ids.ts';
 import type { ChairPose } from '../../model/chair.ts';
-import type { CourtMode } from '../../model/court.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import type { CourtMode, CourtSize } from '../../model/court.ts';
+import { courtDefFor } from '../../model/court.ts';
 import type { DrillCast, DrillStep } from '../../model/drill.ts';
 import { createBallBody, createChairBody, createConeBody, createGoalPostBody } from '../../physics/bodies.ts';
 import { satOverlap } from '../../physics/obb.ts';
@@ -67,6 +67,8 @@ export interface ProbePoint {
 export interface ProbeSetup {
   /** 코트 모드. 벽·골대는 여기서 나온다(기본 'full' = 825×525). */
   mode?: CourtMode;
+  /** §6.4 코트 크기 3단. 생략하면 30×18 — `courtDefFor` 와 같은 규약이다. */
+  size?: CourtSize;
   /** 벽까지의 판 크기를 직접 준다(기본은 mode 의 viewBox). **칩이 들어갈 자리가 없는 판**을
    *  만들 때만 쓴다 — 정착 상한의 안전망(§4.2 P0-1 기하 분리 폴백)을 시험하려면 물리가 영영
    *  못 푸는 겹침이 필요한데, 정규 코트에는 그런 배치가 없다(실측: 휠체어 16대를 한 점에 쌓아도
@@ -192,7 +194,7 @@ function throwawayBody(kind: ProbeKind, pose: ChairPose): Matter.Body {
  *  다 쓰면 반드시 dispose() 한다(스파이를 전부 되돌린다). */
 export function createPhysicsProbe(setup: ProbeSetup = {}): PhysicsProbe {
   const mode: CourtMode = setup.mode ?? 'full';
-  const def = COURT_DEFS[mode];
+  const def = courtDefFor(mode, setup.size);
   const chairs = setup.chairs ?? [];
   const balls = setup.balls ?? [];
   const cones = setup.cones ?? [];

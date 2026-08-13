@@ -3,7 +3,7 @@
 // DB_VERSION 을 올려 스토어를 새로 만든다.
 import type { Drill, TeamSide, TeamStyle, DrillLevel } from './drill.ts';
 import type { DrillId } from '../core/ids.ts';
-import type { CourtMode } from './court.ts';
+import type { CourtMode, CourtSize } from './court.ts';
 import { buildThumb, type ThumbSpec } from './thumb.ts';
 
 /** ★ §7 3.2/3.3 결정 — **교육 필드(목적·코칭 포인트·필요 인원·필요 장비)와 훈련량(반복·세트·
@@ -31,6 +31,21 @@ export interface DrillSummary {
   durationMin: number;
   tags: string[];
   courtMode: CourtMode;
+  /** §5.1/§6.4 코트 크기 3단. **선택 필드이고, 그래서 SUMMARY_BUILD 를 올리지 않는다.**
+   *
+   *  위 ⚠️ 가 금지하는 것은 *"새 필드를 필수로 넣고 재구축 경로 없이 두는 것"* 이다 — 그러면
+   *  같은 화면에서 어떤 카드는 값이 있고 어떤 카드는 빈칸이 된다. 여기는 그 함정에 안 빠진다:
+   *  **없음(undefined) = '30x18'** 이 옛 레코드에 대해 **참**이기 때문이다. 이 필드가 생기기
+   *  전에 저장된 드릴은 전부 30×18 이다(크기를 고를 UI 가 §6.4 이전에는 0곳이었고, v2→v3
+   *  마이그레이션이 옛 문서에 '30x18' 을 새겨 넣는다 — migrate.ts:46). 즉 옛 요약의 '빈칸'은
+   *  정보 부족이 아니라 **기본값 그 자체**이고, `courtDefFor(mode, undefined)` 가 정확히
+   *  그 값으로 접는다. 요약은 put/import 마다 buildSummary 로 새로 만들어지므로(drillRepo:128·
+   *  166·275, transfer:259) 크기를 고른 드릴은 저장되는 순간 이 필드를 갖는다.
+   *
+   *  ⚠️ 다음에 요약에 필드를 더할 사람에게: 이 논증은 **"없음이 곧 옳은 기본값"** 일 때만
+   *  성립한다. 그렇지 않은 필드(예: 목적·코칭 포인트)는 여전히 build 상승 + 재구축 경로가
+   *  같은 커밋에 있어야 한다. */
+  courtSize?: CourtSize;
   stepCount: number;
   createdAt: number;
   updatedAt: number;
@@ -54,6 +69,7 @@ export function buildSummary(d: Drill): DrillSummary {
     durationMin: d.durationMin,
     tags: d.tags.slice(),
     courtMode: d.courtMode,
+    courtSize: d.courtSize,
     stepCount: d.steps.length,
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,

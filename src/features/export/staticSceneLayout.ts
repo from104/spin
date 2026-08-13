@@ -11,7 +11,7 @@
 //
 // ★ [A-10] `width`/`height` 를 반드시 명시한다. viewBox 만 있는 SVG 는 `<img>` 에서 내재
 //   크기가 불확정이라 브라우저 기본 300×150 으로 그려져 **PNG 가 뭉개진다.**
-import { COURT_DEFS, type CourtMode } from '../../model/court.ts';
+import { courtDefFor, type CourtMode, type CourtSize } from '../../model/court.ts';
 import type { TeamSide, TeamStyle } from '../../model/drill.ts';
 import type { RenderFrame } from '../../model/playback.ts';
 import { CHAIR, NOTE } from '../../core/constants.ts';
@@ -34,6 +34,10 @@ export interface SceneCaption {
 
 export interface StaticSceneOpts {
   mode: CourtMode;
+  /** §5.1/§6.4 코트 크기 3단. **출력 픽셀 크기와 캡션 띠 위치가 여기서 나온다** — 빼먹으면
+   *  25×14 드릴의 PNG 가 825×525 캔버스에 그려져 오른쪽·아래에 빈 띠가 생기고, 캡션은
+   *  코트 위로 100 px 올라와 개체를 덮는다. */
+  size?: CourtSize;
   teams: Record<TeamSide, TeamStyle>;
   /** 1x = 긴 변 1024, 2x = 2048(계획서 §6.2 [A-10] 목표 해상도). 기본 2x —
    *  인쇄물로 옮기는 것이 목적이라 화면 devicePixelRatio 가 아니라 출력 해상도를 기준으로 잡는다. */
@@ -92,7 +96,7 @@ export interface SceneMetrics {
 }
 
 export function staticSceneMetrics(opts: StaticSceneOpts): SceneMetrics {
-  const def = COURT_DEFS[opts.mode];
+  const def = courtDefFor(opts.mode, opts.size);
   const captionH = opts.caption ? EXPORT_LAYOUT.captionBandPx : 0;
   const totalH = def.vbH + captionH;
   const longEdge = EXPORT_LAYOUT.baseLongEdgePx * (opts.resolution ?? 2);
@@ -197,7 +201,7 @@ export function buildTextPlacements(frame: RenderFrame, opts: StaticSceneOpts): 
 
   const cap = opts.caption;
   if (cap) {
-    const def = COURT_DEFS[opts.mode];
+    const def = courtDefFor(opts.mode, opts.size);
     const ink = (opts.background ?? 'white') === 'white' ? CAPTION_INK_ON_WHITE : CAPTION_INK_ON_DARK;
     out.push({
       text: cap.title,

@@ -6,7 +6,7 @@
 import { BALL, CHAIR, CONE } from '../../core/constants.ts';
 import { CONE_COLORS, inkFor } from '../../core/colors.ts';
 import type { Drill } from '../../model/drill.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import { courtDefFor } from '../../model/court.ts';
 import type { TrayDragItem } from './useTrayDrag.ts';
 
 export interface TrayGhostProps {
@@ -52,7 +52,7 @@ export function TrayGhost({ item, pxPerUnit, drill, coneSlot }: TrayGhostProps) 
   // 손을 떼면 **이 각도로 놓인다**(placement.ts 와 같은 출처). 고스트만 눕혀 두면 놓는
   // 순간 칩이 90° 홱 돌아, 내려놓은 자리와 눈이 어긋난다 — 크기를 축척에 맞추는 것과
   // 같은 이유다. 각도를 여기 박아 두지 않는 이유이기도 하다: 코트 종류가 정한다.
-  const court = COURT_DEFS[drill.courtMode];
+  const court = courtDefFor(drill.courtMode, drill.courtSize);
   const headingDeg = def.team === 'home' ? court.homeHeadingDeg : court.awayHeadingDeg;
   return (
     <div

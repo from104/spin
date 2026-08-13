@@ -17,7 +17,7 @@ import { kmhToPxPerS } from '../../core/units.ts';
 import { CHAIR } from '../../core/constants.ts';
 import { easeStandard } from '../../core/geom.ts';
 import type { Drill } from '../../model/drill.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import { courtDefFor } from '../../model/court.ts';
 import { createPhysicsWorld } from '../../physics/index.ts';
 import type { DragLimits } from '../../physics/types.ts';
 import type { PhysicsParams } from '../../storage/prefs.ts';
@@ -77,7 +77,9 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
   // 시작하고, 이후 변경은 아래 effect 가 setLimits 로 살아 있는 월드에 밀어 넣는다.
   useEffect(() => {
     const mode = state.present.courtMode;
-    const { vbW, vbH } = COURT_DEFS[mode];
+    // §6.4 — 물리 **벽**의 자리다. 크기를 빼면 25×14 판에서도 벽이 825×525 에 서서
+    // 개체가 판 밖(경기면 밖 여백 너머)까지 굴러 나간다.
+    const { vbW, vbH } = courtDefFor(mode, state.present.courtSize);
     const limits = limitsFrom(physicsRef.current);
     // ⚠️ 존 경계도 **생성 시점에** 넘긴다. 아래 effect 가 setZones 로 따라붙지만, 코트 전환
     // 직후 첫 드래그는 그 effect 보다 앞설 수 있다 — 그때 기본 존으로 갈리면 사용자는
@@ -88,7 +90,7 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
       world.dispose();
       if (worldRef.current === world) worldRef.current = null;
     };
-  }, [state.present.courtMode]);
+  }, [state.present.courtMode, state.present.courtSize]);
 
   // 속도 상한을 살아 있는 월드에 즉시 반영한다. 하단 스위치로 껐다 켜는 값이라 다음 월드
   // 재생성(= 코트 전환)까지 기다리게 하면 스위치가 고장 난 것처럼 보인다.
@@ -113,9 +115,9 @@ export function EditorProvider({ drill, children }: { drill: Drill; children: Re
   useEffect(() => {
     const idx = selectStepIndex(state);
     const currentStep = state.present.steps[idx];
-    if (currentStep) worldRef.current?.load(state.present.cast, currentStep, state.present.courtMode);
+    if (currentStep) worldRef.current?.load(state.present.cast, currentStep, state.present.courtMode, state.present.courtSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.present.cast, state.present.courtMode, state.stepId, state.epoch]);
+  }, [state.present.cast, state.present.courtMode, state.present.courtSize, state.stepId, state.epoch]);
 
   // §6.7 스텝 전환 트윈(blocker 수정): 진입점 하나에서 트윈/즉시를 분기한다. immediate=true 는
   // 구조 변경·시점 점프(epoch 증가)에만 — 조건 없이 writeFrame 하면 .6s 전환이 사라진다.

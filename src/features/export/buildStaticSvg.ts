@@ -37,7 +37,7 @@
 import { DEG } from '../../core/angle.ts';
 import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR, CONE } from '../../core/constants.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import { courtDefFor } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLES } from '../../model/arrow.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
@@ -134,8 +134,8 @@ function centerMarkMarkup(d: string | null): string {
   return d === null ? '' : `<path d="${d}" stroke-width="${num(W.centerMark)}"/>`;
 }
 
-export function courtLinesMarkup(mode: StaticSceneOpts['mode']): string {
-  const def = COURT_DEFS[mode];
+export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSceneOpts['size']): string {
+  const def = courtDefFor(mode, size);
   const S = def.surface;
   if (mode === 'flat') return ''; // "라인 없음"(§3.2 dims) — FlatCourtLines 도 null 을 돌려준다
 
@@ -186,8 +186,8 @@ export function arrowMarkersMarkup(colors: readonly string[]): string {
 }
 
 /** 규칙 존(흰 파선 테두리 + .14 채움). RuleZones.tsx 와 같은 값 — 면이 아니라 파선이 기능을 전한다. */
-export function ruleZonesMarkup(mode: StaticSceneOpts['mode']): string {
-  const zones = COURT_DEFS[mode].ruleZones;
+export function ruleZonesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSceneOpts['size']): string {
+  const zones = courtDefFor(mode, size).ruleZones;
   if (zones.length === 0) return '';
   return (
     `<g>` +
@@ -205,7 +205,7 @@ export function ruleZonesMarkup(mode: StaticSceneOpts['mode']): string {
  *  좌표는 `gridGeom` 하나에서 온다(GridOverlay 와 같은 출처). */
 function gridMarkup(opts: StaticSceneOpts): string {
   if (!opts.showGrid) return '';
-  const g = gridGeom(opts.mode);
+  const g = gridGeom(opts.mode, opts.size);
   const xMin = g.vx[0]!;
   const xMax = g.vx[g.vx.length - 1]!;
   const yMin = g.hy[0]!;
@@ -234,9 +234,9 @@ function ruleActors(frame: RenderFrame): RuleActor[] {
  *  못 읽힌다). 색은 세 번째 채널이다. */
 function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   if (!opts.showRuleZones) return '';
-  const def = COURT_DEFS[opts.mode];
+  const def = courtDefFor(opts.mode, opts.size);
   const actors = ruleActors(frame);
-  let out = ruleZonesMarkup(opts.mode);
+  let out = ruleZonesMarkup(opts.mode, opts.size);
 
   for (const z of def.ruleZones) {
     if (zoneViolation(z, actors) === 0) continue;
@@ -393,7 +393,7 @@ export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): strin
     (bg === 'white' ? `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.totalH)}" fill="#ffffff"/>` : '') +
     `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.vbH)}" rx="${EXPORT_LAYOUT.courtRx}" fill="${COURT_BG}"/>` +
     // §3.5 표준 z-order: 코트면 → 격자 → 규칙존 → 콘 → 화살표 → 휠체어 → 공 → 메모.
-    courtLinesMarkup(opts.mode) +
+    courtLinesMarkup(opts.mode, opts.size) +
     gridMarkup(opts) +
     ruleMarkup(frame, opts) +
     conesMarkup(frame) +

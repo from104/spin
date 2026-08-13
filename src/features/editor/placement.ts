@@ -12,7 +12,7 @@ import type { Vec2 } from '../../core/units.ts';
 import { newId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
 import type { Drill } from '../../model/drill.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import { courtDefFor } from '../../model/court.ts';
 import { BALL, CONE } from '../../core/constants.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import { cues } from '../../ui/cues.ts';
@@ -90,7 +90,7 @@ function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): boolean {
   }
   const def = d.drill.cast.chairs.find((c) => c.id === id);
   if (!def) return false;
-  const court = COURT_DEFS[d.drill.courtMode];
+  const court = courtDefFor(d.drill.courtMode, d.drill.courtSize);
   const headingDeg = def.team === 'home' ? court.homeHeadingDeg : court.awayHeadingDeg;
   d.dispatch({ type: 'CHAIR_PLACE', id, pose: { x: world.x, y: world.y, angleDeg: headingDeg } });
   d.dispatch({ type: 'SELECT_SET', ids: [id] });
