@@ -16,12 +16,25 @@ import { courtDefFor, type CourtMode, type CourtSize, type Rect } from '../model
 import type { TeamSide } from '../model/drill.ts';
 import { RING_R_PX } from '../model/rules.ts';
 import type { TransformWriter } from './transformWriter.ts';
-import { RULE_DASH, RULE_OK_STROKE, RULE_ALERT_STROKE, type RuleOverlayApi, type RuleRosterEntry } from './ruleOverlay.ts';
+import {
+  RULE_DASH,
+  RULE_OK_STROKE,
+  RULE_ZONE_ALERT_FILL,
+  RULE_ZONE_ALERT_FILL_OPACITY,
+  type RuleOverlayApi,
+  type RuleRosterEntry,
+} from './ruleOverlay.ts';
 
 /** 케이싱 색. 근거는 colors.ts 의 `ARROW_CASING` 과 같다 — 불투명 검정만이 코트 위 3.93:1 로
  *  모양을 남긴다(알파를 섞으면 합성 결과가 주석의 숫자와 달라진다). */
 const CASING = '#000000';
-const CASING_OPACITY = 0.55;
+/** ⚠️ 2026-08-13(②) — 이 값은 **0.55 였다.** 바로 위 주석이 *"알파를 섞으면 합성 결과가
+ *  달라진다"* 고 적어 둔 그 함정을 같은 파일이 저지르고 있었다: 검정 α.55 를 코트(#1f7a46)
+ *  위에 합성하면 #0e371f 라 코트 대비가 **2.48:1** — §7.1 의 비텍스트 하한 3:1 **아래**다.
+ *  즉 "모양을 언제나 남긴다" 던 케이싱이 기준 미달이었고, 위반 표시의 세 채널(케이싱·실선·색)
+ *  중 첫 번째가 절반만 작동했다. 불투명으로 되돌리면 3.93:1 이다(colors.ts 의 ARROW_CASING 이
+ *  같은 이유로 알파를 버린 전례). 되돌리면 render/ruleZoneFill.test.tsx 의 케이싱 단언이 빨개진다. */
+const CASING_OPACITY = 1;
 const RING_MARK_W = 2.6;
 const RING_CASING_W = 5.4;
 const ZONE_MARK_W = 3;
@@ -66,7 +79,10 @@ interface ZoneMarkProps {
   rules: RuleOverlayApi;
 }
 
-/** 골 지역 3인 표시. 깨끗하면 숨어 있고, 걸리면 RuleZones 의 흰 파선 위에 실선으로 덮인다. */
+/** 골 지역 3인 표시. 깨끗하면 숨어 있고, 걸리면 RuleZones 의 **연한 붉은 면 + 흰 파선** 위에
+ *  진한 붉은 면 + 실선으로 덮인다(2026-08-13 기현 지시 ②: "반칙은 진하게, 그냥은 연하게").
+ *  두 상태의 실측: 면 #50875e → #92543f (휘도 1.39:1, 붉기 −34.5 → +73). 근거·검산은
+ *  ruleOverlay.ts 의 RULE_ZONE_* 주석과 render/ruleZoneFill.test.tsx. */
 function RuleZoneMark({ index, zone, rules }: ZoneMarkProps) {
   const ref = useRef<SVGGElement | null>(null);
 
@@ -78,7 +94,7 @@ function RuleZoneMark({ index, zone, rules }: ZoneMarkProps) {
   return (
     <g ref={ref} opacity={0} stroke={RULE_OK_STROKE} strokeDasharray={RULE_DASH}>
       <rect x={zone.x} y={zone.y} width={zone.w} height={zone.h} fill="none" stroke={CASING} strokeDasharray="none" strokeWidth={ZONE_CASING_W} opacity={CASING_OPACITY} />
-      <rect x={zone.x} y={zone.y} width={zone.w} height={zone.h} fill={RULE_ALERT_STROKE} fillOpacity={0.2} strokeWidth={ZONE_MARK_W} />
+      <rect x={zone.x} y={zone.y} width={zone.w} height={zone.h} fill={RULE_ZONE_ALERT_FILL} fillOpacity={RULE_ZONE_ALERT_FILL_OPACITY} strokeWidth={ZONE_MARK_W} />
     </g>
   );
 }

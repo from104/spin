@@ -54,13 +54,20 @@
  * 의 full·half)과 판 DOM 바이트 스냅샷(EditorWorkspace.narrow.test.tsx)이 **동시에** 깨졌다
  * (2026-08-13 실측, 3건). 판 마크업은 다른 항목들이 바이트 단위로 못박아 둔 자산이라 여기서
  * 건드리지 않는다. 대신 존을 그 자체로 식별하는 값(`stroke-dasharray="8 6"`)을 셀렉터로 쓰고,
- * 그 문자열이 컴포넌트와 어긋나면 styles/contrast.test.tsx 가 양쪽을 같이 읽어 빨개진다. */
+ * 그 문자열이 컴포넌트와 어긋나면 styles/contrast.test.tsx 가 양쪽을 같이 읽어 빨개진다.
+ *
+ * ⚠️ 2026-08-13(기현 지시 ②) — 여기 두 블록은 `opacity` 를 낮추고 있었다. SVG 의 `opacity` 는
+ * fill 과 stroke 에 **함께** 걸리므로, 위 문장이 *"테두리는 얇게만 하고 없애지 않는다"* 고
+ * 적어 둔 그 파선까지 같이 지우고 있었다(기준 상태에서도 흰 선이 1.26:1 이었다 — RuleZones.tsx
+ * 머리말의 실측). 그래서 갈고리를 `fill-opacity` 로 옮겼다: 이제 낮추는 것은 **면뿐**이고
+ * 파선은 어느 대비 설정에서도 그대로 남는다. 기준값도 .14 → .22 로 함께 올랐다(붉은 계열은
+ * 같은 알파에서 흰색보다 휘도 상승분이 작다). */
 @media (prefers-contrast: less) {
   .grid-line {
     stroke-width: 0.75;
   }
   .stage-svg rect[stroke-dasharray="8 6"] {
-    opacity: 0.08;
+    fill-opacity: 0.12;
     stroke-width: 1.6;
   }
 }
@@ -113,8 +120,9 @@
   .grid-line {
     stroke-width: 1.8;
   }
+  /* ⚠️ `opacity` 가 아니라 `fill-opacity` 다 — 위 ② 블록의 실측 근거와 같다. */
   .stage-svg rect[stroke-dasharray="8 6"] {
-    opacity: 0.22;
+    fill-opacity: 0.34;
     stroke-width: 3.2;
   }
 }

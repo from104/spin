@@ -43,7 +43,15 @@ import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
 import { ringViolation, zoneViolation, RING_R_PX, type RuleActor } from '../../model/rules.ts';
 import { COURT_LINE_WEIGHTS } from '../../render/CourtSurface.tsx';
-import { RULE_ALERT_STROKE, RULE_DASH, RULE_OK_STROKE } from '../../render/ruleOverlay.ts';
+import {
+  RULE_ALERT_STROKE,
+  RULE_DASH,
+  RULE_OK_STROKE,
+  RULE_ZONE_ALERT_FILL,
+  RULE_ZONE_ALERT_FILL_OPACITY,
+  RULE_ZONE_FILL,
+  RULE_ZONE_FILL_OPACITY,
+} from '../../render/ruleOverlay.ts';
 import { noteChipPathD, noteFoldPathD } from '../../render/objects/noteChip.ts';
 import { num, safeColor, safeId } from './svgSafe.ts';
 import { teamMarkFor } from './teamMark.ts';
@@ -74,7 +82,9 @@ const CONE_STROKE_W = 1.6;
 
 /** 규칙 오버레이 굵기·케이싱. RuleOverlay.tsx 와 같은 값이다. */
 const RULE_CASING = '#000000';
-const RULE_CASING_OPACITY = 0.55;
+/** ⚠️ 2026-08-13(②) 0.55 → 1. 알파 .55 검정은 코트 위 합성이 #0e371f 라 대비 2.48:1 로
+ *  §7.1 하한(3:1) 미달이었다 — 화면(RuleOverlay.tsx)과 **같은 이유로 같이** 올린다. */
+const RULE_CASING_OPACITY = 1;
 const RING_MARK_W = 2.6;
 const RING_CASING_W = 5.4;
 const ZONE_MARK_W = 3;
@@ -200,7 +210,12 @@ export function arrowMarkersMarkup(colors: readonly string[]): string {
   return marker(`${MARKER_UID}-casing`, ARROW_CASING) + colors.map((c) => marker(`${MARKER_UID}-${markerKey(c)}`, c)).join('');
 }
 
-/** 규칙 존(흰 파선 테두리 + .14 채움). RuleZones.tsx 와 같은 값 — 면이 아니라 파선이 기능을 전한다. */
+/** 규칙 존(흰 파선 테두리 + **연한 붉은** 채움). RuleZones.tsx 와 같은 값 — 면이 아니라 파선이
+ *  기능을 전한다. 색·농도는 ruleOverlay.ts 의 RULE_ZONE_* 하나에서 온다(6차에 render/teamMark.ts
+ *  와 features/export/teamMark.ts 가 갈라질 뻔한 전례가 있다 — 값을 여기 손으로 적지 마라).
+ *  ⚠️ `opacity` 가 아니라 `fill-opacity` 다: 요소 opacity 는 흰 파선까지 함께 깎아 그 채널을
+ *  1.26:1 로 죽인다(RuleZones.tsx 머리말의 실측). courtLines.contract.test.ts 가 화면 컴포넌트와
+ *  이 문자열을 도형 단위로 대조하므로, 한쪽만 고치면 그 테스트가 먼저 빨개진다. */
 export function ruleZonesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSceneOpts['size']): string {
   const zones = courtDefFor(mode, size).ruleZones;
   if (zones.length === 0) return '';
@@ -209,7 +224,7 @@ export function ruleZonesMarkup(mode: StaticSceneOpts['mode'], size?: StaticScen
     zones
       .map(
         (z) =>
-          `<rect x="${num(z.x)}" y="${num(z.y)}" width="${num(z.w)}" height="${num(z.h)}" fill="#ffffff" opacity="0.14" stroke="#ffffff" stroke-width="2" stroke-dasharray="8 6"/>`,
+          `<rect x="${num(z.x)}" y="${num(z.y)}" width="${num(z.w)}" height="${num(z.h)}" fill="${RULE_ZONE_FILL}" fill-opacity="${RULE_ZONE_FILL_OPACITY}" stroke="${RULE_OK_STROKE}" stroke-width="2" stroke-dasharray="${RULE_DASH}"/>`,
       )
       .join('') +
     `</g>`
@@ -259,7 +274,7 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
     out +=
       `<g stroke="${RULE_ALERT_STROKE}">` +
       `<rect ${box} fill="none" stroke="${RULE_CASING}" stroke-width="${ZONE_CASING_W}" opacity="${RULE_CASING_OPACITY}"/>` +
-      `<rect ${box} fill="${RULE_ALERT_STROKE}" fill-opacity="0.2" stroke-width="${ZONE_MARK_W}"/>` +
+      `<rect ${box} fill="${RULE_ZONE_ALERT_FILL}" fill-opacity="${RULE_ZONE_ALERT_FILL_OPACITY}" stroke-width="${ZONE_MARK_W}"/>` +
       `</g>`;
   }
 

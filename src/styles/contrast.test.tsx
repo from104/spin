@@ -20,6 +20,7 @@ import userEvent from '@testing-library/user-event';
 import { Button } from '../ui/Button.tsx';
 import { GridOverlay } from '../render/GridOverlay.tsx';
 import { RuleZones } from '../render/RuleZones.tsx';
+import { RULE_ZONE_FILL_OPACITY } from '../render/ruleOverlay.ts';
 import { PresentRunner } from '../features/present/PresentRunner.tsx';
 import { progressCellState } from '../features/present/progressCells.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
@@ -215,13 +216,18 @@ describe('② prefers-contrast — more 와 less 는 **반대 방향**이다 (�
   const gridMore = rule(moreBlock, '.grid-line');
   const gridLess = rule(lessBlock, '.grid-line');
 
-  it('규칙 존: less < 기준(2 / .14) < more', () => {
+  // 2026-08-13(②) 기준값이 흰 .14 → 붉은 .22 로, 갈고리가 `opacity` → `fill-opacity` 로 옮겼다.
+  // 옮긴 이유는 contrast.css ② 블록의 ⚠️ 에 있다(요소 opacity 는 파선까지 함께 지운다).
+  it('규칙 존: less < 기준(2 / fill-opacity .22) < more', () => {
     expect(Object.keys(zoneLess), 'less 블록에 규칙 존 규칙이 없다').not.toHaveLength(0);
     expect(Object.keys(zoneMore), 'more 블록에 규칙 존 규칙이 없다').not.toHaveLength(0);
     expect(Number(zoneLess['stroke-width'])).toBeLessThan(2);
     expect(Number(zoneMore['stroke-width'])).toBeGreaterThan(2);
-    expect(Number(zoneLess['opacity'])).toBeLessThan(0.14);
-    expect(Number(zoneMore['opacity'])).toBeGreaterThan(0.14);
+    expect(Number(zoneLess['fill-opacity'])).toBeLessThan(RULE_ZONE_FILL_OPACITY);
+    expect(Number(zoneMore['fill-opacity'])).toBeGreaterThan(RULE_ZONE_FILL_OPACITY);
+    // ★ 파선 채널은 어느 쪽에서도 건드리지 않는다 — 낮출 수 있는 것은 **면뿐**이다.
+    expect(zoneLess['opacity'], 'less 가 요소 opacity 를 낮추면 흰 파선까지 사라진다').toBeUndefined();
+    expect(zoneMore['opacity']).toBeUndefined();
   });
 
   it('격자선: less < 기준(1) < more', () => {
@@ -301,7 +307,7 @@ describe('③ forced-colors 블록은 시스템 팔레트만 쓴다', () => {
 });
 
 describe('④ CSS 가 부르는 이름이 마크업에 실제로 붙어 있다', () => {
-  it('규칙 존 — CSS 갈고리(파선 패턴)와 기준값 2 / .14 가 컴포넌트와 일치한다', () => {
+  it('규칙 존 — CSS 갈고리(파선 패턴)와 기준값 2 / fill-opacity .22 가 컴포넌트와 일치한다', () => {
     const { container } = render(
       <svg>
         <RuleZones mode="full" visible />
@@ -310,7 +316,9 @@ describe('④ CSS 가 부르는 이름이 마크업에 실제로 붙어 있다',
     const rects = container.querySelectorAll('rect[stroke-dasharray]');
     expect(rects.length).toBeGreaterThan(0); // 대조군: 0개라서 통과하지 못한다
     expect(rects[0]!.getAttribute('stroke-width')).toBe('2');
-    expect(rects[0]!.getAttribute('opacity')).toBe('0.14');
+    expect(Number(rects[0]!.getAttribute('fill-opacity'))).toBe(RULE_ZONE_FILL_OPACITY);
+    // ⚠️ 요소 opacity 가 다시 붙으면 흰 파선(아래 ★)이 그만큼 깎인다 — 되살리지 마라.
+    expect(rects[0]!.getAttribute('opacity')).toBeNull();
     // ★ 갈고리 자체를 DOM 에서 읽어 CSS 와 맞춘다 — 한쪽만 바뀌면 여기서 빨개진다.
     //   (파선 테두리는 규칙 존의 **기능 채널**이기도 하다 — 면이 아니라 이쪽이 정보를 나른다.)
     const dash = rects[0]!.getAttribute('stroke-dasharray');

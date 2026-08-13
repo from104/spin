@@ -8,7 +8,7 @@ import { COURT_DEFS } from '../../model/court.ts';
 import type { ChairId } from '../../core/ids.ts';
 import { ChairChip } from '../../render/objects/ChairChip.tsx';
 import { createTransformWriter } from '../../render/transformWriter.ts';
-import { RULE_ALERT_STROKE } from '../../render/ruleOverlay.ts';
+import { RULE_ALERT_STROKE, RULE_ZONE_ALERT_FILL } from '../../render/ruleOverlay.ts';
 import { buildStaticSvg, buildStaticScene } from './buildStaticSvg.ts';
 import { staticSceneMetrics, EXPORT_LAYOUT } from './staticSceneLayout.ts';
 import { makeFrame, TEAMS } from './sceneFixture.ts';
@@ -245,14 +245,15 @@ describe('buildStaticSvg — 규칙 오버레이(3 m 링 · 골 지역)', () => 
       f.chairs[i]!.x = zone.x + 20 + i * 10;
       f.chairs[i]!.y = zone.y + 20;
     }
-    expect(buildStaticSvg(f, ringOpts).includes(`fill="${RULE_ALERT_STROKE}"`)).toBe(true);
+    // 2026-08-13(②) 위반 **면**은 선 색(#ff5a5a)이 아니라 한 단 진한 RULE_ZONE_ALERT_FILL 이다.
+    expect(buildStaticSvg(f, ringOpts).includes(`fill="${RULE_ZONE_ALERT_FILL}"`)).toBe(true);
     // 대조군: 2명이면 반칙이 아니다.
     const two = makeFrame({ balls: [] });
     two.chairs[0]!.x = zone.x + 20;
     two.chairs[0]!.y = zone.y + 20;
     two.chairs[1]!.x = zone.x + 40;
     two.chairs[1]!.y = zone.y + 20;
-    expect(buildStaticSvg(two, ringOpts).includes(`fill="${RULE_ALERT_STROKE}"`)).toBe(false);
+    expect(buildStaticSvg(two, ringOpts).includes(`fill="${RULE_ZONE_ALERT_FILL}"`)).toBe(false);
   });
 });
 
