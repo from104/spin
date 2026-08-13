@@ -14,6 +14,7 @@ import { IconLock, IconPresent, IconSearch, IconUndo, IconRedo } from '../ui/ico
 import type { CourtMode } from '../model/court.ts';
 import { AppNavSegment } from './AppNavSegment.tsx';
 import { headerPadCss } from './navChrome.ts';
+import type { RailKey } from './screens.ts';
 
 export interface HeaderPrimaryAction {
   label: string;
@@ -200,13 +201,23 @@ const HEADER_STYLE: CSSProperties = {
  *  이 boolean 을 헤더가 스스로 `useIsNarrow()` 로 구하지 않고 **AppShell 에게서 받는** 이유는,
  *  레일과 세그먼트가 같은 판정을 나눠 갖게 하기 위해서다 — 훅을 두 곳에서 부르면 두 state 가
  *  각자 갱신되는 프레임에 둘 다 서거나 둘 다 없는 순간이 열린다. */
-export function AppHeader({ config: override, narrow = false }: { config?: HeaderConfig; narrow?: boolean }) {
+export function AppHeader({
+  config: override,
+  narrow = false,
+  activeRail,
+}: {
+  config?: HeaderConfig;
+  narrow?: boolean;
+  /** 좁은 창 세그먼트의 활성 항목. `narrow` 와 **같은 이유로** AppShell 에게서 받는다(위 주석) —
+   *  레일과 세그먼트가 같은 판정을 나눠 갖지 않으면 창 폭에 따라 다른 항목에 불이 들어온다. */
+  activeRail?: RailKey;
+}) {
   const ctx = useContext(HeaderContext);
   const config = override ?? ctx?.config ?? EMPTY_CONFIG;
 
   return (
     <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow) }}>
-      {narrow && <AppNavSegment />}
+      {narrow && <AppNavSegment active={activeRail} />}
       <div style={{ minWidth: 0, flex: '1 1 12rem' }}>
         <div style={{ fontSize: '0.9375rem', fontWeight: 700, letterSpacing: '-0.02rem', display: 'flex', alignItems: 'center', gap: '0.5625rem' }}>
           <span

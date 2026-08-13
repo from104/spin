@@ -11,12 +11,17 @@
 import { IconMoon, IconSun } from '../ui/icons.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
-import { RAIL_ITEMS, SCREEN_NAV_LABELS, SCREEN_TO_RAIL } from './screens.ts';
+import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
+import type { RailKey } from './screens.ts';
 import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
 
-/** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page". */
-export function AppRail() {
+/** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page".
+ *
+ *  `active` 는 AppShell 이 계산해 내려보낸다(screens.railFor) — 화면 키만으로는 드릴 편집
+ *  중에도 [보드]에 불이 들어온다. 안 주면 화면 키만으로 접어 옛 동작이 된다. */
+export function AppRail({ active }: { active?: RailKey } = {}) {
   const { screen, go } = useAppNav();
+  const activeKey = active ?? railFor(screen);
   const { prefs } = useSettingsState();
   const { setPrefs } = useSettingsActions();
   const isDark = prefs.theme === 'dark';
@@ -69,7 +74,7 @@ export function AppRail() {
 
       {RAIL_ITEMS.map((key) => {
         const Icon = RAIL_ICONS[key];
-        const active = SCREEN_TO_RAIL[screen] === key;
+        const active = activeKey === key;
         return (
           <button
             key={key}

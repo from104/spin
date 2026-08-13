@@ -410,14 +410,42 @@ describe('AppShell 배선 — 레일 활성 매핑(SCREEN_TO_RAIL)', () => {
     expectRailActive('설정'); // settings
   });
 
-  it('드릴 편집 중에도 활성은 [보드] 다 — 편집이 board 자리를 함께 쓰기 때문', async () => {
+  it('드릴 편집 중 활성은 [드릴] 이다 — 같은 자리를 쓴다고 같은 항목은 아니다', async () => {
+    // ⚠️ 2026-08-14 뒤집힘. 여기는 원래 `expectRailActive('보드')` 였고 제목도 *"드릴 편집
+    // 중에도 활성은 [보드] 다 — 편집이 board 자리를 함께 쓰기 때문"* 이었다. 화면 키만 보고
+    // 접은 결과를 그대로 계약이라고 적어 둔 것이다. 기현님 지시: *"드릴 편집 화면에서 좌측
+    // 메뉴 아이콘이 보드가 활성화 되어 있는데 드릴이 활성화 되어야 한다."*
     await renderShell();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
     expectOnlyScreen('screen-editor');
+    expectRailActive('드릴');
+
+    // 대조군 — 같은 화면 키에서 자유 전술판으로 돌아오면 다시 [보드]다. 화면 키가 아니라
+    // **무엇이 떠 있는가**가 판정한다는 것을 한 테스트 안에서 보인다.
+    await user.click(screen.getByRole('button', { name: '보드' }));
+    expectOnlyScreen('screen-board');
     expectRailActive('보드');
+  });
+
+  it('좁은 창 헤더 세그먼트도 같은 값을 받는다 — 창 폭에 따라 다른 항목에 불이 들어오지 않는다', async () => {
+    stubMedia(true);
+    try {
+      await renderShell();
+      const user = userEvent.setup();
+      const nav = () => screen.getByRole('navigation', { name: '주요 메뉴' });
+      expect(header().contains(nav())).toBe(true);
+
+      await user.click(within(nav()).getByRole('button', { name: '드릴' }));
+      await user.click(screen.getByRole('button', { name: '드릴 열기' }));
+      expectOnlyScreen('screen-editor');
+      expect(within(nav()).getByRole('button', { name: '드릴' })).toHaveAttribute('aria-current', 'page');
+      expect(within(nav()).getByRole('button', { name: '보드' })).not.toHaveAttribute('aria-current');
+    } finally {
+      delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+    }
   });
 
   it('시연 중 활성은 [드릴] 이다 — 레일에서 빠진 화면이 남의 자리를 빌린다', async () => {

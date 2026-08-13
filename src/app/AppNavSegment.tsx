@@ -12,13 +12,16 @@
 import { IconMoon, IconSun } from '../ui/icons.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
-import { RAIL_ITEMS, SCREEN_NAV_LABELS, SCREEN_TO_RAIL } from './screens.ts';
+import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
+import type { RailKey } from './screens.ts';
 import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
 
 /** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page" — 레일과 **같은 이름·같은 계약**
- *  이다. 좁은 창에서 이름이 바뀌면 스크린리더 사용자에게는 다른 앱이 된다. */
-export function AppNavSegment() {
+ *  이다. 좁은 창에서 이름이 바뀌면 스크린리더 사용자에게는 다른 앱이 된다.
+ *  `active` 도 레일과 같은 값을 AppShell 에게서 받는다(AppRail 의 같은 prop). */
+export function AppNavSegment({ active }: { active?: RailKey } = {}) {
   const { screen, go } = useAppNav();
+  const activeKey = active ?? railFor(screen);
   const { prefs } = useSettingsState();
   const { setPrefs } = useSettingsActions();
   const isDark = prefs.theme === 'dark';
@@ -30,7 +33,7 @@ export function AppNavSegment() {
       <nav aria-label="주요 메뉴" style={{ display: 'flex', alignItems: 'center', gap: '0.125rem' }}>
         {RAIL_ITEMS.map((key) => {
           const Icon = RAIL_ICONS[key];
-          const active = SCREEN_TO_RAIL[screen] === key;
+          const active = activeKey === key;
           return (
             <button
               key={key}

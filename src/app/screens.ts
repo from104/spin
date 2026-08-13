@@ -23,15 +23,35 @@ export type RailKey = 'board' | 'drills' | 'settings';
 
 export const RAIL_ITEMS: readonly RailKey[] = ['board', 'drills', 'settings'];
 
-/** 지금 화면에서 레일의 **어느 항목**이 `aria-current="page"` 인가. AppRail 이 StageTarget 을
- *  모른 채 화면 키만 보고 판정할 수 있게 명시적 상수 맵으로 접는다(계획서 2.1 원칙 3) —
- *  레일이 편집기 내부 상태에 결합되는 것을 막는다. 시연 중 활성은 [드릴]이다. */
+/** 화면 키 → 레일 항목. 시연 중 활성은 [드릴]이다.
+ *
+ *  ⚠️ **이 표만으로는 부족하다** — `board` 키 하나에 자유 전술판과 드릴 편집이 **둘 다** 뜨기
+ *  때문이다(2026-08-09 재편). 실제 판정은 아래 `railFor` 가 한다. */
 export const SCREEN_TO_RAIL: Record<Screen, RailKey> = {
   board: 'board',
   drills: 'drills',
   present: 'drills',
   settings: 'settings',
 };
+
+/** 지금 레일의 **어느 항목**이 `aria-current="page"` 인가.
+ *
+ *  2026-08-14 기현님 지시로 `stageKind` 가 들어왔다: *"드릴 편집 화면에서 좌측 메뉴 아이콘이
+ *  보드가 활성화 되어 있는데 드릴이 활성화 되어야 한다."* 화면 키만 보면 드릴을 편집하는
+ *  중에도 [보드]에 불이 들어온다 — board 자리에 무엇이 떠 있는지를 화면 키는 말하지 않는다.
+ *
+ *  이 인자로 계획서 2.1 원칙 3(*"레일이 편집기 상태를 모른다"*)이 한 겹 물러난다. 다만
+ *  물러난 만큼만이다: `StageTarget` 은 EditorProvider 안쪽이 아니라 **AppShell 의 라우팅
+ *  상태**이고, `renderScreen` 이 BoardScreen/EditorScreen 을 가를 때 보는 바로 그 값이다.
+ *  같은 값에서 뽑아야 표시와 내용이 **어긋날 수가 없다** — 원칙이 막으려던 것은 레일이
+ *  리듀서·물리 같은 편집기 내부에 붙는 것이었고, 그것은 여전히 안 한다.
+ *
+ *  값은 AppShell 이 한 번 계산해 레일과 헤더 세그먼트에 **똑같이 내려보낸다**(AppHeader 의
+ *  `narrow` 가 간 길과 같다) — 두 곳이 각자 구하면 좁은 창에서만 다른 항목에 불이 들어온다. */
+export function railFor(screen: Screen, stageKind: 'board' | 'drill' = 'board'): RailKey {
+  if (screen === 'board' && stageKind === 'drill') return 'drills';
+  return SCREEN_TO_RAIL[screen];
+}
 
 /** 개명 전 키 → 신 키. 사용자가 열어 둔 탭의 `history.state` 에는 옛 키가 그대로 들어 있으므로
  *  (useAppHistory 의 readNavEntry 가 이 표로 접는다) 지우면 그 탭들의 뒤로가기 이력이 통째로

@@ -37,7 +37,7 @@ import type { HeaderConfig } from './AppHeader.tsx';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import type { AppHistoryApi, NavTarget } from './useAppHistory.ts';
 import { announceFor } from './announce.ts';
-import { SCREEN_SUBTITLES, SCREEN_TITLES } from './screens.ts';
+import { SCREEN_SUBTITLES, SCREEN_TITLES, railFor } from './screens.ts';
 import type { Screen } from './screens.ts';
 
 // 화면 컴포넌트 — screen-home-library/screen-editor/screen-present/screen-settings 소유(§8).
@@ -238,6 +238,12 @@ export function AppShell() {
     intentFromNav(nav.screen, nav.target),
   );
   const homeNav = useHomeNavAdapter(nav, setStageTarget, setPresentTarget, setLibraryIntent);
+
+  // 레일·헤더 세그먼트의 활성 항목. **여기서 한 번만** 계산해 둘에 똑같이 내려보낸다
+  // (`narrow` 가 간 길과 같다 — AppHeader.tsx 의 그 주석). 화면 키만으로는 드릴을 편집하는
+  // 중에도 [보드]에 불이 들어온다: board 자리에 무엇이 떠 있는지를 화면 키는 말하지 않고,
+  // 그것을 아는 값은 renderScreen 이 보는 stageTarget 하나다(2026-08-14 기현님 지시).
+  const activeRail = railFor(nav.screen, stageTarget.kind);
   const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav);
 
   // 브라우저 뒤로/앞으로가기로 돌아온 엔트리가 대상을 싣고 있으면 그 대상으로 되돌린다.
@@ -286,9 +292,9 @@ export function AppShell() {
           <PresentTargetContext.Provider value={presentTarget}>
             <SkipLink />
             <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
-              {!narrow && <AppRail />}
+              {!narrow && <AppRail active={activeRail} />}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <AppHeader config={staticHeaderConfig} narrow={narrow} />
+                <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />
                 {renderScreen(nav.screen, stageTarget, homeNav, libraryIntent)}
               </div>
             </div>

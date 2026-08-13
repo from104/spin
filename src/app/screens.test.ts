@@ -8,6 +8,7 @@ import {
   SCREEN_SUBTITLES,
   SCREEN_TITLES,
   SCREEN_TO_RAIL,
+  railFor,
 } from './screens.ts';
 import type { Screen } from './screens.ts';
 
@@ -65,6 +66,31 @@ describe('레일 3단 (계획서 2.1)', () => {
   it('레일 항목 자기 자신은 자기에게 매핑된다 — present 만 남의 자리를 빌린다', () => {
     for (const key of RAIL_ITEMS) {
       expect(SCREEN_TO_RAIL[key]).toBe(key);
+    }
+  });
+});
+
+describe('railFor — 화면 키만으로는 못 정하는 자리 (2026-08-14 기현님 지시)', () => {
+  it('board 화면은 무엇이 떠 있느냐로 갈린다: 전술판이면 [보드], 드릴 편집이면 [드릴]', () => {
+    expect(railFor('board', 'board')).toBe('board');
+    expect(railFor('board', 'drill')).toBe('drills');
+  });
+
+  it('stageKind 를 안 주면 전술판으로 본다 — 레일을 홀로 렌더하는 곳의 기본값', () => {
+    expect(railFor('board')).toBe('board');
+  });
+
+  it('나머지 화면은 stageKind 와 무관하다 — board 자리를 안 쓰기 때문', () => {
+    for (const s of ['drills', 'present', 'settings'] as const) {
+      expect(railFor(s, 'drill')).toBe(SCREEN_TO_RAIL[s]);
+      expect(railFor(s, 'board')).toBe(SCREEN_TO_RAIL[s]);
+    }
+  });
+
+  it('어떤 조합에서도 RAIL_ITEMS 안의 항목을 돌려준다', () => {
+    // 밖의 값을 돌려주면 어느 버튼에도 안 붙어 레일이 통째로 비활성으로 보인다.
+    for (const s of SCREEN_ORDER) {
+      for (const k of ['board', 'drill'] as const) expect(RAIL_ITEMS).toContain(railFor(s, k));
     }
   });
 });
