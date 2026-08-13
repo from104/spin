@@ -75,8 +75,16 @@ export interface RuleOverlayApi {
   registerRing(ballId: string, el: SVGGElement | null): void;
   /** 골 지역 위반 표시 그룹(존 index 별). 깨끗하면 opacity 0 으로 숨는다. */
   registerZone(index: number, el: SVGGElement | null): void;
-  /** 한 프레임. 키는 개체 id, 값은 그 프레임의 실제 좌표다. */
-  write(poses: Readonly<Record<string, { x: number; y: number }>>): void;
+  /** 한 프레임. 키는 개체 id, 값은 그 프레임의 실제 좌표다.
+   *
+   *  ⚠️ `theta` 가 **옵셔널인 이유는 공·콘 때문**이다(방향이 없다 — `RenderBall` 에 필드 자체가
+   *  없다). **명단(`roster`)에 있는 휠체어는 반드시 실어야 한다**: 2026-08-13 부터 판정이 차체
+   *  사각형으로 재므로(model/chairOverlap.ts) 빠지면 그 화면만 "언제나 +x 를 보는 차체" 로
+   *  조용히 틀린다. 실제로 흘려보내는 두 경로 모두 이미 싣고 있다 — 편집기는
+   *  `PhysicsSnapshot`(x·y·theta), 시연은 `RenderChair`(x·y·theta) 를 **그 객체 그대로** 넘긴다.
+   *  그 배선을 재는 것은 EditorStage.rules.test.tsx / PresentStage.rules.test.tsx 의
+   *  '차체 방향이 판정까지 온다' 다. */
+  write(poses: Readonly<Record<string, { x: number; y: number; theta?: number }>>): void;
   clear(): void;
 }
 
@@ -118,10 +126,14 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
    *  ★ 이게 없으면 **마운트 첫 프레임의 판정이 통째로 새어 나간다**: 시연은 화면을 그리는
    *  레이아웃 이펙트에서 첫 프레임을 흘리는데, 링·존 등록과 setContext 는 그보다 **뒤에**
    *  오는 패시브 이펙트라 그 시점의 판정에는 아무 노드도 문맥도 없다. 일시정지로 열린
-   *  시연이라면 다음 프레임이 영영 오지 않아 "1스텝의 반칙을 아무도 말해 주지 않는다". */
-  let lastPoses: Readonly<Record<string, { x: number; y: number }>> | null = null;
+   *  시연이라면 다음 프레임이 영영 오지 않아 "1스텝의 반칙을 아무도 말해 주지 않는다".
+   *
+   *  ⚠️ 타입에서 `theta` 를 **빼지 마라**. setContext 경로(= 마운트 첫 프레임 · 스위치를 켠
+   *  순간)는 여기 담긴 프레임으로 판정한다 — 시연의 첫 판정이 실제로 이 길로 온다. 방향이
+   *  타입에서 떨어지면 `fillActors` 가 `?? 0` 으로 접어 그 판정만 +x 로 굳는다. */
+  let lastPoses: Readonly<Record<string, { x: number; y: number; theta?: number }>> | null = null;
 
-  function fillActors(poses: Readonly<Record<string, { x: number; y: number }>>): void {
+  function fillActors(poses: Readonly<Record<string, { x: number; y: number; theta?: number }>>): void {
     live.length = 0;
     for (let i = 0; i < ctx.roster.length; i++) {
       const def = ctx.roster[i]!;
@@ -129,7 +141,7 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       if (!p) continue;
       let a = pool[i];
       if (!a) {
-        a = { id: def.id, team: def.team, isGk: def.isGk, x: 0, y: 0 };
+        a = { id: def.id, team: def.team, isGk: def.isGk, x: 0, y: 0, theta: 0 };
         pool[i] = a;
       }
       a.id = def.id;
@@ -137,6 +149,10 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       a.isGk = def.isGk;
       a.x = p.x;
       a.y = p.y;
+      // 방향이 없는 프레임(옛 테스트 픽스처 등)은 0 = +x 로 읽는다. 실제 두 경로는 언제나
+      // 싣는다(위 write() 주석) — 여기가 `?? 0` 이라는 사실이 판정을 조용히 틀리게 하는
+      // 유일한 통로이므로, 두 화면 테스트가 회전한 차체로 그 통로를 직접 찌른다.
+      a.theta = p.theta ?? 0;
       live.push(a);
     }
   }

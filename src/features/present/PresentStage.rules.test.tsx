@@ -22,7 +22,7 @@ const BALL = { x: 400, y: 260 };
  *  ⚠️ 2026-08-13(§7 5.2) — 공의 원은 공마다 따로이고 **기본이 '없음'** 이다. 옛 배선 단언
  *  (링이 공을 따라오는가·판정이 그림과 발화에 닿는가)을 계속 재려면 픽스처가 원을 켜야 한다.
  *  기본값이 '없음' 이라는 사실은 아래 '5.2' 블록이 따로 잰다. */
-function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: number; y: number }[], ring: BallRing = '3m'): Drill {
+function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: number; y: number; deg?: number }[], ring: BallRing = '3m'): Drill {
   return {
     schemaVersion: CURRENT_DRILL_SCHEMA,
     id: 'dr_t' as DrillId,
@@ -48,7 +48,7 @@ function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: numb
         id: 'st_1' as StepId,
         name: '스텝 1',
         note: '',
-        chairs: Object.fromEntries(chairs.map((c) => [c.id, { x: c.x, y: c.y, angleDeg: 0 }])),
+        chairs: Object.fromEntries(chairs.map((c) => [c.id, { x: c.x, y: c.y, angleDeg: c.deg ?? 0 }])),
         balls: { bl_1: BALL },
         cones: {},
         arrows: [],
@@ -195,6 +195,32 @@ describe('PresentStage — 공의 원이 시연에도 온다', () => {
     const { container } = mount(two);
     expect(container.querySelectorAll(`circle[r="${RING_R_PX}"]:not([cx])`)).toHaveLength(2);
     expect(container.querySelectorAll(`circle[r="${RING_5M_R_PX}"]:not([cx])`)).toHaveLength(2);
+  });
+});
+
+// ── 2026-08-13 — 판정이 **차체 사각형**으로 바뀌었다(model/chairOverlap.ts) ────────────────────
+// 시연은 `applyFrame` 이 `rulePoses[c.id] = c` 로 **RenderChair 객체를 그대로** 넘긴다. 거기서
+// theta 를 떨어뜨리면(예: `{x: c.x, y: c.y}` 로 다시 싸면) 타입은 그대로 통과하고 시연만
+// "언제나 +x 를 보는 차체" 로 판정한다 — 그 통로를 아래 두 단언이 직접 찌른다.
+describe('PresentStage — 차체 **방향**이 판정까지 온다', () => {
+  /** 좌표는 완전히 같고 **각도만** 다른 두 드릴. 홈 한 대를 공에서 피벗 100 px(4 m) 에 둔다. */
+  const rotated = (deg: number): Drill =>
+    makeDrill([
+      { id: 'ch_a', team: 'home', x: BALL.x + 100, y: BALL.y, deg },
+      { id: 'ch_b', team: 'home', x: BALL.x + 10, y: BALL.y },
+      { id: 'ch_c', team: 'away', x: BALL.x + 20, y: BALL.y },
+    ]);
+
+  it('공을 마주 보면(180°) 앞범퍼 1.2 m 가 3 m 안에 닿아 붉어지고 발표된다', () => {
+    const { container } = mount(rotated(180));
+    expect(ring(container)!.state.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+    expect(announced()).toContain('2-on-1');
+  });
+
+  it('★ 같은 좌표에서 등을 돌리면(0°) 깨끗하다 — 방향이 안 오면 두 결과가 같아진다', () => {
+    const { container } = mount(rotated(0));
+    expect(ring(container)!.state.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    expect(announced()).toBe('');
   });
 });
 

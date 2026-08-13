@@ -293,6 +293,39 @@ describe('buildStaticSvg — 규칙 오버레이(거리 원 · 골 지역)', () 
     two.chairs[1]!.y = zone.y + 20;
     expect(buildStaticSvg(two, ringOpts).includes(`fill="${RULE_ZONE_ALERT_FILL}"`)).toBe(false);
   });
+
+  // ── 2026-08-13 — 판정이 **차체 사각형**으로 바뀌었다(model/chairOverlap.ts) ────────────────
+  // PNG 는 `ruleActors()` 라는 **자기만의 RuleActor 생성기**를 갖는다. 거기서 theta 를 빠뜨리면
+  // 화면 셋 중 **PNG 만 옛 판정으로** 그려진다 — 정확히 5차의 "시연 화면만 …" 과 같은 형태다.
+  it('★ 차체 방향이 PNG 판정까지 온다 — 좌표는 그대로인데 각도만 바꾸면 색이 갈린다', () => {
+    const ball = makeFrame().balls[0]!;
+    const scene = (deg: number) => {
+      const f = ringFrame('3m');
+      // 홈 한 대를 공에서 피벗 100 px(4 m) 에 둔다. 공을 마주 보면(180°) 앞범퍼가 70 px 라
+      // 3 m 안이고, 등을 돌리면(0°) 뒷면이 92.5 px 라 밖이다. **좌표는 두 경우가 같다.**
+      f.chairs[1]!.x = ball.x + 100;
+      f.chairs[1]!.y = ball.y;
+      f.chairs[1]!.theta = (deg * Math.PI) / 180;
+      return buildStaticSvg(f, ringOpts);
+    };
+    expect(scene(180).includes(RULE_ALERT_STROKE), '공을 마주 보면 붉다').toBe(true);
+    expect(scene(0).includes(RULE_ALERT_STROKE), '등을 돌리면 깨끗하다').toBe(false);
+  });
+
+  it('★ 존 판정도 차체 사각형이다 — 피벗이 전부 존 밖인 3대가 걸린다', () => {
+    const zone = COURT_DEFS.full.ruleZones[0]!;
+    const f = makeFrame({ balls: [] });
+    // 세 대 모두 피벗은 존 오른쪽 변 **밖**(+5 px)이고, 차체 뒷부분(0.3 m)만 존에 걸친다.
+    for (let i = 0; i < 3; i++) {
+      f.chairs[i]!.x = zone.x + zone.w + 5;
+      f.chairs[i]!.y = zone.y + 40 + i * 40;
+      f.chairs[i]!.theta = 0;
+    }
+    expect(buildStaticSvg(f, ringOpts).includes(`fill="${RULE_ZONE_ALERT_FILL}"`)).toBe(true);
+    // 대조군 — 같은 세 대를 뒷면까지 존 밖으로 빼면(피벗 +10) 아무도 안 걸린다.
+    for (let i = 0; i < 3; i++) f.chairs[i]!.x = zone.x + zone.w + 10;
+    expect(buildStaticSvg(f, ringOpts).includes(`fill="${RULE_ZONE_ALERT_FILL}"`)).toBe(false);
+  });
 });
 
 describe('buildStaticSvg — 모델에서 온 문자열이 SVG 를 깨뜨리지 않는다', () => {

@@ -249,12 +249,17 @@ function gridMarkup(opts: StaticSceneOpts): string {
 }
 
 /** 프레임의 실제 좌표로 규칙을 판정한다 — 화면(RuleOverlay)과 **같은 순수 함수**를 쓴다.
- *  그래야 "화면에서는 붉었는데 내보낸 그림은 하얀" 일이 없다. */
+ *  그래야 "화면에서는 붉었는데 내보낸 그림은 하얀" 일이 없다.
+ *
+ *  ⚠️ `theta` 를 빠뜨리면 **PNG 만 옛 판정으로 그려진다**(2026-08-13). 판정은 차체 사각형으로
+ *  재므로(model/chairOverlap.ts) 방향이 없으면 사각형이 안 만들어진다 — 그런데 `RuleActor.theta`
+ *  가 필수라 여기를 빠뜨리면 컴파일이 먼저 막는다. 그 배선을 실제로 재는 것은
+ *  buildStaticSvg.test.ts 의 '차체 방향이 PNG 판정까지 온다' 다. */
 function ruleActors(frame: RenderFrame): RuleActor[] {
   const out: RuleActor[] = [];
   for (const c of frame.chairs) {
     if (c.opacity <= 0) continue;
-    out.push({ id: c.id, team: c.def.team, isGk: c.def.isGk, x: c.x, y: c.y });
+    out.push({ id: c.id, team: c.def.team, isGk: c.def.isGk, x: c.x, y: c.y, theta: c.theta });
   }
   return out;
 }

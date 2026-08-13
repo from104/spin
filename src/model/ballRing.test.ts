@@ -102,13 +102,15 @@ describe('5.2 반지름 — 25 px = 1 m 축척에서만 나온다', () => {
     // 시그니처가 (공 좌표, 선수, 골 지역) 뿐이다. 5 m 를 켰다고 판정 반경이 5 m 가 되면
     // 규칙을 잘못 가르친다(파워싸커 2-on-1 은 3 m 다).
     const ball = { x: 400, y: 260 };
+    // theta 는 2026-08-13 부터 필수다 — 판정이 차체 **사각형**으로 재기 때문(chairOverlap.ts).
     const near = [
-      { id: 'ch_a', team: 'home' as const, isGk: false, x: 410, y: 260 },
-      { id: 'ch_b', team: 'home' as const, isGk: false, x: 390, y: 260 },
-      { id: 'ch_c', team: 'away' as const, isGk: false, x: 420, y: 260 },
+      { id: 'ch_a', team: 'home' as const, isGk: false, x: 410, y: 260, theta: 0 },
+      { id: 'ch_b', team: 'home' as const, isGk: false, x: 390, y: 260, theta: 0 },
+      { id: 'ch_c', team: 'away' as const, isGk: false, x: 420, y: 260, theta: 0 },
     ];
     expect(ringViolation(ball, near, [])).not.toBe(0);
-    // 3 m 밖 5 m 안(4 m = 100 px)으로 한 명을 빼면 깨끗해진다 — 문턱이 3 m 라는 증거다.
+    // 한 명을 3 m 밖 5 m 안으로 뺀다 — theta 0(= +x 를 봄)이라 공 쪽은 **뒷면**이고, 피벗
+    // 100 px 은 차체로 92.5 px(3.7 m)이다. 여전히 3~5 m 사이라 문턱이 3 m 라는 증거가 산다.
     const far = [near[0]!, { ...near[1]!, x: 500 }, near[2]!];
     expect(ringViolation(ball, far, [])).toBe(0);
   });

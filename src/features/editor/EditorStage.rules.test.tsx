@@ -156,6 +156,33 @@ describe('EditorStage — 규칙 오버레이 배선', () => {
   });
 });
 
+// ── 2026-08-13 — 판정이 **차체 사각형**으로 바뀌었다(model/chairOverlap.ts) ────────────────────
+// 편집기가 흘리는 것은 `world.read()` = `PhysicsSnapshot`(x·y·theta) 다. 그 theta 가 판정까지
+// 오지 않으면 편집 화면만 "언제나 +x 를 보는 차체" 로 조용히 틀린다.
+describe('EditorStage — 차체 **방향**이 판정까지 온다', () => {
+  /** 물리 스냅샷과 **같은 모양**의 프레임. 홈 한 대를 공에서 피벗 100 px(4 m) 에 둔다. */
+  const snapshot = (theta: number) => ({
+    bl_1: { x: BALL.x, y: BALL.y, theta: 0 },
+    ch_a: { x: BALL.x + 100, y: BALL.y, theta },
+    ch_b: { x: BALL.x + 10, y: BALL.y, theta: 0 },
+    ch_c: { x: BALL.x + 20, y: BALL.y, theta: 0 },
+  });
+
+  it('공을 마주 보면(180°) 앞범퍼 1.2 m 가 3 m 안에 닿아 붉어진다', () => {
+    const { container, rules, say } = mount(makeDrill(['ch_a', 'ch_b', 'ch_c']));
+    rules.write(snapshot(Math.PI));
+    expect(ring(container)!.state.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+    expect(say).toHaveBeenCalledTimes(1);
+  });
+
+  it('★ 같은 좌표에서 등을 돌리면(0°) 깨끗하다 — 방향이 안 오면 두 결과가 같아진다', () => {
+    const { container, rules, say } = mount(makeDrill(['ch_a', 'ch_b', 'ch_c']));
+    rules.write(snapshot(0));
+    expect(ring(container)!.state.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    expect(say).toHaveBeenCalledTimes(0);
+  });
+});
+
 // ── §7 5.2 공마다 따로 켜는 거리 원 — **편집 화면** 배선(2026-08-13 기현님 실기 ③) ──────────
 describe('EditorStage — 공의 원이 cast 에서 화면까지 온다', () => {
   it('원이 없는 공(기본)에는 링이 없다 — 그래도 2-on-1 판정과 발화는 그대로다', () => {
