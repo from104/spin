@@ -80,20 +80,53 @@ function Rail({ orientation }: { orientation?: 'vertical' | 'horizontal' }) {
 
 // 픽셀 식과 같은 식의 calc — **리터럴이다.** 식을 바꾸면 ①과 여기가 함께 빨간불이 나야 맞다.
 const ROW_MAX_CSS = 'calc(var(--hit) * 2 + 5px)';
+const ROW_CAP_CSS = 'calc(var(--hit) * 5 + 20px)';
 const CHIP_BOX_H_CSS = 'calc((var(--hit) - 8px) * 1.5 + 6px)';
 
 describe('트레이 DOM — 칩·폭이 --hit 파생 calc 로 걸려 있다', () => {
-  it('세로 트레이의 폭이 칩 두 줄 식이다', () => {
+  // ── 2026-08-14 P3: 이 it 을 **뒤집었다** (설계서 §6 "깨질 테스트 판정") ────────────────────
+  // 옛 단언은 *"세로 트레이의 폭이 칩 두 줄 식이다"* — `width` 와 `minWidth` 둘 다 93 식이었다.
+  // 유동 트레이에서는 `width` 못박음이 정확히 **2열을 강제하던 장본인**이라 삭제했고, 그 자리에
+  // `=== ''` 대조군을 세운다. `minWidth` 는 **그대로 유지**한다 — 뜻이 "폭" 에서 "칩 두 줄
+  // **최소**폭" 으로 바뀌었을 뿐 값은 같고, 폭 제약 기기(1280·1920 핀)에서 트레이가 멈추는
+  // 자리가 여전히 그것이다. 새로 못박는 것은 상한(5열)과 `flex:'1 1 0'` 이다.
+  it('세로 트레이의 폭은 구간이다 — 하한 2열, 상한 5열, 못박음 없음', () => {
     render(<Rail />);
     const nav = screen.getByRole('navigation', { name: '도구' });
-    expect(nav.style.width).toBe(ROW_MAX_CSS);
+    // 대조군: 폭을 못박으면 남는 폭이 트레이로 흘러들지 못한다 — P3 의 본체가 이 빈 문자열이다.
+    expect(nav.style.width, '폭 못박음이 되살아났다 — 트레이가 다시 2열에 갇힌다').toBe('');
     expect(nav.style.minWidth).toBe(ROW_MAX_CSS);
+    expect(nav.style.maxWidth).toBe(ROW_CAP_CSS);
   });
 
-  it('가로 트레이는 폭을 못박지 않는다 — 대조군', () => {
+  it("트레이는 flex base 가 0 이다 — '1 1 auto' 면 코트까지 줄어든다(§4.1 함정 1)", () => {
+    // base 가 max-content 면 라인이 넘쳐 flex-shrink 가 **코트 칸**에도 걸린다.
+    // ⚠️ 값이 '1 1 0px' 인 것은 jsdom 때문이다: cssstyle 이 단위 없는 `0` 을 flex 축약형에서
+    //    거부해 선언을 통째로 버린다(2026-08-14 프로브 실측 — style 속성에 아무것도 안 남았다).
+    //    브라우저에서 `0` 과 `0px` 은 같다. `0%` 로 적으면 안 된다 — 주축이 미확정인
+    //    shrink-to-fit 컨테이너에서 백분율 base 는 content 로 되돌아가 함정 1 이 되살아난다.
+    render(<Rail />);
+    expect(screen.getByRole('navigation', { name: '도구' }).style.flex).toBe('1 1 0px');
+  });
+
+  it('가로 트레이는 폭도 상한도 못박지 않는다 — 대조군', () => {
     render(<Rail orientation="horizontal" />);
     const nav = screen.getByRole('navigation', { name: '도구' });
     expect(nav.style.width).toBe('');
+    expect(nav.style.maxWidth).toBe('');
+  });
+
+  it('칩 줄은 부모 폭을 그대로 받는다 — 93 못박음이 2열을 강제하던 장본인이었다', () => {
+    // 세로 트레이의 칩 wrap. 옛 값은 width/minWidth 둘 다 `calc(var(--hit)*2 + 5px)` 였다.
+    render(<Rail />);
+    const chip = screen.getByRole('button', { name: '2번 선수 배치' });
+    const wrap = chip.parentElement!;
+    expect(wrap.style.width).toBe('100%');
+    expect(wrap.style.minWidth, '옛 93 못박음이 남아 있다').toBe('');
+    // 중앙정렬이면 5열에서 8칩이 1행 5·2행 3 일 때 2행이 1행 아래에 안 맞춰 선다
+    // (RAIL_STYLE_H:130-138 경고와 **같은 이유가 wrap 축에서 재현**되는 것이다).
+    expect(wrap.style.justifyContent).toBe('flex-start');
+    expect(wrap.style.flexWrap).toBe('wrap');
   });
 
   it('선수 칩 상자(끌 수 있는 것)가 --hit × 비율 파생이다', () => {
@@ -128,6 +161,69 @@ describe('트레이 DOM — 칩·폭이 --hit 파생 calc 로 걸려 있다', ()
       // 대조군: 기본 크기는 그대로다(52 ≥ 44 라 min 이 진다) — 44 기본 화면은 안 바뀐다.
       expect(btn.style.width).toBe('52px');
     }
+  });
+});
+
+// ── ②-b trayFixedHeightPx·trayBenchHeightPx 의 **전제**가 화면과 같은가 ──────────────────
+//
+// ⚠️ **하네스도 검증 대상이다.** 두 순수 함수는 "줌·도구·칩이 wrap 으로 흐르고 공·콘 셋이 칩 줄
+// 다음 줄에 나란히 선다" 를 전제로 182·181 을 답한다. 화면이 그 전제를 버리면(예: 기능 구역이
+// column 으로 되돌아가면) 함수는 **여전히 182 를 답하고 테스트는 초록인 채** 실제 기둥은 347 이
+// 된다 — 계기가 거짓말하는 정확히 그 형태다. 그래서 전제를 DOM 에서 하나씩 못박는다.
+describe('트레이 세로 식의 전제 — 화면이 정말 그 모양인가', () => {
+  const rail = () => screen.getByRole('navigation', { name: '도구' });
+  const group = (name: string) => screen.getByRole('group', { name });
+
+  it('nav 자신: 상하 패딩 13, 구역 간 gap 6, 구역 6개', () => {
+    render(<Rail />);
+    expect(rail().style.padding).toBe('13px 0px');
+    expect(rail().style.gap).toBe('6px');
+    // 줌이 없는 렌더라 5개다 — 줌 구역과 그 구분선이 붙으면 6개(TRAY_SECTIONS)가 된다.
+    // 통합 화면에서 6개인 것은 EditorWorkspace.viewControls.test 가 본다.
+    expect(rail().children).toHaveLength(4);
+  });
+
+  it('구분선 한 줄은 세로로 9px 을 먹는다 — 선 1 + 상하 margin 4', () => {
+    render(<Rail />);
+    const divider = [...rail().children].find((el) => (el as HTMLElement).style.height === '1px') as HTMLElement;
+    expect(divider, '구분선 선택자가 낡았다').toBeDefined();
+    expect(divider.style.margin).toBe('4px 12px');
+  });
+
+  it('도구 구역이 **접힌다** — column 으로 되돌아가면 고정 합이 50 에서 215 로 뛴다', () => {
+    render(<Rail />);
+    expect(group('기능').style.flexDirection).toBe('row');
+    expect(group('기능').style.flexWrap).toBe('wrap');
+    expect(group('기능').style.width).toBe('100%');
+    expect(group('기능').style.justifyContent).toBe('flex-start');
+    expect(group('기능').style.gap).toBe('5px');
+  });
+
+  it('벤치 구역도 접힌다 — 공·콘 셋이 칩 줄 **다음 줄에 나란히** 서는 근거다', () => {
+    render(<Rail />);
+    expect(group('개체').style.flexDirection).toBe('row');
+    expect(group('개체').style.flexWrap).toBe('wrap');
+    expect(group('개체').style.alignContent).toBe('flex-start');
+    expect(group('개체').style.gap).toBe('6px');
+    // 스크롤러는 여기 하나뿐이다 — nav 를 스크롤러로 하면 모든 표적이 스크롤 오프셋의 함수가 된다.
+    expect(group('개체').style.overflowY).toBe('auto');
+    expect(rail().style.overflowY).toBe('');
+  });
+
+  it('가로 띠(세로 화면)에서는 안 접힌다 — 대조군', () => {
+    render(<Rail orientation="horizontal" />);
+    expect(group('기능').style.flexWrap).toBe('nowrap');
+    expect(group('개체').style.flexWrap).toBe('nowrap');
+    expect(group('기능').style.width).toBe('');
+  });
+
+  it('서랍 내용도 같은 흐름을 탄다 — 세로로 세우면 그 줄이 105px 로 부푼다', async () => {
+    render(<Rail />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /^작도/ }));
+    const panel = group('작도 도구');
+    expect(panel.style.flexDirection).toBe('row');
+    expect(panel.style.flexWrap).toBe('wrap');
   });
 });
 

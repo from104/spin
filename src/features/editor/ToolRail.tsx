@@ -15,7 +15,21 @@ import { CHAIR } from '../../core/constants.ts';
 import { numberedName } from '../../model/chairLabel.ts';
 import { IconToolNote, IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
-import { CHIP_BOX_H_CSS, CHIP_H_CSS, CHIP_ROW_GAP, CHIP_W_CSS, TRAY_ROW_MAX_CSS } from './trayMetrics.ts';
+import {
+  CHIP_BOX_H_CSS,
+  CHIP_H_CSS,
+  CHIP_ROW_GAP,
+  CHIP_W_CSS,
+  TOOL_BTN_H,
+  TOOL_BTN_W,
+  TRAY_DIVIDER_H,
+  TRAY_DIVIDER_MARGIN_Y,
+  TRAY_GAP,
+  TRAY_ITEM_GAP,
+  TRAY_PAD_Y,
+  TRAY_ROW_CAP_CSS,
+  TRAY_ROW_MAX_CSS,
+} from './trayMetrics.ts';
 import { ZoomGroup, type ZoomControls } from './StageControls.tsx';
 import type { TrayDragItem } from './useTrayDrag.ts';
 
@@ -101,23 +115,35 @@ const RAIL_BASE = {
   flex: 'none',
   background: 'var(--panel-2)',
   display: 'flex',
-  gap: 6,
+  gap: TRAY_GAP,
   position: 'relative' as const,
 };
 
 const RAIL_STYLE = {
   ...RAIL_BASE,
-  // 폭 = 칩 줄(§5.4). 크롬 예산의 toolRail 행(wide/narrow 93)이 이 식의 hit=44 값이고,
-  // 큰 터치 타깃(56)이면 117 이다 — trayRailWidthPx 가 같은 식을 픽셀로 계산한다.
-  width: TRAY_ROW_MAX_CSS,
+  // ── 2026-08-14 P3: 폭 못박음을 **구간**으로 뒤집었다 (설계서 §4.1) ─────────────────────
+  // 옛 결정(지우지 않는다): *"폭 = 칩 줄(§5.4). 크롬 예산의 toolRail 행(wide/narrow 93)이 이
+  // 식의 hit=44 값이고, 큰 터치 타깃(56)이면 117 이다"* — 그 93 은 지금도 참이지만 이제
+  // **하한**이다. 코트 칸이 자기 종횡비만큼만 쓰고 남긴 폭이 여기로 흘러든다.
+  //
+  //  · `flex:'1 1 0'` — base 를 **0** 으로 둬야 한다. `'1 1 auto'` 면 base 가 max-content 라
+  //    라인이 넘쳐 코트 칸까지 함께 줄어든다(§4.1 함정 1).
+  //    ⚠️ 값을 `'1 1 0px'` 로 적은 이유: jsdom 의 cssstyle 이 **단위 없는 `0`** 을 flex 축약형에서
+  //    거부해 선언 자체를 통째로 버린다(2026-08-14 프로브 실측 — `flex:'1 1 0'` → style 속성에
+  //    아무것도 안 남는다). 브라우저에서 `0` 과 `0px` 은 같고, `0%` 는 **다르다**(주축 크기가
+  //    미확정인 shrink-to-fit 컨테이너에서 백분율 base 는 content 로 되돌아가 함정 1 을 되살린다).
+  //  · minWidth 2열 = 지금 값. 폭 제약 기기(1280·1920 핀)는 여기서 멈춰 오늘과 같은 배치가 된다.
+  //  · maxWidth 5열 = 240(hit 44)/300(hit 56). 없으면 half/flat 이 1024×600 에서 9열 슬래브가 된다.
+  flex: '1 1 0px',
+  minWidth: TRAY_ROW_MAX_CSS,
+  maxWidth: TRAY_ROW_CAP_CSS,
   // 판 오른쪽 가장자리의 홈. 선 하나로 자르면 다시 별도 패널로 보인다.
+  // ⚠️ **한 줄도 바꾸지 마라**(설계서 §4.4): 여태 이 홈은 86px 빈 배경 옆이라 "떠 있는 패널
+  // 가장자리" 로 읽혔다. 코트 그림이 홈에 **닿는 순간** 비로소 의도대로 "판에 파인 얕은 홈" 이 된다.
   boxShadow: 'inset 7px 0 12px -10px rgba(0,0,0,.55)',
   flexDirection: 'column' as const,
   alignItems: 'center',
-  padding: '13px 0',
-  // 개체 그룹은 스크롤 컨테이너라 min-content 기여가 0 이다 — 안쪽 칩 줄이 아무리 넓어도
-  // 트레이를 벌리지 못하고 조용히 잘린다. 폭은 여기서 못박는다.
-  minWidth: TRAY_ROW_MAX_CSS,
+  padding: `${TRAY_PAD_Y}px 0`,
 };
 
 /** 가로 트레이 — 세로 화면에서 판 아래. 항목이 많아 좁은 태블릿에서는 넘칠 수 있어 가로
@@ -197,8 +223,8 @@ const DRAWER_OF_TOOL: ReadonlyMap<ToolId, DrawerKey> = new Map(
 
 const BTN_STYLE = {
   position: 'relative' as const,
-  width: 52,
-  height: 50,
+  width: TOOL_BTN_W,
+  height: TOOL_BTN_H,
   // 큰 터치 타깃이면 52×50 도 56 까지 자란다(§5.4 — 트레이의 손잡이는 전부 --hit 을 따른다).
   // 기본 44 에서는 min 이 지기 때문에 52×50 그대로다.
   minWidth: 'var(--hit)',
@@ -453,8 +479,8 @@ export function ToolRail({
         flex: 'none',
         alignSelf: 'stretch',
         ...(horiz
-          ? { width: 1, margin: '6px 4px', background: 'var(--border)' }
-          : { height: 1, margin: '4px 12px', background: 'var(--border)' }),
+          ? { width: TRAY_DIVIDER_H, margin: '6px 4px', background: 'var(--border)' }
+          : { height: TRAY_DIVIDER_H, margin: `${TRAY_DIVIDER_MARGIN_Y}px 12px`, background: 'var(--border)' }),
       }}
     />
   );
@@ -474,16 +500,33 @@ export function ToolRail({
         </>
       )}
 
-      {/* ─── 개체: 판에 올려놓는 말. 끌어다 놓거나, 탭해서 고른 뒤 코트를 찍는다. ─── */}
+      {/* ─── 개체(벤치): 판에 올려놓는 말. 끌어다 놓거나, 탭해서 고른 뒤 코트를 찍는다. ───
+          **트레이에서 스크롤하는 곳은 여기 하나뿐이다**(설계서 §4.3). 근거 셋:
+           ① §3 불변식 1 의 정의상 그렇다 — nav 전체를 스크롤러로 하면 모든 표적 위치가 스크롤
+              오프셋의 함수가 된다. 스크롤러에 넣어도 되는 것은 **개수가 내용에 따라 변하는 표적**뿐이다.
+           ② 개체 구역만이 그렇다 — chairSlots 는 드릴마다 다르고 코트에 나간 선수는
+              `<span aria-hidden>` 이 되어 표적 수가 실제로 변한다. 줌 3·도구 4 는 항상 고정.
+           ③ 이미 그 구조였다. 새 기구 없음.
+
+          2026-08-14 P3 — 세로에서 이 구역이 column 에서 **row + wrap** 으로 바뀌었다.
+          칩 줄은 width:100% 라 자기 줄을 통째로 쓰고, 공·주황콘·파랑콘 셋은 그 다음 줄에
+          **나란히** 선다. 실측(1024×600·hit 44·5열, 판 높이 468 / 고정 182 / 벤치 가용 286):
+          세로로 쌓으면 125+6+50+6+50+6+50 = **293 → 7px 넘쳐 스크롤**, 한 줄로 흐르면
+          125+6+50 = **181 → 여유 105**. 이 재편이 없으면 "1024×600 에서 스크롤 없이" 가 거짓이다. */}
       <div
         aria-label="개체"
         role="group"
         style={{
           flex: horiz ? 'none' : '0 1 auto',
           display: 'flex',
-          flexDirection: horiz ? 'row' : 'column',
+          flexDirection: 'row',
+          flexWrap: horiz ? 'nowrap' : 'wrap',
           alignItems: 'center',
-          gap: 6,
+          // 줄이 남는 세로를 나눠 갖지 않게 한다 — stretch 면 상자가 세로로 늘어나 손잡이
+          // 크기가 창마다 달라진다(§3 불변식 1 이 막는 것과 같은 종류의 흔들림).
+          alignContent: 'flex-start',
+          justifyContent: 'flex-start',
+          gap: TRAY_GAP,
           minHeight: 0,
           // 선수가 8명 다 미배치면 세로로 길다 — 트레이 안에서만 스크롤한다.
           ...(horiz ? { overflowX: 'auto' as const } : { overflowY: 'auto' as const, width: '100%' }),
@@ -492,13 +535,19 @@ export function ToolRail({
         <div
           style={{
             display: 'flex',
-            flexDirection: horiz ? 'row' : 'row',
+            flexDirection: 'row',
             flexWrap: 'wrap',
-            justifyContent: 'center',
+            // ⚠️ **'center' 로 되돌리지 마라 — RAIL_STYLE_H:130-138 의 경고가 wrap 축에서 그대로
+            //    재현된다.** 5열에 칩 8개면 1행 5·2행 3 인데, 중앙정렬이면 2행 셋이 1행 아래에
+            //    맞춰 서지 않고 가운데로 모인다 = 같은 선수 칩이 열 수에 따라 다른 x 에 선다.
+            //    발 마우스·입 젓가락 사용자의 공간 기억이 깨지는 것이 서랍을 고른 유일한 이유다.
+            justifyContent: 'flex-start',
             gap: CHIP_ROW_GAP,
-            // 세로 트레이는 이 줄이 폭을 정한다 — maxWidth 만 두면 부모(nav)가 더 좁을 때
-            // 조용히 한 줄에 하나만 들어가고, 선수 8명이면 트레이가 두 배로 길어진다.
-            ...(horiz ? {} : { width: TRAY_ROW_MAX_CSS, minWidth: TRAY_ROW_MAX_CSS }),
+            // 2026-08-14 P3: 옛 `width/minWidth: TRAY_ROW_MAX_CSS` 못박음을 **뺐다** — 그것이
+            // 2열을 강제하던 장본인이다(트레이가 넓어져도 칩 줄이 93px 에 갇혀 있었다).
+            // 이제 부모 폭을 그대로 받아 흐르고, 100% 라 wrap 흐름에서 **자기 줄을 통째로** 쓴다
+            // (그래서 공·콘 셋이 다음 줄에 나란히 선다).
+            ...(horiz ? {} : { width: '100%' }),
           }}
         >
           {chairSlots.map((c) => {
@@ -642,16 +691,26 @@ export function ToolRail({
 
       {divider}
 
-      {/* ─── 기능: 모드. 끌 것이 없다. ─── */}
+      {/* ─── 기능: 모드. 끌 것이 없다. ───
+          2026-08-14 P3 — 세로에서도 **row + wrap** 이다. 폭이 넓어진 기둥에서 손잡이 4개가
+          한 줄로 흐르면 고정 구역이 215 → 50 으로 떨어진다(설계서 §4.3 검산표). 그 165px 이
+          그대로 벤치로 간다 — 열 수가 2 → 5 로 늘어도 세로가 모자라면 아무 소용이 없다.
+          이름은 '기능' 그대로다: nav 자신이 aria-label="도구" 라, 구역까지 '도구' 로 부르면
+          스크린리더가 "도구 탐색, 도구 그룹" 을 읽는다(설계서 §4.3 의 이름은 참고로만 따른다). */}
       <div
         aria-label="기능"
         role="group"
         style={{
           flex: 'none',
           display: 'flex',
-          flexDirection: horiz ? 'row' : 'column',
+          flexDirection: 'row',
+          flexWrap: horiz ? 'nowrap' : 'wrap',
           alignItems: 'center',
-          gap: 5,
+          alignContent: 'flex-start',
+          // 서랍이 열려 뒤에 폭이 붙어도 앞 손잡이가 안 밀리는 조건(§3 불변식 1).
+          justifyContent: 'flex-start',
+          gap: TRAY_ITEM_GAP,
+          ...(horiz ? {} : { width: '100%' }),
         }}
       >
         {ALWAYS_TOOLS.map((t) => (
@@ -712,9 +771,13 @@ export function ToolRail({
                   aria-label={`${d.label} 도구`}
                   style={{
                     display: 'flex',
-                    flexDirection: horiz ? 'row' : 'column',
+                    // 서랍 내용도 기능 구역과 같은 흐름을 탄다(2026-08-14 P3). 세로 기둥이
+                    // column 이던 시절에는 손잡이 아래로 쌓였는데, 이제 기둥 자체가 wrap 이라
+                    // 서랍만 세로로 세우면 그 줄 하나가 105px 로 부풀어 기둥이 도로 길어진다.
+                    flexDirection: 'row',
+                    flexWrap: horiz ? 'nowrap' : 'wrap',
                     alignItems: 'center',
-                    gap: 5,
+                    gap: TRAY_ITEM_GAP,
                   }}
                 >
                   {d.tools.map((t) => (

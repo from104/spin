@@ -24,6 +24,7 @@ import { useStageRot } from '../../app/useStageRot.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import { createRuleOverlay } from '../../render/ruleOverlay.ts';
 import { ToolRail, type ChairSlot, type TrayDrawers } from './ToolRail.tsx';
+import { courtCellAspectRatioCss } from './boardLayout.ts';
 import { drillUsesOf } from './drillUses.ts';
 import { useTrayDrag } from './useTrayDrag.ts';
 import { placeObject } from './placement.ts';
@@ -128,6 +129,11 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // (인스펙터가 어느 모드든 안 변한다 — useContainerWidth.ts 머리말)에서 온다. 코트 상자를
   // 재서 넣으면 되먹임이 되살아난다.
   const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, inspector: inspectorLayout });
+  // ★ 코트 칸의 종횡비(§4.1, 2026-08-14 P3) — 판 덩어리 안에서 코트가 **자기 비율만큼만**
+  // 차지하게 하는 한 줄이다. 남는 폭은 트레이가 먹는다 = 옛 레터박스 86px 이 그대로 벤치가 된다.
+  // 입력은 `def`(courtMode·courtSize)와 `rot` 뿐이다 — 줌도 측정값도 안 들어간다(그 이유는
+  // boardLayout.ts 의 courtCellAspectRatio ⚠️).
+  const courtAspect = courtCellAspectRatioCss(drill.courtMode, drill.courtSize, stageRot);
   // 격자·규칙존 토글은 로컬 state 가 아니라 prefs 를 직접 신뢰값으로 쓴다 — 로컬 state 였을 때는
   // 화면을 벗어났다 돌아오면(EditorWorkspace 재마운트) 항상 prefs 값으로 리셋됐다(감사 지적).
   const showGrid = prefs.showGrid;
@@ -457,51 +463,91 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           500×800 이라 세로로 길다 — 코트가 아래 도구·속성을 화면 밖으로 밀어낸다.
           minWidth:0 은 가로 배치용이라 이걸 대신해 주지 못한다(축이 다르다). */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, background: 'var(--panel-2)' }}>
-        {/* 판 본체 = 코트 + 트레이. 둘은 **한 장의 판**이다(기현 결정 2026-08-11): 개체를 별도
-            패널에 두면 UI 서랍처럼 보이지만, 판에 붙여 두면 실제 전술판에서 말이 놓여 있는
-            가장자리처럼 읽힌다. 그래서 트레이는 이 안에 들어오고 배경도 판과 같은 색을 쓴다. */}
-        <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', flexDirection: trayAxis }}>
-          {/* 패딩은 크롬 예산의 한 행이다(§5.2 '코트 래퍼 좌우 48 → 24 · 상하 40 → 16').
-              숫자를 여기 직접 적지 않는다 — 예산표와 화면이 갈라지면 표가 거짓말을 한다. */}
-          <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: courtPadCss(narrow) }}>
-            <div style={{ position: 'relative', width: '100%', height: '100%', filter: 'drop-shadow(0 18px 30px rgba(0,0,0,.45))' }}>
-              <EditorStage
-                ref={stageRef}
-                drill={drill}
-                rot={stageRot}
-                step={step}
-                tool={state.tool}
-                coneSlot={state.coneSlot}
-                selection={state.selection}
-                dispatch={dispatch}
-                worldRef={worldRef}
-                writer={writer}
-                rules={rules}
-                zones={physics.zones}
-                ballMax={BALL.maxCount}
-                pendingPlayerId={pendingPlayerId}
-                onPlayerPlaced={() => setPendingPlayerId(null)}
-                showToast={(m, a) => toast.show(m, a ? { action: a } : undefined)}
-                showGrid={showGrid}
-                showGridLabels={prefs.showGridLabels}
-                showRuleZones={showRuleZones}
-                largeTargets={prefs.a11y.largeTargets}
-                twoZone={prefs.a11y.twoZone}
-                onEraseIds={eraseIds}
-                epoch={state.epoch}
-                // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와
-                // 위치 이동이 한 시계로 끝난다. immediate(시점 점프)는 EditorStage 가 epoch 로
-                // 스스로 가려낸다.
-                transitionMs={stepTransitionMs(step, { immediate: false, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion) })}
-              />
+        {/* 정렬 상자 — 판 덩어리를 가운데 세우고 크롬 예산의 패딩 한 행을 먹는다.
+            패딩은 예산의 한 행이다(§5.2 '코트 래퍼 좌우 48 → 24 · 상하 40 → 16'). 숫자를 여기
+            직접 적지 않는다 — 예산표와 화면이 갈라지면 표가 거짓말을 한다.
+            ⚠️ 이 div 는 **center + center + 비어 있지 않은 padding 을 가진 유일한 div** 로 남는다
+            (narrow.test.tsx:179-201 이 그 선택자로 이 상자를 찾는다). 판 덩어리에는 padding 을
+            주지 않는다 — 주는 순간 저 테스트가 두 개를 찾아 빨간불이 난다. */}
+        <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: courtPadCss(narrow) }}>
+          {/* ★ 판 덩어리 [data-board] — **코트 + 벤치가 한 물건이다**(기현 지시 2026-08-14).
+              2026-08-11 결정("판 본체 = 코트 + 트레이. 둘은 한 장의 판이다")은 DOM 과 배경색에는
+              이미 있었는데 **레터박스가 무효로 만들고 있었다**: 1024×600 에서 남는 폭 172px 이
+              좌우 각 86px 로 갈려 칩과 코트 사이에 86px 죽은 띠를 만들었다. 그 폭을 트레이에
+              흘려보내는 것이 이 상자다(근거·숫자는 boardLayout.ts 머리말).
+
+              · flexDirection={trayAxis} — 가로 화면이면 트레이가 오른쪽, 세로면 아래.
+              · 가로는 height:'100%' 로 세로를 다 쓰고 폭은 shrink-to-fit + maxWidth:'100%';
+                세로는 width:'100%' 로 폭을 다 쓰고 높이를 maxHeight:'100%' 로 가둔다.
+                이 한 줄이 §4.1 의 두 국면(세로 제약/폭 제약)을 함께 처리한다.
+              · minWidth/minHeight 0 — 없으면 min-*:auto 가 shrink 를 막아 폭 제약 기기에서
+                판이 정렬 상자를 넘친다(§4.1 함정 2).
+              · **gap·padding 을 주지 않는다.** 코트 칸과 트레이가 맞닿는 인접축 빈틈이 정확히
+                0 이라는 것이 이 설계가 보증하는 유일한 것이고, 그 보증의 실체가 이 '없음' 이다. */}
+          <div
+            data-board=""
+            style={{
+              display: 'flex',
+              flexDirection: trayAxis,
+              ...(portrait ? { width: '100%' } : { height: '100%' }),
+              maxWidth: '100%',
+              maxHeight: '100%',
+              minWidth: 0,
+              minHeight: 0,
+            }}
+          >
+            {/* 코트 칸 — 자기 **종횡비만큼만** 차지한다. 남는 폭은 전부 트레이로 흘러간다.
+                aspectRatio 는 반드시 `def`(courtDefFor)에서 뽑는다 — `view` 나 측정된 rect 로
+                만들면 각각 §3 불변식 1 위반과 쌍안정 되먹임이 된다(boardLayout.ts 의 그 함수 ⚠️). */}
+            <div
+              style={{
+                flex: '0 1 auto',
+                minWidth: 0,
+                minHeight: 0,
+                position: 'relative',
+                aspectRatio: courtAspect,
+                ...(portrait ? { width: '100%' } : { height: '100%' }),
+              }}
+            >
+              <div style={{ position: 'relative', width: '100%', height: '100%', filter: 'drop-shadow(0 18px 30px rgba(0,0,0,.45))' }}>
+                <EditorStage
+                  ref={stageRef}
+                  drill={drill}
+                  rot={stageRot}
+                  step={step}
+                  tool={state.tool}
+                  coneSlot={state.coneSlot}
+                  selection={state.selection}
+                  dispatch={dispatch}
+                  worldRef={worldRef}
+                  writer={writer}
+                  rules={rules}
+                  zones={physics.zones}
+                  ballMax={BALL.maxCount}
+                  pendingPlayerId={pendingPlayerId}
+                  onPlayerPlaced={() => setPendingPlayerId(null)}
+                  showToast={(m, a) => toast.show(m, a ? { action: a } : undefined)}
+                  showGrid={showGrid}
+                  showGridLabels={prefs.showGridLabels}
+                  showRuleZones={showRuleZones}
+                  largeTargets={prefs.a11y.largeTargets}
+                  twoZone={prefs.a11y.twoZone}
+                  onEraseIds={eraseIds}
+                  epoch={state.epoch}
+                  // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와
+                  // 위치 이동이 한 시계로 끝난다. immediate(시점 점프)는 EditorStage 가 epoch 로
+                  // 스스로 가려낸다.
+                  transitionMs={stepTransitionMs(step, { immediate: false, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion) })}
+                />
+              </div>
             </div>
             {/* 2026-08-14: 여기 있던 StageControls(코트 위 position:absolute 7개 묶음)를 해체했다.
                 줌 3개는 {toolRail} 맨 위로, 격자·골 지역 가이드·도움말은 [보기] 팝오버 안으로,
                 [속성]은 하단 바로 갔다(StageControls.tsx 머리말이 근거와 실측을 갖는다).
-                이제 코트 칸 안에 흐름 밖 요소가 하나도 없다 — §4.5 의 가장자리 56px 고무줄 띠가
-                네 변 모두 비었고, P4 의 edge-pan 게이트가 그것을 못박는다. */}
+                이제 판 덩어리 안에 흐름 밖 요소가 하나도 없다 — §4.5 의 가장자리 56px 고무줄 띠가
+                네 변 모두 비었고, EditorWorkspace.board.test.tsx 의 edge-pan 게이트가 그것을 못박는다. */}
+            {toolRail}
           </div>
-          {toolRail}
         </div>
 
         {isBoard ? (

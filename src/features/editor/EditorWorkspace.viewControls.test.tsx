@@ -88,11 +88,14 @@ describe('뷰 컨트롤이 실제로 이사했다 — 소속 (설계서 §3-ㄱ�
       const btn = screen.getByRole('button', { name });
       expect(tray.contains(btn), `${name} 가 기둥 밖이다`).toBe(true);
     }
-    // 코트 칸(패딩을 먹는 그 상자) 안에는 흐름 밖 요소가 하나도 없다 — §4.5 숨은 이득의
-    // 예고편이다(본 게이트는 P4). 코트 <svg> 안쪽 장식은 aria-hidden 이라 여기 안 걸린다.
-    const courtCell = [...main.querySelectorAll('div')].find(
-      (d) => d.style.alignItems === 'center' && d.style.justifyContent === 'center' && d.style.padding !== '',
-    )!;
+    // 코트 칸 안에는 흐름 밖 요소가 하나도 없다 — §4.5 숨은 이득의 예고편이다(본 게이트는
+    // EditorWorkspace.board.test.tsx). 코트 <svg> 안쪽 장식은 aria-hidden 이라 여기 안 걸린다.
+    // ⚠️ 2026-08-14 P3 로 **선택자만** 옮겼다: 여기 있던 "패딩을 먹는 상자" 는 이제 판 덩어리를
+    //    가운데 세우는 **정렬 상자**이고 그 안에는 트레이도 들어 있다(=벤치 배지의 absolute 가
+    //    잡힌다). 이 it 이 뜻하는 '코트 칸' 은 판 덩어리의 **첫 칸**이라 그것을 직접 집는다.
+    //    단언의 뜻은 한 글자도 안 바뀌었다 — 오히려 정확해졌다.
+    const courtCell = main.querySelector<HTMLElement>('[data-board] > div')!;
+    expect(courtCell, '코트 칸 선택자가 낡았다').not.toBeNull();
     const floating = [...courtCell.querySelectorAll<HTMLElement>('*')].filter(
       (el) => el.style.position === 'absolute' || el.style.position === 'fixed',
     );

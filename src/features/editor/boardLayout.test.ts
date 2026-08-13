@@ -1,0 +1,307 @@
+// P3 완료 판정 — **인접축 빈틈 0** 과 유동 트레이의 숫자들 (설계서 §4.1·§4.6·위험 3).
+//
+// jsdom 은 레이아웃을 계산하지 않는다 — `getBoundingClientRect()` 가 전부 0 이라 "코트 칸 rect 의
+// 오른쪽 변 === nav rect 의 왼쪽 변" 을 브라우저에게 물어볼 수 없다. 그래서 두 겹으로 잡는다:
+//   ① **계산** — 화면이 쓰는 flex 규칙의 순수 함수 사본(boardSplitPx)으로 등식을 증명한다.
+//   ② **계약** — 그 계산이 화면과 같은 규칙을 재고 있는지를 DOM·소스에서 못박는다
+//      (판 덩어리에 gap·padding·border 가 없고, 자식이 정확히 둘이다 — boardContract.test.tsx).
+// ①만 두면 "모형이 자기 자신을 증명" 하는 사본 문제이고, ②만 두면 숫자가 없다.
+//
+// ⚠️ **실브라우저 확인이 여전히 필요하다**: 여기 있는 것은 flex 알고리즘의 *사본*이지 브라우저가
+// 아니다. 특히 `aspect-ratio` + `flex-basis:auto` 조합에서 "확정된 교차 크기로부터 주축 크기를
+// 뽑는" 경로는 사본이 흉내낼 수 없는 부분이 남는다. 기현님 실기 항목: 칩과 코트 사이에 틈이
+// 보이는가(§6 실기 확인 2번).
+import { describe, expect, it } from 'vitest';
+import { boardSplitPx, courtCellAspectRatio, courtCellAspectRatioCss } from './boardLayout.ts';
+import {
+  TRAY_MAX_COLS,
+  trayBenchHeightPx,
+  trayColumnsAt,
+  trayFixedHeightPx,
+  trayRailMaxWidthPx,
+  trayRailWidthPx,
+} from './trayMetrics.ts';
+import { COURT_MODES, COURT_SIZES, courtDefFor } from '../../model/court.ts';
+import { COURT_PAD_PX, chromeHeightPx, chromeWidthPx, courtScale } from '../../app/chromeBudget.ts';
+import type { ChromeState } from '../../app/chromeBudget.ts';
+import type { StageRot } from '../../render/useStageMetrics.ts';
+
+// ── 종횡비는 def 에서만 온다 ────────────────────────────────────────────────────────
+
+describe('courtCellAspectRatio — 코트 정의에서만 나온다 (§4.1 함정 3)', () => {
+  it.each(COURT_MODES)('%s: 3크기 × rot 0/90 이 전부 def 의 vbW/vbH 다', (mode) => {
+    for (const size of COURT_SIZES) {
+      const def = courtDefFor(mode, size);
+      expect(courtCellAspectRatio(mode, size, 0)).toBe(def.vbW / def.vbH);
+      expect(courtCellAspectRatio(mode, size, 90)).toBe(def.vbH / def.vbW);
+      // CSS 표기는 반올림 없이 그대로 — 부동소수가 화면에 안 샌다.
+      expect(courtCellAspectRatioCss(mode, size, 0)).toBe(`${def.vbW} / ${def.vbH}`);
+      expect(courtCellAspectRatioCss(mode, size, 90)).toBe(`${def.vbH} / ${def.vbW}`);
+    }
+  });
+
+  it('대조군: 회전하면 값이 실제로 뒤집힌다 — rot 을 무시하는 구현을 거른다', () => {
+    // full 30×18 은 825×525 라 0 에서 1.5714, 90 에서 0.6364 다.
+    expect(courtCellAspectRatio('full', '30x18', 0)).toBeCloseTo(1.5714, 4);
+    expect(courtCellAspectRatio('full', '30x18', 90)).toBeCloseTo(0.6364, 4);
+    expect(courtCellAspectRatio('full', '30x18', 0) * courtCellAspectRatio('full', '30x18', 90)).toBeCloseTo(1, 12);
+  });
+
+  it('코트 크기 3단이 서로 다른 비를 준다 — size 를 무시하는 구현을 거른다', () => {
+    const ars = COURT_SIZES.map((s) => courtCellAspectRatio('full', s, 0));
+    expect(new Set(ars).size).toBe(COURT_SIZES.length);
+  });
+});
+
+// ── 인접축 빈틈 0 ───────────────────────────────────────────────────────────────────
+
+/** 정렬 상자의 안쪽 크기 = 창 − 크롬 + **트레이 최소폭**.
+ *  `courtBoxPx` 는 크롬에서 트레이 93 을 이미 빼 두었는데(그 행의 뜻이 "트레이 **최소**폭"
+ *  이다 — chromeBudget.ts 의 그 주석), 정렬 상자는 트레이까지 함께 담으므로 도로 더한다. */
+function alignBoxPx(viewport: { w: number; h: number }, state: ChromeState, hitPx: number) {
+  return {
+    w: viewport.w - chromeWidthPx(state) + trayRailWidthPx(hitPx),
+    h: viewport.h - chromeHeightPx(state),
+  };
+}
+
+/** 설계서 §4.6·§5-P3 이 이름으로 부르는 기기들. narrow 는 실제 판정(창 폭 < 1100)에서 뽑는다 —
+ *  손으로 적으면 800×600 을 '넓은 창' 으로 두는 식의 헛계산이 슬며시 들어온다. */
+const DEVICES = [
+  { name: '1024×600', w: 1024, h: 600 },
+  { name: '800×480 (7인치)', w: 800, h: 480 },
+  { name: '1280×800', w: 1280, h: 800 },
+  { name: '1920×1080', w: 1920, h: 1080 },
+  { name: '480×800 (세로)', w: 480, h: 800 },
+] as const;
+const HITS = [44, 56] as const;
+const INSPECTORS = ['hidden', 'overlay', 'pinned'] as const;
+
+/** 인스펙터 붙박이는 컨테이너 폭 ≥1100 에서만 성립한다(inspectorLayout) — 못 서는 조합은 뺀다. */
+function states(w: number): ChromeState[] {
+  const narrow = w < 1100;
+  return INSPECTORS.filter((i) => i !== 'pinned' || !narrow).map((inspector) => ({ narrow, inspector }));
+}
+
+describe('★ 인접축 빈틈 0 — 코트 칸 오른쪽 변 === 트레이 왼쪽 변', () => {
+  it('5기기 × 3코트 × 3크기 × 인스펙터 3모드 × hit 2값에서 등식이 성립한다', () => {
+    let checked = 0;
+    for (const dev of DEVICES) {
+      for (const state of states(dev.w)) {
+        for (const hit of HITS) {
+          const avail = alignBoxPx(dev, state, hit);
+          if (avail.w <= 0 || avail.h <= 0) continue; // 480 세로 + 핀은 애초에 못 선다
+          for (const mode of COURT_MODES) {
+            for (const size of COURT_SIZES) {
+              const rot = courtScale(mode, { w: avail.w - trayRailWidthPx(hit), h: avail.h }, size).rot;
+              const split = boardSplitPx(avail, courtCellAspectRatio(mode, size, rot), hit);
+              // 판 덩어리 안에 gap·padding·border 가 없으므로 두 칸의 합이 곧 판 폭이다.
+              expect(split.courtW + split.trayW, `${dev.name} ${mode} ${size} hit${hit}`).toBeCloseTo(split.boardW, 9);
+              expect(split.courtW).toBeGreaterThan(0);
+              checked += 1;
+            }
+          }
+        }
+      }
+    }
+    // 축을 실제로 다 돌았는지 — 루프가 조용히 0회 돌면 위 단언은 전부 없는 것이다.
+    expect(checked).toBeGreaterThanOrEqual(5 * 2 * 2 * 9);
+  });
+
+  it('대조군: 판 덩어리에 gap 이 8px 있었다면 등식이 깨진다', () => {
+    // "빈틈 0" 이 자명한 항등식이 아니라 **gap·padding 이 없다는 사실**에서 나온다는 것을
+    // 못박는다. 이 대조군이 없으면 위 it 은 boardSplitPx 의 정의를 스스로 되뇌는 것뿐이다.
+    const avail = { w: 1000, h: 468 };
+    const split = boardSplitPx(avail, courtCellAspectRatio('full', '30x18', 0), 44);
+    expect(split.courtW + 8 + split.trayW).not.toBeCloseTo(split.boardW, 6);
+  });
+});
+
+// ── §4.6 축척표 — 유동 트레이가 코트를 한 눈금도 안 줄인다 ────────────────────────────
+
+describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', () => {
+  it.each(DEVICES.filter((d) => d.w >= d.h))('$name: 재설계 전후 pxPerUnit 이 정확히 같다', (dev) => {
+    for (const state of states(dev.w)) {
+      for (const mode of COURT_MODES) {
+        // 전: 트레이가 93 으로 못박혀 있던 시절의 코트 상자.
+        const before = { w: dev.w - chromeWidthPx(state), h: dev.h - chromeHeightPx(state) };
+        if (before.w <= 0) continue;
+        const rot = courtScale(mode, before).rot;
+        // 후: 코트 칸이 자기 종횡비만큼만 차지하고 남는 폭을 트레이가 먹는다.
+        const avail = alignBoxPx(dev, state, 44);
+        const split = boardSplitPx(avail, courtCellAspectRatio(mode, undefined, rot), 44);
+        const def = courtDefFor(mode, undefined);
+        const vb = rot === 90 ? { w: def.vbH, h: def.vbW } : { w: def.vbW, h: def.vbH };
+        const after = Math.min(split.courtW / vb.w, split.courtH / vb.h);
+        expect(after, `${dev.name} ${mode} ${state.inspector}`).toBeCloseTo(
+          courtScale(mode, before).pxPerUnit,
+          6,
+        );
+      }
+    }
+  });
+
+  it('1024×600 narrow full — 트레이가 93 → 240(5열)이 되고 코트는 0.8914 그대로다', () => {
+    const state: ChromeState = { narrow: true, inspector: 'hidden' };
+    const before = { w: 1024 - chromeWidthPx(state), h: 600 - chromeHeightPx(state) };
+    expect(before).toEqual({ w: 907, h: 468 });
+    const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
+    expect(avail).toEqual({ w: 1000, h: 468 });
+    const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
+    expect(split.trayW).toBe(trayRailMaxWidthPx(44));
+    expect(split.trayW).toBe(240);
+    expect(trayColumnsAt(split.trayW, 44)).toBe(5);
+    expect(split.courtW).toBeCloseTo(468 * (825 / 525), 6);
+    expect(split.courtW / 825).toBeCloseTo(0.8914, 4);
+    // 상한을 넘긴 폭은 판 **바깥**의 대칭 여백이다 — 코트↔트레이 사이가 아니다.
+    expect(split.outerW).toBeCloseTo(1000 - split.boardW, 9);
+  });
+
+  it('800×480 narrow full — 트레이 229(4열). 설계서 §4.6 의 그 칸이다', () => {
+    const state: ChromeState = { narrow: true, inspector: 'hidden' };
+    const avail = alignBoxPx({ w: 800, h: 480 }, state, 44);
+    const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
+    expect(Math.round(split.trayW)).toBe(229);
+    expect(trayColumnsAt(split.trayW, 44)).toBe(4);
+  });
+
+  it('1280×800 핀 full — 폭 제약이라 트레이가 하한 93 에서 멈춘다 = 오늘과 같은 배치', () => {
+    const state: ChromeState = { narrow: false, inspector: 'pinned' };
+    const avail = alignBoxPx({ w: 1280, h: 800 }, state, 44);
+    const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
+    expect(split.trayW).toBe(trayRailWidthPx(44));
+    expect(split.courtW).toBe(742);
+    expect(split.courtW / 825).toBeCloseTo(0.8994, 4);
+    // 이 국면에서는 판이 정렬 상자를 꽉 채운다 — 바깥 여백이 0 이다.
+    expect(split.outerW).toBeCloseTo(0, 9);
+  });
+
+  it('half/flat 은 남는 폭이 커서 상한에 걸린다 — 없으면 9열 슬래브가 된다', () => {
+    const state: ChromeState = { narrow: true, inspector: 'hidden' };
+    const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
+    for (const mode of ['half', 'flat'] as const) {
+      const ar = courtCellAspectRatio(mode, undefined, 0);
+      const split = boardSplitPx(avail, ar, 44);
+      expect(split.trayW, mode).toBe(trayRailMaxWidthPx(44));
+      // 상한이 없었다면 몇 열이 됐을까 — 실측으로 남긴다(설계서 §4.1 의 '9열').
+      expect(trayColumnsAt(avail.w - 468 * ar, 44)).toBe(TRAY_MAX_COLS);
+      expect(Math.floor((avail.w - 468 * ar + 5) / 49)).toBeGreaterThanOrEqual(9);
+    }
+  });
+});
+
+// ── 위험 3 — 고정 구역이 판 높이를 넘지 않는다 ────────────────────────────────────────
+
+describe('위험 3 — 서랍 손잡이가 화면 밖으로 나가지 않는다', () => {
+  // 넘치면 작도·설명에 **영영 못 닿는다**(RAIL_STYLE_H 가 기록한 "1번 선수를 영영 못 잡는다"
+  // 사고의 세로판). 벤치만 스크롤러이므로 나머지는 전부 판 높이 안에 들어와야 한다.
+  it('5기기 × hit 2값 × 3코트에서 trayFixedHeightPx ≤ 판 높이', () => {
+    let checked = 0;
+    const over: string[] = [];
+    for (const dev of DEVICES.filter((d) => d.w >= d.h)) {
+      for (const state of states(dev.w)) {
+        for (const hit of HITS) {
+          const avail = alignBoxPx(dev, state, hit);
+          if (avail.w <= 0 || avail.h <= 0) continue;
+          for (const mode of COURT_MODES) {
+            const rot = courtScale(mode, { w: avail.w - trayRailWidthPx(hit), h: avail.h }, mode === 'full' ? undefined : undefined).rot;
+            const split = boardSplitPx(avail, courtCellAspectRatio(mode, undefined, rot), hit);
+            const cols = trayColumnsAt(split.trayW, hit);
+            const fixed = trayFixedHeightPx(hit, cols);
+            if (fixed > split.courtH) over.push(`${dev.name} ${mode} hit${hit} ${state.inspector}: ${fixed} > ${split.courtH}`);
+            checked += 1;
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(4 * 2 * 3);
+    expect(over).toEqual([]);
+  });
+
+  it('대조군: 도구가 안 접히던 시절(1열 = 고정 347)이라면 넘쳤을 자리가 있다', () => {
+    // 이 대조군이 없으면 위 it 은 "trayFixedHeightPx 가 늘 작다" 로도 통과한다.
+    // 2열(93px)에서는 줌 2줄 93 + 도구 4줄 215 라 고정 합이 396 이다 — P2 종료 시점의 값이다.
+    expect(trayFixedHeightPx(44, 2)).toBe(396);
+    expect(trayFixedHeightPx(44, 5)).toBe(182);
+    expect(trayFixedHeightPx(44, 2)).toBeGreaterThan(348); // 800×480 narrow 의 판 높이
+  });
+});
+
+// ── 완료 판정: 1024×600 에서 트레이 240px, 5열, 벤치+도구 스크롤 없이 ────────────────────
+
+describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
+  it('고정 182 + 벤치 181 = 363 ≤ 468 (hit 44, 5열, 선수 8명)', () => {
+    const state: ChromeState = { narrow: true, inspector: 'hidden' };
+    const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
+    const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
+    const cols = trayColumnsAt(split.trayW, 44);
+    expect(cols).toBe(5);
+    const fixed = trayFixedHeightPx(44, cols);
+    const bench = trayBenchHeightPx(44, cols, 8);
+    expect(fixed).toBe(182);
+    expect(bench).toBe(181);
+    expect(fixed + bench).toBeLessThanOrEqual(split.courtH);
+    expect(split.courtH).toBe(468);
+  });
+
+  it('대조군: 2열(재설계 전 폭)이었다면 같은 화면에서 넘친다 — 그래서 스크롤이 있었다', () => {
+    expect(trayFixedHeightPx(44, 2) + trayBenchHeightPx(44, 2, 8)).toBeGreaterThan(468);
+  });
+
+  it('큰 터치 타깃(hit 56)에서도 스크롤이 없다', () => {
+    const state: ChromeState = { narrow: true, inspector: 'hidden' };
+    const avail = alignBoxPx({ w: 1024, h: 600 }, state, 56);
+    const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 56);
+    const cols = trayColumnsAt(split.trayW, 56);
+    expect(cols).toBe(4);
+    expect(trayFixedHeightPx(56, cols) + trayBenchHeightPx(56, cols, 8)).toBeLessThanOrEqual(split.courtH);
+  });
+
+  it('크롬 예산의 패딩 행이 정렬 상자 계산에 실제로 들어가 있다', () => {
+    // alignBoxPx 가 예산을 안 보고 창 크기만 쓰면 위 숫자가 전부 8~24px 씩 어긋난다.
+    const narrowState: ChromeState = { narrow: true, inspector: 'hidden' };
+    const wideState: ChromeState = { narrow: false, inspector: 'hidden' };
+    const d = alignBoxPx({ w: 1200, h: 800 }, wideState, 44).w - alignBoxPx({ w: 1200, h: 800 }, narrowState, 44).w;
+    expect(d).toBe(-84 - (COURT_PAD_PX.wide.x - COURT_PAD_PX.narrow.x) * 2);
+  });
+});
+
+// ── 트레이 폭 식 ────────────────────────────────────────────────────────────────────
+
+describe('trayMetrics — 하한·상한 식', () => {
+  it('하한 2열 = 93/117(기존 값 그대로), 상한 5열 = 240/300', () => {
+    expect(trayRailWidthPx(44)).toBe(93);
+    expect(trayRailWidthPx(56)).toBe(117);
+    expect(trayRailMaxWidthPx(44)).toBe(240);
+    expect(trayRailMaxWidthPx(56)).toBe(300);
+  });
+
+  it('상한 폭에는 칩이 정확히 5열 들어간다 — 반 칸이 남지 않는다', () => {
+    for (const hit of HITS) {
+      expect(trayColumnsAt(trayRailMaxWidthPx(hit), hit)).toBe(5);
+      expect(trayColumnsAt(trayRailMaxWidthPx(hit) - 1, hit)).toBe(4);
+      expect(trayColumnsAt(trayRailWidthPx(hit), hit)).toBe(2);
+    }
+  });
+
+  it('열 수는 5 를 넘지 않는다 — 화면의 maxWidth 와 계산이 같은 상한을 쓴다', () => {
+    expect(trayColumnsAt(10_000, 44)).toBe(TRAY_MAX_COLS);
+  });
+});
+
+// ── rot 은 여전히 위에서 내려온 값이다 (P1 의 단방향이 안 깨졌다) ──────────────────────
+
+describe('종횡비가 rot 되먹임을 만들지 않는다 (§4.2)', () => {
+  it('맞춰진 코트 칸을 다시 재도 계산에 되먹이지 않는다 — 입력이 def·rot 뿐이다', () => {
+    // 쌍안정의 두 고정점(0.5527 / 0.7176)은 useStageRot.test.ts 가 박제해 뒀다. 여기서는
+    // **이 파일의 함수가 rect 를 아예 안 받는다**는 것을 시그니처로 못박는다: 인자가 셋이고
+    // 셋 다 모델 값이다. 측정값을 넣을 자리가 없으면 고리가 닫힐 자리도 없다.
+    expect(courtCellAspectRatio.length).toBe(3);
+    const rots: StageRot[] = [0, 90];
+    for (const rot of rots) {
+      const a = courtCellAspectRatio('full', '30x18', rot);
+      // 같은 입력이면 몇 번을 불러도 같은 값 — 상태가 없다.
+      expect(courtCellAspectRatio('full', '30x18', rot)).toBe(a);
+    }
+  });
+});

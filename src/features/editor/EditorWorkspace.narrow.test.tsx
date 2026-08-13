@@ -163,9 +163,24 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //       [코트 비우기]·[내보내기]·속도 스위치의 자리는 그대로다(§3 불변식 1).
     //    설계서 §6 의 "깨질 테스트 판정" 표는 이 해시의 갱신을 P3·P4 두 번으로 적었지만
     //    **P2 도 판 DOM 을 바꾼다**(컨트롤의 소속이 바뀌므로) — 표가 한 번을 빠뜨린 것이다.
+    //    2026-08-14 P3(유동 트레이 + 종횡비 코트 칸)의 diff 는 **hunk 5개**다. 같은 절차로
+    //    갱신 전 커밋(940355a)을 `git archive` 로 풀어 같은 덤프를 뜨고 `<main>` 전문을 diff
+    //    했다 — 코트 `<svg>` 안쪽·헤더·하단 바·칩 자체는 **한 줄도 안 움직였다**:
+    //     · 트레이 축을 쥐던 바깥 div(`flex-direction: row`)가 **사라지고**, 그 자리에 정렬
+    //       상자(패딩 20px 24px)가 올라왔다. 정렬 상자 안에 **판 덩어리 `[data-board]`** 와
+    //       **코트 칸**(`aspect-ratio: 825 / 525`) 두 div 가 새로 났다. 코트 칸이 자기 종횡비
+    //       만큼만 차지하고 남는 폭이 트레이로 흘러간다 — 그것이 옛 86px 죽은 띠의 정체다.
+    //     · `nav[data-tray]` 의 `width: calc(var(--hit)*2+5px)` 못박음이 **빠지고**
+    //       `flex: 1 1 0px` · `max-width: calc(var(--hit)*5+20px)` 가 들어왔다. `min-width` 는
+    //       그대로다(값이 아니라 **뜻**이 "폭" → "최소폭" 으로 바뀐 것이다 — chromeBudget.ts 의
+    //       toolRail 행 주석에 왜 모든 수식이 그대로 참인지 적어 뒀다).
+    //     · 개체(벤치) 구역이 column → **row + wrap**(+ align-content/justify-content flex-start).
+    //       칩 줄의 93px 못박음이 `width: 100%` 로 바뀌고 중앙정렬이 flex-start 가 됐다.
+    //     · 기능 구역도 column → **row + wrap + width:100%**.
+    //     · 판 덩어리를 닫는 `</div>` 한 줄 추가.
     //    손으로 고쳐 맞추지 마라 — 깨졌다면 아래 뼈대 스냅샷의 diff 가 무엇이 달라졌는지 알려 준다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '0cdc3f178df4967bdb44e4b1f778d474061105270da01262a3a52e238f4eb1e2',
+      '4cbb9d182e593eed26553506dbf762eb5a91e6358d914b1cbf0e26f73dcef4b6',
     );
   });
 
