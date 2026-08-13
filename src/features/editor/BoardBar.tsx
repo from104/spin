@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 // §6.8 재편 — 자유 전술판 하단 바. 드릴 편집의 TransportBar 자리를 그대로 쓴다(전술판은
 // 1장짜리라 스텝 이동·재생이 없다). 레이아웃 골격을 TransportBar 와 맞춰 두 모드를 오갈 때
 // 판이 세로로 튀지 않게 한다.
@@ -69,9 +70,21 @@ export interface BoardBarProps {
   drill: Drill;
   showGrid: boolean;
   showRuleZones: boolean;
+  /** 뷰 컨트롤 두 손잡이(`[보기▾]` · `[속성]`) — 2026-08-14 기현님 지시로 코트 위 떠 있던
+   *  묶음에서 이 바로 내려왔다(설계서 §3-ㄴ: 기둥은 *판의 물리적 부품*, 하단 바는 *앱 크롬*).
+   *
+   *  ⚠️ **요소를 통째로 받는 이유**: 두 바(BoardBar·TransportBar)가 **같은 컴포넌트 인스턴스**를
+   *  써야 하고(EditorWorkspace 의 `toolRail` 과 같은 규율 — §5.1 "컨테이너만 바꾼다"), props 8개를
+   *  두 바에 복제하면 한쪽만 배선이 낡는다. 선택 prop 인 이유는 바를 떼어 렌더하는 자리가
+   *  테스트 5파일이기 때문이고, 배선이 끊기면 boardTargetBudget 의 마지막 대조군(이름 '속성'
+   *  버튼을 눌러 인스펙터를 연다)과 EditorWorkspace.viewControls.test 가 즉시 빨개진다.
+   *
+   *  **맨 끝에 둔다** — 앞선 손잡이들([코트 비우기]·[내보내기]·속도 스위치)의 x 가 한 픽셀도
+   *  안 움직여야 한다(§3 불변식 1 과 같은 규율. 3.9 가 도움말을 묶음 끝에 단 것과 같다). */
+  viewControls?: ReactNode;
 }
 
-export function BoardBar({ courtMode, courtSize, courtLocked, onReset, onResetGoals, drill, showGrid, showRuleZones }: BoardBarProps) {
+export function BoardBar({ courtMode, courtSize, courtLocked, onReset, onResetGoals, drill, showGrid, showRuleZones, viewControls }: BoardBarProps) {
   // 비우기는 **되돌릴 수 없다**(BOARD_SET 이 히스토리를 비운다 — actions.ts 주석).
   // 그래서 반드시 확인을 받는다. 되돌리기로 살릴 수 있는 조작이었다면 물을 이유가 없다.
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -145,6 +158,8 @@ export function BoardBar({ courtMode, courtSize, courtLocked, onReset, onResetGo
             {lockHint}
           </p>
         </div>
+
+        {viewControls}
       </div>
 
       <Modal

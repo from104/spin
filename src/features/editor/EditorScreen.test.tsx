@@ -62,7 +62,8 @@ async function openDrill() {
   return { user, drill: created, stage: screen.getByRole('application', { name: '코트 편집 영역' }) };
 }
 
-/** 코트 우상단 [속성]로 인스펙터를 편다 — 2026-08-12 결정 ③A 로 기본 접힘 오버레이가 됐다. */
+/** [속성]으로 인스펙터를 편다 — 2026-08-12 결정 ③A 로 기본 접힘 오버레이가 됐다.
+ *  (2026-08-14: 그 손잡이는 코트 우상단이 아니라 **하단 바**다 — 설계서 §3-ㄴ.) */
 async function openInspector(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: '속성' }));
   return screen.getByRole('complementary', { name: '드릴 속성' });
@@ -75,6 +76,21 @@ describe('드릴 편집 모드', () => {
     // 기본 접힘 — 판을 덮지 않는다.
     expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
     expect(await openInspector(user)).toBeInTheDocument();
+  });
+
+  // 2026-08-14(설계서 §5-P2): 뷰 컨트롤이 코트 위에서 **하단 바**로 내려왔다. 하단 바는
+  // 화면마다 다른 컴포넌트다(전술판 BoardBar / 드릴 편집 TransportBar) — BoardScreen 쪽만
+  // 확인하면 **드릴 편집에서만 손잡이가 없는** 갈래를 못 본다(5차 검증관이 '시연 화면만
+  // 놓쳤던' 것과 같은 형태의 헛통과다).
+  it('뷰 컨트롤 두 손잡이가 트랜스포트 바 안에 있다 — 판을 그리는 화면이 둘이다', async () => {
+    await openDrill();
+    const barRow = screen.getByRole('button', { name: '재생' }).closest('div')!.parentElement!;
+    for (const name of ['보기', '속성']) {
+      expect(barRow.contains(screen.getByRole('button', { name })), name).toBe(true);
+    }
+    // 코트 위 묶음은 해체됐다 — 격자·가이드·도움말은 팝오버를 열어야 나온다.
+    expect(screen.queryByRole('button', { name: '격자 표시 전환' })).toBeNull();
+    expect(screen.getByRole('group', { name: '확대' })).toBeInTheDocument();
   });
 
   it('전술판과 달리 스텝 UI 가 있다', async () => {

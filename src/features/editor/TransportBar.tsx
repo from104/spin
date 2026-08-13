@@ -20,7 +20,7 @@
 // Space/Enter 로 놓고 Esc 로 되돌린다. 수식키 조합을 쓰지 않는 것은 입에 문 젓가락으로 치는
 // 사용자에게 동시 누르기가 곧 실패이기 때문이다.
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
 import type { PlaybackSpeed } from '../../store/playback/PlaybackProvider.tsx';
@@ -46,6 +46,9 @@ export interface TransportBarProps {
   onTogglePlay(): void;
   speed: PlaybackSpeed;
   onCycleSpeed(): void;
+  /** 뷰 컨트롤 두 손잡이(`[보기▾]` · `[속성]`). 근거·규율은 BoardBar 의 같은 prop 주석에 있다 —
+   *  두 바가 **같은 인스턴스**를 받고, 바 안에서는 **맨 끝**이라 앞선 표적이 안 밀린다. */
+  viewControls?: ReactNode;
 }
 
 const NEXT_SPEED: Record<PlaybackSpeed, PlaybackSpeed> = { 0.5: 1, 1: 2, 2: 0.5 };
@@ -62,7 +65,7 @@ const ICON_BTN = {
   flex: 'none',
 } as const;
 
-export function TransportBar({ drill, stepId, onSelectStep, onReorderStep, onAddStep, playing, onTogglePlay, speed, onCycleSpeed }: TransportBarProps) {
+export function TransportBar({ drill, stepId, onSelectStep, onReorderStep, onAddStep, playing, onTogglePlay, speed, onCycleSpeed, viewControls }: TransportBarProps) {
   const steps = drill.steps;
   const idx = Math.max(
     0,
@@ -334,6 +337,8 @@ export function TransportBar({ drill, stepId, onSelectStep, onReorderStep, onAdd
         </button>
 
         <SpeedLimitSwitch />
+
+        {viewControls}
       </div>
     </div>
   );

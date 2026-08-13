@@ -157,6 +157,10 @@ describe('자유 전술판 (대문)', () => {
     expect(loadPrefs().showGrid).toBe(true);
     expect(loadPrefs().showRuleZones).toBe(true);
 
+    // 2026-08-14(설계서 §5-P2): 두 토글은 코트 위 묶음에서 하단 바 [보기▾] 팝오버 안으로
+    // 들어갔다. **묻는 것은 그대로다** — 이름도 그대로고, 늘어난 것은 문 하나뿐이다.
+    await user.click(screen.getByRole('button', { name: '보기' }));
+
     await user.click(screen.getByRole('button', { name: '격자 표시 전환' }));
     expect(loadPrefs().showGrid).toBe(false);
 

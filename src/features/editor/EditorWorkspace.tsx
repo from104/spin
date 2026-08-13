@@ -29,7 +29,7 @@ import { useTrayDrag } from './useTrayDrag.ts';
 import { placeObject } from './placement.ts';
 import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
-import { StageControls } from './StageControls.tsx';
+import { ViewControls } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
 import { BoardBar } from './BoardBar.tsx';
 import { InspectorHost } from './InspectorHost.tsx';
@@ -89,7 +89,11 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // ref 로 못박는다). **Shift+?** 로 열면 ref 를 비워 폴백이 이기게 한다 — 열던 순간의
   // 포커스(코트·개체)로 돌아가야지, 쓴 적도 없는 버튼으로 끌려가면 안 된다.
   const helpTriggerRef = useRef<HTMLElement | null>(null);
-  const helpButtonRef = useRef<HTMLButtonElement | null>(null);
+  // 2026-08-14: 이 ref 가 가리키는 것은 이제 [도움말] 항목이 아니라 **[보기] 버튼**이다.
+  // 도움말은 [보기] 팝오버 **안**에서 열리고 그 팝오버는 열리기 직전에 닫히므로, 항목 자신은
+  // 도움말이 닫힐 때 이미 DOM 에 없다 — Modal 의 복귀는 isConnected 를 검사하므로(ui/Modal.tsx:70)
+  // 떼어진 노드를 주면 포커스가 아무 데도 안 간다. 남아 있는 조상 손잡이가 [보기] 다.
+  const viewButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pendingPlayerId, setPendingPlayerId] = useState<ChairId | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   // 세로 화면(§6.4 태블릿): 도구·속성을 아래로 내려 코트가 폭을 다 쓰게 한다.
@@ -346,7 +350,41 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       onTrayChange={setTrayDrawers}
       drillUses={drillUses}
       orientation={portrait ? 'horizontal' : 'vertical'}
+      // 줌 3개는 판 위가 아니라 **기둥 맨 위**다(2026-08-14, 설계서 §3-ㄱ). 부르는 대상은
+      // 예전 StageControls 와 **같은 무대 핸들**이라 단축키(Ctrl +/−/0)와 한 경로다.
+      zoom={{
+        onZoomIn: () => stageRef.current?.zoomBy(INTERACT.zoomStep),
+        onZoomOut: () => stageRef.current?.zoomBy(1 / INTERACT.zoomStep),
+        onZoomReset: () => stageRef.current?.resetZoom(),
+      }}
       onItemPointerDown={tray.start}
+    />
+  );
+
+  // 뷰 컨트롤([보기▾] · [속성]) — 하단 바 둘이 **같은 인스턴스**를 쓴다(§5.1 "컨테이너만 바꾼다").
+  // 두 바에 각자 렌더하면 전술판↔드릴 사이를 오갈 때 팝오버 개폐 state 가 날아간다.
+  const viewControls = (
+    <ViewControls
+      showGrid={showGrid}
+      onToggleGrid={toggleGrid}
+      showRuleZones={showRuleZones}
+      onToggleRuleZones={toggleRuleZones}
+      onShowHelp={() => {
+        // 버튼 문 — 닫히면 [보기] 버튼으로. ⚠️ **지금 이 줄은 이중 보증의 둘째 벨트다**:
+        // 팝오버 자신이 닫히면서 returnFocusRef 로 [보기] 에 포커스를 되돌려 놓기 때문에,
+        // 이 줄을 지워도 도움말 Modal 의 openedBy 폴백이 같은 버튼을 집는다(2026-08-14 반증
+        // 실험으로 확인 — 지우고 돌려도 15개 전건 초록이었다. 그래서 '이 줄이 없으면 깨진다'
+        // 고 적지 않는다). 남기는 이유: 도움말을 여는 문이 이 팝오버 하나가 아니게 되는 순간
+        // (직행 버튼이 다시 생기거나 메뉴가 안 닫히게 바뀌면) 폴백이 곧바로 어긋나는데,
+        // 그때는 조용히 깨진다 — Shift+? 문이 폴백에 기대는 것과 대칭으로 못박아 둔다.
+        helpTriggerRef.current = viewButtonRef.current;
+        setHelpOpen(true);
+      }}
+      viewButtonRef={viewButtonRef}
+      inspectorOpen={inspectorOpen}
+      onToggleInspector={() => setInspectorOpen((v) => !v)}
+      inspectorPanelId={inspectorPanelId}
+      inspectorButtonRef={inspectorTriggerRef}
     />
   );
 
@@ -457,24 +495,11 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 transitionMs={stepTransitionMs(step, { immediate: false, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion) })}
               />
             </div>
-            <StageControls
-              onZoomIn={() => stageRef.current?.zoomBy(INTERACT.zoomStep)}
-              onZoomOut={() => stageRef.current?.zoomBy(1 / INTERACT.zoomStep)}
-              onZoomReset={() => stageRef.current?.resetZoom()}
-              showGrid={showGrid}
-              onToggleGrid={toggleGrid}
-              showRuleZones={showRuleZones}
-              onToggleRuleZones={toggleRuleZones}
-              inspectorOpen={inspectorOpen}
-              onToggleInspector={() => setInspectorOpen((v) => !v)}
-              inspectorPanelId={inspectorPanelId}
-              inspectorButtonRef={inspectorTriggerRef}
-              onShowHelp={() => {
-                helpTriggerRef.current = helpButtonRef.current; // 버튼 문 — 닫히면 이 버튼으로
-                setHelpOpen(true);
-              }}
-              helpButtonRef={helpButtonRef}
-            />
+            {/* 2026-08-14: 여기 있던 StageControls(코트 위 position:absolute 7개 묶음)를 해체했다.
+                줌 3개는 {toolRail} 맨 위로, 격자·골 지역 가이드·도움말은 [보기] 팝오버 안으로,
+                [속성]은 하단 바로 갔다(StageControls.tsx 머리말이 근거와 실측을 갖는다).
+                이제 코트 칸 안에 흐름 밖 요소가 하나도 없다 — §4.5 의 가장자리 56px 고무줄 띠가
+                네 변 모두 비었고, P4 의 edge-pan 게이트가 그것을 못박는다. */}
           </div>
           {toolRail}
         </div>
@@ -492,6 +517,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
             showRuleZones={showRuleZones}
             onReset={() => board?.onReset()}
             onResetGoals={resetGoals}
+            viewControls={viewControls}
           />
         ) : (
           <TransportBar
@@ -504,6 +530,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
             onTogglePlay={() => playbackActions.toggle()}
             speed={speed}
             onCycleSpeed={() => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5)}
+            viewControls={viewControls}
           />
         )}
       </div>

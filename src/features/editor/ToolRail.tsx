@@ -16,6 +16,7 @@ import { numberedName } from '../../model/chairLabel.ts';
 import { IconToolNote, IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
 import { CHIP_BOX_H_CSS, CHIP_H_CSS, CHIP_ROW_GAP, CHIP_W_CSS, TRAY_ROW_MAX_CSS } from './trayMetrics.ts';
+import { ZoomGroup, type ZoomControls } from './StageControls.tsx';
 import type { TrayDragItem } from './useTrayDrag.ts';
 
 /** 트레이의 선수 주차 슬롯. 배치 여부와 상관없이 **전원**이 자리를 유지한다 —
@@ -58,6 +59,15 @@ export interface ToolRailProps {
   drillUses?: TrayDrawers;
   /** 태블릿 세로에서는 트레이를 판 **아래**에 가로로 눕힌다(§6.4). */
   orientation?: 'vertical' | 'horizontal';
+  /** 줌 3개(확대·축소·100%) — 2026-08-14 기현님 지시로 코트 위 떠 있던 묶음에서 **기둥 맨 위**로
+   *  옮겨 왔다(설계서 §3-ㄱ, StageControls.tsx 머리말이 근거를 갖는다).
+   *
+   *  ⚠️ **선택 prop 인 이유**: 트레이는 판(EditorWorkspace) 밖에서도 렌더된다 — 지금 트레이만
+   *  떼어 그리는 자리가 테스트 2파일이고, 무대(CourtStageHandle)가 없는 그 자리에 줌은 부를
+   *  대상 자체가 없다. 배선이 끊기면 조용히 사라지는 것이 대가인데, 그것은 두 통합 테스트가
+   *  **이름으로** 잡는다: boardTargetBudget 의 대조군이 `'확대'` 를 직접 찍고(구역 표본),
+   *  EditorWorkspace.viewControls.test 가 그 버튼이 `nav[data-tray]` **안**에 있는지 본다. */
+  zoom?: ZoomControls;
   /** 끌어다 놓기 연결(useTrayDrag.start). 없으면 탭만 동작한다 — 테스트·프리젠터용. */
   onItemPointerDown?(item: TrayDragItem, e: ReactPointerEvent, onTap: () => void): void;
 }
@@ -359,6 +369,7 @@ export function ToolRail({
   onTrayChange,
   drillUses,
   orientation = 'vertical',
+  zoom,
   onItemPointerDown,
 }: ToolRailProps) {
   const horiz = orientation === 'horizontal';
@@ -451,6 +462,18 @@ export function ToolRail({
   return (
     // data-tray: 코트에서 끌어온 개체를 여기 놓으면 빼낸다(useEditorPointer 가 좌표로 찾는다).
     <nav aria-label="도구" data-tray="" style={horiz ? RAIL_STYLE_H : RAIL_STYLE}>
+      {/* ─── 줌: 판을 **보는** 컨트롤. 개체·도구와 성격이 달라 구분선으로 가른다(설계서 §4.3).
+          맨 위인 이유 하나 — 개수가 3으로 **고정**이라 아래 표적의 좌표를 흔들지 않는다.
+          §3 불변식 1 의 규율대로라면 새 것은 끝에 붙이는 것이 맞지만, 그 규칙이 막는 것은
+          *사용 중에* 움직이는 것이고 줌은 개폐도 조건 분기도 없다. 대신 벤치(개체)는 개수가
+          드릴마다 변하므로 스크롤러이자 아래쪽이어야 한다. */}
+      {zoom && (
+        <>
+          <ZoomGroup orientation={orientation} onZoomIn={zoom.onZoomIn} onZoomOut={zoom.onZoomOut} onZoomReset={zoom.onZoomReset} />
+          {divider}
+        </>
+      )}
+
       {/* ─── 개체: 판에 올려놓는 말. 끌어다 놓거나, 탭해서 고른 뒤 코트를 찍는다. ─── */}
       <div
         aria-label="개체"

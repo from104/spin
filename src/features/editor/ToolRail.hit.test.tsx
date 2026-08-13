@@ -11,11 +11,12 @@
 //      세로가 제약이라 트레이 24px 는 폭 여유(§5.4 '남는 폭')에서 나오기 때문이다.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ToolRail, type ChairSlot } from './ToolRail.tsx';
 import { trayChipBoxPx, trayRailWidthPx } from './trayMetrics.ts';
-import { StageControls } from './StageControls.tsx';
+import { ViewControls, ZoomGroup } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
 import { BoardBar } from './BoardBar.tsx';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -132,33 +133,102 @@ describe('트레이 DOM — 칩·폭이 --hit 파생 calc 로 걸려 있다', ()
 
 // ── ② DOM 배선 — 코트 위·하단 바 (§5.4 "한 픽셀도 안 커진다" 목록의 복구) ──────
 
-describe('StageControls — 7개 전부 --hit', () => {
-  it('버튼 묶음이 var(--hit) 정사각이다', () => {
-    render(
-      <StageControls
-        onZoomIn={() => {}}
-        onZoomOut={() => {}}
-        onZoomReset={() => {}}
-        showGrid={false}
-        onToggleGrid={() => {}}
-        showRuleZones={false}
-        onToggleRuleZones={() => {}}
-        inspectorOpen={false}
-        onToggleInspector={() => {}}
-        inspectorPanelId="p"
-        onShowHelp={() => {}}
-      />,
-    );
-    // 3.9 에서 도움말이 **맨 끝에** 들어와 7개가 됐다 — §3 예산 내역 '스테이지 컨트롤 6
-    // (줌 3 + 토글 2 + 도움말 1)' + 인스펙터 손잡이 1 이 이 묶음의 전부다.
-    const names = ['확대', '축소', '줌 초기화', '격자 표시 전환', '골 지역 가이드 전환', '속성', '도움말'];
+// ── 옛 `StageControls` 7개 묶음의 **승격** (2026-08-14, 설계서 §5-P2) ─────────────────
+// 여기 있던 it 은 *"코트 위에 뜬 한 묶음 7개가 전부 var(--hit) 정사각이다"* 였다. 3.9 에서
+// 도움말이 맨 끝에 들어와 7개가 됐고, §3 예산 내역 '스테이지 컨트롤 6(줌 3 + 토글 2 + 도움말 1)'
+// + 인스펙터 손잡이 1 이 그 묶음의 전부였다.
+//
+// 기현님 지시로 그 묶음이 **세 집으로 흩어졌다**. 지우지 않고 뒤집는다 — 옛 이름 7개가
+// **하나도 빠짐없이, 정확히 세 집에 나뉘어** 살아 있음을 아래 세 it 이 합쳐서 못박는다.
+// 이름을 한 글자라도 바꾸면 여기와 boardTargetBudget 대조군('확대')이 함께 빨개진다.
+const OLD_STAGE_CONTROL_NAMES = ['확대', '축소', '줌 초기화', '격자 표시 전환', '골 지역 가이드 전환', '속성', '도움말'];
+
+describe('ZoomGroup — 기둥 맨 위로 간 줌 3개', () => {
+  it('세 버튼이 그대로 var(--hit) 정사각이다 — 이사했지 작아지지 않았다', () => {
+    render(<ZoomGroup orientation="vertical" onZoomIn={() => {}} onZoomOut={() => {}} onZoomReset={() => {}} />);
+    const names = ['확대', '축소', '줌 초기화'];
     for (const name of names) {
       const btn = screen.getByRole('button', { name });
       expect(btn.style.width, name).toBe('var(--hit)');
       expect(btn.style.height, name).toBe('var(--hit)');
     }
-    // 대조군: 선택자가 통째로 낡지 않았다 — 정확히 6개가 전부다.
     expect(screen.getAllByRole('button')).toHaveLength(names.length);
+    // 구역 이름은 설계서 §4.3 그대로 — 예산 대조군이 이름으로 찍는 '확대' 와 짝이다.
+    expect(screen.getByRole('group', { name: '확대' })).toBeInTheDocument();
+  });
+
+  it('세로 기둥에서 2열로 접힌다 — 1열이면 1024×600 에서 벤치가 93px 밖에 못 쓴다', () => {
+    // 실측(설계서 §4.3): 1열 줌 142 + 도구 215 + 구분선 18 = 375 / 가용 468. 2열이면 줌이 93 이라
+    // 고정 합이 326 이 된다. jsdom 은 레이아웃을 안 하므로 **wrap 선언 자체**를 계약으로 건다.
+    render(<ZoomGroup orientation="vertical" onZoomIn={() => {}} onZoomOut={() => {}} onZoomReset={() => {}} />);
+    const group = screen.getByRole('group', { name: '확대' });
+    expect(group.style.flexWrap).toBe('wrap');
+    // 폭을 못박지 않는다(P3 가 기둥을 유동 폭으로 바꾼다) — 부모 폭을 100% 로 받아 흐른다.
+    expect(group.style.width).toBe('100%');
+  });
+
+  it('가로 띠(세로 화면)에서는 안 접힌다 — 대조군', () => {
+    render(<ZoomGroup orientation="horizontal" onZoomIn={() => {}} onZoomOut={() => {}} onZoomReset={() => {}} />);
+    const group = screen.getByRole('group', { name: '확대' });
+    expect(group.style.flexWrap).toBe('nowrap');
+    expect(group.style.width).toBe('');
+  });
+});
+
+describe('ViewControls — 하단 바로 간 [보기]·[속성], 팝오버 안의 셋', () => {
+  const renderView = () =>
+    render(
+      <ViewControls
+        showGrid={false}
+        onToggleGrid={() => {}}
+        showRuleZones={false}
+        onToggleRuleZones={() => {}}
+        onShowHelp={() => {}}
+        inspectorOpen={false}
+        onToggleInspector={() => {}}
+        inspectorPanelId="p"
+      />,
+    );
+
+  it('바에 상주하는 것은 [보기]·[속성] 둘뿐이고 둘 다 --hit 파생이다', () => {
+    renderView();
+    for (const name of ['보기', '속성']) {
+      expect(screen.getByRole('button', { name }).style.minHeight, name).toBe('var(--hit)');
+    }
+    // 대조군: 팝오버가 닫혀 있으면 셋은 **DOM 에 없다**(예산 밖). 이게 재편의 −3 이다.
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+  });
+
+  it('[보기]를 열면 옛 이름 셋이 그대로 나온다 — 이름은 한 글자도 안 바꿨다', async () => {
+    renderView();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '보기' }));
+    for (const name of ['격자 표시 전환', '골 지역 가이드 전환', '도움말']) {
+      expect(screen.getByRole('button', { name }).style.minHeight, name).toBe('var(--hit)');
+    }
+  });
+
+  it('옛 7개가 세 집에 **빠짐없이** 나뉘었다 — 합집합이 정확히 그 목록이다', async () => {
+    render(
+      <>
+        <ZoomGroup orientation="vertical" onZoomIn={() => {}} onZoomOut={() => {}} onZoomReset={() => {}} />
+        <ViewControls
+          showGrid={false}
+          onToggleGrid={() => {}}
+          showRuleZones={false}
+          onToggleRuleZones={() => {}}
+          onShowHelp={() => {}}
+          inspectorOpen={false}
+          onToggleInspector={() => {}}
+          inspectorPanelId="p"
+        />
+      </>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '보기' }));
+    const names = screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent?.replace(/[▾]/g, '').trim() ?? '');
+    // [보기] 손잡이와 모달 [닫기]는 새로 난 것이라 뺀다 — 나머지가 옛 목록과 **집합으로 같다**.
+    expect(new Set(names.filter((n) => n !== '보기' && n !== '닫기'))).toEqual(new Set(OLD_STAGE_CONTROL_NAMES));
   });
 });
 
