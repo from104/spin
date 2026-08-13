@@ -10,14 +10,14 @@
 // court)까지 끌고 오는 모듈이라, AppHeader 가 그것을 통째로 지고 다니게 된다. 예산 행과의
 // 대조는 **테스트가** 양쪽을 각각 import 해서 한다(trayMetrics 가 간 길과 같다).
 import type { ComponentType } from 'react';
-import { IconHome, IconLibrary, IconSettings } from '../ui/icons.tsx';
+import { IconBoard, IconLibrary, IconSettings } from '../ui/icons.tsx';
 import type { IconProps } from '../ui/icons.tsx';
 import type { RailKey } from './screens.ts';
 
 /** 레일 3항목의 아이콘. 레일과 헤더 세그먼트가 **같은 그림**을 써야 좁은 창으로 넘어간 사용자가
  *  같은 것을 보고 있다고 알아본다 — 각자 고르면 조용히 갈라진다. */
 export const RAIL_ICONS: Record<RailKey, ComponentType<IconProps>> = {
-  board: IconHome,
+  board: IconBoard,
   drills: IconLibrary,
   settings: IconSettings,
 };

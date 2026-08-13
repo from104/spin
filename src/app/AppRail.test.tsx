@@ -95,3 +95,29 @@ describe('버전 표시', () => {
     expect(nav).toHaveTextContent(`v${pkg.version}`);
   });
 });
+
+describe('보드 아이콘', () => {
+  // 2026-08-12 재편은 화면 키를 `home`→`board` 로 개명하면서 **그림은 집을 그대로 뒀다**.
+  // 이름만 바뀐 것을 아무도 못 잡은 이유는 아이콘에 단언이 하나도 없었기 때문이라 여기서 건다.
+  it('집이 아니라 코트를 그린다 — 외곽선 + 하프웨이 선 + 골 지역 둘', () => {
+    render(<AppRail />, { wrapper: Harness });
+    const svg = screen.getByRole('button', { name: '보드' }).querySelector('svg');
+    expect(svg).not.toBeNull();
+
+    // 집에는 <rect> 가 없다(지붕 + ㄷ자 벽, path 둘뿐) — 되돌리면 이 줄부터 빨개진다.
+    expect(svg?.querySelectorAll('rect')).toHaveLength(1);
+
+    const ds = [...(svg?.querySelectorAll('path') ?? [])].map((p) => p.getAttribute('d'));
+    expect(ds).toHaveLength(2);
+    expect(ds).toContain('M12 5.5v13'); // 하프웨이 선 — 가로 정중앙(2 + 20/2)
+    expect(ds.some((d) => d?.includes('h4v6') && d.includes('h-4v6'))).toBe(true); // 골 지역 ㄷ자 둘
+  });
+
+  it('가운데 원을 그리지 않는다 — FIPFA Laws 2025 에 센터 서클이 없다', () => {
+    // 코트 그림에서 걷어낸 것(5차)을 아이콘이 도로 가르치면 안 된다. 흔한 축구 아이콘을
+    // 주워 오면 거의 반드시 <circle> 이 딸려 온다.
+    render(<AppRail />, { wrapper: Harness });
+    const svg = screen.getByRole('button', { name: '보드' }).querySelector('svg');
+    expect(svg?.querySelectorAll('circle')).toHaveLength(0);
+  });
+});

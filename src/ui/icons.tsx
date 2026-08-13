@@ -18,11 +18,22 @@ const strokeBase = {
 const fillBase = { fill: 'currentColor' as const };
 
 // ── 레일 내비게이션 (navDefs, 기본 19px) ─────────────────────────────
-export function IconHome({ size = 19, ...rest }: IconProps) {
+/** 레일 첫 항목 = **판**. 2026-08-12 재편(screens.ts:10)에서 화면 키만 `home`→`board` 로
+ *  개명하고 그림은 프로토타입의 집(`M3 10.5 12 3l9 7.5`)을 그대로 뒀던 것을 2026-08-14
+ *  기현님 지시로 판(코트)으로 바꿨다 — 레일에는 대문이 없고 판이 있다.
+ *
+ *  그림 결정 셋:
+ *  · **가운데 원을 그리지 않는다.** FIPFA Laws 2025 에 센터 서클이 없다(5차에서 코트 그림에서도
+ *    걷어냈다). 흔한 축구공/센터서클 아이콘을 그대로 쓰면 아이콘이 규칙과 어긋난 그림을 가르친다.
+ *  · **골 지역 ㄷ자 둘 + 하프웨이 선**으로 판임을 말한다. 이 셋이 이 종목 코트의 전부다.
+ *  · 안쪽 선만 `strokeWidth 1.6` — 19px 로 줄면 외곽선(2)과 골 지역 선 사이 여백이 2.2 단위
+ *    (≈1.7px)까지 좁아진다. 안쪽을 굵게 두면 둘이 뭉개져 그냥 사각형이 된다. */
+export function IconBoard({ size = 19, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
-      <path d="M3 10.5 12 3l9 7.5" />
-      <path d="M5.5 9.5V21h13V9.5" />
+      <rect x="2" y="5.5" width="20" height="13" rx="2" />
+      <path d="M12 5.5v13" strokeWidth={1.6} />
+      <path d="M2 9h4v6H2M22 9h-4v6h4" strokeWidth={1.6} />
     </svg>
   );
 }
