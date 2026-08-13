@@ -178,9 +178,20 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //       칩 줄의 93px 못박음이 `width: 100%` 로 바뀌고 중앙정렬이 flex-start 가 됐다.
     //     · 기능 구역도 column → **row + wrap + width:100%**.
     //     · 판 덩어리를 닫는 `</div>` 한 줄 추가.
+    //    2026-08-14 P4(한 물건 시각화)의 diff 는 **hunk 2개**다 — 설계서 §5-P4 가 예고한 그대로
+    //    "그림자 div 삭제 1건 + 판 덩어리 style 1건" 이고 그 밖은 한 줄도 안 움직였다. 같은
+    //    절차로 갱신 전 커밋(af02355)을 `git archive` 로 풀어 대조했다:
+    //     · 판 덩어리 style 에 `border: 1px solid var(--border)` · `border-radius: 16px` ·
+    //       `overflow: hidden` · `box-shadow: 0 18px 30px rgba(0,0,0,.45)` 넉 줄이 붙었다.
+    //     · 코트만 감싸던 **그림자 전용 div**(`filter: drop-shadow(...)`)가 여는 태그·닫는
+    //       태그 통째로 사라졌다. 그림자가 이제 코트+벤치를 함께 감싼다 = 한 물건이 된다.
+    //       (`filter` 를 버린 두 번째 이유는 후손의 `position:fixed` 기준 상자 — 판 덩어리 안에
+    //        트레이가 들어온 이상 그 함정이 트레이 쪽으로 옮겨 온다.)
+    //    배경은 양쪽 다 `var(--panel-2)` **그대로**이고 트레이의 inset 홈도 한 글자도 안 바꿨다 —
+    //    경계는 이제 색이 아니라 테두리+그림자가 만든다(설계서 §4.4).
     //    손으로 고쳐 맞추지 마라 — 깨졌다면 아래 뼈대 스냅샷의 diff 가 무엇이 달라졌는지 알려 준다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '4cbb9d182e593eed26553506dbf762eb5a91e6358d914b1cbf0e26f73dcef4b6',
+      'dd22358fe18a8639b279ff8e853b52b62d8cf2f057d574f2534f12e09bf0977a',
     );
   });
 

@@ -483,7 +483,25 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
               · minWidth/minHeight 0 — 없으면 min-*:auto 가 shrink 를 막아 폭 제약 기기에서
                 판이 정렬 상자를 넘친다(§4.1 함정 2).
               · **gap·padding 을 주지 않는다.** 코트 칸과 트레이가 맞닿는 인접축 빈틈이 정확히
-                0 이라는 것이 이 설계가 보증하는 유일한 것이고, 그 보증의 실체가 이 '없음' 이다. */}
+                0 이라는 것이 이 설계가 보증하는 유일한 것이고, 그 보증의 실체가 이 '없음' 이다.
+
+              ── P4 "한 물건" 시각화 (설계서 §4.4, 2026-08-14) ────────────────────────────
+              · boxShadow — 옛 그림자 전용 div(`filter: drop-shadow(0 18px 30px …)`)를 여기로
+                옮기고 **그 div 를 삭제했다.** 근거 셋:
+                  ① 코트만 감싸던 그림자가 코트+벤치를 **함께** 감싸야 비로소 한 물건이 된다.
+                     그림자가 코트에서 끊기면 벤치는 판에 얹힌 다른 패널로 읽힌다.
+                  ② `filter` 는 후손의 `position:fixed` **기준 상자를 만든다.** 지금 판 안에
+                     fixed 는 없지만(TrayGhost 는 `<main>` 직계다), 판 덩어리 안에 트레이가
+                     들어온 이상 그 함정이 트레이 쪽으로 옮겨 온다 — 원인째 없앤다.
+                  ③ 싸다. filter 는 알파 실루엣을 추적하고 box-shadow 는 상자 하나를 그린다.
+              · border 1px + borderRadius 16 + overflow:hidden — "테두리 하나로 묶기".
+                overflow 가 없으면 트레이만 직각으로 삐져나와 모서리가 어긋난다.
+              · **배경은 양쪽 다 var(--panel-2) 그대로 둔다**(ToolRail.tsx:111-113 의 원래 의도).
+                경계는 이제 색이 아니라 **테두리+그림자**가 만든다. 트레이의 inset 홈도 한 줄도
+                안 바꿨다 — 여태 그 홈은 86px 빈 배경 옆이라 "떠 있는 패널 가장자리" 로 읽혔고,
+                코트 그림이 홈에 **닿는 순간** 비로소 의도대로 "판에 파인 얕은 홈" 이 된다.
+              · ⚠️ 테두리는 판 덩어리의 **바깥** 변이라 코트 칸과 트레이 사이에 끼지 않는다.
+                인접축 빈틈 0 은 그대로다(EditorWorkspace.board.test.tsx 가 매번 확인한다). */}
           <div
             data-board=""
             style={{
@@ -494,6 +512,10 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
               maxHeight: '100%',
               minWidth: 0,
               minHeight: 0,
+              border: '1px solid var(--border)',
+              borderRadius: 16,
+              overflow: 'hidden',
+              boxShadow: '0 18px 30px rgba(0,0,0,.45)',
             }}
           >
             {/* 코트 칸 — 자기 **종횡비만큼만** 차지한다. 남는 폭은 전부 트레이로 흘러간다.
@@ -509,37 +531,35 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 ...(portrait ? { width: '100%' } : { height: '100%' }),
               }}
             >
-              <div style={{ position: 'relative', width: '100%', height: '100%', filter: 'drop-shadow(0 18px 30px rgba(0,0,0,.45))' }}>
-                <EditorStage
-                  ref={stageRef}
-                  drill={drill}
-                  rot={stageRot}
-                  step={step}
-                  tool={state.tool}
-                  coneSlot={state.coneSlot}
-                  selection={state.selection}
-                  dispatch={dispatch}
-                  worldRef={worldRef}
-                  writer={writer}
-                  rules={rules}
-                  zones={physics.zones}
-                  ballMax={BALL.maxCount}
-                  pendingPlayerId={pendingPlayerId}
-                  onPlayerPlaced={() => setPendingPlayerId(null)}
-                  showToast={(m, a) => toast.show(m, a ? { action: a } : undefined)}
-                  showGrid={showGrid}
-                  showGridLabels={prefs.showGridLabels}
-                  showRuleZones={showRuleZones}
-                  largeTargets={prefs.a11y.largeTargets}
-                  twoZone={prefs.a11y.twoZone}
-                  onEraseIds={eraseIds}
-                  epoch={state.epoch}
-                  // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와
-                  // 위치 이동이 한 시계로 끝난다. immediate(시점 점프)는 EditorStage 가 epoch 로
-                  // 스스로 가려낸다.
-                  transitionMs={stepTransitionMs(step, { immediate: false, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion) })}
-                />
-              </div>
+              <EditorStage
+                ref={stageRef}
+                drill={drill}
+                rot={stageRot}
+                step={step}
+                tool={state.tool}
+                coneSlot={state.coneSlot}
+                selection={state.selection}
+                dispatch={dispatch}
+                worldRef={worldRef}
+                writer={writer}
+                rules={rules}
+                zones={physics.zones}
+                ballMax={BALL.maxCount}
+                pendingPlayerId={pendingPlayerId}
+                onPlayerPlaced={() => setPendingPlayerId(null)}
+                showToast={(m, a) => toast.show(m, a ? { action: a } : undefined)}
+                showGrid={showGrid}
+                showGridLabels={prefs.showGridLabels}
+                showRuleZones={showRuleZones}
+                largeTargets={prefs.a11y.largeTargets}
+                twoZone={prefs.a11y.twoZone}
+                onEraseIds={eraseIds}
+                epoch={state.epoch}
+                // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와
+                // 위치 이동이 한 시계로 끝난다. immediate(시점 점프)는 EditorStage 가 epoch 로
+                // 스스로 가려낸다.
+                transitionMs={stepTransitionMs(step, { immediate: false, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion) })}
+              />
             </div>
             {/* 2026-08-14: 여기 있던 StageControls(코트 위 position:absolute 7개 묶음)를 해체했다.
                 줌 3개는 {toolRail} 맨 위로, 격자·골 지역 가이드·도움말은 [보기] 팝오버 안으로,

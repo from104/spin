@@ -177,6 +177,46 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
   });
 });
 
+describe('P4 — 코트와 벤치가 한 물건으로 보인다 (§4.4)', () => {
+  it('테두리·둥근 모서리·overflow·그림자가 **판 덩어리 하나**에 붙어 있다', async () => {
+    stubMedia({ portrait: false, narrow: false });
+    const { board } = await openBoard();
+    expect(board.style.border).toBe('1px solid var(--border)');
+    expect(board.style.borderRadius).toBe('16px');
+    // overflow 가 없으면 트레이만 직각으로 삐져나와 모서리가 어긋난다.
+    expect(board.style.overflow).toBe('hidden');
+    // 코트만 감싸던 그림자가 코트+벤치를 함께 감싼다 = 한 물건.
+    expect(board.style.boxShadow).toBe('0 18px 30px rgba(0,0,0,.45)');
+    expect(board.style.boxShadow).not.toContain('inset');
+  });
+
+  it('판 안에 `filter` 가 남아 있지 않다 — 칩 개별 drop-shadow 만 예외다', async () => {
+    // `filter` 는 **후손의 position:fixed 기준 상자를 만든다**(TrayGhost 함정). 판 덩어리 안에
+    // 트레이가 들어온 이상 그 함정이 트레이 쪽으로 옮겨 오므로 원인째 없앤다.
+    stubMedia({ portrait: false, narrow: false });
+    const { main, board } = await openBoard();
+    const filtered = [...main.querySelectorAll<HTMLElement>('*')].filter((el) => el.style.filter !== '');
+    // 남아 있어도 되는 것은 칩 하나하나에 붙은 2px 짜리 그림자뿐이다(트레이 안, 상자 크기 밖).
+    for (const el of filtered) {
+      expect(el.style.filter, el.tagName).toBe('drop-shadow(0 2px 3px rgba(0,0,0,.45))');
+      expect(board.children[1]!.contains(el), '칩 밖에 filter 가 생겼다').toBe(true);
+    }
+    // 대조군: 옛 그림자 전용 div 는 **사라졌다**(있으면 그림자가 코트에서 끊긴다).
+    expect(filtered.some((el) => el.style.filter.includes('18px'))).toBe(false);
+  });
+
+  it('경계는 색이 아니라 테두리가 만든다 — 배경은 양쪽 다 var(--panel-2) 그대로다', async () => {
+    stubMedia({ portrait: false, narrow: false });
+    const { board } = await openBoard();
+    const tray = board.children[1] as HTMLElement;
+    expect(tray.style.background).toBe('var(--panel-2)');
+    // 판 덩어리를 감싼 코트 컬럼도 같은 색이다 — 판이 배경에서 뜨는 것이 아니라 배경 위에 놓인다.
+    expect(board.closest('div[style*="var(--panel-2)"]')).not.toBeNull();
+    // 트레이의 inset 홈은 한 글자도 안 바꿨다 — 코트 그림이 여기 **닿아야** 홈으로 읽힌다.
+    expect(tray.style.boxShadow).toBe('inset 7px 0 12px -10px rgba(0,0,0,.55)');
+  });
+});
+
 describe('함정 3 — 줌과 인스펙터가 트레이 폭·칩 자리를 흔들지 않는다 (§3 불변식 1)', () => {
   // `aspect-ratio` 를 `view`(줌이 갈아 끼우는 viewBox)나 측정된 rect 에서 뽑으면 여기가 깨진다.
   // ⚠️ 정직하게 적어 둔다: 지금의 `zoomAt` 은 `w = vbW/z, h = vbH/z` 라 view 의 **종횡비 자체는
