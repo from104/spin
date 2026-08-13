@@ -143,8 +143,14 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
    *  없이 다시 눌렀다가 탭 임계(INTERACT.tapMaxMoveCssPx) 안에서 손을 떼면 SELECT_CLEAR 로
    *  물러난다. 움직였으면(=드래그) 선택은 그대로다.
    *  350ms/12px 안의 빠른 재탭은 여기 도달하지 않는다 — CourtStage 가 더블클릭 팬 무장으로
-   *  먼저 삼킨다(CourtStage.tsx DBL_CLICK_* — 그 계약은 P2-1 이 명시적으로 남긴다). */
-  const tapDeselectRef = useRef<{ start: Vec2; moved: boolean } | null>(null);
+   *  먼저 삼킨다(CourtStage.tsx DBL_CLICK_* — 그 계약은 P2-1 이 명시적으로 남긴다).
+   *
+   *  ⚠️ **2026-08-13, 기현님이 공에서만 이 계약을 뒤집었다**(실기 피드백 ③). 선택된 **공**의
+   *  재탭은 즉시 해제가 아니라 거리 원 순환이다: 없음 → 3 m → 5 m → (원 끄고) 해제.
+   *  휠체어·콘·메모·화살표는 그대로 재탭 = 즉시 해제이고, Esc 는 어느 개체든 언제나 즉시
+   *  해제다(순환을 타지 않는다 — 갇히는 길을 만들지 않는다). 그래서 세션이 `ballId` 를
+   *  들고 다닌다. 원 자체를 여기서 계산하지 않는 이유는 actions.ts BALL_RETAP 주석 참고. */
+  const tapDeselectRef = useRef<{ start: Vec2; moved: boolean; ballId: BallId | null } | null>(null);
   const metricsRef = useRef({ pxPerUnit: 1, pointerType: 'mouse' });
   /** 이 드래그가 히스토리 경계(PLACE_BEGIN)를 이미 열었는가. 정착 재커밋은 경계를 다시 열지
    *  않는다 — '드래그 1회 = undo 1회'(§6.7 history.ts:72-80). */
@@ -475,7 +481,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           // 제자리에서 톡 친 경우에는 빈 곳 탭과 똑같이 선택이 풀려야 한다 — 마진 탭은 지금까지
           // 크기 0 짜리 고무줄로 그 일을 해 왔고, 없애면 해제 경로 하나가 조용히 사라진다([A-3]).
           // 실제로 민 뒤에는 CourtStage 가 client=null 로 up 을 넘겨 이 세션이 탭이 아님을 알린다.
-          if (!additive) tapDeselectRef.current = { start: world, moved: false };
+          // 마진 탭에는 개체가 없다 — 공 순환이 아니라 언제나 즉시 해제다(ballId: null).
+          if (!additive) tapDeselectRef.current = { start: world, moved: false, ballId: null };
           return { pan: true };
         }
         rubberRef.current = { start: world, additive };
@@ -513,7 +520,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       if (hit.kind === 'chair' || hit.kind === 'ball' || hit.kind === 'cone') {
         // [A-3] 이미 선택된 개체의 재탭이면 해제 후보로 문다 — 판정은 up 에서(움직였으면 드래그다).
         // additive 는 아래 toggleId 가 pointerdown 시점에 즉시 빼 주므로 여기 대상이 아니다.
-        if (!additive && ctx.selection.has(hit.id)) tapDeselectRef.current = { start: world, moved: false };
+        if (!additive && ctx.selection.has(hit.id)) {
+          tapDeselectRef.current = { start: world, moved: false, ballId: hit.kind === 'ball' ? (hit.id as BallId) : null };
+        }
         const nextSel = additive ? toggleId(ctx.selection, hit.id) : [hit.id];
         ctx.dispatch({ type: 'SELECT_SET', ids: nextSel });
         resetDragSession();
@@ -532,8 +541,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
       // note / arrow
-      // [A-3] 메모·화살표도 같은 재탭 해제 계약을 따른다 — 개체 종류가 규칙을 바꾸면 안 된다.
-      if (!additive && ctx.selection.has(hit.id)) tapDeselectRef.current = { start: world, moved: false };
+      // [A-3] 메모·화살표도 같은 재탭 해제 계약을 따른다 — 5.2 가 뒤집은 것은 **공 하나뿐**이다.
+      if (!additive && ctx.selection.has(hit.id)) tapDeselectRef.current = { start: world, moved: false, ballId: null };
       const nextSel = additive ? toggleId(ctx.selection, hit.id) : [hit.id];
       ctx.dispatch({ type: 'SELECT_SET', ids: nextSel });
       if (hit.kind === 'note') {
@@ -652,6 +661,14 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     const tapSession = tapDeselectRef.current;
     tapDeselectRef.current = null;
     const tapDeselect = tapSession !== null && !tapSession.moved && client !== null;
+    /** 제자리 재탭의 결말. **공만 순환**(BALL_RETAP), 나머지는 예전 그대로 즉시 해제.
+     *  세 갈래(물리 드래그 · 메모 · 그 밖)에서 같은 이 함수를 부른다 — 한 곳만 고치면
+     *  "휠체어는 풀리는데 공은 안 풀린다" 같은 반쪽 계약이 생긴다. */
+    const finishTap = (): void => {
+      if (!tapDeselect || !tapSession) return;
+      if (tapSession.ballId) ctx.dispatch({ type: 'BALL_RETAP', id: tapSession.ballId });
+      else ctx.dispatch({ type: 'SELECT_CLEAR' });
+    };
 
     if (dragHandleRef.current) {
       const id = draggedIdRef.current;
@@ -691,8 +708,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 스냅(§4.3 P1-3)도 그 재커밋 경로 안에서만 걸린다.
       if (id) armSettleRecommit(id);
       // [A-3] 제자리 탭이었다 — 물리 정리(위)는 전부 마치고 선택만 물린다. 이동이 없었으니
-      // 커밋은 no-op 가드로 걸러져 undo 스택도 더럽히지 않는다.
-      if (tapDeselect) ctx.dispatch({ type: 'SELECT_CLEAR' });
+      // 좌표 커밋은 no-op 가드로 걸러진다(공의 원 순환은 그 자체로 한 칸 쌓인다 — 5.2).
+      finishTap();
       return;
     }
 
@@ -716,7 +733,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     if (noteDragRef.current) {
       noteDragRef.current = null;
       selectionOverlayRef.current?.setRing(null, 0, 0, 0);
-      if (tapDeselect) ctx.dispatch({ type: 'SELECT_CLEAR' }); // [A-3] 메모 재탭
+      finishTap(); // [A-3] 메모 재탭 — 메모는 공이 아니므로 여전히 즉시 해제다
       return;
     }
     if (arrowHandleDragRef.current) {
@@ -753,7 +770,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     }
 
     // [A-3] 화살표 몸통은 어떤 드래그 세션도 만들지 않아 여기까지 흘러온다 — 재탭 해제만 판정.
-    if (tapDeselect) ctx.dispatch({ type: 'SELECT_CLEAR' });
+    // 물리 바디를 못 잡은 공(beginDrag 가 null)도 여기로 떨어지므로 finishTap 이어야 한다.
+    finishTap();
   }, [arrowDraft, armSettleRecommit, buildScene, commitDragResult, commitEraseToast]);
 
   const controller = useMemo<CourtStagePointerController>(() => ({ onPointerDown, onPointerMove, onPointerUp }), [onPointerDown, onPointerMove, onPointerUp]);

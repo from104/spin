@@ -267,6 +267,20 @@ describe('ruleOverlay — 스위치', () => {
     expect(say).toHaveBeenCalledTimes(1);
   });
 
+  it('스위치를 끄면 얼어붙은 위반 표시가 풀린다 — 판정이 안 도는데 붉게 남아 있으면 거짓말이다', () => {
+    // 5.2 이전에는 스위치를 끄면 RuleOverlay 가 통째로 언마운트돼 눈에 안 띄었다. 이제 개별
+    // 공의 원은 스위치를 꺼도 화면에 남으므로, 마지막 판정 결과가 그대로 굳으면 **"지금도
+    // 반칙" 이라고 말하는 원**이 판에 남는다.
+    const h = harness();
+    h.api.write(VIOLATING);
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+    h.api.setContext(ctx({ enabled: false }));
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    expect(h.ring.getAttribute('stroke-dasharray')).toBe(RULE_DASH);
+    expect(h.ring.getAttribute('opacity')).toBe('1'); // 원 자체는 남는다(숨기는 것이 아니다)
+    expect(h.zone0.getAttribute('opacity')).toBe('0'); // 존 표시는 반대로 숨는다
+  });
+
   it('clear() 는 등록·상태·문맥을 모두 버린다', () => {
     const h = harness();
     h.api.write(VIOLATING);

@@ -41,7 +41,7 @@ import { courtDefFor, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLES } from '../../model/arrow.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
-import { ringViolation, zoneViolation, RING_R_PX, type RuleActor } from '../../model/rules.ts';
+import { ringRadiusPx, ringViolation, zoneViolation, type RuleActor } from '../../model/rules.ts';
 import { COURT_LINE_WEIGHTS } from '../../render/CourtSurface.tsx';
 import {
   RULE_ALERT_STROKE,
@@ -263,12 +263,14 @@ function ruleActors(frame: RenderFrame): RuleActor[] {
  *  걸리면 실선 붉은색**, 그 아래에 언제나 검정 케이싱(붉은색은 코트 위 1.75:1 로 혼자서는
  *  못 읽힌다). 색은 세 번째 채널이다. */
 function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
-  if (!opts.showRuleZones) return '';
   const def = courtDefFor(opts.mode, opts.size);
   const actors = ruleActors(frame);
-  let out = ruleZonesMarkup(opts.mode, opts.size);
+  // §7 5.2(2026-08-13) — **조기 반환을 여기서 뺐다.** 개별 공의 원은 사용자가 그 공을 눌러
+  // 명시적으로 켠 것이라 규칙 존 스위치와 다른 축이다(화면 RuleOverlay.tsx 와 같은 판단) —
+  // `showRuleZones` 가 꺼져 있어도 PNG 에 실린다. 존·존 위반 표시만 스위치에 매인다.
+  let out = opts.showRuleZones ? ruleZonesMarkup(opts.mode, opts.size) : '';
 
-  for (const z of def.ruleZones) {
+  for (const z of opts.showRuleZones ? def.ruleZones : []) {
     if (zoneViolation(z, actors) === 0) continue;
     const box = `x="${num(z.x)}" y="${num(z.y)}" width="${num(z.w)}" height="${num(z.h)}"`;
     out +=
@@ -280,13 +282,19 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
 
   for (const b of frame.balls) {
     if (b.opacity <= 0) continue;
-    const bad = ringViolation(b, actors, def.ruleZones) !== 0;
+    // 5.2 — 반지름은 그 공의 상태에서 나온다. null = 원 없음(대부분의 공) → 아무것도 안 그린다.
+    // ⚠️ `RING_R_PX` 를 여기 다시 박지 마라: 5 m 를 켠 공이 PNG 에서만 3 m 로 나간다.
+    const r = ringRadiusPx(b.ring ?? 'none');
+    if (r === null) continue;
+    // 판정 반경은 언제나 3 m 다(ringViolation) — 켜 놓은 원이 5 m 라고 2-on-1 이 5 m 가 되지
+    // 않는다. 스위치가 꺼져 있으면 화면과 같이 판정도 서지 않으므로 흰 파선 그대로 나간다.
+    const bad = (opts.showRuleZones ?? false) && ringViolation(b, actors, def.ruleZones) !== 0;
     const stroke = bad ? RULE_ALERT_STROKE : RULE_OK_STROKE;
     const dash = bad ? '' : ` stroke-dasharray="${RULE_DASH}"`;
     out +=
       `<g transform="${poseTransform(b.x, b.y)}"${attrOpacity(b.opacity)}>` +
-      `<circle r="${num(RING_R_PX)}" fill="none" stroke="${RULE_CASING}" stroke-width="${RING_CASING_W}" opacity="${RULE_CASING_OPACITY}"/>` +
-      `<circle r="${num(RING_R_PX)}" fill="none" stroke="${stroke}" stroke-width="${RING_MARK_W}"${dash}/>` +
+      `<circle r="${num(r)}" fill="none" stroke="${RULE_CASING}" stroke-width="${RING_CASING_W}" opacity="${RULE_CASING_OPACITY}"/>` +
+      `<circle r="${num(r)}" fill="none" stroke="${stroke}" stroke-width="${RING_MARK_W}"${dash}/>` +
       `</g>`;
   }
   return out;

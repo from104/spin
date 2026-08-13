@@ -11,10 +11,16 @@
 //
 // 위치는 React 가 아니라 TransformWriter 팔로워가 쓴다(§6.1 규칙 1) — ZoneHandles 가 같은
 // 실수로 '핸들만 제자리에 남는' 버그를 낸 전례가 있다(ZoneHandles.tsx:6-10).
+//
+// ⚠️ 2026-08-13(§7 5.2, 기현님 실기 ③) — **링은 더 이상 모든 공에 상시로 뜨지 않는다.** 공마다
+// 없음/3 m/5 m 를 따로 갖고(`BallDef.ring`), 기본값은 **없음**이다. 위 문단들의 "공을 따라다니는
+// 이 링" 은 *켜져 있을 때* 의 이야기로 읽으면 된다 — 시각 언어(파선·케이싱·세 채널)와 팔로워
+// 규율은 하나도 바뀌지 않았다. 바뀐 것은 **몇 개를 그리는가** 뿐이다. 그리고 **판정은 표시와
+// 무관하다**: 원이 '없음' 인 공도 링 그룹은 등록되어 2-on-1 판정과 발화를 그대로 탄다.
 import { useEffect, useRef } from 'react';
 import { courtDefFor, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
-import type { TeamSide } from '../model/drill.ts';
-import { RING_R_PX } from '../model/rules.ts';
+import type { BallRing, TeamSide } from '../model/drill.ts';
+import { ringRadiusPx } from '../model/rules.ts';
 import type { TransformWriter } from './transformWriter.ts';
 import {
   RULE_DASH,
@@ -42,13 +48,20 @@ const ZONE_CASING_W = 6.4;
 
 interface RingProps {
   id: string;
+  /** 5.2 — 이 공의 원(없음/3 m/5 m). 반지름은 `ringRadiusPx` 에서만 온다(리터럴 금지). */
+  ring: BallRing;
   writer: TransformWriter;
   rules: RuleOverlayApi;
 }
 
-/** 공 하나를 따라다니는 3 m 원. 안쪽 표시선은 `stroke`·`stroke-dasharray` 를 그룹에서
- *  **상속**받는다 — writer 가 그룹 하나만 건드리면 색과 파선이 함께 바뀐다. */
-function RuleRing({ id, writer, rules }: RingProps) {
+/** 공 하나를 따라다니는 거리 원. 안쪽 표시선은 `stroke`·`stroke-dasharray` 를 그룹에서
+ *  **상속**받는다 — writer 가 그룹 하나만 건드리면 색과 파선이 함께 바뀐다.
+ *
+ *  ⚠️ **원이 'none' 이어도 이 컴포넌트는 그려지고 `rules.registerRing` 도 그대로 한다** —
+ *  원(圓)이 없을 뿐 그리는 것이 없는 것이고, 등록을 건너뛰면 그 공은 `judge()` 의 rings 순회에서
+ *  빠져 **2-on-1 판정과 라이브 리전 발화가 통째로 사라진다**(표시와 판정은 독립이다). 실측으로
+ *  확인한 자리다: 조건부 등록으로 만들면 "원을 끈 공 옆에서 반칙이 나도 아무도 말하지 않는다". */
+function RuleRing({ id, ring, writer, rules }: RingProps) {
   const followRef = useRef<SVGGElement | null>(null);
   const stateRef = useRef<SVGGElement | null>(null);
 
@@ -63,11 +76,16 @@ function RuleRing({ id, writer, rules }: RingProps) {
     return () => rules.registerRing(id, null);
   }, [rules, id]);
 
+  const r = ringRadiusPx(ring);
   return (
     <g ref={followRef}>
       <g ref={stateRef} opacity={1} stroke={RULE_OK_STROKE} strokeDasharray={RULE_DASH}>
-        <circle r={RING_R_PX} fill="none" stroke={CASING} strokeDasharray="none" strokeWidth={RING_CASING_W} opacity={CASING_OPACITY} />
-        <circle r={RING_R_PX} fill="none" strokeWidth={RING_MARK_W} />
+        {r !== null && (
+          <>
+            <circle r={r} fill="none" stroke={CASING} strokeDasharray="none" strokeWidth={RING_CASING_W} opacity={CASING_OPACITY} />
+            <circle r={r} fill="none" strokeWidth={RING_MARK_W} />
+          </>
+        )}
       </g>
     </g>
   );
@@ -111,30 +129,43 @@ export interface RuleOverlayProps {
   rules: RuleOverlayApi;
   /** 이 스텝에 판 위에 있는 공. 링은 공마다 하나씩 그린다. */
   ballIds: readonly string[];
+  /** 5.2 — 공 id → 그 공의 거리 원. **없는 id 는 'none'** 이다(초기 배치가 원 없음이므로
+   *  대부분의 공이 여기 없다). 전역 스위치 하나가 아니라 표를 받는 것이 핵심이다: 공 두 개가
+   *  서로 다른 원을 가질 수 있어야 한다. */
+  ballRings?: Readonly<Record<string, BallRing>>;
   /** 선수 명단(팀·골키퍼). 좌표는 프레임에서 온다 — 여기로 내리지 않는다. */
   roster: readonly RuleRosterEntry[];
   teams: Record<TeamSide, { label: string }>;
 }
 
-export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, roster, teams }: RuleOverlayProps) {
+export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballRings, roster, teams }: RuleOverlayProps) {
   const goalAreas = courtDefFor(mode, size).ruleZones;
 
   useEffect(() => {
     rules.setContext({ enabled: visible, roster, goalAreas, teamLabels: { home: teams.home.label, away: teams.away.label } });
   }, [rules, visible, roster, goalAreas, teams]);
 
-  if (!visible) return null;
+  const ringOf = (id: string): BallRing => ballRings?.[id] ?? 'none';
+  // §7 5.2 — **스위치가 꺼져 있어도 사용자가 켠 원은 남는다**(2026-08-13 판단, 기현님 실기 ③).
+  // 골 지역 존과 다른 축이기 때문이다: 존은 "규칙을 보여 줘" 라는 화면 설정이고, 개별 공의 원은
+  // 그 공을 세 번 눌러 **명시적으로 켠 것**이다. 스위치로 지워 버리면 켠 사람이 이유를 알 수
+  // 없이 사라진다. 다만 이때 판정은 서지 않으므로(setContext enabled:false) 원은 흰 파선
+  // 그대로다 — 경고 없이 거리만 보여 준다. "존을 감춘 사람에게 규칙 경고만 남기지 않는다" 는
+  // 옛 계약(ruleOverlay.ts RuleOverlayContext.enabled)은 그래서 깨지지 않는다.
+  const shown = visible ? ballIds : ballIds.filter((id) => ringOf(id) !== 'none');
+  if (!visible && shown.length === 0) return null;
 
   return (
     // 판정 결과는 라이브 리전이 말한다(ruleOverlay.ts [D-6]) — 그림 자체는 접근성 트리에서 뺀다.
-    // pointerEvents="none" 은 필수다: 링은 공 주위 반경 3 m 를 덮으므로 이게 없으면 링 안의
-    // 개체를 잡을 수 없다.
+    // pointerEvents="none" 은 필수다: 링은 공 주위 반경 3 m(5 m 면 더)를 덮으므로 이게 없으면
+    // 링 안의 개체를 잡을 수 없다.
     <g aria-hidden="true" pointerEvents="none">
-      {goalAreas.map((z, i) => (
-        <RuleZoneMark key={`${z.x},${z.y}`} index={i} zone={z} rules={rules} />
-      ))}
-      {ballIds.map((id) => (
-        <RuleRing key={id} id={id} writer={writer} rules={rules} />
+      {visible &&
+        goalAreas.map((z, i) => (
+          <RuleZoneMark key={`${z.x},${z.y}`} index={i} zone={z} rules={rules} />
+        ))}
+      {shown.map((id) => (
+        <RuleRing key={id} id={id} ring={ringOf(id)} writer={writer} rules={rules} />
       ))}
     </g>
   );

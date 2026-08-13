@@ -199,7 +199,12 @@ function parseBalls(raw: unknown, repairs: Repair[]): BallDef[] {
       pushRepair(repairs, 'cast.balls.id', '중복된 공 id 재발급', false);
     }
     seen.add(id);
-    out.push({ id: id as BallId });
+    // ★ 화이트리스트 — **여기 없는 필드는 IDB/파일 왕복에서 소리 없이 증발한다**(§3.8 규율).
+    // 5.2 거리 원: '3m'|'5m' 만 싣고 그 외(없음·'none'·쓰레기)는 **키를 만들지 않는다** =
+    // 'none'. 'none' 을 값으로 적으면 `{ring:'none'}` 과 `{}` 라는 같은 뜻의 두 문서가 생겨
+    // sameDrill(canonical 비교)이 둘을 다른 문서로 보고 백업 복원마다 (사본) 을 만든다.
+    const ring = item.ring === '3m' || item.ring === '5m' ? item.ring : undefined;
+    out.push(ring === undefined ? { id: id as BallId } : { id: id as BallId, ring });
   }
   if (out.length > LIMITS.maxBalls) {
     pushRepair(repairs, 'cast.balls', '공 개수 상한(10) 초과 — 뒤에서 절단', true);

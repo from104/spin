@@ -21,6 +21,7 @@ export const RULE_OK_STROKE = '#ffffff';
  *  깔고(RuleOverlay.tsx) 그 위에 얹는다. 색은 세 번째 채널이고, 앞의 둘은 **파선→실선**과
  *  **라이브 리전 발화**다(§7.1 색 하나에 기대지 않는다). */
 export const RULE_ALERT_STROKE = '#ff5a5a';
+
 /* ── 골 지역 **안쪽 채움** 두 단(2026-08-13 기현 지시 ②) ────────────────────────────────
  * *"골에리어 안쪽 흐린 효과 붉은 계열로 수정 (골에리어 반칙 표시는 진하게, 그냥은 연하게)"*
  *
@@ -227,6 +228,15 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       ctx = next;
       if (!next.enabled) {
         resetAnnounce();
+        // §7 5.2(2026-08-13) — 스위치를 끄면 판정이 멎는다. 그러면 **직전 위반 표시가 그대로
+        // 얼어붙는다**: 붉은 실선 링이 아무도 갱신하지 않는 채 남는다. 예전에는 RuleOverlay 가
+        // `visible=false` 에서 통째로 언마운트돼 눈에 안 띄었지만, 이제 개별 공의 원은 스위치를
+        // 꺼도 화면에 남으므로(그 파일 주석) **판정이 서지 않는 원이 "지금도 반칙" 이라고
+        // 거짓말한다.** 깨끗한 상태(보임 + 흰 파선)로 되돌려 놓는다 — 존 표시는 위반일 때만
+        // 나타나는 것이라 반대로 숨긴다. 이 두 줄을 지우면 render/ruleOverlay.test.ts 의
+        // '스위치를 끄면 얼어붙은 위반 표시가 풀린다' 가 빨개진다.
+        for (const [id, el] of rings) writeRing(id, el, VISIBLE);
+        for (const [index, el] of zones) writeZone(index, el, 0);
         return;
       }
       // 문맥이 늦게 왔거나(마운트) 스위치를 지금 켰다 — 마지막 프레임으로 곧바로 판정한다.

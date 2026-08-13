@@ -6,8 +6,9 @@ import { RuleOverlay } from './RuleOverlay.tsx';
 import { createTransformWriter } from './transformWriter.ts';
 import { RULE_ALERT_STROKE, RULE_OK_STROKE, createRuleOverlay } from './ruleOverlay.ts';
 import { COURT_DEFS } from '../model/court.ts';
-import { RING_R_PX } from '../model/rules.ts';
-import type { TeamSide } from '../model/drill.ts';
+import { mToPx } from '../core/units.ts';
+import { RING_5M_R_PX, RING_R_PX } from '../model/rules.ts';
+import type { BallRing, TeamSide } from '../model/drill.ts';
 
 const TEAMS: Record<TeamSide, { label: string }> = { home: { label: '레드' }, away: { label: '블루' } };
 const ROSTER = [
@@ -16,10 +17,16 @@ const ROSTER = [
   { id: 'ch_c', team: 'away' as TeamSide, isGk: false },
 ];
 
-function setup(opts: { visible?: boolean; balls?: string[]; mode?: 'full' | 'half' | 'flat' } = {}) {
+/** ⚠️ 2026-08-13(§7 5.2) — 공의 원은 이제 **공마다 따로**이고 기본값이 '없음' 이다. 그래서
+ *  옛 단언들이 보던 "공이 있으면 링이 있다" 를 그대로 두려면 픽스처가 원을 켜 줘야 한다.
+ *  기본을 '3m' 으로 둔 것은 옛 계약(시각 언어·팔로워·판정 배선)을 계속 재기 위한 것이고,
+ *  **초기값이 '없음'** 이라는 새 계약은 아래 'ballRings 를 안 넘기면' 테스트가 따로 잰다. */
+function setup(opts: { visible?: boolean; balls?: string[]; rings?: Record<string, BallRing>; mode?: 'full' | 'half' | 'flat' } = {}) {
   const writer = createTransformWriter();
   const say = vi.fn();
   const rules = createRuleOverlay({ say, now: () => 0 });
+  const ballIds = opts.balls ?? ['bl_1'];
+  const rings = opts.rings ?? Object.fromEntries(ballIds.map((id) => [id, '3m' as BallRing]));
   const view = render(
     <svg>
       <RuleOverlay
@@ -27,7 +34,8 @@ function setup(opts: { visible?: boolean; balls?: string[]; mode?: 'full' | 'hal
         visible={opts.visible ?? true}
         writer={writer}
         rules={rules}
-        ballIds={opts.balls ?? ['bl_1']}
+        ballIds={ballIds}
+        ballRings={rings}
         roster={ROSTER}
         teams={TEAMS}
       />
@@ -37,8 +45,8 @@ function setup(opts: { visible?: boolean; balls?: string[]; mode?: 'full' | 'hal
 }
 
 /** 링의 바깥 그룹 = TransformWriter 팔로워. 안쪽 그룹 = 색·표시 상태. */
-function ringGroups(container: HTMLElement): { follower: SVGGElement; state: SVGGElement }[] {
-  return Array.from(container.querySelectorAll(`circle[r="${RING_R_PX}"]`))
+function ringGroups(container: HTMLElement, r: number = RING_R_PX): { follower: SVGGElement; state: SVGGElement }[] {
+  return Array.from(container.querySelectorAll(`circle[r="${r}"]`))
     .map((c) => c.parentElement as unknown as SVGGElement)
     .filter((el, i, arr) => arr.indexOf(el) === i)
     .map((state) => ({ state, follower: state.parentElement as unknown as SVGGElement }));
@@ -57,12 +65,47 @@ describe('RuleOverlay — 그림', () => {
     expect(ringGroups(container)).toHaveLength(0);
   });
 
-  it('visible=false 면 아무것도 그리지 않는다', () => {
-    const { container } = setup({ visible: false });
+  it('visible=false 면 아무것도 그리지 않는다 — 아무 공도 원을 안 켰을 때', () => {
+    const { container } = setup({ visible: false, rings: {} });
     expect(container.querySelectorAll('circle')).toHaveLength(0);
     expect(container.querySelectorAll('rect')).toHaveLength(0);
   });
+});
 
+// ── §7 5.2 공마다 따로 켜는 거리 원(2026-08-13 기현님 실기 ③) ────────────────────────────
+describe('RuleOverlay — 공마다 따로 켜는 원', () => {
+  it('ballRings 를 안 넘기면 원이 하나도 없다 — **초기 배치는 원 없음**이다', () => {
+    const { container } = setup({ balls: ['bl_1', 'bl_2'], rings: {} });
+    expect(container.querySelectorAll('circle')).toHaveLength(0);
+    // 대조군: 존은 그대로 있다(원이 없는 것이지 오버레이가 없는 것이 아니다).
+    expect(container.querySelectorAll('rect').length).toBe(COURT_DEFS.full.ruleZones.length * 2);
+  });
+
+  it('**공 두 개가 서로 다른 원을 갖는다** — 하나는 3 m, 하나는 5 m', () => {
+    const { container } = setup({ balls: ['bl_1', 'bl_2'], rings: { bl_1: '3m', bl_2: '5m' } });
+    expect(ringGroups(container, RING_R_PX)).toHaveLength(1);
+    expect(ringGroups(container, RING_5M_R_PX)).toHaveLength(1);
+    // 세 번째 공은 '없음' — 표에 없으면 그리지 않는다.
+    const three = setup({ balls: ['bl_1', 'bl_2', 'bl_3'], rings: { bl_1: '3m', bl_2: '5m' } });
+    expect(three.container.querySelectorAll('circle')).toHaveLength(4); // 2링 × (케이싱 + 표시선)
+  });
+
+  it('반지름은 25 px = 1 m 축척에서 파생된다 — 리터럴이 아니다', () => {
+    expect(RING_R_PX).toBe(mToPx(3));
+    expect(RING_5M_R_PX).toBe(mToPx(5));
+    const { container } = setup({ rings: { bl_1: '5m' } });
+    expect(container.querySelector(`circle[r="${mToPx(5)}"]`)).not.toBeNull();
+    expect(container.querySelector(`circle[r="${mToPx(3)}"]`)).toBeNull();
+  });
+
+  it('규칙 존 스위치가 꺼져도 **명시적으로 켠 원**은 남는다 — 존과 다른 축이다', () => {
+    const { container } = setup({ visible: false, rings: { bl_1: '5m' } });
+    expect(ringGroups(container, RING_5M_R_PX)).toHaveLength(1);
+    expect(container.querySelectorAll('rect')).toHaveLength(0); // 존 표시는 스위치에 매인다
+  });
+});
+
+describe('RuleOverlay — 그림(이어서)', () => {
   it('골 지역 표시는 코트의 존 개수만큼 — flat 은 0개', () => {
     expect(setup({ mode: 'full' }).container.querySelectorAll('rect')).toHaveLength(COURT_DEFS.full.ruleZones.length * 2);
     expect(setup({ mode: 'half' }).container.querySelectorAll('rect')).toHaveLength(COURT_DEFS.half.ruleZones.length * 2);
@@ -138,6 +181,26 @@ describe('RuleOverlay — 판정이 그림에 닿는다', () => {
     const { rules, say } = setup({ visible: false });
     rules.write(violating);
     expect(say).toHaveBeenCalledTimes(0);
+  });
+
+  it('★ 원이 **없음**인 공에서도 2-on-1 판정과 발화가 그대로 산다 — 표시와 판정은 독립이다', () => {
+    // 5.2 의 가장 조용한 실패 형태: 링을 안 그린다고 registerRing 까지 건너뛰면 그 공은
+    // judge() 의 순회에서 통째로 빠진다 — 화면에 아무 표시가 없으니 아무도 눈치채지 못한다.
+    const { container, rules, say } = setup({ rings: {} });
+    expect(container.querySelectorAll('circle')).toHaveLength(0); // 그림은 정말 없다
+    rules.write(violating);
+    expect(say).toHaveBeenCalledTimes(1);
+    expect(say.mock.calls[0]![0]).toContain('2-on-1');
+  });
+
+  it('5 m 를 켜 놔도 판정 반경은 3 m 다 — 3~5 m 사이의 선수는 반칙을 만들지 않는다', () => {
+    const { rules, say } = setup({ rings: { bl_1: '5m' } });
+    // 홈 둘 중 하나를 3 m 밖 5 m 안(4 m = 100px)에 둔다 → 링 안 인원은 홈 1명뿐이라 깨끗하다.
+    rules.write({ bl_1: { x: 400, y: 260 }, ch_a: { x: 410, y: 260 }, ch_b: { x: 500, y: 260 }, ch_c: { x: 420, y: 260 } });
+    expect(say).toHaveBeenCalledTimes(0);
+    // 대조군 — 3 m 안으로 들이면 곧바로 걸린다(위 '0회' 가 배선 누락이 아님을 증명한다).
+    rules.write(violating);
+    expect(say).toHaveBeenCalledTimes(1);
   });
 
   it('언마운트하면 존·링 등록이 풀려 죽은 노드를 갱신하지 않는다', () => {

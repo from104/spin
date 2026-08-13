@@ -4,6 +4,7 @@ import type { Vec2 } from '../core/units.ts';
 import { isId, newId } from '../core/ids.ts';
 import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId } from '../core/ids.ts';
 import type { Drill, DrillStep, DrillCast, ChairDef, NoteLabel, PoseMap } from './drill.ts';
+import { ballRingOf, nextBallRing } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
 import { LIMITS } from './validate.ts';
@@ -105,6 +106,30 @@ export function updateChairDef(d: Drill, id: ChairId, patch: Partial<Omit<ChairD
   const chairs = d.cast.chairs.slice();
   chairs[idx] = next;
   return { ...d, cast: { ...d.cast, chairs } };
+}
+
+/** 5.2 — **그 공 하나**의 거리 원을 한 칸 돌린다: 없음 → 3 m → 5 m → 없음.
+ *
+ *  ⚠️ 공마다 따로다. `cast.balls` 배열에서 그 항목만 갈아 끼우므로 다른 공의 원은 손대지
+ *  않는다 — 여기를 드릴 레벨 필드 하나(예: `d.ringMode`)로 바꾸면 공 두 개가 서로 다른
+ *  원을 가질 수 없게 되고, **공이 하나뿐인 테스트는 그대로 초록불**이다(그래서 두 개짜리
+ *  단언이 따로 있다: model/ballRing.test.ts).
+ *  ⚠️ '없음' 은 `ring: undefined` 가 아니라 **키 삭제**다(omitKey 머리말과 같은 이유:
+ *  structuredClone 은 undefined 키를 보존하고 JSON 은 지운다 → export 왕복으로 뜻이 바뀐다). */
+export function cycleBallRing(d: Drill, id: BallId): Drill {
+  const idx = d.cast.balls.findIndex((b) => b.id === id);
+  if (idx === -1) return d;
+  const cur = d.cast.balls[idx]!;
+  const next = nextBallRing(ballRingOf(cur));
+  const balls = d.cast.balls.slice();
+  if (next === 'none') {
+    const { ring, ...rest } = cur;
+    void ring;
+    balls[idx] = rest;
+  } else {
+    balls[idx] = { ...cur, ring: next };
+  }
+  return { ...d, cast: { ...d.cast, balls } };
 }
 
 // 오버로드로 id ↔ pose 상관을 강제한다. 단일 유니온이면 휠체어에 {x,y} 를 넣어도 컴파일된다

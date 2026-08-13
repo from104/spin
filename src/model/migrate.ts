@@ -47,6 +47,11 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
       return out;
     },
   },
+  // 5.2 `BallDef.ring`(공마다 3 m/5 m 원)은 **여기에 단계를 더하지 않는다** — 근거 셋은
+  // drill.ts 의 CURRENT_DRILL_SCHEMA 주석에 있다. 요지: 없으면 'none' 이 전역이라 채울 것이
+  // 0 이고, 옛 앱이 몰라도 좌표의 뜻이 안 바뀌며, 도장을 올리면 배포된 v0.1.0 이 새 파일을
+  // 전부 too-new 로 거절한다. **이 체인의 마지막 to 는 CURRENT_DRILL_SCHEMA 와 같아야 한다**
+  // (같지 않으면 migrateDoc 이 no-path 로 떨어져 모든 옛 파일이 열리지 않는다).
 ];
 export const SESSION_MIGRATIONS: DocMigration[] = [];
 /** prefs 는 여기서 처음으로 체인이 생긴다(§7 3.0). **v1 → v2 로 한 번만 올린다** — 트레이 서랍·

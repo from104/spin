@@ -9,16 +9,20 @@ import { render } from '@testing-library/react';
 import { PresentStage } from './PresentStage.tsx';
 import { PlaybackProvider } from '../../store/playback/PlaybackProvider.tsx';
 import { LiveRegion, liveRegion } from '../../ui/LiveRegion.tsx';
-import { RING_R_PX } from '../../model/rules.ts';
+import { RING_5M_R_PX, RING_R_PX } from '../../model/rules.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import { RULE_ALERT_STROKE, RULE_OK_STROKE } from '../../render/ruleOverlay.ts';
-import { CURRENT_DRILL_SCHEMA, type Drill, type TeamSide } from '../../model/drill.ts';
+import { CURRENT_DRILL_SCHEMA, type BallRing, type Drill, type TeamSide } from '../../model/drill.ts';
 import type { BallId, ChairId, DrillId, StepId } from '../../core/ids.ts';
 
 const BALL = { x: 400, y: 260 };
 
-/** 스텝 1장짜리 드릴. 좌표를 직접 적어 판정 조건을 눈으로 확인할 수 있게 한다. */
-function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: number; y: number }[]): Drill {
+/** 스텝 1장짜리 드릴. 좌표를 직접 적어 판정 조건을 눈으로 확인할 수 있게 한다.
+ *
+ *  ⚠️ 2026-08-13(§7 5.2) — 공의 원은 공마다 따로이고 **기본이 '없음'** 이다. 옛 배선 단언
+ *  (링이 공을 따라오는가·판정이 그림과 발화에 닿는가)을 계속 재려면 픽스처가 원을 켜야 한다.
+ *  기본값이 '없음' 이라는 사실은 아래 '5.2' 블록이 따로 잰다. */
+function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: number; y: number }[], ring: BallRing = '3m'): Drill {
   return {
     schemaVersion: CURRENT_DRILL_SCHEMA,
     id: 'dr_t' as DrillId,
@@ -35,7 +39,8 @@ function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: numb
     },
     cast: {
       chairs: chairs.map((c, i) => ({ id: c.id as ChairId, team: c.team, number: String(i + 1), isGk: c.isGk ?? false })),
-      balls: [{ id: 'bl_1' as BallId }],
+      // 'none' 은 **키 없음**이다(model/drill.ts BallRing 주석) — 그래서 삼항이다.
+      balls: [ring === 'none' ? { id: 'bl_1' as BallId } : { id: 'bl_1' as BallId, ring }],
       cones: [],
     },
     steps: [
@@ -116,10 +121,14 @@ describe('PresentStage — 3 m 링이 시연 경로에도 붙는다', () => {
     expect(announced()).toContain('레드'); // 팀 이름은 드릴의 라벨을 그대로 쓴다
   });
 
-  it('규칙 존을 끄면 링도 판정도 발화도 없다 — 스위치가 하나다', () => {
+  it('규칙 존을 끄면 판정도 발화도 없다 — 다만 **켜 놓은 원**은 남는다(5.2)', () => {
     const { container } = mount(VIOLATING, false);
-    expect(ring(container)).toBeNull();
     expect(announced()).toBe('');
+    // 판정이 서지 않으니 경고색이 아니다. 원 자체는 사용자가 켠 것이라 남는다.
+    expect(ring(container)!.state.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    // 대조군 — 원을 안 켠 공이면 스위치를 껐을 때 정말로 아무것도 없다.
+    const off = mount(makeDrill([{ id: 'ch_a', team: 'home', x: 100, y: 100 }], 'none'), false);
+    expect(ring(off.container)).toBeNull();
   });
 
   it('공이 없는 드릴에는 링이 없다', () => {
@@ -147,6 +156,45 @@ describe('PresentStage — 3 m 링이 시연 경로에도 붙는다', () => {
     // 대조군 — 부재 단언이 헛것이 아니다: cx 없는 링은 실제로 있고, 파선이다.
     expect(ring(container)).not.toBeNull();
     expect(ring(container)!.state.getAttribute('stroke-dasharray')).toBe('8 6'); // 규칙 = 파선
+  });
+});
+
+// ── §7 5.2 공마다 따로 켜는 거리 원 — **시연 화면**(2026-08-13 기현님 실기 ③) ──────────────
+// 5차의 "시연 화면만 강제색에서 팀 구분을 잃었다" 와 같은 형태의 축 누락을 막는 블록이다:
+// 편집 화면만 배선하면 여기가 조용히 옛 모습(또는 원 0개)으로 남는다.
+describe('PresentStage — 공의 원이 시연에도 온다', () => {
+  it('원이 없는 공(기본)에는 링이 없다 — 그래도 2-on-1 은 그대로 발표된다 [D-6]', () => {
+    const { container } = mount(makeDrill(
+      [
+        { id: 'ch_a', team: 'home', x: BALL.x + 10, y: BALL.y },
+        { id: 'ch_b', team: 'home', x: BALL.x - 10, y: BALL.y },
+        { id: 'ch_c', team: 'away', x: BALL.x + 20, y: BALL.y },
+      ],
+      'none',
+    ));
+    expect(ring(container)).toBeNull();
+    expect(container.querySelector(`circle[r="${RING_5M_R_PX}"]`)).toBeNull();
+    expect(announced()).toContain('2-on-1'); // 표시와 판정은 독립이다
+  });
+
+  it('5 m 를 켠 공은 시연에서도 5 m 로 그려지고 공을 따라간다', () => {
+    const { container } = mount(makeDrill([{ id: 'ch_a', team: 'home', x: 100, y: 100 }], '5m'));
+    const c = container.querySelector(`circle[r="${RING_5M_R_PX}"]:not([cx])`);
+    expect(c).not.toBeNull();
+    const follower = c!.parentElement!.parentElement!;
+    expect(follower.getAttribute('transform')).toBe(`translate(${BALL.x.toFixed(2)} ${BALL.y.toFixed(2)}) rotate(0.00)`);
+  });
+
+  it('**공 두 개가 서로 다른 원을 갖는다**', () => {
+    const base = makeDrill([{ id: 'ch_a', team: 'home', x: 100, y: 100 }], '3m');
+    const two: Drill = {
+      ...base,
+      cast: { ...base.cast, balls: [{ id: 'bl_1' as BallId, ring: '3m' }, { id: 'bl_2' as BallId, ring: '5m' }] },
+      steps: [{ ...base.steps[0]!, balls: { bl_1: BALL, bl_2: { x: BALL.x + 200, y: BALL.y } } }],
+    };
+    const { container } = mount(two);
+    expect(container.querySelectorAll(`circle[r="${RING_R_PX}"]:not([cx])`)).toHaveLength(2);
+    expect(container.querySelectorAll(`circle[r="${RING_5M_R_PX}"]:not([cx])`)).toHaveLength(2);
   });
 });
 

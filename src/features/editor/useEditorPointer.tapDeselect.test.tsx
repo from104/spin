@@ -18,9 +18,10 @@ import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import { BALL, DEFAULT_ZONES } from '../../core/constants.ts';
 import { newId } from '../../core/ids.ts';
-import type { ArrowId, ChairId, ConeId, NoteId } from '../../core/ids.ts';
+import type { ArrowId, BallId, ChairId, ConeId, NoteId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
-import type { Drill, DrillStep } from '../../model/drill.ts';
+import type { BallRing, Drill, DrillStep } from '../../model/drill.ts';
+import { ballRingOf } from '../../model/drill.ts';
 import type { CourtStageHandle, PointerMeta } from '../../render/CourtStage.tsx';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import {
@@ -268,6 +269,136 @@ describe('[A-3] ① 선택된 개체 재탭 = 해제', () => {
 
     tap(result, ARROW_TAP);
     expect(result.current.state.selection.size).toBe(0);
+  });
+});
+
+// ── §7 5.2 — **공만 예외다**(2026-08-13 기현님 실기 ③) ─────────────────────────────────────
+// 위 [A-3] 계약("선택된 개체 재탭 = 해제")을 **공에서만** 뒤집는다: 재탭이 거리 원을 돌린다.
+//   탭① 선택(원 없음) → 탭② 3 m → 탭③ 5 m → 탭④ 원 없음 + 해제.
+// 위 블록의 휠체어·메모·화살표·콘 테스트가 그대로 살아 있는 것이 이 예외의 **대조군**이다 —
+// 저 넷이 함께 순환하기 시작하면 여기가 아니라 저기가 먼저 빨개진다.
+describe('[A-3 예외 / 5.2] 선택된 **공** 재탭 = 원 순환', () => {
+  const BALL_AT = { x: 400, y: 300 };
+
+  /** 휠체어 1 + 공 1. 서로 100 px 떨어져 2차 패스 반경(22 px) 간섭이 없다. */
+  function makeBallDrill(): { drill: Drill; ballId: BallId; chairId: ChairId } {
+    const base = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    const chairId = base.cast.chairs[0]!.id;
+    const ballId = base.cast.balls[0]!.id;
+    const step0 = base.steps[0]!;
+    const step: DrillStep = {
+      ...step0,
+      chairs: { [chairId]: { ...CHAIR_AT } },
+      balls: { [ballId]: { ...BALL_AT } },
+      cones: {},
+      notes: [],
+      arrows: [],
+    };
+    return { chairId, ballId, drill: { ...base, steps: [step] } };
+  }
+
+  const ringOf = (r: Harness, id: BallId): BallRing => ballRingOf(r.current.state.present.cast.balls.find((b) => b.id === id)!);
+
+  it('탭 넷이 한 바퀴를 돈다 — 없음 → 3 m → 5 m → 없음 + 해제', () => {
+    const { drill, ballId } = makeBallDrill();
+    const { result } = mount(drill);
+
+    tap(result, BALL_AT); // ① 선택만. 원은 아직 없다(초기 배치는 원 없음)
+    expect(result.current.state.selection.has(ballId)).toBe(true);
+    expect(ringOf(result, ballId)).toBe('none');
+
+    tap(result, BALL_AT); // ②
+    expect(ringOf(result, ballId)).toBe('3m');
+    expect(result.current.state.selection.has(ballId)).toBe(true);
+
+    tap(result, BALL_AT); // ③
+    expect(ringOf(result, ballId)).toBe('5m');
+    expect(result.current.state.selection.has(ballId)).toBe(true);
+
+    tap(result, BALL_AT); // ④ 닫힌다
+    expect(ringOf(result, ballId)).toBe('none');
+    expect(result.current.state.selection.size).toBe(0);
+  });
+
+  it('★ 대조군: 같은 판의 **휠체어**는 여전히 재탭 = 즉시 해제이고, 공의 원을 건드리지 않는다', () => {
+    const { drill, ballId, chairId } = makeBallDrill();
+    const { result } = mount(drill);
+
+    tap(result, BALL_AT);
+    tap(result, BALL_AT); // 공을 3 m 로 켜 둔다
+    expect(ringOf(result, ballId)).toBe('3m');
+
+    tap(result, CHAIR_AT);
+    expect(result.current.state.selection.has(chairId)).toBe(true);
+    tap(result, CHAIR_AT); // 휠체어 재탭 — 순환이 아니라 해제다
+    expect(result.current.state.selection.size).toBe(0);
+    expect(ringOf(result, ballId)).toBe('3m'); // 남의 원은 그대로다
+  });
+
+  it('Esc 는 순환을 타지 않는다 — 어느 상태에서든 즉시 해제하고 원은 그대로 둔다', () => {
+    const { drill, ballId } = makeBallDrill();
+    const { result } = mount(drill);
+
+    tap(result, BALL_AT);
+    tap(result, BALL_AT); // 3 m
+    pressEscape();
+    expect(result.current.state.selection.size).toBe(0);
+    expect(ringOf(result, ballId)).toBe('3m'); // **갇히는 길이 없다**: 5 m 를 남긴 채 빠져나올 수 있다
+
+    // 다시 선택해도 원은 그 자리에서 이어진다 — 순환의 다음 칸은 5 m 다.
+    tap(result, BALL_AT);
+    expect(ringOf(result, ballId)).toBe('3m');
+    tap(result, BALL_AT);
+    expect(ringOf(result, ballId)).toBe('5m');
+  });
+
+  it('끌면 순환하지 않는다 — 드래그는 탭이 아니다', () => {
+    const { drill, ballId } = makeBallDrill();
+    const { result } = mount(drill);
+    const ctrl = () => result.current.pointer.controller;
+
+    tap(result, BALL_AT);
+    act(() => void ctrl().onPointerDown(BALL_AT, META));
+    act(() => ctrl().onPointerMove({ x: BALL_AT.x + 40, y: BALL_AT.y }, 16));
+    act(() => ctrl().onPointerUp(CLIENT));
+    expect(ringOf(result, ballId)).toBe('none');
+    expect(result.current.state.selection.has(ballId)).toBe(true);
+  });
+
+  it('pointercancel 은 탭이 아니다 — 시스템 제스처에 뺏겼다고 원이 돌면 안 된다', () => {
+    const { drill, ballId } = makeBallDrill();
+    const { result } = mount(drill);
+    const ctrl = () => result.current.pointer.controller;
+
+    tap(result, BALL_AT);
+    act(() => void ctrl().onPointerDown(BALL_AT, META));
+    act(() => ctrl().onPointerUp(null));
+    expect(ringOf(result, ballId)).toBe('none');
+    expect(result.current.state.selection.has(ballId)).toBe(true);
+  });
+
+  it('additive(Shift) 재탭은 예전 그대로 토글 해제다 — 순환 경로가 아니다', () => {
+    const { drill, ballId } = makeBallDrill();
+    const { result } = mount(drill);
+
+    tap(result, BALL_AT);
+    tap(result, BALL_AT, { ...META, shiftKey: true });
+    expect(result.current.state.selection.size).toBe(0);
+    expect(ringOf(result, ballId)).toBe('none');
+  });
+
+  it('되돌리기가 순환을 한 칸씩 되돌린다', () => {
+    const { drill, ballId } = makeBallDrill();
+    const { result } = mount(drill);
+
+    tap(result, BALL_AT);
+    tap(result, BALL_AT); // 3m
+    tap(result, BALL_AT); // 5m
+    expect(ringOf(result, ballId)).toBe('5m');
+    act(() => result.current.dispatch({ type: 'UNDO' }));
+    expect(ringOf(result, ballId)).toBe('3m');
+    act(() => result.current.dispatch({ type: 'UNDO' }));
+    expect(ringOf(result, ballId)).toBe('none');
   });
 });
 

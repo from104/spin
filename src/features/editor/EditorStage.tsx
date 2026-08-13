@@ -11,7 +11,8 @@ import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
-import type { Drill, DrillStep, NoteLabel } from '../../model/drill.ts';
+import type { BallRing, Drill, DrillStep, NoteLabel } from '../../model/drill.ts';
+import { ballRingOf } from '../../model/drill.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
 import type { Arrow, ArrowHandle, ArrowPart } from '../../model/arrow.ts';
@@ -133,6 +134,16 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     () => drill.cast.chairs.filter((d) => step.chairs[d.id] !== undefined).map((d) => ({ id: d.id, team: d.team, isGk: d.isGk })),
     [drill.cast.chairs, step.chairs],
   );
+  // §7 5.2 — 공마다 따로 켠 거리 원. `cast` 에서 온다(스텝이 아니라) — 그래야 스텝을 옮겨도
+  // 같은 공이 같은 원을 갖는다. 'none' 인 공은 표에 **넣지 않는다**(없는 id = 'none').
+  const ballRings = useMemo(() => {
+    const m: Record<string, BallRing> = {};
+    for (const b of drill.cast.balls) {
+      const r = ballRingOf(b);
+      if (r !== 'none') m[b.id] = r;
+    }
+    return m;
+  }, [drill.cast.balls]);
   const cones = useMemo<ObjectLayerCone[]>(
     () => drill.cast.cones.filter((c) => step.cones[c.id] !== undefined).map((c) => ({ id: c.id, colorIndex: c.colorIndex })),
     [drill.cast.cones, step.cones],
@@ -473,7 +484,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       selectionOverlayRef={pointer.selectionOverlayRef}
       dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
-      ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams } : undefined}
+      ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, ballRings } : undefined}
       // activePart: Shift+방향키가 무엇을 옮길지 눈에 보이게 한다. 조준을 실제로 쓴 뒤에만
       // 켜므로(= arrowAim 이 이 화살표에 걸린 뒤) 마우스만 쓰는 사람에게는 지금 그림 그대로다.
       arrowHandles={{ arrow: selectedArrow, activePart: selectedArrow && arrowAim?.id === selectedArrow.id ? arrowAim.part : null }}

@@ -9,6 +9,7 @@ import type { ChairId } from '../../core/ids.ts';
 import { ChairChip } from '../../render/objects/ChairChip.tsx';
 import { createTransformWriter } from '../../render/transformWriter.ts';
 import { RULE_ALERT_STROKE, RULE_ZONE_ALERT_FILL } from '../../render/ruleOverlay.ts';
+import { RING_5M_R_PX, RING_R_PX } from '../../model/rules.ts';
 import { buildStaticSvg, buildStaticScene } from './buildStaticSvg.ts';
 import { staticSceneMetrics, EXPORT_LAYOUT } from './staticSceneLayout.ts';
 import { makeFrame, TEAMS } from './sceneFixture.ts';
@@ -203,8 +204,15 @@ describe('buildStaticSvg — opts', () => {
   });
 });
 
-describe('buildStaticSvg — 규칙 오버레이(3 m 링 · 골 지역)', () => {
+describe('buildStaticSvg — 규칙 오버레이(거리 원 · 골 지역)', () => {
   const ringOpts = { ...OPTS, showRuleZones: true };
+  /** ⚠️ 2026-08-13(§7 5.2) — 공의 원은 공마다 따로이고 **기본이 '없음'** 이다. 픽스처의 공은
+   *  원을 안 켜므로, 옛 링 단언들을 계속 재려면 프레임에서 켜 줘야 한다. */
+  const ringFrame = (ring: '3m' | '5m') => {
+    const f = makeFrame();
+    f.balls = f.balls.map((b) => ({ ...b, ring }));
+    return f;
+  };
 
   it('showRuleZones 가 꺼져 있으면 링도 존도 없다', () => {
     const svg = buildStaticSvg(makeFrame(), OPTS);
@@ -212,8 +220,15 @@ describe('buildStaticSvg — 규칙 오버레이(3 m 링 · 골 지역)', () => 
     expect(svg.includes(RULE_ALERT_STROKE)).toBe(false);
   });
 
-  it('켜면 공마다 3 m 링이 하나씩 생기고, 깨끗하면 흰 파선이다', () => {
+  it('원을 안 켠 공(기본)은 스위치를 켜도 링이 없다 — 5.2 초기값은 원 없음이다', () => {
     const doc = parse(buildStaticSvg(makeFrame(), ringOpts));
+    expect([...doc.querySelectorAll('circle')].filter((c) => c.getAttribute('r') === String(RING_R_PX))).toHaveLength(0);
+    // 대조군 — 존은 그려진다(오버레이가 통째로 빠진 것이 아니다).
+    expect(doc.documentElement.outerHTML.includes('stroke-dasharray="8 6"')).toBe(true);
+  });
+
+  it('켜면 공마다 3 m 링이 하나씩 생기고, 깨끗하면 흰 파선이다', () => {
+    const doc = parse(buildStaticSvg(ringFrame('3m'), ringOpts));
     const rings = [...doc.querySelectorAll('circle')].filter((c) => c.getAttribute('r') === '75');
     // ⚠️ 옛 판은 3개였다 — 링 2개(케이싱+본선)에 **코트의 센터 서클**(r=75 실선 흰색)이 하나
     //    더 있었기 때문이다. 5.3 이 그 원을 지웠으므로(§9 결정 ⑧) 이제 정확히 2개다.
@@ -225,7 +240,7 @@ describe('buildStaticSvg — 규칙 오버레이(3 m 링 · 골 지역)', () => 
 
   it('2-on-1 위반 장면이면 링이 붉은 실선이 된다 — 화면과 같은 판정 함수를 쓴다', () => {
     // 공 주변 3 m 안에 홈 2명 + 원정 1명 → ringViolation(home)
-    const f = makeFrame();
+    const f = ringFrame('3m');
     f.chairs[1]!.x = 420;
     f.chairs[1]!.y = 262.5;
     f.chairs[2]!.x = 430;
@@ -235,7 +250,30 @@ describe('buildStaticSvg — 규칙 오버레이(3 m 링 · 골 지역)', () => 
     const svg = buildStaticSvg(f, ringOpts);
     expect(svg.includes(RULE_ALERT_STROKE)).toBe(true);
     // 대조군: 같은 옵션·같은 개체 수인데 위치만 흩으면 붉지 않다.
-    expect(buildStaticSvg(makeFrame(), ringOpts).includes(RULE_ALERT_STROKE)).toBe(false);
+    expect(buildStaticSvg(ringFrame('3m'), ringOpts).includes(RULE_ALERT_STROKE)).toBe(false);
+  });
+
+  it('5 m 를 켠 공은 PNG 에도 5 m 로 나간다 — 판정 반경(3 m)과 다른 값이다', () => {
+    const doc = parse(buildStaticSvg(ringFrame('5m'), ringOpts));
+    const rr = (r: number) => [...doc.querySelectorAll('circle')].filter((c) => c.getAttribute('r') === String(r));
+    expect(rr(RING_5M_R_PX)).toHaveLength(2); // 케이싱 + 표시선
+    expect(rr(RING_R_PX)).toHaveLength(0);
+  });
+
+  it('스위치가 꺼져 있어도 **켜 놓은 원**은 PNG 에 실린다 — 다만 존도 경고색도 없다', () => {
+    const f = ringFrame('5m');
+    f.chairs[1]!.x = 420;
+    f.chairs[1]!.y = 262.5;
+    f.chairs[2]!.x = 430;
+    f.chairs[2]!.y = 270;
+    f.chairs[5]!.x = 440;
+    f.chairs[5]!.y = 262.5;
+    const doc = parse(buildStaticSvg(f, OPTS)); // showRuleZones 없음
+    expect([...doc.querySelectorAll('circle')].filter((c) => c.getAttribute('r') === String(RING_5M_R_PX))).toHaveLength(2);
+    // 판정이 서지 않으므로(화면과 같은 판단) 같은 위반 장면인데 붉지 않다.
+    expect(doc.documentElement.outerHTML.includes(RULE_ALERT_STROKE)).toBe(false);
+    // 대조군 — 스위치를 켜면 같은 장면이 붉어진다.
+    expect(buildStaticSvg(f, ringOpts).includes(RULE_ALERT_STROKE)).toBe(true);
   });
 
   it('골 지역 3인 장면이면 존이 붉게 덮인다', () => {

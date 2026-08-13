@@ -10,7 +10,8 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { COURT_BG } from '../../core/colors.ts';
 import { courtDefFor, type CourtMode } from '../../model/court.ts';
-import type { Drill, DrillStep } from '../../model/drill.ts';
+import type { BallRing, Drill, DrillStep } from '../../model/drill.ts';
+import { ballRingOf } from '../../model/drill.ts';
 import { arrowColor } from '../../model/arrow.ts';
 import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playback.ts';
 import { PLAYBACK } from '../../core/constants.ts';
@@ -75,6 +76,16 @@ export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, on
     () => drill.cast.chairs.map((c) => ({ id: c.id, team: c.team, isGk: c.isGk })),
     [drill.cast.chairs],
   );
+  // §7 5.2 — 시연도 **같은 표**를 본다. 여기가 빠지면 편집 화면에서 켠 5 m 원이 시연에서만
+  // 사라진다(5차의 "시연 화면만 팀 구분을 잃었다" 와 같은 형태의 축 누락이다).
+  const ballRings = useMemo(() => {
+    const m: Record<string, BallRing> = {};
+    for (const b of drill.cast.balls) {
+      const r = ballRingOf(b);
+      if (r !== 'none') m[b.id] = r;
+    }
+    return m;
+  }, [drill.cast.balls]);
   const ruleBallIds = useMemo(() => {
     const s = drill.steps[stepIdx];
     if (!s) return [];
@@ -187,7 +198,7 @@ export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, on
       <rect width={def.vbW} height={def.vbH} rx={16} fill={COURT_BG} />
       <CourtSurface mode={mode} size={drill.courtSize} variant="present" />
       <RuleZones mode={mode} size={drill.courtSize} visible={showRuleZones} />
-      <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} roster={ruleRoster} teams={drill.teams} />
+      <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} ballRings={ballRings} roster={ruleRoster} teams={drill.teams} />
       {/* 개체 자체는 접근성 트리에서 뺀다 — 실제 서술은 아래 스텝 이름·메모(텍스트)와
           §7.5e 라이브 리전(스텝 전환 발표)이 맡는다. render-stage 리프가 강제하는
           role="button" 은 시연에서 실제로 클릭 가능하지 않아 노출하면 오히려 오도한다. */}

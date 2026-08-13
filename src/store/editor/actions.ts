@@ -76,6 +76,13 @@ export type EditorAction =
   | { type: 'OBJECT_REMOVE'; id: CastId; scope: 'onward' | 'thisStep' | 'everywhere' }
   | { type: 'CHAIR_PLACE'; id: ChairId; pose: StoredChairPose }
   | { type: 'CHAIR_DEF'; id: ChairId; patch: Partial<Omit<ChairDef, 'id' | 'team'>> }
+  // §7 5.2 — **선택된 공을 그 자리에서 다시 탭했다**(2026-08-13, 기현님 실기 피드백 ③).
+  // 액션이 '다음 상태' 를 싣지 않고 '사건' 만 싣는 이유: 순환의 다음 칸은 지금 값에서 나오고
+  // (없음→3 m→5 m→없음), **5 m 에서만 선택도 함께 풀려야** 한다. 둘을 화면 쪽에서 계산하면
+  // 읽고-쓰는 사이에 상태가 바뀌는 길이 열리고, 무엇보다 순환 규칙이 리듀서 밖으로 새 나가
+  // 순수 함수로 단언할 수 없게 된다. 그래서 한 번의 dispatch 가 uiReducer(선택 해제)와
+  // drillReducer(원 순환) 양쪽에서 갈라진다 — undo 한 칸, 저장 한 번.
+  | { type: 'BALL_RETAP'; id: BallId }
   | { type: 'OBJECT_NUDGE'; id: CastId; d: Vec2; dTheta: number } // 키보드 미세조정
   | { type: 'PLACE_BEGIN' } // 드래그 시작: 히스토리 경계만
   | {
@@ -119,6 +126,14 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'OBJECT_REMOVE',
   'CHAIR_PLACE',
   'CHAIR_DEF',
+  // 5.2 원 순환은 **드릴 내용**이라 되돌리기에 실린다 — `CHAIR_DEF`(개별 색·이름·역할)와 같은
+  // 부류다. 실지 않으면 present 가 바뀔 길이 아예 없다(withHistory 는 COMMIT_TYPES 아닌 액션에
+  // 대해 s 를 그대로 돌려준다) → 원이 화면에도 파일에도 남지 않는다.
+  // COALESCE_TYPES 에는 **넣지 않는다**: 700ms 안의 두 탭이 한 칸으로 병합되면 "5 m 를 3 m 로
+  // 되돌리려고 Ctrl+Z 를 눌렀는데 없음까지 갔다" 가 탭 속도에 따라 나온다.
+  // EPOCH_BUMP_TYPES 에도 **넣지 않는다**: 개체가 하나도 안 움직였는데 물리 월드를 재생성하면
+  // 탭 한 번에 판 전체가 다시 서고 진행 중이던 정착 통지가 유실된다.
+  'BALL_RETAP',
   'OBJECT_NUDGE',
   'PLACE_COMMIT',
   'PLACE_SETTLE',

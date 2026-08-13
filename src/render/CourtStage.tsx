@@ -18,7 +18,7 @@ import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 import type { DragZone } from '../model/chair.ts';
 import type { Arrow, ArrowHandle } from '../model/arrow.ts';
 import { arrowColor } from '../model/arrow.ts';
-import type { NoteLabel as NoteLabelData, TeamSide } from '../model/drill.ts';
+import type { BallRing, NoteLabel as NoteLabelData, TeamSide } from '../model/drill.ts';
 import type { BallId, ChairId } from '../core/ids.ts';
 import { CourtSurface, type CourtLineVariant } from './CourtSurface.tsx';
 import { GridOverlay } from './GridOverlay.tsx';
@@ -147,6 +147,9 @@ export interface CourtStageProps {
     /** 이 스텝의 선수 명단(팀·골키퍼). 좌표는 writer 프레임에서 온다. */
     roster: readonly RuleRosterEntry[];
     teams: Record<TeamSide, { label: string }>;
+    /** §7 5.2 공마다 따로 켜는 거리 원(공 id → 없음/3 m/5 m). 없는 id 는 'none' 이다.
+     *  안 넘기면 링이 하나도 안 그려진다 — 초기값이 '없음' 이기 때문이다. */
+    ballRings?: Readonly<Record<string, BallRing>>;
   };
   /** 드래그 중 스테이지 전체에 거는 커서. 포인터 캡처로 커서가 개체 밖으로 나가도
    *  잡고 있다는 표시가 유지되어야 하므로 컨테이너에 건다. */
@@ -586,6 +589,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             writer={writer}
             rules={ruleOverlay.rules}
             ballIds={balls}
+            ballRings={ruleOverlay.ballRings}
             roster={ruleOverlay.roster}
             teams={ruleOverlay.teams}
           />

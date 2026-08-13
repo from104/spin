@@ -5,7 +5,7 @@ import type { Vec2 } from '../core/units.ts';
 import { lerpAngle, shortestDelta, arcTangentK } from '../core/angle.ts';
 import { easeStandard } from '../core/geom.ts';
 import type { ChairId, BallId, ConeId } from '../core/ids.ts';
-import type { Drill, DrillStep, ChairDef, NoteLabel } from './drill.ts';
+import type { Drill, DrillStep, ChairDef, NoteLabel, StoredBallRing } from './drill.ts';
 import type { Arrow } from './arrow.ts';
 import { poseFromStored, type ChairPose } from './chair.ts';
 
@@ -33,6 +33,10 @@ export interface RenderBall {
   x: number;
   y: number;
   opacity: number;
+  /** §7 5.2 공마다 따로 켠 거리 원. 없으면 'none'(콘의 `colorIndex` 와 같이 cast 의 def 에서
+   *  프레임으로 옮겨 싣는 표시 상태다). **PNG 가 이것을 읽는다** — 프레임에 안 실으면
+   *  내보낸 그림에만 원이 사라지거나(또는 모든 공에 3 m 가 다시 뜨거나) 한다. */
+  ring?: StoredBallRing;
 }
 export interface RenderCone {
   id: ConeId;
@@ -138,13 +142,16 @@ export function interpolateSteps(d: Drill, from: DrillStep, to: DrillStep, e: nu
     const b = to.balls[def.id];
     const presence = presenceOf(a, b);
     if (presence === 'absent') continue;
+    // 5.2 — '없음' 은 **키를 만들지 않는다**(`ring: undefined` 를 쓰면 toStrictEqual 비교와
+    // JSON 왕복에서 `{}` 와 다른 것이 된다 — edits.ts omitKey 머리말의 함정과 같은 값).
+    const ring = def.ring !== undefined ? { ring: def.ring } : {};
     if (presence === 'both') {
       const p = lerpVec(a!, b!, e);
-      balls.push({ id: def.id, x: p.x, y: p.y, opacity: 1 });
+      balls.push({ id: def.id, x: p.x, y: p.y, opacity: 1, ...ring });
     } else if (presence === 'exit') {
-      balls.push({ id: def.id, x: a!.x, y: a!.y, opacity: 1 - e });
+      balls.push({ id: def.id, x: a!.x, y: a!.y, opacity: 1 - e, ...ring });
     } else {
-      balls.push({ id: def.id, x: b!.x, y: b!.y, opacity: e });
+      balls.push({ id: def.id, x: b!.x, y: b!.y, opacity: e, ...ring });
     }
   }
 

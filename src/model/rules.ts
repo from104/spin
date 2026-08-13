@@ -22,12 +22,31 @@
 // 그래서 발화 문구도 '주의' 다(ruleOverlay.ts).
 import { mToPx, type Vec2 } from '../core/units.ts';
 import type { Rect } from './court.ts';
-import type { TeamSide } from './drill.ts';
+import type { BallRing, TeamSide } from './drill.ts';
 
 /** 3 m. 25 px/m 이므로 75 월드px — 옛 센터 서클과 우연히 반지름이 같았다. 그 원은 규정에
  *  없어 5.3 이 지웠고(§9 결정 ⑧), 3 m 감각은 **공을 따라다니는 이 링**이 대신한다. */
 export const RING_R_PX = mToPx(3);
 const RING_R2 = RING_R_PX * RING_R_PX;
+
+/** 5 m — **표시 전용**이다(2026-08-13, 기현님 실기 피드백 ③). 세트피스에서 상대가 떨어져
+ *  있어야 하는 거리이고, 3 m(2-on-1 + 세트볼)와 함께 파워싸커에 실재하는 두 번째 거리다.
+ *
+ *  ⚠️ **판정에는 절대 쓰지 않는다.** 아래 `ringViolation` 은 언제나 `RING_R2`(3 m)로만 잰다 —
+ *  화면에 5 m 원을 켜 놨다고 2-on-1 판정 반경이 5 m 가 되면 규칙을 잘못 가르치게 된다.
+ *  ⚠️ **이 원 하나로 모든 세트피스를 덮지 않는다.** 5 m 의 기준점이 상황마다 다르기 때문이다:
+ *  킥오프·프리킥·킥인·골킥은 **공**, 페널티킥은 **페널티 마크**, 코너킥은 **코너 삼각형**.
+ *  여기서 만드는 것은 *공을 따라다니는* 원이라 공 기준 상황(앞의 넷)에만 맞는다. */
+export const RING_5M_R_PX = mToPx(5);
+
+/** 표시 반지름표. 'none' 은 그릴 것이 없다는 뜻으로 null 이다(0 이 아니다 — 0 은 점을 그린다).
+ *  링을 그리는 세 화면(편집 CourtStage · 시연 PresentStage · PNG buildStaticSvg)이 전부 이
+ *  함수 하나에서 반지름을 얻는다. 리터럴을 새로 박으면 25 px = 1 m 축척이 갈라진다. */
+export function ringRadiusPx(ring: BallRing): number | null {
+  if (ring === '3m') return RING_R_PX;
+  if (ring === '5m') return RING_5M_R_PX;
+  return null;
+}
 
 /** 2-on-1: 공 3 m 안의 같은 팀 인원이 이 수를 **넘으면** 주의(예외 ① 적용 후 인원). */
 export const RING_SAME_TEAM_MAX = 1;

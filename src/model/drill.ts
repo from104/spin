@@ -17,9 +17,31 @@ export interface ChairDef {
   name?: string; // '플레이메이커' — 인스펙터 이름 입력이 채움
   color?: string; // 지정 시 팀 색 무시 — 인스펙터 개별 색 스와치가 채움
 }
+/** §7 5.2 공마다 따로 켜는 거리 원(2026-08-13, 기현님 실기 피드백 ③).
+ *
+ *  **왜 스텝이 아니라 `cast`(공 자체의 속성)인가**: 스텝은 *자세*(pose)만 갖는다
+ *  (`DrillStep.balls: PoseMap<BallId, Vec2>` — 값이 좌표뿐이라 상태를 실을 자리가 없다).
+ *  콘의 `colorIndex`·휠체어의 `color`/`isGk` 처럼 **개체의 정체성에 붙는 값**은 전부 cast 에
+ *  있고, 그래야 스텝을 옮겨도·스텝을 복제해도 같은 공이 같은 원을 갖는다. 스텝마다 두면
+ *  스텝 12개짜리 드릴에서 원 하나 켜는 데 탭이 12번 필요하다.
+ *
+ *  ⚠️ **'none' 은 키 없음으로만 표현한다**(그래서 저장형이 `StoredBallRing` 이다) —
+ *  `{ring: undefined}` 는 structuredClone(IDB)이 보존하고 JSON 이 지운다(edits.ts `omitKey`
+ *  머리말의 함정). 초기 배치가 '원 없음' 이라는 뜻이기도 하다: 새 공은 키를 아예 안 만든다. */
+export type BallRing = 'none' | '3m' | '5m';
+export const BALL_RINGS = ['none', '3m', '5m'] as const;
+/** 문서에 실제로 적히는 값. 'none' 이 여기 없는 것이 규율이다(위 주석). */
+export type StoredBallRing = Exclude<BallRing, 'none'>;
+
 export interface BallDef {
   id: BallId;
+  /** 없으면 'none'. 값을 채우는 자리는 **재탭 순환 하나뿐**이다(store/editor 의 BALL_RETAP). */
+  ring?: StoredBallRing;
 }
+export const ballRingOf = (b: BallDef): BallRing => b.ring ?? 'none';
+/** 재탭 순환: 없음 → 3 m → 5 m → 없음. 4번째 탭에서 선택도 함께 풀리는 것은 **여기가 아니라**
+ *  uiReducer 가 한다(`ring === '5m'` 일 때) — 순수 함수는 선택을 모른다. */
+export const nextBallRing = (r: BallRing): BallRing => (r === 'none' ? '3m' : r === '3m' ? '5m' : 'none');
 export interface ConeDef {
   id: ConeId;
   colorIndex: 0 | 1;
@@ -66,7 +88,22 @@ export interface TeamStyle {
  *  가 아니다** — 좌표의 뜻이 바뀌기 때문이다. courtSize:'25x14' 드릴의 좌표는 700×425 판 위의
  *  값인데, 이 필드를 모르는 옛 앱은 그것을 825×525 판에 그린다. 파일은 멀쩡히 열리고 아무 경고도
  *  없이 **틀린 전술 그림**이 나온다. 도장을 올려 두면 옛 앱이 too-new 로 정직하게 거절한다.
- *  (봉투 버전 ENVELOPE_VERSION 은 1 그대로다 — 그릇이 아니라 내용의 버전이다.) */
+ *  (봉투 버전 ENVELOPE_VERSION 은 1 그대로다 — 그릇이 아니라 내용의 버전이다.)
+ *
+ *  ⚠️ **5.2 `BallDef.ring` 은 v4 로 올리지 않았다**(2026-08-13). 위 courtSize 문단과 반대
+ *  판단이라 근거를 남긴다 — 셋 다 성립해야 안 올린다:
+ *   ① **없으면 'none'** 이 전역(全域)이다. v3 문서에는 이 키가 없고, 없는 것이 곧 초기값이라
+ *      마이그레이션이 할 일이 0 이다. courtSize 는 반대였다(없는 값의 뜻이 '미지정' 이 아니라
+ *      '30×18' 이라 **문서마다 도장을 찍어 둬야** 기본값이 옮겨져도 안전했다).
+ *   ② **옛 앱이 이 필드를 몰라도 좌표의 뜻이 안 바뀐다.** 옛 앱이 그리는 3 m 링은 문서 내용이
+ *      아니라 **읽는 사람 기기의 설정**(`prefs.showRuleZones`, 기기별 값)에서 나온다 — 격자를
+ *      켜 놓고 보는 것과 같은 축이다. courtSize 는 **저장된 좌표의 해석**을 바꿔서 "파일은
+ *      멀쩡히 열리고 틀린 전술 그림이 나온다" 였다.
+ *   ③ 올리면 대가가 즉시 실재한다: 배포된 v0.1.0 빌드가 새 파일을 **전부 too-new 로 거절**한다
+ *      (드릴 파일도, 기기 이사 파일도). 표시 상태 하나 때문에 기기 사이 이사를 끊을 값이 아니다.
+ *   덧붙여, v3→v4 마이그레이션은 **적을 참말이 없다**: 'none' 을 찍으면 옛 드릴이 지금까지
+ *   보이던 모습(스위치를 켜면 모든 공에 3 m 링)과 어긋나고, '3m' 을 찍으면 기현님이 요청한
+ *   "초기 배치는 원 없음" 과 어긋난다. 적을 것이 없는 상승은 도장만 올리는 상승이다. */
 export const CURRENT_DRILL_SCHEMA = 3;
 
 export interface Drill {

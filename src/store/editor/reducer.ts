@@ -4,8 +4,10 @@ import { isId } from '../../core/ids.ts';
 import type { StepId, CastId } from '../../core/ids.ts';
 import { radToStoredDeg, storedDegToRad } from '../../core/angle.ts';
 import type { Drill } from '../../model/drill.ts';
+import { ballRingOf } from '../../model/drill.ts';
 import {
   addBall,
+  cycleBallRing,
   addCone,
   placeChair,
   updateChairDef,
@@ -99,6 +101,19 @@ export function uiReducer(s: EditorState, a: EditorAction): EditorState {
       // 정착이 끝났으니 자동저장 억제 창을 닫는다. 좌표가 하나도 안 바뀌었어도(드릴 리듀서가
       // no-op 로 통과하는 경우) 창은 반드시 닫아야 한다 — 안 그러면 저장이 마감까지 밀린다.
       return s.settleHoldUntil === 0 ? s : { ...s, settleHoldUntil: 0 };
+    // §7 5.2 — 재탭 순환의 **네 번째 칸**. 없음 → 3 m → 5 m 까지는 선택을 유지하고, 5 m 에서
+    // 한 번 더 누르면 원이 꺼지면서(drillReducer) 선택도 풀린다. 그래야 기현님이 적은 "순환"
+    // 이 닫힌다 — 유지로 두면 5 m 인 공은 재탭할 때마다 즉시 해제만 되어 원을 끌 길이 없다.
+    //
+    // ⚠️ 여기서 읽는 `s.present` 는 **순환 이전** 값이다(editorRootReducer 가 uiReducer 를
+    // 먼저 돌린다). '5m' 을 '없음' 으로 바꿔 읽으면 3 m→5 m 탭에서 선택이 풀린다.
+    // ⚠️ 상태를 5 m 로 **남긴 채** 해제하고 싶으면 순환을 타지 않는 세 경로를 쓴다:
+    // Esc · 빈 코트 탭 · 다른 개체 선택. Esc 가 어느 개체든 즉시 해제인 것은 그대로다.
+    case 'BALL_RETAP': {
+      const def = s.present.cast.balls.find((b) => b.id === a.id);
+      if (!def || ballRingOf(def) !== '5m') return s;
+      return s.selection.size === 0 ? s : { ...s, selection: new Set<string>() };
+    }
     case 'STEP_SELECT':
       return a.id === s.stepId ? s : { ...s, stepId: a.id };
     case 'SAVED':
@@ -189,6 +204,9 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return placeChair(d, i, a.id, a.pose);
     case 'CHAIR_DEF':
       return updateChairDef(d, a.id, a.patch);
+    // 5.2 — 순환 규칙 자체는 순수 함수(model/edits.cycleBallRing)에 있다. 그 공 하나만 바뀐다.
+    case 'BALL_RETAP':
+      return cycleBallRing(d, a.id);
     case 'OBJECT_NUDGE':
       return applyNudge(d, i, a.id, a.d, a.dTheta);
     // 정착 재커밋(PLACE_SETTLE)은 좌표 교체라는 점에서 PLACE_COMMIT 과 완전히 같다 —
