@@ -467,7 +467,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
             패딩은 예산의 한 행이다(§5.2 '코트 래퍼 좌우 48 → 24 · 상하 40 → 16'). 숫자를 여기
             직접 적지 않는다 — 예산표와 화면이 갈라지면 표가 거짓말을 한다.
             ⚠️ 이 div 는 **center + center + 비어 있지 않은 padding 을 가진 유일한 div** 로 남는다
-            (narrow.test.tsx:179-201 이 그 선택자로 이 상자를 찾는다). 판 덩어리에는 padding 을
+            (narrow.test.tsx:207-213 의 courtWrapper 가 그 선택자로 이 상자를 찾고, 개수까지 1 로 단언한다). 판 덩어리에는 padding 을
             주지 않는다 — 주는 순간 저 테스트가 두 개를 찾아 빨간불이 난다. */}
         <div style={{ flex: 1, minHeight: 0, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: courtPadCss(narrow) }}>
           {/* ★ 판 덩어리 [data-board] — **코트 + 벤치가 한 물건이다**(기현 지시 2026-08-14).
