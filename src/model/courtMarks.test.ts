@@ -11,7 +11,19 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '../core/units.ts';
 import { PX_PER_M } from '../core/units.ts';
-import { COURT_MODES, COURT_SIZES, COURT_DEFS, courtDefFor, isOnSurface, type CourtDef, type CourtMode, type CourtSize } from './court.ts';
+import {
+  CENTER_MARK_HALF_PX,
+  CENTER_MARK_SPEC_PX,
+  COURT_MODES,
+  COURT_SIZES,
+  COURT_DEFS,
+  courtDefFor,
+  isOnSurface,
+  SPOT_CROSS_HALF_PX,
+  type CourtDef,
+  type CourtMode,
+  type CourtSize,
+} from './court.ts';
 
 interface Seg {
   a: Vec2;
@@ -151,38 +163,101 @@ describe('§5.2 코너킥 인크로치먼트 마크 — 골대마다 2개', () =
   });
 });
 
-describe('§5.3 센터 마크 — 15 cm "X" 하나, 그리고 센터 서클은 없다', () => {
+// ── §5.3 센터 마크 ──────────────────────────────────────────────────────────────────────
+// ⚠️ 이 절은 2026-08-13 기현님 실기 지시로 **두 군데가 뒤집혔다**. 옛 단언을 지우지 않고
+//    승격시킨 것이라, 무엇이 왜 바뀌었는지가 여기서 읽혀야 한다:
+//     ① 크기: 규격 15 cm(반폭 1.875)  →  **페널티 스팟 십자와 같은 반폭 3.5**(= 28 cm).
+//        규격값은 `CENTER_MARK_SPEC_PX` 로 살아 있고 아래에서 **따로** 잰다.
+//     ② 판: 풀에만  →  **풀 + 하프**. `flat` 은 그대로 null 이고 그것이 대조군이다.
+describe('§5.3 센터 마크 — 페널티 스팟과 같은 크기의 "X", 그리고 센터 서클은 없다', () => {
+  /** 센터 마크 path 를 재서 {중심, 폭, 높이} 로. 획이 두 개인지·대각인지도 여기서 본다. */
+  function measureX(d: string): { cx: number; cy: number; w: number; h: number } {
+    const s = segs(d);
+    expect(s, 'X 는 획 두 개다').toHaveLength(2);
+    const xs = s.flatMap((g) => [g.a.x, g.b.x]);
+    const ys = s.flatMap((g) => [g.a.y, g.b.y]);
+    // 두 획이 서로 대각이다 — 같은 획을 두 번 적은 '가짜 X' 를 막는다.
+    expect(Math.sign(s[0]!.b.x - s[0]!.a.x)).not.toBe(Math.sign(s[1]!.b.x - s[1]!.a.x));
+    return {
+      cx: (Math.min(...xs) + Math.max(...xs)) / 2,
+      cy: (Math.min(...ys) + Math.max(...ys)) / 2,
+      w: Math.max(...xs) - Math.min(...xs),
+      h: Math.max(...ys) - Math.min(...ys),
+    };
+  }
+
   it('풀 코트: 하프라인 중점에 X 가 있다 (크기 3단 전부)', () => {
     for (const size of COURT_SIZES) {
       const def = courtDefFor('full', size);
       const d = def.centerMark;
       expect(d, `${size}`).not.toBeNull();
-      const s = segs(d!);
-      expect(s, 'X 는 획 두 개다').toHaveLength(2);
-      const xs = s.flatMap((g) => [g.a.x, g.b.x]);
-      const ys = s.flatMap((g) => [g.a.y, g.b.y]);
+      const m = measureX(d!);
       const S = def.surface;
       // 중심 = 하프라인(경기면 중앙 세로선)의 중점.
-      expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(S.x + S.w / 2, 9);
-      expect((Math.min(...ys) + Math.max(...ys)) / 2).toBeCloseTo(S.y + S.h / 2, 9);
-      // 크기 = 15 cm. ⚠️ 이 숫자가 커지면 그것은 다시 '규정에 없는 원' 으로 가는 길이다.
-      expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(0.15 * PX_PER_M, 9);
-      expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(0.15 * PX_PER_M, 9);
-      expect(0.15 * PX_PER_M).toBe(3.75); // 축척 25 px = 1 m 의 검산
-      // 두 획이 서로 대각이다 — 같은 획을 두 번 적은 '가짜 X' 를 막는다.
-      expect(Math.sign(s[0]!.b.x - s[0]!.a.x)).not.toBe(Math.sign(s[1]!.b.x - s[1]!.a.x));
+      expect(m.cx, `${size}`).toBeCloseTo(S.x + S.w / 2, 9);
+      expect(m.cy, `${size}`).toBeCloseTo(S.y + S.h / 2, 9);
+      // 크기는 **코트 3단에서 변하지 않는다**(절대 치수다 — 페널티 마크·골대와 같은 성질).
+      expect(m.w, `${size}`).toBeCloseTo(2 * SPOT_CROSS_HALF_PX, 9);
+      expect(m.h, `${size}`).toBeCloseTo(2 * SPOT_CROSS_HALF_PX, 9);
     }
   });
 
-  it('하프·플랫에는 센터 마크가 없다 — 하프라인을 그리지 않는 판이다', () => {
-    expect(COURT_DEFS.half.centerMark).toBeNull();
+  // ── ①: 크기가 페널티 스팟 십자와 같다 (2026-08-13 기현님 실기 지시) ──────────────────────
+  it('⚠️ 표시 크기 = 페널티 스팟 십자와 같은 반폭이다 — 규격 15 cm 가 아니다', () => {
+    // 지시 원문: "센터 중앙 x자를 패널티스팟과 같은 크기로". 그래서 여기서 재는 것은
+    // **규격과의 일치가 아니라 스팟 십자와의 일치**다. `CENTER_MARK_HALF_PX` 를
+    // `CENTER_MARK_SPEC_PX / 2`(=1.875) 로 되돌리면 이 단언이 곧바로 빨개진다.
+    expect(CENTER_MARK_HALF_PX).toBe(SPOT_CROSS_HALF_PX);
+    expect(measureX(COURT_DEFS.full.centerMark!).w).toBeCloseTo(2 * SPOT_CROSS_HALF_PX, 9);
+    expect(measureX(COURT_DEFS.half.centerMark!).w).toBeCloseTo(2 * SPOT_CROSS_HALF_PX, 9);
+
+    // 대조군 ① — 그 값이 규격값과 **실제로 다르다**. 둘이 우연히 같아서 통과한 것이 아니다.
+    expect(CENTER_MARK_SPEC_PX).toBe(0.15 * PX_PER_M);
+    expect(CENTER_MARK_SPEC_PX).toBe(3.75); // 축척 25 px = 1 m 의 검산
+    expect(CENTER_MARK_HALF_PX).not.toBeCloseTo(CENTER_MARK_SPEC_PX / 2, 9);
+    // 대조군 ② — 표시값 7 px 이 실제로 28 cm 다(다음 사람이 이 수를 규격으로 읽지 않도록).
+    expect((2 * CENTER_MARK_HALF_PX) / PX_PER_M).toBeCloseTo(0.28, 9);
+
+    // 대조군 ③ — 페널티 스팟 십자가 정말 그 반폭으로 **그려지고 있다**. 상수끼리만 비교하면
+    // 두 상수를 같이 바꾼 채 그림은 안 따라오는 헛통과가 열린다. 실제 spotMarks 좌표에서 잰다.
+    const spot = COURT_DEFS.full.spotMarks[0]!;
+    const crossHalf = Math.abs(spot.x - (spot.x - SPOT_CROSS_HALF_PX));
+    expect(crossHalf).toBe(3.5);
+  });
+
+  // ── ②: 하프에도 있다 (2026-08-13 기현님 실기 지시로 뒤집힘) ─────────────────────────────
+  it('⚠️ 하프 코트에도 센터 마크가 있다 — 위쪽 변(=하프라인)의 중점이다', () => {
+    // 2026-08-12 까지 이 자리의 단언은 `expect(COURT_DEFS.half.centerMark).toBeNull()` 이었다.
+    // 지우지 않고 **뒤집어** 승격시킨다. 근거는 court.ts 의 half.centerMark 주석 ①②③.
+    const def = COURT_DEFS.half;
+    expect(def.centerMark).not.toBeNull();
+    const m = measureX(def.centerMark!);
+    const S = def.surface;
+    expect(m.cx).toBeCloseTo(S.x + S.w / 2, 9); // 가로 중앙
+    expect(m.cy).toBeCloseTo(S.y, 9); // **위쪽 변** — 골대(아래쪽) 반대편이다
+
+    // 대조군 ① — 아래쪽 변(골라인)이나 경기면 한가운데가 아니다. 셋은 실제로 다른 y 다.
+    expect(m.cy).not.toBeCloseTo(S.y + S.h, 9);
+    expect(m.cy).not.toBeCloseTo(S.y + S.h / 2, 9);
+    // 대조군 ② — 그 y 가 골대보다 위다(하프 코트 골대는 아래쪽 변에 있다).
+    expect(m.cy).toBeLessThan(def.goalPosts[0]!.y);
+    // 대조군 ③ — 풀 코트의 X 를 그대로 베낀 것이 아니다(좌표가 다르다).
+    expect(def.centerMark).not.toBe(COURT_DEFS.full.centerMark);
+  });
+
+  it('⚠️ 플랫에는 여전히 센터 마크가 없다 — 선이 하나도 없는 자유판이다', () => {
+    // **대조군의 대조군.** 하프를 뒤집을 때 flat 까지 같이 뒤집는 것이 가장 쉬운 과잉 수정이다.
     expect(COURT_DEFS.flat.centerMark).toBeNull();
-    // 대조군 — null 판정이 아무 필드에나 참인 것이 아니다.
+    expect(COURT_DEFS.flat.cornerCuts).toHaveLength(0); // 정말로 선이 없는 판이다
+    expect(COURT_DEFS.flat.goalPosts).toHaveLength(0);
+    // null 판정이 아무 판에나 참인 것이 아니다 — 나머지 둘은 값을 갖는다.
     expect(COURT_DEFS.full.centerMark).not.toBeNull();
+    expect(COURT_DEFS.half.centerMark).not.toBeNull();
   });
 
   it('⚠️ 어느 판에도 센터 서클(3 m 원)의 자리가 없다 — §9 결정 ⑧', () => {
     // Laws 2025 전문 50쪽에 "circle" 이 0회 나온다. 지워 놓은 것은 지워진 채로 지켜져야 한다.
+    // ⚠️ 이 단언은 2026-08-13 지시와 **무관하게 그대로다**. 커진 것은 X 이고, 원은 여전히 없다.
     for (const mode of COURT_MODES) {
       const def = COURT_DEFS[mode];
       expect(Object.keys(def)).not.toContain('centerCircle');
@@ -190,8 +265,9 @@ describe('§5.3 센터 마크 — 15 cm "X" 하나, 그리고 센터 서클은 �
       // 옛 하프 코트의 센터 서클 반원이 정확히 이 형태였다(`A75,75 0 0 0 …`).
       const paths = [...def.cornerCuts, ...def.encroachMarks, ...(def.centerMark === null ? [] : [def.centerMark])];
       for (const d of paths) expect(d).not.toMatch(/[Aa]\d/);
-      // 대조군 — 실제로 문자열을 훑고 있다(full 6개 · half 4개 · flat 0개).
-      expect(paths.length).toBe(mode === 'full' ? 9 : mode === 'half' ? 4 : 0);
+      // 대조군 — 실제로 문자열을 훑고 있다(full 9개 · half 5개 · flat 0개).
+      // half 는 2026-08-13 에 센터 마크가 생기며 4 → **5** 가 됐다.
+      expect(paths.length, mode).toBe(mode === 'full' ? 9 : mode === 'half' ? 5 : 0);
     }
   });
 });

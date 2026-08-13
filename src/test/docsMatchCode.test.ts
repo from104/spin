@@ -19,7 +19,7 @@ import { BALL, CONE } from '../core/constants.ts';
 import { COURT_BG, OBJ_STROKE } from '../core/colors.ts';
 import { compositeOver, contrastRatio } from '../styles/contrastMath.ts';
 import { PX_PER_M } from '../core/units.ts';
-import { COURT_SIZES, COURT_DEFS, courtDefFor } from '../model/court.ts';
+import { CENTER_MARK_HALF_PX, CENTER_MARK_SPEC_PX, COURT_MODES, COURT_SIZES, COURT_DEFS, courtDefFor } from '../model/court.ts';
 import { LIMITS } from '../model/validate.ts';
 import { RAIL_ITEMS, SCREEN_ORDER, SCREEN_NAV_LABELS } from '../app/screens.ts';
 
@@ -93,14 +93,30 @@ describe('§3 코트 규격 표 = COURT_DEFS', () => {
   });
 
   it('센터 서클이 삭제됐다는 사실이 코드와 문서 양쪽에 있다', () => {
-    // 코드: 풀 코트에는 centerMark("X")만 있고 원은 없다. 하프에는 그것조차 없다
-    // (하프라인을 그리지 않는 판이라 X 를 찍으면 코치가 코트 가장자리를 센터로 읽는다).
+    // 코드: 코트에는 centerMark("X")만 있고 원은 없다.
     // '어느 판에도 센터 서클의 자리가 없다' 는 courtMarks.test.ts 가 따로 지킨다 —
     // 여기서 재는 것은 **문서가 그 사실을 말하는가** 뿐이다.
+    //
+    // ⚠️ 2026-08-12 까지 이 자리에는 `expect(COURT_DEFS.half.centerMark).toBeNull()` 이 있었고,
+    //    주석은 "하프에는 그것조차 없다(코치가 코트 가장자리를 센터로 읽는다)" 였다.
+    //    **2026-08-13 기현님 실기 지시로 하프에도 X 가 생겼다** — 지우지 않고 뒤집는다.
     expect(COURT_DEFS.full.centerMark).not.toBeNull();
-    expect(COURT_DEFS.half.centerMark).toBeNull();
-    expect(COURT_DEFS.flat.centerMark).toBeNull();
+    expect(COURT_DEFS.half.centerMark).not.toBeNull();
+    expect(COURT_DEFS.flat.centerMark).toBeNull(); // 대조군: 셋 다 참인 판정이 아니다
     expect(S).toContain('센터 서클은 없다');
+  });
+
+  it('센터 마크가 어느 판에 있는지 문서와 코드가 같은 말을 한다 (2026-08-13 뒤집힘)', () => {
+    // ⚠️ 손-숫자 금지 규약을 지킨다: 기대값을 COURT_DEFS 에서 파생시킨다. 문서가 옛 문장
+    //    ("풀 코트에만 있다")으로 되돌아가거나, 코드가 하프에서 X 를 잃으면 양쪽 다 빨개진다.
+    const withMark = COURT_MODES.filter((m) => COURT_DEFS[m].centerMark !== null);
+    expect(withMark).toEqual(['full', 'half']);
+    expect(S).toContain('**풀 + 하프**에 있고 플랫에는 없다');
+    expect(S).not.toContain('풀 코트에만 있다'); // 옛 문장이 남아 있지 않다
+    // 표시 크기도 문서가 말한다 — 규격 15 cm 와 다른 값이라는 것이 이 항목의 핵심이다.
+    expect(CENTER_MARK_HALF_PX).not.toBe(CENTER_MARK_SPEC_PX / 2);
+    expect(S).toContain(`반폭 ${num(CENTER_MARK_HALF_PX)} px`);
+    expect(S).toContain(`${num((CENTER_MARK_SPEC_PX / PX_PER_M) * 100)} cm`); // 규격값 15 cm 도 남아 있다
   });
 });
 

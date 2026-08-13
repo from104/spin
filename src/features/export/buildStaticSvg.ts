@@ -37,7 +37,7 @@
 import { DEG } from '../../core/angle.ts';
 import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR, CONE } from '../../core/constants.ts';
-import { courtDefFor } from '../../model/court.ts';
+import { courtDefFor, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLES } from '../../model/arrow.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
@@ -97,9 +97,11 @@ const W = COURT_LINE_WEIGHTS.present;
 // ⚠️ 5.3 이 `const CENTER_CIRCLE_R = 75` 를 **지웠다**. 규정에 없는 원이었고(Laws 2025 전문에
 //    "circle" 0회, §9 결정 ⑧), 화면 컴포넌트에서 지운 것을 여기에 남기면 **내보낸 그림에만**
 //    센터 서클이 남는다 — courtLines.contract.test.ts 가 그 갈라짐을 잡는 자리다.
-//    센터 마크(15 cm X)는 좌표가 `COURT_DEFS[mode].centerMark` 에 있으므로 상수가 필요 없다.
-/** 골 십자 반폭. present 변형은 dx=3.5, dy=3.5(full 의 editor 만 dy=3 이다). */
-const CROSS_HALF = 3.5;
+//    센터 마크(X)는 좌표가 `COURT_DEFS[mode].centerMark` 에 있으므로 상수가 필요 없다.
+/** 골 십자 반폭. present 변형은 dx=dy=3.5(full 의 editor 만 dy=3 이다).
+ *  ⚠️ 리터럴 3.5 로 되돌리지 마라 — 센터 마크가 이 상수에서 파생된다(court.ts 근거,
+ *  2026-08-13 "센터 X 를 페널티 스팟과 같은 크기로"). */
+const CROSS_HALF = SPOT_CROSS_HALF_PX;
 
 function goalCrossD(marks: readonly { x: number; y: number }[]): string {
   return marks
@@ -129,7 +131,8 @@ function encroachMarksMarkup(marks: readonly string[]): string {
   return marks.map((d) => `<path d="${d}" stroke-width="${num(W.outline)}"/>`).join('');
 }
 
-/** 5.3 센터 마크(15 cm X). 하프라인이 없는 판은 `centerMark === null` 이라 빈 문자열이다. */
+/** 5.3 센터 마크(X — 표시 크기는 페널티 스팟 십자와 같다, 2026-08-13). 하프라인이 없는 판은
+ *  `centerMark === null` 이라 빈 문자열이다 — 이제 `flat` 하나뿐이다(하프는 2026-08-13 에 생겼다). */
 function centerMarkMarkup(d: string | null): string {
   return d === null ? '' : `<path d="${d}" stroke-width="${num(W.centerMark)}"/>`;
 }
@@ -147,13 +150,25 @@ export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSce
       `<line x1="${num(S.x)}" y1="${num(S.y)}" x2="${num(S.x + S.w)}" y2="${num(S.y)}" stroke-width="${num(W.outline)}"/>` +
       cornerCutsMarkup(def.cornerCuts) +
       encroachMarksMarkup(def.encroachMarks) +
+      // ── 옛 주석(2026-08-12까지) — 지우지 않는다. 기록이다 ──────────────────────────────
       // ⚠️ 여기에 `centerMarkMarkup` 을 부르면 안 된다. HalfCourtLines 가 센터 마크를 **아예
       //    그리지 않기** 때문이고(하프에는 하프라인이 없다 — 5.3), 이 함수는 그 컴포넌트의 손
       //    이식본이라 "모델이 주면 그린다" 로 앞서 나가면 두 그림이 갈라진다. 실제로 그렇게 두고
       //    half.centerMark 에 값을 넣어 보면 courtLines.contract.test.ts 의 half 가 빨개진다.
+      // ── 2026-08-13 기현님 실기 지시로 뒤집혔다 ────────────────────────────────────────
+      //    이제 HalfCourtLines 가 센터 마크를 그린다. 위 문장의 **논리는 그대로 유효하다** —
+      //    "컴포넌트가 그리는 것만 여기서도 그린다". 바뀐 것은 컴포넌트 쪽이고, 그래서 여기도
+      //    같이 부른다. 이 줄을 지우면 **PNG 에만 센터 마크가 없는** 갈라짐이 되고
+      //    courtLines.contract.test.ts 의 half 가 그 자리에서 빨개진다 —
+      //    반증 실측(2026-08-13): `AssertionError: expected [ …(10) ] to deeply equal [ …(11) ]`.
+      //    ⚠️ 그 도형 대조는 **양쪽에서 같이 지우면 초록이다.** 그래서 같은 파일에
+      //       '센터 마크가 실제로 있다' 는 **존재 단언**을 따로 뒀다(실측: 양쪽 삭제 시
+      //       half 대조는 통과하고 그 존재 단언만 빨갰다).
       `<path d="M${num(gz.x)},${num(S.y + S.h)} L${num(gz.x)},${num(gz.y)} L${num(gz.x + gz.w)},${num(gz.y)} L${num(gz.x + gz.w)},${num(S.y + S.h)}" stroke-width="${num(W.goalArea)}"/>` +
+      centerMarkMarkup(def.centerMark) +
       `</g>` +
       // 하프에는 센터 흰 점이 없다 — HalfCourtLines.tsx 머리말이 "추가하지 않는다" 로 못박았다.
+      // (그 문장에서 살아남은 것은 **점**뿐이다. X 는 위에서 그린다 — 2026-08-13.)
       `<g fill="none" stroke="#ffffff" stroke-width="${num(W.goalCross!)}" stroke-linecap="round">${goalCrossD(def.spotMarks)}</g>` +
       goalPostsMarkup(def.goalPosts)
     );

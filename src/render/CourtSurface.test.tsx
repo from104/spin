@@ -1,9 +1,11 @@
 // §6.6 코트 라인 존재·굵기 검증. 좌표는 court.ts/grid.ts 가 이미 검산했으므로 여기서는
 // "프로토타입 마크업이 그대로 이식됐는가" + "variant 굵기표가 맞는가"만 본다.
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { CourtSurface } from './CourtSurface.tsx';
-import { COURT_DEFS } from '../model/court.ts';
+import { CourtThumbnail } from './CourtThumbnail.tsx';
+import { COURT_DEFS, COURT_SIZES, courtDefFor, SPOT_CROSS_HALF_PX } from '../model/court.ts';
 
 function renderCourt(mode: 'full' | 'half' | 'flat', variant: 'editor' | 'present' | 'thumb') {
   return render(
@@ -48,13 +50,32 @@ describe('FullCourtLines', () => {
   });
 
   // ── 5.3 센터 마크 도입 / 센터 서클 삭제 (§9 결정 ⑧) ───────────────────────────────────────
-  it('5.3: 센터 마크(15 cm X)를 그리고 **흰 센터 점은 없다**', () => {
+  // ⚠️ 제목이 "15 cm X" 였다. **2026-08-13 기현님 실기 지시로 표시 크기가 페널티 스팟 십자와
+  //    같은 28 cm 로 커졌다**(규격 15 cm 는 court.ts 의 `CENTER_MARK_SPEC_PX` 로 남아 있다).
+  it('5.3: 센터 마크 X 를 그리고 **흰 센터 점은 없다**', () => {
     for (const variant of ['editor', 'present', 'thumb'] as const) {
       const c = renderCourt('full', variant);
       expect(pathDs(c), variant).toContain(COURT_DEFS.full.centerMark);
       // 옛 센터 점(circle fill=#ffffff r=4.5/5/2)은 X 를 통째로 덮어 가린다 — 지운 채로 둔다.
       expect(c.querySelector('circle[fill="#ffffff"]'), variant).toBeNull();
     }
+  });
+
+  // ── 2026-08-13 기현님 실기 지시 ①: "센터 중앙 x자를 패널티스팟과 같은 크기로" ──────────────
+  it('⚠️ 5.3(뒤집힘): 화면에서 잰 센터 X 의 폭이 골 십자(페널티 스팟)와 **같다**', () => {
+    // 모델 상수끼리 비교하는 것은 courtMarks.test.ts 가 한다. 여기서는 **그려진 DOM 을** 잰다 —
+    // "모델은 커졌는데 화면은 옛 리터럴로 그린다" 를 잡는 자리다(이 저장소가 겪은 사고 형태).
+    const c = renderCourt('full', 'present');
+    const span = (d: string): number => {
+      const xs = [...d.matchAll(/[ML](-?[\d.]+),/g)].map((m) => Number(m[1]));
+      expect(xs.length, `좌표를 못 읽었다: ${d}`).toBe(4);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    const crossPath = Array.from(c.querySelectorAll('g[stroke-linecap="round"] > path'))[0]!.getAttribute('d')!;
+    expect(span(COURT_DEFS.full.centerMark!)).toBeCloseTo(span(crossPath), 9);
+    expect(span(COURT_DEFS.full.centerMark!)).toBeCloseTo(2 * SPOT_CROSS_HALF_PX, 9);
+    // 대조군 — 이 자를 옛 규격값(3.75 px)에 대면 실제로 틀리다. 무엇에나 참인 자가 아니다.
+    expect(span(COURT_DEFS.full.centerMark!)).not.toBeCloseTo(3.75, 9);
   });
 
   it('⚠️ 5.3: 어느 variant 에도 **센터 서클(r=75)이 없다** — 규정에 없는 선이다', () => {
@@ -106,16 +127,44 @@ describe('HalfCourtLines', () => {
     expect(c.querySelector('circle[fill="#ffffff"]')).toBeNull();
   });
 
-  it('⚠️ 5.3: 센터 서클 **반원(A75,75)이 없다**, 그리고 센터 마크도 없다', () => {
-    // 지운 것(반원)과 넣지 않기로 한 것(X) 양쪽에 단언을 둔다 — 한쪽만 재면 "지우면서 X 를
-    // 대신 넣는" 잘못된 수정이 통과한다. 하프 코트에는 하프라인이 없다(파일 머리말 근거).
+  it('⚠️ 5.3: 센터 서클 **반원(A75,75)이 없다** — 지운 것은 지워진 채로 둔다', () => {
+    // 2026-08-12 까지 이 테스트의 제목은 "…, 그리고 센터 마크도 없다" 였고 아래에
+    // `expect(COURT_DEFS.half.centerMark).toBeNull()` 이 있었다. **2026-08-13 기현님 실기
+    // 지시로 하프에도 센터 마크가 생겼다** — 그 단언은 지우지 않고 바로 아래 테스트로
+    // 뒤집어 승격시켰다. 여기 남은 것은 **반원 부재**뿐이고 그것은 그대로 유효하다
+    // (지시는 "X 를 표시" 였지 "원을 되살려라" 가 아니다).
     for (const variant of ['editor', 'present', 'thumb'] as const) {
       const ds = pathDs(renderCourt('half', variant));
-      expect(ds.length, variant).toBeGreaterThanOrEqual(4); // 대조군: 훑을 path 가 실제로 있다
+      expect(ds.length, variant).toBeGreaterThanOrEqual(5); // 대조군: 훑을 path 가 실제로 있다
       for (const d of ds) expect(d, variant).not.toMatch(/[Aa]\d/);
     }
-    expect(COURT_DEFS.half.centerMark).toBeNull();
-    expect(COURT_DEFS.full.centerMark).not.toBeNull(); // 대조군: null 이 아무 판에나 참이 아니다
+    expect(renderCourt('half', 'present').querySelector('circle[r="75"]')).toBeNull();
+  });
+
+  // ── 2026-08-13 기현님 실기 지시 ②: "하프코트에서도 표시" ─────────────────────────────────
+  it('⚠️ 5.3(뒤집힘): 하프 코트에도 센터 마크가 그려진다 — variant 셋 전부', () => {
+    for (const variant of ['editor', 'present', 'thumb'] as const) {
+      const c = renderCourt('half', variant);
+      expect(pathDs(c), variant).toContain(COURT_DEFS.half.centerMark);
+      // 흰 센터 **점**은 여전히 없다 — X 를 통째로 덮어 가린다(뒤집힌 것은 X 뿐이다).
+      expect(c.querySelector('circle[fill="#ffffff"]'), variant).toBeNull();
+    }
+    expect(COURT_DEFS.half.centerMark).not.toBeNull();
+    // 대조군 ① — 풀 코트 좌표를 그대로 베껴 그린 것이 아니다.
+    expect(pathDs(renderCourt('half', 'present'))).not.toContain(COURT_DEFS.full.centerMark);
+    // 대조군 ② — `flat` 은 그대로 null 이고 아무것도 그리지 않는다. 존재 단언이 아무 판에나
+    // 참인 것이 아니다(과잉 수정으로 자유판까지 X 가 뜨는 길을 막는다).
+    expect(COURT_DEFS.flat.centerMark).toBeNull();
+    expect(renderCourt('flat', 'present').querySelectorAll('path')).toHaveLength(0);
+  });
+
+  it('하프 센터 마크의 굵기도 variant 표를 탄다 (X2.2 / X2.4 / X2)', () => {
+    // 좌표만 재면 "굵기 0 으로 그려 안 보이는" 길이 남는다. 굵기는 풀 코트와 같은 표다.
+    const expected = { editor: '2.2', present: '2.4', thumb: '2' } as const;
+    for (const variant of ['editor', 'present', 'thumb'] as const) {
+      const c = renderCourt('half', variant);
+      expect(c.querySelector(`path[d="${COURT_DEFS.half.centerMark}"]`), variant).toHaveAttribute('stroke-width', expected[variant]);
+    }
   });
 
   it('5.2: 인크로치먼트 마크가 **2개**다 — 골대가 하나뿐이다', () => {
@@ -245,6 +294,25 @@ describe('courtLines — 외곽선·골지역도 COURT_DEFS 에서 파생된다'
     }
   });
 
+  it('half: centerMark 를 바꾸면 센터 마크 path 가 따라가고, null 이면 아예 안 그린다', () => {
+    // 하프 쪽에도 같은 가드를 둔다 — 2026-08-13 에 X 를 넣으면서 **좌표를 컴포넌트에 리터럴로
+    // 적는** 것이 가장 쉬운 지름길이었다(court.ts 를 안 고쳐도 화면에는 X 가 뜬다). 그러면
+    // 인쇄·PNG 는 여전히 X 가 없고, 아무 테스트도 빨개지지 않는다.
+    const original = COURT_DEFS.half.centerMark;
+    COURT_DEFS.half.centerMark = 'M3,3 L4,4';
+    try {
+      expect(renderCourt('half', 'editor').querySelector('path[d="M3,3 L4,4"]')).not.toBeNull();
+      expect(renderCourt('half', 'editor').querySelector(`path[d="${original}"]`)).toBeNull();
+      COURT_DEFS.half.centerMark = null;
+      const c = renderCourt('half', 'editor');
+      expect(c.querySelector('path[d="M3,3 L4,4"]')).toBeNull();
+      // null 대조군: 마크만 빠지고 나머지 라인(코너컷 2 · 인크로치먼트 2 · 외곽 1 · 골지역 1)은 6개다.
+      expect(c.querySelectorAll('g[stroke-linecap="butt"] > path')).toHaveLength(6);
+    } finally {
+      COURT_DEFS.half.centerMark = original;
+    }
+  });
+
   it('full: centerMark 를 바꾸면 센터 마크 path 가 따라가고, null 이면 아예 안 그린다', () => {
     const original = COURT_DEFS.full.centerMark;
     COURT_DEFS.full.centerMark = 'M1,1 L2,2';
@@ -258,5 +326,72 @@ describe('courtLines — 외곽선·골지역도 COURT_DEFS 에서 파생된다'
     } finally {
       COURT_DEFS.full.centerMark = original;
     }
+  });
+});
+
+// ── 화면 축 열거 — 코트를 그리는 화면은 **다섯**이다 (2026-08-13 ①) ──────────────────────
+//
+// ⚠️ 이 저장소가 실제로 겪은 헛통과: 5차에서 "코트를 그리는 화면이 몇 개인가" 를 아무도 묻지
+//    않아 **시연 화면만** 강제색에서 팀 구분을 잃은 채 2233 테스트가 초록이었다
+//    (contrast.test.tsx 의 '화면 축 열거' 가 그 자리다). 센터 마크도 같은 위험이 있다 —
+//    편집기에서 X 를 보고 "됐다" 하면 코치가 들고 나가는 **종이**에는 없을 수 있다.
+//
+// 다섯 화면과 각각의 보장 방식:
+//   ① 편집기  CourtStage.tsx        → <CourtSurface> 재사용 (아래 파일 텍스트 계약)
+//   ② 시연    PresentStage.tsx      → <CourtSurface> 재사용 (아래 파일 텍스트 계약)
+//   ③ 인쇄    PrintCourt.tsx        → <CourtSurface> 재사용 (PrintCourt.test.tsx 가 실제로 렌더)
+//   ④ PNG     buildStaticSvg.ts     → **손 이식본**. courtLines.contract.test.ts 가 도형 대조 +
+//                                      같은 파일의 '센터 마크가 실제로 있다' 존재 단언
+//   ⑤ 썸네일  CourtThumbnail.tsx    → <CourtSurface> 재사용 (아래에서 실제로 렌더)
+//
+// "저절로 따라오겠지" 를 믿지 않고 **그 저절로가 성립하는 조건**(= CourtSurface 를 쓴다)을
+// 단언한다. 어느 화면이 코트 라인을 손으로 그리기 시작하면 여기가 빨개진다.
+describe('센터 마크 — 코트를 그리는 다섯 화면 전부에 닿는다', () => {
+  const REUSERS = [
+    { name: '① 편집기', file: 'src/render/CourtStage.tsx' },
+    { name: '② 시연', file: 'src/features/present/PresentStage.tsx' },
+    { name: '③ 인쇄', file: 'src/features/print/PrintCourt.tsx' },
+    { name: '⑤ 썸네일', file: 'src/render/CourtThumbnail.tsx' },
+  ] as const;
+
+  it('대조군 — 열거가 4 + PNG 1 = 5 개다 (0개라서 통과하는 길을 막는다)', () => {
+    expect(REUSERS.length).toBe(4);
+    expect(existsSync('src/features/export/buildStaticSvg.ts')).toBe(true); // ④
+  });
+
+  it.each(REUSERS)('$name ($file) 는 CourtSurface 를 그대로 쓴다 — 라인을 손으로 그리지 않는다', ({ file }) => {
+    const src = readFileSync(file, 'utf-8');
+    expect(src).toContain('<CourtSurface');
+    // 그리고 **센터 마크 좌표를 자기가 만들지 않는다.** 여기에 centerMarkD 를 흉내 낸 식이
+    // 생기면 court.ts 를 고쳐도 그 화면만 옛 크기·옛 자리에 남는다.
+    expect(src).not.toContain('centerMark');
+  });
+
+  it('⑤ 썸네일은 실제로 full·half 두 판 모두에 센터 마크를 그린다', () => {
+    // 파일 텍스트만으로는 "CourtSurface 를 부르지만 mode 를 안 넘겨 늘 full 을 그리는" 사고를
+    // 못 잡는다. 그래서 렌더해서 좌표를 직접 확인한다.
+    for (const mode of ['full', 'half'] as const) {
+      const { container } = render(<CourtThumbnail mode={mode} />);
+      const ds = Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d') ?? '');
+      expect(ds, mode).toContain(COURT_DEFS[mode].centerMark);
+      // 굵기는 thumb 표(X2)다.
+      expect(container.querySelector(`path[d="${COURT_DEFS[mode].centerMark}"]`), mode).toHaveAttribute('stroke-width', '2');
+    }
+    // 대조군 — flat 썸네일에는 없다(전량 참이라 통과한 것이 아니다).
+    const { container: flat } = render(<CourtThumbnail mode="flat" />);
+    expect(flat.querySelectorAll('path')).toHaveLength(0);
+  });
+
+  it('⑤ 썸네일: 풀 코트 크기 3단 전부에서 각 크기의 X 가 그려진다', () => {
+    // 코트 축(3크기)을 화면 축과 곱한다 — size prop 을 빼먹으면 25×14 썸네일에 30×18 의 X 가
+    // 뜬다(§6.4 가 실제로 겪은 사고의 형태다).
+    const seen = new Set<string>();
+    for (const size of COURT_SIZES) {
+      const { container } = render(<CourtThumbnail mode="full" size={size} />);
+      const d = courtDefFor('full', size).centerMark!;
+      expect(Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d')), size).toContain(d);
+      seen.add(d);
+    }
+    expect(seen.size, '세 단의 X 좌표가 실제로 서로 다르다').toBe(3);
   });
 });

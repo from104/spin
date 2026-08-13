@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { COURT_MODES } from '../../model/court.ts';
+import { COURT_DEFS, COURT_MODES } from '../../model/court.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
 import { RuleZones } from '../../render/RuleZones.tsx';
@@ -76,6 +76,38 @@ describe('코트 라인 — 내보내기와 화면이 같은 도형을 그린다
     // full 과 half 는 골 지역 좌표가 다르다. 둘 다 컴포넌트와 일치한다는 것은
     // 어느 한쪽을 상수로 박아 넣지 않았다는 뜻이다.
     expect(shapesOf(courtLinesMarkup('full'))).not.toEqual(shapesOf(courtLinesMarkup('half')));
+  });
+
+  // ── 2026-08-13 기현님 실기 지시 ① — 센터 마크 (도형 **대조**만으로는 못 잡는 것) ────────────
+  // ⚠️ 위 도형 대조는 **양쪽이 함께 잃으면 초록이다.** `HalfCourtLines` 의 X 와
+  //    `courtLinesMarkup` 의 `centerMarkMarkup(def.centerMark)` 를 같이 지우면 두 집합이
+  //    여전히 같아서 통과한다 — 이 저장소가 적어 둔 "설계의 뒷문장에 단언이 없다" 그 형태다.
+  //    그래서 **존재 자체**를 따로 단언한다. PNG 는 코치가 카톡으로 보내는 그림이다.
+  it('⚠️ PNG 마크업에 센터 마크가 실제로 있다 (full·half) — flat 은 없다', () => {
+    for (const mode of ['full', 'half'] as const) {
+      const d = COURT_DEFS[mode].centerMark;
+      expect(d, mode).not.toBeNull();
+      expect(courtLinesMarkup(mode), mode).toContain(`<path d="${d}" stroke-width="2.4"`);
+    }
+    // 대조군 ① — flat 은 그대로 없다(전량 참이라 통과한 것이 아니다).
+    expect(COURT_DEFS.flat.centerMark).toBeNull();
+    expect(courtLinesMarkup('flat')).toBe('');
+    // 대조군 ② — half 마크업이 full 의 X 를 담고 있지 않다(모드를 실제로 탄다).
+    expect(courtLinesMarkup('half')).not.toContain(COURT_DEFS.full.centerMark!);
+  });
+
+  it('⚠️ PNG 의 센터 X 폭이 골 십자(페널티 스팟)와 같다 — "같은 크기로"(기현님 지시)', () => {
+    // 상수를 공유한다는 것을 **구운 문자열에서** 확인한다. 한쪽만 리터럴로 되돌리면 여기가 빨갛다.
+    const markup = courtLinesMarkup('full');
+    const spanOf = (d: string): number => {
+      const xs = [...d.matchAll(/[ML](-?[\d.]+),/g)].map((m) => Number(m[1]));
+      expect(xs.length, d).toBe(4);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    const spot = COURT_DEFS.full.spotMarks[0]!;
+    const crossD = [...markup.matchAll(/<path d="(M[^"]+)"\/>/g)].map((m) => m[1]!).find((d) => d.startsWith(`M${spot.x - 3.5},`))!;
+    expect(spanOf(COURT_DEFS.full.centerMark!)).toBeCloseTo(spanOf(crossD), 9);
+    expect(spanOf(crossD)).toBe(7); // 대조군: 자가 실제로 무언가를 쟀다(3.5 × 2)
   });
 });
 

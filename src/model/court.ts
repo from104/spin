@@ -61,8 +61,14 @@ export interface CourtDef {
    *  같은 규약이다. 골대마다 2개이므로 풀 **4개** · 하프 2개 · 플랫 0개다.
    *  기준점은 코너가 아니라 **골포스트**다 — 근거는 `goalEncroachMarks` 머리말 ⚠️. */
   encroachMarks: string[];
-  /** **센터 마크**(15 cm "X", §5.3). 하프라인 중점에 하나. 하프라인을 그리지 않는 판은 `null`
-   *  이다 — 하프·플랫이 그렇다(`HalfCourtLines.tsx` 머리말이 근거를 적어 뒀다). */
+  /** **센터 마크**("X", §5.3). 하프라인 중점에 하나.
+   *
+   *  ⚠️ 2026-08-12 까지는 *"하프라인을 그리지 않는 판은 null — 하프·플랫이 그렇다"* 였다.
+   *  2026-08-13 기현님 실기 지시로 **하프도 값을 갖는다**(하프 코트의 위쪽 변이 곧 하프라인이다).
+   *  `null` 은 이제 `flat` 하나뿐이다 — 근거는 아래 `COURT_DEFS.flat.centerMark` 주석.
+   *
+   *  크기는 규격 15 cm 가 아니라 **페널티 스팟 십자와 같은 반폭 3.5 px** 다
+   *  (`CENTER_MARK_HALF_PX` 머리말에 근거·실측). */
   centerMark: string | null;
   grid: { cols: number; rows: number; cellW: number; cellH: number; origin: Vec2 };
   homeHeadingDeg: number;
@@ -94,9 +100,37 @@ const ENCROACH_INSET_PX = 1 * PX_PER_M; // 골포스트에서 **골 안쪽으로
  *  — 마크가 판 가장자리(viewBox)에 닿지 않고, 세 코트 크기에서 마진이 같으므로 셋 다 같은 여유를
  *  갖는다. courtMarks.test.ts 가 '끝점이 viewBox 안' 을 세 크기 전부에서 잰다. */
 const ENCROACH_LEN_PX = 0.5 * PX_PER_M;
-/** §5.3 센터 마크 — 하프라인 중점의 **15 cm "X"**. Laws 2025 전문(50쪽)에 *"circle"* 이 0회
- *  나온다: 파워체어 풋볼에는 센터 서클이 없고 이 X 만 있다(§9 결정 ⑧). */
-const CENTER_MARK_PX = 0.15 * PX_PER_M;
+/** **페널티 스팟 십자의 반폭**(px). 십자를 그리는 곳은 셋이다 — `FullCourtLines`(dx),
+ *  `HalfCourtLines`(dx=dy), `buildStaticSvg.goalCrossD`. 2026-08-13 이전에는 그 셋에 리터럴
+ *  `3.5` 가 각각 박혀 있었다.
+ *
+ *  ⚠️ **센터 마크의 표시 크기가 이 값에서 파생된다**(바로 아래 `CENTER_MARK_HALF_PX`).
+ *  기현님의 지시는 "센터 X 를 페널티 스팟과 **같은 크기로**" 이므로, 두 값이 각각 리터럴이면
+ *  다음에 스팟 십자만 손대는 순간 그 '같음' 이 소리 없이 깨진다. 여기 한 곳에서만 정한다.
+ *
+ *  이 3.5 는 좌표가 아니라 **그리기 치수**다(0.14 m — Laws 에 없는 값이고, 프로토타입
+ *  마크업에서 그대로 옮겨온 화면 크기다). 그래서 `PX_PER_M` 파생이 아니다. */
+export const SPOT_CROSS_HALF_PX = 3.5;
+
+/** §5.3 센터 마크 — 하프라인 중점의 "X". Laws 2025 전문(50쪽)에 *"circle"* 이 0회 나온다:
+ *  파워체어 풋볼에는 센터 서클이 없고 이 X 만 있다(§9 결정 ⑧).
+ *
+ *  ⚠️ **규격값이다. 그리기에는 쓰지 않는다** — 화면 크기는 `CENTER_MARK_HALF_PX` 다.
+ *  15 cm × 25 px/m = 3.75 px, 즉 반폭 1.875 px. */
+export const CENTER_MARK_SPEC_PX = 0.15 * PX_PER_M;
+
+/** 센터 마크의 **표시** 반폭.
+ *
+ *  ⚠️ **규격에서 벗어난 값이고, 그것을 알고 고른 가독성 결정이다.** 규격 반폭은 1.875 px 인데
+ *  페널티 스팟 십자는 반폭 3.5 px 로 그려진다 — 규격대로 그린 센터 X 는 화면에서 스팟 십자의
+ *  **53%**(1.875 / 3.5)여서 같은 판 위의 두 X 가 눈에 띄게 다른 표시로 읽혔다.
+ *  **2026-08-13 기현님 실기 지시**: *"센터 중앙 x자를 패널티스팟과 같은 크기로"*.
+ *  그래서 표시 반폭 = 3.5 px → 전체 7 px = **0.28 m ≈ 28 cm** 다(규격 15 cm 의 1.87배).
+ *
+ *  규격값(`CENTER_MARK_SPEC_PX`)을 **지우지 않은** 이유가 이것이다: 이 파일만 보고 7 px 을
+ *  FIPFA 규격으로 착각하면 다음 사람이 규정 문서를 잘못 고친다. courtMarks.test.ts 가 규격값과
+ *  표시값을 **각각** 붙잡고 있고, 둘이 다르다는 것 자체를 단언한다. */
+export const CENTER_MARK_HALF_PX = SPOT_CROSS_HALF_PX;
 // 격자는 **상대 좌표계**다. 코트가 작아져도 6×5 를 유지한다 — 코치가 쓰는 말은 "a1 쪽" 이지
 // "5 m 칸" 이 아니고, 칸 수가 크기마다 달라지면 같은 드릴을 다른 코트에서 설명할 수 없다.
 // (그 대신 칸의 미터 치수는 크기마다 달라진다: 30×18 은 5.0×3.6 m, 25×14 는 4.17×2.8 m.)
@@ -124,9 +158,11 @@ function goalEncroachMarks(a: Vec2, b: Vec2, out: Vec2): string[] {
   ];
 }
 
-/** 센터 마크 — 중점 `c` 를 중심으로 한 변 15 cm 인 "X" 두 획. */
+/** 센터 마크 — 중점 `c` 를 중심으로 반폭 `CENTER_MARK_HALF_PX` 인 "X" 두 획.
+ *  ⚠️ 2026-08-13 이전에는 `CENTER_MARK_PX / 2`(= 1.875, 규격 15 cm)였다. 기현님 실기 지시로
+ *  페널티 스팟 십자와 같은 3.5 로 올렸다 — 근거는 `CENTER_MARK_HALF_PX` 머리말. */
 function centerMarkD(c: Vec2): string {
-  const r = CENTER_MARK_PX / 2;
+  const r = CENTER_MARK_HALF_PX;
   return `M${c.x - r},${c.y - r} L${c.x + r},${c.y + r} M${c.x + r},${c.y - r} L${c.x - r},${c.y + r}`;
 }
 
@@ -200,6 +236,11 @@ const HALF_GOAL_POSTS: Vec2[] = [
   { x: 337.5, y: 412.5 },
 ];
 
+/** 하프 코트의 경기면. `centerMark` 가 이 사각형에서 파생되도록 이름을 준 것뿐이다 —
+ *  아래 리터럴 객체 안에서는 `surface` 를 자기 자신이 참조할 수 없다(규칙 10: 좌표 리터럴
+ *  금지. 262.5 를 손으로 적으면 경기면이 움직였을 때 X 만 옛 자리에 남는다). */
+const HALF_SURFACE: Rect = { x: 37.5, y: 37.5, w: 450, h: 375 };
+
 export const COURT_DEFS: Record<CourtMode, CourtDef> = {
   // ⚠️ **같은 객체**를 가리킨다(사본이 아니다). `COURT_DEFS.full` 을 읽는 기존 소비처 전부가
   // 크기 3단 도입 뒤에도 정확히 예전 값을 본다는 것이 이 한 줄의 뜻이다 — 크기를 아는 코드는
@@ -222,16 +263,33 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
     desc: '공격 진영만 세로로 확대. 마무리·세트피스 훈련에 적합합니다.',
     vbW: 525,
     vbH: 450,
-    surface: { x: 37.5, y: 37.5, w: 450, h: 375 },
+    surface: HALF_SURFACE,
     ruleZones: [{ x: 162.5, y: 287.5, w: 200, h: 125 }],
     goalPosts: HALF_GOAL_POSTS,
     // 골대가 하나뿐이라 마크는 2개. 하프 코트의 골라인은 아래쪽 변이므로 필드 밖은 +y 다.
     encroachMarks: goalEncroachMarks(HALF_GOAL_POSTS[0]!, HALF_GOAL_POSTS[1]!, { x: 0, y: 1 }),
+    // ── 옛 결정(2026-08-12까지) — 지우지 않는다. 기록이다 ────────────────────────────────
     // ⚠️ **센터 마크는 없다**(§5.3, 계획서가 못박은 자리다). 이 판에는 하프라인이 그려지지
     //    않는다 — 위쪽 변은 경기면의 끝이지 "중앙" 이 아니고, 그 선 위에 X 를 찍으면 코치가
     //    코트 바깥 가장자리를 센터로 읽는다. 파일 머리말의 "센터점은 하프 마크업에 없다 —
     //    추가하지 않는다"(HalfCourtLines.tsx:2)와 같은 판단이고, 그 주석은 뒤집지 않는다.
-    centerMark: null,
+    //
+    // ── 2026-08-13 기현님 실기 지시로 **뒤집었다** ────────────────────────────────────────
+    // *"센터 중앙 x자를 … 하프코트에서도 표시"*. 위 오독 우려는 판을 만든 사람의 추측이었고,
+    // 실제로 판을 쓰는 코치(기현님)가 화면을 보고 반대로 판단하셨다.
+    //
+    // **어디에 찍는가 — 열린 위쪽 변의 중점**(x = surface 중앙, y = surface.y). 근거:
+    //  ① `HalfCourtLines` 의 외곽선 path 는 왼쪽·아래·오른쪽 **세 변만** 긋는다
+    //     (`M x,y L x,y+h L x+w,y+h L x+w,y`). 위쪽 변은 그 path 에 없고 별도 `<line>` 으로
+    //     그어진다 — 그 선이 곧 **하프라인**이다. 즉 이 판에도 하프라인은 있다(위 옛 주석의
+    //     "하프라인이 그려지지 않는다" 는 사실이 아니었다).
+    //  ② 실제 경기장에서 하프라인의 중점이 오는 자리가 바로 거기다. 골대는 아래쪽(y+h)이므로
+    //     반대편 변이 중앙선이다.
+    //  ③ 아래 붙은 `<line>` 과 X 가 같은 선 위에 있어야 "이 선이 중앙선" 이라는 뜻이 선다.
+    //     경기면 한가운데(y + h/2)에 찍으면 그것은 하프 코트에는 없는 지점이 된다.
+    // 되돌리면(= null 로) 하프 코트에서 중앙선 표시가 사라진다. CourtSurface.test.tsx 의
+    // '하프에도 센터 마크가 있다' 와 courtMarks.test.ts 가 그 가드다.
+    centerMark: centerMarkD({ x: HALF_SURFACE.x + HALF_SURFACE.w / 2, y: HALF_SURFACE.y }),
     cornerCuts: ['M37.5,387.5 L62.5,412.5', 'M462.5,412.5 L487.5,387.5'],
     spotMarks: [{ x: 262.5, y: 325 }],
     grid: { cols: 5, rows: 3, cellW: 90, cellH: 125, origin: { x: 37.5, y: 37.5 } },
@@ -253,6 +311,11 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
     // 라인이 하나도 없는 자유판이다 — 골대가 없으니 인크로치먼트 마크도, 하프라인이 없으니
     // 센터 마크도 없다.
     encroachMarks: [],
+    // ⚠️ 2026-08-13 하프에 센터 마크를 넣을 때 **flat 은 일부러 null 로 두었다**(기현님 지시는
+    //    "하프코트에서도" 였다). 근거: 이 판에는 선이 **하나도** 없다 — 외곽선도, 골 지역도,
+    //    골대도 없다. 그 위에 X 하나만 뜨면 그것이 코트의 중앙인지 누가 놓은 표식인지 알 수
+    //    없고, 자유 배치판의 뜻(위치 개념 설명용 빈 판) 자체가 흐려진다.
+    //    되돌리려면(= flat 에도 X) "선 없는 판에서 그 X 가 무엇으로 읽히는가" 를 먼저 답해야 한다.
     centerMark: null,
     cornerCuts: [],
     spotMarks: [],

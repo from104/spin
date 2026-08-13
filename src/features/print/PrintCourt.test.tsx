@@ -93,14 +93,32 @@ describe('인쇄 코트도 FIPFA 규격을 따른다 (5.2 인크로치먼트 · 
     expect(container.querySelectorAll('circle').length).toBeGreaterThanOrEqual(5);
   });
 
-  it('하프 코트 인쇄물은 마크가 2개이고 센터 마크가 없다 — 코트 모드를 실제로 탄다', () => {
+  // ⚠️ 이 테스트의 제목은 2026-08-12 까지 "…센터 마크가 **없다**" 였고, 마지막 줄은
+  //    `expect(COURT_DEFS.half.centerMark).toBeNull()` 이었다. **2026-08-13 기현님 실기
+  //    지시로 하프에도 센터 마크가 생겼다** — 지우지 않고 뒤집어 승격시킨다.
+  //    종이는 코치가 실제로 들고 나가는 물건이다. 화면에만 X 가 뜨고 종이에 없으면
+  //    "판과 종이가 다른 코트" 가 되고, 그것이 이 저장소가 겪은 사고의 형태다.
+  it('하프 코트 인쇄물은 마크가 2개이고 **센터 마크가 하프라인 자리에 실린다** — 코트 모드를 실제로 탄다', () => {
     const base = createDrill({ courtMode: 'half', formation: '1-2-1' });
     const { container } = render(<PrintCourt drill={base} step={base.steps[0]!} ariaLabel="코트" />);
     const ds = Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d') ?? '');
     for (const d of COURT_DEFS.half.encroachMarks) expect(ds).toContain(d);
     for (const d of COURT_DEFS.full.encroachMarks) expect(ds).not.toContain(d); // 풀 좌표가 아니다
+    expect(ds).not.toContain(COURT_DEFS.full.centerMark); // 풀 코트의 X 를 베낀 것이 아니다
+    expect(COURT_DEFS.half.centerMark).not.toBeNull();
+    expect(ds).toContain(COURT_DEFS.half.centerMark);
+    // 굵기는 present 표(X2.4)다 — 좌표만 맞고 굵기 0 이면 종이에 아무것도 안 남는다.
+    expect(container.querySelector(`path[d="${COURT_DEFS.half.centerMark}"]`)).toHaveAttribute('stroke-width', '2.4');
+  });
+
+  it('플랫 코트 인쇄물에는 여전히 센터 마크가 없다 — 과잉 수정 대조군', () => {
+    // 하프를 뒤집을 때 flat 까지 같이 뒤집는 것이 가장 쉬운 과잉 수정이다(선이 하나도 없는 판).
+    const base = createDrill({ courtMode: 'flat', formation: '1-2-1' });
+    const { container } = render(<PrintCourt drill={base} step={base.steps[0]!} ariaLabel="코트" />);
+    const ds = Array.from(container.querySelectorAll('path')).map((p) => p.getAttribute('d') ?? '');
+    expect(COURT_DEFS.flat.centerMark).toBeNull();
+    expect(ds).not.toContain(COURT_DEFS.half.centerMark);
     expect(ds).not.toContain(COURT_DEFS.full.centerMark);
-    expect(COURT_DEFS.half.centerMark).toBeNull();
   });
 });
 

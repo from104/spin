@@ -7,7 +7,7 @@
 // ⚠️ 2026-08-13(§6.4) 까지 이 파일은 `const DEF = COURT_DEFS.full` 을 **모듈 로드 시 한 번** 읽었다.
 //    그래서 코트 크기 3단(§5.1)이 모델에는 있는데 **판에는 한 픽셀도 나타나지 않았다** — 28×15 로
 //    저장된 드릴을 열어도 라인은 30×18 이 그려졌다. size 를 prop 으로 받는 이 구조가 그 수정이다.
-import { courtDefFor, DEFAULT_COURT_SIZE, type CourtSize } from '../../model/court.ts';
+import { courtDefFor, DEFAULT_COURT_SIZE, SPOT_CROSS_HALF_PX, type CourtSize } from '../../model/court.ts';
 import { COURT_LINE_WEIGHTS, type CourtLineVariant } from '../CourtSurface.tsx';
 
 export interface FullCourtLinesProps {
@@ -20,9 +20,12 @@ export function FullCourtLines({ variant, size = DEFAULT_COURT_SIZE }: FullCourt
   const DEF = courtDefFor('full', size);
   const w = COURT_LINE_WEIGHTS[variant];
   // 골 십자 좌표는 editor 259행대와 present 413행대에서 .5px 차이가 난다 — 그대로 보존한다.
-  // spotMarks 중심(112.5/687.5, 250)에서 dx=3.5, dy=variant 별 3(editor)/3.5(present) 만큼
-  // 벌린 X 표시 두 개.
-  const crossDy = variant === 'present' ? 3.5 : 3;
+  // spotMarks 중심(112.5/687.5, 250)에서 dx=SPOT_CROSS_HALF_PX(3.5), dy=variant 별
+  // 3(editor)/3.5(present) 만큼 벌린 X 표시 두 개.
+  // ⚠️ dx 의 리터럴 3.5 를 여기로 되돌리지 마라 — **센터 마크의 표시 크기가 이 상수에서
+  //    파생된다**(2026-08-13 기현님 지시 "센터 X 를 페널티 스팟과 같은 크기로"). 갈라지면
+  //    한쪽만 커진다. dy 는 그 지시와 무관한 옛 마크업 값이라 리터럴로 남는다.
+  const crossDy = variant === 'present' ? SPOT_CROSS_HALF_PX : 3;
   // ★ 외곽선·하프라인·센터마크·골지역을 **COURT_DEFS 에서 파생**한다(리터럴 금지).
   //   2026-08-10 마진을 1.5 m 로 넓히며 COURT_DEFS 좌표를 전부 옮겼는데 여기 리터럴이 옛
   //   자리에 남아, 외곽선만 제자리이고 골대·골지역이 선 밖으로 삐져나왔다(기현 실기 신고).
@@ -31,8 +34,8 @@ export function FullCourtLines({ variant, size = DEFAULT_COURT_SIZE }: FullCourt
   const S = DEF.surface;
   const [gzL, gzR] = DEF.ruleZones; // 좌·우 골 지역
   const crossD = DEF.spotMarks.map(({ x, y }) => {
-    const x1 = x - 3.5;
-    const x2 = x + 3.5;
+    const x1 = x - SPOT_CROSS_HALF_PX;
+    const x2 = x + SPOT_CROSS_HALF_PX;
     const y1 = y - crossDy;
     const y2 = y + crossDy;
     return `M${x1},${y1} L${x2},${y2} M${x2},${y1} L${x1},${y2}`;
