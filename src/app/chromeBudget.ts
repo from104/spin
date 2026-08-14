@@ -17,7 +17,7 @@ import { rotForFit } from '../render/useStageMetrics.ts';
 import type { StageRot } from '../render/useStageMetrics.ts';
 import { inspectorChromeWidthPx } from '../features/editor/inspectorLayout.ts';
 import type { InspectorMode } from '../features/editor/inspectorLayout.ts';
-import { functionBarWidthPx } from '../features/editor/functionBarMetrics.ts';
+import { functionBarColumnsAt, functionBarWidthPx } from '../features/editor/functionBarMetrics.ts';
 import { trayBandHeightPx } from '../features/editor/trayMetrics.ts';
 
 export type ChromeAxis = 'width' | 'height';
@@ -252,6 +252,10 @@ export function chromeRowPx(row: ChromeRow, state: ChromeState): number {
   // 전술판에는 하단 바가 없고 기능 바가 있다. 드릴 편집은 그 반대다(아직 옛 배치).
   if (row.id === 'functionBar') return state.board ? here : 0;
   if (row.id === 'transportBar') return state.board ? 0 : here;
+  // ★ 자유 전술판은 **넓은 창에서 헤더가 없다**(2026-08-14 — AppShell 의 showHeader).
+  //   좁은 창에서는 남는다: 84px 레일이 빠진 자리를 헤더의 3칸 세그먼트가 대신하므로,
+  //   지우면 화면을 옮길 방법이 없어진다. 이 한 줄이 그 규칙의 예산판이다.
+  if (row.id === 'appHeader') return state.board && !state.narrow ? 0 : here;
   return here;
 }
 
@@ -276,9 +280,24 @@ export interface Size {
 /** 창에서 크롬을 뺀 **코트 상자**. §5.3 표의 '상자' 열이 이 함수다. */
 export function courtBoxPx(viewport: Size, state: ChromeState): Size {
   return {
-    w: Math.max(0, viewport.w - chromeWidthPx(state)),
+    w: Math.max(0, viewport.w - chromeWidthPx(state) - functionBarExtraColsPx(viewport, state)),
     h: Math.max(0, viewport.h - chromeHeightPx(state)),
   };
+}
+
+/** 기능 바가 **둘째 열로 흐르면** 그만큼 폭을 더 먹는다. 행 표는 1열만 세므로 그 차이를
+ *  여기서 더한다 — 열 수는 창 **높이**의 함수라 행 표(폭 축)로는 표현할 수 없기 때문이다.
+ *
+ *  ⚠️ 왜 근사하지 않는가: 2열이면 44px(hit 44)이고, 800×480 의 코트 상자 폭이 약 660 이다.
+ *  6.7% 를 안 세면 `rotForFit` 의 1.08 문턱을 넘나드는 구간에서 **판이 눕느냐 서느냐가 갈린다.**
+ *  예산이 화면과 다른 답을 내는 순간 그 화면은 재현이 안 된다(P1 이 끊은 그 부류의 사고다). */
+function functionBarExtraColsPx(viewport: Size, state: ChromeState): number {
+  if (!state.board) return 0;
+  const sa = state.safeArea ?? SAFE_AREA_NONE;
+  // 바는 `<main>` 의 직계라 헤더 아래 전부를 쓴다. 하단 바는 코트 컬럼 **안**이라 안 뺀다.
+  const avail = viewport.h - chromeRowPx(CHROME_ROWS.find((r) => r.id === 'appHeader')!, state) - sa.top - sa.bottom;
+  const hit = INTERACT.hitTargetCssPx;
+  return (functionBarColumnsAt(hit, avail) - 1) * hit;
 }
 
 export interface CourtScale {

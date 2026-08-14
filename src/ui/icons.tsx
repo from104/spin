@@ -411,3 +411,16 @@ export function IconZoomReset({ size = 18, ...rest }: IconProps) {
     </svg>
   );
 }
+
+/** 드릴로 저장 — 라이브러리(책 세 권)에 **+**. 옛 자리는 헤더의 주 액션 버튼이었고 글자였다
+ *  ([드릴로 저장]). 기능 바로 내려오면서 그림이 필요해졌는데, "저장" 의 통상 기호(플로피)는
+ *  이 앱에서 거짓말이다 — 자유 전술판은 **이미** 저장되어 있고(스냅샷), 이 버튼이 하는 일은
+ *  그 판을 **드릴 라이브러리에 새 항목으로 넣는 것**이다. 그래서 라이브러리 + 다. */
+export function IconSaveDrill({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M4 4v16M8.5 4v16M13 4v16" />
+      <path d="M18.5 12v8M14.5 16h8" />
+    </svg>
+  );
+}

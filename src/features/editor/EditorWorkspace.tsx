@@ -196,11 +196,17 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   useAppHeader(
     isBoard
       ? {
-          title: '자유 전술판',
-          subtitle: '코트를 자유롭게 바꿔가며 그려 보세요. 마음에 들면 드릴로 저장합니다.',
-          // 코트 전환 세그먼트는 **오른쪽 기능 바의 [코트]** 로 갔다(2026-08-14). 헤더에
-          // 남기면 같은 일을 하는 자리가 둘이 된다 — 잠금 규칙이 한쪽에서만 바뀌는 자리다.
-          primary: { label: '드릴로 저장', onAction: () => board?.onSaveAsDrill() },
+          // ⚠️ **자유 전술판의 헤더는 비어 있다**(기현 지시 2026-08-14: *"레이블, 문구 삭제하고
+          // 드릴로 저장 버튼 오른쪽 도구모음으로 옮기고 상단 헤더 삭제. 공간 확보"*).
+          //  · 코트 전환 세그먼트 → 기능 바 [코트]
+          //  · 되돌리기·다시하기 → 기능 바
+          //  · [드릴로 저장]    → 기능 바 맨 끝(주 액션)
+          //  · 제목 '자유 전술판' · 부제 → **삭제**. 판이 화면을 다 쓰는데 그 위에 "지금
+          //    전술판을 보고 있습니다" 를 적어 두는 것은 자리만 먹는다.
+          // 넓은 창에서는 AppShell 이 헤더 자체를 **안 세운다**(레일이 이동을 진다).
+          // 좁은 창에서는 남는다 — 거기서는 헤더의 3칸 세그먼트가 유일한 이동 수단이다
+          // (기현님 확인: *"좁은창 이동에서의 헤더는 유지"*). 그때도 내용은 세그먼트뿐이다.
+          title: '',
         }
       : {
           title: drill.title,
@@ -455,6 +461,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         setHelpOpen(true);
       }}
       viewButtonRef={viewButtonRef}
+      onSaveAsDrill={() => board.onSaveAsDrill()}
     />
   ) : null;
 

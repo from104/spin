@@ -716,6 +716,11 @@ describe('AppShell 배선 — 정적 헤더 대 Context 헤더', () => {
   it('정적 config 가 undefined 인 화면(board·present)에서는 화면의 선언이 그대로 헤더가 된다', async () => {
     // ★ board 가 정적 config 를 돌려주면 config prop 이 Context 를 덮어써 헤더가 통째로 사라진다
     // (AppShell.tsx 의 그 사고 주석). AppHeader 단독 테스트로는 못 잡혔던 자리라 여기서 못박는다.
+    //
+    // ⚠️ **좁은 창에서 본다**(2026-08-14). 자유 전술판은 이제 넓은 창에서 헤더 자체가 없어
+    // (기현 지시 *"상단 헤더 삭제"*) 넓게 두면 `header()` 가 던진다. 좁으면 남으므로 —
+    // 거기서는 헤더의 3칸 세그먼트가 유일한 이동 수단이다 — 이 계약을 그대로 잴 수 있다.
+    stubMedia(true);
     await renderShell();
     const user = userEvent.setup();
     expect(within(header()).getByText('보드가 선언한 헤더')).toBeInTheDocument();
@@ -780,9 +785,34 @@ describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접
     for (const l of RAIL_LABELS) expect(within(nav).getByRole('button', { name: l })).toBeInTheDocument();
   });
 
+  it('★ 자유 전술판은 **넓은 창에서 헤더가 아예 없다** — 62px 을 판에 돌려준다', async () => {
+    // 기현 지시 2026-08-14: *"레이블, 문구 삭제하고 … 상단 헤더 삭제. 공간 확보."*
+    // 헤더가 지던 것이 전부 딴 데로 갔다(코트 전환·되돌리기·[드릴로 저장] → 기능 바,
+    // 제목·부제 → 삭제). 남은 것은 빈 줄뿐이었다.
+    stubMedia(false);
+    await renderShell();
+    expect(document.querySelector('header'), '넓은 창 전술판에 헤더가 남아 있다').toBeNull();
+    // 대조군: 화면을 옮기면 헤더가 다시 선다 — 통째로 없앤 것이 아니다.
+    await userEvent.setup().click(screen.getByRole('button', { name: '설정' }));
+    expect(document.querySelector('header')).not.toBeNull();
+  });
+
+  it('★ 좁은 창에서는 남긴다 — 거기서는 헤더의 3칸 세그먼트가 유일한 이동 수단이다', async () => {
+    // 기현님 확인: *"좁은창 이동에서의 헤더는 유지."* 좁으면 84px 레일이 통째로 빠지므로
+    // 헤더까지 지우면 화면을 옮길 방법이 아예 없어진다.
+    stubMedia(true);
+    await renderShell();
+    const h = document.querySelector('header');
+    expect(h, '좁은 창 전술판의 헤더가 사라졌다 — 이동 수단이 없어진다').not.toBeNull();
+    expect(within(h!).getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument();
+  });
+
   it('대조군: 넓으면 레일이 헤더 밖에 서고 폭은 예산의 wide 84 다', async () => {
     stubMedia(false);
     await renderShell();
+    // ⚠️ 자유 전술판은 넓은 창에서 헤더가 없다(2026-08-14) — 헤더가 **있는** 화면으로 옮겨야
+    // "레일이 헤더 밖" 을 잴 수 있다. 레일 자체는 두 화면 모두 같은 자리에 같은 폭으로 선다.
+    await userEvent.setup().click(screen.getByRole('button', { name: '설정' }));
     const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
     expect(header().contains(nav)).toBe(false);
     expect(navChromeWidthPx(nav, header())).toBe(railRow.wide);

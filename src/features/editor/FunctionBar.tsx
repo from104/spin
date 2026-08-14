@@ -31,6 +31,7 @@ import {
   IconBoard,
   IconGoalReset,
   IconRedo,
+  IconSaveDrill,
   IconSpeed,
   IconUndo,
   IconZoomIn,
@@ -104,6 +105,7 @@ function BarItem({
   onClick,
   disabled,
   active,
+  accent,
   buttonRef,
   children,
   ...aria
@@ -117,6 +119,8 @@ function BarItem({
   onClick(): void;
   disabled?: boolean;
   active?: boolean;
+  /** 주 액션 — 기둥에서 **하나뿐**이다. 둘이 되는 순간 어느 것도 주가 아니게 된다. */
+  accent?: boolean;
   buttonRef?: RefObject<HTMLButtonElement | null>;
   children: ReactNode;
   'aria-haspopup'?: 'dialog';
@@ -132,9 +136,13 @@ function BarItem({
       onClick={onClick}
       style={{
         ...ITEM,
-        color: active ? 'var(--accent-text)' : 'var(--muted)',
-        borderColor: active ? 'var(--accent)' : 'transparent',
-        background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'transparent',
+        color: accent ? 'var(--accent-ink-strong)' : active ? 'var(--accent-text)' : 'var(--muted)',
+        borderColor: accent ? 'var(--accent)' : active ? 'var(--accent)' : 'transparent',
+        background: accent
+          ? 'var(--accent)'
+          : active
+            ? 'color-mix(in srgb, var(--accent) 12%, transparent)'
+            : 'transparent',
         opacity: disabled ? 0.4 : 1,
       }}
       {...aria}
@@ -171,6 +179,9 @@ export interface FunctionBarProps {
   showRuleZones: boolean;
   onToggleRuleZones(): void;
   onShowHelp(): void;
+  /** 자유 전술판을 드릴 라이브러리에 새 항목으로 넣는다 — 옛 헤더의 주 액션이었다.
+   *  2026-08-14 기현님 지시로 헤더가 넓은 창에서 사라지면서 갈 곳이 여기밖에 없었다. */
+  onSaveAsDrill(): void;
   /** 도움말이 닫힐 때 돌아올 곳 — EditorWorkspace 가 helpTriggerRef 에 꽂는다. */
   viewButtonRef?: RefObject<HTMLButtonElement | null>;
 }
@@ -197,6 +208,7 @@ export function FunctionBar({
   showRuleZones,
   onToggleRuleZones,
   onShowHelp,
+  onSaveAsDrill,
   viewButtonRef,
 }: FunctionBarProps) {
   const [courtOpen, setCourtOpen] = useState(false);
@@ -348,6 +360,21 @@ export function FunctionBar({
         onClick={() => setViewOpen(true)}
       >
         <IconEye />
+      </BarItem>
+
+      <div aria-hidden style={DIVIDER} />
+
+      {/* 주 액션 — 옛 헤더의 [드릴로 저장]. 유일하게 **액센트로 칠한** 칸이고 기둥 맨 끝이다:
+          맨 위는 줌이 이미 자리를 잡았고(손이 늘 가 있다), 새 칸을 위에 끼우면 아래 열한 칸의
+          좌표가 통째로 밀린다(§3 불변식 1). 끝에 붙이면 아무것도 안 움직인다. */}
+      <BarItem
+        label="저장"
+        name="드릴로 저장"
+        title="지금 판을 드릴 라이브러리에 새 항목으로 넣습니다. 전술판은 그대로 남습니다."
+        onClick={onSaveAsDrill}
+        accent
+      >
+        <IconSaveDrill />
       </BarItem>
 
       {/* ── 코트 팝오버 — 형태 3 + 크기 3 ───────────────────────────────────────────── */}

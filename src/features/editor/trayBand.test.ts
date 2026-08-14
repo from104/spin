@@ -89,7 +89,10 @@ describe('② 가로 띠에는 축척 절벽이 **없다** — 작을수록 좋�
 
 describe('③ 크롬 예산이 배치 축과 화면을 안다', () => {
   it('★ 작은 가로 창의 코트 상자와 축척', () => {
-    expect(courtBoxPx(SMALL_LANDSCAPE, bandState)).toEqual({ w: 944, h: 466 });
+    // 944 → 900. 2026-08-14 [드릴로 저장]이 기능 바로 오면서 칸이 12가 됐고, 1024×600 은
+    // **좁은 창**이라 헤더(52)가 남는다 — 바에 남는 높이가 548 이라 12칸이 2열로 흐른다.
+    // 예산이 그 열 수를 직접 센다(courtBoxPx 의 functionBarExtraColsPx).
+    expect(courtBoxPx(SMALL_LANDSCAPE, bandState)).toEqual({ w: 900, h: 466 });
     const s = courtScale('full', courtBoxPx(SMALL_LANDSCAPE, bandState));
     expect(s.rot).toBe(0);
     // 재설계 전 0.8914 → 0.8876. **−0.4%** 다 — 1행 띠가 가로 화면의 손해를 거의 다 지웠다.

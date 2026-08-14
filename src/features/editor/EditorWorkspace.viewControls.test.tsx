@@ -101,6 +101,7 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
       '코트 비우기',
       '내보내기',
       '보기',
+      '드릴로 저장',
     ];
     for (const name of names) {
       const btn = screen.getByRole('button', { name });
@@ -110,6 +111,17 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
     // 속도 제한은 상태가 이름에 실린다 — 정규식으로 찾는다.
     const speed = screen.getByRole('button', { name: /개체 이동 속도 제한/ });
     expect(bar().contains(speed)).toBe(true);
+  });
+
+  it('[드릴로 저장]은 기둥 **맨 끝**이고 유일한 액센트 칸이다', async () => {
+    // 맨 끝인 이유: 새 칸을 위에 끼우면 아래 열한 칸의 좌표가 통째로 밀린다(§3 불변식 1).
+    // 액센트가 하나뿐인 이유: 둘이 되는 순간 어느 것도 주 액션이 아니게 된다.
+    await openBoard();
+    const items = [...bar().querySelectorAll('button')];
+    expect(items[items.length - 1]!.getAttribute('aria-label')).toBe('드릴로 저장');
+    const accented = items.filter((b) => b.style.background === 'var(--accent)');
+    expect(accented).toHaveLength(1);
+    expect(accented[0]!.getAttribute('aria-label')).toBe('드릴로 저장');
   });
 
   it('[속성]은 **없다** — 자유 전술판에서 인스펙터가 통째로 사라졌다', async () => {

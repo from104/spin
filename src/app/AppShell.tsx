@@ -244,6 +244,19 @@ export function AppShell() {
   // 중에도 [보드]에 불이 들어온다: board 자리에 무엇이 떠 있는지를 화면 키는 말하지 않고,
   // 그것을 아는 값은 renderScreen 이 보는 stageTarget 하나다(2026-08-14 기현님 지시).
   const activeRail = railFor(nav.screen, stageTarget.kind);
+
+  // ★ 자유 전술판은 **넓은 창에서 헤더를 안 세운다**(기현 지시 2026-08-14: *"상단 헤더 삭제.
+  //   공간 확보"*). 헤더가 지고 있던 것이 전부 딴 데로 갔기 때문이다 — 코트 전환·되돌리기·
+  //   [드릴로 저장]은 오른쪽 기능 바로, 제목과 부제는 삭제. 남은 것은 62px 빈 줄뿐이었다.
+  //
+  //   ⚠️ **좁은 창에서는 남긴다**(기현님 확인: *"좁은창 이동에서의 헤더는 유지"*). 좁으면 84px
+  //   레일이 통째로 빠지고 그 자리를 헤더의 3칸 세그먼트가 대신한다 — 헤더까지 지우면 화면을
+  //   옮길 방법이 아예 없어진다. 그때도 내용은 세그먼트뿐이다(EditorWorkspace 가 제목을 안 준다).
+  //
+  //   드릴 편집(stageTarget.kind === 'drill')은 아직 옛 배치라 헤더가 필요하다 — 제목·[저장]·
+  //   [시연]이 전부 거기 있다. 그래서 판정에 stageTarget 이 들어간다.
+  const bareBoard = nav.screen === 'board' && stageTarget.kind === 'board';
+  const showHeader = narrow || !bareBoard;
   const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav);
 
   // 브라우저 뒤로/앞으로가기로 돌아온 엔트리가 대상을 싣고 있으면 그 대상으로 되돌린다.
@@ -294,7 +307,7 @@ export function AppShell() {
             <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
               {!narrow && <AppRail active={activeRail} />}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />
+                {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
                 {renderScreen(nav.screen, stageTarget, homeNav, libraryIntent)}
               </div>
             </div>
