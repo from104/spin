@@ -12,7 +12,7 @@ import { Button } from '../ui/Button.tsx';
 import { Segmented } from '../ui/Segmented.tsx';
 import { IconLock, IconPresent, IconSearch } from '../ui/icons.tsx';
 import type { CourtMode } from '../model/court.ts';
-import { AppNavSegment } from './AppNavSegment.tsx';
+import { AppNavAside, AppNavSegment } from './AppNavSegment.tsx';
 import { headerPadCss } from './navChrome.ts';
 import type { RailKey } from './screens.ts';
 
@@ -298,6 +298,14 @@ export function AppHeader({
             {config.primary.label}
           </Button>
         )}
+
+        {/* 테마·버전 — **맨 끝**이다(기현 지시 2026-08-14: *"좁은창 헤더에서 테마 선택, 버전이
+            오른 끝으로 가야 일관성 있다"*). 넓은 창의 84px 레일이 그 모양이라 그렇다: 이동은
+            맨 위, 이 둘은 맨 끝. 좁은 창에서 레일이 접힐 때 넷을 왼쪽에 몰아 두면 같은 앱인데
+            창 폭에 따라 두 물건의 관계가 달라진다 — 접는 것이지 재배치가 아니어야 한다.
+            코트 전환·검색·주 액션보다 뒤인 이유: 자주 쓰는 것일수록 앞이고 테마는 한 번
+            정하면 끝, 버전은 표적도 아니다. */}
+        {narrow && <AppNavAside />}
       </div>
     </header>
   );

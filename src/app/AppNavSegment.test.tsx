@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { AppNavSegment } from './AppNavSegment.tsx';
+import { AppNavAside, AppNavSegment } from './AppNavSegment.tsx';
 import { AppRail } from './AppRail.tsx';
 import { AppHeader } from './AppHeader.tsx';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
@@ -67,7 +67,9 @@ describe('AppNavSegment — 레일과 같은 계약', () => {
   it('테마 토글이 prefs.theme 을 반전시키고 localStorage 에 남긴다', async () => {
     // 좁은 창에서 테마 토글이 사라지면 체육관 조명 대응이 설정 화면 왕복으로만 가능해진다
     // (§3 표적 예산의 '헤더 6 = 내비 3 + 되돌리기/다시하기 2 + **테마 1**' 이 이 자리다).
-    render(<AppNavSegment />, { wrapper: Harness });
+    // ⚠️ 2026-08-14 — 테마·버전이 세그먼트에서 떨어져 **헤더 오른 끝**(AppNavAside)으로 갔다.
+    // 넓은 창 레일이 그 모양이기 때문이다(이동은 맨 위, 이 둘은 맨 끝).
+    render(<AppNavAside />, { wrapper: Harness });
     await userEvent.setup().click(screen.getByRole('button', { name: '라이트 테마로 전환' }));
     expect(screen.getByRole('button', { name: '다크 테마로 전환' })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem('spin.prefs') ?? '{}').theme).toBe('light');
@@ -75,8 +77,15 @@ describe('AppNavSegment — 레일과 같은 계약', () => {
 
   it('버전이 함께 따라온다 — 좁은 창에서만 제보용 숫자가 사라지지 않는다', () => {
     const pkg = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf-8')) as { version: string };
-    const { container } = render(<AppNavSegment />, { wrapper: Harness });
+    const { container } = render(<AppNavAside />, { wrapper: Harness });
     expect(container).toHaveTextContent(`v${pkg.version}`);
+  });
+
+  it('세그먼트에는 이동 3칸뿐이다 — 테마·버전은 거기 없다(오른 끝으로 갔다)', () => {
+    const { container } = render(<AppNavSegment />, { wrapper: Harness });
+    expect(screen.queryByRole('button', { name: /테마로 전환/ })).toBeNull();
+    expect(container).not.toHaveTextContent(/^v\d/);
+    expect(within(screen.getByRole('navigation', { name: '주요 메뉴' })).getAllByRole('button')).toHaveLength(3);
   });
 
   it('레일과 항목 이름이 글자 하나까지 같다', () => {

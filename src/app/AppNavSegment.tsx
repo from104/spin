@@ -22,9 +22,6 @@ import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
 export function AppNavSegment({ active }: { active?: RailKey } = {}) {
   const { screen, go } = useAppNav();
   const activeKey = active ?? railFor(screen);
-  const { prefs } = useSettingsState();
-  const { setPrefs } = useSettingsActions();
-  const isDark = prefs.theme === 'dark';
 
   return (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
@@ -67,7 +64,27 @@ export function AppNavSegment({ active }: { active?: RailKey } = {}) {
           );
         })}
       </nav>
+    </div>
+  );
+}
 
+/** 테마 토글 + 버전 — 좁은 창 헤더의 **오른 끝**이다.
+ *
+ *  2026-08-14 기현님 지시: *"좁은창 헤더에서 테마 선택, 버전이 오른 끝으로 가야 일관성 있다."*
+ *  넓은 창의 84px 레일이 그렇게 생겼기 때문이다: 이동 3칸이 **맨 위**, 테마와 버전이 **맨 끝**.
+ *  좁은 창에서 레일이 헤더로 접힐 때 넷을 한 덩어리로 왼쪽에 몰아 두었더니, 같은 앱인데
+ *  창 폭에 따라 두 물건의 관계가 달라졌다 — 접는 것이지 재배치하는 것이 아니어야 한다.
+ *
+ *  그래서 세그먼트가 **둘로 갈린다**: 이동은 `AppNavSegment`(헤더 좌측), 이 둘은 여기(우측 끝).
+ *  AppHeader 가 자기 우측 조작부 **맨 끝**에 꽂는다 — 코트 전환·검색·주 액션보다 뒤다.
+ *  자주 쓰는 것일수록 앞이고, 테마는 한 번 정하면 끝, 버전은 아예 표적도 아니다. */
+export function AppNavAside() {
+  const { prefs } = useSettingsState();
+  const { setPrefs } = useSettingsActions();
+  const isDark = prefs.theme === 'dark';
+
+  return (
+    <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
       <button
         type="button"
         aria-label={isDark ? '라이트 테마로 전환' : '다크 테마로 전환'}
@@ -106,3 +123,4 @@ export function AppNavSegment({ active }: { active?: RailKey } = {}) {
     </div>
   );
 }
+

@@ -797,6 +797,31 @@ describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접
     expect(document.querySelector('header')).not.toBeNull();
   });
 
+  it('★ 좁은 창 헤더는 **이동이 왼쪽 끝, 테마·버전이 오른 끝**이다 — 레일과 같은 규칙', async () => {
+    // 기현 지시 2026-08-14: *"좁은창 헤더에서 테마 선택, 버전이 오른 끝으로 가야 일관성 있다."*
+    // 넓은 창 84px 레일이 그 모양이다(이동 3칸이 맨 위, 테마·버전이 맨 끝). 좁은 창에서
+    // 레일이 접힐 때 넷을 왼쪽에 몰아 두면 창 폭에 따라 두 물건의 관계가 달라진다 —
+    // 접는 것이지 재배치가 아니어야 한다. 그래서 **자리 순서**를 직접 잰다.
+    stubMedia(true);
+    await renderShell();
+    const h = document.querySelector('header')!;
+    const nav = within(h).getByRole('navigation', { name: '주요 메뉴' });
+    const theme = within(h).getByRole('button', { name: /테마로 전환/ });
+
+    // ⚠️ **DOM 순서로는 못 잰다.** 헤더 우측 조작부는 `margin-left:auto` 로 밀려나 있어서,
+    //    테마를 세그먼트 바로 옆(왼쪽)에 두어도 DOM 상으로는 여전히 nav 뒤다. 실제로 옛 자리로
+    //    되돌리는 반증을 해 보니 순서 단언이 그대로 통과했다 — 그 단언은 아무것도 안 지켰다.
+    //    자리를 정하는 것은 순서가 아니라 **어느 상자에 들어 있느냐**다.
+    const asideBox = [...h.querySelectorAll('div')].find((d) => d.style.marginLeft === 'auto');
+    expect(asideBox, '헤더의 우측 조작부를 못 찾았다 — 선택자가 낡았다').toBeDefined();
+    expect(asideBox!.contains(theme), '테마가 우측 조작부 밖이다(왼쪽에 몰려 있다)').toBe(true);
+    expect(asideBox!.contains(nav), '이동까지 오른쪽으로 갔다 — 이동은 왼쪽 끝이다').toBe(false);
+    // 버전도 같은 상자다. 그리고 테마는 헤더의 마지막 표적이다.
+    expect(asideBox!.textContent).toMatch(/v\d/);
+    const buttons = within(h).getAllByRole('button');
+    expect(buttons[buttons.length - 1]).toBe(theme);
+  });
+
   it('★ 좁은 창에서는 남긴다 — 거기서는 헤더의 3칸 세그먼트가 유일한 이동 수단이다', async () => {
     // 기현님 확인: *"좁은창 이동에서의 헤더는 유지."* 좁으면 84px 레일이 통째로 빠지므로
     // 헤더까지 지우면 화면을 옮길 방법이 아예 없어진다.
