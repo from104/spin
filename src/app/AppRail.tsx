@@ -41,20 +41,15 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         gap: '0.3125rem',
       }}
     >
-      {/* 2026-08-14 기현님이 주신 앱 아이콘으로 바꿨다 — 옛 자리는 액센트색 타일에 'SP' 두 글자였다.
-          `aria-hidden` 은 그대로다: 바로 아래 'SPIN' 워드마크가 같은 것을 한 번 더 말하므로,
-          스크린리더에 둘 다 읽히면 "SP SPIN" 이 된다(alt 를 비워 두는 것과 같은 이유).
-          자산은 `public/logo-128.png` — 원본에서 **흰 여백을 잘라낸** 타일이다(`art/README.md`).
-          잘라낸 뒤에도 둥근 모서리 바깥은 흰색이라 알파로 지웠고, 그 위에 같은 borderRadius 를
-          한 번 더 건다: 원본 타일의 라운드와 이 프레임이 어긋나면 모서리에 흰 실선이 남는다. */}
-      <img
-        src="/logo-128.png"
-        alt=""
-        aria-hidden
-        width={42}
-        height={42}
-        style={{ borderRadius: 12, display: 'block', marginBottom: '0.375rem' }}
-      />
+      {/* 2026-08-14 기현님이 주신 앱 아이콘 — 옛 자리는 액센트색 타일에 'SP' 두 글자였다.
+          **SVG 다**(기현님 지시). 42px 로 그리지만 200% 배율 화면에서도 안 뭉개지고, 코트
+          짧은 변의 흰 파선처럼 얇은 획이 살아남는 유일한 길이다. 파일 하나로 파비콘·홈 화면·
+          설치형 아이콘까지 함께 굽는다(`art/README.md`).
+          `borderRadius` 를 안 건다: 마크가 **원**이라 자를 모서리가 없다(옛 타일은 둥근 사각이라
+          필요했다). 여기에 라운드를 걸면 원의 상하좌우가 미세하게 깎인다.
+          `aria-hidden` 은 그대로다 — 바로 아래 'SPIN' 워드마크가 같은 것을 한 번 더 말하므로,
+          둘 다 읽히면 스크린리더가 "SP SPIN" 을 읽는다(alt 를 비워 두는 것과 같은 이유). */}
+      <img src="/logo.svg" alt="" aria-hidden width={42} height={42} style={{ display: 'block', marginBottom: '0.375rem' }} />
       <div
         aria-hidden
         style={{

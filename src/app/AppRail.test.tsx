@@ -131,17 +131,19 @@ describe('레일 로고', () => {
     const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
     const logo = nav.querySelector('img')!;
     expect(logo, '로고 이미지가 없다 — 글자 로고로 되돌아갔나').toBeTruthy();
-    expect(logo.getAttribute('src')).toBe('/logo-128.png');
+    expect(logo.getAttribute('src')).toBe('/logo.svg');
     // 바로 아래 'SPIN' 워드마크가 같은 것을 한 번 더 말한다 — 둘 다 읽히면 "SP SPIN" 이 된다.
     expect(logo.getAttribute('alt')).toBe('');
     expect(logo.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('42×42 이고 모서리가 둥글다 — 옛 타일과 같은 자리·같은 모양이다', () => {
+  it('42×42 이고 **벡터**다 — 200% 배율에서 코트의 흰 파선이 살아남는 유일한 길', () => {
     render(<AppRail />, { wrapper: Harness });
     const logo = screen.getByRole('navigation', { name: '주요 메뉴' }).querySelector('img')!;
     expect(logo.getAttribute('width')).toBe('42');
     expect(logo.getAttribute('height')).toBe('42');
-    expect(logo.style.borderRadius).toBe('12px');
+    expect(logo.getAttribute('src')!.endsWith('.svg'), '래스터로 되돌아갔다').toBe(true);
+    // 마크가 **원**이라 자를 모서리가 없다. 라운드를 걸면 원의 상하좌우가 미세하게 깎인다.
+    expect(logo.style.borderRadius).toBe('');
   });
 });

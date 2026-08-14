@@ -1,62 +1,52 @@
 # art — 배포에 안 들어가는 원본
 
 `public/` 이 아니라 여기 두는 이유 하나: **`public/` 은 통째로 `dist/` 로 복사된다.**
-2048² 마스터를 거기 두면 4 MB 가 모든 방문자에게 그대로 나간다(실제로 그 상태였다).
+큰 마스터를 거기 두면 그 무게가 모든 방문자에게 그대로 나간다(실제로 4 MB 가 그랬다).
 
-## spin-icon-2048.png
+## ⚠️ 지금 마스터는 여기가 아니라 `public/logo.svg` 다
 
-기현님이 2026-08-14 에 주신 앱 아이콘 — 코트 위 파워체어 + 공 + 회전 화살표(= SPIN).
-2048×2048 RGBA. 여기서 `public/` 의 래스터 아이콘 다섯을 굽는다:
+2026-08-14 기현님이 새 아이콘(초록 원 안의 파란 코트 + 공 + 콘)을 주셨고, **SVG 로 뽑으라**
+하셨다. 원본이 원·둥근 사각·점 몇 개의 기하 도형이라 **자동 추적하지 않고 다시 그렸다** —
+추적하면 매끈한 곡선이 수백 개의 점으로 쪼개져 파일은 커지고 모양은 흐려진다. 지금은 도형
+6개, 1.6 KB 다. 그래서 마스터가 배포본 안에 있어도 무게 문제가 없다.
 
-| 산출물 | 크기 | 쓰임 |
-|---|---|---|
-| `favicon-32.png` · `favicon-48.png` | 32 · 48 | 브라우저 탭·북마크 |
-| `apple-touch-icon.png` | 180 | iOS 홈 화면. **흰 바탕으로 합성**한다(iOS 는 투명을 검게 칠한다) |
-| `icon-192.png` · `icon-512.png` | 192 · 512 | manifest(설치형 PWA). 512 는 maskable 로도 쓴다 |
-| `logo-128.png` | 128 | **앱 안 왼쪽 레일의 로고**(42px 로 그린다). 아래 ⚠️ 참고 |
+앞선 래스터 마스터(`spin-icon-2048.png`, 3 MB)는 **은퇴했다.** 그 그림은 흰 정사각 안의 둥근
+초록 타일이었고 지금 아이콘과 다른 그림이다 — 되살릴 일이 있으면 git 이력에서 꺼내라.
 
-굽는 법(의존성 추가 금지 규칙 때문에 시스템 파이썬 PIL 을 쓴다):
+## `public/logo.svg` 에서 나머지를 굽는다
 
+| 산출물 | 크기 | 바탕 | 쓰임 |
+|---|---|---|---|
+| `favicon-32.png` · `favicon-48.png` | 32 · 48 | 투명 | 탭·북마크. 16px 로 줄면 코트의 흰 파선이 뭉개져 미리 구워 준다 |
+| `apple-touch-icon.png` | 180 | 잔디색 정사각 | iOS 홈 화면 |
+| `icon-192.png` · `icon-512.png` | 192 · 512 | 잔디색 정사각 | manifest(설치형). 512 는 maskable 로도 쓴다 |
+
+⚠️ **정사각 셋은 바탕을 채워야 한다.** iOS 는 투명을 검게 칠하고, maskable 은 모서리를
+잘라내므로 투명한 원을 주면 원이 잘린다. 잔디색(`#24421f`) 바탕에 마크를 82~86% 로 넣어
+안전 영역을 확보한다.
+
+굽는 법(의존성 추가 금지라 ImageMagick + 시스템 파이썬 PIL 을 쓴다):
+
+```sh
+convert -background none -density 600 public/logo.svg -resize 1024x1024 /tmp/logo1024.png
+```
 ```python
 from PIL import Image
-src = Image.open('art/spin-icon-2048.png').convert('RGBA')
-def out(size, path, bg=None):
-    im = src.resize((size, size), Image.LANCZOS)
-    if bg:
-        base = Image.new('RGB', (size, size), bg); base.paste(im, (0, 0), im); base.save(path, optimize=True)
-    else:
-        im.save(path, optimize=True)
-out(192, 'public/icon-192.png'); out(512, 'public/icon-512.png')
-out(180, 'public/apple-touch-icon.png', bg=(255, 255, 255))
-out(48, 'public/favicon-48.png'); out(32, 'public/favicon-32.png')
+src = Image.open('/tmp/logo1024.png').convert('RGBA')
+GRASS = (36, 66, 31)  # #24421f
+
+def bake(size, path, square_bg=None, inset=1.0):
+    im = src.resize((int(size * inset), int(size * inset)), Image.LANCZOS)
+    canvas = Image.new('RGBA', (size, size), (0, 0, 0, 0) if square_bg is None else (*square_bg, 255))
+    off = (size - im.width) // 2
+    canvas.alpha_composite(im, (off, off))
+    (canvas if square_bg is None else canvas.convert('RGB')).save(path, optimize=True)
+
+bake(32, 'public/favicon-32.png'); bake(48, 'public/favicon-48.png')
+bake(180, 'public/apple-touch-icon.png', GRASS, 0.86)
+bake(192, 'public/icon-192.png', GRASS, 0.82)
+bake(512, 'public/icon-512.png', GRASS, 0.82)
 ```
 
-### ⚠️ `logo-128.png` 만 다르게 굽는다 — 흰 여백을 잘라낸다
-
-원본은 **흰 정사각형 안에 둥근 초록 타일**이다. 그 여백은 파일 아이콘으로는 맞지만(런처가
-자기 배경 위에 얹는다) 앱 안 42px 자리에서는 흰 액자가 그대로 보인다. 그래서 타일 경계
-(실측 `253,253 → 1795,1794`)로 자르고, 자른 뒤에도 둥근 모서리 **바깥**에 남는 흰색은
-테두리에서 시작하는 플러드 필로 알파 0 을 준다 — **안쪽의 흰 공은 살려야 하므로** 단순히
-"흰색이면 지운다" 로 하면 안 된다(공이 뚫린다).
-
-```python
-from PIL import Image
-import numpy as np
-src = Image.open('art/spin-icon-2048.png').convert('RGB').crop((253, 253, 1796, 1795))
-im = src.resize((128, 128), Image.LANCZOS)
-near_white = np.asarray(im).astype(int).sum(axis=2) > 700
-out = np.zeros(near_white.shape, bool)
-out[0, :] |= near_white[0, :]; out[-1, :] |= near_white[-1, :]
-out[:, 0] |= near_white[:, 0]; out[:, -1] |= near_white[:, -1]
-for _ in range(300):                      # 테두리에서만 자라는 플러드 필
-    g = out.copy()
-    g[1:, :] |= out[:-1, :]; g[:-1, :] |= out[1:, :]
-    g[:, 1:] |= out[:, :-1]; g[:, :-1] |= out[:, 1:]
-    g &= near_white
-    if (g == out).all(): break
-    out = g
-rgba = np.dstack([np.asarray(im), np.where(out, 0, 255).astype(np.uint8)])
-Image.fromarray(rgba, 'RGBA').save('public/logo-128.png', optimize=True)
-```
-
-⚠️ 옛 `public/favicon.svg` 는 은퇴했다 — 새 아이콘은 래스터라 벡터로 바꿀 수 없다.
+⚠️ SVG 를 고쳤으면 **PNG 다섯도 다시 구워야 한다.** 한쪽만 바뀌면 탭 아이콘과 앱 안 로고가
+서로 다른 그림이 된다(2026-08-14 에 실제로 그랬다 — 파일 아이콘만 갈고 앱 안 로고를 놓쳤다).

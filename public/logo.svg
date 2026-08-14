@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SPIN">
+  <!-- SPIN 앱 마크 (2026-08-14 기현님 아이콘의 벡터판).
+       자동 추적이 아니라 **다시 그린 것**이다 — 원본이 원·둥근 사각·점 몇 개의 기하 도형이라
+       추적하면 곡선이 수백 점으로 쪼개져 오히려 커지고 흐려진다. 여기서는 도형 6개다.
+       래스터(art/spin-icon-2048.png)는 은퇴했다 — 파비콘·레일 로고·PWA 아이콘 전부 이 파일에서 굽는다. -->
+  <circle cx="256" cy="256" r="248" fill="#2f5d2b" />
+  <circle cx="256" cy="256" r="234" fill="#a4e70c" />
+
+  <!-- 코트 — 긴 변이 오른쪽 위를 향하도록 45° 눕힌다. 회전은 그룹 하나가 다 진다:
+       안쪽 좌표는 회전을 모르는 채 (가로 224 × 세로 130) 로 읽힌다. -->
+  <g transform="translate(228 234) rotate(-45)">
+    <rect x="-112" y="-65" width="224" height="130" rx="21" fill="#2e6db6" />
+    <!-- 골라인 — 코트 짧은 변에 붙는 흰 파선. 선 자체가 변 위에 놓이므로 반 두께만큼
+         안으로 들인다(안 그러면 둥근 모서리 밖으로 삐져나온다). -->
+    <path d="M-104 -59 V59" fill="none" stroke="#fff" stroke-width="15" stroke-linecap="butt"
+      stroke-dasharray="21 15" />
+  </g>
+
+  <!-- 공 — 코트 위. -->
+  <circle cx="311" cy="199" r="23" fill="#fff" />
+  <!-- 콘 — 코트 밖. 테두리는 배경 초록이라 밝은 초록 위에서 형태가 또렷하다. -->
+  <circle cx="305" cy="345" r="34" fill="#f2a01f" stroke="#2f5d2b" stroke-width="8" />
+</svg>
