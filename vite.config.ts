@@ -22,17 +22,19 @@ export default defineConfig({
     strictPort: true,
     // Vite 의 DNS 리바인딩 보호. IP 로 붙을 땐 필요 없지만 호스트명으로 붙으려면 여기 있어야
     // 통과한다(없으면 403 "Blocked request").
-    //  · cube / cube.local — 같은 LAN 에서 호스트명으로
-    //  · .ts.net           — 테일넷 MagicDNS(cube.tail4fa6d9.ts.net). 앞 점은 하위 도메인
-    //    와일드카드다. 테일넷은 방화벽을 따로 열 필요가 없다 — ts-input 체인이 ufw 보다
-    //    앞에서 tailscale0 인입을 전부 통과시킨다(실측).
-    allowedHosts: ['cube', 'cube.local', '.ts.net'],
+    //  · cube / cube.local, gofu / gofu.local — 같은 LAN 에서 호스트명으로. 개발 서버는
+    //    두 기기 어디서든 뜨므로 양쪽을 다 적는다(2026-08-14 기현님 지시로 gofu 추가).
+    //  · .ts.net           — 테일넷 MagicDNS(cube.tail4fa6d9.ts.net · gofu.tail4fa6d9.ts.net).
+    //    앞 점은 하위 도메인 와일드카드다. cube 는 ts-input 체인이 ufw 보다 앞에서
+    //    tailscale0 인입을 전부 통과시켜 방화벽을 안 열어도 됐지만, **gofu 는 다르다** —
+    //    ufw 에 `100.64.0.0/10 ALLOW IN` 규칙이 따로 있어야 한다(2026-08-14 확인).
+    allowedHosts: ['cube', 'cube.local', 'gofu', 'gofu.local', '.ts.net'],
   },
   preview: {
     host: true,
     port: 4173,
     strictPort: true,
-    allowedHosts: ['cube', 'cube.local', '.ts.net'],
+    allowedHosts: ['cube', 'cube.local', 'gofu', 'gofu.local', '.ts.net'],
   },
   test: {
     environment: 'jsdom',
