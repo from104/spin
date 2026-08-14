@@ -27,6 +27,21 @@ export function AppNavSegment({ active }: { active?: RailKey } = {}) {
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
       {/* 세로 여백도 테두리도 두지 않는다 — 칸 높이(--hit)가 그대로 세그먼트 높이여야
           헤더 52 안에 선다(navChrome.ts 의 headerContentMaxPx). */}
+      {/* 앱 아이콘 — **헤더 맨 왼쪽**이다(기현 지시 2026-08-14: *"좁은 창 헤더에서도 왼쪽 상단에
+          아이콘이 있어야 함"*). 넓은 창 84px 레일이 그 모양이라 그렇다: 로고가 맨 위, 그 아래
+          이동 3칸, 맨 끝에 테마·버전. 좁은 창은 그 기둥을 눕힌 것이므로 순서가 같아야 한다.
+          ⚠️ **42 가 아니라 28 이다.** 헤더 한 줄이 48px 이고 그 안에 `--hit`(44) 짜리 표적이
+          서므로, 로고가 그보다 크면 로고가 헤더 높이를 밀어 버린다. 로고는 표적이 아니라
+          표식이라 작아도 제 일을 한다(레일에서는 84px 폭이 남아 42 를 쓸 수 있었다).
+          `aria-hidden` 인 이유는 레일과 같다 — 이동 3칸이 앱 이름을 이미 말한다. */}
+      <img
+        src="/logo.svg"
+        alt=""
+        aria-hidden
+        width={28}
+        height={28}
+        style={{ display: 'block', flex: 'none', marginRight: '0.125rem' }}
+      />
       <nav aria-label="주요 메뉴" style={{ display: 'flex', alignItems: 'center', gap: '0.125rem' }}>
         {RAIL_ITEMS.map((key) => {
           const Icon = RAIL_ICONS[key];

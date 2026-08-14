@@ -1,7 +1,7 @@
 // 3.-2 — 좁은 창에서 84px 레일이 접혀 들어가는 **헤더 좌측 3칸 세그먼트**.
 //
 // 여기서 보는 것은 셋이다: (a) 레일과 **같은 계약**(같은 3항목·같은 aria-current·SCREEN_TO_RAIL)
-// (b) 세로 예산 — 세그먼트가 헤더 52 안에 서는가 (c) 헤더 안에서의 자리(좌측 첫 칸).
+// (b) 세로 예산 — 세그먼트가 헤더 48 안에 서는가 (c) 헤더 안에서의 자리(좌측 첫 칸).
 // AppShell 층의 갈림(레일이냐 세그먼트냐, 폭 84 냐 0 이냐)은 AppShell.wiring.test.tsx 가 본다.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -81,6 +81,26 @@ describe('AppNavSegment — 레일과 같은 계약', () => {
     expect(container).toHaveTextContent(`v${pkg.version}`);
   });
 
+  it('앱 아이콘이 **이동 3칸보다 앞**이다 — 넓은 창 레일과 같은 순서', () => {
+    // 기현 지시 2026-08-14: *"좁은 창 헤더에서도 왼쪽 상단에 아이콘이 있어야 함."*
+    // 레일은 로고 → 이동 3칸 → (맨 끝) 테마·버전이다. 좁은 창은 그 기둥을 눕힌 것이므로
+    // 순서가 같아야 한다 — 접는 것이지 재배치가 아니다.
+    const { container } = render(<AppNavSegment />, { wrapper: Harness });
+    const logo = container.querySelector('img')!;
+    expect(logo, '아이콘이 없다').toBeTruthy();
+    expect(logo.getAttribute('src')).toBe('/logo.svg');
+    const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
+    expect(logo.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING, '아이콘이 이동보다 뒤다').toBeTruthy();
+  });
+
+  it('아이콘은 표적(--hit 44)보다 작다 — 크면 로고가 헤더 높이를 밀어 버린다', () => {
+    // 헤더 한 줄이 48 이고 그 안에 44 짜리 표적이 선다. 레일에서 쓰는 42 를 그대로 가져오면
+    // 여백 2 를 넘겨 헤더가 다시 두꺼워진다 — 이번 라운드에서 줄인 4px 을 도로 뱉는 셈이다.
+    const { container } = render(<AppNavSegment />, { wrapper: Harness });
+    const logo = container.querySelector('img')!;
+    expect(Number(logo.getAttribute('height'))).toBeLessThan(44);
+  });
+
   it('세그먼트에는 이동 3칸뿐이다 — 테마·버전은 거기 없다(오른 끝으로 갔다)', () => {
     const { container } = render(<AppNavSegment />, { wrapper: Harness });
     expect(screen.queryByRole('button', { name: /테마로 전환/ })).toBeNull();
@@ -107,13 +127,13 @@ describe('AppNavSegment — 레일과 같은 계약', () => {
   });
 });
 
-describe('AppNavSegment — 세로 예산 (헤더 52 를 넘지 않는다)', () => {
+describe('AppNavSegment — 세로 예산 (헤더 48 을 넘지 않는다)', () => {
   const headerRow = CHROME_ROWS.find((r) => r.id === 'appHeader')!;
 
-  it('칸 높이(--hit 44) + 헤더 상하 여백 = 예산의 헤더 행 52 와 정확히 같다', () => {
-    // 세로 합계 132 = 헤더 52 + 하단 바 64 + 코트 패딩 16. 여기서 한 픽셀만 넘쳐도 코트
+  it('칸 높이(--hit 44) + 헤더 상하 여백 = 예산의 헤더 행 48 과 정확히 같다', () => {
+    // 세로 합계 128 = 헤더 48 + 하단 바 64 + 코트 패딩 16. 여기서 한 픽셀만 넘쳐도 코트
     // 축척이 그만큼 줄어든다 — 그래서 '작으니까 괜찮다' 가 아니라 **등식**으로 못박는다.
-    expect(headerRow.narrow).toBe(52);
+    expect(headerRow.narrow).toBe(48);
     expect(navSegmentHeightPx(44)).toBe(44);
     expect(navSegmentHeightPx(44) + HEADER_PAD_PX.narrow.y * 2).toBe(headerRow.narrow);
     expect(navSegmentHeightPx(44)).toBeLessThanOrEqual(headerContentMaxPx(headerRow.narrow, true));
@@ -122,7 +142,7 @@ describe('AppNavSegment — 세로 예산 (헤더 52 를 넘지 않는다)', () 
   it('넓은 창의 여백은 그대로다 — 62 짜리 헤더에서 44 표적이 여유를 갖는다', () => {
     // 대조군. 좁은 쪽만 4 로 줄인 것이지 헤더 여백을 통째로 깎은 것이 아니다.
     expect(headerPadCss(false)).toBe('8px 24px');
-    expect(headerPadCss(true)).toBe('4px 12px');
+    expect(headerPadCss(true)).toBe('2px 12px');
     expect(navSegmentHeightPx(44)).toBeLessThan(headerContentMaxPx(headerRow.wide, false));
   });
 
@@ -151,7 +171,7 @@ describe('AppHeader — 좁은 창에서만 세그먼트를 좌측 첫 칸에 �
     expect(el.contains(nav)).toBe(true);
     // 좌측 첫 칸 — 제목보다 앞이다. 키보드 순회가 헤더 → 판 순으로 흐르는 근거이기도 하다.
     expect(el.firstElementChild!.contains(nav)).toBe(true);
-    expect(el.style.padding).toBe('4px 12px');
+    expect(el.style.padding).toBe('2px 12px');
   });
 
   it('대조군: narrow 를 안 주면 헤더에 내비가 없다 — 레일이 지고 있다는 뜻이다', () => {

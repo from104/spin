@@ -92,11 +92,11 @@ describe('③ 크롬 예산이 배치 축과 화면을 안다', () => {
     // 944 → 900. 2026-08-14 [드릴로 저장]이 기능 바로 오면서 칸이 12가 됐고, 1024×600 은
     // **좁은 창**이라 헤더(52)가 남는다 — 바에 남는 높이가 548 이라 12칸이 2열로 흐른다.
     // 예산이 그 열 수를 직접 센다(courtBoxPx 의 functionBarExtraColsPx).
-    expect(courtBoxPx(SMALL_LANDSCAPE, bandState)).toEqual({ w: 900, h: 466 });
+    expect(courtBoxPx(SMALL_LANDSCAPE, bandState)).toEqual({ w: 900, h: 470 });
     const s = courtScale('full', courtBoxPx(SMALL_LANDSCAPE, bandState));
     expect(s.rot).toBe(0);
-    // 재설계 전 0.8914 → 0.8876. **−0.4%** 다 — 1행 띠가 가로 화면의 손해를 거의 다 지웠다.
-    expect(s.pxPerUnit).toBeCloseTo(0.8876, 4);
+    // 재설계 전 0.8914 → 0.8952. **+0.4%** 다(헤더 4px 축소가 손해를 뒤집었다) — 1행 띠가 가로 화면의 손해를 거의 다 지웠다.
+    expect(s.pxPerUnit).toBeCloseTo(0.8952, 4);
   });
 
   it('⚠️ 좁은 세로 창은 −19.9% 다 — 트레이가 폭을 먹고 기능 바가 또 먹는다 (실기 확인 항목)', () => {
@@ -105,7 +105,7 @@ describe('③ 크롬 예산이 배치 축과 화면을 안다', () => {
     // 폭이 넉넉하면 하단 바가 사라진 이득이 더 크기 때문이다. 좁은 세로 기기에서 이 손해가
     // 견딜 만한지가 이번 배포의 실기 확인 항목이다.
     const portrait: ChromeState = { narrow: true, inspector: 'hidden', trayBand: false, board: true };
-    expect(courtBoxPx({ w: 480, h: 800 }, portrait)).toEqual({ w: 307, h: 732 });
+    expect(courtBoxPx({ w: 480, h: 800 }, portrait)).toEqual({ w: 307, h: 736 });
     expect(courtScale('full', courtBoxPx({ w: 480, h: 800 }, portrait)).pxPerUnit).toBeCloseTo(0.5848, 4);
     expect(courtScale('full', courtBoxPx({ w: 768, h: 1024 }, portrait)).pxPerUnit).toBeCloseTo(1.1333, 4);
   });

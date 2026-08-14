@@ -54,7 +54,11 @@ export const RAIL_NAV_TARGETS: Record<RailKey, NavTarget | undefined> = {
  *  밀어 세로 예산 132 가 깨지고, 그만큼 코트 축척이 줄어든다. */
 export const HEADER_PAD_PX = {
   wide: { x: 24, y: 8 },
-  narrow: { x: 12, y: 4 },
+  // ⚠️ 2026-08-14 기현님 지시(*"좁은 창 헤더의 위아래 높이가 조금 줄어들었으면"*)로 4 → 2.
+  // 헤더 행도 52 → **48** 이 된다. 더는 못 줄인다: 안에 서는 것이 `--hit`(44) 짜리 표적이라
+  // 48 − 44 = 4 가 남는 전부이고, 0 으로 두면 활성 칸의 테두리가 헤더 위아래 변에 딱 붙는다.
+  // 아이콘(28px)은 표적보다 작아 높이를 안 민다 — 그래서 아이콘이 들어와도 48 그대로다.
+  narrow: { x: 12, y: 2 },
 } as const;
 
 export const headerPadCss = (narrow: boolean): string => {

@@ -53,11 +53,12 @@ describe('예산 합계 — 못박은 값', () => {
     expect(CHROME_WIDTH_NARROW_PX).toBe(117);
   });
 
-  it('세로 합계는 196 → 132 이다', () => {
+  it('세로 합계는 196 → 128 이다', () => {
     expect(sumNow('height')).toBe(CHROME_HEIGHT_NOW_PX);
     expect(CHROME_HEIGHT_NOW_PX).toBe(196);
     expect(chromeHeightPx(narrowState)).toBe(CHROME_HEIGHT_NARROW_PX);
-    expect(CHROME_HEIGHT_NARROW_PX).toBe(132);
+    // 132 → 128: 2026-08-14 기현님 지시로 좁은 헤더 상하 여백이 4 → 2 가 됐다(52 → 48).
+    expect(CHROME_HEIGHT_NARROW_PX).toBe(128);
   });
 
   it('행별 값이 §5.2 표와 같다', () => {
@@ -66,7 +67,7 @@ describe('예산 합계 — 못박은 값', () => {
     expect([byId.inspector!.now, byId.inspector!.narrow]).toEqual([313, 0]);
     expect([byId.toolRail!.now, byId.toolRail!.narrow]).toEqual([78, 93]);
     expect([byId.courtPadX!.now, byId.courtPadX!.narrow]).toEqual([48, 24]);
-    expect([byId.appHeader!.now, byId.appHeader!.narrow]).toEqual([62, 52]);
+    expect([byId.appHeader!.now, byId.appHeader!.narrow]).toEqual([62, 48]);
     expect([byId.transportBar!.now, byId.transportBar!.narrow]).toEqual([94, 64]);
     expect([byId.courtPadY!.now, byId.courtPadY!.narrow]).toEqual([40, 16]);
   });
@@ -113,26 +114,26 @@ describe('예산 합계 — 못박은 값', () => {
 describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
   const px = (box: Size): number => courtScale('full', box).pxPerUnit;
 
-  it('1024×600 가로 — 0.6073 → 0.8914 (+46.8%)', () => {
+  it('1024×600 가로 — 0.6073 → 0.8990 (+48.0%)', () => {
     const before = nowBox({ w: 1024, h: 600 });
     const after = courtBoxPx({ w: 1024, h: 600 }, narrowState);
     expect(before).toEqual({ w: 501, h: 404 });
-    expect(after).toEqual({ w: 907, h: 468 });
+    expect(after).toEqual({ w: 907, h: 472 });
     expect(px(before)).toBeCloseTo(0.6073, 4);
-    expect(px(after)).toBeCloseTo(0.8914, 4);
-    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(46.8, 1);
+    expect(px(after)).toBeCloseTo(0.8990, 4);
+    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(48.0, 1);
     // '1 m' 열. 22.3 px 은 휠체어(1.5 m)가 화면에서 33 px 로 그려진다는 뜻이다.
-    expect(courtScale('full', after).pxPerMeter).toBeCloseTo(22.3, 1);
+    expect(courtScale('full', after).pxPerMeter).toBeCloseTo(22.5, 1);
   });
 
-  it('800×480 진짜 7인치 — 0.3358 → 0.6629 (+97.4%)', () => {
+  it('800×480 진짜 7인치 — 0.3358 → 0.6705 (+99.7%)', () => {
     const before = nowBox({ w: 800, h: 480 });
     const after = courtBoxPx({ w: 800, h: 480 }, narrowState);
     expect(before).toEqual({ w: 277, h: 284 });
-    expect(after).toEqual({ w: 683, h: 348 });
+    expect(after).toEqual({ w: 683, h: 352 });
     expect(px(before)).toBeCloseTo(0.3358, 4);
-    expect(px(after)).toBeCloseTo(0.6629, 4);
-    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(97.4, 1);
+    expect(px(after)).toBeCloseTo(0.6705, 4);
+    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(99.7, 1);
     // 폭에는 136px 이 남는데 높이가 348 뿐이다 — 이 기기는 세로가 절대 제약이라
     // 레이아웃으로는 여기까지다(§5.3 정직한 인정 4번).
     expect(after.w / 825).toBeGreaterThan(after.h / 525);
@@ -179,8 +180,8 @@ describe('§5.3 half/flat 행 [A-13]', () => {
 
   it('1024×600 narrow — full 0.8914 · half 1.0400 · flat 은 half 와 같다', () => {
     const box = courtBoxPx({ w: 1024, h: 600 }, narrowState);
-    expect(at('full', box)).toBeCloseTo(0.8914, 4);
-    expect(at('half', box)).toBeCloseTo(1.04, 4);
+    expect(at('full', box)).toBeCloseTo(0.8990, 4);
+    expect(at('half', box)).toBeCloseTo(1.0489, 4);
     // D12 — half↔flat 은 viewBox 가 정확히 같아야 무손실 전환이다. 축척도 따라서 같다.
     expect(at('flat', box)).toBe(at('half', box));
     expect(COURT_DEFS.flat.vbW).toBe(COURT_DEFS.half.vbW);
@@ -192,30 +193,30 @@ describe('§5.3 half/flat 행 [A-13]', () => {
     // 재편 전 풀 코트는 **폭**이 제약이었다(501/825 < 404/525). 그래서 폭 크롬 523→117 이
     // 그대로 이득이 된다.
     expect(before.w / 825).toBeLessThan(before.h / 525);
-    expect((at('full', after) / at('full', before) - 1) * 100).toBeCloseTo(46.8, 1);
+    expect((at('full', after) / at('full', before) - 1) * 100).toBeCloseTo(48.0, 1);
     // 하프는 재편 전에도 **세로**가 제약이었다(404/450 < 501/525). 폭을 아무리 벌어도 안 커지고,
-    // 세로 예산 196→132 만큼만(468/404 = +15.8%) 커진다.
+    // 세로 예산 196→128 만큼만(472/404 = +16.8%) 커진다. (헤더가 52 → 48 이 되며 468 → 472.)
     expect(before.h / 450).toBeLessThan(before.w / 525);
-    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo(15.8, 1);
-    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo((468 / 404 - 1) * 100, 4);
+    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo(16.8, 1);
+    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo((472 / 404 - 1) * 100, 4);
   });
 
-  it('800×480 에서도 하프가 세로에 갇힌다 — 0.5276 → 0.7733 (+46.6%)', () => {
+  it('800×480 에서도 하프가 세로에 갇힌다 — 0.5276 → 0.7822 (+48.3%)', () => {
     const before = nowBox({ w: 800, h: 480 });
     const after = courtBoxPx({ w: 800, h: 480 }, narrowState);
     expect(at('half', before)).toBeCloseTo(0.5276, 4);
-    expect(at('half', after)).toBeCloseTo(0.7733, 4);
-    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo(46.6, 1);
+    expect(at('half', after)).toBeCloseTo(0.7822, 4);
+    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo(48.3, 1);
   });
 
   it('세로로 긴 창에서는 코트가 돌고, 축척도 돌린 값으로 잰다', () => {
     // iPad 세로 834×1194. 여기서 rotForFit 이 개입하지 않으면 예산표가 화면과 다른 숫자를
     // 말하게 된다 — 판이 돌면 상자에 맞는 변이 바뀌기 때문이다.
     const box = courtBoxPx({ w: 834, h: 1194 }, narrowState);
-    expect(box).toEqual({ w: 717, h: 1062 });
+    expect(box).toEqual({ w: 717, h: 1066 });
     const full = courtScale('full', box);
     expect(full.rot).toBe(90);
-    expect(full.pxPerUnit).toBeCloseTo(1.2873, 4);
+    expect(full.pxPerUnit).toBeCloseTo(1.2921, 4);
     // 대조군 — 돌리지 않았다면 0.869 로 3할 이상 작다.
     expect(Math.min(box.w / 825, box.h / 525)).toBeCloseTo(0.8691, 4);
   });
@@ -228,25 +229,25 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     const bare = courtBoxPx({ w: 1024, h: 600 }, narrowState);
     const explicit = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_NONE });
     expect(explicit).toEqual(bare);
-    expect(explicit).toEqual({ w: 907, h: 468 });
+    expect(explicit).toEqual({ w: 907, h: 472 });
   });
 
-  it('아이패드 홈 인디케이터 20px 이 세로 예산에서 더 빠진다 — 0.8914 가 아니라 0.8533', () => {
+  it('아이패드 홈 인디케이터 20px 이 세로 예산에서 더 빠진다 — 0.8990 이 아니라 0.8610', () => {
     // §5.2 가 *"확정 배율 0.8914 는 안드로이드 태블릿 기준 상한이지 아이패드 실측이 아니다"*
     // 라고 적어 둔 것의 계산이 이것이다. 4.3% 작다.
     const box = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR });
-    expect(box).toEqual({ w: 907, h: 448 });
+    expect(box).toEqual({ w: 907, h: 452 });
     expect(chromeHeightPx({ ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR })).toBe(CHROME_HEIGHT_NARROW_PX + 20);
-    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8533, 4);
+    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8610, 4);
   });
 
   it('노치 기기를 눕히면 폭이 88 더 빠진다', () => {
     const state: ChromeState = { ...narrowState, safeArea: SAFE_AREA_NOTCH_LANDSCAPE };
     expect(chromeWidthPx(state)).toBe(CHROME_WIDTH_NARROW_PX + 88);
     const box = courtBoxPx({ w: 1024, h: 600 }, state);
-    expect(box).toEqual({ w: 819, h: 447 });
+    expect(box).toEqual({ w: 819, h: 451 });
     // 폭 88 이 빠져도 이 상자는 여전히 세로 제약이다 — 노치의 대가는 하단 21px 쪽에서 온다.
-    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8514, 4);
+    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8590, 4);
   });
 
   it('창보다 크롬이 크면 상자는 0 이다 — 음수 상자로 축척을 계산하지 않는다', () => {
@@ -263,9 +264,9 @@ describe('courtScale 이 화면과 같은 식을 쓴다', () => {
     ({ x: 0, y: 0, left: 0, top: 0, right: box.w, bottom: box.h, width: box.w, height: box.h, toJSON: () => ({}) }) as DOMRect;
 
   it.each([
-    ['full', { w: 907, h: 468 }],
-    ['full', { w: 717, h: 1062 }], // 돌아가는 상자
-    ['half', { w: 683, h: 348 }],
+    ['full', { w: 907, h: 472 }],
+    ['full', { w: 717, h: 1066 }], // 돌아가는 상자
+    ['half', { w: 683, h: 352 }],
     ['flat', { w: 1055, h: 604 }],
   ] as const)('%s %o 에서 computeMetrics 와 같은 pxPerUnit·rot 을 낸다', (mode, box) => {
     const def = COURT_DEFS[mode];

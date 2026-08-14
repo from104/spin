@@ -156,7 +156,7 @@ describe('★ 인접축 빈틈 0 — 코트 칸 오른쪽 변 === 트레이 왼�
   it('대조군: 판 덩어리에 gap 이 8px 있었다면 등식이 깨진다', () => {
     // "빈틈 0" 이 자명한 항등식이 아니라 **gap·padding 이 없다는 사실**에서 나온다는 것을
     // 못박는다. 이 대조군이 없으면 위 it 은 boardSplitPx 의 정의를 스스로 되뇌는 것뿐이다.
-    const avail = { w: 1000, h: 468 };
+    const avail = { w: 1000, h: 472 };
     const split = boardSplitPx(avail, courtCellAspectRatio('full', '30x18', 0), 44);
     expect(split.courtW + 8 + split.trayW).not.toBeCloseTo(split.boardW, 6);
   });
@@ -186,27 +186,27 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
     }
   });
 
-  it('1024×600 narrow full — 트레이가 93 → 240(5열)이 되고 코트는 0.8914 그대로다', () => {
+  it('1024×600 narrow full — 트레이가 93 → 240(5열)이 되고 코트는 0.8990 그대로다', () => {
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const before = { w: 1024 - chromeWidthPx(state), h: 600 - chromeHeightPx(state) };
-    expect(before).toEqual({ w: 907, h: 468 });
+    expect(before).toEqual({ w: 907, h: 472 });
     const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
-    expect(avail).toEqual({ w: 1000, h: 468 });
+    expect(avail).toEqual({ w: 1000, h: 472 });
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
     expect(split.trayW).toBe(trayRailMaxWidthPx(44));
     expect(split.trayW).toBe(240);
     expect(trayColumnsAt(split.trayW, 44)).toBe(5);
-    expect(split.courtW).toBeCloseTo(468 * (825 / 525), 6);
-    expect(split.courtW / 825).toBeCloseTo(0.8914, 4);
+    expect(split.courtW).toBeCloseTo(472 * (825 / 525), 6);
+    expect(split.courtW / 825).toBeCloseTo(0.8990, 4);
     // 상한을 넘긴 폭은 판 **바깥**의 대칭 여백이다 — 코트↔트레이 사이가 아니다.
     expect(split.outerW).toBeCloseTo(1000 - split.boardW, 9);
   });
 
-  it('800×480 narrow full — 트레이 229(4열). 설계서 §4.6 의 그 칸이다', () => {
+  it('800×480 narrow full — 트레이 223(4열). 설계서 §4.6 의 그 칸이다', () => {
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const avail = alignBoxPx({ w: 800, h: 480 }, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
-    expect(Math.round(split.trayW)).toBe(229);
+    expect(Math.round(split.trayW)).toBe(223);
     expect(trayColumnsAt(split.trayW, 44)).toBe(4);
   });
 
@@ -280,7 +280,7 @@ describe('위험 3 — 서랍 손잡이가 화면 밖으로 나가지 않는다'
 // ── 완료 판정: 1024×600 에서 트레이 240px, 5열, 벤치+도구 스크롤 없이 ────────────────────
 
 describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
-  it('고정 232 + 벤치 181 = 413 ≤ 468 (hit 44, 5열, 선수 8명)', () => {
+  it('고정 117 + 벤치 149 = 266 ≤ 472 (hit 44, 5열, 선수 8명)', () => {
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
@@ -293,7 +293,7 @@ describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
     expect(fixed).toBe(117);
     expect(bench).toBe(149);
     expect(fixed + bench).toBeLessThanOrEqual(split.courtH);
-    expect(split.courtH).toBe(468);
+    expect(split.courtH).toBe(472);
   });
 
   it('대조군: 2열(재설계 전 폭)이었다면 같은 화면에서 넘친다 — 그래서 스크롤이 있었다', () => {

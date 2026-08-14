@@ -156,7 +156,13 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
     wide: 62,
     // **없애지 않는다**(§5.2 [치명] 3번): 되돌리기 44px 와 [보드] 의미론, 라이브 리전의 유일한
     // 출처가 전부 헤더다. 대신 코트 세그먼트·주 액션을 하단 바로 옮겨 한 줄을 강제한다.
-    narrow: 52,
+    //
+    // ⚠️ 2026-08-14 — 52 → **48**(기현 지시). 안에 서는 것이 `--hit`(44) 짜리 표적이라 상하
+    // 여백 2씩이 남는 전부다. 그리고 자유 전술판+넓은 창에서는 이 행이 **0** 이다(아래
+    // chromeRowPx) — 좁은 창에서만 남는다. 옛 근거 중 '되돌리기 44px' 는 그 버튼이 기능 바로
+    // 가면서 이미 무효인데, 지우지 않는 이유는 **좁은 창 이동 세그먼트**가 그 자리를 물려받아
+    // 같은 44px 을 요구하기 때문이다 — 근거만 바뀌고 숫자는 그대로다.
+    narrow: 48,
     owner: '미지정 — 2차 표에 "헤더 한 줄 강제" 행이 없다(§5.2 만 서술)',
   },
   {
@@ -190,7 +196,7 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
 /** 못박은 합계. **행 합으로 계산하지 않는다** — 계산해 두면 어느 행이 슬그머니 커져도 총액이
  *  따라 움직여 예산이 예산 노릇을 못 한다. 테스트가 "행 합 === 이 상수" 를 매번 대조한다. */
 export const CHROME_WIDTH_NARROW_PX = 117;
-export const CHROME_HEIGHT_NARROW_PX = 132;
+export const CHROME_HEIGHT_NARROW_PX = 128;
 /** 재편 이전 합계. §5.3 의 '현재' 열이 이 값에서 나온다(1024×600 → 0.6073). */
 export const CHROME_WIDTH_NOW_PX = 523;
 export const CHROME_HEIGHT_NOW_PX = 196;

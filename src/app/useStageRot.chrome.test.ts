@@ -68,7 +68,8 @@ describe('상자에서 행이 실제로 빠진다', () => {
     const band: ChromeState = { narrow: true, inspector: 'hidden', trayBand: true, board: true };
     const box = courtBoxPx({ w: 1024, h: 600 }, band);
     // 헤더 52 + 띠 66 + 상하 패딩 16 = 134 → 600 − 134 = 466.
-    expect(box.h).toBe(600 - (52 + trayBandHeightPx(INTERACT.hitTargetCssPx) + 16));
+    // 헤더 48(2026-08-14 에 52 → 48) + 띠 66 + 상하 패딩 16 = 130 → 600 − 130 = 470.
+    expect(box.h).toBe(600 - (48 + trayBandHeightPx(INTERACT.hitTargetCssPx) + 16));
     // 폭에서는 트레이가 빠지지 않는다(띠는 높이를 먹는다). 대신 기능 바와 패딩 24 가 빠진다.
     // ⚠️ 기능 바가 **2열**이라 56 + 44 다: 1024×600 은 좁은 창이라 헤더(52)가 남고, 바에 남는
     // 높이 548 에 12칸(599)이 안 들어간다. 예산이 그 열 수를 직접 센다(functionBarExtraColsPx).
@@ -81,7 +82,7 @@ describe('상자에서 행이 실제로 빠진다', () => {
     // 480 − (트레이 93 + 기능 바 56 + 패딩 24) = 307.
     expect(box.w).toBe(307);
     // 높이에서는 띠가 안 빠진다: 800 − (헤더 52 + 패딩 16) = 732.
-    expect(box.h).toBe(800 - (52 + 16));
+    expect(box.h).toBe(800 - (48 + 16));
   });
 
   it('붙박이 인스펙터를 켜도 배치 축은 그대로다 — 두 축이 서로 독립이다', () => {
