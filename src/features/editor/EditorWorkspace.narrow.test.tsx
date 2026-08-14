@@ -213,8 +213,11 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //     · 판 덩어리 축이 뒤집혔다(row → column) — 트레이가 코트 긴 변에 붙는다.
     //    **코트 `<svg>` 안쪽은 한 줄도 안 움직였다** — 라인·격자·개체·골대가 전부 그대로다.
     //    손으로 고쳐 맞추지 마라 — 깨졌다면 아래 뼈대 스냅샷의 diff 가 무엇이 달라졌는지 알려 준다.
+    //    2026-08-14 (같은 날, 네 번째 지시 *"아래의 트레이가 가운데 정렬이 되어야 한다"*)의
+    //    diff 는 **한 줄**이다: 띠 nav 의 `justify-content: flex-start` → `safe center`.
+    //    서랍 플라이아웃은 이제 포털이라 `<main>` 밖이고, 닫혀 있으면 DOM 에도 없다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      'dcfe9ca465f75c4c049588f7fbdaccd4e2cc3ba41853ae65137428058014e294',
+      '20dc83aba287f394594595f81919d56ba6577a7590cbd40713fb51d4d45b91aa',
     );
   });
 

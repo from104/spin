@@ -358,12 +358,15 @@ describe('ToolRail — 좌표 모형이 wrap 을 실제로 흉내낸다 (§6 절
 describe('ToolRail — 서랍 플라이아웃', () => {
   const handle = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) });
 
-  it('열린 패널은 흐름 밖(absolute)이다 — 이것이 옛 좌표 모형 셋을 대신하는 단언이다', async () => {
+  it('열린 패널은 흐름 밖(fixed)이고 트레이 **밖**에 붙는다 — 자르는 조상을 피하는 유일한 길', async () => {
+    // 2026-08-14 기현님 신고(*"서랍이 안 펼쳐진다"*)의 수리. 트레이의 `overflow` 가 패널을
+    // 통째로 잘라내고 있었다 — 흐름에서 빼는 것만으로는 부족하고 **자르는 조상 밖**이라야 한다.
     const user = userEvent.setup();
     render(<ControlledRail />);
     await user.click(handle('작도'));
     const panel = screen.getByRole('group', { name: '작도 도구' });
-    expect(panel.style.position, '흐름 안이면 앞쪽 표적이 밀린다(§3 불변식 1)').toBe('absolute');
+    expect(panel.style.position, '흐름 안이면 앞쪽 표적이 밀린다(§3 불변식 1)').toBe('fixed');
+    expect(document.querySelector('nav[data-tray]')!.contains(panel), '트레이 안이면 잘린다').toBe(false);
   });
 
   it('세로 기둥은 **왼쪽**(코트 쪽)으로, 가로 띠는 **위**로 편다 — 판 안쪽이라 안 잘린다', async () => {
@@ -371,15 +374,18 @@ describe('ToolRail — 서랍 플라이아웃', () => {
     const { unmount } = render(<ControlledRail />);
     await user.click(handle('작도'));
     const side = screen.getByRole('group', { name: '작도 도구' });
-    // 판 덩어리에 overflow:hidden 이 걸려 있어 바깥으로 펴면 그대로 잘린다.
-    expect(side.style.right).toBe('100%');
+    // 세로 기둥은 왼쪽으로 — `right` 를 잡고 `bottom` 은 안 잡는다(값은 잰 좌표라 안 못박는다).
+    expect(side.style.right).not.toBe('');
+    expect(side.style.top).not.toBe('');
     expect(side.style.bottom).toBe('');
     unmount();
 
     render(<ControlledRail orientation="horizontal" />);
     await user.click(handle('작도'));
     const band = screen.getByRole('group', { name: '작도 도구' });
-    expect(band.style.bottom).toBe('100%');
+    // 가로 띠는 위로 — `bottom` 을 잡고 `right` 는 안 잡는다.
+    expect(band.style.bottom).not.toBe('');
+    expect(band.style.left).not.toBe('');
     expect(band.style.right).toBe('');
   });
 
@@ -417,10 +423,10 @@ describe('ToolRail — 서랍 플라이아웃', () => {
     vi.useFakeTimers();
     try {
       render(<ControlledRail />);
-      const wrap = handle('작도').parentElement!;
-      fireEvent.pointerEnter(wrap, { pointerType: 'mouse' });
+      const btn = handle('작도');
+      fireEvent.pointerEnter(btn, { pointerType: 'mouse' });
       expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();
-      fireEvent.pointerLeave(wrap, { pointerType: 'mouse' });
+      fireEvent.pointerLeave(btn, { pointerType: 'mouse' });
       act(() => void vi.advanceTimersByTime(FLYOUT_LEAVE_CLOSE_MS - 10));
       expect(screen.getByRole('group', { name: '작도 도구' }), '틈을 지나다 닫혔다').toBeInTheDocument();
       act(() => void vi.advanceTimersByTime(20));

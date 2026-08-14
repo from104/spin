@@ -2,7 +2,12 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- 2026-08-14 기현님이 새 아이콘(코트 위 파워체어 + 공 + 회전 화살표 = SPIN)을 주셨다.
+         원본은 2048² PNG 이라 벡터로 바꿀 수 없어 favicon.svg 를 은퇴시키고 래스터로 간다.
+         마스터는 `art/spin-icon-2048.png` 다 — **public/ 에 두면 4 MB 가 그대로 배포된다.**
+         32/48 두 벌을 주는 이유: 브라우저가 탭·북마크·바로가기에서 서로 다른 크기를 집는다. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0f14" />
     <!-- §6.4 태블릿 앱 경험 — "홈 화면에 추가" 하면 브라우저 크롬 없이 전체화면으로 뜬다.

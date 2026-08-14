@@ -227,7 +227,7 @@ describe('트레이 세로 식의 전제 — 화면이 정말 그 모양인가',
     render(<Rail />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /^작도/ }));
-    expect(group('작도 도구').style.position).toBe('absolute');
+    expect(group('작도 도구').style.position).toBe('fixed');
   });
 });
 

@@ -114,10 +114,14 @@ describe('P3·3차 검증이 세운 세 단언이 **wrap 에서도** 그대로 �
   // ToolRail.test.tsx 가 이 셋을 소유한다(거기서 한 글자도 안 고쳤다). 여기서 다시 찍는 이유는
   // **wrap 을 연 뒤에도** 성립하는지가 이번 단계의 완료 판정이기 때문이다 — 저쪽은 wrap 이
   // 없던 시절에 쓰였고, 통과 사실만으로는 "wrap 축에서도 검사했다" 가 안 된다.
-  it('주축이 row 이고 시작 정렬이다', () => {
+  it('★ 주축이 row 이고 **safe center** 다 — 가운데 정렬이되 넘치면 왼쪽으로 되돌아간다', () => {
+    // 2026-08-14 기현님 지시로 `flex-start` → `safe center`. `safe` 가 없으면 넘칠 때 양쪽으로
+    // 넘쳐 **시작 쪽 넘침을 scrollLeft 로 못 간다** — 7인치에서 1번 선수가 영영 안 잡힌다.
+    // 그래서 이 단언은 `center` 로 바꿔 쓰면 안 된다: 낱말 하나가 도달 가능성의 전부다.
     render(<Rail orientation="horizontal" />);
     expect(rail().style.flexDirection).toBe('row');
-    expect(rail().style.justifyContent).toBe('flex-start');
+    expect(rail().style.justifyContent).toBe('safe center');
+    expect(rail().style.justifyContent, "'safe' 없는 center 는 첫 항목을 못 잡게 만든다").not.toBe('center');
   });
 
   it('서랍 내용은 앞쪽 표적보다 문서 순서상 뒤다 — 끝에 폭이 붙어도 앞이 안 밀린다', async () => {

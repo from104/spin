@@ -7,6 +7,7 @@
 //
 // 기능 도구는 모드라서 끌 것이 없다. 그래서 아래쪽에 따로 모은다.
 import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
@@ -196,8 +197,15 @@ const RAIL_STYLE_H = {
   //  ② 넘칠 때 첫 항목에 손이 닿지 않는다 — flex 의 중앙정렬은 양쪽으로 넘치고 시작 쪽
   //     넘침은 scrollLeft 로 갈 수 없다. 7인치 세로에서 표적 13개(약 741px)는 이미 넘치므로
   //     **1번 선수가 영영 안 잡힌다.**
-  // 대가는 트레이가 넓을 때 내용이 왼쪽에 붙는 것뿐이다 — 도구 모음의 통상적인 모양이다.
-  justifyContent: 'flex-start',
+  // ── 2026-08-14 기현님 지시: *"아래의 트레이가 가운데 정렬이 되어야 한다"* ──────────────
+  // 위 두 경고는 **`center` 에 대한 것이고 지금 값은 `safe center` 다.** 그 한 낱말이 정확히
+  // 위험 ②를 막는다: `safe` 는 내용이 넘치는 순간 정렬을 `start` 로 되돌린다(CSS Box Alignment
+  // §4.2). 즉 들어갈 때는 가운데, 넘칠 때는 왼쪽 붙임 — "1번 선수가 영영 안 잡힌다" 는 사고가
+  // 원리적으로 안 난다. 위험 ①(서랍이 앞을 민다)은 이미 없다: 서랍이 흐름 밖 플라이아웃이라
+  // 열려도 띠의 내용 폭이 한 픽셀도 안 변한다.
+  // 지원: Chrome 93+ · Firefox 63+ · Safari 16.4+. 못 알아듣는 브라우저는 선언 전체를 버리고
+  // 기본값 `flex-start` 로 남으므로, **실패해도 옛 동작**이다(가운데 정렬만 안 될 뿐).
+  justifyContent: 'safe center',
   // ⚠️ **교차축에도 같은 규칙이 필요하다**(2026-08-14 P5). wrap 이 열리는 순간 `align-content`
   //    가 살아나는데 기본값 `stretch`(또는 `center`)면 ① 줄이 하나일 때와 둘일 때 **첫 줄의 y 가
   //    달라진다** — 서랍을 열어 줄이 하나 늘면 선수 칩이 통째로 위로 올라간다(§3 불변식 1 위반,
@@ -471,12 +479,20 @@ export function ToolRail({
   //       ② 포인터가 손잡이·패널 밖으로 나가면 `FLYOUT_LEAVE_CLOSE_MS` 뒤 — 손잡이와 패널
   //          사이를 지날 때 잠깐 밖이 되는 구간이 있어 0 이면 지나가다 닫힌다.
   //       ③ Esc.
-  const [flyout, setFlyout] = useState<DrawerKey | null>(null);
+  // ⚠️ **패널은 포털로 `document.body` 에 붙인다** (2026-08-14 기현님 신고: *"작도 및 메모
+  // 서랍이 안 펼쳐진다"*). 원인은 트레이 자신의 `overflow` 였다: 가로 띠는 `overflowX:'auto'`
+  // 이고, CSS 는 한 축이 visible 이 아니면 **다른 축도 clip 이 된다**(overflow-y:hidden 과
+  // 짝지어 두 축 모두 잘린다). 그래서 위로 뜨는 패널이 띠 경계에서 통째로 잘려 아무것도
+  // 안 보였다. 세로 기둥에서는 판 덩어리의 `overflow:hidden` 이 같은 일을 한다.
+  // 자르는 조상을 없앨 수는 없다(띠의 좌우 스크롤이 유일한 도달 경로다). 그래서 흐름에서
+  // 아예 빼낸다 — Modal 이 간 길과 같다. 대신 위치를 **손잡이를 재서** 정해야 한다.
+  const [flyout, setFlyout] = useState<{ key: DrawerKey; rect: DOMRect } | null>(null);
   // ⚠️ 마우스는 **hover 로 이미 연 뒤에 click 이 온다.** click 을 단순 토글로 두면 마우스로
   // 손잡이를 누르는 순간 방금 열린 패널이 도로 닫힌다(2026-08-14 테스트로 재현). 그래서
   // 클릭의 뜻을 포인터 종류로 가른다: **마우스면 언제나 '열기'**(닫기는 벗어나면 저절로),
   // 터치·키보드면 토글(그쪽에는 '벗어남' 이 없으므로 다시 눌러 닫을 길이 있어야 한다).
   const lastPointerType = useRef<string>('');
+  const handleRefs = useRef<Partial<Record<DrawerKey, HTMLElement | null>>>({});
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelClose = useCallback(() => {
     if (closeTimer.current !== null) {
@@ -501,9 +517,25 @@ export function ToolRail({
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') setFlyout(null);
     };
+    // 창이 바뀌거나 띠를 좌우로 굴리면 잰 좌표가 낡는다 — 따라다니게 하는 대신 닫는다.
+    // 떠 있는 동안은 손이 패널 위에 있으므로, 그 사이에 창을 만지는 것은 "그만두겠다" 다.
+    const onGone = (): void => setFlyout(null);
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('resize', onGone);
+    window.addEventListener('scroll', onGone, true);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onGone);
+      window.removeEventListener('scroll', onGone, true);
+    };
   }, [flyout]);
+
+  /** 손잡이를 재서 연다. rect 는 **열던 순간의 값**이다(위 이펙트가 낡으면 닫는다). */
+  const openFlyout = useCallback((key: DrawerKey, el: HTMLElement | null | undefined) => {
+    if (!el) return;
+    cancelClose();
+    setFlyout({ key, rect: el.getBoundingClientRect() });
+  }, [cancelClose]);
 
   const ballRemaining = Math.max(0, ballMax - ballCount);
   const isBallCapped = ballRemaining <= 0;
@@ -799,40 +831,41 @@ export function ToolRail({
             밀림이 한 번뿐이라는 점이 이 선택의 근거다: 서랍은 열면 그대로 남고(prefs.tray),
             그 뒤로는 두 손잡이 모두 영구히 같은 자리다. */}
         {DRAWERS.map((d) => {
-          const isOpen = flyout === d.key;
+          const isOpen = flyout?.key === d.key;
           const active = d.tools.some((t) => t.id === tool);
           const panelId = `${drawerId}-${d.key}`;
           return (
-            // 손잡이와 패널을 한 상자에 담는다 — 포인터가 둘 사이를 오갈 때 `pointerleave` 가
-            // 한 번도 안 나야 한다. 상자를 안 씌우면 손잡이를 떠나는 순간 닫힘 타이머가 돌고,
-            // 패널에 닿기 전에 사라진다.
-            <div
-              key={d.key}
-              style={{ position: 'relative', flex: 'none', display: 'flex' }}
-              onPointerEnter={(e) => {
-                // 마우스만 hover 로 연다. 터치는 pointerenter 도 함께 쏘는데, 그것까지 받으면
-                // 손가락이 닿는 순간 열리고 곧이어 click 이 토글해 **바로 닫힌다.**
-                if (e.pointerType !== 'mouse') return;
-                cancelClose();
-                setFlyout(d.key);
-              }}
-              onPointerLeave={(e) => {
-                if (e.pointerType !== 'mouse') return;
-                closeSoon(FLYOUT_LEAVE_CLOSE_MS);
-              }}
-            >
+            // 손잡이와 패널이 DOM 상 떨어져 있으므로(패널은 포털) 마우스가 둘 사이를 오갈 때
+            // `pointerleave` 가 한 번 난다 — 그것을 `FLYOUT_LEAVE_CLOSE_MS` 의 유예가 받는다.
+            <div key={d.key} style={{ flex: 'none', display: 'flex' }}>
               <button
                 type="button"
+                ref={(el) => {
+                  handleRefs.current[d.key] = el;
+                }}
                 aria-expanded={isOpen}
                 aria-controls={isOpen ? panelId : undefined}
                 title={`${d.label} — ${d.tools.map((t) => `${t.label}(${t.digit})`).join(' · ')}`}
+                onPointerEnter={(e) => {
+                  // 마우스만 hover 로 연다. 터치는 pointerenter 도 함께 쏘는데, 그것까지 받으면
+                  // 손가락이 닿는 순간 열리고 곧이어 click 이 토글해 **바로 닫힌다.**
+                  if (e.pointerType !== 'mouse') return;
+                  openFlyout(d.key, handleRefs.current[d.key]);
+                }}
+                onPointerLeave={(e) => {
+                  if (e.pointerType !== 'mouse') return;
+                  closeSoon(FLYOUT_LEAVE_CLOSE_MS);
+                }}
                 onPointerDown={(e) => {
                   lastPointerType.current = e.pointerType;
                 }}
                 onClick={(e) => {
                   cancelClose();
+                  // 마우스는 hover 로 이미 열린 뒤 click 이 온다 — 토글로 두면 누르는 순간
+                  // 도로 닫힌다. 마우스는 언제나 '열기', 터치·키보드만 토글이다.
                   const byMouse = e.detail > 0 && lastPointerType.current === 'mouse';
-                  setFlyout((f) => (byMouse ? d.key : f === d.key ? null : d.key));
+                  if (!byMouse && isOpen) setFlyout(null);
+                  else openFlyout(d.key, handleRefs.current[d.key]);
                 }}
                 style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
               >
@@ -861,51 +894,53 @@ export function ToolRail({
 
               {/* 닫힌 서랍은 **DOM 에 없다** — 첫 화면 표적 예산의 대상은 '보이는 표적'이고,
                   숨긴 채 두면 키보드 순회에는 남아 예산만 못 줄이고 조준만 어려워진다.
-
-                  ⚠️ 이 패널은 판 덩어리 안에서 **유일한 `position:absolute`** 다. §4.5 의
-                  "판 위에 흐름 밖 요소 0" 게이트는 *상시* 요소를 막는 규칙이었다 — 코트 네 변의
-                  56px 고무줄 띠와 **영구히** 자리를 다투는 것이 문제였지, 손이 닿는 동안만
-                  떠 있다 사라지는 것은 아니다(EditorWorkspace.board.test 의 게이트가 그 뜻으로
-                  좁혀졌다).
-                  펴는 방향이 **판 안쪽**(가로 띠→위, 세로 기둥→왼쪽)인 것은 기현님 지시이자
-                  구현상의 필수다: 판 덩어리에 `overflow:hidden` 이 걸려 있어 바깥으로 펴면
-                  그대로 잘린다. */}
-              {isOpen && (
-                <div
-                  id={panelId}
-                  role="group"
-                  aria-label={`${d.label} 도구`}
-                  style={{
-                    position: 'absolute',
-                    zIndex: 3,
-                    display: 'flex',
-                    flexDirection: 'row',
-                    flexWrap: 'nowrap',
-                    alignItems: 'center',
-                    gap: TRAY_ITEM_GAP,
-                    padding: 5,
-                    borderRadius: 10,
-                    border: '1px solid var(--border-strong)',
-                    background: 'var(--panel)',
-                    boxShadow: '0 8px 20px rgba(0,0,0,.45)',
-                    ...(horiz
-                      ? { bottom: '100%', left: 0, marginBottom: 6 }
-                      : { right: '100%', top: 0, marginRight: 6 }),
-                  }}
-                >
-                  {d.tools.map((t) => (
-                    <ToolButton
-                      key={t.id}
-                      def={t}
-                      active={t.id === tool}
-                      onSelect={() => {
-                        onSelectTool(t.id);
-                        closeSoon(FLYOUT_PICK_CLOSE_MS);
+                  포털인 이유와 좌표를 재는 이유는 위 flyout state 주석에 있다. */}
+              {isOpen && flyout
+                ? createPortal(
+                    <div
+                      id={panelId}
+                      role="group"
+                      aria-label={`${d.label} 도구`}
+                      onPointerEnter={cancelClose}
+                      onPointerLeave={(e) => {
+                        if (e.pointerType !== 'mouse') return;
+                        closeSoon(FLYOUT_LEAVE_CLOSE_MS);
                       }}
-                    />
-                  ))}
-                </div>
-              )}
+                      style={{
+                        position: 'fixed',
+                        zIndex: 40,
+                        display: 'flex',
+                        flexDirection: 'row',
+                        flexWrap: 'nowrap',
+                        alignItems: 'center',
+                        gap: TRAY_ITEM_GAP,
+                        padding: 5,
+                        borderRadius: 10,
+                        border: '1px solid var(--border-strong)',
+                        background: 'var(--panel)',
+                        boxShadow: '0 8px 20px rgba(0,0,0,.45)',
+                        // 가로 띠는 손잡이 **위**로, 세로 기둥은 **왼쪽**으로 편다(기현 지시).
+                        // 둘 다 판 안쪽 방향이라 코트를 가리되 화면 밖으로는 안 나간다.
+                        ...(horiz
+                          ? { left: flyout.rect.left, bottom: window.innerHeight - flyout.rect.top + 6 }
+                          : { right: window.innerWidth - flyout.rect.left + 6, top: flyout.rect.top }),
+                      }}
+                    >
+                      {d.tools.map((t) => (
+                        <ToolButton
+                          key={t.id}
+                          def={t}
+                          active={t.id === tool}
+                          onSelect={() => {
+                            onSelectTool(t.id);
+                            closeSoon(FLYOUT_PICK_CLOSE_MS);
+                          }}
+                        />
+                      ))}
+                    </div>,
+                    document.body,
+                  )
+                : null}
             </div>
           );
         })}
