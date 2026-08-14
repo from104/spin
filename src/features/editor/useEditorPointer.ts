@@ -10,6 +10,7 @@
 // 우선순위대로 스스로 가려낸다(콘/화살표 핸들/존 핸들 모두 좌표 기준 판정이라 DOM 출처가 필요
 // 없다) — 두 경로를 다 만들면 이중 처리가 된다.
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { poseFromStored } from '../../model/chair.ts';
 import type { Dispatch, RefObject } from 'react';
 import type { Vec2 } from '../../core/units.ts';
 import { isId, newId } from '../../core/ids.ts';
@@ -90,6 +91,9 @@ export interface UseEditorPointerOptions {
   stepIndex: number;
   /** 이 스텝에서 잠긴 개체 id(2026-08-14). **끌기만** 막는다 — 선택도 물리도 그대로다. */
   locked?: ReadonlySet<string>;
+  /** 무시된 휠체어 id. 물리에는 없지만 **판정에는 있다** — 안 그러면 무시를 풀 수가 없다
+   *  (기현 신고 2026-08-14). 끌기는 잠김과 같이 막는다. */
+  ignored?: ReadonlySet<string>;
   onPlayerPlaced(): void;
   showToast(message: string, action?: { label: string; onAction(): void }): void;
   /** §9 결정 ④ · 5.5 — 접근성 설정의 **2존 모드** 토글. `handlesVisible(…, forced)` 의
@@ -197,6 +201,17 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       if (isId(id, 'ch')) chairs.push({ id, pose: { x: p.x, y: p.y, theta: p.theta } });
       else if (isId(id, 'bl')) balls.push({ id, p: { x: p.x, y: p.y } });
       else if (isId(id, 'cn')) cones.push({ id, p: { x: p.x, y: p.y } });
+    }
+    // ★ **무시된 휠체어를 여기서 되살린다**(기현 신고 2026-08-14: *"무시된 오브젝트의 선택이
+    //   안 되거나 오른쪽 클릭이 안 된다"*).
+    //   장면은 물리 스냅샷에서 오는데 무시된 칩은 body 가 없어 목록에 아예 안 뜬다 — 그래서
+    //   히트가 안 잡히고, 못 잡히면 **무시를 풀 방법이 없다.** 잠김에서 "선택은 막지 않는다"
+    //   로 피했던 함정에 무시가 그대로 빠져 있었다.
+    //   물리에서 빼는 것과 **판정에서 빼는 것은 다른 일**이다: 공이 통과해야 한다는 요구는
+    //   앞의 것이고, 손이 닿아야 한다는 것은 뒤의 것이다. 자세는 스텝이 갖고 있다.
+    for (const [id, sp] of Object.entries(ctx.step.chairs)) {
+      if (!sp || snap[id]) continue; // 물리에 있는 것은 위에서 이미 넣었다
+      if (isId(id, 'ch')) chairs.push({ id, pose: poseFromStored(sp) });
     }
     return {
       chairs,
@@ -521,7 +536,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       //    · 물리 상호작용도 그대로다 — 공은 잠긴 휠체어에 여전히 부딪힌다(월드에 있다).
       //    · 막는 것은 **손으로 옮기는 것** 하나뿐이다. 키보드 이동(OBJECT_NUDGE)도 같은
       //      뜻이므로 useEditorKeyboard 쪽에서 함께 막는다.
-      if (hit.id && (ctxRef.current.locked?.has(hit.id) ?? false)) {
+      // 잠긴 것과 **무시된 것**은 둘 다 못 끈다. 잠김은 규칙이 막고, 무시는 애초에 물리
+      // 바디가 없어 끌 대상이 없다 — 둘을 한 줄로 합치는 이유는 "그래서 어떻게 되는가" 가
+      // 같기 때문이다: 고르기는 되고 끌기는 안 된다.
+      if (hit.id && ((ctxRef.current.locked?.has(hit.id) ?? false) || (ctxRef.current.ignored?.has(hit.id) ?? false))) {
         ctx.dispatch({ type: 'SELECT_SET', ids: [hit.id] });
         // pan 도 rubber 도 안 연다 — 잠긴 것을 짚은 손은 "이걸 고르겠다" 이지 판을 밀겠다가 아니다.
         return {};

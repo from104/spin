@@ -93,10 +93,15 @@ export function ObjectLayer({
 }: ObjectLayerProps) {
   // 화살표·메모의 페이드 래퍼 속성. 래퍼 <g> 는 **항상** 두고 클래스만 바꾼다 — 전환 중에만
   // 감쌌다 벗기면 React 가 자식을 재마운트해 포커스가 떨어지고 writer 등록이 한 번 더 돈다.
-  /** 무시된 개체의 껍데기 속성. `opacity` 와 `pointerEvents` 는 **상속**되므로 감싸기만 해도
-   *  안쪽 전체에 걸린다 — 마크마다 prop 을 또 다는 것보다 이쪽이 빠뜨릴 자리가 적다. */
-  const ghostProps = (id: string): { style?: { opacity: number; pointerEvents: 'none' } } =>
-    ignored?.has(id) ? { style: { opacity: 0.32, pointerEvents: 'none' as const } } : {};
+  /** 무시된 개체의 껍데기 속성 — **흐리게만** 한다.
+   *
+   *  ⚠️ `pointerEvents:'none'` 을 함께 걸었다가 되돌렸다(기현 신고 2026-08-14: *"무시된
+   *  오브젝트의 선택이 안 되거나 오른쪽 클릭이 안 된다"*). 손이 안 닿으면 **무시를 풀 방법이
+   *  없다** — 잠김에서 "선택은 막지 않는다" 로 피했던 함정에 무시가 그대로 빠져 있었다.
+   *  '상호작용 안 함' 은 **물리**의 이야기다(공이 통과한다). 그것은 physics/index.ts 의 load 가
+   *  body 를 안 만드는 것으로 이미 지켜지고, 화면에서 손까지 막을 이유는 없었다. */
+  const ghostProps = (id: string): { style?: { opacity: number } } =>
+    ignored?.has(id) ? { style: { opacity: 0.32 } } : {};
 
   const fadeProps = (id: string): { className?: string; style?: { animationDuration: string } } => {
     const dir = fades?.[id];

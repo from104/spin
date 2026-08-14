@@ -481,9 +481,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
 
   const openMenu = useCallback(
     (id: string, x: number, y: number) => {
-      // 무시된 칩은 메뉴도 안 연다 — 포인터를 아예 안 받기 때문이다(껍데기의 pointerEvents:none).
-      // 여기 오는 일 자체가 없어야 하지만, 오면 조용히 무시하는 편이 반쯤 동작하는 것보다 낫다.
-      if (ignoredSet.has(id)) return;
+      // ⚠️ 무시된 칩도 **연다**(기현 신고 2026-08-14). 여기서 막았더니 무시를 푸는 유일한
+      // 길이 함께 막혔다 — 메뉴가 곧 되돌리는 문이므로, 그 문은 어떤 상태에서도 열려야 한다.
       setMenu({
         id,
         x,

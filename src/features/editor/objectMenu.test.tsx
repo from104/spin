@@ -185,7 +185,7 @@ describe('메뉴 — 화면 끝', () => {
     expect(await screen.findByRole('menuitem', { name: '잠금 해제' })).toBeInTheDocument();
   });
 
-  it('★ 무시하면 흐려지고 포인터를 안 받는다 (물리에서 빠지는 것은 physics 테스트가 잰다)', async () => {
+  it('★ 무시하면 흐려진다 (물리에서 빠지는 것은 physics 테스트가 잰다)', async () => {
     const { user, chair } = await openBoardWithChair();
     fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
     await user.click(await screen.findByRole('menuitem', { name: '무시' }));
@@ -193,8 +193,25 @@ describe('메뉴 — 화면 끝', () => {
     await waitFor(() => {
       const ghost = chair.parentElement as HTMLElement;
       expect(Number(ghost.style.opacity), '안 흐려졌다').toBeLessThan(0.5);
-      expect(ghost.style.pointerEvents, '무시인데 손이 닿는다').toBe('none');
     });
+  });
+
+  it('★ 무시해도 **손이 닿는다** — 안 닿으면 무시를 풀 방법이 없다 (기현 신고 2026-08-14)', async () => {
+    // 처음에는 껍데기에 `pointerEvents:'none'` 을 걸었다. 흐리고 안 만져지는 것이 '무시' 의
+    // 그림에 맞아 보였지만, 그러면 **되돌리는 문까지 함께 잠긴다.** 잠김에서 "선택은 막지
+    // 않는다" 로 이미 피했던 함정을 무시에서 되풀이한 것이다.
+    const { user, chair } = await openBoardWithChair();
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    await user.click(await screen.findByRole('menuitem', { name: '무시' }));
+    await waitFor(() => expect(Number((chair.parentElement as HTMLElement).style.opacity)).toBeLessThan(0.5));
+
+    // 손이 막혀 있으면 이 줄부터 안 된다.
+    expect((chair.parentElement as HTMLElement).style.pointerEvents, '무시인데 손이 막혔다').not.toBe('none');
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    const undo = await screen.findByRole('menuitem', { name: '무시 해제' });
+
+    await user.click(undo);
+    await waitFor(() => expect(Number((chair.parentElement as HTMLElement).style.opacity || '1')).toBe(1));
   });
 
   it('삭제하면 개체가 사라진다', async () => {

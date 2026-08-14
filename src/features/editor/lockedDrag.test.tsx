@@ -23,7 +23,7 @@ import { useEditorPointer } from './useEditorPointer.ts';
 const META: PointerMeta = { pointerType: 'mouse', button: 0, shiftKey: false, metaKey: false, ctrlKey: false, altKey: false };
 const AT = { x: 412.5, y: 262.5 };
 
-function makeDrill(locked: boolean): { drill: Drill; chair: ChairId } {
+function makeDrill(flag: 'locked' | 'ignored' | null): { drill: Drill; chair: ChairId } {
   const base = createDrill({ courtMode: 'full', formation: '1-2-1' });
   const chair = base.cast.chairs[0]!.id;
   const step0 = base.steps[0]!;
@@ -40,7 +40,8 @@ function makeDrill(locked: boolean): { drill: Drill; chair: ChairId } {
           arrows: [],
           notes: [],
           shapes: [],
-          ...(locked ? { locked: [chair as string] } : {}),
+          ...(flag === 'locked' ? { locked: [chair as string] } : {}),
+          ...(flag === 'ignored' ? { ignored: [chair] } : {}),
         },
       ],
     },
@@ -69,6 +70,7 @@ function mount(drill: Drill) {
         // 화면(EditorStage)이 만드는 것과 **같은 집합**을 만든다 — 여기서 다른 것을 넘기면
         // 이 테스트는 화면이 아니라 자기 자신을 재게 된다.
         locked: new Set(step.locked ?? []),
+        ignored: new Set<string>(step.ignored ?? []),
         tool: 'select',
         coneSlot: 0,
         selection: state.selection,
@@ -118,21 +120,37 @@ function grabAndDrag(drill: Drill) {
 
 describe('잠김 — 끌기만 막는다', () => {
   it('★ 잠근 휠체어는 끌어도 자세가 그대로다', () => {
-    const { drill } = makeDrill(true);
+    const { drill } = makeDrill('locked');
     const after = grabAndDrag(drill);
     expect(after.began, '잠갔는데 드래그 세션이 열렸다').toBe(0);
   });
 
   it('대조군: 안 잠근 같은 휠체어는 같은 조작에서 실제로 움직인다', () => {
     // 이 대조군이 없으면 위 단언은 "이 하네스에서는 원래 아무것도 안 움직인다" 로도 통과한다.
-    const { drill } = makeDrill(false);
+    const { drill } = makeDrill(null);
     const after = grabAndDrag(drill);
     expect(after.began, '대조군이 세션을 안 열면 위 단언이 공짜다').toBeGreaterThan(0);
   });
 
   it('★ 잠겨도 **선택은 된다** — 못 고르면 잠금을 풀 길이 없다', () => {
-    const { drill, chair } = makeDrill(true);
+    const { drill, chair } = makeDrill('locked');
     const after = grabAndDrag(drill);
     expect(after.selection.has(chair), '잠긴 것을 고를 수가 없다 — 메뉴를 열 방법이 사라진다').toBe(true);
+  });
+});
+
+describe('무시 — 물리에서는 빠지되 **손은 닿는다** (기현 신고 2026-08-14)', () => {
+  it('★ 무시된 휠체어도 고를 수 있다 — 못 고르면 무시를 풀 방법이 없다', () => {
+    // ⚠️ 이것이 실제로 났던 고장이다. 히트 장면은 **물리 스냅샷**에서 오는데 무시된 칩은
+    // body 가 없어 목록에 아예 안 떴다 — 그래서 클릭이 빈 코트로 읽히고 선택이 안 됐다.
+    // `buildScene` 이 스텝의 자세로 그 칩을 되살리는 것이 수리이고, 이 단언이 그 증인이다.
+    const { drill, chair } = makeDrill('ignored');
+    const after = grabAndDrag(drill);
+    expect(after.selection.has(chair), '무시된 칩이 안 골라진다 — 되돌릴 문이 없다').toBe(true);
+  });
+
+  it('무시된 휠체어는 끌리지 않는다 — 물리에 없으니 끌 대상도 없다', () => {
+    const { drill } = makeDrill('ignored');
+    expect(grabAndDrag(drill).began).toBe(0);
   });
 });
