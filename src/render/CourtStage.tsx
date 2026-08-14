@@ -46,6 +46,15 @@ import { raf } from './rafLoop.ts';
 const DBL_CLICK_MS = 350;
 const DBL_CLICK_SLOP_PX = 12;
 
+/** 마우스의 **보조 버튼**(오른쪽·가운데)인가 — 판 조작은 여기서 걸러진다(2026-08-15).
+ *
+ *  ⚠️ `button !== 0` 만으로 판단하면 안 된다. 터치·펜의 첫 접촉도 `button` 은 0 이라 지금은
+ *  통과하지만, 그것은 **우연히** 맞는 것이다. 손짓의 의미가 갈리는 곳은 마우스뿐이므로
+ *  (마우스에만 오른쪽 버튼이 있다) 입력 종류를 먼저 묻는다. */
+export function isSecondaryButton(e: { pointerType: string; button: number }): boolean {
+  return e.pointerType === 'mouse' && e.button !== 0;
+}
+
 export interface PointerMeta {
   pointerType: string;
   button: number;
@@ -463,6 +472,17 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   };
 
   const handlePointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
+    // ★ 오른쪽·가운데 버튼은 판을 **건드리지 않는다** (기현 신고 2026-08-15:
+    // *"칩들에게는 왼쪽, 오른쪽 마우스 버튼 동작이 똑같다"*).
+    //
+    // 여기서 안 막으면 오른쪽 클릭이 왼쪽 클릭이 하는 일을 **그대로 한 번 더** 한다 —
+    // 개체를 고르고, 물리 드래그를 열고, 포인터를 캡처한다. 배치 도구에서는 개체를 하나
+    // **놓고**, 지우개에서는 **지운다**. 그 위에 메뉴가 뜨니 "둘이 똑같다" 로 보인다.
+    // 발 마우스는 누른 채 미세하게 흔들리므로, 메뉴를 열려던 클릭이 칩을 옮겨 놓는다.
+    //
+    // ⚠️ 터치·펜을 함께 막지 않도록 `pointerType` 을 본다 — 손가락의 첫 접촉도 `button` 은
+    // 0 이지만, 마우스가 아닌 입력에서 button 을 신뢰하는 순간 긴 누름 경로가 통째로 죽는다.
+    if (isSecondaryButton(e)) return;
     onStagePointerDownRaw?.(objectIdAt(e), e);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -643,6 +663,9 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
 
   const onShapeBodyDown = useCallback(
     (id: string, e: ReactPointerEvent<SVGGElement>) => {
+      // 오른쪽 클릭은 도형도 안 건드린다 — 여기서 안 막으면 지우개로 오른쪽 클릭했을 때
+      // `onShapeSelect` 가 그 자리에서 **지운다**(EditorStage 의 지우개 규칙).
+      if (isSecondaryButton(e)) return;
       onShapeSelect?.(id);
       const shape = shapes.find((s) => s.id === id);
       const w = worldOf(e);
@@ -661,6 +684,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
 
   const onShapeHandleDown = useCallback(
     (which: ShapeHandle, e: ReactPointerEvent<SVGGElement>) => {
+      if (isSecondaryButton(e)) return; // 손잡이도 마찬가지 — 오른쪽 클릭으로 크기가 바뀌면 안 된다
       const shape = shapeHandlesProps?.shape ?? null;
       const w = worldOf(e);
       if (!shape || !w) return;

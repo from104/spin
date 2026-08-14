@@ -270,6 +270,26 @@ describe('브라우저 기본 메뉴 — 코트 위에서는 언제나 막는다
     expect(menu()).toBeNull();
   });
 
+  it('★ 오른쪽 버튼은 판을 **안 건드린다** — 배치 도구가 켜져 있어도 아무것도 안 놓인다', async () => {
+    // ⚠️ 기현 신고 2026-08-15: *"칩들에게는 왼쪽, 오른쪽 마우스 버튼 동작이 똑같다."*
+    // 무대 pointerdown 이 버튼을 안 보고 있었다 — 오른쪽 클릭이 왼쪽이 하는 일을 그대로 한 번
+    // 더 했다(고르기·물리 드래그·배치·지우기). 그 위에 메뉴가 떴으니 둘이 같아 보였다.
+    const { user, stage } = await openBoardWithChair();
+    const count = () => document.querySelectorAll('.court-obj[id^="obj-ch_"]').length;
+    expect(count()).toBe(1);
+
+    await user.click(screen.getAllByRole('button', { name: /선수 배치$/ })[0]!); // 배치 무장
+    fireEvent.pointerDown(stage, { pointerId: 7, pointerType: 'mouse', button: 2, clientX: 120, clientY: 120 });
+    fireEvent.pointerUp(stage, { pointerId: 7, pointerType: 'mouse', button: 2, clientX: 120, clientY: 120 });
+    expect(count(), '오른쪽 클릭이 선수를 놓았다').toBe(1);
+
+    // 대조군 — 같은 자리에 **왼쪽** 버튼이면 실제로 놓인다. 없으면 위 단언이 "이 하네스에서는
+    // 원래 아무것도 안 놓인다" 로도 통과한다.
+    fireEvent.pointerDown(stage, { pointerId: 8, pointerType: 'mouse', button: 0, clientX: 120, clientY: 120 });
+    fireEvent.pointerUp(stage, { pointerId: 8, pointerType: 'mouse', button: 0, clientX: 120, clientY: 120 });
+    await waitFor(() => expect(count(), '대조군이 안 놓이면 위 단언이 공짜다').toBe(2));
+  });
+
   it('★ 개체 위에서도 막는다 — 우리 메뉴와 크롬 메뉴가 겹쳐 뜨면 안 된다', async () => {
     const { chair } = await openBoardWithChair();
     const notPrevented = fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
