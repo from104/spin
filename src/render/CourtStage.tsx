@@ -144,7 +144,7 @@ export interface CourtStageProps {
   /** 무대 어디서든 오른쪽 클릭. **대상은 DOM 이 말한다** — 개체는 `id="obj-…"`, 도형은
    *  `data-shape-id` 를 이미 달고 있어서, 히트테스트를 한 벌 더 만들 이유가 없다(2026-08-14).
    *  개체 위가 아니면 `null` 이 간다. */
-  /** 잠긴 개체 id — ObjectLayer 로 그대로 내려간다(붉은 테두리). */
+  /** 잠긴 개체 id — ObjectLayer 로 그대로 내려간다(보라 반투명 덮개). */
   locked?: ReadonlySet<string>;
   /** 무시된 휠체어 id — 흐리게 + 포인터 차단. 물리에서는 이미 빠져 있다. */
   ignored?: ReadonlySet<string>;
@@ -444,6 +444,24 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     return obj ? obj.id.slice('obj-'.length) : null;
   };
 
+  /** 코트 위의 오른쪽 클릭 · 안드로이드 긴 누름 — **브라우저 메뉴는 언제나 막는다**
+   *  (기현 신고 2026-08-14: *"오른쪽 버튼 클릭을 하면 크롬 메뉴가 나온다"*).
+   *
+   *  ⚠️ 전에는 개체를 맞혔을 때만 막았다. 빈 코트에서는 브라우저 메뉴를 "그대로 두는 것" 이
+   *  예의라고 봤는데, 실기로 쓰면 그 판단이 틀렸다. 코트는 **직접 조작하는 표면**이다 —
+   *  판 위에서 [뒤로]·[새로고침]·[이미지를 다른 이름으로 저장] 이 뜰 자리가 아니고, 개체는
+   *  작아서 오른쪽 클릭이 빗나가는 일이 오히려 흔하다. 발 마우스 사용자에게는 잘못 뜬 메뉴를
+   *  닫는 정밀 클릭 한 번이 그대로 비용이다.
+   *
+   *  덤으로 **안드로이드 크롬의 긴 누름**도 여기서 죽는다. 긴 누름은 `contextmenu` 로 오므로,
+   *  안 막으면 우리 메뉴와 브라우저 메뉴가 **함께** 뜬다.
+   *
+   *  ⚠️ 콜백이 없어도 이 배선은 산다 — 시연·인쇄 화면에도 코트는 코트다. */
+  const handleContextMenu = (e: React.MouseEvent<SVGSVGElement>): void => {
+    e.preventDefault();
+    onStageContextMenu?.(objectIdAt(e), e);
+  };
+
   const handlePointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
     onStagePointerDownRaw?.(objectIdAt(e), e);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -730,7 +748,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       onKeyDown={onContainerKeyDown}
-      onContextMenu={onStageContextMenu ? (e) => onStageContextMenu(objectIdAt(e), e) : undefined}
+      onContextMenu={handleContextMenu}
     >
       <defs>
         <ArrowMarkers uid={markerUid} colors={usedColors} />

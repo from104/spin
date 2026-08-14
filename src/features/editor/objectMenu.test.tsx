@@ -250,3 +250,30 @@ describe('메뉴 — 화면 끝', () => {
     await waitFor(() => expect(menu()).toBeNull());
   });
 });
+
+// ── ④ 브라우저 메뉴 (기현 신고 2026-08-14: *"오른쪽 버튼 클릭을 하면 크롬 메뉴가 나온다"*) ──
+//
+// ⚠️ **이 구멍이 왜 안 잡혔나** — 위 ② 는 개체 위 오른쪽 클릭만 쐈고, 그 길은 처음부터
+// 멀쩡했다. 정작 새는 곳은 **빈 코트**였다(개체는 작아서 빗나가는 쪽이 오히려 흔하다).
+// `fireEvent` 는 `dispatchEvent` 의 반환을 그대로 돌려준다 — `preventDefault` 가 불렸으면
+// **false** 다. 그것이 "브라우저 메뉴가 뜨지 않는다" 의 유일한 기계적 증인이다.
+describe('브라우저 기본 메뉴 — 코트 위에서는 언제나 막는다', () => {
+  it('★ 빈 코트에서 오른쪽 클릭해도 크롬 메뉴가 안 뜬다', async () => {
+    const { stage } = await openBoardWithChair();
+    const notPrevented = fireEvent.contextMenu(stage, { clientX: 300, clientY: 300 });
+    expect(notPrevented, '기본 동작이 살아 있다 — 크롬 메뉴가 뜬다').toBe(false);
+  });
+
+  it('빈 코트에서는 **우리 메뉴도** 안 뜬다 — 열 개체가 없다', async () => {
+    const { stage } = await openBoardWithChair();
+    fireEvent.contextMenu(stage, { clientX: 300, clientY: 300 });
+    expect(menu()).toBeNull();
+  });
+
+  it('★ 개체 위에서도 막는다 — 우리 메뉴와 크롬 메뉴가 겹쳐 뜨면 안 된다', async () => {
+    const { chair } = await openBoardWithChair();
+    const notPrevented = fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    expect(notPrevented, '개체 위에서 기본 동작이 살아 있다').toBe(false);
+    await waitFor(() => expect(menu()).not.toBeNull());
+  });
+});

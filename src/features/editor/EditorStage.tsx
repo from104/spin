@@ -538,8 +538,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       locked={lockedSet}
       ignored={ignoredSet}
       onStageContextMenu={(id, e) => {
-        if (!id) return; // 빈 코트에서 오른쪽 클릭 — 브라우저 기본 메뉴를 그대로 둔다
-        e.preventDefault();
+        // 브라우저 메뉴는 CourtStage 가 **맞히든 안 맞히든** 이미 막았다(거기 머리말 참고).
+        // 여기서는 열 것이 있을 때만 연다 — 빈 코트에는 아무 메뉴도 안 뜬다.
+        if (!id) return;
         longPress.onContextMenu(id, { preventDefault: () => {}, clientX: e.clientX, clientY: e.clientY });
       }}
       onStagePointerDownRaw={(id, e) => {
