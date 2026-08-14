@@ -199,9 +199,22 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //    헤더에서 같은 두 버튼이 **사라진 것**은 이 해시에 안 나타난다 — 이 덤프는 `<main>`
     //    이고 헤더는 그 밖이다. 그쪽 증인은 AppHeader.test 와, 이름으로 찍는 여러 테스트가
     //    여전히 **정확히 하나**를 찾는다는 사실이다(둘이면 "여러 개" 로 터진다).
+    //    2026-08-14 (같은 날, **세 번째 지시** — 속성 패널 해체 + 오른쪽 기능 바)의 diff 는
+    //    **hunk 13개 · 삭제 73줄 · 삽입 139줄**이다. 같은 절차로 갱신 전 커밋(0e8e60b)을
+    //    `git worktree` 로 풀어 같은 덤프를 뜨고 `<main>` 전문을 diff 했다. 이번엔 크므로
+    //    **무엇이 사라지고 무엇이 생겼는지**를 적는다:
+    //     · 트레이에서 **빠진 것**: 줌 3(확대·축소·줌 초기화) · 편집 이력 2(되돌리기·다시하기)
+    //       와 그 구분선 하나. 전부 새 `nav[data-function-bar]` 로 갔다.
+    //     · `<main>` 에서 **빠진 것**: 하단 바 통째(코트 비우기·내보내기·속도 제한 switch·
+    //       [보기]·[속성])와 인스펙터 손잡이. 자유 전술판에는 하단 바도 인스펙터도 없다.
+    //     · **생긴 것**: `<main>` 의 마지막 자식으로 `nav[data-function-bar]` 11칸 + 구분선 3.
+    //     · 칩이 **정사각**이 됐다(44×60 → 44×44) — 상자 height 와 SVG width/height 식이
+    //       바뀌면서 선수 8칸이 전부 다시 찍혔다(삽입 줄의 절반이 이것이다).
+    //     · 판 덩어리 축이 뒤집혔다(row → column) — 트레이가 코트 긴 변에 붙는다.
+    //    **코트 `<svg>` 안쪽은 한 줄도 안 움직였다** — 라인·격자·개체·골대가 전부 그대로다.
     //    손으로 고쳐 맞추지 마라 — 깨졌다면 아래 뼈대 스냅샷의 diff 가 무엇이 달라졌는지 알려 준다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '254c46235191c4d94d5a4d5ffe77b1735b84ec44c8fa595da61277b21b4a8445',
+      'dcfe9ca465f75c4c049588f7fbdaccd4e2cc3ba41853ae65137428058014e294',
     );
   });
 
@@ -253,7 +266,8 @@ describe('narrow === true — 크롬 예산의 코트 래퍼 행', () => {
     // 크롬이 걷혀 버린다.
     stubMedia({ portrait: true, narrow: false });
     const main = await openBoard();
-    expect(main.style.flexDirection, '세로 판정은 여전히 살아 있어야 한다').toBe('column');
+    // 2026-08-14 — 전술판의 main 은 언제나 row 다. 세로 판정은 판 덩어리의 축이 말한다.
+    expect(document.querySelector<HTMLElement>('[data-board]')!.style.flexDirection, '세로 판정은 여전히 살아 있어야 한다').toBe('row');
     expect(courtWrapper(main).style.padding).toBe('20px 24px');
   });
 

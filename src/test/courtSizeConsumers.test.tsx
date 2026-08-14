@@ -35,6 +35,10 @@ const COURT_DEFS_ALLOWED: Record<string, string> = {
     '하프 코트는 크기 3단을 따라가지 않는다(court.ts COURT_DEFS 주석 근거 셋: 규격 부재 · 격자 붕괴 · flat 파급). ' +
     'CourtSurface 가 size prop 을 넘기기는 하지만 이 파일은 그것을 읽지 않는다 — 읽으면 규정에 없는 3단을 ' +
     '훈련용 구획에 만들어 내는 것이고, courtSizeScreens.test.tsx 의 half/flat 대조군이 그것을 막는다.',
+  'src/features/editor/FunctionBar.tsx':
+    '2026-08-14 재설계로 **코트 형태를 고르는 유일한 UI** 가 여기다(옛 헤더 세그먼트의 후신). ' +
+    '세 형태의 이름·설명을 그 정의에서 그대로 읽는다 — 손으로 옮겨 적으면 court.ts 와 화면이 갈라진다. ' +
+    '크기 3단은 courtDefFor 로 읽으므로 여기서 COURT_DEFS 를 보는 것은 형태 셋뿐이다.',
 };
 
 const SRC = join(process.cwd(), 'src');

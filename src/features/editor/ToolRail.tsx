@@ -6,7 +6,7 @@
 // 동작한다(이미 그 방법을 익힌 사용자가 있다 — 김경일님이 방에서 대신 설명해 준 그 경로).
 //
 // 기능 도구는 모드라서 끌 것이 없다. 그래서 아래쪽에 따로 모은다.
-import { Fragment, useEffect, useId, useState } from 'react';
+import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
@@ -22,7 +22,7 @@ import {
   CHIP_W_CSS,
   TOOL_BTN_H,
   TOOL_BTN_W,
-  TRAY_BAND_2ROW_CSS,
+  TRAY_BAND_1ROW_CSS,
   TRAY_BAND_DIVIDER_MARGIN_X,
   TRAY_BAND_DIVIDER_MARGIN_Y,
   TRAY_BAND_PAD_X,
@@ -67,15 +67,10 @@ export interface ToolRailProps {
   pendingPlayerId: ChairId | null;
   onArmPlayer(id: ChairId): void;
   courtLabel: string;
-  /** 서랍 개폐의 **저장값**(3.0 `prefs.tray`). 화면의 신뢰값은 안쪽 state 이고 이 값은 그
-   *  초기값이자 기기 재시작 너머의 기억이다. 없으면 개폐가 세션(컴포넌트 수명) 안에서만 산다. */
-  tray?: TrayDrawers;
-  /** 개폐가 바뀔 때마다 부른다 — §3 불변식 2 의 *'영구히'* 를 실제로 영구로 만드는 배선이다.
-   *  EditorWorkspace 가 `setPrefs({ tray })` 로 잇는다. */
-  onTrayChange?(next: TrayDrawers): void;
-  /** 이 드릴이 실제로 **쓰는** 것 — 화살표가 있으면 `draw`, 코트 메모가 있으면 `note`(§3 불변식 3).
-   *  드릴이 **바뀌는 순간**에만 본다: 계속 보면 화살표가 든 드릴에서 손잡이가 안 닫히는 버튼이 된다. */
-  drillUses?: TrayDrawers;
+  // ⚠️ 2026-08-14 — `tray`·`onTrayChange`·`drillUses` 셋이 **사라졌다.** 서랍이 플라이아웃이
+  // 되면서 "열린 채로 둔다" 라는 상태 자체가 없어졌기 때문이다(본문 플라이아웃 주석에 경위).
+  // `prefs.tray` 저장값은 storage 에 남아 있지만 아무도 안 읽는다 — 옛 기기에서 넘어온 값이
+  // 조용히 무시되는 것이 맞다(지우면 그 기기의 prefs 파싱이 깨진다).
   /** 태블릿 세로에서는 트레이를 판 **아래**에 가로로 눕힌다(§6.4). */
   orientation?: 'vertical' | 'horizontal';
   /** 줌 3개(확대·축소·100%) — 2026-08-14 기현님 지시로 코트 위 떠 있던 묶음에서 **기둥 맨 위**로
@@ -172,7 +167,7 @@ const RAIL_STYLE = {
  *
  *  왜 2행인가 — **축척 절벽이 상한을 정한다.** 띠를 올리면 가용 높이가 줄고 176px 에서
  *  `rotForFit` 이 90 → 0 으로 뒤집혀 480×800 세로 full 코트의 축척이 0.5976 → 0.5527 로 뚝
- *  떨어진다. 상한 175(`TRAY_BAND_MAX_PX`)는 그 문턱에서 딱 떨어지는 값이고, 132/156 은 그
+ *  떨어졌다. (2026-08-14: 그 절벽은 **세로 창**의 것이었다 — 지금 띠는 가로 창의 것이라 문턱이
  *  아래다. 3행(≈182+)은 상한 밖이라 **2행이 물리적 최대다.** 대가는 세로 full 코트 축척
  *  0.7176 → 0.6497(**−9.5%**) 하나뿐이고, 가로 전 기기는 이 상수를 안 쓴다.
  *
@@ -185,8 +180,12 @@ const RAIL_STYLE_H = {
   ...RAIL_BASE,
   boxShadow: 'inset 0 7px 12px -10px rgba(0,0,0,.55)',
   flexDirection: 'row' as const,
-  flexWrap: 'wrap' as const,
-  height: TRAY_BAND_2ROW_CSS,
+  // ⚠️ 2026-08-14 — `wrap` 에서 **`nowrap`** 으로 돌아왔다(기현님 결정). 띠가 세로 화면의
+  //    것이던 시절에는 2행으로 눕히는 편이 나았지만, 이제 띠는 **가로 화면**의 것이고
+  //    가로 화면에서 모자라는 것은 정확히 높이다(trayMetrics 의 trayBandHeightPx 머리말).
+  //    넘치면 아래 `overflowX` 로 좌우 스크롤한다 — 띠 높이가 상수라 코트는 안 흔들린다.
+  flexWrap: 'nowrap' as const,
+  height: TRAY_BAND_1ROW_CSS,
   alignItems: 'center',
   // ⚠️ **'center' 로 되돌리지 마라.** 두 가지가 동시에 깨진다(2026-08-12 3차 검증 실측).
   //  ① §3 불변식 1 이 무효가 된다 — 서랍 내용물은 주축 **끝**에 붙는데 중앙정렬이면 끝에
@@ -204,13 +203,15 @@ const RAIL_STYLE_H = {
   //    달라진다** — 서랍을 열어 줄이 하나 늘면 선수 칩이 통째로 위로 올라간다(§3 불변식 1 위반,
   //    justifyContent 를 flex-start 로 둔 것과 **같은 이유의 세로판**) ② 3행으로 넘칠 때 위쪽
   //    넘침은 scrollTop 으로 갈 수 없어 첫 줄에 손이 안 닿는다(위 ②의 세로판).
+  //    ⚠️ nowrap 으로 돌아온 지금 이 줄은 **놀고 있다.** 지우지 않는 이유: wrap 을 다시 켜는
+  //    순간 위 두 사고가 그대로 되살아나고, 그때 이 줄이 없으면 아무도 이유를 모른다.
   alignContent: 'flex-start',
   padding: `${TRAY_BAND_PAD_Y}px ${TRAY_BAND_PAD_X}px`,
+  // 1행이라 좁은 창에서는 줄이 넘친다 — **여기가 유일한 도달 경로다.**
   overflowX: 'auto' as const,
-  // 띠 높이가 고정이므로 내용이 2행을 넘으면(좁은 세로 기기에서 실제로 넘는다 —
-  // trayBandLayoutAt 주석의 480×800 실측 182px) 여기가 유일한 도달 경로가 된다.
-  // 세로 기둥(RAIL_STYLE)에는 절대 붙이지 마라: 거기서는 벤치 구역 하나만 스크롤러다.
-  overflowY: 'auto' as const,
+  // 세로로는 넘칠 수 없다(1행 + 높이 고정). overflowY 를 열면 1px 반올림에 세로 스크롤바가
+  // 생겨 띠가 그만큼 좁아지므로 **닫아 둔다.**
+  overflowY: 'hidden' as const,
 };
 
 const BALL_TOOL = TOOLS.find((t) => t.id === 'ball')!;
@@ -245,7 +246,12 @@ export interface TrayDrawers {
   note: boolean;
 }
 type DrawerKey = keyof TrayDrawers;
-const CLOSED: TrayDrawers = { draw: false, note: false };
+/** 하위 도구를 고른 뒤 서랍이 닫히기까지. 0 이면 방금 고른 것이 눈에 안 남고, 연달아 둘을
+ *  고르려던 손이 허공을 짚는다. 400ms 는 "골랐다" 를 읽고 손이 떠날 만한 최소치다. */
+export const FLYOUT_PICK_CLOSE_MS = 400;
+/** 포인터가 손잡이·패널 밖으로 나간 뒤 닫히기까지. 손잡이와 패널 사이에 1~2px 틈이 있어
+ *  0 이면 그 사이를 지나가다 닫힌다. */
+export const FLYOUT_LEAVE_CLOSE_MS = 260;
 
 /** 서랍 표 — 이름 · 손잡이 아이콘 · 담긴 도구. **3.-1 은 셋을 한 서랍(`작도`)에 몰아 두었고
  *  3.7 이 §3 대로 가른다.** 그때의 유보 사유(3m 링이 아직 도구가 아니라 `설명` 이 한 칸짜리
@@ -260,11 +266,6 @@ const DRAWERS = [
   { key: 'draw', label: '작도', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'route' || t.id === 'pass') },
   { key: 'note', label: '설명', Icon: IconToolNote, tools: TOOLS.filter((t) => t.id === 'note') },
 ] as const satisfies readonly { key: DrawerKey; label: string; Icon: typeof IconToolRoute; tools: readonly ToolDef[] }[];
-
-/** 도구 → 그 도구가 든 서랍. 단축키 R·P·T 로 접힌 도구가 켜졌을 때 **어느** 서랍을 열지 판별한다. */
-const DRAWER_OF_TOOL: ReadonlyMap<ToolId, DrawerKey> = new Map(
-  DRAWERS.flatMap((d) => d.tools.map((t) => [t.id, d.key] as const)),
-);
 
 const BTN_STYLE = {
   position: 'relative' as const,
@@ -436,9 +437,6 @@ export function ToolRail({
   pendingPlayerId,
   onArmPlayer,
   courtLabel,
-  tray,
-  onTrayChange,
-  drillUses,
   orientation = 'vertical',
   zoom,
   history,
@@ -452,51 +450,60 @@ export function ToolRail({
   const coneHintId = useId();
   const drawerId = useId();
 
-  // ─── 서랍 개폐 (§3 불변식 2·3) ────────────────────────────────────────────────
-  // 신뢰값은 **여기 state** 다. `prefs.tray` 는 그 값을 기기 재시작 너머로 들고 가는 저장소이고,
-  // 방향은 하나다: 밖에서 온 값이 이기고(adopt), 안에서 난 변화만 밖으로 밀어 올린다(effect).
-  // 화면이 prefs 를 직접 신뢰값으로 쓰지 못하는 이유는 아래 '렌더 중 갱신' 주석에 있다 —
-  // 부모 state 를 렌더 중에 고치는 것은 React 가 막는다.
-  const uses = drillUses ?? CLOSED;
-  const toolDrawer = DRAWER_OF_TOOL.get(tool);
-  const [open, setOpen] = useState<TrayDrawers>(() => ({
-    draw: (tray?.draw ?? false) || uses.draw || toolDrawer === 'draw',
-    note: (tray?.note ?? false) || uses.note || toolDrawer === 'note',
-  }));
-
-  // 저장값이 **바깥에서** 바뀌면(설정 초기화) 그쪽을 따른다. 안 그러면 아래 effect 가 곧바로
-  // 되돌려 놓아 "초기화했는데 서랍만 안 먹는" 한 갈래가 생긴다.
-  const [seenTray, setSeenTray] = useState(tray);
-  if (tray !== seenTray) {
-    setSeenTray(tray);
-    if (tray) setOpen(tray);
-  }
-
-  // 불변식 2 — 단축키 R·P·T 는 접힌 상태에서도 살아 있고, **누르는 순간 그 서랍이 열린다.**
-  // 렌더 중 갱신인 이유: effect 로 미루면 도구가 바뀐 프레임에 '활성 도구가 화면에 없는' 한
-  // 틱이 열린다. `!open[...]` 가드가 있어 재귀하지 않고, 한 번 열린 서랍은 손잡이로만 닫힌다
-  // (도구를 선택으로 되돌려도 다시 접히지 않는다 — 접히면 방금 배운 자리가 사라진다).
-  if (toolDrawer && !open[toolDrawer]) setOpen((o) => ({ ...o, [toolDrawer]: true }));
-
-  // 불변식 3 — 남의 드릴을 열면 그 드릴이 쓰는 말에 맞춰 서랍이 열린다. 드릴이 **바뀌는
-  // 순간**만 본다(계속 보면 화살표가 든 드릴에서 손잡이가 눌러도 안 닫히는 버튼이 된다).
-  // 여는 쪽으로만 움직인다 — 마지막 화살표를 지웠다고 서랍이 닫히면 방금 배운 자리가 사라진다.
-  const usesKey = `${uses.draw}|${uses.note}`;
-  const [seenUses, setSeenUses] = useState(usesKey);
-  if (usesKey !== seenUses) {
-    setSeenUses(usesKey);
-    if ((uses.draw && !open.draw) || (uses.note && !open.note)) {
-      setOpen((o) => ({ draw: o.draw || uses.draw, note: o.note || uses.note }));
+  // ─── 서랍 = **플라이아웃** (2026-08-14 기현님 재설계) ──────────────────────────────
+  // 기현님 지시: *"작도, 메모 아이콘 서랍은 마우스가 오버 또는 손으로 터치(클릭)할 때 —
+  // 트레이가 가로일 때는 위로, 세로일 때는 왼쪽으로 펼쳐졌다가, 하위 아이콘이 선택되면
+  // 딜레이 갖고 닫히는 것으로."*
+  //
+  // 옛 서랍은 **자리를 차지하며 인라인으로 펼쳐졌고**, 그래서 §3 불변식 1(조준 대상이 사용
+  // 중에 이동하지 않는다)을 지키려고 손잡이를 기능 구역 맨 끝에 못박고, 첫 서랍을 열면 둘째
+  // 손잡이가 밀리는 대가를 감수하고, 한 번 열린 서랍은 다시 안 닫는 규칙까지 세워야 했다.
+  // 플라이아웃은 그 대가를 **원인째** 없앤다 — 떠 있는 동안에도 흐름을 한 픽셀도 안 먹으므로
+  // 어떤 표적도 움직이지 않는다. 그래서 아래 셋이 통째로 사라졌다:
+  //   · `prefs.tray` 개폐 저장(열린 채로 둘 것이 없다)
+  //   · 불변식 2 의 "단축키로 접힌 도구를 켜면 그 서랍이 열린다"(도구는 켜지고, 열 것이 없다)
+  //   · 불변식 3 의 "드릴이 쓰는 말에 맞춰 서랍이 열린다"(같은 이유)
+  // 셋 다 **접힌 것을 어떻게 다시 펴는가** 의 답이었고, 이제 펴는 것은 손이 닿기만 하면 된다.
+  //
+  // 열림: 포인터가 손잡이에 들어오거나(hover) 손잡이를 누르면(터치·키보드) 연다.
+  // 닫힘: ① 하위 도구를 고르면 `FLYOUT_PICK_CLOSE_MS` 뒤 — 즉시 닫으면 방금 고른 것이
+  //          눈에 안 남고, 연달아 둘을 고르려던 손이 허공을 짚는다.
+  //       ② 포인터가 손잡이·패널 밖으로 나가면 `FLYOUT_LEAVE_CLOSE_MS` 뒤 — 손잡이와 패널
+  //          사이를 지날 때 잠깐 밖이 되는 구간이 있어 0 이면 지나가다 닫힌다.
+  //       ③ Esc.
+  const [flyout, setFlyout] = useState<DrawerKey | null>(null);
+  // ⚠️ 마우스는 **hover 로 이미 연 뒤에 click 이 온다.** click 을 단순 토글로 두면 마우스로
+  // 손잡이를 누르는 순간 방금 열린 패널이 도로 닫힌다(2026-08-14 테스트로 재현). 그래서
+  // 클릭의 뜻을 포인터 종류로 가른다: **마우스면 언제나 '열기'**(닫기는 벗어나면 저절로),
+  // 터치·키보드면 토글(그쪽에는 '벗어남' 이 없으므로 다시 눌러 닫을 길이 있어야 한다).
+  const lastPointerType = useRef<string>('');
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
     }
-  }
-
-  // 안에서 난 변화를 저장값으로 밀어 올린다. 값이 같으면 부르지 않는다 — 부르면 setPrefs 가
-  // 새 prefs 를 만들고 그것이 다시 내려와 무한 왕복이 된다.
+  }, []);
+  const closeSoon = useCallback(
+    (ms: number) => {
+      cancelClose();
+      closeTimer.current = setTimeout(() => {
+        closeTimer.current = null;
+        setFlyout(null);
+      }, ms);
+    },
+    [cancelClose],
+  );
+  // 언마운트에 타이머를 남기면 사라진 컴포넌트에 setState 가 간다(useTrayDrag 가 남긴 교훈).
+  useEffect(() => cancelClose, [cancelClose]);
   useEffect(() => {
-    if (!onTrayChange) return;
-    if (tray && tray.draw === open.draw && tray.note === open.note) return;
-    onTrayChange(open);
-  }, [open, tray, onTrayChange]);
+    if (flyout === null) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setFlyout(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [flyout]);
 
   const ballRemaining = Math.max(0, ballMax - ballCount);
   const isBallCapped = ballRemaining <= 0;
@@ -792,17 +799,41 @@ export function ToolRail({
             밀림이 한 번뿐이라는 점이 이 선택의 근거다: 서랍은 열면 그대로 남고(prefs.tray),
             그 뒤로는 두 손잡이 모두 영구히 같은 자리다. */}
         {DRAWERS.map((d) => {
-          const isOpen = open[d.key];
+          const isOpen = flyout === d.key;
           const active = d.tools.some((t) => t.id === tool);
           const panelId = `${drawerId}-${d.key}`;
           return (
-            <Fragment key={d.key}>
+            // 손잡이와 패널을 한 상자에 담는다 — 포인터가 둘 사이를 오갈 때 `pointerleave` 가
+            // 한 번도 안 나야 한다. 상자를 안 씌우면 손잡이를 떠나는 순간 닫힘 타이머가 돌고,
+            // 패널에 닿기 전에 사라진다.
+            <div
+              key={d.key}
+              style={{ position: 'relative', flex: 'none', display: 'flex' }}
+              onPointerEnter={(e) => {
+                // 마우스만 hover 로 연다. 터치는 pointerenter 도 함께 쏘는데, 그것까지 받으면
+                // 손가락이 닿는 순간 열리고 곧이어 click 이 토글해 **바로 닫힌다.**
+                if (e.pointerType !== 'mouse') return;
+                cancelClose();
+                setFlyout(d.key);
+              }}
+              onPointerLeave={(e) => {
+                if (e.pointerType !== 'mouse') return;
+                closeSoon(FLYOUT_LEAVE_CLOSE_MS);
+              }}
+            >
               <button
                 type="button"
                 aria-expanded={isOpen}
                 aria-controls={isOpen ? panelId : undefined}
                 title={`${d.label} — ${d.tools.map((t) => `${t.label}(${t.digit})`).join(' · ')}`}
-                onClick={() => setOpen((o) => ({ ...o, [d.key]: !o[d.key] }))}
+                onPointerDown={(e) => {
+                  lastPointerType.current = e.pointerType;
+                }}
+                onClick={(e) => {
+                  cancelClose();
+                  const byMouse = e.detail > 0 && lastPointerType.current === 'mouse';
+                  setFlyout((f) => (byMouse ? d.key : f === d.key ? null : d.key));
+                }}
                 style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
               >
                 {active && <ActiveRing />}
@@ -820,35 +851,62 @@ export function ToolRail({
                   }}
                 >
                   {d.label}
-                  {/* 여는 방향 표식. 이름에는 안 들어간다 — 상태는 aria-expanded 가 말한다. */}
-                  <span aria-hidden style={{ fontSize: '0.5625rem', lineHeight: 1 }}>{isOpen ? '▾' : '▸'}</span>
+                  {/* 여는 방향 표식. 이름에는 안 들어간다 — 상태는 aria-expanded 가 말한다.
+                      가로 띠는 위로(▴), 세로 기둥은 왼쪽으로(◂) 편다. */}
+                  <span aria-hidden style={{ fontSize: '0.5625rem', lineHeight: 1 }}>
+                    {horiz ? '▴' : '◂'}
+                  </span>
                 </span>
               </button>
 
-              {/* 닫힌 서랍은 **DOM 에 없다** — 첫 화면 표적 예산(2.5)의 대상은 '보이는 표적'이고,
-                  숨긴 채 두면 키보드 순회에는 남아 예산만 못 줄이고 조준만 어려워진다. */}
+              {/* 닫힌 서랍은 **DOM 에 없다** — 첫 화면 표적 예산의 대상은 '보이는 표적'이고,
+                  숨긴 채 두면 키보드 순회에는 남아 예산만 못 줄이고 조준만 어려워진다.
+
+                  ⚠️ 이 패널은 판 덩어리 안에서 **유일한 `position:absolute`** 다. §4.5 의
+                  "판 위에 흐름 밖 요소 0" 게이트는 *상시* 요소를 막는 규칙이었다 — 코트 네 변의
+                  56px 고무줄 띠와 **영구히** 자리를 다투는 것이 문제였지, 손이 닿는 동안만
+                  떠 있다 사라지는 것은 아니다(EditorWorkspace.board.test 의 게이트가 그 뜻으로
+                  좁혀졌다).
+                  펴는 방향이 **판 안쪽**(가로 띠→위, 세로 기둥→왼쪽)인 것은 기현님 지시이자
+                  구현상의 필수다: 판 덩어리에 `overflow:hidden` 이 걸려 있어 바깥으로 펴면
+                  그대로 잘린다. */}
               {isOpen && (
                 <div
                   id={panelId}
                   role="group"
                   aria-label={`${d.label} 도구`}
                   style={{
+                    position: 'absolute',
+                    zIndex: 3,
                     display: 'flex',
-                    // 서랍 내용도 기능 구역과 같은 흐름을 탄다(2026-08-14 P3). 세로 기둥이
-                    // column 이던 시절에는 손잡이 아래로 쌓였는데, 이제 기둥 자체가 wrap 이라
-                    // 서랍만 세로로 세우면 그 줄 하나가 105px 로 부풀어 기둥이 도로 길어진다.
                     flexDirection: 'row',
-                    flexWrap: horiz ? 'nowrap' : 'wrap',
+                    flexWrap: 'nowrap',
                     alignItems: 'center',
                     gap: TRAY_ITEM_GAP,
+                    padding: 5,
+                    borderRadius: 10,
+                    border: '1px solid var(--border-strong)',
+                    background: 'var(--panel)',
+                    boxShadow: '0 8px 20px rgba(0,0,0,.45)',
+                    ...(horiz
+                      ? { bottom: '100%', left: 0, marginBottom: 6 }
+                      : { right: '100%', top: 0, marginRight: 6 }),
                   }}
                 >
                   {d.tools.map((t) => (
-                    <ToolButton key={t.id} def={t} active={t.id === tool} onSelect={() => onSelectTool(t.id)} />
+                    <ToolButton
+                      key={t.id}
+                      def={t}
+                      active={t.id === tool}
+                      onSelect={() => {
+                        onSelectTool(t.id);
+                        closeSoon(FLYOUT_PICK_CLOSE_MS);
+                      }}
+                    />
                   ))}
                 </div>
               )}
-            </Fragment>
+            </div>
           );
         })}
       </div>

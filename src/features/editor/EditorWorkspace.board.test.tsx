@@ -125,8 +125,9 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
     stubMedia({ portrait: false, narrow: false });
     const { board } = await openBoard();
     const cell = courtCell(board);
-    // 가로 배치: 세로를 다 쓰고 폭은 종횡비가 정한다.
-    expect(cell.style.height).toBe('100%');
+    // ⚠️ 2026-08-14 — 축이 뒤집혔다. 트레이가 **코트 긴 변**에 붙으므로 가로 창에서는 코트가
+    // 눕고 트레이가 아래 띠다: 코트 칸이 폭을 다 쓰고 높이는 종횡비가 정한다(옛 반대).
+    expect(cell.style.width).toBe('100%');
     expect(cell.style.aspectRatio).toBe(courtCellAspectRatioCss('full', undefined, 0));
     expect(cell.style.aspectRatio).toBe('825 / 525');
     // 함정 2 — minWidth:0 이 없으면 min-width:auto 가 shrink 를 막아 폭 제약에서 넘친다.
@@ -135,8 +136,8 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
     expect(cell.style.flex).toBe('0 1 auto');
     // 함정 1 — 트레이 base 는 0 이어야 한다.
     const tray = board.children[1] as HTMLElement;
-    expect(tray.style.flex).toBe('1 1 0px');
-    expect(tray.style.width, '폭을 못박으면 남는 폭이 트레이로 못 온다').toBe('');
+    // jsdom 의 cssstyle 은 축약형 `none` 을 longhand `0 0 auto` 로 펼쳐 둔다 — 같은 말이다.
+    expect(tray.style.flex, '띠는 높이를 못박고 자기 줄을 그대로 쓴다').toBe('0 0 auto');
   });
 
   it('코트 종류가 바뀌면 종횡비도 바뀐다 — def 를 실제로 읽고 있다(대조군)', async () => {
@@ -146,34 +147,37 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
     expect(courtCell(board).style.aspectRatio).toBe('525 / 450');
   });
 
-  it('세로 화면에서는 축이 통째로 뒤집힌다 — 폭을 다 쓰고 띠가 아래에 붙는다', async () => {
-    // 480×800 세로: rot 90 이라 종횡비도 뒤집힌다(825/525 → 525/825).
+  it('세로 화면에서는 축이 통째로 뒤집힌다 — 세로를 다 쓰고 기둥이 오른쪽에 붙는다', async () => {
+    // 480×800 세로: rot 90 이라 종횡비도 뒤집힌다(825/525 → 525/825). 코트가 서므로 긴 변이
+    // 오른쪽이고, 트레이는 기둥이 된다 — 2026-08-14 이전과 정반대다.
     stubMedia({ portrait: true, narrow: true });
     setViewport(480, 800);
     const { board } = await openBoard();
-    expect(board.style.flexDirection).toBe('column');
+    expect(board.style.flexDirection).toBe('row');
     const cell = courtCell(board);
-    expect(cell.style.width).toBe('100%');
-    expect(cell.style.height).toBe('');
+    expect(cell.style.height).toBe('100%');
+    expect(cell.style.width).toBe('');
     expect(cell.style.aspectRatio).toBe(courtCellAspectRatioCss('full', undefined, 90));
     expect(cell.style.aspectRatio).toBe('525 / 825');
     // 띠는 여전히 판 덩어리 안 두 번째 칸이다 — 인접축만 세로로 바뀐다.
     expect(board.children[1]!.getAttribute('data-tray')).toBe('');
   });
 
-  it('실제 화면의 트레이 구역이 6개다 — trayFixedHeightPx 가 gap 5칸을 세는 근거', async () => {
-    // 줌 · 구분선 · 벤치 · 구분선 · 도구 · 코트 이름. 이 개수가 바뀌면 고정 합 식의 gap 항이
+  it('실제 화면의 트레이 구역이 TRAY_SECTIONS 개다 — 고정 합 식이 gap 을 세는 근거', async () => {
+    // 벤치 · 구분선 · 도구 · 코트 이름(세로 기둥에만). 이 개수가 바뀌면 고정 합 식의 gap 항이
     // 어긋나고, 그 식은 **여전히 옛 숫자를 답한다**(계기가 거짓말하는 형태).
-    stubMedia({ portrait: false, narrow: false });
+    // 줌 3 · 이력 2 와 그 구분선은 2026-08-14 에 기능 바로 떠났다(7 → 4).
+    stubMedia({ portrait: true, narrow: true });
+    setViewport(480, 800);
     const { board } = await openBoard();
     expect((board.children[1] as HTMLElement).children).toHaveLength(TRAY_SECTIONS);
   });
 
-  it('대조군: 가로 화면은 안 뒤집힌다 — 두 배치를 뭉뚱그리지 않는다', async () => {
+  it('대조군: 가로 화면은 반대다 — 두 배치를 뭉뚱그리지 않는다', async () => {
     stubMedia({ portrait: false, narrow: false });
     const { board } = await openBoard();
-    expect(board.style.flexDirection).toBe('row');
-    expect(courtCell(board).style.width).toBe('');
+    expect(board.style.flexDirection).toBe('column');
+    expect(courtCell(board).style.height).toBe('');
   });
 });
 
@@ -213,7 +217,8 @@ describe('P4 — 코트와 벤치가 한 물건으로 보인다 (§4.4)', () => 
     // 판 덩어리를 감싼 코트 컬럼도 같은 색이다 — 판이 배경에서 뜨는 것이 아니라 배경 위에 놓인다.
     expect(board.closest('div[style*="var(--panel-2)"]')).not.toBeNull();
     // 트레이의 inset 홈은 한 글자도 안 바꿨다 — 코트 그림이 여기 **닿아야** 홈으로 읽힌다.
-    expect(tray.style.boxShadow).toBe('inset 7px 0 12px -10px rgba(0,0,0,.55)');
+    // 가로 창은 띠라 홈이 위쪽 변에 파인다(기둥은 왼쪽 변). 값은 축만 바뀐 같은 식이다.
+    expect(tray.style.boxShadow).toBe('inset 0 7px 12px -10px rgba(0,0,0,.55)');
   });
 });
 
@@ -246,12 +251,13 @@ describe('함정 3 — 줌과 인스펙터가 트레이 폭·칩 자리를 흔�
     expect(viewW(), '확대가 무대에 안 닿았다 — 아래 불변 단언이 헛것이 된다').toBeLessThan(w0);
     expect(snap()).toEqual(before);
 
-    // 오버레이 인스펙터를 열고 닫아도 마찬가지다(열면 `<main>` 폭 판정이 다시 돈다).
-    await user.click(screen.getByRole('button', { name: '속성' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: '속성' })).toHaveAttribute('aria-expanded', 'true'));
+    // 팝오버를 열고 닫아도 마찬가지다(열면 `<main>` 폭 판정이 다시 돈다).
+    // ⚠️ 옛 단언은 [속성]이었다 — 자유 전술판에서 인스펙터가 사라져 [코트]로 갈아탔다.
+    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '코트' })).toBeInTheDocument());
     expect(snap()).toEqual(before);
-    await user.click(screen.getByRole('button', { name: '속성' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: '속성' })).toHaveAttribute('aria-expanded', 'false'));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '코트' })).toBeNull());
     expect(snap()).toEqual(before);
   });
 });

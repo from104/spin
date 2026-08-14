@@ -23,16 +23,15 @@ import { courtPadCss } from '../../app/chromeBudget.ts';
 import { useStageRot } from '../../app/useStageRot.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import { createRuleOverlay } from '../../render/ruleOverlay.ts';
-import { ToolRail, type ChairSlot, type TrayDrawers } from './ToolRail.tsx';
+import { ToolRail, type ChairSlot } from './ToolRail.tsx';
 import { courtCellAspectRatioCss } from './boardLayout.ts';
-import { drillUsesOf } from './drillUses.ts';
 import { useTrayDrag } from './useTrayDrag.ts';
 import { placeObject } from './placement.ts';
 import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
 import { ViewControls } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
-import { BoardBar } from './BoardBar.tsx';
+import { FunctionBar } from './FunctionBar.tsx';
 import { InspectorHost } from './InspectorHost.tsx';
 import { inspectorMode } from './inspectorLayout.ts';
 import { useContainerWidth } from './useContainerWidth.ts';
@@ -102,8 +101,22 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // 좁은 창(§5.1): 크롬 예산을 줄인다. 여기서 걷어내는 것은 코트 래퍼 패딩 한 행이고,
   // 나머지 행(레일·헤더·하단 바·트레이)은 각자 담당 항목이 같은 boolean 으로 줄인다.
   const narrow = useIsNarrow();
-  // 트레이(도구·개체)를 판의 어느 변에 붙일지. 가로 화면이면 판 **오른쪽**, 세로면 판 아래.
-  const trayAxis = portrait ? ('column' as const) : ('row' as const);
+  // ★ 트레이(칩·작도·메모)를 판의 어느 변에 붙일지 — **코트의 긴 변**이다(기현 지시 2026-08-14:
+  //   *"코트 길이 긴쪽(세로가 길면 오른쪽, 가로가 길면 아래쪽) 사이드에 부착"*).
+  //   실제 경기의 사이드라인 = 벤치가 서는 자리와 같은 은유다.
+  //
+  //   ⚠️ **2026-08-14 이전과 정반대다.** 옛 규칙은 "가로 화면이면 오른쪽, 세로면 아래" 였다.
+  //   코트 셋(30×18 · 18×15 · 라인없음)은 viewBox 가 전부 **가로로 길다**. 그래서 판이 안 돌면
+  //   (rot 0) 긴 변이 아래고, 세로 화면에서 판이 서면(rot 90) 긴 변이 오른쪽이다.
+  //
+  //   ⚠️ **rot 을 읽어서 정하지 않는다.** rot 은 크롬 예산(courtBoxPx)에서 나오고 그 예산은
+  //   트레이가 어느 축을 먹는지를 입력으로 받는다 — 서로를 참조하면 P1 이 끊어 놓은 그
+  //   쌍안정 고리가 되살아난다(useStageRot.ts 머리말). 창 방향에서 **한 번에** 정한다:
+  //   창이 가로면 코트가 눕고(트레이는 아래 띠), 창이 세로면 코트가 선다(트레이는 오른쪽 기둥).
+  //   둘은 rot 과 사실상 같은 답이면서 **입력이 창 크기뿐**이라 고리가 없다.
+  const trayAxis = portrait ? ('row' as const) : ('column' as const);
+  /** 트레이가 판 아래 **가로 띠**인가(= 높이를 먹는가). 예산표의 `trayBand` 행과 같은 뜻이다. */
+  const trayBand = trayAxis === 'column';
   // ★ 인스펙터(결정 ③A) — **기본 접힘 오버레이**. 핀 취향만 prefs 에 남고 여닫힘은 로컬이다:
   //   여닫힘까지 저장하면 태블릿에서 열어 둔 채 앱을 닫은 사람이 다음에 PC 에서 판을 가린
   //   채로 만나게 된다. 대신 **핀을 켜 둔 사람은 열린 채로 시작한다** — 붙박이를 골라 놓고
@@ -116,7 +129,11 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const inspectorPanelId = useId();
   const inspectorTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [workspaceRef, workspaceWidth] = useContainerWidth<HTMLElement>();
-  const inspectorLayout = inspectorMode({ open: inspectorOpen, pinned, containerWidthPx: workspaceWidth });
+  // ⚠️ 2026-08-14 기현님 재설계 — **자유 전술판에는 인스펙터가 없다.** 남길 둘(코트 크기·골대
+  // 원위치)은 오른쪽 기능 바로 갔고 나머지(드릴 정보·배치 프리셋·선수 명단·선택 개체)는
+  // 지웠다(*"속성 탭은 정말 무용지물이다 … 대부분 삭제하는게 맞다"*). 그래서 크롬 예산에도
+  // 'hidden' 이 가야 한다 — 안 그러면 판 회전(useStageRot)이 있지도 않은 패널 폭을 빼고 센다.
+  const inspectorLayout = isBoard ? ('hidden' as const) : inspectorMode({ open: inspectorOpen, pinned, containerWidthPx: workspaceWidth });
   // ★ 표시 회전(§4.2, 2026-08-14 재설계) — **창 크기에서 정해 판으로 내려보낸다.**
   //
   // 무대가 자기 rect 를 재서 정하던 것을 뒤집었다. P3 가 코트 칸을 rot 에 맞춰 자기 종횡비로
@@ -135,7 +152,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // 76 → 132 로 커지면서 뒤집는 창이 생겼다 — 실측: **768×1024 세로(아이패드)에서 올바른 답은
   // 0 인데 안 넘기면 90 이 나온다**(현실 세로 창 22191칸 중 35%가 갈린다. 전수 대조는
   // useStageRot.portrait.test.ts). 새 boolean 이 아니라 §5.1 이 이미 못박은 둘 중 하나다.
-  const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, portrait, inspector: inspectorLayout });
+  const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, trayBand, board: isBoard, inspector: inspectorLayout });
   // ★ 코트 칸의 종횡비(§4.1, 2026-08-14 P3) — 판 덩어리 안에서 코트가 **자기 비율만큼만**
   // 차지하게 하는 한 줄이다. 남는 폭은 트레이가 먹는다 = 옛 레터박스 86px 이 그대로 벤치가 된다.
   // 입력은 `def`(courtMode·courtSize)와 `rot` 뿐이다 — 줌도 측정값도 안 들어간다(그 이유는
@@ -181,13 +198,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       ? {
           title: '자유 전술판',
           subtitle: '코트를 자유롭게 바꿔가며 그려 보세요. 마음에 들면 드릴로 저장합니다.',
+          // 코트 전환 세그먼트는 **오른쪽 기능 바의 [코트]** 로 갔다(2026-08-14). 헤더에
+          // 남기면 같은 일을 하는 자리가 둘이 된다 — 잠금 규칙이 한쪽에서만 바뀌는 자리다.
           primary: { label: '드릴로 저장', onAction: () => board?.onSaveAsDrill() },
-          courtSwitch: {
-            value: drill.courtMode,
-            locked: !boardPristine,
-            onChange: (m) => board?.onCourtChange(m),
-            onLockedAttempt: () => toast.show('전술판을 초기화하면 코트 형태를 바꿀 수 있습니다.'),
-          },
         }
       : {
           title: drill.title,
@@ -333,15 +346,10 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     return { id: c.id, number: c.number, name: c.name, color, ink: inkFor(color), placed: step.chairs[c.id] !== undefined };
   });
 
-  // §3 불변식 3 — 이 드릴이 **실제로 쓰는** 말. 스텝 전체를 본다: 3번 스텝에만 화살표가 있어도
-  // 그 드릴은 화살표를 쓰는 드릴이고, 1번 스텝을 보고 있는 사람에게도 서랍이 준비돼 있어야 한다.
-  // 고급자가 만든 것을 초보자가 받아 열었을 때 *"이 드릴에 있는 것을 나는 왜 못 만드나"* 가
-  // 생기지 않게 하는 것이 목적이라, 판단 기준은 현재 스텝이 아니라 드릴이다.
-  const drillUses = useMemo(() => drillUsesOf(drill), [drill]);
-  // 서랍 개폐를 prefs 에 남긴다 — §3 불변식 2 의 *'영구히'* 를 기기 재시작 너머로 들고 가는
-  // 자리가 3.0 이 세워 둔 `prefs.tray` 다(판이 아니라 prefs 인 이유: 판마다 서랍이 다르면
-  // 표적 좌표가 판마다 달라진다).
-  const setTrayDrawers = useCallback((next: TrayDrawers) => void setPrefs({ tray: next }), [setPrefs]);
+  // ⚠️ 2026-08-14 — §3 불변식 2·3 의 배선(`drillUses` · `setTrayDrawers`)이 여기서 **사라졌다.**
+  // 서랍이 플라이아웃이 되면서 "열린 채로 둔다" 라는 상태가 없어졌기 때문이다. 두 불변식이
+  // 답하던 물음("접힌 것을 어떻게 다시 펴는가")은 이제 손이 닿기만 하면 풀린다 — 근거는
+  // ToolRail.tsx 의 플라이아웃 머리말에 옛 결정과 함께 남겨 뒀다.
 
   // 두 배치가 **같은 컴포넌트 인스턴스**를 쓰도록 조각으로 뽑는다. 가로/세로에서 각각 따로
   // 렌더하면 방향이 바뀔 때 언마운트–재마운트가 일어나 인스펙터의 펼침 상태 같은 것이 날아간다.
@@ -359,20 +367,22 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       pendingPlayerId={pendingPlayerId}
       onArmPlayer={armPlayer}
       courtLabel={{ full: '풀 코트', half: '하프 코트', flat: '플랫 코트' }[drill.courtMode]}
-      tray={prefs.tray}
-      onTrayChange={setTrayDrawers}
-      drillUses={drillUses}
-      orientation={portrait ? 'horizontal' : 'vertical'}
+      orientation={trayBand ? 'horizontal' : 'vertical'}
       // 줌 3개는 판 위가 아니라 **기둥 맨 위**다(2026-08-14, 설계서 §3-ㄱ). 부르는 대상은
       // 예전 StageControls 와 **같은 무대 핸들**이라 단축키(Ctrl +/−/0)와 한 경로다.
-      zoom={{
-        onZoomIn: () => stageRef.current?.zoomBy(INTERACT.zoomStep),
-        onZoomOut: () => stageRef.current?.zoomBy(1 / INTERACT.zoomStep),
-        onZoomReset: () => stageRef.current?.resetZoom(),
-      }}
-      // 되돌리기·다시하기도 판 옆으로 왔다(2026-08-14 지시). 헤더에는 **더 이상 없다** —
-      // 두 벌로 두면 같은 이름의 표적이 둘이 되어 예산도 스크린리더도 함께 나빠진다.
-      history={history}
+      // ⚠️ 전술판에서는 **둘 다 없다** — 줌 3개와 되돌리기·다시하기가 오른쪽 기능 바로 갔다
+      // (기현 지시 2026-08-14 두 번째 라운드). 트레이에 남는 것은 판에 **놓는 것**뿐이다:
+      // 칩·공·콘·선택·지우개·작도·메모. 드릴 편집은 아직 옛 배치라 그대로 받는다.
+      zoom={
+        isBoard
+          ? undefined
+          : {
+              onZoomIn: () => stageRef.current?.zoomBy(INTERACT.zoomStep),
+              onZoomOut: () => stageRef.current?.zoomBy(1 / INTERACT.zoomStep),
+              onZoomReset: () => stageRef.current?.resetZoom(),
+            }
+      }
+      history={isBoard ? undefined : history}
       onItemPointerDown={tray.start}
     />
   );
@@ -415,6 +425,38 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     const r = worldRef.current?.resetGoals();
     if (r && r.blocked > 0) toast.show('골대 자리에 휠체어가 있어 되돌리지 못했습니다. 휠체어를 옮긴 뒤 다시 눌러 주세요.');
   }, [worldRef, toast]);
+
+  // 오른쪽 기능 바 — 자유 전술판 전용이다. 드릴 편집은 아직 옛 배치(하단 TransportBar +
+  // 인스펙터)를 쓴다(기현님: *"드릴 편집 화면은 추후 수정, 일단 자유 전술판에 집중"*).
+  const functionBar = board ? (
+    <FunctionBar
+      onZoomIn={() => stageRef.current?.zoomBy(INTERACT.zoomStep)}
+      onZoomOut={() => stageRef.current?.zoomBy(1 / INTERACT.zoomStep)}
+      onZoomReset={() => stageRef.current?.resetZoom()}
+      canUndo={history.canUndo}
+      canRedo={history.canRedo}
+      onUndo={history.onUndo}
+      onRedo={history.onRedo}
+      courtMode={drill.courtMode}
+      courtSize={drill.courtSize ?? DEFAULT_COURT_SIZE}
+      courtLocked={!boardPristine}
+      onCourtModeChange={(m) => board.onCourtChange(m)}
+      onCourtSizeChange={(s) => board.onCourtSizeChange(s)}
+      onLockedAttempt={() => toast.show('전술판을 초기화하면 코트 형태와 크기를 바꿀 수 있습니다.')}
+      onResetGoals={resetGoals}
+      onReset={() => board.onReset()}
+      drill={drill}
+      showGrid={showGrid}
+      onToggleGrid={toggleGrid}
+      showRuleZones={showRuleZones}
+      onToggleRuleZones={toggleRuleZones}
+      onShowHelp={() => {
+        helpTriggerRef.current = viewButtonRef.current;
+        setHelpOpen(true);
+      }}
+      viewButtonRef={viewButtonRef}
+    />
+  ) : null;
 
   const inspector = (
     <InspectorPanel
@@ -461,7 +503,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       // 기준으로 떠서 레일·헤더 위까지 덮는다.
       // ⚠️ 아래 style 객체는 **한 줄**이어야 한다 — appShell.contract.test.ts 가 방향 전환이 적힌
       // 그 줄에서 minHeight:0 을 함께 찾는다(세로 축 플렉스 사슬은 jsdom 이 못 잡아 소스로 지킨다).
-      style={{ flex: 1, display: 'flex', flexDirection: portrait && inspectorLayout !== 'pinned' ? 'column' : 'row', minHeight: 0, outline: 'none', position: 'relative' }}
+      style={{ flex: 1, display: 'flex', flexDirection: !isBoard && portrait && inspectorLayout !== 'pinned' ? 'column' : 'row', minHeight: 0, outline: 'none', position: 'relative' }}
     >
       <span id="court-help" className="sr-only">
         방향키로 커서 이동, Enter로 배치, Alt+←/→로 개체 순회
@@ -517,7 +559,8 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
             style={{
               display: 'flex',
               flexDirection: trayAxis,
-              ...(portrait ? { width: '100%' } : { height: '100%' }),
+              // 띠(column)면 폭을 다 쓰고 높이를 가둔다. 기둥(row)이면 그 반대다.
+              ...(trayBand ? { width: '100%' } : { height: '100%' }),
               maxWidth: '100%',
               maxHeight: '100%',
               minWidth: 0,
@@ -538,7 +581,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 minHeight: 0,
                 position: 'relative',
                 aspectRatio: courtAspect,
-                ...(portrait ? { width: '100%' } : { height: '100%' }),
+                ...(trayBand ? { width: '100%' } : { height: '100%' }),
               }}
             >
               <EditorStage
@@ -580,22 +623,10 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           </div>
         </div>
 
-        {isBoard ? (
-          <BoardBar
-            courtMode={drill.courtMode}
-            courtSize={drill.courtSize}
-            courtLocked={!boardPristine}
-            // 내보내기 시트(§6.4)가 굽는 것은 **지금 리듀서가 들고 있는 판**이다 — 물리 세계가
-            // 아니라 모델이다. 드래그는 커밋 스냅에서 모델로 들어오므로(§4.3) 손을 뗀 뒤의
-            // 배치가 그림·인쇄에 그대로 나온다.
-            drill={drill}
-            showGrid={showGrid}
-            showRuleZones={showRuleZones}
-            onReset={() => board?.onReset()}
-            onResetGoals={resetGoals}
-            viewControls={viewControls}
-          />
-        ) : (
+        {/* 2026-08-14 — 전술판의 **하단 바가 통째로 사라졌다.** [코트 비우기]·[내보내기]·
+            속도 제한·[보기]·[속성]이 전부 오른쪽 기능 바로 갔다. BoardBar.tsx 는 아직 지우지
+            않는다: 드릴 편집이 같은 바(TransportBar)를 쓰고, 그쪽 재설계가 아직 남아 있다. */}
+        {isBoard ? null : (
           <TransportBar
             drill={drill}
             stepId={state.stepId}
@@ -611,6 +642,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         )}
       </div>
 
+      {functionBar}
+
+      {isBoard ? null : (
       <InspectorHost
         id={inspectorPanelId}
         open={inspectorOpen}
@@ -625,6 +659,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       >
         {inspector}
       </InspectorHost>
+      )}
 
       {/* 끌고 있는 말의 고스트. 코트 축척(pxPerUnit)에 맞춰 **실제 놓일 크기**로 그린다 —
           고정 크기로 그리면 손을 뗀 순간 개체가 갑자기 커지거나 작아져 어긋나 보인다.

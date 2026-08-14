@@ -33,13 +33,14 @@ import { addStepAfter } from '../../model/edits.ts';
 // ── ① 픽셀 식 — §5.4 표 재현 ────────────────────────────────────────────────
 
 describe('트레이 칩·폭 픽셀 식 (§5.4)', () => {
-  it('--hit 44 → 칩 상자 44×60, 트레이 폭 93', () => {
-    expect(trayChipBoxPx(44)).toEqual({ w: 44, h: 60 });
+  it('--hit 44 → 칩 상자 44×44(정사각), 트레이 폭 93', () => {
+    // 2026-08-14 기현님 지시로 상자가 **정사각**이 됐다(44×60 → 44×44). 폭은 그대로 `--hit` 다.
+    expect(trayChipBoxPx(44)).toEqual({ w: 44, h: 44 });
     expect(trayRailWidthPx(44)).toBe(93);
   });
 
-  it('--hit 56 → 칩 상자 56×78, 트레이 폭 117', () => {
-    expect(trayChipBoxPx(56)).toEqual({ w: 56, h: 78 });
+  it('--hit 56 → 칩 상자 56×56(정사각), 트레이 폭 117', () => {
+    expect(trayChipBoxPx(56)).toEqual({ w: 56, h: 56 });
     expect(trayRailWidthPx(56)).toBe(117);
   });
 
@@ -81,7 +82,7 @@ function Rail({ orientation }: { orientation?: 'vertical' | 'horizontal' }) {
 // 픽셀 식과 같은 식의 calc — **리터럴이다.** 식을 바꾸면 ①과 여기가 함께 빨간불이 나야 맞다.
 const ROW_MAX_CSS = 'calc(var(--hit) * 2 + 5px)';
 const ROW_CAP_CSS = 'calc(var(--hit) * 5 + 20px)';
-const CHIP_BOX_H_CSS = 'calc((var(--hit) - 8px) * 1.5 + 6px)';
+const CHIP_BOX_H_CSS = 'var(--hit)';
 
 describe('트레이 DOM — 칩·폭이 --hit 파생 calc 로 걸려 있다', () => {
   // ── 2026-08-14 P3: 이 it 을 **뒤집었다** (설계서 §6 "깨질 테스트 판정") ────────────────────
@@ -148,8 +149,10 @@ describe('트레이 DOM — 칩·폭이 --hit 파생 calc 로 걸려 있다', ()
     render(<Rail />);
     const chip = screen.getByRole('button', { name: '2번 선수 배치' });
     const svg = chip.querySelector('svg')!;
-    expect(svg.style.width).toBe('calc(var(--hit) - 8px)');
-    expect(svg.style.height).toBe('calc((var(--hit) - 8px) * 1.5)');
+    // 기준이 뒤집혔다: 상자가 정사각이 되면서 **세로**가 상자 높이에서 나오고 가로가 비율로
+    // 따라온다(옛 식은 가로가 --hit 에서 나오고 세로가 1.5배였다).
+    expect(svg.style.height).toBe('calc(var(--hit) - 6px)');
+    expect(svg.style.width).toBe('calc((var(--hit) - 6px) / 1.5)');
   });
 
   it('공·콘 상자와 기능 도구는 min 으로만 자란다 — 기본 52×50, 큰 터치 타깃이면 56', () => {
@@ -217,13 +220,14 @@ describe('트레이 세로 식의 전제 — 화면이 정말 그 모양인가',
     expect(group('기능').style.width).toBe('');
   });
 
-  it('서랍 내용도 같은 흐름을 탄다 — 세로로 세우면 그 줄이 105px 로 부푼다', async () => {
+  it('서랍은 흐름 **밖**이다 — 2026-08-14 플라이아웃 이후 트레이 세로 합에 안 들어간다', async () => {
+    // 옛 단언(지우지 않는다): *"서랍 내용도 같은 흐름을 탄다 — 세로로 세우면 그 줄이 105px 로
+    // 부푼다."* 인라인 서랍 시절 trayFixedHeightPx 가 그 줄을 세야 했기 때문이다.
+    // 지금은 absolute 라 아예 안 센다 — 그것이 고정 합이 232 → 117 로 준 이유 중 하나다.
     render(<Rail />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /^작도/ }));
-    const panel = group('작도 도구');
-    expect(panel.style.flexDirection).toBe('row');
-    expect(panel.style.flexWrap).toBe('wrap');
+    expect(group('작도 도구').style.position).toBe('absolute');
   });
 });
 

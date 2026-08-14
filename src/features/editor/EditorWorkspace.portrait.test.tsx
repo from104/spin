@@ -20,7 +20,6 @@ import type { AppHistoryApi } from '../../app/useAppHistory.ts';
 import { AppHeader, HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
-import { COURT_DEFS } from '../../model/court.ts';
 import { BoardScreen } from '../board/BoardScreen.tsx';
 
 function Wrapper({ children }: { children: ReactNode }) {
@@ -83,7 +82,6 @@ async function openBoard(): Promise<HTMLElement> {
   return main;
 }
 
-const tray = () => screen.getByRole('navigation', { name: '도구' });
 /** 판 덩어리(P4) — 코트 칸과 트레이를 테두리 하나로 묶은 그 상자. */
 const board = (main: HTMLElement) => main.querySelector<HTMLElement>('[data-board]')!;
 
@@ -101,68 +99,64 @@ function layoutSkeleton(root: HTMLElement): string {
   return out.join('\n');
 }
 
-const BAND_2ROW_CSS = 'calc((var(--hit) - 8px) * 1.5 + 6px + max(50px, var(--hit)) + 22px)';
 
-describe('세로 480×800 — 트레이가 판 아래 2행 띠가 된다', () => {
-  it('판 덩어리가 세로로 쌓이고 트레이가 그 아래 띠다', async () => {
-    setViewport(480, 800);
-    stubMedia({ portrait: true, narrow: true });
-    const main = await openBoard();
-    expect(main.style.flexDirection, '세로 배치가 안 잡혔다').toBe('column');
-    expect(board(main).style.flexDirection).toBe('column');
-    // 판 덩어리의 자식은 여전히 정확히 둘이다(코트 칸 · 트레이) — P3·P4 의 그 계약.
-    expect(board(main).children).toHaveLength(2);
-    expect(board(main).children[1]).toBe(tray());
-  });
 
-  it('★ 띠에 2행 높이·wrap·세로 스크롤이 모두 걸려 있다', async () => {
-    setViewport(480, 800);
-    stubMedia({ portrait: true, narrow: true });
-    await openBoard();
-    expect(tray().style.height).toBe(BAND_2ROW_CSS);
-    expect(tray().style.flexWrap).toBe('wrap');
-    expect(tray().style.alignContent).toBe('flex-start');
-    expect(tray().style.overflowY).toBe('auto');
-    expect(tray().style.flexDirection).toBe('row');
-    expect(tray().style.justifyContent).toBe('flex-start');
-  });
-
-  it('대조군 — 가로 1024×600 에서는 셋 중 하나도 안 걸린다(기둥이다)', async () => {
-    setViewport(1024, 600);
+describe('트레이는 코트 긴 변에 붙는다 — 가로 창이면 아래 띠, 세로 창이면 오른쪽 기둥', () => {
+  // ⚠️ 2026-08-14 기현님 재설계로 이 파일의 전제가 **정반대로** 뒤집혔다. 옛 제목은
+  // *"세로 480×800 — 트레이가 판 아래 2행 띠가 된다"* 였다. 코트 셋은 viewBox 가 전부 가로로
+  // 길어서, 창이 가로면 판이 눕고(긴 변이 아래) 창이 세로면 판이 선다(긴 변이 오른쪽).
+  it('가로 1024×600 — 판 덩어리가 세로로 쌓이고 트레이가 그 아래 띠다', async () => {
     stubMedia({ portrait: false, narrow: true });
+    setViewport(1024, 600);
     const main = await openBoard();
-    expect(board(main).style.flexDirection).toBe('row');
-    expect(tray().style.height).toBe('');
-    expect(tray().style.flexWrap).toBe('');
-    expect(tray().style.overflowY).toBe('');
-    expect(tray().style.flexDirection).toBe('column');
+    const box = board(main);
+    expect(box.style.flexDirection, '가로 배치가 안 잡혔다').toBe('column');
+    const tray = box.children[1] as HTMLElement;
+    expect(tray.getAttribute('data-tray')).toBe('');
+    expect(tray.style.flexDirection).toBe('row');
+  });
+
+  it('★ 띠에 1행 높이·nowrap·가로 스크롤이 모두 걸려 있다', async () => {
+    stubMedia({ portrait: false, narrow: true });
+    setViewport(1024, 600);
+    const main = await openBoard();
+    const box = board(main);
+    const tray = box.children[1] as HTMLElement;
+    // 높이가 고정이라야 줄이 몇 개로 흐르든 코트가 받는 상자가 안 변한다.
+    expect(tray.style.height).toBe('calc(max(50px, var(--hit)) + 16px)');
+    expect(tray.style.flexWrap).toBe('nowrap');
+    expect(tray.style.overflowX, '1행이 넘칠 때 유일한 도달 경로다').toBe('auto');
+  });
+
+  it('대조군 — 세로 480×800 에서는 셋 중 하나도 안 걸린다(기둥이다)', async () => {
+    stubMedia({ portrait: true, narrow: true });
+    setViewport(480, 800);
+    const main = await openBoard();
+    const box = board(main);
+    expect(box.style.flexDirection).toBe('row');
+    const tray = box.children[1] as HTMLElement;
+    expect(tray.style.height).toBe('');
+    expect(tray.style.flexDirection).toBe('column');
   });
 
   it('세로에서 판이 선다 — 480×800 은 rot 90 이라 코트 칸 비율이 뒤집힌다', async () => {
-    setViewport(480, 800);
     stubMedia({ portrait: true, narrow: true });
+    setViewport(480, 800);
     const main = await openBoard();
-    const cell = board(main).children[0] as HTMLElement;
-    expect(cell.style.aspectRatio).toBe(`${COURT_DEFS.full.vbH} / ${COURT_DEFS.full.vbW}`);
-    expect(main.querySelector('svg')!.getAttribute('viewBox')).toBe(`0 0 ${COURT_DEFS.full.vbH} ${COURT_DEFS.full.vbW}`);
-    // 세로에서 코트 칸은 폭을 다 쓰고 높이를 비율로 받는다(가로 기둥과 축이 정확히 뒤집힌다).
-    expect(cell.style.width).toBe('100%');
-    expect(cell.style.height).toBe('');
+    const box = board(main);
+    const cell = box.children[0] as HTMLElement;
+    expect(cell.style.height, '기둥 배치에서는 코트 칸이 세로를 다 쓴다').toBe('100%');
+    expect(cell.style.aspectRatio).toBe('525 / 825');
+    expect(document.querySelector('svg.stage-svg')!.getAttribute('viewBox')).toBe('0 0 525 825');
   });
 
-  it('★ 768×1024 아이패드 세로 — 판이 **안 돈다**. portrait 배선이 끊기면 여기가 빨개진다', async () => {
-    // 이 창에서 옳은 답은 0 이고, `portrait` 를 예산에 안 넘기면 90 이 된다(근거·숫자는
-    // app/useStageRot.portrait.test.ts). 배선은 두 군데가 다 있어야 한다 — EditorWorkspace 의
-    // 호출 인자와 useStageRot 의 이펙트 사본. 어느 한쪽만 빠져도 여기서 잡힌다.
-    setViewport(768, 1024);
+  it('★ 768×1024 아이패드 세로 — 여기서도 선다. 배선이 끊기면 빨개진다', async () => {
+    // 옛 기록: 띠가 세로 화면의 것이던 시절에는 이 기기에서 판이 **안 돌았다**(0). 배치 축이
+    // 뒤집히면서 답도 뒤집혔다 — 폭 768 에서 트레이 기둥·기능 바를 빼면 세운 쪽이 이긴다.
     stubMedia({ portrait: true, narrow: true });
-    const main = await openBoard();
-    expect(main.querySelector('svg')!.getAttribute('viewBox')).toBe(`0 0 ${COURT_DEFS.full.vbW} ${COURT_DEFS.full.vbH}`);
-    expect((board(main).children[0] as HTMLElement).style.aspectRatio).toBe(
-      `${COURT_DEFS.full.vbW} / ${COURT_DEFS.full.vbH}`,
-    );
-    // 그래도 트레이는 띠다 — 회전과 배치는 **다른 판정**이다(useIsPortrait.ts 머리말).
-    expect(tray().style.height).toBe(BAND_2ROW_CSS);
+    setViewport(768, 1024);
+    await openBoard();
+    expect(document.querySelector('svg.stage-svg')!.getAttribute('viewBox')).toBe('0 0 525 825');
   });
 
   it('세로 경로의 상자 뼈대', async () => {

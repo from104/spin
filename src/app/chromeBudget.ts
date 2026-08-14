@@ -17,6 +17,7 @@ import { rotForFit } from '../render/useStageMetrics.ts';
 import type { StageRot } from '../render/useStageMetrics.ts';
 import { inspectorChromeWidthPx } from '../features/editor/inspectorLayout.ts';
 import type { InspectorMode } from '../features/editor/inspectorLayout.ts';
+import { functionBarWidthPx } from '../features/editor/functionBarMetrics.ts';
 import { trayBandHeightPx } from '../features/editor/trayMetrics.ts';
 
 export type ChromeAxis = 'width' | 'height';
@@ -122,7 +123,21 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
     // 아니라 칩 줄과 도구 줄이 둘 다 있어야 하기 때문이다).
     wide: trayBandHeightPx(INTERACT.hitTargetCssPx),
     narrow: trayBandHeightPx(INTERACT.hitTargetCssPx),
-    owner: '2026-08-14 P5 — 세로 2행 띠(설계서 §4.7). 상한 175px 은 trayMetrics 의 TRAY_BAND_MAX_PX',
+    owner: '2026-08-14 기현님 재설계 — 가로 1행 띠(66/72). 옛 세로 2행(132) 경위는 trayMetrics',
+  },
+  {
+    id: 'functionBar',
+    axis: 'width',
+    label: '오른쪽 기능 바(자유 전술판)',
+    // 재편 **이전** 열은 0 이다 — 이 기둥은 2026-08-14 에 처음 생겼다. now 는 "그때 이 표가
+    // 세던 값" 이지 "그때 화면에 있던 값" 이 아니다(trayBand 행이 간 길과 같다).
+    now: 0,
+    // 1열 폭(--hit + 좌우 패딩 6). 기기와 무관하다 — 칸 수(11)가 창 크기의 함수가 아니기 때문.
+    // ⚠️ 2열로 흐르면 이 행이 실제보다 작아진다. 그래서 1024×600·hit 44 에서 1열이 성립하도록
+    //    functionBarMetrics 의 gap·패딩을 맞춰 놓았고 boardLayout.test 가 그것을 대조한다.
+    wide: functionBarWidthPx(INTERACT.hitTargetCssPx),
+    narrow: functionBarWidthPx(INTERACT.hitTargetCssPx),
+    owner: '2026-08-14 기현님 재설계 — 헤더 코트 전환·하단 바·속성이 한 기둥으로',
   },
   {
     id: 'courtPadX',
@@ -203,12 +218,21 @@ export interface ChromeState {
   narrow: boolean;
   /** 인스펙터가 지금 **가로 흐름에서** 폭을 먹는가(2.2 inspectorLayout). 오버레이·닫힘은 0 이다. */
   inspector: InspectorMode;
-  /** `useIsPortrait()` — 트레이가 판 **오른쪽 기둥**이 아니라 **아래 띠**인가(2026-08-14 P5).
+  /** 트레이가 판 **오른쪽 기둥**이 아니라 **아래 띠**인가.
+   *
+   *  ⚠️ 2026-08-14 기현님 재설계로 **이름이 `portrait` 에서 바뀌었다.** 뜻은 P5 때부터 줄곧
+   *  "트레이가 띠인가" 였는데, 그때는 그것이 창 세로 여부와 같은 말이라 그 이름을 썼다.
+   *  이제 트레이는 **코트 긴 변**에 붙으므로 둘이 정반대가 된다 — 창이 가로면 코트가 눕고
+   *  (긴 변이 아래) 띠가 되며, 창이 세로면 코트가 서고(긴 변이 오른쪽) 기둥이 된다.
+   *  `portrait` 라는 이름을 그대로 두면 이 행은 매번 반대값을 받는 셈이라 표가 거짓말을 한다.
    *
    *  ⚠️ **분기 boolean 을 늘리는 것이 아니다**(§5.1 은 `useIsPortrait`·`useIsNarrow` 둘로
-   *  못박혀 있다) — 그 둘 중 하나를 예산표가 **드디어 읽게 된 것**이다. 없으면 false 이고,
-   *  그때의 답은 P4 까지와 한 자리도 다르지 않다(모든 기존 호출부가 그 자리에 있다). */
-  portrait?: boolean;
+   *  못박혀 있다) — 그 둘 중 하나에서 **유도된 값**이다. */
+  trayBand?: boolean;
+  /** 자유 전술판인가. 전술판은 하단 바가 없고(전부 기능 바로 갔다) 대신 오른쪽 기능 바가 있다 —
+   *  두 행은 서로의 반대이고 **동시에 켜지지 않는다**(2026-08-14 재설계). 드릴 편집은 아직
+   *  옛 배치라 false 다. */
+  board?: boolean;
   /** 없으면 0. 실기(§5.3 확정 배율)는 안드로이드 태블릿 기준 상한이라 safe-area 가 0 이다. */
   safeArea?: SafeAreaInsets;
 }
@@ -217,12 +241,17 @@ export interface ChromeState {
  *   · `inspector` — 자기 모드. 같은 PC 에서도 핀이면 313, 오버레이면 0 이다.
  *   · `toolRail`·`trayBand` — **배치 축**. 트레이는 한 번에 한 축만 먹으므로 둘은 서로의
  *     반대이고 절대 동시에 켜지지 않는다. 이 배타성이 깨지면 세로 기기에서 트레이가 폭과
- *     높이를 이중으로 빼앗아 코트 상자가 실제보다 작게 계산된다. */
+ *     높이를 이중으로 빼앗아 코트 상자가 실제보다 작게 계산된다.
+ *   · `functionBar`·`transportBar` — **화면**. 전술판은 오른쪽 기둥, 드릴 편집은 하단 바다.
+ *     이 둘도 서로의 반대이고 동시에 켜지지 않는다(2026-08-14 재설계). */
 export function chromeRowPx(row: ChromeRow, state: ChromeState): number {
   if (row.id === 'inspector') return inspectorChromeWidthPx(state.inspector);
   const here = state.narrow ? row.narrow : row.wide;
-  if (row.id === 'toolRail') return state.portrait ? 0 : here;
-  if (row.id === 'trayBand') return state.portrait ? here : 0;
+  if (row.id === 'toolRail') return state.trayBand ? 0 : here;
+  if (row.id === 'trayBand') return state.trayBand ? here : 0;
+  // 전술판에는 하단 바가 없고 기능 바가 있다. 드릴 편집은 그 반대다(아직 옛 배치).
+  if (row.id === 'functionBar') return state.board ? here : 0;
+  if (row.id === 'transportBar') return state.board ? 0 : here;
   return here;
 }
 

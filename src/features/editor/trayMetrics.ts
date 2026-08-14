@@ -26,10 +26,24 @@ export const CHIP_RATIO = CHAIR.lengthPx / CHAIR.widthPx;
 export const TRAY_MIN_COLS = 2;
 export const TRAY_MAX_COLS = 5;
 
-/** 칩 SVG 의 CSS 크기. jsdom 은 calc(var()) 를 계산하지 못하므로 픽셀 검증은 아래 함수가 맡는다. */
-export const CHIP_W_CSS = `calc(var(--hit) - ${CHIP_BOX_PAD_X}px)`;
-export const CHIP_H_CSS = `calc((var(--hit) - ${CHIP_BOX_PAD_X}px) * ${CHIP_RATIO})`;
-export const CHIP_BOX_H_CSS = `calc((var(--hit) - ${CHIP_BOX_PAD_X}px) * ${CHIP_RATIO} + ${CHIP_BOX_PAD_Y}px)`;
+/** 칩 SVG 의 CSS 크기. jsdom 은 calc(var()) 를 계산하지 못하므로 픽셀 검증은 아래 함수가 맡는다.
+ *
+ *  ── 2026-08-14 기현님 지시: *"트레이의 휠체어 칩은 너무 크다. 마우스(손가락)로 끌고 올
+ *  정도면 된다"* ─────────────────────────────────────────────────────────────────────
+ *  **상자를 정사각으로 만들었다**(44×60 → 44×44). 칩은 세로/가로 1.5 비율이라 폭을 기준으로
+ *  키우면 세로가 1.5배로 길어지는데, 그 길쭉함이 "너무 크다" 의 정체였다.
+ *
+ *  ⚠️ **폭은 한 픽셀도 안 건드렸다** — 상자 가로는 여전히 정확히 `--hit` 다. 트레이 폭 식
+ *  (trayRowWidthPx)·크롬 예산의 `toolRail` 행(93)·열 수 계산이 전부 그 위에 서 있어서,
+ *  폭을 줄이면 이 파일 밖의 수십 개 숫자가 함께 움직인다. 줄어든 것은 **세로뿐**이고 그
+ *  덕에 세로 띠(trayBand 행)도 132 → 116 으로 함께 작아진다.
+ *
+ *  이제 기준이 뒤집혔다: 예전에는 **가로**가 `--hit` 에서 나오고 세로가 비율로 따라왔는데,
+ *  지금은 **세로**가 상자 높이에서 나오고 가로가 비율로 따라온다. 그래서 칩 SVG 는
+ *  44 기준 25×38(옛 36×54)이다 — 끌어 잡기에는 충분하고 벤치는 훨씬 촘촘해진다. */
+export const CHIP_H_CSS = `calc(var(--hit) - ${CHIP_BOX_PAD_Y}px)`;
+export const CHIP_W_CSS = `calc((var(--hit) - ${CHIP_BOX_PAD_Y}px) / ${CHIP_RATIO})`;
+export const CHIP_BOX_H_CSS = 'var(--hit)';
 /** 트레이 **하한** 폭(칩 2열). 2026-08-14 P3 전에는 이것이 `width` 이기도 했다 — 지금은
  *  `minWidth` 뿐이고, 이름을 그대로 둔 이유는 크롬 예산 행이 이 식으로 계산돼 있기 때문이다. */
 export const TRAY_ROW_MAX_CSS = `calc(var(--hit) * ${TRAY_MIN_COLS} + ${CHIP_ROW_GAP * (TRAY_MIN_COLS - 1)}px)`;
@@ -38,10 +52,7 @@ export const TRAY_ROW_CAP_CSS = `calc(var(--hit) * ${TRAY_MAX_COLS} + ${CHIP_ROW
 
 /** 칩 상자 크기를 **픽셀로** 계산한다 — 위 calc 문자열과 같은 식이다(상수를 공유한다).
  *  크롬 예산·완료 판정 테스트가 이 함수로 §5.4 의 표(44→44×60·93, 56→56×78·117)를 재현한다. */
-export const trayChipBoxPx = (hitPx: number): { w: number; h: number } => ({
-  w: hitPx,
-  h: (hitPx - CHIP_BOX_PAD_X) * CHIP_RATIO + CHIP_BOX_PAD_Y,
-});
+export const trayChipBoxPx = (hitPx: number): { w: number; h: number } => ({ w: hitPx, h: hitPx });
 
 /** 칩 `cols` 열이 딱 들어가는 안쪽 폭. 트레이는 좌우 패딩이 0 이라(RAIL_STYLE) 이 값이 곧 트레이 폭이다. */
 export const trayRowWidthPx = (hitPx: number, cols: number): number => hitPx * cols + CHIP_ROW_GAP * (cols - 1);
@@ -77,10 +88,13 @@ export const TOOL_BTN_W = 52;
 export const TOOL_BTN_H = 50;
 /** 코트 이름 한 줄(0.5625rem = 9px × line-height 1.5 = 13.5 → 올림). 세로 트레이에만 있다. */
 export const COURT_LABEL_H = 14;
-/** nav 의 직계 구역 수 — 줌 · **편집 이력** · 구분선 · 벤치 · 구분선 · 도구 · 코트 라벨.
- *  gap 은 그 사이 6곳. 2026-08-14 기현님 지시로 되돌리기·다시하기가 헤더에서 줌 바로 아래로
- *  오면서 6 → 7 이 됐다(줌과 이력 사이에는 구분선이 없다 — 그것이 "한 묶음" 이라는 표시다). */
-export const TRAY_SECTIONS = 7;
+/** nav 의 직계 구역 수 — 벤치 · 구분선 · 도구 · 코트 라벨. gap 은 그 사이 3곳.
+ *
+ *  ⚠️ **자유 전술판 기준이다.** 2026-08-14 재설계로 줌 3개와 편집 이력 2개가 트레이를 떠나
+ *  오른쪽 기능 바로 갔다(7 → 4). 드릴 편집은 아직 옛 배치라 그쪽 트레이에는 줌·이력이
+ *  남아 있고 구역이 7 이다 — 이 상수와 아래 세로 합 식은 그쪽을 **안 센다.** 드릴 편집
+ *  재설계가 오면 그때 하나로 합친다. */
+export const TRAY_SECTIONS = 4;
 
 // ── 세로 배치의 띠(가로 트레이) — 2026-08-14 P5 (설계서 §4.7) ─────────────────────────
 /** 띠의 상하·좌우 패딩. RAIL_STYLE_H 의 `padding` 이 **이 상수로 조립된다** — 저쪽에 리터럴을
@@ -104,26 +118,34 @@ export const TRAY_BAND_DIVIDER_MARGIN_Y = 6;
  *  절벽의 정체: `rotForFit` 은 `turned > flat × 1.08` 일 때만 돌린다. 492 = 456 × 1.0789 이라
  *  1.08 문턱을 **1px 차이로** 못 넘는다. 그래서 상한은 "적당히 이쯤" 이 아니라 **175 로 딱 떨어진다.**
  *  3행(≈182~232)은 이 상한 밖이라 원천 배제 — **2행이 물리적 최대다.** */
-export const TRAY_BAND_MAX_PX = 175;
+// ⚠️ 2026-08-14 — `TRAY_BAND_MAX_PX = 175`(축척 절벽 상한)를 **지웠다.** 위 표가 잰 절벽은
+// **세로 창**의 것이다: 세로 창에서 띠를 키우면 가용 높이가 줄어 `rotForFit` 의 1.08 문턱을
+// 못 넘고 판이 눕는다. 이제 띠는 가로 창의 것이고, 가로 창에서 띠를 키우면 코트가 **선형으로**
+// 작아질 뿐 rot 은 0 에서 안 움직인다(trayBand.test 의 ② 가 그 단조성을 직접 스캔한다).
+// 즉 지금 띠에는 "여기까지는 공짜" 라는 문턱이 없다 — **작을수록 좋다**, 그것이 1행의 근거다.
 
-/** 2행 띠의 높이 — 칩 줄(60/78) + 도구 줄(50/56) + nav gap(6) + 상하 패딩(16). 44 → **132**,
- *  56 → **156**. 둘 다 `TRAY_BAND_MAX_PX` 미만이라는 것을 trayBand.test.ts 가 상수로 대조한다.
+
+/** 가로 띠의 높이 — **1행**이다. 도구 줄(50/56) + 상하 패딩(16). 44 → **66**, 56 → **72**.
  *
- *  ⚠️ 설계서 §4.7·§5-P5 는 이 식을 `calc((var(--hit) - 8px) * 1.5 + 6px + var(--hit) + 22px)`
- *  으로 적었지만 **hit 44 에서 126 이 나온다**(132 가 아니다). 둘째 줄은 도구 버튼 줄이고 그
- *  높이는 `var(--hit)` 이 아니라 `max(TOOL_BTN_H, --hit)` 이다 — BTN_STYLE 이 `height:50px`
- *  + `minHeight:var(--hit)` 이라 56 에서만 `--hit` 이 이긴다. 설계서의 상수항 22(= gap 6 +
- *  패딩 16)는 맞고, 틀린 것은 둘째 줄 항 하나뿐이라 그 항만 고쳤다. 목표값 132/156 은
- *  설계서 §4.7 의 가용 상자(456×536 · 456×512)와 정확히 짝이므로 **목표가 아니라 식이 오타다.** */
-export const trayBandHeightPx = (hitPx: number): number =>
-  trayChipBoxPx(hitPx).h + Math.max(TOOL_BTN_H, hitPx) + TRAY_GAP + TRAY_BAND_PAD_Y * 2;
-
-/** 재설계 **전**(1행) 띠 높이 — 44 → 76, 56 → 94. 대조군이자 §4.6 축척표의 '지금' 열이다. */
-export const trayBand1RowHeightPx = (hitPx: number): number => trayChipBoxPx(hitPx).h + TRAY_BAND_PAD_Y * 2;
+ *  ── 2026-08-14 기현님 결정: 2행(132) → **1행(66)** ──────────────────────────────────
+ *  P5 가 2행을 고른 것은 띠가 **세로 화면**에만 있었기 때문이다. 세로 창에서는 높이가 남고
+ *  폭이 모자라니 띠를 두껍게 해서 한 줄에 다 담는 편이 나았다.
+ *  이번 재설계로 띠는 **가로 화면**의 것이 됐고(트레이가 코트 긴 변에 붙는다 — 가로 코트면
+ *  아래), 가로 화면에서 모자라는 것은 정확히 **높이**다. 띠 116px 은 800×480 에서 코트 축척을
+ *  **−14.9%** 만들었다(실측). 1행으로 줄여 그 절반을 되찾는다.
+ *
+ *  대가는 **가로 스크롤**이다: 선수 8 + 공 + 콘 2 + 도구 4 가 한 줄이면 좁은 창에서 넘친다.
+ *  세로 스크롤과 달리 이쪽은 **§3 불변식 1 을 안 깬다** — 띠 높이가 상수라 코트가 안 흔들리고,
+ *  넘치는 것은 줄의 오른쪽 끝이지 위쪽 표적이 아니다. 그리고 서랍이 플라이아웃이 되면서
+ *  "열면 줄이 하나 는다" 는 경우가 아예 사라져, 1행은 **언제나 1행**이다.
+ *
+ *  칩이 정사각(44×44)이 된 것이 이 결정을 가능하게 했다 — 옛 44×60 칩이면 1행이 76 이라
+ *  줄여도 10px 밖에 못 벌었다. */
+export const trayBandHeightPx = (hitPx: number): number => Math.max(TOOL_BTN_H, hitPx) + TRAY_BAND_PAD_Y * 2;
 
 /** 위 픽셀 식과 **같은 상수로 조립한** calc 문자열. jsdom 은 calc(var()) 를 계산하지 못하므로
  *  화면에는 이 문자열이 걸리고 픽셀 검증은 `trayBandHeightPx` 가 맡는다(트레이 폭이 간 길과 같다). */
-export const TRAY_BAND_2ROW_CSS = `calc((var(--hit) - ${CHIP_BOX_PAD_X}px) * ${CHIP_RATIO} + ${CHIP_BOX_PAD_Y}px + max(${TOOL_BTN_H}px, var(--hit)) + ${TRAY_GAP + TRAY_BAND_PAD_Y * 2}px)`;
+export const TRAY_BAND_1ROW_CSS = `calc(max(${TOOL_BTN_H}px, var(--hit)) + ${TRAY_BAND_PAD_Y * 2}px)`;
 
 /** 폭 `w` 에 `itemW` 짜리가 한 줄에 몇 개 들어가나(gap 은 `TRAY_ITEM_GAP`). */
 const perRow = (w: number, itemW: number): number =>
@@ -136,7 +158,7 @@ const stack = (n: number, perLine: number, itemH: number): number => {
 };
 
 /** 위험 3 — 트레이에서 **안 스크롤되는** 세로 합. 벤치(개체 구역)만 스크롤러이므로
- *  줌 3 · 편집 이력 2 · 구분선 2 · 도구 4(서랍 닫힘) · 코트 라벨 · 패딩 · nav gap 이 여기 들어간다.
+ *  구분선 1 · 도구 4(서랍은 플라이아웃이라 흐름을 안 먹는다) · 코트 라벨 · 패딩 · nav gap 이다.
  *
  *  이 합이 판 높이를 넘으면 **서랍 손잡이가 화면 밖으로 나가 작도·설명에 영영 못 닿는다**
  *  (RAIL_STYLE_H:156-164 이 기록한 *"1번 선수를 영영 못 잡는다"* 사고의 세로판). 그래서 이 값은
@@ -153,10 +175,7 @@ export function trayFixedHeightPx(hitPx: number, cols: number): number {
   return (
     TRAY_PAD_Y * 2 +
     TRAY_GAP * (TRAY_SECTIONS - 1) +
-    stack(3, perRow(w, hitPx), hitPx) +
-    // 편집 이력 둘. 줌과 같은 --hit 정사각이라 같은 열 수로 흐른다.
-    stack(2, perRow(w, hitPx), hitPx) +
-    (TRAY_DIVIDER_H + TRAY_DIVIDER_MARGIN_Y * 2) * 2 +
+    (TRAY_DIVIDER_H + TRAY_DIVIDER_MARGIN_Y * 2) +
     stack(4, perRow(w, toolW), toolH) +
     COURT_LABEL_H
   );
@@ -168,83 +187,12 @@ export function trayFixedHeightPx(hitPx: number, cols: number): number {
  *  ⚠️ 공·콘 상자 3개가 **칩과 같은 wrap 흐름의 다음 줄**에 놓인다는 것이 P3 의 재편이다
  *  (전에는 세로로 하나씩 쌓여 150px 을 먹었다). 1024×600·5열에서 293 → 181 로 줄어
  *  스크롤이 사라졌다 — 그 112px 이 이 재편의 값이다. */
-// ── 띠가 정말 **2행**인가 — flex wrap 줄나눔의 순수 모형 (2026-08-14 P5) ─────────────────
-//
-// ⚠️ **하네스도 검증 대상이다.** `trayBandHeightPx` 는 "칩 줄 하나 + 도구 줄 하나" 를 **전제로**
-// 132 를 답한다. 화면이 그 전제를 안 지키면(구역이 3줄로 흐르면) 함수는 여전히 132 를 답하고
-// 테스트는 초록인 채 실제 띠 내용은 182 가 된다 — 계기가 거짓말하는 정확히 그 형태다.
-// 그래서 줄나눔을 여기서 한 번 더, **폭에서** 계산해 두 값을 맞대 본다.
-//
-// flex 는 각 항목의 **flex base size**(여기서는 전부 `flex:'none'` 이라 max-content)로 줄을
-// 나눈 뒤 그 줄 안에서만 grow/shrink 를 적용한다 — 그래서 줄 수는 폭만으로 정해진다.
-
-/** 띠에 놓이는 nav 직계 구역 하나. `h` 가 0 인 것은 구분선(alignSelf:stretch — 줄 높이를
- *  스스로 정하지 못한다). */
-export interface TrayBandSection {
-  name: string;
-  w: number;
-  h: number;
-}
-
-/** 띠의 구역 여섯. **DOM 순서 그대로다**(줌 · 편집 이력 · 구분선 · 벤치 · 구분선 · 기능) — 순서를 바꾸면
- *  줄나눔이 달라지므로 이 배열의 순서 자체가 계약이다. 코트 라벨은 세로 기둥 전용이라 없다. */
-export function trayBandSectionsPx(hitPx: number, chips: number): TrayBandSection[] {
-  const toolW = Math.max(TOOL_BTN_W, hitPx);
-  const toolH = Math.max(TOOL_BTN_H, hitPx);
-  const divW = TRAY_DIVIDER_H + TRAY_BAND_DIVIDER_MARGIN_X * 2;
-  // 벤치 = 칩 줄(nowrap) + 공 + 콘 2개, 사이 gap 3칸.
-  const chipRow = chips * hitPx + Math.max(0, chips - 1) * CHIP_ROW_GAP;
-  return [
-    { name: '확대', w: hitPx * 3 + TRAY_ITEM_GAP * 2, h: hitPx },
-    { name: '편집 이력', w: hitPx * 2 + TRAY_ITEM_GAP, h: hitPx },
-    { name: '구분선', w: divW, h: 0 },
-    { name: '개체', w: chipRow + toolW * 3 + TRAY_GAP * 3, h: Math.max(trayChipBoxPx(hitPx).h, toolH) },
-    { name: '구분선', w: divW, h: 0 },
-    // 기능 = 선택 · 지우개 · 작도 손잡이 · 설명 손잡이(서랍은 닫힘).
-    { name: '기능', w: toolW * 4 + TRAY_ITEM_GAP * 3, h: toolH },
-  ];
-}
-
-export interface TrayBandLayout {
-  rows: number;
-  /** 내용이 실제로 요구하는 띠 높이(패딩 포함). `trayBandHeightPx` 와 같으면 2행이 성립한 것이다. */
-  heightPx: number;
-}
-
-/** 띠 폭 `navWidthPx` 에서 구역들이 몇 줄로 흐르고 그 내용이 세로로 얼마를 요구하는가.
- *
- *  실측(hit 44 · 선수 8명 — 기본 캐스트):
- *   · 480×800 세로 → 띠 폭 456 → **3행 182px**. 벤치 하나가 561px 이라 줌·구분선(157) 뒤에
- *     못 들어가 자기 줄로 내려가고, 기능 구역이 셋째 줄이 된다. 띠는 132 에 고정돼 있으므로
- *     `overflowY:'auto'` 로 **세로 스크롤**이 생긴다 — 도달은 되지만 설계서가 그린 2행은 아니다.
- *   · 띠 폭 750 이상(창 774+) → **2행 132px** = `trayBandHeightPx(44)` 와 정확히 일치.
- *  이 갈림을 trayBand.test.ts 가 문턱까지 못박는다. */
-export function trayBandLayoutAt(hitPx: number, navWidthPx: number, chips: number): TrayBandLayout {
-  const inner = Math.max(0, navWidthPx - TRAY_BAND_PAD_X * 2);
-  let rows = 0;
-  let cx = 0;
-  let lineH = 0;
-  let sum = 0;
-  for (const s of trayBandSectionsPx(hitPx, chips)) {
-    if (rows === 0) {
-      rows = 1;
-      cx = s.w;
-      lineH = s.h;
-      continue;
-    }
-    if (cx + TRAY_GAP + s.w > inner) {
-      sum += lineH;
-      rows += 1;
-      cx = s.w;
-      lineH = s.h;
-    } else {
-      cx += TRAY_GAP + s.w;
-      lineH = Math.max(lineH, s.h);
-    }
-  }
-  sum += lineH;
-  return { rows, heightPx: sum + TRAY_GAP * (rows - 1) + TRAY_BAND_PAD_Y * 2 };
-}
+// ⚠️ 2026-08-14 — 여기 있던 **띠 줄나눔 모형**(`TrayBandSection` · `trayBandSectionsPx` ·
+// `TrayBandLayout` · `trayBandLayoutAt`)을 지웠다. 띠가 `nowrap` 1행이 되면서(기현님 결정,
+// trayBandHeightPx 머리말) "몇 줄로 흐르는가" 라는 물음 자체가 사라졌기 때문이다.
+// 그 모형은 화면이 정말 2행인지를 폭에서 다시 계산해 높이 식과 맞대는 **하네스 검증**이었다 —
+// 지금 같은 자리를 지키는 것은 `overflowX:'auto'`(유일한 도달 경로)와 ToolRail.band.test 의
+// nowrap 단언이다.
 
 export function trayBenchHeightPx(hitPx: number, cols: number, chips: number): number {
   const chip = trayChipBoxPx(hitPx);

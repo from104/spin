@@ -142,7 +142,8 @@ describe('★ 끌고 있는 고스트는 판 덩어리 밖에 있다 (P4 overflo
     stubMedia({ portrait: true, narrow: true });
     const main = await openBoard();
     const board = main.querySelector<HTMLElement>('[data-board]')!;
-    expect(board.style.flexDirection, '세로 경로가 안 돌았다 — 이 it 이 가로를 한 번 더 찌른 것이 된다').toBe('column');
+    // 2026-08-14 — 세로 창이면 코트가 서고 트레이는 **오른쪽 기둥**이다(row). 옛 값은 column 이었다.
+    expect(board.style.flexDirection, '세로 경로가 안 돌았다 — 이 it 이 가로를 한 번 더 찌른 것이 된다').toBe('row');
 
     const ghost = await dragChip();
     expect(board.contains(ghost)).toBe(false);

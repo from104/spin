@@ -12,7 +12,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { ToolRail, type ChairSlot } from './ToolRail.tsx';
-import { TRAY_BAND_PAD_X, TRAY_BAND_PAD_Y, trayBandSectionsPx } from './trayMetrics.ts';
+import { TRAY_BAND_PAD_X, TRAY_BAND_PAD_Y } from './trayMetrics.ts';
 import { BALL, CONE } from '../../core/constants.ts';
 import type { ChairId } from '../../core/ids.ts';
 
@@ -50,12 +50,12 @@ const rail = () => screen.getByRole('navigation', { name: '도구' });
 
 /** 픽셀 식과 같은 식의 calc — **리터럴이다.** 상수를 import 해 비교하면 식이 틀려도 테스트가
  *  따라 움직여 아무것도 못 잡는다(ToolRail.hit.test.tsx 의 같은 관례). */
-const BAND_2ROW_CSS = 'calc((var(--hit) - 8px) * 1.5 + 6px + max(50px, var(--hit)) + 22px)';
+const BAND_1ROW_CSS = 'calc(max(50px, var(--hit)) + 16px)';
 
 describe('세로 띠 — 높이가 못박혀 있다 (코트가 안 흔들리는 근거)', () => {
   it('★ height 가 2행 calc 식이다', () => {
     render(<Rail orientation="horizontal" />);
-    expect(rail().style.height).toBe(BAND_2ROW_CSS);
+    expect(rail().style.height).toBe(BAND_1ROW_CSS);
   });
 
   it('대조군 — 세로 기둥(가로 화면)에는 height 가 없다', () => {
@@ -78,31 +78,29 @@ describe('세로 띠 — 높이가 못박혀 있다 (코트가 안 흔들리는 
   });
 });
 
-describe('세로 띠 — wrap 과 그 교차축 정렬', () => {
-  it('★ flexWrap 이 wrap 이다 — 없으면 2행이 아니라 옛날 한 줄이다', () => {
+describe('가로 띠 — nowrap 과 그 교차축 정렬 (2026-08-14: wrap → nowrap)', () => {
+  it('★ flexWrap 이 nowrap 이다 — wrap 이 살아나면 띠가 2행이 되어 코트가 66px 더 줄어든다', () => {
     render(<Rail orientation="horizontal" />);
-    expect(rail().style.flexWrap).toBe('wrap');
+    expect(rail().style.flexWrap).toBe('nowrap');
   });
 
-  it('대조군 — 세로 기둥의 nav 는 wrap 하지 않는다(접히는 것은 그 안 구역들이다)', () => {
+  it('대조군 — 세로 기둥의 nav 는 아예 선언이 없다(접히는 것은 그 안 구역들이다)', () => {
     render(<Rail />);
     expect(rail().style.flexWrap).toBe('');
   });
 
-  it('★ alignContent 가 flex-start 다 — center/stretch 면 줄이 늘 때 첫 줄이 움직인다', () => {
-    // §3 불변식 1 의 세로판. 서랍을 열어 줄이 하나 늘면 중앙정렬에서는 선수 칩이 통째로 위로
-    // 올라간다 — 발 마우스·입 젓가락 사용자의 공간 기억이 깨지는 그 고장이다.
-    // 겸해서: 3행으로 넘칠 때 위쪽 넘침은 scrollTop 으로 못 간다(첫 줄에 손이 안 닿는다).
+  it('★ alignContent 가 flex-start 다 — nowrap 이라 지금은 놀지만, wrap 이 되살아나는 순간 산다', () => {
+    // §3 불변식 1 의 세로판. 줄이 하나 늘 때 중앙정렬이면 선수 칩이 통째로 위로 올라간다.
     render(<Rail orientation="horizontal" />);
     expect(rail().style.alignContent).toBe('flex-start');
     expect(rail().style.alignContent).not.toBe('center');
   });
 
-  it('★ overflowY 가 auto 다 — 3행으로 넘치는 폭에서 유일한 도달 경로', () => {
+  it('★ overflowX 가 auto 다 — 1행이 넘칠 때 유일한 도달 경로', () => {
     render(<Rail orientation="horizontal" />);
-    expect(rail().style.overflowY).toBe('auto');
-    // 가로 넘침 경로도 그대로 살아 있다(벤치 한 줄이 띠보다 넓을 수 있다).
     expect(rail().style.overflowX).toBe('auto');
+    // 세로로는 넘칠 수 없다(1행 + 높이 고정). 열어 두면 1px 반올림에 스크롤바가 생겨 띠가 좁아진다.
+    expect(rail().style.overflowY).toBe('hidden');
   });
 
   it('대조군 — 세로 기둥의 nav 는 스크롤러가 아니다(벤치 구역 하나뿐)', () => {
@@ -139,41 +137,25 @@ describe('P3·3차 검증이 세운 세 단언이 **wrap 에서도** 그대로 �
   });
 });
 
-describe('줄나눔 모형의 전제 — 띠가 정말 그 여섯 구역인가', () => {
-  // ⚠️ **하네스도 검증 대상이다.** trayBandSectionsPx 는 "줌 · 편집 이력 · 구분선 · 벤치 ·
-  // 구분선 · 기능" 여섯을 그 순서로 전제하고 높이를 답한다. 화면이 일곱 개가 되거나 순서가
-  // 바뀌면 함수는 **여전히 같은 답을 하고 테스트는 초록인 채** 실제 띠는 다른 모양이 된다.
-  // (2026-08-14 두 번째 지시로 다섯 → 여섯. 늘어난 하나가 '편집 이력' 이고 줌 **바로 뒤**다.)
-  it('직계 자식이 정확히 여섯이고 코트 라벨은 없다(세로 기둥 전용)', () => {
+describe('띠는 언제나 1행이다 — 줄나눔 모형이 사라진 자리 (2026-08-14)', () => {
+  // ⚠️ 여기 있던 것은 **줄나눔 모형의 하네스 검증**이었다: trayBandSectionsPx 가 구역 여섯을
+  // 그 순서로 전제하고 높이를 답했으므로, 화면이 정말 그 여섯인지를 DOM 에서 대조해야 했다.
+  // 띠가 `nowrap` 1행이 되면서 모형도 물음도 함께 사라졌다(trayBand.test 머리말이 경위를 쥔다).
+  // 남은 계약은 둘뿐이고, 그 둘이 "1행" 을 실제로 보장한다.
+  it('nowrap 이다 — wrap 이 살아나면 띠가 2행이 되어 코트가 그만큼 줄어든다', () => {
     render(<Rail orientation="horizontal" />);
-    expect(rail().children).toHaveLength(trayBandSectionsPx(44, 2).length);
-    expect(rail().children).toHaveLength(6);
-    // 대조군: 세로 기둥은 코트 라벨이 붙어 일곱이다(TRAY_SECTIONS).
-    expect(screen.queryByText('풀 코트')).toBeNull();
+    expect(rail().style.flexWrap).toBe('nowrap');
   });
 
-  it('순서가 줌 · 편집 이력 · 구분선 · 벤치 · 구분선 · 기능 이다', () => {
+  it('넘치면 **좌우로** 스크롤한다 — 세로 스크롤은 닫혀 있다(1행이라 넘칠 수 없다)', () => {
     render(<Rail orientation="horizontal" />);
-    const kids = [...rail().children] as HTMLElement[];
-    expect(kids.map((el) => el.getAttribute('aria-label') ?? '구분선')).toEqual(
-      trayBandSectionsPx(44, 2).map((s) => s.name),
-    );
+    expect(rail().style.overflowX).toBe('auto');
+    expect(rail().style.overflowY, '열어 두면 1px 반올림에 세로 스크롤바가 생겨 띠가 좁아진다').toBe('hidden');
   });
 
-  it('구분선 한 줄은 가로로 9px 을 먹는다 — 선 1 + 좌우 margin 4', () => {
+  it('구역들이 자기 폭을 그대로 쓴다 — shrink 로 접히면 첫 항목이 스크롤 밖으로 밀린다', () => {
     render(<Rail orientation="horizontal" />);
-    const divider = [...rail().children].find((el) => (el as HTMLElement).style.width === '1px') as HTMLElement;
-    expect(divider, '구분선 선택자가 낡았다').toBeDefined();
-    expect(divider.style.margin).toBe('6px 4px');
-    // 구분선은 이제 셋째다 — 줌·편집 이력 뒤.
-    expect(trayBandSectionsPx(44, 2)[2]!.w).toBe(9);
-  });
-
-  it('벤치 구역은 띠 안에서 **자기 폭을 그대로** 쓴다 — 모형이 561 을 세는 근거', () => {
-    // flex:'none' 이라 base 가 max-content 다. shrink 로 접히면 줄나눔이 달라져 모형이 거짓말한다.
-    // (jsdom 의 cssstyle 은 축약형 `none` 을 longhand `0 0 auto` 로 펼쳐 둔다 — 같은 말이다.)
-    render(<Rail orientation="horizontal" />);
-    for (const name of ['개체', '기능', '확대', '편집 이력']) {
+    for (const name of ['개체', '기능']) {
       expect(screen.getByRole('group', { name }).style.flex, name).toBe('0 0 auto');
     }
   });

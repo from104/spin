@@ -92,16 +92,13 @@ async function openBoard(
   return { user, unmount, stage: screen.getByRole('application', { name: '코트 편집 영역' }) };
 }
 
-/** 인스펙터를 편다. 2026-08-12 결정 ③A 로 속성은 **기본 접힘 오버레이**가 됐다 — 명단·스텝을
- *  보려면 먼저 코트 우상단 [속성]을 눌러야 한다(그 전에는 DOM 에 아예 없다, §7.5 탭 순서). */
-async function openInspector(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: '속성' }));
-  return screen.getByRole('complementary', { name: '드릴 속성' });
+/** 코트 팝오버를 편다. 2026-08-14 재설계로 코트 형태·크기가 오른쪽 기능 바의 [코트] 안으로
+ *  들어갔다 — 그 전에는 DOM 에 아예 없다(닫힌 오버레이는 표적 예산 밖이라는 그 규칙 그대로).
+ *  ⚠️ 자유 전술판에는 **인스펙터가 없다.** 옛 `openInspector` 는 그래서 사라졌다. */
+async function openCourt(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+  return screen.getByRole('dialog', { name: '코트' });
 }
-
-/** 시트의 DOM id. useId 산출물이라 값을 예측할 수 없으므로 트리거의 aria-controls 로 찾는다 —
- *  그 둘이 어긋나면(=배선 사고) 이 헬퍼를 쓰는 테스트가 전부 빨간불이 된다. */
-const sheetIdOf = (): string => screen.getByRole('button', { name: '속성' }).getAttribute('aria-controls')!;
 
 /** 코트 위 개체의 translate 좌표를 읽는다. */
 function poseOf(el: Element): { x: number; y: number } {
@@ -140,7 +137,7 @@ describe('자유 전술판 (대문)', () => {
     expect(screen.getByRole('button', { name: /^선택/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByRole('heading', { name: '어떤 코트로 진행하십니까?' })).toBeNull();
 
-    expect(await openInspector(user)).toBeInTheDocument();
+    expect(await openCourt(user)).toBeInTheDocument();
   });
 
   it('전술판은 1장짜리다 — 스텝 UI 가 없다', async () => {
@@ -148,7 +145,7 @@ describe('자유 전술판 (대문)', () => {
     // 만들 수 있다(눈으로는 알 수 없다). 둘 다 없어야 한다.
     // **인스펙터를 펴 놓고** 확인한다 — 접혀 있으면 아무것도 없는 게 당연해서 통과가 공짜다.
     const { user } = await openBoard();
-    await openInspector(user);
+    await openCourt(user);
     expect(screen.queryByRole('button', { name: '스텝 추가' })).toBeNull();
     // 2.10: 하단 바의 스텝 UI 는 사진 뭉치 + [한 장 더 찍기] 다(옛 "스텝 1 · 이름" 라벨줄이 아니다).
     expect(screen.queryByRole('tablist', { name: '스텝' })).toBeNull();
@@ -178,9 +175,10 @@ describe('자유 전술판 (대문)', () => {
   it('전술판은 prefs.defaultCourtMode 코트로 열린다 (옛 minor #4 의 후신)', async () => {
     // CourtPicker 가 은퇴하면서 defaultCourtMode 의 유일한 소비처가 전술판이 됐다. 이 가드가
     // 없으면 그 설정은 다시 아무도 읽지 않는 죽은 필드가 된다(감사에서 실제로 그랬다).
-    await openBoard('half');
+    const { user } = await openBoard('half');
+    await openCourt(user);
     const seg = screen.getByRole('radiogroup', { name: /코트 형태/ });
-    expect(within(seg).getByRole('radio', { name: /하프/ })).toHaveAttribute('aria-checked', 'true');
+    expect(within(seg).getByRole('radio', { name: new RegExp('하프') })).toHaveAttribute('aria-checked', 'true');
   });
 });
 
@@ -392,16 +390,25 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
     await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
   }
 
+  /** 팝오버가 닫혀 있으면 열고 세그먼트를 돌려준다. 2026-08-14 재설계로 코트 전환이 헤더에서
+   *  기능 바의 [코트] **안**으로 들어갔다 — 닫혀 있으면 DOM 에 아예 없다(표적 예산 밖). */
+  async function seg(user: ReturnType<typeof userEvent.setup>, name: string) {
+    if (!screen.queryByRole('dialog', { name: '코트' })) await openCourt(user);
+    return screen.findByRole('radiogroup', { name });
+  }
+  /** 팝오버를 닫는다 — 고르지 않고 빠져나오는 유일한 길이다. */
+  const closeCourt = (user: ReturnType<typeof userEvent.setup>) => user.keyboard('{Escape}');
+
   it('막 열린 판은 전환이 열려 있다', async () => {
-    await openBoard('full');
-    expect(screen.getByRole('radiogroup', { name: UNLOCKED })).toBeInTheDocument();
+    const { user } = await openBoard('full');
+    expect(await seg(user, UNLOCKED)).toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: LOCKED })).toBeNull();
   });
 
   it('한 번이라도 편집하면 잠긴다', async () => {
     const { user, stage } = await openBoard('full', { placed: true });
     await nudgeSomething(user, stage);
-    await waitFor(() => expect(screen.getByRole('radiogroup', { name: LOCKED })).toBeInTheDocument());
+    expect(await seg(user, LOCKED)).toBeInTheDocument();
   });
 
   it('잠긴 상태에서 눌러도 코트가 바뀌지 않고, 이유를 알려준다', async () => {
@@ -409,33 +416,38 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
     // 키보드·스크린리더 사용자도 "왜 안 되는지" 를 들을 수 있어야 한다.
     const { user, stage } = await openBoard('full', { placed: true });
     await nudgeSomething(user, stage);
-    const locked = await screen.findByRole('radiogroup', { name: LOCKED });
+    const locked = await seg(user, LOCKED);
 
-    await user.click(within(locked).getByRole('radio', { name: /하프/ }));
+    await user.click(within(locked).getByRole('radio', { name: new RegExp('하프') }));
 
-    expect(within(locked).getByRole('radio', { name: /풀/ })).toHaveAttribute('aria-checked', 'true');
-    expect(await screen.findByText(/초기화하면 코트 형태를 바꿀 수 있습니다/)).toBeInTheDocument();
+    expect(within(await seg(user, LOCKED)).getByRole('radio', { name: new RegExp('풀') })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(await screen.findByText(/초기화하면 코트 형태와 크기를 바꿀 수 있습니다/)).toBeInTheDocument();
   });
 
   it('코트를 비우면 다시 열린다', async () => {
     const { user, stage } = await openBoard('full', { placed: true });
     await nudgeSomething(user, stage);
-    await screen.findByRole('radiogroup', { name: LOCKED });
+    await seg(user, LOCKED);
+    await closeCourt(user);
 
     await user.click(screen.getByRole('button', { name: '코트 비우기' }));
     await user.click(await screen.findByRole('button', { name: '비우기' })); // 확인 다이얼로그
 
-    await waitFor(() => expect(screen.getByRole('radiogroup', { name: UNLOCKED })).toBeInTheDocument());
+    expect(await seg(user, UNLOCKED)).toBeInTheDocument();
   });
 
   it('열려 있을 때 누르면 실제로 그 코트로 바뀐다', async () => {
     const { user } = await openBoard('full');
-    const seg = screen.getByRole('radiogroup', { name: UNLOCKED });
-    await user.click(within(seg).getByRole('radio', { name: /하프/ }));
+    await user.click(within(await seg(user, UNLOCKED)).getByRole('radio', { name: new RegExp('하프') }));
 
-    await waitFor(() => {
-      const now = screen.getByRole('radiogroup', { name: UNLOCKED });
-      expect(within(now).getByRole('radio', { name: /하프/ })).toHaveAttribute('aria-checked', 'true');
+    await waitFor(async () => {
+      expect(within(await seg(user, UNLOCKED)).getByRole('radio', { name: new RegExp('하프') })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
     });
   });
 
@@ -443,20 +455,17 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
     // DRILL_LOAD 로 구현했다면 첫 전환이 past 에 한 칸 쌓여 두 번째 전환이 잠긴다.
     // 리듀서 단위 테스트가 있지만, 게이트가 화면에서도 열린 채인지는 여기서만 보인다.
     const { user } = await openBoard('full');
-    await user.click(within(screen.getByRole('radiogroup', { name: UNLOCKED })).getByRole('radio', { name: /하프/ }));
-    await waitFor(() =>
-      expect(within(screen.getByRole('radiogroup', { name: UNLOCKED })).getByRole('radio', { name: /하프/ })).toHaveAttribute(
-        'aria-checked',
-        'true',
-      ),
+    await user.click(within(await seg(user, UNLOCKED)).getByRole('radio', { name: new RegExp('하프') }));
+    expect(within(await seg(user, UNLOCKED)).getByRole('radio', { name: new RegExp('하프') })).toHaveAttribute(
+      'aria-checked',
+      'true',
     );
+    await closeCourt(user);
 
-    await user.click(within(screen.getByRole('radiogroup', { name: UNLOCKED })).getByRole('radio', { name: /플랫/ }));
-    await waitFor(() =>
-      expect(within(screen.getByRole('radiogroup', { name: UNLOCKED })).getByRole('radio', { name: /플랫/ })).toHaveAttribute(
-        'aria-checked',
-        'true',
-      ),
+    await user.click(within(await seg(user, UNLOCKED)).getByRole('radio', { name: new RegExp('플랫') }));
+    expect(within(await seg(user, UNLOCKED)).getByRole('radio', { name: new RegExp('플랫') })).toHaveAttribute(
+      'aria-checked',
+      'true',
     );
   });
 });
@@ -494,6 +503,7 @@ describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', ()
     // 새로 마운트 = 새로고침 후 다시 방문. prefs 는 그대로, 스냅샷만 살아 있다.
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+    await userEvent.setup().click(screen.getByRole('button', { name: '코트 형태와 크기' }));
     expect(screen.getByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: '코트 형태' })).toBeNull();
   }, 20000);
@@ -533,6 +543,7 @@ describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', ()
 
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+    await userEvent.setup().click(screen.getByRole('button', { name: '코트 형태와 크기' }));
     expect(screen.getByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument();
   }, 20000);
 });
@@ -577,6 +588,7 @@ describe('세션 왕복 — 떠났다 오면 새 판이 아니다', () => {
     unmount();
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+    await userEvent.setup().click(screen.getByRole('button', { name: '코트 형태와 크기' }));
     expect(screen.getByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
   }, 20000);
 });
@@ -647,47 +659,50 @@ describe('태블릿 세로 레이아웃 (§6.4)', () => {
     delete (window as unknown as { matchMedia?: unknown }).matchMedia;
   });
 
-  // 2026-08-12 결정 ③A 로 이 describe 의 전제가 뒤집혔다: 가로에서도 속성은 자리를 차지하지
-  // 않는다. 방향이 가르는 것은 **어느 변에서 시트가 올라오는가** 뿐이다.
-  it('가로에서도 속성은 기본 접힘이다 — 열어도 판을 밀어내지 않는다', async () => {
+  // ⚠️ 2026-08-14 기현님 재설계로 이 describe 의 전제가 **또** 뒤집혔다.
+  // 옛 기록(지우지 않는다): 2026-08-12 결정 ③A 로 "가로에서도 속성은 자리를 차지하지 않는다.
+  // 방향이 가르는 것은 어느 변에서 시트가 올라오는가 뿐이다" 였다.
+  // 지금은 **자유 전술판에 속성이 아예 없다**(기현님: *"속성 탭은 정말 무용지물"*). 방향이
+  // 가르는 것은 이제 **트레이가 판의 어느 변에 붙는가** 다 — 코트 긴 변이므로 가로 창이면
+  // 아래 띠, 세로 창이면 오른쪽 기둥이다. 기능 바는 방향과 무관하게 언제나 오른쪽이다.
+  it('가로 창 — 코트가 눕고 트레이가 판 **아래 띠**가 된다', async () => {
     stubOrientation(false);
-    const { user } = await openBoard('full');
-    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
-
-    const main = document.getElementById('main')!;
-    const inflowBefore = [...main.children].filter((c) => (c as HTMLElement).style.position !== 'absolute').length;
-
-    await openInspector(user);
-    // 시트는 흐름 밖(absolute)이라 코트 상자를 나눠 갖는 형제가 늘지 않는다 — 완료 판정 (a).
-    const inflowAfter = [...main.children].filter((c) => (c as HTMLElement).style.position !== 'absolute').length;
-    expect(inflowAfter).toBe(inflowBefore);
-    expect(document.getElementById(sheetIdOf())!.style.position).toBe('absolute');
+    await openBoard('full');
+    const board = document.querySelector<HTMLElement>('[data-board]')!;
+    expect(board.style.flexDirection, '가로 코트의 긴 변은 아래다').toBe('column');
+    const tray = document.querySelector<HTMLElement>('nav[data-tray]')!;
+    expect(tray.style.flexDirection).toBe('row');
   });
 
-  it('세로에서는 속성이 하단 시트로 내려가고 기본은 접혀 있다', async () => {
+  it('세로 창 — 코트가 서고 트레이가 판 **오른쪽 기둥**이 된다 (반대 방향 대조군)', async () => {
     stubOrientation(true);
     await openBoard('full');
-
-    // 도구는 그대로 있다(아래로 내려갔을 뿐).
-    expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument();
-    // 속성은 접혀 있어 DOM 에 없다 — display:none 으로 두면 보이지 않는 입력이 탭 순서에 남는다.
-    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
-    const handle = screen.getByRole('button', { name: '속성' });
-    expect(handle).toHaveAttribute('aria-expanded', 'false');
+    const board = document.querySelector<HTMLElement>('[data-board]')!;
+    expect(board.style.flexDirection, '세로 코트의 긴 변은 오른쪽이다').toBe('row');
+    const tray = document.querySelector<HTMLElement>('nav[data-tray]')!;
+    expect(tray.style.flexDirection).toBe('column');
   });
 
-  it('세로에서 손잡이를 누르면 속성이 아래에서 올라온다', async () => {
-    stubOrientation(true);
-    const { user } = await openBoard('full');
+  it('기능 바는 두 방향 모두 **오른쪽**이다 — 판이 돌아도 앱 조작은 자리를 안 옮긴다', async () => {
+    for (const portrait of [false, true]) {
+      stubOrientation(portrait);
+      const { unmount } = await openBoard('full');
+      const main = document.getElementById('main')!;
+      expect(main.style.flexDirection, `portrait=${portrait}`).toBe('row');
+      const kids = [...main.children] as HTMLElement[];
+      const bar = document.querySelector<HTMLElement>('nav[data-function-bar]')!;
+      // main 의 **마지막** 흐름 자식이라야 오른쪽에 선다.
+      const inflow = kids.filter((c) => c.style.position !== 'absolute' && c.tagName !== 'SPAN');
+      expect(inflow[inflow.length - 1], `portrait=${portrait}`).toBe(bar);
+      unmount();
+    }
+  });
 
-    await user.click(screen.getByRole('button', { name: '속성' }));
-
-    expect(await screen.findByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '속성' })).toHaveAttribute('aria-expanded', 'true');
-    // 세로는 아래에서, 가로는 오른쪽에서 — 붙박이가 설 자리에서 미끄러진다.
-    const sheet = document.getElementById(sheetIdOf())!;
-    expect(sheet.style.bottom).toBe('0px');
-    expect(sheet.style.top).toBe('');
+  it('전술판에는 속성이 **없다** — 인스펙터도 그 손잡이도 DOM 에 아예 없다', async () => {
+    stubOrientation(false);
+    await openBoard('full');
+    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '속성' })).toBeNull();
   });
 });
 
@@ -707,8 +722,9 @@ describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', (
     const user = userEvent.setup();
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-    await openInspector(user);
-    expect(screen.getAllByRole('button', { name: '배치' }).length).toBe(8);
+    await openCourt(user);
+    // 2026-08-14 — 선수 명단(인스펙터)이 없어졌다. 미배치 선수는 **트레이 칩**으로 남는다.
+    expect(screen.getAllByRole('button', { name: /선수 배치$/ }).length).toBe(8);
   });
 
 });
@@ -748,14 +764,15 @@ describe('코트 비우기 — 되돌릴 수 없으므로 반드시 확인을 �
   it('비운 뒤에도 선수는 명단에 남는다 — 다시 놓을 수 있어야 한다', async () => {
     const { user } = await openAndClickClear();
     await user.click(screen.getByRole('button', { name: '비우기' }));
-    await openInspector(user);
-    await waitFor(() => expect(screen.getAllByRole('button', { name: '배치' }).length).toBe(8));
+    await openCourt(user);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /선수 배치$/ }).length).toBe(8));
   });
 
   it('비우면 코트 전환 잠금이 풀린다', async () => {
     const { user } = await openAndClickClear();
     await user.click(screen.getByRole('button', { name: '비우기' }));
-    await waitFor(() => expect(screen.getByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    expect(await screen.findByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument();
   });
 });
 

@@ -114,16 +114,28 @@ describe('창 크기가 판을 돌린다 — rot 이 위에서 내려온다', ()
     expect(rotGroup(svg)!.getAttribute('transform'), '안 돌면 transform 속성 자체가 없다').toBeNull();
   });
 
-  it('대조군 — 세로 판정과 회전은 다른 판정이다. 세워도 거의 정사각형(1500×1520)이면 안 돈다', async () => {
-    // `useIsPortrait` 과 `rot` 은 **다른 판정**이고 그래야 맞다(useIsPortrait.ts 머리말):
-    // 레이아웃은 창 모양이, 회전은 **코트 상자와 코트 종횡비의 조합**이 정한다. 하나로 묶으면
-    // 여기서 돌아 버린다 — 코트 상자 1275×1354 는 세로로 길지만, 그 안에서 풀 코트(1.57:1)를
-    // 돌려도 1.6412 / 1.5455 = 6% 밖에 안 커져 ROTATE_GAIN(8%)에 못 미친다.
-    setViewport(1500, 1520);
-    stubMedia({ portrait: true, narrow: false });
-    expect(stageRotFor('full', undefined, { narrow: false, inspector: 'hidden' }, { w: 1500, h: 1520 })).toBe(0);
-    const svg = await openBoard();
-    expect(document.getElementById('main')!.style.flexDirection, '세로 배치는 살아 있다').toBe('column');
-    expect(svg.getAttribute('viewBox'), '그래도 판은 안 돈다').toBe(`0 0 ${FULL.vbW} ${FULL.vbH}`);
+  it('★ 세로 창에서는 **언제나** 판이 선다 — 배치 규칙과 회전 판정이 서로 일치한다', async () => {
+    // ⚠️ 옛 대조군(지우지 않는다): *"세로 판정과 회전은 다른 판정이다. 세워도 거의 정사각형
+    // (1500×1520)이면 안 돈다."* 그때는 세로 창에서 트레이가 **높이**를 먹어(띠) 상자가
+    // 납작해질 수 있었고, 그래서 세로 창인데도 판이 안 도는 구간이 있었다.
+    // 2026-08-14 재설계로 트레이가 코트 **긴 변**에 붙으면서 그 구간이 사라졌다: 세로 창이면
+    // 트레이가 폭을 먹어 상자가 더 세로로 길어지고, 그러면 세운 쪽이 언제나 이긴다.
+    // 이것은 우연이 아니라 **규칙과 판정이 같은 방향을 본다는 뜻**이다 — 그 일치가 깨지면
+    // "트레이는 아래에 있는데 판은 서 있는" 모순된 화면이 난다. 그래서 전수로 못박는다.
+    for (let w = 320; w <= 2000; w += 40) {
+      for (let h = w + 40; h <= 2400; h += 40) {
+        const rot = stageRotFor('full', undefined, { narrow: w < 1100, inspector: 'hidden', trayBand: false, board: true }, { w, h });
+        expect(rot, `${w}×${h} 세로 창인데 판이 안 섰다`).toBe(90);
+      }
+    }
+  });
+
+  it('대조군 — 가로 창에서는 언제나 눕는다. 두 방향이 뭉뚱그려진 것이 아니다', async () => {
+    for (let h = 320; h <= 1400; h += 40) {
+      for (let w = h + 40; w <= 2400; w += 40) {
+        const rot = stageRotFor('full', undefined, { narrow: w < 1100, inspector: 'hidden', trayBand: true, board: true }, { w, h });
+        expect(rot, `${w}×${h} 가로 창인데 판이 섰다`).toBe(0);
+      }
+    }
   });
 });

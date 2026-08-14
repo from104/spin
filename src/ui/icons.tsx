@@ -321,3 +321,93 @@ export function IconRedo({ size = 17, ...rest }: IconProps) {
     </svg>
   );
 }
+
+// ── 오른쪽 기능 바(2026-08-14 기현님 재설계) ────────────────────────────────────────────
+// 헤더의 코트 전환·하단 바의 [코트 비우기]·[내보내기]·속도 제한·[보기]가 한 기둥으로 모이면서
+// 각자 아이콘이 필요해졌다. 바에서는 아이콘 아래 2~4자 이름이 함께 서므로 **아이콘 혼자
+// 뜻을 다 지지 않아도 된다** — 글자가 못 하는 일(한눈에 자리를 찾는 것)만 맡는다.
+
+/** 골대 원위치 — 골대(ㄷ자)와 제자리로 돌아가는 화살표. */
+export function IconGoalReset({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M5 4v9M19 4v9M5 4h14" />
+      <path d="M12 22V15m0 0-3 3m3-3 3 3" />
+    </svg>
+  );
+}
+
+/** 코트 비우기 — 쓸어 담는 통. 파괴적 동작이라 뚜껑이 열린 모양으로 그린다. */
+export function IconClear({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M4 7h16" />
+      <path d="M9 7V4h6v3" />
+      <path d="M6 7l1 13h10l1-13" />
+    </svg>
+  );
+}
+
+/** 내보내기 — 상자 밖으로 나가는 화살표(공유가 아니라 **꺼내기**다: 인쇄·이미지·백업). */
+export function IconExport({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M12 15V3m0 0-4 4m4-4 4 4" />
+      <path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" />
+    </svg>
+  );
+}
+
+/** 속도 제한 — 계기판 바늘. 숫자가 아니라 **한계**를 말하는 그림이다. */
+export function IconSpeed({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M3.5 17a9 9 0 1 1 17 0" />
+      <path d="M12 17l4.5-5" />
+    </svg>
+  );
+}
+
+/** 보기(격자·골 지역 가이드·도움말) — 눈. 판을 **바꾸지 않고 보는 방식만** 바꾸는 것들이다. */
+export function IconEye({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" />
+      <circle cx="12" cy="12" r="2.6" />
+    </svg>
+  );
+}
+
+/** 확대(줌 인) — 돋보기에 +. 옛 ZoomGroup 은 IconPlus 만 썼는데, 기능 바에서는 [코트]·[골대]와
+ *  나란히 서므로 "무엇에 대한 +인가" 가 그림에 있어야 한다. */
+export function IconZoomIn({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="M15.5 15.5 21 21" />
+      <path d="M10.5 7.5v6M7.5 10.5h6" />
+    </svg>
+  );
+}
+
+/** 축소(줌 아웃) — IconZoomIn 과 한 획만 다르다. 나란히 놓였을 때 그 한 획이 유일한 차이라야
+ *  방향을 헷갈리지 않는다. */
+export function IconZoomOut({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="M15.5 15.5 21 21" />
+      <path d="M7.5 10.5h6" />
+    </svg>
+  );
+}
+
+/** 줌 초기화 — 코트 테두리에 딱 맞추는 네 모서리. '100%' 라는 글자를 아이콘으로 쓰면
+ *  2~4자 이름과 겹쳐 같은 말을 두 번 하게 된다. */
+export function IconZoomReset({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+    </svg>
+  );
+}

@@ -19,7 +19,7 @@
 // 5. sr-only 는 **요소 종류로 거르지 않는다** — sr-only 인 상호작용 컨트롤(SkipLink)은 포커스
 //    순회에 실제로 나타나는 표적이므로 센다.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AppShell } from '../app/AppShell.tsx';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { LibraryProvider } from '../store/library/LibraryProvider.tsx';
@@ -131,15 +131,12 @@ describe('첫 화면 표적 예산 [E-5]', () => {
   });
 
   it('대조군: 서랍을 열면 표적이 실제로 는다 — 위 it 이 같은 화면을 두 번 센 것이 아니다', async () => {
-    // 이게 없으면 prefs 주입이 무시돼도(예: 키가 바뀌어도) 위 it 이 조용히 통과한다.
+    // ⚠️ 2026-08-14 — 여는 방법이 바뀌었다. 옛 경로는 `prefs.tray` 주입(서랍이 열린 채로
+    // 시작한다)이었는데, 서랍이 플라이아웃이 되면서 그 저장값 자체가 사라졌다. 지금은 손잡이에
+    // 손을 얹어야 열린다 — 그래서 **첫 화면 예산에는 영영 안 들어간다**(그것이 이 재설계의 값이다).
     await openFirstScreen();
     const closed = countTargets(document.body).length;
-    cleanup();
-    localStorage.setItem(
-      PREFS_KEY,
-      JSON.stringify({ ...makeDefaultPrefs(), tray: { draw: true, note: true } }),
-    );
-    await openFirstScreen();
+    fireEvent.pointerEnter(screen.getByRole('button', { name: /^작도/ }), { pointerType: 'mouse' });
     expect(countTargets(document.body).length).toBeGreaterThan(closed);
   });
 
@@ -164,9 +161,11 @@ describe('첫 화면 표적 예산 [E-5]', () => {
     // 게이트의 "초기 상태" 한정이 실제로 무게를 갖는지 확인한다. 인스펙터 20컨트롤이
     // 오버레이로 내려간 것이 이 예산 절감의 절반이다(계획서 §3) — 열었을 때 수가 늘지
     // 않는다면 그 절감은 애초에 없던 것이다.
+    // ⚠️ 2026-08-14 — 자유 전술판에 인스펙터가 없어졌다. 같은 논지를 지키는 오버레이는 이제
+    // 기능 바의 [코트] 팝오버다(형태 3 + 크기 3 = 6컨트롤이 닫히면 DOM 에서 사라진다).
     await openFirstScreen();
     const before = countTargets(document.body).length;
-    screen.getByRole('button', { name: '속성' }).click();
+    screen.getByRole('button', { name: '코트 형태와 크기' }).click();
     await waitFor(() => expect(countTargets(document.body).length).toBeGreaterThan(before));
   });
 });

@@ -84,72 +84,54 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('인스펙터의 [골대 원위치] 가 실제 물리까지 닿는다', () => {
-  it('첫 화면에는 없다 — 인스펙터는 닫혀 있으면 DOM 에 없어 표적 예산(40/40, 여유 0) 밖이다', async () => {
+describe('기능 바의 [골대 원위치] 가 실제 물리까지 닿는다', () => {
+  // ⚠️ 2026-08-14 재설계로 자리가 바뀌었다. 옛 기록(지우지 않는다): 주 자리는 **인스펙터**
+  // [드릴 정보] 맨 끝이었고, 첫 화면 표적 예산(40/40, 여유 0)을 한 칸도 안 쓰려고 닫힌 시트
+  // 안에 뒀다. 둘째 손잡이는 [코트 비우기] 확인 모달 안의 [골대만 원위치] 였다.
+  // 지금은 **오른쪽 기능 바에 상시**로 있다 — 자유 전술판에서 인스펙터가 통째로 없어졌고
+  // (기현님: *"속성 탭은 정말 무용지물"*), 예산도 35 → 33 으로 되레 여유가 늘었다.
+  // 그래서 모달 안의 둘째 손잡이도 지웠다: 같은 일을 하는 자리가 둘일 이유가 없어졌다.
+  it('첫 화면에 **있다** — 기능 바는 닫히는 서랍이 아니다', async () => {
     await openBoard();
-    expect(screen.queryByRole('button', { name: '골대 원위치' })).toBeNull();
-    // 대조군 — 화면 자체는 다 섰다("아무것도 안 그려져서" 통과한 것이 아니다).
-    expect(screen.getByRole('button', { name: '속성' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '골대 원위치' })).toBeInTheDocument();
   });
 
-  it('[속성]을 열면 나오고, 누르면 world.resetGoals() 가 **1회** 불린다', async () => {
+  it('누르면 world.resetGoals() 가 **1회** 불린다', async () => {
     const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '속성' }));
-
-    const btn = await screen.findByRole('button', { name: '골대 원위치' });
+    const btn = screen.getByRole('button', { name: '골대 원위치' });
     expect(resetGoalsCalls.n, '누르기 전').toBe(0); // 대조군: "0회라서 통과" 가 아니다
     await user.click(btn);
-
     expect(resetGoalsCalls.n).toBe(1);
   });
 
-  it('누른 뒤에도 인스펙터는 열린 채고 포커스는 그 버튼이다 (§7.6)', async () => {
+  it('누른 뒤에도 포커스는 그 버튼이다 — 판을 만지던 손이 자리를 안 잃는다 (§7.6)', async () => {
     const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '속성' }));
-    const btn = await screen.findByRole('button', { name: '골대 원위치' });
-
+    const btn = screen.getByRole('button', { name: '골대 원위치' });
     await user.click(btn);
-
-    expect(screen.getByRole('complementary', { name: '드릴 속성' })).toBeInTheDocument();
     expect(document.activeElement).toBe(btn);
   });
 
-  it('Esc 로 인스펙터를 닫으면 포커스는 [속성] 으로 돌아간다 — 골대 버튼이 그 계약을 안 깼다 (§7.6)', async () => {
+  it('연달아 두 번 누르면 2회다 — 한 번 누른 뒤 죽는 버튼이 아니다', async () => {
     const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '속성' }));
-    await user.click(await screen.findByRole('button', { name: '골대 원위치' }));
-
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
-    expect(screen.getByRole('button', { name: '속성' })).toHaveFocus();
+    const btn = screen.getByRole('button', { name: '골대 원위치' });
+    await user.click(btn);
+    await user.click(btn);
+    expect(resetGoalsCalls.n).toBe(2);
   });
 });
 
-describe('두 손잡이가 같은 동작을 부른다 (모달 쪽을 남긴 값)', () => {
-  it('모달의 [골대만 원위치] 도 같은 world.resetGoals() 로 간다', async () => {
-    const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 비우기' }));
-    await user.click(screen.getByRole('button', { name: '골대만 원위치' }));
-    expect(resetGoalsCalls.n).toBe(1);
-  });
-
-  it('두 손잡이를 차례로 누르면 2회다 — 한쪽이 다른 쪽을 가로채거나 죽이지 않는다', async () => {
-    const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 비우기' }));
-    await user.click(screen.getByRole('button', { name: '골대만 원위치' }));
-    expect(resetGoalsCalls.n).toBe(1);
-
-    await user.click(screen.getByRole('button', { name: '속성' }));
-    await user.click(await screen.findByRole('button', { name: '골대 원위치' }));
-    expect(resetGoalsCalls.n).toBe(2);
-  });
-
-  it('대조군: 모달의 [비우기] 는 골대 복귀를 부르지 않는다 — 한 모달에 있다고 섞이지 않았다', async () => {
+describe('대조군 — 비우기와 섞이지 않는다', () => {
+  it('[코트 비우기] 확인 모달의 [비우기] 는 골대 복귀를 부르지 않는다', async () => {
     const { user } = await openBoard();
     await user.click(screen.getByRole('button', { name: '코트 비우기' }));
     await user.click(screen.getByRole('button', { name: '비우기' }));
     expect(resetGoalsCalls.n).toBe(0);
+  });
+
+  it('모달 안에는 [골대만 원위치] 가 **없다** — 손잡이는 이제 하나뿐이다', async () => {
+    const { user } = await openBoard();
+    await user.click(screen.getByRole('button', { name: '코트 비우기' }));
+    expect(screen.queryByRole('button', { name: '골대만 원위치' })).toBeNull();
   });
 });
 
