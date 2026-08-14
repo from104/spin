@@ -88,6 +88,8 @@ export interface UseEditorPointerOptions {
   pendingPlayerId: ChairId | null;
   /** 지금 스텝의 인덱스 — 도형 상한(스텝당 40)을 세는 데 쓴다. placement 로 그대로 넘어간다. */
   stepIndex: number;
+  /** 이 스텝에서 잠긴 개체 id(2026-08-14). **끌기만** 막는다 — 선택도 물리도 그대로다. */
+  locked?: ReadonlySet<string>;
   onPlayerPlaced(): void;
   showToast(message: string, action?: { label: string; onAction(): void }): void;
   /** §9 결정 ④ · 5.5 — 접근성 설정의 **2존 모드** 토글. `handlesVisible(…, forced)` 의
@@ -512,6 +514,17 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         // 확대해 놓고 선택을 시작하면 화면 밖 개체는 어떤 방법으로도 사각형에 넣을 수 없다 —
         // 손을 떼면 선택이 끝나고, 떼지 않으면 판을 밀 수 없다. 가장자리에서 판이 따라온다.
         return { edgePan: true };
+      }
+      // ★ 잠긴 개체는 **못 끈다**(기현 지시 2026-08-14: *"잠김은 이동은 안 되지만 고정되어
+      //   상호작용은 하는"*). 여기서 막는 것이 잠김의 본문이다:
+      //    · 선택은 그대로 된다 — 잠긴 것도 골라서 메뉴를 열 수 있어야 잠금을 풀 수 있다.
+      //    · 물리 상호작용도 그대로다 — 공은 잠긴 휠체어에 여전히 부딪힌다(월드에 있다).
+      //    · 막는 것은 **손으로 옮기는 것** 하나뿐이다. 키보드 이동(OBJECT_NUDGE)도 같은
+      //      뜻이므로 useEditorKeyboard 쪽에서 함께 막는다.
+      if (hit.id && (ctxRef.current.locked?.has(hit.id) ?? false)) {
+        ctx.dispatch({ type: 'SELECT_SET', ids: [hit.id] });
+        // pan 도 rubber 도 안 연다 — 잠긴 것을 짚은 손은 "이걸 고르겠다" 이지 판을 밀겠다가 아니다.
+        return {};
       }
       if (hit.kind === 'zoneHandle') {
         resetDragSession();

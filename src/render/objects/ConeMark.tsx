@@ -1,6 +1,7 @@
 // §6.6 콘. 색이 아니라 실루엣으로 구분한다 — 흰 가로 띠는 iPad 배율에서 얼룩으로 사라져
 // "색각 이상 대응" 근거가 성립하지 않는다. 슬롯 0 = 채운 삼각형, 슬롯 1 = 삼각형 + 밑변 사각 베이스.
 import { memo, useEffect, useRef } from 'react';
+import { LockRing } from './LockRing.tsx';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { CONE_COLORS, OBJ_STROKE } from '../../core/colors.ts';
 import type { ConeId } from '../../core/ids.ts';
@@ -11,6 +12,8 @@ export interface ConeMarkProps {
   writer: TransformWriter;
   colorIndex: 0 | 1;
   selected: boolean;
+  /** 잠김(2026-08-14) — 이동만 막힌 상태. 붉은 테두리로 표시한다. */
+  locked?: boolean;
   active: boolean;
   ariaLabel: string;
   onPointerDown?: (id: ConeId, e: ReactPointerEvent<SVGGElement>) => void;
@@ -27,6 +30,7 @@ export const ConeMark = memo(function ConeMark({
   writer,
   colorIndex,
   selected,
+  locked = false,
   active,
   ariaLabel,
   onPointerDown,
@@ -53,6 +57,7 @@ export const ConeMark = memo(function ConeMark({
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
+      {locked && <LockRing r={9.5} />}
       {/* 선택 링 — ChairChip·BallDot 과 같은 2겹 규약 */}
       {selected && (
         <g className="sel-ring" pointerEvents="none">

@@ -1,0 +1,214 @@
+// 개체 메뉴 — 잠김 · 무시 · 삭제 (2026-08-14 기현 지시).
+//
+// 세 층을 따로 잰다. 하나로 뭉치면 둘이 죽어도 초록이다:
+//   ① **손짓** — 오른쪽 클릭 / 긴 터치로 메뉴가 뜨는가(useLongPressMenu, 순수 타이머).
+//   ② **화면** — 메뉴 항목이 상태에 따라 갈리는가, 무시는 칩에만 뜨는가.
+//   ③ **효과** — 잠그면 정말 안 움직이는가, 무시하면 정말 물리에서 빠지는가.
+// ③ 이 이 기능의 본문이다. ①②만 초록이고 ③ 이 끊긴 것이 "메뉴는 뜨는데 아무 일도 안 나는"
+// 상태이고, 그것이 이 저장소가 배선에서 실제로 겪어 온 실패다.
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { renderHook } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
+import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
+import { AppNavProvider } from '../../app/useAppHistory.ts';
+import type { AppHistoryApi } from '../../app/useAppHistory.ts';
+import { HeaderProvider } from '../../app/AppHeader.tsx';
+import { LiveRegion } from '../../ui/LiveRegion.tsx';
+import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
+import { BoardScreen } from '../board/BoardScreen.tsx';
+import { LONG_PRESS_MS, MOVE_CANCEL_PX, useLongPressMenu } from './useLongPressMenu.ts';
+import { setStepFlag } from '../../model/edits.ts';
+import { createDrill } from '../../model/defaults.ts';
+
+// ── ① 손짓 ──────────────────────────────────────────────────────────────────────────
+
+describe('여는 손짓 — 오른쪽 클릭과 긴 터치', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('오른쪽 클릭은 **즉시** 연다 — 마우스에는 정확한 손짓이 이미 있다', () => {
+    const open = vi.fn();
+    const { result } = renderHook(() => useLongPressMenu(open));
+    act(() => result.current.onContextMenu('ch_1', { preventDefault: () => {}, clientX: 10, clientY: 20 }));
+    expect(open).toHaveBeenCalledWith('ch_1', 10, 20);
+  });
+
+  it('터치는 길게 눌러야 열린다 — 탭으로는 안 열린다', () => {
+    vi.useFakeTimers();
+    const open = vi.fn();
+    const { result } = renderHook(() => useLongPressMenu(open));
+    act(() => result.current.onPointerDown('ch_1', { pointerType: 'touch', clientX: 5, clientY: 5 } as never));
+
+    act(() => void vi.advanceTimersByTime(LONG_PRESS_MS - 20));
+    expect(open, '아직 열리면 안 된다 — 탭이 메뉴를 연다').not.toHaveBeenCalled();
+    act(() => void vi.advanceTimersByTime(40));
+    expect(open).toHaveBeenCalledWith('ch_1', 5, 5);
+  });
+
+  it('★ 마우스로 누르고 있어도 안 열린다 — 안 그러면 끌기 전 망설임이 메뉴를 연다', () => {
+    vi.useFakeTimers();
+    const open = vi.fn();
+    const { result } = renderHook(() => useLongPressMenu(open));
+    act(() => result.current.onPointerDown('ch_1', { pointerType: 'mouse', clientX: 5, clientY: 5 } as never));
+    act(() => void vi.advanceTimersByTime(LONG_PRESS_MS * 3));
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('★ 손가락이 움직이면 접는다 — 끌기가 이긴다', () => {
+    vi.useFakeTimers();
+    const open = vi.fn();
+    const { result } = renderHook(() => useLongPressMenu(open));
+    act(() => result.current.onPointerDown('ch_1', { pointerType: 'touch', clientX: 100, clientY: 100 } as never));
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointermove', { clientX: 100 + MOVE_CANCEL_PX + 5, clientY: 100 }));
+    });
+    act(() => void vi.advanceTimersByTime(LONG_PRESS_MS * 2));
+    expect(open, '끌고 있는데 메뉴가 떴다').not.toHaveBeenCalled();
+  });
+
+  it('대조군: 미세한 흔들림으로는 안 접힌다 — 발 마우스·입 젓가락은 완전히 정지하지 못한다', () => {
+    vi.useFakeTimers();
+    const open = vi.fn();
+    const { result } = renderHook(() => useLongPressMenu(open));
+    act(() => result.current.onPointerDown('ch_1', { pointerType: 'touch', clientX: 100, clientY: 100 } as never));
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointermove', { clientX: 100 + MOVE_CANCEL_PX - 3, clientY: 100 }));
+    });
+    act(() => void vi.advanceTimersByTime(LONG_PRESS_MS + 20));
+    expect(open).toHaveBeenCalled();
+  });
+});
+
+// ── ③ 효과 (순수 규칙) ──────────────────────────────────────────────────────────────
+
+describe('플래그 저장 — 스텝마다 따로다 (기현 결정)', () => {
+  it('한 스텝에 잠가도 다른 스텝은 그대로다', () => {
+    const d0 = createDrill({ courtMode: 'full' });
+    const two = { ...d0, steps: [d0.steps[0]!, { ...d0.steps[0]!, id: 'st_2' as never }] };
+    const d = setStepFlag(two, 0, 'locked', 'ch_x', true);
+    expect(d.steps[0]!.locked).toEqual(['ch_x']);
+    expect(d.steps[1]!.locked, '스텝 2까지 잠겼다 — 드릴 전체 플래그가 됐다').toBeUndefined();
+  });
+
+  it('끄면 키가 **사라진다** — 빈 배열이 저장본에 눌러앉지 않는다', () => {
+    const d0 = createDrill({ courtMode: 'full' });
+    const on = setStepFlag(d0, 0, 'locked', 'ch_x', true);
+    const off = setStepFlag(on, 0, 'locked', 'ch_x', false);
+    expect('locked' in off.steps[0]!).toBe(false);
+  });
+
+  it('같은 값을 다시 넣으면 **같은 참조**다 — 되돌리기가 한 칸도 안 쌓인다', () => {
+    const d0 = createDrill({ courtMode: 'full' });
+    const on = setStepFlag(d0, 0, 'locked', 'ch_x', true);
+    expect(setStepFlag(on, 0, 'locked', 'ch_x', true)).toBe(on);
+    expect(setStepFlag(d0, 0, 'locked', 'ch_x', false)).toBe(d0);
+  });
+});
+
+// ── ②③ 화면 끝 ─────────────────────────────────────────────────────────────────────
+
+function Wrapper({ children }: { children: ReactNode }) {
+  const nav: AppHistoryApi = { screen: 'board', go: () => {}, back: () => {} };
+  return (
+    <SettingsProvider>
+      <LibraryProvider>
+        <ToastProvider>
+          <HeaderProvider>
+            <AppNavProvider value={nav}>{children}</AppNavProvider>
+          </HeaderProvider>
+          <LiveRegion />
+        </ToastProvider>
+      </LibraryProvider>
+    </SettingsProvider>
+  );
+}
+
+async function openBoardWithChair() {
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+  const user = userEvent.setup();
+  render(<BoardScreen />, { wrapper: Wrapper });
+  await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+  // 트레이에서 선수 하나를 코트에 놓는다 — 빈 판에는 메뉴를 열 개체가 없다.
+  await user.click(screen.getAllByRole('button', { name: /선수 배치$/ })[0]!);
+  const stage = screen.getByRole('application', { name: '코트 편집 영역' });
+  await user.pointer([{ target: stage, keys: '[MouseLeft]', coords: { clientX: 40, clientY: 40 } }]);
+  const chair = await waitFor(() => {
+    const el = document.querySelector('.court-obj[id^="obj-ch_"]');
+    if (!el) throw new Error('휠체어가 안 놓였다');
+    return el as SVGGElement;
+  });
+  return { user, stage, chair };
+}
+
+const menu = () => screen.queryByRole('menu', { name: '개체 메뉴' });
+
+beforeEach(() => localStorage.clear());
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
+
+describe('메뉴 — 화면 끝', () => {
+  it('휠체어를 오른쪽 클릭하면 잠금 · 무시 · 삭제가 뜬다', async () => {
+    const { chair } = await openBoardWithChair();
+    expect(menu()).toBeNull(); // 대조군
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    await waitFor(() => expect(menu()).not.toBeNull());
+    for (const name of ['잠금', '무시', '삭제']) {
+      expect(screen.getByRole('menuitem', { name }), name).toBeInTheDocument();
+    }
+  });
+
+  it('★ 잠그면 붉은 테두리가 뜬다', async () => {
+    // ⚠️ **끌기 차단은 여기서 못 잰다.** jsdom 에는 레이아웃이 없어 좌표가 전부 0 이라,
+    // 차단이 있든 없든 개체가 안 움직인다 — 실제로 차단을 지우고 돌려 보니 그대로
+    // 초록이었다(2026-08-14 반증). 아무것도 안 지키는 단언은 없느니만 못하므로 뺐다.
+    // 차단은 `lockedDrag.test.tsx` 가 컨트롤러를 직접 불러 잰다.
+    const { user, chair } = await openBoardWithChair();
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    await user.click(await screen.findByRole('menuitem', { name: '잠금' }));
+    await waitFor(() => expect(chair.querySelector('.lock-ring'), '붉은 테두리가 없다').not.toBeNull());
+  });
+
+  it('잠금은 **선택은 막지 않는다** — 못 고르면 잠금을 풀 길이 없다', async () => {
+    const { user, chair } = await openBoardWithChair();
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    await user.click(await screen.findByRole('menuitem', { name: '잠금' }));
+
+    await user.pointer([{ target: chair, keys: '[MouseLeft]', coords: { clientX: 40, clientY: 40 } }]);
+    await waitFor(() => expect(chair.getAttribute('aria-pressed')).toBe('true'));
+    // 그리고 메뉴는 '잠금 해제' 로 바뀐다.
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    expect(await screen.findByRole('menuitem', { name: '잠금 해제' })).toBeInTheDocument();
+  });
+
+  it('★ 무시하면 흐려지고 포인터를 안 받는다 (물리에서 빠지는 것은 physics 테스트가 잰다)', async () => {
+    const { user, chair } = await openBoardWithChair();
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    await user.click(await screen.findByRole('menuitem', { name: '무시' }));
+
+    await waitFor(() => {
+      const ghost = chair.parentElement as HTMLElement;
+      expect(Number(ghost.style.opacity), '안 흐려졌다').toBeLessThan(0.5);
+      expect(ghost.style.pointerEvents, '무시인데 손이 닿는다').toBe('none');
+    });
+  });
+
+  it('삭제하면 개체가 사라진다', async () => {
+    const { user, chair } = await openBoardWithChair();
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    await user.click(await screen.findByRole('menuitem', { name: '삭제' }));
+    await waitFor(() => expect(document.querySelector('.court-obj[id^="obj-ch_"]')).toBeNull());
+  });
+
+  it('Esc 로 닫힌다', async () => {
+    const { chair } = await openBoardWithChair();
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    await waitFor(() => expect(menu()).not.toBeNull());
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(menu()).toBeNull());
+  });
+});

@@ -114,6 +114,9 @@ export type EditorAction =
   // 갖게 하면 되돌리기·병합·자동저장 세 곳에 각각 예외가 생긴다.
   | { type: 'SHAPE_SET'; shape: Shape }
   | { type: 'SHAPE_REMOVE'; id: ShapeId }
+  /** 개체 상태 플래그(2026-08-14). 대상이 여섯 종류라 id 는 그냥 string 이다 —
+   *  브랜드 타입으로 좁히면 여섯 갈래 유니온이 되고, 리듀서가 그것을 다시 넓혀야 한다. */
+  | { type: 'FLAG_SET'; flag: 'locked' | 'ignored'; id: string; on: boolean }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
@@ -148,6 +151,7 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'NOTE_REMOVE',
   'SHAPE_SET',
   'SHAPE_REMOVE',
+  'FLAG_SET',
 ]);
 
 /** COALESCE_TYPES(§6.7) — 연속 입력을 700ms/5s 창 안에서 병합한다. */

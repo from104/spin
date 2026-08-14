@@ -73,6 +73,10 @@ export interface WorldHandles {
   readonly engine: Matter.Engine;
   addChair(id: ChairId, pose: ChairPose): void;
   addBall(id: BallId, p: Vec2): void;
+  /** 공·콘을 **고정**한다(2026-08-14 '잠김'). static 이면 밀려나지 않지만 **충돌은 그대로**다 —
+   *  기현님이 말한 *"이동은 안 되지만 고정되어 상호작용은 하는"* 이 정확히 이 상태다.
+   *  휠체어는 원래 static 이라(§5.4) 이 함수가 필요 없다 — 거기서 잠김은 끌기만 막는다. */
+  setBodyStatic(id: CastId, on: boolean): void;
   addCone(id: ConeId, p: Vec2): void;
   /** 골대 포스트. cast 가 아니므로 CastId 가 아닌 합성 id(`gp_0` …)를 쓴다 — 드릴 모델에
    *  저장되지 않고 코트 정의에서만 나온다(§5.4 GOAL). */
@@ -161,6 +165,13 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
       if (!b) return;
       Composite.remove(engine.world, b);
       bodies.delete(id);
+    },
+    setBodyStatic(id, on) {
+      const b = bodies.get(id);
+      if (!b || b.isStatic === on) return;
+      Body.setStatic(b, on);
+      // setStatic 은 어느 방향이든 표면 물성을 덮어쓴다(§5.3) — 되돌릴 때 원래 값을 다시 준다.
+      if (!on) Body.setVelocity(b, { x: 0, y: 0 });
     },
     setChairDragging(id, dragging) {
       const b = bodies.get(id);

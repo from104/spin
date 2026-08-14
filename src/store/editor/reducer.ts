@@ -25,6 +25,7 @@ import {
   removeNote,
   removeShape,
   setShape,
+  setStepFlag,
 } from '../../model/edits.ts';
 import type { EditorAction } from './actions.ts';
 import type { HistoryState } from './history.ts';
@@ -235,6 +236,8 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return setShape(d, i, a.shape);
     case 'SHAPE_REMOVE':
       return removeShape(d, i, a.id);
+    case 'FLAG_SET':
+      return setStepFlag(d, i, a.flag, a.id, a.on);
     default:
       return d;
   }

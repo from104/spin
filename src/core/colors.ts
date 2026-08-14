@@ -99,3 +99,8 @@ export const inkFor = (fill: string): string => (relLuminance(fill) > OBJ_INK_L 
  *  3.084:1(#f80bd5 부근)로 3:1 을 넘고, .28 로 올리면 2.82 로 깨진다. 즉 §3.5 개별 색 지정이
  *  어떤 색을 넣어도 테두리가 보인다. ⚠️ 이 값을 올리지 마라(teamMarkContrast.test.tsx 가 잰다). */
 export const strokeFor = (fill: string): string => (relLuminance(fill) > OBJ_INK_L ? OBJ_STROKE_DARK : OBJ_STROKE);
+
+/** 잠긴 개체의 붉은 테두리(2026-08-14 기현 지시). 코트(#1f7a46) 위 대비 4.03:1 —
+ *  §7.1 의 비텍스트 3:1 을 넘고, 빨강 팀 칩(#d93a3a)보다 **한 단 어둡다.** 같은 빨강을 쓰면
+ *  "빨강 팀이라서 빨간 건가" 가 되어 표시가 뜻을 잃는다. */
+export const LOCK_RING_COLOR = '#ff2d2d';

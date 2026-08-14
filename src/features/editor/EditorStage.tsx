@@ -3,6 +3,8 @@
 // 이 파일은 그 둘을 조립하고 §7.5 키보드 계약(로빙 tabindex·개체 순회·키보드 배치 커서)만
 // 더한다.
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
+import { useLongPressMenu } from './useLongPressMenu.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
@@ -89,10 +91,16 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   { drill, rot, step, stepIndex, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, epoch = 0, transitionMs = 0 },
   stageRef,
 ) {
+  // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
+  // 세 곳이 각자 만들면 "테두리는 붉은데 끌리는" 어긋남이 난다.
+  const lockedSet = useMemo(() => new Set(step.locked ?? []), [step.locked]);
+  const ignoredSet = useMemo(() => new Set<string>(step.ignored ?? []), [step.ignored]);
+
   const pointer = useEditorPointer({
     drill,
     step,
     stepIndex,
+    locked: lockedSet,
     tool,
     coneSlot,
     selection,
@@ -256,6 +264,10 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
 
   const nudge = useCallback(
     (id: string, dx: number, dy: number, dThetaRad: number, arrowPart: ArrowPart = 'whole') => {
+      // ★ 잠긴 개체는 키보드로도 안 움직인다(2026-08-14). 손으로만 막으면 반쪽이다 —
+      //   §7.5 접근성 요건상 키보드는 마우스와 **같은 일을 할 수 있어야** 하고, 그 대칭은
+      //   "할 수 있는 것" 뿐 아니라 "할 수 없는 것" 에도 걸린다.
+      if (lockedSet.has(id)) return;
       if (isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn')) {
         dispatch({ type: 'OBJECT_NUDGE', id, d: { x: dx, y: dy }, dTheta: dThetaRad });
         // 물리 바디에도 같은 이동을 밀어 넣는다(회귀): 리듀서만 갱신하면 상태와 물리가 어긋나,
@@ -454,7 +466,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   const selectedArrow = useMemo(() => {
     const id = Array.from(selection).find((x) => isId(x, 'ar')) as ArrowId | undefined;
     return id ? (step.arrows.find((a) => a.id === id) ?? null) : null;
-  }, [selection, step.arrows]);
+  }, [selection, step.arrows, lockedSet]);
 
   /** 선택이 정확히 하나이고 그것이 도형일 때만 손잡이를 띄운다 — 여럿을 고른 채로 손잡이를
    *  내면 "무엇의 가로인가" 가 사라진다(화살표 핸들이 간 길과 같다). */
@@ -464,10 +476,33 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     return step.shapes.find((sh) => sh.id === id) ?? null;
   }, [selection, step.shapes]);
 
+  // ── 개체 메뉴 (2026-08-14 기현 지시) ────────────────────────────────────────────────
+  const [menu, setMenu] = useState<ObjectMenuTarget | null>(null);
+
+  const openMenu = useCallback(
+    (id: string, x: number, y: number) => {
+      // 무시된 칩은 메뉴도 안 연다 — 포인터를 아예 안 받기 때문이다(껍데기의 pointerEvents:none).
+      // 여기 오는 일 자체가 없어야 하지만, 오면 조용히 무시하는 편이 반쯤 동작하는 것보다 낫다.
+      if (ignoredSet.has(id)) return;
+      setMenu({
+        id,
+        x,
+        y,
+        locked: lockedSet.has(id),
+        ignored: ignoredSet.has(id),
+        // '무시' 는 **휠체어만**이다(기현 지시).
+        canIgnore: isId(id, 'ch'),
+      });
+    },
+    [lockedSet, ignoredSet],
+  );
+  const longPress = useLongPressMenu(openMenu);
+
   const cursorWorld = cursor && PLACEMENT_TOOLS.has(tool) ? gridCellCenter(drill.courtMode, cursor.col, cursor.row, drill.courtSize) : null;
   const cursorLabel = cursorWorld ? cellLabelAt(drill.courtMode, cursorWorld, drill.courtSize) : null;
 
   return (
+    <>
     <CourtStage
       // 선택 도구에서만 이동을 무장한다 — 배치 도구에서는 같은 자리에 콘 두 개를 빨리
       // 찍는 것이 더블클릭으로 읽혀 두 번째가 삼켜진다.
@@ -498,6 +533,17 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       }}
       onShapeChange={(next) => dispatch({ type: 'SHAPE_SET', shape: next })}
       shapeHandles={{ shape: selectedShape }}
+      locked={lockedSet}
+      ignored={ignoredSet}
+      onStageContextMenu={(id, e) => {
+        if (!id) return; // 빈 코트에서 오른쪽 클릭 — 브라우저 기본 메뉴를 그대로 둔다
+        e.preventDefault();
+        longPress.onContextMenu(id, { preventDefault: () => {}, clientX: e.clientX, clientY: e.clientY });
+      }}
+      onStagePointerDownRaw={(id, e) => {
+        if (id) longPress.onPointerDown(id, e);
+        else longPress.cancel();
+      }}
       selection={selection}
       // 5.5 — 차체 음영·커서도 같은 진실을 말해야 한다. 2존인데 앞 2/3 에 '제자리 회전' 음영이
       // 남아 있으면 판이 거짓말을 한다(잡으면 실제로는 통째로 밀린다). ⚠️ `zones` 를 그대로
@@ -519,5 +565,20 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       arrowHandles={{ arrow: selectedArrow, activePart: selectedArrow && arrowAim?.id === selectedArrow.id ? arrowAim.part : null }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />
+    {/* 개체 메뉴 — 잠김 · 무시 · 삭제. 무대 **밖**(포털)이라 코트의 overflow·회전에 안 잘린다. */}
+    <ObjectMenu
+      target={menu}
+      onClose={() => setMenu(null)}
+      onToggleLock={(id, on) => dispatch({ type: 'FLAG_SET', flag: 'locked', id, on })}
+      onToggleIgnore={(id, on) => dispatch({ type: 'FLAG_SET', flag: 'ignored', id, on })}
+      onDelete={(id) => {
+        // 지우는 길은 개체 종류마다 다르다 — 지우개가 쓰는 그 경로를 그대로 탄다.
+        if (isId(id, 'ar')) dispatch({ type: 'ARROW_REMOVE', id });
+        else if (isId(id, 'nt')) dispatch({ type: 'NOTE_REMOVE', id });
+        else if (isId(id, 'sh')) dispatch({ type: 'SHAPE_REMOVE', id });
+        else onEraseIds([id], 'onward');
+      }}
+    />
+    </>
   );
 });

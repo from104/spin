@@ -290,6 +290,26 @@ function sanitizeArrows(raw: unknown, repairs: Repair[]): Arrow[] {
 /** 도형 하나를 신뢰 가능한 값으로 접는다. 좌표는 코트 안으로 클램프하고(다른 개체와 같은
  *  규율), 크기·각도는 모델의 상·하한으로 가둔다 — 손편집·옛 파일·버그가 만든 0 폭이나
  *  NaN 각도가 들어오면 화면에서 **집을 수 없는 도형**이 되어 지울 방법이 사라진다. */
+/** id 목록을 살아 있는 것만 남기고 중복을 접는다. 순서는 보존한다 — 순서가 뜻을 갖지는
+ *  않지만, 왕복(내보내기→가져오기)에서 배열이 흔들리면 diff 가 매번 시끄러워진다. */
+function sanitizeIdList(raw: unknown, alive: ReadonlySet<string>, where: string, repairs: Repair[]): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  let dropped = false;
+  for (const v of raw) {
+    if (typeof v !== 'string' || seen.has(v)) continue;
+    if (!alive.has(v)) {
+      dropped = true;
+      continue;
+    }
+    seen.add(v);
+    out.push(v);
+  }
+  if (dropped) pushRepair(repairs, where, '없는 개체를 가리키는 상태 플래그 제거', true);
+  return out;
+}
+
 function sanitizeShape(raw: unknown, mode: CourtMode, size: CourtSize, repairs: Repair[]): Shape | null {
   if (!isRecord(raw)) return null;
   const kind = SHAPE_KINDS.find((k) => k === raw.kind);
@@ -545,6 +565,19 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     const arrows = sanitizeArrows(rawStep.arrows, repairs);
     const notes = sanitizeNotes(rawStep.notes, courtMode, courtSize, repairs);
     const shapes = sanitizeShapes(rawStep.shapes, courtMode, courtSize, repairs);
+    // 개체 상태 플래그(2026-08-14). **살아 있는 id 만 남긴다** — 지워진 개체의 id 가 목록에
+    // 남으면 그 스텝은 영영 "무언가 잠겨 있는데 화면에는 없는" 상태가 되고, 사람이 풀 방법이 없다.
+    const alive = new Set<string>([
+      ...Object.keys(chairsMap),
+      ...Object.keys(ballsMap),
+      ...Object.keys(conesMap),
+      ...arrows.map((a) => a.id),
+      ...notes.map((n) => n.id),
+      ...shapes.map((sh) => sh.id),
+    ]);
+    const locked = sanitizeIdList(rawStep.locked, alive, 'steps.locked', repairs);
+    // 무시는 **휠체어에만** 있다 — 공·콘 id 가 섞여 들어오면 물리가 그것만 조용히 빼먹는다.
+    const ignored = sanitizeIdList(rawStep.ignored, new Set(Object.keys(chairsMap)), 'steps.ignored', repairs) as ChairId[];
 
     stepsOut.push({
       id,
@@ -557,6 +590,8 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       arrows,
       notes,
       shapes,
+      ...(locked.length > 0 ? { locked } : {}),
+      ...(ignored.length > 0 ? { ignored } : {}),
     });
   }
   if (stepsOut.length > LIMITS.maxSteps) {

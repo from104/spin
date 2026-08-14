@@ -141,6 +141,17 @@ export interface CourtStageProps {
   fades?: Readonly<Record<string, 'in' | 'out'>>;
   fadeMs?: number;
   onObjectPointerDown?: (id: string, e: ReactPointerEvent<SVGGElement>) => void;
+  /** 무대 어디서든 오른쪽 클릭. **대상은 DOM 이 말한다** — 개체는 `id="obj-…"`, 도형은
+   *  `data-shape-id` 를 이미 달고 있어서, 히트테스트를 한 벌 더 만들 이유가 없다(2026-08-14).
+   *  개체 위가 아니면 `null` 이 간다. */
+  /** 잠긴 개체 id — ObjectLayer 로 그대로 내려간다(붉은 테두리). */
+  locked?: ReadonlySet<string>;
+  /** 무시된 휠체어 id — 흐리게 + 포인터 차단. 물리에서는 이미 빠져 있다. */
+  ignored?: ReadonlySet<string>;
+  onStageContextMenu?: (id: string | null, e: ReactPointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>) => void;
+  /** 무대 pointerdown 을 **가로채지 않고** 곁에서 본다(긴 터치 타이머용). 기존 드래그 배선은
+   *  그대로 흐른다 — 여기서 stopPropagation 하면 판 전체가 죽는다. */
+  onStagePointerDownRaw?: (id: string | null, e: ReactPointerEvent<SVGSVGElement>) => void;
   onObjectKeyDown?: (id: string, e: ReactKeyboardEvent<SVGGElement>) => void;
   onContainerKeyDown?: (e: ReactKeyboardEvent<SVGSVGElement>) => void;
   ariaDescribedBy?: string;
@@ -204,6 +215,10 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     fades,
     fadeMs,
     onObjectPointerDown,
+    locked,
+    ignored,
+    onStageContextMenu,
+    onStagePointerDownRaw,
     onObjectKeyDown,
     onContainerKeyDown,
     ariaDescribedBy = 'court-help',
@@ -418,7 +433,19 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     lastClientRef.current = null;
   }, [controller, stopRafLoop]);
 
+  /** 이벤트가 난 자리의 개체 id. 개체는 `id="obj-…"`, 도형은 `data-shape-id` 다.
+   *  ⚠️ `e.target` 은 링·글자 같은 **자식**일 수 있으므로 반드시 `closest` 로 올라간다. */
+  const objectIdAt = (e: { target: EventTarget | null }): string | null => {
+    const el = e.target instanceof Element ? e.target : null;
+    if (!el) return null;
+    const shape = el.closest('[data-shape-id]');
+    if (shape) return shape.getAttribute('data-shape-id');
+    const obj = el.closest('[id^="obj-"]');
+    return obj ? obj.id.slice('obj-'.length) : null;
+  };
+
   const handlePointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
+    onStagePointerDownRaw?.(objectIdAt(e), e);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (pointers.current.size === 2) {
@@ -698,6 +725,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       onKeyDown={onContainerKeyDown}
+      onContextMenu={onStageContextMenu ? (e) => onStageContextMenu(objectIdAt(e), e) : undefined}
     >
       <defs>
         <ArrowMarkers uid={markerUid} colors={usedColors} />
@@ -746,6 +774,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           initialFrame={initialFrame}
           fades={fades}
           fadeMs={fadeMs}
+          locked={locked}
+          ignored={ignored}
           onObjectPointerDown={onObjectPointerDown}
           onObjectKeyDown={onObjectKeyDown}
         />

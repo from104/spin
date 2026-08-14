@@ -59,6 +59,12 @@ export interface ObjectLayerProps {
    *  목록에 함께 실어 보낸다)라 조작 대상이 아니다 — pointer-events 를 CSS 가 끊는다.
    *  움직임 자체는 CSS 애니메이션이 그린다(§6.1 규칙 준수: React 는 프레임을 구동하지 않는다). */
   fades?: Readonly<Record<string, 'in' | 'out'>>;
+  /** 잠긴 개체 id — 붉은 테두리를 그린다(2026-08-14 기현 지시). 이동 차단은 편집기 몫이다. */
+  locked?: ReadonlySet<string>;
+  /** 무시된 휠체어 id — 흐리게 그리고 포인터를 안 받는다. 물리에서는 이미 빠져 있다
+   *  (physics/index.ts 의 load). 여기서 흐리게만 하고 body 를 두면 "안 보이는데 부딪히는"
+   *  유령이 되므로, 두 곳이 **같은 목록**을 봐야 한다. */
+  ignored?: ReadonlySet<string>;
   /** 페이드 지속(ms). stepTransitionMs 와 같은 값이어야 위치 트윈과 한 시계로 끝난다. */
   fadeMs?: number;
   onObjectPointerDown?(id: string, e: ReactPointerEvent<SVGGElement>): void;
@@ -80,11 +86,18 @@ export function ObjectLayer({
   initialFrame,
   fades,
   fadeMs,
+  locked,
+  ignored,
   onObjectPointerDown,
   onObjectKeyDown,
 }: ObjectLayerProps) {
   // 화살표·메모의 페이드 래퍼 속성. 래퍼 <g> 는 **항상** 두고 클래스만 바꾼다 — 전환 중에만
   // 감쌌다 벗기면 React 가 자식을 재마운트해 포커스가 떨어지고 writer 등록이 한 번 더 돈다.
+  /** 무시된 개체의 껍데기 속성. `opacity` 와 `pointerEvents` 는 **상속**되므로 감싸기만 해도
+   *  안쪽 전체에 걸린다 — 마크마다 prop 을 또 다는 것보다 이쪽이 빠뜨릴 자리가 적다. */
+  const ghostProps = (id: string): { style?: { opacity: number; pointerEvents: 'none' } } =>
+    ignored?.has(id) ? { style: { opacity: 0.32, pointerEvents: 'none' as const } } : {};
+
   const fadeProps = (id: string): { className?: string; style?: { animationDuration: string } } => {
     const dir = fades?.[id];
     if (!dir || !fadeMs) return {};
@@ -116,6 +129,7 @@ export function ObjectLayer({
           writer={writer}
           colorIndex={c.colorIndex}
           selected={selection.has(c.id)}
+          locked={locked?.has(c.id)}
           active={activeId === c.id}
           ariaLabel={`콘 ${c.colorIndex === 0 ? '주황' : '파랑'}`}
           onPointerDown={onObjectPointerDown}
@@ -129,6 +143,7 @@ export function ObjectLayer({
             markerUid={markerUid}
             writer={writer}
             selected={selection.has(a.id)}
+            locked={locked?.has(a.id)}
             active={activeId === a.id}
             onPointerDown={onObjectPointerDown}
             onKeyDown={onObjectKeyDown}
@@ -136,20 +151,23 @@ export function ObjectLayer({
         </g>
       ))}
       {chairs.map((c) => (
+        // 무시는 **휠체어에만** 있다(기현 지시) — 그래서 껍데기도 여기만 씌운다.
+        <g key={c.id} {...ghostProps(c.id)}>
         <ChairChip
-          key={c.id}
           id={c.id}
           writer={writer}
           color={c.color}
           team={c.team}
           number={c.number}
           selected={selection.has(c.id)}
+          locked={locked?.has(c.id)}
           active={activeId === c.id}
           ariaLabel={c.ariaLabel}
           zoneCursors={zoneCursors}
           onPointerDown={onObjectPointerDown}
           onKeyDown={onObjectKeyDown}
         />
+        </g>
       ))}
       {balls.map((id) => (
         <BallDot
@@ -157,6 +175,7 @@ export function ObjectLayer({
           id={id}
           writer={writer}
           selected={selection.has(id)}
+          locked={locked?.has(id)}
           active={activeId === id}
           ariaLabel="공"
           onPointerDown={onObjectPointerDown}
@@ -173,6 +192,7 @@ export function ObjectLayer({
             color={n.color}
             align={n.align}
             selected={selection.has(n.id)}
+            locked={locked?.has(n.id)}
             active={activeId === n.id}
             ariaLabel={`메모: ${n.text}`}
             onPointerDown={onObjectPointerDown}

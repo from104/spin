@@ -402,9 +402,18 @@ export function createPhysicsWorld(
       settleUntilMs = 0;
       loop.stop();
 
+      // 2026-08-14 — 스텝의 상태 플래그를 여기서 읽는다.
+      //  · **무시**된 휠체어는 body 를 아예 안 만든다 → 공이 통과하고 아무것도 안 밀린다.
+      //    (투명도만 낮추고 body 를 두면 "안 보이는데 부딪히는" 유령이 된다.)
+      //  · **잠김**은 공·콘만 물리가 다르다(static). 휠체어는 원래 static 이라(§5.4) 잠금이
+      //    물리를 한 글자도 안 바꾼다 — 거기서 잠김은 **끌기를 막는 것**이고 그 판정은 편집기 몫이다.
+      const ignored = new Set<string>(step.ignored ?? []);
+      const locked = new Set<string>(step.locked ?? []);
+
       for (const c of cast.chairs) {
         const sp = step.chairs[c.id];
         if (!sp) continue; // 미배치 선수 — body 없음
+        if (ignored.has(c.id)) continue; // 무시 — 월드에 없다
         world.addChair(c.id, poseFromStored(sp));
         kindOf.set(c.id, 'chair');
       }
@@ -413,12 +422,14 @@ export function createPhysicsWorld(
         if (!p) continue;
         world.addBall(bd.id, p);
         kindOf.set(bd.id, 'ball');
+        if (locked.has(bd.id)) world.setBodyStatic(bd.id, true);
       }
       for (const cd of cast.cones) {
         const p = step.cones[cd.id];
         if (!p) continue;
         world.addCone(cd.id, p);
         kindOf.set(cd.id, 'cone');
+        if (locked.has(cd.id)) world.setBodyStatic(cd.id, true);
       }
       // 골대는 cast 가 아니라 **코트 정의**에서 온다(드릴에 저장되지 않는다, §5.4 GOAL).
       goalHome.length = 0;

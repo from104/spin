@@ -359,6 +359,24 @@ export function setShape(d: Drill, i: number, sh: Shape): Drill {
   return replaceStep(d, i, { ...step, shapes });
 }
 
+/** 스텝의 상태 플래그(잠김·무시)를 켜고 끈다. 값이 이미 그러면 **같은 참조**를 돌려준다 —
+ *  같은 메뉴를 두 번 눌러도 되돌리기가 한 칸도 안 쌓인다. */
+export function setStepFlag(d: Drill, i: number, flag: 'locked' | 'ignored', id: string, on: boolean): Drill {
+  const step = d.steps[i];
+  if (!step) return d;
+  const cur = (step[flag] ?? []) as readonly string[];
+  const has = cur.includes(id);
+  if (has === on) return d;
+  const next = on ? [...cur, id] : cur.filter((x) => x !== id);
+  // 빈 목록이면 **키를 지운다.** 남겨 두면 저장본에 `"locked":[]` 가 끝없이 따라다니고,
+  // 정화기가 "없으면 빈 목록" 으로 접는 규칙과 두 가지 표현이 공존하게 된다.
+  const patched: DrillStep = { ...step };
+  if (next.length === 0) delete patched[flag];
+  else if (flag === 'locked') patched.locked = next;
+  else patched.ignored = next as ChairId[];
+  return replaceStep(d, i, patched);
+}
+
 export function removeShape(d: Drill, i: number, id: ShapeId): Drill {
   const step = d.steps[i];
   if (!step) return d;
