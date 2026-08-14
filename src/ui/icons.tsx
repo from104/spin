@@ -424,3 +424,35 @@ export function IconSaveDrill({ size = 18, ...rest }: IconProps) {
     </svg>
   );
 }
+
+// ── 작도 도형 3종 (2026-08-14 기현 지시) ────────────────────────────────────────────────
+// 면을 채우지 않고 **테두리만** 그린다: 실제 도형이 반투명 면이라, 아이콘까지 면을 채우면
+// 옆의 이동·패스(선 도구)와 무게가 달라 서랍 안에서 이 셋만 튀어 보인다.
+
+/** 원(타원) 도형. 정원이 아니라 **타원**으로 그린다 — 가로·세로를 따로 늘릴 수 있다는 것이
+ *  이 도구의 성질이고, 아이콘이 정원이면 그 성질이 그림에서 사라진다. */
+export function IconShapeEllipse({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <ellipse cx="12" cy="12" rx="9" ry="6.5" />
+    </svg>
+  );
+}
+
+/** 정삼각형 도형 — 크기를 바꿔도 정삼각형을 유지한다(기현 결정)는 것을 그림이 미리 말한다. */
+export function IconShapeTriangle({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M12 4 21 19H3Z" />
+    </svg>
+  );
+}
+
+/** 사각형 도형. 모서리를 살짝 둥글리는 이유는 코트 칩·상자와 같은 리듬이기 때문이다. */
+export function IconShapeRect({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+    </svg>
+  );
+}

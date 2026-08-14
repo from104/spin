@@ -43,7 +43,17 @@ describe('3.2/3.3 마이그레이션 — 구 버전 드릴 파일이 v2 로 올�
   it('기존 필드를 **하나도** 잃지 않는다', () => {
     const doc = migrateV1();
     for (const [key, value] of Object.entries(v1)) {
-      if (key === 'schemaVersion') continue; // 도장만 1 → 2 로 바뀐다
+      if (key === 'schemaVersion') continue; // 도장만 1 → 4 로 바뀐다
+      if (key === 'steps') {
+        // ⚠️ 2026-08-14 — v3→v4 가 스텝마다 `shapes: []` 를 **더한다**. 무손실의 뜻은
+        // "잃지 않는다" 이지 "한 글자도 안 는다" 가 아니다 — 더해진 키 하나를 빼고 대조한다.
+        const got = (doc[key] as Record<string, unknown>[]).map(({ shapes, ...rest }) => {
+          expect(shapes, '도형 단계가 스텝에 빈 배열을 안 찍었다').toEqual([]);
+          return rest;
+        });
+        expect(got, `v1 의 '${key}' 가 사라지거나 바뀌었다`).toEqual(value);
+        continue;
+      }
       expect(doc[key], `v1 의 '${key}' 가 사라지거나 바뀌었다`).toEqual(value);
     }
     // 대조군 — 픽스처가 실제로 알맹이를 갖고 있어야 위 루프가 의미를 갖는다.

@@ -56,6 +56,7 @@ function useHarness() {
   const drill = state.present;
   const pointer = useEditorPointer({
     drill,
+    stepIndex: 0,
     step: drill.steps[0]!,
     tool: 'select',
     coneSlot: 0,
@@ -167,6 +168,7 @@ describe('§6.4 ④ 키보드 배치 커서가 그 코트의 격자 위에 선�
         rot={0}
         ref={stageRef}
         drill={drill}
+        stepIndex={0}
         step={drill.steps[0]!}
         tool="ball"
         coneSlot={0}

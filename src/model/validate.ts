@@ -1,6 +1,8 @@
 // §3.8 검증·보정. zod 등 런타임 스키마 라이브러리 미사용(의존성 0). 절대 throw 하지 않는다 —
 // 파일에서 온 임의 JSON 을 먹어도 된다. 11단계 고정 순서 파이프라인, 멱등.
 import { newId } from '../core/ids.ts';
+import { SHAPE_DEFAULT_PX, SHAPE_KINDS, SHAPE_MAX_PX, SHAPE_MIN_PX, type Shape } from './shape.ts';
+import type { ShapeId } from '../core/ids.ts';
 import type { ChairId, BallId, ConeId, StepId, ArrowId, NoteId, DrillId, SessionId, ItemId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
 import { COURT_MODES, COURT_SIZES, DEFAULT_COURT_SIZE, clampToViewBox, type CourtMode, type CourtSize } from './court.ts';
@@ -51,6 +53,9 @@ export const LIMITS = {
   maxChairsPerTeam: 4,
   maxCones: 2000, // REQUIREMENTS 는 '제한 없음' — 이건 깨진 파일 방어용 상한
   maxArrowsPerStep: 40,
+  /** 스텝당 작도 도형 상한. 화살표와 같은 수로 맞춘다 — 둘 다 '판에 덧그리는 것' 이고,
+   *  이보다 많으면 반투명 겹침이 새하얘져 아래 코트가 안 보인다(면이 0.13 이라 40겹이면 1.0). */
+  maxShapesPerStep: 40,
   maxNotesPerStep: 20,
   maxSessionItems: 40,
 } as const;
@@ -282,6 +287,56 @@ function sanitizeArrows(raw: unknown, repairs: Repair[]): Arrow[] {
   return out;
 }
 
+/** 도형 하나를 신뢰 가능한 값으로 접는다. 좌표는 코트 안으로 클램프하고(다른 개체와 같은
+ *  규율), 크기·각도는 모델의 상·하한으로 가둔다 — 손편집·옛 파일·버그가 만든 0 폭이나
+ *  NaN 각도가 들어오면 화면에서 **집을 수 없는 도형**이 되어 지울 방법이 사라진다. */
+function sanitizeShape(raw: unknown, mode: CourtMode, size: CourtSize, repairs: Repair[]): Shape | null {
+  if (!isRecord(raw)) return null;
+  const kind = SHAPE_KINDS.find((k) => k === raw.kind);
+  if (!kind) return null;
+  const id = typeof raw.id === 'string' && raw.id.length > 0 ? (raw.id as ShapeId) : newId('sh');
+  const p = sanitizeVec(raw, mode, size);
+  if (!p) return null;
+  const dim = (v: unknown): number => {
+    const n = typeof v === 'number' && Number.isFinite(v) ? v : SHAPE_DEFAULT_PX;
+    return Math.min(SHAPE_MAX_PX, Math.max(SHAPE_MIN_PX, n));
+  };
+  let w = dim(raw.w);
+  let h = dim(raw.h);
+  // 정삼각형은 두 변이 같아야 한다(모델의 shapeSize 와 같은 접기) — 어긋난 값을 그대로 두면
+  // 저장값과 화면이 다른 도형이 되고, 손잡이가 면 밖에 뜬다.
+  if (kind === 'triangle' && w !== h) {
+    const side = Math.min(w, h);
+    w = side;
+    h = side;
+    pushRepair(repairs, 'steps.shapes.size', '정삼각형의 가로·세로가 달라 짧은 변으로 맞춤', false);
+  }
+  const rotRaw = typeof raw.rot === 'number' && Number.isFinite(raw.rot) ? raw.rot : 0;
+  return { id, kind, x: p.x, y: p.y, w, h, rot: ((rotRaw % 360) + 360) % 360 };
+}
+
+function sanitizeShapes(arr: unknown, mode: CourtMode, size: CourtSize, repairs: Repair[]): Shape[] {
+  if (!Array.isArray(arr)) return [];
+  const seen = new Set<string>();
+  let out: Shape[] = [];
+  for (const item of arr) {
+    const sh = sanitizeShape(item, mode, size, repairs);
+    if (!sh) continue;
+    let id = sh.id;
+    if (seen.has(id)) {
+      id = newId('sh');
+      pushRepair(repairs, 'steps.shapes.id', '스텝 안 중복 도형 id 재발급', false);
+    }
+    seen.add(id);
+    out.push(id === sh.id ? sh : { ...sh, id });
+  }
+  if (out.length > LIMITS.maxShapesPerStep) {
+    pushRepair(repairs, 'steps.shapes', '스텝당 도형 상한(40) 초과 — 뒤에서 절단', true);
+    out = out.slice(0, LIMITS.maxShapesPerStep);
+  }
+  return out;
+}
+
 function sanitizeNote(raw: unknown, mode: CourtMode, size: CourtSize, repairs: Repair[]): NoteLabel | null {
   if (!isRecord(raw)) return null;
   const id = typeof raw.id === 'string' && raw.id.length > 0 ? (raw.id as NoteId) : newId('nt');
@@ -489,6 +544,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
 
     const arrows = sanitizeArrows(rawStep.arrows, repairs);
     const notes = sanitizeNotes(rawStep.notes, courtMode, courtSize, repairs);
+    const shapes = sanitizeShapes(rawStep.shapes, courtMode, courtSize, repairs);
 
     stepsOut.push({
       id,
@@ -500,6 +556,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       cones: conesMap,
       arrows,
       notes,
+      shapes,
     });
   }
   if (stepsOut.length > LIMITS.maxSteps) {

@@ -53,6 +53,7 @@ function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: numb
         cones: {},
         arrows: [],
         notes: [],
+        shapes: [],
       },
     ],
     createdAt: 0,

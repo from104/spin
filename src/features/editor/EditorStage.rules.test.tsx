@@ -56,6 +56,7 @@ function makeDrill(onStep: string[], ring: BallRing = '3m'): Drill {
         cones: {},
         arrows: [],
         notes: [],
+        shapes: [],
       },
     ],
     createdAt: 0,
@@ -80,6 +81,7 @@ function mount(drill: Drill, showRuleZones = true) {
       rot={0}
       drill={drill}
       step={drill.steps[0]!}
+      stepIndex={0}
       tool="select"
       coneSlot={0}
       selection={new Set()}

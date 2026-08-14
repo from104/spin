@@ -74,6 +74,7 @@ function useHarness(twoZone: boolean, largeTargets: boolean, pxPerUnit: number |
   const step = drill.steps[0]!;
   const pointer = useEditorPointer({
     drill,
+    stepIndex: 0,
     step,
     tool: 'select',
     coneSlot: 0,
@@ -192,6 +193,7 @@ describe('판이 거짓말하지 않는다 — 차체 음영이 판정과 같은
       <EditorStage
         rot={0}
         drill={drill}
+        stepIndex={0}
         step={drill.steps[0]!}
         tool="select"
         coneSlot={0}

@@ -2,8 +2,9 @@
 // (리렌더·히스토리 억제). 시간축 규약: 추가도 삭제도 "이 스텝부터 끝까지".
 import type { Vec2 } from '../core/units.ts';
 import { isId, newId } from '../core/ids.ts';
-import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId } from '../core/ids.ts';
+import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId, ShapeId } from '../core/ids.ts';
 import type { Drill, DrillStep, DrillCast, ChairDef, NoteLabel, PoseMap } from './drill.ts';
+import type { Shape } from './shape.ts';
 import { ballRingOf, nextBallRing } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
@@ -340,6 +341,30 @@ function notesEqual(a: NoteLabel, b: NoteLabel): boolean {
     a.color === b.color &&
     a.align === b.align
   );
+}
+
+/** 도형 하나를 스텝에 넣거나 갈아끼운다. 값이 같으면 **같은 참조를 돌려준다** — 이 한 줄이
+ *  드래그 중 매 프레임의 리렌더와 히스토리 한 칸을 함께 막는다(setNote 와 같은 규율). */
+export function setShape(d: Drill, i: number, sh: Shape): Drill {
+  const step = d.steps[i];
+  if (!step) return d;
+  const idx = step.shapes.findIndex((x) => x.id === sh.id);
+  const cur = idx === -1 ? null : step.shapes[idx]!;
+  if (cur && cur.kind === sh.kind && cur.x === sh.x && cur.y === sh.y && cur.w === sh.w && cur.h === sh.h && cur.rot === sh.rot) {
+    return d;
+  }
+  const shapes = step.shapes.slice();
+  if (idx === -1) shapes.push(sh);
+  else shapes[idx] = sh;
+  return replaceStep(d, i, { ...step, shapes });
+}
+
+export function removeShape(d: Drill, i: number, id: ShapeId): Drill {
+  const step = d.steps[i];
+  if (!step) return d;
+  const shapes = step.shapes.filter((x) => x.id !== id);
+  if (shapes.length === step.shapes.length) return d;
+  return replaceStep(d, i, { ...step, shapes });
 }
 
 export function setNote(d: Drill, i: number, n: NoteLabel): Drill {

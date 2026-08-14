@@ -34,7 +34,9 @@ describe('§5.1 마이그레이션 — 옛 드릴은 30×18 로 못박혀 올라
     if (!r.ok) return;
     expect(r.doc.courtSize).toBe('30x18');
     expect(r.doc.schemaVersion).toBe(CURRENT_DRILL_SCHEMA);
-    expect(r.applied).toEqual(['drill v2→v3: 코트 크기 3단(courtSize) — 옛 드릴은 30×18 로 못박는다']);
+    // v2 문서는 v3(코트 크기)와 v4(작도 도형) 두 단계를 지난다.
+    expect(r.applied[0]).toBe('drill v2→v3: 코트 크기 3단(courtSize) — 옛 드릴은 30×18 로 못박는다');
+    expect(r.applied).toHaveLength(2);
   });
 
   it('무손실 — v2 의 모든 키가 값째로 살아남는다', () => {
@@ -51,14 +53,14 @@ describe('§5.1 마이그레이션 — 옛 드릴은 30×18 로 못박혀 올라
     expect((r.doc.steps as unknown[]).length).toBeGreaterThan(0);
   });
 
-  it('v1 → v3 전 체인이 한 번에 돈다 (교육 필드 + 코트 크기)', () => {
+  it('v1 → v4 전 체인이 한 번에 돈다 (교육 필드 + 코트 크기 + 작도 도형)', () => {
     const r = migrateDoc(v1, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.doc.courtSize).toBe('30x18');
     expect(r.doc.objective).toBe(''); // v1→v2 도 여전히 돈다(뒷문장에도 단언을 둔다)
-    expect(r.applied).toHaveLength(2);
-    // 멱등 — 이미 v3 인 문서를 다시 넣으면 아무 일도 안 한다.
+    expect(r.applied).toHaveLength(3);
+    // 멱등 — 이미 v4 인 문서를 다시 넣으면 아무 일도 안 한다.
     const again = migrateDoc(r.doc, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
     expect(again.ok).toBe(true);
     if (!again.ok) return;

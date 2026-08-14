@@ -20,6 +20,7 @@ const EMPTY_STEP: DrillStep = {
   cones: {},
   arrows: [],
   notes: [],
+  shapes: [],
 };
 
 /** 그 크기의 판을 세우고 골포스트 좌표만 읽는다. 벽(vbW/vbH)도 같은 정의에서 온다. */

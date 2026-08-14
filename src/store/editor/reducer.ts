@@ -23,6 +23,8 @@ import {
   removeArrow,
   setNote,
   removeNote,
+  removeShape,
+  setShape,
 } from '../../model/edits.ts';
 import type { EditorAction } from './actions.ts';
 import type { HistoryState } from './history.ts';
@@ -229,6 +231,10 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return setNote(d, i, a.note);
     case 'NOTE_REMOVE':
       return removeNote(d, i, a.id);
+    case 'SHAPE_SET':
+      return setShape(d, i, a.shape);
+    case 'SHAPE_REMOVE':
+      return removeShape(d, i, a.id);
     default:
       return d;
   }

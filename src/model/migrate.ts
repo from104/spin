@@ -52,6 +52,25 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
   // 0 이고, 옛 앱이 몰라도 좌표의 뜻이 안 바뀌며, 도장을 올리면 배포된 v0.1.0 이 새 파일을
   // 전부 too-new 로 거절한다. **이 체인의 마지막 to 는 CURRENT_DRILL_SCHEMA 와 같아야 한다**
   // (같지 않으면 migrateDoc 이 no-path 로 떨어져 모든 옛 파일이 열리지 않는다).
+  {
+    from: 3,
+    to: 4,
+    describe: 'drill v3→v4: 작도 도형(shapes) — 옛 스텝에는 빈 배열을 찍는다',
+    // ⚠️ **적을 참말이 없는 상승이다**(drill.ts 의 CURRENT_DRILL_SCHEMA 주석). 빈 배열은
+    // sanitize 가 어차피 만들어 주므로 이 함수는 사실상 아무 일도 안 한다 — 목적은 도장이고,
+    // 도장의 목적은 **옛 앱이 새 파일을 정직하게 거절하게** 하는 것이다.
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      if (Array.isArray(out.steps)) {
+        out.steps = out.steps.map((st) =>
+          st && typeof st === 'object' && !Array.isArray((st as Record<string, unknown>).shapes)
+            ? { ...(st as Record<string, unknown>), shapes: [] }
+            : st,
+        );
+      }
+      return out;
+    },
+  },
 ];
 export const SESSION_MIGRATIONS: DocMigration[] = [];
 /** prefs 는 여기서 처음으로 체인이 생긴다(§7 3.0). **v1 → v2 로 한 번만 올린다** — 트레이 서랍·

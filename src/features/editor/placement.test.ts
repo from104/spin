@@ -20,6 +20,7 @@ function deps(over: { balls?: number; cones?: (0 | 1)[]; coneSlot?: 0 | 1 } = {}
     coneSlot: over.coneSlot ?? 0,
     ballMax: BALL.maxCount,
     pendingPlayerId: null,
+    stepIndex: 0,
     dispatch,
     showToast,
     onPlayerPlaced: vi.fn(),

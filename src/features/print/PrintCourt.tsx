@@ -25,6 +25,7 @@ import { ARROW_STYLES, arrowColor, arrowPath } from '../../model/arrow.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
+import { ShapeLayer } from '../../render/ShapeLayer.tsx';
 import { NOTE_PLACEHOLDER, noteChipPathD, noteChipWidthPx, noteFoldPathD } from '../../render/objects/noteChip.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
 import { PRINT_COURT_CLASS } from './printDom.ts';
@@ -78,6 +79,9 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
         );
       })}
 
+      {/* 작도 도형 — 화면과 **같은 층·같은 컴포넌트**다. 인쇄만 따로 그리면 반투명 값이
+          어긋나는 날 종이에서만 진한 판이 나오고, 그건 코트에서야 알게 된다. */}
+      <ShapeLayer shapes={step.shapes} />
       {step.arrows.map((a) => {
         const d = arrowPath(a);
         const style = ARROW_STYLES[a.kind];

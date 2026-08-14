@@ -222,8 +222,12 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //    픽셀도 안 움직였다(§3 불변식 1).
     //    ⚠️ **헤더가 사라진 것은 이 해시에 안 나타난다** — 이 덤프는 `<main>` 이고 헤더는 그
     //    밖이다. 그쪽 증인은 AppShell.wiring.test 의 두 it 이다(넓으면 header 가 없고 좁으면 있다).
+    //    2026-08-14 (작도 도형 3종)의 diff 는 **한 줄**이다: 작도 서랍 손잡이의 `title` 에
+    //    원·삼각·사각이 붙은 것. 도형 층(`[data-shape-layer]`)은 도형이 0개면 `null` 을
+    //    돌려주므로 빈 판의 DOM 에는 **한 글자도 안 나타난다** — 그것이 이 해시가 한 줄만
+    //    움직인 이유다. 층의 자리는 shapeTool.test 가 실제 도형을 놓고 잰다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '00f28109aa000589a39015174caa8de90d1f0ea442066e8eae914cba52cd71b6',
+      '871e1d6025c221588294455ed387be00f23728331a2f01c94b1efbee3955f9df',
     );
   });
 

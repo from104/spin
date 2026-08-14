@@ -17,6 +17,7 @@ import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playbac
 import { PLAYBACK } from '../../core/constants.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { RuleZones } from '../../render/RuleZones.tsx';
+import { ShapeLayer } from '../../render/ShapeLayer.tsx';
 import { RuleOverlay } from '../../render/RuleOverlay.tsx';
 import { createRuleOverlay, type RuleRosterEntry } from '../../render/ruleOverlay.ts';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
@@ -198,6 +199,11 @@ export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, on
       <rect width={def.vbW} height={def.vbH} rx={16} fill={COURT_BG} />
       <CourtSurface mode={mode} size={drill.courtSize} variant="present" />
       <RuleZones mode={mode} size={drill.courtSize} visible={showRuleZones} />
+      {/* 작도 도형 — 편집기와 **같은 층**(코트 위·개체 아래)이고 같은 컴포넌트다.
+          시연에는 선택이 없으므로 `selected`·`onPointerDown` 을 안 넘긴다: 그림일 뿐이다.
+          ⚠️ 도형은 스텝을 따라간다(화살표·메모와 같다). 시연은 프레임 보간을 쓰지만 도형은
+          움직이는 개체가 아니라 **표시**라, 보간 없이 지금 스텝의 것을 그대로 그린다. */}
+      <ShapeLayer shapes={drill.steps[stepIdx]?.shapes ?? []} />
       <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} ballRings={ballRings} roster={ruleRoster} teams={drill.teams} />
       {/* 개체 자체는 접근성 트리에서 뺀다 — 실제 서술은 아래 스텝 이름·메모(텍스트)와
           §7.5e 라이브 리전(스텝 전환 발표)이 맡는다. render-stage 리프가 강제하는

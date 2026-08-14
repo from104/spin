@@ -11,7 +11,21 @@ import { ARROW_STYLES } from '../model/arrow.ts';
  *  `HitContext` 시그니처가 §5.12 계약에 `tool: ToolId` 로 이미 못박혀 있고 physics-world 는
  *  Wave 2 라 그 모듈들이 아직 없다. 의존 그래프(§9)상 store 가 physics-world 를 의존하므로
  *  여기서 정의해 두면 store 가 그대로 import 해 쓸 수 있다(반대 방향 의존은 없다). */
-export type ToolId = 'select' | 'route' | 'pass' | 'ball' | 'cone' | 'player' | 'note' | 'erase';
+// 2026-08-14 — 작도 도형 3종이 늘었다. 도구 id 는 물리(hitTest)가 소유하지만 도형 자체는
+// 물리 바디가 아니다: 휠체어를 막지도, 공을 튕기지도 않는 **표시**다. 그래서 이 목록에만 있고
+// 아래 히트테스트에는 도형 분기가 없다 — 도형의 히트 판정은 SVG 이벤트가 직접 한다.
+export type ToolId =
+  | 'select'
+  | 'route'
+  | 'pass'
+  | 'ball'
+  | 'cone'
+  | 'player'
+  | 'note'
+  | 'erase'
+  | 'shapeEllipse'
+  | 'shapeTriangle'
+  | 'shapeRect';
 
 /** §5.12/§6.5 가 참조하는 히트 반경 상한. 값의 출처는 §6.5(render-stage 소유 `hitRadius.ts`)지만
  *  그 파일은 별도 Wave(3)의 별도 모듈 소유라 physics-world 가 import 할 수 없다(의존 방향 위반).

@@ -299,6 +299,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         // 끌고 있는 칩이 곧 배치 대상이다. 트레이에서 미리 고른 선수(pendingPlayerId)와
         // 다를 수 있으므로 **드래그가 이긴다**.
         pendingPlayerId: item.chairId ?? pendingPlayerId,
+        stepIndex,
         dispatch,
         showToast: (m) => toast.show(m),
         onPlayerPlaced: () => setPendingPlayerId(null),
@@ -596,6 +597,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 drill={drill}
                 rot={stageRot}
                 step={step}
+                stepIndex={stepIndex}
                 tool={state.tool}
                 coneSlot={state.coneSlot}
                 selection={state.selection}

@@ -36,6 +36,9 @@ function coalesceKeyOf(a: EditorAction, drillId: string): string | null {
       return `NOTE_SET:${a.note.id}`;
     case 'ARROW_SET':
       return `ARROW_SET:${a.arrow.id}`;
+    case 'SHAPE_SET':
+      // 도형 **하나**를 기준으로 병합한다 — 도형 A 를 끌다가 B 를 끌면 두 칸이어야 한다.
+      return `SHAPE_SET:${a.shape.id}`;
     case 'OBJECT_NUDGE':
       return `OBJECT_NUDGE:${a.id}`;
     default:

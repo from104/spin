@@ -271,7 +271,7 @@ export const FLYOUT_LEAVE_CLOSE_MS = 260;
  *  아니라 **재편으로** 움직이는 것이라 §3 불변식 1 위반은 아니다(FALSIFICATION §26.6 이
  *  3.-1 에서 미리 예고해 둔 이동이다) — 그래도 자리를 옮긴 것은 사실이라 커밋 메시지에 적는다. */
 const DRAWERS = [
-  { key: 'draw', label: '작도', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'route' || t.id === 'pass') },
+  { key: 'draw', label: '작도', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'route' || t.id === 'pass' || t.id.startsWith('shape')) },
   { key: 'note', label: '설명', Icon: IconToolNote, tools: TOOLS.filter((t) => t.id === 'note') },
 ] as const satisfies readonly { key: DrawerKey; label: string; Icon: typeof IconToolRoute; tools: readonly ToolDef[] }[];
 
@@ -845,7 +845,9 @@ export function ToolRail({
                 }}
                 aria-expanded={isOpen}
                 aria-controls={isOpen ? panelId : undefined}
-                title={`${d.label} — ${d.tools.map((t) => `${t.label}(${t.digit})`).join(' · ')}`}
+                // 도형 3종은 숫자 키가 없다(§7.5f 의 1–8 을 안 늘렸다) — 그때는 문자 키를 보인다.
+                // 빈 괄호 `원()` 이 그대로 나가던 자리다(2026-08-14 DOM 대조로 발견).
+                title={`${d.label} — ${d.tools.map((t) => `${t.label}(${t.digit || t.key.toUpperCase()})`).join(' · ')}`}
                 onPointerEnter={(e) => {
                   // 마우스만 hover 로 연다. 터치는 pointerenter 도 함께 쏘는데, 그것까지 받으면
                   // 손가락이 닿는 순간 열리고 곧이어 click 이 토글해 **바로 닫힌다.**

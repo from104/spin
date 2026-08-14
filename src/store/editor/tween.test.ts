@@ -9,7 +9,7 @@ import { poseFrame, startTween, stepTransitionMs } from './tween.ts';
 import type { PoseXYT, RafAdd, TweenWriter } from './tween.ts';
 
 function emptyStep(): DrillStep {
-  return { id: newId('st'), name: 's', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [] };
+  return { id: newId('st'), name: 's', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [], shapes: [] };
 }
 
 function makeFakeRaf(): { add: RafAdd; tick(dtMs: number): void; unsubCount: number } {

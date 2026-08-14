@@ -32,6 +32,7 @@ import type { SelectionOverlayHandle, SelectionShape } from '../../render/Select
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { cues } from '../../ui/cues.ts';
 import { placeObject } from './placement.ts';
+import type { PlaceKind } from './placement.ts';
 import { snapOnSettle } from './snapOnSettle.ts';
 import { blockCueLimits, initialBlockCue, stepBlockCue } from './blockCue.ts';
 import type { BlockCueState } from './blockCue.ts';
@@ -57,6 +58,19 @@ export function isOverTray(client: { x: number; y: number } | null): boolean {
   return !!el?.closest('[data-tray]');
 }
 
+/** 배치 도구 id → placement.ts 의 종류. 여기 없는 도구는 "찍어서 놓는" 도구가 아니다.
+ *  ⚠️ 이 표가 **유일한 목록**이다 — 조건문으로 흩어 두면 도형을 더할 때처럼 두 곳(placeAt 과
+ *  pointerdown)을 각각 고쳐야 하고, 한쪽만 고치면 "도구는 켜지는데 안 놓인다" 가 된다. */
+const TOOL_TO_PLACE: Partial<Record<ToolId, PlaceKind>> = {
+  ball: 'ball',
+  cone: 'cone',
+  note: 'note',
+  player: 'player',
+  shapeEllipse: 'ellipse',
+  shapeTriangle: 'triangle',
+  shapeRect: 'rect',
+};
+
 export interface UseEditorPointerOptions {
   drill: Drill;
   step: DrillStep;
@@ -72,6 +86,8 @@ export interface UseEditorPointerOptions {
   zones: ZoneConfig;
   ballMax: number;
   pendingPlayerId: ChairId | null;
+  /** 지금 스텝의 인덱스 — 도형 상한(스텝당 40)을 세는 데 쓴다. placement 로 그대로 넘어간다. */
+  stepIndex: number;
   onPlayerPlaced(): void;
   showToast(message: string, action?: { label: string; onAction(): void }): void;
   /** §9 결정 ④ · 5.5 — 접근성 설정의 **2존 모드** 토글. `handlesVisible(…, forced)` 의
@@ -250,9 +266,14 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
    *  규칙 자체는 placement.ts 가 갖는다(트레이 드래그와 같은 규칙을 써야 한다). */
   const placeAt = useCallback((world: Vec2) => {
     const ctx = ctxRef.current;
-    if (ctx.tool !== 'ball' && ctx.tool !== 'cone' && ctx.tool !== 'note' && ctx.tool !== 'player') return;
-    placeObject(ctx.tool, world, {
+    // 2026-08-14 — 도형 3종이 배치 도구에 합류했다. 도구 id 와 PlaceKind 가 다른 유일한
+    // 자리라(도구는 `shapeRect`, 종류는 `rect`) 여기서 한 번 접는다 — placement.ts 는 도형의
+    // **종류**만 알면 되고 도구 id 는 몰라도 된다.
+    const kind = TOOL_TO_PLACE[ctx.tool];
+    if (!kind) return;
+    placeObject(kind, world, {
       drill: ctx.drill,
+      stepIndex: ctx.stepIndex,
       coneSlot: ctx.coneSlot,
       ballMax: ctx.ballMax,
       pendingPlayerId: ctx.pendingPlayerId,
@@ -426,7 +447,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 삼켜진다. 소리가 꺼져 있으면 이 호출은 아무것도 열지 않는다(cues.ts 계약 ①).
       cues.arm();
 
-      if (ctx.tool === 'ball' || ctx.tool === 'cone' || ctx.tool === 'note' || ctx.tool === 'player') {
+      if (TOOL_TO_PLACE[ctx.tool]) {
         placeAt(world);
         return;
       }

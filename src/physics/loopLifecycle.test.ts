@@ -183,7 +183,7 @@ describe('손을 뗀 뒤에는 반드시 멎는다', () => {
 
     p.api.load(
       { chairs: [{ id: chA, team: 'home', number: '2', isGk: false }], balls: [], cones: [] },
-      { id: 'st_next' as StepId, name: '', note: '', chairs: { [chA]: { x: 300, y: Y, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [] },
+      { id: 'st_next' as StepId, name: '', note: '', chairs: { [chA]: { x: 300, y: Y, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [], shapes: [] },
       'full',
     );
     p.stepFrames(5);

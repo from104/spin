@@ -66,6 +66,7 @@ function useHarness() {
   const step = drill.steps[0]!;
   const pointer = useEditorPointer({
     drill,
+    stepIndex: 0,
     step,
     tool: 'select',
     coneSlot: 0,

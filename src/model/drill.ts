@@ -4,6 +4,7 @@ import type { ChairId, BallId, ConeId, DrillId, StepId, NoteId } from '../core/i
 import type { CourtMode, CourtSize } from './court.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
+import type { Shape } from './shape.ts';
 
 export type PoseMap<K extends string, P> = Partial<Record<K, P>>;
 export type TeamSide = 'home' | 'away';
@@ -72,6 +73,9 @@ export interface DrillStep {
   cones: PoseMap<ConeId, Vec2>;
   arrows: Arrow[];
   notes: NoteLabel[];
+  /** 작도 도형 — 코트 위, 칩·화살표 **아래** 층(2026-08-14). 스텝마다 따로다: 화살표·메모와
+   *  같은 규율이고, 스텝이 곧 "그때의 판" 이므로 구역 표시도 스텝을 따라가야 한다. */
+  shapes: Shape[];
 }
 
 export type DrillLevel = '초급' | '중급' | '고급';
@@ -104,7 +108,21 @@ export interface TeamStyle {
  *   덧붙여, v3→v4 마이그레이션은 **적을 참말이 없다**: 'none' 을 찍으면 옛 드릴이 지금까지
  *   보이던 모습(스위치를 켜면 모든 공에 3 m 링)과 어긋나고, '3m' 을 찍으면 기현님이 요청한
  *   "초기 배치는 원 없음" 과 어긋난다. 적을 것이 없는 상승은 도장만 올리는 상승이다. */
-export const CURRENT_DRILL_SCHEMA = 3;
+/** v4 = 작도 도형(타원·정삼각형·직사각형, `DrillStep.shapes`) — 2026-08-14 기현 지시.
+ *
+ *  ⚠️ **위 `BallDef.ring` 문단과 반대 판단이라 근거를 남긴다.** 그쪽은 세 조건이 다 성립해
+ *  안 올렸는데, 도형은 **②를 못 넘는다**:
+ *   ① 없으면 도형 0개 — 전역이다. 마이그레이션이 적을 참말은 없다. (ring 과 같다)
+ *   ② ✗ **도형은 문서 내용이다.** ring 을 안 올린 핵심 논지는 *"옛 앱이 그리는 3 m 링은 문서
+ *      내용이 아니라 읽는 사람 기기의 설정에서 나온다"* 였다. 도형은 코치가 판에 **그린 것**
+ *      이라, 옛 앱은 그것을 조용히 빠뜨리고 나머지를 그린다 — courtSize 가 문제 삼은
+ *      *"파일은 멀쩡히 열리고 아무 경고도 없이 틀린 전술 그림이 나온다"* 와 같은 형태다.
+ *      수비 구역 셋을 그려 보낸 드릴이 상대 기기에서 빈 판으로 열리면 그것은 다른 드릴이다.
+ *   ③ 대가는 그대로다 — 배포된 옛 빌드가 새 파일을 too-new 로 거절한다. 그러나 그것이
+ *      courtSize 에서 이미 감수한 대가이고, ②가 성립하는 한 **거절이 정답**이다.
+ *  즉 이 상승은 "도장만 올리는 상승" 이 맞지만, 도장 자체가 목적이다: 옛 앱이 **정직하게
+ *  거절**하게 만드는 것. */
+export const CURRENT_DRILL_SCHEMA = 4;
 
 export interface Drill {
   schemaVersion: number;

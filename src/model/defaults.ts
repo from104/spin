@@ -130,7 +130,7 @@ export function ballPosFor(mode: CourtMode, size: CourtSize = DEFAULT_COURT_SIZE
 
 /** 아무것도 배치되지 않은 스텝. 휠체어·공·콘 전부 미배치이므로 코트가 비어 있다. */
 export function emptyStep(_mode: CourtMode): DrillStep {
-  return { id: newId('st'), name: '스텝 1', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [] };
+  return { id: newId('st'), name: '스텝 1', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [], shapes: [] };
 }
 
 /** 시그니처를 string 으로 넓히고 내부에서 FORMATIONS 폴백한다(validate.ts 의 이중 방어와 합치). */
@@ -159,6 +159,7 @@ export function defaultStep(mode: CourtMode, f: string, cast: DrillCast, size?: 
     cones: {},
     arrows: [],
     notes: [],
+    shapes: [],
   };
 }
 

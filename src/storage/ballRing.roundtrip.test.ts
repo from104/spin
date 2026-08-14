@@ -93,8 +93,10 @@ describe('§5.2 드릴 파일 왕복 — 내보낸 파일을 다시 가져와도
     // 봉투 안 payload 에 필드가 실제로 실려 있다(직렬화 단계에서 사라지는 것을 막는다).
     const payload = (JSON.parse(text) as { payload: Drill }).payload;
     expect(payload.cast.balls.map((b) => b.ring)).toEqual(['3m', '5m', undefined]);
-    // 도장은 3 그대로다 — 이 필드로 버전을 올리지 않았으므로 옛 앱이 too-new 로 거절하지 않는다.
-    expect(payload.schemaVersion).toBe(3);
+    // ⚠️ 도장은 **4** 다. 2026-08-14 에 작도 도형(shapes)이 올렸다 — **이 필드(ring)가 올린
+    // 것이 아니다.** 두 판단의 근거가 drill.ts 에 나란히 적혀 있다: 링은 조건 ②(문서 내용이
+    // 아니라 읽는 사람 기기 설정)를 넘어 안 올렸고, 도형은 못 넘어 올렸다.
+    expect(payload.schemaVersion).toBe(4);
 
     const cands = await prepareDrillImport(parseSpinFile(text));
     expect(cands).toHaveLength(1);

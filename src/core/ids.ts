@@ -1,5 +1,5 @@
 // §3.1 ID. 접두사 기반 브랜드 문자열 타입 + 생성기.
-export type IdPrefix = 'dr' | 'se' | 'st' | 'ch' | 'bl' | 'cn' | 'ar' | 'nt' | 'it';
+export type IdPrefix = 'dr' | 'se' | 'st' | 'ch' | 'bl' | 'cn' | 'ar' | 'nt' | 'sh' | 'it';
 export type Id<P extends IdPrefix> = `${P}_${string}`;
 export type DrillId = Id<'dr'>;
 export type SessionId = Id<'se'>;
@@ -9,6 +9,8 @@ export type BallId = Id<'bl'>;
 export type ConeId = Id<'cn'>;
 export type ArrowId = Id<'ar'>;
 export type NoteId = Id<'nt'>;
+/** 작도 도형(타원·정삼각형·직사각형) — 2026-08-14. */
+export type ShapeId = Id<'sh'>;
 export type ItemId = Id<'it'>;
 export type CastId = ChairId | BallId | ConeId;
 

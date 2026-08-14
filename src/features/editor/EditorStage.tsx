@@ -6,7 +6,7 @@ import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, u
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
-import type { ArrowId, CastId, ChairId } from '../../core/ids.ts';
+import type { ArrowId, CastId, ChairId, ShapeId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
@@ -35,6 +35,8 @@ export interface EditorStageProps {
    *  그 순간 판정하는 곳이 둘이 되고, 둘이 어긋나면 좌표 변환과 그림이 갈라진다. */
   rot: StageRot;
   step: DrillStep;
+  /** 지금 스텝의 인덱스 — 도형 상한(스텝당 40)을 세는 데 쓴다. */
+  stepIndex: number;
   tool: ToolId;
   coneSlot: 0 | 1;
   selection: ReadonlySet<string>;
@@ -74,7 +76,9 @@ function nearestCell(mode: CourtMode, p: { x: number; y: number }, size?: CourtS
   return { col, row };
 }
 
-const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note']);
+// 키보드 커서(§7.5d)가 격자 칸 가운데를 조준하는 도구들. 2026-08-14 에 도형 3종이 합쳤다 —
+// 놓는 도구인데 여기 없으면 **키보드로는 못 놓는** 도구가 된다.
+const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note', 'shapeEllipse', 'shapeTriangle', 'shapeRect']);
 
 /** §4.3 1.11 화살표 조준점 순환 순서. 첫 항목이 기본값이다 — 전술에서 화살표는 '누가
  *  **어디로**'라 조준 대상이 압도적으로 끝점(화살촉)이다. */
@@ -82,12 +86,13 @@ const ARROW_AIM_ORDER: readonly ArrowHandle[] = ['to', 'from', 'ctrl'];
 const ARROW_AIM_LABEL: Record<ArrowHandle, string> = { to: '끝점', from: '시작점', ctrl: '굽힘점' };
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, rot, step, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, epoch = 0, transitionMs = 0 },
+  { drill, rot, step, stepIndex, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, epoch = 0, transitionMs = 0 },
   stageRef,
 ) {
   const pointer = useEditorPointer({
     drill,
     step,
+    stepIndex,
     tool,
     coneSlot,
     selection,
@@ -451,6 +456,14 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     return id ? (step.arrows.find((a) => a.id === id) ?? null) : null;
   }, [selection, step.arrows]);
 
+  /** 선택이 정확히 하나이고 그것이 도형일 때만 손잡이를 띄운다 — 여럿을 고른 채로 손잡이를
+   *  내면 "무엇의 가로인가" 가 사라진다(화살표 핸들이 간 길과 같다). */
+  const selectedShape = useMemo(() => {
+    if (selection.size !== 1) return null;
+    const id = [...selection][0]!;
+    return step.shapes.find((sh) => sh.id === id) ?? null;
+  }, [selection, step.shapes]);
+
   const cursorWorld = cursor && PLACEMENT_TOOLS.has(tool) ? gridCellCenter(drill.courtMode, cursor.col, cursor.row, drill.courtSize) : null;
   const cursorLabel = cursorWorld ? cellLabelAt(drill.courtMode, cursorWorld, drill.courtSize) : null;
 
@@ -475,6 +488,16 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       goals={goals}
       notes={notes}
       arrows={arrows}
+      shapes={step.shapes}
+      // 도형을 잡으면 **선택만** 바꾼다. 지우개면 그 자리에서 지운다 — 개체(칩·공·콘)가
+      // 지우개 아래에서 사라지는 것과 같은 규칙이라, 도형만 다르게 두면 "지우개가 도형에는
+      // 안 듣는다" 가 된다.
+      onShapeSelect={(id) => {
+        if (tool === 'erase') dispatch({ type: 'SHAPE_REMOVE', id: id as ShapeId });
+        else dispatch({ type: 'SELECT_SET', ids: [id] });
+      }}
+      onShapeChange={(next) => dispatch({ type: 'SHAPE_SET', shape: next })}
+      shapeHandles={{ shape: selectedShape }}
       selection={selection}
       // 5.5 — 차체 음영·커서도 같은 진실을 말해야 한다. 2존인데 앞 2/3 에 '제자리 회전' 음영이
       // 남아 있으면 판이 거짓말을 한다(잡으면 실제로는 통째로 밀린다). ⚠️ `zones` 를 그대로

@@ -27,6 +27,10 @@ import { RuleOverlay } from './RuleOverlay.tsx';
 import type { RuleOverlayApi, RuleRosterEntry } from './ruleOverlay.ts';
 import { ArrowMarkers } from './ArrowMarkers.tsx';
 import { ObjectLayer, type ObjectLayerChair, type ObjectLayerCone } from './ObjectLayer.tsx';
+import { ShapeLayer } from './ShapeLayer.tsx';
+import { ShapeHandles } from './ShapeHandles.tsx';
+import { dragShapeHandle } from '../model/shape.ts';
+import type { Shape, ShapeHandle } from '../model/shape.ts';
 import { SelectionOverlay, type SelectionOverlayHandle } from './SelectionOverlay.tsx';
 import { ZoneHandles } from './ZoneHandles.tsx';
 import type { ZoneConfig } from '../model/chair.ts';
@@ -117,6 +121,15 @@ export interface CourtStageProps {
   /** 골대 포스트 id. 편집기만 넘긴다(§5.4). */
   goals?: readonly string[];
   notes: readonly NoteLabelData[];
+  /** 작도 도형(2026-08-14). **코트 위·칩 아래** 층이라 렌더 순서가 곧 계약이다 —
+   *  아래 JSX 에서 RuleOverlay 와 ObjectLayer **사이**에 있다. */
+  shapes?: readonly Shape[];
+  /** 도형을 잡았다 — 선택만 바꾼다. 끌기는 아래 `onShapeChange` 가 진다. */
+  onShapeSelect?: (id: string) => void;
+  /** 끌고 있는 동안 매 프레임 불린다. **월드 좌표 산수는 이 파일이 진다** — metrics(회전·배율·
+   *  오프셋)를 쥔 곳이 여기뿐이라, 좌표 변환을 밖으로 내보내면 판이 돌아간 상태에서 두 곳이
+   *  갈라진다(panByScreen 이 rect 를 매번 다시 재는 것과 같은 이유). */
+  onShapeChange?: (next: Shape) => void;
   arrows: readonly Arrow[];
   selection: ReadonlySet<string>;
   /** 편집기에서만 넘긴다 — 차체 위 4개 존에 존별 마우스 커서를 얹는다. */
@@ -138,6 +151,8 @@ export interface CourtStageProps {
     activeZone: DragZone | null;
     onPointerDown?: (zone: DragZone, e: ReactPointerEvent<SVGGElement>) => void;
   };
+  /** 선택된 도형의 손잡이 셋(가로·세로·회전). 화살표 핸들과 같은 모양의 prop 이다. */
+  shapeHandles?: { shape: Shape | null };
   arrowHandles?: {
     arrow: Arrow | null;
     /** 키보드 조준점(§4.3 1.11) — Shift+방향키가 옮길 점. null 이면 강조하지 않는다. */
@@ -193,7 +208,11 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     onContainerKeyDown,
     ariaDescribedBy = 'court-help',
     selectionOverlayRef,
+    shapes = [],
+    onShapeSelect,
+    onShapeChange,
     zoneHandles: zoneHandlesProps,
+    shapeHandles: shapeHandlesProps,
     arrowHandles: arrowHandlesProps,
     keyboardCursor,
     ruleOverlay,
@@ -563,6 +582,75 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     return () => window.removeEventListener('keydown', onKey);
   }, [panArmed, setArmed]);
 
+  // ── 도형 끌기(이동 · 크기 · 회전) ────────────────────────────────────────────────────
+  // 개체(칩·공·콘)와 달리 컨트롤러를 안 지난다: 도형은 물리 바디가 아니라 **표시**라
+  // hitTest 에 분기를 더할 이유가 없고, SVG 이벤트가 이미 정확한 히트를 준다.
+  // 규칙 계산은 전부 `dragShapeHandle`(순수)이 지고, 여기는 좌표 변환과 캡처만 한다.
+  const shapeDragRef = useRef<{ id: string; which: ShapeHandle | 'body'; grab: Vec2; start: Shape } | null>(null);
+
+  const worldOf = useCallback(
+    (e: { clientX: number; clientY: number }): Vec2 | null => {
+      const m = metricsRef.current ?? refreshMetrics();
+      return m ? clientToWorld(m, e.clientX, e.clientY) : null;
+    },
+    [refreshMetrics],
+  );
+
+  const onShapeBodyDown = useCallback(
+    (id: string, e: ReactPointerEvent<SVGGElement>) => {
+      onShapeSelect?.(id);
+      const shape = shapes.find((s) => s.id === id);
+      const w = worldOf(e);
+      if (!shape || !w) return;
+      // 두 번째 포인터(핀치)는 무시한다 — 개체 드래그가 간 길과 같다.
+      if (shapeDragRef.current) return;
+      e.stopPropagation();
+      (e.currentTarget as unknown as { setPointerCapture(id: number): void }).setPointerCapture?.(e.pointerId);
+      shapeDragRef.current = { id, which: 'body', grab: w, start: shape };
+    },
+    [onShapeSelect, shapes, worldOf],
+  );
+
+  const onShapeHandleDown = useCallback(
+    (which: ShapeHandle, e: ReactPointerEvent<SVGGElement>) => {
+      const shape = shapeHandlesProps?.shape ?? null;
+      const w = worldOf(e);
+      if (!shape || !w) return;
+      e.stopPropagation();
+      (e.currentTarget as unknown as { setPointerCapture(id: number): void }).setPointerCapture?.(e.pointerId);
+      shapeDragRef.current = { id: shape.id, which, grab: w, start: shape };
+    },
+    [shapeHandlesProps, worldOf],
+  );
+
+  // 끌기는 **window** 에서 받는다. 손이 도형 밖으로 나가도 이어져야 하는데, SVG 자식에만
+  // 달면 포인터가 다른 요소 위로 가는 순간 끊긴다(useTrayDrag 가 같은 이유로 같은 선택을 했다).
+  useEffect(() => {
+    if (!onShapeChange) return;
+    const move = (ev: PointerEvent): void => {
+      const d = shapeDragRef.current;
+      if (!d) return;
+      const w = worldOf(ev);
+      if (!w) return;
+      if (d.which === 'body') {
+        onShapeChange({ ...d.start, x: d.start.x + (w.x - d.grab.x), y: d.start.y + (w.y - d.grab.y) });
+      } else {
+        onShapeChange(dragShapeHandle(d.start, d.which, w));
+      }
+    };
+    const up = (): void => {
+      shapeDragRef.current = null;
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+  }, [onShapeChange, worldOf]);
+
   useImperativeHandle(
     ref,
     (): CourtStageHandle => ({
@@ -638,6 +726,11 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             teams={ruleOverlay.teams}
           />
         )}
+        {/* ★ 작도 도형 — **여기가 자리다**(기현 지시 2026-08-14: *"레이어는 코트보다는 높고
+            칩, 화살표들보다는 낮게"*). 위로는 RuleOverlay, 아래로는 ObjectLayer 다.
+            이 두 줄 사이를 벗어나면 요구가 깨진다: 위로 올리면 도형이 칩을 덮고, 아래로
+            내리면 격자·골 지역 가이드에 묻힌다. */}
+        <ShapeLayer shapes={shapes} selected={selection} onPointerDown={onShapeSelect ? onShapeBodyDown : undefined} />
         <ObjectLayer
           writer={writer}
           chairs={chairs}
@@ -664,6 +757,13 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
             activeZone={zoneHandlesProps.activeZone}
             onPointerDown={zoneHandlesProps.onPointerDown}
+          />
+        )}
+        {shapeHandlesProps && (
+          <ShapeHandles
+            shape={shapeHandlesProps.shape}
+            pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
+            onPointerDown={onShapeHandleDown}
           />
         )}
         {arrowHandlesProps && (

@@ -42,6 +42,7 @@ function makeStep(): DrillStep {
     cones: {},
     arrows: [],
     notes: [],
+    shapes: [],
   };
 }
 

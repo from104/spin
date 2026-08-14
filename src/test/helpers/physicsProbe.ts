@@ -297,6 +297,7 @@ export function createPhysicsProbe(setup: ProbeSetup = {}): PhysicsProbe {
     cones: Object.fromEntries(cones.map((c) => [c.id, { x: c.x, y: c.y }])),
     arrows: [],
     notes: [],
+    shapes: [],
   };
 
   const api = createPhysicsWorld(setup.court?.w ?? def.vbW, setup.court?.h ?? def.vbH, setup.limits);

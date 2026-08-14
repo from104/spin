@@ -126,6 +126,8 @@ function buildStep(
     cones,
     arrows,
     notes,
+    // 씨앗 드릴에는 도형이 없다 — 콘텐츠는 아직 기현님 몫이다(⑥).
+    shapes: [],
   };
 }
 

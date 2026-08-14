@@ -14,6 +14,8 @@ import type { ChairId } from '../../core/ids.ts';
 import type { Drill } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { BALL, CONE } from '../../core/constants.ts';
+import { LIMITS } from '../../model/validate.ts';
+import { makeShape, type ShapeKind } from '../../model/shape.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import { cues } from '../../ui/cues.ts';
 
@@ -24,7 +26,7 @@ export const coneLimitMsg = (slot: 0 | 1): string =>
 export const PLAYER_UNARMED_MSG = '먼저 트레이에서 배치할 선수를 고르세요.';
 
 /** 코트에 '놓을 수 있는' 도구만. select/route/pass/erase 는 배치가 아니다. */
-export type PlaceKind = 'ball' | 'cone' | 'note' | 'player';
+export type PlaceKind = 'ball' | 'cone' | 'note' | 'player' | ShapeKind;
 
 export interface PlaceDeps {
   drill: Drill;
@@ -32,6 +34,8 @@ export interface PlaceDeps {
   ballMax: number;
   /** 배치 대상 휠체어. 트레이 드래그는 **끌고 있는 칩의 id** 를 직접 넣는다. */
   pendingPlayerId: ChairId | null;
+  /** 지금 스텝의 인덱스 — 도형 상한을 스텝 기준으로 세기 위해서다(화살표·메모와 같은 상한 40). */
+  stepIndex: number;
   dispatch: Dispatch<EditorAction>;
   showToast(message: string): void;
   onPlayerPlaced(): void;
@@ -71,6 +75,20 @@ function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): boolean {
       return false;
     }
     d.dispatch({ type: 'OBJECT_ADD', kind: 'cone', at: world, colorIndex: d.coneSlot });
+    return true;
+  }
+
+  if (kind === 'ellipse' || kind === 'triangle' || kind === 'rect') {
+    const step = d.drill.steps[d.stepIndex];
+    if (step && step.shapes.length >= LIMITS.maxShapesPerStep) {
+      d.showToast(`도형은 스텝당 ${LIMITS.maxShapesPerStep}개까지입니다.`);
+      return false;
+    }
+    const id = newId('sh');
+    d.dispatch({ type: 'SHAPE_SET', shape: makeShape(id, kind, world) });
+    // 놓자마자 선택해 둔다 — 도형은 면이 0.13 이라 빈 코트에서도 옅고, 선택 링과 손잡이가
+    // 없으면 "도형 도구가 아무 반응도 없다" 로 읽힌다(빈 메모가 같은 이유로 같은 처리다).
+    d.dispatch({ type: 'SELECT_SET', ids: [id] });
     return true;
   }
 

@@ -3,9 +3,10 @@
 // 정착 시점의 스텝 전체 pose 맵(PoseMap)을 그대로 담아 present 를 단방향 교체하는 용도이므로
 // DrillStep 의 동명 필드와 같은 타입으로 채웠다(§6.7 "PLACE_COMMIT 은 이미 DOM/물리와 값이
 // 같으므로 어떤 재동기화도 하지 않는다" 문단과 일관).
-import type { ChairId, StepId, ArrowId, NoteId, CastId, BallId, ConeId } from '../../core/ids.ts';
+import type { ChairId, StepId, ArrowId, NoteId, CastId, BallId, ConeId, ShapeId } from '../../core/ids.ts';
 import type { Vec2 } from '../../core/units.ts';
 import type { Drill, ChairDef, NoteLabel, PoseMap } from '../../model/drill.ts';
+import type { Shape } from '../../model/shape.ts';
 import type { StoredChairPose } from '../../model/chair.ts';
 import type { Arrow } from '../../model/arrow.ts';
 import type { ToolId } from '../../physics/index.ts';
@@ -109,6 +110,10 @@ export type EditorAction =
   | { type: 'ARROW_REMOVE'; id: ArrowId }
   | { type: 'NOTE_SET'; note: NoteLabel }
   | { type: 'NOTE_REMOVE'; id: NoteId }
+  // 작도 도형(2026-08-14). 화살표·메모와 **완전히 같은 모양**의 쌍이다 — 도형만 다른 규칙을
+  // 갖게 하면 되돌리기·병합·자동저장 세 곳에 각각 예외가 생긴다.
+  | { type: 'SHAPE_SET'; shape: Shape }
+  | { type: 'SHAPE_REMOVE'; id: ShapeId }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
@@ -141,6 +146,8 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'ARROW_REMOVE',
   'NOTE_SET',
   'NOTE_REMOVE',
+  'SHAPE_SET',
+  'SHAPE_REMOVE',
 ]);
 
 /** COALESCE_TYPES(§6.7) — 연속 입력을 700ms/5s 창 안에서 병합한다. */
@@ -149,6 +156,8 @@ export const COALESCE_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'STEP_META',
   'NOTE_SET',
   'ARROW_SET',
+  // 도형은 끌면 매 프레임 SHAPE_SET 이 난다 — 병합 없이는 한 번 끄는 데 되돌리기 수십 칸이다.
+  'SHAPE_SET',
   'OBJECT_NUDGE',
 ]);
 

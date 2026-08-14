@@ -173,13 +173,25 @@ describe('5.2 스키마 관문 ① — validateDrill 화이트리스트', () => 
 });
 
 describe('5.2 스키마 관문 ② — 도장을 올리지 않은 것이 성립하는가', () => {
-  it('체인의 끝이 곧 현재 버전이다 — v4 단계는 없다', () => {
+  it('체인의 끝이 곧 현재 버전이다 — **링 때문에 오른 단계는 없다**', () => {
+    // ⚠️ 2026-08-14 — 스키마가 4 가 됐다. 그러나 **링 때문이 아니다**: v3→v4 는 작도 도형
+    // (`DrillStep.shapes`) 때문이고, 그 판단 근거는 drill.ts 의 CURRENT_DRILL_SCHEMA 주석에
+    // 링과 **나란히** 적혀 있다(링은 조건 ②를 넘어 안 올렸고, 도형은 못 넘어 올렸다).
+    // 이 describe 가 지키는 것은 여전히 "링이 도장을 올리지 않았다" 이므로, 그 사실을 링을
+    // 건드리는 단계가 체인에 없다는 것으로 잰다.
     const last = DRILL_MIGRATIONS[DRILL_MIGRATIONS.length - 1]!;
     expect(last.to).toBe(CURRENT_DRILL_SCHEMA);
-    expect(CURRENT_DRILL_SCHEMA).toBe(3);
+    expect(CURRENT_DRILL_SCHEMA).toBe(4);
+    // ⚠️ 문구로 세지 않는다 — v1→v2 의 '필요 **인원**' 이 '원' 을 품고 있어 헛걸린다.
+    // 행동으로 잰다: 전 체인을 돌려도 `cast.balls` 가 바이트 동일해야 한다.
+    const balls = [{ id: 'bl_1', ring: '5m' }, { id: 'bl_2' }];
+    const doc = { schemaVersion: 1, id: 'dr_x', courtMode: 'full', cast: { chairs: [], balls, cones: [] }, steps: [] };
+    const m = migrateDoc(doc, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
+    expect(m.ok).toBe(true);
+    if (m.ok) expect((m.doc as { cast: { balls: unknown } }).cast.balls, '링을 건드리는 단계가 생겼다').toEqual(balls);
   });
 
-  it("**손으로 만든 v3 문서가 무손실로 열린다** — 원을 담고 있어도 마이그레이션 없이 통과한다", () => {
+  it("**손으로 만든 v3 문서가 무손실로 열린다** — 도형 단계를 지나도 원은 손대지 않는다", () => {
     const handMade = {
       schemaVersion: 3,
       id: 'dr_hand',
@@ -192,7 +204,9 @@ describe('5.2 스키마 관문 ② — 도장을 올리지 않은 것이 성립�
     const mig = migrateDoc(handMade, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
     expect(mig.ok).toBe(true);
     if (!mig.ok) return;
-    expect(mig.applied).toEqual([]); // 올릴 단계가 없다
+    // 2026-08-14 — v3→v4(도형) 한 단계는 지난다. **원과 무관한 단계**라는 것이 요점이다.
+    expect(mig.applied).toHaveLength(1);
+    expect((mig.doc as { cast: { balls: unknown[] } }).cast.balls, '도형 단계가 원을 건드렸다').toEqual(handMade.cast.balls);
     const v = validateDrill(mig.doc);
     expect(v.ok).toBe(true);
     if (!v.ok) return;
@@ -211,7 +225,8 @@ describe('5.2 스키마 관문 ② — 도장을 올리지 않은 것이 성립�
     const mig = migrateDoc(v1, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
     expect(mig.ok).toBe(true);
     if (!mig.ok) return;
-    expect(mig.applied).toHaveLength(2); // v1→v2→v3 은 그대로 돈다(대조군)
+    // 2026-08-14 — 체인이 셋이 됐다(v3→v4 작도 도형).
+    expect(mig.applied).toHaveLength(3); // v1→v2→v3 은 그대로 돈다(대조군)
     const v = validateDrill(mig.doc);
     expect(v.ok).toBe(true);
     if (!v.ok) return;
