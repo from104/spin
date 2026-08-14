@@ -41,23 +41,20 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         gap: '0.3125rem',
       }}
     >
-      <div
+      {/* 2026-08-14 기현님이 주신 앱 아이콘으로 바꿨다 — 옛 자리는 액센트색 타일에 'SP' 두 글자였다.
+          `aria-hidden` 은 그대로다: 바로 아래 'SPIN' 워드마크가 같은 것을 한 번 더 말하므로,
+          스크린리더에 둘 다 읽히면 "SP SPIN" 이 된다(alt 를 비워 두는 것과 같은 이유).
+          자산은 `public/logo-128.png` — 원본에서 **흰 여백을 잘라낸** 타일이다(`art/README.md`).
+          잘라낸 뒤에도 둥근 모서리 바깥은 흰색이라 알파로 지웠고, 그 위에 같은 borderRadius 를
+          한 번 더 건다: 원본 타일의 라운드와 이 프레임이 어긋나면 모서리에 흰 실선이 남는다. */}
+      <img
+        src="/logo-128.png"
+        alt=""
         aria-hidden
-        style={{
-          width: 42,
-          height: 42,
-          borderRadius: 12,
-          background: 'var(--accent)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '0.375rem',
-        }}
-      >
-        <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '1rem', color: 'var(--accent-ink-strong)', letterSpacing: '-0.03rem' }}>
-          SP
-        </span>
-      </div>
+        width={42}
+        height={42}
+        style={{ borderRadius: 12, display: 'block', marginBottom: '0.375rem' }}
+      />
       <div
         aria-hidden
         style={{

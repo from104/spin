@@ -121,3 +121,27 @@ describe('보드 아이콘', () => {
     expect(svg?.querySelectorAll('circle')).toHaveLength(0);
   });
 });
+
+// 2026-08-14 — 로고를 'SP' 두 글자에서 기현님이 주신 앱 아이콘으로 바꿨다. 아이콘에 단언이
+// 하나도 없어서 레일 첫 항목이 이름만 바뀐 채 집 모양으로 몇 주를 남아 있던 일이 있었다
+// (그 수리가 IconBoard 다). 같은 일이 로고에서 되풀이되지 않게 여기서 못박는다.
+describe('레일 로고', () => {
+  it('앱 아이콘 이미지이고, 스크린리더에는 안 읽힌다', () => {
+    render(<AppRail />, { wrapper: Harness });
+    const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
+    const logo = nav.querySelector('img')!;
+    expect(logo, '로고 이미지가 없다 — 글자 로고로 되돌아갔나').toBeTruthy();
+    expect(logo.getAttribute('src')).toBe('/logo-128.png');
+    // 바로 아래 'SPIN' 워드마크가 같은 것을 한 번 더 말한다 — 둘 다 읽히면 "SP SPIN" 이 된다.
+    expect(logo.getAttribute('alt')).toBe('');
+    expect(logo.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('42×42 이고 모서리가 둥글다 — 옛 타일과 같은 자리·같은 모양이다', () => {
+    render(<AppRail />, { wrapper: Harness });
+    const logo = screen.getByRole('navigation', { name: '주요 메뉴' }).querySelector('img')!;
+    expect(logo.getAttribute('width')).toBe('42');
+    expect(logo.getAttribute('height')).toBe('42');
+    expect(logo.style.borderRadius).toBe('12px');
+  });
+});
