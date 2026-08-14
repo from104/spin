@@ -1,7 +1,7 @@
 // §3.4 "피벗 원점 렌더 규약" 그대로 이식. `<g>` 에는 transform prop 을 절대 주지 않는다
 // (§6.1 규칙 1) — 위치는 TransformWriter 가 마운트된 ref 에 직접 쓴다.
 import { memo, useEffect, useRef } from 'react';
-import { LockRingRect } from './LockRing.tsx';
+import { LockTintRect } from './LockTint.tsx';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { CHAIR } from '../../core/constants.ts';
 import { inkFor, strokeFor } from '../../core/colors.ts';
@@ -119,7 +119,7 @@ export const ChairChip = memo(function ChairChip({
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
-      {locked && <LockRingRect x={-CHAIR.pivotToRearPx - SEL_PAD} y={-HALF_W - SEL_PAD} width={CHAIR.lengthPx + SEL_PAD * 2} height={CHAIR.widthPx + SEL_PAD * 2} rx={5 + SEL_PAD} />}
+      {locked && <LockTintRect x={-CHAIR.pivotToRearPx - SEL_PAD} y={-HALF_W - SEL_PAD} width={CHAIR.lengthPx + SEL_PAD * 2} height={CHAIR.widthPx + SEL_PAD * 2} rx={5 + SEL_PAD} />}
       {/* 선택 링 — 차체보다 살짝 크게 둘러 그린다. 어두운 밑선 위에 액센트 파선을 얹어
           어떤 팀 색·코트 밝기에서도 보이게 한다(단색 한 겹이면 팀 색과 겹쳐 사라진다). */}
       {selected && (

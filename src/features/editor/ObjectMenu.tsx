@@ -15,7 +15,7 @@
 // 뒤집는다 — 자리를 옮기는 것이 아니라 **뒤집는 것**이라, 메뉴 모서리 하나는 언제나 손끝에 붙어 있다.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { LOCK_RING_COLOR } from '../../core/colors.ts';
+import { LOCK_TINT_COLOR } from '../../core/colors.ts';
 
 export interface ObjectMenuTarget {
   id: string;
@@ -139,7 +139,7 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onDe
           onClick={act(() => onToggleLock(target.id, !target.locked))}
           style={ITEM}
         >
-          <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', color: LOCK_RING_COLOR }}>
+          <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', color: LOCK_TINT_COLOR }}>
             {target.locked ? '○' : '●'}
           </span>
           {target.locked ? '잠금 해제' : '잠금'}
@@ -158,7 +158,10 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onDe
 
         <div aria-hidden style={{ height: 1, margin: '5px 10px', background: 'var(--border)' }} />
 
-        <button type="button" role="menuitem" onClick={act(() => onDelete(target.id))} style={{ ...ITEM, color: LOCK_RING_COLOR }}>
+        {/* 삭제만 붉다 — 되돌릴 수 없는 항목은 색으로도 갈려야 한다. 잠금·무시의 보라와
+            같은 색을 쓰면 세 항목이 한 덩어리로 읽혀 실수로 누르기 쉬워진다.
+            (#d93a3a 는 빨강 팀 칩과 같은 값이다 — 여기는 메뉴 글자라 코트 위 개체와 섞이지 않는다.) */}
+        <button type="button" role="menuitem" onClick={act(() => onDelete(target.id))} style={{ ...ITEM, color: '#ff6b6b' }}>
           <span aria-hidden style={{ width: '1.125rem', textAlign: 'center' }}>
             ✕
           </span>

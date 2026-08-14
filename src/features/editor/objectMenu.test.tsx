@@ -162,7 +162,7 @@ describe('메뉴 — 화면 끝', () => {
     }
   });
 
-  it('★ 잠그면 붉은 테두리가 뜬다', async () => {
+  it('★ 잠그면 보라 덮개가 얹힌다', async () => {
     // ⚠️ **끌기 차단은 여기서 못 잰다.** jsdom 에는 레이아웃이 없어 좌표가 전부 0 이라,
     // 차단이 있든 없든 개체가 안 움직인다 — 실제로 차단을 지우고 돌려 보니 그대로
     // 초록이었다(2026-08-14 반증). 아무것도 안 지키는 단언은 없느니만 못하므로 뺐다.
@@ -170,7 +170,28 @@ describe('메뉴 — 화면 끝', () => {
     const { user, chair } = await openBoardWithChair();
     fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
     await user.click(await screen.findByRole('menuitem', { name: '잠금' }));
-    await waitFor(() => expect(chair.querySelector('.lock-ring'), '붉은 테두리가 없다').not.toBeNull());
+    // ⚠️ 처음에는 **붉은 테두리**였다(기현 첫 지시). 실기에서 선택 테두리와 겹쳐서
+    // 보라 반투명 덮개로 바뀌었다 — 링 둘이 같은 픽셀을 다투던 것이 원인이라, 면으로
+    // 바꾼 것이 수리다(LockTint.tsx 머리말).
+    await waitFor(() => expect(chair.querySelector('.lock-tint'), '보라 덮개가 없다').not.toBeNull());
+    expect(chair.querySelector('.lock-ring'), '옛 붉은 테두리가 되살아났다').toBeNull();
+  });
+
+  it('★ 잠김 덮개와 선택 테두리가 **함께 떠도** 서로 다른 요소다 — 겹침이 이 수리의 이유였다', async () => {
+    // 기현님 실측: *"붉은 테두리로 정했는데 선택 테두리와 겹친다."* 잠긴 것을 고를 수 있어야
+    // 하므로 **둘이 동시에 뜨는 것이 정상 상태**인데, 둘 다 개체 둘레의 링이라 같은 픽셀을
+    // 다퉜다. 덮개는 면이라 축이 다르다 — 이 단언이 그 분리를 지킨다.
+    const { user, chair } = await openBoardWithChair();
+    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+    await user.click(await screen.findByRole('menuitem', { name: '잠금' }));
+    await user.pointer([{ target: chair, keys: '[MouseLeft]', coords: { clientX: 40, clientY: 40 } }]);
+
+    await waitFor(() => expect(chair.querySelector('.sel-ring'), '선택 테두리가 없다').not.toBeNull());
+    const tint = chair.querySelector('.lock-tint')!;
+    expect(tint, '덮개가 없다').not.toBeNull();
+    // 덮개는 **채워진 면**이고 테두리는 선이다 — 같은 표현이면 다시 겹친다.
+    expect(tint.getAttribute('fill'), '덮개가 면이 아니다').toBeTruthy();
+    expect(tint.getAttribute('stroke'), '덮개가 선을 그리고 있다 — 다시 링과 겹친다').toBeNull();
   });
 
   it('잠금은 **선택은 막지 않는다** — 못 고르면 잠금을 풀 길이 없다', async () => {

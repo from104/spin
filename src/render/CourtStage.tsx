@@ -629,13 +629,16 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       const shape = shapes.find((s) => s.id === id);
       const w = worldOf(e);
       if (!shape || !w) return;
+      // 잠긴 도형은 **못 끈다**(개체와 같은 규칙, 2026-08-14). 고르기는 위에서 이미 끝났다 —
+      // 못 고르면 잠금을 풀 길이 없다는 그 규율이 도형에도 그대로 걸린다.
+      if (locked?.has(id)) return;
       // 두 번째 포인터(핀치)는 무시한다 — 개체 드래그가 간 길과 같다.
       if (shapeDragRef.current) return;
       e.stopPropagation();
       (e.currentTarget as unknown as { setPointerCapture(id: number): void }).setPointerCapture?.(e.pointerId);
       shapeDragRef.current = { id, which: 'body', grab: w, start: shape };
     },
-    [onShapeSelect, shapes, worldOf],
+    [onShapeSelect, shapes, worldOf, locked],
   );
 
   const onShapeHandleDown = useCallback(
@@ -643,11 +646,13 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       const shape = shapeHandlesProps?.shape ?? null;
       const w = worldOf(e);
       if (!shape || !w) return;
+      if (locked?.has(shape.id)) return; // 잠긴 도형은 크기·회전도 못 바꾼다
+
       e.stopPropagation();
       (e.currentTarget as unknown as { setPointerCapture(id: number): void }).setPointerCapture?.(e.pointerId);
       shapeDragRef.current = { id: shape.id, which, grab: w, start: shape };
     },
-    [shapeHandlesProps, worldOf],
+    [shapeHandlesProps, worldOf, locked],
   );
 
   // 끌기는 **window** 에서 받는다. 손이 도형 밖으로 나가도 이어져야 하는데, SVG 자식에만
@@ -758,7 +763,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             칩, 화살표들보다는 낮게"*). 위로는 RuleOverlay, 아래로는 ObjectLayer 다.
             이 두 줄 사이를 벗어나면 요구가 깨진다: 위로 올리면 도형이 칩을 덮고, 아래로
             내리면 격자·골 지역 가이드에 묻힌다. */}
-        <ShapeLayer shapes={shapes} selected={selection} onPointerDown={onShapeSelect ? onShapeBodyDown : undefined} />
+        <ShapeLayer shapes={shapes} selected={selection} locked={locked} onPointerDown={onShapeSelect ? onShapeBodyDown : undefined} />
         <ObjectLayer
           writer={writer}
           chairs={chairs}

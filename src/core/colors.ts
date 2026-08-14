@@ -100,7 +100,13 @@ export const inkFor = (fill: string): string => (relLuminance(fill) > OBJ_INK_L 
  *  어떤 색을 넣어도 테두리가 보인다. ⚠️ 이 값을 올리지 마라(teamMarkContrast.test.tsx 가 잰다). */
 export const strokeFor = (fill: string): string => (relLuminance(fill) > OBJ_INK_L ? OBJ_STROKE_DARK : OBJ_STROKE);
 
-/** 잠긴 개체의 붉은 테두리(2026-08-14 기현 지시). 코트(#1f7a46) 위 대비 4.03:1 —
- *  §7.1 의 비텍스트 3:1 을 넘고, 빨강 팀 칩(#d93a3a)보다 **한 단 어둡다.** 같은 빨강을 쓰면
- *  "빨강 팀이라서 빨간 건가" 가 되어 표시가 뜻을 잃는다. */
-export const LOCK_RING_COLOR = '#ff2d2d';
+/** 잠긴 개체를 덮는 보라(2026-08-14 기현 지시, 실측 뒤 붉은 테두리에서 바뀜).
+ *
+ *  ⚠️ 팀 색 팔레트에 보라(#7c5cd6)가 **이미 있다.** 그것과 갈리도록 채도를 훨씬 높이고
+ *  명도를 낮췄다 — #7c5cd6 은 밝은 라벤더(L≈52)이고 이쪽은 진한 바이올렛(L≈40)이다.
+ *  코트(#1f7a46) 위에 42% 로 합성하면 #4a4a7a 근처가 되어, 초록 위에서 "덮였다" 가
+ *  한눈에 읽힌다. 액센트(라임 #c2f74e)와는 색상환 반대편이라 선택 표시와도 안 섞인다. */
+export const LOCK_TINT_COLOR = '#7b1fd4';
+/** 덮개 불투명도. 개체가 **무엇인지는 여전히 보여야** 하므로(등번호·색·모양) 반투명이다.
+ *  0.42 는 등번호 흰 글자가 덮개 아래에서도 4.5:1 을 넘는 상한이다. */
+export const LOCK_TINT_OPACITY = 0.42;

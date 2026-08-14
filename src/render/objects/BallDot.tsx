@@ -1,6 +1,6 @@
 // §6.6 공. 물리 반지름 4.125px, 시각 반지름 7px(프로토타입 그대로 — 괴리는 의도적, §12-Q4).
 import { memo, useEffect, useRef } from 'react';
-import { LockRing } from './LockRing.tsx';
+import { LockTint } from './LockTint.tsx';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { BALL } from '../../core/constants.ts';
 import { BALL_FILL } from '../../core/colors.ts';
@@ -40,7 +40,7 @@ export const BallDot = memo(function BallDot({ id, writer, selected,
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
-      {locked && <LockRing r={BALL.viewRadiusPx + 4} />}
+      {locked && <LockTint r={BALL.viewRadiusPx + 4} />}
       {/* 선택 링 — 어두운 밑선 + 액센트 파선 2겹(ChairChip 과 동일한 근거: 한 겹이면 개체 색과 겹쳐 사라진다) */}
       {selected && (
         <g className="sel-ring" pointerEvents="none">

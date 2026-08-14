@@ -3,7 +3,7 @@
 // 루트에서 유일한 `uid`(useId() 결과, CourtStage 가 공급)로 조립한다 — 전역 고정 id 를 쓰면
 // 목록 카드 다중 인스턴스에서 url(#id) 참조가 문서 순서상 첫 번째로 깨진다(§6.6).
 import { memo, useLayoutEffect, useRef } from 'react';
-import { LOCK_RING_COLOR } from '../../core/colors.ts';
+import { LOCK_TINT_COLOR, LOCK_TINT_OPACITY } from '../../core/colors.ts';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { ARROW_CASING } from '../../core/colors.ts';
 import type { ArrowId } from '../../core/ids.ts';
@@ -19,8 +19,7 @@ export interface ArrowPathProps {
    *  시연·썸네일은 React 재렌더 경로(PresentObjects 헤더 주석)라 넘기지 않는다. */
   writer?: TransformWriter;
   selected: boolean;
-  /** 잠김(2026-08-14) — 화살표는 선이라 링이 아니라 **붉은 밑선**으로 표시한다.
-   *  원을 두르면 굽은 화살표를 감싸느라 코트 절반을 덮는다. */
+  /** 잠김(2026-08-14) — 화살표는 선이라 덮개도 선이다(굵은 보라 반투명 획). */
   locked?: boolean;
   active: boolean;
   onPointerDown?: (id: ArrowId, e: ReactPointerEvent<SVGGElement>) => void;
@@ -58,7 +57,17 @@ export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, writer, sel
       onKeyDown={(e) => onKeyDown?.(arrow.id, e)}
     >
       {locked && (
-        <path d={d} fill="none" stroke={LOCK_RING_COLOR} strokeWidth={style.width + 4} strokeLinecap="round" opacity={0.9} pointerEvents="none" />
+        // 화살표는 선이라 덮개도 **선**이다 — 면으로 덮으면 굽은 화살표의 활 안쪽까지 칠해진다.
+        <path
+          className="lock-tint"
+          d={d}
+          fill="none"
+          stroke={LOCK_TINT_COLOR}
+          strokeOpacity={LOCK_TINT_OPACITY}
+          strokeWidth={style.width + 5}
+          strokeLinecap="round"
+          pointerEvents="none"
+        />
       )}
       {selected && <path d={d} fill="none" stroke="var(--accent)" strokeWidth={style.width + 6} strokeLinecap="round" opacity={0.45} />}
       <path d={d} fill="none" stroke={ARROW_CASING} strokeWidth={style.width + 2.4} strokeLinecap="round" />

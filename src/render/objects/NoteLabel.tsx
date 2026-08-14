@@ -13,7 +13,7 @@
 // 메모는 물리 드래그 대상이 아니지만(§5.13 DRAGGABLE_KINDS 에 없음) 좌표는 다른 개체와 똑같이
 // TransformWriter 가 쓴다 — `store/editor/tween.ts` 의 `poseFrame` 이 메모를 포함한다.
 import { memo, useEffect, useRef } from 'react';
-import { LockRing } from './LockRing.tsx';
+import { LockTint } from './LockTint.tsx';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { NOTE } from '../../core/constants.ts';
 import { NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL, OBJ_STROKE } from '../../core/colors.ts';
@@ -83,7 +83,7 @@ export const NoteLabel = memo(function NoteLabel({
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
-      {locked && <LockRing r={NOTE.ringRadiusPx} />}
+      {locked && <LockTint r={NOTE.ringRadiusPx} />}
       {/* 선택 링 — ChairChip·BallDot·ConeMark 와 같은 2겹 규약(한 겹이면 개체 색과 겹쳐 사라진다).
           반지름은 칩의 외접원(20)보다 큰 22 라 칩을 통째로 감싼다. 원이라 판 회전과 무관하다. */}
       {selected && (

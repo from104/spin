@@ -473,8 +473,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   const selectedShape = useMemo(() => {
     if (selection.size !== 1) return null;
     const id = [...selection][0]!;
+    // 잠긴 도형에는 손잡이를 안 낸다 — 끌어도 안 바뀌는 손잡이는 화면이 거짓말하는 것이다.
+    // 덮개(보라)가 "이건 잠겼다" 를 이미 말하고, 푸는 문은 메뉴다.
+    if (lockedSet.has(id)) return null;
     return step.shapes.find((sh) => sh.id === id) ?? null;
-  }, [selection, step.shapes]);
+  }, [selection, step.shapes, lockedSet]);
 
   // ── 개체 메뉴 (2026-08-14 기현 지시) ────────────────────────────────────────────────
   const [menu, setMenu] = useState<ObjectMenuTarget | null>(null);
