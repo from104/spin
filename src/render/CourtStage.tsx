@@ -34,7 +34,7 @@ import { ArrowHandles } from './ArrowHandles.tsx';
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
 import { StageRotProvider } from './stageRot.tsx';
-import { computeMetrics, clientToWorld, zoomAt, panView, panViewByScreen, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
+import { computeMetrics, clientToWorld, zoomAt, wheelZoomFactor, panView, panViewByScreen, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
 import { raf } from './rafLoop.ts';
 
 /** 더블클릭 판정. OS 기본값(대개 500ms)보다 짧게 잡는다 — 판 위에서는 같은 자리를 두 번
@@ -245,6 +245,42 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     refreshMetrics();
     // rot 이 뒤집히면 offX/offY 가 함께 뒤집힌다 — 낡은 metrics 로 첫 포인터를 받으면 좌표가 어긋난다.
   }, [refreshMetrics, view, rot]);
+
+  /** 화면 좌표 한 점을 **제자리에 붙든 채** 배율만 곱한다. 좌표를 안 주면 판 한가운데다.
+   *  줌 버튼(`zoomBy`)과 휠이 같은 이 한 경로를 쓴다 — 두 벌이면 회전(rot)이 걸린 상태에서
+   *  한쪽만 어긋나고, 그것이 이 파일에서 가장 재현하기 어려운 종류의 버그다. */
+  const zoomAtClient = useCallback(
+    (factor: number, focusClient?: { x: number; y: number }) => {
+      const m = metricsRef.current ?? refreshMetrics();
+      const focus: Vec2 =
+        focusClient && m ? clientToWorld(m, focusClient.x, focusClient.y) : { x: def.vbW / 2, y: def.vbH / 2 };
+      setView((v) => zoomAt(v, def, focus, factor));
+    },
+    [def, refreshMetrics],
+  );
+
+  // ── 휠 줌(기현 지시 2026-08-14: *"코트에 마우스 두고 휠 버튼 움직이면 줌"*) ───────────────
+  //
+  // ⚠️ **React 의 `onWheel` 로는 못 한다.** React 는 `wheel` 을 루트에 **passive** 로 걸기
+  // 때문에 그 안에서 부른 `preventDefault()` 가 무시된다 — 판은 확대되면서 페이지도 함께
+  // 스크롤되는(또는 브라우저가 경고를 뱉는) 상태가 된다. 그래서 svg 에 직접, `passive:false`
+  // 로 단다. 이 앱에서 코트는 스크롤 대상이 아니므로 기본 동작을 통째로 막는 것이 맞다.
+  //
+  // Ctrl/⌘ 를 누른 휠은 **넘긴다** — 그것은 브라우저 자체 확대이고, 화면 전체를 키우는 것은
+  // 저시력 사용자의 경로다. 판만 키우려고 그 경로를 뺏지 않는다.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e: WheelEvent): void => {
+      if (e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      if (e.deltaY === 0) return;
+      // 커서 밑의 점을 붙든다 — 확대하려던 자리가 화면 밖으로 달아나면 발 마우스로는 다시 못 찾는다.
+      zoomAtClient(wheelZoomFactor(e.deltaY, e.deltaMode), { x: e.clientX, y: e.clientY });
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, [zoomAtClient]);
 
   // 크기가 바뀌면 실측 rect 를 다시 읽는다. 창 리사이즈뿐 아니라 **레이아웃 변경**(세로에서
   // 속성 시트가 열려 코트가 낮아지는 것)도 잡아야 하므로 ResizeObserver 를 쓴다.
@@ -531,12 +567,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     ref,
     (): CourtStageHandle => ({
       zoomBy(factor, focusClient) {
-        const m = metricsRef.current ?? refreshMetrics();
-        const focus: Vec2 =
-          focusClient && m
-            ? clientToWorld(m, focusClient.x, focusClient.y)
-            : { x: def.vbW / 2, y: def.vbH / 2 };
-        setView((v) => zoomAt(v, def, focus, factor));
+        zoomAtClient(factor, focusClient);
       },
       resetZoom() {
         setView({ x: 0, y: 0, w: def.vbW, h: def.vbH });
@@ -554,7 +585,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
         svgRef.current?.focus({ preventScroll: true });
       },
     }),
-    [def, refreshMetrics],
+    [def, refreshMetrics, zoomAtClient],
   );
 
   return (

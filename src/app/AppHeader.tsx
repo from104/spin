@@ -10,7 +10,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { CSSProperties, ReactNode } from 'react';
 import { Button } from '../ui/Button.tsx';
 import { Segmented } from '../ui/Segmented.tsx';
-import { IconLock, IconPresent, IconSearch, IconUndo, IconRedo } from '../ui/icons.tsx';
+import { IconLock, IconPresent, IconSearch } from '../ui/icons.tsx';
 import type { CourtMode } from '../model/court.ts';
 import { AppNavSegment } from './AppNavSegment.tsx';
 import { headerPadCss } from './navChrome.ts';
@@ -49,16 +49,16 @@ export interface HeaderConfig {
   presentButton?: { onAction(): void } | null;
   search?: HeaderSearch | null;
   courtSwitch?: HeaderCourtSwitch | null;
-  /** 편집기 되돌리기/다시하기. 단축키(Ctrl+Z/Y)만으로는 존재를 알 수 없어 버튼으로도 낸다. */
-  history?: HeaderHistory | null;
 }
 
-export interface HeaderHistory {
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo(): void;
-  onRedo(): void;
-}
+// ⚠️ 2026-08-14 기현님 지시(*"undo, redo 버튼을 줌 버튼과 묶어 배치"*)로 **되돌리기·다시하기가
+// 헤더에서 통째로 빠졌다.** 옛 자리는 아래 우측 조작부의 첫 칸이었고, 근거는 *"단축키만 있으면
+// 기능이 있다는 사실 자체를 알 수 없다"* 였다 — 그 근거는 지금도 맞고 버튼도 그대로 있다.
+// 바뀐 것은 **어디에** 있느냐 하나다: features/editor/StageControls.tsx 의 HistoryGroup 이
+// 트레이 줌 바로 아래에 같은 이름·같은 툴팁으로 낸다. 판을 만지는 손과 헤더는 화면의 정반대
+// 끝이라, 한 번 되돌릴 때마다 발 마우스가 판을 떠나 왕복해야 했다.
+// 여기에 되살리지 마라 — 같은 이름의 표적이 둘이 되면 §3 표적 예산이 35→37 로 오르고,
+// `getByRole('button', { name: '되돌리기' })` 로 찍는 테스트 여럿이 "여러 개" 로 터진다.
 
 const EMPTY_CONFIG: HeaderConfig = { title: '' };
 
@@ -93,10 +93,7 @@ function headerConfigEqual(a: HeaderConfig, b: HeaderConfig): boolean {
     a.search?.placeholder === b.search?.placeholder &&
     !!a.courtSwitch === !!b.courtSwitch &&
     a.courtSwitch?.value === b.courtSwitch?.value &&
-    a.courtSwitch?.locked === b.courtSwitch?.locked &&
-    !!a.history === !!b.history &&
-    a.history?.canUndo === b.history?.canUndo &&
-    a.history?.canRedo === b.history?.canRedo
+    a.courtSwitch?.locked === b.courtSwitch?.locked
   );
 }
 
@@ -124,7 +121,6 @@ export function useAppHeader(config: HeaderConfig): void {
     !!config.presentButton,
     config.search ? [config.search.value, config.search.placeholder ?? ''] : null,
     config.courtSwitch ? [config.courtSwitch.value, config.courtSwitch.locked ?? true] : null,
-    config.history ? [config.history.canUndo, config.history.canRedo] : null,
   ]);
 
   useEffect(() => {
@@ -138,14 +134,6 @@ export function useAppHeader(config: HeaderConfig): void {
       presentButton: c.presentButton ? { onAction: () => latest.current.presentButton?.onAction() } : null,
       search: c.search
         ? { value: c.search.value, placeholder: c.search.placeholder, onChange: (v) => latest.current.search?.onChange(v) }
-        : null,
-      history: c.history
-        ? {
-            canUndo: c.history.canUndo,
-            canRedo: c.history.canRedo,
-            onUndo: () => latest.current.history?.onUndo(),
-            onRedo: () => latest.current.history?.onRedo(),
-          }
         : null,
       courtSwitch: c.courtSwitch
         ? {
@@ -262,7 +250,6 @@ export function AppHeader({
       </div>
 
       <div style={{ marginLeft: 'auto', flex: 'none', display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
-        {config.history && <HistoryControl cfg={config.history} />}
         {config.courtSwitch && <CourtSwitchControl cfg={config.courtSwitch} />}
 
         {config.search && (
@@ -383,44 +370,3 @@ function CourtSwitchControl({ cfg }: { cfg: HeaderCourtSwitch }) {
   );
 }
 
-/** 되돌리기·다시하기. 단축키(Ctrl+Z / Ctrl+Shift+Z)만 있으면 기능이 있다는 사실 자체를
- *  알 수 없어 버튼으로도 낸다. 히스토리가 비면 disabled 로 두되(자명한 비활성), 툴팁에
- *  단축키를 적어 키보드 사용자가 옮겨갈 수 있게 한다. */
-function HistoryControl({ cfg }: { cfg: HeaderHistory }) {
-  const btn = (enabled: boolean) => ({
-    width: 44,
-    height: 44,
-    borderRadius: '0.625rem',
-    border: '1px solid var(--border)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: enabled ? 'var(--text)' : 'var(--faint-text)',
-    opacity: enabled ? 1 : 0.45,
-    cursor: enabled ? 'pointer' : 'default',
-  });
-  return (
-    <div style={{ display: 'flex', gap: '0.25rem' }}>
-      <button
-        type="button"
-        aria-label="되돌리기"
-        title="되돌리기 (Ctrl+Z)"
-        disabled={!cfg.canUndo}
-        onClick={cfg.onUndo}
-        style={btn(cfg.canUndo)}
-      >
-        <IconUndo />
-      </button>
-      <button
-        type="button"
-        aria-label="다시하기"
-        title="다시하기 (Ctrl+Shift+Z)"
-        disabled={!cfg.canRedo}
-        onClick={cfg.onRedo}
-        style={btn(cfg.canRedo)}
-      >
-        <IconRedo />
-      </button>
-    </div>
-  );
-}

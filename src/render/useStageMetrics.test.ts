@@ -1,7 +1,7 @@
 // §10.7 computeMetrics/clientToWorld 왕복 검증(줌·팬 상태 포함, 8케이스) + zoomAt 스모크.
 import { describe, expect, it } from 'vitest';
 import { computeMetrics, clientToWorld, type StageView } from './useStageMetrics.ts';
-import { zoomAt } from './useStageMetrics.ts';
+import { zoomAt, wheelZoomFactor } from './useStageMetrics.ts';
 import { COURT_DEFS } from '../model/court.ts';
 import { CHAIR, INTERACT } from '../core/constants.ts';
 
@@ -239,5 +239,45 @@ describe('screenDeltaToWorld — 화살표는 화면 기준이어야 한다(§7.
     const b = w2c(m, start.x + d.x, start.y + d.y);
     expect(b.clientX).toBeGreaterThan(a.clientX); // 화면에서도 오른쪽
     expect(b.clientY).toBeCloseTo(a.clientY, 6);
+  });
+});
+
+
+// ── 휠 줌의 단위 환산 (2026-08-14 기현 지시) ──────────────────────────────────────────
+//
+// 이 함수가 순수한 이유가 곧 이 테스트가 있는 이유다: `deltaMode` 1(줄)·2(페이지)는 실기기
+// (파이어폭스·일부 리눅스 드라이버)에서만 오고 jsdom 은 언제나 0 을 준다. DOM 테스트로는
+// 영영 안 찔러 보는 두 갈래를 여기서 직접 찌른다.
+describe('wheelZoomFactor — 브라우저마다 다른 delta 를 같은 걸음으로 접는다', () => {
+  it('픽셀 한 칸(100)이 zoomStep 한 번이다 — 버튼과 같은 걸음', () => {
+    expect(wheelZoomFactor(-INTERACT.wheelZoomPxPerNotch, 0)).toBeCloseTo(INTERACT.zoomStep, 12);
+    expect(wheelZoomFactor(INTERACT.wheelZoomPxPerNotch, 0)).toBeCloseTo(1 / INTERACT.zoomStep, 12);
+  });
+
+  it('줄·페이지 단위도 같은 한 칸으로 접힌다', () => {
+    expect(wheelZoomFactor(-INTERACT.wheelZoomLinesPerNotch, 1)).toBeCloseTo(INTERACT.zoomStep, 12);
+    expect(wheelZoomFactor(-1, 2)).toBeCloseTo(INTERACT.zoomStep, 12);
+    // 대조군: 단위를 안 보면 줄 단위 −3 이 픽셀로 읽혀 거의 안 움직인다(1.0067).
+    expect(wheelZoomFactor(-INTERACT.wheelZoomLinesPerNotch, 0)).toBeLessThan(1.01);
+  });
+
+  it('위로 굴리면(음수) 확대다 — 부호가 뒤집히면 여기가 먼저 빨개진다', () => {
+    expect(wheelZoomFactor(-1, 0)).toBeGreaterThan(1);
+    expect(wheelZoomFactor(1, 0)).toBeLessThan(1);
+    expect(wheelZoomFactor(0, 0)).toBe(1);
+  });
+
+  it('한 이벤트가 옮길 수 있는 거리에 상한이 있다 — 트랙패드가 판을 순간이동시키지 못한다', () => {
+    const cap = INTERACT.zoomStep ** INTERACT.wheelZoomMaxNotchPerEvent;
+    expect(wheelZoomFactor(-100000, 0)).toBeCloseTo(cap, 12);
+    expect(wheelZoomFactor(100000, 0)).toBeCloseTo(1 / cap, 12);
+    // 상한이 zoomMax(6)보다 작아야 한 번에 끝까지 못 간다.
+    expect(cap).toBeLessThan(INTERACT.zoomMax);
+  });
+
+  it('작은 delta 는 작게 움직인다 — 트랙패드의 잔걸음이 계단으로 뭉치지 않는다', () => {
+    const small = wheelZoomFactor(-4, 0);
+    expect(small).toBeGreaterThan(1);
+    expect(small).toBeLessThan(1.02);
   });
 });

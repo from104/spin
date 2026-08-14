@@ -39,6 +39,9 @@ function Rail({ orientation }: { orientation?: 'vertical' | 'horizontal' }) {
       courtLabel="풀 코트"
       orientation={orientation}
       zoom={{ onZoomIn: () => {}, onZoomOut: () => {}, onZoomReset: () => {} }}
+      // 2026-08-14 — 되돌리기·다시하기가 헤더에서 줌 아래로 왔다. 줄나눔 모형
+      // (trayBandSectionsPx)이 이 구역을 세므로 여기서 빠지면 모형과 화면이 갈라진다.
+      history={{ canUndo: false, canRedo: false, onUndo: () => {}, onRedo: () => {} }}
     />
   );
 }
@@ -136,19 +139,20 @@ describe('P3·3차 검증이 세운 세 단언이 **wrap 에서도** 그대로 �
   });
 });
 
-describe('줄나눔 모형의 전제 — 띠가 정말 그 다섯 구역인가', () => {
-  // ⚠️ **하네스도 검증 대상이다.** trayBandSectionsPx 는 "줌 · 구분선 · 벤치 · 구분선 · 기능"
-  // 다섯을 그 순서로 전제하고 182/132 를 답한다. 화면이 여섯 개가 되거나 순서가 바뀌면 함수는
-  // **여전히 같은 답을 하고 테스트는 초록인 채** 실제 띠는 다른 모양이 된다.
-  it('직계 자식이 정확히 다섯이고 코트 라벨은 없다(세로 기둥 전용)', () => {
+describe('줄나눔 모형의 전제 — 띠가 정말 그 여섯 구역인가', () => {
+  // ⚠️ **하네스도 검증 대상이다.** trayBandSectionsPx 는 "줌 · 편집 이력 · 구분선 · 벤치 ·
+  // 구분선 · 기능" 여섯을 그 순서로 전제하고 높이를 답한다. 화면이 일곱 개가 되거나 순서가
+  // 바뀌면 함수는 **여전히 같은 답을 하고 테스트는 초록인 채** 실제 띠는 다른 모양이 된다.
+  // (2026-08-14 두 번째 지시로 다섯 → 여섯. 늘어난 하나가 '편집 이력' 이고 줌 **바로 뒤**다.)
+  it('직계 자식이 정확히 여섯이고 코트 라벨은 없다(세로 기둥 전용)', () => {
     render(<Rail orientation="horizontal" />);
     expect(rail().children).toHaveLength(trayBandSectionsPx(44, 2).length);
-    expect(rail().children).toHaveLength(5);
-    // 대조군: 세로 기둥은 코트 라벨이 붙어 여섯이다(TRAY_SECTIONS).
+    expect(rail().children).toHaveLength(6);
+    // 대조군: 세로 기둥은 코트 라벨이 붙어 일곱이다(TRAY_SECTIONS).
     expect(screen.queryByText('풀 코트')).toBeNull();
   });
 
-  it('순서가 줌 · 구분선 · 벤치 · 구분선 · 기능 이다', () => {
+  it('순서가 줌 · 편집 이력 · 구분선 · 벤치 · 구분선 · 기능 이다', () => {
     render(<Rail orientation="horizontal" />);
     const kids = [...rail().children] as HTMLElement[];
     expect(kids.map((el) => el.getAttribute('aria-label') ?? '구분선')).toEqual(
@@ -161,14 +165,15 @@ describe('줄나눔 모형의 전제 — 띠가 정말 그 다섯 구역인가',
     const divider = [...rail().children].find((el) => (el as HTMLElement).style.width === '1px') as HTMLElement;
     expect(divider, '구분선 선택자가 낡았다').toBeDefined();
     expect(divider.style.margin).toBe('6px 4px');
-    expect(trayBandSectionsPx(44, 2)[1]!.w).toBe(9);
+    // 구분선은 이제 셋째다 — 줌·편집 이력 뒤.
+    expect(trayBandSectionsPx(44, 2)[2]!.w).toBe(9);
   });
 
   it('벤치 구역은 띠 안에서 **자기 폭을 그대로** 쓴다 — 모형이 561 을 세는 근거', () => {
     // flex:'none' 이라 base 가 max-content 다. shrink 로 접히면 줄나눔이 달라져 모형이 거짓말한다.
     // (jsdom 의 cssstyle 은 축약형 `none` 을 longhand `0 0 auto` 로 펼쳐 둔다 — 같은 말이다.)
     render(<Rail orientation="horizontal" />);
-    for (const name of ['개체', '기능', '확대']) {
+    for (const name of ['개체', '기능', '확대', '편집 이력']) {
       expect(screen.getByRole('group', { name }).style.flex, name).toBe('0 0 auto');
     }
   });

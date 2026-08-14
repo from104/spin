@@ -77,8 +77,10 @@ export const TOOL_BTN_W = 52;
 export const TOOL_BTN_H = 50;
 /** 코트 이름 한 줄(0.5625rem = 9px × line-height 1.5 = 13.5 → 올림). 세로 트레이에만 있다. */
 export const COURT_LABEL_H = 14;
-/** nav 의 직계 구역 수 — 줌 · 구분선 · 벤치 · 구분선 · 도구 · 코트 라벨. gap 은 그 사이 5곳. */
-export const TRAY_SECTIONS = 6;
+/** nav 의 직계 구역 수 — 줌 · **편집 이력** · 구분선 · 벤치 · 구분선 · 도구 · 코트 라벨.
+ *  gap 은 그 사이 6곳. 2026-08-14 기현님 지시로 되돌리기·다시하기가 헤더에서 줌 바로 아래로
+ *  오면서 6 → 7 이 됐다(줌과 이력 사이에는 구분선이 없다 — 그것이 "한 묶음" 이라는 표시다). */
+export const TRAY_SECTIONS = 7;
 
 // ── 세로 배치의 띠(가로 트레이) — 2026-08-14 P5 (설계서 §4.7) ─────────────────────────
 /** 띠의 상하·좌우 패딩. RAIL_STYLE_H 의 `padding` 이 **이 상수로 조립된다** — 저쪽에 리터럴을
@@ -134,14 +136,15 @@ const stack = (n: number, perLine: number, itemH: number): number => {
 };
 
 /** 위험 3 — 트레이에서 **안 스크롤되는** 세로 합. 벤치(개체 구역)만 스크롤러이므로
- *  줌 3 · 구분선 2 · 도구 4(서랍 닫힘) · 코트 라벨 · 패딩 · nav gap 이 여기 들어간다.
+ *  줌 3 · 편집 이력 2 · 구분선 2 · 도구 4(서랍 닫힘) · 코트 라벨 · 패딩 · nav gap 이 여기 들어간다.
  *
  *  이 합이 판 높이를 넘으면 **서랍 손잡이가 화면 밖으로 나가 작도·설명에 영영 못 닿는다**
  *  (RAIL_STYLE_H:156-164 이 기록한 *"1번 선수를 영영 못 잡는다"* 사고의 세로판). 그래서 이 값은
  *  "보기 좋은가" 가 아니라 **도달 가능성**의 문제다.
  *
- *  실측(hit 44, 5열 = 폭 240): 26(패딩) + 30(gap 5칸) + 44(줌 1줄) + 18(구분선 2) + 50(도구 1줄)
- *  + 14(코트 이름) = **182**. 1024×600 의 판 높이 468 에 견주면 벤치에 286 이 남는다 —
+ *  실측(hit 44, 5열 = 폭 240): 26(패딩) + 36(gap 6칸) + 44(줌 1줄) + 44(이력 1줄) + 18(구분선 2)
+ *  + 50(도구 1줄) + 14(코트 이름) = **232**. 1024×600 의 판 높이 468 에 견주면 벤치에 236 이
+ *  남고 벤치가 요구하는 것은 181 이다 — 이력 둘이 들어와도 스크롤은 안 생긴다.
  *  P2 종료 시점(고정 396 · 벤치 72)에서 뒤집힌 값이고, 뒤집은 것은 폭이다(2열 93 → 5열 240). */
 export function trayFixedHeightPx(hitPx: number, cols: number): number {
   const w = trayRowWidthPx(hitPx, cols);
@@ -151,6 +154,8 @@ export function trayFixedHeightPx(hitPx: number, cols: number): number {
     TRAY_PAD_Y * 2 +
     TRAY_GAP * (TRAY_SECTIONS - 1) +
     stack(3, perRow(w, hitPx), hitPx) +
+    // 편집 이력 둘. 줌과 같은 --hit 정사각이라 같은 열 수로 흐른다.
+    stack(2, perRow(w, hitPx), hitPx) +
     (TRAY_DIVIDER_H + TRAY_DIVIDER_MARGIN_Y * 2) * 2 +
     stack(4, perRow(w, toolW), toolH) +
     COURT_LABEL_H
@@ -181,7 +186,7 @@ export interface TrayBandSection {
   h: number;
 }
 
-/** 띠의 구역 다섯. **DOM 순서 그대로다**(줌 · 구분선 · 벤치 · 구분선 · 기능) — 순서를 바꾸면
+/** 띠의 구역 여섯. **DOM 순서 그대로다**(줌 · 편집 이력 · 구분선 · 벤치 · 구분선 · 기능) — 순서를 바꾸면
  *  줄나눔이 달라지므로 이 배열의 순서 자체가 계약이다. 코트 라벨은 세로 기둥 전용이라 없다. */
 export function trayBandSectionsPx(hitPx: number, chips: number): TrayBandSection[] {
   const toolW = Math.max(TOOL_BTN_W, hitPx);
@@ -191,6 +196,7 @@ export function trayBandSectionsPx(hitPx: number, chips: number): TrayBandSectio
   const chipRow = chips * hitPx + Math.max(0, chips - 1) * CHIP_ROW_GAP;
   return [
     { name: '확대', w: hitPx * 3 + TRAY_ITEM_GAP * 2, h: hitPx },
+    { name: '편집 이력', w: hitPx * 2 + TRAY_ITEM_GAP, h: hitPx },
     { name: '구분선', w: divW, h: 0 },
     { name: '개체', w: chipRow + toolW * 3 + TRAY_GAP * 3, h: Math.max(trayChipBoxPx(hitPx).h, toolH) },
     { name: '구분선', w: divW, h: 0 },

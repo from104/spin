@@ -35,7 +35,7 @@ import {
   TRAY_ROW_CAP_CSS,
   TRAY_ROW_MAX_CSS,
 } from './trayMetrics.ts';
-import { ZoomGroup, type ZoomControls } from './StageControls.tsx';
+import { HistoryGroup, ZoomGroup, type HistoryControls, type ZoomControls } from './StageControls.tsx';
 import type { TrayDragItem } from './useTrayDrag.ts';
 
 /** 트레이의 선수 주차 슬롯. 배치 여부와 상관없이 **전원**이 자리를 유지한다 —
@@ -87,6 +87,13 @@ export interface ToolRailProps {
    *  **이름으로** 잡는다: boardTargetBudget 의 대조군이 `'확대'` 를 직접 찍고(구역 표본),
    *  EditorWorkspace.viewControls.test 가 그 버튼이 `nav[data-tray]` **안**에 있는지 본다. */
   zoom?: ZoomControls;
+  /** 되돌리기·다시하기 — 2026-08-14 기현님 지시로 **헤더에서 줌 바로 아래**로 옮겨 왔다
+   *  (StageControls 의 HistoryGroup 머리말이 근거를 갖는다).
+   *
+   *  `zoom` 과 같은 이유로 선택 prop 이다(무대·편집기 밖에서 트레이만 떼어 그리는 자리가 있다).
+   *  다만 **띠 줄나눔 모형(trayBandSectionsPx)은 이 구역이 있는 것을 전제로 센다** — 배선이
+   *  끊기면 모형과 화면이 갈라지므로, 그 전제를 ToolRail.band.test 가 DOM 에서 직접 대조한다. */
+  history?: HistoryControls;
   /** 끌어다 놓기 연결(useTrayDrag.start). 없으면 탭만 동작한다 — 테스트·프리젠터용. */
   onItemPointerDown?(item: TrayDragItem, e: ReactPointerEvent, onTap: () => void): void;
 }
@@ -434,6 +441,7 @@ export function ToolRail({
   drillUses,
   orientation = 'vertical',
   zoom,
+  history,
   onItemPointerDown,
 }: ToolRailProps) {
   const horiz = orientation === 'horizontal';
@@ -533,16 +541,27 @@ export function ToolRail({
     // data-tray: 코트에서 끌어온 개체를 여기 놓으면 빼낸다(useEditorPointer 가 좌표로 찾는다).
     <nav aria-label="도구" data-tray="" style={horiz ? RAIL_STYLE_H : RAIL_STYLE}>
       {/* ─── 줌: 판을 **보는** 컨트롤. 개체·도구와 성격이 달라 구분선으로 가른다(설계서 §4.3).
-          맨 위인 이유 하나 — 개수가 3으로 **고정**이라 아래 표적의 좌표를 흔들지 않는다.
+          맨 위인 이유 하나 — 줌 3 + 편집 이력 2 = **5로 고정**이라 아래 표적의 좌표를 흔들지
+          않는다(못 되돌릴 때도 사라지지 않고 disabled 로 남는 것이 그 계약이다).
           §3 불변식 1 의 규율대로라면 새 것은 끝에 붙이는 것이 맞지만, 그 규칙이 막는 것은
           *사용 중에* 움직이는 것이고 줌은 개폐도 조건 분기도 없다. 대신 벤치(개체)는 개수가
           드릴마다 변하므로 스크롤러이자 아래쪽이어야 한다. */}
-      {zoom && (
-        <>
-          <ZoomGroup orientation={orientation} onZoomIn={zoom.onZoomIn} onZoomOut={zoom.onZoomOut} onZoomReset={zoom.onZoomReset} />
-          {divider}
-        </>
+      {zoom && <ZoomGroup orientation={orientation} onZoomIn={zoom.onZoomIn} onZoomOut={zoom.onZoomOut} onZoomReset={zoom.onZoomReset} />}
+
+      {/* ─── 편집 이력: 줌 **바로 아래**, 구분선 없이 붙는다(기현 지시 2026-08-14 *"undo, redo
+          버튼을 줌 버튼과 묶어 배치"*). 구분선을 안 넣는 것이 곧 "한 묶음" 이라는 표시다 —
+          아래 벤치와는 구분선으로 갈린다. 개수 2 고정이라 여기서도 아래 좌표를 안 흔든다. */}
+      {history && (
+        <HistoryGroup
+          orientation={orientation}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+          onUndo={history.onUndo}
+          onRedo={history.onRedo}
+        />
       )}
+
+      {(zoom || history) && divider}
 
       {/* ─── 개체(벤치): 판에 올려놓는 말. 끌어다 놓거나, 탭해서 고른 뒤 코트를 찍는다. ───
           **트레이에서 스크롤하는 곳은 여기 하나뿐이다**(설계서 §4.3). 근거 셋:

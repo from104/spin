@@ -167,6 +167,8 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // 그 판이 새 기준선이 되어 past 가 비므로 dirty 인데도 열린다(storage/board.ts pristine 주석).
   const boardPristine = isBoard && (board?.pristine ?? false) && state.past.length === 0;
 
+  // 되돌리기·다시하기. **2026-08-14 기현님 지시로 헤더에서 트레이(줌 바로 아래)로 옮겼다** —
+  // 아래 ToolRail 의 `history` 로 간다. useAppHeader 에는 더 이상 안 넘긴다.
   const history = {
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,
@@ -180,7 +182,6 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           title: '자유 전술판',
           subtitle: '코트를 자유롭게 바꿔가며 그려 보세요. 마음에 들면 드릴로 저장합니다.',
           primary: { label: '드릴로 저장', onAction: () => board?.onSaveAsDrill() },
-          history,
           courtSwitch: {
             value: drill.courtMode,
             locked: !boardPristine,
@@ -193,7 +194,6 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           badge: '편집중',
           primary: { label: autosave.status === 'saving' ? '저장 중…' : '저장', onAction: () => void autosave.flush() },
           presentButton: { onAction: () => nav.go('present', { kind: 'drill', id: drill.id }) },
-          history,
           courtSwitch: {
             value: drill.courtMode,
             locked: true,
@@ -370,6 +370,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         onZoomOut: () => stageRef.current?.zoomBy(1 / INTERACT.zoomStep),
         onZoomReset: () => stageRef.current?.resetZoom(),
       }}
+      // 되돌리기·다시하기도 판 옆으로 왔다(2026-08-14 지시). 헤더에는 **더 이상 없다** —
+      // 두 벌로 두면 같은 이름의 표적이 둘이 되어 예산도 스크린리더도 함께 나빠진다.
+      history={history}
       onItemPointerDown={tray.start}
     />
   );

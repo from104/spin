@@ -128,6 +128,29 @@ export function zoomAt(view: StageView, def: CourtDef, focus: Vec2, factor: numb
   return clampViewToCourt({ x: focus.x - fx * w, y: focus.y - fy * h, w, h }, def);
 }
 
+/** 휠 이벤트 하나가 곱해야 할 줌 배율. 브라우저·기기마다 단위가 다른 `deltaY` 를 **칸 수**로
+ *  환산해 `zoomStep ** 칸수` 를 돌려준다 — 그래야 휠 한 칸이 [확대] 버튼 한 번과 같은 걸음이다.
+ *
+ *  부호가 뒤집히는 자리다: 휠을 **위로**(내용을 위로 스크롤) 굴리면 `deltaY < 0` 이고, 그것이
+ *  **확대**여야 한다(지도·이미지 뷰어의 보편 규약). 그래서 지수에 음수를 건다.
+ *
+ *  ⚠️ jsdom 은 `deltaMode` 를 안 채우므로(기본 0) 줄·페이지 단위는 이 순수 함수로만 검증된다.
+ *  `deltaMode` 는 W3C UI Events 의 세 값이다 — 0 픽셀 · 1 줄 · 2 페이지. */
+export function wheelZoomFactor(deltaY: number, deltaMode: number): number {
+  const perNotch =
+    deltaMode === 1
+      ? INTERACT.wheelZoomLinesPerNotch
+      : deltaMode === 2
+        ? 1
+        : INTERACT.wheelZoomPxPerNotch;
+  const notches = clamp(
+    deltaY / perNotch,
+    -INTERACT.wheelZoomMaxNotchPerEvent,
+    INTERACT.wheelZoomMaxNotchPerEvent,
+  );
+  return INTERACT.zoomStep ** -notches;
+}
+
 /** 판을 **월드 델타만큼 민다**. 손이 잡은 것은 판이므로 화면에서 오른쪽으로 끌면 view 는
  *  왼쪽으로 간다 — 부호는 호출자가 이미 뒤집어 넘긴다(화면 델타 → 월드 델타 변환이
  *  회전(rot)까지 함께 처리해야 해서 여기서 다시 손대면 두 곳에서 뒤집힌다). */

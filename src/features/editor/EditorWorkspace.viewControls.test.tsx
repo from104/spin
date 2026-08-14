@@ -8,7 +8,7 @@
 // jsdom 에 없는 것: 레이아웃(폭·좌표 전부 0)·matchMedia. 그래서 여기서 묻는 것은 **소속과
 // 배선**이고, 픽셀은 ToolRail.hit.test.tsx(식)와 P3(실브라우저)의 몫이다.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -294,5 +294,118 @@ describe('Esc 우선순위 — 팝오버 > 인스펙터 > 전역 (등록 단계�
 
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '도움말' })).toBeNull());
     expect(document.activeElement).toBe(viewButton());
+  });
+});
+
+// ── 2026-08-14 두 번째 지시: *"undo, redo 버튼을 줌 버튼과 묶어 배치"* ────────────────────
+//
+// 옮기는 작업의 위험은 **둘로 늘어나는 것**이다(헤더에도 남고 트레이에도 생긴다). 그러면
+// 화면은 멀쩡해 보이는데 §3 표적 예산이 조용히 2 오르고, 이름으로 찍는 기존 테스트들이
+// "여러 개" 로 터진다. 그래서 소속뿐 아니라 **개수**를 함께 못박는다.
+describe('편집 이력 — 헤더에서 트레이 줌 아래로 옮겨 왔다', () => {
+  it('되돌리기·다시하기가 nav[data-tray] 안이고, 헤더에는 하나도 없다', async () => {
+    const { main } = await openBoard();
+    const tray = main.querySelector<HTMLElement>('nav[data-tray]')!;
+    const header = document.querySelector<HTMLElement>('header')!;
+
+    for (const name of ['되돌리기', '다시하기']) {
+      // getByRole 은 둘 이상이면 스스로 터진다 — 그것이 "안 늘었다" 의 단언이다.
+      const btn = screen.getByRole('button', { name });
+      expect(tray.contains(btn), `${name} 가 트레이 밖이다`).toBe(true);
+      expect(header.contains(btn), `${name} 가 헤더에 남아 있다`).toBe(false);
+    }
+    expect(within(header).queryByRole('button', { name: '되돌리기' })).toBeNull();
+    expect(within(header).queryByRole('button', { name: '다시하기' })).toBeNull();
+  });
+
+  it('줌 **바로 뒤**다 — 사이에 구분선이 없어야 한 묶음으로 읽힌다', async () => {
+    const { main } = await openBoard();
+    const tray = main.querySelector<HTMLElement>('nav[data-tray]')!;
+    const kids = [...tray.children];
+    const zoom = screen.getByRole('group', { name: '확대' });
+    const hist = screen.getByRole('group', { name: '편집 이력' });
+    expect(kids.indexOf(hist), '이력이 줌 바로 다음이 아니다').toBe(kids.indexOf(zoom) + 1);
+    // 대조군: 그 다음은 구분선이다 — 벤치와는 갈린다.
+    expect((kids[kids.indexOf(hist) + 1] as HTMLElement).style.height).toBe('1px');
+  });
+
+  it('되돌릴 것이 없어도 **사라지지 않고** disabled 다 — 사라지면 아래 좌표가 통째로 움직인다', async () => {
+    // §3 불변식 1 의 그 계약이다. 발 마우스·입 젓가락 사용자는 절대 위치로 공간 기억을 만든다.
+    await openBoard();
+    expect(screen.getByRole('button', { name: '되돌리기' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '다시하기' })).toBeDisabled();
+  });
+
+  it('세로 화면에서도 소속이 같다 — 판 아래 띠 안, 안 접힌다', async () => {
+    stubMedia({ portrait: true, narrow: false });
+    const { main } = await openBoard();
+    const tray = main.querySelector<HTMLElement>('nav[data-tray]')!;
+    expect(tray.style.flexDirection, '세로 판정이 안 걸렸다').toBe('row');
+    const hist = screen.getByRole('group', { name: '편집 이력' });
+    expect(tray.contains(hist)).toBe(true);
+    expect(hist.style.flexWrap).toBe('nowrap');
+  });
+});
+
+// ── 휠 줌(같은 지시: *"코트에 마우스 두고 휠 버튼 움직이면 줌 기능"*) ────────────────────
+//
+// ⚠️ React 의 `onWheel` 은 루트에 **passive** 로 걸려 preventDefault 가 무시된다. 그래서
+// CourtStage 가 svg 에 직접 `{passive:false}` 로 단다 — 그 배선이 끊기면 확대는 되면서
+// 페이지도 함께 스크롤된다. jsdom 은 passive 를 강제하지 않으므로 여기서 관측되는 것은
+// **defaultPrevented** 이고, 그것이 배선의 유일한 흔적이다.
+describe('휠 줌 — 코트 위에서 굴리면 그 자리를 붙든 채 확대된다', () => {
+  // ⚠️ `act` 로 감싸야 한다. 이 리스너는 React 밖(네이티브 addEventListener)에서 setView 를
+  // 부르므로, 감싸지 않으면 상태 갱신이 이 턴에 반영되지 않아 **아무 일도 안 일어난 것처럼**
+  // 보인다. 실제 브라우저에서는 React 가 알아서 흘리므로 이것은 jsdom 쪽 사정이다.
+  const wheel = (svg: Element, init: WheelEventInit): WheelEvent => {
+    const ev = new WheelEvent('wheel', { bubbles: true, cancelable: true, ...init });
+    act(() => {
+      svg.dispatchEvent(ev);
+    });
+    return ev;
+  };
+  const vbW = (svg: Element) => Number(svg.getAttribute('viewBox')!.split(' ')[2]);
+
+  it('위로 굴리면 확대, 아래로 굴리면 되돌아온다', async () => {
+    const { main } = await openBoard();
+    const svg = main.querySelector('svg')!;
+    const before = vbW(svg);
+
+    wheel(svg, { deltaY: -100, clientX: 300, clientY: 200 });
+    expect(vbW(svg), '휠 업이 확대가 아니다 — 부호가 뒤집혔다').toBeLessThan(before);
+
+    wheel(svg, { deltaY: 100, clientX: 300, clientY: 200 });
+    expect(vbW(svg)).toBeCloseTo(before, 6);
+  });
+
+  it('휠 한 칸이 [확대] 버튼 한 번과 **같은 걸음**이다', async () => {
+    const { user, main } = await openBoard();
+    const svg = main.querySelector('svg')!;
+    const before = vbW(svg);
+    await user.click(screen.getByRole('button', { name: '확대' }));
+    const byButton = vbW(svg);
+
+    await user.click(screen.getByRole('button', { name: '줌 초기화' }));
+    wheel(svg, { deltaY: -100, clientX: 300, clientY: 200 });
+
+    expect(vbW(svg), '걸음이 다르면 버튼과 휠이 서로 다른 배율표를 쓰는 것이다').toBeCloseTo(byButton, 6);
+    expect(byButton).toBeLessThan(before);
+  });
+
+  it('기본 동작을 막는다 — 안 막으면 판이 커지면서 페이지도 함께 스크롤된다', async () => {
+    const { main } = await openBoard();
+    const svg = main.querySelector('svg')!;
+    expect(wheel(svg, { deltaY: -100, clientX: 300, clientY: 200 }).defaultPrevented).toBe(true);
+  });
+
+  it('Ctrl/⌘ + 휠은 **넘긴다** — 브라우저 자체 확대는 저시력 사용자의 경로다', async () => {
+    const { main } = await openBoard();
+    const svg = main.querySelector('svg')!;
+    const before = vbW(svg);
+
+    const ev = wheel(svg, { deltaY: -100, clientX: 300, clientY: 200, ctrlKey: true });
+
+    expect(ev.defaultPrevented, '브라우저 확대를 가로챘다').toBe(false);
+    expect(vbW(svg), '판까지 함께 확대됐다').toBe(before);
   });
 });

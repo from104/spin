@@ -191,24 +191,37 @@ describe('④ 띠가 정말 2행인가 — 줄나눔을 폭에서 다시 계산�
   /** 기본 캐스트 8명(두 팀 × G·2·3·4). wrap 이 실제로 일어나는 그 개수다. */
   const CHIPS = 8;
 
-  it('구역은 다섯이고 **DOM 순서 그대로**다 — 순서가 곧 줄나눔이다', () => {
-    expect(trayBandSectionsPx(HIT, CHIPS).map((s) => s.name)).toEqual(['확대', '구분선', '개체', '구분선', '기능']);
+  it('구역은 여섯이고 **DOM 순서 그대로**다 — 순서가 곧 줄나눔이다', () => {
+    // 2026-08-14 두 번째 지시로 '편집 이력'(되돌리기·다시하기)이 줌 **바로 뒤**에 들어왔다.
+    // 헤더에서 옮겨온 것이라 총 표적 수는 그대로고, 늘어난 것은 띠가 세어야 할 구역 하나다.
+    expect(trayBandSectionsPx(HIT, CHIPS).map((s) => s.name)).toEqual([
+      '확대',
+      '편집 이력',
+      '구분선',
+      '개체',
+      '구분선',
+      '기능',
+    ]);
   });
 
-  it('구역 폭 실측 — 줌 142 · 구분선 9 · 벤치 561 · 기능 223 (hit 44 · 선수 8명)', () => {
+  it('구역 폭 실측 — 줌 142 · 이력 93 · 구분선 9 · 벤치 561 · 기능 223 (hit 44 · 선수 8명)', () => {
     const w = Object.fromEntries(trayBandSectionsPx(HIT, CHIPS).map((s, i) => [`${s.name}${i}`, s.w]));
-    expect(w).toEqual({ 확대0: 142, 구분선1: 9, 개체2: 561, 구분선3: 9, 기능4: 223 });
+    expect(w).toEqual({ '확대0': 142, '편집 이력1': 93, '구분선2': 9, '개체3': 561, '구분선4': 9, '기능5': 223 });
     // 줄 높이를 정하는 것은 벤치(칩 상자 60)와 기능(도구 50)이다. 구분선은 alignSelf:stretch 라 0.
-    expect(trayBandSectionsPx(HIT, CHIPS).map((s) => s.h)).toEqual([44, 0, 60, 0, 50]);
+    expect(trayBandSectionsPx(HIT, CHIPS).map((s) => s.h)).toEqual([44, 44, 0, 60, 0, 50]);
   });
 
-  it('★ 띠가 넓으면 2행 132 — 높이 식과 **정확히 같은 값**이 나온다', () => {
+  it('★ 띠가 넉넉하면 2행 132 — 높이 식과 **정확히 같은 값**이 나온다', () => {
     // 두 계산이 독립이다: trayBandHeightPx 는 "칩 줄 + 도구 줄" 을 더하고, trayBandLayoutAt 은
     // 폭에서 줄을 나눠 그 줄 높이를 더한다. 같은 답이 나와야 "2행" 이 참이다.
-    const wide = trayBandLayoutAt(HIT, 810, CHIPS); // 834 세로 아이패드의 띠 폭
+    //
+    // ⚠️ 폭이 810 → **849** 로 올랐다(2026-08-14 이력 구역 93 + gap 6). 810 은 이제 3행이다 —
+    // 그것이 이 추가의 실제 대가이고, 아래 문턱 it 이 그 자리를 정확히 적는다.
+    const wide = trayBandLayoutAt(HIT, 849, CHIPS);
     expect(wide.rows).toBe(2);
     expect(wide.heightPx).toBe(trayBandHeightPx(HIT));
     expect(wide.heightPx).toBe(132);
+    expect(trayBandLayoutAt(HIT, 810, CHIPS).rows, '810 이 아직 2행이면 이력 구역이 안 세어지고 있다').toBe(3);
   });
 
   it('⚠️ 480×800(주 표적)의 띠 폭 456 에서는 **3행 182** 다 — 132 에 안 들어간다', () => {
@@ -233,25 +246,33 @@ describe('④ 띠가 정말 2행인가 — 줄나눔을 폭에서 다시 계산�
         break;
       }
     }
-    expect(firstTwoRow).toBe(750);
-    // 띠 폭 = 창 폭 − 코트 래퍼 좌우 패딩(narrow 24). 창으로는 774px 부터다.
-    expect(firstTwoRow + 24).toBe(774);
+    // 750 → **831**. 이력 구역(93 + gap 6 = 99)이 첫 줄에 들어오면서 벤치가 그만큼 늦게
+    // 자리를 얻는다. 띠 폭 = 창 폭 − 코트 래퍼 좌우 패딩(narrow 24) → 창으로는 855px 부터다.
+    expect(firstTwoRow).toBe(831);
+    expect(firstTwoRow + 24).toBe(855);
     expect(trayBandLayoutAt(HIT, firstTwoRow - 1, CHIPS).rows).toBe(3);
-    expect(trayBandLayoutAt(HIT, firstTwoRow, CHIPS).heightPx).toBe(132);
+    // ⚠️ **2행이 곧 132 는 아니다.** 831~848 구간은 첫 줄이 줌·이력·구분선(높이 44)뿐이라
+    // 내용이 126 밖에 안 된다 — 132 에 들어가므로 스크롤은 없지만 값은 다르다. 132 와 정확히
+    // 같아지는 것은 벤치까지 첫 줄에 오르는 849 부터다. 계약은 "132 와 같다" 가 아니라
+    // **"132 를 안 넘는다"** 이고, 그것이 스크롤 유무를 정하는 유일한 조건이다.
+    expect(trayBandLayoutAt(HIT, firstTwoRow, CHIPS).heightPx).toBe(126);
+    expect(trayBandLayoutAt(HIT, firstTwoRow, CHIPS).heightPx).toBeLessThanOrEqual(trayBandHeightPx(HIT));
+    expect(trayBandLayoutAt(HIT, 849, CHIPS).heightPx).toBe(132);
   });
 
   it('선수가 적으면 좁은 띠에서도 2행이 된다 — 모형이 폭을 정말 보고 있다는 대조군', () => {
     // 이 대조군이 없으면 위 it 들은 "trayBandLayoutAt 이 늘 3을 답한다" 로도 통과한다.
-    expect(trayBandLayoutAt(HIT, 456, 2).rows).toBe(2);
-    expect(trayBandLayoutAt(HIT, 456, 2).heightPx).toBe(132);
-    expect(trayBandLayoutAt(HIT, 456, 8).rows).toBe(3);
+    // 같은 폭(562)에서 선수만 2명↔8명으로 바꾼다 — 갈리면 모형이 폭과 개수를 정말 보고 있다.
+    expect(trayBandLayoutAt(HIT, 562, 2).rows).toBe(2);
+    expect(trayBandLayoutAt(HIT, 562, 2).heightPx).toBe(132);
+    expect(trayBandLayoutAt(HIT, 562, 8).rows).toBe(3);
   });
 
   it('띠 좌우 패딩이 줄나눔에 실제로 들어간다', () => {
     expect([TRAY_BAND_PAD_Y, TRAY_BAND_PAD_X]).toEqual([8, 13]);
-    // 패딩을 0 으로 본 폭(456 + 26)이면 한 줄이 더 들어갈 만큼 넉넉해진다 — 26px 이 공짜가 아니다.
-    expect(trayBandLayoutAt(HIT, 750, 8).rows).toBe(2);
-    expect(trayBandLayoutAt(HIT, 750 - 26, 8).rows).toBe(3);
+    // 패딩을 0 으로 본 폭(831 + 26)이면 한 줄이 더 들어갈 만큼 넉넉해진다 — 26px 이 공짜가 아니다.
+    expect(trayBandLayoutAt(HIT, 831, 8).rows).toBe(2);
+    expect(trayBandLayoutAt(HIT, 831 - 26, 8).rows).toBe(3);
   });
 });
 

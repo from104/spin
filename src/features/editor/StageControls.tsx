@@ -23,9 +23,14 @@
 // 파일 이름을 그대로 둔 이유: *왜 이것들이 코트 위에 떠 있었는가* 의 기록이 여기 있고, 파일을
 // 갈아치우면 그 기록과 blame 이 함께 끊긴다. 이 파일은 이제 "옛 스테이지 컨트롤 7개가 각자
 // 이사 간 뒤의 두 조각" 이다.
+//
+// ── 2026-08-14 (같은 날, 두 번째 지시) ──────────────────────────────────────────────
+// *"undo, redo 버튼을 줌 버튼과 묶어 배치"* — **헤더에 있던 되돌리기·다시하기가 여기로 왔다**
+// (HistoryGroup). 이 파일이 세 조각이 된 것이 아니라, 위에서 정한 규칙("판을 보며 쓰는 것은
+// 판 옆에")이 헤더에 남아 있던 마지막 둘까지 데려온 것이다. 근거는 HistoryGroup 머리말에.
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, RefObject } from 'react';
-import { IconPlus } from '../../ui/icons.tsx';
+import { IconPlus, IconRedo, IconUndo } from '../../ui/icons.tsx';
 import { Modal } from '../../ui/Modal.tsx';
 
 /** 옛 묶음의 버튼 크기 — 한 픽셀도 안 바꾼다(§5.4 "--hit 실배선" 목록. ToolRail.hit.test 가 본다). */
@@ -86,6 +91,86 @@ export function ZoomGroup({ orientation, onZoomIn, onZoomOut, onZoomReset }: Zoo
       </button>
       <button type="button" aria-label="줌 초기화" onClick={onZoomReset} style={{ ...BTN, fontSize: '0.625rem', fontWeight: 700 }}>
         100%
+      </button>
+    </div>
+  );
+}
+
+export interface HistoryControls {
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo(): void;
+  onRedo(): void;
+}
+
+/** 되돌리기·다시하기 둘 — **줌 바로 아래**, 같은 묶음으로 읽히는 자리(기현 지시 2026-08-14:
+ *  *"undo, redo 버튼을 줌 버튼과 묶어 배치"*).
+ *
+ *  ── 왜 헤더에서 여기로 옮겼는가 ────────────────────────────────────────────────────
+ *  옛 자리는 앱 헤더 우측(`AppHeader` 의 HistoryControl)이었다. 판을 만지는 손과 헤더는
+ *  화면의 정반대 끝이라, 한 번 되돌릴 때마다 발 마우스가 판을 떠나 왕복해야 했다. 줌 3개를
+ *  기둥 맨 위로 올린 것과 **같은 판단**이다 — 판을 보며 쓰는 컨트롤은 판 옆에 있어야 한다.
+ *
+ *  **옮긴 것이지 늘린 것이 아니다.** 헤더의 둘은 지웠다: 남겨 두면 이름이 같은 표적이 둘이
+ *  되어(§3 표적 예산 35 → 37, 서랍 둘 다 연 실사용은 38 → 40 으로 상한에 붙는다) 예산도
+ *  스크린리더도 함께 나빠진다.
+ *
+ *  ⚠️ **줌과 한 구역으로 합치지 않는다.** `role="group" aria-label="확대"` 안에 되돌리기가
+ *  들어가면 스크린리더가 "확대 그룹, 되돌리기" 라고 읽는다. 눈으로는 한 덩어리, 이름으로는
+ *  두 구역 — 그 둘은 모순이 아니다(구분선 없이 붙여 두는 것이 시각적 묶음이다).
+ *
+ *  개수가 **항상 2로 고정**이라 §3 불변식 1(서랍을 여닫아도 위쪽 표적이 안 움직인다)을
+ *  건드리지 않는다. 못 되돌릴 때는 사라지는 것이 아니라 `disabled` 다 — 사라지면 아래 벤치
+ *  좌표가 통째로 움직인다. */
+export function HistoryGroup({
+  orientation,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+}: HistoryControls & { orientation: 'vertical' | 'horizontal' }) {
+  const horiz = orientation === 'horizontal';
+  const btn = (enabled: boolean): CSSProperties => ({
+    ...BTN,
+    color: enabled ? 'var(--text)' : 'var(--muted)',
+    opacity: enabled ? 1 : 0.4,
+  });
+  return (
+    <div
+      role="group"
+      aria-label="편집 이력"
+      style={{
+        flex: 'none',
+        display: 'flex',
+        flexDirection: 'row',
+        flexWrap: horiz ? 'nowrap' : 'wrap',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 5,
+        ...(horiz ? {} : { width: '100%' }),
+      }}
+    >
+      {/* 이름은 헤더에 있던 것을 **한 글자도 안 바꿨다** — 옮긴 것이지 새로 만든 것이 아니고,
+          이미 이 이름으로 찍는 테스트가 여러 파일에 있다(placementPresets·InspectorPanel 등). */}
+      <button
+        type="button"
+        aria-label="되돌리기"
+        title="되돌리기 (Ctrl+Z)"
+        disabled={!canUndo}
+        onClick={onUndo}
+        style={btn(canUndo)}
+      >
+        <IconUndo />
+      </button>
+      <button
+        type="button"
+        aria-label="다시하기"
+        title="다시하기 (Ctrl+Shift+Z)"
+        disabled={!canRedo}
+        onClick={onRedo}
+        style={btn(canRedo)}
+      >
+        <IconRedo />
       </button>
     </div>
   );

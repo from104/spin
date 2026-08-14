@@ -265,9 +265,10 @@ describe('위험 3 — 서랍 손잡이가 화면 밖으로 나가지 않는다'
 
   it('대조군: 도구가 안 접히던 시절(1열 = 고정 347)이라면 넘쳤을 자리가 있다', () => {
     // 이 대조군이 없으면 위 it 은 "trayFixedHeightPx 가 늘 작다" 로도 통과한다.
-    // 2열(93px)에서는 줌 2줄 93 + 도구 4줄 215 라 고정 합이 396 이다 — P2 종료 시점의 값이다.
-    expect(trayFixedHeightPx(44, 2)).toBe(396);
-    expect(trayFixedHeightPx(44, 5)).toBe(182);
+    // 2열(93px)에서는 줌 2줄 93 + 이력 1줄 44 + 도구 4줄 215 라 고정 합이 446 이다
+    // (P2 종료 시점 396 + 2026-08-14 편집 이력 50).
+    expect(trayFixedHeightPx(44, 2)).toBe(446);
+    expect(trayFixedHeightPx(44, 5)).toBe(232);
     expect(trayFixedHeightPx(44, 2)).toBeGreaterThan(348); // 800×480 narrow 의 판 높이
   });
 });
@@ -275,7 +276,7 @@ describe('위험 3 — 서랍 손잡이가 화면 밖으로 나가지 않는다'
 // ── 완료 판정: 1024×600 에서 트레이 240px, 5열, 벤치+도구 스크롤 없이 ────────────────────
 
 describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
-  it('고정 182 + 벤치 181 = 363 ≤ 468 (hit 44, 5열, 선수 8명)', () => {
+  it('고정 232 + 벤치 181 = 413 ≤ 468 (hit 44, 5열, 선수 8명)', () => {
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
@@ -283,7 +284,9 @@ describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
     expect(cols).toBe(5);
     const fixed = trayFixedHeightPx(44, cols);
     const bench = trayBenchHeightPx(44, cols, 8);
-    expect(fixed).toBe(182);
+    // 182 → 232. 2026-08-14 되돌리기·다시하기가 줌 아래로 오면서 한 줄(44) + gap(6)이 늘었다.
+    // 여유는 468 − 413 = 55 — 줄어들었지만 hit 44 에서는 여전히 **스크롤이 없다**.
+    expect(fixed).toBe(232);
     expect(bench).toBe(181);
     expect(fixed + bench).toBeLessThanOrEqual(split.courtH);
     expect(split.courtH).toBe(468);
@@ -293,13 +296,23 @@ describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
     expect(trayFixedHeightPx(44, 2) + trayBenchHeightPx(44, 2, 8)).toBeGreaterThan(468);
   });
 
-  it('큰 터치 타깃(hit 56)에서도 스크롤이 없다', () => {
+  it('⚠️ 큰 터치 타깃(hit 56)은 **17px 넘친다** — 벤치가 그만큼 스크롤한다', () => {
+    // 정직한 기록(2026-08-14 두 번째 지시의 실제 대가). 이 조합에서만 넘친다:
+    // 1024×600(설계서가 잡은 최악의 작은 창) × hit 56(큰 터치 타깃). 4열 폭 239 에 56px
+    // 버튼 다섯은 어떤 배치로도 두 줄이라, 편집 이력이 통째로 한 줄(56+5)을 더 먹는다.
+    //   전: 고정 200 + 벤치 223 = 423 ≤ 468
+    //   후: 고정 262 + 벤치 223 = 485  → 17 초과
+    // **도달 가능성은 안 깨진다** — 넘치는 곳이 스크롤러인 벤치이고(위험 3 의 그 계약: 서랍
+    // 손잡이가 있는 도구 구역은 고정 262 로 468 안이다), 위 '위험 3' it 이 그것을 따로 지킨다.
+    // hit 44 에서는 여유 55 로 멀쩡하다. 되살릴 방법이 생기면 여기 숫자가 먼저 빨개진다.
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const avail = alignBoxPx({ w: 1024, h: 600 }, state, 56);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 56);
     const cols = trayColumnsAt(split.trayW, 56);
     expect(cols).toBe(4);
-    expect(trayFixedHeightPx(56, cols) + trayBenchHeightPx(56, cols, 8)).toBeLessThanOrEqual(split.courtH);
+    expect(trayFixedHeightPx(56, cols)).toBe(262);
+    expect(trayFixedHeightPx(56, cols)).toBeLessThanOrEqual(split.courtH);
+    expect(trayFixedHeightPx(56, cols) + trayBenchHeightPx(56, cols, 8) - split.courtH).toBe(17);
   });
 
   it('크롬 예산의 패딩 행이 정렬 상자 계산에 실제로 들어가 있다', () => {
