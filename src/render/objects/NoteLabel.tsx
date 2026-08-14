@@ -83,7 +83,6 @@ export const NoteLabel = memo(function NoteLabel({
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
-      {locked && <LockTint r={NOTE.ringRadiusPx} />}
       {/* 선택 링 — ChairChip·BallDot·ConeMark 와 같은 2겹 규약(한 겹이면 개체 색과 겹쳐 사라진다).
           반지름은 칩의 외접원(20)보다 큰 22 라 칩을 통째로 감싼다. 원이라 판 회전과 무관하다. */}
       {selected && (
@@ -122,6 +121,8 @@ export const NoteLabel = memo(function NoteLabel({
         <rect className="focus-ind-outer" x={-halfW - 3} y={-halfH - 3} width={w + 6} height={NOTE.chipHPx + 6} rx={5} />
         <rect className="focus-ind-inner" x={-halfW - 3} y={-halfH - 3} width={w + 6} height={NOTE.chipHPx + 6} rx={5} />
       </g>
+      {/* 잠김 덮개는 **쪽지·글자보다 뒤에** 온다 — 앞에 두면 불투명한 쪽지가 통째로 가린다. */}
+      {locked && <LockTint r={NOTE.ringRadiusPx} />}
     </g>
   );
 });

@@ -57,7 +57,6 @@ export const ConeMark = memo(function ConeMark({
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
-      {locked && <LockTint r={9.5} />}
       {/* 선택 링 — ChairChip·BallDot 과 같은 2겹 규약 */}
       {selected && (
         <g className="sel-ring" pointerEvents="none">
@@ -69,6 +68,9 @@ export const ConeMark = memo(function ConeMark({
       {colorIndex === 1 && <path d={BASE_D} fill={fill} stroke={OBJ_STROKE} strokeWidth={1.6} />}
       <circle className="focus-ind-outer" cx={0} cy={0} r={9} />
       <circle className="focus-ind-inner" cx={0} cy={0} r={9} />
+      {/* 잠김 덮개는 **콘 그림보다 뒤에** 온다 — 앞에 두면 불투명한 삼각형이 통째로 가린다
+          (ChairChip 머리말의 2026-08-15 신고 참고). */}
+      {locked && <LockTint r={9.5} />}
     </g>
   );
 });

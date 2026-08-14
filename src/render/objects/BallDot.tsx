@@ -40,7 +40,6 @@ export const BallDot = memo(function BallDot({ id, writer, selected,
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
-      {locked && <LockTint r={BALL.viewRadiusPx + 4} />}
       {/* 선택 링 — 어두운 밑선 + 액센트 파선 2겹(ChairChip 과 동일한 근거: 한 겹이면 개체 색과 겹쳐 사라진다) */}
       {selected && (
         <g className="sel-ring" pointerEvents="none">
@@ -51,6 +50,8 @@ export const BallDot = memo(function BallDot({ id, writer, selected,
       <circle cx={0} cy={0} r={BALL.viewRadiusPx} fill={BALL_FILL} stroke="#fff" strokeWidth={2.4} />
       <circle className="focus-ind-outer" cx={0} cy={0} r={BALL.viewRadiusPx + 5} />
       <circle className="focus-ind-inner" cx={0} cy={0} r={BALL.viewRadiusPx + 5} />
+      {/* 잠김 덮개는 **공보다 뒤에** 온다 — 앞에 두면 불투명한 공이 통째로 가린다. */}
+      {locked && <LockTint r={BALL.viewRadiusPx + 4} />}
     </g>
   );
 });

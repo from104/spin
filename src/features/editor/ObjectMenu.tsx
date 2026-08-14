@@ -41,10 +41,10 @@ export interface ObjectMenuProps {
 const ITEM: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
+  gap: 8,
   width: '100%',
   minHeight: 'var(--hit)',
-  padding: '0 14px',
+  padding: '0 12px',
   border: 'none',
   background: 'transparent',
   color: 'var(--text)',
@@ -122,7 +122,9 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onDe
           left: pos?.left ?? target.x,
           top: pos?.top ?? target.y,
           zIndex: 61,
-          minWidth: 168,
+          // 가장 긴 글자가 '잠금 해제' 다 — 아이콘·여백까지 담고도 남는 폭이면 충분하다.
+          // 168 은 과했다(기현 2026-08-15). 메뉴는 코트 위에 뜨므로 넓을수록 판을 더 가린다.
+          minWidth: 128,
           padding: '6px 0',
           borderRadius: 12,
           border: '1px solid var(--border-strong)',

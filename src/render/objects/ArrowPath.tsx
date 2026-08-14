@@ -56,19 +56,6 @@ export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, writer, sel
       onPointerDown={(e) => onPointerDown?.(arrow.id, e)}
       onKeyDown={(e) => onKeyDown?.(arrow.id, e)}
     >
-      {locked && (
-        // 화살표는 선이라 덮개도 **선**이다 — 면으로 덮으면 굽은 화살표의 활 안쪽까지 칠해진다.
-        <path
-          className="lock-tint"
-          d={d}
-          fill="none"
-          stroke={LOCK_TINT_COLOR}
-          strokeOpacity={LOCK_TINT_OPACITY}
-          strokeWidth={style.width + 5}
-          strokeLinecap="round"
-          pointerEvents="none"
-        />
-      )}
       {selected && <path d={d} fill="none" stroke="var(--accent)" strokeWidth={style.width + 6} strokeLinecap="round" opacity={0.45} />}
       <path d={d} fill="none" stroke={ARROW_CASING} strokeWidth={style.width + 2.4} strokeLinecap="round" />
       <path
@@ -86,6 +73,21 @@ export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, writer, sel
        * 경로형이라 같은 `d` 를 재사용해 화살표 자체를 감싸는 halo 로 그린다. */}
       <path className="focus-ind-outer" d={d} />
       <path className="focus-ind-inner" d={d} />
+      {locked && (
+        // 화살표는 선이라 덮개도 **선**이다 — 면으로 덮으면 굽은 화살표의 활 안쪽까지 칠해진다.
+        // 다른 4종과 같이 **화살표보다 뒤에** 그린다(앞에 두면 몸통이 덮개를 가리고 가장자리
+        // 후광만 남아 "잠긴 건지 아닌지" 가 애매해진다 — 기현 신고 2026-08-15).
+        <path
+          className="lock-tint"
+          d={d}
+          fill="none"
+          stroke={LOCK_TINT_COLOR}
+          strokeOpacity={LOCK_TINT_OPACITY}
+          strokeWidth={style.width + 5}
+          strokeLinecap="round"
+          pointerEvents="none"
+        />
+      )}
     </g>
   );
 });

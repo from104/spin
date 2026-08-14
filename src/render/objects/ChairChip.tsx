@@ -119,7 +119,6 @@ export const ChairChip = memo(function ChairChip({
       onPointerDown={(e) => onPointerDown?.(id, e)}
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
-      {locked && <LockTintRect x={-CHAIR.pivotToRearPx - SEL_PAD} y={-HALF_W - SEL_PAD} width={CHAIR.lengthPx + SEL_PAD * 2} height={CHAIR.widthPx + SEL_PAD * 2} rx={5 + SEL_PAD} />}
       {/* 선택 링 — 차체보다 살짝 크게 둘러 그린다. 어두운 밑선 위에 액센트 파선을 얹어
           어떤 팀 색·코트 밝기에서도 보이게 한다(단색 한 겹이면 팀 색과 겹쳐 사라진다). */}
       {selected && (
@@ -234,6 +233,20 @@ export const ChairChip = memo(function ChairChip({
         height={CHAIR.widthPx + 6}
         rx={8}
       />
+      {/* 잠김 덮개 — **차체·볼가드·등번호보다 뒤에** 와야 한다(SVG 는 나중에 그린 것이 위다).
+          ⚠️ 2026-08-14 에는 이 줄이 <g> 의 **첫 자식**이었다. 그래서 불투명한 차체가 덮개를
+          통째로 가려 "잠갔는데 아무 표시도 안 난다" 가 됐다(기현 신고 2026-08-15). 테스트는
+          `.lock-tint` 가 **있는지**만 봤기 때문에 초록이었다 — 있는 것과 보이는 것은 다르다.
+          커서 레이어보다는 앞이다(아래 주석의 "마지막 자식" 계약은 그것의 것이다). */}
+      {locked && (
+        <LockTintRect
+          x={-CHAIR.pivotToRearPx - SEL_PAD}
+          y={-HALF_W - SEL_PAD}
+          width={CHAIR.lengthPx + SEL_PAD * 2}
+          height={CHAIR.widthPx + SEL_PAD * 2}
+          rx={5 + SEL_PAD}
+        />
+      )}
       {/* 존 커서 레이어 — **차체의 마지막 자식**이어야 한다. 예전에는 음영 사각형이 커서까지
           맡았는데 그 위에 등번호·머리·포커스 링이 얹혀, 정작 눈이 가는 한가운데에서는 커서가
           기본 화살표로 돌아갔다. 투명하고 그림에 영향이 없으며, onPointerDown 은 부모 <g> 로
