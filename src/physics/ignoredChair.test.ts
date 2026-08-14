@@ -89,3 +89,42 @@ describe('잠김 — 공·콘은 고정되되 부딪힌다', () => {
     expect(Math.hypot(after.x - before.x, after.y - before.y), '대조군이 안 움직이면 위 단언이 공짜다').toBeGreaterThan(1);
   });
 });
+
+// ── 잠긴 **휠체어** (기현 신고 2026-08-15: *"잠긴 개체가 다른 개체에 안 밀려야 된다"*) ──
+//
+// ⚠️ 이 describe 가 늦게 생긴 이유를 적어 둔다. 2026-08-14 의 `load` 는 잠김을 **공·콘에만**
+// 적용하고, 주석에 *"휠체어는 원래 static 이라 잠금이 물리를 안 바꾼다"* 고 단언해 두었다.
+// 그 단언이 틀렸다 — 휠체어가 static 이 되는 것은 **끄는 동안뿐**이고(`setChairDragging`),
+// 평소에는 dynamic 이라 옆 칩이 밀고 들어오면 그대로 밀려났다. 잘못된 주석이 테스트가 없어야
+// 할 이유처럼 쓰인 자리다.
+describe('잠김 — 휠체어도 안 밀린다', () => {
+  const pushInto = (s: DrillStep) => {
+    const w = load(s);
+    const before = w.read()[chA]!;
+    // chB 를 chA 자리로 밀어 넣는다.
+    // ⚠️ 차체 길이는 37.5 px 이라 **40 px 떨어뜨려 놓으면 애초에 안 닿는다**(첫 시도의 대조군이
+    //    0 px 로 나온 이유가 이것이다). 320 까지 밀어 넣어 확실히 겹치게 한다.
+    for (let k = 0; k <= 40; k++) {
+      w.setPose(chB, { x: Math.max(320, 500 - k * 6), y: 300, theta: 0 });
+      w.step(1 / 60);
+    }
+    for (let k = 0; k < 20; k++) w.step(1 / 60); // 밀린 뒤 정착까지
+    const after = w.read()[chA]!;
+    return Math.hypot(after.x - before.x, after.y - before.y);
+  };
+
+  it('★ 잠근 휠체어는 다른 휠체어가 밀고 들어와도 제자리다', () => {
+    expect(pushInto(step({ locked: [chA] })), '잠근 칩이 밀려났다').toBeLessThan(0.5);
+  });
+
+  it('대조군: 안 잠근 같은 휠체어는 같은 조작에서 실제로 밀린다', () => {
+    expect(pushInto(step()), '대조군이 안 밀리면 위 단언이 공짜다').toBeGreaterThan(1);
+  });
+
+  it('잠근 쪽만 고정된다 — 미는 쪽(chB)은 목록에 없으므로 그대로 움직인다', () => {
+    const w = load(step({ locked: [chA] }));
+    w.setPose(chB, { x: 460, y: 300, theta: 0 });
+    for (let i = 0; i < 10; i++) w.step(1 / 60);
+    expect(w.read()[chB]!.x, '미는 쪽까지 굳었다 — 잠금 목록을 안 보고 전부 static 으로 만든 것이다').toBeCloseTo(460, 0);
+  });
+});

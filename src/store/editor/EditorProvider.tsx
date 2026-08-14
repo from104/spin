@@ -116,12 +116,23 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
   // 두 값은 "편집이 아닌 이유로 표시 자세 집합이 통째로 바뀌었다"는 신호다 —
   // stepId=스텝 전환, epoch=되돌리기/다시하기·스텝 추가삭제 같은 시점 점프.
   // 평범한 자세 편집은 steps 만 바꾸고 이 둘을 건드리지 않으므로 재로드가 일어나지 않는다.
+  // 잠김·무시가 바뀌면 **물리를 다시 세워야 한다** (기현 신고 2026-08-15).
+  // 이 둘은 화면 표시가 아니라 월드의 구성 자체를 바꾼다 — 무시는 body 를 없애고(공이 통과한다),
+  // 잠김은 body 를 static 으로(아무것에도 안 밀린다) 만든다. 그런데 위 deps 는 자세 편집을
+  // 걸러 내려고 `steps` 를 통째로 뺐기 때문에, 플래그를 켜도 **다음 스텝 전환이나 되돌리기가
+  // 있기 전까지 물리에 한 글자도 안 닿았다.** 메뉴에서 잠갔는데 여전히 밀려나던 것이 이것이다.
+  // 배열이 아니라 **문자열 키**로 넘긴다 — `step.locked` 는 편집마다 새 배열이라 참조로는
+  // 못 쓰고, 값이 같으면 재로드가 일어나지 않아야 한다(재로드는 굴러가던 공을 멈춘다).
+  const idxNow = selectStepIndex(state);
+  const stepNow = state.present.steps[idxNow];
+  const flagKey = `${(stepNow?.locked ?? []).join(',')}|${(stepNow?.ignored ?? []).join(',')}`;
+
   useEffect(() => {
     const idx = selectStepIndex(state);
     const currentStep = state.present.steps[idx];
     if (currentStep) worldRef.current?.load(state.present.cast, currentStep, state.present.courtMode, state.present.courtSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.present.cast, state.present.courtMode, state.present.courtSize, state.stepId, state.epoch]);
+  }, [state.present.cast, state.present.courtMode, state.present.courtSize, state.stepId, state.epoch, flagKey]);
 
   // §6.7 스텝 전환 트윈(blocker 수정): 진입점 하나에서 트윈/즉시를 분기한다. immediate=true 는
   // 구조 변경·시점 점프(epoch 증가)에만 — 조건 없이 writeFrame 하면 .6s 전환이 사라진다.

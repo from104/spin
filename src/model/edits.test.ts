@@ -22,6 +22,7 @@ import {
   setArrow,
   setNote,
   setPose,
+  setStepFlag,
   updateChairDef,
 } from './edits.ts';
 import type { Drill } from './drill.ts';
@@ -292,5 +293,70 @@ describe('유령 cast 정리 — 어디에도 없는 개체는 명단에서 사�
 
     expect(d.steps[0]!.chairs[id]).toBeUndefined();
     expect(d.cast.chairs, '코트에서 뺀 선수가 명단에서 사라졌다').toHaveLength(before);
+  });
+});
+
+// ── 상태 플래그는 개체와 **함께 사라진다** (기현 지시 2026-08-15) ──────────────────────────
+//
+// *"칩이 트레이에 들어가면 잠긴 상태, 무시 상태가 꺼져야 한다."*
+// 트레이 반환은 `OBJECT_REMOVE(scope:'onward')` 이므로 아래 첫 단언이 그 경로다.
+//
+// ⚠️ 안 지우면 플래그가 **id 로 살아남는다**: 잠긴 칩을 뺐다 다시 놓으면 잠긴 채로 나오고,
+// 무시된 칩은 코트 밖이라 메뉴조차 못 열어 되돌릴 문이 없다.
+describe('제거하면 잠김·무시 플래그도 함께 지워진다', () => {
+  const lockedIgnored = (d: Drill, i: number, id: string) => ({
+    locked: d.steps[i]!.locked?.includes(id) ?? false,
+    ignored: (d.steps[i]!.ignored as readonly string[] | undefined)?.includes(id) ?? false,
+  });
+
+  it('★ 트레이 반환(removeFromStepOnward)이 두 플래그를 다 끈다', () => {
+    let d = freshDrill();
+    const id = d.cast.chairs[0]!.id;
+    d = setStepFlag(d, 0, 'locked', id, true);
+    d = setStepFlag(d, 0, 'ignored', id, true);
+    expect(lockedIgnored(d, 0, id), '대조군: 켜지지도 않았다').toEqual({ locked: true, ignored: true });
+
+    const after = removeFromStepOnward(d, 0, id);
+    expect(lockedIgnored(after, 0, id), '칩은 나갔는데 플래그가 남았다 — 다시 놓으면 잠긴 채로 나온다').toEqual({
+      locked: false,
+      ignored: false,
+    });
+  });
+
+  it('빈 목록이면 **키 자체가 없다** — setStepFlag 와 같은 규칙이라야 저장본 표현이 하나다', () => {
+    let d = freshDrill();
+    const id = d.cast.chairs[0]!.id;
+    d = setStepFlag(d, 0, 'locked', id, true);
+    const after = removeFromStepOnward(d, 0, id);
+    expect(after.steps[0]!.locked, '빈 배열이 저장본에 눌러앉는다').toBeUndefined();
+  });
+
+  it('다른 개체의 플래그는 **안 건드린다**', () => {
+    let d = freshDrill();
+    const a = d.cast.chairs[0]!.id;
+    const b = d.cast.chairs[1]!.id;
+    d = setStepFlag(d, 0, 'locked', a, true);
+    d = setStepFlag(d, 0, 'locked', b, true);
+    const after = removeFromStepOnward(d, 0, a);
+    expect(after.steps[0]!.locked, '남의 잠금까지 풀렸다').toEqual([b]);
+  });
+
+  it('스텝마다 따로다 — 0번에서 빼도 1번 스텝의 플래그는 그 스텝의 것이다', () => {
+    let d = addStepAfter(freshDrill(), 0);
+    const id = d.cast.chairs[0]!.id;
+    d = setStepFlag(d, 1, 'locked', id, true);
+    // 0번만 제거하면(this step only) 1번 스텝은 손대지 않는다.
+    const after = removeFromThisStepOnly(d, 0, id);
+    expect(after.steps[1]!.locked, '엉뚱한 스텝의 잠금이 풀렸다').toEqual([id]);
+  });
+
+  it('메뉴의 [삭제](removeEverywhere)도 전 스텝의 플래그를 지운다', () => {
+    let d = addStepAfter(freshDrill(), 0);
+    const id = d.cast.chairs[0]!.id;
+    d = setStepFlag(d, 0, 'locked', id, true);
+    d = setStepFlag(d, 1, 'ignored', id, true);
+    const after = removeEverywhere(d, id);
+    expect(after.steps[0]!.locked).toBeUndefined();
+    expect(after.steps[1]!.ignored).toBeUndefined();
   });
 });

@@ -405,8 +405,12 @@ export function createPhysicsWorld(
       // 2026-08-14 — 스텝의 상태 플래그를 여기서 읽는다.
       //  · **무시**된 휠체어는 body 를 아예 안 만든다 → 공이 통과하고 아무것도 안 밀린다.
       //    (투명도만 낮추고 body 를 두면 "안 보이는데 부딪히는" 유령이 된다.)
-      //  · **잠김**은 공·콘만 물리가 다르다(static). 휠체어는 원래 static 이라(§5.4) 잠금이
-      //    물리를 한 글자도 안 바꾼다 — 거기서 잠김은 **끌기를 막는 것**이고 그 판정은 편집기 몫이다.
+      //  · **잠김**은 세 종류 모두 static 이다 — 잠긴 것은 **아무것에도 안 밀린다.**
+      //    ⚠️ 2026-08-14 에는 여기 *"휠체어는 원래 static 이라 잠금이 물리를 안 바꾼다"* 고
+      //    적혀 있었고, 그것이 틀렸다(기현 신고 2026-08-15: *"잠긴 개체가 다른 개체에 안
+      //    밀려야 된다"*). 휠체어가 static 이 되는 것은 **끄는 동안뿐**이다
+      //    (`setChairDragging`) — 평소에는 dynamic 이라(bodies.ts 의 'push' 모드) 다른 칩이
+      //    밀고 들어오면 그대로 밀려났다. 잘못된 주석이 테스트가 없어야 할 이유처럼 쓰였다.
       const ignored = new Set<string>(step.ignored ?? []);
       const locked = new Set<string>(step.locked ?? []);
 
@@ -416,6 +420,7 @@ export function createPhysicsWorld(
         if (ignored.has(c.id)) continue; // 무시 — 월드에 없다
         world.addChair(c.id, poseFromStored(sp));
         kindOf.set(c.id, 'chair');
+        if (locked.has(c.id)) world.setBodyStatic(c.id, true);
       }
       for (const bd of cast.balls) {
         const p = step.balls[bd.id];

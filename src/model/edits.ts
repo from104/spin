@@ -159,17 +159,45 @@ export function setPose(d: Drill, i: number, id: ChairId | BallId | ConeId, p: S
   return replaceStep(d, i, { ...step, cones: withMap(step.cones, id, pose) });
 }
 
+/** 스텝에서 사라지는 개체의 **상태 플래그(잠김·무시)도 함께 지운다** (기현 지시 2026-08-15:
+ *  *"칩이 트레이에 들어가면 잠긴 상태, 무시 상태가 꺼져야 한다"*).
+ *
+ *  ⚠️ 안 지우면 플래그가 **id 로 살아남는다**. 잠긴 칩을 트레이로 뺐다가 다시 놓으면 잠긴 채로
+ *  나오고(사용자는 그 사이에 아무것도 잠근 적이 없다), 무시된 칩은 되돌릴 문인 메뉴조차
+ *  코트 밖이라 못 연다. 게다가 죽은 id 가 저장본에 계속 쌓인다.
+ *
+ *  **지우는 자리는 여기 하나뿐이다** — 트레이 반환·지우개·메뉴의 [삭제] 가 전부 이 함수를
+ *  지난다(OBJECT_REMOVE 세 갈래 모두 `removeFromStep` 을 부른다). 호출부마다 따로 지우면
+ *  언젠가 한 곳이 빠진다. */
+function stripStepFlags(s: DrillStep, id: string): DrillStep {
+  let next = s;
+  for (const flag of ['locked', 'ignored'] as const) {
+    const cur = next[flag] as readonly string[] | undefined;
+    if (!cur?.includes(id)) continue;
+    const rest = cur.filter((x) => x !== id);
+    const patched: DrillStep = { ...next };
+    // 빈 목록이면 키를 지운다 — `setStepFlag` 와 **같은 규칙**이라야 저장본에 표현이 하나다.
+    if (rest.length === 0) delete patched[flag];
+    else if (flag === 'locked') patched.locked = rest;
+    else patched.ignored = rest as ChairId[];
+    next = patched;
+  }
+  return next;
+}
+
 function removeFromStep(s: DrillStep, id: CastId): DrillStep {
+  let next = s;
   if (isId(id, 'ch')) {
     const chairs = omitKey(s.chairs, id);
-    return chairs === s.chairs ? s : { ...s, chairs };
-  }
-  if (isId(id, 'bl')) {
+    if (chairs !== s.chairs) next = { ...s, chairs };
+  } else if (isId(id, 'bl')) {
     const balls = omitKey(s.balls, id);
-    return balls === s.balls ? s : { ...s, balls };
+    if (balls !== s.balls) next = { ...s, balls };
+  } else {
+    const cones = omitKey(s.cones, id);
+    if (cones !== s.cones) next = { ...s, cones };
   }
-  const cones = omitKey(s.cones, id);
-  return cones === s.cones ? s : { ...s, cones };
+  return stripStepFlags(next, id);
 }
 
 /** 어느 스텝에도 pose 가 남지 않은 공·콘을 cast 에서 버린다.
@@ -328,7 +356,8 @@ export function removeArrow(d: Drill, i: number, id: ArrowId): Drill {
   const step = d.steps[i];
   if (!step) return d;
   if (!step.arrows.some((a) => a.id === id)) return d;
-  return replaceStep(d, i, { ...step, arrows: step.arrows.filter((a) => a.id !== id) });
+  // 잠근 채로 지우면 플래그가 죽은 id 로 남는다 — 개체 제거와 같은 규칙이다(stripStepFlags).
+  return replaceStep(d, i, stripStepFlags({ ...step, arrows: step.arrows.filter((a) => a.id !== id) }, id));
 }
 
 function notesEqual(a: NoteLabel, b: NoteLabel): boolean {
@@ -382,7 +411,7 @@ export function removeShape(d: Drill, i: number, id: ShapeId): Drill {
   if (!step) return d;
   const shapes = step.shapes.filter((x) => x.id !== id);
   if (shapes.length === step.shapes.length) return d;
-  return replaceStep(d, i, { ...step, shapes });
+  return replaceStep(d, i, stripStepFlags({ ...step, shapes }, id));
 }
 
 export function setNote(d: Drill, i: number, n: NoteLabel): Drill {
@@ -400,5 +429,5 @@ export function removeNote(d: Drill, i: number, id: NoteId): Drill {
   const step = d.steps[i];
   if (!step) return d;
   if (!step.notes.some((n) => n.id === id)) return d;
-  return replaceStep(d, i, { ...step, notes: step.notes.filter((n) => n.id !== id) });
+  return replaceStep(d, i, stripStepFlags({ ...step, notes: step.notes.filter((n) => n.id !== id) }, id));
 }
