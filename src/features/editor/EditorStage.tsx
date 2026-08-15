@@ -562,7 +562,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       selectionOverlayRef={pointer.selectionOverlayRef}
       dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
-      ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, ballRings } : undefined}
+      ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, teamStyles: drill.teams, defense: drill.defense, ballRings } : undefined}
       // activePart: Shift+방향키가 무엇을 옮길지 눈에 보이게 한다. 조준을 실제로 쓴 뒤에만
       // 켜므로(= arrowAim 이 이 화살표에 걸린 뒤) 마우스만 쓰는 사람에게는 지금 그림 그대로다.
       arrowHandles={{ arrow: selectedArrow, activePart: selectedArrow && arrowAim?.id === selectedArrow.id ? arrowAim.part : null }}

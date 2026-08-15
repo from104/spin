@@ -18,11 +18,12 @@ import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 import type { DragZone } from '../model/chair.ts';
 import type { Arrow, ArrowHandle } from '../model/arrow.ts';
 import { arrowColor } from '../model/arrow.ts';
-import type { BallRing, NoteLabel as NoteLabelData, TeamSide } from '../model/drill.ts';
+import type { BallRing, NoteLabel as NoteLabelData, TeamSide, TeamStyle } from '../model/drill.ts';
 import type { BallId, ChairId } from '../core/ids.ts';
 import { CourtSurface, type CourtLineVariant } from './CourtSurface.tsx';
 import { GridOverlay } from './GridOverlay.tsx';
 import { RuleZones } from './RuleZones.tsx';
+import { SideMarks } from './SideMarks.tsx';
 import { RuleOverlay } from './RuleOverlay.tsx';
 import type { RuleOverlayApi, RuleRosterEntry } from './ruleOverlay.ts';
 import { ArrowMarkers } from './ArrowMarkers.tsx';
@@ -188,6 +189,11 @@ export interface CourtStageProps {
     /** 이 스텝의 선수 명단(팀·골키퍼). 좌표는 writer 프레임에서 온다. */
     roster: readonly RuleRosterEntry[];
     teams: Record<TeamSide, { label: string }>;
+    /** 진영 표시(SideMarks)가 쓰는 팀 **색**. `teams` 는 발화 문구용 라벨만 갖는다. */
+    teamStyles: Record<TeamSide, TeamStyle>;
+    /** 진영 — `ruleZones[0]` 을 지키는 팀(`Drill.defense`). 골 지역 3인이 **수비 팀만** 세므로
+     *  안 넘기면 편집 화면만 다른 팀을 붉게 칠한다(2026-08-15). */
+    defense?: TeamSide;
     /** §7 5.2 공마다 따로 켜는 거리 원(공 id → 없음/3 m/5 m). 없는 id 는 'none' 이다.
      *  안 넘기면 링이 하나도 안 그려진다 — 초기값이 '없음' 이기 때문이다. */
     ballRings?: Readonly<Record<string, BallRing>>;
@@ -787,6 +793,10 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
         <CourtSurface mode={mode} size={size} variant={variant} />
         {showGrid && <GridOverlay mode={mode} size={size} showLabels={showGridLabels} />}
         <RuleZones mode={mode} size={size} visible={showRuleZones} />
+        {/* 진영 표시 — 골라인 뒤 점 둘. **규칙 존 스위치와 무관하게 언제나 보인다**: 골 지역
+            3인 반칙이 어느 팀에 걸리는지를 정하는 값이라, 존을 감춰도 코치는 진영을 알아야
+            한다(그리고 이 표시가 곧 진영 버튼이 무엇을 바꾸는지의 설명이다). */}
+        {ruleOverlay && <SideMarks mode={mode} size={size} teams={ruleOverlay.teamStyles} defense={ruleOverlay.defense} />}
         {/* 개체 **아래**에 둔다 — 링은 공 주위 3 m 를 덮으므로 위에 깔면 칩을 가린다. */}
         {ruleOverlay && (
           <RuleOverlay
@@ -798,6 +808,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             ballIds={balls}
             ballRings={ruleOverlay.ballRings}
             roster={ruleOverlay.roster}
+            defense={ruleOverlay.defense}
             teams={ruleOverlay.teams}
           />
         )}

@@ -6,8 +6,9 @@ import { isId } from '../../core/ids.ts';
 import type { ArrowId, ChairId, NoteId } from '../../core/ids.ts';
 import { KNOWN_CATEGORIES, TEAM_COLOR_CHOICES, TEAM_COLOR_NAMES, inkFor } from '../../core/colors.ts';
 import { ARROW_STYLES, arrowColor } from '../../model/arrow.ts';
-import type { Drill, DrillLevel, DrillStep } from '../../model/drill.ts';
+import type { Drill, DrillLevel, DrillStep, TeamSide } from '../../model/drill.ts';
 import { DRILL_LEVELS } from '../../model/drill.ts';
+import { defaultDefense } from '../../model/rules.ts';
 import { chairName } from '../../model/chairLabel.ts';
 import { courtDefFor, COURT_SIZES, COURT_SIZE_LABELS, DEFAULT_COURT_SIZE, type CourtSize } from '../../model/court.ts';
 import { LIMITS } from '../../model/validate.ts';
@@ -377,8 +378,45 @@ function DrillInfoSection({
           <span style={{ color: 'var(--muted)' }}>포메이션</span>
           <span style={{ fontWeight: 600, textAlign: 'right' }}>{drill.formation}</span>
         </div>
+        <SideField drill={drill} dispatch={dispatch} />
         <GoalResetField drill={drill} onResetGoals={onResetGoals} />
       </div>
+    </div>
+  );
+}
+
+/** 진영 — 골 지역 3인 반칙이 **어느 팀에 걸리는가**(기현 지시 2026-08-15).
+ *
+ *  *"수비측이 우리편 골에리어에 3명이 못 들어가는 거지. 공격은 제한 없어."*
+ *
+ *  ── 왜 여기인가 ────────────────────────────────────────────────────────────────
+ *  자유 전술판에서는 오른쪽 기능 바에 [진영] 칸이 있다. 드릴 편집에는 그 기둥이 아직 없어
+ *  (재설계 대기 중) **판 수준 설정이 사는 곳**인 여기로 온다 — 코트 크기 3단·골대 원위치가
+ *  같은 이유로 이 구역에 있다. 두 화면이 같은 값을 만지므로 문구도 같은 말을 쓴다.
+ *
+ *  ── ⚠️ 점진 공개 금지(§8) ──────────────────────────────────────────────────────
+ *  골대 원위치와 같은 규율이다: **버튼은 언제나 있고 비활성 여부와 설명만 바뀐다.** 판정도
+ *  판 상태가 아니라 **코트 종류**다 — 플랫 코트에는 골 지역이 없어 진영이라는 개념이 없다. */
+function SideField({ drill, dispatch }: { drill: Drill; dispatch: Dispatch<EditorAction> }) {
+  const zones = courtDefFor(drill.courtMode, drill.courtSize).ruleZones;
+  const has = zones.length > 0;
+  const cur: TeamSide = drill.defense ?? defaultDefense(drill.courtMode);
+  const goalName = drill.courtMode === 'half' ? '골' : '왼쪽 골';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <Button
+        variant="secondary"
+        fullWidth
+        disabled={!has}
+        onClick={() => dispatch({ type: 'META_SET', patch: { defense: cur === 'home' ? 'away' : 'home' } })}
+      >
+        진영 바꾸기
+      </Button>
+      <span style={{ fontSize: '0.6875rem', color: 'var(--faint-text)', lineHeight: 1.45 }}>
+        {has
+          ? `${goalName}을 지키는 팀은 ${drill.teams[cur].label} 입니다. 골 지역 3인 반칙은 수비 팀에만 걸립니다 — 공격은 제한이 없습니다.`
+          : '플랫 코트에는 골 지역이 없어 진영이 없습니다.'}
+      </span>
     </div>
   );
 }

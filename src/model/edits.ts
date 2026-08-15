@@ -379,7 +379,15 @@ export function setShape(d: Drill, i: number, sh: Shape): Drill {
   if (!step) return d;
   const idx = step.shapes.findIndex((x) => x.id === sh.id);
   const cur = idx === -1 ? null : step.shapes[idx]!;
-  if (cur && cur.kind === sh.kind && cur.x === sh.x && cur.y === sh.y && cur.w === sh.w && cur.h === sh.h && cur.rot === sh.rot) {
+  // ⚠️ `pts` 를 반드시 함께 본다(2026-08-15 자유 삼각형). 꼭짓점을 옮겨도 경계상자가 그대로인
+  // 이동이 있는데(예: 한 꼭짓점을 변을 따라 미끄러뜨리기), w/h/rot 만 비교하면 그 편집이
+  // "변한 것 없음" 으로 통째로 버려진다 — 화면에서는 손잡이만 따라오고 도형은 안 바뀐다.
+  const samePts =
+    cur?.pts === sh.pts ||
+    (cur?.pts != null &&
+      sh.pts != null &&
+      cur.pts.every((p, i) => p.x === sh.pts![i]!.x && p.y === sh.pts![i]!.y));
+  if (cur && cur.kind === sh.kind && cur.x === sh.x && cur.y === sh.y && cur.w === sh.w && cur.h === sh.h && cur.rot === sh.rot && samePts) {
     return d;
   }
   const shapes = step.shapes.slice();

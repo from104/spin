@@ -337,6 +337,20 @@ export function IconGoalReset({ size = 18, ...rest }: IconProps) {
   );
 }
 
+/** 진영 바꾸기 — 세로선(골라인/하프라인) 양쪽의 점 둘이 자리를 맞바꾼다.
+ *  화살표를 쓰지 않는 이유: 되돌리기·다시하기와 같은 굽은 화살표가 이미 기둥에 둘 있어,
+ *  세 번째 화살표가 그 둘과 한 덩어리로 읽힌다. 이 버튼이 바꾸는 것은 **자리**다. */
+export function IconSides({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M12 3v18" />
+      <circle cx="5.5" cy="8.5" r="2.2" />
+      <circle cx="18.5" cy="15.5" r="2.2" />
+      <path d="M8.5 8.5h3M12.5 15.5h3" />
+    </svg>
+  );
+}
+
 /** 코트 비우기 — 쓸어 담는 통. 파괴적 동작이라 뚜껑이 열린 모양으로 그린다. */
 export function IconClear({ size = 18, ...rest }: IconProps) {
   return (

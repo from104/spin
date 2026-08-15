@@ -4,13 +4,16 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { RULE_ALERT_STROKE, RULE_CLEAR_MS, RULE_DASH, RULE_OK_STROKE, createRuleOverlay, type RuleOverlayContext } from './ruleOverlay.ts';
+import { defendedZones } from '../model/rules.ts';
 import { COURT_DEFS } from '../model/court.ts';
 import type { TeamSide } from '../model/drill.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const g = (): SVGGElement => document.createElementNS(SVG_NS, 'g');
 
-const GZ = COURT_DEFS.full.ruleZones;
+// ⚠️ 2026-08-15 — 컨텍스트가 사각형이 아니라 **진영을 입힌 존**을 받는다. 홈이 왼쪽 골을
+// 지키는 기본 진영이고, 아래 케이스들이 전부 home 3명을 존에 넣으므로 그때의 뜻과 같다.
+const GZ = defendedZones(COURT_DEFS.full.ruleZones, 'home');
 const BALL_ID = 'bl_1';
 
 function chair(id: string, team: TeamSide, isGk = false) {
@@ -114,7 +117,7 @@ describe('ruleOverlay — 링의 상태', () => {
 });
 
 describe('ruleOverlay — 골 지역 표시', () => {
-  const inZone = (i: number) => ({ x: GZ[0]!.x + 10 + i * 10, y: GZ[0]!.y + 10 });
+  const inZone = (i: number) => ({ x: GZ[0]!.rect.x + 10 + i * 10, y: GZ[0]!.rect.y + 10 });
   const three = {
     ch_a: inZone(0),
     ch_b: inZone(1),
@@ -138,7 +141,7 @@ describe('ruleOverlay — 골 지역 표시', () => {
   });
 
   it('존이 없는 코트(flat)에서는 아무 일도 하지 않는다', () => {
-    const h = harness({ goalAreas: COURT_DEFS.flat.ruleZones, roster: [...ROSTER, chair('ch_e', 'home')] });
+    const h = harness({ goalAreas: defendedZones(COURT_DEFS.flat.ruleZones, 'home'), roster: [...ROSTER, chair('ch_e', 'home')] });
     h.api.write(three);
     expect(h.zone0.getAttribute('opacity')).toBe('0');
   });
@@ -167,8 +170,13 @@ describe('ruleOverlay — 라이브 리전 발화 [D-6]', () => {
   });
 
   it('골 지역 3인은 다른 문구로 말한다', () => {
-    const h = harness({ roster: [chair('ch_a', 'away'), chair('ch_b', 'away'), chair('ch_e', 'away')] });
-    h.api.write({ ch_a: { x: GZ[0]!.x + 10, y: GZ[0]!.y + 10 }, ch_b: { x: GZ[0]!.x + 20, y: GZ[0]!.y + 10 }, ch_e: { x: GZ[0]!.x + 30, y: GZ[0]!.y + 10 } });
+    // ⚠️ 진영을 **원정**으로 뒤집어 넘긴다(2026-08-15). 골 지역 3인은 그 존을 지키는 팀만
+    //    세므로, 홈이 지키는 존에 원정 3명을 넣으면 이제 아무 일도 안 일어난다(그것이 규칙이다).
+    const h = harness({
+      goalAreas: defendedZones(COURT_DEFS.full.ruleZones, 'away'),
+      roster: [chair('ch_a', 'away'), chair('ch_b', 'away'), chair('ch_e', 'away')],
+    });
+    h.api.write({ ch_a: { x: GZ[0]!.rect.x + 10, y: GZ[0]!.rect.y + 10 }, ch_b: { x: GZ[0]!.rect.x + 20, y: GZ[0]!.rect.y + 10 }, ch_e: { x: GZ[0]!.rect.x + 30, y: GZ[0]!.rect.y + 10 } });
     const said = h.say.mock.calls[0]![0] as string;
     expect(said).toContain('골 지역');
     expect(said).toContain('3명 이상');
@@ -212,9 +220,9 @@ describe('ruleOverlay — 라이브 리전 발화 [D-6]', () => {
     expect(h.say).toHaveBeenCalledTimes(1);
     h.api.write({
       ...VIOLATING,
-      ch_e: { x: GZ[0]!.x + 10, y: GZ[0]!.y + 10 },
-      ch_f: { x: GZ[0]!.x + 20, y: GZ[0]!.y + 10 },
-      ch_b: { x: GZ[0]!.x + 30, y: GZ[0]!.y + 10 },
+      ch_e: { x: GZ[0]!.rect.x + 10, y: GZ[0]!.rect.y + 10 },
+      ch_f: { x: GZ[0]!.rect.x + 20, y: GZ[0]!.rect.y + 10 },
+      ch_b: { x: GZ[0]!.rect.x + 30, y: GZ[0]!.rect.y + 10 },
     });
     // ch_b 가 존으로 옮겨가 링은 풀렸지만 존이 걸렸다 — 조합이 달라졌으니 새 발화다.
     expect(h.say).toHaveBeenCalledTimes(2);

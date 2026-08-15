@@ -13,7 +13,7 @@
 //   ③ 도형들을 하나의 `<path>` 로 합치기 — 겹친 부분이 fill-rule 로 **뚫린다.**
 // 셋 다 "정리" 처럼 보이는 변경이라 나중에 누가 손댈 자리다. ShapeLayer.test 가 ①을 직접 막고,
 // 나머지 둘은 이 문단이 근거를 쥔다.
-import { SHAPE_COLOR, SHAPE_FILL_OPACITY, SHAPE_STROKE_OPACITY, SHAPE_STROKE_PX, shapeSize, trianglePointsAttr } from '../model/shape.ts';
+import { SHAPE_COLOR, SHAPE_FILL_OPACITY, SHAPE_STROKE_OPACITY, SHAPE_STROKE_PX, pointsAttr, shapeSize, triPointsOf } from '../model/shape.ts';
 import type { Shape } from '../model/shape.ts';
 import { LOCK_TINT_COLOR, LOCK_TINT_OPACITY } from '../core/colors.ts';
 
@@ -40,6 +40,9 @@ export function ShapeLayer({ shapes = [], selected, locked, onPointerDown }: Sha
     <g aria-hidden="true" data-shape-layer="">
       {shapes.map((s) => {
         const { w, h } = shapeSize(s);
+        // 삼각형의 모양은 w/h 가 아니라 꼭짓점이 진다(2026-08-15 자유 삼각형). w/h 는 타원·
+        // 사각형 전용이고, 삼각형에서는 크기 표시용 경계상자일 뿐이다.
+        const tri = s.kind === 'triangle' ? pointsAttr(triPointsOf(s)) : '';
         const on = selected?.has(s.id) ?? false;
         const isLocked = locked?.has(s.id) ?? false;
         const stroke = on ? 'var(--accent)' : SHAPE_COLOR;
@@ -81,7 +84,7 @@ export function ShapeLayer({ shapes = [], selected, locked, onPointerDown }: Sha
                 칠해져 "무엇이 잠겼는지" 가 흐려진다. 면 위에 얹으므로 도형 뒤에 온다. */}
             {s.kind === 'triangle' && (
               <polygon
-                points={trianglePointsAttr(w)}
+                points={tri}
                 fill={SHAPE_COLOR}
                 fillOpacity={SHAPE_FILL_OPACITY}
                 stroke={stroke}
@@ -97,7 +100,7 @@ export function ShapeLayer({ shapes = [], selected, locked, onPointerDown }: Sha
               <rect x={-w / 2} y={-h / 2} width={w} height={h} fill={LOCK_TINT_COLOR} fillOpacity={LOCK_TINT_OPACITY} pointerEvents="none" />
             )}
             {isLocked && s.kind === 'triangle' && (
-              <polygon points={trianglePointsAttr(w)} fill={LOCK_TINT_COLOR} fillOpacity={LOCK_TINT_OPACITY} pointerEvents="none" />
+              <polygon points={tri} fill={LOCK_TINT_COLOR} fillOpacity={LOCK_TINT_OPACITY} pointerEvents="none" />
             )}
           </g>
         );

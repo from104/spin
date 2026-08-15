@@ -10,8 +10,7 @@
 // 그래서 편집기는 usePhysicsRenderLoop(= world.read() 한 번), 시연은 applyFrame(= sampleDrill
 // 한 번)에서 같은 프레임을 이쪽으로도 흘려보낸다 — 두 번 읽지 않는다(자세와 판정이 한 프레임
 // 어긋나면 "링은 붉은데 아무도 안 들어와 있다" 가 된다).
-import { GOAL_AREA_MAX, RING_SAME_TEAM_MAX, ringViolation, teamsOfBits, zoneViolation, type RuleActor } from '../model/rules.ts';
-import type { Rect } from '../model/court.ts';
+import { GOAL_AREA_MAX, RING_SAME_TEAM_MAX, ringViolation, teamsOfBits, zoneViolation, type DefendedZone, type RuleActor } from '../model/rules.ts';
 import type { TeamSide } from '../model/drill.ts';
 import { liveRegion } from '../ui/LiveRegion.tsx';
 
@@ -65,7 +64,9 @@ export interface RuleOverlayContext {
   enabled: boolean;
   /** 이 프레임에 판 위에 있을 수 있는 선수 명단. 좌표는 write() 가 프레임에서 채운다. */
   roster: readonly RuleRosterEntry[];
-  goalAreas: readonly Rect[];
+  /** 골 지역 + **그 존을 지키는 팀**(2026-08-15 진영). 사각형만 넘기던 옛 계약으로는 골 지역
+   *  3인을 수비 팀에만 걸 수가 없었다 — `defendedZones(def.ruleZones, drill.defense)` 로 만든다. */
+  goalAreas: readonly DefendedZone[];
   teamLabels: Record<TeamSide, string>;
 }
 

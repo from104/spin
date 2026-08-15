@@ -1,5 +1,8 @@
 // §4.1 스키마 버저닝. DB_VERSION(IndexedDB 구조)과 schemaVersion(문서 내용)을 절대 섞지 않는다.
 // 문서 마이그레이션은 읽기 시점 + 기회적 되쓰기.
+import { SHAPE_DEFAULT_PX, triBBox, trianglePoints } from './shape.ts';
+import { defaultDefense } from './rules.ts';
+
 export interface DocMigration {
   from: number;
   to: number;
@@ -69,6 +72,64 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
         );
       }
       return out;
+    },
+  },
+  {
+    from: 4,
+    to: 5,
+    describe: 'drill v4→v5: 자유 삼각형 — 정삼각형(w,h)을 꼭짓점 셋(pts)으로 옮긴다',
+    // ⚠️ **여기는 적을 참말이 있다**(v3→v4 와 다르다). 2026-08-15 부터 삼각형의 모양은 w/h 가
+    // 아니라 `pts` 가 지므로, 옛 파일의 삼각형은 여기서 명시적으로 꼭짓점을 받아야 한다.
+    //
+    // sanitize 의 폴백(`triPointsOf`)이 같은 값을 만들어 주므로 화면은 이 단계가 없어도 같다.
+    // 그래도 찍는 이유 둘: ① 저장본이 스스로를 설명하게 된다(다음에 이 파일을 읽는 사람이
+    // "w 가 한 변이었다" 는 옛 규약을 몰라도 된다) ② **도장을 올려야 배포된 v0.1.0 이 새 파일을
+    // 거절한다** — 안 올리면 옛 앱이 자유 삼각형을 정삼각형으로 조용히 다시 그린다.
+    //
+    // h 는 **한 변이 아니라 실제 높이**(0.866·한변)로 바뀐다. 옛 모델은 w===h===한변 이라
+    // 높이가 어디에도 안 적혀 있었고, 크기 표시가 그만큼 거짓말을 하고 있었다.
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      if (!Array.isArray(out.steps)) return out;
+      out.steps = out.steps.map((st) => {
+        if (!st || typeof st !== 'object') return st;
+        const step = st as Record<string, unknown>;
+        if (!Array.isArray(step.shapes)) return st;
+        return {
+          ...step,
+          shapes: step.shapes.map((sh) => {
+            if (!sh || typeof sh !== 'object') return sh;
+            const shape = sh as Record<string, unknown>;
+            if (shape.kind !== 'triangle' || shape.pts !== undefined) return sh;
+            // 옛 규약: w 가 한 변이다(h 는 같은 값을 들고 다녔을 뿐 쓰이지 않았다).
+            const side = typeof shape.w === 'number' && Number.isFinite(shape.w) ? shape.w : SHAPE_DEFAULT_PX;
+            const pts = trianglePoints(side);
+            const bbox = triBBox(pts);
+            return { ...shape, w: bbox.w, h: bbox.h, pts: pts.map((p) => ({ x: p.x, y: p.y })) };
+          }),
+        };
+      });
+      return out;
+    },
+  },
+  {
+    from: 5,
+    to: 6,
+    describe: 'drill v5→v6: 진영(defense) — 옛 드릴은 기본 배치의 골키퍼 자리를 따른다',
+    // ⚠️ **여기도 적을 참말이 있다.** 2026-08-15 부터 골 지역 3인 반칙은 **수비 팀만** 센다
+    // (Law 11 — 공격은 제한 없다). 그 판단의 유일한 입력이 `defense` 이므로, 값이 없으면
+    // 판정이 아니라 **누구를 붉게 칠하느냐**가 달라진다.
+    //
+    // 찍는 값은 `defaultDefense(courtMode)` 와 같아야 한다 — 정화기의 폴백과 갈라지면
+    // "마이그레이션을 지난 파일" 과 "안 지난 파일" 이 다른 팀을 붉게 칠한다.
+    // 근거: 풀 코트 기본 배치는 홈 GK 가 x=75(왼쪽 골 = ruleZones[0]), 하프 코트는 원정 GK 만
+    // 놓인다(defaults.ts FULL_POSITIONS/HALF_POSITIONS). 즉 이 값이 "지금까지 판이 실제로
+    // 보이던 모습" 이다. 플랫 코트는 골 지역이 없어 값이 안 쓰이지만, 필드는 채워 둔다 —
+    // 코트를 나중에 바꿔도 문서가 스스로를 설명하게.
+    migrate: (doc) => {
+      if (doc.defense === 'home' || doc.defense === 'away') return doc;
+      const mode = doc.courtMode === 'half' || doc.courtMode === 'flat' ? doc.courtMode : 'full';
+      return { ...doc, defense: defaultDefense(mode) };
     },
   },
 ];

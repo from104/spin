@@ -100,6 +100,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
         // 30×18 캔버스에 구워져, 카톡으로 보낸 그림만 코트가 다르다.
         size: drill.courtSize,
         teams: drill.teams,
+        // 진영 — 골 지역 3인 반칙이 **수비 팀만** 세므로(2026-08-15) 이 한 줄이 없으면
+        // 카톡으로 보낸 그림만 다른 팀을 붉게 칠한다(위 courtSize 와 같은 부류의 사고다).
+        defense: drill.defense,
         showGrid,
         showRuleZones,
         caption: { title: drill.title, stepIndex, stepCount: drill.steps.length, stepName: step.name },

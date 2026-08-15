@@ -17,10 +17,10 @@
 // 이 링" 은 *켜져 있을 때* 의 이야기로 읽으면 된다 — 시각 언어(파선·케이싱·세 채널)와 팔로워
 // 규율은 하나도 바뀌지 않았다. 바뀐 것은 **몇 개를 그리는가** 뿐이다. 그리고 **판정은 표시와
 // 무관하다**: 원이 '없음' 인 공도 링 그룹은 등록되어 2-on-1 판정과 발화를 그대로 탄다.
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { courtDefFor, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
-import { ringRadiusPx } from '../model/rules.ts';
+import { defaultDefense, defendedZones, ringRadiusPx } from '../model/rules.ts';
 import type { TransformWriter } from './transformWriter.ts';
 import {
   RULE_DASH,
@@ -136,10 +136,18 @@ export interface RuleOverlayProps {
   /** 선수 명단(팀·골키퍼). 좌표는 프레임에서 온다 — 여기로 내리지 않는다. */
   roster: readonly RuleRosterEntry[];
   teams: Record<TeamSide, { label: string }>;
+  /** 진영 — `ruleZones[0]` 을 지키는 팀(`Drill.defense`). 생략하면 `defaultDefense(mode)` 다.
+   *  이 값이 골 지역 3인을 **수비 팀에만** 걸고, 2-on-1 의 골키퍼 면제를 **자기 골 지역**으로
+   *  좁힌다(model/rules.ts 머리말 ✅ 2026-08-15). */
+  defense?: TeamSide;
 }
 
-export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballRings, roster, teams }: RuleOverlayProps) {
-  const goalAreas = courtDefFor(mode, size).ruleZones;
+export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballRings, roster, teams, defense }: RuleOverlayProps) {
+  const zones = courtDefFor(mode, size).ruleZones;
+  // ⚠️ `useMemo` 다. `defendedZones` 는 매번 새 배열을 만드는데, 그것이 아래 이펙트의 deps 에
+  //    들어가므로 그대로 두면 **렌더마다 setContext 가 다시 돈다**(판정 상태가 매번 초기화된다).
+  const side = defense ?? defaultDefense(mode);
+  const goalAreas = useMemo(() => defendedZones(zones, side), [zones, side]);
 
   useEffect(() => {
     rules.setContext({ enabled: visible, roster, goalAreas, teamLabels: { home: teams.home.label, away: teams.away.label } });
@@ -162,7 +170,7 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
     <g aria-hidden="true" pointerEvents="none">
       {visible &&
         goalAreas.map((z, i) => (
-          <RuleZoneMark key={`${z.x},${z.y}`} index={i} zone={z} rules={rules} />
+          <RuleZoneMark key={`${z.rect.x},${z.rect.y}`} index={i} zone={z.rect} rules={rules} />
         ))}
       {shown.map((id) => (
         <RuleRing key={id} id={id} ring={ringOf(id)} writer={writer} rules={rules} />

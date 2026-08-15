@@ -96,7 +96,7 @@ describe('§5.2 드릴 파일 왕복 — 내보낸 파일을 다시 가져와도
     // ⚠️ 도장은 **4** 다. 2026-08-14 에 작도 도형(shapes)이 올렸다 — **이 필드(ring)가 올린
     // 것이 아니다.** 두 판단의 근거가 drill.ts 에 나란히 적혀 있다: 링은 조건 ②(문서 내용이
     // 아니라 읽는 사람 기기 설정)를 넘어 안 올렸고, 도형은 못 넘어 올렸다.
-    expect(payload.schemaVersion).toBe(4);
+    expect(payload.schemaVersion).toBe(6);
 
     const cands = await prepareDrillImport(parseSpinFile(text));
     expect(cands).toHaveLength(1);

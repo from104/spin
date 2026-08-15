@@ -32,6 +32,7 @@ import {
   IconGoalReset,
   IconRedo,
   IconSaveDrill,
+  IconSides,
   IconSpeed,
   IconUndo,
   IconZoomIn,
@@ -42,7 +43,7 @@ import { Modal } from '../../ui/Modal.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { ExportSheet } from '../export/ExportSheet.tsx';
 import { COURT_DEFS, COURT_SIZE_LABELS, COURT_SIZES, courtDefFor, type CourtMode, type CourtSize } from '../../model/court.ts';
-import type { Drill } from '../../model/drill.ts';
+import type { Drill, TeamSide, TeamStyle } from '../../model/drill.ts';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { prunePhysics } from '../../storage/prefs.ts';
 
@@ -171,6 +172,13 @@ export interface FunctionBarProps {
   onCourtSizeChange(size: CourtSize): void;
   onLockedAttempt(): void;
   onResetGoals(): void;
+  /** 진영 — `ruleZones[0]`(풀=왼쪽 골, 하프=유일한 골)을 지키는 팀. 골 지역 3인 반칙이 이
+   *  값을 따라 **수비 팀에만** 걸린다(2026-08-15 기현 지시). */
+  defense: TeamSide;
+  teams: Record<TeamSide, TeamStyle>;
+  /** 한 번 누르면 두 팀이 자리를 맞바꾼다. **플랫 코트에서는 비활성**이다 — 골 지역이 없어
+   *  진영이라는 개념 자체가 없다. */
+  onToggleDefense(): void;
   onReset(): void;
   /** 내보내기 시트가 굽는 것은 지금 리듀서가 든 판이다(물리 세계가 아니라 모델). */
   drill: Drill;
@@ -201,6 +209,9 @@ export function FunctionBar({
   onCourtSizeChange,
   onLockedAttempt,
   onResetGoals,
+  defense,
+  teams,
+  onToggleDefense,
   onReset,
   drill,
   showGrid,
@@ -311,6 +322,24 @@ export function FunctionBar({
         onClick={onResetGoals}
       >
         <IconGoalReset />
+      </BarItem>
+      {/* 진영 — 골 지역 3인 반칙이 어느 팀에 걸리는지를 정한다. 화면의 골라인 뒤 점 둘
+          (SideMarks)이 이 값을 그리고, 이 버튼이 그것을 뒤집는다.
+          ⚠️ 플랫 코트는 `disabled` 다(존이 없다). `aria-disabled`+토스트가 아니라 네이티브
+             disabled 인 이유: 코트 형태 잠금과 달리 여기엔 **설명할 이유가 없다** — 플랫에는
+             골이 없다는 것이 판을 보면 그대로 보인다. */}
+      <BarItem
+        label="진영"
+        name={`진영 바꾸기. 지금 ${teams[defense].label} 이(가) ${courtMode === 'half' ? '골' : '왼쪽 골'}`}
+        title={
+          courtMode === 'flat'
+            ? '플랫 코트에는 골 지역이 없어 진영이 없습니다.'
+            : `골 지역 3인 반칙은 **수비 팀에만** 걸립니다. 지금 ${courtMode === 'half' ? '골' : '왼쪽 골'}을 지키는 팀은 ${teams[defense].label} 입니다.`
+        }
+        disabled={courtMode === 'flat'}
+        onClick={onToggleDefense}
+      >
+        <IconSides />
       </BarItem>
       <BarItem
         label="비우기"

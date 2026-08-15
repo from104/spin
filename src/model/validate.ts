@@ -1,12 +1,25 @@
 // §3.8 검증·보정. zod 등 런타임 스키마 라이브러리 미사용(의존성 0). 절대 throw 하지 않는다 —
 // 파일에서 온 임의 JSON 을 먹어도 된다. 11단계 고정 순서 파이프라인, 멱등.
 import { newId } from '../core/ids.ts';
-import { SHAPE_DEFAULT_PX, SHAPE_KINDS, SHAPE_MAX_PX, SHAPE_MIN_PX, type Shape } from './shape.ts';
+import {
+  SHAPE_DEFAULT_PX,
+  SHAPE_KINDS,
+  SHAPE_MAX_PX,
+  SHAPE_MIN_PX,
+  TRI_MIN_AREA_PX2,
+  recenterTri,
+  triBBox,
+  triCross2,
+  trianglePoints,
+  type Shape,
+  type TriPoints,
+} from './shape.ts';
 import type { ShapeId } from '../core/ids.ts';
 import type { ChairId, BallId, ConeId, StepId, ArrowId, NoteId, DrillId, SessionId, ItemId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
 import { COURT_MODES, COURT_SIZES, DEFAULT_COURT_SIZE, clampToViewBox, type CourtMode, type CourtSize } from './court.ts';
 import { FORMATIONS, defaultStep, DEFAULT_TEAMS } from './defaults.ts';
+import { defaultDefense } from './rules.ts';
 import { CURRENT_DRILL_SCHEMA, DRILL_LEVELS } from './drill.ts';
 import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, PoseMap, NoteLabel } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
@@ -323,16 +336,60 @@ function sanitizeShape(raw: unknown, mode: CourtMode, size: CourtSize, repairs: 
   };
   let w = dim(raw.w);
   let h = dim(raw.h);
-  // 정삼각형은 두 변이 같아야 한다(모델의 shapeSize 와 같은 접기) — 어긋난 값을 그대로 두면
-  // 저장값과 화면이 다른 도형이 되고, 손잡이가 면 밖에 뜬다.
-  if (kind === 'triangle' && w !== h) {
-    const side = Math.min(w, h);
-    w = side;
-    h = side;
-    pushRepair(repairs, 'steps.shapes.size', '정삼각형의 가로·세로가 달라 짧은 변으로 맞춤', false);
-  }
   const rotRaw = typeof raw.rot === 'number' && Number.isFinite(raw.rot) ? raw.rot : 0;
-  return { id, kind, x: p.x, y: p.y, w, h, rot: ((rotRaw % 360) + 360) % 360 };
+  const rot = ((rotRaw % 360) + 360) % 360;
+  if (kind !== 'triangle') return { id, kind, x: p.x, y: p.y, w, h, rot };
+
+  // ── 삼각형(2026-08-15 자유 삼각형) ──────────────────────────────────────────────────
+  // 모양의 출처는 `pts` 하나다. w/h 는 **받아 적는 값**이라 여기서 계산해 덮는다 — 저장본의
+  // w/h 를 믿고 두면 손편집·옛 파일에서 표시 크기와 실제 도형이 갈라진다.
+  //
+  // ⚠️ 2026-08-14 의 '정삼각형 접기'(w!==h 면 짧은 변으로 맞춤) 는 여기서 **사라졌다.**
+  // 그 규칙이 남아 있으면 자유롭게 끈 삼각형이 저장·재적재 한 번에 정삼각형으로 되돌아간다.
+  let pts = sanitizeTriPoints(raw.pts);
+  if (!pts) {
+    // `pts` 가 없거나 망가졌다 — `w` 를 한 변으로 하는 정삼각형으로 읽는다(모델의 triPointsOf
+    // 와 **같은 폴백**이라야 정화기를 지난 것과 안 지난 것이 같은 그림이 된다).
+    if (raw.pts !== undefined) pushRepair(repairs, 'steps.shapes.pts', '삼각형 꼭짓점이 망가져 정삼각형으로 되돌림', false);
+    pts = trianglePoints(w);
+  }
+  // 한 줄로 선 삼각형은 화면에서 사라진다. 넓이 하한을 못 넘으면 정삼각형으로 되돌린다.
+  if (Math.abs(triCross2(pts)) < TRI_MIN_AREA_PX2 * 2) {
+    pushRepair(repairs, 'steps.shapes.pts', '삼각형 세 꼭짓점이 한 줄에 서 있어 정삼각형으로 되돌림', false);
+    pts = trianglePoints(w);
+  }
+  // 무게중심이 원점이라는 불변식(shape.ts TriPoints)을 여기서 되세운다. 어긋난 채로 두면
+  // 회전축이 도형 밖으로 새어 나가 "제자리에서 도는" 성질이 깨진다.
+  const centered = recenterTri(pts);
+  if (centered.shift.x !== 0 || centered.shift.y !== 0) {
+    const rad = (rot * Math.PI) / 180;
+    p.x += centered.shift.x * Math.cos(rad) - centered.shift.y * Math.sin(rad);
+    p.y += centered.shift.x * Math.sin(rad) + centered.shift.y * Math.cos(rad);
+  }
+  const bbox = triBBox(centered.pts);
+  w = bbox.w;
+  h = bbox.h;
+  return { id, kind, x: p.x, y: p.y, w, h, rot, pts: centered.pts };
+}
+
+/** 꼭짓점 셋. 하나라도 어긋나면 통째로 버린다(부분 복구는 "반쯤 맞는 삼각형" 을 만든다). */
+function sanitizeTriPoints(raw: unknown): TriPoints | null {
+  if (!Array.isArray(raw) || raw.length !== 3) return null;
+  const out: Vec2[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) return null;
+    const { x, y } = item;
+    if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+    // 중심에서의 거리만 가둔다 — 방향은 자유다(그것이 이 도형의 요점이다).
+    const d = Math.hypot(x, y);
+    if (d > SHAPE_MAX_PX) {
+      const k = SHAPE_MAX_PX / d;
+      out.push({ x: x * k, y: y * k });
+    } else {
+      out.push({ x, y });
+    }
+  }
+  return [out[0]!, out[1]!, out[2]!];
 }
 
 function sanitizeShapes(arr: unknown, mode: CourtMode, size: CourtSize, repairs: Repair[]): Shape[] {
@@ -429,6 +486,15 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     courtSize = doc.courtSize as CourtSize;
   } else if (doc.courtSize !== undefined) {
     pushRepair(repairs, 'courtSize', `알 수 없는 코트 크기 '${String(doc.courtSize)}' → '${DEFAULT_COURT_SIZE}'`, false);
+  }
+
+  // 1c. 진영(2026-08-15). courtSize 와 같은 규약이다 — 없어도 실패가 아니고, 없으면
+  //     `defaultDefense(courtMode)` 다(풀=home, 하프=away — 기본 배치의 GK 자리와 같다).
+  let defense: TeamSide = defaultDefense(courtMode);
+  if (doc.defense === 'home' || doc.defense === 'away') {
+    defense = doc.defense;
+  } else if (doc.defense !== undefined) {
+    pushRepair(repairs, 'defense', `알 수 없는 진영 '${String(doc.defense)}' → '${defense}'`, false);
   }
 
   // 2. formation 정규화 — defaultStep 호출(11)보다 반드시 먼저.
@@ -627,6 +693,9 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     // 자기 코트 크기를 알고 있어야 한다. 이 한 줄을 빼면 28×15 로 만든 드릴이 IDB 왕복
     // 한 번에 30×18 로 되돌아간다(조립부에 안 적힌 필드는 소리 없이 증발한다).
     courtSize,
+    // 진영(2026-08-15). 알 수 없는 값은 **조용히 기본값으로** 접는다 — 이 필드가 틀리면
+    // 골 지역 3인이 엉뚱한 팀에 걸려 코치에게 없는 반칙을 가르친다.
+    defense: defense,
     formation,
     teams,
     cast,

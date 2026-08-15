@@ -22,7 +22,7 @@ const BALL = { x: 400, y: 260 };
  *  ⚠️ 2026-08-13(§7 5.2) — 공의 원은 공마다 따로이고 **기본이 '없음'** 이다. 옛 배선 단언
  *  (링이 공을 따라오는가·판정이 그림과 발화에 닿는가)을 계속 재려면 픽스처가 원을 켜야 한다.
  *  기본값이 '없음' 이라는 사실은 아래 '5.2' 블록이 따로 잰다. */
-function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: number; y: number; deg?: number }[], ring: BallRing = '3m'): Drill {
+function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: number; y: number; deg?: number }[], ring: BallRing = '3m', defense: TeamSide = 'home'): Drill {
   return {
     schemaVersion: CURRENT_DRILL_SCHEMA,
     id: 'dr_t' as DrillId,
@@ -32,6 +32,8 @@ function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: numb
     durationMin: 5,
     tags: [],
     courtMode: 'full',
+    // 진영 — 골 지역 3인이 **수비 팀만** 세므로(2026-08-15) 이 값이 곧 판정 대상이다.
+    defense,
     formation: '1-2-1',
     teams: {
       home: { label: '레드', color: '#d93a3a', gkColor: '#f2c811' },
@@ -230,17 +232,30 @@ describe('PresentStage — 골 지역 3인도 같은 배선을 탄다', () => {
     // 좌표는 COURT_DEFS 에서 파생한다(리터럴 금지 — 5.1 이 코트 규격을 3단으로 늘릴 때
     // 리터럴을 두면 이 테스트가 코트 변경의 대리 빨간불이 된다).
     const gz = COURT_DEFS.full.ruleZones[0]!;
-    const { container } = mount(
-      makeDrill([
-        { id: 'ch_a', team: 'away', x: gz.x + 20, y: gz.y + 20 },
-        { id: 'ch_b', team: 'away', x: gz.x + 50, y: gz.y + 60 },
-        { id: 'ch_c', team: 'away', x: gz.x + 80, y: gz.y + 100 },
-      ]),
-    );
+    // ⚠️ 진영을 **원정**으로 둔다(2026-08-15). 이 존을 지키는 팀이 원정이라야 원정 3명이
+    //    반칙이다 — 홈이 지키는 존이면 이 셋은 **공격**이고 규칙상 제한이 없다(아래 대조군).
+    const crew: { id: string; team: TeamSide; x: number; y: number }[] = [
+      { id: 'ch_a', team: 'away', x: gz.x + 20, y: gz.y + 20 },
+      { id: 'ch_b', team: 'away', x: gz.x + 50, y: gz.y + 60 },
+      { id: 'ch_c', team: 'away', x: gz.x + 80, y: gz.y + 100 },
+    ];
+    const { container } = mount(makeDrill(crew, '3m', 'away'));
     expect(announced()).toContain('골 지역');
     expect(announced()).toContain('블루');
     // 존 표시 그룹(사각 2개짜리)이 나타나 있다.
     const marks = Array.from(container.querySelectorAll('g[opacity="1"]')).filter((el) => el.querySelector('rect'));
     expect(marks.length).toBeGreaterThan(0);
+  });
+
+  it('★ 진영만 뒤집으면 **같은 배치가 깨끗하다** — 공격은 제한이 없다 (2026-08-15)', () => {
+    const gz = COURT_DEFS.full.ruleZones[0]!;
+    const crew: { id: string; team: TeamSide; x: number; y: number }[] = [
+      { id: 'ch_a', team: 'away', x: gz.x + 20, y: gz.y + 20 },
+      { id: 'ch_b', team: 'away', x: gz.x + 50, y: gz.y + 60 },
+      { id: 'ch_c', team: 'away', x: gz.x + 80, y: gz.y + 100 },
+    ];
+    // 홈이 지키는 골 지역 = 원정 셋은 공격이다. 골 앞 마무리 드릴의 기본 모양이 붉으면 안 된다.
+    mount(makeDrill(crew, '3m', 'home'));
+    expect(announced()).toBe('');
   });
 });

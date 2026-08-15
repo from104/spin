@@ -1,4 +1,5 @@
 // §3.9 기본값 — 포메이션·기본 캐스트·기본 배치·드릴 생성.
+import { defaultDefense } from './rules.ts';
 import type { Vec2 } from '../core/units.ts';
 import { newId } from '../core/ids.ts';
 import { radToStoredDeg, RAD } from '../core/angle.ts';
@@ -227,6 +228,10 @@ export function createDrill(init: {
     intervalSec: 0,
     courtMode: init.courtMode,
     courtSize,
+    // 진영(2026-08-15). 기본값은 **이 파일의 기본 배치 GK 자리**에서 나온다 — 풀은 홈 GK 가
+    // 왼쪽 골(x=75 = ruleZones[0]), 하프는 원정 GK 만 놓인다. 즉 새 드릴의 진영은 놓여 있는
+    // 골키퍼와 처음부터 일치한다(`defaultDefense` 가 그 근거를 갖는다).
+    defense: defaultDefense(init.courtMode),
     formation,
     teams,
     cast,

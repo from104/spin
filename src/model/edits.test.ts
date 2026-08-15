@@ -22,10 +22,13 @@ import {
   setArrow,
   setNote,
   setPose,
+  setShape,
   setStepFlag,
   updateChairDef,
 } from './edits.ts';
 import type { Drill } from './drill.ts';
+import type { Shape } from './shape.ts';
+import type { ShapeId } from '../core/ids.ts';
 
 function freshDrill(): Drill {
   return createDrill({ courtMode: 'full', formation: '1-2-1' });
@@ -358,5 +361,40 @@ describe('제거하면 잠김·무시 플래그도 함께 지워진다', () => {
     const after = removeEverywhere(d, id);
     expect(after.steps[0]!.locked).toBeUndefined();
     expect(after.steps[1]!.ignored).toBeUndefined();
+  });
+});
+
+describe('setShape — 무변경 판정', () => {
+  it('★ 경계상자가 그대로인 꼭짓점 이동도 **변경으로 잡힌다**', () => {
+    // 한 꼭짓점을 밑변을 따라 미끄러뜨리면 x/y·회전·경계상자가 전부 그대로다. `pts` 를 안 보면
+    // 이 편집이 "변한 것 없음" 으로 통째로 버려져, 화면에서는 손잡이만 따라오고 도형은 안 바뀐다.
+    const base: Shape = {
+      id: 'sh_1' as ShapeId,
+      kind: 'triangle',
+      x: 400,
+      y: 260,
+      w: 200,
+      h: 60,
+      rot: 0,
+      pts: [
+        { x: -100, y: 20 },
+        { x: 100, y: 20 },
+        { x: 0, y: -40 },
+      ],
+    };
+    let d = setShape(freshDrill(), 0, base);
+    expect(d.steps[0]!.shapes).toHaveLength(1);
+    const slid: Shape = { ...base, pts: [{ x: -100, y: 20 }, { x: 100, y: 20 }, { x: 60, y: -40 }] };
+    // 대조군 — 이 편집은 w/h/x/y/rot 을 한 글자도 안 바꾼다.
+    expect({ w: slid.w, h: slid.h, x: slid.x, y: slid.y, rot: slid.rot }).toEqual({ w: base.w, h: base.h, x: base.x, y: base.y, rot: base.rot });
+    const after = setShape(d, 0, slid);
+    expect(after, '꼭짓점만 바뀐 편집이 버려졌다').not.toBe(d);
+    expect(after.steps[0]!.shapes[0]!.pts![2]).toEqual({ x: 60, y: -40 });
+  });
+
+  it('정말 같은 도형은 같은 참조를 돌려준다 — 무변경 판정 자체는 살아 있다', () => {
+    const base: Shape = { id: 'sh_1' as ShapeId, kind: 'rect', x: 400, y: 260, w: 200, h: 60, rot: 0 };
+    const d = setShape(freshDrill(), 0, base);
+    expect(setShape(d, 0, { ...base })).toBe(d);
   });
 });

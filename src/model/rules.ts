@@ -10,6 +10,16 @@
 //     예외 ② 3 m 안에 **상대가 없으면** 성립하지 않는다.
 //   · **골 지역 3인** (Law 11) — 골 지역 안에 같은 팀 3명 이상(골키퍼 포함).
 //
+// ── ✅ 2026-08-15 — 아래 "넓게 판정한다" 두 건이 **해소됐다** ──────────────────────────────
+// 기현님 지시로 `Drill.defense`(진영 — ruleZones[0] 을 지키는 팀)가 생겼다. 그 아래 문단이
+// *"고칠 수 있게 되는 날의 조건"* 으로 적어 둔 바로 그것이다. 지금 상태:
+//   (1) 예외 ①의 '자기' 골 지역 → **자기 팀이 지키는 골 지역**으로 정확히 잰다(`chairInOwnGoalArea`).
+//   (2) 골 지역 3인의 '수비' 팀 → **그 존을 지키는 팀만** 센다(`zoneViolation`). 공격은 제한 없다.
+// 옛 문단은 지우지 않는다 — 왜 한동안 넓게 쟀는지, 무엇이 있어야 좁힐 수 있는지의 기록이다.
+// (2) 의 옛 추정 *"3명이 몰리는 쪽은 사실상 수비다"* 가 특히 위험했다: 골 앞 마무리 드릴은
+// **공격 3대**가 골 지역에 들어가는 것이 정상이라, 그 판이 상시 붉었다.
+//
+// ── 옛 기록 (2026-08-13) ────────────────────────────────────────────────────────────────
 // 두 군데서 규정보다 넓게 판정한다. 모델에 **어느 팀이 어느 골대를 지키는가가 없기 때문**이다
 // (`CourtDef.ruleZones` 는 좌·우 사각형일 뿐이고 `ChairDef` 에도 방어 방향이 없다):
 //   (1) 예외 ①의 '자기' 골 지역 → **아무 골 지역**으로 읽는다.
@@ -41,7 +51,7 @@
 // 그래서 발화 문구도 '주의' 다(ruleOverlay.ts).
 import { mToPx, type Vec2 } from '../core/units.ts';
 import { chairOverlapsCircle, chairOverlapsRect } from './chairOverlap.ts';
-import type { Rect } from './court.ts';
+import type { CourtMode, Rect } from './court.ts';
 import type { BallRing, TeamSide } from './drill.ts';
 
 /** 3 m. 25 px/m 이므로 75 월드px — 옛 센터 서클과 우연히 반지름이 같았다. 그 원은 규정에
@@ -79,6 +89,29 @@ export const GOAL_AREA_MAX = 2;
 export const TEAM_BIT: Record<TeamSide, 1 | 2> = { home: 1, away: 2 };
 export const TEAM_SIDES: readonly TeamSide[] = ['home', 'away'];
 
+/** 진영의 기본값 — 드릴에 `defense` 가 없을 때(옛 파일·손편집) 읽는 값.
+ *
+ *  근거는 기본 배치의 GK 자리다(`defaults.ts`): 풀 코트는 홈 GK 가 x=75(**왼쪽** 골 = zone 0),
+ *  하프 코트는 **원정** GK 만 배치되고 홈 GK 는 아예 안 놓인다. 즉 이 두 값이 "지금까지 판이
+ *  실제로 보이던 모습" 이다 — 마이그레이션이 옛 드릴에 찍는 값도 같다. */
+export function defaultDefense(mode: CourtMode): TeamSide {
+  return mode === 'half' ? 'away' : 'home';
+}
+
+/** 존 하나와 그 존을 **지키는 팀**. 판정 함수들이 이 쌍으로 받는다 — 사각형만 넘기던 옛
+ *  시그니처로는 "이 골 지역이 누구 것인가" 를 물을 수가 없었다(rules.ts 머리말의 그 구멍). */
+export interface DefendedZone {
+  rect: Rect;
+  defender: TeamSide;
+}
+
+/** 코트의 골 지역들에 진영을 입힌다. `zones[0]` 이 `defense`, 나머지는 반대 팀이다.
+ *  플랫 코트는 존이 없으므로 빈 배열이다(진영 값과 무관하게). */
+export function defendedZones(zones: readonly Rect[], defense: TeamSide): DefendedZone[] {
+  const other: TeamSide = defense === 'home' ? 'away' : 'home';
+  return zones.map((rect, i) => ({ rect, defender: i === 0 ? defense : other }));
+}
+
 /** 판정에 필요한 것만 담은 선수 1명. 좌표는 **그 프레임의 실제 위치**다(모델 저장값이 아니라).
  *
  *  ⚠️ `theta`(rad)가 없으면 안 된다. 2026-08-13 부터 판정은 피벗 점이 아니라 **1.5 × 1.0 m
@@ -103,10 +136,17 @@ export function inRect(r: Rect, x: number, y: number): boolean {
   return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
 }
 
-/** 차체 사각형이 이 사각형들 중 하나라도 **조금이라도** 걸치면 true(접촉 포함).
- *  예외 ①(골 지역 안의 골키퍼)이 이걸 쓴다 — 기현님 지시의 *"조금만 걸쳐있어도 면제"* 다. */
-function chairInAnyRect(rects: readonly Rect[], a: RuleActor): boolean {
-  for (const r of rects) if (chairOverlapsRect(a.x, a.y, a.theta, r.x, r.y, r.w, r.h)) return true;
+/** 차체 사각형이 **자기 팀이 지키는** 골 지역에 조금이라도 걸치면 true(접촉 포함).
+ *  예외 ①(골 지역 안의 골키퍼)이 이걸 쓴다 — 기현님 지시의 *"조금만 걸쳐있어도 면제"* 다.
+ *
+ *  ⚠️ 2026-08-15 — `defender === a.team` 조건이 **새로 생겼다.** 그 전에는 진영 데이터가 없어
+ *  *"아무 골 지역"* 으로 읽었고(rules.ts 머리말 (1)), 그래서 상대 골 지역까지 밀고 들어간
+ *  골키퍼가 2-on-1 에서 면제를 받았다. 규정은 자기 골 지역에 있는 수비 골키퍼만 면제한다. */
+function chairInOwnGoalArea(zones: readonly DefendedZone[], a: RuleActor): boolean {
+  for (const z of zones) {
+    if (z.defender !== a.team) continue;
+    if (chairOverlapsRect(a.x, a.y, a.theta, z.rect.x, z.rect.y, z.rect.w, z.rect.h)) return true;
+  }
   return false;
 }
 
@@ -118,7 +158,7 @@ function chairInAnyRect(rects: readonly Rect[], a: RuleActor): boolean {
  *  ⚠️ **"3 m 안" 은 피벗이 아니라 차체 사각형이 3 m 원에 걸치는가**다(2026-08-13 기현님 지시:
  *  *"정확하게 휠체어 경계선(사각형)이다. 에누리 없다"*). 점으로 되돌리면 공을 마주 본 휠체어가
  *  앞범퍼로 선을 밟고 있어도 **최대 1.2 m 를 놓친다**(= `CHAIR.pivotToFrontPx` 30 px). */
-export function ringViolation(ball: Vec2, actors: readonly RuleActor[], goalAreas: readonly Rect[]): number {
+export function ringViolation(ball: Vec2, actors: readonly RuleActor[], goalAreas: readonly DefendedZone[]): number {
   // raw = 상대가 있는가(예외 ②) · counted = 반칙을 이루는 인원(예외 ① 적용 후)
   let rawHome = 0;
   let rawAway = 0;
@@ -126,7 +166,7 @@ export function ringViolation(ball: Vec2, actors: readonly RuleActor[], goalArea
   let countedAway = 0;
   for (const a of actors) {
     if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_R_PX)) continue;
-    const exempt = a.isGk && chairInAnyRect(goalAreas, a);
+    const exempt = a.isGk && chairInOwnGoalArea(goalAreas, a);
     if (a.team === 'home') {
       rawHome++;
       if (!exempt) countedHome++;
@@ -143,21 +183,26 @@ export function ringViolation(ball: Vec2, actors: readonly RuleActor[], goalArea
 
 /** 골 지역 한 곳의 3인 반칙 판정. 반환은 위반한 팀의 비트합(0 = 깨끗함).
  *
+ *  ⚠️ **수비 팀만 센다**(2026-08-15 기현 지시: *"수비측이 우리편 골에리어에 3명이 못 들어가는
+ *  거지. 공격은 제한 없어."*). Law 11 은 골 지역 인원 제한을 **수비 측에만** 건다 — 공격이
+ *  상대 골 지역에 몇 대가 들어가든 반칙이 아니다.
+ *
+ *  그 전(2026-08-13~15)에는 진영 데이터가 없어 **팀 무관**으로 재고 있었다(rules.ts 머리말 (2):
+ *  *"3명이 몰리는 쪽은 사실상 수비다"*). 그 추정은 실제 훈련에서 자주 틀린다 — 골 앞 마무리
+ *  드릴은 **공격 3대**가 골 지역에 들어가는 것이 훈련의 기본 모양이고, 그때 판이 붉어지면
+ *  코치에게 없는 반칙을 가르치게 된다.
+ *
  *  ⚠️ 링과 **같은 정의**다 — 차체 사각형이 존에 조금이라도 걸치면 그 존 안이다. 점으로
  *  되돌리면 차체가 절반 들어가 있어도 피벗이 밖이면 안 세어, 골 지역에 실제로 4대가 들어찬
  *  판이 하얗게 남는다. */
-export function zoneViolation(zone: Rect, actors: readonly RuleActor[]): number {
-  let home = 0;
-  let away = 0;
+export function zoneViolation(zone: DefendedZone, actors: readonly RuleActor[]): number {
+  let count = 0;
   for (const a of actors) {
-    if (!chairOverlapsRect(a.x, a.y, a.theta, zone.x, zone.y, zone.w, zone.h)) continue;
-    if (a.team === 'home') home++;
-    else away++;
+    if (a.team !== zone.defender) continue; // 공격은 제한 없다
+    if (!chairOverlapsRect(a.x, a.y, a.theta, zone.rect.x, zone.rect.y, zone.rect.w, zone.rect.h)) continue;
+    count++;
   }
-  let bits = 0;
-  if (home > GOAL_AREA_MAX) bits |= TEAM_BIT.home;
-  if (away > GOAL_AREA_MAX) bits |= TEAM_BIT.away;
-  return bits;
+  return count > GOAL_AREA_MAX ? TEAM_BIT[zone.defender] : 0;
 }
 
 /** 비트합 → 팀 목록. **문구를 만들 때만** 부른다(위반 상태가 바뀐 순간뿐이라 배열을 만들어도 된다). */

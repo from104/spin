@@ -8,6 +8,7 @@ import type { ChairId } from '../../core/ids.ts';
 import { DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
+import { defaultDefense } from '../../model/rules.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
 import { useAppHeader } from '../../app/AppHeader.tsx';
 import { useAppNav } from '../../app/useAppHistory.ts';
@@ -426,6 +427,13 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   //   ② [코트 비우기] 확인 모달 안의 [골대만 원위치](4.7 이 만든 자리 — 남겨 둔다)
   // 두 곳이 각자 world 를 부르면 "막혔을 때 알린다" 같은 규칙이 한쪽에서만 사라진다.
   // 같은 참조를 넘기는 것을 EditorWorkspace.resetGoals.test.tsx 의 소스 계약이 못박는다.
+  // 진영 뒤집기(2026-08-15). 되돌리기에 남아야 하므로 다른 드릴 메타와 같은 통로(META_SET)로
+  // 간다 — 골 지역 반칙이 어느 팀에 걸리는지를 바꾸는 값이라 "실수로 눌렀다" 가 실재한다.
+  const toggleDefense = useCallback(() => {
+    const cur = drill.defense ?? defaultDefense(drill.courtMode);
+    dispatch({ type: 'META_SET', patch: { defense: cur === 'home' ? 'away' : 'home' } });
+  }, [dispatch, drill.defense, drill.courtMode]);
+
   const resetGoals = useCallback(() => {
     // 막혀 있으면 반드시 말해 준다. 조용히 실패하면 "버튼이 고장났나" 하며 계속
     // 누르게 된다(실제 신고). 휠체어는 static 이라 골대가 밀어낼 수 없다.
@@ -451,6 +459,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       onCourtSizeChange={(s) => board.onCourtSizeChange(s)}
       onLockedAttempt={() => toast.show('전술판을 초기화하면 코트 형태와 크기를 바꿀 수 있습니다.')}
       onResetGoals={resetGoals}
+      defense={drill.defense ?? defaultDefense(drill.courtMode)}
+      teams={drill.teams}
+      onToggleDefense={toggleDefense}
       onReset={() => board.onReset()}
       drill={drill}
       showGrid={showGrid}

@@ -39,6 +39,10 @@ export interface StaticSceneOpts {
    *  코트 위로 100 px 올라와 개체를 덮는다. */
   size?: CourtSize;
   teams: Record<TeamSide, TeamStyle>;
+  /** 진영 — `ruleZones[0]` 을 지키는 팀(`Drill.defense`). 골 지역 3인 반칙이 **수비 팀만**
+   *  세므로(2026-08-15), 이 값을 안 넘기면 PNG 만 다른 팀을 붉게 칠한다. 생략하면
+   *  `defaultDefense(mode)` 다 — 화면과 같은 폴백이라야 두 그림이 갈라지지 않는다. */
+  defense?: TeamSide;
   /** 1x = 긴 변 1024, 2x = 2048(계획서 §6.2 [A-10] 목표 해상도). 기본 2x —
    *  인쇄물로 옮기는 것이 목적이라 화면 devicePixelRatio 가 아니라 출력 해상도를 기준으로 잡는다. */
   resolution?: 1 | 2;

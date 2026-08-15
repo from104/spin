@@ -65,6 +65,9 @@ export type EditorAction =
           | 'reps'
           | 'sets'
           | 'intervalSec'
+          // 진영(2026-08-15). 골 지역 3인 반칙이 어느 팀에 걸리는지를 정한다 —
+          // 되돌리기에 남아야 하므로 다른 메타와 같은 통로로 간다.
+          | 'defense'
         >
       >;
     }
