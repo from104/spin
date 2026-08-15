@@ -8,6 +8,7 @@ import { isId } from '../core/ids.ts';
 import type { Bounds, DragLimits, GrabLatch, KinInput, ZoneState } from './types.ts';
 import { grabFrom, grabFromLever, grabPoint, clampMag, stepZone } from './kinematics.ts';
 import { resolveMotion, clampPointToBounds } from './obb.ts';
+import type { CircleObstacle } from './obb.ts';
 import type { WorldHandles } from './world.ts';
 import type { HitContext, HitResult } from './hitTest.ts';
 
@@ -76,7 +77,32 @@ export function updateDragTarget(s: DragSession, world: Vec2, nowMs: number): vo
 
 const objectRadius = (kind: 'ball' | 'cone'): number => (kind === 'ball' ? BALL.radiusPx : CONE.radiusPx);
 
-export function stepDrag(s: DragSession, w: WorldHandles, lim: DragLimits, b: Bounds, dtS: number): void {
+/** 끄는 동안 **기하로 막아야 하는** 휠체어들의 포즈 — 잠긴 칩이다.
+ *
+ *  왜 물리에 못 맡기는가: 끄는 칩은 `setChairDragging` 으로 static 이 되고 잠긴 칩도 static 인데,
+ *  matter 는 **static–static 쌍을 아예 충돌 후보로 만들지 않는다**(Detector 가 두 바디 모두
+ *  isStatic 이면 건너뛴다). 그래서 아래 'push' 모드가 이웃을 물리에 맡긴 채로 두면 잠긴 칩만
+ *  통과한다(기현 신고 2026-08-15: *"잠긴 칩은 다른 칩들이 통과 못해야 한다"*).
+ *
+ *  잠기지 **않은** 이웃은 여전히 이 배열에 안 들어간다 — 그쪽은 dynamic 이라 물리가 밀어내고,
+ *  기하로 같이 막으면 "밀린다" 가 다시 "벽에 막힌다" 로 돌아간다(아래 'push' 모드 주석). */
+export interface DragBlockers {
+  /** 잠긴 휠체어 — OBB 로 막는다. */
+  chairs: readonly ChairPose[];
+  /** 잠긴 공·콘 — 원으로 막는다. 휠체어와 형상이 달라 목록을 따로 든다(obb.CircleObstacle). */
+  circles: readonly CircleObstacle[];
+}
+
+const NO_BLOCKERS: DragBlockers = { chairs: [], circles: [] };
+
+export function stepDrag(
+  s: DragSession,
+  w: WorldHandles,
+  lim: DragLimits,
+  b: Bounds,
+  dtS: number,
+  blockers: DragBlockers = NO_BLOCKERS,
+): void {
   if (s.kind === 'chair') {
     const chairId = s.id as ChairId;
     const cur = w.chairPose(chairId);
@@ -93,7 +119,9 @@ export function stepDrag(s: DragSession, w: WorldHandles, lim: DragLimits, b: Bo
     // 않는다 — 그래서 이 둘은 한 조각으로 같이 바뀌어야 했다.
     //
     // 경계(벽)는 그대로 막는다: 코트 밖으로 나가는 것은 물리가 풀어 줄 문제가 아니다.
-    const fin = resolveMotion(cur, raw, [], b, CHAIR_SEP_PX, RESOLVE_ITERS);
+    // **잠긴 칩도 벽과 같은 편이다** — 밀려나지 않기로 한 것이므로 물리가 풀어 줄 수 없다
+    // (`blockers` 머리말). 잠기지 않은 이웃은 여전히 빈 배열 쪽에 남는다.
+    const fin = resolveMotion(cur, raw, blockers.chairs, b, CHAIR_SEP_PX, RESOLVE_ITERS, blockers.circles);
     w.setChairPose(chairId, fin, /* driven */ true);
     return;
   }

@@ -162,18 +162,39 @@ export function pushChairIntoBounds(p: ChairPose, b: Bounds): Vec2 {
   return { x: p.x + dx, y: p.y + dy };
 }
 
-/** 벽 + 다른 휠체어 전부를 한 술어로 묶는다 — 별도 clampPoseToBounds 단계를 두면
+/** 원으로 막는 장애물(공·콘). 휠체어는 OBB 라 `others` 로 가고, 이쪽은 반지름을 가진 점이다.
+ *
+ *  두 목록을 합치지 않는 이유: 원을 한 변 2r 인 사각형으로 근사하면 **모서리에서 41% 넓게**
+ *  막혀, 공 옆을 스쳐 지나가야 할 칩이 허공에서 멈춘다. 형상이 다르면 판정도 달라야 한다. */
+export interface CircleObstacle {
+  p: Vec2;
+  r: number;
+}
+
+/** 벽 + 다른 휠체어 + 원 장애물 전부를 한 술어로 묶는다 — 별도 clampPoseToBounds 단계를 두면
  *  spin 중 피벗이 밀려 "제자리 회전" 계약이 깨진다(§5.6). 가장 심한(depth 최대) 위반을 반환. */
 export function blockedAt(
   p: ChairPose,
   others: readonly ChairPose[],
   b: Bounds,
   margin: number,
+  circles: readonly CircleObstacle[] = [],
 ): SatResult {
   let worst = outOfBounds(p, b);
   for (const o of others) {
     const r = satOverlap(p, o, margin);
     if (r.depth > worst.depth) worst = r;
+  }
+  for (const c of circles) {
+    // margin 은 반지름에 얹는다 — satOverlap 의 margin 과 같은 뜻(그만큼 간격까지 '겹침')이 된다.
+    const hit = circleObbPush(c.p, c.r + margin, p);
+    if (hit && hit.depth > worst.depth) {
+      // ⚠️ normal 은 **원을 밀어낼** 방향이라 휠체어 기준으로는 반대다. resolveMotion 이 이 축을
+      //    쓰는 곳은 접선 성분 계산(rest − (rest·n)n)뿐이고 그 식은 n 과 −n 이 같은 답을 주므로
+      //    뒤집지 않는다 — 뒤집어도 결과가 같다는 뜻이지, 부호가 아무래도 좋다는 뜻이 아니다.
+      //    이 축을 밀어내기(MTV)로 쓰려는 호출자가 생기면 그때는 반드시 뒤집어야 한다.
+      worst = { depth: hit.depth, axis: hit.normal };
+    }
   }
   return worst;
 }
@@ -185,15 +206,16 @@ export function resolveMotion(
   bounds: Bounds,
   marginPx: number = CHAIR_SEP_PX,
   iters: number = RESOLVE_ITERS,
+  circles: readonly CircleObstacle[] = [],
 ): ChairPose {
-  const blocked = (p: ChairPose): boolean => blockedAt(p, others, bounds, marginPx).depth > 0;
+  const blocked = (p: ChairPose): boolean => blockedAt(p, others, bounds, marginPx, circles).depth > 0;
 
   if (!blocked(to)) return to;
 
   if (blocked(from)) {
     // 이미 겹친 상태 — 탈출(깊이 감소)만 허용. 깊어지는 이동은 거부한다.
-    const depthTo = blockedAt(to, others, bounds, marginPx).depth;
-    const depthFrom = blockedAt(from, others, bounds, marginPx).depth;
+    const depthTo = blockedAt(to, others, bounds, marginPx, circles).depth;
+    const depthFrom = blockedAt(from, others, bounds, marginPx, circles).depth;
     return depthTo <= depthFrom ? to : from;
   }
 
@@ -210,7 +232,7 @@ export function resolveMotion(
   // 접선 슬라이드 — 막힌 축의 법선 성분만 제거해 나머지 이동(병진)은 허용한다.
   // 이게 없으면 이웃을 스쳐 지나가는 드래그가 진행률 2.3 %로 고착된다(실측, §5.6).
   const rest = { x: to.x - stopped.x, y: to.y - stopped.y };
-  const n = blockedAt(to, others, bounds, marginPx).axis;
+  const n = blockedAt(to, others, bounds, marginPx, circles).axis;
   if (!n) return stopped;
   const nd = rest.x * n.x + rest.y * n.y;
   const t = { x: rest.x - nd * n.x, y: rest.y - nd * n.y };

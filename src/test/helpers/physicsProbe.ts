@@ -79,6 +79,9 @@ export interface ProbeSetup {
   balls?: readonly ProbePoint[];
   cones?: readonly ProbePoint[];
   limits?: DragLimits;
+  /** 잠긴 개체(스텝의 `locked`). 잠김은 물리에서 **static** 이고 기하 분리에서도 안 옮겨진다 —
+   *  둘 중 한쪽만 지켜지는 상태를 이 하네스로 재기 위해 뚫어 둔 구멍이다(lockedSeparate.test). */
+  locked?: readonly string[];
   /** 매 프레임 깊이를 잴 쌍. 나중에 watch() 로 더 붙일 수 있다. */
   watch?: ReadonlyArray<readonly [string, string]>;
 }
@@ -298,6 +301,7 @@ export function createPhysicsProbe(setup: ProbeSetup = {}): PhysicsProbe {
     arrows: [],
     notes: [],
     shapes: [],
+    ...(setup.locked ? { locked: [...setup.locked] as DrillStep['locked'] } : {}),
   };
 
   const api = createPhysicsWorld(setup.court?.w ?? def.vbW, setup.court?.h ?? def.vbH, setup.limits);

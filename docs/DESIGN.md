@@ -1942,10 +1942,16 @@ export interface SatResult { depth: number; axis: Vec2 | null }   // depth ≤ 0
 export function satOverlap(a: ChairPose, b: ChairPose, marginPx: number): SatResult;
 export function chairsOverlap(a: ChairPose, b: ChairPose, marginPx: number): boolean;
 export function outOfBounds(p: ChairPose, b: Bounds): SatResult;   // hull 이 viewBox 를 벗어난 깊이
-export function blockedAt(p: ChairPose, others: readonly ChairPose[], b: Bounds, margin: number): SatResult;
+/** 원으로 막는 장애물(공·콘). 휠체어는 OBB(`others`), 이쪽은 반지름을 가진 점이다 —
+ *  원을 한 변 2r 사각형으로 근사하면 모서리에서 41% 넓게 막힌다(2026-08-15). */
+export interface CircleObstacle { p: Vec2; r: number }
+export function blockedAt(
+  p: ChairPose, others: readonly ChairPose[], b: Bounds, margin: number,
+  circles?: readonly CircleObstacle[],
+): SatResult;
 export function resolveMotion(
   from: ChairPose, to: ChairPose, others: readonly ChairPose[], bounds: Bounds,
-  marginPx?: number, iters?: number,
+  marginPx?: number, iters?: number, circles?: readonly CircleObstacle[],
 ): ChairPose;
 export function escapePinned(
   p: Vec2, r: number, chairs: readonly ChairPose[], bounds: Bounds,

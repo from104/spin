@@ -3,7 +3,7 @@
 import * as Matter from 'matter-js';
 import type { Vec2 } from '../core/units.ts';
 import { kmhToPxPerS } from '../core/units.ts';
-import { CHAIR, DEFAULT_LIMITS, DEFAULT_ZONES, GOAL, PHYS } from '../core/constants.ts';
+import { BALL, CHAIR, CONE, DEFAULT_LIMITS, DEFAULT_ZONES, GOAL, PHYS } from '../core/constants.ts';
 import type { ChairId, CastId } from '../core/ids.ts';
 import { isId } from '../core/ids.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
@@ -21,6 +21,7 @@ import { courtDefFor } from '../model/court.ts';
 import type { DragLimits, Bounds } from './types.ts';
 import { createWorld, escapePinnedAll } from './world.ts';
 import { escapePinned, satOverlap, separateOverlaps } from './obb.ts';
+import type { CircleObstacle } from './obb.ts';
 import type { WorldHandles } from './world.ts';
 import { createLoop } from './loop.ts';
 import type { PhysicsLoop } from './loop.ts';
@@ -32,7 +33,7 @@ import {
   stepDrag,
   updateDragTarget,
 } from './drag.ts';
-import type { DragSession } from './drag.ts';
+import type { DragBlockers, DragSession } from './drag.ts';
 import type { HitContext, HitResult } from './hitTest.ts';
 import { grabPoint as grabPointOf } from './kinematics.ts';
 
@@ -182,6 +183,12 @@ export function createPhysicsWorld(
   const bounds: Bounds = { w: courtW, h: courtH };
   const world: WorldHandles = createWorld(courtW, courtH);
   const kindOf = new Map<CastId, 'chair' | 'ball' | 'cone' | 'goal'>();
+  /** 지금 스텝에서 **잠긴** 개체. reload 가 채우고 그때마다 통째로 갈린다.
+   *
+   *  왜 `world` 의 `isStatic` 을 믿지 않고 따로 드는가 — `isStatic` 은 잠김 말고 **끌고 있는
+   *  중**(setChairDragging)에도 켜진다. 둘을 구별하지 못하면 "잠긴 것은 안 움직인다" 를
+   *  물으려던 자리에서 "지금 손에 쥔 칩" 까지 함께 걸려든다. */
+  const lockedIds = new Set<CastId>();
   /** 골대 포스트의 **원위치**. 코트 정의에서 오고 드릴에는 저장되지 않는다(§5.4 GOAL). */
   const goalHome: Array<{ id: string; p: Vec2 }> = [];
   /** 0 이 아니면 복귀 구동 중. 이 시각을 넘기면 스냅한다. */
@@ -243,8 +250,29 @@ export function createPhysicsWorld(
     }
   }
 
+  /** 끄는 칩이 기하로 넘지 못할 것들 — **잠긴 개체 전부**(drag.ts `DragBlockers`).
+   *
+   *  휠체어는 OBB, 공·콘은 원으로 나눠 담는다. 셋 다 같은 이유로 여기 있다: 잠기면 static 이
+   *  되는데 끄는 칩도 static 이라 matter 가 그 쌍을 아예 안 만든다.
+   *
+   *  ⚠️ 끌고 있는 칩 자신은 안 걸러도 된다 — 잠긴 개체는 애초에 끌 수 없다(화면 쪽
+   *  `useEditorPointer` 가 막는다, lockedDrag.test). 여기서 한 번 더 거르면 그 계약이 깨졌을 때
+   *  조용히 덮이므로, 걸러지지 않은 채로 두어 드러나게 한다. */
+  function lockedBlockers(): DragBlockers {
+    if (lockedIds.size === 0) return { chairs: [], circles: [] };
+    const chairs: ChairPose[] = [];
+    const circles: CircleObstacle[] = [];
+    for (const id of lockedIds) {
+      const kind = kindOf.get(id);
+      if (kind === 'chair') chairs.push(world.chairPose(id as ChairId));
+      else if (kind === 'ball') circles.push({ p: world.pointOf(id), r: BALL.radiusPx });
+      else if (kind === 'cone') circles.push({ p: world.pointOf(id), r: CONE.radiusPx });
+    }
+    return { chairs, circles };
+  }
+
   function substep(_dtS: number): void {
-    if (session) stepDrag(session, world, limits, bounds, PHYS.dtS);
+    if (session) stepDrag(session, world, limits, bounds, PHYS.dtS, lockedBlockers());
     driveGoalsHome();
     Matter.Engine.update(world.engine, PHYS.dtMs);
     world.applySpeedClamps();
@@ -353,6 +381,11 @@ export function createPhysicsWorld(
     chairs.forEach((c, i) => {
       const p = fixed[i]!;
       if (p.x === c.pose.x && p.y === c.pose.y) return;
+      // ★ 잠긴 칩은 **결과를 안 받아 쓴다.** 입력에서 빼지 않는 이유: 빼면 이웃이 잠긴 칩과
+      //   겹친 채로 "분리 완료" 가 되어, 잠김이 자리를 지키는 대신 자리를 내주게 된다.
+      //   넣어 두고 쓰기만 건너뛰면 이웃만 밀려나고 잠긴 칩은 한 픽셀도 안 움직인다 —
+      //   물리(static)와 기하가 같은 말을 하게 하는 유일한 조합이다.
+      if (lockedIds.has(c.id)) return;
       world.setChairPose(c.id, p, false);
       world.freeze(c.id);
     });
@@ -413,6 +446,7 @@ export function createPhysicsWorld(
       //    밀고 들어오면 그대로 밀려났다. 잘못된 주석이 테스트가 없어야 할 이유처럼 쓰였다.
       const ignored = new Set<string>(step.ignored ?? []);
       const locked = new Set<string>(step.locked ?? []);
+      lockedIds.clear();
 
       for (const c of cast.chairs) {
         const sp = step.chairs[c.id];
@@ -420,21 +454,30 @@ export function createPhysicsWorld(
         if (ignored.has(c.id)) continue; // 무시 — 월드에 없다
         world.addChair(c.id, poseFromStored(sp));
         kindOf.set(c.id, 'chair');
-        if (locked.has(c.id)) world.setBodyStatic(c.id, true);
+        if (locked.has(c.id)) {
+          world.setBodyStatic(c.id, true);
+          lockedIds.add(c.id);
+        }
       }
       for (const bd of cast.balls) {
         const p = step.balls[bd.id];
         if (!p) continue;
         world.addBall(bd.id, p);
         kindOf.set(bd.id, 'ball');
-        if (locked.has(bd.id)) world.setBodyStatic(bd.id, true);
+        if (locked.has(bd.id)) {
+          world.setBodyStatic(bd.id, true);
+          lockedIds.add(bd.id);
+        }
       }
       for (const cd of cast.cones) {
         const p = step.cones[cd.id];
         if (!p) continue;
         world.addCone(cd.id, p);
         kindOf.set(cd.id, 'cone');
-        if (locked.has(cd.id)) world.setBodyStatic(cd.id, true);
+        if (locked.has(cd.id)) {
+          world.setBodyStatic(cd.id, true);
+          lockedIds.add(cd.id);
+        }
       }
       // 골대는 cast 가 아니라 **코트 정의**에서 온다(드릴에 저장되지 않는다, §5.4 GOAL).
       goalHome.length = 0;
