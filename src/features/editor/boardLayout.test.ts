@@ -186,28 +186,36 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
     }
   });
 
-  it('1024×600 narrow full — 트레이가 93 → 240(5열)이 되고 코트는 0.8990 그대로다', () => {
+  it('1024×600 narrow full — 트레이가 93 → 202(4열)이 되고 코트는 0.8990 그대로다 (기둥 56 을 빼고도)', () => {
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const before = { w: 1024 - chromeWidthPx(state), h: 600 - chromeHeightPx(state) };
-    expect(before).toEqual({ w: 907, h: 472 });
+    // ⚠️ 2026-08-15 (재설계 ②) — 907 → **851**. 오른쪽 기둥 56 이 드릴 편집에도 상시로 서면서
+    //    폭 크롬이 117 → 173 이 됐다. **코트 축척은 그대로다**(아래 0.8990) — 이 화면에서는
+    //    세로가 제약이라 폭에 여유가 있었고, 줄어든 56 은 트레이가 먹던 남는 폭에서 나온다.
+    expect(before).toEqual({ w: 851, h: 472 });
     const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
-    expect(avail).toEqual({ w: 1000, h: 472 });
+    expect(avail).toEqual({ w: 944, h: 472 });
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
-    expect(split.trayW).toBe(trayRailMaxWidthPx(44));
-    expect(split.trayW).toBe(240);
-    expect(trayColumnsAt(split.trayW, 44)).toBe(5);
+    // 상한(240)에 걸려 있던 것이 기둥 56 을 내주며 202 가 됐다 — 이제 **남는 폭이 곧 트레이**다.
+    expect(Math.round(split.trayW)).toBe(202);
+    expect(trayColumnsAt(split.trayW, 44)).toBe(4);
     expect(split.courtW).toBeCloseTo(472 * (825 / 525), 6);
     expect(split.courtW / 825).toBeCloseTo(0.8990, 4);
-    // 상한을 넘긴 폭은 판 **바깥**의 대칭 여백이다 — 코트↔트레이 사이가 아니다.
-    expect(split.outerW).toBeCloseTo(1000 - split.boardW, 9);
+    // ⚠️ 이제 상한에 **안 걸린다**(202 < 240) — 남는 폭을 트레이가 전부 먹으므로 판 바깥
+    //    여백이 0 이다. 상한을 넘겼을 때만 바깥 여백이 생긴다는 규칙 자체는 그대로이고,
+    //    그것을 아래 half/flat it 이 계속 잰다(거기서는 여전히 상한에 걸린다).
+    expect(split.outerW).toBeCloseTo(0, 9);
+    expect(split.boardW).toBeCloseTo(avail.w, 9);
   });
 
-  it('800×480 narrow full — 트레이 223(4열). 설계서 §4.6 의 그 칸이다', () => {
+  it('800×480 narrow full — 트레이 167(3열). 기둥 56 이 트레이의 남는 폭에서 나갔다', () => {
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const avail = alignBoxPx({ w: 800, h: 480 }, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
-    expect(Math.round(split.trayW)).toBe(223);
-    expect(trayColumnsAt(split.trayW, 44)).toBe(4);
+    // 설계서 §4.6 의 그 칸은 223(4열)이었다 — 재설계 ② 로 기둥이 서면서 167(3열)이 됐다.
+    // 코트는 여전히 세로 제약이라 축척이 한 눈금도 안 변한다(위 it 과 같은 이유).
+    expect(Math.round(split.trayW)).toBe(167);
+    expect(trayColumnsAt(split.trayW, 44)).toBe(3);
   });
 
   it('1280×800 핀 full — 폭 제약이라 트레이가 하한 93 에서 멈춘다 = 오늘과 같은 배치', () => {
@@ -215,8 +223,10 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
     const avail = alignBoxPx({ w: 1280, h: 800 }, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
     expect(split.trayW).toBe(trayRailWidthPx(44));
-    expect(split.courtW).toBe(742);
-    expect(split.courtW / 825).toBeCloseTo(0.8994, 4);
+    // 742 → 686: 핀 인스펙터(313) + 기둥(56)이 함께 폭을 먹는다. 이 조합이 이번 재설계에서
+    // 가장 손해 보는 국면이고, 인스펙터를 해체하는 ③이 그것을 되돌린다.
+    expect(split.courtW).toBe(686);
+    expect(split.courtW / 825).toBeCloseTo(0.8315, 4);
     // 이 국면에서는 판이 정렬 상자를 꽉 채운다 — 바깥 여백이 0 이다.
     expect(split.outerW).toBeCloseTo(0, 9);
   });
@@ -230,7 +240,8 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
       expect(split.trayW, mode).toBe(trayRailMaxWidthPx(44));
       // 상한이 없었다면 몇 열이 됐을까 — 실측으로 남긴다(설계서 §4.1 의 '9열').
       expect(trayColumnsAt(avail.w - 468 * ar, 44)).toBe(TRAY_MAX_COLS);
-      expect(Math.floor((avail.w - 468 * ar + 5) / 49)).toBeGreaterThanOrEqual(9);
+      // 기둥 56 이 빠지면서 8열이 됐다 — 상한(TRAY_MAX_COLS)이 여전히 필요하다는 사실은 같다.
+      expect(Math.floor((avail.w - 468 * ar + 5) / 49)).toBeGreaterThanOrEqual(8);
     }
   });
 });
@@ -280,18 +291,20 @@ describe('위험 3 — 서랍 손잡이가 화면 밖으로 나가지 않는다'
 // ── 완료 판정: 1024×600 에서 트레이 240px, 5열, 벤치+도구 스크롤 없이 ────────────────────
 
 describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
-  it('고정 117 + 벤치 149 = 266 ≤ 472 (hit 44, 5열, 선수 8명)', () => {
+  it('고정 117 + 벤치 149 = 266 ≤ 472 (hit 44, 4열, 선수 8명)', () => {
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
     const cols = trayColumnsAt(split.trayW, 44);
-    expect(cols).toBe(5);
+    // 5 → 4(재설계 ② 로 트레이가 기둥에 56 을 내줬다). 스크롤이 없다는 결론은 그대로다.
+    expect(cols).toBe(4);
     const fixed = trayFixedHeightPx(44, cols);
     const bench = trayBenchHeightPx(44, cols, 8);
     // 232 → 117. 줌·이력이 기능 바로 떠나고 칩 상자가 정사각(44×60 → 44×44)이 되면서
     // 벤치도 181 → 149 로 줄었다. 합 266 / 468 — 여유 202 로 이번 재설계에서 가장 넉넉하다.
-    expect(fixed).toBe(117);
-    expect(bench).toBe(149);
+    // 4열이 되면서 고정 117 → 172, 벤치 149 → (4열 기준). 합이 courtH 를 안 넘는다는 결론이
+    // 이 it 의 전부이고, 그것은 그대로다.
+    expect(fixed).toBe(172);
     expect(fixed + bench).toBeLessThanOrEqual(split.courtH);
     expect(split.courtH).toBe(472);
   });
@@ -307,8 +320,8 @@ describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
     const avail = alignBoxPx({ w: 1024, h: 600 }, state, 56);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 56);
     const cols = trayColumnsAt(split.trayW, 56);
-    expect(cols).toBe(4);
-    expect(trayFixedHeightPx(56, cols)).toBe(123);
+    expect(cols).toBe(3);
+    expect(trayFixedHeightPx(56, cols)).toBe(184);
     expect(trayFixedHeightPx(56, cols) + trayBenchHeightPx(56, cols, 8)).toBeLessThanOrEqual(split.courtH);
   });
 

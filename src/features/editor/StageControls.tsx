@@ -240,6 +240,10 @@ export interface ViewControlsProps {
   onToggleInspector(): void;
   inspectorPanelId: string;
   inspectorButtonRef?: RefObject<HTMLButtonElement | null>;
+  /** [보기▾] 를 낼지. **드릴 편집에서는 false** — 2026-08-15 재설계 ②로 그 메뉴가 오른쪽
+   *  기능 바로 갔고, 하단 바에는 [속성] 하나만 남는다(인스펙터가 사라지는 ③까지의 한시적
+   *  상태다). 전술판은 하단 바 자체가 없으므로 이 값을 쓰지 않는다. */
+  showViewMenu?: boolean;
 }
 
 /** 하단 바의 뷰 컨트롤 두 손잡이 — `[보기▾]` 팝오버와 `[속성]`.
@@ -269,6 +273,7 @@ export function ViewControls({
   onToggleInspector,
   inspectorPanelId,
   inspectorButtonRef,
+  showViewMenu = true,
 }: ViewControlsProps) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
@@ -294,6 +299,7 @@ export function ViewControls({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+      {showViewMenu && (
       <button
         type="button"
         ref={btnRef}
@@ -309,6 +315,7 @@ export function ViewControls({
           ▾
         </span>
       </button>
+      )}
 
       <button
         type="button"
@@ -327,6 +334,7 @@ export function ViewControls({
         속성
       </button>
 
+      {showViewMenu && (
       <Modal open={open} onClose={() => setOpen(false)} titleId={titleId} title="보기" returnFocusRef={btnRef}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* 이름은 옛 코트 위 버튼의 것을 **한 글자도 안 바꿨다** — 화면 글자('격자')는 이름
@@ -374,6 +382,7 @@ export function ViewControls({
           </button>
         </div>
       </Modal>
+      )}
     </div>
   );
 }

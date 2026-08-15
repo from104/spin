@@ -190,7 +190,7 @@ describe('선택 도구가 아니면 마진은 그냥 마진이다', () => {
 
   it('화살표(이동) 도구로 마진에서 시작해도 판을 밀지 않는다 — 라인 밖에서 들어오는 경로다', () => {
     const { drill } = makeDrill();
-    const { result } = mount(drill, 'route');
+    const { result } = mount(drill, 'line');
     expect(down(result, MARGIN_LEFT)?.pan).toBeFalsy();
     expect(result.current.pointer.arrowDraft).not.toBeNull();
   });

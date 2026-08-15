@@ -38,7 +38,7 @@ import { DEG } from '../../core/angle.ts';
 import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR, CONE } from '../../core/constants.ts';
 import { courtDefFor, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
-import { arrowPath, ARROW_STYLES } from '../../model/arrow.ts';
+import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
 import { defaultDefense, defendedZones, ringRadiusPx, ringViolation, zoneViolation, type RuleActor } from '../../model/rules.ts';
@@ -202,12 +202,40 @@ export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSce
 
 /** 화살촉 마커. ArrowMarkers.tsx 와 **id 규약·모양이 같아야 한다** — 다르면 화살촉이 사라진다.
  *  케이싱을 먼저 그리는 이유도 그쪽과 같다(#38bdf8 는 코트 대비 2.49:1 로 WCAG 1.4.11 미달). */
-const ARROW_HEAD_D = 'M0,0 L6.5,3.2 L0,6.4 z';
+/** 화살촉 둘 — **ArrowMarkers.tsx 의 HEADS 와 한 픽셀도 다르면 안 된다**(2026-08-16).
+ *  courtLines.contract.test 가 두 구현을 도형 단위로 대조한다. */
+const ARROW_HEADS = {
+  thin: { d: 'M0.353,0.353 L6.853,3.553 L0.353,6.753 z', w: 7.21, h: 7.11, refY: 3.553 },
+  wide: { d: 'M0.353,0.353 L6.853,5.853 L0.353,11.353 z', w: 7.21, h: 11.71, refY: 5.853 },
+} as const;
+/** 화살촉 테두리 두께 — ArrowMarkers 의 HEAD_CASING_W 와 **한 글자도 달라선 안 된다**. */
+const ARROW_HEAD_CASING_W = 0.71;
+type ExportHead = keyof typeof ARROW_HEADS;
+
+/** 양 끝 화살촉 속성. 'none' 이면 그 속성 자체를 안 쓴다 — 빈 url(#…) 은 SVG 가 무시하지만
+ *  문자열에 남으면 대조 테스트가 화면 컴포넌트와 어긋난다. */
+function headAttr(a: { headFrom?: ExportHead | 'none'; headTo?: ExportHead | 'none' }, color: string): string {
+  const f = a.headFrom ?? 'none';
+  const t = a.headTo ?? 'thin';
+  const k = markerKey(color);
+  return (
+    (f === 'none' ? '' : ` marker-start="url(#${MARKER_UID}-${k}-${f})"`) +
+    (t === 'none' ? '' : ` marker-end="url(#${MARKER_UID}-${k}-${t})"`)
+  );
+}
 
 export function arrowMarkersMarkup(colors: readonly string[]): string {
-  const marker = (id: string, fill: string): string =>
-    `<marker id="${id}" markerWidth="7" markerHeight="7" refX="5" refY="3.2" orient="auto"><path d="${ARROW_HEAD_D}" fill="${fill}"/></marker>`;
-  return marker(`${MARKER_UID}-casing`, ARROW_CASING) + colors.map((c) => marker(`${MARKER_UID}-${markerKey(c)}`, c)).join('');
+  const kinds: readonly ExportHead[] = ['thin', 'wide'];
+  const marker = (id: string, fill: string, k: ExportHead): string => {
+    const h = ARROW_HEADS[k];
+    return (
+      `<marker id="${id}" markerWidth="${h.w}" markerHeight="${h.h}" refX="5.353" refY="${h.refY}" orient="auto-start-reverse">` +
+      `<path d="${h.d}" fill="${fill}" stroke="${ARROW_CASING}" stroke-width="${num(ARROW_HEAD_CASING_W)}" stroke-linejoin="round"/>` +
+      `</marker>`
+    );
+  };
+  // 케이싱 전용 마커는 없다 — 화살촉의 대비는 위 stroke 가 맡는다(ArrowMarkers 와 같은 근거).
+  return colors.flatMap((c) => kinds.map((k) => marker(`${MARKER_UID}-${markerKey(c)}-${k}`, c, k))).join('');
 }
 
 /** 규칙 존(흰 파선 테두리 + **연한 붉은** 채움). RuleZones.tsx 와 같은 값 — 면이 아니라 파선이
@@ -330,13 +358,13 @@ function arrowsMarkup(frame: RenderFrame): string {
   for (const a of frame.arrows) {
     if (a.opacity <= 0) continue;
     const d = arrowPath(a);
-    const style = ARROW_STYLES[a.kind];
-    const color = safeColor(a.color, ARROW_STYLES[a.kind].color);
-    const dash = style.dash ? ` stroke-dasharray="${style.dash}"` : '';
+    const style = ARROW_STYLE;
+    const color = safeColor(a.color, ARROW_STYLE.color);
+
     out +=
       `<g id="obj-${safeId(a.id)}"${attrOpacity(a.opacity)}>` +
       `<path d="${d}" fill="none" stroke="${ARROW_CASING}" stroke-width="${num(style.width + 2.4)}" stroke-linecap="round"/>` +
-      `<path d="${d}" fill="none" stroke="${color}" stroke-width="${num(style.width)}" stroke-linecap="round"${dash} marker-end="url(#${MARKER_UID}-${markerKey(color)})"/>` +
+      `<path d="${d}" fill="none" stroke="${color}" stroke-width="${num(style.width)}" stroke-linecap="round"${headAttr(a, color)}/>` +
       `</g>`;
   }
   return out;
@@ -417,7 +445,7 @@ function usedArrowColors(frame: RenderFrame): string[] {
     if (a.opacity <= 0) continue;
     // arrowsMarkup 과 **한 글자도 다르지 않은** 식이어야 한다 — 여기서 만든 마커 id 를
     // 그쪽이 `marker-end` 로 참조하므로, 갈라지면 화살촉이 통째로 사라진다.
-    set.add(safeColor(a.color, ARROW_STYLES[a.kind].color));
+    set.add(safeColor(a.color, arrowColor(a)));
   }
   return Array.from(set);
 }

@@ -67,7 +67,10 @@ export const NOTE_PLACEHOLDER_FILL = 'rgba(255,255,255,.62)';
  *  파랑은 원정팀(#1f6bb8)·이동 화살표(#38bdf8)와 겹치지 않게 고른 값이다.
  *  주황과의 이색각 분리도 확인했다(적색맹 0.84 · 녹색맹 0.95 — 콘 구분 임계 0.25). */
 export const CONE_COLORS = ['#ff6b1a', '#2563eb'] as const;
-export const ARROW_COLORS = { move: '#38bdf8', pass: '#fbbf24', shot: '#fbbf24' } as const;
+/** 썸네일이 쓰는 화살표 색. 2026-08-16 에 종류가 사라지면서 **한 값**이 됐다 —
+ *  모델의 `ARROW_STYLE.color` 와 같은 값이어야 하고, 그것을 thumb.test 가 대조한다.
+ *  (여기 리터럴을 따로 두는 이유: core 는 model 을 import 하지 않는다 — 의존 방향 §9.) */
+export const ARROW_COLOR = '#38bdf8';
 
 const srgb = (v: number): number => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
 export function relLuminance(hex: string): number {

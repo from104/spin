@@ -118,11 +118,15 @@ describe('세로 축 플렉스 사슬 — 코트가 아래 도구를 밀어내�
     expect(courtColumn!).toContain('minWidth: 0');
   });
 
-  it('세로 배치의 바깥 main 에도 minHeight:0 이 있다', () => {
-    // 2026-08-14 — 전술판은 언제나 row(기능 바가 오른쪽에 서야 한다)이고, 드릴 편집만 옛 규칙을
-    // 쓴다. 그래서 조건식이 `!isBoard && portrait …` 로 길어졌다 — 선택자는 그 조건의 꼬리를 짚는다.
-    const main = workspace.split('\n').find((l) => l.includes("flexDirection:") && l.includes('portrait'));
-    expect(main, 'main 의 방향 전환 스타일을 찾지 못했다').toBeDefined();
+  it('바깥 main 에도 minHeight:0 이 있다', () => {
+    // 2026-08-14 — 전술판은 언제나 row(기능 바가 오른쪽에 서야 한다)이고, 드릴 편집만 옛 규칙
+    // (세로면 column)을 썼다. 그래서 조건식이 `!isBoard && portrait …` 로 길었고, 이 선택자는
+    // 그 조건의 꼬리를 짚었다.
+    // ⚠️ 2026-08-15 (재설계 ②) — **조건이 사라지고 언제나 row 다.** 기능 바가 드릴에도 서면서
+    //    column 이면 기둥이 판 아래에 눕기 때문이다(EditorWorkspace 의 그 자리 주석). 그래서
+    //    선택자를 `portrait` 가 아니라 **main 의 고정 스타일**로 바꿨다.
+    const main = workspace.split('\n').find((l) => l.includes("flexDirection: 'row'") && l.includes("outline: 'none'"));
+    expect(main, 'main 의 방향 스타일을 찾지 못했다 — 선택자가 낡았다').toBeDefined();
     expect(main!).toContain('minHeight: 0');
   });
 

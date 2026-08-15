@@ -120,15 +120,19 @@ describe('③ 크롬 예산이 배치 축과 화면을 안다', () => {
     }
   });
 
-  it('기능 바와 하단 바도 서로의 반대다 — 전술판은 기둥, 드릴 편집은 바다', () => {
+  it('★ 기능 바는 **두 화면 다** 선다 — 하단 바만 드릴 편집의 것이다 (재설계 ② 로 뒤집힘)', () => {
+    // 옛 계약(2026-08-14 ~ 2026-08-15): *"기능 바와 하단 바는 서로의 반대다 — 전술판은 기둥,
+    // 드릴 편집은 바다."* 그 배타성이 곧 "드릴 편집에는 기둥이 없다" 였고, 그래서 줌·되돌리기가
+    // 트레이에 남아 두 화면의 자리가 정반대였다. 재설계 ②가 그것을 없앴다.
     const fn = CHROME_ROWS.find((r) => r.id === 'functionBar')!;
     const bar = CHROME_ROWS.find((r) => r.id === 'transportBar')!;
     for (const board of [true, false]) {
       const st: ChromeState = { narrow: true, inspector: 'hidden', trayBand: true, board };
-      expect(chromeRowPx(fn, st) > 0 && chromeRowPx(bar, st) > 0).toBe(false);
-      // 그리고 언제나 **정확히 하나**는 켜져 있다 — 둘 다 0 이면 예산이 그만큼 거짓말한다.
-      expect(chromeRowPx(fn, st) + chromeRowPx(bar, st)).toBeGreaterThan(0);
+      expect(chromeRowPx(fn, st), `board=${board}: 기둥이 빠졌다`).toBeGreaterThan(0);
     }
+    // 하단 바는 여전히 드릴 편집에만 있다 — 스텝이라는 시간축이 전술판에는 없다.
+    expect(chromeRowPx(bar, { narrow: true, inspector: 'hidden', trayBand: true, board: false })).toBeGreaterThan(0);
+    expect(chromeRowPx(bar, { narrow: true, inspector: 'hidden', trayBand: true, board: true })).toBe(0);
   });
 
   it('띠 행의 값이 리터럴이 아니라 trayBandHeightPx 에서 온다', () => {

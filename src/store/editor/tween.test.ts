@@ -55,7 +55,7 @@ describe('poseFrame', () => {
   it('화살표는 세 점을 각각 한 항목으로 싣는다(3.10 — 트윈이 d 를 재조립할 재료)', () => {
     const arId = newId('ar');
     const step = emptyStep();
-    step.arrows.push({ id: arId, kind: 'move', from: { x: 1, y: 2 }, ctrl: { x: 3, y: 4 }, to: { x: 5, y: 6 } });
+    step.arrows.push({ id: arId, from: { x: 1, y: 2 }, ctrl: { x: 3, y: 4 }, to: { x: 5, y: 6 } });
     const frame = poseFrame(step);
     expect(frame[arrowPointKey(arId, 'from')]).toEqual({ x: 1, y: 2, theta: 0 });
     expect(frame[arrowPointKey(arId, 'ctrl')]).toEqual({ x: 3, y: 4, theta: 0 });

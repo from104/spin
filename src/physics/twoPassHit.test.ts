@@ -38,7 +38,7 @@ const baseCtx: HitContext = {
 
 const emptyScene = (): SceneSnapshot => ({ chairs: [], balls: [], cones: [], notes: [], arrows: [] });
 
-const ALL_TOOLS: ToolId[] = ['select', 'route', 'pass', 'ball', 'cone', 'player', 'note', 'erase'];
+const ALL_TOOLS: ToolId[] = ['select', 'line', 'line', 'ball', 'cone', 'player', 'note', 'erase'];
 
 describe('2차 패스가 열어 주는 것 (§4.3 P1-2)', () => {
   it('(a) 빈 곳에서 40px 떨어진 공을 탭하면 공이 잡힌다', () => {

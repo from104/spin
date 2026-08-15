@@ -55,6 +55,9 @@ export interface BoardControls {
   onCourtSizeChange(size: CourtSize): void;
   onReset(): void;
   onSaveAsDrill(): void;
+  /** Ctrl/⌘+S — 디바운스를 건너뛰고 스냅샷을 지금 저장한다(2026-08-15 보드 단축키 정리).
+   *  드릴의 `autosave.flush()` 자리를 전술판에서 대신 채우는 것이다. */
+  onSave(): void;
 }
 
 export interface EditorWorkspaceProps {
@@ -210,15 +213,15 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           title: '',
         }
       : {
+          // ⚠️ 2026-08-15 (재설계 ②) — 헤더에서 **[저장]과 코트 세그먼트가 빠졌다.**
+          //  · [저장]  → 기능 바 맨 끝(전술판의 [드릴로 저장]과 **같은 자리**). 자동저장
+          //    상태도 그 칸이 말한다.
+          //  · 코트 세그먼트 → 기능 바 [코트](잠긴 채로 값만 보여 준다). 옛 계약
+          //    (`onLockedAttempt` 로 이유를 말한다)은 그대로 옮겨 갔다.
+          // 남는 것은 **이 드릴이 무엇인가**(제목·편집중)와 시연으로 가는 문뿐이다.
           title: drill.title,
           badge: '편집중',
-          primary: { label: autosave.status === 'saving' ? '저장 중…' : '저장', onAction: () => void autosave.flush() },
           presentButton: { onAction: () => nav.go('present', { kind: 'drill', id: drill.id }) },
-          courtSwitch: {
-            value: drill.courtMode,
-            locked: true,
-            onLockedAttempt: () => toast.show('코트 형태는 드릴을 만든 뒤에는 바꿀 수 없습니다.'),
-          },
         },
   );
 
@@ -316,7 +319,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     onConeToggle: () => dispatch({ type: 'CONE_SLOT_SET', slot: state.coneSlot === 0 ? 1 : 0 }),
     onUndo: () => dispatch({ type: 'UNDO' }),
     onRedo: () => dispatch({ type: 'REDO' }),
-    onSave: () => void autosave.flush(),
+    // 전술판은 자동저장이 꺼져 있어(useAutosave(!isBoard)) flush 가 아무것도 안 한다 —
+    // 그쪽은 스냅샷을 지금 저장한다(BoardScreen.saveNow).
+    onSave: () => (board ? board.onSave() : void autosave.flush()),
     // 전술판은 1장짜리다 — 스텝 복제 단축키가 살아 있으면 화면에 없는 2번째 스텝이 생겨
     // 판이 조용히 두 장이 된다(하단 바에 스텝 UI 가 없어 눈으로는 알 수 없다).
     onDuplicateStep: isBoard ? () => {} : () => dispatch({ type: 'STEP_DUPLICATE', id: state.stepId }),
@@ -376,29 +381,17 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       onArmPlayer={armPlayer}
       courtLabel={{ full: '풀 코트', half: '하프 코트', flat: '플랫 코트' }[drill.courtMode]}
       orientation={trayBand ? 'horizontal' : 'vertical'}
-      // 줌 3개는 판 위가 아니라 **기둥 맨 위**다(2026-08-14, 설계서 §3-ㄱ). 부르는 대상은
-      // 예전 StageControls 와 **같은 무대 핸들**이라 단축키(Ctrl +/−/0)와 한 경로다.
-      // ⚠️ 전술판에서는 **둘 다 없다** — 줌 3개와 되돌리기·다시하기가 오른쪽 기능 바로 갔다
-      // (기현 지시 2026-08-14 두 번째 라운드). 트레이에 남는 것은 판에 **놓는 것**뿐이다:
-      // 칩·공·콘·선택·지우개·작도·메모. 드릴 편집은 아직 옛 배치라 그대로 받는다.
-      zoom={
-        isBoard
-          ? undefined
-          : {
-              onZoomIn: () => stageRef.current?.zoomBy(INTERACT.zoomStep),
-              onZoomOut: () => stageRef.current?.zoomBy(1 / INTERACT.zoomStep),
-              onZoomReset: () => stageRef.current?.resetZoom(),
-            }
-      }
-      history={isBoard ? undefined : history}
       onItemPointerDown={tray.start}
     />
   );
 
-  // 뷰 컨트롤([보기▾] · [속성]) — 하단 바 둘이 **같은 인스턴스**를 쓴다(§5.1 "컨테이너만 바꾼다").
-  // 두 바에 각자 렌더하면 전술판↔드릴 사이를 오갈 때 팝오버 개폐 state 가 날아간다.
+  // 하단 바에 남는 조작 — **[속성] 하나뿐**이다(2026-08-15 재설계 ②).
+  //
+  // [보기▾]는 기능 바로 갔다. [속성]이 아직 여기 남는 이유는 인스펙터가 아직 살아 있기
+  // 때문이고(재설계 ③이 그것을 해체한다), 그때 이 컴포넌트도 함께 사라진다.
   const viewControls = (
     <ViewControls
+      showViewMenu={false}
       showGrid={showGrid}
       onToggleGrid={toggleGrid}
       showRuleZones={showRuleZones}
@@ -441,10 +434,20 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     if (r && r.blocked > 0) toast.show('골대 자리에 휠체어가 있어 되돌리지 못했습니다. 휠체어를 옮긴 뒤 다시 눌러 주세요.');
   }, [worldRef, toast]);
 
-  // 오른쪽 기능 바 — 자유 전술판 전용이다. 드릴 편집은 아직 옛 배치(하단 TransportBar +
-  // 인스펙터)를 쓴다(기현님: *"드릴 편집 화면은 추후 수정, 일단 자유 전술판에 집중"*).
-  const functionBar = board ? (
+  // 오른쪽 기능 바 — **두 화면 다 선다**(2026-08-15 드릴 편집 재설계 ②).
+  //
+  // 옛 기록(지우지 않는다): *"자유 전술판 전용이다. 드릴 편집은 아직 옛 배치(하단 TransportBar
+  // + 인스펙터)를 쓴다"*. 그 배치에서는 줌·되돌리기가 트레이에, [보기]가 하단 바에, [골대
+  // 원위치]가 인스펙터 시트 안에 있었다 — 즉 **같은 조작이 화면마다 다른 자리**였고, 두 화면을
+  // 오가는 코치의 공간 기억이 매번 뒤집혔다(§3 불변식 1 이 지키려던 바로 그것).
+  //
+  // 다른 점은 딱 셋이다: [비우기]가 없고(FUNCTION_BAR_ITEMS_DRILL), [코트]가 언제나 잠겨
+  // 있으며(드릴의 코트는 불변이다 — 옛 헤더 세그먼트의 계약을 그대로 물려받는다), [저장]이
+  // '드릴로 저장' 이 아니라 '자동저장 지금 밀어넣기' 다.
+  const functionBar = (
     <FunctionBar
+      mode={board ? 'board' : 'drill'}
+      saveStatus={isBoard ? undefined : autosave.status === 'saving' ? 'saving' : 'idle'}
       onZoomIn={() => stageRef.current?.zoomBy(INTERACT.zoomStep)}
       onZoomOut={() => stageRef.current?.zoomBy(1 / INTERACT.zoomStep)}
       onZoomReset={() => stageRef.current?.resetZoom()}
@@ -454,15 +457,19 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       onRedo={history.onRedo}
       courtMode={drill.courtMode}
       courtSize={drill.courtSize ?? DEFAULT_COURT_SIZE}
-      courtLocked={!boardPristine}
-      onCourtModeChange={(m) => board.onCourtChange(m)}
-      onCourtSizeChange={(s) => board.onCourtSizeChange(s)}
-      onLockedAttempt={() => toast.show('전술판을 초기화하면 코트 형태와 크기를 바꿀 수 있습니다.')}
+      // 드릴의 코트는 **만든 뒤에 못 바꾼다**(D12 — 규격이 달라 배치를 옮겨 담을 수 없다).
+      // 값은 계속 보인다 — 못 바꾸는 것과 안 보이는 것은 다르다(FunctionBar 의 코트 팝오버 ⚠️).
+      courtLocked={board ? !boardPristine : true}
+      onCourtModeChange={(m) => board?.onCourtChange(m)}
+      onCourtSizeChange={(s) => board?.onCourtSizeChange(s)}
+      onLockedAttempt={() =>
+        toast.show(board ? '전술판을 초기화하면 코트 형태와 크기를 바꿀 수 있습니다.' : '코트 형태는 드릴을 만든 뒤에는 바꿀 수 없습니다.')
+      }
       onResetGoals={resetGoals}
       defense={drill.defense ?? defaultDefense(drill.courtMode)}
       teams={drill.teams}
       onToggleDefense={toggleDefense}
-      onReset={() => board.onReset()}
+      onReset={() => board?.onReset()}
       drill={drill}
       showGrid={showGrid}
       onToggleGrid={toggleGrid}
@@ -473,9 +480,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         setHelpOpen(true);
       }}
       viewButtonRef={viewButtonRef}
-      onSaveAsDrill={() => board.onSaveAsDrill()}
+      onSaveAsDrill={() => (board ? board.onSaveAsDrill() : void autosave.flush())}
     />
-  ) : null;
+  );
 
   const inspector = (
     <InspectorPanel
@@ -514,15 +521,19 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       id="main"
       ref={workspaceRef}
       tabIndex={-1}
-      // 세로 화면은 위→아래로 쌓는다(§6.4): 코트가 폭을 다 쓰고, 도구·속성이 아래로 간다.
-      // 다만 **붙박이 인스펙터가 서면 가로로 돌린다** — 세로 배치에서 width:312 는 교차축
-      // 크기가 되어 패널이 판 아래에 납작하게 눕는다. 붙박이는 컨테이너 폭 ≥1100 에서만
-      // 성립하므로(inspectorLayout) 그때는 오른쪽에 세울 폭이 반드시 있다.
+      // ⚠️ 2026-08-15 (재설계 ②) — **언제나 가로다.** 옛 규칙은 *"세로 화면은 위→아래로 쌓는다
+      // (§6.4): 코트가 폭을 다 쓰고, 도구·속성이 아래로 간다"* 였는데, 그 문장이 가리키던 둘이
+      // 지금은 여기 없다: 도구(ToolRail)는 판 덩어리 안으로 들어갔고(2026-08-14 P3), 속성은
+      // 오버레이 시트라 흐름 밖이다. 그래서 세로에서 이 값은 **아무것도 안 바꾸고 있었다.**
+      //
+      // 그런데 오른쪽 기능 바가 드릴에도 서면서 사정이 달라졌다 — 흐름에 남은 것이 코트 칸과
+      // 기둥 둘이라, column 이면 **기둥이 판 아래에 가로로 눕는다.** 옛 조건을 그대로 두면
+      // 드릴 편집을 세로로 보는 순간 기둥이 무너진다.
       // position:relative 는 오버레이 시트의 기준 상자다 — 이것이 없으면 시트가 화면 전체를
       // 기준으로 떠서 레일·헤더 위까지 덮는다.
       // ⚠️ 아래 style 객체는 **한 줄**이어야 한다 — appShell.contract.test.ts 가 방향 전환이 적힌
       // 그 줄에서 minHeight:0 을 함께 찾는다(세로 축 플렉스 사슬은 jsdom 이 못 잡아 소스로 지킨다).
-      style={{ flex: 1, display: 'flex', flexDirection: !isBoard && portrait && inspectorLayout !== 'pinned' ? 'column' : 'row', minHeight: 0, outline: 'none', position: 'relative' }}
+      style={{ flex: 1, display: 'flex', flexDirection: 'row', minHeight: 0, outline: 'none', position: 'relative' }}
     >
       <span id="court-help" className="sr-only">
         방향키로 커서 이동, Enter로 배치, Alt+←/→로 개체 순회
@@ -694,7 +705,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         </div>
       )}
 
-      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpTriggerRef} />
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpTriggerRef} mode={mode} />
     </main>
   );
 }

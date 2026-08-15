@@ -179,7 +179,7 @@ describe('§5.4 applyPlacement — 계획을 판에 앉힌다', () => {
     const withExtras: Drill = {
       ...d0,
       steps: [
-        { ...s0, arrows: [{ id: 'ar_x' as never, kind: 'move', from: { x: 100, y: 100 }, ctrl: { x: 150, y: 150 }, to: { x: 200, y: 200 } }], notes: [{ id: 'nt_x' as never, x: 50, y: 50, text: '메모' }] },
+        { ...s0, arrows: [{ id: 'ar_x' as never, from: { x: 100, y: 100 }, ctrl: { x: 150, y: 150 }, to: { x: 200, y: 200 } }], notes: [{ id: 'nt_x' as never, x: 50, y: 50, text: '메모' }] },
         { ...s0, id: 'st_second' as never, chairs: {}, balls: {} },
       ],
     };

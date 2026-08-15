@@ -75,7 +75,10 @@ const functionTargets = () =>
 
 const handle = (label: '작도' | '설명') => screen.getByRole('button', { name: new RegExp(`^${label}`) });
 const expanded = (label: '작도' | '설명') => handle(label).getAttribute('aria-expanded');
-const hasTool = (label: string) => screen.queryByRole('button', { name: new RegExp(`^${label}`) }) !== null;
+// ⚠️ 접두 매칭이 아니라 **정확 매칭**이다(2026-08-16). 도구 이름이 '선' 이 되면서 '선택' 과
+// 접두가 겹쳐, `^선` 으로는 선택 도구가 선 도구로 잡힌다 — 그 상태로는 "접혀 있다" 를 재는
+// 단언이 언제나 거짓이 된다(실제로 그렇게 빨개졌다).
+const hasTool = (label: string) => screen.queryByRole('button', { name: new RegExp(`^${label}$`) }) !== null;
 describe('ToolRail — 기능 구역', () => {
   it('모드 도구는 4표적이다 — 선택 · 지우개 · 작도 손잡이 · 설명 손잡이 (3.7)', () => {
     // 5종 상시 노출로 되돌리면 §3 의 미착수분(도움말 1 · 빈 판 채우기 1)이 들어올 때
@@ -84,29 +87,29 @@ describe('ToolRail — 기능 구역', () => {
     expect(functionTargets()).toEqual(['선택', '지우개', '작도', '설명']);
   });
 
-  it('접힌 3종(이동·패스·메모)은 닫힌 서랍 안이라 첫 화면 표적이 아니다', () => {
+  it('접힌 2종(선·메모)은 닫힌 서랍 안이라 첫 화면 표적이 아니다', () => {
     // 숨기기(display:none)가 아니라 **DOM 에 없음**이라야 표적 수가 실제로 준다.
     render(<ControlledRail />);
-    for (const label of ['이동', '패스', '메모']) {
+    for (const label of ['선', '메모']) {
       expect(hasTool(label), label).toBe(false);
     }
     expect(expanded('작도')).toBe('false');
     expect(expanded('설명')).toBe('false');
   });
 
-  it('작도 손잡이를 누르면 이동·패스가 나온다 — 메모는 그대로 접혀 있다(대조군)', async () => {
+  it('작도 손잡이를 누르면 선이 나온다 — 메모는 그대로 접혀 있다(대조군)', async () => {
     render(<ControlledRail />);
     const user = userEvent.setup();
     await user.click(handle('작도'));
     expect(expanded('작도')).toBe('true');
     expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();
-    for (const label of ['이동', '패스']) expect(hasTool(label), label).toBe(true);
+    for (const label of ['선']) expect(hasTool(label), label).toBe(true);
     // 대조군이 없으면 "손잡이 아무거나 누르면 전부 열린다" 인 구현도 통과한다.
     expect(hasTool('메모')).toBe(false);
     expect(expanded('설명')).toBe('false');
   });
 
-  it('설명 손잡이를 누르면 메모가 나온다 — 이동·패스는 그대로 접혀 있다(대조군)', async () => {
+  it('설명 손잡이를 누르면 메모가 나온다 — 선은 그대로 접혀 있다(대조군)', async () => {
     // 서랍을 둘로 가른 값이 여기 있다: 코트에 설명만 붙이는 사람이 화살표 2종을 상시
     // 표적으로 떠안지 않는다. 한 서랍이면 이 it 이 성립하지 않는다.
     render(<ControlledRail />);
@@ -115,7 +118,7 @@ describe('ToolRail — 기능 구역', () => {
     expect(expanded('설명')).toBe('true');
     expect(screen.getByRole('group', { name: '설명 도구' })).toBeInTheDocument();
     expect(hasTool('메모')).toBe(true);
-    for (const label of ['이동', '패스']) expect(hasTool(label), label).toBe(false);
+    for (const label of ['선']) expect(hasTool(label), label).toBe(false);
     expect(expanded('작도')).toBe('false');
   });
 
@@ -127,8 +130,8 @@ describe('ToolRail — 기능 구역', () => {
     renderWithTool('select', onSelectTool);
     const user = userEvent.setup();
     await user.click(handle('작도'));
-    await user.click(screen.getByRole('button', { name: /^이동/ }));
-    expect(onSelectTool).toHaveBeenCalledWith('route');
+    await user.click(screen.getByRole('button', { name: /^선$/ }));
+    expect(onSelectTool).toHaveBeenCalledWith('line');
     // 대조군: 손잡이 자체는 도구를 고르지 않는다(열고 닫기만 한다) — 위 1회가 전부다.
     expect(onSelectTool).toHaveBeenCalledTimes(1);
   });
@@ -408,7 +411,7 @@ describe('ToolRail — 서랍 플라이아웃', () => {
       render(<ControlledRail />);
       fireEvent.pointerEnter(handle('작도'), { pointerType: 'mouse' });
       const panel = screen.getByRole('group', { name: '작도 도구' });
-      fireEvent.click(within(panel).getByRole('button', { name: /이동/ }));
+      fireEvent.click(within(panel).getByRole('button', { name: /^선$/ }));
 
       // 아직 열려 있다 — 이 한 줄이 "딜레이" 를 못박는다(0 이면 여기서 이미 닫힌다).
       expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();

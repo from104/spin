@@ -286,8 +286,12 @@ describe('④ rot 불변 상자 — 이 안에 있는 동안은 답이 안 바�
   it('상자는 문턱 근처에서만 좁다 — 1024×768 에서 ±75px 이다(resize 마다 다시 재지 않는다)', () => {
     // 이 숫자가 1 로 주저앉으면 사실상 resize 리스너가 되어 규율이 사라진다.
     const b = stageRotHoldBox('full', '30x18', { narrow: false, inspector: 'hidden' }, { w: 1024, h: 768 });
-    expect(b).toEqual({ minW: 949, maxW: 1099, minH: 693, maxH: 843 });
-    expect(stageRotHoldQuery(b)).toBe('(min-width: 949px) and (max-width: 1099px) and (min-height: 693px) and (max-height: 843px)');
+    // ⚠️ 2026-08-15 (재설계 ②) — 상자가 좁아졌다: 폭 ±75 → **±41**(983…1065). 기둥 56 이
+    //    폭 예산에 들어오면서 같은 창에서 코트 상자가 문턱에 더 가까워졌기 때문이다.
+    //    세로도 ±75 → ±41 로 같이 좁아졌다. 이 숫자가 1 로 주저앉으면 규율이 사라지지만,
+    //    41 은 아직 resize 리스너와 거리가 멀다.
+    expect(b).toEqual({ minW: 983, maxW: 1065, minH: 727, maxH: 809 });
+    expect(stageRotHoldQuery(b)).toBe('(min-width: 983px) and (max-width: 1065px) and (min-height: 727px) and (max-height: 809px)');
   });
 
   it('상한 있는 좁히기다 — 코트 상자가 0 인 구석에서도 끝난다(행으로 죽지 않는다)', () => {

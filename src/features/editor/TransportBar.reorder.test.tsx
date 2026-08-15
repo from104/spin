@@ -129,8 +129,8 @@ describe('끌어서 순서 변경', () => {
     stubChipRects();
     let d = makeDrill(3);
     // 스텝마다 화살표·메모를 다르게 심는다 — 통째로 같은 값이면 "안 바뀌었다" 가 무의미해진다.
-    d = setArrow(d, 0, { id: 'ar_a' as ArrowId, kind: 'move', from: { x: 10, y: 10 }, ctrl: { x: 20, y: 20 }, to: { x: 30, y: 30 } });
-    d = setArrow(d, 2, { id: 'ar_c' as ArrowId, kind: 'pass', from: { x: 40, y: 40 }, ctrl: { x: 50, y: 50 }, to: { x: 60, y: 60 } });
+    d = setArrow(d, 0, { id: 'ar_a' as ArrowId, from: { x: 10, y: 10 }, ctrl: { x: 20, y: 20 }, to: { x: 30, y: 30 } });
+    d = setArrow(d, 2, { id: 'ar_c' as ArrowId, from: { x: 40, y: 40 }, ctrl: { x: 50, y: 50 }, to: { x: 60, y: 60 } });
     d = setNote(d, 0, { id: 'nt_a' as NoteId, x: 1, y: 2, text: '가' });
     d = setNote(d, 1, { id: 'nt_b' as NoteId, x: 3, y: 4, text: '나' });
     const before = d.steps.map((s) => ({ id: s.id, arrows: s.arrows, notes: s.notes }));

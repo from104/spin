@@ -25,8 +25,9 @@ import { formationSlots } from '../../model/defaults.ts';
 import { poseToStored } from '../../model/chair.ts';
 import { isOnSurface } from '../../model/court.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
-import type { Arrow, ArrowKind } from '../../model/arrow.ts';
-import { defaultCtrl } from '../../model/arrow.ts';
+import type { Arrow } from '../../model/arrow.ts';
+import { cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow } from '../../model/arrow.ts';
+import { arrowLabel } from '../../render/objects/ArrowPath.tsx';
 import type { CourtStageHandle, PointerMeta, PointerDownResult, CourtStagePointerController } from '../../render/CourtStage.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { SelectionOverlayHandle, SelectionShape } from '../../render/SelectionOverlay.tsx';
@@ -156,9 +157,15 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   const dragKindRef = useRef<SelectionShape | null>(null);
   const rubberRef = useRef<{ start: Vec2; additive: boolean } | null>(null);
   const rubberRectRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
-  const arrowSessionRef = useRef<{ kind: ArrowKind; from: Vec2 } | null>(null);
+  const arrowSessionRef = useRef<{ from: Vec2 } | null>(null);
   const noteDragRef = useRef<{ id: NoteId; offset: Vec2 } | null>(null);
-  const arrowHandleDragRef = useRef<{ arrowId: ArrowId; which: 'from' | 'ctrl' | 'to' } | null>(null);
+  // ⚠️ `moved` 가 있어야 **누르기와 끌기를 가른다**(2026-08-16). 끝 앵커는 끌면 그 점이
+  //    움직이고, **끌지 않고 떼면 화살촉이 순환**한다(없음 → 좁은 → 넓은). 임계는 재탭 해제와
+  //    같은 값(INTERACT.tapMaxMoveCssPx)이라 "얼마나 움직여야 끈 것인가" 가 앱 전체에서 하나다.
+  const arrowHandleDragRef = useRef<{ arrowId: ArrowId; which: 'from' | 'ctrl' | 'to'; start: Vec2; moved: boolean } | null>(null);
+  /** 선 몸통을 잡아 **통째로** 옮기는 세션(2026-08-16 기현 지시). 도형의 body 드래그와 같은 뜻이라
+   *  커서도 같은 `move` 다 — 그 커서가 곧 "여기를 잡으면 통째로 간다" 는 유일한 예고다. */
+  const arrowBodyDragRef = useRef<{ arrowId: ArrowId; last: Vec2 } | null>(null);
   const eraseSessionRef = useRef<{ touched: Set<string>; count: number } | null>(null);
   /** §4.3 P1-2 [A-3] — "선택된 개체 재탭 = 해제" 세션. 2단 히트가 켜지면 붐비는 코트에서
    *  "빈 곳 탭 → 해제"(아래 rubberRef 경로)가 사라지므로, **이미 선택된** 개체를 additive
@@ -218,7 +225,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       balls,
       cones,
       notes: ctx.step.notes.map((n) => ({ id: n.id, p: { x: n.x, y: n.y } })),
-      arrows: ctx.step.arrows.map((a) => ({ id: a.id, kind: a.kind, from: a.from, ctrl: a.ctrl, to: a.to })),
+      arrows: ctx.step.arrows.map((a) => ({ id: a.id, from: a.from, ctrl: a.ctrl, to: a.to })),
     };
   }, []);
 
@@ -475,7 +482,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
 
-      if (ctx.tool === 'route' || ctx.tool === 'pass') {
+      if (ctx.tool === 'line') {
         const scene = buildScene();
         let from = world;
         const centers: Vec2[] = [
@@ -490,8 +497,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
             break;
           }
         }
-        arrowSessionRef.current = { kind: ctx.tool === 'route' ? 'move' : 'pass', from };
-        setArrowDraft({ id: 'ar_draft' as ArrowId, kind: ctx.tool === 'route' ? 'move' : 'pass', from, ctrl: from, to: from });
+        arrowSessionRef.current = { from };
+        setArrowDraft({ id: 'ar_draft' as ArrowId, from, ctrl: from, to: from });
         return;
       }
 
@@ -565,7 +572,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
       if (hit.kind === 'arrowHandle') {
-        arrowHandleDragRef.current = { arrowId: hit.id as ArrowId, which: hit.which! };
+        arrowHandleDragRef.current = { arrowId: hit.id as ArrowId, which: hit.which!, start: world, moved: false };
         ctx.dispatch({ type: 'SELECT_SET', ids: [hit.id] });
         return;
       }
@@ -597,6 +604,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       if (!additive && ctx.selection.has(hit.id)) tapDeselectRef.current = { start: world, moved: false, ballId: null };
       const nextSel = additive ? toggleId(ctx.selection, hit.id) : [hit.id];
       ctx.dispatch({ type: 'SELECT_SET', ids: nextSel });
+      if (hit.kind === 'arrow') {
+        // 선 몸통 — 잡은 순간부터 세 점이 함께 간다. 커서는 CourtStage 가 hover 로 미리 바꾼다.
+        arrowBodyDragRef.current = { arrowId: hit.id as ArrowId, last: world };
+      }
       if (hit.kind === 'note') {
         const note = ctx.step.notes.find((n) => n.id === hit.id);
         if (note) {
@@ -662,8 +673,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       }
 
       if (arrowSessionRef.current) {
-        const { kind, from } = arrowSessionRef.current;
-        setArrowDraft({ id: 'ar_draft' as ArrowId, kind, from, ctrl: defaultCtrl(from, world, 0), to: world });
+        const { from } = arrowSessionRef.current;
+        setArrowDraft({ id: 'ar_draft' as ArrowId, from, ctrl: defaultCtrl(from, world, 0), to: world });
         return;
       }
 
@@ -686,11 +697,31 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       }
 
       if (arrowHandleDragRef.current) {
-        const { arrowId, which } = arrowHandleDragRef.current;
-        const arrow = ctx.step.arrows.find((a) => a.id === arrowId);
+        const h = arrowHandleDragRef.current;
+        if (!h.moved) {
+          const tapPx = INTERACT.tapMaxMoveCssPx / metricsRef.current.pxPerUnit;
+          if (Math.hypot(world.x - h.start.x, world.y - h.start.y) > tapPx) h.moved = true;
+        }
+        // 임계를 안 넘었으면 **아직 아무것도 안 옮긴다** — 넘기 전에 옮겨 버리면 순환시키려고
+        // 누른 손짓이 점을 1px 씩 흔들어 놓는다.
+        if (!h.moved) return;
+        const arrow = ctx.step.arrows.find((a) => a.id === h.arrowId);
         if (arrow) {
-          const next: Arrow = which === 'ctrl' ? { ...arrow, ctrl: world } : { ...arrow, [which]: world };
+          const next: Arrow = h.which === 'ctrl' ? { ...arrow, ctrl: world } : { ...arrow, [h.which]: world };
           ctx.dispatch({ type: 'ARROW_SET', arrow: next });
+        }
+        return;
+      }
+
+      if (arrowBodyDragRef.current) {
+        const b = arrowBodyDragRef.current;
+        const arrow = ctx.step.arrows.find((a) => a.id === b.arrowId);
+        if (arrow) {
+          const d = { x: world.x - b.last.x, y: world.y - b.last.y };
+          b.last = world;
+          // 세 점을 함께 민다 — 모양(굽힘·길이·방향)이 그대로 유지된다. 키보드의
+          // `nudgeArrow(a,'whole',d)` 와 **같은 뜻**이라 두 입력이 같은 결과를 낸다.
+          ctx.dispatch({ type: 'ARROW_SET', arrow: nudgeArrow(arrow, 'whole', d) });
         }
         return;
       }
@@ -770,7 +801,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       arrowSessionRef.current = null;
       setArrowDraft(null);
       if (draft && Math.hypot(draft.to.x - draft.from.x, draft.to.y - draft.from.y) >= 12) {
-        const arrow: Arrow = { id: newId('ar'), kind: draft.kind, from: draft.from, ctrl: draft.ctrl, to: draft.to };
+        const arrow: Arrow = { id: newId('ar'), from: draft.from, ctrl: draft.ctrl, to: draft.to };
         ctx.dispatch({ type: 'ARROW_SET', arrow });
         ctx.dispatch({ type: 'SELECT_SET', ids: [arrow.id] });
       }
@@ -789,7 +820,29 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       return;
     }
     if (arrowHandleDragRef.current) {
+      const h = arrowHandleDragRef.current;
       arrowHandleDragRef.current = null;
+      // ★ 끌지 않고 뗐다 = **화살촉 순환**(기현 지시 2026-08-16). 굽힘점(ctrl)에는 화살촉이
+      //   없으므로 제외한다 — 거기서는 누르기가 아무 일도 안 하는 것이 맞다.
+      if (!h.moved && (h.which === 'from' || h.which === 'to')) {
+        const arrow = ctx.step.arrows.find((a) => a.id === h.arrowId);
+        if (arrow) {
+          const next: Arrow =
+            h.which === 'from'
+              ? { ...arrow, headFrom: cycleHead(headFromOf(arrow)) }
+              : { ...arrow, headTo: cycleHead(headToOf(arrow)) };
+          ctx.dispatch({ type: 'ARROW_SET', arrow: next });
+          liveRegion.say(arrowLabel(next));
+        }
+      }
+      return;
+    }
+    if (arrowBodyDragRef.current) {
+      arrowBodyDragRef.current = null;
+      // ⚠️ **여기서 그냥 return 하면 화살표의 재탭 해제가 죽는다**(2026-08-16 에 한 번 그랬다).
+      //    몸통 드래그와 재탭 해제는 같은 pointerdown 에서 시작하므로, 안 움직였을 때는
+      //    이 세션이 아니라 탭 판정이 마지막 말을 해야 한다. 메모가 간 길과 같다.
+      finishTap();
       return;
     }
 

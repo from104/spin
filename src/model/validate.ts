@@ -23,7 +23,7 @@ import { defaultDefense } from './rules.ts';
 import { CURRENT_DRILL_SCHEMA, DRILL_LEVELS } from './drill.ts';
 import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, PoseMap, NoteLabel } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
-import type { Arrow, ArrowKind } from './arrow.ts';
+import type { Arrow, ArrowHead } from './arrow.ts';
 import { CURRENT_SESSION_SCHEMA } from './session.ts';
 import type { TrainingSession, SessionItem } from './session.ts';
 import { refDrillIds } from './refs.ts';
@@ -264,17 +264,23 @@ function sanitizeTeamStyle(raw: unknown, fallback: TeamStyle): TeamStyle {
 
 // ---- 화살표·메모 -----------------------------------------------------------------------------
 
+const isHead = (v: unknown): v is ArrowHead => v === 'none' || v === 'thin' || v === 'wide';
+
 function sanitizeArrow(raw: unknown): Arrow | null {
   if (!isRecord(raw)) return null;
   const id = typeof raw.id === 'string' && raw.id.length > 0 ? (raw.id as ArrowId) : newId('ar');
-  const kindRaw = raw.kind;
-  const kind: ArrowKind = kindRaw === 'move' || kindRaw === 'pass' || kindRaw === 'shot' ? kindRaw : 'move';
+  // ⚠️ 2026-08-16 — `kind` 가 **사라졌다**(기현 지시 *"선으로 통일"*). 옛 문서의 그 필드는
+  //    여기서 조용히 버려진다 — 마이그레이션 v6→v7 이 이미 지웠고, 그 길을 안 지난 객체
+  //    (손편집·테스트 픽스처)도 같은 결과가 되게 한다.
   const from = sanitizeFreeVec(raw.from);
   const ctrl = sanitizeFreeVec(raw.ctrl);
   const to = sanitizeFreeVec(raw.to);
   if (!from || !ctrl || !to) return null;
-  const arrow: Arrow = { id, kind, from, ctrl, to };
+  const arrow: Arrow = { id, from, ctrl, to };
   if (typeof raw.color === 'string') arrow.color = raw.color;
+  // 화살촉 — 값이 없으면 키를 안 만든다(모델의 기본값이 곧 옛 모양이다).
+  if (isHead(raw.headFrom)) arrow.headFrom = raw.headFrom;
+  if (isHead(raw.headTo)) arrow.headTo = raw.headTo;
   return arrow;
 }
 

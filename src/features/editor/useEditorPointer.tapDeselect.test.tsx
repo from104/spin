@@ -60,7 +60,7 @@ function makeDrill(): { drill: Drill; chairId: ChairId; noteId: NoteId; arrowId:
     balls: {},
     cones: {},
     notes: [{ id: noteId, x: NOTE_AT.x, y: NOTE_AT.y, text: '메모' }],
-    arrows: [{ id: arrowId, kind: 'move', ...ARROW }],
+    arrows: [{ id: arrowId, ...ARROW }],
   };
   return { chairId, noteId, arrowId, drill: { ...base, steps: [step] } };
 }

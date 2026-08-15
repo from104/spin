@@ -82,15 +82,24 @@ describe('드릴 편집 모드', () => {
   // 화면마다 다른 컴포넌트다(전술판 BoardBar / 드릴 편집 TransportBar) — BoardScreen 쪽만
   // 확인하면 **드릴 편집에서만 손잡이가 없는** 갈래를 못 본다(5차 검증관이 '시연 화면만
   // 놓쳤던' 것과 같은 형태의 헛통과다).
-  it('뷰 컨트롤 두 손잡이가 트랜스포트 바 안에 있다 — 판을 그리는 화면이 둘이다', async () => {
+  it('★ 하단 바에 남은 조작은 [속성] 하나다 — [보기]와 줌은 오른쪽 기둥으로 갔다 (재설계 ②)', async () => {
+    // 옛 계약(2026-08-14): *"뷰 컨트롤 두 손잡이([보기]·[속성])가 트랜스포트 바 안에 있다."*
+    // 2026-08-15 재설계 ②로 [보기]는 기능 바로, 줌 3개는 트레이에서 기능 바로 갔다. 남은
+    // [속성]은 인스펙터가 살아 있는 동안만이다(③이 그것을 해체하면 함께 사라진다).
     await openDrill();
     const barRow = screen.getByRole('button', { name: '재생' }).closest('div')!.parentElement!;
-    for (const name of ['보기', '속성']) {
-      expect(barRow.contains(screen.getByRole('button', { name })), name).toBe(true);
+    expect(barRow.contains(screen.getByRole('button', { name: '속성' }))).toBe(true);
+
+    // [보기]는 이제 기둥 안이다 — 하단 바가 아니라.
+    const bar = screen.getByRole('navigation', { name: '판 조작' });
+    expect(bar.contains(screen.getByRole('button', { name: '보기' })), '[보기]가 기둥 밖에 있다').toBe(true);
+    // 줌도 기둥이다. 옛 트레이 묶음(role=group '확대')은 **사라졌다** — 그 이사가 ①이다.
+    for (const name of ['확대', '축소', '줌 초기화']) {
+      expect(bar.contains(screen.getByRole('button', { name })), name).toBe(true);
     }
-    // 코트 위 묶음은 해체됐다 — 격자·가이드·도움말은 팝오버를 열어야 나온다.
+    expect(screen.queryByRole('group', { name: '확대' }), '트레이의 옛 줌 묶음이 남아 있다').toBeNull();
+    // 코트 위 묶음은 해체된 그대로다 — 격자·가이드·도움말은 팝오버를 열어야 나온다.
     expect(screen.queryByRole('button', { name: '격자 표시 전환' })).toBeNull();
-    expect(screen.getByRole('group', { name: '확대' })).toBeInTheDocument();
   });
 
   it('전술판과 달리 스텝 UI 가 있다', async () => {
@@ -129,7 +138,11 @@ describe('드릴 편집 모드', () => {
     // 전술판에서 열리는 그 세그먼트가 드릴에서는 절대 열리면 안 된다. 열리는 순간
     // full↔half 전환이 배치를 날린다(D12: 어떤 아핀 변환으로도 같은 전술이 안 된다).
     const { user } = await openDrill();
-    // 헤더는 useAppHeader 의 effect 로 채워지므로 첫 페인트 직후에는 아직 비어 있다.
+    // ⚠️ 2026-08-15 (재설계 ②) — 세그먼트가 **헤더에서 기능 바 [코트] 팝오버로** 옮겨 갔다.
+    //    옛 계약(잠긴 이름 '코트 형태(변경 불가)' + 눌러도 안 바뀜)은 한 글자도 안 바뀌었다 —
+    //    바뀐 것은 그 물음을 어디서 하느냐뿐이다.
+    expect(screen.queryByRole('radiogroup', { name: /코트 형태/ }), '팝오버를 열기 전에 이미 떠 있다').toBeNull();
+    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
     const locked = await screen.findByRole('radiogroup', { name: '코트 형태(변경 불가)' });
     expect(screen.queryByRole('radiogroup', { name: '코트 형태' })).toBeNull();
 

@@ -13,7 +13,6 @@ describe('직렬화 동치', () => {
     d = addChair(d, 0, { team: 'home', number: 'X', isGk: false, role: 'DF', name: '보조' }, { x: 5, y: 5, angleDeg: 12.3 });
     d = setArrow(d, 0, {
       id: newId('ar'),
-      kind: 'pass',
       from: { x: 0, y: 0 },
       ctrl: { x: 1, y: 1 },
       to: { x: 2, y: 2 },

@@ -330,8 +330,11 @@ export function moveStep(d: Drill, from: number, to: number): Drill {
 function arrowsEqual(a: Arrow, b: Arrow): boolean {
   return (
     a.id === b.id &&
-    a.kind === b.kind &&
     a.color === b.color &&
+    // 2026-08-16 — kind 자리를 화살촉 둘이 대신한다. 빠뜨리면 끝을 눌러 화살촉만 바꾼 편집이
+    // "변한 것 없음" 으로 버려진다(도형의 pts 가 같은 함정을 겪었다).
+    a.headFrom === b.headFrom &&
+    a.headTo === b.headTo &&
     a.from.x === b.from.x &&
     a.from.y === b.from.y &&
     a.ctrl.x === b.ctrl.x &&

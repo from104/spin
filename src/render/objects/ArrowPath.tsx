@@ -7,8 +7,8 @@ import { LOCK_TINT_COLOR, LOCK_TINT_OPACITY } from '../../core/colors.ts';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { ARROW_CASING } from '../../core/colors.ts';
 import type { ArrowId } from '../../core/ids.ts';
-import type { Arrow } from '../../model/arrow.ts';
-import { ARROW_STYLES, arrowColor, arrowPath } from '../../model/arrow.ts';
+import type { Arrow, ArrowHead } from '../../model/arrow.ts';
+import { ARROW_STYLE, arrowColor, arrowPath, headFromOf, headToOf } from '../../model/arrow.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 
 export interface ArrowPathProps {
@@ -26,6 +26,17 @@ export interface ArrowPathProps {
   onKeyDown?: (id: ArrowId, e: ReactKeyboardEvent<SVGGElement>) => void;
 }
 
+/** 접근성 이름 — 종류가 사라졌으므로 **양 끝 화살촉**이 그 자리를 말한다(2026-08-16).
+ *  스크린리더 사용자에게 '이동/패스' 는 이제 없는 구분이고, 실제로 다른 것은 화살촉이다. */
+export function arrowLabel(a: Pick<Arrow, 'headFrom' | 'headTo'>): string {
+  const f = headFromOf(a);
+  const t = headToOf(a);
+  const name = (h: ArrowHead): string => (h === 'wide' ? '넓은 화살표' : '화살표');
+  if (f === 'none' && t === 'none') return '선';
+  if (f !== 'none' && t !== 'none') return `양쪽 ${name(t)} 선`;
+  return `${name(f === 'none' ? t : f)} 선`;
+}
+
 export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, writer, selected, locked = false, active, onPointerDown, onKeyDown }: ArrowPathProps) {
   const gRef = useRef<SVGGElement | null>(null);
   // deps 에 arrow **객체**가 들어 있는 것이 핵심이다: React 가 d 를 다시 렌더할 때마다(스텝
@@ -40,9 +51,15 @@ export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, writer, sel
     return () => writer.registerArrow(arrow.id, null);
   }, [writer, arrow]);
   const d = arrowPath(arrow);
-  const style = ARROW_STYLES[arrow.kind];
+  const style = ARROW_STYLE;
   const color = arrowColor(arrow);
   const markerId = `${markerUid}-${color.slice(1)}`;
+  const hFrom = headFromOf(arrow);
+  const hTo = headToOf(arrow);
+  // 십자 커서 — **도형의 몸통과 같은 신호**다(기현 지시 2026-08-16: *"커서를 십자로(도형처럼)"*).
+  // 잡으면 선이 통째로 간다는 예고이고, 끝 앵커(원)와 몸통(선)이 서로 다른 일을 한다는 것을
+  // 손이 닿기 전에 알려 주는 유일한 채널이다.
+  // ⚠️ `onPointerDown` 이 없는 화면(시연·인쇄·썸네일)에는 안 건다 — 거기서는 못 옮긴다.
 
   return (
     <g
@@ -50,13 +67,17 @@ export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, writer, sel
       id={`obj-${arrow.id}`}
       className="court-obj"
       role="button"
-      aria-label={`${arrow.kind === 'pass' ? '패스' : arrow.kind === 'shot' ? '슛' : '이동'} 화살표`}
+      aria-label={arrowLabel(arrow)}
       aria-pressed={selected}
       tabIndex={active ? 0 : -1}
       onPointerDown={(e) => onPointerDown?.(arrow.id, e)}
+      style={onPointerDown ? { cursor: 'move' } : undefined}
       onKeyDown={(e) => onKeyDown?.(arrow.id, e)}
     >
       {selected && <path d={d} fill="none" stroke="var(--accent)" strokeWidth={style.width + 6} strokeLinecap="round" opacity={0.45} />}
+      {/* 케이싱은 **선에만** 건다. 여기에 화살촉 마커까지 달면 케이싱 굵기(5.8)에 비례해
+          마커가 1.7배로 커져 화살촉 뒤로 검은 삼각형이 비어져 나온다(기현 신고 2026-08-16).
+          화살촉의 대비는 마커 자신의 테두리가 맡는다 — 근거는 ArrowMarkers 의 HEAD_CASING_W. */}
       <path d={d} fill="none" stroke={ARROW_CASING} strokeWidth={style.width + 2.4} strokeLinecap="round" />
       <path
         d={d}
@@ -64,8 +85,8 @@ export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, writer, sel
         stroke={color}
         strokeWidth={style.width}
         strokeLinecap="round"
-        strokeDasharray={style.dash || undefined}
-        markerEnd={`url(#${markerId})`}
+        markerStart={hFrom === 'none' ? undefined : `url(#${markerId}-${hFrom})`}
+        markerEnd={hTo === 'none' ? undefined : `url(#${markerId}-${hTo})`}
       />
       {/* §7.2 포커스 표시. 다른 4종(공·콘·의자·메모)은 원/사각형으로 이미 focus-ind-*
        * 을 붙였는데 화살표만 빠져 있었다 — `.court-obj { outline:none }` 이 브라우저 기본

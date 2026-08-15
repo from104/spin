@@ -137,7 +137,7 @@ describe('모든 편집 연산은 원본을 변경하지 않는다', () => {
     const arrowId = newId('ar');
     const noteId = newId('nt');
     let d2 = addCone(d, 0, { x: 5, y: 5 }, 0);
-    d2 = setArrow(d2, 0, { id: arrowId, kind: 'move', from: { x: 0, y: 0 }, ctrl: { x: 1, y: 1 }, to: { x: 2, y: 2 } });
+    d2 = setArrow(d2, 0, { id: arrowId, from: { x: 0, y: 0 }, ctrl: { x: 1, y: 1 }, to: { x: 2, y: 2 } });
     d2 = setNote(d2, 0, { id: noteId, x: 3, y: 3, text: '메모' });
     d2 = removeArrow(d2, 0, arrowId);
     d2 = removeNote(d2, 0, noteId);
@@ -203,7 +203,7 @@ describe('duplicateStep vs addStepAfter — 화살표/메모 id 보존(D6 크로
   it('두 연산 모두 arrows/notes 의 id 를 그대로 유지한다', () => {
     let d = freshDrill();
     const arrowId = newId('ar');
-    d = setArrow(d, 0, { id: arrowId, kind: 'move', from: { x: 0, y: 0 }, ctrl: { x: 1, y: 1 }, to: { x: 2, y: 2 } });
+    d = setArrow(d, 0, { id: arrowId, from: { x: 0, y: 0 }, ctrl: { x: 1, y: 1 }, to: { x: 2, y: 2 } });
 
     const viaAdd = addStepAfter(d, 0);
     expect(viaAdd.steps[1]!.arrows[0]!.id).toBe(arrowId);

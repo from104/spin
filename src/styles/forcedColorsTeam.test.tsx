@@ -32,9 +32,9 @@ import { COURT_BG, GK_AWAY_COLOR, GK_HOME_COLOR, OBJ_STROKE, strokeFor, TEAM_COL
 import { buildStaticSvg } from '../features/export/buildStaticSvg.ts';
 import { PrintCourt } from '../features/print/PrintCourt.tsx';
 import { ChairChip } from '../render/objects/ChairChip.tsx';
+import { ArrowMarkers } from '../render/ArrowMarkers.tsx';
 import { ConeMark } from '../render/objects/ConeMark.tsx';
 import { createTransformWriter } from '../render/transformWriter.ts';
-import { ARROW_STYLES } from '../model/arrow.ts';
 import { teamMarkFor } from '../render/teamMark.ts';
 import { compositeOver, contrastRatio, dashChannelVisible, NON_TEXT_MIN } from './contrastMath.ts';
 
@@ -197,8 +197,14 @@ describe.each(PALETTES)('A) 판을 강제색에 맡기면 무엇이 죽는가 �
         createElement(ConeMark, { id: 'cn_1' as ConeId, writer: createTransformWriter(), colorIndex: i, selected: false, active: false, ariaLabel: '콘' }),
       );
     expect(forceColors(cone(0), F)).not.toBe(forceColors(cone(1), F));
-    expect(ARROW_STYLES.move.dash).not.toBe(ARROW_STYLES.pass.dash);
-    expect(ARROW_STYLES.pass.width).not.toBe(ARROW_STYLES.shot.width);
+    // ⚠️ 2026-08-16 — 화살표의 색 밖 채널이 **파선·굵기에서 화살촉으로 옮겨 갔다**(종류 삭제).
+    //    강제색은 fill/stroke 를 갈아치우지만 **모양은 안 건드리므로**, 좁은·넓은 화살촉의
+    //    치수 차이가 그대로 남는다 — 그것이 여기서 재는 '색 밖 채널' 이다.
+    const head = (k: 'thin' | 'wide'): string =>
+      renderToStaticMarkup(createElement(ArrowMarkers, { uid: 'u', colors: ['#38bdf8'] })).match(
+        new RegExp(`<marker id="u-38bdf8-${k}"[^>]*>.*?</marker>`),
+      )![0];
+    expect(forceColors(head('thin'), F)).not.toBe(forceColors(head('wide'), F));
   });
 });
 

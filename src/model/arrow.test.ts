@@ -34,7 +34,6 @@ describe('arrowPath', () => {
   it('M… Q… 형식이고 좌표가 0.01 로 반올림된다', () => {
     const a: Arrow = {
       id: newId('ar'),
-      kind: 'move',
       from: { x: 1.23456, y: 2.34567 },
       ctrl: { x: 3.456789, y: 4.567891 },
       to: { x: 5.678912, y: 6.789123 },
@@ -47,7 +46,7 @@ describe('arrowPath', () => {
 
 describe('moveEndpoint', () => {
   it('from/to 만 바꾸고 나머지는 유지한다', () => {
-    const a: Arrow = { id: newId('ar'), kind: 'pass', from: { x: 0, y: 0 }, ctrl: { x: 1, y: 1 }, to: { x: 2, y: 2 } };
+    const a: Arrow = { id: newId('ar'), from: { x: 0, y: 0 }, ctrl: { x: 1, y: 1 }, to: { x: 2, y: 2 } };
     const moved = moveEndpoint(a, 'to', { x: 9, y: 9 });
     expect(moved.to).toEqual({ x: 9, y: 9 });
     expect(moved.from).toEqual(a.from);
@@ -58,7 +57,6 @@ describe('moveEndpoint', () => {
 describe('nudgeArrow (§7.5c 키보드)', () => {
   const base = (): Arrow => ({
     id: newId('ar'),
-    kind: 'pass',
     from: { x: 0, y: 0 },
     ctrl: { x: 50, y: -20 },
     to: { x: 100, y: 0 },
@@ -101,7 +99,7 @@ describe('nudgeArrow (§7.5c 키보드)', () => {
     const snapshot = structuredClone(a);
     const m = nudgeArrow(a, 'whole', { x: 7, y: 7 });
     expect(m.id).toBe(a.id);
-    expect(m.kind).toBe('pass');
+    expect(m.headTo).toBe(a.headTo);
     expect(m.color).toBe('#abcdef');
     expect(a).toEqual(snapshot); // 불변
   });

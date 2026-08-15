@@ -116,7 +116,7 @@ describe('validateDrill — 보정', () => {
     expect(r.value.steps).toHaveLength(1);
   });
 
-  it('알 수 없는 ArrowKind 는 move 로 폴백된다', () => {
+  it('★ 옛 kind 는 버려지고, 화살촉만 살아남는다 (2026-08-16 선 통일)', () => {
     const raw = {
       id: 'dr_x',
       courtMode: 'flat',
@@ -137,7 +137,10 @@ describe('validateDrill — 보정', () => {
     const r = validateDrill(raw);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.steps[0]!.arrows[0]!.kind).toBe('move');
+    // kind 는 모델에 없는 필드다 — 정화기가 조용히 버린다.
+    expect((r.value.steps[0]!.arrows[0]! as unknown as Record<string, unknown>).kind).toBeUndefined();
+    // 알 수 없는 화살촉 값도 같은 규율로 버려진다(없으면 기본값이 곧 옛 모양이다).
+    expect(r.value.steps[0]!.arrows[0]!.headTo).toBeUndefined();
   });
 
   it('완전히 깨진(빈) 객체도 throw 없이 실패 결과를 준다', () => {

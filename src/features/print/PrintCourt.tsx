@@ -21,7 +21,7 @@ import { useId } from 'react';
 import { CHAIR, BALL, NOTE } from '../../core/constants.ts';
 import { COURT_BG, OBJ_STROKE, BALL_FILL, CONE_COLORS, ARROW_CASING, NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL } from '../../core/colors.ts';
 import { courtDefFor } from '../../model/court.ts';
-import { ARROW_STYLES, arrowColor, arrowPath } from '../../model/arrow.ts';
+import { ARROW_STYLE, arrowColor, arrowPath, headFromOf, headToOf } from '../../model/arrow.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
@@ -84,7 +84,7 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
       <ShapeLayer shapes={step.shapes} />
       {step.arrows.map((a) => {
         const d = arrowPath(a);
-        const style = ARROW_STYLES[a.kind];
+        const style = ARROW_STYLE;
         const color = arrowColor(a);
         return (
           <g key={a.id} data-print-arrow={a.id}>
@@ -97,8 +97,8 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
               stroke={color}
               strokeWidth={style.width}
               strokeLinecap="round"
-              strokeDasharray={style.dash || undefined}
-              markerEnd={`url(#${uid}-${color.slice(1)})`}
+              markerStart={headFromOf(a) === 'none' ? undefined : `url(#${uid}-${color.slice(1)}-${headFromOf(a)})`}
+              markerEnd={headToOf(a) === 'none' ? undefined : `url(#${uid}-${color.slice(1)}-${headToOf(a)})`}
             />
           </g>
         );

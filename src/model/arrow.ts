@@ -3,26 +3,45 @@ import type { Vec2 } from '../core/units.ts';
 import { isId } from '../core/ids.ts';
 import type { ArrowId } from '../core/ids.ts';
 
-export type ArrowKind = 'move' | 'pass' | 'shot';
+/** 양 끝의 화살촉 — **없음 → 좁은 → 넓은** 순으로 돈다(기현 지시 2026-08-16).
+ *
+ *  ── 왜 종류(kind)를 대신하는가 ──────────────────────────────────────────────────────
+ *  2026-08-16 까지 화살표에는 `kind: 'move' | 'pass' | 'shot'` 이 있었고 색·굵기·점선이 거기서
+ *  나왔다. 기현님 판단: *"작도에 패스, 이동이 무의미하다. 선으로 통일."* 도구 둘을 외워서
+ *  미리 고르는 것보다, **그린 뒤에 끝을 눌러 바꾸는 것**이 판을 그리는 순서에 맞는다.
+ *  그래서 뜻을 나르는 채널이 종류에서 **화살촉**으로 옮겨 갔다 — 양 끝이 각자 독립이라
+ *  한쪽 화살표·양쪽 화살표·화살표 없는 선이 전부 한 도구에서 나온다. */
+export type ArrowHead = 'none' | 'thin' | 'wide';
+/** 순환 순서. 첫 값이 '없음' 인 것이 계약이다 — 끝을 세 번 누르면 처음으로 돌아온다. */
+export const ARROW_HEAD_CYCLE: readonly ArrowHead[] = ['none', 'thin', 'wide'];
+export const cycleHead = (h: ArrowHead): ArrowHead =>
+  ARROW_HEAD_CYCLE[(ARROW_HEAD_CYCLE.indexOf(h) + 1) % ARROW_HEAD_CYCLE.length]!;
+
 export interface Arrow {
   id: ArrowId;
-  kind: ArrowKind;
   from: Vec2;
   ctrl: Vec2;
   to: Vec2; // 2차 베지에
-  color?: string; // kind 기본색을 무시할 때만 (인스펙터 색 스와치)
+  color?: string; // 기본색을 무시할 때만 (인스펙터 색 스와치)
+  /** 시작점 화살촉. 없으면 **'none'** — 새로 그은 선은 한쪽만 화살표다. */
+  headFrom?: ArrowHead;
+  /** 끝점 화살촉. 없으면 **'thin'** — 2026-08-16 이전의 모든 화살표가 그 모양이었고,
+   *  마이그레이션이 값을 안 찍어도 옛 드릴이 그대로 보이게 하는 것이 이 기본값이다. */
+  headTo?: ArrowHead;
 }
+
+export const headFromOf = (a: Pick<Arrow, 'headFrom'>): ArrowHead => a.headFrom ?? 'none';
+export const headToOf = (a: Pick<Arrow, 'headTo'>): ArrowHead => a.headTo ?? 'thin';
+
 export interface ArrowStyle {
   color: string;
   width: number;
-  dash: string;
 }
-export const ARROW_STYLES: Record<ArrowKind, ArrowStyle> = {
-  move: { color: '#38bdf8', width: 3.4, dash: '' },
-  pass: { color: '#fbbf24', width: 3, dash: '9 9' },
-  shot: { color: '#fbbf24', width: 5, dash: '' },
-};
-export const arrowColor = (a: Arrow): string => a.color ?? ARROW_STYLES[a.kind].color;
+/** 선 하나의 스타일. 옛 세 종류(move 파랑 3.4 · pass 노랑 점선 3 · shot 노랑 5)를 대신한다 —
+ *  색은 이동(#38bdf8)의 것을 물려받았다. 그것이 가장 많이 쓰이던 값이고, 노랑(#fbbf24)은
+ *  콘·공 표시와 겹치는 자리가 있어서다. 개별 색은 인스펙터 스와치가 계속 덮어쓴다. */
+export const ARROW_STYLE: ArrowStyle = { color: '#38bdf8', width: 3.4 };
+export const arrowColor = (a: Pick<Arrow, 'color'>): string => a.color ?? ARROW_STYLE.color;
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 

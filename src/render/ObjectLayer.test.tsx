@@ -17,7 +17,7 @@ const arrowId = 'ar_1' as ArrowId;
 function renderLayer(initialFrame?: Record<string, { x: number; y: number; theta: number }>) {
   const writer = createTransformWriter();
   const notes: NoteLabelData[] = [{ id: noteId, x: 0, y: 0, text: '메모' }];
-  const arrows: Arrow[] = [{ id: arrowId, kind: 'move', from: { x: 0, y: 0 }, ctrl: { x: 5, y: 5 }, to: { x: 10, y: 10 } }];
+  const arrows: Arrow[] = [{ id: arrowId, from: { x: 0, y: 0 }, ctrl: { x: 5, y: 5 }, to: { x: 10, y: 10 } }];
   const { container } = render(
     <svg>
       <ObjectLayer

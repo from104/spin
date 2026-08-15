@@ -22,7 +22,6 @@ import type { Arrow } from '../../model/arrow.ts';
 
 const ARROW: Arrow = {
   id: 'ar_1' as ArrowId,
-  kind: 'pass',
   from: { x: 100, y: 100 },
   ctrl: { x: 200, y: 120 },
   to: { x: 300, y: 200 },

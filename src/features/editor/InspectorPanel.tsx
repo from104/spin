@@ -5,7 +5,8 @@ import type { CSSProperties, Dispatch, ReactNode } from 'react';
 import { isId } from '../../core/ids.ts';
 import type { ArrowId, ChairId, NoteId } from '../../core/ids.ts';
 import { KNOWN_CATEGORIES, TEAM_COLOR_CHOICES, TEAM_COLOR_NAMES, inkFor } from '../../core/colors.ts';
-import { ARROW_STYLES, arrowColor } from '../../model/arrow.ts';
+import { ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
+import { arrowLabel } from '../../render/objects/ArrowPath.tsx';
 import type { Drill, DrillLevel, DrillStep, TeamSide } from '../../model/drill.ts';
 import { DRILL_LEVELS } from '../../model/drill.ts';
 import { defaultDefense } from '../../model/rules.ts';
@@ -908,7 +909,7 @@ function SelectionSection({
   if (isId(id, 'ar')) {
     const arrow = step.arrows.find((a) => a.id === (id as ArrowId));
     if (!arrow) return null;
-    const label = arrow.kind === 'pass' ? '패스 화살표' : arrow.kind === 'shot' ? '슛 화살표' : '이동 화살표';
+    const label = arrowLabel(arrow);
     return (
       <div style={{ padding: '0 17px' }}>
         <div style={SECTION_LABEL}>선택한 화살표</div>
@@ -917,7 +918,7 @@ function SelectionSection({
             <span aria-hidden style={{ width: 10, height: 10, borderRadius: '50%', background: arrowColor(arrow) }} />
             {label}
           </div>
-          <div style={{ fontSize: '0.71875rem', color: 'var(--faint-text)' }}>두께 {ARROW_STYLES[arrow.kind].width}px</div>
+          <div style={{ fontSize: '0.71875rem', color: 'var(--faint-text)' }}>두께 {ARROW_STYLE.width}px</div>
           <Button variant="ghost" onClick={() => onEraseIds([arrow.id], 'thisStep')}>
             화살표 삭제
           </Button>

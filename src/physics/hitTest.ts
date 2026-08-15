@@ -4,8 +4,7 @@ import { CHAIR, BALL, CONE, NOTE, INTERACT } from '../core/constants.ts';
 import type { ChairId, BallId, ConeId, NoteId, ArrowId } from '../core/ids.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
 import { chairCorners, projectGrab, pointAtLever } from '../model/chair.ts';
-import type { ArrowKind } from '../model/arrow.ts';
-import { ARROW_STYLES } from '../model/arrow.ts';
+import { ARROW_STYLE } from '../model/arrow.ts';
 
 /** §6.10 편집기 도구 8종의 key. 원 소유자는 store/screen-editor(Wave 3/4)지만, hitTest 의
  *  `HitContext` 시그니처가 §5.12 계약에 `tool: ToolId` 로 이미 못박혀 있고 physics-world 는
@@ -16,8 +15,9 @@ import { ARROW_STYLES } from '../model/arrow.ts';
 // 아래 히트테스트에는 도형 분기가 없다 — 도형의 히트 판정은 SVG 이벤트가 직접 한다.
 export type ToolId =
   | 'select'
-  | 'route'
-  | 'pass'
+  // 2026-08-16 — 'route'(이동) · 'pass'(패스) 둘이 **'line' 하나로 합쳐졌다**(기현 지시:
+  // *"작도에 패스, 이동이 무의미하다. 선으로 통일"*). 뜻은 도구가 아니라 양 끝 화살촉이 나른다.
+  | 'line'
   | 'ball'
   | 'cone'
   | 'player'
@@ -74,7 +74,7 @@ export interface SceneSnapshot {
   balls: ReadonlyArray<{ id: BallId; p: Vec2 }>;
   cones: ReadonlyArray<{ id: ConeId; p: Vec2 }>;
   notes: ReadonlyArray<{ id: NoteId; p: Vec2 }>;
-  arrows: ReadonlyArray<{ id: ArrowId; kind: ArrowKind; from: Vec2; ctrl: Vec2; to: Vec2 }>;
+  arrows: ReadonlyArray<{ id: ArrowId; from: Vec2; ctrl: Vec2; to: Vec2 }>;
 }
 
 export function zoneHandles(
@@ -295,7 +295,7 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
   // 6) 화살표 stroke.
   let arrowBest: { id: string; d: number } | null = null;
   for (const a of scene.arrows) {
-    const tol = ARROW_STYLES[a.kind].width / 2 + r.arrowPad;
+    const tol = ARROW_STYLE.width / 2 + r.arrowPad;
     const d = distPointToQuadBezier(p, a.from, a.ctrl, a.to);
     if (d <= tol && (!arrowBest || d < arrowBest.d)) arrowBest = { id: a.id, d };
   }

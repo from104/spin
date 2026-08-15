@@ -6,7 +6,6 @@ import type { IconProps } from '../../ui/icons.tsx';
 import {
   IconToolSelect,
   IconToolRoute,
-  IconToolPass,
   IconToolBall,
   IconToolCone,
   IconToolPlayer,
@@ -30,8 +29,11 @@ export interface ToolDef {
 
 export const TOOLS: readonly ToolDef[] = [
   { id: 'select', label: '선택', key: 'v', digit: '1', Icon: IconToolSelect },
-  { id: 'route', label: '이동', key: 'r', digit: '2', Icon: IconToolRoute },
-  { id: 'pass', label: '패스', key: 'p', digit: '3', Icon: IconToolPass },
+  // 2026-08-16 — '이동'(route) · '패스'(pass) 둘이 **'선'(line) 하나로 합쳐졌다**.
+  // 키 `r` 과 숫자 `2` 는 이동의 것을 그대로 물려받는다: 둘 중 훨씬 많이 쓰이던 도구라
+  // 손이 기억하는 자리를 지키는 쪽이 이득이다. 패스의 `p`·`3` 은 **비워 둔다** —
+  // 다른 도구에 물려주면 옛 손버릇이 엉뚱한 도구를 켠다.
+  { id: 'line', label: '선', key: 'r', digit: '2', Icon: IconToolRoute },
   // 작도 도형 3종(2026-08-14 기현 지시). 이동·패스 바로 뒤 = **작도 서랍 안**이다.
   // 단축키는 남은 글자로 잡았다: o(circle 의 모양) · y(삼각) · u(사각). 숫자는 8 을 넘으므로
   // 안 준다 — §7.5f 의 '1–8' 계약을 늘리면 지우개(8)가 밀린다.

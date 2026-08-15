@@ -119,6 +119,16 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
     };
   }, []);
 
+  // Ctrl/⌘+S — **디바운스를 건너뛰고 지금 저장한다**(2026-08-15 보드 단축키 정리).
+  //
+  // 그 전에는 이 키가 드릴의 `autosave.flush()` 로 갔는데, 전술판은 자동저장을 **끈 채**
+  // 그 훅을 부르므로(`useAutosave(!isBoard)`) flush 가 첫 줄에서 그냥 돌아왔다 — 즉 눌러도
+  // 아무 일도 안 나면서 도움말에는 '저장' 이라고 적혀 있었다. 전술판에도 저장할 것은 있다:
+  // 500ms 디바운스로 미뤄 둔 스냅샷이다.
+  const saveNow = useCallback(() => {
+    saveBoard(presentRef.current, pristineRef.current);
+  }, []);
+
   const swap = useCallback(
     (mode: CourtMode, size?: CourtSize) => {
       dispatch({ type: 'BOARD_SET', drill: makeBoardDrill(prefs, mode, size) });
@@ -191,5 +201,5 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
     })();
   }, [state.present, toast, nav, refresh]);
 
-  return <EditorWorkspace mode="board" board={{ pristine: pristineBase, onCourtChange, onCourtSizeChange, onReset, onSaveAsDrill }} />;
+  return <EditorWorkspace mode="board" board={{ pristine: pristineBase, onCourtChange, onCourtSizeChange, onReset, onSaveAsDrill, onSave: saveNow }} />;
 }

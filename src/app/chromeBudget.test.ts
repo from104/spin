@@ -46,11 +46,11 @@ const pcOverlay: ChromeState = { narrow: false, inspector: 'overlay' };
 const pcPinned: ChromeState = { narrow: false, inspector: 'pinned' };
 
 describe('예산 합계 — 못박은 값', () => {
-  it('폭 합계는 523 → 117 이다', () => {
+  it('폭 합계는 523 → 173 이다 (재설계 ② 로 기능 바 56 이 상시가 됐다)', () => {
     expect(sumNow('width')).toBe(CHROME_WIDTH_NOW_PX);
     expect(CHROME_WIDTH_NOW_PX).toBe(523);
     expect(chromeWidthPx(narrowState)).toBe(CHROME_WIDTH_NARROW_PX);
-    expect(CHROME_WIDTH_NARROW_PX).toBe(117);
+    expect(CHROME_WIDTH_NARROW_PX).toBe(173);
   });
 
   it('세로 합계는 196 → 128 이다', () => {
@@ -72,16 +72,19 @@ describe('예산 합계 — 못박은 값', () => {
     expect([byId.courtPadY!.now, byId.courtPadY!.narrow]).toEqual([40, 16]);
   });
 
-  it('넓은 창의 폭 크롬은 인스펙터 모드가 가른다 — 225(오버레이) / 538(핀)', () => {
+  it('넓은 창의 폭 크롬은 인스펙터 모드가 가른다 — 281(오버레이) / 594(핀)', () => {
     // 트레이 93 은 **좁을 때만이 아니다.** 44px 미만 손잡이는 PC 에서도 결함이라 기기와 무관하게
     // 커진다(§5.4). §5.3 의 PC 두 행이 이 93 으로 계산된 값이다 — 78 로 두면 표가 안 맞는다.
-    expect(chromeWidthPx(pcOverlay)).toBe(225);
-    expect(chromeWidthPx(pcPinned)).toBe(538);
-    // 세로는 헤더(62, 미지정 행)만 재편 전 값이다. 하단 바는 **넓은 창에서도 64** 다 —
-    // 라벨줄이 사라진 것은 화면이 좁아서가 아니라 스텝 조작이 인스펙터에서 내려왔기
-    // 때문이라(2.10), 트레이 93 과 같은 이유로 기기와 무관하다.
-    expect(chromeHeightPx(pcOverlay)).toBe(166);
-    expect(CHROME_HEIGHT_NOW_PX - chromeHeightPx(pcOverlay)).toBe(30); // 하단 바가 돌려준 30px
+    expect(chromeWidthPx(pcOverlay)).toBe(281);
+    expect(chromeWidthPx(pcPinned)).toBe(594);
+    // 세로 166 → **104**(2026-08-15 재설계 ②): 넓은 창에서는 헤더가 통째로 없다(62 → 0).
+    // 남는 것은 하단 바 64 + 코트 래퍼 상하 40 이다. 하단 바가 **넓은 창에서도 64** 인 것은
+    // 그대로다 — 라벨줄이 사라진 것은 화면이 좁아서가 아니라 스텝 조작이 인스펙터에서
+    // 내려왔기 때문이라(2.10), 트레이 93 과 같은 이유로 기기와 무관하다.
+    expect(chromeHeightPx(pcOverlay)).toBe(104);
+    // 재편 전 196 → 104. 30 은 하단 바가 돌려준 몫이고, 나머지 62 는 **헤더가 통째로 사라진**
+    // 몫이다(2026-08-15 재설계 ②). 둘을 합쳐 92 다.
+    expect(CHROME_HEIGHT_NOW_PX - chromeHeightPx(pcOverlay)).toBe(92);
   });
 
   it('인스펙터 행만 narrow 가 아니라 자기 모드가 정한다', () => {
@@ -118,7 +121,7 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
     const before = nowBox({ w: 1024, h: 600 });
     const after = courtBoxPx({ w: 1024, h: 600 }, narrowState);
     expect(before).toEqual({ w: 501, h: 404 });
-    expect(after).toEqual({ w: 907, h: 472 });
+    expect(after).toEqual({ w: 807, h: 472 });
     expect(px(before)).toBeCloseTo(0.6073, 4);
     expect(px(after)).toBeCloseTo(0.8990, 4);
     expect((px(after) / px(before) - 1) * 100).toBeCloseTo(48.0, 1);
@@ -130,7 +133,7 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
     const before = nowBox({ w: 800, h: 480 });
     const after = courtBoxPx({ w: 800, h: 480 }, narrowState);
     expect(before).toEqual({ w: 277, h: 284 });
-    expect(after).toEqual({ w: 683, h: 352 });
+    expect(after).toEqual({ w: 583, h: 352 });
     expect(px(before)).toBeCloseTo(0.3358, 4);
     expect(px(after)).toBeCloseTo(0.6705, 4);
     expect((px(after) / px(before) - 1) * 100).toBeCloseTo(99.7, 1);
@@ -150,25 +153,25 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
     const overlay = courtBoxPx(view, pcOverlay);
     const pinned = courtBoxPx(view, pcPinned);
     expect(before).toEqual({ w: 757, h: 604 });
-    expect(overlay).toEqual({ w: 1055, h: 634 });
-    expect(pinned).toEqual({ w: 742, h: 634 });
+    expect(overlay).toEqual({ w: 999, h: 696 });
+    expect(pinned).toEqual({ w: 686, h: 696 });
     expect(px(before)).toBeCloseTo(0.9176, 4);
-    expect(px(overlay)).toBeCloseTo(1.2076, 4);
+    expect(px(overlay)).toBeCloseTo(1.2109, 4);
     // 핀은 **폭**이 제약이라 세로 30px 이 남아도 축척이 안 변한다 — 하단 바 갱신이 이 행을
     // 건드리지 않는다는 것을 함께 못박는다(0.8994 는 2.3 이 계산한 그 값 그대로다).
-    expect(px(pinned)).toBeCloseTo(0.8994, 4);
+    expect(px(pinned)).toBeCloseTo(0.8315, 4);
     expect(pinned.w / 825).toBeLessThan(pinned.h / 525);
-    expect((px(overlay) / px(before) - 1) * 100).toBeCloseTo(31.6, 1);
+    expect((px(overlay) / px(before) - 1) * 100).toBeCloseTo(32.0, 1);
     // 핀 상태가 지금보다 2% 작다는 것은 감수한 손해다(원인은 트레이 78→93). 이 부호가
     // 뒤집히면 §5.3 '정직한 인정 2번' 이 거짓이 되므로 함께 못박는다.
-    expect((px(pinned) / px(before) - 1) * 100).toBeCloseTo(-2.0, 1);
+    expect((px(pinned) / px(before) - 1) * 100).toBeCloseTo(-9.4, 1);
   });
 
-  it('1920×1080 PC 핀 — 1.675 (하단 바 −30 에도 폭 제약이라 그대로다)', () => {
+  it('1920×1080 PC 핀 — 1.607 (기능 바 56 만큼 폭이 더 빠졌다)', () => {
     const box = courtBoxPx({ w: 1920, h: 1080 }, pcPinned);
-    expect(box).toEqual({ w: 1382, h: 914 });
-    expect(px(box)).toBeCloseTo(1.6749, 3);
-    expect(courtScale('full', box).pxPerMeter).toBeCloseTo(41.9, 1);
+    expect(box).toEqual({ w: 1326, h: 976 });
+    expect(px(box)).toBeCloseTo(1.6073, 3);
+    expect(courtScale('full', box).pxPerMeter).toBeCloseTo(40.2, 1);
   });
 });
 
@@ -213,12 +216,12 @@ describe('§5.3 half/flat 행 [A-13]', () => {
     // iPad 세로 834×1194. 여기서 rotForFit 이 개입하지 않으면 예산표가 화면과 다른 숫자를
     // 말하게 된다 — 판이 돌면 상자에 맞는 변이 바뀌기 때문이다.
     const box = courtBoxPx({ w: 834, h: 1194 }, narrowState);
-    expect(box).toEqual({ w: 717, h: 1066 });
+    expect(box).toEqual({ w: 661, h: 1066 });
     const full = courtScale('full', box);
     expect(full.rot).toBe(90);
-    expect(full.pxPerUnit).toBeCloseTo(1.2921, 4);
+    expect(full.pxPerUnit).toBeCloseTo(1.2590, 4);
     // 대조군 — 돌리지 않았다면 0.869 로 3할 이상 작다.
-    expect(Math.min(box.w / 825, box.h / 525)).toBeCloseTo(0.8691, 4);
+    expect(Math.min(box.w / 825, box.h / 525)).toBeCloseTo(0.8012, 4);
   });
 });
 
@@ -229,14 +232,14 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     const bare = courtBoxPx({ w: 1024, h: 600 }, narrowState);
     const explicit = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_NONE });
     expect(explicit).toEqual(bare);
-    expect(explicit).toEqual({ w: 907, h: 472 });
+    expect(explicit).toEqual({ w: 807, h: 472 });
   });
 
   it('아이패드 홈 인디케이터 20px 이 세로 예산에서 더 빠진다 — 0.8990 이 아니라 0.8610', () => {
     // §5.2 가 *"확정 배율 0.8914 는 안드로이드 태블릿 기준 상한이지 아이패드 실측이 아니다"*
     // 라고 적어 둔 것의 계산이 이것이다. 4.3% 작다.
     const box = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR });
-    expect(box).toEqual({ w: 907, h: 452 });
+    expect(box).toEqual({ w: 807, h: 452 });
     expect(chromeHeightPx({ ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR })).toBe(CHROME_HEIGHT_NARROW_PX + 20);
     expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8610, 4);
   });
@@ -245,7 +248,7 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     const state: ChromeState = { ...narrowState, safeArea: SAFE_AREA_NOTCH_LANDSCAPE };
     expect(chromeWidthPx(state)).toBe(CHROME_WIDTH_NARROW_PX + 88);
     const box = courtBoxPx({ w: 1024, h: 600 }, state);
-    expect(box).toEqual({ w: 819, h: 451 });
+    expect(box).toEqual({ w: 719, h: 451 });
     // 폭 88 이 빠져도 이 상자는 여전히 세로 제약이다 — 노치의 대가는 하단 21px 쪽에서 온다.
     expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8590, 4);
   });

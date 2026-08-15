@@ -2,7 +2,6 @@
 // 색을 바꿔도 썸네일이 즉시 따라온다. 첫 스텝에서 생성.
 import type { Drill } from './drill.ts';
 import type { CourtMode } from './court.ts';
-import type { ArrowKind } from './arrow.ts';
 
 export interface ThumbSpec {
   mode: CourtMode;
@@ -10,7 +9,7 @@ export interface ThumbSpec {
   balls: Array<[number, number]>;
   cones: Array<[number, number, 0 | 1]>;
   /** D5 와 일관되게 path 문자열이 아니라 제어점을 담는다. `d` 는 렌더 시 arrowPath 로 생성. */
-  arrows: Array<{ p: [number, number, number, number, number, number]; k: ArrowKind }>; // from,ctrl,to
+  arrows: Array<{ p: [number, number, number, number, number, number] }>; // from,ctrl,to
 }
 
 export const THUMB_CAPS = { chairs: 8, balls: 4, cones: 8, arrows: 3 } as const;
@@ -50,7 +49,7 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
     }
     for (const a of step.arrows) {
       if (arrows.length >= THUMB_CAPS.arrows) break;
-      arrows.push({ p: [a.from.x, a.from.y, a.ctrl.x, a.ctrl.y, a.to.x, a.to.y], k: a.kind });
+      arrows.push({ p: [a.from.x, a.from.y, a.ctrl.x, a.ctrl.y, a.to.x, a.to.y] });
     }
   }
 

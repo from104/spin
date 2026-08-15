@@ -15,7 +15,7 @@ describe('ArrowHandles', () => {
   });
 
   it('activePart 를 주면 그 점에만 조준 링이 붙는다 (§4.3 1.11 키보드 조준)', () => {
-    const arrow: Arrow = { id: 'ar_1' as ArrowId, kind: 'move', from: { x: 0, y: 0 }, ctrl: { x: 5, y: -5 }, to: { x: 10, y: 0 } };
+    const arrow: Arrow = { id: 'ar_1' as ArrowId, from: { x: 0, y: 0 }, ctrl: { x: 5, y: -5 }, to: { x: 10, y: 0 } };
     const { container, rerender } = render(
       <svg>
         <ArrowHandles arrow={arrow} pxPerUnit={1} />
@@ -36,7 +36,7 @@ describe('ArrowHandles', () => {
   });
 
   it('from/ctrl/to 3개 핸들을 정확한 좌표에 그린다', () => {
-    const arrow: Arrow = { id: 'ar_1' as ArrowId, kind: 'move', from: { x: 0, y: 0 }, ctrl: { x: 5, y: -5 }, to: { x: 10, y: 0 } };
+    const arrow: Arrow = { id: 'ar_1' as ArrowId, from: { x: 0, y: 0 }, ctrl: { x: 5, y: -5 }, to: { x: 10, y: 0 } };
     const { container } = render(
       <svg>
         <ArrowHandles arrow={arrow} pxPerUnit={1} />

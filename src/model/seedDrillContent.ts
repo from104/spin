@@ -88,8 +88,8 @@ const BEGINNER: SeedDrillSpec = {
       },
       balls: [[125, 262.5]],
       arrows: [
-        { kind: 'pass', from: [125, 262.5], to: [300, 150] },
-        { kind: 'move', from: [405, 262.5], to: [500, 262.5] },
+        { from: [125, 262.5], to: [300, 150] },
+        { from: [405, 262.5], to: [500, 262.5] },
       ],
     },
     {
@@ -106,7 +106,7 @@ const BEGINNER: SeedDrillSpec = {
         'home-4': [500, 262.5, 0],
       },
       balls: [[548, 262.5]],
-      arrows: [{ kind: 'pass', from: [300, 150], to: [548, 262.5] }],
+      arrows: [{ from: [300, 150], to: [548, 262.5] }],
     },
   ],
 };
@@ -197,8 +197,8 @@ const INTERMEDIATE: SeedDrillSpec = {
         [575, 37.5],
       ],
       arrows: [
-        { kind: 'pass', from: [450, 37.5], to: [330, 155] },
-        { kind: 'move', from: [585, 150], to: [530, 245] },
+        { from: [450, 37.5], to: [330, 155] },
+        { from: [585, 150], to: [530, 245] },
       ],
     },
     {
@@ -221,7 +221,7 @@ const INTERMEDIATE: SeedDrillSpec = {
         [325, 37.5],
         [575, 37.5],
       ],
-      arrows: [{ kind: 'pass', from: [330, 155], to: [485, 245] }],
+      arrows: [{ from: [330, 155], to: [485, 245] }],
     },
   ],
 };
@@ -291,7 +291,7 @@ const ADVANCED: SeedDrillSpec = {
         'away-3': [330, 315, 180],
       },
       balls: [[278, 180]],
-      arrows: [{ kind: 'move', from: [250, 245], to: [235, 350] }],
+      arrows: [{ from: [250, 245], to: [235, 350] }],
       notes: [{ at: [300, 120], text: '공에서 3 m — 우리 편 둘이면 2-on-1' }],
     },
     {
@@ -311,7 +311,7 @@ const ADVANCED: SeedDrillSpec = {
         'away-3': [330, 315, 180],
       },
       balls: [[278, 180]],
-      arrows: [{ kind: 'move', from: [420, 262.5], to: [520, 375] }],
+      arrows: [{ from: [420, 262.5], to: [520, 375] }],
     },
     {
       name: '대각으로 넘긴다',
@@ -330,7 +330,7 @@ const ADVANCED: SeedDrillSpec = {
         'away-3': [330, 315, 180],
       },
       balls: [[568, 375]],
-      arrows: [{ kind: 'pass', from: [278, 180], to: [568, 375] }],
+      arrows: [{ from: [278, 180], to: [568, 375] }],
     },
     {
       name: '마무리',
@@ -350,8 +350,8 @@ const ADVANCED: SeedDrillSpec = {
       },
       balls: [[690, 320]],
       arrows: [
-        { kind: 'move', from: [520, 375], to: [640, 330] },
-        { kind: 'pass', from: [690, 320], to: [785, 320] },
+        { from: [520, 375], to: [640, 330] },
+        { from: [690, 320], to: [785, 320] },
       ],
     },
   ],

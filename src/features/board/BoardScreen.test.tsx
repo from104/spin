@@ -789,7 +789,6 @@ describe('화살표 개체의 키보드 조작 (§4.3 1.11)', () => {
     const id = newId('ar');
     const drill = setArrow(createDrill({ courtMode: 'full', formation: '1-2-1' }), 0, {
       id,
-      kind: 'pass',
       from: { ...FROM },
       ctrl: { ...CTRL },
       to: { ...TO },
@@ -905,7 +904,7 @@ describe('Ctrl+방향키는 개체·배치 커서를 지나 전역까지 간다 
   it('개체에 포커스가 있어도 화살표는 꿈쩍 않고 키는 전역까지 간다', async () => {
     // 화살표를 쓰는 이유: 물리 바디가 없어 좌표가 리듀서 산출물 그대로다(정착으로 흔들리지 않는다).
     const id = newId('ar');
-    saveBoard(setArrow(createDrill({ courtMode: 'full', formation: '1-2-1' }), 0, { id, kind: 'pass', from: { ...FROM }, ctrl: { ...CTRL }, to: { ...TO } }), false);
+    saveBoard(setArrow(createDrill({ courtMode: 'full', formation: '1-2-1' }), 0, { id, from: { ...FROM }, ctrl: { ...CTRL }, to: { ...TO } }), false);
     const { user, stage } = await openBoard('full');
     const arrow = stage.querySelector(`#obj-${id}`) as SVGGElement;
     expect(arrow).not.toBeNull();

@@ -197,14 +197,15 @@ describe('seed 드릴 — 온보딩 대본 계약 (§3)', () => {
     }
   });
 
-  it('세 드릴 전체가 앱의 말을 한 번씩 쓴다 — 선수·공·콘·화살표 2종·코트 메모·스텝 시간·실명', () => {
+  it('세 드릴 전체가 앱의 말을 한 번씩 쓴다 — 선수·공·콘·선·코트 메모·스텝 시간·실명', () => {
     const drills = built();
     const steps = drills.flatMap((d) => d.steps);
     expect(steps.some((s) => Object.keys(s.chairs).length > 0)).toBe(true);
     expect(steps.some((s) => Object.keys(s.balls).length > 0)).toBe(true);
     expect(steps.some((s) => Object.keys(s.cones).length > 0)).toBe(true);
-    expect(steps.some((s) => s.arrows.some((a) => a.kind === 'move'))).toBe(true);
-    expect(steps.some((s) => s.arrows.some((a) => a.kind === 'pass'))).toBe(true);
+    // 2026-08-16 — 화살표 종류가 사라져 '2종' 이 '선' 하나가 됐다. 대본이 선을 **쓰기는 하는가**
+    // 만 재면 된다(옛 단언이 지키던 것도 결국 그것이다).
+    expect(steps.some((s) => s.arrows.length > 0)).toBe(true);
     expect(steps.some((s) => s.notes.length > 0)).toBe(true);
     expect(steps.some((s) => s.durationMs !== undefined)).toBe(true);
     expect(drills.some((d) => d.cast.chairs.some((c) => c.name))).toBe(true);

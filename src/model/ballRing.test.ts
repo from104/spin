@@ -179,11 +179,12 @@ describe('5.2 스키마 관문 ② — 도장을 올리지 않은 것이 성립�
     // 링과 **나란히** 적혀 있다(링은 조건 ②를 넘어 안 올렸고, 도형은 못 넘어 올렸다).
     // ⚠️ 2026-08-15 — 5 가 됐다. 역시 링 때문이 아니다(v4→v5 는 자유 삼각형 `Shape.pts`).
     // ⚠️ 2026-08-15 — 6 이 됐다. 역시 링 때문이 아니다(v5→v6 은 진영 `Drill.defense`).
+    // ⚠️ 2026-08-16 — 7 이 됐다. 역시 링 때문이 아니다(v6→v7 은 선 통일 — 화살표 kind 삭제).
     // 이 describe 가 지키는 것은 여전히 "링이 도장을 올리지 않았다" 이므로, 그 사실을 링을
     // 건드리는 단계가 체인에 없다는 것으로 잰다.
     const last = DRILL_MIGRATIONS[DRILL_MIGRATIONS.length - 1]!;
     expect(last.to).toBe(CURRENT_DRILL_SCHEMA);
-    expect(CURRENT_DRILL_SCHEMA).toBe(6);
+    expect(CURRENT_DRILL_SCHEMA).toBe(7);
     // ⚠️ 문구로 세지 않는다 — v1→v2 의 '필요 **인원**' 이 '원' 을 품고 있어 헛걸린다.
     // 행동으로 잰다: 전 체인을 돌려도 `cast.balls` 가 바이트 동일해야 한다.
     const balls = [{ id: 'bl_1', ring: '5m' }, { id: 'bl_2' }];
@@ -207,8 +208,8 @@ describe('5.2 스키마 관문 ② — 도장을 올리지 않은 것이 성립�
     expect(mig.ok).toBe(true);
     if (!mig.ok) return;
     // 2026-08-14 — v3→v4(도형) 한 단계는 지난다. **원과 무관한 단계**라는 것이 요점이다.
-    // 2026-08-15 — v4→v5(자유 삼각형)·v5→v6(진영)이 붙어 셋이 됐다. 역시 원과 무관하다.
-    expect(mig.applied).toHaveLength(3);
+    // 2026-08-15 — v4→v5·v5→v6, 2026-08-16 — v6→v7 이 붙어 넷이 됐다. 역시 원과 무관하다.
+    expect(mig.applied).toHaveLength(4);
     expect((mig.doc as { cast: { balls: unknown[] } }).cast.balls, '도형 단계가 원을 건드렸다').toEqual(handMade.cast.balls);
     const v = validateDrill(mig.doc);
     expect(v.ok).toBe(true);
@@ -229,8 +230,8 @@ describe('5.2 스키마 관문 ② — 도장을 올리지 않은 것이 성립�
     expect(mig.ok).toBe(true);
     if (!mig.ok) return;
     // 2026-08-14 — 체인이 셋이 됐다(v3→v4 작도 도형).
-    // 2026-08-15 — 다섯(v4→v5 자유 삼각형 · v5→v6 진영).
-    expect(mig.applied).toHaveLength(5); // v1→v2→v3 은 그대로 돈다(대조군)
+    // 2026-08-15 — 다섯. 2026-08-16 — 여섯(v6→v7 선 통일).
+    expect(mig.applied).toHaveLength(6); // v1→v2→v3 은 그대로 돈다(대조군)
     const v = validateDrill(mig.doc);
     expect(v.ok).toBe(true);
     if (!v.ok) return;

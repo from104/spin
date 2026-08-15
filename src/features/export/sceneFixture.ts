@@ -52,8 +52,8 @@ export function makeFrame(over: Partial<RenderFrame> = {}): RenderFrame {
       { id: 'cn_2' as ConeId, colorIndex: 1, x: 240, y: 200, opacity: 1 },
     ],
     arrows: [
-      { id: 'ar_1' as ArrowId, kind: 'move', from: { x: 100, y: 100 }, ctrl: { x: 150, y: 120 }, to: { x: 200, y: 140 }, opacity: 1 },
-      { id: 'ar_2' as ArrowId, kind: 'pass', from: { x: 300, y: 300 }, ctrl: { x: 350, y: 320 }, to: { x: 400, y: 340 }, opacity: 1 },
+      { id: 'ar_1' as ArrowId, from: { x: 100, y: 100 }, ctrl: { x: 150, y: 120 }, to: { x: 200, y: 140 }, opacity: 1 },
+      { id: 'ar_2' as ArrowId, headTo: 'wide', from: { x: 300, y: 300 }, ctrl: { x: 350, y: 320 }, to: { x: 400, y: 340 }, opacity: 1 },
     ],
     notes: [
       { id: 'nt_1' as NoteId, x: 260, y: 440, text: '왼쪽으로 전환', opacity: 1 },

@@ -17,7 +17,7 @@ import { rotForFit } from '../render/useStageMetrics.ts';
 import type { StageRot } from '../render/useStageMetrics.ts';
 import { inspectorChromeWidthPx } from '../features/editor/inspectorLayout.ts';
 import type { InspectorMode } from '../features/editor/inspectorLayout.ts';
-import { functionBarColumnsAt, functionBarWidthPx } from '../features/editor/functionBarMetrics.ts';
+import { functionBarColumnsAt, functionBarItemsFor, functionBarWidthPx } from '../features/editor/functionBarMetrics.ts';
 import { trayBandHeightPx } from '../features/editor/trayMetrics.ts';
 
 export type ChromeAxis = 'width' | 'height';
@@ -195,7 +195,10 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
 
 /** 못박은 합계. **행 합으로 계산하지 않는다** — 계산해 두면 어느 행이 슬그머니 커져도 총액이
  *  따라 움직여 예산이 예산 노릇을 못 한다. 테스트가 "행 합 === 이 상수" 를 매번 대조한다. */
-export const CHROME_WIDTH_NARROW_PX = 117;
+/** ⚠️ 2026-08-15 (재설계 ②) — **117 → 173.** 오른쪽 기능 바(56)가 드릴 편집에도 서면서
+ *  폭 크롬에 상시로 더해졌다. 작은 화면(1024×600·800×480)의 코트는 **한 눈금도 안 작아진다** —
+ *  거기서는 세로가 제약이라 폭에 여유가 있었기 때문이다(§5.3 표의 그 두 행이 그대로인 이유). */
+export const CHROME_WIDTH_NARROW_PX = 173;
 export const CHROME_HEIGHT_NARROW_PX = 128;
 /** 재편 이전 합계. §5.3 의 '현재' 열이 이 값에서 나온다(1024×600 → 0.6073). */
 export const CHROME_WIDTH_NOW_PX = 523;
@@ -255,13 +258,20 @@ export function chromeRowPx(row: ChromeRow, state: ChromeState): number {
   const here = state.narrow ? row.narrow : row.wide;
   if (row.id === 'toolRail') return state.trayBand ? 0 : here;
   if (row.id === 'trayBand') return state.trayBand ? here : 0;
-  // 전술판에는 하단 바가 없고 기능 바가 있다. 드릴 편집은 그 반대다(아직 옛 배치).
-  if (row.id === 'functionBar') return state.board ? here : 0;
+  // ⚠️ 2026-08-15 — **둘은 더 이상 서로의 반대가 아니다**(드릴 편집 재설계 ②). 기능 바는
+  //    이제 두 화면 다 선다. 하단 바(트랜스포트)만 드릴 편집에 남는다 — 스텝은 시간축이고
+  //    시간축은 가로가 자연스럽기 때문이다(전술판은 1장짜리라 그 바가 아예 없다).
+  if (row.id === 'functionBar') return here;
   if (row.id === 'transportBar') return state.board ? 0 : here;
-  // ★ 자유 전술판은 **넓은 창에서 헤더가 없다**(2026-08-14 — AppShell 의 showHeader).
+  // ★ 판 화면은 **넓은 창에서 헤더가 없다**(AppShell 의 showHeader).
   //   좁은 창에서는 남는다: 84px 레일이 빠진 자리를 헤더의 3칸 세그먼트가 대신하므로,
   //   지우면 화면을 옮길 방법이 없어진다. 이 한 줄이 그 규칙의 예산판이다.
-  if (row.id === 'appHeader') return state.board && !state.narrow ? 0 : here;
+  //
+  //   ⚠️ 2026-08-15 (재설계 ②) — `state.board` 조건이 **빠졌다.** 2026-08-14 에는 전술판만
+  //   헤더를 걷었고 드릴 편집은 제목·[저장]·[시연] 때문에 남겼는데, 그 셋이 각각 인스펙터·
+  //   기능 바·트랜스포트로 가면서 남길 이유가 없어졌다. 그리고 이것은 미관이 아니라 코트
+  //   크기의 문제였다 — 헤더 48 이 남으면 기둥이 2열로 흘러 폭에서 44 를 더 먹는다(AppShell).
+  if (row.id === 'appHeader') return state.narrow ? here : 0;
   return here;
 }
 
@@ -298,12 +308,11 @@ export function courtBoxPx(viewport: Size, state: ChromeState): Size {
  *  6.7% 를 안 세면 `rotForFit` 의 1.08 문턱을 넘나드는 구간에서 **판이 눕느냐 서느냐가 갈린다.**
  *  예산이 화면과 다른 답을 내는 순간 그 화면은 재현이 안 된다(P1 이 끊은 그 부류의 사고다). */
 function functionBarExtraColsPx(viewport: Size, state: ChromeState): number {
-  if (!state.board) return 0;
   const sa = state.safeArea ?? SAFE_AREA_NONE;
   // 바는 `<main>` 의 직계라 헤더 아래 전부를 쓴다. 하단 바는 코트 컬럼 **안**이라 안 뺀다.
   const avail = viewport.h - chromeRowPx(CHROME_ROWS.find((r) => r.id === 'appHeader')!, state) - sa.top - sa.bottom;
   const hit = INTERACT.hitTargetCssPx;
-  return (functionBarColumnsAt(hit, avail) - 1) * hit;
+  return (functionBarColumnsAt(hit, avail, functionBarItemsFor(state.board ?? false)) - 1) * hit;
 }
 
 export interface CourtScale {

@@ -25,6 +25,20 @@
  *  을 통해 **코트 상자 폭**을 틀리게 만들고, 그 오차가 판 회전 판정을 뒤집을 수 있다.
  *  그래서 FunctionBar.items.test.tsx 가 이제 화면의 칸을 실제로 세어 이 값과 대조한다. */
 export const FUNCTION_BAR_ITEMS = 13;
+/** 드릴 편집의 칸 수 — 전술판에서 **[비우기] 하나가 빠진다.**
+ *
+ *  왜 빠지는가: 전술판의 [코트 비우기]는 *"되돌릴 수 없습니다"* 인 판 초기화다. 드릴에는
+ *  되돌리기가 있고 스텝이라는 시간축이 있어 "비운다" 가 무엇을 뜻하는지(이 스텝만? 이후 전부?)
+ *  가 한 가지로 정해지지 않는다. 뜻이 둘인 파괴적 조작을 한 칸에 욱여넣지 않는다 —
+ *  스텝 단위로 지우는 길은 지우개 도구와 개체 메뉴가 이미 갖고 있다.
+ *
+ *  ⚠️ **이 값이 전술판과 다르다는 사실 자체가 예산에 실려야 한다**(아래 `functionBarItemsFor`).
+ *  한 숫자로 뭉개면 드릴 편집에서 열 수 계산이 한 칸만큼 틀리고, 그 오차가 코트 상자 폭을
+ *  거쳐 판 회전 판정을 뒤집을 수 있다. */
+export const FUNCTION_BAR_ITEMS_DRILL = 12;
+
+/** 이 화면의 칸 수. 예산(chromeBudget)과 화면(FunctionBar)이 **같은 함수**를 봐야 한다. */
+export const functionBarItemsFor = (board: boolean): number => (board ? FUNCTION_BAR_ITEMS : FUNCTION_BAR_ITEMS_DRILL);
 /** 구역을 가르는 선 — 줌 | 이력 | 판 | 앱 | 저장. */
 export const FUNCTION_BAR_DIVIDERS = 4;
 
@@ -39,11 +53,11 @@ export const FUNCTION_BAR_DIVIDER_H = 9;
 export const functionBarItemHeightPx = (hitPx: number): number => hitPx;
 
 /** 1열일 때 바가 요구하는 세로. 이 값이 `<main>` 높이를 넘으면 화면은 2열로 흐른다. */
-export function functionBarContentHeightPx(hitPx: number): number {
+export function functionBarContentHeightPx(hitPx: number, items: number = FUNCTION_BAR_ITEMS): number {
   return (
     FUNCTION_BAR_PAD_Y * 2 +
-    FUNCTION_BAR_ITEMS * functionBarItemHeightPx(hitPx) +
-    (FUNCTION_BAR_ITEMS + FUNCTION_BAR_DIVIDERS - 1) * FUNCTION_BAR_GAP +
+    items * functionBarItemHeightPx(hitPx) +
+    (items + FUNCTION_BAR_DIVIDERS - 1) * FUNCTION_BAR_GAP +
     FUNCTION_BAR_DIVIDERS * FUNCTION_BAR_DIVIDER_H
   );
 }
@@ -54,8 +68,8 @@ export function functionBarWidthPx(hitPx: number, cols = 1): number {
 }
 
 /** 높이 `availPx` 에서 실제로 몇 열이 되는가. 화면의 `flexWrap` 이 하는 계산과 같은 식이다. */
-export function functionBarColumnsAt(hitPx: number, availPx: number): number {
-  const need = functionBarContentHeightPx(hitPx);
+export function functionBarColumnsAt(hitPx: number, availPx: number, items: number = FUNCTION_BAR_ITEMS): number {
+  const need = functionBarContentHeightPx(hitPx, items);
   if (availPx <= 0) return 1;
   return Math.max(1, Math.ceil(need / Math.max(1, availPx)));
 }

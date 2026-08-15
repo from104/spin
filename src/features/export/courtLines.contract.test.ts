@@ -118,8 +118,10 @@ describe('화살촉 마커 — id 규약과 모양이 ArrowMarkers 와 같다', 
   });
 
   it('대조군 — 색이 늘면 마커도 는다(빈 목록이라 통과한 것이 아니다)', () => {
-    expect(shapesOf(arrowMarkersMarkup([])).length).toBe(2); // 케이싱 marker + path
-    expect(shapesOf(arrowMarkersMarkup(['#38bdf8', '#fbbf24'])).length).toBe(6);
+    // 2026-08-16 — 화살촉이 좁은·넓은 둘이라 색마다 마커가 둘이다. 케이싱 전용 마커는
+    // 같은 날 사라졌으므로(대비는 화살촉 stroke 가 맡는다) **색이 없으면 마커도 없다**.
+    expect(shapesOf(arrowMarkersMarkup([])).length).toBe(0);
+    expect(shapesOf(arrowMarkersMarkup(['#38bdf8', '#fbbf24'])).length).toBe(8); // 2색 × 2종 × (marker + path)
   });
 });
 

@@ -11,7 +11,7 @@ import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
 import { createDrill } from './defaults.ts';
 import { defaultCtrl } from './arrow.ts';
-import type { Arrow, ArrowKind } from './arrow.ts';
+import type { Arrow, ArrowHead } from './arrow.ts';
 import type { CourtMode } from './court.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { ChairDef, Drill, DrillCast, DrillLevel, DrillStep, NoteLabel, PoseMap, TeamSide } from './drill.ts';
@@ -24,7 +24,8 @@ export type SeedPose = readonly [x: number, y: number, angleDeg: number];
 export type SeedPoint = readonly [x: number, y: number];
 
 export interface SeedArrowSpec {
-  kind: ArrowKind;
+  /** 끝점 화살촉. 생략하면 좁은 화살표(모델 기본값) — 2026-08-16 이전의 그 모양이다. */
+  headTo?: ArrowHead;
   from: SeedPoint;
   to: SeedPoint;
   /** 직선 대비 처짐(px). 양수 = 진행방향 우측. 생략하면 곧은 화살표다. */
@@ -111,7 +112,7 @@ function buildStep(
   const arrows: Arrow[] = (s.arrows ?? []).map((a) => {
     const from: Vec2 = { x: a.from[0], y: a.from[1] };
     const to: Vec2 = { x: a.to[0], y: a.to[1] };
-    return { id: newId('ar'), kind: a.kind, from, ctrl: defaultCtrl(from, to, a.bow ?? 0), to };
+    return { id: newId('ar'), from, ctrl: defaultCtrl(from, to, a.bow ?? 0), to, ...(a.headTo ? { headTo: a.headTo } : {}) };
   });
 
   const notes: NoteLabel[] = (s.notes ?? []).map((n) => ({ id: newId('nt'), x: n.at[0], y: n.at[1], text: n.text }));

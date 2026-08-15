@@ -19,6 +19,12 @@ export interface HelpModalProps {
   open: boolean;
   onClose(): void;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /** 어느 화면의 도움말인가(2026-08-15 보드 단축키 정리).
+   *
+   *  ⚠️ **틀린 도움말은 없느니만 못하다**(이 파일 머리말). 전술판은 스텝이 없는 1장짜리라
+   *  스텝 관련 키 넷이 **눌러도 아무 일도 안 난다** — 그런데 표에는 넷 다 적혀 있었다.
+   *  코치는 키가 고장난 줄 알거나 자기가 잘못 눌렀다고 생각한다. 그래서 표를 화면마다 가른다. */
+  mode?: 'board' | 'drill';
 }
 
 /** 첫 섹션 3줄 — "어떻게 놓는가 / 어떻게 옮기는가". 4존 운동학은 **한 문장**이다(§7 3.9). */
@@ -28,14 +34,23 @@ const BASICS: ReadonlyArray<[string, string]> = [
   ['선택·해제', '선택 도구는 조금 빗나가게 눌러도 가장 가까운 개체가 잡히고, 선택된 개체를 그 자리에서 다시 탭하거나 Esc 를 누르면 풀립니다.'],
 ];
 
-const SHORTCUTS: ReadonlyArray<[string, string]> = [
-  ['1–8 / V R P B C A T E', '도구 선택 — 지우개(E·8)만 항상 Alt 필요'],
-  ['Ctrl/⌘+Z, Shift+Z', '실행 취소 / 다시 실행(Ctrl+Y)'],
-  ['Ctrl/⌘+S', '저장'],
+/** 스텝(시간축)이 있어야 뜻이 있는 키. **전술판에서는 전부 무동작이다** — 그쪽은 1장짜리라
+ *  다음 스텝도, 복제할 스텝도, 재생할 구간도 없다(useStepPlayback 은 steps<2 면 즉시 멈춘다).
+ *  지어낸 목록이 아니라 실제로 죽어 있는 배선을 그대로 적은 것이다:
+ *    · Ctrl/⌘+D → EditorWorkspace 가 전술판에서 `() => {}` 를 넘긴다
+ *    · ←/→      → `gotoStep` 이 다음 스텝을 못 찾아 dispatch 자체를 안 한다
+ *    · Space    → `useStepPlayback` 이 steps.length < 2 에서 곧바로 pause() 한다 */
+const STEP_SHORTCUTS: ReadonlyArray<[string, string]> = [
   ['Ctrl/⌘+D', '현재 스텝 복제'],
   ['← →', '이전/다음 스텝(개체 미선택 시)'],
   ['Space', '재생 / 일시정지'],
   ['Space (스텝 사진)', '스텝 집기/놓기 — ←/→ 로 자리를 옮기고 Esc 로 되돌림'],
+];
+
+const SHORTCUTS: ReadonlyArray<[string, string]> = [
+  ['1–8 / V R P B C A T E', '도구 선택 — 지우개(E·8)만 항상 Alt 필요'],
+  ['Ctrl/⌘+Z, Shift+Z', '실행 취소 / 다시 실행(Ctrl+Y)'],
+  ['Ctrl/⌘+S', '저장'],
   ['G / Z', '격자 / 골 지역 가이드 토글'],
   ['Ctrl/⌘ +, −, 0', '스테이지 줌 인 / 아웃 / 초기화'],
   // 키가 아니지만 같은 표에 둔다 — 이 표를 읽는 이유는 "무엇을 할 수 있는가" 이고,
@@ -55,7 +70,15 @@ const SHORTCUTS: ReadonlyArray<[string, string]> = [
   ['Shift+?', '이 도움말'],
 ];
 
-export function HelpModal({ open, onClose, returnFocusRef }: HelpModalProps) {
+export function HelpModal({ open, onClose, returnFocusRef, mode = 'drill' }: HelpModalProps) {
+  // 스텝 키는 **도구 키 바로 다음**에 끼운다(옛 자리 그대로) — 표를 읽는 사람이 옛 위치를
+  // 기억하고 있을 수 있고, 전술판에서는 그 자리가 통째로 비는 것이 곧 "여기엔 없다" 는 말이다.
+  const rows: ReadonlyArray<[string, string]> =
+    mode === 'drill'
+      ? [...SHORTCUTS.slice(0, 3), ...STEP_SHORTCUTS, ...SHORTCUTS.slice(3)]
+      : // 전술판의 Ctrl/⌘+S 는 드릴 자동저장이 아니라 **스냅샷을 지금 저장**이다
+        // (BoardScreen.saveNow). 같은 키에 다른 일이면 표도 다르게 적는다.
+        SHORTCUTS.map((r) => (r[0] === 'Ctrl/⌘+S' ? (['Ctrl/⌘+S', '지금 판 저장'] as [string, string]) : r));
   return (
     <Modal open={open} onClose={onClose} titleId="editor-help-title" title="도움말" returnFocusRef={returnFocusRef}>
       <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 10, columnGap: 16, fontSize: '0.8125rem' }}>
@@ -68,7 +91,7 @@ export function HelpModal({ open, onClose, returnFocusRef }: HelpModalProps) {
       </dl>
       <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: '1rem 0 0.5rem' }}>키보드 단축키</h3>
       <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 10, columnGap: 16, fontSize: '0.8125rem' }}>
-        {SHORTCUTS.map(([key, desc]) => (
+        {rows.map(([key, desc]) => (
           <Fragment key={key}>
             <dt style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap' }}>{key}</dt>
             <dd style={{ color: 'var(--muted)' }}>{desc}</dd>

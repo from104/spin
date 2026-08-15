@@ -38,10 +38,8 @@ function Rail({ orientation }: { orientation?: 'vertical' | 'horizontal' }) {
       onArmPlayer={setPending}
       courtLabel="풀 코트"
       orientation={orientation}
-      zoom={{ onZoomIn: () => {}, onZoomOut: () => {}, onZoomReset: () => {} }}
       // 2026-08-14 — 되돌리기·다시하기가 헤더에서 줌 아래로 왔다. 줄나눔 모형
       // (trayBandSectionsPx)이 이 구역을 세므로 여기서 빠지면 모형과 화면이 갈라진다.
-      history={{ canUndo: false, canRedo: false, onUndo: () => {}, onRedo: () => {} }}
     />
   );
 }
@@ -71,7 +69,7 @@ describe('세로 띠 — 높이가 못박혀 있다 (코트가 안 흔들리는 
     const before = rail().style.height;
     await userEvent.setup().click(screen.getByRole('button', { name: /^작도/ }));
     // 대조군: 서랍이 실제로 열렸다(안 열렸으면 '안 변한다' 는 아무것도 안 재는 문장이다).
-    expect(screen.getByRole('button', { name: /이동/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^선$/ })).toBeInTheDocument();
     expect(rail().style.height).toBe(before);
     expect(rail().style.minHeight, '최소 높이로 슬쩍 자라면 못박음이 아니다').toBe('');
     expect(rail().style.maxHeight).toBe('');
@@ -128,8 +126,9 @@ describe('P3·3차 검증이 세운 세 단언이 **wrap 에서도** 그대로 �
     render(<Rail orientation="horizontal" />);
     await userEvent.setup().click(screen.getByRole('button', { name: /^작도/ }));
     const first = screen.getByRole('button', { name: '2번 선수 배치' });
-    for (const opened of ['이동', '패스']) {
-      const el = screen.getByRole('button', { name: new RegExp(opened) });
+    for (const opened of ['선']) {
+      // 정확 매칭 — '선' 은 '선택' 과 접두가 겹친다(2026-08-16 도구 통합).
+      const el = screen.getByRole('button', { name: new RegExp(`^${opened}$`) });
       expect(first.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING, opened).toBeTruthy();
     }
   });

@@ -132,6 +132,40 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
       return { ...doc, defense: defaultDefense(mode) };
     },
   },
+  {
+    from: 6,
+    to: 7,
+    describe: 'drill v6→v7: 선 통일 — 화살표의 kind(이동·패스·슛)를 지운다',
+    // ⚠️ **여기는 지우는 마이그레이션이다.** 2026-08-16 부터 화살표에 종류가 없다(기현 지시:
+    // *"작도에 패스, 이동이 무의미하다. 선으로 통일"*). 뜻은 양 끝 화살촉이 나른다.
+    //
+    // 기현님 결정: **전부 기본 선으로**. 그래서 옛 kind 의 색(이동 파랑·패스 노랑)을 개별
+    // 색으로 구워 넣지 **않는다** — 구워 넣으면 옛 드릴만 영영 다른 색으로 남는다.
+    // 점선도 함께 사라진다(선은 언제나 실선이다).
+    //
+    // 화살촉은 안 찍는다: 모델 기본값이 곧 옛 모양(끝점 좁은 화살표·시작점 없음)이라
+    // 찍을 참말이 없다. 도장을 올리는 이유는 **옛 앱이 새 파일을 정직하게 거절**하게 하는 것 —
+    // v6 앱은 headFrom/headTo 를 모르므로 넓은 화살촉도 없는 화살촉도 전부 좁은 화살촉으로
+    // 그린다(파일은 멀쩡히 열리고 아무 경고 없이 **다른 그림**이 나온다).
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      if (!Array.isArray(out.steps)) return out;
+      out.steps = out.steps.map((st) => {
+        if (!st || typeof st !== 'object') return st;
+        const step = st as Record<string, unknown>;
+        if (!Array.isArray(step.arrows)) return st;
+        return {
+          ...step,
+          arrows: step.arrows.map((ar) => {
+            if (!ar || typeof ar !== 'object') return ar;
+            const { kind: _kind, ...rest } = ar as Record<string, unknown>;
+            return rest;
+          }),
+        };
+      });
+      return out;
+    },
+  },
 ];
 export const SESSION_MIGRATIONS: DocMigration[] = [];
 /** prefs 는 여기서 처음으로 체인이 생긴다(§7 3.0). **v1 → v2 로 한 번만 올린다** — 트레이 서랍·

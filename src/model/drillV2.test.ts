@@ -47,11 +47,19 @@ describe('3.2/3.3 마이그레이션 — 구 버전 드릴 파일이 v2 로 올�
       if (key === 'steps') {
         // ⚠️ 2026-08-14 — v3→v4 가 스텝마다 `shapes: []` 를 **더한다**. 무손실의 뜻은
         // "잃지 않는다" 이지 "한 글자도 안 는다" 가 아니다 — 더해진 키 하나를 빼고 대조한다.
+        // ⚠️ 2026-08-16 — v6→v7 은 반대로 화살표의 `kind` 를 **지운다**(선 통일). 그것은
+        //    **의도된 손실**이라 기대값에서도 함께 뺀다 — 안 빼면 이 it 이 "지우지 마라" 를
+        //    요구하게 되어 마이그레이션과 정면으로 부딪힌다.
+        const stripKind = (steps: unknown): unknown =>
+          (steps as Record<string, unknown>[]).map((st) => ({
+            ...st,
+            arrows: ((st.arrows as Record<string, unknown>[] | undefined) ?? []).map(({ kind: _k, ...a }) => a),
+          }));
         const got = (doc[key] as Record<string, unknown>[]).map(({ shapes, ...rest }) => {
           expect(shapes, '도형 단계가 스텝에 빈 배열을 안 찍었다').toEqual([]);
           return rest;
         });
-        expect(got, `v1 의 '${key}' 가 사라지거나 바뀌었다`).toEqual(value);
+        expect(got, `v1 의 '${key}' 가 사라지거나 바뀌었다`).toEqual(stripKind(value));
         continue;
       }
       expect(doc[key], `v1 의 '${key}' 가 사라지거나 바뀌었다`).toEqual(value);

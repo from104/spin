@@ -188,8 +188,19 @@ export interface FunctionBarProps {
   onToggleRuleZones(): void;
   onShowHelp(): void;
   /** 자유 전술판을 드릴 라이브러리에 새 항목으로 넣는다 — 옛 헤더의 주 액션이었다.
-   *  2026-08-14 기현님 지시로 헤더가 넓은 창에서 사라지면서 갈 곳이 여기밖에 없었다. */
+   *  2026-08-14 기현님 지시로 헤더가 넓은 창에서 사라지면서 갈 곳이 여기밖에 없었다.
+   *  **드릴 편집에서는 뜻이 다르다**: 자동저장을 지금 밀어 넣는다(아래 `mode`). */
   onSaveAsDrill(): void;
+  /** 어느 화면의 기둥인가(2026-08-15 드릴 편집 재설계 ②).
+   *
+   *  칸 목록이 하나 다르다 — 드릴에는 **[비우기]가 없다**(근거는 functionBarMetrics 의
+   *  `FUNCTION_BAR_ITEMS_DRILL`). 나머지 열둘은 자리·순서·이름이 **같다**: 두 화면을 오가는
+   *  코치가 같은 자리에서 같은 것을 누르는 것이 이 재설계의 전부다. */
+  mode?: 'board' | 'drill';
+  /** 드릴 편집의 자동저장 상태 — [저장] 칸이 이것을 말한다. 전술판에는 자동저장이 없다. */
+  saveStatus?: 'idle' | 'saving' | 'saved';
+  /** [코트]가 잠겼는가에 대한 설명. 드릴은 코트가 불변이라 언제나 잠겨 있다. */
+  courtSizeLocked?: boolean;
   /** 도움말이 닫힐 때 돌아올 곳 — EditorWorkspace 가 helpTriggerRef 에 꽂는다. */
   viewButtonRef?: RefObject<HTMLButtonElement | null>;
 }
@@ -221,7 +232,10 @@ export function FunctionBar({
   onShowHelp,
   onSaveAsDrill,
   viewButtonRef,
+  mode = 'board',
+  saveStatus,
 }: FunctionBarProps) {
+  const isBoard = mode === 'board';
   const [courtOpen, setCourtOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -341,16 +355,21 @@ export function FunctionBar({
       >
         <IconSides />
       </BarItem>
-      <BarItem
-        label="비우기"
-        name="코트 비우기"
-        title="코트 위의 선수·공·콘·화살표·메모를 모두 지웁니다. 되돌릴 수 없습니다."
-        buttonRef={clearBtnRef}
-        aria-haspopup="dialog"
-        onClick={() => setConfirmOpen(true)}
-      >
-        <IconClear />
-      </BarItem>
+      {/* ⚠️ [비우기]는 **전술판에만** 있다(2026-08-15). 드릴에는 되돌리기와 스텝이 있어
+          "비운다" 가 한 가지 뜻으로 정해지지 않는다 — functionBarMetrics 의
+          FUNCTION_BAR_ITEMS_DRILL 이 그 근거를 갖는다. */}
+      {isBoard && (
+        <BarItem
+          label="비우기"
+          name="코트 비우기"
+          title="코트 위의 선수·공·콘·화살표·메모를 모두 지웁니다. 되돌릴 수 없습니다."
+          buttonRef={clearBtnRef}
+          aria-haspopup="dialog"
+          onClick={() => setConfirmOpen(true)}
+        >
+          <IconClear />
+        </BarItem>
+      )}
 
       <div aria-hidden style={DIVIDER} />
 
@@ -398,8 +417,12 @@ export function FunctionBar({
           좌표가 통째로 밀린다(§3 불변식 1). 끝에 붙이면 아무것도 안 움직인다. */}
       <BarItem
         label="저장"
-        name="드릴로 저장"
-        title="지금 판을 드릴 라이브러리에 새 항목으로 넣습니다. 전술판은 그대로 남습니다."
+        name={isBoard ? '드릴로 저장' : saveStatus === 'saving' ? '저장 중' : '저장'}
+        title={
+          isBoard
+            ? '지금 판을 드릴 라이브러리에 새 항목으로 넣습니다. 전술판은 그대로 남습니다.'
+            : '드릴은 자동으로 저장됩니다. 지금 바로 저장하려면 누르세요.'
+        }
         onClick={onSaveAsDrill}
         accent
       >

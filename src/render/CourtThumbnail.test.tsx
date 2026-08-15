@@ -24,7 +24,7 @@ describe('CourtThumbnail', () => {
       chairs: [{ x: 100, y: 100, a: 0, t: 0, g: 0 }],
       balls: [[200, 200]],
       cones: [[50, 50, 0]],
-      arrows: [{ p: [10, 10, 20, 20, 30, 30], k: 'move' }],
+      arrows: [{ p: [10, 10, 20, 20, 30, 30] }],
     };
     const { container } = render(<CourtThumbnail mode="full" thumb={thumb} />);
     const groups = container.querySelectorAll('svg > g');

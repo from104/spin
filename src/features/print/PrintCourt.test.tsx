@@ -20,7 +20,7 @@ function fixture(): { drill: Drill; step: DrillStep } {
     chairs: { [c0.id]: { x: 120, y: 200, angleDeg: 30 }, [c1.id]: { x: 400, y: 100, angleDeg: -90 } },
     balls: { [b0.id]: { x: 300, y: 250 } },
     cones: { ['co_1' as never]: { x: 50, y: 50 } },
-    arrows: [{ id: 'ar_1' as ArrowId, kind: 'pass', from: { x: 10, y: 10 }, ctrl: { x: 20, y: 20 }, to: { x: 30, y: 30 } }],
+    arrows: [{ id: 'ar_1' as ArrowId, from: { x: 10, y: 10 }, ctrl: { x: 20, y: 20 }, to: { x: 30, y: 30 } }],
     notes: [{ id: 'nt_1' as NoteId, x: 500, y: 400, text: '여기서 압박' }],
   };
   return { drill: { ...base, cast }, step };
@@ -138,6 +138,7 @@ describe('한 문서에 60장이 동시에 있다 — 전역 id 를 쓰면 2장�
     // 그리고 각 화살표는 **자기 SVG 의** 마커를 가리켜야 한다.
     const svgs = Array.from(container.querySelectorAll('svg'));
     for (const svg of svgs) {
+      // 2026-08-16 — 기본 선은 끝점에만 화살촉이 있고, id 에 종류('-thin')가 붙는다.
       const url = svg.querySelector('[data-print-arrow] path[marker-end]')!.getAttribute('marker-end')!;
       const id = url.slice('url(#'.length, -1);
       expect(svg.querySelector(`marker#${CSS.escape(id)}`), `${id} 가 이 SVG 안에 없다`).not.toBeNull();

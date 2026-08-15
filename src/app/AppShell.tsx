@@ -253,10 +253,19 @@ export function AppShell() {
   //   레일이 통째로 빠지고 그 자리를 헤더의 3칸 세그먼트가 대신한다 — 헤더까지 지우면 화면을
   //   옮길 방법이 아예 없어진다. 그때도 내용은 세그먼트뿐이다(EditorWorkspace 가 제목을 안 준다).
   //
-  //   드릴 편집(stageTarget.kind === 'drill')은 아직 옛 배치라 헤더가 필요하다 — 제목·[저장]·
-  //   [시연]이 전부 거기 있다. 그래서 판정에 stageTarget 이 들어간다.
-  const bareBoard = nav.screen === 'board' && stageTarget.kind === 'board';
-  const showHeader = narrow || !bareBoard;
+  //   ⚠️ 2026-08-15 (드릴 편집 재설계 ②) — **드릴 편집도 같아졌다.** 옛 기록(지우지 않는다):
+  //   *"드릴 편집(stageTarget.kind === 'drill')은 아직 옛 배치라 헤더가 필요하다 — 제목·[저장]·
+  //   [시연]이 전부 거기 있다. 그래서 판정에 stageTarget 이 들어간다."* 그 셋 중 [저장]은 기능
+  //   바로, [시연]은 하단 트랜스포트로 갔고 제목은 인스펙터가 갖는다. 그래서 이제 두 화면이
+  //   같은 규칙을 쓴다 — `stageTarget` 이 판정에서 빠졌다.
+  //
+  //   ★ 이것은 미관이 아니라 **코트 크기**의 문제다(실측): 1024×600 에서 헤더 48px 이 남아
+  //   있으면 오른쪽 기둥이 1열에 못 들어가(요구 599 > 가용 552) **2열로 흐르고**, 그 44px 가
+  //   폭에서 또 빠진다. 헤더를 걷으면 599 ≤ 600 으로 1열이 되어 폭 크롬이 217 → 173,
+  //   코트 축척이 0.8990 → 0.9905 로 **10% 커진다.**
+  //   ⚠️ 여유가 **1px** 이다. 기둥에 칸이나 구분선을 하나만 더해도 도로 2열이 된다 —
+  //      더할 때는 functionBarMetrics 의 요구 높이부터 계산할 것.
+  const showHeader = narrow || nav.screen !== 'board';
   const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav);
 
   // 브라우저 뒤로/앞으로가기로 돌아온 엔트리가 대상을 싣고 있으면 그 대상으로 되돌린다.

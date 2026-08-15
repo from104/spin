@@ -14,7 +14,7 @@ import {
   OBJ_STROKE,
   BALL_FILL,
   CONE_COLORS,
-  ARROW_COLORS,
+  ARROW_COLOR,
   TEAM_COLOR_CHOICES,
   GK_HOME_COLOR,
   GK_AWAY_COLOR,
@@ -77,7 +77,7 @@ export function CourtThumbnail({ mode, size, thumb, teamColors = DEFAULT_TEAM_CO
               key={i}
               d={`M${a.p[0]},${a.p[1]} Q${a.p[2]},${a.p[3]} ${a.p[4]},${a.p[5]}`}
               fill="none"
-              stroke={ARROW_COLORS[a.k]}
+              stroke={ARROW_COLOR}
               strokeWidth={2}
               strokeLinecap="round"
             />

@@ -64,12 +64,12 @@ afterEach(() => {
 });
 
 describe('작도 서랍 — 도형 3종이 산다', () => {
-  it('서랍 안에 원·삼각·사각이 이동·패스와 함께 있다', async () => {
+  it('서랍 안에 원·삼각·사각이 **선**과 함께 있다 (2026-08-16 이동·패스 → 선)', async () => {
     const { user } = await openBoard();
     await user.click(screen.getByRole('button', { name: /^작도/ }));
     const panel = screen.getByRole('group', { name: '작도 도구' });
     const names = [...panel.querySelectorAll('button')].map((b) => b.textContent?.replace(/\s/g, ''));
-    expect(names).toEqual(['이동', '패스', '원', '삼각', '사각']);
+    expect(names).toEqual(['선', '원', '삼각', '사각']);
   });
 
   it('닫혀 있으면 도형 도구도 DOM 에 없다 — 첫 화면 표적 예산 밖이다', async () => {
