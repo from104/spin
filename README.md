@@ -205,6 +205,22 @@ npm run test:rel src/render/CourtStage.tsx   # 그 파일을 쓰는 테스트만
 
 현재 **240개 파일 3,195개 테스트**가 돌고 있습니다.
 
+### 배포
+
+```bash
+npm run deploy -- --dry-run   # 무엇이 바뀌는지만 본다 (아무것도 안 쓴다)
+npm run deploy                # 테스트 → 빌드 → 배포
+```
+
+배포는 `dist/` 를 cube 의 `/pool/vhost/sites/spin` 에 놓는 것이 전부입니다. 그 디렉터리는
+`spin-web`(nginx:alpine)에 읽기 전용으로 물려 있고, 앞단의 `vhost-proxy` 가
+`spin.atit.dev` 로 라우팅합니다. **서버 설정을 만질 일이 없습니다 — 파일만 갈아 끼웁니다.**
+
+**gofu·cube 어느 쪽에서 실행해도 됩니다.** 대상 경로가 로컬에 있으면(cube) 복사하고,
+없으면(gofu) ssh 로 rsync 합니다 — 절차를 기기마다 다르게 적어 두면 한쪽만 고쳐지고,
+그러면 "내 기기에서는 되는데" 가 다시 생깁니다. 근거와 안전장치는
+[`scripts/deploy.sh`](scripts/deploy.sh) 머리말에 있습니다.
+
 ---
 
 ## 7. 아직 아닌 것
