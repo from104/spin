@@ -168,6 +168,13 @@ export interface CourtStageProps {
   /** 무대 pointerdown 을 **가로채지 않고** 곁에서 본다(긴 터치 타이머용). 기존 드래그 배선은
    *  그대로 흐른다 — 여기서 stopPropagation 하면 판 전체가 죽는다. */
   onStagePointerDownRaw?: (id: string | null, e: ReactPointerEvent<SVGSVGElement>) => void;
+  /** 개체 **더블클릭/더블탭**(기현 지시 2026-08-17). 대상은 오른쪽 클릭과 같은 식으로 DOM 이
+   *  말한다(`objectIdAt`). 개체 위가 아니면 `null` 이 간다 — 빈 코트 더블클릭에 뜻을 붙이지
+   *  않기 위해서다(무대는 판 이동·확대의 표면이기도 하다).
+   *
+   *  ⚠️ 배치 도구에서는 두 번 빠르게 찍는 것이 곧 개체 둘이다(handlePointerDown 의 allowPan
+   *  주석과 같은 사정). 그래서 **무엇에 뜻을 붙일지는 여기가 정하지 않고** 호출부가 정한다. */
+  onStageDoubleClick?: (id: string | null, e: React.MouseEvent<SVGSVGElement>) => void;
   onObjectKeyDown?: (id: string, e: ReactKeyboardEvent<SVGGElement>) => void;
   onContainerKeyDown?: (e: ReactKeyboardEvent<SVGSVGElement>) => void;
   ariaDescribedBy?: string;
@@ -239,6 +246,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     ignored,
     onStageContextMenu,
     onStagePointerDownRaw,
+    onStageDoubleClick,
     onObjectKeyDown,
     onContainerKeyDown,
     ariaDescribedBy = 'court-help',
@@ -480,6 +488,12 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   const handleContextMenu = (e: React.MouseEvent<SVGSVGElement>): void => {
     e.preventDefault();
     onStageContextMenu?.(objectIdAt(e), e);
+  };
+
+  /** 더블클릭 · 더블탭. 대상 판정은 오른쪽 클릭과 같은 `objectIdAt` 이다 — 히트테스트를 한 벌
+   *  더 만들면 "메뉴에는 잡히는데 더블클릭은 빗나간다" 가 생긴다. */
+  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>): void => {
+    onStageDoubleClick?.(objectIdAt(e), e);
   };
 
   const handlePointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
@@ -784,6 +798,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       onPointerCancel={handlePointerEnd}
       onKeyDown={onContainerKeyDown}
       onContextMenu={handleContextMenu}
+      onDoubleClick={handleDoubleClick}
     >
       <defs>
         <ArrowMarkers uid={markerUid} colors={usedColors} />

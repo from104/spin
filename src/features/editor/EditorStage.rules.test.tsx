@@ -99,6 +99,7 @@ function mount(drill: Drill, showRuleZones = true) {
       showRuleZones={showRuleZones}
       largeTargets={false}
       onEraseIds={vi.fn()}
+      onEditNote={() => {}}
     />,
   );
   return { ...view, writer, rules, say };

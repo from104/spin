@@ -10,7 +10,7 @@
 import type { Dispatch } from 'react';
 import type { Vec2 } from '../../core/units.ts';
 import { newId } from '../../core/ids.ts';
-import type { ChairId } from '../../core/ids.ts';
+import type { ChairId, NoteId } from '../../core/ids.ts';
 import type { Drill } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { BALL, CONE } from '../../core/constants.ts';
@@ -39,6 +39,13 @@ export interface PlaceDeps {
   dispatch: Dispatch<EditorAction>;
   showToast(message: string): void;
   onPlayerPlaced(): void;
+  /** 방금 놓은 **빈 메모**. 호출부가 곧바로 입력 모달을 연다(기현 지시 2026-08-17).
+   *
+   *  왜 놓기 전에 묻지 않고 놓고 나서 여는가: 배치 규칙(상한·소리·선택·도구 복귀)이 전부
+   *  이 함수 한 곳에 모여 있고, 그 앞에 모달을 끼우면 "확인을 눌러야 놓인다" 는 경로가 세
+   *  갈래(탭·키보드·트레이 드래그) 모두에 따로 생긴다. 놓고 나서 여는 쪽은 취소도 쉽다 —
+   *  호출부가 그 id 를 도로 지우면 된다. */
+  onNotePlaced?(id: NoteId): void;
 }
 
 /** 실제로 놓였으면 true. 상한 초과·대상 미선택이면 안내를 띄우고 false.
@@ -104,6 +111,7 @@ function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): string | 
     // 빈 메모도 같은 이유로 선택이 필요하다 — 화면에서 거의 보이지 않는다(2026-08-10 김경일 제보).
     const id = newId('nt');
     d.dispatch({ type: 'NOTE_SET', note: { id, x: world.x, y: world.y, text: '' } });
+    d.onNotePlaced?.(id);
     return id;
   }
 

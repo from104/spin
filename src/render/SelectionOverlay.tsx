@@ -10,8 +10,10 @@ import { NOTE } from '../core/constants.ts';
 export type SelectionShape = 'chair' | 'ball' | 'cone' | 'note';
 
 export interface SelectionOverlayHandle {
-  /** 선택 링. shape=null 이면 숨긴다. */
-  setRing(shape: SelectionShape | null, x: number, y: number, theta: number): void;
+  /** 선택 링. shape=null 이면 숨긴다.
+   *  `radius` 는 **둥근 링에만** 먹는 덮어쓰기다 — 메모는 글에 따라 칩이 커지므로 링도 함께
+   *  커져야 한다(휠체어는 사각형이라 무시된다). 안 주면 아래 `RING_ROUND_R` 의 상수를 쓴다. */
+  setRing(shape: SelectionShape | null, x: number, y: number, theta: number, radius?: number): void;
   setRubberBand(rect: { x: number; y: number; w: number; h: number } | null): void;
   /** §5.11 지연 시각화 — |T−G| > leashVisibleAtPx 일 때만 부모가 호출한다. */
   setLeash(grab: Vec2 | null, target: Vec2 | null): void;
@@ -41,7 +43,7 @@ export const SelectionOverlay = forwardRef<SelectionOverlayHandle>(function Sele
   useImperativeHandle(
     ref,
     () => ({
-      setRing(shape, x, y, theta) {
+      setRing(shape, x, y, theta, radius) {
         const g = ringRef.current;
         if (!g) return;
         if (!shape) {
@@ -57,7 +59,7 @@ export const SelectionOverlay = forwardRef<SelectionOverlayHandle>(function Sele
         } else {
           hide(ringChairRef.current);
           show(ringRoundRef.current);
-          ringRoundRef.current?.setAttribute('r', String(RING_ROUND_R[shape]));
+          ringRoundRef.current?.setAttribute('r', String(radius ?? RING_ROUND_R[shape]));
         }
       },
       setRubberBand(rect) {

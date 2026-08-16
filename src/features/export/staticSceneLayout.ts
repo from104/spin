@@ -18,7 +18,7 @@ import { CHAIR, NOTE } from '../../core/constants.ts';
 import { pointAtLever } from '../../model/chair.ts';
 // 쪽지 칩 폭의 유일한 출처. 칩을 그리는 쪽(buildStaticSvg)과 글자를 얹는 쪽(이 파일)이
 // 같은 폭을 봐야 글이 칩 밖으로 새지 않는다 — render 쪽 순수 함수를 **읽기만** 한다.
-import { noteChipWidthPx } from '../../render/objects/noteChip.ts';
+import { NOTE_DEFAULT_SIZE_PX, noteChipWidthPx, noteLineDy, noteLines } from '../../render/objects/noteChip.ts';
 import { safeColor } from './svgSafe.ts';
 import { teamMarkFor } from './teamMark.ts';
 
@@ -186,21 +186,27 @@ export function buildTextPlacements(frame: RenderFrame, opts: StaticSceneOpts): 
   // 칩의 위치**이기도 하다(start 면 앵커가 왼쪽 끝).
   for (const n of frame.notes) {
     if (n.opacity <= 0 || n.text.length === 0) continue;
-    const size = n.size ?? 14;
+    const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
     const align = n.align ?? 'middle';
     const halfW = noteHalfWidth(n.text, size);
     const dx = align === 'start' ? -halfW + NOTE.chipPadXPx : align === 'end' ? halfW - NOTE.chipPadXPx : 0;
-    out.push({
-      text: n.text,
-      x: n.x + dx,
-      y: n.y,
-      sizePx: size,
-      weight: EXPORT_LAYOUT.noteTextWeight,
-      color: safeColor(n.color, '#ffffff'),
-      align,
-      font: 'body',
-      opacity: n.opacity,
-    });
+    // 줄바꿈(2026-08-17)은 여기서 **줄마다 한 배치**가 된다. TextPlacement 는 한 줄짜리
+    // 자료라(캔버스의 fillText 하나가 곧 하나다) tspan 같은 것이 없다 — 대신 y 를 옮긴다.
+    // 줄 나눔은 화면과 같은 `noteLines` 다: 그림(칩)과 글이 다른 줄 수를 보면 글이 쪽지 밖으로 샌다.
+    const lines = noteLines(n.text, size);
+    for (const [i, line] of lines.entries()) {
+      out.push({
+        text: line,
+        x: n.x + dx,
+        y: n.y + noteLineDy(i, lines.length),
+        sizePx: size,
+        weight: EXPORT_LAYOUT.noteTextWeight,
+        color: safeColor(n.color, '#ffffff'),
+        align,
+        font: 'body',
+        opacity: n.opacity,
+      });
+    }
   }
 
   const cap = opts.caption;

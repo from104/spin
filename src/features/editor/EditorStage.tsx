@@ -10,7 +10,7 @@ import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'r
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
-import type { ArrowId, CastId, ChairId } from '../../core/ids.ts';
+import type { ArrowId, CastId, ChairId, NoteId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
@@ -68,6 +68,11 @@ export interface EditorStageProps {
    *  기본 false. */
   twoZone?: boolean;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
+  /** 메모 글 편집 모달을 연다(기현 지시 2026-08-17). 여는 문이 셋이라 — 배치 직후·더블클릭·
+   *  개체 메뉴 [수정] — 무대가 셋 다 여기로 모은다. 모달 자체는 EditorWorkspace 가 갖는다:
+   *  트레이에서 끌어다 놓는 배치가 그쪽에 있어서, 무대가 갖고 있으면 그 경로만 문이 안 열린다.
+   *  `fresh` 는 "방금 놓은 쪽지" 라는 뜻이고, 그때만 취소가 쪽지를 도로 치운다. */
+  onEditNote(id: NoteId, fresh: boolean): void;
   /** 3.10 — 시점 점프 감지(§6.7 immediate 와 같은 규칙: undo/redo·스텝 추가삭제). 점프에는
    *  트윈과 마찬가지로 등장/퇴장 페이드도 걸지 않는다. */
   epoch?: number;
@@ -106,7 +111,7 @@ const OBJ_MOVE_DIR: Record<string, readonly [number, number]> = {
 // 포인터(손잡이 끌기)가 맡는다 — 남은 상태·타입 정리는 2단계다.
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, epoch = 0, transitionMs = 0 },
+  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, onEditNote, epoch = 0, transitionMs = 0 },
   stageRef,
 ) {
   // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
@@ -134,6 +139,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     ballMax,
     pendingPlayerId,
     onPlayerPlaced,
+    // 탭·키보드 커서로 놓은 빈 메모 — 놓자마자 글 칸이 열린다(fresh: 취소하면 도로 치운다).
+    onNotePlaced: (id) => onEditNote(id, true),
     // §6.10c — 트레이에 끌어다 놓아 치우는 길. 개체 메뉴·Delete 와 **같은 함수**다.
     onEraseIds,
     showToast,
@@ -552,6 +559,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         ignored: ids.every((i) => ignoredSet.has(i)),
         // '무시' 는 **휠체어만**이다(기현 지시).
         canIgnore: ids.every((i) => isId(i, 'ch')),
+        // [수정]은 메모 하나일 때만이다 — 근거는 ObjectMenuTarget.editable 주석.
+        editable: ids.length === 1 && isId(id, 'nt') ? id : null,
         selectSame: ids.length === 1 ? sameKindGroup(id, sameScene) : null,
       });
     },
@@ -629,6 +638,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         if (id) longPress.onPointerDown(id, e);
         else longPress.cancel();
       }}
+      // 더블클릭/더블탭 = **메모 글 열기**(기현 지시 2026-08-17). 지금 뜻이 붙은 개체는 메모뿐이라
+      // 다른 id 는 그냥 흘려보낸다 — 뜻이 없는 곳에서 아무 일도 안 일어나는 것이 정직하다.
+      // 선택 도구에서만 연다: 배치 도구에서는 같은 자리 빠른 두 번이 곧 개체 둘이고(CourtStage
+      // 의 allowPan 주석과 같은 사정), 그 두 번째 개체 위로 모달이 뜨면 판이 거짓말을 한다.
+      onStageDoubleClick={(id) => {
+        if (tool === 'select' && id && isId(id, 'nt')) onEditNote(id, false);
+      }}
       selection={selection}
       // 5.5 — 차체 음영·커서도 같은 진실을 말해야 한다. 2존인데 앞 2/3 에 '제자리 회전' 음영이
       // 남아 있으면 판이 거짓말을 한다(잡으면 실제로는 통째로 밀린다). ⚠️ `zones` 를 그대로
@@ -663,6 +679,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       onSelect={(ids) =>
         dispatch({ type: 'SELECT_SET', ids: gathering ? Array.from(new Set([...selection, ...ids])) : ids })
       }
+      // 이미 판에 있는 메모라 `fresh` 는 false 다 — 취소해도 쪽지는 그대로 남는다.
+      onEdit={(id) => onEditNote(id as NoteId, false)}
     />
     </>
   );

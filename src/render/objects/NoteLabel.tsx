@@ -20,7 +20,16 @@ import { NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL, OBJ_STROKE } from '..
 import type { NoteId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 import { useUprightTransform } from '../stageRot.tsx';
-import { NOTE_PLACEHOLDER, noteChipPathD, noteChipWidthPx, noteFoldPathD } from './noteChip.ts';
+import {
+  NOTE_PLACEHOLDER,
+  noteChipHeightPx,
+  noteChipPathD,
+  noteChipWidthPx,
+  noteFoldPathD,
+  noteLineDy,
+  noteLines,
+  noteRingRadiusPx,
+} from './noteChip.ts';
 
 export interface NoteLabelProps {
   id: NoteId;
@@ -63,11 +72,14 @@ export const NoteLabel = memo(function NoteLabel({
   }, [writer, id]);
 
   const empty = text.length === 0;
+  const lines = noteLines(text, size);
   const w = noteChipWidthPx(text, size);
+  const h = noteChipHeightPx(text, size);
   const halfW = w / 2;
-  const halfH = NOTE.chipHPx / 2;
-  const chipD = noteChipPathD(halfW);
-  const foldD = noteFoldPathD(halfW);
+  const halfH = h / 2;
+  const ringR = noteRingRadiusPx(text, size);
+  const chipD = noteChipPathD(halfW, halfH);
+  const foldD = noteFoldPathD(halfW, halfH);
   // align 은 글의 정렬이 아니라 **앵커 기준 칩의 위치**이기도 하다 — start 면 앵커가 왼쪽 끝이다.
   const textX = align === 'start' ? -halfW + NOTE.chipPadXPx : align === 'end' ? halfW - NOTE.chipPadXPx : 0;
 
@@ -84,11 +96,12 @@ export const NoteLabel = memo(function NoteLabel({
       onKeyDown={(e) => onKeyDown?.(id, e)}
     >
       {/* 선택 링 — ChairChip·BallDot·ConeMark 와 같은 2겹 규약(한 겹이면 개체 색과 겹쳐 사라진다).
-          반지름은 칩의 외접원(20)보다 큰 22 라 칩을 통째로 감싼다. 원이라 판 회전과 무관하다. */}
+          반지름은 칩을 감싸는 원이고(`noteRingRadiusPx`), 빈 칩에서는 예전 값 22 그대로다.
+          원이라 판 회전과 무관하다 — 그래서 `upright` 밖에 있어도 어긋나지 않는다. */}
       {selected && (
         <g className="sel-ring" pointerEvents="none">
-          <circle cx={0} cy={0} r={NOTE.ringRadiusPx} fill="none" stroke="rgba(0,0,0,.65)" strokeWidth={4} />
-          <circle cx={0} cy={0} r={NOTE.ringRadiusPx} fill="none" stroke="var(--accent)" strokeWidth={2} strokeDasharray="4.5 3" />
+          <circle cx={0} cy={0} r={ringR} fill="none" stroke="rgba(0,0,0,.65)" strokeWidth={4} />
+          <circle cx={0} cy={0} r={ringR} fill="none" stroke="var(--accent)" strokeWidth={2} strokeDasharray="4.5 3" />
         </g>
       )}
       {/* 판이 돌아도 쪽지는 바로 선다(§6.4). 칩이 사각형이라 글자와 **함께** 되돌려야 한다. */}
@@ -110,19 +123,27 @@ export const NoteLabel = memo(function NoteLabel({
             {NOTE_PLACEHOLDER}
           </text>
         ) : (
+          // 줄바꿈(기현 지시 2026-08-17). SVG `<text>` 는 개행을 공백으로 삼키므로 줄마다
+          // `<tspan>` 을 놓고 **x 를 매번 다시 준다** — 안 주면 두 번째 줄부터 앞줄 끝에서
+          // 이어져 계단이 된다. 줄 나눔은 `noteLines` 하나가 정한다(칩 폭·높이·히트 상자·
+          // 인쇄·내보내기가 같은 배열을 봐야 화면과 종이가 안 갈라진다).
           <text x={textX} y={0} fontFamily={FONT} fontSize={size} fontWeight={600} fill={color} textAnchor={align} dominantBaseline="central">
-            {text}
+            {lines.map((line, i) => (
+              <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length) : NOTE.lineHPx}>
+                {line}
+              </tspan>
+            ))}
           </text>
         )}
       </g>
       {/* 포커스 링도 칩을 감싼다 — 예전에는 글자 상자(size 기준)를 감싸서 빈 메모에서는 아무것도
           없는 허공에 떴다. 칩과 같은 upright 안에 둬야 판을 돌려도 어긋나지 않는다. */}
       <g transform={upright}>
-        <rect className="focus-ind-outer" x={-halfW - 3} y={-halfH - 3} width={w + 6} height={NOTE.chipHPx + 6} rx={5} />
-        <rect className="focus-ind-inner" x={-halfW - 3} y={-halfH - 3} width={w + 6} height={NOTE.chipHPx + 6} rx={5} />
+        <rect className="focus-ind-outer" x={-halfW - 3} y={-halfH - 3} width={w + 6} height={h + 6} rx={5} />
+        <rect className="focus-ind-inner" x={-halfW - 3} y={-halfH - 3} width={w + 6} height={h + 6} rx={5} />
       </g>
       {/* 잠김 덮개는 **쪽지·글자보다 뒤에** 온다 — 앞에 두면 불투명한 쪽지가 통째로 가린다. */}
-      {locked && <LockTint r={NOTE.ringRadiusPx} />}
+      {locked && <LockTint r={ringR} />}
     </g>
   );
 });

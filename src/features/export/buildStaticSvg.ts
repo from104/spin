@@ -52,7 +52,7 @@ import {
   RULE_ZONE_FILL,
   RULE_ZONE_FILL_OPACITY,
 } from '../../render/ruleOverlay.ts';
-import { noteChipPathD, noteFoldPathD } from '../../render/objects/noteChip.ts';
+import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteFoldPathD } from '../../render/objects/noteChip.ts';
 import { num, safeColor, safeId } from './svgSafe.ts';
 import { teamMarkFor } from './teamMark.ts';
 import {
@@ -420,11 +420,13 @@ function notesMarkup(frame: RenderFrame): string {
   let out = '';
   for (const n of frame.notes) {
     if (n.opacity <= 0) continue;
-    const halfW = noteHalfWidth(n.text, n.size ?? 14);
+    const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
+    const halfW = noteHalfWidth(n.text, size);
+    const halfH = noteChipHeightPx(n.text, size) / 2;
     out +=
       `<g id="obj-${safeId(n.id)}" transform="${poseTransform(n.x, n.y)}"${attrOpacity(n.opacity)}>` +
-      `<path d="${noteChipPathD(halfW)}" fill="${NOTE_FILL}" stroke="${OBJ_STROKE}" stroke-width="1.4" stroke-linejoin="round"/>` +
-      `<path d="${noteFoldPathD(halfW)}" fill="${NOTE_FOLD_FILL}" stroke="${OBJ_STROKE}" stroke-width="1.4" stroke-linejoin="round"/>` +
+      `<path d="${noteChipPathD(halfW, halfH)}" fill="${NOTE_FILL}" stroke="${OBJ_STROKE}" stroke-width="1.4" stroke-linejoin="round"/>` +
+      `<path d="${noteFoldPathD(halfW, halfH)}" fill="${NOTE_FOLD_FILL}" stroke="${OBJ_STROKE}" stroke-width="1.4" stroke-linejoin="round"/>` +
       `</g>`;
   }
   return out;

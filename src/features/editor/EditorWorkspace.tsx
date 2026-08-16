@@ -4,7 +4,7 @@
 // 그대로 이식한다.
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isId } from '../../core/ids.ts';
-import type { ChairId } from '../../core/ids.ts';
+import type { ChairId, NoteId } from '../../core/ids.ts';
 import { DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
@@ -41,6 +41,7 @@ import { useContainerWidth } from './useContainerWidth.ts';
 import { useKnownTags } from './useKnownTags.ts';
 import { InspectorPanel } from './InspectorPanel.tsx';
 import { HelpModal } from './HelpModal.tsx';
+import { NoteEditModal } from './NoteEditModal.tsx';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
 import { useStepPlayback } from './useStepPlayback.ts';
 import { usePhysicsRenderLoop } from './usePhysicsRenderLoop.ts';
@@ -103,6 +104,11 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const helpButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pendingPlayerId, setPendingPlayerId] = useState<ChairId | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  /** 글을 고치는 중인 메모(기현 지시 2026-08-17). `fresh` 는 "방금 놓은 쪽지" 라는 뜻이고,
+   *  그때만 취소가 쪽지를 도로 치운다 — 자세한 근거는 `NoteEditModal` 의 같은 이름 prop.
+   *  무대(EditorStage)가 아니라 여기 있는 이유: 트레이 드래그 배치가 이 파일에 있어서,
+   *  무대가 갖고 있으면 그 경로만 문이 안 열린다. */
+  const [editingNote, setEditingNote] = useState<{ id: NoteId; fresh: boolean } | null>(null);
   // 세로 화면(§6.4 태블릿): 도구·속성을 아래로 내려 코트가 폭을 다 쓰게 한다.
   const portrait = useIsPortrait();
   // 좁은 창(§5.1): 크롬 예산을 줄인다. 여기서 걷어내는 것은 코트 래퍼 패딩 한 행이고,
@@ -330,6 +336,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         dispatch,
         showToast: (m) => toast.show(m),
         onPlayerPlaced: () => setPendingPlayerId(null),
+        // 트레이에서 끌어다 놓은 메모도 탭으로 놓은 것과 **같은 문**이 열린다 — 경로마다
+        // 다르면 "탭으로는 글 칸이 뜨는데 끌어다 놓으면 안 뜬다" 가 조용히 생긴다.
+        onNotePlaced: (id) => setEditingNote({ id, fresh: true }),
       });
     },
   });
@@ -402,6 +411,11 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // 서랍이 플라이아웃이 되면서 "열린 채로 둔다" 라는 상태가 없어졌기 때문이다. 두 불변식이
   // 답하던 물음("접힌 것을 어떻게 다시 펴는가")은 이제 손이 닿기만 하면 풀린다 — 근거는
   // ToolRail.tsx 의 플라이아웃 머리말에 옛 결정과 함께 남겨 뒀다.
+
+  /** 편집 중인 메모의 **지금** 값. id 만 들고 있다가 여기서 다시 찾는 이유: 되돌리기·스텝
+   *  이동으로 그 쪽지가 사라질 수 있고, 그러면 모달이 없는 개체를 붙들고 남는다.
+   *  못 찾으면 `null` 이라 모달이 그냥 닫힌다. */
+  const editingNoteObj = editingNote ? (step.notes.find((n) => n.id === editingNote.id) ?? null) : null;
 
   // 두 배치가 **같은 컴포넌트 인스턴스**를 쓰도록 조각으로 뽑는다. 가로/세로에서 각각 따로
   // 렌더하면 방향이 바뀔 때 언마운트–재마운트가 일어나 인스펙터의 펼침 상태 같은 것이 날아간다.
@@ -680,6 +694,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 largeTargets={prefs.a11y.largeTargets}
                 twoZone={prefs.a11y.twoZone}
                 onEraseIds={eraseIds}
+                onEditNote={(id, fresh) => setEditingNote({ id, fresh })}
                 epoch={state.epoch}
                 // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와
                 // 위치 이동이 한 시계로 끝난다. immediate(시점 점프)는 EditorStage 가 epoch 로
@@ -748,6 +763,29 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       )}
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpTriggerRef} mode={mode} />
+
+      {/* 메모 글 칸. `key` 로 갈아끼우는 이유: 모달이 초깃값을 **열릴 때 한 번만** 읽으므로
+          (편집 중인 글을 바깥이 덮으면 방금 친 것이 사라진다), 다른 메모를 열 때는 컴포넌트를
+          새로 세워야 그 메모의 글이 들어온다. */}
+      {editingNoteObj && (
+        <NoteEditModal
+          key={editingNoteObj.id}
+          open
+          initialText={editingNoteObj.text}
+          fresh={editingNote?.fresh ?? false}
+          onSave={(text) => {
+            dispatch({ type: 'NOTE_SET', note: { ...editingNoteObj, text } });
+            setEditingNote(null);
+          }}
+          onCancel={() => {
+            // 방금 놓은 쪽지를 취소하면 **도로 치운다** — 아니면 취소했는데 빈 쪽지가 남아,
+            // 치우는 일이 하나 더 생긴다. 치우는 길은 지우기와 같은 함수다(소리·토스트·
+            // 되돌리기가 한 벌이어야 한다는 §6.10b 의 규율).
+            if (editingNote?.fresh) eraseIds([editingNoteObj.id], 'thisStep');
+            setEditingNote(null);
+          }}
+        />
+      )}
     </main>
   );
 }

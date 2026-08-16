@@ -72,7 +72,11 @@ export interface SceneSnapshot {
   chairs: ReadonlyArray<{ id: ChairId; pose: ChairPose }>;
   balls: ReadonlyArray<{ id: BallId; p: Vec2 }>;
   cones: ReadonlyArray<{ id: ConeId; p: Vec2 }>;
-  notes: ReadonlyArray<{ id: NoteId; p: Vec2 }>;
+  /** 메모는 좌표만으로는 못 잡는다 — 쪽지 칩은 글에 따라 가로로 늘고, 2026-08-17 부터는
+   *  줄 수에 따라 세로로도 는다. 그래서 **칩의 반너비·반높이**를 함께 싣는다
+   *  (`render/objects/noteChip.ts` 가 값의 유일한 출처다). 예전에는 이 둘이 없어 픽 원이
+   *  22 px 로 캡돼 있었고, 그 결과 긴 메모는 칩 한복판을 눌러도 안 잡혔다. */
+  notes: ReadonlyArray<{ id: NoteId; p: Vec2; halfW: number; halfH: number }>;
   arrows: ReadonlyArray<{ id: ArrowId; from: Vec2; ctrl: Vec2; to: Vec2 }>;
 }
 
@@ -240,9 +244,14 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
     const d = dist(p, c.p);
     if (d <= r.cone && (!best || d < best.d)) best = { kind: 'cone', id: c.id, d };
   }
+  // 메모만 판정이 둘이다: **픽 원 ∪ 칩 상자**. 원은 작은 칩에 주던 관대함이고(빈 쪽지의
+  // 외접원 20 + 패드), 상자는 큰 칩이 자기 몸만큼 잡히게 하는 것이다. 합집합이라 어느 쪽도
+  // 상대를 줄이지 않는다 — 빈 메모의 판정은 2026-08-17 이전과 정확히 같다(칩 32×24 ⊂ 원 20).
+  // 가까움 비교는 **중심 거리**로 한다: 상자 안이라도 다른 개체가 더 가까우면 그쪽이 이긴다.
   for (const n of scene.notes) {
     const d = dist(p, n.p);
-    if (d <= r.note && (!best || d < best.d)) best = { kind: 'note', id: n.id, d };
+    const inChip = Math.abs(p.x - n.p.x) <= n.halfW && Math.abs(p.y - n.p.y) <= n.halfH;
+    if ((inChip || d <= r.note) && (!best || d < best.d)) best = { kind: 'note', id: n.id, d };
   }
   if (best) return { kind: best.kind, id: best.id };
 

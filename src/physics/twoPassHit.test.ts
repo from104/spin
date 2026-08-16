@@ -164,12 +164,17 @@ describe('큰 터치 타깃 (§4.3 P1-2 [D-4])', () => {
 describe('메모 상한 22 (§4.3 P1-2)', () => {
   it('저배율에서 메모의 1차 반경이 12.5 로 잘리지 않는다', () => {
     const id = noteId(1);
-    const scene: SceneSnapshot = { ...emptyScene(), notes: [{ id, p: { x: 300, y: 300 } }] };
+    // 빈 쪽지의 칩(32×24)을 그대로 싣는다 — 2026-08-17 부터 스냅샷이 칩 크기를 함께 나른다.
+    const scene: SceneSnapshot = { ...emptyScene(), notes: [{ id, p: { x: 300, y: 300 }, halfW: 16, halfH: 12 }] };
     // s=0.2 → 메모 1차 반경 = min(NOTE.hitRadiusPx + 6/0.2, 상한) = min(50, 22) = 22.
     // 옛 상한 12.5 였다면 잘렸다(자기 반지름은 §4.3 P1-5 로 0 → 20 이 됐지만 이 구간은 상한이 정한다).
     // 2차 패스가 답을 대신 내지 못하도록 **지우개**로 잰다(2차가 없는 도구다).
+    //
+    // ⚠️ **세로로** 잰다(2026-08-17). 가로 15 px 은 이제 칩 상자(반너비 16) 안이라 원이 아니라
+    // 상자가 답을 낸다 — 그러면 이 테스트가 재려던 것(원의 상한)을 안 재게 된다. 세로 21 px 은
+    // 칩(반높이 12) 밖이면서 원(22) 안이라, 여기서는 원만이 답을 낼 수 있다.
     const ctx: HitContext = { ...baseCtx, pxPerUnit: 0.2, tool: 'ball' };
-    expect(hitTest({ x: 315, y: 300 }, scene, ctx)).toEqual({ kind: 'note', id }); // 15px — 옛 상한이면 빗나갔다
-    expect(hitTest({ x: 323, y: 300 }, scene, ctx)).toBeNull(); // 23px — 새 상한 밖
+    expect(hitTest({ x: 300, y: 321 }, scene, ctx)).toEqual({ kind: 'note', id }); // 21px — 옛 상한이면 빗나갔다
+    expect(hitTest({ x: 300, y: 323 }, scene, ctx)).toBeNull(); // 23px — 새 상한 밖
   });
 });

@@ -212,6 +212,7 @@ describe('판이 거짓말하지 않는다 — 차체 음영이 판정과 같은
         largeTargets={false}
         twoZone={twoZone}
         onEraseIds={vi.fn()}
+        onEditNote={() => {}}
       />,
     );
     return Array.from(container.querySelectorAll('.court-obj rect.zone-tint')).map((r) => ({

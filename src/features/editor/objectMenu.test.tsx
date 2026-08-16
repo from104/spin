@@ -275,7 +275,7 @@ describe('메뉴 — 화면 끝', () => {
   // 지우는지가 아니다 — 공·콘은 cast 에서도 사라지지만 트레이에 소스가 늘 있어 코치가 겪는
   // 일은 '뺐다' 이지 '지웠다' 가 아니다.
   describe('마지막 항목은 개체 종류에 따라 말이 갈린다', () => {
-    const base = { x: 10, y: 10, locked: false, ignored: false, canIgnore: true, selectSame: null };
+    const base = { x: 10, y: 10, locked: false, ignored: false, canIgnore: true, editable: null, selectSame: null };
     const noop = () => {};
 
     // 2026-08-16 — 예전에는 `returnsToTray` 를 대상에 실어 보냈다. 지금은 **id 에서 계산한다**
@@ -290,6 +290,7 @@ describe('메뉴 — 화면 끝', () => {
           onToggleIgnore={noop}
           onRemove={noop}
           onSelect={noop}
+          onEdit={noop}
         />,
       );
 

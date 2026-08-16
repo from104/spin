@@ -28,6 +28,7 @@ import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
 import { EditorProvider, useEditorDispatch, useEditorState, useEditorWorld, useEditorWriter } from '../../store/editor/EditorProvider.tsx';
 import { useEditorPointer } from './useEditorPointer.ts';
+import { NOTE_DEFAULT_SIZE_PX, noteRingRadiusPx } from '../../render/objects/noteChip.ts';
 
 const META: PointerMeta = { pointerType: 'mouse', button: 0, shiftKey: false, metaKey: false, ctrlKey: false, altKey: false };
 
@@ -45,7 +46,7 @@ function makeDrill(notes: Array<{ id: NoteId; x: number; y: number; text: string
   };
 }
 
-function useHarness(tool: ToolId) {
+function useHarness(tool: ToolId, onNotePlaced?: (id: NoteId) => void) {
   const state = useEditorState();
   const dispatch = useEditorDispatch();
   const worldRef = useEditorWorld();
@@ -67,6 +68,7 @@ function useHarness(tool: ToolId) {
     ballMax: BALL.maxCount,
     pendingPlayerId: null,
     onPlayerPlaced: () => {},
+    onNotePlaced,
     showToast: () => {},
     forceHandlesVisible: false,
     largeTargets: false,
@@ -74,13 +76,13 @@ function useHarness(tool: ToolId) {
   return { state, pointer };
 }
 
-function mount(drill: Drill, tool: ToolId) {
+function mount(drill: Drill, tool: ToolId, onNotePlaced?: (id: NoteId) => void) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <SettingsProvider>
       <EditorProvider drill={drill}>{children}</EditorProvider>
     </SettingsProvider>
   );
-  return renderHook(() => useHarness(tool), { wrapper });
+  return renderHook(() => useHarness(tool, onNotePlaced), { wrapper });
 }
 
 /** 오버레이 전체를 스파이로 갈아 끼운다 — `setRing` 뿐 아니라 `setLeash`/`setGhost` 가
@@ -110,6 +112,17 @@ describe('메모 도구 — 탭한 자리에 쪽지가 놓인다', () => {
     expect({ x: notes[0]!.x, y: notes[0]!.y }).toEqual(TAP_AT);
     expect(notes[0]!.text).toBe('');
     expect(Array.from(result.current.state.selection)).toEqual([notes[0]!.id]);
+  });
+
+  it('놓자마자 글 칸이 열린다 — 배치 직후 모달의 실제 신호 (기현 지시 2026-08-17)', () => {
+    // *"최초 배치시 … 입력·수정 모달 띄워서 메모 편집 할 수 있게"*. 이 신호가 없으면
+    // 빈 쪽지만 놓이고 글을 쓸 자리는 여전히 인스펙터뿐이다 — 결함이 그대로 남는다.
+    const { drill } = makeDrill();
+    const onNotePlaced = vi.fn();
+    const { result } = mount(drill, 'note', onNotePlaced);
+    act(() => void result.current.pointer.controller.onPointerDown(TAP_AT, META));
+    const notes = result.current.state.present.steps[0]!.notes;
+    expect(onNotePlaced).toHaveBeenCalledWith(notes[0]!.id);
   });
 
   it('그 쪽지가 **탭한 좌표에** 그려진다 — poseFrame 이 메모를 흘려보낸다', () => {
@@ -159,11 +172,15 @@ describe('SelectionOverlay.setRing — 호출자가 생겼다', () => {
     result.current.pointer.selectionOverlayRef.current = overlay;
     const ctrl = () => result.current.pointer.controller;
 
+    // 반지름이 다섯 번째 인자다(2026-08-17) — 메모는 글에 따라 칩이 커지는 유일한 개체라
+    // 링도 함께 커져야 한다. 빈 메모라 값은 예전 상수(22)와 같지만, **정지 상태의 선택 링과
+    // 같은 함수**에서 왔다는 것이 여기서 못박히는 사실이다(잡는 순간 링이 튀면 안 된다).
+    const ringR = noteRingRadiusPx('', NOTE_DEFAULT_SIZE_PX);
     act(() => void ctrl().onPointerDown(TAP_AT, META));
-    expect(overlay.setRing).toHaveBeenCalledWith('note', TAP_AT.x, TAP_AT.y, 0);
+    expect(overlay.setRing).toHaveBeenCalledWith('note', TAP_AT.x, TAP_AT.y, 0, ringR);
 
     act(() => ctrl().onPointerMove({ x: TAP_AT.x + 30, y: TAP_AT.y + 10 }, 0));
-    expect(overlay.setRing).toHaveBeenLastCalledWith('note', TAP_AT.x + 30, TAP_AT.y + 10, 0);
+    expect(overlay.setRing).toHaveBeenLastCalledWith('note', TAP_AT.x + 30, TAP_AT.y + 10, 0, ringR);
     // 메모는 물리 바디가 없어 리시도 고스트도 안 뜬다 — 링이 유일한 '잡았다' 신호라는 근거.
     expect(overlay.setLeash).not.toHaveBeenCalled();
     expect(overlay.setGhost).not.toHaveBeenCalled();

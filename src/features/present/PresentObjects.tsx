@@ -18,6 +18,8 @@ import { ChairChip } from '../../render/objects/ChairChip.tsx';
 import { BallDot } from '../../render/objects/BallDot.tsx';
 import { ConeMark } from '../../render/objects/ConeMark.tsx';
 import { ArrowPath } from '../../render/objects/ArrowPath.tsx';
+import { NOTE_DEFAULT_SIZE_PX, noteLineDy, noteLines } from '../../render/objects/noteChip.ts';
+import { NOTE } from '../../core/constants.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { OpacityWriter } from './opacityWriter.ts';
@@ -114,22 +116,32 @@ const FONT = "'Pretendard',sans-serif";
 export function PresentNoteLayer({ notes }: { notes: RenderFrame['notes'] }) {
   return (
     <>
-      {notes.map((n) => (
-        <g key={n.id} opacity={n.opacity} transform={`translate(${n.x.toFixed(2)} ${n.y.toFixed(2)})`}>
-          <text
-            x={0}
-            y={0}
-            fontFamily={FONT}
-            fontSize={n.size ?? 14}
-            fontWeight={600}
-            fill={n.color ?? '#ffffff'}
-            textAnchor={n.align ?? 'middle'}
-            dominantBaseline="central"
-          >
-            {n.text}
-          </text>
-        </g>
-      ))}
+      {notes.map((n) => {
+        const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
+        const lines = noteLines(n.text, size);
+        return (
+          <g key={n.id} opacity={n.opacity} transform={`translate(${n.x.toFixed(2)} ${n.y.toFixed(2)})`}>
+            <text
+              x={0}
+              y={0}
+              fontFamily={FONT}
+              fontSize={size}
+              fontWeight={600}
+              fill={n.color ?? '#ffffff'}
+              textAnchor={n.align ?? 'middle'}
+              dominantBaseline="central"
+            >
+              {/* 줄 나눔은 편집 화면과 **같은 함수**가 정한다(noteChip.ts). 시연에서만 한 줄로
+                  이어 붙으면 코치가 판에서 본 것과 관객이 보는 것이 달라진다. */}
+              {lines.map((line, i) => (
+                <tspan key={i} x={0} dy={i === 0 ? noteLineDy(0, lines.length) : NOTE.lineHPx}>
+                  {line}
+                </tspan>
+              ))}
+            </text>
+          </g>
+        );
+      })}
     </>
   );
 }

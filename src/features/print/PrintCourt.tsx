@@ -26,7 +26,16 @@ import type { Drill, DrillStep } from '../../model/drill.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
 import { ShapeLayer } from '../../render/ShapeLayer.tsx';
-import { NOTE_PLACEHOLDER, noteChipPathD, noteChipWidthPx, noteFoldPathD } from '../../render/objects/noteChip.ts';
+import {
+  NOTE_DEFAULT_SIZE_PX,
+  NOTE_PLACEHOLDER,
+  noteChipHeightPx,
+  noteChipPathD,
+  noteChipWidthPx,
+  noteFoldPathD,
+  noteLineDy,
+  noteLines,
+} from '../../render/objects/noteChip.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
 import { PRINT_COURT_CLASS } from './printDom.ts';
 
@@ -167,16 +176,18 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
       })}
 
       {step.notes.map((n) => {
-        const size = n.size ?? 14;
+        const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
         const align = n.align ?? 'middle';
         const halfW = noteChipWidthPx(n.text, size) / 2;
+        const halfH = noteChipHeightPx(n.text, size) / 2;
+        const lines = noteLines(n.text, size);
         const empty = n.text.length === 0;
         // NoteLabel.tsx 와 같은 규약: align 은 글 정렬이자 **앵커 기준 칩의 위치**다.
         const textX = align === 'start' ? -halfW + NOTE.chipPadXPx : align === 'end' ? halfW - NOTE.chipPadXPx : 0;
         return (
           <g key={n.id} data-print-note={n.id} transform={`translate(${n.x} ${n.y})`}>
-            <path d={noteChipPathD(halfW)} fill={NOTE_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
-            <path d={noteFoldPathD(halfW)} fill={NOTE_FOLD_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
+            <path d={noteChipPathD(halfW, halfH)} fill={NOTE_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
+            <path d={noteFoldPathD(halfW, halfH)} fill={NOTE_FOLD_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
             <text
               x={empty ? 0 : textX}
               y={0}
@@ -187,7 +198,15 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
               textAnchor={empty ? 'middle' : align}
               dominantBaseline="central"
             >
-              {empty ? NOTE_PLACEHOLDER : n.text}
+              {/* 줄 나눔은 화면과 **같은 함수**가 정한다 — 종이가 화면보다 한 줄 적게 나오면
+                  코치는 종이를 못 믿는다. tspan 마다 x 를 다시 주는 이유는 NoteLabel 과 같다. */}
+              {empty
+                ? NOTE_PLACEHOLDER
+                : lines.map((line, i) => (
+                    <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length) : NOTE.lineHPx}>
+                      {line}
+                    </tspan>
+                  ))}
             </text>
           </g>
         );

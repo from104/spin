@@ -29,6 +29,7 @@ import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
 import type { Arrow } from '../../model/arrow.ts';
 import { arrowMid, cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow } from '../../model/arrow.ts';
 import { arrowLabel } from '../../render/objects/ArrowPath.tsx';
+import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipWidthPx, noteRingRadiusPx } from '../../render/objects/noteChip.ts';
 import type { CourtStageHandle, PointerMeta, PointerDownResult, CourtStagePointerController } from '../../render/CourtStage.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { SelectionOverlayHandle, SelectionShape } from '../../render/SelectionOverlay.tsx';
@@ -102,6 +103,8 @@ export interface UseEditorPointerOptions {
    *  (기현 신고 2026-08-14). 끌기는 잠김과 같이 막는다. */
   ignored?: ReadonlySet<string>;
   onPlayerPlaced(): void;
+  /** 방금 놓은 빈 메모의 id. 호출부가 입력 모달을 연다 — 근거는 `placement.ts` 의 같은 이름. */
+  onNotePlaced?(id: NoteId): void;
   /** 트레이에 놓아 치우는 길(§6.10c). **메뉴·Delete 와 같은 함수**로 들어간다 —
    *  소리·토스트·선택 해제가 세 입구에서 갈리지 않게 하는 유일한 방법이다. 예전에는 여기서
    *  `OBJECT_REMOVE` 를 직접 쐈고, 그래서 끌어서 뺀 것만 토스트(되돌리기 버튼)가 없었다.
@@ -273,7 +276,14 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       chairs,
       balls,
       cones,
-      notes: ctx.step.notes.map((n) => ({ id: n.id, p: { x: n.x, y: n.y } })),
+      // 칩 크기를 함께 싣는다 — 메모는 글에 따라 커지는 유일한 개체라 좌표만으로는 못 잡는다
+      // (hitTest 의 SceneSnapshot.notes 주석에 근거). 값의 출처는 noteChip.ts 하나다.
+      notes: ctx.step.notes.map((n) => ({
+        id: n.id,
+        p: { x: n.x, y: n.y },
+        halfW: noteChipWidthPx(n.text, n.size ?? NOTE_DEFAULT_SIZE_PX) / 2,
+        halfH: noteChipHeightPx(n.text, n.size ?? NOTE_DEFAULT_SIZE_PX) / 2,
+      })),
       arrows: ctx.step.arrows.map((a) => ({ id: a.id, from: a.from, ctrl: a.ctrl, to: a.to })),
     };
   }, []);
@@ -319,6 +329,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       dispatch: ctx.dispatch,
       showToast: (m) => ctx.showToast(m),
       onPlayerPlaced: ctx.onPlayerPlaced,
+      onNotePlaced: (id) => ctx.onNotePlaced?.(id),
     });
   }, []);
 
@@ -688,7 +699,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           noteDragRef.current = { id: note.id, offset: { x: world.x - note.x, y: world.y - note.y } };
           trayCargoRef.current = { ids: [note.id], revert: () => ctxRef.current.dispatch({ type: 'NOTE_SET', note }) };
           // 메모는 물리 바디가 없어 리시도 고스트도 안 뜬다 — 이 링이 유일한 '잡았다' 신호다.
-          selectionOverlayRef.current?.setRing('note', note.x, note.y, 0);
+          // 반지름을 함께 준다: 메모는 글에 따라 커지는 유일한 개체라 고정 22 로는 큰 쪽지를
+          // 못 감싼다(정지 상태의 선택 링과 같은 함수를 써야 잡는 순간 링이 안 튄다).
+          selectionOverlayRef.current?.setRing('note', note.x, note.y, 0, noteRingRadiusPx(note.text, note.size ?? NOTE_DEFAULT_SIZE_PX));
         }
       }
     },
@@ -792,7 +805,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           const ny = world.y - offset.y;
           ctx.dispatch({ type: 'NOTE_SET', note: { ...note, x: nx, y: ny } });
           // 좌표는 리렌더를 거쳐 오지만 링은 안 거친다 — 리렌더가 늦어도 링은 제자리다.
-          selectionOverlayRef.current?.setRing('note', nx, ny, 0);
+          selectionOverlayRef.current?.setRing('note', nx, ny, 0, noteRingRadiusPx(note.text, note.size ?? NOTE_DEFAULT_SIZE_PX));
         }
         return;
       }

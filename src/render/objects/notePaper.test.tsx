@@ -16,7 +16,7 @@ import type { HitContext, SceneSnapshot } from '../../physics/hitTest.ts';
 import { HIT_R_MAX_PX } from '../hitRadius.ts';
 import { createTransformWriter } from '../transformWriter.ts';
 import { NoteLabel } from './NoteLabel.tsx';
-import { NOTE_PLACEHOLDER, noteChipWidthPx } from './noteChip.ts';
+import { NOTE_PLACEHOLDER, noteChipHeightPx, noteChipWidthPx, noteRingRadiusPx } from './noteChip.ts';
 
 const id = 'nt_1' as NoteId;
 const NOTE_AT = { x: 300, y: 200 };
@@ -73,7 +73,16 @@ function chipBox(container: Element): { minX: number; maxX: number; minY: number
   };
 }
 
-const scene: SceneSnapshot = { chairs: [], balls: [], cones: [], notes: [{ id, p: NOTE_AT }], arrows: [] };
+/** 빈 쪽지의 칩(32×24)을 그대로 싣는다 — 2026-08-17 부터 스냅샷이 칩 크기를 함께 나른다
+ *  (히트가 원 ∪ 칩 상자이기 때문). 빈 칩은 원(20) 안에 통째로 들어가므로 이 파일의 판정은
+ *  그 전과 **정확히 같다** — 아래 회귀 감시들이 계속 같은 것을 재고 있다는 뜻이다. */
+const scene: SceneSnapshot = {
+  chairs: [],
+  balls: [],
+  cones: [],
+  notes: [{ id, p: NOTE_AT, halfW: NOTE.chipMinWPx / 2, halfH: NOTE.chipHPx / 2 }],
+  arrows: [],
+};
 
 /** **지우개**로 잰다 — select 는 2차(관대) 패스가 있어 1차 반경을 가려 버린다(§4.3 P1-2 [A-2]).
  *  여기서 재려는 것은 "그려진 칩이 1차 패스만으로 잡히는가" 다. */
@@ -115,8 +124,32 @@ describe('(a) 빈 메모도 접힌 쪽지로 그려진다', () => {
     const box = chipBox(c);
     expect(box.maxX - box.minX).toBeCloseTo(noteChipWidthPx(text, 14), 9);
     expect(box.maxX - box.minX).toBeGreaterThan(NOTE.chipMinWPx);
-    // 세로는 상수다 — 히트 반경이 상수라서 그렇다(NOTE 머리말).
+    // 한 줄짜리 글의 세로는 여전히 chipHPx 다 — 줄바꿈(2026-08-17)이 들어와도 **줄이 하나면**
+    // 예전과 한 픽셀도 다르지 않다는 약속이 여기 있다.
     expect(box.maxY - box.minY).toBeCloseTo(NOTE.chipHPx, 9);
+  });
+});
+
+describe('줄바꿈 — 표시 (기현 지시 2026-08-17)', () => {
+  it('줄마다 tspan 하나이고, tspan 마다 x 를 다시 준다 — 안 주면 둘째 줄부터 계단이 된다', () => {
+    const c = renderNote('앞선 압박\n오른쪽 전환');
+    const spans = Array.from(c.querySelectorAll('#obj-nt_1 text tspan'));
+    expect(spans.map((el) => el.textContent)).toEqual(['앞선 압박', '오른쪽 전환']);
+    for (const el of spans) expect(el.getAttribute('x')).not.toBeNull();
+  });
+
+  it('SVG `<text>` 는 개행을 삼킨다 — 그래서 tspan 이 **없으면** 이 테스트가 빨개진다', () => {
+    // 회귀 감시: 줄 나눔을 지우고 `{text}` 하나로 되돌리면 tspan 이 0 개가 된다.
+    expect(renderNote('가\n나').querySelectorAll('#obj-nt_1 text tspan')).toHaveLength(2);
+  });
+
+  it('줄이 늘면 칩도 세로로 는다 — 글이 쪽지 밖으로 새지 않는다', () => {
+    const one = chipBox(renderNote('가'));
+    const two = chipBox(renderNote('가\n나'));
+    expect(two.maxY - two.minY).toBeCloseTo(noteChipHeightPx('가\n나', 14), 9);
+    expect(two.maxY - two.minY).toBeGreaterThan(one.maxY - one.minY);
+    // 앵커는 여전히 칩 한가운데다 — 줄이 늘어도 쪽지가 한쪽으로 밀리지 않는다.
+    expect(two.minY + two.maxY).toBeCloseTo(0, 9);
   });
 });
 
@@ -133,12 +166,22 @@ describe('(b) 선택 링 — 5종 개체 중 메모만 빠져 있었다', () => 
     expect(circles[1]!.getAttribute('stroke')).toBe('var(--accent)');
   });
 
-  it('글이 길어져도 링은 앵커 기준 같은 원이다 — SelectionOverlay 의 note 링과 어긋나면 안 된다', () => {
-    const ring = renderNote('아주 긴 메모입니다', true).querySelector('.sel-ring')!;
+  it('글이 길어지면 링도 칩을 따라 커진다 — SelectionOverlay 의 note 링과 같은 함수여야 한다', () => {
+    // 2026-08-17 이전에는 이 링이 **언제나 22** 였다. 긴 메모의 칩은 그때도 200 px 까지
+    // 늘었으므로, 링은 칩 한복판의 작은 원으로 남아 "무엇이 선택됐는지" 를 못 그렸다.
+    const text = '아주 긴 메모입니다';
+    const ring = renderNote(text, true).querySelector('.sel-ring')!;
+    const r = noteRingRadiusPx(text, 14);
+    expect(r).toBeGreaterThan(NOTE.ringRadiusPx);
     for (const el of Array.from(ring.querySelectorAll('circle'))) {
-      expect(el.getAttribute('r')).toBe(String(NOTE.ringRadiusPx));
+      expect(el.getAttribute('r')).toBe(String(r));
       expect(el.getAttribute('cx')).toBe('0');
     }
+  });
+
+  it('빈 메모의 링은 예전 값 그대로 22 다 — 커지는 것은 칩이 원을 넘어설 때뿐이다', () => {
+    expect(noteRingRadiusPx('', 14)).toBe(NOTE.ringRadiusPx);
+    expect(noteChipHeightPx('', 14)).toBe(NOTE.chipHPx);
   });
 });
 

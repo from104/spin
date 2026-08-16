@@ -50,6 +50,14 @@ export interface ObjectMenuTarget {
   //    인 대상이 만들어져 아이콘과 글자가 서로 다른 말을 했다. 판정은 `removal.ts` 하나다
   //    (근거 — 다시 꺼낼 자리가 있는가 — 도 거기 적혀 있다). 여럿이면 **전부** 트레이로
   //    돌아가는가가 아이콘을 정하고, 섞인 경우의 말은 `removalLabel` 이 만든다.
+  /** [수정] 을 낼 대상의 id — 지금은 **메모 하나일 때만** 이다(기현 지시 2026-08-17).
+   *  낼 것이 없으면 `null`.
+   *
+   *  왜 메모뿐인가: '수정' 이 열 것이 있는 개체가 메모밖에 없다. 다른 개체의 속성(팀 색·등번호·
+   *  화살표 머리)은 저마다 다른 화면에서 손대고, 메뉴 항목 하나에 그 전부를 묶으면 "무엇이
+   *  열릴지" 를 누르기 전에 알 수 없다. 여럿을 골랐을 때 안 내는 이유는 `selectSame` 과 같다 —
+   *  다섯 개의 글을 한 칸에 넣을 방법이 없다. */
+  editable: string | null;
   /** "같은 것 전부 고르기" 항목(§6.10b). 낼 것이 없으면 `null`.
    *  **하나짜리 메뉴에서만** 뜬다 — 이미 여럿을 골라 둔 사람에게 '같은 종류' 가 무엇인지
    *  되묻지 않기 위해서다(짚은 것 기준인지 고른 것들 기준인지 답이 하나로 안 나온다). */
@@ -66,6 +74,8 @@ export interface ObjectMenuProps {
   onRemove(ids: string[]): void;
   /** "같은 것 전부 고르기". `target.selectSame` 이 null 이면 호출되지 않는다. */
   onSelect(ids: string[]): void;
+  /** 메모 글 고치기. `target.editable` 이 null 이면 호출되지 않는다. */
+  onEdit(id: string): void;
 }
 
 const ITEM: React.CSSProperties = {
@@ -84,7 +94,7 @@ const ITEM: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect }: ObjectMenuProps) {
+export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit }: ObjectMenuProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const firstRef = useRef<HTMLButtonElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -179,11 +189,29 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
           </>
         )}
 
+        {/* [수정] — 지금은 메모 전용이다(기현 지시 2026-08-17). 판을 바꾸는 항목이라 고르기와
+            갈라 아래 뭉치의 **맨 위**에 둔다. 잠긴 메모에서도 낸다: 잠김은 §6.10 에서 "이동만
+            막힌 상태" 라 글까지 얼리면 없던 뜻이 하나 붙는다(그리고 푸는 문이 또 하나 좁아진다). */}
+        {target.editable && (
+          <button
+            type="button"
+            role="menuitem"
+            ref={target.selectSame ? undefined : firstRef}
+            onClick={act(() => onEdit(target.editable!))}
+            style={ITEM}
+          >
+            <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.7 }}>
+              ✎
+            </span>
+            수정
+          </button>
+        )}
+
         <button
           type="button"
           role="menuitem"
-          // 고르기 항목이 없을 때만 여기가 첫 칸이다 — ref 를 둘 다 달면 나중 것이 이긴다.
-          ref={target.selectSame ? undefined : firstRef}
+          // 위의 두 항목이 **둘 다** 없을 때만 여기가 첫 칸이다 — ref 를 여럿에 달면 나중 것이 이긴다.
+          ref={target.selectSame || target.editable ? undefined : firstRef}
           onClick={act(() => onToggleLock(target.ids, !target.locked))}
           style={ITEM}
         >
