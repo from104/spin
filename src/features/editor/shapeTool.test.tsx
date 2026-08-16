@@ -68,7 +68,12 @@ describe('작도 서랍 — 도형 3종이 산다', () => {
     const { user } = await openBoard();
     await user.click(screen.getByRole('button', { name: /^작도/ }));
     const panel = screen.getByRole('group', { name: '작도 도구' });
-    const names = [...panel.querySelectorAll('button')].map((b) => b.textContent?.replace(/\s/g, ''));
+    // 단축키 글자 배지(aria-hidden)는 이름이 아니다 — 빼고 읽는다(2026-08-16).
+    const names = [...panel.querySelectorAll('button')].map((b) => {
+      const clone = b.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll('[aria-hidden="true"]').forEach((n) => n.remove());
+      return clone.textContent?.replace(/\s/g, '');
+    });
     expect(names).toEqual(['선', '원', '삼각', '사각']);
   });
 

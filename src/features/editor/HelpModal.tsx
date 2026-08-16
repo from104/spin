@@ -13,6 +13,7 @@
 // 동작을 바꿨으면 이 문구도 함께 고쳐라 — 그 대조가 이 파일 테스트의 존재 이유다.
 import { Fragment } from 'react';
 import type { RefObject } from 'react';
+import { helpRows, toolHelpRow } from '../../core/keymap.ts';
 import { Modal } from '../../ui/Modal.tsx';
 
 export interface HelpModalProps {
@@ -34,51 +35,36 @@ const BASICS: ReadonlyArray<[string, string]> = [
   ['선택·해제', '선택 도구는 조금 빗나가게 눌러도 가장 가까운 개체가 잡히고, 선택된 개체를 그 자리에서 다시 탭하거나 Esc 를 누르면 풀립니다.'],
 ];
 
-/** 스텝(시간축)이 있어야 뜻이 있는 키. **전술판에서는 전부 무동작이다** — 그쪽은 1장짜리라
- *  다음 스텝도, 복제할 스텝도, 재생할 구간도 없다(useStepPlayback 은 steps<2 면 즉시 멈춘다).
- *  지어낸 목록이 아니라 실제로 죽어 있는 배선을 그대로 적은 것이다:
- *    · Ctrl/⌘+D → EditorWorkspace 가 전술판에서 `() => {}` 를 넘긴다
- *    · ←/→      → `gotoStep` 이 다음 스텝을 못 찾아 dispatch 자체를 안 한다
- *    · Space    → `useStepPlayback` 이 steps.length < 2 에서 곧바로 pause() 한다 */
-const STEP_SHORTCUTS: ReadonlyArray<[string, string]> = [
-  ['Ctrl/⌘+D', '현재 스텝 복제'],
-  ['← →', '이전/다음 스텝(개체 미선택 시)'],
-  ['Space', '재생 / 일시정지'],
-  ['Space (스텝 사진)', '스텝 집기/놓기 — ←/→ 로 자리를 옮기고 Esc 로 되돌림'],
-];
-
-const SHORTCUTS: ReadonlyArray<[string, string]> = [
-  ['1–8 / V R P B C A T E', '도구 선택 — 지우개(E·8)만 항상 Alt 필요'],
-  ['Ctrl/⌘+Z, Shift+Z', '실행 취소 / 다시 실행(Ctrl+Y)'],
-  ['Ctrl/⌘+S', '저장'],
-  ['G / Z', '격자 / 골 지역 가이드 토글'],
-  ['Ctrl/⌘ +, −, 0', '스테이지 줌 인 / 아웃 / 초기화'],
-  // 키가 아니지만 같은 표에 둔다 — 이 표를 읽는 이유는 "무엇을 할 수 있는가" 이고,
-  // 휠 줌은 버튼에도 단축키에도 안 보여 아는 사람만 아는 기능이 되기 쉽다.
-  ['코트 위에서 마우스 휠', '커서 자리를 붙든 채 확대 / 축소'],
-  ['Ctrl/⌘+방향키', '판 이동(팬)'],
-  ['방향키(개체 포커스)', '2.5px 이동, Shift = 25px'],
-  ['[ / ]', '휠체어 5° 회전, Shift = 15°'],
-  ['방향키(화살표)', '화살표 전체를 2.5px 이동'],
-  ['Shift+방향키(화살표)', '조준점만 2.5px 이동(기본 = 끝점)'],
-  ['[ / ] (화살표)', '조준점 전환 — 끝점 · 시작점 · 굽힘점'],
-  ['방향키(배치 도구·코트 포커스)', '격자 커서 이동, Enter 로 배치'],
-  ['Delete(개체 포커스)', '그 개체 삭제 — Alt = 이 스텝에서만'],
-  ['Ctrl/⌘+Delete', '선택 삭제 — Alt = 이 스텝에서만'],
-  ['Alt+←/→', '개체 순회'],
-  ['Esc', '선택 해제 — 열린 창이 있으면 그 창만 닫힘'],
-  ['Shift+?', '이 도움말'],
-];
+/** 전역 키맵에 없는 줄 — **컴포넌트 자기 것**이거나 아예 키가 아니다. 표를 읽는 이유는
+ *  "무엇을 할 수 있는가" 이므로 같은 자리에 둔다: 휠 줌은 버튼에도 단축키에도 안 보여
+ *  아는 사람만 아는 기능이 되기 쉽고, 배치 커서·스텝 사진은 그 요소에 포커스가 있을 때만
+ *  사는 지역 키라 전역 표에 넣으면 "아무 때나 눌러도 된다" 로 읽힌다. */
+function extraRows(steps: boolean): ReadonlyArray<[string, string]> {
+  return [
+    ['코트 위에서 마우스 휠', '커서 자리를 붙든 채 확대 / 축소'],
+    ['방향키(배치 도구·코트 포커스)', '격자 커서 이동, Enter 로 배치'],
+    // §4.4 P2-3 스텝 사진 재배열(TransportBar). 전술판에는 스텝 자체가 없다.
+    ...(steps
+      ? ([['Space (스텝 사진)', '스텝 집기/놓기 — ←/→ 로 자리를 옮기고 Esc 로 되돌림']] as [string, string][])
+      : []),
+  ];
+}
 
 export function HelpModal({ open, onClose, returnFocusRef, mode = 'drill' }: HelpModalProps) {
-  // 스텝 키는 **도구 키 바로 다음**에 끼운다(옛 자리 그대로) — 표를 읽는 사람이 옛 위치를
-  // 기억하고 있을 수 있고, 전술판에서는 그 자리가 통째로 비는 것이 곧 "여기엔 없다" 는 말이다.
-  const rows: ReadonlyArray<[string, string]> =
-    mode === 'drill'
-      ? [...SHORTCUTS.slice(0, 3), ...STEP_SHORTCUTS, ...SHORTCUTS.slice(3)]
-      : // 전술판의 Ctrl/⌘+S 는 드릴 자동저장이 아니라 **스냅샷을 지금 저장**이다
-        // (BoardScreen.saveNow). 같은 키에 다른 일이면 표도 다르게 적는다.
-        SHORTCUTS.map((r) => (r[0] === 'Ctrl/⌘+S' ? (['Ctrl/⌘+S', '지금 판 저장'] as [string, string]) : r));
+  // 2026-08-16 — 이 목록은 **손으로 적지 않는다**. `core/keymap.ts` 가 정본이고 여기는
+  // 그 표를 읽는다. 개편 전에는 배선과 따로 적혀 있어서, 전술판에서 죽어 있는 스텝 키 넷이
+  // 표에는 살아 있는 것처럼 적히는 사고가 났다(이 파일 머리말의 그 사고).
+  const steps = mode === 'drill';
+  const rows: ReadonlyArray<[string, string]> = [
+    toolHelpRow(),
+    ...helpRows('global', { steps }),
+    ...helpRows('object', { steps }),
+    ...extraRows(steps),
+  ].map((r) =>
+    // 전술판의 Ctrl/⌘+S 는 드릴 자동저장이 아니라 **스냅샷을 지금 저장**이다
+    // (BoardScreen.saveNow). 같은 키에 다른 일이면 표도 다르게 적는다.
+    !steps && r[0] === 'Ctrl/⌘+S' ? (['Ctrl/⌘+S', '지금 판 저장'] as [string, string]) : r,
+  );
   return (
     <Modal open={open} onClose={onClose} titleId="editor-help-title" title="도움말" returnFocusRef={returnFocusRef}>
       <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 10, columnGap: 16, fontSize: '0.8125rem' }}>

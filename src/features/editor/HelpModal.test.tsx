@@ -19,7 +19,7 @@ describe('3.9 첫 섹션 — 어떻게 놓는가 / 어떻게 옮기는가', () =
     const dialog = openHelp();
     const firstDl = dialog.querySelector('dl')!;
     const dts = [...firstDl.querySelectorAll('dt')].map((d) => d.textContent);
-    // 정확 일치 — 순서까지. 단축키 표가 첫 자리로 오면 첫 dt 가 '1–8 …' 이 되어 여기서 깨진다.
+    // 정확 일치 — 순서까지. 단축키 표가 첫 자리로 오면 첫 dt 가 'V L O …' 이 되어 여기서 깨진다.
     expect(dts).toEqual(['놓기', '옮기기', '선택·해제']);
   });
 
@@ -29,7 +29,8 @@ describe('3.9 첫 섹션 — 어떻게 놓는가 / 어떻게 옮기는가', () =
     const firstDl = dialog.querySelector('dl')!;
     // compareDocumentPosition: FOLLOWING(4) = heading 이 첫 dl 보다 뒤다.
     expect(firstDl.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(dialog).getByText('1–8 / V R P B C A T E')).toBeInTheDocument();
+    // 2026-08-16 — 숫자 체계를 폐지하고 문자 하나로 통일했다. 도구 9종은 한 줄로 접힌다.
+    expect(within(dialog).getByText('V L O T R B C P N')).toBeInTheDocument();
   });
 
   it('4존 운동학이 **한 문장**이다 — 뒤 절반 이동 · 앞 절반 제자리 회전 · 차체 밖 견인', () => {
@@ -62,6 +63,18 @@ describe('3.9 단축키 표 현행화 — 1차·2차에서 들어간 조작이 �
     const dialog = openHelp();
     const dt = within(dialog).getByText(key);
     expect(dt.nextElementSibling?.textContent).toBe(desc);
+  });
+
+  it('개편으로 사라진 키가 표에 남아 있지 않다 (대조군)', () => {
+    // 2026-08-16 전면 개편. 위 it 들은 "새 줄이 있다" 만 보므로, 옛 줄이 나란히 남아 있어도
+    // 통과한다 — 이 대조군이 그 절반을 막는다. **없는 키를 적어두면 코치는 자기가 잘못
+    // 눌렀다고 생각한다**(이 파일 머리말의 그 사고와 같은 부류).
+    const dialog = openHelp();
+    for (const gone of ['1–8 / V R P B C A T E', 'G / Z', 'Alt+←/→', 'Shift+방향키(화살표)', '[ / ] (화살표)']) {
+      expect(within(dialog).queryByText(gone), `${gone} 가 아직 표에 있다`).toBeNull();
+    }
+    // 숫자키로 도구를 여는 줄이 통째로 없다.
+    expect(dialog.textContent).not.toMatch(/1–8|1-8/);
   });
 
   it('낡은 문구는 지워졌다 — Esc 는 이제 "포커스 복귀" 가 아니라 선택 해제다(대조군)', () => {

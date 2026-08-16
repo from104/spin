@@ -1,7 +1,10 @@
-// §6.10 편집기 도구 8종 메타데이터. 레일 순서 = "포인터(1) → 작도(2–3) → 배치(4–6) → 주석(7)
-// → 파괴(8)" — 콘이 공 바로 뒤(5번째)인 이유는 "코트에 흩뿌리는 개체" 라 공과 같은 부류이기
-// 때문(§6.10 본문).
+// §6.10 편집기 도구 메타데이터. 레일 순서 = "포인터 → 작도 → 배치 → 주석 → 파괴".
+//
+// 2026-08-16 단축키 전면 개편 — **키는 여기서 정하지 않는다**. `core/keymap.ts` 가 정본이고
+// 여기는 그 표에서 글자를 읽어 레일에 보여줄 뿐이다. 개편 전에는 이 파일이 `key`·`digit` 을
+// 직접 들고 있어서, 도움말 표·전역 디스패처·레일 툴팁 셋이 서로를 안 보고 각자 적었다.
 import type { ComponentType } from 'react';
+import { KEYMAP, TOOL_KEY_PREFIX } from '../../core/keymap.ts';
 import type { IconProps } from '../../ui/icons.tsx';
 import {
   IconToolSelect,
@@ -20,42 +23,41 @@ import type { ToolId } from '../../physics/index.ts';
 export interface ToolDef {
   id: ToolId;
   label: string;
-  /** 단일 문자 단축키(§7.5f "V R P B C A T E"). */
+  /** 단축키 글자(`core/keymap.ts` 에서 파생). 키가 없는 도구는 빈 문자열이다 —
+   *  지우개가 그렇다: Delete 로 일원화하기로 해서 도구 키를 주지 않는다. */
   key: string;
-  /** 숫자 단축키(1–8). */
-  digit: string;
   Icon: ComponentType<IconProps>;
 }
 
+/** 도구 → 단축키 글자. 표에 없으면 빈 문자열. */
+const letterOf = (id: ToolId): string =>
+  KEYMAP.find((d) => d.id === `${TOOL_KEY_PREFIX}${id}`)?.label ?? '';
+
+const def = (id: ToolId, label: string, Icon: ComponentType<IconProps>): ToolDef => ({
+  id,
+  label,
+  key: letterOf(id),
+  Icon,
+});
+
 export const TOOLS: readonly ToolDef[] = [
-  { id: 'select', label: '선택', key: 'v', digit: '1', Icon: IconToolSelect },
-  // 2026-08-16 — '이동'(route) · '패스'(pass) 둘이 **'선'(line) 하나로 합쳐졌다**.
-  // 키 `r` 과 숫자 `2` 는 이동의 것을 그대로 물려받는다: 둘 중 훨씬 많이 쓰이던 도구라
-  // 손이 기억하는 자리를 지키는 쪽이 이득이다. 패스의 `p`·`3` 은 **비워 둔다** —
-  // 다른 도구에 물려주면 옛 손버릇이 엉뚱한 도구를 켠다.
-  { id: 'line', label: '선', key: 'r', digit: '2', Icon: IconToolRoute },
-  // 작도 도형 3종(2026-08-14 기현 지시). 이동·패스 바로 뒤 = **작도 서랍 안**이다.
-  // 단축키는 남은 글자로 잡았다: o(circle 의 모양) · y(삼각) · u(사각). 숫자는 8 을 넘으므로
-  // 안 준다 — §7.5f 의 '1–8' 계약을 늘리면 지우개(8)가 밀린다.
-  { id: 'shapeEllipse', label: '원', key: 'o', digit: '', Icon: IconShapeEllipse },
-  { id: 'shapeTriangle', label: '삼각', key: 'y', digit: '', Icon: IconShapeTriangle },
-  { id: 'shapeRect', label: '사각', key: 'u', digit: '', Icon: IconShapeRect },
-  { id: 'ball', label: '공', key: 'b', digit: '4', Icon: IconToolBall },
-  { id: 'cone', label: '콘', key: 'c', digit: '5', Icon: IconToolCone },
-  { id: 'player', label: '선수', key: 'a', digit: '6', Icon: IconToolPlayer },
-  { id: 'note', label: '메모', key: 't', digit: '7', Icon: IconToolNote },
-  { id: 'erase', label: '지우개', key: 'e', digit: '8', Icon: IconToolErase },
+  def('select', '선택', IconToolSelect),
+  def('line', '선', IconToolRoute),
+  def('shapeEllipse', '원', IconShapeEllipse),
+  def('shapeTriangle', '삼각', IconShapeTriangle),
+  def('shapeRect', '사각', IconShapeRect),
+  def('ball', '공', IconToolBall),
+  def('cone', '콘', IconToolCone),
+  def('player', '선수', IconToolPlayer),
+  def('note', '메모', IconToolNote),
+  // 지우개는 레일에만 남아 있고 단축키가 없다. 2단계에서 도구 자체가 사라진다 —
+  // 그때까지는 이미 이 버튼을 쓰던 사용자의 경로를 끊지 않는다.
+  def('erase', '지우개', IconToolErase),
 ];
 
-const BY_KEY = new Map<string, ToolId>();
-for (const t of TOOLS) {
-  BY_KEY.set(t.key, t.id);
-  // 도형 3종은 숫자 키가 없다(digit ''). 빈 문자열을 넣으면 '' 로 누른 적 없는 키가 도구를
-  // 바꾸는 통로가 생긴다.
-  if (t.digit) BY_KEY.set(t.digit, t.id);
-}
-
-/** 소문자 문자 키 또는 숫자 키 → ToolId. 해당 없으면 undefined. */
-export function toolForKey(rawKey: string): ToolId | undefined {
-  return BY_KEY.get(rawKey.length === 1 ? rawKey.toLowerCase() : rawKey);
+/** 키맵 동작 id(`tool:ball`) → ToolId. 도구 동작이 아니면 undefined. */
+export function toolForAction(actionId: string): ToolId | undefined {
+  if (!actionId.startsWith(TOOL_KEY_PREFIX)) return undefined;
+  const id = actionId.slice(TOOL_KEY_PREFIX.length) as ToolId;
+  return TOOLS.some((t) => t.id === id) ? id : undefined;
 }

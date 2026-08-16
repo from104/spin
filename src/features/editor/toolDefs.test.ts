@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TOOLS, toolForKey } from './toolDefs.ts';
+import { TOOLS, toolForAction } from './toolDefs.ts';
 
 describe('toolDefs', () => {
   it('§6.10 도구 10종을 레일 순서(포인터→작도→배치→주석→파괴) 그대로 담는다', () => {
@@ -22,30 +22,46 @@ describe('toolDefs', () => {
     ]);
   });
 
-  it('도형 3종만 숫자 키가 없다 — §7.5f 의 1–8 계약을 안 늘린다', () => {
-    // 숫자를 주면 지우개(8)가 밀리거나 9·10 이 생긴다. 도형은 문자 키만 갖는다(o·y·u).
-    const noDigit = TOOLS.filter((t) => !t.digit).map((t) => t.id);
-    expect(noDigit).toEqual(['shapeEllipse', 'shapeTriangle', 'shapeRect']);
-    // ⚠️ 2026-08-16 — **'3' 이 비었다.** 패스가 사라진 자리이고, 남은 도구를 당겨 채우지
-    //    않는다: 당기면 옛 손버릇(4=공)이 전부 한 칸씩 엇나간다. 빈 숫자는 아무 도구도 안 연다.
-    expect(TOOLS.filter((t) => t.digit).map((t) => t.digit)).toEqual(['1', '2', '4', '5', '6', '7', '8']);
-    expect(toolForKey('3'), "'3' 이 다시 도구를 연다 — 옛 손버릇이 엉뚱한 도구를 켠다").toBeUndefined();
-    // 그리고 빈 문자열이 도구를 여는 통로가 되면 안 된다.
-    expect(toolForKey('')).toBeUndefined();
+  it('단축키 글자는 keymap 에서 온다 — 이 파일은 키를 정하지 않는다', () => {
+    // 2026-08-16 전면 개편. 영어 머릿글자가 원칙이고, 막힌 둘만 예외다:
+    //   · 선택 → V (select 의 s·e 는 개체 조작이, l·c·t 는 다른 도구가 씀. 피그마 관습)
+    //   · 원   → O (circle 의 c 를 콘에 내주고 oval 로 봄)
+    expect(TOOLS.map((t) => [t.id, t.key])).toEqual([
+      ['select', 'V'],
+      ['line', 'L'],
+      ['shapeEllipse', 'O'],
+      ['shapeTriangle', 'T'],
+      ['shapeRect', 'R'],
+      ['ball', 'B'],
+      ['cone', 'C'],
+      ['player', 'P'],
+      ['note', 'N'],
+      // 지우개는 Delete 로 일원화하기로 해서 **키가 없다**(2단계에서 도구 자체가 사라진다).
+      // 빈 문자열이라 레일 버튼에 글자 배지도 안 붙는다.
+      ['erase', ''],
+    ]);
   });
 
-  it('문자 키와 숫자 키 양쪽으로 같은 도구를 찾는다(§7.5f "1–8 / V R P B C A T E")', () => {
-    expect(toolForKey('v')).toBe('select');
-    expect(toolForKey('V')).toBe('select');
-    expect(toolForKey('1')).toBe('select');
-    expect(toolForKey('c')).toBe('cone');
-    expect(toolForKey('5')).toBe('cone');
-    expect(toolForKey('e')).toBe('erase');
-    expect(toolForKey('8')).toBe('erase');
+  it('W A S D · Q E 를 쓰는 도구가 없다 — 그 여섯은 개체 조작 자리다', () => {
+    const reserved = new Set(['W', 'A', 'S', 'D', 'Q', 'E']);
+    expect(TOOLS.filter((t) => reserved.has(t.key)).map((t) => t.id)).toEqual([]);
   });
 
-  it('알 수 없는 키는 undefined 를 돌려준다', () => {
-    expect(toolForKey('q')).toBeUndefined();
-    expect(toolForKey('9')).toBeUndefined();
+  it('숫자 키로는 도구를 못 연다 — 숫자 체계를 폐지했다', () => {
+    // 개편 전에는 1–8 이 있었고 도형 3종만 숫자가 없는 반쪽짜리였다. 문자 하나로 통일했다.
+    for (const d of ['1', '2', '3', '8', 'Digit1', 'Digit8']) {
+      expect(toolForAction(`tool:${d}`), `${d} 가 도구를 연다`).toBeUndefined();
+    }
+  });
+
+  it('toolForAction 은 도구 동작만 되짚는다', () => {
+    expect(toolForAction('tool:cone')).toBe('cone');
+    expect(toolForAction('tool:select')).toBe('select');
+    // 표에 없는 도구 id 는 안 받는다 — 오타가 조용히 도구를 여는 통로가 되면 안 된다.
+    expect(toolForAction('tool:nope')).toBeUndefined();
+    // 도구가 아닌 동작은 통과시키지 않는다.
+    expect(toolForAction('view.grid')).toBeUndefined();
+    expect(toolForAction('play.toggle')).toBeUndefined();
+    expect(toolForAction('')).toBeUndefined();
   });
 });

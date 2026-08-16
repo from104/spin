@@ -21,6 +21,7 @@ import { hasChairName, numberedName } from '../../model/chairLabel.ts';
 import { PLAYBACK } from '../../core/constants.ts';
 import { categoryColor } from '../../core/colors.ts';
 import { clamp } from '../../core/geom.ts';
+import { eventCode, lookupKey } from '../../core/keymap.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { isEditableTarget, isInteractiveTarget } from '../../ui/keyboard.ts';
 import { Button } from '../../ui/Button.tsx';
@@ -321,7 +322,9 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
         setBlackout(false);
         return;
       }
-      if (e.key === 'Escape') {
+      // Esc 는 표(`present.exit`)에도 있지만 여기서 먼저 본다 — 전체화면 상태에 따라 "나가기"
+      // 의 대상이 브라우저 전체화면인지 시연인지가 갈리고, 그 판단은 키맵이 알 바가 아니다.
+      if (eventCode(e) === 'Escape') {
         if (fullscreen.state === 'native') return; // 브라우저가 가로챈다 — fullscreenchange 로 감지
         if (fullscreen.state === 'pseudo') {
           e.preventDefault();
@@ -332,64 +335,63 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
         return;
       }
       if (isEditableTarget(e.target)) return;
-      if ((e.key === ' ' || e.key === 'Spacebar') && isInteractiveTarget(e.target)) return; // 네이티브 위임 우선(§7.5f)
 
-      switch (e.key) {
-        case 'ArrowRight':
-        case 'ArrowDown':
-        case 'PageDown':
-        case ' ':
-        case 'Spacebar':
+      // 2026-08-16 — 시연도 편집기와 **같은 표**를 쓴다(`core/keymap.ts` 의 `scope: 'present'`).
+      // 개편 전에는 여기서만 Space 가 '다음 스텝' 이고 재생이 `P` 였는데, 편집기에서 P 는 선수
+      // 도구다. 같은 글자가 화면마다 다른 일을 하면 두 화면 사이에서 손이 뒤집힌다.
+      const id = lookupKey('present', e);
+      if (!id) return;
+
+      // §7.5f Space 는 브라우저가 활성화 키로 쓴다 — 하단 컨트롤 버튼에 포커스한 채 누르면
+      // 네이티브 클릭과 여기가 이중 발화해 스텝이 두 칸 건너뛴다.
+      if (id === 'present.play' && isInteractiveTarget(e.target)) return;
+
+      switch (id) {
+        case 'present.next':
           e.preventDefault();
-          if (e.shiftKey) goDrill(1);
-          else nextStep();
+          nextStep();
           break;
-        case 'ArrowLeft':
-        case 'ArrowUp':
-        case 'PageUp':
+        case 'present.prev':
           e.preventDefault();
-          if (e.shiftKey) goDrill(-1);
-          else prevStep();
+          prevStep();
           break;
-        case 'Home':
+        case 'present.first':
           e.preventDefault();
           seekToStep(0);
           break;
-        case 'End':
+        case 'present.last':
           e.preventDefault();
           seekToStep(drill.steps.length - 1);
           break;
-        case 'n':
-        case 'N':
+        case 'present.nextDrill':
           e.preventDefault();
           goDrill(1);
           break;
-        case 'p':
-        case 'P':
+        case 'present.prevDrill':
+          e.preventDefault();
+          goDrill(-1);
+          break;
+        case 'present.play':
           e.preventDefault();
           playbackActions.toggle();
           break;
-        case 'f':
-        case 'F':
+        case 'present.fullscreen':
           e.preventDefault();
           if (fullscreen.state === 'off') void fullscreen.enter({ userGesture: true });
           else void fullscreen.exit();
           break;
-        case '.':
+        case 'present.blackout':
           e.preventDefault();
           setBlackout(true);
           break;
-        case 'l':
-        case 'L':
+        case 'present.loop':
           e.preventDefault();
           playbackActions.setLoop(!playback.loop);
           liveRegion.say(playback.loop ? '반복 껐습니다' : '반복 켰습니다');
           break;
-        case '?':
-          if (e.shiftKey) {
-            e.preventDefault();
-            setHelpOpen(true);
-          }
+        case 'help':
+          e.preventDefault();
+          setHelpOpen(true);
           break;
         default:
           break;

@@ -221,9 +221,10 @@ describe('키보드 이동 후 물리 동기화 (회귀)', () => {
     const holder = chair.closest('g[transform]') as SVGGElement;
     const start = poseOf(holder);
 
-    // 키보드로 오른쪽으로 크게(Shift = 25px) 두 번 민다
+    // 키보드로 오른쪽으로 크게 두 번 민다. 2026-08-16 부터 **기본이 큰 걸음(25px)** 이고
+    // Shift 가 정밀(2.5px)이다 — 예전과 반대라 여기서 Shift 를 쓰면 두 번 밀어도 5px 다.
     chair.focus();
-    await user.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}');
+    await user.keyboard('{ArrowRight}{ArrowRight}');
     const nudged = poseOf(holder);
     expect(nudged.x).toBeGreaterThan(start.x + 40); // 25 × 2 만큼 이동
 
@@ -776,10 +777,11 @@ describe('코트 비우기 — 되돌릴 수 없으므로 반드시 확인을 �
   });
 });
 
-describe('화살표 개체의 키보드 조작 (§4.3 1.11)', () => {
-  // 화살표는 전술 드릴에서 '누가 **어디로**'의 본체인데, 여기가 비어 있는 동안 유일한 조작
-  // 경로가 12px 이상 드래그 + 반경 22 CSS px 핸들 3개의 정밀 드래그였다. 주 사용자는 마우스를
-  // 오른발로 쓴다 — 그 경로는 사실상 없는 기능이다. 화면 끝(실제 BoardScreen)에서 확인한다.
+describe('개체의 키보드 조작 — 2026-08-16 전면 개편', () => {
+  // 화살표는 전술 드릴에서 '누가 **어디로**'의 본체인데, 키보드 경로가 없던 시절에는 유일한
+  // 조작 수단이 12px 이상 드래그 + 반경 22 CSS px 핸들 3개의 정밀 드래그였다. 정밀 포인팅을
+  // 전제하는 조작은 그것이 어려운 사용자에게 **없는 기능**과 같다. 화면 끝(실제 BoardScreen)
+  // 에서 확인한다.
   const FROM = { x: 100, y: 100 };
   const CTRL = { x: 150, y: 80 };
   const TO = { x: 200, y: 100 };
@@ -809,71 +811,74 @@ describe('화살표 개체의 키보드 조작 (§4.3 1.11)', () => {
     return { from: { x: n[0], y: n[1] }, ctrl: { x: n[2], y: n[3] }, to: { x: n[4], y: n[5] } };
   }
 
-  it('방향키로 화살표 전체가 2.5px 움직인다 (모양은 그대로)', async () => {
+  it('방향키로 화살표 전체가 25px 움직인다 (모양은 그대로)', async () => {
     const { user, arrow } = await openWithArrow();
     expect(pointsOf(arrow)).toEqual({ from: FROM, ctrl: CTRL, to: TO });
 
     arrow.focus();
     await user.keyboard('{ArrowRight}');
-    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x + 2.5));
-    let p = pointsOf(arrow);
-    expect(p.ctrl.x).toBe(CTRL.x + 2.5);
-    expect(p.to.x).toBe(TO.x + 2.5);
+    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x + 25));
+    const p = pointsOf(arrow);
+    expect(p.ctrl.x).toBe(CTRL.x + 25);
+    expect(p.to.x).toBe(TO.x + 25);
     expect([p.from.y, p.ctrl.y, p.to.y]).toEqual([FROM.y, CTRL.y, TO.y]); // 세로는 안 움직였다
-
-    await user.keyboard('{ArrowDown}{ArrowDown}');
-    await waitFor(() => expect(pointsOf(arrow).from.y).toBe(FROM.y + 5));
-    p = pointsOf(arrow);
-    expect(p.ctrl.y).toBe(CTRL.y + 5);
-    expect(p.to.y).toBe(TO.y + 5);
   });
 
-  it('Shift+방향키는 끝점(화살촉)만 옮긴다 — 시작점·굽힘점은 그대로다', async () => {
+  it('W A S D 가 방향키와 **같은 일**을 한다', async () => {
+    // 개편의 뼈대. 이 여섯 자리를 개체에 내주었기 때문에 도구가 V L O T R B C P N 으로 밀렸다.
+    const { user, arrow } = await openWithArrow();
+    arrow.focus();
+    await user.keyboard('d');
+    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x + 25));
+    await user.keyboard('s');
+    await waitFor(() => expect(pointsOf(arrow).from.y).toBe(FROM.y + 25));
+    await user.keyboard('a');
+    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x));
+    await user.keyboard('w');
+    await waitFor(() => expect(pointsOf(arrow).from.y).toBe(FROM.y));
+  });
+
+  it('Shift 는 **정밀**이다 — 개체 종류와 무관하게 2.5px', async () => {
+    // 개편 전에는 Shift 가 개체마다 다른 뜻이었다: 보통은 '25px 큰 걸음', 화살표에서만
+    // '조준점 하나만 옮기기'. 같은 수식키가 개체 종류마다 다른 일을 하면 손이 배울 것이
+    // 개체 수만큼 늘어난다. 이제 어디서나 "정밀" 하나다.
     const { user, arrow } = await openWithArrow();
     arrow.focus();
     await user.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}');
     await waitFor(() => expect(pointsOf(arrow).to.x).toBe(TO.x + 5));
     const p = pointsOf(arrow);
-    expect(p.from).toEqual(FROM);
-    expect(p.ctrl).toEqual(CTRL);
-    // 화살표에서 Shift 는 '25px 큰 걸음'이 아니다(§4.3 1.11 충돌 해소) — 걸음은 2.5px 고정.
-    expect(p.to.x - TO.x).toBe(5);
+    // **전체가** 움직인다 — 끝점만 옮기던 옛 동작이 아니다.
+    expect(p.from.x).toBe(FROM.x + 5);
+    expect(p.ctrl.x).toBe(CTRL.x + 5);
   });
 
-  it('[ / ] 로 조준점을 바꾸면 Shift+방향키가 그 점을 옮긴다 (끝점 → 시작점 → 굽힘점)', async () => {
-    const { user, arrow, stage } = await openWithArrow();
-    arrow.focus();
-    await user.keyboard('{Enter}'); // 선택 — 핸들이 그려진다
-    await waitFor(() => expect(arrow.getAttribute('aria-pressed')).toBe('true'));
-
-    await user.keyboard(']');
-    const live = document.querySelector('[aria-live="polite"]');
-    await waitFor(() => expect(live?.textContent ?? '').toContain('시작점'));
-    // 조준점이 화면에도 보인다 — 무엇이 움직일지 눈으로 알 수 없으면 키가 있어도 못 쓴다.
-    await waitFor(() => expect(stage.querySelectorAll('.arrow-handle-aim').length).toBe(1));
-
-    await user.keyboard('{Shift>}{ArrowLeft}{/Shift}');
-    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x - 2.5));
-    expect(pointsOf(arrow).to).toEqual(TO);
-
-    await user.keyboard(']'); // → 굽힘점
-    await waitFor(() => expect(live?.textContent ?? '').toContain('굽힘점'));
-    await user.keyboard('{Shift>}{ArrowUp}{/Shift}');
-    await waitFor(() => expect(pointsOf(arrow).ctrl.y).toBe(CTRL.y - 2.5));
-    const p = pointsOf(arrow);
-    expect(p.from.x).toBe(FROM.x - 2.5); // 앞서 옮긴 시작점은 그대로
-    expect(p.to).toEqual(TO);
-  });
-
-  it('다른 개체(휠체어)의 Shift = 25px 큰 걸음은 그대로다', async () => {
-    // 화살표만 Shift 의 뜻이 다르다. 나머지 개체의 계약을 건드리면 그게 곧 회귀다.
+  it('휠체어도 같은 규칙이다 — 기본 큰 걸음, Shift 가 정밀 (대조군)', async () => {
     const { user, stage } = await openWithArrow();
     const chair = stage.querySelector('g[id^="obj-ch_"]') as SVGGElement;
     const holder = chair.closest('g[transform]') as SVGGElement;
     const start = poseOf(holder);
     chair.focus();
-    await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
+    await user.keyboard('{ArrowRight}');
     await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(start.x + 20));
+  });
+
+  it('[ / ] 는 개체 순회다 — 조준점 전환이 아니다', async () => {
+    // 조준점(끝점·시작점·굽힘점) 개념이 사라지면서 이 두 키가 통째로 비었고, 개체 순회가
+    // Alt+←/→ 에서 여기로 옮겨 왔다(Alt 는 보기 토글 전용 채널이 됐다).
+    const { user, arrow, stage } = await openWithArrow();
+    arrow.focus();
+    expect(document.activeElement).toBe(arrow);
+
+    await user.keyboard(']');
+    // 포커스가 **다른 개체**로 옮겨 갔다. 어느 개체인지는 그리기 순서에 달렸으므로 묻지 않고,
+    // "화살표를 떠나 코트 위 다른 개체로 갔다" 만 못박는다.
+    await waitFor(() => expect(document.activeElement).not.toBe(arrow));
+    expect((document.activeElement as Element).id.startsWith('obj-')).toBe(true);
+    expect(stage.contains(document.activeElement)).toBe(true);
+
+    // 그리고 화살표는 한 톨도 안 움직였다 — 옛 조준점 전환은 좌표를 안 건드렸지만,
+    // 순회로 바뀐 지금은 "이동으로 새는" 회귀가 새로 가능해졌다.
+    expect(pointsOf(arrow)).toEqual({ from: FROM, ctrl: CTRL, to: TO });
   });
 });
 
@@ -916,11 +921,11 @@ describe('Ctrl+방향키는 개체·배치 커서를 지나 전역까지 간다 
       expect(arrowPoints(arrow)).toEqual(FROM); // 개체는 한 톨도 안 움직였다
       expect(w.keys).toContain('ArrowRight'); // 그리고 전역까지 갔다
 
-      // 대조군 — 수식키가 없으면 개체가 먹고(2.5px) 전역까지 **가지 않는다**.
+      // 대조군 — 수식키가 없으면 개체가 먹고(기본 걸음 25px) 전역까지 **가지 않는다**.
       // 이 짝이 없으면 위 단언이 '리스너가 아예 안 걸렸다' 로도 통과한다.
       w.keys.length = 0;
       await user.keyboard('{ArrowRight}');
-      await waitFor(() => expect(arrowPoints(arrow).x).toBe(FROM.x + 2.5));
+      await waitFor(() => expect(arrowPoints(arrow).x).toBe(FROM.x + 25));
       expect(w.keys).toEqual([]);
     } finally {
       w.stop();

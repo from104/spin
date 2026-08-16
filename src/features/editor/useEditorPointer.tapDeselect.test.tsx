@@ -123,7 +123,6 @@ function useHarness() {
   useEditorKeyboard({
     tool: 'select',
     singleKeyMode: 'on',
-    selectionSize: state.selection.size,
     onSelectTool: noop,
     onPanView: noop,
     onConeToggle: noop,
@@ -165,7 +164,7 @@ function tap(result: Harness, p: { x: number; y: number }, meta: PointerMeta = M
 
 function pressEscape() {
   act(() => {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
   });
 }
 

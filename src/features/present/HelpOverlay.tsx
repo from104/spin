@@ -1,20 +1,17 @@
 // §6.9/§7.5f "Shift+? 도움말 오버레이 (role="dialog", 포커스 트랩, Esc)" — ui/Modal.tsx(ui-kit
 // 소유) 의 일반형을 그대로 쓴다.
 import { useId } from 'react';
+import { helpRows } from '../../core/keymap.ts';
 import { Modal } from '../../ui/Modal.tsx';
 
-const ROWS: ReadonlyArray<[string, string]> = [
-  ['→ ↓ PageDown Space', '다음 스텝'],
-  ['← ↑ PageUp', '이전 스텝'],
-  ['Home / End', '처음 / 마지막 스텝'],
-  ['Shift + → / ←, N', '다음 / 이전 드릴(세션 시연)'],
-  ['P', '재생 / 일시정지'],
-  ['F', '전체화면 전환'],
-  ['.', '블랙아웃'],
-  ['L', '반복 켜기/끄기'],
-  ['←→ 스와이프', '이전 / 다음 스텝'],
-  ['Esc', '전체화면 종료(창모드에서 한 번 더 누르면 시연 종료)'],
-];
+/** 키가 아니라서 표에 없는 줄. 스와이프는 시연에서 가장 많이 쓰이는 조작인데 키보드 표만
+ *  보면 존재를 모른다. */
+const EXTRA_ROWS: ReadonlyArray<[string, string]> = [['←→ 스와이프', '이전 / 다음 스텝']];
+
+// 2026-08-16 — 손으로 적던 목록을 `core/keymap.ts` 파생으로 바꿨다. 개편 전 이 표에는
+// `P`(재생)·`F`·`L`·`.` 이 적혀 있었는데, 편집기에서 P 는 선수 도구·L 은 선 도구다.
+// 표가 배선에서 나오면 두 화면이 어긋나는 순간 계약 테스트가 먼저 운다.
+const ROWS: ReadonlyArray<[string, string]> = [...helpRows('present', { steps: true }), ...EXTRA_ROWS];
 
 export function HelpOverlay({ open, onClose }: { open: boolean; onClose(): void }) {
   const titleId = useId();

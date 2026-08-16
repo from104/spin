@@ -314,7 +314,6 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   useEditorKeyboard({
     tool: state.tool,
     singleKeyMode: prefs.a11y.singleKeyShortcuts,
-    selectionSize: state.selection.size,
     onSelectTool: (t) => dispatch({ type: 'TOOL_SET', tool: t }),
     onConeToggle: () => dispatch({ type: 'CONE_SLOT_SET', slot: state.coneSlot === 0 ? 1 : 0 }),
     onUndo: () => dispatch({ type: 'UNDO' }),
@@ -336,7 +335,10 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     // §4.4 P2-1 — 판 이동. 화면 델타를 그대로 넘긴다: 회전(rot)·배율 환산은 무대가 자기
     // 실측으로 해야 맞다(여기서 미리 곱하면 인스펙터가 열려 판이 돌아간 순간 어긋난다).
     onPanView: (dx, dy) => stageRef.current?.panByScreen(dx, dy),
-    onEraseSelection: (scope) => eraseIds(Array.from(state.selection), scope),
+    // 2026-08-16 — 삭제 범위를 수식키로 가르던 Alt+Delete 가 사라졌다. Alt 는 이제 **보기
+    // 토글 전용 채널**(Alt+G·Alt+Z)이라 같은 수식키에 "이 스텝만" 이라는 다른 뜻을 겹칠 수
+    // 없다. 범위 개념 자체는 2단계에서 모델에서도 걷어낸다(기현 지시).
+    onEraseSelection: () => eraseIds(Array.from(state.selection), 'onward'),
     onShowHelp: () => {
       helpTriggerRef.current = null; // 키보드 문 — openedBy 폴백(열던 순간의 포커스)이 이긴다
       setHelpOpen(true);

@@ -417,7 +417,7 @@ function ToolButton({ def, active, onSelect }: { def: ToolDef; active: boolean; 
   return (
     <button
       type="button"
-      title={`${def.label} (${def.digit})`}
+      title={def.key ? `${def.label} (${def.key})` : def.label}
       aria-pressed={active}
       onClick={onSelect}
       style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
@@ -427,6 +427,27 @@ function ToolButton({ def, active, onSelect }: { def: ToolDef; active: boolean; 
         <def.Icon />
       </span>
       <span style={{ position: 'relative', fontSize: '0.6875rem', fontWeight: 600 }}>{def.label}</span>
+      {/* 단축키 글자를 **버튼 위에** 둔다(2026-08-16 기현 지시). 도움말 모달에만 있으면
+          열어보기 전까지 존재를 모르고, 코치는 대개 열어보지 않는다. 모서리에 작게 얹어
+          아이콘·라벨의 자리를 뺏지 않는다. `aria-hidden` — 스크린리더에게는 이미 버튼
+          이름이 있고, 여기 글자를 읽으면 "선택 V" 처럼 두 번 불린다. */}
+      {def.key && (
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: 2,
+            right: 3,
+            fontSize: '0.5625rem',
+            fontWeight: 700,
+            lineHeight: 1,
+            fontFamily: "'Space Grotesk', sans-serif",
+            opacity: active ? 0.9 : 0.45,
+          }}
+        >
+          {def.key}
+        </span>
+      )}
     </button>
   );
 }
@@ -674,7 +695,7 @@ export function ToolRail({
           title={
             isBallCapped
               ? `${BALL_TOOL.label} — 상자가 비었습니다. 코트의 공을 트레이로 끌어다 놓으면 돌아옵니다.`
-              : `${BALL_TOOL.label} (${BALL_TOOL.digit}) — ${ballRemaining}개 남음, 끌어다 놓으세요`
+              : `${BALL_TOOL.label} (${BALL_TOOL.key}) — ${ballRemaining}개 남음, 끌어다 놓으세요`
           }
           aria-pressed={tool === 'ball'}
           aria-disabled={isBallCapped || undefined}
@@ -822,7 +843,7 @@ export function ToolRail({
                 aria-controls={isOpen ? panelId : undefined}
                 // 도형 3종은 숫자 키가 없다(§7.5f 의 1–8 을 안 늘렸다) — 그때는 문자 키를 보인다.
                 // 빈 괄호 `원()` 이 그대로 나가던 자리다(2026-08-14 DOM 대조로 발견).
-                title={`${d.label} — ${d.tools.map((t) => `${t.label}(${t.digit || t.key.toUpperCase()})`).join(' · ')}`}
+                title={`${d.label} — ${d.tools.map((t) => `${t.label}(${t.key})`).join(' · ')}`}
                 onPointerEnter={(e) => {
                   // 마우스만 hover 로 연다. 터치는 pointerenter 도 함께 쏘는데, 그것까지 받으면
                   // 손가락이 닿는 순간 열리고 곧이어 click 이 토글해 **바로 닫힌다.**

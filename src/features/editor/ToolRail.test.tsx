@@ -67,11 +67,18 @@ function renderWithTool(tool: ToolId, onSelectTool: (t: ToolId) => void = () => 
 }
 
 /** 기능 구역 안의 표적만 센다 — 첫 화면 표적 예산(2.5)이 세는 것과 같은 단위다. */
-const functionTargets = () =>
-  [...document.querySelectorAll<HTMLElement>('[aria-label="기능"] button')].map(
-    // 여는 방향 표식 — 2026-08-14 플라이아웃 이후 세로 기둥은 ◂, 가로 띠는 ▴ 다.
-    (b) => b.textContent?.replace(/[▸▾◂▴]/g, '').trim() ?? '',
-  );
+/** 버튼이 **스크린리더에게 불리는 이름**. `aria-hidden` 붙은 장식은 뺀다 — 2026-08-16 에
+ *  단축키 글자 배지가 버튼 모서리에 붙었는데, 그것은 눈으로 보라고 있는 것이지 이름의
+ *  일부가 아니다(그래서 aria-hidden 이다). textContent 를 그냥 읽으면 '선택V' 가 되어
+ *  **실제 접근성 이름과 다른 것**을 재게 된다. */
+const accName = (b: HTMLElement): string => {
+  const clone = b.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('[aria-hidden="true"]').forEach((n) => n.remove());
+  // 여는 방향 표식 — 2026-08-14 플라이아웃 이후 세로 기둥은 ◂, 가로 띠는 ▴ 다.
+  return clone.textContent?.replace(/[▸▾◂▴]/g, '').trim() ?? '';
+};
+
+const functionTargets = () => [...document.querySelectorAll<HTMLElement>('[aria-label="기능"] button')].map(accName);
 
 const handle = (label: '작도' | '설명') => screen.getByRole('button', { name: new RegExp(`^${label}`) });
 const expanded = (label: '작도' | '설명') => handle(label).getAttribute('aria-expanded');

@@ -1,6 +1,9 @@
-// §7.5f/WCAG 2.1.4 회귀 — 단일 문자키 g/z 도 다른 단일 문자키(V/B 등)와 동일하게
-// a11y.singleKeyShortcuts(off/modifier) 게이트를 통과해야 한다. 감사 evidence: 과거엔
-// 118-125행 g/z 처리가 127행 `singleKeyMode==='off'` 검사보다 앞에 있어 게이트를 우회했다.
+// §7.5f/WCAG 2.1.4 — 전역 키 층. 이 파일이 재는 것은 **동작이 붙었는가**이고, 표 자체의
+// 무모순(한 키가 두 뜻을 갖지 않는가)은 `core/keymap.contract.test.ts` 가 따로 문다.
+//
+// 2026-08-16 전면 개편 — 이 파일의 사건은 전부 `code` 로 쏜다. 개편 전에는 `key` 였고,
+// 그래서 **한글 입력 상태의 고장을 한 번도 못 잡았다**: 테스트는 언제나 'v' 를 보냈지만
+// 실제 사용자의 브라우저는 'ㅍ' 를 보내고 있었다. code 로 쏘면 그 층이 아예 사라진다.
 import { describe, expect, it, vi } from 'vitest';
 import { render, renderHook } from '@testing-library/react';
 import { Modal } from '../../ui/Modal.tsx';
@@ -10,7 +13,6 @@ function baseDeps(overrides: Partial<EditorKeyboardDeps>): EditorKeyboardDeps {
   return {
     tool: 'select',
     singleKeyMode: 'on',
-    selectionSize: 0,
     onSelectTool: vi.fn(),
     onPanView: vi.fn(),
     onConeToggle: vi.fn(),
@@ -33,47 +35,137 @@ function baseDeps(overrides: Partial<EditorKeyboardDeps>): EditorKeyboardDeps {
   };
 }
 
-function press(key: string, opts: Partial<KeyboardEventInit> = {}) {
-  document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...opts }));
+/** 실제 브라우저는 `code` 와 `key` 를 **둘 다** 싣는다. 우리 디스패처는 code 만 보지만,
+ *  같은 사건을 받는 다른 소비자(ui/Modal 의 Esc 등)는 key 를 본다 — 한쪽만 실어 보내면
+ *  테스트가 현실에 없는 사건을 만들어 우선순위 판정이 무의미해진다. */
+const KEY_OF: Record<string, string> = { Space: ' ', Escape: 'Escape', Enter: 'Enter', Delete: 'Delete' };
+
+function press(code: string, opts: Partial<KeyboardEventInit> = {}) {
+  const key = KEY_OF[code] ?? (code.startsWith('Key') ? code.slice(3).toLowerCase() : code);
+  document.dispatchEvent(new KeyboardEvent('keydown', { code, key, bubbles: true, cancelable: true, ...opts }));
 }
 
-describe('useEditorKeyboard — g/z 는 singleKeyMode 게이트를 따른다', () => {
-  it('singleKeyMode=off 이면 G/Z 도 도구키(V)와 함께 전부 차단된다', () => {
-    const deps = baseDeps({ singleKeyMode: 'off' as SingleKeyMode });
+describe('useEditorKeyboard — 도구 키', () => {
+  it('영어 머릿글자로 도구가 열린다', () => {
+    const deps = baseDeps({});
     renderHook(() => useEditorKeyboard(deps));
+    press('KeyV');
+    press('KeyL');
+    press('KeyB');
+    press('KeyO');
+    expect(deps.onSelectTool).toHaveBeenNthCalledWith(1, 'select');
+    expect(deps.onSelectTool).toHaveBeenNthCalledWith(2, 'line');
+    expect(deps.onSelectTool).toHaveBeenNthCalledWith(3, 'ball');
+    expect(deps.onSelectTool).toHaveBeenNthCalledWith(4, 'shapeEllipse');
+  });
 
-    press('g');
-    press('z');
-    press('v'); // 도구키 대조군 — 원래도 차단됨
+  it('⚠️ 한글 입력 상태에서도 열린다 — code 는 입력기를 안 탄다', () => {
+    // 이것이 개편의 직접 동기다. 개편 전에는 `e.key` 를 봐서 한글 모드의 'ㅍ' 를 못 알아봤고,
+    // 그래서 한글로 메모를 쓰다 돌아온 코치에게는 **문자 단축키가 전부 고장나 있었다**.
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', key: 'ㅍ', bubbles: true, cancelable: true }));
+    expect(deps.onSelectTool).toHaveBeenCalledWith('select');
+  });
 
-    expect(deps.onToggleGrid).not.toHaveBeenCalled();
-    expect(deps.onToggleRuleZones).not.toHaveBeenCalled();
+  it('W A S D · Q E 는 도구를 열지 않는다 — 개체 조작 자리다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    for (const c of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE']) press(c);
     expect(deps.onSelectTool).not.toHaveBeenCalled();
   });
 
-  it('singleKeyMode=modifier 이면 수식키(Alt) 없는 G/Z 는 차단되고, Alt+G/Z 는 통과한다', () => {
+  it('숫자키는 도구를 열지 않는다 — 숫자 체계를 폐지했다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    for (const c of ['Digit1', 'Digit2', 'Digit5', 'Digit8']) press(c);
+    expect(deps.onSelectTool).not.toHaveBeenCalled();
+  });
+
+  it('콘 도구를 든 채 C 를 다시 누르면 색이 바뀐다(§6.10)', () => {
+    const deps = baseDeps({ tool: 'cone' });
+    renderHook(() => useEditorKeyboard(deps));
+    press('KeyC');
+    expect(deps.onConeToggle).toHaveBeenCalledTimes(1);
+    expect(deps.onSelectTool).not.toHaveBeenCalled();
+  });
+});
+
+describe('useEditorKeyboard — WCAG 2.1.4 게이트는 전역 문자키에만 걸린다', () => {
+  it('singleKeyMode=off 이면 도구 문자키가 차단된다', () => {
+    const deps = baseDeps({ singleKeyMode: 'off' as SingleKeyMode });
+    renderHook(() => useEditorKeyboard(deps));
+    press('KeyV');
+    expect(deps.onSelectTool).not.toHaveBeenCalled();
+  });
+
+  it('singleKeyMode=modifier 이면 Alt+문자로 도구가 열린다', () => {
     const deps = baseDeps({ singleKeyMode: 'modifier' as SingleKeyMode });
     renderHook(() => useEditorKeyboard(deps));
+    press('KeyV');
+    expect(deps.onSelectTool).not.toHaveBeenCalled();
+    press('KeyV', { altKey: true });
+    expect(deps.onSelectTool).toHaveBeenCalledWith('select');
+  });
 
-    press('g');
-    press('z');
-    expect(deps.onToggleGrid).not.toHaveBeenCalled();
-    expect(deps.onToggleRuleZones).not.toHaveBeenCalled();
-
-    press('g', { altKey: true });
-    press('z', { altKey: true });
+  it('보기 토글(Alt+G·Alt+Z)은 설정과 무관하다 — 이미 수식키 조합이다', () => {
+    // 개편 전에는 G·Z 가 단일 문자키라 게이트를 타야 했다. Alt 계열로 옮기면서 대상에서
+    // 빠졌다 — 2.1.4 는 "문자·숫자·구두점 **단독**" 만 규제한다.
+    const deps = baseDeps({ singleKeyMode: 'off' as SingleKeyMode });
+    renderHook(() => useEditorKeyboard(deps));
+    press('KeyG', { altKey: true });
+    press('KeyZ', { altKey: true });
     expect(deps.onToggleGrid).toHaveBeenCalledTimes(1);
     expect(deps.onToggleRuleZones).toHaveBeenCalledTimes(1);
   });
 
-  it('singleKeyMode=on 이면 수식키 없이도 정상 발화한다(대조군)', () => {
-    const deps = baseDeps({ singleKeyMode: 'on' as SingleKeyMode });
+  it('수식키 없는 G·Z 는 아무 일도 안 한다 — 토글은 Alt 계열로 옮겼다', () => {
+    const deps = baseDeps({});
     renderHook(() => useEditorKeyboard(deps));
+    press('KeyG');
+    press('KeyZ');
+    expect(deps.onToggleGrid).not.toHaveBeenCalled();
+    expect(deps.onToggleRuleZones).not.toHaveBeenCalled();
+  });
+});
 
-    press('g');
-    press('z');
-    expect(deps.onToggleGrid).toHaveBeenCalledTimes(1);
-    expect(deps.onToggleRuleZones).toHaveBeenCalledTimes(1);
+describe('useEditorKeyboard — 시간축', () => {
+  it('PageUp/PageDown 이 스텝을 옮긴다 — 선택 상태와 무관하게', () => {
+    // 개편 전에는 ←/→ 였고 "개체 미선택 시에만" 이라는 조건이 붙어 있었다. 같은 키가 상황에
+    // 따라 다른 일을 하면 손이 결과를 예측할 수 없다.
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('PageDown');
+    press('PageUp');
+    expect(deps.onNextStep).toHaveBeenCalledTimes(1);
+    expect(deps.onPrevStep).toHaveBeenCalledTimes(1);
+  });
+
+  it('수식키 없는 방향키는 전역에서 아무 일도 안 한다 — 개체 층의 것이다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('ArrowLeft');
+    press('ArrowRight');
+    expect(deps.onPrevStep).not.toHaveBeenCalled();
+    expect(deps.onNextStep).not.toHaveBeenCalled();
+    expect(deps.onPanView).not.toHaveBeenCalled();
+  });
+
+  it('Space 가 재생/일시정지다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('Space');
+    expect(deps.onTogglePlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('버튼에 포커스가 있으면 Space 를 양보한다 — 네이티브 클릭과 이중 발화 방지(§7.5f)', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    const btn = document.createElement('button');
+    document.body.appendChild(btn);
+    btn.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', bubbles: true, cancelable: true }));
+    expect(deps.onTogglePlay).not.toHaveBeenCalled();
+    btn.remove();
   });
 });
 
@@ -82,12 +174,14 @@ describe('useEditorKeyboard — g/z 는 singleKeyMode 게이트를 따른다', (
 describe('useEditorKeyboard — [A-3] Esc = 선택 해제', () => {
   /** 실제 키 사건과 같은 경로 — 문서의 **자식**(body)에 쏜다. document 에 직접 쏘면
    *  at-target 이 되어 캡처/버블 우선순위(아래 모달 테스트의 판정 대상)가 사라진다. */
-  function pressOnBody(key: string) {
-    document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  function pressOnBody(code: string) {
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { code, key: KEY_OF[code] ?? code, bubbles: true, cancelable: true }),
+    );
   }
 
   it('Esc 가 onSelectionClear 를 부른다 — singleKeyMode=off 여도(문자키가 아니라 취소 키다)', () => {
-    const deps = baseDeps({ singleKeyMode: 'off' as SingleKeyMode, selectionSize: 3 });
+    const deps = baseDeps({ singleKeyMode: 'off' as SingleKeyMode });
     renderHook(() => useEditorKeyboard(deps));
 
     pressOnBody('Escape');
@@ -100,7 +194,7 @@ describe('useEditorKeyboard — [A-3] Esc = 선택 해제', () => {
     const input = document.createElement('input');
     document.body.appendChild(input);
 
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true, cancelable: true }));
     expect(deps.onSelectionClear).not.toHaveBeenCalled();
 
     input.remove();
@@ -130,10 +224,7 @@ describe('useEditorKeyboard — [A-3] Esc = 선택 해제', () => {
   });
 });
 
-// §4.4 P2-1 — Ctrl/Cmd + 방향키 = 판 이동. 방향키 소비자 셋(전역 스텝 이동 ←→ · 개체 이동 ·
-// 배치 커서)과 Shift(화살표 끝점 §4.3 1.11) · Alt(개체 순회) 가 이미 차 있어 **Ctrl 만 비어
-// 있었다**. 이 파일은 전역 층만 잰다 — 개체·커서 층이 수식키를 흘려보내는지는 EditorStage
-// 쪽(BoardScreen.test.tsx)이 따로 문다.
+// §4.4 P2-1 — Ctrl/Cmd + 방향키 = 판 이동.
 describe('useEditorKeyboard — Ctrl/Cmd + 방향키는 판을 민다', () => {
   const STEP = 64; // INTERACT.keyPanStepCssPx
 
@@ -163,23 +254,12 @@ describe('useEditorKeyboard — Ctrl/Cmd + 방향키는 판을 민다', () => {
     // 막지 않으면 판을 밀려던 손짓이 화면을 통째로 떠난다.
     const deps = baseDeps({});
     renderHook(() => useEditorKeyboard(deps));
-    const e = new KeyboardEvent('keydown', { key: 'ArrowLeft', metaKey: true, bubbles: true, cancelable: true });
+    const e = new KeyboardEvent('keydown', { code: 'ArrowLeft', metaKey: true, bubbles: true, cancelable: true });
     document.dispatchEvent(e);
     expect(e.defaultPrevented).toBe(true);
   });
 
-  it('수식키 없는 방향키는 그대로 스텝 이동이다 (대조군)', () => {
-    // 이 대조군이 없으면 "Ctrl 에서 팬이 돈다" 가 '방향키가 전부 팬이 됐다' 로도 통과한다.
-    const deps = baseDeps({ selectionSize: 0 });
-    renderHook(() => useEditorKeyboard(deps));
-    press('ArrowRight');
-    press('ArrowLeft');
-    expect(deps.onNextStep).toHaveBeenCalledTimes(1);
-    expect(deps.onPrevStep).toHaveBeenCalledTimes(1);
-    expect(deps.onPanView).not.toHaveBeenCalled();
-  });
-
-  it('Alt+방향키도 팬이 아니다 — 그 자리는 개체 순회(§7.5b)가 쓴다', () => {
+  it('Alt+방향키는 팬이 아니다 — Alt 는 보기 토글 전용 채널이다', () => {
     const deps = baseDeps({});
     renderHook(() => useEditorKeyboard(deps));
     press('ArrowRight', { altKey: true });
@@ -191,7 +271,7 @@ describe('useEditorKeyboard — Ctrl/Cmd + 방향키는 판을 민다', () => {
     renderHook(() => useEditorKeyboard(deps));
     const input = document.createElement('input');
     document.body.appendChild(input);
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', ctrlKey: true, bubbles: true, cancelable: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft', ctrlKey: true, bubbles: true, cancelable: true }));
     expect(deps.onPanView).not.toHaveBeenCalled();
     input.remove();
   });
@@ -207,10 +287,32 @@ describe('useEditorKeyboard — Ctrl/Cmd + 방향키는 판을 민다', () => {
   it('같은 mod 분기의 이웃들을 가리지 않는다 — Ctrl+Z·Ctrl+Delete 는 그대로다 (대조군)', () => {
     const deps = baseDeps({});
     renderHook(() => useEditorKeyboard(deps));
-    press('z', { ctrlKey: true });
+    press('KeyZ', { ctrlKey: true });
     press('Delete', { ctrlKey: true });
     expect(deps.onUndo).toHaveBeenCalledTimes(1);
     expect(deps.onEraseSelection).toHaveBeenCalledTimes(1);
     expect(deps.onPanView).not.toHaveBeenCalled();
+  });
+});
+
+describe('useEditorKeyboard — 텍스트 입력 중에는 저장만 통과한다', () => {
+  it('메모를 쓰는 중 B 가 공 도구를 켜지 않는다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyB', bubbles: true, cancelable: true }));
+    expect(deps.onSelectTool).not.toHaveBeenCalled();
+    input.remove();
+  });
+
+  it('Ctrl+S 는 입력 중에도 저장한다 — 쓰던 글을 잃지 않는 쪽이 언제나 옳다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyS', ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(deps.onSave).toHaveBeenCalledTimes(1);
+    input.remove();
   });
 });
