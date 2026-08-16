@@ -82,12 +82,28 @@ describe('useEditorKeyboard — 도구 키', () => {
     expect(deps.onSelectTool).not.toHaveBeenCalled();
   });
 
-  it('콘 도구를 든 채 C 를 다시 누르면 색이 바뀐다(§6.10)', () => {
+  // 2026-08-16 §6.10a — **옛 계약이 옮겨 갔다.** 여기 있던 것은 *"콘 도구를 든 채 C 를 다시
+  // 누르면 색이 바뀐다"* 였다. 같은 날 *같은 도구를 한 번 더 = 연속 배치 고정* 이 모든 도구의
+  // 규칙이 되면서, 콘만 그 자리에 다른 뜻이 앉아 있게 됐다 — 마우스로 콘 상자를 두 번 누르면
+  // 고정, 키보드로 C 를 두 번 누르면 색. 도구마다 다른 규칙은 배울 수가 없어서 색을 옮겼다.
+  it('콘 도구를 든 채 C 를 다시 눌러도 **색이 안 바뀐다** — 그 자리는 고정이다', () => {
     const deps = baseDeps({ tool: 'cone' });
     renderHook(() => useEditorKeyboard(deps));
     press('KeyC');
-    expect(deps.onConeToggle).toHaveBeenCalledTimes(1);
-    expect(deps.onSelectTool).not.toHaveBeenCalled();
+    expect(deps.onConeToggle).not.toHaveBeenCalled();
+    // 갈래 없이 그대로 보낸다 — 같은 도구인지, 그래서 고정인지는 리듀서가 판정한다.
+    expect(deps.onSelectTool).toHaveBeenCalledWith('cone');
+  });
+
+  it('콘 색은 Shift+C 다 — 콘 도구가 아닐 때도 미리 바꿔 둘 수 있다', () => {
+    for (const tool of ['cone', 'select'] as const) {
+      const deps = baseDeps({ tool });
+      const { unmount } = renderHook(() => useEditorKeyboard(deps));
+      press('KeyC', { shiftKey: true });
+      expect(deps.onConeToggle, tool).toHaveBeenCalledTimes(1);
+      expect(deps.onSelectTool, `${tool} — 색만 바꾼다. 도구를 건드리지 않는다`).not.toHaveBeenCalled();
+      unmount();
+    }
   });
 });
 

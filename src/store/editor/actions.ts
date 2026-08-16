@@ -13,7 +13,18 @@ import type { ToolId } from '../../physics/index.ts';
 
 export type EditorAction =
   // UI (히스토리 제외)
+  /** 사용자가 도구를 골랐다. **같은 도구를 한 번 더** 고르면 그 도구가 고정된다(§6.10a) —
+   *  빈 자리였던 항등 통과에 뜻을 얹은 것이다. 고정을 푸는 일은 여기가 아니라 uiReducer 의
+   *  `KEEPS_TOOL_LOCK` 이 한다: "다른 동작이 끼면 즉시 풀린다" 를 액션마다 적으면 새 액션이
+   *  생길 때 빠뜨린 쪽이 **잠긴 채 남는** 고장이 된다. */
   | { type: 'TOOL_SET'; tool: ToolId }
+  /** 개체 하나를 **새로 놓았다**(§6.10a). 배치의 뒷정리를 전부 한 액션에 모은다:
+   *  방금 놓은 것을 선택하고, 고정이 아니면 선택 도구로 돌아간다.
+   *
+   *  ⚠️ 선택을 `SELECT_SET` 으로 따로 보내면 안 된다 — 그러면 "고정을 살려 두는 동작" 목록에
+   *  `SELECT_SET` 이 들어가야 하고, 그 순간 **사용자가 다른 개체를 고르는 것**도 고정을
+   *  살려 두게 된다. 배치가 낸 선택과 사람이 낸 선택은 액션부터 달라야 구별할 수 있다. */
+  | { type: 'PLACED'; id: string }
   | { type: 'CONE_SLOT_SET'; slot: 0 | 1 }
   | { type: 'SELECT_SET'; ids: string[] }
   | { type: 'SELECT_TOGGLE'; id: string }
@@ -76,7 +87,9 @@ export type EditorAction =
   | { type: 'STEP_DELETE'; id: StepId }
   | { type: 'STEP_REORDER'; id: StepId; toIndex: number }
   | { type: 'STEP_META'; id: StepId; patch: { name?: string; note?: string; durationMs?: number } }
-  | { type: 'OBJECT_ADD'; kind: 'ball' | 'cone'; at: Vec2; colorIndex?: 0 | 1 }
+  /** id 를 **부르는 쪽이 짓는다**(2026-08-16) — 도형·메모·화살표가 이미 그렇다. 놓자마자
+   *  선택하려면(§6.10a `PLACED`) 부르는 쪽이 방금 놓은 개체의 이름을 알아야 한다. */
+  | { type: 'OBJECT_ADD'; kind: 'ball' | 'cone'; at: Vec2; colorIndex?: 0 | 1; id: BallId | ConeId }
   /** 삭제 범위. **사용자가 고르지 않는다** — 개체 성격에 따라 UI 가 정한다:
    *  메모·화살표는 그 스텝의 설명이라 `thisStep`, 선수·공·콘은 `onward`(인스펙터 참고).
    *  2026-08-16 — 키보드에서 Alt 로 범위를 고르던 길은 없앴다(Alt 는 보기 토글 전용 채널이

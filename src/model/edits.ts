@@ -64,16 +64,17 @@ function setForward(d: Drill, i: number, id: CastId, pose: StoredChairPose | Vec
   return { ...d, steps };
 }
 
-export function addBall(d: Drill, i: number, at: Vec2): Drill {
+// id 를 **밖에서 받는다**(2026-08-16). 공·콘만 여기서 id 를 지어내는 바람에 부르는 쪽이
+// 방금 놓은 개체의 이름을 몰랐고, 그래서 "놓자마자 선택" 이 도형·메모·선수에만 있고 공·콘에만
+// 없었다. 인자를 안 주면 종전대로 지어내므로 기존 호출부는 그대로 돈다.
+export function addBall(d: Drill, i: number, at: Vec2, id: BallId = newId('bl')): Drill {
   if (d.cast.balls.length >= LIMITS.maxBalls) return d;
-  const id = newId('bl');
   const cast: DrillCast = { ...d.cast, balls: [...d.cast.balls, { id }] };
   return setForward({ ...d, cast }, i, id, at);
 }
 
-export function addCone(d: Drill, i: number, at: Vec2, colorIndex: 0 | 1): Drill {
+export function addCone(d: Drill, i: number, at: Vec2, colorIndex: 0 | 1, id: ConeId = newId('cn')): Drill {
   if (d.cast.cones.length >= LIMITS.maxCones) return d;
-  const id = newId('cn');
   const cast: DrillCast = { ...d.cast, cones: [...d.cast.cones, { id, colorIndex }] };
   return setForward({ ...d, cast }, i, id, at);
 }

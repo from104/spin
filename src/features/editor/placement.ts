@@ -47,23 +47,31 @@ export interface PlaceDeps {
  *  쓴다)가 그대로 소리에도 적용된다. 경로마다 따로 울리면 "탭으로는 소리가 나는데 트레이로
  *  끌면 안 난다" 가 조용히 생긴다.
  *  **실패했을 때는 울리지 않는다**: 상한 초과·대상 미선택은 토스트(`role="status"`)가
- *  이미 말하고 있고, 놓이지도 않았는데 놓임 소리가 나면 그 신호는 거짓말이다. */
+ *  이미 말하고 있고, 놓이지도 않았는데 놓임 소리가 나면 그 신호는 거짓말이다.
+ *
+ *  §6.10a 배치 뒤끝(방금 놓은 것 선택 · 1회용이면 선택 도구로 복귀 · 고정이면 유지)도 여기서
+ *  **한 줄로** 낸다. 안쪽 함수가 새 id 를 돌려주는 이유가 그것이다 — 종류마다 따로 적으면
+ *  개편 전처럼 "도형·메모는 놓자마자 선택되는데 공·콘은 안 된다" 가 다시 갈라진다. */
 export function placeObject(kind: PlaceKind, world: Vec2, d: PlaceDeps): boolean {
-  const placed = placeObjectInner(kind, world, d);
-  if (placed) cues.play('drop');
-  return placed;
+  const id = placeObjectInner(kind, world, d);
+  if (!id) return false;
+  cues.play('drop');
+  d.dispatch({ type: 'PLACED', id });
+  return true;
 }
 
-function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): boolean {
+/** 놓았으면 **새 개체의 id**, 못 놓았으면 null. */
+function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): string | null {
   if (kind === 'ball') {
     // 상한은 cast 기준이다. 지운 공이 cast 에 남아 있으면 여기서 영영 막힌다 —
     // 그 유령을 만들지 않는 책임은 model/edits.ts 의 pruneOrphanCast 에 있다.
     if (d.drill.cast.balls.length >= d.ballMax) {
       d.showToast(BALL_LIMIT_MSG);
-      return false;
+      return null;
     }
-    d.dispatch({ type: 'OBJECT_ADD', kind: 'ball', at: world });
-    return true;
+    const id = newId('bl');
+    d.dispatch({ type: 'OBJECT_ADD', kind: 'ball', at: world, id });
+    return id;
   }
 
   if (kind === 'cone') {
@@ -72,46 +80,43 @@ function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): boolean {
     const sameColor = d.drill.cast.cones.filter((c) => c.colorIndex === d.coneSlot).length;
     if (sameColor >= CONE.maxCountPerColor) {
       d.showToast(coneLimitMsg(d.coneSlot));
-      return false;
+      return null;
     }
-    d.dispatch({ type: 'OBJECT_ADD', kind: 'cone', at: world, colorIndex: d.coneSlot });
-    return true;
+    const id = newId('cn');
+    d.dispatch({ type: 'OBJECT_ADD', kind: 'cone', at: world, colorIndex: d.coneSlot, id });
+    return id;
   }
 
   if (kind === 'ellipse' || kind === 'triangle' || kind === 'rect') {
     const step = d.drill.steps[d.stepIndex];
     if (step && step.shapes.length >= LIMITS.maxShapesPerStep) {
       d.showToast(`도형은 스텝당 ${LIMITS.maxShapesPerStep}개까지입니다.`);
-      return false;
+      return null;
     }
+    // 놓자마자 선택되는 것(placeObject 의 PLACED)이 도형에는 특히 중요하다 — 면이 0.13 이라
+    // 빈 코트에서도 옅어서, 선택 링과 손잡이가 없으면 "도형 도구가 아무 반응도 없다" 로 읽힌다.
     const id = newId('sh');
     d.dispatch({ type: 'SHAPE_SET', shape: makeShape(id, kind, world) });
-    // 놓자마자 선택해 둔다 — 도형은 면이 0.13 이라 빈 코트에서도 옅고, 선택 링과 손잡이가
-    // 없으면 "도형 도구가 아무 반응도 없다" 로 읽힌다(빈 메모가 같은 이유로 같은 처리다).
-    d.dispatch({ type: 'SELECT_SET', ids: [id] });
-    return true;
+    return id;
   }
 
   if (kind === 'note') {
+    // 빈 메모도 같은 이유로 선택이 필요하다 — 화면에서 거의 보이지 않는다(2026-08-10 김경일 제보).
     const id = newId('nt');
     d.dispatch({ type: 'NOTE_SET', note: { id, x: world.x, y: world.y, text: '' } });
-    // 놓자마자 선택해 둔다 — 빈 메모는 화면에서 거의 보이지 않아서, 선택 링이 없으면
-    // "메모 도구가 아무 반응도 없다" 로 읽힌다(2026-08-10 김경일 제보).
-    d.dispatch({ type: 'SELECT_SET', ids: [id] });
-    return true;
+    return id;
   }
 
   const id = d.pendingPlayerId;
   if (!id) {
     d.showToast(PLAYER_UNARMED_MSG);
-    return false;
+    return null;
   }
   const def = d.drill.cast.chairs.find((c) => c.id === id);
-  if (!def) return false;
+  if (!def) return null;
   const court = courtDefFor(d.drill.courtMode, d.drill.courtSize);
   const headingDeg = def.team === 'home' ? court.homeHeadingDeg : court.awayHeadingDeg;
   d.dispatch({ type: 'CHAIR_PLACE', id, pose: { x: world.x, y: world.y, angleDeg: headingDeg } });
-  d.dispatch({ type: 'SELECT_SET', ids: [id] });
   d.onPlayerPlaced();
-  return true;
+  return id;
 }

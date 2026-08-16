@@ -1,5 +1,6 @@
 // §10.7 store — undo/redo 경계, coalesce, epoch, PLACE_BEGIN/PLACE_COMMIT.
 import { describe, expect, it } from 'vitest';
+import { newId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
 import type { Drill } from '../../model/drill.ts';
 import { editorRootReducer, initEditorState } from './reducer.ts';
@@ -146,7 +147,7 @@ describe('epoch — 구조 변경·시점 점프에만 증가', () => {
   it('UNDO/REDO/DRILL_LOAD/STEP_ADD/OBJECT_ADD/CHAIR_PLACE 는 epoch 를 증가시킨다', () => {
     let s = freshState();
     const e0 = s.epoch;
-    s = editorRootReducer(s, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 5, y: 5 } });
+    s = editorRootReducer(s, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 5, y: 5 }, id: newId('bl') });
     expect(s.epoch).toBe(e0 + 1);
     s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
     expect(s.epoch).toBe(e0 + 2);

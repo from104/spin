@@ -12,10 +12,11 @@ import { FLYOUT_PICK_CLOSE_MS, flyoutPosition, useFlyout } from './useFlyout.ts'
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
+import { LOCKABLE_TOOLS } from '../../store/editor/reducer.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
 import { CHAIR } from '../../core/constants.ts';
 import { numberedName } from '../../model/chairLabel.ts';
-import { IconToolNote, IconToolRoute } from '../../ui/icons.tsx';
+import { IconPin, IconToolNote, IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
 import {
   CHIP_BOX_H_CSS,
@@ -56,6 +57,10 @@ export interface ChairSlot {
 
 export interface ToolRailProps {
   tool: ToolId;
+  /** 지금 도구가 **연속 배치로 고정**돼 있는가(§6.10a). 상태의 주인은 리듀서
+   *  (`EditorState.toolLock`)이고 레일은 그것을 그리기만 한다. */
+  toolLock?: boolean;
+  /** 같은 도구를 다시 주면 고정이 토글된다 — 그 판정도 리듀서가 한다(`TOOL_SET`). */
   onSelectTool(id: ToolId): void;
   coneSlot: 0 | 1;
   onConeSlotChange(slot: 0 | 1): void;
@@ -395,33 +400,91 @@ function RemainingBadge({ n }: { n: number }) {
   );
 }
 
-function ActiveRing() {
+/** 고른 도구의 표시. `locked` 면 **연속 배치 중**이라 링이 두 겹이 되고 핀 배지가 붙는다
+ *  (§6.10a). 도구·공·콘 세 자리가 이 한 조각을 같이 쓴다 — 자리마다 따로 그리면 "콘만
+ *  고정 표시가 없다" 가 조용히 생긴다. */
+function ActiveRing({ locked = false }: { locked?: boolean }) {
   return (
-    <span
-      aria-hidden
-      style={{
-        position: 'absolute',
-        inset: 0,
-        borderRadius: 11,
-        border: '1.5px solid var(--accent)',
-        background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
-      }}
-    />
+    <>
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 11,
+          border: '1.5px solid var(--accent)',
+          background: `color-mix(in srgb, var(--accent) ${locked ? 28 : 15}%, transparent)`,
+          // 바깥으로 한 겹 더 — 곁눈으로도 '평소 켜짐' 과 다르다는 것이 먼저 보인다.
+          boxShadow: locked ? '0 0 0 1.5px var(--accent)' : undefined,
+        }}
+      />
+      {locked && (
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            bottom: 2,
+            left: 3,
+            display: 'flex',
+            color: 'var(--accent-text)',
+            opacity: 0.95,
+          }}
+        >
+          <IconPin />
+        </span>
+      )}
+    </>
   );
+}
+
+/** 도구 칸의 툴팁 — 세 가지 상태를 **한 곳에서** 말한다(§6.10a).
+ *
+ *  가운데 문장(켜졌지만 고정 아님)이 이 함수가 있는 이유다: 고정은 "같은 것을 한 번 더"
+ *  라는, 눌러 보기 전에는 알 수 없는 조작이다. 도움말에만 적어 두면 열어보지 않는 사람에게는
+ *  없는 기능이고, 도구를 고른 순간이 그 사실을 알려줄 유일한 자연스러운 시점이다. */
+export function toolTitle(id: ToolId, label: string, key: string | undefined, active: boolean, locked: boolean): string {
+  const head = key ? `${label} (${key})` : label;
+  return head + lockHint(id, active, locked);
+}
+
+/** 공·콘 상자처럼 이미 제 할 말(남은 개수)이 있는 칸에는 **뒤에 이어 붙인다**.
+ *
+ *  ⚠️ 고정할 수 없는 도구(선택·선수)에는 **한 글자도 붙이지 않는다.** 처음 이 문장을 모든
+ *  켜진 도구에 붙였다가 [선택] 이 *"하나 놓으면 선택 도구로 돌아갑니다"* 라고 말했다 —
+ *  놓지도 않고 이미 선택인 도구가. 골든 DOM 해시가 그 한 줄을 잡았다. */
+export function lockHint(id: ToolId, active: boolean, locked: boolean): string {
+  if (!LOCKABLE_TOOLS.has(id)) return '';
+  if (locked) return ' — 연속으로 놓는 중입니다. 한 번 더 누르면 풀립니다.';
+  if (active) return ' — 하나 놓으면 선택 도구로 돌아갑니다. 한 번 더 누르면 연속으로 놓습니다.';
+  return '';
 }
 
 /** 모드 버튼 한 칸. 상시 2종과 서랍 안 3종이 **같은 컴포넌트**라야 서랍을 열었을 때
  *  칸 모양이 달라지지 않는다(달라지면 접힌 것이 '다른 등급의 도구'로 읽힌다). */
-function ToolButton({ def, active, onSelect }: { def: ToolDef; active: boolean; onSelect(): void }) {
+function ToolButton({
+  def,
+  active,
+  locked = false,
+  onSelect,
+}: {
+  def: ToolDef;
+  active: boolean;
+  locked?: boolean;
+  onSelect(): void;
+}) {
   return (
     <button
       type="button"
-      title={def.key ? `${def.label} (${def.key})` : def.label}
+      title={toolTitle(def.id, def.label, def.key, active, locked)}
+      // 이름에 '고정' 이 붙는 것은 **켜져 있을 때뿐**이다 — 안 켜졌을 때까지 붙이면 버튼
+      // 이름이 늘 길어져서, 정작 켜졌을 때의 차이가 안 들린다. WCAG 2.5.3: 보이는 글자
+      // (def.label)가 이름 안에 그대로 들어 있다.
+      aria-label={locked ? `${def.label} 고정` : undefined}
       aria-pressed={active}
       onClick={onSelect}
       style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
     >
-      {active && <ActiveRing />}
+      {active && <ActiveRing locked={locked} />}
       <span style={{ position: 'relative', display: 'flex' }}>
         <def.Icon />
       </span>
@@ -453,6 +516,7 @@ function ToolButton({ def, active, onSelect }: { def: ToolDef; active: boolean; 
 
 export function ToolRail({
   tool,
+  toolLock = false,
   onSelectTool,
   coneSlot,
   onConeSlotChange,
@@ -650,8 +714,9 @@ export function ToolRail({
           title={
             isBallCapped
               ? `${BALL_TOOL.label} — 상자가 비었습니다. 코트의 공을 트레이로 끌어다 놓으면 돌아옵니다.`
-              : `${BALL_TOOL.label} (${BALL_TOOL.key}) — ${ballRemaining}개 남음, 끌어다 놓으세요`
+              : `${BALL_TOOL.label} (${BALL_TOOL.key}) — ${ballRemaining}개 남음, 끌어다 놓으세요${lockHint('ball', tool === 'ball', toolLock)}`
           }
+          aria-label={tool === 'ball' && toolLock ? `${BALL_TOOL.label} 고정` : undefined}
           aria-pressed={tool === 'ball'}
           aria-disabled={isBallCapped || undefined}
           aria-describedby={ballHintId}
@@ -663,7 +728,7 @@ export function ToolRail({
             opacity: isBallCapped ? 0.5 : 1,
           }}
         >
-          {tool === 'ball' && <ActiveRing />}
+          {tool === 'ball' && <ActiveRing locked={toolLock} />}
           <span style={{ position: 'relative', display: 'flex' }}>
             <BALL_TOOL.Icon />
           </span>
@@ -697,14 +762,14 @@ export function ToolRail({
             <Fragment key={color}>
               <button
                 type="button"
-                aria-label={`${name} 콘`}
+                aria-label={active && toolLock ? `${name} 콘 고정` : `${name} 콘`}
                 aria-pressed={active}
                 aria-disabled={empty || undefined}
                 aria-describedby={`${coneHintId}-${idx}`}
                 title={
                   empty
                     ? `${name} 콘 — 상자가 비었습니다. 코트의 콘을 트레이로 끌어다 놓으면 돌아옵니다.`
-                    : `${name} 콘 — ${remaining}개 남음, 끌어다 놓으세요`
+                    : `${name} 콘 — ${remaining}개 남음, 끌어다 놓으세요${lockHint('cone', active, toolLock)}`
                 }
                 {...dragProps({ kind: 'cone', coneSlot: idx }, () => {
                   onConeSlotChange(idx);
@@ -717,7 +782,7 @@ export function ToolRail({
                   opacity: empty ? 0.5 : 1,
                 }}
               >
-                {active && <ActiveRing />}
+                {active && <ActiveRing locked={toolLock} />}
                 <span style={{ position: 'relative', display: 'flex', color }}>
                   <CONE_TOOL.Icon />
                 </span>
@@ -767,7 +832,13 @@ export function ToolRail({
         }}
       >
         {ALWAYS_TOOLS.map((t) => (
-          <ToolButton key={t.id} def={t} active={t.id === tool} onSelect={() => onSelectTool(t.id)} />
+          <ToolButton
+            key={t.id}
+            def={t}
+            active={t.id === tool}
+            locked={t.id === tool && toolLock}
+            onSelect={() => onSelectTool(t.id)}
+          />
         ))}
 
         {/* 서랍 손잡이 2개 — **처음부터 보인다. 닫혀 있을 뿐이다**(§3). 손잡이도 내용물도
@@ -803,7 +874,9 @@ export function ToolRail({
                 {...fly.handleProps(d.key, () => handleRefs.current[d.key])}
                 style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
               >
-                {active && <ActiveRing />}
+                {/* 손잡이의 `active` 는 **서랍 안 도구 중 하나가 켜짐**이다 — 닫아 둔 채 고정한
+                    도형 도구도 여기서 보여야 한다. 안 그러면 서랍을 닫는 순간 모드가 숨는다. */}
+                {active && <ActiveRing locked={toolLock} />}
                 <span style={{ position: 'relative', display: 'flex' }}>
                   <d.Icon />
                 </span>
@@ -859,6 +932,7 @@ export function ToolRail({
                           key={t.id}
                           def={t}
                           active={t.id === tool}
+                          locked={t.id === tool && toolLock}
                           onSelect={() => {
                             onSelectTool(t.id);
                             fly.closeSoon(FLYOUT_PICK_CLOSE_MS);

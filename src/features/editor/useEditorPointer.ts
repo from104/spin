@@ -757,7 +757,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       if (draft && Math.hypot(draft.to.x - draft.from.x, draft.to.y - draft.from.y) >= 12) {
         const arrow: Arrow = { id: newId('ar'), from: draft.from, ctrl: draft.ctrl, to: draft.to };
         ctx.dispatch({ type: 'ARROW_SET', arrow });
-        ctx.dispatch({ type: 'SELECT_SET', ids: [arrow.id] });
+        // 화살표는 끌어서 만드는 유일한 개체라 placement.ts 를 안 탄다 — 그래서 §6.10a 배치
+        // 뒤끝(선택 · 1회용 복귀 · 고정 유지)을 여기서 같은 액션으로 낸다. 빠뜨리면 선 도구만
+        // 혼자 계속 켜져 있는다.
+        ctx.dispatch({ type: 'PLACED', id: arrow.id });
       }
       return;
     }

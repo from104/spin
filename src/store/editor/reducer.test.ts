@@ -1,5 +1,6 @@
 // §10.7 store — editorRootReducer 조합 · selectStepIndex.
 import { describe, expect, it } from 'vitest';
+import { newId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
 import type { Drill } from '../../model/drill.ts';
 import { editorRootReducer, initEditorState, selectStepIndex } from './reducer.ts';
@@ -40,7 +41,10 @@ describe('editorRootReducer — UI 액션', () => {
     expect(s2).not.toBe(withStep2);
   });
 
-  it('항등 액션(같은 tool 재지정)은 참조를 그대로 돌려준다', () => {
+  // ⚠️ 이 항등은 **고정할 수 없는 도구에 한한다**(§6.10a). 배치 도구는 같은 것을 한 번 더
+  //    주면 고정이 토글되므로 참조가 바뀐다 — 아래 '도구 고정' describe 가 그쪽을 본다.
+  //    `freshState()` 의 도구는 `select` 라 여기서는 여전히 항등이다.
+  it('항등 액션(고정 못 하는 도구를 같은 것으로 재지정)은 참조를 그대로 돌려준다', () => {
     const s0 = freshState();
     const s1 = editorRootReducer(s0, { type: 'TOOL_SET', tool: s0.tool });
     expect(s1).toBe(s0);
@@ -108,7 +112,7 @@ describe('drillReducer 위임 — 대표 경로', () => {
   it('OBJECT_ADD(ball) 이 현재 스텝에 공을 추가한다', () => {
     const s0 = freshState();
     const before = s0.present.cast.balls.length;
-    const s1 = editorRootReducer(s0, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 10, y: 10 } });
+    const s1 = editorRootReducer(s0, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 10, y: 10 }, id: newId('bl') });
     expect(s1.present.cast.balls.length).toBe(before + 1);
   });
 
@@ -124,7 +128,7 @@ describe('BOARD_SET — 자유 전술판 갈아끼우기 (§6.8)', () => {
     // 회귀 방어: DRILL_LOAD 로 대신하면 past 에 한 칸 쌓여 "리셋 상태에서만 전환" 게이트가
     // 첫 전환 직후 스스로 닫힌다. 여기서 past 가 비어 있는지가 그 게이트의 전제다.
     let s = freshState();
-    s = editorRootReducer(s, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 100, y: 100 } });
+    s = editorRootReducer(s, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 100, y: 100 }, id: newId('bl') });
     expect(s.past.length).toBeGreaterThan(0); // 편집이 쌓였다
 
     const half = createDrill({ courtMode: 'half', formation: '1-2-1' });
@@ -166,5 +170,82 @@ describe('BOARD_SET — 자유 전술판 갈아끼우기 (§6.8)', () => {
     const s0 = freshState();
     const s1 = editorRootReducer(s0, { type: 'BOARD_SET', drill: createDrill({ courtMode: 'half' }) });
     expect(s1.epoch).toBe(s0.epoch + 1);
+  });
+});
+
+// §6.10a 도구 고정 — **수명**이 전부다. 켜는 법(같은 도구 두 번)보다 **꺼지는 법**을 더
+// 촘촘히 본다: 이 기능의 유일한 고장 방식은 "켠 적 없는데 켜져 있다"이기 때문이다.
+describe('§6.10a 도구 고정 — 연속 배치', () => {
+  const armed = (tool: 'cone' | 'note' = 'cone') => {
+    const s = editorRootReducer(freshState(), { type: 'TOOL_SET', tool });
+    return editorRootReducer(s, { type: 'TOOL_SET', tool });
+  };
+
+  it('같은 배치 도구를 두 번 = 고정, 세 번 = 해제', () => {
+    const s0 = freshState();
+    const s1 = editorRootReducer(s0, { type: 'TOOL_SET', tool: 'cone' });
+    expect(s1.toolLock, '한 번은 고를 뿐이다').toBe(false);
+    const s2 = editorRootReducer(s1, { type: 'TOOL_SET', tool: 'cone' });
+    expect(s2.toolLock).toBe(true);
+    expect(s2.tool, '고정이 도구를 바꾸지는 않는다').toBe('cone');
+    const s3 = editorRootReducer(s2, { type: 'TOOL_SET', tool: 'cone' });
+    expect(s3.toolLock, '같은 조작이 켜고 끈다 — 푸는 법을 따로 배우지 않는다').toBe(false);
+  });
+
+  it('고정할 수 없는 도구는 두 번 눌러도 안 잠긴다 — 선택·선수', () => {
+    // 선택은 배치가 아니고, 선수는 칩마다 다른 사람이라 '연속' 이 성립하지 않는다.
+    for (const tool of ['select', 'player'] as const) {
+      const s1 = editorRootReducer(freshState(), { type: 'TOOL_SET', tool });
+      expect(editorRootReducer(s1, { type: 'TOOL_SET', tool }).toolLock, tool).toBe(false);
+    }
+  });
+
+  it('다른 도구로 옮기면 고정은 따라오지 않는다', () => {
+    const s = editorRootReducer(armed(), { type: 'TOOL_SET', tool: 'note' });
+    expect(s.tool).toBe('note');
+    expect(s.toolLock).toBe(false);
+  });
+
+  it('PLACED — 고정이 아니면 선택 도구로 돌아가고 방금 놓은 것이 선택된다', () => {
+    const s1 = editorRootReducer(freshState(), { type: 'TOOL_SET', tool: 'cone' });
+    const s2 = editorRootReducer(s1, { type: 'PLACED', id: 'cn_x' });
+    expect(s2.tool).toBe('select');
+    expect([...s2.selection]).toEqual(['cn_x']);
+  });
+
+  it('PLACED — 고정이면 도구가 그대로 남는다(그래서 연속으로 놓인다)', () => {
+    const s = editorRootReducer(armed(), { type: 'PLACED', id: 'cn_x' });
+    expect(s.tool).toBe('cone');
+    expect(s.toolLock).toBe(true);
+    expect([...s.selection], '고정 중에도 마지막에 놓은 것은 선택된다').toEqual(['cn_x']);
+  });
+
+  it.each([
+    ['UNDO', { type: 'UNDO' } as const],
+    ['REDO', { type: 'REDO' } as const],
+    ['SELECT_CLEAR (Esc)', { type: 'SELECT_CLEAR' } as const],
+    ['SELECT_SET (사람이 다른 개체를 고름)', { type: 'SELECT_SET', ids: ['bl_1'] as string[] } as const],
+    ['SELECT_TOGGLE', { type: 'SELECT_TOGGLE', id: 'bl_1' } as const],
+    ['OBJECT_NUDGE (방향키 미세조정)', { type: 'OBJECT_NUDGE', id: 'bl_1' as never, d: { x: 1, y: 0 }, dTheta: 0 } as const],
+    ['PLACE_BEGIN (개체를 끌기 시작)', { type: 'PLACE_BEGIN' } as const],
+    ['ARROW_REMOVE', { type: 'ARROW_REMOVE', id: 'ar_1' as never } as const],
+    ['FLAG_SET', { type: 'FLAG_SET', flag: 'locked', id: 'bl_1', on: true } as const],
+  ])('다른 동작이 끼면 즉시 풀린다 — %s (기현 지시 2026-08-16)', (_name, action) => {
+    expect(armed().toolLock).toBe(true); // 대조군 — 애초에 잠겨 있었다
+    expect(editorRootReducer(armed(), action).toolLock).toBe(false);
+  });
+
+  it.each([
+    ['CONE_SLOT_SET (콘 색 바꿔 가며 깔기)', { type: 'CONE_SLOT_SET', slot: 1 } as const],
+    ['SAVED (자동저장)', { type: 'SAVED', at: 1 } as const],
+    ['SETTLE_ARM (물리 정착)', { type: 'SETTLE_ARM', until: 1 } as const],
+    ['COMMIT_BREAK (키 리피트 경계)', { type: 'COMMIT_BREAK' } as const],
+  ])('연속 동작·뒷정리는 고정을 살려 둔다 — %s', (_name, action) => {
+    expect(editorRootReducer(armed(), action).toolLock).toBe(true);
+  });
+
+  it('판을 새로 열면 고정은 꺼져 있다 — 켠 적 없는 모드를 물려받지 않는다', () => {
+    expect(freshState().toolLock).toBe(false);
+    expect(editorRootReducer(armed(), { type: 'BOARD_SET', drill: freshState().present }).toolLock).toBe(false);
   });
 });

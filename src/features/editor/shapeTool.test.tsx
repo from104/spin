@@ -49,6 +49,14 @@ async function pickShapeTool(user: ReturnType<typeof userEvent.setup>, label: '�
   await user.click(screen.getByRole('button', { name: label }));
 }
 
+/** 같은 도구를 두 번 = **연속 배치 고정**(§6.10a). 두 번째 누름은 도구를 바꾸지 않고
+ *  `toolLock` 만 켠다 — 그래서 버튼 이름이 `'원'` 에서 `'원 고정'` 으로 바뀐다. */
+async function lockShapeTool(user: ReturnType<typeof userEvent.setup>, label: '원' | '삼각' | '사각') {
+  await pickShapeTool(user, label);
+  await pickShapeTool(user, label);
+  await screen.findByRole('button', { name: `${label} 고정` });
+}
+
 /** 코트 위 한 점을 찍는다. jsdom 에는 레이아웃이 없어 좌표가 전부 0 이므로, 실제 좌표가
  *  아니라 **놓였는가**만 본다(좌표 규칙은 model/shape.test 가 순수 함수로 잰다). */
 const tapCourt = async (user: ReturnType<typeof userEvent.setup>, stage: HTMLElement) => {
@@ -100,13 +108,47 @@ describe('놓기 — 도구를 고르고 코트를 찍으면 도형이 선다', 
     await waitFor(() => expect(document.querySelector('[data-shape-handles]')).not.toBeNull());
   });
 
-  it('연달아 찍으면 여러 개가 쌓인다 — 한 번 놓고 도구가 죽지 않는다', async () => {
+  // 2026-08-16 §6.10a — **옛 계약이 뒤집혔다.** 여기 있던 것은 *"연달아 찍으면 여러 개가
+  // 쌓인다 — 한 번 놓고 도구가 죽지 않는다"* 였다. 도구가 계속 살아 있으니 방금 놓은 도형을
+  // 손보려고 누르면 그 자리에 도형이 하나 더 생겼다. 이제 기본은 1회용이고, 연속은 고정이다.
+  it('하나 놓으면 선택 도구로 돌아간다 — 두 번째 탭은 도형을 더 만들지 않는다', async () => {
     const { user, stage } = await openBoard();
     await pickShapeTool(user, '원');
     await tapCourt(user, stage);
     await waitFor(() => expect(shapeNodes()).toHaveLength(1));
     await tapCourt(user, stage);
+    // 잠깐 기다렸다가 세도 여전히 하나다 — waitFor 는 '아직 안 생겼다' 와 구별을 못 하므로
+    // 한 번 더 찍고 나서 개수를 확정한다.
+    await tapCourt(user, stage);
+    await waitFor(() => expect(document.querySelector('[data-shape-layer]')).not.toBeNull());
+    expect(shapeNodes()).toHaveLength(1);
+  });
+
+  it('도구를 한 번 더 누르면 고정된다 — 그때는 연달아 쌓인다', async () => {
+    const { user, stage } = await openBoard();
+    await lockShapeTool(user, '원');
+    await tapCourt(user, stage);
+    await waitFor(() => expect(shapeNodes()).toHaveLength(1));
+    await tapCourt(user, stage);
     await waitFor(() => expect(shapeNodes()).toHaveLength(2));
+  });
+
+  it('고정 중에 **다른 동작**이 끼면 즉시 풀린다 (기현 지시 2026-08-16)', async () => {
+    const { user, stage } = await openBoard();
+    await lockShapeTool(user, '원');
+    await tapCourt(user, stage);
+    await waitFor(() => expect(shapeNodes()).toHaveLength(1));
+
+    // 되돌리기 — 배치도 아니고 뒷정리도 아니다. 여기서 고정이 풀려야 한다.
+    await user.keyboard('{Control>}z{/Control}');
+    await waitFor(() => expect(shapeNodes()).toHaveLength(0));
+
+    // 도구는 아직 원이므로 한 개는 놓인다(고정만 풀렸다). 그 뒤로는 안 놓인다.
+    await tapCourt(user, stage);
+    await waitFor(() => expect(shapeNodes()).toHaveLength(1));
+    await tapCourt(user, stage);
+    await tapCourt(user, stage);
+    expect(shapeNodes()).toHaveLength(1);
   });
 });
 
@@ -132,7 +174,8 @@ describe('★ 층 — 코트보다 높고 칩·화살표보다 낮다 (기현 �
 describe('★ 겹치면 진해진다 — 알파 합성을 깨뜨리지 않는다', () => {
   it('도형마다 **자기** fill-opacity 를 갖는다 — 그룹 opacity 로 납작해지지 않았다', async () => {
     const { user, stage } = await openBoard();
-    await pickShapeTool(user, '사각');
+    // 겹침을 보려면 둘이 필요하다 — 1회용이 기본이므로 여기서는 고정하고 찍는다(§6.10a).
+    await lockShapeTool(user, '사각');
     await tapCourt(user, stage);
     await tapCourt(user, stage);
     await waitFor(() => expect(shapeNodes()).toHaveLength(2));

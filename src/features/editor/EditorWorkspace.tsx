@@ -378,6 +378,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   const toolRail = (
     <ToolRail
       tool={state.tool}
+      toolLock={state.toolLock}
       onSelectTool={(t) => dispatch({ type: 'TOOL_SET', tool: t })}
       coneSlot={state.coneSlot}
       onConeSlotChange={(slot) => dispatch({ type: 'CONE_SLOT_SET', slot })}

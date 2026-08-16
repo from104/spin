@@ -34,7 +34,7 @@ describe('placeObject — 공 상한', () => {
   it(`${BALL.maxCount - 1}개까지는 놓인다`, () => {
     const { d, dispatch, showToast } = deps({ balls: BALL.maxCount - 1 });
     expect(placeObject('ball', AT, d)).toBe(true);
-    expect(dispatch).toHaveBeenCalledWith({ type: 'OBJECT_ADD', kind: 'ball', at: AT });
+    expect(dispatch).toHaveBeenCalledWith({ type: 'OBJECT_ADD', kind: 'ball', at: AT, id: expect.any(String) });
     expect(showToast).not.toHaveBeenCalled();
   });
 
@@ -57,7 +57,13 @@ describe('placeObject — 콘 상한은 색깔마다 따로다', () => {
     const full: (0 | 1)[] = Array.from({ length: CONE.maxCountPerColor }, () => 0);
     const { d, dispatch, showToast } = deps({ cones: full, coneSlot: 1 });
     expect(placeObject('cone', AT, d)).toBe(true);
-    expect(dispatch).toHaveBeenCalledWith({ type: 'OBJECT_ADD', kind: 'cone', at: AT, colorIndex: 1 });
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'OBJECT_ADD',
+      kind: 'cone',
+      at: AT,
+      colorIndex: 1,
+      id: expect.any(String),
+    });
     expect(showToast).not.toHaveBeenCalled();
   });
 
@@ -115,5 +121,46 @@ describe('placeObject — 놓임 신호 (P1-4)', () => {
     expect(play).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledTimes(1); // 대조군 — 아무 일도 안 일어난 것이 아니다
     play.mockRestore();
+  });
+});
+
+// §6.10a — 배치 뒤끝. `PLACED` 하나가 세 가지를 한다(방금 놓은 것 선택 · 1회용이면 선택
+// 도구로 복귀 · 고정이면 유지). 여기서는 **그 액션이 다섯 종류 모두에서, 실제로 만든 개체의
+// id 로** 나가는지만 본다 — 결과 자체는 리듀서 테스트가 본다.
+//
+// 이 파일이 생기기 전에는 "놓자마자 선택" 이 도형·메모·선수에만 있고 공·콘에는 없었다.
+// 종류마다 따로 적혀 있었기 때문이다. 아래 each 가 그 갈라짐을 다시 못 만들게 막는다.
+describe('§6.10a 배치 뒤끝 — 놓았으면 반드시 PLACED 를 낸다', () => {
+  const placedId = (dispatch: ReturnType<typeof vi.fn>): string | undefined =>
+    dispatch.mock.calls.map(([a]) => a).find((a) => a.type === 'PLACED')?.id;
+
+  it.each(['ball', 'cone', 'note', 'ellipse', 'triangle', 'rect'] as const)(
+    '%s — PLACED 의 id 가 방금 만든 개체의 id 와 같다',
+    (kind) => {
+      const { d, dispatch } = deps();
+      expect(placeObject(kind, AT, d)).toBe(true);
+      const id = placedId(dispatch);
+      expect(id, 'PLACED 가 아예 없다').toBeTruthy();
+      // 만든 액션이 실은 그 id 를 쓴 것인지 — 새 id 를 따로 지어 보내면 선택이 유령을 가리킨다.
+      const made = dispatch.mock.calls
+        .map(([a]) => a)
+        .find((a) => a.type === 'OBJECT_ADD' || a.type === 'NOTE_SET' || a.type === 'SHAPE_SET');
+      expect(made.id ?? made.note?.id ?? made.shape?.id).toBe(id);
+    },
+  );
+
+  it('선수도 같다 — 트레이에서 무장한 그 칩의 id 로 나간다', () => {
+    const chairId = newId('ch');
+    const { d, dispatch } = deps();
+    d.drill.cast.chairs = [{ id: chairId, team: 'home', number: '2', isGk: false }];
+    d.pendingPlayerId = chairId;
+    expect(placeObject('player', AT, d)).toBe(true);
+    expect(placedId(dispatch)).toBe(chairId);
+  });
+
+  it('못 놓았으면 PLACED 도 없다 — 상한에 막혔는데 도구가 꺼지면 두 번 손해다', () => {
+    const { d, dispatch } = deps({ balls: BALL.maxCount });
+    expect(placeObject('ball', AT, d)).toBe(false);
+    expect(placedId(dispatch)).toBeUndefined();
   });
 });

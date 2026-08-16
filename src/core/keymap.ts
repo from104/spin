@@ -105,6 +105,20 @@ export const KEYMAP: readonly KeyDef[] = [
   toolKey('cone', 'KeyC', 'C', '콘'),
   toolKey('player', 'KeyP', 'P', '선수'),
   toolKey('note', 'KeyN', 'N', '메모'),
+  // §6.10a — 콘 색 바꾸기가 `C` 재입력에서 **여기로 옮겨 왔다**(2026-08-16). 개편 전에는
+  // "콘을 든 채 C 를 다시" 가 색 토글이었는데, 같은 날 *같은 도구를 한 번 더 = 연속 배치
+  // 고정* 이 모든 도구의 규칙이 되면서 콘에서만 뜻이 달라졌다 — 마우스로 콘 상자를 두 번
+  // 누르면 고정, 키보드로 C 를 두 번 누르면 색 토글. 도구마다 다른 규칙은 배울 수가 없다.
+  // 색은 트레이에 상자가 색깔별로 따로 있으므로(마우스는 원래 그렇게 고른다) 키보드에도
+  // 자기 키를 준다.
+  {
+    id: 'tool.coneColor',
+    scope: 'global',
+    codes: ['KeyC'],
+    shift: 'yes',
+    label: 'Shift+C',
+    desc: '콘 색 바꾸기(주황 ↔ 파랑)',
+  },
 
   // ── 편집 ────────────────────────────────────────────────────────────────
   { id: 'edit.undo', scope: 'global', codes: ['KeyZ'], mod: true, label: 'Ctrl/⌘+Z', desc: '실행 취소' },

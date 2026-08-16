@@ -102,13 +102,19 @@ export function useEditorKeyboard(deps: EditorKeyboardDeps): void {
       const tool = toolForAction(def.id);
       if (tool) {
         e.preventDefault();
-        // §6.10 "C 두 번도 토글" — 이미 콘 도구를 든 채 콘 키를 다시 누르면 색이 바뀐다.
-        if (tool === 'cone' && d.tool === 'cone') d.onConeToggle();
-        else d.onSelectTool(tool);
+        // §6.10a — **같은 도구를 한 번 더 = 연속 배치 고정.** 그 판정은 리듀서가 하므로
+        // 여기서는 갈래 없이 그냥 보낸다. 개편 전에는 이 자리에 콘만의 예외가 있었다
+        // ("C 두 번 = 색 토글") — 지금 색은 `Shift+C` 다(keymap `tool.coneColor`).
+        d.onSelectTool(tool);
         return;
       }
 
       switch (def.id) {
+        case 'tool.coneColor':
+          e.preventDefault();
+          // 콘 도구가 아닐 때도 색은 바꿔 둘 수 있다 — 다음에 콘을 들면 그 색으로 놓인다.
+          d.onConeToggle();
+          return;
         case 'edit.undo':
           e.preventDefault();
           d.onUndo();

@@ -1,7 +1,7 @@
 // §6.7 상태 관리 — UI 리듀서 합성. editorRootReducer 는 계약서 스니펫을 그대로 옮긴다
 // (필수 — 안 하면 도구 버튼이 눌리지 않는다).
 import { isId } from '../../core/ids.ts';
-import type { StepId, CastId } from '../../core/ids.ts';
+import type { StepId, CastId, BallId, ConeId } from '../../core/ids.ts';
 import { radToStoredDeg, storedDegToRad } from '../../core/angle.ts';
 import type { Drill } from '../../model/drill.ts';
 import { ballRingOf } from '../../model/drill.ts';
@@ -34,6 +34,16 @@ import type { ToolId } from '../../physics/index.ts';
 export interface EditorState extends HistoryState {
   stepId: StepId;
   tool: ToolId;
+  /** 배치 도구를 **연속으로** 쓰는 중인가(§6.10a).
+   *
+   *  기본은 1회용이다 — 하나 놓으면 선택 도구로 돌아가고 방금 놓은 것이 선택된다. 놓자마자
+   *  자리를 고치는 것이 놓자마자 하나 더 놓는 것보다 훨씬 잦기 때문이다. 콘을 여덟 개 깔 때는
+   *  그 기본이 손해라, 같은 도구를 한 번 더 눌러 이 깃발을 켠다.
+   *
+   *  ⚠️ **꺼짐이 기본인 상태다.** 켜진 채 남는 것이 이 기능의 유일한 고장 방식이므로, 수명은
+   *  `KEEPS_TOOL_LOCK` **허용 목록**으로 정한다(거부 목록이 아니다 — 새 액션이 생겼을 때
+   *  빠뜨리면 허용 목록은 고정이 일찍 풀리고, 거부 목록은 영영 안 풀린다). */
+  toolLock: boolean;
   coneSlot: 0 | 1;
   selection: ReadonlySet<string>;
   savedAt: number | null;
@@ -62,6 +72,9 @@ export function initEditorState(drill: Drill): EditorState {
     epoch: 0,
     stepId: drill.steps[0]!.id,
     tool: 'select',
+    // 고정은 **저장하지 않고 물려주지도 않는다** — 판을 열자마자 켜져 있는 모드는 화면에
+    // 표시가 있어도 "내가 켠 적 없는" 모드라, 모드 오류의 원인인 '안 보이는 모드' 와 같다.
+    toolLock: false,
     coneSlot: 0,
     selection: new Set<string>(),
     savedAt: null,
@@ -83,12 +96,76 @@ function setsEqual(a: ReadonlySet<string>, b: readonly string[]): boolean {
   return true;
 }
 
+/** 고정할 수 있는 도구(§6.10a) — **같은 것을 여러 개 놓는** 도구만이다.
+ *
+ *  `select` 는 배치가 아니라서, `player` 는 칩마다 다른 사람이라서 빠진다: 선수는 하나 놓을
+ *  때마다 트레이에서 다음 칩을 골라야 하므로 '연속' 이라는 말 자체가 성립하지 않는다. */
+export const LOCKABLE_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
+  'ball',
+  'cone',
+  'note',
+  'line',
+  'shapeEllipse',
+  'shapeTriangle',
+  'shapeRect',
+]);
+
+/** 도구 고정을 **살려 두는** 액션(§6.10a). 여기 없는 액션이 하나라도 오면 고정은 즉시 풀린다
+ *  (기현 지시 2026-08-16: *"연속 동작까지만 유효하고 다른 동작을 하면 바로 꺼지게"*).
+ *
+ *  들어 있는 것은 두 부류뿐이다:
+ *   ① **배치 그 자체** — TOOL_SET(같은 도구 재입력 = 고정 토글) · 배치가 내는 커밋 · PLACED
+ *   ② **사용자 동작이 아닌 것** — 자동저장·물리 정착 뒷정리. 이것들은 사용자가 손댄 적이
+ *      없는데도 시각과 무관하게 날아오므로, 이걸로 고정이 풀리면 "가만히 뒀는데 풀렸다" 가 된다.
+ *
+ *  ⚠️ `SELECT_SET` 은 **일부러 뺐다** — 배치가 내는 선택은 `PLACED` 로 따로 다니므로, 여기
+ *  남는 `SELECT_SET` 은 사람이 다른 개체를 고른 것이고 그건 '다른 동작' 이다. */
+const KEEPS_TOOL_LOCK: ReadonlySet<EditorAction['type']> = new Set<EditorAction['type']>([
+  'TOOL_SET',
+  'PLACED',
+  // 배치가 내는 커밋. 도형·메모·화살표는 편집에도 같은 액션을 쓰지만, 그 편집은 선택 도구로
+  // 하는 것이라 배치 도구가 고정된 동안에는 올 일이 없다.
+  'OBJECT_ADD',
+  'CHAIR_PLACE',
+  'NOTE_SET',
+  'SHAPE_SET',
+  'ARROW_SET',
+  // 콘 색을 바꿔 가며 까는 것은 한 가지 연속 동작이다.
+  'CONE_SLOT_SET',
+  // 사용자가 낸 것이 아닌 뒷정리.
+  'SAVED',
+  'COMMIT_BREAK',
+  'SETTLE_ARM',
+  'PLACE_SETTLE',
+]);
+
 /** TOOL_SET / SELECT_* / STEP_SELECT / SAVED / COMMIT_BREAK(항등 통과) 등 히스토리에
- *  들어가지 않는 UI 상태만 다룬다. 나머지 액션은 항등(같은 참조)으로 통과시킨다. */
+ *  들어가지 않는 UI 상태만 다룬다. 나머지 액션은 항등(같은 참조)으로 통과시킨다.
+ *
+ *  도구 고정의 수명은 **여기 바깥 껍질 한 곳**이 정한다 — 갈래마다 적으면 새 갈래가 생길 때
+ *  빠뜨리기 때문이다(위 `KEEPS_TOOL_LOCK` 주석). */
 export function uiReducer(s: EditorState, a: EditorAction): EditorState {
+  const next = uiReducerInner(s, a);
+  if (next.toolLock && !KEEPS_TOOL_LOCK.has(a.type)) return { ...next, toolLock: false };
+  return next;
+}
+
+function uiReducerInner(s: EditorState, a: EditorAction): EditorState {
   switch (a.type) {
-    case 'TOOL_SET':
-      return a.tool === s.tool ? s : { ...s, tool: a.tool };
+    // 같은 도구를 한 번 더 = **고정 토글**(§6.10a). 개편 전에는 여기가 항등 통과라 아무 일도
+    // 안 났다 — 빈 자리였으므로 새 뜻을 얹어도 빼앗는 것이 없다.
+    case 'TOOL_SET': {
+      if (a.tool !== s.tool) return { ...s, tool: a.tool, toolLock: false };
+      if (!LOCKABLE_TOOLS.has(a.tool)) return s;
+      return { ...s, toolLock: !s.toolLock };
+    }
+    // 개체를 새로 놓았다 — 방금 놓은 것을 고르고, 고정이 아니면 선택 도구로 돌아간다.
+    // 되돌리기로 지운 뒤에도 선택만 남는 일은 없다: UNDO 는 고정을 풀고, 사라진 id 를 든
+    // 선택은 이미 다른 곳(사라진 개체 선택)과 같은 방식으로 무시된다.
+    case 'PLACED': {
+      const tool = s.toolLock ? s.tool : 'select';
+      return { ...s, selection: new Set([a.id]), tool };
+    }
     case 'CONE_SLOT_SET':
       return a.slot === s.coneSlot ? s : { ...s, coneSlot: a.slot };
     case 'SELECT_SET':
@@ -197,7 +274,9 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return { ...d, steps };
     }
     case 'OBJECT_ADD':
-      return a.kind === 'ball' ? addBall(d, i, a.at) : addCone(d, i, a.at, a.colorIndex ?? 0);
+      return a.kind === 'ball'
+        ? addBall(d, i, a.at, a.id as BallId)
+        : addCone(d, i, a.at, a.colorIndex ?? 0, a.id as ConeId);
     case 'OBJECT_REMOVE':
       return a.scope === 'onward' ? removeFromStepOnward(d, i, a.id) : removeFromThisStepOnly(d, i, a.id);
     case 'CHAIR_PLACE':

@@ -278,6 +278,20 @@ export function IconLock({ size = 12, ...rest }: IconProps) {
   );
 }
 
+/** 도구 고정(연속 배치) 배지 — §6.10a.
+ *
+ *  ⚠️ **자물쇠(IconLock)를 쓰지 않는다.** 이 앱에서 자물쇠는 이미 "이 개체는 안 움직인다"
+ *  (개체 잠금 플래그)라는 다른 뜻을 갖고 있어서, 같은 글리프를 도구 쪽에 쓰면 코치는
+ *  "이 도구가 잠겨서 못 쓴다" 로 읽는다 — 뜻이 정반대다. 핀은 '꽂아 둔다' 라 겹치지 않는다. */
+export function IconPin({ size = 9, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M9 3h6l-1 6 4 4H6l4-4-1-6Z" />
+      <path d="M12 13v8" />
+    </svg>
+  );
+}
+
 /** 팀 색 스와치 선택 표시 안쪽 체크 — §7.7. */
 export function IconCheck({ size = 14, ...rest }: IconProps) {
   return (
