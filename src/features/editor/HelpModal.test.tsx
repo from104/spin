@@ -29,8 +29,25 @@ describe('3.9 첫 섹션 — 어떻게 놓는가 / 어떻게 옮기는가', () =
     const firstDl = dialog.querySelector('dl')!;
     // compareDocumentPosition: FOLLOWING(4) = heading 이 첫 dl 보다 뒤다.
     expect(firstDl.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // 2026-08-16 — 숫자 체계를 폐지하고 문자 하나로 통일했다. 도구 9종은 한 줄로 접힌다.
-    expect(within(dialog).getByText('V L O T R B C P N')).toBeInTheDocument();
+  });
+
+  it('도구는 **어느 키가 무엇인지**를 적는다 — 글자마다 한 줄 (2026-08-16 기현 지시)', () => {
+    // 옛 계약: *"도구 9종은 한 줄로 접힌다"* — `V L O T R B C P N` 한 줄에 설명은 '도구 선택'.
+    // 짧았지만 질문에 답을 안 했다: 콘이 어느 글자인지 알려면 아홉 개를 세어 짝지어야 했다.
+    const dialog = openHelp();
+    expect(within(dialog).queryByText('V L O T R B C P N'), '아직 접혀 있다').toBeNull();
+
+    // 짝이 **같은 줄**에 있어야 한다 — 세어서 맞추게 하면 접어 둔 것과 다를 바 없다.
+    for (const [key, tool] of [
+      ['V', '선택 도구'],
+      ['C', '콘 도구'],
+      ['N', '메모 도구'],
+    ] as const) {
+      const dt = within(dialog).getByText(key);
+      expect(dt.nextElementSibling?.textContent, `${key} 옆에 ${tool} 가 없다`).toBe(tool);
+    }
+    // 도구는 일반 단축키 표와 **다른 구역**이다 — 섞으면 표가 도구 목록으로 읽힌다.
+    expect(within(dialog).getByRole('heading', { name: '도구' })).toBeInTheDocument();
   });
 
   it('4존 운동학이 **한 문장**이다 — 뒤 절반 이동 · 앞 절반 제자리 회전 · 차체 밖 견인', () => {

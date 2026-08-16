@@ -5,7 +5,7 @@
 // 여기서 재는 것은 **표 자체가 성립하는가**: 한 키가 한 층에서 두 뜻을 갖지 않는가,
 // 층 사이에서 서로를 삼키지 않는가, 도구 목록과 어긋나지 않는가.
 import { describe, it, expect } from 'vitest';
-import { KEYMAP, TOOL_KEY_PREFIX, lookupKey, matchesKey, helpRows, toolHelpRow, type KeyScope } from './keymap.ts';
+import { KEYMAP, TOOL_KEY_PREFIX, lookupKey, matchesKey, helpRows, toolHelpRows, type KeyScope } from './keymap.ts';
 
 /** 표에 등장하는 모든 code × 수식키 8가지. 이 곱집합이 곧 키보드로 만들 수 있는 사건 전부다
  *  (표에 없는 code 는 어차피 아무 정의도 안 잡으므로 셀 필요가 없다). */
@@ -172,9 +172,26 @@ describe('도움말은 표에서 나온다', () => {
     expect(without).not.toContain('현재 스텝 복제');
   });
 
-  it('도구 9종은 표에 흩어지지 않고 한 줄로 접힌다', () => {
+  // ⚠️ 2026-08-16 기현 지시 — *"도움말에 어느 키가 뭔지는 적어야지"*. 옛 계약은 정반대였다:
+  // *"도구 9종은 표에 흩어지지 않고 **한 줄로 접힌다**"*(`['V L O T R B C P N', '도구 선택']`).
+  // 접은 줄은 표를 짧게 만들었지만 **질문에 답을 안 했다** — 콘이 어느 글자인지 알려면 아홉
+  // 개를 세어 짝지어야 했다. 표가 도구 목록으로 읽히는 문제는 접어서가 아니라 HelpModal 의
+  // 소제목(구역 분리)으로 푼다.
+  it('도구는 글자마다 한 줄이고, 그 줄이 무슨 도구인지 말한다', () => {
+    const rows = toolHelpRows();
+    expect(rows).toEqual([
+      ['V', '선택 도구'],
+      ['L', '선 도구'],
+      ['O', '원 도구'],
+      ['T', '삼각 도구'],
+      ['R', '사각 도구'],
+      ['B', '공 도구'],
+      ['C', '콘 도구'],
+      ['P', '선수 도구'],
+      ['N', '메모 도구'],
+    ]);
+    // 일반 단축키 표에는 여전히 안 섞인다 — 구역이 갈려 있다는 것이 이 단언이다.
     expect(helpRows('global', { steps: true }).some(([k]) => k === 'V')).toBe(false);
-    expect(toolHelpRow()).toEqual(['V L O T R B C P N', '도구 선택']);
   });
 
   it('같은 동작의 별칭은 한 줄로만 나온다', () => {

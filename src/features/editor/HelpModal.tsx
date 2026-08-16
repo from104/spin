@@ -13,7 +13,7 @@
 // 동작을 바꿨으면 이 문구도 함께 고쳐라 — 그 대조가 이 파일 테스트의 존재 이유다.
 import { Fragment } from 'react';
 import type { RefObject } from 'react';
-import { helpRows, toolHelpRow } from '../../core/keymap.ts';
+import { helpRows, toolHelpRows } from '../../core/keymap.ts';
 import { Modal } from '../../ui/Modal.tsx';
 
 export interface HelpModalProps {
@@ -56,7 +56,6 @@ export function HelpModal({ open, onClose, returnFocusRef, mode = 'drill' }: Hel
   // 표에는 살아 있는 것처럼 적히는 사고가 났다(이 파일 머리말의 그 사고).
   const steps = mode === 'drill';
   const rows: ReadonlyArray<[string, string]> = [
-    toolHelpRow(),
     ...helpRows('global', { steps }),
     ...helpRows('object', { steps }),
     ...extraRows(steps),
@@ -71,6 +70,18 @@ export function HelpModal({ open, onClose, returnFocusRef, mode = 'drill' }: Hel
         {BASICS.map(([key, desc]) => (
           <Fragment key={key}>
             <dt style={{ fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>{key}</dt>
+            <dd style={{ color: 'var(--muted)' }}>{desc}</dd>
+          </Fragment>
+        ))}
+      </dl>
+      {/* 도구는 **자기 구역**이다(2026-08-16 기현 지시로 아홉 줄이 됐다 — keymap 의 toolHelpRows).
+          한 줄로 접어 두면 "콘이 어느 글자인가" 에 답을 안 하고, 아래 표에 섞으면 표가 도구
+          목록으로 읽힌다. 소제목으로 가르면 둘 다 안 생긴다. */}
+      <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: '1rem 0 0.5rem' }}>도구</h3>
+      <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 10, columnGap: 16, fontSize: '0.8125rem' }}>
+        {toolHelpRows().map(([key, desc]) => (
+          <Fragment key={key}>
+            <dt style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap' }}>{key}</dt>
             <dd style={{ color: 'var(--muted)' }}>{desc}</dd>
           </Fragment>
         ))}

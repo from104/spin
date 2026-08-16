@@ -320,8 +320,13 @@ export function helpRows(scope: KeyScope, opts: { steps: boolean }): ReadonlyArr
   return rows;
 }
 
-/** 도움말 첫 줄에 쓸 "도구 9종" 한 줄. 표의 순서 = 레일 순서다. */
-export function toolHelpRow(): [string, string] {
-  const letters = KEYMAP.filter((d) => d.id.startsWith(TOOL_KEY_PREFIX)).map((d) => d.label);
-  return [letters.join(' '), '도구 선택'];
+/** 도구 9종 — **글자마다 한 줄**. 표의 순서 = 레일 순서다.
+ *
+ *  ⚠️ 2026-08-16 기현 지시(*"도움말에 어느 키가 뭔지는 적어야지"*)로 한 줄에서 아홉 줄이 됐다.
+ *  옛 모양은 `['V L O T R B C P N', '도구 선택']` 이었다 — 표가 도구 목록이 되는 것을 피하려고
+ *  접었는데, 접고 나니 **답을 안 주는 줄**이 됐다: 콘이 어느 글자인지 알려면 아홉 개를 세어
+ *  왼쪽 목록과 짝지어야 하고, 그 짝짓기를 사람에게 시키는 순간 도움말이 아니다.
+ *  표가 도구 목록으로 읽히는 문제는 접어서가 아니라 **구역을 갈라서** 푼다(HelpModal 의 소제목). */
+export function toolHelpRows(): ReadonlyArray<[string, string]> {
+  return KEYMAP.filter((d) => d.id.startsWith(TOOL_KEY_PREFIX)).map((d) => [d.label, d.desc]);
 }
