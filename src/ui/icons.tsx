@@ -358,14 +358,15 @@ export function IconGoalReset({ size = 18, ...rest }: IconProps) {
  *  ⚠️ 2026-08-16 — 원 둘에서 삼각 깃발 둘로 바꿨다. 이 버튼이 뒤집는 것은 판 위의 진영
  *  표시(SideMarks)이고, 그것이 원을 버린 순간 이 아이콘만 옛 모양으로 남으면 버튼이
  *  무엇을 뒤집는지가 안 보인다. **판의 모양이 바뀌면 이 아이콘도 함께 바뀐다.**
- *  같은 날 두 번째 지시로 두 삼각형이 **둘 다 오른쪽**을 향한다 — 판에서 그렇기 때문이다. */
+ *  같은 날 두 번째·세 번째 지시로 **깃대에 매달린 페넌트 둘**이 되었고 **둘 다 오른쪽**을
+ *  향한다 — 판에서 그렇기 때문이다. 표식과 그것을 세는 선을 잇던 짧은 선은 지웠다: 깃대가
+ *  생기면서 획이 여섯이 되어 18 px 에서 뭉갰고, 가운데 세로선만으로도 "양쪽" 은 읽힌다. */
 export function IconSides({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
-      <path d="M12 3v18" />
-      <path d="M3.6 6.3v4.4L7.4 8.5Z" />
-      <path d="M16.2 13.3v4.4l3.8-2.2Z" />
-      <path d="M7.8 8.5h3.7M12.5 15.5h3.3" strokeWidth={1.6} />
+      <path d="M12 3v18" strokeWidth={1.6} />
+      <path d="M4 4v10.5M4 4v6l5.2-3Z" strokeWidth={1.6} />
+      <path d="M14.5 9.5V20M14.5 9.5v6l5.2-3Z" strokeWidth={1.6} />
     </svg>
   );
 }

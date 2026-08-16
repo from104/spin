@@ -798,7 +798,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
         <CourtSurface mode={mode} size={size} variant={variant} />
         {showGrid && <GridOverlay mode={mode} size={size} showLabels={showGridLabels} />}
         <RuleZones mode={mode} size={size} visible={showRuleZones} />
-        {/* 진영 표시 — 골라인 뒤 삼각 깃발 둘(G·P). **규칙 존 스위치와 무관하게 언제나 보인다**: 골 지역
+        {/* 진영 표시 — 골라인 뒤 깃발 둘. **규칙 존 스위치와 무관하게 언제나 보인다**: 골 지역
             3인 반칙이 어느 팀에 걸리는지를 정하는 값이라, 존을 감춰도 코치는 진영을 알아야
             한다(그리고 이 표시가 곧 진영 버튼이 무엇을 바꾸는지의 설명이다). */}
         {ruleOverlay && <SideMarks mode={mode} size={size} teams={ruleOverlay.teamStyles} defense={ruleOverlay.defense} />}

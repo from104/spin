@@ -1,25 +1,30 @@
-// 진영 표시 — 골라인 뒤 **삼각 깃발 둘** (기현 지시 2026-08-15, 모양 교체 2026-08-16).
+// 진영 표시 — 골라인 뒤 **깃발 둘** (기현 지시 2026-08-15, 모양은 2026-08-16 에 두 번 바뀜).
 //
 // jsdom 은 픽셀을 안 그리므로 **볼 수 없는 것은 좌표와 순서로 잰다**(2026-08-15 §함정 ①의 교훈).
-// 여기서 재는 것 여섯: ① 존마다 깃발이 둘인가 ② 골라인 **바깥**인가 ③ viewBox 를 안 넘는가
-// ④ 색이 그 진영 팀의 골키퍼/일반 색인가 ⑤ 글자가 G/P 이고 배경색 위에서 읽히는가
-// ⑥ 판이 돌아도 글자가 바로 서는가. 넷 중 어느 하나가 틀리면 화면에서는 "깃발이 안 보인다"
-// 또는 "엉뚱한 팀 색" 으로 나타나는데, 둘 다 마크업 존재 여부로는 안 잡힌다.
+// 여기서 재는 것 여섯: ① 존마다 깃발이 둘인가 ② 골라인 **바깥**인가 ③ 골라인에서 정확히
+// 0.5 m 인가 ④ viewBox 를 안 넘는가 ⑤ 페넌트가 정삼각형이고 꼭짓점이 오른쪽인가 ⑥ 색이 그
+// 진영 팀의 골키퍼/일반 색인가. 어느 하나가 틀리면 화면에서는 "깃발이 안 보인다" 또는 "엉뚱한
+// 팀 색" 으로 나타나는데, 둘 다 마크업 존재 여부로는 안 잡힌다.
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
-import { SideMarks, SIDE_FLAG_GAP_PX, SIDE_FLAG_H_PX, SIDE_FLAG_SIDE_PX, SIDE_FLAG_SPACING_PX } from './SideMarks.tsx';
-import { StageRotProvider } from './stageRot.tsx';
+import {
+  SideMarks,
+  SIDE_FLAG_GAP_PX,
+  SIDE_FLAG_H_PX,
+  SIDE_FLAG_POLE_PX,
+  SIDE_FLAG_SIDE_PX,
+  SIDE_FLAG_SPACING_PX,
+} from './SideMarks.tsx';
 import { COURT_MODES, COURT_SIZES, courtDefFor } from '../model/court.ts';
-import { inkFor } from '../core/colors.ts';
 import { DEFAULT_TEAMS } from '../model/defaults.ts';
 import type { CourtMode, CourtSize } from '../model/court.ts';
 import type { TeamSide } from '../model/drill.ts';
-import type { StageRot } from './useStageMetrics.ts';
 
+type Pt = { x: number; y: number };
 const num = (el: Element, a: string): number => Number(el.getAttribute(a));
 
-/** 삼각형 세 점. `points="x,y x,y x,y"` 를 숫자로 되돌린다 — 앞 둘이 밑변, 셋째가 꼭짓점이다. */
-function corners(poly: Element): Array<{ x: number; y: number }> {
+/** 페넌트 세 점. `points="x,y x,y x,y"` 를 숫자로 되돌린다 — 앞 둘이 깃대 쪽 변, 셋째가 꼭짓점. */
+function corners(poly: Element): Pt[] {
   return poly
     .getAttribute('points')!
     .trim()
@@ -32,40 +37,45 @@ function corners(poly: Element): Array<{ x: number; y: number }> {
 
 interface Flag {
   role: string;
-  letter: string;
   fill: string;
-  ink: string;
-  /** 글자 앵커 = 삼각형 안의 한 점. 깃발이 어느 골 옆인지 가를 때 이 좌표로 센다. */
-  at: { x: number; y: number };
-  pts: Array<{ x: number; y: number }>;
-  text: Element;
+  /** 페넌트 세 점. */
+  pts: Pt[];
+  /** 깃대 두 끝. **여백을 먹는 것은 이쪽이 더 길다** — 가장자리 검사는 이것까지 봐야 한다. */
+  pole: [Pt, Pt];
+  /** 깃발 전체(페넌트 + 깃대)의 점 다섯. */
+  all: Pt[];
+  /** 페넌트 무게중심 — 깃발이 어느 골 옆인지 가르고 둘 사이 간격을 잴 때 쓴다. */
+  at: Pt;
 }
 
-function marks(mode: CourtMode, defense: TeamSide = 'home', size?: CourtSize, rot: StageRot = 0) {
+function marks(mode: CourtMode, defense: TeamSide = 'home', size?: CourtSize) {
   const { container } = render(
-    <StageRotProvider rot={rot}>
-      <svg>
-        <SideMarks mode={mode} size={size} teams={DEFAULT_TEAMS as Parameters<typeof SideMarks>[0]['teams']} defense={defense} />
-      </svg>
-    </StageRotProvider>,
+    <svg>
+      <SideMarks mode={mode} size={size} teams={DEFAULT_TEAMS as Parameters<typeof SideMarks>[0]['teams']} defense={defense} />
+    </svg>,
   );
   const flags: Flag[] = Array.from(container.querySelectorAll('g[data-side-flag]')).map((g) => {
     const poly = g.querySelector('polygon')!;
-    const text = g.querySelector('text')!;
+    const line = g.querySelector('line')!;
+    const pts = corners(poly);
+    const pole: [Pt, Pt] = [
+      { x: num(line, 'x1'), y: num(line, 'y1') },
+      { x: num(line, 'x2'), y: num(line, 'y2') },
+    ];
     return {
       role: g.getAttribute('data-side-flag')!,
-      letter: text.textContent!,
       fill: poly.getAttribute('fill')!,
-      ink: text.getAttribute('fill')!,
-      at: { x: num(text, 'x'), y: num(text, 'y') },
-      pts: corners(poly),
-      text,
+      pts,
+      pole,
+      all: [...pts, ...pole],
+      at: { x: pts.reduce((s, p) => s + p.x, 0) / 3, y: pts.reduce((s, p) => s + p.y, 0) / 3 },
     };
   });
   return {
     groups: Array.from(container.querySelectorAll('g[data-side-mark]')),
     flags,
     circles: Array.from(container.querySelectorAll('circle')),
+    texts: Array.from(container.querySelectorAll('text')),
     root: container.querySelector('g[data-side-marks]'),
   };
 }
@@ -89,6 +99,13 @@ describe('진영 표시 — 개수와 자리', () => {
     for (const mode of COURT_MODES) expect(marks(mode).circles, mode).toHaveLength(0);
   });
 
+  // ★ 같은 날 두 번째 지시: *"글자를 지우고 … 플래이어 종류는 휠체어 칩을 보면 직관적으로
+  //   알 수 있다."* 글자를 되살리려면 먼저 "칩을 보고도 모르는 무엇을 그 글자가 말하는가" 에
+  //   답해야 한다 — 이 단언이 그 물음을 강제한다.
+  it('★ 글자는 없다 — 골키퍼가 누구인지는 코트 위 칩이 이미 말한다', () => {
+    for (const mode of COURT_MODES) expect(marks(mode).texts, mode).toHaveLength(0);
+  });
+
   it('★ 플랫 코트에는 아무것도 안 그린다 — 진영이라는 개념이 없다', () => {
     const m = marks('flat');
     expect(m.root, '플랫에 진영 표시가 그려졌다').toBeNull();
@@ -100,29 +117,29 @@ describe('진영 표시 — 개수와 자리', () => {
     const left = marks('full').flags.filter((f) => f.at.x < def.vbW / 2);
     expect(left).toHaveLength(2);
     for (const f of left) {
-      // 세 점 **전부** 경기면 왼쪽 변보다 왼쪽(= 판 밖 여백)이다. 한 점만 재면 꼭짓점만
-      // 밖에 있고 밑변이 라인을 물고 있는 배치를 놓친다.
-      for (const p of f.pts) expect(p.x, '깃발이 경기면 안으로 들어왔다').toBeLessThan(def.surface.x);
+      // 페넌트·깃대의 점 **전부**가 경기면 왼쪽 변보다 왼쪽(= 판 밖 여백)이다. 한 점만 재면
+      // 꼭짓점만 밖에 있고 깃대가 라인을 물고 있는 배치를 놓친다.
+      for (const p of f.all) expect(p.x, '깃발이 경기면 안으로 들어왔다').toBeLessThan(def.surface.x);
     }
     // 하프 코트의 골라인은 **아래쪽**이다 — 좌우로 잡고 있으면 여기서 걸린다.
     const half = courtDefFor('half');
     for (const f of marks('half', 'away').flags) {
-      for (const p of f.pts) expect(p.y, '하프에서 깃발이 경기면 위로 갔다').toBeGreaterThan(half.surface.y + half.surface.h);
+      for (const p of f.all) expect(p.y, '하프에서 깃발이 경기면 위로 갔다').toBeGreaterThan(half.surface.y + half.surface.h);
     }
   });
 
   it('★ 어느 코트에서도 viewBox 를 안 넘는다 — 넘으면 그냥 잘린다', () => {
     // 여백은 골라인 바깥 1.5 m = 37.5 월드 px 뿐이다. 0.5 m 를 띄우고 나면 25 가 남는데,
-    // 그 25 를 먹는 길이가 골라인 방향마다 다르다 — 세로 골라인은 삼각형 **높이**(20.8),
-    // 가로 골라인은 **한 변**(24). 한 변 쪽이 상한을 정하므로 그것부터 못 박는다.
-    expect(SIDE_FLAG_GAP_PX + SIDE_FLAG_SIDE_PX).toBeLessThanOrEqual(1.5 * 25);
+    // 그 25 를 먹는 길이가 골라인 방향마다 다르다 — 세로 골라인은 페넌트 **높이**(12.1),
+    // 가로 골라인은 **깃대 길이**(24). 깃대 쪽이 상한을 정하므로 그것부터 못 박는다.
+    expect(SIDE_FLAG_GAP_PX + SIDE_FLAG_POLE_PX).toBeLessThanOrEqual(1.5 * 25);
     expect(SIDE_FLAG_GAP_PX + SIDE_FLAG_H_PX).toBeLessThanOrEqual(1.5 * 25);
     for (const mode of COURT_MODES) {
       for (const size of COURT_SIZES) {
         const def = courtDefFor(mode, size);
         for (const f of marks(mode, 'home', size).flags) {
           const tag = `${mode}/${size}`;
-          for (const p of f.pts) {
+          for (const p of f.all) {
             expect(p.x, tag).toBeGreaterThanOrEqual(0);
             expect(p.y, tag).toBeGreaterThanOrEqual(0);
             expect(p.x, tag).toBeLessThanOrEqual(def.vbW);
@@ -134,23 +151,41 @@ describe('진영 표시 — 개수와 자리', () => {
   });
 
   // ★ 2026-08-16 기현 지시: *"깃발은 정삼각형에 꼭지점이 다 오른쪽을 향할것."*
-  it('★ 어느 골·어느 코트에서도 **정삼각형**이고 **꼭짓점이 오른쪽**이다', () => {
-    const side = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+  it('★ 어느 골·어느 코트에서도 페넌트가 **정삼각형**이고 **꼭짓점이 오른쪽**이다', () => {
+    const len = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
     for (const mode of ['full', 'half'] as const) {
       for (const f of marks(mode).flags) {
-        const [p0, p1, p2] = f.pts as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
+        const [p0, p1, p2] = f.pts as [Pt, Pt, Pt];
         const tag = `${mode}/${f.role}`;
         // 정삼각형 — 세 변이 같다. 한 변만 재면 이등변이 통과한다.
-        for (const len of [side(p0, p1), side(p1, p2), side(p2, p0)]) expect(len, tag).toBeCloseTo(SIDE_FLAG_SIDE_PX, 6);
-        // 꼭짓점은 **오른쪽**. 밑변 두 점은 같은 x 에 서고 셋째 점만 그보다 오른쪽이다.
+        for (const s of [len(p0, p1), len(p1, p2), len(p2, p0)]) expect(s, tag).toBeCloseTo(SIDE_FLAG_SIDE_PX, 6);
+        // 꼭짓점은 **오른쪽**. 깃대 쪽 두 점은 같은 x 에 서고 셋째 점만 그보다 오른쪽이다.
         expect(p0.x, tag).toBeCloseTo(p1.x, 6);
         expect(p2.x - p0.x, tag).toBeCloseTo(SIDE_FLAG_H_PX, 6);
       }
     }
   });
 
+  // ★ 2026-08-16 기현 지시: *"깃발 깃대를 표현하자."* 삼각형만 있으면 화살촉으로도 읽힌다 —
+  //   깃대에 매달린 삼각형은 깃발 말고 다른 것으로 안 읽힌다.
+  it('★ 깃대가 있다 — 세로로 서고, 페넌트보다 길고, 페넌트가 그 **위쪽**에 매달린다', () => {
+    for (const mode of ['full', 'half'] as const) {
+      for (const f of marks(mode).flags) {
+        const [a, b] = f.pole;
+        const tag = `${mode}/${f.role}`;
+        expect(a.x, tag).toBeCloseTo(b.x, 6); // 세로
+        expect(Math.abs(b.y - a.y), tag).toBeCloseTo(SIDE_FLAG_POLE_PX, 6);
+        expect(SIDE_FLAG_POLE_PX, tag).toBeGreaterThan(SIDE_FLAG_SIDE_PX); // 맨 대가 남는다
+        // 페넌트의 깃대 쪽 변이 깃대 위에 얹혀 있고, 그 위 끝이 깃대의 위 끝이다.
+        const top = Math.min(a.y, b.y);
+        expect(f.pts[0]!.x, tag).toBeCloseTo(a.x, 6);
+        expect(Math.min(f.pts[0]!.y, f.pts[1]!.y), tag).toBeCloseTo(top, 6);
+      }
+    }
+  });
+
   // ★ 2026-08-16 기현 지시: *"골라인과는 0.5미터 떨어져 둘것."* 어느 점이 골라인에 가장
-  //   가까운지는 방향마다 다르다 — 왼쪽 골은 꼭짓점, 오른쪽 골은 밑변, 하프는 밑변 위 끝.
+  //   가까운지는 방향마다 다르다 — 왼쪽 골은 페넌트 꼭짓점, 오른쪽 골은 깃대, 하프는 깃대 위 끝.
   //   재는 것은 언제나 **가장 가까운 점**이다.
   it('★ 골라인에서 정확히 0.5 m 떨어진다', () => {
     expect(SIDE_FLAG_GAP_PX).toBe(0.5 * 25);
@@ -158,20 +193,20 @@ describe('진영 표시 — 개수와 자리', () => {
     const mid = full.vbW / 2;
     const fs = marks('full').flags;
     for (const f of fs.filter((x) => x.at.x < mid)) {
-      expect(Math.max(...f.pts.map((p) => p.x)), '왼쪽 골').toBeCloseTo(full.surface.x - SIDE_FLAG_GAP_PX, 6);
+      expect(Math.max(...f.all.map((p) => p.x)), '왼쪽 골').toBeCloseTo(full.surface.x - SIDE_FLAG_GAP_PX, 6);
     }
     for (const f of fs.filter((x) => x.at.x > mid)) {
-      expect(Math.min(...f.pts.map((p) => p.x)), '오른쪽 골').toBeCloseTo(full.surface.x + full.surface.w + SIDE_FLAG_GAP_PX, 6);
+      expect(Math.min(...f.all.map((p) => p.x)), '오른쪽 골').toBeCloseTo(full.surface.x + full.surface.w + SIDE_FLAG_GAP_PX, 6);
     }
     const half = courtDefFor('half');
     const line = half.surface.y + half.surface.h;
     for (const f of marks('half', 'away').flags) {
-      expect(Math.min(...f.pts.map((p) => p.y)), '하프').toBeCloseTo(line + SIDE_FLAG_GAP_PX, 6);
+      expect(Math.min(...f.all.map((p) => p.y)), '하프').toBeCloseTo(line + SIDE_FLAG_GAP_PX, 6);
     }
   });
 
-  it('두 깃발이 서로 안 겹친다 — 골라인을 따라 한 변보다 넓게 벌어진다', () => {
-    expect(SIDE_FLAG_SPACING_PX).toBeGreaterThan(SIDE_FLAG_SIDE_PX);
+  it('두 깃발이 서로 안 겹친다 — 골라인을 따라 깃대 길이보다 넓게 벌어진다', () => {
+    expect(SIDE_FLAG_SPACING_PX).toBeGreaterThan(SIDE_FLAG_POLE_PX);
     // 하프(가로 골라인) — x 로 벌어진다.
     const hs = marks('half', 'away').flags;
     expect(Math.abs(hs[0]!.at.x - hs[1]!.at.x)).toBeCloseTo(SIDE_FLAG_SPACING_PX, 6);
@@ -181,32 +216,9 @@ describe('진영 표시 — 개수와 자리', () => {
   });
 });
 
-describe('진영 표시 — 글자가 색을 대신 읽어 준다', () => {
-  // ★ 2026-08-16 기현 지시: *"안에 G,P 표기해서."* 색만으로 가르던 때는 색맹·강한 조명·
-  //   빛바랜 프로젝터에서 두 깃발이 그냥 같은 깃발 둘이었다.
-  it('★ 골키퍼는 G, 일반 선수는 P 다', () => {
-    const m = marks('half', 'away');
-    expect(m.flags.map((f) => f.role)).toEqual(['gk', 'field']);
-    expect(m.flags.map((f) => f.letter)).toEqual(['G', 'P']);
-  });
-
-  it('★ 글자색은 깃발색 위에서 읽히는 쪽으로 뒤집힌다 — 칩 등번호와 같은 함수다', () => {
-    // 흰 글자를 박아 두면 노랑·연두 팀에서 글자가 사라진다. `inkFor` 가 그 임계를 갖는다.
-    for (const f of marks('full').flags) expect(f.ink, f.fill).toBe(inkFor(f.fill));
-  });
-
-  it('★ 판이 90° 돌아도 글자는 바로 선다 — 누운 G/P 는 안 읽힌다', () => {
-    const flat = marks('full', 'home', undefined, 0);
-    expect(flat.flags[0]!.text.getAttribute('transform'), '안 돌았는데 transform 이 붙었다').toBeNull();
-    for (const f of marks('full', 'home', undefined, 90).flags) {
-      expect(f.text.getAttribute('transform')).toBe(`rotate(-90 ${f.at.x} ${f.at.y})`);
-    }
-  });
-});
-
 describe('진영 표시 — 색이 곧 진영이다', () => {
   it('★ 골키퍼 깃발이 언제나 **먼저**다 — 세로 골라인이면 위, 가로면 왼쪽', () => {
-    // 글자가 생긴 뒤로도 이 순서를 지킨다 — 판 전체를 훑을 때는 글자보다 자리가 먼저 읽힌다.
+    // 글자를 뺀 뒤로 이 순서가 두 깃발을 가르는 **유일한 비색 채널**이다. 뒤집히면 여기서 걸린다.
     // 가로 골라인(하프) — 왼쪽이 골키퍼.
     const hs = [...marks('half', 'away').flags].sort((a, b) => a.at.x - b.at.x);
     expect(hs[0]!.role, '가로 골라인에서 왼쪽이 골키퍼가 아니다').toBe('gk');
@@ -215,9 +227,9 @@ describe('진영 표시 — 색이 곧 진영이다', () => {
     // 세로 골라인(풀) — 위가 골키퍼. 왼쪽·오른쪽 골 **둘 다** 같은 규칙이라야 한다.
     const full = courtDefFor('full');
     for (const side of ['left', 'right'] as const) {
-      const half2 = full.vbW / 2;
+      const mid = full.vbW / 2;
       const fs = marks('full')
-        .flags.filter((f) => (side === 'left' ? f.at.x < half2 : f.at.x > half2))
+        .flags.filter((f) => (side === 'left' ? f.at.x < mid : f.at.x > mid))
         .sort((a, b) => a.at.y - b.at.y);
       const team = side === 'left' ? DEFAULT_TEAMS.home : DEFAULT_TEAMS.away;
       expect(fs[0]!.fill, `${side}: 위가 골키퍼가 아니다`).toBe(team.gkColor);

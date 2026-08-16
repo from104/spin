@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "_comment:test:rel": "고친 파일을 import 하는 테스트만 돈다(모듈 그래프 추적). 전체는 55초, 이쪽은 보통 2~5초다 — 커밋 직전 한 번만 `npm test` 를 돌리고 그 전까지는 이것을 쓴다. 예: npm run test:rel src/render/SideMarks.tsx",
+    "test:rel": "vitest related --run",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
