@@ -42,6 +42,9 @@ export interface EditorKeyboardDeps {
   /** §4.3 P1-2 [A-3] Esc = 선택 해제. 2단 히트가 켜지면 붐비는 코트에서 "빈 곳 탭 → 해제"
    *  가 사라지므로, 포인터와 무관한 이 전역 경로가 해제를 보장한다. */
   onSelectionClear(): void;
+  /** Ctrl/⌘+A — 판 위의 개체를 전부 고른다(§6.10b). 명단은 워크스페이스가 만든다: 무엇이
+   *  '판 위' 인가(이 스텝에 놓인 것)와 무엇을 뺄 것인가(잠긴 것)를 아는 곳이 거기다. */
+  onSelectAll(): void;
 }
 
 /** 판을 미는 방향. **창이 키 방향으로 간다** — 오른쪽 키를 누르면 판의 오른쪽이 보인다.
@@ -175,6 +178,12 @@ export function useEditorKeyboard(deps: EditorKeyboardDeps): void {
         case 'erase.selection':
           e.preventDefault();
           d.onEraseSelection();
+          return;
+        case 'select.all':
+          // 글자 입력 칸의 Ctrl+A(전체 선택)는 여기까지 오지 않는다 — 위쪽 `isEditableTarget`
+          // 관문이 이미 되돌려보낸다. 그 관문이 없으면 제목을 고치다 판 전체가 선택된다.
+          e.preventDefault();
+          d.onSelectAll();
           return;
         case 'select.clear':
           // stopPropagation 을 걸지 않는다 — CourtStage 의 팬 무장 해제(window 리스너)도

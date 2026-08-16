@@ -18,6 +18,7 @@ import { effectiveReduceMotion, stepTransitionMs } from '../../store/editor/twee
 import { usePlaybackActions, usePlaybackState } from '../../store/playback/PlaybackProvider.tsx';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
+import { cues } from '../../ui/cues.ts';
 import { useIsPortrait } from '../../ui/useIsPortrait.ts';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
 import { courtPadCss } from '../../app/chromeBudget.ts';
@@ -28,7 +29,7 @@ import { ToolRail, type ChairSlot } from './ToolRail.tsx';
 import { courtCellAspectRatioCss } from './boardLayout.ts';
 import { useTrayDrag } from './useTrayDrag.ts';
 import { placeObject } from './placement.ts';
-import { removalToast } from './removal.ts';
+import { removalToast, returnsToTray } from './removal.ts';
 import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
 import { ViewControls } from './StageControls.tsx';
@@ -242,10 +243,20 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         } else if (isId(id, 'ar')) {
           dispatch({ type: 'ARROW_REMOVE', id });
           done.push(id);
+        } else if (isId(id, 'sh')) {
+          // 2026-08-16 — 이 갈래가 **없었다**. 그래서 도형을 고르고 Delete·Ctrl+Delete 를
+          // 누르면 아무 일도 안 나고 토스트도 안 떴다(count===0 으로 조용히 return) — 키가
+          // 고장난 것처럼 보였다. 지우는 길이 여기 하나로 모이면서 그 구멍이 닫힌다.
+          dispatch({ type: 'SHAPE_REMOVE', id });
+          done.push(id);
         }
       }
       const count = done.length;
       if (count === 0) return;
+      // §4.3 P1-4 — 트레이로 **끌어서** 빼는 길은 이미 'trayReturn' 을 울린다(useEditorPointer
+      // 의 isOverTray 분기). 메뉴로도 키보드로도 **같은 동작**이므로 같은 소리가 나야 한다.
+      // 삭제(화살표·메모·도형)에는 울리지 않는다: 돌아갈 상자가 없어 그 소리가 뜻하는 바가 없다.
+      if (done.some(returnsToTray)) cues.play('trayReturn');
       dispatch({ type: 'SELECT_CLEAR' });
       // 개체 메뉴가 '빼기'/'삭제'로 말을 가르므로(removal.ts) 토스트도 같은 술어를 본다 —
       // 메뉴에서 '빼기'를 눌렀는데 "삭제했습니다" 가 뜨면 방금 읽은 글자를 뒤집는 셈이다.
@@ -353,6 +364,20 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     // [A-3] Esc = 선택 해제. 2단 히트(1.6) 이후 붐비는 코트에서 "빈 곳 탭" 이 사라져도
     // 해제가 가능해야 한다. 재탭 해제(useEditorPointer)와 함께 대체 경로 한 쌍이다.
     onSelectionClear: () => dispatch({ type: 'SELECT_CLEAR' }),
+    // Ctrl/⌘+A — **이 스텝에 판 위에 있는 것**만이다(§6.10b). 트레이에 주차된 칩은 고를
+    // 대상이 아니고, 잠긴 것은 덩어리로 집는 모든 길이 그렇듯 안 담는다(selectSame.ts 주석).
+    onSelectAll: () => {
+      const locked = new Set(step.locked ?? []);
+      const ids = [
+        ...drill.cast.chairs.filter((c) => step.chairs[c.id] !== undefined).map((c) => c.id as string),
+        ...drill.cast.balls.filter((b) => step.balls[b.id] !== undefined).map((b) => b.id as string),
+        ...drill.cast.cones.filter((c) => step.cones[c.id] !== undefined).map((c) => c.id as string),
+        ...step.notes.map((n) => n.id as string),
+        ...step.arrows.map((a) => a.id as string),
+        ...(step.shapes ?? []).map((s) => s.id as string),
+      ].filter((id) => !locked.has(id));
+      dispatch({ type: 'SELECT_SET', ids });
+    },
   });
 
   // 주차 슬롯 은유(기현 지시 2026-08-11): 배치된 선수도 자리를 비워 두고 남긴다.
@@ -632,6 +657,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 step={step}
                 stepIndex={stepIndex}
                 tool={state.tool}
+                toolLock={state.toolLock}
                 coneSlot={state.coneSlot}
                 selection={state.selection}
                 dispatch={dispatch}

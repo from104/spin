@@ -5,7 +5,7 @@
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
 import { useLongPressMenu } from './useLongPressMenu.ts';
-import { returnsToTray } from './removal.ts';
+import { sameKindGroup } from './selectSame.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
@@ -28,7 +28,6 @@ import type { StageRot } from '../../render/useStageMetrics.ts';
 import type { ObjectLayerChair, ObjectLayerCone } from '../../render/ObjectLayer.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { RuleOverlayApi, RuleRosterEntry } from '../../render/ruleOverlay.ts';
-import { cues } from '../../ui/cues.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { ZONE_CURSOR_DRAGGING } from '../../render/zoneCursors.ts';
 import { useEditorPointer } from './useEditorPointer.ts';
@@ -43,6 +42,9 @@ export interface EditorStageProps {
   /** 지금 스텝의 인덱스 — 도형 상한(스텝당 40)을 세는 데 쓴다. */
   stepIndex: number;
   tool: ToolId;
+  /** 도구가 고정돼 있는가(§6.10a·§6.10b). 무대가 이 값을 쓰는 곳은 **선택 도구일 때 하나**다
+   *  — 그때의 고정이 '모아 고르기' 이기 때문이다. 배치 도구의 고정은 도구 칸이 그린다. */
+  toolLock?: boolean;
   coneSlot: 0 | 1;
   selection: ReadonlySet<string>;
   dispatch: Dispatch<EditorAction>;
@@ -104,12 +106,15 @@ const OBJ_MOVE_DIR: Record<string, readonly [number, number]> = {
 // 포인터(손잡이 끌기)가 맡는다 — 남은 상태·타입 정리는 2단계다.
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, rot, step, stepIndex, tool, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, epoch = 0, transitionMs = 0 },
+  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, epoch = 0, transitionMs = 0 },
   stageRef,
 ) {
   // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
   // 세 곳이 각자 만들면 "테두리는 붉은데 끌리는" 어긋남이 난다.
   const lockedSet = useMemo(() => new Set(step.locked ?? []), [step.locked]);
+  // 모아 고르기 = 선택 도구가 고정된 상태(§6.10b). 다른 도구의 고정은 '연속 배치' 라 무대가
+  // 볼 일이 없다 — 그래서 toolLock 을 그대로 쓰지 않고 도구까지 함께 본다.
+  const gathering = tool === 'select' && toolLock;
   const ignoredSet = useMemo(() => new Set<string>(step.ignored ?? []), [step.ignored]);
 
   const pointer = useEditorPointer({
@@ -118,6 +123,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     stepIndex,
     locked: lockedSet,
     tool,
+    gathering,
     coneSlot,
     selection,
     dispatch,
@@ -279,6 +285,22 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       //   §7.5 접근성 요건상 키보드는 마우스와 **같은 일을 할 수 있어야** 하고, 그 대칭은
       //   "할 수 있는 것" 뿐 아니라 "할 수 없는 것" 에도 걸린다.
       if (lockedSet.has(id)) return;
+      // 여럿을 골라 두고 그중 하나에 포커스가 있으면 **통째로 간다**(§6.10b) — 포인터의
+      // 덩어리 드래그와 같은 규칙이라, 마우스로 되는 일이 키보드로 안 되는 자리가 없다.
+      // 회전(dThetaRad)은 무리에 없다: 무리의 회전축이 무엇인지 답이 하나로 안 나온다
+      // (applyGroupNudge 주석). 그래서 회전 키는 언제나 포커스 하나에만 걸린다.
+      if (dThetaRad === 0 && selection.size > 1 && selection.has(id)) {
+        const ids = Array.from(selection).filter((x) => !lockedSet.has(x) && !ignoredSet.has(x));
+        dispatch({ type: 'GROUP_NUDGE', ids, d: { x: dx, y: dy } });
+        const cur = worldRef.current?.read();
+        if (cur) {
+          for (const x of ids) {
+            const p = cur[x];
+            if (p) worldRef.current?.setPose(x as CastId, { x: p.x + dx, y: p.y + dy, theta: p.theta });
+          }
+        }
+        return;
+      }
       if (isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn')) {
         dispatch({ type: 'OBJECT_NUDGE', id, d: { x: dx, y: dy }, dTheta: dThetaRad });
         // 물리 바디에도 같은 이동을 밀어 넣는다(회귀): 리듀서만 갱신하면 상태와 물리가 어긋나,
@@ -303,7 +325,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         if (arrow) dispatch({ type: 'ARROW_SET', arrow: nudgeArrow(arrow, arrowPart, { x: dx, y: dy }) });
       }
     },
-    [dispatch, step.arrows, step.notes, worldRef],
+    [dispatch, step.arrows, step.notes, worldRef, selection, lockedSet, ignoredSet],
   );
 
   const handleObjectKeyDown = useCallback(
@@ -344,13 +366,25 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           return;
         }
         case 'obj.cyclePrev':
-        case 'obj.cycleNext': {
+        case 'obj.cycleNext':
+        case 'obj.cycleExtendPrev':
+        case 'obj.cycleExtendNext': {
           e.preventDefault();
           e.stopPropagation();
           if (order.length === 0) return;
           const cur = Math.max(0, order.indexOf(id));
-          const delta = def.id === 'obj.cycleNext' ? 1 : order.length - 1;
+          const forward = def.id === 'obj.cycleNext' || def.id === 'obj.cycleExtendNext';
+          const delta = forward ? 1 : order.length - 1;
           const nextId = order[(cur + delta) % order.length]!;
+          // Shift 를 쥐고 있으면 **모으면서** 간다(§6.10b) — 지나온 것과 새로 닿은 것을 둘 다
+          // 넣는다. 지나온 것까지 넣는 이유: 훑기는 지금 선 자리에서 시작하는데, 그 자리가
+          // 선택에 안 들어가면 한 칸 어긋난 무리가 만들어진다(파일 목록의 Shift+↓ 와 같다).
+          //
+          // 마우스 없이 여럿을 고르는 유일한 길이다. Enter 토글만으로는 한 칸씩 서서 누르는
+          // 것뿐이라, 훑어 모으는 손짓 자체가 키보드에 없었다.
+          if (def.id === 'obj.cycleExtendPrev' || def.id === 'obj.cycleExtendNext') {
+            dispatch({ type: 'SELECT_SET', ids: Array.from(new Set([...selection, id, nextId])) });
+          }
           setRovingId(nextId);
           document.getElementById(`obj-${nextId}`)?.focus({ preventScroll: true });
           return;
@@ -371,7 +405,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           return;
       }
     },
-    [dispatch, nudge, onEraseIds, order, stageRef],
+    [dispatch, nudge, onEraseIds, order, stageRef, selection],
   );
 
   const handleContainerKeyDown = useCallback(
@@ -448,12 +482,18 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   // 선택된 휠체어 id 만 넘긴다 — 좌표는 ZoneHandles 가 writer 팔로워로 직접 따라간다.
   // 예전에는 여기서 월드 pose 를 useMemo 로 읽어 넘겼는데, deps 가 [selection] 이라
   // 칩을 드래그해도 갱신되지 않아 핸들만 선택 시점 자리에 남았다(= 따로 놀았다).
+  //
+  // ⚠️ **정확히 하나일 때만**이다(2026-08-16). 예전에는 `Array.from(selection).find(...)` 라
+  //    여럿 고른 채로 집합의 **첫 매치**에 손잡이가 붙었다 — Set 은 순서를 약속하지 않으므로
+  //    다섯을 고르면 그중 아무에게나 존 핸들이 떴다. 도형은 이미 `size !== 1` 을 보고 있어서
+  //    같은 selection 을 읽는 세 곳의 규칙이 서로 달랐다. 셋을 하나로 맞춘다.
   const selectedChairId = useMemo(
-    () => (Array.from(selection).find((x) => isId(x, 'ch')) as ChairId | undefined) ?? null,
+    () => (selection.size === 1 ? ((Array.from(selection).find((x) => isId(x, 'ch')) as ChairId | undefined) ?? null) : null),
     [selection],
   );
 
   const selectedArrow = useMemo(() => {
+    if (selection.size !== 1) return null;
     const id = Array.from(selection).find((x) => isId(x, 'ar')) as ArrowId | undefined;
     return id ? (step.arrows.find((a) => a.id === id) ?? null) : null;
   }, [selection, step.arrows, lockedSet]);
@@ -472,22 +512,43 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   // ── 개체 메뉴 (2026-08-14 기현 지시) ────────────────────────────────────────────────
   const [menu, setMenu] = useState<ObjectMenuTarget | null>(null);
 
+  /** "같은 것 전부 고르기" 가 훑을 명단. 무대가 이미 들고 있는 조각들을 한 자리에 모은 것뿐이라
+   *  따로 계산하는 것이 없다 — 명단이 두 벌이 되면 "메뉴에는 넷인데 화면에는 셋" 이 생긴다. */
+  const sameScene = useMemo(
+    () => ({
+      chairs: chairs.map((c) => ({ id: c.id as string, team: c.team })),
+      balls,
+      cones: cones.map((c) => c.id as string),
+      notes: step.notes.map((n) => n.id as string),
+      arrows: step.arrows.map((a) => a.id as string),
+      shapes: (step.shapes ?? []).map((s) => s.id as string),
+      locked: lockedSet,
+    }),
+    [chairs, balls, cones, step.notes, step.arrows, step.shapes, lockedSet],
+  );
+
   const openMenu = useCallback(
     (id: string, x: number, y: number) => {
       // ⚠️ 무시된 칩도 **연다**(기현 신고 2026-08-14). 여기서 막았더니 무시를 푸는 유일한
       // 길이 함께 막혔다 — 메뉴가 곧 되돌리는 문이므로, 그 문은 어떤 상태에서도 열려야 한다.
+      //
+      // **짚은 것이 이미 고른 여럿 중 하나면 메뉴는 그 여럿을 손댄다**(§6.10b). 고른 것 밖을
+      // 짚었으면 짚은 것 하나다 — 화면에 파랗게 표시된 것과 메뉴가 손댈 것이 언제나 같다는
+      // 뜻이라, 무엇에 걸리는지 되묻지 않아도 된다.
+      const ids = selection.size > 1 && selection.has(id) ? Array.from(selection) : [id];
       setMenu({
-        id,
+        ids,
         x,
         y,
-        locked: lockedSet.has(id),
-        ignored: ignoredSet.has(id),
+        // 섞여 있으면 '잠금'/'무시' 쪽이 뜬다(전부 참일 때만 해제로 뒤집힌다) — ObjectMenu 주석.
+        locked: ids.every((i) => lockedSet.has(i)),
+        ignored: ids.every((i) => ignoredSet.has(i)),
         // '무시' 는 **휠체어만**이다(기현 지시).
-        canIgnore: isId(id, 'ch'),
-        returnsToTray: returnsToTray(id),
+        canIgnore: ids.every((i) => isId(i, 'ch')),
+        selectSame: ids.length === 1 ? sameKindGroup(id, sameScene) : null,
       });
     },
-    [lockedSet, ignoredSet],
+    [lockedSet, ignoredSet, selection, sameScene],
   );
   const longPress = useLongPressMenu(openMenu);
 
@@ -496,6 +557,33 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
 
   return (
     <>
+    {/* 몇 개를 골랐는가(§6.10b). 화면에 이 말이 없으면 코치는 판을 기울여 가며 눈으로 세야
+        한다 — 특히 터치에서는 손과 손가락이 방금 훑은 자리를 그대로 가린다. `role="status"`
+        라서 화면을 못 보는 사람에게도 같은 사실이 읽힌다.
+        왼쪽 위인 이유: 오른쪽은 기능 바, 아래·오른쪽은 트레이가 붙는 변이다(EditorWorkspace
+        의 trayAxis) — 어느 화면 방향에서도 안 겹치는 구석은 여기 하나다. */}
+    {selection.size > 1 && (
+      <div
+        role="status"
+        style={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          zIndex: 2,
+          pointerEvents: 'none',
+          padding: '3px 9px',
+          borderRadius: 999,
+          border: '1px solid var(--accent)',
+          background: 'color-mix(in srgb, var(--panel) 88%, transparent)',
+          color: 'var(--accent-text)',
+          fontSize: '0.75rem',
+          fontWeight: 700,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {selection.size}개 선택
+      </div>
+    )}
     <CourtStage
       // 선택 도구에서만 이동을 무장한다 — 배치 도구에서는 같은 자리에 콘 두 개를 빨리
       // 찍는 것이 더블클릭으로 읽혀 두 번째가 삼켜진다.
@@ -557,23 +645,17 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     <ObjectMenu
       target={menu}
       onClose={() => setMenu(null)}
-      onToggleLock={(id, on) => dispatch({ type: 'FLAG_SET', flag: 'locked', id, on })}
-      onToggleIgnore={(id, on) => dispatch({ type: 'FLAG_SET', flag: 'ignored', id, on })}
-      onRemove={(id) => {
-        // 지우는 길은 개체 종류마다 다르다 — 화살표·메모·도형은 자기 액션, 나머지(칩·공·콘)는
-        // 스텝 범위를 갖는 OBJECT_REMOVE 다.
-        //
-        // §4.3 P1-4 — 트레이로 **끌어서** 빼는 길은 이미 'trayReturn' 을 울린다
-        // (useEditorPointer 의 isOverTray 분기). 메뉴로 빼는 것은 **같은 동작**이므로 같은
-        // 소리가 나야 한다 — 한쪽만 울리면 "메뉴로는 다른 일이 일어났나" 가 된다.
-        // 삭제(화살표·메모·도형)에는 울리지 않는다: 돌아갈 상자가 없어 'trayReturn' 이
-        // 뜻하는 바가 없고, 없는 소리를 새로 만드는 것은 이 커밋의 일이 아니다.
-        if (returnsToTray(id)) cues.play('trayReturn');
-        if (isId(id, 'ar')) dispatch({ type: 'ARROW_REMOVE', id });
-        else if (isId(id, 'nt')) dispatch({ type: 'NOTE_REMOVE', id });
-        else if (isId(id, 'sh')) dispatch({ type: 'SHAPE_REMOVE', id });
-        else onEraseIds([id], 'onward');
-      }}
+      onToggleLock={(ids, on) => dispatch({ type: 'FLAG_SET', flag: 'locked', ids, on })}
+      onToggleIgnore={(ids, on) => dispatch({ type: 'FLAG_SET', flag: 'ignored', ids, on })}
+      // 치우는 길은 **한 곳뿐**이다(§6.10b). 개편 전에는 메뉴가 종류별로 직접 액션을 쐈고
+      // 키보드는 `onEraseIds` 를 탔는데, 그 둘이 달라서 **도형은 키보드로 안 지워졌다** —
+      // `eraseIds` 에 'sh' 갈래가 없어 아무 일도 안 나고 토스트도 안 떴다(키가 고장난 것처럼).
+      // 소리·토스트·되돌리기 횟수가 한 벌이 되는 것도 같은 통합의 값이다.
+      onRemove={(ids) => onEraseIds(ids, 'onward')}
+      // 모아 고르기 중이면 **더한다** — 그것이 그 모드의 약속이다. 아니면 갈아끼운다.
+      onSelect={(ids) =>
+        dispatch({ type: 'SELECT_SET', ids: gathering ? Array.from(new Set([...selection, ...ids])) : ids })
+      }
     />
     </>
   );

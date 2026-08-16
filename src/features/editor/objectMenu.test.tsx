@@ -275,17 +275,21 @@ describe('메뉴 — 화면 끝', () => {
   // 지우는지가 아니다 — 공·콘은 cast 에서도 사라지지만 트레이에 소스가 늘 있어 코치가 겪는
   // 일은 '뺐다' 이지 '지웠다' 가 아니다.
   describe('마지막 항목은 개체 종류에 따라 말이 갈린다', () => {
-    const base = { id: 'ch_1', x: 10, y: 10, locked: false, ignored: false, canIgnore: true };
+    const base = { x: 10, y: 10, locked: false, ignored: false, canIgnore: true, selectSame: null };
     const noop = () => {};
 
+    // 2026-08-16 — 예전에는 `returnsToTray` 를 대상에 실어 보냈다. 지금은 **id 에서 계산한다**
+    // (ObjectMenu 의 그 필드 주석) — 그래서 테스트도 진짜 id 를 준다. 값을 따로 실을 수 있으면
+    // "칩인데 삭제라고 적힌" 대상을 테스트가 만들어 낼 수 있고, 그건 제품에 없는 상태다.
     const openWith = (returnsToTray: boolean) =>
       render(
         <ObjectMenu
-          target={{ ...base, returnsToTray }}
+          target={{ ...base, ids: [returnsToTray ? 'ch_1' : 'ar_1'] }}
           onClose={noop}
           onToggleLock={noop}
           onToggleIgnore={noop}
           onRemove={noop}
+          onSelect={noop}
         />,
       );
 

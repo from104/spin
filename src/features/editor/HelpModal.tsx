@@ -10,6 +10,9 @@
 //               차체 밖 towRear/towFront 는 ZoneHandles 의 앞뒤 가이드)
 //   선택·해제 → physics/hitTest.ts forgivingRadius(2단 히트, 선택 도구 한정 44/56 CSS px)
 //               + useEditorPointer.ts tapDeselectRef(재탭 해제) + useEditorKeyboard.ts(Esc)
+//   여러 개   → useEditorPointer.ts isAdditive/rubberRef + reducer.ts LOCKABLE_TOOLS('select')
+//               + selectSame.ts(메뉴의 '같은 것 전부')
+//   여럿 옮기기 → useEditorPointer.ts groupDragRef + reducer.ts applyGroupNudge
 // 동작을 바꿨으면 이 문구도 함께 고쳐라 — 그 대조가 이 파일 테스트의 존재 이유다.
 import { Fragment } from 'react';
 import type { RefObject } from 'react';
@@ -40,6 +43,11 @@ const BASICS: ReadonlyArray<[string, string]> = [
   ],
   ['옮기기', '휠체어는 잡는 곳이 곧 동작입니다 — 뒤 절반을 잡으면 그대로 이동, 앞 절반은 제자리 회전, 차체 밖 앞뒤 손잡이는 줄로 끄는 견인입니다.'],
   ['선택·해제', '선택 도구는 조금 빗나가게 눌러도 가장 가까운 개체가 잡히고, 선택된 개체를 그 자리에서 다시 탭하거나 Esc 를 누르면 풀립니다.'],
+  [
+    '여러 개 고르기',
+    '빈 코트를 끌어 사각형으로 훑거나, Shift·Ctrl 을 누른 채 하나씩 더합니다. 선택 도구를 한 번 더 누르면 고정되어 탭만으로 더하고 뺄 수 있습니다. 개체를 길게 눌러 나오는 메뉴에는 같은 팀·같은 종류를 한 번에 고르는 항목이 있습니다.',
+  ],
+  ['여럿 옮기기', '고른 것 중 하나를 잡아 끌면 전부 함께 갑니다. 끌지 않고 그냥 탭하면 그것 하나만 남습니다.'],
 ];
 
 /** 전역 키맵에 없는 줄 — **컴포넌트 자기 것**이거나 아예 키가 아니다. 표를 읽는 이유는

@@ -25,7 +25,7 @@ function Probe() {
   const dispatch = useEditorDispatch();
   probe = {
     ids: () => Object.keys(worldRef.current?.read() ?? {}),
-    flag: (f, id, on) => dispatch({ type: 'FLAG_SET', flag: f, id, on }),
+    flag: (f, id, on) => dispatch({ type: 'FLAG_SET', flag: f, ids: [id], on }),
   };
   return null;
 }

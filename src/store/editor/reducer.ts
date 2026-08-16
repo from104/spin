@@ -5,6 +5,7 @@ import type { StepId, CastId, BallId, ConeId } from '../../core/ids.ts';
 import { radToStoredDeg, storedDegToRad } from '../../core/angle.ts';
 import type { Drill } from '../../model/drill.ts';
 import { ballRingOf } from '../../model/drill.ts';
+import { nudgeArrow } from '../../model/arrow.ts';
 import {
   addBall,
   cycleBallRing,
@@ -96,11 +97,19 @@ function setsEqual(a: ReadonlySet<string>, b: readonly string[]): boolean {
   return true;
 }
 
-/** 고정할 수 있는 도구(§6.10a) — **같은 것을 여러 개 놓는** 도구만이다.
+/** 고정할 수 있는 도구(§6.10a·§6.10b) — 문장 하나로 정리된다:
+ *  **"도구를 한 번 더 누르면 그 도구를 계속 쓴다."**
+ *  놓기 도구에는 *계속 놓는다*(연속 배치), 선택 도구에는 *계속 고른다*(모아 고르기)다.
  *
- *  `select` 는 배치가 아니라서, `player` 는 칩마다 다른 사람이라서 빠진다: 선수는 하나 놓을
- *  때마다 트레이에서 다음 칩을 골라야 하므로 '연속' 이라는 말 자체가 성립하지 않는다. */
+ *  `select` 가 여기 있는 이유는 터치다(§6.10b). 가산 선택은 `Shift`/`⌘` 로만 열리는데
+ *  **손가락에는 수식키가 없어서**, 터치에서는 이미 고른 것에 하나를 더할 방법이 아예 없었다
+ *  — 고무줄 사각형을 한 번에 정확히 맞히지 못하면 처음부터 다시 훑는 수밖에 없었다.
+ *  명시적 모드는 그 자리를 메우면서 새 관용구를 만들지 않는다: 손짓도 배지도 이미 있는 것이다.
+ *
+ *  `player` 는 칩마다 다른 사람이라서 빠진다 — 선수는 하나 놓을 때마다 트레이에서 다음 칩을
+ *  골라야 하므로 '연속' 이라는 말 자체가 성립하지 않는다. */
 export const LOCKABLE_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
+  'select',
   'ball',
   'cone',
   'note',
@@ -110,18 +119,18 @@ export const LOCKABLE_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
   'shapeRect',
 ]);
 
-/** 도구 고정을 **살려 두는** 액션(§6.10a). 여기 없는 액션이 하나라도 오면 고정은 즉시 풀린다
- *  (기현 지시 2026-08-16: *"연속 동작까지만 유효하고 다른 동작을 하면 바로 꺼지게"*).
- *
- *  들어 있는 것은 두 부류뿐이다:
- *   ① **배치 그 자체** — TOOL_SET(같은 도구 재입력 = 고정 토글) · 배치가 내는 커밋 · PLACED
- *   ② **사용자 동작이 아닌 것** — 자동저장·물리 정착 뒷정리. 이것들은 사용자가 손댄 적이
- *      없는데도 시각과 무관하게 날아오므로, 이걸로 고정이 풀리면 "가만히 뒀는데 풀렸다" 가 된다.
+/** 어느 고정에서든 살아남는 액션 — **사용자가 낸 것이 아니기 때문에** 그렇다.
+ *  자동저장·키 리피트 경계·물리 정착 뒷정리는 사용자가 손댄 적 없는데도 시각과 무관하게
+ *  날아온다. 이걸로 고정이 풀리면 "가만히 뒀는데 풀렸다" 가 된다. */
+const KEEPS_ANY_LOCK: readonly EditorAction['type'][] = ['TOOL_SET', 'SAVED', 'COMMIT_BREAK', 'SETTLE_ARM', 'PLACE_SETTLE'];
+
+/** 배치 도구의 고정을 **살려 두는** 액션(§6.10a). 여기 없는 액션이 하나라도 오면 고정은 즉시
+ *  풀린다(기현 지시 2026-08-16: *"연속 동작까지만 유효하고 다른 동작을 하면 바로 꺼지게"*).
  *
  *  ⚠️ `SELECT_SET` 은 **일부러 뺐다** — 배치가 내는 선택은 `PLACED` 로 따로 다니므로, 여기
  *  남는 `SELECT_SET` 은 사람이 다른 개체를 고른 것이고 그건 '다른 동작' 이다. */
-const KEEPS_TOOL_LOCK: ReadonlySet<EditorAction['type']> = new Set<EditorAction['type']>([
-  'TOOL_SET',
+const KEEPS_PLACE_LOCK: ReadonlySet<EditorAction['type']> = new Set<EditorAction['type']>([
+  ...KEEPS_ANY_LOCK,
   'PLACED',
   // 배치가 내는 커밋. 도형·메모·화살표는 편집에도 같은 액션을 쓰지만, 그 편집은 선택 도구로
   // 하는 것이라 배치 도구가 고정된 동안에는 올 일이 없다.
@@ -132,21 +141,33 @@ const KEEPS_TOOL_LOCK: ReadonlySet<EditorAction['type']> = new Set<EditorAction[
   'ARROW_SET',
   // 콘 색을 바꿔 가며 까는 것은 한 가지 연속 동작이다.
   'CONE_SLOT_SET',
-  // 사용자가 낸 것이 아닌 뒷정리.
-  'SAVED',
-  'COMMIT_BREAK',
-  'SETTLE_ARM',
-  'PLACE_SETTLE',
+]);
+
+/** 선택 도구의 고정(= 모아 고르기)을 **살려 두는** 액션(§6.10b). 규칙의 모양은 배치 고정과
+ *  똑같고 술어만 갈린다 — 배치 고정이 *놓기가 아닌 동작*에 풀리듯, 이쪽은 *고르기가 아닌
+ *  동작*에 풀린다. 그래서 모아 놓은 것을 옮기거나 지우는 순간 모드는 제 할 일을 다한 것이다.
+ *
+ *  목록이 도구별로 갈리는 것이 핵심이다. 하나로 합치면 `SELECT_SET` 이 들어가야 하고, 그러면
+ *  **콘을 깔던 중에 다른 개체를 고르는 것**까지 배치 고정을 살려 두게 된다 — 갈래를 나누는
+ *  비용이 그 조용한 오작동보다 싸다. */
+const KEEPS_SELECT_LOCK: ReadonlySet<EditorAction['type']> = new Set<EditorAction['type']>([
+  ...KEEPS_ANY_LOCK,
+  'SELECT_SET',
+  'SELECT_TOGGLE',
+  'SELECT_CLEAR',
 ]);
 
 /** TOOL_SET / SELECT_* / STEP_SELECT / SAVED / COMMIT_BREAK(항등 통과) 등 히스토리에
  *  들어가지 않는 UI 상태만 다룬다. 나머지 액션은 항등(같은 참조)으로 통과시킨다.
  *
  *  도구 고정의 수명은 **여기 바깥 껍질 한 곳**이 정한다 — 갈래마다 적으면 새 갈래가 생길 때
- *  빠뜨리기 때문이다(위 `KEEPS_TOOL_LOCK` 주석). */
+ *  빠뜨리기 때문이다(위 `KEEPS_PLACE_LOCK` 주석). */
 export function uiReducer(s: EditorState, a: EditorAction): EditorState {
   const next = uiReducerInner(s, a);
-  if (next.toolLock && !KEEPS_TOOL_LOCK.has(a.type)) return { ...next, toolLock: false };
+  if (!next.toolLock) return next;
+  // 어떤 목록을 보는가는 **고정된 도구**가 정한다 — 고정의 뜻이 도구마다 다르기 때문이다.
+  const keeps = next.tool === 'select' ? KEEPS_SELECT_LOCK : KEEPS_PLACE_LOCK;
+  if (!keeps.has(a.type)) return { ...next, toolLock: false };
   return next;
 }
 
@@ -288,6 +309,8 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return cycleBallRing(d, a.id);
     case 'OBJECT_NUDGE':
       return applyNudge(d, i, a.id, a.d, a.dTheta);
+    case 'GROUP_NUDGE':
+      return applyGroupNudge(d, i, a.ids, a.d);
     // 정착 재커밋(PLACE_SETTLE)은 좌표 교체라는 점에서 PLACE_COMMIT 과 완전히 같다 —
     // 다른 것은 히스토리 거동이 아니라 **시점**뿐이라 드릴 리듀서는 한 갈래를 공유한다.
     case 'PLACE_COMMIT':
@@ -313,10 +336,40 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
     case 'SHAPE_REMOVE':
       return removeShape(d, i, a.id);
     case 'FLAG_SET':
-      return setStepFlag(d, i, a.flag, a.id, a.on);
+      // 여럿이면 접어 넣는다 — 히스토리에는 이 액션 한 칸만 남는다(actions.ts 주석).
+      return a.ids.reduce((acc, id) => setStepFlag(acc, i, a.flag, id, a.on), d);
     default:
       return d;
   }
+}
+
+/** 고른 것을 통째로 평행이동(§6.10b). **회전은 없다** — 여럿을 한꺼번에 돌리려면 무리의
+ *  중심이라는 새 개념이 필요한데, 그 중심이 무엇인지(경계상자? 무게중심?)에 답이 하나로
+ *  안 나온다. 하나만 고르면 종전대로 돌릴 수 있으니 잃는 것도 없다.
+ *
+ *  잠긴 개체는 여기서 거르지 않는다 — 애초에 명단에 안 담아 보낸다(부르는 쪽이 잠김을 안다). */
+function applyGroupNudge(d: Drill, i: number, ids: readonly string[], delta: { x: number; y: number }): Drill {
+  let out = d;
+  for (const id of ids) {
+    if (isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn')) {
+      out = applyNudge(out, i, id as CastId, delta, 0);
+      continue;
+    }
+    const step = out.steps[i];
+    if (!step) continue;
+    if (isId(id, 'nt')) {
+      const n = step.notes.find((x) => x.id === id);
+      if (n) out = setNote(out, i, { ...n, x: n.x + delta.x, y: n.y + delta.y });
+    } else if (isId(id, 'ar')) {
+      const ar = step.arrows.find((x) => x.id === id);
+      // 세 점을 함께 민다 — 포인터의 몸통 드래그·키보드 이동과 **같은 함수**라 셋이 안 갈린다.
+      if (ar) out = setArrow(out, i, nudgeArrow(ar, 'whole', delta));
+    } else if (isId(id, 'sh')) {
+      const sh = step.shapes?.find((x) => x.id === id);
+      if (sh) out = setShape(out, i, { ...sh, x: sh.x + delta.x, y: sh.y + delta.y });
+    }
+  }
+  return out;
 }
 
 function applyNudge(d: Drill, i: number, id: CastId, delta: { x: number; y: number }, dTheta: number): Drill {

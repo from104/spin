@@ -31,6 +31,7 @@ function baseDeps(overrides: Partial<EditorKeyboardDeps>): EditorKeyboardDeps {
     onEraseSelection: vi.fn(),
     onShowHelp: vi.fn(),
     onSelectionClear: vi.fn(),
+    onSelectAll: vi.fn(),
     ...overrides,
   };
 }

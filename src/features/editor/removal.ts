@@ -24,3 +24,17 @@ export function removalToast(ids: readonly string[]): string {
   if (back === 0) return `${gone}개 삭제했습니다.`;
   return `${back}개 빼고 ${gone}개 삭제했습니다.`;
 }
+
+/** 개체 메뉴 마지막 항목의 글자. 토스트와 **같은 판정**에서 나온다(이 파일이 있는 이유).
+ *
+ *  하나일 때는 종전 그대로 '빼기'/'삭제' 다 — 개수를 붙이면 판 위의 개체 하나를 두고
+ *  *"1개 빼기"* 라고 세는 꼴이 된다. 여럿일 때만 개수를 앞세우고, 섞였으면 **양쪽을 다 적는다**:
+ *  누르기 전에 알아야 하는 것이 바로 "몇 개는 돌아오고 몇 개는 안 돌아온다" 이기 때문이다. */
+export function removalLabel(ids: readonly string[]): string {
+  const back = ids.filter(returnsToTray).length;
+  const gone = ids.length - back;
+  if (ids.length <= 1) return gone === 0 ? '빼기' : '삭제';
+  if (gone === 0) return `${back}개 빼기`;
+  if (back === 0) return `${gone}개 삭제`;
+  return `${back}개 빼기 · ${gone}개 삭제`;
+}

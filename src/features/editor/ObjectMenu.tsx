@@ -16,37 +16,56 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LOCK_TINT_COLOR } from '../../core/colors.ts';
+import { removalLabel, returnsToTray } from './removal.ts';
+
+/** 여럿일 때만 개수를 앞에 붙인다 — 하나짜리에 *"1개 잠금"* 은 셀 것이 없는데 세는 말이다.
+ *  마지막 항목(빼기/삭제)만은 `removalLabel` 이 따로 만든다: 거기서는 개수가 두 갈래로
+ *  갈릴 수 있어(빼기 2 · 삭제 1) 앞에 붙이는 것으로는 모자라기 때문이다. */
+function count(ids: readonly string[]): string {
+  return ids.length > 1 ? `${ids.length}개 ` : '';
+}
 
 export interface ObjectMenuTarget {
-  id: string;
+  /** 메뉴가 **손댈 개체들**(§6.10b). 대개 하나지만, 짚은 것이 이미 고른 여럿 중 하나면 그
+   *  여럿 전부다.
+   *
+   *  개편 전에는 `id: string` 하나였고, 그래서 터치에서 여럿을 골라 봐야 **할 수 있는 일이
+   *  하나도 없었다** — 다중 선택에 걸리는 조작이 `Ctrl+Delete` 뿐인데 손가락에는 그 키가
+   *  없기 때문이다. 이 필드가 그 막다른 길을 연다. */
+  ids: string[];
   /** 화면 좌표(clientX/Y). 메뉴가 뜰 자리다. */
   x: number;
   y: number;
-  /** 지금 잠겨 있는가 — 메뉴 글자가 '잠금'/'잠금 해제' 로 갈린다. */
+  /** **전부** 잠겨 있는가 — 메뉴 글자가 '잠금'/'잠금 해제' 로 갈린다. 섞여 있으면 false 라
+   *  '잠금' 이 뜨고, 누르면 전부 잠긴다: 반쯤 잠긴 무리를 한 번에 가지런히 하는 쪽이
+   *  "어떤 건 잠기고 어떤 건 풀리는" 결과보다 예측된다. */
   locked: boolean;
-  /** 지금 무시 중인가. `canIgnore` 가 false 면 안 쓴다. */
+  /** 전부 무시 중인가. `canIgnore` 가 false 면 안 쓴다. */
   ignored: boolean;
-  /** '무시' 항목을 낼 것인가 — **휠체어만** true 다(기현 지시). */
+  /** '무시' 항목을 낼 것인가 — **전부 휠체어일 때만** true 다(기현 지시). 섞였으면 안 낸다:
+   *  항목이 있는데 절반에만 먹는 것보다 없는 편이 정직하다(아래 같은 규율). */
   canIgnore: boolean;
-  /** 판에서 빼면 **트레이에 다시 꺼낼 자리가 있는가**. 마지막 항목의 말이 여기서 갈린다
-   *  (기현 지시 2026-08-16 — *"공콘은 빼기가 맞는데 나머지는 삭제가 맞아"*):
-   *    · 칩(선수) — 주차 슬롯이 자기 자리로 비어 있다가 돌아오면 다시 찬다 → **빼기**
-   *    · 공·콘    — 트레이에 언제나 소스가 있어 다시 놓으면 그만이다 → **빼기**
-   *    · 화살표·메모·도형 — 손으로 그린 것이라 **다시 꺼낼 자리가 없다** → **삭제**
-   *  기준은 모델의 뒷일(cast 에 남는가)이 아니라 **사용자가 다시 꺼낼 수 있는가** 다.
-   *  공·콘은 내부적으로 cast 에서도 사라지지만(edits.pruneOrphanCast) 트레이에서 얼마든지
-   *  다시 나오므로 코치가 겪는 일은 '뺐다' 이지 '지웠다' 가 아니다. */
-  returnsToTray: boolean;
+  // ⚠️ '빼기냐 삭제냐' 는 **필드가 아니다** — `ids` 에서 계산한다(2026-08-16). 값과 이름을
+  //    둘 다 실어 보내면 둘이 어긋날 수 있고, 실제로 어긋났다: 명단은 칩인데 플래그는 '삭제'
+  //    인 대상이 만들어져 아이콘과 글자가 서로 다른 말을 했다. 판정은 `removal.ts` 하나다
+  //    (근거 — 다시 꺼낼 자리가 있는가 — 도 거기 적혀 있다). 여럿이면 **전부** 트레이로
+  //    돌아가는가가 아이콘을 정하고, 섞인 경우의 말은 `removalLabel` 이 만든다.
+  /** "같은 것 전부 고르기" 항목(§6.10b). 낼 것이 없으면 `null`.
+   *  **하나짜리 메뉴에서만** 뜬다 — 이미 여럿을 골라 둔 사람에게 '같은 종류' 가 무엇인지
+   *  되묻지 않기 위해서다(짚은 것 기준인지 고른 것들 기준인지 답이 하나로 안 나온다). */
+  selectSame: { label: string; ids: string[] } | null;
 }
 
 export interface ObjectMenuProps {
   target: ObjectMenuTarget | null;
   onClose(): void;
-  onToggleLock(id: string, next: boolean): void;
-  onToggleIgnore(id: string, next: boolean): void;
+  onToggleLock(ids: string[], next: boolean): void;
+  onToggleIgnore(ids: string[], next: boolean): void;
   /** 개체를 판에서 뺀다. 실제 액션은 개체 종류에 따라 다르고(EditorStage 의 분기), 그
-   *  차이가 사용자에게 보이는 자리가 `returnsToTray` 다 — 거기 주석이 근거를 쥔다. */
-  onRemove(id: string): void;
+   *  차이가 사용자에게 보이는 자리가 `removal.ts` 다 — 거기 주석이 근거를 쥔다. */
+  onRemove(ids: string[]): void;
+  /** "같은 것 전부 고르기". `target.selectSame` 이 null 이면 호출되지 않는다. */
+  onSelect(ids: string[]): void;
 }
 
 const ITEM: React.CSSProperties = {
@@ -65,7 +84,7 @@ const ITEM: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove }: ObjectMenuProps) {
+export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect }: ObjectMenuProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const firstRef = useRef<HTMLButtonElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -76,7 +95,7 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
   }, [target]);
 
   // 자리 계산은 **페인트 전**이라야 한다. useEffect 로 미루면 한 프레임 동안 잘린 자리에
-  // 그려졌다가 튄다 — 발 마우스 사용자에게는 그 한 프레임이 조준 실패로 이어진다.
+  // 그려졌다가 튄다 — 메뉴가 뜨자마자 움직이면 그리로 향하던 조준이 통째로 빗나간다.
   useLayoutEffect(() => {
     if (!target) {
       setPos(null);
@@ -145,26 +164,44 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
           visibility: pos ? 'visible' : 'hidden',
         }}
       >
+        {/* 고르기가 **맨 위**다. 아래 셋은 판을 바꾸는 조작이고 이것 하나만 아니다 — 다른
+            등급의 항목을 아래 뭉치에 섞으면 실수로 누를 때 값이 다르다. 열자마자 포커스가
+            여기 서는 것도 그래서 맞다(되돌릴 것이 없는 항목). */}
+        {target.selectSame && (
+          <>
+            <button type="button" role="menuitem" ref={firstRef} onClick={act(() => onSelect(target.selectSame!.ids))} style={ITEM}>
+              <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.7 }}>
+                ⊞
+              </span>
+              {target.selectSame.label}
+            </button>
+            <div aria-hidden style={{ height: 1, margin: '5px 10px', background: 'var(--border)' }} />
+          </>
+        )}
+
         <button
           type="button"
           role="menuitem"
-          ref={firstRef}
-          onClick={act(() => onToggleLock(target.id, !target.locked))}
+          // 고르기 항목이 없을 때만 여기가 첫 칸이다 — ref 를 둘 다 달면 나중 것이 이긴다.
+          ref={target.selectSame ? undefined : firstRef}
+          onClick={act(() => onToggleLock(target.ids, !target.locked))}
           style={ITEM}
         >
           <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', color: LOCK_TINT_COLOR }}>
             {target.locked ? '○' : '●'}
           </span>
+          {count(target.ids)}
           {target.locked ? '잠금 해제' : '잠금'}
         </button>
 
         {/* 무시는 **휠체어만**이다(기현 지시). 다른 개체에서 이 자리를 비워 두지 않고 **아예
             안 내는** 이유: 항목이 있는데 눌러도 아무 일이 없는 것보다, 없는 편이 정직하다. */}
         {target.canIgnore && (
-          <button type="button" role="menuitem" onClick={act(() => onToggleIgnore(target.id, !target.ignored))} style={ITEM}>
+          <button type="button" role="menuitem" onClick={act(() => onToggleIgnore(target.ids, !target.ignored))} style={ITEM}>
             <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.5 }}>
               {target.ignored ? '◍' : '◌'}
             </span>
+            {count(target.ids)}
             {target.ignored ? '무시 해제' : '무시'}
           </button>
         )}
@@ -180,11 +217,11 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
 
             말과 아이콘은 갈린다: `←` 빼기는 '판 밖으로 물린다', `✕` 삭제는 '없앤다'.
             어느 쪽이 참인지는 `returnsToTray` 가 정한다(그 필드 주석에 근거). */}
-        <button type="button" role="menuitem" onClick={act(() => onRemove(target.id))} style={{ ...ITEM, color: '#ff6b6b' }}>
+        <button type="button" role="menuitem" onClick={act(() => onRemove(target.ids))} style={{ ...ITEM, color: '#ff6b6b' }}>
           <span aria-hidden style={{ width: '1.125rem', textAlign: 'center' }}>
-            {target.returnsToTray ? '←' : '✕'}
+            {target.ids.every(returnsToTray) ? '←' : '✕'}
           </span>
-          {target.returnsToTray ? '빼기' : '삭제'}
+          {removalLabel(target.ids)}
         </button>
       </div>
     </>,

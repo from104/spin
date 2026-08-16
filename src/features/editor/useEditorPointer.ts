@@ -16,6 +16,7 @@ import type { Vec2 } from '../../core/units.ts';
 import { isId, newId } from '../../core/ids.ts';
 import type { ArrowId, BallId, CastId, ChairId, ConeId, NoteId } from '../../core/ids.ts';
 import { INTERACT, PHYS } from '../../core/constants.ts';
+import { isApplePlatform } from '../../core/platform.ts';
 import { hitTest, handlesVisible as computeHandlesVisible, applyTwoZone, twoZoneViewConfig } from '../../physics/index.ts';
 import type { HitContext, HitResult, PhysicsSnapshot, SceneSnapshot, ToolId, DragHandle } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
@@ -77,6 +78,10 @@ export interface UseEditorPointerOptions {
   drill: Drill;
   step: DrillStep;
   tool: ToolId;
+  /** **모아 고르기**가 켜져 있는가 = 선택 도구가 고정된 상태(§6.10b). 켜져 있으면 맨 탭이
+   *  `Shift`+클릭과 같은 뜻이 된다 — 손가락에는 수식키가 없기 때문이다.
+   *  기본 false — 꺼짐이 기본인 모드라 안 주면 안 켜진 것이 맞다(`locked`·`ignored` 와 같다). */
+  gathering?: boolean;
   coneSlot: 0 | 1;
   selection: ReadonlySet<string>;
   dispatch: Dispatch<EditorAction>;
@@ -132,6 +137,18 @@ function shapeOf(kind: HitResult['kind']): SelectionShape | null {
   return null;
 }
 
+/** 이 손짓이 **선택에 더하는가**(§6.10b). 셋 중 하나면 참이다:
+ *
+ *  - `Shift` — 세 앱(PPT·일러스트레이터·피그마)이 모두 같은 관례라 설명이 필요 없다.
+ *  - `⌘`/`Ctrl` — 플랫폼마다 하나씩. 개편 전에는 `metaKey` 만 봐서 **윈도우·리눅스에서
+ *    Ctrl+클릭이 그냥 새 선택**이었다(키맵은 `ctrlKey || metaKey` 로 둘 다 받는데 포인터만
+ *    한쪽을 빠뜨린 상태였다). 애플에서 Ctrl+클릭은 보조 클릭이므로 거기서만 뺀다.
+ *  - **모아 고르기** — 수식키가 아예 없는 터치의 유일한 길. 켜져 있으면 맨 탭이 곧 토글이다. */
+export function isAdditive(meta: Pick<PointerMeta, 'shiftKey' | 'metaKey' | 'ctrlKey'>, gathering: boolean): boolean {
+  if (gathering || meta.shiftKey) return true;
+  return isApplePlatform() ? meta.metaKey : meta.ctrlKey || meta.metaKey;
+}
+
 function toggleId(sel: ReadonlySet<string>, id: string): string[] {
   const next = new Set(sel);
   if (next.has(id)) next.delete(id);
@@ -155,7 +172,11 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   const dragHandleRef = useRef<DragHandle | null>(null);
   const draggedIdRef = useRef<string | null>(null);
   const dragKindRef = useRef<SelectionShape | null>(null);
-  const rubberRef = useRef<{ start: Vec2; additive: boolean } | null>(null);
+  /** `additive` 는 사각형이 **더하는가**, `clearsOnTap` 은 임계 미만(= 빈 코트 탭)일 때
+   *  **푸는가**다. 둘이 갈리는 곳이 모아 고르기다: 사각형은 더하되, 빈 곳 탭은 그대로 풀어야
+   *  한다 — 터치에는 Esc 가 없어서 빈 곳 탭이 유일한 해제 손짓이기 때문이다. 수식키를 쥔
+   *  손은 반대로 "지금 모으는 중" 이라는 뜻이므로 빈 곳을 스쳐도 풀리지 않는다(종전 그대로). */
+  const rubberRef = useRef<{ start: Vec2; additive: boolean; clearsOnTap: boolean } | null>(null);
   const rubberRectRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const arrowSessionRef = useRef<{ from: Vec2 } | null>(null);
   const noteDragRef = useRef<{ id: NoteId; offset: Vec2 } | null>(null);
@@ -166,6 +187,15 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   /** 선 몸통을 잡아 **통째로** 옮기는 세션(2026-08-16 기현 지시). 도형의 body 드래그와 같은 뜻이라
    *  커서도 같은 `move` 다 — 그 커서가 곧 "여기를 잡으면 통째로 간다" 는 유일한 예고다. */
   const arrowBodyDragRef = useRef<{ arrowId: ArrowId; last: Vec2 } | null>(null);
+  /** 여럿을 골라 두고 그중 하나를 잡은 세션(§6.10b) — **고른 것이 통째로 간다**.
+   *
+   *  물리 드래그를 안 쓰는 이유는 물리 월드가 드래그 세션을 한 번에 하나만 쥐기 때문이다
+   *  (actions.ts `GROUP_NUDGE` 주석). 그래서 이 세션은 키보드 이동과 같은 길을 간다: 모델을
+   *  옮기고(GROUP_NUDGE) 물리에 자세를 밀어 넣는다.
+   *
+   *  `id` 는 **잡은 것 하나**다. 끌지 않고 떼면 그것만 남기고 선택이 접힌다 — 세 앱이 다
+   *  그렇게 동작하고, 여럿 고른 뒤 하나로 좁히는 유일한 손짓이기도 하다. */
+  const groupDragRef = useRef<{ id: string; ids: string[]; last: Vec2; start: Vec2; moved: boolean } | null>(null);
   /** §4.3 P1-2 [A-3] — "선택된 개체 재탭 = 해제" 세션. 2단 히트가 켜지면 붐비는 코트에서
    *  "빈 곳 탭 → 해제"(아래 rubberRef 경로)가 사라지므로, **이미 선택된** 개체를 additive
    *  없이 다시 눌렀다가 탭 임계(INTERACT.tapMaxMoveCssPx) 안에서 손을 떼면 SELECT_CLEAR 로
@@ -462,7 +492,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       }
 
       // select
-      const additive = meta.shiftKey || meta.metaKey;
+      const additive = isAdditive(meta, ctx.gathering ?? false);
       // §9 결정 ④ · 5.5 — **`handlesVisible()` 반환값의 첫 소비처**다. 켜져 있으면 차체 히트에
       // zone:'translate' 를 입혀(applyTwoZone) 차체 전체가 한 덩어리로 움직이게 한다.
       // ⚠️ 이 두 줄을 지우면 토글이 화면에만 남고 판 위에서는 아무 일도 일어나지 않는다 —
@@ -489,7 +519,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           if (!additive) tapDeselectRef.current = { start: world, moved: false, ballId: null };
           return { pan: true };
         }
-        rubberRef.current = { start: world, additive };
+        rubberRef.current = { start: world, additive, clearsOnTap: !isAdditive(meta, false) };
         rubberRectRef.current = { x: world.x, y: world.y, w: 0, h: 0 };
         selectionOverlayRef.current?.setRubberBand(rubberRectRef.current);
         // 확대해 놓고 선택을 시작하면 화면 밖 개체는 어떤 방법으로도 사각형에 넣을 수 없다 —
@@ -506,8 +536,25 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 바디가 없어 끌 대상이 없다 — 둘을 한 줄로 합치는 이유는 "그래서 어떻게 되는가" 가
       // 같기 때문이다: 고르기는 되고 끌기는 안 된다.
       if (hit.id && ((ctxRef.current.locked?.has(hit.id) ?? false) || (ctxRef.current.ignored?.has(hit.id) ?? false))) {
-        ctx.dispatch({ type: 'SELECT_SET', ids: [hit.id] });
+        // 여럿 고른 것 **안**을 짚었으면 선택을 접지 않는다 — 못 끄는 개체 하나를 잘못 짚었다고
+        // 애써 모은 무리가 흩어지면, 다시 모으는 비용이 실수 한 번의 대가로 너무 크다.
+        if (!(ctx.selection.size > 1 && ctx.selection.has(hit.id))) ctx.dispatch({ type: 'SELECT_SET', ids: [hit.id] });
         // pan 도 rubber 도 안 연다 — 잠긴 것을 짚은 손은 "이걸 고르겠다" 이지 판을 밀겠다가 아니다.
+        return {};
+      }
+      // ── 여럿을 골라 두고 그중 하나를 잡았다 → **통째로 옮기는 세션**(§6.10b) ─────────────
+      // 개편 전에는 여기가 없어서 `SELECT_SET [hit.id]` 로 **선택이 붕괴**했다. 다섯을 골라도
+      // 다섯 번 나눠 옮겨야 했다는 뜻이고, 그러면 애초에 여럿 고를 이유가 사라진다.
+      // 수식키를 쥐었으면 아래 토글 경로가 맞다 — 그 손짓은 "옮기겠다" 가 아니라 "빼겠다" 다.
+      if (!additive && hit.id && ctx.selection.size > 1 && ctx.selection.has(hit.id)) {
+        // 잠긴 것·무시된 것은 명단에서 뺀다. 위 관문과 같은 규칙이고, 거르는 자리가 여기라야
+        // 리듀서가 스텝 플래그를 다시 읽지 않아도 된다(applyGroupNudge 주석).
+        const ids = Array.from(ctx.selection).filter((id) => !ctx.locked?.has(id) && !ctx.ignored?.has(id));
+        groupDragRef.current = { id: hit.id, ids, last: world, start: world, moved: false };
+        // PLACE_BEGIN 은 안 보낸다 — 그것은 경계를 열고 `lastCommit` 을 비우므로, 이어지는
+        // 첫 GROUP_NUDGE 가 병합 상대를 못 찾아 past 에 한 칸을 **더** 쌓는다(되돌리기 두 칸).
+        // 한 번 끈 것이 한 칸이 되는 일은 병합(COALESCE_TYPES)이 이미 하고 있다 — 도형·메모를
+        // 끄는 길과 같다. 손을 뗄 때 COMMIT_BREAK 로 그 창을 닫는다.
         return {};
       }
       if (hit.kind === 'zoneHandle') {
@@ -589,6 +636,32 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       if (tap && !tap.moved) {
         const tapPx = INTERACT.tapMaxMoveCssPx / metricsRef.current.pxPerUnit;
         if (Math.hypot(world.x - tap.start.x, world.y - tap.start.y) > tapPx) tap.moved = true;
+      }
+
+      // 덩어리 이동(§6.10b). 물리 핸들보다 **먼저** 본다 — 둘은 같은 pointerdown 에서 배타적으로
+      // 열리지만, 순서를 정해 두면 나중에 한쪽을 고칠 때 다른 쪽이 조용히 끼어들 여지가 없다.
+      const grp = groupDragRef.current;
+      if (grp) {
+        if (!grp.moved) {
+          const tapPx = INTERACT.tapMaxMoveCssPx / metricsRef.current.pxPerUnit;
+          if (Math.hypot(world.x - grp.start.x, world.y - grp.start.y) > tapPx) grp.moved = true;
+        }
+        // 임계를 넘기 전에는 한 톨도 안 옮긴다 — 넘기 전에 옮기면 "하나만 남기려던 탭" 이
+        // 무리를 1px 씩 흔들어 놓는다(화살표 손잡이가 간 길과 같다).
+        if (!grp.moved) return;
+        const d = { x: world.x - grp.last.x, y: world.y - grp.last.y };
+        grp.last = world;
+        ctx.dispatch({ type: 'GROUP_NUDGE', ids: grp.ids, d });
+        // 물리에도 같은 이동을 밀어 넣는다 — 모델만 옮기면 다음에 그 개체를 잡는 순간
+        // beginDrag 가 낡은 자세를 읽어 옛 자리로 되돌린다(키보드 이동이 겪었던 그 회귀).
+        const cur = ctx.worldRef.current?.read();
+        if (cur) {
+          for (const id of grp.ids) {
+            const p = cur[id];
+            if (p) ctx.worldRef.current?.setPose(id as CastId, { x: p.x + d.x, y: p.y + d.y, theta: p.theta });
+          }
+        }
+        return;
       }
 
       if (dragHandleRef.current) {
@@ -707,6 +780,23 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       else ctx.dispatch({ type: 'SELECT_CLEAR' });
     };
 
+    // 덩어리 이동의 끝(§6.10b).
+    const grp = groupDragRef.current;
+    if (grp) {
+      groupDragRef.current = null;
+      if (grp.moved) {
+        // 병합 창을 닫는다 — 안 닫으면 700ms 안에 시작한 **다음** 드래그가 이번 것과 한 칸으로
+        // 합쳐진다(같은 무리를 두 번 끌면 되돌리기가 한 번에 두 번치를 물린다).
+        ctx.dispatch({ type: 'COMMIT_BREAK' });
+      } else if (client !== null) {
+        // 끌지 않고 뗐다 = **하나만 남긴다**. 세 앱(PPT·일러스트레이터·피그마)이 모두 같고,
+        // 여럿 고른 뒤 하나로 좁히는 유일한 손짓이다. pointercancel(client=null)은 손짓이
+        // 아니라 뺏긴 것이므로 선택을 건드리지 않는다.
+        ctx.dispatch({ type: 'SELECT_SET', ids: [grp.id] });
+      }
+      return;
+    }
+
     if (dragHandleRef.current) {
       const id = draggedIdRef.current;
       // 트레이 위에 놓았으면 코트에서 빼낸다 — 개체가 "원래 있던 자리"(주차 슬롯·상자)로
@@ -799,7 +889,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     }
 
     if (rubberRef.current) {
-      const { additive } = rubberRef.current;
+      const { additive, clearsOnTap } = rubberRef.current;
       const rect = rubberRectRef.current;
       rubberRef.current = null;
       rubberRectRef.current = null;
@@ -808,16 +898,21 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       const pxPerUnit = cur?.pxPerUnit ?? metricsRef.current.pxPerUnit;
       const tapPx = INTERACT.tapMaxMoveCssPx / pxPerUnit;
       if (!rect || rect.w <= tapPx || rect.h <= tapPx) {
-        // 임계 미만 이동 = 빈 코트 탭 → 선택 해제(가산 선택 중엔 유지).
-        if (!additive) ctx.dispatch({ type: 'SELECT_CLEAR' });
+        // 임계 미만 이동 = 빈 코트 탭 → 선택 해제(수식키를 쥐고 있으면 유지).
+        if (clearsOnTap) ctx.dispatch({ type: 'SELECT_CLEAR' });
         return;
       }
       const scene = buildScene();
       const ids: string[] = [];
-      for (const c of scene.chairs) if (inRect(c.pose, rect)) ids.push(c.id);
-      for (const b of scene.balls) if (inRect(b.p, rect)) ids.push(b.id);
-      for (const c of scene.cones) if (inRect(c.p, rect)) ids.push(c.id);
-      for (const n of scene.notes) if (inRect(n.p, rect)) ids.push(n.id);
+      // ★ 잠긴 개체는 사각형에 **안 담긴다**(§6.10b). 어차피 못 움직이는 것이 선택에 섞이면
+      //   뒤이은 드래그가 통째로 안 먹는데 그 이유는 화면 어디에도 안 적혀 있다. 클릭으로는
+      //   여전히 고를 수 있다 — 그래야 잠금을 푸는 길이 남는다(2026-08-14 규율).
+      //   마우스라면 빗나간 하나를 Shift 로 빼면 그만이지만 **터치에는 그 손짓이 없다.**
+      const takeable = (id: string) => !ctx.locked?.has(id);
+      for (const c of scene.chairs) if (inRect(c.pose, rect) && takeable(c.id)) ids.push(c.id);
+      for (const b of scene.balls) if (inRect(b.p, rect) && takeable(b.id)) ids.push(b.id);
+      for (const c of scene.cones) if (inRect(c.p, rect) && takeable(c.id)) ids.push(c.id);
+      for (const n of scene.notes) if (inRect(n.p, rect) && takeable(n.id)) ids.push(n.id);
       if (ids.length > 0) {
         ctx.dispatch({ type: 'SELECT_SET', ids: additive ? Array.from(new Set([...ctx.selection, ...ids])) : ids });
       } else if (!additive) {

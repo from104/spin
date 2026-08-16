@@ -41,12 +41,14 @@ describe('editorRootReducer — UI 액션', () => {
     expect(s2).not.toBe(withStep2);
   });
 
-  // ⚠️ 이 항등은 **고정할 수 없는 도구에 한한다**(§6.10a). 배치 도구는 같은 것을 한 번 더
+  // ⚠️ 이 항등은 **고정할 수 없는 도구에 한한다**(§6.10a). 고정되는 도구는 같은 것을 한 번 더
   //    주면 고정이 토글되므로 참조가 바뀐다 — 아래 '도구 고정' describe 가 그쪽을 본다.
-  //    `freshState()` 의 도구는 `select` 라 여기서는 여전히 항등이다.
+  //    2026-08-16: 예전에는 `freshState()` 의 기본 도구(select)로 이 항등을 봤는데, 선택
+  //    도구가 '모아 고르기' 로 고정되면서(§6.10b) 더는 항등이 아니다. 남은 비고정 도구는
+  //    `player` 하나다 — 칩마다 다른 사람이라 '연속' 이 성립하지 않는다.
   it('항등 액션(고정 못 하는 도구를 같은 것으로 재지정)은 참조를 그대로 돌려준다', () => {
-    const s0 = freshState();
-    const s1 = editorRootReducer(s0, { type: 'TOOL_SET', tool: s0.tool });
+    const s0 = editorRootReducer(freshState(), { type: 'TOOL_SET', tool: 'player' });
+    const s1 = editorRootReducer(s0, { type: 'TOOL_SET', tool: 'player' });
     expect(s1).toBe(s0);
   });
 
@@ -192,12 +194,12 @@ describe('§6.10a 도구 고정 — 연속 배치', () => {
     expect(s3.toolLock, '같은 조작이 켜고 끈다 — 푸는 법을 따로 배우지 않는다').toBe(false);
   });
 
-  it('고정할 수 없는 도구는 두 번 눌러도 안 잠긴다 — 선택·선수', () => {
-    // 선택은 배치가 아니고, 선수는 칩마다 다른 사람이라 '연속' 이 성립하지 않는다.
-    for (const tool of ['select', 'player'] as const) {
-      const s1 = editorRootReducer(freshState(), { type: 'TOOL_SET', tool });
-      expect(editorRootReducer(s1, { type: 'TOOL_SET', tool }).toolLock, tool).toBe(false);
-    }
+  it('고정할 수 없는 도구는 두 번 눌러도 안 잠긴다 — 선수', () => {
+    // 2026-08-16 §6.10b — 예전에는 `select` 도 여기 있었다. 지금 선택 도구는 고정되고 그
+    // 고정이 '모아 고르기' 다. 남은 것은 `player` 하나 — 칩마다 다른 사람이라 '연속' 이라는
+    // 말 자체가 성립하지 않는다.
+    const s1 = editorRootReducer(freshState(), { type: 'TOOL_SET', tool: 'player' });
+    expect(editorRootReducer(s1, { type: 'TOOL_SET', tool: 'player' }).toolLock).toBe(false);
   });
 
   it('다른 도구로 옮기면 고정은 따라오지 않는다', () => {
@@ -229,7 +231,7 @@ describe('§6.10a 도구 고정 — 연속 배치', () => {
     ['OBJECT_NUDGE (방향키 미세조정)', { type: 'OBJECT_NUDGE', id: 'bl_1' as never, d: { x: 1, y: 0 }, dTheta: 0 } as const],
     ['PLACE_BEGIN (개체를 끌기 시작)', { type: 'PLACE_BEGIN' } as const],
     ['ARROW_REMOVE', { type: 'ARROW_REMOVE', id: 'ar_1' as never } as const],
-    ['FLAG_SET', { type: 'FLAG_SET', flag: 'locked', id: 'bl_1', on: true } as const],
+    ['FLAG_SET', { type: 'FLAG_SET', flag: 'locked', ids: ['bl_1'] as string[], on: true } as const],
   ])('다른 동작이 끼면 즉시 풀린다 — %s (기현 지시 2026-08-16)', (_name, action) => {
     expect(armed().toolLock).toBe(true); // 대조군 — 애초에 잠겨 있었다
     expect(editorRootReducer(armed(), action).toolLock).toBe(false);
@@ -247,5 +249,54 @@ describe('§6.10a 도구 고정 — 연속 배치', () => {
   it('판을 새로 열면 고정은 꺼져 있다 — 켠 적 없는 모드를 물려받지 않는다', () => {
     expect(freshState().toolLock).toBe(false);
     expect(editorRootReducer(armed(), { type: 'BOARD_SET', drill: freshState().present }).toolLock).toBe(false);
+  });
+});
+
+// §6.10b 모아 고르기 — 선택 도구의 고정. 배치 고정과 **모양은 같고 술어만 다르다**:
+// 저쪽이 '놓기가 아닌 동작' 에 풀리듯 이쪽은 '고르기가 아닌 동작' 에 풀린다.
+// 손가락에는 수식키가 없어서, 이 모드가 곧 터치의 Shift 다.
+describe('§6.10b 모아 고르기 — 선택 도구의 고정', () => {
+  const gathering = () => {
+    // 기본 도구가 이미 select 라 한 번만 눌러도 '같은 도구 재입력' 이다.
+    const s = editorRootReducer(freshState(), { type: 'TOOL_SET', tool: 'select' });
+    expect(s.toolLock, '한 번은 토글이다 — 기본 도구가 select 이므로').toBe(true);
+    return s;
+  };
+
+  it('선택 도구를 한 번 더 = 모아 고르기, 한 번 더 = 해제', () => {
+    const s1 = gathering();
+    expect(s1.tool).toBe('select');
+    expect(editorRootReducer(s1, { type: 'TOOL_SET', tool: 'select' }).toolLock).toBe(false);
+  });
+
+  it.each([
+    ['SELECT_SET (사각형으로 훑기·같은 것 전부)', { type: 'SELECT_SET', ids: ['bl_1'] as string[] } as const],
+    ['SELECT_TOGGLE (하나 더하기·빼기)', { type: 'SELECT_TOGGLE', id: 'bl_1' } as const],
+    ['SELECT_CLEAR (빈 곳 탭)', { type: 'SELECT_CLEAR' } as const],
+    ['SAVED (자동저장)', { type: 'SAVED', at: 1 } as const],
+    ['COMMIT_BREAK', { type: 'COMMIT_BREAK' } as const],
+  ])('고르는 동안은 살아 있다 — %s', (_name, action) => {
+    expect(editorRootReducer(gathering(), action).toolLock).toBe(true);
+  });
+
+  it.each([
+    ['GROUP_NUDGE (모은 것을 옮김)', { type: 'GROUP_NUDGE', ids: ['bl_1'] as string[], d: { x: 1, y: 0 } } as const],
+    ['OBJECT_REMOVE (지움)', { type: 'OBJECT_REMOVE', id: 'bl_1' as never, scope: 'onward' } as const],
+    ['UNDO', { type: 'UNDO' } as const],
+    ['FLAG_SET (잠금)', { type: 'FLAG_SET', flag: 'locked', ids: ['bl_1'] as string[], on: true } as const],
+    ['CHAIR_PLACE (트레이에서 칩을 놓음)', { type: 'CHAIR_PLACE', id: 'ch_1' as never, pose: { x: 0, y: 0, angleDeg: 0 } } as const],
+  ])('고르기가 아닌 동작이 끼면 즉시 풀린다 — %s', (_name, action) => {
+    expect(editorRootReducer(gathering(), action).toolLock).toBe(false);
+  });
+
+  // ★ 목록이 도구별로 갈리는 이유. 하나로 합치면 아래 둘 중 하나가 반드시 거짓이 된다.
+  it('허용 목록은 도구마다 다르다 — 콘을 깔던 중의 SELECT_SET 은 고정을 푼다', () => {
+    const cone = editorRootReducer(
+      editorRootReducer(freshState(), { type: 'TOOL_SET', tool: 'cone' }),
+      { type: 'TOOL_SET', tool: 'cone' },
+    );
+    expect(cone.toolLock).toBe(true);
+    expect(editorRootReducer(cone, { type: 'SELECT_SET', ids: ['bl_1'] }).toolLock).toBe(false);
+    // 같은 액션이 모아 고르기에서는 살려 둔다(위 it.each) — 그것이 갈래를 나눈 값이다.
   });
 });

@@ -105,6 +105,18 @@ export type EditorAction =
   // drillReducer(원 순환) 양쪽에서 갈라진다 — undo 한 칸, 저장 한 번.
   | { type: 'BALL_RETAP'; id: BallId }
   | { type: 'OBJECT_NUDGE'; id: CastId; d: Vec2; dTheta: number } // 키보드 미세조정
+  /** 고른 개체를 **통째로** 옮긴다(§6.10b). 종류를 가리지 않는다 — 한 선택 안에 휠체어·공·
+   *  콘·메모·화살표·도형이 섞여 있어도 같은 델타로 함께 간다.
+   *
+   *  ⚠️ `OBJECT_NUDGE` 를 개수만큼 보내는 것으로 대신할 수 없다. 그 액션은 캐스트(칩·공·콘)
+   *  전용이라 메모·화살표·도형을 못 옮기고, 무엇보다 **되돌리기가 개체 수만큼 쌓인다** —
+   *  한 번 끈 것을 되돌리려고 Ctrl+Z 를 네 번 눌러야 한다.
+   *
+   *  ⚠️ 물리 드래그(`world.beginDrag`)로도 대신할 수 없다. 물리 월드는 드래그 세션을 **한 번에
+   *  하나만** 쥔다(physics/index.ts 의 `session` — 새 세션은 이전 것을 endDrag 로 덮는다).
+   *  그래서 덩어리 이동은 키보드 이동과 같은 길을 간다: 모델을 옮기고 물리에 자세를 밀어 넣는다.
+   *  겹침은 손을 뗄 때 물리가 푼다(정착) — 놓기가 이미 그렇게 동작한다. */
+  | { type: 'GROUP_NUDGE'; ids: string[]; d: Vec2 }
   | { type: 'PLACE_BEGIN' } // 드래그 시작: 히스토리 경계만
   | {
       type: 'PLACE_COMMIT';
@@ -135,8 +147,12 @@ export type EditorAction =
   | { type: 'SHAPE_SET'; shape: Shape }
   | { type: 'SHAPE_REMOVE'; id: ShapeId }
   /** 개체 상태 플래그(2026-08-14). 대상이 여섯 종류라 id 는 그냥 string 이다 —
-   *  브랜드 타입으로 좁히면 여섯 갈래 유니온이 되고, 리듀서가 그것을 다시 넓혀야 한다. */
-  | { type: 'FLAG_SET'; flag: 'locked' | 'ignored'; id: string; on: boolean }
+   *  브랜드 타입으로 좁히면 여섯 갈래 유니온이 되고, 리듀서가 그것을 다시 넓혀야 한다.
+   *
+   *  **여럿을 한 번에** 받는다(§6.10b) — 고른 넷을
+   *  잠그는 것은 사용자에게 한 번의 조작이므로 되돌리기도 한 칸이어야 한다. id 하나씩
+   *  네 번 보내면 Ctrl+Z 를 네 번 눌러야 원래대로 돌아온다. */
+  | { type: 'FLAG_SET'; flag: 'locked' | 'ignored'; ids: string[]; on: boolean }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
@@ -163,6 +179,7 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   // 탭 한 번에 판 전체가 다시 서고 진행 중이던 정착 통지가 유실된다.
   'BALL_RETAP',
   'OBJECT_NUDGE',
+  'GROUP_NUDGE',
   'PLACE_COMMIT',
   'PLACE_SETTLE',
   'ARROW_SET',
@@ -183,6 +200,8 @@ export const COALESCE_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   // 도형은 끌면 매 프레임 SHAPE_SET 이 난다 — 병합 없이는 한 번 끄는 데 되돌리기 수십 칸이다.
   'SHAPE_SET',
   'OBJECT_NUDGE',
+  // 덩어리를 끄는 동안 매 프레임 난다 — 병합 없이는 한 번 끄는 데 되돌리기 수십 칸이다.
+  'GROUP_NUDGE',
 ]);
 
 /** epoch 를 증가시키는 액션(§6.7) — 구조 변경·시점 점프. */

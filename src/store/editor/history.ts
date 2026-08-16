@@ -41,6 +41,10 @@ function coalesceKeyOf(a: EditorAction, drillId: string): string | null {
       return `SHAPE_SET:${a.shape.id}`;
     case 'OBJECT_NUDGE':
       return `OBJECT_NUDGE:${a.id}`;
+    case 'GROUP_NUDGE':
+      // 무리의 **구성**이 키다 — 넷을 끌다가 손을 떼고 다른 셋을 끌면 두 칸이어야 한다.
+      // 정렬하는 이유: 같은 무리인데 Set 순회 순서가 달라졌다고 되돌리기가 갈리면 안 된다.
+      return `GROUP_NUDGE:${[...a.ids].sort().join(',')}`;
     default:
       return null;
   }

@@ -182,6 +182,9 @@ export const KEYMAP: readonly KeyDef[] = [
 
   // ── 전역 기타 ───────────────────────────────────────────────────────────
   { id: 'select.clear', scope: 'global', codes: ['Escape'], label: 'Esc', desc: '선택 해제 — 열린 창이 있으면 그 창만 닫힘' },
+  // 세 앱(PPT·일러스트레이터·피그마)이 전부 같은 자리에 두는 키라 배울 것이 없다.
+  // 잠긴 개체는 담지 않는다 — 덩어리로 집는 길은 전부 그 규칙을 따른다(selectSame.ts).
+  { id: 'select.all', scope: 'global', codes: ['KeyA'], mod: true, label: 'Ctrl/⌘+A', desc: '전부 선택(잠긴 것 제외)' },
   // 개체 층의 Delete 는 수식키가 없다(`obj.delete`). 여기는 **선택 전체**라 Ctrl 이 붙는다 —
   // 같은 키에 "하나" 와 "여럿" 을 겹치는 대신 수식키로 규모를 나눈 것이고, 그래서 두 층이
   // 서로를 안 삼킨다(`keymap.contract` 의 전역↔개체 겹침 0).
@@ -230,6 +233,10 @@ export const KEYMAP: readonly KeyDef[] = [
     desc: '이전 개체로',
   },
   { id: 'obj.cycleNext', scope: 'object', codes: ['BracketRight'], label: ']', desc: '다음 개체로' },
+  // Shift 를 쥐고 순회하면 **모으면서** 간다 — 파일 목록의 Shift+↓ 와 같은 관례다.
+  // 마우스 없이 여럿을 고르는 길이 Enter 토글뿐이었는데, 그것만으로는 '훑어 모으기' 가 안 된다.
+  { id: 'obj.cycleExtendPrev', scope: 'object', codes: ['BracketLeft'], shift: 'yes', label: 'Shift+[', desc: '이전 개체를 선택에 더하며 이동' },
+  { id: 'obj.cycleExtendNext', scope: 'object', codes: ['BracketRight'], shift: 'yes', label: 'Shift+]', desc: '다음 개체를 선택에 더하며 이동' },
   { id: 'obj.toggleSelect', scope: 'object', codes: ['Enter'], label: 'Enter', desc: '선택 / 해제' },
   {
     id: 'obj.delete',

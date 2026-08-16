@@ -141,6 +141,7 @@ function useHarness() {
     onEraseSelection: noop,
     onShowHelp: noop,
     onSelectionClear: () => dispatch({ type: 'SELECT_CLEAR' }),
+    onSelectAll: noop,
   });
   return { state, dispatch, worldRef, pointer };
 }
