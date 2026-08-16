@@ -7,13 +7,7 @@
 // 또는 "엉뚱한 팀 색" 으로 나타나는데, 둘 다 마크업 존재 여부로는 안 잡힌다.
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
-import {
-  SideMarks,
-  SIDE_FLAG_BASE_PX,
-  SIDE_FLAG_HALF_PX,
-  SIDE_FLAG_LEN_PX,
-  SIDE_FLAG_SPACING_PX,
-} from './SideMarks.tsx';
+import { SideMarks, SIDE_FLAG_GAP_PX, SIDE_FLAG_H_PX, SIDE_FLAG_SIDE_PX, SIDE_FLAG_SPACING_PX } from './SideMarks.tsx';
 import { StageRotProvider } from './stageRot.tsx';
 import { COURT_MODES, COURT_SIZES, courtDefFor } from '../model/court.ts';
 import { inkFor } from '../core/colors.ts';
@@ -24,7 +18,7 @@ import type { StageRot } from './useStageMetrics.ts';
 
 const num = (el: Element, a: string): number => Number(el.getAttribute(a));
 
-/** 삼각형 세 점. `points="x,y x,y x,y"` 를 숫자로 되돌린다 — 앞 둘이 깃대, 셋째가 꼭짓점이다. */
+/** 삼각형 세 점. `points="x,y x,y x,y"` 를 숫자로 되돌린다 — 앞 둘이 밑변, 셋째가 꼭짓점이다. */
 function corners(poly: Element): Array<{ x: number; y: number }> {
   return poly
     .getAttribute('points')!
@@ -118,9 +112,11 @@ describe('진영 표시 — 개수와 자리', () => {
   });
 
   it('★ 어느 코트에서도 viewBox 를 안 넘는다 — 넘으면 그냥 잘린다', () => {
-    // 여백은 골라인 바깥 1.5 m = 37.5 월드 px 뿐이다. 깃대(5) + 길이(30) = 35 가 그 안에
-    // 들어가는지를 **모든 코트·크기**에서 확인한다 — 한 조합만 넘어도 그 판에서는 잘린다.
-    expect(SIDE_FLAG_BASE_PX + SIDE_FLAG_LEN_PX).toBeLessThanOrEqual(1.5 * 25);
+    // 여백은 골라인 바깥 1.5 m = 37.5 월드 px 뿐이다. 0.5 m 를 띄우고 나면 25 가 남는데,
+    // 그 25 를 먹는 길이가 골라인 방향마다 다르다 — 세로 골라인은 삼각형 **높이**(20.8),
+    // 가로 골라인은 **한 변**(24). 한 변 쪽이 상한을 정하므로 그것부터 못 박는다.
+    expect(SIDE_FLAG_GAP_PX + SIDE_FLAG_SIDE_PX).toBeLessThanOrEqual(1.5 * 25);
+    expect(SIDE_FLAG_GAP_PX + SIDE_FLAG_H_PX).toBeLessThanOrEqual(1.5 * 25);
     for (const mode of COURT_MODES) {
       for (const size of COURT_SIZES) {
         const def = courtDefFor(mode, size);
@@ -137,26 +133,45 @@ describe('진영 표시 — 개수와 자리', () => {
     }
   });
 
-  it('★ 깃대가 **골라인과 나란하다** — 밑변 두 점이 골라인에서 같은 거리다', () => {
-    // 깃대를 골라인에 대고 꼭짓점을 판 밖으로 보내는 것이 이 모양의 배치 규칙이다. 뒤집으면
-    // (꼭짓점이 골라인 쪽) 글자가 앉을 넓은 자리가 라인 위로 올라간다.
-    const full = courtDefFor('full');
-    const f = marks('full').flags.find((x) => x.at.x < full.vbW / 2)!;
-    const [s1, s2, tip] = f.pts as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
-    expect(s1.x).toBeCloseTo(full.surface.x - SIDE_FLAG_BASE_PX, 6);
-    expect(s2.x).toBeCloseTo(full.surface.x - SIDE_FLAG_BASE_PX, 6);
-    expect(tip.x).toBeCloseTo(full.surface.x - SIDE_FLAG_BASE_PX - SIDE_FLAG_LEN_PX, 6);
-    expect(Math.abs(s1.y - s2.y)).toBeCloseTo(SIDE_FLAG_HALF_PX * 2, 6);
-
-    // 하프(가로 골라인) — 같은 식이 축만 바꿔 돈다.
-    const half = courtDefFor('half');
-    const line = half.surface.y + half.surface.h;
-    const hf = marks('half', 'away').flags[0]!;
-    expect(hf.pts.map((p) => p.y)).toEqual([line + SIDE_FLAG_BASE_PX, line + SIDE_FLAG_BASE_PX, line + SIDE_FLAG_BASE_PX + SIDE_FLAG_LEN_PX]);
+  // ★ 2026-08-16 기현 지시: *"깃발은 정삼각형에 꼭지점이 다 오른쪽을 향할것."*
+  it('★ 어느 골·어느 코트에서도 **정삼각형**이고 **꼭짓점이 오른쪽**이다', () => {
+    const side = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+    for (const mode of ['full', 'half'] as const) {
+      for (const f of marks(mode).flags) {
+        const [p0, p1, p2] = f.pts as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
+        const tag = `${mode}/${f.role}`;
+        // 정삼각형 — 세 변이 같다. 한 변만 재면 이등변이 통과한다.
+        for (const len of [side(p0, p1), side(p1, p2), side(p2, p0)]) expect(len, tag).toBeCloseTo(SIDE_FLAG_SIDE_PX, 6);
+        // 꼭짓점은 **오른쪽**. 밑변 두 점은 같은 x 에 서고 셋째 점만 그보다 오른쪽이다.
+        expect(p0.x, tag).toBeCloseTo(p1.x, 6);
+        expect(p2.x - p0.x, tag).toBeCloseTo(SIDE_FLAG_H_PX, 6);
+      }
+    }
   });
 
-  it('두 깃발이 서로 안 겹친다 — 골라인을 따라 밑변 폭보다 넓게 벌어진다', () => {
-    expect(SIDE_FLAG_SPACING_PX).toBeGreaterThan(SIDE_FLAG_HALF_PX * 2);
+  // ★ 2026-08-16 기현 지시: *"골라인과는 0.5미터 떨어져 둘것."* 어느 점이 골라인에 가장
+  //   가까운지는 방향마다 다르다 — 왼쪽 골은 꼭짓점, 오른쪽 골은 밑변, 하프는 밑변 위 끝.
+  //   재는 것은 언제나 **가장 가까운 점**이다.
+  it('★ 골라인에서 정확히 0.5 m 떨어진다', () => {
+    expect(SIDE_FLAG_GAP_PX).toBe(0.5 * 25);
+    const full = courtDefFor('full');
+    const mid = full.vbW / 2;
+    const fs = marks('full').flags;
+    for (const f of fs.filter((x) => x.at.x < mid)) {
+      expect(Math.max(...f.pts.map((p) => p.x)), '왼쪽 골').toBeCloseTo(full.surface.x - SIDE_FLAG_GAP_PX, 6);
+    }
+    for (const f of fs.filter((x) => x.at.x > mid)) {
+      expect(Math.min(...f.pts.map((p) => p.x)), '오른쪽 골').toBeCloseTo(full.surface.x + full.surface.w + SIDE_FLAG_GAP_PX, 6);
+    }
+    const half = courtDefFor('half');
+    const line = half.surface.y + half.surface.h;
+    for (const f of marks('half', 'away').flags) {
+      expect(Math.min(...f.pts.map((p) => p.y)), '하프').toBeCloseTo(line + SIDE_FLAG_GAP_PX, 6);
+    }
+  });
+
+  it('두 깃발이 서로 안 겹친다 — 골라인을 따라 한 변보다 넓게 벌어진다', () => {
+    expect(SIDE_FLAG_SPACING_PX).toBeGreaterThan(SIDE_FLAG_SIDE_PX);
     // 하프(가로 골라인) — x 로 벌어진다.
     const hs = marks('half', 'away').flags;
     expect(Math.abs(hs[0]!.at.x - hs[1]!.at.x)).toBeCloseTo(SIDE_FLAG_SPACING_PX, 6);

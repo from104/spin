@@ -3,7 +3,7 @@
 // *"진영을 직관적으로 표시하려면 골라인 바로 뒤에 적당한 크기의 색이 있는 점을 표시하면 됨"*
 // *"점 2개 표시해야 해. 골리, 일반"* (2026-08-15)
 // *"진영 표시 원이 직관적으로 공과 혼돈할 수있으니 삼각형 깃발 형대로. 안에 G,P 표기해서."*
-//   (2026-08-16)
+// *"깃발은 정삼각형에 꼭지점이 다 오른쪽을 향할것. 골라인과는 0.5미터 떨어져 둘것"* (2026-08-16)
 //
 // ── 왜 원이 아닌가 ─────────────────────────────────────────────────────────────────
 // 판 위에서 **원은 이미 공이다**. 진영 표시도 원이면 코치는 골라인 뒤에 공이 두 개 놓인 것으로
@@ -28,33 +28,38 @@
 // 그것이 곧 "플랫은 진영이 없다" 는 기현님 지시의 구현이다(버튼도 같은 조건으로 비활성이다).
 import { memo } from 'react';
 import { inkFor } from '../core/colors.ts';
+import { PX_PER_M } from '../core/units.ts';
 import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 import type { TeamSide, TeamStyle } from '../model/drill.ts';
 import { defaultDefense, defendedZones } from '../model/rules.ts';
 import { uprightAt, useStageRot } from './stageRot.tsx';
 
-// ── 깃발은 **골라인에 깃대를 대고 밖으로 펄럭인다** ────────────────────────────────────
-// 깃대(밑변)를 골라인과 나란히 두고 꼭짓점을 판 밖으로 보낸다. 이 방향이어야 하는 이유는
-// 여백이 한 방향으로만 좁기 때문이다: 골라인 바깥 여백은 `MARGIN_PX` = 1.5 m = **37.5 월드
-// px** 이고 viewBox 는 딱 거기서 끝난다(넘으면 그냥 잘린다). 반대로 골라인을 **따라가는**
-// 방향은 코트 길이라 사실상 무한하다. 그래서 폭(깃대)은 넉넉히, 깊이(꼭짓점)는 37.5 안에서.
+// ── 모양은 **정삼각형 하나**, 방향은 **언제나 오른쪽** (기현 지시 2026-08-16) ──────────────
+// 처음에는 골라인에 밑변을 대고 판 밖으로 꼭짓점을 보냈다 — 즉 왼쪽 골의 깃발은 왼쪽을,
+// 오른쪽 골의 깃발은 오른쪽을 향했다. 코치가 판을 볼 때 그 둘은 **다른 표식**으로 읽힌다.
+// 방향을 하나로 묶으면 네 깃발이 한 종류가 되고, 남는 차이는 색과 글자뿐이다 — 그 둘이
+// 이 표식이 실제로 말하려는 것이다. 깃대를 지운 것도 같은 이유다: 지시가 '정삼각형' 이고,
+// 삐져나온 깃대는 여백 예산(아래)을 먹으면서 모양을 흐린다.
 //
-// 글자는 밑변 쪽 넓은 자리에 앉는다 — 꼭짓점 쪽은 좁아서 글자가 삼각형 밖으로 나간다.
-/** 깃대(밑변)가 골라인에서 떨어진 거리(월드 px). 0 이면 라인에 붙어 라인을 지운다. */
-export const SIDE_FLAG_BASE_PX = 5;
-/** 깃대에서 꼭짓점까지(월드 px). `BASE + LEN` 이 37.5 를 넘으면 잘린다. */
-export const SIDE_FLAG_LEN_PX = 30;
-/** 깃대 반길이(월드 px) — 밑변 폭의 절반. */
-export const SIDE_FLAG_HALF_PX = 11;
-/** 깃대 중심 사이(월드 px) — 골라인을 따라. 밑변 폭(22)보다 커야 두 깃발이 안 겹친다. */
-export const SIDE_FLAG_SPACING_PX = 32;
-/** 글자 중심이 깃대에서 들어간 깊이(월드 px). 이 자리의 삼각형 폭은 22×(1−10/30) ≈ 14.7 이라
- *  11 px 글자가 위아래로 안 닿는다. 더 깊이 넣으면 좁아져서 글자가 변을 뚫는다. */
-const INK_DEPTH_PX = 10;
-/** 글자 크기(월드 px). */
+// ⚠️ '오른쪽' 은 **판의 좌표계**다. 태블릿 90° 회전(§6.4)에서는 판 전체가 도니까 화면에서는
+//    아래를 향한다 — 칩·골대와 같은 세계에 사는 것이 옳다. 글자만 바로 세운다.
+//
+// ── 여백 예산 ───────────────────────────────────────────────────────────────────────
+// 골라인 바깥 여백은 `MARGIN_PX` = 1.5 m = **37.5 월드 px** 이고 viewBox 는 딱 거기서 끝난다
+// (넘으면 그냥 잘린다). 골라인에서 0.5 m(12.5) 띄우고 나면 **25 px** 이 남는다.
+//   · 세로 골라인(풀) — 삼각형이 여백 쪽으로 먹는 길이는 **높이**(변×√3/2 ≈ 20.8) 다.
+//   · 가로 골라인(하프) — 밑변이 골라인과 수직이므로 먹는 길이는 **한 변**(24) 이다.
+// 그래서 한 변의 상한을 정하는 것은 하프 코트다: 24 + 12.5 = 36.5 ≤ 37.5.
+/** 골라인에서 삼각형의 **가장 가까운 점**까지(월드 px). 0.5 m — 기현 지시 2026-08-16. */
+export const SIDE_FLAG_GAP_PX = 0.5 * PX_PER_M;
+/** 정삼각형 한 변(월드 px). 0.96 m. 위 예산에서 하프 코트가 정하는 상한(25)의 바로 아래다. */
+export const SIDE_FLAG_SIDE_PX = 24;
+/** 정삼각형 높이 — 한 변에서 파생한다. 손으로 20.8 을 적으면 변을 바꿨을 때 삼각형이 찌그러진다. */
+export const SIDE_FLAG_H_PX = (SIDE_FLAG_SIDE_PX * Math.sqrt(3)) / 2;
+/** 두 깃발 중심 사이(월드 px) — 골라인을 따라. 한 변(24)보다 커야 세로 골라인에서 안 겹친다. */
+export const SIDE_FLAG_SPACING_PX = 30;
+/** 글자 크기(월드 px). 무게중심 자리의 삼각형 높이는 한 변의 2/3 = 16 이라 위아래가 안 닿는다. */
 const INK_SIZE_PX = 11;
-/** 깃대가 밑변 양 끝에서 더 나가는 길이 — 이 삐져나온 조각이 삼각형을 **깃발로** 읽게 한다. */
-const STAFF_OVERHANG_PX = 3;
 /** 테두리 — 코트 밖 배경(#0b0f14 계열) 위에서도, 흰 라인 위에서도 깃발의 경계가 남는다. */
 const FLAG_STROKE = '#0b0f14';
 const FLAG_STROKE_W = 1.5;
@@ -111,43 +116,36 @@ export const SideMarks = memo(function SideMarks({ mode, size, teams, defense }:
         return (
           <g key={`${z.rect.x},${z.rect.y}`} data-side-mark={z.defender} data-side-index={i}>
             {flags.map((f) => {
-              // 깃대 중심 → 깃대 양 끝 → 꼭짓점. 전부 (바깥 o, 골라인 a) 두 축의 합이라
-              // 코트가 세로 골라인이든 가로 골라인이든 같은 식이 그대로 돈다.
-              const bx = p.cx + p.ox * SIDE_FLAG_BASE_PX + p.ax * f.t;
-              const by = p.cy + p.oy * SIDE_FLAG_BASE_PX + p.ay * f.t;
-              const s1x = bx - p.ax * SIDE_FLAG_HALF_PX;
-              const s1y = by - p.ay * SIDE_FLAG_HALF_PX;
-              const s2x = bx + p.ax * SIDE_FLAG_HALF_PX;
-              const s2y = by + p.ay * SIDE_FLAG_HALF_PX;
-              const tipX = bx + p.ox * SIDE_FLAG_LEN_PX;
-              const tipY = by + p.oy * SIDE_FLAG_LEN_PX;
-              const inkX = bx + p.ox * INK_DEPTH_PX;
-              const inkY = by + p.oy * INK_DEPTH_PX;
-              const over = STAFF_OVERHANG_PX;
+              // 삼각형은 **판 좌표계에 고정**이다(꼭짓점이 오른쪽). 골라인 방향과 무관하므로
+              // 자리만 (바깥 o, 골라인 a) 두 축으로 잡고, 모양은 상자 중심에서 바로 찍는다.
+              //
+              // 골라인에서 **가장 가까운 점**이 정확히 0.5 m 여야 한다 — 그런데 어느 점이
+              // 가장 가까운지가 골라인 방향에 따라 갈린다(세로 골라인이면 꼭짓점 또는 밑변,
+              // 가로 골라인이면 밑변의 위/아래 끝). 그래서 상자 중심을 골라인에서
+              // `0.5 m + 그 방향으로의 반폭` 만큼 민다 — 두 경우가 한 식으로 닫힌다.
+              const reach = (Math.abs(p.ox) * SIDE_FLAG_H_PX + Math.abs(p.oy) * SIDE_FLAG_SIDE_PX) / 2;
+              const cx = p.cx + p.ox * (SIDE_FLAG_GAP_PX + reach) + p.ax * f.t;
+              const cy = p.cy + p.oy * (SIDE_FLAG_GAP_PX + reach) + p.ay * f.t;
+              const hx = SIDE_FLAG_H_PX / 2;
+              const hy = SIDE_FLAG_SIDE_PX / 2;
+              // 글자는 **무게중심**에 앉는다 — 정삼각형에서 세 점의 평균이고, 꼭짓점 쪽으로
+              // 더 밀면 좁아져서 글자가 빗변을 뚫는다.
+              const inkX = cx - SIDE_FLAG_H_PX / 6;
               return (
                 <g key={f.role} data-side-flag={f.role}>
                   <polygon
-                    points={`${s1x},${s1y} ${s2x},${s2y} ${tipX},${tipY}`}
+                    points={`${cx - hx},${cy - hy} ${cx - hx},${cy + hy} ${cx + hx},${cy}`}
                     fill={f.fill}
                     stroke={FLAG_STROKE}
                     strokeWidth={FLAG_STROKE_W}
                     strokeLinejoin="round"
                   />
-                  <line
-                    x1={s1x - p.ax * over}
-                    y1={s1y - p.ay * over}
-                    x2={s2x + p.ax * over}
-                    y2={s2y + p.ay * over}
-                    stroke={FLAG_STROKE}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                  />
                   {/* 글자는 **판이 돌아도 바로 선다**(§6.4) — 등번호·격자 라벨과 같은 규율이다.
                       옆으로 누운 G/P 는 색을 못 가리는 사람에게 남은 유일한 단서를 지운다. */}
                   <text
                     x={inkX}
-                    y={inkY}
-                    transform={uprightAt(rot, inkX, inkY)}
+                    y={cy}
+                    transform={uprightAt(rot, inkX, cy)}
                     fill={inkFor(f.fill)}
                     fontFamily={FONT}
                     fontSize={INK_SIZE_PX}
