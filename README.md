@@ -1,32 +1,215 @@
-# React + TypeScript + Vite
+# SPIN
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+**Strategy Planner for INclusive football** — 파워체어 풋볼(전동휠체어 축구) 4v4 전술 보드·드릴 플래너.
 
-Currently, two official plugins are available:
+**▶ [지금 열기 — spin.atit.dev](https://spin.atit.dev)** (추후 `spin.atit.app` 으로 옮깁니다)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+> **상태: 개발 중 (미완성, 0.1.x)** — 실제 코트에서 써 보며 고치는 중입니다. 기능은 동작하지만
+> 판단이 뒤집히는 일이 잦습니다. 뒤집힌 결정은 지우지 않고 **왜 그렇게 정했었는지까지** 코드
+> 주석과 [CHANGELOG.md](CHANGELOG.md) 에 남깁니다.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 이 문서를 읽는 사람에게
 
-## Expanding the Oxlint configuration
+이 README 는 **나중의 나와 AI 에이전트**를 첫 독자로 두고 씁니다. 세션이 끊기고 몇 주 뒤에
+돌아왔을 때, 혹은 이 저장소를 처음 여는 에이전트가 **코드를 읽기 전에** 알아야 할 것들을
+한 파일에 모읍니다: 무엇을 만들고 있는가, 왜 이런 모양인가, 어디를 봐야 하는가, 그리고
+이 저장소가 스스로에게 건 규율은 무엇인가.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+세부는 전부 `docs/` 에 있고 이 문서는 그리로 가는 지도입니다. 다만 **지도만 있고 설명이 없으면
+매번 8,500줄을 다시 읽어야 하므로**, 판단의 뼈대는 여기 옮겨 적습니다.
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+---
+
+## 1. 파워체어 풋볼이란
+
+전동휠체어를 탄 선수 4명이 한 팀을 이뤄 실내 코트(농구장 규격)에서 하는 축구입니다.
+휠체어 앞에 붙인 **가드(풋가드)** 로 지름 33 cm 공을 밀고 칩니다. 국제 경기 규칙은
+**FIPFA**(Fédération Internationale de Powerchair Football Association)의 *Laws of the Game* 이고,
+이 앱은 **2025년판**을 기준으로 삼습니다.
+
+전술판을 만드는 데 중요한 규칙은 셋입니다. 앱의 기능 절반이 여기서 나옵니다.
+
+| 규칙 | 내용 | 앱에서의 모습 |
+|---|---|---|
+| **2-on-1** | 공 **반경 3 m** 안에 **같은 팀 선수가 둘 이상** 들어가면 반칙 (상대 선수가 그 안에 있을 때) | 공을 따라다니는 **판정 링** — 깨끗하면 흰 파선, 위반이면 붉은 실선 + 음성 안내 |
+| **골 지역 2인** | 골 지역 안에 수비 팀이 **둘까지** 설 수 있습니다. **셋째부터 반칙**(골키퍼 포함) | 골 지역 안쪽 채움이 연한 붉은색 → 위반 시 진한 붉은색 (진영별로 각각) |
+| **코트 3단** | 최대 30×18 m · 표준 28×15 m(농구 코트) · 최소 25×14 m | 드릴마다 코트 크기를 들고 다닙니다 |
+
+> ⚠️ **센터 서클은 없습니다.** Laws 2025 전문에 *"circle"* 이 한 번도 안 나옵니다 —
+> 축구 감각으로 그려 넣기 쉬운데, 파워체어 풋볼에는 없는 선입니다.
+
+색 하나에 기대지 않습니다. 위반 표시는 **① 파선→실선 ② 음성 안내 ③ 색**의 세 채널로 갑니다.
+체육관 조명과 화면 각도에서 붉은색만으로는 안 읽히기 때문입니다.
+
+---
+
+## 2. 무엇을 하는 앱인가
+
+화면은 넷입니다.
+
+### 전술판 (`board`)
+스텝이 없는 **한 장짜리 판**. 지금 당장 그려서 보여 주는 용도입니다. 여기서 그린 판은
+자동 저장되고, 드릴로 옮기지 않아도 그대로 남습니다.
+
+### 드릴 라이브러리 (`drills`) · 편집기
+**스텝(장면)의 연속**으로 훈련 하나를 만듭니다. 드릴당 최대 60 스텝. 각 스텝은 이전 스텝을
+복제해서 조금씩 옮기는 식으로 만들고, 시연 모드가 그 사이를 **보간해서 움직임으로** 보여 줍니다.
+라이브러리는 카드 썸네일을 자동 생성하고 카테고리·검색으로 거릅니다.
+
+코트에 놓을 수 있는 것:
+
+| 개체 | 수량 | 비고 |
+|---|---|---|
+| 휠체어(선수) | 양팀 각 4 (GK 포함) | 4존 운동학 — §3 참조 |
+| 공 | 최대 8 | 트레이에 남은 개수가 보입니다 |
+| 훈련 콘 | 색상별 8 (2색 = 최대 16) | |
+| 화살표 | 스텝당 40 | 경로 / 패스 두 종류 |
+| 메모(쪽지) | 스텝당 20 | 탭한 자리에 놓이고 글 칸이 바로 열립니다 |
+| 도형 | | 구역 표시용 |
+
+### 시연 모드 (`present`)
+팀 앞에서 보여 주는 화면. 전체화면, 큰 버튼, **화면 꺼짐 방지(Wake Lock)**, 스와이프로 스텝 이동.
+드릴 여러 개를 순서대로 묶은 **훈련 세션** 단위로도 돌릴 수 있습니다.
+
+### 설정 (`settings`)
+팀 기본값, 화면 확대 배율, 기기 이사 파일 읽기.
+
+### 내보내기 — 큰 항목 셋
+| | 무엇 |
+|---|---|
+| **그림 (PNG)** | 지금 이 장면 한 장. 대화방에 그대로 붙습니다 |
+| **인쇄 · PDF** | 스텝마다 한 장. 브라우저 인쇄에서 '대상: PDF로 저장' |
+| **기기 이사 파일 (JSON)** | 드릴·세션·설정·전술판을 통째로. 새 기기에서 다시 엽니다 |
+
+---
+
+## 3. 설계의 뼈대
+
+### 기술 결정
+
+| 항목 | 결정 | 이유 |
+|---|---|---|
+| 스택 | React 19 + Vite + TypeScript | |
+| 물리 | **matter.js** (headless) | 그리기는 안 맡깁니다. 충돌·관성만 |
+| 렌더 | **SVG** | 확대해도 안 뭉개지고, 인쇄·PNG·화면이 **같은 그림**에서 나옵니다 |
+| 저장 | **로컬 전용, 서버 없음** | IndexedDB(`idb`) + JSON 파일 |
+| 배포 | 정적 빌드 | **체육관에 인터넷이 없다고 가정** — 폰트·에셋 전부 번들 내장 |
+
+서버가 없다는 것이 제약이 아니라 요구입니다. 코치의 드릴은 코치 기기에만 있고, 기기를 옮길
+때는 파일 하나로 옮깁니다.
+
+### 좌표계
+
+**월드 단위 = 미터, 렌더 스케일 25 px/m.** 코트 좌표의 **유일한 출처는
+`src/model/court.ts` 의 `COURT_DEFS`** 입니다 — 문서의 표는 그 값을 옮겨 적은 것이지 별개의
+권위가 아닙니다.
+
+| 모드 | 실제 규격 | viewBox |
+|---|---|---|
+| 풀 (최대) | 30 × 18 m | `0 0 825 525` |
+| 풀 (표준) | 28 × 15 m | `0 0 775 450` |
+| 풀 (최소) | 25 × 14 m | `0 0 700 425` |
+| 하프 | 18 × 15 m, 90° 회전 | `0 0 525 450` |
+| 플랫 | 선 없는 자유판 | `0 0 525 450` |
+
+코트 마진은 **1.5 m**. 라인 밖 배치(킥인·코너)에 길이 1.5 m 짜리 휠체어가 온전히 서야 해서
+1.0 m 로는 모자랐습니다. 마진은 코트를 줄이는 게 아니라 **판을 넓히는 것**입니다.
+
+### 휠체어는 잡는 곳이 곧 동작이다
+
+전동휠체어의 회전축은 차체 한가운데가 아니라 **뒤에서 전체 길이의 1/5 지점**(탑승자 머리
+위치)입니다. 그래서 차체를 잡는 위치마다 결과가 달라야 실제 움직임과 맞습니다.
+
+| 잡는 곳 | 동작 |
+|---|---|
+| 뒤 절반 | 그대로 이동 |
+| 앞 절반 | 제자리 회전 |
+| 차체 밖 앞·뒤 손잡이 | 줄로 끄는 견인 — 진행 방향을 따라 자연스럽게 방향 전환 |
+
+조작 설명이 필요 없는 것이 목표입니다. 잡아 보면 알게 되는 쪽이 옳습니다.
+
+### 접근성은 출시 조건이다
+
+[docs/DESIGN.md §7](docs/DESIGN.md) 이 **계약**으로 못 박고 있고, 테스트가 지킵니다:
+대비 실측, 포커스 표시, 터치 타깃 최소 크기, 화면 확대 배율, **전 기능 키보드 조작**,
+SPA 포커스 관리, ARIA 마크업. 코트 위 개체도 방향키로 고르고 옮길 수 있습니다.
+
+---
+
+## 4. 코드 지도
+
+```
+src/
+├─ model/      데이터 모델·검증·규칙 판정 (court.ts = 좌표의 유일한 출처, rules.ts = 2-on-1/골 지역)
+├─ physics/    matter.js 래퍼·4존 운동학·히트테스트
+├─ render/     SVG 렌더 (CourtStage.tsx 가 무대, objects/ 가 개체별 그리기)
+├─ store/      에디터 상태 (reducer)
+├─ storage/    IndexedDB·파일 입출력 (drillRepo·sessionRepo·prefs·transfer)
+├─ features/   화면별 기능 (board · editor · library · present · print · export · settings · home)
+├─ ui/         공용 UI 부품 (Modal · Button · Drawer · LiveRegion …)
+├─ core/       상수·키맵·id
+├─ app/        셸·라우팅
+└─ test/       교차 검증 테스트 (문서↔코드 대조 포함)
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+읽는 순서를 하나만 고른다면 **`src/core/constants.ts` → `src/model/court.ts` → `src/render/CourtStage.tsx`** 입니다.
+숫자가 어디서 오고, 좌표가 어떻게 정의되고, 그 둘이 화면에서 어떻게 만나는지가 그 셋에 있습니다.
+
+---
+
+## 5. 이 저장소에서 일하는 법
+
+규율이 셋 있습니다. 셋 다 **사고를 겪고 생긴 것**이라, 지키지 않으면 같은 사고가 다시 납니다.
+
+1. **주석이 사실인지 테스트가 확인한다.** `src/test/docsMatchCode.test.ts` 가 `docs/REQUIREMENTS.md`
+   의 표를 **텍스트로 읽어** 코드 상수와 대조합니다. 코드를 바꾸고 문서를 안 고치면(그 반대도)
+   그 테스트가 먼저 빨개집니다. *"확인하는 테스트가 없으면 주석은 언젠가 거짓이 된다"* 를
+   이미 겪었습니다(2026-08-11, 좌표 리터럴 사고).
+2. **좁혀서 돌리고, 커밋 직전에 한 번 전부 돌린다.** `npm run test:rel <파일>` 은 그 파일을
+   import 하는 테스트만 돌립니다(2~5초). 전체는 55초이고 **커밋 직전 한 번**입니다.
+3. **뒤집은 결정은 근거를 남긴다.** 왜 그렇게 정했었는지를 지우면, 몇 달 뒤에 같은 이유로
+   같은 결정을 다시 하게 됩니다.
+
+에이전트용 세부 규약은 `CLAUDE.md` 와 [docs/DESIGN.md](docs/DESIGN.md) §0(문서 지위·읽는 법)에 있습니다.
+
+### 문서 지도
+
+| 파일 | 내용 |
+|---|---|
+| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 요구사항 확정본. 숫자는 테스트가 지킵니다 |
+| [docs/DESIGN.md](docs/DESIGN.md) | 구현 계약서 — 좌표·상수·시그니처·파일 소유권·접근성 계약 |
+| [docs/FALSIFICATION-BASELINE.md](docs/FALSIFICATION-BASELINE.md) | "이 주장이 틀렸다면 무엇이 보일 것인가" 기준선 |
+| [docs/FIELD-TEST.md](docs/FIELD-TEST.md) | 실기 검증 항목과 결과 |
+| [docs/PLAN-2026-08.md](docs/PLAN-2026-08.md) | 진행 계획·결정 기록 |
+| [CHANGELOG.md](CHANGELOG.md) | 변경 이력 (Keep a Changelog) |
+
+---
+
+## 6. 개발 실행
+
+```bash
+npm install
+npm run dev          # 개발 서버
+npm run build        # tsc -b && vite build (타입체크 포함)
+npm run lint         # oxlint
+npm run test         # 전체 (커밋 직전 한 번)
+npm run test:rel src/render/CourtStage.tsx   # 그 파일을 쓰는 테스트만
+```
+
+현재 **240개 파일 3,195개 테스트**가 돌고 있습니다.
+
+---
+
+## 7. 아직 아닌 것
+
+- 온라인 공유·협업 (서버가 없는 것이 설계입니다 — 파일로 옮깁니다)
+- 실시간 경기 기록·통계
+- 모바일 네이티브 앱 (웹앱이고, 홈 화면에 추가해 씁니다)
+
+---
+
+## 라이선스
+
+**비공개.** 이 저장소는 private 이며 사용 조건을 따로 두지 않습니다.
