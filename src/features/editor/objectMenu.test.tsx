@@ -1,4 +1,4 @@
-// 개체 메뉴 — 잠김 · 무시 · 삭제 (2026-08-14 기현 지시).
+// 개체 메뉴 — 잠김 · 무시 · 빼기/삭제 (2026-08-14 기현 지시).
 //
 // 세 층을 따로 잰다. 하나로 뭉치면 둘이 죽어도 초록이다:
 //   ① **손짓** — 오른쪽 클릭 / 긴 터치로 메뉴가 뜨는가(useLongPressMenu, 순수 타이머).
@@ -20,6 +20,7 @@ import { HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { BoardScreen } from '../board/BoardScreen.tsx';
+import { ObjectMenu } from './ObjectMenu.tsx';
 import { LONG_PRESS_MS, MOVE_CANCEL_PX, useLongPressMenu } from './useLongPressMenu.ts';
 import { setStepFlag } from '../../model/edits.ts';
 import { createDrill } from '../../model/defaults.ts';
@@ -251,6 +252,48 @@ describe('메뉴 — 화면 끝', () => {
     // 명단에서 지워졌다면 이 수가 그대로이거나 줄어든다. 늘어난다는 것은 **그 선수가
     // 트레이에 다시 섰다**는 뜻이다.
     await waitFor(() => expect(slots().length).toBe(before + 1));
+  });
+
+  // ── 마지막 항목의 말 — '빼기' 냐 '삭제' 냐 ────────────────────────────────────────
+  // 기준은 **트레이에 다시 꺼낼 자리가 있는가** 다(기현 지시 2026-08-16). 모델이 cast 에서
+  // 지우는지가 아니다 — 공·콘은 cast 에서도 사라지지만 트레이에 소스가 늘 있어 코치가 겪는
+  // 일은 '뺐다' 이지 '지웠다' 가 아니다.
+  describe('마지막 항목은 개체 종류에 따라 말이 갈린다', () => {
+    const base = { id: 'ch_1', x: 10, y: 10, locked: false, ignored: false, canIgnore: true };
+    const noop = () => {};
+
+    const openWith = (returnsToTray: boolean) =>
+      render(
+        <ObjectMenu
+          target={{ ...base, returnsToTray }}
+          onClose={noop}
+          onToggleLock={noop}
+          onToggleIgnore={noop}
+          onRemove={noop}
+        />,
+      );
+
+    it('다시 꺼낼 자리가 있으면 [빼기] 다 — 칩·공·콘', () => {
+      openWith(true);
+      expect(screen.getByRole('menuitem', { name: '빼기' })).toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: '삭제' })).toBeNull();
+    });
+
+    it('다시 꺼낼 자리가 없으면 [삭제] 다 — 화살표·메모·도형', () => {
+      openWith(false);
+      expect(screen.getByRole('menuitem', { name: '삭제' })).toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: '빼기' })).toBeNull();
+    });
+
+    it('둘 다 붉다 — 색의 근거는 되돌릴 수 있는가가 아니라 판에서 사라지는가다', () => {
+      // 색까지 갈라 버리면 "빼기는 안전한 항목" 으로 읽혀 잠금·무시와 한 덩어리가 된다.
+      for (const returnsToTray of [true, false]) {
+        cleanup();
+        openWith(returnsToTray);
+        const item = screen.getByRole('menuitem', { name: returnsToTray ? '빼기' : '삭제' });
+        expect(item.style.color, String(returnsToTray)).toBe('rgb(255, 107, 107)');
+      }
+    });
   });
 
   it('Esc 로 닫힌다', async () => {

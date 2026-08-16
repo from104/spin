@@ -482,6 +482,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         ignored: ignoredSet.has(id),
         // '무시' 는 **휠체어만**이다(기현 지시).
         canIgnore: isId(id, 'ch'),
+        // 트레이에 다시 꺼낼 자리가 있는 것만 '빼기' 다 — 칩·공·콘. 손으로 그린 것
+        // (화살표·메모·도형)은 다시 꺼낼 자리가 없어 '삭제' 다(ObjectMenu 의 그 필드 주석).
+        returnsToTray: !isId(id, 'ar') && !isId(id, 'nt') && !isId(id, 'sh'),
       });
     },
     [lockedSet, ignoredSet],
@@ -550,7 +553,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       arrowHandles={{ arrow: selectedArrow }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />
-    {/* 개체 메뉴 — 잠김 · 무시 · 빼기. 무대 **밖**(포털)이라 코트의 overflow·회전에 안 잘린다. */}
+    {/* 개체 메뉴 — 잠김 · 무시 · 빼기/삭제. 무대 **밖**(포털)이라 코트의 overflow·회전에 안 잘린다. */}
     <ObjectMenu
       target={menu}
       onClose={() => setMenu(null)}
