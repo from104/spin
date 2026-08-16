@@ -550,13 +550,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       arrowHandles={{ arrow: selectedArrow }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />
-    {/* 개체 메뉴 — 잠김 · 무시 · 삭제. 무대 **밖**(포털)이라 코트의 overflow·회전에 안 잘린다. */}
+    {/* 개체 메뉴 — 잠김 · 무시 · 빼기. 무대 **밖**(포털)이라 코트의 overflow·회전에 안 잘린다. */}
     <ObjectMenu
       target={menu}
       onClose={() => setMenu(null)}
       onToggleLock={(id, on) => dispatch({ type: 'FLAG_SET', flag: 'locked', id, on })}
       onToggleIgnore={(id, on) => dispatch({ type: 'FLAG_SET', flag: 'ignored', id, on })}
-      onDelete={(id) => {
+      onRemove={(id) => {
         // 지우는 길은 개체 종류마다 다르다 — 화살표·메모·도형은 자기 액션, 나머지(칩·공·콘)는
         // 스텝 범위를 갖는 OBJECT_REMOVE 다.
         if (isId(id, 'ar')) dispatch({ type: 'ARROW_REMOVE', id });

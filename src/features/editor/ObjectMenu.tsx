@@ -35,7 +35,15 @@ export interface ObjectMenuProps {
   onClose(): void;
   onToggleLock(id: string, next: boolean): void;
   onToggleIgnore(id: string, next: boolean): void;
-  onDelete(id: string): void;
+  /** 개체를 판에서 뺀다. **개체 종류에 따라 뒷일이 다르다** — 라벨이 '삭제' 가 아니라
+   *  '빼기' 인 이유가 여기 있다(2026-08-16 기현 지시):
+   *    · 칩(선수) — 코트에서만 빠지고 **명단에는 그대로 남는다**. 트레이 주차 슬롯으로
+   *      돌아가므로 언제든 다시 놓을 수 있다. 트레이로 끌어 빼는 것과 **같은 동작**이다.
+   *    · 공·콘   — 어느 스텝에도 안 남으면 명단에서도 사라진다(edits.pruneOrphanCast).
+   *    · 화살표·메모·도형 — 자기 액션으로 지워진다.
+   *  한 항목이 셋을 덮으므로 라벨은 **셋 다에 대해 참인 말**이어야 한다. '삭제' 는 칩에
+   *  대해 거짓이었다 — 지우지 않는데 지운다고 적혀 있었다. */
+  onRemove(id: string): void;
 }
 
 const ITEM: React.CSSProperties = {
@@ -54,7 +62,7 @@ const ITEM: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onDelete }: ObjectMenuProps) {
+export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove }: ObjectMenuProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const firstRef = useRef<HTMLButtonElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -160,14 +168,20 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onDe
 
         <div aria-hidden style={{ height: 1, margin: '5px 10px', background: 'var(--border)' }} />
 
-        {/* 삭제만 붉다 — 되돌릴 수 없는 항목은 색으로도 갈려야 한다. 잠금·무시의 보라와
-            같은 색을 쓰면 세 항목이 한 덩어리로 읽혀 실수로 누르기 쉬워진다.
-            (#d93a3a 는 빨강 팀 칩과 같은 값이다 — 여기는 메뉴 글자라 코트 위 개체와 섞이지 않는다.) */}
-        <button type="button" role="menuitem" onClick={act(() => onDelete(target.id))} style={{ ...ITEM, color: '#ff6b6b' }}>
+        {/* 이 항목만 붉다 — **판 위의 것을 사라지게 하는 유일한 항목**이라 잠금·무시와 한
+            덩어리로 읽히면 안 된다(같은 보라를 쓰면 세 항목이 한 뭉치가 되어 실수로 누르기
+            쉬워진다). 2026-08-16 정정: 예전 근거는 *"되돌릴 수 없는 항목"* 이었는데 **칩에
+            대해서는 거짓**이다 — 칩은 명단에 남고 되돌리기도 된다. 색을 남기는 이유는
+            비가역성이 아니라 **판에서 사라진다는 사실 자체**다(기현 결정: 그대로 붉게).
+            (#d93a3a 는 빨강 팀 칩과 같은 값이다 — 여기는 메뉴 글자라 코트 위 개체와 섞이지 않는다.)
+
+            아이콘이 ✕ 가 아니라 ← 인 것도 같은 이유다: ✕ 는 '없앤다', ← 는 '판 밖으로
+            물린다'. 칩에게 참인 쪽은 뒤쪽이다. */}
+        <button type="button" role="menuitem" onClick={act(() => onRemove(target.id))} style={{ ...ITEM, color: '#ff6b6b' }}>
           <span aria-hidden style={{ width: '1.125rem', textAlign: 'center' }}>
-            ✕
+            ←
           </span>
-          삭제
+          빼기
         </button>
       </div>
     </>,

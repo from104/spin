@@ -152,12 +152,12 @@ afterEach(() => {
 });
 
 describe('메뉴 — 화면 끝', () => {
-  it('휠체어를 오른쪽 클릭하면 잠금 · 무시 · 삭제가 뜬다', async () => {
+  it('휠체어를 오른쪽 클릭하면 잠금 · 무시 · 빼기가 뜬다', async () => {
     const { chair } = await openBoardWithChair();
     expect(menu()).toBeNull(); // 대조군
     fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
     await waitFor(() => expect(menu()).not.toBeNull());
-    for (const name of ['잠금', '무시', '삭제']) {
+    for (const name of ['잠금', '무시', '빼기']) {
       expect(screen.getByRole('menuitem', { name }), name).toBeInTheDocument();
     }
   });
@@ -235,11 +235,22 @@ describe('메뉴 — 화면 끝', () => {
     await waitFor(() => expect(Number((chair.parentElement as HTMLElement).style.opacity || '1')).toBe(1));
   });
 
-  it('삭제하면 개체가 사라진다', async () => {
+  it('빼면 칩이 코트에서 사라진다 — 그러나 **트레이로 돌아온다**', async () => {
+    // 2026-08-16 — 라벨이 '삭제' 에서 '빼기' 로 바뀐 근거를 여기서 잰다. 코트에서 없어진
+    // 것만 보면 '삭제' 도 통과한다 — **돌아왔는가**가 두 말을 가르는 유일한 관측이다.
+    // 트레이는 나가 있는 선수를 `aria-hidden` 인 빈 자리(span)로 그리고, 돌아오면 다시
+    // 끌 수 있는 **버튼**으로 그린다(ToolRail 의 `c.placed` 분기). 그 전환을 본다.
     const { user, chair } = await openBoardWithChair();
+    const slots = () => screen.queryAllByRole('button', { name: /선수 배치$/ });
+    const before = slots().length;
+
     fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
-    await user.click(await screen.findByRole('menuitem', { name: '삭제' }));
+    await user.click(await screen.findByRole('menuitem', { name: '빼기' }));
     await waitFor(() => expect(document.querySelector('.court-obj[id^="obj-ch_"]')).toBeNull());
+
+    // 명단에서 지워졌다면 이 수가 그대로이거나 줄어든다. 늘어난다는 것은 **그 선수가
+    // 트레이에 다시 섰다**는 뜻이다.
+    await waitFor(() => expect(slots().length).toBe(before + 1));
   });
 
   it('Esc 로 닫힌다', async () => {
