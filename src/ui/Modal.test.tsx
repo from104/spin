@@ -109,13 +109,18 @@ describe('Modal', () => {
     });
     trigger.focus = detachedFocus;
 
+    // ⚠️ 2026-08-17 계약 변경 — 모달이 열려 있는 동안 배경은 포커스를 **못 가져간다**
+    // (아래 '배경이 포커스를 가져가면…' 참조). 그래서 위 `nextScreen.focus()` 는 되돌려졌고,
+    // 이 테스트가 원래 재려던 것만 남는다: **떼어진 트리거에 focus() 를 걸지 않는다**.
+    // 배경이 미리 포커스를 잡아 두는 것으로 §7.6 을 지키던 옛 경로는 이제 성립하지 않는다 —
+    // 지금 그 자리를 지키는 것은 '닫힐 때의 복귀는 가드가 방해하지 않는다' 쪽이다.
+    expect(nextScreen).not.toHaveFocus();
+
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-    // 가드가 없으면: detachedFocus 가 불리고 활성 요소가 body 로 떨어진다(§7.6 위반).
+    // 가드가 없으면: detachedFocus 가 불려 떼어진 노드에 focus 가 걸린다(§7.6 위반).
     expect(detachedFocus).not.toHaveBeenCalled();
-    expect(document.activeElement).not.toBe(document.body);
-    expect(nextScreen).toHaveFocus();
   });
 
   it('Tab 은 패널 안의 마지막 포커스 가능 요소에서 첫 요소로 순환한다(포커스 트랩)', async () => {
@@ -135,5 +140,41 @@ describe('Modal', () => {
     // 첫 포커스 가능 요소에서 Shift+Tab → 마지막 요소로 역순환.
     await user.tab({ shift: true });
     expect(last).toHaveFocus();
+  });
+
+  // ── 포커스 강탈 ────────────────────────────────────────────────────────────────────
+  // 기현 신고 2026-08-17: *"첫 배치 시 모달의 텍스트박스에 포커스가 안 간다"*. 모달을 여는
+  // 그 손짓이 아직 안 끝나서, 모달이 뜬 **뒤에** 도착한 mousedown 이 tabIndex 를 가진 코트로
+  // 포커스를 도로 가져갔다. Tab 트랩은 Tab 키만 보므로 이 경로를 통째로 놓친다.
+  it('배경이 포커스를 가져가면 패널 안 **마지막으로 서 있던 자리**로 되돌린다', async () => {
+    const user = userEvent.setup();
+    const outside = document.createElement('div');
+    outside.tabIndex = 0;
+    document.body.append(outside);
+
+    render(<Harness />);
+    await user.click(screen.getByRole('button', { name: '도움말 열기' }));
+
+    const last = screen.getByRole('button', { name: '마지막 버튼' });
+    last.focus();
+    expect(last).toHaveFocus();
+
+    // 배경이 스스로 포커스를 집어간다(코트의 tabIndex=0 <svg> 가 하던 일).
+    outside.focus();
+
+    // 닫기 ✕ 가 아니라 **마지막으로 서 있던 자리**로 돌아와야 한다 — 글 칸에 섰던 사람을
+    // ✕ 로 끌고 가면 되돌린 것이 아니다.
+    await waitFor(() => expect(last).toHaveFocus());
+    outside.remove();
+  });
+
+  it('닫힐 때의 복귀는 가드가 방해하지 않는다', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const trigger = screen.getByRole('button', { name: '도움말 열기' });
+    await user.click(trigger);
+    await user.click(screen.getByRole('button', { name: '닫기' }));
+    // 가드를 복귀 focus() 보다 나중에 뗐다면 여기서 사라질 패널로 도로 끌려간다.
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 });

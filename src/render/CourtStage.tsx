@@ -168,13 +168,14 @@ export interface CourtStageProps {
   /** 무대 pointerdown 을 **가로채지 않고** 곁에서 본다(긴 터치 타이머용). 기존 드래그 배선은
    *  그대로 흐른다 — 여기서 stopPropagation 하면 판 전체가 죽는다. */
   onStagePointerDownRaw?: (id: string | null, e: ReactPointerEvent<SVGSVGElement>) => void;
-  /** 개체 **더블클릭/더블탭**(기현 지시 2026-08-17). 대상은 오른쪽 클릭과 같은 식으로 DOM 이
-   *  말한다(`objectIdAt`). 개체 위가 아니면 `null` 이 간다 — 빈 코트 더블클릭에 뜻을 붙이지
-   *  않기 위해서다(무대는 판 이동·확대의 표면이기도 하다).
+  /** 개체 **더블클릭/더블탭**(기현 지시 2026-08-17). 개체 위에서만 부른다 — 빈 코트 더블클릭에
+   *  뜻을 붙이지 않는다(무대는 판 이동·확대의 표면이기도 하다).
    *
    *  ⚠️ 배치 도구에서는 두 번 빠르게 찍는 것이 곧 개체 둘이다(handlePointerDown 의 allowPan
-   *  주석과 같은 사정). 그래서 **무엇에 뜻을 붙일지는 여기가 정하지 않고** 호출부가 정한다. */
-  onStageDoubleClick?: (id: string | null, e: React.MouseEvent<SVGSVGElement>) => void;
+   *  주석과 같은 사정). 그래서 **무엇에 뜻을 붙일지는 여기가 정하지 않고** 호출부가 정한다:
+   *  `true` 를 돌려주면 "내가 먹었다" 는 뜻이고 그 손짓은 거기서 끝난다(선택·드래그·판 이동
+   *  무장을 열지 않는다). 아무것도 안 돌려주면 손짓은 평소대로 흐른다. */
+  onStageDoubleClick?: (id: string, e: ReactPointerEvent<SVGSVGElement>) => boolean | void;
   onObjectKeyDown?: (id: string, e: ReactKeyboardEvent<SVGGElement>) => void;
   onContainerKeyDown?: (e: ReactKeyboardEvent<SVGSVGElement>) => void;
   ariaDescribedBy?: string;
@@ -490,12 +491,6 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     onStageContextMenu?.(objectIdAt(e), e);
   };
 
-  /** 더블클릭 · 더블탭. 대상 판정은 오른쪽 클릭과 같은 `objectIdAt` 이다 — 히트테스트를 한 벌
-   *  더 만들면 "메뉴에는 잡히는데 더블클릭은 빗나간다" 가 생긴다. */
-  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>): void => {
-    onStageDoubleClick?.(objectIdAt(e), e);
-  };
-
   const handlePointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
     // ★ 오른쪽·가운데 버튼은 판을 **건드리지 않는다** (기현 신고 2026-08-15:
     // *"칩들에게는 왼쪽, 오른쪽 마우스 버튼 동작이 똑같다"*).
@@ -508,7 +503,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     // ⚠️ 터치·펜을 함께 막지 않도록 `pointerType` 을 본다 — 손가락의 첫 접촉도 `button` 은
     // 0 이지만, 마우스가 아닌 입력에서 button 을 신뢰하는 순간 긴 누름 경로가 통째로 죽는다.
     if (isSecondaryButton(e)) return;
-    onStagePointerDownRaw?.(objectIdAt(e), e);
+    const idAt = objectIdAt(e);
+    onStagePointerDownRaw?.(idAt, e);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (pointers.current.size === 2) {
@@ -532,6 +528,24 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       e.timeStamp - prev.t < DBL_CLICK_MS &&
       Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < DBL_CLICK_SLOP_PX;
     lastDownRef.current = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+
+    // 개체 위 더블은 **여기서** 잰다 — DOM 의 `dblclick` 은 쓸 수 없다.
+    //
+    // ⚠️ 2026-08-17 기현 신고 *"메모를 더블 클릭 시 모달이 안 나온다"* 의 원인: 첫 누름에서
+    // 판이 포인터를 캡처하는데(아래 `setPointerCapture`), 캡처가 걸린 동안 브라우저가 만드는
+    // 호환 마우스 사건 — click·dblclick 을 포함해서 — 은 **캡처 대상**, 즉 이 `<svg>` 로
+    // 재타깃된다. `objectIdAt` 이 보는 `e.target` 이 늘 무대 자신이 되니 "무엇을 더블클릭
+    // 했는가" 가 통째로 사라진다. jsdom 은 포인터 캡처가 없어 이 사고를 못 잰다.
+    //
+    // 우리가 재면 부수입이 둘이다: 손가락 **더블탭**도 같은 길을 타므로 `dblclick` 을 안
+    // 만드는 브라우저에서도 살고, 두 번째 누름 **즉시** 열려 dblclick 대기(≈100ms)가 없다.
+    if (isDouble && idAt && onStageDoubleClick?.(idAt, e) === true) {
+      // 호출부가 먹었다 — 이 손짓은 여기서 끝난다. 선택도 드래그도 판 이동 무장도 열지
+      // 않는다: 모달 뒤에서 개체가 끌려다니면 판이 거짓말을 한다.
+      pointers.current.delete(e.pointerId);
+      lastDownRef.current = null;
+      return;
+    }
 
     if (allowPan && (isDouble || panArmedRef.current)) {
       if (isDouble) setArmed(true);
@@ -798,7 +812,6 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       onPointerCancel={handlePointerEnd}
       onKeyDown={onContainerKeyDown}
       onContextMenu={handleContextMenu}
-      onDoubleClick={handleDoubleClick}
     >
       <defs>
         <ArrowMarkers uid={markerUid} colors={usedColors} />

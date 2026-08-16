@@ -29,6 +29,35 @@ export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', re
     openedByRef.current = (document.activeElement as HTMLElement) ?? null;
     const panel = panelRef.current;
     const first = panel?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+
+    // 포커스가 패널 **밖으로** 새면 되돌린다.
+    //
+    // ⚠️ 아래 Tab 순환만으로는 부족하다 — 그 트랩이 보는 것은 Tab 키뿐이라, 배경이 부르는
+    // `focus()` 와 **브라우저 기본 동작**은 그대로 새어 나간다. `aria-modal="true"` 라고
+    // 말해 놓고 배경이 포커스를 가져가면 그 말이 거짓이 된다.
+    //
+    // 2026-08-17 기현 신고 *"첫 배치 시 모달의 텍스트박스에 포커스가 안 간다"* 가 정확히
+    // 후자다: 메모를 놓는 그 누름이 모달을 여는데, 모달이 뜬 **뒤에** 같은 손짓의 호환
+    // mousedown 이 도착해 `tabIndex=0` 인 코트(CourtStage 의 `<svg>`)가 포커스를 도로
+    // 가져갔다. 글 칸은 열렸는데 커서가 없다. 여는 쪽에서 한 틱 더 미루는 식으로는 못 막는다
+    // — 손짓이 언제 끝나는지는 여는 쪽이 모른다. 막을 자리는 다이얼로그 자신이다.
+    //
+    // 되돌릴 자리는 **패널 안에서 마지막으로 서 있던 요소**다. 첫 요소(닫기 ✕)로 되돌리면
+    // 글 칸에 섰다가 뺏긴 사람이 ✕ 로 끌려간다.
+    let lastInside: HTMLElement | null = null;
+    const onFocusIn = (e: FocusEvent) => {
+      if (!panel?.isConnected) return;
+      const t = e.target instanceof HTMLElement ? e.target : null;
+      if (t && panel.contains(t)) {
+        lastInside = t;
+        return;
+      }
+      // 위에 다른 다이얼로그가 열렸으면 임자는 그쪽이다 — 둘이 서로 포커스를 뺏으면 둘 다 죽는다.
+      if (t?.closest('[role="dialog"]')) return;
+      (lastInside ?? panel).focus({ preventScroll: true });
+    };
+    document.addEventListener('focusin', onFocusIn);
+
     (first ?? panel)?.focus({ preventScroll: true });
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -63,6 +92,9 @@ export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', re
     document.addEventListener('keydown', onKeyDown, true);
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
+      // ⚠️ 아래 복귀 focus() 보다 **먼저** 떼야 한다 — 안 그러면 가드가 그 복귀를 "밖으로 샜다"
+      // 로 읽고 사라질 패널로 도로 끌어당긴다.
+      document.removeEventListener('focusin', onFocusIn);
       const back = returnFocusRef?.current ?? openedByRef.current;
       // InspectorHost.tsx:85 의 back?.isConnected 검사와 같은 형태. 검사가 없으면 화면 전환으로
       // 트리거가 이미 DOM 에서 떼어진 채 닫힐 때 떼어진 노드에 focus 를 걸게 되고, 그 호출이

@@ -7,14 +7,16 @@
 // [개체] 라는 경로는 화면 어디에도 안 적혀 있다. 그래서 문을 셋 낸다. 이 파일은 **셋이 다
 // 열리는가**와 **취소가 무엇을 뜻하는가**를 잰다. 하나만 재면 나머지 둘은 조용히 죽는다 —
 // 실제로 이 저장소에서 "메뉴로는 지워지는데 키보드로는 안 지워지는" 도형이 그렇게 생겼다.
+import type { RefObject } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DEFAULT_ZONES } from '../../core/constants.ts';
 import { newId } from '../../core/ids.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import type { NoteId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
 import type { Drill } from '../../model/drill.ts';
+import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import { createTransformWriter } from '../../render/transformWriter.ts';
 import { EditorStage } from './EditorStage.tsx';
 import type { ToolId } from '../../physics/index.ts';
@@ -35,8 +37,13 @@ function makeDrill(noteId: NoteId, text = ''): Drill {
 
 function mountStage(drill: Drill, tool: ToolId = 'select') {
   const onEditNote = vi.fn();
+  // ⚠️ 무대는 pointerdown 첫 줄에서 이 손잡이(= EditorStage 의 `ref`)로 metrics 를 다시
+  // 읽는다(useEditorPointer:518). 실기에는 늘 있으므로 테스트에도 있어야 한다 — 없으면
+  // 두 번 누르기가 거기서 던지고 끝난다.
+  const stageRef = { current: null } as RefObject<CourtStageHandle | null>;
   const view = render(
     <EditorStage
+      ref={stageRef}
       rot={0}
       drill={drill}
       step={drill.steps[0]!}
@@ -63,32 +70,54 @@ function mountStage(drill: Drill, tool: ToolId = 'select') {
   return { ...view, onEditNote };
 }
 
+/** 무대의 **두 번 누름**. DOM 의 `dblclick` 을 쏘지 않는 것이 이 헬퍼의 전부다.
+ *
+ *  ⚠️ 2026-08-17 기현 신고 *"메모를 더블 클릭 시 모달이 안 나온다"* — 실기에서 판이 포인터를
+ *  캡처하는 순간 뒤따르는 click·dblclick 의 target 이 캡처 대상(`<svg>`)으로 재타깃돼 대상 id 가
+ *  사라졌다. jsdom 에는 포인터 캡처가 없어 `fireEvent.doubleClick` 은 그 사고를 **못 잰다** —
+ *  즉 옛 테스트는 통과하면서 실기가 죽어 있었다. 이제 무대가 pointerdown 두 번을 직접 세므로
+ *  테스트도 실기가 쏘는 것과 같은 사건을 쏜다. */
+function doubleTap(el: Element): void {
+  fireEvent.pointerDown(el, { pointerId: 1, button: 0, clientX: 40, clientY: 40 });
+  fireEvent.pointerUp(el, { pointerId: 1, button: 0, clientX: 40, clientY: 40 });
+  fireEvent.pointerDown(el, { pointerId: 1, button: 0, clientX: 40, clientY: 40 });
+}
+
 describe('문 ① 더블클릭', () => {
-  it('메모를 더블클릭하면 글 칸이 열린다 — fresh 는 false(이미 판에 있던 쪽지다)', () => {
+  it('메모를 두 번 누르면 글 칸이 열린다 — fresh 는 false(이미 판에 있던 쪽지다)', () => {
     const id = newId('nt');
     const { container, onEditNote } = mountStage(makeDrill(id, '앞선 압박'));
-    fireEvent.doubleClick(container.querySelector(`#obj-${id}`)!);
+    doubleTap(container.querySelector(`#obj-${id}`)!);
     expect(onEditNote).toHaveBeenCalledWith(id, false);
   });
 
   it('칩의 **자식**(글자·쪽지)을 짚어도 열린다 — 이벤트 target 은 늘 자식이다', () => {
     const id = newId('nt');
     const { container, onEditNote } = mountStage(makeDrill(id, '앞선 압박'));
-    fireEvent.doubleClick(container.querySelector(`#obj-${id} .note-chip`)!);
+    doubleTap(container.querySelector(`#obj-${id} .note-chip`)!);
     expect(onEditNote).toHaveBeenCalledWith(id, false);
+  });
+
+  it('한 번만 누르면 안 열린다 — 그냥 고르는 손짓이다', () => {
+    const id = newId('nt');
+    const { container, onEditNote } = mountStage(makeDrill(id, '앞선 압박'));
+    const el = container.querySelector(`#obj-${id}`)!;
+    fireEvent.pointerDown(el, { pointerId: 1, button: 0, clientX: 40, clientY: 40 });
+    fireEvent.pointerUp(el, { pointerId: 1, button: 0, clientX: 40, clientY: 40 });
+    expect(onEditNote).not.toHaveBeenCalled();
   });
 
   it('배치 도구에서는 안 연다 — 거기서 빠른 두 번은 개체 둘이다', () => {
     const id = newId('nt');
     const { container, onEditNote } = mountStage(makeDrill(id, '앞선 압박'), 'cone');
-    fireEvent.doubleClick(container.querySelector(`#obj-${id}`)!);
+    doubleTap(container.querySelector(`#obj-${id}`)!);
     expect(onEditNote).not.toHaveBeenCalled();
   });
 
-  it('빈 코트 더블클릭에는 뜻이 없다', () => {
+  it('빈 코트를 두 번 눌러도 뜻이 없다', () => {
     const id = newId('nt');
     const { container, onEditNote } = mountStage(makeDrill(id));
-    fireEvent.doubleClick(container.querySelector('svg')!);
+    doubleTap(container.querySelector('svg')!);
     expect(onEditNote).not.toHaveBeenCalled();
   });
 });
@@ -242,6 +271,15 @@ describe('모달 — 줄바꿈과 취소', () => {
     unmount();
     render(<NoteEditModal open initialText="가" fresh={false} onSave={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.getByRole('dialog')).toHaveAccessibleName('메모 수정');
+  });
+
+  // 기현 신고 2026-08-17: *"첫 배치 시 모달의 텍스트박스에 포커스가 안 간다"*. 글을 쓰러 여는
+  // 화면이므로 **열자마자 칠 수 있어야** 문이 열린 것이다. 강탈을 되돌리는 일반 가드는
+  // ui/Modal 이 지고(거기 테스트가 잰다), 여기서 재는 것은 "닫기 ✕ 가 아니라 글 칸에 선다".
+  it('열자마자 글 칸에 선다 — 커서는 글 끝이다', async () => {
+    const { box } = open({ initialText: '앞선 압박' });
+    await waitFor(() => expect(box).toHaveFocus());
+    expect(box.selectionStart).toBe('앞선 압박'.length);
   });
 
   it('취소는 저장하지 않는다', () => {

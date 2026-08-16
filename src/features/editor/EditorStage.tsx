@@ -643,7 +643,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 선택 도구에서만 연다: 배치 도구에서는 같은 자리 빠른 두 번이 곧 개체 둘이고(CourtStage
       // 의 allowPan 주석과 같은 사정), 그 두 번째 개체 위로 모달이 뜨면 판이 거짓말을 한다.
       onStageDoubleClick={(id) => {
-        if (tool === 'select' && id && isId(id, 'nt')) onEditNote(id, false);
+        // 배치 도구에서 빠른 두 번은 **개체 둘**이다 — 거기서 글 칸을 열면 두 번째 개체가
+        // 모달 뒤에 숨는다. `true` 를 돌려줄 때만 그 손짓이 무대에서 끝난다.
+        if (tool !== 'select' || !isId(id, 'nt')) return false;
+        onEditNote(id, false);
+        return true;
       }}
       selection={selection}
       // 5.5 — 차체 음영·커서도 같은 진실을 말해야 한다. 2존인데 앞 2/3 에 '제자리 회전' 음영이
