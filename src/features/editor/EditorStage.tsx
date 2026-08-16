@@ -331,7 +331,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   const handleObjectKeyDown = useCallback(
     (id: string, e: ReactKeyboardEvent<SVGGElement>) => {
       // 개체 층의 키만 여기서 먹는다(`core/keymap.ts` 의 `scope: 'object'`). 표에 없는 키는
-      // 그대로 버블링시켜 전역이 받는다 — Ctrl+방향키(판 이동)·Ctrl+Delete(선택 삭제)·Esc·
+      // 그대로 버블링시켜 전역이 받는다 — Ctrl+방향키(판 이동)·Esc·
       // Space(재생)가 그 경로다. 개편 전에는 여기서 수식키를 손으로 걸러야 했는데, 이제
       // 표가 전역과 개체의 겹침을 0으로 보장한다(`keymap.contract` 의 "서로를 삼키지 않는다").
       const def = lookupDef('object', e);
@@ -396,11 +396,16 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           e.stopPropagation();
           dispatch({ type: 'SELECT_TOGGLE', id });
           return;
-        case 'obj.delete':
+        // Delete 는 **하나든 여럿이든 지운다**(기현 지시 2026-08-16). 규모는 손이 수식키로
+        // 말하는 것이 아니라 화면에 이미 적혀 있다 — 무엇이 골라져 있는가. 포커스가 고른 것
+        // 밖에 있으면(순회만 하고 Enter 를 안 눌렀을 때) 그때는 짚고 있는 것 하나다.
+        case 'erase.selection': {
           e.preventDefault();
           e.stopPropagation();
-          onEraseIds([id], 'onward');
+          const target = selection.has(id) ? Array.from(selection) : [id];
+          onEraseIds(target, 'onward');
           return;
+        }
         default:
           return;
       }

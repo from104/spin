@@ -49,11 +49,22 @@ describe('키맵 — 전역과 개체가 서로를 삼키지 않는다', () => {
   // **개체를 고른 순간 그 전역 키가 사라진다**. 개편 전 Ctrl+방향키(판 이동)가 딱 그랬고,
   // 그래서 코드에 "수식키를 그냥 흘려보내라" 는 예외 주석이 붙어 있었다.
   // 겹침이 0이면 그 예외 자체가 필요 없어진다 — 여기가 그것을 지킨다.
-  it('같은 사건을 전역과 개체가 동시에 물지 않는다', () => {
-    const both = ALL_EVENTS.filter(
-      (e) => idsMatching('global', e).length > 0 && idsMatching('object', e).length > 0,
-    ).map((e) => `${describeEvent(e)} → 전역 ${idsMatching('global', e)} / 개체 ${idsMatching('object', e)}`);
-    expect(both, '개체에 포커스가 있으면 이 전역 키가 죽는다').toEqual([]);
+  //
+  // ⚠️ 2026-08-16 — 재는 것은 "겹치는가" 가 아니라 **"다른 동작을 무는가"** 로 좁혔다.
+  //    Delete 가 두 층에 **같은 id 로** 서 있기 때문이다(기현 지시: *"하나건 여러 개건
+  //    Delete 로 무조건 지운다"*). 층이 둘인 것은 포커스가 개체에 있을 때와 코트에 있을 때
+  //    둘 다 먹어야 해서고, 개체 층이 먼저 먹어도 **하는 일이 같으므로 삼켜지는 것이 없다**.
+  //    위험은 겹침 자체가 아니라 *덮이는 쪽이 다른 일을 하고 있었다* 는 데 있다.
+  it('같은 사건을 전역과 개체가 **다른 동작으로** 물지 않는다', () => {
+    const both = ALL_EVENTS.filter((e) => {
+      const g = idsMatching('global', e);
+      const o = idsMatching('object', e);
+      if (g.length === 0 || o.length === 0) return false;
+      // 같은 id 집합이면 별칭이다 — 어느 층이 먹든 결과가 같다.
+      const uniq = (xs: string[]) => [...new Set(xs)].sort().join(',');
+      return uniq(g) !== uniq(o);
+    }).map((e) => `${describeEvent(e)} → 전역 ${idsMatching('global', e)} / 개체 ${idsMatching('object', e)}`);
+    expect(both, '개체에 포커스가 있으면 이 전역 키가 **다른 동작에** 죽는다').toEqual([]);
   });
 });
 

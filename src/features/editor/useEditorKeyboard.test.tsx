@@ -301,14 +301,41 @@ describe('useEditorKeyboard — Ctrl/Cmd + 방향키는 판을 민다', () => {
     expect(deps.onPanView).toHaveBeenCalledWith(STEP, 0);
   });
 
-  it('같은 mod 분기의 이웃들을 가리지 않는다 — Ctrl+Z·Ctrl+Delete 는 그대로다 (대조군)', () => {
+  it('같은 mod 분기의 이웃을 가리지 않는다 — Ctrl+Z 는 그대로다 (대조군)', () => {
     const deps = baseDeps({});
     renderHook(() => useEditorKeyboard(deps));
     press('KeyZ', { ctrlKey: true });
-    press('Delete', { ctrlKey: true });
     expect(deps.onUndo).toHaveBeenCalledTimes(1);
-    expect(deps.onEraseSelection).toHaveBeenCalledTimes(1);
     expect(deps.onPanView).not.toHaveBeenCalled();
+  });
+});
+
+// ★ 2026-08-16 기현 지시: *"객체 지우기는 하나건 여러 개건 Delete 키로 무조건 지우게 해."*
+//   개편 전에는 `Delete` 가 포커스 하나, `Ctrl+Delete` 가 선택 전체였다 — 사용자에게 그 둘은
+//   같은 일이고, 규모는 이미 화면에 적혀 있다(무엇이 골라져 있는가). 손이 그것을 수식키로
+//   다시 말할 이유가 없다.
+describe('useEditorKeyboard — Delete 는 수식키 없이 지운다', () => {
+  it('맨 Delete 가 고른 것을 지운다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('Delete');
+    expect(deps.onEraseSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it('Backspace 도 같다 — 두 키가 같은 뜻인 것은 종전 그대로다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('Backspace');
+    expect(deps.onEraseSelection).toHaveBeenCalledTimes(1);
+  });
+
+  // 수식키를 붙인 쪽은 이제 **아무 일도 안 한다**. 규모를 수식키로 가르던 개념 자체가
+  // 없어졌으므로, 남겨 두면 "Ctrl 을 붙이면 뭔가 다른 게 지워지나" 를 되묻게 만든다.
+  it('Ctrl+Delete 는 더 이상 따로 있지 않다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('Delete', { ctrlKey: true });
+    expect(deps.onEraseSelection).not.toHaveBeenCalled();
   });
 });
 

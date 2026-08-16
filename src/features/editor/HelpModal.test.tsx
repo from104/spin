@@ -35,6 +35,14 @@ describe('3.9 첫 섹션 — 어떻게 놓는가 / 어떻게 옮기는가', () =
     expect(firstDl.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  // ★ 2026-08-16 — `Delete` 는 전역과 개체 **두 층**에 같은 id 로 서 있다(기현 지시: 하나든
+  //   여럿이든 Delete). 표는 층을 모르므로 그대로 두면 같은 키가 두 줄이 되고, 읽는 사람은
+  //   둘이 다른 일을 한다고 읽는다. `HelpModal.dedupe` 가 접는 것이 이 계약이다.
+  it('같은 키가 두 줄로 나오지 않는다 — Delete', () => {
+    const dialog = openHelp();
+    expect(within(dialog).getAllByText('Delete')).toHaveLength(1);
+  });
+
   it('도구는 **어느 키가 무엇인지**를 적는다 — 글자마다 한 줄 (2026-08-16 기현 지시)', () => {
     // 옛 계약: *"도구 9종은 한 줄로 접힌다"* — `V L O T R B C P N` 한 줄에 설명은 '도구 선택'.
     // 짧았지만 질문에 답을 안 했다: 콘이 어느 글자인지 알려면 아홉 개를 세어 짝지어야 했다.

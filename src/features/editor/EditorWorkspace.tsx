@@ -244,7 +244,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           dispatch({ type: 'ARROW_REMOVE', id });
           done.push(id);
         } else if (isId(id, 'sh')) {
-          // 2026-08-16 — 이 갈래가 **없었다**. 그래서 도형을 고르고 Delete·Ctrl+Delete 를
+          // 2026-08-16 — 이 갈래가 **없었다**. 그래서 도형을 고르고 Delete 를
           // 누르면 아무 일도 안 나고 토스트도 안 떴다(count===0 으로 조용히 return) — 키가
           // 고장난 것처럼 보였다. 지우는 길이 여기 하나로 모이면서 그 구멍이 닫힌다.
           dispatch({ type: 'SHAPE_REMOVE', id });

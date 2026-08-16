@@ -185,16 +185,19 @@ export const KEYMAP: readonly KeyDef[] = [
   // 세 앱(PPT·일러스트레이터·피그마)이 전부 같은 자리에 두는 키라 배울 것이 없다.
   // 잠긴 개체는 담지 않는다 — 덩어리로 집는 길은 전부 그 규칙을 따른다(selectSame.ts).
   { id: 'select.all', scope: 'global', codes: ['KeyA'], mod: true, label: 'Ctrl/⌘+A', desc: '전부 선택(잠긴 것 제외)' },
-  // 개체 층의 Delete 는 수식키가 없다(`obj.delete`). 여기는 **선택 전체**라 Ctrl 이 붙는다 —
-  // 같은 키에 "하나" 와 "여럿" 을 겹치는 대신 수식키로 규모를 나눈 것이고, 그래서 두 층이
-  // 서로를 안 삼킨다(`keymap.contract` 의 전역↔개체 겹침 0).
+  // ★ 2026-08-16 기현 지시: *"객체 지우기는 하나건 여러 개건 Delete 키로 무조건 지우게 해."*
+  //   개편 전에는 수식키로 규모를 갈랐다 — `Delete` 는 포커스 하나, `Ctrl+Delete` 는 선택
+  //   전체. 그런데 **사용자에게 그 둘은 같은 일**이고, 규모는 자기가 이미 화면에서 정해 둔
+  //   것이다(무엇이 파랗게 켜져 있는가). 손이 그것을 다시 수식키로 말할 이유가 없다.
+  //   지금 이 정의는 **개체 층에도 같은 id 로 하나 더 있다**(아래) — 층이 둘인 것은
+  //   포커스가 개체에 있을 때와 코트에 있을 때 둘 다 먹어야 하기 때문이고, **하는 일이
+  //   같으므로** 겹쳐도 삼키는 것이 없다(`keymap.contract` 가 그 조건을 명시적으로 잰다).
   {
     id: 'erase.selection',
     scope: 'global',
     codes: ['Delete', 'Backspace'],
-    mod: true,
-    label: 'Ctrl/⌘+Delete',
-    desc: '선택한 개체 삭제',
+    label: 'Delete',
+    desc: '고른 개체 지우기 — 하나든 여럿이든',
   },
   // `?` 는 US 배열에서 Shift+`/` 다. 다른 배열에서는 자리가 다르므로 **문자로도** 잡는다
   // (`keys` 필드 주석에 근거). 자리로만 잡으면 독일어 자판에서 도움말이 안 열린다.
@@ -238,12 +241,14 @@ export const KEYMAP: readonly KeyDef[] = [
   { id: 'obj.cycleExtendPrev', scope: 'object', codes: ['BracketLeft'], shift: 'yes', label: 'Shift+[', desc: '이전 개체를 선택에 더하며 이동' },
   { id: 'obj.cycleExtendNext', scope: 'object', codes: ['BracketRight'], shift: 'yes', label: 'Shift+]', desc: '다음 개체를 선택에 더하며 이동' },
   { id: 'obj.toggleSelect', scope: 'object', codes: ['Enter'], label: 'Enter', desc: '선택 / 해제' },
+  // 위 전역 정의와 **같은 id·같은 말**이다(별칭). 개체에 포커스가 있으면 EditorStage 가
+  // stopPropagation 으로 먼저 먹으므로 이 줄이 없으면 그때 Delete 가 죽는다.
   {
-    id: 'obj.delete',
+    id: 'erase.selection',
     scope: 'object',
     codes: ['Delete', 'Backspace'],
     label: 'Delete',
-    desc: '개체 삭제',
+    desc: '고른 개체 지우기 — 하나든 여럿이든',
   },
 
   // ── 시연 ────────────────────────────────────────────────────────────────
