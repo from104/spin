@@ -253,10 +253,15 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       }
       const count = done.length;
       if (count === 0) return;
-      // §4.3 P1-4 — 트레이로 **끌어서** 빼는 길은 이미 'trayReturn' 을 울린다(useEditorPointer
-      // 의 isOverTray 분기). 메뉴로도 키보드로도 **같은 동작**이므로 같은 소리가 나야 한다.
-      // 삭제(화살표·메모·도형)에는 울리지 않는다: 돌아갈 상자가 없어 그 소리가 뜻하는 바가 없다.
-      if (done.some(returnsToTray)) cues.play('trayReturn');
+      // §4.3 P1-4 · §6.10c — 치우는 세 입구(트레이로 끌기 · 개체 메뉴 · Delete)가 전부 이
+      // 함수로 들어오므로, 소리 규칙도 **여기 한 줄**이다. 예전에는 끌기 경로가 자기 소리를
+      // 따로 울려 규칙이 두 곳에 있었다.
+      //
+      // 소리는 **가장 무거운 결과**를 말한다: 하나라도 돌아갈 상자가 없으면 'erase' 다.
+      // 섞였을 때 'trayReturn' 을 울리면 "다 상자에 있다" 로 들리고, 그 오해는 트레이를
+      // 열어 보기 전까지 안 풀린다. 글자(removalToast)는 여전히 양쪽을 다 적는다.
+      if (done.some((id) => !returnsToTray(id))) cues.play('erase');
+      else cues.play('trayReturn');
       dispatch({ type: 'SELECT_CLEAR' });
       // 개체 메뉴가 '빼기'/'삭제'로 말을 가르므로(removal.ts) 토스트도 같은 술어를 본다 —
       // 메뉴에서 '빼기'를 눌렀는데 "삭제했습니다" 가 뜨면 방금 읽은 글자를 뒤집는 셈이다.

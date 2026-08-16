@@ -16,8 +16,8 @@ import { act, renderHook } from '@testing-library/react';
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import { BALL, DEFAULT_ZONES } from '../../core/constants.ts';
-import { newId } from '../../core/ids.ts';
-import type { ChairId } from '../../core/ids.ts';
+import { isId, newId } from '../../core/ids.ts';
+import type { CastId, ChairId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { CourtStageHandle, PointerMeta } from '../../render/CourtStage.tsx';
@@ -61,7 +61,7 @@ function makeBallFullDrill(): Drill {
   return { ...base, cast: { ...base.cast, balls: defs }, steps: [{ ...step0, balls }] };
 }
 
-function useHarness(tool: ToolId, toasts: string[]) {
+function useHarness(tool: ToolId, toasts: string[], erased: string[]) {
   const state = useEditorState();
   const dispatch = useEditorDispatch();
   const worldRef = useEditorWorld();
@@ -85,6 +85,13 @@ function useHarness(tool: ToolId, toasts: string[]) {
     ballMax: BALL.maxCount,
     pendingPlayerId: null,
     onPlayerPlaced: noop,
+    // §6.10c — 트레이 드롭은 이제 **치우기 함수에 위임**한다(소리·토스트·선택 해제는 그쪽
+    // 몫이다). 여기서는 위임이 실제로 일어났는지를 기록하고, 판이 정말 비는지 보기 위해
+    // 칩 치우기만 흉내 낸다 — 진짜 구현은 EditorWorkspace.eraseIds 다.
+    onEraseIds: (ids) => {
+      erased.push(...ids);
+      for (const id of ids) if (isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn')) dispatch({ type: 'OBJECT_REMOVE', id: id as CastId, scope: 'onward' });
+    },
     showToast: (m) => toasts.push(m),
     forceHandlesVisible: false,
     largeTargets: false,
@@ -94,13 +101,14 @@ function useHarness(tool: ToolId, toasts: string[]) {
 
 function mount(drill: Drill, tool: ToolId = 'select') {
   const toasts: string[] = [];
+  const erased: string[] = [];
   const wrapper = ({ children }: { children: ReactNode }) => (
     <SettingsProvider>
       <EditorProvider drill={drill}>{children}</EditorProvider>
     </SettingsProvider>
   );
-  const r = renderHook(() => useHarness(tool, toasts), { wrapper });
-  return { ...r, toasts };
+  const r = renderHook(() => useHarness(tool, toasts, erased), { wrapper });
+  return { ...r, toasts, erased };
 }
 
 let play: ReturnType<typeof vi.spyOn>;
@@ -165,27 +173,70 @@ describe("놓임 '탁'", () => {
   });
 });
 
-describe('상자 빔 — 트레이 반환', () => {
+describe('트레이 반환 — 치우기는 위임하고, 예고는 여기서 낸다(§6.10c)', () => {
   afterEach(() => {
     document.elementFromPoint = () => null;
   });
 
-  it("트레이 위에서 놓으면 상자 빔이 나고 놓임 '탁' 은 나지 않는다", () => {
-    const { drill, chairId } = makeDrill();
-    const { result } = mount(drill);
-    const ctrl = () => result.current.pointer.controller;
+  /** 트레이 노드를 깔고 elementFromPoint 가 그것을 답하게 한다 — jsdom 에는 레이아웃이 없어
+   *  이 스텁이 곧 "손이 트레이 위" 다(test/setup.ts 의 그 스텁을 덮는다). */
+  function withTray(): HTMLElement {
     const tray = document.createElement('div');
     tray.setAttribute('data-tray', '');
+    tray.innerHTML = '<div data-tray-hint></div>';
     document.body.appendChild(tray);
     document.elementFromPoint = () => tray;
+    return tray;
+  }
+
+  // ★ 2026-08-16 계약 이동. 예전에는 이 경로가 스스로 `trayReturn` 을 울리고 `OBJECT_REMOVE`
+  //   를 직접 쐈다. 지금은 **치우기 함수 하나**(메뉴·Delete 와 같은 것)에 위임하고, 소리는
+  //   그 함수가 낸다 — 그래서 여기서 재는 것은 "위임했는가" 와 "놓임 '탁' 은 안 울렸는가" 다.
+  it("트레이 위에서 놓으면 치우기에 위임하고 놓임 '탁' 은 나지 않는다", () => {
+    const { drill, chairId } = makeDrill();
+    const { result, erased } = mount(drill);
+    const ctrl = () => result.current.pointer.controller;
+    const tray = withTray();
 
     act(() => void ctrl().onPointerDown(CHAIR_AT, META));
     act(() => ctrl().onPointerMove({ x: 260, y: 240 }, 16));
     act(() => ctrl().onPointerUp(CLIENT));
 
-    expect(kinds()).toEqual(['trayReturn']);
+    expect(erased).toEqual([chairId]);
+    expect(kinds()).not.toContain('drop');
     // 대조군 — 실제로 개체가 판에서 빠졌다(신호만 다른 것이 아니다).
     expect(result.current.state.present.steps[0]!.chairs[chairId]).toBeUndefined();
+    tray.remove();
+  });
+
+  // 예고음의 요점은 **경계를 넘을 때 한 번**이다. 매 프레임 울리면 그냥 소음이고, 나갈 때도
+  // 울리면 손이 가장자리에서 흔들릴 때마다 딸깍거린다.
+  it('트레이로 들어설 때 예고음이 한 번 난다 — 머물러 있는 동안은 조용하다', () => {
+    const { result } = mount(makeDrill().drill);
+    const ctrl = () => result.current.pointer.controller;
+    const tray = withTray();
+
+    act(() => void ctrl().onPointerDown(CHAIR_AT, META));
+    act(() => ctrl().onPointerMove({ x: 260, y: 240 }, 16, CLIENT));
+    expect(kinds()).toEqual(['trayArm']);
+    act(() => ctrl().onPointerMove({ x: 262, y: 240 }, 32, CLIENT));
+    act(() => ctrl().onPointerMove({ x: 264, y: 240 }, 48, CLIENT));
+    expect(kinds()).toEqual(['trayArm']);
+    act(() => ctrl().onPointerUp(CLIENT));
+    tray.remove();
+  });
+
+  // 화면 좌표가 없으면 판정 자체가 불가능하다(트레이는 코트 밖 HTML 이다). 그때는 **예고를
+  // 안 하는 것**이 맞다 — 틀린 예고는 없느니만 못하다.
+  it('화면 좌표 없이 움직이면 예고하지 않는다', () => {
+    const { result } = mount(makeDrill().drill);
+    const ctrl = () => result.current.pointer.controller;
+    const tray = withTray();
+
+    act(() => void ctrl().onPointerDown(CHAIR_AT, META));
+    act(() => ctrl().onPointerMove({ x: 260, y: 240 }, 16));
+    expect(kinds()).toEqual([]);
+    act(() => ctrl().onPointerUp(CLIENT));
     tray.remove();
   });
 
@@ -284,8 +335,8 @@ describe('[D-7] 소리와 발화가 같은 사건을 두 번 통보하지 않는
     expect(say).toHaveBeenCalledTimes(1);
   });
 
-  it('트레이 반환도 발화하지 않는다 — 상자 빔이 그 통보다', () => {
-    const { result } = mount(makeDrill().drill);
+  it('트레이 반환도 발화하지 않는다 — 소리와 토스트가 그 통보다', () => {
+    const { result, erased } = mount(makeDrill().drill);
     const ctrl = () => result.current.pointer.controller;
     const tray = document.createElement('div');
     tray.setAttribute('data-tray', '');
@@ -293,11 +344,13 @@ describe('[D-7] 소리와 발화가 같은 사건을 두 번 통보하지 않는
     document.elementFromPoint = () => tray;
 
     act(() => void ctrl().onPointerDown(CHAIR_AT, META));
-    act(() => ctrl().onPointerMove({ x: 260, y: 240 }, 16));
+    act(() => ctrl().onPointerMove({ x: 260, y: 240 }, 16, CLIENT));
     say.mockClear();
     act(() => ctrl().onPointerUp(CLIENT));
 
-    expect(kinds()).toEqual(['trayReturn']);
+    // 예고음은 났고(들어설 때 한 번), 치우기는 위임됐고, 발화는 없다.
+    expect(kinds()).toEqual(['trayArm']);
+    expect(erased).toHaveLength(1);
     expect(say).not.toHaveBeenCalled();
     document.elementFromPoint = () => null;
     tray.remove();

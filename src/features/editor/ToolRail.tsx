@@ -624,6 +624,18 @@ export function ToolRail({
   return (
     // data-tray: 코트에서 끌어온 개체를 여기 놓으면 빼낸다(useEditorPointer 가 좌표로 찾는다).
     <nav aria-label="도구" data-tray="" style={horiz ? RAIL_STYLE_H : RAIL_STYLE}>
+      {/* §6.10c 트레이 드롭 예고 — 코트에서 끌어온 개체가 이 위에 왔을 때 **놓기 전에**
+          "빼기/삭제" 를 말한다. 내용은 trayDrop.ts 가 직접 DOM 에 쓰고(드래그 중에는 React 를
+          거칠 수 없다 — §6.1 규칙 1), 켜고 끄기는 nav 의 `data-drop` 을 보는 a11y.css 가 한다.
+          그래서 여기는 **늘 있는 빈 노드**다: 드래그 중에 노드를 붙였다 떼면 첫 프레임이
+          레이아웃에 걸린다.
+          ⚠️ `position:'absolute'` 는 **인라인이어야 한다** — 트레이 배치 모형(ToolRail.test 의
+          measure)이 인라인 position 으로 '흐름 밖' 을 가린다. CSS 로만 두면 이 노드가 도구
+          칸 하나로 세어져 §3 불변식 1(표적 자리 고정)이 깨진 것처럼 보인다.
+          aria-hidden: 이 글자는 **끄는 손**에게 하는 말이다. 같은 사건에 소리가 이미 울리므로
+          발화까지 얹으면 [D-7] 이 막는 이중 통보가 된다. 개체를 치우는 결과 자체는 치운 뒤
+          토스트가 말한다 — 그쪽이 스크린리더 사용자가 실제로 쓰는 길(메뉴·Delete)의 통보다. */}
+      <div data-tray-hint="" aria-hidden style={{ position: 'absolute', inset: 0 }} />
 
       {/* ─── 개체(벤치): 판에 올려놓는 말. 끌어다 놓거나, 탭해서 고른 뒤 코트를 찍는다. ───
           **트레이에서 스크롤하는 곳은 여기 하나뿐이다**(설계서 §4.3). 근거 셋:

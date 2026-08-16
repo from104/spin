@@ -134,6 +134,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     ballMax,
     pendingPlayerId,
     onPlayerPlaced,
+    // §6.10c — 트레이에 끌어다 놓아 치우는 길. 개체 메뉴·Delete 와 **같은 함수**다.
+    onEraseIds,
     showToast,
     // 5.5 — 접근성 설정의 2존 토글이 `handlesVisible(…, forced)` 의 `forced` 로 들어가는 자리.
     forceHandlesVisible: twoZone,

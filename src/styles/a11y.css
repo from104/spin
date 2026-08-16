@@ -115,3 +115,60 @@
   border-radius: 8px;
   font-weight: 700;
 }
+
+/* ── §6.10c 트레이 드롭 예고 ────────────────────────────────────────────────────────
+ * 코트에서 끌어온 개체가 트레이 위에 왔을 때 **놓기 전에** 결과를 보여 준다
+ * (기현 지시 2026-08-16: *"시각적 효과를 직관적으로"*). 켜는 쪽은 trayDrop.ts 가 nav 에
+ * 심는 `data-drop` 하나이고, 글자는 그 안의 `[data-tray-hint]` 에 직접 쓴다.
+ *
+ * 왜 트레이 **위에 덮는** 방식인가: 트레이 자신의 테두리·그림자를 건드리면 §3 불변식 1 이
+ * 지키는 표적 자리가 드래그 중에만 1~2px 흔들린다. 덮개는 흐름 밖(absolute)이라 아무것도
+ * 밀지 않고, 같은 덮개가 세로 트레이·가로 띠 양쪽에서 그대로 맞는다.
+ * pointer-events 를 끊는 것은 필수다 — 켜져 있으면 이 덮개가 elementFromPoint 의 답이 되어
+ * `[data-tray]` 판정 자체를 가로챈다(덮개가 트레이 안에 있어 closest 로는 여전히 참이지만,
+ * 트레이 안의 칩 위로 지나가는 다른 손짓까지 함께 먹는다). */
+[data-tray] > [data-tray-hint] {
+  display: none;
+  z-index: 40;
+  pointer-events: none;
+  place-items: center;
+  padding: 4px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  /* 판 위 어떤 색과도 안 섞이도록 바탕을 눌러 깐다 — 트레이는 칩·공·콘으로 알록달록하다. */
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  border-radius: 10px;
+}
+[data-tray][data-drop] > [data-tray-hint] {
+  display: grid;
+  animation: tray-drop-in 120ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* 빼기 = 상자로 **돌아간다**. 앱의 긍정 색(강조)을 그대로 쓴다. */
+[data-tray][data-drop='take'] > [data-tray-hint] {
+  box-shadow: inset 0 0 0 3px var(--accent);
+  color: var(--accent);
+}
+/* 삭제·섞임 = 하나라도 **못 돌아온다**. 색은 가장 무거운 결과를 따른다(글자는 둘 다 적는다 —
+ * removalLabel). #ff6b6b 는 개체 메뉴의 '삭제' 글자와 같은 값이다: 같은 결과에 같은 빨강. */
+[data-tray][data-drop='erase'] > [data-tray-hint],
+[data-tray][data-drop='mixed'] > [data-tray-hint] {
+  box-shadow: inset 0 0 0 3px #ff6b6b;
+  color: #ff6b6b;
+}
+@keyframes tray-drop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* 예고가 **떠 있는 것** 자체가 신호다 — 움직임은 장식이라 먼저 끈다(등장 페이드와 같은 규율). */
+@media (prefers-reduced-motion: reduce) {
+  [data-tray][data-drop] > [data-tray-hint] {
+    animation: none;
+  }
+}

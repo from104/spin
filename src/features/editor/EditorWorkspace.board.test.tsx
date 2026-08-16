@@ -170,7 +170,10 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
     stubMedia({ portrait: true, narrow: true });
     setViewport(480, 800);
     const { board } = await openBoard();
-    expect((board.children[1] as HTMLElement).children).toHaveLength(TRAY_SECTIONS);
+    // ⚠️ **흐름 안의** 자식만 센다. 트레이에는 흐름 밖 장식이 하나 산다(§6.10c 드롭 예고) —
+    // 그것을 구역으로 세면 고정 합 식이 있지도 않은 gap 을 하나 더 세게 된다.
+    const sections = [...(board.children[1] as HTMLElement).children].filter((el) => (el as HTMLElement).style.position !== 'absolute');
+    expect(sections).toHaveLength(TRAY_SECTIONS);
   });
 
   it('대조군: 가로 화면은 반대다 — 두 배치를 뭉뚱그리지 않는다', async () => {
@@ -285,7 +288,12 @@ describe('§4.5 edge-pan 게이트 — 판 위에 흐름 밖 요소가 없다', 
     expect(floating.length, '장식이 하나도 없다 — 선택자가 낡았을 수 있다').toBeGreaterThan(0);
     for (const el of floating) {
       expect(el.closest('[aria-hidden="true"]'), `${el.tagName} 이 장식이 아니다`).not.toBeNull();
-      expect(el.closest('button, a[href], input, [role="button"]')?.contains(el) ?? false).toBe(true);
+      // 2026-08-16 — "버튼 **안쪽**이어야 한다" 에서 "**표적을 안 품는다**" 로 넓혔다.
+      // 트레이 드롭 예고(§6.10c `[data-tray-hint]`)는 트레이 전체를 덮는 장식이라 어느 버튼의
+      // 자식도 아니지만, 이 게이트가 실제로 막는 것은 *누를 수 있는 것이 흐름 밖으로 뜨는 일*
+      // 이다(위 주석 "남으면 안 되는 것은 누를 수 있는 것이다"). 그 술어를 그대로 적는다.
+      expect(el.querySelector('button, a[href], input, [role="button"]'), `${el.tagName} 이 표적을 품는다`).toBeNull();
+      expect(el.matches('button, a[href], input, [role="button"]'), `${el.tagName} 자신이 표적이다`).toBe(false);
     }
   });
 });

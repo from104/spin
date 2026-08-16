@@ -34,6 +34,7 @@ import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { SelectionOverlayHandle, SelectionShape } from '../../render/SelectionOverlay.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { cues } from '../../ui/cues.ts';
+import { trayDropHint, trayDropIntent } from './trayDrop.ts';
 import { placeObject } from './placement.ts';
 import type { PlaceKind } from './placement.ts';
 import { snapOnSettle } from './snapOnSettle.ts';
@@ -101,6 +102,11 @@ export interface UseEditorPointerOptions {
    *  (기현 신고 2026-08-14). 끌기는 잠김과 같이 막는다. */
   ignored?: ReadonlySet<string>;
   onPlayerPlaced(): void;
+  /** 트레이에 놓아 치우는 길(§6.10c). **메뉴·Delete 와 같은 함수**로 들어간다 —
+   *  소리·토스트·선택 해제가 세 입구에서 갈리지 않게 하는 유일한 방법이다. 예전에는 여기서
+   *  `OBJECT_REMOVE` 를 직접 쐈고, 그래서 끌어서 뺀 것만 토스트(되돌리기 버튼)가 없었다.
+   *  안 주면 트레이 드롭이 **아무 일도 안 한다** — 예고도 그때는 뜨지 않는다(짐이 없으므로). */
+  onEraseIds?(ids: string[], scope: 'onward' | 'thisStep'): void;
   showToast(message: string, action?: { label: string; onAction(): void }): void;
   /** §9 결정 ④ · 5.5 — 접근성 설정의 **2존 모드** 토글. `handlesVisible(…, forced)` 의
    *  `forced` 로 그대로 들어가고, 그 반환값이 차체 히트를 하나의 '평행 이동' 존으로 접는다
@@ -209,6 +215,20 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
    *  해제다(순환을 타지 않는다 — 갇히는 길을 만들지 않는다). 그래서 세션이 `ballId` 를
    *  들고 다닌다. 원 자체를 여기서 계산하지 않는 이유는 actions.ts BALL_RETAP 주석 참고. */
   const tapDeselectRef = useRef<{ start: Vec2; moved: boolean; ballId: BallId | null } | null>(null);
+  /** 이번 드래그를 **트레이에 놓으면 치워질 것들**(§6.10c), 그리고 그 이동을 되돌리는 법.
+   *
+   *  null 이면 이 세션은 트레이와 무관하다 — 고무줄·화살표 작도·손잡이 조정은 개체를 손에
+   *  든 것이 아니라 **모양을 고치는** 중이라, 트레이 위에서 손을 떼도 아무 일이 없는 것이 맞다.
+   *  그래서 예고도 안 뜬다: 뜨는데 아무 일도 안 나는 것이 안 뜨는 것보다 나쁘다.
+   *
+   *  `revert` 가 필요한 이유: 세션 중에 이미 모델을 옮겨 놓은 경로가 있다(덩어리 이동·메모·
+   *  화살표 몸통은 매 프레임 액션을 쏜다). 그대로 치우면 되돌리기 한 번은 개체를 **트레이
+   *  문턱에** 되살린다. 치우기 직전에 이동을 물러 두면 되돌리기가 원래 자리로 돌려놓는다 —
+   *  물리 드래그만 revert 가 빈 함수인데, 그쪽은 애초에 모델을 안 건드리기 때문이다
+   *  (커밋은 아래 트레이 분기보다 뒤에 있고, 트레이로 가면 커밋 자체를 안 한다). */
+  const trayCargoRef = useRef<{ ids: string[]; revert(): void } | null>(null);
+  /** 지금 손이 트레이 위인가. **바뀔 때만** 신호를 낸다 — 매 프레임 울리면 그냥 소음이다. */
+  const overTrayRef = useRef(false);
   const metricsRef = useRef({ pxPerUnit: 1, pointerType: 'mouse' });
   /** 이 드래그가 히스토리 경계(PLACE_BEGIN)를 이미 열었는가. 정착 재커밋은 경계를 다시 열지
    *  않는다 — '드래그 1회 = undo 1회'(§6.7 history.ts:72-80). */
@@ -417,6 +437,32 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     blockCueRef.current = initialBlockCue;
   }, []);
 
+  /** §6.10c — 손이 트레이 경계를 **넘는 순간**에만 신호를 낸다.
+   *
+   *  들어설 때 예고를 켜고 한 번 울리고, 나가면 끄고 조용하다. 나갈 때도 울리면 손이
+   *  가장자리에서 조금만 흔들려도 딸깍거리고, 그 소리는 아무것도 알려주지 않는다. */
+  const setOverTray = useCallback((over: boolean): void => {
+    if (over === overTrayRef.current) return;
+    overTrayRef.current = over;
+    const cargo = trayCargoRef.current;
+    trayDropHint.arm(over && cargo ? trayDropIntent(cargo.ids) : null);
+    if (over && cargo) cues.play('trayArm');
+  }, []);
+
+  /** 드래그가 끝났다 — 예고를 **반드시** 끄고, 트레이에 놓은 것이면 그 짐을 돌려준다.
+   *
+   *  판정은 손을 뗀 좌표로 다시 한다(`overTrayRef` 를 안 믿는다): 예고는 rAF 표본이라 마지막
+   *  프레임과 손을 뗀 자리가 다를 수 있고, 무엇이 실제로 일어나는지는 **뗀 자리**가 정한다.
+   *  pointercancel(client=null)은 놓은 것이 아니라 뺏긴 것이라 언제나 null 이다. */
+  const takeTrayDrop = useCallback((client: { x: number; y: number } | null): { ids: string[]; revert(): void } | null => {
+    const cargo = trayCargoRef.current;
+    trayCargoRef.current = null;
+    overTrayRef.current = false;
+    trayDropHint.arm(null);
+    if (!cargo || client === null || !isOverTray(client)) return null;
+    return cargo;
+  }, []);
+
   /** 손을 뗀 뒤 **물리가 다 선 시점**에 한 번 더 커밋한다(§4.2 P0-2).
    *
    *  `handle.end()` 는 릴리스 체이스(최대 4초)를 시작만 한다 — 그 직후 읽은 좌표는 "손 떼던
@@ -461,6 +507,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       const m = ctx.stageRef.current?.refreshMetrics();
       metricsRef.current = { pxPerUnit: m?.pxPerUnit ?? metricsRef.current.pxPerUnit, pointerType: meta.pointerType };
       tapDeselectRef.current = null; // 재탭 해제 세션은 pointerdown 마다 새로 판정한다
+      trayCargoRef.current = null; // 트레이 짐도 세션마다 새로 싣는다(§6.10c)
       // §4.3 P1-4 — 판 위의 **첫 사용자 제스처**가 여기다. 놓임 소리는 pointerup 에 나는데,
       // 그때 컨텍스트를 처음 열면 자동재생 정책상 'suspended' 로 태어나 첫 '탁' 이 통째로
       // 삼켜진다. 소리가 꺼져 있으면 이 호출은 아무것도 열지 않는다(cues.ts 계약 ①).
@@ -550,7 +597,18 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         // 잠긴 것·무시된 것은 명단에서 뺀다. 위 관문과 같은 규칙이고, 거르는 자리가 여기라야
         // 리듀서가 스텝 플래그를 다시 읽지 않아도 된다(applyGroupNudge 주석).
         const ids = Array.from(ctx.selection).filter((id) => !ctx.locked?.has(id) && !ctx.ignored?.has(id));
-        groupDragRef.current = { id: hit.id, ids, last: world, start: world, moved: false };
+        const grp = { id: hit.id, ids, last: world, start: world, moved: false };
+        groupDragRef.current = grp;
+        // 트레이로 가면 **고른 것 전부**가 치워진다(§6.10c) — 잡은 하나가 아니다. 예고 글자가
+        // "3개 빼기" 로 뜨는 근거가 바로 이 명단이다. revert 는 여기까지 끌어온 거리를 통째로
+        // 물린다: 안 물리면 되돌리기 한 번이 개체를 트레이 문턱에 되살린다.
+        trayCargoRef.current = {
+          ids,
+          revert: () => {
+            const d = { x: grp.start.x - grp.last.x, y: grp.start.y - grp.last.y };
+            if (d.x !== 0 || d.y !== 0) ctxRef.current.dispatch({ type: 'GROUP_NUDGE', ids, d });
+          },
+        };
         // PLACE_BEGIN 은 안 보낸다 — 그것은 경계를 열고 `lastCommit` 을 비우므로, 이어지는
         // 첫 GROUP_NUDGE 가 병합 상대를 못 찾아 past 에 한 칸을 **더** 쌓는다(되돌리기 두 칸).
         // 한 번 끈 것이 한 칸이 되는 일은 병합(COALESCE_TYPES)이 이미 하고 있다 — 도형·메모를
@@ -563,6 +621,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         dragHandleRef.current = handle;
         draggedIdRef.current = hit.id;
         dragKindRef.current = 'chair';
+        // 견인 손잡이로 끌어도 트레이에 놓으면 빠진다 — 잡은 곳이 차체냐 손잡이냐로 결과가
+        // 갈리면 그것은 규칙이 아니라 사고다. revert 가 빈 이유는 trayCargoRef 주석 참고.
+        trayCargoRef.current = { ids: [hit.id], revert: () => {} };
         if (handle) ctx.writer.setHeld(hit.id, true);
         // §6.6 setRing — **지금 잡고 있는 것**의 링. 개체가 자기 <g> 안에 그리는 링은 위 레이어
         // 개체에 가린다(§3.5 z-order 콘 → 화살표 → 휠체어 → 공 → 메모) — 콘을 잡고 휠체어 밑으로
@@ -595,6 +656,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         dragHandleRef.current = handle;
         draggedIdRef.current = hit.id;
         dragKindRef.current = shapeOf(hit.kind);
+        trayCargoRef.current = { ids: [hit.id], revert: () => {} };
         // 잡힌 개체는 판에서 뜬다(§4.3 P1-1). 실제로 물리 드래그가 시작된 경우에만 —
         // 손을 대기만 하고 잡히지 않았는데 뜨면 그 신호는 거짓말이 된다.
         if (handle) ctx.writer.setHeld(hit.id, true);
@@ -613,11 +675,18 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       if (hit.kind === 'arrow') {
         // 선 몸통 — 잡은 순간부터 세 점이 함께 간다. 커서는 CourtStage 가 hover 로 미리 바꾼다.
         arrowBodyDragRef.current = { arrowId: hit.id as ArrowId, last: world };
+        // 화살표·메모도 트레이에 놓으면 치워진다(§6.10c). 여기 갈래가 없던 동안, 하나만 끌면
+        // 아무 일도 안 나는데 **둘 이상 고른 채 끌면 치워지는** 갈래가 있었다 — 같은 손짓이
+        // 개수에 따라 다른 뜻이 되면 배울 수 없는 규칙이 된다.
+        // 이 둘은 상자로 돌아갈 자리가 없어 결과가 '삭제' 다(removal.ts) — 예고도 그렇게 뜬다.
+        const before = ctx.step.arrows.find((a) => a.id === hit.id);
+        if (before) trayCargoRef.current = { ids: [before.id], revert: () => ctxRef.current.dispatch({ type: 'ARROW_SET', arrow: before }) };
       }
       if (hit.kind === 'note') {
         const note = ctx.step.notes.find((n) => n.id === hit.id);
         if (note) {
           noteDragRef.current = { id: note.id, offset: { x: world.x - note.x, y: world.y - note.y } };
+          trayCargoRef.current = { ids: [note.id], revert: () => ctxRef.current.dispatch({ type: 'NOTE_SET', note }) };
           // 메모는 물리 바디가 없어 리시도 고스트도 안 뜬다 — 이 링이 유일한 '잡았다' 신호다.
           selectionOverlayRef.current?.setRing('note', note.x, note.y, 0);
         }
@@ -627,8 +696,13 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   );
 
   const onPointerMove = useCallback(
-    (world: Vec2, nowMs: number) => {
+    (world: Vec2, nowMs: number, client?: { x: number; y: number } | null) => {
       const ctx = ctxRef.current;
+
+      // §6.10c 트레이 드롭 예고 — 어느 드래그 갈래로 내려가든 **먼저** 본다. 아래 분기들은
+      // 저마다 return 으로 끝나므로, 여기 말고는 모든 갈래가 지나는 자리가 없다.
+      // 짐이 없으면(고무줄·작도·손잡이) 아무 일도 안 한다.
+      if (trayCargoRef.current && client) setOverTray(isOverTray(client));
 
       // [A-3] 탭 임계를 넘는 순간 이 세션은 드래그다 — 한 번 넘었으면 되돌아와도 드래그다
       // (러버밴드의 tapPx 판정과 같은 임계·같은 화면 기준 환산).
@@ -759,11 +833,22 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         selectionOverlayRef.current?.setRubberBand(rubberRectRef.current);
       }
     },
-    [],
+    [setOverTray],
   );
 
   const onPointerUp = useCallback((client: { x: number; y: number } | null) => {
     const ctx = ctxRef.current;
+
+    // §6.10c — 예고를 끄는 일은 **어느 갈래로 끝나든** 여기서 한 번에 한다. 분기 안에서 끄면
+    // 새 갈래가 생길 때마다 잊을 수 있고, 잊으면 덮개가 화면에 눌어붙는다.
+    const trayDrop = takeTrayDrop(client);
+    /** 트레이에 놓았으니 치운다. **메뉴·Delete 와 같은 함수**로 들어가므로 소리·토스트·선택
+     *  해제가 여기 없다 — 세 입구가 같은 말을 하게 하는 값이 그것이다(§6.10c).
+     *  이동을 먼저 물리는 이유는 trayCargoRef 주석 참고: 되돌리기가 **원래 자리**로 돌려놔야 한다. */
+    const dropToTray = (): void => {
+      trayDrop!.revert();
+      ctx.onEraseIds?.(trayDrop!.ids, 'onward');
+    };
 
     // [A-3] 재탭 해제 판정 — 어느 경로로 끝나든 세션은 여기서 소거한다. pointercancel
     // (client=null)은 탭이 아니다: 시스템 제스처에 뺏겼을 뿐인데 선택까지 풀리면 안 된다
@@ -784,7 +869,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     const grp = groupDragRef.current;
     if (grp) {
       groupDragRef.current = null;
-      if (grp.moved) {
+      if (trayDrop) {
+        dropToTray();
+      } else if (grp.moved) {
         // 병합 창을 닫는다 — 안 닫으면 700ms 안에 시작한 **다음** 드래그가 이번 것과 한 칸으로
         // 합쳐진다(같은 무리를 두 번 끌면 되돌리기가 한 번에 두 번치를 물린다).
         ctx.dispatch({ type: 'COMMIT_BREAK' });
@@ -799,10 +886,6 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
 
     if (dragHandleRef.current) {
       const id = draggedIdRef.current;
-      // 트레이 위에 놓았으면 코트에서 빼낸다 — 개체가 "원래 있던 자리"(주차 슬롯·상자)로
-      // 돌아가는 동작이다.
-      const overTray = isOverTray(client);
-
       dragHandleRef.current.end(); // §5.11 릴리스 체이스 시작 — 물리가 스스로 정착까지 굴린다
       // 손을 뗐으니 칩을 판에 내려놓는다. 트레이로 빼는 경로보다 **먼저** 해야 한다 —
       // 개체가 사라진 뒤에는 되돌릴 노드가 없어 held 표시가 다음 마운트로 새어 나간다.
@@ -816,13 +899,16 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       selectionOverlayRef.current?.setGhost(null, 0, 0, 0);
       selectionOverlayRef.current?.setRing(null, 0, 0, 0);
 
-      if (overTray && id) {
-        // §4.3 P1-4 상자 빔 — 개체가 판을 떠나 상자로 돌아간다. '탁' 과 소리의 종류가 달라야
-        // 눈을 안 쓰고도 "놓았다" 와 "뺐다" 가 갈린다.
-        cues.play('trayReturn');
-        // 되돌리기 한 번으로 살아나야 한다 — 커밋을 먼저 하면 "옮김 + 뺌" 두 단계가 쌓인다.
-        ctx.dispatch({ type: 'OBJECT_REMOVE', id: id as ChairId | BallId | ConeId, scope: 'onward' });
-        ctx.dispatch({ type: 'SELECT_CLEAR' });
+      if (trayDrop) {
+        // 트레이 위에 놓았다 — 개체가 "원래 있던 자리"(주차 슬롯·상자)로 돌아간다.
+        // ⚠️ 여기서 `commitDragResult()` 를 부르지 않는 것이 절반이다: 커밋을 먼저 하면
+        //    "옮김 + 뺌" 두 단계가 쌓여 되돌리기 한 번으로는 안 살아난다.
+        //
+        // 2026-08-16 — 예전에는 이 자리에서 `OBJECT_REMOVE` 를 직접 쏘고 상자 빔도 직접
+        // 울렸다. 그래서 **끌어서 뺀 것만** 토스트(되돌리기 버튼)가 없었고, 소리 규칙도
+        // 여기와 EditorWorkspace 두 곳에 각각 적혀 있었다. 지금은 세 입구(끌기·메뉴·Delete)가
+        // 같은 함수 하나로 모인다.
+        dropToTray();
         return;
       }
       // §4.3 P1-4 놓임 '탁'. **pointercancel(client === null)에는 울리지 않는다** — 시스템
@@ -858,6 +944,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     if (noteDragRef.current) {
       noteDragRef.current = null;
       selectionOverlayRef.current?.setRing(null, 0, 0, 0);
+      if (trayDrop) {
+        dropToTray();
+        return;
+      }
       finishTap(); // [A-3] 메모 재탭 — 메모는 공이 아니므로 여전히 즉시 해제다
       return;
     }
@@ -881,6 +971,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     }
     if (arrowBodyDragRef.current) {
       arrowBodyDragRef.current = null;
+      if (trayDrop) {
+        dropToTray();
+        return;
+      }
       // ⚠️ **여기서 그냥 return 하면 화살표의 재탭 해제가 죽는다**(2026-08-16 에 한 번 그랬다).
       //    몸통 드래그와 재탭 해제는 같은 pointerdown 에서 시작하므로, 안 움직였을 때는
       //    이 세션이 아니라 탭 판정이 마지막 말을 해야 한다. 메모가 간 길과 같다.
@@ -934,7 +1028,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     // [A-3] 화살표 몸통은 어떤 드래그 세션도 만들지 않아 여기까지 흘러온다 — 재탭 해제만 판정.
     // 물리 바디를 못 잡은 공(beginDrag 가 null)도 여기로 떨어지므로 finishTap 이어야 한다.
     finishTap();
-  }, [arrowDraft, armSettleRecommit, buildScene, commitDragResult]);
+  }, [arrowDraft, armSettleRecommit, buildScene, commitDragResult, takeTrayDrop]);
 
   const controller = useMemo<CourtStagePointerController>(() => ({ onPointerDown, onPointerMove, onPointerUp }), [onPointerDown, onPointerMove, onPointerUp]);
 

@@ -183,7 +183,8 @@ describe('트레이 세로 식의 전제 — 화면이 정말 그 모양인가',
     expect(rail().style.gap).toBe('6px');
     // 줌이 없는 렌더라 5개다 — 줌 구역과 그 구분선이 붙으면 6개(TRAY_SECTIONS)가 된다.
     // 통합 화면에서 6개인 것은 EditorWorkspace.viewControls.test 가 본다.
-    expect(rail().children).toHaveLength(4);
+    // 흐름 밖 장식(§6.10c 드롭 예고)은 구역이 아니다 — 세로 식의 gap 항이 세는 것은 흐름이다.
+    expect([...rail().children].filter((el) => (el as HTMLElement).style.position !== 'absolute')).toHaveLength(4);
   });
 
   it('구분선 한 줄은 세로로 9px 을 먹는다 — 선 1 + 상하 margin 4', () => {

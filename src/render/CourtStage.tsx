@@ -85,8 +85,14 @@ export interface PointerDownResult {
 
 export interface CourtStagePointerController {
   onPointerDown(world: Vec2, meta: PointerMeta): PointerDownResult | void;
-  /** rAF 틱 1회당 정확히 1번 호출된다(§6.4 "물리 호출은 rAF tick 하나에서만"). */
-  onPointerMove(world: Vec2, nowMs: number): void;
+  /** rAF 틱 1회당 정확히 1번 호출된다(§6.4 "물리 호출은 rAF tick 하나에서만").
+   *
+   *  `client` 는 마지막으로 알려진 **화면** 좌표다 — 트레이 위인지(§6.10c 드롭 예고)를
+   *  드래그 중에 알려면 필요하다. world 로는 답할 수 없다: 트레이는 코트 밖의 HTML 이고,
+   *  판정은 `elementFromPoint` 라는 기하 질의다(`isOverTray` 주석).
+   *  선택 인자인 이유는 `onPointerUp` 이 null 을 받는 이유와 같다 — 좌표를 모르는 호출
+   *  경로(테스트 하네스·좌표 없는 rAF 첫 틱)에서는 **예고를 안 하는 것**이 맞다. */
+  onPointerMove(world: Vec2, nowMs: number, client?: { x: number; y: number } | null): void;
   /** pointerup·pointercancel·두 번째 포인터의 핀치 전환 — 전부 이 하나로 합류한다. */
   /** 손을 뗀 화면 좌표. 트레이 위에 놓았는지(=코트에서 빼기) 판정하는 데 쓴다.
    *  pointercancel 은 좌표가 없으므로 null 이다 — 그때는 트레이 판정을 하지 않는다. */
@@ -566,7 +572,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     rafUnsub.current = raf.add((dtMs, now) => {
       if (edgePanRef.current) stepEdgePan(dtMs);
       const t = targetRef.current;
-      if (t) controller.onPointerMove(t, now); // ★ 물리 호출은 rAF tick 하나에서만(§6.4)
+      if (t) controller.onPointerMove(t, now, lastClientRef.current); // ★ 물리 호출은 rAF tick 하나에서만(§6.4)
     });
   };
 
