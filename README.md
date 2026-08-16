@@ -100,6 +100,10 @@
 서버가 없다는 것이 제약이 아니라 요구입니다. 코치의 드릴은 코치 기기에만 있고, 기기를 옮길
 때는 파일 하나로 옮깁니다.
 
+> ⚠️ **이 원칙은 단계적으로 풀립니다.** 0.6 에서 구글 드라이브 동기화(사용자 **자기** 계정 —
+> 앱 서버는 여전히 없습니다), 2.0 포털에서 진짜 서버로 갑니다. 순서와 근거는
+> [ROADMAP.md](ROADMAP.md) 에 있습니다.
+
 ### 좌표계
 
 **월드 단위 = 미터, 렌더 스케일 25 px/m.** 코트 좌표의 **유일한 출처는
@@ -178,11 +182,12 @@ src/
 
 | 파일 | 내용 |
 |---|---|
+| [ROADMAP.md](ROADMAP.md) | **앞으로 할 일의 정본** — 버전별 계획과 결정 대기 항목 |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 요구사항 확정본. 숫자는 테스트가 지킵니다 |
 | [docs/DESIGN.md](docs/DESIGN.md) | 구현 계약서 — 좌표·상수·시그니처·파일 소유권·접근성 계약 |
 | [docs/FALSIFICATION-BASELINE.md](docs/FALSIFICATION-BASELINE.md) | "이 주장이 틀렸다면 무엇이 보일 것인가" 기준선 |
 | [docs/FIELD-TEST.md](docs/FIELD-TEST.md) | 실기 검증 항목과 결과 |
-| [docs/PLAN-2026-08.md](docs/PLAN-2026-08.md) | 진행 계획·결정 기록 |
+| [docs/PLAN-2026-08.md](docs/PLAN-2026-08.md) | ❄️ **동결** — 2026-08 재편의 설계 근거와 §8 「하지 않을 것」 |
 | [CHANGELOG.md](CHANGELOG.md) | 변경 이력 (Keep a Changelog) |
 
 ---
