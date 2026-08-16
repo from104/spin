@@ -5,6 +5,7 @@
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
 import { useLongPressMenu } from './useLongPressMenu.ts';
+import { returnsToTray } from './removal.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
@@ -83,11 +84,6 @@ function nearestCell(mode: CourtMode, p: { x: number; y: number }, size?: CourtS
 // 키보드 커서(§7.5d)가 격자 칸 가운데를 조준하는 도구들. 2026-08-14 에 도형 3종이 합쳤다 —
 // 놓는 도구인데 여기 없으면 **키보드로는 못 놓는** 도구가 된다.
 const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note', 'shapeEllipse', 'shapeTriangle', 'shapeRect']);
-
-/** 판에서 빼면 **트레이에 다시 꺼낼 자리가 있는가**. 메뉴 라벨('빼기'/'삭제')과 소리
- *  (trayReturn 을 울릴지)가 **둘 다 이 하나를 본다** — 갈라 두면 "글자는 빼기인데 소리는
- *  안 나는" 식으로 어긋난다. 근거는 ObjectMenu 의 `returnsToTray` 필드 주석. */
-const returnsToTray = (id: string): boolean => !isId(id, 'ar') && !isId(id, 'nt') && !isId(id, 'sh');
 
 /** 개체 이동 방향 — `W A S D` 와 방향키가 같은 자리를 가리킨다. 값은 **화면 기준** 단위
  *  벡터이고, 월드 환산은 쓰는 쪽이 스테이지 회전을 물어 한다. */

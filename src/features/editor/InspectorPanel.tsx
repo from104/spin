@@ -842,7 +842,7 @@ function RosterSection({
                   </div>
                   {placed && (
                     <Button variant="ghost" onClick={() => onEraseIds([def.id], 'onward')}>
-                      코트에서 미배치
+                      코트에서 빼기
                     </Button>
                   )}
                 </div>
@@ -932,7 +932,7 @@ function SelectionSection({
       <div style={{ padding: '0 17px' }}>
         <div style={SECTION_LABEL}>선택한 공</div>
         <Button variant="ghost" onClick={() => onEraseIds([id], 'onward')}>
-          공 삭제
+          공 빼기
         </Button>
       </div>
     );
@@ -945,7 +945,7 @@ function SelectionSection({
       <div style={{ padding: '0 17px' }}>
         <div style={SECTION_LABEL}>선택한 콘</div>
         <Button variant="ghost" onClick={() => onEraseIds([id], 'onward')}>
-          콘 삭제
+          콘 빼기
         </Button>
       </div>
     );

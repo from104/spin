@@ -28,6 +28,7 @@ import { ToolRail, type ChairSlot } from './ToolRail.tsx';
 import { courtCellAspectRatioCss } from './boardLayout.ts';
 import { useTrayDrag } from './useTrayDrag.ts';
 import { placeObject } from './placement.ts';
+import { removalToast } from './removal.ts';
 import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
 import { ViewControls } from './StageControls.tsx';
@@ -227,22 +228,27 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
 
   const eraseIds = useCallback(
     (ids: string[], scope: 'onward' | 'thisStep') => {
-      let count = 0;
+      // 실제로 치운 것만 모은다 — 리듀서가 안 받는 id 까지 세면 토스트가 부풀고, 되돌리기
+      // 횟수도 어긋난다.
+      const done: string[] = [];
       for (const id of ids) {
         if (isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn')) {
           dispatch({ type: 'OBJECT_REMOVE', id, scope });
-          count++;
+          done.push(id);
         } else if (isId(id, 'nt')) {
           dispatch({ type: 'NOTE_REMOVE', id });
-          count++;
+          done.push(id);
         } else if (isId(id, 'ar')) {
           dispatch({ type: 'ARROW_REMOVE', id });
-          count++;
+          done.push(id);
         }
       }
+      const count = done.length;
       if (count === 0) return;
       dispatch({ type: 'SELECT_CLEAR' });
-      toast.show(`${count}개 삭제했습니다.`, {
+      // 개체 메뉴가 '빼기'/'삭제'로 말을 가르므로(removal.ts) 토스트도 같은 술어를 본다 —
+      // 메뉴에서 '빼기'를 눌렀는데 "삭제했습니다" 가 뜨면 방금 읽은 글자를 뒤집는 셈이다.
+      toast.show(removalToast(done), {
         action: {
           label: '되돌리기',
           onAction: () => {
