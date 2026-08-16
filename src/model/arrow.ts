@@ -55,6 +55,18 @@ export function arrowPath(a: Pick<Arrow, 'from' | 'ctrl' | 'to'>): string {
   return `M${f} Q${c} ${t}`;
 }
 
+/** 곡선의 **한가운데 점**(2차 베지에 t=0.5). 세 점의 무게중심이 아니다 — 무게중심은 곡선
+ *  위에 있지도 않아서, 눈에 보이는 화살표와 어긋난 자리를 가리킨다.
+ *
+ *  고무줄 선택이 "중심점이 사각형 안인가" 로 판정하므로(§6.10b) 화살표에도 **대표점 하나**가
+ *  필요하다. 그 점이 곡선 위에 있어야 "보이는 것을 훑었더니 잡혔다" 가 참이 된다. */
+export function arrowMid(a: Pick<Arrow, 'from' | 'ctrl' | 'to'>): Vec2 {
+  return {
+    x: (a.from.x + 2 * a.ctrl.x + a.to.x) / 4,
+    y: (a.from.y + 2 * a.ctrl.y + a.to.y) / 4,
+  };
+}
+
 /** bow = 직선 대비 최대 처짐(px). 양수 = 진행방향 우측(화면상 시계방향).
  *  2차 베지에의 t=0.5 편차는 제어점 이동량의 1/2 이므로 2배로 보정한다. */
 export function defaultCtrl(from: Vec2, to: Vec2, bow: number = 0): Vec2 {

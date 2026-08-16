@@ -27,7 +27,7 @@ import { poseToStored } from '../../model/chair.ts';
 import { isOnSurface } from '../../model/court.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
 import type { Arrow } from '../../model/arrow.ts';
-import { cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow } from '../../model/arrow.ts';
+import { arrowMid, cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow } from '../../model/arrow.ts';
 import { arrowLabel } from '../../render/objects/ArrowPath.tsx';
 import type { CourtStageHandle, PointerMeta, PointerDownResult, CourtStagePointerController } from '../../render/CourtStage.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
@@ -913,6 +913,16 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       for (const b of scene.balls) if (inRect(b.p, rect) && takeable(b.id)) ids.push(b.id);
       for (const c of scene.cones) if (inRect(c.p, rect) && takeable(c.id)) ids.push(c.id);
       for (const n of scene.notes) if (inRect(n.p, rect) && takeable(n.id)) ids.push(n.id);
+      // ★ 화살표·도형(2026-08-16 기현 신고: *"고무줄 선택이 작도 개체를 왜 선택 안 되게 했나?"*).
+      //   결정이 아니라 **빠뜨림**이었다 — 이 루프는 앱 조립 첫 커밋 때 그때 있던 넷을 돌게
+      //   쓰였고, 화살표·도형은 나중에 들어오면서 아무도 이 줄을 다시 안 봤다. 그래서
+      //   "빈 코트를 훑는다" 는 한 가지 손짓이 개체 종류에 따라 되기도 하고 안 되기도 했다.
+      //
+      //   ⚠️ `scene`(물리 스냅샷)이 아니라 `ctx.step` 을 읽는다. 도형은 물리 바디가 없어
+      //   스냅샷에 아예 없고, 화살표는 있지만 세 점뿐이라 어차피 대표점을 여기서 만들어야
+      //   한다. 둘을 같은 출처에서 읽으면 "화살표는 되는데 도형은 안 되는" 갈래가 안 생긴다.
+      for (const a of ctx.step.arrows) if (inRect(arrowMid(a), rect) && takeable(a.id)) ids.push(a.id);
+      for (const sh of ctx.step.shapes ?? []) if (inRect({ x: sh.x, y: sh.y }, rect) && takeable(sh.id)) ids.push(sh.id);
       if (ids.length > 0) {
         ctx.dispatch({ type: 'SELECT_SET', ids: additive ? Array.from(new Set([...ctx.selection, ...ids])) : ids });
       } else if (!additive) {
