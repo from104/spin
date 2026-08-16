@@ -21,6 +21,7 @@ import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { BoardScreen } from '../board/BoardScreen.tsx';
 import { ObjectMenu } from './ObjectMenu.tsx';
+import { cues } from '../../ui/cues.ts';
 import { LONG_PRESS_MS, MOVE_CANCEL_PX, useLongPressMenu } from './useLongPressMenu.ts';
 import { setStepFlag } from '../../model/edits.ts';
 import { createDrill } from '../../model/defaults.ts';
@@ -252,6 +253,21 @@ describe('메뉴 — 화면 끝', () => {
     // 명단에서 지워졌다면 이 수가 그대로이거나 줄어든다. 늘어난다는 것은 **그 선수가
     // 트레이에 다시 섰다**는 뜻이다.
     await waitFor(() => expect(slots().length).toBe(before + 1));
+  });
+
+  it('메뉴로 뺄 때도 트레이 복귀 소리가 난다 — 끌어서 빼는 것과 같은 동작이다', async () => {
+    // 두 길이 같은 액션인데 한쪽만 울리면 "메뉴로는 다른 일이 일어났나" 가 된다.
+    // §4.3 P1-4 의 소리는 눈을 안 쓰고도 '놓았다' 와 '뺐다' 를 가르는 신호다.
+    const play = vi.spyOn(cues, 'play').mockImplementation(() => {});
+    try {
+      const { user, chair } = await openBoardWithChair();
+      play.mockClear();
+      fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
+      await user.click(await screen.findByRole('menuitem', { name: '빼기' }));
+      await waitFor(() => expect(play.mock.calls.map((c) => c[0])).toContain('trayReturn'));
+    } finally {
+      play.mockRestore();
+    }
   });
 
   // ── 마지막 항목의 말 — '빼기' 냐 '삭제' 냐 ────────────────────────────────────────

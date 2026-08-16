@@ -27,6 +27,7 @@ import type { StageRot } from '../../render/useStageMetrics.ts';
 import type { ObjectLayerChair, ObjectLayerCone } from '../../render/ObjectLayer.tsx';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { RuleOverlayApi, RuleRosterEntry } from '../../render/ruleOverlay.ts';
+import { cues } from '../../ui/cues.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { ZONE_CURSOR_DRAGGING } from '../../render/zoneCursors.ts';
 import { useEditorPointer } from './useEditorPointer.ts';
@@ -82,6 +83,11 @@ function nearestCell(mode: CourtMode, p: { x: number; y: number }, size?: CourtS
 // 키보드 커서(§7.5d)가 격자 칸 가운데를 조준하는 도구들. 2026-08-14 에 도형 3종이 합쳤다 —
 // 놓는 도구인데 여기 없으면 **키보드로는 못 놓는** 도구가 된다.
 const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note', 'shapeEllipse', 'shapeTriangle', 'shapeRect']);
+
+/** 판에서 빼면 **트레이에 다시 꺼낼 자리가 있는가**. 메뉴 라벨('빼기'/'삭제')과 소리
+ *  (trayReturn 을 울릴지)가 **둘 다 이 하나를 본다** — 갈라 두면 "글자는 빼기인데 소리는
+ *  안 나는" 식으로 어긋난다. 근거는 ObjectMenu 의 `returnsToTray` 필드 주석. */
+const returnsToTray = (id: string): boolean => !isId(id, 'ar') && !isId(id, 'nt') && !isId(id, 'sh');
 
 /** 개체 이동 방향 — `W A S D` 와 방향키가 같은 자리를 가리킨다. 값은 **화면 기준** 단위
  *  벡터이고, 월드 환산은 쓰는 쪽이 스테이지 회전을 물어 한다. */
@@ -482,9 +488,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         ignored: ignoredSet.has(id),
         // '무시' 는 **휠체어만**이다(기현 지시).
         canIgnore: isId(id, 'ch'),
-        // 트레이에 다시 꺼낼 자리가 있는 것만 '빼기' 다 — 칩·공·콘. 손으로 그린 것
-        // (화살표·메모·도형)은 다시 꺼낼 자리가 없어 '삭제' 다(ObjectMenu 의 그 필드 주석).
-        returnsToTray: !isId(id, 'ar') && !isId(id, 'nt') && !isId(id, 'sh'),
+        returnsToTray: returnsToTray(id),
       });
     },
     [lockedSet, ignoredSet],
@@ -562,6 +566,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       onRemove={(id) => {
         // 지우는 길은 개체 종류마다 다르다 — 화살표·메모·도형은 자기 액션, 나머지(칩·공·콘)는
         // 스텝 범위를 갖는 OBJECT_REMOVE 다.
+        //
+        // §4.3 P1-4 — 트레이로 **끌어서** 빼는 길은 이미 'trayReturn' 을 울린다
+        // (useEditorPointer 의 isOverTray 분기). 메뉴로 빼는 것은 **같은 동작**이므로 같은
+        // 소리가 나야 한다 — 한쪽만 울리면 "메뉴로는 다른 일이 일어났나" 가 된다.
+        // 삭제(화살표·메모·도형)에는 울리지 않는다: 돌아갈 상자가 없어 'trayReturn' 이
+        // 뜻하는 바가 없고, 없는 소리를 새로 만드는 것은 이 커밋의 일이 아니다.
+        if (returnsToTray(id)) cues.play('trayReturn');
         if (isId(id, 'ar')) dispatch({ type: 'ARROW_REMOVE', id });
         else if (isId(id, 'nt')) dispatch({ type: 'NOTE_REMOVE', id });
         else if (isId(id, 'sh')) dispatch({ type: 'SHAPE_REMOVE', id });
