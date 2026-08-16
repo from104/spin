@@ -31,7 +31,6 @@ const CONE_AT = { x: 500, y: 400 };
 /** 공/콘의 **1차** 픽 반경 밖, 2차 반경 안. s=1 에서 공 10.125 · 콘 9.125 < 18 < 22. */
 const NEAR_MISS = 18;
 /** 1차 반경 안 — "2차를 끄면 아무것도 못 잡는다" 가 아니라는 대조군. */
-const DIRECT_HIT = 5;
 /** 기본 2차 반경(22) 밖, "큰 터치 타깃" 반경(28) 안. [D-4] 배선만 재는 거리다. */
 const LARGE_ONLY = 25;
 
@@ -106,44 +105,10 @@ describe('select 도구 — 2차 패스가 실제로 배선돼 있다', () => {
   });
 });
 
-describe('지우개 — 2차 패스가 돌지 않는다 [A-2]', () => {
-  it('공에서 18px 떨어진 곳을 문질러도 공은 살아 있다', () => {
-    const { drill, ball } = makeDrill();
-    const { result } = mount(drill, 'erase');
-    const ctrl = () => result.current.pointer.controller;
-    act(() => void ctrl().onPointerDown({ x: BALL_AT.x + NEAR_MISS, y: BALL_AT.y }, META));
-    act(() => ctrl().onPointerUp(null));
-    // 파괴적 동작은 수식키를 요구한다(useEditorKeyboard, WCAG 2.1.4). 관대한 반경으로
-    // 조용히 지워 버리면 그 규칙이 코트 위에서만 무효가 된다.
-    expect(result.current.state.present.steps[0]!.balls[ball]).toEqual(BALL_AT);
-    expect(result.current.state.past).toHaveLength(0);
-  });
-
-  it('그렇다고 무뎌지지는 않는다 — 공 위(5px)를 문지르면 지워진다', () => {
-    const { drill, ball } = makeDrill();
-    const { result } = mount(drill, 'erase');
-    const ctrl = () => result.current.pointer.controller;
-    act(() => void ctrl().onPointerDown({ x: BALL_AT.x + DIRECT_HIT, y: BALL_AT.y }, META));
-    act(() => ctrl().onPointerUp(null));
-    expect(result.current.state.present.steps[0]!.balls[ball]).toBeUndefined();
-  });
-});
-
-describe('배치 도구 — 2차 패스가 돌지 않는다 [A-2]', () => {
-  it('기존 콘에서 18px 떨어진 곳을 탭하면 새 콘이 나란히 놓인다', () => {
-    const { drill, cone } = makeDrill();
-    const { result } = mount(drill, 'cone');
-    const ctrl = () => result.current.pointer.controller;
-    act(() => void ctrl().onPointerDown({ x: CONE_AT.x + NEAR_MISS, y: CONE_AT.y }, META));
-    act(() => ctrl().onPointerUp(null));
-
-    const cones = result.current.state.present.cast.cones;
-    expect(cones).toHaveLength(2);
-    const added = cones.find((c) => c.id !== cone)!;
-    expect(result.current.state.present.steps[0]!.cones[added.id]).toEqual({ x: CONE_AT.x + NEAR_MISS, y: CONE_AT.y });
-    expect(result.current.state.present.steps[0]!.cones[cone]).toEqual(CONE_AT); // 원래 콘은 그대로
-  });
-});
+// 2026-08-16 — 지우개 도구가 사라지면서 '문질러 지우기' 경로가 통째로 없어졌다(기현 지시).
+// 여기 있던 두 테스트([A-2] 2차 패스가 지우개에서는 안 돈다)는 잴 대상이 없어졌다. 관대한
+// 반경이 파괴로 새지 않는다는 계약 자체는 여전히 유효하고, 이제 `tool: 'select'` 가 아닌
+// 모든 도구가 같은 규칙을 받는다 — physics/twoPassHit.test.ts 가 그것을 잰다.
 
 describe('큰 터치 타깃 배선 [D-4]', () => {
   // 설정의 "큰 터치 타깃" 이 버튼(`--hit`)에서만 참이고 코트 위에서는 거짓이던 것을 닫는

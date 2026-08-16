@@ -14,7 +14,6 @@ import {
   setPose,
   removeFromStepOnward,
   removeFromThisStepOnly,
-  removeEverywhere,
   addStepAfter,
   duplicateStep,
   deleteStep,
@@ -200,9 +199,7 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
     case 'OBJECT_ADD':
       return a.kind === 'ball' ? addBall(d, i, a.at) : addCone(d, i, a.at, a.colorIndex ?? 0);
     case 'OBJECT_REMOVE':
-      if (a.scope === 'onward') return removeFromStepOnward(d, i, a.id);
-      if (a.scope === 'thisStep') return removeFromThisStepOnly(d, i, a.id);
-      return removeEverywhere(d, a.id);
+      return a.scope === 'onward' ? removeFromStepOnward(d, i, a.id) : removeFromThisStepOnly(d, i, a.id);
     case 'CHAIR_PLACE':
       return placeChair(d, i, a.id, a.pose);
     case 'CHAIR_DEF':

@@ -77,7 +77,11 @@ export type EditorAction =
   | { type: 'STEP_REORDER'; id: StepId; toIndex: number }
   | { type: 'STEP_META'; id: StepId; patch: { name?: string; note?: string; durationMs?: number } }
   | { type: 'OBJECT_ADD'; kind: 'ball' | 'cone'; at: Vec2; colorIndex?: 0 | 1 }
-  | { type: 'OBJECT_REMOVE'; id: CastId; scope: 'onward' | 'thisStep' | 'everywhere' }
+  /** 삭제 범위. **사용자가 고르지 않는다** — 개체 성격에 따라 UI 가 정한다:
+   *  메모·화살표는 그 스텝의 설명이라 `thisStep`, 선수·공·콘은 `onward`(인스펙터 참고).
+   *  2026-08-16 — 키보드에서 Alt 로 범위를 고르던 길은 없앴다(Alt 는 보기 토글 전용 채널이
+   *  됐다). `'everywhere'` 는 아무도 디스패치하지 않아 함께 걷어냈다. */
+  | { type: 'OBJECT_REMOVE'; id: CastId; scope: 'onward' | 'thisStep' }
   | { type: 'CHAIR_PLACE'; id: ChairId; pose: StoredChairPose }
   | { type: 'CHAIR_DEF'; id: ChairId; patch: Partial<Omit<ChairDef, 'id' | 'team'>> }
   // §7 5.2 — **선택된 공을 그 자리에서 다시 탭했다**(2026-08-13, 기현님 실기 피드백 ③).

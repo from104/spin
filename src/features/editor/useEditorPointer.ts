@@ -2,7 +2,7 @@
 // 위임하는 `CourtStagePointerController`(§8 판단 근거: CourtStage.tsx 헤더 주석 "store(Wave3)
 // 가 만든 CourtStagePointerController 를 주입받아 위임한다" — 실제로는 이 화면(screen-editor)이
 // physics-world 를 의존해 만든다) 를 여기서 조립한다. 히트테스트·물리 드래그·러버밴드·화살표
-// 작도·지우개가 전부 여기 한 곳에 모인다.
+// 작도가 전부 여기 한 곳에 모인다.
 //
 // 개체별 onPointerDown/zoneHandles.onPointerDown/arrowHandles.onPointerDown(CourtStage 가 제공하는
 // 선택적 prop)은 쓰지 않는다 — 어느 자식 엘리먼트에서 시작했든 포인터다운은 SVG 루트로 버블링해
@@ -166,7 +166,6 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   /** 선 몸통을 잡아 **통째로** 옮기는 세션(2026-08-16 기현 지시). 도형의 body 드래그와 같은 뜻이라
    *  커서도 같은 `move` 다 — 그 커서가 곧 "여기를 잡으면 통째로 간다" 는 유일한 예고다. */
   const arrowBodyDragRef = useRef<{ arrowId: ArrowId; last: Vec2 } | null>(null);
-  const eraseSessionRef = useRef<{ touched: Set<string>; count: number } | null>(null);
   /** §4.3 P1-2 [A-3] — "선택된 개체 재탭 = 해제" 세션. 2단 히트가 켜지면 붐비는 코트에서
    *  "빈 곳 탭 → 해제"(아래 rubberRef 경로)가 사라지므로, **이미 선택된** 개체를 additive
    *  없이 다시 눌렀다가 탭 임계(INTERACT.tapMaxMoveCssPx) 안에서 손을 떼면 SELECT_CLEAR 로
@@ -251,40 +250,6 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     };
   }, []);
 
-  const commitEraseToast = useCallback(() => {
-    const session = eraseSessionRef.current;
-    eraseSessionRef.current = null;
-    if (!session || session.count === 0) return;
-    const ctx = ctxRef.current;
-    const n = session.count;
-    ctx.showToast(`${n}개 삭제했습니다.`, {
-      label: '되돌리기',
-      onAction: () => {
-        for (let i = 0; i < n; i++) ctx.dispatch({ type: 'UNDO' });
-      },
-    });
-  }, []);
-
-  const eraseAt = useCallback(
-    (world: Vec2, thisStepOnly: boolean) => {
-      const ctx = ctxRef.current;
-      const session = eraseSessionRef.current;
-      if (!session) return;
-      const hit = hitTest(world, buildScene(), buildHitContext('erase'));
-      if (!hit) return;
-      const key = `${hit.kind}:${hit.id}`;
-      if (session.touched.has(key)) return;
-      session.touched.add(key);
-      session.count++;
-      const scope = thisStepOnly ? 'thisStep' : 'onward';
-      if (hit.kind === 'chair') ctx.dispatch({ type: 'OBJECT_REMOVE', id: hit.id as ChairId, scope });
-      else if (hit.kind === 'ball') ctx.dispatch({ type: 'OBJECT_REMOVE', id: hit.id as BallId, scope });
-      else if (hit.kind === 'cone') ctx.dispatch({ type: 'OBJECT_REMOVE', id: hit.id as ConeId, scope });
-      else if (hit.kind === 'note') ctx.dispatch({ type: 'NOTE_REMOVE', id: hit.id as NoteId });
-      else if (hit.kind === 'arrow') ctx.dispatch({ type: 'ARROW_REMOVE', id: hit.id as ArrowId });
-    },
-    [buildScene, buildHitContext],
-  );
 
   /** 배치 도구 공용 — pointerdown 과 §7.5d 키보드 커서 Enter 가 함께 쓴다.
    *  규칙 자체는 placement.ts 가 갖는다(트레이 드래그와 같은 규칙을 써야 한다). */
@@ -476,12 +441,6 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
 
-      if (ctx.tool === 'erase') {
-        eraseSessionRef.current = { touched: new Set(), count: 0 };
-        eraseAt(world, meta.altKey);
-        return;
-      }
-
       if (ctx.tool === 'line') {
         const scene = buildScene();
         let from = world;
@@ -617,7 +576,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         }
       }
     },
-    [buildScene, buildHitContext, eraseAt, placeAt, resetDragSession],
+    [buildScene, buildHitContext, placeAt, resetDragSession],
   );
 
   const onPointerMove = useCallback(
@@ -678,11 +637,6 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
 
-      if (eraseSessionRef.current) {
-        eraseAt(world, false);
-        return;
-      }
-
       if (noteDragRef.current) {
         const { id, offset } = noteDragRef.current;
         const note = ctx.step.notes.find((n) => n.id === id);
@@ -732,7 +686,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         selectionOverlayRef.current?.setRubberBand(rubberRectRef.current);
       }
     },
-    [eraseAt],
+    [],
   );
 
   const onPointerUp = useCallback((client: { x: number; y: number } | null) => {
@@ -808,11 +762,6 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       return;
     }
 
-    if (eraseSessionRef.current) {
-      commitEraseToast();
-      return;
-    }
-
     if (noteDragRef.current) {
       noteDragRef.current = null;
       selectionOverlayRef.current?.setRing(null, 0, 0, 0);
@@ -877,7 +826,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     // [A-3] 화살표 몸통은 어떤 드래그 세션도 만들지 않아 여기까지 흘러온다 — 재탭 해제만 판정.
     // 물리 바디를 못 잡은 공(beginDrag 가 null)도 여기로 떨어지므로 finishTap 이어야 한다.
     finishTap();
-  }, [arrowDraft, armSettleRecommit, buildScene, commitDragResult, commitEraseToast]);
+  }, [arrowDraft, armSettleRecommit, buildScene, commitDragResult]);
 
   const controller = useMemo<CourtStagePointerController>(() => ({ onPointerDown, onPointerMove, onPointerUp }), [onPointerDown, onPointerMove, onPointerUp]);
 

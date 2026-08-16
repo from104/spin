@@ -236,37 +236,6 @@ export function removeFromThisStepOnly(d: Drill, i: number, id: CastId): Drill {
   return pruneOrphanCast(replaceStep(d, i, next));
 }
 
-/** cast + 전 스텝에서 완전히 제거. */
-export function removeEverywhere(d: Drill, id: CastId): Drill {
-  let changed = false;
-  const steps = d.steps.map((s) => {
-    const next = removeFromStep(s, id);
-    if (next !== s) changed = true;
-    return next;
-  });
-  let cast = d.cast;
-  if (isId(id, 'ch')) {
-    const chairs = d.cast.chairs.filter((c) => c.id !== id);
-    if (chairs.length !== d.cast.chairs.length) {
-      cast = { ...d.cast, chairs };
-      changed = true;
-    }
-  } else if (isId(id, 'bl')) {
-    const balls = d.cast.balls.filter((b) => b.id !== id);
-    if (balls.length !== d.cast.balls.length) {
-      cast = { ...d.cast, balls };
-      changed = true;
-    }
-  } else {
-    const cones = d.cast.cones.filter((c) => c.id !== id);
-    if (cones.length !== d.cast.cones.length) {
-      cast = { ...d.cast, cones };
-      changed = true;
-    }
-  }
-  return changed ? { ...d, cast, steps } : d;
-}
-
 /** 스텝 i 의 현재 pose 를 그 이후 모든 스텝으로 전파(고정)한다. */
 export function propagateForward(d: Drill, i: number, id: CastId): Drill {
   const base = d.steps[i];

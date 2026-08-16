@@ -156,16 +156,6 @@ describe('★ 겹치면 진해진다 — 알파 합성을 깨뜨리지 않는다
   });
 });
 
-describe('지우개 — 도형에도 듣는다', () => {
-  it('지우개로 도형을 누르면 사라진다', async () => {
-    const { user, stage } = await openBoard();
-    await pickShapeTool(user, '사각');
-    await tapCourt(user, stage);
-    await waitFor(() => expect(shapeNodes()).toHaveLength(1));
-
-    await user.click(screen.getByRole('button', { name: '지우개' }));
-    await user.click(shapeNodes()[0] as unknown as Element);
-
-    await waitFor(() => expect(shapeNodes()).toHaveLength(0));
-  });
-});
+// 2026-08-16 — 지우개 도구가 사라지면서 "지우개는 도형에도 듣는다" 를 잴 대상이 없어졌다.
+// 도형 삭제는 이제 다른 개체와 **같은 문**으로 간다: 선택한 뒤 Delete. 도형만의 예외 분기가
+// EditorStage 에서 함께 없어진 것이 요점이다 — 도구마다 다른 삭제 규칙이 없다.

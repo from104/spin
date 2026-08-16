@@ -38,7 +38,8 @@ const baseCtx: HitContext = {
 
 const emptyScene = (): SceneSnapshot => ({ chairs: [], balls: [], cones: [], notes: [], arrows: [] });
 
-const ALL_TOOLS: ToolId[] = ['select', 'line', 'line', 'ball', 'cone', 'player', 'note', 'erase'];
+// 2026-08-16 — 지우개가 사라져 9종이다(중복으로 두 번 적혀 있던 'line' 도 정리했다).
+const ALL_TOOLS: ToolId[] = ['select', 'line', 'shapeEllipse', 'shapeTriangle', 'shapeRect', 'ball', 'cone', 'player', 'note'];
 
 describe('2차 패스가 열어 주는 것 (§4.3 P1-2)', () => {
   it('(a) 빈 곳에서 40px 떨어진 공을 탭하면 공이 잡힌다', () => {
@@ -48,7 +49,7 @@ describe('2차 패스가 열어 주는 것 (§4.3 P1-2)', () => {
 
     // 1차 패스로는 못 잡는다는 것부터 검산한다 — 이게 아니면 (a)는 아무것도 증명하지 않는다.
     // 공의 1차 반경 = min(4.125 + 6/0.4, 11.25) = 11.25.
-    expect(hitTest(tap, scene, { ...baseCtx, tool: 'erase' })).toBeNull();
+    expect(hitTest(tap, scene, { ...baseCtx, tool: 'ball' })).toBeNull();
 
     expect(forgivingRadius(baseCtx)).toBeCloseTo(FORGIVING_R, 9);
     expect(hitTest(tap, scene, baseCtx)).toEqual({ kind: 'ball', id });
@@ -66,7 +67,7 @@ describe('2차 패스가 열어 주는 것 (§4.3 P1-2)', () => {
     const scene: SceneSnapshot = { ...emptyScene(), chairs: [{ id, pose }] };
     // 차체 반폭 12.5 + grabPad 10 = 22.5 가 1차 한계. 그 밖 27.5 를 옆에서 탭한다.
     const tap = { x: 0, y: 27.5 };
-    expect(hitTest(tap, scene, { ...baseCtx, tool: 'erase' })).toBeNull();
+    expect(hitTest(tap, scene, { ...baseCtx, tool: 'ball' })).toBeNull();
     expect(hitTest(tap, scene, baseCtx)).toMatchObject({ kind: 'chair', id });
   });
 
@@ -82,7 +83,7 @@ describe('2차 패스가 열어 주는 것 (§4.3 P1-2)', () => {
       balls: [{ id: ball, p: { x: 0, y: 60 } }],
     };
     const tap = { x: 0, y: 30 }; // 차체 옆 30(=hull+pad 밖), 공에서 30
-    expect(hitTest(tap, scene, { ...baseCtx, tool: 'erase' })).toBeNull();
+    expect(hitTest(tap, scene, { ...baseCtx, tool: 'ball' })).toBeNull();
     expect(hitTest(tap, scene, baseCtx)).toEqual({ kind: 'ball', id: ball });
   });
 });
@@ -120,7 +121,7 @@ describe('2차 패스가 **돌지 않는** 것 (§4.3 P1-2 [A-2])', () => {
   it('(c) 지우개는 1차 패스만 본다 — 40px 떨어진 공은 지워지지 않고, 위에 놓인 공은 지워진다', () => {
     const id = ballId(1);
     const scene: SceneSnapshot = { ...emptyScene(), balls: [{ id, p: { x: 100, y: 100 } }] };
-    const erase: HitContext = { ...baseCtx, tool: 'erase' };
+    const erase: HitContext = { ...baseCtx, tool: 'ball' };
     // 파괴적 동작에 수식키를 요구하는 규칙(WCAG 2.1.4)과 정면 충돌하므로 여기는 null 이어야 한다.
     expect(hitTest({ x: 140, y: 100 }, scene, erase)).toBeNull();
     // 그렇다고 지우개가 무뎌지면 안 된다 — 1차 반경(11.25) 안은 그대로 지워진다.
@@ -156,7 +157,7 @@ describe('큰 터치 타깃 (§4.3 P1-2 [D-4])', () => {
   it('큰 터치 타깃도 1차 패스는 건드리지 않는다 — 지우개는 켜도 그대로다', () => {
     const scene: SceneSnapshot = { ...emptyScene(), balls: [{ id: ballId(1), p: { x: 100, y: 100 } }] };
     const tap = { x: 160, y: 100 };
-    expect(hitTest(tap, scene, { ...baseCtx, tool: 'erase', hitCssPx: INTERACT.hitTargetLargeCssPx })).toBeNull();
+    expect(hitTest(tap, scene, { ...baseCtx, tool: 'ball', hitCssPx: INTERACT.hitTargetLargeCssPx })).toBeNull();
   });
 });
 
@@ -167,7 +168,7 @@ describe('메모 상한 22 (§4.3 P1-2)', () => {
     // s=0.2 → 메모 1차 반경 = min(NOTE.hitRadiusPx + 6/0.2, 상한) = min(50, 22) = 22.
     // 옛 상한 12.5 였다면 잘렸다(자기 반지름은 §4.3 P1-5 로 0 → 20 이 됐지만 이 구간은 상한이 정한다).
     // 2차 패스가 답을 대신 내지 못하도록 **지우개**로 잰다(2차가 없는 도구다).
-    const ctx: HitContext = { ...baseCtx, pxPerUnit: 0.2, tool: 'erase' };
+    const ctx: HitContext = { ...baseCtx, pxPerUnit: 0.2, tool: 'ball' };
     expect(hitTest({ x: 315, y: 300 }, scene, ctx)).toEqual({ kind: 'note', id }); // 15px — 옛 상한이면 빗나갔다
     expect(hitTest({ x: 323, y: 300 }, scene, ctx)).toBeNull(); // 23px — 새 상한 밖
   });

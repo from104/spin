@@ -36,9 +36,6 @@ exports[`트레이는 코트 긴 변에 붙는다 — 가로 창이면 아래 �
 · · · · · · · span position: relative; display: flex;
 · · · · · · · span position: relative; font-size: 0.6875rem; font-weight: 600;
 · · · · · · · span position: absolute; top: 2px; right: 3px; font-size: 0.5625rem; font-weight: 700; line-height: 1; font-family: "Space Grotesk", sans-serif; opacity: 0.9;
-· · · · · · button position: relative; width: 52px; height: 50px; min-width: var(--hit); min-height: var(--hit); border-radius: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--muted);
-· · · · · · · span position: relative; display: flex;
-· · · · · · · span position: relative; font-size: 0.6875rem; font-weight: 600;
 · · · · · · div flex: 0 0 auto; display: flex;
 · · · · · · · button position: relative; width: 52px; height: 50px; min-width: var(--hit); min-height: var(--hit); border-radius: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--muted);
 · · · · · · · · span position: relative; display: flex;

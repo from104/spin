@@ -15,7 +15,6 @@ import {
   placeChair,
   propagateForward,
   removeArrow,
-  removeEverywhere,
   removeFromStepOnward,
   removeFromThisStepOnly,
   removeNote,
@@ -159,7 +158,7 @@ describe('omitKey', () => {
   });
 });
 
-describe('removeFromStepOnward / removeFromThisStepOnly / removeEverywhere / propagateForward', () => {
+describe('removeFromStepOnward / removeFromThisStepOnly / propagateForward', () => {
   it('removeFromStepOnward 는 이 스텝부터 끝까지 제거한다', () => {
     let d = freshDrill();
     d = addStepAfter(d, 0);
@@ -176,16 +175,6 @@ describe('removeFromStepOnward / removeFromThisStepOnly / removeEverywhere / pro
     const d2 = removeFromThisStepOnly(d, 0, id);
     expect(d2.steps[0]!.chairs[id]).toBeUndefined();
     expect(d2.steps[1]!.chairs[id]).toBeDefined();
-  });
-
-  it('removeEverywhere 는 cast 와 전 스텝에서 지운다', () => {
-    let d = freshDrill();
-    d = addStepAfter(d, 0);
-    const id = d.cast.chairs[0]!.id;
-    const d2 = removeEverywhere(d, id);
-    expect(d2.cast.chairs.some((c) => c.id === id)).toBe(false);
-    expect(d2.steps[0]!.chairs[id]).toBeUndefined();
-    expect(d2.steps[1]!.chairs[id]).toBeUndefined();
   });
 
   it('propagateForward 는 이후 스텝에 현재 pose 를 고정 전파한다', () => {
@@ -353,12 +342,16 @@ describe('제거하면 잠김·무시 플래그도 함께 지워진다', () => {
     expect(after.steps[1]!.locked, '엉뚱한 스텝의 잠금이 풀렸다').toEqual([id]);
   });
 
-  it('메뉴의 [삭제](removeEverywhere)도 전 스텝의 플래그를 지운다', () => {
+  it('메뉴의 [삭제]도 이후 스텝의 플래그를 지운다', () => {
+    // ⚠️ 2026-08-16 정정 — 이 테스트는 `removeEverywhere` 를 부르며 "메뉴의 [삭제]" 라고
+    // 적고 있었지만, 메뉴는 그 함수를 **한 번도 부른 적이 없다**(ObjectMenu → onEraseIds →
+    // scope 'onward'). 지우개 도구를 걷어내며 확인해 보니 `removeEverywhere` 는 어디서도
+    // 디스패치되지 않는 죽은 가지였고, 함께 제거했다. 이제 실제 경로로 잰다.
     let d = addStepAfter(freshDrill(), 0);
     const id = d.cast.chairs[0]!.id;
     d = setStepFlag(d, 0, 'locked', id, true);
     d = setStepFlag(d, 1, 'ignored', id, true);
-    const after = removeEverywhere(d, id);
+    const after = removeFromStepOnward(d, 0, id);
     expect(after.steps[0]!.locked).toBeUndefined();
     expect(after.steps[1]!.ignored).toBeUndefined();
   });

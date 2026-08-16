@@ -177,7 +177,6 @@ export interface CourtStageProps {
   arrowHandles?: {
     arrow: Arrow | null;
     /** 키보드 조준점(§4.3 1.11) — Shift+방향키가 옮길 점. null 이면 강조하지 않는다. */
-    activePart?: ArrowHandle | null;
     onPointerDown?: (which: ArrowHandle, e: ReactPointerEvent<SVGGElement>) => void;
   };
   keyboardCursor?: { visible: boolean; x: number; y: number; label?: string | null };
@@ -858,7 +857,6 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           <ArrowHandles
             arrow={arrowHandlesProps.arrow}
             pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
-            activePart={arrowHandlesProps.activePart ?? null}
             onPointerDown={arrowHandlesProps.onPointerDown}
           />
         )}

@@ -195,11 +195,6 @@ describe('선택 도구가 아니면 마진은 그냥 마진이다', () => {
     expect(result.current.pointer.arrowDraft).not.toBeNull();
   });
 
-  it('지우개로 마진을 문질러도 판을 밀지 않는다', () => {
-    const { drill } = makeDrill();
-    const { result } = mount(drill, 'erase');
-    expect(down(result, MARGIN_LEFT)?.pan).toBeFalsy();
-  });
 });
 
 describe('마진을 제자리에서 톡 치면 빈 곳 탭과 같다 ([A-3] 해제 경로 보존)', () => {

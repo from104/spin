@@ -77,14 +77,15 @@ const scene: SceneSnapshot = { chairs: [], balls: [], cones: [], notes: [{ id, p
 
 /** **지우개**로 잰다 — select 는 2차(관대) 패스가 있어 1차 반경을 가려 버린다(§4.3 P1-2 [A-2]).
  *  여기서 재려는 것은 "그려진 칩이 1차 패스만으로 잡히는가" 다. */
-const eraseCtx = (pxPerUnit: number): HitContext => ({
+const noteHitCtx = (pxPerUnit: number): HitContext => ({
   zones: { sTowRearMax: 0.12, sSpinMin: 0.32, sTowFrontMin: 0.85, grabPadPx: 10 },
   pxPerUnit,
   pointerType: 'touch',
   selectedChairId: null,
   selectedArrowId: null,
   handlesVisible: false,
-  tool: 'erase',
+  // 2차 패스([A-2])는 선택 도구에서만 돈다 — 여기서 재는 것은 **1차 반경**이라 비-select 도구여야 한다.
+  tool: 'note',
 });
 
 describe('(a) 빈 메모도 접힌 쪽지로 그려진다', () => {
@@ -153,7 +154,7 @@ describe('(d) 히트 반경 ↔ 시각 크기 정합', () => {
     for (const s of SCALES) {
       for (const c of corners) {
         const tap = { x: NOTE_AT.x + c.x, y: NOTE_AT.y + c.y };
-        expect(hitTest(tap, scene, eraseCtx(s))).toEqual({ kind: 'note', id });
+        expect(hitTest(tap, scene, noteHitCtx(s))).toEqual({ kind: 'note', id });
       }
     }
   });
@@ -169,8 +170,8 @@ describe('(d) 히트 반경 ↔ 시각 크기 정합', () => {
     expect(NOTE.ringRadiusPx).toBeGreaterThan(NOTE.hitRadiusPx);
     for (const s of SCALES) {
       // 링 바로 안 = 잡힌다. 링 바로 밖 = 안 잡힌다(상한이 링과 같은 값이므로).
-      expect(hitTest({ x: NOTE_AT.x + NOTE.ringRadiusPx - 0.5, y: NOTE_AT.y }, scene, eraseCtx(s))).toEqual({ kind: 'note', id });
-      expect(hitTest({ x: NOTE_AT.x + NOTE.ringRadiusPx + 0.5, y: NOTE_AT.y }, scene, eraseCtx(s))).toBeNull();
+      expect(hitTest({ x: NOTE_AT.x + NOTE.ringRadiusPx - 0.5, y: NOTE_AT.y }, scene, noteHitCtx(s))).toEqual({ kind: 'note', id });
+      expect(hitTest({ x: NOTE_AT.x + NOTE.ringRadiusPx + 0.5, y: NOTE_AT.y }, scene, noteHitCtx(s))).toBeNull();
     }
   });
 
@@ -179,6 +180,6 @@ describe('(d) 히트 반경 ↔ 시각 크기 정합', () => {
     const s = 1.675;
     const oldR = Math.min(0 + 6 / s, HIT_R_MAX_PX.note);
     expect(oldR).toBeLessThan(NOTE.chipHPx / 2);
-    expect(hitTest({ x: NOTE_AT.x, y: NOTE_AT.y + NOTE.chipHPx / 2 }, scene, eraseCtx(s))).toEqual({ kind: 'note', id });
+    expect(hitTest({ x: NOTE_AT.x, y: NOTE_AT.y + NOTE.chipHPx / 2 }, scene, noteHitCtx(s))).toEqual({ kind: 'note', id });
   });
 });

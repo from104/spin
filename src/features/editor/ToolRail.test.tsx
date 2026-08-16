@@ -87,11 +87,12 @@ const expanded = (label: '작도' | '설명') => handle(label).getAttribute('ari
 // 단언이 언제나 거짓이 된다(실제로 그렇게 빨개졌다).
 const hasTool = (label: string) => screen.queryByRole('button', { name: new RegExp(`^${label}$`) }) !== null;
 describe('ToolRail — 기능 구역', () => {
-  it('모드 도구는 4표적이다 — 선택 · 지우개 · 작도 손잡이 · 설명 손잡이 (3.7)', () => {
+  it('모드 도구는 3표적이다 — 선택 · 작도 손잡이 · 설명 손잡이 (3.7)', () => {
     // 5종 상시 노출로 되돌리면 §3 의 미착수분(도움말 1 · 빈 판 채우기 1)이 들어올 때
     // 2.5 게이트(≤40)가 빨간불이 된다. 접는 것이지 없애는 게 아니다 — 아래 it 들이 그 증명.
     render(<ControlledRail />);
-    expect(functionTargets()).toEqual(['선택', '지우개', '작도', '설명']);
+    // 2026-08-16 — 지우개가 사라져 넷에서 셋이 됐다(삭제는 선택 후 Delete 로 일원화).
+    expect(functionTargets()).toEqual(['선택', '작도', '설명']);
   });
 
   it('접힌 2종(선·메모)은 닫힌 서랍 안이라 첫 화면 표적이 아니다', () => {
@@ -224,7 +225,9 @@ function nameOf(el: HTMLElement): string {
   if (label) return label;
   const clone = el.cloneNode(true) as HTMLElement;
   for (const d of [...clone.querySelectorAll<HTMLElement>('*')]) if (d.style.position === 'absolute') d.remove();
-  return (clone.textContent ?? '').replace(/[▸▾]/g, '').replace(/\s+/g, ' ').trim() || '·';
+  // 여는 방향 표식 넷 다 뺀다. `◂`·`▴` 는 2026-08-14 플라이아웃 때 생겼는데 이 정규식은
+  // `▸`·`▾` 만 걸러 왔다 — 손잡이를 이름으로 찾는 단언이 없어서 안 드러났을 뿐이다.
+  return (clone.textContent ?? '').replace(/[▸▾◂▴]/g, '').replace(/\s+/g, ' ').trim() || '·';
 }
 
 /** 한 상자를 재고 자기 크기(margin 포함)와 안쪽 상자들의 좌표를 돌려준다.
@@ -346,15 +349,17 @@ describe('ToolRail — 좌표 모형이 wrap 을 실제로 흉내낸다 (§6 절
     expect(boxX(narrowTray, chipName(2))).toBe(boxX(narrowTray, chipName(0)));
   });
 
-  it('도구 손잡이 넷도 폭 따라 접힌다 — 5열이면 한 줄, 2열이면 넉 줄', () => {
+  it('도구 손잡이 셋도 폭 따라 접힌다 — 5열이면 한 줄, 2열이면 여러 줄', () => {
     // 설계서 §4.3 검산표의 '도구 50 / 215' 가 정확히 이 두 경우다.
+    // 2026-08-16 — 지우개가 사라져 [선택] 다음 칸은 작도 손잡이다. 재는 것은 그대로 "옆에
+    // 서는가 / 아래로 접히는가" 이고, 기준 짝만 바뀌었다.
     render(<ControlledRail chairSlots={EIGHT} />);
     const wide = trayBoxes(5);
     const narrowTray = trayBoxes(2);
-    expect(boxY(wide, '지우개')).toBe(boxY(wide, '선택'));
-    expect(boxX(wide, '지우개')).toBe(boxX(wide, '선택') + 52 + 5); // 버튼 52 + 기능 구역 gap 5
-    expect(boxY(narrowTray, '지우개')).toBe(boxY(narrowTray, '선택') + 50 + 5); // 버튼 50 + gap 5
-    expect(boxX(narrowTray, '지우개')).toBe(boxX(narrowTray, '선택'));
+    expect(boxY(wide, '작도')).toBe(boxY(wide, '선택'));
+    expect(boxX(wide, '작도')).toBe(boxX(wide, '선택') + 52 + 5); // 버튼 52 + 기능 구역 gap 5
+    expect(boxY(narrowTray, '작도')).toBe(boxY(narrowTray, '선택') + 50 + 5); // 버튼 50 + gap 5
+    expect(boxX(narrowTray, '작도')).toBe(boxX(narrowTray, '선택'));
   });
 });
 
@@ -653,7 +658,7 @@ describe('ToolRail — 끌어다 놓기 연결', () => {
     const onItem = vi.fn<ItemDown>();
     renderWithDrag(onItem);
     const user = userEvent.setup();
-    await user.pointer({ keys: '[MouseLeft>]', target: screen.getByRole('button', { name: /^지우개/ }) });
+    await user.pointer({ keys: '[MouseLeft>]', target: screen.getByRole('button', { name: /^선택/ }) });
     expect(onItem).not.toHaveBeenCalled();
   });
 });

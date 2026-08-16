@@ -9,7 +9,7 @@ import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'r
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
-import type { ArrowId, CastId, ChairId, ShapeId } from '../../core/ids.ts';
+import type { ArrowId, CastId, ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
@@ -513,13 +513,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       notes={notes}
       arrows={arrows}
       shapes={step.shapes}
-      // 도형을 잡으면 **선택만** 바꾼다. 지우개면 그 자리에서 지운다 — 개체(칩·공·콘)가
-      // 지우개 아래에서 사라지는 것과 같은 규칙이라, 도형만 다르게 두면 "지우개가 도형에는
-      // 안 듣는다" 가 된다.
-      onShapeSelect={(id) => {
-        if (tool === 'erase') dispatch({ type: 'SHAPE_REMOVE', id: id as ShapeId });
-        else dispatch({ type: 'SELECT_SET', ids: [id] });
-      }}
+      // 도형을 잡으면 **선택만** 바꾼다. 지우기는 선택 후 Delete 가 맡는다 — 2026-08-16 에
+      // 지우개 도구가 사라지면서 도형만의 예외 분기도 함께 없어졌다.
+      onShapeSelect={(id) => dispatch({ type: 'SELECT_SET', ids: [id] })}
       onShapeChange={(next) => dispatch({ type: 'SHAPE_SET', shape: next })}
       shapeHandles={{ shape: selectedShape }}
       locked={lockedSet}
@@ -550,9 +546,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
       ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, teamStyles: drill.teams, defense: drill.defense, ballRings } : undefined}
-      // activePart 는 항상 null 이다 — 키보드 조준점이 사라지면서(2026-08-16) 특정 손잡이를
-      // 도드라지게 할 근거가 없어졌다. 끝점 조정은 포인터로 손잡이를 직접 잡는다.
-      arrowHandles={{ arrow: selectedArrow, activePart: null }}
+      arrowHandles={{ arrow: selectedArrow }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />
     {/* 개체 메뉴 — 잠김 · 무시 · 삭제. 무대 **밖**(포털)이라 코트의 overflow·회전에 안 잘린다. */}
@@ -562,7 +556,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       onToggleLock={(id, on) => dispatch({ type: 'FLAG_SET', flag: 'locked', id, on })}
       onToggleIgnore={(id, on) => dispatch({ type: 'FLAG_SET', flag: 'ignored', id, on })}
       onDelete={(id) => {
-        // 지우는 길은 개체 종류마다 다르다 — 지우개가 쓰는 그 경로를 그대로 탄다.
+        // 지우는 길은 개체 종류마다 다르다 — 화살표·메모·도형은 자기 액션, 나머지(칩·공·콘)는
+        // 스텝 범위를 갖는 OBJECT_REMOVE 다.
         if (isId(id, 'ar')) dispatch({ type: 'ARROW_REMOVE', id });
         else if (isId(id, 'nt')) dispatch({ type: 'NOTE_REMOVE', id });
         else if (isId(id, 'sh')) dispatch({ type: 'SHAPE_REMOVE', id });

@@ -14,25 +14,17 @@ describe('ArrowHandles', () => {
     expect(container.querySelectorAll('circle')).toHaveLength(0);
   });
 
-  it('activePart 를 주면 그 점에만 조준 링이 붙는다 (§4.3 1.11 키보드 조준)', () => {
+  it('조준 링은 더 이상 없다 — 키보드 조준점 개념이 사라졌다(2026-08-16)', () => {
+    // Shift 가 어디서나 '정밀'로 통일되면서 "화살표에서만 Shift = 조준점만 이동" 이라는 세
+    // 번째 뜻이 설 자리를 잃었고, 조준점을 돌리던 `[`/`]` 는 개체 순회가 가져갔다. 강조할
+    // 대상이 없으니 링도 없다 — 끝점 조정은 손잡이를 직접 잡는다.
     const arrow: Arrow = { id: 'ar_1' as ArrowId, from: { x: 0, y: 0 }, ctrl: { x: 5, y: -5 }, to: { x: 10, y: 0 } };
-    const { container, rerender } = render(
+    const { container } = render(
       <svg>
         <ArrowHandles arrow={arrow} pxPerUnit={1} />
       </svg>,
     );
-    // 기본(마우스만 쓰는 경우) = 링 없음. 지금까지의 그림이 한 픽셀도 안 바뀐다.
     expect(container.querySelectorAll('.arrow-handle-aim')).toHaveLength(0);
-
-    rerender(
-      <svg>
-        <ArrowHandles arrow={arrow} pxPerUnit={1} activePart="to" />
-      </svg>,
-    );
-    const rings = container.querySelectorAll('.arrow-handle-aim');
-    expect(rings).toHaveLength(1);
-    // 링은 끝점(10,0) 그룹 안에 있어야 한다 — 엉뚱한 점을 강조하면 조준 표시가 거짓말이 된다.
-    expect(rings[0]!.closest('g[transform]')?.getAttribute('transform')).toBe('translate(10 0)');
   });
 
   it('from/ctrl/to 3개 핸들을 정확한 좌표에 그린다', () => {
