@@ -351,16 +351,20 @@ export function IconGoalReset({ size = 18, ...rest }: IconProps) {
   );
 }
 
-/** 진영 바꾸기 — 세로선(골라인/하프라인) 양쪽의 점 둘이 자리를 맞바꾼다.
+/** 진영 바꾸기 — 세로선(골라인/하프라인) 양쪽의 **깃발 둘**이 자리를 맞바꾼다.
  *  화살표를 쓰지 않는 이유: 되돌리기·다시하기와 같은 굽은 화살표가 이미 기둥에 둘 있어,
- *  세 번째 화살표가 그 둘과 한 덩어리로 읽힌다. 이 버튼이 바꾸는 것은 **자리**다. */
+ *  세 번째 화살표가 그 둘과 한 덩어리로 읽힌다. 이 버튼이 바꾸는 것은 **자리**다.
+ *
+ *  ⚠️ 2026-08-16 — 원 둘에서 삼각 깃발 둘로 바꿨다. 이 버튼이 뒤집는 것은 판 위의 진영
+ *  표시(SideMarks)이고, 그것이 원을 버린 순간 이 아이콘만 옛 모양으로 남으면 버튼이
+ *  무엇을 뒤집는지가 안 보인다. **판의 모양이 바뀌면 이 아이콘도 함께 바뀐다.** */
 export function IconSides({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
       <path d="M12 3v18" />
-      <circle cx="5.5" cy="8.5" r="2.2" />
-      <circle cx="18.5" cy="15.5" r="2.2" />
-      <path d="M8.5 8.5h3M12.5 15.5h3" />
+      <path d="M8 6.3v4.4L3.5 8.5Z" />
+      <path d="M16 13.3v4.4l4.5-2.2Z" />
+      <path d="M8 8.5h3.5M12.5 15.5H16" strokeWidth={1.6} />
     </svg>
   );
 }
