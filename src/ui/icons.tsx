@@ -365,8 +365,8 @@ export function IconSides({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
       <path d="M12 3v18" strokeWidth={1.6} />
-      <path d="M4 4v10.5M4 4v6l5.2-3Z" strokeWidth={1.6} />
-      <path d="M14.5 9.5V20M14.5 9.5v6l5.2-3Z" strokeWidth={1.6} />
+      <path d="M4 4v8.2M4 4v6l5.2-3Z" strokeWidth={1.6} />
+      <path d="M14.5 9.5v8.2m0-8.2v6l5.2-3Z" strokeWidth={1.6} />
     </svg>
   );
 }

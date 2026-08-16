@@ -14,6 +14,7 @@ import {
   SIDE_FLAG_POLE_PX,
   SIDE_FLAG_SIDE_PX,
   SIDE_FLAG_SPACING_PX,
+  SIDE_FLAG_TAIL_PX,
 } from './SideMarks.tsx';
 import { COURT_MODES, COURT_SIZES, courtDefFor } from '../model/court.ts';
 import { DEFAULT_TEAMS } from '../model/defaults.ts';
@@ -131,7 +132,7 @@ describe('진영 표시 — 개수와 자리', () => {
   it('★ 어느 코트에서도 viewBox 를 안 넘는다 — 넘으면 그냥 잘린다', () => {
     // 여백은 골라인 바깥 1.5 m = 37.5 월드 px 뿐이다. 0.5 m 를 띄우고 나면 25 가 남는데,
     // 그 25 를 먹는 길이가 골라인 방향마다 다르다 — 세로 골라인은 페넌트 **높이**(12.1),
-    // 가로 골라인은 **깃대 길이**(24). 깃대 쪽이 상한을 정하므로 그것부터 못 박는다.
+    // 가로 골라인은 **깃대 길이**(19). 깃대 쪽이 상한을 정하므로 그것부터 못 박는다.
     expect(SIDE_FLAG_GAP_PX + SIDE_FLAG_POLE_PX).toBeLessThanOrEqual(1.5 * 25);
     expect(SIDE_FLAG_GAP_PX + SIDE_FLAG_H_PX).toBeLessThanOrEqual(1.5 * 25);
     for (const mode of COURT_MODES) {
@@ -175,11 +176,15 @@ describe('진영 표시 — 개수와 자리', () => {
         const tag = `${mode}/${f.role}`;
         expect(a.x, tag).toBeCloseTo(b.x, 6); // 세로
         expect(Math.abs(b.y - a.y), tag).toBeCloseTo(SIDE_FLAG_POLE_PX, 6);
-        expect(SIDE_FLAG_POLE_PX, tag).toBeGreaterThan(SIDE_FLAG_SIDE_PX); // 맨 대가 남는다
         // 페넌트의 깃대 쪽 변이 깃대 위에 얹혀 있고, 그 위 끝이 깃대의 위 끝이다.
         const top = Math.min(a.y, b.y);
         expect(f.pts[0]!.x, tag).toBeCloseTo(a.x, 6);
         expect(Math.min(f.pts[0]!.y, f.pts[1]!.y), tag).toBeCloseTo(top, 6);
+        // ★ 페넌트 **아래로** 맨 대가 남는다 — 이것이 화면에서 '깃대' 로 보이는 전부다.
+        //   0 이 되면 깃대가 페넌트에 완전히 가려 *"깃발 깃대를 표현하자"* 가 없던 일이 된다.
+        const shown = Math.max(a.y, b.y) - Math.max(f.pts[0]!.y, f.pts[1]!.y);
+        expect(shown, `${tag}: 드러난 깃대`).toBeCloseTo(SIDE_FLAG_TAIL_PX, 6);
+        expect(SIDE_FLAG_TAIL_PX).toBeGreaterThan(0);
       }
     }
   });

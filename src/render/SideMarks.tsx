@@ -50,18 +50,25 @@ import { defaultDefense, defendedZones } from '../model/rules.ts';
 // (넘으면 그냥 잘린다). 골라인에서 0.5 m(12.5) 띄우고 나면 **25 px** 이 남는다. 깃발이 그
 // 여백 쪽으로 먹는 길이는 골라인 방향마다 다르다:
 //   · 세로 골라인(풀) — 깃대는 골라인과 나란하므로 먹는 것은 페넌트 **높이**(≈12.1) 다.
-//   · 가로 골라인(하프) — 깃대가 여백 쪽으로 서므로 먹는 것은 **깃대 길이**(24) 다.
-// 그래서 상한을 정하는 것은 하프 코트다: 24 + 12.5 = 36.5 ≤ 37.5. 글자가 빠져 페넌트를
-// 24 → 14 로 줄일 수 있었고(기현 지시), 그 여유가 그대로 깃대 길이로 갔다.
+//   · 가로 골라인(하프) — 깃대가 여백 쪽으로 서므로 먹는 것은 **깃대 길이**(19) 다.
+// 그래서 상한을 정하는 것은 하프 코트다: 19 + 12.5 = 31.5 ≤ 37.5.
 /** 골라인에서 깃발의 **가장 가까운 점**까지(월드 px). 0.5 m — 기현 지시 2026-08-16. */
 export const SIDE_FLAG_GAP_PX = 0.5 * PX_PER_M;
 /** 페넌트(정삼각형) 한 변(월드 px). 0.56 m. */
 export const SIDE_FLAG_SIDE_PX = 14;
 /** 페넌트 높이 — 한 변에서 파생한다. 손으로 12.1 을 적으면 변을 바꿨을 때 삼각형이 찌그러진다. */
 export const SIDE_FLAG_H_PX = (SIDE_FLAG_SIDE_PX * Math.sqrt(3)) / 2;
-/** 깃대 길이(월드 px). 0.96 m — 페넌트는 그 위쪽 14 만 차지하고 나머지는 맨 대다.
- *  하프 코트에서 이 값이 여백을 먹으므로 `GAP + POLE ≤ 37.5` 가 상한이다. */
-export const SIDE_FLAG_POLE_PX = 24;
+/** 페넌트 **아래로 드러나는** 깃대(월드 px). 0.2 m.
+ *
+ *  ⚠️ 화면에서 '깃대' 로 보이는 것은 이 토막뿐이다 — 위쪽은 페넌트가 덮는다. 그래서 기현님이
+ *  *"깃대가 조금 길다. 절반으로 줄여라"*(2026-08-16) 라고 하신 대상도 이것이고, 10 → 5 로
+ *  줄였다. 전체 길이를 반으로 줄이는 읽기는 성립하지 않는다: 12 는 페넌트 한 변(14)보다
+ *  짧아서 깃발이 대 밖으로 삐져나오고, 바로 앞 지시(*"깃발 깃대를 표현하자"*)가 없던 일이 된다. */
+export const SIDE_FLAG_TAIL_PX = 5;
+/** 깃대 전체 길이(월드 px) — 페넌트가 매달린 구간 + 드러난 토막. **파생값이다**: 손으로 적으면
+ *  페넌트를 키웠을 때 깃발이 대 밖으로 나간다. 하프 코트에서 이 값이 여백을 먹으므로
+ *  `GAP + POLE ≤ 37.5` 가 상한이다(12.5 + 19 = 31.5). */
+export const SIDE_FLAG_POLE_PX = SIDE_FLAG_SIDE_PX + SIDE_FLAG_TAIL_PX;
 /** 두 깃발 중심 사이(월드 px) — 골라인을 따라. 깃대 길이(24)보다 커야 세로 골라인에서 안 겹친다. */
 export const SIDE_FLAG_SPACING_PX = 28;
 /** 깃대·테두리 색. 코트 밖 여백은 잔디색(COURT_BG #1f7a46)이라 어두운 선이 4:1 넘게 선다. */
@@ -129,12 +136,13 @@ export const SideMarks = memo(function SideMarks({ mode, size, teams, defense }:
               const reach = (Math.abs(p.ox) * SIDE_FLAG_H_PX + Math.abs(p.oy) * SIDE_FLAG_POLE_PX) / 2;
               const cx = p.cx + p.ox * (SIDE_FLAG_GAP_PX + reach) + p.ax * f.t;
               const cy = p.cy + p.oy * (SIDE_FLAG_GAP_PX + reach) + p.ay * f.t;
-              // 깃대는 상자 왼쪽 변, 페넌트는 그 **위쪽**에 매달린다 — 아래쪽 10 은 맨 대다.
+              // 깃대는 상자 왼쪽 변, 페넌트는 그 **위쪽**에 매달린다 — 아래쪽 토막이 맨 대다.
               const poleX = cx - SIDE_FLAG_H_PX / 2;
               const top = cy - SIDE_FLAG_POLE_PX / 2;
               return (
                 <g key={f.role} data-side-flag={f.role}>
-                  {/* 깃대를 먼저 그린다 — 페넌트가 그 위를 덮어야 매달린 것으로 보인다. */}
+                  {/* 깃대를 먼저 그린다 — 페넌트가 그 위를 덮어야 매달린 것으로 보인다.
+                      그래서 **눈에 남는 깃대는 아래 토막**(SIDE_FLAG_TAIL_PX)뿐이다. */}
                   <line
                     x1={poleX}
                     y1={top}
