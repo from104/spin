@@ -6,8 +6,9 @@
 // 동작한다(이미 그 방법을 익힌 사용자가 있다 — 김경일님이 방에서 대신 설명해 준 그 경로).
 //
 // 기능 도구는 모드라서 끌 것이 없다. 그래서 아래쪽에 따로 모은다.
-import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { FLYOUT_PICK_CLOSE_MS, flyoutPosition, useFlyout } from './useFlyout.ts';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
@@ -257,12 +258,6 @@ export interface TrayDrawers {
   note: boolean;
 }
 type DrawerKey = keyof TrayDrawers;
-/** 하위 도구를 고른 뒤 서랍이 닫히기까지. 0 이면 방금 고른 것이 눈에 안 남고, 연달아 둘을
- *  고르려던 손이 허공을 짚는다. 400ms 는 "골랐다" 를 읽고 손이 떠날 만한 최소치다. */
-export const FLYOUT_PICK_CLOSE_MS = 400;
-/** 포인터가 손잡이·패널 밖으로 나간 뒤 닫히기까지. 손잡이와 패널 사이에 1~2px 틈이 있어
- *  0 이면 그 사이를 지나가다 닫힌다. */
-export const FLYOUT_LEAVE_CLOSE_MS = 260;
 
 /** 서랍 표 — 이름 · 손잡이 아이콘 · 담긴 도구. **3.-1 은 셋을 한 서랍(`작도`)에 몰아 두었고
  *  3.7 이 §3 대로 가른다.** 그때의 유보 사유(3m 링이 아직 도구가 아니라 `설명` 이 한 칸짜리
@@ -508,56 +503,12 @@ export function ToolRail({
   // 안 보였다. 세로 기둥에서는 판 덩어리의 `overflow:hidden` 이 같은 일을 한다.
   // 자르는 조상을 없앨 수는 없다(띠의 좌우 스크롤이 유일한 도달 경로다). 그래서 흐름에서
   // 아예 빼낸다 — Modal 이 간 길과 같다. 대신 위치를 **손잡이를 재서** 정해야 한다.
-  const [flyout, setFlyout] = useState<{ key: DrawerKey; rect: DOMRect } | null>(null);
-  // ⚠️ 마우스는 **hover 로 이미 연 뒤에 click 이 온다.** click 을 단순 토글로 두면 마우스로
-  // 손잡이를 누르는 순간 방금 열린 패널이 도로 닫힌다(2026-08-14 테스트로 재현). 그래서
-  // 클릭의 뜻을 포인터 종류로 가른다: **마우스면 언제나 '열기'**(닫기는 벗어나면 저절로),
-  // 터치·키보드면 토글(그쪽에는 '벗어남' 이 없으므로 다시 눌러 닫을 길이 있어야 한다).
-  const lastPointerType = useRef<string>('');
+  // ⚠️ 2026-08-16 — 위 배선은 **`useFlyout` 로 옮겼다.** 오른쪽 기능 바의 [보기]도 같은 서랍이
+  // 됐고(기현 지시), 두 벌을 각자 적으면 여는 조건·닫는 유예·포털·Esc 가 조용히 갈라지기
+  // 때문이다. 근거 주석 전문은 그 파일에 있다.
+  const fly = useFlyout<DrawerKey>();
+  const flyout = fly.open;
   const handleRefs = useRef<Partial<Record<DrawerKey, HTMLElement | null>>>({});
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cancelClose = useCallback(() => {
-    if (closeTimer.current !== null) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  }, []);
-  const closeSoon = useCallback(
-    (ms: number) => {
-      cancelClose();
-      closeTimer.current = setTimeout(() => {
-        closeTimer.current = null;
-        setFlyout(null);
-      }, ms);
-    },
-    [cancelClose],
-  );
-  // 언마운트에 타이머를 남기면 사라진 컴포넌트에 setState 가 간다(useTrayDrag 가 남긴 교훈).
-  useEffect(() => cancelClose, [cancelClose]);
-  useEffect(() => {
-    if (flyout === null) return;
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setFlyout(null);
-    };
-    // 창이 바뀌거나 띠를 좌우로 굴리면 잰 좌표가 낡는다 — 따라다니게 하는 대신 닫는다.
-    // 떠 있는 동안은 손이 패널 위에 있으므로, 그 사이에 창을 만지는 것은 "그만두겠다" 다.
-    const onGone = (): void => setFlyout(null);
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('resize', onGone);
-    window.addEventListener('scroll', onGone, true);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('resize', onGone);
-      window.removeEventListener('scroll', onGone, true);
-    };
-  }, [flyout]);
-
-  /** 손잡이를 재서 연다. rect 는 **열던 순간의 값**이다(위 이펙트가 낡으면 닫는다). */
-  const openFlyout = useCallback((key: DrawerKey, el: HTMLElement | null | undefined) => {
-    if (!el) return;
-    cancelClose();
-    setFlyout({ key, rect: el.getBoundingClientRect() });
-  }, [cancelClose]);
 
   const ballRemaining = Math.max(0, ballMax - ballCount);
   const isBallCapped = ballRemaining <= 0;
@@ -849,27 +800,7 @@ export function ToolRail({
                 // 도형 3종은 숫자 키가 없다(§7.5f 의 1–8 을 안 늘렸다) — 그때는 문자 키를 보인다.
                 // 빈 괄호 `원()` 이 그대로 나가던 자리다(2026-08-14 DOM 대조로 발견).
                 title={`${d.label} — ${d.tools.map((t) => `${t.label}(${t.key})`).join(' · ')}`}
-                onPointerEnter={(e) => {
-                  // 마우스만 hover 로 연다. 터치는 pointerenter 도 함께 쏘는데, 그것까지 받으면
-                  // 손가락이 닿는 순간 열리고 곧이어 click 이 토글해 **바로 닫힌다.**
-                  if (e.pointerType !== 'mouse') return;
-                  openFlyout(d.key, handleRefs.current[d.key]);
-                }}
-                onPointerLeave={(e) => {
-                  if (e.pointerType !== 'mouse') return;
-                  closeSoon(FLYOUT_LEAVE_CLOSE_MS);
-                }}
-                onPointerDown={(e) => {
-                  lastPointerType.current = e.pointerType;
-                }}
-                onClick={(e) => {
-                  cancelClose();
-                  // 마우스는 hover 로 이미 열린 뒤 click 이 온다 — 토글로 두면 누르는 순간
-                  // 도로 닫힌다. 마우스는 언제나 '열기', 터치·키보드만 토글이다.
-                  const byMouse = e.detail > 0 && lastPointerType.current === 'mouse';
-                  if (!byMouse && isOpen) setFlyout(null);
-                  else openFlyout(d.key, handleRefs.current[d.key]);
-                }}
+                {...fly.handleProps(d.key, () => handleRefs.current[d.key])}
                 style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
               >
                 {active && <ActiveRing />}
@@ -904,11 +835,7 @@ export function ToolRail({
                       id={panelId}
                       role="group"
                       aria-label={`${d.label} 도구`}
-                      onPointerEnter={cancelClose}
-                      onPointerLeave={(e) => {
-                        if (e.pointerType !== 'mouse') return;
-                        closeSoon(FLYOUT_LEAVE_CLOSE_MS);
-                      }}
+                      {...fly.panelProps}
                       style={{
                         position: 'fixed',
                         zIndex: 40,
@@ -924,9 +851,7 @@ export function ToolRail({
                         boxShadow: '0 8px 20px rgba(0,0,0,.45)',
                         // 가로 띠는 손잡이 **위**로, 세로 기둥은 **왼쪽**으로 편다(기현 지시).
                         // 둘 다 판 안쪽 방향이라 코트를 가리되 화면 밖으로는 안 나간다.
-                        ...(horiz
-                          ? { left: flyout.rect.left, bottom: window.innerHeight - flyout.rect.top + 6 }
-                          : { right: window.innerWidth - flyout.rect.left + 6, top: flyout.rect.top }),
+                        ...flyoutPosition(flyout.rect, horiz ? 'up' : 'left'),
                       }}
                     >
                       {d.tools.map((t) => (
@@ -936,7 +861,7 @@ export function ToolRail({
                           active={t.id === tool}
                           onSelect={() => {
                             onSelectTool(t.id);
-                            closeSoon(FLYOUT_PICK_CLOSE_MS);
+                            fly.closeSoon(FLYOUT_PICK_CLOSE_MS);
                           }}
                         />
                       ))}
