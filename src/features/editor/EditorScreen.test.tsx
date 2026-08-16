@@ -94,12 +94,15 @@ describe('드릴 편집 모드', () => {
     const bar = screen.getByRole('navigation', { name: '판 조작' });
     expect(bar.contains(screen.getByRole('button', { name: '보기' })), '[보기]가 기둥 밖에 있다').toBe(true);
     // 줌도 기둥이다. 옛 트레이 묶음(role=group '확대')은 **사라졌다** — 그 이사가 ①이다.
-    for (const name of ['확대', '축소', '줌 초기화']) {
+    for (const name of ['확대', '축소', '배율 100%']) {
       expect(bar.contains(screen.getByRole('button', { name })), name).toBe(true);
     }
     expect(screen.queryByRole('group', { name: '확대' }), '트레이의 옛 줌 묶음이 남아 있다').toBeNull();
-    // 코트 위 묶음은 해체된 그대로다 — 격자·가이드·도움말은 팝오버를 열어야 나온다.
+    // 코트 위 묶음은 해체된 그대로다 — 격자·가이드는 [보기] 서랍을 열어야 나온다.
     expect(screen.queryByRole('button', { name: '격자 표시 전환' })).toBeNull();
+    // ⚠️ 2026-08-16 — [도움말]만은 예외다. 서랍 밖으로 나와 **기둥 상시 칸**이 됐다(기현 지시):
+    // 길을 잃었을 때 여는 문이 다른 메뉴 안에 있으면 길찾기를 한 번 더 시키는 셈이다.
+    expect(bar.contains(screen.getByRole('button', { name: '도움말' })), '[도움말]이 기둥 밖이다').toBe(true);
   });
 
   it('전술판과 달리 스텝 UI 가 있다', async () => {

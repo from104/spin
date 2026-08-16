@@ -163,7 +163,7 @@ export const KEYMAP: readonly KeyDef[] = [
     desc: '확대',
   },
   { id: 'view.zoomOut', scope: 'global', codes: ['Minus', 'NumpadSubtract'], mod: true, label: 'Ctrl/⌘ −', desc: '축소' },
-  { id: 'view.zoomReset', scope: 'global', codes: ['Digit0', 'Numpad0'], mod: true, label: 'Ctrl/⌘ 0', desc: '줌 초기화' },
+  { id: 'view.zoomReset', scope: 'global', codes: ['Digit0', 'Numpad0'], mod: true, label: 'Ctrl/⌘ 0', desc: '배율 100%' },
   { id: 'view.pan', scope: 'global', codes: [...ARROWS], mod: true, label: 'Ctrl/⌘+방향키', desc: '판 이동(팬)' },
 
   // ── 전역 기타 ───────────────────────────────────────────────────────────

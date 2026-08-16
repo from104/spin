@@ -8,8 +8,9 @@
 //
 // 여기서 재는 것은 판정도 그림도 아니고 **두 숫자가 같은가** 뿐이다. 그래서 바를 실제로 그려
 // 손잡이를 센다 — 상수를 상수로 대조하면 둘 다 틀린 채 초록이 된다.
-import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { FunctionBar } from './FunctionBar.tsx';
 import { FUNCTION_BAR_DIVIDERS, FUNCTION_BAR_ITEMS } from './functionBarMetrics.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -19,7 +20,7 @@ import { DEFAULT_TEAMS } from '../../model/defaults.ts';
 
 const noop = () => {};
 
-function mount(courtMode: 'full' | 'half' | 'flat' = 'full') {
+function mount(courtMode: 'full' | 'half' | 'flat' = 'full', over: { onToggleDefense?: () => void } = {}) {
   const drill = createDrill({ courtMode });
   return render(
     <SettingsProvider>
@@ -41,7 +42,7 @@ function mount(courtMode: 'full' | 'half' | 'flat' = 'full') {
         onResetGoals={noop}
         defense="home"
         teams={DEFAULT_TEAMS as typeof drill.teams}
-        onToggleDefense={noop}
+        onToggleDefense={over.onToggleDefense ?? noop}
         onReset={noop}
         drill={drill}
         showGrid={false}
@@ -78,8 +79,8 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
   });
 
   it('코트 종류가 바뀌어도 칸 수는 그대로다 — 표적이 사용 중에 사라지지 않는다(§8 점진 공개 금지)', () => {
-    // 플랫 코트에서 [진영]·[골대] 는 **비활성**이 되지만 자리는 지킨다. 사라지면 아래 칸들의
-    // 절대 위치가 통째로 밀려 §3 불변식 1(공간 기억)이 깨진다.
+    // 플랫 코트에서 [골대] 는 뜻이 옅어지지만 자리는 지킨다. 사라지면 아래 칸들의 절대 위치가
+    // 통째로 밀려 §3 불변식 1(공간 기억)이 깨진다.
     for (const mode of ['full', 'half', 'flat'] as const) {
       const { container, unmount } = mount(mode);
       expect(barItems(container), `${mode}: 칸이 늘거나 줄었다`).toHaveLength(FUNCTION_BAR_ITEMS);
@@ -87,15 +88,48 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
     }
   });
 
-  it('플랫 코트에서 [진영]이 비활성이다 — 골 지역이 없어 진영이라는 개념이 없다', () => {
-    const { container, unmount } = mount('flat');
-    const side = barItems(container).find((b) => b.getAttribute('aria-label')?.startsWith('진영'))!;
-    expect(side, '[진영] 칸을 못 찾았다').toBeTruthy();
-    expect(side.disabled).toBe(true);
-    unmount();
-    // 대조군: 풀 코트에서는 눌린다.
-    const full = mount('full');
-    const on = barItems(full.container).find((b) => b.getAttribute('aria-label')?.startsWith('진영'))!;
-    expect(on.disabled).toBe(false);
+  // ── 2026-08-16 기현 지시 — [진영]이 기둥에서 [코트] 모달 안으로 들어갔다 ────────────
+  // 옛 계약(지우지 않는다): 기둥에서는 **플랫에서도 칸이 사라지지 않고 disabled** 였다. 자리를
+  // 지켜야 아래 칸들의 절대 위치가 안 밀리기 때문이었다(§3 불변식 1). 모달 안에는 지킬 절대
+  // 위치가 없으므로 그 근거가 함께 없어졌고, 대신 크기 3단이 이미 세워 둔 계약을 따른다 —
+  // *"골라도 안 변하는 컨트롤은 거짓말이다"* → 버튼 대신 사실을 적는다.
+  describe('[진영]은 이제 [코트] 모달 안이다', () => {
+    const openCourt = async (mode: 'full' | 'half' | 'flat') => {
+      const r = mount(mode);
+      await userEvent.setup().click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+      return r;
+    };
+
+    it('기둥에는 [진영] 칸이 없다 — 접힌 것은 표적 예산 밖이다', () => {
+      const { container } = mount('full');
+      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.startsWith('진영'))).toBe(false);
+      expect(screen.queryByRole('button', { name: /^진영 바꾸기/ }), '모달을 안 열었는데 보인다').toBeNull();
+    });
+
+    it('모달을 열면 [진영 바꾸기]가 있고 누르면 뒤집기가 불린다', async () => {
+      const onToggleDefense = vi.fn();
+      const r = mount('full', { onToggleDefense });
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+
+      const btn = screen.getByRole('button', { name: /^진영 바꾸기/ });
+      // 이름 규칙(WCAG 2.5.3) — 화면 글자가 접근성 이름의 부분 문자열이어야 한다.
+      expect(btn.getAttribute('aria-label')).toContain(btn.textContent!.trim());
+      await user.click(btn);
+      expect(onToggleDefense).toHaveBeenCalledTimes(1);
+      // 고르고 나서도 **안 닫힌다** — 되뒤집을 수 있어야 한다(형태·크기와 다른 점).
+      expect(screen.getByRole('button', { name: /^진영 바꾸기/ })).toBeInTheDocument();
+      r.unmount();
+    });
+
+    it('플랫 코트에서는 버튼 대신 사실을 적는다 — 골 지역이 없어 진영이 없다', async () => {
+      const { unmount } = await openCourt('flat');
+      expect(screen.queryByRole('button', { name: /^진영 바꾸기/ })).toBeNull();
+      expect(screen.getByText(/골 지역이 없어 진영이 없습니다/)).toBeInTheDocument();
+      unmount();
+      // 대조군: 하프 코트에는 버튼이 선다(플랫만 특별하다).
+      await openCourt('half');
+      expect(screen.getByRole('button', { name: /^진영 바꾸기/ })).toBeInTheDocument();
+    });
   });
 });

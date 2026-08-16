@@ -13,24 +13,39 @@
 // 아래가 아니라 **옆**에 선다는 것뿐이고, 그래야 트레이가 코트 긴 변으로 옮겨 다녀도
 // (가로 코트면 아래, 세로 코트면 오른쪽) 이 바는 자리가 안 흔들린다.
 //
-// ── 왜 팝오버 둘을 남겼는가([코트]·[보기]) ─────────────────────────────────────────────
-// 형태 3 + 크기 3 을 펼치면 그것만으로 표적이 6 이고, 격자·골 지역 가이드·도움말까지 펴면 9 다.
+// ── 무엇을 접는가([코트] 모달 · [보기] 서랍) ─────────────────────────────────────────
+// 형태 3 + 크기 3 + 진영을 펼치면 그것만으로 표적이 7 이고, 격자·골 지역 가이드까지 펴면 9 다.
 // 11칸 기둥이 20칸이 되면 §3 불변식 1(절대 위치로 만드는 공간 기억)이 먼저 무너진다.
 // **한 번 정해 놓고 자주 안 바꾸는 것**만 접었다 — 자주 쓰는 줌·이력·비우기·내보내기는 상시다.
 //
+// 접는 장치가 둘인 것은 **성격이 다르기 때문**이다(2026-08-16 기현 지시로 갈렸다):
+//   · [코트] = **모달**. 형태·크기·진영은 "들어가서 → 정하고 → 나온다" 인 한 판의 설정이고,
+//     서로 얽혀 있다(진영은 골 지역이 있어야 뜻이 있고, 골 지역은 형태가 정한다). 배경을 덮고
+//     설명을 나란히 읽히는 편이 낫다.
+//   · [보기] = **서랍**(플라이아웃, useFlyout). 격자·골 지역 가이드는 판을 보면서 켰다 껐다
+//     하는 토글이라, 매번 배경을 덮고 포커스를 가두는 것이 과했다. 트레이의 [작도]·[설명]과
+//     같은 장치이고, 기둥이 오른쪽이라 **왼쪽으로** 편다.
+// [도움말]은 어느 쪽에도 안 접는다 — 길을 잃었을 때 여는 문을 메뉴 안에 넣으면 길찾기를 한 겹
+// 더 시키는 셈이다. 그 한 칸은 [진영]이 [코트] 모달로 들어가며 되돌려받았다(칸 수 13 그대로).
+//
 // ── 이름 규칙(WCAG 2.5.3 Label in Name) ──────────────────────────────────────────────
 // 화면 글자는 **반드시 aria-label 의 부분 문자열**이어야 한다. 음성 제어 사용자가 보이는 글자를
-// 그대로 불렀을 때 그 버튼이 눌려야 하기 때문이다. 그래서 '줌 초기화' 의 화면 글자는 '초기화'
-// (부분 문자열 ✓)이지 '원배율'(✗)이 아니다. 새 항목을 더할 때 이 규칙을 먼저 확인하라.
+// 그대로 불렀을 때 그 버튼이 눌려야 하기 때문이다. 그래서 줌 되돌리기 칸의 이름은 '배율 100%'
+// 이고 화면 글자가 '100%'(부분 문자열 ✓)다 — 글자만 '100%' 로 바꾸고 이름을 '줌 초기화' 로
+// 두면 규칙이 깨진다. 새 항목을 더할 때 이 규칙을 먼저 확인하라.
 import { useEffect, useId, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode, RefObject } from 'react';
+import { createPortal } from 'react-dom';
+import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react';
 import {
   IconClear,
   IconExport,
   IconEye,
   IconBoard,
   IconGoalReset,
+  IconGrid,
+  IconHelp,
   IconRedo,
+  IconRuleZone,
   IconSaveDrill,
   IconSides,
   IconSpeed,
@@ -39,6 +54,8 @@ import {
   IconZoomOut,
   IconZoomReset,
 } from '../../ui/icons.tsx';
+import { flyoutPosition, useFlyout, type FlyoutHandleProps } from './useFlyout.ts';
+import { KEYMAP } from '../../core/keymap.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { ExportSheet } from '../export/ExportSheet.tsx';
@@ -75,6 +92,11 @@ const ITEM_LABEL: CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+/** 단축키 글자는 **여기서 정하지 않는다** — `core/keymap.ts` 가 정본이다(그 파일 머리말).
+ *  툴팁에 키를 손으로 적어 두면 키맵이 바뀔 때 화면만 옛말을 한다: 실제로 이 자리에 `#`·`Z`
+ *  라고 적혀 있었는데 진짜 키는 `Alt+G`·`Alt+Z` 였다(2026-08-16 발견). */
+const keyLabel = (id: string): string => KEYMAP.find((d) => d.id === id)?.label ?? '';
+
 const DIVIDER: CSSProperties = {
   flex: 'none',
   alignSelf: 'stretch',
@@ -109,7 +131,7 @@ function BarItem({
   accent,
   buttonRef,
   children,
-  ...aria
+  ...rest
 }: {
   /** 화면에 보이는 2~4자. **`name` 의 부분 문자열이어야 한다**(머리말 이름 규칙). */
   label: string;
@@ -117,7 +139,7 @@ function BarItem({
   name: string;
   /** 긴 설명 — 툴팁. */
   title: string;
-  onClick(): void;
+  onClick?(e: ReactMouseEvent): void;
   disabled?: boolean;
   active?: boolean;
   /** 주 액션 — 기둥에서 **하나뿐**이다. 둘이 되는 순간 어느 것도 주가 아니게 된다. */
@@ -126,7 +148,12 @@ function BarItem({
   children: ReactNode;
   'aria-haspopup'?: 'dialog';
   'aria-expanded'?: boolean;
-}) {
+  'aria-controls'?: string;
+  /** 켬/끔 토글일 때. `active` 는 **보이는 것**만 말하므로 상태는 이쪽이 따로 져야 한다. */
+  'aria-pressed'?: boolean;
+  // 서랍 손잡이(`useFlyout` 의 handleProps)를 그대로 펼쳐 넣기 위한 통로. hover 로 여는 서랍은
+  // click 만으로는 못 만든다 — 그래서 이 넷이 필요하고, 그 넷을 여기서 다시 적지 않는다.
+} & Partial<Omit<FlyoutHandleProps, 'onClick'>>) {
   return (
     <button
       type="button"
@@ -146,7 +173,7 @@ function BarItem({
             : 'transparent',
         opacity: disabled ? 0.4 : 1,
       }}
-      {...aria}
+      {...rest}
     >
       {children}
       <span aria-hidden style={ITEM_LABEL}>
@@ -176,8 +203,8 @@ export interface FunctionBarProps {
    *  값을 따라 **수비 팀에만** 걸린다(2026-08-15 기현 지시). */
   defense: TeamSide;
   teams: Record<TeamSide, TeamStyle>;
-  /** 한 번 누르면 두 팀이 자리를 맞바꾼다. **플랫 코트에서는 비활성**이다 — 골 지역이 없어
-   *  진영이라는 개념 자체가 없다. */
+  /** 한 번 누르면 두 팀이 자리를 맞바꾼다. 손잡이는 **[코트] 모달 안**이다(2026-08-16 이사).
+   *  플랫 코트에서는 버튼 자체를 안 낸다 — 골 지역이 없어 진영이라는 개념이 없다. */
   onToggleDefense(): void;
   onReset(): void;
   /** 내보내기 시트가 굽는 것은 지금 리듀서가 든 판이다(물리 세계가 아니라 모델). */
@@ -201,8 +228,10 @@ export interface FunctionBarProps {
   saveStatus?: 'idle' | 'saving' | 'saved';
   /** [코트]가 잠겼는가에 대한 설명. 드릴은 코트가 불변이라 언제나 잠겨 있다. */
   courtSizeLocked?: boolean;
-  /** 도움말이 닫힐 때 돌아올 곳 — EditorWorkspace 가 helpTriggerRef 에 꽂는다. */
-  viewButtonRef?: RefObject<HTMLButtonElement | null>;
+  /** 도움말이 닫힐 때 돌아올 곳 — EditorWorkspace 가 helpTriggerRef 에 꽂는다.
+   *  2026-08-16 에 `viewButtonRef` 에서 개명했다: 도움말이 [보기] 메뉴 밖으로 나와 **자기
+   *  버튼**을 갖게 되면서, 돌아갈 곳이 남의 버튼일 이유가 없어졌다. */
+  helpButtonRef?: RefObject<HTMLButtonElement | null>;
 }
 
 export function FunctionBar({
@@ -231,25 +260,25 @@ export function FunctionBar({
   onToggleRuleZones,
   onShowHelp,
   onSaveAsDrill,
-  viewButtonRef,
+  helpButtonRef,
   mode = 'board',
   saveStatus,
 }: FunctionBarProps) {
   const isBoard = mode === 'board';
   const [courtOpen, setCourtOpen] = useState(false);
-  const [viewOpen, setViewOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const courtId = useId();
-  const viewId = useId();
+  const viewPanelId = useId();
   const confirmId = useId();
   const courtBtnRef = useRef<HTMLButtonElement | null>(null);
-  const localViewRef = useRef<HTMLButtonElement | null>(null);
+  const viewBtnRef = useRef<HTMLButtonElement | null>(null);
+  const localHelpRef = useRef<HTMLButtonElement | null>(null);
   const clearBtnRef = useRef<HTMLButtonElement | null>(null);
   const exportBtnRef = useRef<HTMLButtonElement | null>(null);
   const firstCourtRef = useRef<HTMLButtonElement | null>(null);
-  const firstViewRef = useRef<HTMLButtonElement | null>(null);
-  const viewBtnRef = viewButtonRef ?? localViewRef;
+  const helpBtnRef = helpButtonRef ?? localHelpRef;
+  const fly = useFlyout<'view'>();
 
   const { prefs, physics } = useSettingsState();
   const { setPrefs } = useSettingsActions();
@@ -261,9 +290,6 @@ export function FunctionBar({
   useEffect(() => {
     if (courtOpen) firstCourtRef.current?.focus({ preventScroll: true });
   }, [courtOpen]);
-  useEffect(() => {
-    if (viewOpen) firstViewRef.current?.focus({ preventScroll: true });
-  }, [viewOpen]);
 
   const def = courtDefFor(courtMode, courtSize);
   const toggleStyle = (on: boolean): CSSProperties => ({
@@ -302,7 +328,11 @@ export function FunctionBar({
       <BarItem label="축소" name="축소" title="판을 작게 봅니다 (Ctrl/⌘ −, 코트 위에서 휠 아래로)" onClick={onZoomOut}>
         <IconZoomOut />
       </BarItem>
-      <BarItem label="초기화" name="줌 초기화" title="배율과 화면 이동을 처음 상태로 (Ctrl/⌘ 0)" onClick={onZoomReset}>
+      {/* 2026-08-16 기현 지시로 '초기화' → '100%'. '초기화' 는 이 기둥에서 **뜻이 겹쳤다** —
+          [비우기]도 판을 초기화하고, 인쇄물의 '초기화' 도 있다. 배율은 되돌아갈 자리가 하나뿐
+          이고 그 자리의 이름이 100% 다. 이름 규칙(머리말)상 aria-label 에 '100%' 가 들어가야
+          화면 글자가 그 부분 문자열이 된다. */}
+      <BarItem label="100%" name="배율 100%" title={`배율과 화면 이동을 처음 상태로 (${keyLabel('view.zoomReset')})`} onClick={onZoomReset}>
         <IconZoomReset />
       </BarItem>
 
@@ -337,24 +367,10 @@ export function FunctionBar({
       >
         <IconGoalReset />
       </BarItem>
-      {/* 진영 — 골 지역 3인 반칙이 어느 팀에 걸리는지를 정한다. 화면의 골라인 뒤 점 둘
-          (SideMarks)이 이 값을 그리고, 이 버튼이 그것을 뒤집는다.
-          ⚠️ 플랫 코트는 `disabled` 다(존이 없다). `aria-disabled`+토스트가 아니라 네이티브
-             disabled 인 이유: 코트 형태 잠금과 달리 여기엔 **설명할 이유가 없다** — 플랫에는
-             골이 없다는 것이 판을 보면 그대로 보인다. */}
-      <BarItem
-        label="진영"
-        name={`진영 바꾸기. 지금 ${teams[defense].label} 이(가) ${courtMode === 'half' ? '골' : '왼쪽 골'}`}
-        title={
-          courtMode === 'flat'
-            ? '플랫 코트에는 골 지역이 없어 진영이 없습니다.'
-            : `골 지역 3인 반칙은 **수비 팀에만** 걸립니다. 지금 ${courtMode === 'half' ? '골' : '왼쪽 골'}을 지키는 팀은 ${teams[defense].label} 입니다.`
-        }
-        disabled={courtMode === 'flat'}
-        onClick={onToggleDefense}
-      >
-        <IconSides />
-      </BarItem>
+      {/* ⚠️ 2026-08-16 — [진영]은 **[코트] 모달 안으로 들어갔다**(기현 지시). 진영은 골 지역이
+          있어야 뜻이 있는 값이고(플랫에는 없다), 골 지역은 코트 형태가 정한다 — 즉 코트를
+          정하는 자리에서 함께 정해지는 것이 맞다. 기둥에서는 그 셋이 서로 떨어져 있었다.
+          빠진 한 칸은 [도움말]이 받는다(아래) — 칸 수는 그대로 13/12 다. */}
       {/* ⚠️ [비우기]는 **전술판에만** 있다(2026-08-15). 드릴에는 되돌리기와 스텝이 있어
           "비운다" 가 한 가지 뜻으로 정해지지 않는다 — functionBarMetrics 의
           FUNCTION_BAR_ITEMS_DRILL 이 그 근거를 갖는다. */}
@@ -398,16 +414,31 @@ export function FunctionBar({
       >
         <IconSpeed />
       </BarItem>
+      {/* ── [보기] = **왼쪽으로 여는 서랍** (2026-08-16 기현 지시) ─────────────────────
+          팝오버(Modal)였다. 서랍으로 바꾼 이유는 남은 둘이 **토글**이기 때문이다: 모달은
+          "들어가서 → 고르고 → 나온다" 라 한 번 쓰고 마는 선택(코트 형태·크기)에 맞고,
+          격자·골 지역은 판을 보면서 켰다 껐다 하는 것이라 배경을 덮고 포커스를 가두는 장치가
+          매번 과했다. 서랍은 손이 닿으면 떠서 두 칸을 내놓고, 손이 떠나면 닫힌다.
+          트레이의 [작도]·[설명]과 **같은 장치**다(useFlyout) — 기둥이 오른쪽이라 왼쪽으로 편다. */}
       <BarItem
         label="보기"
         name="보기"
-        title="격자 · 골 지역 가이드 · 도움말"
+        title="격자 · 골 지역 가이드"
         buttonRef={viewBtnRef}
-        aria-haspopup="dialog"
-        aria-expanded={viewOpen}
-        onClick={() => setViewOpen(true)}
+        aria-expanded={fly.isOpen('view')}
+        aria-controls={fly.isOpen('view') ? viewPanelId : undefined}
+        {...fly.handleProps('view', () => viewBtnRef.current)}
       >
         <IconEye />
+      </BarItem>
+      {/* ── [도움말] — 서랍 **밖**, 한 번 클릭 (2026-08-16 기현 지시) ──────────────────
+          [보기] 팝오버의 셋째 항목이었다. 도움말은 "무엇이 어떻게 되는지 모르겠다" 일 때 여는
+          문인데, 그 문이 **다른 메뉴 안에** 있었다 — 길을 잃은 사람에게 길찾기를 한 번 더
+          시키는 배치다. 상시 칸으로 나오면서 부수적으로 복귀 포커스도 단순해졌다: 옛 배치는
+          누르는 순간 트리거가 메뉴와 함께 DOM 에서 떨어져 나가 **[보기] 로 돌아가야** 했다.
+          이제 트리거가 그 자리에 남아 있다. */}
+      <BarItem label="도움말" name="도움말" title={`단축키와 조작 안내 (${keyLabel('help')})`} buttonRef={helpBtnRef} aria-haspopup="dialog" onClick={onShowHelp}>
+        <IconHelp />
       </BarItem>
 
       <div aria-hidden style={DIVIDER} />
@@ -525,56 +556,96 @@ export function FunctionBar({
               ? '코트를 바꾸려면 먼저 판을 비우세요 — 규격이 달라 배치를 옮겨 담을 수 없습니다.'
               : '지금은 코트를 자유롭게 바꿀 수 있습니다.'}
           </p>
+
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+
+          {/* ── 진영 (2026-08-16 기현 지시로 기둥에서 이사) ─────────────────────────────
+              골 지역 3인 반칙이 **어느 팀에 걸리는지**를 정한다. 화면의 골라인 뒤 점 둘
+              (SideMarks)이 이 값을 그리고, 이 버튼이 그것을 뒤집는다. 여기로 온 이유: 진영은
+              골 지역이 있어야 뜻이 있고 골 지역은 코트 형태가 정하므로, 형태를 고르는 자리가
+              곧 진영을 정하는 자리다.
+              ⚠️ 플랫에서는 **버튼을 안 낸다** — 기둥에서는 자리를 지켜야 해서(§3 불변식 1)
+                 disabled 로 두었지만, 모달 안에는 지킬 절대 위치가 없다. 대신 크기 3단이 이미
+                 세워 둔 계약을 따른다: *"골라도 안 변하는 컨트롤은 거짓말이다"* → 사실을 적는다. */}
+          {courtMode === 'flat' ? (
+            <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
+              플랫 코트에는 골 지역이 없어 진영이 없습니다.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                type="button"
+                aria-label={`진영 바꾸기. 지금 ${teams[defense].label} 이(가) ${courtMode === 'half' ? '골' : '왼쪽 골'}`}
+                title={`골 지역 3인 반칙은 수비 팀에만 걸립니다.`}
+                onClick={onToggleDefense}
+                style={MENU_ITEM}
+              >
+                <span aria-hidden style={{ display: 'flex' }}>
+                  <IconSides />
+                </span>
+                진영 바꾸기
+              </button>
+              <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
+                지금 {courtMode === 'half' ? '골' : '왼쪽 골'}을 지키는 팀은 <strong>{teams[defense].label}</strong> 입니다 — 골
+                지역 3인 반칙은 이 팀에만 걸립니다.
+              </p>
+            </div>
+          )}
         </div>
       </Modal>
 
-      {/* ── 보기 팝오버 — 격자 · 골 지역 가이드 · 도움말 ──────────────────────────────── */}
-      <Modal open={viewOpen} onClose={() => setViewOpen(false)} titleId={viewId} title="보기" returnFocusRef={viewBtnRef}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button
-            type="button"
-            ref={firstViewRef}
-            aria-pressed={showGrid}
-            aria-label="격자 표시 전환"
-            onClick={onToggleGrid}
-            style={toggleStyle(showGrid)}
-          >
-            <span aria-hidden style={{ width: '1.25rem', textAlign: 'center', fontWeight: 700 }}>
-              #
-            </span>
-            격자
-          </button>
-          <button
-            type="button"
-            aria-pressed={showRuleZones}
-            aria-label="골 지역 가이드 전환"
-            onClick={onToggleRuleZones}
-            style={toggleStyle(showRuleZones)}
-          >
-            <span aria-hidden style={{ width: '1.25rem', textAlign: 'center', fontWeight: 700 }}>
-              Z
-            </span>
-            골 지역 가이드
-          </button>
-          <button
-            type="button"
-            aria-label="도움말"
-            aria-haspopup="dialog"
-            onClick={() => {
-              // 순서가 계약이다 — 팝오버를 **먼저 닫아야** Esc 가 도움말을 닫는다. 두 Modal 이
-              // 겹치면 Esc 는 안쪽이 아니라 먼저 등록된 바깥쪽을 닫는다(둘 다 document 캡처).
-              setViewOpen(false);
-              onShowHelp();
-            }}
-            style={MENU_ITEM}
-          >
-            <span aria-hidden style={{ width: '1.25rem', textAlign: 'center', fontWeight: 700 }}>
-              ?
-            </span>
-            도움말
-          </button>
-        </div>
-      </Modal>
+      {/* ── 보기 서랍 — 격자 · 골 지역 가이드 ─────────────────────────────────────────
+          닫힌 서랍은 **DOM 에 없다**(§3 표적 예산). 포털인 이유·좌표를 재는 이유는 useFlyout
+          머리말에 있다 — 여기서도 판 덩어리의 `overflow:hidden` 이 자르는 조상이다.
+          ⚠️ 고르고 나서 **안 닫는다.** 트레이 서랍은 도구가 서로 배타라 하나를 고르면 볼일이
+             끝나지만, 이 둘은 서로 독립인 토글이라 둘 다 만지러 온 손을 도중에 끊게 된다.
+             닫는 길은 그대로 셋이다 — 벗어나기 · Esc · 손잡이 다시 누르기. */}
+      {fly.open?.key === 'view'
+        ? createPortal(
+            <div
+              id={viewPanelId}
+              role="group"
+              aria-label="보기"
+              {...fly.panelProps}
+              style={{
+                position: 'fixed',
+                zIndex: 40,
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 2,
+                padding: 5,
+                borderRadius: 10,
+                border: '1px solid var(--border-strong)',
+                background: 'var(--panel)',
+                boxShadow: '0 8px 20px rgba(0,0,0,.45)',
+                ...flyoutPosition(fly.open.rect, 'left'),
+              }}
+            >
+              <BarItem
+                label="격자"
+                name="격자 표시 전환"
+                title={`코트에 1m 격자를 겹쳐 그립니다 (${keyLabel('view.grid')})`}
+                active={showGrid}
+                aria-pressed={showGrid}
+                onClick={onToggleGrid}
+              >
+                <IconGrid />
+              </BarItem>
+              <BarItem
+                label="골 지역"
+                name="골 지역 가이드 전환"
+                title={`골 지역 3인 반칙 구획을 반투명하게 보여 줍니다 (${keyLabel('view.ruleZones')})`}
+                active={showRuleZones}
+                aria-pressed={showRuleZones}
+                onClick={onToggleRuleZones}
+              >
+                <IconRuleZone />
+              </BarItem>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {/* ── 비우기 확인 ─────────────────────────────────────────────────────────────── */}
       <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} titleId={confirmId} title="코트를 비울까요?" returnFocusRef={clearBtnRef}>

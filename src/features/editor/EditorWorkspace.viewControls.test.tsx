@@ -93,7 +93,7 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
     const names = [
       '확대',
       '축소',
-      '줌 초기화',
+      '배율 100%',
       '되돌리기',
       '다시하기',
       '코트 형태와 크기',
@@ -101,6 +101,7 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
       '코트 비우기',
       '내보내기',
       '보기',
+      '도움말',
       '드릴로 저장',
     ];
     for (const name of names) {
@@ -137,7 +138,7 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
     expect(courtColumn.children).toHaveLength(1);
   });
 
-  it('닫힌 팝오버는 DOM 에 없다 — 코트 6 · 보기 3 은 표적 예산 밖이다', async () => {
+  it('닫힌 것은 DOM 에 없다 — 코트 모달·보기 서랍은 표적 예산 밖이다', async () => {
     const { user } = await openBoard();
     expect(screen.queryByRole('radiogroup', { name: /코트 형태/ })).toBeNull();
     expect(screen.queryByRole('button', { name: '격자 표시 전환' })).toBeNull();
@@ -201,40 +202,104 @@ describe('팝오버 배선 — 토글이 실제로 판을 바꾼다', () => {
     const w = (v: string) => Number(v.split(' ')[2]);
     expect(w(after), '확대인데 보이는 폭이 안 줄었다').toBeLessThan(w(before));
 
-    await user.click(screen.getByRole('button', { name: '줌 초기화' }));
+    await user.click(screen.getByRole('button', { name: '배율 100%' }));
     expect(svg.getAttribute('viewBox')).toBe(before);
   });
 });
 
-describe('팝오버 포커스 — 열면 첫 항목, 닫으면 [보기]로 (§7.6)', () => {
-  it('열면 첫 항목(격자)에 포커스가 간다', async () => {
+// ── 2026-08-16 기현 지시 — [보기]가 **팝오버에서 서랍(플라이아웃)으로** 바뀌었다 ─────────
+// 옛 계약(지우지 않는다): Modal 이었으므로 열면 첫 항목에 포커스가 가고, Esc·바깥 클릭으로
+// 닫히며, 닫히면 [보기] 로 복귀했다. 바꾼 이유는 **남은 둘이 토글이기 때문**이다 — 모달은
+// "들어가서 고르고 나온다" 라 한 번 쓰고 마는 선택(코트 형태·크기)에 맞고, 격자·골 지역은
+// 판을 보면서 켰다 껐다 하는 것이라 배경을 덮고 포커스를 가두는 장치가 매번 과했다.
+// 트레이의 [작도]·[설명]과 **같은 장치**를 쓴다(useFlyout).
+describe('[보기] 서랍 — 손이 닿으면 뜨고 떠나면 닫힌다', () => {
+  const panel = () => screen.queryByRole('group', { name: '보기' });
+
+  it('다이얼로그가 아니다 — 배경도 포커스 덫도 없다', async () => {
     const { user } = await openBoard();
     await user.click(viewButton());
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '격자 표시 전환' })));
+    expect(screen.queryByRole('dialog', { name: '보기' }), '아직 모달이다').toBeNull();
+    expect(panel(), '서랍 패널이 안 떴다').toBeInTheDocument();
+    expect(viewButton()).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('Esc 로 닫으면 [보기] 버튼으로 돌아온다 — body 로 떨어지지 않는다', async () => {
+  it('포커스는 손잡이에 남는다 — 트레이 서랍과 같은 규율', async () => {
+    // 모달이 아니므로 포커스를 끌고 들어가지 않는다. 키보드 사용자의 직행 경로는 서랍이
+    // 아니라 **단축키**다(# · Z — core/keymap.ts). 트레이 서랍이 도구 문자키를 남겨 둔 것과
+    // 같은 이유이고, 그래서 §3 불변식 2(잠긴 기능 0개)가 성립한다.
+    const { user } = await openBoard();
+    const btn = viewButton();
+    btn.focus();
+    await user.click(btn);
+    expect(panel()).toBeInTheDocument();
+    expect(document.activeElement).toBe(btn);
+  });
+
+  it('Esc 로 닫힌다 — 포커스는 손잡이 그대로다', async () => {
     const { user } = await openBoard();
     await user.click(viewButton());
-    await screen.findByRole('dialog', { name: '보기' });
+    expect(panel()).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '보기' })).toBeNull());
-    expect(document.activeElement).toBe(viewButton());
-    // isConnected 검사(Modal.tsx:70)가 살아 있다는 뜻이기도 하다 — 트리거가 떼어졌다면
-    // 여기서 포커스가 <body> 로 떨어진다(§7.6 이 막는 그 사고).
+    await waitFor(() => expect(panel()).toBeNull());
     expect(document.activeElement).not.toBe(document.body);
   });
 
-  it('바깥을 눌러도 닫힌다 — 메뉴의 통상 동작', async () => {
+  it('손잡이를 벗어나면 유예 뒤에 닫힌다', async () => {
     const { user } = await openBoard();
     await user.click(viewButton());
-    const dialog = await screen.findByRole('dialog', { name: '보기' });
+    expect(panel()).toBeInTheDocument();
 
-    await user.click(dialog.parentElement!); // 배경(backdrop)
+    // 코트로 마우스를 옮긴다 — 손잡이·패널 어느 쪽도 아니다.
+    await user.pointer({ target: screen.getByRole('application', { name: '코트 편집 영역' }) });
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '보기' })).toBeNull());
+    await waitFor(() => expect(panel()).toBeNull(), { timeout: 2000 });
+  });
+
+  it('고르고 나서 **안 닫힌다** — 둘 다 만지러 온 손을 도중에 끊지 않는다', async () => {
+    // 트레이 서랍은 도구가 서로 배타라 하나를 고르면 볼일이 끝나지만, 이 둘은 독립 토글이다.
+    const { user } = await openBoard({ showGrid: true, showRuleZones: true });
+    await user.click(viewButton());
+
+    await user.click(screen.getByRole('button', { name: '격자 표시 전환' }));
+    expect(panel(), '한 번 눌렀다고 서랍이 닫혔다').toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '골 지역 가이드 전환' }));
+
+    expect(loadPrefs().showGrid).toBe(false);
+    expect(loadPrefs().showRuleZones).toBe(false);
+  });
+});
+
+// ── [도움말]은 서랍 **밖**, 한 번 클릭 (2026-08-16 기현 지시) ────────────────────────────
+// 옛 배치: [보기] 팝오버의 셋째 항목. 도움말은 "무엇이 어떻게 되는지 모르겠다" 일 때 여는
+// 문인데 그 문이 다른 메뉴 안에 있었다 — 길을 잃은 사람에게 길찾기를 한 번 더 시키는 배치다.
+describe('[도움말] — 기둥 상시 칸', () => {
+  it('첫 화면에서 한 번 눌러 열린다 — 메뉴를 먼저 열 필요가 없다', async () => {
+    const { user } = await openBoard();
+    const help = screen.getByRole('button', { name: '도움말' });
+    expect(help.getAttribute('aria-haspopup')).toBe('dialog');
+
+    await user.click(help);
+
+    expect(await screen.findByRole('dialog', { name: '도움말' })).toBeInTheDocument();
+    // [보기] 서랍은 이 길에 끼어들지 않는다.
+    expect(screen.queryByRole('group', { name: '보기' })).toBeNull();
+  });
+
+  it('닫으면 [도움말] 버튼으로 돌아온다 — 트리거가 제자리에 남아 있다', async () => {
+    const { user } = await openBoard();
+    const help = screen.getByRole('button', { name: '도움말' });
+    await user.click(help);
+    await screen.findByRole('dialog', { name: '도움말' });
+    // 옛 배치에서는 트리거가 팝오버와 함께 떨어져 나가 [보기] 로 우회해야 했다(help.test.tsx).
+    expect(help.isConnected).toBe(true);
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '도움말' })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(help));
   });
 });
 
@@ -251,14 +316,17 @@ describe('Esc 우선순위 — 팝오버 > 전역 (등록 단계가 보장한다
   // 옛 기록: 우선순위는 **모달 > 인스펙터 > 전역 선택 해제** 3단이었고, 그것을 플래그가 아니라
   // **등록 단계**가 보장했다(Modal 은 document 캡처, 인스펙터는 자기 루트). 자유 전술판에서
   // 인스펙터가 사라지면서 가운데 단이 없어졌다 — 남은 두 단의 관계는 그대로다.
-  it('팝오버가 떠 있으면 Esc 는 팝오버만 닫는다 — 판 선택은 안 건드린다', async () => {
+  it('코트 모달이 떠 있으면 Esc 는 모달만 닫는다 — 판 선택은 안 건드린다', async () => {
+    // 2026-08-16 — [보기]가 모달에서 서랍이 되면서 이 자리의 대표를 [코트]로 바꿨다. 서랍은
+    // Modal 이 아니라 window 리스너로 Esc 를 받으므로(useFlyout) **단 관계가 다르다**:
+    // 여기서 재려던 것은 "모달이 캡처 단계에서 먼저 먹는다" 이고, 그것을 가진 것은 이제 [코트]다.
     const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '보기' }));
-    expect(screen.getByRole('dialog', { name: '보기' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    expect(screen.getByRole('dialog', { name: '코트' })).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
 
-    expect(screen.queryByRole('dialog', { name: '보기' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '코트' })).toBeNull();
     // 판은 그대로 서 있다 — Esc 가 아래로 새지 않았다.
     expect(screen.getByRole('application', { name: '코트 편집 영역' })).toBeInTheDocument();
   });
@@ -323,7 +391,7 @@ describe('휠 줌 — 코트 위에서 굴리면 그 자리를 붙든 채 확대
     await user.click(screen.getByRole('button', { name: '확대' }));
     const byButton = vbW(svg);
 
-    await user.click(screen.getByRole('button', { name: '줌 초기화' }));
+    await user.click(screen.getByRole('button', { name: '배율 100%' }));
     wheel(svg, { deltaY: -100, clientX: 300, clientY: 200 });
 
     expect(vbW(svg), '걸음이 다르면 버튼과 휠이 서로 다른 배율표를 쓰는 것이다').toBeCloseTo(byButton, 6);

@@ -392,6 +392,40 @@ export function IconEye({ size = 18, ...rest }: IconProps) {
   );
 }
 
+/** 격자 — 예전에는 '#' 글자였다. [보기] 가 팝오버에서 **서랍**으로 바뀌면서(2026-08-16) 하위
+ *  항목이 기능 바 칸과 같은 모양(아이콘 + 2~4자)이 됐고, 글자 하나를 아이콘 자리에 세우면
+ *  그 밑의 이름 줄과 같은 말을 두 번 하게 된다. 획 넷은 실제 격자와 같은 뜻이다. */
+export function IconGrid({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+    </svg>
+  );
+}
+
+/** 골 지역 가이드 — 골라인 + ㄷ자 하나. IconBoard 는 판 전체를 말하느라 ㄷ자를 **둘** 그리는데,
+ *  여기서 말하는 것은 "그 구획을 켠다" 라 하나면 족하고, 18px 에서 둘은 뭉갠다. */
+export function IconRuleZone({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M4 3v18" />
+      <path d="M4 7.5h8v9H4" />
+    </svg>
+  );
+}
+
+/** 도움말 — 2026-08-16 기현 지시로 [보기] 안에서 **기둥 상시 칸**으로 나왔다. 한 번에 닿아야
+ *  하는 것이 메뉴 안에 있었다. */
+export function IconHelp({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.3a2.6 2.6 0 1 1 3.3 3.2c-.6.2-.8.7-.8 1.3v.3" />
+      <path d="M12 17.1v.8" />
+    </svg>
+  );
+}
+
 /** 확대(줌 인) — 돋보기에 +. 옛 ZoomGroup 은 IconPlus 만 썼는데, 기능 바에서는 [코트]·[골대]와
  *  나란히 서므로 "무엇에 대한 +인가" 가 그림에 있어야 한다. */
 export function IconZoomIn({ size = 18, ...rest }: IconProps) {

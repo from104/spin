@@ -94,11 +94,12 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // ref 로 못박는다). **Shift+?** 로 열면 ref 를 비워 폴백이 이기게 한다 — 열던 순간의
   // 포커스(코트·개체)로 돌아가야지, 쓴 적도 없는 버튼으로 끌려가면 안 된다.
   const helpTriggerRef = useRef<HTMLElement | null>(null);
-  // 2026-08-14: 이 ref 가 가리키는 것은 이제 [도움말] 항목이 아니라 **[보기] 버튼**이다.
-  // 도움말은 [보기] 팝오버 **안**에서 열리고 그 팝오버는 열리기 직전에 닫히므로, 항목 자신은
-  // 도움말이 닫힐 때 이미 DOM 에 없다 — Modal 의 복귀는 isConnected 를 검사하므로(ui/Modal.tsx:70)
-  // 떼어진 노드를 주면 포커스가 아무 데도 안 간다. 남아 있는 조상 손잡이가 [보기] 다.
-  const viewButtonRef = useRef<HTMLButtonElement | null>(null);
+  // 옛 기록(2026-08-14): 도움말이 [보기] 팝오버 **안**에 있던 시절에는 이 ref 가 [도움말]
+  // 항목이 아니라 **[보기] 버튼**을 가리켜야 했다 — 팝오버는 도움말이 열리기 직전에 닫히므로
+  // 항목 자신이 이미 DOM 에서 떨어져 나갔고, Modal 의 복귀는 isConnected 를 검사하기
+  // 때문이다(ui/Modal.tsx:70). 2026-08-16 에 [도움말]이 기둥 상시 칸으로 나오면서 그 우회가
+  // 없어졌다 — 트리거가 열리는 동안에도 제자리에 있다.
+  const helpButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pendingPlayerId, setPendingPlayerId] = useState<ChairId | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   // 세로 화면(§6.4 태블릿): 도구·속성을 아래로 내려 코트가 폭을 다 쓰게 한다.
@@ -405,17 +406,13 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       showRuleZones={showRuleZones}
       onToggleRuleZones={toggleRuleZones}
       onShowHelp={() => {
-        // 버튼 문 — 닫히면 [보기] 버튼으로. ⚠️ **지금 이 줄은 이중 보증의 둘째 벨트다**:
-        // 팝오버 자신이 닫히면서 returnFocusRef 로 [보기] 에 포커스를 되돌려 놓기 때문에,
-        // 이 줄을 지워도 도움말 Modal 의 openedBy 폴백이 같은 버튼을 집는다(2026-08-14 반증
-        // 실험으로 확인 — 지우고 돌려도 15개 전건 초록이었다. 그래서 '이 줄이 없으면 깨진다'
-        // 고 적지 않는다). 남기는 이유: 도움말을 여는 문이 이 팝오버 하나가 아니게 되는 순간
-        // (직행 버튼이 다시 생기거나 메뉴가 안 닫히게 바뀌면) 폴백이 곧바로 어긋나는데,
-        // 그때는 조용히 깨진다 — Shift+? 문이 폴백에 기대는 것과 대칭으로 못박아 둔다.
-        helpTriggerRef.current = viewButtonRef.current;
+        // ⚠️ `showViewMenu={false}` 라 이 화면에서 이 문은 **안 열린다**(도움말은 기능 바의
+        // 상시 칸이 연다). 배선을 남기는 이유는 컴포넌트가 아직 그 메뉴를 그릴 수 있기
+        // 때문이다 — 살아 있는 경로가 아니라 컴포넌트 계약을 채우는 줄이다.
+        helpTriggerRef.current = helpButtonRef.current;
         setHelpOpen(true);
       }}
-      viewButtonRef={viewButtonRef}
+      viewButtonRef={helpButtonRef}
       inspectorOpen={inspectorOpen}
       onToggleInspector={() => setInspectorOpen((v) => !v)}
       inspectorPanelId={inspectorPanelId}
@@ -484,10 +481,15 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       showRuleZones={showRuleZones}
       onToggleRuleZones={toggleRuleZones}
       onShowHelp={() => {
-        helpTriggerRef.current = viewButtonRef.current;
+        // 버튼 문 — 닫히면 [도움말] 버튼으로 돌아온다. ⚠️ **이중 보증의 둘째 벨트다**:
+        // 이 줄을 지워도 Modal 의 openedBy 폴백(열던 순간의 포커스 = 방금 누른 그 버튼)이
+        // 같은 곳을 집는다. 남기는 이유는 반대 문(Shift+?)이 이 ref 를 **비워** 폴백에
+        // 맡기기 때문이다 — 두 문이 같은 자리를 명시적으로 갈라 놔야 한쪽이 바뀔 때 조용히
+        // 어긋나지 않는다.
+        helpTriggerRef.current = helpButtonRef.current;
         setHelpOpen(true);
       }}
-      viewButtonRef={viewButtonRef}
+      helpButtonRef={helpButtonRef}
       onSaveAsDrill={() => (board ? board.onSaveAsDrill() : void autosave.flush())}
     />
   );

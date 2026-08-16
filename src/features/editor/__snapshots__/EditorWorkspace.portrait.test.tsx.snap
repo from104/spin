@@ -66,9 +66,9 @@ exports[`트레이는 코트 긴 변에 붙는다 — 가로 창이면 아래 �
 · · · span font-size: 0.5625rem; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap;
 · · button width: var(--hit); min-height: var(--hit); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 3px 0px; border-radius: 10px; border: 1px transparent; background: transparent; color: var(--muted); flex: 0 0 auto; opacity: 1;
 · · · span font-size: 0.5625rem; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap;
+· · div flex: 0 0 auto; align-self: stretch; height: 1px; margin: 4px 10px; background: var(--border);
 · · button width: var(--hit); min-height: var(--hit); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 3px 0px; border-radius: 10px; border: 1px transparent; background: transparent; color: var(--muted); flex: 0 0 auto; opacity: 1;
 · · · span font-size: 0.5625rem; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap;
-· · div flex: 0 0 auto; align-self: stretch; height: 1px; margin: 4px 10px; background: var(--border);
 · · button width: var(--hit); min-height: var(--hit); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 3px 0px; border-radius: 10px; border: 1px transparent; background: transparent; color: var(--muted); flex: 0 0 auto; opacity: 1;
 · · · span font-size: 0.5625rem; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap;
 · · button width: var(--hit); min-height: var(--hit); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 3px 0px; border-radius: 10px; border: 1px transparent; background: transparent; color: var(--muted); flex: 0 0 auto; opacity: 1;
