@@ -69,7 +69,7 @@ describe('여는 손짓 — 오른쪽 클릭과 긴 터치', () => {
     expect(open, '끌고 있는데 메뉴가 떴다').not.toHaveBeenCalled();
   });
 
-  it('대조군: 미세한 흔들림으로는 안 접힌다 — 발 마우스·입 젓가락은 완전히 정지하지 못한다', () => {
+  it('대조군: 미세한 흔들림으로는 안 접힌다 — 누르고 있는 손은 완전히 정지하지 않는다', () => {
     vi.useFakeTimers();
     const open = vi.fn();
     const { result } = renderHook(() => useLongPressMenu(open));

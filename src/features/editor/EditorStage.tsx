@@ -295,7 +295,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       if (isId(id, 'ar')) {
         // 화살표 개체(§4.3 1.11). 메모와 같이 물리 바디가 없다. 여기가 비어 있던 탓에
         // 화살표는 **키보드로 전혀 움직이지 않았다** — 유일한 조작 경로가 12px 드래그와
-        // 반경 22 CSS px 핸들 3개의 정밀 드래그뿐이었다(발 마우스·입 젓가락에는 사실상 없는 기능).
+        // 반경 22 CSS px 핸들 3개의 정밀 드래그뿐이었다 — 정밀 포인팅을 전제하는 조작은
+        // 그것이 어려운 입력에는 사실상 없는 기능과 같다.
         const arrow = step.arrows.find((a) => a.id === id);
         if (arrow) dispatch({ type: 'ARROW_SET', arrow: nudgeArrow(arrow, arrowPart, { x: dx, y: dy }) });
       }
