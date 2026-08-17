@@ -650,6 +650,15 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     const locked = sanitizeIdList(rawStep.locked, alive, 'steps.locked', repairs);
     // 무시는 **휠체어에만** 있다 — 공·콘 id 가 섞여 들어오면 물리가 그것만 조용히 빼먹는다.
     const ignored = sanitizeIdList(rawStep.ignored, new Set(Object.keys(chairsMap)), 'steps.ignored', repairs) as ChairId[];
+    // 사슬 끊긴 경계(2026-08-17). **`true` 만 유효하다** — 저장형이 리터럴 타입 `true` 이므로
+    // `false`·`1`·`"true"` 등은 정의역 밖이다. 조용히 캐스트하면(Boolean(...)) "cut: false" 를
+    // 실은 문서가 검증을 지나 "cut: true" 로 뒤바뀌는 사고가 난다 — 여기서는 버리는 것이
+    // 유일하게 안전한 반응이고, 버려도 뜻은 그대로다(키 없음 = 연결, drill.ts 교리 주석).
+    const cutRaw = rawStep.cut;
+    if (cutRaw !== undefined && cutRaw !== true) {
+      pushRepair(repairs, 'steps.cut', 'cut 값이 true 가 아니어서 폐기(키 없음 = 연결)', true);
+    }
+    const cut = cutRaw === true;
 
     stepsOut.push({
       id,
@@ -664,6 +673,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       shapes,
       ...(locked.length > 0 ? { locked } : {}),
       ...(ignored.length > 0 ? { ignored } : {}),
+      ...(cut ? { cut } : {}),
     });
   }
   if (stepsOut.length > LIMITS.maxSteps) {

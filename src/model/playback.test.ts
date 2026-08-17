@@ -136,6 +136,89 @@ describe('sampleDrill', () => {
   });
 });
 
+describe('sampleDrill — cut (사슬 끊긴 경계, 2026-08-17)', () => {
+  it('cut 경계: 경계를 넘는 즉시(전환 도중 포함) 스텝 i+1(toStep) 포즈로 점프한다(보간 없음)', () => {
+    let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    d = addStepAfter(d, 0);
+    const chairId = d.cast.chairs[0]!.id;
+    d = setPose(d, 1, chairId, { x: 999, y: 1, angleDeg: 0 }); // 두 스텝의 자세를 뚜렷이 다르게
+    const steps = d.steps.slice();
+    steps[1] = { ...steps[1]!, cut: true }; // 경계 0→1: "다음 스텝"(steps[1])이 진다
+    d = { ...d, steps };
+    const opts = { baseMs: 1500, transitionMs: 600, loop: false };
+    const expected = d.steps[1]!.chairs[chairId]!;
+    // 경계 바로 다음(t≈0, transitionMs 시작 직전)에도 이미 toStep 이어야 한다 — "그 경계만
+    // 즉시 컷"이지 transitionMs 만큼 지연된 컷이 아니다(2026-08-17 결함 수정: 이전 구현은
+    // 여기서 e=0 을 유지해 fromStep 이 transitionMs 동안 남아 있었다).
+    const justAfter = sampleDrill(d, 1500 + 1, opts);
+    const rcJustAfter = justAfter.chairs.find((c) => c.id === chairId)!;
+    expect(rcJustAfter.x).toBe(expected.x);
+    expect(rcJustAfter.y).toBe(expected.y);
+    // 전환 도중(t≈0.5)에도 여전히 toStep 그대로 — 보간이 아예 없다.
+    const mid = sampleDrill(d, 1500 + 300, opts);
+    const rcMid = mid.chairs.find((c) => c.id === chairId)!;
+    expect(rcMid.x).toBe(expected.x);
+    expect(rcMid.y).toBe(expected.y);
+  });
+
+  it('cut 경계: enter 개체가 경계를 넘는 즉시 opacity=1 로 나타난다(팝, 지연 없음)', () => {
+    let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    const enteringId = d.cast.chairs[0]!.id;
+    d = addStepAfter(d, 0); // 스텝1은 스텝0 복제
+    // 스텝0에서는 없다가 스텝1에서 등장(enter)하도록 만든다.
+    let steps = d.steps.slice();
+    const step0Chairs = { ...steps[0]!.chairs };
+    delete (step0Chairs as Record<string, unknown>)[enteringId];
+    steps[0] = { ...steps[0]!, chairs: step0Chairs };
+    steps[1] = { ...steps[1]!, cut: true };
+    d = { ...d, steps };
+    const opts = { baseMs: 1500, transitionMs: 600, loop: false };
+    // 경계 직후(전환 시작 직후)에도 이미 opacity=1 이어야 한다 — 팝은 경계에서 일어나지
+    // transitionMs 끝에서 일어나지 않는다(2026-08-17 결함 수정).
+    const justAfter = sampleDrill(d, 1500 + 1, opts);
+    const rcJustAfter = justAfter.chairs.find((c) => c.id === enteringId);
+    expect(rcJustAfter).toBeDefined();
+    expect(rcJustAfter!.opacity).toBe(1);
+    // 전환 도중(t≈0.5)에도 계속 opacity=1.
+    const mid = sampleDrill(d, 1500 + 300, opts);
+    const rcMid = mid.chairs.find((c) => c.id === enteringId);
+    expect(rcMid).toBeDefined();
+    expect(rcMid!.opacity).toBe(1);
+  });
+
+  it('cut 없는 경계: 기존 보간 동작이 그대로다(회귀 가드)', () => {
+    let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    d = addStepAfter(d, 0);
+    const chairId = d.cast.chairs[0]!.id;
+    d = setPose(d, 1, chairId, { x: 999, y: 1, angleDeg: 0 });
+    const opts = { baseMs: 1500, transitionMs: 600, loop: false };
+    const frame = sampleDrill(d, 1500 + 300, opts); // 전환 도중, cut 없음
+    const rc = frame.chairs.find((c) => c.id === chairId)!;
+    const a = d.steps[0]!.chairs[chairId]!.x;
+    const b = d.steps[1]!.chairs[chairId]!.x;
+    // 컷이 아니므로 스텝0 값에 고정되지 않고 실제로 움직인다(휠체어는 Hermite 호이므로
+    // 직선 범위를 벗어날 수 있어 상하한이 아니라 "정확히 a 가 아님"만 확인한다 — cut 이었다면
+    // 위 첫 테스트처럼 rc.x 가 a 와 정확히 같았을 것).
+    expect(rc.x).not.toBe(a);
+    expect(rc.x).not.toBeCloseTo(a, 3);
+    expect(rc.x).not.toBe(b);
+  });
+
+  it('cut 경계: 구간이 끝나는 순간(t=1)에도 여전히(계속) toStep 그대로다', () => {
+    let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    d = addStepAfter(d, 0);
+    const chairId = d.cast.chairs[0]!.id;
+    d = setPose(d, 1, chairId, { x: 999, y: 1, angleDeg: 0 });
+    const steps = d.steps.slice();
+    steps[1] = { ...steps[1]!, cut: true };
+    d = { ...d, steps };
+    const opts = { baseMs: 1500, transitionMs: 600, loop: false };
+    const frame = sampleDrill(d, 1500 + 600, opts); // 전환 끝 (t=1)
+    const rc = frame.chairs.find((c) => c.id === chairId)!;
+    expect(rc.x).toBe(d.steps[1]!.chairs[chairId]!.x);
+  });
+});
+
 describe('effectiveStepMs / drillTotalMs', () => {
   it('durationMs override 가 있으면 그 값을, 없으면 baseMs 를 쓴다', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });

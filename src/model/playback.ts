@@ -225,7 +225,28 @@ export function sampleDrill(
   const localT = raw - starts[i]!;
   const t = o.transitionMs > 0 ? Math.min(Math.max(localT / o.transitionMs, 0), 1) : 1;
   const fromStep = i > 0 ? d.steps[i - 1]! : o.loop ? d.steps[n - 1]! : d.steps[0]!;
-  const eased = easeStandard(t);
-  const frame = interpolateSteps(d, fromStep, d.steps[i]!, eased);
+  const toStep = d.steps[i]!;
+  // 사슬 끊긴 경계(§3.5 DrillStep.cut, 2026-08-17 기현 지시): 이 구간으로 "향하는" 스텝
+  // (toStep = d.steps[i], 교리대로 다음 스텝이 진다)에 `cut` 이 있으면 **보간하지 않는다**.
+  //
+  // 이 스텝 i 의 구간(starts[i]..starts[i]+durationMs)에 들어와 있다는 것은 이미 그 앞
+  // 경계(starts[i], i-1→i 전환)를 넘었다는 뜻이다 — "다음 스텝이 진다" 교리에 따라 그 경계의
+  // cut 여부는 바로 이 toStep(d.steps[i])의 cut 필드로 판정하므로, isCut 이면 이 구간 전체가
+  // 이미 컷 경계를 지난 뒤다. 그러므로 t(=0..1, transitionMs 내 로컬 진행률)와 무관하게 항상
+  // e=1(=toStep 그대로) 이어야 한다 — "그 경계만 즉시 컷"이지 "경계+transitionMs 뒤에 컷"이
+  // 아니다. t<1 동안 e=0 을 유지하는 예전 구현은 컷을 transitionMs 만큼 지연시켜 그 시간
+  // 동안 fromStep(이전 스텝) 이 화면에 남는 잘못된 보간을 만들었다(2026-08-17 결함 수정).
+  //
+  // 반대로 이 스텝 i 에서 다음 스텝(i+1, cut 이 있을 수도 없을 수도 있음)으로 "넘어가는" 순간은
+  // raw 가 starts[i+1] 을 넘을 때 i 가 증가하면서 자동으로 처리된다 — 그 경계의 cut 여부는
+  // 그때 toStep 이 되는 d.steps[i+1] 의 cut 필드로 판정되고, 위와 같은 논리로 그 구간에서도
+  // 즉시 e=1 이 된다. 즉 "총 재생 시간·체류 시간 보존"은 durationMs 구간 자체가 그대로
+  // 유지되는 데서 나오는 것이지, e 를 지연시키는 데서 나오는 게 아니다 — 이 스텝의 프레임은
+  // 이 구간 전체(t=0..1) 동안 이미 자기 자신(toStep)으로 고정 표시된다.
+  // presence(enter/exit) 페이드도 같은 e 를 쓰므로 컷 구간에서는 자동으로 함께 계단이 된다
+  // (opacity 도 항상 1 = "개체는 팝 한다").
+  const isCut = toStep.cut === true;
+  const eased = isCut ? 1 : easeStandard(t);
+  const frame = interpolateSteps(d, fromStep, toStep, eased);
   return { ...frame, stepIndex: i, t };
 }

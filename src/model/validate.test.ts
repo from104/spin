@@ -100,6 +100,34 @@ describe('validateDrill — 보정', () => {
     expect(p.y).toBeLessThanOrEqual(450);
   });
 
+  it('cut: true 는 왕복 보존되고, 잘못된 값(false·1)은 버려진다(키 없음 = 연결)', () => {
+    const base = { id: 'st_1', name: 's', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [] };
+    const raw = {
+      id: 'dr_x',
+      courtMode: 'flat',
+      cast: { chairs: [], balls: [], cones: [] },
+      steps: [
+        { ...base, id: 'st_1', cut: true },
+        { ...base, id: 'st_2', cut: false },
+        { ...base, id: 'st_3', cut: 1 },
+        { ...base, id: 'st_4' }, // 키 자체가 없는 옛 드릴 형태
+      ],
+    };
+    const r = validateDrill(raw);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.steps[0]!.cut).toBe(true);
+    expect('cut' in r.value.steps[1]!).toBe(false); // false 는 버려진다(저장하지 않는다)
+    expect('cut' in r.value.steps[2]!).toBe(false); // 1 도 버려진다 — true 만 유효
+    expect('cut' in r.value.steps[3]!).toBe(false); // 없음은 그대로 없음 = 연결
+    expect(r.repairs.some((x) => x.path === 'steps.cut')).toBe(true);
+    // 멱등성: 한 번 통과한 값을 다시 넣으면 repairs.cut 이 재발하지 않는다.
+    const second = validateDrill(r.value);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.repairs.some((x) => x.path === 'steps.cut')).toBe(false);
+  });
+
   it("formation:'4-4-2' 이고 steps:[] 인 파일이 throw 없이 통과한다", () => {
     const raw = {
       id: 'dr_x',
