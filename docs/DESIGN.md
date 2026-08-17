@@ -735,9 +735,18 @@ export interface NoteLabel {
 
 export interface DrillStep {
   id: StepId;
+  // 폐기됨(2026-08-17 재설계, §6.8b) — UI 는 이 필드를 더 이상 쓰지 않는다(카드는 번호+
+  // 썸네일만, 노트는 note 로 통합). 새 스텝은 항상 ''. 옛 드릴이 계속 들어오므로 필드는
+  // 남긴다 — validate.ts 의 migrateStepName() 이 로드 시 note 로 이관하고 비운다(자동 생성
+  // 이름 '스텝 N' 은 이관 없이 버림). 채워진 채 관찰되는 것은 로드 전(파일 원본)뿐이다.
   name: string;                       // ≤40자
   note: string;                       // ≤600자
   durationMs?: number;                // 이 스텝만 재생 간격 override
+  // 재생 컷(2026-08-17 재설계, §6.8b): 이 스텝으로 "들어오는" 경계를 즉시 점프로 만든다.
+  // 없으면(undefined) 지금까지처럼 보간 연결 — "없음 = 참(연결)" 이 옛 드릴에 대해서도
+  // 그대로 성립해 마이그레이션이 필요 없다(SUMMARY 교리와 같은 논법). `cut: false` 는
+  // 애초에 저장하지 않는다(§3.11 courtSize 와 같은 절약).
+  cut?: true;
   chairs: PoseMap<ChairId, StoredChairPose>;
   balls:  PoseMap<BallId, Vec2>;
   cones:  PoseMap<ConeId, Vec2>;
@@ -1031,10 +1040,14 @@ export interface ThumbSpec {
 export const THUMB_CAPS = { chairs: 8, balls: 4, cones: 8, arrows: 3 } as const;
 export function buildThumb(d: Drill): ThumbSpec;        // 첫 스텝에서 생성
 
-export const SUMMARY_BUILD = 1;
+export const SUMMARY_BUILD = 3;
 export interface DrillSummary {
   id: DrillId; build: number;         // = SUMMARY_BUILD. 레코드별 버전 (전역 스윕 금지)
-  title: string; category: string; level: DrillLevel;
+  title: string;
+  /** 목록 카드 부제(SUMMARY_BUILD 3, 2026-08-17 재설계 §6.8b). `Drill.description` 첫 줄만,
+   *  SUBTITLE_MAX(=titleLen 80)로 자른 값. 빈 값이면 키를 생략(courtSize 와 같은 절약). */
+  description?: string;
+  category: string; level: DrillLevel;
   durationMin: number; tags: string[]; courtMode: CourtMode; stepCount: number;
   createdAt: number; updatedAt: number;
   teams: Record<TeamSide, TeamStyle>; // 썸네일이 색을 여기서 읽는다 (structuredClone)
@@ -1078,11 +1091,24 @@ export function buildSummary(d: Drill): DrillSummary;   // 약 700 B/건
 `SUMMARY_BUILD` 가 2 로 올랐고, 같은 커밋에서 `LibraryProvider` 가 stale 요약을 보면
 `rebuildAllSummaries()` 를 **세션 1회** 부른다(호출자 0 이던 그 경로에 호출자가 생겼다).
 
+**→ 3 (2026-08-17 재설계, §6.8b)**: 목록 카드 부제로 `Drill.description` 첫 줄을 싣는다.
+같은 재구축 경로를 그대로 재사용한다 — `s.build < SUMMARY_BUILD` 비교가 제네릭해서
+build:2 레코드도 다음 목록 진입에서 자동으로 다시 만들어진다. `searchKey` 도 description
+전문(첫 줄 절단 전)을 포함하도록 갱신했다 — 이번엔 "목록이 안 읽는다" 논거가 안 선다
+(목록이 바로 이 값을 부제로 그린다). ⚠️ **이번에도 옛 요약을 한 번 다시 만드는 대가가
+붙는다** — 도형·메모 때와 같은 값이다: 드릴이 많으면 첫 목록이 조금 늦게 뜬다.
+
 칩은 카드보다 4배 가까이 작으므로(칩 폭 ≈ 76 px vs 카드 ≈ 300 px) 같은 글리프로는 다시
-안 보인다 — `glyphScale` 로 배수를 받고 `TransportBar` 가 `CHIP_GLYPH_SCALE`(1.6)을 넘긴다.
+안 보인다 — `glyphScale` 로 배수를 받고 `CHIP_GLYPH_SCALE`(1.6)을 넘긴다.
 ⚠️ **배수는 글리프에만 곱한다. 좌표에는 곱하지 않는다** — 자리까지 부풀리면 썸네일이 다른
-배치를 보여주는 그림이 된다. `CourtThumbnail.test.tsx` 의 '좌표는 한 픽셀도 안 움직인다' 와
-`TransportBar.test.tsx` 의 칩 배수 가드가 그 둘을 각각 지킨다.
+배치를 보여주는 그림이 된다. `CourtThumbnail.test.tsx` 의 '좌표는 한 픽셀도 안 움직인다' 가
+그 가드다.
+
+> **※ 정정 각주 (2026-08-17, 스텝 편집 재설계 §6.8b).** 위 문단이 이 배수의 소비자로 적은
+> `TransportBar` 는 더 이상 스텝 칩을 그리지 않는다 — 칩 줄은 왼쪽 **`StepSidebar`** 의
+> 카드로 옮겼고 `CHIP_GLYPH_SCALE` 도 `StepSidebar.tsx` 로 이사했다(가드도
+> `StepSidebar.test.tsx`). `TransportBar` 는 재생 컨트롤(이전/다음/재생/속도)만 남았다.
+> 자세한 내용은 §6.8b.
 
 프로토타입 썸네일 마크업(template.html 176–193행)은 풀 코트 마크업에 `scale(0.4)`,
 `translate(0,-4)` 를 적용한 것과 **완전히 동일**함을 역산 검증했다:
@@ -2867,6 +2893,102 @@ react-router 미도입 근거: 화면 4개·중첩 라우트 0·URL 공유가 �
 규칙이 깨진다. ('초기화' 라는 옛 글자를 버린 이유는 이 기둥에서 뜻이 겹쳤기 때문이다:
 [비우기]도 판을 초기화한다.)
 
+### 6.8b 왼쪽 스텝 바 — 스텝 편집 재설계 (2026-08-17, 계획서 `docs/PLAN-STEP-EDITING.md`)
+
+전제(기현님 지시): **보드 설계는 바꾸지 않는다.** 스텝을 복제·수정·연결하는 과정만 편하게
+만든다. `RESEARCH-DRILL-EDITORS.md` 조사에서 가져온 것은 구조가 아니라 문법이다 —
+사이드바 목록(PPT/FastDraw Play Library), 소속 있는 텍스트, 타임라인 없는 재생 제어.
+
+**낡은 서술 갱신**: 옛 편집 화면은 하단 `TransportBar` 에 스텝 칩 줄을 두고, 우측
+`InspectorPanel` 에 스텝 섹션(이름·메모·위/아래 이동·복제·삭제)을 뒀다. **둘 다 이
+재설계로 대체됐다** — 칩 줄은 폐지, 인스펙터 스텝 섹션은 철거하고 `durationMs` override
+만 남긴 `StepDurationSection` 으로 축소했다(`InspectorPanel.hit.test.ts` 의 `var(--hit)`
+표적 대조군도 이 철거를 따라 4→3 으로 이사했다). 아래가 새 정본이다.
+
+**`src/features/editor/StepSidebar.tsx` — 편집 전담**. 목록·선택·복제·이동·사슬·삭제를
+전부 여기로 모았다. `TransportBar` 는 재생 컨트롤(이전/다음/재생/속도)만 남기고 축소했다
+— 재생과 편집을 한 막대에 욱여넣던 옛 구조를 갈랐다.
+
+- **카드 = 번호 + 썸네일만.** 스텝 이름은 UI 에서 폐기했다("스텝 정보 최소화", 아래 이름
+  이관 참조). 현재 스텝은 카드 강조로 표시하고, 카드 탭 = 그 스텝으로 이동.
+- **반응형은 한 벌이다** — 좁은(세로) 화면 전용 UI 를 따로 두지 않는다. 바는 자동으로
+  접히고, 버튼으로 열면 보드 위 **오버레이**로 뜬다.
+- **재정렬은 포인터 + 키보드 양쪽.** 포인터는 드래그, 키보드는 카드에 포커스 후 방향키로
+  옮긴다 — §7.5 키보드 조작 계약(모든 드래그 조작에 키보드 동등 경로)을 그대로 잇는다.
+
+**복제 — 후방 복제가 기본** (`docs/PLAN-STEP-EDITING.md` §복제):
+
+- 선택된 카드의 **복제 버튼**: 바로 아래로 복제.
+- 스텝 사이 **틈(gap)에 호버/탭 시 + 버튼**: 그 자리에 **위 스텝의 복제**를 삽입 — 전방
+  복제도 이걸로 해결된다. 맨 앞 틈의 + 는 **아래(첫) 스텝**을 복제(위가 없으므로).
+
+**사슬 — 스텝 간 연결 토글** (`DrillStep.cut`, §3.5):
+
+- 틈에 **사슬 버튼 토글**. **기본 연결**(사슬 아이콘), 끊으면 컷 아이콘. 토글은 **내부
+  틈에만** 있다 — 맨 앞 틈은 이을 앞 스텝이 없으므로 사슬 개념 자체가 없다.
+- 재생·시연에서: 연결 = 지금처럼 보간 애니메이션. **끊김 = 그 경계만 즉시 컷** — 재생이
+  멈추지 않고 순간 점프한 채 계속 흐른다(§3.6 `sampleDrill` 의 `isCut` 분기).
+- 저장은 **예외만** 싣는다: 끊긴 경계의 **다음 스텝**에 `cut: true`. 키가 없으면 연결이므로
+  옛 드릴은 전부-연결 = 지금까지의 시연 동작 그대로다 — **마이그레이션 불필요.**
+
+**선택 모드** (`docs/PLAN-STEP-EDITING.md` §다중 선택):
+
+- **선택 모드 토글 버튼**(바 상단) → 카드에 체크박스가 나타난다. 상시 노출이 아니라 명시적
+  모드로 가른 이유는 오조작 방지 — 카드 탭이 평소엔 "그 스텝으로 이동", 선택 모드에선
+  "체크"로 뜻이 바뀌므로 둘을 섞으면 실수로 스텝이 이동+선택된다.
+  ⚠️ **체크박스가 있는데 탭이 이동해 버리면 계약 위반이다.**
+- 이동: 체크된 카드 아무거나 **드래그**하면 묶음이 함께 이동하고, 놓을 틈이 하이라이트된다.
+- 일괄 복제·삭제 버튼은 선택 모드 중 바 상단에 뜬다. 두 동작 모두 `STEPS_*` 액션 하나로
+  묶어 **되돌리기(undo) 1회**로 전부 원복된다 — 스텝 N개를 지웠는데 Ctrl+Z 를 N번 눌러야
+  하면 그건 "일괄"이 아니다.
+
+**텍스트의 소속** (`docs/PLAN-STEP-EDITING.md` §텍스트의 소속, 조사 교집합 ③): 스텝 이름이
+빠진 자리에 "이 텍스트는 어디 속하는가" 를 두 곳으로 명확히 갈랐다 — 스텝 하나짜리 메모와
+드릴 전체의 짧은 소개는 서로 다른 스코프이므로 한 입력창에 같이 두면 사용자가 매번
+"이게 이번 스텝 얘기인지 드릴 전체 얘기인지" 를 판단해야 한다.
+
+- **스텝 노트** — `src/features/editor/NotePanel.tsx`. 보드 **아래** 접이식 패널(PPT
+  발표자 노트 자리). 선택 스텝의 `DrillStep.note`(≤600자, 이미 모델에 있던 필드). 기본
+  **접힘** — 토글 줄에 노트가 있으면 첫 줄을 미리보기로 보여준다. `textarea` 는
+  **비제어 + `key={stepId}`**(스텝을 넘길 때마다 리마운트로 갈아끼운다 — 제어로 만들면
+  타이핑 중 재렌더가 커서 위치를 흔든다), `onChange` 는 즉시 `STEP_META` dispatch(코얼레스
+  정책은 기존 그대로 적용된다 — 새 액션을 만들지 않았다). 접힘/펼침은 **로컬 state 로만**
+  두고 `prefs` 에 저장하지 않는다 — `InspectorHost` 의 "핀만 저장, 여닫힘은 로컬" 관행을
+  따르되 NotePanel 엔 핀 개념 자체가 없어 더 단순한 쪽(항상 로컬 기본 접힘)을 택했다.
+  **자유 전술판에는 표시하지 않는다** — 전술판은 스텝이 없다(§6.8 각주).
+- **드릴 짧은 설명** — 편집 화면 **헤더 인라인**. `AppHeader.tsx` 의
+  `HeaderDescriptionField` 가 제목 아래 한 줄을 클릭-인라인-편집(표시 버튼 ↔ input,
+  blur/Enter 커밋, `Esc` 취소)으로 다룬다. `Drill.description`(이미 모델에 있던 필드,
+  §3.5)을 기존 `META_SET` 액션으로 그대로 저장한다.
+  ⚠️ **`HeaderConfig.subtitle` 을 겹쳐쓰지 않는다** — `subtitle` 은 present/library/settings
+  등 여러 화면이 정적 텍스트로 재사용하는 필드라, 편집 가능하게 바꾸면 그 화면들마다
+  "이 화면은 정적인가 편집 가능한가" 조건 분기가 늘어난다. 그래서 `HeaderConfig.description`
+  을 **별도 필드로 신설**했다.
+  ⚠️ 이 저장소의 헤더 배선은 `useAppHeader` 의 publish 가 **별도 useEffect** 라, `EditorScreen`
+  렌더 직후(예: nav 의 '도구' 확인 시점)보다 **한 틱 늦게** 헤더에 반영된다 — 헤더 내용을
+  화면 통합 테스트로 확인할 때는 `waitFor` 가 필요하다.
+- 목록 카드 부제는 이 `description` 을 `SUMMARY_BUILD 3`(§3.11)으로 실어 보여준다.
+
+**스텝 이름 이관** (`src/model/validate.ts` `migrateStepName()`): `DrillStep.name` 필드는
+UI 에서 폐기했지만 모델에는 남긴다 — 기존 드릴에 실제 이름이 있으면 유실 없이 노트로
+보존해야 하기 때문이다. 규칙은 `edits.ts`(스텝 생성)·`defaults.ts`(기본 스텝)·
+`seedDrills.ts`(씨앗 드릴)가 **단일 출처**로 공유한다(규칙이 두 곳에 따로 있으면 드리프트
+위험):
+
+- 이름이 **자동 생성 패턴**(`'스텝 N'`)이면 이관 없이 버린다 — 사용자 내용이 아니다.
+- 이름이 note 로 이미 시작하면(`redundant`) 병합할 것이 없다 — 그래도 필드 자체는
+  비우므로(존재→'') 정화 기록은 남는다.
+- 그 외에는 `이름\nnote` 로 **앞에 이름을 붙여** 병합한다. 노트 상한(600자) 초과 시
+  **뒤(원래 note 쪽)만** 자르고 이름은 항상 보존한다 — merged 문자열을 앞에서부터 slice
+  하는 것만으로 이름이 잘리지 않는 성질을 이용한다.
+- 새로 만드는 스텝은 항상 `name: ''` — `addStepAfter` 의 옛 `'스텝 N'` 자동 이름 생성은
+  끊었다.
+
+⚠️ **PresentRunner 의 스텝 이름 헤드라인도 함께 제거했다.** name 필드가 구조적으로 항상
+`''` 이 되므로 "이름 없음" 자리표시자를 상시 노출하는 대신, 헤드라인 개념 자체를 폐기하고
+노트 문단 하나로 통합했다 — 이관 마이그레이션이 만든 실제 회귀(빈 헤드라인이 계속 뜨던
+문제)를 고치는 과정에서 드러난 범위 확장이다.
+
 ### 6.9 시연 모드 — `src/features/present/`
 
 ```ts
@@ -3460,7 +3582,8 @@ main (padding:22px 30px 46px, max-width:1180)
 **타임라인 노드 겹침**: 트랙 폭은 데스크톱 약 700 px, iPad 11" 약 430 px 다. 노드 간격이
 44 px 미만이 되는 순간(데스크톱 17스텝, 태블릿 11스텝)부터 히트 영역이 서로를 가린다.
 `min(44, track/(n−1))` 로 클램프하고 그 값이 24 px 미만(트랙 430 기준 n ≥ 19)이면 노드 렌더를
-중단하고 진행 바만 남긴 뒤 스텝 이동은 이전/다음 버튼과 인스펙터 스텝 목록에 위임한다.
+중단하고 진행 바만 남긴 뒤 스텝 이동은 이전/다음 버튼과 편집기 `StepSidebar`(2026-08-17
+재설계, §6.8b)에 위임한다.
 인접 노드 사이 최소 간격 4 px 확보.
 
 설정 **`큰 터치 타깃`** 토글: `body[data-touch="large"]` → `--hit: 56px`, SVG 히트도 56 기준.
@@ -3670,7 +3793,7 @@ export const isInteractiveTarget = (t: EventTarget | null): boolean =>
 | **`store`** | `src/store/settings/*` `src/store/library/*` `src/store/editor/*` `src/store/playback/*` `src/store/toast/*` | `SettingsProvider` `useSettings` / `LibraryProvider` / `EditorProvider` `useEditorState` `useEditorDispatch` `editorRootReducer` `withHistory` `selectStepIndex` `EditorAction` / `PlaybackProvider` / `ToastProvider` `useToast` | core, model, storage, physics-world, render-stage |
 | **`app-shell`** | `src/app/App.tsx` `src/app/AppShell.tsx` `src/app/AppRail.tsx` `src/app/AppHeader.tsx` `src/app/useAppHistory.ts` `src/app/screens.ts` `src/app/useAutosave.ts` | `App` `AppShell` `useAppHistory` `Screen` `SCREEN_TITLES` | 전부 |
 | **`screen-home-library`** | `src/features/home/*` `src/features/library/*` | `HomeScreen` `LibraryScreen` `SessionDrawer` … | store, render-court, ui-kit, model, storage |
-| **`screen-editor`** | `src/features/editor/*` | `EditorScreen` `CourtPicker` `ToolRail` `TransportBar` `InspectorPanel` `useEditorPointer` `useEditorKeyboard` … | 전부 |
+| **`screen-editor`** | `src/features/editor/*` | `EditorScreen` `CourtPicker` `ToolRail` `StepSidebar` `NotePanel` `TransportBar` `InspectorPanel` `useEditorPointer` `useEditorKeyboard` … | 전부 |
 | **`screen-present`** | `src/features/present/*` | `PresentScreen` `useFullscreen` `useWakeLock` `useSwipe` … | 전부 |
 | **`screen-settings`** | `src/features/settings/*` | `SettingsScreen` … | store, ui-kit, storage |
 | **`test-fixtures`** | `src/test/setup.ts` `src/test/fixtures/*.json` `src/test/helpers/*.ts` | 픽스처 + `fake-indexeddb` 셋업 | — |
@@ -3703,7 +3826,7 @@ export const isInteractiveTarget = (t: EventTarget | null): boolean =>
 > | 옛 모듈 키 | 지금 |
 > |---|---|
 > | `screen-home-library` | `src/features/home/`(`nav.ts` 만 남았다) · `src/features/library/` · **`src/features/board/`**(신설 — 자유 전술판) |
-> | `screen-editor` | `src/features/editor/` — `CourtPicker` **은퇴**, `EditorWorkspace`·`BoardBar`·`InspectorPanel`·`ToolRail`·`placement.ts`·`snapOnSettle.ts` 등으로 분화 |
+> | `screen-editor` | `src/features/editor/` — `CourtPicker` **은퇴**, `EditorWorkspace`·`BoardBar`·`InspectorPanel`·`ToolRail`·`placement.ts`·`snapOnSettle.ts` 등으로 분화. **2026-08-17 재편(§6.8b)**: `StepSidebar`·`NotePanel` 신설, `TransportBar` 는 재생 전담으로 축소, `InspectorPanel` 옛 스텝 섹션(이름·메모·이동·복제·삭제) 철거 → `StepDurationSection`(override 만) |
 > | (없었음) | **`src/features/export/`**(4.4 — 자립 SVG · PNG 래스터) · **`src/features/print/`**(4.5 — 인쇄 전용 React 트리) |
 >
 > **모듈 안에서 늘어난 파일 중 표에 없던 것들** (전수는 아니다):
