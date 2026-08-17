@@ -606,6 +606,9 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           onMoveSteps={(ids, toIndex) => dispatch({ type: 'STEPS_MOVE', ids, toIndex })}
           onDuplicateSteps={(ids) => dispatch({ type: 'STEPS_DUPLICATE', ids })}
           onDeleteSteps={(ids) => dispatch({ type: 'STEPS_DELETE', ids })}
+          // 우클릭 메뉴 [삭제](2026-08-18) — 옛 인스펙터 [스텝 삭제]와 같은 STEP_DELETE.
+          // 현재 스텝 삭제 시 이웃 선택은 uiReducer 의 기존 규칙이 맡는다.
+          onDeleteStep={(id) => dispatch({ type: 'STEP_DELETE', id })}
         />
       )}
 

@@ -189,7 +189,8 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
     // SIDEBAR_WIDTH_PX(StepSidebar.tsx) 와 같은 값이어야 한다 — 그쪽이 바뀌면 예산 대조
     // (chromeBudget.test.ts)가 빨개진다. 소스 import 대신 리터럴을 적는 이유는 트레이 표와
     // 같다(자기 사본 문제 — 소스를 읽어 비교하면 식이 틀려도 표가 따라 움직인다).
-    wide: 220,
+    // 220 → 154 (2026-08-18 기현님: 썸네일 2/3) — 코트가 66px 돌려받는다.
+    wide: 154,
     // 접힘(narrow·세로)이면 여는 버튼만 코트 위에 뜨므로 흐름 폭은 0 이다.
     narrow: 0,
     owner: '2026-08-17 스텝 편집 재설계 ② — 왼쪽 세로 스텝 바(DESIGN §6.8b)',

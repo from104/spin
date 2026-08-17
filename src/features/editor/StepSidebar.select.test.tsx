@@ -39,6 +39,7 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onMoveSteps: noop,
     onDuplicateSteps: noop,
     onDeleteSteps: noop,
+    onDeleteStep: noop,
     playback: PLAYBACK_STUB,
     ...over,
   };
@@ -243,6 +244,7 @@ function GroupHarness({ initial, onMove }: { initial: Drill; onMove?: (ids: Step
       }}
       onDuplicateSteps={() => {}}
       onDeleteSteps={() => {}}
+      onDeleteStep={() => {}}
       playback={PLAYBACK_STUB}
     />
   );
@@ -310,6 +312,7 @@ describe('일괄 이동(드래그) — 상대 순서 보존, 흩어진 선택은
         onMoveSteps={onMove}
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
+        onDeleteStep={noop}
         playback={PLAYBACK_STUB}
       />,
     );

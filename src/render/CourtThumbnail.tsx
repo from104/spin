@@ -102,14 +102,15 @@ export const THUMB_GLYPH = {
 /** 스텝 사이드바 카드용 배수(2026-08-17 PLAN-STEP-EDITING.md 구현 순서 ② — TransportBar 의
  *  가로 칩 줄이 없어지고 왼쪽 세로 카드 목록이 그 자리를 대신한다).
  *
- *  StepSidebar.tsx 의 카드 폭은 `SIDEBAR_WIDTH_PX`(220) 에서 목록 좌우 패딩(`SIDEBAR_PAD_PX`
- *  10×2)을 뺀 **200 px** 다. 기본 배수(1)로 그리면 휠체어 지름이
- *    2 × THUMB_GLYPH.chairR(24) / vbW(825, 풀 코트) × 200 ≈ **10.9 px**
- *  로 줄어든다 — 목록 카드(≈300 px)에서 같은 식은 ≈17.5 px 다. 칩(≈76 px, 옛 CHIP_GLYPH_SCALE
- *  시절)과 달리 200 px 는 목록 카드의 3분의 2 수준이라 목록 카드에 **가깝게** 보정할 수 있다
- *  (완전 보정 300/200=1.5 까지는 안 간다 — 여덟 명이 붐비는 스텝에서 원끼리 닿는 여유를
- *  남긴다). 1.4 로 그리면 지름이 ≈15.3 px 다. */
-export const SIDEBAR_GLYPH_SCALE = 1.4;
+ *  StepSidebar.tsx 의 카드 폭은 `SIDEBAR_WIDTH_PX`(154) 에서 목록 좌우 패딩(`SIDEBAR_PAD_PX`
+ *  10×2)을 뺀 **134 px** 다(2026-08-18 기현님 지시로 200 → 134, 카드 2/3). 기본 배수(1)로
+ *  그리면 휠체어 지름이
+ *    2 × THUMB_GLYPH.chairR(24) / vbW(825, 풀 코트) × 134 ≈ **7.8 px**
+ *  로 줄어든다 — 목록 카드(≈300 px)에서 같은 식은 ≈17.5 px 다. 카드가 줄어든 만큼 배수로
+ *  화면 크기를 지킨다: 1.4 시절 200 px 카드의 지름이 ≈15.3 px 였고(기현님이 실기로 승인한
+ *  크기), 134 px 에서 같은 화면 크기를 내려면 1.4 × 200/134 ≈ **2.1** 이 필요하다. 2.0 으로
+ *  반올림해 붐비는 스텝(여덟 명)에서 원끼리 닿는 여유를 조금 남긴다 — 지름 ≈15.6 px. */
+export const SIDEBAR_GLYPH_SCALE = 2.0;
 
 const coneTriangle = (x: number, y: number, h: number): string =>
   `M${x},${y - h} L${x + h},${y + h * 0.8} L${x - h},${y + h * 0.8} Z`;

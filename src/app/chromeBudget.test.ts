@@ -71,7 +71,7 @@ describe('예산 합계 — 못박은 값', () => {
     // 2026-08-18 하단 철거 — transportBar 는 은퇴 행(역사 94 만 남고 현재 0), 후계는
     // stepSidebar(폭, 재편 후 태생이라 now 0)와 notePanel(접힘 줄 45)이다.
     expect([byId.transportBar!.now, byId.transportBar!.wide, byId.transportBar!.narrow]).toEqual([94, 0, 0]);
-    expect([byId.stepSidebar!.now, byId.stepSidebar!.wide, byId.stepSidebar!.narrow]).toEqual([0, 220, 0]);
+    expect([byId.stepSidebar!.now, byId.stepSidebar!.wide, byId.stepSidebar!.narrow]).toEqual([0, 154, 0]);
     expect([byId.notePanel!.now, byId.notePanel!.wide, byId.notePanel!.narrow]).toEqual([0, 45, 45]);
     expect([byId.courtPadY!.now, byId.courtPadY!.narrow]).toEqual([40, 16]);
   });
@@ -323,7 +323,7 @@ describe('예산표가 실제 소스와 어긋나지 않는다', () => {
     expect(workspace, '리터럴 패딩이 되살아나면 예산표와 화면이 갈라진다').not.toContain("padding: '20px 24px'");
   });
 
-  it('하단 바 후계 행이 실제 소스와 같다 — 스텝 바 폭 220 · 노트 접힘 줄 45 (2026-08-18)', () => {
+  it('하단 바 후계 행이 실제 소스와 같다 — 스텝 바 폭 154 · 노트 접힘 줄 45 (2026-08-18)', () => {
     // 옛 검증(transportBarHeightPx 가 행의 wide/narrow)은 바와 함께 은퇴했다. 후계 계약:
     //  · stepSidebar 행의 wide 는 StepSidebar.tsx 의 SIDEBAR_WIDTH_PX 리터럴과 같다(자기
     //    사본 문제 때문에 import 비교가 아니라 **소스 텍스트**로 잡는다 — 트레이 표와 같다).

@@ -67,6 +67,7 @@ function Harness({ initial, onReorder }: { initial: Drill; onReorder?: (id: Step
       onMoveSteps={() => {}}
       onDuplicateSteps={() => {}}
       onDeleteSteps={() => {}}
+      onDeleteStep={() => {}}
       playback={PLAYBACK_STUB}
     />
   );

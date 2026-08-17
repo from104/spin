@@ -85,6 +85,8 @@ import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { movedOrder, movedOrderGroup } from './bottomBarMetrics.ts';
 import { useStepReorderDrag } from './useStepReorderDrag.ts';
 import { useStepGroupReorderDrag } from './useStepGroupReorderDrag.ts';
+import { StepCardMenu } from './StepCardMenu.tsx';
+import type { StepCardMenuTarget } from './StepCardMenu.tsx';
 
 export interface StepSidebarProps {
   /** 카드마다 판을 그리므로 steps 만으로는 부족하다 — cast·팀 색·코트가 함께 필요하다. */
@@ -120,6 +122,10 @@ export interface StepSidebarProps {
    *  이 컴포넌트가 버튼을 미리 잠근다. 현재 스텝이 삭제 묶음에 있으면 리듀서(uiReducer)가
    *  남는 스텝으로 stepId 를 옮긴다. */
   onDeleteSteps(ids: StepId[]): void;
+  /** 단일 삭제(2026-08-18 우클릭 메뉴의 [삭제]) — STEP_DELETE 그대로. 마지막 1장 가드는
+   *  메뉴가 항목을 잠그는 것으로 미리 막고, 리듀서 쪽 deleteStep 가드가 마지막 문이다.
+   *  현재 스텝을 지우면 uiReducer 가 이웃으로 stepId 를 옮긴다(기존 STEP_DELETE 규칙). */
+  onDeleteStep(id: StepId): void;
   /** 재생 컨트롤(2026-08-18 기현님 지시 — *"재생버튼 재생 배율. 왼쪽바 하단에 배치"*).
    *  하단 TransportBar 가 폐지되며 재생 토글·배속이 사이드바 **하단**으로 이사했다. 계약은
    *  옛 TransportBar 그대로다: `canPlay` 는 "눌렀는데 아무 일도 안 난다" 를 막는 순전한 UX
@@ -139,9 +145,13 @@ export interface StepSidebarProps {
 const NEXT_SPEED: Record<PlaybackSpeed, PlaybackSpeed> = { 0.5: 1, 1: 2, 2: 0.5 };
 
 /** 사이드바 고정/오버레이 폭. 좌우 패딩(`SIDEBAR_PAD_PX` 10×2)을 빼면 카드가 실제로 채우는
- *  폭이 200px 다 — `CourtThumbnail` 의 `SIDEBAR_GLYPH_SCALE` 계산 주석이 이 숫자에서 나온다.
- *  두 상수가 갈리면 그 주석이 거짓말을 하므로 폭을 바꿀 때는 함께 고친다. */
-export const SIDEBAR_WIDTH_PX = 220;
+ *  폭이 134px 다 — `CourtThumbnail` 의 `SIDEBAR_GLYPH_SCALE` 계산 주석이 이 숫자에서 나온다.
+ *  두 상수가 갈리면 그 주석이 거짓말을 하므로 폭을 바꿀 때는 함께 고친다.
+ *  ⚠️ 크롬 예산표(chromeBudget.ts 'stepSidebar' 행)의 wide 도 이 값의 사본이다 — 함께 고친다.
+ *
+ *  220 → **154** (2026-08-18 기현님: *"왼쪽 바 썸네일이 2/3크기여야함"*) — 카드 200 → 134
+ *  (× 2/3), 패딩은 그대로. 줄어든 66px 는 코트가 돌려받는다. */
+export const SIDEBAR_WIDTH_PX = 154;
 export const SIDEBAR_PAD_PX = 10;
 
 const cardNumberBadge = (selected: boolean) =>
@@ -201,7 +211,10 @@ function GapSlot({
       style={{
         position: 'relative',
         flex: 'none',
-        height: 16,
+        // 16 → 36 (2026-08-18 기현님: "스텝 사이 버튼 2배로 커져야 터치 조작 대응") —
+        // 버튼이 32px 가 되면서 틈도 그것을 담을 만큼 자랐다. 카드가 2/3 로 줄어든 만큼
+        // 세로 리듬 총합은 오히려 짧아진다.
+        height: 36,
         margin: '1px 0',
       }}
     >
@@ -239,8 +252,10 @@ function GapSlot({
           disabled={disabled}
           onClick={onDuplicate}
           style={{
-            width: 16,
-            height: 16,
+            // 16 → 32 (2배, 터치 대응 — 위 틈 높이와 같은 지시). --hit(44)에는 못 미치지만
+            // 틈은 카드 사이 보조 표적이라 카드 리듬을 다 먹을 수는 없다 — 2배가 절충이다.
+            width: 32,
+            height: 32,
             padding: 0,
             display: 'flex',
             alignItems: 'center',
@@ -252,7 +267,7 @@ function GapSlot({
             opacity: disabled ? 0.4 : 1,
           }}
         >
-          <IconPlus size={8} />
+          <IconPlus size={16} />
         </button>
         {chain && (
           // 연결(기본) = 조용한 사슬, 끊김 = 눈에 띄는 끊긴 사슬 — 색뿐 아니라 **아이콘 모양
@@ -267,8 +282,8 @@ function GapSlot({
             title={chain.cut ? '끊긴 경계입니다. 눌러서 다시 잇습니다.' : '연결된 경계입니다. 눌러서 끊습니다.'}
             onClick={chain.onToggle}
             style={{
-              width: 16,
-              height: 16,
+              width: 32,
+              height: 32,
               padding: 0,
               display: 'flex',
               alignItems: 'center',
@@ -279,7 +294,7 @@ function GapSlot({
               color: chain.cut ? '#ff6b6b' : 'var(--muted)',
             }}
           >
-            {chain.cut ? <IconChainCut size={10} /> : <IconChainLinked size={10} />}
+            {chain.cut ? <IconChainCut size={20} /> : <IconChainLinked size={20} />}
           </button>
         )}
       </div>
@@ -309,6 +324,7 @@ export function StepSidebar({
   onMoveSteps,
   onDuplicateSteps,
   onDeleteSteps,
+  onDeleteStep,
   playback,
 }: StepSidebarProps) {
   const steps = drill.steps;
@@ -499,6 +515,17 @@ export function StepSidebar({
   const panelId = useId();
   const [open, setOpen] = useState(false);
 
+  // 우클릭 메뉴(2026-08-18) — 화면 상태(ephemeral). 카드의 onContextMenu 가 연다. 메뉴의
+  // [선택]은 toggleSelectMode 를 안 거친다 — 그 함수는 체크를 비우는데, 메뉴의 뜻은 "이
+  // 카드부터 고르기 시작" 이라 켜면서 그 카드를 체크한 채 시작해야 한다.
+  const [menu, setMenu] = useState<StepCardMenuTarget | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const startSelectWith = useCallback((id: StepId) => {
+    setSelectMode(true);
+    setCheckedIds(new Set([id]));
+    liveRegion.say('선택 모드를 켰습니다. 1장 선택됨.');
+  }, []);
+
   const body = (
     <>
       <span id={hintId} className="sr-only">
@@ -656,6 +683,14 @@ export function StepSidebar({
                   if (drag.consumeDragClick() || groupDrag.consumeDragClick()) return;
                   if (selectMode) toggleChecked(s.id);
                   else onSelectStep(s.id);
+                }}
+                // 우클릭 메뉴(2026-08-18 기현님 지시) — 좌표는 포인터 자리(clientX/Y).
+                // index 는 **화면 순서**(order 기준 i)다: [위로 복제]의 toIndex 가 화면에서
+                // 보이는 그 자리를 가리켜야 한다(드래그 미리보기 중엔 메뉴가 안 뜬다 —
+                // contextmenu 는 포인터 세션 밖 이벤트다).
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({ x: e.clientX, y: e.clientY, id: s.id, index: i });
                 }}
                 onKeyDown={(e) => onCardKeyDown(e, s, i)}
                 onBlur={() => grabbed && setHeld(null)}
@@ -833,6 +868,16 @@ export function StepSidebar({
           {playback.speed}×
         </button>
       </div>
+      {/* 우클릭 메뉴 — 포털(document.body)이라 접힘 오버레이의 z-계층과도 안 얽힌다. */}
+      <StepCardMenu
+        target={menu}
+        atMax={atMax}
+        canDelete={steps.length > 1}
+        onClose={closeMenu}
+        onStartSelect={startSelectWith}
+        onDuplicate={(id, toIndex) => (toIndex === undefined ? onDuplicateStep(id) : onDuplicateStep(id, toIndex))}
+        onDelete={onDeleteStep}
+      />
     </>
   );
 

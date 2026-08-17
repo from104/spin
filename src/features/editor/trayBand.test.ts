@@ -124,7 +124,7 @@ describe('③ 크롬 예산이 배치 축과 화면을 안다', () => {
     // 옛 계약(2026-08-14 ~ 2026-08-15): *"기능 바와 하단 바는 서로의 반대다."* 재설계 ②가
     // 기능 바를 상시로 만들었고, 2026-08-18 하단 철거가 하단 바 자체를 없앴다(기현님:
     // *"결과적으로 하단에는 노트 빼고 다 삭제"*). 드릴 편집 전용 크롬은 이제 노트 패널
-    // (높이 45, 두 창 폭 공통)과 왼쪽 스텝 바(고정 모드에서만 폭 220)다.
+    // (높이 45, 두 창 폭 공통)과 왼쪽 스텝 바(고정 모드에서만 폭 154)다.
     const fn = CHROME_ROWS.find((r) => r.id === 'functionBar')!;
     const bar = CHROME_ROWS.find((r) => r.id === 'transportBar')!;
     const note = CHROME_ROWS.find((r) => r.id === 'notePanel')!;
@@ -139,7 +139,7 @@ describe('③ 크롬 예산이 배치 축과 화면을 안다', () => {
     expect(chromeRowPx(note, { narrow: true, inspector: 'hidden', trayBand: true, board: false })).toBe(45);
     expect(chromeRowPx(note, { narrow: true, inspector: 'hidden', trayBand: true, board: true })).toBe(0);
     // 스텝 바는 고정(넓은 가로 화면)일 때만 폭을 먹는다 — narrow·세로(트레이 기둥)·전술판은 0.
-    expect(chromeRowPx(side, { narrow: false, inspector: 'hidden', trayBand: true, board: false })).toBe(220);
+    expect(chromeRowPx(side, { narrow: false, inspector: 'hidden', trayBand: true, board: false })).toBe(154);
     expect(chromeRowPx(side, { narrow: true, inspector: 'hidden', trayBand: true, board: false })).toBe(0);
     expect(chromeRowPx(side, { narrow: false, inspector: 'hidden', trayBand: false, board: false })).toBe(0);
     expect(chromeRowPx(side, { narrow: false, inspector: 'hidden', trayBand: true, board: true })).toBe(0);

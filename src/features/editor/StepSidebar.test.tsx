@@ -37,6 +37,7 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onMoveSteps: noop,
     onDuplicateSteps: noop,
     onDeleteSteps: noop,
+    onDeleteStep: noop,
     playback: PLAYBACK_STUB,
     ...over,
   };
@@ -296,6 +297,7 @@ describe('틈(gap)의 사슬 토글', () => {
         onMoveSteps={noop}
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
+        onDeleteStep={noop}
         playback={PLAYBACK_STUB}
       />,
     );
@@ -314,6 +316,7 @@ describe('틈(gap)의 사슬 토글', () => {
         onMoveSteps={noop}
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
+        onDeleteStep={noop}
         playback={PLAYBACK_STUB}
       />,
     );
@@ -327,7 +330,7 @@ describe('틈(gap)의 사슬 토글', () => {
   });
 });
 
-// 2026-08-17 — 카드가 칩보다 4배 가까이 커서(≈200px vs ≈76px) SIDEBAR_GLYPH_SCALE 로 완전
+// 2026-08-17 — 카드가 칩보다 훨씬 커서(2026-08-18 축소 뒤에도 ≈134px vs ≈76px) SIDEBAR_GLYPH_SCALE 로
 // 보정한다. 배선이 끊기면 화면은 '점 몇 개짜리 빈 코트' 로 조용히 퇴화하고, 크기를 재는 테스트는
 // CourtThumbnail 쪽에만 있어 아무도 안 세게 된다 — 그래서 여기서 배수를 확인한다
 // (옛 TransportBar.test.tsx "칩 배수로 그린다" 가드의 이사).
