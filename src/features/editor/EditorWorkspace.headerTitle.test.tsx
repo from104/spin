@@ -4,7 +4,7 @@
 // **배선**만 본다: drill.title 이 헤더에 오르고, 편집이 META_SET 을 거쳐 자동저장까지 가는지.
 // 빈 값 거부(이름 없는 드릴 방지)는 여기가 유일한 검증 자리다 — 설명 필드에는 없는 가드다.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -58,21 +58,27 @@ async function openDrill() {
   return { user, drillId: created.id, view };
 }
 
-describe('헤더 드릴 이름 — 실제 화면 배선', () => {
+// 2026-08-18 후속 — 이름의 **정본 자리는 사이드바 맨 위**가 됐다(넓은 창엔 헤더가 없다 —
+// StepSidebar.test.tsx 드릴 이름 절·EditorScreen.test.tsx 회귀 기록). 이 파일은 좁은 창
+// 보조 자리(헤더)의 배선만 본다. 사이드바에도 같은 접근 이름의 버튼이 있으므로 모든 질의를
+// header 스코프로 좁힌다 — 전역 getByRole 은 "여러 개" 로 터진다(그게 정상이다).
+const inHeader = () => within(document.querySelector('header') as HTMLElement);
+
+describe('헤더 드릴 이름 — 실제 화면 배선(좁은 창 보조 자리)', () => {
   it('제목이 클릭-편집 버튼으로 뜬다 — 이름이 aria 에 실린다', async () => {
     await openDrill();
-    expect(screen.getByRole('button', { name: /^드릴 이름: .+\. 눌러서 수정$/ })).toBeInTheDocument();
+    expect(inHeader().getByRole('button', { name: /^드릴 이름: .+\. 눌러서 수정$/ })).toBeInTheDocument();
   });
 
   it('클릭 → 입력 → blur 로 META_SET 이 나가 자동저장까지 간다', async () => {
     const { user, drillId, view } = await openDrill();
-    await user.click(screen.getByRole('button', { name: /^드릴 이름/ }));
-    const input = screen.getByRole('textbox', { name: '드릴 이름' });
+    await user.click(inHeader().getByRole('button', { name: /^드릴 이름/ }));
+    const input = inHeader().getByRole('textbox', { name: '드릴 이름' });
     await user.clear(input);
     await user.type(input, '골문 앞 2대1');
     await user.tab(); // blur — 커밋 시점(설명 필드와 같은 관용구).
 
-    expect(await screen.findByRole('button', { name: '드릴 이름: 골문 앞 2대1. 눌러서 수정' })).toBeInTheDocument();
+    expect(await inHeader().findByRole('button', { name: '드릴 이름: 골문 앞 2대1. 눌러서 수정' })).toBeInTheDocument();
 
     view.unmount(); // 화면 전환 = 언마운트. useAutosave 가 그 자리에서 동기 플러시한다.
     const { repo } = await resolveDrillRepo();
@@ -84,22 +90,22 @@ describe('헤더 드릴 이름 — 실제 화면 배선', () => {
 
   it('비워서 blur 하면 커밋하지 않는다 — 원래 이름이 돌아온다', async () => {
     const { user } = await openDrill();
-    const before = screen.getByRole('button', { name: /^드릴 이름/ }).textContent;
-    await user.click(screen.getByRole('button', { name: /^드릴 이름/ }));
-    const input = screen.getByRole('textbox', { name: '드릴 이름' });
+    const before = inHeader().getByRole('button', { name: /^드릴 이름/ }).textContent;
+    await user.click(inHeader().getByRole('button', { name: /^드릴 이름/ }));
+    const input = inHeader().getByRole('textbox', { name: '드릴 이름' });
     await user.clear(input);
     await user.tab();
-    expect(screen.getByRole('button', { name: /^드릴 이름/ }).textContent).toBe(before);
+    expect(inHeader().getByRole('button', { name: /^드릴 이름/ }).textContent).toBe(before);
   });
 
   it('Esc 는 커밋 없이 되돌린다', async () => {
     const { user } = await openDrill();
-    const before = screen.getByRole('button', { name: /^드릴 이름/ }).textContent;
-    await user.click(screen.getByRole('button', { name: /^드릴 이름/ }));
-    const input = screen.getByRole('textbox', { name: '드릴 이름' });
+    const before = inHeader().getByRole('button', { name: /^드릴 이름/ }).textContent;
+    await user.click(inHeader().getByRole('button', { name: /^드릴 이름/ }));
+    const input = inHeader().getByRole('textbox', { name: '드릴 이름' });
     await user.clear(input);
     await user.type(input, '버릴 이름');
     await user.keyboard('{Escape}');
-    expect(screen.getByRole('button', { name: /^드릴 이름/ }).textContent).toBe(before);
+    expect(inHeader().getByRole('button', { name: /^드릴 이름/ }).textContent).toBe(before);
   });
 });

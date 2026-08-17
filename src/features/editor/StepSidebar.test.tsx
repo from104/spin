@@ -15,6 +15,7 @@ import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 
 /** 재생 컨트롤 스텁 — 이 파일의 관심사가 아니면 잠든 값이면 된다(별도 절이 실제 배선을 본다). */
+const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };
 const PLAYBACK_STUB = { playing: false, canPlay: true, onTogglePlay: () => {}, speed: 1 as const, onCycleSpeed: () => {} };
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
@@ -38,6 +39,7 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onDuplicateSteps: noop,
     onDeleteSteps: noop,
     onDeleteStep: noop,
+    title: TITLE_STUB,
     playback: PLAYBACK_STUB,
     ...over,
   };
@@ -298,6 +300,7 @@ describe('틈(gap)의 사슬 토글', () => {
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
         onDeleteStep={noop}
+        title={TITLE_STUB}
         playback={PLAYBACK_STUB}
       />,
     );
@@ -317,6 +320,7 @@ describe('틈(gap)의 사슬 토글', () => {
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
         onDeleteStep={noop}
+        title={TITLE_STUB}
         playback={PLAYBACK_STUB}
       />,
     );
@@ -426,5 +430,52 @@ describe('재생 컨트롤 — 사이드바 하단', () => {
     renderSidebar(makeDrill(2), { collapsed: true });
     await userEvent.click(screen.getByRole('button', { name: '스텝 목록 열기' }));
     expect(screen.getByRole('button', { name: '재생' })).toBeInTheDocument();
+  });
+});
+
+// ── 드릴 이름 — 사이드바 맨 위(2026-08-18 기현님: "드릴 이름 정도만 왼쪽 상단에") ─────────────
+//
+// ⚠️ 왜 헤더가 아니라 여기가 정본인가: 드릴 편집은 넓은 창에서 헤더가 아예 없다(AppShell
+// showHeader). 헤더 titleField 만 믿으면 PC 에서 이름이 어디에도 안 보인다 — 실제로 그렇게
+// 배선했다가 기현님이 "드릴 이름은 어디 있음?" 으로 잡아낸 회귀다. 이 절이 그 재발을 막는다.
+describe('드릴 이름 — 사이드바 맨 위 클릭-편집', () => {
+  const titleBtn = () => screen.getByRole('button', { name: /^드릴 이름/ });
+
+  it('이름이 항상 보인다 — 접힘 오버레이 안에서도', async () => {
+    renderSidebar(makeDrill(2), { title: { ...TITLE_STUB, value: '골문 앞 2대1' } });
+    expect(screen.getByRole('button', { name: '드릴 이름: 골문 앞 2대1. 눌러서 수정' })).toBeInTheDocument();
+  });
+
+  it('클릭 → 입력 → blur 로 onChange(trim 값) 한 번', async () => {
+    const onChange = vi.fn();
+    renderSidebar(makeDrill(2), { title: { ...TITLE_STUB, onChange } });
+    await userEvent.click(titleBtn());
+    const input = screen.getByRole('textbox', { name: '드릴 이름' });
+    await userEvent.clear(input);
+    await userEvent.type(input, '  측면 크로스  ');
+    await userEvent.tab();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('측면 크로스');
+  });
+
+  it('비워서 blur 하면 커밋하지 않는다 — 이름 없는 드릴을 만들지 않는다', async () => {
+    const onChange = vi.fn();
+    renderSidebar(makeDrill(2), { title: { ...TITLE_STUB, onChange } });
+    await userEvent.click(titleBtn());
+    await userEvent.clear(screen.getByRole('textbox', { name: '드릴 이름' }));
+    await userEvent.tab();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(titleBtn()).toBeInTheDocument(); // 표시 모드로 복귀
+  });
+
+  it('Esc 는 커밋 없이 되돌린다', async () => {
+    const onChange = vi.fn();
+    renderSidebar(makeDrill(2), { title: { ...TITLE_STUB, onChange } });
+    await userEvent.click(titleBtn());
+    const input = screen.getByRole('textbox', { name: '드릴 이름' });
+    await userEvent.type(input, '버릴 글자');
+    await userEvent.keyboard('{Escape}');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(titleBtn()).toBeInTheDocument();
   });
 });

@@ -609,6 +609,14 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           // 우클릭 메뉴 [삭제](2026-08-18) — 옛 인스펙터 [스텝 삭제]와 같은 STEP_DELETE.
           // 현재 스텝 삭제 시 이웃 선택은 uiReducer 의 기존 규칙이 맡는다.
           onDeleteStep={(id) => dispatch({ type: 'STEP_DELETE', id })}
+          // 드릴 이름(2026-08-18) — 넓은 창의 드릴 편집에는 헤더가 없어서(AppShell showHeader)
+          // 헤더 인라인만으로는 안 보인다. 왼쪽 상단 = 사이드바 맨 위가 정자리다. 저장 통로는
+          // 헤더 titleField 와 같은 META_SET, 상한도 같은 LIMITS.titleLen.
+          title={{
+            value: drill.title,
+            maxLength: LIMITS.titleLen,
+            onChange: (v) => dispatch({ type: 'META_SET', patch: { title: v } }),
+          }}
         />
       )}
 

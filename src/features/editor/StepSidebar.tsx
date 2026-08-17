@@ -122,6 +122,17 @@ export interface StepSidebarProps {
    *  이 컴포넌트가 버튼을 미리 잠근다. 현재 스텝이 삭제 묶음에 있으면 리듀서(uiReducer)가
    *  남는 스텝으로 stepId 를 옮긴다. */
   onDeleteSteps(ids: StepId[]): void;
+  /** 드릴 이름(2026-08-18 기현님: *"드릴 이름 정도만 왼쪽 상단에 배치하고 동적으로 수정
+   *  가능해야함"*) — 사이드바 **맨 위**의 클릭-편집 칸. 헤더가 아니라 여기인 이유: 드릴
+   *  편집은 넓은 창에서 헤더가 아예 없다(AppShell `showHeader = narrow || screen !== 'board'`
+   *  — 2026-08-15 재설계가 걷어냈다). 헤더의 `HeaderTitleField` 는 좁은 창 전용 보조 자리로
+   *  남고, 저장 통로는 둘 다 같은 META_SET 이라 어느 쪽에서 고쳐도 결과가 같다.
+   *  빈 값은 커밋하지 않는다(HeaderTitleField 와 같은 가드 — 이름은 드릴의 얼굴이다). */
+  title: {
+    value: string;
+    maxLength: number;
+    onChange(v: string): void;
+  };
   /** 단일 삭제(2026-08-18 우클릭 메뉴의 [삭제]) — STEP_DELETE 그대로. 마지막 1장 가드는
    *  메뉴가 항목을 잠그는 것으로 미리 막고, 리듀서 쪽 deleteStep 가드가 마지막 문이다.
    *  현재 스텝을 지우면 uiReducer 가 이웃으로 stepId 를 옮긴다(기존 STEP_DELETE 규칙). */
@@ -325,6 +336,7 @@ export function StepSidebar({
   onDuplicateSteps,
   onDeleteSteps,
   onDeleteStep,
+  title,
   playback,
 }: StepSidebarProps) {
   const steps = drill.steps;
@@ -528,6 +540,8 @@ export function StepSidebar({
 
   const body = (
     <>
+      {/* 드릴 이름 — 사이드바 맨 위(왼쪽 상단). 근거는 StepSidebarProps.title 주석. */}
+      <SidebarTitleEditor cfg={title} />
       <span id={hintId} className="sr-only">
         스페이스로 집은 뒤 위아래 방향키로 순서를 바꿉니다. 스페이스나 엔터로 놓고, Esc 로 되돌립니다.
       </span>
@@ -963,5 +977,79 @@ export function StepSidebar({
         </nav>
       )}
     </>
+  );
+}
+
+/** 드릴 이름 인라인 편집 — StepSidebarProps.title 주석이 근거·가드의 정본이다.
+ *  AppHeader 의 HeaderTitleEditor 와 같은 관용구(표시 버튼 ↔ 편집 input, blur 커밋,
+ *  Enter=blur 위임, Esc=되돌림, trim 결과가 비면 비커밋)를 사이드바 폭(134px)에 맞게
+ *  줄여 놓은 것이다. 공용 컴포넌트로 안 뽑는 이유: 겹치는 것은 골격뿐이고 글꼴·여백·
+ *  ellipsis 처리(여기는 두 줄 허용 안 함)가 자리마다 달라, 합치면 prop 분기가 늘어난다. */
+function SidebarTitleEditor({ cfg }: { cfg: StepSidebarProps['title'] }) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <div style={{ flex: 'none', padding: `${SIDEBAR_PAD_PX}px ${SIDEBAR_PAD_PX}px 0` }}>
+        <input
+          type="text"
+          autoFocus
+          defaultValue={cfg.value}
+          maxLength={cfg.maxLength}
+          aria-label="드릴 이름"
+          onBlur={(e) => {
+            const v = e.target.value.trim().slice(0, cfg.maxLength);
+            if (v.length > 0 && v !== cfg.value) cfg.onChange(v);
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.currentTarget.blur(); // onBlur 가 커밋한다 — 경로를 둘로 안 만든다.
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              e.currentTarget.value = cfg.value; // 커밋 없이 되돌린다.
+              setEditing(false);
+            }
+          }}
+          style={{
+            width: '100%',
+            fontSize: '0.8125rem',
+            fontWeight: 700,
+            color: 'var(--text)',
+            background: 'var(--elev)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: '0.375rem',
+            padding: '0.25rem 0.4375rem',
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 'none', padding: `${SIDEBAR_PAD_PX}px ${SIDEBAR_PAD_PX}px 0` }}>
+      <button
+        type="button"
+        aria-label={`드릴 이름: ${cfg.value}. 눌러서 수정`}
+        title="눌러서 이름을 고칩니다."
+        onClick={() => setEditing(true)}
+        style={{
+          display: 'block',
+          width: '100%',
+          minHeight: 'var(--hit)',
+          fontSize: '0.8125rem',
+          fontWeight: 700,
+          color: 'var(--text)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          textAlign: 'left',
+          padding: '0 2px',
+        }}
+      >
+        {cfg.value}
+      </button>
+    </div>
   );
 }

@@ -24,6 +24,8 @@ import { courtDefFor, COURT_SIZES, type CourtSize } from '../model/court.ts';
 
 afterEach(cleanup);
 
+const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };
+
 // ── ① 전수 열거 계약 ──────────────────────────────────────────────────────────────────
 //
 // `COURT_DEFS` 를 값으로 읽어도 되는 프로덕션 파일과 **그 근거**. 근거가 없으면 목록에 없다.
@@ -148,6 +150,7 @@ describe('§6.4 ④-b 스텝 사이드바 카드가 그 드릴의 코트 크기�
         onDuplicateSteps={() => {}}
         onDeleteSteps={() => {}}
         onDeleteStep={() => {}}
+        title={TITLE_STUB}
         playback={{ playing: false, canPlay: false, onTogglePlay: () => {}, speed: 1, onCycleSpeed: () => {} }}
       />,
       { wrapper: barWrapper },

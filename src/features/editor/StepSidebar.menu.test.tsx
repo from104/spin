@@ -11,6 +11,7 @@ import { addStepAfter } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 
+const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };
 const PLAYBACK_STUB = { playing: false, canPlay: true, onTogglePlay: () => {}, speed: 1 as const, onCycleSpeed: () => {} };
 const noop = () => {};
 
@@ -34,6 +35,7 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onDuplicateSteps: noop,
     onDeleteSteps: noop,
     onDeleteStep: noop,
+    title: TITLE_STUB,
     playback: PLAYBACK_STUB,
     ...over,
   };
