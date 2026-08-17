@@ -17,8 +17,7 @@ import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
 import { BoardBar } from '../features/editor/BoardBar.tsx';
 import { DrillCard } from '../features/library/DrillCard.tsx';
-import { TransportBar } from '../features/editor/TransportBar.tsx';
-import { stepChipAspect, stepChipBoxPx, stepChipWidthCss } from '../features/editor/bottomBarMetrics.ts';
+import { StepSidebar } from '../features/editor/StepSidebar.tsx';
 import { courtScale } from '../app/chromeBudget.ts';
 import { buildSummary } from '../model/summary.ts';
 import { createDrill } from '../model/defaults.ts';
@@ -83,19 +82,13 @@ describe('§6.4 ① 코트 정의 소비처 전수 열거', () => {
   });
 });
 
-// ── ② 스텝 칩(=판 사진)의 가로세로비 ────────────────────────────────────────────────────
-describe('§6.4 ② 스텝 칩 비율이 코트 크기를 따라간다', () => {
-  it.each(COURT_SIZES)('%s — 비율이 그 코트 viewBox 의 비다', (size) => {
-    const def = courtDefFor('full', size);
-    expect(stepChipAspect('full', size)).toBe(Math.round((def.vbW / def.vbH) * 1000) / 1000);
-    expect(stepChipBoxPx(44, 'full', size).w).toBe(Math.round(44 * stepChipAspect('full', size)));
-    expect(stepChipWidthCss('full', size)).toBe(`calc(var(--hit) * ${stepChipAspect('full', size)})`);
-  });
-
-  it('대조군: 세 비율이 서로 다르다 (같으면 위 단언이 헛것이다)', () => {
-    expect(new Set(COURT_SIZES.map((s) => stepChipAspect('full', s))).size).toBe(3);
-  });
-});
+// ── ② 스텝 사이드바 카드의 가로세로비 ───────────────────────────────────────────────────
+//
+// 2026-08-17 재편(PLAN-STEP-EDITING.md 구현 순서 ②) — 가로 칩 시절의 순수 함수
+// (stepChipAspect 등, `calc(var(--hit) * 비율)`)은 없어졌다. 세로 카드는 폭이 고정
+// (SIDEBAR_WIDTH_PX 파생)이고 **높이**가 코트 비율을 따라가며, DrillCard 와 똑같이
+// `aspectRatio: '${vbW} / ${vbH}'` 를 카드에 직접 건다 — 따로 뽑을 순수 함수가 없으므로
+// 이 항목은 ④-b(호출부)로 합친다.
 
 // ── ③ 크롬 예산표의 축척 ────────────────────────────────────────────────────────────────
 describe('§6.4 ③ 코트 축척(chromeBudget.courtScale)이 코트 크기를 따라간다', () => {
@@ -148,33 +141,24 @@ describe('§6.4 ④ BoardBar 의 코트 설명이 크기마다 다른 문장이�
   });
 });
 
-// ── ④-b 스텝 칩 줄(드릴 편집 하단 바) ───────────────────────────────────────────────────
+// ── ④-b 스텝 사이드바 카드(드릴 편집 왼쪽 바) ───────────────────────────────────────────
 //
-// ②는 **순수 함수**를, 여기서는 **그 함수를 부르는 자리**를 본다. 5차 검증의 교훈이 정확히
-// 이것이다: 함수가 옳아도 호출부가 인자를 안 넘기면 화면은 그대로다.
-describe('§6.4 ④-b 스텝 칩 줄이 그 드릴의 코트 크기로 그려진다', () => {
-  it.each(COURT_SIZES)('%s — 칩 폭 CSS 와 칩 안 썸네일이 그 코트다', (size: CourtSize) => {
+// 옛 ②(순수 함수)가 사라졌으니 여기서 **호출부**만으로 본다: 카드 상자의 aspectRatio 와
+// 카드 안 썸네일 viewBox 가 실제로 그 드릴의 코트 크기를 따라가는가. 5차 검증의 교훈이
+// 정확히 이것이다 — 함수가 옳아도 호출부가 인자를 안 넘기면 화면은 그대로다.
+describe('§6.4 ④-b 스텝 사이드바 카드가 그 드릴의 코트 크기로 그려진다', () => {
+  it.each(COURT_SIZES)('%s — 카드 aspectRatio 와 카드 안 썸네일이 그 코트다', (size: CourtSize) => {
     const drill = createDrill({ courtMode: 'full', courtSize: size });
     const { container } = render(
-      <TransportBar
-        drill={drill}
-        stepId={drill.steps[0]!.id}
-        onSelectStep={() => {}}
-        onReorderStep={() => {}}
-        onAddStep={() => {}}
-        playing={false}
-        onTogglePlay={() => {}}
-        speed={1}
-        onCycleSpeed={() => {}}
-      />,
+      <StepSidebar drill={drill} stepId={drill.steps[0]!.id} onSelectStep={() => {}} onReorderStep={() => {}} onAddStep={() => {}} collapsed={false} />,
       { wrapper: barWrapper },
     );
     const def = courtDefFor('full', size);
     const svg = container.querySelector('svg[viewBox]')!;
     expect([...container.querySelectorAll('svg')].map((s) => s.getAttribute('viewBox'))).toContain(`0 0 ${def.vbW} ${def.vbH}`);
     expect(svg).toBeTruthy();
-    const widths = [...container.querySelectorAll<HTMLElement>('*')].map((el) => el.style.width).filter(Boolean);
-    expect(widths).toContain(stepChipWidthCss('full', size));
+    const card = screen.getByRole('button', { name: '스텝 1' }) as HTMLElement;
+    expect(card.style.aspectRatio).toBe(`${def.vbW} / ${def.vbH}`);
   });
 });
 

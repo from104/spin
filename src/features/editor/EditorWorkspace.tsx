@@ -34,6 +34,7 @@ import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
 import { ViewControls } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
+import { StepSidebar } from './StepSidebar.tsx';
 import { FunctionBar } from './FunctionBar.tsx';
 import { InspectorHost } from './InspectorHost.tsx';
 import { inspectorMode } from './inspectorLayout.ts';
@@ -594,6 +595,23 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
         방향키로 커서 이동, Enter로 배치, Alt+←/→로 개체 순회
       </span>
 
+      {/* ★ 왼쪽 세로 스텝 바(PLAN-STEP-EDITING.md 구현 순서 ②, 기현님 확정 2026-08-17) —
+          자유 전술판(isBoard)에는 스텝이 없으니 완전히 안 그린다(전술판 무변, board 테스트가
+          그것을 지킨다). **flex 형제**로 넣는 이유는 코트가 자연히 줄어야 하기 때문이다 —
+          이 자리에서 폭을 계산해 넘기면 §4.1 이 경계한 되먹임 고리가 되살아난다.
+          접힘(narrow·portrait)이면 이 컴포넌트는 고정 폭을 안 차지한다 — 여는 버튼 하나만
+          `<main>` 의 position:relative 위에 뜬다(StepSidebar.tsx 머리말). */}
+      {isBoard ? null : (
+        <StepSidebar
+          drill={drill}
+          stepId={state.stepId}
+          onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
+          onReorderStep={(id, toIndex) => dispatch({ type: 'STEP_REORDER', id, toIndex })}
+          onAddStep={addStepHere}
+          collapsed={narrow || portrait}
+        />
+      )}
+
       {/* ★ minHeight:0 이 반드시 있어야 한다(§6.4). 세로 배치에서 이 div 는 수직 주축의 플렉스
           항목이 되는데, 기본값 min-height:auto 는 "내용만큼은 줄어들지 않는다" 는 뜻이다.
           그러면 안쪽 <svg> 가 viewBox 의 **고유 종횡비**로 자기 높이를 정해버리고 — 회전하면
@@ -713,16 +731,15 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
 
         {/* 2026-08-14 — 전술판의 **하단 바가 통째로 사라졌다.** [코트 비우기]·[내보내기]·
             속도 제한·[보기]·[속성]이 전부 오른쪽 기능 바로 갔다. BoardBar.tsx 는 아직 지우지
-            않는다: 드릴 편집이 같은 바(TransportBar)를 쓰고, 그쪽 재설계가 아직 남아 있다. */}
+            않는다: 드릴 편집이 같은 바(TransportBar)를 쓰고, 그쪽 재설계가 아직 남아 있다.
+            2026-08-17 재편(구현 순서 ②) — 스텝 목록·선택·재정렬·추가가 왼쪽 사이드바로
+            빠지며 이 바는 **재생 전담**이 됐다(TransportBar.tsx 머리말). `drill`·`stepId` 조차
+            안 받는다 — 재생 가능 여부(`canPlay`)만 boolean 으로 압축해 넘긴다. */}
         {isBoard ? null : (
           <TransportBar
-            drill={drill}
-            stepId={state.stepId}
-            onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
-            onReorderStep={(id, toIndex) => dispatch({ type: 'STEP_REORDER', id, toIndex })}
-            onAddStep={addStepHere}
             playing={playing}
             onTogglePlay={() => playbackActions.toggle()}
+            canPlay={drill.steps.length >= 2}
             speed={speed}
             onCycleSpeed={() => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5)}
             viewControls={viewControls}

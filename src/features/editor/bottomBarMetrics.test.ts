@@ -4,17 +4,7 @@
 // 재현하고, **CSS 문자열**은 DOM 테스트가 리터럴로 다시 적어 대조한다. jsdom 은 calc(var())
 // 를 계산하지 못하므로 한 층만 두면 둘 중 하나가 조용히 갈라진다.
 import { describe, expect, it } from 'vitest';
-import {
-  BOTTOM_BAR_PAD_PX,
-  boardBarHeightPx,
-  bottomBarPadCss,
-  dropIndexAt,
-  movedOrder,
-  stepChipAspect,
-  stepChipBoxPx,
-  stepChipWidthCss,
-  transportBarHeightPx,
-} from './bottomBarMetrics.ts';
+import { BOTTOM_BAR_PAD_PX, boardBarHeightPx, bottomBarPadCss, dropIndexAt, movedOrder, transportBarHeightPx } from './bottomBarMetrics.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { addStepAfter, moveStep } from '../../model/edits.ts';
 
@@ -42,33 +32,6 @@ describe('하단 바 높이 (§5.2)', () => {
     expect(BOTTOM_BAR_PAD_PX.top + BOTTOM_BAR_PAD_PX.bottom).toBe(15);
     // 높이 = border 1 + 패딩 15 + 내용(--hit + 4).
     expect(transportBarHeightPx(44)).toBe(1 + BOTTOM_BAR_PAD_PX.top + (44 + 4) + BOTTOM_BAR_PAD_PX.bottom);
-  });
-});
-
-describe('스텝 칩 상자 (§5.4 히트 하한)', () => {
-  it('풀 코트 44 → 69×44, 하프/플랫 44 → 51×44 — 어느 쪽도 44 밑으로 안 간다', () => {
-    expect(stepChipBoxPx(44, 'full')).toEqual({ w: 69, h: 44 });
-    expect(stepChipBoxPx(44, 'half')).toEqual({ w: 51, h: 44 });
-    expect(stepChipBoxPx(44, 'flat')).toEqual(stepChipBoxPx(44, 'half'));
-    for (const mode of ['full', 'half', 'flat'] as const) {
-      const box = stepChipBoxPx(44, mode);
-      expect(box.w, mode).toBeGreaterThanOrEqual(44);
-      expect(box.h, mode).toBeGreaterThanOrEqual(44);
-    }
-  });
-
-  it('큰 터치 타깃이면 칩도 같이 큰다 — 스텝 칩만 안 커지던 §5.4 의 그 결함 방지', () => {
-    expect(stepChipBoxPx(56, 'full')).toEqual({ w: 88, h: 56 });
-    expect(stepChipBoxPx(56, 'half').h).toBe(56);
-  });
-
-  it('CSS 문자열과 픽셀 식이 **같은 비율**을 쓴다', () => {
-    expect(stepChipAspect('full')).toBe(1.571);
-    expect(stepChipWidthCss('full')).toBe('calc(var(--hit) * 1.571)');
-    expect(stepChipWidthCss('half')).toBe('calc(var(--hit) * 1.167)');
-    // 비율을 두 곳에서 각자 끊으면 여기가 갈라진다.
-    expect(stepChipWidthCss('full')).toContain(String(stepChipAspect('full')));
-    expect(Math.round(44 * stepChipAspect('full'))).toBe(stepChipBoxPx(44, 'full').w);
   });
 });
 

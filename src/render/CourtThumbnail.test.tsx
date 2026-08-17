@@ -2,7 +2,7 @@
 // 콘→화살표→휠체어→공 순서로 그려지는지 확인한다.
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
-import { CHIP_GLYPH_SCALE, CourtThumbnail, THUMB_GLYPH } from './CourtThumbnail.tsx';
+import { CourtThumbnail, SIDEBAR_GLYPH_SCALE, THUMB_GLYPH } from './CourtThumbnail.tsx';
 import type { ThumbSpec } from '../model/thumb.ts';
 import type { Shape } from '../model/shape.ts';
 import { SHAPE_STROKE_PX } from '../model/shape.ts';
@@ -114,8 +114,8 @@ describe('글리프 크기 — 축척이 아니라 읽히려고 과장한다', (
 
   it('★ glyphScale 은 글리프만 키운다 — 좌표는 한 픽셀도 안 움직인다', () => {
     const one = layer(1);
-    const big = layer(CHIP_GLYPH_SCALE);
-    expect(sizes(big)).toEqual(sizes(one).map((v) => v * CHIP_GLYPH_SCALE));
+    const big = layer(SIDEBAR_GLYPH_SCALE);
+    expect(sizes(big)).toEqual(sizes(one).map((v) => v * SIDEBAR_GLYPH_SCALE));
 
     const at = (l: Element): (string | null)[] => {
       const circles = [...l.querySelectorAll('circle')];
@@ -130,8 +130,8 @@ describe('글리프 크기 — 축척이 아니라 읽히려고 과장한다', (
     expect(at(one)).toEqual(['100', '100', '200', '210']);
   });
 
-  it('★ 칩 배수는 1 보다 크다 — 칩(≈76 px)은 카드(≈300 px)보다 4배 작게 그려진다', () => {
-    expect(CHIP_GLYPH_SCALE).toBeGreaterThan(1);
+  it('★ 사이드바 배수는 1 보다 크다 — 사이드바 카드(≈200 px)는 목록 카드(≈300 px)보다 작게 그려진다', () => {
+    expect(SIDEBAR_GLYPH_SCALE).toBeGreaterThan(1);
   });
 });
 

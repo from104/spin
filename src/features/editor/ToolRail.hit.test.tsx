@@ -26,9 +26,7 @@ import type { ChromeState } from '../../app/chromeBudget.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import { BALL, CONE } from '../../core/constants.ts';
 import type { ChairId } from '../../core/ids.ts';
-import type { Drill } from '../../model/drill.ts';
 import { createDrill } from '../../model/defaults.ts';
-import { addStepAfter } from '../../model/edits.ts';
 
 // ── ① 픽셀 식 — §5.4 표 재현 ────────────────────────────────────────────────
 
@@ -339,57 +337,23 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** 2.10 이 트랜스포트를 사진 뭉치로 재편하며 `steps` prop 이 `drill` 로 바뀌었다(칩이 스텝마다
- *  판을 그리려면 cast·팀 색·코트가 함께 필요하다). §16.1/§17.3 사전 등록대로 **선택자만** 옮기고
- *  `--hit` 파생 단언은 그대로 둔다 — 44 리터럴로 돌아가면 그건 갱신이 아니라 회귀다. */
-function drillOf(n: number): Drill {
-  let d = createDrill({ courtMode: 'full' });
-  for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
-  return d;
+/** 2026-08-17 재편(PLAN-STEP-EDITING.md 구현 순서 ②) — 스텝 칩·이전/다음·[한 장 더 찍기]가
+ *  전부 StepSidebar 로 이사하며 TransportBar 는 재생 전담이 됐다(TransportBar.tsx 머리말).
+ *  `drill`/`stepId` 프롭도 함께 빠졌다 — 남은 --hit 파생 단언(재생 +4px·속도 최소높이)만
+ *  여기 남는다. 카드의 --hit 계약은 이 파일이 아니라 StepSidebar 쪽에 새로 살 자리가 없다
+ *  (카드는 --hit 파생이 아니라 사이드바 고정폭 파생이라 계약 자체가 다르다). */
+function renderTransport() {
+  render(<TransportBar playing={false} onTogglePlay={() => {}} canPlay speed={1} onCycleSpeed={() => {}} />, { wrapper: settingsWrapper });
 }
 
-function renderTransport(d: Drill) {
-  render(
-    <TransportBar
-      drill={d}
-      stepId={d.steps[0]!.id}
-      onSelectStep={() => {}}
-      onReorderStep={() => {}}
-      onAddStep={() => {}}
-      playing={false}
-      onTogglePlay={() => {}}
-      speed={1}
-      onCycleSpeed={() => {}}
-    />,
-    { wrapper: settingsWrapper },
-  );
-}
-
-describe('TransportBar — 이전/재생/다음·스텝 칩·속도가 --hit 파생', () => {
-  it('이전/다음/한 장 더 찍기 44 → var(--hit), 재생은 +4px 위계를 유지한다', () => {
-    renderTransport(drillOf(3));
-    for (const name of ['이전 스텝', '다음 스텝', '한 장 더 찍기']) {
-      const btn = screen.getByRole('button', { name });
-      expect(btn.style.width, name).toBe('var(--hit)');
-      expect(btn.style.height, name).toBe('var(--hit)');
-    }
+describe('TransportBar — 재생·속도가 --hit 파생', () => {
+  it('재생은 +4px 위계를 유지하고, 속도는 --hit 최소높이다', () => {
+    renderTransport();
     const play = screen.getByRole('button', { name: '재생' });
     expect(play.style.width).toBe('calc(var(--hit) + 4px)');
     expect(play.style.height).toBe('calc(var(--hit) + 4px)');
     const speed = screen.getByRole('button', { name: /^재생 속도/ });
     expect(speed.style.minHeight).toBe('var(--hit)');
-  });
-
-  it('스텝 칩(role=tab)의 히트 높이·최소폭이 var(--hit) 다', () => {
-    // TransportBar.test.tsx 의 "과거엔 6px" 회귀 포인트와 같은 자리 — 이제 44 리터럴도 아니고,
-    // 트랙 폭을 흉내 낼 필요도 없다(칩은 트랙을 나눠 갖지 않는다).
-    renderTransport(drillOf(3));
-    for (const tab of screen.getAllByRole('tab')) {
-      expect(tab.style.height).toBe('var(--hit)');
-      expect(tab.style.minHeight).toBe('var(--hit)');
-      expect(tab.style.minWidth).toBe('var(--hit)');
-    }
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
   });
 });
 

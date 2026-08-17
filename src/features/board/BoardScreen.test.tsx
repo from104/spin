@@ -141,15 +141,18 @@ describe('자유 전술판 (대문)', () => {
   });
 
   it('전술판은 1장짜리다 — 스텝 UI 가 없다', async () => {
-    // 하단 트랜스포트만 감추고 인스펙터의 스텝 섹션을 놔두면 화면에 없는 2번째 스텝을
-    // 만들 수 있다(눈으로는 알 수 없다). 둘 다 없어야 한다.
+    // 인스펙터의 스텝 섹션과 왼쪽 스텝 사이드바를 놔두면 화면에 없는 2번째 스텝을
+    // 만들 수 있다(눈으로는 알 수 없다). 셋 다 없어야 한다.
     // **인스펙터를 펴 놓고** 확인한다 — 접혀 있으면 아무것도 없는 게 당연해서 통과가 공짜다.
     const { user } = await openBoard();
     await openCourt(user);
     expect(screen.queryByRole('button', { name: '스텝 추가' })).toBeNull();
-    // 2.10: 하단 바의 스텝 UI 는 사진 뭉치 + [한 장 더 찍기] 다(옛 "스텝 1 · 이름" 라벨줄이 아니다).
-    expect(screen.queryByRole('tablist', { name: '스텝' })).toBeNull();
     expect(screen.queryByRole('button', { name: '한 장 더 찍기' })).toBeNull();
+    // 2026-08-17 재편(구현 순서 ②) — 스텝 목록은 왼쪽 세로 사이드바(StepSidebar.tsx)다.
+    // 자유 전술판(isBoard)은 스텝이 없으니 **완전 무변**이어야 한다 — 고정 자리도, 접힘
+    // 모드의 여는 버튼도 있으면 안 된다.
+    expect(screen.queryByRole('navigation', { name: '스텝 목록' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '스텝 목록 열기' })).toBeNull();
   });
 
   it('편집기 격자·규칙존 토글이 prefs 에 반영된다(다른 화면 갔다 와도 유지, minor #6)', async () => {

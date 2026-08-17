@@ -6,8 +6,11 @@
 // 컴포넌트 파일(.tsx)이 아니라 여기 두는 이유는 trayMetrics.ts 와 같다 — 컴포넌트 파일에서
 // 함수를 내보내면 react-refresh 경고가 늘고, 예산 테스트가 화면 코드를 정방향으로 import 해
 // 대조할 수도 없다.
-import { courtDefFor } from '../../model/court.ts';
-import type { CourtMode, CourtSize } from '../../model/court.ts';
+//
+// 2026-08-17 — 스텝 칩(가로 비율) 전용 함수 셋(stepChipAspect·stepChipBoxPx·stepChipWidthCss)은
+// PLAN-STEP-EDITING.md 구현 순서 ②로 TransportBar 의 가로 칩 줄이 사라지며 함께 지웠다.
+// `dropIndexAt`·`movedOrder`(드래그 재정렬 순수 함수)는 축과 무관해 그대로 남고, 이제
+// StepSidebar 의 세로 카드 목록이 부른다.
 
 /** 하단 바 안쪽 여백. 위/아래가 다른 것은 아래에 경계선이 없어 시각 무게가 다르기 때문이다
  *  (§5.2 확정: "재생 48 + 패딩 7/8 + border 1 = 64"). */
@@ -36,26 +39,7 @@ export const transportBarHeightPx = (hitPx: number): number => barHeightPx(hitPx
 /** 자유 전술판 하단 바. 재생이 없어 --hit 이 가장 크다. 기본 44 → 60. */
 export const boardBarHeightPx = (hitPx: number): number => barHeightPx(hitPx);
 
-/** 스텝 칩(=판 사진) 가로세로비 = 그 코트 viewBox 의 비.
- *
- *  소수 셋째 자리에서 **한 번만** 끊는다 — CSS `calc()` 는 무한소수를 그대로 쓰고 픽셀 식은
- *  반올림하므로, 각자 자기 방식으로 끊으면 둘이 미세하게 갈라진 채 아무도 못 본다. */
-export function stepChipAspect(mode: CourtMode, size?: CourtSize): number {
-  const def = courtDefFor(mode, size);
-  return Math.round((def.vbW / def.vbH) * 1000) / 1000;
-}
-
-/** 칩 상자 픽셀. 높이는 --hit 그대로, 폭은 코트 비율 — 어느 쪽도 --hit(WCAG 하한) 밑으로 안 간다.
- *  풀 코트 44 → 69×44, 하프/플랫 44 → 51×44. 스텝이 몇 장이든 이 크기는 안 줄어든다
- *  (옛 타임라인은 트랙을 n−1 로 나눠 19장부터 노드를 접었다 — 사진 뭉치는 대신 가로로 구른다). */
-export function stepChipBoxPx(hitPx: number, mode: CourtMode, size?: CourtSize): { w: number; h: number } {
-  return { w: Math.max(hitPx, Math.round(hitPx * stepChipAspect(mode, size))), h: hitPx };
-}
-
-/** 칩 폭 CSS. 값은 브라우저가 --hit 으로 계산하고, **비율만** 위 픽셀 식과 공유한다. */
-export const stepChipWidthCss = (mode: CourtMode, size?: CourtSize): string => `calc(var(--hit) * ${stepChipAspect(mode, size)})`;
-
-/** 끌고 있는 칩이 놓일 자리. `centers` 는 지금 화면에 보이는 순서대로의 칩 중심 x 다.
+/** 끌고 있는 항목이 놓일 자리. `centers` 는 지금 화면에 보이는 순서대로의 항목 중심 좌표다.
  *  **자기 자신은 세지 않는다** — 세면 자기 중심을 지나는 순간 옆칸으로 튄다(손을 대자마자 이동). */
 export function dropIndexAt(centers: readonly number[], x: number, from: number): number {
   let to = 0;

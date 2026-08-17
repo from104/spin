@@ -4,14 +4,15 @@
 // startTween 은 처음부터 옳았지만, EditorStage 가 스텝 전환 커밋마다 initialFrame 을 다시
 // writeFrame 해 트윈 시작점 스냅샷이 도착 프레임으로 덮였고(자식 layout effect 가 부모보다
 // 먼저 돈다), 실제 앱에서는 **아무것도 트윈되지 않았다**. 여기서는 그 조립 전체 — 재생과 같은
-// 경로인 STEP_SELECT(다음 스텝 버튼) — 를 통과시켜 다음을 고정한다:
+// 경로인 STEP_SELECT(왼쪽 사이드바의 2번 카드 탭 — 2026-08-17 재편 전에는 하단 바의
+// [다음 스텝] 버튼이었다) — 를 통과시켜 다음을 고정한다:
 //   · 휠체어(대조군 — 원래 트윈 대상)가 중간값을 지나 도착한다
 //   · 화살표 세 점(from/ctrl/to)의 d 가 보간된다, id 로 짝지어(3.10 핵심)
 //   · 메모 transform 이 보간된다
 //   · 한쪽에만 있는 화살표·메모는 페이드로 등장/퇴장한다(시연 interpolateSteps 와 같은 그림)
 //   · reduce-motion 이면 전부 즉시 스냅이고 페이드도 없다(EditorProvider 와 같은 규칙)
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
@@ -153,6 +154,10 @@ const txOf = (id: string): number => Number(/translate\((-?[\d.]+)/.exec(tfOf(id
 const toXOf = (id: string): number => Number(/ (-?[\d.]+),-?[\d.]+$/.exec(dOf(id))![1]);
 /** 페이드 래퍼(항상 있는 부모 <g>)의 클래스. SVG 의 className 은 SVGAnimatedString 이라 속성으로 읽는다. */
 const fadeClassOf = (id: string): string => objEl(id).parentElement!.getAttribute('class') ?? '';
+/** 2번 스텝으로 넘어가는 손잡이. 2026-08-17 재편으로 왼쪽 사이드바 카드가 그 자리다 —
+ *  인스펙터의 옛 [스텝] 목록도 기본 이름이 같을 수 있어(bottomBarMetrics 재편 근거와 같은
+ *  이유) 사이드바 `<nav>` 안으로 좁혀서 찾는다. */
+const nextStepCard = () => within(screen.getByRole('navigation', { name: '스텝 목록' })).getByRole('button', { name: '스텝 2' });
 
 describe('3.10 — 편집기 스텝 전환(실조립)', () => {
   it('휠체어·화살표·메모가 중간값을 지나 도착한다 — 화살표는 id 로 짝지은 세 점 보간', async () => {
@@ -163,7 +168,7 @@ describe('3.10 — 편집기 스텝 전환(실조립)', () => {
     expect(dOf(arBoth)).toBe('M100,100 Q150,125 200,100');
     expect(txOf(ntBoth)).toBeCloseTo(120, 1);
 
-    fireEvent.click(screen.getByRole('button', { name: '다음 스텝' }));
+    fireEvent.click(nextStepCard());
 
     // 클릭 직후(첫 rAF 이전): 트윈 시작 프레임(e=0)이 동기로 쓰여 아직 **이전 스텝 값**이다.
     // 이게 최종값이면 트윈이 다시 죽은 것이다(이 작업이 고친 회귀 그 자체).
@@ -204,7 +209,7 @@ describe('3.10 — 편집기 스텝 전환(실조립)', () => {
 
     expect(fadeClassOf(arExit)).toBe(''); // 전환 전에는 페이드가 없다(대조군)
 
-    fireEvent.click(screen.getByRole('button', { name: '다음 스텝' }));
+    fireEvent.click(nextStepCard());
 
     // 퇴장 화살표는 새 스텝에 없지만 전환 동안 **남아서** 사라진다. 값은 이전 스텝 그대로다.
     expect(objEl(arExit)).toBeTruthy();
@@ -226,7 +231,7 @@ describe('3.10 — 편집기 스텝 전환(실조립)', () => {
     await mountEditor(chairId);
     const chairX0 = txOf(chairId);
 
-    fireEvent.click(screen.getByRole('button', { name: '다음 스텝' }));
+    fireEvent.click(nextStepCard());
 
     // 클릭 직후, rAF 한 번 없이 이미 도착값 — 조건마다 따로.
     expect(txOf(chairId)).toBeCloseTo(chairX0 + 180, 1);

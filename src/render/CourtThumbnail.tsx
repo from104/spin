@@ -59,8 +59,8 @@ export interface CourtThumbnailProps {
   /** true 면 부모 상자를 절대배치로 꽉 채운다 — 호출부가 상자를 코트 비율로 잡아 두는
    *  판 걸이 카드(DrillCard, 2026-08-12)용. 기본 false(기존 호출부 무변화). */
   fill?: boolean;
-  /** 글리프 배수. 기본 1(목록 카드). 더 작은 상자에 그리는 호출부가 키운다 — 스텝 칩은
-   *  `CHIP_GLYPH_SCALE`. **좌표에는 곱하지 않는다**(THUMB_GLYPH 의 ⚠️). */
+  /** 글리프 배수. 기본 1(목록 카드). 더 작은 상자에 그리는 호출부가 키운다 — 스텝 사이드바
+   *  카드는 `SIDEBAR_GLYPH_SCALE`. **좌표에는 곱하지 않는다**(THUMB_GLYPH 의 ⚠️). */
   glyphScale?: number;
 }
 
@@ -99,10 +99,17 @@ export const THUMB_GLYPH = {
   noteFontScale: 0.6,
 } as const;
 
-/** 44 px 스텝 칩용 배수. 칩(폭 ≈ 76 px)은 목록 카드(≈ 300 px)보다 4배 가까이 작게 그려지니
- *  같은 글리프를 쓰면 거기서 다시 1 px 대로 내려간다. 칩의 일은 '어느 스텝인가' 를 알려주는
- *  것이므로 겹쳐 보이는 쪽을 택한다 — 안 보이는 것보다 겹치는 것이 낫다. */
-export const CHIP_GLYPH_SCALE = 1.6;
+/** 스텝 사이드바 카드용 배수(2026-08-17 PLAN-STEP-EDITING.md 구현 순서 ② — TransportBar 의
+ *  가로 칩 줄이 없어지고 왼쪽 세로 카드 목록이 그 자리를 대신한다).
+ *
+ *  StepSidebar.tsx 의 카드 폭은 `SIDEBAR_WIDTH_PX`(220) 에서 목록 좌우 패딩(`SIDEBAR_PAD_PX`
+ *  10×2)을 뺀 **200 px** 다. 기본 배수(1)로 그리면 휠체어 지름이
+ *    2 × THUMB_GLYPH.chairR(24) / vbW(825, 풀 코트) × 200 ≈ **10.9 px**
+ *  로 줄어든다 — 목록 카드(≈300 px)에서 같은 식은 ≈17.5 px 다. 칩(≈76 px, 옛 CHIP_GLYPH_SCALE
+ *  시절)과 달리 200 px 는 목록 카드의 3분의 2 수준이라 목록 카드에 **가깝게** 보정할 수 있다
+ *  (완전 보정 300/200=1.5 까지는 안 간다 — 여덟 명이 붐비는 스텝에서 원끼리 닿는 여유를
+ *  남긴다). 1.4 로 그리면 지름이 ≈15.3 px 다. */
+export const SIDEBAR_GLYPH_SCALE = 1.4;
 
 const coneTriangle = (x: number, y: number, h: number): string =>
   `M${x},${y - h} L${x + h},${y + h * 0.8} L${x - h},${y + h * 0.8} Z`;
