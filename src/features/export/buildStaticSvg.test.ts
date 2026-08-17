@@ -12,6 +12,7 @@ import { RULE_ALERT_STROKE, RULE_ZONE_ALERT_FILL } from '../../render/ruleOverla
 import { RING_5M_R_PX, RING_R_PX } from '../../model/rules.ts';
 import { buildStaticSvg, buildStaticScene } from './buildStaticSvg.ts';
 import { staticSceneMetrics, EXPORT_LAYOUT } from './staticSceneLayout.ts';
+import type { Shape } from '../../model/shape.ts';
 import { makeFrame, TEAMS } from './sceneFixture.ts';
 
 const OPTS = { mode: 'full' as const, teams: TEAMS };
@@ -152,6 +153,35 @@ describe('buildStaticSvg — 좌표의 유일한 출처는 COURT_DEFS 다', () =
     const doc = parse(buildStaticSvg(makeFrame({ chairs: [], balls: [], cones: [], arrows: [], notes: [] }), { mode: 'flat', teams: TEAMS }));
     expect(doc.querySelectorAll('line')).toHaveLength(0);
     expect(doc.documentElement.getAttribute('viewBox')).toBe('0 0 525 450');
+  });
+});
+
+// 기현님 신고(2026-08-17): *"그림으로 내보내기 시 도형, 진영 표시 안나온다."* 둘 다 화면에는
+// 있는데 굽는 쪽 조립 목록에서 빠져 있었다. 도형·깃발의 **모양**이 화면과 같은지는
+// courtLines.contract.test.ts 가 대조한다 — 여기서 세는 것은 "조립에 들어왔는가" 하나다.
+describe('buildStaticSvg — 화면에 있는 층이 그림에도 있다', () => {
+  const bare = () => makeFrame({ chairs: [], balls: [], cones: [], arrows: [], notes: [] });
+  const SHAPE: Shape = { id: 'sh_1', kind: 'ellipse', x: 300, y: 200, w: 100, h: 80, rot: 0 };
+
+  it('진영 깃발이 실린다 — full 은 존 2 × 깃발 2 = 페넌트 4개', () => {
+    // 코트 라인은 polygon 을 하나도 안 그린다(전부 path·rect·line·circle) — 그래서 이 수는
+    // 깃발만 센다. 개체를 다 빼도 남는 것이 진영 표시다(규칙 존 스위치와 무관하게 그린다).
+    expect(parse(buildStaticSvg(bare(), OPTS)).querySelectorAll('polygon')).toHaveLength(4);
+    // 대조군 — 플랫 코트에는 진영이라는 개념이 없다.
+    expect(parse(buildStaticSvg(bare(), { mode: 'flat', teams: TEAMS })).querySelectorAll('polygon')).toHaveLength(0);
+  });
+
+  it('작도 도형이 실린다 — 넘긴 것만, 넘긴 만큼', () => {
+    // 센터 서클을 5.3 이 지운 뒤로 코트 라인에는 ellipse 가 없다. 그래서 이 수는 도형만 센다.
+    expect(parse(buildStaticSvg(bare(), { ...OPTS, shapes: [SHAPE] })).querySelectorAll('ellipse')).toHaveLength(1);
+    expect(parse(buildStaticSvg(bare(), OPTS)).querySelectorAll('ellipse')).toHaveLength(0);
+  });
+
+  it('도형은 코트 **위**·개체 **아래**다 (기현 지시 2026-08-14)', () => {
+    const svg = buildStaticSvg(makeFrame(), { ...OPTS, shapes: [SHAPE] });
+    const shapeAt = svg.indexOf('id="obj-sh_1"');
+    expect(shapeAt).toBeGreaterThan(svg.indexOf('viewBox')); // 코트면·라인 뒤
+    expect(shapeAt).toBeLessThan(svg.indexOf('id="obj-ch')); // 칩 앞
   });
 });
 

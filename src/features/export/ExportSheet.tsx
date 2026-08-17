@@ -103,6 +103,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
         // 진영 — 골 지역 3인 반칙이 **수비 팀만** 세므로(2026-08-15) 이 한 줄이 없으면
         // 카톡으로 보낸 그림만 다른 팀을 붉게 칠한다(위 courtSize 와 같은 부류의 사고다).
         defense: drill.defense,
+        // 작도 도형 — 프레임에는 없다(보간하지 않는 **표시**라 스텝이 갖는다). 이 한 줄이
+        // 없으면 그림에만 도형이 통째로 빠진다(2026-08-17 기현님 신고).
+        shapes: step.shapes,
         showGrid,
         showRuleZones,
         caption: { title: drill.title, stepIndex, stepCount: drill.steps.length, stepName: step.name },

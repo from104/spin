@@ -7,15 +7,17 @@
 // 팀 색" 으로 나타나는데, 둘 다 마크업 존재 여부로는 안 잡힌다.
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
+import { SideMarks } from './SideMarks.tsx';
+// 상수·좌표식은 2026-08-17 에 `sideFlags.ts` 로 떼었다 — PNG 내보내기가 같은 값을 읽어야
+// 해서다(그 파일 머리말). 여기서 재는 것은 여전히 **그려진 결과**다.
 import {
-  SideMarks,
   SIDE_FLAG_GAP_PX,
   SIDE_FLAG_H_PX,
   SIDE_FLAG_POLE_PX,
   SIDE_FLAG_SIDE_PX,
   SIDE_FLAG_SPACING_PX,
   SIDE_FLAG_TAIL_PX,
-} from './SideMarks.tsx';
+} from './sideFlags.ts';
 import { COURT_MODES, COURT_SIZES, courtDefFor } from '../model/court.ts';
 import { DEFAULT_TEAMS } from '../model/defaults.ts';
 import type { CourtMode, CourtSize } from '../model/court.ts';

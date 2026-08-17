@@ -14,6 +14,7 @@
 import { courtDefFor, type CourtMode, type CourtSize } from '../../model/court.ts';
 import type { TeamSide, TeamStyle } from '../../model/drill.ts';
 import type { RenderFrame } from '../../model/playback.ts';
+import type { Shape } from '../../model/shape.ts';
 import { CHAIR, NOTE } from '../../core/constants.ts';
 import { pointAtLever } from '../../model/chair.ts';
 // 쪽지 칩 폭의 유일한 출처. 칩을 그리는 쪽(buildStaticSvg)과 글자를 얹는 쪽(이 파일)이
@@ -48,6 +49,13 @@ export interface StaticSceneOpts {
   resolution?: 1 | 2;
   /** 'white' = 카톡·밴드에 붙였을 때 둥근 모서리 바깥이 흰색. 'transparent' = 문서에 겹치기용. */
   background?: 'white' | 'transparent';
+  /** 작도 도형 — **지금 스텝의 것 그대로**다.
+   *
+   *  왜 `RenderFrame` 이 아니라 여기인가(2026-08-17): 도형은 움직이는 개체가 아니라 **표시**라
+   *  스텝 사이를 보간하지 않는다. 시연(PresentStage)도 프레임이 아니라 `steps[i].shapes` 를
+   *  그대로 읽는다 — 그 판단을 그림 쪽에서 뒤집으면 두 그림이 갈라진다.
+   *  안 넘기면 그림에만 도형이 통째로 빠진다(2026-08-17 기현님 신고). */
+  shapes?: readonly Shape[];
   /** 격자 **선**만 그린다. 칸 라벨은 §6.2 표가 '안 담긴다' 로 못박았다(글자이기도 하다). */
   showGrid?: boolean;
   /** 규칙 존 + 3 m 링. 화면의 `prefs.showRuleZones` 와 **같은 스위치**를 넘긴다. */

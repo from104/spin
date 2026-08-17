@@ -10,11 +10,16 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { COURT_DEFS, COURT_MODES } from '../../model/court.ts';
+import { COURT_DEFS, COURT_MODES, type CourtMode } from '../../model/court.ts';
+import type { TeamSide } from '../../model/drill.ts';
+import type { Shape } from '../../model/shape.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
 import { RuleZones } from '../../render/RuleZones.tsx';
-import { arrowMarkersMarkup, courtLinesMarkup, MARKER_UID, ruleZonesMarkup } from './buildStaticSvg.ts';
+import { ShapeLayer } from '../../render/ShapeLayer.tsx';
+import { SideMarks } from '../../render/SideMarks.tsx';
+import { arrowMarkersMarkup, courtLinesMarkup, MARKER_UID, ruleZonesMarkup, shapesMarkup, sideMarksMarkup } from './buildStaticSvg.ts';
+import { TEAMS } from './sceneFixture.ts';
 
 /** 상속되는 표현 속성. `<g>` 로 묶었는지 개별 요소에 적었는지는 **그림에 영향이 없으므로**
  *  대조에서 지운다 — 우리가 지켜야 하는 것은 마크업의 모양이 아니라 그려지는 도형이다. */
@@ -135,5 +140,80 @@ describe('규칙 존 — RuleZones 와 같은 사각형을 그린다', () => {
     expect(shapesOf(ruleZonesMarkup('full'))).toHaveLength(2);
     expect(shapesOf(ruleZonesMarkup('half'))).toHaveLength(1);
     expect(shapesOf(ruleZonesMarkup('flat'))).toHaveLength(0);
+  });
+});
+
+// ── 2026-08-17 — 여기부터 둘은 **없어서 생긴 사고**를 막는 자리다 ────────────────────────
+// 기현님 신고: *"그림으로 내보내기 시 도형, 진영 표시 안나온다."* 둘 다 화면에는 있고 PNG 에만
+// 없었다. 코트 라인·화살촉·규칙 존은 위에서 대조하고 있었는데, 나중에 생긴 이 두 층은
+// 대조 목록에 들어오지 않아 **빠진 것을 아무도 못 셌다.** 그림 층을 새로 만들면 여기 한 줄을
+// 같이 늘려라 — 그것이 이 파일의 쓸모다.
+describe('진영 표시 — SideMarks 와 같은 깃발을 그린다', () => {
+  const opts = (mode: CourtMode, defense: TeamSide) => ({ mode, teams: TEAMS, defense });
+
+  it.each(COURT_MODES)('%s', (mode) => {
+    for (const defense of ['home', 'away'] as const) {
+      const fromComponent = shapesOf(renderToStaticMarkup(createElement(SideMarks, { mode, teams: TEAMS, defense })));
+      expect(shapesOf(sideMarksMarkup(opts(mode, defense)))).toEqual(fromComponent);
+    }
+  });
+
+  it('코트 크기를 바꿔도 같이 움직인다 — 좌표를 손으로 옮겨 적은 것이 아니다', () => {
+    const a = sideMarksMarkup({ mode: 'full', size: '30x18', teams: TEAMS });
+    const b = sideMarksMarkup({ mode: 'full', size: '25x14', teams: TEAMS });
+    expect(a).not.toEqual(b);
+    expect(shapesOf(b)).toEqual(shapesOf(renderToStaticMarkup(createElement(SideMarks, { mode: 'full', size: '25x14', teams: TEAMS }))));
+  });
+
+  it('대조군 — full·half 는 깃발이 있고(존당 깃대+페넌트 2벌) flat 은 0개', () => {
+    expect(shapesOf(sideMarksMarkup(opts('full', 'home')))).toHaveLength(8); // 존 2 × 깃발 2 × 요소 2
+    expect(shapesOf(sideMarksMarkup(opts('half', 'home')))).toHaveLength(4);
+    expect(shapesOf(sideMarksMarkup(opts('flat', 'home')))).toHaveLength(0);
+  });
+
+  it('진영을 뒤집으면 깃발 색이 바뀐다 — defense 가 실제로 배선돼 있다', () => {
+    expect(sideMarksMarkup(opts('full', 'home'))).not.toEqual(sideMarksMarkup(opts('full', 'away')));
+  });
+});
+
+describe('작도 도형 — ShapeLayer 와 같은 도형을 그린다', () => {
+  /** 세 종류 한 벌. 좌표·회전에 **딱 떨어지지 않는 값**을 섞는다 — 반올림이 끼어들면 바로 갈린다. */
+  const SHAPES: Shape[] = [
+    { id: 'sh_a', kind: 'ellipse', x: 210.5, y: 130.25, w: 101.5, h: 67.125, rot: 0 },
+    { id: 'sh_b', kind: 'rect', x: 400, y: 260, w: 120, h: 80, rot: 37.5 },
+    { id: 'sh_c', kind: 'triangle', x: 600.75, y: 300, w: 100, h: 86.6, rot: -12 },
+  ];
+
+  /** `shapesOf` 는 `<g>` 의 `transform` 을 지운다(그리는 도형만 세려는 것이다). 도형은 자리가
+   *  그 `transform` 에 있으므로 따로 센다 — 안 그러면 **전부 원점에 그려도 통과**한다. */
+  function transformsOf(markup: string): string[] {
+    const doc = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>`, 'image/svg+xml');
+    return [...doc.querySelectorAll('g[transform]')].map((g) => g.getAttribute('transform')!).sort();
+  }
+
+  const fromComponent = () => renderToStaticMarkup(createElement(ShapeLayer, { shapes: SHAPES }));
+
+  it('도형이 같다', () => {
+    expect(shapesOf(shapesMarkup(SHAPES))).toEqual(shapesOf(fromComponent()));
+  });
+
+  it('자리·회전이 같다', () => {
+    expect(transformsOf(shapesMarkup(SHAPES))).toEqual(transformsOf(fromComponent()));
+  });
+
+  it('대조군 — 세 종류가 실제로 세어지고, 빈 목록은 아무것도 안 낸다', () => {
+    expect(shapesOf(shapesMarkup(SHAPES))).toHaveLength(3);
+    expect(shapesMarkup([])).toBe('');
+    expect(transformsOf(shapesMarkup(SHAPES))).toHaveLength(3);
+  });
+
+  it('⚠️ 그룹에 opacity 를 걸지 않는다 — 겹치면 진해지는 성질이 납작해진다', () => {
+    expect(shapesMarkup(SHAPES)).not.toMatch(/<g[^>]*opacity/);
+  });
+
+  it('선택 색(var(--accent))·class 가 새어 나오지 않는다 — 자립 SVG 규약', () => {
+    const out = shapesMarkup(SHAPES);
+    expect(out).not.toContain('var(--');
+    expect(out).not.toContain('class=');
   });
 });

@@ -15,6 +15,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import type { Shape } from '../../model/shape.ts';
 
 vi.mock('./rasterize.ts', () => ({
   rasterizeFrameToPng: vi.fn(async () => ({ blob: new Blob(['png'], { type: 'image/png' }), widthPx: 2048, heightPx: 1400 })),
@@ -133,6 +134,23 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
     expect(filename).toBe(sceneFileName('자유 전술판', 0));
     expect(filename).toMatch(/\.png$/);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('그 스텝의 작도 도형이 옵션에 실린다 — 화면에는 있고 PNG 에만 없던 사고(2026-08-17 기현님 신고)', async () => {
+    // 도형은 `RenderFrame` 에 없다(보간하지 않는 **표시**라 스텝이 갖는다). 그래서 프레임만
+    // 넘기면 조용히 빠진다 — 여기가 그 한 줄을 세는 자리다.
+    const shape: Shape = { id: 'sh_1', kind: 'rect', x: 120, y: 90, w: 80, h: 60, rot: 15 };
+    const withShape = { ...drill, steps: [{ ...drill.steps[0]!, shapes: [shape] }] };
+    render(
+      <ToastProvider>
+        <ExportSheet open onClose={() => {}} drill={withShape} stepIndex={0} showGrid={false} showRuleZones />
+      </ToastProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(rasterMock).toHaveBeenCalledTimes(1));
+    expect(rasterMock.mock.calls[0]![1].shapes).toEqual([shape]);
+    // 대조군 — 도형이 없는 판은 빈 목록이다(위 단언이 "무엇이든 통과" 가 아니다).
+    expect(drill.steps[0]!.shapes).toEqual([]);
   });
 
   it('래스터가 실패하면 파일을 떨구지 않고 그 사유를 토스트로 말한다', async () => {

@@ -41,6 +41,7 @@ import { courtDefFor, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
+import type { Shape } from '../../model/shape.ts';
 import { defaultDefense, defendedZones, ringRadiusPx, ringViolation, zoneViolation, type RuleActor } from '../../model/rules.ts';
 import { COURT_LINE_WEIGHTS } from '../../render/CourtSurface.tsx';
 import {
@@ -53,6 +54,10 @@ import {
   RULE_ZONE_FILL_OPACITY,
 } from '../../render/ruleOverlay.ts';
 import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteFoldPathD } from '../../render/objects/noteChip.ts';
+// 진영 깃발의 좌표는 **저쪽 함수 하나**에서 온다(render/sideFlags.ts 의 sideFlagGroups 머리말).
+// 색·굵기도 같이 읽는다 — 여기 리터럴로 적으면 그림에서만 깃발이 어긋난다.
+import { FLAG_STROKE, FLAG_STROKE_W, POLE_W, sideFlagGroups } from '../../render/sideFlags.ts';
+import { pointsAttr, shapeSize, triPointsOf, SHAPE_COLOR, SHAPE_FILL_OPACITY, SHAPE_STROKE_OPACITY, SHAPE_STROKE_PX } from '../../model/shape.ts';
 import { num, safeColor, safeId } from './svgSafe.ts';
 import { teamMarkFor } from './teamMark.ts';
 import {
@@ -257,6 +262,57 @@ export function ruleZonesMarkup(mode: StaticSceneOpts['mode'], size?: StaticScen
       .join('') +
     `</g>`
   );
+}
+
+/** 진영 표시(골라인 뒤 깃발 둘). **좌표는 화면과 같은 함수**(`sideFlagGroups`)에서 온다 —
+ *  이 파일이 코트 라인·규칙 존에 요구하는 규율과 같다.
+ *
+ *  ⚠️ 숫자를 `num()` 으로 접지 마라. 화면 컴포넌트는 원값을 그대로 찍으므로 여기서 반올림하면
+ *     `courtLines.contract.test.ts` 의 도형 대조가 갈라진다(값은 코트 정의와 상수에서만
+ *     나오므로 NaN 이 들어올 자리가 없다 — `num()` 이 막으려던 위험이 여기엔 없다).
+ *
+ *  규칙 존 스위치와 **무관하게 언제나 그린다** — 화면(CourtStage)과 같은 판단이다.
+ *  플랫 코트는 빈 문자열이다(`sideFlagGroups` 가 빈 배열을 준다). */
+export function sideMarksMarkup(opts: StaticSceneOpts): string {
+  const groups = sideFlagGroups({ mode: opts.mode, size: opts.size, teams: opts.teams, defense: opts.defense });
+  if (groups.length === 0) return '';
+  let out = '';
+  for (const g of groups) {
+    for (const f of g.flags) {
+      out +=
+        `<line x1="${f.poleX}" y1="${f.poleY1}" x2="${f.poleX}" y2="${f.poleY2}" stroke="${FLAG_STROKE}" stroke-width="${POLE_W}" stroke-linecap="round"/>` +
+        `<polygon points="${f.pennant}" fill="${safeColor(f.fill, '#888888')}" stroke="${FLAG_STROKE}" stroke-width="${FLAG_STROKE_W}" stroke-linejoin="round"/>`;
+    }
+  }
+  return `<g>${out}</g>`;
+}
+
+/** 작도 도형 — `ShapeLayer.tsx` 와 **같은 값·같은 층**이다(코트 위, 콘·화살표·칩 아래).
+ *  선택·잠김 표시는 없다: 내보낸 그림에 '지금 고르고 있는 것' 이라는 개념이 없고, 선택 색은
+ *  `var(--accent)` 라 이 파일의 완료 판정 ②(`var(--` 0회)를 어긴다.
+ *
+ *  ⚠️ 이 `<g>` 에 `opacity` 를 걸지 마라 — 겹치면 진해지는 성질이 통째로 사라진다
+ *     (ShapeLayer.tsx 머리말 ①. 그림에서만 납작해지면 코트에서야 알게 된다).
+ *  ⚠️ 숫자를 `num()` 으로 접지 마라 — `sideMarksMarkup` 과 같은 이유다. */
+export function shapesMarkup(shapes: readonly Shape[]): string {
+  if (shapes.length === 0) return '';
+  let out = '';
+  for (const s of shapes) {
+    const { w, h } = shapeSize(s);
+    const paint =
+      `fill="${SHAPE_COLOR}" fill-opacity="${SHAPE_FILL_OPACITY}"` +
+      ` stroke="${SHAPE_COLOR}" stroke-opacity="${SHAPE_STROKE_OPACITY}" stroke-width="${SHAPE_STROKE_PX}"`;
+    // 삼각형의 모양은 w/h 가 아니라 꼭짓점이 진다(2026-08-15 자유 삼각형) — 그래서
+    // `triPointsOf`/`pointsAttr` 을 화면과 **같이** 지난다. w/h 는 경계상자일 뿐이다.
+    const body =
+      s.kind === 'ellipse'
+        ? `<ellipse rx="${w / 2}" ry="${h / 2}" ${paint}/>`
+        : s.kind === 'rect'
+          ? `<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" ${paint}/>`
+          : `<polygon points="${pointsAttr(triPointsOf(s))}" ${paint} stroke-linejoin="round"/>`;
+    out += `<g id="obj-${safeId(s.id)}" transform="translate(${s.x} ${s.y}) rotate(${s.rot})">${body}</g>`;
+  }
+  return out;
 }
 
 /** 격자 — **선만** 그린다. 칸 라벨은 §6.2 표가 '안 담긴다' 로 못박았고, 글자라 어차피 못 넣는다.
@@ -468,10 +524,17 @@ export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): strin
     `<defs>${markers}</defs>` +
     (bg === 'white' ? `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.totalH)}" fill="#ffffff"/>` : '') +
     `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.vbH)}" rx="${EXPORT_LAYOUT.courtRx}" fill="${COURT_BG}"/>` +
-    // §3.5 표준 z-order: 코트면 → 격자 → 규칙존 → 콘 → 화살표 → 휠체어 → 공 → 메모.
+    // §3.5 표준 z-order: 코트면 → 격자 → 진영 → 규칙존·링 → 도형 → 콘 → 화살표 → 휠체어 → 공 → 메모.
+    //
+    // 진영 깃발이 규칙 표시 **아래**인 것은 화면(CourtStage: RuleZones → SideMarks → RuleOverlay)
+    // 을 따른 것이다. 존은 코트 안, 깃발은 골라인 밖이라 둘은 애초에 안 겹치고, 실제로 겹칠 수
+    // 있는 것은 공의 3 m 링뿐인데 화면에서도 링이 깃발을 덮는다.
+    // 도형은 **코트 위·개체 아래**다(기현 지시 2026-08-14, ShapeLayer.tsx 머리말).
     courtLinesMarkup(opts.mode, opts.size) +
     gridMarkup(opts) +
+    sideMarksMarkup(opts) +
     ruleMarkup(frame, opts) +
+    shapesMarkup(opts.shapes ?? []) +
     conesMarkup(frame) +
     arrowsMarkup(frame) +
     chairsMarkup(frame, opts) +
