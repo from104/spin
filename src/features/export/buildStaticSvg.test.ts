@@ -186,12 +186,15 @@ describe('buildStaticSvg — 화면에 있는 층이 그림에도 있다', () =>
 });
 
 describe('buildStaticSvg — opts', () => {
-  it('배경 흰색이면 전면 흰 사각형이 깔리고, 투명이면 안 깔린다', () => {
-    const white = buildStaticSvg(makeFrame(), { ...OPTS, background: 'white' });
+  it('배경 검정이면 전면 검정 사각형이 깔리고, 투명이면 안 깔린다', () => {
+    const black = buildStaticSvg(makeFrame(), { ...OPTS, background: 'black' });
     const clear = buildStaticSvg(makeFrame(), { ...OPTS, background: 'transparent' });
-    expect(white.includes('fill="#ffffff"/><rect') || white.includes('height="525" fill="#ffffff"')).toBe(true);
-    expect(white.match(/<rect x="0" y="0" width="825" height="525" fill="#ffffff"\/>/)).not.toBeNull();
-    expect(clear.match(/<rect x="0" y="0" width="825" height="525" fill="#ffffff"\/>/)).toBeNull();
+    const FULL = /<rect x="0" y="0" width="825" height="525" fill="#000000"\/>/;
+    expect(black.match(FULL)).not.toBeNull();
+    expect(clear.match(FULL)).toBeNull();
+    // 기본값이 검정이다 — 넘기지 않은 그림이 투명으로 나가면 카톡·밴드에서 바탕이 비친다
+    // (기현 지시 2026-08-17. 그 전 기본값은 흰색이었다).
+    expect(buildStaticSvg(makeFrame(), OPTS).match(FULL)).not.toBeNull();
   });
 
   it('해상도 1x/2x — 2x 는 긴 변이 정확히 2배이고 계획서의 2048 이다', () => {
@@ -227,10 +230,10 @@ describe('buildStaticSvg — opts', () => {
   it('투명 배경 + 캡션이면 캡션 띠를 불투명하게 깐다 (흰 글자가 읽혀야 한다)', () => {
     const cap = { title: '전환', stepIndex: 0, stepCount: 3, stepName: 'a' };
     const clear = buildStaticSvg(makeFrame(), { ...OPTS, background: 'transparent', caption: cap });
-    const white = buildStaticSvg(makeFrame(), { ...OPTS, background: 'white', caption: cap });
+    const black = buildStaticSvg(makeFrame(), { ...OPTS, background: 'black', caption: cap });
     expect(clear.includes('y="525" width="825" height="46"')).toBe(true);
-    // 흰 배경에서는 전면 흰 사각형이 이미 있으므로 띠를 또 칠하지 않는다.
-    expect(white.includes('y="525" width="825" height="46"')).toBe(false);
+    // 검정 배경에서는 전면 검정 사각형이 이미 있으므로 띠를 또 칠하지 않는다.
+    expect(black.includes('y="525" width="825" height="46"')).toBe(false);
   });
 });
 

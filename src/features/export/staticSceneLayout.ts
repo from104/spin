@@ -47,8 +47,9 @@ export interface StaticSceneOpts {
   /** 1x = 긴 변 1024, 2x = 2048(계획서 §6.2 [A-10] 목표 해상도). 기본 2x —
    *  인쇄물로 옮기는 것이 목적이라 화면 devicePixelRatio 가 아니라 출력 해상도를 기준으로 잡는다. */
   resolution?: 1 | 2;
-  /** 'white' = 카톡·밴드에 붙였을 때 둥근 모서리 바깥이 흰색. 'transparent' = 문서에 겹치기용. */
-  background?: 'white' | 'transparent';
+  /** 'black' = 카톡·밴드에 붙였을 때 둥근 모서리 바깥과 캡션 띠가 검정(기현 지시 2026-08-17,
+   *  그 전에는 흰색이었다). 'transparent' = 문서에 겹치기용. 어느 쪽이든 캡션 글자는 흰색이다. */
+  background?: 'black' | 'transparent';
   /** 작도 도형 — **지금 스텝의 것 그대로**다.
    *
    *  왜 `RenderFrame` 이 아니라 여기인가(2026-08-17): 도형은 움직이는 개체가 아니라 **표시**라
@@ -84,12 +85,14 @@ export const EXPORT_LAYOUT = {
   noteTextWeight: 600,
 } as const;
 
-/** 흰 배경일 때의 캡션 색. */
-const CAPTION_INK_ON_WHITE = { title: '#111827', sub: '#4b5563' } as const;
-/** 투명 배경일 때는 캡션 띠를 **불투명하게 깔고**(buildStaticSvg) 그 위에 흰 글자를 얹는다 —
- *  투명 위 검은 글자는 어두운 배경에 붙이면 사라진다. '투명'은 코트 모서리 바깥에만 남는다. */
-const CAPTION_INK_ON_DARK = { title: '#ffffff', sub: 'rgba(255,255,255,.72)' } as const;
-/** 투명 배경에서 캡션 띠에 까는 색. 메모 쪽지와 같은 먹색(colors.ts `NOTE_FILL` 근거 공유). */
+/** 캡션 글자색 — **어느 배경에서든 흰색이다**(기현 지시 2026-08-17: *"아래 글씨 흰색으로"*).
+ *
+ *  ⚠️ 2026-08-17 이전에는 배경에 따라 두 벌이었다(흰 배경용 먹색 · 어두운 배경용 흰색).
+ *  배경이 검정으로 바뀌면서 먹색 쪽은 **쓸 자리가 사라졌다** — 남겨 두면 "언젠가 흰 배경이
+ *  돌아오면" 이라는 이유로 죽은 분기가 계속 산다. 되살릴 일이 생기면 그때 다시 적는다. */
+const CAPTION_INK = { title: '#ffffff', sub: 'rgba(255,255,255,.72)' } as const;
+/** 투명 배경에서 캡션 띠에 까는 색. 메모 쪽지와 같은 먹색(colors.ts `NOTE_FILL` 근거 공유).
+ *  검정 배경에서는 전면 검정 사각형이 이미 깔려 있어 띠를 따로 칠하지 않는다(buildStaticSvg). */
 export const CAPTION_BAND_FILL = '#0f1a14';
 
 export interface SceneMetrics {
@@ -220,7 +223,7 @@ export function buildTextPlacements(frame: RenderFrame, opts: StaticSceneOpts): 
   const cap = opts.caption;
   if (cap) {
     const def = courtDefFor(opts.mode, opts.size);
-    const ink = (opts.background ?? 'white') === 'white' ? CAPTION_INK_ON_WHITE : CAPTION_INK_ON_DARK;
+    const ink = CAPTION_INK;
     out.push({
       text: cap.title,
       x: EXPORT_LAYOUT.captionPadXPx,

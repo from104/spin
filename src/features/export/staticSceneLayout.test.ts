@@ -136,12 +136,18 @@ describe('buildTextPlacements — 캡션', () => {
     expect(captionSubText({ title: 'x', stepIndex: 0, stepCount: 3, stepName: 'a' })).toBe('1/3 · a');
   });
 
-  it('배경에 따라 캡션 잉크가 뒤집힌다 (투명 위 검은 글자는 사라진다)', () => {
-    const white = buildTextPlacements(makeFrame(), { ...OPTS, caption: cap, background: 'white' }).slice(-2);
+  // 2026-08-17 기현 지시 *"그림 내보내기 배경 검은색으로. 아래 글씨 흰색으로."* 로 계약이
+  // 바뀌었다. 전에는 배경에 따라 잉크가 뒤집혔는데(흰 배경 먹색 · 어두운 배경 흰색), 이제
+  // **배경 선택지에 밝은 것이 없다** — 그래서 잉크도 한 벌이다.
+  it('캡션 글자는 어느 배경에서든 흰색이다', () => {
+    const black = buildTextPlacements(makeFrame(), { ...OPTS, caption: cap, background: 'black' }).slice(-2);
     const clear = buildTextPlacements(makeFrame(), { ...OPTS, caption: cap, background: 'transparent' }).slice(-2);
-    expect(white[0]!.color).toBe('#111827');
-    expect(clear[0]!.color).toBe('#ffffff');
-    expect(white[0]!.color).not.toBe(clear[0]!.color);
+    const dflt = buildTextPlacements(makeFrame(), { ...OPTS, caption: cap }).slice(-2);
+    for (const [title, sub] of [black, clear, dflt]) {
+      expect(title!.color).toBe('#ffffff');
+      // 부제는 흰색을 낮춘 것이지 다른 색이 아니다 — 검정 바탕에서 읽혀야 한다.
+      expect(sub!.color).toBe('rgba(255,255,255,.72)');
+    }
   });
 });
 

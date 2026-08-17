@@ -488,11 +488,11 @@ function notesMarkup(frame: RenderFrame): string {
   return out;
 }
 
-/** 캡션 띠. 흰 배경일 때는 전면 흰 사각형이 이미 깔려 있으므로 띠를 따로 칠하지 않는다.
+/** 캡션 띠. 검정 배경일 때는 전면 검정 사각형이 이미 깔려 있으므로 띠를 따로 칠하지 않는다.
  *  투명 배경일 때만 먹색 띠를 깔아 흰 글자가 어떤 바탕에서도 읽히게 한다(staticSceneLayout 근거). */
 function captionMarkup(opts: StaticSceneOpts, m: SceneMetrics): string {
   if (!opts.caption || m.captionH === 0) return '';
-  if ((opts.background ?? 'white') === 'white') return '';
+  if ((opts.background ?? 'black') === 'black') return '';
   return `<rect x="0" y="${num(m.vbH)}" width="${num(m.vbW)}" height="${num(m.captionH)}" fill="${CAPTION_BAND_FILL}"/>`;
 }
 
@@ -514,7 +514,7 @@ function usedArrowColors(frame: RenderFrame): string[] {
  *  파일로 따로 열어도, `<img>` 에 물려 캔버스에 그려도 화면과 같은 그림이 나온다. */
 export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): string {
   const m = staticSceneMetrics(opts);
-  const bg = opts.background ?? 'white';
+  const bg = opts.background ?? 'black';
   const markers = arrowMarkersMarkup(usedArrowColors(frame));
 
   return (
@@ -522,7 +522,10 @@ export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): strin
     //   기본 300×150 으로 그려져 PNG 가 뭉개진다.
     `<svg xmlns="http://www.w3.org/2000/svg" width="${m.widthPx}" height="${m.heightPx}" viewBox="0 0 ${num(m.vbW)} ${num(m.totalH)}">` +
     `<defs>${markers}</defs>` +
-    (bg === 'white' ? `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.totalH)}" fill="#ffffff"/>` : '') +
+    // 배경 — 기현 지시 2026-08-17 로 흰색에서 **검정**이 됐다. 코트는 아래에서 둥근 모서리로
+    // 그려지므로 이 사각형이 보이는 곳은 **네 모서리 바깥과 캡션 띠**다. 캡션 글자가 흰색인
+    // 것도 같은 지시다(staticSceneLayout 의 CAPTION_INK).
+    (bg === 'black' ? `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.totalH)}" fill="#000000"/>` : '') +
     `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.vbH)}" rx="${EXPORT_LAYOUT.courtRx}" fill="${COURT_BG}"/>` +
     // §3.5 표준 z-order: 코트면 → 격자 → 진영 → 규칙존·링 → 도형 → 콘 → 화살표 → 휠체어 → 공 → 메모.
     //
