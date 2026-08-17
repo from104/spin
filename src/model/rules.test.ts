@@ -627,6 +627,90 @@ describe('fiveMeterViolation — 세트피스 5 m 제한', () => {
   });
 });
 
+// ── 예외 ①-b 2-on-1 골키퍼 면제의 두 번째 자리 ──────────────────────────────────────────
+// 기현 지시 2026-08-17(3차): *"면제로 붙혀."* 원문 대조 결과는 rules.ts 머리말에 적었다 —
+// Law 11 의 면제 조항은 골 지역뿐이지만, 같은 Law 의 *"경기장을 벗어나 2-on-1 을 회피"* 조항과
+// Law 12 의 *"골키퍼 **외의** 선수가 자기 골라인을 완전히 넘으면 간접 프리킥"* 을 합치면,
+// 골라인 뒤로 완전히 빠진 골키퍼는 실제 경기에서 세어지지 않는다.
+describe('rules — [예외 ①-b] 골라인을 완전히 넘어간 골키퍼는 2-on-1 에서 빠진다', () => {
+  const SURFACE = COURT_DEFS.full.surface;
+  const GOAL_LINE = SURFACE.x; // 왼쪽 골라인 — 풀 코트의 기본 진영(home)이 지킨다
+  const FAR_LINE = SURFACE.x + SURFACE.w; // 반대쪽 골라인(away 가 지킨다)
+  const MID_Y = SURFACE.y + SURFACE.h / 2;
+  const MOUTHS = defendedMouths(goalMouths(COURT_DEFS.full), 'home');
+  const PI = Math.PI;
+  /** 골라인을 등지고(θ=180°) 차체가 **완전히** 밖에 있는 피벗 x.
+   *  ⚠️ `-1` 이 있어야 한다: 뒷변이 골라인에 정확히 닿으면 그 차체는 골 지역(골라인에서
+   *  시작한다)에도 걸쳐 있어 **예외 ①이 먼저 면제해 버린다** — 그러면 이 묶음이 아무것도
+   *  재지 못한다. 1 px 더 뒤로 물러나야 ① 이 꺼지고 ①-b 만 남는다. */
+  const behindPivotX = GOAL_LINE - BACK - 1;
+
+  it('★ 골라인 뒤로 완전히 빠진 골키퍼는 인원에서 빠진다 — 이것이 이번에 추가된 자리다', () => {
+    const ball = { x: GOAL_LINE + 20, y: MID_Y };
+    const gk = actor('home', behindPivotX, MID_Y, true, PI);
+    const mate = actor('home', ball.x + 20, MID_Y);
+    const foe = actor('away', ball.x + 10, MID_Y);
+    // 대조군(= 이 변경 전의 판정): 골대를 넘기지 않으면 그 골키퍼는 그냥 한 명으로 센다.
+    expect(ringViolation(ball, [gk, mate, foe], [GZ_HOME])).toBe(TEAM_BIT.home);
+    // 골대를 넘기면 면제다. **예외 ① 은 여기서 꺼져 있다** — 차체가 골 지역에 닿지 않았다.
+    expect(chairOverlapsRect(gk.x, gk.y, gk.theta, GZ.x, GZ.y, GZ.w, GZ.h)).toBe(false);
+    expect(ringViolation(ball, [gk, mate, foe], [GZ_HOME], MOUTHS)).toBe(0);
+    // 골 지역을 안 넘겨도(빈 배열) 성립한다 — 두 예외는 서로를 필요로 하지 않는다.
+    expect(ringViolation(ball, [gk, mate, foe], [], MOUTHS)).toBe(0);
+  });
+
+  it('같은 자리라도 **필드 플레이어**는 면제가 아니다 (대조군)', () => {
+    const ball = { x: GOAL_LINE + 20, y: MID_Y };
+    const field = actor('home', behindPivotX, MID_Y, false, PI);
+    const mate = actor('home', ball.x + 20, MID_Y);
+    const foe = actor('away', ball.x + 10, MID_Y);
+    expect(ringViolation(ball, [field, mate, foe], [GZ_HOME], MOUTHS)).toBe(TEAM_BIT.home);
+  });
+
+  it('★ 6 m 폭 밖(골대 옆으로 비킨 자리)이면 면제가 아니다 — 5 m 규칙과 같은 반평면이다', () => {
+    const ball = { x: GOAL_LINE + 20, y: MID_Y + GOAL_HALF_PX };
+    const beside = actor('home', behindPivotX, MID_Y + GOAL_HALF_PX, true, PI); // 골포스트 선상
+    const mate = actor('home', ball.x + 20, ball.y);
+    const foe = actor('away', ball.x + 10, ball.y);
+    expect(ringViolation(ball, [beside, mate, foe], [], MOUTHS)).toBe(TEAM_BIT.home);
+    // 대조군: 같은 자세로 폭 안에 들어오면 면제다.
+    const inside = actor('home', behindPivotX, MID_Y, true, PI);
+    expect(ringViolation({ x: ball.x, y: MID_Y }, [inside, actor('home', ball.x + 20, MID_Y), actor('away', ball.x + 10, MID_Y)], [], MOUTHS)).toBe(0);
+  });
+
+  it('★ **자기** 골라인이어야 한다 — 상대 골대 뒤로 밀고 들어간 골키퍼는 면제가 아니다', () => {
+    const ball = { x: FAR_LINE - 20, y: MID_Y };
+    const homeGk = actor('home', FAR_LINE + BACK + 1, MID_Y, true, 0); // 오른쪽 골라인 완전히 밖
+    const mate = actor('home', ball.x - 20, MID_Y);
+    const foe = actor('away', ball.x - 10, MID_Y);
+    expect(ringViolation(ball, [homeGk, mate, foe], [], MOUTHS)).toBe(TEAM_BIT.home);
+    // 대조군: 그 자리는 **원정**이 지키는 골대다 — 원정 골키퍼였다면 면제다.
+    const awayGk = actor('away', FAR_LINE + BACK + 1, MID_Y, true, 0);
+    expect(ringViolation(ball, [awayGk, actor('away', ball.x - 20, MID_Y), actor('home', ball.x - 10, MID_Y)], [], MOUTHS)).toBe(0);
+  });
+
+  it('빠진 골키퍼도 "상대가 있는가"(예외 ②) 에는 그대로 센다', () => {
+    // 원정 골키퍼가 자기 골라인 뒤에 있어도, home 입장에서는 **상대가 3 m 안에 있는 것**이다.
+    const ball = { x: FAR_LINE - 20, y: MID_Y };
+    const awayGk = actor('away', FAR_LINE + BACK + 1, MID_Y, true, 0);
+    const pair = [actor('home', ball.x - 10, MID_Y), actor('home', ball.x + 10, MID_Y)];
+    expect(ringViolation(ball, [...pair, awayGk], [], MOUTHS)).toBe(TEAM_BIT.home);
+    // 대조군: 그 골키퍼를 링 밖으로 빼면 예외 ② 로 꺼진다.
+    expect(ringViolation(ball, [...pair, actor('away', SURFACE.x + 50, MID_Y, true)], [], MOUTHS)).toBe(0);
+  });
+
+  it('★ 실제 판정 경로(ballRingViolation)도 이 면제를 지난다 — 배선 가드', () => {
+    // 예외 ①-b 는 `mouths` 를 타고 들어온다. 화면·PNG 는 둘 다 `ballRingViolation` 만 부르므로,
+    // 이 함수가 `mouths` 를 `ringViolation` 에 넘기지 않으면 **모델은 맞고 판만 틀리게** 된다.
+    const ball = { x: GOAL_LINE + 20, y: MID_Y };
+    const crowd = [actor('home', behindPivotX, MID_Y, true, PI), actor('home', ball.x + 20, MID_Y), actor('away', ball.x + 10, MID_Y)];
+    expect(ballRingViolation('3m', ball, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(0);
+    expect(ballRingViolation('none', ball, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(0);
+    // 대조군: 골대 목록이 비면(플랫 코트) 그 면제는 없다.
+    expect(ballRingViolation('3m', ball, crowd, [GZ_HOME], [], 'home')).toBe(TEAM_BIT.home);
+  });
+});
+
 describe('ruleForRing — 어느 규칙으로 재는가', () => {
   it("5 m 원만 세트피스다. 없음·3 m 는 2-on-1 이다", () => {
     expect(ruleForRing('5m')).toBe('fiveMeter');

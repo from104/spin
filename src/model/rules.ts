@@ -7,7 +7,22 @@
 //
 //   · **2-on-1** (Law 11) — 인플레이 중 공 3 m 안에 같은 팀 2명 **그리고 상대 1명 이상**.
 //     예외 ① 그 인원 중 **골 지역 안의 골키퍼**는 세지 않는다.
+//     예외 ①-b 골키퍼가 **자기 골라인을 완전히 넘어가 포스트 사이(6 m)** 에 있어도 세지 않는다.
 //     예외 ② 3 m 안에 **상대가 없으면** 성립하지 않는다.
+//
+// ── 예외 ①-b 의 근거 (기현님 지시 2026-08-17 · 원문 재확인) ─────────────────────────────
+// Law 11 의 면제 조항은 *"a goalkeeper **in his own goal area**"* 뿐이다 — 골 지역은 골라인
+// 안쪽 8 m × 5 m(Law 1)이므로, 골라인을 완전히 넘어간 골키퍼는 그 조항으로는 면제가 아니다.
+// 그런데 원문에는 **다른 문단**이 있다:
+//   · *"If a player leaves the field of play to avoid a 2 on 1 violation, play should continue
+//      as long as, in the opinion of the referee: …"* (Law 11)
+//   · *"An indirect free kick is awarded … if a player **other than the goalkeeper** wholly
+//      crosses their own goal line, between the goal posts, during play"* (Law 12)
+// 즉 그 자리에 **합법적으로 있을 수 있는 유일한 선수가 골키퍼**이고, 경기장을 벗어난 회피는
+// 심판 재량으로 허용된다. 그래서 실제 경기에서 골라인 뒤로 완전히 빠진 골키퍼는 3 m 안의
+// 두 명 중 하나로 세어지지 않는다. 판이 그 배치를 붉게 물들이면 **없는 반칙을 가르치는 것**이라
+// (이 파일 머리말의 금지 사항), 예외로 넣는다. 조문의 면제가 아니라 회피 조항이므로 판정은
+// 여전히 '주의' 다 — 상습적 회피·복귀 조건은 정지한 그림이 알 수 없다.
 //   · **골 지역 3인** (Law 11) — 골 지역 안에 같은 팀 3명 이상(골키퍼 포함).
 //
 // ── ✅ 2026-08-15 — 아래 "넓게 판정한다" 두 건이 **해소됐다** ──────────────────────────────
@@ -167,15 +182,40 @@ function chairInOwnGoalArea(zones: readonly DefendedZone[], a: RuleActor): boole
   return false;
 }
 
+/** 차체가 **자기 팀이 지키는** 골대 뒤로 완전히 나가 있는가(골라인 밖 반평면 ∩ 6 m).
+ *  예외 ①-b(2-on-1) 와 예외 ④(세트피스 5 m) 가 **같이** 쓴다 — 두 규칙에서 골키퍼가
+ *  물러나 있는 자리는 같은 곳이다.
+ *
+ *  ⚠️ **`chairInOwnGoalArea` 와 판정이 정반대다.** 저쪽은 *걸치면* 안이고(2026-08-13 지시),
+ *  이쪽은 *완전히 나가야* 뒤다(2026-08-17 지시: *"골대 뒤는 완전히 나가야 면제"*).
+ *  한 함수로 뭉치면 둘 중 하나가 조용히 상대 쪽 규약으로 끌려간다. */
+function chairBehindOwnGoalLine(mouths: readonly DefendedMouth[], a: RuleActor): boolean {
+  for (const m of mouths) {
+    if (m.defender !== a.team) continue;
+    if (chairInsideBounds(a.x, a.y, a.theta, m.mouth.minX, m.mouth.maxX, m.mouth.minY, m.mouth.maxY)) return true;
+  }
+  return false;
+}
+
 /** 공 하나에 대한 2-on-1 판정. 반환은 **위반한 팀의 비트합**(0 = 깨끗함).
  *
- *  `goalAreas` 는 예외 ①(골 지역 안의 골키퍼는 세지 않는다) 에만 쓴다 — 빈 배열을 넘기면
- *  예외 ①이 꺼진 판정이 된다(플랫 코트에는 골 지역이 없다).
+ *  `goalAreas` 는 예외 ①(골 지역 안의 골키퍼는 세지 않는다) 에만, `mouths` 는 예외 ①-b
+ *  (골라인을 완전히 넘어간 골키퍼) 에만 쓴다 — 빈 배열을 넘기면 그 예외가 꺼진 판정이 된다
+ *  (플랫 코트에는 골 지역도 골대도 없다).
+ *
+ *  ⚠️ `mouths` 가 **선택 인자**인 이유: 실제 판정은 전부 `ballRingViolation` 한 곳을 지나고
+ *  그쪽은 언제나 둘 다 넘긴다. 직접 부르는 곳은 테스트뿐이라, 예외 ①-b 를 재지 않는 옛
+ *  케이스들이 인자 하나 때문에 뜻이 흐려지지 않도록 기본값을 뒀다.
  *
  *  ⚠️ **"3 m 안" 은 피벗이 아니라 차체 사각형이 3 m 원에 걸치는가**다(2026-08-13 기현님 지시:
  *  *"정확하게 휠체어 경계선(사각형)이다. 에누리 없다"*). 점으로 되돌리면 공을 마주 본 휠체어가
  *  앞범퍼로 선을 밟고 있어도 **최대 1.2 m 를 놓친다**(= `CHAIR.pivotToFrontPx` 30 px). */
-export function ringViolation(ball: Vec2, actors: readonly RuleActor[], goalAreas: readonly DefendedZone[]): number {
+export function ringViolation(
+  ball: Vec2,
+  actors: readonly RuleActor[],
+  goalAreas: readonly DefendedZone[],
+  mouths: readonly DefendedMouth[] = [],
+): number {
   // raw = 상대가 있는가(예외 ②) · counted = 반칙을 이루는 인원(예외 ① 적용 후)
   let rawHome = 0;
   let rawAway = 0;
@@ -183,7 +223,9 @@ export function ringViolation(ball: Vec2, actors: readonly RuleActor[], goalArea
   let countedAway = 0;
   for (const a of actors) {
     if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_R_PX)) continue;
-    const exempt = a.isGk && chairInOwnGoalArea(goalAreas, a);
+    // 골키퍼 면제는 **자리가 둘**이다 — 자기 골 지역 안(예외 ①) 이거나 자기 골라인 완전히
+    // 뒤(예외 ①-b). 둘의 문턱이 서로 반대라(걸치면 / 완전히) 함수도 갈라 둔다.
+    const exempt = a.isGk && (chairInOwnGoalArea(goalAreas, a) || chairBehindOwnGoalLine(mouths, a));
     if (a.team === 'home') {
       rawHome++;
       if (!exempt) countedHome++;
@@ -255,29 +297,18 @@ export function ruleForRing(ring: BallRing): 'twoOnOne' | 'fiveMeter' {
   return ring === '5m' ? 'fiveMeter' : 'twoOnOne';
 }
 
-/** 차체가 **자기 팀이 지키는** 골대 뒤로 완전히 나가 있는가. 예외 ④ 가 이걸 쓴다.
- *
- *  ⚠️ **`chairInOwnGoalArea` 와 판정이 정반대다.** 저쪽은 *걸치면* 안이고(2026-08-13 지시),
- *  이쪽은 *완전히 나가야* 뒤다(2026-08-17 지시: *"골대 뒤는 완전히 나가야 면제"*).
- *  한 함수로 뭉치면 둘 중 하나가 조용히 상대 쪽 규약으로 끌려간다. */
-function chairBehindOwnGoalLine(mouths: readonly DefendedMouth[], a: RuleActor): boolean {
-  for (const m of mouths) {
-    if (m.defender !== a.team) continue;
-    if (chairInsideBounds(a.x, a.y, a.theta, m.mouth.minX, m.mouth.maxX, m.mouth.minY, m.mouth.maxY)) return true;
-  }
-  return false;
-}
-
 /** 세트피스 5 m 제한. 반환은 **위반한 팀의 비트**(0 = 깨끗함) — 걸리는 것은 수비뿐이다.
  *
  *  `defense` 가 null 이면 판정하지 않는다(플랫 코트 — 골대도 진영도 없어 약속 ③ 이 뜻을
  *  잃는다). `mouths` 는 예외 ④ 에만 쓴다: **골라인 바깥 반평면 ∩ 6 m**이지 골 지역이 아니다
  *  (`model/court.ts` 의 `goalMouths`).
  *
- *  ⚠️ 면제 문턱이 2-on-1 의 골키퍼 면제와 **다르다**. 저기는 골 지역에 *걸치기만 해도* 면제고
- *  (2026-08-13), 여기는 골라인을 *완전히 넘어가야* 면제다(2026-08-17). 같은 '골키퍼 면제' 라는
- *  이름에 끌려 문턱을 맞추지 마라 — 재개 상황의 골키퍼는 골문 안으로 물러나 있어야 한다는
- *  뜻이고, 골 지역에 나와 서 있으면 그도 5 m 밖으로 빠져야 한다. */
+ *  ⚠️ **면제받는 자리가 2-on-1 보다 좁다.** 2-on-1 은 자리가 둘이다 — 골 지역에 *걸치기만*
+ *  해도(예외 ①) 또는 골라인을 *완전히 넘어가도*(예외 ①-b) 면제다. 여기는 **뒤쪽 하나뿐**이다:
+ *  재개 상황의 골키퍼는 골문 안으로 물러나 있어야 한다는 뜻이라, 골 지역에 나와 서 있으면
+ *  그도 5 m 밖으로 빠져야 한다(원문도 조항이 갈라져 있다 — 5 m 쪽은 *"unless goalkeepers are
+ *  behind their own goal line between the goal posts"*, 2-on-1 쪽은 *"in his own goal area"*).
+ *  같은 '골키퍼 면제' 라는 이름에 끌려 두 자리를 맞추지 마라. */
 export function fiveMeterViolation(
   ball: Vec2,
   actors: readonly RuleActor[],
@@ -304,7 +335,9 @@ export function ballRingViolation(
   mouths: readonly DefendedMouth[],
   defense: TeamSide | null,
 ): number {
-  return ruleForRing(ring) === 'fiveMeter' ? fiveMeterViolation(ball, actors, defense, mouths) : ringViolation(ball, actors, goalAreas);
+  return ruleForRing(ring) === 'fiveMeter'
+    ? fiveMeterViolation(ball, actors, defense, mouths)
+    : ringViolation(ball, actors, goalAreas, mouths); // `mouths` = 예외 ①-b(골라인 뒤 골키퍼)
 }
 
 /** 비트합 → 팀 목록. **문구를 만들 때만** 부른다(위반 상태가 바뀐 순간뿐이라 배열을 만들어도 된다). */
