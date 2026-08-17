@@ -40,6 +40,8 @@ export interface BallDef {
   ring?: StoredBallRing;
 }
 export const ballRingOf = (b: BallDef): BallRing => b.ring ?? 'none';
+/** ⚠️ 이 값은 **표시가 아니라 규칙 선택**이다(2026-08-17). '5m' 은 *"이 공은 세트피스"* 라는
+ *  약속이라, 그 공은 2-on-1 대신 **5 m 제한**으로 판정된다 — `model/rules.ts` 의 `ruleForRing`. */
 /** 재탭 순환: 없음 → 3 m → 5 m → 없음. 4번째 탭에서 선택도 함께 풀리는 것은 **여기가 아니라**
  *  uiReducer 가 한다(`ring === '5m'` 일 때) — 순수 함수는 선택을 모른다. */
 export const nextBallRing = (r: BallRing): BallRing => (r === 'none' ? '3m' : r === '3m' ? '5m' : 'none');

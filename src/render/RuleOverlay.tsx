@@ -18,7 +18,7 @@
 // 규율은 하나도 바뀌지 않았다. 바뀐 것은 **몇 개를 그리는가** 뿐이다. 그리고 **판정은 표시와
 // 무관하다**: 원이 '없음' 인 공도 링 그룹은 등록되어 2-on-1 판정과 발화를 그대로 탄다.
 import { useEffect, useMemo, useRef } from 'react';
-import { courtDefFor, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
+import { courtDefFor, goalMouths, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
 import { defaultDefense, defendedZones, ringRadiusPx } from '../model/rules.ts';
 import type { TransformWriter } from './transformWriter.ts';
@@ -71,10 +71,12 @@ function RuleRing({ id, ring, writer, rules }: RingProps) {
     return () => writer.registerFollower(id, null);
   }, [writer, id]);
 
+  // ⚠️ deps 에 `ring` 이 있어야 한다 — **판정 규칙이 원에서 갈리기 때문**이다(model/rules.ts 의
+  //    `ruleForRing`). 빼면 3 m 로 등록된 공을 5 m 로 바꿔도 판정이 2-on-1 에 머문다.
   useEffect(() => {
-    rules.registerRing(id, stateRef.current);
+    rules.registerRing(id, stateRef.current, ring);
     return () => rules.registerRing(id, null);
-  }, [rules, id]);
+  }, [rules, id, ring]);
 
   const r = ringRadiusPx(ring);
   return (
@@ -143,15 +145,28 @@ export interface RuleOverlayProps {
 }
 
 export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballRings, roster, teams, defense }: RuleOverlayProps) {
-  const zones = courtDefFor(mode, size).ruleZones;
+  const def = courtDefFor(mode, size);
+  const zones = def.ruleZones;
   // ⚠️ `useMemo` 다. `defendedZones` 는 매번 새 배열을 만드는데, 그것이 아래 이펙트의 deps 에
   //    들어가므로 그대로 두면 **렌더마다 setContext 가 다시 돈다**(판정 상태가 매번 초기화된다).
   const side = defense ?? defaultDefense(mode);
   const goalAreas = useMemo(() => defendedZones(zones, side), [zones, side]);
+  // 세트피스 5 m 제한(2026-08-17). 골대 **뒤** 사각형은 골 지역과 다른 자리라 따로 만든다 —
+  // 골 지역을 넘기면 골 지역에 나와 선 골키퍼까지 면제된다(model/court.ts 의 goalMouths).
+  const mouths = useMemo(() => defendedZones(goalMouths(def), side), [def, side]);
+  // 플랫 코트는 골대도 진영도 없어 "누가 수비인가" 라는 약속이 성립하지 않는다 → 규칙 끔.
+  const fiveMeterDefense = def.goalPosts.length === 0 ? null : side;
 
   useEffect(() => {
-    rules.setContext({ enabled: visible, roster, goalAreas, teamLabels: { home: teams.home.label, away: teams.away.label } });
-  }, [rules, visible, roster, goalAreas, teams]);
+    rules.setContext({
+      enabled: visible,
+      roster,
+      goalAreas,
+      goalMouths: mouths,
+      fiveMeterDefense,
+      teamLabels: { home: teams.home.label, away: teams.away.label },
+    });
+  }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, teams]);
 
   const ringOf = (id: string): BallRing => ballRings?.[id] ?? 'none';
   // §7 5.2 — **스위치가 꺼져 있어도 사용자가 켠 원은 남는다**(2026-08-13 판단, 기현님 실기 ③).

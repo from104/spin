@@ -58,11 +58,14 @@ import type { BallRing, TeamSide } from './drill.ts';
  *  없어 5.3 이 지웠고(§9 결정 ⑧), 3 m 감각은 **공을 따라다니는 이 링**이 대신한다. */
 export const RING_R_PX = mToPx(3);
 
-/** 5 m — **표시 전용**이다(2026-08-13, 기현님 실기 피드백 ③). 세트피스에서 상대가 떨어져
- *  있어야 하는 거리이고, 3 m(2-on-1 + 세트볼)와 함께 파워싸커에 실재하는 두 번째 거리다.
+/** 5 m — 세트피스에서 수비가 떨어져 있어야 하는 거리이고, 3 m(2-on-1 + 세트볼)와 함께
+ *  파워싸커에 실재하는 두 번째 거리다(2026-08-13, 기현님 실기 피드백 ③).
  *
- *  ⚠️ **판정에는 절대 쓰지 않는다.** 아래 `ringViolation` 은 언제나 `RING_R_PX`(3 m)로만 잰다 —
- *  화면에 5 m 원을 켜 놨다고 2-on-1 판정 반경이 5 m 가 되면 규칙을 잘못 가르치게 된다.
+ *  ⚠️ 2026-08-13~08-17 사이 이 값은 **표시 전용**이었고 여기 *"판정에는 절대 쓰지 않는다"* 고
+ *  적혀 있었다. 2026-08-17 기현 지시로 이 원에 **자기 판정**이 생겼다(아래 `fiveMeterViolation`).
+ *  옛 경고가 실제로 금지한 것은 그대로 살아 있다: **`ringViolation`(2-on-1)은 언제나
+ *  `RING_R_PX`(3 m)로만 잰다.** 화면에 5 m 원을 켜 놨다고 2-on-1 판정 반경이 5 m 가 되면
+ *  규칙을 잘못 가르치게 된다 — 그것과 "5 m 에는 5 m 짜리 규칙이 따로 있다" 는 다른 이야기다.
  *  (2026-08-13 에 `RING_R2` 상수가 사라졌다 — 거리²를 직접 비교하던 자리를 차체 사각형
  *  판정 `chairOverlapsCircle(…, RING_R_PX)` 이 대신한다. 반지름은 여전히 이 파일이 소유한다.)
  *  ⚠️ **이 원 하나로 모든 세트피스를 덮지 않는다.** 5 m 의 기준점이 상황마다 다르기 때문이다:
@@ -203,6 +206,80 @@ export function zoneViolation(zone: DefendedZone, actors: readonly RuleActor[]):
     count++;
   }
   return count > GOAL_AREA_MAX ? TEAM_BIT[zone.defender] : 0;
+}
+
+/* ── 세트피스 5 m 제한 (기현 지시 2026-08-17) ────────────────────────────────────────────
+ *
+ * 규정: 골킥·킥인·킥오프·직접/간접 프리킥·코너킥·페널티킥에서 **수비 측은 공에서 5 m 밖**에
+ * 있어야 한다. 문제는 판이 경기 상황을 모른다는 것이다 — 정지한 그림에 "지금은 코너킥" 이라는
+ * 정보가 없다. 그래서 기현님이 **약속**을 정하셨다:
+ *
+ *   ① 공에 **5 m 원이 켜져 있으면** 그 공은 세트피스 상황이다.
+ *   ② 그때 **수비 측**이 원에 조금이라도 걸치면 경고한다(2-on-1 과 같은 붉은 링).
+ *   ③ 누가 수비인가 — **풀 코트는 왼쪽 진영, 하프 코트는 깃발 색 진영.**
+ *   ④ 수비 골키퍼는 **자기 골대 사이 골라인 뒤**에 있으면 면제.
+ *
+ * ★ ③ 의 두 문장은 코드에서 **한 값**이다: `Drill.defense` 는 `ruleZones[0]` 을 지키는 팀이고,
+ *   풀 코트의 `ruleZones[0]` 이 왼쪽이며(court.ts), 하프 코트는 존이 하나라 그것이 곧 깃발이
+ *   그려지는 진영이다(render/sideFlags.ts). 모드로 분기할 자리가 없다.
+ *
+ * ⚠️ 이 판정은 위쪽 `RING_5M_R_PX` 의 *"판정에는 절대 쓰지 않는다"* 를 **뒤집는 것이 아니다.**
+ *    그 경고가 금지한 것은 "5 m 원을 켜 놨으니 **2-on-1** 을 5 m 로 재는 것" 이다. 2-on-1 은
+ *    지금도 언제나 3 m 다 — 여기 있는 것은 **다른 규칙**이고, 그래서 반경도 문구도 따로다. */
+
+/** 이 원이 켜진 공은 어느 규칙으로 재는가.
+ *
+ *  ⚠️ **5 m 원인 공에는 2-on-1 을 걸지 않는다.** 5 m 원은 위 약속상 *"지금은 세트피스"* 라는
+ *  뜻인데, 세트피스는 공이 아직 인플레이가 아니라 2-on-1(Law 11, *인플레이 중*)이 성립하지
+ *  않는다. 둘 다 걸면 재개 장면에서 *"2-on-1 주의"* 라고 말하게 되고, 그것은 이 파일 머리말이
+ *  금지한 **없는 반칙을 가르치는 일**이다.
+ *
+ *  결정을 함수 하나에 둔 이유: 판정 소비자가 둘(화면 `render/ruleOverlay.ts` · PNG
+ *  `features/export/buildStaticSvg.ts`)이라, 각자 `ring === '5m'` 을 적으면 한쪽만 고친 날
+ *  **그림에서만 다른 규칙**이 돈다. */
+export function ruleForRing(ring: BallRing): 'twoOnOne' | 'fiveMeter' {
+  return ring === '5m' ? 'fiveMeter' : 'twoOnOne';
+}
+
+/** 세트피스 5 m 제한. 반환은 **위반한 팀의 비트**(0 = 깨끗함) — 걸리는 것은 수비뿐이다.
+ *
+ *  `defense` 가 null 이면 판정하지 않는다(플랫 코트 — 골대도 진영도 없어 약속 ③ 이 뜻을
+ *  잃는다). `goalMouths` 는 예외 ④ 에만 쓴다: **골대 뒤 사각형**이지 골 지역이 아니다
+ *  (`model/court.ts` 의 `goalMouths`).
+ *
+ *  ⚠️ 면제는 2-on-1 의 골키퍼 면제와 **같은 판정**이다 — 차체가 조금이라도 걸치면 면제
+ *  (기현 지시 2026-08-13: *"조금만 걸쳐있어도 면제"*). 골대 뒤 사각형은 깊이가 마진과 같은
+ *  1.5 m 뿐이라 "완전히 안" 을 요구하면 차체(1.5 × 1.0 m)가 자로 잰 듯 들어가야 하고, 골문에
+ *  선 골키퍼는 사실상 언제나 걸린다. */
+export function fiveMeterViolation(
+  ball: Vec2,
+  actors: readonly RuleActor[],
+  defense: TeamSide | null,
+  goalMouths: readonly DefendedZone[],
+): number {
+  if (defense === null) return 0;
+  for (const a of actors) {
+    if (a.team !== defense) continue; // 공격(= 공을 차는 쪽)은 제한 없다
+    if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_5M_R_PX)) continue;
+    if (a.isGk && chairInOwnGoalArea(goalMouths, a)) continue; // 예외 ④
+    return TEAM_BIT[defense];
+  }
+  return 0;
+}
+
+/** 공 하나의 링 판정 — **어느 규칙인지는 원이 정한다**(`ruleForRing`). 소비자 둘이 이 함수
+ *  하나를 지나므로 화면과 PNG 가 갈라질 자리가 없다. 반환은 위반한 팀의 비트합이다. */
+export function ballRingViolation(
+  ring: BallRing,
+  ball: Vec2,
+  actors: readonly RuleActor[],
+  goalAreas: readonly DefendedZone[],
+  goalMouths: readonly DefendedZone[],
+  defense: TeamSide | null,
+): number {
+  return ruleForRing(ring) === 'fiveMeter'
+    ? fiveMeterViolation(ball, actors, defense, goalMouths)
+    : ringViolation(ball, actors, goalAreas);
 }
 
 /** 비트합 → 팀 목록. **문구를 만들 때만** 부른다(위반 상태가 바뀐 순간뿐이라 배열을 만들어도 된다). */

@@ -10,8 +10,17 @@
 // 그래서 편집기는 usePhysicsRenderLoop(= world.read() 한 번), 시연은 applyFrame(= sampleDrill
 // 한 번)에서 같은 프레임을 이쪽으로도 흘려보낸다 — 두 번 읽지 않는다(자세와 판정이 한 프레임
 // 어긋나면 "링은 붉은데 아무도 안 들어와 있다" 가 된다).
-import { GOAL_AREA_MAX, RING_SAME_TEAM_MAX, ringViolation, teamsOfBits, zoneViolation, type DefendedZone, type RuleActor } from '../model/rules.ts';
-import type { TeamSide } from '../model/drill.ts';
+import {
+  ballRingViolation,
+  GOAL_AREA_MAX,
+  RING_SAME_TEAM_MAX,
+  ruleForRing,
+  teamsOfBits,
+  zoneViolation,
+  type DefendedZone,
+  type RuleActor,
+} from '../model/rules.ts';
+import type { BallRing, TeamSide } from '../model/drill.ts';
 import { liveRegion } from '../ui/LiveRegion.tsx';
 
 /** 깨끗할 때의 선 색. 코트(#1f7a46) 위 5.34:1 — 코트 라인과 같은 값이다. */
@@ -67,13 +76,23 @@ export interface RuleOverlayContext {
   /** 골 지역 + **그 존을 지키는 팀**(2026-08-15 진영). 사각형만 넘기던 옛 계약으로는 골 지역
    *  3인을 수비 팀에만 걸 수가 없었다 — `defendedZones(def.ruleZones, drill.defense)` 로 만든다. */
   goalAreas: readonly DefendedZone[];
+  /** 골대 **뒤** 사각형 + 그 골대를 지키는 팀(`model/court.ts` 의 `goalMouths`). 세트피스
+   *  5 m 제한의 골키퍼 면제에만 쓴다 — 골 지역(`goalAreas`)과 **다른 사각형**이다. */
+  goalMouths: readonly DefendedZone[];
+  /** 세트피스 5 m 제한을 받는 팀 = 수비 진영(`Drill.defense`). **플랫 코트는 null** —
+   *  골대도 진영도 없어 "누가 수비인가" 라는 약속 자체가 성립하지 않는다(model/rules.ts). */
+  fiveMeterDefense: TeamSide | null;
   teamLabels: Record<TeamSide, string>;
 }
 
 export interface RuleOverlayApi {
   setContext(ctx: RuleOverlayContext): void;
-  /** 공 하나의 링 그룹. `stroke`·`stroke-dasharray`·`opacity` 를 이 writer 가 쓴다. */
-  registerRing(ballId: string, el: SVGGElement | null): void;
+  /** 공 하나의 링 그룹. `stroke`·`stroke-dasharray`·`opacity` 를 이 writer 가 쓴다.
+   *
+   *  `ring` 은 그 공의 원(없음/3 m/5 m)이다 — **판정 규칙이 여기서 갈린다**(`ruleForRing`).
+   *  원을 바꾸면 등록도 다시 해야 한다(RuleOverlay.tsx 의 이펙트 deps 에 `ring` 이 있는 이유).
+   *  생략하면 'none' = 2-on-1 로 잰다: 원이 없는 공도 판정은 그대로 탄다는 옛 계약이다. */
+  registerRing(ballId: string, el: SVGGElement | null, ring?: BallRing): void;
   /** 골 지역 위반 표시 그룹(존 index 별). 깨끗하면 opacity 0 으로 숨는다. */
   registerZone(index: number, el: SVGGElement | null): void;
   /** 한 프레임. 키는 개체 id, 값은 그 프레임의 실제 좌표다.
@@ -98,6 +117,8 @@ const DEFAULT_CONTEXT: RuleOverlayContext = {
   enabled: false,
   roster: [],
   goalAreas: [],
+  goalMouths: [],
+  fiveMeterDefense: null,
   teamLabels: { home: '홈', away: '원정' },
 };
 
@@ -110,6 +131,9 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
 
   let ctx = DEFAULT_CONTEXT;
   const rings = new Map<string, SVGGElement>();
+  /** 공 id → 그 공의 원. 판정 규칙이 여기서 갈린다(`ruleForRing`). 노드와 같은 생명주기라
+   *  `registerRing` 이 함께 넣고 함께 지운다 — 따로 두면 지운 공의 원이 남는다. */
+  const ringKind = new Map<string, BallRing>();
   const zones = new Map<number, SVGGElement>();
   const ringState = new Map<string, number>();
   const zoneState = new Map<number, number>();
@@ -182,10 +206,12 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       .join('·');
   }
 
-  function message(ringBits: number, zoneBits: number): string {
+  function message(ringBits: number, zoneBits: number, fiveBits: number): string {
     const parts: string[] = [];
     // 문구가 문턱 상수에서 파생된다 — 규칙 수치를 고치면 발화도 따라온다.
     if (ringBits) parts.push(`공 3 m 안에 ${names(ringBits)} ${RING_SAME_TEAM_MAX + 1}명 이상 — 2-on-1 주의`);
+    // 5 m 는 인원수 문턱이 없다 — **한 대라도** 들어가면 걸린다(수비만). 그래서 문구도 다르다.
+    if (fiveBits) parts.push(`공 5 m 안에 ${names(fiveBits)} — 세트피스 5 m 제한`);
     if (zoneBits) parts.push(`골 지역에 ${names(zoneBits)} ${GOAL_AREA_MAX + 1}명 이상 — 3인 반칙`);
     return parts.join(' · ');
   }
@@ -196,8 +222,8 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
    *  - 조합이 바뀌면(링만 → 링+존) 곧바로 다시 말한다.
    *  - 해소는 말하지 않는다 — 코치가 알아야 하는 것은 "지금 반칙이다" 이고, 해소까지 읽으면
    *    드래그 한 번에 두 번 말하게 된다(2.11 [D-7] 이 잠근 이중 통보와 같은 문제다). */
-  function announce(ringBits: number, zoneBits: number): void {
-    const key = ringBits | (zoneBits << 2);
+  function announce(ringBits: number, zoneBits: number, fiveBits: number): void {
+    const key = ringBits | (zoneBits << 2) | (fiveBits << 4);
     if (key === 0) {
       if (spokenKey === 0) return;
       const t = now();
@@ -211,7 +237,7 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     cleanSinceMs = null;
     if (key === spokenKey) return;
     spokenKey = key;
-    say(message(ringBits, zoneBits));
+    say(message(ringBits, zoneBits, fiveBits));
   }
 
   function resetAnnounce(): void {
@@ -222,12 +248,16 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
   function judge(poses: Readonly<Record<string, { x: number; y: number }>>): void {
     fillActors(poses);
     let ringBits = 0;
+    let fiveBits = 0;
     for (const [id, el] of rings) {
       const p = poses[id];
-      const bits = p ? ringViolation(p, live, ctx.goalAreas) : 0;
+      const ring = ringKind.get(id) ?? 'none';
+      const bits = p ? ballRingViolation(ring, p, live, ctx.goalAreas, ctx.goalMouths, ctx.fiveMeterDefense) : 0;
       // 이 프레임에 좌표가 없는 공은 판에 없는 공이다(시연의 퇴장 페이드·다른 스텝) — 숨긴다.
       writeRing(id, el, (p ? VISIBLE : 0) | (bits ? VIOLATED : 0));
-      ringBits |= bits;
+      // 링 그림은 어느 규칙이든 같지만 **발화 문구는 다르다** — 그래서 여기서 갈라 담는다.
+      if (ruleForRing(ring) === 'fiveMeter') fiveBits |= bits;
+      else ringBits |= bits;
     }
     let zoneBits = 0;
     for (const [index, el] of zones) {
@@ -237,7 +267,7 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       writeZone(index, el, bits ? VISIBLE | VIOLATED : 0);
       zoneBits |= bits;
     }
-    announce(ringBits, zoneBits);
+    announce(ringBits, zoneBits, fiveBits);
   }
 
   return {
@@ -259,13 +289,15 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       // 문맥이 늦게 왔거나(마운트) 스위치를 지금 켰다 — 마지막 프레임으로 곧바로 판정한다.
       if (lastPoses) judge(lastPoses);
     },
-    registerRing(ballId, el) {
+    registerRing(ballId, el, ring = 'none') {
       if (!el) {
         rings.delete(ballId);
         ringState.delete(ballId);
+        ringKind.delete(ballId);
         return;
       }
       rings.set(ballId, el);
+      ringKind.set(ballId, ring);
       // 새 노드는 마지막 상태를 곧바로 받는다(다른 writer 들과 같은 규율) — 안 하면
       // 재마운트 직후 한 프레임 동안 기본 모양으로 깜빡인다.
       //

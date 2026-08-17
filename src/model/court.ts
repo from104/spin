@@ -382,3 +382,38 @@ export function clampToViewBox(mode: CourtMode, p: Vec2, size?: CourtSize): Vec2
     y: Math.min(Math.max(p.y, 0), vbH),
   };
 }
+
+/** 골대 **뒤** — 골포스트 사이, 골라인 바깥의 사각형. 골라인부터 viewBox 끝(= 마진 1.5 m)까지다.
+ *
+ *  왜 필요한가(2026-08-17): 세트피스 5 m 제한의 골키퍼 면제가 *"수비측 골대 사이 골라인 뒤"*
+ *  라는 자리로 정의된다(기현 지시). 골 지역(`ruleZones`)은 폭 8 m · 깊이 5 m 로 **경기면 안**
+ *  이라 이 자리와 전혀 다르다 — 그걸 대신 쓰면 골 지역에 나와 선 골키퍼까지 면제된다.
+ *
+ *  좌표를 여기서 유도하는 이유는 `goalEncroachMarks` 와 같다: 골대가 움직이면 이 사각형도
+ *  함께 움직여야 하고, 그러려면 **골포스트 배열 하나**에서 나와야 한다. 모드 이름으로 분기하지
+ *  않는 이유도 같다 — 골라인이 세로냐 가로냐는 두 포스트의 좌표가 이미 말해 준다
+ *  (`render/sideFlags.ts` 의 `markPlacement` 가 존을 두고 같은 판단을 한다).
+ *
+ *  ⚠️ 배열 순서는 `ruleZones` 와 **같다**(풀: 왼쪽·오른쪽, 하프: 하나). `defendedZones` 가 둘
+ *  다에 같은 규약으로 진영을 입히므로, 순서가 갈리면 면제가 **상대 골대**에서 붙는다.
+ *  플랫 코트는 골대가 없어 빈 배열이다. */
+export function goalMouths(def: CourtDef): Rect[] {
+  const s = def.surface;
+  const cx = s.x + s.w / 2;
+  const cy = s.y + s.h / 2;
+  const out: Rect[] = [];
+  for (let i = 0; i + 1 < def.goalPosts.length; i += 2) {
+    const a = def.goalPosts[i]!;
+    const b = def.goalPosts[i + 1]!;
+    if (a.x === b.x) {
+      // 골라인이 세로다(풀 코트의 좌·우 골대). 바깥은 경기면 중심의 반대쪽.
+      const outward = a.x < cx;
+      out.push({ x: outward ? 0 : a.x, y: Math.min(a.y, b.y), w: outward ? a.x : def.vbW - a.x, h: Math.abs(b.y - a.y) });
+    } else {
+      // 골라인이 가로다(하프 코트의 아래 골대).
+      const outward = a.y < cy;
+      out.push({ x: Math.min(a.x, b.x), y: outward ? 0 : a.y, w: Math.abs(b.x - a.x), h: outward ? a.y : def.vbH - a.y });
+    }
+  }
+  return out;
+}

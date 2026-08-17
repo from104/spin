@@ -193,14 +193,37 @@ describe('RuleOverlay — 판정이 그림에 닿는다', () => {
     expect(say.mock.calls[0]![0]).toContain('2-on-1');
   });
 
-  it('5 m 를 켜 놔도 판정 반경은 3 m 다 — 3~5 m 사이의 선수는 반칙을 만들지 않는다', () => {
-    const { rules, say } = setup({ rings: { bl_1: '5m' } });
+  // ⚠️ 2026-08-17 — 이 자리에는 *'5 m 를 켜 놔도 판정 반경은 3 m 다'* 가 있었다. 기현 지시로
+  // **5 m 원에 자기 규칙이 생겨서**(세트피스 5 m 제한 — model/rules.ts) 계약이 바뀐 것이다.
+  // 옛 단언이 지키던 것은 그대로 산다: **3 m·없음 원은 여전히 2-on-1 을 3 m 로만 잰다.**
+  it('3 m 원은 여전히 3 m 로 잰다 — 3~5 m 사이의 선수는 2-on-1 을 만들지 않는다', () => {
+    const { rules, say } = setup({ rings: { bl_1: '3m' } });
     // 홈 둘 중 하나를 3 m 밖 5 m 안(4 m = 100px)에 둔다 → 링 안 인원은 홈 1명뿐이라 깨끗하다.
     rules.write({ bl_1: { x: 400, y: 260 }, ch_a: { x: 410, y: 260 }, ch_b: { x: 500, y: 260 }, ch_c: { x: 420, y: 260 } });
     expect(say).toHaveBeenCalledTimes(0);
     // 대조군 — 3 m 안으로 들이면 곧바로 걸린다(위 '0회' 가 배선 누락이 아님을 증명한다).
     rules.write(violating);
     expect(say).toHaveBeenCalledTimes(1);
+  });
+
+  it('★ 5 m 원이면 수비 한 대만 들어와도 걸린다 — 같은 프레임이 3 m 원에서는 조용했다', () => {
+    // 위 테스트와 **같은 배치**다. 다른 것은 공의 원뿐이다.
+    const frame = { bl_1: { x: 400, y: 260 }, ch_a: { x: 410, y: 260 }, ch_b: { x: 500, y: 260 }, ch_c: { x: 420, y: 260 } };
+    const { rules, say, container } = setup({ rings: { bl_1: '5m' } });
+    rules.write(frame);
+    expect(say).toHaveBeenCalledTimes(1);
+    const said = say.mock.calls[0]![0] as string;
+    expect(said).toContain('세트피스');
+    expect(said, '세트피스인데 2-on-1 이라고 말했다').not.toContain('2-on-1');
+    // 그림도 따라온다 — 링은 5 m 짜리 하나이고 그것이 붉어진다.
+    const [ring] = ringGroups(container, RING_5M_R_PX);
+    expect(ring!.state.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+  });
+
+  it('플랫 코트에서는 5 m 원이어도 판정하지 않는다 — 골대도 진영도 없다', () => {
+    const { rules, say } = setup({ rings: { bl_1: '5m' }, mode: 'flat' });
+    rules.write({ bl_1: { x: 400, y: 260 }, ch_a: { x: 410, y: 260 } });
+    expect(say).toHaveBeenCalledTimes(0);
   });
 
   it('언마운트하면 존·링 등록이 풀려 죽은 노드를 갱신하지 않는다', () => {

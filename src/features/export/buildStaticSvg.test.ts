@@ -247,6 +247,22 @@ describe('buildStaticSvg — 규칙 오버레이(거리 원 · 골 지역)', () 
     return f;
   };
 
+  /** 5 m 원 + **공 옆에 그 팀 한 대만**. 픽스처는 양 팀이 이미 공 5 m 안에 서 있으므로
+   *  (ch_h4·ch_a4, 공에서 48 px) 전부 멀리 치우고 다시 놓아야 대조가 성립한다. */
+  const fiveWithOne = (team: 'home' | 'away') => {
+    const f = ringFrame('5m');
+    // 공(412.5, 262.5)에서 5 m + 차체보다 멀고, **골 지역 밖**이기도 한 자리로 모은다 —
+    // 안 그러면 3인 반칙이 함께 걸려 붉은색이 어느 규칙에서 왔는지 알 수 없다.
+    for (const c of f.chairs) {
+      c.x = 100;
+      c.y = 440;
+    }
+    const target = f.chairs.find((c) => c.def.team === team)!;
+    target.x = 412.5 - RING_5M_R_PX + 20;
+    target.y = 262.5;
+    return f;
+  };
+
   it('showRuleZones 가 꺼져 있으면 링도 존도 없다', () => {
     const svg = buildStaticSvg(makeFrame(), OPTS);
     expect(svg.includes('stroke-dasharray="8 6"')).toBe(false);
@@ -286,7 +302,7 @@ describe('buildStaticSvg — 규칙 오버레이(거리 원 · 골 지역)', () 
     expect(buildStaticSvg(ringFrame('3m'), ringOpts).includes(RULE_ALERT_STROKE)).toBe(false);
   });
 
-  it('5 m 를 켠 공은 PNG 에도 5 m 로 나간다 — 판정 반경(3 m)과 다른 값이다', () => {
+  it('5 m 를 켠 공은 PNG 에도 5 m 로 나간다 — 3 m 를 여기 다시 박으면 그림만 작아진다', () => {
     const doc = parse(buildStaticSvg(ringFrame('5m'), ringOpts));
     const rr = (r: number) => [...doc.querySelectorAll('circle')].filter((c) => c.getAttribute('r') === String(r));
     expect(rr(RING_5M_R_PX)).toHaveLength(2); // 케이싱 + 표시선
@@ -307,6 +323,24 @@ describe('buildStaticSvg — 규칙 오버레이(거리 원 · 골 지역)', () 
     expect(doc.documentElement.outerHTML.includes(RULE_ALERT_STROKE)).toBe(false);
     // 대조군 — 스위치를 켜면 같은 장면이 붉어진다.
     expect(buildStaticSvg(f, ringOpts).includes(RULE_ALERT_STROKE)).toBe(true);
+  });
+
+  // ── 세트피스 5 m 제한 (기현 지시 2026-08-17) ───────────────────────────────────────────
+  // 규칙 자체는 model/rules.test.ts 가 본다. 여기서 재는 것은 **PNG 가 화면과 같은 규칙을
+  // 지나는가** 다 — 옛 코드는 원과 무관하게 언제나 2-on-1(3 m)로 쟀다.
+  it('★ 5 m 원인 공은 수비 한 대만 들어와도 붉어진다 — 2-on-1 이라면 조용할 배치다', () => {
+    const f = fiveWithOne('home');
+    expect(buildStaticSvg(f, ringOpts).includes(RULE_ALERT_STROKE)).toBe(true);
+    // ★ 대조군 — **같은 배치인데 원만 3 m 로 바꾸면 조용하다.** 규칙을 고르는 것은 원이다.
+    const three = { ...f, balls: f.balls.map((b) => ({ ...b, ring: '3m' as const })) };
+    expect(buildStaticSvg(three, ringOpts).includes(RULE_ALERT_STROKE)).toBe(false);
+  });
+
+  it('진영을 뒤집으면 PNG 에서도 걸리는 쪽이 뒤집힌다', () => {
+    const f = fiveWithOne('home'); // 공 옆에 있는 것은 홈 한 대뿐이다
+    expect(buildStaticSvg(f, { ...ringOpts, defense: 'home' }).includes(RULE_ALERT_STROKE)).toBe(true);
+    // 원정이 수비가 되면 공 옆의 홈은 **공격**이라 제한이 없다.
+    expect(buildStaticSvg(f, { ...ringOpts, defense: 'away' }).includes(RULE_ALERT_STROKE)).toBe(false);
   });
 
   it('골 지역 3인 장면이면 존이 붉게 덮인다', () => {

@@ -37,12 +37,12 @@
 import { DEG } from '../../core/angle.ts';
 import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR, CONE } from '../../core/constants.ts';
-import { courtDefFor, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
+import { courtDefFor, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
 import type { Shape } from '../../model/shape.ts';
-import { defaultDefense, defendedZones, ringRadiusPx, ringViolation, zoneViolation, type RuleActor } from '../../model/rules.ts';
+import { ballRingViolation, defaultDefense, defendedZones, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
 import { COURT_LINE_WEIGHTS } from '../../render/CourtSurface.tsx';
 import {
   RULE_ALERT_STROKE,
@@ -355,7 +355,12 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   const def = courtDefFor(opts.mode, opts.size);
   const actors = ruleActors(frame);
   // 진영을 입힌 골 지역. 화면(RuleOverlay)과 **같은 함수**를 지나야 PNG 만 다른 팀을 칠하는 일이 없다.
-  const zones = defendedZones(def.ruleZones, opts.defense ?? defaultDefense(opts.mode));
+  const side = opts.defense ?? defaultDefense(opts.mode);
+  const zones = defendedZones(def.ruleZones, side);
+  // 세트피스 5 m 제한(2026-08-17) — 골키퍼 면제 자리와 제한받는 팀. 화면(RuleOverlay.tsx)이
+  // 만드는 것과 **같은 두 값**이다. 플랫 코트는 골대가 없어 규칙 자체가 꺼진다.
+  const mouths = defendedZones(goalMouths(def), side);
+  const fiveDefense = def.goalPosts.length === 0 ? null : side;
   // §7 5.2(2026-08-13) — **조기 반환을 여기서 뺐다.** 개별 공의 원은 사용자가 그 공을 눌러
   // 명시적으로 켠 것이라 규칙 존 스위치와 다른 축이다(화면 RuleOverlay.tsx 와 같은 판단) —
   // `showRuleZones` 가 꺼져 있어도 PNG 에 실린다. 존·존 위반 표시만 스위치에 매인다.
@@ -378,9 +383,12 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
     // ⚠️ `RING_R_PX` 를 여기 다시 박지 마라: 5 m 를 켠 공이 PNG 에서만 3 m 로 나간다.
     const r = ringRadiusPx(b.ring ?? 'none');
     if (r === null) continue;
-    // 판정 반경은 언제나 3 m 다(ringViolation) — 켜 놓은 원이 5 m 라고 2-on-1 이 5 m 가 되지
-    // 않는다. 스위치가 꺼져 있으면 화면과 같이 판정도 서지 않으므로 흰 파선 그대로 나간다.
-    const bad = (opts.showRuleZones ?? false) && ringViolation(b, actors, zones) !== 0;
+    // 어느 규칙으로 재는지는 **원이 정한다**(model/rules.ts 의 `ruleForRing`): 3 m·없음은
+    // 2-on-1, 5 m 는 세트피스 5 m 제한이다. 화면(render/ruleOverlay.ts)과 **같은 함수**를
+    // 지나므로 PNG 만 다른 규칙으로 붉어질 자리가 없다 — ⚠️ 여기서 `ringViolation` 을 직접
+    // 부르면 5 m 원을 켠 공이 그림에서만 2-on-1 로 판정된다.
+    // 스위치가 꺼져 있으면 화면과 같이 판정도 서지 않으므로 흰 파선 그대로 나간다.
+    const bad = (opts.showRuleZones ?? false) && ballRingViolation(b.ring ?? 'none', b, actors, zones, mouths, fiveDefense) !== 0;
     const stroke = bad ? RULE_ALERT_STROKE : RULE_OK_STROKE;
     const dash = bad ? '' : ` stroke-dasharray="${RULE_DASH}"`;
     out +=

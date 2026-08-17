@@ -6,7 +6,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { RULE_ALERT_STROKE, RULE_CLEAR_MS, RULE_DASH, RULE_OK_STROKE, createRuleOverlay, type RuleOverlayContext } from './ruleOverlay.ts';
 import { defendedZones } from '../model/rules.ts';
 import { COURT_DEFS } from '../model/court.ts';
-import type { TeamSide } from '../model/drill.ts';
+import type { BallRing, TeamSide } from '../model/drill.ts';
+import { goalMouths } from '../model/court.ts';
+import { RING_5M_R_PX } from '../model/rules.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const g = (): SVGGElement => document.createElementNS(SVG_NS, 'g');
@@ -27,6 +29,11 @@ function ctx(over: Partial<RuleOverlayContext> = {}): RuleOverlayContext {
     enabled: true,
     roster: ROSTER,
     goalAreas: GZ,
+    // 세트피스 5 m 는 이 파일의 기존 단언들과 **다른 규칙**이라 기본은 꺼 둔다(플랫 코트와
+    // 같은 상태). 켜는 것은 아래 전용 describe 뿐이다 — 안 그러면 3 m 를 재던 옛 단언들이
+    // 원을 바꾼 적도 없는데 규칙이 갈려 흔들린다.
+    goalMouths: [],
+    fiveMeterDefense: null,
     teamLabels: { home: '레드', away: '블루' },
     ...over,
   };
@@ -47,14 +54,14 @@ const CLEAN = {
   ch_c: { x: 420, y: 260 },
 };
 
-function harness(over: Partial<RuleOverlayContext> = {}) {
+function harness(over: Partial<RuleOverlayContext> = {}, ballRing: BallRing = 'none') {
   const say = vi.fn();
   let t = 0;
   const api = createRuleOverlay({ say, now: () => t });
   const ring = g();
   const zone0 = g();
   api.setContext(ctx(over));
-  api.registerRing(BALL_ID, ring);
+  api.registerRing(BALL_ID, ring, ballRing);
   api.registerZone(0, zone0);
   return { api, ring, zone0, say, tick: (ms: number) => (t += ms), at: (ms: number) => (t = ms) };
 }
@@ -313,5 +320,61 @@ describe('ruleOverlay — 소리는 쓰지 않는다 (2.11 큐 어댑터 판정)
     const consumer = readFileSync('src/features/editor/useEditorPointer.ts', 'utf-8');
     expect(consumer).toContain("from '../../ui/cues.ts'");
     for (const src of sources) expect(src).not.toContain('cues');
+  });
+});
+
+// ── 세트피스 5 m 제한 (기현 지시 2026-08-17) ─────────────────────────────────────────────
+// 판정 자체는 model/rules.test.ts 가 본다. 여기서 재는 것은 **어댑터**다: 공의 원이 규칙을
+// 고르는가, 링 색이 따라오는가, 발화가 2-on-1 과 **다른 문구**인가.
+describe('5 m 원인 공', () => {
+  const MOUTHS = defendedZones(goalMouths(COURT_DEFS.full), 'home');
+  const FIVE: Partial<RuleOverlayContext> = { goalMouths: MOUTHS, fiveMeterDefense: 'home' };
+  /** 공 바로 옆의 수비(home) 한 대. 2-on-1 이라면 **혼자라서 안 걸리는** 배치다. */
+  const ONE_DEFENDER = { ch_a: { x: 400 + RING_5M_R_PX - 10, y: 260 } };
+  const BALL_AT = { [BALL_ID]: { x: 400, y: 260 } };
+
+  it('★ 수비 한 대가 5 m 안에 있으면 링이 붉은 실선이 된다', () => {
+    const h = harness(FIVE, '5m');
+    h.api.write({ ...BALL_AT, ...ONE_DEFENDER });
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+    expect(h.ring.getAttribute('stroke-dasharray')).toBe('none');
+  });
+
+  it('★ 같은 배치라도 3 m 원이면 조용하다 — 규칙을 고르는 것은 **원**이다', () => {
+    const h = harness(FIVE, '3m');
+    h.api.write({ ...BALL_AT, ...ONE_DEFENDER });
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    expect(h.ring.getAttribute('stroke-dasharray')).toBe(RULE_DASH);
+    expect(h.say).not.toHaveBeenCalled();
+  });
+
+  it('발화가 2-on-1 과 다르다 — 5 m·세트피스라고 말한다', () => {
+    const h = harness(FIVE, '5m');
+    h.api.write({ ...BALL_AT, ...ONE_DEFENDER });
+    const said = h.say.mock.calls[0]![0] as string;
+    expect(said).toContain('5 m');
+    expect(said).toContain('세트피스');
+    expect(said, '세트피스인데 2-on-1 이라고 말했다').not.toContain('2-on-1');
+  });
+
+  it('공격이 붙어 있는 것은 반칙이 아니다 (대조군)', () => {
+    const h = harness(FIVE, '5m');
+    h.api.write({ ...BALL_AT, ch_c: { x: 400, y: 260 } }); // ch_c 는 away = 공격
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+  });
+
+  it('진영이 없으면(플랫) 5 m 원이어도 판정하지 않는다', () => {
+    const h = harness({ goalMouths: [], fiveMeterDefense: null }, '5m');
+    h.api.write({ ...BALL_AT, ...ONE_DEFENDER });
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+  });
+
+  it('원을 다시 등록하면 규칙도 따라 바뀐다 — 3 m ↔ 5 m 전환이 사는 길이다', () => {
+    const h = harness(FIVE, '3m');
+    h.api.write({ ...BALL_AT, ...ONE_DEFENDER });
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    h.api.registerRing(BALL_ID, h.ring, '5m');
+    h.api.write({ ...BALL_AT, ...ONE_DEFENDER });
+    expect(h.ring.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
   });
 });

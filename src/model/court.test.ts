@@ -7,6 +7,7 @@ import {
   DEFAULT_COURT_SIZE,
   FULL_COURT_DEFS,
   courtDefFor,
+  goalMouths,
   normalizeCourtSize,
   gridLabel,
   gridCellCenter,
@@ -461,5 +462,57 @@ describe('isOnSurface — 경기면 안인가 (판의 프레임 경계)', () => 
       expect(isOnSurface(mode, { x: s.x - 1, y: s.y + s.h / 2 })).toBe(false);
       expect(isOnSurface(mode, { x: s.x + s.w / 2, y: s.y + s.h + 1 })).toBe(false);
     }
+  });
+});
+
+// 2026-08-17 — 세트피스 5 m 제한의 골키퍼 면제 자리(model/rules.ts). 골 지역과 **다른 사각형**
+// 이라는 것이 요점이다: 골 지역은 경기면 **안**, 이것은 골라인 **밖**이다.
+describe('goalMouths — 골대 뒤', () => {
+  it('풀 코트는 둘이고, 순서가 ruleZones 와 같다(왼쪽 먼저)', () => {
+    const def = COURT_DEFS.full;
+    const [left, right] = goalMouths(def);
+    expect(goalMouths(def)).toHaveLength(2);
+    expect(left!.x).toBe(0);
+    expect(left!.x + left!.w).toBe(def.surface.x); // 골라인에서 끝난다
+    expect(right!.x).toBe(def.surface.x + def.surface.w);
+    expect(right!.x + right!.w).toBe(def.vbW);
+    // ruleZones 도 왼쪽이 먼저다 — 이 순서가 갈리면 면제가 상대 골대에서 붙는다.
+    expect(def.ruleZones[0]!.x).toBeLessThan(def.ruleZones[1]!.x);
+  });
+
+  it('폭은 골포스트 사이 6 m 다 — 골 지역(8 m)이 아니다', () => {
+    const def = COURT_DEFS.full;
+    const [left] = goalMouths(def);
+    expect(left!.h).toBeCloseTo(Math.abs(def.goalPosts[1]!.y - def.goalPosts[0]!.y), 9);
+    expect(left!.y).toBeCloseTo(Math.min(def.goalPosts[0]!.y, def.goalPosts[1]!.y), 9);
+    // 대조군: 골 지역은 더 넓다(8 m).
+    expect(def.ruleZones[0]!.h).toBeGreaterThan(left!.h);
+  });
+
+  it('하프 코트는 아래 변 **밖**으로 하나다 — 모드 이름이 아니라 골포스트가 방향을 정한다', () => {
+    const def = COURT_DEFS.half;
+    const [mouth] = goalMouths(def);
+    expect(goalMouths(def)).toHaveLength(1);
+    expect(mouth!.y).toBe(def.surface.y + def.surface.h);
+    expect(mouth!.y + mouth!.h).toBe(def.vbH);
+  });
+
+  it('플랫 코트는 골대가 없어 빈 배열이다', () => {
+    expect(goalMouths(COURT_DEFS.flat)).toEqual([]);
+  });
+
+  it('코트 크기 3단을 따라간다 — 리터럴이 아니라 골포스트에서 파생된다', () => {
+    for (const size of COURT_SIZES) {
+      const def = courtDefFor('full', size);
+      const [left] = goalMouths(def);
+      expect(left!.x + left!.w).toBe(def.surface.x);
+      expect(left!.h).toBeCloseTo(Math.abs(def.goalPosts[1]!.y - def.goalPosts[0]!.y), 9);
+    }
+  });
+
+  it('골 지역과 겹치지 않는다 — 한쪽은 경기면 안, 한쪽은 밖이다', () => {
+    const def = COURT_DEFS.full;
+    const [left] = goalMouths(def);
+    expect(left!.x + left!.w).toBeLessThanOrEqual(def.ruleZones[0]!.x);
   });
 });

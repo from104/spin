@@ -175,7 +175,7 @@ describe('② 위반 층 — 같은 붉은 계열의 **진한 쪽**', () => {
     rules.registerZone(0, g);
     const zone = courtDefFor('full').ruleZones[0]!;
     const roster = ['a', 'b', 'c'].map((id) => ({ id, team: 'home' as TeamSide, isGk: false }));
-    rules.setContext({ enabled: true, roster, goalAreas: [{ rect: zone, defender: 'home' }], teamLabels: { home: '홈', away: '원정' } });
+    rules.setContext({ enabled: true, roster, goalAreas: [{ rect: zone, defender: 'home' }], goalMouths: [], fiveMeterDefense: null, teamLabels: { home: '홈', away: '원정' } });
 
     // 깨끗: 숨어 있고 파선이다.
     rules.write({ a: { x: 0, y: 0 } });

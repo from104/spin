@@ -17,14 +17,18 @@ import {
   TEAM_BIT,
   defaultDefense,
   defendedZones,
+  RING_5M_R_PX,
+  ballRingViolation,
+  fiveMeterViolation,
   inRect,
   ringViolation,
+  ruleForRing,
   teamsOfBits,
   zoneViolation,
   type DefendedZone,
   type RuleActor,
 } from './rules.ts';
-import { COURT_DEFS, COURT_MODES, COURT_SIZES, courtDefFor } from './court.ts';
+import { COURT_DEFS, COURT_MODES, COURT_SIZES, courtDefFor, goalMouths } from './court.ts';
 import { chairOverlapsRect } from './chairOverlap.ts';
 import { CHAIR } from '../core/constants.ts';
 import { PX_PER_M } from '../core/units.ts';
@@ -516,3 +520,103 @@ describe('rules — 진영', () => {
 function zoneOwnerCase(zone: DefendedZone, actors: RuleActor[], ball: { x: number; y: number }): number {
   return ringViolation(ball, actors, [zone]);
 }
+
+// ── 세트피스 5 m 제한 (기현 지시 2026-08-17) ─────────────────────────────────────────────
+// 약속: 공에 **5 m 원이 켜져 있으면** 그 공은 세트피스이고, 그때 **수비 측**은 5 m 밖에
+// 있어야 한다. 수비 골키퍼는 자기 골대 뒤에 있으면 면제. 자세한 근거는 rules.ts 의 절 주석.
+describe('fiveMeterViolation — 세트피스 5 m 제한', () => {
+  /** 풀 코트 왼쪽 골대 뒤. 진영은 홈(= 풀 코트 기본) — 즉 홈이 수비다. */
+  const MOUTH_HOME: DefendedZone = { rect: goalMouths(COURT_DEFS.full)[0]!, defender: 'home' };
+  const MOUTHS = [MOUTH_HOME, { rect: goalMouths(COURT_DEFS.full)[1]!, defender: 'away' as const }];
+  /** 5 m + 앞범퍼 1.2 m — 이 거리부터는 +x 를 보는 차체가 원에 안 닿는다. */
+  const OUT = RING_5M_R_PX + FRONT + 1;
+
+  it('★ 수비가 5 m 안에 있으면 걸린다', () => {
+    expect(fiveMeterViolation(BALL, [actor('home', at(-RING_5M_R_PX + 1), BALL.y)], 'home', MOUTHS)).toBe(TEAM_BIT.home);
+  });
+
+  it('★ 공격은 아무리 붙어 있어도 안 걸린다 — 공을 차는 쪽이다', () => {
+    const many = [actor('away', BALL.x, BALL.y), actor('away', at(10), BALL.y), actor('away', at(-10), BALL.y)];
+    expect(fiveMeterViolation(BALL, many, 'home', MOUTHS)).toBe(0);
+  });
+
+  it('한 대만 걸려도 성립한다 — 2-on-1 과 달리 인원수 문턱이 없다', () => {
+    const one = [actor('home', at(-RING_5M_R_PX + 1), BALL.y), actor('away', BALL.x, BALL.y)];
+    expect(fiveMeterViolation(BALL, one, 'home', MOUTHS)).toBe(TEAM_BIT.home);
+    // 대조군: 3 m 로 재는 2-on-1 은 같은 배치에서 아무 말도 안 한다(수비 1명뿐이다).
+    expect(ringViolation(BALL, one, [GZ_HOME])).toBe(0);
+  });
+
+  it('밖으로 나가면 풀린다 — "무엇을 넣어도 붉다" 가 아니다', () => {
+    expect(fiveMeterViolation(BALL, [actor('home', at(-OUT), BALL.y)], 'home', MOUTHS)).toBe(0);
+  });
+
+  it('조금이라도 걸치면 걸린다 — 차체 사각형이지 피벗 점이 아니다', () => {
+    // 피벗은 5 m 밖인데 앞범퍼가 원 안으로 들어온 자리.
+    const grazing = actor('home', at(-(RING_5M_R_PX + FRONT - 1)), BALL.y);
+    expect(fiveMeterViolation(BALL, [grazing], 'home', MOUTHS)).toBe(TEAM_BIT.home);
+  });
+
+  it('진영을 뒤집으면 걸리는 팀도 뒤집힌다', () => {
+    const both = [actor('home', at(-RING_5M_R_PX + 1), BALL.y), actor('away', at(RING_5M_R_PX - 1), BALL.y)];
+    expect(fiveMeterViolation(BALL, both, 'home', MOUTHS)).toBe(TEAM_BIT.home);
+    expect(fiveMeterViolation(BALL, both, 'away', MOUTHS)).toBe(TEAM_BIT.away);
+  });
+
+  it('플랫 코트(진영 없음)에서는 판정 자체를 안 한다', () => {
+    expect(fiveMeterViolation(BALL, [actor('home', BALL.x, BALL.y)], null, [])).toBe(0);
+  });
+
+  describe('골키퍼 면제 — 자기 골대 사이 골라인 뒤', () => {
+    /** 왼쪽 골대 뒤 한가운데. 공을 그 근처에 두어 5 m 안에 들어가게 만든다. */
+    const mouth = goalMouths(COURT_DEFS.full)[0]!;
+    const gkAt = { x: mouth.x + mouth.w / 2, y: mouth.y + mouth.h / 2 };
+    const nearBall = { x: gkAt.x + RING_5M_R_PX - 10, y: gkAt.y };
+
+    it('★ 수비 골키퍼는 자기 골대 뒤에 있으면 면제된다', () => {
+      const gk = actor('home', gkAt.x, gkAt.y, true);
+      expect(fiveMeterViolation(nearBall, [gk], 'home', MOUTHS)).toBe(0);
+    });
+
+    it('같은 자리라도 **필드 플레이어**는 면제가 아니다 (대조군)', () => {
+      const field = actor('home', gkAt.x, gkAt.y, false);
+      expect(fiveMeterViolation(nearBall, [field], 'home', MOUTHS)).toBe(TEAM_BIT.home);
+    });
+
+    it('★ 골 지역에 나와 선 골키퍼는 면제가 아니다 — 면제 자리는 골대 **뒤**뿐이다', () => {
+      const zone = COURT_DEFS.full.ruleZones[0]!;
+      const inZone = actor('home', zone.x + zone.w / 2, zone.y + zone.h / 2, true);
+      const ball = { x: inZone.x + RING_5M_R_PX - 10, y: inZone.y };
+      expect(fiveMeterViolation(ball, [inZone], 'home', MOUTHS)).toBe(TEAM_BIT.home);
+      // 대조군: 그 자리는 2-on-1 의 골키퍼 면제 자리이긴 하다 — 두 면제는 서로 다른 사각형이다.
+      expect(chairOverlapsRect(inZone.x, inZone.y, 0, zone.x, zone.y, zone.w, zone.h)).toBe(true);
+    });
+
+    it('★ 상대 골대 뒤로 밀고 들어간 골키퍼는 면제가 아니다', () => {
+      const far = goalMouths(COURT_DEFS.full)[1]!;
+      const gk = actor('home', far.x + far.w / 2, far.y + far.h / 2, true);
+      const ball = { x: gk.x - RING_5M_R_PX + 10, y: gk.y };
+      expect(fiveMeterViolation(ball, [gk], 'home', MOUTHS)).toBe(TEAM_BIT.home);
+    });
+  });
+});
+
+describe('ruleForRing — 어느 규칙으로 재는가', () => {
+  it("5 m 원만 세트피스다. 없음·3 m 는 2-on-1 이다", () => {
+    expect(ruleForRing('5m')).toBe('fiveMeter');
+    expect(ruleForRing('3m')).toBe('twoOnOne');
+    expect(ruleForRing('none')).toBe('twoOnOne');
+  });
+
+  it('★ 5 m 원인 공에는 2-on-1 을 걸지 않는다 — 세트피스는 인플레이가 아니다', () => {
+    // 같은 팀 둘 + 상대 하나가 3 m 안에 몰린, 전형적인 2-on-1 배치.
+    const crowd = [actor('home', at(10), BALL.y), actor('home', at(-10), BALL.y), actor('away', BALL.x, BALL.y + 10)];
+    const MOUTHS: DefendedZone[] = [];
+    expect(ballRingViolation('3m', BALL, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(TEAM_BIT.home);
+    expect(ballRingViolation('none', BALL, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(TEAM_BIT.home);
+    // 5 m 로 바꾸면 2-on-1 은 사라지고, 대신 수비(away)가 5 m 안이라 그쪽이 걸린다.
+    expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'away')).toBe(TEAM_BIT.away);
+    // 수비를 home 으로 두면 home 이 걸린다 — 어느 쪽이든 **2-on-1 비트가 아니라 5 m 비트**다.
+    expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(TEAM_BIT.home);
+  });
+});
