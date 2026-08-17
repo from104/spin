@@ -4,9 +4,49 @@
 // 드릴 편집의 "스텝을 고르고 복제·이동한다"는 하단 TransportBar 의 가로 칩 줄(2026-08-12
 // 재편)에 살고 있었다. 조사(RESEARCH-DRILL-EDITORS.md)가 가져온 것은 PPT/FastDraw 류의
 // **왼쪽 세로 슬라이드 바** 문법이다 — 목록·선택·복제·이동·사슬·삭제를 한 자리에 모으고,
-// TransportBar 는 재생 컨트롤만 남긴다(TransportBar.tsx 머리말). 이 파일은 그 첫 단계
-// (구현 순서 ②)로 **목록·현재 스텝 강조·탭 이동·단일 카드 드래그 재정렬**만 담는다 — 복제
-// 버튼·틈의 + · 사슬 토글·다중 선택은 ③~⑤가 이 GapSlot 자리에 얹는다.
+// TransportBar 는 재생 컨트롤만 남긴다(TransportBar.tsx 머리말). ②(목록·현재 스텝 강조·
+// 탭 이동·단일 카드 드래그 재정렬)·③(카드 복제 버튼 + 틈의 + 버튼)에 이어 이 파일은 이제
+// **④ 사슬 토글**(내부 틈에만, GapSlot 의 chain)까지 담고, 이제 **⑤ 다중 선택**(선택 모드
+// 토글·체크박스·일괄 이동/복제/삭제)까지 마저 얹는다.
+//
+// ── 선택은 명시적 모드다, 그리고 화면 상태다 (§다중 선택, 기현님 확정 2026-08-17) ──────────
+// 오조작 없는 명시적 모드 진입이라는 것이 핵심이다 — 상시 체크박스가 아니라 [선택 모드] 를
+// 눌러야 카드에 체크박스가 나타나고 카드 탭의 뜻이 (STEP_SELECT → 체크 토글로) 바뀐다. 모드를
+// 끄면 체크가 전부 풀린다. `selectMode`·`checkedIds` 는 **컴포넌트 로컬(useState)** 이고
+// 리듀서·undo 에 없다 — "이 카드에 체크가 됐나" 는 문서의 내용이 아니라 지금 화면을 보는
+// 사람의 작업 맥락이라, 새로고침하거나 다른 기기에서 열면 사라지는 게 맞다(사슬·복제처럼
+// 드릴에 저장되는 값과는 급이 다르다).
+//
+// ── 일괄 이동은 별도 훅이다, 단일 드래그를 안 건드린다 ────────────────────────────────────
+// `useStepGroupReorderDrag`(병행 훅)가 있다. `useStepReorderDrag`(단일 카드) 를 확장하지 않고
+// 나란히 둔 이유: 단일 드래그의 좌표계("자기 자신을 뺀 전체 카드 중심")와 묶음 드래그의
+// 좌표계("그룹 전체를 뺀 나머지 카드 중심")가 다르고, 하나의 훅에 두 좌표계를 욱여넣으면
+// 옛 계약(예: `onCommit(id, toIndex)`의 단일 id 시그니처)이 깨진다. 카드의 `onPointerDown` 에서
+// **어느 훅을 부를지만 갈라 낸다** — 체크된 카드를 끌면 그룹 훅, 아니면(선택 모드 밖이거나
+// 체크 안 된 카드) 단일 훅. 두 훅의 미리보기(`state`)는 같은 렌더 루프 안에서 함께 `order` 를
+// 만든다(아래 렌더 코드 참고) — 동시에 열릴 일이 없으므로(포인터 세션이 하나뿐) 겹칠 걱정은 없다.
+//
+// ── 사슬은 내부 틈에만 있다 (§사슬, 기현님 확정 2026-08-17) ────────────────────────────
+// 맨 앞·맨 뒤 틈은 "경계" 가 아니다 — 그 바깥에는 이을 스텝이 없다. 그래서 루프 안에서
+// i(=gap index) ≥ 1 인 틈만 `chain` 을 채워 GapSlot 에 넘긴다(i=0 은 undefined, 루프 밖의
+// 마지막 GapSlot 은 애초에 chain 인자를 안 넘긴다). 틈 i(1 ≤ i ≤ N-1)가 지고 있는 스텝은
+// **교리대로 "다음 스텝"**(model/drill.ts DrillStep.cut 주석) — order[i], 곧 그 반복의 `s`
+// 그 자체다(같은 값을 gapDuplicateSpec 이 "위 스텝"을 가리키는 것과 방향이 반대이니 헷갈리지
+// 말 것: 복제는 "무엇을 복제해 여기 넣나" 이고 사슬은 "이 경계가 누구 소관이나" 라 기준이 다르다).
+//
+// ── 끊김 해제는 키 삭제다 ─────────────────────────────────────────────────────────────
+// `onToggleCut(id, false)` 는 `STEP_META` 의 `patch.cut: false` 로 가고, 리듀서가 그것을
+// "cut 필드를 지워라" 로 해석한다(store/editor/reducer.ts STEP_META 케이스) — `cut: false` 를
+// 그대로 저장하면 validate.ts 정화기가 다음 로드 때 버리므로(교리: true 만 정의역) 애초에
+// 메모리에도 안 남기는 편이 맞다.
+//
+// ── 복제는 후방이 기본, 예외는 맨 앞 틈 하나뿐 (§복제, 기현님 확정 2026-08-17) ──────────────
+// 카드의 복제 버튼과 틈 g(1 ≤ g ≤ steps.length)의 + 버튼은 **같은 결과**를 낸다: "위 스텝의
+// 복제를 바로 뒤에" — `duplicateStep` 의 기본 삽입 자리(`i+1`)가 이미 그 자리이므로
+// `onDuplicateStep(id)` 를 `toIndex` 없이 부르면 끝난다(전방 복제는 이걸로 해결된다 — 카드
+// k 의 "복제해서 위에 넣고 싶다" 는 카드 k-1 의 [아래로 복제] 와 같은 결과다). 맨 앞 틈(g=0)
+// 만 다르다: 복제 대상은 있어도(첫 스텝) "위 스텝" 이 없어서 기본 자리(1)가 아니라 0 을
+// 명시해야 한다 — 그래서 `onDuplicateStep(steps[0].id, 0)` 한 곳만 `toIndex` 를 싣는다.
 //
 // ── 스텝 카드 = 번호 + 썸네일만 ──────────────────────────────────────────────────────────
 // "스텝 정보 최소화"(기현님 확정) — 이름은 카드에서 안 보인다. `DrillStep.name` 필드 자체는
@@ -36,13 +76,14 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
 import { courtDefFor } from '../../model/court.ts';
-import { IconListSteps, IconPlus } from '../../ui/icons.tsx';
+import { IconListSteps, IconPlus, IconCopy, IconChainLinked, IconChainCut, IconCheck } from '../../ui/icons.tsx';
 import { CourtThumbnail, SIDEBAR_GLYPH_SCALE } from '../../render/CourtThumbnail.tsx';
 import { buildStepThumb } from '../../model/thumb.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
-import { movedOrder } from './bottomBarMetrics.ts';
+import { movedOrder, movedOrderGroup } from './bottomBarMetrics.ts';
 import { useStepReorderDrag } from './useStepReorderDrag.ts';
+import { useStepGroupReorderDrag } from './useStepGroupReorderDrag.ts';
 
 export interface StepSidebarProps {
   /** 카드마다 판을 그리므로 steps 만으로는 부족하다 — cast·팀 색·코트가 함께 필요하다. */
@@ -54,8 +95,30 @@ export interface StepSidebarProps {
   /** [한 장 더 찍기] — 지금 스텝을 복제해 바로 뒤에 넣는다(STEP_ADD 의미 그대로,
    *  EditorWorkspace.addStepHere 가 이어 커밋 뒤 새 스텝을 선택한다). */
   onAddStep(): void;
+  /** 복제(§복제, 기현님 확정 2026-08-17). `toIndex` 를 안 주면 `STEP_DUPLICATE`/
+   *  `duplicateStep` 의 기본값(바로 뒤)이 그대로 적용된다 — 카드 자체의 복제 버튼과 틈
+   *  g>0 의 + 버튼이 이 경로다. **맨 앞 틈(g=0)** 만 `toIndex: 0` 을 실어 보내
+   *  "첫 스텝의 복제를 맨 앞에" 규칙을 만든다(actions.ts STEP_DUPLICATE 주석 참고). */
+  onDuplicateStep(id: StepId, toIndex?: number): void;
+  /** 사슬 토글(④, 기현님 확정 2026-08-17). **내부 틈에만** 존재한다 — 카드 i-1 과 i 사이
+   *  경계는 "다음 스텝"(교리대로 카드 i, 곧 `id`) 이 진다. `cut: true` 는 끊고, `cut: false`
+   *  는 **키를 지운다**(actions.ts STEP_META `patch.cut` 주석 — `false` 를 그대로 저장하지
+   *  않는다). 맨 앞·맨 뒤 틈은 경계가 없어 이 콜백 자체가 안 불린다(GapSlot 에 버튼이 없다). */
+  onToggleCut(id: StepId, cut: boolean): void;
   /** 좁은 창·세로 화면이면 true(EditorWorkspace 의 `narrow || portrait`). */
   collapsed: boolean;
+  /** ⑤ 다중 선택 — 일괄 이동(기현님 확정 2026-08-17). `ids` 는 순서가 뜻이 없다(체크한 순서가
+   *  아니라 `d.steps` 원본 순서로 다시 정렬된다, edits.ts moveSteps 참고). `toIndex` 는
+   *  **선택되지 않은 나머지 스텝들의 순서 안에서의 삽입 자리** — 이 컴포넌트의 그룹 드래그
+   *  (`useStepGroupReorderDrag`)가 재는 좌표계와 같다. */
+  onMoveSteps(ids: StepId[], toIndex: number): void;
+  /** ⑤ 일괄 복제. 선택 묶음의 사본을 마지막 선택 카드 뒤에 상대 순서대로 삽입한다
+   *  (edits.ts duplicateSteps). 정원 가드는 이 컴포넌트가 버튼을 잠그는 것으로 미리 막는다. */
+  onDuplicateSteps(ids: StepId[]): void;
+  /** ⑤ 일괄 삭제. 드릴에는 스텝이 최소 1장은 남아야 한다(edits.ts deleteSteps) — 전량 선택이면
+   *  이 컴포넌트가 버튼을 미리 잠근다. 현재 스텝이 삭제 묶음에 있으면 리듀서(uiReducer)가
+   *  남는 스텝으로 stepId 를 옮긴다. */
+  onDeleteSteps(ids: StepId[]): void;
 }
 
 /** 사이드바 고정/오버레이 폭. 좌우 패딩(`SIDEBAR_PAD_PX` 10×2)을 빼면 카드가 실제로 채우는
@@ -82,28 +145,182 @@ const cardNumberBadge = (selected: boolean) =>
     textAlign: 'center',
   }) as const;
 
-/** 카드 사이·양 끝의 틈. 지금은 드래그 중 놓을 자리를 보여주는 표시와 자리뿐이다 —
- *  이후 단계(복제 + 버튼·사슬 토글, PLAN-STEP-EDITING.md 구현 순서 ③④)가 여기 꽂힌다.
- *  `data-gap-index` 는 그 단계가 "이 틈이 몇 번째인가" 를 찾는 자리다. */
-function GapSlot({ index, active }: { index: number; active: boolean }) {
+/** 카드 사이·양 끝의 틈. 드래그 중 놓을 자리를 보여주는 얇은 표시(`active`)와,
+ *  그 자리에 복제를 꽂아 넣는 [+] 버튼을 함께 담는다(PLAN-STEP-EDITING.md 구현 순서 ③).
+ *  사슬 토글(④)이 이후 같은 자리에 마저 얹힌다. `data-gap-index` 는 "이 틈이 몇 번째인가"
+ *  를 재정렬 계산·테스트가 찾는 자리다.
+ *
+ *  [+] 는 **상시 노출**을 골랐다(계획서 "호버/포커스 시 노출 또는 상시" 중 후자) — 이 사이드
+ *  바는 인라인 스타일뿐 CSS 클래스 문법이 없어(파일 전체 참고) 호버 전용 노출을 하려면
+ *  마우스 진입/이탈마다 상태를 들고 있어야 하는데, 그 상태가 틈마다 하나씩 늘어나는 비용이
+ *  터치·키보드에서는 애초에 의미도 없다(호버가 없다). 항상 보이는 작은 버튼 하나가 더 싸고
+ *  더 접근성 있다. */
+/** 내부 틈에만 실리는 사슬 토글(④). `cut === true` 면 이 경계가 끊겨 있다는 뜻 —
+ *  `DrillStep.cut` 값 그대로다(교리대로 "다음 스텝"의 필드, 이 틈 바로 다음 카드). */
+interface GapChain {
+  cut: boolean;
+  onToggle: () => void;
+}
+
+function GapSlot({
+  index,
+  active,
+  disabled,
+  label,
+  onDuplicate,
+  chain,
+}: {
+  index: number;
+  active: boolean;
+  disabled: boolean;
+  label: string;
+  onDuplicate: () => void;
+  /** undefined = 맨 앞·맨 뒤 틈(경계 없음) — 사슬 버튼 자체를 안 그린다. */
+  chain?: GapChain;
+}) {
   return (
     <div
       data-gap-index={index}
-      aria-hidden="true"
       style={{
+        position: 'relative',
         flex: 'none',
-        height: active ? 10 : 4,
+        height: 16,
         margin: '1px 0',
-        borderRadius: 3,
-        background: active ? 'var(--accent)' : 'transparent',
-        transition: 'height 120ms ease, background 120ms ease',
       }}
-    />
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          height: active ? 10 : 4,
+          borderRadius: 3,
+          background: active ? 'var(--accent)' : 'transparent',
+          transition: 'height 120ms ease, background 120ms ease',
+        }}
+      />
+      {/* [+]와 사슬 토글을 한 가로줄로 묶는다 — 둘 다 이 틈의 상시 노출 버튼이라 같은 이유로
+          같은 자리(항상 보임)를 쓴다(옛 GapSlot 머리말 참고). */}
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+        }}
+      >
+        <button
+          type="button"
+          aria-label={label}
+          title={disabled ? `스텝은 ${LIMITS.maxSteps}장까지입니다.` : label}
+          disabled={disabled}
+          onClick={onDuplicate}
+          style={{
+            width: 16,
+            height: 16,
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            border: '1px solid var(--border-strong)',
+            background: 'var(--panel)',
+            color: 'var(--muted)',
+            opacity: disabled ? 0.4 : 1,
+          }}
+        >
+          <IconPlus size={8} />
+        </button>
+        {chain && (
+          // 연결(기본) = 조용한 사슬, 끊김 = 눈에 띄는 끊긴 사슬 — 색뿐 아니라 **아이콘 모양
+          // 자체**가 갈리고(icons.tsx IconChainLinked/IconChainCut 머리말), aria-pressed 로
+          // 상태를 왕복한다(§7.7 토글 버튼 관례 — StageControls 격자/구역 토글과 같은 패턴).
+          // 색은 `#ff6b6b`(ObjectMenu.tsx 의 삭제 항목과 같은 경고색) — 이 파일에 아직 danger
+          // 토큰이 없어 기존 경고색 관행을 그대로 물려받는다.
+          <button
+            type="button"
+            aria-label={`스텝 ${index} 과 스텝 ${index + 1} 사이 사슬`}
+            aria-pressed={chain.cut}
+            title={chain.cut ? '끊긴 경계입니다. 눌러서 다시 잇습니다.' : '연결된 경계입니다. 눌러서 끊습니다.'}
+            onClick={chain.onToggle}
+            style={{
+              width: 16,
+              height: 16,
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              border: `1px solid ${chain.cut ? '#ff6b6b' : 'var(--border-strong)'}`,
+              background: 'var(--panel)',
+              color: chain.cut ? '#ff6b6b' : 'var(--muted)',
+            }}
+          >
+            {chain.cut ? <IconChainCut size={10} /> : <IconChainLinked size={10} />}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
-export function StepSidebar({ drill, stepId, onSelectStep, onReorderStep, onAddStep, collapsed }: StepSidebarProps) {
+/** 틈 g 의 [+] 가 "무엇을 복제해 어디 꽂는지" 는 g 하나로 정해진다(파일 머리말 §복제 참고).
+ *  g=0(맨 앞) 만 예외고, g ≥ 1 은 전부 "바로 위 스텝(g-1)을 그 자리(g)에" 로 같은 규칙이다
+ *  — 그 경우 `duplicateStep` 의 기본 삽입 자리가 이미 g 라 `toIndex` 를 안 싣는다.
+ *  `order`(화면 순서, 드래그 중이면 미리보기)를 받는다 — 이 틈이 실제로 무엇 사이에 있는지는
+ *  화면에 보이는 순서 기준이어야 하기 때문이다. */
+function gapDuplicateSpec(g: number, order: { id: StepId }[]): { sourceId: StepId; toIndex?: number; label: string } {
+  if (g === 0) return { sourceId: order[0]!.id, toIndex: 0, label: '스텝 1 을 복제해 맨 앞에 넣기' };
+  return { sourceId: order[g - 1]!.id, label: `스텝 ${g} 을 복제해 바로 뒤에 넣기` };
+}
+
+export function StepSidebar({
+  drill,
+  stepId,
+  onSelectStep,
+  onReorderStep,
+  onAddStep,
+  onDuplicateStep,
+  onToggleCut,
+  collapsed,
+  onMoveSteps,
+  onDuplicateSteps,
+  onDeleteSteps,
+}: StepSidebarProps) {
   const steps = drill.steps;
+  // 정원(§복제 가드) — 복제 버튼(카드·틈) 전부 이 하나로 잠근다. "한 장 더 찍기" 와 같은
+  // 기준(LIMITS.maxSteps)이다: 복제도 결국 스텝을 한 장 늘리는 조작이라 정원 이유가 같다.
+  const atMax = steps.length >= LIMITS.maxSteps;
+
+  // ⑤ 다중 선택 — 화면 상태(ephemeral). 모드를 끄면 체크도 함께 지운다("끄면 선택 해제",
+  // 파일 머리말 §선택은 명시적 모드다). 켤 때도 비워서 시작한다 — 지난번에 뭘 체크했었는지가
+  // 다음 진입까지 살아 있으면 "내가 언제 이걸 체크했지" 가 된다.
+  const [selectMode, setSelectMode] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<ReadonlySet<StepId>>(new Set());
+  const toggleSelectMode = useCallback(() => {
+    setSelectMode((v) => !v);
+    setCheckedIds(new Set());
+  }, []);
+  const toggleChecked = useCallback((id: StepId) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  // 일괄 복제 정원 가드 — [한 장 더 찍기]·개별 복제와 같은 기준(LIMITS.maxSteps), 다만 여기는
+  // "지금 체크된 장수만큼 늘어난다" 를 미리 계산해야 한다.
+  const batchDupBlocked = checkedIds.size === 0 || steps.length + checkedIds.size > LIMITS.maxSteps;
+  // 일괄 삭제 최소 1장 가드 — 기존 STEP_DELETE(deleteStep)와 같은 불변식을 "전량 선택" 으로
+  // 옮긴 것이다: 체크한 것을 전부 지우면 드릴에 스텝이 하나도 안 남는 경우를 막는다.
+  const batchDelBlocked = checkedIds.size === 0 || checkedIds.size >= steps.length;
 
   // 카드 사진. 드릴이 바뀔 때만 다시 만든다 — TransportBar 시절 칩과 같은 이유
   // (드릴이 안 바뀌면 재사용, 60장이라도 CourtThumbnail 이 새 props 로 다시 그리지 않는다).
@@ -143,12 +360,64 @@ export function StepSidebar({ drill, stepId, onSelectStep, onReorderStep, onAddS
     },
   });
 
+  // ⑤ 묶음 드래그의 "나머지" 좌표계 — measureCenters(단일)와 같은 DOM 을 훑되, 그룹 id 는
+  // 뺀다(useStepGroupReorderDrag.ts 머리말 — 그룹을 뺀 나머지 카드 중심이 기준이다).
+  const measureRestCenters = useCallback(
+    (groupIds: ReadonlySet<StepId>) =>
+      [...cardRefs.current.entries()]
+        .filter(([id, el]) => el.isConnected && !groupIds.has(id))
+        .sort((a, b) => a[1].getBoundingClientRect().top - b[1].getBoundingClientRect().top)
+        .map(([, el]) => {
+          const r = el.getBoundingClientRect();
+          return r.top + r.height / 2;
+        }),
+    [],
+  );
+  const groupDrag = useStepGroupReorderDrag({
+    measureRestCenters,
+    onCommit: (ids, toIndex) => {
+      onMoveSteps(ids, toIndex);
+      liveRegion.say(`선택한 ${ids.length}장을 옮겼습니다.`);
+    },
+  });
+
   // 키보드 순서 바꾸기의 '집은' 상태. 집힌 카드는 ↑/↓ 를 전역으로 안 넘기고 자기가 먹는다.
   const [held, setHeld] = useState<{ id: StepId; origin: number } | null>(null);
   const hintId = useId();
 
-  // 끌기 중에는 미리보기 순서로 그린다. 커밋은 손을 뗄 때 한 번이다.
-  const order = drag.state ? movedOrder(steps, drag.state.from, drag.state.to) : steps;
+  // 끌기 중에는 미리보기 순서로 그린다. 커밋은 손을 뗄 때 한 번이다. 두 드래그(단일·묶음)는
+  // 한 포인터 세션에서 하나만 열리므로(카드 하나의 onPointerDown 이 둘 중 하나만 부른다)
+  // 동시에 둘 다 non-null 일 일이 없다 — 그래도 순서는 명시로 정한다(묶음이 있으면 묶음 우선).
+  const order = groupDrag.state
+    ? movedOrderGroup(steps, groupDrag.state.ids, groupDrag.state.to)
+    : drag.state
+      ? movedOrder(steps, drag.state.from, drag.state.to)
+      : steps;
+  // 묶음 드래그 중 하이라이트할 틈의 index — groupDrag.state.to 는 "나머지 안에서의 자리"라
+  // 전체 `order` 좌표계와 다르다(파일 머리말 §일괄 이동은 별도 훅). 이미 계산해 둔 미리보기
+  // `order` 안에서 그룹의 **첫 카드가 지금 있는 자리**를 찾으면 좌표 변환 없이 정확한 답이 나온다
+  // — 그 자리 바로 앞 틈이 곧 "묶음이 꽂힐 틈" 이다.
+  const groupGapIndex = groupDrag.state ? order.findIndex((s) => groupDrag.state!.ids.has(s.id)) : -1;
+
+  // 일괄 복제 — 체크된 묶음(steps 원본 순서로, 체크한 순서가 아니다)을 넘긴다. 정원에서
+  // 막히면(가드가 뚫려도 edits.ts duplicateSteps 가 마지막 문) 조용히 원본을 돌려줄 뿐이라
+  // UI 는 버튼을 미리 잠가 "눌렀는데 아무 일도 안 일어난다" 를 피한다(다른 정원 가드들과 같다).
+  const handleBatchDuplicate = useCallback(() => {
+    if (batchDupBlocked) return;
+    const ids = steps.filter((s) => checkedIds.has(s.id)).map((s) => s.id);
+    onDuplicateSteps(ids);
+    setCheckedIds(new Set());
+    liveRegion.say(`${ids.length}장을 복제했습니다.`);
+  }, [batchDupBlocked, steps, checkedIds, onDuplicateSteps]);
+
+  // 일괄 삭제 — 삭제된 뒤에는 그 id 들이 더 이상 화면에 없으므로 체크도 함께 비운다.
+  const handleBatchDelete = useCallback(() => {
+    if (batchDelBlocked) return;
+    const ids = steps.filter((s) => checkedIds.has(s.id)).map((s) => s.id);
+    onDeleteSteps(ids);
+    setCheckedIds(new Set());
+    liveRegion.say(`${ids.length}장을 지웠습니다.`);
+  }, [batchDelBlocked, steps, checkedIds, onDeleteSteps]);
 
   // 스텝이 바뀌면 그 카드가 보이도록 목록을 굴린다. jsdom 에는 scrollIntoView 가 없다 —
   // 존재 가드 후 호출한다.
@@ -198,6 +467,17 @@ export function StepSidebar({ drill, stepId, onSelectStep, onReorderStep, onAddS
     }
   };
 
+  // gapDuplicateSpec 은 g=0 만 toIndex 를 싣고 g≥1 은 안 싣는다(기본 자리가 이미 맞아서) —
+  // `onDuplicateStep(id, undefined)` 로 그대로 넘기면 스파이 단언에 "명시적 undefined 인자"가
+  // 남아 호출부(카드 버튼)와 시그니처가 갈려 보인다. 여기서 한 군데로 모아 없앤다.
+  const fireDuplicate = useCallback(
+    (spec: { sourceId: StepId; toIndex?: number }) => {
+      if (spec.toIndex === undefined) onDuplicateStep(spec.sourceId);
+      else onDuplicateStep(spec.sourceId, spec.toIndex);
+    },
+    [onDuplicateStep],
+  );
+
   const panelId = useId();
   const [open, setOpen] = useState(false);
 
@@ -206,6 +486,92 @@ export function StepSidebar({ drill, stepId, onSelectStep, onReorderStep, onAddS
       <span id={hintId} className="sr-only">
         스페이스로 집은 뒤 위아래 방향키로 순서를 바꿉니다. 스페이스나 엔터로 놓고, Esc 로 되돌립니다.
       </span>
+      {/* ⑤ 다중 선택 상단 바 — [선택 모드] 토글은 언제나 있고, 그 아래 카운트·일괄 버튼은
+          모드가 켜졌을 때만 나타난다(파일 머리말 §선택은 명시적 모드다). flex:'none' 이라
+          카드 목록(스크롤 영역)과 자리를 다투지 않는다. */}
+      <div
+        style={{
+          flex: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          padding: `${SIDEBAR_PAD_PX}px ${SIDEBAR_PAD_PX}px 0`,
+        }}
+      >
+        <button
+          type="button"
+          aria-pressed={selectMode}
+          onClick={toggleSelectMode}
+          style={{
+            flex: 'none',
+            minHeight: 'var(--hit)',
+            borderRadius: 8,
+            border: `1px solid ${selectMode ? 'var(--accent)' : 'var(--border-strong)'}`,
+            background: selectMode ? 'color-mix(in srgb, var(--accent) 16%, var(--panel))' : 'var(--panel)',
+            color: selectMode ? 'var(--accent)' : 'var(--text)',
+            fontSize: '0.78125rem',
+            fontWeight: 600,
+          }}
+        >
+          {selectMode ? '선택 모드 끄기' : '선택 모드'}
+        </button>
+        {selectMode && (
+          <>
+            {/* aria-live — 체크할 때마다 몇 장인지 스크린리더가 즉시 말해 준다. */}
+            <div aria-live="polite" style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>
+              선택 {checkedIds.size}장
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                type="button"
+                disabled={batchDupBlocked}
+                title={
+                  checkedIds.size > 0 && steps.length + checkedIds.size > LIMITS.maxSteps
+                    ? `스텝은 ${LIMITS.maxSteps}장까지입니다.`
+                    : '선택한 스텝을 복제합니다.'
+                }
+                onClick={handleBatchDuplicate}
+                style={{
+                  flex: 1,
+                  minHeight: 'var(--hit)',
+                  borderRadius: 8,
+                  border: '1px solid var(--border-strong)',
+                  background: 'var(--panel)',
+                  color: 'var(--text)',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  opacity: batchDupBlocked ? 0.4 : 1,
+                }}
+              >
+                선택 복제
+              </button>
+              <button
+                type="button"
+                disabled={batchDelBlocked}
+                title={
+                  checkedIds.size > 0 && checkedIds.size >= steps.length
+                    ? '스텝은 최소 1장 있어야 합니다.'
+                    : '선택한 스텝을 지웁니다.'
+                }
+                onClick={handleBatchDelete}
+                style={{
+                  flex: 1,
+                  minHeight: 'var(--hit)',
+                  borderRadius: 8,
+                  border: '1px solid var(--border-strong)',
+                  background: 'var(--panel)',
+                  color: '#ff6b6b', // ObjectMenu.tsx 의 삭제 항목과 같은 경고색(GapSlot 사슬 끊김과 같은 관행)
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  opacity: batchDelBlocked ? 0.4 : 1,
+                }}
+              >
+                선택 삭제
+              </button>
+            </div>
+          </>
+        )}
+      </div>
       <div
         style={{
           flex: 1,
@@ -218,74 +584,164 @@ export function StepSidebar({ drill, stepId, onSelectStep, onReorderStep, onAddS
       >
         {order.flatMap((s, i) => {
           const selected = s.id === stepId;
-          const dragging = drag.state?.id === s.id;
+          const checked = checkedIds.has(s.id);
+          const dragging = drag.state?.id === s.id || (groupDrag.state !== null && checked);
           const grabbed = held?.id === s.id;
+          const gap = gapDuplicateSpec(i, order);
+          // 내부 틈(1 ≤ i ≤ order.length-1)에만 사슬이 있다 — i=0(맨 앞)은 이 루프 안에서
+          // 걸러지고, 맨 뒤 틈은 루프 밖에서 따로 그리는 GapSlot(chain 을 안 넘김)이라 애초에
+          // 이 분기를 안 탄다. "다음 스텝"(교리)은 바로 이 반복의 `s` = order[i] 다.
+          const chain: GapChain | undefined =
+            i >= 1 ? { cut: s.cut === true, onToggle: () => onToggleCut(s.id, s.cut !== true) } : undefined;
           return [
-            <GapSlot key={`gap-${s.id}`} index={i} active={drag.state !== null && drag.state.to === i} />,
-            <button
-              key={s.id}
-              ref={(el) => {
-                if (el) cardRefs.current.set(s.id, el);
-                else cardRefs.current.delete(s.id);
-              }}
-              type="button"
-              // 화면 순서를 재정렬 계산·테스트가 읽는 자리. ARIA 의미가 아니라 순전한 배관이라
-              // aria-posinset(특정 role 을 요구한다) 대신 평범한 데이터 속성을 쓴다.
-              // `data-step-id` 는 카드가 없앤 이름표(name) 대신 테스트가 "화면 순서가 아니라
-              // 실제 어느 스텝인가" 를 식별하는 자리다 — aria-label 은 표시 위치(`i+1`)라
-              // 순서가 바뀌면 같은 값이 다른 스텝에서도 나온다.
-              data-index={i}
-              data-step-id={s.id}
-              aria-current={selected ? 'step' : undefined}
-              aria-label={`스텝 ${i + 1}`}
-              aria-describedby={hintId}
-              onPointerDown={(e) => drag.start(e, s.id, i)}
-              onClick={() => {
-                if (drag.consumeDragClick()) return; // 끌기의 뒤끝이 선택으로 둔갑하지 않게
-                onSelectStep(s.id);
-              }}
-              onKeyDown={(e) => onCardKeyDown(e, s, i)}
-              onBlur={() => grabbed && setHeld(null)}
-              style={{
-                position: 'relative',
-                flex: 'none',
-                width: '100%',
-                aspectRatio: cardAspectCss,
-                borderRadius: 10,
-                overflow: 'hidden',
-                background: 'var(--elev)',
-                border: selected ? '2px solid var(--accent)' : '1px solid var(--border)',
-                outline: grabbed ? '2px dashed var(--accent)' : undefined,
-                outlineOffset: 2,
-                opacity: dragging ? 0.55 : 1,
-                // 세로 목록이라 드래그 축(y)과 목록 스크롤 축(y)이 같다 — 카드 위에서 시작한
-                // 손짓은 재정렬이 가져간다(옛 가로 칩도 같은 트레이드오프였다, touchAction:
-                // 'pan-y'). 목록이 넘칠 때 터치로 굴리려면 카드가 아니라 틈을 잡아야 한다.
-                touchAction: 'pan-x',
-              }}
-            >
-              <span aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
-                <CourtThumbnail
-                  fill
-                  mode={drill.courtMode}
-                  size={drill.courtSize}
-                  thumb={thumbs.get(s.id)}
-                  teamColors={teamColors}
-                  glyphScale={SIDEBAR_GLYPH_SCALE}
-                />
-              </span>
-              <span aria-hidden="true" style={cardNumberBadge(selected)}>
-                {i + 1}
-              </span>
-            </button>,
+            <GapSlot
+              key={`gap-${s.id}`}
+              index={i}
+              active={(drag.state !== null && drag.state.to === i) || groupGapIndex === i}
+              disabled={atMax}
+              label={gap.label}
+              onDuplicate={() => fireDuplicate(gap)}
+              chain={chain}
+            />,
+            <div key={s.id} style={{ position: 'relative', flex: 'none', width: '100%', aspectRatio: cardAspectCss }}>
+              <button
+                ref={(el) => {
+                  if (el) cardRefs.current.set(s.id, el);
+                  else cardRefs.current.delete(s.id);
+                }}
+                type="button"
+                // 화면 순서를 재정렬 계산·테스트가 읽는 자리. ARIA 의미가 아니라 순전한 배관이라
+                // aria-posinset(특정 role 을 요구한다) 대신 평범한 데이터 속성을 쓴다.
+                // `data-step-id` 는 카드가 없앤 이름표(name) 대신 테스트가 "화면 순서가 아니라
+                // 실제 어느 스텝인가" 를 식별하는 자리다 — aria-label 은 표시 위치(`i+1`)라
+                // 순서가 바뀌면 같은 값이 다른 스텝에서도 나온다.
+                data-index={i}
+                data-step-id={s.id}
+                aria-current={selected ? 'step' : undefined}
+                // 선택 모드에서는 이 버튼이 **체크박스로 이중 역할**을 한다(§다중 선택, 체크박스는
+                // "실제 input 또는 aria-pressed" 둘 중 하나면 된다 — 카드 전체가 이미 버튼이라
+                // aria-pressed 를 얹는 쪽을 골랐다. 별도 input 을 끼우면 <button> 안에 <input> 이
+                // 되어 무효한 HTML 이 된다). aria-label 은 두 모드 다 순번뿐이다(cards() 테스트
+                // 헬퍼가 두 모드에서 같은 이름으로 찾을 수 있어야 한다).
+                aria-pressed={selectMode ? checked : undefined}
+                aria-label={`스텝 ${i + 1}`}
+                aria-describedby={hintId}
+                onPointerDown={(e) => {
+                  // 선택 모드에서 체크된 카드를 끌면 묶음 드래그, 아니면(모드 밖이거나 체크
+                  // 안 된 카드) 평소대로 단일 드래그 — 파일 머리말 §일괄 이동은 별도 훅이다.
+                  if (selectMode && checked) groupDrag.start(e, checkedIds);
+                  else drag.start(e, s.id, i);
+                }}
+                onClick={() => {
+                  // 끌기의 뒤끝이 선택/체크로 둔갑하지 않게(두 훅 다 확인 — 한 세션엔 하나만
+                  // 열리지만 어느 쪽이 열렸었는지 여기서는 모른다).
+                  if (drag.consumeDragClick() || groupDrag.consumeDragClick()) return;
+                  if (selectMode) toggleChecked(s.id);
+                  else onSelectStep(s.id);
+                }}
+                onKeyDown={(e) => onCardKeyDown(e, s, i)}
+                onBlur={() => grabbed && setHeld(null)}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  background: 'var(--elev)',
+                  border: selected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                  outline: grabbed ? '2px dashed var(--accent)' : undefined,
+                  outlineOffset: 2,
+                  opacity: dragging ? 0.55 : 1,
+                  // 세로 목록이라 드래그 축(y)과 목록 스크롤 축(y)이 같다 — 카드 위에서 시작한
+                  // 손짓은 재정렬이 가져간다(옛 가로 칩도 같은 트레이드오프였다, touchAction:
+                  // 'pan-y'). 목록이 넘칠 때 터치로 굴리려면 카드가 아니라 틈을 잡아야 한다.
+                  touchAction: 'pan-x',
+                }}
+              >
+                <span aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
+                  <CourtThumbnail
+                    fill
+                    mode={drill.courtMode}
+                    size={drill.courtSize}
+                    thumb={thumbs.get(s.id)}
+                    teamColors={teamColors}
+                    glyphScale={SIDEBAR_GLYPH_SCALE}
+                  />
+                </span>
+                <span aria-hidden="true" style={cardNumberBadge(selected)}>
+                  {i + 1}
+                </span>
+                {/* 체크박스 시각 표시 — **장식**이다(aria-hidden). 실제 체크 상태는 카드 버튼의
+                    aria-pressed 가 나른다(위 주석). 번호 배지(top-left)·복제 버튼(top-right)과
+                    안 겹치도록 아래 여백에 둔다. */}
+                {selectMode && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      left: 6,
+                      bottom: 6,
+                      width: 18,
+                      height: 18,
+                      borderRadius: 4,
+                      border: `1.5px solid ${checked ? 'var(--accent)' : 'var(--border-strong)'}`,
+                      background: checked ? 'var(--accent)' : 'color-mix(in srgb, var(--panel) 82%, transparent)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent-ink-strong)',
+                    }}
+                  >
+                    {checked && <IconCheck size={12} />}
+                  </span>
+                )}
+              </button>
+              {/* 카드 복제 버튼(§복제) — 선택 버튼과 형제다(중첩 <button> 은 무효한 HTML이라
+                  같은 자리를 absolute 로 나눠 쓴다). 항상 보인다(GapSlot 머리말과 같은 이유). */}
+              <button
+                type="button"
+                aria-label={`스텝 ${i + 1} 을 아래로 복제`}
+                title={atMax ? `스텝은 ${LIMITS.maxSteps}장까지입니다.` : '이 스텝을 복제해 바로 아래에 넣습니다.'}
+                disabled={atMax}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicateStep(s.id);
+                }}
+                style={{
+                  position: 'absolute',
+                  right: 6,
+                  top: 6,
+                  width: 20,
+                  height: 20,
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: 'color-mix(in srgb, var(--panel) 82%, transparent)',
+                  color: 'var(--muted)',
+                  opacity: atMax ? 0.4 : 1,
+                }}
+              >
+                <IconCopy size={12} />
+              </button>
+            </div>,
           ];
         })}
-        <GapSlot index={order.length} active={false} />
+        <GapSlot
+          index={order.length}
+          active={false}
+          disabled={atMax}
+          label={gapDuplicateSpec(order.length, order).label}
+          onDuplicate={() => fireDuplicate(gapDuplicateSpec(order.length, order))}
+        />
 
         <button
           type="button"
-          title={steps.length >= LIMITS.maxSteps ? `스텝은 ${LIMITS.maxSteps}장까지입니다.` : '지금 판을 한 장 더 찍어 뒤에 넣습니다.'}
-          disabled={steps.length >= LIMITS.maxSteps}
+          title={atMax ? `스텝은 ${LIMITS.maxSteps}장까지입니다.` : '지금 판을 한 장 더 찍어 뒤에 넣습니다.'}
+          disabled={atMax}
           onClick={onAddStep}
           style={{
             flex: 'none',
@@ -300,7 +756,7 @@ export function StepSidebar({ drill, stepId, onSelectStep, onReorderStep, onAddS
             color: 'var(--faint-text)',
             fontSize: '0.78125rem',
             fontWeight: 600,
-            opacity: steps.length >= LIMITS.maxSteps ? 0.4 : 1,
+            opacity: atMax ? 0.4 : 1,
           }}
         >
           <IconPlus size={15} />

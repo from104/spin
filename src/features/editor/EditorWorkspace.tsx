@@ -4,7 +4,7 @@
 // 그대로 이식한다.
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isId } from '../../core/ids.ts';
-import type { ChairId, NoteId } from '../../core/ids.ts';
+import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
 import { DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
@@ -311,6 +311,29 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     if (added) dispatch({ type: 'STEP_SELECT', id: added.id });
   }, [addedAfter, drill.steps, dispatch]);
 
+  // [스텝 복제](§복제, 기현님 확정 2026-08-17) — 위 [한 장 더 찍기] 와 같은 이유로 같은
+  // 패턴이다: 복제한 장이 손에 들려야 다음 조작(도형 그리기 등)이 그 장에 들어간다.
+  // STEP_DUPLICATE 도 순수 리듀서라 새 id 를 안 돌려주므로, 삽입 자리를 dispatch 전에
+  // 미리 계산해 두고 다음 렌더의 drill 에서 그 자리의 스텝을 골라 선택한다. StepSidebar 의
+  // 카드 복제 버튼·틈(gap)의 + 버튼이 함께 이 경로를 쓴다(카드마다 onDuplicateStep 을 새로
+  // 만들지 않도록 EditorWorkspace 에 하나만 둔다).
+  const [duplicatedTo, setDuplicatedTo] = useState<number | null>(null);
+  const duplicateStepAt = useCallback(
+    (id: StepId, toIndex?: number) => {
+      const idx = drill.steps.findIndex((s) => s.id === id);
+      if (idx < 0) return;
+      setDuplicatedTo(toIndex ?? idx + 1);
+      dispatch({ type: 'STEP_DUPLICATE', id, toIndex });
+    },
+    [dispatch, drill.steps],
+  );
+  useEffect(() => {
+    if (duplicatedTo === null) return;
+    setDuplicatedTo(null);
+    const added = drill.steps[duplicatedTo];
+    if (added) dispatch({ type: 'STEP_SELECT', id: added.id });
+  }, [duplicatedTo, drill.steps, dispatch]);
+
   const armPlayer = useCallback(
     (id: ChairId) => {
       setPendingPlayerId(id);
@@ -608,7 +631,22 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
           onReorderStep={(id, toIndex) => dispatch({ type: 'STEP_REORDER', id, toIndex })}
           onAddStep={addStepHere}
+          onDuplicateStep={duplicateStepAt}
+          // ④ 사슬 토글(기현님 확정 2026-08-17) — cut:false 는 STEP_META 리듀서가 키 삭제로
+          // 해석한다(reducer.ts STEP_META 주석). 복제와 달리 선택 이동이 없어 여기서는
+          // dispatch 만 얇게 감싼다(addStepHere/duplicateStepAt 같은 뒷정리가 필요 없다).
+          onToggleCut={(id, cut) => dispatch({ type: 'STEP_META', id, patch: { cut } })}
           collapsed={narrow || portrait}
+          // ⑤ 다중 선택(기현님 확정 2026-08-17) — 선택 상태 자체(어떤 카드가 체크됐나)는
+          // StepSidebar 로컬(ephemeral)이라 여기서는 "결과" 셋만 받아 그대로 dispatch 한다.
+          // duplicateStepAt/addStepHere 같은 뒷정리(방금 만든 스텝 선택)가 없는 이유: 일괄
+          // 조작 뒤에는 stepId 를 어디로 옮길지가 한 곳으로 안 정해진다(방금 복제한 묶음 중
+          // 어느 것? 이동한 묶음 중 어느 것?) — 그래서 지금 스텝은 그대로 둔다. 다만 일괄
+          // 삭제로 지금 스텝 자체가 사라지는 경우만은 reducer.ts uiReducer(STEPS_DELETE)가
+          // 남는 스텝으로 옮긴다(기존 STEP_DELETE 의 이웃 선택 로직과 같은 자리).
+          onMoveSteps={(ids, toIndex) => dispatch({ type: 'STEPS_MOVE', ids, toIndex })}
+          onDuplicateSteps={(ids) => dispatch({ type: 'STEPS_DUPLICATE', ids })}
+          onDeleteSteps={(ids) => dispatch({ type: 'STEPS_DELETE', ids })}
         />
       )}
 

@@ -4,9 +4,18 @@
 // 재현하고, **CSS 문자열**은 DOM 테스트가 리터럴로 다시 적어 대조한다. jsdom 은 calc(var())
 // 를 계산하지 못하므로 한 층만 두면 둘 중 하나가 조용히 갈라진다.
 import { describe, expect, it } from 'vitest';
-import { BOTTOM_BAR_PAD_PX, boardBarHeightPx, bottomBarPadCss, dropIndexAt, movedOrder, transportBarHeightPx } from './bottomBarMetrics.ts';
+import {
+  BOTTOM_BAR_PAD_PX,
+  boardBarHeightPx,
+  bottomBarPadCss,
+  dropIndexAt,
+  dropIndexInRest,
+  movedOrder,
+  movedOrderGroup,
+  transportBarHeightPx,
+} from './bottomBarMetrics.ts';
 import { createDrill } from '../../model/defaults.ts';
-import { addStepAfter, moveStep } from '../../model/edits.ts';
+import { addStepAfter, moveStep, moveSteps } from '../../model/edits.ts';
 
 describe('하단 바 높이 (§5.2)', () => {
   it('완료 판정: 트랜스포트 바는 64 이하다 — 재편 전 94 에서 30 을 돌려준다', () => {
@@ -61,6 +70,26 @@ describe('끌어 놓을 자리 판정 (dropIndexAt)', () => {
   });
 });
 
+// ⑤ 다중 선택 일괄 이동 전용 — dropIndexAt 과 상한이 다르다는 것 자체가 이 함수가 있는
+// 이유다(그 함수 머리말). M 개 중심에 대해 유효 자리는 0..M(포함) 이다.
+describe('묶음 끌어 놓을 자리 판정 (dropIndexInRest) — dropIndexAt 과 상한이 다르다', () => {
+  const centers = [35, 115, 195]; // 나머지(비선택) 3개의 중심
+
+  it('맨 끝(= centers.length)까지 닿는다 — dropIndexAt 이었다면 length-1 에서 막혔을 자리', () => {
+    expect(dropIndexInRest(centers, 9999)).toBe(3); // centers.length, dropIndexAt 이면 2 에서 막힌다
+  });
+
+  it('맨 앞(0)·중간은 dropIndexAt 과 같은 규칙 — 자기 자신을 뺄 필요가 없을 뿐이다', () => {
+    expect(dropIndexInRest(centers, -9999)).toBe(0);
+    expect(dropIndexInRest(centers, 114)).toBe(1); // 두 번째 중심(115)을 아직 못 넘음
+    expect(dropIndexInRest(centers, 116)).toBe(2); // 넘었다
+  });
+
+  it('빈 나머지(전량 선택)도 안전하다 — 유일한 자리는 0', () => {
+    expect(dropIndexInRest([], 9999)).toBe(0);
+  });
+});
+
 describe('미리보기 순서 (movedOrder)', () => {
   it('원본을 건드리지 않고 옮긴 배열을 준다', () => {
     const src = ['a', 'b', 'c', 'd'];
@@ -90,6 +119,41 @@ describe('미리보기 순서 (movedOrder)', () => {
       const preview = movedOrder(d.steps, from, to).map((s) => s.id);
       const committed = moveStep(d, from, to).steps.map((s) => s.id);
       expect(preview, `${from}→${to}`).toEqual(committed);
+    }
+  });
+});
+
+// ⑤ 다중 선택 일괄 이동(기현님 확정 2026-08-17) — movedOrder/moveStep 대조와 같은 이유로
+// movedOrderGroup(미리보기)과 moveSteps(edits.ts, 커밋)를 직접 대조한다. 좌표계가
+// movedOrder 와 다르다는 것 자체가 이 함수의 핵심이라 그 대조도 별도로 둔다.
+describe('묶음 미리보기 순서 (movedOrderGroup)', () => {
+  it('선택 묶음을 나머지 사이 자리(toIndex)에 상대 순서 보존한 채로 꽂는다', () => {
+    const src = ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id }));
+    // b,d 선택 → 나머지는 a,c,e. toIndex 1(= a 다음, c 앞)에 꽂으면 a,[b,d],c,e.
+    expect(movedOrderGroup(src, new Set(['b', 'd']), 1).map((s) => s.id)).toEqual(['a', 'b', 'd', 'c', 'e']);
+    // toIndex 0(맨 앞)
+    expect(movedOrderGroup(src, new Set(['b', 'd']), 0).map((s) => s.id)).toEqual(['b', 'd', 'a', 'c', 'e']);
+    // toIndex 3(나머지 끝 = 맨 뒤)
+    expect(movedOrderGroup(src, new Set(['b', 'd']), 3).map((s) => s.id)).toEqual(['a', 'c', 'e', 'b', 'd']);
+  });
+
+  it('빈 선택·범위 밖 toIndex 는 안전하게 clamp 되거나 원본과 같은 순서다', () => {
+    const src = ['a', 'b'].map((id) => ({ id }));
+    expect(movedOrderGroup(src, new Set(), 0).map((s) => s.id)).toEqual(['a', 'b']);
+    expect(movedOrderGroup(src, new Set(['a']), 99).map((s) => s.id)).toEqual(['b', 'a']); // clamp → 나머지 끝
+  });
+
+  it('**커밋(edits.moveSteps)과 같은 순서를 낸다** — 미리보기와 결과가 갈라지면 손을 뗄 때 판이 튄다', () => {
+    let d = createDrill({ courtMode: 'full' });
+    d = addStepAfter(d, 0);
+    d = addStepAfter(d, 1);
+    d = addStepAfter(d, 2); // 4장: A B C D
+    const ids = d.steps.map((s) => s.id);
+    const groupIds = new Set([ids[0]!, ids[2]!]); // A, C 선택(흩어져 있다) — 뭉쳐야 한다
+    for (const toIndex of [0, 1, 2]) {
+      const preview = movedOrderGroup(d.steps, groupIds, toIndex).map((s) => s.id);
+      const committed = moveSteps(d, [...groupIds], toIndex).steps.map((s) => s.id);
+      expect(preview, `toIndex=${toIndex}`).toEqual(committed);
     }
   });
 });

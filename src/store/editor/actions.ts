@@ -83,10 +83,43 @@ export type EditorAction =
       >;
     }
   | { type: 'STEP_ADD'; afterIndex: number }
-  | { type: 'STEP_DUPLICATE'; id: StepId }
+  /** 스텝 복제(§복제, 기현님 확정 2026-08-17) — **후방 복제가 기본**이라 `toIndex` 를
+   *  안 주면 `model/edits.ts duplicateStep` 계약대로 바로 뒤(`i+1`)에 꽂힌다. 카드 자체의
+   *  복제 버튼과 틈(gap) g>0 의 + 버튼은 그 기본값 그대로 쓴다(틈 g 는 위 스텝 g-1 을
+   *  복제해 자기 자리 g 에 넣는 것뿐인데, g-1 의 기본 삽입 위치가 이미 g 다).
+   *
+   *  `toIndex` 는 **맨 앞 틈(g=0)** 하나만을 위해 존재한다: 그 틈은 "아래(첫) 스텝의 복제를
+   *  맨 앞에" 넣어야 하는데, 복제 대상(첫 스텝, index 0)의 기본 삽입 위치(1)와 원하는 자리
+   *  (0)가 어긋난다 — 그래서 그 한 경우만 명시적으로 0 을 실어 보낸다. */
+  | { type: 'STEP_DUPLICATE'; id: StepId; toIndex?: number }
   | { type: 'STEP_DELETE'; id: StepId }
   | { type: 'STEP_REORDER'; id: StepId; toIndex: number }
-  | { type: 'STEP_META'; id: StepId; patch: { name?: string; note?: string; durationMs?: number } }
+  /** `patch.cut`(④ 사슬 토글, 기현님 확정 2026-08-17)은 **그 자체가 저장값이 아니라 명령이다**:
+   *  `true` 는 이 스텝을 앞 스텝과 끊는다(경계에 `cut: true` 를 싣는다), `false` 는 **키를
+   *  지운다**(`cut: false` 를 저장하는 게 아니다 — `DrillStep.cut` 은 리터럴 `true` 만 정의역
+   *  이라 저장하면 validate.ts 정화기가 버린다, drill.ts 교리 주석 참고). name/note/durationMs
+   *  와 같은 통로를 타는 이유: 스텝 하나의 속성 patch 라는 점이 같고, 되돌리기·coalesce·
+   *  history 등록을 새로 만들 이유가 없다. */
+  | { type: 'STEP_META'; id: StepId; patch: { name?: string; note?: string; durationMs?: number; cut?: boolean } }
+  // ── ⑤ 다중 선택(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §다중 선택) ─────────────────
+  // 선택 상태(어떤 카드가 체크됐나) 자체는 **컴포넌트 로컬(ephemeral)** 이라 여기 실리지
+  // 않는다 — 화면 상태지 문서 상태가 아니라서 리듀서·undo 가 몰라야 한다(StepSidebar.tsx
+  // 머리말). 세 액션은 "선택된 id 묶음으로 무엇을 했나" 라는 **결과** 만 받는다.
+  /** 일괄 이동. 단일 `STEP_REORDER` 를 ids 개수만큼 반복 dispatch 하면 되돌리기가 조각난다
+   *  (한 번 끈 이동을 Ctrl+Z 여러 번으로 풀어야 한다) — 그래서 한 칸짜리 새 액션이 필요했다.
+   *  `toIndex` 는 **선택되지 않은 나머지 스텝들의 순서 안에서의 삽입 자리**다
+   *  (model/edits.ts moveSteps 의 계약 그대로 — 미리보기(`movedOrderGroup`)와 좌표계가 같아야
+   *  드래그 중 보이는 것과 커밋 결과가 어긋나지 않는다). */
+  | { type: 'STEPS_MOVE'; ids: StepId[]; toIndex: number }
+  /** 일괄 복제. 선택 묶음의 사본을 **마지막 선택 카드 바로 뒤**에 상대 순서대로 삽입한다
+   *  (edits.ts duplicateSteps 참고). 정원(LIMITS.maxSteps)을 넘기면 리듀서가 조용히
+   *  원본을 돌려준다 — 사이드바 버튼이 미리 잠가서 보통은 여기까지 안 온다. */
+  | { type: 'STEPS_DUPLICATE'; ids: StepId[] }
+  /** 일괄 삭제. 드릴에는 스텝이 **최소 1장은 남아야 한다**(기존 `STEP_DELETE` 와 같은 가드,
+   *  edits.ts deleteSteps 참고). 현재 스텝(`stepId`)이 삭제 묶음에 들어 있으면
+   *  `store/editor/reducer.ts` 의 `uiReducer` 가 (기존 `STEP_DELETE` 의 이웃 선택 로직을
+   *  일반화해) 남는 스텝으로 옮긴다 — 이 액션 자체는 `Drill` 만 바꾼다. */
+  | { type: 'STEPS_DELETE'; ids: StepId[] }
   /** id 를 **부르는 쪽이 짓는다**(2026-08-16) — 도형·메모·화살표가 이미 그렇다. 놓자마자
    *  선택하려면(§6.10a `PLACED`) 부르는 쪽이 방금 놓은 개체의 이름을 알아야 한다. */
   | { type: 'OBJECT_ADD'; kind: 'ball' | 'cone'; at: Vec2; colorIndex?: 0 | 1; id: BallId | ConeId }
@@ -166,6 +199,9 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'STEP_DELETE',
   'STEP_REORDER',
   'STEP_META',
+  'STEPS_MOVE',
+  'STEPS_DUPLICATE',
+  'STEPS_DELETE',
   'OBJECT_ADD',
   'OBJECT_REMOVE',
   'CHAIR_PLACE',
@@ -214,6 +250,12 @@ export const EPOCH_BUMP_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'STEP_DUPLICATE',
   'STEP_DELETE',
   'STEP_REORDER',
+  // 일괄 이동·복제·삭제도 구조 변경이다 — 단일 형제(STEP_REORDER/STEP_DUPLICATE/STEP_DELETE)와
+  // 같은 이유로 epoch 를 올린다. 특히 STEPS_DELETE 는 uiReducer 가 stepId 를 다른 스텝으로
+  // 옮길 수 있어(§복제 이관), 물리 월드를 새 시점에 맞춰 다시 세워야 한다.
+  'STEPS_MOVE',
+  'STEPS_DUPLICATE',
+  'STEPS_DELETE',
   'OBJECT_ADD',
   'OBJECT_REMOVE',
   'CHAIR_PLACE',

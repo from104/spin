@@ -150,7 +150,19 @@ describe('§6.4 ④-b 스텝 사이드바 카드가 그 드릴의 코트 크기�
   it.each(COURT_SIZES)('%s — 카드 aspectRatio 와 카드 안 썸네일이 그 코트다', (size: CourtSize) => {
     const drill = createDrill({ courtMode: 'full', courtSize: size });
     const { container } = render(
-      <StepSidebar drill={drill} stepId={drill.steps[0]!.id} onSelectStep={() => {}} onReorderStep={() => {}} onAddStep={() => {}} collapsed={false} />,
+      <StepSidebar
+        drill={drill}
+        stepId={drill.steps[0]!.id}
+        onSelectStep={() => {}}
+        onReorderStep={() => {}}
+        onAddStep={() => {}}
+        onDuplicateStep={() => {}}
+        onToggleCut={() => {}}
+        collapsed={false}
+        onMoveSteps={() => {}}
+        onDuplicateSteps={() => {}}
+        onDeleteSteps={() => {}}
+      />,
       { wrapper: barWrapper },
     );
     const def = courtDefFor('full', size);
@@ -158,7 +170,10 @@ describe('§6.4 ④-b 스텝 사이드바 카드가 그 드릴의 코트 크기�
     expect([...container.querySelectorAll('svg')].map((s) => s.getAttribute('viewBox'))).toContain(`0 0 ${def.vbW} ${def.vbH}`);
     expect(svg).toBeTruthy();
     const card = screen.getByRole('button', { name: '스텝 1' }) as HTMLElement;
-    expect(card.style.aspectRatio).toBe(`${def.vbW} / ${def.vbH}`);
+    // 2026-08-17 §복제 — 카드 복제 버튼을 형제로 앉히면서(중첩 <button> 은 무효한 HTML)
+    // aspectRatio 는 선택 버튼이 아니라 그 둘을 감싸는 위치 기준 wrapper 가 갖는다
+    // (StepSidebar.tsx: 선택 버튼은 그 wrapper 에 inset:0 으로 꽉 채운다).
+    expect((card.parentElement as HTMLElement).style.aspectRatio).toBe(`${def.vbW} / ${def.vbH}`);
   });
 });
 

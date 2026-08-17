@@ -3,7 +3,7 @@
 import { isId } from '../../core/ids.ts';
 import type { StepId, CastId, BallId, ConeId } from '../../core/ids.ts';
 import { radToStoredDeg, storedDegToRad } from '../../core/angle.ts';
-import type { Drill } from '../../model/drill.ts';
+import type { Drill, DrillStep } from '../../model/drill.ts';
 import { ballRingOf } from '../../model/drill.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
 import {
@@ -19,6 +19,9 @@ import {
   duplicateStep,
   deleteStep,
   moveStep,
+  moveSteps,
+  duplicateSteps,
+  deleteSteps,
   setArrow,
   removeArrow,
   setNote,
@@ -249,6 +252,28 @@ function uiReducerInner(s: EditorState, a: EditorAction): EditorState {
       const nextIdx = Math.min(idx, survivors.length - 1);
       return { ...s, stepId: survivors[nextIdx]!.id };
     }
+    // ⑤ 다중 선택 — 일괄 삭제(기현님 확정 2026-08-17). STEP_DELETE 의 불변식 4 를 여러 개
+    // 지우는 경우로 일반화한 것이다: 지금 스텝이 삭제 묶음에 없으면 손대지 않는다(이미 유효).
+    // 있으면 **뒤쪽에서 먼저 생존자를 찾고, 없으면 앞쪽**으로 — 단일 삭제의 "min(idx,
+    // survivors.length-1)"(뒤 이웃 우선, 끝이면 남은 마지막 것)과 정확히 같은 규칙을 여럿
+    // 지워도 옳게 답하도록 일반화했다(연속으로 여러 스텝이 지워져도 그 다음 첫 생존자를 찾는다).
+    // 전량 삭제(가드에 걸려 실제로는 안 일어난다 — deleteSteps 가 원본을 그대로 돌려준다)는
+    // 루프 두 개가 다 실패해 맨 끝 `return s` 로 안전하게 빠진다.
+    case 'STEPS_DELETE': {
+      const idSet = new Set(a.ids);
+      if (!idSet.has(s.stepId)) return s;
+      const idx = s.present.steps.findIndex((st) => st.id === s.stepId);
+      if (idx < 0) return s;
+      for (let i = idx + 1; i < s.present.steps.length; i++) {
+        const st = s.present.steps[i]!;
+        if (!idSet.has(st.id)) return { ...s, stepId: st.id };
+      }
+      for (let i = idx - 1; i >= 0; i--) {
+        const st = s.present.steps[i]!;
+        if (!idSet.has(st.id)) return { ...s, stepId: st.id };
+      }
+      return s;
+    }
     default:
       return s;
   }
@@ -274,7 +299,7 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return addStepAfter(d, a.afterIndex);
     case 'STEP_DUPLICATE': {
       const idx = d.steps.findIndex((st) => st.id === a.id);
-      return idx < 0 ? d : duplicateStep(d, idx);
+      return idx < 0 ? d : duplicateStep(d, idx, a.toIndex);
     }
     case 'STEP_DELETE': {
       const idx = d.steps.findIndex((st) => st.id === a.id);
@@ -284,12 +309,37 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       const idx = d.steps.findIndex((st) => st.id === a.id);
       return idx < 0 ? d : moveStep(d, idx, a.toIndex);
     }
+    // ⑤ 다중 선택(기현님 확정 2026-08-17) — 세 갈래 모두 순수 함수(edits.ts)에 그대로 위임한다.
+    // 정원·최소 1장 가드는 그 함수들 안에 있다(사이드바 버튼이 미리 잠그지만 여기가 마지막 문).
+    case 'STEPS_MOVE':
+      return moveSteps(d, a.ids, a.toIndex);
+    case 'STEPS_DUPLICATE':
+      return duplicateSteps(d, a.ids);
+    case 'STEPS_DELETE':
+      return deleteSteps(d, a.ids);
     case 'STEP_META': {
       const idx = d.steps.findIndex((st) => st.id === a.id);
       if (idx < 0) return d;
       const step = d.steps[idx]!;
-      const next = { ...step, ...a.patch };
-      if (next.name === step.name && next.note === step.note && next.durationMs === step.durationMs) return d;
+      // cut 은 나머지 필드와 병합 방식이 다르다 — `{...step, cut: a.patch.cut}` 로 얕게
+      // 섞으면 `cut: false` 가 그대로 저장돼 버린다(DrillStep.cut 은 리터럴 true 만 정의역,
+      // actions.ts STEP_META 주석). `false` 는 **키 삭제 명령**으로 따로 해석한다
+      // (model/edits.ts stripStepFlags 의 `delete patched[flag]` 와 같은 관례).
+      const { cut: cutCmd, ...rest } = a.patch;
+      let next: DrillStep = { ...step, ...rest };
+      if (cutCmd !== undefined) {
+        if (cutCmd) {
+          next = { ...next, cut: true };
+        } else if ('cut' in next) {
+          next = { ...next };
+          delete next.cut;
+        }
+      }
+      // ⚠️ cut 도 비교에 넣어야 한다 — 안 넣으면 "cut 만 바뀌고 name/note/durationMs 는 그대로"
+      // 인 흔한 경우(사슬 토글 그 자체)가 매번 항등 판정에 걸려 아무 일도 안 일어난다.
+      if (next.name === step.name && next.note === step.note && next.durationMs === step.durationMs && next.cut === step.cut) {
+        return d;
+      }
       const steps = d.steps.slice();
       steps[idx] = next;
       return { ...d, steps };

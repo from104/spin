@@ -2,7 +2,7 @@
 // (리렌더·히스토리 억제). 시간축 규약: 추가도 삭제도 "이 스텝부터 끝까지".
 import type { Vec2 } from '../core/units.ts';
 import { isId, newId } from '../core/ids.ts';
-import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId, ShapeId } from '../core/ids.ts';
+import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId, ShapeId, StepId } from '../core/ids.ts';
 import type { Drill, DrillStep, DrillCast, ChairDef, NoteLabel, PoseMap } from './drill.ts';
 import type { Shape } from './shape.ts';
 import { ballRingOf, nextBallRing } from './drill.ts';
@@ -268,14 +268,17 @@ export function addStepAfter(d: Drill, i: number): Drill {
   return { ...d, steps };
 }
 
-/** 스텝 i 를 그대로(이름 포함) 바로 뒤에 복제한다. 화살표·메모 id 보존이 D6 크로스페이드의 핵심이다. */
-export function duplicateStep(d: Drill, i: number): Drill {
+/** 스텝 i 를 그대로(이름 포함) 복제한다. 화살표·메모 id 보존이 D6 크로스페이드의 핵심이다.
+ *  삽입 자리는 기본이 **바로 뒤**(`i + 1`, 후방 복제 — §복제 기현님 확정 2026-08-17)지만,
+ *  맨 앞 틈의 [+]("아래 첫 스텝의 복제를 맨 앞에")처럼 다른 자리가 필요하면 `insertAt` 으로
+ *  덮어쓴다. `Array.prototype.splice` 가 범위를 알아서 clamp 하므로 여기서 따로 막지 않는다. */
+export function duplicateStep(d: Drill, i: number, insertAt?: number): Drill {
   const base = d.steps[i];
   if (!base) return d;
   const clone = structuredClone(base);
   clone.id = newId('st');
   const steps = d.steps.slice();
-  steps.splice(i + 1, 0, clone);
+  steps.splice(insertAt ?? i + 1, 0, clone);
   return { ...d, steps };
 }
 
@@ -295,6 +298,81 @@ export function moveStep(d: Drill, from: number, to: number): Drill {
   const [item] = steps.splice(from, 1);
   steps.splice(to, 0, item!);
   return { ...d, steps };
+}
+
+// ── ⑤ 다중 선택(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §다중 선택) ─────────────────────
+// 선택 상태 자체(ephemeral)는 컴포넌트 로컬이라 여기 들어오지 않는다 — 여기 셋은 "선택된
+// id 묶음" 을 **결과만** 받는 순수 함수다. `ids` 는 순서가 뜻이 없다(전부 `new Set` 으로
+// 소속만 물은 뒤, 실제 순서는 `d.steps` 원본 순서에서 다시 뽑는다) — 체크박스를 누른 순서에
+// 따라 결과가 갈리면 "같은 걸 선택했는데 어제와 결과가 다르다" 가 된다.
+
+/** 선택 묶음을 통째로 옮긴다(일괄 이동) — **상대 순서 보존**. 단일 `moveStep` 을 ids 개수만큼
+ *  반복 호출하면 되돌리기가 조각난다(한 번 끈 이동을 Ctrl+Z 여러 번으로 풀어야 한다) — 그래서
+ *  한 액션이 한 번에 계산한다.
+ *
+ *  `toIndex` 의 좌표계가 핵심이다: **선택되지 않은 나머지 스텝들의 순서 안에서의 삽입 자리**
+ *  (0..나머지 길이)다. 화면의 드래그가 재는 것이 "그룹을 뺀 나머지 카드 중심" 이라
+ *  (`useStepGroupReorderDrag.ts`), 커밋도 같은 좌표계여야 미리보기와 결과가 어긋나지 않는다
+ *  (`movedOrderGroup` 이 미리보기, 이 함수가 커밋 — 둘 다 "나머지 사이에 묶음을 통째로 꽂는다"
+ *  는 같은 규칙이다).
+ *
+ *  선택이 원래 흩어져 있었다면(카드 사이사이에 체크 안 된 카드가 끼어 있었다면) 이동 뒤에는
+ *  **반드시 한 덩어리로 뭉친다** — 그게 "묶음을 옮긴다" 는 조작의 뜻이다. 그래서 이미 이웃해
+ *  있던 선택을 원래 자리 그대로 놓았을 때만 항등(동일 참조)이 나온다. */
+export function moveSteps(d: Drill, ids: readonly StepId[], toIndex: number): Drill {
+  if (ids.length === 0) return d;
+  const idSet = new Set(ids);
+  const moving = d.steps.filter((s) => idSet.has(s.id));
+  if (moving.length === 0) return d;
+  const rest = d.steps.filter((s) => !idSet.has(s.id));
+  const at = Math.min(Math.max(toIndex, 0), rest.length);
+  const steps = [...rest.slice(0, at), ...moving, ...rest.slice(at)];
+  // 순서가 실제로 안 바뀌었으면(이미 이웃해 있던 선택을 같은 틈에 도로 놓은 경우) 원본을
+  // 그대로 돌려준다 — withHistory 가 `next === s.present` 로 히스토리·리렌더를 억제한다.
+  if (steps.length === d.steps.length && steps.every((s, i) => s === d.steps[i])) return d;
+  return { ...d, steps };
+}
+
+/** 선택 묶음을 복제한다(일괄 복제) — 상대 순서를 보존한 사본을 **마지막 선택 카드 바로 뒤**에
+ *  통째로 삽입한다(계획서 §다중 선택: "마지막 선택 카드 뒤에 상대 순서대로 삽입"). `duplicateStep`
+ *  하나를 ids 개수만큼 반복하면 매번 삽입 자리가 밀려나며 계산이 얽히고 되돌리기도 조각난다.
+ *
+ *  정원 가드(LIMITS.maxSteps)를 **여기서도** 본다 — 사이드바 버튼이 미리 잠그지만(정원이면
+ *  disabled), 그 가드가 뚫려도(예: 다른 탭에서 동시 편집) 여기가 마지막 문이다. 넘치면 원본을
+ *  그대로 돌려준다. */
+export function duplicateSteps(d: Drill, ids: readonly StepId[]): Drill {
+  if (ids.length === 0) return d;
+  const idSet = new Set(ids);
+  if (d.steps.length + idSet.size > LIMITS.maxSteps) return d;
+  let lastIdx = -1;
+  d.steps.forEach((s, i) => {
+    if (idSet.has(s.id)) lastIdx = i;
+  });
+  if (lastIdx < 0) return d;
+  const clones = d.steps
+    .filter((s) => idSet.has(s.id))
+    .map((s) => {
+      const clone = structuredClone(s);
+      clone.id = newId('st');
+      return clone;
+    });
+  const steps = d.steps.slice();
+  steps.splice(lastIdx + 1, 0, ...clones);
+  return { ...d, steps };
+}
+
+/** 선택 묶음을 지운다(일괄 삭제) — 드릴에는 스텝이 **최소 1장은 남아야 한다**(`deleteStep` 과
+ *  같은 가드). 선택이 전량이면(또는 그보다 많으면, 있을 수 없지만 방어적으로) 원본을 그대로
+ *  돌려준다 — 사이드바 버튼이 미리 잠그지만 여기가 마지막 문이다. stepId 재지정(삭제 묶음에
+ *  현재 스텝이 있으면 남는 스텝으로 옮기는 일)은 여기서 하지 않는다 — 이 함수는 `Drill` 만
+ *  다루는 순수 함수이고, `stepId` 는 `EditorState` 의 것이라 `store/editor/reducer.ts` 의
+ *  `uiReducer` 가 (기존 `STEP_DELETE` 의 이웃 선택 로직을 일반화해) 맡는다. */
+export function deleteSteps(d: Drill, ids: readonly StepId[]): Drill {
+  if (ids.length === 0) return d;
+  const idSet = new Set(ids);
+  const steps = d.steps.filter((s) => !idSet.has(s.id));
+  if (steps.length === 0 || steps.length === d.steps.length) return d;
+  return pruneOrphanCast({ ...d, steps });
 }
 
 function arrowsEqual(a: Arrow, b: Arrow): boolean {

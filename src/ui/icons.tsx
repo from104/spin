@@ -202,6 +202,18 @@ export function IconPlus({ size = 16, ...rest }: IconProps) {
   );
 }
 
+// 복제(§복제, 기현님 확정 2026-08-17) — 스텝 카드 복제 버튼·틈(gap) + 버튼이 함께 쓴다.
+// 겹친 두 네모의 익숙한 '복사' 문법. 앞 네모(원본)는 실선, 뒤 네모(복제본)는 앞 네모에
+// 가려 보이는 모서리만 실선으로 그려 "하나가 늘어난다"는 인상을 준다.
+export function IconCopy({ size = 14, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M6 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V6" />
+    </svg>
+  );
+}
+
 export function IconClose({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
@@ -274,6 +286,31 @@ export function IconLock({ size = 12, ...rest }: IconProps) {
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
       <rect x="5" y="10" width="14" height="9" rx="2" />
       <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+/** 사슬 토글(④, 기현님 확정 2026-08-17) — 스텝 사이 틈(내부 경계에만)에 다는 연결 표시.
+ *  기본은 연결이라 조용한 두 고리(맞물림)만 그린다. 끊긴 쪽(IconChainCut)과 **뷰박스·고리
+ *  크기를 맞춰** 두 그림이 "같은 것의 이어진/끊긴 버전"으로 한눈에 읽히게 한다. */
+export function IconChainLinked({ size = 12, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="2.5" y="8" width="10" height="8" rx="4" />
+      <rect x="11.5" y="8" width="10" height="8" rx="4" />
+    </svg>
+  );
+}
+
+/** 끊김. 색만으로 구별하지 않는다(계획서 §사슬 "색만이 아니라 모양·aria 로도 구분") — 두 고리를
+ *  벌리고 그 틈을 대각선으로 가른다. IconChainLinked 와 같은 고리 크기·자리를 양옆으로 밀어냈을
+ *  뿐이라 "끊어졌다" 는 것이 형태 자체에서 나온다(테두리 색만 accent 로 바꾸는 흔한 실수를 피함). */
+export function IconChainCut({ size = 12, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="1" y="8" width="8" height="8" rx="4" />
+      <rect x="15" y="8" width="8" height="8" rx="4" />
+      <path d="M5 19 19 5" />
     </svg>
   );
 }

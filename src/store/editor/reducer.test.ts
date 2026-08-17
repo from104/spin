@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { newId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
+import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 import { editorRootReducer, initEditorState, selectStepIndex } from './reducer.ts';
 import type { EditorState } from './reducer.ts';
@@ -107,6 +108,284 @@ describe('STEP_DELETE — 불변식 4: stepId 재지정', () => {
     const s0 = freshState();
     const s1 = editorRootReducer(s0, { type: 'STEP_DELETE', id: s0.stepId });
     expect(s1).toBe(s0);
+  });
+});
+
+// §복제(기현님 확정 2026-08-17) — STEP_DUPLICATE 에 `toIndex` 가 늘었다. StepSidebar 의
+// 카드 복제 버튼·틈(gap) g≥1 의 + 는 toIndex 없이(기본 = 바로 뒤) 이 액션을 부르고,
+// 맨 앞 틈(g=0) 만 toIndex:0 을 싣는다 — actions.ts STEP_DUPLICATE 주석·StepSidebar.tsx
+// gapDuplicateSpec 이 그 규칙의 정본이다. 여기서는 리듀서가 그 계약을 실제로 지키는지만 본다.
+describe('STEP_DUPLICATE — toIndex (§복제)', () => {
+  it('카드 복제 버튼: toIndex 없이 부르면 바로 뒤(기본값)에 꽂힌다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // A, B
+    const [aId, bId] = s.present.steps.map((st) => st.id);
+    const s2 = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: aId! });
+    const ids = s2.present.steps.map((st) => st.id);
+    expect(ids).toHaveLength(3);
+    expect(ids[0]).toBe(aId); // 원본 A 는 그대로 0번
+    expect(ids[1]).not.toBe(aId);
+    expect(ids[1]).not.toBe(bId); // 1번은 A 의 복제본(새 id)
+    expect(ids[2]).toBe(bId); // B 는 한 칸 밀림
+  });
+
+  it('틈 g(g≥1) 의 +: 위 스텝(g-1)의 복제가 그 자리 g 에 꽂힌다 — 기본값이 이미 g 다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A, B, C
+    const [aId, bId, cId] = s.present.steps.map((st) => st.id);
+    // 틈 2(카드 1 과 2 사이) → 위 스텝은 index 1 = B
+    const s2 = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: bId! });
+    const ids = s2.present.steps.map((st) => st.id);
+    expect(ids).toHaveLength(4);
+    expect(ids[0]).toBe(aId);
+    expect(ids[1]).toBe(bId); // 원본 B
+    expect(ids[2]).not.toBe(bId);
+    expect(ids[2]).not.toBe(cId); // 2번은 B 의 복제본 — 정확히 틈 2 자리
+    expect(ids[3]).toBe(cId); // C 는 한 칸 밀림
+  });
+
+  it('맨 앞 틈(g=0) 의 +: toIndex:0 으로 첫 스텝의 복제가 맨 앞에 꽂힌다', () => {
+    const s0 = freshState();
+    const firstId = s0.present.steps[0]!.id;
+    const s1 = editorRootReducer(s0, { type: 'STEP_DUPLICATE', id: firstId, toIndex: 0 });
+    const ids = s1.present.steps.map((st) => st.id);
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(firstId); // 복제본이 맨 앞(0)
+    expect(ids[1]).toBe(firstId); // 원본은 뒤로 밀림
+  });
+
+  it('undo 한 번으로 복제 전 상태(참조까지)로 돌아간다', () => {
+    const s0 = freshState();
+    const before = s0.present;
+    const firstId = s0.present.steps[0]!.id;
+    const s1 = editorRootReducer(s0, { type: 'STEP_DUPLICATE', id: firstId });
+    expect(s1.present.steps).toHaveLength(2);
+    const s2 = editorRootReducer(s1, { type: 'UNDO' });
+    expect(s2.present.steps).toHaveLength(1);
+    expect(s2.present).toBe(before);
+  });
+});
+
+// ④ 사슬 토글(기현님 확정 2026-08-17) — STEP_META 의 patch.cut. `cut:true` 는 그 스텝을
+// 앞 스텝과 끊고, `cut:false` 는 **키 자체를 지운다**(actions.ts STEP_META 주석·drill.ts
+// 교리: cut 은 리터럴 true 만 정의역, `cut:false` 저장은 validate.ts 정화기가 버린다).
+describe('STEP_META — patch.cut (§사슬)', () => {
+  it('cut:true 를 실으면 그 스텝에 cut:true 가 저장된다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // A, B
+    const bId = s.present.steps[1]!.id;
+    const s2 = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
+    expect(s2.present.steps[1]!.cut).toBe(true);
+    expect(s2.present).not.toBe(s.present);
+  });
+
+  it('cut:false 는 값을 false 로 저장하지 않는다 — 키 자체가 사라진다(undefined, false 아님)', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    const bId = s.present.steps[1]!.id;
+    s = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
+    expect(s.present.steps[1]!.cut).toBe(true);
+    const s2 = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: false } });
+    expect(s2.present.steps[1]!.cut).toBeUndefined();
+    expect('cut' in s2.present.steps[1]!).toBe(false); // false 로 남는 것과 키가 없는 것은 다르다
+  });
+
+  // 옛 STEP_META 항등 판정("name/note/durationMs 만 같으면 d 그대로 반환")이 cut 을 안 봐서
+  // 아무 일도 안 일어나던 결함의 회귀 고정 — cut 만 바뀌어도 반드시 present 가 갱신돼야 한다.
+  it('cut 만 바뀌어도(name/note/durationMs 는 그대로) present 참조가 바뀐다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    const bId = s.present.steps[1]!.id;
+    const before = s.present;
+    const s2 = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
+    expect(s2.present).not.toBe(before);
+    expect(s2.present.steps[1]!.cut).toBe(true);
+  });
+
+  it('없는 스텝 id 는 조용히 무시한다(항등)', () => {
+    const s0 = freshState();
+    const s1 = editorRootReducer(s0, { type: 'STEP_META', id: 'st_없음' as never, patch: { cut: true } });
+    expect(s1.present).toBe(s0.present);
+  });
+
+  it('undo 한 번으로 cut 토글 전 상태(참조까지)로 돌아간다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    const bId = s.present.steps[1]!.id;
+    const before = s.present;
+    const s1 = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
+    expect(s1.present.steps[1]!.cut).toBe(true);
+    const s2 = editorRootReducer(s1, { type: 'UNDO' });
+    expect(s2.present).toBe(before);
+    expect(s2.present.steps[1]!.cut).toBeUndefined();
+  });
+
+  // ⚠️ STEP_META 는 COALESCE_TYPES 다(같은 스텝 id 로 700ms 안에 이어지면 한 칸으로 병합 —
+  // 텍스트 필드와 같은 취급). 사슬 재토글도 그 규칙을 그대로 타므로, "두 번째 토글이 첫
+  // 토글과 별개 조작이다" 를 보이려면 그 사이에 COMMIT_BREAK(키 리피트 경계와 같은 장치,
+  // history.ts)를 끼워야 한다 — 안 끼우면 아래 두 커밋이 병합돼 undo 한 번에 최초 상태로
+  // 건너뛰고, 이 테스트는 그 잘못된 동작(중간 상태 유실)을 놓치게 된다.
+  it('cut:false → true → undo 왕복도 정확히 되짚는다(별개 조작 — 사이에 COMMIT_BREAK)', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    const bId = s.present.steps[1]!.id;
+    s = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
+    const cutOn = s.present;
+    s = editorRootReducer(s, { type: 'COMMIT_BREAK' });
+    const s2 = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: false } });
+    expect(s2.present.steps[1]!.cut).toBeUndefined();
+    const s3 = editorRootReducer(s2, { type: 'UNDO' });
+    expect(s3.present).toBe(cutOn); // 참조까지 복원 — dedupe 가 새 객체를 안 만든다는 증거
+    expect(s3.present.steps[1]!.cut).toBe(true);
+  });
+});
+
+// ⑤ 다중 선택(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §다중 선택) — 일괄 이동·복제·삭제.
+// 선택 상태(체크된 카드) 자체는 StepSidebar 로컬(ephemeral)이라 여기서는 다루지 않는다 —
+// 리듀서가 보는 것은 "선택된 id 묶음" 뿐이다(StepSidebar.select.test.tsx 가 화면 쪽을 본다).
+describe('STEPS_MOVE — 일괄 이동, 상대 순서 보존 (§다중 선택)', () => {
+  it('흩어진 두 스텝(A·C)을 나머지 뒤(toIndex=나머지 길이)로 옮기면 한 덩어리로 뭉친다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 });
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 2 }); // A B C D
+    const [aId, bId, cId, dId] = s.present.steps.map((st) => st.id);
+    const s2 = editorRootReducer(s, { type: 'STEPS_MOVE', ids: [aId!, cId!], toIndex: 2 });
+    expect(s2.present.steps.map((st) => st.id)).toEqual([bId, dId, aId, cId]);
+  });
+
+  it('undo 한 번으로 이동 전 상태(참조까지)로 돌아간다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    const before = s.present;
+    const [aId, , cId] = s.present.steps.map((st) => st.id);
+    const s1 = editorRootReducer(s, { type: 'STEPS_MOVE', ids: [aId!, cId!], toIndex: 1 });
+    expect(s1.present.steps).toHaveLength(3);
+    const s2 = editorRootReducer(s1, { type: 'UNDO' });
+    expect(s2.present).toBe(before); // 단일 STEP_REORDER 를 여러 번 dispatch 했다면 undo 한 번에 안 돌아온다
+  });
+
+  it('빈 ids 는 항등이다 — 히스토리에도 안 쌓인다', () => {
+    const s0 = freshState();
+    const s1 = editorRootReducer(s0, { type: 'STEPS_MOVE', ids: [], toIndex: 0 });
+    expect(s1).toBe(s0);
+  });
+
+  it('이미 이웃해 있던 선택을 같은 자리에 도로 놓으면(무변경) undo 스택이 안 늘어난다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // A B
+    const before = s;
+    const [aId, bId] = s.present.steps.map((st) => st.id);
+    // A,B 를 통째로 골라 toIndex 0(나머지 없음이라 유일한 자리)에 도로 놓는다 — 순서 불변.
+    const s2 = editorRootReducer(s, { type: 'STEPS_MOVE', ids: [aId!, bId!], toIndex: 0 });
+    expect(s2.present.steps.map((st) => st.id)).toEqual([aId, bId]);
+    expect(s2.past).toBe(before.past); // 새 past 엔트리가 안 쌓였다 — moveSteps 의 항등 반환 덕
+  });
+});
+
+describe('STEPS_DUPLICATE — 일괄 복제, 마지막 선택 뒤에 상대 순서대로 (§다중 선택)', () => {
+  it('선택한 두 스텝(A·C)의 사본이 마지막 선택(C) 뒤에 상대 순서대로 꽂힌다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    const [aId, bId, cId] = s.present.steps.map((st) => st.id);
+    const s2 = editorRootReducer(s, { type: 'STEPS_DUPLICATE', ids: [aId!, cId!] });
+    const ids = s2.present.steps.map((st) => st.id);
+    expect(ids).toHaveLength(5);
+    expect(ids[0]).toBe(aId);
+    expect(ids[1]).toBe(bId);
+    expect(ids[2]).toBe(cId); // 원본 C — 마지막 선택
+    expect(ids[3]).not.toBe(aId);
+    expect(ids[3]).not.toBe(cId); // A 의 복제본
+    expect(ids[4]).not.toBe(aId);
+    expect(ids[4]).not.toBe(cId); // C 의 복제본 — 상대 순서(A 앞, C 뒤) 보존
+  });
+
+  it('정원을 넘기면 원본 그대로(항등) 돌려준다', () => {
+    let s = freshState();
+    while (s.present.steps.length < LIMITS.maxSteps) {
+      s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: s.present.steps.length - 1 });
+    }
+    const before = s.present;
+    const ids = s.present.steps.map((st) => st.id);
+    const s2 = editorRootReducer(s, { type: 'STEPS_DUPLICATE', ids: [ids[0]!] });
+    expect(s2.present).toBe(before);
+  });
+
+  it('undo 한 번으로 복제 전 상태(참조까지)로 돌아간다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    const before = s.present;
+    const ids = s.present.steps.map((st) => st.id);
+    const s1 = editorRootReducer(s, { type: 'STEPS_DUPLICATE', ids });
+    expect(s1.present.steps).toHaveLength(4);
+    const s2 = editorRootReducer(s1, { type: 'UNDO' });
+    expect(s2.present).toBe(before);
+  });
+});
+
+describe('STEPS_DELETE — 일괄 삭제, 최소 1장 가드 + stepId 이관 (§다중 선택)', () => {
+  it('선택 묶음이 지워지고, 현재 스텝이 그 안에 있었으면 남는 스텝으로 옮긴다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    const [aId, bId, cId] = s.present.steps.map((st) => st.id);
+    s = editorRootReducer(s, { type: 'STEP_SELECT', id: bId! }); // 지금 스텝 = B(삭제 묶음에 포함)
+    const s2 = editorRootReducer(s, { type: 'STEPS_DELETE', ids: [aId!, bId!] });
+    expect(s2.present.steps.map((st) => st.id)).toEqual([cId]);
+    expect(s2.stepId).toBe(cId); // 뒤쪽 생존자(C)로 이관 — 기존 STEP_DELETE 의 "뒤 이웃 우선" 규칙
+  });
+
+  it('뒤쪽에 생존자가 없으면(맨 뒤까지 지워짐) 앞쪽 생존자로 옮긴다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    const [aId, bId, cId] = s.present.steps.map((st) => st.id);
+    s = editorRootReducer(s, { type: 'STEP_SELECT', id: cId! }); // 지금 스텝 = C(맨 뒤)
+    const s2 = editorRootReducer(s, { type: 'STEPS_DELETE', ids: [bId!, cId!] });
+    expect(s2.present.steps.map((st) => st.id)).toEqual([aId]);
+    expect(s2.stepId).toBe(aId);
+  });
+
+  it('현재 스텝이 삭제 묶음 밖이면 stepId 를 안 건드린다(불변식 4 그대로)', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    const [aId, bId, cId] = s.present.steps.map((st) => st.id);
+    s = editorRootReducer(s, { type: 'STEP_SELECT', id: cId! });
+    const s2 = editorRootReducer(s, { type: 'STEPS_DELETE', ids: [aId!, bId!] });
+    expect(s2.stepId).toBe(cId); // 그대로
+  });
+
+  it('전량 선택(최소 1장 가드)이면 항등 — present 도 stepId 도 안 바뀐다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // A B
+    const before = s;
+    const ids = s.present.steps.map((st) => st.id);
+    const s2 = editorRootReducer(s, { type: 'STEPS_DELETE', ids });
+    expect(s2.present).toBe(before.present);
+    expect(s2.stepId).toBe(before.stepId);
+    expect(s2.past).toBe(before.past); // 히스토리에도 안 쌓인다
+  });
+
+  it('undo 한 번으로 삭제 전 상태(참조·stepId 까지)로 돌아간다', () => {
+    let s = freshState();
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    const before = s.present;
+    const beforeStepId = s.stepId; // A
+    const [, bId] = s.present.steps.map((st) => st.id);
+    s = editorRootReducer(s, { type: 'STEP_SELECT', id: bId! });
+    const s1 = editorRootReducer(s, { type: 'STEPS_DELETE', ids: [bId!] });
+    expect(s1.present.steps).toHaveLength(2);
+    const s2 = editorRootReducer(s1, { type: 'UNDO' });
+    expect(s2.present).toBe(before);
+    // ⚠️ UNDO 는 stepId 를 되돌리지 않는다(history.ts — Drill 스냅샷만 되짚는다, EditorState
+    // 의 UI 필드는 그대로다) — 그래서 여기서는 삭제 **전** stepId(A)가 아니라 삭제가 이관한
+    // stepId(C, 생존자)가 그대로 남는다. 이 단언은 그 사실을 박제해 회귀를 잡는다.
+    expect(s2.stepId).not.toBe(beforeStepId);
   });
 });
 
