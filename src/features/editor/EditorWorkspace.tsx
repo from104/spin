@@ -2,7 +2,7 @@
 // 그리는 조립부. `<nav aria-label="도구">` `<div role="application">`(CourtStage 가 직접 렌더)
 // `<aside aria-label="드릴 속성">` 세 영역과 하단 트랜스포트로 프로토타입 236–400행 레이아웃을
 // 그대로 이식한다.
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isId } from '../../core/ids.ts';
 import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
 import { DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
@@ -33,16 +33,10 @@ import { placeObject } from './placement.ts';
 import { removalToast, returnsToTray } from './removal.ts';
 import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
-import { ViewControls } from './StageControls.tsx';
-import { TransportBar } from './TransportBar.tsx';
 import { StepSidebar } from './StepSidebar.tsx';
 import { NotePanel } from './NotePanel.tsx';
 import { FunctionBar } from './FunctionBar.tsx';
-import { InspectorHost } from './InspectorHost.tsx';
-import { inspectorMode } from './inspectorLayout.ts';
 import { useContainerWidth } from './useContainerWidth.ts';
-import { useKnownTags } from './useKnownTags.ts';
-import { InspectorPanel } from './InspectorPanel.tsx';
 import { HelpModal } from './HelpModal.tsx';
 import { NoteEditModal } from './NoteEditModal.tsx';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
@@ -137,19 +131,12 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   //   여닫힘까지 저장하면 태블릿에서 열어 둔 채 앱을 닫은 사람이 다음에 PC 에서 판을 가린
   //   채로 만나게 된다. 대신 **핀을 켜 둔 사람은 열린 채로 시작한다** — 붙박이를 골라 놓고
   //   매번 다시 열어야 하면 핀이 아니다.
-  const pinned = prefs.inspectorPinned;
-  const [inspectorOpen, setInspectorOpen] = useState(pinned);
-  // §3.5 — 기존 태그는 인스펙터가 **열린 뒤에** 읽는다. 열지도 않은 사람에게 목록 IDB 읽기를
-  // 시킬 이유가 없고(오버레이가 기본 접힘이다), 전술판에서는 아예 읽지 않는다.
-  const knownTags = useKnownTags(!isBoard && inspectorOpen);
-  const inspectorPanelId = useId();
-  const inspectorTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const [workspaceRef, workspaceWidth] = useContainerWidth<HTMLElement>();
-  // ⚠️ 2026-08-14 기현님 재설계 — **자유 전술판에는 인스펙터가 없다.** 남길 둘(코트 크기·골대
-  // 원위치)은 오른쪽 기능 바로 갔고 나머지(드릴 정보·배치 프리셋·선수 명단·선택 개체)는
-  // 지웠다(*"속성 탭은 정말 무용지물이다 … 대부분 삭제하는게 맞다"*). 그래서 크롬 예산에도
-  // 'hidden' 이 가야 한다 — 안 그러면 판 회전(useStageRot)이 있지도 않은 패널 폭을 빼고 센다.
-  const inspectorLayout = isBoard ? ('hidden' as const) : inspectorMode({ open: inspectorOpen, pinned, containerWidthPx: workspaceWidth });
+  const [workspaceRef] = useContainerWidth<HTMLElement>();
+  // ⚠️ 2026-08-18 기현님 지시 — **인스펙터가 두 화면 모두에서 폐기됐다**(*"속성 버튼 및 그 안의
+  // 내용 폐기"*). 2026-08-14 재설계가 전술판에서 해체한 것(*"속성 탭은 정말 무용지물이다 …
+  // 대부분 삭제하는게 맞다"*)을 드릴 편집까지 넓힌 것이다: 드릴 제목은 헤더 인라인, 스텝
+  // 조작은 왼쪽 사이드바, 코트 크기·골대 원위치는 기능 바가 이미 맡고 있었다. 판 회전
+  // (useStageRot)에는 상수 'hidden' 이 간다 — 있지도 않은 패널 폭을 빼고 세면 안 된다.
   // ★ 표시 회전(§4.2, 2026-08-14 재설계) — **창 크기에서 정해 판으로 내려보낸다.**
   //
   // 무대가 자기 rect 를 재서 정하던 것을 뒤집었다. P3 가 코트 칸을 rot 에 맞춰 자기 종횡비로
@@ -168,7 +155,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // 76 → 132 로 커지면서 뒤집는 창이 생겼다 — 실측: **768×1024 세로(아이패드)에서 올바른 답은
   // 0 인데 안 넘기면 90 이 나온다**(현실 세로 창 22191칸 중 35%가 갈린다. 전수 대조는
   // useStageRot.portrait.test.ts). 새 boolean 이 아니라 §5.1 이 이미 못박은 둘 중 하나다.
-  const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, trayBand, board: isBoard, inspector: inspectorLayout });
+  const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, trayBand, board: isBoard, inspector: 'hidden' });
   // ★ 코트 칸의 종횡비(§4.1, 2026-08-14 P3) — 판 덩어리 안에서 코트가 **자기 비율만큼만**
   // 차지하게 하는 한 줄이다. 남는 폭은 트레이가 먹는다 = 옛 레터박스 86px 이 그대로 벤치가 된다.
   // 입력은 `def`(courtMode·courtSize)와 `rot` 뿐이다 — 줌도 측정값도 안 들어간다(그 이유는
@@ -178,9 +165,6 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
   // 화면을 벗어났다 돌아오면(EditorWorkspace 재마운트) 항상 prefs 값으로 리셋됐다(감사 지적).
   const showGrid = prefs.showGrid;
   const showRuleZones = prefs.showRuleZones;
-  // 시트의 포커스 이펙트가 이 함수의 identity 에 걸려 있다 — 렌더마다 새로 만들면 제목으로
-  // 포커스를 계속 빼앗는다(InspectorHost 의 이펙트 주석).
-  const closeInspector = useCallback(() => setInspectorOpen(false), []);
   const toggleGrid = useCallback(() => setPrefs({ showGrid: !prefs.showGrid }), [prefs.showGrid, setPrefs]);
   const toggleRuleZones = useCallback(() => setPrefs({ showRuleZones: !prefs.showRuleZones }), [prefs.showRuleZones, setPrefs]);
 
@@ -232,6 +216,15 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           //    (`onLockedAttempt` 로 이유를 말한다)은 그대로 옮겨 갔다.
           // 남는 것은 **이 드릴이 무엇인가**(제목·편집중)와 시연으로 가는 문뿐이다.
           title: drill.title,
+          // 2026-08-18 (기현님: *"드릴 이름 정도만 왼쪽 상단에 배치하고 동적으로 수정 가능"*) —
+          // 인스펙터 [제목] 필드의 후계. 저장 통로는 설명과 같은 META_SET, 상한은 validate.ts
+          // LIMITS.titleLen 과 같은 값(설명 필드 주석과 같은 이유 — 화면이 먼저 막지 않으면
+          // 저장할 때 조용히 잘린다).
+          titleField: {
+            value: drill.title,
+            maxLength: LIMITS.titleLen,
+            onChange: (v) => dispatch({ type: 'META_SET', patch: { title: v } }),
+          },
           badge: '편집중',
           // ⑥ 텍스트의 소속(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §텍스트의 소속) —
           // 드릴 짧은 설명은 **헤더 인라인**. 저장 통로는 인스펙터의 [제목]·[설명]과 같은
@@ -476,37 +469,13 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     />
   );
 
-  // 하단 바에 남는 조작 — **[속성] 하나뿐**이다(2026-08-15 재설계 ②).
-  //
-  // [보기▾]는 기능 바로 갔다. [속성]이 아직 여기 남는 이유는 인스펙터가 아직 살아 있기
-  // 때문이고(재설계 ③이 그것을 해체한다), 그때 이 컴포넌트도 함께 사라진다.
-  const viewControls = (
-    <ViewControls
-      showViewMenu={false}
-      showGrid={showGrid}
-      onToggleGrid={toggleGrid}
-      showRuleZones={showRuleZones}
-      onToggleRuleZones={toggleRuleZones}
-      onShowHelp={() => {
-        // ⚠️ `showViewMenu={false}` 라 이 화면에서 이 문은 **안 열린다**(도움말은 기능 바의
-        // 상시 칸이 연다). 배선을 남기는 이유는 컴포넌트가 아직 그 메뉴를 그릴 수 있기
-        // 때문이다 — 살아 있는 경로가 아니라 컴포넌트 계약을 채우는 줄이다.
-        helpTriggerRef.current = helpButtonRef.current;
-        setHelpOpen(true);
-      }}
-      viewButtonRef={helpButtonRef}
-      inspectorOpen={inspectorOpen}
-      onToggleInspector={() => setInspectorOpen((v) => !v)}
-      inspectorPanelId={inspectorPanelId}
-      inspectorButtonRef={inspectorTriggerRef}
-    />
-  );
+  // 2026-08-18 — 하단 바(TransportBar)가 통째로 사라지며 마지막 승객 [속성](ViewControls)도
+  // 함께 폐기됐다(기현님: *"결과적으로 하단에는 노트 빼고 다 삭제"*). 재생 토글·배속은 왼쪽
+  // 사이드바 하단으로(StepSidebar 의 playback prop), [보기]·[속도]는 기능 바에 이미 있었다.
 
-  // §5.4 [골대 원위치] — **두 손잡이가 부르는 하나의 핸들러**다.
-  //   ① 인스펙터 [드릴 정보] 맨 끝(2026-08-13 기현님 신고로 생긴 주 자리)
-  //   ② [코트 비우기] 확인 모달 안의 [골대만 원위치](4.7 이 만든 자리 — 남겨 둔다)
-  // 두 곳이 각자 world 를 부르면 "막혔을 때 알린다" 같은 규칙이 한쪽에서만 사라진다.
-  // 같은 참조를 넘기는 것을 EditorWorkspace.resetGoals.test.tsx 의 소스 계약이 못박는다.
+  // §5.4 [골대 원위치] — 손잡이는 **기능 바 한 곳**이다(인스펙터 폐기로 ①이 사라졌다).
+  // [코트 비우기] 확인 모달의 [골대만 원위치]도 앞서 지워졌으므로(EditorWorkspace.resetGoals
+  // .test.tsx 주석) 이 핸들러를 받는 곳은 FunctionBar 하나다.
   // 진영 뒤집기(2026-08-15). 되돌리기에 남아야 하므로 다른 드릴 메타와 같은 통로(META_SET)로
   // 간다 — 골 지역 반칙이 어느 팀에 걸리는지를 바꾸는 값이라 "실수로 눌렀다" 가 실재한다.
   const toggleDefense = useCallback(() => {
@@ -576,38 +545,6 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     />
   );
 
-  const inspector = (
-    <InspectorPanel
-      drill={drill}
-      // §6.4 크기 선택은 **인스펙터(오버레이 시트)** 안이다 — 첫 화면 표적 예산(≤40, 여유 0)을
-      // 한 칸도 쓰지 않기 위해서다(계획서 §3 · boardTargetBudget.test.tsx). 시트는 닫혀 있으면
-      // DOM 에 아예 없다(InspectorHost 의 mode==='hidden' → null).
-      courtSizeSwitch={
-        board
-          ? {
-              value: drill.courtSize ?? DEFAULT_COURT_SIZE,
-              locked: !boardPristine,
-              onChange: (s: CourtSize) => board.onCourtSizeChange(s),
-            }
-          : undefined
-      }
-      step={step}
-      stepIndex={stepIndex}
-      dispatch={dispatch}
-      selection={state.selection}
-      pendingPlayerId={pendingPlayerId}
-      onArmPlayer={armPlayer}
-      onEraseIds={eraseIds}
-      // ⚠️ 드릴 편집기에도 **똑같이** 내려간다. 골대는 두 모드 다 물리 바디이고(EditorStage 의
-      //    goals 는 courtDefFor 에서 오지 mode 를 안 본다), 휠체어에 밀리는 사고도 두 모드 다
-      //    난다 — 그런데 4.7 이후 되돌릴 손잡이는 **전술판 하단 바의 모달 안에만** 있어서 드릴
-      //    편집 중에 밀린 골대는 되돌릴 길이 아예 없었다(2026-08-13 확인).
-      onResetGoals={resetGoals}
-      knownTags={knownTags}
-      showSteps={!isBoard}
-    />
-  );
-
   return (
     <main
       id="main"
@@ -650,6 +587,15 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           // dispatch 만 얇게 감싼다(addStepHere/duplicateStepAt 같은 뒷정리가 필요 없다).
           onToggleCut={(id, cut) => dispatch({ type: 'STEP_META', id, patch: { cut } })}
           collapsed={narrow || portrait}
+          // 재생 컨트롤(2026-08-18) — 옛 TransportBar 의 배선을 값 그대로 옮겼다(계약은
+          // StepSidebar 의 playback prop 주석). canPlay 만 boolean 으로 압축하는 것도 그대로.
+          playback={{
+            playing,
+            canPlay: drill.steps.length >= 2,
+            onTogglePlay: () => playbackActions.toggle(),
+            speed,
+            onCycleSpeed: () => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5),
+          }}
           // ⑤ 다중 선택(기현님 확정 2026-08-17) — 선택 상태 자체(어떤 카드가 체크됐나)는
           // StepSidebar 로컬(ephemeral)이라 여기서는 "결과" 셋만 받아 그대로 dispatch 한다.
           // duplicateStepAt/addStepHere 같은 뒷정리(방금 만든 스텝 선택)가 없는 이유: 일괄
@@ -780,27 +726,16 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           </div>
         </div>
 
-        {/* 2026-08-14 — 전술판의 **하단 바가 통째로 사라졌다.** [코트 비우기]·[내보내기]·
-            속도 제한·[보기]·[속성]이 전부 오른쪽 기능 바로 갔다. BoardBar.tsx 는 아직 지우지
-            않는다: 드릴 편집이 같은 바(TransportBar)를 쓰고, 그쪽 재설계가 아직 남아 있다.
-            2026-08-17 재편(구현 순서 ②) — 스텝 목록·선택·재정렬·추가가 왼쪽 사이드바로
-            빠지며 이 바는 **재생 전담**이 됐다(TransportBar.tsx 머리말). `drill`·`stepId` 조차
-            안 받는다 — 재생 가능 여부(`canPlay`)만 boolean 으로 압축해 넘긴다. */}
-        {isBoard ? null : (
-          <TransportBar
-            playing={playing}
-            onTogglePlay={() => playbackActions.toggle()}
-            canPlay={drill.steps.length >= 2}
-            speed={speed}
-            onCycleSpeed={() => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5)}
-            viewControls={viewControls}
-          />
-        )}
+        {/* 2026-08-18 — 두 화면 다 하단 바가 없다(기현님: *"결과적으로 하단에는 노트 빼고 다
+            삭제"*). 전술판은 2026-08-14 에 먼저 사라졌고([코트 비우기]·[내보내기]·속도 제한·
+            [보기]·[속성] 전부 기능 바로), 드릴 편집의 TransportBar 는 오늘 마지막 승객(재생
+            토글·배속)을 왼쪽 사이드바 하단에 내려 주고 폐차됐다 — StepSidebar 의 playback
+            prop 이 그 좌석이다. */}
 
         {/* ⑥ 텍스트의 소속(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §텍스트의 소속) —
-            스텝 노트 = PPT 발표자 노트 자리. 재생 컨트롤(TransportBar) 아래 가장 조용한
-            자리에 접힌 채로 있다가, 손이 닿으면 펼쳐진다. 자유 전술판(isBoard)에는 스텝이
-            없으니 완전히 안 그린다(StepSidebar 와 같은 게이트). */}
+            스텝 노트 = PPT 발표자 노트 자리. 보드 아래 가장 조용한 자리에 접힌 채로 있다가,
+            손이 닿으면 펼쳐진다. 자유 전술판(isBoard)에는 스텝이 없으니 완전히 안 그린다
+            (StepSidebar 와 같은 게이트). */}
         {isBoard ? null : (
           <NotePanel
             stepId={step.id}
@@ -811,23 +746,6 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
       </div>
 
       {functionBar}
-
-      {isBoard ? null : (
-      <InspectorHost
-        id={inspectorPanelId}
-        open={inspectorOpen}
-        pinned={pinned}
-        containerWidthPx={workspaceWidth}
-        edge={portrait ? 'bottom' : 'side'}
-        onClose={closeInspector}
-        // 핀은 **모양만** 바꾼다. 여닫힘을 함께 건드리면 붙박이로 바꾼 순간 패널이 사라졌다
-        // 다시 나타나며 인스펙터가 재마운트된다(완료 판정 (b) 가 막는 것이 정확히 이것이다).
-        onTogglePin={() => setPrefs({ inspectorPinned: !pinned })}
-        returnFocusRef={inspectorTriggerRef}
-      >
-        {inspector}
-      </InspectorHost>
-      )}
 
       {/* 끌고 있는 말의 고스트. 코트 축척(pxPerUnit)에 맞춰 **실제 놓일 크기**로 그린다 —
           고정 크기로 그리면 손을 뗀 순간 개체가 갑자기 커지거나 작아져 어긋나 보인다.

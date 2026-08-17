@@ -192,15 +192,17 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
     // ⚠️ 2026-08-15 (재설계 ②) — 907 → **851**. 오른쪽 기둥 56 이 드릴 편집에도 상시로 서면서
     //    폭 크롬이 117 → 173 이 됐다. **코트 축척은 그대로다**(아래 0.8990) — 이 화면에서는
     //    세로가 제약이라 폭에 여유가 있었고, 줄어든 56 은 트레이가 먹던 남는 폭에서 나온다.
-    expect(before).toEqual({ w: 851, h: 472 });
+    // ⚠️ 2026-08-18 (하단 철거) — h 472 → **491**: 하단 바 64 가 빠지고 노트 접힘 줄 45 가
+    //    들어왔다. 코트가 세로 제약이라 그 19px 만큼 코트 폭도 커지고(771.6), 트레이는
+    //    202 → 172 로 좁아져 4열 → **3열**이 된다.
+    expect(before).toEqual({ w: 851, h: 491 });
     const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
-    expect(avail).toEqual({ w: 944, h: 472 });
+    expect(avail).toEqual({ w: 944, h: 491 });
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
-    // 상한(240)에 걸려 있던 것이 기둥 56 을 내주며 202 가 됐다 — 이제 **남는 폭이 곧 트레이**다.
-    expect(Math.round(split.trayW)).toBe(202);
-    expect(trayColumnsAt(split.trayW, 44)).toBe(4);
-    expect(split.courtW).toBeCloseTo(472 * (825 / 525), 6);
-    expect(split.courtW / 825).toBeCloseTo(0.8990, 4);
+    expect(Math.round(split.trayW)).toBe(172);
+    expect(trayColumnsAt(split.trayW, 44)).toBe(3);
+    expect(split.courtW).toBeCloseTo(491 * (825 / 525), 6);
+    expect(split.courtW / 825).toBeCloseTo(0.9352, 4);
     // ⚠️ 이제 상한에 **안 걸린다**(202 < 240) — 남는 폭을 트레이가 전부 먹으므로 판 바깥
     //    여백이 0 이다. 상한을 넘겼을 때만 바깥 여백이 생긴다는 규칙 자체는 그대로이고,
     //    그것을 아래 half/flat it 이 계속 잰다(거기서는 여전히 상한에 걸린다).
@@ -208,14 +210,15 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
     expect(split.boardW).toBeCloseTo(avail.w, 9);
   });
 
-  it('800×480 narrow full — 트레이 167(3열). 기둥 56 이 트레이의 남는 폭에서 나갔다', () => {
+  it('800×480 narrow full — 트레이 137(2열). 하단 철거의 +19 가 코트 폭으로 갔다', () => {
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const avail = alignBoxPx({ w: 800, h: 480 }, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
-    // 설계서 §4.6 의 그 칸은 223(4열)이었다 — 재설계 ② 로 기둥이 서면서 167(3열)이 됐다.
-    // 코트는 여전히 세로 제약이라 축척이 한 눈금도 안 변한다(위 it 과 같은 이유).
-    expect(Math.round(split.trayW)).toBe(167);
-    expect(trayColumnsAt(split.trayW, 44)).toBe(3);
+    // 설계서 §4.6 의 그 칸은 223(4열) → 167(3열, 재설계 ② 기둥 상시) → **137(2열,
+    // 2026-08-18 하단 철거)** — 세로가 커진 만큼 코트가 넓어지고 트레이가 그만큼 내줬다.
+    // 137 은 하한 93(trayRailWidthPx)보다 넉넉히 크다 — 하한 국면은 아직 아니다.
+    expect(Math.round(split.trayW)).toBe(137);
+    expect(trayColumnsAt(split.trayW, 44)).toBe(2);
   });
 
   it('1280×800 핀 full — 폭 제약이라 트레이가 하한 93 에서 멈춘다 = 오늘과 같은 배치', () => {
@@ -291,22 +294,22 @@ describe('위험 3 — 서랍 손잡이가 화면 밖으로 나가지 않는다'
 // ── 완료 판정: 1024×600 에서 트레이 240px, 5열, 벤치+도구 스크롤 없이 ────────────────────
 
 describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
-  it('고정 117 + 벤치 149 = 266 ≤ 472 (hit 44, 4열, 선수 8명)', () => {
+  it('고정 172 + 벤치 253 = 425 ≤ 491 (hit 44, 3열, 선수 8명)', () => {
     const state: ChromeState = { narrow: true, inspector: 'hidden' };
     const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
     const cols = trayColumnsAt(split.trayW, 44);
-    // 5 → 4(재설계 ② 로 트레이가 기둥에 56 을 내줬다). 스크롤이 없다는 결론은 그대로다.
-    expect(cols).toBe(4);
+    // 5 → 4(재설계 ② 기둥 상시) → **3**(2026-08-18 하단 철거 — 세로 +19 가 코트 폭으로 가며
+    // 트레이가 202 → 172 로 좁아졌다). 스크롤이 없다는 결론은 그대로다.
+    expect(cols).toBe(3);
     const fixed = trayFixedHeightPx(44, cols);
     const bench = trayBenchHeightPx(44, cols, 8);
-    // 232 → 117. 줌·이력이 기능 바로 떠나고 칩 상자가 정사각(44×60 → 44×44)이 되면서
-    // 벤치도 181 → 149 로 줄었다. 합 266 / 468 — 여유 202 로 이번 재설계에서 가장 넉넉하다.
-    // 4열이 되면서 고정 117 → 172, 벤치 149 → (4열 기준). 합이 courtH 를 안 넘는다는 결론이
-    // 이 it 의 전부이고, 그것은 그대로다.
+    // 3열 기준 고정 172 + 벤치 253 = 425 / 491 — 열이 줄면 세로 합이 늘지만 코트도 같이
+    // 커져서(472 → 491) 여전히 안 넘친다. 합이 courtH 를 안 넘는다는 결론이 이 it 의 전부다.
     expect(fixed).toBe(172);
+    expect(bench).toBe(253);
     expect(fixed + bench).toBeLessThanOrEqual(split.courtH);
-    expect(split.courtH).toBe(472);
+    expect(split.courtH).toBe(491);
   });
 
   it('대조군: 2열(재설계 전 폭)이었다면 같은 화면에서 넘친다 — 그래서 스크롤이 있었다', () => {

@@ -53,8 +53,21 @@ export interface HeaderDescriptionField {
   maxLength: number;
   onChange(v: string): void;
 }
+/** 드릴 이름 인라인 편집(기현님 지시 2026-08-18: *"드릴 이름 정도만 왼쪽 상단에 배치하고
+ *  동적으로 수정 가능해야함"*) — 옛 인스펙터 [제목] 필드의 후계다(인스펙터 폐기). 모양은
+ *  HeaderDescriptionField 와 같은 클릭-편집이지만 **빈 값을 커밋하지 않는다**: 이름은 목록
+ *  카드·시연·자동저장 전부의 얼굴이라 '' 이 되면 드릴을 못 알아본다(옛 인스펙터도 같은
+ *  가드였다). 지우고 blur 하면 원래 이름으로 되돌아간다. */
+export interface HeaderTitleField {
+  value: string;
+  maxLength: number;
+  onChange(v: string): void;
+}
 export interface HeaderConfig {
   title: string;
+  /** 있으면 제목이 클릭-편집이 된다(드릴 편집 헤더 전용). `title` 은 그대로 둔다 — 편집이
+   *  없는 화면·폴백 표시가 그 값을 쓴다. */
+  titleField?: HeaderTitleField | null;
   subtitle?: string;
   /** 편집중 배지 등. */
   badge?: string;
@@ -97,6 +110,9 @@ export function HeaderProvider({ children }: { children: ReactNode }) {
 function headerConfigEqual(a: HeaderConfig, b: HeaderConfig): boolean {
   return (
     a.title === b.title &&
+    !!a.titleField === !!b.titleField &&
+    a.titleField?.value === b.titleField?.value &&
+    a.titleField?.maxLength === b.titleField?.maxLength &&
     a.subtitle === b.subtitle &&
     a.badge === b.badge &&
     !!a.description === !!b.description &&
@@ -134,6 +150,7 @@ export function useAppHeader(config: HeaderConfig): void {
 
   const key = JSON.stringify([
     config.title,
+    config.titleField ? [config.titleField.value, config.titleField.maxLength] : null,
     config.subtitle,
     config.badge,
     config.description ? [config.description.value, config.description.placeholder, config.description.maxLength] : null,
@@ -148,6 +165,13 @@ export function useAppHeader(config: HeaderConfig): void {
     const c = latest.current;
     ctxRef.current.publish({
       title: c.title,
+      titleField: c.titleField
+        ? {
+            value: c.titleField.value,
+            maxLength: c.titleField.maxLength,
+            onChange: (v) => latest.current.titleField?.onChange(v),
+          }
+        : null,
       subtitle: c.subtitle,
       badge: c.badge,
       description: c.description
@@ -236,15 +260,19 @@ export function AppHeader({
       {narrow && <AppNavSegment active={activeRail} />}
       <div style={{ minWidth: 0, flex: '1 1 12rem' }}>
         <div style={{ fontSize: '0.9375rem', fontWeight: 700, letterSpacing: '-0.02rem', display: 'flex', alignItems: 'center', gap: '0.5625rem' }}>
-          <span
-            style={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {config.title}
-          </span>
+          {config.titleField ? (
+            <HeaderTitleEditor cfg={config.titleField} />
+          ) : (
+            <span
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {config.title}
+            </span>
+          )}
           {config.badge && (
             <span
               style={{
@@ -337,6 +365,75 @@ export function AppHeader({
         {narrow && <AppNavAside />}
       </div>
     </header>
+  );
+}
+
+/** 드릴 이름 — 헤더 인라인 클릭 편집(2026-08-18, HeaderTitleField 머리말이 근거).
+ *  HeaderDescriptionEditor 와 같은 관용구(표시 버튼 ↔ 편집 input, blur 커밋, Enter=blur 위임,
+ *  Esc=되돌림)에 두 가지만 다르다: 글꼴이 제목 그대로(부모 div 에서 상속)이고, **trim 결과가
+ *  비면 커밋하지 않는다**(이름 없는 드릴을 만들지 않는다 — 인터페이스 주석). */
+function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <input
+        type="text"
+        autoFocus
+        defaultValue={cfg.value}
+        maxLength={cfg.maxLength}
+        aria-label="드릴 이름"
+        onBlur={(e) => {
+          const v = e.target.value.trim().slice(0, cfg.maxLength);
+          if (v.length > 0 && v !== cfg.value) cfg.onChange(v);
+          setEditing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur(); // onBlur 가 커밋한다 — 경로를 둘로 안 만든다.
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.currentTarget.value = cfg.value; // 커밋 없이 되돌린다.
+            setEditing(false);
+          }
+        }}
+        style={{
+          minWidth: 0,
+          width: '100%',
+          maxWidth: 360,
+          font: 'inherit',
+          letterSpacing: 'inherit',
+          color: 'var(--text)',
+          background: 'var(--elev)',
+          border: '1px solid var(--border-strong)',
+          borderRadius: '0.375rem',
+          padding: '0.125rem 0.4375rem',
+        }}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={`드릴 이름: ${cfg.value}. 눌러서 수정`}
+      title="눌러서 이름을 고칩니다."
+      onClick={() => setEditing(true)}
+      style={{
+        minWidth: 0,
+        font: 'inherit',
+        letterSpacing: 'inherit',
+        color: 'var(--text)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        textAlign: 'left',
+        padding: 0,
+      }}
+    >
+      {cfg.value}
+    </button>
   );
 }
 

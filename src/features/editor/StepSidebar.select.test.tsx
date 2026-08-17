@@ -13,6 +13,8 @@ import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
 
+/** 재생 컨트롤 스텁 — 이 파일의 관심사가 아니면 잠든 값이면 된다(별도 절이 실제 배선을 본다). */
+const PLAYBACK_STUB = { playing: false, canPlay: true, onTogglePlay: () => {}, speed: 1 as const, onCycleSpeed: () => {} };
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
   for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
@@ -37,6 +39,7 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onMoveSteps: noop,
     onDuplicateSteps: noop,
     onDeleteSteps: noop,
+    playback: PLAYBACK_STUB,
     ...over,
   };
   return render(<StepSidebar {...props} />);
@@ -240,6 +243,7 @@ function GroupHarness({ initial, onMove }: { initial: Drill; onMove?: (ids: Step
       }}
       onDuplicateSteps={() => {}}
       onDeleteSteps={() => {}}
+      playback={PLAYBACK_STUB}
     />
   );
 }
@@ -306,6 +310,7 @@ describe('일괄 이동(드래그) — 상대 순서 보존, 흩어진 선택은
         onMoveSteps={onMove}
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
+        playback={PLAYBACK_STUB}
       />,
     );
     await enterSelectMode();

@@ -14,6 +14,8 @@ import { addStepAfter } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 
+/** 재생 컨트롤 스텁 — 이 파일의 관심사가 아니면 잠든 값이면 된다(별도 절이 실제 배선을 본다). */
+const PLAYBACK_STUB = { playing: false, canPlay: true, onTogglePlay: () => {}, speed: 1 as const, onCycleSpeed: () => {} };
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
   for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
@@ -35,6 +37,7 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onMoveSteps: noop,
     onDuplicateSteps: noop,
     onDeleteSteps: noop,
+    playback: PLAYBACK_STUB,
     ...over,
   };
   return render(<StepSidebar {...props} />);
@@ -293,6 +296,7 @@ describe('틈(gap)의 사슬 토글', () => {
         onMoveSteps={noop}
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
+        playback={PLAYBACK_STUB}
       />,
     );
     expect(chainBtn(container, 1)).toHaveAttribute('aria-pressed', 'true');
@@ -310,6 +314,7 @@ describe('틈(gap)의 사슬 토글', () => {
         onMoveSteps={noop}
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
+        playback={PLAYBACK_STUB}
       />,
     );
     expect(chainBtn(container, 1)).toHaveAttribute('aria-pressed', 'false');
@@ -375,5 +380,48 @@ describe('접힘 모드 — 여는 버튼 + 오버레이', () => {
     await userEvent.click(screen.getByRole('button', { name: '스텝 목록 열기' }));
     await userEvent.click(cards()[1]!);
     expect(onSelectStep).toHaveBeenCalledWith(d.steps[1]!.id);
+  });
+});
+
+// ── 재생 컨트롤(2026-08-18 기현님 지시) — 하단 TransportBar 의 후계 ─────────────────────────
+//
+// 옛 TransportBar.test.tsx 가 지키던 계약을 그대로 잇는다: 토글 배선 · canPlay 잠금 ·
+// 상태별 이름(재생/일시정지) · 속도 순환 라벨("눌러서 몇 배가 되는지"). --hit 파생(최소
+// 높이)은 ToolRail.hit.test.tsx 에서 이 절로 이관됐다.
+describe('재생 컨트롤 — 사이드바 하단', () => {
+  it('재생 버튼이 onTogglePlay 를 부르고, 크기는 --hit 파생이다', async () => {
+    const onTogglePlay = vi.fn();
+    renderSidebar(makeDrill(2), { playback: { ...PLAYBACK_STUB, onTogglePlay } });
+    const play = screen.getByRole('button', { name: '재생' });
+    expect(play.style.width).toBe('var(--hit)');
+    expect(play.style.height).toBe('var(--hit)');
+    await userEvent.click(play);
+    expect(onTogglePlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('playing 이면 이름이 [일시정지]다 — 상태가 이름을 바꾼다', () => {
+    renderSidebar(makeDrill(2), { playback: { ...PLAYBACK_STUB, playing: true } });
+    expect(screen.getByRole('button', { name: '일시정지' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '재생' })).toBeNull();
+  });
+
+  it('canPlay=false 면 재생이 잠긴다 — 눌렀는데 아무 일도 안 나는 헛손질 방지', () => {
+    renderSidebar(makeDrill(1), { playback: { ...PLAYBACK_STUB, canPlay: false } });
+    expect(screen.getByRole('button', { name: '재생' })).toBeDisabled();
+  });
+
+  it('속도 버튼 — 현재 배속과 "눌러서 몇 배" 를 함께 말하고, onCycleSpeed 를 부른다', async () => {
+    const onCycleSpeed = vi.fn();
+    renderSidebar(makeDrill(2), { playback: { ...PLAYBACK_STUB, speed: 2 as const, onCycleSpeed } });
+    const btn = screen.getByRole('button', { name: '재생 속도 2배. 눌러서 0.5배로 변경' });
+    expect(btn.style.minHeight).toBe('var(--hit)');
+    await userEvent.click(btn);
+    expect(onCycleSpeed).toHaveBeenCalledTimes(1);
+  });
+
+  it('접힘(오버레이)에서도 재생 컨트롤이 함께 산다 — body 한 벌 공유의 대조군', async () => {
+    renderSidebar(makeDrill(2), { collapsed: true });
+    await userEvent.click(screen.getByRole('button', { name: '스텝 목록 열기' }));
+    expect(screen.getByRole('button', { name: '재생' })).toBeInTheDocument();
   });
 });

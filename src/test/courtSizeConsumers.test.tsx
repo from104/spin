@@ -15,7 +15,6 @@ import { join, relative } from 'node:path';
 import type { ReactNode } from 'react';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
-import { BoardBar } from '../features/editor/BoardBar.tsx';
 import { DrillCard } from '../features/library/DrillCard.tsx';
 import { StepSidebar } from '../features/editor/StepSidebar.tsx';
 import { courtScale } from '../app/chromeBudget.ts';
@@ -116,27 +115,13 @@ const barWrapper = ({ children }: { children: ReactNode }) => (
   </SettingsProvider>
 );
 
-describe('§6.4 ④ BoardBar 의 코트 설명이 크기마다 다른 문장이다', () => {
-  it.each(COURT_SIZES)('%s — 그 크기의 desc 가 화면에 있다', (size) => {
-    render(
-      <BoardBar
-        courtMode="full"
-        courtSize={size}
-        courtLocked={false}
-        onReset={() => {}}
-        onResetGoals={() => {}}
-        drill={createDrill({ courtMode: 'full', courtSize: size, title: '자유 전술판', empty: true })}
-        showGrid={false}
-        showRuleZones={false}
-      />,
-      { wrapper: barWrapper },
-    );
-    expect(screen.getByText(courtDefFor('full', size).desc)).toBeTruthy();
-  });
-
-  it('대조군: 세 desc 가 서로 다른 문장이다', () => {
+// 2026-08-18 — 옛 ④(BoardBar 의 크기별 desc 문장)는 BoardBar 폐차와 함께 은퇴했다(하단 바
+// 전면 철거). desc 의 살아 있는 소비처는 기능 바 [코트] 모달이고, 여기서는 **모델 계약**만
+// 지킨다: 세 문장이 실제로 서로 달라야 화면 어디서 읽든 구분이 된다.
+describe('§6.4 ④ 코트 크기 desc 모델 계약', () => {
+  it('세 desc 가 서로 다른 문장이다', () => {
     expect(new Set(COURT_SIZES.map((s) => courtDefFor('full', s).desc)).size).toBe(3);
-    // 리터럴 대조 — 모델이 빈 문자열로 망가지면 위 단언들이 전부 조용히 통과한다.
+    // 리터럴 대조 — 모델이 빈 문자열로 망가지면 위 단언이 조용히 통과한다.
     expect(courtDefFor('full', '28x15').desc).toMatch(/농구 코트/);
   });
 });
@@ -162,6 +147,7 @@ describe('§6.4 ④-b 스텝 사이드바 카드가 그 드릴의 코트 크기�
         onMoveSteps={() => {}}
         onDuplicateSteps={() => {}}
         onDeleteSteps={() => {}}
+        playback={{ playing: false, canPlay: false, onTogglePlay: () => {}, speed: 1, onCycleSpeed: () => {} }}
       />,
       { wrapper: barWrapper },
     );

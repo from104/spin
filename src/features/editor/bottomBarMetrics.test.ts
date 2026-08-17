@@ -1,48 +1,14 @@
-// §5.2 하단 바 치수 — 예산 표의 '하단 바' 행을 만드는 식 그 자체.
-//
-// 두 층으로 갈라 둔다(2.4 가 트레이에서 쓴 방법과 같다): **픽셀 식**은 여기서 §5.2 표를
-// 재현하고, **CSS 문자열**은 DOM 테스트가 리터럴로 다시 적어 대조한다. jsdom 은 calc(var())
-// 를 계산하지 못하므로 한 층만 두면 둘 중 하나가 조용히 갈라진다.
+// 드래그 재정렬 순수 함수 검증. 옛 '하단 바 치수(§5.2)' 절은 2026-08-18 하단 바 폐지와 함께
+// 은퇴했다(bottomBarMetrics.ts 머리말) — 남은 것은 StepSidebar 재정렬의 판정·미리보기 식이다.
 import { describe, expect, it } from 'vitest';
 import {
-  BOTTOM_BAR_PAD_PX,
-  boardBarHeightPx,
-  bottomBarPadCss,
   dropIndexAt,
   dropIndexInRest,
   movedOrder,
   movedOrderGroup,
-  transportBarHeightPx,
 } from './bottomBarMetrics.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { addStepAfter, moveStep, moveSteps } from '../../model/edits.ts';
-
-describe('하단 바 높이 (§5.2)', () => {
-  it('완료 판정: 트랜스포트 바는 64 이하다 — 재편 전 94 에서 30 을 돌려준다', () => {
-    // 2.3 의 세로 예산 132 = 헤더 52 + 하단 바 64 + 래퍼 패딩 16. 이 행만 넘겨도 판이 줄어든다.
-    expect(transportBarHeightPx(44)).toBe(64);
-    expect(transportBarHeightPx(44)).toBeLessThanOrEqual(64);
-  });
-
-  it('전술판 바는 재생 버튼이 없어 60 이다 — 예산 행은 둘 중 큰 쪽(64)이다', () => {
-    expect(boardBarHeightPx(44)).toBe(60);
-    expect(boardBarHeightPx(44)).toBeLessThan(transportBarHeightPx(44));
-    expect(Math.max(transportBarHeightPx(44), boardBarHeightPx(44))).toBe(64);
-  });
-
-  it('큰 터치 타깃(--hit 56)이면 함께 자란다 — 예산 행은 기본값(44) 기준이다', () => {
-    // 설정으로 켠 12px 은 사용자가 고른 값이라 예산 위반이 아니다(트레이 93→117 과 같은 규칙).
-    expect(transportBarHeightPx(56)).toBe(76);
-    expect(transportBarHeightPx(56) - transportBarHeightPx(44)).toBe(12);
-  });
-
-  it('패딩 문자열이 픽셀 식과 같은 숫자를 쓴다', () => {
-    expect(bottomBarPadCss()).toBe('7px 24px 8px');
-    expect(BOTTOM_BAR_PAD_PX.top + BOTTOM_BAR_PAD_PX.bottom).toBe(15);
-    // 높이 = border 1 + 패딩 15 + 내용(--hit + 4).
-    expect(transportBarHeightPx(44)).toBe(1 + BOTTOM_BAR_PAD_PX.top + (44 + 4) + BOTTOM_BAR_PAD_PX.bottom);
-  });
-});
 
 describe('끌어 놓을 자리 판정 (dropIndexAt)', () => {
   const centers = [35, 115, 195]; // 칩 폭 70 · 간격 10

@@ -142,9 +142,11 @@ describe('대조군 — 비우기와 섞이지 않는다', () => {
 describe('소유권 — 핸들러는 하나다', () => {
   const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'EditorWorkspace.tsx'), 'utf-8');
 
-  it('EditorWorkspace 는 `onResetGoals={resetGoals}` 를 정확히 두 곳에 넘긴다', () => {
+  it('EditorWorkspace 는 `onResetGoals={resetGoals}` 를 정확히 한 곳(기능 바)에 넘긴다', () => {
+    // 2026-08-18 인스펙터 폐기로 둘째 손잡이(인스펙터 [드릴 정보] 맨 끝)가 사라졌다 —
+    // 이제 받는 곳은 FunctionBar 하나다. 사본이 늘면 여기서 걸린다(위 머리말과 같은 이유).
     const passes = src.match(/onResetGoals=\{resetGoals\}/g) ?? [];
-    expect(passes, `찾은 것: ${passes.length}개`).toHaveLength(2);
+    expect(passes, `찾은 것: ${passes.length}개`).toHaveLength(1);
   });
 
   it('world.resetGoals() 호출부는 파일 안에 하나뿐이다 — 사본이 생기면 여기서 걸린다', () => {

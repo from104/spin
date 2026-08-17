@@ -62,33 +62,27 @@ async function openDrill() {
   return { user, drill: created, stage: screen.getByRole('application', { name: '코트 편집 영역' }) };
 }
 
-/** [속성]으로 인스펙터를 편다 — 2026-08-12 결정 ③A 로 기본 접힘 오버레이가 됐다.
- *  (2026-08-14: 그 손잡이는 코트 우상단이 아니라 **하단 바**다 — 설계서 §3-ㄴ.) */
-async function openInspector(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: '속성' }));
-  return screen.getByRole('complementary', { name: '드릴 속성' });
-}
-
 describe('드릴 편집 모드', () => {
-  it('저장된 드릴을 열면 도구·코트가 뜨고, [속성]으로 인스펙터를 붙일 수 있다', async () => {
-    const { stage, user } = await openDrill();
+  it('저장된 드릴을 열면 도구·코트가 뜨고, [속성]·인스펙터는 어디에도 없다 (2026-08-18 폐기)', async () => {
+    const { stage } = await openDrill();
     expect(stage).toBeInTheDocument();
-    // 기본 접힘 — 판을 덮지 않는다.
+    // 기현님 지시(*"속성 버튼 및 그 안의 내용 폐기"*) — 손잡이도 패널도 DOM 에 없다.
+    // 옛 openInspector 헬퍼([속성] 클릭 → complementary)는 이 it 과 함께 은퇴했다.
+    expect(screen.queryByRole('button', { name: '속성' })).toBeNull();
     expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
-    expect(await openInspector(user)).toBeInTheDocument();
   });
 
   // 2026-08-14(설계서 §5-P2): 뷰 컨트롤이 코트 위에서 **하단 바**로 내려왔다. 하단 바는
   // 화면마다 다른 컴포넌트다(전술판 BoardBar / 드릴 편집 TransportBar) — BoardScreen 쪽만
   // 확인하면 **드릴 편집에서만 손잡이가 없는** 갈래를 못 본다(5차 검증관이 '시연 화면만
   // 놓쳤던' 것과 같은 형태의 헛통과다).
-  it('★ 하단 바에 남은 조작은 [속성] 하나다 — [보기]와 줌은 오른쪽 기둥으로 갔다 (재설계 ②)', async () => {
-    // 옛 계약(2026-08-14): *"뷰 컨트롤 두 손잡이([보기]·[속성])가 트랜스포트 바 안에 있다."*
-    // 2026-08-15 재설계 ②로 [보기]는 기능 바로, 줌 3개는 트레이에서 기능 바로 갔다. 남은
-    // [속성]은 인스펙터가 살아 있는 동안만이다(③이 그것을 해체하면 함께 사라진다).
+  it('★ 하단 바는 없다 — 재생·배속은 왼쪽 스텝 바 하단이고, [보기]와 줌은 오른쪽 기둥이다 (2026-08-18)', async () => {
+    // 옛 계약(2026-08-15 재설계 ②): *"하단 바에 남은 조작은 [속성] 하나."* 2026-08-18 하단
+    // 철거로 그 바 자체가 사라졌다 — 재생 버튼은 이제 왼쪽 스텝 바(nav '스텝 목록') 안이다.
     await openDrill();
-    const barRow = screen.getByRole('button', { name: '재생' }).closest('div')!.parentElement!;
-    expect(barRow.contains(screen.getByRole('button', { name: '속성' }))).toBe(true);
+    const sidebar = screen.getByRole('navigation', { name: '스텝 목록' });
+    expect(sidebar.contains(screen.getByRole('button', { name: '재생' })), '재생이 스텝 바 밖이다').toBe(true);
+    expect(sidebar.contains(screen.getByRole('button', { name: /^재생 속도/ })), '배속이 스텝 바 밖이다').toBe(true);
 
     // [보기]는 이제 기둥 안이다 — 하단 바가 아니라.
     const bar = screen.getByRole('navigation', { name: '판 조작' });

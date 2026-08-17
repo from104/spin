@@ -290,8 +290,10 @@ describe('④ rot 불변 상자 — 이 안에 있는 동안은 답이 안 바�
     //    폭 예산에 들어오면서 같은 창에서 코트 상자가 문턱에 더 가까워졌기 때문이다.
     //    세로도 ±75 → ±41 로 같이 좁아졌다. 이 숫자가 1 로 주저앉으면 규율이 사라지지만,
     //    41 은 아직 resize 리스너와 거리가 멀다.
-    expect(b).toEqual({ minW: 983, maxW: 1065, minH: 727, maxH: 809 });
-    expect(stageRotHoldQuery(b)).toBe('(min-width: 983px) and (max-width: 1065px) and (min-height: 727px) and (max-height: 809px)');
+    // ⚠️ 2026-08-18 (하단 철거) — 세로 크롬이 19px 줄며(하단 바 64 → 노트 접힘 줄 45) 경계
+    //    전부가 1px 안팎으로 밀렸다(982…1066 / 726…810). 폭·높이 반경 ±42 는 그대로다.
+    expect(b).toEqual({ minW: 982, maxW: 1066, minH: 726, maxH: 810 });
+    expect(stageRotHoldQuery(b)).toBe('(min-width: 982px) and (max-width: 1066px) and (min-height: 726px) and (max-height: 810px)');
   });
 
   it('상한 있는 좁히기다 — 코트 상자가 0 인 구석에서도 끝난다(행으로 죽지 않는다)', () => {

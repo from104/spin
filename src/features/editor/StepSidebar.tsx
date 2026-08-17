@@ -76,7 +76,8 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
 import { courtDefFor } from '../../model/court.ts';
-import { IconListSteps, IconPlus, IconCopy, IconChainLinked, IconChainCut, IconCheck } from '../../ui/icons.tsx';
+import { IconListSteps, IconPlus, IconCopy, IconChainLinked, IconChainCut, IconCheck, IconPlay, IconPause } from '../../ui/icons.tsx';
+import type { PlaybackSpeed } from '../../store/playback/PlaybackProvider.tsx';
 import { CourtThumbnail, SIDEBAR_GLYPH_SCALE } from '../../render/CourtThumbnail.tsx';
 import { buildStepThumb } from '../../model/thumb.ts';
 import { LIMITS } from '../../model/validate.ts';
@@ -119,7 +120,23 @@ export interface StepSidebarProps {
    *  이 컴포넌트가 버튼을 미리 잠근다. 현재 스텝이 삭제 묶음에 있으면 리듀서(uiReducer)가
    *  남는 스텝으로 stepId 를 옮긴다. */
   onDeleteSteps(ids: StepId[]): void;
+  /** 재생 컨트롤(2026-08-18 기현님 지시 — *"재생버튼 재생 배율. 왼쪽바 하단에 배치"*).
+   *  하단 TransportBar 가 폐지되며 재생 토글·배속이 사이드바 **하단**으로 이사했다. 계약은
+   *  옛 TransportBar 그대로다: `canPlay` 는 "눌렀는데 아무 일도 안 난다" 를 막는 순전한 UX
+   *  잠금(안전은 useStepPlayback 이 스텝 둘 미만이면 스스로 멈춰 이미 보장된다), 속도는
+   *  0.5→1→2 순환 버튼 하나. */
+  playback: {
+    playing: boolean;
+    canPlay: boolean;
+    onTogglePlay(): void;
+    speed: PlaybackSpeed;
+    onCycleSpeed(): void;
+  };
 }
+
+/** 속도 순환의 다음 값 — 옛 TransportBar 의 NEXT_SPEED 그대로(aria-label 이 "눌러서 몇 배가
+ *  되는지" 를 말해 줘야 순환 버튼이 스크린리더에서 복권 긁기가 안 된다). */
+const NEXT_SPEED: Record<PlaybackSpeed, PlaybackSpeed> = { 0.5: 1, 1: 2, 2: 0.5 };
 
 /** 사이드바 고정/오버레이 폭. 좌우 패딩(`SIDEBAR_PAD_PX` 10×2)을 빼면 카드가 실제로 채우는
  *  폭이 200px 다 — `CourtThumbnail` 의 `SIDEBAR_GLYPH_SCALE` 계산 주석이 이 숫자에서 나온다.
@@ -292,6 +309,7 @@ export function StepSidebar({
   onMoveSteps,
   onDuplicateSteps,
   onDeleteSteps,
+  playback,
 }: StepSidebarProps) {
   const steps = drill.steps;
   // 정원(§복제 가드) — 복제 버튼(카드·틈) 전부 이 하나로 잠근다. "한 장 더 찍기" 와 같은
@@ -761,6 +779,58 @@ export function StepSidebar({
         >
           <IconPlus size={15} />
           한 장 더 찍기
+        </button>
+      </div>
+      {/* 재생 컨트롤(2026-08-18) — 하단 TransportBar 의 후계. 카드 목록(flex:1, 스크롤) 아래
+          flex:'none' 으로 붙어 목록이 아무리 길어도 항상 보인다. 접힘(오버레이) 모드에서도
+          body 를 그대로 쓰므로 두 배치가 같은 인스턴스다. */}
+      <div
+        style={{
+          flex: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: SIDEBAR_PAD_PX,
+          borderTop: '1px solid var(--border)',
+        }}
+      >
+        <button
+          type="button"
+          aria-label={playback.playing ? '일시정지' : '재생'}
+          disabled={!playback.canPlay}
+          onClick={playback.onTogglePlay}
+          className="on-accent"
+          style={{
+            flex: 'none',
+            width: 'var(--hit)',
+            height: 'var(--hit)',
+            borderRadius: 10,
+            background: 'var(--accent)',
+            color: 'var(--accent-ink-strong)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: playback.canPlay ? 1 : 0.5,
+          }}
+        >
+          {playback.playing ? <IconPause /> : <IconPlay />}
+        </button>
+        <button
+          type="button"
+          onClick={playback.onCycleSpeed}
+          aria-label={`재생 속도 ${playback.speed}배. 눌러서 ${NEXT_SPEED[playback.speed]}배로 변경`}
+          style={{
+            flex: 1,
+            minHeight: 'var(--hit)',
+            fontSize: '0.71875rem',
+            color: 'var(--muted)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            fontWeight: 600,
+            fontFamily: "'Space Grotesk', sans-serif",
+          }}
+        >
+          {playback.speed}×
         </button>
       </div>
     </>

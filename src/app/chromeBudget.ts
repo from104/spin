@@ -166,21 +166,45 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
     owner: '미지정 — 2차 표에 "헤더 한 줄 강제" 행이 없다(§5.2 만 서술)',
   },
   {
+    // 2026-08-18 — **은퇴한 행**(기현님: *"결과적으로 하단에는 노트 빼고 다 삭제"*).
+    // TransportBar 가 폐차되며 재생 토글·배속은 왼쪽 스텝 바 하단으로 이사했다(StepSidebar
+    // 의 playback prop). 행을 지우지 않는 이유: `now`(재편 이전 실측 94)가 §5.3 '현재' 열의
+    // 재현 재료다 — 지우면 역사 합계(196)가 거짓이 된다. 현재값은 두 열 다 0 이다.
     id: 'transportBar',
     axis: 'height',
-    label: '하단 바(트랜스포트)',
-    // ≈94 는 재편 **이전** 실측이다(재생 48 + 라벨줄 + 패딩 12/15 + border 1). 전술판의
-    // BoardBar 는 라벨줄이 없어 더 짧으므로 예산은 **더 큰 쪽**으로 잡는다 — 예산은 상한이라야
-    // 쓸모가 있다.
+    label: '하단 바(트랜스포트, 2026-08-18 폐지)',
     now: 94,
-    // **넓은 창에서도 64 다.** 라벨줄을 스텝 칩 안으로 흡수한 것은 좁은 화면 때문이 아니라
-    // 스텝 조작이 인스펙터(26×22 버튼)에서 하단 바로 내려왔기 때문이라(§4.4 P2-3), 트레이 93
-    // 과 같은 이유로 기기와 무관하게 줄어든다. 실제 값은 bottomBarMetrics.ts 가 --hit 에서
-    // 파생한다: transportBarHeightPx(44)=64 · boardBarHeightPx(44)=60 — 큰 쪽이 이 행이다.
-    wide: 64,
-    // 재생 48 + 패딩 7/8 + border 1 = 64.
-    narrow: 64,
-    owner: '2.10 (완료) — 스텝 사진 뭉치 스크러버(TransportBar 높이 ≤64)',
+    wide: 0,
+    narrow: 0,
+    owner: '2026-08-18 하단 철거 — 재생 컨트롤은 왼쪽 스텝 바 하단(DESIGN §6.8b)',
+  },
+  {
+    // 2026-08-17 재설계 ② 가 낳고 2026-08-18 검수가 표에 올린 행 — 어제는 표에 없어서
+    // 판 회전(useStageRot)이 사이드바 폭을 모른 채 상자를 쟀다. `now: 0` 은 "재편 이전에는
+    // 존재하지 않았다" 다(역사 합계에 안 낀다).
+    id: 'stepSidebar',
+    axis: 'width',
+    label: '왼쪽 스텝 바(드릴 편집)',
+    now: 0,
+    // SIDEBAR_WIDTH_PX(StepSidebar.tsx) 와 같은 값이어야 한다 — 그쪽이 바뀌면 예산 대조
+    // (chromeBudget.test.ts)가 빨개진다. 소스 import 대신 리터럴을 적는 이유는 트레이 표와
+    // 같다(자기 사본 문제 — 소스를 읽어 비교하면 식이 틀려도 표가 따라 움직인다).
+    wide: 220,
+    // 접힘(narrow·세로)이면 여는 버튼만 코트 위에 뜨므로 흐름 폭은 0 이다.
+    narrow: 0,
+    owner: '2026-08-17 스텝 편집 재설계 ② — 왼쪽 세로 스텝 바(DESIGN §6.8b)',
+  },
+  {
+    id: 'notePanel',
+    axis: 'height',
+    label: '노트 패널(접힘 줄)',
+    // 접힘 기본값 기준: 토글 줄 --hit(44) + 위 경계선 1 = 45. 펼치면 더 먹지만 예산은
+    // **첫 화면(접힘)** 을 재는 표다 — 인스펙터 오버레이가 0 이던 것과 같은 규칙.
+    // now: 0 — 재편 이전에는 존재하지 않았다(stepSidebar 와 같은 규칙).
+    now: 0,
+    wide: 45,
+    narrow: 45,
+    owner: '2026-08-17 스텝 편집 재설계 ⑥ — 보드 아래 접이식 노트(DESIGN §6.8b)',
   },
   {
     id: 'courtPadY',
@@ -199,7 +223,9 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
  *  폭 크롬에 상시로 더해졌다. 작은 화면(1024×600·800×480)의 코트는 **한 눈금도 안 작아진다** —
  *  거기서는 세로가 제약이라 폭에 여유가 있었기 때문이다(§5.3 표의 그 두 행이 그대로인 이유). */
 export const CHROME_WIDTH_NARROW_PX = 173;
-export const CHROME_HEIGHT_NARROW_PX = 128;
+/** ⚠️ 2026-08-18 (하단 철거) — **128 → 109.** 하단 바 64 가 사라지고 노트 패널 접힘 줄 45 가
+ *  들어왔다(−64 + 45 = −19). 좁은 화면의 코트가 세로로 19px 더 커진다. */
+export const CHROME_HEIGHT_NARROW_PX = 109;
 /** 재편 이전 합계. §5.3 의 '현재' 열이 이 값에서 나온다(1024×600 → 0.6073). */
 export const CHROME_WIDTH_NOW_PX = 523;
 export const CHROME_HEIGHT_NOW_PX = 196;
@@ -251,8 +277,9 @@ export interface ChromeState {
  *   · `toolRail`·`trayBand` — **배치 축**. 트레이는 한 번에 한 축만 먹으므로 둘은 서로의
  *     반대이고 절대 동시에 켜지지 않는다. 이 배타성이 깨지면 세로 기기에서 트레이가 폭과
  *     높이를 이중으로 빼앗아 코트 상자가 실제보다 작게 계산된다.
- *   · `functionBar`·`transportBar` — **화면**. 전술판은 오른쪽 기둥, 드릴 편집은 하단 바다.
- *     이 둘도 서로의 반대이고 동시에 켜지지 않는다(2026-08-14 재설계). */
+ *   · `stepSidebar`·`notePanel` — **화면**(드릴 편집 전용). 전술판은 0 이다. 옛 `functionBar
+ *     ↔ transportBar` 배타는 2026-08-15(기능 바 상시) · 2026-08-18(하단 바 폐지)로 끝났다 —
+ *     기능 바는 두 화면 다 서고, 하단 바 행은 은퇴(wide/narrow 0)했다. */
 export function chromeRowPx(row: ChromeRow, state: ChromeState): number {
   if (row.id === 'inspector') return inspectorChromeWidthPx(state.inspector);
   const here = state.narrow ? row.narrow : row.wide;
@@ -262,7 +289,13 @@ export function chromeRowPx(row: ChromeRow, state: ChromeState): number {
   //    이제 두 화면 다 선다. 하단 바(트랜스포트)만 드릴 편집에 남는다 — 스텝은 시간축이고
   //    시간축은 가로가 자연스럽기 때문이다(전술판은 1장짜리라 그 바가 아예 없다).
   if (row.id === 'functionBar') return here;
-  if (row.id === 'transportBar') return state.board ? 0 : here;
+  // 2026-08-18 — 하단 바 행의 후계 둘(은퇴한 transportBar 행 자체는 wide/narrow 0 이라 분기가
+  // 필요 없다). 스텝 바는 드릴 편집 전용이고, **고정(비접힘)일 때만** 흐름 폭을 먹는다:
+  // 접힘 조건이 화면의 `narrow || portrait` 인데 portrait = !trayBand(EditorWorkspace 의
+  // trayAxis 유도 — 분기 boolean 을 늘리지 않는 §5.1 규칙 그대로)라 여기서는 trayBand 로
+  // 읽는다. 노트 패널은 드릴 편집이면 항상 접힘 줄 하나를 깐다.
+  if (row.id === 'stepSidebar') return state.board || state.narrow || !state.trayBand ? 0 : here;
+  if (row.id === 'notePanel') return state.board ? 0 : here;
   // ★ 판 화면은 **넓은 창에서 헤더가 없다**(AppShell 의 showHeader).
   //   좁은 창에서는 남는다: 84px 레일이 빠진 자리를 헤더의 3칸 세그먼트가 대신하므로,
   //   지우면 화면을 옮길 방법이 없어진다. 이 한 줄이 그 규칙의 예산판이다.

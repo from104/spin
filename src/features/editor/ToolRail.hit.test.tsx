@@ -9,24 +9,18 @@
 //      틀려도 테스트가 따라 움직여 아무것도 못 잡는다(자기 사본 문제).
 //   ③ **축척 불변** — 1024×600 에서 --hit 44↔56 전환이 pxPerUnit 을 한 눈금도 못 움직인다.
 //      세로가 제약이라 트레이 24px 는 폭 여유(§5.4 '남는 폭')에서 나오기 때문이다.
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import { ToolRail, type ChairSlot } from './ToolRail.tsx';
 import { trayChipBoxPx, trayRailWidthPx } from './trayMetrics.ts';
-import { ViewControls, ZoomGroup } from './StageControls.tsx';
-import { TransportBar } from './TransportBar.tsx';
-import { BoardBar } from './BoardBar.tsx';
-import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
-import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
+import { ZoomGroup } from './StageControls.tsx';
 import { CHROME_ROWS, courtBoxPx, courtScale } from '../../app/chromeBudget.ts';
 import type { ChromeState } from '../../app/chromeBudget.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import { BALL, CONE } from '../../core/constants.ts';
 import type { ChairId } from '../../core/ids.ts';
-import { createDrill } from '../../model/defaults.ts';
 
 // ── ① 픽셀 식 — §5.4 표 재현 ────────────────────────────────────────────────
 
@@ -237,10 +231,9 @@ describe('트레이 세로 식의 전제 — 화면이 정말 그 모양인가',
 // 도움말이 맨 끝에 들어와 7개가 됐고, §3 예산 내역 '스테이지 컨트롤 6(줌 3 + 토글 2 + 도움말 1)'
 // + 인스펙터 손잡이 1 이 그 묶음의 전부였다.
 //
-// 기현님 지시로 그 묶음이 **세 집으로 흩어졌다**. 지우지 않고 뒤집는다 — 옛 이름 7개가
-// **하나도 빠짐없이, 정확히 세 집에 나뉘어** 살아 있음을 아래 세 it 이 합쳐서 못박는다.
-// 이름을 한 글자라도 바꾸면 여기와 boardTargetBudget 대조군('확대')이 함께 빨개진다.
-const OLD_STAGE_CONTROL_NAMES = ['확대', '축소', '줌 초기화', '격자 표시 전환', '골 지역 가이드 전환', '속성', '도움말'];
+// 기현님 지시로 그 묶음이 **세 집으로 흩어졌었다**. 2026-08-18 그중 두 집(하단 바의
+// ViewControls·인스펙터)이 폐기되며 "7개 합집합" 대조도 함께 은퇴했다 — 살아남은 이름들의
+// 상주처는 줌 3개(아래 ZoomGroup)와 기능 바(FunctionBar.items.test.tsx)다.
 
 describe('ZoomGroup — 기둥 맨 위로 간 줌 3개', () => {
   it('세 버튼이 그대로 var(--hit) 정사각이다 — 이사했지 작아지지 않았다', () => {
@@ -274,113 +267,11 @@ describe('ZoomGroup — 기둥 맨 위로 간 줌 3개', () => {
   });
 });
 
-describe('ViewControls — 하단 바로 간 [보기]·[속성], 팝오버 안의 셋', () => {
-  const renderView = () =>
-    render(
-      <ViewControls
-        showGrid={false}
-        onToggleGrid={() => {}}
-        showRuleZones={false}
-        onToggleRuleZones={() => {}}
-        onShowHelp={() => {}}
-        inspectorOpen={false}
-        onToggleInspector={() => {}}
-        inspectorPanelId="p"
-      />,
-    );
-
-  it('바에 상주하는 것은 [보기]·[속성] 둘뿐이고 둘 다 --hit 파생이다', () => {
-    renderView();
-    for (const name of ['보기', '속성']) {
-      expect(screen.getByRole('button', { name }).style.minHeight, name).toBe('var(--hit)');
-    }
-    // 대조군: 팝오버가 닫혀 있으면 셋은 **DOM 에 없다**(예산 밖). 이게 재편의 −3 이다.
-    expect(screen.getAllByRole('button')).toHaveLength(2);
-  });
-
-  it('[보기]를 열면 옛 이름 셋이 그대로 나온다 — 이름은 한 글자도 안 바꿨다', async () => {
-    renderView();
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '보기' }));
-    for (const name of ['격자 표시 전환', '골 지역 가이드 전환', '도움말']) {
-      expect(screen.getByRole('button', { name }).style.minHeight, name).toBe('var(--hit)');
-    }
-  });
-
-  it('옛 7개가 세 집에 **빠짐없이** 나뉘었다 — 합집합이 정확히 그 목록이다', async () => {
-    render(
-      <>
-        <ZoomGroup orientation="vertical" onZoomIn={() => {}} onZoomOut={() => {}} onZoomReset={() => {}} />
-        <ViewControls
-          showGrid={false}
-          onToggleGrid={() => {}}
-          showRuleZones={false}
-          onToggleRuleZones={() => {}}
-          onShowHelp={() => {}}
-          inspectorOpen={false}
-          onToggleInspector={() => {}}
-          inspectorPanelId="p"
-        />
-      </>,
-    );
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '보기' }));
-    const names = screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent?.replace(/[▾]/g, '').trim() ?? '');
-    // [보기] 손잡이와 모달 [닫기]는 새로 난 것이라 뺀다 — 나머지가 옛 목록과 **집합으로 같다**.
-    expect(new Set(names.filter((n) => n !== '보기' && n !== '닫기'))).toEqual(new Set(OLD_STAGE_CONTROL_NAMES));
-  });
-});
-
-const settingsWrapper = ({ children }: { children: ReactNode }) => <SettingsProvider>{children}</SettingsProvider>;
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
-/** 2026-08-17 재편(PLAN-STEP-EDITING.md 구현 순서 ②) — 스텝 칩·이전/다음·[한 장 더 찍기]가
- *  전부 StepSidebar 로 이사하며 TransportBar 는 재생 전담이 됐다(TransportBar.tsx 머리말).
- *  `drill`/`stepId` 프롭도 함께 빠졌다 — 남은 --hit 파생 단언(재생 +4px·속도 최소높이)만
- *  여기 남는다. 카드의 --hit 계약은 이 파일이 아니라 StepSidebar 쪽에 새로 살 자리가 없다
- *  (카드는 --hit 파생이 아니라 사이드바 고정폭 파생이라 계약 자체가 다르다). */
-function renderTransport() {
-  render(<TransportBar playing={false} onTogglePlay={() => {}} canPlay speed={1} onCycleSpeed={() => {}} />, { wrapper: settingsWrapper });
-}
-
-describe('TransportBar — 재생·속도가 --hit 파생', () => {
-  it('재생은 +4px 위계를 유지하고, 속도는 --hit 최소높이다', () => {
-    renderTransport();
-    const play = screen.getByRole('button', { name: '재생' });
-    expect(play.style.width).toBe('calc(var(--hit) + 4px)');
-    expect(play.style.height).toBe('calc(var(--hit) + 4px)');
-    const speed = screen.getByRole('button', { name: /^재생 속도/ });
-    expect(speed.style.minHeight).toBe('var(--hit)');
-  });
-});
-
-// 2026-08-12(4.7): [골대 원위치]가 이 바에서 확인 모달로 내려가고 그 자리에 [내보내기]가 왔다
-// (근거는 BoardBar.tsx 머리말 ⚠️ — 첫 화면 표적 예산 여유가 0 이었다). 바에 상주하는 손잡이
-// 셋의 히트 크기 계약은 그대로다.
-describe('BoardBar — 비우기·내보내기·속도 스위치가 --hit 파생', () => {
-  it('세 손잡이 전부 minHeight var(--hit)', () => {
-    render(
-      <BoardBar
-        courtMode="full"
-        courtLocked={false}
-        onReset={() => {}}
-        onResetGoals={() => {}}
-        drill={createDrill({ courtMode: 'full', title: '자유 전술판', empty: true })}
-        showGrid={false}
-        showRuleZones={false}
-      />,
-      // 내보내기 시트가 useToast 를 쓴다 — 프로바이더 밖이면 던진다.
-      { wrapper: ({ children }: { children: ReactNode }) => <SettingsProvider><ToastProvider>{children}</ToastProvider></SettingsProvider> },
-    );
-    for (const name of ['코트 비우기', '내보내기']) {
-      expect(screen.getByRole('button', { name }).style.minHeight, name).toBe('var(--hit)');
-    }
-    expect(screen.getByRole('switch', { name: '개체 이동 속도 제한' }).style.minHeight).toBe('var(--hit)');
-  });
-});
+// 2026-08-18 — 여기 있던 ViewControls·TransportBar·BoardBar 의 --hit 계약 검증이 컴포넌트와
+// 함께 사라졌다(기현님: "결과적으로 하단에는 노트 빼고 다 삭제" · "속성 버튼 및 그 안의 내용
+// 폐기"). 재생·배속의 후계 계약(--hit 파생)은 StepSidebar.test.tsx 의 재생 컨트롤 절이 잇는다.
+// OLD_STAGE_CONTROL_NAMES 의 7개 중 [속성]·[도움말]·격자·골 지역은 기능 바(FunctionBar)가
+// 맡는다 — 그쪽 상주는 FunctionBar.items.test.tsx 가 못박는다.
 
 // ── ③ 축척 불변 — 완료 판정 "1024×600 에서 --hit 44↔56 전환에 pxPerUnit 변화 0" ──
 

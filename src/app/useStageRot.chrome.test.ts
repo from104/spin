@@ -59,10 +59,11 @@ describe('배선이 빠지면 예산이 틀린 상자를 답한다', () => {
       }
     }
     expect(total).toBeGreaterThan(1000);
-    // 문턱: 4%. 2026-08-15(재설계 ②)에 5.0% → 4.9% 로 내려왔다 — 기둥이 두 화면 다 서면서
-    // 배선이 있든 없든 같은 답을 내는 창이 조금 늘었기 때문이다. 뜻은 그대로다: 이 값이
-    // 0 에 가까워지면 배선이 실은 안 중요한 것이고, 그때는 이 테스트가 아니라 배선을 지운다.
-    expect(differ / total, '갈림이 거의 없으면 배선이 실은 안 중요한 것이다').toBeGreaterThan(0.04);
+    // 문턱: 3%. 5.0% → 4.9%(2026-08-15 재설계 ② — 기둥이 두 화면 다 섬) → **3.46%**
+    // (2026-08-18 하단 철거 — board 유무의 세로 차가 하단 바 64 에서 노트 접힘 줄 45 로
+    // 줄면서 두 상태가 같은 답을 내는 창이 늘었다). 뜻은 그대로다: 이 값이 0 에 가까워지면
+    // 배선이 실은 안 중요한 것이고, 그때는 이 테스트가 아니라 배선을 지운다.
+    expect(differ / total, '갈림이 거의 없으면 배선이 실은 안 중요한 것이다').toBeGreaterThan(0.03);
   });
 });
 
@@ -99,8 +100,10 @@ describe('상자에서 행이 실제로 빠진다', () => {
 describe('소스 계약 — 배선 두 줄이 제자리에 있다', () => {
   it('EditorWorkspace 가 useStageRot 에 배치 축과 화면을 넘긴다', () => {
     const src = read('src/features/editor/EditorWorkspace.tsx');
+    // 2026-08-18 인스펙터 폐기 — 패널이 아예 없으므로 inspector 는 상수 'hidden' 이다.
+    // (있지도 않은 패널 폭을 빼고 세면 안 된다 — EditorWorkspace 의 그 주석이 근거다.)
     expect(src).toContain(
-      'useStageRot(drill.courtMode, drill.courtSize, { narrow, trayBand, board: isBoard, inspector: inspectorLayout })',
+      "useStageRot(drill.courtMode, drill.courtSize, { narrow, trayBand, board: isBoard, inspector: 'hidden' })",
     );
   });
 

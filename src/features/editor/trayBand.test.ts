@@ -120,19 +120,29 @@ describe('③ 크롬 예산이 배치 축과 화면을 안다', () => {
     }
   });
 
-  it('★ 기능 바는 **두 화면 다** 선다 — 하단 바만 드릴 편집의 것이다 (재설계 ② 로 뒤집힘)', () => {
-    // 옛 계약(2026-08-14 ~ 2026-08-15): *"기능 바와 하단 바는 서로의 반대다 — 전술판은 기둥,
-    // 드릴 편집은 바다."* 그 배타성이 곧 "드릴 편집에는 기둥이 없다" 였고, 그래서 줌·되돌리기가
-    // 트레이에 남아 두 화면의 자리가 정반대였다. 재설계 ②가 그것을 없앴다.
+  it('★ 기능 바는 **두 화면 다** 선다 — 하단 바 행은 은퇴했고 후계는 노트 패널·스텝 바다 (2026-08-18)', () => {
+    // 옛 계약(2026-08-14 ~ 2026-08-15): *"기능 바와 하단 바는 서로의 반대다."* 재설계 ②가
+    // 기능 바를 상시로 만들었고, 2026-08-18 하단 철거가 하단 바 자체를 없앴다(기현님:
+    // *"결과적으로 하단에는 노트 빼고 다 삭제"*). 드릴 편집 전용 크롬은 이제 노트 패널
+    // (높이 45, 두 창 폭 공통)과 왼쪽 스텝 바(고정 모드에서만 폭 220)다.
     const fn = CHROME_ROWS.find((r) => r.id === 'functionBar')!;
     const bar = CHROME_ROWS.find((r) => r.id === 'transportBar')!;
+    const note = CHROME_ROWS.find((r) => r.id === 'notePanel')!;
+    const side = CHROME_ROWS.find((r) => r.id === 'stepSidebar')!;
     for (const board of [true, false]) {
       const st: ChromeState = { narrow: true, inspector: 'hidden', trayBand: true, board };
       expect(chromeRowPx(fn, st), `board=${board}: 기둥이 빠졌다`).toBeGreaterThan(0);
+      // 은퇴 행은 어느 화면에서도 0 이다 — 값이 살아나면 있지도 않은 바를 예산이 도로 뺀다.
+      expect(chromeRowPx(bar, st), `board=${board}: 은퇴한 하단 바가 되살아났다`).toBe(0);
     }
-    // 하단 바는 여전히 드릴 편집에만 있다 — 스텝이라는 시간축이 전술판에는 없다.
-    expect(chromeRowPx(bar, { narrow: true, inspector: 'hidden', trayBand: true, board: false })).toBeGreaterThan(0);
-    expect(chromeRowPx(bar, { narrow: true, inspector: 'hidden', trayBand: true, board: true })).toBe(0);
+    // 노트 패널은 드릴 편집에만 있다 — 스텝이라는 시간축이 전술판에는 없다(옛 하단 바와 같은 근거).
+    expect(chromeRowPx(note, { narrow: true, inspector: 'hidden', trayBand: true, board: false })).toBe(45);
+    expect(chromeRowPx(note, { narrow: true, inspector: 'hidden', trayBand: true, board: true })).toBe(0);
+    // 스텝 바는 고정(넓은 가로 화면)일 때만 폭을 먹는다 — narrow·세로(트레이 기둥)·전술판은 0.
+    expect(chromeRowPx(side, { narrow: false, inspector: 'hidden', trayBand: true, board: false })).toBe(220);
+    expect(chromeRowPx(side, { narrow: true, inspector: 'hidden', trayBand: true, board: false })).toBe(0);
+    expect(chromeRowPx(side, { narrow: false, inspector: 'hidden', trayBand: false, board: false })).toBe(0);
+    expect(chromeRowPx(side, { narrow: false, inspector: 'hidden', trayBand: true, board: true })).toBe(0);
   });
 
   it('띠 행의 값이 리터럴이 아니라 trayBandHeightPx 에서 온다', () => {

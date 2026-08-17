@@ -55,10 +55,14 @@ describe('대조군 — 이름 규칙 자체는 살아 있다(구멍이 "기능�
 });
 
 describe('§3.4 이름이 실제로 흐르는 채널 — 전수 열거', () => {
-  it('화면(편집기 트레이·인스펙터)과 시연 자막에는 간다', () => {
+  it('화면(편집기 트레이)과 시연 자막에는 간다', () => {
     const callers = filesCallingNameHelpers('src');
     expect(callers).toContain('src/features/editor/ToolRail.tsx'); // 트레이 손잡이
-    expect(callers).toContain('src/features/editor/InspectorPanel.tsx'); // 이름 입력 + 표시
+    // ⚠️ 2026-08-18 인스펙터 폐기(기현님: "속성 버튼 및 그 안의 내용 폐기")로 **이름 입력
+    // UI 가 함께 사라졌다** — InspectorPanel.tsx 가 유일한 입력 채널이었다. 이미 넣어 둔
+    // 이름은 트레이·시연 자막에 계속 표시되지만 새로 넣거나 고칠 손잡이는 현재 없다.
+    // 다시 필요해지면 어디에 살릴지는 기현님 결정 사항이다(2026-08-18 검수 보고에 올림).
+    expect(callers).not.toContain('src/features/editor/InspectorPanel.tsx');
     expect(callers).toContain('src/features/present/PresentRunner.tsx'); // 시연 자막(명단)
   });
 
