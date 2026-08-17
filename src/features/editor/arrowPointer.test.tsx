@@ -15,7 +15,7 @@ import { BALL, DEFAULT_ZONES, INTERACT } from '../../core/constants.ts';
 import { newId } from '../../core/ids.ts';
 import type { ArrowId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
-import { headFromOf, headToOf } from '../../model/arrow.ts';
+import { ARROW_COLOR_CYCLE, ARROW_STYLE, arrowColor, headFromOf, headToOf } from '../../model/arrow.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { CourtStageHandle, PointerMeta } from '../../render/CourtStage.tsx';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -150,14 +150,52 @@ describe('끝 앵커 — 누르면 순환, 끌면 이동', () => {
     expect(headToOf(a), '임계 안 떨림인데 순환이 안 됐다').toBe('wide');
   });
 
-  it('굽힘점(ctrl)에는 화살촉이 없다 — 눌러도 아무 일도 안 난다', () => {
+  it('굽힘점(ctrl)에는 화살촉이 없다 — 거기서 도는 것은 색이다', () => {
     const { h, arrowId } = mount();
     selectFirst(h);
     const before = arrowOf(h, arrowId);
     tapAt(h, ARROW.ctrl);
     const after = arrowOf(h, arrowId);
-    expect(headFromOf(after)).toBe(headFromOf(before));
-    expect(headToOf(after)).toBe(headToOf(before));
+    expect(headFromOf(after), '굽힘점을 눌렀는데 시작 화살촉이 돌았다').toBe(headFromOf(before));
+    expect(headToOf(after), '굽힘점을 눌렀는데 끝 화살촉이 돌았다').toBe(headToOf(before));
+  });
+});
+
+// 기현 지시 2026-08-17 — *"작도 선의 중간 앵커를 반복클릭하면 색이 하늘(기본색),노랑,붉은색으로
+// 순차적으로 바뀌게"*. 양 끝의 화살촉 순환과 **같은 규칙**(끌면 옮기고, 누르면 바꾼다)이다.
+describe('굽힘 앵커 — 누르면 색이 돈다', () => {
+  it('★ 하늘(기본) → 노랑 → 빨강 → 하늘 로 한 바퀴 돈다', () => {
+    const { h, arrowId } = mount();
+    selectFirst(h);
+    expect(arrowColor(arrowOf(h, arrowId)), '기본색이 하늘이 아니다').toBe(ARROW_STYLE.color);
+    tapAt(h, ARROW.ctrl);
+    expect(arrowColor(arrowOf(h, arrowId))).toBe(ARROW_COLOR_CYCLE[1]);
+    tapAt(h, ARROW.ctrl);
+    expect(arrowColor(arrowOf(h, arrowId))).toBe(ARROW_COLOR_CYCLE[2]);
+    tapAt(h, ARROW.ctrl);
+    expect(arrowColor(arrowOf(h, arrowId)), '세 번 눌러도 제자리로 안 왔다').toBe(ARROW_STYLE.color);
+  });
+
+  it('한 바퀴 돌면 color 키가 **사라진다** — 기본색은 덮어쓰기 해제이지 하늘색 지정이 아니다', () => {
+    const { h, arrowId } = mount();
+    selectFirst(h);
+    tapAt(h, ARROW.ctrl);
+    expect(arrowOf(h, arrowId).color).toBe(ARROW_COLOR_CYCLE[1]);
+    tapAt(h, ARROW.ctrl);
+    tapAt(h, ARROW.ctrl);
+    expect(Object.hasOwn(arrowOf(h, arrowId), 'color'), '기본색으로 돌아왔는데 color 키가 남았다').toBe(false);
+  });
+
+  it('★ 끌면 색이 아니라 **굽힘점이 옮겨진다** (대조군 — 누르기와 끌기가 갈린다)', () => {
+    const { h, arrowId } = mount();
+    selectFirst(h);
+    const target = { x: ARROW.ctrl.x + 50, y: ARROW.ctrl.y - 60 };
+    dragFromTo(h, ARROW.ctrl, target);
+    const a = arrowOf(h, arrowId);
+    expect(a.ctrl).toEqual(target);
+    expect(arrowColor(a), '끌었는데 색까지 돌았다').toBe(ARROW_STYLE.color);
+    expect(a.from).toEqual(ARROW.from);
+    expect(a.to).toEqual(ARROW.to);
   });
 });
 

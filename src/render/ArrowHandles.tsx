@@ -2,7 +2,7 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { Vec2 } from '../core/units.ts';
 import { INTERACT } from '../core/constants.ts';
-import type { Arrow, ArrowHandle } from '../model/arrow.ts';
+import { arrowColor, type Arrow, type ArrowHandle } from '../model/arrow.ts';
 
 export interface ArrowHandlesProps {
   arrow: Arrow | null;
@@ -28,9 +28,13 @@ export function ArrowHandles({ arrow, pxPerUnit, onPointerDown }: ArrowHandlesPr
       {points.map(({ which, p }) => (
         <g key={which} transform={`translate(${p.x} ${p.y})`}>
           <circle r={hitR} fill="transparent" onPointerDown={(e) => onPointerDown?.(which, e)} />
+          {/* 굽힘점은 **지금 선 색**으로 칠한다(2026-08-17). 여기를 누르면 색이 도니까
+              (useEditorPointer.ts) 이 점이 곧 색 견본이어야 한다 — 테마 강조색(var(--accent))
+              으로 두면 누르기 전에는 무엇이 바뀔지 알 수 없고, 누른 뒤에도 바뀐 티가 안 난다.
+              양 끝이 흰 점인 것은 그대로다: 거기서 도는 것은 색이 아니라 화살촉이다. */}
           <circle
             r={viewR}
-            fill={which === 'ctrl' ? 'var(--accent)' : '#ffffff'}
+            fill={which === 'ctrl' ? arrowColor(arrow) : '#ffffff'}
             stroke="#000"
             strokeWidth={1.2}
             pointerEvents="none"

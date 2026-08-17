@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { ArrowHandles } from './ArrowHandles.tsx';
-import type { Arrow } from '../model/arrow.ts';
+import { ARROW_COLOR_CYCLE, ARROW_STYLE, type Arrow } from '../model/arrow.ts';
 import type { ArrowId } from '../core/ids.ts';
 
 describe('ArrowHandles', () => {
@@ -37,5 +37,32 @@ describe('ArrowHandles', () => {
     const groups = container.querySelectorAll('g[transform^="translate"]');
     expect(groups).toHaveLength(3);
     expect(container.querySelector('g[transform="translate(5 -5)"]')).not.toBeNull();
+  });
+});
+
+// 2026-08-17 — 굽힘점을 누르면 색이 도니까(useEditorPointer.ts) **그 점이 곧 색 견본**이어야
+// 한다. 테마 강조색으로 되돌리면 누르기 전에도 뒤에도 무엇이 바뀌었는지 알 수 없다.
+describe('굽힘점은 지금 선 색으로 칠한다', () => {
+  const at = (a: Arrow) => {
+    const { container } = render(<ArrowHandles arrow={a} pxPerUnit={1} />);
+    const g = container.querySelector('g[transform="translate(50 10)"]')!;
+    return g.querySelector('circle[stroke="#000"]')!.getAttribute('fill');
+  };
+  const base: Arrow = { id: 'ar_1' as ArrowId, from: { x: 0, y: 0 }, ctrl: { x: 50, y: 10 }, to: { x: 100, y: 0 } };
+
+  it('색을 안 지정하면 기본색이다', () => {
+    expect(at(base)).toBe(ARROW_STYLE.color);
+  });
+
+  it('색을 지정하면 그 색이다 — 대조군: 값이 실제로 따라온다', () => {
+    expect(at({ ...base, color: ARROW_COLOR_CYCLE[2]! })).toBe(ARROW_COLOR_CYCLE[2]);
+  });
+
+  it('양 끝은 여전히 흰 점이다 — 거기서 도는 것은 색이 아니라 화살촉이다', () => {
+    const { container } = render(<ArrowHandles arrow={{ ...base, color: ARROW_COLOR_CYCLE[2]! }} pxPerUnit={1} />);
+    for (const t of ['translate(0 0)', 'translate(100 0)']) {
+      const g = container.querySelector(`g[transform="${t}"]`)!;
+      expect(g.querySelector('circle[stroke="#000"]')!.getAttribute('fill')).toBe('#ffffff');
+    }
   });
 });

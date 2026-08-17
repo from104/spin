@@ -43,6 +43,43 @@ export interface ArrowStyle {
 export const ARROW_STYLE: ArrowStyle = { color: '#38bdf8', width: 3.4 };
 export const arrowColor = (a: Pick<Arrow, 'color'>): string => a.color ?? ARROW_STYLE.color;
 
+/** 굽힘점(ctrl)을 거듭 눌렀을 때 도는 색 — **하늘 → 노랑 → 빨강**(기현 지시 2026-08-17).
+ *
+ *  ── 왜 여기서 색을 고르는가 ─────────────────────────────────────────────────────────
+ *  화살촉이 양 끝을 눌러 도는 것과 짝이다: 선을 그은 **뒤에** 그 선 위에서 뜻을 바꾼다.
+ *  색을 미리 고르게 하면 도구가 셋으로 늘고, 그건 2026-08-16 에 종류(move/pass/shot)를
+ *  없앤 판단을 되돌리는 것이다. 굽힘점은 지금까지 눌러도 아무 일이 없던 유일한 핸들이라
+ *  비어 있는 자리이기도 했다.
+ *
+ *  ⚠️ 첫 값은 반드시 `ARROW_STYLE.color` 다. 한 바퀴 돌면 `color` 를 **지워서**(=undefined)
+ *  기본색으로 되돌리기 때문이다 — 리터럴로 박아 두면 기본색을 바꾼 날 옛 드릴만 옛 하늘색으로
+ *  남는다. 이 짝은 arrow.test.ts 가 못박는다.
+ *
+ *  ── 색값의 근거 (코트 #1f7a46 · 케이싱 #000000 기준) ─────────────────────────────────
+ *   하늘 #38bdf8  코트 2.49:1 · 케이싱 9.80:1   기본색(ARROW_STYLE)
+ *   노랑 #fde047  코트 4.05:1 · 케이싱 15.93:1  공(#fbbf24)보다 밝은 값을 골랐다 — 공과
+ *                 구별되고, 아래 ⚠️ 때문에 빨강과의 **밝기** 차이도 벌어진다(2.85:1)
+ *   빨강 #ef4444  코트 1.42:1 · 케이싱 5.58:1   기본 우리팀색(#d93a3a)보다 밝아 겹쳐 보이지 않는다
+ *
+ *  ⚠️ **노랑과 빨강은 적록색약에게 사실상 같은 색이다**(둘의 이색각 분리 0.4~1.0, 콘 색이 쓴
+ *  임계 0.25 를 겨우 넘긴다 — 하늘 대 나머지는 49~117 이다). 색만으로 뜻을 가르는 판을 만들면
+ *  그 코치는 두 색을 못 읽는다. 그래서 색은 **화살촉(none/thin/wide)을 대신하지 않고 더한다** —
+ *  뜻을 나르는 채널은 여전히 화살촉이 주(主)이고 색은 보조다. 이 순서를 뒤집지 말 것. */
+export const ARROW_COLOR_CYCLE: readonly string[] = [ARROW_STYLE.color, '#fde047', '#ef4444'];
+/** 발화용 이름 — hex 를 그대로 읽으면 스크린리더가 낱글자를 센다(colors.ts 의 팀색 이름과 같은 이유). */
+export const ARROW_COLOR_NAMES: Record<string, string> = { '#38bdf8': '하늘', '#fde047': '노랑', '#ef4444': '빨강' };
+export const arrowColorName = (a: Pick<Arrow, 'color'>): string => ARROW_COLOR_NAMES[arrowColor(a)] ?? '사용자 지정';
+
+/** 다음 색으로 돌린 화살표. 순환 밖의 색(인스펙터가 언젠가 임의 색을 넣는다면)은 `indexOf`
+ *  가 -1 이라 **첫 값**으로 간다 — `cycleHead` 와 같은 규약이다. */
+export function cycleArrowColor(a: Arrow): Arrow {
+  const next = ARROW_COLOR_CYCLE[(ARROW_COLOR_CYCLE.indexOf(arrowColor(a)) + 1) % ARROW_COLOR_CYCLE.length]!;
+  if (next !== ARROW_STYLE.color) return { ...a, color: next };
+  // 기본색으로 돌아왔다 = 덮어쓰기 해제. 키를 남기지 않는 것이 `color?` 의 계약이다.
+  const { color: _drop, ...rest } = a;
+  return rest;
+}
+
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /** `M${from} Q${ctrl} ${to}`, 좌표 0.01 반올림. 세 점만 쓰므로 Arrow 전체가 아니어도 된다 —

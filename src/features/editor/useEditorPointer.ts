@@ -27,7 +27,7 @@ import { poseToStored } from '../../model/chair.ts';
 import { isOnSurface } from '../../model/court.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
 import type { Arrow } from '../../model/arrow.ts';
-import { arrowMid, cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow } from '../../model/arrow.ts';
+import { arrowColorName, arrowMid, cycleArrowColor, cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow } from '../../model/arrow.ts';
 import { arrowLabel } from '../../render/objects/ArrowPath.tsx';
 import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipWidthPx, noteRingRadiusPx } from '../../render/objects/noteChip.ts';
 import type { CourtStageHandle, PointerMeta, PointerDownResult, CourtStagePointerController } from '../../render/CourtStage.tsx';
@@ -967,17 +967,22 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     if (arrowHandleDragRef.current) {
       const h = arrowHandleDragRef.current;
       arrowHandleDragRef.current = null;
-      // ★ 끌지 않고 뗐다 = **화살촉 순환**(기현 지시 2026-08-16). 굽힘점(ctrl)에는 화살촉이
-      //   없으므로 제외한다 — 거기서는 누르기가 아무 일도 안 하는 것이 맞다.
-      if (!h.moved && (h.which === 'from' || h.which === 'to')) {
+      // ★ 끌지 않고 뗐다 = **그 핸들이 나르는 값을 한 칸 돌린다**. 양 끝은 화살촉(기현 지시
+      //   2026-08-16), 굽힘점은 색(기현 지시 2026-08-17)이다. 세 핸들 모두 "끌면 옮기고,
+      //   누르면 바꾼다" 라는 한 규칙 아래 있다 — 굽힘점만 죽어 있던 자리를 채운 것이다.
+      if (!h.moved) {
         const arrow = ctx.step.arrows.find((a) => a.id === h.arrowId);
         if (arrow) {
           const next: Arrow =
             h.which === 'from'
               ? { ...arrow, headFrom: cycleHead(headFromOf(arrow)) }
-              : { ...arrow, headTo: cycleHead(headToOf(arrow)) };
+              : h.which === 'to'
+                ? { ...arrow, headTo: cycleHead(headToOf(arrow)) }
+                : cycleArrowColor(arrow);
           ctx.dispatch({ type: 'ARROW_SET', arrow: next });
-          liveRegion.say(arrowLabel(next));
+          // 발화는 **방금 바뀐 것**만 말한다. 화살촉을 돌렸는데 색까지 읽어 주면 무엇이
+          // 바뀌었는지가 오히려 흐려진다(같은 이유로 arrowLabel 에 색을 넣지 않았다).
+          liveRegion.say(h.which === 'ctrl' ? `${arrowColorName(next)} 선` : arrowLabel(next));
         }
       }
       return;
