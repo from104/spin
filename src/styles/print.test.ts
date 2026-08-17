@@ -143,10 +143,30 @@ describe('색·페이지 나눔', () => {
     expect(ruleBody(block, `\\.${PRINT_PAGE_CLASS}:last-child`)).toMatch(/break-after:\s*auto/);
   });
 
-  it('코트 그림은 높이로 잡는다 — 폭 100% 로 두면 그림이 종이보다 커져 1장 1스텝이 깨진다', () => {
+  // 2026-08-17 기현님 신고 *"용지 꽉 안 참 (a4 가로 기준)"* — 옛 규칙은 코트를 고정 높이
+  // 110mm 로 두어 277×190mm 인쇄면에 172×110mm 짜리 그림만 얹었다(종이의 절반). 아래 셋은
+  // **함께 있어야만** 뜻이 있다: 장의 높이가 고정이라야 나눠 줄 여백이 생기고, 코트가 flex
+  // 로 그 여백을 받고, min-height:0 이 있어야 글이 길어질 때 코트가 대신 줄어든다.
+  it('장의 높이가 인쇄면 높이로 고정돼 있다 — 이게 없으면 코트가 채울 여백 자체가 없다', () => {
+    const page = ruleBody(block, `\\.${PRINT_PAGE_CLASS}`);
+    expect(page).toMatch(/height:\s*calc\(210mm\s*-\s*10mm\s*-\s*10mm\)/);
+    // @page 의 여백과 **같은 값**이어야 한다 — 어긋나면 넘쳐서 빈 장이 한 장씩 더 나온다.
+    expect(ruleBody(block, '@page')).toMatch(/margin:\s*10mm/);
+  });
+
+  it('코트 그림이 장에서 남는 자리를 전부 먹는다 (고정 높이가 아니다)', () => {
     const court = ruleBody(block, `\\.${PRINT_COURT_CLASS}`);
-    expect(court).toMatch(/height:\s*\d+mm/);
-    expect(court).toMatch(/max-width:\s*100%/);
+    expect(court).toMatch(/flex:\s*1\s+1\s+0/);
+    expect(court, '글이 길어지면 코트가 줄어야 한다 — 없으면 장이 넘친다').toMatch(/min-height:\s*0/);
+    expect(court).toMatch(/width:\s*100%/);
+    // 대조군: 고정 높이로 되돌아가면 다시 종이의 절반만 쓴다.
+    expect(court).not.toMatch(/height:\s*\d+mm/);
+    // 세션 계획서용 82mm 예외도 함께 사라져야 한다 — 남아 있으면 그 장만 옛 크기다.
+    expect(block).not.toMatch(new RegExp(`\\[data-print-page='drill'\\][^{]*\\.${PRINT_COURT_CLASS}`));
+  });
+
+  it('⚠️ 늘리지 말고 맞춘다 — preserveAspectRatio 가 meet 여야 코트 비율이 산다', () => {
+    expect(read('src/features/print/PrintCourt.tsx')).toMatch(/preserveAspectRatio="xMidYMid meet"/);
   });
 });
 

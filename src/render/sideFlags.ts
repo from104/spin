@@ -132,8 +132,12 @@ export interface SideFlagGroup {
   flags: SideFlagGeom[];
 }
 
-/** ★ 진영 표시의 **유일한 기하 출처**. 화면(아래 컴포넌트)과 PNG 내보내기
- *  (`features/export/buildStaticSvg.ts` 의 `sideMarksMarkup`)가 둘 다 이 함수를 지난다.
+/** ★ 진영 표시의 **유일한 기하 출처**. 소비자는 넷이다 — 편집기(`CourtStage`) · 시연
+ *  (`PresentStage`) · PNG(`features/export/buildStaticSvg.ts` 의 `sideMarksMarkup`) ·
+ *  인쇄(`features/print/PrintCourt.tsx`). 앞의 셋은 컴포넌트/함수를 부르고 넷째도 컴포넌트를
+ *  부른다 — **좌표를 옮겨 적는 소비자는 하나도 없어야 한다**(`ShapeLayer.tsx` 머리말과 같은 규율).
+ *  ⚠️ 새 소비자를 만들면 이 목록을 늘려라. 2026-08-17 에 PNG 와 인쇄가 차례로 빠져 있었는데,
+ *  둘 다 "빠졌다" 를 세는 자리가 없어서 화면만 보고는 알 수 없었다.
  *
  *  왜 함수로 떼었나(2026-08-17): 내보낸 그림에 깃발이 **아예 없었다**. 고치는 방법이 둘인데,
  *  좌표식을 그림 쪽에 한 벌 더 적으면 판 크기·여백을 바꾼 날 그림에서만 깃발이 어긋난다 —

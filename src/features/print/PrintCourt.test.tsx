@@ -145,3 +145,32 @@ describe('한 문서에 60장이 동시에 있다 — 전역 id 를 쓰면 2장�
     }
   });
 });
+
+// 2026-08-17 기현님 신고 *"인쇄 내보내기 — 진영 표시 없음"*. 그림(PNG)에서 같은 사고를 고친
+// 날 종이는 그대로였다 — **층을 하나 더 만들면 소비자가 넷**이라는 것을 세는 자리가 없었다
+// (편집기 CourtStage · 시연 PresentStage · PNG buildStaticSvg · 종이 PrintCourt).
+describe('진영 표시 — 어느 골을 어느 팀이 지키는가', () => {
+  it('풀 코트는 골라인마다 깃발 둘, 모두 네 개다', () => {
+    const { drill, step } = fixture();
+    const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" />);
+    expect(container.querySelectorAll('[data-side-mark]')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-side-flag]')).toHaveLength(4);
+  });
+
+  it('공수 방향을 뒤집으면 종이도 뒤집힌다 — drill.defense 가 실제로 전달된다', () => {
+    const { drill, step } = fixture();
+    const home = render(<PrintCourt drill={{ ...drill, defense: 'home' }} step={step} ariaLabel="코트" />);
+    const away = render(<PrintCourt drill={{ ...drill, defense: 'away' }} step={step} ariaLabel="코트" />);
+    const marks = (c: HTMLElement): string =>
+      Array.from(c.querySelectorAll('[data-side-mark]'))
+        .map((g) => g.getAttribute('data-side-mark'))
+        .join(',');
+    expect(marks(home.container)).not.toBe(marks(away.container));
+  });
+
+  it('플랫 코트에는 진영이라는 개념이 없다 (대조군 — "무엇을 넣어도 4개" 가 아니다)', () => {
+    const base = createDrill({ courtMode: 'flat', formation: '1-2-1' });
+    const { container } = render(<PrintCourt drill={base} step={base.steps[0]!} ariaLabel="코트" />);
+    expect(container.querySelectorAll('[data-side-flag]')).toHaveLength(0);
+  });
+});

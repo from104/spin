@@ -26,6 +26,7 @@ import type { Drill, DrillStep } from '../../model/drill.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
 import { ShapeLayer } from '../../render/ShapeLayer.tsx';
+import { SideMarks } from '../../render/SideMarks.tsx';
 import {
   NOTE_DEFAULT_SIZE_PX,
   NOTE_PLACEHOLDER,
@@ -46,7 +47,7 @@ const NUM_FONT = "'Space Grotesk',sans-serif";
 const TEXT_FONT = "'Pretendard',sans-serif";
 
 export interface PrintCourtProps {
-  drill: Pick<Drill, 'courtMode' | 'courtSize' | 'cast' | 'teams'>;
+  drill: Pick<Drill, 'courtMode' | 'courtSize' | 'cast' | 'teams' | 'defense'>;
   step: DrillStep;
   /** 그림 설명. 스크린리더가 아니라 **인쇄 미리보기의 대체 텍스트**를 위한 것이기도 하다. */
   ariaLabel: string;
@@ -75,8 +76,15 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
       <rect width={def.vbW} height={def.vbH} rx={10} fill={COURT_BG} />
       <CourtSurface mode={drill.courtMode} size={drill.courtSize} variant="present" />
 
-      {/* §3.5 렌더 레이어 순서: 코트면 → 콘 → 화살표 → 휠체어 → 공 → 메모.
-          (격자·규칙존·선택 링은 종이에 싣지 않는다 — §6.2 의 PNG 포함 목록과 같은 판단이다.) */}
+      {/* 진영 표시 — 어느 골을 어느 팀이 지키는지. 종이에 이게 없으면 **코트를 어느 쪽으로 놓고
+          읽어야 하는지**가 사라져, 화면에서 정한 공수 방향이 체육관에서 뒤집힌다.
+          (2026-08-17 기현님 신고 — 그림 내보내기에서 빠져 있던 것과 같은 층이다.)
+          화면·PNG 와 **같은 함수**(render/sideFlags.ts)가 좌표를 준다. */}
+      <SideMarks mode={drill.courtMode} size={drill.courtSize} teams={drill.teams} defense={drill.defense} />
+
+      {/* §3.5 렌더 레이어 순서: 코트면 → 진영 → 콘 → 화살표 → 휠체어 → 공 → 메모.
+          (격자·규칙존·선택 링은 종이에 싣지 않는다 — §6.2 의 PNG 포함 목록과 같은 판단이다.
+           진영 표시는 규칙존과 달리 **골라인 밖**이라 개체를 가리지 않는다.) */}
       {drill.cast.cones.map((c) => {
         const p = step.cones[c.id];
         if (!p) return null;
