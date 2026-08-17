@@ -88,4 +88,20 @@ describe('DrillCard', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
+
+  // SUMMARY_BUILD 3 (2026-08-17) — 목록 카드 부제. summary.ts 가 이미 한 줄로 자른 값을
+  // 그대로 그리는지만 본다(자르는 로직 자체는 summary.test.ts).
+  it('부제(드릴 짧은 설명)가 있으면 제목 아래 렌더된다', () => {
+    const d = { ...makeSummary(), description: '카드 부제 문구' };
+    render(<DrillCard drill={d} {...noopHandlers()} />);
+    expect(screen.getByText('카드 부제 문구')).toBeInTheDocument();
+  });
+
+  it('부제가 없으면 그 줄 자체가 없다 — 빈 줄로 카드 세로 리듬을 깨지 않는다', () => {
+    const d = makeSummary(); // buildSummary 는 description 없는 드릴에 키를 안 만든다
+    expect('description' in d).toBe(false);
+    const { container } = render(<DrillCard drill={d} {...noopHandlers()} />);
+    // 부제 자리는 title 과 아이콘 행 사이의 fontSize 0.78125rem 줄 하나뿐이라 그 존재 여부로 판정.
+    expect(container.querySelector('[style*="0.78125rem"]')).toBeNull();
+  });
 });

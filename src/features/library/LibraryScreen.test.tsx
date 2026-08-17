@@ -199,7 +199,10 @@ describe('LibraryScreen — 난이도 그룹 정렬의 성능 계약 (로드맵 
       // 올랐다(썸네일 도형·메모). 그때 요구대로 **상승과 재구축 경로를 같은 커밋에** 실었고,
       // 위 `rebuild` 단언은 그래도 유효하다: 재구축은 **stale 레코드를 봤을 때만** 부르고
       // 이 테스트의 드릴은 방금 저장한 것이라 build 가 이미 최신이다.
-      expect(SUMMARY_BUILD).toBe(2);
+      // 같은 날 다시 3 으로 올랐다(목록 카드 부제 — 드릴 짧은 설명). 재구축 호출자는
+      // LibraryProvider 하나뿐이고 그 비교(`s.build < SUMMARY_BUILD`)는 제네릭해서 이번 범프도
+      // 새 경로 없이 그대로 얹힌다 — 위 `rebuild` 단언의 근거가 이번에도 무너지지 않는다.
+      expect(SUMMARY_BUILD).toBe(3);
     } finally {
       vi.restoreAllMocks();
     }

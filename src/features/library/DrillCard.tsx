@@ -117,6 +117,14 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
         </div>
         <div style={{ padding: '14px 15px 15px', display: 'flex', flexDirection: 'column', gap: 11, flex: 1 }}>
           <div style={{ fontSize: '0.9375rem', fontWeight: 700, letterSpacing: -0.2 }}>{drill.title}</div>
+          {/* 부제 — 드릴 짧은 설명(§텍스트의 소속, PLAN-STEP-EDITING.md). summary.ts 가 이미
+              한 줄로 자른 값이라 여기선 ellipsis 로 넘침만 막는다. 부제가 없으면(옛 드릴·설명
+              미기재) 줄 자체를 만들지 않는다 — 빈 줄이 카드 세로 리듬을 깨는 걸 막는다. */}
+          {drill.description && (
+            <div style={{ fontSize: '0.78125rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: -5 }}>
+              {drill.description}
+            </div>
+          )}
           <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 14, fontSize: '0.71875rem', color: 'var(--muted)', fontWeight: 500 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <IconLevel />
