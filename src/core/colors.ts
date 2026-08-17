@@ -67,10 +67,18 @@ export const NOTE_PLACEHOLDER_FILL = 'rgba(255,255,255,.62)';
  *  파랑은 원정팀(#1f6bb8)·이동 화살표(#38bdf8)와 겹치지 않게 고른 값이다.
  *  주황과의 이색각 분리도 확인했다(적색맹 0.84 · 녹색맹 0.95 — 콘 구분 임계 0.25). */
 export const CONE_COLORS = ['#ff6b1a', '#2563eb'] as const;
-/** 썸네일이 쓰는 화살표 색. 2026-08-16 에 종류가 사라지면서 **한 값**이 됐다 —
- *  모델의 `ARROW_STYLE.color` 와 같은 값이어야 하고, 그것을 thumb.test 가 대조한다.
- *  (여기 리터럴을 따로 두는 이유: core 는 model 을 import 하지 않는다 — 의존 방향 §9.) */
-export const ARROW_COLOR = '#38bdf8';
+/** 화살표 색 3단 — 굽힘점(ctrl)을 거듭 누르면 이 순서로 돈다(기현 지시 2026-08-17.
+ *  순환 규칙과 색값의 근거는 `model/arrow.ts` 의 `ARROW_COLOR_CYCLE`).
+ *
+ *  ⚠️ **값이 왜 core 에 있고 model 에 없나**: 썸네일이 `CONE_COLORS`·`TEAM_COLOR_CHOICES` 와
+ *  똑같이 **색이 아니라 이 배열의 첨자를 저장하기** 때문이다(`model/thumb.ts` — "색을 굽지
+ *  않는다"). 첨자를 푸는 쪽이 `render/CourtThumbnail.tsx` 인데, 옛 구조에서는 core 가 model 을
+ *  import 할 수 없어(의존 방향 §9) 기본색 리터럴이 core·model 두 곳에 적혀 있었다. 이제
+ *  model 이 여기를 읽으므로 리터럴은 **한 곳뿐**이다 — 색을 고치면 저장된 썸네일까지 따라온다.
+ *  ⚠️ 첫 값은 기본색이다. 이 순서를 바꾸면 이미 저장된 썸네일의 첨자가 다른 색을 가리킨다. */
+export const ARROW_COLORS = ['#38bdf8', '#fde047', '#ef4444'] as const;
+/** 기본 화살표 색 = 순환의 첫 값. `model` 의 `ARROW_STYLE.color` 가 이것을 그대로 쓴다. */
+export const ARROW_COLOR: string = ARROW_COLORS[0];
 
 const srgb = (v: number): number => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
 export function relLuminance(hex: string): number {

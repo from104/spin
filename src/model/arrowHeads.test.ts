@@ -7,7 +7,7 @@
 // 두 끝이 서로를 안 건드리는가. 화면(마커 id)은 objects.test 가, 포인터 배선은
 // arrowPointer.test 가 각각 잰다.
 import { describe, expect, it } from 'vitest';
-import { ARROW_HEAD_CYCLE, ARROW_STYLE, arrowColor, cycleHead, headFromOf, headToOf, nudgeArrow } from './arrow.ts';
+import { ARROW_COLOR_CYCLE, ARROW_HEAD_CYCLE, ARROW_STYLE, arrowColor, cycleHead, headFromOf, headToOf, nudgeArrow } from './arrow.ts';
 import type { Arrow, ArrowHead } from './arrow.ts';
 import { ARROW_COLOR } from '../core/colors.ts';
 import type { ArrowId } from '../core/ids.ts';
@@ -65,10 +65,12 @@ describe('선 하나 — 종류가 사라졌다', () => {
     expect(arrowColor(A({ color: '#abcdef' }))).toBe('#abcdef');
   });
 
-  it('★ 썸네일의 색이 모델의 색과 같다 — 두 곳에 적힌 리터럴이 갈라지면 판만 다른 색이 된다', () => {
-    // core 는 model 을 import 하지 않으므로(의존 방향 §9) 값이 두 곳에 적혀 있다.
-    // 그 둘이 같다는 것을 사람이 기억하는 대신 여기서 잰다.
+  it('★ 썸네일의 색이 모델의 색과 같다 — 갈라지면 목록 카드만 다른 색이 된다', () => {
+    // 2026-08-17 이전에는 값이 core·model 두 곳에 **리터럴로** 적혀 있었고(core 는 model 을
+    // import 하지 않는다 — 의존 방향 §9), 이 단언이 그 둘을 대조하는 자리였다. 색이 3단으로
+    // 늘면서 리터럴을 core 한 곳으로 모았으므로 이제는 **파생이 끊기지 않았는지**를 잰다.
     expect(ARROW_COLOR).toBe(ARROW_STYLE.color);
+    expect(ARROW_COLOR).toBe(ARROW_COLOR_CYCLE[0]);
   });
 
   it('통째로 밀면 화살촉은 안 바뀐다 — 옮기는 것이지 모양을 바꾸는 것이 아니다', () => {

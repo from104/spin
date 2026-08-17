@@ -1,4 +1,5 @@
 // §3.5(화살표 부분) — 2차 베지에 화살표. D8/D9.
+import { ARROW_COLORS } from '../core/colors.ts';
 import type { Vec2 } from '../core/units.ts';
 import { isId } from '../core/ids.ts';
 import type { ArrowId } from '../core/ids.ts';
@@ -40,7 +41,7 @@ export interface ArrowStyle {
 /** 선 하나의 스타일. 옛 세 종류(move 파랑 3.4 · pass 노랑 점선 3 · shot 노랑 5)를 대신한다 —
  *  색은 이동(#38bdf8)의 것을 물려받았다. 그것이 가장 많이 쓰이던 값이고, 노랑(#fbbf24)은
  *  콘·공 표시와 겹치는 자리가 있어서다. 개별 색은 인스펙터 스와치가 계속 덮어쓴다. */
-export const ARROW_STYLE: ArrowStyle = { color: '#38bdf8', width: 3.4 };
+export const ARROW_STYLE: ArrowStyle = { color: ARROW_COLORS[0], width: 3.4 };
 export const arrowColor = (a: Pick<Arrow, 'color'>): string => a.color ?? ARROW_STYLE.color;
 
 /** 굽힘점(ctrl)을 거듭 눌렀을 때 도는 색 — **하늘 → 노랑 → 빨강**(기현 지시 2026-08-17).
@@ -64,8 +65,11 @@ export const arrowColor = (a: Pick<Arrow, 'color'>): string => a.color ?? ARROW_
  *  ⚠️ **노랑과 빨강은 적록색약에게 사실상 같은 색이다**(둘의 이색각 분리 0.4~1.0, 콘 색이 쓴
  *  임계 0.25 를 겨우 넘긴다 — 하늘 대 나머지는 49~117 이다). 색만으로 뜻을 가르는 판을 만들면
  *  그 코치는 두 색을 못 읽는다. 그래서 색은 **화살촉(none/thin/wide)을 대신하지 않고 더한다** —
- *  뜻을 나르는 채널은 여전히 화살촉이 주(主)이고 색은 보조다. 이 순서를 뒤집지 말 것. */
-export const ARROW_COLOR_CYCLE: readonly string[] = [ARROW_STYLE.color, '#fde047', '#ef4444'];
+ *  뜻을 나르는 채널은 여전히 화살촉이 주(主)이고 색은 보조다. 이 순서를 뒤집지 말 것.
+ *
+ *  값 자체는 `core/colors.ts` 의 `ARROW_COLORS` 에 있다 — 썸네일이 색이 아니라 **첨자**를
+ *  저장하는데(`model/thumb.ts`) 그 첨자를 푸는 쪽이 core 만 볼 수 있어서다(그 파일의 ⚠️). */
+export const ARROW_COLOR_CYCLE: readonly string[] = ARROW_COLORS;
 /** 발화용 이름 — hex 를 그대로 읽으면 스크린리더가 낱글자를 센다(colors.ts 의 팀색 이름과 같은 이유). */
 export const ARROW_COLOR_NAMES: Record<string, string> = { '#38bdf8': '하늘', '#fde047': '노랑', '#ef4444': '빨강' };
 export const arrowColorName = (a: Pick<Arrow, 'color'>): string => ARROW_COLOR_NAMES[arrowColor(a)] ?? '사용자 지정';

@@ -15,6 +15,7 @@ import {
   BALL_FILL,
   CONE_COLORS,
   ARROW_COLOR,
+  ARROW_COLORS,
   TEAM_COLOR_CHOICES,
   GK_HOME_COLOR,
   GK_AWAY_COLOR,
@@ -77,7 +78,9 @@ export function CourtThumbnail({ mode, size, thumb, teamColors = DEFAULT_TEAM_CO
               key={i}
               d={`M${a.p[0]},${a.p[1]} Q${a.p[2]},${a.p[3]} ${a.p[4]},${a.p[5]}`}
               fill="none"
-              stroke={ARROW_COLOR}
+              // 저장된 것은 색이 아니라 첨자다(model/thumb.ts). 범위 밖·없음은 기본색으로
+              // 접는다 — 옛 요약(첨자 필드가 생기기 전)이 정확히 그 경우다.
+              stroke={ARROW_COLORS[a.c ?? 0] ?? ARROW_COLOR}
               strokeWidth={2}
               strokeLinecap="round"
             />
