@@ -27,9 +27,15 @@ export interface ShapeLayerProps {
   locked?: ReadonlySet<string>;
   /** 개체 포인터 배선. 편집기만 넘긴다 — 없으면 도형은 그림일 뿐이라 클릭도 안 받는다. */
   onPointerDown?: (id: string, e: React.PointerEvent<SVGGElement>) => void;
+  /** 테두리 굵기 배수. 기본 1(판·시연·인쇄). **썸네일만 키운다** — 축소해 그리는 곳에서
+   *  `SHAPE_STROKE_PX` 2 는 카드에서 0.7 px 가 되어 테두리가 사실상 사라진다.
+   *  ⚠️ 굵기만이다. 도형의 **크기는 사용자가 그린 구역 그 자체**라 배수를 곱하면 안 된다 —
+   *  키운 구역은 없는 구역이고, 판은 없는 것을 가르치지 않는다. */
+  strokeScale?: number;
 }
 
-export function ShapeLayer({ shapes = [], selected, locked, onPointerDown }: ShapeLayerProps) {
+export function ShapeLayer({ shapes = [], selected, locked, onPointerDown, strokeScale = 1 }: ShapeLayerProps) {
+  const sw = SHAPE_STROKE_PX * strokeScale;
   // ⚠️ 기본값이 필요하다. 도형 필드는 2026-08-14 에 생겼고, 그 전에 만들어진 스텝 객체(옛
   // 저장본·테스트 픽스처)에는 키가 아예 없다 — `shapes.length` 로 바로 읽으면 판이 통째로
   // 안 그려진다. 정화기(validate)가 언제나 배열을 만들어 주지만, 그 길을 안 지나는 객체가
@@ -64,7 +70,7 @@ export function ShapeLayer({ shapes = [], selected, locked, onPointerDown }: Sha
                 fillOpacity={SHAPE_FILL_OPACITY}
                 stroke={stroke}
                 strokeOpacity={strokeOpacity}
-                strokeWidth={SHAPE_STROKE_PX}
+                strokeWidth={sw}
               />
             )}
             {s.kind === 'rect' && (
@@ -77,7 +83,7 @@ export function ShapeLayer({ shapes = [], selected, locked, onPointerDown }: Sha
                 fillOpacity={SHAPE_FILL_OPACITY}
                 stroke={stroke}
                 strokeOpacity={strokeOpacity}
-                strokeWidth={SHAPE_STROKE_PX}
+                strokeWidth={sw}
               />
             )}
             {/* 잠김 덮개 — 도형의 **모양 그대로** 덮는다. 상자로 덮으면 타원·삼각형 밖까지
@@ -89,7 +95,7 @@ export function ShapeLayer({ shapes = [], selected, locked, onPointerDown }: Sha
                 fillOpacity={SHAPE_FILL_OPACITY}
                 stroke={stroke}
                 strokeOpacity={strokeOpacity}
-                strokeWidth={SHAPE_STROKE_PX}
+                strokeWidth={sw}
                 strokeLinejoin="round"
               />
             )}

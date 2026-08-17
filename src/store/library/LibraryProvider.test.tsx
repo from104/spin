@@ -4,6 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { LibraryProvider, useLibrary } from './LibraryProvider.tsx';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
+import { SUMMARY_BUILD, type DrillSummary } from '../../model/summary.ts';
 
 vi.mock('../../storage/drillRepo.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../storage/drillRepo.ts')>();
@@ -55,5 +56,72 @@ describe('LibraryProvider — 4상태', () => {
     act(() => result.current.setSearch('존재하지않을검색어zzz'));
     await waitFor(() => expect(result.current.search).toBe('존재하지않을검색어zzz'));
     await waitFor(() => expect(result.current.drills).toEqual([]));
+  });
+});
+
+// 2026-08-17 — SUMMARY_BUILD 2(썸네일 도형·메모). `rebuildAllSummaries` 는 오래도록 **호출자가
+// 0** 이었고, summary.ts 는 그래서 "build 를 올리면 레코드마다 그림이 달라진다" 를 함정으로
+// 등록해 뒀다. 이 커밋이 그 경로에 호출자를 줬으니, 여기서 그 배선을 못박는다.
+describe('요약 지연 재생성 — 옛 build 를 봤을 때만, 세션에 한 번', () => {
+  const summary = (id: string, build: number): DrillSummary =>
+    ({
+      id: id as DrillSummary['id'],
+      build,
+      title: id,
+      category: '기타',
+      level: 'basic',
+      durationMin: 5,
+      tags: [],
+      courtMode: 'full',
+      searchKey: id,
+      updatedAt: 0,
+      steps: 1,
+      teams: { home: { label: '홈', color: '#38bdf8', gkColor: '#f59e0b' }, away: { label: '어웨이', color: '#f472b6', gkColor: '#22c55e' } },
+    }) as unknown as DrillSummary;
+
+  /** build 를 마음대로 조작하는 최소 저장소. 실제 repo 를 쓰면 방금 저장한 요약이 늘 최신이라
+   *  stale 상태를 만들 수 없다. */
+  function fakeRepo(builds: number[]) {
+    let list = builds.map((b, i) => summary(`dr_${i}`, b));
+    const rebuild = vi.fn(async () => {
+      list = list.map((s) => ({ ...s, build: SUMMARY_BUILD }));
+      return list.length;
+    });
+    const listDrillSummaries = vi.fn(async () => list);
+    return { rebuild, listDrillSummaries, repo: { listDrillSummaries, rebuildAllSummaries: rebuild } };
+  }
+
+  it('★ stale 레코드를 보면 재구축을 부르고 목록을 다시 읽는다', async () => {
+    const f = fakeRepo([SUMMARY_BUILD - 1, SUMMARY_BUILD]);
+    vi.mocked(resolveDrillRepo).mockResolvedValueOnce({ repo: f.repo as never, degraded: false });
+    const { result } = renderHook(() => useLibrary(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(f.rebuild).toHaveBeenCalledTimes(1);
+    expect(f.listDrillSummaries).toHaveBeenCalledTimes(2); // 재구축 뒤 다시 읽었다
+    expect(result.current.drills.every((s) => s.build === SUMMARY_BUILD)).toBe(true);
+  });
+
+  it('★ 전부 최신이면 부르지 않는다 — 목록을 열 때마다 본문을 훑는 일은 없다', async () => {
+    const f = fakeRepo([SUMMARY_BUILD, SUMMARY_BUILD]);
+    vi.mocked(resolveDrillRepo).mockResolvedValueOnce({ repo: f.repo as never, degraded: false });
+    const { result } = renderHook(() => useLibrary(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(f.rebuild).not.toHaveBeenCalled();
+    expect(f.listDrillSummaries).toHaveBeenCalledTimes(1);
+  });
+
+  it('★ 재구축이 stale 을 못 고쳐도 두 번 부르지 않는다 — 매 조회마다 멈추는 목록이 되면 안 된다', async () => {
+    const stubborn = [summary('dr_0', SUMMARY_BUILD - 1)];
+    const rebuild = vi.fn(async () => 0); // 본문을 못 열어 그대로인 경우
+    const listDrillSummaries = vi.fn(async () => stubborn);
+    vi.mocked(resolveDrillRepo).mockResolvedValueOnce({
+      repo: { listDrillSummaries, rebuildAllSummaries: rebuild } as never,
+      degraded: false,
+    });
+    const { result } = renderHook(() => useLibrary(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    act(() => result.current.setSearch('아무거나'));
+    await waitFor(() => expect(listDrillSummaries.mock.calls.length).toBeGreaterThan(2));
+    expect(rebuild).toHaveBeenCalledTimes(1);
   });
 });

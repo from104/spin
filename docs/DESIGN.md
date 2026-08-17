@@ -1059,10 +1059,24 @@ export function buildSummary(d: Drill): DrillSummary;   // 약 700 B/건
 `preserveAspectRatio="xMidYMid meet"`. `CourtSurface` 를 재사용한다.
 
 **글리프는 축척이 아니다** (기현님 지시 2026-08-17: *"섬네일 객체 표현이 약간 과장되어야
-가독성이 좋아짐"*). 개체 크기는 `CourtThumbnail.tsx` 의 `THUMB_GLYPH` 한 곳에서 나오고,
-판(`ChairChip` 37.5×25 · `BALL.viewRadiusPx` 7 · `CONE.viewWidthPx` 10)보다 크거나 같게 잡는다 —
-휠체어 `r 12`(지름이 차폭 25 만하다) · 공 `r 8` · 콘 반폭 `6` · 화살표 획 `3.5`.
-옛 값(6 · 4 · 5 · 2)은 목록 카드에서 점, **44 px 스텝 칩에서는 1 px 미만**이었다.
+가독성이 좋아짐"* → 2차 *"2배는 더 커야함"*). 개체 크기는 `CourtThumbnail.tsx` 의 `THUMB_GLYPH`
+한 곳에서 나오고, 판(`ChairChip` 37.5×25 · `BALL.viewRadiusPx` 7 · `CONE.viewWidthPx` 10)의
+**두 배 수준**으로 잡는다 — 휠체어 `r 24`(지름 48 ≈ 2 m) · 공 `r 16` · 콘 반폭 `12` ·
+화살표 획 `7`. 옛 값(6 · 4 · 5 · 2)은 목록 카드에서 점, **44 px 스텝 칩에서는 1 px 미만**이었다.
+
+**도형·메모도 그린다**(같은 날 3차 지시 *"도형, 메모(글자를 2~3px로) 등도 잡혀야지"*).
+· 도형은 `ShapeLayer` 를 **그대로 재사용**한다(그리는 곳이 다섯이 되면 반투명 값이 갈라진다 —
+`ShapeLayer.tsx` 머리말). 커지는 것은 테두리뿐(`strokeScale`)이고 **크기는 안 건드린다** —
+도형의 크기는 사용자가 그린 구역 그 자체라서, 키우면 없는 구역을 가르친다.
+· 메모는 쪽지 기하(`noteChip.ts`)를 판·인쇄·PNG 와 같은 함수로 만들고, 글자는
+`noteFontScale 0.6`(판 기본 14 → 8.4 단위 ≈ **카드에서 3 px**)이다. 글자만 2배로 키우지 않는
+이유는 **쪽지 크기가 글자 크기에서 나오기** 때문이다 — 2배면 쪽지가 코트 절반을 덮는다.
+· 요약에 담기는 것은 도형 기하 그대로 + 메모의 좌표·본문(`THUMB_CAPS.noteChars` 로 자름)·
+크기·색·정렬이다. 도형은 **깊은 복사**로 담는다(판에서 도형을 끌 때 저장된 썸네일이 따라
+움직이면 안 된다).
+· ⚠️ 이 둘은 `courtSize`·화살표 첨자와 달리 **"없음 = 참" 이 아니다** — 그래서
+`SUMMARY_BUILD` 가 2 로 올랐고, 같은 커밋에서 `LibraryProvider` 가 stale 요약을 보면
+`rebuildAllSummaries()` 를 **세션 1회** 부른다(호출자 0 이던 그 경로에 호출자가 생겼다).
 
 칩은 카드보다 4배 가까이 작으므로(칩 폭 ≈ 76 px vs 카드 ≈ 300 px) 같은 글리프로는 다시
 안 보인다 — `glyphScale` 로 배수를 받고 `TransportBar` 가 `CHIP_GLYPH_SCALE`(1.6)을 넘긴다.

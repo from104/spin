@@ -195,10 +195,11 @@ describe('LibraryScreen — 난이도 그룹 정렬의 성능 계약 (로드맵 
       await waitFor(() => expect(getDrill).toHaveBeenCalledTimes(1)); // 대조군 (b)
       expect(rebuild).not.toHaveBeenCalled(); // 삭제 후 재조회에서도 전역 재구축은 없다
 
-      // 계약의 나머지 반쪽 — 그룹핑은 build:1 요약만으로 성립한다. 요약에 뭔가를 실어 build 를
-      // 올릴 일이 생기면(예: 4차 목록 배지) **상승과 재구축 경로를 같은 커밋에** 싣고 이 단언도
-      // 그때 함께 갱신하라. 근거는 summary.ts 상단 주석(§7 3.2/3.3 결정).
-      expect(SUMMARY_BUILD).toBe(1);
+      // 계약의 나머지 반쪽 — 그룹핑은 요약 필드만으로 성립한다. build 는 2026-08-17 에 2 로
+      // 올랐다(썸네일 도형·메모). 그때 요구대로 **상승과 재구축 경로를 같은 커밋에** 실었고,
+      // 위 `rebuild` 단언은 그래도 유효하다: 재구축은 **stale 레코드를 봤을 때만** 부르고
+      // 이 테스트의 드릴은 방금 저장한 것이라 build 가 이미 최신이다.
+      expect(SUMMARY_BUILD).toBe(2);
     } finally {
       vi.restoreAllMocks();
     }

@@ -3,6 +3,7 @@
 import { ARROW_COLOR_CYCLE, arrowColor } from './arrow.ts';
 import type { Drill } from './drill.ts';
 import type { CourtMode } from './court.ts';
+import type { Shape } from './shape.ts';
 
 export interface ThumbSpec {
   mode: CourtMode;
@@ -19,9 +20,22 @@ export interface ThumbSpec {
    *  없었으므로 **전부 기본색**이고, 옛 요약의 '없음' 은 정보 부족이 아니라 **참인 기본값**이다
    *  (`summary.ts` 의 `courtSize` 가 같은 논증으로 build 를 안 올렸다). */
   arrows: Array<{ p: [number, number, number, number, number, number]; c?: number }>; // from,ctrl,to
+  /** 작도 도형(2026-08-17 기현님 지시 *"도형, 메모 등도 잡혀야지"*). **모델 객체를 그대로**
+   *  담는다 — 도형의 색은 사용자 데이터가 아니라 상수 하나(`SHAPE_COLOR`)라 이 파일 머리말의
+   *  "색을 굽지 않는다" 에 걸리지 않는다. 그래서 썸네일이 `ShapeLayer` 를 그대로 재사용하고,
+   *  그리는 코드가 다섯 곳으로 갈라지지 않는다(`ShapeLayer.tsx` 머리말이 그 계약이다).
+   *
+   *  ⚠️ 비어 있으면 **키를 넣지 않는다** — 옛 요약과 모양이 같아야 쓸데없는 되쓰기가 없다. */
+  shapes?: Shape[];
+  /** 메모(2026-08-17). 크기·색·정렬은 사용자 데이터라 값이 있을 때만 담고(없으면 렌더가 기본값을
+   *  쓴다), 본문은 `THUMB_CAPS.noteChars` 로 자른다 — 요약은 목록을 그리기 위한 작은 레코드인데
+   *  600자 메모 여덟 개를 실으면 성격이 바뀐다. 썸네일의 글자는 2~3 px 라 읽히는 것이 아니라
+   *  '여기 쪽지가 있다' 는 질감이다(그래서 자른 것이 화면에서 손실로 보이지 않는다). */
+  notes?: Array<{ x: number; y: number; t: string; s?: number; c?: string; a?: 'start' | 'middle' | 'end' }>;
 }
 
-export const THUMB_CAPS = { chairs: 8, balls: 4, cones: 8, arrows: 3 } as const;
+/** `noteChars` 만 개수가 아니라 **글자 수**다 — 위 `notes` 주석의 근거. */
+export const THUMB_CAPS = { chairs: 8, balls: 4, cones: 8, arrows: 3, shapes: 6, notes: 6, noteChars: 24 } as const;
 
 /** 드릴 요약(목록 카드)용 — 첫 스텝. */
 export function buildThumb(d: Drill): ThumbSpec {
@@ -36,6 +50,8 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
   const balls: ThumbSpec['balls'] = [];
   const cones: ThumbSpec['cones'] = [];
   const arrows: ThumbSpec['arrows'] = [];
+  const shapes: Shape[] = [];
+  const notes: NonNullable<ThumbSpec['notes']> = [];
 
   if (step) {
     for (const def of d.cast.chairs) {
@@ -63,7 +79,31 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
       const c = ARROW_COLOR_CYCLE.indexOf(arrowColor(a));
       arrows.push(c > 0 ? { p, c } : { p });
     }
+    // ⚠️ `?? []` — 도형·메모 필드는 2026-08-14/그 이전에 생겼고 그 길을 안 지난 스텝 객체(옛
+    // 저장본·테스트 픽스처)에는 키가 없다(`ShapeLayer.tsx` 가 같은 방어를 한다).
+    for (const s of step.shapes ?? []) {
+      if (shapes.length >= THUMB_CAPS.shapes) break;
+      // 깊은 복사다. 얕게 담으면 삼각형의 꼭짓점 배열을 드릴 본문과 **공유**해서, 판에서 도형을
+      // 끌 때 이미 저장된 요약의 썸네일까지 같이 움직인다(그리고 그건 저장 없이 일어난다).
+      shapes.push(structuredClone(s));
+    }
+    for (const n of step.notes ?? []) {
+      if (notes.length >= THUMB_CAPS.notes) break;
+      const e: NonNullable<ThumbSpec['notes']>[number] = { x: n.x, y: n.y, t: n.text.slice(0, THUMB_CAPS.noteChars) };
+      if (n.size !== undefined) e.s = n.size;
+      if (n.color !== undefined) e.c = n.color;
+      if (n.align !== undefined) e.a = n.align;
+      notes.push(e);
+    }
   }
 
-  return { mode: d.courtMode, chairs, balls, cones, arrows };
+  return {
+    mode: d.courtMode,
+    chairs,
+    balls,
+    cones,
+    arrows,
+    ...(shapes.length > 0 ? { shapes } : {}),
+    ...(notes.length > 0 ? { notes } : {}),
+  };
 }

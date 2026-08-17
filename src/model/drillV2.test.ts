@@ -213,10 +213,12 @@ describe('3.2/3.3 상한과 형상 보정 — 깨진 파일을 먹어도 throw �
 });
 
 describe('3.2/3.3 요약 결정 — 교육 필드는 DrillSummary 에 싣지 않는다', () => {
-  it('SUMMARY_BUILD 는 1 그대로이고 요약에 교육 필드 키가 없다', () => {
-    // 근거는 summary.ts 주석 셋: 목록이 안 읽는다 · rebuildAllSummaries 호출자가 0 이라
-    // 이미 저장된 레코드는 영영 낡은 채로 남는다 · searchKey 를 바꾸면 검색이 레코드마다 달라진다.
-    expect(SUMMARY_BUILD).toBe(1);
+  it('요약에 교육 필드 키가 없다 — build 가 올라간 뒤에도 그대로다', () => {
+    // 근거는 summary.ts 주석 셋 중 살아 있는 둘: 목록이 안 읽는다 · searchKey 를 바꾸면 검색이
+    // 레코드마다 달라진다. (셋째 근거 "rebuildAllSummaries 호출자가 0" 은 2026-08-17 에
+    // 사라졌다 — 썸네일 도형·메모 때문에 build 를 2 로 올리면서 LibraryProvider 가 그 경로를
+    // 부르게 됐다. **그래도 교육 필드는 여전히 안 싣는다** — 목록이 읽지 않기 때문이다.)
+    expect(SUMMARY_BUILD).toBe(2);
     const d = createDrill({ courtMode: 'full', formation: '1-2-1', title: '요약 검증 드릴' });
     const s = buildSummary({ ...d, objective: '스핀턴전개목적', coachingPoints: ['몸을 연다'], playersNeeded: 6, equipment: '조끼', reps: 3, sets: 2, intervalSec: 60 });
     for (const k of TEACHING_KEYS) expect(k in s, `요약에 '${k}' 가 들어갔다 — build 상승과 재구축 경로가 같이 필요하다`).toBe(false);

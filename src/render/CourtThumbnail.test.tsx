@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { CHIP_GLYPH_SCALE, CourtThumbnail, THUMB_GLYPH } from './CourtThumbnail.tsx';
 import type { ThumbSpec } from '../model/thumb.ts';
+import type { Shape } from '../model/shape.ts';
+import { SHAPE_STROKE_PX } from '../model/shape.ts';
+import { NOTE_DEFAULT_SIZE_PX } from './objects/noteChip.ts';
 import { ARROW_COLORS } from '../core/colors.ts';
 
 describe('CourtThumbnail', () => {
@@ -129,5 +132,81 @@ describe('글리프 크기 — 축척이 아니라 읽히려고 과장한다', (
 
   it('★ 칩 배수는 1 보다 크다 — 칩(≈76 px)은 카드(≈300 px)보다 4배 작게 그려진다', () => {
     expect(CHIP_GLYPH_SCALE).toBeGreaterThan(1);
+  });
+});
+
+// 2026-08-17 기현님 지시 *"도형, 메모(글자를 2~3px로) 등도 잡혀야지"*.
+// 여기서 재는 것: ① 도형은 `ShapeLayer` 를 **재사용**한다(옮겨 적으면 반투명 값이 갈라진다)
+// ② 도형은 **코트 위·개체 아래** 층이다 ③ 메모는 쪽지+글자로 그려지고 글자 크기가 목록 카드에서
+// 2~3 px 로 떨어진다.
+describe('도형·메모 — 썸네일에도 잡힌다', () => {
+  const SHAPE: Shape = { id: 'sh_1' as Shape['id'], kind: 'rect', x: 200, y: 150, w: 100, h: 60, rot: 0 };
+  const spec = (over: Partial<ThumbSpec> = {}): ThumbSpec => ({
+    mode: 'full',
+    chairs: [],
+    balls: [],
+    cones: [],
+    arrows: [],
+    ...over,
+  });
+
+  it('★ 도형은 ShapeLayer 가 그린다 — 여기서 손으로 그리지 않는다', () => {
+    const { container } = render(<CourtThumbnail mode="full" thumb={spec({ shapes: [SHAPE] })} />);
+    const layer = container.querySelector('[data-shape-layer]');
+    expect(layer).not.toBeNull();
+    expect(layer!.querySelector('rect[width="100"]')).not.toBeNull();
+  });
+
+  it('★ 도형 테두리만 굵어진다 — 크기는 사용자가 그린 구역 그 자체다', () => {
+    const { container } = render(<CourtThumbnail mode="full" thumb={spec({ shapes: [SHAPE] })} />);
+    const r = container.querySelector('[data-shape-layer] rect')!;
+    expect(Number(r.getAttribute('stroke-width'))).toBe(SHAPE_STROKE_PX * THUMB_GLYPH.shapeStroke);
+    expect(r.getAttribute('width')).toBe('100'); // 배수가 크기에 새지 않았다
+    expect(r.getAttribute('height')).toBe('60');
+  });
+
+  it('★ 도형은 코트 위·개체 아래 층이다 (ShapeLayer.tsx 머리말의 그 순서)', () => {
+    const { container } = render(
+      <CourtThumbnail mode="full" thumb={spec({ shapes: [SHAPE], chairs: [{ x: 100, y: 100, a: 0, t: 0, g: 0 }] })} />,
+    );
+    const gs = [...container.querySelectorAll('svg > g')];
+    const shapeAt = gs.findIndex((el) => el.hasAttribute('data-shape-layer'));
+    const objAt = gs.findIndex((el) => el.querySelector('circle') !== null);
+    expect(shapeAt).toBeGreaterThanOrEqual(0);
+    expect(shapeAt).toBeLessThan(objAt); // 개체보다 먼저 = 아래
+  });
+
+  it('★ 메모는 쪽지와 글자로 그려진다 — 자리는 메모의 좌표다', () => {
+    const { container } = render(<CourtThumbnail mode="full" thumb={spec({ notes: [{ x: 300, y: 200, t: '왼쪽으로' }] })} />);
+    const g = [...container.querySelectorAll('g')].find((el) => el.getAttribute('transform') === 'translate(300 200)');
+    expect(g).toBeDefined();
+    expect(g!.querySelectorAll('path')).toHaveLength(2); // 쪽지 + 접힌 귀
+    expect(g!.querySelector('text')!.textContent).toBe('왼쪽으로');
+  });
+
+  it('★ 글자는 목록 카드에서 2~3 px 로 떨어진다 — 그 크기가 이 항목의 요구였다', () => {
+    const { container } = render(<CourtThumbnail mode="full" thumb={spec({ notes: [{ x: 0, y: 0, t: '가' }] })} />);
+    const font = Number(container.querySelector('text')!.getAttribute('font-size'));
+    expect(font).toBe(NOTE_DEFAULT_SIZE_PX * THUMB_GLYPH.noteFontScale);
+    // 목록 카드는 코트(825 단위)를 약 300 px 로 그린다 → 표시 크기 = font × 300/825.
+    const shownPx = (font * 300) / 825;
+    expect(shownPx).toBeGreaterThan(2);
+    expect(shownPx).toBeLessThan(4);
+  });
+
+  it('메모의 크기·색·정렬은 넘어온 값을 따른다 (기본값은 판과 같다)', () => {
+    const { container } = render(
+      <CourtThumbnail mode="full" thumb={spec({ notes: [{ x: 0, y: 0, t: '가', s: 28, c: '#ff0000', a: 'start' }] })} />,
+    );
+    const t = container.querySelector('text')!;
+    expect(Number(t.getAttribute('font-size'))).toBe(28 * THUMB_GLYPH.noteFontScale);
+    expect(t.getAttribute('fill')).toBe('#ff0000');
+    expect(t.getAttribute('text-anchor')).toBe('start');
+  });
+
+  it('도형·메모가 없으면 그 층은 아예 없다 (옛 요약이 이 경우다)', () => {
+    const { container } = render(<CourtThumbnail mode="full" thumb={spec({ chairs: [{ x: 1, y: 1, a: 0, t: 0, g: 0 }] })} />);
+    expect(container.querySelector('[data-shape-layer]')).toBeNull();
+    expect(container.querySelector('text')).toBeNull();
   });
 });

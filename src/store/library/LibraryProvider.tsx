@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import type { DrillRepo, CreateDrillInit } from '../../storage/drillRepo.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import { listSessions, createSession as repoCreateSession, deleteSession as repoDeleteSession } from '../../storage/sessionRepo.ts';
-import type { DrillSummary } from '../../model/summary.ts';
+import { SUMMARY_BUILD, type DrillSummary } from '../../model/summary.ts';
 import type { ResolvedSession, TrainingSession } from '../../model/session.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { DrillId, SessionId } from '../../core/ids.ts';
@@ -39,6 +39,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const repoRef = useRef<DrillRepo | null>(null);
   /** 이 프로바이더가 아직 화면에 있는가. `refresh` 의 setState 가족이 이걸 먼저 본다. */
   const aliveRef = useRef(true);
+  /** 요약 지연 재생성을 이미 시도했는가(세션 1회). 근거는 `refresh` 안의 ⚠️. */
+  const rebuiltRef = useRef(false);
   const [status, setStatus] = useState<LibraryStatus>('idle');
   const [degraded, setDegraded] = useState(false);
   const [drills, setDrills] = useState<DrillSummary[]>([]);
@@ -64,10 +66,24 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       // 거부시켜 아무도 안 받는 거부가 된다(2026-08-17 실측: vitest 가 "false positive 위험"
       // 으로 경고하던 것의 정체다). 화면이 사라진 뒤의 조회 결과는 버려도 되는 값이다.
       const repo = await ensureRepo();
-      const [list, sess] = await Promise.all([
-        repo.listDrillSummaries({ category: category ?? undefined, search: search || undefined }),
+      const q = { category: category ?? undefined, search: search || undefined };
+      const [first, sess] = await Promise.all([
+        repo.listDrillSummaries(q),
         listSessions().catch(() => [] as ResolvedSession[]), // §4.5: IDB 열화 시에도 드릴 목록은 살아있어야 한다
       ]);
+      // 요약 지연 재생성(SUMMARY_BUILD 2, 2026-08-17). 옛 build 로 저장된 요약에는 썸네일의
+      // 도형·메모가 없다 — 그대로 두면 **같은 화면에서 카드마다 그림이 다르다**(summary.ts 의
+      // 그 함정). stale 한 것을 하나라도 보면 재생성을 부르고 목록을 다시 읽는다.
+      //
+      // ⚠️ **세션에 한 번뿐이다.** 본문을 못 열어 stale 로 남는 레코드가 있으면(열화·삭제 중간
+      // 상태) 매 refresh 마다 전량을 다시 훑게 되고, 그건 카테고리를 바꿀 때마다 목록이 멈추는
+      // 증상으로 나타난다. 한 번 시도하고 안 되면 그 카드만 옛 그림으로 남는 편이 낫다.
+      let list = first;
+      if (!rebuiltRef.current && first.some((s) => s.build < SUMMARY_BUILD)) {
+        rebuiltRef.current = true;
+        await repo.rebuildAllSummaries();
+        list = await repo.listDrillSummaries(q);
+      }
       if (!aliveRef.current) return;
       setDrills(list);
       setSessions(sess);

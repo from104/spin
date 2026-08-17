@@ -21,7 +21,18 @@ import { buildThumb, type ThumbSpec } from './thumb.ts';
  *
  *  실을 때가 오면(예: 목록에 "3회×2세트" 배지) 조건은 하나다 — **build 상승과 재구축 경로를
  *  같은 커밋에서** 만들 것. 4차 4.1(backup 봉투 복원)이 그 경로를 명세하기로 돼 있다. */
-export const SUMMARY_BUILD = 1;
+/** ── 2 (2026-08-17): 썸네일에 **작도 도형·메모**가 들어갔다 ──────────────────────────────
+ *  기현님 지시 *"도형, 메모 등도 잡혀야지"*. 위 ⚠️ 가 요구한 조건을 **이번에는 지켜서** 올린다:
+ *
+ *  · 왜 올려야 하나 — `courtSize` 때와 달리 **"없음 = 참" 이 성립하지 않는다.** 도형은
+ *    2026-08-14 에, 메모는 그 전에 생겼으니 옛 요약이 도형·메모를 **가진 드릴의 것일 수 있고**,
+ *    그 카드에는 그림이 빠진 채로 남는다. 그러면 정확히 위 2번이 말한 "레코드마다 다르다" 다.
+ *  · 재구축 경로 — **같은 커밋에서** `LibraryProvider` 가 목록을 처음 읽을 때 stale 레코드를
+ *    보면 `rebuildAllSummaries()` 를 한 번 부르고 목록을 다시 읽는다. 그 함수는 이미
+ *    build < SUMMARY_BUILD 인 것만 본문을 열어 다시 만든다(`drillRepo.ts:264`) — 이 커밋이
+ *    한 일은 **호출자 0 이던 그 경로에 호출자를 준 것**이다.
+ *  · `searchKey` 는 여전히 안 건드린다(3번은 유효하다). */
+export const SUMMARY_BUILD = 2;
 export interface DrillSummary {
   id: DrillId;
   build: number; // = SUMMARY_BUILD. 레코드별 버전(전역 스윕 금지)

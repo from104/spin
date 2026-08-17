@@ -20,7 +20,18 @@ import {
   GK_HOME_COLOR,
   GK_AWAY_COLOR,
 } from '../core/colors.ts';
+import { NOTE_FILL, NOTE_FOLD_FILL } from '../core/colors.ts';
 import { CourtSurface } from './CourtSurface.tsx';
+import { ShapeLayer } from './ShapeLayer.tsx';
+import {
+  NOTE_DEFAULT_SIZE_PX,
+  noteChipHeightPx,
+  noteChipPathD,
+  noteChipWidthPx,
+  noteFoldPathD,
+  noteLineDy,
+  noteLines,
+} from './objects/noteChip.ts';
 
 export interface ThumbTeamColors {
   home: string;
@@ -62,19 +73,30 @@ export interface CourtThumbnailProps {
  *  (`core/constants.ts`).
  *
  *  ⚠️ **좌표는 과장하지 않는다.** 커지는 것은 글리프뿐이고, 개체가 놓인 자리는 판과 같은
- *  좌표계여야 한다 — 자리를 같이 부풀리면 썸네일이 다른 배치를 보여주는 그림이 된다. */
+ *  좌표계여야 한다 — 자리를 같이 부풀리면 썸네일이 다른 배치를 보여주는 그림이 된다.
+ *
+ *  ⚠️ 값은 **차폭·판 크기의 2배 수준**이다(기현님 지시 2026-08-17 2차: *"2배는 더 커야함"*).
+ *  1차(휠체어 r 12)로도 카드에서는 보였지만 칩에서 3.5 px 여서 여전히 '무엇이 어디' 가 아니라
+ *  '점이 몇 개' 였다. */
 export const THUMB_GLYPH = {
-  /** 차폭(`CHAIR.widthPx` 25)의 절반. 지름 24 라 원 하나가 차체 폭만하다. */
-  chairR: 12,
-  chairStroke: 1.6,
-  /** 판의 공 시각 반지름(`BALL.viewRadiusPx` 7)보다 한 뼘 크다 — 공은 셋 중 가장 작은데
-   *  가장 먼저 찾는 개체다. 흰색이라 어두운 코트에서 지름 1 px 도 보이긴 하지만, 칩에서
-   *  '어디로 갔나' 를 읽으려면 그보다는 커야 한다. */
-  ballR: 8,
-  /** 판의 콘 시각 크기(`CONE.viewWidthPx` 10)보다 한 뼘 크다 — 콘은 셋 중 가장 작아 먼저 사라진다. */
-  coneHalf: 6,
-  coneStroke: 1.2,
-  arrowW: 3.5,
+  /** 차폭(`CHAIR.widthPx` 25)의 두 배. 지름 48 = 약 2 m — 실물 차체(1.5×1.0 m)보다 크다. */
+  chairR: 24,
+  chairStroke: 3.2,
+  /** 판의 공 시각 반지름(`BALL.viewRadiusPx` 7)의 두 배 남짓. 공은 가장 작은데 가장 먼저 찾는
+   *  개체다 — 칩에서 '공이 어디로 갔나' 가 읽히는 것이 이 값의 목적이다. */
+  ballR: 16,
+  /** 판의 콘 시각 크기(`CONE.viewWidthPx` 10)의 두 배 이상 — 콘은 먼저 사라지는 쪽이다. */
+  coneHalf: 12,
+  coneStroke: 2.4,
+  arrowW: 7,
+  /** 작도 도형의 획 배수. 도형은 **면이 반투명**이라 덩어리로는 이미 보이고, 안 보이는 것은
+   *  테두리(`SHAPE_STROKE_PX` 2 → 카드에서 0.7 px)다. 크기는 못 키운다 — 도형의 크기는
+   *  사용자가 그린 구역 그 자체라서, 키우면 **없는 구역을 가르친다**. */
+  shapeStroke: 3,
+  /** 메모 글자 배수. 판 기본 14 px × 0.6 ≈ 8.4 → 목록 카드에서 **약 3 px** 이 된다
+   *  (기현님 지시: *"메모(글자를 2~3px로) 등도 잡혀야지"*). 다른 글리프처럼 2배로 키우면
+   *  쪽지가 코트 절반을 덮는다 — 쪽지 크기는 글자 크기에서 나오기 때문이다(`noteChip.ts`). */
+  noteFontScale: 0.6,
 } as const;
 
 /** 44 px 스텝 칩용 배수. 칩(폭 ≈ 76 px)은 목록 카드(≈ 300 px)보다 4배 가까이 작게 그려지니
@@ -108,9 +130,13 @@ export function CourtThumbnail({
     >
       <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
       <CourtSurface mode={mode} size={size} variant="thumb" />
+      {/* 도형은 **코트 위·개체 아래**다(기현 지시 2026-08-14, `ShapeLayer.tsx` 머리말).
+          그리는 코드를 여기 옮겨 적지 않고 그 컴포넌트를 그대로 쓴다 — 반투명 값이 어긋난 날
+          '카드만 진한' 판이 나오고, 그건 코트에서야 알게 된다. */}
+      {thumb?.shapes && <ShapeLayer shapes={thumb.shapes} strokeScale={THUMB_GLYPH.shapeStroke * g} />}
       {thumb && (
         // §3.5 렌더 레이어 순서: 코트면 → 격자 → 규칙존 → 콘 → 화살표 → 휠체어 → 공 → 메모.
-        // 썸네일은 격자·규칙존·메모를 그리지 않으므로 콘 → 화살표 → 휠체어 → 공 순서만 지킨다.
+        // 썸네일은 격자·규칙존을 그리지 않으므로 콘 → 화살표 → 휠체어 → 공 → 메모 순서다.
         <g>
           {thumb.cones.map(([x, y, c], i) => (
             <path
@@ -147,6 +173,41 @@ export function CourtThumbnail({
           {thumb.balls.map(([x, y], i) => (
             <circle key={i} cx={x} cy={y} r={THUMB_GLYPH.ballR * g} fill={BALL_FILL} />
           ))}
+          {/* 메모 = 종이 쪽지. 쪽지의 모양·줄바꿈은 `noteChip.ts` 가 판·인쇄·PNG 와 **같은
+              함수**로 만든다 — 여기서 상자를 손으로 그리면 글자와 쪽지가 따로 자란다.
+              빈 메모도 쪽지를 그린다: "여기 쪽지를 놓았다" 는 판의 사실이다(buildStaticSvg 와
+              같은 근거). */}
+          {thumb.notes?.map((n, i) => {
+            const size = (n.s ?? NOTE_DEFAULT_SIZE_PX) * THUMB_GLYPH.noteFontScale * g;
+            const halfW = noteChipWidthPx(n.t, size) / 2;
+            const halfH = noteChipHeightPx(n.t, size) / 2;
+            const lines = noteLines(n.t, size);
+            const align = n.a ?? 'middle';
+            const textX = align === 'start' ? -halfW + size * 0.4 : align === 'end' ? halfW - size * 0.4 : 0;
+            return (
+              <g key={i} transform={`translate(${n.x} ${n.y})`}>
+                <path d={noteChipPathD(halfW, halfH)} fill={NOTE_FILL} stroke={OBJ_STROKE} strokeWidth={THUMB_GLYPH.coneStroke * g} strokeLinejoin="round" />
+                <path d={noteFoldPathD(halfW, halfH)} fill={NOTE_FOLD_FILL} stroke={OBJ_STROKE} strokeWidth={THUMB_GLYPH.coneStroke * g} strokeLinejoin="round" />
+                {lines.map((line, li) => (
+                  <text
+                    key={li}
+                    x={textX}
+                    y={noteLineDy(li, lines.length)}
+                    // 판(`NoteLabel.tsx`)과 같은 서체·굵기다. 3 px 짜리 글자라도 서체가 달라지면
+                    // 폭이 달라지고, 폭이 달라지면 쪽지 크기가 판과 어긋난다.
+                    fontFamily="'Pretendard',sans-serif"
+                    fontSize={size}
+                    fontWeight={600}
+                    fill={n.c ?? '#ffffff'}
+                    textAnchor={align}
+                    dominantBaseline="central"
+                  >
+                    {line}
+                  </text>
+                ))}
+              </g>
+            );
+          })}
         </g>
       )}
     </svg>
