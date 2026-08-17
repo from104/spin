@@ -50,8 +50,8 @@
 // 선수가 능동적 플레이에 관여할 때 성립" 이라고 못박는다 — 정지한 판에서 '관여'는 알 수 없다.
 // 그래서 발화 문구도 '주의' 다(ruleOverlay.ts).
 import { mToPx, type Vec2 } from '../core/units.ts';
-import { chairOverlapsCircle, chairOverlapsRect } from './chairOverlap.ts';
-import type { CourtMode, Rect } from './court.ts';
+import { chairInsideBounds, chairOverlapsCircle, chairOverlapsRect } from './chairOverlap.ts';
+import type { CourtMode, GoalMouth, Rect } from './court.ts';
 import type { BallRing, TeamSide } from './drill.ts';
 
 /** 3 m. 25 px/m 이므로 75 월드px — 옛 센터 서클과 우연히 반지름이 같았다. 그 원은 규정에
@@ -113,6 +113,20 @@ export interface DefendedZone {
 export function defendedZones(zones: readonly Rect[], defense: TeamSide): DefendedZone[] {
   const other: TeamSide = defense === 'home' ? 'away' : 'home';
   return zones.map((rect, i) => ({ rect, defender: i === 0 ? defense : other }));
+}
+
+/** 골대 뒤 면제 구역 + **그 골대를 지키는 팀**. `DefendedZone` 과 같은 꼴이지만 담는 것이
+ *  사각형이 아니라 반평면 경계값이다(`model/court.ts` 의 `GoalMouth`). */
+export interface DefendedMouth {
+  mouth: GoalMouth;
+  defender: TeamSide;
+}
+
+/** `defendedZones` 와 **같은 규약**으로 진영을 입힌다 — `[0]` 이 `defense`, 나머지는 반대 팀.
+ *  두 배열의 순서가 같다는 것이 `court.ts` 의 `goalMouths` 가 못박은 계약이다. */
+export function defendedMouths(mouths: readonly GoalMouth[], defense: TeamSide): DefendedMouth[] {
+  const other: TeamSide = defense === 'home' ? 'away' : 'home';
+  return mouths.map((mouth, i) => ({ mouth, defender: i === 0 ? defense : other }));
 }
 
 /** 판정에 필요한 것만 담은 선수 1명. 좌표는 **그 프레임의 실제 위치**다(모델 저장값이 아니라).
@@ -241,27 +255,40 @@ export function ruleForRing(ring: BallRing): 'twoOnOne' | 'fiveMeter' {
   return ring === '5m' ? 'fiveMeter' : 'twoOnOne';
 }
 
+/** 차체가 **자기 팀이 지키는** 골대 뒤로 완전히 나가 있는가. 예외 ④ 가 이걸 쓴다.
+ *
+ *  ⚠️ **`chairInOwnGoalArea` 와 판정이 정반대다.** 저쪽은 *걸치면* 안이고(2026-08-13 지시),
+ *  이쪽은 *완전히 나가야* 뒤다(2026-08-17 지시: *"골대 뒤는 완전히 나가야 면제"*).
+ *  한 함수로 뭉치면 둘 중 하나가 조용히 상대 쪽 규약으로 끌려간다. */
+function chairBehindOwnGoalLine(mouths: readonly DefendedMouth[], a: RuleActor): boolean {
+  for (const m of mouths) {
+    if (m.defender !== a.team) continue;
+    if (chairInsideBounds(a.x, a.y, a.theta, m.mouth.minX, m.mouth.maxX, m.mouth.minY, m.mouth.maxY)) return true;
+  }
+  return false;
+}
+
 /** 세트피스 5 m 제한. 반환은 **위반한 팀의 비트**(0 = 깨끗함) — 걸리는 것은 수비뿐이다.
  *
  *  `defense` 가 null 이면 판정하지 않는다(플랫 코트 — 골대도 진영도 없어 약속 ③ 이 뜻을
- *  잃는다). `goalMouths` 는 예외 ④ 에만 쓴다: **골대 뒤 사각형**이지 골 지역이 아니다
+ *  잃는다). `mouths` 는 예외 ④ 에만 쓴다: **골라인 바깥 반평면 ∩ 6 m**이지 골 지역이 아니다
  *  (`model/court.ts` 의 `goalMouths`).
  *
- *  ⚠️ 면제는 2-on-1 의 골키퍼 면제와 **같은 판정**이다 — 차체가 조금이라도 걸치면 면제
- *  (기현 지시 2026-08-13: *"조금만 걸쳐있어도 면제"*). 골대 뒤 사각형은 깊이가 마진과 같은
- *  1.5 m 뿐이라 "완전히 안" 을 요구하면 차체(1.5 × 1.0 m)가 자로 잰 듯 들어가야 하고, 골문에
- *  선 골키퍼는 사실상 언제나 걸린다. */
+ *  ⚠️ 면제 문턱이 2-on-1 의 골키퍼 면제와 **다르다**. 저기는 골 지역에 *걸치기만 해도* 면제고
+ *  (2026-08-13), 여기는 골라인을 *완전히 넘어가야* 면제다(2026-08-17). 같은 '골키퍼 면제' 라는
+ *  이름에 끌려 문턱을 맞추지 마라 — 재개 상황의 골키퍼는 골문 안으로 물러나 있어야 한다는
+ *  뜻이고, 골 지역에 나와 서 있으면 그도 5 m 밖으로 빠져야 한다. */
 export function fiveMeterViolation(
   ball: Vec2,
   actors: readonly RuleActor[],
   defense: TeamSide | null,
-  goalMouths: readonly DefendedZone[],
+  mouths: readonly DefendedMouth[],
 ): number {
   if (defense === null) return 0;
   for (const a of actors) {
     if (a.team !== defense) continue; // 공격(= 공을 차는 쪽)은 제한 없다
     if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_5M_R_PX)) continue;
-    if (a.isGk && chairInOwnGoalArea(goalMouths, a)) continue; // 예외 ④
+    if (a.isGk && chairBehindOwnGoalLine(mouths, a)) continue; // 예외 ④
     return TEAM_BIT[defense];
   }
   return 0;
@@ -274,12 +301,10 @@ export function ballRingViolation(
   ball: Vec2,
   actors: readonly RuleActor[],
   goalAreas: readonly DefendedZone[],
-  goalMouths: readonly DefendedZone[],
+  mouths: readonly DefendedMouth[],
   defense: TeamSide | null,
 ): number {
-  return ruleForRing(ring) === 'fiveMeter'
-    ? fiveMeterViolation(ball, actors, defense, goalMouths)
-    : ringViolation(ball, actors, goalAreas);
+  return ruleForRing(ring) === 'fiveMeter' ? fiveMeterViolation(ball, actors, defense, mouths) : ringViolation(ball, actors, goalAreas);
 }
 
 /** 비트합 → 팀 목록. **문구를 만들 때만** 부른다(위반 상태가 바뀐 순간뿐이라 배열을 만들어도 된다). */

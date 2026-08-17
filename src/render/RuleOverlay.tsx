@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { courtDefFor, goalMouths, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
-import { defaultDefense, defendedZones, ringRadiusPx } from '../model/rules.ts';
+import { defaultDefense, defendedMouths, defendedZones, ringRadiusPx } from '../model/rules.ts';
 import type { TransformWriter } from './transformWriter.ts';
 import {
   RULE_DASH,
@@ -151,9 +151,9 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
   //    들어가므로 그대로 두면 **렌더마다 setContext 가 다시 돈다**(판정 상태가 매번 초기화된다).
   const side = defense ?? defaultDefense(mode);
   const goalAreas = useMemo(() => defendedZones(zones, side), [zones, side]);
-  // 세트피스 5 m 제한(2026-08-17). 골대 **뒤** 사각형은 골 지역과 다른 자리라 따로 만든다 —
+  // 세트피스 5 m 제한(2026-08-17). 골라인 **바깥 반평면**이라 골 지역과 다른 자리다 —
   // 골 지역을 넘기면 골 지역에 나와 선 골키퍼까지 면제된다(model/court.ts 의 goalMouths).
-  const mouths = useMemo(() => defendedZones(goalMouths(def), side), [def, side]);
+  const mouths = useMemo(() => defendedMouths(goalMouths(def), side), [def, side]);
   // 플랫 코트는 골대도 진영도 없어 "누가 수비인가" 라는 약속이 성립하지 않는다 → 규칙 끔.
   const fiveMeterDefense = def.goalPosts.length === 0 ? null : side;
 

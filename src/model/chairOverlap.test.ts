@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CHAIR } from '../core/constants.ts';
 import { chairCorners } from './chair.ts';
-import { chairOverlapsCircle, chairOverlapsRect, chairPointDist2, TOUCH_EPS_PX } from './chairOverlap.ts';
+import { chairInsideBounds, chairOverlapsCircle, chairOverlapsRect, chairPointDist2, TOUCH_EPS_PX } from './chairOverlap.ts';
 
 const BACK = CHAIR.pivotToRearPx; // 7.5
 const FRONT = CHAIR.pivotToFrontPx; // 30
@@ -322,7 +322,7 @@ describe('chairOverlap — 매 프레임 도는 코드라 **할당이 없다**',
 
   it('시그니처가 숫자만 받고 숫자·불리언만 돌려준다', () => {
     const sigs = [...src.matchAll(/export function (\w+)\(([\s\S]*?)\):\s*(\w+)\s*\{/g)];
-    expect(sigs.length).toBe(3); // dist2 · circle · rect
+    expect(sigs.length).toBe(4); // dist2 · circle · rect · insideBounds(2026-08-17)
     for (const [, name, params, ret] of sigs) {
       const list = params!.split(',').map((s) => s.trim()).filter(Boolean);
       expect(list.length, `${name} 인자 없음`).toBeGreaterThan(0);
@@ -339,5 +339,42 @@ describe('chairOverlap — 매 프레임 도는 코드라 **할당이 없다**',
     expect(TOUCH_EPS_PX).toBe(1e-9);
     // 이 값이 커지면 "에누리 없다" 가 무너진다. 0.001 px 밖은 여전히 밖이어야 한다.
     expect(chairOverlapsCircle(100 + 75 + BACK + 0.001, 200, 0, 100, 200, 75)).toBe(false);
+  });
+});
+
+// 2026-08-17 — 세트피스 5 m 의 골키퍼 면제가 쓰는 **반대 방향 판정**.
+// 기현 지시: *"골대 뒤는 완전히 나가야 면제"*. 위쪽 `chairOverlapsRect`(걸치면 안)와 한 이름으로
+// 뭉치면 둘 중 하나가 조용히 상대 쪽 규약으로 끌려간다.
+describe('chairInsideBounds — 통째로 안인가', () => {
+  const AX = CHAIR.pivotToRearPx + CHAIR.pivotToFrontPx; // 차체 길이 37.5
+  const HALF_W = CHAIR.widthPx / 2;
+
+  it('넉넉한 상자 안이면 true, 한 뼘이라도 나가면 false', () => {
+    // +x 를 보는 차체: x ∈ [−7.5, 30], y ∈ [−12.5, 12.5]
+    expect(chairInsideBounds(0, 0, 0, -CHAIR.pivotToRearPx, CHAIR.pivotToFrontPx, -HALF_W, HALF_W)).toBe(true);
+    expect(chairInsideBounds(0, 0, 0, -CHAIR.pivotToRearPx + 0.01, CHAIR.pivotToFrontPx, -HALF_W, HALF_W)).toBe(false);
+    expect(chairInsideBounds(0, 0, 0, -CHAIR.pivotToRearPx, CHAIR.pivotToFrontPx - 0.01, -HALF_W, HALF_W)).toBe(false);
+  });
+
+  it('★ 걸치기만 하는 것은 안이 아니다 — chairOverlapsRect 와 정반대다', () => {
+    // 차체 절반이 상자 밖으로 나간 배치.
+    const args = [0, 0, 0, 5, 100, -100, 100] as const;
+    expect(chairOverlapsRect(0, 0, 0, 5, -100, 95, 200)).toBe(true); // 겹치기는 한다
+    expect(chairInsideBounds(...args)).toBe(false); // 그러나 통째로는 아니다
+  });
+
+  it('돌아가면 차지하는 폭이 달라진다 — AABB 로 재는 것이 정확하다', () => {
+    // 45° 로 돌면 x·y 반폭이 (AX/2 + HALF_W)/√2 로 같아진다.
+    const h = ((AX / 2 + HALF_W) * Math.SQRT1_2);
+    const c = CHAIR.pivotToFrontPx - AX / 2; // 피벗 → 중심 거리
+    const cx = c * Math.SQRT1_2;
+    expect(chairInsideBounds(0, 0, Math.PI / 4, cx - h, cx + h, cx - h, cx + h)).toBe(true);
+    expect(chairInsideBounds(0, 0, Math.PI / 4, cx - h + 0.01, cx + h, cx - h, cx + h)).toBe(false);
+  });
+
+  it('★ ±Infinity 는 끝이 없는 반평면이다 — 골라인 바깥이 그것이다', () => {
+    expect(chairInsideBounds(0, 0, 0, -Infinity, CHAIR.pivotToFrontPx, -Infinity, Infinity)).toBe(true);
+    // 대조군: 유한한 쪽은 여전히 잰다.
+    expect(chairInsideBounds(0, 0, 0, -Infinity, CHAIR.pivotToFrontPx - 0.01, -Infinity, Infinity)).toBe(false);
   });
 });

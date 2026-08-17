@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { RULE_ALERT_STROKE, RULE_CLEAR_MS, RULE_DASH, RULE_OK_STROKE, createRuleOverlay, type RuleOverlayContext } from './ruleOverlay.ts';
-import { defendedZones } from '../model/rules.ts';
+import { defendedMouths, defendedZones } from '../model/rules.ts';
 import { COURT_DEFS } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
 import { goalMouths } from '../model/court.ts';
@@ -327,7 +327,7 @@ describe('ruleOverlay — 소리는 쓰지 않는다 (2.11 큐 어댑터 판정)
 // 판정 자체는 model/rules.test.ts 가 본다. 여기서 재는 것은 **어댑터**다: 공의 원이 규칙을
 // 고르는가, 링 색이 따라오는가, 발화가 2-on-1 과 **다른 문구**인가.
 describe('5 m 원인 공', () => {
-  const MOUTHS = defendedZones(goalMouths(COURT_DEFS.full), 'home');
+  const MOUTHS = defendedMouths(goalMouths(COURT_DEFS.full), 'home');
   const FIVE: Partial<RuleOverlayContext> = { goalMouths: MOUTHS, fiveMeterDefense: 'home' };
   /** 공 바로 옆의 수비(home) 한 대. 2-on-1 이라면 **혼자라서 안 걸리는** 배치다. */
   const ONE_DEFENDER = { ch_a: { x: 400 + RING_5M_R_PX - 10, y: 260 } };

@@ -17,6 +17,7 @@ import {
   ruleForRing,
   teamsOfBits,
   zoneViolation,
+  type DefendedMouth,
   type DefendedZone,
   type RuleActor,
 } from '../model/rules.ts';
@@ -76,9 +77,10 @@ export interface RuleOverlayContext {
   /** 골 지역 + **그 존을 지키는 팀**(2026-08-15 진영). 사각형만 넘기던 옛 계약으로는 골 지역
    *  3인을 수비 팀에만 걸 수가 없었다 — `defendedZones(def.ruleZones, drill.defense)` 로 만든다. */
   goalAreas: readonly DefendedZone[];
-  /** 골대 **뒤** 사각형 + 그 골대를 지키는 팀(`model/court.ts` 의 `goalMouths`). 세트피스
-   *  5 m 제한의 골키퍼 면제에만 쓴다 — 골 지역(`goalAreas`)과 **다른 사각형**이다. */
-  goalMouths: readonly DefendedZone[];
+  /** 골라인 **바깥 반평면** + 그 골대를 지키는 팀(`model/court.ts` 의 `goalMouths`). 세트피스
+   *  5 m 제한의 골키퍼 면제에만 쓴다 — 골 지역(`goalAreas`)과 **다른 자리·다른 문턱**이다
+   *  (저기는 걸치면 면제, 여기는 완전히 나가야 면제). */
+  goalMouths: readonly DefendedMouth[];
   /** 세트피스 5 m 제한을 받는 팀 = 수비 진영(`Drill.defense`). **플랫 코트는 null** —
    *  골대도 진영도 없어 "누가 수비인가" 라는 약속 자체가 성립하지 않는다(model/rules.ts). */
   fiveMeterDefense: TeamSide | null;

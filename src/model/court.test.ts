@@ -7,6 +7,7 @@ import {
   DEFAULT_COURT_SIZE,
   FULL_COURT_DEFS,
   courtDefFor,
+  GOAL_HALF_PX,
   goalMouths,
   normalizeCourtSize,
   gridLabel,
@@ -17,6 +18,7 @@ import {
   type CourtSize,
 } from './court.ts';
 import { PX_PER_M } from '../core/units.ts';
+import { CHAIR } from '../core/constants.ts';
 
 describe('COURT_DEFS', () => {
   it('full', () => {
@@ -465,54 +467,69 @@ describe('isOnSurface — 경기면 안인가 (판의 프레임 경계)', () => 
   });
 });
 
-// 2026-08-17 — 세트피스 5 m 제한의 골키퍼 면제 자리(model/rules.ts). 골 지역과 **다른 사각형**
-// 이라는 것이 요점이다: 골 지역은 경기면 **안**, 이것은 골라인 **밖**이다.
-describe('goalMouths — 골대 뒤', () => {
+// 2026-08-17 — 세트피스 5 m 제한의 골키퍼 면제 자리(model/rules.ts).
+// 요점 둘: ① 골 지역과 **다른 자리**다(골 지역은 경기면 안, 이것은 골라인 밖) ② **사각형이
+// 아니라 반평면**이다 — 기현 지시 *"골대 뒤는 완전히 나가야 면제고 골대 기준이 아니라
+// 골라인 기준(6미터 고정!)"*. 바깥을 viewBox 로 막으면 깊이가 차체 길이와 똑같은 1.5 m 라
+// 면제를 아무도 못 받는다.
+describe('goalMouths — 골라인 바깥 반평면', () => {
   it('풀 코트는 둘이고, 순서가 ruleZones 와 같다(왼쪽 먼저)', () => {
     const def = COURT_DEFS.full;
     const [left, right] = goalMouths(def);
     expect(goalMouths(def)).toHaveLength(2);
-    expect(left!.x).toBe(0);
-    expect(left!.x + left!.w).toBe(def.surface.x); // 골라인에서 끝난다
-    expect(right!.x).toBe(def.surface.x + def.surface.w);
-    expect(right!.x + right!.w).toBe(def.vbW);
+    expect(left!.maxX).toBe(def.surface.x); // 왼쪽 골라인에서 끝난다
+    expect(right!.minX).toBe(def.surface.x + def.surface.w);
     // ruleZones 도 왼쪽이 먼저다 — 이 순서가 갈리면 면제가 상대 골대에서 붙는다.
     expect(def.ruleZones[0]!.x).toBeLessThan(def.ruleZones[1]!.x);
   });
 
-  it('폭은 골포스트 사이 6 m 다 — 골 지역(8 m)이 아니다', () => {
+  it('★ 바깥쪽에는 끝이 없다 — viewBox 로 막으면 면제가 사실상 불가능해진다', () => {
+    const def = COURT_DEFS.full;
+    const [left, right] = goalMouths(def);
+    expect(left!.minX).toBe(-Infinity);
+    expect(right!.maxX).toBe(Infinity);
+    // 근거를 숫자로 남긴다: 골라인 밖 여백(마진)과 차체 길이가 **같다**.
+    expect(def.surface.x).toBeCloseTo(CHAIR.pivotToRearPx + CHAIR.pivotToFrontPx, 9);
+  });
+
+  it('★ 폭은 골라인 중점 ± 3 m = **6 m 고정**이다 — 골포스트에서 재지 않는다', () => {
     const def = COURT_DEFS.full;
     const [left] = goalMouths(def);
-    expect(left!.h).toBeCloseTo(Math.abs(def.goalPosts[1]!.y - def.goalPosts[0]!.y), 9);
-    expect(left!.y).toBeCloseTo(Math.min(def.goalPosts[0]!.y, def.goalPosts[1]!.y), 9);
-    // 대조군: 골 지역은 더 넓다(8 m).
-    expect(def.ruleZones[0]!.h).toBeGreaterThan(left!.h);
+    const mid = def.surface.y + def.surface.h / 2;
+    expect(left!.minY).toBeCloseTo(mid - GOAL_HALF_PX, 9);
+    expect(left!.maxY).toBeCloseTo(mid + GOAL_HALF_PX, 9);
+    expect(left!.maxY - left!.minY).toBeCloseTo(6 * PX_PER_M, 9);
+    // 대조군: 골 지역은 8 m 라 더 넓다.
+    expect(def.ruleZones[0]!.h).toBeGreaterThan(left!.maxY - left!.minY);
   });
 
   it('하프 코트는 아래 변 **밖**으로 하나다 — 모드 이름이 아니라 골포스트가 방향을 정한다', () => {
     const def = COURT_DEFS.half;
     const [mouth] = goalMouths(def);
     expect(goalMouths(def)).toHaveLength(1);
-    expect(mouth!.y).toBe(def.surface.y + def.surface.h);
-    expect(mouth!.y + mouth!.h).toBe(def.vbH);
+    expect(mouth!.minY).toBe(def.surface.y + def.surface.h);
+    expect(mouth!.maxY).toBe(Infinity);
+    const mid = def.surface.x + def.surface.w / 2;
+    expect(mouth!.minX).toBeCloseTo(mid - GOAL_HALF_PX, 9);
+    expect(mouth!.maxX).toBeCloseTo(mid + GOAL_HALF_PX, 9);
   });
 
   it('플랫 코트는 골대가 없어 빈 배열이다', () => {
     expect(goalMouths(COURT_DEFS.flat)).toEqual([]);
   });
 
-  it('코트 크기 3단을 따라간다 — 리터럴이 아니라 골포스트에서 파생된다', () => {
+  it('★ 코트가 작아져도 6 m 는 그대로다 — 골대는 코트 3단을 안 따라간다', () => {
     for (const size of COURT_SIZES) {
       const def = courtDefFor('full', size);
       const [left] = goalMouths(def);
-      expect(left!.x + left!.w).toBe(def.surface.x);
-      expect(left!.h).toBeCloseTo(Math.abs(def.goalPosts[1]!.y - def.goalPosts[0]!.y), 9);
+      expect(left!.maxX).toBe(def.surface.x); // 골라인은 따라간다
+      expect(left!.maxY - left!.minY).toBeCloseTo(6 * PX_PER_M, 9); // 폭은 안 따라간다
     }
   });
 
   it('골 지역과 겹치지 않는다 — 한쪽은 경기면 안, 한쪽은 밖이다', () => {
     const def = COURT_DEFS.full;
     const [left] = goalMouths(def);
-    expect(left!.x + left!.w).toBeLessThanOrEqual(def.ruleZones[0]!.x);
+    expect(left!.maxX).toBeLessThanOrEqual(def.ruleZones[0]!.x);
   });
 });

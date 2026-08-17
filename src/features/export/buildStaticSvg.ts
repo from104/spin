@@ -42,7 +42,7 @@ import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
 import type { Shape } from '../../model/shape.ts';
-import { ballRingViolation, defaultDefense, defendedZones, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
+import { ballRingViolation, defaultDefense, defendedMouths, defendedZones, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
 import { COURT_LINE_WEIGHTS } from '../../render/CourtSurface.tsx';
 import {
   RULE_ALERT_STROKE,
@@ -359,7 +359,7 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   const zones = defendedZones(def.ruleZones, side);
   // 세트피스 5 m 제한(2026-08-17) — 골키퍼 면제 자리와 제한받는 팀. 화면(RuleOverlay.tsx)이
   // 만드는 것과 **같은 두 값**이다. 플랫 코트는 골대가 없어 규칙 자체가 꺼진다.
-  const mouths = defendedZones(goalMouths(def), side);
+  const mouths = defendedMouths(goalMouths(def), side);
   const fiveDefense = def.goalPosts.length === 0 ? null : side;
   // §7 5.2(2026-08-13) — **조기 반환을 여기서 뺐다.** 개별 공의 원은 사용자가 그 공을 눌러
   // 명시적으로 켠 것이라 규칙 존 스위치와 다른 축이다(화면 RuleOverlay.tsx 와 같은 판단) —

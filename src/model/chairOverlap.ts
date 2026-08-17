@@ -130,3 +130,38 @@ export function chairOverlapsRect(
   if ((dv < 0 ? -dv : dv) > HALF_W + rhx * auy + rhy * aux + TOUCH_EPS_PX) return false;
   return true;
 }
+
+/** 차체 사각형이 축 정렬 경계 **안에 통째로** 들어가 있는가(접선 포함).
+ *
+ *  ⚠️ 위 `chairOverlapsRect` 와 **정반대 질문**이다. 저쪽은 *"조금이라도 걸치는가"*, 이쪽은
+ *  *"한 귀퉁이도 밖에 없는가"* 다. 세트피스 5 m 의 골키퍼 면제가 이걸 쓴다 —
+ *  기현 지시 2026-08-17: *"골대 뒤는 **완전히 나가야** 면제"*. 두 판정을 한 이름으로 뭉치면
+ *  "걸치기만 해도 면제" 로 조용히 되돌아간다(2026-08-13 의 골 지역 면제가 그 규약이라 더 위험하다).
+ *
+ *  경계가 **축 정렬**이라 차체의 AABB 만 보면 정확하다: 회전한 사각형이 축 정렬 상자 안에
+ *  있을 필요충분조건은 네 꼭짓점이 모두 안인 것이고, 그것은 곧 AABB 가 안이라는 뜻이다.
+ *  ±Infinity 를 넣으면 그 방향은 끝이 없는 반평면이 된다(`court.ts` 의 `GoalMouth`).
+ *
+ *  ⚠️ 할당 0 — 이 파일의 규율이다(머리말). 숫자만 받고 불리언만 돌려준다. */
+export function chairInsideBounds(
+  chairX: number,
+  chairY: number,
+  theta: number,
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number,
+): boolean {
+  const ux = Math.cos(theta);
+  const uy = Math.sin(theta);
+  const aux = ux < 0 ? -ux : ux;
+  const auy = uy < 0 ? -uy : uy;
+  // 차체 중심은 피벗이 아니다 — 피벗 + AX_MID·u (위 chairOverlapsRect 와 같은 식).
+  const cx = chairX + AX_MID * ux;
+  const cy = chairY + AX_MID * uy;
+  const hx = AX_HALF * aux + HALF_W * auy;
+  const hy = AX_HALF * auy + HALF_W * aux;
+  return (
+    cx - hx >= minX - TOUCH_EPS_PX && cx + hx <= maxX + TOUCH_EPS_PX && cy - hy >= minY - TOUCH_EPS_PX && cy + hy <= maxY + TOUCH_EPS_PX
+  );
+}

@@ -87,7 +87,11 @@ export interface CourtDef {
 // 페널티 마크(골라인에서 3.5 m) · 코너 삼각형(1 m) · 심판 구역(사방 1.5 m)은 Laws 가 **절대
 // 치수**로 적는다 — 코트가 작아져도 골대는 작아지지 않는다(대조 노트 '1. 경기장' 표).
 const MARGIN_PX = 1.5 * PX_PER_M; // 심판 구역. 규정 최소 1 m 인데 앱은 1.5 m (2026-08-10 지시)
-const GOAL_HALF_PX = 3 * PX_PER_M; // 골대 폭 6 m 의 반
+/** 골대 폭 6 m 의 반. **코트 3단과 무관하게 고정**이다 — 위 문단이 적어 둔 "코트가 작아져도
+ *  골대는 작아지지 않는다" 가 이 상수다. 세트피스 5 m 면제 구역의 폭도 여기서 온다
+ *  (기현 지시 2026-08-17: *"6미터 고정!"*). export 인 이유는 그 구역이 골포스트가 아니라
+ *  **골라인**에서 유도되기 때문이다 — `goalMouths` 머리말. */
+export const GOAL_HALF_PX = 3 * PX_PER_M;
 const AREA_DEPTH_PX = 5 * PX_PER_M; // 골 지역 깊이 5 m
 const AREA_HALF_PX = 4 * PX_PER_M; // 골 지역 폭 8 m 의 반
 const PENALTY_PX = 3.5 * PX_PER_M; // 페널티 마크 — 골라인에서 3.5 m
@@ -383,36 +387,63 @@ export function clampToViewBox(mode: CourtMode, p: Vec2, size?: CourtSize): Vec2
   };
 }
 
-/** 골대 **뒤** — 골포스트 사이, 골라인 바깥의 사각형. 골라인부터 viewBox 끝(= 마진 1.5 m)까지다.
+/** 골대 뒤 **면제 구역** — 골라인 바깥 반평면 ∩ 골라인 위 6 m 구간.
  *
- *  왜 필요한가(2026-08-17): 세트피스 5 m 제한의 골키퍼 면제가 *"수비측 골대 사이 골라인 뒤"*
- *  라는 자리로 정의된다(기현 지시). 골 지역(`ruleZones`)은 폭 8 m · 깊이 5 m 로 **경기면 안**
- *  이라 이 자리와 전혀 다르다 — 그걸 대신 쓰면 골 지역에 나와 선 골키퍼까지 면제된다.
+ *  ⚠️ 사각형(`Rect`)이 아니라 **경계값**인 이유: 바깥쪽에는 끝이 없다. 세트피스 5 m 면제는
+ *  *"완전히 나가야"* 성립하는데(기현 지시 2026-08-17), 바깥을 viewBox 로 막으면 그 구역의
+ *  깊이가 마진과 같은 **1.5 m** 이고 차체 길이도 **정확히 1.5 m** 라, 차체가 자로 잰 듯
+ *  들어가야만 면제가 된다 — 사실상 아무도 못 받는 규칙이 된다. 골라인은 선이지 상자가 아니다. */
+export interface GoalMouth {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+/** 골대 뒤 면제 구역들. 세트피스 5 m 제한의 골키퍼 면제가 이 자리로 정의된다
+ *  (기현 지시 2026-08-17: *"수비측 골대 사이 골라인 뒤"* → *"골대 기준이 아니라 골라인
+ *  기준(6미터 고정!)"*).
  *
- *  좌표를 여기서 유도하는 이유는 `goalEncroachMarks` 와 같다: 골대가 움직이면 이 사각형도
- *  함께 움직여야 하고, 그러려면 **골포스트 배열 하나**에서 나와야 한다. 모드 이름으로 분기하지
- *  않는 이유도 같다 — 골라인이 세로냐 가로냐는 두 포스트의 좌표가 이미 말해 준다
- *  (`render/sideFlags.ts` 의 `markPlacement` 가 존을 두고 같은 판단을 한다).
+ *  ── 두 가지를 골라인에서 뽑는다 ────────────────────────────────────────────────────
+ *  ① **깊이** — 기준은 골라인 하나다. 차체가 그 선을 **완전히 넘어가 있으면** 뒤에 있는 것이고,
+ *     한 귀퉁이라도 경기면에 남아 있으면 아니다. 바깥으로 얼마나 멀리 가 있는지는 안 본다.
+ *  ② **폭** — 골라인 중점 ± `GOAL_HALF_PX`(3 m), 즉 **6 m 고정**이다. 골포스트 좌표에서 재지
+ *     않는다: 지시가 *"골대 기준이 아니라 골라인 기준"* 이고, 포스트는 그리는 표식이라
+ *     언젠가 굵기·자리가 달라질 수 있다. 폭은 코트 3단과도 무관하다(`GOAL_HALF_PX` 머리말).
  *
- *  ⚠️ 배열 순서는 `ruleZones` 와 **같다**(풀: 왼쪽·오른쪽, 하프: 하나). `defendedZones` 가 둘
- *  다에 같은 규약으로 진영을 입히므로, 순서가 갈리면 면제가 **상대 골대**에서 붙는다.
+ *  골포스트 배열은 **골대가 몇 개이고 어느 변에 있는가**를 아는 데만 쓴다. 모드 이름으로
+ *  분기하지 않는 이유는 `goalEncroachMarks` 와 같다 — 골라인이 세로냐 가로냐는 두 포스트의
+ *  좌표가 이미 말해 준다(`render/sideFlags.ts` 의 `markPlacement` 가 존을 두고 같은 판단).
+ *
+ *  ⚠️ 배열 순서는 `ruleZones` 와 **같다**(풀: 왼쪽·오른쪽, 하프: 하나). 진영을 입히는 규약이
+ *  둘 다 같으므로, 순서가 갈리면 면제가 **상대 골대**에서 붙는다.
  *  플랫 코트는 골대가 없어 빈 배열이다. */
-export function goalMouths(def: CourtDef): Rect[] {
+export function goalMouths(def: CourtDef): GoalMouth[] {
   const s = def.surface;
   const cx = s.x + s.w / 2;
   const cy = s.y + s.h / 2;
-  const out: Rect[] = [];
+  const out: GoalMouth[] = [];
   for (let i = 0; i + 1 < def.goalPosts.length; i += 2) {
     const a = def.goalPosts[i]!;
     const b = def.goalPosts[i + 1]!;
     if (a.x === b.x) {
       // 골라인이 세로다(풀 코트의 좌·우 골대). 바깥은 경기면 중심의 반대쪽.
-      const outward = a.x < cx;
-      out.push({ x: outward ? 0 : a.x, y: Math.min(a.y, b.y), w: outward ? a.x : def.vbW - a.x, h: Math.abs(b.y - a.y) });
+      const left = a.x < cx;
+      out.push({
+        minX: left ? -Infinity : a.x,
+        maxX: left ? a.x : Infinity,
+        minY: cy - GOAL_HALF_PX,
+        maxY: cy + GOAL_HALF_PX,
+      });
     } else {
       // 골라인이 가로다(하프 코트의 아래 골대).
-      const outward = a.y < cy;
-      out.push({ x: Math.min(a.x, b.x), y: outward ? 0 : a.y, w: Math.abs(b.x - a.x), h: outward ? a.y : def.vbH - a.y });
+      const top = a.y < cy;
+      out.push({
+        minX: cx - GOAL_HALF_PX,
+        maxX: cx + GOAL_HALF_PX,
+        minY: top ? -Infinity : a.y,
+        maxY: top ? a.y : Infinity,
+      });
     }
   }
   return out;
