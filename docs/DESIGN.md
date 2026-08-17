@@ -1058,6 +1058,18 @@ export function buildSummary(d: Drill): DrillSummary;   // 약 700 B/건
 **렌더 규약**: 카드 `<svg>` 는 `COURT_DEFS[mode]` 의 viewBox 를 그대로 쓰고
 `preserveAspectRatio="xMidYMid meet"`. `CourtSurface` 를 재사용한다.
 
+**글리프는 축척이 아니다** (기현님 지시 2026-08-17: *"섬네일 객체 표현이 약간 과장되어야
+가독성이 좋아짐"*). 개체 크기는 `CourtThumbnail.tsx` 의 `THUMB_GLYPH` 한 곳에서 나오고,
+판(`ChairChip` 37.5×25 · `BALL.viewRadiusPx` 7 · `CONE.viewWidthPx` 10)보다 크거나 같게 잡는다 —
+휠체어 `r 12`(지름이 차폭 25 만하다) · 공 `r 8` · 콘 반폭 `6` · 화살표 획 `3.5`.
+옛 값(6 · 4 · 5 · 2)은 목록 카드에서 점, **44 px 스텝 칩에서는 1 px 미만**이었다.
+
+칩은 카드보다 4배 가까이 작으므로(칩 폭 ≈ 76 px vs 카드 ≈ 300 px) 같은 글리프로는 다시
+안 보인다 — `glyphScale` 로 배수를 받고 `TransportBar` 가 `CHIP_GLYPH_SCALE`(1.6)을 넘긴다.
+⚠️ **배수는 글리프에만 곱한다. 좌표에는 곱하지 않는다** — 자리까지 부풀리면 썸네일이 다른
+배치를 보여주는 그림이 된다. `CourtThumbnail.test.tsx` 의 '좌표는 한 픽셀도 안 움직인다' 와
+`TransportBar.test.tsx` 의 칩 배수 가드가 그 둘을 각각 지킨다.
+
 프로토타입 썸네일 마크업(template.html 176–193행)은 풀 코트 마크업에 `scale(0.4)`,
 `translate(0,-4)` 를 적용한 것과 **완전히 동일**함을 역산 검증했다:
 `경기면 25,25,750×450 → 10,6,300×180` ✓ · `하프라인 x=400 → 160` ✓ · `센터서클 r=75 → r=30` ✓

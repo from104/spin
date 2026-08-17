@@ -13,6 +13,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { TransportBar } from './TransportBar.tsx';
 import { stepChipBoxPx, stepChipWidthCss, transportBarHeightPx } from './bottomBarMetrics.ts';
+import { CHIP_GLYPH_SCALE, THUMB_GLYPH } from '../../render/CourtThumbnail.tsx';
 import { createDrill } from '../../model/defaults.ts';
 import { addStepAfter } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
@@ -45,6 +46,18 @@ function renderBar(d: Drill, over: Partial<Parameters<typeof TransportBar>[0]> =
   };
   return render(<TransportBar {...props} />, { wrapper });
 }
+
+// 2026-08-17 — 칩은 카드보다 4배 가까이 작아서 카드 글리프를 그대로 쓰면 개체가 1 px 미만이
+// 된다. 배선이 끊기면 화면은 '빈 코트 사진 뭉치' 로 조용히 돌아가고, 크기를 재는 테스트는
+// CourtThumbnail 쪽에만 있어 아무도 안 세게 된다 — 그래서 여기서 배수를 확인한다.
+describe('스텝 칩 글리프 — 칩 배수로 그린다', () => {
+  it('★ 칩 안 휠체어는 THUMB_GLYPH × CHIP_GLYPH_SCALE 이다', () => {
+    const { container } = renderBar(makeDrill(1));
+    const rs = [...container.querySelectorAll('circle')].map((c) => Number(c.getAttribute('r')));
+    expect(rs).toContain(THUMB_GLYPH.chairR * CHIP_GLYPH_SCALE);
+    expect(rs).not.toContain(THUMB_GLYPH.chairR); // 카드 배수로 그리고 있으면 여기서 걸린다
+  });
+});
 
 describe('스텝 칩 히트 영역 (§5.4 완료 판정 ≥44)', () => {
   it('칩 상자는 --hit 파생이다 — 높이·최소폭이 var(--hit), 폭은 코트 비율 calc', () => {

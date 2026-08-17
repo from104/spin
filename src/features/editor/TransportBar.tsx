@@ -25,7 +25,7 @@ import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
 import type { PlaybackSpeed } from '../../store/playback/PlaybackProvider.tsx';
 import { IconChevronPrev, IconChevronNext, IconPlay, IconPause, IconPlus } from '../../ui/icons.tsx';
-import { CourtThumbnail } from '../../render/CourtThumbnail.tsx';
+import { CHIP_GLYPH_SCALE, CourtThumbnail } from '../../render/CourtThumbnail.tsx';
 import { buildStepThumb } from '../../model/thumb.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
@@ -270,7 +270,15 @@ export function TransportBar({ drill, stepId, onSelectStep, onReorderStep, onAdd
                   }}
                 >
                   <span aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
-                    <CourtThumbnail fill mode={drill.courtMode} size={drill.courtSize} thumb={thumbs.get(s.id)} teamColors={teamColors} />
+                    <CourtThumbnail
+                      fill
+                      mode={drill.courtMode}
+                      size={drill.courtSize}
+                      thumb={thumbs.get(s.id)}
+                      teamColors={teamColors}
+                      // 칩은 44 px 다 — 카드 글리프를 그대로 쓰면 개체가 1 px 미만이 된다.
+                      glyphScale={CHIP_GLYPH_SCALE}
+                    />
                   </span>
                   <span
                     aria-hidden="true"

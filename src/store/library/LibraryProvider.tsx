@@ -37,6 +37,8 @@ const LibraryActionsContext = createContext<LibraryActions | null>(null);
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const repoRef = useRef<DrillRepo | null>(null);
+  /** 이 프로바이더가 아직 화면에 있는가. `refresh` 의 setState 가족이 이걸 먼저 본다. */
+  const aliveRef = useRef(true);
   const [status, setStatus] = useState<LibraryStatus>('idle');
   const [degraded, setDegraded] = useState(false);
   const [drills, setDrills] = useState<DrillSummary[]>([]);
@@ -57,19 +59,35 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setStatus('loading');
     setError(null);
     try {
+      // 살아 있는지 먼저 본다 — 아래 catch 가 언마운트 뒤에 setState 를 부르면 React 가
+      // 내부에서 window 를 만지다 **catch 안에서 다시 던지고**, 그 예외는 이 async 함수를
+      // 거부시켜 아무도 안 받는 거부가 된다(2026-08-17 실측: vitest 가 "false positive 위험"
+      // 으로 경고하던 것의 정체다). 화면이 사라진 뒤의 조회 결과는 버려도 되는 값이다.
       const repo = await ensureRepo();
       const [list, sess] = await Promise.all([
         repo.listDrillSummaries({ category: category ?? undefined, search: search || undefined }),
         listSessions().catch(() => [] as ResolvedSession[]), // §4.5: IDB 열화 시에도 드릴 목록은 살아있어야 한다
       ]);
+      if (!aliveRef.current) return;
       setDrills(list);
       setSessions(sess);
       setStatus('ready');
     } catch (e) {
+      if (!aliveRef.current) return;
       setStatus('error');
       setError(e instanceof Error ? e.message : String(e));
     }
   }, [ensureRepo, category, search]);
+
+  // ⚠️ **올리는 줄이 있어야 한다.** StrictMode 는 mount → unmount → mount 로 두 번 붙는데,
+  // 정리에서 내린 깃발을 다시 올리지 않으면 두 번째 마운트가 시작부터 죽은 것으로 취급돼
+  // 목록이 영구히 0건이 된다(2026-08-17 실측: `App.seed.test.tsx` 가 3 대신 0 을 봤다).
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     void refresh();
