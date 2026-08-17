@@ -15,10 +15,16 @@ describe('InspectorPanel 터치 타깃 — minHeight 44 리터럴 금지', () =>
     expect(SRC.match(/minHeight:\s*44\b/g) ?? []).toEqual([]);
   });
 
-  it("대조군: minHeight: 'var(--hit)' 가 4곳 이상 남아 있다 — 정규식이 소스를 실제로 읽고 있다", () => {
-    // 기존 2곳(공용 스타일 상수) + 이번 수리 2곳(명단 행 · 스텝 추가). 이 대조군이 없으면
-    // 위 단언은 파일 경로가 틀려도(빈 문자열) 초록이 된다.
-    expect((SRC.match(/minHeight:\s*'var\(--hit\)'/g) ?? []).length).toBeGreaterThanOrEqual(4);
+  it("대조군: minHeight: 'var(--hit)' 가 3곳 이상 남아 있다 — 정규식이 소스를 실제로 읽고 있다", () => {
+    // 기존 2곳(공용 스타일 상수) + 이번 수리 1곳(명단 행). 이 대조군이 없으면 위 단언은
+    // 파일 경로가 틀려도(빈 문자열) 초록이 된다.
+    //
+    // ⚠️ 2026-08-17 재편(PLAN-STEP-EDITING.md §스텝 카드, 기현님 확정) — 이 수는 원래 4였다.
+    // 2026-08-14 선행 수리가 고친 두 번째 자리("스텝 추가" 버튼)가 StepsSection 째로
+    // 철거되면서(이름·메모·목록·복제·삭제가 전부 StepSidebar·NotePanel 로 흡수) 함께
+    // 사라졌다 — 표적이 준 게 아니라 **그 표적 자체가 없어졌다**. 계약이 이사하면 이
+    // 대조군도 이사한다.
+    expect((SRC.match(/minHeight:\s*'var\(--hit\)'/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 });
 

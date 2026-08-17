@@ -41,6 +41,42 @@ export type ValidateResult<T> =
   | { ok: true; value: T; repairs: Repair[] }
   | { ok: false; issues: ValidationIssue[] };
 
+// 자동 생성 스텝 이름 패턴(과제⑦, 2026-08-17까지의 생성 규칙). addStepAfter(edits.ts)·
+// emptyStep·defaultStep(defaults.ts) 이 그 시점까지 정확히 이 모양('스텝' + 공백 + 숫자)의
+// 이름을 붙였다 — 사용자가 타이핑한 적 없는 자리표시자다. 세 함수는 이제 ''를 쓰지만, 그
+// 전에 저장된 옛 드릴에는 이 패턴이 그대로 남아 있을 수 있어 정화기가 걸러낸다. 옛 생성
+// 규칙과 **정확히** 일치하는 것만 버려야 한다 — "스텝 3: 킥오프" 처럼 패턴을 접두어로만
+// 쓴 사용자 이름까지 버리면 진짜 유실이 된다. 그래서 전체 일치(`^…$`)다.
+const AUTO_STEP_NAME_RE = /^스텝 \d+$/;
+
+/** 스텝 이름 → 노트 병합 결과(과제⑦). validateDrill 의 정화 루프와 seedDrills.ts 의
+ *  buildStep 이 **같은 규칙**을 써야 한다 — 씨앗이 미리 이관해 만든 note 를 정화기가
+ *  다시 훑어도 그대로여야(멱등) '저장 왕복에서 한 글자도 안 바뀐다'는 seedDrills.test.ts
+ *  의 불변식이 성립한다. 규칙을 두 곳에 따로 적으면 한쪽만 고쳐질 때 그 불변식이 조용히
+ *  깨진다 — 그래서 함수 하나로 묶었다. */
+export type StepNameMigration =
+  | { kind: 'none' } // 이름이 애초에 비어 있다 — 할 일 없음
+  | { kind: 'auto-discard' } // '스텝 N' 자동 생성 패턴 — 사용자 내용이 아니라 이관 없이 버림
+  | { kind: 'redundant' } // note 가 이미 그 이름으로 시작 — 병합할 것이 없어 버림
+  | { kind: 'merged'; note: string; truncated: boolean }; // note 로 합침(상한 초과 시 절단)
+
+export function migrateStepName(name: string, note: string): StepNameMigration {
+  if (name.length === 0) return { kind: 'none' };
+  if (AUTO_STEP_NAME_RE.test(name)) return { kind: 'auto-discard' };
+  if (note.startsWith(name)) return { kind: 'redundant' };
+  const merged = note.length > 0 ? `${name}\n${note}` : name;
+  if (merged.length > LIMITS.noteLen) return { kind: 'merged', note: merged.slice(0, LIMITS.noteLen), truncated: true };
+  return { kind: 'merged', note: merged, truncated: false };
+}
+
+/** note 의 첫 줄만 뽑아 다듬는다 — name 필드가 폐기되며 짧은 이름표가 필요하던 자리(내보내기
+ *  PNG 캡션, NotePanel 접힘 줄 미리보기)의 표준 후계 자리다. migrateStepName 이 옛 이름을
+ *  note 첫 줄로 합쳐두므로, 옛 이름이 있던 드릴은 이 함수가 그 이름을 그대로 돌려준다 —
+ *  "이름 있던 자리엔 이제 note 첫 줄" 이라는 같은 규칙을 함수 하나로 묶어 드리프트를 막는다. */
+export function noteFirstLine(note: string): string {
+  return (note.split('\n')[0] ?? '').trim();
+}
+
 export const LIMITS = {
   titleLen: 80,
   stepNameLen: 40,
@@ -595,6 +631,26 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     if (note.length > LIMITS.noteLen) {
       pushRepair(repairs, 'steps.note', '스텝 메모 길이 상한(600) 초과 — 절단', true);
       note = note.slice(0, LIMITS.noteLen);
+    }
+    // 스텝 이름 → 노트 이관(기현님 확정 2026-08-17, 과제⑦): UI 는 이름 필드를 폐기했다 —
+    // 이름은 이제 데이터로만(옛 드릴에서) 들어온다. 규칙 자체는 migrateStepName 하나가
+    // 쥐고 있다(위 주석 참고) — 여기서는 그 판정에 맞춰 repair 만 남긴다.
+    const nameMig = migrateStepName(name, note);
+    if (nameMig.kind === 'auto-discard') {
+      pushRepair(repairs, 'steps.name', '자동 생성 이름(스텝 N) 폐기 — 사용자 내용 아님', false);
+      name = '';
+    } else if (nameMig.kind === 'merged') {
+      if (nameMig.truncated) pushRepair(repairs, 'steps.note', '이름 이관 병합이 노트 상한(600) 초과 — 뒤 절단', true);
+      note = nameMig.note;
+      pushRepair(repairs, 'steps.name', '스텝 이름을 노트로 이관 후 폐기', false);
+      name = '';
+    } else if (nameMig.kind === 'redundant') {
+      // note 가 이미 그 이름으로 시작해 병합할 것이 없다 — 그래도 name 필드 자체는
+      // 바뀌므로(비존→'') repairs 에 남겨야 한다. 안 남기면 "repairs 비어있음 = 문서
+      // 불변" 불변식이 조용히 깨져(§3.8), opportunisticRewrite(drillRepo.ts) 게이트가
+      // 안 열리고 매 로드마다 같은 계산을 다시 해야 하는 드리프트가 생긴다.
+      pushRepair(repairs, 'steps.name', '스텝 이름이 노트와 중복되어 폐기(이미 노트에 있음)', false);
+      name = '';
     }
     const durationMs =
       typeof rawStep.durationMs === 'number' && Number.isFinite(rawStep.durationMs) && rawStep.durationMs > 0

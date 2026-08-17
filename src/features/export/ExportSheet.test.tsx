@@ -126,7 +126,10 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
     expect(opts.teams).toBe(drill.teams);
     expect(opts.showRuleZones).toBe(true);
     expect(opts.showGrid).toBe(false);
-    expect(opts.caption).toEqual({ title: '자유 전술판', stepIndex: 0, stepCount: 1, stepName: drill.steps[0]!.name });
+    // step.name 은 과제⑦ 이후 로드 경로에서 항상 '' 다 — 여기 픽스처도 마찬가지라
+    // stepName 이 ''로 찍히는 것 자체는 의미 있는 대조가 아니다. note 에서 뽑아오는
+    // 실제 계약은 바로 아래 별도 it 이 진다(검증 결함 수정, 2026-08-17).
+    expect(opts.caption).toEqual({ title: '자유 전술판', stepIndex: 0, stepCount: 1, stepName: '' });
     expect(frame.stepIndex).toBe(0);
 
     const [blob, filename] = downloadMock.mock.calls[0]!;
@@ -151,6 +154,19 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
     expect(rasterMock.mock.calls[0]![1].shapes).toEqual([shape]);
     // 대조군 — 도형이 없는 판은 빈 목록이다(위 단언이 "무엇이든 통과" 가 아니다).
     expect(drill.steps[0]!.shapes).toEqual([]);
+  });
+
+  it('캡션 stepName 은 note 첫 줄에서 온다 — name 필드는 항상 비므로 note 가 유일한 통로다(검증 결함 수정, 2026-08-17)', async () => {
+    const withNote = { ...drill, steps: [{ ...drill.steps[0]!, note: '어깨너비 확인\n두 번째 줄' }] };
+    render(
+      <ToastProvider>
+        <ExportSheet open onClose={() => {}} drill={withNote} stepIndex={0} showGrid={false} showRuleZones />
+      </ToastProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(rasterMock).toHaveBeenCalledTimes(1));
+    // 첫 줄만 — 둘째 줄(본문)은 PNG 에 그릴 자리가 없는 한 줄짜리 캡션이라 섞이면 안 된다.
+    expect(rasterMock.mock.calls[0]![1]!.caption!.stepName).toBe('어깨너비 확인');
   });
 
   it('래스터가 실패하면 파일을 떨구지 않고 그 사유를 토스트로 말한다', async () => {

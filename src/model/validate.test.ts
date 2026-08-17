@@ -1,7 +1,7 @@
 // §3.8 검증·보정 — 11단계 파이프라인, 멱등성, throw 없음.
 import { describe, expect, it } from 'vitest';
 import { createDrill } from './defaults.ts';
-import { validateDrill, validateSession } from './validate.ts';
+import { LIMITS, validateDrill, validateSession } from './validate.ts';
 
 describe('validateDrill — 멱등성', () => {
   it('한 번 통과한 값을 다시 넣으면 repairs 가 비어 있다', () => {
@@ -176,6 +176,85 @@ describe('validateDrill — 보정', () => {
     expect(() => validateDrill(null)).not.toThrow();
     expect(() => validateDrill('garbage')).not.toThrow();
     expect(() => validateDrill(42)).not.toThrow();
+  });
+});
+
+// 과제⑦(기현님 확정 2026-08-17): 스텝 이름 필드는 UI 에서 폐기됐다. 정화기가 옛 이름을
+// note 로 이관해 유실 없이 보존하되, 자동 생성 패턴('스텝 N')은 사용자 내용이 아니므로
+// 이관 없이 버린다. §스텝 카드.
+describe('validateDrill — 스텝 이름 이관(과제⑦)', () => {
+  const withStepName = (name: string, note: string) => {
+    const d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    return { ...d, steps: [{ ...d.steps[0]!, name, note }] };
+  };
+
+  it('의미 있는 이름은 note 첫 줄로 합쳐 보존하고 name 을 비운다', () => {
+    const r = validateDrill(withStepName('어깨너비 확인', '설명'));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.steps[0]!.name).toBe('');
+    expect(r.value.steps[0]!.note).toBe('어깨너비 확인\n설명');
+  });
+
+  it('note 가 비어 있으면 이름만 note 가 된다(가운데 줄바꿈 없음)', () => {
+    const r = validateDrill(withStepName('어깨너비 확인', ''));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.steps[0]!.note).toBe('어깨너비 확인');
+  });
+
+  it("자동 생성 이름('스텝 N')은 이관 없이 버린다 — 사용자 내용이 아니다", () => {
+    const r = validateDrill(withStepName('스텝 7', '내용'));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.steps[0]!.name).toBe('');
+    expect(r.value.steps[0]!.note).toBe('내용'); // 자동 생성 이름이 note 에 섞여 들지 않는다
+  });
+
+  it("'스텝'으로 시작해도 숫자만이 아니면(예: '스텝 3: 킥오프') 자동 생성 패턴이 아니라 이관한다", () => {
+    const r = validateDrill(withStepName('스텝 3: 킥오프', '내용'));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.steps[0]!.note).toBe('스텝 3: 킥오프\n내용');
+  });
+
+  it('note 가 이미 그 이름으로 시작하면 중복 병합을 건너뛴다', () => {
+    const r = validateDrill(withStepName('서두', '서두\n이미 있는 내용'));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.steps[0]!.name).toBe('');
+    expect(r.value.steps[0]!.note).toBe('서두\n이미 있는 내용');
+  });
+
+  it('이름이 비어 있으면 note 가 그대로다(무변)', () => {
+    const r = validateDrill(withStepName('', '원래 메모'));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.steps[0]!.name).toBe('');
+    expect(r.value.steps[0]!.note).toBe('원래 메모');
+  });
+
+  it('병합이 노트 상한(600)을 넘으면 뒤(원래 note 쪽)를 자르고 이름은 잘리지 않는다', () => {
+    const name = 'X'.repeat(LIMITS.stepNameLen); // 40자 — 이름 자체 길이 상한 안
+    const note = 'Y'.repeat(LIMITS.noteLen); // 600자 — note 단독으로는 상한 안
+    const r = validateDrill(withStepName(name, note));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const got = r.value.steps[0]!.note;
+    expect(got.length).toBe(LIMITS.noteLen);
+    expect(got.startsWith(`${name}\n`)).toBe(true); // 이름 40자 + 줄바꿈까지 온전 — 잘린 건 note 꼬리뿐
+  });
+
+  it('멱등성: 이관 결과를 다시 정화해도 바뀌지 않는다', () => {
+    const first = validateDrill(withStepName('어깨너비 확인', '설명'));
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const second = validateDrill(first.value);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.value.steps[0]!.name).toBe('');
+    expect(second.value.steps[0]!.note).toBe('어깨너비 확인\n설명');
+    expect(second.repairs.filter((r) => r.path === 'steps.name' || r.path === 'steps.note')).toHaveLength(0);
   });
 });
 

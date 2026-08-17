@@ -10,6 +10,7 @@ import { newId } from '../core/ids.ts';
 import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
 import { createDrill } from './defaults.ts';
+import { migrateStepName } from './validate.ts';
 import { defaultCtrl } from './arrow.ts';
 import type { Arrow, ArrowHead } from './arrow.ts';
 import type { CourtMode } from './court.ts';
@@ -117,10 +118,22 @@ function buildStep(
 
   const notes: NoteLabel[] = (s.notes ?? []).map((n) => ({ id: newId('nt'), x: n.at[0], y: n.at[1], text: n.text }));
 
+  // 과제⑦(기현님 확정 2026-08-17): 스텝 이름 필드는 UI 에서 폐기됐다 — 저장되는 DrillStep 은
+  // 항상 name:''이어야 한다(§스텝 카드). 씨앗 스펙은 여전히 name/note 를 따로 적는다(제목 한
+  // 줄 + 본문이 대본을 쓰기 편해서, seedDrillContent.ts 는 아직 기현님 콘텐츠 영역이라 그
+  // 저작 형식은 건드리지 않는다) — 여기서 validate.ts 와 **동일한 규칙**(migrateStepName)으로
+  // 미리 병합한다. 정화기가 나중에 또 훑어도(로드 시 validateDrill) 이미 이관된 모양이라
+  // 아무것도 바뀌지 않는다 — seedDrills.test.ts 의 "저장 왕복에서 한 글자도 안 바뀐다"
+  // 불변식이 이 사전 이관 덕에 성립한다(그 반대로, 여기서 s.name 을 그대로 실었다면 seed
+  // 드릴을 처음 여는 순간 정화기가 이관 repair 를 내고 보정 토스트가 뜬다 — 심자마자 "고쳐진"
+  // 드릴이 되는 건 온보딩 경험으로 맞지 않는다).
+  const nameMig = migrateStepName(s.name, s.note);
+  const note = nameMig.kind === 'merged' ? nameMig.note : s.note;
+
   return {
     id: newId('st'),
-    name: s.name,
-    note: s.note,
+    name: '',
+    note,
     ...(s.durationMs !== undefined ? { durationMs: s.durationMs } : {}),
     chairs,
     balls,

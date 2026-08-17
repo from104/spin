@@ -102,6 +102,81 @@ describe('AppHeader / useAppHeader', () => {
     expect(onChange).toHaveBeenCalledWith('크로스');
   });
 
+  it('description 을 선언하면 값이 버튼으로 보이고, 클릭하면 인라인 입력으로 바뀐다', async () => {
+    const onChange = vi.fn();
+    function DescPublisher() {
+      useAppHeader({
+        title: '측면 돌파',
+        description: { value: '측면에서 크로스', placeholder: '설명 추가', maxLength: 400, onChange },
+      });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <DescPublisher />
+      </HeaderProvider>,
+    );
+    const display = screen.getByRole('button', { name: '측면에서 크로스' });
+    const user = userEvent.setup();
+    await user.click(display);
+
+    const input = screen.getByRole('textbox', { name: '드릴 설명' });
+    expect(input).toHaveValue('측면에서 크로스');
+
+    await user.clear(input);
+    await user.type(input, '새 설명');
+    await user.tab(); // blur — 커밋 시점
+
+    expect(onChange).toHaveBeenCalledWith('새 설명');
+    // 표시 모드로 돌아왔다 — 실제 화면에서는 onChange 가 store 를 고쳐 다음 렌더의
+    // `cfg.value` 가 새 글로 오지만(EditorWorkspace.headerDescription.test.tsx 가 그
+    // 왕복을 본다), 이 스위트는 정적 Publisher 라 값이 되먹임하지 않는다 — 여기서는
+    // 편집 input 이 실제로 사라졌는지(= 표시 모드로 돌아왔는지)만 본다.
+    expect(screen.queryByRole('textbox', { name: '드릴 설명' })).toBeNull();
+  });
+
+  it('설명이 비어 있으면 placeholder 를 조용한 버튼으로 보여준다', () => {
+    function EmptyDescPublisher() {
+      useAppHeader({ title: '측면 돌파', description: { value: '', placeholder: '설명 추가', maxLength: 400, onChange: () => {} } });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <EmptyDescPublisher />
+      </HeaderProvider>,
+    );
+    expect(screen.getByRole('button', { name: '설명 추가' })).toBeInTheDocument();
+  });
+
+  it('Esc 는 커밋 없이 표시 모드로 되돌린다', async () => {
+    const onChange = vi.fn();
+    function DescPublisher() {
+      useAppHeader({
+        title: '측면 돌파',
+        description: { value: '원래 설명', placeholder: '설명 추가', maxLength: 400, onChange },
+      });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <DescPublisher />
+      </HeaderProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '원래 설명' }));
+    const input = screen.getByRole('textbox', { name: '드릴 설명' });
+    await user.clear(input);
+    await user.type(input, '지우다 만 값');
+
+    await user.keyboard('{Escape}');
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '원래 설명' })).toBeInTheDocument();
+  });
+
   it('언마운트되면 헤더가 비워진다(다음 화면이 채우기 전 이전 화면 것이 남지 않는다)', () => {
     function Wrapper({ show }: { show: boolean }) {
       return (

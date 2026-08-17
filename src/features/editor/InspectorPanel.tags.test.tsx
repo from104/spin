@@ -224,7 +224,9 @@ describe('3.5 validate — 설명도 길이를 접는다', () => {
       away: { label: '상대', color: '#1f6bb8', gkColor: '#22a95b' },
     },
     cast: { chairs: [], balls: [], cones: [] },
-    steps: [{ id: 'st_1', name: 's', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [] }],
+    // name:'' — 과제⑦(2026-08-17) 이후 자리표시자 이름을 넣으면 정화기가 note 로
+    // 이관해 이 스위트가 재는 repairs 개수에 잡음을 섞는다. 여기선 description 만 잰다.
+    steps: [{ id: 'st_1', name: '', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [] }],
     createdAt: 1,
     updatedAt: 1,
   });

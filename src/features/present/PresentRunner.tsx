@@ -242,9 +242,13 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
   const baseMs = PLAYBACK.stepIntervalMs[playback.speed];
   const starts = useMemo(() => stepStartsMs(drill.steps, baseMs), [drill, baseMs]);
 
-  const onStepChange = useCallback((idx: number, step: DrillStep) => {
+  // 과제⑦(기현님 확정 2026-08-17): 스텝 이름 필드는 UI 전역에서 폐기됐다 — 로드 시
+  // 정화기가 note 로 이관하고 name 은 항상 ''다(validate.ts migrateStepName). 그래서
+  // step.name 은 더 이상 읽을 값이 없다 — 번호만 안내한다(편집기 사이드바 카드가
+  // "번호 + 썸네일만" 인 것과 같은 축소, §스텝 카드).
+  const onStepChange = useCallback((idx: number, _step: DrillStep) => {
     setStepIndex(idx);
-    liveRegion.say(`스텝 ${idx + 1} · ${step.name || '이름 없음'}`);
+    liveRegion.say(`스텝 ${idx + 1}`);
   }, []);
 
   const seekToStep = useCallback(
@@ -511,7 +515,9 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
               <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 12, fontWeight: 700, color: 'var(--accent-text)', letterSpacing: 1 }}>
                 STEP {stepIndex + 1}/{drill.steps.length}
               </span>
-              <span style={{ fontSize: 19, fontWeight: 750, letterSpacing: -0.4 }}>{currentStep?.name || '이름 없음'}</span>
+              {/* 스텝 이름 헤드라인은 과제⑦(2026-08-17)로 폐기됐다 — name 은 로드 시 note 로
+                  이관돼 항상 ''다(§스텝 카드, "번호 + 썸네일만"과 같은 축소). 스텝 텍스트는
+                  아래 note 문단 하나로만 보여준다. */}
               <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: categoryColor(drill.category), flex: 'none' }} />
             </div>
             {currentStep?.note && <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.55, maxWidth: 760 }}>{currentStep.note}</p>}

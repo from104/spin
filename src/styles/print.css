@@ -135,6 +135,14 @@
     font-size: 10.5pt;
     line-height: 1.45;
   }
+  /* 스텝 이름 이관(과제⑦)이 옛 이름을 note 첫 줄로 합친다(`이름\n메모`) — 기본
+     white-space: normal 이면 브라우저가 그 줄바꿈을 공백 하나로 뭉개 "이름 메모"처럼
+     한 줄로 붙어버린다. pre-line 으로 \n 만 줄바꿈으로 살리고 나머지 공백은 그대로
+     접는다(검증 결함 수정, 2026-08-17). */
+  .spin-print-note,
+  .spin-print-steps li {
+    white-space: pre-line;
+  }
   .spin-print-dim {
     font-size: 9.5pt;
     color: #444;

@@ -33,16 +33,20 @@ function makeNav(): PresentNav {
 
 let seq = 0;
 
-/** 2 스텝짜리 드릴 하나를 만든다 — 스텝 이름/메모로 전환을 확인할 수 있게 한다. */
+// 과제⑦(기현님 확정 2026-08-17) — 스텝 이름 필드는 폐기됐다: 새 규약은 스텝 텍스트를
+// note 에 직접 쓴다(name 은 항상 ''). 두 스텝을 note 내용만으로 구분한다.
+const STEP1_NOTE = '준비 자세 — 시작 위치에서 대기합니다.';
+const STEP2_NOTE = '전개 — 두 번째 스텝입니다.';
+
+/** 2 스텝짜리 드릴 하나를 만든다 — 스텝 note 로 전환을 확인할 수 있게 한다. */
 async function makeTwoStepDrill(title?: string): Promise<Drill> {
   const tag = `#${++seq}`;
   const base = await idbDrillRepo.createDrill({ courtMode: 'full', title: title ?? `테스트 드릴 ${tag}`, durationMin: 5 });
-  const step1 = { ...base.steps[0]!, id: newId('st'), name: '준비 자세', note: '시작 위치에서 대기합니다.' };
+  const step1 = { ...base.steps[0]!, id: newId('st'), note: STEP1_NOTE };
   const step2 = {
     ...base.steps[0]!,
     id: newId('st'),
-    name: '전개',
-    note: '두 번째 스텝입니다.',
+    note: STEP2_NOTE,
     chairs: Object.fromEntries(Object.entries(base.steps[0]!.chairs).map(([id, p]) => [id, { ...p!, x: p!.x + 40 }])),
   };
   return idbDrillRepo.putDrill({ ...base, steps: [step1, step2] }, { touch: false });
@@ -71,28 +75,32 @@ describe('PresentRunner — 대상 없음/에러', () => {
 });
 
 describe('PresentRunner — 단일 드릴 시연', () => {
-  it('첫 스텝을 보여주고, [다음 스텝]으로 전환하면 이름·메모·진행 표시가 바뀐다', async () => {
+  it('첫 스텝을 보여주고, [다음 스텝]으로 전환하면 메모·진행 표시가 바뀐다', async () => {
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
-    expect(screen.getByText('시작 위치에서 대기합니다.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
     expect(screen.getByText('STEP 1/2')).toBeInTheDocument();
+    // 음의 대조군(검증 결함 수정, 2026-08-17): 과제⑦ 이전엔 이름 헤드라인이
+    // `{name || '이름 없음'}` 으로 상시 노출됐다 — name 은 항상 ''이므로 옛 코드가 되살아나면
+    // 이 자리표시자가 어디서든 다시 나타난다. 헤드라인 자체가 없다는 것을 이걸로 잡는다.
+    expect(screen.queryByText('이름 없음')).toBeNull();
 
     await userEvent.click(screen.getByRole('button', { name: '다음 스텝' }));
-    await waitFor(() => expect(screen.getByText('전개')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP2_NOTE)).toBeInTheDocument());
     expect(screen.getByText('STEP 2/2')).toBeInTheDocument();
+    expect(screen.queryByText('이름 없음')).toBeNull();
   });
 
   it('스텝 진행바 버튼을 클릭하면 해당 스텝으로 바로 이동한다', async () => {
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
 
     await userEvent.click(screen.getByRole('button', { name: '2번 스텝으로 이동' }));
-    await waitFor(() => expect(screen.getByText('전개')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP2_NOTE)).toBeInTheDocument());
   });
 
   it('재생 버튼을 누르면 라벨이 일시정지로 바뀐다', async () => {
@@ -108,20 +116,20 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
 
     await userEvent.keyboard('{ArrowRight}');
-    await waitFor(() => expect(screen.getByText('전개')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP2_NOTE)).toBeInTheDocument());
 
     await userEvent.keyboard('{ArrowLeft}');
-    await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
   });
 
   it("우상단 [시연 종료]·헤더 [편집으로] 모두 nav.back('board') 를 부른다", async () => {
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
 
     await userEvent.click(screen.getByRole('button', { name: '시연 종료' }));
     // 재편으로 편집기가 board 자리로 들어왔다 — 시연을 나가면 그 드릴 편집으로 돌아간다.
@@ -136,7 +144,7 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
 
     await userEvent.keyboard('{Shift>}?{/Shift}');
     const dialog = await screen.findByRole('dialog', { name: '시연 단축키' });
@@ -157,7 +165,7 @@ describe('PresentRunner — 세션 시연', () => {
 
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'session', sessionId: session.id }} nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
     expect(screen.getByRole('button', { name: '목록으로' })).toBeInTheDocument();
     expect(screen.getByLabelText('세션 진행 1/2')).toBeInTheDocument();
     expect(screen.getByLabelText('1번째 드릴: 세션 드릴 A')).toBeInTheDocument();
@@ -175,7 +183,7 @@ describe('PresentRunner — 세션 시연', () => {
 
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'session', sessionId: session.id }} nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('준비 자세')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
 
     await userEvent.click(screen.getByRole('button', { name: '2번째 드릴: 전환 드릴 B' }));
     await waitFor(() => expect(screen.getByLabelText('세션 진행 2/2')).toBeInTheDocument(), { timeout: 3000 });

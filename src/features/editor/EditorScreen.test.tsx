@@ -113,20 +113,21 @@ describe('드릴 편집 모드', () => {
 
   it('전술판과 달리 스텝 UI 가 있다', async () => {
     // 재편의 갈림점 — 같은 컴포넌트지만 여기서만 스텝이 산다(EditorWorkspace 의 mode prop).
-    const { user } = await openDrill();
+    await openDrill();
     // 2026-08-17 재편(구현 순서 ②): 스텝 목록은 왼쪽 세로 사이드바다. 인스펙터를 열지 않아도
     // 스텝 조작이 화면에 있어야 한다 — 그것이 이 항목의 목적이다.
     expect(screen.getByRole('navigation', { name: '스텝 목록' })).toBeInTheDocument();
     expect(stepCards()).toHaveLength(1);
     expect(currentStepCard()).toHaveAccessibleName('스텝 1');
     expect(screen.getByRole('button', { name: '한 장 더 찍기' })).toBeInTheDocument();
-    await openInspector(user);
-    expect(screen.getByRole('button', { name: '스텝 추가' })).toBeInTheDocument();
   });
 
   // §4.4 P2-3 — "[한 장 더 찍기] 1버튼". 인스펙터(오버레이)를 열고 26×22 버튼을 찾아 누르던
   // 경로가 사이드바의 44px 버튼 **한 번**이 됐는지, 그리고 찍은 뒤 그 장이 손에 들리는지 본다.
   // 찍고도 옛 장이 선택돼 있으면 다음 조작이 엉뚱한 판에 들어간다.
+  // ⚠️ 2026-08-17 재편(PLAN-STEP-EDITING.md §스텝 카드, 기현님 확정) — 여기 있던 대조군
+  // ("인스펙터의 [스텝 추가]는 선택을 안 옮긴다")은 그 두 번째 경로 자체(StepsSection)가
+  // 철거되며 함께 사라졌다. [한 장 더 찍기]가 이제 스텝을 늘리는 유일한 버튼이다.
   it('[한 장 더 찍기] 한 번으로 새 장이 뒤에 쌓이고 그 장이 선택된다', async () => {
     const { user } = await openDrill();
     expect(stepCards()).toHaveLength(1);
@@ -134,13 +135,6 @@ describe('드릴 편집 모드', () => {
     await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
 
     expect(stepCards()).toHaveLength(2);
-    expect(currentStepCard()).toHaveAccessibleName('스텝 2');
-
-    // 대조군 — 인스펙터의 [스텝 추가]는 이 경로가 아니다(목록이 통째로 보이는 자리라 선택을
-    // 옮기지 않는다). 여기가 함께 움직이면 두 경로가 한 배선을 공유하게 된 것이다.
-    await openInspector(user);
-    await user.click(screen.getByRole('button', { name: '스텝 추가' }));
-    expect(stepCards()).toHaveLength(3);
     expect(currentStepCard()).toHaveAccessibleName('스텝 2');
   });
 
@@ -166,12 +160,12 @@ describe('드릴 편집 모드', () => {
   it('배치 도구 + 코트 포커스에서 ArrowRight 는 스텝을 넘기지 않고 배치 커서만 이동한다(§7.5d)', async () => {
     const { user, stage } = await openDrill();
 
-    // 스텝 3개로 만든다(기본 1개 + 추가 2회). 스텝 추가는 인스펙터 안에 있다.
-    await openInspector(user);
-    await user.click(screen.getByRole('button', { name: '스텝 추가' }));
-    await user.click(screen.getByRole('button', { name: '스텝 추가' }));
-    // 시트를 닫아 코트를 원래대로 되돌린다 — 이 테스트가 보려는 것은 키 입력 경로다.
-    await user.click(screen.getByRole('button', { name: '속성 닫기' }));
+    // 스텝 3개로 만든다(기본 1개 + [한 장 더 찍기] 2회 — 2026-08-17 재편으로 스텝을 늘리는
+    // 유일한 버튼이다). 그 버튼은 찍을 때마다 새 장을 선택하므로(§4.4 P2-3), 이 테스트가
+    // 보려는 '스텝 1에서 ArrowRight' 를 재현하려면 다 찍고 나서 첫 카드로 되돌아온다.
+    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
+    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
+    await user.click(stepCards()[0]!);
 
     // 공 도구를 켠다(배치 도구). 도구 레일로 범위를 좁힌다 — 스텝 추가로 놓인 기본 공
     // 개체도 SVG 상에서 동일한 aria-label="공" 을 갖는다.

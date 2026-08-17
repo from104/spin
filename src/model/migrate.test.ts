@@ -89,7 +89,10 @@ describe('drill.v1.json 픽스처', () => {
     expect(validated.ok).toBe(true);
     if (!validated.ok) return;
     expect(validated.value.id).toBe(drillV1Fixture.id);
-    // 픽스처는 이미 잘 정돈된 문서이므로 보정이 없어야 한다.
-    expect(validated.repairs).toHaveLength(0);
+    // 픽스처는 이미 잘 정돈된 문서다 — 다만 과제⑦(2026-08-17)이 생긴 뒤로는 스텝에 진짜
+    // 이름이 있으면("초기 대형"·"스핀 후 패스") 그 이름을 note 로 이관하는 보정이 의도적으로
+    // 남는다(drillV2.test.ts 의 동명 테스트가 이관 내용까지 고정한다). 여기서는 "그 밖의
+    // 보정은 없다"만 지킨다.
+    expect(validated.repairs.filter((r) => r.path !== 'steps.name')).toHaveLength(0);
   });
 });

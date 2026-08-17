@@ -35,6 +35,7 @@ import { useCallback, useId, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import { interpolateSteps } from '../../model/playback.ts';
+import { LIMITS, noteFirstLine } from '../../model/validate.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { downloadBlob } from '../../storage/files.ts';
 import { backupFileName, sceneFileName } from './exportNames.ts';
@@ -108,7 +109,17 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
         shapes: step.shapes,
         showGrid,
         showRuleZones,
-        caption: { title: drill.title, stepIndex, stepCount: drill.steps.length, stepName: step.name },
+        // step.name 은 과제⑦ 이후 로드된 드릴에서 항상 '' 다(validate.ts 정화기가 이름을
+        // note 로 이관하며 비운다) — 그대로 두면 PNG 캡션은 번호만 찍는 죽은 기능이 된다.
+        // PNG 는 note 본문을 어디에도 그리지 않아(코트 위 자유 메모(NOTE)와는 다른 필드다)
+        // 이 캡션 서브라인이 스텝 텍스트가 이미지에 실리는 유일한 통로다 — note 첫 줄을
+        // 이름표 후계로 삼아 caption 에 이어준다(검증 결함 수정, 2026-08-17).
+        caption: {
+          title: drill.title,
+          stepIndex,
+          stepCount: drill.steps.length,
+          stepName: noteFirstLine(step.note).slice(0, LIMITS.stepNameLen),
+        },
       });
       downloadBlob(blob, sceneFileName(drill.title, stepIndex));
       onClose();

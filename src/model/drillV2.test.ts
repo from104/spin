@@ -103,11 +103,21 @@ describe('3.2/3.3 마이그레이션 — 구 버전 드릴 파일이 v2 로 올�
     expect(doc.playersNeeded).toBe(0);
   });
 
-  it('마이그레이션 결과가 validateDrill 을 보정 없이 통과한다', () => {
+  it('마이그레이션 결과가 validateDrill 을 통과한다 — 남는 보정은 이름→노트 이관뿐이다', () => {
     const v = validateDrill(migrateV1());
     expect(v.ok).toBe(true);
     if (!v.ok) return;
-    expect(v.repairs).toHaveLength(0); // 기본값이 곧 validate 가 만드는 값이어야 한다
+    // 과제⑦(기현님 확정 2026-08-17): drill.v1.json 픽스처의 두 스텝은 진짜 이름을 갖고
+    // 있어("초기 대형"·"스핀 후 패스") 정화기가 note 로 이관한다 — 그 두 건만 보정으로
+    // 남아야 한다. 그 밖은(교육 필드 기본값 등) 여전히 손대지 않는 것이 원래 이 테스트의
+    // 취지("기본값이 곧 validate 가 만드는 값")다.
+    const otherRepairs = v.repairs.filter((r) => r.path !== 'steps.name');
+    expect(otherRepairs).toHaveLength(0);
+    expect(v.value.steps.every((s) => s.name === '')).toBe(true);
+    expect(v.value.steps[0]!.note).toBe('초기 대형\n홈 4번이 볼을 소유한 1-2-1 초기 배치. 어웨이는 대칭 수비 라인을 유지한다.');
+    expect(v.value.steps[1]!.note).toBe(
+      '스핀 후 패스\n홈 4번이 제자리 스핀으로 방향을 바꾼 뒤 3번에게 패스한다. 콘 B는 이 스텝에서 철거된다.',
+    );
     expect(v.value.schemaVersion).toBe(CURRENT_DRILL_SCHEMA);
   });
 });

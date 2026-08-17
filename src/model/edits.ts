@@ -256,13 +256,16 @@ export function propagateForward(d: Drill, i: number, id: CastId): Drill {
   return changed ? { ...d, steps } : d;
 }
 
-/** 직전 스텝 복제, 이름 '스텝 N'. 화살표·메모 id 는 그대로 보존한다(§3.5 스코프 표). */
+/** 직전 스텝 복제. 화살표·메모 id 는 그대로 보존한다(§3.5 스코프 표).
+ *  이름은 이제 생성하지 않는다(기현님 확정 2026-08-17, 과제⑦) — 자동 생성 '스텝 N' 은
+ *  사용자 내용이 아니라 UI 가 채울 자리를 메우던 자리표시자였다. UI 가 이름 필드를 이미
+ *  폐기했으니 새 스텝의 name 은 ''(정화기가 이관할 것도, 버릴 것도 없다). */
 export function addStepAfter(d: Drill, i: number): Drill {
   const base = d.steps[i];
   if (!base) return d;
   const clone = structuredClone(base);
   clone.id = newId('st');
-  clone.name = `스텝 ${i + 2}`;
+  clone.name = '';
   const steps = d.steps.slice();
   steps.splice(i + 1, 0, clone);
   return { ...d, steps };

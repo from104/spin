@@ -170,11 +170,23 @@ describe('seed 드릴 — 온보딩 대본 계약 (§3)', () => {
     }
   });
 
-  it('스텝 이름이 있고 길이 상한 안이다 — 시연 자막이 이 이름을 크게 읽는다', () => {
-    for (const d of built()) {
-      for (const s of d.steps) {
+  it('스펙의 스텝 이름은 상한 안이고, 빌드된 스텝은 이미 이관되어 있다', () => {
+    // 과제⑦(기현님 확정 2026-08-17): DrillStep.name 은 UI 에서 폐기됐다 — buildStep 이
+    // validate.ts 와 같은 규칙(migrateStepName)으로 미리 note 에 합쳐 넣으므로 빌드된
+    // 스텝은 항상 name:'' 이고, 스펙에 적은 이름은 note 첫 줄로 살아 있다(보존 이관).
+    // SeedStepSpec.name 자체는 여전히 저작용 필드다(제목 한 줄 + 본문이 대본 쓰기 편해서) —
+    // 그 원문의 길이 상한만 여기서 잰다.
+    for (const spec of SEED_DRILL_SPECS) {
+      for (const s of spec.steps) {
         expect(s.name.length).toBeGreaterThan(0);
         expect(s.name.length).toBeLessThanOrEqual(LIMITS.stepNameLen);
+      }
+    }
+    for (const [di, d] of built().entries()) {
+      for (const [si, s] of d.steps.entries()) {
+        const specName = SEED_DRILL_SPECS[di]!.steps[si]!.name;
+        expect(s.name, `${d.title} 스텝 ${si + 1}: name 이 남아 있다`).toBe('');
+        expect(s.note.startsWith(specName), `${d.title} 스텝 ${si + 1}: note 가 이름으로 시작하지 않는다`).toBe(true);
       }
     }
   });

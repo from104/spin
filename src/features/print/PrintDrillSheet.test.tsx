@@ -44,14 +44,25 @@ describe('페이지 수 = 스텝 수', () => {
     expect(idx).toEqual(['0', '1', '2', '3']);
   });
 
-  it('장마다 n/N 과 그 스텝의 이름·메모가 실린다 — 종이가 흩어져도 순서를 되찾는다', () => {
+  it('장마다 n/N 과 그 스텝의 메모가 실린다 — 종이가 흩어져도 순서를 되찾는다', () => {
     const { container } = render(<PrintDrillSheet drill={drillOf(3)} />);
     const pages = Array.from(container.querySelectorAll('[data-print-page="step"]'));
     expect(pages[1]!.textContent).toContain('스텝 2/3');
-    expect(pages[1]!.textContent).toContain('스텝이름1');
     expect(pages[1]!.textContent).toContain('코칭메모1');
     // 대조군: 2장에 3장의 메모가 실리면 안 된다.
     expect(pages[1]!.textContent).not.toContain('코칭메모2');
+  });
+
+  // 검증 결함 수정(2026-08-17): step.name 은 과제⑦ 이후 로드 경로에서 항상 '' 다. 이
+  // 컴포넌트가 혹시라도 name 을 다시 참조하게 되면(회귀) 여기서 잡는다 — fixture 는 일부러
+  // name 을 채워서 넘기지만(실제 앱에서는 절대 벌어지지 않는 입력), 화면 어디에도 그 값이
+  // 나타나면 안 된다는 음의 대조군이다.
+  it('name 필드가 채워져 와도 화면 어디에도 찍히지 않는다(죽은 필드, §스텝 카드)', () => {
+    const { container } = render(<PrintDrillSheet drill={drillOf(3)} />);
+    const pages = Array.from(container.querySelectorAll('[data-print-page="step"]'));
+    for (const page of pages) {
+      expect(page.textContent).not.toContain('스텝이름');
+    }
   });
 
   it('장마다 코트 그림이 하나씩 있다', () => {

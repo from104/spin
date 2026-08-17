@@ -9,6 +9,7 @@ import { DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
 import { defaultDefense } from '../../model/rules.ts';
+import { LIMITS } from '../../model/validate.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
 import { useAppHeader } from '../../app/AppHeader.tsx';
 import { useAppNav } from '../../app/useAppHistory.ts';
@@ -35,6 +36,7 @@ import { EditorStage } from './EditorStage.tsx';
 import { ViewControls } from './StageControls.tsx';
 import { TransportBar } from './TransportBar.tsx';
 import { StepSidebar } from './StepSidebar.tsx';
+import { NotePanel } from './NotePanel.tsx';
 import { FunctionBar } from './FunctionBar.tsx';
 import { InspectorHost } from './InspectorHost.tsx';
 import { inspectorMode } from './inspectorLayout.ts';
@@ -231,6 +233,17 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
           // 남는 것은 **이 드릴이 무엇인가**(제목·편집중)와 시연으로 가는 문뿐이다.
           title: drill.title,
           badge: '편집중',
+          // ⑥ 텍스트의 소속(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §텍스트의 소속) —
+          // 드릴 짧은 설명은 **헤더 인라인**. 저장 통로는 인스펙터의 [제목]·[설명]과 같은
+          // META_SET(드릴 메타를 고치는 기존 액션) — 새 액션을 만들지 않는다. 상한은
+          // validate.ts LIMITS.descriptionLen 과 같은 값이어야 화면이 먼저 막지 않으면
+          // 저장할 때 조용히 잘리는 사고(§3.5 태그 문서와 같은 종류)가 안 난다.
+          description: {
+            value: drill.description ?? '',
+            placeholder: '설명 추가',
+            maxLength: LIMITS.descriptionLen,
+            onChange: (v) => dispatch({ type: 'META_SET', patch: { description: v } }),
+          },
           presentButton: { onAction: () => nav.go('present', { kind: 'drill', id: drill.id }) },
         },
   );
@@ -781,6 +794,18 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
             speed={speed}
             onCycleSpeed={() => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5)}
             viewControls={viewControls}
+          />
+        )}
+
+        {/* ⑥ 텍스트의 소속(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §텍스트의 소속) —
+            스텝 노트 = PPT 발표자 노트 자리. 재생 컨트롤(TransportBar) 아래 가장 조용한
+            자리에 접힌 채로 있다가, 손이 닿으면 펼쳐진다. 자유 전술판(isBoard)에는 스텝이
+            없으니 완전히 안 그린다(StepSidebar 와 같은 게이트). */}
+        {isBoard ? null : (
+          <NotePanel
+            stepId={step.id}
+            note={step.note}
+            onNoteChange={(note) => dispatch({ type: 'STEP_META', id: step.id, patch: { note } })}
           />
         )}
       </div>

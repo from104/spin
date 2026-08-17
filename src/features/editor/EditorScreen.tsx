@@ -11,7 +11,7 @@
 // `nav.go('present', { kind:'drill', id })` 로 **history 엔트리에 실려** 가고 AppShell 이
 // 그걸 읽어 presentTarget 을 세운다 — setter 를 따로 내보내지 않고 닫혔다. 같은 통로가
 // 리로드 복원도 겸한다(EditorWorkspace.tsx 의 presentButton).
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import { useStageTarget } from '../../app/AppShell.tsx';
@@ -28,6 +28,14 @@ export function EditorScreen() {
   const target = useStageTarget();
   const nav = useAppNav();
   const toast = useToast();
+  // ToastProvider 의 api 객체는 toasts 배열이 바뀔 때마다 새로 만들어진다(useMemo 의존성).
+  // 아래 로드 effect 가 toast 를 의존성에 넣으면: 보정 토스트 1건 → api 재생성 → effect
+  // 재실행 → 재로드 → (아직 markOpen 중이라 opportunisticRewrite 는 안 타지만 원본 IDB
+  // 레코드는 그대로라) 같은 보정이 또 뜬다 → 무한 루프. 과제⑦(이름→노트 이관)이 이 경로를
+  // 실제로 밟기 전까지는 "보정이 필요한 드릴을 여는 것" 자체가 테스트에 없어 잠복해 있던
+  // 결함이다 — ref 로 최신 toast 를 들고 effect 의존성에서는 빼서 끊는다.
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   const { prefs } = useSettingsState();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
@@ -41,7 +49,7 @@ export function EditorScreen() {
       const res = await repo.loadDrill(target.drillId);
       if (cancelled) return;
       if (res.status === 'ok') {
-        if (res.repairs.length > 0) toast.show('일부 데이터를 자동으로 보정했습니다.');
+        if (res.repairs.length > 0) toastRef.current.show('일부 데이터를 자동으로 보정했습니다.');
         setState({ status: 'ready', drill: res.drill });
       } else if (res.status === 'missing') {
         setState({ status: 'error', message: '드릴을 찾을 수 없습니다. 삭제되었을 수 있습니다.' });
@@ -55,7 +63,7 @@ export function EditorScreen() {
       cancelled = true;
       void resolveDrillRepo().then(({ repo }) => repo.markOpen(target.drillId, false));
     };
-  }, [target, toast]);
+  }, [target]);
 
   const providerKey = useMemo(() => (state.status === 'ready' ? state.drill.id : null), [state]);
 

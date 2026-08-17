@@ -51,7 +51,13 @@ export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
           <PrintCourt drill={drill} step={step} ariaLabel={`${drill.title} 스텝 ${i + 1} 코트`} />
 
           <div className="spin-print-body">
-            <h2 className="spin-print-steptitle">{step.name || `스텝 ${i + 1}`}</h2>
+            {/* step.name 은 과제⑦ 이후 항상 '' 다(validate.ts 정화기가 로드 시 note 로
+                이관해 비운다) — `step.name ||` 폴백은 이제 죽은 가지라 지웠다. 옛 이름은
+                note 첫 줄로 살아 있고, 아래 문단이 그 줄부터 그대로 보여준다(검증 결함
+                수정, 2026-08-17). */}
+            <h2 className="spin-print-steptitle">스텝 {i + 1}</h2>
+            {/* white-space: pre-line(styles/print.css) — 병합된 옛 이름이 note 첫 줄로
+                들어와 있어, 줄바꿈을 살려야 "이름 줄"과 "본문 줄"이 종이 위에서도 나뉜다. */}
             {step.note && <p className="spin-print-note">{step.note}</p>}
             {step.durationMs !== undefined && <p className="spin-print-dim">이 스텝 {Math.round(step.durationMs / 100) / 10}초</p>}
           </div>

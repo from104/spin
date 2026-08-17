@@ -67,7 +67,12 @@ export interface NoteLabel {
 
 export interface DrillStep {
   id: StepId;
+  // 폐기됨(2026-08-17, 과제⑦) — UI 는 이름 필드를 쓰지 않는다. 새 스텝은 항상 ''.
+  // 옛 드릴이 계속 들어오므로 필드는 남긴다: validate.ts 의 정화기가 로드 시 note 로
+  // 이관하고 비운다(자동 생성 이름 '스텝 N' 은 이관 없이 버림). 그래서 이 필드가 실제로
+  // 채워진 채 관찰되는 것은 로드 전(파일 원본)뿐이고, 앱을 거친 Drill 은 항상 ''다.
   name: string; // ≤40자
+
   note: string; // ≤600자
   durationMs?: number; // 이 스텝만 재생 간격 override
   chairs: PoseMap<ChairId, StoredChairPose>;

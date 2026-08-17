@@ -129,9 +129,12 @@ export function ballPosFor(mode: CourtMode, size: CourtSize = DEFAULT_COURT_SIZE
   return scaleIntoSurface(FULL_BALL, FULL_COURT_DEFS[DEFAULT_COURT_SIZE].surface, courtDefFor('full', size).surface);
 }
 
-/** 아무것도 배치되지 않은 스텝. 휠체어·공·콘 전부 미배치이므로 코트가 비어 있다. */
+/** 아무것도 배치되지 않은 스텝. 휠체어·공·콘 전부 미배치이므로 코트가 비어 있다.
+ *  name 은 ''(2026-08-17 확정, 과제⑦) — '스텝 N' 자동 생성은 UI 가 이름 필드를 폐기하며
+ *  같이 끊었다. 자동 생성 패턴이던 문자열은 사용자 내용이 아니라서 남겨봐야 정화기가
+ *  이관 없이 버릴 쓰레기일 뿐이다. */
 export function emptyStep(_mode: CourtMode): DrillStep {
-  return { id: newId('st'), name: '스텝 1', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [], shapes: [] };
+  return { id: newId('st'), name: '', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [], shapes: [] };
 }
 
 /** 시그니처를 string 으로 넓히고 내부에서 FORMATIONS 폴백한다(validate.ts 의 이중 방어와 합치). */
@@ -151,9 +154,11 @@ export function defaultStep(mode: CourtMode, f: string, cast: DrillCast, size?: 
   const ballPos = ballPosFor(mode, size);
   for (const b of cast.balls) balls[b.id] = { x: ballPos.x, y: ballPos.y };
 
+  // name 은 ''(2026-08-17 확정, 과제⑦) — emptyStep 과 같은 근거: 자동 생성 이름은
+  // 사용자 내용이 아니다.
   return {
     id: newId('st'),
-    name: '스텝 1',
+    name: '',
     note: '',
     chairs,
     balls,

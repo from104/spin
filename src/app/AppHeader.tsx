@@ -40,11 +40,26 @@ export interface HeaderSearch {
   onChange(v: string): void;
   placeholder?: string;
 }
+/** §텍스트의 소속(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md) — 드릴 짧은 설명은 편집
+ *  화면 **헤더 인라인**(제목 옆/밑 한 줄, 클릭하면 편집)이다. `subtitle`(화면마다 고정
+ *  문구를 보여주기만 하는 필드 — present/library/settings 가 쓴다)과 굳이 겹치지 않는
+ *  이유: 저 필드들은 onChange 가 없는 **정적** 텍스트라, 같은 슬롯에 "편집 가능"이라는
+ *  새 뜻을 얹으면 그 화면들도 실수로 클릭-편집이 되거나(타입을 합치면) 조건 분기가
+ *  늘어난다. 별도 필드로 두면 description 을 안 주는 화면은 한 줄도 안 바뀐다. */
+export interface HeaderDescriptionField {
+  value: string;
+  /** 값이 비었을 때 보여줄 조용한 안내 — 예: '설명 추가'. */
+  placeholder: string;
+  maxLength: number;
+  onChange(v: string): void;
+}
 export interface HeaderConfig {
   title: string;
   subtitle?: string;
   /** 편집중 배지 등. */
   badge?: string;
+  /** 드릴 편집 헤더 전용 — 자유 전술판·다른 화면은 안 준다(헤더가 비어 있거나 subtitle 을 쓴다). */
+  description?: HeaderDescriptionField | null;
   primary?: HeaderPrimaryAction | null;
   presentButton?: { onAction(): void } | null;
   search?: HeaderSearch | null;
@@ -84,6 +99,10 @@ function headerConfigEqual(a: HeaderConfig, b: HeaderConfig): boolean {
     a.title === b.title &&
     a.subtitle === b.subtitle &&
     a.badge === b.badge &&
+    !!a.description === !!b.description &&
+    a.description?.value === b.description?.value &&
+    a.description?.placeholder === b.description?.placeholder &&
+    a.description?.maxLength === b.description?.maxLength &&
     !!a.primary === !!b.primary &&
     a.primary?.label === b.primary?.label &&
     a.primary?.disabled === b.primary?.disabled &&
@@ -117,6 +136,7 @@ export function useAppHeader(config: HeaderConfig): void {
     config.title,
     config.subtitle,
     config.badge,
+    config.description ? [config.description.value, config.description.placeholder, config.description.maxLength] : null,
     config.primary ? [config.primary.label, config.primary.disabled ?? false] : null,
     !!config.presentButton,
     config.search ? [config.search.value, config.search.placeholder ?? ''] : null,
@@ -130,6 +150,14 @@ export function useAppHeader(config: HeaderConfig): void {
       title: c.title,
       subtitle: c.subtitle,
       badge: c.badge,
+      description: c.description
+        ? {
+            value: c.description.value,
+            placeholder: c.description.placeholder,
+            maxLength: c.description.maxLength,
+            onChange: (v) => latest.current.description?.onChange(v),
+          }
+        : null,
       primary: c.primary ? { ...c.primary, onAction: () => latest.current.primary?.onAction() } : null,
       presentButton: c.presentButton ? { onAction: () => latest.current.presentButton?.onAction() } : null,
       search: c.search
@@ -247,6 +275,7 @@ export function AppHeader({
             {config.subtitle}
           </div>
         )}
+        {config.description && <HeaderDescriptionEditor cfg={config.description} />}
       </div>
 
       <div style={{ marginLeft: 'auto', flex: 'none', display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
@@ -308,6 +337,82 @@ export function AppHeader({
         {narrow && <AppNavAside />}
       </div>
     </header>
+  );
+}
+
+/** 드릴 설명 — 헤더 인라인 클릭 편집(§텍스트의 소속, 기현님 확정 2026-08-17).
+ *
+ *  두 모습이다: **표시**(버튼 — 값이 있으면 그 글, 비었으면 조용한 placeholder) ↔
+ *  **편집**(text input, 클릭하면 바뀐다). InspectorPanel 의 [제목]·[설명] 필드와 같은
+ *  커밋 관용구를 쓴다 — blur 에서 trim+slice 해서 넘긴다. 여기서 그대로 따르는 이유는
+ *  드릴 메타(description)가 판이 아니라 목록 카드 부제·이 헤더 정도만 읽는 값이라,
+ *  타이핑 중 계속 반영해야 할 소비자가 없어서다(적는 동안 따라올 것이 없다).
+ *
+ *  Enter = blur 위임(커밋), Esc = DOM 값을 되돌리고 표시 모드로 — 커밋하지 않는다. */
+function HeaderDescriptionEditor({ cfg }: { cfg: HeaderDescriptionField }) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <input
+        type="text"
+        autoFocus
+        defaultValue={cfg.value}
+        maxLength={cfg.maxLength}
+        placeholder={cfg.placeholder}
+        aria-label="드릴 설명"
+        onBlur={(e) => {
+          const v = e.target.value.trim().slice(0, cfg.maxLength);
+          if (v !== cfg.value) cfg.onChange(v);
+          setEditing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur(); // 위 onBlur 가 커밋한다 — 경로를 둘로 안 만든다.
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.currentTarget.value = cfg.value; // 커밋 없이 되돌린다.
+            setEditing(false);
+          }
+        }}
+        style={{
+          display: 'block',
+          marginTop: '0.125rem',
+          width: '100%',
+          maxWidth: 360,
+          fontSize: '0.71875rem',
+          color: 'var(--text)',
+          background: 'var(--elev)',
+          border: '1px solid var(--border-strong)',
+          borderRadius: '0.375rem',
+          padding: '0.1875rem 0.4375rem',
+        }}
+      />
+    );
+  }
+
+  const hasValue = cfg.value.length > 0;
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      style={{
+        display: 'block',
+        marginTop: '0.125rem',
+        maxWidth: '100%',
+        fontSize: '0.71875rem',
+        color: 'var(--faint-text)',
+        fontStyle: hasValue ? 'normal' : 'italic',
+        opacity: hasValue ? 1 : 0.75,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        textAlign: 'left',
+      }}
+    >
+      {hasValue ? cfg.value : cfg.placeholder}
+    </button>
   );
 }
 

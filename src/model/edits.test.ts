@@ -197,7 +197,8 @@ describe('duplicateStep vs addStepAfter — 화살표/메모 id 보존(D6 크로
     const viaAdd = addStepAfter(d, 0);
     expect(viaAdd.steps[1]!.arrows[0]!.id).toBe(arrowId);
     expect(viaAdd.steps[1]!.id).not.toBe(viaAdd.steps[0]!.id);
-    expect(viaAdd.steps[1]!.name).toBe('스텝 2');
+    // 과제⑦(2026-08-17): 자동 생성 이름은 폐기됐다 — 새 스텝은 항상 name:'' (§스텝 카드).
+    expect(viaAdd.steps[1]!.name).toBe('');
 
     const viaDup = duplicateStep(d, 0);
     expect(viaDup.steps[1]!.arrows[0]!.id).toBe(arrowId);

@@ -15,8 +15,6 @@ import { courtDefFor, COURT_SIZES, COURT_SIZE_LABELS, DEFAULT_COURT_SIZE, type C
 import { LIMITS } from '../../model/validate.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import { Button } from '../../ui/Button.tsx';
-import { IconPlus } from '../../ui/icons.tsx';
-import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { PlacementPresets } from './PlacementPresets.tsx';
 
 /** §6.4 코트 크기 3단 선택. **자유 전술판에서만** 내려온다(드릴은 코트가 불변이다 — 헤더의
@@ -56,9 +54,12 @@ export interface InspectorPanelProps {
    *     안 넘겼을 때 버튼이 소리 없이 사라지고, 그 상태로 전건 초록이 된다 — 필수로 두면
    *     tsc 가 대신 물어 준다. */
   onResetGoals(): void;
-  /** 스텝 섹션(목록·복제·삭제·추가)을 낼지. 자유 전술판은 1장짜리라 false 다(§6.8 재편) —
-   *  하단 트랜스포트만 감추고 여기를 놔두면 화면에 없는 2번째 스텝을 만들 수 있어, 판이
-   *  조용히 여러 장이 된다(눈으로는 알 수 없다). 기본값은 드릴 편집 쪽인 true.
+  /** 스텝 시간(초) 구역(StepDurationSection)을 낼지. 자유 전술판은 1장짜리라 false 다
+   *  (§6.8 재편) — 스텝 시간 override 는 여러 스텝을 오가는 드릴에서만 뜻이 있다.
+   *  기본값은 드릴 편집 쪽인 true.
+   *
+   *  ⚠️ 2026-08-17 재편(PLAN-STEP-EDITING.md §스텝 카드) — 옛 목록·복제·삭제는 이미
+   *  StepSidebar 가, 메모는 NotePanel 이 흡수해 이 깃발이 더는 그것들을 켜고 끄지 않는다.
    *
    *  실질적으로 **"드릴 편집기 모드인가"** 를 뜻하게 됐다 — 3.2 교육 필드도 이 깃발을 탄다.
    *  전술판의 드릴은 목록(drillRepo)이 아니라 localStorage 스냅샷(storage/board.ts)에만 살고
@@ -106,10 +107,10 @@ export function InspectorPanel({
     <aside aria-label="드릴 속성" style={{ background: 'var(--panel)', paddingTop: 17 }}>
       {showSteps && (
         <>
-          {/* ★ 맨 위다. 인스펙터를 여는 가장 잦은 이유가 "지금 이 스텝에 자막을 적는 것" 인데,
-              오버레이 시트는 세로 화면에서 min(340px, 62%) 라 아래 구역은 굴려야 닿는다(2.2).
-              제목·난이도는 드릴당 한 번 적고 마는 값이라 뒤로 물러난다. */}
-          <StepMetaSection step={step} stepIndex={stepIndex} stepCount={drill.steps.length} dispatch={dispatch} />
+          {/* ★ 맨 위다. 스텝 시간 override 가 드릴당 여러 번 스텝마다 바뀌는 값이라 뒤의
+              드릴 정보(제목·난이도, 드릴당 한 번)보다 앞선다. 이름·메모는 여기 없다(위
+              StepDurationSection 머리말 ⚠️ — 이름은 폐기, 메모는 NotePanel 로 이사). */}
+          <StepDurationSection step={step} stepIndex={stepIndex} stepCount={drill.steps.length} dispatch={dispatch} />
           <Divider />
         </>
       )}
@@ -132,12 +133,6 @@ export function InspectorPanel({
       <RosterSection drill={drill} step={step} dispatch={dispatch} pendingPlayerId={pendingPlayerId} onArmPlayer={onArmPlayer} onEraseIds={onEraseIds} />
       <Divider />
       <SelectionSection drill={drill} step={step} selection={selection} dispatch={dispatch} onEraseIds={onEraseIds} />
-      {showSteps && (
-        <>
-          <Divider />
-          <StepsSection drill={drill} stepIndex={stepIndex} dispatch={dispatch} />
-        </>
-      )}
     </aside>
   );
 }
@@ -211,25 +206,27 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-// ── 3.1 스텝 메타 입력 ────────────────────────────────────────────────────────────────
+// ── 3.1 스텝 시간(초) ────────────────────────────────────────────────────────────────
 //
-// 리듀서(STEP_META)·히스토리 병합(COALESCE_TYPES)은 처음부터 다 있었고 **dispatch 하는 곳만
-// 0** 이었다 — 그래서 시연이 코치에게 읽어 주는 문장(PresentRunner.tsx:497-501 이 step.name 을
-// 크게, step.note 를 문단으로 읽는다)을 앱 안에서 만들 방법이 없었다. 여기가 그 입구다.
+// 리듀서(STEP_META)·히스토리 병합(COALESCE_TYPES)은 이 필드가 생기기 전부터 다 있었다 —
+// durationMs override 는 처음부터 STEP_META.patch 의 정의역이었고 이 입력이 그 유일한 창구다.
 //
-// ★ 세 입력 모두 **비제어(defaultValue) + `key={step.id}`**.
-//   제어로 바꾸면 글자마다 React 가 DOM value 를 되쓰면서 한글 IME 조합에 손을 댄다 — 입에 문
-//   젓가락으로 치는 사용자에게 조합이 끊기는 것은 그대로 오타다. 비제어의 대가가 *"스텝을
-//   넘겨도 옛 스텝 글자가 남는다"* 인데, key 가 스텝마다 요소를 갈아 끼워 그것을 막는다.
-//   (같은 함정을 :248 예상 시간 입력이 `key={drill.durationMin}` 으로 이미 알고 있다.)
-//   되돌리기로 값이 바뀐 경우는 이 패널의 다른 비제어 입력들과 같다 — 화면에 옛 글자가 남는다.
-//   key 를 epoch 로 바꾸면 해결되지만 그러면 판 조작마다 입력이 재마운트돼 포커스가 날아간다.
+// ⚠️ **2026-08-17 재편(PLAN-STEP-EDITING.md §스텝 카드 "스텝 정보 최소화", 기현님 확정) —
+// 이름·메모 입력이 여기서 빠졌다.** 옛 이름은 옛 StepMetaSection 이 이 자리에서 함께
+// 편집했지만("스텝 이름"·"스텝 메모" 두 필드), 계획서가 스텝 카드에서 이름을 완전히
+// 폐기하고(카드는 번호+썸네일만) 메모는 보드 아래 접이식 NotePanel(PPT 발표자 노트 자리)로
+// 옮기면서 이 구역에는 **시간 override 하나만** 남았다. 이름 입력 UI 는 이 재편으로 완전히
+// 없앤다 — `DrillStep.name` 필드 자체는 모델에 남고(다음 과제 ⑦이 note 로 병합해 정리한다),
+// UI 만 이 재편이 안 그린다.
 //
-// ★ dispatch 는 blur 가 아니라 **change** 다(이 패널의 다른 입력과 다르다). 두 이유:
-//   (1) 적는 동안 하단 칩 라벨·스텝 목록이 따라 움직여야 "무엇을 적고 있는지"가 판에서 보인다.
-//   (2) STEP_META 는 COALESCE_TYPES 라 700ms/5s 창 안의 연속 타이핑이 되돌리기 **한 칸**으로
-//       합쳐진다(history.ts coalesceKeyOf → `STEP_META:${id}`). 글자마다 undo 가 쌓이지 않는다.
-function StepMetaSection({
+// ★ 비제어(defaultValue) + `key={step.id}` — 이유는 NotePanel.tsx 머리말과 같다(제어로
+//   바꾸면 글자마다 React 가 DOM value 를 되쓰며 한글 IME 조합을 건드린다). 스텝 시간은
+//   숫자 입력이라 IME 위험은 없지만, 스텝을 넘겨도 옛 값이 안 남으려면 여전히 key 갈이가
+//   필요하다(:367 예상 시간 입력이 `key={drill.durationMin}` 으로 같은 함정을 이미 안다).
+//
+// ★ dispatch 는 **change** 다. STEP_META 가 COALESCE_TYPES 라 700ms/5s 창 안의 연속 타이핑이
+//   되돌리기 한 칸으로 합쳐진다(history.ts coalesceKeyOf → `STEP_META:${id}`).
+function StepDurationSection({
   step,
   stepIndex,
   stepCount,
@@ -240,7 +237,6 @@ function StepMetaSection({
   stepCount: number;
   dispatch: Dispatch<EditorAction>;
 }) {
-  const patch = (p: { name?: string; note?: string; durationMs?: number }) => dispatch({ type: 'STEP_META', id: step.id, patch: p });
   // 스텝 시간은 모델이 ms, 사람이 읽는 단위는 초다. 비워 두면 재생 속도 기본값을 쓴다
   // (model/playback.ts effectiveStepMs 의 `?? baseMs`).
   const sec = step.durationMs !== undefined ? String(step.durationMs / 1000) : '';
@@ -249,62 +245,39 @@ function StepMetaSection({
       <div style={SECTION_LABEL}>
         스텝 {stepIndex + 1} / {stepCount}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <Field label="스텝 이름">
-          <input
-            key={step.id}
-            type="text"
-            defaultValue={step.name}
-            maxLength={LIMITS.stepNameLen}
-            placeholder="예: 측면 전개"
-            onChange={(e) => patch({ name: e.target.value })}
-            style={inputStyle}
-          />
-        </Field>
-        <Field label="스텝 메모">
-          <textarea
-            key={step.id}
-            defaultValue={step.note}
-            maxLength={LIMITS.noteLen}
-            rows={3}
-            placeholder="이 스텝에서 코치가 말할 문장"
-            onChange={(e) => patch({ note: e.target.value })}
-            style={{ ...inputStyle, minHeight: 72, padding: '0.5rem 0.6875rem', resize: 'vertical' }}
-          />
-        </Field>
-        <div style={{ fontSize: '0.6875rem', color: 'var(--faint-text)', lineHeight: 1.45, marginTop: -4 }}>
-          시연 화면이 이름과 메모를 코치에게 그대로 읽어 줍니다.
-        </div>
-        <Field label="스텝 시간(초)">
-          <input
-            key={step.id}
-            type="number"
-            inputMode="decimal"
-            min={STEP_SEC_MIN}
-            max={STEP_SEC_MAX}
-            step={0.5}
-            defaultValue={sec}
-            placeholder="기본"
-            title="비워 두면 재생 속도의 기본 간격을 씁니다."
-            onChange={(e) => {
-              const raw = e.target.value.trim();
-              if (raw === '') {
-                patch({ durationMs: undefined }); // 지우면 override 해제 — 기본 간격으로 돌아간다
-                return;
-              }
-              const v = Number(raw);
-              if (!Number.isFinite(v) || v <= 0) return; // 타이핑 도중의 '-' · '.' 는 아직 값이 아니다
-              patch({ durationMs: Math.round(Math.min(Math.max(v, STEP_SEC_MIN), STEP_SEC_MAX) * 1000) });
-            }}
-            // 상한을 넘겨 적었으면 손을 뗄 때 실제 저장된 값으로 되돌려 보여 준다. 비제어라
-            // 화면과 모델이 갈라질 수 있는 유일한 자리가 여기(클램프)다.
-            onBlur={(e) => {
-              e.target.value = step.durationMs !== undefined ? String(step.durationMs / 1000) : '';
-            }}
-            style={inputStyle}
-          />
-        </Field>
-      </div>
+      <Field label="스텝 시간(초)">
+        <input
+          key={step.id}
+          type="number"
+          inputMode="decimal"
+          min={STEP_SEC_MIN}
+          max={STEP_SEC_MAX}
+          step={0.5}
+          defaultValue={sec}
+          placeholder="기본"
+          title="비워 두면 재생 속도의 기본 간격을 씁니다."
+          onChange={(e) => {
+            const raw = e.target.value.trim();
+            if (raw === '') {
+              dispatch({ type: 'STEP_META', id: step.id, patch: { durationMs: undefined } }); // 지우면 override 해제
+              return;
+            }
+            const v = Number(raw);
+            if (!Number.isFinite(v) || v <= 0) return; // 타이핑 도중의 '-' · '.' 는 아직 값이 아니다
+            dispatch({
+              type: 'STEP_META',
+              id: step.id,
+              patch: { durationMs: Math.round(Math.min(Math.max(v, STEP_SEC_MIN), STEP_SEC_MAX) * 1000) },
+            });
+          }}
+          // 상한을 넘겨 적었으면 손을 뗄 때 실제 저장된 값으로 되돌려 보여 준다. 비제어라
+          // 화면과 모델이 갈라질 수 있는 유일한 자리가 여기(클램프)다.
+          onBlur={(e) => {
+            e.target.value = step.durationMs !== undefined ? String(step.durationMs / 1000) : '';
+          }}
+          style={inputStyle}
+        />
+      </Field>
     </div>
   );
 }
@@ -466,10 +439,10 @@ function GoalResetField({ drill, onResetGoals }: { drill: Drill; onResetGoals():
 // `durationMin` 하나로는 *"3회 × 2세트"* 를 표현할 수 없고, 4차 PDF 세션 계획서의 실용성이
 // 정확히 그 지점에서 갈린다 — 그래서 3.2 와 3.3 이 한 스키마 상승(v1→v2)에 함께 탔다.
 //
-// ★ 커밋 시점이 위 StepMetaSection 과 **반대로 blur** 다. 스텝 메타는 적는 동안 칩 라벨이
-//   따라와야 해서 change 였지만, 이 값들을 읽는 것은 판이 아니라 계획서다 — 적는 동안 따라올
-//   것이 없으므로 되돌리기 한 칸이 "한 번 고쳐 쓴 것" 과 같아지는 blur 가 맞고, 제목 · 예상
-//   시간과도 같은 관용구가 된다.
+// ★ 커밋 시점이 위 StepDurationSection 과 **반대로 blur** 다. 스텝 시간은 적는 동안 재생
+//   간격이 곧바로 판에 반영돼야 해서 change 였지만, 이 값들을 읽는 것은 판이 아니라
+//   계획서다 — 적는 동안 따라올 것이 없으므로 되돌리기 한 칸이 "한 번 고쳐 쓴 것" 과
+//   같아지는 blur 가 맞고, 제목 · 예상 시간과도 같은 관용구가 된다.
 //
 // ★ 비제어(defaultValue) + `key={그 필드의 현재 값}`. 제어로 가면 글자마다 React 가 DOM value
 //   를 되쓰며 한글 IME 조합을 건드린다(3.1 과 같은 이유). key 는 **모델이 스스로 바뀐** 경우
@@ -952,118 +925,4 @@ function SelectionSection({
   }
 
   return null; // 휠체어는 위 선수 명단 섹션에서 편집한다.
-}
-
-function StepsSection({ drill, stepIndex, dispatch }: { drill: Drill; stepIndex: number; dispatch: Dispatch<EditorAction> }) {
-  return (
-    <div style={{ padding: '0 17px 20px' }}>
-      <div style={SECTION_LABEL}>스텝</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {drill.steps.map((s, i) => {
-          const active = s.id === (drill.steps[stepIndex]?.id ?? drill.steps[0]!.id);
-          return (
-            <div
-              key={s.id}
-              style={{
-                border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                borderRadius: 11,
-                padding: '9px 10px',
-                background: active ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
-                display: 'flex',
-                gap: 8,
-                alignItems: 'flex-start',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => dispatch({ type: 'STEP_SELECT', id: s.id })}
-                style={{ flex: 1, minWidth: 0, display: 'flex', gap: 10, alignItems: 'flex-start', textAlign: 'left' }}
-              >
-                <span
-                  aria-hidden
-                  style={{
-                    flex: 'none',
-                    width: 22,
-                    height: 22,
-                    borderRadius: 7,
-                    background: active ? 'var(--accent)' : 'var(--elev)',
-                    color: active ? 'var(--accent-ink-strong)' : 'var(--muted)',
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {i + 1}
-                </span>
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: '0.78125rem', fontWeight: 700, marginBottom: 2 }}>{s.name}</span>
-                  {s.note && <span style={{ display: 'block', fontSize: '0.71875rem', color: 'var(--muted)', lineHeight: 1.45 }}>{s.note}</span>}
-                </span>
-              </button>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <StepIconButton label="위로 이동" disabled={i === 0} onClick={() => dispatch({ type: 'STEP_REORDER', id: s.id, toIndex: i - 1 })}>
-                  ↑
-                </StepIconButton>
-                <StepIconButton label="아래로 이동" disabled={i === drill.steps.length - 1} onClick={() => dispatch({ type: 'STEP_REORDER', id: s.id, toIndex: i + 1 })}>
-                  ↓
-                </StepIconButton>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <StepIconButton label="스텝 복제" onClick={() => dispatch({ type: 'STEP_DUPLICATE', id: s.id })}>
-                  ⧉
-                </StepIconButton>
-                <StepIconButton
-                  label="스텝 삭제"
-                  disabled={drill.steps.length <= 1}
-                  onClick={() => {
-                    dispatch({ type: 'STEP_DELETE', id: s.id });
-                    liveRegion.say(`스텝 ${i + 1} 삭제`);
-                  }}
-                >
-                  ×
-                </StepIconButton>
-              </div>
-            </div>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => dispatch({ type: 'STEP_ADD', afterIndex: stepIndex })}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            // 44 리터럴이면 큰 터치 타깃(--hit: 44→56)을 켜도 이 버튼만 안 커진다 (2026-08-14 선행 수리).
-            minHeight: 'var(--hit)',
-            border: '1px dashed var(--border-strong)',
-            borderRadius: 11,
-            color: 'var(--faint-text)',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-          }}
-        >
-          <IconPlus size={14} />
-          스텝 추가
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function StepIconButton({ children, label, onClick, disabled }: { children: string; label: string; onClick(): void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      style={{ width: 26, height: 22, borderRadius: 6, fontSize: '0.75rem', color: 'var(--muted)', opacity: disabled ? 0.35 : 1 }}
-    >
-      {children}
-    </button>
-  );
 }
