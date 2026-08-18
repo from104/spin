@@ -73,10 +73,10 @@ vi.mock('../features/library/LibraryScreen.tsx', async () => {
 });
 
 vi.mock('../features/sessions/SessionsScreen.tsx', () => {
-  // C5 — 세션 1급 화면. 드로어 대상은 URL(?open=)에서 파생된 prop 으로 내려온다.
-  function SessionsScreen({ nav, openSessionId }: { nav: HomeNav; openSessionId?: SessionId }) {
+  // C5/C6 — 세션 목록 화면. 편집 대상은 별도 화면(SessionEditorScreen)이다.
+  function SessionsScreen({ nav }: { nav: HomeNav }) {
     return (
-      <div data-testid="screen-sessions" data-open-session={openSessionId ?? ''}>
+      <div data-testid="screen-sessions">
         <button type="button" onClick={() => nav.presentSession(FIXTURE.sessionId as SessionId)}>
           세션 시연(세션 화면)
         </button>
@@ -84,6 +84,14 @@ vi.mock('../features/sessions/SessionsScreen.tsx', () => {
     );
   }
   return { SessionsScreen };
+});
+
+vi.mock('../features/sessions/SessionEditorScreen.tsx', () => {
+  // C6 — 세션 전용 편집 화면(/sessions/:id). 드릴의 EditorScreen 과 같은 지위.
+  function SessionEditorScreen({ sessionId }: { nav: HomeNav; sessionId: SessionId }) {
+    return <div data-testid="screen-session-editor" data-session-id={sessionId} />;
+  }
+  return { SessionEditorScreen };
 });
 
 vi.mock('../features/board/BoardScreen.tsx', async () => {
@@ -198,7 +206,7 @@ async function renderShell() {
   return utils;
 }
 
-const SCREEN_TESTIDS = ['screen-board', 'screen-editor', 'screen-library', 'screen-sessions', 'screen-present', 'screen-settings'] as const;
+const SCREEN_TESTIDS = ['screen-board', 'screen-editor', 'screen-library', 'screen-sessions', 'screen-session-editor', 'screen-present', 'screen-settings'] as const;
 
 /** renderScreen 은 switch 라 한 번에 하나만 나와야 한다 — "A 가 떴다" 뿐 아니라 "나머지는 없다"
  *  까지 봐야 스위치가 정말 갈렸는지 알 수 있다. */
@@ -295,16 +303,15 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     expectOnlyScreen('screen-board');
   });
 
-  it('세션 열기가 세션 화면으로 가고 드로어 대상(?open=)이 prop 으로 실린다 (C5)', async () => {
+  it('세션 열기가 전용 편집 화면(/sessions/:id)으로 간다 (C6 — 드릴의 목록→편집 꼴)', async () => {
     await renderShell();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
-    // nav.openSession → /sessions?open=<id> — 세션은 이제 1급 화면이다.
     await user.click(screen.getByRole('button', { name: '세션 열기' }));
-    expectOnlyScreen('screen-sessions');
-    expect(`${router.state.location.pathname}${router.state.location.search}`).toBe(`/sessions?open=${FIXTURE.sessionId}`);
-    expect(screen.getByTestId('screen-sessions')).toHaveAttribute('data-open-session', FIXTURE.sessionId);
+    expectOnlyScreen('screen-session-editor');
+    expect(router.state.location.pathname).toBe(`/sessions/${FIXTURE.sessionId}`);
+    expect(screen.getByTestId('screen-session-editor')).toHaveAttribute('data-session-id', FIXTURE.sessionId);
     expectRailActive('세션');
   });
 
@@ -327,17 +334,18 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     expectRailActive('드릴');
   });
 
-  it('드로어 대상은 주소마다 새로 정해진다 — 앞서 연 드로어가 뒤 주소로 따라오지 않는다', async () => {
+  it('편집 대상은 주소가 정한다 — 레일 [세션]은 언제나 목록이다', async () => {
     await renderShell();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '세션 열기' }));
-    expect(screen.getByTestId('screen-sessions')).toHaveAttribute('data-open-session', FIXTURE.sessionId);
+    expectOnlyScreen('screen-session-editor');
 
     await user.click(screen.getByRole('button', { name: '보드' }));
     await user.click(screen.getByRole('button', { name: '세션' }));
-    expect(screen.getByTestId('screen-sessions')).toHaveAttribute('data-open-session', '');
+    expectOnlyScreen('screen-sessions');
+    expect(router.state.location.pathname).toBe('/sessions');
   });
 });
 

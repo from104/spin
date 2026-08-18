@@ -11,7 +11,8 @@
 // 경로 표 (C4 기초 + C5 세션 1급 합류):
 //   /                      전술판 (자유 보드)          screen 'board' + {kind:'board'}
 //   /drills                드릴 목록                    screen 'drills'
-//   /sessions              세션 목록                    screen 'sessions' (+?open=id → 드로어)
+//   /sessions              세션 목록                    screen 'sessions'
+//   /sessions/:sessionId   세션 편집 (C6)               screen 'sessions' + {kind:'session'}
 //   /drills/:drillId       드릴 편집                    screen 'board' + {kind:'drill'}
 //   /present/drill/:id     드릴 시연                    screen 'present'
 //   /present/session/:id   세션 시연                    screen 'present'
@@ -37,11 +38,12 @@ export function pathFor(screen: Screen, target?: NavTarget): string {
       return target?.kind === 'drill' ? `/drills/${target.id}` : '/';
     case 'drills':
       // C5 — 세션은 1급 화면이 됐다. 옛 "드릴 화면의 세션 탭/드로어" 대상은 세션 화면으로 접는다.
-      if (target?.kind === 'session') return `/sessions?open=${target.id}`;
+      if (target?.kind === 'session') return `/sessions/${target.id}`;
       if (target?.kind === 'tab' && target.tab === 'sessions') return '/sessions';
       return '/drills';
     case 'sessions':
-      return target?.kind === 'session' ? `/sessions?open=${target.id}` : '/sessions';
+      // C6 — 세션 대상 = 전용 편집 화면(드릴의 /drills/:id 와 같은 꼴. 드로어 시절의 ?open= 은퇴)
+      return target?.kind === 'session' ? `/sessions/${target.id}` : '/sessions';
     case 'present':
       if (target?.kind === 'drill') return `/present/drill/${target.id}`;
       if (target?.kind === 'session') return `/present/session/${target.id}`;
@@ -67,7 +69,8 @@ export function parsePath(pathname: string, search: string = ''): ParsedRoute {
       return { screen: 'drills' };
     }
     case 'sessions': {
-      const open = params.get('open');
+      if (seg.length >= 2 && seg[1]!.length > 0) return { screen: 'sessions', target: { kind: 'session', id: seg[1]! } };
+      const open = params.get('open'); // C5 한 커밋 동안의 드로어 주소 꼴 관용
       if (open) return { screen: 'sessions', target: { kind: 'session', id: open } };
       return { screen: 'sessions' };
     }

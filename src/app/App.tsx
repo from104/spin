@@ -52,7 +52,7 @@ export function ThemeEffects() {
  *  **왜 LibraryProvider 안이 아니라 여기인가**: 저장소를 쥔 쪽은 LibraryProvider 지만, 거기에
  *  넣으면 그 Provider 가 `SettingsProvider` **없이는 못 서는 물건**이 된다. 지금 그것을 단독으로
  *  마운트하는 테스트가 셋 있고(`LibraryProvider.test.tsx` · `LibraryScreen.test.tsx` ·
- *  `SessionDrawer.test.tsx`), 그 중 둘은 `screen-home-library` 소유다. app-shell 은 의존이 전부
+ *  `SessionsScreen.test.tsx`), 그 중 둘은 목록 화면 소유다. app-shell 은 의존이 전부
  *  열려 있는 유일한 모듈이라(§8) 두 Provider 를 함께 보는 조립은 원래 이쪽 몫이다.
  *
  *  **순서가 계약이다**: 심기 → 도장. 도장을 먼저 찍으면 심기가 실패한 기기에서 온보딩이 영영

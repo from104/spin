@@ -1,5 +1,5 @@
-// C5 — 세션 1급 화면. 옛 LibraryScreen '세션 탭' 스위트의 후계다: 빈 상태·시연·드로어(URL
-// 파생)·'다음 세션' 스트립을 화면 승격 후의 계약으로 다시 못박는다.
+// C5/C6 — 세션 1급 화면(목록). 옛 LibraryScreen '세션 탭' 스위트의 후계다: 빈 상태·시연·
+// '다음 세션' 스트립을 화면 승격 후의 계약으로 다시 못박는다. 편집은 SessionEditorScreen.test.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -71,17 +71,10 @@ describe('SessionsScreen', () => {
       .find((b) => !/시연|더보기|작업/.test(b.getAttribute('aria-label') ?? ''))!;
     await userEvent.setup().click(rowButton);
     expect(nav.openSession).toHaveBeenCalledWith(s.id);
-    // 로컬 state 로 드로어를 직접 열지 않는다(주소가 진실) — nav 목이라 dialog 는 안 뜬다.
+    // C6 — 드로어는 은퇴했다. 열기는 언제나 주소 이동(→ SessionEditorScreen)이다.
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('openSessionId(주소의 ?open=)로 열면 드로어가 자동으로 열리고 제목에 포커스된다', async () => {
-    const s = await createSession({ title: '자동 오픈 세션' });
-    const nav = makeNav();
-    render(<SessionsScreen nav={nav} openSessionId={s.id} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByRole('heading', { name: '자동 오픈 세션' })).toHaveFocus());
-  });
 
   it("머리에 '다음 세션' 스트립이 서고, 가장 가까운 하나만 싣는다 (계획서 2.8)", async () => {
     const soon = Date.now() + 3600_000;

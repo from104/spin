@@ -9,9 +9,12 @@ import {
   addSessionItem,
   defaultPhase,
   flattenSessionItems,
+  movePhase,
   moveSessionItemFlat,
   phaseLabel,
+  removePhase,
   removeSessionItem,
+  updatePhase,
   updateSessionItem,
   type SessionItem,
   type TrainingSession,
@@ -121,6 +124,43 @@ describe('구획 인지 편집 헬퍼', () => {
     expect(flattenSessionItems(cross).map((i) => i.id)).toEqual(['it_2', 'it_3', 'it_1', 'it_4']);
     // 범위 밖은 동일 참조.
     expect(moveSessionItemFlat(s, 0, 9)).toBe(s);
+  });
+});
+
+describe('구획 구조 헬퍼 (C6 — 세션 편집 화면이 쓰는 그 함수들)', () => {
+  const base = mkSession([
+    { id: 'ph_a' as never, kind: 'warm-up', items: [mkItem(1)] },
+    { id: 'ph_b' as never, kind: 'tactical', items: [mkItem(2)] },
+  ]);
+
+  it('updatePhase — kind·title·plannedMin 패치, undefined 는 키를 지운다', () => {
+    const titled = updatePhase(base, 'ph_a' as never, { title: '몸풀기', plannedMin: 10 });
+    expect(titled.phases[0]!.title).toBe('몸풀기');
+    expect(titled.phases[0]!.plannedMin).toBe(10);
+    const cleared = updatePhase(titled, 'ph_a' as never, { title: undefined, plannedMin: undefined });
+    expect('title' in cleared.phases[0]!).toBe(false);
+    expect('plannedMin' in cleared.phases[0]!).toBe(false);
+  });
+
+  it('movePhase — ±1 이동, 범위 밖은 동일 참조', () => {
+    const moved = movePhase(base, 'ph_b' as never, -1);
+    expect(moved.phases.map((p) => p.id)).toEqual(['ph_b', 'ph_a']);
+    expect(movePhase(base, 'ph_a' as never, -1)).toBe(base);
+    expect(movePhase(base, 'ph_b' as never, 1)).toBe(base);
+  });
+
+  it('removePhase — 항목은 앞 구획에 병합되고, 유일 구획에 항목이 있으면 거부한다', () => {
+    const removed = removePhase(base, 'ph_b' as never);
+    expect(removed.phases).toHaveLength(1);
+    expect(removed.phases[0]!.items.map((i) => i.id)).toEqual(['it_1', 'it_2']);
+    // 첫 구획을 지우면 뒤 구획이 물려받는다.
+    const removedFirst = removePhase(base, 'ph_a' as never);
+    expect(removedFirst.phases[0]!.items.map((i) => i.id)).toEqual(['it_2', 'it_1']);
+    // 유일 구획 + 항목 → 동일 참조(거부). 항목이 없으면 빈 phases.
+    const solo = mkSession([{ id: 'ph_x' as never, kind: 'custom', items: [mkItem(9)] }]);
+    expect(removePhase(solo, 'ph_x' as never)).toBe(solo);
+    const soloEmpty = mkSession([{ id: 'ph_y' as never, kind: 'custom', items: [] }]);
+    expect(removePhase(soloEmpty, 'ph_y' as never).phases).toEqual([]);
   });
 });
 

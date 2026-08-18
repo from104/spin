@@ -163,6 +163,54 @@ export function moveSessionItemFlat(s: TrainingSession, from: number, to: number
   return { ...s, phases };
 }
 
+/** 구획 속성 패치(kind·title·plannedMin). title/plannedMin 을 undefined 로 주면 키를 지운다 —
+ *  "빈 문자열 title" 같은 반쯤 지운 값이 저장본에 남는 것을 막는다(omitKey 교리). */
+export function updatePhase(
+  s: TrainingSession,
+  phaseId: PhaseId,
+  patch: Partial<Pick<SessionPhase, 'kind' | 'title' | 'plannedMin'>>,
+): TrainingSession {
+  return {
+    ...s,
+    phases: s.phases.map((p) => {
+      if (p.id !== phaseId) return p;
+      const next: SessionPhase = { ...p, ...patch };
+      if (patch.title === undefined && 'title' in patch) delete next.title;
+      if (patch.plannedMin === undefined && 'plannedMin' in patch) delete next.plannedMin;
+      return next;
+    }),
+  };
+}
+
+/** 구획 순서 이동(±1). 범위 밖은 동일 참조. */
+export function movePhase(s: TrainingSession, phaseId: PhaseId, dir: -1 | 1): TrainingSession {
+  const i = s.phases.findIndex((p) => p.id === phaseId);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= s.phases.length) return s;
+  const phases = s.phases.slice();
+  const [moved] = phases.splice(i, 1);
+  phases.splice(j, 0, moved!);
+  return { ...s, phases };
+}
+
+/** 구획 삭제 — **항목은 버리지 않는다.** 앞 구획(없으면 뒤 구획)에 병합한다. 유일한 구획인데
+ *  항목이 있으면 동일 참조를 돌려 거부한다(구획을 지우려고 편성을 잃게 두지 않는다 —
+ *  validate 의 "넘친 구획 병합" 과 같은 이중 손실 방지 결). */
+export function removePhase(s: TrainingSession, phaseId: PhaseId): TrainingSession {
+  const i = s.phases.findIndex((p) => p.id === phaseId);
+  if (i < 0) return s;
+  const victim = s.phases[i]!;
+  if (s.phases.length === 1) {
+    return victim.items.length === 0 ? { ...s, phases: [] } : s;
+  }
+  const phases = s.phases.filter((p) => p.id !== phaseId);
+  if (victim.items.length > 0) {
+    const heir = Math.max(0, i - 1); // 앞 구획 우선 — 시간 흐름상 "그 앞 활동에 붙는" 이 자연스럽다
+    phases[heir] = { ...phases[heir]!, items: [...phases[heir]!.items, ...victim.items] };
+  }
+  return { ...s, phases };
+}
+
 export function pickNextSession(list: TrainingSession[], now: number = Date.now()): TrainingSession | null {
   let best: TrainingSession | null = null;
   for (const s of list) {

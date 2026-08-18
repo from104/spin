@@ -44,6 +44,7 @@ import type { Screen } from './screens.ts';
 // 가 타입체크를 막는다(정상 — 통합 시점에 다시 확인한다). 최종 보고서에 명시.
 import { LibraryScreen } from '../features/library/LibraryScreen.tsx';
 import { SessionsScreen } from '../features/sessions/SessionsScreen.tsx';
+import { SessionEditorScreen } from '../features/sessions/SessionEditorScreen.tsx';
 import { BoardScreen } from '../features/board/BoardScreen.tsx';
 import { EditorScreen } from '../features/editor/EditorScreen.tsx';
 import { PresentScreen } from '../features/present/PresentScreen.tsx';
@@ -76,10 +77,9 @@ function presentFromNav(screen: Screen, target: NavTarget | undefined): PresentT
   return null;
 }
 
-/** 세션 화면의 드로어 대상(C5) — `/sessions?open=<id>` 에서 파생한다. 옛 libraryIntent
- *  (탭·드로어)는 세션 탭이 1급 화면으로 나가면서 이 한 값으로 줄었다 — "뒤로가기는 정확히
- *  이전 상태로"(계획서 2.9)는 URL 이 진실이라 공짜로 성립한다. */
-function openSessionFromNav(screen: Screen, target: NavTarget | undefined): SessionId | undefined {
+/** 세션 화면의 편집 대상(C6) — `/sessions/:id` 에서 파생한다. 드릴의 StageTarget 과 같은 꼴:
+ *  같은 레일 항목(세션) 아래 목록/편집이 대상 유무로 갈린다. */
+function sessionEditFromNav(screen: Screen, target: NavTarget | undefined): SessionId | undefined {
   if (screen !== 'sessions' || target?.kind !== 'session') return undefined;
   return target.id as SessionId;
 }
@@ -165,7 +165,7 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
   }
 }
 
-function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, openSessionId: SessionId | undefined) {
+function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionEditId: SessionId | undefined) {
   switch (screen) {
     case 'board':
       // 같은 자리, 같은 EditorWorkspace — board 냐 drill 이냐만 다르다(§6.8 재편).
@@ -173,7 +173,8 @@ function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, openSess
     case 'drills':
       return <LibraryScreen nav={nav} />;
     case 'sessions':
-      return <SessionsScreen nav={nav} openSessionId={openSessionId} />;
+      // C6 — 드릴 자리와 같은 꼴: 대상이 있으면 전용 편집 화면, 없으면 목록.
+      return sessionEditId ? <SessionEditorScreen nav={nav} sessionId={sessionEditId} /> : <SessionsScreen nav={nav} />;
     case 'present':
       return <PresentScreen />;
     case 'settings':
@@ -210,7 +211,7 @@ export function AppShell() {
   // 이중 장부 문제가 원천적으로 없다.
   const stageTarget = useMemo(() => stageFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const presentTarget = useMemo(() => presentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
-  const openSessionId = openSessionFromNav(nav.screen, nav.target);
+  const sessionEditId = sessionEditFromNav(nav.screen, nav.target);
   const homeNav = useHomeNavAdapter(nav);
 
   // 레일·헤더 세그먼트의 활성 항목. **여기서 한 번만** 계산해 둘에 똑같이 내려보낸다
@@ -276,7 +277,7 @@ export function AppShell() {
               {!narrow && <AppRail active={activeRail} />}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
-                {renderScreen(nav.screen, stageTarget, homeNav, openSessionId)}
+                {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId)}
               </div>
             </div>
             <ToastHost toasts={toasts} onDismiss={dismiss} />
