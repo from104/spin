@@ -134,6 +134,32 @@ describe('LibraryScreen — 드릴 탭', () => {
     expect(within(within(panel()).getByRole('region', { name: '고급 드릴' })).getByText('고급 슈팅')).toBeInTheDocument();
   });
 
+  it('경기 상황 필터·정렬 UI 가 동작한다 (C10 — 정렬은 저장소 구현의 UI 노출)', async () => {
+    const a = await idbDrillRepo.createDrill({ courtMode: 'full', title: '나중 드릴' });
+    await idbDrillRepo.putDrill({ ...a, situation: 'kick-in' });
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '가나다 드릴' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('나중 드릴')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    // 상황 필터 — 킥인만 남는다.
+    await user.selectOptions(screen.getByLabelText('경기 상황 필터'), 'kick-in');
+    await waitFor(() => expect(within(panel()).queryByText('가나다 드릴')).not.toBeInTheDocument());
+    expect(within(panel()).getByText('나중 드릴')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('경기 상황 필터'), '');
+
+    // 정렬 — 이름순이면 '가나다' 가 먼저 온다(기본 최근 수정순에서는 '나중' 이 먼저였다).
+    await waitFor(() => expect(within(panel()).getByText('가나다 드릴')).toBeInTheDocument());
+    await user.selectOptions(screen.getByLabelText('정렬'), 'title');
+    await waitFor(() => {
+      const titles = within(panel())
+        .getAllByText(/드릴$/)
+        .map((el) => el.textContent);
+      expect(titles.indexOf('가나다 드릴')).toBeLessThan(titles.indexOf('나중 드릴'));
+    });
+  });
+
   it('유형 필터로 목록을 좁힌다 (v8 — 옛 카테고리 필터의 후계)', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '기술 드릴', drillType: 'technical' });
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '전술 드릴', drillType: 'tactical' });

@@ -1347,6 +1347,10 @@ upgrade(db, oldVersion) {
 }
 ```
 
+**탐색(C10)**: 목록 화면은 유형(Segmented)·경기 상황(select)·정렬(select — 최근 수정/만든/
+이름순, 이름순만 오름차순) 셋을 노출한다. 전부 `DrillQuery` 로 내려가고 §4.3 전략(요약 전량
+읽고 메모리 필터) 그대로다. `useKnownTags.ts`(호출자 0 이던 죽은 코드)는 C10 에서 삭제됐다.
+
 **인덱스를 최소로 유지한다.** `drills.by_category` / `by_tag` / `drillSummaries.by_category` 는
 §4.3 의 조회 전략(요약 전량 읽고 메모리 필터)상 **아무도 쓰지 않으면서** 매 `put` 마다 쓰기
 비용과 쿼터를 소모하고, 나중에 지우려면 `DB_VERSION` 을 올려야 한다. 넣지 않는다.

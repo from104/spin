@@ -18,12 +18,16 @@ export interface LibraryState {
   drills: DrillSummary[];
   sessions: ResolvedSession[];
   drillType: string | null; // v8 유형 필터 (옛 category 필터의 후계)
+  situation: string | null; // v8 경기 상황 필터 (C10)
+  sort: 'updatedAt' | 'createdAt' | 'title'; // C10 — 저장소에 있던 DrillQuery.sort 의 UI 노출
   search: string;
   error: string | null;
 }
 export interface LibraryActions {
   refresh(): Promise<void>;
   setDrillType(t: string | null): void;
+  setSituation(s: string | null): void;
+  setSort(s: 'updatedAt' | 'createdAt' | 'title'): void;
   setSearch(q: string): void;
   createDrill(init: CreateDrillInit): Promise<Drill>;
   duplicateDrill(id: DrillId, opts?: { title?: string }): Promise<Drill>;
@@ -46,6 +50,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [drills, setDrills] = useState<DrillSummary[]>([]);
   const [sessions, setSessions] = useState<ResolvedSession[]>([]);
   const [drillType, setDrillType] = useState<string | null>(null);
+  const [situation, setSituation] = useState<string | null>(null);
+  const [sort, setSort] = useState<'updatedAt' | 'createdAt' | 'title'>('updatedAt');
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +72,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       // 거부시켜 아무도 안 받는 거부가 된다(2026-08-17 실측: vitest 가 "false positive 위험"
       // 으로 경고하던 것의 정체다). 화면이 사라진 뒤의 조회 결과는 버려도 되는 값이다.
       const repo = await ensureRepo();
-      const q = { drillType: drillType ?? undefined, search: search || undefined };
+      // 이름순만 오름차순 — 시간축 둘(수정·생성)은 '최근 것이 위' 가 목록의 기대다.
+      const q = { drillType: drillType ?? undefined, situation: situation ?? undefined, search: search || undefined, sort, order: (sort === 'title' ? 'asc' : 'desc') as 'asc' | 'desc' };
       const [first, sess] = await Promise.all([
         repo.listDrillSummaries(q),
         listSessions().catch(() => [] as ResolvedSession[]), // §4.5: IDB 열화 시에도 드릴 목록은 살아있어야 한다
@@ -93,7 +100,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setStatus('error');
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [ensureRepo, drillType, search]);
+  }, [ensureRepo, drillType, situation, sort, search]);
 
   // ⚠️ **올리는 줄이 있어야 한다.** StrictMode 는 mount → unmount → mount 로 두 번 붙는데,
   // 정리에서 내린 깃발을 다시 올리지 않으면 두 번째 마운트가 시작부터 죽은 것으로 취급돼
@@ -154,13 +161,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   );
 
   const state = useMemo<LibraryState>(
-    () => ({ status, degraded, drills, sessions, drillType, search, error }),
-    [status, degraded, drills, sessions, drillType, search, error],
+    () => ({ status, degraded, drills, sessions, drillType, situation, sort, search, error }),
+    [status, degraded, drills, sessions, drillType, situation, sort, search, error],
   );
   const actions = useMemo<LibraryActions>(
     () => ({
       refresh,
       setDrillType,
+      setSituation,
+      setSort,
       setSearch,
       createDrill,
       duplicateDrill,

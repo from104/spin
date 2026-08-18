@@ -24,7 +24,7 @@
 import { useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
-import { DRILL_TYPES, DRILL_TYPE_LABELS } from '../../model/drill.ts';
+import { DRILL_TYPES, DRILL_TYPE_LABELS, DRILL_SITUATIONS, SITUATION_LABELS } from '../../model/drill.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
@@ -45,7 +45,7 @@ export interface LibraryScreenProps {
 }
 
 export function LibraryScreen({ nav }: LibraryScreenProps) {
-  const { drills, drillType, search, setDrillType, duplicateDrill, deleteDrill, refresh } = useLibrary();
+  const { drills, drillType, situation, sort, search, setDrillType, setSituation, setSort, duplicateDrill, deleteDrill, refresh } = useLibrary();
   const toast = useToast();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,7 +125,29 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
         {/* C5 — 탭(드릴/세션)이 있던 자리. 세션이 레일의 1급 화면으로 나가면서 이 행에는
             유형 필터와 가져오기만 남았다. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-          <Segmented ariaLabel="드릴 유형" value={drillType ?? ''} onChange={(v) => setDrillType(v || null)} options={TYPE_OPTIONS} dense />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Segmented ariaLabel="드릴 유형" value={drillType ?? ''} onChange={(v) => setDrillType(v || null)} options={TYPE_OPTIONS} dense />
+            {/* C10 — 경기 상황 필터(v8 두 번째 축)와 정렬. 정렬은 저장소(DrillQuery.sort)에
+                이미 있던 것을 UI 로 노출만 했다. */}
+            <select aria-label="경기 상황 필터" value={situation ?? ''} onChange={(e) => setSituation(e.target.value || null)} style={selectStyle}>
+              <option value="">모든 상황</option>
+              {DRILL_SITUATIONS.map((s) => (
+                <option key={s} value={s}>
+                  {SITUATION_LABELS[s]}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="정렬"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as 'updatedAt' | 'createdAt' | 'title')}
+              style={selectStyle}
+            >
+              <option value="updatedAt">최근 수정순</option>
+              <option value="createdAt">만든 순</option>
+              <option value="title">이름순</option>
+            </select>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               ref={fileInputRef}
@@ -151,7 +173,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
 
         <div>
             {drills.length === 0 ? (
-              <EmptyDrills hasFilter={!!drillType || !!search} onCreate={goNewDrill} />
+              <EmptyDrills hasFilter={!!drillType || !!situation || !!search} onCreate={goNewDrill} />
             ) : (
               // 판 걸이(계획서 2.2)로 들어와 로드맵 3.6 으로 확정: 난이도 그룹 헤더(초급 → 중급
               // → 고급)로 **정렬**한다 — 난이도 필터를 하나 더 얹는 대신 0클릭으로 나눠 보여준다
@@ -208,6 +230,16 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
     </main>
   );
 }
+
+const selectStyle = {
+  minHeight: 44,
+  padding: '0 0.75rem',
+  borderRadius: '0.6rem',
+  border: '1px solid var(--border)',
+  background: 'var(--elev)',
+  color: 'var(--text)',
+  fontSize: '0.8125rem',
+} as const;
 
 function EmptyDrills({ hasFilter, onCreate }: { hasFilter: boolean; onCreate(): void }) {
   return (
