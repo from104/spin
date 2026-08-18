@@ -412,7 +412,7 @@ describe('[복제] — 무대 끝까지', () => {
     return { x: Number(m[1]), y: Number(m[2]) };
   };
 
-  it('★ 도형 우클릭 → [복제]: 사본이 **오른쪽 아래 1 m(+25,+25)** 에 서고, 선택은 사본으로 옮겨간다', async () => {
+  it('★ 도형 우클릭 → [복제]: 사본이 **오른쪽 아래 0.5 m(+12.5,+12.5)** 에 서고, 선택은 사본으로 옮겨간다', async () => {
     const { user, shape } = await openBoardWithShape();
     fireEvent.contextMenu(shape, { clientX: 40, clientY: 40 });
     await waitFor(() => expect(menu()).not.toBeNull());
@@ -424,9 +424,10 @@ describe('[복제] — 무대 끝까지', () => {
       return all;
     });
     const [a, b] = [translateOf(nodes[0]!), translateOf(nodes[1]!)];
-    // 1 m = 25 px(PX_PER_M). 절대 좌표는 jsdom 레이아웃 사정이라 안 재고 차이만 잰다.
-    expect(b.x - a.x).toBe(25);
-    expect(b.y - a.y).toBe(25);
+    // 0.5 m = 12.5 px(기현님 정정 2026-08-18 — 처음엔 1 m). 절대 좌표는 jsdom 레이아웃
+    // 사정이라 안 재고 차이만 잰다.
+    expect(b.x - a.x).toBe(12.5);
+    expect(b.y - a.y).toBe(12.5);
     // 선택이 사본으로 갔다 — 다음 조작(끌어 자리 잡기)이 향하는 곳이 방금 만든 쪽이라야 한다.
     // ShapeLayer 는 선택된 도형의 테두리를 accent 로 갈아 끼운다.
     expect(nodes[1]!.querySelector('rect')?.getAttribute('stroke')).toBe('var(--accent)');
@@ -453,11 +454,11 @@ describe('[복제] — 무대 끝까지', () => {
       if (all.length !== 3) throw new Error(`도형이 ${all.length}개다`);
       return all[2]!;
     });
-    // 820+25 → 825 에서, 520+25 → 525 에서 멈춘다(validate 의 로드 클램프와 같은 기준).
+    // 820+12.5 → 825 에서, 520+12.5 → 525 에서 멈춘다(validate 의 로드 클램프와 같은 기준).
     expect(translateOf(copy)).toEqual({ x: 825, y: 525 });
   });
 
-  it('★ 화살표도 복제된다 — 세 점이 통째로 +25,+25 (강체, 모양 보존)', async () => {
+  it('★ 화살표도 복제된다 — 세 점이 통째로 +12.5,+12.5 (강체, 모양 보존)', async () => {
     // 2026-08-18 후속 지적("화살표에는 왜 복제 메뉴가 안 뜨나?") — 도형과 같은 문이다.
     const rect = { x: 0, y: 0, left: 0, top: 0, right: 825, bottom: 525, width: 825, height: 525, toJSON: () => ({}) } as DOMRect;
     vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue(rect);
@@ -497,12 +498,12 @@ describe('[복제] — 무대 끝까지', () => {
       if (all.length !== 2) throw new Error(`화살표가 ${all.length}개다`);
       return all;
     });
-    // ArrowPath 의 d = "Mx,y Qcx,cy tx,ty" — 원본↔사본의 여섯 숫자 차이가 전부 25 다.
+    // ArrowPath 의 d = "Mx,y Qcx,cy tx,ty" — 원본↔사본의 여섯 숫자 차이가 전부 12.5 다.
     const nums = (el: Element): number[] =>
       (el.querySelector('path')?.getAttribute('d') ?? '').match(/-?[\d.]+/g)!.map(Number);
     const [a, b] = [nums(paths[0]!), nums(paths[1]!)];
     expect(b).toHaveLength(a.length);
-    for (let i = 0; i < a.length; i++) expect(b[i]! - a[i]!).toBeCloseTo(25, 6);
+    for (let i = 0; i < a.length; i++) expect(b[i]! - a[i]!).toBeCloseTo(12.5, 6);
   });
 });
 

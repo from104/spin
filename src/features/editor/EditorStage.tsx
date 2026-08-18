@@ -570,8 +570,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   );
   const longPress = useLongPressMenu(openMenu);
 
-  /** [복제](기현 지시 2026-08-18: *"복제하여 오른쪽 아래 1m 위치에 놓는거다"*) — 도형·메모·
-   *  화살표(ObjectMenu 의 `canDuplicate`). 오른쪽 아래 1 m = +25px/+25px(PX_PER_M).
+  /** [복제](기현 지시 2026-08-18: *"복제하여 오른쪽 아래 1m 위치에 놓는거다"*, 같은 날 정정
+   *  *"사본이 오른쪽 아래 0.5 m 로 바꿔줘"*) — 도형·메모·화살표(ObjectMenu 의 `canDuplicate`).
+   *  오른쪽 아래 0.5 m = +12.5px/+12.5px(DUP_OFFSET_PX).
    *
    *  - **새 액션이 없다**: setShape/setNote 가 업서트라 새 id 로 SHAPE_SET/NOTE_SET 을 쏘면
    *    그대로 추가다 — eraseIds 가 종류별 REMOVE 를 낱개로 쏘는 것과 같은 결이고, 되돌리기도
@@ -585,6 +586,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
    *  - 사본이 잠기지 않는 것은 공짜다 — locked 목록은 id 명단이고 새 id 는 거기 없다.
    *  - 끝나면 **사본을 고른다**(원본 대신): 다음 조작(끌어 자리 잡기)이 향하는 곳이 방금 만든
    *    쪽이다 — 스텝 복제가 사본으로 손을 옮기는 것과 같은 이유. */
+  /** 사본 오프셋 — 0.5 m(기현님 정정 2026-08-18, 처음엔 1 m 이었다). */
+  const DUP_OFFSET_PX = PX_PER_M / 2;
   const duplicateIds = useCallback(
     (ids: string[]) => {
       const court = courtDefFor(drill.courtMode, drill.courtSize);
@@ -606,7 +609,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           const nid = newId('sh');
           dispatch({
             type: 'SHAPE_SET',
-            shape: { ...sh, id: nid, x: Math.min(sh.x + PX_PER_M, court.vbW), y: Math.min(sh.y + PX_PER_M, court.vbH) },
+            shape: { ...sh, id: nid, x: Math.min(sh.x + DUP_OFFSET_PX, court.vbW), y: Math.min(sh.y + DUP_OFFSET_PX, court.vbH) },
           });
           made.push(nid);
           nShapes++;
@@ -620,7 +623,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           const nid = newId('nt');
           dispatch({
             type: 'NOTE_SET',
-            note: { ...nt, id: nid, x: Math.min(nt.x + PX_PER_M, court.vbW), y: Math.min(nt.y + PX_PER_M, court.vbH) },
+            note: { ...nt, id: nid, x: Math.min(nt.x + DUP_OFFSET_PX, court.vbW), y: Math.min(nt.y + DUP_OFFSET_PX, court.vbH) },
           });
           made.push(nid);
           nNotes++;
@@ -635,8 +638,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           // 화살표는 세 점짜리 강체다 — 점마다 클램프하면 가장자리에서 모양이 찌그러지므로,
           // **이동량 자체를** 줄인다(가장 바깥 점이 viewBox 에 닿는 데까지만). 도형·메모의
           // min 클램프와 기준(viewBox)은 같고, 지키는 것이 자리냐 모양이냐만 다르다.
-          const dx = Math.max(0, Math.min(PX_PER_M, court.vbW - Math.max(ar.from.x, ar.ctrl.x, ar.to.x)));
-          const dy = Math.max(0, Math.min(PX_PER_M, court.vbH - Math.max(ar.from.y, ar.ctrl.y, ar.to.y)));
+          const dx = Math.max(0, Math.min(DUP_OFFSET_PX, court.vbW - Math.max(ar.from.x, ar.ctrl.x, ar.to.x)));
+          const dy = Math.max(0, Math.min(DUP_OFFSET_PX, court.vbH - Math.max(ar.from.y, ar.ctrl.y, ar.to.y)));
           dispatch({ type: 'ARROW_SET', arrow: { ...nudgeArrow(ar, 'whole', { x: dx, y: dy }), id: nid } });
           made.push(nid);
           nArrows++;
