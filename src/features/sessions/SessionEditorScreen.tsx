@@ -36,6 +36,8 @@ import {
   type TrainingSession,
 } from '../../model/session.ts';
 import { newId } from '../../core/ids.ts';
+import { loadRoster } from '../../storage/rosterRepo.ts';
+import type { Player, Roster } from '../../model/roster.ts';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
 import type { HomeNav } from '../home/nav.ts';
@@ -168,6 +170,11 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
 
         <div style={{ height: 1, background: 'var(--border)' }} />
 
+        {/* ── ①b 참가자 (C8 — 로스터 체크. 명단의 주인은 설정 > 선수 명단) ────────── */}
+        <ParticipantChecklist session={session} onSave={(next) => void save(next)} />
+
+        <div style={{ height: 1, background: 'var(--border)' }} />
+
         {/* ── ② 구획 편집 ─────────────────────────────────────────────────────────── */}
         <section aria-label="구획 목록" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {resolved.phases.map((rp, pi) => (
@@ -203,6 +210,80 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
         </div>
       </div>
     </Main>
+  );
+}
+
+// ── 참가자 체크리스트 (C8) ──────────────────────────────────────────────────────────────────
+// 명단은 설정 > 선수 명단이 주인이고, 여기는 **읽고 체크만** 한다. participantIds 는 세션 v2
+// 의 선택 필드 — 아무도 체크 안 하면 키를 지운다(미지정 = 키 없음 교리).
+function ParticipantChecklist({ session, onSave }: { session: TrainingSession; onSave(next: TrainingSession): void }) {
+  const [roster, setRoster] = useState<Roster | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void loadRoster().then((r) => {
+      if (!cancelled) setRoster(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checked = new Set(session.participantIds ?? []);
+  const toggle = (id: Player['id']) => {
+    const next = new Set(checked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    const ids = [...next];
+    onSave(ids.length > 0 ? { ...session, participantIds: ids } : omit(session, 'participantIds'));
+  };
+
+  return (
+    <section aria-label="참가자" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <h3 style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--faint-text)' }}>참가자</h3>
+        {roster && roster.players.length > 0 && (
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text)' }}>
+            {checked.size}/{roster.players.length}명
+            {/* PF2 는 경기에서 동시 출전 최대 2명(FIPFA) — 참가는 제한하지 않고 셈만 보여준다. */}
+            {(() => {
+              const pf2 = roster.players.filter((p) => checked.has(p.id) && p.klass === 'PF2').length;
+              return pf2 > 0 ? ` · PF2 ${pf2}명` : '';
+            })()}
+          </span>
+        )}
+      </div>
+      {!roster ? (
+        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>불러오는 중…</p>
+      ) : roster.players.length === 0 ? (
+        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>설정 &gt; 선수 명단에서 선수를 등록하면 여기서 참가자를 체크할 수 있습니다.</p>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {roster.players.map((p) => (
+            <label
+              key={p.id}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                minHeight: 'var(--hit)',
+                padding: '0 12px',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: checked.has(p.id) ? 'var(--accent)' : 'var(--elev)',
+                color: checked.has(p.id) ? 'var(--accent-ink-strong)' : 'var(--text)',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+              }}
+              className={checked.has(p.id) ? 'on-accent' : undefined}
+            >
+              <input type="checkbox" checked={checked.has(p.id)} onChange={() => toggle(p.id)} style={{ margin: 0 }} />
+              {p.name}
+              {p.klass && <span style={{ fontSize: '0.6875rem', opacity: 0.8 }}>{p.klass}</span>}
+            </label>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

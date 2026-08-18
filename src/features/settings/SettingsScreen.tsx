@@ -20,6 +20,7 @@ import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
 import { TEAM_COLOR_CHOICES, TEAM_COLOR_NAMES, inkFor } from '../../core/colors.ts';
+import { RosterSection } from './RosterSection.tsx';
 import { FORMATIONS } from '../../model/defaults.ts';
 import { COURT_MODES, type CourtMode } from '../../model/court.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
@@ -204,6 +205,10 @@ export function SettingsScreen() {
               ]}
             />
           </Row>
+        </Section>
+
+        <Section title="선수 명단" desc="이름과 PF 클래스(PF1 중증·PF2 경증)를 담는 우리 팀 명단입니다. 세션 편집 화면의 참가자 체크가 이 명단을 읽습니다.">
+          <RosterSection />
         </Section>
 
         <Section title="시연">

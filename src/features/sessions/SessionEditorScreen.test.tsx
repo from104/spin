@@ -33,6 +33,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 beforeEach(async () => {
   for (const d of await idbDrillRepo.listDrillSummaries()) await idbDrillRepo.deleteDrill(d.id);
   for (const s of await listSessions()) await deleteSession(s.session.id);
+  const { getDB } = await import('../../storage/db.ts');
+  await (await getDB()).clear('meta'); // 로스터 위생 — 앞 테스트의 명단이 새어 들지 않게
 });
 
 async function renderEditor(sessionId: SessionId) {
@@ -170,6 +172,30 @@ describe('SessionEditorScreen', () => {
     await waitFor(async () => {
       const saved = await getSession(s.id);
       expect(flattenSessionItems(saved!.session).map((it) => it.drillId)).toEqual([d1.id]);
+    });
+  });
+
+  it('참가자 체크가 participantIds 로 저장되고, 전부 풀면 키가 지워진다 (C8)', async () => {
+    const { saveRoster } = await import('../../storage/rosterRepo.ts');
+    const { addPlayer, emptyRoster } = await import('../../model/roster.ts');
+    const roster = await saveRoster(addPlayer(addPlayer(emptyRoster(), '참가 선수', 'PF2'), '벤치 선수'));
+    const s = await createSession({ title: '참가자 세션' });
+    await renderEditor(s.id);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /참가 선수/ })).toBeInTheDocument());
+    await user.click(screen.getByRole('checkbox', { name: /참가 선수/ }));
+    await waitFor(async () => {
+      const saved = await getSession(s.id);
+      expect(saved?.session.participantIds).toEqual([roster.players[0]!.id]);
+    });
+    // PF2 셈이 표시된다(참가 제한은 없다 — 셈만).
+    expect(screen.getByText(/PF2 1명/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('checkbox', { name: /참가 선수/ }));
+    await waitFor(async () => {
+      const saved = await getSession(s.id);
+      expect('participantIds' in saved!.session).toBe(false); // 미지정 = 키 없음
     });
   });
 

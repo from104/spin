@@ -1256,6 +1256,12 @@ export interface Roster { schemaVersion: number; players: Player[]; updatedAt: n
 (그릇이 아니라 내용의 축). 빈 명단은 키 생략. 복원 기본값 'auto' = 로컬 명단이 비어
 있을 때만 복원(남의 백업이 내 팀 명단을 덮지 않는다 — prefs 'skip' 기본값과 같은 결).
 
+**UI (C8)**: 설정 화면 [선수 명단] 섹션(`features/settings/RosterSection.tsx`) — 추가·이름
+수정·클래스 변경(미분류 = 키 삭제)·삭제, 상한 30 표시. 세션 편집 화면의 **참가자
+체크리스트**(SessionEditorScreen 의 ParticipantChecklist)가 명단을 읽어 `participantIds`
+를 체크한다 — 전부 풀면 키를 지운다(미지정 = 키 없음). PF2 수는 **표시만** 한다:
+동시 출전 2명 제한(FIPFA)은 경기 라인업의 규칙이지 세션 참가의 규칙이 아니다.
+
 ---
 
 ## 4. 저장 계층 — `src/storage/`
