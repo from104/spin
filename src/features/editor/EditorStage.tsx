@@ -8,9 +8,7 @@ import { useLongPressMenu } from './useLongPressMenu.ts';
 import { sameKindGroup } from './selectSame.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
-import { isId, newId } from '../../core/ids.ts';
-import { PX_PER_M } from '../../core/units.ts';
-import { LIMITS } from '../../model/validate.ts';
+import { isId } from '../../core/ids.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
 import type { ArrowId, CastId, ChairId, NoteId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
@@ -70,6 +68,10 @@ export interface EditorStageProps {
    *  기본 false. */
   twoZone?: boolean;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
+  /** [복제](2026-08-18) — 개체 메뉴가 부른다. 구현이 워크스페이스에 있는 이유는 `onEraseIds`
+   *  와 같다: Ctrl/⌘+D(useEditorKeyboard)와 메뉴, 두 입구가 **같은 함수**로 들어와야
+   *  오프셋·클램프·상한·사본 선택 규칙이 안 갈린다. */
+  onDuplicateIds(ids: string[]): void;
   /** 메모 글 편집 모달을 연다(기현 지시 2026-08-17). 여는 문이 셋이라 — 배치 직후·더블클릭·
    *  개체 메뉴 [수정] — 무대가 셋 다 여기로 모은다. 모달 자체는 EditorWorkspace 가 갖는다:
    *  트레이에서 끌어다 놓는 배치가 그쪽에 있어서, 무대가 갖고 있으면 그 경로만 문이 안 열린다.
@@ -113,7 +115,7 @@ const OBJ_MOVE_DIR: Record<string, readonly [number, number]> = {
 // 포인터(손잡이 끌기)가 맡는다 — 남은 상태·타입 정리는 2단계다.
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, onEditNote, epoch = 0, transitionMs = 0 },
+  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0 },
   stageRef,
 ) {
   // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
@@ -570,89 +572,6 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   );
   const longPress = useLongPressMenu(openMenu);
 
-  /** [복제](기현 지시 2026-08-18: *"복제하여 오른쪽 아래 1m 위치에 놓는거다"*, 같은 날 정정
-   *  *"사본이 오른쪽 아래 0.5 m 로 바꿔줘"*) — 도형·메모·화살표(ObjectMenu 의 `canDuplicate`).
-   *  오른쪽 아래 0.5 m = +12.5px/+12.5px(DUP_OFFSET_PX).
-   *
-   *  - **새 액션이 없다**: setShape/setNote 가 업서트라 새 id 로 SHAPE_SET/NOTE_SET 을 쏘면
-   *    그대로 추가다 — eraseIds 가 종류별 REMOVE 를 낱개로 쏘는 것과 같은 결이고, 되돌리기도
-   *    같은 규칙(사본 하나에 한 칸)이다.
-   *  - **클램프는 viewBox**: 판 가장자리 개체의 사본이 밖으로 나가면 잡을 수 없고, validate 의
-   *    로드 클램프(8단계)와 기준이 갈리면 저장-로드에서 자리가 튄다. 원본이 0 이상이고 오프셋이
-   *    양수라 min 만으로 충분하다.
-   *  - **상한은 놓기와 같은 문**: placement.ts 가 도형 40장에서 막고 토스트로 말하듯 여기도
-   *    같은 문구로 막는다. 메모 상한(20)은 놓기에 검사가 없지만 validate 가 로드에서 자르므로,
-   *    여기서 만들면 **다음 로드 때 조용히 사라질 개체**를 만드는 셈이라 막는다.
-   *  - 사본이 잠기지 않는 것은 공짜다 — locked 목록은 id 명단이고 새 id 는 거기 없다.
-   *  - 끝나면 **사본을 고른다**(원본 대신): 다음 조작(끌어 자리 잡기)이 향하는 곳이 방금 만든
-   *    쪽이다 — 스텝 복제가 사본으로 손을 옮기는 것과 같은 이유. */
-  /** 사본 오프셋 — 0.5 m(기현님 정정 2026-08-18, 처음엔 1 m 이었다). */
-  const DUP_OFFSET_PX = PX_PER_M / 2;
-  const duplicateIds = useCallback(
-    (ids: string[]) => {
-      const court = courtDefFor(drill.courtMode, drill.courtSize);
-      const made: string[] = [];
-      let nShapes = step.shapes.length;
-      let nNotes = step.notes.length;
-      let nArrows = step.arrows.length;
-      let shapeCap = false;
-      let noteCap = false;
-      let arrowCap = false;
-      for (const id of ids) {
-        if (isId(id, 'sh')) {
-          const sh = step.shapes.find((s) => s.id === id);
-          if (!sh) continue;
-          if (nShapes >= LIMITS.maxShapesPerStep) {
-            shapeCap = true;
-            continue;
-          }
-          const nid = newId('sh');
-          dispatch({
-            type: 'SHAPE_SET',
-            shape: { ...sh, id: nid, x: Math.min(sh.x + DUP_OFFSET_PX, court.vbW), y: Math.min(sh.y + DUP_OFFSET_PX, court.vbH) },
-          });
-          made.push(nid);
-          nShapes++;
-        } else if (isId(id, 'nt')) {
-          const nt = step.notes.find((n) => n.id === id);
-          if (!nt) continue;
-          if (nNotes >= LIMITS.maxNotesPerStep) {
-            noteCap = true;
-            continue;
-          }
-          const nid = newId('nt');
-          dispatch({
-            type: 'NOTE_SET',
-            note: { ...nt, id: nid, x: Math.min(nt.x + DUP_OFFSET_PX, court.vbW), y: Math.min(nt.y + DUP_OFFSET_PX, court.vbH) },
-          });
-          made.push(nid);
-          nNotes++;
-        } else if (isId(id, 'ar')) {
-          const ar = step.arrows.find((x) => x.id === id);
-          if (!ar) continue;
-          if (nArrows >= LIMITS.maxArrowsPerStep) {
-            arrowCap = true;
-            continue;
-          }
-          const nid = newId('ar');
-          // 화살표는 세 점짜리 강체다 — 점마다 클램프하면 가장자리에서 모양이 찌그러지므로,
-          // **이동량 자체를** 줄인다(가장 바깥 점이 viewBox 에 닿는 데까지만). 도형·메모의
-          // min 클램프와 기준(viewBox)은 같고, 지키는 것이 자리냐 모양이냐만 다르다.
-          const dx = Math.max(0, Math.min(DUP_OFFSET_PX, court.vbW - Math.max(ar.from.x, ar.ctrl.x, ar.to.x)));
-          const dy = Math.max(0, Math.min(DUP_OFFSET_PX, court.vbH - Math.max(ar.from.y, ar.ctrl.y, ar.to.y)));
-          dispatch({ type: 'ARROW_SET', arrow: { ...nudgeArrow(ar, 'whole', { x: dx, y: dy }), id: nid } });
-          made.push(nid);
-          nArrows++;
-        }
-      }
-      // 토스트는 종류당 한 번이다 — 정원에서 여럿을 복제하면 같은 문장이 개수만큼 쌓인다.
-      if (shapeCap) showToast(`도형은 스텝당 ${LIMITS.maxShapesPerStep}개까지입니다.`);
-      if (noteCap) showToast(`메모는 스텝당 ${LIMITS.maxNotesPerStep}개까지입니다.`);
-      if (arrowCap) showToast(`화살표는 스텝당 ${LIMITS.maxArrowsPerStep}개까지입니다.`);
-      if (made.length > 0) dispatch({ type: 'SELECT_SET', ids: made });
-    },
-    [drill.courtMode, drill.courtSize, step.shapes, step.notes, step.arrows, dispatch, showToast],
-  );
 
   const cursorWorld = cursor && PLACEMENT_TOOLS.has(tool) ? gridCellCenter(drill.courtMode, cursor.col, cursor.row, drill.courtSize) : null;
   const cursorLabel = cursorWorld ? cellLabelAt(drill.courtMode, cursorWorld, drill.courtSize) : null;
@@ -771,7 +690,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       }
       // 이미 판에 있는 메모라 `fresh` 는 false 다 — 취소해도 쪽지는 그대로 남는다.
       onEdit={(id) => onEditNote(id as NoteId, false)}
-      onDuplicate={duplicateIds}
+      onDuplicate={onDuplicateIds}
     />
     </>
   );

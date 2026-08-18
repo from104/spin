@@ -3,9 +3,9 @@
 // `<aside aria-label="드릴 속성">` 세 영역과 하단 트랜스포트로 프로토타입 236–400행 레이아웃을
 // 그대로 이식한다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isId } from '../../core/ids.ts';
+import { isId, newId } from '../../core/ids.ts';
 import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
-import { DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
+import { courtDefFor, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
 import { defaultDefense } from '../../model/rules.ts';
@@ -31,6 +31,9 @@ import { courtCellAspectRatioCss } from './boardLayout.ts';
 import { useTrayDrag } from './useTrayDrag.ts';
 import { placeObject } from './placement.ts';
 import { removalToast, returnsToTray } from './removal.ts';
+import { canDuplicate } from './ObjectMenu.tsx';
+import { nudgeArrow } from '../../model/arrow.ts';
+import { PX_PER_M } from '../../core/units.ts';
 import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
 import { StepSidebar } from './StepSidebar.tsx';
@@ -290,6 +293,80 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     [dispatch, toast],
   );
 
+  /** [복제](기현 지시 2026-08-18: *"복제하여 오른쪽 아래 1m 위치에 놓는거다"*, 같은 날 정정
+   *  0.5 m) — 도형·메모·화살표(`canDuplicate`). 입구가 둘이다: 개체 메뉴 [복제] 와
+   *  Ctrl/⌘+D(같은 날 지시 "복제 단축키 ctrl-d") — `eraseIds` 처럼 여기 한 함수로 모여야
+   *  오프셋·클램프·상한·사본 선택 규칙이 입구마다 안 갈린다.
+   *
+   *  - **새 액션이 없다**: setShape/setNote/setArrow 가 업서트라 새 id 로 SET 을 쏘면 그대로
+   *    추가다 — eraseIds 가 종류별 REMOVE 를 낱개로 쏘는 것과 같은 결이고, 되돌리기도 같은
+   *    규칙(사본 하나에 한 칸)이다.
+   *  - **클램프는 viewBox**(validate 의 로드 클램프와 같은 기준 — 갈리면 저장-로드에서 자리가
+   *    튄다). 화살표만은 세 점짜리 강체라 점마다 자르지 않고 **이동량 자체를** 줄인다.
+   *  - **상한은 놓기와 같은 문**: 도형 40 은 placement 와 같은 토스트. 메모 20·화살표 40 은
+   *    놓기에 검사가 없지만 validate 가 로드에서 자르므로, 여기서 만들면 다음 로드 때 조용히
+   *    사라질 개체가 된다 — 막는다.
+   *  - 사본이 잠기지 않는 것은 공짜다 — locked 목록은 id 명단이고 새 id 는 거기 없다.
+   *  - 끝나면 **사본을 고른다**(원본 대신): 다음 조작(끌어 자리 잡기)이 향하는 곳이 방금 만든
+   *    쪽이다 — 스텝 복제가 사본으로 손을 옮기는 것과 같은 이유. */
+  const duplicateObjIds = useCallback(
+    (ids: string[]) => {
+      const off = PX_PER_M / 2; // 0.5 m
+      const court = courtDefFor(drill.courtMode, drill.courtSize);
+      const made: string[] = [];
+      let nShapes = step.shapes.length;
+      let nNotes = step.notes.length;
+      let nArrows = step.arrows.length;
+      let shapeCap = false;
+      let noteCap = false;
+      let arrowCap = false;
+      for (const id of ids) {
+        if (isId(id, 'sh')) {
+          const sh = step.shapes.find((x) => x.id === id);
+          if (!sh) continue;
+          if (nShapes >= LIMITS.maxShapesPerStep) {
+            shapeCap = true;
+            continue;
+          }
+          const nid = newId('sh');
+          dispatch({ type: 'SHAPE_SET', shape: { ...sh, id: nid, x: Math.min(sh.x + off, court.vbW), y: Math.min(sh.y + off, court.vbH) } });
+          made.push(nid);
+          nShapes++;
+        } else if (isId(id, 'nt')) {
+          const nt = step.notes.find((x) => x.id === id);
+          if (!nt) continue;
+          if (nNotes >= LIMITS.maxNotesPerStep) {
+            noteCap = true;
+            continue;
+          }
+          const nid = newId('nt');
+          dispatch({ type: 'NOTE_SET', note: { ...nt, id: nid, x: Math.min(nt.x + off, court.vbW), y: Math.min(nt.y + off, court.vbH) } });
+          made.push(nid);
+          nNotes++;
+        } else if (isId(id, 'ar')) {
+          const ar = step.arrows.find((x) => x.id === id);
+          if (!ar) continue;
+          if (nArrows >= LIMITS.maxArrowsPerStep) {
+            arrowCap = true;
+            continue;
+          }
+          const nid = newId('ar');
+          const dx = Math.max(0, Math.min(off, court.vbW - Math.max(ar.from.x, ar.ctrl.x, ar.to.x)));
+          const dy = Math.max(0, Math.min(off, court.vbH - Math.max(ar.from.y, ar.ctrl.y, ar.to.y)));
+          dispatch({ type: 'ARROW_SET', arrow: { ...nudgeArrow(ar, 'whole', { x: dx, y: dy }), id: nid } });
+          made.push(nid);
+          nArrows++;
+        }
+      }
+      // 토스트는 종류당 한 번이다 — 정원에서 여럿을 복제하면 같은 문장이 개수만큼 쌓인다.
+      if (shapeCap) toast.show(`도형은 스텝당 ${LIMITS.maxShapesPerStep}개까지입니다.`);
+      if (noteCap) toast.show(`메모는 스텝당 ${LIMITS.maxNotesPerStep}개까지입니다.`);
+      if (arrowCap) toast.show(`화살표는 스텝당 ${LIMITS.maxArrowsPerStep}개까지입니다.`);
+      if (made.length > 0) dispatch({ type: 'SELECT_SET', ids: made });
+    },
+    [drill.courtMode, drill.courtSize, step.shapes, step.notes, step.arrows, dispatch, toast],
+  );
+
   const gotoStep = useCallback(
     (delta: 1 | -1) => {
       const idx = selectStepIndex(state);
@@ -386,6 +463,14 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
     // 전술판은 1장짜리다 — 스텝 복제 단축키가 살아 있으면 화면에 없는 2번째 스텝이 생겨
     // 판이 조용히 두 장이 된다(하단 바에 스텝 UI 가 없어 눈으로는 알 수 없다).
     onDuplicateStep: isBoard ? () => {} : () => dispatch({ type: 'STEP_DUPLICATE', id: state.stepId }),
+    // Ctrl/⌘+D 의 1층(기현 지시 2026-08-18) — 복제 가능한 선택이 있으면 개체 복제가 이긴다.
+    // 판정은 메뉴와 같은 canDuplicate 하나다. 전술판에서는 2층(스텝)이 no-op 이라 이 층만 산다.
+    onDuplicateObjects: () => {
+      const ids = Array.from(state.selection);
+      if (ids.length === 0 || !canDuplicate(ids)) return false;
+      duplicateObjIds(ids);
+      return true;
+    },
     onPrevStep: () => gotoStep(-1),
     onNextStep: () => gotoStep(1),
     onTogglePlay: () => playbackActions.toggle(),
@@ -720,6 +805,7 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
                 largeTargets={prefs.a11y.largeTargets}
                 twoZone={prefs.a11y.twoZone}
                 onEraseIds={eraseIds}
+                onDuplicateIds={duplicateObjIds}
                 onEditNote={(id, fresh) => setEditingNote({ id, fresh })}
                 epoch={state.epoch}
                 // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와

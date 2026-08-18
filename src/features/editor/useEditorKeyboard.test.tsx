@@ -20,6 +20,7 @@ function baseDeps(overrides: Partial<EditorKeyboardDeps>): EditorKeyboardDeps {
     onRedo: vi.fn(),
     onSave: vi.fn(),
     onDuplicateStep: vi.fn(),
+    onDuplicateObjects: vi.fn(() => false),
     onPrevStep: vi.fn(),
     onNextStep: vi.fn(),
     onTogglePlay: vi.fn(),
@@ -307,6 +308,35 @@ describe('useEditorKeyboard — Ctrl/Cmd + 방향키는 판을 민다', () => {
     press('KeyZ', { ctrlKey: true });
     expect(deps.onUndo).toHaveBeenCalledTimes(1);
     expect(deps.onPanView).not.toHaveBeenCalled();
+  });
+});
+
+// ★ 2026-08-18 기현 지시: *"복제 단축키 ctrl-d 가능할까?"* — Ctrl/⌘+D 는 **두 층**이다:
+//   복제 가능한 선택(도형·메모·화살표)이 있으면 그 개체들, 없으면 현재 스텝. 갈림을 선택이
+//   정하는 것은 Delete 와 같은 결이다("무엇을" 이 선택에서 오는 편집 조작).
+describe('useEditorKeyboard — Ctrl+D 는 개체 먼저, 없으면 스텝', () => {
+  it('1층이 true 를 돌려주면(복제 가능한 선택 있음) 스텝 복제는 안 부른다', () => {
+    const deps = baseDeps({ onDuplicateObjects: vi.fn(() => true) });
+    renderHook(() => useEditorKeyboard(deps));
+    press('KeyD', { ctrlKey: true });
+    expect(deps.onDuplicateObjects).toHaveBeenCalledTimes(1);
+    expect(deps.onDuplicateStep).not.toHaveBeenCalled();
+  });
+
+  it('1층이 false 면(선택 없음/복제 불가) 스텝 복제로 내려간다 — 종전 동작 보존', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('KeyD', { ctrlKey: true });
+    expect(deps.onDuplicateObjects).toHaveBeenCalledTimes(1);
+    expect(deps.onDuplicateStep).toHaveBeenCalledTimes(1);
+  });
+
+  it('맨 KeyD(수식키 없음)는 복제가 아니다 — 개체 이동(WASD)의 D 다', () => {
+    const deps = baseDeps({});
+    renderHook(() => useEditorKeyboard(deps));
+    press('KeyD');
+    expect(deps.onDuplicateObjects).not.toHaveBeenCalled();
+    expect(deps.onDuplicateStep).not.toHaveBeenCalled();
   });
 });
 

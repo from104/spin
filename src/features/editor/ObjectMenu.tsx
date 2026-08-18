@@ -29,7 +29,9 @@ import { removalLabel, returnsToTray } from './removal.ts';
  *  추가**다 — 같은 말로 다른 조작을 묶으면 무엇이 늘어나는지 누르기 전에 알 수 없다. 손으로
  *  그린 셋(도형·메모·화살표)은 전부 스텝 배열이라 그 문제가 없다. 섞인 무리(칩 포함)에서는
  *  통째로 안 낸다 — 항목이 있는데 절반에만 먹는 것보다 없는 편이 정직하다. */
-const canDuplicate = (ids: readonly string[]): boolean =>
+// export 인 이유(2026-08-18): Ctrl/⌘+D 의 1·2층 갈림(useEditorKeyboard)이 같은 판정을
+// 써야 "메뉴에는 뜨는데 키는 스텝을 복제하는" 어긋남이 없다.
+export const canDuplicate = (ids: readonly string[]): boolean =>
   ids.every((id) => isId(id, 'sh') || isId(id, 'nt') || isId(id, 'ar'));
 
 /** 여럿일 때만 개수를 앞에 붙인다 — 하나짜리에 *"1개 잠금"* 은 셀 것이 없는데 세는 말이다.

@@ -64,6 +64,7 @@ function mountStage(drill: Drill, tool: ToolId = 'select') {
       showRuleZones={false}
       largeTargets={false}
       onEraseIds={vi.fn()}
+      onDuplicateIds={vi.fn()}
       onEditNote={onEditNote}
     />,
   );

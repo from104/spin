@@ -130,6 +130,7 @@ function useHarness() {
     onRedo: noop,
     onSave: noop,
     onDuplicateStep: noop,
+    onDuplicateObjects: () => false,
     onPrevStep: noop,
     onNextStep: noop,
     onTogglePlay: noop,

@@ -180,7 +180,18 @@ describe('도움말은 표에서 나온다', () => {
     expect(without).not.toContain('다음 스텝');
     // 전술판은 1장짜리라 재생할 구간도 복제할 스텝도 없다.
     expect(without).not.toContain('재생 / 일시정지');
-    expect(without).not.toContain('현재 스텝 복제');
+    expect(without).not.toContain('현재 스텝 복제(개체 선택이 없을 때)');
+    // Ctrl/⌘+D 의 개체 층(2026-08-18)은 스텝과 무관하다 — 전술판 도움말에도 남는다.
+    expect(without).toContain('선택한 개체 복제(도형·메모·화살표)');
+    expect(withSteps).toContain('현재 스텝 복제(개체 선택이 없을 때)');
+  });
+
+  it('Ctrl+D 두 정의는 같은 id 다 — 별칭이지 두 동작이 아니다 (2026-08-18)', () => {
+    const dup = KEYMAP.filter((d) => d.codes.includes('KeyD') && d.mod);
+    expect(dup).toHaveLength(2);
+    expect(new Set(dup.map((d) => d.id))).toEqual(new Set(['edit.duplicate']));
+    const ctrlD = { code: 'KeyD', ctrlKey: true, metaKey: false, altKey: false, shiftKey: false };
+    expect(lookupKey('global', ctrlD)).toBe('edit.duplicate');
   });
 
   // ⚠️ 2026-08-16 기현 지시 — *"도움말에 어느 키가 뭔지는 적어야지"*. 옛 계약은 정반대였다:

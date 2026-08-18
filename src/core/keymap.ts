@@ -135,13 +135,29 @@ export const KEYMAP: readonly KeyDef[] = [
   // Shift 를 `'any'` 로 둔다 — 저장은 Shift 가 붙어도 저장이다. 손이 미끄러져 Shift 가
   // 걸린 채 눌렀을 때 **조용히 아무 일도 안 나는 것**이 가장 나쁘다.
   { id: 'edit.save', scope: 'global', codes: ['KeyS'], mod: true, shift: 'any', label: 'Ctrl/⌘+S', desc: '저장' },
+  // 복제는 **한 키에 두 층**이다(기현 지시 2026-08-18 "복제 단축키 ctrl-d") — 복제 가능한
+  // 선택(도형·메모·화살표, ObjectMenu 의 canDuplicate)이 있으면 그 개체들, 없으면 현재 스텝.
+  // 갈림을 선택이 정하는 것은 Delete 와 같은 결이다("무엇을" 이 선택에서 오는 편집 조작).
+  // PageUp/Dn 을 선택과 무관하게 만든 규율(아래)과 안 부딪힌다 — 그건 **이동** 키의 규율이다.
+  // 두 정의가 **같은 id** 인 것이 계약이다(keymap.contract: 다른 id 가 같은 사건을 물면
+  // "한 키가 두 동작" 으로 잡힌다 — 같은 id 복수 정의는 redo 의 Shift+Z/Y 같은 별칭).
+  // 둘째 정의는 도움말 행 전용이다: 스텝 있는 화면에서 두 층이 두 줄로 다 보이고,
+  // 전술판(needsSteps)에서는 개체 층만 남는다.
   {
-    id: 'step.duplicate',
+    id: 'edit.duplicate',
     scope: 'global',
     codes: ['KeyD'],
     mod: true,
     label: 'Ctrl/⌘+D',
-    desc: '현재 스텝 복제',
+    desc: '선택한 개체 복제(도형·메모·화살표)',
+  },
+  {
+    id: 'edit.duplicate',
+    scope: 'global',
+    codes: ['KeyD'],
+    mod: true,
+    label: 'Ctrl/⌘+D',
+    desc: '현재 스텝 복제(개체 선택이 없을 때)',
     needsSteps: true,
   },
 

@@ -26,6 +26,9 @@ export interface EditorKeyboardDeps {
   onRedo(): void;
   onSave(): void;
   onDuplicateStep(): void;
+  /** Ctrl/⌘+D 의 1층(2026-08-18) — 복제 가능한 선택(도형·메모·화살표)이 있으면 그것을
+   *  복제하고 true. false 면 디스패처가 2층(스텝 복제)으로 내려간다. */
+  onDuplicateObjects(): boolean;
   onPrevStep(): void;
   onNextStep(): void;
   onTogglePlay(): void;
@@ -130,9 +133,11 @@ export function useEditorKeyboard(deps: EditorKeyboardDeps): void {
           e.preventDefault();
           d.onSave();
           return;
-        case 'step.duplicate':
+        // Ctrl/⌘+D 는 keymap 에 같은 id 로 두 정의가 있다(둘째는 도움말 행 전용 별칭) —
+        // 디스패치 분기는 이 한 케이스다. 층 갈림(개체 우선, 없으면 스텝)은 아래 한 줄.
+        case 'edit.duplicate':
           e.preventDefault();
-          d.onDuplicateStep();
+          if (!d.onDuplicateObjects()) d.onDuplicateStep();
           return;
         case 'step.prev':
           e.preventDefault();

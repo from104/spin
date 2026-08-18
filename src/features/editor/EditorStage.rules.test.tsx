@@ -99,6 +99,7 @@ function mount(drill: Drill, showRuleZones = true) {
       showRuleZones={showRuleZones}
       largeTargets={false}
       onEraseIds={vi.fn()}
+      onDuplicateIds={vi.fn()}
       onEditNote={() => {}}
     />,
   );

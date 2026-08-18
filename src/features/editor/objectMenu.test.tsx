@@ -458,6 +458,27 @@ describe('[복제] — 무대 끝까지', () => {
     expect(translateOf(copy)).toEqual({ x: 825, y: 525 });
   });
 
+  it('★ Ctrl+D 로도 복제된다 — 메뉴와 같은 함수라 오프셋(+12.5,+12.5)도 같다 (기현 지시 2026-08-18)', async () => {
+    const { shape } = await openBoardWithShape();
+    // 방금 놓은 도형은 선택돼 있다(PLACED). 메뉴 없이 키만 쏜다.
+    fireEvent.keyDown(document, { code: 'KeyD', key: 'd', ctrlKey: true, bubbles: true, cancelable: true });
+    const nodes = await waitFor(() => {
+      const all = [...document.querySelectorAll('[data-shape-layer] > g[data-shape-id]')];
+      if (all.length !== 2) throw new Error(`도형이 ${all.length}개다`);
+      return all;
+    });
+    const [a, b] = [translateOf(nodes[0]!), translateOf(nodes[1]!)];
+    expect(b.x - a.x).toBe(12.5);
+    expect(b.y - a.y).toBe(12.5);
+    // 사본이 선택됐으니 한 번 더 누르면 사본의 사본이 난다 — 층이 개체에 머무는 증인.
+    fireEvent.keyDown(document, { code: 'KeyD', key: 'd', ctrlKey: true, bubbles: true, cancelable: true });
+    await waitFor(() => {
+      const all = [...document.querySelectorAll('[data-shape-layer] > g[data-shape-id]')];
+      if (all.length !== 3) throw new Error(`도형이 ${all.length}개다`);
+    });
+    expect(shape).toBeInTheDocument(); // 원본은 그대로다
+  });
+
   it('★ 화살표도 복제된다 — 세 점이 통째로 +12.5,+12.5 (강체, 모양 보존)', async () => {
     // 2026-08-18 후속 지적("화살표에는 왜 복제 메뉴가 안 뜨나?") — 도형과 같은 문이다.
     const rect = { x: 0, y: 0, left: 0, top: 0, right: 825, bottom: 525, width: 825, height: 525, toJSON: () => ({}) } as DOMRect;
