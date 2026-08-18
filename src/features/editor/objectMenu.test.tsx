@@ -347,18 +347,23 @@ describe('[복제] — 항목은 도형·메모에만 뜬다', () => {
       />,
     );
 
-  it('도형·메모(섞여도)면 뜬다 — 여럿이면 개수가 붙는다', () => {
+  it('도형·메모·화살표(섞여도)면 뜬다 — 여럿이면 개수가 붙는다', () => {
+    // 화살표는 2026-08-18 후속 지적("화살표에는 왜 복제 메뉴가 안 뜨나?")으로 합류 —
+    // 처음 뺀 근거가 원리 아니라 지시문의 열거였다(ObjectMenu 의 canDuplicate 주석).
     openWith(['sh_1']);
     expect(screen.getByRole('menuitem', { name: '복제' })).toBeInTheDocument();
     cleanup();
-    openWith(['sh_1', 'nt_1']);
-    expect(screen.getByRole('menuitem', { name: '2개 복제' })).toBeInTheDocument();
+    openWith(['ar_1']);
+    expect(screen.getByRole('menuitem', { name: '복제' })).toBeInTheDocument();
+    cleanup();
+    openWith(['sh_1', 'nt_1', 'ar_1']);
+    expect(screen.getByRole('menuitem', { name: '3개 복제' })).toBeInTheDocument();
   });
 
-  it('칩·공·콘·화살표에는 안 뜬다 — 하나라도 섞이면 통째로 안 뜬다', () => {
-    // 칩·공·콘은 정원이 cast 에 있어 "하나 더" 가 정의 추가가 되고, 화살표는 지시 밖이다
-    // (ObjectMenu 의 canDuplicate 주석). 섞인 무리에서 안 내는 것은 무시와 같은 규율이다.
-    for (const ids of [['ch_1'], ['bl_1'], ['cn_1'], ['ar_1'], ['sh_1', 'ch_1']]) {
+  it('칩·공·콘에는 안 뜬다 — 하나라도 섞이면 통째로 안 뜬다', () => {
+    // 칩·공·콘은 정원이 cast 에 있어 "하나 더" 가 정의 추가가 된다(canDuplicate 주석).
+    // 섞인 무리에서 안 내는 것은 무시와 같은 규율이다.
+    for (const ids of [['ch_1'], ['bl_1'], ['cn_1'], ['sh_1', 'ch_1'], ['ar_1', 'bl_1']]) {
       cleanup();
       openWith(ids);
       expect(screen.queryByRole('menuitem', { name: /복제$/ }), ids.join()).toBeNull();
@@ -450,6 +455,54 @@ describe('[복제] — 무대 끝까지', () => {
     });
     // 820+25 → 825 에서, 520+25 → 525 에서 멈춘다(validate 의 로드 클램프와 같은 기준).
     expect(translateOf(copy)).toEqual({ x: 825, y: 525 });
+  });
+
+  it('★ 화살표도 복제된다 — 세 점이 통째로 +25,+25 (강체, 모양 보존)', async () => {
+    // 2026-08-18 후속 지적("화살표에는 왜 복제 메뉴가 안 뜨나?") — 도형과 같은 문이다.
+    const rect = { x: 0, y: 0, left: 0, top: 0, right: 825, bottom: 525, width: 825, height: 525, toJSON: () => ({}) } as DOMRect;
+    vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue(rect);
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    const user = userEvent.setup();
+    render(<BoardScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /^작도/ }));
+    await user.click(screen.getByRole('button', { name: '선' }));
+    const stage = screen.getByRole('application', { name: '코트 편집 영역' });
+    // 선 도구는 드래그가 곧 화살표다 — (100,200) → (300,200). 무대의 pointermove 는 rAF
+    // 틱에서야 controller 로 들어가므로(CourtStage §6.4 — 물리 호출은 rAF 하나에서만),
+    // 버튼을 쥔 채 draft 가 늘어난 것을 **확인한 뒤** 뗀다. 동기로 down·move·up 을 쏘면
+    // draft 길이가 0 인 채 up 이 되어 12px 문턱에서 버려진다.
+    await user.pointer([
+      { target: stage, keys: '[MouseLeft>]', coords: { clientX: 100, clientY: 200 } },
+      { target: stage, coords: { clientX: 300, clientY: 200 } },
+    ]);
+    await waitFor(() => {
+      const d = document.querySelector('#obj-ar_draft path')?.getAttribute('d') ?? '';
+      const n = d.match(/-?[\d.]+/g)?.map(Number) ?? [];
+      // d = "Mx,y Qcx,cy tx,ty" — to.x(다섯째 숫자)가 from.x 에서 떨어져야 이동이 처리된 것
+      if (n.length < 6 || Math.abs(n[4]! - n[0]!) < 12) throw new Error(`draft 미반영: ${d}`);
+    });
+    await user.pointer([{ target: stage, keys: '[/MouseLeft]', coords: { clientX: 300, clientY: 200 } }]);
+    const arrowEl = await waitFor(() => {
+      const el = document.querySelector('.court-obj[id^="obj-ar_"]');
+      if (!el) throw new Error('화살표가 안 그어졌다');
+      return el as SVGGElement;
+    });
+    fireEvent.contextMenu(arrowEl, { clientX: 200, clientY: 200 });
+    await waitFor(() => expect(menu()).not.toBeNull());
+    await user.click(screen.getByRole('menuitem', { name: '복제' }));
+
+    const paths = await waitFor(() => {
+      const all = [...document.querySelectorAll('.court-obj[id^="obj-ar_"]')];
+      if (all.length !== 2) throw new Error(`화살표가 ${all.length}개다`);
+      return all;
+    });
+    // ArrowPath 의 d = "Mx,y Qcx,cy tx,ty" — 원본↔사본의 여섯 숫자 차이가 전부 25 다.
+    const nums = (el: Element): number[] =>
+      (el.querySelector('path')?.getAttribute('d') ?? '').match(/-?[\d.]+/g)!.map(Number);
+    const [a, b] = [nums(paths[0]!), nums(paths[1]!)];
+    expect(b).toHaveLength(a.length);
+    for (let i = 0; i < a.length; i++) expect(b[i]! - a[i]!).toBeCloseTo(25, 6);
   });
 });
 

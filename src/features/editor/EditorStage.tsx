@@ -570,8 +570,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   );
   const longPress = useLongPressMenu(openMenu);
 
-  /** [복제](기현 지시 2026-08-18: *"복제하여 오른쪽 아래 1m 위치에 놓는거다"*) — 도형·메모만
-   *  (ObjectMenu 의 `canDuplicate`). 오른쪽 아래 1 m = +25px/+25px(PX_PER_M).
+  /** [복제](기현 지시 2026-08-18: *"복제하여 오른쪽 아래 1m 위치에 놓는거다"*) — 도형·메모·
+   *  화살표(ObjectMenu 의 `canDuplicate`). 오른쪽 아래 1 m = +25px/+25px(PX_PER_M).
    *
    *  - **새 액션이 없다**: setShape/setNote 가 업서트라 새 id 로 SHAPE_SET/NOTE_SET 을 쏘면
    *    그대로 추가다 — eraseIds 가 종류별 REMOVE 를 낱개로 쏘는 것과 같은 결이고, 되돌리기도
@@ -591,8 +591,10 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       const made: string[] = [];
       let nShapes = step.shapes.length;
       let nNotes = step.notes.length;
+      let nArrows = step.arrows.length;
       let shapeCap = false;
       let noteCap = false;
+      let arrowCap = false;
       for (const id of ids) {
         if (isId(id, 'sh')) {
           const sh = step.shapes.find((s) => s.id === id);
@@ -622,14 +624,31 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           });
           made.push(nid);
           nNotes++;
+        } else if (isId(id, 'ar')) {
+          const ar = step.arrows.find((x) => x.id === id);
+          if (!ar) continue;
+          if (nArrows >= LIMITS.maxArrowsPerStep) {
+            arrowCap = true;
+            continue;
+          }
+          const nid = newId('ar');
+          // 화살표는 세 점짜리 강체다 — 점마다 클램프하면 가장자리에서 모양이 찌그러지므로,
+          // **이동량 자체를** 줄인다(가장 바깥 점이 viewBox 에 닿는 데까지만). 도형·메모의
+          // min 클램프와 기준(viewBox)은 같고, 지키는 것이 자리냐 모양이냐만 다르다.
+          const dx = Math.max(0, Math.min(PX_PER_M, court.vbW - Math.max(ar.from.x, ar.ctrl.x, ar.to.x)));
+          const dy = Math.max(0, Math.min(PX_PER_M, court.vbH - Math.max(ar.from.y, ar.ctrl.y, ar.to.y)));
+          dispatch({ type: 'ARROW_SET', arrow: { ...nudgeArrow(ar, 'whole', { x: dx, y: dy }), id: nid } });
+          made.push(nid);
+          nArrows++;
         }
       }
       // 토스트는 종류당 한 번이다 — 정원에서 여럿을 복제하면 같은 문장이 개수만큼 쌓인다.
       if (shapeCap) showToast(`도형은 스텝당 ${LIMITS.maxShapesPerStep}개까지입니다.`);
       if (noteCap) showToast(`메모는 스텝당 ${LIMITS.maxNotesPerStep}개까지입니다.`);
+      if (arrowCap) showToast(`화살표는 스텝당 ${LIMITS.maxArrowsPerStep}개까지입니다.`);
       if (made.length > 0) dispatch({ type: 'SELECT_SET', ids: made });
     },
-    [drill.courtMode, drill.courtSize, step.shapes, step.notes, dispatch, showToast],
+    [drill.courtMode, drill.courtSize, step.shapes, step.notes, step.arrows, dispatch, showToast],
   );
 
   const cursorWorld = cursor && PLACEMENT_TOOLS.has(tool) ? gridCellCenter(drill.courtMode, cursor.col, cursor.row, drill.courtSize) : null;
