@@ -14,6 +14,7 @@ import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { PlaybackProvider, usePlaybackState, usePlaybackActions } from '../../store/playback/PlaybackProvider.tsx';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import { getSession } from '../../storage/sessionRepo.ts';
+import { phaseLabel } from '../../model/session.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { TrainingSession } from '../../model/session.ts';
 import { effectiveStepMs } from '../../model/playback.ts';
@@ -48,7 +49,15 @@ type PresentLoad =
   | { status: 'empty' }
   | { status: 'error'; message: string }
   | { status: 'ready'; kind: 'drill'; drill: Drill }
-  | { status: 'ready'; kind: 'session'; session: TrainingSession; drills: Drill[] };
+  | {
+      status: 'ready';
+      kind: 'session';
+      session: TrainingSession;
+      drills: Drill[];
+      /** C9 — 구획 인지. drills[i] 가 속한 구획 첨자(of)와 구획 라벨. 구획이 0~1개면 null —
+       *  구획 UI(라벨·쉼 화면·구분 틈)를 세울 이유가 없다. */
+      phases: { of: number[]; labels: string[] } | null;
+    };
 
 async function loadTarget(target: PresentTarget | null): Promise<PresentLoad> {
   if (!target) return { status: 'empty' };
@@ -63,14 +72,24 @@ async function loadTarget(target: PresentTarget | null): Promise<PresentLoad> {
   if (!resolved) return { status: 'error', message: '세션을 찾을 수 없습니다. 삭제되었을 수 있습니다.' };
   const nonMissingIds = resolved.items.filter((i) => !i.missing).map((i) => i.drillId);
   const drillMap = await repo.getDrills(nonMissingIds);
+  // C9 — 구획 순회로 drills 와 phaseOf 를 **같은 루프에서** 만든다. flatten(resolved.items)을
+  // 따로 돌면 두 배열의 첨자가 어긋날 길이 생긴다(순서의 단일 출처는 resolved.phases 다).
   const drills: Drill[] = [];
-  for (const item of resolved.items) {
-    if (item.missing) continue;
-    const d = drillMap.get(item.drillId);
-    if (d) drills.push(d);
-  }
+  const phaseOf: number[] = [];
+  resolved.phases.forEach((rp, pi) => {
+    for (const item of rp.items) {
+      if (item.missing) continue;
+      const d = drillMap.get(item.drillId);
+      if (d) {
+        drills.push(d);
+        phaseOf.push(pi);
+      }
+    }
+  });
   if (drills.length === 0) return { status: 'error', message: '세션에 시연할 드릴이 없습니다.' };
-  return { status: 'ready', kind: 'session', session: resolved.session, drills };
+  const labels = resolved.phases.map((rp) => phaseLabel(rp.phase));
+  const phases = resolved.phases.length > 1 ? { of: phaseOf, labels } : null;
+  return { status: 'ready', kind: 'session', session: resolved.session, drills, phases };
 }
 
 /** sampleDrill 과 같은 식(§3.6 타임라인)으로 스텝 시작 시각을 구한다 — 스텝 진행바 클릭·N/Home/End
@@ -224,9 +243,11 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
   const playbackActions = usePlaybackActions();
 
   const drills = load.kind === 'session' ? load.drills : [load.drill];
+  const phaseInfo = load.kind === 'session' ? load.phases : null;
   const [drillIndex, setDrillIndex] = useState(0);
-  const [interstitial, setInterstitial] = useState<Drill | null>(null);
+  const [interstitial, setInterstitial] = useState<{ drill: Drill; phase: string | null } | null>(null);
   const drill = drills[Math.min(drillIndex, drills.length - 1)]!;
+  const phaseIdx = phaseInfo ? (phaseInfo.of[Math.min(drillIndex, drills.length - 1)] ?? null) : null;
 
   const [stepIndex, setStepIndex] = useState(0);
   const [seekToken, setSeekToken] = useState(0);
@@ -288,8 +309,12 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
       playbackActions.resetMs();
       setSeekToken((v) => v + 1);
 
-      setInterstitial(target);
-      liveRegion.say(`다음 드릴: ${target.title}`);
+      // C9 — 구획 경계를 넘는 전환은 쉼 화면이 **구획 이름**까지 알린다(질문 ⑯).
+      const fromPhase = phaseInfo?.of[drillIndex];
+      const toPhase = phaseInfo?.of[next];
+      const crossed = phaseInfo && toPhase !== undefined && toPhase !== fromPhase ? phaseInfo.labels[toPhase]! : null;
+      setInterstitial({ drill: target, phase: crossed });
+      liveRegion.say(crossed ? `다음 구획: ${crossed} — 드릴: ${target.title}` : `다음 드릴: ${target.title}`);
       // 빠르게 연속 전환하면 이전 타이머가 남아 새 오버레이를 조기에 지운다 — 매번 갈아끼운다.
       if (interstitialTimer.current !== null) window.clearTimeout(interstitialTimer.current);
       interstitialTimer.current = window.setTimeout(() => {
@@ -297,7 +322,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
         setInterstitial(null);
       }, 2000);
     },
-    [drills, drillIndex, playbackActions],
+    [drills, drillIndex, playbackActions, phaseInfo],
   );
 
   const nextStep = useCallback(() => {
@@ -474,6 +499,9 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
                 height: 4,
                 borderRadius: 2,
                 background: i === drillIndex ? 'var(--accent)' : i < drillIndex ? 'var(--muted)' : 'var(--border)',
+                // C9 — 구획 경계에 틈을 벌린다. 칸 문법(색·data-progress)은 그대로라
+                // 고대비 갈고리(styles/contrast.css ④)와 충돌하지 않는다.
+                marginLeft: phaseInfo && i > 0 && phaseInfo.of[i] !== phaseInfo.of[i - 1] ? 12 : undefined,
               }}
             />
           ))}
@@ -515,6 +543,12 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
               <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 12, fontWeight: 700, color: 'var(--accent-text)', letterSpacing: 1 }}>
                 STEP {stepIndex + 1}/{drill.steps.length}
               </span>
+              {/* C9 — 지금 어느 구획인가. 세션에 구획이 둘 이상일 때만 선다(라벨 소음 방지). */}
+              {phaseInfo && phaseIdx !== null && (
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
+                  {phaseInfo.labels[phaseIdx]} {phaseIdx + 1}/{phaseInfo.labels.length}
+                </span>
+              )}
               {/* 스텝 이름 헤드라인은 과제⑦(2026-08-17)로 폐기됐다 — name 은 로드 시 note 로
                   이관돼 항상 ''다(§스텝 카드, "번호 + 썸네일만"과 같은 축소). 스텝 텍스트는
                   아래 note 문단 하나로만 보여준다. */}
@@ -626,8 +660,10 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
             background: 'var(--panel-2)',
           }}
         >
-          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-text)' }}>다음 드릴</span>
-          <span style={{ fontSize: 24, fontWeight: 750 }}>{interstitial.title}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-text)' }}>
+            {interstitial.phase ? `다음 구획: ${interstitial.phase}` : '다음 드릴'}
+          </span>
+          <span style={{ fontSize: 24, fontWeight: 750 }}>{interstitial.drill.title}</span>
         </div>
       )}
 

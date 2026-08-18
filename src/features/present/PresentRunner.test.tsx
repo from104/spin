@@ -11,7 +11,7 @@ import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
 import { HeaderProvider, AppHeader } from '../../app/AppHeader.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
-import { createSession, addDrillToSession } from '../../storage/sessionRepo.ts';
+import { createSession, addDrillToSession, getSession, putSession } from '../../storage/sessionRepo.ts';
 import { newId } from '../../core/ids.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { DrillId, SessionId } from '../../core/ids.ts';
@@ -188,6 +188,63 @@ describe('PresentRunner — 세션 시연', () => {
     await userEvent.click(screen.getByRole('button', { name: '2번째 드릴: 전환 드릴 B' }));
     await waitFor(() => expect(screen.getByLabelText('세션 진행 2/2')).toBeInTheDocument(), { timeout: 3000 });
   }, 8000);
+});
+
+describe('PresentRunner — 구획 인지 시연 (C9)', () => {
+  /** 구획 2개(워밍업 1드릴 · 전술 1드릴) 세션. */
+  async function makeTwoPhaseSession() {
+    const d1 = await makeTwoStepDrill(`구획드릴A ${++seq}`);
+    const d2 = await makeTwoStepDrill(`구획드릴B ${seq}`);
+    let session = await createSession({ title: `구획 세션 ${seq}` });
+    session = await addDrillToSession(session.id, d1.id);
+    session = await addDrillToSession(session.id, d2.id);
+    // 두 번째 드릴을 새 '전술' 구획으로 옮긴다.
+    const resolved = await getSession(session.id);
+    const s = resolved!.session;
+    const [first] = s.phases;
+    const moved = first!.items[1]!;
+    const next = {
+      ...s,
+      phases: [
+        { ...first!, kind: 'warm-up' as const, title: undefined, items: [first!.items[0]!] },
+        { id: newId('ph'), kind: 'tactical' as const, items: [moved] },
+      ],
+    };
+    delete (next.phases[0] as Record<string, unknown>).title;
+    await putSession(next);
+    return { sessionId: session.id, d1, d2 };
+  }
+
+  it('현재 구획 라벨이 서고, 구획 경계를 넘는 전환은 쉼 화면이 구획 이름을 알린다', async () => {
+    const { sessionId } = await makeTwoPhaseSession();
+    render(<PresentRunner target={{ kind: 'session', sessionId }} nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+
+    // 현재 구획 라벨 — 워밍업 1/2.
+    expect(screen.getByText(/워밍업 1\/2/)).toBeInTheDocument();
+
+    // 다음 드릴로 — 구획 경계를 넘는다.
+    await userEvent.setup().keyboard('n');
+    const status = await screen.findByRole('status');
+    expect(within(status).getByText(/다음 구획: 전술/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/전술 2\/2/)).toBeInTheDocument());
+  });
+
+  it('구획이 하나뿐이면 구획 라벨·구획 쉼 문구가 없다 — 라벨 소음 방지', async () => {
+    const d1 = await makeTwoStepDrill(`단일구획A ${++seq}`);
+    const d2 = await makeTwoStepDrill(`단일구획B ${seq}`);
+    const session = await createSession({ title: `단일 구획 세션 ${seq}` });
+    await addDrillToSession(session.id, d1.id);
+    await addDrillToSession(session.id, d2.id);
+    render(<PresentRunner target={{ kind: 'session', sessionId: session.id }} nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+
+    expect(screen.queryByText(/1\/1/)).toBeNull();
+    await userEvent.setup().keyboard('n');
+    const status = await screen.findByRole('status');
+    expect(within(status).getByText('다음 드릴')).toBeInTheDocument();
+    expect(within(status).queryByText(/다음 구획/)).toBeNull();
+  });
 });
 
 describe('세션 드릴 전환 — 전환 안내 중 코트 상태', () => {
