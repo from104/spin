@@ -61,5 +61,17 @@ export function backupReportLine(r: BackupRestoreReport): string {
           : r.board === 'kept-local-edited'
             ? ' · 전술판은 이 기기에서 편집 중이라 그대로 둠 — 함께 복원하려면 [전술판 교체]를 켜고 다시 읽으세요'
             : ' · 전술판은 그대로 둠';
-  return `드릴 ${r.drills.written.length}개 가져옴 · ${failed}개 실패 · ${r.drills.skipped.length}개 건너뜀 · ${sessions} · ${prefs}${board}`;
+  // 로스터(C3) — none-in-file(구 백업·빈 명단)은 말하지 않는다: 정상이고 할 일이 없는데
+  // 줄이 길어지기만 한다. 그 밖의 상태는 board 와 같은 규율로 전부 말한다.
+  const roster =
+    r.roster === 'restored'
+      ? ' · 선수 명단 복원함'
+      : r.roster === 'unreadable'
+        ? ' · 선수 명단은 읽을 수 없어 그대로 둠'
+        : r.roster === 'kept-local'
+          ? ' · 선수 명단은 이 기기에 이미 있어 그대로 둠'
+          : r.roster === 'skipped'
+            ? ' · 선수 명단은 그대로 둠'
+            : '';
+  return `드릴 ${r.drills.written.length}개 가져옴 · ${failed}개 실패 · ${r.drills.skipped.length}개 건너뜀 · ${sessions} · ${prefs}${board}${roster}`;
 }

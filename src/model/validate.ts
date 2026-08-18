@@ -27,6 +27,8 @@ import type { Arrow, ArrowHead } from './arrow.ts';
 import { CURRENT_SESSION_SCHEMA, SESSION_PHASE_KINDS, flattenSessionItems } from './session.ts';
 import type { TrainingSession, SessionItem, SessionPhase, SessionPhaseKind } from './session.ts';
 import { refDrillIds } from './refs.ts';
+import { CURRENT_ROSTER_SCHEMA, PF_CLASSES } from './roster.ts';
+import type { Roster, Player, PFClass } from './roster.ts';
 
 export interface ValidationIssue {
   path: string;
@@ -111,6 +113,9 @@ export const LIMITS = {
   sessionPhasesMax: 12, // 구획 수 상한. 표준 세션은 4~6 구획 — 12 는 깨진 파일 방어선
   phaseTitleLen: 40, // 구획 자유 이름. 스텝 이름과 같은 규모(한 줄 라벨)
   sessionGoalMinMax: 480, // 세션 목표 총 시간(분) 상한 = 8시간. 하루 훈련의 방어선
+  // ── 로스터 (구조 개편 C3) ─────────────────────────────────────────────────────────
+  rosterMax: 30, // playersNeededMax 와 같은 근거 — 코트 8 + 교체·피더까지
+  playerNameLen: 40, // chairNameLen(24)보다 넉넉한 이유: 여기는 트레이 손잡이로 안 흘러간다
 } as const;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -949,4 +954,49 @@ export function validateSession(doc: unknown): ValidateResult<TrainingSession> {
     updatedAt,
   };
   return { ok: true, value: session, repairs };
+}
+
+// ---- validateRoster (구조 개편 C3) ---------------------------------------------------------------
+
+export function validateRoster(doc: unknown): ValidateResult<Roster> {
+  if (!isRecord(doc)) {
+    return { ok: false, issues: [{ path: '', message: '문서가 객체가 아님' }] };
+  }
+  const schemaVersionRaw = doc.schemaVersion;
+  if (typeof schemaVersionRaw === 'number' && schemaVersionRaw > CURRENT_ROSTER_SCHEMA) {
+    return { ok: false, issues: [{ path: 'schemaVersion', message: `schemaVersion(${schemaVersionRaw}) 이 지원 버전(${CURRENT_ROSTER_SCHEMA})보다 큼` }] };
+  }
+  const repairs: Repair[] = [];
+  const seen = new Set<string>();
+  let players: Player[] = [];
+  const arr = Array.isArray(doc.players) ? doc.players : [];
+  for (const raw of arr) {
+    if (!isRecord(raw)) continue;
+    let id = typeof raw.id === 'string' && raw.id.length > 0 ? (raw.id as Player['id']) : newId('pl');
+    if (seen.has(id)) {
+      id = newId('pl');
+      pushRepair(repairs, 'players.id', '중복 선수 id 재발급', false);
+    }
+    seen.add(id);
+    // 이름 없는 선수는 버린다 — 명단의 존재 이유가 이름이다(공백뿐이어도 버린다).
+    const nameRaw = typeof raw.name === 'string' ? raw.name.trim() : '';
+    if (nameRaw.length === 0) continue;
+    const name = nameRaw.length <= LIMITS.playerNameLen ? nameRaw : nameRaw.slice(0, LIMITS.playerNameLen);
+    if (name !== nameRaw) pushRepair(repairs, 'players.name', `선수 이름 길이 상한(${LIMITS.playerNameLen}) 초과 — 절단`, true);
+    let klass: PFClass | undefined;
+    if (typeof raw.klass === 'string' && (PF_CLASSES as readonly string[]).includes(raw.klass)) {
+      klass = raw.klass as PFClass;
+    } else if (raw.klass !== undefined) {
+      pushRepair(repairs, 'players.klass', `알 수 없는 클래스 '${String(raw.klass)}' 폐기(미분류)`, false);
+    }
+    const createdAt = typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now();
+    const updatedAt = typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt) ? raw.updatedAt : Date.now();
+    players.push({ id, name, ...(klass !== undefined ? { klass } : {}), createdAt, updatedAt });
+  }
+  if (players.length > LIMITS.rosterMax) {
+    pushRepair(repairs, 'players', `선수 상한(${LIMITS.rosterMax}) 초과 — 뒤에서 절단`, true);
+    players = players.slice(0, LIMITS.rosterMax);
+  }
+  const updatedAt = typeof doc.updatedAt === 'number' && Number.isFinite(doc.updatedAt) ? doc.updatedAt : Date.now();
+  return { ok: true, value: { schemaVersion: CURRENT_ROSTER_SCHEMA, players, updatedAt }, repairs };
 }

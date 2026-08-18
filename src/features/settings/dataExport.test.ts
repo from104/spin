@@ -104,6 +104,7 @@ describe('backupReportLine — 숫자를 숨기지 않는다', () => {
     sessionsFailed: 0,
     prefs: 'skipped',
     board: 'skipped',
+    roster: 'none-in-file',
   };
 
   it('0 이어도 세 숫자를 전부 말한다 (4.2 importReportLine 과 같은 규율)', () => {

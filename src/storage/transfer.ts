@@ -14,8 +14,8 @@ import type { Drill } from '../model/drill.ts';
 import { CURRENT_DRILL_SCHEMA } from '../model/drill.ts';
 import type { TrainingSession, SessionItem } from '../model/session.ts';
 import { CURRENT_SESSION_SCHEMA } from '../model/session.ts';
-import { validateDrill, validateSession, type Repair } from '../model/validate.ts';
-import { migrateDoc, DRILL_MIGRATIONS, SESSION_MIGRATIONS, PREFS_MIGRATIONS } from '../model/migrate.ts';
+import { validateDrill, validateSession, validateRoster, type Repair } from '../model/validate.ts';
+import { migrateDoc, DRILL_MIGRATIONS, SESSION_MIGRATIONS, PREFS_MIGRATIONS , ROSTER_MIGRATIONS } from '../model/migrate.ts';
 import { refDrillIds, remapRefs } from '../model/refs.ts';
 import { buildSummary } from '../model/summary.ts';
 import { newId } from '../core/ids.ts';
@@ -25,6 +25,8 @@ import { CURRENT_PREFS_SCHEMA, validatePrefs, savePrefs, loadPrefs } from './pre
 import type { BoardSnapshot } from './board.ts';
 import { CURRENT_BOARD_SCHEMA, loadBoard, saveBoard } from './board.ts';
 import { putSession } from './sessionRepo.ts';
+import { loadRoster, saveRoster } from './rosterRepo.ts';
+import { CURRENT_ROSTER_SCHEMA, type Roster } from '../model/roster.ts';
 
 export const ENVELOPE_VERSION = 1;
 export type SpinFileKind = 'drill' | 'session' | 'library' | 'prefs' | 'drillSet' | 'backup';
@@ -47,6 +49,10 @@ export interface BackupPayload {
   sessions: TrainingSession[];
   prefs: Preferences;
   board: BoardSnapshot | null;
+  /** 로스터(C3, 2026-08-18). **optional 이고 ENVELOPE_VERSION 은 1 그대로다** — 그릇이 아니라
+   *  내용의 축이고, 구 백업 파일엔 이 키가 없으며 없으면 복원이 건너뛴다(backup kind 를 더할 때
+   *  세운 그 원칙). 빈 명단은 키를 생략한다 — 없는 것과 빈 것이 같은 뜻이라서다. */
+  roster?: Roster;
 }
 
 export type SpinFile =
@@ -323,11 +329,13 @@ export async function collectBackup(): Promise<BackupPayload> {
   const drills = await db.getAll('drills');
   const sessions = await db.getAll('sessions');
   const board = loadBoard();
+  const roster = await loadRoster();
   return {
     drills,
     sessions,
     prefs: loadPrefs(),
     board: board ? { schemaVersion: CURRENT_BOARD_SCHEMA, pristine: board.pristine, drill: board.drill } : null,
+    ...(roster.players.length > 0 ? { roster } : {}), // 빈 명단 = 키 생략(BackupPayload 주석)
   };
 }
 
@@ -342,8 +350,8 @@ export interface RestoreBackupOptions {
   drillConflict?: ImportResolution;
   /** ⚠️ prefs 기본값이 'skip' 인 것은 실수가 아니다. 백업 파일은 **드릴을 얻으려고 남에게서
    *  받는 경우**(코치끼리 주고받기)가 기기 이사만큼 흔한데, 그때 통째로 덮어쓰면 테마뿐 아니라
-   *  a11y(큰 표적·UI 배율·단일키 단축키·모션 줄이기)가 말없이 바뀐다. 이 앱의 주 사용자는 발
-   *  마우스·입 젓가락 사용자라 `largeTargets`/`uiScale` 이 조용히 꺼지는 것은 접근성 사고다.
+   *  a11y(큰 표적·UI 배율·단일키 단축키·모션 줄이기)가 말없이 바뀐다. 접근성 설정은 사용자가
+   *  자기 몸에 맞춰 둔 값이라 `largeTargets`/`uiScale` 이 조용히 꺼지는 것은 접근성 사고다.
    *  기기 이사(설정도 가져오고 싶다)는 화면에서 체크박스 하나로 'replace' 를 넘긴다.
    *
    *  **필드별 병합은 하지 않는다** — prefs 는 validatePrefs 가 전 필드를 채워 돌려주므로
@@ -354,6 +362,10 @@ export interface RestoreBackupOptions {
    *  편집 중인 판은 목록에 뜨지도 않고 되돌릴 수도 없는 단 한 장이라, 덮어쓰면 복구 경로가 0 이다.
    *  BoardSnapshot.pristine 이 바로 그 판정을 위해 저장본까지 따라다니는 필드다(board.ts 주석). */
   board?: 'auto' | 'skip' | 'replace';
+  /** 로스터. 기본 'auto' = **로컬 명단이 비어 있을 때만** 복원한다 — 남의 백업에서 드릴만
+   *  얻으려는 사용자의 팀 명단을 덮어쓰지 않는다(prefs 와 같은 결의 판단, 다만 명단은 비어
+   *  있으면 잃을 것이 없어 auto 가 안전하게 채워 줄 수 있다). */
+  roster?: 'auto' | 'skip' | 'replace';
 }
 
 /** 전술판 복원 결과. ⚠️ 옛 'skipped' 하나가 **서로 다른 두 사유**를 뭉개고 있었다(5.0 ②a,
@@ -375,6 +387,8 @@ export interface BackupRestoreReport {
   sessionsFailed: number;
   prefs: 'restored' | 'skipped' | 'unreadable';
   board: BoardRestoreResult;
+  /** 'kept-local' = 로컬 명단이 있어 auto 가 덮지 않았다(사용자가 'replace' 로 해소). */
+  roster: 'restored' | 'skipped' | 'none-in-file' | 'kept-local' | 'unreadable';
 }
 
 async function existingSessionFor(id: SessionId): Promise<TrainingSession | undefined> {
@@ -437,6 +451,25 @@ function restoreBoardFrom(raw: unknown, mode: NonNullable<RestoreBackupOptions['
     if (local && !local.pristine) return 'kept-local-edited';
   }
   return saveBoard(v.value, raw.pristine === true) ? 'restored' : 'unreadable';
+}
+
+async function restoreRosterFrom(raw: unknown, mode: NonNullable<RestoreBackupOptions['roster']>): Promise<BackupRestoreReport['roster']> {
+  if (mode === 'skip') return 'skipped';
+  if (raw === undefined || raw === null) return 'none-in-file'; // 구 백업·빈 명단 — 정상, 할 일 없음
+  const mig = migrateDoc(raw, ROSTER_MIGRATIONS, CURRENT_ROSTER_SCHEMA);
+  if (!mig.ok) return 'unreadable';
+  const v = validateRoster(mig.doc);
+  if (!v.ok) return 'unreadable';
+  if (mode === 'auto') {
+    const local = await loadRoster();
+    if (local.players.length > 0) return 'kept-local'; // 남의 백업이 내 팀 명단을 덮지 않게
+  }
+  try {
+    await saveRoster(v.value);
+    return 'restored';
+  } catch {
+    return 'unreadable';
+  }
 }
 
 /** 기기 이사 파일을 되돌린다.
@@ -507,6 +540,7 @@ export async function restoreBackup(file: SpinFile, opts: RestoreBackupOptions =
   // 3) 설정·판. 옵션 기본값의 근거는 RestoreBackupOptions 주석에 있다.
   const prefs = (opts.prefs ?? 'skip') === 'replace' ? restorePrefsFrom(raw.prefs) : 'skipped';
   const board = restoreBoardFrom(raw.board, opts.board ?? 'auto');
+  const roster = await restoreRosterFrom(raw.roster, opts.roster ?? 'auto');
 
-  return { drillsInFile: drillsRaw.length, sessionsInFile: sessionsRaw.length, drills, sessionsWritten, sessionsSkipped, sessionsFailed, prefs, board };
+  return { drillsInFile: drillsRaw.length, sessionsInFile: sessionsRaw.length, drills, sessionsWritten, sessionsSkipped, sessionsFailed, prefs, board, roster };
 }

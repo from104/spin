@@ -1235,6 +1235,27 @@ export function formatSessionWhen(ms: number): string;
 `maxSessionItems 40` 은 v2 에서도 **전 구획 합산** 기준이고, 구획 상한(`sessionPhasesMax 12`)
 초과 시 넘친 구획의 항목은 마지막 구획에 병합한다(이중 손실 방지).
 
+### 3.12b 로스터 — `src/model/roster.ts`, `src/storage/rosterRepo.ts` (구조 개편 C3)
+
+```ts
+export const CURRENT_ROSTER_SCHEMA = 1;
+export const PF_CLASSES = ['PF1', 'PF2'] as const;   // 파워체어 풋볼 선수 분류(PF2 동시 출전 최대 2명)
+export interface Player { id: PlayerId; name: string; klass?: PFClass; createdAt; updatedAt }
+export interface Roster { schemaVersion: number; players: Player[]; updatedAt: number }
+// 편집 헬퍼: addPlayer / updatePlayer / removePlayer (순수)
+// 저장: loadRoster() / saveRoster() — IDB meta 스토어 레코드 하나(key 'roster')
+```
+
+**단일 팀 단일 문서**(질문 20문 ⑬·⑰)라 새 IDB 스토어가 아니라 **meta 스토어의 레코드
+하나**다 — 스토어를 파면 `DB_VERSION` 상승 + onupgradeneeded + 멀티탭 blocked 처리가
+따라오는데 문서 하나에 과하다. 읽기는 처음부터 `migrateDoc(ROSTER_MIGRATIONS)`(현재 빈
+체인) + `validateRoster` 관문을 지난다. 상한: `rosterMax 30` · `playerNameLen 40`.
+손상 레코드는 빈 명단으로 **읽되 되쓰지 않는다** — 읽기 실패가 저장본을 지우면 안 된다.
+
+**백업 봉투**: `BackupPayload.roster?` — optional 이고 **ENVELOPE_VERSION 은 1 그대로**
+(그릇이 아니라 내용의 축). 빈 명단은 키 생략. 복원 기본값 'auto' = 로컬 명단이 비어
+있을 때만 복원(남의 백업이 내 팀 명단을 덮지 않는다 — prefs 'skip' 기본값과 같은 결).
+
 ---
 
 ## 4. 저장 계층 — `src/storage/`

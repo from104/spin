@@ -271,6 +271,11 @@ export const PREFS_MIGRATIONS: DocMigration[] = [
   },
 ];
 
+/** 로스터(구조 개편 C3)는 v1 부터 시작한다 — 체인이 비어 있어도 등록해 두는 이유는 읽기
+ *  경로(rosterRepo)가 처음부터 migrateDoc 관문을 지나게 하기 위해서다. 나중에 필드가 생길 때
+ *  관문을 새로 뚫는 것이 아니라 체인에 단계 하나를 더하면 된다(prefs 가 걸었던 길). */
+export const ROSTER_MIGRATIONS: DocMigration[] = [];
+
 export type MigrateResult =
   | { ok: true; doc: Record<string, unknown>; changed: boolean; applied: string[] }
   | { ok: false; reason: 'too-new'; found: number; supported: number }
