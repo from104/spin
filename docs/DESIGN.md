@@ -125,7 +125,7 @@
 
 | # | 쟁점 | **확정** | 근거 |
 |---|---|---|---|
-| D38 | 라우팅 | react-router 미도입. `useAppHistory` (`go` / `back` 2종) | 5화면·딥링크 불필요. `go` 만 있으면 뒤로가기가 시연 재진입 토글이 된다 |
+| D38 | 라우팅 | ~~react-router 미도입~~ → **C4(2026-08-18)에서 도입** — 해시 라우터 + `useAppHistory` 어댑터(`go`/`back` 시그니처 불변). §6.8 참조 | 세션 1급 승격으로 화면 증가·새로고침 복원 요구. 뒤로가기 토글 위험은 back 의 depth 규율이 그대로 막는다 |
 | D39 | 상태 저장소 | zustand 미도입. Context 5개 + `useReducer`, **state/dispatch 분리 Provider** | 60 fps 갱신을 React 밖으로 뺐으므로 셀렉터가 불필요 |
 | D40 | 60fps 경계 | `transform` 은 JSX 에 **절대** 쓰지 않는다. `TransformWriter` 단독 소유 | React 가 렌더하지 않은 속성은 재조정이 건드리지 않는다 |
 | D41 | 초기 transform | `register()` 가 **동기적으로 마지막 프레임을 즉시 기록** | 안 하면 마운트 첫 페인트에 25개 개체가 좌상단에 겹치고, 시연 드릴 전환(`key` 재마운트)에서는 **영구 고착** |
@@ -2897,9 +2897,23 @@ export function useAppHistory(initial?: Screen): {
 >   새 컨트롤은 초기 DOM 에 없는 곳(시트·서랍·모달·인스펙터 오버레이)에 넣는다.
 >   `src/test/boardTargetBudget.test.tsx` 가 게이트다.
 
-react-router 미도입 근거: 화면 4개·중첩 라우트 0·URL 공유가 제품 시나리오에 없음(드릴 공유는
-`.json` 파일). 실제로 필요한 건 시스템 뒤로가기 하나뿐이고 그건 40줄이다. 라우터를 두면
-전체화면 해제와 라우트 pop 이 같은 키 입력에 이중 동작할 위험이 있다.
+**react-router 도입 (2026-08-18 구조 개편 C4, 기현님 확정 — 질문 20문 ⑫).** 위에 있던
+"미도입 근거"(화면 4개·중첩 0·URL 공유 없음·40줄이면 된다)는 세션 1급 승격으로 화면이 늘고
+새로고침 복원 요구가 커지며 뒤집혔다. 형태는 이렇다:
+· **`createHashRouter` + 스플랫 단일 라우트** — 경로 매칭은 `app/routes.ts` 의
+  `pathFor`/`parsePath` 순수 함수가 단일 출처이고, AppShell 의 화면 스위치가 그 결과를 읽는다.
+  중첩 라우트가 0 인 앱이라 Outlet 계층은 세우지 않았다(App.tsx 주석 — 화면이 정말 중첩되는
+  날 다시 편다). 해시인 이유: 배포가 정적 파일 복사라 SPA fallback 이 없다(BrowserRouter 는
+  새로고침 404).
+· **`useAppHistory` 는 어댑터로 남는다** — AppHistoryApi{screen,target,go,back}·useAppNav·
+  AppNavProvider 시그니처 불변(EditorWorkspace 역방향 계약). depth 는 location.state 로
+  이사했고, back(fallback) 의 depth 0 경로는 push 가 아니라 **replace** 다(시연 재진입 토글
+  방지 — 옛 구현의 잠재 결함 수정).
+· **대상(StageTarget/PresentTarget/libraryIntent)은 전부 URL 파생** — 옛 "React state +
+  history.state 이중 장부" 은퇴, 새로고침 복원이 공짜다. LEGACY_SCREEN_KEYS(구 키 관용 표)도
+  함께 은퇴했다.
+· SkipLink 는 기본 앵커 점프를 preventDefault 한다 — `#main` 이 해시 경로를 갈아치우면
+  화면이 전술판으로 튄다(ui/SkipLink.tsx).
 
 **언세이브 데이터**: 확인 대화상자를 쓰지 않는다(`popstate` 는 취소할 수 없다). **자동저장**으로
 문제를 없앤다 — 커밋 후 800 ms 디바운스 + 화면 전환 이펙트에서 동기 플러시 +
@@ -3940,7 +3954,7 @@ export const isInteractiveTarget = (t: EventTarget | null): boolean =>
 | `src/styles/tokens.css` | `ui-kit` | 기존 12토큰은 건드리지 않고 §2.8 블록만 추가 |
 | `src/main.tsx` | `app-shell` | import 추가만 |
 | `index.html` | `app-shell` | §4.6 부트 스크립트 삽입 |
-| `package.json` | `test-fixtures` | `pnpm add -D fake-indexeddb` 만. 다른 모듈은 의존성 추가 금지 |
+| `package.json` | `test-fixtures` | `pnpm add -D fake-indexeddb` 만. 다른 모듈은 의존성 추가 금지. **예외(C4, 2026-08-18)**: `react-router` 가 app-shell 의 런타임 의존으로 합류 — §6.8 D38 뒤집힘 |
 | `vite.config.ts` | `test-fixtures` | `setupFiles` 유지 |
 
 **설치 필요**: `pnpm add -D fake-indexeddb` (미설치). `src/test/setup.ts` 에

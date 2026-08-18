@@ -14,14 +14,13 @@
 //  · editor/present 는 §8 표대로 app-shell 에 의존해도 되는 화면이라 useAppNav()/useAppHeader()
 //    를 직접 구독할 수 있다 — 그래서 이 둘은 정적 헤더 대신 AppHeader 의 Context 구독으로
 //    비켜준다(staticHeaderConfigFor 가 undefined 를 돌려준다).
-//  · "무엇을 열지"(어떤 드릴/세션)는 react-router 가 없어(§6.8) DESIGN.md 에 채널이 없다 —
-//    editor/present 가 app-shell 에 의존 가능하므로 이 파일이 라우팅 대상을 Context 로 들고
-//    있다가 useStageTarget()/usePresentTarget() 로 내준다(계약 밖 확장, 아래 export 참고).
-//    2026-08-12(계획서 2.3)부터 그 대상은 history.state 의 NavTarget 에도 함께 실린다 —
-//    리로드·뒤로가기로 재마운트돼도 무엇을 열고 있었는지가 살아남아야 하기 때문이다.
+//  · "무엇을 열지"(어떤 드릴/세션)는 **URL 이 저장소다**(구조 개편 C4, react-router 도입 —
+//    routes.ts 의 pathFor/parsePath 가 단일 출처). 이 파일은 그 값을 파생해 Context 로
+//    내준다(useStageTarget()/usePresentTarget()) — 리로드·뒤로가기 생존이 공짜가 됐고,
+//    옛 "React state + history.state 두 곳에 쓴다" 이중 장부는 은퇴했다.
 //  · `<main id="main" tabIndex={-1}>` 는 각 화면이 §7.5a 대로 스스로 렌더한다 — AppShell 은
 //    화면 스위치 바깥에 별도 <main> 을 두지 않는다(board/drills 쪽과 상호 확인 완료).
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { SkipLink } from '../ui/SkipLink.tsx';
 import { useIsNarrow } from '../ui/useIsNarrow.ts';
 import { LiveRegion, liveRegion } from '../ui/LiveRegion.tsx';
@@ -64,11 +63,9 @@ const PresentTargetContext = createContext<PresentTarget | null>(null);
 // 않는다 — **화면 키가 그 해석을 정한다**(useAppHistory.ts 의 NavTarget 주석). 아래 셋이
 // 그 해석의 유일한 자리다. 못 읽으면 null 을 돌려 "지금 값을 그대로 둔다" 는 뜻이 된다.
 
-function stageFromNav(screen: Screen, target: NavTarget | undefined): StageTarget | null {
-  if (screen !== 'board' || !target) return null;
-  if (target.kind === 'board') return { kind: 'board' };
-  if (target.kind === 'drill') return { kind: 'drill', drillId: target.id as DrillId };
-  return null;
+function stageFromNav(screen: Screen, target: NavTarget | undefined): StageTarget {
+  if (screen === 'board' && target?.kind === 'drill') return { kind: 'drill', drillId: target.id as DrillId };
+  return { kind: 'board' };
 }
 
 function presentFromNav(screen: Screen, target: NavTarget | undefined): PresentTarget | null {
@@ -78,12 +75,10 @@ function presentFromNav(screen: Screen, target: NavTarget | undefined): PresentT
   return null;
 }
 
-/** 목록 화면의 초기 의도(어느 탭 · 어느 드로어). **대상이 없는 drills 엔트리는 "의도 없음"** 이라
- *  빈 의도를 돌려준다 — board 의 "대상이 없으면 지금 값을 그대로 둔다"(손에 든 판은 들렀다 와도
- *  그대로)와 갈리는 지점이고, 그것이 계약이다. 목록은 손에 든 물건이 아니라 들어올 때마다 새로
- *  여는 화면이라, 앞서 열었던 탭·드로어가 뒤 엔트리에서 따라오면 **뒤로가기가 어긋난다**(계획서
- *  2.9: 탭 전환은 엔트리를 쌓고 뒤로가기는 정확히 이전 탭으로 돌아와야 한다). 탭을 안 실은
- *  엔트리로 돌아오면 LibraryScreen 이 세션 개수로 기본 탭을 다시 정한다(defaultLibraryTab). */
+/** 목록 화면의 초기 의도(어느 탭 · 어느 드로어). URL 쿼리에서 파생한다(routes.ts) — 탭을
+ *  안 실은 주소로 돌아오면 LibraryScreen 이 세션 개수로 기본 탭을 다시 정한다
+ *  (defaultLibraryTab). 계획서 2.9 의 "뒤로가기는 정확히 이전 탭으로" 는 URL 이 진실이
+ *  되면서 공짜로 성립한다. */
 function intentFromNav(screen: Screen, target: NavTarget | undefined): { tab?: LibraryTab; openSessionId?: SessionId } | null {
   if (screen !== 'drills') return null;
   if (target?.kind === 'tab') return { tab: target.tab };
@@ -107,43 +102,22 @@ export function usePresentTarget(): PresentTarget | null {
  *  대상을 **두 곳에** 쓴다: (1) React state(즉시 — 화면 키와 같은 배치에서 바뀌어야 판이
  *  board→drill 로 한 프레임 깜빡이지 않는다) (2) history.state 의 NavTarget(리로드·뒤로가기
  *  생존). 둘 중 하나만 쓰면 각각 "리로드하면 빈 화면"·"한 프레임 헛 마운트" 가 된다. */
-function useHomeNavAdapter(
-  nav: AppHistoryApi,
-  setStageTarget: (t: StageTarget) => void,
-  setPresentTarget: (t: PresentTarget) => void,
-  setLibraryIntent: (i: { tab?: LibraryTab; openSessionId?: SessionId } | null) => void,
-): HomeNav {
+function useHomeNavAdapter(nav: AppHistoryApi): HomeNav {
   return useMemo<HomeNav>(
     () => ({
       // "새 드릴" = 전술판으로 데려가기. 새 드릴은 전술판에서 그린 뒤 [드릴로 저장] 으로
       // 승격시키는 것이 재편 후의 주 경로다(§6.8). 여기서 판을 초기화하지는 **않는다** —
       // 목록에서 버튼 하나 눌렀다고 그리던 판이 날아가면 안 된다.
-      newDrill: () => {
-        setStageTarget({ kind: 'board' });
-        nav.go('board', { kind: 'board' });
-      },
-      openDrill: (id) => {
-        setStageTarget({ kind: 'drill', drillId: id });
-        nav.go('board', { kind: 'drill', id });
-      },
-      goLibrary: (opts) => {
-        setLibraryIntent(opts ?? null);
-        nav.go('drills', opts?.tab ? { kind: 'tab', tab: opts.tab } : undefined);
-      },
-      openSession: (id) => {
-        setLibraryIntent({ tab: 'sessions', openSessionId: id });
-        nav.go('drills', { kind: 'session', id });
-      },
-      presentDrill: (id) => {
-        setPresentTarget({ kind: 'drill', drillId: id });
-        nav.go('present', { kind: 'drill', id });
-      },
-      presentSession: (id) => {
-        setPresentTarget({ kind: 'session', sessionId: id });
-        nav.go('present', { kind: 'session', id });
-      },
+      // C4 — 대상은 URL 로만 간다. 옛 "React state + history.state 두 곳 쓰기" 는 URL 이
+      // 진실이 되면서 한 곳으로 접혔다(한 프레임 헛 마운트의 원인이던 이중 장부가 사라졌다).
+      newDrill: () => nav.go('board', { kind: 'board' }),
+      openDrill: (id) => nav.go('board', { kind: 'drill', id }),
+      goLibrary: (opts) => nav.go('drills', opts?.tab ? { kind: 'tab', tab: opts.tab } : undefined),
+      openSession: (id) => nav.go('drills', { kind: 'session', id }),
+      presentDrill: (id) => nav.go('present', { kind: 'drill', id }),
+      presentSession: (id) => nav.go('present', { kind: 'session', id }),
     }),
-    [nav, setStageTarget, setPresentTarget, setLibraryIntent],
+    [nav],
   );
 }
 
@@ -194,16 +168,6 @@ function renderScreen(
   }
 }
 
-/** 얕은 평문 비교 — 세 대상은 전부 `{ kind, id }` 꼴의 평면 객체다. 참조가 아니라 **내용**으로
- *  비교해야, popstate 동기화가 이미 서 있는 것과 같은 값을 다시 심어 헛 재렌더를 만들지 않는다. */
-function sameTarget(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
-  const ka = Object.keys(a);
-  const kb = Object.keys(b);
-  return ka.length === kb.length && ka.every((k) => (a as Record<string, unknown>)[k] === (b as Record<string, unknown>)[k]);
-}
-
 export function AppShell() {
   const nav = useAppHistory('board');
   const { toasts, dismiss } = useToast();
@@ -228,16 +192,13 @@ export function AppShell() {
     [drills, sessions],
   );
 
-  // 초기값은 history.state 가 싣고 온 대상에서 되살린다 — 체육관 태블릿이 시연 도중 리로드돼도
-  // 화면만 'present' 로 돌아오고 대상은 null 이라 *"시연할 드릴을 목록에서 선택하세요"* 라는
-  // 빈 화면이 뜨던 자리다(계획서 2.3). 지연 초기화라 마운트 시점에 이미 옳은 값이다 —
-  // 아래 동기화 이펙트에 맡기면 판이 board→drill 로 한 프레임 깜빡이며 헛 마운트한다.
-  const [stageTarget, setStageTarget] = useState<StageTarget>(() => stageFromNav(nav.screen, nav.target) ?? { kind: 'board' });
-  const [presentTarget, setPresentTarget] = useState<PresentTarget | null>(() => presentFromNav(nav.screen, nav.target));
-  const [libraryIntent, setLibraryIntent] = useState<{ tab?: LibraryTab; openSessionId?: SessionId } | null>(() =>
-    intentFromNav(nav.screen, nav.target),
-  );
-  const homeNav = useHomeNavAdapter(nav, setStageTarget, setPresentTarget, setLibraryIntent);
+  // C4 — 세 대상 전부 **URL 파생**이다(useState 아님). 리로드·뒤로가기 복원이 공짜고,
+  // 화면 키와 대상이 같은 location 에서 나오므로 "판이 board→drill 로 한 프레임 깜빡" 하던
+  // 이중 장부 문제가 원천적으로 없다.
+  const stageTarget = useMemo(() => stageFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
+  const presentTarget = useMemo(() => presentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
+  const libraryIntent = useMemo(() => intentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
+  const homeNav = useHomeNavAdapter(nav);
 
   // 레일·헤더 세그먼트의 활성 항목. **여기서 한 번만** 계산해 둘에 똑같이 내려보낸다
   // (`narrow` 가 간 길과 같다 — AppHeader.tsx 의 그 주석). 화면 키만으로는 드릴을 편집하는
@@ -268,25 +229,6 @@ export function AppShell() {
   const showHeader = narrow || nav.screen !== 'board';
   const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav);
 
-  // 브라우저 뒤로/앞으로가기로 돌아온 엔트리가 대상을 싣고 있으면 그 대상으로 되돌린다.
-  // 스테이지·시연은 없으면(대상 없는 엔트리) 지금 값을 그대로 둔다.
-  //
-  // ⚠️ 2026-08-14: **레일 [보드]는 이제 `{kind:'board'}` 를 싣는다**(navChrome.RAIL_NAV_TARGETS).
-  // 전에는 안 실었고, 그래서 이 "그대로 둔다" 가 곧 "들렀다 와도 손에 든 판은 그대로"(2.1
-  // 원칙 2)라는 계약이었다 — 그런데 손에 든 것이 드릴이면 [보드]를 눌러도 그 드릴이 board
-  // 자리에 그대로 남아 판과 드릴이 섞였다(기현님 지시로 폐기). 아래 관용이 남는 곳은
-  // **대상 없는 엔트리뿐**이고, 실제로 그 길은 `back('board')` 의 대체 경로 하나다.
-  // **목록 의도만 반대다**: 빈 의도도 값이라 그대로 심는다(intentFromNav 주석).
-  const navTarget = nav.target;
-  useEffect(() => {
-    const s = stageFromNav(nav.screen, navTarget);
-    if (s) setStageTarget((prev) => (sameTarget(prev, s) ? prev : s));
-    const p = presentFromNav(nav.screen, navTarget);
-    if (p) setPresentTarget((prev) => (sameTarget(prev, p) ? prev : p));
-    const i = intentFromNav(nav.screen, navTarget);
-    if (i) setLibraryIntent((prev) => (sameTarget(prev, i) ? prev : i));
-  }, [nav.screen, navTarget]);
-
   // §7.6: 화면 전환(go·back·popstate 전부) 시 <main id="main"> 에 포커스 + 라이브 리전 발표.
   // 최초 마운트(직접 진입)는 제외한다 — 브라우저가 이미 페이지 로드 시점의 포커스를 다뤘다.
   // main 은 화면마다 자기 것을 렌더하므로(위 주석) DOM 조회는 화면 전환 커밋 이후에 한다.
@@ -295,6 +237,10 @@ export function AppShell() {
   // 늘 "전술판 화면" 이라, 시각장애 코치는 방금 무엇이 열렸는지 알 수 없다(계획서 2.4).
   // 그래서 의존성에 대상 둘이 함께 들어간다: 같은 board 화면 안에서 대상만 바뀌는 전환
   // (드릴 열기·[빈 판으로])도 발표 대상이다.
+  // C4 — 전환 신호를 **값의 열쇠**로 접는다: 파생 객체는 location 이 바뀔 때마다 새 참조라
+  // 객체를 deps 에 두면 같은 화면 재방문에도 발표가 반복된다. 열쇠 문자열이 그 함정을 막는다.
+  const stageKey = stageTarget.kind === 'drill' ? `drill:${stageTarget.drillId}` : 'board';
+  const presentKey = presentTarget ? `${presentTarget.kind}:${presentTarget.kind === 'drill' ? presentTarget.drillId : presentTarget.sessionId}` : '';
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -305,7 +251,7 @@ export function AppShell() {
     // titleOf/libraryIntent 는 발표문의 재료일 뿐 전환 신호가 아니다 — 목록이 뒤늦게 읽히거나
     // 탭만 바뀌었다고 같은 화면을 다시 발표하면 안 된다(포커스도 함께 튄다).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nav.screen, stageTarget, presentTarget]);
+  }, [nav.screen, stageKey, presentKey]);
 
   return (
     <AppNavProvider value={nav}>

@@ -1,7 +1,6 @@
 // §6.8 화면 상수. 4개 화면 키가 어긋나면(오타·누락) 레일·헤더·라이브 리전 발표가 전부 깨진다.
 import { describe, expect, it } from 'vitest';
 import {
-  LEGACY_SCREEN_KEYS,
   RAIL_ITEMS,
   SCREEN_NAV_LABELS,
   SCREEN_ORDER,
@@ -95,17 +94,4 @@ describe('railFor — 화면 키만으로는 못 정하는 자리 (2026-08-14 �
   });
 });
 
-describe('구 키 관용 표 (계획서 2.3)', () => {
-  it("'home'→board, 'library'→drills 로만 접는다", () => {
-    expect(LEGACY_SCREEN_KEYS).toEqual({ home: 'board', library: 'drills' });
-  });
-
-  it('구 키는 신 키와 겹치지 않는다 — 겹치면 관용 경로가 산 키를 덮어쓴다', () => {
-    for (const old of Object.keys(LEGACY_SCREEN_KEYS)) {
-      expect(SCREEN_ORDER).not.toContain(old);
-    }
-    for (const to of Object.values(LEGACY_SCREEN_KEYS)) {
-      expect(SCREEN_ORDER).toContain(to);
-    }
-  });
-});
+// 구 키 관용 표(LEGACY_SCREEN_KEYS)는 C4(react-router)에서 은퇴 — screens.ts 주석 참고.

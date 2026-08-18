@@ -5,22 +5,39 @@ import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { AppRail } from './AppRail.tsx';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 
-function Harness({ children }: { children: ReactNode }) {
+type HarnessProps = { children: ReactNode };
+// C4(react-router) — useAppHistory 가 라우터 위의 어댑터가 되면서 하네스도 메모리 라우터로
+// 세운다. 화면 시드는 window.history.state 가 아니라 **주소**(harnessPath)다.
+let harnessPath = '/';
+let harnessRouter: ReturnType<typeof createMemoryRouter> | null = null;
+function NavBridge({ children }: HarnessProps) {
   const nav = useAppHistory('board');
+  return <AppNavProvider value={nav}>{children}</AppNavProvider>;
+}
+function Harness({ children }: HarnessProps) {
+  const router = useMemo(
+    () => createMemoryRouter([{ path: '*', element: <NavBridge>{children}</NavBridge> }], { initialEntries: [harnessPath] }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  harnessRouter = router;
   return (
     <SettingsProvider>
-      <AppNavProvider value={nav}>{children}</AppNavProvider>
+      <RouterProvider router={router} />
     </SettingsProvider>
   );
 }
 
 beforeEach(() => {
-  window.history.replaceState(null, '');
+  harnessPath = '/';
+  harnessRouter = null;
   window.localStorage.clear();
 });
 
@@ -48,7 +65,7 @@ describe('AppRail', () => {
   it('시연 중에는 [드릴] 에 aria-current 가 붙는다 — 레일에 없는 화면이 남의 자리를 빌린다', () => {
     // 레일이 StageTarget 을 모른 채 화면 키만 보고 접는 것이 계약이다(SCREEN_TO_RAIL).
     // 이 매핑이 없으면 시연 중에는 세 버튼 어디에도 현재 표시가 없다.
-    window.history.replaceState({ screen: 'present', depth: 1 }, '');
+    harnessPath = '/present';
     render(
       <Harness>
         <AppRail />
@@ -66,7 +83,7 @@ describe('AppRail', () => {
       </Harness>,
     );
     await userEvent.setup().click(screen.getByRole('button', { name: '설정' }));
-    expect(window.history.state).toMatchObject({ screen: 'settings' });
+    expect(harnessRouter!.state.location.pathname).toBe('/settings');
   });
 
   it('테마 토글이 prefs.theme 을 반전시키고 localStorage 에 남긴다', async () => {

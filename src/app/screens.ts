@@ -1,6 +1,7 @@
-// §6.8 화면 골격 — 4개 화면 키와 그 표시 이름. react-router 미도입(§6.8 근거: 화면이 몇 개
-// 안 되고 중첩 라우트 0·URL 공유가 제품 시나리오에 없음). 이 파일은 상수만 담고 로직은
-// useAppHistory.ts 로 뺀다.
+// §6.8 화면 골격 — 4개 화면 키와 그 표시 이름. 이 파일은 상수만 담고 로직은 useAppHistory.ts
+// (react-router 어댑터, C4 도입 — 경로 대응은 routes.ts)로 뺀다.
+// ⚠️ 옛 머리말의 "react-router 미도입" 은 2026-08-18 구조 개편(질문 20문 ⑫, 기현님 확정)으로
+// 뒤집혔다 — 화면이 늘고(세션 1급 승격) 새로고침 복원·이력 관리가 커지면서 도입이 정답이 됐다.
 //
 // 2026-08-09 재편: `editor` 를 별도 화면 키에서 **없앴다**. 자유 전술판과 드릴 편집은 같은
 // 컴포넌트(EditorWorkspace)이고 둘 다 `board` 자리에 뜬다 — 무엇이 떠 있는지는 화면 키가
@@ -53,13 +54,9 @@ export function railFor(screen: Screen, stageKind: 'board' | 'drill' = 'board'):
   return SCREEN_TO_RAIL[screen];
 }
 
-/** 개명 전 키 → 신 키. 사용자가 열어 둔 탭의 `history.state` 에는 옛 키가 그대로 들어 있으므로
- *  (useAppHistory 의 readNavEntry 가 이 표로 접는다) 지우면 그 탭들의 뒤로가기 이력이 통째로
- *  무효가 된다. **한시적 관용 경로**다 — 배포 후 한 사이클이 지나면 없앤다. */
-export const LEGACY_SCREEN_KEYS: Readonly<Record<string, Screen>> = {
-  home: 'board',
-  library: 'drills',
-};
+// LEGACY_SCREEN_KEYS(home/library → 신 키 관용 표)는 C4(react-router 도입)에서 은퇴했다 —
+// 진실이 history.state 에서 URL 로 옮겨 가면서 옛 state 엔트리는 아무도 읽지 않는다.
+// "한시적 관용 경로 — 배포 후 한 사이클이 지나면 없앤다" 던 약속의 이행이다.
 
 /** 레일 내비게이션 라벨. 화면 키와 다른 문구인 것들이 있다(present 는 레일에 없지만 §7.6
  *  발표·헤더가 쓰므로 값은 유지한다). */

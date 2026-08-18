@@ -150,21 +150,44 @@ const { AppShell } = await import('./AppShell.tsx');
 const { SettingsProvider } = await import('../store/settings/SettingsProvider.tsx');
 const { LibraryProvider } = await import('../store/library/LibraryProvider.tsx');
 const { ToastProvider } = await import('../store/toast/ToastProvider.tsx');
+const { createMemoryRouter, RouterProvider } = await import('react-router');
 
 // ── 하네스 ────────────────────────────────────────────────────────────────
 // AppShell 은 props 를 하나도 받지 않는다 — 바깥에서 필요한 건 App.tsx 와 같은 Provider 3개뿐
 // (AppNavProvider·HeaderProvider·두 Target Context 는 AppShell 이 스스로 감싸므로 여기서
 // 덧씌우면 안 된다).
+// C4(react-router) — 진실이 history.state 에서 URL 로 옮겨 갔다. 하네스는 메모리 라우터로
+// AppShell 을 세우고, 테스트는 라우터 인스턴스(현재 주소·location.state)를 직접 단언한다.
+// initialPath 로 "새로고침 복원"(같은 주소로 재마운트)을 흉내 낸다 — location 객체를 통째로
+// 넘기면 depth(location.state)까지 살아난다(실제 해시 라우터도 state 를 history.state.usr 에
+// 실어 리로드에서 보존한다).
+type InitialPath = string | { pathname: string; search?: string; state?: unknown };
+let initialPath: InitialPath = '/';
+let router: ReturnType<typeof createMemoryRouter>;
 function Harness() {
+  router = createMemoryRouter([{ path: '*', element: <AppShell /> }], { initialEntries: [initialPath as never] });
   return (
     <SettingsProvider>
       <LibraryProvider>
         <ToastProvider>
-          <AppShell />
+          <RouterProvider router={router} />
         </ToastProvider>
       </LibraryProvider>
     </SettingsProvider>
   );
+}
+
+/** 새로고침 시뮬레이션 재료 — 지금 주소·state 를 initialPath 로 만든다. */
+function currentLocationAsInitial(): InitialPath {
+  const { pathname, search, state } = router.state.location;
+  return { pathname, search, state };
+}
+
+/** 브라우저 뒤로가기 — 메모리 라우터의 이력에서 실제로 한 칸 돌아간다. */
+async function goBack() {
+  await act(async () => {
+    await router.navigate(-1);
+  });
 }
 
 /** 마운트하면 LibraryProvider 가 IDB 를 비동기로 읽는다(useStaticHeaderConfig 가 화면과 무관하게
@@ -221,9 +244,8 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  // useAppHistory 는 window.history.state 를 seed 로 쓴다 — 끊어두지 않으면 앞 테스트의
-  // 화면·depth 가 그대로 새 테스트로 새어 들어온다(AppRail.test.tsx 와 같은 위생 규칙).
-  window.history.replaceState(null, '');
+  // 라우터는 테스트마다 새로 만들지만 initialPath 모듈 변수는 남는다 — 위생상 리셋한다.
+  initialPath = '/';
   window.localStorage.clear();
   MOUNTS.board = 0;
   MOUNTS.editor = 0;
@@ -259,7 +281,7 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     // nav.openDrill = setStageTarget({kind:'drill'}) + go('board', {kind:'drill'})
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
     expectOnlyScreen('screen-editor');
-    expect(window.history.state).toMatchObject({ screen: 'board' });
+    expect(router.state.location.pathname).toBe(`/drills/${FIXTURE.drillId}`);
 
     // ⚠️ 2026-08-14 뒤집힘. 여기는 원래 `expectOnlyScreen('screen-editor')` 였다 — 레일이
     // 대상을 안 실어서 stage 가 drill 그대로 남는 것을 "들렀다 와도 손에 든 판은 그대로"
@@ -268,9 +290,9 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     await user.click(screen.getByRole('button', { name: '설정' }));
     await user.click(screen.getByRole('button', { name: '보드' }));
     expectOnlyScreen('screen-board');
-    expect(window.history.state).toMatchObject({ screen: 'board', target: { kind: 'board' } });
+    expect(router.state.location.pathname).toBe('/');
 
-    // nav.newDrill = setStageTarget({kind:'board'}) + go('board', {kind:'board'}) — 같은 자리를 판으로 되돌린다.
+    // nav.newDrill = go('board', {kind:'board'}) — 같은 자리를 판으로 되돌린다.
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '빈 판으로' }));
     expectOnlyScreen('screen-board');
@@ -295,19 +317,19 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
-    // 레일로 그냥 들어온 엔트리는 탭을 안 싣는다 = "초기 의도 없음" → 화면이 기본 탭을 정한다.
-    const before = window.history.state;
-    expect(before).toEqual({ screen: 'drills', depth: 1 });
+    // 레일로 그냥 들어온 주소는 탭을 안 싣는다 = "초기 의도 없음" → 화면이 기본 탭을 정한다.
+    expect(router.state.location.pathname).toBe('/drills');
+    expect(router.state.location.search).toBe('');
+    expect(router.state.location.state).toEqual({ depth: 1 });
     expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', '');
 
     await user.click(screen.getByRole('button', { name: '세션 탭으로' }));
-    expect(window.history.state).toEqual({ screen: 'drills', depth: 2, target: { kind: 'tab', tab: 'sessions' } });
+    expect(`${router.state.location.pathname}${router.state.location.search}`).toBe('/drills?tab=sessions');
+    expect(router.state.location.state).toEqual({ depth: 2 });
     expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', 'sessions');
 
-    // 뒤로가기 — 브라우저가 돌려주는 것은 위에서 실제로 쌓였던 그 엔트리다.
-    await act(async () => {
-      window.dispatchEvent(new PopStateEvent('popstate', { state: before }));
-    });
+    // 뒤로가기 — 라우터 이력에서 실제로 한 칸 돌아간다.
+    await goBack();
     expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', '');
   });
 
@@ -353,8 +375,8 @@ describe('AppShell 배선 — 레일 [보드]는 언제나 자유 전술판이�
     await user.click(screen.getByRole('button', { name: '보드' }));
     expectOnlyScreen('screen-board');
     expectRailActive('보드');
-    // 원인 자체를 본다: 엔트리에 대상이 실려야 stageFromNav 가 board 를 돌려준다.
-    expect(window.history.state).toMatchObject({ screen: 'board', target: { kind: 'board' } });
+    // 원인 자체를 본다: 주소가 루트여야 stageFromNav 가 board 를 돌려준다.
+    expect(router.state.location.pathname).toBe('/');
   });
 
   it('그래도 편집하던 드릴은 뒤로가기로 그대로 돌아온다 — 버리는 게 아니라 가르는 것이다', async () => {
@@ -363,15 +385,12 @@ describe('AppShell 배선 — 레일 [보드]는 언제나 자유 전술판이�
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
-    const drillEntry = window.history.state as unknown;
-    expect(drillEntry).toMatchObject({ target: { kind: 'drill', id: FIXTURE.drillId } });
+    expect(router.state.location.pathname).toBe(`/drills/${FIXTURE.drillId}`);
 
     await user.click(screen.getByRole('button', { name: '보드' }));
     expectOnlyScreen('screen-board');
 
-    await act(async () => {
-      window.dispatchEvent(new PopStateEvent('popstate', { state: drillEntry }));
-    });
+    await goBack();
     expectOnlyScreen('screen-editor');
   });
 
@@ -391,7 +410,7 @@ describe('AppShell 배선 — 레일 [보드]는 언제나 자유 전술판이�
 
       await user.click(within(nav()).getByRole('button', { name: '보드' }));
       expectOnlyScreen('screen-board');
-      expect(window.history.state).toMatchObject({ screen: 'board', target: { kind: 'board' } });
+      expect(router.state.location.pathname).toBe('/');
     } finally {
       delete (window as unknown as { matchMedia?: unknown }).matchMedia;
     }
@@ -467,20 +486,23 @@ describe('AppShell 배선 — 레일 활성 매핑(SCREEN_TO_RAIL)', () => {
   });
 });
 
-describe('AppShell 배선 — NavEntry 직렬화 왕복', () => {
-  it('빈 history 로 들어오면 depth 0 을 심는다(replaceState — 엔트리를 쌓지 않는다)', async () => {
+describe('AppShell 배선 — URL 직렬화 왕복 (C4: 진실은 주소다)', () => {
+  it('루트 진입은 자유 전술판이다 — 주소가 곧 초기 상태라 심을 것이 없다', async () => {
     await renderShell();
-    expect(window.history.state).toEqual({ screen: 'board', depth: 0 });
+    expectOnlyScreen('screen-board');
+    expect(router.state.location.pathname).toBe('/');
   });
 
-  it('go 가 실은 {screen, depth} 로 재마운트(새로고침)해도 같은 화면·depth 로 복원된다', async () => {
+  it('같은 주소로 재마운트(새로고침)하면 같은 화면·depth 로 복원된다', async () => {
     const { unmount } = await renderShell();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '설정' }));
-    expect(window.history.state).toEqual({ screen: 'settings', depth: 1 });
+    expect(router.state.location.pathname).toBe('/settings');
+    expect(router.state.location.state).toEqual({ depth: 1 });
 
-    // 새로고침 시뮬레이션 — 트리를 버리고 history.state 만 남긴 채 다시 마운트한다.
+    // 새로고침 시뮬레이션 — 트리를 버리고 같은 주소(+state)로 다시 마운트한다.
+    initialPath = currentLocationAsInitial();
     unmount();
     await renderShell();
     expectOnlyScreen('screen-settings');
@@ -488,7 +510,7 @@ describe('AppShell 배선 — NavEntry 직렬화 왕복', () => {
 
     // depth 도 살아 돌아왔다 — 0 으로 리셋됐다면 다음 go 가 1 이 됐을 것이다.
     await user.click(screen.getByRole('button', { name: '드릴' }));
-    expect(window.history.state).toEqual({ screen: 'drills', depth: 2 });
+    expect(router.state.location.state).toEqual({ depth: 2 });
   });
 
   it('시연 중 리로드해도 빈 화면이 아니라 그 대상이 복원된다 (계획서 2.3)', async () => {
@@ -498,10 +520,10 @@ describe('AppShell 배선 — NavEntry 직렬화 왕복', () => {
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '드릴 시연' }));
     expect(screen.getByTestId('screen-present')).toHaveAttribute('data-present-id', FIXTURE.drillId);
-    expect(window.history.state).toMatchObject({ screen: 'present', target: { kind: 'drill', id: FIXTURE.drillId } });
+    expect(router.state.location.pathname).toBe(`/present/drill/${FIXTURE.drillId}`);
 
-    // 체육관 태블릿이 시연 도중 리로드된 상황. 개명 전에는 화면만 'present' 로 돌아오고
-    // presentTarget 은 null 이라 *"시연할 드릴을 목록에서 선택하세요"* 만 떴다.
+    // 체육관 태블릿이 시연 도중 리로드된 상황. 주소가 대상을 싣고 있으므로 복원이 공짜다.
+    initialPath = currentLocationAsInitial();
     unmount();
     await renderShell();
     expectOnlyScreen('screen-present');
@@ -516,17 +538,18 @@ describe('AppShell 배선 — NavEntry 직렬화 왕복', () => {
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '세션 시연' }));
-    expect(window.history.state).toMatchObject({ screen: 'present', target: { kind: 'session', id: FIXTURE.sessionId } });
+    expect(router.state.location.pathname).toBe(`/present/session/${FIXTURE.sessionId}`);
 
+    initialPath = currentLocationAsInitial();
     unmount();
     await renderShell();
     expect(screen.getByTestId('screen-present')).toHaveAttribute('data-present-kind', 'session');
     expect(screen.getByTestId('screen-present')).toHaveAttribute('data-present-id', FIXTURE.sessionId);
   });
 
-  it('대상 없는 시연 엔트리는 그대로 빈 시연이다 — 복원이 아무 대상이나 만들어내지 않는다', async () => {
+  it('대상 없는 시연 주소는 그대로 빈 시연이다 — 복원이 아무 대상이나 만들어내지 않는다', async () => {
     // 위 두 테스트의 대조군. 대상이 실려 있을 때만 복원돼야 한다.
-    window.history.replaceState({ screen: 'present', depth: 1 }, '');
+    initialPath = '/present';
     await renderShell();
     expectOnlyScreen('screen-present');
     expect(screen.getByTestId('screen-present')).toHaveAttribute('data-present-kind', '');
@@ -540,6 +563,7 @@ describe('AppShell 배선 — NavEntry 직렬화 왕복', () => {
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
     expectOnlyScreen('screen-editor');
 
+    initialPath = currentLocationAsInitial();
     unmount();
     await renderShell();
     // stage 가 복원되지 않으면 같은 'board' 화면인데 BoardScreen(자유판)이 뜬다.
@@ -555,6 +579,7 @@ describe('AppShell 배선 — NavEntry 직렬화 왕복', () => {
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
 
+    initialPath = currentLocationAsInitial();
     unmount();
     MOUNTS.board = 0;
     MOUNTS.editor = 0;
@@ -571,6 +596,7 @@ describe('AppShell 배선 — NavEntry 직렬화 왕복', () => {
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '드릴 시연' }));
 
+    initialPath = currentLocationAsInitial();
     unmount();
     PRESENT_FRAMES.kinds.length = 0;
     await renderShell();
@@ -580,46 +606,28 @@ describe('AppShell 배선 — NavEntry 직렬화 왕복', () => {
     expect(screen.getByTestId('screen-present')).toHaveAttribute('data-present-id', FIXTURE.drillId);
   });
 
-  it('개명 전에 열어 둔 탭의 구 키 엔트리도 신 키로 접혀 복원된다 (계획서 2.3)', async () => {
-    // 이 관용 경로가 없으면 기존 사용자의 history.state 가 전부 무효로 판정돼
-    // 뒤로가기 이력이 초기화되고 초기 화면으로 떨어진다.
-    window.history.replaceState({ screen: 'library', depth: 3 }, '');
-    await renderShell();
-    expectOnlyScreen('screen-library');
-    expectRailActive('드릴');
-    // 접은 결과를 되써서 옛 키가 그 탭에 계속 굴러다니지 않게 한다.
-    expect(window.history.state).toEqual({ screen: 'drills', depth: 3 });
-  });
+  // 구 키(home/library) 관용 테스트는 C4 에서 은퇴 — 진실이 history.state 에서 URL 로 옮겨
+  // 가면서 옛 state 엔트리는 아무도 읽지 않는다(screens.ts 의 은퇴 기록).
 
-  it('popstate 로 돌아온 state 가 NavEntry 면 그대로 쓰고, 아니면 초기 화면으로 떨어진다', async () => {
+  it('브라우저 뒤로가기가 이전 화면을 되살리고, 모르는 주소는 전술판으로 접힌다', async () => {
     await renderShell();
     const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '설정' }));
     expectOnlyScreen('screen-settings');
 
-    // 브라우저 뒤로가기가 돌려주는 것과 같은 모양의 엔트리.
-    await act(async () => {
-      window.dispatchEvent(new PopStateEvent('popstate', { state: { screen: 'drills', depth: 0 } }));
-    });
+    await goBack();
     expectOnlyScreen('screen-library');
 
-    // 남의 state(다른 앱·확장이 심은 것)는 NavEntry 가 아니다 → initial 'board' 로.
-    // 두 판정(화면 키 화이트리스트 · depth 가 숫자)을 따로 찔러야 한다 — 한쪽만 틀린 값으로
-    // 찌르면 다른 쪽 판정이 대신 걸러줘서, 정작 그 판정을 지워도 초록불이 유지된다(실측).
-    await user.click(screen.getByRole('button', { name: '드릴' }));
+    // 남의 주소(공유 링크 오타·확장이 만든 해시)는 전술판이다 — 404 화면을 만들지 않는다
+    // (routes.ts parsePath 의 그 교리를 AppShell 배선까지 통과해 확인한다).
     await act(async () => {
-      window.dispatchEvent(new PopStateEvent('popstate', { state: { screen: 'nowhere', depth: 2 } }));
-    });
-    expectOnlyScreen('screen-board');
-
-    await user.click(screen.getByRole('button', { name: '드릴' }));
-    await act(async () => {
-      window.dispatchEvent(new PopStateEvent('popstate', { state: { screen: 'settings', depth: '2' } }));
+      await router.navigate('/nowhere/at/all');
     });
     expectOnlyScreen('screen-board');
   });
 
-  it('popstate 로 돌아온 엔트리의 대상까지 되돌린다 — 드릴 A → B 뒤 뒤로가기', async () => {
+  it('주소의 대상이 곧 시연 대상이다 — 드릴 A 주소에서 B 주소로 가면 B 가 뜬다', async () => {
     await renderShell();
     const user = userEvent.setup();
 
@@ -628,7 +636,7 @@ describe('AppShell 배선 — NavEntry 직렬화 왕복', () => {
     expect(screen.getByTestId('screen-present')).toHaveAttribute('data-present-id', FIXTURE.drillId);
 
     await act(async () => {
-      window.dispatchEvent(new PopStateEvent('popstate', { state: { screen: 'present', depth: 2, target: { kind: 'drill', id: 'dr_other' } } }));
+      await router.navigate('/present/drill/dr_other');
     });
     expect(screen.getByTestId('screen-present')).toHaveAttribute('data-present-id', 'dr_other');
   });

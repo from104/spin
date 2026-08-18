@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { cues } from '../ui/cues.ts';
 import { resolveDrillRepo } from '../storage/drillRepo.ts';
 import { seedDrillsOnce } from '../storage/seed.ts';
+import { createHashRouter, RouterProvider } from 'react-router';
 import { SettingsProvider, useSettingsActions, useSettingsState } from '../store/settings/SettingsProvider.tsx';
 import { LibraryProvider, useLibraryActions } from '../store/library/LibraryProvider.tsx';
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
@@ -87,6 +88,13 @@ export function SeedDrills() {
   return null;
 }
 
+/** C4(react-router 도입) — **스플랫 단일 라우트**다. 경로 매칭은 routes.ts 의 parsePath 가
+ *  하고(AppShell 의 화면 스위치가 그 결과를 읽는다), 라우터는 히스토리·URL·location.state 를
+ *  진다. 중첩 라우트가 0 인 앱이라(레일+헤더는 화면이 아니라 크롬이다) Outlet 계층을 세우면
+ *  얻는 것 없이 화면-크롬 사이에 컨텍스트 배관만 는다 — 화면이 정말 중첩되는 날 다시 편다.
+ *  **해시 라우터인 이유는 routes.ts 머리말에** (정적 파일 배포 = SPA fallback 없음). */
+const router = createHashRouter([{ path: '*', element: <AppShell /> }]);
+
 export default function App() {
   return (
     <SettingsProvider>
@@ -94,7 +102,7 @@ export default function App() {
       <LibraryProvider>
         <SeedDrills />
         <ToastProvider>
-          <AppShell />
+          <RouterProvider router={router} />
         </ToastProvider>
       </LibraryProvider>
     </SettingsProvider>

@@ -8,7 +8,9 @@ import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { AppNavAside, AppNavSegment } from './AppNavSegment.tsx';
 import { AppRail } from './AppRail.tsx';
 import { AppHeader } from './AppHeader.tsx';
@@ -18,19 +20,32 @@ import { RAIL_ITEMS } from './screens.ts';
 import { CHROME_ROWS } from './chromeBudget.ts';
 import { HEADER_PAD_PX, headerContentMaxPx, headerPadCss, navSegmentHeightPx } from './navChrome.ts';
 
-function Harness({ children }: { children: ReactNode }) {
+type HarnessProps = { children: ReactNode };
+// C4(react-router) — useAppHistory 가 라우터 위의 어댑터가 되면서 하네스도 메모리 라우터로
+// 세운다. 화면 시드는 window.history.state 가 아니라 **주소**(harnessPath)다.
+let harnessPath = '/';
+let harnessRouter: ReturnType<typeof createMemoryRouter> | null = null;
+function NavBridge({ children }: HarnessProps) {
   const nav = useAppHistory('board');
+  return <AppNavProvider value={nav}>{children}</AppNavProvider>;
+}
+function Harness({ children }: HarnessProps) {
+  const router = useMemo(
+    () => createMemoryRouter([{ path: '*', element: <NavBridge>{children}</NavBridge> }], { initialEntries: [harnessPath] }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  harnessRouter = router;
   return (
     <SettingsProvider>
-      <AppNavProvider value={nav}>{children}</AppNavProvider>
+      <RouterProvider router={router} />
     </SettingsProvider>
   );
 }
 
 beforeEach(() => {
-  // useAppHistory 는 window.history.state 를 seed 로 쓴다 — 끊어두지 않으면 앞 테스트의
-  // 화면이 새 테스트로 새어 들어온다(AppRail.test.tsx 와 같은 위생 규칙).
-  window.history.replaceState(null, '');
+  harnessPath = '/';
+  harnessRouter = null;
   window.localStorage.clear();
 });
 
@@ -51,7 +66,7 @@ describe('AppNavSegment — 레일과 같은 계약', () => {
   });
 
   it('시연 중에는 [드릴] 에 aria-current 가 붙는다 — SCREEN_TO_RAIL 을 레일과 공유한다', () => {
-    window.history.replaceState({ screen: 'present', depth: 1 }, '');
+    harnessPath = '/present';
     render(<AppNavSegment />, { wrapper: Harness });
     expect(screen.getByRole('button', { name: '드릴' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: '보드' })).not.toHaveAttribute('aria-current');
@@ -61,7 +76,7 @@ describe('AppNavSegment — 레일과 같은 계약', () => {
   it('칸을 클릭하면 useAppNav().go 가 실제로 불려 화면이 바뀐다', async () => {
     render(<AppNavSegment />, { wrapper: Harness });
     await userEvent.setup().click(screen.getByRole('button', { name: '설정' }));
-    expect(window.history.state).toMatchObject({ screen: 'settings' });
+    expect(harnessRouter!.state.location.pathname).toBe('/settings');
   });
 
   it('테마 토글이 prefs.theme 을 반전시키고 localStorage 에 남긴다', async () => {

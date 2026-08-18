@@ -21,6 +21,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AppShell } from '../app/AppShell.tsx';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { LibraryProvider } from '../store/library/LibraryProvider.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../storage/prefs.ts';
@@ -90,11 +91,13 @@ afterEach(() => {
 });
 
 async function openFirstScreen() {
+  // C4(react-router) — AppShell 은 라우터 문맥이 필요하다. 첫 화면 = 루트 주소.
+  const router = createMemoryRouter([{ path: '*', element: <AppShell /> }], { initialEntries: ['/'] });
   render(
     <SettingsProvider>
       <LibraryProvider>
         <ToastProvider>
-          <AppShell />
+          <RouterProvider router={router} />
         </ToastProvider>
       </LibraryProvider>
     </SettingsProvider>,
