@@ -293,8 +293,17 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
     // 성질(전부 surface 안 · 5 m 이격 · 겹침 없음)이 리듀서 안에 있으면 단언이 닿지 않는다.
     case 'PRESET_APPLY':
       return a.drill;
-    case 'META_SET':
-      return { ...d, ...a.patch };
+    case 'META_SET': {
+      // C7(2026-08-18) — **명시적 undefined 는 "키를 지워라"** 다. 얕은 병합만 하던 시절에는
+      // undefined 가 키로 남아 structuredClone(IDB)이 보존하고 JSON 이 지우는 두 얼굴 문서를
+      // 만들었다(actions.ts 의 그 경고). 이제 지우므로 메타 시트가 situation(선택 필드)을
+      // '미지정' 으로 되돌릴 수 있다 — validate 화이트리스트의 "없음 = 키 생략" 교리와 정합.
+      const next = { ...d, ...a.patch };
+      for (const k of Object.keys(a.patch)) {
+        if ((a.patch as Record<string, unknown>)[k] === undefined) delete (next as unknown as Record<string, unknown>)[k];
+      }
+      return next;
+    }
     case 'STEP_ADD':
       return addStepAfter(d, a.afterIndex);
     case 'STEP_DUPLICATE': {

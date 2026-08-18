@@ -51,10 +51,10 @@ export type EditorAction =
   //    바디를 새 좌표에 다시 세우고 writeFrame 이 즉시 그린다(안 그러면 모델만 바뀌고 화면의
   //    칩은 옛 자리에 남는다).
   | { type: 'PRESET_APPLY'; drill: Drill }
-  // ⚠️ patch 에 `{objective: undefined}` 같은 **명시적 undefined 를 실어 보내지 마라** —
-  // drillReducer 가 `{...d, ...patch}` 로 얕게 병합하므로 그 키가 undefined 인 채 남고,
-  // structuredClone(IDB)은 그것을 보존하는데 JSON 은 지운다(§3.7 omitKey 와 같은 함정).
-  // 인스펙터는 언제나 구체값('' · 0 · [])을 보낸다.
+  // C7(2026-08-18) — patch 의 **명시적 undefined 는 이제 "키를 지워라"** 다(reducer 가
+  // 병합 후 그 키를 delete 한다). 옛 경고("undefined 를 싣지 마라 — 두 얼굴 문서가 된다")의
+  // 함정 자체가 사라졌다: 선택 필드(situation 등)를 '미지정' 으로 되돌리는 유일한 통로다.
+  // 필수 필드는 여전히 구체값('' · 0 · [])을 보낸다 — 지우면 validate 가 기본값으로 되살린다.
   | {
       type: 'META_SET';
       patch: Partial<

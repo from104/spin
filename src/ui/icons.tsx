@@ -49,6 +49,17 @@ export function IconLibrary({ size = 19, ...rest }: IconProps) {
   );
 }
 
+/** 정보 ⓘ — 드릴 메타 시트(C7)의 열기 버튼. */
+export function IconInfo({ size = 19, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" strokeWidth={2} />
+      <path d="M12 7.5v.6" strokeWidth={2.4} />
+    </svg>
+  );
+}
+
 /** 세션(훈련 한 회의 계획) — 클립보드 + 목록 줄. C5(2026-08-18)에서 레일 4번째 항목으로
  *  합류했다. 드릴(格子 IconLibrary)과 구분되는 "순서 있는 목록" 은유다. */
 export function IconSessions({ size = 19, ...rest }: IconProps) {

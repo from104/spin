@@ -2915,6 +2915,16 @@ export function useAppHistory(initial?: Screen): {
 · SkipLink 는 기본 앵커 점프를 preventDefault 한다 — `#main` 이 해시 경로를 갈아치우면
   화면이 전술판으로 튄다(ui/SkipLink.tsx).
 
+**드릴 메타 시트 (C7, 2026-08-18 — 질문 20문 ⑦·⑧·⑪).** 드릴 편집 화면(EditorScreen)이
+EditorWorkspace(보드/스텝 편집 모듈 — 불가침) **밖**에 [드릴 정보] 오버레이 버튼(스테이지
+우상단, 기능 바 왼쪽)과 `DrillMetaSheet` 드로어를 얹는다. 기능 바에 칸을 더하지 않은 이유:
+1024×600 1열 여유가 1px 라 칸 하나에 기둥이 2열로 흘러 코트가 10% 준다(위 예산 주석).
+시트가 편집하는 것: v8 두 축(유형·경기 상황) · 난이도 · 소요시간 · 태그 · USPSA 서술
+3필드(목적/진행 방법/변형) · 교육 필드(코칭 포인트·필요 인원·필요 장비 — 0.2.1 [속성]
+폐기로 자리를 잃었던 것들의 부활). 저장 통로는 dispatch(META_SET) 하나다(자동저장 CAS 와
+두 갈래 쓰기 금지). META_SET 의 **명시적 undefined = 키 삭제**(C7 규칙) — 선택 필드
+(situation·variation)를 '미지정' 으로 되돌리는 유일한 통로다.
+
 **언세이브 데이터**: 확인 대화상자를 쓰지 않는다(`popstate` 는 취소할 수 없다). **자동저장**으로
 문제를 없앤다 — 커밋 후 800 ms 디바운스 + 화면 전환 이펙트에서 동기 플러시 +
 `visibilitychange:hidden` 플러시. 탭을 닫을 때 저장이 진행 중이면 `beforeunload`.
