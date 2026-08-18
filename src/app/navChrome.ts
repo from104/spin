@@ -10,7 +10,7 @@
 // court)까지 끌고 오는 모듈이라, AppHeader 가 그것을 통째로 지고 다니게 된다. 예산 행과의
 // 대조는 **테스트가** 양쪽을 각각 import 해서 한다(trayMetrics 가 간 길과 같다).
 import type { ComponentType } from 'react';
-import { IconBoard, IconLibrary, IconSettings } from '../ui/icons.tsx';
+import { IconBoard, IconLibrary, IconSessions, IconSettings } from '../ui/icons.tsx';
 import type { IconProps } from '../ui/icons.tsx';
 import type { NavTarget } from './useAppHistory.ts';
 import type { RailKey } from './screens.ts';
@@ -20,6 +20,7 @@ import type { RailKey } from './screens.ts';
 export const RAIL_ICONS: Record<RailKey, ComponentType<IconProps>> = {
   board: IconBoard,
   drills: IconLibrary,
+  sessions: IconSessions,
   settings: IconSettings,
 };
 
@@ -43,6 +44,7 @@ export const RAIL_ICONS: Record<RailKey, ComponentType<IconProps>> = {
 export const RAIL_NAV_TARGETS: Record<RailKey, NavTarget | undefined> = {
   board: { kind: 'board' },
   drills: undefined,
+  sessions: undefined,
   settings: undefined,
 };
 

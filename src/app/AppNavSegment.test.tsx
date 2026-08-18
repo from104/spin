@@ -49,15 +49,15 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-const NAV_LABELS = ['보드', '드릴', '설정'] as const;
+const NAV_LABELS = ['보드', '드릴', '세션', '설정'] as const;
 
 describe('AppNavSegment — 레일과 같은 계약', () => {
-  it('3항목 + 현재 화면에 aria-current="page"', () => {
+  it('4항목 + 현재 화면에 aria-current="page" (C5 — 세션 합류)', () => {
     render(<AppNavSegment />, { wrapper: Harness });
     const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
-    expect(within(nav).getAllByRole('button')).toHaveLength(3);
+    expect(within(nav).getAllByRole('button')).toHaveLength(4);
     expect(screen.getByRole('button', { name: '보드' })).toHaveAttribute('aria-current', 'page');
-    for (const label of ['드릴', '설정']) {
+    for (const label of ['드릴', '세션', '설정']) {
       expect(screen.getByRole('button', { name: label })).not.toHaveAttribute('aria-current');
     }
     // 레일에서 빠진 것은 여기서도 없다 — 좁은 창이라고 목적지가 늘어나면 안 된다.
@@ -116,11 +116,11 @@ describe('AppNavSegment — 레일과 같은 계약', () => {
     expect(Number(logo.getAttribute('height'))).toBeLessThan(44);
   });
 
-  it('세그먼트에는 이동 3칸뿐이다 — 테마·버전은 거기 없다(오른 끝으로 갔다)', () => {
+  it('세그먼트에는 이동 4칸뿐이다 — 테마·버전은 거기 없다(오른 끝으로 갔다)', () => {
     const { container } = render(<AppNavSegment />, { wrapper: Harness });
     expect(screen.queryByRole('button', { name: /테마로 전환/ })).toBeNull();
     expect(container).not.toHaveTextContent(/^v\d/);
-    expect(within(screen.getByRole('navigation', { name: '주요 메뉴' })).getAllByRole('button')).toHaveLength(3);
+    expect(within(screen.getByRole('navigation', { name: '주요 메뉴' })).getAllByRole('button')).toHaveLength(4);
   });
 
   it('레일과 항목 이름이 글자 하나까지 같다', () => {

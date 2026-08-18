@@ -29,7 +29,7 @@ import { IconPlus } from '../ui/icons.tsx';
 import { useToast } from '../store/toast/ToastProvider.tsx';
 import { useLibrary } from '../store/library/LibraryProvider.tsx';
 import type { DrillId, SessionId } from '../core/ids.ts';
-import type { HomeNav, LibraryTab } from '../features/home/nav.ts';
+import type { HomeNav } from '../features/home/nav.ts';
 import { AppRail } from './AppRail.tsx';
 import { AppHeader, HeaderProvider } from './AppHeader.tsx';
 import type { HeaderConfig } from './AppHeader.tsx';
@@ -43,6 +43,7 @@ import type { Screen } from './screens.ts';
 // Wave 4 는 이 다섯 모듈이 병렬로 진행되므로, 형제 모듈의 산출물이 아직 없는 동안은 이 import
 // 가 타입체크를 막는다(정상 — 통합 시점에 다시 확인한다). 최종 보고서에 명시.
 import { LibraryScreen } from '../features/library/LibraryScreen.tsx';
+import { SessionsScreen } from '../features/sessions/SessionsScreen.tsx';
 import { BoardScreen } from '../features/board/BoardScreen.tsx';
 import { EditorScreen } from '../features/editor/EditorScreen.tsx';
 import { PresentScreen } from '../features/present/PresentScreen.tsx';
@@ -75,15 +76,12 @@ function presentFromNav(screen: Screen, target: NavTarget | undefined): PresentT
   return null;
 }
 
-/** 목록 화면의 초기 의도(어느 탭 · 어느 드로어). URL 쿼리에서 파생한다(routes.ts) — 탭을
- *  안 실은 주소로 돌아오면 LibraryScreen 이 세션 개수로 기본 탭을 다시 정한다
- *  (defaultLibraryTab). 계획서 2.9 의 "뒤로가기는 정확히 이전 탭으로" 는 URL 이 진실이
- *  되면서 공짜로 성립한다. */
-function intentFromNav(screen: Screen, target: NavTarget | undefined): { tab?: LibraryTab; openSessionId?: SessionId } | null {
-  if (screen !== 'drills') return null;
-  if (target?.kind === 'tab') return { tab: target.tab };
-  if (target?.kind === 'session') return { tab: 'sessions', openSessionId: target.id as SessionId };
-  return {};
+/** 세션 화면의 드로어 대상(C5) — `/sessions?open=<id>` 에서 파생한다. 옛 libraryIntent
+ *  (탭·드로어)는 세션 탭이 1급 화면으로 나가면서 이 한 값으로 줄었다 — "뒤로가기는 정확히
+ *  이전 상태로"(계획서 2.9)는 URL 이 진실이라 공짜로 성립한다. */
+function openSessionFromNav(screen: Screen, target: NavTarget | undefined): SessionId | undefined {
+  if (screen !== 'sessions' || target?.kind !== 'session') return undefined;
+  return target.id as SessionId;
 }
 
 /** board 자리의 화면들(BoardScreen/EditorScreen)이 자기가 무엇을 그릴지 알아내는 통로 —
@@ -128,6 +126,7 @@ function useHomeNavAdapter(nav: AppHistoryApi): HomeNav {
  *  (정적 계산과 Context 선언이 같은 프레임에 동시에 밀어넣으면 서로 경합한다). */
 function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | undefined {
   const { search, setSearch } = useLibrary();
+  const { createSession } = useLibrary();
   switch (screen) {
     // ★ 'board' 는 이제 여기서 다루지 않는다(undefined 로 떨어진다). 2026-08-09 재편으로 board
     // 자리에는 자유 전술판/드릴 편집이 뜨고, 둘 다 useAppHeader 로 자기 헤더를 선언한다 —
@@ -142,6 +141,23 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
         primary: { label: '새 드릴', icon: <IconPlus size={15} />, onAction: nav.newDrill },
         search: { value: search, onChange: setSearch, placeholder: '드릴 검색…' },
       };
+    case 'sessions':
+      // C5 — 세션 1급 화면의 헤더. [새 세션]이 여기 있는 이유: 목록이 비어 있지 않을 때의
+      // 유일한 생성 진입점이다(빈 상태 CTA 는 SessionTab 본문에 그대로 있다).
+      return {
+        title: SCREEN_TITLES.sessions,
+        subtitle: SCREEN_SUBTITLES.sessions,
+        primary: {
+          label: '새 세션',
+          icon: <IconPlus size={15} />,
+          onAction: () => {
+            void (async () => {
+              const s = await createSession({ title: '새 세션' });
+              nav.openSession(s.id); // 만들자마자 드로어로 — 이름부터 고치는 흐름
+            })();
+          },
+        },
+      };
     case 'settings':
       return { title: SCREEN_TITLES.settings, subtitle: SCREEN_SUBTITLES.settings };
     default:
@@ -149,18 +165,15 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
   }
 }
 
-function renderScreen(
-  screen: Screen,
-  stage: StageTarget,
-  nav: HomeNav,
-  libraryIntent: { tab?: LibraryTab; openSessionId?: SessionId } | null,
-) {
+function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, openSessionId: SessionId | undefined) {
   switch (screen) {
     case 'board':
       // 같은 자리, 같은 EditorWorkspace — board 냐 drill 이냐만 다르다(§6.8 재편).
       return stage.kind === 'board' ? <BoardScreen /> : <EditorScreen />;
     case 'drills':
-      return <LibraryScreen nav={nav} initialTab={libraryIntent?.tab} initialOpenSessionId={libraryIntent?.openSessionId} />;
+      return <LibraryScreen nav={nav} />;
+    case 'sessions':
+      return <SessionsScreen nav={nav} openSessionId={openSessionId} />;
     case 'present':
       return <PresentScreen />;
     case 'settings':
@@ -197,14 +210,14 @@ export function AppShell() {
   // 이중 장부 문제가 원천적으로 없다.
   const stageTarget = useMemo(() => stageFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const presentTarget = useMemo(() => presentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
-  const libraryIntent = useMemo(() => intentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
+  const openSessionId = openSessionFromNav(nav.screen, nav.target);
   const homeNav = useHomeNavAdapter(nav);
 
   // 레일·헤더 세그먼트의 활성 항목. **여기서 한 번만** 계산해 둘에 똑같이 내려보낸다
   // (`narrow` 가 간 길과 같다 — AppHeader.tsx 의 그 주석). 화면 키만으로는 드릴을 편집하는
   // 중에도 [보드]에 불이 들어온다: board 자리에 무엇이 떠 있는지를 화면 키는 말하지 않고,
   // 그것을 아는 값은 renderScreen 이 보는 stageTarget 하나다(2026-08-14 기현님 지시).
-  const activeRail = railFor(nav.screen, stageTarget.kind);
+  const activeRail = railFor(nav.screen, stageTarget.kind, presentTarget?.kind ?? null);
 
   // ★ 자유 전술판은 **넓은 창에서 헤더를 안 세운다**(기현 지시 2026-08-14: *"상단 헤더 삭제.
   //   공간 확보"*). 헤더가 지고 있던 것이 전부 딴 데로 갔기 때문이다 — 코트 전환·되돌리기·
@@ -247,9 +260,9 @@ export function AppShell() {
       return;
     }
     document.getElementById('main')?.focus({ preventScroll: true });
-    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, { titleOf, tab: libraryIntent?.tab }));
-    // titleOf/libraryIntent 는 발표문의 재료일 뿐 전환 신호가 아니다 — 목록이 뒤늦게 읽히거나
-    // 탭만 바뀌었다고 같은 화면을 다시 발표하면 안 된다(포커스도 함께 튄다).
+    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, { titleOf }));
+    // titleOf 는 발표문의 재료일 뿐 전환 신호가 아니다 — 목록이 뒤늦게 읽혔다고 같은 화면을
+    // 다시 발표하면 안 된다(포커스도 함께 튄다).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nav.screen, stageKey, presentKey]);
 
@@ -263,7 +276,7 @@ export function AppShell() {
               {!narrow && <AppRail active={activeRail} />}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
-                {renderScreen(nav.screen, stageTarget, homeNav, libraryIntent)}
+                {renderScreen(nav.screen, stageTarget, homeNav, openSessionId)}
               </div>
             </div>
             <ToastHost toasts={toasts} onDismiss={dismiss} />

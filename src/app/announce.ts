@@ -7,7 +7,6 @@
 //
 // 순수 함수로 떼어 둔 이유: 발표문은 눈에 안 보이는 산출물이라 화면을 띄워서는 틀린 것을
 // 알아채지 못한다. 여기서 문자열 단위로 단언한다.
-import type { LibraryTab } from '../features/home/nav.ts';
 import type { PresentTarget, StageTarget } from './AppShell.tsx';
 import type { Screen } from './screens.ts';
 
@@ -16,11 +15,7 @@ export interface AnnounceLookup {
    *  그때는 제목 없이 무엇을 하는 화면인지만 읽는다("드릴 편집"). 콜론 뒤에 빈 자리를
    *  남기지 않는다. */
   titleOf?(target: StageTarget | PresentTarget): string | undefined;
-  /** 드릴 화면에서 지금 열려 있는 탭. */
-  tab?: LibraryTab;
 }
-
-const TAB_NAMES: Record<LibraryTab, string> = { drills: '드릴 탭', sessions: '세션 탭' };
 
 export function announceFor(screen: Screen, stage: StageTarget, present: PresentTarget | null, lookup: AnnounceLookup = {}): string {
   const title = (t: StageTarget | PresentTarget) => lookup.titleOf?.(t);
@@ -30,10 +25,11 @@ export function announceFor(screen: Screen, stage: StageTarget, present: Present
       const t = title(stage);
       return t ? `드릴 편집: ${t}` : '드릴 편집';
     }
-    case 'drills': {
-      const tab = lookup.tab;
-      return tab ? `드릴 목록, ${TAB_NAMES[tab]}` : '드릴 목록';
-    }
+    case 'drills':
+      return '드릴 목록';
+    case 'sessions':
+      // C5 — 세션이 1급 화면이 됐다(옛 "드릴 목록, 세션 탭" 문장의 후계).
+      return '세션 목록';
     case 'present': {
       if (!present) return '시연 모드';
       const t = title(present);

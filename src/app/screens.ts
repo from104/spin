@@ -13,16 +13,18 @@
 // 달라진 것은 **레일이 화면 키와 1:1 이 아니게 된 것**뿐이다: `present` 는 화면 키로 남되
 // 레일에서는 빠지고, 시연 중 활성은 SCREEN_TO_RAIL 이 [드릴]로 접는다.
 
-export type Screen = 'board' | 'drills' | 'present' | 'settings';
+// C5(2026-08-18 구조 개편) — 'sessions' 가 1급 화면으로 합류했다(질문 20문 ①: 세션·드릴·
+// 전술판 동급). 세션은 더 이상 드릴 목록의 2번째 탭이 아니다.
+export type Screen = 'board' | 'drills' | 'sessions' | 'present' | 'settings';
 
-export const SCREEN_ORDER: readonly Screen[] = ['board', 'drills', 'present', 'settings'];
+export const SCREEN_ORDER: readonly Screen[] = ['board', 'drills', 'sessions', 'present', 'settings'];
 
 /** 레일에 실제로 서는 항목. 화면 키의 **부분집합**이다 — `present` 는 레일에 없다.
  *  시연은 목록/카드에서 들어가는 것이지 "빈 시연 화면으로 이동" 은 목적지가 아니었다
  *  (레일로 들어오면 대상이 없어 *"시연할 드릴을 목록에서 선택하세요"* 만 뜬다). */
-export type RailKey = 'board' | 'drills' | 'settings';
+export type RailKey = 'board' | 'drills' | 'sessions' | 'settings';
 
-export const RAIL_ITEMS: readonly RailKey[] = ['board', 'drills', 'settings'];
+export const RAIL_ITEMS: readonly RailKey[] = ['board', 'drills', 'sessions', 'settings'];
 
 /** 화면 키 → 레일 항목. 시연 중 활성은 [드릴]이다.
  *
@@ -31,7 +33,8 @@ export const RAIL_ITEMS: readonly RailKey[] = ['board', 'drills', 'settings'];
 export const SCREEN_TO_RAIL: Record<Screen, RailKey> = {
   board: 'board',
   drills: 'drills',
-  present: 'drills',
+  sessions: 'sessions',
+  present: 'drills', // 대상이 세션인 시연은 railFor 가 [세션]으로 덮는다(아래)
   settings: 'settings',
 };
 
@@ -49,8 +52,11 @@ export const SCREEN_TO_RAIL: Record<Screen, RailKey> = {
  *
  *  값은 AppShell 이 한 번 계산해 레일과 헤더 세그먼트에 **똑같이 내려보낸다**(AppHeader 의
  *  `narrow` 가 간 길과 같다) — 두 곳이 각자 구하면 좁은 창에서만 다른 항목에 불이 들어온다. */
-export function railFor(screen: Screen, stageKind: 'board' | 'drill' = 'board'): RailKey {
+export function railFor(screen: Screen, stageKind: 'board' | 'drill' = 'board', presentKind?: 'drill' | 'session' | null): RailKey {
   if (screen === 'board' && stageKind === 'drill') return 'drills';
+  // C5 — 세션 시연 중에는 [세션]이 활성이다. 드릴 편집의 stageKind 와 같은 논법: 화면 키만
+  // 보면 시연은 늘 [드릴]인데, 세션을 시연하며 들어왔다면 돌아갈 곳도 세션 목록이다.
+  if (screen === 'present' && presentKind === 'session') return 'sessions';
   return SCREEN_TO_RAIL[screen];
 }
 
@@ -63,6 +69,7 @@ export function railFor(screen: Screen, stageKind: 'board' | 'drill' = 'board'):
 export const SCREEN_NAV_LABELS: Record<Screen, string> = {
   board: '보드',
   drills: '드릴',
+  sessions: '세션',
   present: '시연',
   settings: '설정',
 };
@@ -74,6 +81,7 @@ export const SCREEN_NAV_LABELS: Record<Screen, string> = {
 export const SCREEN_TITLES: Record<Screen, string> = {
   board: '전술판',
   drills: '드릴 라이브러리',
+  sessions: '훈련 세션',
   present: '시연 모드',
   settings: '설정',
 };
@@ -81,6 +89,7 @@ export const SCREEN_TITLES: Record<Screen, string> = {
 export const SCREEN_SUBTITLES: Record<Screen, string> = {
   board: '',
   drills: '저장된 드릴을 열어 편집하거나 시연하세요',
+  sessions: '드릴을 묶어 훈련 한 회를 계획하세요',
   present: '팀 앞에서 드릴을 단계별로 보여주세요',
   settings: '앱 동작과 팀 기본값',
 };

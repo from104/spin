@@ -49,6 +49,18 @@ export function IconLibrary({ size = 19, ...rest }: IconProps) {
   );
 }
 
+/** 세션(훈련 한 회의 계획) — 클립보드 + 목록 줄. C5(2026-08-18)에서 레일 4번째 항목으로
+ *  합류했다. 드릴(格子 IconLibrary)과 구분되는 "순서 있는 목록" 은유다. */
+export function IconSessions({ size = 19, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="4.5" y="4" width="15" height="17" rx="2" />
+      <path d="M9 4V2.8h6V4" strokeWidth={1.6} />
+      <path d="M8.5 9.5h7M8.5 13h7M8.5 16.5h4.5" strokeWidth={1.6} />
+    </svg>
+  );
+}
+
 export function IconEditor({ size = 19, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>

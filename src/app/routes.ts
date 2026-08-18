@@ -8,9 +8,10 @@
 // BrowserRouter 는 `/drills` 새로고침에서 404 다. URL 공유가 제품 시나리오에 없으므로
 // (§6.8 원 근거 그대로) 해시의 미관 비용은 0 이고, 무설정이 정답이다.
 //
-// 경로 표 (C4 — 기존 4화면. '/sessions' 는 2차 C5 에서 합류한다):
+// 경로 표 (C4 기초 + C5 세션 1급 합류):
 //   /                      전술판 (자유 보드)          screen 'board' + {kind:'board'}
-//   /drills                드릴 목록                    screen 'drills' (+?tab=sessions ?session=id)
+//   /drills                드릴 목록                    screen 'drills'
+//   /sessions              세션 목록                    screen 'sessions' (+?open=id → 드로어)
 //   /drills/:drillId       드릴 편집                    screen 'board' + {kind:'drill'}
 //   /present/drill/:id     드릴 시연                    screen 'present'
 //   /present/session/:id   세션 시연                    screen 'present'
@@ -35,9 +36,12 @@ export function pathFor(screen: Screen, target?: NavTarget): string {
     case 'board':
       return target?.kind === 'drill' ? `/drills/${target.id}` : '/';
     case 'drills':
-      if (target?.kind === 'session') return `/drills?session=${target.id}`;
-      if (target?.kind === 'tab' && target.tab === 'sessions') return '/drills?tab=sessions';
+      // C5 — 세션은 1급 화면이 됐다. 옛 "드릴 화면의 세션 탭/드로어" 대상은 세션 화면으로 접는다.
+      if (target?.kind === 'session') return `/sessions?open=${target.id}`;
+      if (target?.kind === 'tab' && target.tab === 'sessions') return '/sessions';
       return '/drills';
+    case 'sessions':
+      return target?.kind === 'session' ? `/sessions?open=${target.id}` : '/sessions';
     case 'present':
       if (target?.kind === 'drill') return `/present/drill/${target.id}`;
       if (target?.kind === 'session') return `/present/session/${target.id}`;
@@ -56,10 +60,16 @@ export function parsePath(pathname: string, search: string = ''): ParsedRoute {
   switch (seg[0]) {
     case 'drills': {
       if (seg.length >= 2 && seg[1]!.length > 0) return { screen: 'board', target: { kind: 'drill', id: seg[1]! } };
+      // C4 한 커밋 동안 쓰인 옛 쿼리 꼴 관용 — 세션 화면으로 접는다.
       const session = params.get('session');
-      if (session) return { screen: 'drills', target: { kind: 'session', id: session } };
-      if (params.get('tab') === 'sessions') return { screen: 'drills', target: { kind: 'tab', tab: 'sessions' } };
+      if (session) return { screen: 'sessions', target: { kind: 'session', id: session } };
+      if (params.get('tab') === 'sessions') return { screen: 'sessions' };
       return { screen: 'drills' };
+    }
+    case 'sessions': {
+      const open = params.get('open');
+      if (open) return { screen: 'sessions', target: { kind: 'session', id: open } };
+      return { screen: 'sessions' };
     }
     case 'present': {
       if (seg[1] === 'drill' && seg[2]) return { screen: 'present', target: { kind: 'drill', id: seg[2] } };

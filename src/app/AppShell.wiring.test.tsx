@@ -23,7 +23,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { DrillId, SessionId } from '../core/ids.ts';
-import type { HomeNav, LibraryTab } from '../features/home/nav.ts';
+import type { HomeNav } from '../features/home/nav.ts';
 import { CHROME_ROWS } from './chromeBudget.ts';
 
 // vi.mock 팩토리는 import 보다 위로 끌어올려지므로 이 파일 상단의 const 를 볼 수 없다.
@@ -46,24 +46,11 @@ vi.mock('../features/library/LibraryScreen.tsx', async () => {
   // 라이브 리전 발표문의 제목은 이 목록 데이터에서 나온다(AppShell.titleOf) — 아직 안 읽힌
   // 동안 눌러 버리면 제목 없는 문장이 나가므로, 로드 완료를 셀 수 있게 개수를 노출한다.
   const { useLibraryState } = await import('../store/library/LibraryProvider.tsx');
-  function LibraryScreen({
-    nav,
-    initialTab,
-    initialOpenSessionId,
-  }: {
-    nav: HomeNav;
-    initialTab?: LibraryTab;
-    initialOpenSessionId?: SessionId;
-  }) {
+  function LibraryScreen({ nav }: { nav: HomeNav }) {
     useAppHeader({ title: '목록이 선언한 헤더(무시돼야 한다)' });
     const { drills } = useLibraryState();
     return (
-      <div
-        data-testid="screen-library"
-        data-initial-tab={initialTab ?? ''}
-        data-open-session={initialOpenSessionId ?? ''}
-        data-drill-count={drills.length}
-      >
+      <div data-testid="screen-library" data-drill-count={drills.length}>
         <button type="button" onClick={() => nav.openDrill(FIXTURE.drillId as DrillId)}>
           드릴 열기
         </button>
@@ -76,10 +63,6 @@ vi.mock('../features/library/LibraryScreen.tsx', async () => {
         <button type="button" onClick={() => nav.openSession(FIXTURE.sessionId as SessionId)}>
           세션 열기
         </button>
-        {/* 2.9: 진짜 LibraryScreen 의 탭 버튼이 하는 일 — 탭 전환도 HomeNav prop 통로로만 나간다. */}
-        <button type="button" onClick={() => nav.goLibrary({ tab: 'sessions' })}>
-          세션 탭으로
-        </button>
         <button type="button" onClick={() => nav.newDrill()}>
           빈 판으로
         </button>
@@ -87,6 +70,20 @@ vi.mock('../features/library/LibraryScreen.tsx', async () => {
     );
   }
   return { LibraryScreen };
+});
+
+vi.mock('../features/sessions/SessionsScreen.tsx', () => {
+  // C5 — 세션 1급 화면. 드로어 대상은 URL(?open=)에서 파생된 prop 으로 내려온다.
+  function SessionsScreen({ nav, openSessionId }: { nav: HomeNav; openSessionId?: SessionId }) {
+    return (
+      <div data-testid="screen-sessions" data-open-session={openSessionId ?? ''}>
+        <button type="button" onClick={() => nav.presentSession(FIXTURE.sessionId as SessionId)}>
+          세션 시연(세션 화면)
+        </button>
+      </div>
+    );
+  }
+  return { SessionsScreen };
 });
 
 vi.mock('../features/board/BoardScreen.tsx', async () => {
@@ -201,7 +198,7 @@ async function renderShell() {
   return utils;
 }
 
-const SCREEN_TESTIDS = ['screen-board', 'screen-editor', 'screen-library', 'screen-present', 'screen-settings'] as const;
+const SCREEN_TESTIDS = ['screen-board', 'screen-editor', 'screen-library', 'screen-sessions', 'screen-present', 'screen-settings'] as const;
 
 /** renderScreen 은 switch 라 한 번에 하나만 나와야 한다 — "A 가 떴다" 뿐 아니라 "나머지는 없다"
  *  까지 봐야 스위치가 정말 갈렸는지 알 수 있다. */
@@ -220,7 +217,7 @@ function header(): HTMLElement {
 }
 
 // 2.1 재편: 레일은 3단이다. '시연' 은 화면 키로 살아 있지만 레일에는 없다.
-const RAIL_LABELS = ['보드', '드릴', '설정'] as const;
+const RAIL_LABELS = ['보드', '드릴', '세션', '설정'] as const;
 
 /** 레일에서 정확히 하나만 aria-current="page" 인지. */
 function expectRailActive(label: (typeof RAIL_LABELS)[number]) {
@@ -298,63 +295,49 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     expectOnlyScreen('screen-board');
   });
 
-  it('libraryIntent 를 LibraryScreen 의 initialTab/initialOpenSessionId prop 으로 실어 보낸다', async () => {
+  it('세션 열기가 세션 화면으로 가고 드로어 대상(?open=)이 prop 으로 실린다 (C5)', async () => {
     await renderShell();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
-    expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', '');
-
-    // nav.openSession = setLibraryIntent({tab:'sessions', openSessionId}) + go('drills', {kind:'session'})
+    // nav.openSession → /sessions?open=<id> — 세션은 이제 1급 화면이다.
     await user.click(screen.getByRole('button', { name: '세션 열기' }));
-    const lib = screen.getByTestId('screen-library');
-    expect(lib).toHaveAttribute('data-initial-tab', 'sessions');
-    expect(lib).toHaveAttribute('data-open-session', FIXTURE.sessionId);
+    expectOnlyScreen('screen-sessions');
+    expect(`${router.state.location.pathname}${router.state.location.search}`).toBe(`/sessions?open=${FIXTURE.sessionId}`);
+    expect(screen.getByTestId('screen-sessions')).toHaveAttribute('data-open-session', FIXTURE.sessionId);
+    expectRailActive('세션');
   });
 
-  it('탭 전환이 NavEntry 에 실리고, 뒤로가기가 이전 탭으로 정확히 돌아온다 (계획서 2.9)', async () => {
+  it('레일 [세션]과 [드릴]이 각각 제 화면으로 가고, 뒤로가기가 정확히 이전 화면으로 돌아온다', async () => {
+    // 계획서 2.9 의 "뒤로가기는 정확히 이전 탭으로" 의 후계 — 탭이 화면으로 승격했다(C5).
     await renderShell();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
-    // 레일로 그냥 들어온 주소는 탭을 안 싣는다 = "초기 의도 없음" → 화면이 기본 탭을 정한다.
     expect(router.state.location.pathname).toBe('/drills');
-    expect(router.state.location.search).toBe('');
-    expect(router.state.location.state).toEqual({ depth: 1 });
-    expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', '');
+    expectOnlyScreen('screen-library');
 
-    await user.click(screen.getByRole('button', { name: '세션 탭으로' }));
-    expect(`${router.state.location.pathname}${router.state.location.search}`).toBe('/drills?tab=sessions');
-    expect(router.state.location.state).toEqual({ depth: 2 });
-    expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', 'sessions');
+    await user.click(screen.getByRole('button', { name: '세션' }));
+    expect(router.state.location.pathname).toBe('/sessions');
+    expectOnlyScreen('screen-sessions');
+    expectRailActive('세션');
 
-    // 뒤로가기 — 라우터 이력에서 실제로 한 칸 돌아간다.
     await goBack();
-    expect(screen.getByTestId('screen-library')).toHaveAttribute('data-initial-tab', '');
+    expectOnlyScreen('screen-library');
+    expectRailActive('드릴');
   });
 
-  it('목록 의도는 엔트리마다 새로 정해진다 — 앞서 연 드로어가 뒤 엔트리로 따라오지 않는다', async () => {
-    // 들어올 때마다 새로 여는 화면이라, 앞서 연 드로어가 따라오면 뒤로가기가 어긋난다.
+  it('드로어 대상은 주소마다 새로 정해진다 — 앞서 연 드로어가 뒤 주소로 따라오지 않는다', async () => {
     await renderShell();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '세션 열기' }));
-    expect(screen.getByTestId('screen-library')).toHaveAttribute('data-open-session', FIXTURE.sessionId);
+    expect(screen.getByTestId('screen-sessions')).toHaveAttribute('data-open-session', FIXTURE.sessionId);
 
     await user.click(screen.getByRole('button', { name: '보드' }));
-    await user.click(screen.getByRole('button', { name: '드릴' }));
-    const lib = screen.getByTestId('screen-library');
-    expect(lib).toHaveAttribute('data-open-session', '');
-    expect(lib).toHaveAttribute('data-initial-tab', '');
-
-    // ⚠️ 여기 있던 대조군은 *"같은 왕복에서 stage 는 반대로 따라온다"* 였다(2.1 원칙 2).
-    // 2026-08-14 기현님 지시로 폐기 — 이제 stage 도 목록 의도와 **같이** 안 따라온다.
-    // 남은 차이는 대상 없는 엔트리(back 대체 경로)뿐이고 그건 아래 describe 가 본다.
-    await user.click(screen.getByRole('button', { name: '드릴 열기' }));
-    await user.click(screen.getByRole('button', { name: '설정' }));
-    await user.click(screen.getByRole('button', { name: '보드' }));
-    expectOnlyScreen('screen-board');
+    await user.click(screen.getByRole('button', { name: '세션' }));
+    expect(screen.getByTestId('screen-sessions')).toHaveAttribute('data-open-session', '');
   });
 });
 

@@ -11,10 +11,10 @@ import {
 } from './screens.ts';
 import type { Screen } from './screens.ts';
 
-const EXPECTED: readonly Screen[] = ['board', 'drills', 'present', 'settings'];
+const EXPECTED: readonly Screen[] = ['board', 'drills', 'sessions', 'present', 'settings'];
 
 describe('screens', () => {
-  it('SCREEN_ORDER 는 재편 후 4화면(§6.8)과 순서까지 정확히 같다', () => {
+  it('SCREEN_ORDER 는 재편 후 5화면(§6.8, C5 세션 합류)과 순서까지 정확히 같다', () => {
     expect(SCREEN_ORDER).toEqual(EXPECTED);
   });
 
@@ -25,13 +25,13 @@ describe('screens', () => {
     expect(SCREEN_ORDER).not.toContain('editor');
   });
 
-  it('2.1 개명은 화면을 늘리지 않는다 — 키 4개 그대로다', () => {
-    // 이 안(안 1)이 '화면 분리안'(board/edit 로 쪼갠다)과 갈리는 지점이다. 개수가 5로 늘면
-    // 위 'editor' 수호 단언이 살아 있어도 다른 이름으로 같은 일이 벌어진 것이다.
-    expect(SCREEN_ORDER).toHaveLength(4);
+  it('화면 키는 5개다 — C5 에서 sessions 가 합류했다(질문 20문 ①: 세션·드릴·전술판 동급)', () => {
+    // 옛 "키 4개 그대로" 단언의 후계. '화면 분리안'(board/edit 쪼개기) 금지는 위 'editor'
+    // 단언이 계속 지킨다 — 이번 증가는 분리가 아니라 승격이다(세션 탭 → 1급 화면).
+    expect(SCREEN_ORDER).toHaveLength(5);
   });
 
-  it('SCREEN_TITLES/SCREEN_NAV_LABELS 는 4화면 전부에 빈 문자열이 아닌 값을 갖는다', () => {
+  it('SCREEN_TITLES/SCREEN_NAV_LABELS 는 5화면 전부에 빈 문자열이 아닌 값을 갖는다', () => {
     for (const s of EXPECTED) {
       expect(SCREEN_TITLES[s]).toBeTruthy();
       expect(SCREEN_NAV_LABELS[s]).toBeTruthy();
@@ -41,19 +41,22 @@ describe('screens', () => {
   });
 });
 
-describe('레일 3단 (계획서 2.1)', () => {
-  it('RAIL_ITEMS 는 3개다 — present 는 화면 키로 남되 레일에서 빠진다', () => {
-    expect(RAIL_ITEMS).toEqual(['board', 'drills', 'settings']);
+describe('레일 4단 (계획서 2.1 → C5 세션 합류)', () => {
+  it('RAIL_ITEMS 는 4개다 — present 는 화면 키로 남되 레일에서 빠진다', () => {
+    expect(RAIL_ITEMS).toEqual(['board', 'drills', 'sessions', 'settings']);
     expect(RAIL_ITEMS).not.toContain('present');
     // 그러나 화면 키로는 살아 있다 — 레일에서 뺐다고 화면을 없앤 것이 아니다(§6.8 전체화면 계약).
     expect(SCREEN_ORDER).toContain('present');
   });
 
-  it('시연 중 레일 활성은 [드릴] 이다', () => {
+  it('시연 중 레일 활성은 [드릴] 이다 — 단 세션 시연은 railFor 가 [세션]으로 덮는다 (C5)', () => {
     expect(SCREEN_TO_RAIL.present).toBe('drills');
+    expect(railFor('present', 'board', 'session')).toBe('sessions');
+    expect(railFor('present', 'board', 'drill')).toBe('drills');
+    expect(railFor('present', 'board', null)).toBe('drills');
   });
 
-  it('SCREEN_TO_RAIL 은 4화면 전부를 RAIL_ITEMS 안의 항목으로 접는다', () => {
+  it('SCREEN_TO_RAIL 은 5화면 전부를 RAIL_ITEMS 안의 항목으로 접는다', () => {
     // 빠진 화면이 있으면 그 화면에서 레일이 통째로 비활성이 되고(aria-current 없음),
     // RAIL_ITEMS 밖 값을 가리키면 어느 버튼에도 안 붙어 같은 증상이 된다.
     for (const s of SCREEN_ORDER) {

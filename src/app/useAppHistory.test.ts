@@ -32,8 +32,8 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
     ['board', { kind: 'board' }],
     ['board', { kind: 'drill', id: 'dr_x1' }],
     ['drills', undefined],
-    ['drills', { kind: 'tab', tab: 'sessions' }],
-    ['drills', { kind: 'session', id: 'se_x1' }],
+    ['sessions', undefined],
+    ['sessions', { kind: 'session', id: 'se_x1' }],
     ['present', { kind: 'drill', id: 'dr_x1' }],
     ['present', { kind: 'session', id: 'se_x1' }],
     ['present', undefined],
@@ -48,8 +48,6 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
       // 대상 없는 board 는 없다(루트가 곧 자유 판) — 그 외는 대상도 없이 돌아온다.
       if (scr === 'board') expect(back.target).toEqual({ kind: 'board' });
       else expect(back.target).toBeUndefined();
-    } else if (scr === 'drills' && target.kind === 'tab' && target.tab === 'drills') {
-      expect(back.target).toBeUndefined();
     } else {
       expect(back.target).toEqual(target);
     }

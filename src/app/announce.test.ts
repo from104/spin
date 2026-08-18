@@ -54,10 +54,9 @@ describe('announceFor', () => {
     expect(announceFor('board', BOARD, null)).toBe('자유 전술판');
   });
 
-  it('드릴 목록은 탭 이름을 덧붙인다', () => {
+  it('드릴 목록·세션 목록은 각자의 문장이다 (C5 — 탭 문구 은퇴)', () => {
     expect(announceFor('drills', BOARD, null)).toBe('드릴 목록');
-    expect(announceFor('drills', BOARD, null, { tab: 'sessions' })).toBe('드릴 목록, 세션 탭');
-    expect(announceFor('drills', BOARD, null, { tab: 'drills' })).toBe('드릴 목록, 드릴 탭');
+    expect(announceFor('sessions', BOARD, null)).toBe('세션 목록');
   });
 
   it('설정은 설정이다', () => {

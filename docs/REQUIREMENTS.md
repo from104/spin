@@ -229,8 +229,8 @@ viewBox 가 사방 12.5 px 씩 커졌다 — 마진은 코트를 줄이는 것�
 
 | | 값 |
 |---|---|
-| 화면 키 (`Screen`) | `board` · `drills` · `present` · `settings` — **4개** |
-| 레일 항목 (`RailKey`) | `board`(보드) · `drills`(드릴) · `settings`(설정) — **3개** |
+| 화면 키 (`Screen`) | `board` · `drills` · `sessions` · `present` · `settings` — **5개** |
+| 레일 항목 (`RailKey`) | `board`(보드) · `drills`(드릴) · `sessions`(세션) · `settings`(설정) — **4개** |
 
 - **2026-08-09**: `editor` 를 화면 키에서 **없앴다**. 자유 전술판과 드릴 편집은 같은
   컴포넌트(`EditorWorkspace`)이고 둘 다 `board` 자리에 뜬다 — 무엇이 떠 있는지는 화면 키가
@@ -240,9 +240,12 @@ viewBox 가 사방 12.5 px 씩 커졌다 — 마진은 코트를 줄이는 것�
   그대로 4개다. 달라진 것은 **레일이 화면 키와 1:1 이 아니게 된 것**뿐이다 — `present` 는
   화면 키로 남되 레일에서는 빠지고(시연은 목록/카드에서 들어간다), 시연 중 레일 활성은
   `SCREEN_TO_RAIL` 이 [드릴]로 접는다.
-- 옛 키(`home`/`library`)는 `LEGACY_SCREEN_KEYS` 가 한시적으로 받아 준다 — 열어 둔 탭의
-  `history.state` 에 옛 키가 남아 있기 때문이다.
-- 좁은 창에서는 세로 레일이 **헤더 좌측 3칸 세그먼트**로 접힌다. 같은 3항목·같은 아이콘이다.
+- **2026-08-18 (구조 개편)**: `sessions` 가 1급 화면으로 합류했다(세션·드릴·전술판 동급).
+  세션은 더 이상 드릴 목록의 2번째 탭이 아니고, 화면마다 해시 주소가 생겼다(react-router —
+  `#/sessions` 등). 세션 시연 중 레일 활성은 `railFor` 가 [세션]으로 덮는다.
+- 옛 키(`home`/`library`) 관용 표(`LEGACY_SCREEN_KEYS`)는 라우터 도입으로 은퇴했다 — 진실이
+  `history.state` 에서 URL 로 옮겨 갔다.
+- 좁은 창에서는 세로 레일이 **헤더 좌측 세그먼트**로 접힌다. 같은 항목·같은 아이콘이다.
 - **인쇄 화면은 화면 키가 아니다.** `src/features/print/` 의 React 트리가 평소
   `display:none` 으로 붙어 있다가 `@media print` 에서만 보인다.
 

@@ -1,4 +1,6 @@
-// §6.11: 목록 화면 = 드릴 그리드(부록A 마크업 이식) + "목록 화면의 탭"으로 얹은 세션 탭.
+// §6.11: 목록 화면 = 드릴 그리드(부록A 마크업 이식).
+// C5(2026-08-18 구조 개편) — **세션 탭이 1급 화면으로 승격해 나갔다**(features/sessions/
+// SessionsScreen.tsx, 질문 20문 ①). 이 화면은 이제 드릴 전용이고 탭 UI 도 은퇴했다.
 //
 // 내비게이션·헤더: §8 "screen-home-library 의존은 store, render-court, ui-kit, model, storage
 // 뿐" — app-shell 을 import 하지 않는다. **이동은 통로가 하나다**: 화면 전환도 탭 전환도 전부
@@ -19,7 +21,7 @@
 // 옛 주석의 "드릴 카드에는 애초에 시연 개념이 없다" 는 문장은 이 시점부터 무효다. 같은 이유로
 // 헤더 주 액션도 세션 탭에서 "새 세션"으로 바뀌지 않는다(app-shell 의 정적 헤더 계산은 탭
 // 상태를 모른다) — 대신 세션 탭 본문에 자체 "새 세션" 진입점(빈 상태 CTA)을 둔다.
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { DRILL_TYPES, DRILL_TYPE_LABELS } from '../../model/drill.ts';
@@ -28,16 +30,11 @@ import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import { DRILL_LEVELS } from '../../model/drill.ts';
-import { deleteSession as repoDeleteSession, getSession } from '../../storage/sessionRepo.ts';
-import type { SessionId } from '../../core/ids.ts';
 import type { DrillSummary } from '../../model/summary.ts';
 import { DrillCard } from './DrillCard.tsx';
-import { SessionTab } from './SessionTab.tsx';
-import { SessionDrawer } from './SessionDrawer.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
-import type { HomeNav, LibraryTab } from '../home/nav.ts';
-import { defaultLibraryTab } from '../home/nav.ts';
-import { buildImportReport, commitDrills, commitSession, exportOneDrill, exportOneSession, importReportLine, readImportFile } from './transfer.ts';
+import type { HomeNav } from '../home/nav.ts';
+import { buildImportReport, commitDrills, commitSession, exportOneDrill, importReportLine, readImportFile } from './transfer.ts';
 import type { ImportPreview } from './transfer.ts';
 import type { ImportResolution } from '../../storage/transfer.ts';
 
@@ -45,51 +42,17 @@ const TYPE_OPTIONS = [{ value: '', label: '전체' }, ...DRILL_TYPES.map((t) => 
 
 export interface LibraryScreenProps {
   nav: HomeNav;
-  initialTab?: LibraryTab;
-  initialOpenSessionId?: SessionId;
 }
 
-export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: LibraryScreenProps) {
-  const { drills, sessions, drillType, search, setDrillType, duplicateDrill, deleteDrill, createSession, refresh } = useLibrary();
+export function LibraryScreen({ nav }: LibraryScreenProps) {
+  const { drills, drillType, search, setDrillType, duplicateDrill, deleteDrill, refresh } = useLibrary();
   const toast = useToast();
 
-  const sessionCount = sessions.length;
-  const [tab, setTab] = useState<LibraryTab>(() => initialTab ?? defaultLibraryTab(sessionCount));
-  const [drawerSessionId, setDrawerSessionId] = useState<SessionId | null>(initialOpenSessionId ?? null);
-  const drawerTriggerRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
-  // initialTab 은 **NavEntry 가 싣고 온 탭**이다(app-shell 이 history.state 의 {kind:'tab'} 을
-  // 풀어 내려준다) — 뒤로가기로 돌아오면 여기로 그 탭이 다시 들어오므로, 값이 바뀔 때마다
-  // 반영해야 뒤로가기가 정확히 돌아온다(계획서 2.9). 탭을 안 싣고 들어온 엔트리(레일로 그냥
-  // 진입)는 undefined 로 오고, 그때는 **세션 개수**가 기본 탭을 정한다. 개수는 IDB 를 비동기로
-  // 읽어 오므로 첫 렌더에는 아직 0 이다 — 그래서 sessionCount 도 의존성에 들어간다. 사용자가
-  // 직접 고른 탭은 nav.goLibrary 를 거쳐 initialTab 으로 되돌아오므로 이 재계산에 덮이지 않는다.
-  useEffect(() => {
-    setTab(initialTab ?? defaultLibraryTab(sessionCount));
-  }, [initialTab, sessionCount]);
-  useEffect(() => {
-    if (initialOpenSessionId) setDrawerSessionId(initialOpenSessionId);
-  }, [initialOpenSessionId]);
-
-  // 탭 전환도 **이동**이다(계획서 2.9) — 로컬 state 만 바꾸면 뒤로가기가 탭을 건너뛴다.
-  // 통로는 하나뿐이라 여기서도 useAppNav 가 아니라 HomeNav prop 으로 나간다(2.8). 로컬 state 를
-  // 함께 세우는 것은 낙관 갱신이다: app-shell 왕복(NavEntry → initialTab)을 기다리면 탭이 한
-  // 프레임 늦게 바뀌고, nav 가 없는 단독 렌더(테스트·스토리)에서는 아예 안 바뀐다.
-  const selectTab = (next: LibraryTab) => {
-    if (next === tab) return; // 같은 탭을 다시 눌러 히스토리를 쌓지 않는다
-    setTab(next);
-    nav.goLibrary({ tab: next });
-  };
-
   const openDrill = (id: DrillSummary['id']) => nav.openDrill(id);
   const goNewDrill = () => nav.newDrill();
-  const handleCreateSession = async () => {
-    const s = await createSession({ title: '새 세션' });
-    setDrawerSessionId(s.id);
-  };
-  const presentSession = (id: SessionId) => nav.presentSession(id);
   // 판 걸이(2.7): 카드 [시연] 1클릭 → app-shell 어댑터가 presentTarget 을 세우고 시연으로 간다.
   const presentDrill = (id: DrillSummary['id']) => nav.presentDrill(id);
 
@@ -120,19 +83,6 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
   const handleExport = async (d: DrillSummary) => {
     await exportOneDrill(d.id);
     toast.show(`"${d.title}" 을(를) 내보냈습니다.`);
-  };
-
-  // ── 세션 액션 ───────────────────────────────────────────────────────────────────────────
-  const handleDeleteSession = async (id: SessionId) => {
-    await repoDeleteSession(id);
-    await refresh();
-    toast.show('세션을 삭제했습니다.');
-  };
-  const handleExportSession = async (id: SessionId) => {
-    const resolved = await getSession(id);
-    if (!resolved) return;
-    await exportOneSession(resolved.session);
-    toast.show(`"${resolved.session.title}" 을(를) 내보냈습니다.`);
   };
 
   // ── 가져오기 ────────────────────────────────────────────────────────────────────────────
@@ -172,15 +122,10 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
         {/* 2026-08-12(계획서 2.8): 여기 얹혀 있던 HomeDashboard 를 **지웠다**. 히어로·통계 4칸이
             목록 맨 위 한 화면을 통째로 먹어 정작 드릴 그리드가 늘 접힘 아래에 있었다. 살아남은
             것은 '다음 세션' 스트립 하나뿐이고, 그건 SessionTab 머리로 옮겼다. */}
+        {/* C5 — 탭(드릴/세션)이 있던 자리. 세션이 레일의 1급 화면으로 나가면서 이 행에는
+            유형 필터와 가져오기만 남았다. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-          <div role="tablist" aria-label="라이브러리" style={{ display: 'flex', gap: 4, padding: 3, border: '1px solid var(--border)', borderRadius: 10 }}>
-            <TabButton active={tab === 'drills'} onClick={() => selectTab('drills')} controls="library-panel-drills">
-              드릴
-            </TabButton>
-            <TabButton active={tab === 'sessions'} onClick={() => selectTab('sessions')} controls="library-panel-sessions">
-              세션
-            </TabButton>
-          </div>
+          <Segmented ariaLabel="드릴 유형" value={drillType ?? ''} onChange={(v) => setDrillType(v || null)} options={TYPE_OPTIONS} dense />
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               ref={fileInputRef}
@@ -204,11 +149,7 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
           </div>
         </div>
 
-        {tab === 'drills' ? (
-          <div id="library-panel-drills" role="tabpanel">
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-              <Segmented ariaLabel="드릴 유형" value={drillType ?? ''} onChange={(v) => setDrillType(v || null)} options={TYPE_OPTIONS} dense />
-            </div>
+        <div>
             {drills.length === 0 ? (
               <EmptyDrills hasFilter={!!drillType || !!search} onCreate={goNewDrill} />
             ) : (
@@ -253,34 +194,8 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
                 );
               })
             )}
-          </div>
-        ) : (
-          <div id="library-panel-sessions" role="tabpanel">
-            <SessionTab
-              sessions={sessions}
-              onOpen={(id) => {
-                // §7.6 "세션 드로어 닫기 → 트리거로 포커스 복귀" — 클릭 시점의 포커스(방금 누른
-                // 행 버튼)를 트리거로 기록해 둔다. `initialOpenSessionId` 로 열린 자동 오픈은
-                // activeElement 가 body 라 Drawer 의 openedByRef 폴백이 대신 처리한다.
-                drawerTriggerRef.current = document.activeElement as HTMLElement | null;
-                setDrawerSessionId(id);
-              }}
-              onPresent={presentSession}
-              onDelete={(id) => void handleDeleteSession(id)}
-              onExport={(id) => void handleExportSession(id)}
-              onCreate={() => void handleCreateSession()}
-            />
-          </div>
-        )}
+        </div>
       </div>
-
-      <SessionDrawer
-        sessionId={drawerSessionId}
-        open={drawerSessionId !== null}
-        onClose={() => setDrawerSessionId(null)}
-        returnFocusRef={drawerTriggerRef}
-        onPresent={presentSession}
-      />
 
       {importPreview && importPreview.kind !== 'unsupported' && (
         <ImportDialog
@@ -291,30 +206,6 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
         />
       )}
     </main>
-  );
-}
-
-function TabButton({ active, onClick, children, controls }: { active: boolean; onClick(): void; children: string; controls: string }) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      aria-controls={controls}
-      onClick={onClick}
-      style={{
-        minHeight: 44,
-        padding: '8px 18px',
-        borderRadius: 7,
-        fontSize: '0.8125rem',
-        fontWeight: active ? 700 : 500,
-        background: active ? 'var(--accent)' : 'transparent',
-        color: active ? 'var(--accent-ink-strong)' : 'var(--muted)',
-      }}
-      className={active ? 'on-accent' : undefined}
-    >
-      {children}
-    </button>
   );
 }
 

@@ -1,5 +1,6 @@
-// §6.11 목록 화면. 탭 전환, 빈 상태(§작업지시), 카드 액션(복제·삭제·되돌리기), 세션 드로어
-// 진입을 확인한다. ToastProvider 를 함께 마운트해 실제 토스트 표시까지 검증한다.
+// §6.11 목록 화면(드릴 전용 — C5 에서 세션 탭이 SessionsScreen 으로 승격해 나갔다).
+// 빈 상태(§작업지시)·카드 액션(복제·삭제·되돌리기)·필터를 확인한다. ToastProvider 를 함께
+// 마운트해 실제 토스트 표시까지 검증한다. 세션 쪽은 sessions/SessionsScreen.test.tsx.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -15,8 +16,7 @@ import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { SUMMARY_BUILD } from '../../model/summary.ts';
-import { createSession, deleteSession, listSessions } from '../../storage/sessionRepo.ts';
-import { formatSessionWhen } from '../../model/session.ts';
+import { deleteSession, listSessions } from '../../storage/sessionRepo.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { exportLibraryFile } from '../../storage/transfer.ts';
 
@@ -45,14 +45,11 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   </LibraryProvider>
 );
 
-/** 활성 탭 패널. 2026-08-12(계획서 2.8)에 상단 HomeDashboard 를 지웠지만 좁히기는 유지한다 —
- *  세션 탭 머리의 '다음 세션' 스트립이 아래 행과 같은 제목을 한 번 더 싣기 때문에, 전역
- *  getByText 는 여전히 "어느 자리에 있는가" 를 못 가른다. */
-const panel = () => screen.getByRole('tabpanel');
+/** 본문 컨테이너. C5 — 탭이 사라져 tabpanel role 도 은퇴했다. 화면의 <main> 으로 좁힌다. */
+const panel = () => screen.getByRole('main');
 
 // fake-indexeddb 는 파일 하나가 끝날 때까지 살아 있어 앞 테스트가 만든 드릴·세션이 뒤 테스트로
-// 샌다. 2.9 부터 **기본 탭을 세션 개수가 정하므로**, 새어 든 세션 하나가 그대로 판정을 뒤집는다
-// (실측: 이 초기화가 없으면 '탭 전환' it 이 "이미 세션 탭이라 클릭이 no-op" 으로 빨간불이 된다).
+// 샌다.
 beforeEach(async () => {
   for (const d of await idbDrillRepo.listDrillSummaries()) await idbDrillRepo.deleteDrill(d.id);
   for (const s of await listSessions()) await deleteSession(s.session.id);
@@ -224,129 +221,14 @@ describe('LibraryScreen — 난이도 그룹 정렬의 성능 계약 (로드맵 
   });
 });
 
-describe('LibraryScreen — 세션 탭', () => {
-  it('initialTab="sessions" 로 열면 세션 탭이 활성화된다', async () => {
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} initialTab="sessions" />, { wrapper });
-    await waitFor(() => expect(screen.getByRole('tab', { name: '세션' })).toHaveAttribute('aria-selected', 'true'));
-    expect(screen.getByText(/아직 만든 세션이 없습니다/)).toBeInTheDocument();
-  });
-
-  it('세션이 있으면 [시연] 버튼이 nav.presentSession 을 호출한다', async () => {
-    const s = await createSession({ title: '목요 세션' });
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} initialTab="sessions" />, { wrapper });
-    await waitFor(() => expect(screen.getByText('목요 세션')).toBeInTheDocument());
-
-    await userEvent.setup().click(screen.getByRole('button', { name: '목요 세션 시연 시작' }));
-    expect(nav.presentSession).toHaveBeenCalledWith(s.id);
-  });
-
-  it('initialOpenSessionId 로 열면 드로어가 자동으로 열리고 제목에 포커스된다', async () => {
-    const s = await createSession({ title: '자동 오픈 세션' });
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} initialTab="sessions" initialOpenSessionId={s.id} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByRole('heading', { name: '자동 오픈 세션' })).toHaveFocus());
-  });
-
-  it("세션 탭 머리에 '다음 세션' 스트립이 서고, 눌러 그 세션의 편성을 연다 (계획서 2.8)", async () => {
-    // HomeDashboard 에서 살아남은 유일한 조각. 스트립은 아래 행에 없는 것 — 편성된 드릴 이름 —
-    // 을 싣는다. 여기서는 '드릴 0개'라 제목·시각·총시간까지만 본다.
-    const soon = Date.now() + 3600_000;
-    const later = await createSession({ title: '다음 주 세션', scheduledAt: soon + 7 * 86_400_000 });
-    const s = await createSession({ title: '가까운 세션', scheduledAt: soon });
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} initialTab="sessions" />, { wrapper });
-
-    const strip = await screen.findByRole('region', { name: '다음 세션' });
-    expect(within(strip).getByText('가까운 세션')).toBeInTheDocument();
-    expect(within(strip).getByText(formatSessionWhen(soon))).toBeInTheDocument();
-    // 대조군 둘 — 스트립은 **가장 가까운 하나**다. 더 먼 세션이 뽑히거나 전부 나열되면 잡힌다.
-    expect(within(strip).queryByText('다음 주 세션')).toBeNull();
-    expect(within(panel()).getByText('다음 주 세션')).toBeInTheDocument(); // 행으로는 둘 다 서 있다
-
-    await userEvent.setup().click(within(strip).getByRole('button', { name: '다음 세션 가까운 세션 편성 열기' }));
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
-    expect(within(screen.getByRole('dialog')).getByRole('heading', { name: '가까운 세션' })).toBeInTheDocument();
-    expect(s.id).not.toBe(later.id);
-  });
-
-  it("예정 시각이 없는 세션뿐이면 '다음 세션' 스트립을 아예 안 그린다", async () => {
-    // 없는 것을 "없습니다" 라고 알리는 빈 카드는 대시보드에서 자리만 먹던 그것이다.
-    await createSession({ title: '미정 세션' });
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} initialTab="sessions" />, { wrapper });
-    await waitFor(() => expect(within(panel()).getByText('미정 세션')).toBeInTheDocument());
-    expect(screen.queryByRole('region', { name: '다음 세션' })).toBeNull();
-  });
-});
-
-describe('LibraryScreen — 기본 탭은 세션 개수가 정한다 (계획서 2.9)', () => {
-  const tabOf = (name: '드릴' | '세션') => screen.getByRole('tab', { name });
-
-  it('세션이 0개면 [드릴] 탭이 기본이다', async () => {
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(within(panel()).getByText(/아직 만든 드릴이 없습니다/)).toBeInTheDocument());
-    expect(tabOf('드릴')).toHaveAttribute('aria-selected', 'true');
-    expect(tabOf('세션')).toHaveAttribute('aria-selected', 'false');
-  });
-
-  it('세션이 하나라도 있으면 [세션] 탭이 기본이다 — 목록이 비동기로 읽힌 뒤에도', async () => {
-    // 첫 렌더에는 sessions 가 아직 빈 배열이다(IDB 를 비동기로 읽는다). 개수가 확정된 뒤에
-    // 다시 맞추지 않으면 여기가 영원히 [드릴] 로 남는다 — 그 미끄러짐을 잡는 자리다.
-    await createSession({ title: '금요 훈련' });
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(tabOf('세션')).toHaveAttribute('aria-selected', 'true'));
-    expect(tabOf('드릴')).toHaveAttribute('aria-selected', 'false');
-    expect(within(panel()).getByText('금요 훈련')).toBeInTheDocument();
-  });
-
-  it('NavEntry 가 실어 온 탭은 세션 개수를 이긴다 — 기본값이 사용자의 선택을 덮지 않는다', async () => {
-    await createSession({ title: '금요 훈련' });
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} initialTab="drills" />, { wrapper });
-    await waitFor(() => expect(within(panel()).getByText(/아직 만든 드릴이 없습니다/)).toBeInTheDocument());
-    expect(tabOf('드릴')).toHaveAttribute('aria-selected', 'true');
-  });
-});
-
 describe('LibraryScreen — 이동 통로는 HomeNav prop 하나뿐이다 (계획서 2.8)', () => {
-  it('탭 전환이 nav.goLibrary 로 나간다 — 같은 탭을 다시 눌러 히스토리를 쌓지는 않는다', async () => {
+  // C5 — 탭 전환 테스트 둘은 탭과 함께 은퇴했다(세션은 레일의 1급 화면).
+  it('탭 UI 가 없다 — 세션은 레일에서 간다', async () => {
     const nav = makeNav();
     render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole('tab', { name: '드릴' })).toHaveAttribute('aria-selected', 'true'));
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('tab', { name: '세션' }));
-    expect(nav.goLibrary).toHaveBeenCalledTimes(1);
-    expect(nav.goLibrary).toHaveBeenCalledWith({ tab: 'sessions' });
-    expect(screen.getByRole('tab', { name: '세션' })).toHaveAttribute('aria-selected', 'true'); // 낙관 갱신
-    // 대조군 — 탭 전환이 화면 전환 콜백으로 새지 않았다.
-    expect(nav.openDrill).not.toHaveBeenCalled();
-    expect(nav.newDrill).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole('tab', { name: '세션' }));
-    expect(nav.goLibrary).toHaveBeenCalledTimes(1);
-  });
-
-  it('뒤로가기로 돌아온 initialTab 이 탭을 되돌린다 — 탭이 없는 엔트리면 기본 탭으로', async () => {
-    const nav = makeNav();
-    const { rerender } = render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole('tab', { name: '드릴' })).toHaveAttribute('aria-selected', 'true'));
-
-    await userEvent.setup().click(screen.getByRole('tab', { name: '세션' }));
-    expect(screen.getByRole('tab', { name: '세션' })).toHaveAttribute('aria-selected', 'true');
-
-    // app-shell 이 NavEntry {kind:'tab'} 을 풀어 내려주는 자리 = initialTab prop.
-    rerender(<LibraryScreen nav={nav} initialTab="sessions" />);
-    expect(screen.getByRole('tab', { name: '세션' })).toHaveAttribute('aria-selected', 'true');
-
-    // 탭을 안 실은 이전 엔트리로 돌아왔다 → 기본 탭(세션 0개이므로 [드릴])으로 되돌아야 한다.
-    rerender(<LibraryScreen nav={nav} />);
-    await waitFor(() => expect(screen.getByRole('tab', { name: '드릴' })).toHaveAttribute('aria-selected', 'true'));
+    await waitFor(() => expect(panel()).toBeInTheDocument());
+    expect(screen.queryByRole('tab')).toBeNull();
+    expect(screen.queryByRole('tablist')).toBeNull();
   });
 
   it('대조군 — 같은 트리에서 useAppNav 를 부르면 실제로 던진다', () => {
