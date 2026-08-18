@@ -1,5 +1,5 @@
 // §3.1 ID. 접두사 기반 브랜드 문자열 타입 + 생성기.
-export type IdPrefix = 'dr' | 'se' | 'st' | 'ch' | 'bl' | 'cn' | 'ar' | 'nt' | 'sh' | 'it';
+export type IdPrefix = 'dr' | 'se' | 'st' | 'ch' | 'bl' | 'cn' | 'ar' | 'nt' | 'sh' | 'it' | 'ph' | 'pl';
 export type Id<P extends IdPrefix> = `${P}_${string}`;
 export type DrillId = Id<'dr'>;
 export type SessionId = Id<'se'>;
@@ -12,6 +12,10 @@ export type NoteId = Id<'nt'>;
 /** 작도 도형(타원·정삼각형·직사각형) — 2026-08-14. */
 export type ShapeId = Id<'sh'>;
 export type ItemId = Id<'it'>;
+/** 세션 구획(phase) — Session v2 (2026-08-18 구조 개편). */
+export type PhaseId = Id<'ph'>;
+/** 로스터 선수 — 구조 개편 3차. */
+export type PlayerId = Id<'pl'>;
 export type CastId = ChairId | BallId | ConeId;
 
 const base36 = (n: number, width: number): string => n.toString(36).padStart(width, '0');

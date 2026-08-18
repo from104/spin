@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { createSession, putSession, addDrillToSession, reorderSessionItems, listSessions, getSession, deleteSession, upcomingSession } from './sessionRepo.ts';
 import { idbDrillRepo } from './drillRepo.ts';
 import { newId } from '../core/ids.ts';
+import { addSessionItem, flattenSessionItems } from '../model/session.ts';
 import type { TrainingSession, SessionItem } from '../model/session.ts';
 
 async function makeDrill(title: string) {
@@ -16,10 +17,10 @@ describe('putSession', () => {
     const item1: SessionItem = { id: newId('it'), drillId: d1.id, titleCache: d1.title, durationMinCache: d1.durationMin, categoryCache: d1.drillType };
     const item2: SessionItem = { id: newId('it'), drillId: d2.id, titleCache: d2.title, durationMinCache: d2.durationMin, categoryCache: d2.drillType };
     const raw: TrainingSession = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       id: newId('se'),
       title: '파일에서 온 세션',
-      items: [item1, item2],
+      phases: [{ id: newId('ph'), kind: 'custom', title: '훈련', items: [item1, item2] }],
       drillIds: [], // 파일이 거짓 정보를 담고 있어도
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -33,7 +34,7 @@ describe('putSession', () => {
     const item1: SessionItem = { id: newId('it'), drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType };
     const item2: SessionItem = { id: newId('it'), drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType };
     const s = await createSession({ title: '중복' });
-    const saved = await putSession({ ...s, items: [item1, item2] });
+    const saved = await putSession(addSessionItem(addSessionItem(s, item1), item2));
     expect(saved.drillIds).toEqual([d.id]);
   });
 });
@@ -43,8 +44,9 @@ describe('createSession / addDrillToSession / reorderSessionItems', () => {
     const d = await makeDrill('추가용 드릴');
     const s = await createSession({ title: '빈 세션' });
     const updated = await addDrillToSession(s.id, d.id);
-    expect(updated.items).toHaveLength(1);
-    expect(updated.items[0]!.titleCache).toBe(d.title);
+    const flat = flattenSessionItems(updated);
+    expect(flat).toHaveLength(1);
+    expect(flat[0]!.titleCache).toBe(d.title);
     expect(updated.drillIds).toEqual([d.id]);
   });
 
@@ -55,7 +57,7 @@ describe('createSession / addDrillToSession / reorderSessionItems', () => {
     s = await addDrillToSession(s.id, d1.id);
     s = await addDrillToSession(s.id, d2.id);
     const reordered = await reorderSessionItems(s.id, 0, 1);
-    expect(reordered.items.map((i) => i.drillId)).toEqual([d2.id, d1.id]);
+    expect(flattenSessionItems(reordered).map((i) => i.drillId)).toEqual([d2.id, d1.id]);
     expect(reordered.drillIds).toEqual([d2.id, d1.id]);
   });
 });

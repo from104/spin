@@ -15,19 +15,19 @@ function drill(title: string): Drill {
 function planOf(titles: string[], opts: { missingAt?: number; rests?: Record<number, number> } = {}) {
   const drills = titles.map(drill);
   const session: TrainingSession = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'se_1' as SessionId,
     title: '화요일 훈련',
     location: '체육관 A',
     scheduledAt: new Date(2026, 7, 12, 19, 0).getTime(),
-    items: drills.map((d, i) => ({
+    phases: [{ id: 'ph_1' as never, kind: 'custom' as const, title: '훈련', items: drills.map((d, i) => ({
       id: `it_${i}` as ItemId,
       drillId: d.id,
       titleCache: d.title,
       durationMinCache: d.durationMin,
       categoryCache: d.drillType,
       restAfterMin: opts.rests?.[i],
-    })),
+    })) }],
     drillIds: drills.map((d) => d.id),
     createdAt: 0,
     updatedAt: 0,

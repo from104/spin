@@ -258,20 +258,47 @@ describe('validateDrill — 스텝 이름 이관(과제⑦)', () => {
   });
 });
 
-describe('validateSession', () => {
-  it('정상 세션은 그대로 통과한다', () => {
+describe('validateSession (v2 — 구획 계층)', () => {
+  it('정상 세션은 그대로 통과하고 drillIds 는 전 구획 flatten 으로 재계산된다', () => {
     const raw = {
       id: 'se_x',
       title: '세션',
-      items: [{ id: 'it_1', drillId: 'dr_1', titleCache: 'A', durationMinCache: 10, categoryCache: '공격' }],
+      phases: [
+        { id: 'ph_1', kind: 'warm-up', plannedMin: 10, items: [{ id: 'it_1', drillId: 'dr_1', titleCache: 'A', durationMinCache: 10, categoryCache: 'technical' }] },
+        { id: 'ph_2', kind: 'tactical', items: [{ id: 'it_2', drillId: 'dr_2', titleCache: 'B', durationMinCache: 15, categoryCache: 'tactical' }] },
+      ],
+      goalTotalMin: 90,
     };
     const r = validateSession(raw);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value.drillIds).toEqual(['dr_1']);
+    expect(r.value.drillIds).toEqual(['dr_1', 'dr_2']);
+    expect(r.value.goalTotalMin).toBe(90);
+    expect(r.value.phases[0]!.plannedMin).toBe(10);
+    expect(r.repairs).toHaveLength(0);
   });
 
-  it('id 가 없으면 ok:false', () => {
-    expect(validateSession({ items: [] }).ok).toBe(false);
+  it('id 가 없으면 ok:false — phases 가 배열이 아니어도 ok:false (v1 items 는 migrateDoc 몫)', () => {
+    expect(validateSession({ phases: [] }).ok).toBe(false);
+    expect(validateSession({ id: 'se_x', title: '세션', items: [] }).ok).toBe(false);
+  });
+
+  it('알 수 없는 구획 kind 는 custom 으로 접히고, 항목 상한은 전 구획 합산이다', () => {
+    const item = (n: number) => ({ id: `it_${n}`, drillId: `dr_${n}`, titleCache: '', durationMinCache: 5, categoryCache: '' });
+    const r = validateSession({
+      id: 'se_x',
+      title: '상한',
+      phases: [
+        { id: 'ph_1', kind: '몸풀기', items: Array.from({ length: 30 }, (_, i) => item(i)) },
+        { id: 'ph_2', kind: 'scrimmage', items: Array.from({ length: 30 }, (_, i) => item(100 + i)) },
+      ],
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.phases[0]!.kind).toBe('custom');
+    const total = r.value.phases.reduce((n, p) => n + p.items.length, 0);
+    expect(total).toBe(40); // LIMITS.maxSessionItems — 구획별이 아니라 합산
+    expect(r.repairs.some((rep) => rep.path === 'phases.kind')).toBe(true);
+    expect(r.repairs.some((rep) => rep.path === 'phases.items')).toBe(true);
   });
 });

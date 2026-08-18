@@ -280,8 +280,11 @@ export async function commitDrillImports(
  *  연결하고, missing 도 아니라서 아무 경고가 뜨지 않는다. 커밋 순서: 드릴 전부 커밋(호출자가 이미
  *  commitDrillImports 로 완료) → idMap 획득 → remapRefs → drillIds 재계산 → 세션 put. */
 export async function commitSessionImport(s: TrainingSession, out: ImportOutcome): Promise<TrainingSession> {
-  const items: SessionItem[] = remapRefs(s.items, out.idMap);
-  return putSession({ ...s, items, drillIds: refDrillIds(items) });
+  // v2 — 참조 재매핑은 **전 구획**을 돌아야 한다. 한 구획만 돌면 copy 로 들여온 드릴을
+  // 다른 구획의 항목이 옛 id 로 계속 가리켜 missing 이 된다. drillIds 는 putSession 이
+  // flatten 기준으로 어차피 재계산하므로 여기서 만들지 않는다.
+  const phases = s.phases.map((p) => ({ ...p, items: remapRefs(p.items, out.idMap) as SessionItem[] }));
+  return putSession({ ...s, phases });
 }
 
 // ---- 내보내기 --------------------------------------------------------------------------------
@@ -481,8 +484,9 @@ export async function restoreBackup(file: SpinFile, opts: RestoreBackupOptions =
       sessionsFailed++;
       continue;
     }
-    const items = remapRefs(v.value.items, drills.idMap);
-    const remapped: TrainingSession = { ...v.value, items, drillIds: refDrillIds(items) };
+    // v2 — 재매핑은 전 구획을 돈다(commitSessionImport 와 같은 이유).
+    const phases = v.value.phases.map((p) => ({ ...p, items: remapRefs(p.items, drills.idMap) as SessionItem[] }));
+    const remapped: TrainingSession = { ...v.value, phases, drillIds: refDrillIds(phases.flatMap((p) => p.items)) };
     const local = await existingSessionFor(remapped.id);
     if (local && sameSaved(local, remapped)) {
       // 같은 백업을 두 번 복원해도 세션이 불어나지 않는다(멱등).

@@ -79,12 +79,15 @@ describe('session — 총 시간은 해석된 세션에서만 계산한다', () 
     expect(sessionTotalMin(resolved)).toBe(20 + 5 + 12);
   });
 
-  it('resolveSession 이 missingCount 를 정확히 센다', () => {
+  it('resolveSession 이 missingCount 를 정확히 세고, 구획별 합계와 평평한 뷰가 일치한다 (v2)', () => {
     const session: TrainingSession = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       id: 'se_x' as never,
       title: '세션',
-      items: [item({ drillId: 'dr_a' as DrillId }), item({ drillId: 'dr_missing' as DrillId })],
+      phases: [
+        { id: 'ph_1' as never, kind: 'warm-up', items: [item({ drillId: 'dr_a' as DrillId })] },
+        { id: 'ph_2' as never, kind: 'tactical', items: [item({ drillId: 'dr_missing' as DrillId })] },
+      ],
       drillIds: ['dr_a' as DrillId, 'dr_missing' as DrillId],
       createdAt: 0,
       updatedAt: 0,
@@ -92,16 +95,20 @@ describe('session — 총 시간은 해석된 세션에서만 계산한다', () 
     const r = resolveSession(session, new Set(['dr_a' as DrillId]));
     expect(r.missingCount).toBe(1);
     expect(r.totalMin).toBe(5); // dr_a 만 포함
+    expect(r.phases).toHaveLength(2);
+    expect(r.phases[0]!.totalMin).toBe(5);
+    expect(r.phases[1]!.totalMin).toBe(0); // 누락 항목은 구획 합계에서도 빠진다
+    expect(r.items).toHaveLength(2); // 평평한 하위 호환 뷰 = 구획 순서대로 flatten
   });
 });
 
 describe('pickNextSession / formatSessionWhen', () => {
   it('미래 중 가장 가까운 세션을 고른다', () => {
     const mk = (id: string, at?: number): TrainingSession => ({
-      schemaVersion: 1,
+      schemaVersion: 2,
       id: id as never,
       title: id,
-      items: [],
+      phases: [],
       drillIds: [],
       createdAt: 0,
       updatedAt: 0,

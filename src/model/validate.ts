@@ -15,7 +15,7 @@ import {
   type TriPoints,
 } from './shape.ts';
 import type { ShapeId } from '../core/ids.ts';
-import type { ChairId, BallId, ConeId, StepId, ArrowId, NoteId, DrillId, SessionId, ItemId } from '../core/ids.ts';
+import type { ChairId, BallId, ConeId, StepId, ArrowId, NoteId, DrillId, SessionId, ItemId, PlayerId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
 import { COURT_MODES, COURT_SIZES, DEFAULT_COURT_SIZE, clampToViewBox, type CourtMode, type CourtSize } from './court.ts';
 import { FORMATIONS, defaultStep, DEFAULT_TEAMS } from './defaults.ts';
@@ -24,8 +24,8 @@ import { CURRENT_DRILL_SCHEMA, DRILL_LEVELS, DRILL_TYPES, DRILL_SITUATIONS } fro
 import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, DrillType, DrillSituation, PoseMap, NoteLabel } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow, ArrowHead } from './arrow.ts';
-import { CURRENT_SESSION_SCHEMA } from './session.ts';
-import type { TrainingSession, SessionItem } from './session.ts';
+import { CURRENT_SESSION_SCHEMA, SESSION_PHASE_KINDS, flattenSessionItems } from './session.ts';
+import type { TrainingSession, SessionItem, SessionPhase, SessionPhaseKind } from './session.ts';
 import { refDrillIds } from './refs.ts';
 
 export interface ValidationIssue {
@@ -106,7 +106,11 @@ export const LIMITS = {
    *  이보다 많으면 반투명 겹침이 새하얘져 아래 코트가 안 보인다(면이 0.13 이라 40겹이면 1.0). */
   maxShapesPerStep: 40,
   maxNotesPerStep: 20,
-  maxSessionItems: 40,
+  maxSessionItems: 40, // 세션 전체(전 구획 합산) 항목 상한 — v2 에서도 합산 기준이다
+  // ── Session v2 (2026-08-18 구조 개편) ─────────────────────────────────────────────
+  sessionPhasesMax: 12, // 구획 수 상한. 표준 세션은 4~6 구획 — 12 는 깨진 파일 방어선
+  phaseTitleLen: 40, // 구획 자유 이름. 스텝 이름과 같은 규모(한 줄 라벨)
+  sessionGoalMinMax: 480, // 세션 목표 총 시간(분) 상한 = 8시간. 하루 훈련의 방어선
 } as const;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -804,7 +808,9 @@ export function validateSession(doc: unknown): ValidateResult<TrainingSession> {
   if (typeof doc.id !== 'string' || doc.id.length === 0) {
     issues.push({ path: 'id', message: 'id 가 없거나 문자열이 아님' });
   }
-  if (!Array.isArray(doc.items)) issues.push({ path: 'items', message: 'items 가 배열이 아님' });
+  // v2 — 구획 배열이 필수다(v1 의 items 는 migrateDoc 이 단일 구획으로 감싼다. 그 길을 안
+  // 지난 문서가 여기 오면 실패가 맞다 — drill 의 steps 와 같은 지위).
+  if (!Array.isArray(doc.phases)) issues.push({ path: 'phases', message: 'phases 가 배열이 아님' });
   const schemaVersionRaw = doc.schemaVersion;
   if (typeof schemaVersionRaw === 'number' && schemaVersionRaw > CURRENT_SESSION_SCHEMA) {
     issues.push({ path: 'schemaVersion', message: `schemaVersion(${schemaVersionRaw}) 이 지원 버전보다 큼` });
@@ -826,37 +832,105 @@ export function validateSession(doc: unknown): ValidateResult<TrainingSession> {
   const note = typeof doc.note === 'string' ? doc.note : undefined;
   const scheduledAt = typeof doc.scheduledAt === 'number' && Number.isFinite(doc.scheduledAt) ? doc.scheduledAt : undefined;
   const location = typeof doc.location === 'string' ? doc.location : undefined;
-
-  const seen = new Set<string>();
-  let items: SessionItem[] = [];
-  for (const raw of doc.items as unknown[]) {
-    if (!isRecord(raw)) continue;
-    let id = typeof raw.id === 'string' && raw.id.length > 0 ? (raw.id as ItemId) : newId('it');
-    if (seen.has(id)) {
-      id = newId('it');
-      pushRepair(repairs, 'items.id', '중복 항목 id 재발급', false);
-    }
-    seen.add(id);
-    if (typeof raw.drillId !== 'string' || raw.drillId.length === 0) continue; // drillId 없는 항목은 버림
-    const drillId = raw.drillId as DrillId;
-    const titleCache = typeof raw.titleCache === 'string' ? raw.titleCache : '';
-    const durationMinCache =
-      typeof raw.durationMinCache === 'number' && Number.isFinite(raw.durationMinCache) ? raw.durationMinCache : 0;
-    const categoryCache = typeof raw.categoryCache === 'string' ? raw.categoryCache : '';
-    const item: SessionItem = { id, drillId, titleCache, durationMinCache, categoryCache };
-    if (typeof raw.durationOverrideMin === 'number' && Number.isFinite(raw.durationOverrideMin)) {
-      item.durationOverrideMin = raw.durationOverrideMin;
-    }
-    if (typeof raw.note === 'string') item.note = raw.note;
-    if (typeof raw.restAfterMin === 'number' && Number.isFinite(raw.restAfterMin)) item.restAfterMin = raw.restAfterMin;
-    items.push(item);
+  // 목표 총 시간(v2) — 0..상한 정수. 0 이하·비유한수는 키를 버린다(미지정과 같은 뜻).
+  let goalTotalMin: number | undefined;
+  if (typeof doc.goalTotalMin === 'number' && Number.isFinite(doc.goalTotalMin) && doc.goalTotalMin > 0) {
+    goalTotalMin = Math.min(Math.round(doc.goalTotalMin), LIMITS.sessionGoalMinMax);
+    if (goalTotalMin !== doc.goalTotalMin) pushRepair(repairs, 'goalTotalMin', `목표 시간을 1~${LIMITS.sessionGoalMinMax} 정수로 보정`, true);
+  } else if (doc.goalTotalMin !== undefined) {
+    pushRepair(repairs, 'goalTotalMin', '목표 시간이 양수가 아니어서 폐기(미지정)', false);
   }
-  if (items.length > LIMITS.maxSessionItems) {
-    pushRepair(repairs, 'items', '세션 항목 상한(40) 초과 — 뒤에서 절단', true);
-    items = items.slice(0, LIMITS.maxSessionItems);
+  // 참가자(v2, 로스터는 3차) — 문자열 id 만 걸러 중복 제거. 실존 검증은 로스터 소유자 몫.
+  let participantIds: PlayerId[] | undefined;
+  if (Array.isArray(doc.participantIds)) {
+    const seen = new Set<string>();
+    const out: PlayerId[] = [];
+    for (const v of doc.participantIds) {
+      if (typeof v !== 'string' || v.length === 0 || seen.has(v)) continue;
+      seen.add(v);
+      out.push(v as PlayerId);
+    }
+    if (out.length > 0) participantIds = out;
   }
 
-  const drillIds = refDrillIds(items);
+  // ── 구획 파싱. 항목 상한(maxSessionItems)은 **전 구획 합산**으로 센다 ──────────────────
+  const itemSeen = new Set<string>();
+  let itemBudget = LIMITS.maxSessionItems;
+  let itemsCut = false;
+  const parseItems = (raw: unknown, where: string): SessionItem[] => {
+    const arr = Array.isArray(raw) ? raw : [];
+    const out: SessionItem[] = [];
+    for (const rawItem of arr) {
+      if (!isRecord(rawItem)) continue;
+      let id = typeof rawItem.id === 'string' && rawItem.id.length > 0 ? (rawItem.id as ItemId) : newId('it');
+      if (itemSeen.has(id)) {
+        id = newId('it');
+        pushRepair(repairs, `${where}.id`, '중복 항목 id 재발급', false);
+      }
+      itemSeen.add(id);
+      if (typeof rawItem.drillId !== 'string' || rawItem.drillId.length === 0) continue; // drillId 없는 항목은 버림
+      if (itemBudget <= 0) {
+        itemsCut = true;
+        continue;
+      }
+      itemBudget--;
+      const drillId = rawItem.drillId as DrillId;
+      const titleCache = typeof rawItem.titleCache === 'string' ? rawItem.titleCache : '';
+      const durationMinCache =
+        typeof rawItem.durationMinCache === 'number' && Number.isFinite(rawItem.durationMinCache) ? rawItem.durationMinCache : 0;
+      const categoryCache = typeof rawItem.categoryCache === 'string' ? rawItem.categoryCache : '';
+      const item: SessionItem = { id, drillId, titleCache, durationMinCache, categoryCache };
+      if (typeof rawItem.durationOverrideMin === 'number' && Number.isFinite(rawItem.durationOverrideMin)) {
+        item.durationOverrideMin = rawItem.durationOverrideMin;
+      }
+      if (typeof rawItem.note === 'string') item.note = rawItem.note;
+      if (typeof rawItem.restAfterMin === 'number' && Number.isFinite(rawItem.restAfterMin)) item.restAfterMin = rawItem.restAfterMin;
+      out.push(item);
+    }
+    return out;
+  };
+
+  const phaseSeen = new Set<string>();
+  let phases: SessionPhase[] = [];
+  for (const rawPhase of doc.phases as unknown[]) {
+    if (!isRecord(rawPhase)) continue;
+    let id = typeof rawPhase.id === 'string' && rawPhase.id.length > 0 ? (rawPhase.id as SessionPhase['id']) : newId('ph');
+    if (phaseSeen.has(id)) {
+      id = newId('ph');
+      pushRepair(repairs, 'phases.id', '중복 구획 id 재발급', false);
+    }
+    phaseSeen.add(id);
+    let kind: SessionPhaseKind = 'custom';
+    if (typeof rawPhase.kind === 'string' && (SESSION_PHASE_KINDS as readonly string[]).includes(rawPhase.kind)) {
+      kind = rawPhase.kind as SessionPhaseKind;
+    } else if (rawPhase.kind !== undefined) {
+      pushRepair(repairs, 'phases.kind', `알 수 없는 구획 종류 '${String(rawPhase.kind)}' → 'custom'`, false);
+    }
+    const phaseTitle = sanitizeText(rawPhase.title, LIMITS.phaseTitleLen, 'phases.title', '구획 이름', repairs);
+    let plannedMin: number | undefined;
+    if (typeof rawPhase.plannedMin === 'number' && Number.isFinite(rawPhase.plannedMin) && rawPhase.plannedMin > 0) {
+      plannedMin = Math.min(Math.round(rawPhase.plannedMin), LIMITS.sessionGoalMinMax);
+    }
+    const phase: SessionPhase = {
+      id,
+      kind,
+      ...(phaseTitle !== undefined ? { title: phaseTitle } : {}),
+      ...(plannedMin !== undefined ? { plannedMin } : {}),
+      items: parseItems(rawPhase.items, 'phases.items'),
+    };
+    phases.push(phase);
+  }
+  if (itemsCut) pushRepair(repairs, 'phases.items', `세션 항목 상한(${LIMITS.maxSessionItems}) 초과 — 뒤에서 절단`, true);
+  if (phases.length > LIMITS.sessionPhasesMax) {
+    // 잘리는 구획의 항목까지 버리면 이중 손실이다 — 항목 예산이 남아 있으면 마지막 구획에 접는다.
+    const overflow = phases.slice(LIMITS.sessionPhasesMax).flatMap((p) => p.items);
+    phases = phases.slice(0, LIMITS.sessionPhasesMax);
+    const last = phases[phases.length - 1]!;
+    phases[phases.length - 1] = { ...last, items: [...last.items, ...overflow] };
+    pushRepair(repairs, 'phases', `구획 상한(${LIMITS.sessionPhasesMax}) 초과 — 넘친 구획의 항목을 마지막 구획에 병합`, true);
+  }
+
+  const drillIds = refDrillIds(flattenSessionItems({ phases }));
   const createdAt = typeof doc.createdAt === 'number' && Number.isFinite(doc.createdAt) ? doc.createdAt : Date.now();
   const updatedAt = typeof doc.updatedAt === 'number' && Number.isFinite(doc.updatedAt) ? doc.updatedAt : Date.now();
 
@@ -867,7 +941,9 @@ export function validateSession(doc: unknown): ValidateResult<TrainingSession> {
     ...(note !== undefined ? { note } : {}),
     ...(scheduledAt !== undefined ? { scheduledAt } : {}),
     ...(location !== undefined ? { location } : {}),
-    items,
+    ...(goalTotalMin !== undefined ? { goalTotalMin } : {}),
+    phases,
+    ...(participantIds !== undefined ? { participantIds } : {}),
     drillIds,
     createdAt,
     updatedAt,

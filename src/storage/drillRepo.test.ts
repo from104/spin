@@ -15,6 +15,7 @@ import { createDrill } from '../model/defaults.ts';
 import type { Drill } from '../model/drill.ts';
 import { newId } from '../core/ids.ts';
 import { createSession } from './sessionRepo.ts';
+import { flattenSessionItems } from '../model/session.ts';
 
 const baseInit: CreateDrillInit = { courtMode: 'full', title: '테스트 드릴' };
 
@@ -84,7 +85,7 @@ describe('idbDrillRepo.deleteDrill', () => {
     expect(await db.get('drills', d.id)).toBeUndefined();
     const storedSession = await db.get('sessions', session.id);
     // 세션 항목 자체는 그대로 남는다(캐스케이드 없음) — missing 파생은 resolveSession 몫.
-    expect(storedSession?.items.some((it) => it.drillId === d.id)).toBe(true);
+    expect(flattenSessionItems(storedSession!).some((it) => it.drillId === d.id)).toBe(true);
   });
 });
 

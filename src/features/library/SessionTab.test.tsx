@@ -18,17 +18,20 @@ function makeItem(n: number): ResolvedItem {
 }
 
 function makeResolved(over: Partial<ResolvedSession['session']> = {}, items: ResolvedItem[] = []): ResolvedSession {
+  // v2 — 항목은 단일 custom 구획 안에 산다(마이그레이션이 만드는 모양 그대로).
+  const phase = { id: 'ph_x' as never, kind: 'custom' as const, title: '훈련', items };
   const session: ResolvedSession['session'] = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'se_x' as ResolvedSession['session']['id'],
     title: '금요 훈련',
-    items,
+    phases: items.length > 0 ? [phase] : [],
     drillIds: [],
     createdAt: 0,
     updatedAt: 0,
     ...over,
   };
-  return { session, items, totalMin: items.length * 10, missingCount: 0 };
+  const phases = items.length > 0 ? [{ phase, items, totalMin: items.length * 10 }] : [];
+  return { session, phases, items, totalMin: items.length * 10, missingCount: 0 };
 }
 
 describe('SessionTab', () => {

@@ -29,7 +29,7 @@ import { newId } from '../core/ids.ts';
 import type { Drill } from '../model/drill.ts';
 import { CURRENT_DRILL_SCHEMA } from '../model/drill.ts';
 import type { TrainingSession } from '../model/session.ts';
-import { CURRENT_SESSION_SCHEMA } from '../model/session.ts';
+import { CURRENT_SESSION_SCHEMA, flattenSessionItems } from '../model/session.ts';
 import { SUMMARY_BUILD } from '../model/summary.ts';
 
 describe('slugify', () => {
@@ -210,7 +210,8 @@ describe('세션 가져오기 리맵', () => {
     const existing = await idbDrillRepo.createDrill({ courtMode: 'full', title: '로컬에 이미 있음' });
     // 파일 쪽 드릴은 같은 id 지만 내용이 달라 conflict:'exists' 를 유도한다.
     const fileDrill: Drill = { ...structuredClone(existing), title: '파일에서 온 다른 내용' };
-    const sessionDoc: TrainingSession = {
+    // v1 평평한 items 파일 그대로 — prepareSessionImport 의 migrateDoc(v1→v2) 경로를 함께 태운다.
+    const sessionDoc = {
       schemaVersion: 1,
       id: newId('se'),
       title: '가져온 세션',
@@ -218,7 +219,7 @@ describe('세션 가져오기 리맵', () => {
       drillIds: [existing.id],
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    };
+    } as unknown as TrainingSession;
     const file: SpinFile = {
       spin: 'session',
       envelope: 1,
@@ -236,7 +237,7 @@ describe('세션 가져오기 리맵', () => {
     expect(newDrillId).not.toBe(existing.id);
 
     const committedSession = await commitSessionImport(session.doc, outcome);
-    expect(committedSession.items[0]!.drillId).toBe(newDrillId);
+    expect(flattenSessionItems(committedSession)[0]!.drillId).toBe(newDrillId);
     expect(committedSession.drillIds).toEqual([newDrillId]);
 
     const refs = await findReferrers(newDrillId!);
@@ -246,10 +247,10 @@ describe('세션 가져오기 리맵', () => {
   it('파일에서 온 세션(drillIds: []) 을 커밋한 뒤 findReferrers(드릴) 가 SessionId 를 반환한다', async () => {
     const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '빈 drillIds 검증' });
     const sessionDoc: TrainingSession = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       id: newId('se'),
       title: '빈 drillIds 세션',
-      items: [{ id: newId('it'), drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType }],
+      phases: [{ id: newId('ph'), kind: 'custom', title: '훈련', items: [{ id: newId('it'), drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType }] }],
       drillIds: [], // 파일이 이렇게 거짓을 담고 있어도
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -346,7 +347,7 @@ describe('backup 봉투 — 라운드트립', () => {
     const backSession = await (await getDB()).get('sessions', session.id);
     expect(backSession?.title).toBe('이사 세션');
     expect(backSession?.location).toBe('체육관 B');
-    expect(backSession?.items.map((i) => i.drillId)).toEqual([drill.id]);
+    expect(flattenSessionItems(backSession!).map((i) => i.drillId)).toEqual([drill.id]);
 
     expect(report.prefs).toBe('restored');
     const prefs = loadPrefs();
@@ -425,7 +426,7 @@ describe('backup 봉투 — 세션 참조 리맵', () => {
       schemaVersion: CURRENT_SESSION_SCHEMA,
       id: newId('se'),
       title: '리맵 대상 세션',
-      items: [{ id: newId('it'), drillId: local.id, titleCache: fileDrill.title, durationMinCache: fileDrill.durationMin, categoryCache: fileDrill.drillType }],
+      phases: [{ id: newId('ph'), kind: 'custom', title: '훈련', items: [{ id: newId('it'), drillId: local.id, titleCache: fileDrill.title, durationMinCache: fileDrill.durationMin, categoryCache: fileDrill.drillType }] }],
       drillIds: [local.id],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -438,7 +439,7 @@ describe('backup 봉투 — 세션 참조 리맵', () => {
     expect(remapped).not.toBe(local.id); // 충돌 → 사본 id 발급
 
     const stored = await (await getDB()).get('sessions', report.sessionsWritten[0]!);
-    expect(stored?.items[0]!.drillId).toBe(remapped);
+    expect(flattenSessionItems(stored!)[0]!.drillId).toBe(remapped);
     expect(stored?.drillIds).toEqual([remapped]);
 
     // 대조군(부재 단언) — 옛 id 를 가리킨 채로 남아 있으면 missing 경고도 안 뜨는 조용한 오배선이다.
@@ -600,8 +601,8 @@ describe('backup 봉투 — 복원한 시각 보존 (5.0 ①)', () => {
   const CREATED = Date.parse('2025-03-01T00:00:00Z');
   const UPDATED = Date.parse('2025-06-15T12:00:00Z');
 
-  function pastSession(items: TrainingSession['items'] = [], drillIds: TrainingSession['drillIds'] = []): TrainingSession {
-    return { schemaVersion: CURRENT_SESSION_SCHEMA, id: newId('se'), title: '시각 보존 세션', items, drillIds, createdAt: CREATED, updatedAt: UPDATED };
+  function pastSession(phases: TrainingSession['phases'] = [], drillIds: TrainingSession['drillIds'] = []): TrainingSession {
+    return { schemaVersion: CURRENT_SESSION_SCHEMA, id: newId('se'), title: '시각 보존 세션', phases, drillIds, createdAt: CREATED, updatedAt: UPDATED };
   }
 
   it('충돌 없는 드릴·세션은 createdAt·updatedAt 이 파일 그대로다 — 세션과 드릴이 대칭이다', async () => {

@@ -2,6 +2,7 @@
 // fake-indexeddb 는 파일 단위로 테스트 사이에 리셋되지 않으므로(다른 storage 테스트들과 동일
 // 전제), 매 테스트마다 고유한 드릴 제목을 써서 "드릴 목록 추가" select 옵션이 이전 테스트의
 // 동명 드릴과 겹쳐 getByText 가 다중 매치되는 것을 막는다.
+import { flattenSessionItems } from '../../model/session.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -78,7 +79,7 @@ describe('SessionDrawer', () => {
 
     await waitFor(async () => {
       const saved = await getSession(sessionId);
-      expect(saved?.session.items.map((it) => it.titleCache)).toEqual([titleB, titleA]);
+      expect(flattenSessionItems(saved!.session).map((it) => it.titleCache)).toEqual([titleB, titleA]);
     });
   });
 

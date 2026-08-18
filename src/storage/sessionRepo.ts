@@ -1,11 +1,12 @@
 // §4.5 세션 리포지토리. sessions.put 을 모듈 밖으로 노출하지 않는다 — 모든 쓰기가 putSession 을
-// 통과하고, putSession 은 무조건 drillIds = refDrillIds(items) 를 재계산한다. 이 인덱스가
-// deleteDrill 앞 경고("이 드릴은 세션 2개에서 사용 중입니다")의 유일한 방어선이다.
+// 통과하고, putSession 은 무조건 drillIds = refDrillIds(flattenSessionItems(s)) 를 재계산한다.
+// 이 인덱스가 deleteDrill 앞 경고("이 드릴은 세션 2개에서 사용 중입니다")의 유일한 방어선이다.
+// v2(2026-08-18) — 항목이 구획(phases) 안으로 들어갔다. 평평한 순회는 전부 flatten 을 거친다.
 import { getDB, beginWrite, endWrite, toStorageError } from './db.ts';
 import { StorageError, STORAGE_ERROR_MESSAGES } from './errors.ts';
 import type { TrainingSession, SessionItem, ResolvedSession } from '../model/session.ts';
-import { CURRENT_SESSION_SCHEMA, resolveSession, pickNextSession } from '../model/session.ts';
-import { refDrillIds, reorderRefs, refreshRefs } from '../model/refs.ts';
+import { CURRENT_SESSION_SCHEMA, resolveSession, pickNextSession, flattenSessionItems, addSessionItem, moveSessionItemFlat } from '../model/session.ts';
+import { refDrillIds, refreshRefs } from '../model/refs.ts';
 import type { DrillSummary } from '../model/summary.ts';
 import { newId } from '../core/ids.ts';
 import type { DrillId, SessionId } from '../core/ids.ts';
@@ -33,9 +34,12 @@ async function existingDrillIdSet(): Promise<Set<DrillId>> {
  *  fire-and-forget 이므로 실패를 반드시 삼킨다. */
 async function refreshSessionCacheOpportunistic(s: TrainingSession): Promise<void> {
   const summaryMap = await loadSummaryMap();
-  const refreshedItems = refreshRefs(s.items, summaryMap);
-  const changed = refreshedItems.some((it, i) => {
-    const orig = s.items[i];
+  // 구획마다 따로 갱신한다 — refreshRefs 는 평평한 배열용이라, 구획 구조는 여기서 보존한다.
+  const refreshedPhases = s.phases.map((p) => ({ ...p, items: refreshRefs(p.items, summaryMap) }));
+  const before = flattenSessionItems(s);
+  const after = flattenSessionItems({ phases: refreshedPhases });
+  const changed = after.some((it, i) => {
+    const orig = before[i];
     return !orig || it.titleCache !== orig.titleCache || it.durationMinCache !== orig.durationMinCache || it.categoryCache !== orig.categoryCache;
   });
   if (!changed) return;
@@ -49,7 +53,7 @@ async function refreshSessionCacheOpportunistic(s: TrainingSession): Promise<voi
       await tx.done.catch(() => {});
       return;
     }
-    const next: TrainingSession = { ...cur, items: refreshedItems, drillIds: refDrillIds(refreshedItems) };
+    const next: TrainingSession = { ...cur, phases: refreshedPhases, drillIds: refDrillIds(after) };
     tx.store.put(next);
     await tx.done;
   } finally {
@@ -74,10 +78,11 @@ export async function getSession(id: SessionId): Promise<ResolvedSession | undef
   return resolveSession(s, existing);
 }
 
-/** 유일한 쓰기 경로. drillIds 를 무조건 재계산하고 updatedAt 을 찍는다. */
+/** 유일한 쓰기 경로. drillIds 를 무조건 재계산하고 updatedAt 을 찍는다.
+ *  ⚠️ 재계산은 **flatten 기준**이다 — 구획을 직접 돌면 by_drillId 인덱스가 구획 하나를
+ *  빠뜨려도 컴파일이 통과한다. 이 인덱스가 깨지면 드릴 삭제 경고가 침묵한다. */
 export async function putSession(s: TrainingSession): Promise<TrainingSession> {
-  const items = s.items;
-  const next: TrainingSession = { ...s, items, drillIds: refDrillIds(items), updatedAt: Date.now() };
+  const next: TrainingSession = { ...s, drillIds: refDrillIds(flattenSessionItems(s)), updatedAt: Date.now() };
   const db = await getDB().catch((e) => {
     throw toStorageError(e, 'E_DB_UNAVAILABLE');
   });
@@ -102,7 +107,7 @@ export async function createSession(init: { title: string; scheduledAt?: number;
     title: init.title,
     ...(init.scheduledAt !== undefined ? { scheduledAt: init.scheduledAt } : {}),
     ...(init.location !== undefined ? { location: init.location } : {}),
-    items: [],
+    phases: [], // 빈 세션은 구획도 0 — 첫 드릴 추가(addSessionItem)가 기본 구획을 만든다
     drillIds: [],
     createdAt: now,
     updatedAt: now,
@@ -137,14 +142,15 @@ export async function addDrillToSession(id: SessionId, drillId: DrillId): Promis
     durationMinCache: meta?.durationMin ?? 0,
     categoryCache: meta?.drillType ?? '', // v8 — 캐시 값은 유형 키다(refs.ts DrillRef 주석)
   };
-  return putSession({ ...s, items: [...s.items, item] });
+  return putSession(addSessionItem(s, item)); // 마지막 구획에 붙는다(없으면 기본 구획 생성)
 }
 
 export async function reorderSessionItems(id: SessionId, from: number, to: number): Promise<TrainingSession> {
   const db = await getDB();
   const s = await db.get('sessions', id);
   if (!s) throw new StorageError('E_NOT_FOUND', STORAGE_ERROR_MESSAGES.E_NOT_FOUND());
-  return putSession({ ...s, items: reorderRefs(s.items, from, to) });
+  // 첨자는 flatten 좌표계다(드로어의 ↑↓). 구획 경계를 넘으면 그 구획으로 이사한다.
+  return putSession(moveSessionItemFlat(s, from, to));
 }
 
 export async function upcomingSession(): Promise<ResolvedSession | undefined> {

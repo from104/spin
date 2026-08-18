@@ -3,6 +3,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { defaultResolution, readImportFile, commitDrills, commitSession, exportOneDrill, buildImportReport, importReportLine } from './transfer.ts';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
+import { addSessionItem, flattenSessionItems } from '../../model/session.ts';
 import { createSession } from '../../storage/sessionRepo.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { exportDrillFile, exportSessionFile, exportLibraryFile, type ImportOutcome } from '../../storage/transfer.ts';
@@ -64,7 +65,7 @@ describe('readImportFile / commitDrills', () => {
     const d = createDrill({ courtMode: 'full', title: '세션 드릴' });
     await idbDrillRepo.putDrill(d, { touch: false });
     const session = await createSession({ title: '가져오기 세션' });
-    const withItem = { ...session, items: [{ id: 'it_x' as never, drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType }] };
+    const withItem = addSessionItem(session, { id: 'it_x' as never, drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType });
 
     const text = await exportSessionFile(withItem, [d]).text();
     const realFile = { text: async () => text } as unknown as File;
@@ -76,7 +77,7 @@ describe('readImportFile / commitDrills', () => {
 
     const outcome = await commitDrills(preview.drills, new Map());
     const savedSession = await commitSession(preview.session.doc, outcome);
-    expect(savedSession.items[0]!.drillId).toBe(d.id); // identical→skip 은 항등 매핑
+    expect(flattenSessionItems(savedSession)[0]!.drillId).toBe(d.id); // identical→skip 은 항등 매핑
   });
 });
 

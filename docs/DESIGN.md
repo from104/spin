@@ -1182,26 +1182,46 @@ export function reorderRefs<T>(list: T[], from: number, to: number): T[];
 export function refDrillIds(refs: DrillRef[]): DrillId[];   // 중복 제거된 배열
 export function remapRefs<T extends DrillRef>(refs: T[], idMap: Map<DrillId, DrillId>): T[];
 
-// session.ts
-export const CURRENT_SESSION_SCHEMA = 1;
+// session.ts — v2 (2026-08-18 구조 개편, 질문 20문 ②·⑮): 정식 구획(phase) 계층.
+// 코칭 표준 Session → Phase(워밍업→기술→전술→스크리미지→쿨다운) → Drill 을 그대로 적었다.
+export const CURRENT_SESSION_SCHEMA = 2;
 export interface SessionItem extends DrillRef {
   durationOverrideMin?: number; note?: string; restAfterMin?: number;
+}
+export const SESSION_PHASE_KINDS = ['warm-up','technical','tactical','set-piece','scrimmage','cool-down','custom'] as const;
+export interface SessionPhase {
+  id: PhaseId; kind: SessionPhaseKind;
+  title?: string;              // kind 라벨 덮어쓰기(≤40). custom 의 실질 이름
+  plannedMin?: number;         // 구획 목표 배분(분). 강제 없음 — 초과·미달은 색으로만
+  items: SessionItem[];
 }
 export interface TrainingSession {
   schemaVersion: number;
   id: SessionId; title: string; note?: string;
   scheduledAt?: number; location?: string;
-  items: SessionItem[];
-  drillIds: DrillId[];         // items 에서 파생. putSession 이 무조건 재계산
+  goalTotalMin?: number;       // v2 — 세션 목표 총 시간(분). 배분 게이지의 기준선
+  phases: SessionPhase[];      // v2 — v1 의 items 대체
+  participantIds?: PlayerId[]; // v2 — 로스터 참가자(UI 는 3차)
+  drillIds: DrillId[];         // phases 에서 파생. putSession 이 flatten 기준으로 무조건 재계산
   createdAt: number; updatedAt: number;
 }
+export function flattenSessionItems(s): SessionItem[];   // ★ 파생의 단일 출처 — drillIds·시연·인쇄
 export type ResolvedItem = SessionItem & { missing: boolean };
+export interface ResolvedPhase { phase: SessionPhase; items: ResolvedItem[]; totalMin: number }
 export interface ResolvedSession {
-  session: TrainingSession; items: ResolvedItem[]; totalMin: number; missingCount: number;
+  session: TrainingSession;
+  phases: ResolvedPhase[];     // 구획별 — 세션 편집 화면·phase 인지 시연·인쇄
+  items: ResolvedItem[];       // 평평한 하위 호환 뷰(= phases flatten) — 목록 요약·드로어
+  totalMin: number; missingCount: number;
 }
 export function resolveSession(s: TrainingSession, existing: Set<DrillId>): ResolvedSession;
 export function sessionTotalMin(items: ResolvedItem[]): number;
 //  = Σ(미누락 항목의 durationOverrideMin ?? durationMinCache) + Σ(restAfterMin ?? 0)
+// 구획 인지 편집 헬퍼 — 드로어(구획 무지)와 세션 편집 화면(구획 인지)이 같은 함수를 쓴다:
+export function addSessionItem(s, item, phaseId?);       // 기본: 마지막 구획(없으면 defaultPhase 생성)
+export function removeSessionItem(s, itemId);            // 전 구획 수색. 빈 구획은 남긴다
+export function updateSessionItem(s, itemId, patch);
+export function moveSessionItemFlat(s, from, to);        // flatten 좌표계. 경계 넘기 = 그 구획으로 이사
 export function pickNextSession(list: TrainingSession[], now?: number): TrainingSession | null;
 /** 로케일 조합 결과가 브라우저마다 달라지지 않도록 직접 조립한다 → "화 19:00" */
 export function formatSessionWhen(ms: number): string;
@@ -1209,6 +1229,11 @@ export function formatSessionWhen(ms: number): string;
 
 **총 시간은 해석된 세션에서만 계산한다.** 목록도 `ResolvedSession[]` 을 준다(§4.5) —
 안 그러면 목록이 "52분", 상세가 "총 42분 (누락 1개 제외)" 로 갈린다.
+
+**v1→v2 마이그레이션(2026-08-18)**: 평평한 `items` 를 단일 custom 구획(이름 '훈련' —
+`defaultPhase()` 와 같은 리터럴)으로 감싼다. 무손실, 빈 items 는 빈 phases. 항목 상한
+`maxSessionItems 40` 은 v2 에서도 **전 구획 합산** 기준이고, 구획 상한(`sessionPhasesMax 12`)
+초과 시 넘친 구획의 항목은 마지막 구획에 병합한다(이중 손실 방지).
 
 ---
 

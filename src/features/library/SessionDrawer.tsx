@@ -15,7 +15,7 @@ import { IconGripDots, IconPlus, IconClose } from '../../ui/icons.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { drillTypeColor } from '../../core/colors.ts';
 import { getSession, putSession, addDrillToSession } from '../../storage/sessionRepo.ts';
-import { resolveSession } from '../../model/session.ts';
+import { resolveSession, removeSessionItem, updateSessionItem, moveSessionItemFlat, flattenSessionItems } from '../../model/session.ts';
 import type { ResolvedItem, TrainingSession } from '../../model/session.ts';
 import type { DrillSummary } from '../../model/summary.ts';
 import type { ItemId, SessionId } from '../../core/ids.ts';
@@ -94,23 +94,23 @@ function SessionDrawerBody({
     setAddDrillId('');
   };
 
+  // v2 — 항목이 구획(phases) 안에 있으므로 직접 items 를 주무르지 않고 session.ts 의
+  // 구획 인지 헬퍼를 쓴다. 드로어는 구획을 모르지만(평평한 목록 표시) 그래도 안전하다:
+  // 헬퍼가 전 구획을 수색하고, 이동은 flatten 좌표계로 받는다.
   const handleRemove = async (itemId: string) => {
-    const items = session.items.filter((it) => it.id !== itemId);
-    await onSave({ ...session, items });
+    await onSave(removeSessionItem(session, itemId));
   };
 
   const handleDurationChange = async (itemId: string, minutes: number) => {
-    const items = session.items.map((it) => (it.id === itemId ? { ...it, durationOverrideMin: minutes } : it));
-    await onSave({ ...session, items });
+    await onSave(updateSessionItem(session, itemId, { durationOverrideMin: minutes }));
   };
 
   const handleReorder = async (from: number, to: number) => {
     if (from === to) return;
-    const items = session.items.slice();
-    const [moved] = items.splice(from, 1);
-    items.splice(to, 0, moved!);
-    await onSave({ ...session, items });
-    liveRegion.say(`${moved!.titleCache} — ${to + 1}번째로 이동`);
+    const moved = flattenSessionItems(session)[from];
+    if (!moved) return;
+    await onSave(moveSessionItemFlat(session, from, to));
+    liveRegion.say(`${moved.titleCache} — ${to + 1}번째로 이동`);
   };
 
   return (

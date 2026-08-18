@@ -2,6 +2,7 @@
 // 문서 마이그레이션은 읽기 시점 + 기회적 되쓰기.
 import { SHAPE_DEFAULT_PX, triBBox, trianglePoints } from './shape.ts';
 import { defaultDefense } from './rules.ts';
+import { newId } from '../core/ids.ts';
 
 export interface DocMigration {
   from: number;
@@ -219,7 +220,28 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
     },
   },
 ];
-export const SESSION_MIGRATIONS: DocMigration[] = [];
+/** 세션 v1 → v2 (2026-08-18 구조 개편) — 평평한 items 를 **단일 custom 구획**으로 감싼다.
+ *  무손실: 항목 배열이 값째로 옮겨 갈 뿐이고, 빈 items 는 빈 phases 가 된다(빈 구획 하나를
+ *  만들어 두지 않는 이유: "구획은 사용자가 만든 구조" 라서 — 없던 구조를 지어내지 않는다).
+ *  구획 이름 '훈련' 은 defaultPhase(session.ts)와 같은 리터럴이어야 한다 — 갈라지면 승격된
+ *  세션과 새 세션이 다른 이름을 갖는다. id 는 newId 라 이 마이그레이션은 멱등이 아니지만,
+ *  migrateDoc 은 버전이 낮을 때만 각 단계를 1회 태우므로 문제가 없다(도장이 게이트다). */
+export const SESSION_MIGRATIONS: DocMigration[] = [
+  {
+    from: 1,
+    to: 2,
+    describe: 'session v1→v2: 구획(phase) 계층 — items 를 단일 custom 구획으로 감싼다',
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      if (!Array.isArray(out.phases)) {
+        const items = Array.isArray(out.items) ? out.items : [];
+        out.phases = items.length > 0 ? [{ id: newId('ph'), kind: 'custom', title: '훈련', items }] : [];
+      }
+      delete out.items;
+      return out;
+    },
+  },
+];
 /** prefs 는 여기서 처음으로 체인이 생긴다(§7 3.0). **v1 → v2 로 한 번만 올린다** — 트레이 서랍·
  *  seed 도장·2존 모드를 나눠 올리면 3차에 만든 백업 파일과 5차에 만든 백업 파일의 스키마가 서로
  *  달라지고, 중간 버전(v2)만 아는 파일이 세상에 남는다.
