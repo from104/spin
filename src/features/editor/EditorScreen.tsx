@@ -13,7 +13,6 @@
 // 리로드 복원도 겸한다(EditorWorkspace.tsx 의 presentButton).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DrillMetaSheet } from './DrillMetaSheet.tsx';
-import { IconInfo } from '../../ui/icons.tsx';
 import type { Drill } from '../../model/drill.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import { useStageTarget } from '../../app/AppShell.tsx';
@@ -30,8 +29,9 @@ export function EditorScreen() {
   const target = useStageTarget();
   const nav = useAppNav();
   const toast = useToast();
-  // C7 — 드릴 메타 시트(유형·상황·서술 3필드·교육 필드). EditorWorkspace(불가침) 밖의
-  // 오버레이라 이 화면이 연다/닫는다. 저장은 시트가 dispatch(META_SET)로 직접 한다.
+  // C7/C11 — 드릴 정보 모달(유형·상황·서술 3필드·교육 필드). 여는 버튼은 EditorWorkspace 의
+  // 하단 노트 왼쪽 ⓘ(onDrillInfo — 기현님 지시로 스테이지 우상단 오버레이에서 이사).
+  // 저장은 모달이 dispatch(META_SET)로 직접 한다.
   const [metaOpen, setMetaOpen] = useState(false);
   // ToastProvider 의 api 객체는 toasts 배열이 바뀔 때마다 새로 만들어진다(useMemo 의존성).
   // 아래 로드 effect 가 toast 를 의존성에 넣으면: 보정 토스트 1건 → api 재생성 → effect
@@ -99,37 +99,7 @@ export function EditorScreen() {
     <EditorProvider key={providerKey} drill={state.drill}>
       {/* 설정 [재생] > '마지막 스텝에서 반복'. 편집기 재생(useStepPlayback)이 이 값을 본다. */}
       <PlaybackProvider initialLoop={prefs.loop}>
-        {/* C7 — 래퍼는 [드릴 정보] 오버레이 버튼의 좌표계다. EditorWorkspace 가 flex 자식으로
-            차지하던 자리를 그대로 물려받도록 flex:1 + 세로 flex 를 준다(레이아웃 불변). */}
-        <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
-          <EditorWorkspace mode="drill" />
-          {/* 오른쪽 기능 바(폭 --hit) 왼쪽 위에 얹는다. 기능 바에 칸을 더하면 1024×600 에서
-              기둥이 2열로 흘러 코트가 10% 줄어드는 예산(여유 1px — AppShell 주석)이라
-              오버레이가 정답이다. 코트 모서리 여백 위라 판 조작과의 간섭은 최소다. */}
-          <button
-            type="button"
-            aria-label="드릴 정보"
-            title="드릴 정보 — 유형·상황·목적·코칭 포인트"
-            onClick={() => setMetaOpen(true)}
-            style={{
-              position: 'absolute',
-              top: 8,
-              right: 'calc(var(--hit) + 20px)',
-              width: 'var(--hit)',
-              height: 'var(--hit)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--elev)',
-              color: 'var(--text)',
-              zIndex: 5,
-            }}
-          >
-            <IconInfo size={19} />
-          </button>
-        </div>
+        <EditorWorkspace mode="drill" onDrillInfo={() => setMetaOpen(true)} />
         <DrillMetaSheet open={metaOpen} onClose={() => setMetaOpen(false)} />
       </PlaybackProvider>
     </EditorProvider>

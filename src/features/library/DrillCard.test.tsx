@@ -49,8 +49,9 @@ describe('DrillCard', () => {
       </>,
     );
     const boxOf = (label: string) => screen.getByRole('img', { name: label }).parentElement as HTMLElement;
-    expect(boxOf('풀 코트 미리보기').style.aspectRatio).toBe('825 / 525');
-    expect(boxOf('하프 코트 미리보기').style.aspectRatio).toBe('525 / 450');
+    // 2026-08-19 — 세로 1/2 축소: 분자 2배(courtSizeConsumers.test 의 같은 주석 참고).
+    expect(boxOf('풀 코트 미리보기').style.aspectRatio).toBe('1650 / 525');
+    expect(boxOf('하프 코트 미리보기').style.aspectRatio).toBe('1050 / 450');
     // 상자만 비율이고 svg 가 상자를 안 채우면(fill 미배선) 기본 크기(300×150)로 새어 나온다.
     const svg = screen.getByRole('img', { name: '풀 코트 미리보기' }) as unknown as SVGSVGElement;
     expect(svg.style.position).toBe('absolute');

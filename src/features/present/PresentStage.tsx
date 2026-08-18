@@ -16,6 +16,7 @@ import { arrowColor } from '../../model/arrow.ts';
 import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playback.ts';
 import { PLAYBACK } from '../../core/constants.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
+import { GridOverlay } from '../../render/GridOverlay.tsx';
 import { RuleZones } from '../../render/RuleZones.tsx';
 import { SideMarks } from '../../render/SideMarks.tsx';
 import { ShapeLayer } from '../../render/ShapeLayer.tsx';
@@ -31,6 +32,10 @@ import { PresentChairMark, PresentBallMark, PresentConeMark, PresentArrowLayer, 
 export interface PresentStageProps {
   drill: Drill;
   showRuleZones: boolean;
+  /** C11(2026-08-19 기현님) — 격자. 편집기와 같은 저장값(prefs.showGrid)을 따른다:
+   *  코치가 편집에서 격자를 켜 뒀으면 팀에게 보여 주는 화면에도 같은 격자가 선다. */
+  showGrid?: boolean;
+  showGridLabels?: boolean;
   reduceMotion: boolean;
   /** 값이 바뀔 때마다(참조가 아니라 값) 일시정지 중이어도 즉시 1프레임 다시 그린다 — 스텝
    *  점프·스크럽 직후 화면이 이전 위치에 멈춰 있는 것을 막는다. */
@@ -42,7 +47,7 @@ export interface PresentStageProps {
 
 const emptyFrame = (): RenderFrame => ({ stepIndex: 0, t: 0, chairs: [], balls: [], cones: [], arrows: [], notes: [] });
 
-export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, onStepChange, onEnded }: PresentStageProps) {
+export function PresentStage({ drill, showRuleZones, showGrid = false, showGridLabels = false, reduceMotion, seekToken, onStepChange, onEnded }: PresentStageProps) {
   const mode: CourtMode = drill.courtMode;
   // §6.4 — 시연 화면도 드릴의 코트 크기를 따라간다. 여기가 빠지면 28×15 드릴을 시연할 때만
   // 판이 30×18 로 커져, 편집 화면과 시연 화면이 서로 다른 코트를 보여 준다.
@@ -199,6 +204,8 @@ export function PresentStage({ drill, showRuleZones, reduceMotion, seekToken, on
       </defs>
       <rect width={def.vbW} height={def.vbH} rx={16} fill={COURT_BG} />
       <CourtSurface mode={mode} size={drill.courtSize} variant="present" />
+      {/* C11 — 격자는 편집기(CourtStage)와 같은 층·같은 컴포넌트다: 코트면 위, 존 아래. */}
+      {showGrid && <GridOverlay mode={mode} size={drill.courtSize} showLabels={showGridLabels} />}
       <RuleZones mode={mode} size={drill.courtSize} visible={showRuleZones} />
       {/* 진영 표시 — 편집 화면과 **같은 컴포넌트**다. 시연에서 빠지면 코치가 팀에 보여 주는
           화면만 진영을 안 알려 주게 된다(골 지역 붉은 표시는 진영을 따라 나오는데도). */}

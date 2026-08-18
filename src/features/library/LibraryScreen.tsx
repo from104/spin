@@ -31,7 +31,7 @@ import { IconPlus } from '../../ui/icons.tsx';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import { DRILL_LEVELS } from '../../model/drill.ts';
 import type { DrillSummary } from '../../model/summary.ts';
-import { DrillCard } from './DrillCard.tsx';
+import { DrillCard, DrillRow } from './DrillCard.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
 import type { HomeNav } from '../home/nav.ts';
 import { buildImportReport, commitDrills, commitSession, exportOneDrill, importReportLine, readImportFile } from './transfer.ts';
@@ -45,7 +45,7 @@ export interface LibraryScreenProps {
 }
 
 export function LibraryScreen({ nav }: LibraryScreenProps) {
-  const { drills, drillType, situation, sort, search, setDrillType, setSituation, setSort, duplicateDrill, deleteDrill, refresh } = useLibrary();
+  const { drills, drillType, situation, sort, view, search, setDrillType, setSituation, setSort, setView, duplicateDrill, deleteDrill, refresh } = useLibrary();
   const toast = useToast();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -147,6 +147,17 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
               <option value="createdAt">만든 순</option>
               <option value="title">이름순</option>
             </select>
+            {/* C11 — 보기 모드(카드/목록). 2026-08-19 기현님 지시. */}
+            <Segmented
+              ariaLabel="보기 모드"
+              value={view}
+              onChange={(v) => setView(v as 'cards' | 'list')}
+              options={[
+                { value: 'cards', label: '카드' },
+                { value: 'list', label: '목록' },
+              ]}
+              dense
+            />
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
@@ -199,18 +210,27 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
                     >
                       {level}
                     </h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 18 }}>
-                      {group.map((d) => (
-                        <DrillCard
-                          key={d.id}
-                          drill={d}
-                          onOpen={() => openDrill(d.id)}
-                          onPresent={() => presentDrill(d.id)}
-                          onDuplicate={() => void handleDuplicate(d)}
-                          onDelete={() => void handleDelete(d)}
-                          onExport={() => void handleExport(d)}
-                        />
-                      ))}
+                    <div
+                      style={
+                        view === 'cards'
+                          ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 18 }
+                          : { display: 'flex', flexDirection: 'column', gap: 8 }
+                      }
+                    >
+                      {group.map((d) => {
+                        const Item = view === 'cards' ? DrillCard : DrillRow;
+                        return (
+                          <Item
+                            key={d.id}
+                            drill={d}
+                            onOpen={() => openDrill(d.id)}
+                            onPresent={() => presentDrill(d.id)}
+                            onDuplicate={() => void handleDuplicate(d)}
+                            onDelete={() => void handleDelete(d)}
+                            onExport={() => void handleExport(d)}
+                          />
+                        );
+                      })}
                     </div>
                   </section>
                 );

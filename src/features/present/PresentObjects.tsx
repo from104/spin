@@ -18,8 +18,9 @@ import { ChairChip } from '../../render/objects/ChairChip.tsx';
 import { BallDot } from '../../render/objects/BallDot.tsx';
 import { ConeMark } from '../../render/objects/ConeMark.tsx';
 import { ArrowPath } from '../../render/objects/ArrowPath.tsx';
-import { NOTE_DEFAULT_SIZE_PX, noteLineDy, noteLines } from '../../render/objects/noteChip.ts';
+import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteChipWidthPx, noteFoldPathD, noteLineDy, noteLines } from '../../render/objects/noteChip.ts';
 import { NOTE } from '../../core/constants.ts';
+import { NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { OpacityWriter } from './opacityWriter.ts';
@@ -119,22 +120,32 @@ export function PresentNoteLayer({ notes }: { notes: RenderFrame['notes'] }) {
       {notes.map((n) => {
         const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
         const lines = noteLines(n.text, size);
+        const align = n.align ?? 'middle';
+        const halfW = noteChipWidthPx(n.text, size) / 2;
+        const halfH = noteChipHeightPx(n.text, size) / 2;
+        // NoteLabel/PrintCourt 와 같은 규약 — align 은 글 정렬이자 칩 안에서의 글 위치다.
+        const textX = align === 'start' ? -halfW + NOTE.chipPadXPx : align === 'end' ? halfW - NOTE.chipPadXPx : 0;
         return (
           <g key={n.id} opacity={n.opacity} transform={`translate(${n.x.toFixed(2)} ${n.y.toFixed(2)})`}>
+            {/* C11(2026-08-19 기현님) — **쪽지 칩 배경**. 여기만 글자만 떠 있어서, 어두운 코트
+                위에서 메모가 판의 일부처럼 안 읽혔다. 기하·색은 편집기(NoteLabel)·인쇄
+                (PrintCourt)와 같은 함수·같은 토큰이다 — 세 화면이 같은 쪽지를 그린다. */}
+            <path d={noteChipPathD(halfW, halfH)} fill={NOTE_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
+            <path d={noteFoldPathD(halfW, halfH)} fill={NOTE_FOLD_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
             <text
-              x={0}
+              x={textX}
               y={0}
               fontFamily={FONT}
               fontSize={size}
               fontWeight={600}
               fill={n.color ?? '#ffffff'}
-              textAnchor={n.align ?? 'middle'}
+              textAnchor={align}
               dominantBaseline="central"
             >
               {/* 줄 나눔은 편집 화면과 **같은 함수**가 정한다(noteChip.ts). 시연에서만 한 줄로
                   이어 붙으면 코치가 판에서 본 것과 관객이 보는 것이 달라진다. */}
               {lines.map((line, i) => (
-                <tspan key={i} x={0} dy={i === 0 ? noteLineDy(0, lines.length) : NOTE.lineHPx}>
+                <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length) : NOTE.lineHPx}>
                   {line}
                 </tspan>
               ))}

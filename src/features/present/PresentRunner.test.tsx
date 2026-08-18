@@ -190,6 +190,47 @@ describe('PresentRunner — 세션 시연', () => {
   }, 8000);
 });
 
+describe('PresentRunner — 드릴 정보 모달·메모 칩·격자 (C11)', () => {
+  it('ⓘ [드릴 정보]가 읽기 전용 모달을 열고, 헤더 [×]로 닫힌다', async () => {
+    const d = await makeTwoStepDrill(`정보 드릴 ${++seq}`);
+    await idbDrillRepo.putDrill({ ...d, objective: '정보 모달 목적', equipment: '공 3개' }, { touch: false });
+    render(<PresentRunner target={{ kind: 'drill', drillId: d.id }} nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '드릴 정보' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('정보 모달 목적')).toBeInTheDocument();
+    expect(within(dialog).getByText('공 3개')).toBeInTheDocument();
+    // 읽기 전용 — 입력 요소가 하나도 없다(편집 시트와 갈라지는 지점).
+    expect(within(dialog).queryAllByRole('textbox')).toHaveLength(0);
+    expect(within(dialog).queryAllByRole('combobox')).toHaveLength(0);
+
+    await user.click(within(dialog).getByRole('button', { name: '닫기' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('메모가 쪽지 칩 배경과 함께 그려진다 — 글자만 떠 있지 않다', async () => {
+    const d = await makeTwoStepDrill(`메모 드릴 ${++seq}`);
+    const step1 = { ...d.steps[0]!, notes: [{ id: newId('nt'), x: 200, y: 200, text: '시연 메모' }] };
+    await idbDrillRepo.putDrill({ ...d, steps: [step1, d.steps[1]!] }, { touch: false });
+    const { container } = render(<PresentRunner target={{ kind: 'drill', drillId: d.id }} nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('시연 메모')).toBeInTheDocument());
+    // 칩 본체 + 접힘 삼각형 — 편집기·인쇄와 같은 두 path 다.
+    const noteG = screen.getByText('시연 메모').closest('g')!;
+    expect(noteG.querySelectorAll('path')).toHaveLength(2);
+    expect(container.querySelectorAll('svg').length).toBeGreaterThan(0); // 대조군
+  });
+
+  it('격자는 저장값(prefs.showGrid)을 따른다 — 기본(꺼짐)에는 없다', async () => {
+    const d = await makeTwoStepDrill(`격자 드릴 ${++seq}`);
+    const { container, unmount } = render(<PresentRunner target={{ kind: 'drill', drillId: d.id }} nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+    expect(container.querySelector('[data-grid-overlay]') ?? container.querySelector('g[aria-label="격자"]')).toBeNull();
+    unmount();
+  });
+});
+
 describe('PresentRunner — 구획 인지 시연 (C9)', () => {
   /** 구획 2개(워밍업 1드릴 · 전술 1드릴) 세션. */
   async function makeTwoPhaseSession() {

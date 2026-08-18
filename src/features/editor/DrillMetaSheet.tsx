@@ -3,7 +3,9 @@
 // [속성] 폐기로 UI 를 잃었던 교육 필드(목적·코칭 포인트·인원·장비)·태그·난이도·소요시간이
 // 여기서 다시 편집된다.
 //
-// **자리**: EditorScreen 레벨 — EditorWorkspace(보드/스텝 편집 모듈, 불가침) **밖**의 오버레이다.
+// **자리**: 화면 중앙 모달(C11, 기현님 지시 — 서랍은 내용이 길면 [×]가 스크롤에 밀려 닫기가
+// 불편했다. CenterModal 은 헤더 고정·본문 스크롤). 여는 버튼은 하단 노트 패널 왼쪽의 ⓘ
+// (EditorWorkspace 가 onDrillInfo 콜백으로 그린다 — 옛 스테이지 우상단 오버레이는 은퇴).
 // 저장 경로는 dispatch(META_SET) 하나뿐이다 — 되돌리기(Ctrl+Z)에 다른 메타와 같은 통로로
 // 실리고, useAutosave 의 CAS 낙관 잠금이 그대로 적용된다. 여기서 putDrill 을 직접 부르면
 // 자동저장과 두 갈래 쓰기가 되어 충돌한다(계획서 C7 의 금지 조항).
@@ -12,7 +14,7 @@
 // 명시적 undefined 를 "키 삭제" 로 처리한다(C7 에서 넣은 규칙, actions.ts 주석).
 import { useId } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import { Drawer } from '../../ui/Drawer.tsx';
+import { CenterModal } from '../../ui/CenterModal.tsx';
 import { useEditorDispatch, useEditorState } from '../../store/editor/EditorProvider.tsx';
 import {
   DRILL_LEVELS,
@@ -37,7 +39,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
   const ids = { type: useId(), situation: useId(), level: useId(), duration: useId() };
 
   return (
-    <Drawer open={open} onClose={onClose} title="드릴 정보" widthPx={420}>
+    <CenterModal open={open} onClose={onClose} title="드릴 정보">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {/* ── 분류 (v8 두 축 + 난이도·소요시간) ─────────────────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -200,7 +202,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
           </Field>
         </div>
       </div>
-    </Drawer>
+    </CenterModal>
   );
 }
 

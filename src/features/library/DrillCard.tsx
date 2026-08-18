@@ -39,7 +39,21 @@ function IconMore({ size = 16 }: { size?: number }) {
   );
 }
 
-export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport }: DrillCardProps) {
+/** 케밥(⋯) 메뉴 — 카드와 목록 행(C11 목록 보기)이 **같은 컴포넌트**를 쓴다. 항목·라벨이
+ *  보기 모드에 따라 달라지면 사용자가 모드를 바꿀 때마다 메뉴를 다시 배워야 한다. */
+export function DrillKebabMenu({
+  title,
+  onDuplicate,
+  onDelete,
+  onExport,
+  buttonStyle,
+}: {
+  title: string;
+  onDuplicate(): void;
+  onDelete(): void;
+  onExport(): void;
+  buttonStyle?: CSSProperties;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
@@ -67,6 +81,84 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuOpen]);
 
+  return (
+    <div style={{ position: 'relative' }} ref={menuRef}>
+      <button
+        ref={menuBtnRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-controls={menuId}
+        aria-label={`${title} 더보기`}
+        onClick={() => setMenuOpen((v) => !v)}
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'color-mix(in srgb, var(--panel) 70%, transparent)',
+          color: 'var(--text)',
+          ...buttonStyle,
+        }}
+      >
+        <IconMore />
+      </button>
+      {menuOpen && (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label={`${title} 작업`}
+          style={
+            {
+              position: 'absolute',
+              right: 0,
+              top: 36,
+              zIndex: 10,
+              minWidth: 140,
+              border: '1px solid var(--border-strong)',
+              borderRadius: 10,
+              background: 'var(--panel)',
+              boxShadow: '0 12px 26px -10px rgba(0,0,0,.55)',
+              padding: 6,
+              display: 'flex',
+              flexDirection: 'column',
+            } satisfies CSSProperties
+          }
+        >
+          <MenuItem
+            onClick={() => {
+              closeMenu();
+              onDuplicate();
+            }}
+          >
+            복제
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              closeMenu();
+              onExport();
+            }}
+          >
+            파일로 내보내기
+          </MenuItem>
+          <MenuItem
+            tone="danger"
+            onClick={() => {
+              closeMenu();
+              onDelete();
+            }}
+          >
+            삭제
+          </MenuItem>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport }: DrillCardProps) {
   // §6.4 — 카드 상자의 비율은 그 드릴의 **크기까지** 따라간다. 크기를 빼면 25×14 드릴만
   // 30×18 비율 상자 안에 그려져 위아래에 검은 띠가 남는다(썸네일은 xMidYMid meet 이다).
   const courtDef = courtDefFor(drill.courtMode, drill.courtSize);
@@ -89,12 +181,16 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
         aria-label={`${drill.title} 열기`}
         style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', flex: 1 }}
       >
-        {/* 코트 비율 상자 — 카드마다 자기 코트의 viewBox 비율. svg 는 상자를 꽉 채운다(fill prop). */}
+        {/* 코트 비율 상자. 2026-08-19 기현님 지시 — *"썸네일이 너무 크다. 길이 기준 1/2"*:
+            상자 세로를 코트 비율의 **절반**으로 줄인다(aspectRatio 분모가 아니라 분자를 2배).
+            svg 는 meet 라 코트 전체가 절반 축척으로 가운데 서고, 양옆은 판 배경이 채운다 —
+            slice(크롭)로 채우면 전술의 좌우가 잘려 다른 배치를 가르친다. */}
         <div
           style={{
             position: 'relative',
-            aspectRatio: `${courtDef.vbW} / ${courtDef.vbH}`,
+            aspectRatio: `${courtDef.vbW * 2} / ${courtDef.vbH}`,
             borderBottom: '1px solid var(--border)',
+            background: 'var(--panel-2, var(--panel))',
           }}
         >
           <CourtThumbnail
@@ -172,78 +268,83 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
         </button>
       </div>
 
-      <div style={{ position: 'absolute', top: 8, right: 8 }} ref={menuRef}>
-        <button
-          ref={menuBtnRef}
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          aria-controls={menuId}
-          aria-label={`${drill.title} 더보기`}
-          onClick={() => setMenuOpen((v) => !v)}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'color-mix(in srgb, var(--panel) 70%, transparent)',
-            color: 'var(--text)',
-          }}
-        >
-          <IconMore />
-        </button>
-        {menuOpen && (
-          <div
-            id={menuId}
-            role="menu"
-            aria-label={`${drill.title} 작업`}
-            style={
-              {
-                position: 'absolute',
-                right: 0,
-                top: 36,
-                zIndex: 10,
-                minWidth: 140,
-                border: '1px solid var(--border-strong)',
-                borderRadius: 10,
-                background: 'var(--panel)',
-                boxShadow: '0 12px 26px -10px rgba(0,0,0,.55)',
-                padding: 6,
-                display: 'flex',
-                flexDirection: 'column',
-              } satisfies CSSProperties
-            }
-          >
-            <MenuItem
-              onClick={() => {
-                closeMenu();
-                onDuplicate();
-              }}
-            >
-              복제
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                closeMenu();
-                onExport();
-              }}
-            >
-              파일로 내보내기
-            </MenuItem>
-            <MenuItem
-              tone="danger"
-              onClick={() => {
-                closeMenu();
-                onDelete();
-              }}
-            >
-              삭제
-            </MenuItem>
-          </div>
-        )}
+      <div style={{ position: 'absolute', top: 8, right: 8 }}>
+        <DrillKebabMenu title={drill.title} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} />
       </div>
+    </div>
+  );
+}
+
+/** C11 목록 보기(썸네일 없음) 행 — 2026-08-19 기현님 지시. 카드와 **같은 행동 집합**
+ *  (행 전체 = 열기 · [시연] · 케밥 메뉴)에 그림만 뺐다. 한 줄 44px+ 로 훑어 내리기용. */
+export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport }: DrillCardProps) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        border: '1px solid var(--border)',
+        borderRadius: 11,
+        background: 'var(--panel)',
+        padding: '4px 8px 4px 4px',
+      }}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`${drill.title} 열기`}
+        style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '0 6px' }}
+      >
+        <Pill tone="category" color={drillTypeColor(drill.drillType)}>
+          {DRILL_TYPE_LABELS[drill.drillType] ?? '—'}
+        </Pill>
+        <span style={{ fontSize: '0.875rem', fontWeight: 700, letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {drill.title}
+        </span>
+        {drill.description && (
+          <span style={{ flex: 1, minWidth: 0, fontSize: '0.75rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {drill.description}
+          </span>
+        )}
+        <span style={{ marginLeft: 'auto', flex: 'none', display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.71875rem', color: 'var(--muted)', fontWeight: 500 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <IconLevel />
+            {drill.level}
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <IconClock />
+            {drill.durationMin}분
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <IconListSteps />
+            {drill.stepCount}스텝
+          </span>
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onPresent}
+        aria-label={`${drill.title} 시연 시작`}
+        className="on-accent"
+        style={{
+          flex: 'none',
+          minHeight: 44,
+          padding: '0 14px',
+          borderRadius: 9,
+          background: 'var(--accent)',
+          color: 'var(--accent-ink-strong)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: '0.8125rem',
+          fontWeight: 700,
+        }}
+      >
+        <IconPlay size={13} />
+        시연
+      </button>
+      <DrillKebabMenu title={drill.title} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} buttonStyle={{ width: 44, height: 44 }} />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
 import { courtDefFor, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
+import { IconInfo } from '../../ui/icons.tsx';
 import { defaultDefense } from '../../model/rules.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
@@ -68,9 +69,13 @@ export interface EditorWorkspaceProps {
    *  'drill' = 정식 드릴 편집(스텝·자동저장 있음·코트 불변). 판을 그리는 부분은 완전히 같다. */
   mode?: 'board' | 'drill';
   board?: BoardControls;
+  /** C11(2026-08-19 기현님) — [드릴 정보] 모달 열기. 드릴 모드 전용이고, 버튼은 하단 노트
+   *  패널 **왼쪽**에 선다(옛 스테이지 우상단 오버레이는 판 조작과 겹쳐 은퇴). 콜백만 받고
+   *  모달 자체는 EditorScreen 소유다 — 워크스페이스는 메타 편집을 모른다. */
+  onDrillInfo?(): void;
 }
 
-export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps = {}) {
+export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWorkspaceProps = {}) {
   const isBoard = mode === 'board';
   const state = useEditorState();
   const dispatch = useEditorDispatch();
@@ -834,11 +839,39 @@ export function EditorWorkspace({ mode = 'drill', board }: EditorWorkspaceProps 
             손이 닿으면 펼쳐진다. 자유 전술판(isBoard)에는 스텝이 없으니 완전히 안 그린다
             (StepSidebar 와 같은 게이트). */}
         {isBoard ? null : (
-          <NotePanel
-            stepId={step.id}
-            note={step.note}
-            onNoteChange={(note) => dispatch({ type: 'STEP_META', id: step.id, patch: { note } })}
-          />
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
+            {/* C11 — [드릴 정보] ⓘ. 노트 접힘 줄(minHeight --hit)과 같은 키라 행 높이를 안 민다. */}
+            {onDrillInfo && (
+              <button
+                type="button"
+                aria-label="드릴 정보"
+                title="드릴 정보 — 유형·상황·목적·코칭 포인트"
+                onClick={onDrillInfo}
+                style={{
+                  flex: 'none',
+                  width: 'var(--hit)',
+                  minHeight: 'var(--hit)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--elev)',
+                  color: 'var(--text)',
+                  alignSelf: 'flex-start',
+                }}
+              >
+                <IconInfo size={19} />
+              </button>
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <NotePanel
+                stepId={step.id}
+                note={step.note}
+                onNoteChange={(note) => dispatch({ type: 'STEP_META', id: step.id, patch: { note } })}
+              />
+            </div>
+          </div>
         )}
       </div>
 

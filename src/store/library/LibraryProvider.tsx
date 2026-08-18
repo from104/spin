@@ -20,6 +20,8 @@ export interface LibraryState {
   drillType: string | null; // v8 유형 필터 (옛 category 필터의 후계)
   situation: string | null; // v8 경기 상황 필터 (C10)
   sort: 'updatedAt' | 'createdAt' | 'title'; // C10 — 저장소에 있던 DrillQuery.sort 의 UI 노출
+  /** C11 — 카드(썸네일)/목록(글줄) 보기. 앱 세션 동안 유지된다(Provider 가 App 최상단 상주). */
+  view: 'cards' | 'list';
   search: string;
   error: string | null;
 }
@@ -28,6 +30,7 @@ export interface LibraryActions {
   setDrillType(t: string | null): void;
   setSituation(s: string | null): void;
   setSort(s: 'updatedAt' | 'createdAt' | 'title'): void;
+  setView(v: 'cards' | 'list'): void;
   setSearch(q: string): void;
   createDrill(init: CreateDrillInit): Promise<Drill>;
   duplicateDrill(id: DrillId, opts?: { title?: string }): Promise<Drill>;
@@ -52,6 +55,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [drillType, setDrillType] = useState<string | null>(null);
   const [situation, setSituation] = useState<string | null>(null);
   const [sort, setSort] = useState<'updatedAt' | 'createdAt' | 'title'>('updatedAt');
+  const [view, setView] = useState<'cards' | 'list'>('cards');
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -161,8 +165,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   );
 
   const state = useMemo<LibraryState>(
-    () => ({ status, degraded, drills, sessions, drillType, situation, sort, search, error }),
-    [status, degraded, drills, sessions, drillType, situation, sort, search, error],
+    () => ({ status, degraded, drills, sessions, drillType, situation, sort, view, search, error }),
+    [status, degraded, drills, sessions, drillType, situation, sort, view, search, error],
   );
   const actions = useMemo<LibraryActions>(
     () => ({
@@ -170,6 +174,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setDrillType,
       setSituation,
       setSort,
+      setView,
       setSearch,
       createDrill,
       duplicateDrill,

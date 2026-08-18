@@ -160,6 +160,27 @@ describe('LibraryScreen — 드릴 탭', () => {
     });
   });
 
+  it('목록 보기로 바꾸면 썸네일 없는 행으로 그려지고, 행에서도 열기·시연이 산다 (C11)', async () => {
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '행 보기 드릴' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('행 보기 드릴')).toBeInTheDocument());
+    // 카드 보기 — 썸네일 svg 가 있다(대조군).
+    expect(panel().querySelector('svg.drill-card-thumb')).not.toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('radio', { name: '목록' }));
+    await waitFor(() => expect(panel().querySelector('svg.drill-card-thumb')).toBeNull());
+    // 행에서도 같은 행동 집합이다.
+    await user.click(screen.getByRole('button', { name: '행 보기 드릴 시연 시작' }));
+    expect(nav.presentDrill).toHaveBeenCalledWith(d.id);
+    await user.click(screen.getByRole('button', { name: '행 보기 드릴 열기' }));
+    expect(nav.openDrill).toHaveBeenCalledWith(d.id);
+    // 케밥 메뉴(카드와 같은 컴포넌트)도 선다.
+    await user.click(screen.getByRole('button', { name: '행 보기 드릴 더보기' }));
+    expect(screen.getByRole('menuitem', { name: '복제' })).toBeInTheDocument();
+  });
+
   it('유형 필터로 목록을 좁힌다 (v8 — 옛 카테고리 필터의 후계)', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '기술 드릴', drillType: 'technical' });
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '전술 드릴', drillType: 'tactical' });

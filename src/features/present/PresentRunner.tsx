@@ -28,8 +28,10 @@ import { isEditableTarget, isInteractiveTarget } from '../../ui/keyboard.ts';
 import { Button } from '../../ui/Button.tsx';
 import { IconChevronNext, IconChevronPrev, IconClose, IconPause, IconPlay } from '../../ui/icons.tsx';
 import { IconFullscreenEnter, IconFullscreenExit, IconHelp, IconLoop } from './icons.tsx';
+import { IconInfo } from '../../ui/icons.tsx';
 import { PresentStage } from './PresentStage.tsx';
 import { progressCellState } from './progressCells.ts';
+import { DrillInfoModal } from './DrillInfoModal.tsx';
 import { HelpOverlay } from './HelpOverlay.tsx';
 import { useFullscreen } from './useFullscreen.ts';
 import { useWakeLock } from './useWakeLock.ts';
@@ -211,6 +213,8 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
         load={load}
         reduceMotion={!!reduceMotion}
         showRuleZones={prefs.showRuleZones}
+        showGrid={prefs.showGrid}
+        showGridLabels={prefs.showGridLabels}
         fullscreen={fullscreen}
         wakeLock={wakeLock}
         helpOpen={helpOpen}
@@ -228,6 +232,9 @@ interface PresentBodyProps {
   load: Extract<PresentLoad, { status: 'ready' }>;
   reduceMotion: boolean;
   showRuleZones: boolean;
+  /** C11 — 격자는 편집기와 같은 저장값(prefs.showGrid)을 따른다. */
+  showGrid: boolean;
+  showGridLabels: boolean;
   fullscreen: ReturnType<typeof useFullscreen>;
   wakeLock: ReturnType<typeof useWakeLock>;
   helpOpen: boolean;
@@ -238,7 +245,7 @@ interface PresentBodyProps {
 }
 
 /** PlaybackProvider 안에서만 쓸 수 있는 부분(재생 상태 구독) — 그래서 부모와 분리했다. */
-function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, wakeLock, helpOpen, setHelpOpen, blackout, setBlackout, exit }: PresentBodyProps) {
+function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, showGridLabels, fullscreen, wakeLock, helpOpen, setHelpOpen, blackout, setBlackout, exit }: PresentBodyProps) {
   const playback = usePlaybackState();
   const playbackActions = usePlaybackActions();
 
@@ -251,6 +258,8 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
 
   const [stepIndex, setStepIndex] = useState(0);
   const [seekToken, setSeekToken] = useState(0);
+  // C11 — 드릴 정보(읽기 전용) 모달. 시연 중에도 목적·코칭 포인트를 확인할 수 있다.
+  const [infoOpen, setInfoOpen] = useState(false);
   const currentStep = drill.steps[stepIndex];
 
   // §3.4 — 실명을 적어 둔 선수만, 드릴 단위로 한 번 만든다. 스텝마다 다시 만들면 60fps
@@ -461,6 +470,10 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
       {/* 전체화면(특히 네이티브)에서는 앱 헤더가 화면 밖이 되므로 나갈 UI 가 여기 항상 있어야
           한다(§6.9) — 44×44, 우상단, 항상 표시. */}
       <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, display: 'flex', gap: 8 }}>
+        {/* C11 — 드릴 정보(읽기 전용). 편집 화면의 ⓘ와 같은 그림이라 찾기 쉽다. */}
+        <button type="button" aria-label="드릴 정보" onClick={() => setInfoOpen(true)} style={iconBtnStyle}>
+          <IconInfo size={18} />
+        </button>
         <button type="button" aria-label="도움말" onClick={() => setHelpOpen(true)} style={iconBtnStyle}>
           <IconHelp size={18} />
         </button>
@@ -528,6 +541,8 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
           <PresentStage
             drill={drill}
             showRuleZones={showRuleZones}
+            showGrid={showGrid}
+            showGridLabels={showGridLabels}
             reduceMotion={reduceMotion}
             seekToken={seekToken}
             onStepChange={onStepChange}
@@ -666,6 +681,8 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
           <span style={{ fontSize: 24, fontWeight: 750 }}>{interstitial.drill.title}</span>
         </div>
       )}
+
+      <DrillInfoModal drill={drill} open={infoOpen} onClose={() => setInfoOpen(false)} />
 
       {blackout && <BlackoutOverlay onDismiss={() => setBlackout(false)} />}
 
