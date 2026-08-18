@@ -16,7 +16,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LOCK_TINT_COLOR } from '../../core/colors.ts';
+import { isId } from '../../core/ids.ts';
 import { removalLabel, returnsToTray } from './removal.ts';
+
+/** [복제] 를 낼 것인가 — **도형·메모만**이다(기현 지시 2026-08-18: *"보드의 작도 객체, 메모
+ *  객체에 오른쪽 버튼 메뉴에 복제 기능을 넣자"*). 필드가 아니라 `ids` 에서 계산한다 —
+ *  '빼기냐 삭제냐' 와 같은 규율이다(값과 이름을 둘 다 실으면 어긋날 수 있다).
+ *
+ *  칩·공·콘이 빠지는 이유: 정원이 cast(트레이 상자)에 있어 "하나 더" 는 배치가 아니라 **정의
+ *  추가**다 — 같은 말로 다른 조작을 묶으면 무엇이 늘어나는지 누르기 전에 알 수 없다. 화살표는
+ *  지시 밖이라 안 낸다(항목이 있는데 절반에만 먹는 것보다 없는 편이 정직하다는 규율 그대로,
+ *  섞인 무리에서는 통째로 안 낸다). */
+const canDuplicate = (ids: readonly string[]): boolean => ids.every((id) => isId(id, 'sh') || isId(id, 'nt'));
 
 /** 여럿일 때만 개수를 앞에 붙인다 — 하나짜리에 *"1개 잠금"* 은 셀 것이 없는데 세는 말이다.
  *  마지막 항목(빼기/삭제)만은 `removalLabel` 이 따로 만든다: 거기서는 개수가 두 갈래로
@@ -76,6 +87,9 @@ export interface ObjectMenuProps {
   onSelect(ids: string[]): void;
   /** 메모 글 고치기. `target.editable` 이 null 이면 호출되지 않는다. */
   onEdit(id: string): void;
+  /** 도형·메모 복제(2026-08-18). 사본을 어디 놓는가는 부르는 쪽(EditorStage) 소관이다 —
+   *  메뉴는 좌표계를 모른다. `canDuplicate` 가 거짓이면 호출되지 않는다. */
+  onDuplicate(ids: string[]): void;
 }
 
 const ITEM: React.CSSProperties = {
@@ -94,7 +108,7 @@ const ITEM: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit }: ObjectMenuProps) {
+export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit, onDuplicate }: ObjectMenuProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const firstRef = useRef<HTMLButtonElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -136,6 +150,7 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
 
   if (!target) return null;
 
+  const dup = canDuplicate(target.ids);
   const act = (fn: () => void) => () => {
     fn();
     onClose();
@@ -207,11 +222,28 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
           </button>
         )}
 
+        {/* [복제] — 도형·메모만(canDuplicate 주석). [수정]과 같은 "판을 바꾸는" 뭉치라 그 바로
+            아래, 잠금 위다: 잠금·무시는 상태 스위치고 이 둘은 내용 조작이라 결이 다르다. */}
+        {dup && (
+          <button
+            type="button"
+            role="menuitem"
+            ref={target.selectSame || target.editable ? undefined : firstRef}
+            onClick={act(() => onDuplicate(target.ids))}
+            style={ITEM}
+          >
+            <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.7 }}>
+              ⧉
+            </span>
+            {count(target.ids)}복제
+          </button>
+        )}
+
         <button
           type="button"
           role="menuitem"
-          // 위의 두 항목이 **둘 다** 없을 때만 여기가 첫 칸이다 — ref 를 여럿에 달면 나중 것이 이긴다.
-          ref={target.selectSame || target.editable ? undefined : firstRef}
+          // 위의 항목들이 **전부** 없을 때만 여기가 첫 칸이다 — ref 를 여럿에 달면 나중 것이 이긴다.
+          ref={target.selectSame || target.editable || dup ? undefined : firstRef}
           onClick={act(() => onToggleLock(target.ids, !target.locked))}
           style={ITEM}
         >

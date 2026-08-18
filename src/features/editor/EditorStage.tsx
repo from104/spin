@@ -8,7 +8,9 @@ import { useLongPressMenu } from './useLongPressMenu.ts';
 import { sameKindGroup } from './selectSame.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
-import { isId } from '../../core/ids.ts';
+import { isId, newId } from '../../core/ids.ts';
+import { PX_PER_M } from '../../core/units.ts';
+import { LIMITS } from '../../model/validate.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
 import type { ArrowId, CastId, ChairId, NoteId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
@@ -568,6 +570,68 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   );
   const longPress = useLongPressMenu(openMenu);
 
+  /** [복제](기현 지시 2026-08-18: *"복제하여 오른쪽 아래 1m 위치에 놓는거다"*) — 도형·메모만
+   *  (ObjectMenu 의 `canDuplicate`). 오른쪽 아래 1 m = +25px/+25px(PX_PER_M).
+   *
+   *  - **새 액션이 없다**: setShape/setNote 가 업서트라 새 id 로 SHAPE_SET/NOTE_SET 을 쏘면
+   *    그대로 추가다 — eraseIds 가 종류별 REMOVE 를 낱개로 쏘는 것과 같은 결이고, 되돌리기도
+   *    같은 규칙(사본 하나에 한 칸)이다.
+   *  - **클램프는 viewBox**: 판 가장자리 개체의 사본이 밖으로 나가면 잡을 수 없고, validate 의
+   *    로드 클램프(8단계)와 기준이 갈리면 저장-로드에서 자리가 튄다. 원본이 0 이상이고 오프셋이
+   *    양수라 min 만으로 충분하다.
+   *  - **상한은 놓기와 같은 문**: placement.ts 가 도형 40장에서 막고 토스트로 말하듯 여기도
+   *    같은 문구로 막는다. 메모 상한(20)은 놓기에 검사가 없지만 validate 가 로드에서 자르므로,
+   *    여기서 만들면 **다음 로드 때 조용히 사라질 개체**를 만드는 셈이라 막는다.
+   *  - 사본이 잠기지 않는 것은 공짜다 — locked 목록은 id 명단이고 새 id 는 거기 없다.
+   *  - 끝나면 **사본을 고른다**(원본 대신): 다음 조작(끌어 자리 잡기)이 향하는 곳이 방금 만든
+   *    쪽이다 — 스텝 복제가 사본으로 손을 옮기는 것과 같은 이유. */
+  const duplicateIds = useCallback(
+    (ids: string[]) => {
+      const court = courtDefFor(drill.courtMode, drill.courtSize);
+      const made: string[] = [];
+      let nShapes = step.shapes.length;
+      let nNotes = step.notes.length;
+      let shapeCap = false;
+      let noteCap = false;
+      for (const id of ids) {
+        if (isId(id, 'sh')) {
+          const sh = step.shapes.find((s) => s.id === id);
+          if (!sh) continue;
+          if (nShapes >= LIMITS.maxShapesPerStep) {
+            shapeCap = true;
+            continue;
+          }
+          const nid = newId('sh');
+          dispatch({
+            type: 'SHAPE_SET',
+            shape: { ...sh, id: nid, x: Math.min(sh.x + PX_PER_M, court.vbW), y: Math.min(sh.y + PX_PER_M, court.vbH) },
+          });
+          made.push(nid);
+          nShapes++;
+        } else if (isId(id, 'nt')) {
+          const nt = step.notes.find((n) => n.id === id);
+          if (!nt) continue;
+          if (nNotes >= LIMITS.maxNotesPerStep) {
+            noteCap = true;
+            continue;
+          }
+          const nid = newId('nt');
+          dispatch({
+            type: 'NOTE_SET',
+            note: { ...nt, id: nid, x: Math.min(nt.x + PX_PER_M, court.vbW), y: Math.min(nt.y + PX_PER_M, court.vbH) },
+          });
+          made.push(nid);
+          nNotes++;
+        }
+      }
+      // 토스트는 종류당 한 번이다 — 정원에서 여럿을 복제하면 같은 문장이 개수만큼 쌓인다.
+      if (shapeCap) showToast(`도형은 스텝당 ${LIMITS.maxShapesPerStep}개까지입니다.`);
+      if (noteCap) showToast(`메모는 스텝당 ${LIMITS.maxNotesPerStep}개까지입니다.`);
+      if (made.length > 0) dispatch({ type: 'SELECT_SET', ids: made });
+    },
+    [drill.courtMode, drill.courtSize, step.shapes, step.notes, dispatch, showToast],
+  );
+
   const cursorWorld = cursor && PLACEMENT_TOOLS.has(tool) ? gridCellCenter(drill.courtMode, cursor.col, cursor.row, drill.courtSize) : null;
   const cursorLabel = cursorWorld ? cellLabelAt(drill.courtMode, cursorWorld, drill.courtSize) : null;
 
@@ -685,6 +749,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       }
       // 이미 판에 있는 메모라 `fresh` 는 false 다 — 취소해도 쪽지는 그대로 남는다.
       onEdit={(id) => onEditNote(id as NoteId, false)}
+      onDuplicate={duplicateIds}
     />
     </>
   );

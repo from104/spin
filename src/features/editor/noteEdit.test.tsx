@@ -144,6 +144,7 @@ describe('문 ② 개체 메뉴 [수정]', () => {
         onToggleIgnore={noop}
         onRemove={noop}
         onSelect={noop}
+        onDuplicate={noop}
         onEdit={onEdit}
       />,
     );

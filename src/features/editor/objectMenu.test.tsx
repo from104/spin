@@ -290,6 +290,7 @@ describe('메뉴 — 화면 끝', () => {
           onToggleIgnore={noop}
           onRemove={noop}
           onSelect={noop}
+          onDuplicate={noop}
           onEdit={noop}
         />,
       );
@@ -323,6 +324,132 @@ describe('메뉴 — 화면 끝', () => {
     await waitFor(() => expect(menu()).not.toBeNull());
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(menu()).toBeNull());
+  });
+});
+
+// ── [복제] (기현 지시 2026-08-18: *"보드의 작도 객체, 메모 객체에 오른쪽 버튼 메뉴에 복제
+//    기능을 넣자. 복제하여 오른쪽 아래 1m 위치에 놓는거다"*) ─────────────────────────────
+
+describe('[복제] — 항목은 도형·메모에만 뜬다', () => {
+  const base = { x: 10, y: 10, locked: false, ignored: false, canIgnore: false, editable: null, selectSame: null };
+  const noop = () => {};
+  const openWith = (ids: string[], onDuplicate: (ids: string[]) => void = noop) =>
+    render(
+      <ObjectMenu
+        target={{ ...base, ids }}
+        onClose={noop}
+        onToggleLock={noop}
+        onToggleIgnore={noop}
+        onRemove={noop}
+        onSelect={noop}
+        onDuplicate={onDuplicate}
+        onEdit={noop}
+      />,
+    );
+
+  it('도형·메모(섞여도)면 뜬다 — 여럿이면 개수가 붙는다', () => {
+    openWith(['sh_1']);
+    expect(screen.getByRole('menuitem', { name: '복제' })).toBeInTheDocument();
+    cleanup();
+    openWith(['sh_1', 'nt_1']);
+    expect(screen.getByRole('menuitem', { name: '2개 복제' })).toBeInTheDocument();
+  });
+
+  it('칩·공·콘·화살표에는 안 뜬다 — 하나라도 섞이면 통째로 안 뜬다', () => {
+    // 칩·공·콘은 정원이 cast 에 있어 "하나 더" 가 정의 추가가 되고, 화살표는 지시 밖이다
+    // (ObjectMenu 의 canDuplicate 주석). 섞인 무리에서 안 내는 것은 무시와 같은 규율이다.
+    for (const ids of [['ch_1'], ['bl_1'], ['cn_1'], ['ar_1'], ['sh_1', 'ch_1']]) {
+      cleanup();
+      openWith(ids);
+      expect(screen.queryByRole('menuitem', { name: /복제$/ }), ids.join()).toBeNull();
+    }
+  });
+
+  it('누르면 고른 것 **전부**가 넘어간다', () => {
+    const spy = vi.fn();
+    openWith(['sh_1', 'nt_2'], spy);
+    fireEvent.click(screen.getByRole('menuitem', { name: '2개 복제' }));
+    expect(spy).toHaveBeenCalledWith(['sh_1', 'nt_2']);
+  });
+});
+
+describe('[복제] — 무대 끝까지', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** 작도 서랍에서 사각형을 골라 코트에 하나 놓는다(shapeTool.test 의 관례).
+   *
+   *  jsdom 은 rect 가 전부 0 이라 client→world 의 pxPerUnit 이 0 이 되고, 도형이
+   *  `translate(Infinity Infinity)` 에 놓인다 — 그러면 +25 를 더해도 Infinity 라 오프셋을
+   *  못 잰다. 무대 svg 의 rect 를 풀 코트 viewBox(825×525) 그대로 돌려주게 목킹하면
+   *  pxPerUnit=1 이라 client 좌표가 곧 월드 좌표다. */
+  async function openBoardWithShape() {
+    const rect = { x: 0, y: 0, left: 0, top: 0, right: 825, bottom: 525, width: 825, height: 525, toJSON: () => ({}) } as DOMRect;
+    vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue(rect);
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    const user = userEvent.setup();
+    render(<BoardScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /^작도/ }));
+    await user.click(screen.getByRole('button', { name: '사각' }));
+    const stage = screen.getByRole('application', { name: '코트 편집 영역' });
+    await user.pointer([{ target: stage, keys: '[MouseLeft]', coords: { clientX: 100, clientY: 100 } }]);
+    const shape = await waitFor(() => {
+      const el = document.querySelector('[data-shape-layer] > g[data-shape-id]');
+      if (!el) throw new Error('도형이 안 놓였다');
+      return el as SVGGElement;
+    });
+    return { user, stage, shape };
+  }
+
+  const translateOf = (el: Element): { x: number; y: number } => {
+    const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(el.getAttribute('transform') ?? '');
+    if (!m) throw new Error(`transform 에 translate 가 없다: ${el.getAttribute('transform')}`);
+    return { x: Number(m[1]), y: Number(m[2]) };
+  };
+
+  it('★ 도형 우클릭 → [복제]: 사본이 **오른쪽 아래 1 m(+25,+25)** 에 서고, 선택은 사본으로 옮겨간다', async () => {
+    const { user, shape } = await openBoardWithShape();
+    fireEvent.contextMenu(shape, { clientX: 40, clientY: 40 });
+    await waitFor(() => expect(menu()).not.toBeNull());
+    await user.click(screen.getByRole('menuitem', { name: '복제' }));
+
+    const nodes = await waitFor(() => {
+      const all = [...document.querySelectorAll('[data-shape-layer] > g[data-shape-id]')];
+      if (all.length !== 2) throw new Error(`도형이 ${all.length}개다`);
+      return all;
+    });
+    const [a, b] = [translateOf(nodes[0]!), translateOf(nodes[1]!)];
+    // 1 m = 25 px(PX_PER_M). 절대 좌표는 jsdom 레이아웃 사정이라 안 재고 차이만 잰다.
+    expect(b.x - a.x).toBe(25);
+    expect(b.y - a.y).toBe(25);
+    // 선택이 사본으로 갔다 — 다음 조작(끌어 자리 잡기)이 향하는 곳이 방금 만든 쪽이라야 한다.
+    // ShapeLayer 는 선택된 도형의 테두리를 accent 로 갈아 끼운다.
+    expect(nodes[1]!.querySelector('rect')?.getAttribute('stroke')).toBe('var(--accent)');
+    expect(nodes[0]!.querySelector('rect')?.getAttribute('stroke')).not.toBe('var(--accent)');
+  });
+
+  it('판 가장자리에서는 viewBox 에서 멈춘다 — 밖으로 나간 사본은 잡을 수 없다', async () => {
+    const { user, stage } = await openBoardWithShape();
+    // 구석(월드 820,520 — viewBox 825×525 안)에 도형을 하나 더 놓고 그걸 복제한다.
+    // 배치 도구는 한 번 놓으면 풀리므로(§6.10a 고정은 두 번 눌러야) 다시 고른다.
+    await user.click(screen.getByRole('button', { name: /^작도/ }));
+    await user.click(screen.getByRole('button', { name: '사각' }));
+    await user.pointer([{ target: stage, keys: '[MouseLeft]', coords: { clientX: 820, clientY: 520 } }]);
+    const corner = await waitFor(() => {
+      const all = [...document.querySelectorAll('[data-shape-layer] > g[data-shape-id]')];
+      if (all.length !== 2) throw new Error(`도형이 ${all.length}개다`);
+      return all[1]!;
+    });
+    fireEvent.contextMenu(corner, { clientX: 820, clientY: 520 });
+    await waitFor(() => expect(menu()).not.toBeNull());
+    await user.click(screen.getByRole('menuitem', { name: '복제' }));
+    const copy = await waitFor(() => {
+      const all = [...document.querySelectorAll('[data-shape-layer] > g[data-shape-id]')];
+      if (all.length !== 3) throw new Error(`도형이 ${all.length}개다`);
+      return all[2]!;
+    });
+    // 820+25 → 825 에서, 520+25 → 525 에서 멈춘다(validate 의 로드 클램프와 같은 기준).
+    expect(translateOf(copy)).toEqual({ x: 825, y: 525 });
   });
 });
 
