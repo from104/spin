@@ -181,31 +181,26 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
         aria-label={`${drill.title} 열기`}
         style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', flex: 1 }}
       >
-        {/* 코트 비율 상자. 2026-08-19 기현님 지시 — *"썸네일이 너무 크다. 길이 기준 1/2"*:
-            상자 세로를 코트 비율의 **절반**으로 줄인다(aspectRatio 분모가 아니라 분자를 2배).
-            svg 는 meet 라 코트 전체가 절반 축척으로 가운데 서고, 양옆은 판 배경이 채운다 —
-            slice(크롭)로 채우면 전술의 좌우가 잘려 다른 배치를 가르친다. */}
-        <div
-          style={{
-            position: 'relative',
-            aspectRatio: `${courtDef.vbW * 2} / ${courtDef.vbH}`,
-            borderBottom: '1px solid var(--border)',
-            background: 'var(--panel-2, var(--panel))',
-          }}
-        >
-          <CourtThumbnail
-            fill
-            mode={drill.courtMode}
-            size={drill.courtSize}
-            thumb={drill.thumb}
-            teamColors={{
-              home: drill.teams.home.color,
-              away: drill.teams.away.color,
-              homeGk: drill.teams.home.gkColor,
-              awayGk: drill.teams.away.gkColor,
-            }}
-            className="drill-card-thumb"
-          />
+        {/* 썸네일 — 2026-08-19 기현님 지시 2차: *"가로도 1/2"*. 코트 상자 자체가 카드 폭의
+            **절반**이다(비율은 코트 그대로 — 상자 안에 여백 없음). 처음(1차)에는 세로만 반으로
+            줄여 양옆에 여백을 남겼는데, 가로까지 줄이라는 정정으로 상자를 통째로 절반 축척으로
+            내렸다. 가운데 배치 — 카드의 다른 줄들과 시각적 축이 맞는다. */}
+        <div style={{ position: 'relative', borderBottom: '1px solid var(--border)', background: 'var(--panel-2, var(--panel))' }}>
+          <div style={{ width: '50%', margin: '0 auto', aspectRatio: `${courtDef.vbW} / ${courtDef.vbH}`, position: 'relative' }}>
+            <CourtThumbnail
+              fill
+              mode={drill.courtMode}
+              size={drill.courtSize}
+              thumb={drill.thumb}
+              teamColors={{
+                home: drill.teams.home.color,
+                away: drill.teams.away.color,
+                homeGk: drill.teams.home.gkColor,
+                awayGk: drill.teams.away.gkColor,
+              }}
+              className="drill-card-thumb"
+            />
+          </div>
           <span style={{ position: 'absolute', top: 10, left: 10 }}>
             {/* v8 — 유형 배지. 재구축 전 옛 요약(build<4)엔 drillType 이 없다 — 그 한 프레임은
                 fallback 회색·빈 라벨로 그려질 뿐이라 방어만 하고 지나간다(summary.ts BUILD 4). */}

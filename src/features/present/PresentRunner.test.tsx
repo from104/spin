@@ -205,6 +205,11 @@ describe('PresentRunner — 드릴 정보 모달·메모 칩·격자 (C11)', () 
     // 읽기 전용 — 입력 요소가 하나도 없다(편집 시트와 갈라지는 지점).
     expect(within(dialog).queryAllByRole('textbox')).toHaveLength(0);
     expect(within(dialog).queryAllByRole('combobox')).toHaveLength(0);
+    // 2차(기현님) — **빈 필드도 줄이 선다**: 이 드릴은 변형·태그를 안 적었지만 라벨은 있다.
+    expect(within(dialog).getByText('변형')).toBeInTheDocument();
+    expect(within(dialog).getByText('태그')).toBeInTheDocument();
+    expect(within(dialog).getByText('경기 상황')).toBeInTheDocument();
+    expect(within(dialog).getAllByText('미지정').length).toBeGreaterThanOrEqual(2); // 상황·인원 둘 다
 
     await user.click(within(dialog).getByRole('button', { name: '닫기' }));
     expect(screen.queryByRole('dialog')).toBeNull();

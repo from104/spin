@@ -12,33 +12,39 @@ export interface DrillInfoModalProps {
   onClose(): void;
 }
 
+/** 빈 값 표기. 줄을 숨기는 대신 자리를 지킨다(아래 컴포넌트 주석 참고). */
+const EMPTY = <span style={{ color: 'var(--faint-text)' }}>—</span>;
+
 export function DrillInfoModal({ drill, open, onClose }: DrillInfoModalProps) {
   return (
     <CenterModal open={open} onClose={onClose} title={`드릴 정보 — ${drill.title}`}>
+      {/* 2026-08-19 기현님 2차 — **전 항목을 항상 보여준다**(빈 필드는 — 로). 처음에는 빈
+          줄을 숨겼는데, 그러면 "이 드릴엔 장비 항목이 원래 없나, 안 적었나" 를 시연 중에
+          가릴 수 없다. 편집 시트와 같은 항목 목록·같은 순서 — 입력만 없다(읽기 전용). */}
       <dl style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '10px 16px', margin: 0, fontSize: '0.875rem' }}>
         <Item label="유형">{DRILL_TYPE_LABELS[drill.drillType] ?? '—'}</Item>
-        {drill.situation && <Item label="경기 상황">{SITUATION_LABELS[drill.situation]}</Item>}
+        <Item label="경기 상황">{drill.situation ? SITUATION_LABELS[drill.situation] : <span style={{ color: 'var(--faint-text)' }}>미지정</span>}</Item>
         <Item label="난이도">{drill.level}</Item>
         <Item label="소요 시간">{drill.durationMin}분</Item>
-        {drill.tags.length > 0 && <Item label="태그">{drill.tags.join(' · ')}</Item>}
-        {drill.objective && <Item label="목적">{drill.objective}</Item>}
-        {drill.description && (
-          <Item label="진행 방법">
-            <span style={{ whiteSpace: 'pre-line' }}>{drill.description}</span>
-          </Item>
-        )}
-        {drill.variation && <Item label="변형">{drill.variation}</Item>}
-        {drill.coachingPoints && drill.coachingPoints.length > 0 && (
-          <Item label="코칭 포인트">
+        <Item label="태그">{drill.tags.length > 0 ? drill.tags.join(' · ') : EMPTY}</Item>
+        <Item label="목적">{drill.objective ? drill.objective : EMPTY}</Item>
+        <Item label="진행 방법">{drill.description ? <span style={{ whiteSpace: 'pre-line' }}>{drill.description}</span> : EMPTY}</Item>
+        <Item label="변형">{drill.variation ? drill.variation : EMPTY}</Item>
+        <Item label="코칭 포인트">
+          {drill.coachingPoints && drill.coachingPoints.length > 0 ? (
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {drill.coachingPoints.map((p, i) => (
                 <li key={i}>{p}</li>
               ))}
             </ul>
-          </Item>
-        )}
-        {(drill.playersNeeded ?? 0) > 0 && <Item label="필요 인원">{drill.playersNeeded}명</Item>}
-        {drill.equipment && <Item label="필요 장비">{drill.equipment}</Item>}
+          ) : (
+            EMPTY
+          )}
+        </Item>
+        <Item label="필요 인원">{(drill.playersNeeded ?? 0) > 0 ? `${drill.playersNeeded}명` : <span style={{ color: 'var(--faint-text)' }}>미지정</span>}</Item>
+        <Item label="필요 장비">{drill.equipment ? drill.equipment : EMPTY}</Item>
+        <Item label="코트">{`${drill.courtMode === 'full' ? '풀' : drill.courtMode === 'half' ? '하프' : '플랫'} 코트${drill.courtSize ? ` · ${drill.courtSize.replace('x', '×')}m` : ''}`}</Item>
+        <Item label="스텝">{drill.steps.length}개</Item>
       </dl>
     </CenterModal>
   );

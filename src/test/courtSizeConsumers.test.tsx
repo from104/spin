@@ -179,9 +179,10 @@ describe('§6.4 ⑤ 목록 카드가 그 드릴의 코트 크기로 그려진다
     const def = courtDefFor('full', size);
     expect(container.querySelector('svg.drill-card-thumb')!.getAttribute('viewBox')).toBe(`0 0 ${def.vbW} ${def.vbH}`);
     const box = container.querySelector('svg.drill-card-thumb')!.parentElement as HTMLElement;
-    // 2026-08-19 기현님 — 썸네일 세로 1/2: 상자 비율의 분자가 2배다(코트 전체는 meet 로
-    // 절반 축척 중앙 배치). 비율이 **코트 크기를 따라간다**는 이 테스트의 요점은 그대로다.
-    expect(box.style.aspectRatio).toBe(`${def.vbW * 2} / ${def.vbH}`);
+    // 2026-08-19 기현님 2차 — 가로·세로 모두 1/2: 상자 폭이 카드의 50% 이고 비율은 코트
+    // 그대로다. 비율이 **코트 크기를 따라간다**는 이 테스트의 요점은 그대로다.
+    expect(box.style.aspectRatio).toBe(`${def.vbW} / ${def.vbH}`);
+    expect(box.style.width).toBe('50%');
   });
 
   it('대조군: 옛 요약(크기 없음)은 30×18 로 읽힌다 — 빈칸이 곧 기본값이다', () => {
