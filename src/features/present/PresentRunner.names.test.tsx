@@ -26,7 +26,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   </SettingsProvider>
 );
 
-const nav: PresentNav = { back: () => {} };
+const nav: PresentNav = { back: () => {}, go: () => {} };
 
 /** 이름을 몇 명에게만 붙인 드릴. 나머지는 이름 없이 남긴다 — '절반만 적은' 실제 상황이다. */
 async function makeDrill(names: Record<string, string>): Promise<Drill> {

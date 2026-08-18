@@ -30,8 +30,9 @@ vi.mock('../../app/AppShell.tsx', () => ({
 const { EditorScreen } = await import('./EditorScreen.tsx');
 const { PresentRunner } = await import('../present/PresentRunner.tsx');
 
+const navGo = vi.fn();
 function Wrapper({ children }: { children: ReactNode }) {
-  const nav: AppHistoryApi = { screen: 'board', go: () => {}, back: () => {} };
+  const nav: AppHistoryApi = { screen: 'board', go: navGo, back: () => {} };
   return (
     <SettingsProvider>
       <LibraryProvider>
@@ -51,6 +52,7 @@ function Wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   localStorage.clear();
+  navGo.mockClear();
   stageTarget = { kind: 'drill', drillId: 'dr_none' as DrillId };
 });
 
@@ -88,7 +90,7 @@ describe('노트 패널 — 실제 화면 배선', () => {
       expect(saved?.steps[0]?.note).toBe('오른쪽으로 벌린다');
     });
 
-    render(<PresentRunner target={{ kind: 'drill', drillId }} nav={{ back: vi.fn() }} />, { wrapper: Wrapper });
+    render(<PresentRunner target={{ kind: 'drill', drillId }} nav={{ back: vi.fn(), go: vi.fn() }} />, { wrapper: Wrapper });
     expect(await screen.findByText('오른쪽으로 벌린다')).toBeInTheDocument();
   });
 
@@ -132,6 +134,21 @@ describe('노트 패널 — 실제 화면 배선', () => {
     expect(noteInput()).toHaveValue('가나');
     await user.click(sidebarCards()[1]!);
     expect(noteInput()).toHaveValue('');
+  });
+});
+
+describe('하단 푸터 — ⓘ·[시연] (C11/C12)', () => {
+  it('노트 왼쪽 ⓘ가 드릴 정보 모달을 열고, 최우측 [시연]이 그 드릴 시연으로 간다', async () => {
+    const { user, drillId } = await openDrill();
+
+    // ⓘ — 드릴 정보 모달(편집 가능한 시트).
+    await user.click(screen.getByRole('button', { name: '드릴 정보' }));
+    expect(await screen.findByRole('dialog', { name: /드릴 정보/ })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    // [시연] — 하단 최우측(기현님 지시 2026-08-19). nav.go 로 그 드릴 시연에 간다.
+    await user.click(screen.getByRole('button', { name: '시연 시작' }));
+    expect(navGo).toHaveBeenCalledWith('present', { kind: 'drill', id: drillId });
   });
 });
 

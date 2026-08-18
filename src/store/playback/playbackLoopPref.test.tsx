@@ -80,7 +80,7 @@ describe('② 실제 화면 — 설정을 켜고 시연에 들어가면 반복�
   it('prefs.loop=true → 시연 화면의 반복 버튼이 켜진 상태로 뜬다', async () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), loop: true }));
     const drill = await makeDrill();
-    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={{ back: () => {} }} />, { wrapper: PresentWrapper });
+    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={{ back: () => {}, go: () => {} }} />, { wrapper: PresentWrapper });
     await waitFor(() => expect(loopBtn()).toBeInTheDocument());
     await waitFor(() => expect(loopBtn()).toHaveAttribute('aria-pressed', 'true'));
     expect(loopBtn()).toHaveAttribute('aria-label', '반복 끄기');
@@ -89,7 +89,7 @@ describe('② 실제 화면 — 설정을 켜고 시연에 들어가면 반복�
   it('대조군: prefs.loop=false → 꺼진 상태다 (같은 화면을 두 번 잰 것이 아니다)', async () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), loop: false }));
     const drill = await makeDrill();
-    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={{ back: () => {} }} />, { wrapper: PresentWrapper });
+    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={{ back: () => {}, go: () => {} }} />, { wrapper: PresentWrapper });
     await waitFor(() => expect(loopBtn()).toBeInTheDocument());
     await waitFor(() => expect(loopBtn()).toHaveAttribute('aria-pressed', 'false'));
     expect(loopBtn()).toHaveAttribute('aria-label', '반복 켜기');

@@ -365,7 +365,7 @@ describe('④ CSS 가 부르는 이름이 마크업에 실제로 붙어 있다',
       // 'done' 이 아예 안 나와서 "지나간 칸 갈고리가 없어도 통과" 한다(5차 검증관이 지적한
       // 함정: 축을 하나 덜 찌르면 반증이 초록이다).
       const { session } = await makeProgressFixture();
-      render(<PresentRunner target={{ kind: 'session', sessionId: session.id }} nav={{ back: () => {} }} />, { wrapper: PresentWrapper });
+      render(<PresentRunner target={{ kind: 'session', sessionId: session.id }} nav={{ back: () => {}, go: () => {} }} />, { wrapper: PresentWrapper });
       await screen.findByRole('button', { name: '2번 스텝으로 이동' });
 
       // ── 스텝 줄 ──

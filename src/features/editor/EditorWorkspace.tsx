@@ -8,7 +8,7 @@ import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
 import { courtDefFor, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
-import { IconInfo } from '../../ui/icons.tsx';
+import { IconInfo, IconPlay } from '../../ui/icons.tsx';
 import { defaultDefense } from '../../model/rules.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
@@ -871,6 +871,33 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 onNoteChange={(note) => dispatch({ type: 'STEP_META', id: step.id, patch: { note } })}
               />
             </div>
+            {/* C12(2026-08-19 기현님) — 하단 푸터 **최우측 [시연]**. 옛 TransportBar 폐차 때
+                시연 진입이 좁은 창 헤더에만 남아, 넓은 창 드릴 편집(헤더 없음)에서는 문이
+                없었다. 헤더의 presentButton 과 같은 경로(nav.go)다. */}
+            <button
+              type="button"
+              aria-label="시연 시작"
+              title="시연 — 팀 앞에서 단계별로 보여주기"
+              onClick={() => nav.go('present', { kind: 'drill', id: drill.id })}
+              className="on-accent"
+              style={{
+                flex: 'none',
+                alignSelf: 'flex-start',
+                minHeight: 'var(--hit)',
+                padding: '0 16px',
+                borderRadius: 10,
+                background: 'var(--accent)',
+                color: 'var(--accent-ink-strong)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+              }}
+            >
+              <IconPlay size={14} />
+              시연
+            </button>
           </div>
         )}
       </div>

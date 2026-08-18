@@ -28,7 +28,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 function makeNav(): PresentNav {
-  return { back: vi.fn() };
+  return { back: vi.fn(), go: vi.fn() };
 }
 
 let seq = 0;
@@ -125,19 +125,20 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
   });
 
-  it("우상단 [시연 종료]·헤더 [편집으로] 모두 nav.back('board') 를 부른다", async () => {
+  it("[시연 종료]는 뒤로(back), 헤더 [편집으로]는 그 드릴 편집으로 **명시 이동**한다 (C12)", async () => {
+    // 2026-08-19 기현님 실기 지적 — [편집으로]가 back 이라 목록에서 들어오면 목록으로
+    // 되돌아갔다. 이제 라벨이 약속한 목적지(그 드릴의 편집 화면)로 간다.
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
     await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
 
     await userEvent.click(screen.getByRole('button', { name: '시연 종료' }));
-    // 재편으로 편집기가 board 자리로 들어왔다 — 시연을 나가면 그 드릴 편집으로 돌아간다.
-    // (2026-08-12 개명: 'home' → 'board'. 세션 시연이면 fallback 은 'drills' 다.)
-    expect(nav.back).toHaveBeenCalledWith('board');
+    expect(nav.back).toHaveBeenCalledWith('board'); // 종료는 여전히 "들어온 자리로"
 
     await userEvent.click(screen.getByRole('button', { name: '편집으로' }));
-    expect(nav.back).toHaveBeenCalledTimes(2);
+    expect(nav.go).toHaveBeenCalledWith('board', { kind: 'drill', id: drill.id });
+    expect(nav.back).toHaveBeenCalledTimes(1); // 편집으로 가는 길은 back 이 아니다
   });
 
   it('Shift+? 로 도움말 오버레이가 열리고 Esc 로 닫힌다', async () => {
@@ -156,7 +157,7 @@ describe('PresentRunner — 단일 드릴 시연', () => {
 });
 
 describe('PresentRunner — 세션 시연', () => {
-  it('세션 진행 표시 + [목록으로] 헤더, N 키로 다음 드릴 인터스티셜을 보여준다', async () => {
+  it('세션 진행 표시 + [세션으로] 헤더, N 키로 다음 드릴 인터스티셜을 보여준다', async () => {
     const d1 = await makeTwoStepDrill('세션 드릴 A');
     const d2 = await makeTwoStepDrill('세션 드릴 B');
     const session = await createSession({ title: `세션 ${++seq}` });
@@ -166,7 +167,7 @@ describe('PresentRunner — 세션 시연', () => {
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'session', sessionId: session.id }} nav={nav} />, { wrapper });
     await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: '목록으로' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '세션으로' })).toBeInTheDocument(); // C12 — 그 세션 편집으로 명시 이동
     expect(screen.getByLabelText('세션 진행 1/2')).toBeInTheDocument();
     expect(screen.getByLabelText('1번째 드릴: 세션 드릴 A')).toBeInTheDocument();
 

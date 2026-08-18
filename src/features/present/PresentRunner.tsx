@@ -9,6 +9,7 @@ import type { CSSProperties, RefObject } from 'react';
 import { useAppHeader } from '../../app/AppHeader.tsx';
 import type { PresentTarget } from '../../app/AppShell.tsx';
 import type { Screen } from '../../app/screens.ts';
+import type { NavTarget } from '../../app/useAppHistory.ts';
 import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { PlaybackProvider, usePlaybackState, usePlaybackActions } from '../../store/playback/PlaybackProvider.tsx';
@@ -108,6 +109,10 @@ function stepStartsMs(steps: readonly DrillStep[], baseMs: number): number[] {
 
 export interface PresentNav {
   back(fallback: Screen): void;
+  /** C12(2026-08-19 기현님) — 헤더 [편집으로]/[세션으로]의 **명시 이동**. back(이력 뒤로)은
+   *  목록에서 들어왔으면 목록으로 돌아가 버려, 버튼 라벨이 약속한 목적지와 어긋났다.
+   *  AppHistoryApi 가 구조적으로 만족한다(PresentScreen 은 useAppNav() 를 그대로 넘긴다). */
+  go(next: Screen, target?: NavTarget): void;
 }
 
 export interface PresentRunnerProps {
@@ -134,8 +139,17 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
     };
   }, [target]);
 
-  const backFallback: Screen = target?.kind === 'session' ? 'drills' : 'board';
+  const backFallback: Screen = target?.kind === 'session' ? 'sessions' : 'board';
+  // Esc·[시연 종료]는 **뒤로**다(들어온 자리로) — 이력이 없으면 fallback.
   const exit = useCallback(() => nav.back(backFallback), [nav, backFallback]);
+  // C12 — 헤더 주 버튼은 라벨이 약속한 곳으로 **명시 이동**한다: 드릴 시연 → 그 드릴의
+  // 편집 화면, 세션 시연 → 그 세션의 편집 화면. back 으로 하면 목록에서 들어온 경우
+  // "[편집으로]를 눌렀는데 목록이 뜨는" 어긋남이 된다(기현님 실기 지적).
+  const goOrigin = useCallback(() => {
+    if (target?.kind === 'drill') nav.go('board', { kind: 'drill', id: target.drillId });
+    else if (target?.kind === 'session') nav.go('sessions', { kind: 'session', id: target.sessionId });
+    else nav.back(backFallback);
+  }, [nav, target, backFallback]);
 
   const reduceMotion = effectiveReduceMotion(prefs.a11y.reduceMotion);
 
@@ -173,7 +187,7 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   useAppHeader({
     title: headerTitle,
     subtitle: '팀 앞에서 드릴을 단계별로 보여주세요',
-    primary: { label: backFallback === 'drills' ? '목록으로' : '편집으로', onAction: exit },
+    primary: { label: target?.kind === 'session' ? '세션으로' : '편집으로', onAction: goOrigin },
   });
 
   if (load.status === 'loading') {
