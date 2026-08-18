@@ -131,6 +131,64 @@ export function moveEndpoint(a: Arrow, which: 'from' | 'to', p: Vec2): Arrow {
 export type ArrowHandle = 'from' | 'ctrl' | 'to';
 /** 키보드 조작 대상 — 'whole' 은 화살표 전체다. */
 export type ArrowPart = 'whole' | ArrowHandle;
+/** 포인터로 잡을 수 있는 손잡이 — 세 점 + **회전 앵커**(기현 지시 2026-08-18).
+ *  `ArrowHandle` 을 넓히지 않고 따로 두는 이유: 그 타입은 트윈 프레임 키(`arrowPointKey`)와
+ *  키보드 미세조정(`nudgeArrow`)의 어휘라, '회전' 이 끼면 "rotate 점의 좌표" 라는 있지도 않은
+ *  개념이 두 계약에 새어 들어간다 — 회전은 점이 아니라 **세 점을 한꺼번에 돌리는 조작**이다. */
+export type ArrowGrip = ArrowHandle | 'rotate';
+
+/** 회전 앵커가 화살표 한가운데(`arrowMid`)에서 떨어져 앉는 거리(월드 px).
+ *  도형의 `SHAPE_ROTATE_MIN_SEP_PX`(48)와 같은 값이다 — 손잡이끼리 겹치지 않는 최소 간격이
+ *  거기서 이미 한 번 정해졌고, 짧은 화살표에서는 세 점이 전부 mid 근처에 모이므로 이 거리가
+ *  곧 그 분리 보장이다. */
+export const ARROW_ROTATE_GAP_PX = 48;
+
+/** 회전 앵커의 자리 — `arrowMid` 에서 현(from→to)에 수직으로, **굽힘(ctrl)의 반대쪽**.
+ *
+ *  왜 반대쪽인가: ctrl 손잡이는 굽힘 쪽에 있다. 같은 쪽에 두면 깊게 굽힌 화살표에서 두
+ *  손잡이가 포개져 어느 쪽을 잡을지 매번 복불복이 된다. 곧은 화살표(ctrl 이 현 위)는 어느
+ *  쪽이든 비어 있으므로 진행방향 오른쪽으로 고정한다. 판정 문턱이 0 이 아니라 1px 인 이유:
+ *  ctrl 이 현 바로 위에서 1px 미만으로 떨리는 동안 앵커가 좌우로 널뛰지 않게 하기 위해서다
+ *  (앵커가 편을 바꾸는 순간 자체는 없앨 수 없다 — 문턱은 곧은 화살표를 한쪽에 붙들 뿐이다).
+ *
+ *  퇴화(길이 0 현)는 위(-y)로 눕힌다 — 어디든 한 곳이면 되고, 위는 도형 회전 손잡이의 기본
+ *  방향과 같다. */
+export function arrowRotateHandlePoint(a: Pick<Arrow, 'from' | 'ctrl' | 'to'>): Vec2 {
+  const mid = arrowMid(a);
+  const dx = a.to.x - a.from.x;
+  const dy = a.to.y - a.from.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-9) return { x: mid.x, y: mid.y - ARROW_ROTATE_GAP_PX };
+  // 진행방향 +90°(화면 시계방향, y-down) 단위 법선 — defaultCtrl 의 것과 같은 식이다.
+  let nx = -dy / len;
+  let ny = dx / len;
+  const chordMidX = (a.from.x + a.to.x) / 2;
+  const chordMidY = (a.from.y + a.to.y) / 2;
+  const side = nx * (a.ctrl.x - chordMidX) + ny * (a.ctrl.y - chordMidY);
+  // 굽힘이 또렷할 때만(1px 초과) 그 반대쪽으로 뒤집는다. 그 이하는 "곧다" 로 보고 왼쪽 고정.
+  if (side > 1) {
+    nx = -nx;
+    ny = -ny;
+  }
+  return { x: mid.x + nx * ARROW_ROTATE_GAP_PX, y: mid.y + ny * ARROW_ROTATE_GAP_PX };
+}
+
+/** 세 점을 `center` 둘레로 `rad`(라디안, 화면 시계방향) 돌린 화살표. **순수 함수다** —
+ *  도형의 `dragShapeHandle` 과 같은 이유로, 포인터 코드가 자기 산수를 갖지 않아야 이 규칙을
+ *  jsdom 없이 검증할 수 있다. 화살촉·색은 그대로다(모양만 도는 조작이다).
+ *
+ *  중심은 부르는 쪽이 쥔다 — 돌리는 동안 `arrowMid` 가 함께 돌므로, 매 프레임 다시 재면
+ *  축이 흘러 다닌다. 드래그 시작 때의 mid 를 **래치**해서 넘기는 것이 계약이다(D18 과 같은
+ *  규율: 잡는 순간의 기준을 물고 늘어져야 손끝과 결과가 안 어긋난다). */
+export function rotateArrowAbout(a: Arrow, center: Vec2, rad: number): Arrow {
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const rot = (p: Vec2): Vec2 => ({
+    x: center.x + (p.x - center.x) * cos - (p.y - center.y) * sin,
+    y: center.y + (p.x - center.x) * sin + (p.y - center.y) * cos,
+  });
+  return { ...a, from: rot(a.from), ctrl: rot(a.ctrl), to: rot(a.to) };
+}
 
 /** §7.5c 화살표 키보드 미세조정 — 델타만큼 민다.
  *

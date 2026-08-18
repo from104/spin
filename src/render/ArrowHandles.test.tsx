@@ -27,7 +27,7 @@ describe('ArrowHandles', () => {
     expect(container.querySelectorAll('.arrow-handle-aim')).toHaveLength(0);
   });
 
-  it('from/ctrl/to 3개 핸들을 정확한 좌표에 그린다', () => {
+  it('from/ctrl/to + 회전 앵커, 4개 핸들을 정확한 좌표에 그린다 (앵커는 2026-08-18)', () => {
     const arrow: Arrow = { id: 'ar_1' as ArrowId, from: { x: 0, y: 0 }, ctrl: { x: 5, y: -5 }, to: { x: 10, y: 0 } };
     const { container } = render(
       <svg>
@@ -35,8 +35,13 @@ describe('ArrowHandles', () => {
       </svg>,
     );
     const groups = container.querySelectorAll('g[transform^="translate"]');
-    expect(groups).toHaveLength(3);
+    expect(groups).toHaveLength(4);
     expect(container.querySelector('g[transform="translate(5 -5)"]')).not.toBeNull();
+    // 회전 앵커 — mid(5,-2.5)에서 굽힘(위) 반대쪽인 아래로 48: (5, 45.5). 강조색이 회전의
+    // 표식이다(도형 회전 손잡이와 같은 색 — 흰 점 셋과 갈라져야 무엇이 도는지 보인다).
+    const anchor = container.querySelector('g[transform="translate(5 45.5)"]');
+    expect(anchor).not.toBeNull();
+    expect(anchor!.querySelector('circle[stroke="#000"]')!.getAttribute('fill')).toBe('var(--accent)');
   });
 });
 

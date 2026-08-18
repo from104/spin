@@ -16,7 +16,7 @@ import { INTERACT } from '../core/constants.ts';
 import { COURT_BG } from '../core/colors.ts';
 import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 import type { DragZone } from '../model/chair.ts';
-import type { Arrow, ArrowHandle } from '../model/arrow.ts';
+import type { Arrow, ArrowGrip } from '../model/arrow.ts';
 import { arrowColor } from '../model/arrow.ts';
 import type { BallRing, NoteLabel as NoteLabelData, TeamSide, TeamStyle } from '../model/drill.ts';
 import type { BallId, ChairId } from '../core/ids.ts';
@@ -191,7 +191,7 @@ export interface CourtStageProps {
   arrowHandles?: {
     arrow: Arrow | null;
     /** 키보드 조준점(§4.3 1.11) — Shift+방향키가 옮길 점. null 이면 강조하지 않는다. */
-    onPointerDown?: (which: ArrowHandle, e: ReactPointerEvent<SVGGElement>) => void;
+    onPointerDown?: (which: ArrowGrip, e: ReactPointerEvent<SVGGElement>) => void;
   };
   keyboardCursor?: { visible: boolean; x: number; y: number; label?: string | null };
   /** §4.4 P2-4 규칙 오버레이(3 m 링 + 골 지역 3인). 넘기면 `showRuleZones` 와 **같은 스위치**로

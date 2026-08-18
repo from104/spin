@@ -15,7 +15,7 @@ import { BALL, DEFAULT_ZONES, INTERACT } from '../../core/constants.ts';
 import { newId } from '../../core/ids.ts';
 import type { ArrowId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
-import { ARROW_COLOR_CYCLE, ARROW_STYLE, arrowColor, headFromOf, headToOf } from '../../model/arrow.ts';
+import { ARROW_COLOR_CYCLE, ARROW_ROTATE_GAP_PX, ARROW_STYLE, arrowColor, headFromOf, headToOf } from '../../model/arrow.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { CourtStageHandle, PointerMeta } from '../../render/CourtStage.tsx';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -225,5 +225,71 @@ describe('몸통 — 끌면 선이 통째로 간다', () => {
     expect(h.result.current.state.selection.has(arrowId)).toBe(true);
     tapAt(h, BODY); // 재탭 → 해제
     expect(h.result.current.state.selection.has(arrowId), '재탭했는데 선택이 안 풀렸다').toBe(false);
+  });
+});
+
+// 기현 지시 2026-08-18 — *"화살표 객체에 회전 앵커를 넣자"*. 축은 잡는 순간의 arrowMid(래치,
+// rotateArrowAbout 주석의 계약)이고, 앵커의 자리는 arrowRotateHandlePoint 가 정한다. 여기서는
+// 그 배선을 잰다 — 순수 산수는 model/arrow.test.ts 가 이미 쟀다.
+describe('회전 앵커 — 끌면 세 점이 축 둘레로 돈다', () => {
+  // ARROW 는 수평 직선이라 mid = (350,350), 앵커는 진행방향 오른쪽(+y) GAP 아래다.
+  const MID = { x: 350, y: 350 };
+  const ANCHOR = { x: 350, y: 350 + ARROW_ROTATE_GAP_PX };
+
+  it('★ 앵커를 잡아 축 왼편으로 끌면(90° 시계) 세 점이 함께 돈다', () => {
+    const { h, arrowId } = mount();
+    selectFirst(h);
+    // 잡은 각 90°(축 바로 아래) → 180°(축 왼쪽) = 시계 +90°. y-down 회전: (x,y)→(-y,x).
+    dragFromTo(h, ANCHOR, { x: MID.x - ARROW_ROTATE_GAP_PX, y: MID.y });
+    const a = arrowOf(h, arrowId);
+    expect(a.from.x).toBeCloseTo(350, 9); // (300,350): rel (-50,0) → (0,-50)
+    expect(a.from.y).toBeCloseTo(300, 9);
+    expect(a.to.x).toBeCloseTo(350, 9); // (400,350): rel (50,0) → (0,50)
+    expect(a.to.y).toBeCloseTo(400, 9);
+    expect(a.ctrl.x).toBeCloseTo(350, 9); // 축 위의 점은 제자리
+    expect(a.ctrl.y).toBeCloseTo(350, 9);
+  });
+
+  it('중간을 거쳐 가도 끝 각도만 남는다 — 증분 누적이 아니라 래치 기준 변위다', () => {
+    const { h, arrowId } = mount();
+    selectFirst(h);
+    act(() => h.result.current.pointer.controller.onPointerDown(ANCHOR, META));
+    // 반대 방향(반시계)으로 크게 갔다가 시계 90° 자리로 돌아온다.
+    act(() => h.result.current.pointer.controller.onPointerMove({ x: MID.x + ARROW_ROTATE_GAP_PX, y: MID.y }, 16));
+    act(() => h.result.current.pointer.controller.onPointerMove({ x: MID.x - ARROW_ROTATE_GAP_PX, y: MID.y }, 32));
+    act(() => h.result.current.pointer.controller.onPointerUp(CLIENT));
+    const a = arrowOf(h, arrowId);
+    expect(a.from.x).toBeCloseTo(350, 9);
+    expect(a.from.y).toBeCloseTo(300, 9);
+    expect(a.to.y).toBeCloseTo(400, 9);
+  });
+
+  it('앵커 탭은 **아무것도 안 바꾼다** — 화살촉·색·좌표 전부 그대로다', () => {
+    const { h, arrowId } = mount();
+    selectFirst(h);
+    const before = arrowOf(h, arrowId);
+    tapAt(h, ANCHOR);
+    const after = arrowOf(h, arrowId);
+    expect(after.from).toEqual(before.from);
+    expect(after.ctrl).toEqual(before.ctrl);
+    expect(after.to).toEqual(before.to);
+    expect(headFromOf(after)).toBe(headFromOf(before));
+    expect(headToOf(after)).toBe(headToOf(before));
+    expect(arrowColor(after)).toBe(arrowColor(before));
+  });
+
+  it('탭 임계 안 떨림도 회전이 아니다 — 1px 흔들려도 선이 안 돈다', () => {
+    const { h, arrowId } = mount();
+    selectFirst(h);
+    dragFromTo(h, ANCHOR, { x: ANCHOR.x + INTERACT.tapMaxMoveCssPx - 1, y: ANCHOR.y });
+    const a = arrowOf(h, arrowId);
+    expect(a.from).toEqual(ARROW.from);
+    expect(a.to).toEqual(ARROW.to);
+  });
+
+  it('선택 전에는 앵커가 없다 — 그 자리를 눌러도 회전이 안 시작된다(핸들은 선택된 화살표에만)', () => {
+    const { h, arrowId } = mount();
+    dragFromTo(h, ANCHOR, { x: MID.x - ARROW_ROTATE_GAP_PX, y: MID.y });
+    expect(arrowOf(h, arrowId).from).toEqual(ARROW.from);
   });
 });

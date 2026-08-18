@@ -4,7 +4,8 @@ import { CHAIR, BALL, CONE, NOTE, INTERACT } from '../core/constants.ts';
 import type { ChairId, BallId, ConeId, NoteId, ArrowId } from '../core/ids.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
 import { chairCorners, projectGrab, pointAtLever } from '../model/chair.ts';
-import { ARROW_STYLE } from '../model/arrow.ts';
+import { ARROW_STYLE, arrowRotateHandlePoint } from '../model/arrow.ts';
+import type { ArrowGrip } from '../model/arrow.ts';
 
 /** §6.10 편집기 도구 8종의 key. 원 소유자는 store/screen-editor(Wave 3/4)지만, hitTest 의
  *  `HitContext` 시그니처가 §5.12 계약에 `tool: ToolId` 로 이미 못박혀 있고 physics-world 는
@@ -46,7 +47,7 @@ export interface HitResult {
   id: string;
   s?: number; // chair 직접 드래그: 축 방향 정규 위치
   zone?: DragZone; // zoneHandle
-  which?: 'from' | 'ctrl' | 'to'; // arrowHandle
+  which?: ArrowGrip; // arrowHandle — 세 점 + 회전 앵커(2026-08-18)
 }
 
 export interface HitContext {
@@ -265,12 +266,15 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
   if (ctx.selectedArrowId) {
     const a = scene.arrows.find((x) => x.id === ctx.selectedArrowId);
     if (a) {
-      const candidates: Array<{ which: 'from' | 'ctrl' | 'to'; pt: Vec2 }> = [
+      const candidates: Array<{ which: ArrowGrip; pt: Vec2 }> = [
         { which: 'from', pt: a.from },
         { which: 'ctrl', pt: a.ctrl },
         { which: 'to', pt: a.to },
+        // 회전 앵커(2026-08-18) — 자리는 ArrowHandles 가 그리는 것과 같은 순수 함수에서 온다.
+        // 화면과 판정이 같은 식을 써야 "보이는 자리를 짚었는데 안 잡히는" 어긋남이 없다.
+        { which: 'rotate', pt: arrowRotateHandlePoint(a) },
       ];
-      let nearest: { which: 'from' | 'ctrl' | 'to'; d: number } | null = null;
+      let nearest: { which: ArrowGrip; d: number } | null = null;
       for (const c of candidates) {
         const d = dist(p, c.pt);
         if (d <= r.handle && (!nearest || d < nearest.d)) nearest = { which: c.which, d };

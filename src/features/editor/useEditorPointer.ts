@@ -26,8 +26,8 @@ import { formationSlots } from '../../model/defaults.ts';
 import { poseToStored } from '../../model/chair.ts';
 import { isOnSurface } from '../../model/court.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
-import type { Arrow } from '../../model/arrow.ts';
-import { arrowColorName, arrowMid, cycleArrowColor, cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow } from '../../model/arrow.ts';
+import type { Arrow, ArrowGrip } from '../../model/arrow.ts';
+import { arrowColorName, arrowMid, cycleArrowColor, cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow, rotateArrowAbout } from '../../model/arrow.ts';
 import { arrowLabel } from '../../render/objects/ArrowPath.tsx';
 import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipWidthPx, noteRingRadiusPx } from '../../render/objects/noteChip.ts';
 import type { CourtStageHandle, PointerMeta, PointerDownResult, CourtStagePointerController } from '../../render/CourtStage.tsx';
@@ -192,7 +192,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   // ⚠️ `moved` 가 있어야 **누르기와 끌기를 가른다**(2026-08-16). 끝 앵커는 끌면 그 점이
   //    움직이고, **끌지 않고 떼면 화살촉이 순환**한다(없음 → 좁은 → 넓은). 임계는 재탭 해제와
   //    같은 값(INTERACT.tapMaxMoveCssPx)이라 "얼마나 움직여야 끈 것인가" 가 앱 전체에서 하나다.
-  const arrowHandleDragRef = useRef<{ arrowId: ArrowId; which: 'from' | 'ctrl' | 'to'; start: Vec2; moved: boolean } | null>(null);
+  //    회전 앵커('rotate', 2026-08-18)는 잡는 순간의 화살표와 그 mid 를 **래치**한다
+  //    (`startArrow` — rotateArrowAbout 의 계약). 매 프레임 지금 화살표에서 다시 재면 축이
+  //    함께 돌아 흘러 다닌다.
+  const arrowHandleDragRef = useRef<{ arrowId: ArrowId; which: ArrowGrip; start: Vec2; startArrow: Arrow | null; moved: boolean } | null>(null);
   /** 선 몸통을 잡아 **통째로** 옮기는 세션(2026-08-16 기현 지시). 도형의 body 드래그와 같은 뜻이라
    *  커서도 같은 `move` 다 — 그 커서가 곧 "여기를 잡으면 통째로 간다" 는 유일한 예고다. */
   const arrowBodyDragRef = useRef<{ arrowId: ArrowId; last: Vec2 } | null>(null);
@@ -650,7 +653,8 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
       if (hit.kind === 'arrowHandle') {
-        arrowHandleDragRef.current = { arrowId: hit.id as ArrowId, which: hit.which!, start: world, moved: false };
+        const startArrow = ctx.step.arrows.find((a) => a.id === hit.id) ?? null;
+        arrowHandleDragRef.current = { arrowId: hit.id as ArrowId, which: hit.which!, start: world, startArrow, moved: false };
         ctx.dispatch({ type: 'SELECT_SET', ids: [hit.id] });
         return;
       }
@@ -819,6 +823,15 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         // 임계를 안 넘었으면 **아직 아무것도 안 옮긴다** — 넘기 전에 옮겨 버리면 순환시키려고
         // 누른 손짓이 점을 1px 씩 흔들어 놓는다.
         if (!h.moved) return;
+        // 회전 앵커 — 래치한 시작 화살표의 mid 가 축이다. 각도는 시작점 대비 **변위**로 재서
+        // 시작 화살표에 통째로 적용한다(증분 누적이 아니라서 프레임 누락에도 안 흐른다).
+        if (h.which === 'rotate') {
+          if (!h.startArrow) return;
+          const center = arrowMid(h.startArrow);
+          const delta = Math.atan2(world.y - center.y, world.x - center.x) - Math.atan2(h.start.y - center.y, h.start.x - center.x);
+          ctx.dispatch({ type: 'ARROW_SET', arrow: rotateArrowAbout(h.startArrow, center, delta) });
+          return;
+        }
         const arrow = ctx.step.arrows.find((a) => a.id === h.arrowId);
         if (arrow) {
           const next: Arrow = h.which === 'ctrl' ? { ...arrow, ctrl: world } : { ...arrow, [h.which]: world };
@@ -970,7 +983,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // ★ 끌지 않고 뗐다 = **그 핸들이 나르는 값을 한 칸 돌린다**. 양 끝은 화살촉(기현 지시
       //   2026-08-16), 굽힘점은 색(기현 지시 2026-08-17)이다. 세 핸들 모두 "끌면 옮기고,
       //   누르면 바꾼다" 라는 한 규칙 아래 있다 — 굽힘점만 죽어 있던 자리를 채운 것이다.
-      if (!h.moved) {
+      // 회전 앵커는 탭에 도는 값이 없다 — 없는 순환을 만들어 붙이면 "누르면 바꾼다" 규칙이
+      // 억지로 늘어난다(비어 있는 자리는 비워 둔다).
+      if (!h.moved && h.which !== 'rotate') {
         const arrow = ctx.step.arrows.find((a) => a.id === h.arrowId);
         if (arrow) {
           const next: Arrow =
