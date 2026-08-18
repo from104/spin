@@ -211,7 +211,7 @@ describe('normalizeForSearch / searchKey 구분자', () => {
   });
 
   it('"크로스"+"공격" 경계를 넘는 "스공" 이 매치되지 않는다', async () => {
-    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '크로스', category: '공격' });
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '크로스', drillType: 'tactical' });
     const results = await idbDrillRepo.listDrillSummaries({ search: '스공' });
     expect(results.find((s) => s.id === d.id)).toBeUndefined();
   });

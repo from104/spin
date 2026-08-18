@@ -21,11 +21,12 @@ function item(overrides: Partial<SessionItem> = {}): SessionItem {
 describe('refreshRefs', () => {
   it('제네릭이고 durationOverrideMin/restAfterMin/note 를 보존한다', () => {
     const items: SessionItem[] = [item({ durationOverrideMin: 20, note: '메모', restAfterMin: 3 })];
-    const src = new Map([['dr_x' as DrillId, { title: '새 제목', durationMin: 10, category: '수비' }]]);
+    // v8 — 캐시의 분류 소스는 요약의 drillType 키다(옛 한국어 category 캐시를 이 갱신이 덮는다).
+    const src = new Map([['dr_x' as DrillId, { title: '새 제목', durationMin: 10, drillType: 'tactical' as const }]]);
     const out = refreshRefs(items, src);
     expect(out[0]!.titleCache).toBe('새 제목');
     expect(out[0]!.durationMinCache).toBe(10);
-    expect(out[0]!.categoryCache).toBe('수비');
+    expect(out[0]!.categoryCache).toBe('tactical');
     expect(out[0]!.durationOverrideMin).toBe(20);
     expect(out[0]!.note).toBe('메모');
     expect(out[0]!.restAfterMin).toBe(3);

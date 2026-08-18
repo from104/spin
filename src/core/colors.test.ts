@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BALL_FILL,
-  CATEGORY_COLORS,
+  DRILL_TYPE_COLORS,
   CONE_COLORS,
   GK_AWAY_COLOR,
   GK_HOME_COLOR,
@@ -23,11 +23,11 @@ const contrastRatio = (hexA: string, hexB: string): number => {
 };
 
 describe('inkFor', () => {
-  // 글자를 얹는 색 전량 — 카테고리 5색이 모두 들어간다.
+  // 글자를 얹는 색 전량 — 드릴 유형 5색(v8, 옛 카테고리 팔레트를 물려받은 값)이 모두 들어간다.
   // 콘은 등번호·라벨이 없어 제외한다: 콘의 접근성 근거는 흰 테두리(코트 녹색 대비 4.47:1)이지
   // 잉크 대비가 아니다. 콘 2색의 구분은 아래 별도 테스트에서 본다.
   const palette = [
-    ...Object.values(CATEGORY_COLORS),
+    ...Object.values(DRILL_TYPE_COLORS),
     GK_HOME_COLOR,
     GK_AWAY_COLOR,
     BALL_FILL,

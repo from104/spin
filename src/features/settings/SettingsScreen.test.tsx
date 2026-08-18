@@ -232,7 +232,7 @@ describe('SettingsScreen — 물리 설명문 (minor 회귀)', () => {
 // 쓰는 곳은 [보드] 하단 [내보내기] 하나이고(§6.4), 이 화면에는 **읽는 쪽**만 남는다.
 describe('SettingsScreen — 데이터: 내보내기는 여기 없다', () => {
   it('내보내기 버튼이 이 화면에 없다 — 중복 제거의 완료 판정', async () => {
-    await idbDrillRepo.createDrill({ courtMode: 'full', title: '측면 돌파', category: '공격' });
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '측면 돌파', drillType: 'tactical' });
     render(<SettingsScreen />, { wrapper });
     expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
     expect(screen.queryByRole('button', { name: '전체 내보내기' })).toBeNull();

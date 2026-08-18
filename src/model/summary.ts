@@ -1,7 +1,8 @@
 // §3.11 목록 요약. 저장 시 이 요약만 IDB summaries 스토어에 두고, 본문(Drill)은 필요할 때만 연다.
 // 요약 필드 호환 규약: 필드는 추가만 가능 — 제거·의미변경이 필요하면 SUMMARY_BUILD 가 아니라
 // DB_VERSION 을 올려 스토어를 새로 만든다.
-import type { Drill, TeamSide, TeamStyle, DrillLevel } from './drill.ts';
+import { DRILL_TYPE_LABELS, SITUATION_LABELS } from './drill.ts';
+import type { Drill, TeamSide, TeamStyle, DrillLevel, DrillType, DrillSituation } from './drill.ts';
 import type { DrillId } from '../core/ids.ts';
 import type { CourtMode, CourtSize } from './court.ts';
 import { buildThumb, type ThumbSpec } from './thumb.ts';
@@ -51,7 +52,18 @@ import { LIMITS } from './validate.ts';
  *    읽는다")이 description 엔 안 선다 — 이번 커밋이 카드에 부제로 그리게 만드는 바로 그
  *    값이다. reason③(재구축 경로 부재)도 바로 위에서 이미 해소됐다. 반론이 둘 다 무효라
  *    교육 필드처럼 뺄 이유가 없다 — `buildSearchKey` 참조. */
-export const SUMMARY_BUILD = 3;
+/** ── 4 (2026-08-18, Drill v8): **category → drillType 교체 + situation** ──────────────────
+ *  파일 머리말의 호환 규약("필드는 추가만 가능, 제거·의미변경은 DB_VERSION")에 대한 **예외**라
+ *  근거를 남긴다. 규약이 막으려던 사고는 "옛 레코드를 읽는 현재 코드가 없는 필드를 밟는 것"
+ *  인데, 여기서는 그 창이 닫혀 있다:
+ *   ① 소비 전에 재구축이 돈다 — LibraryProvider 가 목록을 읽을 때 `build < SUMMARY_BUILD`
+ *     레코드를 보면 `rebuildAllSummaries()` 후 다시 읽는다(build 2 때 개통한 그 경로). 카드가
+ *     그리는 시점의 레코드는 전부 build 4 다.
+ *   ② 그 경로가 실패해도(IDB degraded) 밟는 것은 좌표가 아니라 **배지 하나다** — drillType
+ *     이 없는 옛 레코드는 카드 배지가 회색 fallback 으로 그려질 뿐이다(DrillCard 가 방어).
+ *  category 를 optional 로 남겨 두는 대안은 기각 — 죽은 키를 인터페이스에 남기면 "어느 쪽이
+ *  진실이냐" 를 읽는 코드가 매번 물어야 한다(§스텝 flags 의 '두 가지 저장 방식' 논법). */
+export const SUMMARY_BUILD = 4;
 export interface DrillSummary {
   id: DrillId;
   build: number; // = SUMMARY_BUILD. 레코드별 버전(전역 스윕 금지)
@@ -63,7 +75,11 @@ export interface DrillSummary {
    *  121행이 세운 교리와 같은 이유다: `{description: undefined}` 는 structuredClone(IDB)이
    *  키까지 보존하고 JSON(export)이 지워서, 저장·내보내기 왕복마다 문서가 달라지는 걸 막는다. */
   description?: string;
-  category: string;
+  /** 분류 유형(SUMMARY_BUILD 4, Drill v8). 옛 build 레코드에는 이 키 대신 category 가 있다 —
+   *  재구축 전 한 프레임을 위해 소비처(DrillCard 배지)는 없는 값을 fallback 으로 그린다. */
+  drillType: DrillType;
+  /** 경기 상황(선택). 본문과 같은 교리 — 없으면 키 생략. */
+  situation?: DrillSituation;
   level: DrillLevel;
   durationMin: number;
   tags: string[];
@@ -97,7 +113,18 @@ function buildSearchKey(d: Drill): string {
   // 부제로 읽으므로(reason① 무효) 넣지 않을 이유가 없고, 옛 레코드도 세션 1회 재구축으로 따라
   // 잡는다(reason③ 무효). 전체 description(첫 줄로 안 자른 원본)을 넣는다 — 검색은 카드에 안
   // 보이는 둘째 줄 이후의 단어로도 찾혀야 하므로 summaryDescription() 의 절단과는 별개다.
-  return [d.title, d.category, d.formation, d.description ?? '', ...d.tags].join(' ').toLowerCase();
+  // 유형·상황(BUILD 4)은 **한국어 라벨**로 넣는다 — 사용자가 치는 말은 '세트피스' 지
+  // 'set-piece' 가 아니다. 옛 category 태그(v7→v8 이 tags 에 편입)도 같은 줄에 실린다.
+  return [
+    d.title,
+    DRILL_TYPE_LABELS[d.drillType],
+    d.situation !== undefined ? SITUATION_LABELS[d.situation] : '',
+    d.formation,
+    d.description ?? '',
+    ...d.tags,
+  ]
+    .join(' ')
+    .toLowerCase();
 }
 
 /** 카드 부제 한 줄 길이 상한. `LIMITS.titleLen`(80, validate.ts)과 같은 자리 — 제목 바로
@@ -122,7 +149,8 @@ export function buildSummary(d: Drill): DrillSummary {
     build: SUMMARY_BUILD,
     title: d.title,
     ...(description !== undefined ? { description } : {}), // 빈 값이면 키 생략 — 위 필드 주석 참조
-    category: d.category,
+    drillType: d.drillType,
+    ...(d.situation !== undefined ? { situation: d.situation } : {}),
     level: d.level,
     durationMin: d.durationMin,
     tags: d.tags.slice(),

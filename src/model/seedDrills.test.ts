@@ -13,7 +13,7 @@ import { COURT_DEFS } from './court.ts';
 import { poseFromStored } from './chair.ts';
 import { chairsOverlap } from '../physics/obb.ts';
 import { CHAIR_SEP_PX } from '../core/constants.ts';
-import { KNOWN_CATEGORIES } from '../core/colors.ts';
+import { DRILL_TYPES } from './drill.ts';
 
 const built = () => buildSeedDrills(SEED_DRILL_SPECS, 1_700_000_000_000);
 
@@ -43,8 +43,8 @@ describe('seed 드릴 — 목록의 모양', () => {
     expect(built()[0]!.steps[0]!.id).not.toBe(built()[0]!.steps[0]!.id);
   });
 
-  it('카테고리는 UI 가 노출하는 목록 안에 있다 — 아니면 목록 필터 칩으로 영영 못 찾는다', () => {
-    for (const d of built()) expect(KNOWN_CATEGORIES as readonly string[]).toContain(d.category);
+  it('유형은 닫힌 목록 안에 있다 — 아니면 목록 필터 칩으로 영영 못 찾는다', () => {
+    for (const d of built()) expect(DRILL_TYPES as readonly string[]).toContain(d.drillType);
   });
 
   it('스키마 버전이 현행이라 마이그레이션이 한 단계도 돌지 않는다', () => {
@@ -81,9 +81,8 @@ describe('seed 드릴 — 저장 왕복', () => {
       expect(v.coachingPoints).toEqual(d.coachingPoints);
       expect(v.playersNeeded).toBe(d.playersNeeded);
       expect(v.equipment).toBe(d.equipment);
-      expect(v.reps).toBe(d.reps);
-      expect(v.sets).toBe(d.sets);
-      expect(v.intervalSec).toBe(d.intervalSec);
+      expect(v.drillType).toBe(d.drillType);
+      expect(v.situation).toBe(d.situation);
     }
   });
 });
@@ -227,7 +226,7 @@ describe('seed 드릴 — 온보딩 대본 계약 (§3)', () => {
 describe('buildSeedDrill — 변환기 자체', () => {
   const minimal: SeedDrillSpec = {
     title: '변환기 시험',
-    category: '공격',
+    drillType: 'tactical',
     level: '중급',
     courtMode: 'full',
     durationMin: 5,

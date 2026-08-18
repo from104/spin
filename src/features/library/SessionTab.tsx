@@ -8,7 +8,7 @@
 import { useId, useRef, useState } from 'react';
 import { formatSessionWhen, pickNextSession } from '../../model/session.ts';
 import type { ResolvedSession } from '../../model/session.ts';
-import { categoryColor } from '../../core/colors.ts';
+import { drillTypeColor } from '../../core/colors.ts';
 import { IconPlay, IconPlus } from '../../ui/icons.tsx';
 import { Button } from '../../ui/Button.tsx';
 
@@ -102,7 +102,7 @@ function NextSessionStrip({ resolved, onOpen }: { resolved: ResolvedSession; onO
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginTop: 8 }}>
           {shown.map((it) => (
             <span key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', opacity: it.missing ? 0.5 : 1 }}>
-              <span aria-hidden style={{ flex: 'none', width: 7, height: 7, borderRadius: '50%', background: categoryColor(it.categoryCache) }} />
+              <span aria-hidden style={{ flex: 'none', width: 7, height: 7, borderRadius: '50%', background: drillTypeColor(it.categoryCache) }} />
               {it.missing ? `${it.titleCache} (삭제됨)` : it.titleCache}
             </span>
           ))}
@@ -145,7 +145,7 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
             <span style={{ fontSize: '0.875rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.title}</span>
             <span aria-hidden style={{ display: 'flex', gap: 3 }}>
               {categories.map((c) => (
-                <span key={c} style={{ width: 7, height: 7, borderRadius: '50%', background: categoryColor(c) }} />
+                <span key={c} style={{ width: 7, height: 7, borderRadius: '50%', background: drillTypeColor(c) }} />
               ))}
             </span>
           </div>

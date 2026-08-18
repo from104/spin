@@ -1,5 +1,5 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from 'react';
-import { CATEGORY_FALLBACK_COLOR, inkFor } from '../core/colors.ts';
+import { TYPE_FALLBACK_COLOR, inkFor } from '../core/colors.ts';
 
 export type PillTone = 'neutral' | 'accent' | 'category';
 
@@ -16,7 +16,7 @@ export function Pill({ tone = 'neutral', color, className, style, children, ...r
   const bg = tone === 'category' ? (color ?? 'var(--elev)') : tone === 'accent' ? 'var(--accent)' : 'var(--elev)';
   const fg =
     tone === 'category'
-      ? inkFor(color ?? CATEGORY_FALLBACK_COLOR)
+      ? inkFor(color ?? TYPE_FALLBACK_COLOR)
       : tone === 'accent'
         ? 'var(--accent-ink-strong)'
         : 'var(--muted)';

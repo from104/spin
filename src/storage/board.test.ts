@@ -27,6 +27,29 @@ describe('전술판 스냅샷 왕복', () => {
   it('저장된 적이 없으면 null', () => {
     expect(loadBoard()).toBeNull();
   });
+
+  it('구버전(v7) 스냅샷이 v8 로 마이그레이션되어 되살아난다 — 실패하면 사용자의 대문 판이 통째로 초기화된다', () => {
+    // Drill v8(2026-08-18 분류 개편) 이전에 저장된 localStorage 스냅샷을 흉내 낸다.
+    // loadBoard 가 migrateDoc(DRILL_MIGRATIONS) 를 태우므로 체인 등록만으로 살아나야 한다.
+    const d = createDrill({ courtMode: 'full' });
+    const legacy: Record<string, unknown> = {
+      ...(d as unknown as Record<string, unknown>),
+      schemaVersion: 7,
+      category: '공격',
+      reps: 3,
+      sets: 2,
+      intervalSec: 60,
+    };
+    delete legacy.drillType;
+    localStorage.setItem(BOARD_KEY, JSON.stringify({ schemaVersion: 1, pristine: false, drill: legacy }));
+
+    const back = loadBoard();
+    expect(back).not.toBeNull();
+    expect(back!.drill.drillType).toBe('tactical'); // '공격' 매핑
+    expect(back!.drill.tags).toContain('공격'); // 원문 보존
+    expect('reps' in back!.drill).toBe(false);
+    expect(back!.drill.description).toContain('훈련량(구버전): 3회 × 2세트 · 인터벌 60초');
+  });
 });
 
 describe('되살리기 실패는 조용히 null — 대문이 안 뜨는 것이 최악이다', () => {

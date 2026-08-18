@@ -137,17 +137,17 @@ describe('LibraryScreen — 드릴 탭', () => {
     expect(within(within(panel()).getByRole('region', { name: '고급 드릴' })).getByText('고급 슈팅')).toBeInTheDocument();
   });
 
-  it('카테고리 필터로 목록을 좁힌다', async () => {
-    await idbDrillRepo.createDrill({ courtMode: 'full', title: '공격 드릴', category: '공격' });
-    await idbDrillRepo.createDrill({ courtMode: 'full', title: '수비 드릴', category: '수비' });
+  it('유형 필터로 목록을 좁힌다 (v8 — 옛 카테고리 필터의 후계)', async () => {
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '기술 드릴', drillType: 'technical' });
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '전술 드릴', drillType: 'tactical' });
     const nav = makeNav();
     render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(within(panel()).getByText('공격 드릴')).toBeInTheDocument());
-    expect(within(panel()).getByText('수비 드릴')).toBeInTheDocument();
+    await waitFor(() => expect(within(panel()).getByText('기술 드릴')).toBeInTheDocument());
+    expect(within(panel()).getByText('전술 드릴')).toBeInTheDocument();
 
-    await userEvent.setup().click(screen.getByRole('radio', { name: '수비' }));
-    await waitFor(() => expect(within(panel()).queryByText('공격 드릴')).not.toBeInTheDocument());
-    expect(within(panel()).getByText('수비 드릴')).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('radio', { name: '전술' }));
+    await waitFor(() => expect(within(panel()).queryByText('기술 드릴')).not.toBeInTheDocument());
+    expect(within(panel()).getByText('전술 드릴')).toBeInTheDocument();
   });
 });
 
@@ -202,7 +202,7 @@ describe('LibraryScreen — 난이도 그룹 정렬의 성능 계약 (로드맵 
       // 같은 날 다시 3 으로 올랐다(목록 카드 부제 — 드릴 짧은 설명). 재구축 호출자는
       // LibraryProvider 하나뿐이고 그 비교(`s.build < SUMMARY_BUILD`)는 제네릭해서 이번 범프도
       // 새 경로 없이 그대로 얹힌다 — 위 `rebuild` 단언의 근거가 이번에도 무너지지 않는다.
-      expect(SUMMARY_BUILD).toBe(3);
+      expect(SUMMARY_BUILD).toBe(4);
     } finally {
       vi.restoreAllMocks();
     }

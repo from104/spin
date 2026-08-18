@@ -15,7 +15,7 @@ import { defaultCtrl } from './arrow.ts';
 import type { Arrow, ArrowHead } from './arrow.ts';
 import type { CourtMode } from './court.ts';
 import type { StoredChairPose } from './chair.ts';
-import type { ChairDef, Drill, DrillCast, DrillLevel, DrillStep, NoteLabel, PoseMap, TeamSide } from './drill.ts';
+import type { ChairDef, Drill, DrillCast, DrillLevel, DrillSituation, DrillStep, DrillType, NoteLabel, PoseMap, TeamSide } from './drill.ts';
 import { SEED_DRILL_SPECS } from './seedDrillContent.ts';
 
 /** `defaultCast()` 가 만드는 8명의 자리 이름. 팀 + 등번호 — 코치가 부르는 말 그대로다. */
@@ -54,20 +54,21 @@ export interface SeedStepSpec {
 
 export interface SeedDrillSpec {
   title: string;
-  category: string;
+  /** v8 분류 유형(닫힌 목록). 옛 category(열린 string)는 스키마와 함께 은퇴했다. */
+  drillType: DrillType;
+  /** v8 경기 상황(선택). */
+  situation?: DrillSituation;
   level: DrillLevel;
   courtMode: CourtMode;
   durationMin: number;
   tags?: readonly string[];
   description?: string;
-  // §3.2 교육 필드 · §3.3 훈련량 (결정 ⑦ = (B) 중간). 0 = 미지정.
+  variation?: string;
+  // §3.2 교육 필드 (결정 ⑦ = (B) 중간). 0 = 미지정. (훈련량은 v8 폐기)
   objective?: string;
   coachingPoints?: readonly string[];
   playersNeeded?: number;
   equipment?: string;
-  reps?: number;
-  sets?: number;
-  intervalSec?: number;
   /** §3.4 선수 실명. 안 적은 자리는 등번호로만 불린다. */
   players?: Partial<Record<SeedTeamSlot, string>>;
   /** 콘 **색** 목록(0 = 주황, 1 = 파랑). 스텝의 `cones[i]` 가 이 배열 i 번째 콘의 자리다. */
@@ -152,7 +153,7 @@ export function buildSeedDrill(spec: SeedDrillSpec, createdAt: number): Drill {
   const base = createDrill({
     title: spec.title,
     courtMode: spec.courtMode,
-    category: spec.category,
+    drillType: spec.drillType,
     level: spec.level,
     durationMin: spec.durationMin,
     empty: true,
@@ -173,14 +174,13 @@ export function buildSeedDrill(spec: SeedDrillSpec, createdAt: number): Drill {
   return {
     ...base,
     tags: [...(spec.tags ?? [])],
+    ...(spec.situation !== undefined ? { situation: spec.situation } : {}),
     ...(spec.description !== undefined ? { description: spec.description } : {}),
+    ...(spec.variation !== undefined ? { variation: spec.variation } : {}),
     objective: spec.objective ?? '',
     coachingPoints: [...(spec.coachingPoints ?? [])],
     playersNeeded: spec.playersNeeded ?? 0,
     equipment: spec.equipment ?? '',
-    reps: spec.reps ?? 0,
-    sets: spec.sets ?? 0,
-    intervalSec: spec.intervalSec ?? 0,
     cast,
     steps: spec.steps.map((s) => buildStep(s, cast, chairIdBySlot)),
     createdAt,

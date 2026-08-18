@@ -34,19 +34,22 @@ describe('3.2/3.3 v1 레코드 열기', () => {
       expect(res.status).toBe('ok');
       if (res.status !== 'ok') return;
 
-      // (1) 새 필드 — 일곱 개를 따로 본다.
+      // (1) 새 필드 — 따로 본다. 훈련량 셋은 v8 이 폐기했다(0 = 미지정이라 글 보존도 없다).
       expect(res.drill.objective).toBe('');
       expect(res.drill.coachingPoints).toEqual([]);
       expect(res.drill.equipment).toBe('');
       expect(res.drill.playersNeeded).toBe(0);
-      expect(res.drill.reps).toBe(0);
-      expect(res.drill.sets).toBe(0);
-      expect(res.drill.intervalSec).toBe(0);
+      expect('reps' in res.drill).toBe(false);
+      expect('sets' in res.drill).toBe(false);
+      expect('intervalSec' in res.drill).toBe(false);
+      // v8 분류 — 픽스처의 category '패턴 플레이' 는 매핑표 밖이라 technical + tags 편입.
+      expect(res.drill.drillType).toBe('technical');
+      expect(res.drill.tags).toContain('패턴 플레이');
 
       // (2) 기존 내용 — 제목·설명·태그·본문(스텝/화살표/메모)·명단이 그대로다.
       expect(res.drill.title).toBe(v1.title);
       expect(res.drill.description).toBe(v1.description);
-      expect(res.drill.tags).toEqual(v1.tags);
+      expect(res.drill.tags.slice(0, (v1.tags as unknown[]).length)).toEqual(v1.tags); // v8 이 옛 category 를 뒤에 덧붙인다
       expect(res.drill.durationMin).toBe(v1.durationMin);
       expect(res.drill.steps).toHaveLength((v1.steps as unknown[]).length);
       expect(res.drill.steps[1]?.arrows.length).toBeGreaterThan(0);
@@ -94,9 +97,9 @@ describe('3.2/3.3 v1 레코드 열기', () => {
       expect(res.status).toBe('ok');
       if (res.status !== 'ok') return;
       expect(res.drill.objective).toBe('수기로 적어 둔 목적');
-      expect(res.drill.reps).toBe(3);
-      expect(res.drill.sets).toBe(2);
-      expect(res.drill.intervalSec).toBe(45);
+      // v8 — 적어 뒀던 훈련량은 필드로는 죽고 description 말미에 글로 남는다(무손실 방침 ②).
+      expect('reps' in res.drill).toBe(false);
+      expect(res.drill.description).toContain('훈련량(구버전): 3회 × 2세트 · 인터벌 45초');
       expect(res.drill.playersNeeded).toBe(6);
       // 대조군 — 비어 있던 자리는 여전히 기본값이다.
       expect(res.drill.equipment).toBe('');
@@ -106,18 +109,17 @@ describe('3.2/3.3 v1 레코드 열기', () => {
   });
 });
 
-describe('3.2/3.3 새로 만든 드릴의 IDB 왕복', () => {
-  it('putDrill → loadDrill 로 일곱 필드가 전부 살아 돌아온다', async () => {
-    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '왕복 검증' });
+describe('3.2 새로 만든 드릴의 IDB 왕복', () => {
+  it('putDrill → loadDrill 로 교육 필드와 v8 신필드가 전부 살아 돌아온다', async () => {
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '왕복 검증', drillType: 'game-scenario' });
     await idbDrillRepo.putDrill({
       ...d,
+      situation: 'corner',
+      variation: '수비를 하나 더 세우면 어려워진다',
       objective: '측면 전개',
       coachingPoints: ['받기 전에 몸을 연다', '패스는 낮게'],
       playersNeeded: 6,
       equipment: '공 2 · 콘 6',
-      reps: 3,
-      sets: 2,
-      intervalSec: 60,
     });
 
     const res = await idbDrillRepo.loadDrill(d.id);
@@ -127,8 +129,9 @@ describe('3.2/3.3 새로 만든 드릴의 IDB 왕복', () => {
     expect(res.drill.coachingPoints).toEqual(['받기 전에 몸을 연다', '패스는 낮게']);
     expect(res.drill.playersNeeded).toBe(6);
     expect(res.drill.equipment).toBe('공 2 · 콘 6');
-    expect(res.drill.reps).toBe(3);
-    expect(res.drill.sets).toBe(2);
-    expect(res.drill.intervalSec).toBe(60);
+    // v8 — 유형·상황·변형도 같은 화이트리스트를 실제 IDB 경로로 왕복한다.
+    expect(res.drill.drillType).toBe('game-scenario');
+    expect(res.drill.situation).toBe('corner');
+    expect(res.drill.variation).toBe('수비를 하나 더 세우면 어려워진다');
   });
 });

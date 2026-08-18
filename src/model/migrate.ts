@@ -166,6 +166,58 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
       return out;
     },
   },
+  {
+    from: 7,
+    to: 8,
+    describe: 'drill v7→v8: 분류 유형(category→drillType) · 훈련량(reps/sets/intervalSec) 폐기',
+    // ⚠️ **바꾸고 지우는 마이그레이션이다** — 그래서 무손실 방침 둘을 여기 적는다(2026-08-18
+    // 기현님 확정, 구조 개편 질문 ⑤·⑦):
+    //  ① category → drillType 매핑. 매핑표는 **리터럴**이다(마이그레이션은 그때의 분류를 적어
+    //     둔 역사 — v2→v3 의 '30x18' 과 같은 규율). 원문 category 문자열은 **tags 에 편입**해
+    //     보존한다: '공격'→tactical 로 접으면 공격/수비 구분이 사라지는데, 태그로 남기면 검색
+    //     ('공격')이 계속 찾는다. '기타' 는 validate 의 옛 폴백값이라 정보가 0 — 편입하지 않는다.
+    //  ② 훈련량 셋은 **description 말미에 텍스트로** 보존 후 삭제. 형식(필드)은 죽어도
+    //     사용자가 적은 값("3회 × 2세트")은 글로 남는다. 전부 0/부재면 그냥 지운다.
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      // ① 분류 매핑 — v7 까지의 KNOWN_CATEGORIES 5종(그때의 목록을 리터럴로 박는다).
+      const TYPE_OF: Record<string, string> = {
+        '슈팅': 'technical',
+        '볼 운반': 'technical',
+        '공격': 'tactical',
+        '수비': 'tactical',
+        '세트피스': 'set-piece',
+      };
+      const cat = typeof out.category === 'string' ? out.category : '';
+      if (typeof out.drillType !== 'string') out.drillType = TYPE_OF[cat] ?? 'technical';
+      if (cat.length > 0 && cat !== '기타') {
+        const tags = Array.isArray(out.tags) ? out.tags.filter((t): t is string => typeof t === 'string') : [];
+        const tag = cat.slice(0, 24); // 그때의 tagLen 상한
+        if (!tags.includes(tag) && tags.length < 12) tags.push(tag); // 그때의 tagCount 상한
+        out.tags = tags;
+      }
+      delete out.category;
+      // ② 훈련량 보존 — 문구는 그때의 인쇄(PrintDrillSheet metaLine)와 같은 조립 규칙이다.
+      const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v) : 0);
+      const reps = num(out.reps);
+      const sets = num(out.sets);
+      const interval = num(out.intervalSec);
+      if (reps > 0 || sets > 0 || interval > 0) {
+        const parts: string[] = [];
+        if (reps > 0 && sets > 0) parts.push(`${reps}회 × ${sets}세트`);
+        else if (reps > 0) parts.push(`${reps}회`);
+        else if (sets > 0) parts.push(`${sets}세트`);
+        if (interval > 0) parts.push(`인터벌 ${interval}초`);
+        const line = `훈련량(구버전): ${parts.join(' · ')}`;
+        const desc = typeof out.description === 'string' ? out.description : '';
+        out.description = (desc.length > 0 ? `${desc}\n${line}` : line).slice(0, 400); // 그때의 descriptionLen
+      }
+      delete out.reps;
+      delete out.sets;
+      delete out.intervalSec;
+      return out;
+    },
+  },
 ];
 export const SESSION_MIGRATIONS: DocMigration[] = [];
 /** prefs 는 여기서 처음으로 체인이 생긴다(§7 3.0). **v1 → v2 로 한 번만 올린다** — 트레이 서랍·

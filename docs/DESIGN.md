@@ -439,13 +439,15 @@ export const ARROW_CASING = '#000000';               // 검정(불투명)/코트
 // 6.5(2026-08-13)가 더한 짝: `OBJ_STROKE_DARK = 'rgba(0,0,0,.92)'` — 밝은 차체(상대휘도 ≥ .25)
 // 위에서 테두리를 뒤집는다. 코트 위 3.75:1.
 
-export const CATEGORY_COLORS: Record<string, string> = {
-  '공격': '#d93a3a', '수비': '#1f6bb8', '슈팅': '#e08a12',
-  '세트피스': '#7c5cd6', '볼 운반': '#128a5c',
+// v8(2026-08-18 구조 개편) — 카테고리 팔레트가 **드릴 유형 팔레트**로 재편됐다. 색값 5종은
+// 그대로 물려받았고 키만 DRILL_TYPES(model/drill.ts)로 바뀌었다. 키가 string 인 이유:
+// core 는 model 을 import 할 수 없다(§9 의존 방향) — 닫힌 검증은 validate.ts 몫.
+export const DRILL_TYPE_COLORS: Record<string, string> = {
+  technical: '#e08a12', tactical: '#1f6bb8', 'set-piece': '#7c5cd6',
+  'game-scenario': '#d93a3a', conditioning: '#0f7a51',
 };
-export const CATEGORY_FALLBACK_COLOR = '#6b7280';
-export const categoryColor = (c: string): string => CATEGORY_COLORS[c] ?? CATEGORY_FALLBACK_COLOR;
-export const KNOWN_CATEGORIES = ['공격', '수비', '슈팅', '세트피스', '볼 운반'] as const;
+export const TYPE_FALLBACK_COLOR = '#6b7280';
+export const drillTypeColor = (t: string): string => DRILL_TYPE_COLORS[t] ?? TYPE_FALLBACK_COLOR;
 
 /** 팀 색 선택지. 프로토타입의 #2b7fd4 는 흰 글자 대비 4.13:1 로 등번호가 읽히지 않아
  *  #1f6bb8 (5.45:1) 로 교체했다. 나머지 3색은 프로토타입 그대로. */
@@ -756,18 +758,28 @@ export interface DrillStep {
 
 export type DrillLevel = '초급' | '중급' | '고급';
 export const DRILL_LEVELS = ['초급', '중급', '고급'] as const;
+// v8(2026-08-18 구조 개편, 질문 20문 ⑤·⑥·⑦·⑧) — 분류가 열린 category 에서 닫힌 두 축으로.
+export const DRILL_TYPES = ['technical','tactical','set-piece','game-scenario','conditioning'] as const;
+export type DrillType = (typeof DRILL_TYPES)[number];           // 한국어 라벨은 DRILL_TYPE_LABELS
+export const DRILL_SITUATIONS = ['kick-off','kick-in','goal-kick','corner','direct-fk',
+  'indirect-fk','penalty','set-ball','open-play','2-on-1-spacing'] as const; // FIPFA Laws 2025 재개 어휘
+export type DrillSituation = (typeof DRILL_SITUATIONS)[number]; // 라벨은 SITUATION_LABELS
 export interface TeamStyle { label: string; color: string; gkColor: string }
-export const CURRENT_DRILL_SCHEMA = 1;
+export const CURRENT_DRILL_SCHEMA = 8;
 
 export interface Drill {
   schemaVersion: number;
   id: DrillId;
   title: string;                      // ≤80자
-  category: string;                   // 열린 string (UI 는 KNOWN_CATEGORIES 만 노출)
+  drillType: DrillType;               // v8 — 필수(courtMode 부류). 옛 category 의 후계
+  situation?: DrillSituation;         // v8 — 선택. 없음 = 미지정(키 생략)
   level: DrillLevel;
   durationMin: number;                // 훈련 계획용 소요시간(분). 재생 속도와 무관
   tags: string[];                     // ≤12개, 각 ≤24자
-  description?: string;
+  description?: string;               // 진행 방법(USPSA Setup) ≤400자
+  variation?: string;                 // v8 — 변형(USPSA Variation) ≤400자
+  // 교육 필드(§3.2): objective(목적=Purpose)·coachingPoints·playersNeeded·equipment.
+  // 훈련량(reps/sets/intervalSec)은 v8 폐기 — 값이 있던 문서는 v7→v8 이 description 말미에 글로 보존.
   courtMode: CourtMode;               // 드릴 레벨 불변
   formation: string;                  // 생성 시 쓴 포메이션. 표시용
   teams: Record<TeamSide, TeamStyle>; // 생성 시 prefs 에서 structuredClone 으로 복사
@@ -776,6 +788,12 @@ export interface Drill {
   createdAt: number; updatedAt: number;
 }
 ```
+
+**v7→v8 마이그레이션(2026-08-18)**: `category` → `drillType` 매핑(슈팅·볼 운반→technical,
+공격·수비→tactical, 세트피스→set-piece, 그 외→technical)에 **원문 category 를 tags 에 편입**
+('기타' 제외 — 정보 0), 훈련량 셋은 값이 있으면 `description` 말미 "훈련량(구버전): …" 으로
+보존 후 삭제. 도장을 올린 이유: v7 앱이 새 파일을 열면 category 가 없어 '기타' 로 접힌다 —
+"조용히 다른 문서" 의 형태라 too-new 거절이 정답이다(courtSize 와 같은 판단).
 
 `TeamStyle` 에서 `ink`/`gkInk` 필드를 **뺐다** — 잉크는 `inkFor(color)` 로 유도한다(§2.9).
 저장하면 팀 색만 바꿨을 때 잉크가 낡는다.
@@ -965,7 +983,7 @@ export const DEFAULT_TEAMS: Readonly<Record<TeamSide, TeamStyle>>;   // Object.f
 export function defaultCast(): DrillCast;   // 8칩(home G,2,3,4 / away G,2,3,4) + 공 1, 콘 0
 export function defaultStep(mode: CourtMode, f: string, cast: DrillCast): DrillStep;
 export function createDrill(init: {
-  title?: string; courtMode: CourtMode; category?: string; level?: DrillLevel;
+  title?: string; courtMode: CourtMode; drillType?: DrillType; level?: DrillLevel;
   formation?: FormationName; durationMin?: number; teams?: Record<TeamSide, TeamStyle>;
 }): Drill;
 ```
@@ -1040,14 +1058,16 @@ export interface ThumbSpec {
 export const THUMB_CAPS = { chairs: 8, balls: 4, cones: 8, arrows: 3 } as const;
 export function buildThumb(d: Drill): ThumbSpec;        // 첫 스텝에서 생성
 
-export const SUMMARY_BUILD = 3;
+export const SUMMARY_BUILD = 4;
 export interface DrillSummary {
   id: DrillId; build: number;         // = SUMMARY_BUILD. 레코드별 버전 (전역 스윕 금지)
   title: string;
   /** 목록 카드 부제(SUMMARY_BUILD 3, 2026-08-17 재설계 §6.8b). `Drill.description` 첫 줄만,
    *  SUBTITLE_MAX(=titleLen 80)로 자른 값. 빈 값이면 키를 생략(courtSize 와 같은 절약). */
   description?: string;
-  category: string; level: DrillLevel;
+  drillType: DrillType;               // v8/BUILD 4 — category 의 후계
+  situation?: DrillSituation;         // 없으면 키 생략
+  level: DrillLevel;
   durationMin: number; tags: string[]; courtMode: CourtMode; stepCount: number;
   createdAt: number; updatedAt: number;
   teams: Record<TeamSide, TeamStyle>; // 썸네일이 색을 여기서 읽는다 (structuredClone)
@@ -1061,6 +1081,9 @@ export function buildSummary(d: Drill): DrillSummary;   // 약 700 B/건
 **요약 필드 호환 규약**: 필드는 **추가만** 가능. 제거·의미변경이 필요하면 `SUMMARY_BUILD` 가
 아니라 `DB_VERSION` 을 올려 스토어를 새로 만든다. 미래 빌드의 요약은 현재가 아는 필드의
 상위집합이므로 그대로 읽어 렌더할 수 있다.
+⚠️ **BUILD 4(2026-08-18, Drill v8)가 이 규약의 기록된 예외다** — `category` → `drillType`
+의미 교체. 근거는 summary.ts BUILD 4 주석: 소비 전에 stale 재구축이 돌고(아래 문단), 재구축이
+실패해도 밟는 것은 좌표가 아니라 카드 배지 하나다(DrillCard 가 fallback 으로 방어).
 
 **`build` 를 레코드에 두고 지연 재생성한다.** `listDrillSummaries` 가 `build !== SUMMARY_BUILD`
 인 레코드를 만나면 그 드릴만 로드해 재생성하고 되쓴다. 전역 `meta.summaryBuild` 비교 +
@@ -1097,6 +1120,11 @@ build:2 레코드도 다음 목록 진입에서 자동으로 다시 만들어진
 전문(첫 줄 절단 전)을 포함하도록 갱신했다 — 이번엔 "목록이 안 읽는다" 논거가 안 선다
 (목록이 바로 이 값을 부제로 그린다). ⚠️ **이번에도 옛 요약을 한 번 다시 만드는 대가가
 붙는다** — 도형·메모 때와 같은 값이다: 드릴이 많으면 첫 목록이 조금 늦게 뜬다.
+
+**→ 4 (2026-08-18, Drill v8 분류 개편)**: `category` 를 `drillType` 으로 교체하고
+`situation` 을 실었다(위 호환 규약의 기록된 예외). `searchKey` 는 유형·상황의 **한국어
+라벨**(`DRILL_TYPE_LABELS`/`SITUATION_LABELS`)로 찾는다 — 사용자가 치는 말은 '세트피스'
+지 'set-piece' 가 아니다. 재구축 경로는 같은 것을 재사용한다.
 
 칩은 카드보다 4배 가까이 작으므로(칩 폭 ≈ 76 px vs 카드 ≈ 300 px) 같은 글리프로는 다시
 안 보인다 — `glyphScale` 로 배수를 받고 `CHIP_GLYPH_SCALE`(1.6)을 넘긴다.
@@ -1142,10 +1170,12 @@ half/flat 은 `scale = min(320/500, 192/425) = 0.45176471`, `translate(47.058824
 // refs.ts
 export interface DrillRef {
   id: ItemId; drillId: DrillId;
+  // categoryCache 의 **값은 v8 부터 drillType 키**('technical' 등)다. 필드 이름은 세션 v1 의
+  // 저장 키라 그대로 두고, 개명은 Session v2 몫이다. 옛 한국어 캐시는 refreshRefs 가 덮는다.
   titleCache: string; durationMinCache: number; categoryCache: string;
 }
 export function refreshRefs<T extends DrillRef>(
-  refs: T[], src: Map<DrillId, Pick<DrillSummary,'title'|'durationMin'|'category'>>): T[];
+  refs: T[], src: Map<DrillId, Pick<DrillSummary,'title'|'durationMin'|'drillType'>>): T[];
   //  구현은 반드시 { ...r, titleCache: … } 스프레드 보존
 export function resolveRefs<T extends DrillRef>(refs: T[], existing: Set<DrillId>): Array<T & { missing: boolean }>;
 export function reorderRefs<T>(list: T[], from: number, to: number): T[];
@@ -1298,7 +1328,7 @@ origin 축출은 전량 소실이다.
 
 ```ts
 export interface DrillQuery {
-  category?: string; search?: string;
+  drillType?: string; situation?: string; search?: string;   // v8 — category 필터의 후계
   sort?: 'updatedAt' | 'createdAt' | 'title';    // 기본 'updatedAt'
   order?: 'asc' | 'desc';                        // 기본 'desc'
   limit?: number; offset?: number;
@@ -1370,7 +1400,7 @@ bc?.postMessage({ type: 'drill', id: next.id, updatedAt: next.updatedAt });
 export function normalizeForSearch(s: string): string {
   return s.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 }
-// searchKey = [title, category, level, ...tags].map(normalizeForSearch).join('␟')
+// searchKey = [title, 유형 라벨, 상황 라벨, formation, description, ...tags] (v8 — 한국어 라벨로 찾는다)
 ```
 구분자 `␟` 를 넣지 않으면 "크로스"+"공격" 이 이어붙어 "스공" 이 매치된다.
 초성 검색이 필요해지면 손댈 지점은 이 함수와 `buildSummary` 의 `searchKey` 두 곳뿐이다.
@@ -2669,7 +2699,7 @@ export type EditorAction =
   | { type: 'COMMIT_BREAK' }                               // 키 리피트 경계
   // 드릴 데이터 (히스토리 커밋)
   | { type: 'DRILL_LOAD'; drill: Drill }
-  | { type: 'META_SET'; patch: Partial<Pick<Drill,'title'|'category'|'level'|'durationMin'|'tags'|'description'|'formation'>> }
+  | { type: 'META_SET'; patch: Partial<Pick<Drill,'title'|'drillType'|'situation'|'level'|'durationMin'|'tags'|'description'|'variation'|'formation'>> }  // + 교육 필드·defense (actions.ts 가 전체 목록)
   | { type: 'STEP_ADD'; afterIndex: number } | { type: 'STEP_DUPLICATE'; id: StepId }
   | { type: 'STEP_DELETE'; id: StepId } | { type: 'STEP_REORDER'; id: StepId; toIndex: number }
   | { type: 'STEP_META'; id: StepId; patch: { name?: string; note?: string; durationMs?: number } }

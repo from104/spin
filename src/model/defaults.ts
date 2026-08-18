@@ -3,12 +3,11 @@ import { defaultDefense } from './rules.ts';
 import type { Vec2 } from '../core/units.ts';
 import { newId } from '../core/ids.ts';
 import { radToStoredDeg, RAD } from '../core/angle.ts';
-import { KNOWN_CATEGORIES } from '../core/colors.ts';
 import { CHAIR_SEP_PX } from '../core/constants.ts';
 import { FULL_COURT_DEFS, DEFAULT_COURT_SIZE, courtDefFor, type CourtMode, type CourtSize, type Rect } from './court.ts';
 import { poseFromStored, type StoredChairPose } from './chair.ts';
 import type { ChairId, BallId } from '../core/ids.ts';
-import type { ChairDef, DrillCast, DrillStep, DrillLevel, TeamSide, TeamStyle, Drill, PoseMap } from './drill.ts';
+import type { ChairDef, DrillCast, DrillStep, DrillLevel, DrillType, TeamSide, TeamStyle, Drill, PoseMap } from './drill.ts';
 import { CURRENT_DRILL_SCHEMA } from './drill.ts';
 import { chairsOverlap } from '../physics/obb.ts';
 
@@ -190,7 +189,7 @@ export function createDrill(init: {
   /** §5.1 코트 크기 3단. **생략하면 30×18** — §9 ② 부기("기본 코트는 30×18 을 유지")를 지키는
    *  자리다. 새 드릴은 언제나 이 키를 갖고 태어난다(교육 필드와 같은 규약). */
   courtSize?: CourtSize;
-  category?: string;
+  drillType?: DrillType;
   level?: DrillLevel;
   formation?: FormationName;
   durationMin?: number;
@@ -218,19 +217,20 @@ export function createDrill(init: {
     schemaVersion: CURRENT_DRILL_SCHEMA,
     id: newId('dr'),
     title: init.title ?? '새 드릴',
-    category: init.category ?? KNOWN_CATEGORIES[0],
+    // v8 — 기본 유형은 'technical'. 개인기부터 시작하는 새 드릴이 가장 흔하고, validate 의
+    // 폴백과 같은 값이라야 "마이그레이션을 지난 드릴"과 "새 드릴"이 갈라지지 않는다.
+    drillType: init.drillType ?? 'technical',
     level: init.level ?? '초급',
     durationMin: init.durationMin ?? 10,
     tags: [],
-    // §3.2/3.3 교육 필드 — 새 드릴도 **키를 갖고 태어난다**(옛 파일은 DRILL_MIGRATIONS v1→v2 가
+    // §3.2 교육 필드 — 새 드릴도 **키를 갖고 태어난다**(옛 파일은 DRILL_MIGRATIONS v1→v2 가
     // 같은 값으로 채운다). 숫자 0 은 '미지정' 이다 — drill.ts 주석 참고.
+    // (훈련량 reps/sets/intervalSec 는 v8 폐기 — situation/variation 은 미지정 = 키 없음이라
+    //  여기서 채우지 않는다)
     objective: '',
     coachingPoints: [],
     playersNeeded: 0,
     equipment: '',
-    reps: 0,
-    sets: 0,
-    intervalSec: 0,
     courtMode: init.courtMode,
     courtSize,
     // 진영(2026-08-15). 기본값은 **이 파일의 기본 배치 GK 자리**에서 나온다 — 풀은 홈 GK 가

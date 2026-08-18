@@ -25,18 +25,21 @@ export const OBJ_STROKE_DARK = 'rgba(0,0,0,.92)';
 // 한다. 검산: 불투명 #000 vs #1f7a46 = 3.93:1.
 export const ARROW_CASING = '#000000'; // 검정(불투명)/코트 3.93:1 — 화살표 대비 확보
 
-export const CATEGORY_COLORS: Record<string, string> = {
-  '공격': '#d93a3a',
-  '수비': '#1f6bb8',
-  '슈팅': '#e08a12',
-  '세트피스': '#7c5cd6',
-  // 프로토타입의 #128a5c 는 흰 글자 대비 4.36:1 로, 10.5px 굵은 글씨인 카테고리 배지에서
-  // AA(4.5:1)에 못 미친다. 색상을 유지한 채 명도만 낮춰 5.35:1 확보.
-  '볼 운반': '#0f7a51',
+/** 드릴 유형(v8, model/drill.ts DRILL_TYPES) 배지·점 색. **키가 string 인 이유**: core 는
+ *  model 을 import 할 수 없다(의존 방향 §9 — 아래 ARROW_COLORS 주석과 같은 사정). 닫힌 검증은
+ *  model/validate.ts 몫이고 여기는 색만 준다 — 모르는 키(옛 세션 캐시의 한국어 category 등)는
+ *  fallback 회색이다.
+ *  색값 5종은 v7 까지의 카테고리 팔레트를 그대로 물려받았다(전부 대비 검증을 거친 값 —
+ *  '#0f7a51' 은 흰 글자 4.5:1 미달로 명도를 낮춘 이력이 있는 그 색이다). */
+export const DRILL_TYPE_COLORS: Record<string, string> = {
+  technical: '#e08a12',
+  tactical: '#1f6bb8',
+  'set-piece': '#7c5cd6',
+  'game-scenario': '#d93a3a',
+  conditioning: '#0f7a51',
 };
-export const CATEGORY_FALLBACK_COLOR = '#6b7280';
-export const categoryColor = (c: string): string => CATEGORY_COLORS[c] ?? CATEGORY_FALLBACK_COLOR;
-export const KNOWN_CATEGORIES = ['공격', '수비', '슈팅', '세트피스', '볼 운반'] as const;
+export const TYPE_FALLBACK_COLOR = '#6b7280';
+export const drillTypeColor = (t: string): string => DRILL_TYPE_COLORS[t] ?? TYPE_FALLBACK_COLOR;
 
 /** 팀 색 선택지. 프로토타입의 #2b7fd4 는 흰 글자 대비 4.13:1 로 등번호가 읽히지 않아
  *  #1f6bb8 (5.45:1) 로 교체했다. 나머지 3색은 프로토타입 그대로. */

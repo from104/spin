@@ -120,6 +120,55 @@ export interface DrillStep {
 
 export type DrillLevel = '초급' | '중급' | '고급';
 export const DRILL_LEVELS = ['초급', '중급', '고급'] as const;
+
+// ── 분류 유형 (v8, 2026-08-18 기현님 확정 — 질문 20문 중 ⑤) ─────────────────────────────────
+// 코칭 표준의 유형 축이다: 일반 축구 세션 설계(warm-up→technical→tactical→scrimmage)와
+// USPSA Knowledge Center 의 분류(Technical Skills / Tactical Coaching)가 공유하는 어휘라,
+// 세션의 구획(phase)과 드릴의 유형이 같은 말로 이어진다(기술 드릴 → 기술 구획).
+// **닫힌 목록**이다 — v7 까지의 category 는 열린 string 이라 '공격'/'슛팅'/'슈팅 연습' 같은
+// 표기 변형이 전부 다른 분류가 됐고, 필터가 그 변형 수만큼 갈라졌다.
+export const DRILL_TYPES = ['technical', 'tactical', 'set-piece', 'game-scenario', 'conditioning'] as const;
+export type DrillType = (typeof DRILL_TYPES)[number];
+/** 화면·인쇄·검색키가 함께 쓰는 한국어 라벨. 값(영문 키)은 저장용, 라벨은 표시용 — 라벨을
+ *  저장하면 라벨 문구를 다듬는 순간 옛 문서가 전부 "알 수 없는 유형" 이 된다. */
+export const DRILL_TYPE_LABELS: Record<DrillType, string> = {
+  technical: '기술',
+  tactical: '전술',
+  'set-piece': '세트피스',
+  'game-scenario': '경기 상황',
+  conditioning: '컨디셔닝',
+};
+
+// ── 경기 상황 (v8, 질문 20문 중 ⑥ — 선택 필드) ──────────────────────────────────────────────
+// FIPFA Laws 2025 의 재개(restart) 8종 + 오픈 플레이 + 파워체어 고유의 2대1 스페이싱.
+// 룰북의 어휘를 그대로 쓴다 — 코치가 룰북과 앱 사이에서 번역할 일이 없도록.
+// 유형(drillType)과 직교하는 축이다: 세트피스 유형이 아니어도 "킥인에서 시작하는 전술 드릴"
+// 처럼 상황이 붙을 수 있다. 없음 = 미지정(키 생략)이라 마이그레이션이 적을 참말이 없다.
+export const DRILL_SITUATIONS = [
+  'kick-off',
+  'kick-in',
+  'goal-kick',
+  'corner',
+  'direct-fk',
+  'indirect-fk',
+  'penalty',
+  'set-ball',
+  'open-play',
+  '2-on-1-spacing',
+] as const;
+export type DrillSituation = (typeof DRILL_SITUATIONS)[number];
+export const SITUATION_LABELS: Record<DrillSituation, string> = {
+  'kick-off': '킥오프',
+  'kick-in': '킥인',
+  'goal-kick': '골킥',
+  corner: '코너킥',
+  'direct-fk': '직접 프리킥',
+  'indirect-fk': '간접 프리킥',
+  penalty: '페널티킥',
+  'set-ball': '세트볼',
+  'open-play': '오픈 플레이',
+  '2-on-1-spacing': '2대1 스페이싱',
+};
 export interface TeamStyle {
   label: string;
   color: string;
@@ -188,17 +237,32 @@ export interface TeamStyle {
  *  ⚠️ **②를 넘는다.** v6 앱은 화살촉 둘을 모르므로 넓은 화살촉도, 화살촉 없는 선도 전부
  *  옛 좁은 화살촉으로 그린다 — 파일은 멀쩡히 열리고 아무 경고도 없이 **다른 그림**이 나온다.
  *  자유 삼각형(v5)이 넘은 그 문턱과 같은 형태다. */
-export const CURRENT_DRILL_SCHEMA = 7;
+/** v8 = 분류 개편(2026-08-18, 구조 개편 질문 20문) — `category`(열린 string) → `drillType`
+ *  (닫힌 유형) 교체 · `situation`/`variation` 신설 · 훈련량(`reps`/`sets`/`intervalSec`) 폐기.
+ *
+ *  ⚠️ **②를 넘는다**(도장을 올린다). v7 앱은 `drillType` 을 모르고 `category` 를 찾는데
+ *  새 파일에는 그 키가 없다 — validate 가 '기타' 로 접어 파일은 멀쩡히 열리고 아무 경고도
+ *  없이 **분류가 통째로 사라진** 드릴이 나온다. courtSize 가 문제 삼은 "조용히 다른 문서"
+ *  의 형태라 거절이 정답이다. 폐기 셋은 마이그레이션이 description 말미에 텍스트로 보존한다
+ *  (migrate.ts v7→v8 — 사용자가 적은 값은 형식이 죽어도 글로 남긴다). */
+export const CURRENT_DRILL_SCHEMA = 8;
 
 export interface Drill {
   schemaVersion: number;
   id: DrillId;
   title: string; // ≤80자
-  category: string; // 열린 string (UI 는 KNOWN_CATEGORIES 만 노출)
+  /** 분류 유형(v8). courtMode 부류다 — 없음이 "미지정" 이 아니라 값이 늘 있어야 하는 축이라
+   *  optional 이 아니다. 채우는 자리: `createDrill` · `DRILL_MIGRATIONS` v7→v8 · 메타 편집 UI. */
+  drillType: DrillType;
+  /** 경기 상황(v8, 선택). 없음 = 미지정 — 키를 만들지 않는다(`BallDef.ring` 과 같은 교리). */
+  situation?: DrillSituation;
   level: DrillLevel;
   durationMin: number; // 훈련 계획용 소요시간(분). 재생 속도와 무관
   tags: string[]; // ≤12개, 각 ≤24자
+  /** 진행 방법(USPSA 서술 3필드의 Setup, v8 에서 라벨만 재정의 — 필드는 그대로다). */
   description?: string;
+  /** 변형(v8 신설 — USPSA 서술 3필드의 Variation). 더 쉽게/어렵게 조절하는 방법. ≤400자. */
+  variation?: string;
   // ── §3.2 교육 필드 (2026-08-12 결정 ⑦ = (B) 중간) ──────────────────────────────────────
   // 4차 PDF 세션 계획서가 읽어 갈 값들이다. **성공 기준·변형(progression/regression)·드릴간
   // 참조는 넣지 않는다** — (C) 최대의 몫이고 참조는 §8 이 이미 잘라냈다(삭제 시 참조 무결성).
@@ -207,16 +271,13 @@ export interface Drill {
   // 컴파일 오류가 나는데, 그 파일들은 지금 다른 작업이 만지는 중이다. 대신 **값을 채우는 자리는
   // 세 곳뿐**이다: `createDrill`(새 드릴) · `DRILL_MIGRATIONS` v1→v2(옛 파일) · 인스펙터(사람).
   // 그래서 실제로 돌아다니는 드릴에는 언제나 키가 있고, optional 은 타입 편의일 뿐이다.
-  objective?: string; // 목적 — 이 드릴로 무엇을 얻는가 (≤200자)
+  objective?: string; // 목적 — 이 드릴로 무엇을 얻는가 (≤200자). USPSA 3필드의 Purpose
   coachingPoints?: string[]; // 코칭 포인트 — PDF 가 불릿으로 찍는다 (≤6개, 각 ≤80자)
   playersNeeded?: number; // 필요 인원(명). **0 = 미지정** (1~30)
   equipment?: string; // 필요 장비 — '공 2 · 콘 6 · 조끼 8' (≤120자)
-  // ── §3.3 훈련량 (반복·세트·인터벌) ────────────────────────────────────────────────────
-  // `durationMin` 하나로는 *"3회 × 2세트"* 를 표현할 수 없다. 셋 다 **0 = 미지정**이다 —
-  // 1 을 기본값으로 두면 정하지도 않은 "1회 × 1세트" 를 PDF 가 사실인 양 찍는다.
-  reps?: number; // 반복 횟수 (0~99)
-  sets?: number; // 세트 수 (0~99)
-  intervalSec?: number; // 세트 간 인터벌(초) (0~600)
+  // §3.3 훈련량(reps/sets/intervalSec)은 **v8 에서 폐기됐다**(2026-08-18 기현님 확정, 질문 ⑦).
+  // 편집 UI 가 한 번도 붙지 않은 채 인쇄만 읽던 필드였다 — 값이 있던 옛 문서는 마이그레이션이
+  // description 말미에 "훈련량(구버전): …" 텍스트로 보존한다(migrate.ts v7→v8).
   courtMode: CourtMode; // 드릴 레벨 불변
   // ── §5.1 코트 크기 3단 (2026-08-13, §9 결정 ②) ────────────────────────────────────────────
   //

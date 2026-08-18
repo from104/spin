@@ -8,17 +8,21 @@ export interface DrillRef {
   drillId: DrillId;
   titleCache: string;
   durationMinCache: number;
+  /** 분류 캐시. **v8(2026-08-18)부터 값은 drillType 키('technical' 등)다** — 필드 이름이
+   *  categoryCache 로 남은 것은 세션 스키마(v1)의 저장 키라서다(개명은 Session v2 몫).
+   *  옛 세션에는 한국어 category 가 남아 있을 수 있고, 소비처(색 점)는 모르는 값을 fallback
+   *  회색으로 그린다 — refreshRefs 가 지나가면 새 키로 덮인다. */
   categoryCache: string;
 }
 
 export function refreshRefs<T extends DrillRef>(
   refs: T[],
-  src: Map<DrillId, Pick<DrillSummary, 'title' | 'durationMin' | 'category'>>,
+  src: Map<DrillId, Pick<DrillSummary, 'title' | 'durationMin' | 'drillType'>>,
 ): T[] {
   return refs.map((r) => {
     const s = src.get(r.drillId);
     if (!s) return r;
-    return { ...r, titleCache: s.title, durationMinCache: s.durationMin, categoryCache: s.category };
+    return { ...r, titleCache: s.title, durationMinCache: s.durationMin, categoryCache: s.drillType };
   });
 }
 

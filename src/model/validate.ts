@@ -20,8 +20,8 @@ import type { Vec2 } from '../core/units.ts';
 import { COURT_MODES, COURT_SIZES, DEFAULT_COURT_SIZE, clampToViewBox, type CourtMode, type CourtSize } from './court.ts';
 import { FORMATIONS, defaultStep, DEFAULT_TEAMS } from './defaults.ts';
 import { defaultDefense } from './rules.ts';
-import { CURRENT_DRILL_SCHEMA, DRILL_LEVELS } from './drill.ts';
-import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, PoseMap, NoteLabel } from './drill.ts';
+import { CURRENT_DRILL_SCHEMA, DRILL_LEVELS, DRILL_TYPES, DRILL_SITUATIONS } from './drill.ts';
+import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, DrillType, DrillSituation, PoseMap, NoteLabel } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow, ArrowHead } from './arrow.ts';
 import { CURRENT_SESSION_SCHEMA } from './session.ts';
@@ -87,16 +87,16 @@ export const LIMITS = {
   // 인스펙터에 입력 칸이 생기는 순간(3.4/3.5) 붙여넣기 한 번으로 IDB 에 수십 KB 가 들어가고,
   // 그 값이 목록 카드·계획서·트레이 손잡이 이름까지 밀고 들어간다.
   descriptionLen: 400,
+  /** 변형(v8, USPSA Variation). 진행 방법(description)과 동급의 서술 필드라 같은 상한. */
+  variationLen: 400,
   chairNameLen: 24, // 등번호 칩 옆에 붙는 이름이다. 길면 트레이 손잡이 이름이 문단이 된다
-  // §3.2/3.3 교육 필드. 숫자 상한은 "깨진 파일 방어" 이자 인스펙터 입력의 min/max 단일 출처다.
+  // §3.2 교육 필드. 숫자 상한은 "깨진 파일 방어" 이자 인스펙터 입력의 min/max 단일 출처다.
+  // (훈련량 repsMax/setsMax/intervalSecMax 는 v8 에서 필드와 함께 폐기 — migrate.ts v7→v8)
   objectiveLen: 200,
   equipmentLen: 120,
   coachingPointCount: 6,
   coachingPointLen: 80,
   playersNeededMax: 30, // 코트 위 8 + 교체·피더까지
-  repsMax: 99,
-  setsMax: 99,
-  intervalSecMax: 600, // 10분
   maxSteps: 60,
   maxBalls: 10,
   maxChairsPerTeam: 4,
@@ -565,22 +565,36 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     pushRepair(repairs, 'title', '제목 길이 상한(80) 초과 — 절단', true);
     title = title.slice(0, LIMITS.titleLen);
   }
-  const category = typeof doc.category === 'string' ? doc.category : '기타';
+  // 분류 유형(v8). courtSize 와 같은 규약 — 없어도 실패가 아니고(마이그레이션이 새겨 넣지만,
+  // 손편집·픽스처가 빼먹을 수 있다) 없으면 'technical', 있는데 목록 밖이면 repair 를 남긴다.
+  let drillType: DrillType = 'technical';
+  if (typeof doc.drillType === 'string' && (DRILL_TYPES as readonly string[]).includes(doc.drillType)) {
+    drillType = doc.drillType as DrillType;
+  } else if (doc.drillType !== undefined) {
+    pushRepair(repairs, 'drillType', `알 수 없는 유형 '${String(doc.drillType)}' → 'technical'`, false);
+  }
+  // 경기 상황(v8, 선택). 목록 밖이면 **키를 버린다** — 미지정과 같은 뜻이라 안전하다.
+  let situation: DrillSituation | undefined;
+  if (typeof doc.situation === 'string' && (DRILL_SITUATIONS as readonly string[]).includes(doc.situation)) {
+    situation = doc.situation as DrillSituation;
+  } else if (doc.situation !== undefined) {
+    pushRepair(repairs, 'situation', `알 수 없는 경기 상황 '${String(doc.situation)}' 폐기`, false);
+  }
   const level: DrillLevel = (DRILL_LEVELS as readonly string[]).includes(doc.level as string)
     ? (doc.level as DrillLevel)
     : '초급';
   const durationMin = typeof doc.durationMin === 'number' && Number.isFinite(doc.durationMin) ? doc.durationMin : 10;
   // §3.5 — 3.4/3.5 로 입력 칸이 생기기 전까지 이 값은 아무도 못 적는 죽은 필드라 상한이 없었다.
   const description = sanitizeText(doc.description, LIMITS.descriptionLen, 'description', '설명', repairs);
-  // §3.2/3.3 — 조립부(아래 `const drill`)에도 **반드시** 같이 적어야 한다. 여기서 파싱만 하고
+  const variation = sanitizeText(doc.variation, LIMITS.variationLen, 'variation', '변형', repairs);
+  // §3.2 — 조립부(아래 `const drill`)에도 **반드시** 같이 적어야 한다. 여기서 파싱만 하고
   // 조립부에 안 적으면 IDB 왕복에서 소리 없이 증발한다.
   const objective = sanitizeText(doc.objective, LIMITS.objectiveLen, 'objective', '목적', repairs);
   const coachingPoints = sanitizeCoachingPoints(doc.coachingPoints, repairs);
   const equipment = sanitizeText(doc.equipment, LIMITS.equipmentLen, 'equipment', '필요 장비', repairs);
   const playersNeeded = sanitizeCount(doc.playersNeeded, LIMITS.playersNeededMax, 'playersNeeded', '필요 인원', repairs);
-  const reps = sanitizeCount(doc.reps, LIMITS.repsMax, 'reps', '반복', repairs);
-  const sets = sanitizeCount(doc.sets, LIMITS.setsMax, 'sets', '세트', repairs);
-  const intervalSec = sanitizeCount(doc.intervalSec, LIMITS.intervalSecMax, 'intervalSec', '인터벌', repairs);
+  // 훈련량(reps/sets/intervalSec)은 v8 폐기 — 옛 키가 들어와도 여기서 조용히 떨어진다
+  // (마이그레이션을 안 지난 손편집 문서도 화이트리스트 조립부가 같은 결과를 만든다).
 
   let tags = Array.isArray(doc.tags) ? doc.tags.filter((t): t is string => typeof t === 'string') : [];
   let tagTruncated = false;
@@ -746,19 +760,21 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     schemaVersion,
     id: doc.id as DrillId,
     title,
-    category,
+    // 유형(v8) — courtSize 와 같은 부류: **스프레드가 아니라 항상 쓴다.** 검증을 지난 드릴은
+    // 언제나 자기 유형을 알고 있어야 한다(없음 = 미지정이 아니라 'technical').
+    drillType,
+    ...(situation !== undefined ? { situation } : {}),
     level,
     durationMin,
     tags,
     ...(description !== undefined ? { description } : {}),
+    ...(variation !== undefined ? { variation } : {}),
     // ★ 화이트리스트 조립부 — **여기 없는 필드는 IDB 왕복에서 소리 없이 증발한다.**
+    // (v8: category·reps·sets·intervalSec 는 여기서 빠지는 것으로 폐기가 완성된다)
     ...(objective !== undefined ? { objective } : {}),
     ...(coachingPoints !== undefined ? { coachingPoints } : {}),
     ...(playersNeeded !== undefined ? { playersNeeded } : {}),
     ...(equipment !== undefined ? { equipment } : {}),
-    ...(reps !== undefined ? { reps } : {}),
-    ...(sets !== undefined ? { sets } : {}),
-    ...(intervalSec !== undefined ? { intervalSec } : {}),
     courtMode,
     // §5.1 — **스프레드가 아니라 항상 쓴다.** courtMode·level·formation 과 같은 부류다:
     // 값이 없다는 것이 "미지정" 이 아니라 "30×18" 이라는 뜻이므로, 검증을 지난 드릴은 언제나

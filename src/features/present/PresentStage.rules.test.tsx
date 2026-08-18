@@ -27,7 +27,7 @@ function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: numb
     schemaVersion: CURRENT_DRILL_SCHEMA,
     id: 'dr_t' as DrillId,
     title: '규칙 배선 시험',
-    category: '수비',
+    drillType: 'tactical',
     level: '초급',
     durationMin: 5,
     tags: [],

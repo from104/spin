@@ -60,22 +60,21 @@ export type EditorAction =
       patch: Partial<
         Pick<
           Drill,
-          // 드릴 신원
+          // 드릴 신원 (v8: category → drillType, situation·variation 합류, 훈련량 폐기)
           | 'title'
-          | 'category'
+          | 'drillType'
+          | 'situation'
           | 'level'
           | 'durationMin'
           | 'tags'
           | 'description'
+          | 'variation'
           | 'formation'
-          // §3.2 교육 필드 + §3.3 훈련량
+          // §3.2 교육 필드
           | 'objective'
           | 'coachingPoints'
           | 'playersNeeded'
           | 'equipment'
-          | 'reps'
-          | 'sets'
-          | 'intervalSec'
           // 진영(2026-08-15). 골 지역 3인 반칙이 어느 팀에 걸리는지를 정한다 —
           // 되돌리기에 남아야 하므로 다른 메타와 같은 통로로 간다.
           | 'defense'

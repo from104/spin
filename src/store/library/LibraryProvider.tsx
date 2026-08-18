@@ -17,13 +17,13 @@ export interface LibraryState {
   degraded: boolean; // resolveDrillRepo() 가 메모리 폴백으로 떨어졌는지(§4.3)
   drills: DrillSummary[];
   sessions: ResolvedSession[];
-  category: string | null;
+  drillType: string | null; // v8 유형 필터 (옛 category 필터의 후계)
   search: string;
   error: string | null;
 }
 export interface LibraryActions {
   refresh(): Promise<void>;
-  setCategory(c: string | null): void;
+  setDrillType(t: string | null): void;
   setSearch(q: string): void;
   createDrill(init: CreateDrillInit): Promise<Drill>;
   duplicateDrill(id: DrillId, opts?: { title?: string }): Promise<Drill>;
@@ -45,7 +45,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [degraded, setDegraded] = useState(false);
   const [drills, setDrills] = useState<DrillSummary[]>([]);
   const [sessions, setSessions] = useState<ResolvedSession[]>([]);
-  const [category, setCategory] = useState<string | null>(null);
+  const [drillType, setDrillType] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +66,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       // 거부시켜 아무도 안 받는 거부가 된다(2026-08-17 실측: vitest 가 "false positive 위험"
       // 으로 경고하던 것의 정체다). 화면이 사라진 뒤의 조회 결과는 버려도 되는 값이다.
       const repo = await ensureRepo();
-      const q = { category: category ?? undefined, search: search || undefined };
+      const q = { drillType: drillType ?? undefined, search: search || undefined };
       const [first, sess] = await Promise.all([
         repo.listDrillSummaries(q),
         listSessions().catch(() => [] as ResolvedSession[]), // §4.5: IDB 열화 시에도 드릴 목록은 살아있어야 한다
@@ -93,7 +93,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setStatus('error');
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [ensureRepo, category, search]);
+  }, [ensureRepo, drillType, search]);
 
   // ⚠️ **올리는 줄이 있어야 한다.** StrictMode 는 mount → unmount → mount 로 두 번 붙는데,
   // 정리에서 내린 깃발을 다시 올리지 않으면 두 번째 마운트가 시작부터 죽은 것으로 취급돼
@@ -107,7 +107,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refresh();
-    // category/search 가 바뀌면 repo.listDrillSummaries(q) 를 다시 태운다(§4.3: 요약 전량을 읽어
+    // drillType/search 가 바뀌면 repo.listDrillSummaries(q) 를 다시 태운다(§4.3: 요약 전량을 읽어
     // 메모리에서 필터·정렬 — 200건 = 140 KB 수준이라 재조회 비용이 낮다).
   }, [refresh]);
 
@@ -154,13 +154,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   );
 
   const state = useMemo<LibraryState>(
-    () => ({ status, degraded, drills, sessions, category, search, error }),
-    [status, degraded, drills, sessions, category, search, error],
+    () => ({ status, degraded, drills, sessions, drillType, search, error }),
+    [status, degraded, drills, sessions, drillType, search, error],
   );
   const actions = useMemo<LibraryActions>(
     () => ({
       refresh,
-      setCategory,
+      setDrillType,
       setSearch,
       createDrill,
       duplicateDrill,

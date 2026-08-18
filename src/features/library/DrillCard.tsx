@@ -13,7 +13,8 @@ import type { CSSProperties } from 'react';
 import { CourtThumbnail } from '../../render/CourtThumbnail.tsx';
 import { Pill } from '../../ui/Pill.tsx';
 import { IconClock, IconLevel, IconListSteps, IconPlay } from '../../ui/icons.tsx';
-import { categoryColor } from '../../core/colors.ts';
+import { drillTypeColor } from '../../core/colors.ts';
+import { DRILL_TYPE_LABELS } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
 import type { DrillSummary } from '../../model/summary.ts';
 
@@ -110,8 +111,10 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
             className="drill-card-thumb"
           />
           <span style={{ position: 'absolute', top: 10, left: 10 }}>
-            <Pill tone="category" color={categoryColor(drill.category)}>
-              {drill.category}
+            {/* v8 — 유형 배지. 재구축 전 옛 요약(build<4)엔 drillType 이 없다 — 그 한 프레임은
+                fallback 회색·빈 라벨로 그려질 뿐이라 방어만 하고 지나간다(summary.ts BUILD 4). */}
+            <Pill tone="category" color={drillTypeColor(drill.drillType)}>
+              {DRILL_TYPE_LABELS[drill.drillType] ?? '—'}
             </Pill>
           </span>
         </div>

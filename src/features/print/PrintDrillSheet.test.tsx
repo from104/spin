@@ -104,11 +104,23 @@ describe('드릴 전체 정보는 첫 장에만', () => {
     expect(pages[0]!.textContent).toContain('첫 패스를 빠르게');
   });
 
-  it('훈련량은 0(미지정)이면 아예 안 적는다 — 정하지 않은 "1회 × 1세트" 를 사실인 양 찍지 않는다', () => {
-    const zero = render(<PrintDrillSheet drill={{ ...drillOf(2), reps: 0, sets: 0, intervalSec: 0 }} />);
-    expect(zero.container.textContent).not.toContain('세트');
-    const set = render(<PrintDrillSheet drill={{ ...drillOf(2), reps: 3, sets: 2, intervalSec: 30 }} />);
-    expect(set.container.textContent).toContain('3회 × 2세트');
-    expect(set.container.textContent).toContain('인터벌 30초');
+  it('메타 줄은 난이도·유형·상황·시간이다 — 폐기된 훈련량은 종이에서도 사라졌다 (v8)', () => {
+    const r = render(<PrintDrillSheet drill={{ ...drillOf(2), drillType: 'set-piece', situation: 'kick-in' }} />);
+    expect(r.container.textContent).toContain('세트피스');
+    expect(r.container.textContent).toContain('킥인');
+    // 옛 문서의 훈련량은 마이그레이션이 description 으로 옮겼으니 여기 메타 줄에는 영영 없다.
+    expect(r.container.textContent).not.toContain('인터벌');
+    // 상황 미지정이면 그 칸 자체가 없다.
+    const bare = render(<PrintDrillSheet drill={{ ...drillOf(2), drillType: 'technical' }} />);
+    expect(bare.container.textContent).toContain('기술');
+    expect(bare.container.textContent).not.toContain('킥인');
+  });
+
+  it('변형(Variation)은 목적과 함께 첫 장에만 실린다 (v8)', () => {
+    const r = render(<PrintDrillSheet drill={{ ...drillOf(3), variation: '수비 하나를 더 세우면 어려워진다' }} />);
+    const pages = Array.from(r.container.querySelectorAll('[data-print-page="step"]'));
+    const withVariation = pages.filter((p) => p.textContent?.includes('수비 하나를 더 세우면'));
+    expect(withVariation).toHaveLength(1);
+    expect(withVariation[0]).toBe(pages[0]);
   });
 });

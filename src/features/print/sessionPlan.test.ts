@@ -26,7 +26,7 @@ function sessionOf(
       drillId: d.id,
       titleCache: `${d.title} (옛 제목)`,
       durationMinCache: d.durationMin,
-      categoryCache: d.category,
+      categoryCache: d.drillType,
       durationOverrideMin: opts.overrides?.[i],
       restAfterMin: opts.rests?.[i],
     })),

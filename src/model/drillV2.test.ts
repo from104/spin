@@ -17,8 +17,11 @@ import { buildSummary, SUMMARY_BUILD } from './summary.ts';
 
 const v1: Record<string, unknown> = JSON.parse(drillV1Raw);
 
-/** v2 가 새로 아는 키 전부. 한 곳에 모아 두고 세 관문에서 같은 목록을 쓴다. */
-const TEACHING_KEYS = ['objective', 'coachingPoints', 'playersNeeded', 'equipment', 'reps', 'sets', 'intervalSec'] as const;
+/** 교육 필드 키(생존자). v2 가 넣은 일곱 중 훈련량 셋(reps/sets/intervalSec)은 **v8 이 폐기**
+ *  했다 — 그 폐기 사실 자체는 아래 v8 단언들이 지킨다. */
+const TEACHING_KEYS = ['objective', 'coachingPoints', 'playersNeeded', 'equipment'] as const;
+/** v8 이 지운 키. 체인을 끝까지 돈 문서에 이 키가 남아 있으면 폐기가 안 된 것이다. */
+const RETIRED_KEYS = ['reps', 'sets', 'intervalSec', 'category'] as const;
 
 function migrateV1(doc: Record<string, unknown> = v1): Record<string, unknown> {
   const r = migrateDoc(doc, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
@@ -28,22 +31,27 @@ function migrateV1(doc: Record<string, unknown> = v1): Record<string, unknown> {
 }
 
 describe('3.2/3.3 마이그레이션 — 구 버전 드릴 파일이 v2 로 올라온다', () => {
-  it('새 필드가 기본값으로 채워진다 (숫자는 1 이 아니라 0 = 미지정)', () => {
+  it('새 필드가 기본값으로 채워진다 (숫자는 1 이 아니라 0 = 미지정) — 훈련량은 v8 에서 사라진다', () => {
     const doc = migrateV1();
-    // 일곱 개를 **따로** 단언한다 — 하나로 뭉치면 여섯 개가 비어도 초록불이 될 수 있다.
+    // **따로** 단언한다 — 하나로 뭉치면 나머지가 비어도 초록불이 될 수 있다.
     expect(doc.objective).toBe('');
     expect(doc.coachingPoints).toEqual([]);
     expect(doc.equipment).toBe('');
     expect(doc.playersNeeded).toBe(0);
-    expect(doc.reps).toBe(0);
-    expect(doc.sets).toBe(0);
-    expect(doc.intervalSec).toBe(0);
+    // v1→v2 가 0 으로 채운 훈련량 셋은 v7→v8 이 도로 지운다(전부 0 = 미지정 → 보존할 것 없음).
+    for (const k of RETIRED_KEYS) expect(k in doc, `체인을 다 돈 문서에 폐기 키 '${k}' 가 남아 있다`).toBe(false);
+    // v8 분류 — '패턴 플레이' 는 매핑표 밖이라 'technical' 로 접히고, 원문은 tags 로 보존된다.
+    expect(doc.drillType).toBe('technical');
+    expect(doc.tags).toEqual(['스핀', '패스', '풀코트', '패턴 플레이']);
   });
 
   it('기존 필드를 **하나도** 잃지 않는다', () => {
     const doc = migrateV1();
     for (const [key, value] of Object.entries(v1)) {
-      if (key === 'schemaVersion') continue; // 도장만 1 → 4 로 바뀐다
+      if (key === 'schemaVersion') continue; // 도장만 최신으로 바뀐다
+      // ⚠️ 2026-08-18 — v7→v8 은 category 를 drillType 으로 **대체**하고 원문을 tags 에
+      // 편입한다. 의도된 이동이라 여기서 빼고, 이동의 정확성은 위 it 이 따로 단언한다.
+      if (key === 'category' || key === 'tags') continue;
       if (key === 'steps') {
         // ⚠️ 2026-08-14 — v3→v4 가 스텝마다 `shapes: []` 를 **더한다**. 무손실의 뜻은
         // "잃지 않는다" 이지 "한 글자도 안 는다" 가 아니다 — 더해진 키 하나를 빼고 대조한다.
@@ -87,20 +95,41 @@ describe('3.2/3.3 마이그레이션 — 구 버전 드릴 파일이 v2 로 올�
     expect(again.applied).toHaveLength(0);
   });
 
-  it('이미 값이 들어 있는 문서는 덮어쓰지 않는다', () => {
+  it('이미 값이 들어 있는 문서는 덮어쓰지 않는다 — 폐기되는 훈련량은 글로 보존된다', () => {
     const doc = migrateV1({ ...v1, objective: '이미 적어 둔 목적', reps: 3, coachingPoints: ['받기 전에 몸을 연다'] });
     expect(doc.objective).toBe('이미 적어 둔 목적');
-    expect(doc.reps).toBe(3);
     expect(doc.coachingPoints).toEqual(['받기 전에 몸을 연다']);
-    // 대조군 — 손대지 않은 자리는 여전히 기본값이 들어온다.
-    expect(doc.sets).toBe(0);
+    // v8 무손실 방침 ②: 사용자가 적었던 훈련량은 필드가 죽어도 description 말미에 글로 남는다.
+    expect('reps' in doc).toBe(false);
+    expect(String(doc.description)).toContain('훈련량(구버전): 3회');
   });
 
   it('형상이 어긋난 값(문자열 reps · null coachingPoints)은 기본값으로 갈아 끼운다', () => {
     const doc = migrateV1({ ...v1, reps: '세 번', coachingPoints: null, playersNeeded: NaN });
-    expect(doc.reps).toBe(0);
     expect(doc.coachingPoints).toEqual([]);
     expect(doc.playersNeeded).toBe(0);
+    // '세 번' 은 v1→v2 가 0 으로 갈아 끼우고, 0 = 미지정이라 v8 이 글 보존 없이 지운다.
+    expect('reps' in doc).toBe(false);
+    expect(String(doc.description ?? '')).not.toContain('훈련량');
+  });
+
+  it('v7→v8 매핑표 — 옛 카테고리 5종이 유형으로 접힌다 (마이그레이션에 리터럴로 박힌 역사)', () => {
+    const cases: Array<[string, string]> = [
+      ['공격', 'tactical'],
+      ['수비', 'tactical'],
+      ['슈팅', 'technical'],
+      ['볼 운반', 'technical'],
+      ['세트피스', 'set-piece'],
+    ];
+    for (const [cat, type] of cases) {
+      const doc = migrateV1({ ...v1, category: cat });
+      expect(doc.drillType, `'${cat}' 의 매핑이 틀렸다`).toBe(type);
+      expect(doc.tags, `'${cat}' 원문이 tags 에 보존되지 않았다`).toContain(cat);
+    }
+    // '기타' 는 validate 의 옛 폴백값 — 정보가 0 이라 태그로도 안 남긴다.
+    const etc = migrateV1({ ...v1, category: '기타' });
+    expect(etc.drillType).toBe('technical');
+    expect(etc.tags).not.toContain('기타');
   });
 
   it('마이그레이션 결과가 validateDrill 을 통과한다 — 남는 보정은 이름→노트 이관뿐이다', () => {
@@ -122,30 +151,32 @@ describe('3.2/3.3 마이그레이션 — 구 버전 드릴 파일이 v2 로 올�
   });
 });
 
-describe('3.2/3.3 화이트리스트 — validate 왕복에서 살아남는다', () => {
+describe('3.2 화이트리스트 — validate 왕복에서 살아남는다', () => {
   const filled = {
     objective: '측면에서 받아 골문 쪽으로 방향을 트는 습관',
     coachingPoints: ['받기 전에 몸을 연다', '패스는 낮게'],
     playersNeeded: 6,
     equipment: '공 2 · 콘 6 · 조끼 8',
-    reps: 3,
-    sets: 2,
-    intervalSec: 60,
+    // v8 신필드도 같은 관문을 지켜야 한다 — 조립부에 안 적히면 IDB 왕복에서 증발한다.
+    situation: 'kick-in' as const,
+    variation: '수비 하나를 더 세우면 어려워진다',
   };
 
-  it('일곱 필드가 전부 보존된다', () => {
-    const d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    const v = validateDrill({ ...d, ...filled });
+  it('교육 필드와 v8 신필드가 전부 보존된다 — 폐기 키는 왕복에서 떨어진다', () => {
+    const d = createDrill({ courtMode: 'full', formation: '1-2-1', drillType: 'set-piece' });
+    const v = validateDrill({ ...d, ...filled, reps: 3 });
     expect(v.ok).toBe(true);
     if (!v.ok) return;
-    // 하나씩 따로 — 조립부에서 한 줄만 빠져도 나머지 여섯은 초록불이다.
+    // 하나씩 따로 — 조립부에서 한 줄만 빠져도 나머지는 초록불이다.
     expect(v.value.objective).toBe(filled.objective);
     expect(v.value.coachingPoints).toEqual(filled.coachingPoints);
     expect(v.value.playersNeeded).toBe(6);
     expect(v.value.equipment).toBe(filled.equipment);
-    expect(v.value.reps).toBe(3);
-    expect(v.value.sets).toBe(2);
-    expect(v.value.intervalSec).toBe(60);
+    expect(v.value.drillType).toBe('set-piece');
+    expect(v.value.situation).toBe('kick-in');
+    expect(v.value.variation).toBe(filled.variation);
+    // 폐기(v8) — 마이그레이션을 안 지난 손편집 문서의 reps 도 화이트리스트가 조용히 떨군다.
+    expect('reps' in v.value).toBe(false);
     expect(v.repairs).toHaveLength(0);
   });
 
@@ -202,21 +233,28 @@ describe('3.2/3.3 상한과 형상 보정 — 깨진 파일을 먹어도 throw �
     expect(out.includes('')).toBe(false);
   });
 
-  it('개수 필드는 0..상한 정수로 접힌다 — 각각 따로', () => {
+  it('개수 필드는 0..상한 정수로 접힌다', () => {
     expect(check({ playersNeeded: 999 }).value.playersNeeded).toBe(LIMITS.playersNeededMax);
-    expect(check({ reps: -3 }).value.reps).toBe(0);
-    expect(check({ sets: 2.4 }).value.sets).toBe(2); // 반올림
-    expect(check({ intervalSec: 10_000 }).value.intervalSec).toBe(LIMITS.intervalSecMax);
+    expect(check({ playersNeeded: -3 }).value.playersNeeded).toBe(0);
+    expect(check({ playersNeeded: 2.4 }).value.playersNeeded).toBe(2); // 반올림
     // 대조군 — 범위 안의 값은 손대지 않고 보정도 기록하지 않는다.
-    const ok = check({ playersNeeded: 6, reps: 3, sets: 2, intervalSec: 60 });
+    const ok = check({ playersNeeded: 6 });
     expect(ok.repairs).toHaveLength(0);
   });
 
+  it('v8 분류 — 목록 밖 유형은 technical 로 접고, 목록 밖 상황은 키를 버린다', () => {
+    const v = check({ drillType: '슈팅', situation: 'throw-in', variation: 'ㄹ'.repeat(LIMITS.variationLen + 9) });
+    expect(v.value.drillType).toBe('technical');
+    expect('situation' in v.value).toBe(false);
+    expect(v.value.variation).toHaveLength(LIMITS.variationLen);
+    expect(v.repairs.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('타입이 아예 다른 값은 **키를 만들지 않는다** — `{키: undefined}` 를 남기지 않는다', () => {
-    const v = check({ objective: 42, coachingPoints: '문자열', reps: 'x' });
+    const v = check({ objective: 42, coachingPoints: '문자열', variation: 7 });
     expect('objective' in v.value).toBe(false);
     expect('coachingPoints' in v.value).toBe(false);
-    expect('reps' in v.value).toBe(false);
+    expect('variation' in v.value).toBe(false);
     // 대조군 — 같은 문서의 성한 필드는 살아 있다.
     expect(v.value.title).toBe(base.title);
   });
@@ -228,13 +266,12 @@ describe('3.2/3.3 요약 결정 — 교육 필드는 DrillSummary 에 싣지 않
     // 레코드마다 달라진다. (셋째 근거 "rebuildAllSummaries 호출자가 0" 은 2026-08-17 에
     // 사라졌다 — 썸네일 도형·메모 때문에 build 를 2 로 올리면서 LibraryProvider 가 그 경로를
     // 부르게 됐다. **그래도 교육 필드는 여전히 안 싣는다** — 목록이 읽지 않기 때문이다.)
-    // build 는 같은 날 다시 3 으로 올랐다 — 이번엔 드릴 짧은 설명(description)이 목록 카드
-    // 부제로 실렸다(summary.ts SUMMARY_BUILD 3 코멘트). description 은 카드가 **읽으므로**
-    // 위 reason① 이 안 서서 교육 필드와는 다른 결론이지만, 그 결론은 summary.test.ts 가 맡고
-    // 여기 단언은 상수 값만 따라간다.
-    expect(SUMMARY_BUILD).toBe(3);
+    // build 는 같은 날 다시 3 으로 올랐고(드릴 짧은 설명이 목록 카드 부제로), 2026-08-18 에
+    // 4 로 올랐다(v8 — category→drillType 교체·searchKey 유형/상황 라벨). 그 결론들은
+    // summary.test.ts 가 맡고 여기 단언은 상수 값만 따라간다.
+    expect(SUMMARY_BUILD).toBe(4);
     const d = createDrill({ courtMode: 'full', formation: '1-2-1', title: '요약 검증 드릴' });
-    const s = buildSummary({ ...d, objective: '스핀턴전개목적', coachingPoints: ['몸을 연다'], playersNeeded: 6, equipment: '조끼', reps: 3, sets: 2, intervalSec: 60 });
+    const s = buildSummary({ ...d, objective: '스핀턴전개목적', coachingPoints: ['몸을 연다'], playersNeeded: 6, equipment: '조끼' });
     for (const k of TEACHING_KEYS) expect(k in s, `요약에 '${k}' 가 들어갔다 — build 상승과 재구축 경로가 같이 필요하다`).toBe(false);
     expect(s.searchKey).not.toContain('스핀턴전개목적');
     // 대조군 — searchKey 가 비어서 통과한 것이 아니다.

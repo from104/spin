@@ -39,7 +39,22 @@ describe('DrillSummary.description — SUMMARY_BUILD 3', () => {
     expect(s.searchKey).toContain('스핀턴전개');
   });
 
-  it('SUMMARY_BUILD 는 3이다', () => {
-    expect(SUMMARY_BUILD).toBe(3);
+  it('SUMMARY_BUILD 는 4다 — v8 에서 category→drillType 교체·searchKey 확장과 같은 커밋', () => {
+    expect(SUMMARY_BUILD).toBe(4);
+  });
+
+  it('요약이 유형을 싣고 searchKey 가 한국어 라벨로 찾힌다 (BUILD 4)', () => {
+    const s = buildSummary({ ...createDrill({ courtMode: 'full', drillType: 'set-piece' }), situation: 'kick-in' as const });
+    expect(s.drillType).toBe('set-piece');
+    expect(s.situation).toBe('kick-in');
+    expect(s.searchKey).toContain('세트피스');
+    expect(s.searchKey).toContain('킥인');
+    // 옛 category 필드는 요약에서 사라졌다 — 죽은 키를 남기지 않는다(summary.ts BUILD 4 주석).
+    expect('category' in s).toBe(false);
+  });
+
+  it('situation 미지정이면 요약에도 키가 없다', () => {
+    const s = buildSummary(createDrill({ courtMode: 'full' }));
+    expect('situation' in s).toBe(false);
   });
 });

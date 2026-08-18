@@ -10,14 +10,16 @@ import type { DrillSummary } from '../model/summary.ts';
 import { newId } from '../core/ids.ts';
 import type { DrillId, SessionId } from '../core/ids.ts';
 
-type SummaryCacheSrc = Pick<DrillSummary, 'title' | 'durationMin' | 'category'>;
+type SummaryCacheSrc = Pick<DrillSummary, 'title' | 'durationMin' | 'drillType'>;
 
 /** 캐시 갱신(refreshRefs)의 소스는 드릴 전문이 아니라 요약이다(8개 세션이면 100 KB → 5.6 KB). */
 async function loadSummaryMap(): Promise<Map<DrillId, SummaryCacheSrc>> {
   const db = await getDB();
   const all = await db.getAll('drillSummaries');
   const map = new Map<DrillId, SummaryCacheSrc>();
-  for (const s of all) map.set(s.id, { title: s.title, durationMin: s.durationMin, category: s.category });
+  // ⚠️ 재구축 전(build<4) 옛 레코드에는 drillType 이 없을 수 있다 — 캐시는 표시용 점 하나라
+  // 'technical' 폴백이면 충분하고, 다음 refreshRefs 가 재구축된 값으로 덮는다.
+  for (const s of all) map.set(s.id, { title: s.title, durationMin: s.durationMin, drillType: s.drillType ?? 'technical' });
   return map;
 }
 
@@ -133,7 +135,7 @@ export async function addDrillToSession(id: SessionId, drillId: DrillId): Promis
     drillId,
     titleCache: meta?.title ?? '',
     durationMinCache: meta?.durationMin ?? 0,
-    categoryCache: meta?.category ?? '',
+    categoryCache: meta?.drillType ?? '', // v8 — 캐시 값은 유형 키다(refs.ts DrillRef 주석)
   };
   return putSession({ ...s, items: [...s.items, item] });
 }

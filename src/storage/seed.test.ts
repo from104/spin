@@ -112,9 +112,9 @@ describe('seedDrillsOnce — 심은 것이 온전한가', () => {
     expect(load.drill.coachingPoints!.length).toBeGreaterThan(0);
     expect(load.drill.playersNeeded).toBeGreaterThan(0);
     expect(load.drill.equipment!.length).toBeGreaterThan(0);
-    expect(load.drill.reps).toBeGreaterThan(0);
-    expect(load.drill.sets).toBeGreaterThan(0);
-    expect(load.drill.intervalSec).toBeGreaterThan(0);
+    // v8 — 분류 유형·경기 상황도 같은 화이트리스트를 지난다(씨앗 3종은 전부 situation 을 갖는다).
+    expect(load.drill.drillType.length).toBeGreaterThan(0);
+    expect(load.drill.situation).toBeDefined();
   });
 
   it('스텝 메모가 조작 설명까지 통째로 살아남는다 — 시연이 읽어 줄 대본이다', async () => {

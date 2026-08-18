@@ -28,7 +28,8 @@ import type { SeedDrillSpec } from './seedDrills.ts';
 /** 초급 — 판에 말을 올리고 한 번 이어 보는 것까지. 조작 4가지(선수·공·화살표·스텝)를 한 번씩 쓴다. */
 const BEGINNER: SeedDrillSpec = {
   title: '① 기본 대형과 첫 패스',
-  category: '공격',
+  drillType: 'tactical',
+  situation: 'open-play',
   level: '초급',
   courtMode: 'full',
   durationMin: 10,
@@ -42,9 +43,6 @@ const BEGINNER: SeedDrillSpec = {
   ],
   playersNeeded: 4,
   equipment: '공 1개',
-  reps: 3,
-  sets: 2,
-  intervalSec: 60,
   steps: [
     {
       name: '선수 놓기',
@@ -114,7 +112,8 @@ const BEGINNER: SeedDrillSpec = {
 /** 중급 — 규정(킥인 5 m)이 배치를 정하는 상황. 상대 팀 칩 · 콘 · 코트 메모를 쓴다. */
 const INTERMEDIATE: SeedDrillSpec = {
   title: '② 킥인 세트피스 — 5 m 를 벌린다',
-  category: '세트피스',
+  drillType: 'set-piece',
+  situation: 'kick-in',
   level: '중급',
   courtMode: 'full',
   durationMin: 12,
@@ -128,9 +127,6 @@ const INTERMEDIATE: SeedDrillSpec = {
   ],
   playersNeeded: 6,
   equipment: '공 1개 · 콘 2개',
-  reps: 4,
-  sets: 2,
-  intervalSec: 90,
   cones: [0, 1],
   steps: [
     {
@@ -229,7 +225,8 @@ const INTERMEDIATE: SeedDrillSpec = {
 /** 고급 — 규정(2-on-1)이 **움직임의 이유**가 되는 드릴. 실명·스텝 시간까지 쓴다. */
 const ADVANCED: SeedDrillSpec = {
   title: '③ 2-on-1 을 피하는 대각 전환',
-  category: '볼 운반',
+  drillType: 'tactical',
+  situation: '2-on-1-spacing',
   level: '고급',
   courtMode: 'full',
   durationMin: 15,
@@ -244,9 +241,6 @@ const ADVANCED: SeedDrillSpec = {
   ],
   playersNeeded: 8,
   equipment: '공 1개',
-  reps: 6,
-  sets: 3,
-  intervalSec: 120,
   // 선수 실명은 **자리표시자**다. 승인 시 실제 팀 명단으로 바꾼다(3.4 가 만든 이름 칸이 소비처).
   players: {
     'home-G': '도현',

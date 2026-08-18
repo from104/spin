@@ -13,7 +13,7 @@ import { Drawer } from '../../ui/Drawer.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { IconGripDots, IconPlus, IconClose } from '../../ui/icons.tsx';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
-import { categoryColor } from '../../core/colors.ts';
+import { drillTypeColor } from '../../core/colors.ts';
 import { getSession, putSession, addDrillToSession } from '../../storage/sessionRepo.ts';
 import { resolveSession } from '../../model/session.ts';
 import type { ResolvedItem, TrainingSession } from '../../model/session.ts';
@@ -317,7 +317,7 @@ function ItemList({
           >
             <IconGripDots />
           </button>
-          <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: categoryColor(it.categoryCache), flex: 'none' }} />
+          <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: drillTypeColor(it.categoryCache), flex: 'none' }} />
           <span style={{ flex: 1, minWidth: 0, fontSize: '0.8125rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {it.titleCache}
             {it.missing ? ' (삭제됨)' : ''}

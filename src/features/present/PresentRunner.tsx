@@ -19,7 +19,7 @@ import type { TrainingSession } from '../../model/session.ts';
 import { effectiveStepMs } from '../../model/playback.ts';
 import { hasChairName, numberedName } from '../../model/chairLabel.ts';
 import { PLAYBACK } from '../../core/constants.ts';
-import { categoryColor } from '../../core/colors.ts';
+import { drillTypeColor } from '../../core/colors.ts';
 import { clamp } from '../../core/geom.ts';
 import { eventCode, lookupKey } from '../../core/keymap.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
@@ -518,7 +518,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, fullscreen, w
               {/* 스텝 이름 헤드라인은 과제⑦(2026-08-17)로 폐기됐다 — name 은 로드 시 note 로
                   이관돼 항상 ''다(§스텝 카드, "번호 + 썸네일만"과 같은 축소). 스텝 텍스트는
                   아래 note 문단 하나로만 보여준다. */}
-              <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: categoryColor(drill.category), flex: 'none' }} />
+              <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: drillTypeColor(drill.drillType), flex: 'none' }} />
             </div>
             {currentStep?.note && <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.55, maxWidth: 760 }}>{currentStep.note}</p>}
             {/* §7 3.4 선수 실명 — **번호 ↔ 사람을 잇는 범례**다. 코트의 칩은 등번호만 찍고

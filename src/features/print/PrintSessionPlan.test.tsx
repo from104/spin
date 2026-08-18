@@ -25,7 +25,7 @@ function planOf(titles: string[], opts: { missingAt?: number; rests?: Record<num
       drillId: d.id,
       titleCache: d.title,
       durationMinCache: d.durationMin,
-      categoryCache: d.category,
+      categoryCache: d.drillType,
       restAfterMin: opts.rests?.[i],
     })),
     drillIds: drills.map((d) => d.id),

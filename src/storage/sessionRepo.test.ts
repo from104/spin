@@ -13,8 +13,8 @@ describe('putSession', () => {
   it('drillIds 를 items 에서 무조건 재계산한다 — 파일에서 온 값(잘못된/빈 값)을 신뢰하지 않는다', async () => {
     const d1 = await makeDrill('세션용 드릴1');
     const d2 = await makeDrill('세션용 드릴2');
-    const item1: SessionItem = { id: newId('it'), drillId: d1.id, titleCache: d1.title, durationMinCache: d1.durationMin, categoryCache: d1.category };
-    const item2: SessionItem = { id: newId('it'), drillId: d2.id, titleCache: d2.title, durationMinCache: d2.durationMin, categoryCache: d2.category };
+    const item1: SessionItem = { id: newId('it'), drillId: d1.id, titleCache: d1.title, durationMinCache: d1.durationMin, categoryCache: d1.drillType };
+    const item2: SessionItem = { id: newId('it'), drillId: d2.id, titleCache: d2.title, durationMinCache: d2.durationMin, categoryCache: d2.drillType };
     const raw: TrainingSession = {
       schemaVersion: 1,
       id: newId('se'),
@@ -30,8 +30,8 @@ describe('putSession', () => {
 
   it('중복 drillId 는 refDrillIds 로 중복 제거된다', async () => {
     const d = await makeDrill('중복 세션용');
-    const item1: SessionItem = { id: newId('it'), drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.category };
-    const item2: SessionItem = { id: newId('it'), drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.category };
+    const item1: SessionItem = { id: newId('it'), drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType };
+    const item2: SessionItem = { id: newId('it'), drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType };
     const s = await createSession({ title: '중복' });
     const saved = await putSession({ ...s, items: [item1, item2] });
     expect(saved.drillIds).toEqual([d.id]);

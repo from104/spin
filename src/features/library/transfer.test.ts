@@ -64,7 +64,7 @@ describe('readImportFile / commitDrills', () => {
     const d = createDrill({ courtMode: 'full', title: '세션 드릴' });
     await idbDrillRepo.putDrill(d, { touch: false });
     const session = await createSession({ title: '가져오기 세션' });
-    const withItem = { ...session, items: [{ id: 'it_x' as never, drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.category }] };
+    const withItem = { ...session, items: [{ id: 'it_x' as never, drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType }] };
 
     const text = await exportSessionFile(withItem, [d]).text();
     const realFile = { text: async () => text } as unknown as File;

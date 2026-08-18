@@ -12,7 +12,10 @@ import { newId } from '../core/ids.ts';
 import type { DrillId } from '../core/ids.ts';
 
 export interface DrillQuery {
-  category?: string;
+  /** v8 분류 유형 필터(DRILL_TYPES 키). 옛 category 필터의 후계다. */
+  drillType?: string;
+  /** v8 경기 상황 필터(DRILL_SITUATIONS 키). */
+  situation?: string;
   search?: string;
   sort?: 'updatedAt' | 'createdAt' | 'title'; // 기본 'updatedAt'
   order?: 'asc' | 'desc'; // 기본 'desc'
@@ -88,7 +91,8 @@ function sortSummaries(list: DrillSummary[], sort: NonNullable<DrillQuery['sort'
 
 function filterSummaries(list: DrillSummary[], q: DrillQuery): DrillSummary[] {
   let out = list;
-  if (q.category) out = out.filter((s) => s.category === q.category);
+  if (q.drillType) out = out.filter((s) => s.drillType === q.drillType);
+  if (q.situation) out = out.filter((s) => s.situation === q.situation);
   if (q.search) {
     const needle = normalizeForSearch(q.search);
     out = out.filter((s) => s.searchKey.includes(needle));

@@ -3,6 +3,7 @@
 // 이 트리는 화면 트리와 **별개**다(계획서 6.3 "인쇄 전용 트리"). 화면 컴포넌트에 @media print
 // 를 덕지덕지 붙이면 둘 다 망가진다 — 편집기는 창 안에 갇혀야 하고(§6.4) 종이는 갇히면 안
 // 된다. 평소에는 `styles/print.css` 의 `.spin-print { display:none }` 으로 통째로 접혀 있다.
+import { DRILL_TYPE_LABELS, SITUATION_LABELS } from '../../model/drill.ts';
 import type { Drill } from '../../model/drill.ts';
 import { PrintCourt } from './PrintCourt.tsx';
 import { prepFor, prepLine } from './prep.ts';
@@ -12,17 +13,12 @@ export interface PrintDrillSheetProps {
   drill: Drill;
 }
 
-/** "중급 · 슈팅 · 12분 · 3회 × 2세트 · 인터벌 30초". 0 은 **미지정**이라 아예 안 적는다
- *  (§7 3.3 — 1 을 기본값으로 두면 정하지도 않은 "1회 × 1세트" 를 종이가 사실인 양 찍는다). */
+/** "중급 · 전술 · 킥인 · 12분". 훈련량(반복·세트·인터벌)은 v8 에서 폐기됐다 — 옛 문서의 값은
+ *  마이그레이션이 description 말미에 글로 보존하므로 종이에서도 그 줄로 나온다. */
 function metaLine(drill: Drill): string {
-  const parts: string[] = [drill.level, drill.category, `${drill.durationMin}분`];
-  const reps = drill.reps ?? 0;
-  const sets = drill.sets ?? 0;
-  if (reps > 0 && sets > 0) parts.push(`${reps}회 × ${sets}세트`);
-  else if (reps > 0) parts.push(`${reps}회`);
-  else if (sets > 0) parts.push(`${sets}세트`);
-  const interval = drill.intervalSec ?? 0;
-  if (interval > 0) parts.push(`인터벌 ${interval}초`);
+  const parts: string[] = [drill.level, DRILL_TYPE_LABELS[drill.drillType]];
+  if (drill.situation !== undefined) parts.push(SITUATION_LABELS[drill.situation]);
+  parts.push(`${drill.durationMin}분`);
   return parts.join(' · ');
 }
 
@@ -79,6 +75,12 @@ export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
                     <li key={k}>{p}</li>
                   ))}
                 </ul>
+              )}
+              {/* 변형(v8, USPSA Variation) — 목적과 같은 '드릴 전체' 정보라 첫 장에만. */}
+              {drill.variation && (
+                <p className="spin-print-dim">
+                  <b>변형</b> {drill.variation}
+                </p>
               )}
               {drill.equipment && (
                 <p className="spin-print-dim">

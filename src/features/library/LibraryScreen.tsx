@@ -22,7 +22,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
-import { KNOWN_CATEGORIES } from '../../core/colors.ts';
+import { DRILL_TYPES, DRILL_TYPE_LABELS } from '../../model/drill.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
@@ -41,7 +41,7 @@ import { buildImportReport, commitDrills, commitSession, exportOneDrill, exportO
 import type { ImportPreview } from './transfer.ts';
 import type { ImportResolution } from '../../storage/transfer.ts';
 
-const CATEGORY_OPTIONS = [{ value: '', label: '전체' }, ...KNOWN_CATEGORIES.map((c) => ({ value: c, label: c }))];
+const TYPE_OPTIONS = [{ value: '', label: '전체' }, ...DRILL_TYPES.map((t) => ({ value: t, label: DRILL_TYPE_LABELS[t] }))];
 
 export interface LibraryScreenProps {
   nav: HomeNav;
@@ -50,7 +50,7 @@ export interface LibraryScreenProps {
 }
 
 export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: LibraryScreenProps) {
-  const { drills, sessions, category, search, setCategory, duplicateDrill, deleteDrill, createSession, refresh } = useLibrary();
+  const { drills, sessions, drillType, search, setDrillType, duplicateDrill, deleteDrill, createSession, refresh } = useLibrary();
   const toast = useToast();
 
   const sessionCount = sessions.length;
@@ -207,10 +207,10 @@ export function LibraryScreen({ nav, initialTab, initialOpenSessionId }: Library
         {tab === 'drills' ? (
           <div id="library-panel-drills" role="tabpanel">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-              <Segmented ariaLabel="카테고리" value={category ?? ''} onChange={(v) => setCategory(v || null)} options={CATEGORY_OPTIONS} dense />
+              <Segmented ariaLabel="드릴 유형" value={drillType ?? ''} onChange={(v) => setDrillType(v || null)} options={TYPE_OPTIONS} dense />
             </div>
             {drills.length === 0 ? (
-              <EmptyDrills hasFilter={!!category || !!search} onCreate={goNewDrill} />
+              <EmptyDrills hasFilter={!!drillType || !!search} onCreate={goNewDrill} />
             ) : (
               // 판 걸이(계획서 2.2)로 들어와 로드맵 3.6 으로 확정: 난이도 그룹 헤더(초급 → 중급
               // → 고급)로 **정렬**한다 — 난이도 필터를 하나 더 얹는 대신 0클릭으로 나눠 보여준다
