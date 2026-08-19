@@ -37,6 +37,10 @@ import { HelpOverlay } from './HelpOverlay.tsx';
 import { useFullscreen } from './useFullscreen.ts';
 import { useWakeLock } from './useWakeLock.ts';
 import { useSwipe } from './useSwipe.ts';
+import { useT, translate } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
+import type { Locale } from '../../i18n/locale.ts';
+import { SCREEN_TITLES, SCREEN_SUBTITLES } from '../../app/screens.ts';
 
 /** store/editor/EditorProvider.tsx 의 동명 함수와 같은 판정(§7.8) — 그 파일은 store 소유라
  *  가져다 쓸 수 없어(§8) 이 작은 순수 함수만 그대로 복제한다. */
@@ -62,17 +66,17 @@ type PresentLoad =
       phases: { of: number[]; labels: string[] } | null;
     };
 
-async function loadTarget(target: PresentTarget | null): Promise<PresentLoad> {
+async function loadTarget(target: PresentTarget | null, locale: Locale): Promise<PresentLoad> {
   if (!target) return { status: 'empty' };
   const { repo } = await resolveDrillRepo();
   if (target.kind === 'drill') {
     const res = await repo.loadDrill(target.drillId);
     if (res.status === 'ok') return { status: 'ready', kind: 'drill', drill: res.drill };
-    if (res.status === 'missing') return { status: 'error', message: '드릴을 찾을 수 없습니다. 삭제되었을 수 있습니다.' };
-    return { status: 'error', message: '드릴 파일을 읽을 수 없습니다.' };
+    if (res.status === 'missing') return { status: 'error', message: translate(locale, 'present.drillNotFound') };
+    return { status: 'error', message: translate(locale, 'present.drillUnreadable') };
   }
   const resolved = await getSession(target.sessionId);
-  if (!resolved) return { status: 'error', message: '세션을 찾을 수 없습니다. 삭제되었을 수 있습니다.' };
+  if (!resolved) return { status: 'error', message: translate(locale, 'present.sessionNotFound') };
   const nonMissingIds = resolved.items.filter((i) => !i.missing).map((i) => i.drillId);
   const drillMap = await repo.getDrills(nonMissingIds);
   // C9 — 구획 순회로 drills 와 phaseOf 를 **같은 루프에서** 만든다. flatten(resolved.items)을
@@ -89,8 +93,8 @@ async function loadTarget(target: PresentTarget | null): Promise<PresentLoad> {
       }
     }
   });
-  if (drills.length === 0) return { status: 'error', message: '세션에 시연할 드릴이 없습니다.' };
-  const labels = resolved.phases.map((rp) => phaseLabel(rp.phase));
+  if (drills.length === 0) return { status: 'error', message: translate(locale, 'present.sessionEmpty') };
+  const labels = resolved.phases.map((rp) => phaseLabel(rp.phase, locale));
   const phases = resolved.phases.length > 1 ? { of: phaseOf, labels } : null;
   return { status: 'ready', kind: 'session', session: resolved.session, drills, phases };
 }
@@ -126,18 +130,20 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   const { prefs } = useSettingsState();
   const toast = useToast();
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const t = useT();
+  const locale = useLocale();
 
   const [load, setLoad] = useState<PresentLoad>({ status: 'loading' });
   useEffect(() => {
     let cancelled = false;
     setLoad({ status: 'loading' });
-    void loadTarget(target).then((res) => {
+    void loadTarget(target, locale).then((res) => {
       if (!cancelled) setLoad(res);
     });
     return () => {
       cancelled = true;
     };
-  }, [target]);
+  }, [target, locale]);
 
   const backFallback: Screen = target?.kind === 'session' ? 'sessions' : 'board';
   // Esc·[시연 종료]는 **뒤로**다(들어온 자리로) — 이력이 없으면 fallback.
@@ -159,9 +165,9 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   useEffect(() => {
     if ((wakeLock === 'unsupported' || wakeLock === 'denied') && !wakeLockNoticeShown.current) {
       wakeLockNoticeShown.current = true;
-      toast.show('화면 꺼짐 방지를 사용할 수 없습니다. 기기 설정에서 화면 자동 잠금을 늘려 주세요.', { durationMs: 6000 });
+      toast.show(t('present.wakeLockUnavailable'), { durationMs: 6000 });
     }
-  }, [wakeLock, toast]);
+  }, [wakeLock, toast, t]);
 
   // §6.8 "autoFullscreen 기본 ON 이면 제스처 없는 requestFullscreen 이 거부돼 pseudo 로 떨어진다"
   // — 실패해도 useFullscreen.enter() 자체가 pseudo 로 폴백하므로 안전하다.
@@ -183,17 +189,17 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [blackout, setBlackout] = useState(false);
 
-  const headerTitle = load.status === 'ready' ? (load.kind === 'drill' ? load.drill.title : load.session.title) : '시연 모드';
+  const headerTitle = load.status === 'ready' ? (load.kind === 'drill' ? load.drill.title : load.session.title) : SCREEN_TITLES[locale].present;
   useAppHeader({
     title: headerTitle,
-    subtitle: '팀 앞에서 드릴을 단계별로 보여주세요',
-    primary: { label: target?.kind === 'session' ? '세션으로' : '편집으로', onAction: goOrigin },
+    subtitle: SCREEN_SUBTITLES[locale].present,
+    primary: { label: target?.kind === 'session' ? t('present.primaryToSession') : t('present.primaryToEdit'), onAction: goOrigin },
   });
 
   if (load.status === 'loading') {
     return (
       <main id="main" tabIndex={-1} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', outline: 'none' }}>
-        <p style={{ color: 'var(--faint-text)', fontSize: '0.875rem' }}>불러오는 중…</p>
+        <p style={{ color: 'var(--faint-text)', fontSize: '0.875rem' }}>{t('common.loading')}</p>
       </main>
     );
   }
@@ -201,9 +207,9 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   if (load.status === 'empty') {
     return (
       <main id="main" tabIndex={-1} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, outline: 'none' }}>
-        <p style={{ color: 'var(--faint-text)', fontSize: '0.875rem' }}>시연할 드릴을 목록에서 선택하세요.</p>
+        <p style={{ color: 'var(--faint-text)', fontSize: '0.875rem' }}>{t('present.emptyText')}</p>
         <Button variant="primary" onClick={() => nav.back('drills')}>
-          목록으로
+          {t('present.backToList')}
         </Button>
       </main>
     );
@@ -214,7 +220,7 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
       <main id="main" tabIndex={-1} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, outline: 'none' }}>
         <p style={{ color: 'var(--faint-text)', fontSize: '0.875rem' }}>{load.message}</p>
         <Button variant="primary" onClick={() => nav.back('drills')}>
-          목록으로
+          {t('present.backToList')}
         </Button>
       </main>
     );
@@ -262,6 +268,7 @@ interface PresentBodyProps {
 function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, showGridLabels, fullscreen, wakeLock, helpOpen, setHelpOpen, blackout, setBlackout, exit }: PresentBodyProps) {
   const playback = usePlaybackState();
   const playbackActions = usePlaybackActions();
+  const t = useT();
 
   const drills = load.kind === 'session' ? load.drills : [load.drill];
   const phaseInfo = load.kind === 'session' ? load.phases : null;
@@ -292,8 +299,8 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
   // "번호 + 썸네일만" 인 것과 같은 축소, §스텝 카드).
   const onStepChange = useCallback((idx: number, _step: DrillStep) => {
     setStepIndex(idx);
-    liveRegion.say(`스텝 ${idx + 1}`);
-  }, []);
+    liveRegion.say(t('present.stepAnnounce', { n: idx + 1 }));
+  }, [t]);
 
   const seekToStep = useCallback(
     (idx: number) => {
@@ -337,7 +344,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
       const toPhase = phaseInfo?.of[next];
       const crossed = phaseInfo && toPhase !== undefined && toPhase !== fromPhase ? phaseInfo.labels[toPhase]! : null;
       setInterstitial({ drill: target, phase: crossed });
-      liveRegion.say(crossed ? `다음 구획: ${crossed} — 드릴: ${target.title}` : `다음 드릴: ${target.title}`);
+      liveRegion.say(crossed ? t('present.nextPhaseAnnounce', { phase: crossed, title: target.title }) : t('present.nextDrillAnnounce', { title: target.title }));
       // 빠르게 연속 전환하면 이전 타이머가 남아 새 오버레이를 조기에 지운다 — 매번 갈아끼운다.
       if (interstitialTimer.current !== null) window.clearTimeout(interstitialTimer.current);
       interstitialTimer.current = window.setTimeout(() => {
@@ -345,7 +352,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
         setInterstitial(null);
       }, 2000);
     },
-    [drills, drillIndex, playbackActions, phaseInfo],
+    [drills, drillIndex, playbackActions, phaseInfo, t],
   );
 
   const nextStep = useCallback(() => {
@@ -439,7 +446,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
         case 'present.loop':
           e.preventDefault();
           playbackActions.setLoop(!playback.loop);
-          liveRegion.say(playback.loop ? '반복 껐습니다' : '반복 켰습니다');
+          liveRegion.say(playback.loop ? t('present.loopOffAnnounce') : t('present.loopOnAnnounce'));
           break;
         case 'help':
           e.preventDefault();
@@ -451,7 +458,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [blackout, helpOpen, fullscreen, exit, nextStep, prevStep, seekToStep, goDrill, drill, playbackActions, playback.loop, setBlackout, setHelpOpen]);
+  }, [blackout, helpOpen, fullscreen, exit, nextStep, prevStep, seekToStep, goDrill, drill, playbackActions, playback.loop, setBlackout, setHelpOpen, t]);
 
   const pseudoStyle: CSSProperties =
     fullscreen.state === 'pseudo'
@@ -485,32 +492,32 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
           한다(§6.9) — 44×44, 우상단, 항상 표시. */}
       <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, display: 'flex', gap: 8 }}>
         {/* C11 — 드릴 정보(읽기 전용). 편집 화면의 ⓘ와 같은 그림이라 찾기 쉽다. */}
-        <button type="button" aria-label="드릴 정보" onClick={() => setInfoOpen(true)} style={iconBtnStyle}>
+        <button type="button" aria-label={t('present.infoAriaLabel')} onClick={() => setInfoOpen(true)} style={iconBtnStyle}>
           <IconInfo size={18} />
         </button>
-        <button type="button" aria-label="도움말" onClick={() => setHelpOpen(true)} style={iconBtnStyle}>
+        <button type="button" aria-label={t('present.helpAriaLabel')} onClick={() => setHelpOpen(true)} style={iconBtnStyle}>
           <IconHelp size={18} />
         </button>
         <button
           type="button"
-          aria-label={fullscreen.state === 'off' ? '전체화면' : '전체화면 종료'}
+          aria-label={fullscreen.state === 'off' ? t('present.fullscreenEnter') : t('present.fullscreenExit')}
           onClick={() => (fullscreen.state === 'off' ? fullscreen.enter({ userGesture: true }) : fullscreen.exit())}
           style={iconBtnStyle}
         >
           {fullscreen.state === 'off' ? <IconFullscreenEnter size={18} /> : <IconFullscreenExit size={18} />}
         </button>
-        <button type="button" aria-label="시연 종료" onClick={exit} style={iconBtnStyle}>
+        <button type="button" aria-label={t('present.exitAriaLabel')} onClick={exit} style={iconBtnStyle}>
           <IconClose size={18} />
         </button>
       </div>
 
       {load.kind === 'session' && (
-        <div style={{ flex: 'none', padding: '14px 30px 0', display: 'flex', gap: 6 }} aria-label={`세션 진행 ${drillIndex + 1}/${drills.length}`}>
+        <div style={{ flex: 'none', padding: '14px 30px 0', display: 'flex', gap: 6 }} aria-label={t('present.sessionProgressAriaLabel', { current: drillIndex + 1, total: drills.length })}>
           {drills.map((d, i) => (
             <button
               key={d.id}
               type="button"
-              aria-label={`${i + 1}번째 드릴: ${d.title}`}
+              aria-label={t('present.drillProgressAriaLabel', { index: i + 1, title: d.title })}
               aria-current={i === drillIndex ? 'step' : undefined}
               // ★ 6.6 — 강제색(Windows 고대비)에서 지나간 칸(--muted)과 남은 칸(--border)은
               // **둘 다 Canvas** 가 되어 "어디까지 했는가" 가 통째로 사라진다(현재 칸만 Highlight
@@ -591,7 +598,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
                 적은 절반만 나온다 — 번호뿐인 항목을 나열하면 코트에 이미 있는 정보를 옮겨
                 적는 것이라 자막이 길어지기만 한다. */}
             {namedRoster.length > 0 && (
-              <p aria-label="선수 명단" style={{ fontSize: 12.5, color: 'var(--faint-text)', lineHeight: 1.5, marginTop: 5, maxWidth: 760 }}>
+              <p aria-label={t('present.rosterAriaLabel')} style={{ fontSize: 12.5, color: 'var(--faint-text)', lineHeight: 1.5, marginTop: 5, maxWidth: 760 }}>
                 {namedRoster.join(' · ')}
               </p>
             )}
@@ -599,19 +606,19 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
           <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               type="button"
-              aria-label={playback.loop ? '반복 끄기' : '반복 켜기'}
+              aria-label={playback.loop ? t('present.loopOff') : t('present.loopOn')}
               aria-pressed={playback.loop}
               onClick={() => playbackActions.setLoop(!playback.loop)}
               style={{ ...iconBtnStyle, position: 'static', color: playback.loop ? 'var(--accent)' : 'var(--muted)' }}
             >
               <IconLoop size={17} />
             </button>
-            <button type="button" aria-label="이전 스텝" onClick={prevStep} style={transportSmallStyle}>
+            <button type="button" aria-label={t('present.prevStepAriaLabel')} onClick={prevStep} style={transportSmallStyle}>
               <IconChevronPrev size={17} />
             </button>
             <button
               type="button"
-              aria-label={playback.playing ? '일시정지' : '재생'}
+              aria-label={playback.playing ? t('present.pauseAriaLabel') : t('present.playAriaLabel')}
               onClick={() => playbackActions.toggle()}
               className="on-accent"
               style={{
@@ -627,7 +634,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
             >
               {playback.playing ? <IconPause size={21} /> : <IconPlay size={21} />}
             </button>
-            <button type="button" aria-label="다음 스텝" onClick={nextStep} style={transportSmallStyle}>
+            <button type="button" aria-label={t('present.nextStepAriaLabel')} onClick={nextStep} style={transportSmallStyle}>
               <IconChevronNext size={17} />
             </button>
           </div>
@@ -640,7 +647,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
             <button
               key={s.id}
               type="button"
-              aria-label={`${i + 1}번 스텝으로 이동`}
+              aria-label={t('present.stepJumpAriaLabel', { n: i + 1 })}
               aria-current={i === stepIndex ? 'step' : undefined}
               onClick={() => seekToStep(i)}
               style={{
@@ -690,7 +697,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
           }}
         >
           <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-text)' }}>
-            {interstitial.phase ? `다음 구획: ${interstitial.phase}` : '다음 드릴'}
+            {interstitial.phase ? t('present.interstitialNextPhase', { phase: interstitial.phase }) : t('present.interstitialNextDrill')}
           </span>
           <span style={{ fontSize: 24, fontWeight: 750 }}>{interstitial.drill.title}</span>
         </div>
@@ -712,6 +719,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
  *  두면 부모가 리렌더될 때마다 다시 포커스를 뺏는다). */
 function BlackoutOverlay({ onDismiss }: { onDismiss(): void }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const t = useT();
   useEffect(() => {
     ref.current?.focus({ preventScroll: true });
   }, []);
@@ -720,7 +728,7 @@ function BlackoutOverlay({ onDismiss }: { onDismiss(): void }) {
       ref={ref}
       role="button"
       tabIndex={0}
-      aria-label="블랙아웃 해제"
+      aria-label={t('present.blackoutDismissAriaLabel')}
       onPointerDown={onDismiss}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') onDismiss();
@@ -733,7 +741,8 @@ function BlackoutOverlay({ onDismiss }: { onDismiss(): void }) {
 /** 화면 꺼짐 방지 폴백 문구 — 토스트로 이미 1회 안내했으므로(위 useEffect) 여기는 스크린리더
  *  전용 상시 안내만 둔다(문구 자체는 §6.9 그대로). */
 function VisuallyHiddenNotice() {
-  return <span className="sr-only">화면 꺼짐 방지를 사용할 수 없습니다. 기기 설정에서 화면 자동 잠금을 늘려 주세요.</span>;
+  const t = useT();
+  return <span className="sr-only">{t('present.wakeLockUnavailable')}</span>;
 }
 
 const iconBtnStyle: CSSProperties = {

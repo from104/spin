@@ -28,6 +28,7 @@ import { raf } from '../../render/rafLoop.ts';
 import { usePlaybackState, usePlaybackActions } from '../../store/playback/PlaybackProvider.tsx';
 import { createOpacityWriter } from './opacityWriter.ts';
 import { PresentChairMark, PresentBallMark, PresentConeMark, PresentArrowLayer, PresentNoteLayer } from './PresentObjects.tsx';
+import { useT } from '../../i18n/useT.ts';
 
 export interface PresentStageProps {
   drill: Drill;
@@ -48,6 +49,7 @@ export interface PresentStageProps {
 const emptyFrame = (): RenderFrame => ({ stepIndex: 0, t: 0, chairs: [], balls: [], cones: [], arrows: [], notes: [] });
 
 export function PresentStage({ drill, showRuleZones, showGrid = false, showGridLabels = false, reduceMotion, seekToken, onStepChange, onEnded }: PresentStageProps) {
+  const t = useT();
   const mode: CourtMode = drill.courtMode;
   // §6.4 — 시연 화면도 드릴의 코트 크기를 따라간다. 여기가 빠지면 28×15 드릴을 시연할 때만
   // 판이 30×18 로 커져, 편집 화면과 시연 화면이 서로 다른 코트를 보여 준다.
@@ -188,7 +190,7 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
       viewBox={`0 0 ${def.vbW} ${def.vbH}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label={`${def.label} 시연 화면`}
+      aria-label={t('present.stageAriaLabel', { court: def.label })}
       // ⚠️ 강제색(Windows 고대비) 제외 갈고리다 — 장식이 아니다. `.stage-svg` 는
       // styles/contrast.css 의 `forced-color-adjust: none` 이 부르는 이름이고, 이 줄이 없으면
       // **시연 화면에서만** 팀 색·등번호·골키퍼 표시·§3.5 개별 색이 전부 같은 전경색으로

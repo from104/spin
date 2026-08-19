@@ -26,6 +26,7 @@ import { buildStaticSvg } from '../features/export/buildStaticSvg.ts';
 import { staticSceneMetrics } from '../features/export/staticSceneLayout.ts';
 import { makeFrame, TEAMS } from '../features/export/sceneFixture.ts';
 import { PlaybackProvider } from '../store/playback/PlaybackProvider.tsx';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { createTransformWriter } from '../render/transformWriter.ts';
 import { createDrill } from '../model/defaults.ts';
 import { courtDefFor, COURT_MODES, COURT_SIZES, type CourtMode, type CourtSize } from '../model/court.ts';
@@ -75,9 +76,11 @@ const SCREENS: Screen[] = [
     svg(mode, size) {
       const drill = { ...createDrill({ courtMode: mode, courtSize: size }), courtSize: size };
       const { container } = render(
-        <PlaybackProvider>
-          <PresentStage drill={drill} showRuleZones reduceMotion />
-        </PlaybackProvider>,
+        <SettingsProvider>
+          <PlaybackProvider>
+            <PresentStage drill={drill} showRuleZones reduceMotion />
+          </PlaybackProvider>
+        </SettingsProvider>,
       );
       return container.querySelector('svg')!;
     },

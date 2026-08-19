@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { PresentStage } from './PresentStage.tsx';
 import { PlaybackProvider } from '../../store/playback/PlaybackProvider.tsx';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { LiveRegion, liveRegion } from '../../ui/LiveRegion.tsx';
 import { RING_5M_R_PX, RING_R_PX } from '../../model/rules.ts';
 import { COURT_DEFS } from '../../model/court.ts';
@@ -78,10 +79,12 @@ const CLEAN = makeDrill([
 
 function mount(drill: Drill, showRuleZones = true) {
   const view = render(
-    <PlaybackProvider>
-      <LiveRegion />
-      <PresentStage drill={drill} showRuleZones={showRuleZones} reduceMotion />
-    </PlaybackProvider>,
+    <SettingsProvider>
+      <PlaybackProvider>
+        <LiveRegion />
+        <PresentStage drill={drill} showRuleZones={showRuleZones} reduceMotion />
+      </PlaybackProvider>
+    </SettingsProvider>,
   );
   return view;
 }

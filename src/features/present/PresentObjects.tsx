@@ -18,6 +18,7 @@ import { ChairChip } from '../../render/objects/ChairChip.tsx';
 import { BallDot } from '../../render/objects/BallDot.tsx';
 import { ConeMark } from '../../render/objects/ConeMark.tsx';
 import { ArrowPath } from '../../render/objects/ArrowPath.tsx';
+import { useT } from '../../i18n/useT.ts';
 import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteChipWidthPx, noteFoldPathD, noteLineDy, noteLines } from '../../render/objects/noteChip.ts';
 import { NOTE } from '../../core/constants.ts';
 import { NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
@@ -63,7 +64,8 @@ export const PresentChairMark = memo(function PresentChairMark({
   writer: TransformWriter;
   opacityWriter: OpacityWriter;
 }) {
-  const label = `${teams[def.team].label} ${def.number}번${def.isGk ? ' 골키퍼' : ''}`;
+  const t = useT();
+  const label = t('present.objects.chairAriaLabel', { team: teams[def.team].label, number: def.number, gkSuffix: def.isGk ? t('present.objects.goalkeeperSuffix') : '' });
   return (
     <Fade id={def.id} opacityWriter={opacityWriter}>
       <ChairChip
@@ -81,17 +83,20 @@ export const PresentChairMark = memo(function PresentChairMark({
 });
 
 export const PresentBallMark = memo(function PresentBallMark({ id, writer, opacityWriter }: { id: BallId; writer: TransformWriter; opacityWriter: OpacityWriter }) {
+  const t = useT();
   return (
     <Fade id={id} opacityWriter={opacityWriter}>
-      <BallDot id={id} writer={writer} selected={false} active={false} ariaLabel="공" />
+      <BallDot id={id} writer={writer} selected={false} active={false} ariaLabel={t('present.objects.ballAriaLabel')} />
     </Fade>
   );
 });
 
 export const PresentConeMark = memo(function PresentConeMark({ def, writer, opacityWriter }: { def: ConeDef; writer: TransformWriter; opacityWriter: OpacityWriter }) {
+  const t = useT();
+  const color = def.colorIndex === 0 ? t('team.colorNames.orange') : t('team.colorNames.blue');
   return (
     <Fade id={def.id} opacityWriter={opacityWriter}>
-      <ConeMark id={def.id} writer={writer} colorIndex={def.colorIndex} selected={false} active={false} ariaLabel={`콘 ${def.colorIndex === 0 ? '주황' : '파랑'}`} />
+      <ConeMark id={def.id} writer={writer} colorIndex={def.colorIndex} selected={false} active={false} ariaLabel={t('present.objects.coneAriaLabel', { color })} />
     </Fade>
   );
 });
