@@ -30,6 +30,10 @@ const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };
 //
 // `COURT_DEFS` 를 값으로 읽어도 되는 프로덕션 파일과 **그 근거**. 근거가 없으면 목록에 없다.
 const COURT_DEFS_ALLOWED: Record<string, string> = {
+  'src/features/board/BoardScreen.tsx':
+    '2026-08-19 i18n C7 — [코트 형태를 바꿨습니다] 토스트의 형태 이름을 court.ts 정의에서 그대로 읽는다. ' +
+    '전에는 이 파일이 { full: "풀 코트", half: "하프 코트", flat: "플랫 코트" } 를 손으로 또 하나 베껴 두고 ' +
+    '있었다 — 로케일마다 세 벌을 더 베끼는 대신 정의를 그대로 읽어 사본을 없앴다.',
   'src/model/court.ts': '정의 그 자체 + courtDefFor 의 구현부. 여기가 유일한 출처다.',
   'src/render/courtLines/HalfCourtLines.tsx':
     '하프 코트는 크기 3단을 따라가지 않는다(court.ts COURT_DEFS 주석 근거 셋: 규격 부재 · 격자 붕괴 · flat 파급). ' +
@@ -122,9 +126,9 @@ const barWrapper = ({ children }: { children: ReactNode }) => (
 // 지킨다: 세 문장이 실제로 서로 달라야 화면 어디서 읽든 구분이 된다.
 describe('§6.4 ④ 코트 크기 desc 모델 계약', () => {
   it('세 desc 가 서로 다른 문장이다', () => {
-    expect(new Set(COURT_SIZES.map((s) => courtDefFor('full', s).desc)).size).toBe(3);
+    expect(new Set(COURT_SIZES.map((s) => courtDefFor('full', s).desc.ko)).size).toBe(3);
     // 리터럴 대조 — 모델이 빈 문자열로 망가지면 위 단언이 조용히 통과한다.
-    expect(courtDefFor('full', '28x15').desc).toMatch(/농구 코트/);
+    expect(courtDefFor('full', '28x15').desc.ko).toMatch(/농구 코트/);
   });
 });
 

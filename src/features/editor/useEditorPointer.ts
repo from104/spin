@@ -41,12 +41,13 @@ import type { PlaceKind } from './placement.ts';
 import { snapOnSettle } from './snapOnSettle.ts';
 import { blockCueLimits, initialBlockCue, stepBlockCue } from './blockCue.ts';
 import type { BlockCueState } from './blockCue.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
-const ZONE_LABEL: Record<DragZone, string> = {
-  towRear: '후방 견인',
-  translate: '평행 이동',
-  spin: '제자리 회전',
-  towFront: '전방 견인',
+const ZONE_LABEL: Record<Locale, Record<DragZone, string>> = {
+  ko: { towRear: '후방 견인', translate: '평행 이동', spin: '제자리 회전', towFront: '전방 견인' },
+  en: { towRear: 'rear tow', translate: 'translate', spin: 'spin in place', towFront: 'front tow' },
+  ja: { towRear: '後方けん引', translate: '平行移動', spin: 'その場回転', towFront: '前方けん引' },
 };
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
@@ -170,6 +171,7 @@ function inRect(p: Vec2, rect: { x: number; y: number; w: number; h: number }): 
 }
 
 export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointerResult {
+  const locale = useLocale();
   const ctxRef = useRef(opts);
   ctxRef.current = opts;
 
@@ -649,7 +651,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           if (cur) selectionOverlayRef.current?.setRing('chair', cur.x, cur.y, cur.theta);
         }
         setActiveZone(handle?.zone ?? hit.zone ?? null);
-        if (handle?.zone) liveRegion.say(`${ZONE_LABEL[handle.zone]} 잡음`);
+        if (handle?.zone) liveRegion.say(`${ZONE_LABEL[locale][handle.zone]} 잡음`);
         return;
       }
       if (hit.kind === 'arrowHandle') {
@@ -709,7 +711,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         }
       }
     },
-    [buildScene, buildHitContext, placeAt, resetDragSession],
+    [buildScene, buildHitContext, placeAt, resetDragSession, locale],
   );
 
   const onPointerMove = useCallback(
@@ -997,7 +999,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           ctx.dispatch({ type: 'ARROW_SET', arrow: next });
           // 발화는 **방금 바뀐 것**만 말한다. 화살촉을 돌렸는데 색까지 읽어 주면 무엇이
           // 바뀌었는지가 오히려 흐려진다(같은 이유로 arrowLabel 에 색을 넣지 않았다).
-          liveRegion.say(h.which === 'ctrl' ? `${arrowColorName(next)} 선` : arrowLabel(next));
+          liveRegion.say(h.which === 'ctrl' ? `${arrowColorName(next, locale)} 선` : arrowLabel(next));
         }
       }
       return;
@@ -1061,7 +1063,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     // [A-3] 화살표 몸통은 어떤 드래그 세션도 만들지 않아 여기까지 흘러온다 — 재탭 해제만 판정.
     // 물리 바디를 못 잡은 공(beginDrag 가 null)도 여기로 떨어지므로 finishTap 이어야 한다.
     finishTap();
-  }, [arrowDraft, armSettleRecommit, buildScene, commitDragResult, takeTrayDrop]);
+  }, [arrowDraft, armSettleRecommit, buildScene, commitDragResult, takeTrayDrop, locale]);
 
   const controller = useMemo<CourtStagePointerController>(() => ({ onPointerDown, onPointerMove, onPointerUp }), [onPointerDown, onPointerMove, onPointerUp]);
 

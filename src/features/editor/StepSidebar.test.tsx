@@ -4,7 +4,8 @@
 // 접힘/오버레이 표시 모드. 드래그·키보드 재정렬 계약은 StepSidebar.reorder.test.tsx 다
 // (옛 TransportBar.reorder.test.tsx 의 이사 — 계약 자체는 그대로다).
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render as rtlRender, screen, within } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { StepSidebar } from './StepSidebar.tsx';
 import { SIDEBAR_GLYPH_SCALE } from '../../render/CourtThumbnail.tsx';
@@ -13,6 +14,11 @@ import { createDrill } from '../../model/defaults.ts';
 import { addStepAfter } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// StepSidebar 의 카드 썸네일(CourtThumbnail)이 aria-label 번역에 useLocale()(→
+// SettingsProvider)을 쓴다(C7) — 이 파일 전체를 한 곳에서 감싼다.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 /** 재생 컨트롤 스텁 — 이 파일의 관심사가 아니면 잠든 값이면 된다(별도 절이 실제 배선을 본다). */
 const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };

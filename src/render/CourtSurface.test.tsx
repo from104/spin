@@ -2,10 +2,16 @@
 // "프로토타입 마크업이 그대로 이식됐는가" + "variant 굵기표가 맞는가"만 본다.
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { CourtSurface } from './CourtSurface.tsx';
 import { CourtThumbnail } from './CourtThumbnail.tsx';
 import { COURT_DEFS, COURT_SIZES, courtDefFor, SPOT_CROSS_HALF_PX } from '../model/court.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+
+// CourtThumbnail 이 aria-label 번역에 useLocale()(→ SettingsProvider)을 쓴다(C7) — 이 파일
+// 아래쪽의 몇몇 render(<CourtThumbnail .../>) 호출을 위해 한 곳에서 감싼다.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 function renderCourt(mode: 'full' | 'half' | 'flat', variant: 'editor' | 'present' | 'thumb') {
   return render(

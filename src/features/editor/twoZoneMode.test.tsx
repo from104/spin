@@ -215,6 +215,7 @@ describe('판이 거짓말하지 않는다 — 차체 음영이 판정과 같은
         onDuplicateIds={vi.fn()}
         onEditNote={() => {}}
       />,
+      { wrapper: SettingsProvider },
     );
     return Array.from(container.querySelectorAll('.court-obj rect.zone-tint')).map((r) => ({
       x: Number(r.getAttribute('x')),

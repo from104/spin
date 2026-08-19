@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { EditorStage } from './EditorStage.tsx';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { createTransformWriter } from '../../render/transformWriter.ts';
 import { createRuleOverlay } from '../../render/ruleOverlay.ts';
 import { RING_5M_R_PX, RING_R_PX } from '../../model/rules.ts';
@@ -102,6 +103,7 @@ function mount(drill: Drill, showRuleZones = true) {
       onDuplicateIds={vi.fn()}
       onEditNote={() => {}}
     />,
+    { wrapper: SettingsProvider },
   );
   return { ...view, writer, rules, say };
 }

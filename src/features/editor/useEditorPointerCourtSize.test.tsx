@@ -189,6 +189,7 @@ describe('§6.4 ④ 키보드 배치 커서가 그 코트의 격자 위에 선�
         onDuplicateIds={vi.fn()}
         onEditNote={() => {}}
       />,
+      { wrapper: SettingsProvider },
     );
     const stage = container.querySelector('svg[role="application"]')!;
     fireEvent.keyDown(stage, { key: 'ArrowRight' });

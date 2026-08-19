@@ -102,7 +102,7 @@ const SCREENS: Screen[] = [
   {
     name: '⑤ 썸네일 CourtThumbnail',
     svg(mode, size) {
-      const { container } = render(<CourtThumbnail mode={mode} size={size} />);
+      const { container } = render(<CourtThumbnail mode={mode} size={size} />, { wrapper: SettingsProvider });
       return container.querySelector('svg')!;
     },
   },

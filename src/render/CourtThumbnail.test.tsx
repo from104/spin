@@ -1,13 +1,19 @@
 // §3.11 썸네일 렌더 검증: viewBox 가 COURT_DEFS[mode] 그대로인지, ThumbSpec 오브젝트가
 // 콘→화살표→휠체어→공 순서로 그려지는지 확인한다.
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { CourtThumbnail, SIDEBAR_GLYPH_SCALE, THUMB_GLYPH } from './CourtThumbnail.tsx';
 import type { ThumbSpec } from '../model/thumb.ts';
 import type { Shape } from '../model/shape.ts';
 import { SHAPE_STROKE_PX } from '../model/shape.ts';
 import { NOTE_DEFAULT_SIZE_PX } from './objects/noteChip.ts';
 import { ARROW_COLORS } from '../core/colors.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+
+// CourtThumbnail 이 aria-label 번역에 useLocale()(→ SettingsProvider)을 쓰게 되면서(C7) 이
+// 파일의 모든 render 호출이 Provider 를 필요로 한다 — 한 곳에서 감싸 12곳을 손대지 않는다.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 describe('CourtThumbnail', () => {
   it('mode 별 viewBox 는 COURT_DEFS 의 vbW/vbH 그대로다', () => {

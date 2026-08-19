@@ -23,6 +23,11 @@ import { useAppNav } from '../../app/useAppHistory.ts';
 import { EditorProvider, useEditorDispatch, useEditorState } from '../../store/editor/EditorProvider.tsx';
 import { PlaybackProvider } from '../../store/playback/PlaybackProvider.tsx';
 import { EditorWorkspace } from '../editor/EditorWorkspace.tsx';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
+import type { Locale } from '../../i18n/locale.ts';
+import { translate } from '../../i18n/useT.ts';
+import { COURT_DEFS } from '../../model/court.ts';
 
 const PERSIST_DEBOUNCE_MS = 500;
 
@@ -32,9 +37,9 @@ const PERSIST_DEBOUNCE_MS = 500;
  *  **코트는 비어 있다**(empty, 2026-08-10 기현 지시). 전술판에서는 기본 포메이션이 의미가
  *  없다 — 무엇을 그릴지 모르는 판에 8대가 깔려 있으면 매번 치우는 일부터 해야 한다.
  *  선수는 인스펙터 명단에서 하나씩 놓고, 공·콘은 도구로 만든다. */
-function makeBoardDrill(prefs: Preferences, mode?: CourtMode, size?: CourtSize): Drill {
+function makeBoardDrill(prefs: Preferences, locale: Locale, mode?: CourtMode, size?: CourtSize): Drill {
   return createDrill({
-    title: '자유 전술판',
+    title: translate(locale, 'board.defaultTitle'),
     courtMode: mode ?? prefs.defaultCourtMode ?? 'full',
     // §6.4 — 고른 코트 크기를 새 판에 물려 준다. 없으면 30×18(§9 ② 부기).
     courtSize: size,
@@ -46,6 +51,7 @@ function makeBoardDrill(prefs: Preferences, mode?: CourtMode, size?: CourtSize):
 
 export function BoardScreen() {
   const { prefs } = useSettingsState();
+  const locale = useLocale();
   // 최초 1회만 판을 정한다. prefs 가 바뀌었다고 그리던 판을 갈아엎으면 안 된다.
   //
   // 부팅 출처는 셋이고 **순서가 곧 계약**이다(2026-08-14 기현님 지시 — boardSession.ts 머리말):
@@ -56,7 +62,7 @@ export function BoardScreen() {
     const session = readBoardSession();
     if (session) return { drill: session.state.present, pristine: session.pristineBase, init: session.state };
     const snap = loadBoard();
-    return snap ? { ...snap, init: undefined } : { drill: makeBoardDrill(prefs), pristine: true, init: undefined };
+    return snap ? { ...snap, init: undefined } : { drill: makeBoardDrill(prefs, locale), pristine: true, init: undefined };
   });
 
   return (
@@ -77,6 +83,8 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
   const toast = useToast();
   const nav = useAppNav();
   const { refresh } = useLibraryActions();
+  const t = useT();
+  const locale = useLocale();
 
   // 저장본 기준선. 판을 갈아끼우면(코트 전환·초기화) 다시 true 가 된다. 실제 게이트는
   // EditorWorkspace 가 여기에 `past.length === 0` 를 AND 해서 만든다.
@@ -131,10 +139,10 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
 
   const swap = useCallback(
     (mode: CourtMode, size?: CourtSize) => {
-      dispatch({ type: 'BOARD_SET', drill: makeBoardDrill(prefs, mode, size) });
+      dispatch({ type: 'BOARD_SET', drill: makeBoardDrill(prefs, locale, mode, size) });
       setPristineBase(true);
     },
-    [dispatch, prefs],
+    [dispatch, prefs, locale],
   );
 
   const onCourtChange = useCallback(
@@ -144,10 +152,9 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
       //    코트가 조용히 30×18 로 돌아왔다 — court.ts:269 가 "하프에서도 courtSize 를 들고
       //    다닌다" 고 적어 둔 이유가 바로 이 왕복이다.
       swap(mode, state.present.courtSize);
-      const label = { full: '풀 코트', half: '하프 코트', flat: '플랫 코트' }[mode];
-      toast.show(`${label}로 바꿨습니다.`);
+      toast.show(t('board.courtChangedToast', { label: COURT_DEFS[mode].label[locale] }));
     },
-    [state.present.courtMode, state.present.courtSize, swap, toast],
+    [state.present.courtMode, state.present.courtSize, swap, toast, t, locale],
   );
 
   /** §6.4 코트 크기 3단 선택. **판을 비운 상태에서만** 열린다(코트 형태 전환과 같은 문).
@@ -166,23 +173,23 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
     (size: CourtSize) => {
       if (size === (state.present.courtSize ?? DEFAULT_COURT_SIZE)) return;
       swap(state.present.courtMode, size);
-      toast.show(`${COURT_SIZE_LABELS[size]} 코트로 바꿨습니다.`);
+      toast.show(t('board.courtSizeChangedToast', { size: COURT_SIZE_LABELS[locale][size] }));
     },
-    [state.present.courtMode, state.present.courtSize, swap, toast],
+    [state.present.courtMode, state.present.courtSize, swap, toast, t, locale],
   );
 
   const onReset = useCallback(() => {
     // 비우기는 **크기를 유지한다** — 코트를 비웠다고 고른 규격까지 되돌리면, 크기를 고른 뒤
     // 한 번 잘못 놓고 비우는 흔한 동작에서 규격이 조용히 30×18 로 돌아간다.
     swap(state.present.courtMode, state.present.courtSize);
-    toast.show('코트를 비웠습니다. 이제 코트 형태와 크기를 바꿀 수 있습니다.');
-  }, [state.present.courtMode, state.present.courtSize, swap, toast]);
+    toast.show(t('board.clearedToast'));
+  }, [state.present.courtMode, state.present.courtSize, swap, toast, t]);
 
   const onSaveAsDrill = useCallback(() => {
     // 승격은 **복사**다 — 전술판은 그대로 남는다. 저장 직후 판이 사라지면 "방금 그리던 것"을
     // 잃은 것처럼 보인다.
     const now = Date.now();
-    const title = state.present.title.trim() || '새 드릴';
+    const title = state.present.title.trim() || t('board.defaultDrillTitle');
     const promoted: Drill = { ...structuredClone(state.present), id: newId('dr'), title, createdAt: now, updatedAt: now };
     void (async () => {
       try {
@@ -192,14 +199,14 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
         // (App.tsx), 이걸 빼면 IDB 에는 저장됐는데 목록·대문 통계에는 새로고침 전까지 안 뜬다
         // — 사용자에겐 "저장이 안 된 것" 으로 보인다(실제로 그렇게 보였다).
         await refresh();
-        toast.show(`'${title}' 드릴로 저장했습니다.`, {
-          action: { label: '목록에서 보기', onAction: () => nav.go('drills') },
+        toast.show(t('board.savedToast', { title }), {
+          action: { label: t('board.savedToastAction'), onAction: () => nav.go('drills') },
         });
       } catch {
-        toast.show('드릴로 저장하지 못했습니다. 저장 공간을 확인해 주세요.');
+        toast.show(t('board.saveFailedToast'));
       }
     })();
-  }, [state.present, toast, nav, refresh]);
+  }, [state.present, toast, nav, refresh, t]);
 
   return <EditorWorkspace mode="board" board={{ pristine: pristineBase, onCourtChange, onCourtSizeChange, onReset, onSaveAsDrill, onSave: saveNow }} />;
 }

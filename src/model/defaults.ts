@@ -274,7 +274,9 @@ export function cloneToCourt(d: Drill, mode: CourtMode, size?: CourtSize): Drill
   const cast = structuredClone(d.cast);
   const teams = structuredClone(d.teams);
   const step = defaultStep(mode, d.formation, cast, nextSize);
-  const suffix = mode === 'full' ? ` (풀 ${courtDefFor('full', nextSize).dims})` : mode === 'half' ? ' (하프)' : ' (플랫)';
+  // ⚠️ 이 함수는 지금 실사용 호출부가 없다(BoardScreen 은 일부러 안 쓴다 — 그 파일의 ⚠️ 주석).
+  //    UI 로케일에 닿을 길이 없으므로 defaultPhase() 와 같은 이유로 'ko' 고정만 해 둔다.
+  const suffix = mode === 'full' ? ` (풀 ${courtDefFor('full', nextSize).dims.ko})` : mode === 'half' ? ' (하프)' : ' (플랫)';
   const prefix = '[코트 전환 — 배치를 다시 만들어야 합니다] ';
   return {
     ...d,

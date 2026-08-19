@@ -95,5 +95,7 @@ export const fillSummary = (mode: CourtMode): string => {
   const s = COURT_FILL_SPECS[mode];
   const def = courtDefFor(mode);
   const shape = s.formationAware ? '포메이션대로' : '포메이션 무관 단일 배치로';
-  return `${def.label}: ${shape} ${s.chairs}대${s.ball ? ' + 공 1개' : ''}`;
+  // ⚠️ 실사용 호출부가 없다(테스트·명세 전용 파생값 — 위 머리말) — UI 로케일에 닿지 않으므로
+  //    cloneToCourt() 와 같은 이유로 'ko' 고정만 해 둔다.
+  return `${def.label.ko}: ${shape} ${s.chairs}대${s.ball ? ' + 공 1개' : ''}`;
 };

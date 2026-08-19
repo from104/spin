@@ -3,15 +3,20 @@
 // 가르는 이유는 두 가지 성격(선택 모드 밖의 기본 카드 동작 vs 모드 안의 새 조작)이 섞이면
 // 어느 쪽 회귀인지 파일명만으로 안 보이기 때문이다.
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
+import type { ReactElement } from 'react';
 import { StepSidebar } from './StepSidebar.tsx';
 import { createDrill } from '../../model/defaults.ts';
 import { addStepAfter, moveStep, moveSteps } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// StepSidebar 의 카드 썸네일(CourtThumbnail)이 useLocale()(→ SettingsProvider)을 쓴다(C7).
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 /** 재생 컨트롤 스텁 — 이 파일의 관심사가 아니면 잠든 값이면 된다(별도 절이 실제 배선을 본다). */
 const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };

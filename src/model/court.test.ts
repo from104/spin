@@ -23,8 +23,8 @@ import { CHAIR } from '../core/constants.ts';
 describe('COURT_DEFS', () => {
   it('full', () => {
     const d = COURT_DEFS.full;
-    expect(d.label).toBe('풀 코트');
-    expect(d.dims).toBe('30 × 18 m');
+    expect(d.label.ko).toBe('풀 코트');
+    expect(d.dims.ko).toBe('30 × 18 m');
     expect(d.vbW).toBe(825);
     expect(d.vbH).toBe(525);
     expect(d.surface).toEqual({ x: 37.5, y: 37.5, w: 750, h: 450 });
@@ -74,8 +74,8 @@ describe('COURT_DEFS', () => {
 
   it('half', () => {
     const d = COURT_DEFS.half;
-    expect(d.label).toBe('하프 코트');
-    expect(d.dims).toBe('18 × 15 m · 90° 회전');
+    expect(d.label.ko).toBe('하프 코트');
+    expect(d.dims.ko).toBe('18 × 15 m · 90° 회전');
     expect(d.vbW).toBe(525);
     expect(d.vbH).toBe(450);
     expect(d.surface).toEqual({ x: 37.5, y: 37.5, w: 450, h: 375 });
@@ -93,8 +93,8 @@ describe('COURT_DEFS', () => {
 
   it('flat', () => {
     const d = COURT_DEFS.flat;
-    expect(d.label).toBe('플랫 코트');
-    expect(d.dims).toBe('라인 없음');
+    expect(d.label.ko).toBe('플랫 코트');
+    expect(d.dims.ko).toBe('라인 없음');
     expect(d.vbW).toBe(525);
     expect(d.vbH).toBe(450);
     expect(d.surface).toEqual({ x: 0, y: 0, w: 525, h: 450 });
@@ -268,17 +268,17 @@ describe('§5.1 코트 크기 3단', () => {
     expect(sizes).toHaveLength(3);
     const areas = sizes.map((s) => FULL_COURT_DEFS[s].surface.w * FULL_COURT_DEFS[s].surface.h);
     expect(new Set(areas).size).toBe(3);
-    expect(new Set(sizes.map((s) => FULL_COURT_DEFS[s].dims)).size).toBe(3);
-    expect(new Set(sizes.map((s) => COURT_SIZE_LABELS[s])).size).toBe(3);
+    expect(new Set(sizes.map((s) => FULL_COURT_DEFS[s].dims.ko)).size).toBe(3);
+    expect(new Set(sizes.map((s) => COURT_SIZE_LABELS.ko[s])).size).toBe(3);
     // 크기가 커질수록 판도 커진다(순서가 뒤집혀 있으면 표를 잘못 옮긴 것이다).
     expect(FULL_COURT_DEFS['30x18'].vbW).toBeGreaterThan(FULL_COURT_DEFS['28x15'].vbW);
     expect(FULL_COURT_DEFS['28x15'].vbW).toBeGreaterThan(FULL_COURT_DEFS['25x14'].vbW);
   });
 
   it('dims 는 사람이 읽는 치수를 적는다', () => {
-    expect(FULL_COURT_DEFS['30x18'].dims).toBe('30 × 18 m');
-    expect(FULL_COURT_DEFS['28x15'].dims).toBe('28 × 15 m');
-    expect(FULL_COURT_DEFS['25x14'].dims).toBe('25 × 14 m');
+    expect(FULL_COURT_DEFS['30x18'].dims.ko).toBe('30 × 18 m');
+    expect(FULL_COURT_DEFS['28x15'].dims.ko).toBe('28 × 15 m');
+    expect(FULL_COURT_DEFS['25x14'].dims.ko).toBe('25 × 14 m');
   });
 
   // ⚠️ 이것이 5.1 의 규격 판정이다. Laws 는 골대·골 지역·페널티 마크·코너 삼각형을 **절대

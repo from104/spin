@@ -37,10 +37,10 @@ export const DEFAULT_COURT_SIZE: CourtSize = '30x18';
 
 /** 크기 선택 UI 가 쓸 사람용 이름. `CourtDef.dims` 는 '30 × 18 m' 처럼 치수만 적으므로
  *  "최대/표준/최소" 라는 규정상의 자리는 여기서만 말한다. */
-export const COURT_SIZE_LABELS: Record<CourtSize, string> = {
-  '30x18': '최대 30 × 18 m',
-  '28x15': '표준 28 × 15 m (농구 코트)',
-  '25x14': '최소 25 × 14 m',
+export const COURT_SIZE_LABELS: Record<Locale, Record<CourtSize, string>> = {
+  ko: { '30x18': '최대 30 × 18 m', '28x15': '표준 28 × 15 m (농구 코트)', '25x14': '최소 25 × 14 m' },
+  en: { '30x18': 'Max 30 × 18 m', '28x15': 'Standard 28 × 15 m (basketball court)', '25x14': 'Min 25 × 14 m' },
+  ja: { '30x18': '最大 30 × 18 m', '28x15': '標準 28 × 15 m（バスケコート）', '25x14': '最小 25 × 14 m' },
 };
 
 export function normalizeCourtSize(v: unknown): CourtSize {
@@ -56,9 +56,9 @@ export interface Rect {
 
 export interface CourtDef {
   mode: CourtMode;
-  label: string;
-  dims: string;
-  desc: string;
+  label: Record<Locale, string>;
+  dims: Record<Locale, string>;
+  desc: Record<Locale, string>;
   vbW: number;
   vbH: number;
   surface: Rect; // 라인 안쪽 경기면. flat 은 viewBox 전체
@@ -179,9 +179,10 @@ function centerMarkD(c: Vec2): string {
   return `M${c.x - r},${c.y - r} L${c.x + r},${c.y + r} M${c.x + r},${c.y - r} L${c.x - r},${c.y + r}`;
 }
 
-function buildFullCourt(lengthM: number, widthM: number, desc: string): CourtDef {
+function buildFullCourt(lengthM: number, widthM: number, desc: Record<Locale, string>): CourtDef {
   const w = lengthM * PX_PER_M;
   const h = widthM * PX_PER_M;
+  const dims = `${lengthM} × ${widthM} m`; // 숫자·단위뿐이라 세 로케일이 같은 문자열을 쓴다
   const x0 = MARGIN_PX;
   const y0 = MARGIN_PX;
   const x1 = x0 + w;
@@ -197,8 +198,8 @@ function buildFullCourt(lengthM: number, widthM: number, desc: string): CourtDef
   ];
   return {
     mode: 'full',
-    label: '풀 코트',
-    dims: `${lengthM} × ${widthM} m`,
+    label: { ko: '풀 코트', en: 'Full Court', ja: 'フルコート' },
+    dims: { ko: dims, en: dims, ja: dims },
     desc,
     vbW: w + 2 * MARGIN_PX,
     vbH: h + 2 * MARGIN_PX,
@@ -237,9 +238,21 @@ function buildFullCourt(lengthM: number, widthM: number, desc: string): CourtDef
 
 /** 풀 코트 3단. viewBox 는 각각 825×525 / 775×450 / 700×425 다(§9 ② 표). */
 export const FULL_COURT_DEFS: Record<CourtSize, CourtDef> = {
-  '30x18': buildFullCourt(30, 18, '규격 최대 크기의 전체 코트. 4v4 전술 전개와 전환 훈련에 적합합니다.'),
-  '28x15': buildFullCourt(28, 15, '표준 농구 코트와 같은 크기. 국내 체육관에서 가장 흔한 바닥입니다.'),
-  '25x14': buildFullCourt(25, 14, '규격 최소 크기. 좁은 체육관·소규모 훈련장에 맞춘 코트입니다.'),
+  '30x18': buildFullCourt(30, 18, {
+    ko: '규격 최대 크기의 전체 코트. 4v4 전술 전개와 전환 훈련에 적합합니다.',
+    en: 'The largest regulation full court. Suited for 4v4 tactical play and transition drills.',
+    ja: '規格最大サイズのフルコート。4対4の戦術展開とトランジション練習に適しています。',
+  }),
+  '28x15': buildFullCourt(28, 15, {
+    ko: '표준 농구 코트와 같은 크기. 국내 체육관에서 가장 흔한 바닥입니다.',
+    en: 'Same size as a standard basketball court — the most common gym floor size.',
+    ja: '標準的なバスケットボールコートと同じ大きさ。体育館で最もよく見かける床面です。',
+  }),
+  '25x14': buildFullCourt(25, 14, {
+    ko: '규격 최소 크기. 좁은 체육관·소규모 훈련장에 맞춘 코트입니다.',
+    en: 'The smallest regulation size. Suited for smaller gyms and small-scale training venues.',
+    ja: '規格最小サイズ。狭い体育館や小規模な練習場に適したコートです。',
+  }),
 };
 
 /** 하프 코트의 골포스트. 인크로치먼트 마크가 이 배열에서 파생되도록 이름을 준 것뿐이다
@@ -271,9 +284,13 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
   //  그때 ②의 격자 규칙(5×3 고정인가, 칸 크기 고정인가)을 **먼저** 정해야 한다.
   half: {
     mode: 'half',
-    label: '하프 코트',
-    dims: '18 × 15 m · 90° 회전',
-    desc: '공격 진영만 세로로 확대. 마무리·세트피스 훈련에 적합합니다.',
+    label: { ko: '하프 코트', en: 'Half Court', ja: 'ハーフコート' },
+    dims: { ko: '18 × 15 m · 90° 회전', en: '18 × 15 m · rotated 90°', ja: '18 × 15 m・90°回転' },
+    desc: {
+      ko: '공격 진영만 세로로 확대. 마무리·세트피스 훈련에 적합합니다.',
+      en: 'Zooms in on the attacking half only. Suited for finishing and set-piece training.',
+      ja: '攻撃陣地のみを縦に拡大。フィニッシュ・セットプレー練習に適しています。',
+    },
     vbW: 525,
     vbH: 450,
     surface: HALF_SURFACE,
@@ -311,9 +328,13 @@ export const COURT_DEFS: Record<CourtMode, CourtDef> = {
   },
   flat: {
     mode: 'flat',
-    label: '플랫 코트',
-    dims: '라인 없음',
-    desc: '하프 코트에서 라인을 제거한 자유 배치용. 위치 개념 설명에 적합합니다.',
+    label: { ko: '플랫 코트', en: 'Flat Court', ja: 'フラットコート' },
+    dims: { ko: '라인 없음', en: 'No lines', ja: 'ラインなし' },
+    desc: {
+      ko: '하프 코트에서 라인을 제거한 자유 배치용. 위치 개념 설명에 적합합니다.',
+      en: 'A line-free layout based on the half court, for free placement. Good for explaining positional concepts.',
+      ja: 'ハーフコートからラインを除いた自由配置用。ポジションの説明に適しています。',
+    },
     // ⚠️ viewBox 는 half 와 **정확히 같아야** 한다(D12) — half↔flat 이 좌표를 보존하는
     // 무손실 전환인 근거가 그것이다. half 가 마진 1.5 m 로 커지면 여기도 같이 커진다.
     vbW: 525,

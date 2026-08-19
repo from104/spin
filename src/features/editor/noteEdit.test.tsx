@@ -23,6 +23,7 @@ import type { ToolId } from '../../physics/index.ts';
 import { NoteEditModal } from './NoteEditModal.tsx';
 import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
 import { placeObject } from './placement.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 const NOTE_AT = { x: 300, y: 200 };
 
@@ -67,6 +68,7 @@ function mountStage(drill: Drill, tool: ToolId = 'select') {
       onDuplicateIds={vi.fn()}
       onEditNote={onEditNote}
     />,
+    { wrapper: SettingsProvider },
   );
   return { ...view, onEditNote };
 }

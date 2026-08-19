@@ -3,6 +3,7 @@ import { ARROW_COLORS } from '../core/colors.ts';
 import type { Vec2 } from '../core/units.ts';
 import { isId } from '../core/ids.ts';
 import type { ArrowId } from '../core/ids.ts';
+import type { Locale } from '../i18n/locale.ts';
 
 /** 양 끝의 화살촉 — **없음 → 좁은 → 넓은** 순으로 돈다(기현 지시 2026-08-16).
  *
@@ -71,8 +72,14 @@ export const arrowColor = (a: Pick<Arrow, 'color'>): string => a.color ?? ARROW_
  *  저장하는데(`model/thumb.ts`) 그 첨자를 푸는 쪽이 core 만 볼 수 있어서다(그 파일의 ⚠️). */
 export const ARROW_COLOR_CYCLE: readonly string[] = ARROW_COLORS;
 /** 발화용 이름 — hex 를 그대로 읽으면 스크린리더가 낱글자를 센다(colors.ts 의 팀색 이름과 같은 이유). */
-export const ARROW_COLOR_NAMES: Record<string, string> = { '#38bdf8': '하늘', '#fde047': '노랑', '#ef4444': '빨강' };
-export const arrowColorName = (a: Pick<Arrow, 'color'>): string => ARROW_COLOR_NAMES[arrowColor(a)] ?? '사용자 지정';
+export const ARROW_COLOR_NAMES: Record<Locale, Record<string, string>> = {
+  ko: { '#38bdf8': '하늘', '#fde047': '노랑', '#ef4444': '빨강' },
+  en: { '#38bdf8': 'sky', '#fde047': 'yellow', '#ef4444': 'red' },
+  ja: { '#38bdf8': 'スカイ', '#fde047': '黄', '#ef4444': '赤' },
+};
+const ARROW_COLOR_CUSTOM: Record<Locale, string> = { ko: '사용자 지정', en: 'custom', ja: 'カスタム' };
+export const arrowColorName = (a: Pick<Arrow, 'color'>, locale: Locale): string =>
+  ARROW_COLOR_NAMES[locale][arrowColor(a)] ?? ARROW_COLOR_CUSTOM[locale];
 
 /** 다음 색으로 돌린 화살표. 순환 밖의 색(인스펙터가 언젠가 임의 색을 넣는다면)은 `indexOf`
  *  가 -1 이라 **첫 값**으로 간다 — `cycleHead` 와 같은 규약이다. */

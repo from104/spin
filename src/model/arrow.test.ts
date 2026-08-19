@@ -140,8 +140,12 @@ describe('cycleArrowColor', () => {
   it('★ 첫 값이 기본색이다 — 이게 어긋나면 한 바퀴 돌아도 기본으로 못 돌아온다', () => {
     expect(ARROW_COLOR_CYCLE[0]).toBe(ARROW_STYLE.color);
     expect(ARROW_COLOR_CYCLE).toHaveLength(3);
-    // 하늘·노랑·빨강 셋 다 이름이 있어야 발화가 hex 를 낱글자로 읽지 않는다.
-    for (const c of ARROW_COLOR_CYCLE) expect(ARROW_COLOR_NAMES[c]).toBeTruthy();
+    // 하늘·노랑·빨강 셋 다 이름이 있어야 발화가 hex 를 낱글자로 읽지 않는다(세 로케일 전부).
+    for (const c of ARROW_COLOR_CYCLE) {
+      expect(ARROW_COLOR_NAMES.ko[c]).toBeTruthy();
+      expect(ARROW_COLOR_NAMES.en[c]).toBeTruthy();
+      expect(ARROW_COLOR_NAMES.ja[c]).toBeTruthy();
+    }
   });
 
   it('하늘 → 노랑 → 빨강 → 하늘', () => {
@@ -175,8 +179,8 @@ describe('cycleArrowColor', () => {
   });
 
   it('arrowColorName — 모르는 색은 hex 대신 사람 말로 접는다', () => {
-    expect(arrowColorName(line())).toBe('하늘');
-    expect(arrowColorName(line('#123456'))).toBe('사용자 지정');
+    expect(arrowColorName(line(), 'ko')).toBe('하늘');
+    expect(arrowColorName(line('#123456'), 'ko')).toBe('사용자 지정');
   });
 });
 

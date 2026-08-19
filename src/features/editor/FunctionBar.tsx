@@ -63,6 +63,8 @@ import { COURT_DEFS, COURT_SIZE_LABELS, COURT_SIZES, courtDefFor, type CourtMode
 import type { Drill, TeamSide, TeamStyle } from '../../model/drill.ts';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { prunePhysics } from '../../storage/prefs.ts';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 /** 바 한 칸. 높이를 `--hit` 로 **못박지 않고** min 으로 둔다 — 아이콘 위에 2~4자 이름이 서므로
  *  실제로는 그보다 조금 높다(44 기준 ≈46). 큰 터치 타깃(56)에서는 min 이 이긴다. */
@@ -283,6 +285,8 @@ export function FunctionBar({
   const { prefs, physics } = useSettingsState();
   const { setPrefs } = useSettingsActions();
   const speedLimit = physics.speedLimit;
+  const t = useT();
+  const locale = useLocale();
 
   // 메뉴로 쓰는 Modal 은 열면 [닫기](DOM 순서상 앞)에 포커스가 간다 — 한 칸을 더 움직여야 하는
   // 것은 발 마우스 사용자에게 그냥 비용이다. 자식(Modal) 이펙트가 먼저, 부모(여기)가 나중에
@@ -306,7 +310,7 @@ export function FunctionBar({
     // 1024×600·hit 44 에서 11칸 = 506 + 구분선 27 + 패딩 26 = 559 > main 높이 548 이므로
     // 그 화면은 이미 2열이다. 실측이 아니라 계산이지만, wrap 이면 어느 쪽이든 안 잘린다.
     <nav
-      aria-label="판 조작"
+      aria-label={t('editor.functionBar.nav')}
       data-function-bar=""
       style={{
         flex: 'none',
@@ -322,36 +326,63 @@ export function FunctionBar({
         background: 'var(--panel)',
       }}
     >
-      <BarItem label="확대" name="확대" title="판을 크게 봅니다 (Ctrl/⌘ +, 코트 위에서 휠 위로)" onClick={onZoomIn}>
+      <BarItem
+        label={t('editor.functionBar.zoomIn.label')}
+        name={t('editor.functionBar.zoomIn.name')}
+        title={t('editor.functionBar.zoomIn.title')}
+        onClick={onZoomIn}
+      >
         <IconZoomIn />
       </BarItem>
-      <BarItem label="축소" name="축소" title="판을 작게 봅니다 (Ctrl/⌘ −, 코트 위에서 휠 아래로)" onClick={onZoomOut}>
+      <BarItem
+        label={t('editor.functionBar.zoomOut.label')}
+        name={t('editor.functionBar.zoomOut.name')}
+        title={t('editor.functionBar.zoomOut.title')}
+        onClick={onZoomOut}
+      >
         <IconZoomOut />
       </BarItem>
       {/* 2026-08-16 기현 지시로 '초기화' → '100%'. '초기화' 는 이 기둥에서 **뜻이 겹쳤다** —
           [비우기]도 판을 초기화하고, 인쇄물의 '초기화' 도 있다. 배율은 되돌아갈 자리가 하나뿐
           이고 그 자리의 이름이 100% 다. 이름 규칙(머리말)상 aria-label 에 '100%' 가 들어가야
           화면 글자가 그 부분 문자열이 된다. */}
-      <BarItem label="100%" name="배율 100%" title={`배율과 화면 이동을 처음 상태로 (${keyLabel('view.zoomReset')})`} onClick={onZoomReset}>
+      <BarItem
+        label={t('editor.functionBar.zoomReset.label')}
+        name={t('editor.functionBar.zoomReset.name')}
+        title={t('editor.functionBar.zoomReset.title', { key: keyLabel('view.zoomReset') })}
+        onClick={onZoomReset}
+      >
         <IconZoomReset />
       </BarItem>
 
       <div aria-hidden style={DIVIDER} />
 
       {/* 못 되돌릴 때도 **사라지지 않고** disabled 다 — 사라지면 아래 칸 좌표가 통째로 움직인다. */}
-      <BarItem label="되돌" name="되돌리기" title="마지막 조작을 되돌립니다 (Ctrl/⌘ Z)" onClick={onUndo} disabled={!canUndo}>
+      <BarItem
+        label={t('editor.functionBar.undo.label')}
+        name={t('editor.functionBar.undo.name')}
+        title={t('editor.functionBar.undo.title')}
+        onClick={onUndo}
+        disabled={!canUndo}
+      >
         <IconUndo size={18} />
       </BarItem>
-      <BarItem label="다시" name="다시하기" title="되돌린 조작을 다시 합니다 (Ctrl/⌘ Shift Z)" onClick={onRedo} disabled={!canRedo}>
+      <BarItem
+        label={t('editor.functionBar.redo.label')}
+        name={t('editor.functionBar.redo.name')}
+        title={t('editor.functionBar.redo.title')}
+        onClick={onRedo}
+        disabled={!canRedo}
+      >
         <IconRedo size={18} />
       </BarItem>
 
       <div aria-hidden style={DIVIDER} />
 
       <BarItem
-        label="코트"
-        name="코트 형태와 크기"
-        title={`${def.label} — ${def.desc}`}
+        label={t('editor.functionBar.court.label')}
+        name={t('editor.functionBar.court.name')}
+        title={t('editor.functionBar.court.titleTemplate', { label: def.label[locale], desc: def.desc[locale] })}
         buttonRef={courtBtnRef}
         aria-haspopup="dialog"
         aria-expanded={courtOpen}
@@ -360,9 +391,9 @@ export function FunctionBar({
         <IconBoard size={18} />
       </BarItem>
       <BarItem
-        label="골대"
-        name="골대 원위치"
-        title="휠체어에 밀린 골대를 제자리로 되돌립니다. 판의 다른 것은 건드리지 않습니다."
+        label={t('editor.functionBar.goalReset.label')}
+        name={t('editor.functionBar.goalReset.name')}
+        title={t('editor.functionBar.goalReset.title')}
         onClick={onResetGoals}
       >
         <IconGoalReset />
@@ -376,9 +407,9 @@ export function FunctionBar({
           FUNCTION_BAR_ITEMS_DRILL 이 그 근거를 갖는다. */}
       {isBoard && (
         <BarItem
-          label="비우기"
-          name="코트 비우기"
-          title="코트 위의 선수·공·콘·화살표·메모를 모두 지웁니다. 되돌릴 수 없습니다."
+          label={t('editor.functionBar.clear.label')}
+          name={t('editor.functionBar.clear.name')}
+          title={t('editor.functionBar.clear.title')}
           buttonRef={clearBtnRef}
           aria-haspopup="dialog"
           onClick={() => setConfirmOpen(true)}
@@ -390,9 +421,9 @@ export function FunctionBar({
       <div aria-hidden style={DIVIDER} />
 
       <BarItem
-        label="내보내기"
-        name="내보내기"
-        title="판을 인쇄하거나 이미지·백업 파일로 꺼냅니다."
+        label={t('editor.functionBar.export.label')}
+        name={t('editor.functionBar.export.name')}
+        title={t('editor.functionBar.export.title')}
         buttonRef={exportBtnRef}
         aria-haspopup="dialog"
         onClick={() => setExportOpen(true)}
@@ -402,13 +433,9 @@ export function FunctionBar({
       {/* 속도 제한은 **켬이 기본이자 사실적인 상태**다. 꺼졌을 때를 강조한다 — 제한을 푼 채로
           두고 왜 빠른지 모르는 상황이 더 나쁘다(옛 SpeedLimitSwitch 의 그 판단 그대로). */}
       <BarItem
-        label="속도"
-        name={`개체 이동 속도 제한 ${speedLimit ? '켬' : '끔'}`}
-        title={
-          speedLimit
-            ? '실제 파워체어 속도(10 km/h)로 움직입니다. 끄면 포인터를 즉시 따라옵니다.'
-            : '개체가 포인터를 즉시 따라옵니다. 켜면 실제 파워체어 속도로 움직입니다.'
-        }
+        label={t('editor.functionBar.speed.label')}
+        name={speedLimit ? t('editor.functionBar.speed.nameOn') : t('editor.functionBar.speed.nameOff')}
+        title={speedLimit ? t('editor.functionBar.speed.titleOn') : t('editor.functionBar.speed.titleOff')}
         active={!speedLimit}
         onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, speedLimit: !speedLimit }) })}
       >
@@ -421,9 +448,9 @@ export function FunctionBar({
           매번 과했다. 서랍은 손이 닿으면 떠서 두 칸을 내놓고, 손이 떠나면 닫힌다.
           트레이의 [작도]·[설명]과 **같은 장치**다(useFlyout) — 기둥이 오른쪽이라 왼쪽으로 편다. */}
       <BarItem
-        label="보기"
-        name="보기"
-        title="격자 · 골 지역 가이드"
+        label={t('editor.functionBar.view.label')}
+        name={t('editor.functionBar.view.name')}
+        title={t('editor.functionBar.view.title')}
         buttonRef={viewBtnRef}
         aria-expanded={fly.isOpen('view')}
         aria-controls={fly.isOpen('view') ? viewPanelId : undefined}
@@ -437,7 +464,14 @@ export function FunctionBar({
           시키는 배치다. 상시 칸으로 나오면서 부수적으로 복귀 포커스도 단순해졌다: 옛 배치는
           누르는 순간 트리거가 메뉴와 함께 DOM 에서 떨어져 나가 **[보기] 로 돌아가야** 했다.
           이제 트리거가 그 자리에 남아 있다. */}
-      <BarItem label="도움말" name="도움말" title={`단축키와 조작 안내 (${keyLabel('help')})`} buttonRef={helpBtnRef} aria-haspopup="dialog" onClick={onShowHelp}>
+      <BarItem
+        label={t('editor.functionBar.help.label')}
+        name={t('editor.functionBar.help.name')}
+        title={t('editor.functionBar.help.titleTemplate', { key: keyLabel('help') })}
+        buttonRef={helpBtnRef}
+        aria-haspopup="dialog"
+        onClick={onShowHelp}
+      >
         <IconHelp />
       </BarItem>
 
@@ -447,13 +481,9 @@ export function FunctionBar({
           맨 위는 줌이 이미 자리를 잡았고(손이 늘 가 있다), 새 칸을 위에 끼우면 아래 열한 칸의
           좌표가 통째로 밀린다(§3 불변식 1). 끝에 붙이면 아무것도 안 움직인다. */}
       <BarItem
-        label="저장"
-        name={isBoard ? '드릴로 저장' : saveStatus === 'saving' ? '저장 중' : '저장'}
-        title={
-          isBoard
-            ? '지금 판을 드릴 라이브러리에 새 항목으로 넣습니다. 전술판은 그대로 남습니다.'
-            : '드릴은 자동으로 저장됩니다. 지금 바로 저장하려면 누르세요.'
-        }
+        label={t('editor.functionBar.save.label')}
+        name={isBoard ? t('editor.functionBar.save.nameDrill') : saveStatus === 'saving' ? t('editor.functionBar.save.nameSaving') : t('editor.functionBar.save.nameIdle')}
+        title={isBoard ? t('editor.functionBar.save.titleBoard') : t('editor.functionBar.save.titleDrill')}
         onClick={onSaveAsDrill}
         accent
       >
@@ -461,14 +491,14 @@ export function FunctionBar({
       </BarItem>
 
       {/* ── 코트 팝오버 — 형태 3 + 크기 3 ───────────────────────────────────────────── */}
-      <Modal open={courtOpen} onClose={() => setCourtOpen(false)} titleId={courtId} title="코트" returnFocusRef={courtBtnRef}>
+      <Modal open={courtOpen} onClose={() => setCourtOpen(false)} titleId={courtId} title={t('editor.functionBar.courtModal.title')} returnFocusRef={courtBtnRef}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* 잠금은 **이름**으로도 말한다 — 옛 헤더 세그먼트의 계약 그대로다(`코트 형태` ↔
               `코트 형태(변경 불가)`). 화면에는 아래 문구가 있지만, 스크린리더로 구역에 들어온
               사람은 문구를 읽기 전에 이름부터 듣는다. */}
           <div
             role="radiogroup"
-            aria-label={courtLocked ? '코트 형태(변경 불가)' : '코트 형태'}
+            aria-label={courtLocked ? t('editor.functionBar.courtModal.shapeGroupLabelLocked') : t('editor.functionBar.courtModal.shapeGroupLabel')}
             style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
           >
             {(['full', 'half', 'flat'] as const).map((m, i) => {
@@ -484,8 +514,8 @@ export function FunctionBar({
                   // ⚠️ 네이티브 `disabled` 가 아니라 `aria-disabled` + 토스트다 — 키보드·스크린
                   // 리더 사용자도 **왜 안 되는지**를 들을 수 있어야 한다(§6.10 공 도구와 같은 패턴).
                   aria-disabled={courtLocked || undefined}
-                  aria-label={d.label}
-                  title={d.desc}
+                  aria-label={d.label[locale]}
+                  title={d.desc[locale]}
                   onClick={() => {
                     if (on) return;
                     // 잠겼으면 **바꾸지 않고 이유를 말한다.** disabled 로 두면 왜 안 되는지가
@@ -499,7 +529,7 @@ export function FunctionBar({
                   }}
                   style={toggleStyle(on)}
                 >
-                  {d.label}
+                  {d.label[locale]}
                 </button>
               );
             })}
@@ -511,7 +541,7 @@ export function FunctionBar({
               (court.ts COURT_DEFS 근거). 그때 고르게 두면 판이 거짓말을 하므로 사실을 적는다. */}
           {courtMode !== 'full' ? (
             <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-              현재 크기 {COURT_SIZE_LABELS[courtSize]} — 코트 크기 3단은 풀 코트에만 적용됩니다.
+              {t('editor.functionBar.courtModal.sizeInfoFullOnly', { size: COURT_SIZE_LABELS[locale][courtSize] })}
             </p>
           ) : courtLocked ? (
             // ⚠️ **잠기면 버튼을 안 낸다.** 형태 셋과 다른 이유: 형태는 눌러 보고 이유를 듣는
@@ -521,10 +551,14 @@ export function FunctionBar({
             // 바꾸면 이번 이사가 **동작까지** 바꾸는 것이 된다. 값은 계속 보인다 — 못 바꾸는
             // 것과 안 보이는 것은 다르다.
             <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-              현재 크기 {COURT_SIZE_LABELS[courtSize]} — 코트 크기를 바꾸려면 먼저 코트를 비우세요.
+              {t('editor.functionBar.courtModal.sizeInfoLocked', { size: COURT_SIZE_LABELS[locale][courtSize] })}
             </p>
           ) : (
-            <div role="radiogroup" aria-label="코트 크기" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div
+              role="radiogroup"
+              aria-label={t('editor.functionBar.courtModal.sizeGroupLabel')}
+              style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+            >
               {COURT_SIZES.map((s) => {
                 const on = courtSize === s;
                 const d = courtDefFor('full', s);
@@ -534,8 +568,8 @@ export function FunctionBar({
                     type="button"
                     role="radio"
                     aria-checked={on}
-                    aria-label={`코트 크기 ${COURT_SIZE_LABELS[s]}`}
-                    title={d.desc}
+                    aria-label={t('editor.functionBar.courtModal.sizeRadioAriaLabel', { size: COURT_SIZE_LABELS[locale][s] })}
+                    title={d.desc[locale]}
                     onClick={() => {
                       if (on) return;
                       setCourtOpen(false);
@@ -544,7 +578,7 @@ export function FunctionBar({
                     style={toggleStyle(on)}
                   >
                     {/* 치수만 적으면 무엇이 표준인지 알 수 없다 — 규정상의 이름을 함께 낸다. */}
-                    {COURT_SIZE_LABELS[s]}
+                    {COURT_SIZE_LABELS[locale][s]}
                   </button>
                 );
               })}
@@ -552,9 +586,7 @@ export function FunctionBar({
           )}
 
           <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6, marginTop: 4 }}>
-            {courtLocked
-              ? '코트를 바꾸려면 먼저 판을 비우세요 — 규격이 달라 배치를 옮겨 담을 수 없습니다.'
-              : '지금은 코트를 자유롭게 바꿀 수 있습니다.'}
+            {courtLocked ? t('editor.functionBar.courtModal.mustClearFirst') : t('editor.functionBar.courtModal.freeToChange')}
           </p>
 
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
@@ -569,25 +601,31 @@ export function FunctionBar({
                  세워 둔 계약을 따른다: *"골라도 안 변하는 컨트롤은 거짓말이다"* → 사실을 적는다. */}
           {courtMode === 'flat' ? (
             <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-              플랫 코트에는 골 지역이 없어 진영이 없습니다.
+              {t('editor.functionBar.courtModal.flatNoDefense')}
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
                 type="button"
-                aria-label={`진영 바꾸기. 지금 ${teams[defense].label} 이(가) ${courtMode === 'half' ? '골' : '왼쪽 골'}`}
-                title={`골 지역 3인 반칙은 수비 팀에만 걸립니다.`}
+                aria-label={t('editor.functionBar.courtModal.defenseAriaLabelTemplate', {
+                  team: teams[defense].label,
+                  goal: courtMode === 'half' ? t('editor.functionBar.courtModal.goalWord') : t('editor.functionBar.courtModal.leftGoalWord'),
+                })}
+                title={t('editor.functionBar.courtModal.defenseTitle')}
                 onClick={onToggleDefense}
                 style={MENU_ITEM}
               >
                 <span aria-hidden style={{ display: 'flex' }}>
                   <IconSides />
                 </span>
-                진영 바꾸기
+                {t('editor.functionBar.courtModal.defenseButtonText')}
               </button>
               <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-                지금 {courtMode === 'half' ? '골' : '왼쪽 골'}을 지키는 팀은 <strong>{teams[defense].label}</strong> 입니다 — 골
-                지역 3인 반칙은 이 팀에만 걸립니다.
+                {t('editor.functionBar.courtModal.defenseDescPrefix', {
+                  goal: courtMode === 'half' ? t('editor.functionBar.courtModal.goalWord') : t('editor.functionBar.courtModal.leftGoalWord'),
+                })}
+                <strong>{teams[defense].label}</strong>
+                {t('editor.functionBar.courtModal.defenseDescSuffix')}
               </p>
             </div>
           )}
@@ -605,7 +643,7 @@ export function FunctionBar({
             <div
               id={viewPanelId}
               role="group"
-              aria-label="보기"
+              aria-label={t('editor.functionBar.viewDrawer.ariaLabel')}
               {...fly.panelProps}
               style={{
                 position: 'fixed',
@@ -623,9 +661,9 @@ export function FunctionBar({
               }}
             >
               <BarItem
-                label="격자"
-                name="격자 표시 전환"
-                title={`코트에 1m 격자를 겹쳐 그립니다 (${keyLabel('view.grid')})`}
+                label={t('editor.functionBar.viewDrawer.grid.label')}
+                name={t('editor.functionBar.viewDrawer.grid.name')}
+                title={t('editor.functionBar.viewDrawer.grid.title', { key: keyLabel('view.grid') })}
                 active={showGrid}
                 aria-pressed={showGrid}
                 onClick={onToggleGrid}
@@ -633,9 +671,9 @@ export function FunctionBar({
                 <IconGrid />
               </BarItem>
               <BarItem
-                label="골 지역"
-                name="골 지역 가이드 전환"
-                title={`골 지역 3인 반칙 구획을 반투명하게 보여 줍니다 (${keyLabel('view.ruleZones')})`}
+                label={t('editor.functionBar.viewDrawer.ruleZone.label')}
+                name={t('editor.functionBar.viewDrawer.ruleZone.name')}
+                title={t('editor.functionBar.viewDrawer.ruleZone.title', { key: keyLabel('view.ruleZones') })}
                 active={showRuleZones}
                 aria-pressed={showRuleZones}
                 onClick={onToggleRuleZones}
@@ -648,13 +686,19 @@ export function FunctionBar({
         : null}
 
       {/* ── 비우기 확인 ─────────────────────────────────────────────────────────────── */}
-      <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} titleId={confirmId} title="코트를 비울까요?" returnFocusRef={clearBtnRef}>
+      <Modal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        titleId={confirmId}
+        title={t('editor.functionBar.clearConfirm.title')}
+        returnFocusRef={clearBtnRef}
+      >
         <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-          코트 위의 선수·공·콘·화살표·메모가 모두 사라집니다. <strong>되돌릴 수 없습니다.</strong>
+          {t('editor.functionBar.clearConfirm.body')} <strong>{t('editor.functionBar.clearConfirm.bodyStrong')}</strong>
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
           <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
-            취소
+            {t('editor.functionBar.clearConfirm.cancel')}
           </Button>
           <Button
             variant="primary"
@@ -663,7 +707,7 @@ export function FunctionBar({
               onReset();
             }}
           >
-            비우기
+            {t('editor.functionBar.clearConfirm.confirm')}
           </Button>
         </div>
       </Modal>

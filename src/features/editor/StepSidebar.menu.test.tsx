@@ -3,13 +3,18 @@
 // select/reorder 테스트와 파일을 가르는 이유도 같다: 메뉴는 제3의 진입 경로라, 카드 탭·드래그
 // 회귀와 섞이면 파일명으로 원인이 안 보인다.
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { StepSidebar } from './StepSidebar.tsx';
 import { createDrill } from '../../model/defaults.ts';
 import { addStepAfter } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// StepSidebar 의 카드 썸네일(CourtThumbnail)이 useLocale()(→ SettingsProvider)을 쓴다(C7).
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };
 const PLAYBACK_STUB = { playing: false, canPlay: true, onTogglePlay: () => {}, speed: 1 as const, onCycleSpeed: () => {} };

@@ -23,6 +23,8 @@ import {
 import { NOTE_FILL, NOTE_FOLD_FILL } from '../core/colors.ts';
 import { CourtSurface } from './CourtSurface.tsx';
 import { ShapeLayer } from './ShapeLayer.tsx';
+import { useT } from '../i18n/useT.ts';
+import { useLocale } from '../i18n/useLocale.ts';
 import {
   NOTE_DEFAULT_SIZE_PX,
   noteChipHeightPx,
@@ -134,6 +136,8 @@ export function CourtThumbnail({
 }: CourtThumbnailProps) {
   const g = glyphScale;
   const def = courtDefFor(mode, size);
+  const t = useT();
+  const locale = useLocale();
 
   return (
     <svg
@@ -142,7 +146,7 @@ export function CourtThumbnail({
       className={className}
       style={fill ? { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' } : undefined}
       role="img"
-      aria-label={`${def.label} 미리보기`}
+      aria-label={t('courtThumbnail.previewAriaLabel', { label: def.label[locale] })}
     >
       <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
       <CourtSurface mode={mode} size={size} variant="thumb" />

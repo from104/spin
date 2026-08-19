@@ -23,7 +23,9 @@ import { BOARD_KEY, CURRENT_BOARD_SCHEMA, loadBoard } from '../storage/board.ts'
 import { BoardScreen } from '../features/board/BoardScreen.tsx';
 import { createDrill } from '../model/defaults.ts';
 import type { Drill } from '../model/drill.ts';
-import { courtDefFor, COURT_SIZES, COURT_SIZE_LABELS, DEFAULT_COURT_SIZE, type CourtSize } from '../model/court.ts';
+import { courtDefFor, COURT_SIZES, COURT_SIZE_LABELS as COURT_SIZE_LABELS_ALL, DEFAULT_COURT_SIZE, type CourtSize } from '../model/court.ts';
+
+const COURT_SIZE_LABELS = COURT_SIZE_LABELS_ALL.ko;
 
 function Wrapper({ children }: { children: ReactNode }) {
   const nav: AppHistoryApi = { screen: 'board', go: () => {}, back: () => {} };

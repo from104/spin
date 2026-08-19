@@ -17,12 +17,17 @@
 // jsdom 은 레이아웃을 하지 않으므로 카드의 위치를 손으로 만들어 넣는다. `data-index` 가
 // **화면 순서**라 그 값으로 rect 를 지어내면 미리보기로 줄이 갈릴 때 좌표도 함께 따라온다.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
 import { useState } from 'react';
+import type { ReactElement } from 'react';
 import { StepSidebar } from './StepSidebar.tsx';
 import { createDrill } from '../../model/defaults.ts';
 import { addStepAfter, moveStep, setArrow, setNote } from '../../model/edits.ts';
 import type { Drill } from '../../model/drill.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// StepSidebar 의 카드 썸네일(CourtThumbnail)이 useLocale()(→ SettingsProvider)을 쓴다(C7).
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 import type { ArrowId, NoteId, StepId } from '../../core/ids.ts';
 
 /** 카드 높이 120 · 틈+여백 12 → 중심 y = 60, 192, 324, … */
