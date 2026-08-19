@@ -10,6 +10,7 @@ import { refDrillIds, refreshRefs } from '../model/refs.ts';
 import type { DrillSummary } from '../model/summary.ts';
 import { newId } from '../core/ids.ts';
 import type { DrillId, SessionId } from '../core/ids.ts';
+import { postSyncEvent, tombstoneRecord } from './syncMeta.ts';
 
 type SummaryCacheSrc = Pick<DrillSummary, 'title' | 'durationMin' | 'drillType'>;
 
@@ -80,15 +81,31 @@ export async function getSession(id: SessionId): Promise<ResolvedSession | undef
 
 /** 유일한 쓰기 경로. drillIds 를 무조건 재계산하고 updatedAt 을 찍는다.
  *  ⚠️ 재계산은 **flatten 기준**이다 — 구획을 직접 돌면 by_drillId 인덱스가 구획 하나를
- *  빠뜨려도 컴파일이 통과한다. 이 인덱스가 깨지면 드릴 삭제 경고가 침묵한다. */
-export async function putSession(s: TrainingSession): Promise<TrainingSession> {
-  const next: TrainingSession = { ...s, drillIds: refDrillIds(flattenSessionItems(s)), updatedAt: Date.now() };
+ *  빠뜨려도 컴파일이 통과한다. 이 인덱스가 깨지면 드릴 삭제 경고가 침묵한다.
+ *
+ *  opts(0.6 동기화, putDrill 과 같은 계약): touch:false 는 pull 전용 — 원격 modifiedAt 을
+ *  그대로 보존해야 "받은 것을 다시 올리는" 에코 루프가 없다. expectedUpdatedAt 은 CAS —
+ *  패스 중 사용자가 편집했으면 E_CONFLICT 로 그 문서만 스킵된다. 기본값 = 현행과 동일. */
+export async function putSession(s: TrainingSession, opts?: { touch?: boolean; expectedUpdatedAt?: number }): Promise<TrainingSession> {
+  const next: TrainingSession = {
+    ...s,
+    drillIds: refDrillIds(flattenSessionItems(s)),
+    ...(opts?.touch === false ? {} : { updatedAt: Date.now() }),
+  };
   const db = await getDB().catch((e) => {
     throw toStorageError(e, 'E_DB_UNAVAILABLE');
   });
   beginWrite();
   try {
     const tx = db.transaction('sessions', 'readwrite');
+    if (opts?.expectedUpdatedAt !== undefined) {
+      const cur = await tx.store.get(s.id);
+      if (cur && cur.updatedAt !== opts.expectedUpdatedAt) {
+        tx.abort();
+        await tx.done.catch(() => {}); // abort 는 tx.done 을 reject 시킨다 — unhandled rejection 방지(idbPutDrill 과 동일)
+        throw new StorageError('E_CONFLICT', STORAGE_ERROR_MESSAGES.E_CONFLICT());
+      }
+    }
     tx.store.put(next);
     await tx.done;
   } catch (e) {
@@ -96,6 +113,7 @@ export async function putSession(s: TrainingSession): Promise<TrainingSession> {
   } finally {
     endWrite();
   }
+  postSyncEvent({ type: 'session', id: next.id, op: 'put', updatedAt: next.updatedAt });
   return next;
 }
 
@@ -117,16 +135,20 @@ export async function createSession(init: { title: string; scheduledAt?: number;
 
 export async function deleteSession(id: SessionId): Promise<void> {
   const db = await getDB();
+  const deletedAt = Date.now();
   beginWrite();
   try {
-    const tx = db.transaction('sessions', 'readwrite');
-    tx.store.delete(id);
+    // 톰스톤은 같은 tx — 근거는 deleteDrill 의 것과 동일하다(0.6).
+    const tx = db.transaction(['sessions', 'meta'], 'readwrite');
+    tx.objectStore('sessions').delete(id);
+    tx.objectStore('meta').put(tombstoneRecord('session', id, deletedAt));
     await tx.done;
   } catch (e) {
     throw toStorageError(e, 'E_DB_UNAVAILABLE');
   } finally {
     endWrite();
   }
+  postSyncEvent({ type: 'session', id, op: 'delete', deletedAt });
 }
 
 export async function addDrillToSession(id: SessionId, drillId: DrillId): Promise<TrainingSession> {

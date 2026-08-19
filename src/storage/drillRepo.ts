@@ -10,6 +10,7 @@ import { buildSummary, SUMMARY_BUILD, type DrillSummary } from '../model/summary
 import { createDrill as modelCreateDrill } from '../model/defaults.ts';
 import { newId } from '../core/ids.ts';
 import type { DrillId } from '../core/ids.ts';
+import { postSyncEvent, tombstoneRecord } from './syncMeta.ts';
 
 export interface DrillQuery {
   /** v8 분류 유형 필터(DRILL_TYPES 키). 옛 category 필터의 후계다. */
@@ -119,11 +120,8 @@ function loadDrillFromRaw(raw: unknown): DrillLoad {
 }
 
 // ---- idbDrillRepo ------------------------------------------------------------------------------
-
-/** 다른 탭에 드릴 갱신을 알린다. 편집기는 이걸로 "다른 탭에서 수정됨" 배너를 띄울 수 있다.
- *  jsdom/구형 브라우저에 없을 수 있어 존재 여부를 확인한다. */
-const bc: BroadcastChannel | undefined =
-  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('spin-drill-sync') : undefined;
+// 쓰기 방송은 syncMeta.ts 의 postSyncEvent 로 일원화됐다(0.6 커밋 1) — 옛 'spin-drill-sync'
+// 채널(발신 putDrill 한 곳·수신 0곳)의 후신이다.
 
 const openDrillIds = new Set<DrillId>();
 
@@ -193,7 +191,7 @@ async function idbPutDrill(d: Drill, opts?: { touch?: boolean; expectedUpdatedAt
   } finally {
     endWrite();
   }
-  bc?.postMessage({ type: 'drill', id: next.id, updatedAt: next.updatedAt });
+  postSyncEvent({ type: 'drill', id: next.id, op: 'put', updatedAt: next.updatedAt });
   return next;
 }
 
@@ -253,17 +251,23 @@ export const idbDrillRepo: DrillRepo = {
   async deleteDrill(id) {
     // 드릴 삭제는 세션을 건드리지 않는다 — 캐스케이드도, 차단도 하지 않는다(§4.5).
     const db = await getDB();
+    const deletedAt = Date.now();
     beginWrite();
     try {
-      const tx = db.transaction(['drills', 'drillSummaries'], 'readwrite');
+      // 톰스톤을 **같은 트랜잭션**에 쓴다(0.6 동기화) — 삭제와 "지웠다는 기록"이 따로 가면
+      // 그 사이에서 크래시했을 때 다른 기기가 이 삭제를 영영 모르고, 다음 pull 이 지운
+      // 드릴을 "원격에만 있는 신규" 로 오판해 되살린다.
+      const tx = db.transaction(['drills', 'drillSummaries', 'meta'], 'readwrite');
       tx.objectStore('drills').delete(id);
       tx.objectStore('drillSummaries').delete(id);
+      tx.objectStore('meta').put(tombstoneRecord('drill', id, deletedAt));
       await tx.done;
     } catch (e) {
       throw toStorageError(e, 'E_DB_UNAVAILABLE');
     } finally {
       endWrite();
     }
+    postSyncEvent({ type: 'drill', id, op: 'delete', deletedAt });
   },
   async rebuildAllSummaries() {
     // 요약 지연 재생성: build 가 SUMMARY_BUILD 보다 낮은 레코드만 드릴을 로드해 재생성한다.

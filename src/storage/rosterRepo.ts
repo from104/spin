@@ -11,6 +11,7 @@ import { getDB, beginWrite, endWrite, toStorageError } from './db.ts';
 import { migrateDoc, ROSTER_MIGRATIONS } from '../model/migrate.ts';
 import { CURRENT_ROSTER_SCHEMA, emptyRoster, type Roster } from '../model/roster.ts';
 import { validateRoster } from '../model/validate.ts';
+import { postSyncEvent } from './syncMeta.ts';
 
 const ROSTER_META_KEY = 'roster';
 
@@ -48,5 +49,8 @@ export async function saveRoster(r: Roster): Promise<Roster> {
   } finally {
     endWrite();
   }
+  // 명단은 단일 문서라 id 를 'roster' 로 고정한다(syncMeta 의 SyncDocType 주석). 삭제 경로가
+  // 없으므로(비우기도 put) 톰스톤은 애초에 생기지 않는다.
+  postSyncEvent({ type: 'roster', id: ROSTER_META_KEY, op: 'put', updatedAt: value.updatedAt });
   return value;
 }
