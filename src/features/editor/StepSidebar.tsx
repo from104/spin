@@ -83,12 +83,9 @@ import {
   IconChainLinked,
   IconChainCut,
   IconCheck,
-  IconPlay,
-  IconPause,
   IconClose,
   IconDelete,
 } from '../../ui/icons.tsx';
-import type { PlaybackSpeed } from '../../store/playback/PlaybackProvider.tsx';
 import { CourtThumbnail, SIDEBAR_GLYPH_SCALE } from '../../render/CourtThumbnail.tsx';
 import { buildStepThumb } from '../../model/thumb.ts';
 import { LIMITS } from '../../model/validate.ts';
@@ -135,38 +132,11 @@ export interface StepSidebarProps {
    *  이 컴포넌트가 버튼을 미리 잠근다. 현재 스텝이 삭제 묶음에 있으면 리듀서(uiReducer)가
    *  남는 스텝으로 stepId 를 옮긴다. */
   onDeleteSteps(ids: StepId[]): void;
-  /** 드릴 이름(2026-08-18 기현님: *"드릴 이름 정도만 왼쪽 상단에 배치하고 동적으로 수정
-   *  가능해야함"*) — 사이드바 **맨 위**의 클릭-편집 칸. 헤더가 아니라 여기인 이유: 드릴
-   *  편집은 넓은 창에서 헤더가 아예 없다(AppShell `showHeader = narrow || screen !== 'board'`
-   *  — 2026-08-15 재설계가 걷어냈다). 헤더의 `HeaderTitleField` 는 좁은 창 전용 보조 자리로
-   *  남고, 저장 통로는 둘 다 같은 META_SET 이라 어느 쪽에서 고쳐도 결과가 같다.
-   *  빈 값은 커밋하지 않는다(HeaderTitleField 와 같은 가드 — 이름은 드릴의 얼굴이다). */
-  title: {
-    value: string;
-    maxLength: number;
-    onChange(v: string): void;
-  };
   /** 단일 삭제(2026-08-18 우클릭 메뉴의 [삭제]) — STEP_DELETE 그대로. 마지막 1장 가드는
    *  메뉴가 항목을 잠그는 것으로 미리 막고, 리듀서 쪽 deleteStep 가드가 마지막 문이다.
    *  현재 스텝을 지우면 uiReducer 가 이웃으로 stepId 를 옮긴다(기존 STEP_DELETE 규칙). */
   onDeleteStep(id: StepId): void;
-  /** 재생 컨트롤(2026-08-18 기현님 지시 — *"재생버튼 재생 배율. 왼쪽바 하단에 배치"*).
-   *  하단 TransportBar 가 폐지되며 재생 토글·배속이 사이드바 **하단**으로 이사했다. 계약은
-   *  옛 TransportBar 그대로다: `canPlay` 는 "눌렀는데 아무 일도 안 난다" 를 막는 순전한 UX
-   *  잠금(안전은 useStepPlayback 이 스텝 둘 미만이면 스스로 멈춰 이미 보장된다), 속도는
-   *  0.5→1→2 순환 버튼 하나. */
-  playback: {
-    playing: boolean;
-    canPlay: boolean;
-    onTogglePlay(): void;
-    speed: PlaybackSpeed;
-    onCycleSpeed(): void;
-  };
 }
-
-/** 속도 순환의 다음 값 — 옛 TransportBar 의 NEXT_SPEED 그대로(aria-label 이 "눌러서 몇 배가
- *  되는지" 를 말해 줘야 순환 버튼이 스크린리더에서 복권 긁기가 안 된다). */
-const NEXT_SPEED: Record<PlaybackSpeed, PlaybackSpeed> = { 0.5: 1, 1: 2, 2: 0.5 };
 
 /** 사이드바 고정/오버레이 폭. 좌우 패딩(`SIDEBAR_PAD_PX` 10×2)을 빼면 카드가 실제로 채우는
  *  폭이 134px 다 — `CourtThumbnail` 의 `SIDEBAR_GLYPH_SCALE` 계산 주석이 이 숫자에서 나온다.
@@ -354,8 +324,6 @@ export function StepSidebar({
   onDuplicateSteps,
   onDeleteSteps,
   onDeleteStep,
-  title,
-  playback,
 }: StepSidebarProps) {
   const t = useT();
   const steps = drill.steps;
@@ -576,8 +544,6 @@ export function StepSidebar({
 
   const body = (
     <>
-      {/* 드릴 이름 — 사이드바 맨 위(왼쪽 상단). 근거는 StepSidebarProps.title 주석. */}
-      <SidebarTitleEditor cfg={title} />
       <span id={hintId} className="sr-only">
         {t('editor.stepSidebar.keyboardHint')}
       </span>
@@ -901,58 +867,9 @@ export function StepSidebar({
           {t('editor.stepSidebar.addStepButton')}
         </button>
       </div>
-      {/* 재생 컨트롤(2026-08-18) — 하단 TransportBar 의 후계. 카드 목록(flex:1, 스크롤) 아래
-          flex:'none' 으로 붙어 목록이 아무리 길어도 항상 보인다. 접힘(오버레이) 모드에서도
-          body 를 그대로 쓰므로 두 배치가 같은 인스턴스다. */}
-      <div
-        style={{
-          flex: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: SIDEBAR_PAD_PX,
-          borderTop: '1px solid var(--border)',
-        }}
-      >
-        <button
-          type="button"
-          aria-label={playback.playing ? t('editor.stepSidebar.playback.pause') : t('editor.stepSidebar.playback.play')}
-          disabled={!playback.canPlay}
-          onClick={playback.onTogglePlay}
-          className="on-accent"
-          style={{
-            flex: 'none',
-            width: 'var(--hit)',
-            height: 'var(--hit)',
-            borderRadius: 10,
-            background: 'var(--accent)',
-            color: 'var(--accent-ink-strong)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: playback.canPlay ? 1 : 0.5,
-          }}
-        >
-          {playback.playing ? <IconPause /> : <IconPlay />}
-        </button>
-        <button
-          type="button"
-          onClick={playback.onCycleSpeed}
-          aria-label={t('editor.stepSidebar.playback.speedAriaLabel', { speed: playback.speed, next: NEXT_SPEED[playback.speed] })}
-          style={{
-            flex: 1,
-            minHeight: 'var(--hit)',
-            fontSize: '0.71875rem',
-            color: 'var(--muted)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            fontWeight: 600,
-            fontFamily: "'Space Grotesk', sans-serif",
-          }}
-        >
-          {playback.speed}×
-        </button>
-      </div>
+      {/* 재생 컨트롤(2026-08-18)은 여기 없다 — 2026-08-20 재설계(§D)로 편집·시연 공용
+          PlaybackControls 가 되어 EditorWorkspace 하단 줄(노트 옆, 최우측)로 옮겨 갔다.
+          이 사이드바는 다시 스텝 목록 전용이다. */}
       {/* 우클릭 메뉴 — 포털(document.body)이라 접힘 오버레이의 z-계층과도 안 얽힌다. */}
       <StepCardMenu
         target={menu}
@@ -1048,80 +965,5 @@ export function StepSidebar({
         </nav>
       )}
     </>
-  );
-}
-
-/** 드릴 이름 인라인 편집 — StepSidebarProps.title 주석이 근거·가드의 정본이다.
- *  AppHeader 의 HeaderTitleEditor 와 같은 관용구(표시 버튼 ↔ 편집 input, blur 커밋,
- *  Enter=blur 위임, Esc=되돌림, trim 결과가 비면 비커밋)를 사이드바 폭(134px)에 맞게
- *  줄여 놓은 것이다. 공용 컴포넌트로 안 뽑는 이유: 겹치는 것은 골격뿐이고 글꼴·여백·
- *  ellipsis 처리(여기는 두 줄 허용 안 함)가 자리마다 달라, 합치면 prop 분기가 늘어난다. */
-function SidebarTitleEditor({ cfg }: { cfg: StepSidebarProps['title'] }) {
-  const [editing, setEditing] = useState(false);
-  const t = useT();
-
-  if (editing) {
-    return (
-      <div style={{ flex: 'none', padding: `${SIDEBAR_PAD_PX}px ${SIDEBAR_PAD_PX}px 0` }}>
-        <input
-          type="text"
-          autoFocus
-          defaultValue={cfg.value}
-          maxLength={cfg.maxLength}
-          aria-label={t('editor.stepSidebar.titleEditor.inputAriaLabel')}
-          onBlur={(e) => {
-            const v = e.target.value.trim().slice(0, cfg.maxLength);
-            if (v.length > 0 && v !== cfg.value) cfg.onChange(v);
-            setEditing(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              e.currentTarget.blur(); // onBlur 가 커밋한다 — 경로를 둘로 안 만든다.
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              e.currentTarget.value = cfg.value; // 커밋 없이 되돌린다.
-              setEditing(false);
-            }
-          }}
-          style={{
-            width: '100%',
-            fontSize: '0.8125rem',
-            fontWeight: 700,
-            color: 'var(--text)',
-            background: 'var(--elev)',
-            border: '1px solid var(--border-strong)',
-            borderRadius: '0.375rem',
-            padding: '0.25rem 0.4375rem',
-          }}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ flex: 'none', padding: `${SIDEBAR_PAD_PX}px ${SIDEBAR_PAD_PX}px 0` }}>
-      <button
-        type="button"
-        aria-label={t('editor.stepSidebar.titleEditor.buttonAriaLabel', { name: cfg.value })}
-        title={t('editor.stepSidebar.titleEditor.buttonTitle')}
-        onClick={() => setEditing(true)}
-        style={{
-          display: 'block',
-          width: '100%',
-          minHeight: 'var(--hit)',
-          fontSize: '0.8125rem',
-          fontWeight: 700,
-          color: 'var(--text)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          textAlign: 'left',
-          padding: '0 2px',
-        }}
-      >
-        {cfg.value}
-      </button>
-    </div>
   );
 }

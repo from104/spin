@@ -17,8 +17,6 @@ import { LONG_PRESS_MS } from './useLongPressMenu.ts';
 // StepSidebar 의 카드 썸네일(CourtThumbnail)이 useLocale()(→ SettingsProvider)을 쓴다(C7).
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
-const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };
-const PLAYBACK_STUB = { playing: false, canPlay: true, onTogglePlay: () => {}, speed: 1 as const, onCycleSpeed: () => {} };
 const noop = () => {};
 
 function makeDrill(n: number): Drill {
@@ -41,8 +39,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onDuplicateSteps: noop,
     onDeleteSteps: noop,
     onDeleteStep: noop,
-    title: TITLE_STUB,
-    playback: PLAYBACK_STUB,
     ...over,
   };
   return render(<StepSidebar {...props} />);

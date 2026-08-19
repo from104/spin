@@ -20,9 +20,6 @@ import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 // SettingsProvider)을 쓴다(C7) — 이 파일 전체를 한 곳에서 감싼다.
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
-/** 재생 컨트롤 스텁 — 이 파일의 관심사가 아니면 잠든 값이면 된다(별도 절이 실제 배선을 본다). */
-const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };
-const PLAYBACK_STUB = { playing: false, canPlay: true, onTogglePlay: () => {}, speed: 1 as const, onCycleSpeed: () => {} };
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
   for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
@@ -45,8 +42,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onDuplicateSteps: noop,
     onDeleteSteps: noop,
     onDeleteStep: noop,
-    title: TITLE_STUB,
-    playback: PLAYBACK_STUB,
     ...over,
   };
   return render(<StepSidebar {...props} />);
@@ -306,8 +301,6 @@ describe('틈(gap)의 사슬 토글', () => {
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
         onDeleteStep={noop}
-        title={TITLE_STUB}
-        playback={PLAYBACK_STUB}
       />,
     );
     expect(chainBtn(container, 1)).toHaveAttribute('aria-pressed', 'true');
@@ -326,8 +319,6 @@ describe('틈(gap)의 사슬 토글', () => {
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
         onDeleteStep={noop}
-        title={TITLE_STUB}
-        playback={PLAYBACK_STUB}
       />,
     );
     expect(chainBtn(container, 1)).toHaveAttribute('aria-pressed', 'false');
@@ -396,92 +387,10 @@ describe('접힘 모드 — 여는 버튼 + 오버레이', () => {
   });
 });
 
-// ── 재생 컨트롤(2026-08-18 기현님 지시) — 하단 TransportBar 의 후계 ─────────────────────────
-//
-// 옛 TransportBar.test.tsx 가 지키던 계약을 그대로 잇는다: 토글 배선 · canPlay 잠금 ·
-// 상태별 이름(재생/일시정지) · 속도 순환 라벨("눌러서 몇 배가 되는지"). --hit 파생(최소
-// 높이)은 ToolRail.hit.test.tsx 에서 이 절로 이관됐다.
-describe('재생 컨트롤 — 사이드바 하단', () => {
-  it('재생 버튼이 onTogglePlay 를 부르고, 크기는 --hit 파생이다', async () => {
-    const onTogglePlay = vi.fn();
-    renderSidebar(makeDrill(2), { playback: { ...PLAYBACK_STUB, onTogglePlay } });
-    const play = screen.getByRole('button', { name: '재생' });
-    expect(play.style.width).toBe('var(--hit)');
-    expect(play.style.height).toBe('var(--hit)');
-    await userEvent.click(play);
-    expect(onTogglePlay).toHaveBeenCalledTimes(1);
-  });
-
-  it('playing 이면 이름이 [일시정지]다 — 상태가 이름을 바꾼다', () => {
-    renderSidebar(makeDrill(2), { playback: { ...PLAYBACK_STUB, playing: true } });
-    expect(screen.getByRole('button', { name: '일시정지' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '재생' })).toBeNull();
-  });
-
-  it('canPlay=false 면 재생이 잠긴다 — 눌렀는데 아무 일도 안 나는 헛손질 방지', () => {
-    renderSidebar(makeDrill(1), { playback: { ...PLAYBACK_STUB, canPlay: false } });
-    expect(screen.getByRole('button', { name: '재생' })).toBeDisabled();
-  });
-
-  it('속도 버튼 — 현재 배속과 "눌러서 몇 배" 를 함께 말하고, onCycleSpeed 를 부른다', async () => {
-    const onCycleSpeed = vi.fn();
-    renderSidebar(makeDrill(2), { playback: { ...PLAYBACK_STUB, speed: 2 as const, onCycleSpeed } });
-    const btn = screen.getByRole('button', { name: '재생 속도 2배. 눌러서 0.5배로 변경' });
-    expect(btn.style.minHeight).toBe('var(--hit)');
-    await userEvent.click(btn);
-    expect(onCycleSpeed).toHaveBeenCalledTimes(1);
-  });
-
-  it('접힘(오버레이)에서도 재생 컨트롤이 함께 산다 — body 한 벌 공유의 대조군', async () => {
-    renderSidebar(makeDrill(2), { collapsed: true });
-    await userEvent.click(screen.getByRole('button', { name: '스텝 목록 열기' }));
-    expect(screen.getByRole('button', { name: '재생' })).toBeInTheDocument();
-  });
-});
-
-// ── 드릴 이름 — 사이드바 맨 위(2026-08-18 기현님: "드릴 이름 정도만 왼쪽 상단에") ─────────────
-//
-// ⚠️ 왜 헤더가 아니라 여기가 정본인가: 드릴 편집은 넓은 창에서 헤더가 아예 없다(AppShell
-// showHeader). 헤더 titleField 만 믿으면 PC 에서 이름이 어디에도 안 보인다 — 실제로 그렇게
-// 배선했다가 기현님이 "드릴 이름은 어디 있음?" 으로 잡아낸 회귀다. 이 절이 그 재발을 막는다.
-describe('드릴 이름 — 사이드바 맨 위 클릭-편집', () => {
-  const titleBtn = () => screen.getByRole('button', { name: /^드릴 이름/ });
-
-  it('이름이 항상 보인다 — 접힘 오버레이 안에서도', async () => {
-    renderSidebar(makeDrill(2), { title: { ...TITLE_STUB, value: '골문 앞 2대1' } });
-    expect(screen.getByRole('button', { name: '드릴 이름: 골문 앞 2대1. 눌러서 수정' })).toBeInTheDocument();
-  });
-
-  it('클릭 → 입력 → blur 로 onChange(trim 값) 한 번', async () => {
-    const onChange = vi.fn();
-    renderSidebar(makeDrill(2), { title: { ...TITLE_STUB, onChange } });
-    await userEvent.click(titleBtn());
-    const input = screen.getByRole('textbox', { name: '드릴 이름' });
-    await userEvent.clear(input);
-    await userEvent.type(input, '  측면 크로스  ');
-    await userEvent.tab();
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith('측면 크로스');
-  });
-
-  it('비워서 blur 하면 커밋하지 않는다 — 이름 없는 드릴을 만들지 않는다', async () => {
-    const onChange = vi.fn();
-    renderSidebar(makeDrill(2), { title: { ...TITLE_STUB, onChange } });
-    await userEvent.click(titleBtn());
-    await userEvent.clear(screen.getByRole('textbox', { name: '드릴 이름' }));
-    await userEvent.tab();
-    expect(onChange).not.toHaveBeenCalled();
-    expect(titleBtn()).toBeInTheDocument(); // 표시 모드로 복귀
-  });
-
-  it('Esc 는 커밋 없이 되돌린다', async () => {
-    const onChange = vi.fn();
-    renderSidebar(makeDrill(2), { title: { ...TITLE_STUB, onChange } });
-    await userEvent.click(titleBtn());
-    const input = screen.getByRole('textbox', { name: '드릴 이름' });
-    await userEvent.type(input, '버릴 글자');
-    await userEvent.keyboard('{Escape}');
-    expect(onChange).not.toHaveBeenCalled();
-    expect(titleBtn()).toBeInTheDocument();
-  });
-});
+// 2026-08-20 — 재생 컨트롤(§재생 컨트롤 — 사이드바 하단)과 드릴 이름 인라인 편집
+// (§드릴 이름 — 사이드바 맨 위 클릭-편집)은 이 파일에서 은퇴했다. 두 기능 다 사이드바를
+// 떠났다 — 재생 묶음은 편집·시연 공용 `ui/PlaybackControls.tsx`(EditorWorkspace 하단 줄)로,
+// 드릴 이름은 두 화면 공용 컴팩트 헤더(제목 titleField)로 옮겨 갔다. 그 전제("넓은 창의 드릴
+// 편집에는 헤더가 없다")가 이번 재설계로 사라졌기 때문이다(StepSidebar.tsx 옛 title prop
+// 주석 참고). 재생 묶음 계약은 `ui/PlaybackControls.test.tsx`, 헤더 제목 편집은
+// `AppHeader.test.tsx`/`EditorWorkspace.headerTitle.test.tsx` 가 잇는다.

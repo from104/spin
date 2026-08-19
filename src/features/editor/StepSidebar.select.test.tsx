@@ -18,9 +18,6 @@ import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 // StepSidebar 의 카드 썸네일(CourtThumbnail)이 useLocale()(→ SettingsProvider)을 쓴다(C7).
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
-/** 재생 컨트롤 스텁 — 이 파일의 관심사가 아니면 잠든 값이면 된다(별도 절이 실제 배선을 본다). */
-const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };
-const PLAYBACK_STUB = { playing: false, canPlay: true, onTogglePlay: () => {}, speed: 1 as const, onCycleSpeed: () => {} };
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
   for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
@@ -46,8 +43,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onDuplicateSteps: noop,
     onDeleteSteps: noop,
     onDeleteStep: noop,
-    title: TITLE_STUB,
-    playback: PLAYBACK_STUB,
     ...over,
   };
   return render(<StepSidebar {...props} />);
@@ -252,8 +247,6 @@ function GroupHarness({ initial, onMove }: { initial: Drill; onMove?: (ids: Step
       onDuplicateSteps={() => {}}
       onDeleteSteps={() => {}}
       onDeleteStep={() => {}}
-      title={TITLE_STUB}
-      playback={PLAYBACK_STUB}
     />
   );
 }
@@ -321,8 +314,6 @@ describe('일괄 이동(드래그) — 상대 순서 보존, 흩어진 선택은
         onDuplicateSteps={noop}
         onDeleteSteps={noop}
         onDeleteStep={noop}
-        title={TITLE_STUB}
-        playback={PLAYBACK_STUB}
       />,
     );
     await enterSelectMode();

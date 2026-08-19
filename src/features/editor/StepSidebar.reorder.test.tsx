@@ -33,9 +33,6 @@ import type { ArrowId, NoteId, StepId } from '../../core/ids.ts';
 /** 카드 높이 120 · 틈+여백 12 → 중심 y = 60, 192, 324, … */
 const CARD_H = 120;
 const CARD_GAP = 12;
-/** 재생 컨트롤 스텁 — 이 파일의 관심사가 아니면 잠든 값이면 된다(별도 절이 실제 배선을 본다). */
-const TITLE_STUB = { value: '드릴', maxLength: 80, onChange: () => {} };
-const PLAYBACK_STUB = { playing: false, canPlay: true, onTogglePlay: () => {}, speed: 1 as const, onCycleSpeed: () => {} };
 function stubCardRects() {
   const real = HTMLElement.prototype.getBoundingClientRect;
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
@@ -74,8 +71,6 @@ function Harness({ initial, onReorder }: { initial: Drill; onReorder?: (id: Step
       onDuplicateSteps={() => {}}
       onDeleteSteps={() => {}}
       onDeleteStep={() => {}}
-      title={TITLE_STUB}
-      playback={PLAYBACK_STUB}
     />
   );
 }
