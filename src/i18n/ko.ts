@@ -696,6 +696,7 @@ export const ko = {
   'storage.error.E_SYNC_NETWORK': '네트워크에 연결할 수 없습니다. 연결되면 자동으로 다시 동기화합니다.',
   'storage.error.E_SYNC_REMOTE': 'Google Drive 응답이 올바르지 않습니다. 잠시 후 다시 시도합니다.',
   'storage.error.E_SYNC_QUOTA': 'Google Drive 저장 공간이 부족합니다. Drive 용량을 정리하세요.',
+  'storage.error.E_SYNC_CONFIG': '동기화 구성 오류입니다. Google Cloud 프로젝트에서 Google Drive API가 사용 설정되어 있는지 확인하세요.',
 
   // ── C8b — 첫 실행 기본 팀 이름(storage/prefs.ts, 저장되는 값이라 생성 시점에 한 번만 고른다) ──
   'team.defaultHomeLabel': '우리 팀',

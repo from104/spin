@@ -18,6 +18,7 @@ const CODE_KEY: Record<StorageErrorCode, DictKey> = {
   E_SYNC_NETWORK: 'storage.error.E_SYNC_NETWORK',
   E_SYNC_REMOTE: 'storage.error.E_SYNC_REMOTE',
   E_SYNC_QUOTA: 'storage.error.E_SYNC_QUOTA',
+  E_SYNC_CONFIG: 'storage.error.E_SYNC_CONFIG',
 };
 
 /** 화면 catch(e) 자리의 `e instanceof Error && e.message.length > 0 ? e.message : fallback`

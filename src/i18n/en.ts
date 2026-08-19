@@ -701,6 +701,7 @@ export const en: Record<DictKey, string> = {
   'storage.error.E_SYNC_NETWORK': "Can't reach the network. Sync will resume automatically once you're back online.",
   'storage.error.E_SYNC_REMOTE': 'Google Drive returned an unexpected response. Will retry shortly.',
   'storage.error.E_SYNC_QUOTA': 'Your Google Drive storage is full. Free up space in Drive.',
+  'storage.error.E_SYNC_CONFIG': 'Sync configuration error. Check that the Google Drive API is enabled in the Google Cloud project.',
 
   // ── C8b — Default team names on first run (storage/prefs.ts; stored, so chosen once at creation) ──
   'team.defaultHomeLabel': 'Our Team',

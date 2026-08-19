@@ -696,6 +696,7 @@ export const ja: Record<DictKey, string> = {
   'storage.error.E_SYNC_NETWORK': 'ネットワークに接続できません。接続が戻り次第、自動的に再同期します。',
   'storage.error.E_SYNC_REMOTE': 'Google Driveの応答が正しくありません。しばらくして再試行します。',
   'storage.error.E_SYNC_QUOTA': 'Google Driveの容量が不足しています。Driveの空き容量を確保してください。',
+  'storage.error.E_SYNC_CONFIG': '同期の構成エラーです。Google CloudプロジェクトでGoogle Drive APIが有効になっているか確認してください。',
 
   // ── C8b — 初回起動時のデフォルトチーム名(storage/prefs.ts。保存される値なので作成時に一度だけ決める) ──
   'team.defaultHomeLabel': '自チーム',

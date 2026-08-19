@@ -108,6 +108,14 @@ describe('오류 매핑 — 상태코드가 곧 사용자 안내의 갈림길', 
     stubFetch([json({ error: { errors: [{ reason: 'userRateLimitExceeded' }] } }, 403)]);
     await expect(driveListAll('t')).rejects.toMatchObject({ code: 'E_SYNC_REMOTE' });
   });
+
+  it('403 Drive API 미활성 → E_SYNC_CONFIG — "만료" 로 접으면 재연결을 아무리 해도 그대로다(실기에서 겪음)', async () => {
+    // 구형 본문(errors[].reason)과 신형 본문(details[].reason) 둘 다.
+    stubFetch([json({ error: { errors: [{ reason: 'accessNotConfigured' }] } }, 403)]);
+    await expect(driveListAll('t')).rejects.toMatchObject({ code: 'E_SYNC_CONFIG', detail: 'accessNotConfigured' });
+    stubFetch([json({ error: { status: 'PERMISSION_DENIED', details: [{ reason: 'SERVICE_DISABLED' }] } }, 403)]);
+    await expect(driveListAll('t')).rejects.toMatchObject({ code: 'E_SYNC_CONFIG', detail: 'SERVICE_DISABLED' });
+  });
 });
 
 describe('driveDownload · driveDelete', () => {

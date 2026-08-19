@@ -60,13 +60,22 @@ export function parseSyncContainer(v: unknown): ContainerParse {
 async function toSyncError(res: Response): Promise<StorageError> {
   let reason = '';
   try {
-    const j = (await res.json()) as { error?: { errors?: Array<{ reason?: string }>; status?: string; message?: string } };
-    reason = j.error?.errors?.[0]?.reason ?? j.error?.status ?? '';
+    const j = (await res.json()) as {
+      error?: { errors?: Array<{ reason?: string }>; details?: Array<{ reason?: string }>; status?: string; message?: string };
+    };
+    reason = j.error?.errors?.[0]?.reason ?? j.error?.details?.[0]?.reason ?? j.error?.status ?? '';
   } catch {
     /* 본문 없는 오류 응답 — 상태코드만으로 판정한다 */
   }
   if (res.status === 401) return new StorageError('E_SYNC_AUTH', STORAGE_ERROR_MESSAGES.E_SYNC_AUTH());
   if (res.status === 403 && /quota/i.test(reason)) return new StorageError('E_SYNC_QUOTA', STORAGE_ERROR_MESSAGES.E_SYNC_QUOTA());
+  // Cloud 프로젝트에서 Drive API 자체가 꺼진 403 — "만료" 로 접으면 재연결을 아무리 해도
+  // 그대로라 디버깅이 헛돈다(2026-08-20 실기에서 실제로 한 바퀴). 구버전 오류 본문은
+  // reason:'accessNotConfigured', 신형은 status:'PERMISSION_DENIED'+details 의
+  // SERVICE_DISABLED — 둘 다 여기서 받는다.
+  if (res.status === 403 && /accessnotconfigured|service_disabled/i.test(reason)) {
+    return new StorageError('E_SYNC_CONFIG', STORAGE_ERROR_MESSAGES.E_SYNC_CONFIG(), { detail: reason });
+  }
   if (res.status === 403 && /ratelimit/i.test(reason)) {
     return new StorageError('E_SYNC_REMOTE', STORAGE_ERROR_MESSAGES.E_SYNC_REMOTE(), { detail: `HTTP 403 ${reason}` });
   }
