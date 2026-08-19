@@ -4,11 +4,16 @@
 // InspectorPanel.stepMeta.test.tsx 의 note 관련 테스트 셋이 그리로/여기로 갈라져 이사했다
 // (StepsSection 철거, 기현님 확정 2026-08-17 — 계약이 이사하면 테스트도 이사한다).
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import type { StepId } from '../../core/ids.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { NotePanel } from './NotePanel.tsx';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// NotePanel 이 useT()(→ SettingsProvider)을 쓴다(C7) — 이 파일 전체를 한 곳에서 감싼다.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 const STEP_A = 'st_a' as StepId;
 const STEP_B = 'st_b' as StepId;

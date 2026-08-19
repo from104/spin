@@ -582,4 +582,32 @@ export const ja: Record<DictKey, string> = {
   'editor.selectSame.notes': 'メモ全部選択',
   'editor.selectSame.arrows': '矢印全部選択',
   'editor.selectSame.shapes': '図形全部選択',
+
+  // ── C7 — ステップカード右クリックメニュー ────────────────────────────────────────────
+  'editor.stepCardMenu.ariaLabelTemplate': 'ステップ{{n}}メニュー',
+  'editor.stepCardMenu.select': '選択',
+  'editor.stepCardMenu.duplicateBelow': '下に複製',
+  'editor.stepCardMenu.duplicateAbove': '上に複製',
+  'editor.stepCardMenu.delete': '削除',
+
+  // ── C7 — メモ入力・編集モーダル ──────────────────────────────────────────────────────
+  'editor.noteEditModal.titleNew': 'メモを書く',
+  'editor.noteEditModal.titleEdit': 'メモを編集',
+  'editor.noteEditModal.textareaAriaLabel': 'メモの内容',
+  'editor.noteEditModal.hint': '改行はEnter・保存はCtrl+Enter',
+  'editor.noteEditModal.cancel': 'キャンセル',
+  'editor.noteEditModal.confirm': '確定',
+
+  // ── C7 — ステップノートパネル ────────────────────────────────────────────────────────
+  'editor.notePanel.toggleLabel': 'ノート',
+  'editor.notePanel.textareaAriaLabel': 'ステップノート',
+  'editor.notePanel.placeholder': 'このステップでコーチが話す内容',
+  'editor.notePanel.plainTextNotice': 'プレゼン画面はこの文章をそのままコーチに表示します。現在はプレーンテキストのみです。',
+
+  // ── C7 — オブジェクト配置ルール ──────────────────────────────────────────────────────
+  'editor.placement.ballLimit': 'ボールは最大{{max}}個まで置けます。',
+  'editor.placement.coneLimit': '{{color}}コーンは最大{{max}}個まで置けます。',
+  'editor.placement.coneOrange': 'オレンジ',
+  'editor.placement.coneBlue': '青',
+  'editor.placement.playerUnarmed': 'まずトレイで配置する選手を選んでください。',
 };

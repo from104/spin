@@ -335,8 +335,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       showToast: (m) => ctx.showToast(m),
       onPlayerPlaced: ctx.onPlayerPlaced,
       onNotePlaced: (id) => ctx.onNotePlaced?.(id),
+      locale,
     });
-  }, []);
+  }, [locale]);
 
   /** 정착 스냅(§4.3 P1-3)을 이번에 놓은 개체 **하나에만** 적용해 그 좌표를 돌려준다.
    *  스냅되지 않았으면 null. 물리에 되먹이는 것은 호출자 몫이다. */

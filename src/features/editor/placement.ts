@@ -18,12 +18,17 @@ import { LIMITS } from '../../model/validate.ts';
 import { makeShape, type ShapeKind } from '../../model/shape.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import { cues } from '../../ui/cues.ts';
+import { translate } from '../../i18n/useT.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
 // 개수를 문장에 박아 두면 상한을 바꿀 때 안내만 옛말이 된다(실제로 10 → 8 때 그랬다).
-export const BALL_LIMIT_MSG = `공은 최대 ${BALL.maxCount}개까지 놓을 수 있습니다.`;
-export const coneLimitMsg = (slot: 0 | 1): string =>
-  `${slot === 0 ? '주황' : '파랑'} 콘은 최대 ${CONE.maxCountPerColor}개까지 놓을 수 있습니다.`;
-export const PLAYER_UNARMED_MSG = '먼저 트레이에서 배치할 선수를 고르세요.';
+export const ballLimitMsg = (locale: Locale): string => translate(locale, 'editor.placement.ballLimit', { max: BALL.maxCount });
+export const coneLimitMsg = (slot: 0 | 1, locale: Locale): string =>
+  translate(locale, 'editor.placement.coneLimit', {
+    color: translate(locale, slot === 0 ? 'editor.placement.coneOrange' : 'editor.placement.coneBlue'),
+    max: CONE.maxCountPerColor,
+  });
+export const playerUnarmedMsg = (locale: Locale): string => translate(locale, 'editor.placement.playerUnarmed');
 
 /** 코트에 '놓을 수 있는' 도구만. select/route/pass/erase 는 배치가 아니다. */
 export type PlaceKind = 'ball' | 'cone' | 'note' | 'player' | ShapeKind;
@@ -39,6 +44,7 @@ export interface PlaceDeps {
   dispatch: Dispatch<EditorAction>;
   showToast(message: string): void;
   onPlayerPlaced(): void;
+  locale: Locale;
   /** 방금 놓은 **빈 메모**. 호출부가 곧바로 입력 모달을 연다(기현 지시 2026-08-17).
    *
    *  왜 놓기 전에 묻지 않고 놓고 나서 여는가: 배치 규칙(상한·소리·선택·도구 복귀)이 전부
@@ -73,7 +79,7 @@ function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): string | 
     // 상한은 cast 기준이다. 지운 공이 cast 에 남아 있으면 여기서 영영 막힌다 —
     // 그 유령을 만들지 않는 책임은 model/edits.ts 의 pruneOrphanCast 에 있다.
     if (d.drill.cast.balls.length >= d.ballMax) {
-      d.showToast(BALL_LIMIT_MSG);
+      d.showToast(ballLimitMsg(d.locale));
       return null;
     }
     const id = newId('bl');
@@ -86,7 +92,7 @@ function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): string | 
     // 여기서 영영 막힌다(pruneOrphanCast 책임, 공 쪽 주석과 같은 이유).
     const sameColor = d.drill.cast.cones.filter((c) => c.colorIndex === d.coneSlot).length;
     if (sameColor >= CONE.maxCountPerColor) {
-      d.showToast(coneLimitMsg(d.coneSlot));
+      d.showToast(coneLimitMsg(d.coneSlot, d.locale));
       return null;
     }
     const id = newId('cn');
@@ -97,7 +103,7 @@ function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): string | 
   if (kind === 'ellipse' || kind === 'triangle' || kind === 'rect') {
     const step = d.drill.steps[d.stepIndex];
     if (step && step.shapes.length >= LIMITS.maxShapesPerStep) {
-      d.showToast(`도형은 스텝당 ${LIMITS.maxShapesPerStep}개까지입니다.`);
+      d.showToast(translate(d.locale, 'editor.workspace.shapeCapToast', { max: LIMITS.maxShapesPerStep }));
       return null;
     }
     // 놓자마자 선택되는 것(placeObject 의 PLACED)이 도형에는 특히 중요하다 — 면이 0.13 이라
@@ -117,7 +123,7 @@ function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): string | 
 
   const id = d.pendingPlayerId;
   if (!id) {
-    d.showToast(PLAYER_UNARMED_MSG);
+    d.showToast(playerUnarmedMsg(d.locale));
     return null;
   }
   const def = d.drill.cast.chairs.find((c) => c.id === id);

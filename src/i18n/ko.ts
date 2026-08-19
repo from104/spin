@@ -581,6 +581,34 @@ export const ko = {
   'editor.selectSame.notes': '메모 전부 고르기',
   'editor.selectSame.arrows': '화살표 전부 고르기',
   'editor.selectSame.shapes': '도형 전부 고르기',
+
+  // ── C7 — 스텝 카드 우클릭 메뉴 ──────────────────────────────────────────────────────
+  'editor.stepCardMenu.ariaLabelTemplate': '스텝 {{n}} 메뉴',
+  'editor.stepCardMenu.select': '선택',
+  'editor.stepCardMenu.duplicateBelow': '아래로 복제',
+  'editor.stepCardMenu.duplicateAbove': '위로 복제',
+  'editor.stepCardMenu.delete': '삭제',
+
+  // ── C7 — 메모 입력·수정 모달 ────────────────────────────────────────────────────────
+  'editor.noteEditModal.titleNew': '메모 쓰기',
+  'editor.noteEditModal.titleEdit': '메모 수정',
+  'editor.noteEditModal.textareaAriaLabel': '메모 내용',
+  'editor.noteEditModal.hint': '줄바꿈 Enter · 저장 Ctrl+Enter',
+  'editor.noteEditModal.cancel': '취소',
+  'editor.noteEditModal.confirm': '확인',
+
+  // ── C7 — 스텝 노트 패널 ─────────────────────────────────────────────────────────────
+  'editor.notePanel.toggleLabel': '노트',
+  'editor.notePanel.textareaAriaLabel': '스텝 노트',
+  'editor.notePanel.placeholder': '이 스텝에서 코치가 말할 문장',
+  'editor.notePanel.plainTextNotice': '시연 화면이 이 글을 코치에게 그대로 읽어 줍니다. 지금은 평문입니다.',
+
+  // ── C7 — 개체 배치 규칙 ─────────────────────────────────────────────────────────────
+  'editor.placement.ballLimit': '공은 최대 {{max}}개까지 놓을 수 있습니다.',
+  'editor.placement.coneLimit': '{{color}} 콘은 최대 {{max}}개까지 놓을 수 있습니다.',
+  'editor.placement.coneOrange': '주황',
+  'editor.placement.coneBlue': '파랑',
+  'editor.placement.playerUnarmed': '먼저 트레이에서 배치할 선수를 고르세요.',
 } as const;
 
 export type DictKey = keyof typeof ko;

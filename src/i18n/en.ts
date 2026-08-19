@@ -586,4 +586,32 @@ export const en: Record<DictKey, string> = {
   'editor.selectSame.notes': 'Select all notes',
   'editor.selectSame.arrows': 'Select all arrows',
   'editor.selectSame.shapes': 'Select all shapes',
+
+  // ── C7 — Step card context menu ─────────────────────────────────────────────────────
+  'editor.stepCardMenu.ariaLabelTemplate': 'Step {{n}} menu',
+  'editor.stepCardMenu.select': 'Select',
+  'editor.stepCardMenu.duplicateBelow': 'Duplicate Below',
+  'editor.stepCardMenu.duplicateAbove': 'Duplicate Above',
+  'editor.stepCardMenu.delete': 'Delete',
+
+  // ── C7 — Note edit modal ────────────────────────────────────────────────────────────
+  'editor.noteEditModal.titleNew': 'Write a Note',
+  'editor.noteEditModal.titleEdit': 'Edit Note',
+  'editor.noteEditModal.textareaAriaLabel': 'Note text',
+  'editor.noteEditModal.hint': 'Enter for new line · Ctrl+Enter to save',
+  'editor.noteEditModal.cancel': 'Cancel',
+  'editor.noteEditModal.confirm': 'OK',
+
+  // ── C7 — Step note panel ────────────────────────────────────────────────────────────
+  'editor.notePanel.toggleLabel': 'Notes',
+  'editor.notePanel.textareaAriaLabel': 'Step notes',
+  'editor.notePanel.placeholder': 'What the coach will say for this step',
+  'editor.notePanel.plainTextNotice': 'The presentation screen shows this text to the coach as-is. Plain text only for now.',
+
+  // ── C7 — Object placement rules ─────────────────────────────────────────────────────
+  'editor.placement.ballLimit': 'You can place up to {{max}} balls.',
+  'editor.placement.coneLimit': 'You can place up to {{max}} {{color}} cones.',
+  'editor.placement.coneOrange': 'orange',
+  'editor.placement.coneBlue': 'blue',
+  'editor.placement.playerUnarmed': 'First pick a player to place from the tray.',
 };

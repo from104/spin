@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal } from '../../ui/Modal.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { LIMITS } from '../../model/validate.ts';
+import { useT } from '../../i18n/useT.ts';
 
 export interface NoteEditModalProps {
   open: boolean;
@@ -49,6 +50,7 @@ const TEXTAREA_STYLE: React.CSSProperties = {
 };
 
 export function NoteEditModal({ open, initialText, fresh, onSave, onCancel }: NoteEditModalProps) {
+  const t = useT();
   const [text, setText] = useState(initialText);
   const ref = useRef<HTMLTextAreaElement | null>(null);
 
@@ -70,10 +72,10 @@ export function NoteEditModal({ open, initialText, fresh, onSave, onCancel }: No
   if (!open) return null;
 
   return (
-    <Modal open={open} onClose={onCancel} titleId="note-edit-title" title={fresh ? '메모 쓰기' : '메모 수정'}>
+    <Modal open={open} onClose={onCancel} titleId="note-edit-title" title={fresh ? t('editor.noteEditModal.titleNew') : t('editor.noteEditModal.titleEdit')}>
       <textarea
         ref={ref}
-        aria-label="메모 내용"
+        aria-label={t('editor.noteEditModal.textareaAriaLabel')}
         value={text}
         maxLength={LIMITS.noteLen}
         onChange={(e) => setText(e.target.value)}
@@ -89,15 +91,13 @@ export function NoteEditModal({ open, initialText, fresh, onSave, onCancel }: No
         style={TEXTAREA_STYLE}
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 12 }}>
-        <span style={{ fontSize: '0.6875rem', color: 'var(--faint-text)' }}>
-          줄바꿈 Enter · 저장 Ctrl+Enter
-        </span>
+        <span style={{ fontSize: '0.6875rem', color: 'var(--faint-text)' }}>{t('editor.noteEditModal.hint')}</span>
         <div style={{ display: 'flex', gap: 8 }}>
           <Button variant="ghost" onClick={onCancel}>
-            취소
+            {t('editor.noteEditModal.cancel')}
           </Button>
           <Button variant="primary" onClick={() => onSave(text)}>
-            확인
+            {t('editor.noteEditModal.confirm')}
           </Button>
         </div>
       </div>

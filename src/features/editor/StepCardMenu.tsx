@@ -16,6 +16,7 @@ import type { CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { StepId } from '../../core/ids.ts';
 import { LIMITS } from '../../model/validate.ts';
+import { useT } from '../../i18n/useT.ts';
 
 export interface StepCardMenuTarget {
   /** 포인터 좌표(clientX/Y) — 메뉴 좌상단 후보. 화면 밖이면 반대쪽으로 편다. */
@@ -58,6 +59,7 @@ const ITEM: CSSProperties = {
 };
 
 export function StepCardMenu({ target, atMax, canDelete, onClose, onStartSelect, onDuplicate, onDelete }: StepCardMenuProps) {
+  const t = useT();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const firstRef = useRef<HTMLButtonElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -98,7 +100,7 @@ export function StepCardMenu({ target, atMax, canDelete, onClose, onStartSelect,
     fn();
     onClose();
   };
-  const dupTitle = atMax ? `스텝은 ${LIMITS.maxSteps}장까지입니다.` : undefined;
+  const dupTitle = atMax ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps }) : undefined;
 
   return createPortal(
     <>
@@ -113,7 +115,7 @@ export function StepCardMenu({ target, atMax, canDelete, onClose, onStartSelect,
       <div
         ref={panelRef}
         role="menu"
-        aria-label={`스텝 ${target.index + 1} 메뉴`}
+        aria-label={t('editor.stepCardMenu.ariaLabelTemplate', { n: target.index + 1 })}
         style={{
           position: 'fixed',
           left: pos?.left ?? target.x,
@@ -129,7 +131,7 @@ export function StepCardMenu({ target, atMax, canDelete, onClose, onStartSelect,
         }}
       >
         <button type="button" role="menuitem" ref={firstRef} onClick={act(() => onStartSelect(target.id))} style={ITEM}>
-          선택
+          {t('editor.stepCardMenu.select')}
         </button>
         <div aria-hidden style={{ height: 1, margin: '5px 10px', background: 'var(--border)' }} />
         <button
@@ -140,7 +142,7 @@ export function StepCardMenu({ target, atMax, canDelete, onClose, onStartSelect,
           onClick={act(() => onDuplicate(target.id))}
           style={{ ...ITEM, opacity: atMax ? 0.4 : 1 }}
         >
-          아래로 복제
+          {t('editor.stepCardMenu.duplicateBelow')}
         </button>
         <button
           type="button"
@@ -150,18 +152,18 @@ export function StepCardMenu({ target, atMax, canDelete, onClose, onStartSelect,
           onClick={act(() => onDuplicate(target.id, target.index))}
           style={{ ...ITEM, opacity: atMax ? 0.4 : 1 }}
         >
-          위로 복제
+          {t('editor.stepCardMenu.duplicateAbove')}
         </button>
         <div aria-hidden style={{ height: 1, margin: '5px 10px', background: 'var(--border)' }} />
         <button
           type="button"
           role="menuitem"
           disabled={!canDelete}
-          title={canDelete ? undefined : '스텝은 최소 1장 있어야 합니다.'}
+          title={canDelete ? undefined : t('editor.stepSidebar.batchDeleteMinTitle')}
           onClick={act(() => onDelete(target.id))}
           style={{ ...ITEM, color: '#ff6b6b', opacity: canDelete ? 1 : 0.4 }}
         >
-          삭제
+          {t('editor.stepCardMenu.delete')}
         </button>
       </div>
     </>,

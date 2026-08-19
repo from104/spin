@@ -1,7 +1,7 @@
 // §6.10 배치 규칙 — 상한이 **한 곳에서만** 정해지는지. 경로가 셋(탭·키보드·트레이 드래그)인데
 // 전부 이 함수를 지나므로, 여기가 막으면 세 경로가 같이 막힌다.
 import { describe, expect, it, vi } from 'vitest';
-import { placeObject, BALL_LIMIT_MSG, coneLimitMsg, PLAYER_UNARMED_MSG } from './placement.ts';
+import { placeObject, ballLimitMsg, coneLimitMsg, playerUnarmedMsg } from './placement.ts';
 import type { PlaceDeps } from './placement.ts';
 import { BALL, CONE } from '../../core/constants.ts';
 import { newId } from '../../core/ids.ts';
@@ -24,6 +24,7 @@ function deps(over: { balls?: number; cones?: (0 | 1)[]; coneSlot?: 0 | 1 } = {}
     dispatch,
     showToast,
     onPlayerPlaced: vi.fn(),
+    locale: 'ko',
   };
   return { d, dispatch, showToast };
 }
@@ -42,12 +43,12 @@ describe('placeObject — 공 상한', () => {
     const { d, dispatch, showToast } = deps({ balls: BALL.maxCount });
     expect(placeObject('ball', AT, d)).toBe(false);
     expect(dispatch).not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith(BALL_LIMIT_MSG);
+    expect(showToast).toHaveBeenCalledWith(ballLimitMsg('ko'));
   });
 
   it('안내 문구가 상한 숫자를 문장에 박아 두지 않는다', () => {
     // 10 → 8 로 줄였을 때 안내만 "최대 10개" 로 남아 있었다. 상수에서 나와야 한다.
-    expect(BALL_LIMIT_MSG).toContain(String(BALL.maxCount));
+    expect(ballLimitMsg('ko')).toContain(String(BALL.maxCount));
   });
 });
 
@@ -72,9 +73,9 @@ describe('placeObject — 콘 상한은 색깔마다 따로다', () => {
     const { d, dispatch, showToast } = deps({ cones: full, coneSlot: 1 });
     expect(placeObject('cone', AT, d)).toBe(false);
     expect(dispatch).not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith(coneLimitMsg(1));
-    expect(coneLimitMsg(1)).toContain('파랑');
-    expect(coneLimitMsg(0)).toContain('주황');
+    expect(showToast).toHaveBeenCalledWith(coneLimitMsg(1, 'ko'));
+    expect(coneLimitMsg(1, 'ko')).toContain('파랑');
+    expect(coneLimitMsg(0, 'ko')).toContain('주황');
   });
 
   it('다른 색 콘은 상한 계산에 끼지 않는다', () => {
@@ -89,7 +90,7 @@ describe('placeObject — 선수', () => {
     const { d, dispatch, showToast } = deps();
     expect(placeObject('player', AT, d)).toBe(false);
     expect(dispatch).not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith(PLAYER_UNARMED_MSG);
+    expect(showToast).toHaveBeenCalledWith(playerUnarmedMsg('ko'));
   });
 });
 

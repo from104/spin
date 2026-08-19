@@ -42,6 +42,7 @@ import { useId, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { StepId } from '../../core/ids.ts';
 import { LIMITS, noteFirstLine } from '../../model/validate.ts';
+import { useT } from '../../i18n/useT.ts';
 
 export interface NotePanelProps {
   stepId: StepId;
@@ -63,6 +64,7 @@ const TOGGLE_ROW: CSSProperties = {
 };
 
 export function NotePanel({ stepId, note, onNoteChange }: NotePanelProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const panelId = useId();
   // 첫 줄 미리보기 — 접힌 줄에 "노트가 있다" 는 것을 알리는 최소 단서다(점 대신 실제 글).
@@ -79,7 +81,7 @@ export function NotePanel({ stepId, note, onNoteChange }: NotePanelProps) {
         <span aria-hidden style={{ fontSize: '0.5625rem', lineHeight: 1, flex: 'none' }}>
           {open ? '▾' : '▸'}
         </span>
-        <span style={{ flex: 'none' }}>노트</span>
+        <span style={{ flex: 'none' }}>{t('editor.notePanel.toggleLabel')}</span>
         {/* 접힌 상태 + 노트가 있을 때만 미리보기를 낸다 — 펼치면 textarea 자체가 그 역할을 한다. */}
         {!open && hasNote && (
           <span
@@ -101,11 +103,11 @@ export function NotePanel({ stepId, note, onNoteChange }: NotePanelProps) {
         <div id={panelId} style={{ padding: '0 17px 14px' }}>
           <textarea
             key={stepId}
-            aria-label="스텝 노트"
+            aria-label={t('editor.notePanel.textareaAriaLabel')}
             defaultValue={note}
             maxLength={LIMITS.noteLen}
             rows={3}
-            placeholder="이 스텝에서 코치가 말할 문장"
+            placeholder={t('editor.notePanel.placeholder')}
             onChange={(e) => onNoteChange(e.target.value)}
             style={{
               width: '100%',
@@ -123,7 +125,7 @@ export function NotePanel({ stepId, note, onNoteChange }: NotePanelProps) {
               "지금은 평문, 추후 md 렌더"). 상한을 넘겨도 조용히 잘리게만 두면 그 사실을 모르고
               계속 치는 사고가 나므로, maxLength 로 화면이 먼저 막는다(위 textarea). */}
           <div style={{ fontSize: '0.6875rem', color: 'var(--faint-text)', lineHeight: 1.45, marginTop: 6 }}>
-            시연 화면이 이 글을 코치에게 그대로 읽어 줍니다. 지금은 평문입니다.
+            {t('editor.notePanel.plainTextNotice')}
           </div>
         </div>
       )}

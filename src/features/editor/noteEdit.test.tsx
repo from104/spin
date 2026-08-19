@@ -202,6 +202,7 @@ describe('문 ③ 배치 직후', () => {
         showToast: vi.fn(),
         onPlayerPlaced: vi.fn(),
         onNotePlaced,
+        locale: 'ko',
       },
     );
     expect(placed).toBe(true);
@@ -225,6 +226,7 @@ describe('문 ③ 배치 직후', () => {
         showToast: vi.fn(),
         onPlayerPlaced: vi.fn(),
         onNotePlaced,
+        locale: 'ko',
       },
     );
     expect(onNotePlaced).not.toHaveBeenCalled();
@@ -235,7 +237,7 @@ describe('모달 — 줄바꿈과 취소', () => {
   function open(over: Partial<React.ComponentProps<typeof NoteEditModal>> = {}) {
     const onSave = vi.fn();
     const onCancel = vi.fn();
-    render(<NoteEditModal open initialText="" fresh={false} onSave={onSave} onCancel={onCancel} {...over} />);
+    render(<NoteEditModal open initialText="" fresh={false} onSave={onSave} onCancel={onCancel} {...over} />, { wrapper: SettingsProvider });
     return { onSave, onCancel, box: screen.getByRole('textbox', { name: '메모 내용' }) as HTMLTextAreaElement };
   }
 
@@ -271,10 +273,10 @@ describe('모달 — 줄바꿈과 취소', () => {
   });
 
   it('제목이 갈린다 — 방금 놓은 쪽지면 "쓰기", 있던 것이면 "수정"', () => {
-    const { unmount } = render(<NoteEditModal open initialText="" fresh onSave={vi.fn()} onCancel={vi.fn()} />);
+    const { unmount } = render(<NoteEditModal open initialText="" fresh onSave={vi.fn()} onCancel={vi.fn()} />, { wrapper: SettingsProvider });
     expect(screen.getByRole('dialog')).toHaveAccessibleName('메모 쓰기');
     unmount();
-    render(<NoteEditModal open initialText="가" fresh={false} onSave={vi.fn()} onCancel={vi.fn()} />);
+    render(<NoteEditModal open initialText="가" fresh={false} onSave={vi.fn()} onCancel={vi.fn()} />, { wrapper: SettingsProvider });
     expect(screen.getByRole('dialog')).toHaveAccessibleName('메모 수정');
   });
 

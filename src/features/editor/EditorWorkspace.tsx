@@ -455,6 +455,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
         // 트레이에서 끌어다 놓은 메모도 탭으로 놓은 것과 **같은 문**이 열린다 — 경로마다
         // 다르면 "탭으로는 글 칸이 뜨는데 끌어다 놓으면 안 뜬다" 가 조용히 생긴다.
         onNotePlaced: (id) => setEditingNote({ id, fresh: true }),
+        locale,
       });
     },
   });
