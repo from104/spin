@@ -680,6 +680,15 @@ export const ko = {
   'ruleOverlay.ringWarning': '공 3 m 안에 {{names}} {{n}}명 이상 — 2-on-1 주의',
   'ruleOverlay.fiveMeterWarning': '공 5 m 안에 {{names}} — 세트피스 5 m 제한',
   'ruleOverlay.zoneWarning': '골 지역에 {{names}} {{n}}명 이상 — 3인 반칙',
+
+  // ── C8b — 저장소 에러(코드→화면 문구, storage/errors.ts 는 항상 한국어 .message 만 갖는다) ──
+  'storage.error.E_DB_UNAVAILABLE': '저장소를 열 수 없습니다. 이번 세션 동안만 유지됩니다.',
+  'storage.error.E_QUOTA': '저장 공간이 부족합니다. 드릴을 정리하거나 내보낸 뒤 삭제하세요.',
+  'storage.error.E_NOT_FOUND': '드릴을 찾을 수 없습니다.',
+  'storage.error.E_CONFLICT': '다른 탭에서 이 드릴이 수정되었습니다. 덮어쓰기 / 사본으로 저장 중 선택하세요.',
+  'storage.error.E_SCHEMA_TOO_NEW': '더 새로운 버전의 SPIN에서 만든 파일입니다. 앱을 업데이트하세요.',
+  'storage.error.E_INVALID_FILE': 'SPIN 파일이 아니거나 손상되었습니다.',
+  'storage.error.E_UNSUPPORTED_KIND': '이 버전에서 지원하지 않는 파일 종류입니다{{detail}}.',
 } as const;
 
 export type DictKey = keyof typeof ko;

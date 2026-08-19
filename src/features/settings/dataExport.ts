@@ -32,7 +32,7 @@ export async function restoreBackupFromFile(file: File, opts: RestoreBackupOptio
   //    (STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND)는 건드리지 않고 **이 화면에서만** kind 를
   //    특별대우한다. 진짜 모르는 kind(drillSet 등)는 그대로 restoreBackup 의 일반 문구를 받는다.
   if (parsed.spin === 'library') {
-    throw new StorageError('E_UNSUPPORTED_KIND', translate(locale, 'settings.data.libraryKindError'));
+    throw new StorageError('E_UNSUPPORTED_KIND', translate(locale, 'settings.data.libraryKindError'), { localized: true });
   }
   return restoreBackup(parsed, opts);
 }

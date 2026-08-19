@@ -681,4 +681,13 @@ export const ja: Record<DictKey, string> = {
   'ruleOverlay.ringWarning': 'ボールの3m以内に{{names}}が{{n}}人以上 — 2対1注意',
   'ruleOverlay.fiveMeterWarning': 'ボールの5m以内に{{names}} — セットプレー5m制限',
   'ruleOverlay.zoneWarning': 'ゴールエリアに{{names}}が{{n}}人以上 — 3人反則',
+
+  // ── C8b — ストレージエラー（コード→画面文言。storage/errors.ts の .message は常に韓国語）──
+  'storage.error.E_DB_UNAVAILABLE': 'ストレージを開けません。今回のセッション中のみ保持されます。',
+  'storage.error.E_QUOTA': '保存容量が不足しています。ドリルを整理するか書き出してから削除してください。',
+  'storage.error.E_NOT_FOUND': 'ドリルが見つかりません。',
+  'storage.error.E_CONFLICT': 'このドリルは別のタブで変更されました。上書きするかコピーとして保存するかを選んでください。',
+  'storage.error.E_SCHEMA_TOO_NEW': 'これはより新しいバージョンのSPINで作られたファイルです。アプリを更新してください。',
+  'storage.error.E_INVALID_FILE': 'SPINファイルではないか、破損しています。',
+  'storage.error.E_UNSUPPORTED_KIND': 'このバージョンでは対応していないファイル種類です{{detail}}。',
 };

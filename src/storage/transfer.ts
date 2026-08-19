@@ -99,7 +99,7 @@ export function parseSpinFile(text: string): SpinFile {
     throw new StorageError('E_SCHEMA_TOO_NEW', STORAGE_ERROR_MESSAGES.E_SCHEMA_TOO_NEW());
   }
   if (!KNOWN_KINDS.includes(spin as SpinFileKind)) {
-    throw new StorageError('E_UNSUPPORTED_KIND', STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND(spin));
+    throw new StorageError('E_UNSUPPORTED_KIND', STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND(spin), { detail: spin });
   }
   return json as unknown as SpinFile;
 }
@@ -183,7 +183,7 @@ async function prepareDrillCandidates(raws: unknown[]): Promise<ImportCandidate<
 export async function prepareDrillImport(file: SpinFile): Promise<ImportCandidate<Drill>[]> {
   if (file.spin === 'drill') return prepareDrillCandidates([file.payload]);
   if (file.spin === 'library') return prepareDrillCandidates(file.payload);
-  throw new StorageError('E_UNSUPPORTED_KIND', STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND(file.spin));
+  throw new StorageError('E_UNSUPPORTED_KIND', STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND(file.spin), { detail: file.spin });
 }
 
 export async function prepareSessionImport(file: SpinFile): Promise<{
@@ -191,7 +191,7 @@ export async function prepareSessionImport(file: SpinFile): Promise<{
   session: ImportCandidate<TrainingSession>;
 }> {
   if (file.spin !== 'session') {
-    throw new StorageError('E_UNSUPPORTED_KIND', STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND(file.spin));
+    throw new StorageError('E_UNSUPPORTED_KIND', STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND(file.spin), { detail: file.spin });
   }
   const drills = await prepareDrillCandidates(file.payload.drills);
   const mig = migrateDoc(file.payload.session, SESSION_MIGRATIONS, CURRENT_SESSION_SCHEMA);
@@ -487,7 +487,7 @@ async function restoreRosterFrom(raw: unknown, mode: NonNullable<RestoreBackupOp
  *  (build 를 올려야 할 날이 오면 그때 재구축 경로를 **같은 커밋에서** 만든다.) */
 export async function restoreBackup(file: SpinFile, opts: RestoreBackupOptions = {}): Promise<BackupRestoreReport> {
   if (file.spin !== 'backup') {
-    throw new StorageError('E_UNSUPPORTED_KIND', STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND(file.spin));
+    throw new StorageError('E_UNSUPPORTED_KIND', STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND(file.spin), { detail: file.spin });
   }
   const raw: unknown = file.payload;
   if (!isRecord(raw)) throw new StorageError('E_INVALID_FILE', STORAGE_ERROR_MESSAGES.E_INVALID_FILE());

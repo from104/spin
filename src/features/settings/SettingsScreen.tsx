@@ -30,6 +30,7 @@ import { IconCheck } from '../../ui/icons.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { storageErrorText } from '../../i18n/storageError.ts';
 import { LOCALE_NAMES, SUPPORTED_LOCALES } from '../../i18n/locale.ts';
 
 // ⚠️ 2026-08-14 7차 검증 — 여기 있던 로컬 `COLOR_NAMES` 를 지우고 `core/colors.ts` 의
@@ -107,7 +108,7 @@ export function SettingsScreen() {
       if (report.prefs === 'restored') setPrefs(loadPrefs());
       toast.show(backupReportLine(report, locale));
     } catch (e) {
-      toast.show(e instanceof Error && e.message.length > 0 ? e.message : t('settings.data.readErrorFallback'));
+      toast.show(storageErrorText(e, locale, t('settings.data.readErrorFallback')));
     } finally {
       setRestoring(false);
       setPendingFile(null);

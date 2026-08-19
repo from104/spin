@@ -11,10 +11,20 @@ export type StorageErrorCode =
 
 export class StorageError extends Error {
   readonly code: StorageErrorCode;
-  constructor(code: StorageErrorCode, message: string, options?: { cause?: unknown }) {
+  /** E_UNSUPPORTED_KIND 등 코드가 보간값을 쓸 때만 채운다 — .message 는 항상 한국어로 굳어
+   *  있어(저장소 계층은 i18n 을 모른다) 화면에서 재번역하려면 원재료가 따로 필요하다.
+   *  i18n/storageError.ts 가 이 필드로 .code 를 다시 번역한다. */
+  readonly detail?: string;
+  /** 예외적으로 이미 로케일에 맞게 번역된 .message 를 들고 있는 경우(예:
+   *  features/settings/dataExport.ts 가 'library' 종류를 특별대우하며 직접 translate() 한
+   *  문구) — true 면 i18n/storageError.ts 가 .code 재번역 대신 .message 를 그대로 믿는다. */
+  readonly localized?: boolean;
+  constructor(code: StorageErrorCode, message: string, options?: { cause?: unknown; detail?: string; localized?: boolean }) {
     super(message, options); // lib ES2023 이라 2번째 인자 사용 가능
     this.name = 'StorageError';
     this.code = code;
+    this.detail = options?.detail;
+    this.localized = options?.localized;
   }
 }
 

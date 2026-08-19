@@ -686,4 +686,13 @@ export const en: Record<DictKey, string> = {
   'ruleOverlay.ringWarning': '{{n}} or more {{names}} players within 3m of the ball — 2-on-1 warning',
   'ruleOverlay.fiveMeterWarning': '{{names}} within 5m of the ball — set-piece 5m limit',
   'ruleOverlay.zoneWarning': '{{n}} or more {{names}} players in the goal area — 3-player foul',
+
+  // ── C8b — Storage errors (code → UI text; storage/errors.ts's .message is always Korean) ──
+  'storage.error.E_DB_UNAVAILABLE': "Couldn't open storage. Changes will only last for this session.",
+  'storage.error.E_QUOTA': 'Storage space is full. Clean up or export drills, then delete some.',
+  'storage.error.E_NOT_FOUND': "Couldn't find the drill.",
+  'storage.error.E_CONFLICT': 'This drill was changed in another tab. Choose to overwrite it or save a copy.',
+  'storage.error.E_SCHEMA_TOO_NEW': 'This file was made with a newer version of SPIN. Please update the app.',
+  'storage.error.E_INVALID_FILE': "This isn't a SPIN file, or it's corrupted.",
+  'storage.error.E_UNSUPPORTED_KIND': "This file type isn't supported in this version{{detail}}.",
 };

@@ -39,6 +39,7 @@ import type { ImportPreview } from './transfer.ts';
 import type { ImportResolution } from '../../storage/transfer.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { storageErrorText } from '../../i18n/storageError.ts';
 import { DRILL_LEVEL_LABELS } from '../../model/drill.ts';
 
 export interface LibraryScreenProps {
@@ -116,7 +117,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
       }
       await commitPreview(preview, new Map());
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : t('library.importErrorFallback'));
+      toast.show(storageErrorText(e, locale, t('library.importErrorFallback')));
     }
   };
 

@@ -46,6 +46,7 @@ import type { PrintDoc } from '../print/index.ts';
 import { rasterizeFrameToPng } from './rasterize.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { storageErrorText } from '../../i18n/storageError.ts';
 
 export interface ExportSheetProps {
   open: boolean;
@@ -78,12 +79,12 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
       try {
         await fn();
       } catch (e) {
-        toast.show(e instanceof Error && e.message.length > 0 ? e.message : fallback);
+        toast.show(storageErrorText(e, locale, fallback));
       } finally {
         busyRef.current = false;
       }
     },
-    [toast],
+    [toast, locale],
   );
 
   const onPrintReady = useCallback(() => {
