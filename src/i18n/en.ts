@@ -502,4 +502,40 @@ export const en: Record<DictKey, string> = {
   'editor.toolRail.drawers.notes': 'Notes',
   'editor.toolRail.drawerButtonTitleTemplate': '{{label}} — {{tools}}',
   'editor.toolRail.drawerPanelAriaLabel': '{{label}} tools',
+
+  // ── C7 — Help modal ─────────────────────────────────────────────────────────────────
+  'editor.helpModal.title': 'Help',
+  'editor.helpModal.toolsHeading': 'Tools',
+  'editor.helpModal.shortcutsHeading': 'Keyboard Shortcuts',
+  'editor.helpModal.boardSaveOverride': 'Save board now',
+  'editor.helpModal.basics.place.key': 'Place',
+  'editor.helpModal.basics.place.desc':
+    'Drag players, balls, or cones from the tray onto the court. You can also pick a tool and tap the court instead. After placing one, it switches back to the select tool with what you just placed already selected, so you can adjust its position right away.',
+  'editor.helpModal.basics.placeMany.key': 'Place Multiple',
+  'editor.helpModal.basics.placeMany.desc':
+    'Press the same tool again to lock it, so it keeps placing continuously. A pin badge lights up on the tool, and doing anything other than placing releases it right away.',
+  'editor.helpModal.basics.move.key': 'Move',
+  'editor.helpModal.basics.move.desc':
+    'For wheelchairs, where you grab it is the action — grab the back half to move it, the front half to spin in place, and the handles outside the body (front/back) to tow it along a line.',
+  'editor.helpModal.basics.select.key': 'Select / Deselect',
+  'editor.helpModal.basics.select.desc':
+    'With the select tool, tapping slightly off still grabs the nearest object. Tap the selected object again in place, or press Esc, to deselect it.',
+  'editor.helpModal.basics.selectMany.key': 'Select Multiple',
+  'editor.helpModal.basics.selectMany.desc':
+    'Drag over empty court to rubber-band select, or hold Shift/Ctrl and add objects one by one. Press the select tool again to lock it, so a tap alone adds or removes from the selection. The menu you get from a long press on an object has options to select everyone on the same team or of the same kind at once.',
+  'editor.helpModal.basics.moveMany.key': 'Move Multiple',
+  'editor.helpModal.basics.moveMany.desc':
+    'Grab and drag any one of the selected objects, and they all move together. Tapping without dragging leaves just that one selected.',
+  'editor.helpModal.basics.note.key': 'Write a Note',
+  'editor.helpModal.basics.note.desc':
+    'Tap the court with the note tool to place a sticky note and open its text field right away. To edit it later, double-click/double-tap the note, or long-press (right-click) it and choose Edit from the menu. Press Enter for a new line and Ctrl+Enter to save.',
+  'editor.helpModal.basics.remove.key': 'Remove',
+  'editor.helpModal.basics.remove.desc':
+    'Drag an object onto the tray to remove it. Before you let go, the tray tells you whether it will "return" or "delete" it — players, balls, and cones return to the tray, while arrows, notes, and shapes have nowhere to return to and are deleted. Dragging a selection of several removes them together, and the Delete key does the same thing.',
+  'editor.helpModal.extra.wheel.key': 'Mouse wheel over the court',
+  'editor.helpModal.extra.wheel.desc': 'Zoom in / out, anchored at the cursor',
+  'editor.helpModal.extra.arrowKeys.key': 'Arrow keys (placement tool, court focused)',
+  'editor.helpModal.extra.arrowKeys.desc': 'Move the grid cursor, press Enter to place',
+  'editor.helpModal.extra.stepPhoto.key': 'Space (step card)',
+  'editor.helpModal.extra.stepPhoto.desc': 'Pick up / drop the step — use ←/→ to move it, Esc to cancel',
 };

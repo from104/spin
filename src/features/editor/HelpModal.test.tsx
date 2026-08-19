@@ -8,9 +8,10 @@ import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { HelpModal } from './HelpModal.tsx';
 import { DEFAULT_ZONES } from '../../core/constants.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 function openHelp() {
-  render(<HelpModal open={true} onClose={() => {}} />);
+  render(<HelpModal open={true} onClose={() => {}} />, { wrapper: SettingsProvider });
   return screen.getByRole('dialog', { name: '도움말' });
 }
 

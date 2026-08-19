@@ -501,6 +501,38 @@ export const ko = {
   'editor.toolRail.drawers.notes': '설명',
   'editor.toolRail.drawerButtonTitleTemplate': '{{label}} — {{tools}}',
   'editor.toolRail.drawerPanelAriaLabel': '{{label}} 도구',
+
+  // ── C7 — 도움말 모달 ────────────────────────────────────────────────────────────────
+  'editor.helpModal.title': '도움말',
+  'editor.helpModal.toolsHeading': '도구',
+  'editor.helpModal.shortcutsHeading': '키보드 단축키',
+  'editor.helpModal.boardSaveOverride': '지금 판 저장',
+  'editor.helpModal.basics.place.key': '놓기',
+  'editor.helpModal.basics.place.desc':
+    '트레이의 선수·공·콘을 코트로 끌어다 놓습니다. 도구를 고른 뒤 코트를 탭해도 됩니다. 하나 놓으면 선택 도구로 돌아가고 방금 놓은 것이 선택되어 있어 바로 자리를 고칠 수 있습니다.',
+  'editor.helpModal.basics.placeMany.key': '여러 개 놓기',
+  'editor.helpModal.basics.placeMany.desc': '같은 도구를 한 번 더 누르면 고정되어 연속으로 놓입니다. 도구 칸에 핀 표시가 켜지고, 놓기가 아닌 다른 동작을 하면 바로 풀립니다.',
+  'editor.helpModal.basics.move.key': '옮기기',
+  'editor.helpModal.basics.move.desc': '휠체어는 잡는 곳이 곧 동작입니다 — 뒤 절반을 잡으면 그대로 이동, 앞 절반은 제자리 회전, 차체 밖 앞뒤 손잡이는 줄로 끄는 견인입니다.',
+  'editor.helpModal.basics.select.key': '선택·해제',
+  'editor.helpModal.basics.select.desc': '선택 도구는 조금 빗나가게 눌러도 가장 가까운 개체가 잡히고, 선택된 개체를 그 자리에서 다시 탭하거나 Esc 를 누르면 풀립니다.',
+  'editor.helpModal.basics.selectMany.key': '여러 개 고르기',
+  'editor.helpModal.basics.selectMany.desc':
+    '빈 코트를 끌어 사각형으로 훑거나, Shift·Ctrl 을 누른 채 하나씩 더합니다. 선택 도구를 한 번 더 누르면 고정되어 탭만으로 더하고 뺄 수 있습니다. 개체를 길게 눌러 나오는 메뉴에는 같은 팀·같은 종류를 한 번에 고르는 항목이 있습니다.',
+  'editor.helpModal.basics.moveMany.key': '여럿 옮기기',
+  'editor.helpModal.basics.moveMany.desc': '고른 것 중 하나를 잡아 끌면 전부 함께 갑니다. 끌지 않고 그냥 탭하면 그것 하나만 남습니다.',
+  'editor.helpModal.basics.note.key': '메모 쓰기',
+  'editor.helpModal.basics.note.desc':
+    '메모 도구로 코트를 탭하면 쪽지가 놓이면서 글 칸이 바로 열립니다. 나중에 고칠 때는 쪽지를 빠르게 두 번 누르거나(더블클릭·더블탭), 길게 눌러(오른쪽 클릭) 나오는 메뉴에서 [수정] 을 고릅니다. Enter 로 줄을 바꾸고 Ctrl+Enter 로 저장합니다.',
+  'editor.helpModal.basics.remove.key': '치우기',
+  'editor.helpModal.basics.remove.desc':
+    '개체를 트레이로 끌어다 놓으면 치워집니다. 손을 떼기 전에 트레이가 "놓으면 빼기" 인지 "놓으면 삭제" 인지 알려 줍니다 — 선수·공·콘은 트레이로 돌아가고, 화살표·메모·도형은 돌아갈 자리가 없어 삭제됩니다. 여럿을 골라 끌면 함께 치워지고, Delete 키도 같은 일을 합니다.',
+  'editor.helpModal.extra.wheel.key': '코트 위에서 마우스 휠',
+  'editor.helpModal.extra.wheel.desc': '커서 자리를 붙든 채 확대 / 축소',
+  'editor.helpModal.extra.arrowKeys.key': '방향키(배치 도구·코트 포커스)',
+  'editor.helpModal.extra.arrowKeys.desc': '격자 커서 이동, Enter 로 배치',
+  'editor.helpModal.extra.stepPhoto.key': 'Space (스텝 사진)',
+  'editor.helpModal.extra.stepPhoto.desc': '스텝 집기/놓기 — ←/→ 로 자리를 옮기고 Esc 로 되돌림',
 } as const;
 
 export type DictKey = keyof typeof ko;

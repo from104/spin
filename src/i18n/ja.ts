@@ -502,4 +502,36 @@ export const ja: Record<DictKey, string> = {
   'editor.toolRail.drawers.notes': '説明',
   'editor.toolRail.drawerButtonTitleTemplate': '{{label}} — {{tools}}',
   'editor.toolRail.drawerPanelAriaLabel': '{{label}}ツール',
+
+  // ── C7 — ヘルプモーダル ──────────────────────────────────────────────────────────────
+  'editor.helpModal.title': 'ヘルプ',
+  'editor.helpModal.toolsHeading': 'ツール',
+  'editor.helpModal.shortcutsHeading': 'キーボードショートカット',
+  'editor.helpModal.boardSaveOverride': '今すぐ盤を保存',
+  'editor.helpModal.basics.place.key': '配置',
+  'editor.helpModal.basics.place.desc':
+    'トレイの選手・ボール・コーンをコートへドラッグして置きます。ツールを選んでからコートをタップしても構いません。1つ置くと選択ツールに戻り、今置いたものが選択された状態になるので、すぐに位置を調整できます。',
+  'editor.helpModal.basics.placeMany.key': '連続配置',
+  'editor.helpModal.basics.placeMany.desc': '同じツールをもう一度押すと固定され、連続で配置できます。ツールの枠にピン表示が点灯し、配置以外の操作をするとすぐに解除されます。',
+  'editor.helpModal.basics.move.key': '移動',
+  'editor.helpModal.basics.move.desc': '車いすはつかむ場所がそのまま動作になります — 後ろ半分をつかむと移動、前半分はその場回転、車体の外の前後ハンドルは線に沿ったけん引です。',
+  'editor.helpModal.basics.select.key': '選択・解除',
+  'editor.helpModal.basics.select.desc': '選択ツールは少しずれて押しても一番近いオブジェクトをつかみます。選択したオブジェクトをその場でもう一度タップするか、Escを押すと解除されます。',
+  'editor.helpModal.basics.selectMany.key': '複数選択',
+  'editor.helpModal.basics.selectMany.desc':
+    '空いているコートをドラッグして矩形選択するか、Shift・Ctrlを押しながら1つずつ追加します。選択ツールをもう一度押すと固定され、タップだけで選択の追加・除外ができます。オブジェクトを長押しして出るメニューには、同じチーム・同じ種類を一括で選ぶ項目があります。',
+  'editor.helpModal.basics.moveMany.key': 'まとめて移動',
+  'editor.helpModal.basics.moveMany.desc': '選択したものの1つをつかんでドラッグすると、全部まとめて動きます。ドラッグせずタップするだけだと、それ1つだけが残ります。',
+  'editor.helpModal.basics.note.key': 'メモを書く',
+  'editor.helpModal.basics.note.desc':
+    'メモツールでコートをタップすると付箋が置かれ、すぐにテキスト欄が開きます。後で直すときは付箋をすばやく2回押す（ダブルクリック・ダブルタップ）か、長押し（右クリック）で出るメニューから「編集」を選びます。Enterで改行、Ctrl+Enterで保存します。',
+  'editor.helpModal.basics.remove.key': '取り除く',
+  'editor.helpModal.basics.remove.desc':
+    'オブジェクトをトレイへドラッグすると取り除かれます。手を離す前に、トレイが「戻す」のか「削除」なのかを教えてくれます — 選手・ボール・コーンはトレイに戻り、矢印・メモ・図形は戻る場所がないため削除されます。複数選んでドラッグすると一緒に取り除かれ、Deleteキーでも同じことができます。',
+  'editor.helpModal.extra.wheel.key': 'コート上でマウスホイール',
+  'editor.helpModal.extra.wheel.desc': 'カーソル位置を基準に拡大／縮小',
+  'editor.helpModal.extra.arrowKeys.key': '矢印キー（配置ツール・コートにフォーカス）',
+  'editor.helpModal.extra.arrowKeys.desc': 'グリッドカーソルを移動、Enterで配置',
+  'editor.helpModal.extra.stepPhoto.key': 'Space（ステップカード）',
+  'editor.helpModal.extra.stepPhoto.desc': 'ステップをつかむ／置く — ←/→で移動、Escで元に戻す',
 };
