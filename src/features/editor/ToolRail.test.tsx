@@ -1,7 +1,8 @@
 // §6.10 판 가장자리 트레이 — 개체(끌어다 놓는 말) / 기능(모드) 두 구역, 선수 주차 슬롯,
 // 공·콘 상자의 남은 개수, 색깔별 콘 상자, 선수 칩 탭.
 import { describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render as rtlRender, screen, within } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { ToolRail, type ChairSlot, type ToolRailProps } from './ToolRail.tsx';
@@ -10,6 +11,10 @@ import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import { BALL, CONE } from '../../core/constants.ts';
 import { CHIP_BOX_H_CSS, trayChipBoxPx } from './trayMetrics.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// ToolRail 이 useT()/useLocale()(→ SettingsProvider)을 쓴다(C7) — 이 파일 전체를 감싼다.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 const SLOTS: ChairSlot[] = [
   { id: 'ch_a' as ChairId, number: '2', color: '#d93a3a', ink: '#fff', placed: false },

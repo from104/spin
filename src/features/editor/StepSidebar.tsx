@@ -87,6 +87,7 @@ import { useStepReorderDrag } from './useStepReorderDrag.ts';
 import { useStepGroupReorderDrag } from './useStepGroupReorderDrag.ts';
 import { StepCardMenu } from './StepCardMenu.tsx';
 import type { StepCardMenuTarget } from './StepCardMenu.tsx';
+import { useT } from '../../i18n/useT.ts';
 
 export interface StepSidebarProps {
   /** 카드마다 판을 그리므로 steps 만으로는 부족하다 — cast·팀 색·코트가 함께 필요하다. */
@@ -216,6 +217,7 @@ function GapSlot({
   /** undefined = 맨 앞·맨 뒤 틈(경계 없음) — 사슬 버튼 자체를 안 그린다. */
   chain?: GapChain;
 }) {
+  const t = useT();
   return (
     <div
       data-gap-index={index}
@@ -259,7 +261,7 @@ function GapSlot({
         <button
           type="button"
           aria-label={label}
-          title={disabled ? `스텝은 ${LIMITS.maxSteps}장까지입니다.` : label}
+          title={disabled ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps }) : label}
           disabled={disabled}
           onClick={onDuplicate}
           style={{
@@ -288,9 +290,9 @@ function GapSlot({
           // 토큰이 없어 기존 경고색 관행을 그대로 물려받는다.
           <button
             type="button"
-            aria-label={`스텝 ${index} 과 스텝 ${index + 1} 사이 사슬`}
+            aria-label={t('editor.stepSidebar.gap.chainAriaLabel', { a: index, b: index + 1 })}
             aria-pressed={chain.cut}
-            title={chain.cut ? '끊긴 경계입니다. 눌러서 다시 잇습니다.' : '연결된 경계입니다. 눌러서 끊습니다.'}
+            title={chain.cut ? t('editor.stepSidebar.gap.chainCutTitle') : t('editor.stepSidebar.gap.chainLinkedTitle')}
             onClick={chain.onToggle}
             style={{
               width: 32,
@@ -318,9 +320,13 @@ function GapSlot({
  *  — 그 경우 `duplicateStep` 의 기본 삽입 자리가 이미 g 라 `toIndex` 를 안 싣는다.
  *  `order`(화면 순서, 드래그 중이면 미리보기)를 받는다 — 이 틈이 실제로 무엇 사이에 있는지는
  *  화면에 보이는 순서 기준이어야 하기 때문이다. */
-function gapDuplicateSpec(g: number, order: { id: StepId }[]): { sourceId: StepId; toIndex?: number; label: string } {
-  if (g === 0) return { sourceId: order[0]!.id, toIndex: 0, label: '스텝 1 을 복제해 맨 앞에 넣기' };
-  return { sourceId: order[g - 1]!.id, label: `스텝 ${g} 을 복제해 바로 뒤에 넣기` };
+function gapDuplicateSpec(
+  g: number,
+  order: { id: StepId }[],
+  t: ReturnType<typeof useT>,
+): { sourceId: StepId; toIndex?: number; label: string } {
+  if (g === 0) return { sourceId: order[0]!.id, toIndex: 0, label: t('editor.stepSidebar.gap.duplicateFirstLabel') };
+  return { sourceId: order[g - 1]!.id, label: t('editor.stepSidebar.gap.duplicateAfterLabel', { g }) };
 }
 
 export function StepSidebar({
@@ -339,6 +345,7 @@ export function StepSidebar({
   title,
   playback,
 }: StepSidebarProps) {
+  const t = useT();
   const steps = drill.steps;
   // 정원(§복제 가드) — 복제 버튼(카드·틈) 전부 이 하나로 잠근다. "한 장 더 찍기" 와 같은
   // 기준(LIMITS.maxSteps)이다: 복제도 결국 스텝을 한 장 늘리는 조작이라 정원 이유가 같다.
@@ -402,7 +409,7 @@ export function StepSidebar({
     measureCenters,
     onCommit: (id, to) => {
       onReorderStep(id, to);
-      liveRegion.say(`${to + 1}번째로 옮겼습니다.`);
+      liveRegion.say(t('editor.stepSidebar.announce.movedTo', { pos: to + 1 }));
     },
   });
 
@@ -423,7 +430,7 @@ export function StepSidebar({
     measureRestCenters,
     onCommit: (ids, toIndex) => {
       onMoveSteps(ids, toIndex);
-      liveRegion.say(`선택한 ${ids.length}장을 옮겼습니다.`);
+      liveRegion.say(t('editor.stepSidebar.announce.movedGroup', { n: ids.length }));
     },
   });
 
@@ -453,8 +460,8 @@ export function StepSidebar({
     const ids = steps.filter((s) => checkedIds.has(s.id)).map((s) => s.id);
     onDuplicateSteps(ids);
     setCheckedIds(new Set());
-    liveRegion.say(`${ids.length}장을 복제했습니다.`);
-  }, [batchDupBlocked, steps, checkedIds, onDuplicateSteps]);
+    liveRegion.say(t('editor.stepSidebar.announce.duplicated', { n: ids.length }));
+  }, [batchDupBlocked, steps, checkedIds, onDuplicateSteps, t]);
 
   // 일괄 삭제 — 삭제된 뒤에는 그 id 들이 더 이상 화면에 없으므로 체크도 함께 비운다.
   const handleBatchDelete = useCallback(() => {
@@ -462,8 +469,8 @@ export function StepSidebar({
     const ids = steps.filter((s) => checkedIds.has(s.id)).map((s) => s.id);
     onDeleteSteps(ids);
     setCheckedIds(new Set());
-    liveRegion.say(`${ids.length}장을 지웠습니다.`);
-  }, [batchDelBlocked, steps, checkedIds, onDeleteSteps]);
+    liveRegion.say(t('editor.stepSidebar.announce.deleted', { n: ids.length }));
+  }, [batchDelBlocked, steps, checkedIds, onDeleteSteps, t]);
 
   // 스텝이 바뀌면 그 카드가 보이도록 목록을 굴린다. jsdom 에는 scrollIntoView 가 없다 —
   // 존재 가드 후 호출한다.
@@ -479,10 +486,10 @@ export function StepSidebar({
       e.stopPropagation();
       if (held?.id === s.id) {
         setHeld(null);
-        liveRegion.say(`${i + 1}번째에 놓았습니다.`);
+        liveRegion.say(t('editor.stepSidebar.announce.movedTo', { pos: i + 1 }));
       } else {
         setHeld({ id: s.id, origin: i });
-        liveRegion.say(`스텝 ${i + 1} 집었습니다. 위아래 방향키로 옮기고 스페이스로 놓으세요.`);
+        liveRegion.say(t('editor.stepSidebar.announce.grabbed', { n: i + 1 }));
       }
       return;
     }
@@ -494,7 +501,7 @@ export function StepSidebar({
       const to = i + (e.key === 'ArrowUp' ? -1 : 1);
       if (to < 0 || to >= steps.length) return; // 끝에서는 조용히 멈춘다(감아 돌지 않는다)
       onReorderStep(s.id, to);
-      liveRegion.say(`${to + 1}번째로 옮겼습니다.`);
+      liveRegion.say(t('editor.stepSidebar.announce.movedTo', { pos: to + 1 }));
       return;
     }
     if (e.key === 'Escape') {
@@ -502,14 +509,14 @@ export function StepSidebar({
       e.stopPropagation(); // 전역 Esc(선택 해제)까지 함께 터지면 되돌린 이유가 안 보인다
       onReorderStep(s.id, held.origin);
       setHeld(null);
-      liveRegion.say('제자리로 되돌렸습니다.');
+      liveRegion.say(t('editor.stepSidebar.announce.returned'));
       return;
     }
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
       setHeld(null);
-      liveRegion.say(`${i + 1}번째에 놓았습니다.`);
+      liveRegion.say(t('editor.stepSidebar.announce.movedTo', { pos: i + 1 }));
     }
   };
 
@@ -532,18 +539,21 @@ export function StepSidebar({
   // 카드부터 고르기 시작" 이라 켜면서 그 카드를 체크한 채 시작해야 한다.
   const [menu, setMenu] = useState<StepCardMenuTarget | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
-  const startSelectWith = useCallback((id: StepId) => {
-    setSelectMode(true);
-    setCheckedIds(new Set([id]));
-    liveRegion.say('선택 모드를 켰습니다. 1장 선택됨.');
-  }, []);
+  const startSelectWith = useCallback(
+    (id: StepId) => {
+      setSelectMode(true);
+      setCheckedIds(new Set([id]));
+      liveRegion.say(t('editor.stepSidebar.announce.selectModeOnWithOne'));
+    },
+    [t],
+  );
 
   const body = (
     <>
       {/* 드릴 이름 — 사이드바 맨 위(왼쪽 상단). 근거는 StepSidebarProps.title 주석. */}
       <SidebarTitleEditor cfg={title} />
       <span id={hintId} className="sr-only">
-        스페이스로 집은 뒤 위아래 방향키로 순서를 바꿉니다. 스페이스나 엔터로 놓고, Esc 로 되돌립니다.
+        {t('editor.stepSidebar.keyboardHint')}
       </span>
       {/* ⑤ 다중 선택 상단 바 — [선택 모드] 토글은 언제나 있고, 그 아래 카운트·일괄 버튼은
           모드가 켜졌을 때만 나타난다(파일 머리말 §선택은 명시적 모드다). flex:'none' 이라
@@ -572,13 +582,13 @@ export function StepSidebar({
             fontWeight: 600,
           }}
         >
-          {selectMode ? '선택 모드 끄기' : '선택 모드'}
+          {selectMode ? t('editor.stepSidebar.selectMode.off') : t('editor.stepSidebar.selectMode.on')}
         </button>
         {selectMode && (
           <>
             {/* aria-live — 체크할 때마다 몇 장인지 스크린리더가 즉시 말해 준다. */}
             <div aria-live="polite" style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>
-              선택 {checkedIds.size}장
+              {t('editor.stepSidebar.selectedCount', { n: checkedIds.size })}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <button
@@ -586,8 +596,8 @@ export function StepSidebar({
                 disabled={batchDupBlocked}
                 title={
                   checkedIds.size > 0 && steps.length + checkedIds.size > LIMITS.maxSteps
-                    ? `스텝은 ${LIMITS.maxSteps}장까지입니다.`
-                    : '선택한 스텝을 복제합니다.'
+                    ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps })
+                    : t('editor.stepSidebar.batchDuplicateTitle')
                 }
                 onClick={handleBatchDuplicate}
                 style={{
@@ -602,15 +612,15 @@ export function StepSidebar({
                   opacity: batchDupBlocked ? 0.4 : 1,
                 }}
               >
-                선택 복제
+                {t('editor.stepSidebar.batchDuplicateButton')}
               </button>
               <button
                 type="button"
                 disabled={batchDelBlocked}
                 title={
                   checkedIds.size > 0 && checkedIds.size >= steps.length
-                    ? '스텝은 최소 1장 있어야 합니다.'
-                    : '선택한 스텝을 지웁니다.'
+                    ? t('editor.stepSidebar.batchDeleteMinTitle')
+                    : t('editor.stepSidebar.batchDeleteTitle')
                 }
                 onClick={handleBatchDelete}
                 style={{
@@ -625,7 +635,7 @@ export function StepSidebar({
                   opacity: batchDelBlocked ? 0.4 : 1,
                 }}
               >
-                선택 삭제
+                {t('editor.stepSidebar.batchDeleteButton')}
               </button>
             </div>
           </>
@@ -646,7 +656,7 @@ export function StepSidebar({
           const checked = checkedIds.has(s.id);
           const dragging = drag.state?.id === s.id || (groupDrag.state !== null && checked);
           const grabbed = held?.id === s.id;
-          const gap = gapDuplicateSpec(i, order);
+          const gap = gapDuplicateSpec(i, order, t);
           // 내부 틈(1 ≤ i ≤ order.length-1)에만 사슬이 있다 — i=0(맨 앞)은 이 루프 안에서
           // 걸러지고, 맨 뒤 틈은 루프 밖에서 따로 그리는 GapSlot(chain 을 안 넘김)이라 애초에
           // 이 분기를 안 탄다. "다음 스텝"(교리)은 바로 이 반복의 `s` = order[i] 다.
@@ -683,7 +693,7 @@ export function StepSidebar({
                 // 되어 무효한 HTML 이 된다). aria-label 은 두 모드 다 순번뿐이다(cards() 테스트
                 // 헬퍼가 두 모드에서 같은 이름으로 찾을 수 있어야 한다).
                 aria-pressed={selectMode ? checked : undefined}
-                aria-label={`스텝 ${i + 1}`}
+                aria-label={t('editor.stepSidebar.cardAriaLabel', { n: i + 1 })}
                 aria-describedby={hintId}
                 onPointerDown={(e) => {
                   // 선택 모드에서 체크된 카드를 끌면 묶음 드래그, 아니면(모드 밖이거나 체크
@@ -768,8 +778,8 @@ export function StepSidebar({
                   같은 자리를 absolute 로 나눠 쓴다). 항상 보인다(GapSlot 머리말과 같은 이유). */}
               <button
                 type="button"
-                aria-label={`스텝 ${i + 1} 을 아래로 복제`}
-                title={atMax ? `스텝은 ${LIMITS.maxSteps}장까지입니다.` : '이 스텝을 복제해 바로 아래에 넣습니다.'}
+                aria-label={t('editor.stepSidebar.duplicateBelowAriaLabel', { n: i + 1 })}
+                title={atMax ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps }) : t('editor.stepSidebar.duplicateBelowTitle')}
                 disabled={atMax}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -801,13 +811,13 @@ export function StepSidebar({
           index={order.length}
           active={false}
           disabled={atMax}
-          label={gapDuplicateSpec(order.length, order).label}
-          onDuplicate={() => fireDuplicate(gapDuplicateSpec(order.length, order))}
+          label={gapDuplicateSpec(order.length, order, t).label}
+          onDuplicate={() => fireDuplicate(gapDuplicateSpec(order.length, order, t))}
         />
 
         <button
           type="button"
-          title={atMax ? `스텝은 ${LIMITS.maxSteps}장까지입니다.` : '지금 판을 한 장 더 찍어 뒤에 넣습니다.'}
+          title={atMax ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps }) : t('editor.stepSidebar.addStepTitle')}
           disabled={atMax}
           onClick={onAddStep}
           style={{
@@ -827,7 +837,7 @@ export function StepSidebar({
           }}
         >
           <IconPlus size={15} />
-          한 장 더 찍기
+          {t('editor.stepSidebar.addStepButton')}
         </button>
       </div>
       {/* 재생 컨트롤(2026-08-18) — 하단 TransportBar 의 후계. 카드 목록(flex:1, 스크롤) 아래
@@ -845,7 +855,7 @@ export function StepSidebar({
       >
         <button
           type="button"
-          aria-label={playback.playing ? '일시정지' : '재생'}
+          aria-label={playback.playing ? t('editor.stepSidebar.playback.pause') : t('editor.stepSidebar.playback.play')}
           disabled={!playback.canPlay}
           onClick={playback.onTogglePlay}
           className="on-accent"
@@ -867,7 +877,7 @@ export function StepSidebar({
         <button
           type="button"
           onClick={playback.onCycleSpeed}
-          aria-label={`재생 속도 ${playback.speed}배. 눌러서 ${NEXT_SPEED[playback.speed]}배로 변경`}
+          aria-label={t('editor.stepSidebar.playback.speedAriaLabel', { speed: playback.speed, next: NEXT_SPEED[playback.speed] })}
           style={{
             flex: 1,
             minHeight: 'var(--hit)',
@@ -898,7 +908,7 @@ export function StepSidebar({
   if (!collapsed) {
     return (
       <nav
-        aria-label="스텝 목록"
+        aria-label={t('editor.stepSidebar.navAriaLabel')}
         style={{
           flex: 'none',
           width: SIDEBAR_WIDTH_PX,
@@ -923,7 +933,7 @@ export function StepSidebar({
         type="button"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        aria-label={open ? '스텝 목록 닫기' : '스텝 목록 열기'}
+        aria-label={open ? t('editor.stepSidebar.overlay.closeAriaLabel') : t('editor.stepSidebar.overlay.openAriaLabel')}
         onClick={() => setOpen((v) => !v)}
         style={{
           position: 'absolute',
@@ -957,7 +967,7 @@ export function StepSidebar({
       {open && (
         <nav
           id={panelId}
-          aria-label="스텝 목록"
+          aria-label={t('editor.stepSidebar.navAriaLabel')}
           style={{
             position: 'absolute',
             top: 0,
@@ -987,6 +997,7 @@ export function StepSidebar({
  *  ellipsis 처리(여기는 두 줄 허용 안 함)가 자리마다 달라, 합치면 prop 분기가 늘어난다. */
 function SidebarTitleEditor({ cfg }: { cfg: StepSidebarProps['title'] }) {
   const [editing, setEditing] = useState(false);
+  const t = useT();
 
   if (editing) {
     return (
@@ -996,7 +1007,7 @@ function SidebarTitleEditor({ cfg }: { cfg: StepSidebarProps['title'] }) {
           autoFocus
           defaultValue={cfg.value}
           maxLength={cfg.maxLength}
-          aria-label="드릴 이름"
+          aria-label={t('editor.stepSidebar.titleEditor.inputAriaLabel')}
           onBlur={(e) => {
             const v = e.target.value.trim().slice(0, cfg.maxLength);
             if (v.length > 0 && v !== cfg.value) cfg.onChange(v);
@@ -1031,8 +1042,8 @@ function SidebarTitleEditor({ cfg }: { cfg: StepSidebarProps['title'] }) {
     <div style={{ flex: 'none', padding: `${SIDEBAR_PAD_PX}px ${SIDEBAR_PAD_PX}px 0` }}>
       <button
         type="button"
-        aria-label={`드릴 이름: ${cfg.value}. 눌러서 수정`}
-        title="눌러서 이름을 고칩니다."
+        aria-label={t('editor.stepSidebar.titleEditor.buttonAriaLabel', { name: cfg.value })}
+        title={t('editor.stepSidebar.titleEditor.buttonTitle')}
         onClick={() => setEditing(true)}
         style={{
           display: 'block',

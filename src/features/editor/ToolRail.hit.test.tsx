@@ -10,7 +10,8 @@
 //   ③ **축척 불변** — 1024×600 에서 --hit 44↔56 전환이 pxPerUnit 을 한 눈금도 못 움직인다.
 //      세로가 제약이라 트레이 24px 는 폭 여유(§5.4 '남는 폭')에서 나오기 때문이다.
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { ToolRail, type ChairSlot } from './ToolRail.tsx';
@@ -20,6 +21,10 @@ import { CHROME_ROWS, courtBoxPx, courtScale } from '../../app/chromeBudget.ts';
 import type { ChromeState } from '../../app/chromeBudget.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import { BALL, CONE } from '../../core/constants.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// ToolRail 이 useT()/useLocale()(→ SettingsProvider)을 쓴다(C7) — 이 파일 전체를 감싼다.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 import type { ChairId } from '../../core/ids.ts';
 
 // ── ① 픽셀 식 — §5.4 표 재현 ────────────────────────────────────────────────

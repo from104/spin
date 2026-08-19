@@ -39,6 +39,9 @@ import {
   TRAY_ROW_MAX_CSS,
 } from './trayMetrics.ts';
 import type { TrayDragItem } from './useTrayDrag.ts';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
 /** 트레이의 선수 주차 슬롯. 배치 여부와 상관없이 **전원**이 자리를 유지한다 —
  *  코트에서 빼냈을 때 어디로 돌아가는지 보여야 하고, 트레이 길이도 들쭉날쭉하지 않는다. */
@@ -230,7 +233,11 @@ const RAIL_STYLE_H = {
 const BALL_TOOL = TOOLS.find((t) => t.id === 'ball')!;
 const CONE_TOOL = TOOLS.find((t) => t.id === 'cone')!;
 /** 상자 라벨이자 스크린리더 이름. 52px 폭에 '주황 콘'은 넘쳐서 화면에는 색 이름만 쓴다. */
-const CONE_SLOT_NAMES = ['주황', '파랑'] as const;
+const CONE_SLOT_NAMES: Record<Locale, readonly [string, string]> = {
+  ko: ['주황', '파랑'],
+  en: ['Orange', 'Blue'],
+  ja: ['オレンジ', '青'],
+};
 /** 모드 도구 — 끌 것이 없다. 'player' 는 트레이에 칩으로 직접 놓이므로 여기서 뺀다
  *  (키보드 단축키 P 는 toolDefs 에 그대로 살아 있다).
  *
@@ -274,9 +281,15 @@ type DrawerKey = keyof TrayDrawers;
  *  아니라 **재편으로** 움직이는 것이라 §3 불변식 1 위반은 아니다(FALSIFICATION §26.6 이
  *  3.-1 에서 미리 예고해 둔 이동이다) — 그래도 자리를 옮긴 것은 사실이라 커밋 메시지에 적는다. */
 const DRAWERS = [
-  { key: 'draw', label: '작도', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'line' || t.id.startsWith('shape')) },
-  { key: 'note', label: '설명', Icon: IconToolNote, tools: TOOLS.filter((t) => t.id === 'note') },
-] as const satisfies readonly { key: DrawerKey; label: string; Icon: typeof IconToolRoute; tools: readonly ToolDef[] }[];
+  { key: 'draw', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'line' || t.id.startsWith('shape')) },
+  { key: 'note', Icon: IconToolNote, tools: TOOLS.filter((t) => t.id === 'note') },
+] as const satisfies readonly { key: DrawerKey; Icon: typeof IconToolRoute; tools: readonly ToolDef[] }[];
+
+/** 서랍 이름 — DRAWERS 는 렌더 밖(모듈 최상단)에서 한 번 만들어져 t() 를 못 쓴다.
+ *  key(2가지)만으로 정해지므로 렌더 시점에 여기서 고른다. */
+function drawerLabel(key: DrawerKey, t: ReturnType<typeof useT>): string {
+  return key === 'draw' ? t('editor.toolRail.drawers.draw') : t('editor.toolRail.drawers.notes');
+}
 
 const BTN_STYLE = {
   position: 'relative' as const,
@@ -444,9 +457,9 @@ function ActiveRing({ locked = false }: { locked?: boolean }) {
  *  가운데 문장(켜졌지만 고정 아님)이 이 함수가 있는 이유다: 고정은 "같은 것을 한 번 더"
  *  라는, 눌러 보기 전에는 알 수 없는 조작이다. 도움말에만 적어 두면 열어보지 않는 사람에게는
  *  없는 기능이고, 도구를 고른 순간이 그 사실을 알려줄 유일한 자연스러운 시점이다. */
-export function toolTitle(id: ToolId, label: string, key: string | undefined, active: boolean, locked: boolean): string {
+export function toolTitle(id: ToolId, label: string, key: string | undefined, active: boolean, locked: boolean, t: ReturnType<typeof useT>): string {
   const head = key ? `${label} (${key})` : label;
-  return head + lockHint(id, active, locked);
+  return head + lockHint(id, active, locked, t);
 }
 
 /** 공·콘 상자처럼 이미 제 할 말(남은 개수)이 있는 칸에는 **뒤에 이어 붙인다**.
@@ -455,15 +468,15 @@ export function toolTitle(id: ToolId, label: string, key: string | undefined, ac
  *  도구에 붙였다가 [선택] 이 *"하나 놓으면 선택 도구로 돌아갑니다"* 라고 말했다 — 놓지도
  *  않고 이미 선택인 도구가. 골든 DOM 해시가 그 한 줄을 잡았다. 지금 [선택] 도 고정되지만
  *  **뜻이 다르므로 문장도 다르다**(§6.10b) — 같은 손짓이라고 같은 말을 하면 안 된다. */
-export function lockHint(id: ToolId, active: boolean, locked: boolean): string {
+export function lockHint(id: ToolId, active: boolean, locked: boolean, t: ReturnType<typeof useT>): string {
   if (!LOCKABLE_TOOLS.has(id)) return '';
   if (id === 'select') {
-    if (locked) return ' — 모아 고르는 중입니다. 탭하면 선택에 더하거나 뺍니다. 한 번 더 누르면 풀립니다.';
-    if (active) return ' — 한 번 더 누르면 여러 개를 모아 고릅니다.';
+    if (locked) return t('editor.toolRail.selectLockedHint');
+    if (active) return t('editor.toolRail.selectActiveHint');
     return '';
   }
-  if (locked) return ' — 연속으로 놓는 중입니다. 한 번 더 누르면 풀립니다.';
-  if (active) return ' — 하나 놓으면 선택 도구로 돌아갑니다. 한 번 더 누르면 연속으로 놓습니다.';
+  if (locked) return t('editor.toolRail.placementLockedHint');
+  if (active) return t('editor.toolRail.placementActiveHint');
   return '';
 }
 
@@ -480,14 +493,17 @@ function ToolButton({
   locked?: boolean;
   onSelect(): void;
 }) {
+  const t = useT();
+  const locale = useLocale();
+  const label = def.label[locale];
   return (
     <button
       type="button"
-      title={toolTitle(def.id, def.label, def.key, active, locked)}
+      title={toolTitle(def.id, label, def.key, active, locked, t)}
       // 이름에 '고정' 이 붙는 것은 **켜져 있을 때뿐**이다 — 안 켜졌을 때까지 붙이면 버튼
       // 이름이 늘 길어져서, 정작 켜졌을 때의 차이가 안 들린다. WCAG 2.5.3: 보이는 글자
       // (def.label)가 이름 안에 그대로 들어 있다.
-      aria-label={locked ? `${def.label} 고정` : undefined}
+      aria-label={locked ? t('editor.toolRail.lockedAriaLabelTemplate', { label }) : undefined}
       aria-pressed={active}
       onClick={onSelect}
       style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
@@ -496,7 +512,7 @@ function ToolButton({
       <span style={{ position: 'relative', display: 'flex' }}>
         <def.Icon />
       </span>
-      <span style={{ position: 'relative', fontSize: '0.6875rem', fontWeight: 600 }}>{def.label}</span>
+      <span style={{ position: 'relative', fontSize: '0.6875rem', fontWeight: 600 }}>{label}</span>
       {/* 단축키 글자를 **버튼 위에** 둔다(2026-08-16 기현 지시). 도움말 모달에만 있으면
           열어보기 전까지 존재를 모르고, 코치는 대개 열어보지 않는다. 모서리에 작게 얹어
           아이콘·라벨의 자리를 뺏지 않는다. `aria-hidden` — 스크린리더에게는 이미 버튼
@@ -539,6 +555,8 @@ export function ToolRail({
   orientation = 'vertical',
   onItemPointerDown,
 }: ToolRailProps) {
+  const t = useT();
+  const locale = useLocale();
   const horiz = orientation === 'horizontal';
   // ⚠️ 세로 트레이는 **판 오른쪽**에 있으므로 플라이아웃을 왼쪽(코트 쪽)으로 편다. 오른쪽으로
   // 펴면 화면 밖이다 — 트레이가 왼쪽에 있던 시절의 `left:'100%'` 를 그대로 두면 콘 색 선택이
@@ -623,7 +641,7 @@ export function ToolRail({
 
   return (
     // data-tray: 코트에서 끌어온 개체를 여기 놓으면 빼낸다(useEditorPointer 가 좌표로 찾는다).
-    <nav aria-label="도구" data-tray="" style={horiz ? RAIL_STYLE_H : RAIL_STYLE}>
+    <nav aria-label={t('editor.toolRail.navAriaLabel')} data-tray="" style={horiz ? RAIL_STYLE_H : RAIL_STYLE}>
       {/* §6.10c 트레이 드롭 예고 — 코트에서 끌어온 개체가 이 위에 왔을 때 **놓기 전에**
           "빼기/삭제" 를 말한다. 내용은 trayDrop.ts 가 직접 DOM 에 쓰고(드래그 중에는 React 를
           거칠 수 없다 — §6.1 규칙 1), 켜고 끄기는 nav 의 `data-drop` 을 보는 a11y.css 가 한다.
@@ -651,7 +669,7 @@ export function ToolRail({
           세로로 쌓으면 125+6+50+6+50+6+50 = **293 → 7px 넘쳐 스크롤**, 한 줄로 흐르면
           125+6+50 = **181 → 여유 105**. 이 재편이 없으면 "1024×600 에서 스크롤 없이" 가 거짓이다. */}
       <div
-        aria-label="개체"
+        aria-label={t('editor.toolRail.objectsGroupAriaLabel')}
         role="group"
         style={{
           flex: horiz ? 'none' : '0 1 auto',
@@ -698,7 +716,7 @@ export function ToolRail({
                 <span
                   key={c.id}
                   aria-hidden="true"
-                  title={`${who} — 코트에 나가 있습니다. 코트에서 이리로 끌어다 놓으면 돌아옵니다.`}
+                  title={t('editor.toolRail.placedPlayerTitle', { who })}
                   style={{ ...TRAY_CHIP_BOX, opacity: 0.5 }}
                 >
                   <TrayChairArt number={c.number} empty />
@@ -710,8 +728,8 @@ export function ToolRail({
                 key={c.id}
                 type="button"
                 aria-pressed={armed}
-                aria-label={`${who} 선수 배치`}
-                title={`${who} — 끌어다 놓거나 탭한 뒤 코트를 누르세요`}
+                aria-label={t('editor.toolRail.armPlayerAriaLabel', { who })}
+                title={t('editor.toolRail.armPlayerTitle', { who })}
                 {...dragProps({ kind: 'player', chairId: c.id }, () => onArmPlayer(c.id))}
                 style={{
                   ...TRAY_CHIP_BOX,
@@ -733,10 +751,15 @@ export function ToolRail({
           type="button"
           title={
             isBallCapped
-              ? `${BALL_TOOL.label} — 상자가 비었습니다. 코트의 공을 트레이로 끌어다 놓으면 돌아옵니다.`
-              : `${BALL_TOOL.label} (${BALL_TOOL.key}) — ${ballRemaining}개 남음, 끌어다 놓으세요${lockHint('ball', tool === 'ball', toolLock)}`
+              ? t('editor.toolRail.ballEmptyTitle', { label: BALL_TOOL.label[locale] })
+              : t('editor.toolRail.ballTitle', {
+                  label: BALL_TOOL.label[locale],
+                  key: BALL_TOOL.key,
+                  remaining: ballRemaining,
+                  hint: lockHint('ball', tool === 'ball', toolLock, t),
+                })
           }
-          aria-label={tool === 'ball' && toolLock ? `${BALL_TOOL.label} 고정` : undefined}
+          aria-label={tool === 'ball' && toolLock ? t('editor.toolRail.lockedAriaLabelTemplate', { label: BALL_TOOL.label[locale] }) : undefined}
           aria-pressed={tool === 'ball'}
           aria-disabled={isBallCapped || undefined}
           aria-describedby={ballHintId}
@@ -759,14 +782,14 @@ export function ToolRail({
               fontWeight: 600,
             }}
           >
-            {BALL_TOOL.label}
+            {BALL_TOOL.label[locale]}
           </span>
           <RemainingBadge n={ballRemaining} />
         </button>
         {/* 남은 개수는 이름이 아니라 **설명**이다. 이름에 넣으면 개수가 바뀔 때마다
             같은 버튼이 다른 것으로 들리고, 이름으로 찾는 코드도 전부 깨진다. */}
         <span id={ballHintId} className="sr-only">
-          {isBallCapped ? `상자가 비었습니다 — 최대 ${ballMax}개` : `${ballRemaining}개 남음`}
+          {isBallCapped ? t('editor.toolRail.emptyBoxHint', { max: ballMax }) : t('editor.toolRail.remainingHint', { n: ballRemaining })}
         </span>
 
         {/* 콘 상자 — 색마다 따로 둔다(기현 지시 2026-08-11). 예전에는 한 버튼을 다시 눌러
@@ -774,7 +797,7 @@ export function ToolRail({
             나타낼 수 없다. 상자를 나누면 어느 색이 몇 개 남았는지가 누르기 전에 보인다. */}
         {CONE_COLORS.map((color, i) => {
           const idx = i as 0 | 1;
-          const name = CONE_SLOT_NAMES[idx];
+          const name = CONE_SLOT_NAMES[locale][idx];
           const remaining = Math.max(0, coneMax - coneCounts[idx]);
           const empty = remaining <= 0;
           const active = tool === 'cone' && coneSlot === idx;
@@ -782,14 +805,14 @@ export function ToolRail({
             <Fragment key={color}>
               <button
                 type="button"
-                aria-label={active && toolLock ? `${name} 콘 고정` : `${name} 콘`}
+                aria-label={active && toolLock ? t('editor.toolRail.coneAriaLabelLocked', { name }) : t('editor.toolRail.coneAriaLabel', { name })}
                 aria-pressed={active}
                 aria-disabled={empty || undefined}
                 aria-describedby={`${coneHintId}-${idx}`}
                 title={
                   empty
-                    ? `${name} 콘 — 상자가 비었습니다. 코트의 콘을 트레이로 끌어다 놓으면 돌아옵니다.`
-                    : `${name} 콘 — ${remaining}개 남음, 끌어다 놓으세요${lockHint('cone', active, toolLock)}`
+                    ? t('editor.toolRail.coneEmptyTitle', { name })
+                    : t('editor.toolRail.coneTitle', { name, remaining, hint: lockHint('cone', active, toolLock, t) })
                 }
                 {...dragProps({ kind: 'cone', coneSlot: idx }, () => {
                   onConeSlotChange(idx);
@@ -820,7 +843,7 @@ export function ToolRail({
               {/* 공 상자와 같은 이유로 설명이다. 게다가 aria-label 이 붙은 버튼은
                 안쪽 텍스트가 아예 낭독되지 않아, 넣어 봐야 들리지 않는다. */}
               <span id={`${coneHintId}-${idx}`} className="sr-only">
-                {empty ? `상자가 비었습니다 — 최대 ${coneMax}개` : `${remaining}개 남음`}
+                {empty ? t('editor.toolRail.emptyBoxHint', { max: coneMax }) : t('editor.toolRail.remainingHint', { n: remaining })}
               </span>
             </Fragment>
           );
@@ -836,7 +859,7 @@ export function ToolRail({
           이름은 '기능' 그대로다: nav 자신이 aria-label="도구" 라, 구역까지 '도구' 로 부르면
           스크린리더가 "도구 탐색, 도구 그룹" 을 읽는다(설계서 §4.3 의 이름은 참고로만 따른다). */}
       <div
-        aria-label="기능"
+        aria-label={t('editor.toolRail.functionsGroupAriaLabel')}
         role="group"
         style={{
           flex: 'none',
@@ -875,8 +898,9 @@ export function ToolRail({
             그 뒤로는 두 손잡이 모두 영구히 같은 자리다. */}
         {DRAWERS.map((d) => {
           const isOpen = flyout?.key === d.key;
-          const active = d.tools.some((t) => t.id === tool);
+          const active = d.tools.some((tl) => tl.id === tool);
           const panelId = `${drawerId}-${d.key}`;
+          const dLabel = drawerLabel(d.key, t);
           return (
             // 손잡이와 패널이 DOM 상 떨어져 있으므로(패널은 포털) 마우스가 둘 사이를 오갈 때
             // `pointerleave` 가 한 번 난다 — 그것을 `FLYOUT_LEAVE_CLOSE_MS` 의 유예가 받는다.
@@ -890,7 +914,10 @@ export function ToolRail({
                 aria-controls={isOpen ? panelId : undefined}
                 // 도형 3종은 숫자 키가 없다(§7.5f 의 1–8 을 안 늘렸다) — 그때는 문자 키를 보인다.
                 // 빈 괄호 `원()` 이 그대로 나가던 자리다(2026-08-14 DOM 대조로 발견).
-                title={`${d.label} — ${d.tools.map((t) => `${t.label}(${t.key})`).join(' · ')}`}
+                title={t('editor.toolRail.drawerButtonTitleTemplate', {
+                  label: dLabel,
+                  tools: d.tools.map((tl) => `${tl.label[locale]}(${tl.key})`).join(' · '),
+                })}
                 {...fly.handleProps(d.key, () => handleRefs.current[d.key])}
                 style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
               >
@@ -910,7 +937,7 @@ export function ToolRail({
                     fontWeight: 600,
                   }}
                 >
-                  {d.label}
+                  {dLabel}
                   {/* 여는 방향 표식. 이름에는 안 들어간다 — 상태는 aria-expanded 가 말한다.
                       가로 띠는 위로(▴), 세로 기둥은 왼쪽으로(◂) 편다. */}
                   <span aria-hidden style={{ fontSize: '0.5625rem', lineHeight: 1 }}>
@@ -927,7 +954,7 @@ export function ToolRail({
                     <div
                       id={panelId}
                       role="group"
-                      aria-label={`${d.label} 도구`}
+                      aria-label={t('editor.toolRail.drawerPanelAriaLabel', { label: dLabel })}
                       {...fly.panelProps}
                       style={{
                         position: 'fixed',

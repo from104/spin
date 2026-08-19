@@ -8,13 +8,18 @@
 //      없으면 도구 줄이 잘려 작도·설명에 영영 못 닿는다(위험 3 의 세로판).
 // 그리고 교차축 정렬(alignContent) — §3 불변식 1 이 주축에서 요구한 것과 **같은 이유**의 세로판.
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { ToolRail, type ChairSlot } from './ToolRail.tsx';
 import { TRAY_BAND_PAD_X, TRAY_BAND_PAD_Y } from './trayMetrics.ts';
 import { BALL, CONE } from '../../core/constants.ts';
 import type { ChairId } from '../../core/ids.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// ToolRail 이 useT()/useLocale()(→ SettingsProvider)을 쓴다(C7) — 이 파일 전체를 감싼다.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 const SLOTS: ChairSlot[] = [
   { id: 'ch_band_a' as ChairId, number: '2', color: '#d93a3a', ink: '#fff', placed: false },
