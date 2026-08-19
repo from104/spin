@@ -301,7 +301,6 @@ export const ja: Record<DictKey, string> = {
   'present.helpAriaLabel': 'ヘルプ',
   'present.fullscreenEnter': '全画面表示',
   'present.fullscreenExit': '全画面表示を終了',
-  'present.exitAriaLabel': 'プレゼンを終了',
   'present.sessionProgressAriaLabel': 'セッション進行 {{current}}/{{total}}',
   'present.drillProgressAriaLabel': '{{index}}番目のドリル: {{title}}',
   'present.rosterAriaLabel': '選手名簿',

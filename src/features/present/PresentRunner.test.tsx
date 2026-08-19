@@ -158,15 +158,18 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
   });
 
-  it("[시연 종료]는 뒤로(back), 헤더 [편집으로]는 그 드릴 편집으로 **명시 이동**한다 (C12)", async () => {
+  it("Esc 는 뒤로(back), 헤더 [편집으로]는 그 드릴 편집으로 **명시 이동**한다 (C12)", async () => {
     // 2026-08-19 기현님 실기 지적 — [편집으로]가 back 이라 목록에서 들어오면 목록으로
     // 되돌아갔다. 이제 라벨이 약속한 목적지(그 드릴의 편집 화면)로 간다.
+    // 2026-08-20 후속(기현님 지시 — "시연 모드에서 오른쪽 기능바에서 x버튼 지우기") — 우상단
+    // [시연 종료] 버튼이 없어졌다. 나가는 길은 이제 Esc 뿐이다(fullscreen.state==='off' 인
+    // 테스트 환경에서는 키다운 핸들러가 바로 exit() 를 부른다).
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
     await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole('button', { name: '시연 종료' }));
+    await userEvent.keyboard('{Escape}');
     expect(nav.back).toHaveBeenCalledWith('board'); // 종료는 여전히 "들어온 자리로"
 
     await userEvent.click(screen.getByRole('button', { name: '편집으로' }));

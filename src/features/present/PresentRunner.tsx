@@ -27,7 +27,6 @@ import { eventCode, lookupKey } from '../../core/keymap.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { isEditableTarget, isInteractiveTarget } from '../../ui/keyboard.ts';
 import { Button } from '../../ui/Button.tsx';
-import { IconClose } from '../../ui/icons.tsx';
 import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { IconFullscreenEnter, IconFullscreenExit, IconHelp } from './icons.tsx';
 import { PresentStage } from './PresentStage.tsx';
@@ -529,11 +528,13 @@ function PresentBody({
         ...pseudoStyle,
       }}
     >
-      {/* 전체화면(특히 네이티브)에서는 앱 헤더가 화면 밖이 되므로 나갈 UI 가 여기 항상 있어야
-          한다(§6.9) — 44×44, 우상단, 항상 표시.
+      {/* 우상단 상시 버튼 — 44×44, 세로로 선다(§6.9/2026-08-20 §C).
           ⚠️ 2026-08-20 (기현님 지시, §B·C) — ⓘ가 헤더(제목 옆)로 옮겨 가면서 이 묶음은 셋
-          (도움말·전체화면·나가기)만 남았고, **세로로** 선다("시연 화면 우상단 4개 버튼 세로로
-          배치" — ⓘ가 빠져 지금은 3개다). */}
+          (도움말·전체화면·나가기)만 남았었다.
+          ⚠️ 2026-08-20 (후속, 기현님 지시 — "시연 모드에서 오른쪽 기능바에서 x버튼 지우기") —
+          나가기(X) 버튼을 걷어낸다. Esc 로 나가는 길은 그대로 있다(전체화면 중이면 먼저
+          전체화면만 빠져나오고, 한 번 더 누르면 시연을 나간다 — 키다운 핸들러의 Escape 분기).
+          남는 것은 둘(도움말·전체화면)이다. */}
       <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button type="button" aria-label={t('present.helpAriaLabel')} onClick={() => setHelpOpen(true)} style={iconBtnStyle}>
           <IconHelp size={18} />
@@ -545,9 +546,6 @@ function PresentBody({
           style={iconBtnStyle}
         >
           {fullscreen.state === 'off' ? <IconFullscreenEnter size={18} /> : <IconFullscreenExit size={18} />}
-        </button>
-        <button type="button" aria-label={t('present.exitAriaLabel')} onClick={exit} style={iconBtnStyle}>
-          <IconClose size={18} />
         </button>
       </div>
 
