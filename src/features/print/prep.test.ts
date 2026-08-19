@@ -114,14 +114,14 @@ describe('maxPrep — 세션 준비물은 합이 아니라 최대다', () => {
 
 describe('prepLine — 0 인 항목은 아예 적지 않는다', () => {
   it('셋 다 있으면 셋 다 적는다', () => {
-    expect(prepLine({ players: 6, balls: 1, cones: 4 })).toBe('선수 6명 · 공 1개 · 콘 4개');
+    expect(prepLine({ players: 6, balls: 1, cones: 4 }, 'ko')).toBe('선수 6명 · 공 1개 · 콘 4개');
   });
 
   it('콘이 없으면 "콘 0개" 를 적지 않는다', () => {
-    expect(prepLine({ players: 6, balls: 1, cones: 0 })).toBe('선수 6명 · 공 1개');
+    expect(prepLine({ players: 6, balls: 1, cones: 0 }, 'ko')).toBe('선수 6명 · 공 1개');
   });
 
   it('대조군: 전부 0 이면 빈 문자열이다(호출부가 줄째로 뺀다)', () => {
-    expect(prepLine({ players: 0, balls: 0, cones: 0 })).toBe('');
+    expect(prepLine({ players: 0, balls: 0, cones: 0 }, 'ko')).toBe('');
   });
 });

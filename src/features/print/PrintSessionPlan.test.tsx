@@ -1,12 +1,17 @@
 // §6.3 완료 판정 — **세션 계획서 = 표지 1 + 드릴 n**.
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { createDrill } from '../../model/defaults.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { DrillId, ItemId, SessionId } from '../../core/ids.ts';
 import { resolveSession, type TrainingSession } from '../../model/session.ts';
 import { buildSessionPlan } from './sessionPlan.ts';
 import { PrintSessionPlan } from './PrintSessionPlan.tsx';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// PrintSessionPlan 이 useT()/useLocale()(→ SettingsProvider)을 쓴다(C8) — 이 파일 전체를 감싼다.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 function drill(title: string): Drill {
   return { ...createDrill({ courtMode: 'full', formation: '1-2-1' }), title };
@@ -35,7 +40,7 @@ function planOf(titles: string[], opts: { missingAt?: number; rests?: Record<num
   const alive = drills.filter((_, i) => i !== opts.missingAt);
   const resolved = resolveSession(session, new Set(alive.map((d) => d.id)));
   const map = new Map<DrillId, Drill>(alive.map((d) => [d.id, d]));
-  return buildSessionPlan(resolved, map);
+  return buildSessionPlan(resolved, map, 'ko');
 }
 
 describe('장 수 = 표지 1 + 드릴 n', () => {

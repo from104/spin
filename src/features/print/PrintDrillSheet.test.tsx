@@ -1,9 +1,14 @@
 // §6.3 완료 판정 — **드릴 시트 = 스텝 n 페이지**. 60스텝까지 60장이다.
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { createDrill } from '../../model/defaults.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { PrintDrillSheet } from './PrintDrillSheet.tsx';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// PrintDrillSheet 이 useT()/useLocale()(→ SettingsProvider)을 쓴다(C8) — 이 파일 전체를 감싼다.
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 const POSE = { x: 100, y: 100, angleDeg: 0 };
 

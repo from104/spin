@@ -2,13 +2,18 @@
 // jsdom 의 window.print 는 no-op 이라 "무엇이 인쇄되는가" 는 여기서 반증할 수 없다.
 // 반증할 수 있는 것은 **언제 부르고 언제 안 부르는가**이고, 그것이 이 파일 전부다.
 import { StrictMode } from 'react';
+import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
 import { createDrill } from '../../model/defaults.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { PrintRoot } from './PrintRoot.tsx';
 import { printWhenReady } from './printWhenReady.ts';
 import type { PrintDoc } from './printDoc.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+// PrintRoot 가 렌더하는 PrintDrillSheet/PrintSessionPlan 이 useT()/useLocale() 을 쓴다(C8).
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 function drillOf(n: number): Drill {
   const base = createDrill({ courtMode: 'full', formation: '1-2-1' });

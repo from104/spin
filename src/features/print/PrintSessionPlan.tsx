@@ -10,25 +10,36 @@ import { PrintCourt } from './PrintCourt.tsx';
 import { prepLine } from './prep.ts';
 import { PRINT_PAGE_CLASS } from './printDom.ts';
 import { planDrillEntries, type SessionPlan } from './sessionPlan.ts';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 export interface PrintSessionPlanProps {
   plan: SessionPlan;
 }
 
 export function PrintSessionPlan({ plan }: PrintSessionPlanProps) {
+  const t = useT();
+  const locale = useLocale();
   const drillEntries = planDrillEntries(plan);
-  const prep = prepLine(plan.prep);
+  const prep = prepLine(plan.prep, locale);
 
   return (
     <>
       <section className={PRINT_PAGE_CLASS} data-print-page="cover">
         <h1 className="spin-print-h1">{plan.title}</h1>
         <p className="spin-print-meta">
-          {[plan.when, plan.location, `총 ${plan.totalMin}분`, `드릴 ${drillEntries.length}개`].filter(Boolean).join(' · ')}
+          {[
+            plan.when,
+            plan.location,
+            t('print.session.totalLabel', { min: plan.totalMin }),
+            t('print.session.drillCount', { n: drillEntries.length }),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
         {prep && (
           <p className="spin-print-prep">
-            <b>준비물</b> {prep}
+            <b>{t('print.prepLabel')}</b> {prep}
           </p>
         )}
         {plan.note && <p className="spin-print-note">{plan.note}</p>}
@@ -37,10 +48,10 @@ export function PrintSessionPlan({ plan }: PrintSessionPlanProps) {
           <thead>
             <tr>
               <th scope="col">#</th>
-              <th scope="col">드릴</th>
-              <th scope="col">시간</th>
-              <th scope="col">휴식</th>
-              <th scope="col">메모</th>
+              <th scope="col">{t('print.session.tableDrill')}</th>
+              <th scope="col">{t('print.session.tableTime')}</th>
+              <th scope="col">{t('print.session.tableRest')}</th>
+              <th scope="col">{t('print.session.tableNote')}</th>
             </tr>
           </thead>
           <tbody>
@@ -49,10 +60,10 @@ export function PrintSessionPlan({ plan }: PrintSessionPlanProps) {
                 <td>{e.order}</td>
                 <td>
                   {e.title}
-                  {e.missing && <span className="spin-print-dim"> (삭제된 드릴)</span>}
+                  {e.missing && <span className="spin-print-dim">{t('print.session.missingDrill')}</span>}
                 </td>
-                <td>{e.durationMin}분</td>
-                <td>{e.restAfterMin > 0 ? `${e.restAfterMin}분` : '—'}</td>
+                <td>{t('print.minutes', { n: e.durationMin })}</td>
+                <td>{e.restAfterMin > 0 ? t('print.minutes', { n: e.restAfterMin }) : '—'}</td>
                 <td>{e.note ?? ''}</td>
               </tr>
             ))}
@@ -70,22 +81,23 @@ export function PrintSessionPlan({ plan }: PrintSessionPlanProps) {
                 {e.order}. {e.title}
               </span>
               <span className="spin-print-num">
-                {e.durationMin}분{e.restAfterMin > 0 ? ` · 다음 휴식 ${e.restAfterMin}분` : ''}
+                {t('print.minutes', { n: e.durationMin })}
+                {e.restAfterMin > 0 ? t('print.session.nextRestSuffix', { min: e.restAfterMin }) : ''}
               </span>
             </header>
 
-            {e.prep && prepLine(e.prep) && (
+            {e.prep && prepLine(e.prep, locale) && (
               <p className="spin-print-prep">
-                <b>준비물</b> {prepLine(e.prep)}
+                <b>{t('print.prepLabel')}</b> {prepLine(e.prep, locale)}
               </p>
             )}
 
-            {first && <PrintCourt drill={drill} step={first} ariaLabel={`${e.title} 코트`} />}
+            {first && <PrintCourt drill={drill} step={first} ariaLabel={t('print.session.courtAriaLabel', { title: e.title })} />}
 
             <div className="spin-print-body">
               {drill.objective && (
                 <p className="spin-print-objective">
-                  <b>목적</b> {drill.objective}
+                  <b>{t('presentInfo.objectiveLabel')}</b> {drill.objective}
                 </p>
               )}
               {/* 스텝별 코칭 메모 — 세션 계획서는 드릴당 한 장이라 스텝 그림을 다 실을 수 없다.
@@ -97,7 +109,7 @@ export function PrintSessionPlan({ plan }: PrintSessionPlanProps) {
               <ol className="spin-print-steps">
                 {drill.steps.map((s, i) => (
                   <li key={s.id} data-step-index={i}>
-                    <b>스텝 {i + 1}</b>
+                    <b>{t('print.stepHeading', { i: i + 1 })}</b>
                     {s.note ? ` — ${s.note}` : ''}
                   </li>
                 ))}

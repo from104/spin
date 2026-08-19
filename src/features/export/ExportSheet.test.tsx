@@ -33,11 +33,18 @@ import { createDrill } from '../../model/defaults.ts';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { PRINT_PAGE_SELECTOR } from '../print/index.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 const rasterMock = vi.mocked(rasterizeFrameToPng);
 const downloadMock = vi.mocked(downloadBlob);
 
-const wrapper = ({ children }: { children: ReactNode }) => <ToastProvider>{children}</ToastProvider>;
+// ExportSheet 가 여는 인쇄 트리(PrintDrillSheet)가 useT()/useLocale()(→ SettingsProvider)을
+// 쓴다(C8) — ToastProvider 와 함께 감싼다.
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <SettingsProvider>
+    <ToastProvider>{children}</ToastProvider>
+  </SettingsProvider>
+);
 
 const drill = createDrill({ courtMode: 'full', title: '자유 전술판', empty: true });
 
@@ -64,20 +71,22 @@ function ToastProbe() {
 function Harness({ onClose }: { onClose?: () => void }) {
   const [open, setOpen] = useState(true);
   return (
-    <ToastProvider>
-      <ExportSheet
-        open={open}
-        onClose={() => {
-          setOpen(false);
-          onClose?.();
-        }}
-        drill={drill}
-        stepIndex={0}
-        showGrid={false}
-        showRuleZones
-      />
-      <ToastProbe />
-    </ToastProvider>
+    <SettingsProvider>
+      <ToastProvider>
+        <ExportSheet
+          open={open}
+          onClose={() => {
+            setOpen(false);
+            onClose?.();
+          }}
+          drill={drill}
+          stepIndex={0}
+          showGrid={false}
+          showRuleZones
+        />
+        <ToastProbe />
+      </ToastProvider>
+    </SettingsProvider>
   );
 }
 
@@ -145,9 +154,11 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
     const shape: Shape = { id: 'sh_1', kind: 'rect', x: 120, y: 90, w: 80, h: 60, rot: 15 };
     const withShape = { ...drill, steps: [{ ...drill.steps[0]!, shapes: [shape] }] };
     render(
-      <ToastProvider>
-        <ExportSheet open onClose={() => {}} drill={withShape} stepIndex={0} showGrid={false} showRuleZones />
-      </ToastProvider>,
+      <SettingsProvider>
+        <ToastProvider>
+          <ExportSheet open onClose={() => {}} drill={withShape} stepIndex={0} showGrid={false} showRuleZones />
+        </ToastProvider>
+      </SettingsProvider>,
     );
     await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
     await waitFor(() => expect(rasterMock).toHaveBeenCalledTimes(1));
@@ -159,9 +170,11 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
   it('캡션 stepName 은 note 첫 줄에서 온다 — name 필드는 항상 비므로 note 가 유일한 통로다(검증 결함 수정, 2026-08-17)', async () => {
     const withNote = { ...drill, steps: [{ ...drill.steps[0]!, note: '어깨너비 확인\n두 번째 줄' }] };
     render(
-      <ToastProvider>
-        <ExportSheet open onClose={() => {}} drill={withNote} stepIndex={0} showGrid={false} showRuleZones />
-      </ToastProvider>,
+      <SettingsProvider>
+        <ToastProvider>
+          <ExportSheet open onClose={() => {}} drill={withNote} stepIndex={0} showGrid={false} showRuleZones />
+        </ToastProvider>
+      </SettingsProvider>,
     );
     await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
     await waitFor(() => expect(rasterMock).toHaveBeenCalledTimes(1));

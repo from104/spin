@@ -14,6 +14,8 @@
 // `prep.test.ts` 가 그 한 줄에 단언을 직접 댄다.
 import type { ChairId } from '../../core/ids.ts';
 import type { Drill } from '../../model/drill.ts';
+import { translate } from '../../i18n/useT.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
 /** 종이에 찍히는 세 숫자. 세션(여러 드릴) 합산에도 쓰려고 id 를 뺀 형태로 따로 둔다. */
 export interface PrepCounts {
@@ -67,10 +69,10 @@ export function maxPrep(list: readonly PrepCounts[]): PrepCounts {
 
 /** "선수 6명 · 공 1개 · 콘 4개". 0 인 항목은 아예 적지 않는다 — 없는 것을 "콘 0개" 라고
  *  적으면 코치가 한 줄을 더 읽고 아무것도 얻지 못한다. 전부 0 이면 빈 문자열. */
-export function prepLine(p: PrepCounts): string {
+export function prepLine(p: PrepCounts, locale: Locale): string {
   const parts: string[] = [];
-  if (p.players > 0) parts.push(`선수 ${p.players}명`);
-  if (p.balls > 0) parts.push(`공 ${p.balls}개`);
-  if (p.cones > 0) parts.push(`콘 ${p.cones}개`);
+  if (p.players > 0) parts.push(translate(locale, 'print.prep.players', { n: p.players }));
+  if (p.balls > 0) parts.push(translate(locale, 'print.prep.balls', { n: p.balls }));
+  if (p.cones > 0) parts.push(translate(locale, 'print.prep.cones', { n: p.cones }));
   return parts.join(' · ');
 }

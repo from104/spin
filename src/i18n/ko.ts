@@ -624,6 +624,27 @@ export const ko = {
   'editor.screen.repairedToast': '일부 데이터를 자동으로 보정했습니다.',
   'editor.screen.tooNewError': '이 드릴은 더 최신 버전의 앱에서 만들어졌습니다.',
   'editor.screen.corruptedError': '드릴 파일이 손상되어 열 수 없습니다.',
+
+  // ── C8 — 인쇄물 ─────────────────────────────────────────────────────────────────────
+  'print.minutes': '{{n}}분',
+  'print.prep.players': '선수 {{n}}명',
+  'print.prep.balls': '공 {{n}}개',
+  'print.prep.cones': '콘 {{n}}개',
+  'print.prepLabel': '준비물',
+  'print.stepCounter': '스텝 {{i}}/{{total}}',
+  'print.stepHeading': '스텝 {{i}}',
+  'print.stepCourtAriaLabel': '{{title}} 스텝 {{i}} 코트',
+  'print.stepDuration': '이 스텝 {{sec}}초',
+  'print.equipmentLabel': '장비',
+  'print.session.totalLabel': '총 {{min}}분',
+  'print.session.drillCount': '드릴 {{n}}개',
+  'print.session.tableDrill': '드릴',
+  'print.session.tableTime': '시간',
+  'print.session.tableRest': '휴식',
+  'print.session.tableNote': '메모',
+  'print.session.missingDrill': ' (삭제된 드릴)',
+  'print.session.nextRestSuffix': ' · 다음 휴식 {{min}}분',
+  'print.session.courtAriaLabel': '{{title}} 코트',
 } as const;
 
 export type DictKey = keyof typeof ko;

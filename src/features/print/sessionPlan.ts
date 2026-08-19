@@ -8,6 +8,7 @@ import type { Drill } from '../../model/drill.ts';
 import type { ResolvedSession } from '../../model/session.ts';
 import { formatSessionWhen } from '../../model/session.ts';
 import { maxPrep, prepFor, type PrepCounts, type PrepList } from './prep.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
 export interface PlanEntry {
   /** 표지 표의 순번(1부터). 누락 항목도 번호를 받는다 — 종이와 화면의 순서가 어긋나면 안 된다. */
@@ -41,15 +42,15 @@ export interface SessionPlan {
 /** `formatSessionWhen` 은 "화 19:00" 까지만 만든다(§3.12 — 로케일 조합을 안 쓴다는 원칙).
  *  종이에는 날짜가 반드시 있어야 한다: 코치가 지난주 계획서와 섞어 든다. 같은 원칙으로
  *  직접 조립한다. */
-export function formatPlanWhen(ms: number): string {
+export function formatPlanWhen(ms: number, locale: Locale): string {
   const d = new Date(ms);
   const y = d.getFullYear();
   const mo = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${mo}-${day} ${formatSessionWhen(ms)}`;
+  return `${y}-${mo}-${day} ${formatSessionWhen(ms, locale)}`;
 }
 
-export function buildSessionPlan(resolved: ResolvedSession, drills: ReadonlyMap<DrillId, Drill>): SessionPlan {
+export function buildSessionPlan(resolved: ResolvedSession, drills: ReadonlyMap<DrillId, Drill>, locale: Locale): SessionPlan {
   const entries: PlanEntry[] = resolved.items.map((item, i) => {
     const drill = item.missing ? undefined : drills.get(item.drillId);
     return {
@@ -72,7 +73,7 @@ export function buildSessionPlan(resolved: ResolvedSession, drills: ReadonlyMap<
 
   return {
     title: resolved.session.title,
-    when: resolved.session.scheduledAt === undefined ? undefined : formatPlanWhen(resolved.session.scheduledAt),
+    when: resolved.session.scheduledAt === undefined ? undefined : formatPlanWhen(resolved.session.scheduledAt, locale),
     location: resolved.session.location,
     note: resolved.session.note,
     totalMin: resolved.totalMin,
