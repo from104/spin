@@ -42,6 +42,8 @@ import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
 import type { HomeNav } from '../home/nav.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 export interface SessionEditorScreenProps {
   nav: HomeNav;
@@ -53,6 +55,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
   const toast = useToast();
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [missing, setMissing] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     let cancelled = false;
@@ -81,9 +84,9 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
   if (missing) {
     return (
       <Main>
-        <p style={{ fontSize: '0.875rem', color: 'var(--faint-text)' }}>세션을 찾을 수 없습니다 — 삭제됐거나 다른 기기의 주소입니다.</p>
+        <p style={{ fontSize: '0.875rem', color: 'var(--faint-text)' }}>{t('sessionEditor.notFound')}</p>
         <Button variant="secondary" onClick={() => nav.goLibrary({ tab: 'sessions' })}>
-          세션 목록으로
+          {t('sessionEditor.backToList')}
         </Button>
       </Main>
     );
@@ -91,7 +94,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
   if (!session || !resolved) {
     return (
       <Main>
-        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>불러오는 중…</p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('common.loading')}</p>
       </Main>
     );
   }
@@ -103,8 +106,8 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
     <Main>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 860, margin: '0 auto' }}>
         {/* ── ① 세션 정보 ─────────────────────────────────────────────────────────── */}
-        <section aria-label="세션 정보" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
-          <Field label="세션명">
+        <section aria-label={t('sessionEditor.infoSectionAriaLabel')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+          <Field label={t('sessionEditor.nameFieldLabel')}>
             <input
               type="text"
               defaultValue={session.title}
@@ -112,7 +115,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
               style={inputStyle}
             />
           </Field>
-          <Field label="일시">
+          <Field label={t('sessionEditor.dateFieldLabel')}>
             <input
               type="datetime-local"
               defaultValue={session.scheduledAt !== undefined ? toLocalInputValue(session.scheduledAt) : ''}
@@ -123,7 +126,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
               style={inputStyle}
             />
           </Field>
-          <Field label="장소">
+          <Field label={t('sessionEditor.locationFieldLabel')}>
             <input
               type="text"
               defaultValue={session.location ?? ''}
@@ -131,7 +134,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
               style={inputStyle}
             />
           </Field>
-          <Field label="목표 총 시간(분)">
+          <Field label={t('sessionEditor.goalFieldLabel')}>
             <input
               type="number"
               min={0}
@@ -147,12 +150,13 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
         </section>
 
         {/* 배분 게이지 — 강제 없음(질문 ⑮). 초과는 색으로만 말한다. */}
-        <section aria-label="시간 배분" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <section aria-label={t('sessionEditor.allocationSectionAriaLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', fontWeight: 700 }}>
-            <span style={{ color: 'var(--muted)' }}>편성 합계</span>
+            <span style={{ color: 'var(--muted)' }}>{t('sessionEditor.allocationTotal')}</span>
             <span style={{ color: over ? 'var(--danger, #ef4444)' : 'var(--text)' }}>
-              {resolved.totalMin}분{goal !== undefined ? ` / 목표 ${goal}분${over ? ' — 초과' : ''}` : ''}
-              {resolved.missingCount > 0 ? ` · 누락 드릴 ${resolved.missingCount}개 제외` : ''}
+              {t('sessionEditor.allocationTotalMin', { total: resolved.totalMin })}
+              {goal !== undefined ? t('sessionEditor.allocationGoalSuffix', { goal, overNote: over ? t('sessionEditor.allocationOverNote') : '' }) : ''}
+              {resolved.missingCount > 0 ? t('sessionEditor.allocationMissingSuffix', { count: resolved.missingCount }) : ''}
             </span>
           </div>
           {goal !== undefined && (
@@ -176,7 +180,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
         <div style={{ height: 1, background: 'var(--border)' }} />
 
         {/* ── ② 구획 편집 ─────────────────────────────────────────────────────────── */}
-        <section aria-label="구획 목록" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <section aria-label={t('sessionEditor.phasesSectionAriaLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {resolved.phases.map((rp, pi) => (
             <PhaseCard
               key={rp.phase.id}
@@ -193,7 +197,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
             icon={<IconPlus size={14} />}
             onClick={() => void save({ ...session, phases: [...session.phases, { id: newId('ph'), kind: 'custom', items: [] }] })}
           >
-            구획 추가
+            {t('sessionEditor.addPhaseButton')}
           </Button>
         </section>
 
@@ -201,11 +205,11 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
 
         {/* ── ③ 시연·내보내기 ─────────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="secondary" onClick={() => void exportOneSession(session).then(() => toast.show(`"${session.title}" 을(를) 내보냈습니다.`))}>
-            내보내기
+          <Button variant="secondary" onClick={() => void exportOneSession(session).then(() => toast.show(t('sessionsScreen.exportToast', { title: session.title })))}>
+            {t('sessionTab.exportMenuItem')}
           </Button>
           <Button variant="primary" fullWidth onClick={() => nav.presentSession(session.id)} style={{ height: 48 }}>
-            세션 시연 시작
+            {t('sessionEditor.presentButton')}
           </Button>
         </div>
       </div>
@@ -218,6 +222,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
 // 의 선택 필드 — 아무도 체크 안 하면 키를 지운다(미지정 = 키 없음 교리).
 function ParticipantChecklist({ session, onSave }: { session: TrainingSession; onSave(next: TrainingSession): void }) {
   const [roster, setRoster] = useState<Roster | null>(null);
+  const t = useT();
   useEffect(() => {
     let cancelled = false;
     void loadRoster().then((r) => {
@@ -238,24 +243,24 @@ function ParticipantChecklist({ session, onSave }: { session: TrainingSession; o
   };
 
   return (
-    <section aria-label="참가자" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section aria-label={t('participantChecklist.sectionLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <h3 style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--faint-text)' }}>참가자</h3>
+        <h3 style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--faint-text)' }}>{t('participantChecklist.sectionLabel')}</h3>
         {roster && roster.players.length > 0 && (
           <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text)' }}>
-            {checked.size}/{roster.players.length}명
+            {t('participantChecklist.countSuffix', { checked: checked.size, total: roster.players.length })}
             {/* PF2 는 경기에서 동시 출전 최대 2명(FIPFA) — 참가는 제한하지 않고 셈만 보여준다. */}
             {(() => {
               const pf2 = roster.players.filter((p) => checked.has(p.id) && p.klass === 'PF2').length;
-              return pf2 > 0 ? ` · PF2 ${pf2}명` : '';
+              return pf2 > 0 ? t('participantChecklist.pf2Suffix', { count: pf2 }) : '';
             })()}
           </span>
         )}
       </div>
       {!roster ? (
-        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>불러오는 중…</p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('common.loading')}</p>
       ) : roster.players.length === 0 ? (
-        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>설정 &gt; 선수 명단에서 선수를 등록하면 여기서 참가자를 체크할 수 있습니다.</p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('participantChecklist.empty')}</p>
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {roster.players.map((p) => (
@@ -305,6 +310,8 @@ function PhaseCard({
 }) {
   const { phase, items, totalMin } = resolved;
   const [addDrillId, setAddDrillId] = useState('');
+  const t = useT();
+  const locale = useLocale();
   const flat = flattenSessionItems(session);
   const flatIndexOf = (itemId: string) => flat.findIndex((it) => it.id === itemId);
   const planned = phase.plannedMin;
@@ -315,11 +322,11 @@ function PhaseCard({
 
   return (
     <section
-      aria-label={`구획 ${phaseLabel(phase)}`}
+      aria-label={t('phaseCard.sectionAriaLabel', { label: phaseLabel(phase, locale) })}
       style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}
     >
       <div style={{ display: 'flex', gap: 8, alignItems: 'end', flexWrap: 'wrap' }}>
-        <Field label="종류">
+        <Field label={t('phaseCard.kindFieldLabel')}>
           <select
             value={phase.kind}
             onChange={(e) => onSave(updatePhase(session, phase.id, { kind: e.target.value as SessionPhaseKind }))}
@@ -327,16 +334,16 @@ function PhaseCard({
           >
             {SESSION_PHASE_KINDS.map((k) => (
               <option key={k} value={k}>
-                {PHASE_KIND_LABELS[k]}
+                {PHASE_KIND_LABELS[locale][k]}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="구획 이름(선택)">
+        <Field label={t('phaseCard.titleFieldLabel')}>
           <input
             type="text"
             defaultValue={phase.title ?? ''}
-            placeholder={PHASE_KIND_LABELS[phase.kind]}
+            placeholder={PHASE_KIND_LABELS[locale][phase.kind]}
             onBlur={(e) => {
               const v = e.target.value.trim();
               if (v === (phase.title ?? '')) return;
@@ -345,7 +352,7 @@ function PhaseCard({
             style={{ ...inputStyle, width: 160 }}
           />
         </Field>
-        <Field label="목표 배분(분)">
+        <Field label={t('phaseCard.plannedFieldLabel')}>
           <input
             type="number"
             min={0}
@@ -359,21 +366,22 @@ function PhaseCard({
           />
         </Field>
         <span style={{ marginLeft: 'auto', fontSize: '0.8125rem', fontWeight: 700, color: overPlanned ? 'var(--danger, #ef4444)' : 'var(--muted)', paddingBottom: 10 }}>
-          소계 {totalMin}분{planned !== undefined ? ` / ${planned}분${overPlanned ? ' 초과' : ''}` : ''}
+          {t('phaseCard.subtotalMin', { total: totalMin })}
+          {planned !== undefined ? t('phaseCard.subtotalPlannedSuffix', { planned, overNote: overPlanned ? t('phaseCard.subtotalOverNote') : '' }) : ''}
         </span>
         <div style={{ display: 'flex', gap: 4, paddingBottom: 4 }}>
-          <IconBtn label={`구획 ${phaseLabel(phase)} 위로`} disabled={index === 0} onClick={() => onSave(movePhase(session, phase.id, -1))}>
+          <IconBtn label={t('phaseCard.moveUpAriaLabel', { label: phaseLabel(phase, locale) })} disabled={index === 0} onClick={() => onSave(movePhase(session, phase.id, -1))}>
             ↑
           </IconBtn>
-          <IconBtn label={`구획 ${phaseLabel(phase)} 아래로`} disabled={index === count - 1} onClick={() => onSave(movePhase(session, phase.id, 1))}>
+          <IconBtn label={t('phaseCard.moveDownAriaLabel', { label: phaseLabel(phase, locale) })} disabled={index === count - 1} onClick={() => onSave(movePhase(session, phase.id, 1))}>
             ↓
           </IconBtn>
           <IconBtn
-            label={`구획 ${phaseLabel(phase)} 삭제`}
+            label={t('phaseCard.deleteAriaLabel', { label: phaseLabel(phase, locale) })}
             disabled={count === 1 && items.length > 0}
             onClick={() => {
               onSave(removePhase(session, phase.id));
-              if (items.length > 0) liveRegion.say('구획을 지우고 항목은 이웃 구획에 붙였습니다');
+              if (items.length > 0) liveRegion.say(t('phaseCard.deleteAnnounce'));
             }}
           >
             ✕
@@ -389,15 +397,15 @@ function PhaseCard({
               <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--border)', borderRadius: 8, padding: '4px 8px' }}>
                 <span style={{ flex: 1, minWidth: 0, fontSize: '0.8125rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {it.titleCache}
-                  {it.missing && <span style={{ color: 'var(--danger, #ef4444)', marginLeft: 6, fontSize: '0.75rem' }}>삭제된 드릴</span>}
+                  {it.missing && <span style={{ color: 'var(--danger, #ef4444)', marginLeft: 6, fontSize: '0.75rem' }}>{t('phaseCard.missingDrillBadge')}</span>}
                 </span>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: 'var(--muted)' }}>
-                  <span className="sr-only">{it.titleCache} 소요 시간(분)</span>
+                  <span className="sr-only">{t('phaseCard.itemDurationAriaLabel', { title: it.titleCache })}</span>
                   <input
                     type="number"
                     min={0}
                     max={480}
-                    aria-label={`${it.titleCache} 소요 시간(분)`}
+                    aria-label={t('phaseCard.itemDurationAriaLabel', { title: it.titleCache })}
                     defaultValue={it.durationOverrideMin ?? it.durationMinCache}
                     onBlur={(e) => {
                       const v = Math.round(Number(e.target.value));
@@ -406,15 +414,15 @@ function PhaseCard({
                     }}
                     style={{ ...inputStyle, width: 72, minHeight: 36 }}
                   />
-                  분
+                  {t('phaseCard.minutesUnit')}
                 </label>
-                <IconBtn label={`${it.titleCache} 위로`} disabled={fi <= 0} onClick={() => onSave(moveSessionItemFlat(session, fi, fi - 1))}>
+                <IconBtn label={t('phaseCard.itemMoveUpAriaLabel', { title: it.titleCache })} disabled={fi <= 0} onClick={() => onSave(moveSessionItemFlat(session, fi, fi - 1))}>
                   ↑
                 </IconBtn>
-                <IconBtn label={`${it.titleCache} 아래로`} disabled={fi < 0 || fi >= flat.length - 1} onClick={() => onSave(moveSessionItemFlat(session, fi, fi + 1))}>
+                <IconBtn label={t('phaseCard.itemMoveDownAriaLabel', { title: it.titleCache })} disabled={fi < 0 || fi >= flat.length - 1} onClick={() => onSave(moveSessionItemFlat(session, fi, fi + 1))}>
                   ↓
                 </IconBtn>
-                <IconBtn label={`${it.titleCache} 제거`} onClick={() => onSave(removeSessionItem(session, it.id))}>
+                <IconBtn label={t('phaseCard.itemRemoveAriaLabel', { title: it.titleCache })} onClick={() => onSave(removeSessionItem(session, it.id))}>
                   ✕
                 </IconBtn>
               </div>
@@ -425,10 +433,10 @@ function PhaseCard({
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <label className="sr-only" htmlFor={`add-${phase.id}`}>
-          {phaseLabel(phase)} 구획에 추가할 드릴
+          {t('phaseCard.addDrillLabel', { label: phaseLabel(phase, locale) })}
         </label>
         <select id={`add-${phase.id}`} value={addDrillId} onChange={(e) => setAddDrillId(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
-          <option value="">드릴 선택…</option>
+          <option value="">{t('phaseCard.addDrillPlaceholder')}</option>
           {addable.map((d) => (
             <option key={d.id} value={d.id}>
               {d.title}
@@ -452,7 +460,7 @@ function PhaseCard({
             setAddDrillId('');
           }}
         >
-          추가
+          {t('settings.roster.addButton')}
         </Button>
       </div>
     </section>

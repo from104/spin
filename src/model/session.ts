@@ -25,14 +25,11 @@ export interface SessionItem extends DrillRef {
  *  우연이 아니다: 기술 드릴이 기술 구획에 들어가는 것이 표준 세션의 짜임이다. */
 export const SESSION_PHASE_KINDS = ['warm-up', 'technical', 'tactical', 'set-piece', 'scrimmage', 'cool-down', 'custom'] as const;
 export type SessionPhaseKind = (typeof SESSION_PHASE_KINDS)[number];
-export const PHASE_KIND_LABELS: Record<SessionPhaseKind, string> = {
-  'warm-up': '워밍업',
-  technical: '기술',
-  tactical: '전술',
-  'set-piece': '세트피스',
-  scrimmage: '스크리미지',
-  'cool-down': '쿨다운',
-  custom: '자유',
+/** i18n C5 — 로케일 차원이 붙었다(model/drill.ts 의 DRILL_TYPE_LABELS 와 같은 규약). */
+export const PHASE_KIND_LABELS: Record<Locale, Record<SessionPhaseKind, string>> = {
+  ko: { 'warm-up': '워밍업', technical: '기술', tactical: '전술', 'set-piece': '세트피스', scrimmage: '스크리미지', 'cool-down': '쿨다운', custom: '자유' },
+  en: { 'warm-up': 'Warm-up', technical: 'Technical', tactical: 'Tactical', 'set-piece': 'Set Piece', scrimmage: 'Scrimmage', 'cool-down': 'Cool-down', custom: 'Custom' },
+  ja: { 'warm-up': 'ウォームアップ', technical: '技術', tactical: '戦術', 'set-piece': 'セットプレー', scrimmage: 'スクリメージ', 'cool-down': 'クールダウン', custom: '自由' },
 };
 
 export interface SessionPhase {
@@ -45,9 +42,9 @@ export interface SessionPhase {
   items: SessionItem[];
 }
 
-/** 구획의 표시 이름 — title 이 있으면 그것, 없으면 kind 라벨. */
-export function phaseLabel(p: SessionPhase): string {
-  return p.title !== undefined && p.title.trim().length > 0 ? p.title : PHASE_KIND_LABELS[p.kind];
+/** 구획의 표시 이름 — title 이 있으면 그것, 없으면 kind 라벨. locale 기본값 'ko'. */
+export function phaseLabel(p: SessionPhase, locale: Locale = 'ko'): string {
+  return p.title !== undefined && p.title.trim().length > 0 ? p.title : PHASE_KIND_LABELS[locale][p.kind];
 }
 
 export interface TrainingSession {

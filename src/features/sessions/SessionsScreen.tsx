@@ -13,6 +13,7 @@ import type { SessionId } from '../../core/ids.ts';
 import { SessionTab } from '../library/SessionTab.tsx';
 import { exportOneSession } from '../library/transfer.ts';
 import type { HomeNav } from '../home/nav.ts';
+import { useT } from '../../i18n/useT.ts';
 
 export interface SessionsScreenProps {
   nav: HomeNav;
@@ -21,23 +22,26 @@ export interface SessionsScreenProps {
 export function SessionsScreen({ nav }: SessionsScreenProps) {
   const { sessions, createSession, refresh } = useLibrary();
   const toast = useToast();
+  const t = useT();
 
   const openSession = (id: SessionId) => nav.openSession(id);
 
   const handleCreateSession = async () => {
-    const s = await createSession({ title: '새 세션' });
+    // 새 세션 기본 제목도 지금 UI 언어를 따른다 — AppShell 헤더의 [새 세션]과 같은 규칙
+    // (app.header.newSession 키 공유, i18n C2).
+    const s = await createSession({ title: t('app.header.newSession') });
     openSession(s.id);
   };
   const handleDeleteSession = async (id: SessionId) => {
     await repoDeleteSession(id);
     await refresh();
-    toast.show('세션을 삭제했습니다.');
+    toast.show(t('sessionsScreen.deleteToast'));
   };
   const handleExportSession = async (id: SessionId) => {
     const resolved = await getSession(id);
     if (!resolved) return;
     await exportOneSession(resolved.session);
-    toast.show(`"${resolved.session.title}" 을(를) 내보냈습니다.`);
+    toast.show(t('sessionsScreen.exportToast', { title: resolved.session.title }));
   };
 
   return (

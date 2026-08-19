@@ -12,6 +12,7 @@ import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { createSession, deleteSession, getSession, listSessions, addDrillToSession } from '../../storage/sessionRepo.ts';
 import { flattenSessionItems } from '../../model/session.ts';
 import type { SessionId } from '../../core/ids.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 function makeNav(): HomeNav {
   return {
@@ -25,9 +26,11 @@ function makeNav(): HomeNav {
 }
 
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <LibraryProvider>
-    <ToastProvider>{children}</ToastProvider>
-  </LibraryProvider>
+  <SettingsProvider>
+    <LibraryProvider>
+      <ToastProvider>{children}</ToastProvider>
+    </LibraryProvider>
+  </SettingsProvider>
 );
 
 beforeEach(async () => {
