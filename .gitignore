@@ -26,3 +26,5 @@ coverage
 
 # 작업용 스크래치
 .scratch/
+
+client_secret_*.apps.googleusercontent.com.json
