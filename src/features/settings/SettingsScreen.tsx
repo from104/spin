@@ -21,6 +21,7 @@ import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
 import { TEAM_COLOR_CHOICES, TEAM_COLOR_NAMES, inkFor } from '../../core/colors.ts';
 import { RosterSection } from './RosterSection.tsx';
+import { SyncSection } from './SyncSection.tsx';
 import { FORMATIONS } from '../../model/defaults.ts';
 import { COURT_MODES, COURT_MODE_SHORT_LABELS, type CourtMode } from '../../model/court.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
@@ -423,6 +424,12 @@ export function SettingsScreen() {
               {t('settings.data.chooseFile')}
             </Button>
           </Row>
+        </Section>
+
+        {/* 0.6 — 기기 이사 파일(위 [데이터]) 바로 아래가 자리다: 같은 "내 데이터를 밖으로" 축이되,
+            저쪽은 손으로 한 번, 이쪽은 자동으로 계속. 자세한 상태·동의 흐름은 SyncSection 몫. */}
+        <Section title={t('settings.sync.sectionTitle')} desc={t('settings.sync.sectionDesc')}>
+          <SyncSection />
         </Section>
 
         <div style={{ textAlign: 'center', fontSize: '0.71875rem', color: 'var(--faint-text)', paddingTop: 4, lineHeight: 1.6 }}>

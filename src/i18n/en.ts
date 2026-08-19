@@ -705,4 +705,30 @@ export const en: Record<DictKey, string> = {
   // ── C8b — Default team names on first run (storage/prefs.ts; stored, so chosen once at creation) ──
   'team.defaultHomeLabel': 'Our Team',
   'team.defaultAwayLabel': 'Opponent',
+
+  // ── 0.6 — Google Drive sync (SyncSection) ───────────────────────────────────────────
+  'settings.sync.sectionTitle': 'Google Drive Sync',
+  'settings.sync.sectionDesc':
+    "Keeps drills, sessions, and your roster in your own Google Drive's app-only space so multiple devices share them. There is no SPIN server, and disconnecting leaves this device's data untouched.",
+  'settings.sync.notConfigured': 'Sync is not configured for this deployment.',
+  'settings.sync.connect': 'Connect Google account',
+  'settings.sync.consentTitle': 'Turn on Google Drive sync?',
+  'settings.sync.consentWhat': 'What goes up: drills, sessions, and the roster. Settings and the free tactics board stay on this device only.',
+  'settings.sync.consentWhere': "Where it lives: your own Google Drive's app-only space — invisible to other apps and people, with no SPIN server involved.",
+  'settings.sync.consentDetach': "You can disconnect anytime, and disconnecting leaves this device's data untouched.",
+  'settings.sync.consentConfirm': 'Connect and turn on',
+  'settings.sync.consentCancel': 'Cancel',
+  'settings.sync.connectFailed': "Couldn't connect the Google account.",
+  'settings.sync.accountLabel': 'Account',
+  'settings.sync.accountUnknown': 'Connected (account unknown)',
+  'settings.sync.stateRunning': 'Syncing…',
+  'settings.sync.stateOffline': "Offline — changes upload automatically once you're back online.",
+  'settings.sync.stateAuthRequired': 'The connection expired. Please reconnect.',
+  'settings.sync.stateNeverSynced': 'Never synced yet.',
+  'settings.sync.lastSyncLine': 'Last synced {{time}}',
+  'settings.sync.lastResultLine': 'Uploaded {{pushed}} · received {{pulled}}',
+  'settings.sync.updateNeeded': 'Some documents were skipped because a newer version of SPIN uploaded them. Please update the app.',
+  'settings.sync.syncNow': 'Sync now',
+  'settings.sync.reconnect': 'Reconnect',
+  'settings.sync.disconnect': 'Disconnect',
 };

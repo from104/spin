@@ -11,6 +11,7 @@ import { SettingsProvider, useSettingsActions, useSettingsState } from '../store
 import { LibraryProvider, useLibraryActions } from '../store/library/LibraryProvider.tsx';
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
 import { useLocale } from '../i18n/useLocale.ts';
+import { useSyncEngine } from '../sync/useSyncEngine.ts';
 import { AppShell } from './AppShell.tsx';
 
 /** §4.6 FOUC 방지 부트 스크립트가 첫 페인트 전 data-theme 을 심어 두지만, 그 이후(테마 토글·
@@ -109,6 +110,14 @@ export function SeedDrills() {
  *  **해시 라우터인 이유는 routes.ts 머리말에** (정적 파일 배포 = SPA fallback 없음). */
 const router = createHashRouter([{ path: '*', element: <AppShell /> }]);
 
+/** 0.6 Drive 동기화 — SeedDrills 와 같은 자리·같은 모양(아무것도 안 그리고 부작용 배선).
+ *  LibraryProvider 안인 이유: 패스가 문서를 내려받으면 refresh 로 목록을 다시 읽어야 한다.
+ *  동기화 꺼짐(기본값)·미구성 빌드에서는 훅이 아무 배선도 하지 않는다(useSyncEngine). */
+export function SyncEffects() {
+  useSyncEngine();
+  return null;
+}
+
 export default function App() {
   return (
     <SettingsProvider>
@@ -116,6 +125,7 @@ export default function App() {
       <LocaleEffects />
       <LibraryProvider>
         <SeedDrills />
+        <SyncEffects />
         <ToastProvider>
           <RouterProvider router={router} />
         </ToastProvider>

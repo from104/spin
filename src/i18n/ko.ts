@@ -700,6 +700,32 @@ export const ko = {
   // ── C8b — 첫 실행 기본 팀 이름(storage/prefs.ts, 저장되는 값이라 생성 시점에 한 번만 고른다) ──
   'team.defaultHomeLabel': '우리 팀',
   'team.defaultAwayLabel': '상대',
+
+  // ── 0.6 — Google Drive 동기화(SyncSection) ─────────────────────────────────────────
+  'settings.sync.sectionTitle': 'Google Drive 동기화',
+  'settings.sync.sectionDesc':
+    '드릴·세션·선수 명단을 회원님 본인 Google Drive의 앱 전용 공간에 저장해 여러 기기에서 함께 씁니다. SPIN 서버는 없으며, 연결을 끊어도 이 기기의 데이터는 그대로 남습니다.',
+  'settings.sync.notConfigured': '이 배포에는 동기화가 구성되어 있지 않습니다.',
+  'settings.sync.connect': 'Google 계정 연결',
+  'settings.sync.consentTitle': 'Google Drive 동기화를 켤까요?',
+  'settings.sync.consentWhat': '올라가는 것: 드릴·세션·선수 명단. 설정과 자유 전술판은 이 기기에만 남습니다.',
+  'settings.sync.consentWhere': '저장되는 곳: 회원님 본인 Google Drive의 앱 전용 공간 — 다른 앱이나 다른 사람에게 보이지 않고, SPIN 서버는 없습니다.',
+  'settings.sync.consentDetach': '언제든 [연결 해제]로 끊을 수 있고, 끊어도 이 기기의 데이터는 그대로 남습니다.',
+  'settings.sync.consentConfirm': '연결하고 켜기',
+  'settings.sync.consentCancel': '취소',
+  'settings.sync.connectFailed': 'Google 계정 연결에 실패했습니다.',
+  'settings.sync.accountLabel': '계정',
+  'settings.sync.accountUnknown': '연결됨 (계정 정보 없음)',
+  'settings.sync.stateRunning': '동기화 중…',
+  'settings.sync.stateOffline': '오프라인 — 연결되면 자동으로 밀어올립니다.',
+  'settings.sync.stateAuthRequired': '연결이 만료되었습니다. 다시 연결하세요.',
+  'settings.sync.stateNeverSynced': '아직 동기화한 적 없습니다.',
+  'settings.sync.lastSyncLine': '마지막 동기화 {{time}}',
+  'settings.sync.lastResultLine': '올림 {{pushed}} · 가져옴 {{pulled}}',
+  'settings.sync.updateNeeded': '더 새 버전의 SPIN이 올린 문서가 있어 일부를 건너뛰었습니다. 앱을 업데이트하세요.',
+  'settings.sync.syncNow': '지금 동기화',
+  'settings.sync.reconnect': '다시 연결',
+  'settings.sync.disconnect': '연결 해제',
 } as const;
 
 export type DictKey = keyof typeof ko;

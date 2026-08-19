@@ -700,4 +700,30 @@ export const ja: Record<DictKey, string> = {
   // ── C8b — 初回起動時のデフォルトチーム名(storage/prefs.ts。保存される値なので作成時に一度だけ決める) ──
   'team.defaultHomeLabel': '自チーム',
   'team.defaultAwayLabel': '相手',
+
+  // ── 0.6 — Google Drive同期(SyncSection) ────────────────────────────────────────────
+  'settings.sync.sectionTitle': 'Google Drive同期',
+  'settings.sync.sectionDesc':
+    'ドリル・セッション・選手名簿をご自身のGoogle Driveのアプリ専用領域に保存し、複数の端末で共有します。SPINのサーバーはなく、接続を切ってもこの端末のデータはそのまま残ります。',
+  'settings.sync.notConfigured': 'この配備では同期が構成されていません。',
+  'settings.sync.connect': 'Googleアカウントを接続',
+  'settings.sync.consentTitle': 'Google Drive同期をオンにしますか?',
+  'settings.sync.consentWhat': 'アップロードされるもの: ドリル・セッション・選手名簿。設定と自由戦術ボードはこの端末にのみ残ります。',
+  'settings.sync.consentWhere': '保存先: ご自身のGoogle Driveのアプリ専用領域 — 他のアプリや他人からは見えず、SPINのサーバーはありません。',
+  'settings.sync.consentDetach': 'いつでも[接続解除]で切れます。切ってもこの端末のデータはそのまま残ります。',
+  'settings.sync.consentConfirm': '接続してオンにする',
+  'settings.sync.consentCancel': 'キャンセル',
+  'settings.sync.connectFailed': 'Googleアカウントの接続に失敗しました。',
+  'settings.sync.accountLabel': 'アカウント',
+  'settings.sync.accountUnknown': '接続済み(アカウント不明)',
+  'settings.sync.stateRunning': '同期中…',
+  'settings.sync.stateOffline': 'オフライン — 接続が戻り次第、自動的にアップロードします。',
+  'settings.sync.stateAuthRequired': '接続の有効期限が切れました。再接続してください。',
+  'settings.sync.stateNeverSynced': 'まだ同期したことがありません。',
+  'settings.sync.lastSyncLine': '最終同期 {{time}}',
+  'settings.sync.lastResultLine': 'アップロード {{pushed}} · 受信 {{pulled}}',
+  'settings.sync.updateNeeded': 'より新しいバージョンのSPINがアップロードした文書があり、一部をスキップしました。アプリを更新してください。',
+  'settings.sync.syncNow': '今すぐ同期',
+  'settings.sync.reconnect': '再接続',
+  'settings.sync.disconnect': '接続解除',
 };
