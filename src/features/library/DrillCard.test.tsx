@@ -1,5 +1,9 @@
 // §6.11/부록A 드릴 카드. 열기·더보기 메뉴(복제/파일로 내보내기/삭제) 동작과
 // 판 걸이(로드맵 2.7)의 상시 노출 [시연]·코트 비율 썸네일을 확인한다.
+//
+// i18n C4 — DrillCard 가 useT/useLocale(→ useSettingsState)을 직접 쓰게 되면서 SettingsProvider
+// 없이는 못 선다. 전부 `{ wrapper: SettingsProvider }` 로 감싼다(테스트 로케일은 test/setup.ts
+// 가 'ko' 로 고정하므로 기존 한글 단언은 그대로 유효하다).
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -7,6 +11,7 @@ import { DrillCard } from './DrillCard.tsx';
 import { buildSummary } from '../../model/summary.ts';
 import { createDrill } from '../../model/defaults.ts';
 import type { CourtMode } from '../../model/court.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 function makeSummary(title = '카드 테스트 드릴', courtMode: CourtMode = 'full') {
   return buildSummary(createDrill({ courtMode, title }));
@@ -21,7 +26,7 @@ describe('DrillCard', () => {
   it('카드를 클릭하면 onOpen 이 호출된다', async () => {
     const onOpen = vi.fn();
     const d = makeSummary();
-    render(<DrillCard drill={d} {...noopHandlers()} onOpen={onOpen} />);
+    render(<DrillCard drill={d} {...noopHandlers()} onOpen={onOpen} />, { wrapper: SettingsProvider });
     await userEvent.setup().click(screen.getByRole('button', { name: `${d.title} 열기` }));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
@@ -31,7 +36,7 @@ describe('DrillCard', () => {
     const onPresent = vi.fn();
     const onOpen = vi.fn();
     const d = makeSummary();
-    render(<DrillCard drill={d} {...noopHandlers()} onOpen={onOpen} onPresent={onPresent} />);
+    render(<DrillCard drill={d} {...noopHandlers()} onOpen={onOpen} onPresent={onPresent} />, { wrapper: SettingsProvider });
     await userEvent.setup().click(screen.getByRole('button', { name: `${d.title} 시연 시작` }));
     expect(onPresent).toHaveBeenCalledTimes(1);
     expect(onOpen).not.toHaveBeenCalled();
@@ -47,6 +52,7 @@ describe('DrillCard', () => {
         <DrillCard drill={full} {...noopHandlers()} />
         <DrillCard drill={half} {...noopHandlers()} />
       </>,
+      { wrapper: SettingsProvider },
     );
     const boxOf = (label: string) => screen.getByRole('img', { name: label }).parentElement as HTMLElement;
     // 2026-08-19 2차 — 가로·세로 모두 1/2: 상자 폭 50%, 비율은 코트 그대로.
@@ -65,7 +71,7 @@ describe('DrillCard', () => {
     const onDuplicate = vi.fn();
     const onExport = vi.fn();
     const onDelete = vi.fn();
-    render(<DrillCard drill={d} {...noopHandlers()} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} />);
+    render(<DrillCard drill={d} {...noopHandlers()} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} />, { wrapper: SettingsProvider });
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: `${d.title} 더보기` }));
@@ -83,7 +89,7 @@ describe('DrillCard', () => {
 
   it('Escape 를 누르면 메뉴가 닫힌다', async () => {
     const d = makeSummary();
-    render(<DrillCard drill={d} {...noopHandlers()} />);
+    render(<DrillCard drill={d} {...noopHandlers()} />, { wrapper: SettingsProvider });
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: `${d.title} 더보기` }));
     expect(screen.getByRole('menu')).toBeInTheDocument();
@@ -95,14 +101,14 @@ describe('DrillCard', () => {
   // 그대로 그리는지만 본다(자르는 로직 자체는 summary.test.ts).
   it('부제(드릴 짧은 설명)가 있으면 제목 아래 렌더된다', () => {
     const d = { ...makeSummary(), description: '카드 부제 문구' };
-    render(<DrillCard drill={d} {...noopHandlers()} />);
+    render(<DrillCard drill={d} {...noopHandlers()} />, { wrapper: SettingsProvider });
     expect(screen.getByText('카드 부제 문구')).toBeInTheDocument();
   });
 
   it('부제가 없으면 그 줄 자체가 없다 — 빈 줄로 카드 세로 리듬을 깨지 않는다', () => {
     const d = makeSummary(); // buildSummary 는 description 없는 드릴에 키를 안 만든다
     expect('description' in d).toBe(false);
-    const { container } = render(<DrillCard drill={d} {...noopHandlers()} />);
+    const { container } = render(<DrillCard drill={d} {...noopHandlers()} />, { wrapper: SettingsProvider });
     // 부제 자리는 title 과 아이콘 행 사이의 fontSize 0.78125rem 줄 하나뿐이라 그 존재 여부로 판정.
     expect(container.querySelector('[style*="0.78125rem"]')).toBeNull();
   });

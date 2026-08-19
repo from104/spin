@@ -267,9 +267,10 @@ describe('3.2/3.3 요약 결정 — 교육 필드는 DrillSummary 에 싣지 않
     // 사라졌다 — 썸네일 도형·메모 때문에 build 를 2 로 올리면서 LibraryProvider 가 그 경로를
     // 부르게 됐다. **그래도 교육 필드는 여전히 안 싣는다** — 목록이 읽지 않기 때문이다.)
     // build 는 같은 날 다시 3 으로 올랐고(드릴 짧은 설명이 목록 카드 부제로), 2026-08-18 에
-    // 4 로 올랐다(v8 — category→drillType 교체·searchKey 유형/상황 라벨). 그 결론들은
-    // summary.test.ts 가 맡고 여기 단언은 상수 값만 따라간다.
-    expect(SUMMARY_BUILD).toBe(4);
+    // 4 로 올랐다(v8 — category→drillType 교체·searchKey 유형/상황 라벨), 2026-08-19 에
+    // 5 로 올랐다(i18n C4 — searchKey 세 언어 확장). 그 결론들은 summary.test.ts 가 맡고
+    // 여기 단언은 상수 값만 따라간다.
+    expect(SUMMARY_BUILD).toBe(5);
     const d = createDrill({ courtMode: 'full', formation: '1-2-1', title: '요약 검증 드릴' });
     const s = buildSummary({ ...d, objective: '스핀턴전개목적', coachingPoints: ['몸을 연다'], playersNeeded: 6, equipment: '조끼' });
     for (const k of TEACHING_KEYS) expect(k in s, `요약에 '${k}' 가 들어갔다 — build 상승과 재구축 경로가 같이 필요하다`).toBe(false);

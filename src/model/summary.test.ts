@@ -39,8 +39,8 @@ describe('DrillSummary.description — SUMMARY_BUILD 3', () => {
     expect(s.searchKey).toContain('스핀턴전개');
   });
 
-  it('SUMMARY_BUILD 는 4다 — v8 에서 category→drillType 교체·searchKey 확장과 같은 커밋', () => {
-    expect(SUMMARY_BUILD).toBe(4);
+  it('SUMMARY_BUILD 는 5다 — i18n C4 에서 searchKey 가 세 언어를 전부 싣도록 확장됐다', () => {
+    expect(SUMMARY_BUILD).toBe(5);
   });
 
   it('요약이 유형을 싣고 searchKey 가 한국어 라벨로 찾힌다 (BUILD 4)', () => {
@@ -51,6 +51,17 @@ describe('DrillSummary.description — SUMMARY_BUILD 3', () => {
     expect(s.searchKey).toContain('킥인');
     // 옛 category 필드는 요약에서 사라졌다 — 죽은 키를 남기지 않는다(summary.ts BUILD 4 주석).
     expect('category' in s).toBe(false);
+  });
+
+  it('searchKey 는 세 언어 라벨을 전부 싣는다 (BUILD 5, i18n C4) — UI 언어와 무관하게 찾혀야 한다', () => {
+    // 소문자로 접기 전에 합치므로 영어 라벨도 소문자로 들어간다(buildSearchKey 의 .toLowerCase()).
+    const s = buildSummary({ ...createDrill({ courtMode: 'full', drillType: 'set-piece' }), situation: 'kick-in' as const });
+    expect(s.searchKey).toContain('세트피스');
+    expect(s.searchKey).toContain('set piece'); // 'Set Piece' → 소문자로 접힌다(buildSearchKey)
+    expect(s.searchKey).toContain('セットプレー');
+    expect(s.searchKey).toContain('킥인');
+    expect(s.searchKey).toContain('kick-in');
+    expect(s.searchKey).toContain('キックイン');
   });
 
   it('situation 미지정이면 요약에도 키가 없다', () => {

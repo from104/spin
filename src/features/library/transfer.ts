@@ -18,11 +18,13 @@ import { drillFileName, slugify, ymdLocal, readTextFile, downloadBlob } from '..
 import type { Drill } from '../../model/drill.ts';
 import type { TrainingSession } from '../../model/session.ts';
 import type { DrillId } from '../../core/ids.ts';
+import type { Locale } from '../../i18n/locale.ts';
+import { translate } from '../../i18n/useT.ts';
 
-export async function exportOneDrill(id: DrillId): Promise<void> {
+export async function exportOneDrill(id: DrillId, locale: Locale = 'ko'): Promise<void> {
   const { repo } = await resolveDrillRepo();
   const d = await repo.getDrill(id);
-  if (!d) throw new Error('드릴을 찾을 수 없습니다');
+  if (!d) throw new Error(translate(locale, 'library.transfer.drillNotFoundError'));
   downloadBlob(exportDrillFile(d), drillFileName(d));
 }
 
@@ -37,7 +39,9 @@ export async function exportOneSession(session: TrainingSession): Promise<void> 
   const { repo } = await resolveDrillRepo();
   const map = await repo.getDrills(session.drillIds);
   const drills = session.drillIds.map((id) => map.get(id)).filter((d): d is Drill => d !== undefined);
-  downloadBlob(exportSessionFile(session, drills), `SPIN_세션_${slugify(session.title)}_${ymdLocal(Date.now())}.spin.json`);
+  // i18n C4 — 파일명 세그먼트는 번역하지 않는다(드릴 쪽 drillFileName 도 언어 중립이다) — 다운로드
+  // 파일명은 UI 문구가 아니라 파일 시스템 호환성이 우선이라, '세션'을 영문 'session' 으로 고쳤다.
+  downloadBlob(exportSessionFile(session, drills), `SPIN_session_${slugify(session.title)}_${ymdLocal(Date.now())}.spin.json`);
 }
 
 /** 가져오기 1단계: 파일을 읽고 파싱해 후보 목록을 만든다. UI 는 이 결과로 conflict:'exists' 만
@@ -63,7 +67,7 @@ function rawDrillCount(file: SpinFile): number {
   return 0;
 }
 
-export async function readImportFile(file: File): Promise<ImportPreview> {
+export async function readImportFile(file: File, locale: Locale = 'ko'): Promise<ImportPreview> {
   const text = await readTextFile(file);
   const parsed = parseSpinFile(text);
   if (parsed.spin === 'drill' || parsed.spin === 'library') {
@@ -73,7 +77,7 @@ export async function readImportFile(file: File): Promise<ImportPreview> {
     const { drills, session } = await prepareSessionImport(parsed);
     return { kind: 'session', file: parsed, drills, session, drillsInFile: rawDrillCount(parsed) };
   }
-  if (parsed.spin === 'prefs') return { kind: 'unsupported', reason: '설정 파일은 설정 화면에서 가져오세요.' };
+  if (parsed.spin === 'prefs') return { kind: 'unsupported', reason: translate(locale, 'library.transfer.reasonPrefsFile') };
   // ⚠️ backup 을 마지막 폴백으로 흘리지 마라. §6.1b 이후 [기기 이사 파일]은 이 앱이 만드는
   //    **유일한 통짜 백업**이고, 그것을 여기서 '지원하지 않는 파일 형식입니다' 로 떨구면
   //    코치가 방금 자기가 만든 파일을 열려다 **파일이 잘못됐다는 말**을 듣는다. 여는 자리가
@@ -81,9 +85,9 @@ export async function readImportFile(file: File): Promise<ImportPreview> {
   //    목록에서 실제로 복원까지 하게 만드는 것은 별개다 — 설정 화면의 '설정도 함께 복원'
   //    체크박스와 전술판 정책(RestoreBackupOptions)을 여기로 옮겨야 하는 결정이라 미뤘다.
   if (parsed.spin === 'backup') {
-    return { kind: 'unsupported', reason: '기기 이사 파일은 설정 화면의 [기기 이사 파일 읽기]에서 엽니다.' };
+    return { kind: 'unsupported', reason: translate(locale, 'library.transfer.reasonBackupFile') };
   }
-  return { kind: 'unsupported', reason: '지원하지 않는 파일 형식입니다.' };
+  return { kind: 'unsupported', reason: translate(locale, 'library.transfer.reasonUnsupportedFormat') };
 }
 
 /** conflict 별 기본 해상도. 'exists' 만 사용자가 고른 값으로 덮어써야 한다. */
@@ -137,6 +141,6 @@ export function buildImportReport(drillsInFile: number, outcome: ImportOutcome):
 /** 토스트 한 줄. 0 이어도 세 숫자를 전부 보여준다(로드맵 4.2 완료 판정: "세 숫자가 전부 나온다").
  *  0 을 숨기면 "7개 가져옴" 만 보고 나머지 3개가 어떻게 됐는지 물을 곳이 없다 — 컨트롤 예산(§3)
  *  때문에 상세 보기 버튼을 더할 수 없으므로, 이 한 줄이 보고의 전부다. */
-export function importReportLine(r: ImportReport): string {
-  return `${r.imported}개 가져옴 · ${r.failed}개 실패 · ${r.skipped}개 건너뜀`;
+export function importReportLine(r: ImportReport, locale: Locale = 'ko'): string {
+  return translate(locale, 'library.transfer.importReportLine', { imported: r.imported, failed: r.failed, skipped: r.skipped });
 }

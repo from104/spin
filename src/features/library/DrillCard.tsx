@@ -14,9 +14,11 @@ import { CourtThumbnail } from '../../render/CourtThumbnail.tsx';
 import { Pill } from '../../ui/Pill.tsx';
 import { IconClock, IconLevel, IconListSteps, IconPlay } from '../../ui/icons.tsx';
 import { drillTypeColor } from '../../core/colors.ts';
-import { DRILL_TYPE_LABELS } from '../../model/drill.ts';
+import { DRILL_TYPE_LABELS, DRILL_LEVEL_LABELS } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
 import type { DrillSummary } from '../../model/summary.ts';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 export interface DrillCardProps {
   drill: DrillSummary;
@@ -58,6 +60,7 @@ export function DrillKebabMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
+  const t = useT();
 
   const closeMenu = () => {
     setMenuOpen(false);
@@ -89,7 +92,7 @@ export function DrillKebabMenu({
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-controls={menuId}
-        aria-label={`${title} 더보기`}
+        aria-label={t('drillCard.kebabMoreAriaLabel', { title })}
         onClick={() => setMenuOpen((v) => !v)}
         style={{
           width: 32,
@@ -109,7 +112,7 @@ export function DrillKebabMenu({
         <div
           id={menuId}
           role="menu"
-          aria-label={`${title} 작업`}
+          aria-label={t('drillCard.kebabMenuAriaLabel', { title })}
           style={
             {
               position: 'absolute',
@@ -133,7 +136,7 @@ export function DrillKebabMenu({
               onDuplicate();
             }}
           >
-            복제
+            {t('drillCard.duplicateMenuItem')}
           </MenuItem>
           <MenuItem
             onClick={() => {
@@ -141,7 +144,7 @@ export function DrillKebabMenu({
               onExport();
             }}
           >
-            파일로 내보내기
+            {t('drillCard.exportMenuItem')}
           </MenuItem>
           <MenuItem
             tone="danger"
@@ -150,7 +153,7 @@ export function DrillKebabMenu({
               onDelete();
             }}
           >
-            삭제
+            {t('drillCard.deleteMenuItem')}
           </MenuItem>
         </div>
       )}
@@ -162,6 +165,8 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
   // §6.4 — 카드 상자의 비율은 그 드릴의 **크기까지** 따라간다. 크기를 빼면 25×14 드릴만
   // 30×18 비율 상자 안에 그려져 위아래에 검은 띠가 남는다(썸네일은 xMidYMid meet 이다).
   const courtDef = courtDefFor(drill.courtMode, drill.courtSize);
+  const t = useT();
+  const locale = useLocale();
 
   return (
     <div
@@ -178,7 +183,7 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`${drill.title} 열기`}
+        aria-label={t('drillCard.openAriaLabel', { title: drill.title })}
         style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', flex: 1 }}
       >
         {/* 썸네일 — 2026-08-19 기현님 지시 2차: *"가로도 1/2"*. 코트 상자 자체가 카드 폭의
@@ -205,7 +210,7 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
             {/* v8 — 유형 배지. 재구축 전 옛 요약(build<4)엔 drillType 이 없다 — 그 한 프레임은
                 fallback 회색·빈 라벨로 그려질 뿐이라 방어만 하고 지나간다(summary.ts BUILD 4). */}
             <Pill tone="category" color={drillTypeColor(drill.drillType)}>
-              {DRILL_TYPE_LABELS[drill.drillType] ?? '—'}
+              {DRILL_TYPE_LABELS[locale][drill.drillType] ?? '—'}
             </Pill>
           </span>
         </div>
@@ -222,15 +227,15 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
           <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 14, fontSize: '0.71875rem', color: 'var(--muted)', fontWeight: 500 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <IconLevel />
-              {drill.level}
+              {DRILL_LEVEL_LABELS[locale][drill.level]}
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <IconClock />
-              {drill.durationMin}분
+              {t('common.minutes', { min: drill.durationMin })}
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <IconListSteps />
-              {drill.stepCount}스텝
+              {t('common.steps', { count: drill.stepCount })}
             </span>
           </div>
         </div>
@@ -242,7 +247,7 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
         <button
           type="button"
           onClick={onPresent}
-          aria-label={`${drill.title} 시연 시작`}
+          aria-label={t('drillCard.presentAriaLabel', { title: drill.title })}
           className="on-accent"
           style={{
             flex: 1,
@@ -259,7 +264,7 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
           }}
         >
           <IconPlay size={14} />
-          시연
+          {t('drillCard.presentButton')}
         </button>
       </div>
 
@@ -273,6 +278,8 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
 /** C11 목록 보기(썸네일 없음) 행 — 2026-08-19 기현님 지시. 카드와 **같은 행동 집합**
  *  (행 전체 = 열기 · [시연] · 케밥 메뉴)에 그림만 뺐다. 한 줄 44px+ 로 훑어 내리기용. */
 export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport }: DrillCardProps) {
+  const t = useT();
+  const locale = useLocale();
   return (
     <div
       style={{
@@ -288,11 +295,11 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`${drill.title} 열기`}
+        aria-label={t('drillCard.openAriaLabel', { title: drill.title })}
         style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '0 6px' }}
       >
         <Pill tone="category" color={drillTypeColor(drill.drillType)}>
-          {DRILL_TYPE_LABELS[drill.drillType] ?? '—'}
+          {DRILL_TYPE_LABELS[locale][drill.drillType] ?? '—'}
         </Pill>
         <span style={{ fontSize: '0.875rem', fontWeight: 700, letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {drill.title}
@@ -305,22 +312,22 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
         <span style={{ marginLeft: 'auto', flex: 'none', display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.71875rem', color: 'var(--muted)', fontWeight: 500 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <IconLevel />
-            {drill.level}
+            {DRILL_LEVEL_LABELS[locale][drill.level]}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <IconClock />
-            {drill.durationMin}분
+            {t('common.minutes', { min: drill.durationMin })}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <IconListSteps />
-            {drill.stepCount}스텝
+            {t('common.steps', { count: drill.stepCount })}
           </span>
         </span>
       </button>
       <button
         type="button"
         onClick={onPresent}
-        aria-label={`${drill.title} 시연 시작`}
+        aria-label={t('drillCard.presentAriaLabel', { title: drill.title })}
         className="on-accent"
         style={{
           flex: 'none',
@@ -337,7 +344,7 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
         }}
       >
         <IconPlay size={13} />
-        시연
+        {t('drillCard.presentButton')}
       </button>
       <DrillKebabMenu title={drill.title} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} buttonStyle={{ width: 44, height: 44 }} />
     </div>

@@ -7,6 +7,9 @@ import { Segmented } from '../../ui/Segmented.tsx';
 import { Button } from '../../ui/Button.tsx';
 import type { ImportCandidate, ImportResolution } from '../../storage/transfer.ts';
 import type { Drill } from '../../model/drill.ts';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
+import { BCP47 } from '../../i18n/locale.ts';
 
 export interface ImportDialogProps {
   open: boolean;
@@ -15,16 +18,17 @@ export interface ImportDialogProps {
   onConfirm(resolutions: Map<number, ImportResolution>): void;
 }
 
-const RESOLUTION_OPTIONS = [
-  { value: 'copy' as const, label: '사본으로 추가' },
-  { value: 'overwrite' as const, label: '덮어쓰기' },
-  { value: 'skip' as const, label: '건너뛰기' },
-];
-
 export function ImportDialog({ open, drills, onCancel, onConfirm }: ImportDialogProps) {
   const [resolutions, setResolutions] = useState<Map<number, ImportResolution>>(new Map());
   const titleId = useId();
   const conflicting = drills.map((c, i) => ({ c, i })).filter((x) => x.c.conflict === 'exists');
+  const t = useT();
+  const locale = useLocale();
+  const RESOLUTION_OPTIONS = [
+    { value: 'copy' as const, label: t('importDialog.resolutionCopy') },
+    { value: 'overwrite' as const, label: t('importDialog.resolutionOverwrite') },
+    { value: 'skip' as const, label: t('importDialog.resolutionSkip') },
+  ];
 
   if (!open) return null;
 
@@ -32,22 +36,20 @@ export function ImportDialog({ open, drills, onCancel, onConfirm }: ImportDialog
   const setResolution = (i: number, r: ImportResolution) => setResolutions((prev) => new Map(prev).set(i, r));
 
   return (
-    <Modal open={open} onClose={onCancel} titleId={titleId} title="가져오기 — 이미 있는 드릴">
-      <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: 12 }}>
-        같은 드릴이 이미 저장되어 있습니다. 항목마다 처리 방법을 고르세요.
-      </p>
+    <Modal open={open} onClose={onCancel} titleId={titleId} title={t('importDialog.title')}>
+      <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: 12 }}>{t('importDialog.description')}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '50vh', overflowY: 'auto' }}>
         {conflicting.map(({ c, i }) => (
           <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
             <div style={{ fontSize: '0.8125rem', fontWeight: 700 }}>{c.doc.title}</div>
             {c.existing && (
               <div style={{ fontSize: '0.71875rem', color: 'var(--faint-text)', marginTop: 2 }}>
-                기존: {c.existing.title} · {new Date(c.existing.updatedAt).toLocaleString('ko-KR')}
+                {t('importDialog.existingLabel', { title: c.existing.title, date: new Date(c.existing.updatedAt).toLocaleString(BCP47[locale]) })}
               </div>
             )}
             <div style={{ marginTop: 8 }}>
               <Segmented
-                ariaLabel={`${c.doc.title} 처리 방법`}
+                ariaLabel={t('importDialog.resolutionAriaLabel', { title: c.doc.title })}
                 value={resolutionFor(i)}
                 onChange={(v) => setResolution(i, v)}
                 dense
@@ -59,10 +61,10 @@ export function ImportDialog({ open, drills, onCancel, onConfirm }: ImportDialog
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
         <Button variant="secondary" onClick={onCancel}>
-          취소
+          {t('importDialog.cancel')}
         </Button>
         <Button variant="primary" onClick={() => onConfirm(resolutions)}>
-          가져오기
+          {t('library.importButton')}
         </Button>
       </div>
     </Modal>

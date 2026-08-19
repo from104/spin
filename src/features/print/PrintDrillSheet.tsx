@@ -5,6 +5,7 @@
 // 된다. 평소에는 `styles/print.css` 의 `.spin-print { display:none }` 으로 통째로 접혀 있다.
 import { DRILL_TYPE_LABELS, SITUATION_LABELS } from '../../model/drill.ts';
 import type { Drill } from '../../model/drill.ts';
+import type { Locale } from '../../i18n/locale.ts';
 import { PrintCourt } from './PrintCourt.tsx';
 import { prepFor, prepLine } from './prep.ts';
 import { PRINT_PAGE_CLASS } from './printDom.ts';
@@ -14,10 +15,12 @@ export interface PrintDrillSheetProps {
 }
 
 /** "중급 · 전술 · 킥인 · 12분". 훈련량(반복·세트·인터벌)은 v8 에서 폐기됐다 — 옛 문서의 값은
- *  마이그레이션이 description 말미에 글로 보존하므로 종이에서도 그 줄로 나온다. */
-function metaLine(drill: Drill): string {
-  const parts: string[] = [drill.level, DRILL_TYPE_LABELS[drill.drillType]];
-  if (drill.situation !== undefined) parts.push(SITUATION_LABELS[drill.situation]);
+ *  마이그레이션이 description 말미에 글로 보존하므로 종이에서도 그 줄로 나온다.
+ *  i18n C4 — DRILL_TYPE_LABELS/SITUATION_LABELS 에 로케일 차원이 붙어 최소 수정으로 컴파일을
+ *  맞춘다(기본값 'ko' — 인쇄 화면 전체 번역은 C8 몫이라 지금은 기존 동작을 그대로 유지한다). */
+function metaLine(drill: Drill, locale: Locale = 'ko'): string {
+  const parts: string[] = [drill.level, DRILL_TYPE_LABELS[locale][drill.drillType]];
+  if (drill.situation !== undefined) parts.push(SITUATION_LABELS[locale][drill.situation]);
   parts.push(`${drill.durationMin}분`);
   return parts.join(' · ');
 }

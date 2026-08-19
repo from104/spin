@@ -16,6 +16,14 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   ja: '日本語',
 };
 
+/** `Intl`/`toLocaleString` 계열에 넘길 BCP-47 태그. i18n C4 — ImportDialog 의 날짜 표시가
+ *  `'ko-KR'` 을 하드코딩하고 있던 것을 고치며 필요해졌다. */
+export const BCP47: Record<Locale, string> = {
+  ko: 'ko-KR',
+  en: 'en-US',
+  ja: 'ja-JP',
+};
+
 /** 지원 언어 중 하나로 확정하는 순수 함수 — `navigator` 를 직접 읽지 않고 배열을 받는다
  *  (테스트가 브라우저 환경 없이 그대로 부를 수 있게). 각 태그의 주 서브태그만 보고
  *  (`'ko-KR'` → `'ko'`), 지원 목록에 있는 첫 매치를 돌려준다. 매치가 없으면 `DEFAULT_LOCALE`. */

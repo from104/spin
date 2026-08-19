@@ -27,6 +27,7 @@ import {
   type DrillType,
 } from '../../model/drill.ts';
 import { LIMITS } from '../../model/validate.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 export interface DrillMetaSheetProps {
   open: boolean;
@@ -37,6 +38,9 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
   const { present: drill } = useEditorState();
   const dispatch = useEditorDispatch();
   const ids = { type: useId(), situation: useId(), level: useId(), duration: useId() };
+  // i18n C4 — DRILL_TYPE_LABELS/SITUATION_LABELS 에 로케일 차원이 붙어 최소 수정으로 컴파일을
+  // 맞춘다. 이 화면 나머지 문구(필드 라벨·"미지정" 등)의 전체 번역은 C7(드릴 편집) 몫이다.
+  const locale = useLocale();
 
   return (
     <CenterModal open={open} onClose={onClose} title="드릴 정보">
@@ -52,7 +56,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
             >
               {DRILL_TYPES.map((t) => (
                 <option key={t} value={t}>
-                  {DRILL_TYPE_LABELS[t]}
+                  {DRILL_TYPE_LABELS[locale][t]}
                 </option>
               ))}
             </select>
@@ -72,7 +76,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
               <option value="">미지정</option>
               {DRILL_SITUATIONS.map((s) => (
                 <option key={s} value={s}>
-                  {SITUATION_LABELS[s]}
+                  {SITUATION_LABELS[locale][s]}
                 </option>
               ))}
             </select>

@@ -175,6 +175,7 @@ describe('§6.4 ⑤ 목록 카드가 그 드릴의 코트 크기로 그려진다
 
     const { container } = render(
       <DrillCard drill={summary} onOpen={() => {}} onPresent={() => {}} onDuplicate={() => {}} onDelete={() => {}} onExport={() => {}} />,
+      { wrapper: barWrapper },
     );
     const def = courtDefFor('full', size);
     expect(container.querySelector('svg.drill-card-thumb')!.getAttribute('viewBox')).toBe(`0 0 ${def.vbW} ${def.vbH}`);
@@ -190,6 +191,7 @@ describe('§6.4 ⑤ 목록 카드가 그 드릴의 코트 크기로 그려진다
     const { courtSize: _drop, ...old } = summary;
     const { container } = render(
       <DrillCard drill={old} onOpen={() => {}} onPresent={() => {}} onDuplicate={() => {}} onDelete={() => {}} onExport={() => {}} />,
+      { wrapper: barWrapper },
     );
     const def = courtDefFor('full', '30x18');
     expect(container.querySelector('svg.drill-card-thumb')!.getAttribute('viewBox')).toBe(`0 0 ${def.vbW} ${def.vbH}`);

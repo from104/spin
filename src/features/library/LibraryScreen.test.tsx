@@ -19,6 +19,7 @@ import { SUMMARY_BUILD } from '../../model/summary.ts';
 import { deleteSession, listSessions } from '../../storage/sessionRepo.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { exportLibraryFile } from '../../storage/transfer.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 function makeNav(): HomeNav {
   return {
@@ -37,12 +38,14 @@ function ToastHostBridge() {
 }
 
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <LibraryProvider>
-    <ToastProvider>
-      {children}
-      <ToastHostBridge />
-    </ToastProvider>
-  </LibraryProvider>
+  <SettingsProvider>
+    <LibraryProvider>
+      <ToastProvider>
+        {children}
+        <ToastHostBridge />
+      </ToastProvider>
+    </LibraryProvider>
+  </SettingsProvider>
 );
 
 /** 본문 컨테이너. C5 — 탭이 사라져 tabpanel role 도 은퇴했다. 화면의 <main> 으로 좁힌다. */
@@ -243,10 +246,11 @@ describe('LibraryScreen — 난이도 그룹 정렬의 성능 계약 (로드맵 
       // 올랐다(썸네일 도형·메모). 그때 요구대로 **상승과 재구축 경로를 같은 커밋에** 실었고,
       // 위 `rebuild` 단언은 그래도 유효하다: 재구축은 **stale 레코드를 봤을 때만** 부르고
       // 이 테스트의 드릴은 방금 저장한 것이라 build 가 이미 최신이다.
-      // 같은 날 다시 3 으로 올랐다(목록 카드 부제 — 드릴 짧은 설명). 재구축 호출자는
-      // LibraryProvider 하나뿐이고 그 비교(`s.build < SUMMARY_BUILD`)는 제네릭해서 이번 범프도
-      // 새 경로 없이 그대로 얹힌다 — 위 `rebuild` 단언의 근거가 이번에도 무너지지 않는다.
-      expect(SUMMARY_BUILD).toBe(4);
+      // 같은 날 다시 3 으로, 이후 v8(유형·상황, 4)·i18n C4(검색키 세 언어, 5)로 계속 올랐다.
+      // 재구축 호출자는 LibraryProvider 하나뿐이고 그 비교(`s.build < SUMMARY_BUILD`)는
+      // 제네릭해서 이번 범프도 새 경로 없이 그대로 얹힌다 — 위 `rebuild` 단언의 근거가
+      // 이번에도 무너지지 않는다.
+      expect(SUMMARY_BUILD).toBe(5);
     } finally {
       vi.restoreAllMocks();
     }

@@ -3,6 +3,7 @@
 // DB_VERSION 을 올려 스토어를 새로 만든다.
 import { DRILL_TYPE_LABELS, SITUATION_LABELS } from './drill.ts';
 import type { Drill, TeamSide, TeamStyle, DrillLevel, DrillType, DrillSituation } from './drill.ts';
+import { SUPPORTED_LOCALES } from '../i18n/locale.ts';
 import type { DrillId } from '../core/ids.ts';
 import type { CourtMode, CourtSize } from './court.ts';
 import { buildThumb, type ThumbSpec } from './thumb.ts';
@@ -63,7 +64,7 @@ import { LIMITS } from './validate.ts';
  *     이 없는 옛 레코드는 카드 배지가 회색 fallback 으로 그려질 뿐이다(DrillCard 가 방어).
  *  category 를 optional 로 남겨 두는 대안은 기각 — 죽은 키를 인터페이스에 남기면 "어느 쪽이
  *  진실이냐" 를 읽는 코드가 매번 물어야 한다(§스텝 flags 의 '두 가지 저장 방식' 논법). */
-export const SUMMARY_BUILD = 4;
+export const SUMMARY_BUILD = 5;
 export interface DrillSummary {
   id: DrillId;
   build: number; // = SUMMARY_BUILD. 레코드별 버전(전역 스윕 금지)
@@ -113,12 +114,16 @@ function buildSearchKey(d: Drill): string {
   // 부제로 읽으므로(reason① 무효) 넣지 않을 이유가 없고, 옛 레코드도 세션 1회 재구축으로 따라
   // 잡는다(reason③ 무효). 전체 description(첫 줄로 안 자른 원본)을 넣는다 — 검색은 카드에 안
   // 보이는 둘째 줄 이후의 단어로도 찾혀야 하므로 summaryDescription() 의 절단과는 별개다.
-  // 유형·상황(BUILD 4)은 **한국어 라벨**로 넣는다 — 사용자가 치는 말은 '세트피스' 지
-  // 'set-piece' 가 아니다. 옛 category 태그(v7→v8 이 tags 에 편입)도 같은 줄에 실린다.
+  // 유형·상황(BUILD 4)은 **라벨**로 넣는다 — 사용자가 치는 말은 '세트피스' 지 'set-piece' 가
+  // 아니다. 옛 category 태그(v7→v8 이 tags 에 편입)도 같은 줄에 실린다.
+  // i18n C4 — 로케일 **하나**가 아니라 **세 언어 전부**를 넣는다. searchKey 는 드릴을 저장한
+  // 시점에 한 번 굳는데, 그때 마침 켜져 있던 UI 언어로만 넣으면 나중에 언어를 바꾼 사용자가
+  // 그 드릴을 못 찾는다(예: 한국어로 만든 드릴을 영어 UI에서 "technical" 로 검색). 세 언어를
+  // 전부 넣으면 검색이 UI 언어와 무관해진다 — SUMMARY_BUILD 를 올려 기존 레코드도 재구축한다.
   return [
     d.title,
-    DRILL_TYPE_LABELS[d.drillType],
-    d.situation !== undefined ? SITUATION_LABELS[d.situation] : '',
+    ...SUPPORTED_LOCALES.map((loc) => DRILL_TYPE_LABELS[loc][d.drillType]),
+    ...(d.situation !== undefined ? SUPPORTED_LOCALES.map((loc) => SITUATION_LABELS[loc][d.situation!]) : []),
     d.formation,
     d.description ?? '',
     ...d.tags,

@@ -11,6 +11,8 @@ import type { ResolvedSession } from '../../model/session.ts';
 import { drillTypeColor } from '../../core/colors.ts';
 import { IconPlay, IconPlus } from '../../ui/icons.tsx';
 import { Button } from '../../ui/Button.tsx';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 const MAX_DOTS = 4;
 const MAX_STRIP_DRILLS = 4;
@@ -25,6 +27,7 @@ export interface SessionTabProps {
 }
 
 export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, onCreate }: SessionTabProps) {
+  const t = useT();
   if (sessions.length === 0) {
     return (
       <div
@@ -39,9 +42,9 @@ export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, on
           textAlign: 'center',
         }}
       >
-        <p style={{ fontSize: '0.875rem', color: 'var(--faint-text)' }}>아직 만든 세션이 없습니다. 드릴을 묶어 훈련 순서를 계획해 보세요.</p>
+        <p style={{ fontSize: '0.875rem', color: 'var(--faint-text)' }}>{t('sessionTab.emptyNoSessions')}</p>
         <Button variant="primary" icon={<IconPlus size={14} />} onClick={onCreate}>
-          새 세션
+          {t('sessionTab.newSessionButton')}
         </Button>
       </div>
     );
@@ -70,11 +73,13 @@ function NextSessionStrip({ resolved, onOpen }: { resolved: ResolvedSession; onO
   const { session, items, totalMin } = resolved;
   const shown = items.slice(0, MAX_STRIP_DRILLS);
   const more = items.length - shown.length;
-  const when = session.scheduledAt !== undefined ? formatSessionWhen(session.scheduledAt) : '미정';
+  const t = useT();
+  const locale = useLocale();
+  const when = session.scheduledAt !== undefined ? formatSessionWhen(session.scheduledAt, locale) : t('sessionTab.unscheduled');
 
   return (
     <section
-      aria-label="다음 세션"
+      aria-label={t('sessionTab.nextSessionLabel')}
       style={{
         border: '1px solid var(--accent)',
         borderRadius: 14,
@@ -83,11 +88,11 @@ function NextSessionStrip({ resolved, onOpen }: { resolved: ResolvedSession; onO
         marginBottom: 8,
       }}
     >
-      <div style={{ fontSize: '0.71875rem', fontWeight: 700, letterSpacing: 0.4, color: 'var(--accent-text)', marginBottom: 6 }}>다음 세션</div>
+      <div style={{ fontSize: '0.71875rem', fontWeight: 700, letterSpacing: 0.4, color: 'var(--accent-text)', marginBottom: 6 }}>{t('sessionTab.nextSessionLabel')}</div>
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`다음 세션 ${session.title} 편성 열기`}
+        aria-label={t('sessionTab.nextSessionOpenAriaLabel', { title: session.title })}
         style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 16, minHeight: 'var(--hit)', flexWrap: 'wrap' }}
       >
         <span style={{ flex: 'none', fontFamily: "'Space Grotesk', sans-serif", fontSize: '1.0625rem', fontWeight: 700 }}>{when}</span>
@@ -95,7 +100,7 @@ function NextSessionStrip({ resolved, onOpen }: { resolved: ResolvedSession; onO
           {session.title}
         </span>
         <span style={{ flex: 'none', fontSize: '0.78125rem', color: 'var(--muted)', fontWeight: 600 }}>
-          {[session.location, `${totalMin}분`, `${items.length}개 드릴`].filter(Boolean).join(' · ')}
+          {[session.location, t('common.minutes', { min: totalMin }), t('sessionTab.drillCount', { count: items.length })].filter(Boolean).join(' · ')}
         </span>
       </button>
       {shown.length > 0 && (
@@ -103,10 +108,10 @@ function NextSessionStrip({ resolved, onOpen }: { resolved: ResolvedSession; onO
           {shown.map((it) => (
             <span key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', opacity: it.missing ? 0.5 : 1 }}>
               <span aria-hidden style={{ flex: 'none', width: 7, height: 7, borderRadius: '50%', background: drillTypeColor(it.categoryCache) }} />
-              {it.missing ? `${it.titleCache} (삭제됨)` : it.titleCache}
+              {it.missing ? t('sessionTab.missingDrillSuffix', { title: it.titleCache }) : it.titleCache}
             </span>
           ))}
-          {more > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--faint-text)' }}>+{more}개 더</span>}
+          {more > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--faint-text)' }}>{t('sessionTab.moreCount', { count: more })}</span>}
         </div>
       )}
     </section>
@@ -119,6 +124,8 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const t = useT();
+  const locale = useLocale();
 
   return (
     <div
@@ -136,7 +143,7 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
       <button type="button" onClick={onOpen} style={{ display: 'flex', alignItems: 'center', gap: 18, flex: 1, minWidth: 0, textAlign: 'left' }}>
         <div style={{ flex: 'none', minWidth: 96 }}>
           <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '1.0625rem', fontWeight: 700 }}>
-            {session.scheduledAt !== undefined ? formatSessionWhen(session.scheduledAt) : '미정'}
+            {session.scheduledAt !== undefined ? formatSessionWhen(session.scheduledAt, locale) : t('sessionTab.unscheduled')}
           </div>
           {session.location && <div style={{ fontSize: '0.75rem', color: 'var(--faint-text)', marginTop: 2 }}>{session.location}</div>}
         </div>
@@ -151,14 +158,14 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
           </div>
         </div>
         <div style={{ flex: 'none', fontSize: '0.78125rem', color: 'var(--muted)', fontWeight: 600 }}>
-          {totalMin}분 · {items.length}개 드릴
+          {t('common.minutes', { min: totalMin })} · {t('sessionTab.drillCount', { count: items.length })}
         </div>
       </button>
 
       <button
         type="button"
         onClick={onPresent}
-        aria-label={`${session.title} 시연 시작`}
+        aria-label={t('drillCard.presentAriaLabel', { title: session.title })}
         style={{
           flex: 'none',
           width: 44,
@@ -181,7 +188,7 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           aria-controls={menuId}
-          aria-label={`${session.title} 더보기`}
+          aria-label={t('drillCard.kebabMoreAriaLabel', { title: session.title })}
           onClick={() => setMenuOpen((v) => !v)}
           style={{ width: 36, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint-text)' }}
         >
@@ -195,7 +202,7 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
           <div
             id={menuId}
             role="menu"
-            aria-label={`${session.title} 작업`}
+            aria-label={t('drillCard.kebabMenuAriaLabel', { title: session.title })}
             style={{
               position: 'absolute',
               right: 0,
@@ -221,7 +228,7 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
               }}
               style={{ minHeight: 36, padding: '0 10px', borderRadius: 6, fontSize: '0.8125rem', fontWeight: 600, textAlign: 'left' }}
             >
-              내보내기
+              {t('sessionTab.exportMenuItem')}
             </button>
             <button
               type="button"
@@ -232,7 +239,7 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
               }}
               style={{ minHeight: 36, padding: '0 10px', borderRadius: 6, fontSize: '0.8125rem', fontWeight: 600, textAlign: 'left', color: '#e0554a' }}
             >
-              삭제
+              {t('drillCard.deleteMenuItem')}
             </button>
           </div>
         )}

@@ -37,8 +37,9 @@ import type { HomeNav } from '../home/nav.ts';
 import { buildImportReport, commitDrills, commitSession, exportOneDrill, importReportLine, readImportFile } from './transfer.ts';
 import type { ImportPreview } from './transfer.ts';
 import type { ImportResolution } from '../../storage/transfer.ts';
-
-const TYPE_OPTIONS = [{ value: '', label: '전체' }, ...DRILL_TYPES.map((t) => ({ value: t, label: DRILL_TYPE_LABELS[t] }))];
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
+import { DRILL_LEVEL_LABELS } from '../../model/drill.ts';
 
 export interface LibraryScreenProps {
   nav: HomeNav;
@@ -47,6 +48,9 @@ export interface LibraryScreenProps {
 export function LibraryScreen({ nav }: LibraryScreenProps) {
   const { drills, drillType, situation, sort, view, search, setDrillType, setSituation, setSort, setView, duplicateDrill, deleteDrill, refresh } = useLibrary();
   const toast = useToast();
+  const t = useT();
+  const locale = useLocale();
+  const TYPE_OPTIONS = [{ value: '', label: t('library.typeFilterAll') }, ...DRILL_TYPES.map((ty) => ({ value: ty, label: DRILL_TYPE_LABELS[locale][ty] }))];
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
@@ -59,18 +63,18 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
   // ── 드릴 카드 액션 ──────────────────────────────────────────────────────────────────────
   const handleDuplicate = async (d: DrillSummary) => {
     const copy = await duplicateDrill(d.id);
-    toast.show(`"${d.title}" 을(를) 복제했습니다.`, {
-      action: { label: '열기', onAction: () => openDrill(copy.id) },
+    toast.show(t('library.duplicateToast', { title: d.title }), {
+      action: { label: t('library.openAction'), onAction: () => openDrill(copy.id) },
     });
   };
   const handleDelete = async (d: DrillSummary) => {
     const { repo } = await resolveDrillRepo();
     const full = await repo.getDrill(d.id); // 되돌리기용 원본 보관(§6.10 삭제 토스트 원칙을 목록에도 적용)
     await deleteDrill(d.id);
-    toast.show(`"${d.title}" 을(를) 삭제했습니다.`, {
+    toast.show(t('library.deleteToast', { title: d.title }), {
       action: full
         ? {
-            label: '되돌리기',
+            label: t('library.undoAction'),
             onAction: async () => {
               const { repo: r2 } = await resolveDrillRepo();
               await r2.putDrill(full, { touch: false });
@@ -81,8 +85,8 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
     });
   };
   const handleExport = async (d: DrillSummary) => {
-    await exportOneDrill(d.id);
-    toast.show(`"${d.title}" 을(를) 내보냈습니다.`);
+    await exportOneDrill(d.id, locale);
+    toast.show(t('library.exportToast', { title: d.title }));
   };
 
   // ── 가져오기 ────────────────────────────────────────────────────────────────────────────
@@ -94,13 +98,13 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
     // 항목을 더하지 않는다. 토스트는 자동으로 사라지므로 예산 밖이다). ⚠️ outcome 만 세면 안 된다:
     // 검증에서 탈락한 손상 항목은 후보조차 못 돼 outcome 어디에도 없다 — drillsInFile 과의 차로
     // 만 드러난다(buildImportReport 참고).
-    toast.show(importReportLine(buildImportReport(preview.drillsInFile, outcome)));
+    toast.show(importReportLine(buildImportReport(preview.drillsInFile, outcome), locale));
     setImportPreview(null);
   };
 
   const handleFile = async (file: File) => {
     try {
-      const preview = await readImportFile(file);
+      const preview = await readImportFile(file, locale);
       if (preview.kind === 'unsupported') {
         toast.show(preview.reason);
         return;
@@ -112,7 +116,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
       }
       await commitPreview(preview, new Map());
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : '가져오기에 실패했습니다.');
+      toast.show(e instanceof Error ? e.message : t('library.importErrorFallback'));
     }
   };
 
@@ -126,35 +130,35 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
             유형 필터와 가져오기만 남았다. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <Segmented ariaLabel="드릴 유형" value={drillType ?? ''} onChange={(v) => setDrillType(v || null)} options={TYPE_OPTIONS} dense />
+            <Segmented ariaLabel={t('library.typeFilterAriaLabel')} value={drillType ?? ''} onChange={(v) => setDrillType(v || null)} options={TYPE_OPTIONS} dense />
             {/* C10 — 경기 상황 필터(v8 두 번째 축)와 정렬. 정렬은 저장소(DrillQuery.sort)에
                 이미 있던 것을 UI 로 노출만 했다. */}
-            <select aria-label="경기 상황 필터" value={situation ?? ''} onChange={(e) => setSituation(e.target.value || null)} style={selectStyle}>
-              <option value="">모든 상황</option>
+            <select aria-label={t('library.situationFilterAriaLabel')} value={situation ?? ''} onChange={(e) => setSituation(e.target.value || null)} style={selectStyle}>
+              <option value="">{t('library.situationFilterAll')}</option>
               {DRILL_SITUATIONS.map((s) => (
                 <option key={s} value={s}>
-                  {SITUATION_LABELS[s]}
+                  {SITUATION_LABELS[locale][s]}
                 </option>
               ))}
             </select>
             <select
-              aria-label="정렬"
+              aria-label={t('library.sortAriaLabel')}
               value={sort}
               onChange={(e) => setSort(e.target.value as 'updatedAt' | 'createdAt' | 'title')}
               style={selectStyle}
             >
-              <option value="updatedAt">최근 수정순</option>
-              <option value="createdAt">만든 순</option>
-              <option value="title">이름순</option>
+              <option value="updatedAt">{t('library.sortUpdatedAt')}</option>
+              <option value="createdAt">{t('library.sortCreatedAt')}</option>
+              <option value="title">{t('library.sortTitle')}</option>
             </select>
             {/* C11 — 보기 모드(카드/목록). 2026-08-19 기현님 지시. */}
             <Segmented
-              ariaLabel="보기 모드"
+              ariaLabel={t('library.viewModeAriaLabel')}
               value={view}
               onChange={(v) => setView(v as 'cards' | 'list')}
               options={[
-                { value: 'cards', label: '카드' },
-                { value: 'list', label: '목록' },
+                { value: 'cards', label: t('library.viewModeCards') },
+                { value: 'list', label: t('library.viewModeList') },
               ]}
               dense
             />
@@ -172,7 +176,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
               }}
             />
             <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
-              가져오기
+              {t('library.importButton')}
             </Button>
             {/* §6.1b — 2026-08-12(4.7) 에 [전체 내보내기]가 여기서 사라졌다. 설정 화면에도 **같은
                 버튼**이 있던 중복이었고(계획서 §6.1b "둘 다 제거"), 담기는 것이 드릴뿐이라
@@ -198,7 +202,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
                 const group = drills.filter((d) => d.level === level);
                 if (group.length === 0) return null;
                 return (
-                  <section key={level} aria-label={`${level} 드릴`} style={{ marginBottom: 28 }}>
+                  <section key={level} aria-label={t('library.levelSectionAriaLabel', { level: DRILL_LEVEL_LABELS[locale][level] })} style={{ marginBottom: 28 }}>
                     <h2
                       style={{
                         fontSize: '0.8125rem',
@@ -208,7 +212,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
                         marginBottom: 12,
                       }}
                     >
-                      {level}
+                      {DRILL_LEVEL_LABELS[locale][level]}
                     </h2>
                     <div
                       style={
@@ -262,6 +266,7 @@ const selectStyle = {
 } as const;
 
 function EmptyDrills({ hasFilter, onCreate }: { hasFilter: boolean; onCreate(): void }) {
+  const t = useT();
   return (
     <div
       style={{
@@ -276,11 +281,11 @@ function EmptyDrills({ hasFilter, onCreate }: { hasFilter: boolean; onCreate(): 
       }}
     >
       <p style={{ fontSize: '0.875rem', color: 'var(--faint-text)' }}>
-        {hasFilter ? '조건에 맞는 드릴이 없습니다.' : '아직 만든 드릴이 없습니다. 첫 드릴을 만들어 보세요.'}
+        {hasFilter ? t('library.emptyFiltered') : t('library.emptyNoDrills')}
       </p>
       {!hasFilter && (
         <Button variant="primary" icon={<IconPlus size={14} />} onClick={onCreate}>
-          새 드릴 만들기
+          {t('library.createFirstDrill')}
         </Button>
       )}
     </div>

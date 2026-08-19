@@ -8,6 +8,7 @@
 // ⚠️ **flatten 이 파생의 단일 출처다.** drillIds 재계산(putSession)·시연 순회·인쇄가 전부
 // `flattenSessionItems` 하나를 거친다 — 각자 phases 를 직접 돌면 순회 순서가 갈라질 수 있다.
 import type { DrillId, PhaseId, PlayerId, SessionId } from '../core/ids.ts';
+import type { Locale } from '../i18n/locale.ts';
 import { newId } from '../core/ids.ts';
 import type { DrillRef } from './refs.ts';
 import { resolveRefs } from './refs.ts';
@@ -220,12 +221,20 @@ export function pickNextSession(list: TrainingSession[], now: number = Date.now(
   return best;
 }
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+/** i18n C4 — 로케일별 요일 약칭. `Intl.DateTimeFormat` 을 안 쓰는 이유는 아래 함수 주석과 같다
+ *  (브라우저 간 조합 결과가 흔들리는 것을 원천 차단). 일요일(getDay()===0)이 배열 0번이다. */
+const WEEKDAYS: Record<Locale, readonly string[]> = {
+  ko: ['일', '월', '화', '수', '목', '금', '토'],
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  ja: ['日', '月', '火', '水', '木', '金', '土'],
+};
 
-/** 로케일 조합 결과가 브라우저마다 달라지지 않도록 직접 조립한다 → "화 19:00" */
-export function formatSessionWhen(ms: number): string {
+/** 로케일 조합 결과가 브라우저마다 달라지지 않도록 직접 조립한다 → "화 19:00".
+ *  locale 기본값 'ko' — 호출부 대다수(SessionTab)는 명시로 넘기고, 아직 안 넘기는 인쇄
+ *  쪽(features/print/sessionPlan.ts)은 이 기본값으로 기존 동작을 유지한다. */
+export function formatSessionWhen(ms: number, locale: Locale = 'ko'): string {
   const d = new Date(ms);
-  const wd = WEEKDAYS[d.getDay()];
+  const wd = WEEKDAYS[locale][d.getDay()];
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
   return `${wd} ${hh}:${mm}`;

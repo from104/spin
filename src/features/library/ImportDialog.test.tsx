@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { ImportDialog } from './ImportDialog.tsx';
 import type { ImportCandidate } from '../../storage/transfer.ts';
 import type { Drill } from '../../model/drill.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 function candidate(over: Partial<ImportCandidate<Drill>>): ImportCandidate<Drill> {
   return {
@@ -22,7 +23,7 @@ describe('ImportDialog', () => {
       candidate({ doc: { title: '새 드릴' } as Drill, conflict: 'none' }),
       candidate({ doc: { title: '동일 드릴' } as Drill, conflict: 'identical' }),
     ];
-    render(<ImportDialog open drills={drills} onCancel={() => {}} onConfirm={() => {}} />);
+    render(<ImportDialog open drills={drills} onCancel={() => {}} onConfirm={() => {}} />, { wrapper: SettingsProvider });
     expect(screen.queryByText('새 드릴')).not.toBeInTheDocument();
     expect(screen.queryByText('동일 드릴')).not.toBeInTheDocument();
   });
@@ -30,7 +31,7 @@ describe('ImportDialog', () => {
   it('conflict:exists 항목만 노출하고 기본값은 사본으로 추가다', async () => {
     const drills = [candidate({ doc: { title: '충돌 드릴' } as Drill, conflict: 'exists', existing: { title: '기존 드릴', updatedAt: 0 } })];
     const onConfirm = vi.fn();
-    render(<ImportDialog open drills={drills} onCancel={() => {}} onConfirm={onConfirm} />);
+    render(<ImportDialog open drills={drills} onCancel={() => {}} onConfirm={onConfirm} />, { wrapper: SettingsProvider });
 
     expect(screen.getByText('충돌 드릴')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '사본으로 추가' })).toHaveAttribute('aria-checked', 'true');
@@ -45,7 +46,7 @@ describe('ImportDialog', () => {
       candidate({ doc: { title: 'B' } as Drill, conflict: 'exists' }),
     ];
     const onConfirm = vi.fn();
-    render(<ImportDialog open drills={drills} onCancel={() => {}} onConfirm={onConfirm} />);
+    render(<ImportDialog open drills={drills} onCancel={() => {}} onConfirm={onConfirm} />, { wrapper: SettingsProvider });
 
     // 두 후보(A, B) 모두 "건너뛰기" 라벨을 쓰므로 문서 순서상 두 번째(=B) 라디오를 고른다.
     const user = userEvent.setup();
@@ -59,7 +60,7 @@ describe('ImportDialog', () => {
 
   it('취소를 누르면 onCancel 이 호출된다', async () => {
     const onCancel = vi.fn();
-    render(<ImportDialog open drills={[candidate({ conflict: 'exists' })]} onCancel={onCancel} onConfirm={() => {}} />);
+    render(<ImportDialog open drills={[candidate({ conflict: 'exists' })]} onCancel={onCancel} onConfirm={() => {}} />, { wrapper: SettingsProvider });
     await userEvent.setup().click(screen.getByRole('button', { name: '취소' }));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });

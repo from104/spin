@@ -5,6 +5,7 @@ import type { CourtMode, CourtSize } from './court.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
 import type { Shape } from './shape.ts';
+import type { Locale } from '../i18n/locale.ts';
 
 export type PoseMap<K extends string, P> = Partial<Record<K, P>>;
 export type TeamSide = 'home' | 'away';
@@ -120,6 +121,14 @@ export interface DrillStep {
 
 export type DrillLevel = '초급' | '중급' | '고급';
 export const DRILL_LEVELS = ['초급', '중급', '고급'] as const;
+/** i18n C4 — **저장값(DrillLevel)은 한국어 리터럴 그대로 둔다**(스키마 마이그레이션 없이).
+ *  이 딕셔너리는 순수 표시용이다: `drill.level` 은 여전히 '초급' 같은 원문으로 비교·저장되고,
+ *  화면에 찍을 때만 `DRILL_LEVEL_LABELS[locale][drill.level]` 을 거친다. */
+export const DRILL_LEVEL_LABELS: Record<Locale, Record<DrillLevel, string>> = {
+  ko: { 초급: '초급', 중급: '중급', 고급: '고급' },
+  en: { 초급: 'Beginner', 중급: 'Intermediate', 고급: 'Advanced' },
+  ja: { 초급: '初級', 중급: '中級', 고급: '上級' },
+};
 
 // ── 분류 유형 (v8, 2026-08-18 기현님 확정 — 질문 20문 중 ⑤) ─────────────────────────────────
 // 코칭 표준의 유형 축이다: 일반 축구 세션 설계(warm-up→technical→tactical→scrimmage)와
@@ -129,14 +138,15 @@ export const DRILL_LEVELS = ['초급', '중급', '고급'] as const;
 // 표기 변형이 전부 다른 분류가 됐고, 필터가 그 변형 수만큼 갈라졌다.
 export const DRILL_TYPES = ['technical', 'tactical', 'set-piece', 'game-scenario', 'conditioning'] as const;
 export type DrillType = (typeof DRILL_TYPES)[number];
-/** 화면·인쇄·검색키가 함께 쓰는 한국어 라벨. 값(영문 키)은 저장용, 라벨은 표시용 — 라벨을
- *  저장하면 라벨 문구를 다듬는 순간 옛 문서가 전부 "알 수 없는 유형" 이 된다. */
-export const DRILL_TYPE_LABELS: Record<DrillType, string> = {
-  technical: '기술',
-  tactical: '전술',
-  'set-piece': '세트피스',
-  'game-scenario': '경기 상황',
-  conditioning: '컨디셔닝',
+/** 화면·인쇄·검색키가 함께 쓰는 라벨. 값(영문 키)은 저장용, 라벨은 표시용 — 라벨을
+ *  저장하면 라벨 문구를 다듬는 순간 옛 문서가 전부 "알 수 없는 유형" 이 된다.
+ *  i18n C4 — 로케일 차원이 붙었다. 호출부는 `DRILL_TYPE_LABELS[locale][key]` 로 쓴다.
+ *  검색키(model/summary.ts buildSearchKey)만 예외 — 로케일 하나로 좁히지 않고 **세 언어를
+ *  전부** 넣는다(검색이 UI 언어에 매이지 않게). */
+export const DRILL_TYPE_LABELS: Record<Locale, Record<DrillType, string>> = {
+  ko: { technical: '기술', tactical: '전술', 'set-piece': '세트피스', 'game-scenario': '경기 상황', conditioning: '컨디셔닝' },
+  en: { technical: 'Technical', tactical: 'Tactical', 'set-piece': 'Set Piece', 'game-scenario': 'Game Scenario', conditioning: 'Conditioning' },
+  ja: { technical: '技術', tactical: '戦術', 'set-piece': 'セットプレー', 'game-scenario': 'ゲームシナリオ', conditioning: 'コンディショニング' },
 };
 
 // ── 경기 상황 (v8, 질문 20문 중 ⑥ — 선택 필드) ──────────────────────────────────────────────
@@ -157,17 +167,44 @@ export const DRILL_SITUATIONS = [
   '2-on-1-spacing',
 ] as const;
 export type DrillSituation = (typeof DRILL_SITUATIONS)[number];
-export const SITUATION_LABELS: Record<DrillSituation, string> = {
-  'kick-off': '킥오프',
-  'kick-in': '킥인',
-  'goal-kick': '골킥',
-  corner: '코너킥',
-  'direct-fk': '직접 프리킥',
-  'indirect-fk': '간접 프리킥',
-  penalty: '페널티킥',
-  'set-ball': '세트볼',
-  'open-play': '오픈 플레이',
-  '2-on-1-spacing': '2대1 스페이싱',
+/** i18n C4 — 로케일 차원이 붙었다(위 DRILL_TYPE_LABELS 와 같은 규약). */
+export const SITUATION_LABELS: Record<Locale, Record<DrillSituation, string>> = {
+  ko: {
+    'kick-off': '킥오프',
+    'kick-in': '킥인',
+    'goal-kick': '골킥',
+    corner: '코너킥',
+    'direct-fk': '직접 프리킥',
+    'indirect-fk': '간접 프리킥',
+    penalty: '페널티킥',
+    'set-ball': '세트볼',
+    'open-play': '오픈 플레이',
+    '2-on-1-spacing': '2대1 스페이싱',
+  },
+  en: {
+    'kick-off': 'Kick-off',
+    'kick-in': 'Kick-in',
+    'goal-kick': 'Goal Kick',
+    corner: 'Corner',
+    'direct-fk': 'Direct Free Kick',
+    'indirect-fk': 'Indirect Free Kick',
+    penalty: 'Penalty',
+    'set-ball': 'Set Ball',
+    'open-play': 'Open Play',
+    '2-on-1-spacing': '2-on-1 Spacing',
+  },
+  ja: {
+    'kick-off': 'キックオフ',
+    'kick-in': 'キックイン',
+    'goal-kick': 'ゴールキック',
+    corner: 'コーナーキック',
+    'direct-fk': '直接フリーキック',
+    'indirect-fk': '間接フリーキック',
+    penalty: 'ペナルティキック',
+    'set-ball': 'セットボール',
+    'open-play': 'オープンプレー',
+    '2-on-1-spacing': '2対1スペーシング',
+  },
 };
 export interface TeamStyle {
   label: string;
