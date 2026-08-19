@@ -76,22 +76,32 @@ describe('드릴 편집 모드', () => {
   // 화면마다 다른 컴포넌트다(전술판 BoardBar / 드릴 편집 TransportBar) — BoardScreen 쪽만
   // 확인하면 **드릴 편집에서만 손잡이가 없는** 갈래를 못 본다(5차 검증관이 '시연 화면만
   // 놓쳤던' 것과 같은 형태의 헛통과다).
-  it('★ 드릴 이름이 왼쪽 스텝 바 맨 위에 있다 — 헤더 없는 넓은 창에서도 보인다 (2026-08-18)', async () => {
-    // 회귀 기록: 이름 편집을 헤더에만 배선했다가 넓은 창(헤더 없음)에서 이름이 어디에도
-    // 안 보였다 — 기현님 실기 지적("드릴 이름은 어디 있음?"). 정자리는 사이드바 맨 위다.
+  it('★ 드릴 이름은 헤더에 있다 — 2026-08-20 재설계로 넓은 창에도 헤더가 서면서 사이드바의 옛 이름 편집기는 철거됐다', async () => {
+    // 옛 기록(2026-08-18): 이름 편집을 헤더에만 배선했다가 넓은 창(헤더 없음)에서 이름이
+    // 어디에도 안 보였다 — 기현님 실기 지적("드릴 이름은 어디 있음?"). 그래서 그때는
+    // 사이드바 맨 위로 옮겼다. 2026-08-20(§A, 기현님 지시 "편집·시연 화면이 비슷한
+    // 레이아웃이어야 ux가 좋아진다")로 드릴 편집이 넓은 창에서도 헤더를 도로 얻으면서 그
+    // 전제가 사라졌고, 사이드바의 이름 편집기는 같은 것을 고치는 칸이 둘이 되어 철거됐다
+    // (StepSidebar.tsx §G) — 헤더가 다시 유일한 자리다.
     await openDrill();
+    const header = document.querySelector('header')!;
+    const name = await screen.findByRole('button', { name: /^드릴 이름: .+\. 눌러서 수정$/ });
+    expect(header.contains(name), '이름이 헤더 밖이다').toBe(true);
     const sidebar = screen.getByRole('navigation', { name: '스텝 목록' });
-    const name = screen.getByRole('button', { name: /^드릴 이름: .+\. 눌러서 수정$/ });
-    expect(sidebar.contains(name), '이름이 스텝 바 밖이다').toBe(true);
+    expect(sidebar.contains(name), '이름 편집기가 사이드바에도 중복으로 남아 있다').toBe(false);
   });
 
-  it('★ 하단 바는 없다 — 재생·배속은 왼쪽 스텝 바 하단이고, [보기]와 줌은 오른쪽 기둥이다 (2026-08-18)', async () => {
+  it('★ 하단 바는 없다 — 재생·배속은 코트 아래 공용 재생 묶음이고, [보기]와 줌은 오른쪽 기둥이다 (2026-08-20)', async () => {
     // 옛 계약(2026-08-15 재설계 ②): *"하단 바에 남은 조작은 [속성] 하나."* 2026-08-18 하단
-    // 철거로 그 바 자체가 사라졌다 — 재생 버튼은 이제 왼쪽 스텝 바(nav '스텝 목록') 안이다.
+    // 철거로 그 바 자체가 사라지며 재생 버튼이 왼쪽 스텝 바 안으로 들어갔었다. 2026-08-20
+    // (§D, 편집·시연 공용 PlaybackControls)에 재생 묶음이 스텝 바를 나와 코트 아래(노트
+    // 옆, 최우측)로 다시 옮겼다 — 스텝 목록 자체는 사이드바에 남지만 재생은 이제 그 밖이다.
     await openDrill();
     const sidebar = screen.getByRole('navigation', { name: '스텝 목록' });
-    expect(sidebar.contains(screen.getByRole('button', { name: '재생' })), '재생이 스텝 바 밖이다').toBe(true);
-    expect(sidebar.contains(screen.getByRole('button', { name: /^재생 속도/ })), '배속이 스텝 바 밖이다').toBe(true);
+    const play = screen.getByRole('button', { name: '재생' });
+    const speed = screen.getByRole('button', { name: /^재생 속도/ });
+    expect(sidebar.contains(play), '재생이 여전히 스텝 바 안에 있다').toBe(false);
+    expect(sidebar.contains(speed), '배속이 여전히 스텝 바 안에 있다').toBe(false);
 
     // [보기]는 이제 기둥 안이다 — 하단 바가 아니라.
     const bar = screen.getByRole('navigation', { name: '판 조작' });

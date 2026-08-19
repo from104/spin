@@ -27,9 +27,9 @@ import { eventCode, lookupKey } from '../../core/keymap.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { isEditableTarget, isInteractiveTarget } from '../../ui/keyboard.ts';
 import { Button } from '../../ui/Button.tsx';
-import { IconChevronNext, IconChevronPrev, IconClose, IconPause, IconPlay } from '../../ui/icons.tsx';
-import { IconFullscreenEnter, IconFullscreenExit, IconHelp, IconLoop } from './icons.tsx';
-import { IconInfo } from '../../ui/icons.tsx';
+import { IconClose } from '../../ui/icons.tsx';
+import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
+import { IconFullscreenEnter, IconFullscreenExit, IconHelp } from './icons.tsx';
 import { PresentStage } from './PresentStage.tsx';
 import { progressCellState } from './progressCells.ts';
 import { DrillInfoModal } from './DrillInfoModal.tsx';
@@ -40,7 +40,7 @@ import { useSwipe } from './useSwipe.ts';
 import { useT, translate } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import type { Locale } from '../../i18n/locale.ts';
-import { SCREEN_TITLES, SCREEN_SUBTITLES } from '../../app/screens.ts';
+import { SCREEN_TITLES } from '../../app/screens.ts';
 
 /** store/editor/EditorProvider.tsx 의 동명 함수와 같은 판정(§7.8) — 그 파일은 store 소유라
  *  가져다 쓸 수 없어(§8) 이 작은 순수 함수만 그대로 복제한다. */
@@ -188,11 +188,17 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
 
   const [helpOpen, setHelpOpen] = useState(false);
   const [blackout, setBlackout] = useState(false);
+  // C11 — 드릴 정보(읽기 전용) 모달의 열림 상태. `useAppHeader` 는 여기(PresentRunner)에서
+  // 부르므로, 헤더의 ⓘ(2026-08-20 §B)가 이 state 를 쥐어야 한다 — `helpOpen`/`blackout` 이
+  // 이미 간 길과 같다. 모달 자체(`DrillInfoModal`)는 `drill`(세션이면 현재 드릴)을 아는
+  // `PresentBody` 에 그대로 두고, 이 state 만 prop 으로 내린다.
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const headerTitle = load.status === 'ready' ? (load.kind === 'drill' ? load.drill.title : load.session.title) : SCREEN_TITLES[locale].present;
   useAppHeader({
     title: headerTitle,
-    subtitle: SCREEN_SUBTITLES[locale].present,
+    compact: true,
+    infoButton: { onAction: () => setInfoOpen(true), label: t('present.infoAriaLabel') },
     primary: { label: target?.kind === 'session' ? t('present.primaryToSession') : t('present.primaryToEdit'), onAction: goOrigin },
   });
 
@@ -241,6 +247,8 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
         setHelpOpen={setHelpOpen}
         blackout={blackout}
         setBlackout={setBlackout}
+        infoOpen={infoOpen}
+        setInfoOpen={setInfoOpen}
         exit={exit}
       />
     </PlaybackProvider>
@@ -261,11 +269,30 @@ interface PresentBodyProps {
   setHelpOpen(v: boolean): void;
   blackout: boolean;
   setBlackout(v: boolean): void;
+  /** C11 — 드릴 정보 모달. 2026-08-20 부터 PresentRunner 소유(파일 상단 주석 참고). */
+  infoOpen: boolean;
+  setInfoOpen(v: boolean): void;
   exit(): void;
 }
 
 /** PlaybackProvider 안에서만 쓸 수 있는 부분(재생 상태 구독) — 그래서 부모와 분리했다. */
-function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, showGridLabels, fullscreen, wakeLock, helpOpen, setHelpOpen, blackout, setBlackout, exit }: PresentBodyProps) {
+function PresentBody({
+  rootRef,
+  load,
+  reduceMotion,
+  showRuleZones,
+  showGrid,
+  showGridLabels,
+  fullscreen,
+  wakeLock,
+  helpOpen,
+  setHelpOpen,
+  blackout,
+  setBlackout,
+  infoOpen,
+  setInfoOpen,
+  exit,
+}: PresentBodyProps) {
   const playback = usePlaybackState();
   const playbackActions = usePlaybackActions();
   const t = useT();
@@ -279,8 +306,6 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
 
   const [stepIndex, setStepIndex] = useState(0);
   const [seekToken, setSeekToken] = useState(0);
-  // C11 — 드릴 정보(읽기 전용) 모달. 시연 중에도 목적·코칭 포인트를 확인할 수 있다.
-  const [infoOpen, setInfoOpen] = useState(false);
   const currentStep = drill.steps[stepIndex];
 
   // §3.4 — 실명을 적어 둔 선수만, 드릴 단위로 한 번 만든다. 스텝마다 다시 만들면 60fps
@@ -370,6 +395,22 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
     seekToStep(stepIndex - 1);
   }, [stepIndex, drills.length, goDrill, seekToStep]);
 
+  // 끝 스텝에서 [재생] = 처음으로 되감고 재생(2026-08-20 기현님 지시, §F) — loop 설정과
+  // **무관**하다. `seekToStep(0)` 을 안 쓰는 이유는 그 함수가 스텝 0 의 **끝자락**(정착된
+  // 자세)으로 착지해서다(seekToStep 주석) — 되감기는 그 드릴의 진짜 처음이어야 한다.
+  // `resetMs()` 로 경과를 0 으로 되돌리고 `seekToken` 을 올려 멈춘 상태에서도 첫 프레임을
+  // 즉시 다시 그린다(PresentStage 의 useLayoutEffect 가 그 값을 본다) — 그러면
+  // `PresentStage.endedRef` 도 함께 초기화되어(그 effect 의 `endedRef.current = false`)
+  // `onEnded` 가 다음 재생 끝에서 다시 울린다. 세션 시연에서도 되감기는 **그 드릴의 처음**
+  // 까지다 — 다음 드릴로 넘기지 않는다(goDrill 을 안 부른다).
+  const togglePlay = useCallback(() => {
+    if (!playback.playing && stepIndex >= drill.steps.length - 1) {
+      playbackActions.resetMs();
+      setSeekToken((v) => v + 1);
+    }
+    playbackActions.toggle();
+  }, [playback.playing, stepIndex, drill.steps.length, playbackActions]);
+
   const swipeHandlers = useSwipe({ onPrev: prevStep, onNext: nextStep });
 
   // ── 키보드(§6.9) ────────────────────────────────────────────────────────────────────────────
@@ -432,7 +473,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
           break;
         case 'present.play':
           e.preventDefault();
-          playbackActions.toggle();
+          togglePlay();
           break;
         case 'present.fullscreen':
           e.preventDefault();
@@ -458,7 +499,7 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [blackout, helpOpen, fullscreen, exit, nextStep, prevStep, seekToStep, goDrill, drill, playbackActions, playback.loop, setBlackout, setHelpOpen, t]);
+  }, [blackout, helpOpen, fullscreen, exit, nextStep, prevStep, seekToStep, goDrill, drill, playbackActions, playback.loop, togglePlay, setBlackout, setHelpOpen, t]);
 
   const pseudoStyle: CSSProperties =
     fullscreen.state === 'pseudo'
@@ -489,12 +530,11 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
       }}
     >
       {/* 전체화면(특히 네이티브)에서는 앱 헤더가 화면 밖이 되므로 나갈 UI 가 여기 항상 있어야
-          한다(§6.9) — 44×44, 우상단, 항상 표시. */}
-      <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, display: 'flex', gap: 8 }}>
-        {/* C11 — 드릴 정보(읽기 전용). 편집 화면의 ⓘ와 같은 그림이라 찾기 쉽다. */}
-        <button type="button" aria-label={t('present.infoAriaLabel')} onClick={() => setInfoOpen(true)} style={iconBtnStyle}>
-          <IconInfo size={18} />
-        </button>
+          한다(§6.9) — 44×44, 우상단, 항상 표시.
+          ⚠️ 2026-08-20 (기현님 지시, §B·C) — ⓘ가 헤더(제목 옆)로 옮겨 가면서 이 묶음은 셋
+          (도움말·전체화면·나가기)만 남았고, **세로로** 선다("시연 화면 우상단 4개 버튼 세로로
+          배치" — ⓘ가 빠져 지금은 3개다). */}
+      <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button type="button" aria-label={t('present.helpAriaLabel')} onClick={() => setHelpOpen(true)} style={iconBtnStyle}>
           <IconHelp size={18} />
         </button>
@@ -573,8 +613,15 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
       </div>
 
       <div style={{ flex: 'none', padding: '6px 30px 22px' }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 22 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+        {/* 2026-08-20 (기현님 지시, §D·E) — 재생 묶음이 공용 PlaybackControls 로 바뀌며
+            **최우측**으로(옛 `maxWidth:1080, margin:'0 auto'` 를 걷어내 전폭으로 편다), 노트
+            열은 **고정 높이 전폭 띠**가 된다. `PRESENT_NOTE_BAND_PX` 는 STEP 줄 + 노트 2줄 +
+            이름 줄의 대략치다 — min=max 로 걸어 스텝을 넘길 때(노트 있음↔없음) 이 줄의 키가
+            안 바뀌게 한다(선택모드 출렁임을 고친 것과 같은 원리: 조건부 마운트가 아니라
+            높이를 먼저 고정하고 내용만 교체한다). 긴 노트는 `overflowY:'auto'` 로 안쪽에서만
+            스크롤되어 띠를 밀지 않는다. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
+          <div style={{ flex: 1, minWidth: 0, minHeight: PRESENT_NOTE_BAND_PX, maxHeight: PRESENT_NOTE_BAND_PX, overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 5 }}>
               <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 12, fontWeight: 700, color: 'var(--accent-text)', letterSpacing: 1 }}>
                 STEP {stepIndex + 1}/{drill.steps.length}
@@ -603,46 +650,22 @@ function PresentBody({ rootRef, load, reduceMotion, showRuleZones, showGrid, sho
               </p>
             )}
           </div>
-          <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              type="button"
-              aria-label={playback.loop ? t('present.loopOff') : t('present.loopOn')}
-              aria-pressed={playback.loop}
-              onClick={() => playbackActions.setLoop(!playback.loop)}
-              style={{ ...iconBtnStyle, position: 'static', color: playback.loop ? 'var(--accent)' : 'var(--muted)' }}
-            >
-              <IconLoop size={17} />
-            </button>
-            <button type="button" aria-label={t('present.prevStepAriaLabel')} onClick={prevStep} style={transportSmallStyle}>
-              <IconChevronPrev size={17} />
-            </button>
-            <button
-              type="button"
-              aria-label={playback.playing ? t('present.pauseAriaLabel') : t('present.playAriaLabel')}
-              onClick={() => playbackActions.toggle()}
-              className="on-accent"
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 16,
-                background: 'var(--accent)',
-                color: 'var(--accent-ink-strong)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {playback.playing ? <IconPause size={21} /> : <IconPlay size={21} />}
-            </button>
-            <button type="button" aria-label={t('present.nextStepAriaLabel')} onClick={nextStep} style={transportSmallStyle}>
-              <IconChevronNext size={17} />
-            </button>
-          </div>
+          <PlaybackControls
+            playing={playback.playing}
+            canPlay
+            onTogglePlay={togglePlay}
+            loop={playback.loop}
+            onToggleLoop={() => playbackActions.setLoop(!playback.loop)}
+            onPrev={prevStep}
+            onNext={nextStep}
+            speed={playback.speed}
+            onCycleSpeed={() => playbackActions.setSpeed(playback.speed === 0.5 ? 1 : playback.speed === 1 ? 2 : 0.5)}
+          />
         </div>
         {/* 막대는 시각적으로 6px 이지만 버튼 자체는 44px 여야 한다 — §7.3 이 정한 절대 하한은
             24px(WCAG 2.5.8)이고 6px 막대를 그대로 버튼으로 두면 손가락으로 못 짚는다.
             편집기 TransportBar 와 같은 방식(투명 히트 래퍼 + 안쪽 span 막대). */}
-        <div style={{ maxWidth: 1080, margin: '10px auto 0', display: 'flex', gap: 9 }}>
+        <div style={{ marginTop: 10, display: 'flex', gap: 9 }}>
           {drill.steps.map((s, i) => (
             <button
               key={s.id}
@@ -758,16 +781,10 @@ const iconBtnStyle: CSSProperties = {
   border: '1px solid var(--border)',
 };
 
-const transportSmallStyle: CSSProperties = {
-  width: 46,
-  height: 46,
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: 'var(--muted)',
-};
+/** 코트 아래 노트 띠의 고정 높이(2026-08-20 §E) — STEP 줄(≈17) + 노트 최대 2줄(14px·lh 1.55
+ *  ≈ 43) + 이름 줄(≈24, marginTop 포함)의 대략치다. min=max 로 걸어 노트 유무와 무관하게
+ *  이 띠의 키를 고정한다 — 스텝을 넘길 때 코트가 위아래로 안 밀리는 것이 이 상수의 전부다. */
+const PRESENT_NOTE_BAND_PX = 86;
 
 export type { PresentLoad };
 export { stepStartsMs };

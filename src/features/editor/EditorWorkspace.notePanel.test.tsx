@@ -137,17 +137,23 @@ describe('노트 패널 — 실제 화면 배선', () => {
   });
 });
 
-describe('하단 푸터 — ⓘ·[시연] (C11/C12)', () => {
-  it('노트 왼쪽 ⓘ가 드릴 정보 모달을 열고, 최우측 [시연]이 그 드릴 시연으로 간다', async () => {
+// 2026-08-20 (기현님 지시, §A·B) — ⓘ와 [시연]이 하단 푸터에서 헤더로 옮겨 갔다. 옛 C11/C12
+// 계약(⓪ⓘ가 드릴 정보를 열고, 시연으로 가는 문이 있다)은 그대로 잇되 자리만 바뀌었다.
+describe('헤더 — ⓘ·[시연으로] (2026-08-20 §A·B, 옛 C11/C12 계약 계승)', () => {
+  it('제목 옆 ⓘ가 드릴 정보 모달을 열고, 헤더 최우측 [시연으로]가 그 드릴 시연으로 간다', async () => {
     const { user, drillId } = await openDrill();
 
-    // ⓘ — 드릴 정보 모달(편집 가능한 시트).
-    await user.click(screen.getByRole('button', { name: '드릴 정보' }));
+    // useAppHeader 의 publish 는 별도 이펙트라 위 판(sidebar·tray) 커밋보다 한 틱 늦게 뜬다
+    // (EditorWorkspace.headerDescription.test.tsx 의 옛 openDrill 주석과 같은 함정) — 둘 다
+    // 이제 헤더 항목이라 findByRole 로 기다린다.
+    // ⓘ — 드릴 정보 모달(편집 가능한 시트). 이제 헤더(제목 바로 옆)다.
+    await user.click(await screen.findByRole('button', { name: '드릴 정보' }));
     expect(await screen.findByRole('dialog', { name: /드릴 정보/ })).toBeInTheDocument();
     await user.keyboard('{Escape}');
 
-    // [시연] — 하단 최우측(기현님 지시 2026-08-19). nav.go 로 그 드릴 시연에 간다.
-    await user.click(screen.getByRole('button', { name: '시연 시작' }));
+    // [시연으로] — 헤더 최우측 primary(옛 presentButton 필드가 폐기되며 이 자리로 흡수됐다).
+    // nav.go 로 그 드릴 시연에 간다.
+    await user.click(await screen.findByRole('button', { name: '시연으로' }));
     expect(navGo).toHaveBeenCalledWith('present', { kind: 'drill', id: drillId });
   });
 });

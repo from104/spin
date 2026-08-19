@@ -1,6 +1,6 @@
 // 2026-08-18 (기현님: "속성 버튼 및 그 안의 내용 폐기 … 드릴 이름 정도만 왼쪽 상단에 배치하고
 // 동적으로 수정 가능해야함") — 드릴 이름이 헤더 인라인 클릭-편집이 됐다(옛 인스펙터 [제목]
-// 필드의 후계). EditorWorkspace.headerDescription.test.tsx 와 같은 이유·같은 골격으로
+// 필드의 후계). DrillMetaSheet.test.tsx 의 description 절과 같은 이유·같은 골격으로
 // **배선**만 본다: drill.title 이 헤더에 오르고, 편집이 META_SET 을 거쳐 자동저장까지 가는지.
 // 빈 값 거부(이름 없는 드릴 방지)는 여기가 유일한 검증 자리다 — 설명 필드에는 없는 가드다.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -58,13 +58,16 @@ async function openDrill() {
   return { user, drillId: created.id, view };
 }
 
-// 2026-08-18 후속 — 이름의 **정본 자리는 사이드바 맨 위**가 됐다(넓은 창엔 헤더가 없다 —
-// StepSidebar.test.tsx 드릴 이름 절·EditorScreen.test.tsx 회귀 기록). 이 파일은 좁은 창
-// 보조 자리(헤더)의 배선만 본다. 사이드바에도 같은 접근 이름의 버튼이 있으므로 모든 질의를
-// header 스코프로 좁힌다 — 전역 getByRole 은 "여러 개" 로 터진다(그게 정상이다).
+// 2026-08-18 에는 이름의 정본 자리가 사이드바 맨 위였다(넓은 창엔 헤더가 없었다). 2026-08-20
+// 재설계(§A, 기현님 지시 "편집·시연 화면이 비슷한 레이아웃이어야 ux가 좋아진다")로 드릴
+// 편집이 넓은 창에서도 헤더를 도로 얻으면서 그 전제가 사라졌고, 사이드바의 이름 편집기는
+// 중복이라 철거됐다(StepSidebar.tsx §G, EditorScreen.test.tsx 회귀 기록) — **헤더가 이제
+// 창 폭과 무관한 유일한 자리다.** `inHeader()` 스코프는 그래도 남긴다 — 화면에 이름을 담은
+// 다른 텍스트(예: 라이브 리전 발표문)와 안 섞이도록 좁혀 두는 관례일 뿐, 더 이상 "사이드바와
+// 겹쳐서" 가 이유는 아니다.
 const inHeader = () => within(document.querySelector('header') as HTMLElement);
 
-describe('헤더 드릴 이름 — 실제 화면 배선(좁은 창 보조 자리)', () => {
+describe('헤더 드릴 이름 — 실제 화면 배선(창 폭과 무관한 유일한 자리)', () => {
   it('제목이 클릭-편집 버튼으로 뜬다 — 이름이 aria 에 실린다', async () => {
     await openDrill();
     expect(inHeader().getByRole('button', { name: /^드릴 이름: .+\. 눌러서 수정$/ })).toBeInTheDocument();

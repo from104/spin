@@ -276,6 +276,16 @@ export const ko = {
   'phaseCard.addDrillLabel': '{{label}} 구획에 추가할 드릴',
   'phaseCard.addDrillPlaceholder': '드릴 선택…',
 
+  // 2026-08-20 — 편집·시연 공용 재생 묶음(ui/PlaybackControls.tsx). 값은 옛 present.* 항목을
+  // 그대로 옮겨 적었다 — 문자열 값을 직접 단언하는 테스트가 여럿이라 값은 그대로, 키만 공용으로.
+  'playback.play': '재생',
+  'playback.pause': '일시정지',
+  'playback.prev': '이전 스텝',
+  'playback.next': '다음 스텝',
+  'playback.loopOn': '반복 켜기',
+  'playback.loopOff': '반복 끄기',
+  'playback.speedAriaLabel': '재생 속도 {{speed}}배. 눌러서 {{next}}배로 변경',
+
   // C6 — 시연 화면
   'present.drillNotFound': '드릴을 찾을 수 없습니다. 삭제되었을 수 있습니다.',
   'present.drillUnreadable': '드릴 파일을 읽을 수 없습니다.',
@@ -294,12 +304,6 @@ export const ko = {
   'present.sessionProgressAriaLabel': '세션 진행 {{current}}/{{total}}',
   'present.drillProgressAriaLabel': '{{index}}번째 드릴: {{title}}',
   'present.rosterAriaLabel': '선수 명단',
-  'present.loopOff': '반복 끄기',
-  'present.loopOn': '반복 켜기',
-  'present.prevStepAriaLabel': '이전 스텝',
-  'present.playAriaLabel': '재생',
-  'present.pauseAriaLabel': '일시정지',
-  'present.nextStepAriaLabel': '다음 스텝',
   'present.stepJumpAriaLabel': '{{n}}번 스텝으로 이동',
   'present.nextPhaseAnnounce': '다음 구획: {{phase}} — 드릴: {{title}}',
   'present.nextDrillAnnounce': '다음 드릴: {{title}}',
@@ -456,15 +460,9 @@ export const ko = {
   'editor.stepSidebar.duplicateBelowTitle': '이 스텝을 복제해 바로 아래에 넣습니다.',
   'editor.stepSidebar.addStepTitle': '지금 판을 한 장 더 찍어 뒤에 넣습니다.',
   'editor.stepSidebar.addStepButton': '한 장 더 찍기',
-  'editor.stepSidebar.playback.pause': '일시정지',
-  'editor.stepSidebar.playback.play': '재생',
-  'editor.stepSidebar.playback.speedAriaLabel': '재생 속도 {{speed}}배. 눌러서 {{next}}배로 변경',
   'editor.stepSidebar.navAriaLabel': '스텝 목록',
   'editor.stepSidebar.overlay.closeAriaLabel': '스텝 목록 닫기',
   'editor.stepSidebar.overlay.openAriaLabel': '스텝 목록 열기',
-  'editor.stepSidebar.titleEditor.inputAriaLabel': '드릴 이름',
-  'editor.stepSidebar.titleEditor.buttonAriaLabel': '드릴 이름: {{name}}. 눌러서 수정',
-  'editor.stepSidebar.titleEditor.buttonTitle': '눌러서 이름을 고칩니다.',
 
   // ── C7 — 도구 정의 ──────────────────────────────────────────────────────────────────
   'editor.toolDefs.select': '선택',
@@ -574,7 +572,7 @@ export const ko = {
   'editor.workspace.presentAriaLabel': '시연 시작',
   'editor.workspace.presentTitle': '시연 — 팀 앞에서 단계별로 보여주기',
   // ⚠️ presentAriaLabel 의 리터럴 부분집합이어야 한다(WCAG Label-in-Name) — 로케일마다 따로 확인.
-  'editor.workspace.presentLabel': '시연',
+  'editor.workspace.presentLabel': '시연으로',
   'editor.workspace.courtHelp': '방향키로 커서 이동, Enter로 배치, Alt+←/→로 개체 순회',
 
   // ── C7 — "같은 것 전부 고르기" ──────────────────────────────────────────────────────

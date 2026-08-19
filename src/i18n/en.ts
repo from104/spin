@@ -277,6 +277,17 @@ export const en: Record<DictKey, string> = {
   'phaseCard.addDrillLabel': 'Drill to add to phase {{label}}',
   'phaseCard.addDrillPlaceholder': 'Choose a drill…',
 
+  // 2026-08-20 — shared playback cluster for editor + present (ui/PlaybackControls.tsx).
+  // Values carried over from the old present.* entries verbatim (several tests assert the
+  // literal strings, so only the keys move, not the values).
+  'playback.play': 'Play',
+  'playback.pause': 'Pause',
+  'playback.prev': 'Previous step',
+  'playback.next': 'Next step',
+  'playback.loopOn': 'Turn on loop',
+  'playback.loopOff': 'Turn off loop',
+  'playback.speedAriaLabel': 'Playback speed {{speed}}×. Press to change to {{next}}×',
+
   // C6 — presentation screen
   'present.drillNotFound': 'Couldn’t find that drill. It may have been deleted.',
   'present.drillUnreadable': 'Couldn’t read the drill file.',
@@ -295,12 +306,6 @@ export const en: Record<DictKey, string> = {
   'present.sessionProgressAriaLabel': 'Session progress {{current}}/{{total}}',
   'present.drillProgressAriaLabel': 'Drill {{index}}: {{title}}',
   'present.rosterAriaLabel': 'Roster',
-  'present.loopOff': 'Turn off loop',
-  'present.loopOn': 'Turn on loop',
-  'present.prevStepAriaLabel': 'Previous step',
-  'present.playAriaLabel': 'Play',
-  'present.pauseAriaLabel': 'Pause',
-  'present.nextStepAriaLabel': 'Next step',
   'present.stepJumpAriaLabel': 'Go to step {{n}}',
   'present.nextPhaseAnnounce': 'Next phase: {{phase}} — drill: {{title}}',
   'present.nextDrillAnnounce': 'Next drill: {{title}}',
@@ -457,15 +462,9 @@ export const en: Record<DictKey, string> = {
   'editor.stepSidebar.duplicateBelowTitle': 'Duplicates this step right below it.',
   'editor.stepSidebar.addStepTitle': 'Takes another shot of the current board and adds it at the end.',
   'editor.stepSidebar.addStepButton': 'Add Step',
-  'editor.stepSidebar.playback.pause': 'Pause',
-  'editor.stepSidebar.playback.play': 'Play',
-  'editor.stepSidebar.playback.speedAriaLabel': 'Playback speed {{speed}}×. Press to change to {{next}}×',
   'editor.stepSidebar.navAriaLabel': 'Step list',
   'editor.stepSidebar.overlay.closeAriaLabel': 'Close step list',
   'editor.stepSidebar.overlay.openAriaLabel': 'Open step list',
-  'editor.stepSidebar.titleEditor.inputAriaLabel': 'Drill name',
-  'editor.stepSidebar.titleEditor.buttonAriaLabel': 'Drill name: {{name}}. Press to edit',
-  'editor.stepSidebar.titleEditor.buttonTitle': 'Press to edit the name.',
 
   // ── C7 — Tool definitions ───────────────────────────────────────────────────────────
   'editor.toolDefs.select': 'Select',
@@ -578,7 +577,7 @@ export const en: Record<DictKey, string> = {
   'editor.workspace.drillInfoTitle': 'Drill info — type, situation, objective, coaching points',
   'editor.workspace.presentAriaLabel': 'Start Presentation',
   'editor.workspace.presentTitle': 'Present — walk your team through it step by step',
-  'editor.workspace.presentLabel': 'Present',
+  'editor.workspace.presentLabel': 'To Present',
   'editor.workspace.courtHelp': 'Arrow keys to move the cursor, Enter to place, Alt+←/→ to cycle objects',
 
   // ── C7 — "Select same kind" ─────────────────────────────────────────────────────────

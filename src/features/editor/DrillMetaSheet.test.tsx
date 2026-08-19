@@ -53,6 +53,15 @@ describe('DrillMetaSheet', () => {
     fireEvent.blur(objective);
     expect(lastDrill!.objective).toBe('측면 전개 습관');
 
+    // '진행 방법' = 드릴의 `description` 필드(모델명과 UI 라벨이 다르다) — 2026-08-20
+    // 부터 편집 화면 헤더의 인라인 설명이 폐기되며(§A) 이 시트가 description 의 **유일한**
+    // 편집 통로가 됐다(EditorWorkspace.headerDescription.test.tsx 는 은퇴). 저장 통로는
+    // 옛 헤더 인라인과 같은 META_SET.
+    const description = screen.getByLabelText(/^진행 방법/);
+    await user.type(description, '측면에서 크로스');
+    fireEvent.blur(description);
+    expect(lastDrill!.description).toBe('측면에서 크로스');
+
     const variation = screen.getByLabelText(/^변형/);
     await user.type(variation, '수비 하나 추가');
     fireEvent.blur(variation);

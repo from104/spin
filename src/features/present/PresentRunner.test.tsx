@@ -112,6 +112,39 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     expect(await screen.findByRole('button', { name: '일시정지' })).toBeInTheDocument();
   });
 
+  // 2026-08-20 §F — 끝 스텝에서 [재생] = 처음으로 되감고 재생. loop 설정과 무관하다(loop 는
+  // "재생 중 끝에 닿았을 때" 만 맡는다 — 둘이 안 겹친다).
+  it('끝 스텝에서 [재생] 을 누르면 처음 스텝으로 되감고 재생한다(loop 꺼짐, §F)', async () => {
+    const drill = await makeTwoStepDrill();
+    const nav = makeNav();
+    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: '2번 스텝으로 이동' }));
+    await waitFor(() => expect(screen.getByText(STEP2_NOTE)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: '재생' }));
+    expect(await screen.findByRole('button', { name: '일시정지' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+  });
+
+  it('끝 스텝에서 [재생] — 반복이 켜져 있어도 같은 되감기가 일어난다(loop 켜짐, §F)', async () => {
+    const drill = await makeTwoStepDrill();
+    const nav = makeNav();
+    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+
+    const loopBtn = screen.getByRole('button', { name: /^반복/ });
+    if (loopBtn.getAttribute('aria-pressed') !== 'true') await userEvent.click(loopBtn);
+    expect(screen.getByRole('button', { name: /^반복/ })).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.click(screen.getByRole('button', { name: '2번 스텝으로 이동' }));
+    await waitFor(() => expect(screen.getByText(STEP2_NOTE)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: '재생' }));
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+  });
+
   it('→ 키로 다음 스텝, ← 키로 이전 스텝으로 이동한다', async () => {
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
@@ -234,6 +267,32 @@ describe('PresentRunner — 드릴 정보 모달·메모 칩·격자 (C11)', () 
     await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
     expect(container.querySelector('[data-grid-overlay]') ?? container.querySelector('g[aria-label="격자"]')).toBeNull();
     unmount();
+  });
+
+  // 2026-08-20 §E — 노트 띠는 고정 높이 전폭 띠다: 노트가 없는 스텝으로 넘어가도 이 줄의
+  // 키가 안 바뀌어야 코트가 위아래로 안 밀린다(선택모드 출렁임을 고친 것과 같은 원리 —
+  // 조건부 마운트가 아니라 높이를 먼저 고정하고 내용만 교체한다).
+  it('시연 노트 띠는 노트 유무와 무관하게 높이가 고정이다 — 코트가 안 밀린다', async () => {
+    const tag = `#${++seq}`;
+    const base = await idbDrillRepo.createDrill({ courtMode: 'full', title: `노트 띠 드릴 ${tag}`, durationMin: 5 });
+    const step1 = { ...base.steps[0]!, id: newId('st'), note: STEP1_NOTE };
+    const step2 = { ...base.steps[0]!, id: newId('st'), note: '' }; // 노트 없는 스텝
+    const drill = await idbDrillRepo.putDrill({ ...base, steps: [step1, step2] }, { touch: false });
+
+    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+
+    const band = () => screen.getByText(/^STEP \d\/\d$/).parentElement!.parentElement!;
+    expect(band().style.minHeight).toBe('86px');
+    expect(band().style.maxHeight).toBe('86px');
+    expect(band().style.overflowY).toBe('auto');
+
+    await userEvent.click(screen.getByRole('button', { name: '2번 스텝으로 이동' }));
+    await waitFor(() => expect(screen.queryByText(STEP1_NOTE)).toBeNull());
+
+    // 노트가 없는 스텝인데도 띠의 min/max 는 그대로다 — 조건부로 줄지 않는다.
+    expect(band().style.minHeight).toBe('86px');
+    expect(band().style.maxHeight).toBe('86px');
   });
 });
 

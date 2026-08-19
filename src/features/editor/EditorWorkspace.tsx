@@ -8,7 +8,8 @@ import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
 import { COURT_DEFS, courtDefFor, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
-import { IconInfo, IconPlay } from '../../ui/icons.tsx';
+import { IconPlay } from '../../ui/icons.tsx';
+import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { defaultDefense } from '../../model/rules.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
@@ -92,7 +93,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   // 전술판은 drillRepo 에 자동저장하지 않는다 — 목록에 뜨지 않는 임시 판이다(스냅샷 1장은
   // 화면 쪽이 storage/board.ts 로 따로 들고 있다). 훅 자체는 조건 없이 부른다(훅 규칙).
   const autosave = useAutosave(!isBoard);
-  const { playing, speed } = usePlaybackState();
+  const { playing, speed, loop } = usePlaybackState();
   const playbackActions = usePlaybackActions();
 
   const drill = state.present;
@@ -226,7 +227,12 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           //    상태도 그 칸이 말한다.
           //  · 코트 세그먼트 → 기능 바 [코트](잠긴 채로 값만 보여 준다). 옛 계약
           //    (`onLockedAttempt` 로 이유를 말한다)은 그대로 옮겨 갔다.
-          // 남는 것은 **이 드릴이 무엇인가**(제목·편집중)와 시연으로 가는 문뿐이다.
+          //
+          //  ⚠️ 2026-08-20 (기현님 지시, §A) — 헤더가 **컴팩트로 돌아온다.** 시연과 같은 뼈대를
+          //  쓰기 위해서다: 제목·ⓘ·[시연으로] 한 줄뿐이고 부제·설명 인라인은 없다(description
+          //  필드를 아예 안 준다 — ⓘ(DrillMetaSheet)에 같은 필드가 이미 있어 편집 경로를 안
+          //  잃는다). [시연]은 옛 `presentButton`(고정 보조 버튼) 대신 **`primary`**(최우측)로
+          //  간다 — presentButton 필드 자체가 이번에 폐기됐다(§A, 편집 화면이 유일한 사용처였다).
           title: drill.title,
           // 2026-08-18 (기현님: *"드릴 이름 정도만 왼쪽 상단에 배치하고 동적으로 수정 가능"*) —
           // 인스펙터 [제목] 필드의 후계. 저장 통로는 설명과 같은 META_SET, 상한은 validate.ts
@@ -238,18 +244,13 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
             onChange: (v) => dispatch({ type: 'META_SET', patch: { title: v } }),
           },
           badge: t('editor.workspace.editingBadge'),
-          // ⑥ 텍스트의 소속(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §텍스트의 소속) —
-          // 드릴 짧은 설명은 **헤더 인라인**. 저장 통로는 인스펙터의 [제목]·[설명]과 같은
-          // META_SET(드릴 메타를 고치는 기존 액션) — 새 액션을 만들지 않는다. 상한은
-          // validate.ts LIMITS.descriptionLen 과 같은 값이어야 화면이 먼저 막지 않으면
-          // 저장할 때 조용히 잘리는 사고(§3.5 태그 문서와 같은 종류)가 안 난다.
-          description: {
-            value: drill.description ?? '',
-            placeholder: t('editor.workspace.descriptionPlaceholder'),
-            maxLength: LIMITS.descriptionLen,
-            onChange: (v) => dispatch({ type: 'META_SET', patch: { description: v } }),
+          compact: true,
+          infoButton: onDrillInfo ? { onAction: onDrillInfo, label: t('editor.workspace.drillInfoAriaLabel') } : null,
+          primary: {
+            label: t('editor.workspace.presentLabel'),
+            icon: <IconPlay size={15} />,
+            onAction: () => nav.go('present', { kind: 'drill', id: drill.id }),
           },
-          presentButton: { onAction: () => nav.go('present', { kind: 'drill', id: drill.id }) },
         },
   );
 
@@ -385,6 +386,19 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
     [dispatch, drill.steps, state],
   );
 
+  // 끝 스텝에서 [재생] = 처음으로 되감고 재생(2026-08-20 기현님 지시, §F) — loop 설정과
+  // **무관**하다(loop 는 "재생 중 끝에 닿았을 때" 만 맡는다, useStepPlayback.ts 참고 — 둘이
+  // 안 겹친다). 버튼(PlaybackControls)과 단축키(useEditorKeyboard onTogglePlay)가 **같은
+  // 함수**를 써야 자리마다 동작이 갈리지 않는다. STEP_SELECT 로 스텝을 먼저 옮기면
+  // useStepPlayback 이 stepId 변화를 보고 resetMs 를 스스로 부른다(그 훅의 첫 effect).
+  const togglePlay = useCallback(() => {
+    const last = drill.steps.length - 1;
+    if (!playing && last >= 1 && stepIndex === last) {
+      dispatch({ type: 'STEP_SELECT', id: drill.steps[0]!.id });
+    }
+    playbackActions.toggle();
+  }, [playing, stepIndex, drill.steps, dispatch, playbackActions]);
+
   // [한 장 더 찍기](§4.4 P2-3)는 **한 번**의 조작이어야 한다 — 찍고 나면 방금 찍은 장이
   // 손에 들려 있어야지, 옛 장을 든 채 새 장이 옆에 쌓이면 다음 동작이 엉뚱한 판에 들어간다.
   // STEP_ADD 는 새 스텝의 id 를 돌려주지 않으므로(리듀서는 순수하다) 커밋된 뒤 **바로 뒤**
@@ -483,7 +497,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
     },
     onPrevStep: () => gotoStep(-1),
     onNextStep: () => gotoStep(1),
-    onTogglePlay: () => playbackActions.toggle(),
+    onTogglePlay: togglePlay,
     onToggleGrid: toggleGrid,
     onToggleRuleZones: toggleRuleZones,
     onZoomIn: () => stageRef.current?.zoomBy(INTERACT.zoomStep),
@@ -682,15 +696,6 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           // dispatch 만 얇게 감싼다(addStepHere/duplicateStepAt 같은 뒷정리가 필요 없다).
           onToggleCut={(id, cut) => dispatch({ type: 'STEP_META', id, patch: { cut } })}
           collapsed={narrow || portrait}
-          // 재생 컨트롤(2026-08-18) — 옛 TransportBar 의 배선을 값 그대로 옮겼다(계약은
-          // StepSidebar 의 playback prop 주석). canPlay 만 boolean 으로 압축하는 것도 그대로.
-          playback={{
-            playing,
-            canPlay: drill.steps.length >= 2,
-            onTogglePlay: () => playbackActions.toggle(),
-            speed,
-            onCycleSpeed: () => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5),
-          }}
           // ⑤ 다중 선택(기현님 확정 2026-08-17) — 선택 상태 자체(어떤 카드가 체크됐나)는
           // StepSidebar 로컬(ephemeral)이라 여기서는 "결과" 셋만 받아 그대로 dispatch 한다.
           // duplicateStepAt/addStepHere 같은 뒷정리(방금 만든 스텝 선택)가 없는 이유: 일괄
@@ -704,14 +709,6 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           // 우클릭 메뉴 [삭제](2026-08-18) — 옛 인스펙터 [스텝 삭제]와 같은 STEP_DELETE.
           // 현재 스텝 삭제 시 이웃 선택은 uiReducer 의 기존 규칙이 맡는다.
           onDeleteStep={(id) => dispatch({ type: 'STEP_DELETE', id })}
-          // 드릴 이름(2026-08-18) — 넓은 창의 드릴 편집에는 헤더가 없어서(AppShell showHeader)
-          // 헤더 인라인만으로는 안 보인다. 왼쪽 상단 = 사이드바 맨 위가 정자리다. 저장 통로는
-          // 헤더 titleField 와 같은 META_SET, 상한도 같은 LIMITS.titleLen.
-          title={{
-            value: drill.title,
-            maxLength: LIMITS.titleLen,
-            onChange: (v) => dispatch({ type: 'META_SET', patch: { title: v } }),
-          }}
         />
       )}
 
@@ -843,32 +840,11 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
             스텝 노트 = PPT 발표자 노트 자리. 보드 아래 가장 조용한 자리에 접힌 채로 있다가,
             손이 닿으면 펼쳐진다. 자유 전술판(isBoard)에는 스텝이 없으니 완전히 안 그린다
             (StepSidebar 와 같은 게이트). */}
+        {/* 2026-08-20 (기현님 지시, §A·D) — ⓘ와 [시연]이 헤더로 옮겨 갔다(ⓘ는 제목 옆,
+            [시연]은 최우측 primary). 이 줄에 남는 것은 노트와 **공용 재생 묶음**(최우·최하단)
+            뿐이다 — 시연 화면과 같은 모양의 PlaybackControls 를 그대로 세운다. */}
         {isBoard ? null : (
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
-            {/* C11 — [드릴 정보] ⓘ. 노트 접힘 줄(minHeight --hit)과 같은 키라 행 높이를 안 민다. */}
-            {onDrillInfo && (
-              <button
-                type="button"
-                aria-label={t('editor.workspace.drillInfoAriaLabel')}
-                title={t('editor.workspace.drillInfoTitle')}
-                onClick={onDrillInfo}
-                style={{
-                  flex: 'none',
-                  width: 'var(--hit)',
-                  minHeight: 'var(--hit)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: 'var(--elev)',
-                  color: 'var(--text)',
-                  alignSelf: 'flex-start',
-                }}
-              >
-                <IconInfo size={19} />
-              </button>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <NotePanel
                 stepId={step.id}
@@ -876,33 +852,17 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 onNoteChange={(note) => dispatch({ type: 'STEP_META', id: step.id, patch: { note } })}
               />
             </div>
-            {/* C12(2026-08-19 기현님) — 하단 푸터 **최우측 [시연]**. 옛 TransportBar 폐차 때
-                시연 진입이 좁은 창 헤더에만 남아, 넓은 창 드릴 편집(헤더 없음)에서는 문이
-                없었다. 헤더의 presentButton 과 같은 경로(nav.go)다. */}
-            <button
-              type="button"
-              aria-label={t('editor.workspace.presentAriaLabel')}
-              title={t('editor.workspace.presentTitle')}
-              onClick={() => nav.go('present', { kind: 'drill', id: drill.id })}
-              className="on-accent"
-              style={{
-                flex: 'none',
-                alignSelf: 'flex-start',
-                minHeight: 'var(--hit)',
-                padding: '0 16px',
-                borderRadius: 10,
-                background: 'var(--accent)',
-                color: 'var(--accent-ink-strong)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 7,
-                fontSize: '0.8125rem',
-                fontWeight: 700,
-              }}
-            >
-              <IconPlay size={14} />
-              {t('editor.workspace.presentLabel')}
-            </button>
+            <PlaybackControls
+              playing={playing}
+              canPlay={drill.steps.length >= 2}
+              onTogglePlay={togglePlay}
+              loop={loop}
+              onToggleLoop={() => playbackActions.setLoop(!loop)}
+              onPrev={() => gotoStep(-1)}
+              onNext={() => gotoStep(1)}
+              speed={speed}
+              onCycleSpeed={() => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5)}
+            />
           </div>
         )}
       </div>

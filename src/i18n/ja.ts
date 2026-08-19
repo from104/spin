@@ -277,6 +277,16 @@ export const ja: Record<DictKey, string> = {
   'phaseCard.addDrillLabel': '{{label}}区画に追加するドリル',
   'phaseCard.addDrillPlaceholder': 'ドリルを選択…',
 
+  // 2026-08-20 — 編集・プレゼン共用の再生ボタン群(ui/PlaybackControls.tsx)。値は旧 present.*
+  // 項目をそのまま移した — 文字列の値を直接検証するテストが複数あるため、キーだけ共用にする。
+  'playback.play': '再生',
+  'playback.pause': '一時停止',
+  'playback.prev': '前のステップ',
+  'playback.next': '次のステップ',
+  'playback.loopOn': 'ループをオン',
+  'playback.loopOff': 'ループをオフ',
+  'playback.speedAriaLabel': '再生速度{{speed}}倍。押すと{{next}}倍に変更',
+
   // C6 — プレゼン画面
   'present.drillNotFound': 'ドリルが見つかりません。削除された可能性があります。',
   'present.drillUnreadable': 'ドリルファイルを読み込めません。',
@@ -295,12 +305,6 @@ export const ja: Record<DictKey, string> = {
   'present.sessionProgressAriaLabel': 'セッション進行 {{current}}/{{total}}',
   'present.drillProgressAriaLabel': '{{index}}番目のドリル: {{title}}',
   'present.rosterAriaLabel': '選手名簿',
-  'present.loopOff': 'ループをオフ',
-  'present.loopOn': 'ループをオン',
-  'present.prevStepAriaLabel': '前のステップ',
-  'present.playAriaLabel': '再生',
-  'present.pauseAriaLabel': '一時停止',
-  'present.nextStepAriaLabel': '次のステップ',
   'present.stepJumpAriaLabel': 'ステップ{{n}}へ移動',
   'present.nextPhaseAnnounce': '次の区画: {{phase}} — ドリル: {{title}}',
   'present.nextDrillAnnounce': '次のドリル: {{title}}',
@@ -457,15 +461,9 @@ export const ja: Record<DictKey, string> = {
   'editor.stepSidebar.duplicateBelowTitle': 'このステップを複製してすぐ下に入れます。',
   'editor.stepSidebar.addStepTitle': '今の盤をもう1枚撮って後ろに追加します。',
   'editor.stepSidebar.addStepButton': 'もう1枚追加',
-  'editor.stepSidebar.playback.pause': '一時停止',
-  'editor.stepSidebar.playback.play': '再生',
-  'editor.stepSidebar.playback.speedAriaLabel': '再生速度{{speed}}倍。押すと{{next}}倍に変更',
   'editor.stepSidebar.navAriaLabel': 'ステップ一覧',
   'editor.stepSidebar.overlay.closeAriaLabel': 'ステップ一覧を閉じる',
   'editor.stepSidebar.overlay.openAriaLabel': 'ステップ一覧を開く',
-  'editor.stepSidebar.titleEditor.inputAriaLabel': 'ドリル名',
-  'editor.stepSidebar.titleEditor.buttonAriaLabel': 'ドリル名: {{name}}。押して編集',
-  'editor.stepSidebar.titleEditor.buttonTitle': '押して名前を編集します。',
 
   // ── C7 — 道具定義 ────────────────────────────────────────────────────────────────────
   'editor.toolDefs.select': '選択',
@@ -574,7 +572,7 @@ export const ja: Record<DictKey, string> = {
   'editor.workspace.drillInfoTitle': 'ドリル情報 — 種類・状況・目的・コーチングポイント',
   'editor.workspace.presentAriaLabel': 'プレゼンを開始',
   'editor.workspace.presentTitle': 'プレゼン — チームの前でステップごとに見せる',
-  'editor.workspace.presentLabel': 'プレゼン',
+  'editor.workspace.presentLabel': 'プレゼンへ',
   'editor.workspace.courtHelp': '矢印キーでカーソル移動、Enterで配置、Alt+←/→でオブジェクト巡回',
 
   // ── C7 — 「同じ種類を全部選択」 ──────────────────────────────────────────────────────
