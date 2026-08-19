@@ -2,8 +2,8 @@
 // 거기에는 선턱(선턱모드 시작), 위/아래로 복제, 삭제 등이 있어야함"*) — StepCardMenu 배선.
 // select/reorder 테스트와 파일을 가르는 이유도 같다: 메뉴는 제3의 진입 경로라, 카드 탭·드래그
 // 회귀와 섞이면 파일명으로 원인이 안 보인다.
-import { describe, expect, it, vi } from 'vitest';
-import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, render as rtlRender, screen, fireEvent } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { StepSidebar } from './StepSidebar.tsx';
@@ -12,6 +12,7 @@ import { addStepAfter } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+import { LONG_PRESS_MS } from './useLongPressMenu.ts';
 
 // StepSidebar 의 카드 썸네일(CourtThumbnail)이 useLocale()(→ SettingsProvider)을 쓴다(C7).
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
@@ -77,6 +78,26 @@ describe('우클릭 메뉴 — 열림/닫힘', () => {
     expect(screen.queryByRole('menu')).toBeNull();
     expect(onDuplicateStep).not.toHaveBeenCalled();
     expect(onDeleteStep).not.toHaveBeenCalled();
+  });
+});
+
+describe('롱프레스 — 터치도 같은 메뉴에 닿는다(2026-08-20, 진입 방식 마우스/터치 일관성)', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('터치로 500ms 누르고 있으면 우클릭과 같은 메뉴가 열린다', () => {
+    vi.useFakeTimers();
+    renderSidebar(makeDrill(3));
+    fireEvent.pointerDown(cards()[1]!, { pointerId: 1, pointerType: 'touch', clientX: 40, clientY: 60, button: 0 });
+    act(() => void vi.advanceTimersByTime(LONG_PRESS_MS));
+    expect(screen.getByRole('menu', { name: '스텝 2 메뉴' })).toBeInTheDocument();
+  });
+
+  it('마우스로 누르고 있기만 해서는(우클릭 없이) 안 열린다 — 오른쪽 클릭이라는 정확한 손짓이 이미 있다', () => {
+    vi.useFakeTimers();
+    renderSidebar(makeDrill(2));
+    fireEvent.pointerDown(cards()[0]!, { pointerId: 1, pointerType: 'mouse', clientX: 40, clientY: 60, button: 0 });
+    act(() => void vi.advanceTimersByTime(LONG_PRESS_MS * 3));
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 });
 

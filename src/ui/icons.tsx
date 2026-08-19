@@ -245,6 +245,21 @@ export function IconClose({ size = 18, ...rest }: IconProps) {
   );
 }
 
+/** 골라 지우기(개별/일괄 삭제) — StepSidebar 선택모드 일괄 삭제 버튼(2026-08-20). IconClear
+ *  (코트 비우기, 전체를 한 번에 쓸어냄)와 뜻이 다르다: 저건 "손잡이 달린 통이 뚜껑을 열고
+ *  전부 쏟는다"는 그림이고, 이건 "담긴 것 중 고른 것만 줄어든다"는 뜻이라 뚜껑 손잡이를 빼고
+ *  몸통에 세로 살대 둘을 넣어 실루엣 자체를 가른다(자물쇠/핀과 같은 원칙 — 다른 뜻이면
+ *  같은 글리프를 쓰지 않는다). */
+export function IconDelete({ size = 14, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M5 7h14" />
+      <path d="M7 7l1.2 12.5A1.5 1.5 0 0 0 9.7 21h4.6a1.5 1.5 0 0 0 1.5-1.5L17 7" />
+      <path d="M10 10.5v7M14 10.5v7" />
+    </svg>
+  );
+}
+
 export function IconLevel({ size = 13, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>

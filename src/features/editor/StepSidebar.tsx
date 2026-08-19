@@ -76,7 +76,18 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
 import { courtDefFor } from '../../model/court.ts';
-import { IconListSteps, IconPlus, IconCopy, IconChainLinked, IconChainCut, IconCheck, IconPlay, IconPause } from '../../ui/icons.tsx';
+import {
+  IconListSteps,
+  IconPlus,
+  IconCopy,
+  IconChainLinked,
+  IconChainCut,
+  IconCheck,
+  IconPlay,
+  IconPause,
+  IconClose,
+  IconDelete,
+} from '../../ui/icons.tsx';
 import type { PlaybackSpeed } from '../../store/playback/PlaybackProvider.tsx';
 import { CourtThumbnail, SIDEBAR_GLYPH_SCALE } from '../../render/CourtThumbnail.tsx';
 import { buildStepThumb } from '../../model/thumb.ts';
@@ -87,6 +98,7 @@ import { useStepReorderDrag } from './useStepReorderDrag.ts';
 import { useStepGroupReorderDrag } from './useStepGroupReorderDrag.ts';
 import { StepCardMenu } from './StepCardMenu.tsx';
 import type { StepCardMenuTarget } from './StepCardMenu.tsx';
+import { useLongPressMenu } from './useLongPressMenu.ts';
 import { useT } from '../../i18n/useT.ts';
 
 export interface StepSidebarProps {
@@ -539,6 +551,20 @@ export function StepSidebar({
   // 카드부터 고르기 시작" 이라 켜면서 그 카드를 체크한 채 시작해야 한다.
   const [menu, setMenu] = useState<StepCardMenuTarget | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  // 터치·펜 롱프레스로도 같은 메뉴를 연다(2026-08-20 — 마우스 우클릭과 진입 방식을 맞춘다.
+  // 전에는 onContextMenu 가 마우스 전용이라 터치에서는 이 메뉴에 닿을 방법이 없었다). 캔버스
+  // 객체(EditorStage 등)와 같은 훅을 재사용한다. id → index 는 열리는 순간에 order.findIndex
+  // 로 다시 구한다 — 누른 순간의 i 를 클로저로 들고 있으면 500ms 타이머가 도는 사이 순서가
+  // 바뀌었을 때(드물지만) 어긋난 자리를 가리킨다.
+  const longPressMenu = useLongPressMenu(
+    useCallback(
+      (id: string, x: number, y: number) => {
+        const index = order.findIndex((s) => s.id === id);
+        setMenu({ x, y, id: id as StepId, index });
+      },
+      [order],
+    ),
+  );
   const startSelectWith = useCallback(
     (id: StepId) => {
       setSelectMode(true);
@@ -555,90 +581,124 @@ export function StepSidebar({
       <span id={hintId} className="sr-only">
         {t('editor.stepSidebar.keyboardHint')}
       </span>
-      {/* ⑤ 다중 선택 상단 바 — [선택 모드] 토글은 언제나 있고, 그 아래 카운트·일괄 버튼은
-          모드가 켜졌을 때만 나타난다(파일 머리말 §선택은 명시적 모드다). flex:'none' 이라
-          카드 목록(스크롤 영역)과 자리를 다투지 않는다. */}
+      {/* ⑤ 다중 선택 상단 바 — 항상 마운트된 한 줄(2026-08-20 재설계, 기현님 피드백 "UI가 너무
+          출렁인다"). 예전엔 선택모드가 켜질 때 카운트+일괄버튼 줄이 새로 마운트돼 헤더 높이가
+          늘고 카드 목록이 밀렸다. 지금은 이 줄 자체(minHeight 고정)가 꺼짐/켜짐 상관없이 항상
+          있고 **내용만** 바뀐다 — 높이가 고정이니 아래 목록이 밀릴 일이 없다. 154px
+          (SIDEBAR_WIDTH_PX) - 패딩 20px = 134px 밖에 없어 닫기·복제·삭제는 아이콘 전용이다
+          (aria-label 로 이름은 그대로 — getByRole name 단언은 화면 글자든 aria-label 이든
+          가리지 않는다). 카운트만 눈에 보이는 글자로 남긴다(getByText 단언 대상이기도 하고,
+          "지금 몇 장 골랐는지"는 아이콘으로 못 담는 정보라서). */}
       <div
         style={{
           flex: 'none',
           display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
+          alignItems: 'center',
+          gap: 4,
+          minHeight: 'var(--hit)',
           padding: `${SIDEBAR_PAD_PX}px ${SIDEBAR_PAD_PX}px 0`,
         }}
       >
-        <button
-          type="button"
-          aria-pressed={selectMode}
-          onClick={toggleSelectMode}
-          style={{
-            flex: 'none',
-            minHeight: 'var(--hit)',
-            borderRadius: 8,
-            border: `1px solid ${selectMode ? 'var(--accent)' : 'var(--border-strong)'}`,
-            background: selectMode ? 'color-mix(in srgb, var(--accent) 16%, var(--panel))' : 'var(--panel)',
-            color: selectMode ? 'var(--accent)' : 'var(--text)',
-            fontSize: '0.78125rem',
-            fontWeight: 600,
-          }}
-        >
-          {selectMode ? t('editor.stepSidebar.selectMode.off') : t('editor.stepSidebar.selectMode.on')}
-        </button>
-        {selectMode && (
+        {selectMode ? (
           <>
+            <button
+              type="button"
+              aria-pressed={true}
+              aria-label={t('editor.stepSidebar.selectMode.off')}
+              onClick={toggleSelectMode}
+              style={{
+                flex: 'none',
+                minHeight: 'var(--hit)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 6px',
+                borderRadius: 8,
+                border: '1px solid var(--accent)',
+                background: 'color-mix(in srgb, var(--accent) 16%, var(--panel))',
+                color: 'var(--accent)',
+              }}
+            >
+              <IconClose size={15} />
+            </button>
             {/* aria-live — 체크할 때마다 몇 장인지 스크린리더가 즉시 말해 준다. */}
-            <div aria-live="polite" style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>
+            <div
+              aria-live="polite"
+              style={{ flex: 'none', fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}
+            >
               {t('editor.stepSidebar.selectedCount', { n: checkedIds.size })}
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button
-                type="button"
-                disabled={batchDupBlocked}
-                title={
-                  checkedIds.size > 0 && steps.length + checkedIds.size > LIMITS.maxSteps
-                    ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps })
-                    : t('editor.stepSidebar.batchDuplicateTitle')
-                }
-                onClick={handleBatchDuplicate}
-                style={{
-                  flex: 1,
-                  minHeight: 'var(--hit)',
-                  borderRadius: 8,
-                  border: '1px solid var(--border-strong)',
-                  background: 'var(--panel)',
-                  color: 'var(--text)',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  opacity: batchDupBlocked ? 0.4 : 1,
-                }}
-              >
-                {t('editor.stepSidebar.batchDuplicateButton')}
-              </button>
-              <button
-                type="button"
-                disabled={batchDelBlocked}
-                title={
-                  checkedIds.size > 0 && checkedIds.size >= steps.length
-                    ? t('editor.stepSidebar.batchDeleteMinTitle')
-                    : t('editor.stepSidebar.batchDeleteTitle')
-                }
-                onClick={handleBatchDelete}
-                style={{
-                  flex: 1,
-                  minHeight: 'var(--hit)',
-                  borderRadius: 8,
-                  border: '1px solid var(--border-strong)',
-                  background: 'var(--panel)',
-                  color: '#ff6b6b', // ObjectMenu.tsx 의 삭제 항목과 같은 경고색(GapSlot 사슬 끊김과 같은 관행)
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  opacity: batchDelBlocked ? 0.4 : 1,
-                }}
-              >
-                {t('editor.stepSidebar.batchDeleteButton')}
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={batchDupBlocked}
+              aria-label={t('editor.stepSidebar.batchDuplicateButton')}
+              title={
+                checkedIds.size > 0 && steps.length + checkedIds.size > LIMITS.maxSteps
+                  ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps })
+                  : t('editor.stepSidebar.batchDuplicateTitle')
+              }
+              onClick={handleBatchDuplicate}
+              style={{
+                flex: 'none',
+                minHeight: 'var(--hit)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 6px',
+                borderRadius: 8,
+                border: '1px solid var(--border-strong)',
+                background: 'var(--panel)',
+                color: 'var(--text)',
+                opacity: batchDupBlocked ? 0.4 : 1,
+              }}
+            >
+              <IconCopy size={14} />
+            </button>
+            <button
+              type="button"
+              disabled={batchDelBlocked}
+              aria-label={t('editor.stepSidebar.batchDeleteButton')}
+              title={
+                checkedIds.size > 0 && checkedIds.size >= steps.length
+                  ? t('editor.stepSidebar.batchDeleteMinTitle')
+                  : t('editor.stepSidebar.batchDeleteTitle')
+              }
+              onClick={handleBatchDelete}
+              style={{
+                flex: 'none',
+                minHeight: 'var(--hit)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 6px',
+                borderRadius: 8,
+                border: '1px solid var(--border-strong)',
+                background: 'var(--panel)',
+                color: '#ff6b6b', // ObjectMenu.tsx 의 삭제 항목과 같은 경고색(GapSlot 사슬 끊김과 같은 관행)
+                opacity: batchDelBlocked ? 0.4 : 1,
+              }}
+            >
+              <IconDelete size={14} />
+            </button>
           </>
+        ) : (
+          <button
+            type="button"
+            aria-pressed={false}
+            onClick={toggleSelectMode}
+            style={{
+              flex: 1,
+              minHeight: 'var(--hit)',
+              borderRadius: 8,
+              border: '1px solid var(--border-strong)',
+              background: 'var(--panel)',
+              color: 'var(--text)',
+              fontSize: '0.78125rem',
+              fontWeight: 600,
+            }}
+          >
+            {t('editor.stepSidebar.selectMode.on')}
+          </button>
         )}
       </div>
       <div
@@ -700,6 +760,9 @@ export function StepSidebar({
                   // 안 된 카드) 평소대로 단일 드래그 — 파일 머리말 §일괄 이동은 별도 훅이다.
                   if (selectMode && checked) groupDrag.start(e, checkedIds);
                   else drag.start(e, s.id, i);
+                  // 롱프레스 메뉴 타이머를 같이 건다 — 훅은 이벤트를 가로채지 않고 마우스는
+                  // 스스로 배제하며, 손가락이 10px 넘게 움직이면(=끌기가 이겼다) 알아서 접는다.
+                  longPressMenu.onPointerDown(s.id, e);
                 }}
                 onClick={() => {
                   // 끌기의 뒤끝이 선택/체크로 둔갑하지 않게(두 훅 다 확인 — 한 세션엔 하나만
@@ -708,13 +771,11 @@ export function StepSidebar({
                   if (selectMode) toggleChecked(s.id);
                   else onSelectStep(s.id);
                 }}
-                // 우클릭 메뉴(2026-08-18 기현님 지시) — 좌표는 포인터 자리(clientX/Y).
-                // index 는 **화면 순서**(order 기준 i)다: [위로 복제]의 toIndex 가 화면에서
-                // 보이는 그 자리를 가리켜야 한다(드래그 미리보기 중엔 메뉴가 안 뜬다 —
-                // contextmenu 는 포인터 세션 밖 이벤트다).
+                // 우클릭·롱프레스 메뉴(2026-08-18 기현 지시, 2026-08-20 롱프레스 합류) — 좌표는
+                // 포인터 자리(clientX/Y). index 는 useLongPressMenu 의 open 콜백이 연다(위
+                // longPressMenu 정의부 주석).
                 onContextMenu={(e) => {
-                  e.preventDefault();
-                  setMenu({ x: e.clientX, y: e.clientY, id: s.id, index: i });
+                  longPressMenu.onContextMenu(s.id, e);
                 }}
                 onKeyDown={(e) => onCardKeyDown(e, s, i)}
                 onBlur={() => grabbed && setHeld(null)}
