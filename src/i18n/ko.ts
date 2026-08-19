@@ -573,6 +573,14 @@ export const ko = {
   'editor.workspace.drillInfoTitle': '드릴 정보 — 유형·상황·목적·코칭 포인트',
   'editor.workspace.presentAriaLabel': '시연 시작',
   'editor.workspace.presentTitle': '시연 — 팀 앞에서 단계별로 보여주기',
+
+  // ── C7 — "같은 것 전부 고르기" ──────────────────────────────────────────────────────
+  'editor.selectSame.sameTeam': '같은 팀 전부 고르기',
+  'editor.selectSame.balls': '공 전부 고르기',
+  'editor.selectSame.cones': '콘 전부 고르기',
+  'editor.selectSame.notes': '메모 전부 고르기',
+  'editor.selectSame.arrows': '화살표 전부 고르기',
+  'editor.selectSame.shapes': '도형 전부 고르기',
 } as const;
 
 export type DictKey = keyof typeof ko;

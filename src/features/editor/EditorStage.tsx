@@ -31,6 +31,7 @@ import type { RuleOverlayApi, RuleRosterEntry } from '../../render/ruleOverlay.t
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { ZONE_CURSOR_DRAGGING } from '../../render/zoneCursors.ts';
 import { useEditorPointer } from './useEditorPointer.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 export interface EditorStageProps {
   drill: Drill;
@@ -120,6 +121,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
 ) {
   // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
   // 세 곳이 각자 만들면 "테두리는 붉은데 끌리는" 어긋남이 난다.
+  const locale = useLocale();
   const lockedSet = useMemo(() => new Set(step.locked ?? []), [step.locked]);
   // 모아 고르기 = 선택 도구가 고정된 상태(§6.10b). 다른 도구의 고정은 '연속 배치' 라 무대가
   // 볼 일이 없다 — 그래서 toolLock 을 그대로 쓰지 않고 도구까지 함께 본다.
@@ -565,10 +567,10 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         canIgnore: ids.every((i) => isId(i, 'ch')),
         // [수정]은 메모 하나일 때만이다 — 근거는 ObjectMenuTarget.editable 주석.
         editable: ids.length === 1 && isId(id, 'nt') ? id : null,
-        selectSame: ids.length === 1 ? sameKindGroup(id, sameScene) : null,
+        selectSame: ids.length === 1 ? sameKindGroup(id, sameScene, locale) : null,
       });
     },
-    [lockedSet, ignoredSet, selection, sameScene],
+    [lockedSet, ignoredSet, selection, sameScene, locale],
   );
   const longPress = useLongPressMenu(openMenu);
 
