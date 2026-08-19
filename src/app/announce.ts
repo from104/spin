@@ -9,6 +9,8 @@
 // 알아채지 못한다. 여기서 문자열 단위로 단언한다.
 import type { PresentTarget, StageTarget } from './AppShell.tsx';
 import type { Screen } from './screens.ts';
+import type { Locale } from '../i18n/locale.ts';
+import { translate } from '../i18n/useT.ts';
 
 export interface AnnounceLookup {
   /** 대상의 제목을 찾아 준다. 아직 목록이 안 읽혔거나 삭제된 드릴이면 undefined —
@@ -17,25 +19,29 @@ export interface AnnounceLookup {
   titleOf?(target: StageTarget | PresentTarget): string | undefined;
 }
 
-export function announceFor(screen: Screen, stage: StageTarget, present: PresentTarget | null, lookup: AnnounceLookup = {}): string {
+/** i18n C2 — locale 은 필수 인자다(기본값을 두지 않는다: 호출부가 잊으면 조용히 엉뚱한 언어로
+ *  읽히는 대신 타입 에러로 바로 드러나야 한다). lookup 만 여전히 선택이다 — "조회기를 안 넘겨도
+ *  죽지 않는다" 계약(announce.test.ts)은 그대로 유지된다. */
+export function announceFor(screen: Screen, stage: StageTarget, present: PresentTarget | null, locale: Locale, lookup: AnnounceLookup = {}): string {
   const title = (t: StageTarget | PresentTarget) => lookup.titleOf?.(t);
+  const t = (key: Parameters<typeof translate>[1], params?: Record<string, string>) => translate(locale, key, params);
   switch (screen) {
     case 'board': {
-      if (stage.kind === 'board') return '자유 전술판';
-      const t = title(stage);
-      return t ? `드릴 편집: ${t}` : '드릴 편집';
+      if (stage.kind === 'board') return t('app.announce.freeBoard');
+      const title_ = title(stage);
+      return title_ ? t('app.announce.drillEditTitled', { title: title_ }) : t('app.announce.drillEdit');
     }
     case 'drills':
-      return '드릴 목록';
+      return t('app.announce.drillList');
     case 'sessions':
       // C5 — 세션이 1급 화면이 됐다(옛 "드릴 목록, 세션 탭" 문장의 후계).
-      return '세션 목록';
+      return t('app.announce.sessionList');
     case 'present': {
-      if (!present) return '시연 모드';
-      const t = title(present);
-      return t ? `시연: ${t}` : '시연 모드';
+      if (!present) return t('app.announce.presentMode');
+      const title_ = title(present);
+      return title_ ? t('app.announce.presentTitled', { title: title_ }) : t('app.announce.presentMode');
     }
     case 'settings':
-      return '설정';
+      return t('app.announce.settings');
   }
 }

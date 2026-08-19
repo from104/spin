@@ -4,7 +4,9 @@
 // 해시 라우터에서 주소의 해시(#/drills 등)가 곧 화면이라, `href="#main"` 기본 동작이 해시를
 // 갈아치우면 라우터가 'main' 을 경로로 읽어 **화면이 전술판으로 튄다.** href 는 남긴다 —
 // 링크 role·"어디로 가는가" 노출은 접근성 계약이고, 이동 자체만 preventDefault 로 대신한다.
-export function SkipLink() {
+// i18n C2 — 문구는 prop 으로 받는다(기본값은 기존 한국어 그대로). ui-kit 은 store/i18n 을
+// 모르는 채로 둔다(§8 레이어 원칙) — 유일한 호출부(AppShell)가 t() 로 번역해 넘긴다.
+export function SkipLink({ label = '본문으로 건너뛰기' }: { label?: string } = {}) {
   return (
     <a
       className="skip-link"
@@ -14,7 +16,7 @@ export function SkipLink() {
         document.getElementById('main')?.focus();
       }}
     >
-      본문으로 건너뛰기
+      {label}
     </a>
   );
 }

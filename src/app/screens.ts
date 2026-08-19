@@ -15,6 +15,8 @@
 
 // C5(2026-08-18 구조 개편) — 'sessions' 가 1급 화면으로 합류했다(질문 20문 ①: 세션·드릴·
 // 전술판 동급). 세션은 더 이상 드릴 목록의 2번째 탭이 아니다.
+import type { Locale } from '../i18n/locale.ts';
+
 export type Screen = 'board' | 'drills' | 'sessions' | 'present' | 'settings';
 
 export const SCREEN_ORDER: readonly Screen[] = ['board', 'drills', 'sessions', 'present', 'settings'];
@@ -65,31 +67,47 @@ export function railFor(screen: Screen, stageKind: 'board' | 'drill' = 'board', 
 // "한시적 관용 경로 — 배포 후 한 사이클이 지나면 없앤다" 던 약속의 이행이다.
 
 /** 레일 내비게이션 라벨. 화면 키와 다른 문구인 것들이 있다(present 는 레일에 없지만 §7.6
- *  발표·헤더가 쓰므로 값은 유지한다). */
-export const SCREEN_NAV_LABELS: Record<Screen, string> = {
-  board: '보드',
-  drills: '드릴',
-  sessions: '세션',
-  present: '시연',
-  settings: '설정',
+ *  발표·헤더가 쓰므로 값은 유지한다).
+ *
+ *  i18n C2 — `Record<Locale,...>` 로 로케일 차원이 붙었다. 호출부는 `SCREEN_NAV_LABELS[locale][key]`
+ *  로 쓴다(예전 `[key]` 한 겹에서 한 겹 늘었다). `docsMatchCode.test.ts` 는 REQUIREMENTS.md 가
+ *  한국어라 `.ko` 를 고정으로 대조한다. */
+export const SCREEN_NAV_LABELS: Record<Locale, Record<Screen, string>> = {
+  ko: { board: '보드', drills: '드릴', sessions: '세션', present: '시연', settings: '설정' },
+  en: { board: 'Board', drills: 'Drills', sessions: 'Sessions', present: 'Present', settings: 'Settings' },
+  ja: { board: 'ボード', drills: 'ドリル', sessions: 'セッション', present: 'プレゼン', settings: '設定' },
 };
 
 /** 헤더 기본 타이틀·부제. 드릴이나 전술판이 로드되면 화면이 §7.6 이하 헤더 컨텍스트로 실제
  *  제목을 덮어쓴다 — 여기 값은 아직 아무 화면도 헤더를 채우지 않았을 때의 대체값이다.
  *  §7.6 라이브 리전 발표문은 이 표가 아니라 announce.ts 의 announceFor 가 만든다 —
  *  "무엇이 열렸는가" 는 화면 키만으로는 말할 수 없기 때문이다(계획서 2.4). */
-export const SCREEN_TITLES: Record<Screen, string> = {
-  board: '전술판',
-  drills: '드릴 라이브러리',
-  sessions: '훈련 세션',
-  present: '시연 모드',
-  settings: '설정',
+export const SCREEN_TITLES: Record<Locale, Record<Screen, string>> = {
+  ko: { board: '전술판', drills: '드릴 라이브러리', sessions: '훈련 세션', present: '시연 모드', settings: '설정' },
+  en: { board: 'Tactics Board', drills: 'Drill Library', sessions: 'Training Sessions', present: 'Presentation', settings: 'Settings' },
+  ja: { board: '戦術ボード', drills: 'ドリルライブラリ', sessions: 'トレーニングセッション', present: 'プレゼンモード', settings: '設定' },
 };
 
-export const SCREEN_SUBTITLES: Record<Screen, string> = {
-  board: '',
-  drills: '저장된 드릴을 열어 편집하거나 시연하세요',
-  sessions: '드릴을 묶어 훈련 한 회를 계획하세요',
-  present: '팀 앞에서 드릴을 단계별로 보여주세요',
-  settings: '앱 동작과 팀 기본값',
+export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
+  ko: {
+    board: '',
+    drills: '저장된 드릴을 열어 편집하거나 시연하세요',
+    sessions: '드릴을 묶어 훈련 한 회를 계획하세요',
+    present: '팀 앞에서 드릴을 단계별로 보여주세요',
+    settings: '앱 동작과 팀 기본값',
+  },
+  en: {
+    board: '',
+    drills: 'Open a saved drill to edit or present it',
+    sessions: 'Group drills into a single training plan',
+    present: 'Walk your team through the drill step by step',
+    settings: 'App behavior and team defaults',
+  },
+  ja: {
+    board: '',
+    drills: '保存したドリルを開いて編集・プレゼンできます',
+    sessions: 'ドリルをまとめて1回分の練習を計画します',
+    present: 'チームの前でドリルを段階ごとに見せます',
+    settings: 'アプリの動作とチームの初期値',
+  },
 };

@@ -1,9 +1,15 @@
 // §6.8 헤더 — useAppHeader 발행/구독과 config prop 오버라이드(홈/목록/설정 정적 헤더 대
 // 편집기/시연 자체 선언)를 검증한다.
+//
+// i18n C2 — AppHeader 가 useT/useLocale(→ useSettingsState)을 직접 쓰게 되면서 SettingsProvider
+// 없이는 못 선다. 전부 `{ wrapper: SettingsProvider }` 로 감싼다(테스트 로케일은 test/setup.ts
+// 가 'ko' 로 고정하므로 기존 한글 단언은 그대로 유효하다).
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AppHeader, HeaderProvider, useAppHeader } from './AppHeader.tsx';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+import { PREFS_KEY, makeDefaultPrefs } from '../storage/prefs.ts';
 
 function Publisher({ title, subtitle }: { title: string; subtitle?: string }) {
   useAppHeader({ title, subtitle });
@@ -16,6 +22,7 @@ describe('AppHeader / useAppHeader', () => {
       <HeaderProvider>
         <AppHeader />
       </HeaderProvider>,
+      { wrapper: SettingsProvider },
     );
     expect(document.querySelector('header')).toBeInTheDocument();
   });
@@ -26,6 +33,7 @@ describe('AppHeader / useAppHeader', () => {
         <AppHeader />
         <Publisher title="편집기" subtitle="풀코트 · 4스텝" />
       </HeaderProvider>,
+      { wrapper: SettingsProvider },
     );
     expect(screen.getByText('편집기')).toBeInTheDocument();
     expect(screen.getByText('풀코트 · 4스텝')).toBeInTheDocument();
@@ -37,6 +45,7 @@ describe('AppHeader / useAppHeader', () => {
         <AppHeader config={{ title: '설정' }} />
         <Publisher title="편집기(무시돼야 함)" />
       </HeaderProvider>,
+      { wrapper: SettingsProvider },
     );
     expect(screen.getByText('설정')).toBeInTheDocument();
     expect(screen.queryByText('편집기(무시돼야 함)')).not.toBeInTheDocument();
@@ -54,6 +63,7 @@ describe('AppHeader / useAppHeader', () => {
         <AppHeader />
         <EditorPublisher />
       </HeaderProvider>,
+      { wrapper: SettingsProvider },
     );
     expect(screen.getByText('편집중')).toBeInTheDocument();
     const user = userEvent.setup();
@@ -74,6 +84,7 @@ describe('AppHeader / useAppHeader', () => {
         <AppHeader />
         <LockedPublisher />
       </HeaderProvider>,
+      { wrapper: SettingsProvider },
     );
     const half = screen.getByRole('radio', { name: '하프' });
     expect(half).toHaveAttribute('aria-disabled', 'true');
@@ -94,6 +105,7 @@ describe('AppHeader / useAppHeader', () => {
         <AppHeader />
         <SearchPublisher />
       </HeaderProvider>,
+      { wrapper: SettingsProvider },
     );
     // userEvent.type 은 한글처럼 조합(IME)이 필요한 입력을 jsdom 에서 안정적으로 흉내내지 못해
     // 멎는다 — 검색창은 실제 조합 이벤트를 검증할 대상이 아니므로 fireEvent.change 로 값 전달
@@ -116,6 +128,7 @@ describe('AppHeader / useAppHeader', () => {
         <AppHeader />
         <DescPublisher />
       </HeaderProvider>,
+      { wrapper: SettingsProvider },
     );
     const display = screen.getByRole('button', { name: '측면에서 크로스' });
     const user = userEvent.setup();
@@ -146,6 +159,7 @@ describe('AppHeader / useAppHeader', () => {
         <AppHeader />
         <EmptyDescPublisher />
       </HeaderProvider>,
+      { wrapper: SettingsProvider },
     );
     expect(screen.getByRole('button', { name: '설명 추가' })).toBeInTheDocument();
   });
@@ -164,6 +178,7 @@ describe('AppHeader / useAppHeader', () => {
         <AppHeader />
         <DescPublisher />
       </HeaderProvider>,
+      { wrapper: SettingsProvider },
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '원래 설명' }));
@@ -177,13 +192,33 @@ describe('AppHeader / useAppHeader', () => {
     expect(screen.getByRole('button', { name: '원래 설명' })).toBeInTheDocument();
   });
 
+  it('prefs.language 를 English 로 두면 잠긴 코트 스위치 알약이 실제로 영어로 바뀐다(i18n C2)', () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), language: 'en' }));
+    function LockedPublisher() {
+      useAppHeader({ title: 'Editor', courtSwitch: { value: 'half', locked: true } });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <LockedPublisher />
+      </HeaderProvider>,
+      { wrapper: SettingsProvider },
+    );
+    expect(screen.getByRole('radiogroup', { name: 'Court shape (locked)' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Half' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Full' })).toBeInTheDocument();
+  });
+
   it('언마운트되면 헤더가 비워진다(다음 화면이 채우기 전 이전 화면 것이 남지 않는다)', () => {
     function Wrapper({ show }: { show: boolean }) {
       return (
-        <HeaderProvider>
-          <AppHeader />
-          {show && <Publisher title="편집기" />}
-        </HeaderProvider>
+        <SettingsProvider>
+          <HeaderProvider>
+            <AppHeader />
+            {show && <Publisher title="편집기" />}
+          </HeaderProvider>
+        </SettingsProvider>
       );
     }
     const { rerender } = render(<Wrapper show />);

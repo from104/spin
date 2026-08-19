@@ -221,8 +221,9 @@ describe('§7.1 화면 구조 = app/screens.ts', () => {
   });
 
   it('레일 항목 개수·이름(한글 라벨까지)', () => {
+    // i18n C2 — SCREEN_NAV_LABELS 에 로케일 차원이 붙었다. REQUIREMENTS.md 는 한국어 문서라 .ko 로 고정 대조한다.
     expect(S).toContain(`— **${RAIL_ITEMS.length}개**`);
-    for (const k of RAIL_ITEMS) expect(S, k).toContain(`\`${k}\`(${SCREEN_NAV_LABELS[k]})`);
+    for (const k of RAIL_ITEMS) expect(S, k).toContain(`\`${k}\`(${SCREEN_NAV_LABELS.ko[k]})`);
   });
 
   it('present 는 화면 키이면서 레일에는 없다 — 문서가 그 비대칭을 말한다', () => {

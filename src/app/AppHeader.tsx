@@ -12,9 +12,13 @@ import { Button } from '../ui/Button.tsx';
 import { Segmented } from '../ui/Segmented.tsx';
 import { IconLock, IconPresent, IconSearch } from '../ui/icons.tsx';
 import type { CourtMode } from '../model/court.ts';
+import { COURT_MODES, COURT_MODE_SHORT_LABELS } from '../model/court.ts';
 import { AppNavAside, AppNavSegment } from './AppNavSegment.tsx';
 import { headerPadCss } from './navChrome.ts';
+import { SCREEN_NAV_LABELS } from './screens.ts';
 import type { RailKey } from './screens.ts';
+import { useT } from '../i18n/useT.ts';
+import { useLocale } from '../i18n/useLocale.ts';
 
 export interface HeaderPrimaryAction {
   label: string;
@@ -210,12 +214,6 @@ export function useAppHeader(config: HeaderConfig): void {
   }, []);
 }
 
-const COURT_SWITCH_OPTIONS = [
-  { value: 'full' as const, label: '풀' },
-  { value: 'half' as const, label: '하프' },
-  { value: 'flat' as const, label: '플랫' },
-];
-
 const HEADER_STYLE: CSSProperties = {
   flex: 'none',
   // ⚠️ 높이를 고정하지 않는다. 태블릿 세로처럼 폭이 좁으면 우측 조작부(되돌리기·코트 전환·
@@ -254,6 +252,8 @@ export function AppHeader({
 }) {
   const ctx = useContext(HeaderContext);
   const config = override ?? ctx?.config ?? EMPTY_CONFIG;
+  const t = useT();
+  const locale = useLocale();
 
   return (
     <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow) }}>
@@ -325,12 +325,12 @@ export function AppHeader({
             }}
           >
             <IconSearch />
-            <span className="sr-only">드릴 검색</span>
+            <span className="sr-only">{t('app.header.drillSearchLabel')}</span>
             <input
               type="search"
               id="drill-search"
               value={config.search.value}
-              placeholder={config.search.placeholder ?? '드릴 검색…'}
+              placeholder={config.search.placeholder ?? t('app.header.drillSearchPlaceholder')}
               onChange={(e) => config.search?.onChange(e.target.value)}
               style={{
                 border: 'none',
@@ -346,7 +346,7 @@ export function AppHeader({
 
         {config.presentButton && (
           <Button variant="secondary" icon={<IconPresent size={15} />} onClick={config.presentButton.onAction}>
-            시연
+            {SCREEN_NAV_LABELS[locale].present}
           </Button>
         )}
 
@@ -374,6 +374,7 @@ export function AppHeader({
  *  비면 커밋하지 않는다**(이름 없는 드릴을 만들지 않는다 — 인터페이스 주석). */
 function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
   const [editing, setEditing] = useState(false);
+  const t = useT();
 
   if (editing) {
     return (
@@ -382,7 +383,7 @@ function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
         autoFocus
         defaultValue={cfg.value}
         maxLength={cfg.maxLength}
-        aria-label="드릴 이름"
+        aria-label={t('app.header.drillNameLabel')}
         onBlur={(e) => {
           const v = e.target.value.trim().slice(0, cfg.maxLength);
           if (v.length > 0 && v !== cfg.value) cfg.onChange(v);
@@ -417,8 +418,8 @@ function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
   return (
     <button
       type="button"
-      aria-label={`드릴 이름: ${cfg.value}. 눌러서 수정`}
-      title="눌러서 이름을 고칩니다."
+      aria-label={t('app.header.drillNameEditButton', { title: cfg.value })}
+      title={t('app.header.drillNameEditHint')}
       onClick={() => setEditing(true)}
       style={{
         minWidth: 0,
@@ -448,6 +449,7 @@ function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
  *  Enter = blur 위임(커밋), Esc = DOM 값을 되돌리고 표시 모드로 — 커밋하지 않는다. */
 function HeaderDescriptionEditor({ cfg }: { cfg: HeaderDescriptionField }) {
   const [editing, setEditing] = useState(false);
+  const t = useT();
 
   if (editing) {
     return (
@@ -457,7 +459,7 @@ function HeaderDescriptionEditor({ cfg }: { cfg: HeaderDescriptionField }) {
         defaultValue={cfg.value}
         maxLength={cfg.maxLength}
         placeholder={cfg.placeholder}
-        aria-label="드릴 설명"
+        aria-label={t('app.header.drillDescLabel')}
         onBlur={(e) => {
           const v = e.target.value.trim().slice(0, cfg.maxLength);
           if (v !== cfg.value) cfg.onChange(v);
@@ -518,13 +520,18 @@ function HeaderDescriptionEditor({ cfg }: { cfg: HeaderDescriptionField }) {
  *  (onLockedAttempt). 잠금 표시는 자물쇠 아이콘 12px. */
 function CourtSwitchControl({ cfg }: { cfg: HeaderCourtSwitch }) {
   const locked = cfg.locked ?? true;
+  const locale = useLocale();
+  const t = useT();
+  // 헤더 코트 스위치·설정 화면이 같은 라벨을 썼다 — model/court.ts 의 공용 딕셔너리에서
+  // 로케일별로 뽑는다(둘이 각자 리터럴 배열을 들고 있던 것을 i18n C2 에서 합쳤다).
+  const courtOptions = COURT_MODES.map((m) => ({ value: m, label: COURT_MODE_SHORT_LABELS[locale][m] }));
   if (!locked) {
     return (
       <Segmented
-        ariaLabel="코트 형태"
+        ariaLabel={t('app.header.courtSwitchAriaLabel')}
         value={cfg.value}
         onChange={(v) => cfg.onChange?.(v as CourtMode)}
-        options={COURT_SWITCH_OPTIONS}
+        options={courtOptions}
         dense
       />
     );
@@ -532,14 +539,14 @@ function CourtSwitchControl({ cfg }: { cfg: HeaderCourtSwitch }) {
   return (
     <div
       role="radiogroup"
-      aria-label="코트 형태(변경 불가)"
+      aria-label={t('app.header.courtSwitchLockedAriaLabel')}
       aria-describedby="court-lock-hint"
       style={{ display: 'flex', gap: '0.25rem', padding: '0.1875rem', border: '1px solid var(--border)', borderRadius: '0.625rem' }}
     >
       <span id="court-lock-hint" className="sr-only">
-        코트 형태는 드릴을 만든 뒤에는 바꿀 수 없습니다.
+        {t('app.header.courtSwitchLockedHint')}
       </span>
-      {COURT_SWITCH_OPTIONS.map((opt) => {
+      {courtOptions.map((opt) => {
         const active = opt.value === cfg.value;
         return (
           <button

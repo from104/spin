@@ -10,6 +10,7 @@ import {
   railFor,
 } from './screens.ts';
 import type { Screen } from './screens.ts';
+import { SUPPORTED_LOCALES } from '../i18n/locale.ts';
 
 const EXPECTED: readonly Screen[] = ['board', 'drills', 'sessions', 'present', 'settings'];
 
@@ -31,12 +32,14 @@ describe('screens', () => {
     expect(SCREEN_ORDER).toHaveLength(5);
   });
 
-  it('SCREEN_TITLES/SCREEN_NAV_LABELS 는 5화면 전부에 빈 문자열이 아닌 값을 갖는다', () => {
-    for (const s of EXPECTED) {
-      expect(SCREEN_TITLES[s]).toBeTruthy();
-      expect(SCREEN_NAV_LABELS[s]).toBeTruthy();
-      // board 는 전술판·드릴 편집이 useAppHeader 로 직접 부제를 채운다 — 그 외엔 정적으로 채워둔다.
-      if (s !== 'board') expect(SCREEN_SUBTITLES[s]).toBeTruthy();
+  it('SCREEN_TITLES/SCREEN_NAV_LABELS 는 세 언어 × 5화면 전부에 빈 문자열이 아닌 값을 갖는다(i18n C2)', () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      for (const s of EXPECTED) {
+        expect(SCREEN_TITLES[locale][s]).toBeTruthy();
+        expect(SCREEN_NAV_LABELS[locale][s]).toBeTruthy();
+        // board 는 전술판·드릴 편집이 useAppHeader 로 직접 부제를 채운다 — 그 외엔 정적으로 채워둔다.
+        if (s !== 'board') expect(SCREEN_SUBTITLES[locale][s]).toBeTruthy();
+      }
     }
   });
 });

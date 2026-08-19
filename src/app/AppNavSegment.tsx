@@ -15,6 +15,8 @@ import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
 import type { RailKey } from './screens.ts';
 import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
+import { useT } from '../i18n/useT.ts';
+import { useLocale } from '../i18n/useLocale.ts';
 
 /** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page" — 레일과 **같은 이름·같은 계약**
  *  이다. 좁은 창에서 이름이 바뀌면 스크린리더 사용자에게는 다른 앱이 된다.
@@ -22,6 +24,8 @@ import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
 export function AppNavSegment({ active }: { active?: RailKey } = {}) {
   const { screen, go } = useAppNav();
   const activeKey = active ?? railFor(screen);
+  const locale = useLocale();
+  const t = useT();
 
   return (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
@@ -42,7 +46,7 @@ export function AppNavSegment({ active }: { active?: RailKey } = {}) {
         height={28}
         style={{ display: 'block', flex: 'none', marginRight: '0.125rem' }}
       />
-      <nav aria-label="주요 메뉴" style={{ display: 'flex', alignItems: 'center', gap: '0.125rem' }}>
+      <nav aria-label={t('app.nav.mainMenu')} style={{ display: 'flex', alignItems: 'center', gap: '0.125rem' }}>
         {RAIL_ITEMS.map((key) => {
           const Icon = RAIL_ICONS[key];
           const active = activeKey === key;
@@ -74,7 +78,7 @@ export function AppNavSegment({ active }: { active?: RailKey } = {}) {
               <span style={{ display: 'flex', color: active ? 'var(--accent)' : 'currentColor' }}>
                 <Icon size={17} />
               </span>
-              {SCREEN_NAV_LABELS[key]}
+              {SCREEN_NAV_LABELS[locale][key]}
             </button>
           );
         })}
@@ -97,13 +101,14 @@ export function AppNavAside() {
   const { prefs } = useSettingsState();
   const { setPrefs } = useSettingsActions();
   const isDark = prefs.theme === 'dark';
+  const t = useT();
 
   return (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
       <button
         type="button"
-        aria-label={isDark ? '라이트 테마로 전환' : '다크 테마로 전환'}
-        title="테마 전환"
+        aria-label={isDark ? t('app.theme.toggleToLight') : t('app.theme.toggleToDark')}
+        title={t('app.theme.toggleTitle')}
         onClick={() => setPrefs({ theme: isDark ? 'light' : 'dark' })}
         style={{
           flex: 'none',

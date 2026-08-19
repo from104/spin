@@ -38,6 +38,8 @@ import type { AppHistoryApi, NavTarget } from './useAppHistory.ts';
 import { announceFor } from './announce.ts';
 import { SCREEN_SUBTITLES, SCREEN_TITLES, railFor } from './screens.ts';
 import type { Screen } from './screens.ts';
+import { useT } from '../i18n/useT.ts';
+import { useLocale } from '../i18n/useLocale.ts';
 
 // 화면 컴포넌트 — screen-home-library/screen-editor/screen-present/screen-settings 소유(§8).
 // Wave 4 는 이 다섯 모듈이 병렬로 진행되므로, 형제 모듈의 산출물이 아직 없는 동안은 이 import
@@ -127,6 +129,8 @@ function useHomeNavAdapter(nav: AppHistoryApi): HomeNav {
 function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | undefined {
   const { search, setSearch } = useLibrary();
   const { createSession } = useLibrary();
+  const locale = useLocale();
+  const t = useT();
   switch (screen) {
     // ★ 'board' 는 이제 여기서 다루지 않는다(undefined 로 떨어진다). 2026-08-09 재편으로 board
     // 자리에는 자유 전술판/드릴 편집이 뜨고, 둘 다 useAppHeader 로 자기 헤더를 선언한다 —
@@ -136,30 +140,32 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
     // 못 잡았고, 앱을 띄워 보고서야 드러났다).
     case 'drills':
       return {
-        title: SCREEN_TITLES.drills,
-        subtitle: SCREEN_SUBTITLES.drills,
-        primary: { label: '새 드릴', icon: <IconPlus size={15} />, onAction: nav.newDrill },
-        search: { value: search, onChange: setSearch, placeholder: '드릴 검색…' },
+        title: SCREEN_TITLES[locale].drills,
+        subtitle: SCREEN_SUBTITLES[locale].drills,
+        primary: { label: t('app.header.newDrill'), icon: <IconPlus size={15} />, onAction: nav.newDrill },
+        search: { value: search, onChange: setSearch, placeholder: t('app.header.drillSearchPlaceholder') },
       };
     case 'sessions':
       // C5 — 세션 1급 화면의 헤더. [새 세션]이 여기 있는 이유: 목록이 비어 있지 않을 때의
       // 유일한 생성 진입점이다(빈 상태 CTA 는 SessionTab 본문에 그대로 있다).
       return {
-        title: SCREEN_TITLES.sessions,
-        subtitle: SCREEN_SUBTITLES.sessions,
+        title: SCREEN_TITLES[locale].sessions,
+        subtitle: SCREEN_SUBTITLES[locale].sessions,
         primary: {
-          label: '새 세션',
+          label: t('app.header.newSession'),
           icon: <IconPlus size={15} />,
           onAction: () => {
             void (async () => {
-              const s = await createSession({ title: '새 세션' });
+              // 새 세션의 기본 제목도 지금 켜진 UI 언어를 따른다 — 데이터지만 사용자가
+              // 이름을 고치기 전까지 보게 되는 값이라, 다른 언어로 튀면 어색하다.
+              const s = await createSession({ title: t('app.header.newSession') });
               nav.openSession(s.id); // 만들자마자 드로어로 — 이름부터 고치는 흐름
             })();
           },
         },
       };
     case 'settings':
-      return { title: SCREEN_TITLES.settings, subtitle: SCREEN_SUBTITLES.settings };
+      return { title: SCREEN_TITLES[locale].settings, subtitle: SCREEN_SUBTITLES[locale].settings };
     default:
       return undefined;
   }
@@ -187,6 +193,8 @@ export function AppShell() {
   const { toasts, dismiss } = useToast();
   const { drills, sessions } = useLibrary();
   const isFirstRender = useRef(true);
+  const locale = useLocale();
+  const t = useT();
   // 3.-2 §5.2 — 좁으면 84px 레일을 걷고 같은 3항목을 헤더 좌측 세그먼트로 세운다. **판정은
   // 여기 한 번뿐이다**: 레일과 세그먼트가 같은 boolean 을 나눠 써야 "둘 다 서 있다/둘 다
   // 없다" 는 프레임이 열리지 않는다. 판 위에 오버레이로 얹지 않는 이유는 AppNavSegment.tsx
@@ -261,7 +269,7 @@ export function AppShell() {
       return;
     }
     document.getElementById('main')?.focus({ preventScroll: true });
-    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, { titleOf }));
+    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, locale, { titleOf }));
     // titleOf 는 발표문의 재료일 뿐 전환 신호가 아니다 — 목록이 뒤늦게 읽혔다고 같은 화면을
     // 다시 발표하면 안 된다(포커스도 함께 튄다).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -272,7 +280,7 @@ export function AppShell() {
       <HeaderProvider>
         <StageTargetContext.Provider value={stageTarget}>
           <PresentTargetContext.Provider value={presentTarget}>
-            <SkipLink />
+            <SkipLink label={t('a11y.skipToContent')} />
             <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
               {!narrow && <AppRail active={activeRail} />}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>

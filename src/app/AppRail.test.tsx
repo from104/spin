@@ -11,6 +11,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { AppRail } from './AppRail.tsx';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+import { PREFS_KEY, makeDefaultPrefs } from '../storage/prefs.ts';
 
 type HarnessProps = { children: ReactNode };
 // C4(react-router) — useAppHistory 가 라우터 위의 어댑터가 되면서 하네스도 메모리 라우터로
@@ -162,5 +163,16 @@ describe('레일 로고', () => {
     expect(logo.getAttribute('src')!.endsWith('.svg'), '래스터로 되돌아갔다').toBe(true);
     // 마크가 **원**이라 자를 모서리가 없다. 라운드를 걸면 원의 상하좌우가 미세하게 깎인다.
     expect(logo.style.borderRadius).toBe('');
+  });
+
+  it('prefs.language 를 English 로 두면 레일 라벨·테마 버튼이 실제로 영어로 바뀐다(i18n C2)', () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), language: 'en' }));
+    render(<AppRail />, { wrapper: Harness });
+    expect(screen.getByRole('navigation', { name: 'Main menu' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Board' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Drills' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
+    // 기본은 다크 테마다 — 그러면 "전환" 문구는 라이트로 가는 쪽이다.
+    expect(screen.getByRole('button', { name: 'Switch to light theme' })).toBeInTheDocument();
   });
 });

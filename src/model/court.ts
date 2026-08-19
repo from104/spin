@@ -7,9 +7,18 @@
 // court.test.ts 의 '코트 외곽 마진' 불변식이 네 변을 모두 붙잡고 있다.
 import type { Vec2 } from '../core/units.ts';
 import { PX_PER_M } from '../core/units.ts';
+import type { Locale } from '../i18n/locale.ts';
 
 export type CourtMode = 'full' | 'half' | 'flat';
 export const COURT_MODES = ['full', 'half', 'flat'] as const;
+
+/** 코트 형태 짧은 표기 — 헤더 코트 스위치·설정 화면 양쪽이 같은 값을 썼다(각자 로컬 사본으로
+ *  중복 정의돼 있었다). i18n C2 에서 로케일 차원을 붙이며 여기 하나로 합쳤다. */
+export const COURT_MODE_SHORT_LABELS: Record<Locale, Record<CourtMode, string>> = {
+  ko: { full: '풀', half: '하프', flat: '플랫' },
+  en: { full: 'Full', half: 'Half', flat: 'Flat' },
+  ja: { full: 'フル', half: 'ハーフ', flat: 'フラット' },
+};
 
 // ── §5.1 코트 크기 3단 (FIPFA Laws 2025, §9 결정 ②) ──────────────────────────────────────────
 //

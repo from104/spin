@@ -22,13 +22,14 @@ import { INTERACT } from '../../core/constants.ts';
 import { TEAM_COLOR_CHOICES, TEAM_COLOR_NAMES, inkFor } from '../../core/colors.ts';
 import { RosterSection } from './RosterSection.tsx';
 import { FORMATIONS } from '../../model/defaults.ts';
-import { COURT_MODES, type CourtMode } from '../../model/court.ts';
+import { COURT_MODES, COURT_MODE_SHORT_LABELS, type CourtMode } from '../../model/court.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { IconCheck } from '../../ui/icons.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
 import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 import { LOCALE_NAMES, SUPPORTED_LOCALES } from '../../i18n/locale.ts';
 
 // ⚠️ 2026-08-14 7차 검증 — 여기 있던 로컬 `COLOR_NAMES` 를 지우고 `core/colors.ts` 의
@@ -40,13 +41,12 @@ import { LOCALE_NAMES, SUPPORTED_LOCALES } from '../../i18n/locale.ts';
 // 안 보이고, 5차·6차 라운드에서 두 번 보고됐지만 "내 소유가 아니라" 는 이유로 남아 있었다).
 // 되돌리면 SettingsScreen.colorName.test.tsx 의 '단일 출처' it 이 빨간불이 된다.
 
-const COURT_MODE_SHORT_LABELS: Record<CourtMode, string> = { full: '풀', half: '하프', flat: '플랫' };
-
 export function SettingsScreen() {
   const { prefs, physics, persistFailed, setPrefs } = useSettings();
   const { refresh } = useLibrary();
   const toast = useToast();
   const t = useT();
+  const locale = useLocale();
 
   // ── §6.1b 기기 이사 파일 읽기 ────────────────────────────────────────────────────────────
   // 고른 파일을 곧바로 복원하지 않는다. 복원은 남의 기기 내용을 이 기기에 섞는 일이고, 그중
@@ -217,7 +217,7 @@ export function SettingsScreen() {
               onChange={(v) => setPrefs({ defaultCourtMode: v === 'ask' ? null : (v as CourtMode) })}
               options={[
                 { value: 'ask', label: '항상 묻기' },
-                ...COURT_MODES.map((m) => ({ value: m, label: COURT_MODE_SHORT_LABELS[m] })),
+                ...COURT_MODES.map((m) => ({ value: m, label: COURT_MODE_SHORT_LABELS[locale][m] })),
               ]}
             />
           </Row>

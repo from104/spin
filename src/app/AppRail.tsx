@@ -14,6 +14,8 @@ import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
 import type { RailKey } from './screens.ts';
 import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
+import { useT } from '../i18n/useT.ts';
+import { useLocale } from '../i18n/useLocale.ts';
 
 /** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page".
  *
@@ -25,10 +27,12 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
   const { prefs } = useSettingsState();
   const { setPrefs } = useSettingsActions();
   const isDark = prefs.theme === 'dark';
+  const locale = useLocale();
+  const t = useT();
 
   return (
     <nav
-      aria-label="주요 메뉴"
+      aria-label={t('app.nav.mainMenu')}
       style={{
         flex: 'none',
         width: 84,
@@ -91,15 +95,15 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
             <span style={{ display: 'flex', color: active ? 'var(--accent)' : 'currentColor' }}>
               <Icon />
             </span>
-            <span style={{ fontSize: '0.65625rem', fontWeight: 600, letterSpacing: '-0.0125rem' }}>{SCREEN_NAV_LABELS[key]}</span>
+            <span style={{ fontSize: '0.65625rem', fontWeight: 600, letterSpacing: '-0.0125rem' }}>{SCREEN_NAV_LABELS[locale][key]}</span>
           </button>
         );
       })}
 
       <button
         type="button"
-        aria-label={isDark ? '라이트 테마로 전환' : '다크 테마로 전환'}
-        title="테마 전환"
+        aria-label={isDark ? t('app.theme.toggleToLight') : t('app.theme.toggleToDark')}
+        title={t('app.theme.toggleTitle')}
         onClick={() => setPrefs({ theme: isDark ? 'light' : 'dark' })}
         style={{
           marginTop: 'auto',
