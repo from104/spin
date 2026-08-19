@@ -610,4 +610,19 @@ export const ja: Record<DictKey, string> = {
   'editor.placement.coneOrange': 'オレンジ',
   'editor.placement.coneBlue': '青',
   'editor.placement.playerUnarmed': 'まずトレイで配置する選手を選んでください。',
+
+  // ── C7 — ドリルメタシート ────────────────────────────────────────────────────────────
+  'editor.drillMetaSheet.durationLabel': '所要時間（分）',
+  'editor.drillMetaSheet.tagsLabel': 'タグ（カンマ区切り、最大{{max}}個）',
+  'editor.drillMetaSheet.objectiveLabel': '目的 — このドリルで何を得るか（{{max}}文字以内）',
+  'editor.drillMetaSheet.descriptionLabel': '進め方（{{max}}文字以内）',
+  'editor.drillMetaSheet.variationLabel': 'バリエーション — 易しく/難しく（{{max}}文字以内）',
+  'editor.drillMetaSheet.coachingPointsLabel': 'コーチングポイント（1行に1つ、最大{{max}}個）',
+  'editor.drillMetaSheet.playersNeededLabel': '必要人数（0 = 未指定）',
+  'editor.drillMetaSheet.equipmentLabel': '必要な用具（{{max}}文字以内）',
+
+  // ── C7 — ドリル編集画面（読み込み状態） ──────────────────────────────────────────────
+  'editor.screen.repairedToast': '一部のデータを自動修復しました。',
+  'editor.screen.tooNewError': 'このドリルはより新しいバージョンのアプリで作成されています。',
+  'editor.screen.corruptedError': 'ドリルファイルが破損しているため開けません。',
 };

@@ -614,4 +614,19 @@ export const en: Record<DictKey, string> = {
   'editor.placement.coneOrange': 'orange',
   'editor.placement.coneBlue': 'blue',
   'editor.placement.playerUnarmed': 'First pick a player to place from the tray.',
+
+  // ── C7 — Drill meta sheet ───────────────────────────────────────────────────────────
+  'editor.drillMetaSheet.durationLabel': 'Duration (min)',
+  'editor.drillMetaSheet.tagsLabel': 'Tags (comma-separated, up to {{max}})',
+  'editor.drillMetaSheet.objectiveLabel': 'Objective — what this drill achieves (≤{{max}} chars)',
+  'editor.drillMetaSheet.descriptionLabel': 'How to run it (≤{{max}} chars)',
+  'editor.drillMetaSheet.variationLabel': 'Variation — easier/harder (≤{{max}} chars)',
+  'editor.drillMetaSheet.coachingPointsLabel': 'Coaching Points (one per line, up to {{max}})',
+  'editor.drillMetaSheet.playersNeededLabel': 'Players Needed (0 = unspecified)',
+  'editor.drillMetaSheet.equipmentLabel': 'Equipment (≤{{max}} chars)',
+
+  // ── C7 — Drill edit screen (load state) ─────────────────────────────────────────────
+  'editor.screen.repairedToast': 'Some data was automatically repaired.',
+  'editor.screen.tooNewError': 'This drill was created by a newer version of the app.',
+  'editor.screen.corruptedError': 'The drill file is corrupted and cannot be opened.',
 };

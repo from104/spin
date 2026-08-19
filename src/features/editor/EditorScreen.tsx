@@ -22,6 +22,7 @@ import { EditorProvider } from '../../store/editor/EditorProvider.tsx';
 import { PlaybackProvider } from '../../store/playback/PlaybackProvider.tsx';
 import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { EditorWorkspace } from './EditorWorkspace.tsx';
+import { useT } from '../../i18n/useT.ts';
 
 type LoadState = { status: 'loading' } | { status: 'ready'; drill: Drill } | { status: 'error'; message: string };
 
@@ -41,6 +42,10 @@ export function EditorScreen() {
   // 결함이다 — ref 로 최신 toast 를 들고 effect 의존성에서는 빼서 끊는다.
   const toastRef = useRef(toast);
   toastRef.current = toast;
+  const t = useT();
+  // toastRef 와 같은 이유 — 아래 로드 effect 를 언어 전환에 다시 걸지 않는다(재로드 낭비).
+  const tRef = useRef(t);
+  tRef.current = t;
   const { prefs } = useSettingsState();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
@@ -54,14 +59,14 @@ export function EditorScreen() {
       const res = await repo.loadDrill(target.drillId);
       if (cancelled) return;
       if (res.status === 'ok') {
-        if (res.repairs.length > 0) toastRef.current.show('일부 데이터를 자동으로 보정했습니다.');
+        if (res.repairs.length > 0) toastRef.current.show(tRef.current('editor.screen.repairedToast'));
         setState({ status: 'ready', drill: res.drill });
       } else if (res.status === 'missing') {
-        setState({ status: 'error', message: '드릴을 찾을 수 없습니다. 삭제되었을 수 있습니다.' });
+        setState({ status: 'error', message: tRef.current('present.drillNotFound') });
       } else if (res.status === 'too-new') {
-        setState({ status: 'error', message: '이 드릴은 더 최신 버전의 앱에서 만들어졌습니다.' });
+        setState({ status: 'error', message: tRef.current('editor.screen.tooNewError') });
       } else {
-        setState({ status: 'error', message: '드릴 파일이 손상되어 열 수 없습니다.' });
+        setState({ status: 'error', message: tRef.current('editor.screen.corruptedError') });
       }
     })();
     return () => {
@@ -75,7 +80,7 @@ export function EditorScreen() {
   if (state.status === 'loading') {
     return (
       <main id="main" tabIndex={-1} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint-text)', outline: 'none' }}>
-        불러오는 중…
+        {t('common.loading')}
       </main>
     );
   }
@@ -89,7 +94,7 @@ export function EditorScreen() {
           onClick={() => nav.back('drills')}
           style={{ minHeight: 44, padding: '0 16px', borderRadius: 10, border: '1px solid var(--border-strong)', fontSize: '0.8125rem', fontWeight: 600 }}
         >
-          목록으로
+          {t('present.backToList')}
         </button>
       </main>
     );

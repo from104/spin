@@ -609,6 +609,21 @@ export const ko = {
   'editor.placement.coneOrange': '주황',
   'editor.placement.coneBlue': '파랑',
   'editor.placement.playerUnarmed': '먼저 트레이에서 배치할 선수를 고르세요.',
+
+  // ── C7 — 드릴 메타 시트 ─────────────────────────────────────────────────────────────
+  'editor.drillMetaSheet.durationLabel': '소요 시간(분)',
+  'editor.drillMetaSheet.tagsLabel': '태그 (쉼표로 구분, 최대 {{max}}개)',
+  'editor.drillMetaSheet.objectiveLabel': '목적 — 이 드릴로 무엇을 얻는가 (≤{{max}}자)',
+  'editor.drillMetaSheet.descriptionLabel': '진행 방법 (≤{{max}}자)',
+  'editor.drillMetaSheet.variationLabel': '변형 — 더 쉽게/어렵게 (≤{{max}}자)',
+  'editor.drillMetaSheet.coachingPointsLabel': '코칭 포인트 (줄마다 하나, 최대 {{max}}개)',
+  'editor.drillMetaSheet.playersNeededLabel': '필요 인원 (0 = 미지정)',
+  'editor.drillMetaSheet.equipmentLabel': '필요 장비 (≤{{max}}자)',
+
+  // ── C7 — 드릴 편집 화면(로드 상태) ──────────────────────────────────────────────────
+  'editor.screen.repairedToast': '일부 데이터를 자동으로 보정했습니다.',
+  'editor.screen.tooNewError': '이 드릴은 더 최신 버전의 앱에서 만들어졌습니다.',
+  'editor.screen.corruptedError': '드릴 파일이 손상되어 열 수 없습니다.',
 } as const;
 
 export type DictKey = keyof typeof ko;

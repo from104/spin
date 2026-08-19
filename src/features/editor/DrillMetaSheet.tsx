@@ -18,6 +18,7 @@ import { CenterModal } from '../../ui/CenterModal.tsx';
 import { useEditorDispatch, useEditorState } from '../../store/editor/EditorProvider.tsx';
 import {
   DRILL_LEVELS,
+  DRILL_LEVEL_LABELS,
   DRILL_TYPES,
   DRILL_TYPE_LABELS,
   DRILL_SITUATIONS,
@@ -28,6 +29,7 @@ import {
 } from '../../model/drill.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { useT } from '../../i18n/useT.ts';
 
 export interface DrillMetaSheetProps {
   open: boolean;
@@ -41,13 +43,14 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
   // i18n C4 — DRILL_TYPE_LABELS/SITUATION_LABELS 에 로케일 차원이 붙어 최소 수정으로 컴파일을
   // 맞춘다. 이 화면 나머지 문구(필드 라벨·"미지정" 등)의 전체 번역은 C7(드릴 편집) 몫이다.
   const locale = useLocale();
+  const t = useT();
 
   return (
-    <CenterModal open={open} onClose={onClose} title="드릴 정보">
+    <CenterModal open={open} onClose={onClose} title={t('editor.workspace.drillInfoAriaLabel')}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {/* ── 분류 (v8 두 축 + 난이도·소요시간) ─────────────────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <Field label="유형" htmlFor={ids.type}>
+          <Field label={t('presentInfo.typeLabel')} htmlFor={ids.type}>
             <select
               id={ids.type}
               value={drill.drillType}
@@ -61,7 +64,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
               ))}
             </select>
           </Field>
-          <Field label="경기 상황" htmlFor={ids.situation}>
+          <Field label={t('presentInfo.situationLabel')} htmlFor={ids.situation}>
             <select
               id={ids.situation}
               value={drill.situation ?? ''}
@@ -73,7 +76,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
               }
               style={inputStyle}
             >
-              <option value="">미지정</option>
+              <option value="">{t('presentInfo.unspecified')}</option>
               {DRILL_SITUATIONS.map((s) => (
                 <option key={s} value={s}>
                   {SITUATION_LABELS[locale][s]}
@@ -81,7 +84,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
               ))}
             </select>
           </Field>
-          <Field label="난이도" htmlFor={ids.level}>
+          <Field label={t('presentInfo.levelLabel')} htmlFor={ids.level}>
             <select
               id={ids.level}
               value={drill.level}
@@ -90,12 +93,12 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
             >
               {DRILL_LEVELS.map((l) => (
                 <option key={l} value={l}>
-                  {l}
+                  {DRILL_LEVEL_LABELS[locale][l]}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="소요 시간(분)" htmlFor={ids.duration}>
+          <Field label={t('editor.drillMetaSheet.durationLabel')} htmlFor={ids.duration}>
             <input
               id={ids.duration}
               type="number"
@@ -111,7 +114,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
           </Field>
         </div>
 
-        <Field label={`태그 (쉼표로 구분, 최대 ${LIMITS.tagCount}개)`}>
+        <Field label={t('editor.drillMetaSheet.tagsLabel', { max: LIMITS.tagCount })}>
           <input
             type="text"
             defaultValue={drill.tags.join(', ')}
@@ -131,7 +134,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
         <div style={{ height: 1, background: 'var(--border)' }} />
 
         {/* ── 서술 3필드 (USPSA: Purpose / Setup / Variation) ─────────────────────── */}
-        <Field label={`목적 — 이 드릴로 무엇을 얻는가 (≤${LIMITS.objectiveLen}자)`}>
+        <Field label={t('editor.drillMetaSheet.objectiveLabel', { max: LIMITS.objectiveLen })}>
           <textarea
             rows={2}
             maxLength={LIMITS.objectiveLen}
@@ -140,7 +143,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
             style={textareaStyle}
           />
         </Field>
-        <Field label={`진행 방법 (≤${LIMITS.descriptionLen}자)`}>
+        <Field label={t('editor.drillMetaSheet.descriptionLabel', { max: LIMITS.descriptionLen })}>
           <textarea
             rows={3}
             maxLength={LIMITS.descriptionLen}
@@ -149,7 +152,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
             style={textareaStyle}
           />
         </Field>
-        <Field label={`변형 — 더 쉽게/어렵게 (≤${LIMITS.variationLen}자)`}>
+        <Field label={t('editor.drillMetaSheet.variationLabel', { max: LIMITS.variationLen })}>
           <textarea
             rows={2}
             maxLength={LIMITS.variationLen}
@@ -165,7 +168,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
         <div style={{ height: 1, background: 'var(--border)' }} />
 
         {/* ── 교육 필드 (0.2.1 [속성] 폐기로 자리를 잃었던 것들의 부활 — 질문 ⑦) ── */}
-        <Field label={`코칭 포인트 (줄마다 하나, 최대 ${LIMITS.coachingPointCount}개)`}>
+        <Field label={t('editor.drillMetaSheet.coachingPointsLabel', { max: LIMITS.coachingPointCount })}>
           <textarea
             rows={3}
             defaultValue={(drill.coachingPoints ?? []).join('\n')}
@@ -182,7 +185,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
           />
         </Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
-          <Field label="필요 인원 (0 = 미지정)">
+          <Field label={t('editor.drillMetaSheet.playersNeededLabel')}>
             <input
               type="number"
               min={0}
@@ -195,7 +198,7 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
               style={inputStyle}
             />
           </Field>
-          <Field label={`필요 장비 (≤${LIMITS.equipmentLen}자)`}>
+          <Field label={t('editor.drillMetaSheet.equipmentLabel', { max: LIMITS.equipmentLen })}>
             <input
               type="text"
               maxLength={LIMITS.equipmentLen}
