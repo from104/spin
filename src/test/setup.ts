@@ -2,6 +2,15 @@ import '@testing-library/jest-dom'
 // storage 모듈(§4)의 fake-indexeddb 기반 테스트가 전역에서 idb 를 쓸 수 있게 한다.
 import 'fake-indexeddb/auto'
 
+// i18n C1 — prefs.language:'auto' 는 navigator.language 계열을 본다(i18n/useLocale.ts).
+// jsdom 의 기본값을 테스트 실행 환경(로케일 env var 등)에 맡기면, 문자열을 t() 로 바꾼
+// 컴포넌트마다 'auto' 해석이 들쭉날쭉해져 기존 한글 셀렉터 테스트(예: getByText('저장'))가
+// 환경에 따라 깨지거나 살아난다. 'ko-KR' 로 전역 고정해 'auto' 가 테스트에서 항상 'ko' 로
+// 떨어지게 한다 — 지금까지의 모든 한글 리터럴 셀렉터가 그대로 유효한 이유가 이것이다.
+// 영어/일본어 렌더을 보는 테스트는 prefs.language 를 명시값으로 심어 이 감지를 우회한다.
+Object.defineProperty(window.navigator, 'language', { value: 'ko-KR', configurable: true })
+Object.defineProperty(window.navigator, 'languages', { value: ['ko-KR', 'ko'], configurable: true })
+
 // jsdom 은 Pointer Capture API 를 구현하지 않는다. CourtStage.handlePointerDown 은
 // 드래그를 시작하면서 setPointerCapture 를 부르므로, 폴리필이 없으면 거기서 TypeError 가
 // 터지고 그 아래(controller.onPointerDown = beginDrag)가 통째로 실행되지 않는다.

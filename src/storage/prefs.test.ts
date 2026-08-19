@@ -27,6 +27,9 @@ describe('makeDefaultPrefs', () => {
     a.teams.home.color = '#000000';
     expect(b.teams.home.color).not.toBe('#000000');
   });
+  it("language 기본값은 'auto' 다(i18n C1)", () => {
+    expect(makeDefaultPrefs().language).toBe('auto');
+  });
 });
 
 describe('validatePrefs', () => {
@@ -67,6 +70,16 @@ describe('validatePrefs', () => {
     expect(validatePrefs(null).value).toEqual(makeDefaultPrefs());
     expect(validatePrefs('garbage').value).toEqual(makeDefaultPrefs());
     expect(validatePrefs([1, 2, 3]).value).toEqual(makeDefaultPrefs());
+  });
+  it("language:'ko'/'en'/'ja'/'auto' 는 그대로 통과한다(i18n C1)", () => {
+    expect(validatePrefs({ language: 'ko' }).value.language).toBe('ko');
+    expect(validatePrefs({ language: 'en' }).value.language).toBe('en');
+    expect(validatePrefs({ language: 'ja' }).value.language).toBe('ja');
+    expect(validatePrefs({ language: 'auto' }).value.language).toBe('auto');
+  });
+  it("language 에 지원하지 않는 값이 있으면 'auto' 로 떨어진다", () => {
+    expect(validatePrefs({ language: 'fr' }).value.language).toBe('auto');
+    expect(validatePrefs({ language: 123 }).value.language).toBe('auto');
   });
 });
 
@@ -253,11 +266,11 @@ function bootScriptTheme(): string {
 }
 
 describe('3.0 스키마 상승 자체', () => {
-  it('스키마는 딱 한 칸 올랐다 — 2 다', () => {
-    expect(CURRENT_PREFS_SCHEMA).toBe(2);
+  it('현재 스키마 — 이 숫자가 바뀔 때마다 아래 체인 정합성 테스트가 새 단계를 요구한다', () => {
+    expect(CURRENT_PREFS_SCHEMA).toBe(3);
   });
 
-  it('체인은 1→2 한 단계뿐이고 끊긴 곳이 없다 — 같은 단계에서 두 번 올리면 중간 버전 파일이 세상에 남는다', () => {
+  it('체인은 버전마다 한 단계씩만 이어지고 끊긴 곳이 없다 — 같은 단계에서 두 번 올리면 중간 버전 파일이 세상에 남는다', () => {
     expect(PREFS_MIGRATIONS).toHaveLength(CURRENT_PREFS_SCHEMA - 1);
     for (let v = 1; v < CURRENT_PREFS_SCHEMA; v += 1) {
       const steps = PREFS_MIGRATIONS.filter((m) => m.from === v);
@@ -270,12 +283,16 @@ describe('3.0 스키마 상승 자체', () => {
     const r = migrateDoc(makeV1Doc(), PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.applied).toHaveLength(1);
-    expect(r.doc.schemaVersion).toBe(2);
+    // 몇 단계를 거치는지는 아래 "i18n C1" 블록이 더 정확히 잰다 — 여기서는 "경로가 있다"만.
+    expect(r.applied.length).toBeGreaterThan(0);
+    expect(r.doc.schemaVersion).toBe(CURRENT_PREFS_SCHEMA);
   });
 
-  it('이미 v2 인 문서에는 아무 단계도 돌지 않는다', () => {
-    const r = migrateDoc({ ...makeV1Doc(), schemaVersion: 2 }, PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+  it('이미 현재 스키마인 문서에는 아무 단계도 돌지 않는다', () => {
+    // schemaVersion 을 CURRENT_PREFS_SCHEMA 로 동적으로 맞춘다 — 리터럴 2 를 박으면 다음
+    // 스키마 상승 때 이 테스트가 "이미 최신" 이 아니라 "한 단계 남음" 을 검증하게 조용히
+    // 바뀌어 버린다(i18n C1 에서 실제로 겪었다: 2→3 상승 후 이 자리가 빨간불이 났다).
+    const r = migrateDoc({ ...makeV1Doc(), schemaVersion: CURRENT_PREFS_SCHEMA }, PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.applied).toEqual([]);
@@ -289,6 +306,51 @@ describe('3.0 스키마 상승 자체', () => {
     expect(r.doc.tray).toEqual({ draw: false, note: false });
     expect(r.doc.seeded).toBe(false);
     expect((r.doc.a11y as Record<string, unknown>).twoZone).toBe(false);
+  });
+});
+
+// ---- i18n C1: prefs 스키마 확장 (v2 → v3) -----------------------------------------------------
+// language 한 필드만 추가한다 — 없거나 지원하지 않는 값이면 'auto' 로 채운다.
+
+/** 상승 직전(v2) 저장본. v1 의 골고루 값 + 3.0 이 추가한 필드까지 채운, language 만 없는 문서. */
+const makeV2Doc = (): Record<string, unknown> => ({
+  ...makeV1Doc(),
+  schemaVersion: 2,
+  tray: { draw: true, note: false },
+  seeded: true,
+  a11y: { largeTargets: true, uiScale: 1.3, reduceMotion: 'always', singleKeyShortcuts: 'off', sound: false, twoZone: true },
+});
+
+describe('i18n C1 — prefs v2→v3(language)', () => {
+  it('v2 문서는 language 없이도 경로를 찾아 v3 로 오른다', () => {
+    const r = migrateDoc(makeV2Doc(), PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.applied).toHaveLength(1);
+    expect(r.doc.schemaVersion).toBe(3);
+    expect(r.doc.language).toBe('auto');
+  });
+
+  it('v1 문서는 두 단계(1→2→3)를 통째로 지나 v3 로 온다', () => {
+    const r = migrateDoc(makeV1Doc(), PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.applied).toHaveLength(2);
+    expect(r.doc.language).toBe('auto');
+  });
+
+  it('이미 유효한 language 값이 있으면 그대로 지나간다 — 마이그레이션은 없는 자리만 채운다', () => {
+    const r = migrateDoc({ ...makeV2Doc(), language: 'ja' }, PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.doc.language).toBe('ja');
+  });
+
+  it("지원하지 않는 값('fr' 등)은 v3 로 오르며 'auto' 로 접힌다", () => {
+    const r = migrateDoc({ ...makeV2Doc(), language: 'fr' }, PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.doc.language).toBe('auto');
   });
 });
 
@@ -317,8 +379,11 @@ describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 �
     expect(p.a11y.twoZone).toBe(false);
   });
 
-  it('schemaVersion 도장이 2 로 갱신된다', () => {
-    expect(loadPrefs().schemaVersion).toBe(2);
+  it('schemaVersion 도장이 최신 스키마로 갱신된다', () => {
+    // loadPrefs 는 항상 CURRENT_PREFS_SCHEMA 까지 올린다 — 이 v1 픽스처가 v2 만 겪던 시절엔
+    // 리터럴 2 였지만, i18n C1(2→3)이 더해지며 "v1→v2" 라는 이 블록의 제목과 무관하게
+    // 최종 도장은 항상 최신값이다.
+    expect(loadPrefs().schemaVersion).toBe(CURRENT_PREFS_SCHEMA);
   });
 
   // 아래는 "기존 값을 안 잃는다" 를 필드별로 따로 찌른다. 한 it 에 몰아 AND 로 묶으면
@@ -409,7 +474,7 @@ describe('3.0 이후에도 spin.prefs.theme 은 최상위 문자열이다 (index
     // 첫 페인트 전에 도는 스크립트라 마이그레이션을 못 거친다 — 날것의 JSON 최상위에 있어야 한다.
     const raw = JSON.parse(localStorage.getItem('spin.prefs')!) as Record<string, unknown>;
     expect(typeof raw.theme).toBe('string');
-    expect(raw.schemaVersion).toBe(2);
+    expect(raw.schemaVersion).toBe(CURRENT_PREFS_SCHEMA);
   });
 
   it('대조군 — dark 로 저장하면 부트 스크립트도 dark 를 읽는다', () => {

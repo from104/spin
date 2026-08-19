@@ -10,6 +10,7 @@ import { createHashRouter, RouterProvider } from 'react-router';
 import { SettingsProvider, useSettingsActions, useSettingsState } from '../store/settings/SettingsProvider.tsx';
 import { LibraryProvider, useLibraryActions } from '../store/library/LibraryProvider.tsx';
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
+import { useLocale } from '../i18n/useLocale.ts';
 import { AppShell } from './AppShell.tsx';
 
 /** §4.6 FOUC 방지 부트 스크립트가 첫 페인트 전 data-theme 을 심어 두지만, 그 이후(테마 토글·
@@ -42,6 +43,19 @@ export function ThemeEffects() {
     // 열려 있는 app-shell 이 그 배선을 대신 진다 — uiScale·큰 터치 타깃과 같은 자리다.
     cues.setEnabled(prefs.a11y.sound);
   }, [prefs.a11y.sound]);
+
+  return null;
+}
+
+/** i18n C1 — `<html lang>` 반영. 테마와 달리 부트 스크립트 짝이 없다: React 가 그리기 전엔
+ *  정적 HTML 에 애초에 어떤 언어의 텍스트도 없어서(빈 `#root`) FOUC 위험 자체가 없다 — 반응형
+ *  갱신 하나로 충분하다. export 는 테스트용(ThemeEffects 와 같은 관례). */
+export function LocaleEffects() {
+  const locale = useLocale();
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   return null;
 }
@@ -99,6 +113,7 @@ export default function App() {
   return (
     <SettingsProvider>
       <ThemeEffects />
+      <LocaleEffects />
       <LibraryProvider>
         <SeedDrills />
         <ToastProvider>

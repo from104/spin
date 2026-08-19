@@ -12,6 +12,8 @@ import type { FormationName } from '../model/defaults.ts';
 import { FORMATIONS, DEFAULT_TEAMS } from '../model/defaults.ts';
 import type { Repair } from '../model/validate.ts';
 import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
+import type { Locale } from '../i18n/locale.ts';
+import { SUPPORTED_LOCALES } from '../i18n/locale.ts';
 
 export const PREFS_KEY = 'spin.prefs';
 // `UI_KEY = 'spin.ui'` 는 여기 없다(5.0 ④ 로 삭제, 2026-08-13). 호출자 0곳인 죽은 export 였고
@@ -19,8 +21,9 @@ export const PREFS_KEY = 'spin.prefs';
 // 다음 사람이 "이 키는 왜 백업(backup 봉투)에 안 들어가지" 를 다시 조사하게 된다.
 // 이 앱이 localStorage 에 쓰는 키는 PREFS_KEY 와 board.ts 의 BOARD_KEY 둘뿐이다.
 /** 3.0 에서 1 → 2. 트레이 서랍·seed 도장·2존 모드를 **한 번에** 태운 상승이다(§7 E-6) —
- *  네 필드를 따로 올렸으면 여기까지 오는 동안 백업 파일의 스키마가 네 갈래로 갈라졌다. */
-export const CURRENT_PREFS_SCHEMA = 2;
+ *  네 필드를 따로 올렸으면 여기까지 오는 동안 백업 파일의 스키마가 네 갈래로 갈라졌다.
+ *  i18n C1 에서 2 → 3. 언어 설정(language) 한 필드만 추가한다. */
+export const CURRENT_PREFS_SCHEMA = 3;
 
 export interface PhysicsParams {
   zones: ZoneConfig;
@@ -89,6 +92,10 @@ export interface Preferences {
    *  지운 사람에게 매번 되살아난다. 심은 사실만 기록하는 1회성 도장이다. */
   seeded: boolean;
   physics: PhysicsOverride;
+  /** i18n C1. `'auto'` 는 브라우저 언어(navigator.languages)로 매 렌더 해석된다 — 값 자체는
+   *  로케일이 아니라 "무엇을 볼지에 대한 취향"이라 기기를 옮겨도 따라오는 게 맞다(theme·
+   *  defaultFormation 과 같은 결). 해석 로직은 i18n/locale.ts 가 단일 출처다. */
+  language: 'auto' | Locale;
 }
 
 /** 상수 대신 팩토리 — 공유 객체 유출 방지(호출자가 반환값을 변형해도 다음 호출엔 영향 없음). */
@@ -110,6 +117,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   tray: { draw: false, note: false },
   seeded: false,
   physics: {},
+  language: 'auto',
 });
 
 /** linearKmh 에 연동되는 회전 속도 상한. 기본점(linear=10 → 30)을 지나는 선형식이며
@@ -182,6 +190,11 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
   const hintsRaw = isRecord(raw.hints) ? raw.hints : {};
   const trayRaw = isRecord(raw.tray) ? raw.tray : {};
 
+  const language: Preferences['language'] =
+    raw.language === 'auto' || (SUPPORTED_LOCALES as readonly string[]).includes(raw.language as string)
+      ? (raw.language as Preferences['language'])
+      : d.language;
+
   const uiScale: 1 | 1.15 | 1.3 = a11yRaw.uiScale === 1.15 || a11yRaw.uiScale === 1.3 ? a11yRaw.uiScale : 1;
   const reduceMotion: 'system' | 'always' = a11yRaw.reduceMotion === 'always' ? 'always' : 'system';
   const singleKeyShortcuts: 'on' | 'modifier' | 'off' =
@@ -222,6 +235,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     tray: { draw: bool(trayRaw.draw, d.tray.draw), note: bool(trayRaw.note, d.tray.note) },
     seeded: bool(raw.seeded, d.seeded),
     physics: sanitizePhysicsOverride(raw.physics),
+    language,
   };
   return { value, repairs };
 }

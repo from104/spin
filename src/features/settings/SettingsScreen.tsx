@@ -28,6 +28,8 @@ import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { IconCheck } from '../../ui/icons.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
+import { useT } from '../../i18n/useT.ts';
+import { LOCALE_NAMES, SUPPORTED_LOCALES } from '../../i18n/locale.ts';
 
 // ⚠️ 2026-08-14 7차 검증 — 여기 있던 로컬 `COLOR_NAMES` 를 지우고 `core/colors.ts` 의
 // `TEAM_COLOR_NAMES` 를 쓴다. 두 벌이던 시절의 함정: 로컬 맵은 `Record<string, string>` 이라
@@ -44,6 +46,7 @@ export function SettingsScreen() {
   const { prefs, physics, persistFailed, setPrefs } = useSettings();
   const { refresh } = useLibrary();
   const toast = useToast();
+  const t = useT();
 
   // ── §6.1b 기기 이사 파일 읽기 ────────────────────────────────────────────────────────────
   // 고른 파일을 곧바로 복원하지 않는다. 복원은 남의 기기 내용을 이 기기에 섞는 일이고, 그중
@@ -116,6 +119,19 @@ export function SettingsScreen() {
   return (
     <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '26px 30px 46px', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Section title={t('settings.language.title')}>
+          <Row title={t('settings.language.title')} desc={t('settings.language.desc')}>
+            <Segmented
+              ariaLabel={t('settings.language.title')}
+              value={prefs.language}
+              onChange={(v) => setPrefs({ language: v })}
+              options={[
+                { value: 'auto', label: t('settings.language.auto') },
+                ...SUPPORTED_LOCALES.map((loc) => ({ value: loc, label: LOCALE_NAMES[loc] })),
+              ]}
+            />
+          </Row>
+        </Section>
         <Section title="화면">
           <Row title="테마" desc="체육관 조명에 맞춰 선택하세요">
             <Segmented

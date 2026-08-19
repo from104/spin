@@ -269,6 +269,20 @@ export const PREFS_MIGRATIONS: DocMigration[] = [
       return { ...doc, tray, a11y, seeded };
     },
   },
+  {
+    from: 2,
+    to: 3,
+    describe: 'prefs v2→v3: 언어 설정(language) — 자동감지 기본값',
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      // 그때(i18n C1) 지원했던 값만 리터럴로 박는다 — SUPPORTED_LOCALES 를 import 해 쓰면
+      // 나중에 언어가 추가될 때 이 마이그레이션의 "역사" 해석이 조용히 따라 바뀐다.
+      if (typeof out.language !== 'string' || !['auto', 'ko', 'en', 'ja'].includes(out.language)) {
+        out.language = 'auto';
+      }
+      return out;
+    },
+  },
 ];
 
 /** 로스터(구조 개편 C3)는 v1 부터 시작한다 — 체인이 비어 있어도 등록해 두는 이유는 읽기

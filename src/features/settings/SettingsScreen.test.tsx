@@ -44,6 +44,34 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+describe('SettingsScreen — 언어(i18n C1)', () => {
+  it("맨 위 섹션이다 — 기본값 '자동'이 선택돼 있다", () => {
+    render(<SettingsScreen />, { wrapper });
+    const group = screen.getByRole('radiogroup', { name: '언어' });
+    expect(within(group).getByRole('radio', { name: '자동' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('한국어를 고르면 즉시 반영되고 localStorage 에 저장된다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    await userEvent.setup().click(screen.getByRole('radio', { name: '한국어' }));
+    expect(screen.getByRole('radio', { name: '한국어' })).toHaveAttribute('aria-checked', 'true');
+    expect(loadPrefs().language).toBe('ko');
+  });
+
+  it('English 를 고르면 이 섹션의 문구가 곧바로 영어로 바뀐다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    await userEvent.setup().click(screen.getByRole('radio', { name: 'English' }));
+    expect(loadPrefs().language).toBe('en');
+    expect(screen.getByRole('radiogroup', { name: 'Language' })).toBeInTheDocument();
+  });
+
+  it('日本語를 고르면 prefs 에 ja 로 저장된다', async () => {
+    render(<SettingsScreen />, { wrapper });
+    await userEvent.setup().click(screen.getByRole('radio', { name: '日本語' }));
+    expect(loadPrefs().language).toBe('ja');
+  });
+});
+
 describe('SettingsScreen — 화면', () => {
   it('기본값을 반영해 렌더한다', () => {
     render(<SettingsScreen />, { wrapper });
