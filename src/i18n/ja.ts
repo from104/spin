@@ -690,4 +690,8 @@ export const ja: Record<DictKey, string> = {
   'storage.error.E_SCHEMA_TOO_NEW': 'これはより新しいバージョンのSPINで作られたファイルです。アプリを更新してください。',
   'storage.error.E_INVALID_FILE': 'SPINファイルではないか、破損しています。',
   'storage.error.E_UNSUPPORTED_KIND': 'このバージョンでは対応していないファイル種類です{{detail}}。',
+
+  // ── C8b — 初回起動時のデフォルトチーム名(storage/prefs.ts。保存される値なので作成時に一度だけ決める) ──
+  'team.defaultHomeLabel': '自チーム',
+  'team.defaultAwayLabel': '相手',
 };

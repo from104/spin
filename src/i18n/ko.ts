@@ -689,6 +689,10 @@ export const ko = {
   'storage.error.E_SCHEMA_TOO_NEW': '더 새로운 버전의 SPIN에서 만든 파일입니다. 앱을 업데이트하세요.',
   'storage.error.E_INVALID_FILE': 'SPIN 파일이 아니거나 손상되었습니다.',
   'storage.error.E_UNSUPPORTED_KIND': '이 버전에서 지원하지 않는 파일 종류입니다{{detail}}.',
+
+  // ── C8b — 첫 실행 기본 팀 이름(storage/prefs.ts, 저장되는 값이라 생성 시점에 한 번만 고른다) ──
+  'team.defaultHomeLabel': '우리 팀',
+  'team.defaultAwayLabel': '상대',
 } as const;
 
 export type DictKey = keyof typeof ko;

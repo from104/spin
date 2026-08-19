@@ -695,4 +695,8 @@ export const en: Record<DictKey, string> = {
   'storage.error.E_SCHEMA_TOO_NEW': 'This file was made with a newer version of SPIN. Please update the app.',
   'storage.error.E_INVALID_FILE': "This isn't a SPIN file, or it's corrupted.",
   'storage.error.E_UNSUPPORTED_KIND': "This file type isn't supported in this version{{detail}}.",
+
+  // ── C8b — Default team names on first run (storage/prefs.ts; stored, so chosen once at creation) ──
+  'team.defaultHomeLabel': 'Our Team',
+  'team.defaultAwayLabel': 'Opponent',
 };

@@ -35,6 +35,7 @@ import { BALL, CHAIR } from '../core/constants.ts';
 import { mToPx, type Vec2 } from '../core/units.ts';
 import { RAD, radToStoredDeg } from '../core/angle.ts';
 import type { ChairId } from '../core/ids.ts';
+import type { Locale } from '../i18n/locale.ts';
 import { courtDefFor, type CourtDef, type CourtMode, type Rect } from './court.ts';
 import { defaultStep } from './defaults.ts';
 import { inRect, RING_R_PX } from './rules.ts';
@@ -50,33 +51,46 @@ export const SET_PIECE_KINDS = ['kickIn', 'corner', 'goalClearance'] as const;
 export type SetPieceRef = 'ball' | 'cornerTriangle';
 
 export interface SetPieceDef {
-  label: string;
-  /** 근거 조항. 화면 문구가 이 값을 그대로 읽는다 — 코치가 규정을 되짚을 수 있어야 한다. */
+  label: Record<Locale, string>;
+  /** 근거 조항. 화면 문구가 이 값을 그대로 읽는다 — 코치가 규정을 되짚을 수 있어야 한다.
+   *  'Law 15' 형태의 조항 번호라 언어를 안 탄다(로케일별 번역이 없다). */
   law: string;
   ref: SetPieceRef;
   /** 한 줄 설명(무엇이 어디에 서는가). */
-  desc: string;
+  desc: Record<Locale, string>;
 }
 
 export const SET_PIECE_DEFS: Record<SetPieceKind, SetPieceDef> = {
   kickIn: {
-    label: '킥인',
+    label: { ko: '킥인', en: 'Kick-in', ja: 'キックイン' },
     law: 'Law 15',
     ref: 'ball',
-    desc: '터치라인 위의 공에서 상대가 5 m 물러섭니다.',
+    desc: {
+      ko: '터치라인 위의 공에서 상대가 5 m 물러섭니다.',
+      en: 'The opponent retreats 5m from the ball on the touchline.',
+      ja: 'タッチライン上のボールから相手は5m下がります。',
+    },
   },
   corner: {
-    label: '코너킥',
+    label: { ko: '코너킥', en: 'Corner kick', ja: 'コーナーキック' },
     law: 'Law 17',
     ref: 'cornerTriangle',
     // ⚠️ 'ball' 로 바꾸면 코너 삼각형이 아니라 공에서 재게 된다 — 규정이 아니다.
-    desc: '코너 삼각형에서 상대가 5 m 물러섭니다(공 기준이 아닙니다).',
+    desc: {
+      ko: '코너 삼각형에서 상대가 5 m 물러섭니다(공 기준이 아닙니다).',
+      en: 'The opponent retreats 5m from the corner triangle (not measured from the ball).',
+      ja: 'コーナートライアングルから相手は5m下がります(ボール基準ではありません)。',
+    },
   },
   goalClearance: {
-    label: '골 클리어런스',
+    label: { ko: '골 클리어런스', en: 'Goal clearance', ja: 'ゴールクリアランス' },
     law: 'Law 16',
     ref: 'ball',
-    desc: '골 지역 안의 공에서 상대가 5 m 물러섭니다.',
+    desc: {
+      ko: '골 지역 안의 공에서 상대가 5 m 물러섭니다.',
+      en: 'The opponent retreats 5m from the ball inside the goal area.',
+      ja: 'ゴールエリア内のボールから相手は5m下がります。',
+    },
   },
 };
 

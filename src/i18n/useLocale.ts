@@ -4,7 +4,7 @@ import { useSettingsState } from '../store/settings/SettingsProvider.tsx';
 import { resolveLocale } from './locale.ts';
 import type { Locale } from './locale.ts';
 
-function browserLangs(): readonly string[] {
+export function browserLangs(): readonly string[] {
   if (typeof navigator === 'undefined') return [];
   if (navigator.languages && navigator.languages.length > 0) return navigator.languages;
   return navigator.language ? [navigator.language] : [];

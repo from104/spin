@@ -81,6 +81,17 @@ describe('validatePrefs', () => {
     expect(validatePrefs({ language: 'fr' }).value.language).toBe('auto');
     expect(validatePrefs({ language: 123 }).value.language).toBe('auto');
   });
+  it('teams 가 통째로 없으면(첫 실행) 기본 팀 이름이 language 로케일을 따라간다(C8b)', () => {
+    expect(validatePrefs({ language: 'en' }).value.teams.home.label).toBe('Our Team');
+    expect(validatePrefs({ language: 'en' }).value.teams.away.label).toBe('Opponent');
+    expect(validatePrefs({ language: 'ja' }).value.teams.home.label).toBe('自チーム');
+    expect(validatePrefs({ language: 'ko' }).value.teams.home.label).toBe('우리 팀');
+  });
+  it('teams.home 만 손상됐으면(라벨 없음) 그 자리만 language 로케일 기본값으로, 멀쩡한 away 는 그대로 둔다(C8b)', () => {
+    const { value } = validatePrefs({ language: 'en', teams: { home: { color: 'nope' }, away: { label: '우리가 정한 이름' } } });
+    expect(value.teams.home.label).toBe('Our Team');
+    expect(value.teams.away.label).toBe('우리가 정한 이름');
+  });
 });
 
 describe('resolvePhysics', () => {

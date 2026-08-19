@@ -59,7 +59,7 @@ describe('§5.4 C-2 세트피스 배치 — 코트 × 크기 × 종류 × 포메
   });
 
   for (const { mode, size, kind } of LINE_COMBOS) {
-    it(`${mode} · ${size} · ${SET_PIECE_DEFS[kind].label}: 규정 이격 · 전부 판 안 · 겹침 없음`, () => {
+    it(`${mode} · ${size} · ${SET_PIECE_DEFS[kind].label.ko}: 규정 이격 · 전부 판 안 · 겹침 없음`, () => {
       for (const formation of FORMATIONS) {
         const tag = `${mode}/${size}/${kind}/${formation}`;
         const d = build(mode, size, formation);

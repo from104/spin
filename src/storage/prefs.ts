@@ -13,7 +13,9 @@ import { FORMATIONS, DEFAULT_TEAMS } from '../model/defaults.ts';
 import type { Repair } from '../model/validate.ts';
 import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
 import type { Locale } from '../i18n/locale.ts';
-import { SUPPORTED_LOCALES } from '../i18n/locale.ts';
+import { SUPPORTED_LOCALES, resolveLocale } from '../i18n/locale.ts';
+import { browserLangs } from '../i18n/useLocale.ts';
+import { translate } from '../i18n/useT.ts';
 
 export const PREFS_KEY = 'spin.prefs';
 // `UI_KEY = 'spin.ui'` 는 여기 없다(5.0 ④ 로 삭제, 2026-08-13). 호출자 0곳인 죽은 export 였고
@@ -98,6 +100,17 @@ export interface Preferences {
   language: 'auto' | Locale;
 }
 
+/** 팀 이름 기본값. DEFAULT_TEAMS(model/defaults.ts) 는 seed 드릴 전용(번역 범위 밖 — 시드
+ *  콘텐츠)이라 그대로 두고, prefs 의 첫 실행 기본값만 로케일에 맞춰 새로 고른다. **저장되는
+ *  값**이라 여기서 한 번 고르면 그 뒤로는 고정 문자열이다 — i18n/locale.ts 의 label: Record<Locale,…>
+ *  패턴(매 렌더 다시 읽는 값)과는 다른 결이다. */
+function defaultTeams(locale: Locale): Record<TeamSide, TeamStyle> {
+  return {
+    home: { ...DEFAULT_TEAMS.home, label: translate(locale, 'team.defaultHomeLabel') },
+    away: { ...DEFAULT_TEAMS.away, label: translate(locale, 'team.defaultAwayLabel') },
+  };
+}
+
 /** 상수 대신 팩토리 — 공유 객체 유출 방지(호출자가 반환값을 변형해도 다음 호출엔 영향 없음). */
 export const makeDefaultPrefs = (): Preferences => ({
   schemaVersion: CURRENT_PREFS_SCHEMA,
@@ -108,7 +121,9 @@ export const makeDefaultPrefs = (): Preferences => ({
   showGridLabels: true,
   showRuleZones: true,
   inspectorPinned: false,
-  teams: structuredClone(DEFAULT_TEAMS),
+  // language 는 항상 'auto' 로 시작하므로(아래) 이 시점의 로케일도 auto 감지가 맞다 —
+  // 사용자가 고른 값이 아직 없다.
+  teams: defaultTeams(resolveLocale('auto', browserLangs())),
   defaultFormation: '1-2-1',
   defaultCourtMode: null,
   present: { autoFullscreen: false, wakeLock: true },
@@ -179,21 +194,23 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
       ? (raw.defaultFormation as FormationName)
       : '1-2-1';
 
+  // teams 보정보다 먼저 정해야 한다 — 아래 sanitizeTeamStyle 폴백이 이 로케일을 쓴다.
+  const language: Preferences['language'] =
+    raw.language === 'auto' || (SUPPORTED_LOCALES as readonly string[]).includes(raw.language as string)
+      ? (raw.language as Preferences['language'])
+      : d.language;
+  const fallbackTeams = defaultTeams(resolveLocale(language, browserLangs()));
+
   const teamsRaw = isRecord(raw.teams) ? raw.teams : {};
   const teams: Record<TeamSide, TeamStyle> = {
-    home: sanitizeTeamStyle(teamsRaw.home, DEFAULT_TEAMS.home),
-    away: sanitizeTeamStyle(teamsRaw.away, DEFAULT_TEAMS.away),
+    home: sanitizeTeamStyle(teamsRaw.home, fallbackTeams.home),
+    away: sanitizeTeamStyle(teamsRaw.away, fallbackTeams.away),
   };
 
   const presentRaw = isRecord(raw.present) ? raw.present : {};
   const a11yRaw = isRecord(raw.a11y) ? raw.a11y : {};
   const hintsRaw = isRecord(raw.hints) ? raw.hints : {};
   const trayRaw = isRecord(raw.tray) ? raw.tray : {};
-
-  const language: Preferences['language'] =
-    raw.language === 'auto' || (SUPPORTED_LOCALES as readonly string[]).includes(raw.language as string)
-      ? (raw.language as Preferences['language'])
-      : d.language;
 
   const uiScale: 1 | 1.15 | 1.3 = a11yRaw.uiScale === 1.15 || a11yRaw.uiScale === 1.3 ? a11yRaw.uiScale : 1;
   const reduceMotion: 'system' | 'always' = a11yRaw.reduceMotion === 'always' ? 'always' : 'system';
