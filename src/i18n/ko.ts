@@ -573,6 +573,9 @@ export const ko = {
   'editor.workspace.drillInfoTitle': '드릴 정보 — 유형·상황·목적·코칭 포인트',
   'editor.workspace.presentAriaLabel': '시연 시작',
   'editor.workspace.presentTitle': '시연 — 팀 앞에서 단계별로 보여주기',
+  // ⚠️ presentAriaLabel 의 리터럴 부분집합이어야 한다(WCAG Label-in-Name) — 로케일마다 따로 확인.
+  'editor.workspace.presentLabel': '시연',
+  'editor.workspace.courtHelp': '방향키로 커서 이동, Enter로 배치, Alt+←/→로 개체 순회',
 
   // ── C7 — "같은 것 전부 고르기" ──────────────────────────────────────────────────────
   'editor.selectSame.sameTeam': '같은 팀 전부 고르기',

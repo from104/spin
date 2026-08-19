@@ -574,6 +574,8 @@ export const ja: Record<DictKey, string> = {
   'editor.workspace.drillInfoTitle': 'ドリル情報 — 種類・状況・目的・コーチングポイント',
   'editor.workspace.presentAriaLabel': 'プレゼンを開始',
   'editor.workspace.presentTitle': 'プレゼン — チームの前でステップごとに見せる',
+  'editor.workspace.presentLabel': 'プレゼン',
+  'editor.workspace.courtHelp': '矢印キーでカーソル移動、Enterで配置、Alt+←/→でオブジェクト巡回',
 
   // ── C7 — 「同じ種類を全部選択」 ──────────────────────────────────────────────────────
   'editor.selectSame.sameTeam': '同じチーム全部選択',

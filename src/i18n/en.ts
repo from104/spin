@@ -578,6 +578,8 @@ export const en: Record<DictKey, string> = {
   'editor.workspace.drillInfoTitle': 'Drill info — type, situation, objective, coaching points',
   'editor.workspace.presentAriaLabel': 'Start Presentation',
   'editor.workspace.presentTitle': 'Present — walk your team through it step by step',
+  'editor.workspace.presentLabel': 'Present',
+  'editor.workspace.courtHelp': 'Arrow keys to move the cursor, Enter to place, Alt+←/→ to cycle objects',
 
   // ── C7 — "Select same kind" ─────────────────────────────────────────────────────────
   'editor.selectSame.sameTeam': 'Select all on this team',

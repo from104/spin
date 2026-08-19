@@ -114,3 +114,12 @@ export function translateKeymapDesc(desc: string, locale: Locale): string {
   if (locale === 'ko') return desc;
   return TRANSLATIONS[locale][desc] ?? desc;
 }
+
+/** keymap.ts 의 label 은 대부분 이미 언어 중립적이다(Ctrl·Shift·PageUp 같은 키 이름, 또는
+ *  present.next/prev 처럼 이미 화살표 기호 `→ ↓`) — 그런데 view.pan·obj.move 딱 둘만
+ *  "방향키" 라는 한국어 낱말을 그대로 쓴다. desc 와 달리 로케일별 번역 사전을 두지 않는다 —
+ *  번역할 말이 아니라 기호로 바꾸면 끝나는 문제라서, 그 한 낱말만 화살표 기호로 바꾼다
+ *  (언어를 안 타므로 locale 인자가 없다). */
+export function keymapLabel(label: string): string {
+  return label.replace('방향키', '←→↑↓');
+}

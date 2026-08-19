@@ -660,7 +660,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       style={{ flex: 1, display: 'flex', flexDirection: 'row', minHeight: 0, outline: 'none', position: 'relative' }}
     >
       <span id="court-help" className="sr-only">
-        방향키로 커서 이동, Enter로 배치, Alt+←/→로 개체 순회
+        {t('editor.workspace.courtHelp')}
       </span>
 
       {/* ★ 왼쪽 세로 스텝 바(PLAN-STEP-EDITING.md 구현 순서 ②, 기현님 확정 2026-08-17) —
@@ -901,7 +901,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
               }}
             >
               <IconPlay size={14} />
-              시연
+              {t('editor.workspace.presentLabel')}
             </button>
           </div>
         )}
