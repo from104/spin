@@ -18,6 +18,9 @@ import { createPortal } from 'react-dom';
 import { LOCK_TINT_COLOR } from '../../core/colors.ts';
 import { isId } from '../../core/ids.ts';
 import { removalLabel, returnsToTray } from './removal.ts';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
+import type { DictKey } from '../../i18n/ko.ts';
 
 /** [복제] 를 낼 것인가 — **도형·메모·화살표**다(기현 지시 2026-08-18: *"보드의 작도 객체,
  *  메모 객체에 오른쪽 버튼 메뉴에 복제 기능을 넣자"*, 화살표는 같은 날 후속 지적 *"화살표에는
@@ -34,11 +37,11 @@ import { removalLabel, returnsToTray } from './removal.ts';
 export const canDuplicate = (ids: readonly string[]): boolean =>
   ids.every((id) => isId(id, 'sh') || isId(id, 'nt') || isId(id, 'ar'));
 
-/** 여럿일 때만 개수를 앞에 붙인다 — 하나짜리에 *"1개 잠금"* 은 셀 것이 없는데 세는 말이다.
+/** 여럿일 때만 개수를 낸다 — 하나짜리에 *"1개 잠금"* 은 셀 것이 없는데 세는 말이다.
  *  마지막 항목(빼기/삭제)만은 `removalLabel` 이 따로 만든다: 거기서는 개수가 두 갈래로
- *  갈릴 수 있어(빼기 2 · 삭제 1) 앞에 붙이는 것으로는 모자라기 때문이다. */
-function count(ids: readonly string[]): string {
-  return ids.length > 1 ? `${ids.length}개 ` : '';
+ *  갈릴 수 있어(빼기 2 · 삭제 1) 이 함수로는 모자라기 때문이다. */
+function countedLabel(ids: readonly string[], singularKey: DictKey, countKey: DictKey, t: ReturnType<typeof useT>): string {
+  return ids.length > 1 ? t(countKey, { n: ids.length }) : t(singularKey);
 }
 
 export interface ObjectMenuTarget {
@@ -114,6 +117,8 @@ const ITEM: React.CSSProperties = {
 };
 
 export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit, onDuplicate }: ObjectMenuProps) {
+  const t = useT();
+  const locale = useLocale();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const firstRef = useRef<HTMLButtonElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -176,7 +181,7 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
       <div
         ref={panelRef}
         role="menu"
-        aria-label="개체 메뉴"
+        aria-label={t('editor.objectMenu.ariaLabel')}
         style={{
           position: 'fixed',
           left: pos?.left ?? target.x,
@@ -223,7 +228,7 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
             <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.7 }}>
               ✎
             </span>
-            수정
+            {t('editor.objectMenu.edit')}
           </button>
         )}
 
@@ -240,7 +245,7 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
             <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.7 }}>
               ⧉
             </span>
-            {count(target.ids)}복제
+            {countedLabel(target.ids, 'editor.objectMenu.duplicate', 'editor.objectMenu.duplicateCount', t)}
           </button>
         )}
 
@@ -255,8 +260,9 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
           <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', color: LOCK_TINT_COLOR }}>
             {target.locked ? '○' : '●'}
           </span>
-          {count(target.ids)}
-          {target.locked ? '잠금 해제' : '잠금'}
+          {target.locked
+            ? countedLabel(target.ids, 'editor.objectMenu.unlock', 'editor.objectMenu.unlockCount', t)
+            : countedLabel(target.ids, 'editor.objectMenu.lock', 'editor.objectMenu.lockCount', t)}
         </button>
 
         {/* 무시는 **휠체어만**이다(기현 지시). 다른 개체에서 이 자리를 비워 두지 않고 **아예
@@ -266,8 +272,9 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
             <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.5 }}>
               {target.ignored ? '◍' : '◌'}
             </span>
-            {count(target.ids)}
-            {target.ignored ? '무시 해제' : '무시'}
+            {target.ignored
+              ? countedLabel(target.ids, 'editor.objectMenu.unignore', 'editor.objectMenu.unignoreCount', t)
+              : countedLabel(target.ids, 'editor.objectMenu.ignore', 'editor.objectMenu.ignoreCount', t)}
           </button>
         )}
 
@@ -286,7 +293,7 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
           <span aria-hidden style={{ width: '1.125rem', textAlign: 'center' }}>
             {target.ids.every(returnsToTray) ? '←' : '✕'}
           </span>
-          {removalLabel(target.ids)}
+          {removalLabel(target.ids, locale)}
         </button>
       </div>
     </>,

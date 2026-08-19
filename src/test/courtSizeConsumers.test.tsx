@@ -34,6 +34,10 @@ const COURT_DEFS_ALLOWED: Record<string, string> = {
     '2026-08-19 i18n C7 — [코트 형태를 바꿨습니다] 토스트의 형태 이름을 court.ts 정의에서 그대로 읽는다. ' +
     '전에는 이 파일이 { full: "풀 코트", half: "하프 코트", flat: "플랫 코트" } 를 손으로 또 하나 베껴 두고 ' +
     '있었다 — 로케일마다 세 벌을 더 베끼는 대신 정의를 그대로 읽어 사본을 없앴다.',
+  'src/features/editor/EditorWorkspace.tsx':
+    '2026-08-19 i18n C7 — ToolRail 의 courtLabel(기둥 맨 아래 작게 뜨는 코트 형태 이름)을 ' +
+    'court.ts 정의에서 그대로 읽는다. BoardScreen.tsx 와 같은 이유(그 세 이름을 또 한 번 손으로 ' +
+    '베끼지 않는다)로 여기도 형태 셋만 본다 — 크기 3단은 이 파일에서 COURT_DEFS 를 보지 않는다.',
   'src/model/court.ts': '정의 그 자체 + courtDefFor 의 구현부. 여기가 유일한 출처다.',
   'src/render/courtLines/HalfCourtLines.tsx':
     '하프 코트는 크기 3단을 따라가지 않는다(court.ts COURT_DEFS 주석 근거 셋: 규격 부재 · 격자 붕괴 · flat 파급). ' +

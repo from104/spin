@@ -150,6 +150,7 @@ describe('문 ② 개체 메뉴 [수정]', () => {
         onDuplicate={noop}
         onEdit={onEdit}
       />,
+      { wrapper: SettingsProvider },
     );
   }
 

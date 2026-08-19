@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isId, newId } from '../../core/ids.ts';
 import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
-import { courtDefFor, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
+import { COURT_DEFS, courtDefFor, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
 import { IconInfo, IconPlay } from '../../ui/icons.tsx';
@@ -42,6 +42,8 @@ import { NotePanel } from './NotePanel.tsx';
 import { FunctionBar } from './FunctionBar.tsx';
 import { useContainerWidth } from './useContainerWidth.ts';
 import { HelpModal } from './HelpModal.tsx';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 import { NoteEditModal } from './NoteEditModal.tsx';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
 import { useStepPlayback } from './useStepPlayback.ts';
@@ -85,6 +87,8 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   const { setPrefs } = useSettingsActions();
   const nav = useAppNav();
   const toast = useToast();
+  const t = useT();
+  const locale = useLocale();
   // 전술판은 drillRepo 에 자동저장하지 않는다 — 목록에 뜨지 않는 임시 판이다(스냅샷 1장은
   // 화면 쪽이 storage/board.ts 로 따로 들고 있다). 훅 자체는 조건 없이 부른다(훅 규칙).
   const autosave = useAutosave(!isBoard);
@@ -233,7 +237,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
             maxLength: LIMITS.titleLen,
             onChange: (v) => dispatch({ type: 'META_SET', patch: { title: v } }),
           },
-          badge: '편집중',
+          badge: t('editor.workspace.editingBadge'),
           // ⑥ 텍스트의 소속(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §텍스트의 소속) —
           // 드릴 짧은 설명은 **헤더 인라인**. 저장 통로는 인스펙터의 [제목]·[설명]과 같은
           // META_SET(드릴 메타를 고치는 기존 액션) — 새 액션을 만들지 않는다. 상한은
@@ -241,7 +245,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           // 저장할 때 조용히 잘리는 사고(§3.5 태그 문서와 같은 종류)가 안 난다.
           description: {
             value: drill.description ?? '',
-            placeholder: '설명 추가',
+            placeholder: t('editor.workspace.descriptionPlaceholder'),
             maxLength: LIMITS.descriptionLen,
             onChange: (v) => dispatch({ type: 'META_SET', patch: { description: v } }),
           },
@@ -286,16 +290,16 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       dispatch({ type: 'SELECT_CLEAR' });
       // 개체 메뉴가 '빼기'/'삭제'로 말을 가르므로(removal.ts) 토스트도 같은 술어를 본다 —
       // 메뉴에서 '빼기'를 눌렀는데 "삭제했습니다" 가 뜨면 방금 읽은 글자를 뒤집는 셈이다.
-      toast.show(removalToast(done), {
+      toast.show(removalToast(done, locale), {
         action: {
-          label: '되돌리기',
+          label: t('editor.workspace.undoAction'),
           onAction: () => {
             for (let i = 0; i < count; i++) dispatch({ type: 'UNDO' });
           },
         },
       });
     },
-    [dispatch, toast],
+    [dispatch, toast, locale, t],
   );
 
   /** [복제](기현 지시 2026-08-18: *"복제하여 오른쪽 아래 1m 위치에 놓는거다"*, 같은 날 정정
@@ -364,12 +368,12 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
         }
       }
       // 토스트는 종류당 한 번이다 — 정원에서 여럿을 복제하면 같은 문장이 개수만큼 쌓인다.
-      if (shapeCap) toast.show(`도형은 스텝당 ${LIMITS.maxShapesPerStep}개까지입니다.`);
-      if (noteCap) toast.show(`메모는 스텝당 ${LIMITS.maxNotesPerStep}개까지입니다.`);
-      if (arrowCap) toast.show(`화살표는 스텝당 ${LIMITS.maxArrowsPerStep}개까지입니다.`);
+      if (shapeCap) toast.show(t('editor.workspace.shapeCapToast', { max: LIMITS.maxShapesPerStep }));
+      if (noteCap) toast.show(t('editor.workspace.noteCapToast', { max: LIMITS.maxNotesPerStep }));
+      if (arrowCap) toast.show(t('editor.workspace.arrowCapToast', { max: LIMITS.maxArrowsPerStep }));
       if (made.length > 0) dispatch({ type: 'SELECT_SET', ids: made });
     },
-    [drill.courtMode, drill.courtSize, step.shapes, step.notes, step.arrows, dispatch, toast],
+    [drill.courtMode, drill.courtSize, step.shapes, step.notes, step.arrows, dispatch, toast, t],
   );
 
   const gotoStep = useCallback(
@@ -553,7 +557,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       chairSlots={chairSlots}
       pendingPlayerId={pendingPlayerId}
       onArmPlayer={armPlayer}
-      courtLabel={{ full: '풀 코트', half: '하프 코트', flat: '플랫 코트' }[drill.courtMode]}
+      courtLabel={COURT_DEFS[drill.courtMode].label[locale]}
       orientation={trayBand ? 'horizontal' : 'vertical'}
       onItemPointerDown={tray.start}
     />
@@ -577,8 +581,8 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
     // 막혀 있으면 반드시 말해 준다. 조용히 실패하면 "버튼이 고장났나" 하며 계속
     // 누르게 된다(실제 신고). 휠체어는 static 이라 골대가 밀어낼 수 없다.
     const r = worldRef.current?.resetGoals();
-    if (r && r.blocked > 0) toast.show('골대 자리에 휠체어가 있어 되돌리지 못했습니다. 휠체어를 옮긴 뒤 다시 눌러 주세요.');
-  }, [worldRef, toast]);
+    if (r && r.blocked > 0) toast.show(t('editor.workspace.goalsBlockedToast'));
+  }, [worldRef, toast, t]);
 
   // 오른쪽 기능 바 — **두 화면 다 선다**(2026-08-15 드릴 편집 재설계 ②).
   //
@@ -609,7 +613,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       onCourtModeChange={(m) => board?.onCourtChange(m)}
       onCourtSizeChange={(s) => board?.onCourtSizeChange(s)}
       onLockedAttempt={() =>
-        toast.show(board ? '전술판을 초기화하면 코트 형태와 크기를 바꿀 수 있습니다.' : '코트 형태는 드릴을 만든 뒤에는 바꿀 수 없습니다.')
+        toast.show(board ? t('editor.workspace.courtLockedBoardToast') : t('editor.workspace.courtLockedDrillToast'))
       }
       onResetGoals={resetGoals}
       defense={drill.defense ?? defaultDefense(drill.courtMode)}
@@ -844,8 +848,8 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
             {onDrillInfo && (
               <button
                 type="button"
-                aria-label="드릴 정보"
-                title="드릴 정보 — 유형·상황·목적·코칭 포인트"
+                aria-label={t('editor.workspace.drillInfoAriaLabel')}
+                title={t('editor.workspace.drillInfoTitle')}
                 onClick={onDrillInfo}
                 style={{
                   flex: 'none',
@@ -876,8 +880,8 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 없었다. 헤더의 presentButton 과 같은 경로(nav.go)다. */}
             <button
               type="button"
-              aria-label="시연 시작"
-              title="시연 — 팀 앞에서 단계별로 보여주기"
+              aria-label={t('editor.workspace.presentAriaLabel')}
+              title={t('editor.workspace.presentTitle')}
               onClick={() => nav.go('present', { kind: 'drill', id: drill.id })}
               className="on-accent"
               style={{

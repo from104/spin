@@ -293,6 +293,7 @@ describe('메뉴 — 화면 끝', () => {
           onDuplicate={noop}
           onEdit={noop}
         />,
+        { wrapper: SettingsProvider },
       );
 
     it('다시 꺼낼 자리가 있으면 [빼기] 다 — 칩·공·콘', () => {
@@ -345,6 +346,7 @@ describe('[복제] — 항목은 도형·메모에만 뜬다', () => {
         onDuplicate={onDuplicate}
         onEdit={noop}
       />,
+      { wrapper: SettingsProvider },
     );
 
   it('도형·메모·화살표(섞여도)면 뜬다 — 여럿이면 개수가 붙는다', () => {

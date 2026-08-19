@@ -29,18 +29,18 @@ describe('returnsToTray', () => {
 
 describe('removalToast', () => {
   it('트레이로 돌아가는 것만 치우면 "뺐습니다"', () => {
-    expect(removalToast([ch()])).toBe('1개 뺐습니다.');
-    expect(removalToast([ch(), bl(), cn()])).toBe('3개 뺐습니다.');
+    expect(removalToast([ch()], 'ko')).toBe('1개 뺐습니다.');
+    expect(removalToast([ch(), bl(), cn()], 'ko')).toBe('3개 뺐습니다.');
   });
 
   it('돌아갈 자리가 없는 것만 치우면 "삭제했습니다"', () => {
-    expect(removalToast([ar()])).toBe('1개 삭제했습니다.');
-    expect(removalToast([ar(), nt()])).toBe('2개 삭제했습니다.');
+    expect(removalToast([ar()], 'ko')).toBe('1개 삭제했습니다.');
+    expect(removalToast([ar(), nt()], 'ko')).toBe('2개 삭제했습니다.');
   });
 
   it('섞이면 둘 다 말한다 — 한쪽 말로 뭉뚱그리면 나머지 절반이 거짓이 된다', () => {
     // 러버밴드로 칩과 화살표를 함께 잡는 것은 흔한 조작이다. "3개 삭제했습니다" 라고 하면
     // 트레이에 돌아온 칩 둘을 다시 볼 이유가 사라진다.
-    expect(removalToast([ch(), bl(), ar()])).toBe('2개 빼고 1개 삭제했습니다.');
+    expect(removalToast([ch(), bl(), ar()], 'ko')).toBe('2개 빼고 1개 삭제했습니다.');
   });
 });

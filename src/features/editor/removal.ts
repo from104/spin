@@ -9,6 +9,8 @@
 // 나타난다 — 개체 메뉴의 라벨, 트레이 복귀 소리(`trayReturn`), 그리고 끝나고 뜨는 토스트.
 // 셋이 따로 판정하면 "글자는 빼기인데 소리는 안 나고 토스트는 삭제라 하는" 식으로 어긋난다.
 import { isId } from '../../core/ids.ts';
+import { translate } from '../../i18n/useT.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
 /** 판에서 빼면 트레이에 **다시 꺼낼 자리가 있는가**. 곧 출연진(`CastId` = 칩·공·콘)인가. */
 export const returnsToTray = (id: string): boolean =>
@@ -17,12 +19,12 @@ export const returnsToTray = (id: string): boolean =>
 /** 치운 뒤 뜨는 토스트 문구. 러버밴드로 칩과 화살표를 함께 잡아 한 번에 치울 수 있으므로
  *  **섞인 경우가 실제로 생긴다** — 그때 한쪽 말로 뭉뚱그리면 둘 중 하나는 거짓말이 된다.
  *  (칩을 함께 지웠는데 "삭제했습니다" 라고 하면 트레이를 다시 볼 이유가 사라진다.) */
-export function removalToast(ids: readonly string[]): string {
+export function removalToast(ids: readonly string[], locale: Locale): string {
   const back = ids.filter(returnsToTray).length;
   const gone = ids.length - back;
-  if (gone === 0) return `${back}개 뺐습니다.`;
-  if (back === 0) return `${gone}개 삭제했습니다.`;
-  return `${back}개 빼고 ${gone}개 삭제했습니다.`;
+  if (gone === 0) return translate(locale, 'editor.removal.backOnly', { n: back });
+  if (back === 0) return translate(locale, 'editor.removal.goneOnly', { n: gone });
+  return translate(locale, 'editor.removal.mixed', { back, gone });
 }
 
 /** 개체 메뉴 마지막 항목의 글자. 토스트와 **같은 판정**에서 나온다(이 파일이 있는 이유).
@@ -30,11 +32,11 @@ export function removalToast(ids: readonly string[]): string {
  *  하나일 때는 종전 그대로 '빼기'/'삭제' 다 — 개수를 붙이면 판 위의 개체 하나를 두고
  *  *"1개 빼기"* 라고 세는 꼴이 된다. 여럿일 때만 개수를 앞세우고, 섞였으면 **양쪽을 다 적는다**:
  *  누르기 전에 알아야 하는 것이 바로 "몇 개는 돌아오고 몇 개는 안 돌아온다" 이기 때문이다. */
-export function removalLabel(ids: readonly string[]): string {
+export function removalLabel(ids: readonly string[], locale: Locale): string {
   const back = ids.filter(returnsToTray).length;
   const gone = ids.length - back;
-  if (ids.length <= 1) return gone === 0 ? '빼기' : '삭제';
-  if (gone === 0) return `${back}개 빼기`;
-  if (back === 0) return `${gone}개 삭제`;
-  return `${back}개 빼기 · ${gone}개 삭제`;
+  if (ids.length <= 1) return translate(locale, gone === 0 ? 'editor.removal.labelBack' : 'editor.removal.labelGone');
+  if (gone === 0) return translate(locale, 'editor.removal.labelBackN', { n: back });
+  if (back === 0) return translate(locale, 'editor.removal.labelGoneN', { n: gone });
+  return translate(locale, 'editor.removal.labelMixed', { back, gone });
 }

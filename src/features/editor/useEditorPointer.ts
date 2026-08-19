@@ -461,9 +461,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     if (over === overTrayRef.current) return;
     overTrayRef.current = over;
     const cargo = trayCargoRef.current;
-    trayDropHint.arm(over && cargo ? trayDropIntent(cargo.ids) : null);
+    trayDropHint.arm(over && cargo ? trayDropIntent(cargo.ids, locale) : null, locale);
     if (over && cargo) cues.play('trayArm');
-  }, []);
+  }, [locale]);
 
   /** 드래그가 끝났다 — 예고를 **반드시** 끄고, 트레이에 놓은 것이면 그 짐을 돌려준다.
    *
@@ -474,10 +474,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     const cargo = trayCargoRef.current;
     trayCargoRef.current = null;
     overTrayRef.current = false;
-    trayDropHint.arm(null);
+    trayDropHint.arm(null, locale);
     if (!cargo || client === null || !isOverTray(client)) return null;
     return cargo;
-  }, []);
+  }, [locale]);
 
   /** 손을 뗀 뒤 **물리가 다 선 시점**에 한 번 더 커밋한다(§4.2 P0-2).
    *

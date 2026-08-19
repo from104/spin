@@ -533,6 +533,46 @@ export const ko = {
   'editor.helpModal.extra.arrowKeys.desc': '격자 커서 이동, Enter 로 배치',
   'editor.helpModal.extra.stepPhoto.key': 'Space (스텝 사진)',
   'editor.helpModal.extra.stepPhoto.desc': '스텝 집기/놓기 — ←/→ 로 자리를 옮기고 Esc 로 되돌림',
+
+  // ── C7 — 치우기(빼기/삭제) 판정 ──────────────────────────────────────────────────────
+  'editor.removal.backOnly': '{{n}}개 뺐습니다.',
+  'editor.removal.goneOnly': '{{n}}개 삭제했습니다.',
+  'editor.removal.mixed': '{{back}}개 빼고 {{gone}}개 삭제했습니다.',
+  'editor.removal.labelBack': '빼기',
+  'editor.removal.labelGone': '삭제',
+  'editor.removal.labelBackN': '{{n}}개 빼기',
+  'editor.removal.labelGoneN': '{{n}}개 삭제',
+  'editor.removal.labelMixed': '{{back}}개 빼기 · {{gone}}개 삭제',
+  'editor.trayDrop.hintTemplate': '놓으면 {{label}}',
+
+  // ── C7 — 개체 메뉴 ──────────────────────────────────────────────────────────────────
+  'editor.objectMenu.ariaLabel': '개체 메뉴',
+  'editor.objectMenu.edit': '수정',
+  'editor.objectMenu.duplicate': '복제',
+  'editor.objectMenu.duplicateCount': '{{n}}개 복제',
+  'editor.objectMenu.lock': '잠금',
+  'editor.objectMenu.lockCount': '{{n}}개 잠금',
+  'editor.objectMenu.unlock': '잠금 해제',
+  'editor.objectMenu.unlockCount': '{{n}}개 잠금 해제',
+  'editor.objectMenu.ignore': '무시',
+  'editor.objectMenu.ignoreCount': '{{n}}개 무시',
+  'editor.objectMenu.unignore': '무시 해제',
+  'editor.objectMenu.unignoreCount': '{{n}}개 무시 해제',
+
+  // ── C7 — 에디터 작업공간 ────────────────────────────────────────────────────────────
+  'editor.workspace.editingBadge': '편집중',
+  'editor.workspace.descriptionPlaceholder': '설명 추가',
+  'editor.workspace.undoAction': '되돌리기',
+  'editor.workspace.shapeCapToast': '도형은 스텝당 {{max}}개까지입니다.',
+  'editor.workspace.noteCapToast': '메모는 스텝당 {{max}}개까지입니다.',
+  'editor.workspace.arrowCapToast': '화살표는 스텝당 {{max}}개까지입니다.',
+  'editor.workspace.goalsBlockedToast': '골대 자리에 휠체어가 있어 되돌리지 못했습니다. 휠체어를 옮긴 뒤 다시 눌러 주세요.',
+  'editor.workspace.courtLockedBoardToast': '전술판을 초기화하면 코트 형태와 크기를 바꿀 수 있습니다.',
+  'editor.workspace.courtLockedDrillToast': '코트 형태는 드릴을 만든 뒤에는 바꿀 수 없습니다.',
+  'editor.workspace.drillInfoAriaLabel': '드릴 정보',
+  'editor.workspace.drillInfoTitle': '드릴 정보 — 유형·상황·목적·코칭 포인트',
+  'editor.workspace.presentAriaLabel': '시연 시작',
+  'editor.workspace.presentTitle': '시연 — 팀 앞에서 단계별로 보여주기',
 } as const;
 
 export type DictKey = keyof typeof ko;

@@ -74,19 +74,19 @@ describe('isAdditive — 어떤 손짓이 선택에 더하는가', () => {
 
 describe('removalLabel — 누르기 전에 무엇을 알아야 하는가', () => {
   it('하나면 개수를 안 센다', () => {
-    expect(removalLabel(['ch_1'])).toBe('빼기');
-    expect(removalLabel(['nt_1'])).toBe('삭제');
+    expect(removalLabel(['ch_1'], 'ko')).toBe('빼기');
+    expect(removalLabel(['nt_1'], 'ko')).toBe('삭제');
   });
 
   it('여럿이면 개수를 앞세운다', () => {
-    expect(removalLabel(['ch_1', 'bl_1', 'cn_1'])).toBe('3개 빼기');
-    expect(removalLabel(['nt_1', 'ar_1'])).toBe('2개 삭제');
+    expect(removalLabel(['ch_1', 'bl_1', 'cn_1'], 'ko')).toBe('3개 빼기');
+    expect(removalLabel(['nt_1', 'ar_1'], 'ko')).toBe('2개 삭제');
   });
 
   // 고무줄로 칩과 메모를 함께 잡는 일이 실제로 생긴다 — 한쪽 말로 뭉뚱그리면 둘 중 하나가
   // 거짓말이 된다(트레이를 다시 볼 이유가 사라지거나, 사라진 줄 모르거나).
   it('섞였으면 **양쪽을 다 적는다**', () => {
-    expect(removalLabel(['ch_1', 'ch_2', 'nt_1'])).toBe('2개 빼기 · 1개 삭제');
+    expect(removalLabel(['ch_1', 'ch_2', 'nt_1'], 'ko')).toBe('2개 빼기 · 1개 삭제');
   });
 });
 
@@ -115,6 +115,7 @@ describe('개체 메뉴 — 고른 것 전부에 걸린다', () => {
         onDuplicate={noop}
         onEdit={noop}
       />,
+      { wrapper: SettingsProvider },
     );
   }
 
