@@ -51,7 +51,9 @@ describe('① 설정 화면 스와치는 hex 가 아니라 한국어 이름을 �
   it('네 스와치의 접근성 이름이 전부 "팀 색상: <한국어>" 다', () => {
     render(<SettingsScreen />, { wrapper });
     for (const c of TEAM_COLOR_CHOICES) {
-      const name = TEAM_COLOR_NAMES[c];
+      // i18n C3 — TEAM_COLOR_NAMES 에 로케일 차원이 붙었다. 테스트 환경은 'ko' 로 고정돼
+      // 있으므로(test/setup.ts) 렌더된 화면과 짝을 맞추려면 여기도 .ko 로 읽는다.
+      const name = TEAM_COLOR_NAMES.ko[c];
       // 같은 이름의 라디오가 우리 팀/상대 팀 두 벌 있다 — 둘 다 있어야 한다.
       const found = screen.getAllByRole('radio', { name: `팀 색상: ${name}` });
       expect(found.length, `${c}(${name}) 스와치를 못 찾았다`).toBeGreaterThanOrEqual(2);
@@ -80,8 +82,10 @@ describe('② 소스 계약 — 이름표는 core/colors.ts 한 곳에서만 온
   });
 
   it('★ 이름 조회에 `?? c` 폴백이 없다 — 폴백이 곧 "빠져도 조용히 hex" 다', () => {
+    // i18n C3 — [locale] 인덱싱이 한 겹 더 붙었다(TEAM_COLOR_NAMES[locale][c]). 계약의 핵심은
+    // 그대로다: c 로 못 찾아도 c 자신(hex)으로 조용히 되돌아가는 `?? c` 가 없어야 한다.
     const code = codeOf(SRC);
-    expect(code).toContain('TEAM_COLOR_NAMES[c]');
-    expect(code).not.toMatch(/TEAM_COLOR_NAMES\[c\]\s*\?\?/);
+    expect(code).toContain('TEAM_COLOR_NAMES[locale][c]');
+    expect(code).not.toMatch(/TEAM_COLOR_NAMES\[locale\]\[c\]\s*\?\?/);
   });
 });

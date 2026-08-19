@@ -8,6 +8,7 @@ import { RosterSection } from './RosterSection.tsx';
 import { getDB } from '../../storage/db.ts';
 import { loadRoster, saveRoster } from '../../storage/rosterRepo.ts';
 import { addPlayer, emptyRoster } from '../../model/roster.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 beforeEach(async () => {
   const db = await getDB();
@@ -16,7 +17,7 @@ beforeEach(async () => {
 
 describe('RosterSection', () => {
   it('선수를 추가하면 저장소에 실리고, 미분류는 키 없음이다', async () => {
-    render(<RosterSection />);
+    render(<RosterSection />, { wrapper: SettingsProvider });
     await waitFor(() => expect(screen.getByText(/아직 등록한 선수가 없습니다/)).toBeInTheDocument());
     const user = userEvent.setup();
 
@@ -41,7 +42,7 @@ describe('RosterSection', () => {
 
   it('이름 수정·클래스 변경·삭제가 저장까지 간다', async () => {
     await saveRoster(addPlayer(emptyRoster(), '박선수', 'PF2'));
-    render(<RosterSection />);
+    render(<RosterSection />, { wrapper: SettingsProvider });
     await waitFor(() => expect(screen.getByLabelText('박선수 이름')).toBeInTheDocument());
     const user = userEvent.setup();
 

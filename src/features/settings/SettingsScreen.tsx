@@ -79,9 +79,9 @@ export function SettingsScreen() {
   useEffect(() => {
     if (persistFailed && !notifiedRef.current) {
       notifiedRef.current = true;
-      toast.show('설정이 이 탭에서만 유지됩니다.');
+      toast.show(t('settings.data.persistFailedToast'));
     }
-  }, [persistFailed, toast]);
+  }, [persistFailed, toast, t]);
 
   const patchZone = (key: 'sTowRearMax' | 'sSpinMin' | 'sTowFrontMin', value: number) => {
     const zones = { ...(prefs.physics.zones ?? {}), [key]: value };
@@ -97,7 +97,7 @@ export function SettingsScreen() {
     if (!file || restoring) return;
     setRestoring(true);
     try {
-      const report = await restoreBackupFromFile(file, { prefs: withPrefs ? 'replace' : 'skip', board: withBoard ? 'replace' : 'auto' });
+      const report = await restoreBackupFromFile(file, { prefs: withPrefs ? 'replace' : 'skip', board: withBoard ? 'replace' : 'auto' }, locale);
       // ★ 목록을 다시 읽는다. LibraryProvider 는 앱 최상단에서 한 번만 로드하므로(App.tsx),
       //   빼면 IDB 에는 들어왔는데 목록에는 새로고침 전까지 안 뜬다 = "복원이 안 된 것" 으로 보인다.
       await refresh();
@@ -105,9 +105,9 @@ export function SettingsScreen() {
       //   보여주고, 그 상태에서 스위치 하나만 건드려도 **방금 복원한 설정이 통째로 되돌아간다**
       //   (setPrefs 가 화면의 옛 prefs 위에 패치를 얹어 저장하기 때문).
       if (report.prefs === 'restored') setPrefs(loadPrefs());
-      toast.show(backupReportLine(report));
+      toast.show(backupReportLine(report, locale));
     } catch (e) {
-      toast.show(e instanceof Error && e.message.length > 0 ? e.message : '기기 이사 파일을 읽지 못했습니다.');
+      toast.show(e instanceof Error && e.message.length > 0 ? e.message : t('settings.data.readErrorFallback'));
     } finally {
       setRestoring(false);
       setPendingFile(null);
@@ -132,30 +132,30 @@ export function SettingsScreen() {
             />
           </Row>
         </Section>
-        <Section title="화면">
-          <Row title="테마" desc="체육관 조명에 맞춰 선택하세요">
+        <Section title={t('settings.screen.title')}>
+          <Row title={t('settings.screen.themeTitle')} desc={t('settings.screen.themeDesc')}>
             <Segmented
-              ariaLabel="테마"
+              ariaLabel={t('settings.screen.themeTitle')}
               value={prefs.theme}
               onChange={(v) => setPrefs({ theme: v })}
               options={[
-                { value: 'dark', label: '다크' },
-                { value: 'light', label: '라이트' },
+                { value: 'dark', label: t('settings.screen.themeDark') },
+                { value: 'light', label: t('settings.screen.themeLight') },
               ]}
             />
           </Row>
-          <Row title="격자 표시" desc="편집기 코트 위에 좌표 격자를 표시합니다">
-            <Toggle checked={prefs.showGrid} onChange={(v) => setPrefs({ showGrid: v })} ariaLabel="격자 표시" />
+          <Row title={t('settings.screen.gridTitle')} desc={t('settings.screen.gridDesc')}>
+            <Toggle checked={prefs.showGrid} onChange={(v) => setPrefs({ showGrid: v })} ariaLabel={t('settings.screen.gridTitle')} />
           </Row>
-          <Row title="격자 칸 라벨 표시" desc="격자 칸마다 좌표 이름을 함께 표시합니다">
-            <Toggle checked={prefs.showGridLabels} onChange={(v) => setPrefs({ showGridLabels: v })} ariaLabel="격자 칸 라벨 표시" />
+          <Row title={t('settings.screen.gridLabelsTitle')} desc={t('settings.screen.gridLabelsDesc')}>
+            <Toggle checked={prefs.showGridLabels} onChange={(v) => setPrefs({ showGridLabels: v })} ariaLabel={t('settings.screen.gridLabelsTitle')} />
           </Row>
-          <Row title="골 지역 가이드 표시" desc="최대 2인 규칙 영역을 코트에 강조">
-            <Toggle checked={prefs.showRuleZones} onChange={(v) => setPrefs({ showRuleZones: v })} ariaLabel="골 지역 가이드 표시" />
+          <Row title={t('settings.screen.ruleZonesTitle')} desc={t('settings.screen.ruleZonesDesc')}>
+            <Toggle checked={prefs.showRuleZones} onChange={(v) => setPrefs({ showRuleZones: v })} ariaLabel={t('settings.screen.ruleZonesTitle')} />
           </Row>
-          <Row title="UI 배율" desc="체육관 태블릿 등에서 화면 요소를 더 크게 봅니다" borderBottom={false}>
+          <Row title={t('settings.screen.uiScaleTitle')} desc={t('settings.screen.uiScaleDesc')} borderBottom={false}>
             <Segmented
-              ariaLabel="UI 배율"
+              ariaLabel={t('settings.screen.uiScaleTitle')}
               value={String(prefs.a11y.uiScale) as '1' | '1.15' | '1.3'}
               onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, uiScale: Number(v) as 1 | 1.15 | 1.3 } })}
               options={[
@@ -167,10 +167,10 @@ export function SettingsScreen() {
           </Row>
         </Section>
 
-        <Section title="재생">
-          <Row title="스텝 전환 속도" desc="시연 시 자동 재생 간격">
+        <Section title={t('settings.playback.title')}>
+          <Row title={t('settings.playback.speedTitle')} desc={t('settings.playback.speedDesc')}>
             <Segmented
-              ariaLabel="스텝 전환 속도"
+              ariaLabel={t('settings.playback.speedTitle')}
               value={String(prefs.playbackSpeed) as '0.5' | '1' | '2'}
               onChange={(v) => setPrefs({ playbackSpeed: Number(v) as 0.5 | 1 | 2 })}
               options={[
@@ -180,21 +180,21 @@ export function SettingsScreen() {
               ]}
             />
           </Row>
-          <Row title="마지막 스텝에서 반복" desc="끝나면 처음 스텝으로 되돌아갑니다" borderBottom={false}>
-            <Toggle checked={prefs.loop} onChange={(v) => setPrefs({ loop: v })} ariaLabel="마지막 스텝에서 반복" />
+          <Row title={t('settings.playback.loopTitle')} desc={t('settings.playback.loopDesc')} borderBottom={false}>
+            <Toggle checked={prefs.loop} onChange={(v) => setPrefs({ loop: v })} ariaLabel={t('settings.playback.loopTitle')} />
           </Row>
         </Section>
 
-        <Section title="팀">
-          <Row title="우리 팀 색상" desc="코트 위 칩에 적용됩니다">
-            <TeamColorSwatches ariaLabel="우리 팀 색상" value={prefs.teams.home.color} otherValue={prefs.teams.away.color} onChange={(c) => setPrefs({ teams: { ...prefs.teams, home: { ...prefs.teams.home, color: c } } })} />
+        <Section title={t('settings.team.title')}>
+          <Row title={t('settings.team.homeColorTitle')} desc={t('settings.team.homeColorDesc')}>
+            <TeamColorSwatches ariaLabel={t('settings.team.homeColorTitle')} value={prefs.teams.home.color} otherValue={prefs.teams.away.color} onChange={(c) => setPrefs({ teams: { ...prefs.teams, home: { ...prefs.teams.home, color: c } } })} />
           </Row>
-          <Row title="상대 팀 색상" desc="상대 팀 칩에 적용됩니다">
-            <TeamColorSwatches ariaLabel="상대 팀 색상" value={prefs.teams.away.color} otherValue={prefs.teams.home.color} onChange={(c) => setPrefs({ teams: { ...prefs.teams, away: { ...prefs.teams.away, color: c } } })} />
+          <Row title={t('settings.team.awayColorTitle')} desc={t('settings.team.awayColorDesc')}>
+            <TeamColorSwatches ariaLabel={t('settings.team.awayColorTitle')} value={prefs.teams.away.color} otherValue={prefs.teams.home.color} onChange={(c) => setPrefs({ teams: { ...prefs.teams, away: { ...prefs.teams.away, color: c } } })} />
           </Row>
-          <Row title="기본 포메이션" desc="새 드릴 생성 시 초기 배치">
+          <Row title={t('settings.team.formationTitle')} desc={t('settings.team.formationDesc')}>
             <Segmented
-              ariaLabel="기본 포메이션"
+              ariaLabel={t('settings.team.formationTitle')}
               value={prefs.defaultFormation}
               onChange={(v) => setPrefs({ defaultFormation: v })}
               options={FORMATIONS.map((f) => ({ value: f, label: f }))}
@@ -210,36 +210,36 @@ export function SettingsScreen() {
               그리고 '항상 묻기'(=null)는 **아무것도 묻지 않는다** — 위 `?? 'full'` 이 조용히
               풀 코트로 접는다. 항목을 없앨지는 기현님 결정이라(§7.2 7차 표) 문구만 사실로
               돌린다. 되돌리면 settingsDescTruth.test.tsx 가 빨개진다. */}
-          <Row title="기본 코트 모드" desc="[보드] 전술판이 뜰 때의 코트입니다(만들어 둔 드릴은 각자 자기 코트를 기억합니다). '항상 묻기' 는 풀 코트로 엽니다" borderBottom={false}>
+          <Row title={t('settings.team.courtModeTitle')} desc={t('settings.team.courtModeDesc')} borderBottom={false}>
             <Segmented
-              ariaLabel="기본 코트 모드"
+              ariaLabel={t('settings.team.courtModeTitle')}
               value={prefs.defaultCourtMode ?? 'ask'}
               onChange={(v) => setPrefs({ defaultCourtMode: v === 'ask' ? null : (v as CourtMode) })}
               options={[
-                { value: 'ask', label: '항상 묻기' },
+                { value: 'ask', label: t('settings.team.courtModeAsk') },
                 ...COURT_MODES.map((m) => ({ value: m, label: COURT_MODE_SHORT_LABELS[locale][m] })),
               ]}
             />
           </Row>
         </Section>
 
-        <Section title="선수 명단" desc="이름과 PF 클래스(PF1 중증·PF2 경증)를 담는 우리 팀 명단입니다. 세션 편집 화면의 참가자 체크가 이 명단을 읽습니다.">
+        <Section title={t('settings.roster.sectionTitle')} desc={t('settings.roster.sectionDesc')}>
           <RosterSection />
         </Section>
 
-        <Section title="시연">
-          <Row title="화면 꺼짐 방지" desc="시연 중 기기 화면이 자동으로 잠기지 않게 합니다">
+        <Section title={t('settings.present.title')}>
+          <Row title={t('settings.present.wakeLockTitle')} desc={t('settings.present.wakeLockDesc')}>
             <Toggle
               checked={prefs.present.wakeLock}
               onChange={(v) => setPrefs({ present: { ...prefs.present, wakeLock: v } })}
-              ariaLabel="화면 꺼짐 방지"
+              ariaLabel={t('settings.present.wakeLockTitle')}
             />
           </Row>
-          <Row title="자동 전체화면" desc="시연 화면으로 이동하면 자동으로 전체화면을 시도합니다" borderBottom={false}>
+          <Row title={t('settings.present.autoFullscreenTitle')} desc={t('settings.present.autoFullscreenDesc')} borderBottom={false}>
             <Toggle
               checked={prefs.present.autoFullscreen}
               onChange={(v) => setPrefs({ present: { ...prefs.present, autoFullscreen: v } })}
-              ariaLabel="자동 전체화면"
+              ariaLabel={t('settings.present.autoFullscreenTitle')}
             />
           </Row>
         </Section>
@@ -249,56 +249,56 @@ export function SettingsScreen() {
             눈(고대비·모션) → 키보드(단축키)". 각 설명문은 코드를 따라가 실측한 사실만 말한다 —
             a11yAlignment.test.tsx 가 문장마다 실제 동작(INTERACT 상수·applyTwoZone·cueSpec·
             stepTransitionMs·contrast.css)을 짝지어 못박는다. */}
-        <Section title="접근성">
+        <Section title={t('settings.a11y.title')}>
           {/* 44→56 을 리터럴로 적지 않는다 — INTERACT 상수가 바뀌면 설명문이 거짓이 되는 자리라
               숫자를 상수에서 직접 읽는다(tokens.css --hit 44/56px 와의 일치는 계약 테스트가 잰다). */}
           <Row
-            title="큰 터치 타깃"
-            desc={`버튼·트레이 칩·코트 위 집기 반경이 ${INTERACT.hitTargetCssPx} → ${INTERACT.hitTargetLargeCssPx}px 로 커집니다(글자 크기는 UI 배율이 담당)`}
+            title={t('settings.a11y.largeTargetsTitle')}
+            desc={t('settings.a11y.largeTargetsDesc', { small: INTERACT.hitTargetCssPx, large: INTERACT.hitTargetLargeCssPx })}
           >
-            <Toggle checked={prefs.a11y.largeTargets} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, largeTargets: v } })} ariaLabel="큰 터치 타깃" />
+            <Toggle checked={prefs.a11y.largeTargets} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, largeTargets: v } })} ariaLabel={t('settings.a11y.largeTargetsTitle')} />
           </Row>
           {/* §9 결정 ④ · 5.5 — 기본 OFF. 자동(배율) 게이트를 쓰지 않는 이유는
               physics/hitTest.ts 의 handlesVisible 머리말에 실측 배율 분포와 함께 적어 뒀다.
               설명문의 두 문장 = applyTwoZone(차체→translate) + zoneHandle 은 안 덮음, 그대로다. */}
-          <Row title="2존 모드" desc="차체 아무 곳을 잡아도 통째로 움직입니다. 제자리 회전·견인은 차체 밖 앞뒤 가이드로만 합니다">
-            <Toggle checked={prefs.a11y.twoZone} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, twoZone: v } })} ariaLabel="2존 모드" />
+          <Row title={t('settings.a11y.twoZoneTitle')} desc={t('settings.a11y.twoZoneDesc')}>
+            <Toggle checked={prefs.a11y.twoZone} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, twoZone: v } })} ariaLabel={t('settings.a11y.twoZoneTitle')} />
           </Row>
           {/* 세 사건(놓기·막힘·트레이 복귀)은 cueSpec 의 CueKind 전부와 1:1 이다 — 사건을
               더하거나 빼면 이 문장도 같은 커밋에서 고쳐라(a11yAlignment.test.tsx 가 잰다). */}
-          <Row title="놓임 소리·진동" desc="개체를 놓거나 막히거나 트레이로 되돌릴 때 짧은 소리와 진동으로 알립니다">
-            <Toggle checked={prefs.a11y.sound} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, sound: v } })} ariaLabel="놓임 소리·진동" />
+          <Row title={t('settings.a11y.soundTitle')} desc={t('settings.a11y.soundDesc')}>
+            <Toggle checked={prefs.a11y.sound} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, sound: v } })} ariaLabel={t('settings.a11y.soundTitle')} />
           </Row>
           {/* 5.6 고대비는 **스위치가 없다** — prefers-contrast/forced-colors 미디어쿼리
               (styles/contrast.css, 소유는 6.5·6.6)가 기기 설정을 자동으로 따르기 때문이다.
               앱 안에 별도 토글을 만들면 시스템 설정과 싸우는 두 번째 스위치가 된다. 그래도
               행이 있는 이유: 저시력 사용자가 "이 앱은 고대비를 아느냐" 를 설정 화면에서 찾기
               때문이다 — 없으면 지원하면서도 지원 안 하는 앱으로 보인다. */}
-          <Row title="고대비·강제 색상" desc="스위치가 따로 없습니다 — 기기의 고대비·강제 색상 설정을 켜면 앱이 자동으로 따릅니다">
-            <span style={{ flex: 'none', fontSize: '0.75rem', fontWeight: 600, color: 'var(--faint-text)' }}>시스템 따름</span>
+          <Row title={t('settings.a11y.contrastTitle')} desc={t('settings.a11y.contrastDesc')}>
+            <span style={{ flex: 'none', fontSize: '0.75rem', fontWeight: 600, color: 'var(--faint-text)' }}>{t('settings.a11y.systemFollow')}</span>
           </Row>
           {/* '줄입니다' 가 아니라 '끕니다' — 실효값이 켜지면 stepTransitionMs 가 0 을 돌려줘
               (store/editor/tween.ts) 트윈·페이드가 생기지도 않는다. 옛 문구는 절반만 사실이었다. */}
-          <Row title="모션 줄이기" desc="전환 애니메이션을 끕니다 — 스텝을 넘기면 개체가 즉시 다음 위치로 갑니다">
+          <Row title={t('settings.a11y.reduceMotionTitle')} desc={t('settings.a11y.reduceMotionDesc')}>
             <Segmented
-              ariaLabel="모션 줄이기"
+              ariaLabel={t('settings.a11y.reduceMotionTitle')}
               value={prefs.a11y.reduceMotion}
               onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, reduceMotion: v } })}
               options={[
-                { value: 'system', label: '시스템 따름' },
-                { value: 'always', label: '항상 켬' },
+                { value: 'system', label: t('settings.a11y.systemFollow') },
+                { value: 'always', label: t('settings.a11y.reduceMotionAlways') },
               ]}
             />
           </Row>
-          <Row title="편집기 단축키" desc="문자 단일 키 단축키의 발화 오작동을 막습니다(음성 인식 등)" borderBottom={false}>
+          <Row title={t('settings.a11y.shortcutsTitle')} desc={t('settings.a11y.shortcutsDesc')} borderBottom={false}>
             <Segmented
-              ariaLabel="편집기 단축키"
+              ariaLabel={t('settings.a11y.shortcutsTitle')}
               value={prefs.a11y.singleKeyShortcuts}
               onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, singleKeyShortcuts: v } })}
               options={[
-                { value: 'on', label: '단일 키' },
-                { value: 'modifier', label: '수식키 필요' },
-                { value: 'off', label: '끔' },
+                { value: 'on', label: t('settings.a11y.shortcutsSingle') },
+                { value: 'modifier', label: t('settings.a11y.shortcutsModifier') },
+                { value: 'off', label: t('settings.a11y.shortcutsOff') },
               ]}
             />
           </Row>
@@ -308,16 +308,16 @@ export function SettingsScreen() {
             ⚠️ 저장값·클램프는 이 서랍과 무관하다: patchZone/patchSpeed 는 prefs.physics 에
             쓰기만 하고, 읽는 쪽(resolvePhysics, prefs.ts)은 화면이 닫혀 있든 아예 안 열렸든
             같은 값을 받는다 — 6.1 완료 판정이 "prefs.ts 는 한 줄도 안 바뀐다" 인 이유다. */}
-        <Section title="물리" desc="휠체어 드래그 4존 경계와 속도 상한을 조정합니다. 값을 조정하면 이웃한 경계가 순서를 지키도록 자동으로 밀립니다. 서랍이 닫혀 있어도 조정해 둔 값은 계속 적용됩니다.">
+        <Section title={t('settings.physics.title')} desc={t('settings.physics.desc')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '13px 0', borderBottom: physicsOpen ? '1px solid var(--border)' : undefined, flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 220px', minWidth: 180 }}>
-              <div style={{ fontSize: '0.8125rem', fontWeight: 650 }}>물리 세부 조정</div>
-              <div style={{ fontSize: '0.71875rem', color: 'var(--faint-text)', marginTop: 2 }}>대부분의 팀은 기본값이면 충분합니다</div>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 650 }}>{t('settings.physics.advancedTitle')}</div>
+              <div style={{ fontSize: '0.71875rem', color: 'var(--faint-text)', marginTop: 2 }}>{t('settings.physics.advancedDesc')}</div>
             </div>
             {/* 이름은 '세부 조정' 으로 고정하고 상태는 aria-expanded 로만 말한다(disclosure 패턴) —
                 이름이 '펼치기/접기' 로 바뀌면 스크린리더 사용자가 같은 버튼을 두 개로 배운다. */}
             <Button variant="secondary" aria-expanded={physicsOpen} aria-controls={physicsDrawerId} onClick={() => setPhysicsOpen((o) => !o)}>
-              세부 조정
+              {t('settings.physics.expandButton')}
               <span aria-hidden style={{ fontSize: '0.625rem' }}>
                 {physicsOpen ? '▲' : '▼'}
               </span>
@@ -326,9 +326,9 @@ export function SettingsScreen() {
           {physicsOpen && (
             <div id={physicsDrawerId} style={{ display: 'flex', flexDirection: 'column' }}>
               <SliderRow
-                label="후방 견인 경계"
-                desc="이 지점 이하를 잡으면 후방 견인 존. 0 이면 차체 밖 가이드로만 견인한다"
-                ariaLabel="후방 견인 경계"
+                label={t('settings.physics.towRearTitle')}
+                desc={t('settings.physics.towRearDesc')}
+                ariaLabel={t('settings.physics.towRearTitle')}
                 value={physics.zones.sTowRearMax}
                 min={0}
                 max={0.18}
@@ -337,9 +337,9 @@ export function SettingsScreen() {
                 onChange={(v) => patchZone('sTowRearMax', v)}
               />
               <SliderRow
-                label="제자리 회전 시작"
-                desc="이 지점부터 제자리 회전 존"
-                ariaLabel="제자리 회전 시작"
+                label={t('settings.physics.spinTitle')}
+                desc={t('settings.physics.spinDesc')}
+                ariaLabel={t('settings.physics.spinTitle')}
                 value={physics.zones.sSpinMin}
                 min={0.22}
                 max={0.45}
@@ -348,9 +348,9 @@ export function SettingsScreen() {
                 onChange={(v) => patchZone('sSpinMin', v)}
               />
               <SliderRow
-                label="전방 견인 시작"
-                desc="이 지점부터 전방 견인 존. 1 이면 차체 밖 가이드로만 견인한다"
-                ariaLabel="전방 견인 시작"
+                label={t('settings.physics.towFrontTitle')}
+                desc={t('settings.physics.towFrontDesc')}
+                ariaLabel={t('settings.physics.towFrontTitle')}
                 value={physics.zones.sTowFrontMin}
                 min={0.6}
                 max={1}
@@ -359,9 +359,9 @@ export function SettingsScreen() {
                 onChange={(v) => patchZone('sTowFrontMin', v)}
               />
               <SliderRow
-                label="전후진 속도 상한"
-                desc="직선 이동·견인의 최고 속도"
-                ariaLabel="전후진 속도 상한"
+                label={t('settings.physics.linearSpeedTitle')}
+                desc={t('settings.physics.linearSpeedDesc')}
+                ariaLabel={t('settings.physics.linearSpeedTitle')}
                 value={physics.linearKmh}
                 min={4}
                 max={16}
@@ -370,9 +370,9 @@ export function SettingsScreen() {
                 onChange={(v) => patchSpeed('linearKmh', v)}
               />
               <SliderRow
-                label="회전(앞범퍼) 속도 상한"
-                desc="제자리 회전·견인 시 각속도의 최고 속도"
-                ariaLabel="회전 속도 상한"
+                label={t('settings.physics.bumperSpeedTitle')}
+                desc={t('settings.physics.bumperSpeedDesc')}
+                ariaLabel={t('settings.physics.bumperSpeedAria')}
                 value={physics.bumperKmh}
                 min={10}
                 max={bumperKmhMax(physics.linearKmh)}
@@ -381,20 +381,20 @@ export function SettingsScreen() {
                 onChange={(v) => patchSpeed('bumperKmh', v)}
               />
               <SliderRow
-                label="편집 속도 배수"
-                desc="드래그와 놓은 뒤 이어가기, 둘 다의 속도 상한에 곱해집니다"
-                ariaLabel="편집 속도 배수"
+                label={t('settings.physics.editorSpeedTitle')}
+                desc={t('settings.physics.editorSpeedDesc')}
+                ariaLabel={t('settings.physics.editorSpeedTitle')}
                 value={physics.editorSpeedMultiplier}
                 min={1}
                 max={4}
                 step={0.5}
-                format={(v) => `${v.toFixed(1)}배`}
+                format={(v) => t('settings.physics.multiplierFormat', { v: v.toFixed(1) })}
                 onChange={(v) => patchSpeed('editorSpeedMultiplier', v)}
                 borderBottom={false}
               />
               <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, marginTop: 4, borderTop: '1px solid var(--border)' }}>
                 <Button variant="secondary" onClick={restorePhysicsDefaults}>
-                  기본값으로 복원
+                  {t('settings.physics.restoreDefaults')}
                 </Button>
               </div>
             </div>
@@ -405,8 +405,8 @@ export function SettingsScreen() {
             4.7). 옛 '드릴 내보내기' 는 목록 화면에도 같은 버튼이 있던 중복이었고, 담기는 것이
             드릴뿐이라 세션·설정·전술판이 어떤 파일에도 안 들어가는 **거짓 백업**이었다.
             남은 것은 그 파일을 다시 여는 길이다. */}
-        <Section title="데이터" desc="기기 이사 파일은 [보드] 화면 아래 [내보내기] → [기기 이사 파일]에서 만듭니다.">
-          <Row title="기기 이사 파일 읽기" desc="다른 기기에서 만든 SPIN 백업(.spin.json)을 이 기기로 가져옵니다" borderBottom={false}>
+        <Section title={t('settings.data.title')} desc={t('settings.data.desc')}>
+          <Row title={t('settings.data.importTitle')} desc={t('settings.data.importDesc')} borderBottom={false}>
             <input
               ref={fileInputRef}
               type="file"
@@ -419,12 +419,13 @@ export function SettingsScreen() {
               }}
             />
             <Button ref={restoreBtnRef} variant="secondary" onClick={() => fileInputRef.current?.click()}>
-              파일 고르기
+              {t('settings.data.chooseFile')}
             </Button>
           </Row>
         </Section>
 
         <div style={{ textAlign: 'center', fontSize: '0.71875rem', color: 'var(--faint-text)', paddingTop: 4, lineHeight: 1.6 }}>
+          {/* 이 줄은 번역하지 않는다 — "SPIN" 이라는 두문자어 자체를 풀어 쓴 영문 태그라인이다. */}
           SPIN · Strategy Planner for INclusive football
         </div>
       </div>
@@ -437,13 +438,13 @@ export function SettingsScreen() {
           setWithBoard(false);
         }}
         titleId={restoreDialogId}
-        title="이 파일을 읽을까요?"
+        title={t('settings.restoreModal.title')}
         returnFocusRef={restoreBtnRef}
       >
         <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.6 }}>
           <strong>{pendingFile?.name}</strong>
           <br />
-          드릴과 세션은 <strong>사본으로 추가</strong>됩니다 — 이 기기에 있는 것은 지워지지 않습니다.
+          {t('settings.restoreModal.copyNotice')}
         </p>
         {/* ⚠️ 기본값은 **꺼짐**이다(storage/transfer.ts RestoreBackupOptions 의 근거). 백업 파일은
             드릴을 얻으려고 남에게서 받는 경우가 기기 이사만큼 흔한데, 그때 설정을 통째로 덮으면
@@ -457,10 +458,8 @@ export function SettingsScreen() {
             style={{ marginTop: 3, width: 18, height: 18, flex: 'none' }}
           />
           <span style={{ fontSize: '0.78125rem', lineHeight: 1.6 }}>
-            설정도 함께 복원
-            <span style={{ display: 'block', color: 'var(--faint-text)', fontSize: '0.71875rem' }}>
-              끄면 이 기기의 테마·UI 배율·큰 터치 타깃 같은 설정이 그대로 유지됩니다. 기기를 옮기는 중이라면 켜세요.
-            </span>
+            {t('settings.restoreModal.withPrefsLabel')}
+            <span style={{ display: 'block', color: 'var(--faint-text)', fontSize: '0.71875rem' }}>{t('settings.restoreModal.withPrefsHint')}</span>
           </span>
         </label>
         {/* ⚠️ 5.0 ②b — 기본값 **꺼짐**. 켜면 편집 중인 자유 전술판까지 백업 속 판으로 덮는다 —
@@ -474,10 +473,8 @@ export function SettingsScreen() {
             style={{ marginTop: 3, width: 18, height: 18, flex: 'none' }}
           />
           <span style={{ fontSize: '0.78125rem', lineHeight: 1.6 }}>
-            전술판 교체
-            <span style={{ display: 'block', color: 'var(--faint-text)', fontSize: '0.71875rem' }}>
-              켜면 이 기기의 자유 전술판을 파일 속 판으로 덮어씁니다. 끄면 편집 중인 판은 그대로 두고, 손대지 않은 판일 때만 복원합니다.
-            </span>
+            {t('settings.restoreModal.withBoardLabel')}
+            <span style={{ display: 'block', color: 'var(--faint-text)', fontSize: '0.71875rem' }}>{t('settings.restoreModal.withBoardHint')}</span>
           </span>
         </label>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
@@ -489,10 +486,10 @@ export function SettingsScreen() {
               setWithBoard(false);
             }}
           >
-            취소
+            {t('settings.restoreModal.cancel')}
           </Button>
           <Button variant="primary" aria-disabled={restoring} onClick={() => void runRestore()}>
-            {restoring ? '읽는 중…' : '읽기'}
+            {restoring ? t('settings.restoreModal.reading') : t('settings.restoreModal.read')}
           </Button>
         </div>
       </Modal>
@@ -581,6 +578,8 @@ interface TeamColorSwatchesProps {
 function TeamColorSwatches({ ariaLabel, value, otherValue, onChange }: TeamColorSwatchesProps) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
   const toast = useToast();
+  const t = useT();
+  const locale = useLocale();
   const n = TEAM_COLOR_CHOICES.length;
 
   const moveFocus = (from: number, delta: number) => {
@@ -594,7 +593,7 @@ function TeamColorSwatches({ ariaLabel, value, otherValue, onChange }: TeamColor
 
   const pick = (c: string) => {
     if (c === otherValue) {
-      toast.show('상대 팀과 같은 색은 선택할 수 없습니다.');
+      toast.show(t('settings.team.colorConflictToast'));
       return;
     }
     onChange(c);
@@ -615,7 +614,7 @@ function TeamColorSwatches({ ariaLabel, value, otherValue, onChange }: TeamColor
             role="radio"
             aria-checked={active}
             aria-disabled={disabled || undefined}
-            aria-label={`팀 색상: ${TEAM_COLOR_NAMES[c]}`}
+            aria-label={t('settings.team.colorSwatchAriaLabel', { name: TEAM_COLOR_NAMES[locale][c] })}
             tabIndex={active ? 0 : -1}
             onClick={() => pick(c)}
             onKeyDown={(e) => {

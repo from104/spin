@@ -4,28 +4,31 @@
 // ⚠️ 이 파일의 규율: *"문자열이 존재한다"* 로 끝내지 않는다. 그 방식은 이 저장소에서 가장
 // 헛통과하기 쉬운 부류다 — 문구가 거짓이어도 문자열은 멀쩡히 존재하기 때문이다. 그래서 각
 // it 은 **문구가 주장하는 동작을 코드에서 확인**하고, 옛 거짓 문구가 돌아오면 빨개지게 둔다.
+//
+// i18n C3 — 문구가 SettingsScreen.tsx 의 JSX 리터럴에서 i18n/ko.ts 사전으로 옮겨갔다. 대조는
+// 이제 `desc="..."` 정규식이 아니라 `ko` 사전 값을 직접 본다 — SettingsScreen.tsx 자체는
+// `t('key')` 호출만 남아 문구 텍스트가 더 이상 그 파일에 없다.
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { makeDefaultPrefs } from '../../storage/prefs.ts';
+import { ko } from '../../i18n/ko.ts';
 
-const SETTINGS = readFileSync('src/features/settings/SettingsScreen.tsx', 'utf-8');
+const KO_TEXT = Object.values(ko).join('\n');
 const BOARD = readFileSync('src/features/board/BoardScreen.tsx', 'utf-8');
 
 describe("C2 — '기본 코트 모드' 문구가 실제 소비처와 맞다", () => {
-  it('옛 거짓 문구(코트 선택 화면 / 새 드릴)가 화면에서 사라졌다', () => {
+  it('옛 거짓 문구(코트 선택 화면 / 새 드릴)가 사전에서 사라졌다', () => {
     // ① CourtPicker 는 은퇴했으므로 '코트 선택 화면' 은 없는 화면을 가리킨다.
-    // ⚠️ 파일 전체가 아니라 **`desc=` prop** 만 본다 — 위 정정 주석이 옛 문구를 인용하고 있어
-    //    파일 전체로 재면 그 주석 때문에 영원히 빨갛다(주석은 기록이라 지우면 안 된다).
-    const descs = [...SETTINGS.matchAll(/desc="([^"]*)"/g)].map((m) => m[1]!);
-    expect(descs.length).toBeGreaterThan(10); // 대조군: 정규식이 실제로 문구를 걷어 온다
-    expect(descs.some((d) => d.includes('코트 선택 화면'))).toBe(false);
-    expect(descs.some((d) => d.includes('선택은 매번 확인'))).toBe(false);
+    // 대조군: 사전 자체가 비어 있지 않다(사전이 깨지면 아래 없음 단언들이 전부 무의미해진다).
+    expect(Object.keys(ko).length).toBeGreaterThan(10);
+    expect(KO_TEXT.includes('코트 선택 화면')).toBe(false);
+    expect(KO_TEXT.includes('선택은 매번 확인')).toBe(false);
   });
 
   it('새 문구가 주장하는 소비처가 실재한다 — 전술판이 이 값으로 코트를 정한다', () => {
     // 문구: "[보드] 전술판이 뜰 때의 코트입니다".
-    expect(SETTINGS).toContain('[보드] 전술판이 뜰 때의 코트입니다');
+    expect(ko['settings.team.courtModeDesc']).toContain('[보드] 전술판이 뜰 때의 코트입니다');
     expect(BOARD).toContain("prefs.defaultCourtMode ?? 'full'");
   });
 
@@ -33,7 +36,7 @@ describe("C2 — '기본 코트 모드' 문구가 실제 소비처와 맞다", (
     // 기본값이 실제로 null 이고(= 화면에서 '항상 묻기'), BoardScreen 의 `?? 'full'` 이 그것을
     // 풀 코트로 접는다. 두 사실이 모두 참일 때만 새 문구가 참이다.
     expect(makeDefaultPrefs().defaultCourtMode).toBeNull();
-    expect(SETTINGS).toContain("'항상 묻기' 는 풀 코트로 엽니다");
+    expect(ko['settings.team.courtModeDesc']).toContain("'항상 묻기' 는 풀 코트로 엽니다");
   });
 
   it('대조군 — 이 검사에 이빨이 있다: 소비처 문자열을 틀리게 적으면 잡힌다', () => {
@@ -45,7 +48,7 @@ describe("C1 — '마지막 스텝에서 반복' 문구가 이제 사실이다",
   it('문구는 그대로 두되, 그 주장이 참이 되도록 배선이 생겼다', () => {
     // 문구: "끝나면 처음 스텝으로 되돌아갑니다". 2026-08-13 이전에는 거짓이었다 —
     // prefs.loop 를 읽는 프로덕션 소비처가 이 토글 자기 자신 1곳뿐이었다.
-    expect(SETTINGS).toContain('끝나면 처음 스텝으로 되돌아갑니다');
+    expect(ko['settings.playback.loopDesc']).toBe('끝나면 처음 스텝으로 되돌아갑니다');
     // 실제 배선의 단언은 store/playback/playbackLoopPref.test.tsx 가 전담한다(세 화면 열거 +
     // 시연 화면 실렌더). 여기서는 **문구와 그 파일이 짝이라는 사실**만 남긴다.
     const wiring = readFileSync('src/store/playback/playbackLoopPref.test.tsx', 'utf-8');
@@ -63,6 +66,6 @@ describe("C3 — '팀 색상' 문구가 스냅샷 의미를 숨기지 않는가 
     expect(BOARD).toContain('teams: prefs.teams');
     expect(BOARD).toContain('loadBoard()');
     // 문구는 아직 옛 상태다(고치는 날 이 줄이 빨개져 이 주석을 다시 읽게 한다).
-    expect(SETTINGS).toContain('코트 위 칩에 적용됩니다');
+    expect(ko['settings.team.homeColorDesc']).toBe('코트 위 칩에 적용됩니다');
   });
 });

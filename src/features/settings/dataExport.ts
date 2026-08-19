@@ -17,10 +17,12 @@ import { parseSpinFile, restoreBackup } from '../../storage/transfer.ts';
 import type { BackupRestoreReport, RestoreBackupOptions } from '../../storage/transfer.ts';
 import { StorageError } from '../../storage/errors.ts';
 import { readTextFile } from '../../storage/files.ts';
+import type { Locale } from '../../i18n/locale.ts';
+import { translate } from '../../i18n/useT.ts';
 
 /** 파일 하나 → 복원 보고. 파싱 실패·kind 불일치는 StorageError 로 그대로 던진다(화면이 문구를
  *  토스트로 옮긴다) — 여기서 삼키면 "아무 일도 안 일어난 것처럼" 보인다. */
-export async function restoreBackupFromFile(file: File, opts: RestoreBackupOptions = {}): Promise<BackupRestoreReport> {
+export async function restoreBackupFromFile(file: File, opts: RestoreBackupOptions = {}, locale: Locale = 'ko'): Promise<BackupRestoreReport> {
   const parsed = parseSpinFile(await readTextFile(file));
   // ⚠️ library 를 restoreBackup 의 일반 거절('이 버전에서 지원하지 않는 파일 종류입니다
   //    (library)')로 흘리지 마라(5.0 ③, 2026-08-13). 어제(4.7)까지 [전체 내보내기]가 만들던
@@ -30,7 +32,7 @@ export async function restoreBackupFromFile(file: File, opts: RestoreBackupOptio
   //    (STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND)는 건드리지 않고 **이 화면에서만** kind 를
   //    특별대우한다. 진짜 모르는 kind(drillSet 등)는 그대로 restoreBackup 의 일반 문구를 받는다.
   if (parsed.spin === 'library') {
-    throw new StorageError('E_UNSUPPORTED_KIND', '드릴 모음 파일은 [드릴 목록]의 [가져오기]에서 엽니다.');
+    throw new StorageError('E_UNSUPPORTED_KIND', translate(locale, 'settings.data.libraryKindError'));
   }
   return restoreBackup(parsed, opts);
 }
@@ -41,11 +43,12 @@ export async function restoreBackupFromFile(file: File, opts: RestoreBackupOptio
  *  ⚠️ 설정 줄을 **항상** 말한다. `RestoreBackupOptions.prefs` 기본값이 'skip' 이라서, 체크박스를
  *  안 켠 사람은 테마·큰 표적·UI 배율이 그대로 남는다 — 그것이 의도이고(남의 백업에서 드릴만
  *  받는 경우가 흔하다), 말하지 않으면 "설정까지 복원됐겠지" 라는 반대 오해가 남는다. */
-export function backupReportLine(r: BackupRestoreReport): string {
+export function backupReportLine(r: BackupRestoreReport, locale: Locale = 'ko'): string {
+  const t = (key: Parameters<typeof translate>[1], params?: Record<string, string | number>) => translate(locale, key, params);
   const broken = r.drillsInFile - (r.drills.written.length + r.drills.skipped.length + r.drills.failed.length);
   const failed = broken + r.drills.failed.length;
-  const sessions = `세션 ${r.sessionsWritten.length}개 가져옴 · ${r.sessionsSkipped.length + r.sessionsFailed}개 건너뜀`;
-  const prefs = r.prefs === 'restored' ? '설정 복원함' : r.prefs === 'unreadable' ? '설정은 읽을 수 없어 그대로 둠' : '설정은 그대로 둠';
+  const sessions = t('data.report.sessions', { written: r.sessionsWritten.length, skipped: r.sessionsSkipped.length + r.sessionsFailed });
+  const prefs = r.prefs === 'restored' ? t('data.report.prefsRestored') : r.prefs === 'unreadable' ? t('data.report.prefsUnreadable') : t('data.report.prefsKept');
   // 5.0 ②a(2026-08-13) — 옛 'skipped' 하나가 "파일에 판이 없다"(정상) 와 "로컬 판이 편집 중이라
   // 덮지 않았다" 를 뭉갰고, 토스트는 '전술판은 그대로 둠' 이라고만 해 **이유를 안 말했다.**
   // 보고(BoardRestoreResult)를 갈랐으므로 이제 둘을 다르게 말한다. 편집 중 쪽은 문구가
@@ -53,25 +56,25 @@ export function backupReportLine(r: BackupRestoreReport): string {
   // 그 이름을 여기서 그대로 부른다(a509d76 의 "버튼 이름을 그대로 부른다" 규율).
   const board =
     r.board === 'restored'
-      ? ' · 전술판 복원함'
+      ? t('data.report.boardRestored')
       : r.board === 'unreadable'
-        ? ' · 전술판은 읽을 수 없어 그대로 둠'
+        ? t('data.report.boardUnreadable')
         : r.board === 'none-in-file'
-          ? ' · 전술판은 파일에 없음'
+          ? t('data.report.boardNoneInFile')
           : r.board === 'kept-local-edited'
-            ? ' · 전술판은 이 기기에서 편집 중이라 그대로 둠 — 함께 복원하려면 [전술판 교체]를 켜고 다시 읽으세요'
-            : ' · 전술판은 그대로 둠';
+            ? t('data.report.boardKeptLocalEdited')
+            : t('data.report.boardKept');
   // 로스터(C3) — none-in-file(구 백업·빈 명단)은 말하지 않는다: 정상이고 할 일이 없는데
   // 줄이 길어지기만 한다. 그 밖의 상태는 board 와 같은 규율로 전부 말한다.
   const roster =
     r.roster === 'restored'
-      ? ' · 선수 명단 복원함'
+      ? t('data.report.rosterRestored')
       : r.roster === 'unreadable'
-        ? ' · 선수 명단은 읽을 수 없어 그대로 둠'
+        ? t('data.report.rosterUnreadable')
         : r.roster === 'kept-local'
-          ? ' · 선수 명단은 이 기기에 이미 있어 그대로 둠'
+          ? t('data.report.rosterKeptLocal')
           : r.roster === 'skipped'
-            ? ' · 선수 명단은 그대로 둠'
+            ? t('data.report.rosterKept')
             : '';
-  return `드릴 ${r.drills.written.length}개 가져옴 · ${failed}개 실패 · ${r.drills.skipped.length}개 건너뜀 · ${sessions} · ${prefs}${board}${roster}`;
+  return `${t('data.report.drills', { written: r.drills.written.length, failed, skipped: r.drills.skipped.length })} · ${sessions} · ${prefs}${board}${roster}`;
 }

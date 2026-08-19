@@ -12,11 +12,13 @@ import { PF_CLASSES, addPlayer, removePlayer, updatePlayer, type PFClass, type R
 import { LIMITS } from '../../model/validate.ts';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
+import { useT } from '../../i18n/useT.ts';
 
 export function RosterSection() {
   const [roster, setRoster] = useState<Roster | null>(null);
   const [newName, setNewName] = useState('');
   const [newClass, setNewClass] = useState<'' | PFClass>('');
+  const t = useT();
 
   useEffect(() => {
     let cancelled = false;
@@ -28,7 +30,7 @@ export function RosterSection() {
     };
   }, []);
 
-  if (!roster) return <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>불러오는 중…</p>;
+  if (!roster) return <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('settings.roster.loading')}</p>;
 
   async function save(next: Roster): Promise<void> {
     setRoster(next); // 낙관적 반영 — 세션 편집 화면과 같은 패턴
@@ -40,16 +42,14 @@ export function RosterSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {roster.players.length === 0 ? (
-        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>
-          아직 등록한 선수가 없습니다. 명단을 만들면 세션 편집에서 참가자를 체크할 수 있습니다.
-        </p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('settings.roster.empty')}</p>
       ) : (
         <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6, padding: 0, margin: 0 }}>
           {roster.players.map((p) => (
             <li key={p.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <input
                 type="text"
-                aria-label={`${p.name} 이름`}
+                aria-label={t('settings.roster.nameAriaLabel', { name: p.name })}
                 defaultValue={p.name}
                 maxLength={LIMITS.playerNameLen}
                 onBlur={(e) => {
@@ -59,7 +59,7 @@ export function RosterSection() {
                 style={{ ...inputStyle, flex: 1 }}
               />
               <select
-                aria-label={`${p.name} 클래스`}
+                aria-label={t('settings.roster.classAriaLabel', { name: p.name })}
                 value={p.klass ?? ''}
                 onChange={(e) => {
                   const v = e.target.value as '' | PFClass;
@@ -68,7 +68,7 @@ export function RosterSection() {
                 }}
                 style={{ ...inputStyle, width: 110 }}
               >
-                <option value="">미분류</option>
+                <option value="">{t('settings.roster.unclassified')}</option>
                 {PF_CLASSES.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -77,7 +77,7 @@ export function RosterSection() {
               </select>
               <button
                 type="button"
-                aria-label={`${p.name} 명단에서 삭제`}
+                aria-label={t('settings.roster.removeAriaLabel', { name: p.name })}
                 onClick={() => void save(removePlayer(roster, p.id))}
                 style={iconBtnStyle}
               >
@@ -91,15 +91,15 @@ export function RosterSection() {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input
           type="text"
-          aria-label="새 선수 이름"
-          placeholder="선수 이름"
+          aria-label={t('settings.roster.newNameAriaLabel')}
+          placeholder={t('settings.roster.newNamePlaceholder')}
           value={newName}
           maxLength={LIMITS.playerNameLen}
           onChange={(e) => setNewName(e.target.value)}
           style={{ ...inputStyle, flex: 1 }}
         />
-        <select aria-label="새 선수 클래스" value={newClass} onChange={(e) => setNewClass(e.target.value as '' | PFClass)} style={{ ...inputStyle, width: 110 }}>
-          <option value="">미분류</option>
+        <select aria-label={t('settings.roster.newClassAriaLabel')} value={newClass} onChange={(e) => setNewClass(e.target.value as '' | PFClass)} style={{ ...inputStyle, width: 110 }}>
+          <option value="">{t('settings.roster.unclassified')}</option>
           {PF_CLASSES.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -118,11 +118,15 @@ export function RosterSection() {
             setNewClass('');
           }}
         >
-          추가
+          {t('settings.roster.addButton')}
         </Button>
       </div>
       <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)' }}>
-        {roster.players.length}/{LIMITS.rosterMax}명{full ? ' — 정원이 찼습니다' : ''} · 명단은 전체 백업에 함께 실립니다
+        {t('settings.roster.countLine', {
+          count: roster.players.length,
+          max: LIMITS.rosterMax,
+          fullNote: full ? t('settings.roster.fullSuffix') : '',
+        })}
       </p>
     </div>
   );
