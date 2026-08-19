@@ -1,12 +1,16 @@
 // §6.3 인쇄용 코트 그림 — 정적 SVG. writer 가 없으므로 **좌표가 마크업에 그대로** 있어야
 // 한다(있어야 할 자리에 없으면 전 개체가 원점에 겹쳐 찍힌다 — PrintCourt.tsx 머리말 ①).
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { createDrill } from '../../model/defaults.ts';
 import { COURT_DEFS } from '../../model/court.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { ArrowId, NoteId } from '../../core/ids.ts';
 import { PrintCourt } from './PrintCourt.tsx';
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 function fixture(): { drill: Drill; step: DrillStep } {
   const base = createDrill({ courtMode: 'full', formation: '1-2-1' });

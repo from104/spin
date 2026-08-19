@@ -154,6 +154,7 @@ describe('메모 도구 — 탭한 자리에 쪽지가 놓인다', () => {
           initialFrame={frame}
         />
       </svg>,
+      { wrapper: SettingsProvider },
     );
     const g = container.querySelector(`#obj-${noteId}`)!;
     expect(g.getAttribute('transform')).toBe(`translate(${TAP_AT.x.toFixed(2)} ${TAP_AT.y.toFixed(2)}) rotate(0.00)`);

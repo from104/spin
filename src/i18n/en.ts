@@ -650,4 +650,40 @@ export const en: Record<DictKey, string> = {
   'print.session.missingDrill': ' (deleted drill)',
   'print.session.nextRestSuffix': ' · Rest {{min}} min next',
   'print.session.courtAriaLabel': '{{title}} court',
+
+  // ── C8b — Export sheet ──────────────────────────────────────────────────────────────
+  'export.sheetTitle': 'Export',
+  'export.closeLabel': 'Close Export',
+  'export.sheetDesc': 'How would you like to export the current board?',
+  'export.png.title': 'Image (PNG)',
+  'export.png.desc': 'A single image of this scene. Pastes right into a chat.',
+  'export.print.title': 'Print · PDF',
+  'export.print.desc': 'Choose "Save as PDF" in the browser print dialog to get a PDF. One page per step.',
+  'export.backup.title': 'Backup File (JSON)',
+  'export.backup.desc':
+    'Bundles drills, sessions, settings, and the tactics board together. Open it again on a new device via Settings → Read Backup File.',
+  'export.noPrintContent': 'There is nothing to print.',
+  'export.noFrameToExport': 'There is no scene to export.',
+  'export.pngFailed': 'Could not export as an image.',
+  'export.backupSaved': 'Bundled {{drills}} drills, {{sessions}} sessions, and settings into one file.',
+  'export.backupFailed': 'Could not create the backup file.',
+  'export.imageLoadFailed': 'Could not create the export image.',
+  'export.canvasUnsupported': 'This browser cannot export images.',
+  'export.blobFailed': 'Could not create the image file.',
+
+  // ── C8b — Arrow accessible name ─────────────────────────────────────────────────────
+  'arrow.label.wideName': 'wide arrowhead',
+  'arrow.label.thinName': 'arrowhead',
+  'arrow.label.plain': 'line',
+  'arrow.label.bothTemplate': 'Line, {{name}} both ends',
+  'arrow.label.oneTemplate': 'Line, {{name}} end',
+
+  // ── C8b — Editor object layer (cone/ball/note) ──────────────────────────────────────
+  'objectLayer.noteAriaLabel': 'Note: {{text}}',
+  'noteChip.placeholder': 'Note',
+
+  // ── C8b — Rule violation announcements ──────────────────────────────────────────────
+  'ruleOverlay.ringWarning': '{{n}} or more {{names}} players within 3m of the ball — 2-on-1 warning',
+  'ruleOverlay.fiveMeterWarning': '{{names}} within 5m of the ball — set-piece 5m limit',
+  'ruleOverlay.zoneWarning': '{{n}} or more {{names}} players in the goal area — 3-player foul',
 };

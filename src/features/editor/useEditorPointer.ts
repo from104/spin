@@ -42,13 +42,7 @@ import { snapOnSettle } from './snapOnSettle.ts';
 import { blockCueLimits, initialBlockCue, stepBlockCue } from './blockCue.ts';
 import type { BlockCueState } from './blockCue.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
-import type { Locale } from '../../i18n/locale.ts';
-
-const ZONE_LABEL: Record<Locale, Record<DragZone, string>> = {
-  ko: { towRear: '후방 견인', translate: '평행 이동', spin: '제자리 회전', towFront: '전방 견인' },
-  en: { towRear: 'rear tow', translate: 'translate', spin: 'spin in place', towFront: 'front tow' },
-  ja: { towRear: '後方けん引', translate: '平行移動', spin: 'その場回転', towFront: '前方けん引' },
-};
+import { ZONE_LABEL } from '../../model/chair.ts';
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -1000,7 +994,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           ctx.dispatch({ type: 'ARROW_SET', arrow: next });
           // 발화는 **방금 바뀐 것**만 말한다. 화살촉을 돌렸는데 색까지 읽어 주면 무엇이
           // 바뀌었는지가 오히려 흐려진다(같은 이유로 arrowLabel 에 색을 넣지 않았다).
-          liveRegion.say(h.which === 'ctrl' ? `${arrowColorName(next, locale)} 선` : arrowLabel(next));
+          liveRegion.say(h.which === 'ctrl' ? `${arrowColorName(next, locale)} 선` : arrowLabel(next, locale));
         }
       }
       return;

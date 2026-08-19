@@ -44,6 +44,8 @@ import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { PrintRoot, printWhenReady } from '../print/index.ts';
 import type { PrintDoc } from '../print/index.ts';
 import { rasterizeFrameToPng } from './rasterize.ts';
+import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 export interface ExportSheetProps {
   open: boolean;
@@ -62,6 +64,8 @@ export interface ExportSheetProps {
 export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRuleZones, returnFocusRef }: ExportSheetProps) {
   const titleId = useId();
   const toast = useToast();
+  const t = useT();
+  const locale = useLocale();
   const [printDoc, setPrintDoc] = useState<PrintDoc | null>(null);
   // 같은 동작을 연타하면 파일이 두 벌 떨어진다(래스터는 수백 ms 걸린다). 화면에서 버튼을
   // 지우지는 않는다 — 표적이 사용 중에 사라지면 그게 더 나쁘다(§3 불변식 1 의 정신).
@@ -85,14 +89,14 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
   const onPrintReady = useCallback(() => {
     // 0장이면 print() 를 부르지 않고 false 를 준다 — 그때 조용히 끝내면 코치는 인쇄 대화상자가
     // 안 뜬 이유를 영영 모른다.
-    if (!printWhenReady()) toast.show('인쇄할 내용이 없습니다.');
+    if (!printWhenReady()) toast.show(t('export.noPrintContent'));
     setPrintDoc(null);
-  }, [toast]);
+  }, [toast, t]);
 
   const exportPng = () =>
     run(async () => {
       const step = drill.steps[stepIndex] ?? drill.steps[0];
-      if (!step) throw new Error('그림으로 만들 장면이 없습니다.');
+      if (!step) throw new Error(t('export.noFrameToExport'));
       // 한 스텝을 그대로 굽는다 — from=to, e=1 이면 보간이 항등이다(트윈 중간을 굽지 않는다).
       const frame = { ...interpolateSteps(drill, step, step, 1), stepIndex };
       const { blob } = await rasterizeFrameToPng(frame, {
@@ -120,18 +124,18 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
           stepCount: drill.steps.length,
           stepName: noteFirstLine(step.note).slice(0, LIMITS.stepNameLen),
         },
-      });
+      }, locale);
       downloadBlob(blob, sceneFileName(drill.title, stepIndex));
       onClose();
-    }, '그림으로 내보내지 못했습니다.');
+    }, t('export.pngFailed'));
 
   const exportBackup = () =>
     run(async () => {
       const payload = await collectBackup();
       downloadBlob(exportBackupFile(payload), backupFileName(Date.now()));
-      toast.show(`드릴 ${payload.drills.length}개 · 세션 ${payload.sessions.length}개와 설정을 파일 하나에 담았습니다.`);
+      toast.show(t('export.backupSaved', { drills: payload.drills.length, sessions: payload.sessions.length }));
       onClose();
-    }, '기기 이사 파일을 만들지 못했습니다.');
+    }, t('export.backupFailed'));
 
   const startPrint = () => {
     // 시트를 먼저 닫는다: 인쇄 대화상자 뒤에 열린 시트가 남아 있으면 돌아왔을 때 판이 가려져
@@ -142,22 +146,12 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
 
   return (
     <>
-      <Modal open={open} onClose={onClose} titleId={titleId} title="내보내기" closeLabel="내보내기 닫기" returnFocusRef={returnFocusRef}>
-        <p style={{ fontSize: '0.78125rem', color: 'var(--muted)', lineHeight: 1.6, marginBottom: 14 }}>
-          지금 판을 어떤 형태로 꺼낼까요?
-        </p>
+      <Modal open={open} onClose={onClose} titleId={titleId} title={t('export.sheetTitle')} closeLabel={t('export.closeLabel')} returnFocusRef={returnFocusRef}>
+        <p style={{ fontSize: '0.78125rem', color: 'var(--muted)', lineHeight: 1.6, marginBottom: 14 }}>{t('export.sheetDesc')}</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <SheetItem title="그림 (PNG)" desc="지금 이 장면 한 장. 대화방에 그대로 붙습니다." onClick={() => void exportPng()} />
-          <SheetItem
-            title="인쇄 · PDF"
-            desc="브라우저 인쇄 대화상자에서 '대상: PDF로 저장'을 고르면 PDF가 됩니다. 스텝마다 한 장."
-            onClick={startPrint}
-          />
-          <SheetItem
-            title="기기 이사 파일 (JSON)"
-            desc="드릴·세션·설정·전술판을 통째로 담습니다. 새 기기의 [설정 → 기기 이사 파일 읽기]에서 다시 엽니다."
-            onClick={() => void exportBackup()}
-          />
+          <SheetItem title={t('export.png.title')} desc={t('export.png.desc')} onClick={() => void exportPng()} />
+          <SheetItem title={t('export.print.title')} desc={t('export.print.desc')} onClick={startPrint} />
+          <SheetItem title={t('export.backup.title')} desc={t('export.backup.desc')} onClick={() => void exportBackup()} />
         </div>
       </Modal>
       <PrintRoot doc={printDoc} onReady={onPrintReady} />

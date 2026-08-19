@@ -36,7 +36,7 @@ export function ImportDialog({ open, drills, onCancel, onConfirm }: ImportDialog
   const setResolution = (i: number, r: ImportResolution) => setResolutions((prev) => new Map(prev).set(i, r));
 
   return (
-    <Modal open={open} onClose={onCancel} titleId={titleId} title={t('importDialog.title')}>
+    <Modal open={open} onClose={onCancel} titleId={titleId} title={t('importDialog.title')} closeLabel={t('common.close')}>
       <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: 12 }}>{t('importDialog.description')}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '50vh', overflowY: 'auto' }}>
         {conflicting.map(({ c, i }) => (

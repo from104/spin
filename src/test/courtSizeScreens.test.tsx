@@ -67,6 +67,7 @@ const SCREENS: Screen[] = [
           selection={new Set()}
           activeId={null}
         />,
+        { wrapper: SettingsProvider },
       );
       return container.querySelector('svg')!;
     },
@@ -89,7 +90,9 @@ const SCREENS: Screen[] = [
     name: '③ 인쇄 PrintCourt',
     svg(mode, size) {
       const base = createDrill({ courtMode: mode, courtSize: size });
-      const { container } = render(<PrintCourt drill={{ ...base, courtSize: size }} step={base.steps[0]!} ariaLabel="코트" />);
+      const { container } = render(<PrintCourt drill={{ ...base, courtSize: size }} step={base.steps[0]!} ariaLabel="코트" />, {
+        wrapper: SettingsProvider,
+      });
       return container.querySelector('svg')!;
     },
   },

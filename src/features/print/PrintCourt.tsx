@@ -39,6 +39,7 @@ import {
 } from '../../render/objects/noteChip.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
 import { PRINT_COURT_CLASS } from './printDom.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 const HALF_W = CHAIR.widthPx / 2;
 /** ChairChip 과 같은 유도식(원래 20, 2026-08-11 기현 지시로 2/3). 값만 옮기면 근거가 사라진다. */
@@ -61,6 +62,7 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
   // 고정 id 를 쓰면 url(#…) 이 전부 첫 장을 가리켜 2장부터 화살촉이 사라진다.
   const uid = useId().replace(/:/g, '');
   const usedColors = Array.from(new Set(step.arrows.map((a) => arrowColor(a))));
+  const locale = useLocale();
 
   return (
     <svg
@@ -209,7 +211,7 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
               {/* 줄 나눔은 화면과 **같은 함수**가 정한다 — 종이가 화면보다 한 줄 적게 나오면
                   코치는 종이를 못 믿는다. tspan 마다 x 를 다시 주는 이유는 NoteLabel 과 같다. */}
               {empty
-                ? NOTE_PLACEHOLDER
+                ? NOTE_PLACEHOLDER[locale]
                 : lines.map((line, i) => (
                     <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length) : NOTE.lineHPx}>
                       {line}

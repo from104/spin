@@ -20,6 +20,7 @@ import { GoalPost } from './objects/GoalPost.tsx';
 import { ConeMark } from './objects/ConeMark.tsx';
 import { NoteLabel } from './objects/NoteLabel.tsx';
 import { ArrowPath } from './objects/ArrowPath.tsx';
+import { useT } from '../i18n/useT.ts';
 
 export interface ObjectLayerChair {
   id: ChairId;
@@ -91,6 +92,7 @@ export function ObjectLayer({
   onObjectPointerDown,
   onObjectKeyDown,
 }: ObjectLayerProps) {
+  const t = useT();
   // 화살표·메모의 페이드 래퍼 속성. 래퍼 <g> 는 **항상** 두고 클래스만 바꾼다 — 전환 중에만
   // 감쌌다 벗기면 React 가 자식을 재마운트해 포커스가 떨어지고 writer 등록이 한 번 더 돈다.
   /** 무시된 개체의 껍데기 속성 — **흐리게만** 한다.
@@ -136,7 +138,7 @@ export function ObjectLayer({
           selected={selection.has(c.id)}
           locked={locked?.has(c.id)}
           active={activeId === c.id}
-          ariaLabel={`콘 ${c.colorIndex === 0 ? '주황' : '파랑'}`}
+          ariaLabel={t('present.objects.coneAriaLabel', { color: t(c.colorIndex === 0 ? 'team.colorNames.orange' : 'team.colorNames.blue') })}
           onPointerDown={onObjectPointerDown}
           onKeyDown={onObjectKeyDown}
         />
@@ -182,7 +184,7 @@ export function ObjectLayer({
           selected={selection.has(id)}
           locked={locked?.has(id)}
           active={activeId === id}
-          ariaLabel="공"
+          ariaLabel={t('present.objects.ballAriaLabel')}
           onPointerDown={onObjectPointerDown}
           onKeyDown={onObjectKeyDown}
         />
@@ -199,7 +201,7 @@ export function ObjectLayer({
             selected={selection.has(n.id)}
             locked={locked?.has(n.id)}
             active={activeId === n.id}
-            ariaLabel={`메모: ${n.text}`}
+            ariaLabel={t('objectLayer.noteAriaLabel', { text: n.text })}
             onPointerDown={onObjectPointerDown}
             onKeyDown={onObjectKeyDown}
           />

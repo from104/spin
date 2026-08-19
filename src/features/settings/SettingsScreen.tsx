@@ -439,6 +439,7 @@ export function SettingsScreen() {
         }}
         titleId={restoreDialogId}
         title={t('settings.restoreModal.title')}
+        closeLabel={t('common.close')}
         returnFocusRef={restoreBtnRef}
       >
         <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.6 }}>

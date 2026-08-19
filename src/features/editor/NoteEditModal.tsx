@@ -72,7 +72,13 @@ export function NoteEditModal({ open, initialText, fresh, onSave, onCancel }: No
   if (!open) return null;
 
   return (
-    <Modal open={open} onClose={onCancel} titleId="note-edit-title" title={fresh ? t('editor.noteEditModal.titleNew') : t('editor.noteEditModal.titleEdit')}>
+    <Modal
+      open={open}
+      onClose={onCancel}
+      titleId="note-edit-title"
+      title={fresh ? t('editor.noteEditModal.titleNew') : t('editor.noteEditModal.titleEdit')}
+      closeLabel={t('common.close')}
+    >
       <textarea
         ref={ref}
         aria-label={t('editor.noteEditModal.textareaAriaLabel')}

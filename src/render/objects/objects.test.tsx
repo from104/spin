@@ -1,6 +1,7 @@
 // §10.7 개별 오브젝트 컴포넌트 스모크 — writer 등록/해지, 시각 계약(§3.4/§6.6)의 핵심만 확인한다.
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { createTransformWriter } from '../transformWriter.ts';
 import { ChairChip } from './ChairChip.tsx';
 import { BallDot } from './BallDot.tsx';
@@ -9,6 +10,9 @@ import { NoteLabel } from './NoteLabel.tsx';
 import { ArrowPath } from './ArrowPath.tsx';
 import type { ChairId, BallId, ConeId, NoteId, ArrowId } from '../../core/ids.ts';
 import type { Arrow } from '../../model/arrow.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 describe('ChairChip', () => {
   it('§3.4 마크업대로 rect(-7.5,-12.5,37.5,25)·볼가드·머리 원을 그린다', () => {

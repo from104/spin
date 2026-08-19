@@ -1,12 +1,16 @@
 // §10.7 ObjectLayer 검증 — z-order(§3.5), transform prop 부재(§6.1 규칙 1),
 // register/writeFrame 초기 프레임 확정(§6.2).
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { createTransformWriter } from './transformWriter.ts';
 import { ObjectLayer } from './ObjectLayer.tsx';
 import type { ChairId, BallId, ConeId, NoteId, ArrowId } from '../core/ids.ts';
 import type { NoteLabel as NoteLabelData } from '../model/drill.ts';
 import type { Arrow } from '../model/arrow.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 const chairId = 'ch_1' as ChairId;
 const ballId = 'bl_1' as BallId;

@@ -1,10 +1,14 @@
 // §10.7 CourtStage 스모크 검증 — 좌표 변환·포인터 위임·줌 배율 상한, §6.6 레이어 순서.
 import { describe, expect, it, vi } from 'vitest';
-import { render, act } from '@testing-library/react';
+import { render as rtlRender, act } from '@testing-library/react';
 import { createRef } from 'react';
+import type { ReactElement } from 'react';
 import { createTransformWriter } from './transformWriter.ts';
 import { CourtStage, type CourtStageHandle, type CourtStagePointerController } from './CourtStage.tsx';
 import { INTERACT } from '../core/constants.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 /** 기본 rect 는 **풀 코트 viewBox 와 같은 825×525** 다 — 그래야 client↔world 가 1:1 이 되어
  *  좌표 단언이 읽기 쉽다. 마진을 1.5 m 로 넓히며 viewBox 가 800×500 → 825×525 가 됐고,

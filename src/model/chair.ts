@@ -4,9 +4,19 @@
 import type { Vec2 } from '../core/units.ts';
 import { CHAIR } from '../core/constants.ts';
 import { radToStoredDeg, storedDegToRad } from '../core/angle.ts';
+import type { Locale } from '../i18n/locale.ts';
 
 export type DragZone = 'towRear' | 'translate' | 'spin' | 'towFront';
 export const DRAG_ZONES = ['towRear', 'translate', 'spin', 'towFront'] as const;
+
+/** 존 핸들의 발화·툴팁 이름 — `features/editor/useEditorPointer.ts`(존을 잡을 때 발화)와
+ *  `render/ZoneHandles.tsx`(견인 핸들의 SVG &lt;title&gt;) 가 같은 값을 쓴다. render/ 가 features/
+ *  를 import 할 수 없어(계층 역행) 두 곳이 각자 사본을 들고 있었다 — 여기 한 곳으로 모은다. */
+export const ZONE_LABEL: Record<Locale, Record<DragZone, string>> = {
+  ko: { towRear: '후방 견인', translate: '평행 이동', spin: '제자리 회전', towFront: '전방 견인' },
+  en: { towRear: 'rear tow', translate: 'translate', spin: 'spin in place', towFront: 'front tow' },
+  ja: { towRear: '後方けん引', translate: '平行移動', spin: 'その場回転', towFront: '前方けん引' },
+};
 
 /** 저장형(디스크·IDB·JSON). angleDeg 는 [-180,180) 로 랩되고 0.1° 로 반올림된다. */
 export interface StoredChairPose {

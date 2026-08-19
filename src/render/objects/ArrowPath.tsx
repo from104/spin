@@ -10,6 +10,9 @@ import type { ArrowId } from '../../core/ids.ts';
 import type { Arrow, ArrowHead } from '../../model/arrow.ts';
 import { ARROW_STYLE, arrowColor, arrowPath, headFromOf, headToOf } from '../../model/arrow.ts';
 import type { TransformWriter } from '../transformWriter.ts';
+import { translate } from '../../i18n/useT.ts';
+import type { Locale } from '../../i18n/locale.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 export interface ArrowPathProps {
   arrow: Arrow;
@@ -28,17 +31,18 @@ export interface ArrowPathProps {
 
 /** 접근성 이름 — 종류가 사라졌으므로 **양 끝 화살촉**이 그 자리를 말한다(2026-08-16).
  *  스크린리더 사용자에게 '이동/패스' 는 이제 없는 구분이고, 실제로 다른 것은 화살촉이다. */
-export function arrowLabel(a: Pick<Arrow, 'headFrom' | 'headTo'>): string {
+export function arrowLabel(a: Pick<Arrow, 'headFrom' | 'headTo'>, locale: Locale): string {
   const f = headFromOf(a);
   const t = headToOf(a);
-  const name = (h: ArrowHead): string => (h === 'wide' ? '넓은 화살표' : '화살표');
-  if (f === 'none' && t === 'none') return '선';
-  if (f !== 'none' && t !== 'none') return `양쪽 ${name(t)} 선`;
-  return `${name(f === 'none' ? t : f)} 선`;
+  const name = (h: ArrowHead): string => translate(locale, h === 'wide' ? 'arrow.label.wideName' : 'arrow.label.thinName');
+  if (f === 'none' && t === 'none') return translate(locale, 'arrow.label.plain');
+  if (f !== 'none' && t !== 'none') return translate(locale, 'arrow.label.bothTemplate', { name: name(t) });
+  return translate(locale, 'arrow.label.oneTemplate', { name: name(f === 'none' ? t : f) });
 }
 
 export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, writer, selected, locked = false, active, onPointerDown, onKeyDown }: ArrowPathProps) {
   const gRef = useRef<SVGGElement | null>(null);
+  const locale = useLocale();
   // deps 에 arrow **객체**가 들어 있는 것이 핵심이다: React 가 d 를 다시 렌더할 때마다(스텝
   // 전환 커밋·인스펙터 편집) registerArrow 가 다시 돌아 writer 의 마지막 프레임 d 를 재생한다.
   // 이게 없으면 스텝 전환 커밋에서 React 가 도착 스텝의 d 를 먼저 써 버리는데, 직후의 트윈
@@ -67,7 +71,7 @@ export const ArrowPath = memo(function ArrowPath({ arrow, markerUid, writer, sel
       id={`obj-${arrow.id}`}
       className="court-obj"
       role="button"
-      aria-label={arrowLabel(arrow)}
+      aria-label={arrowLabel(arrow, locale)}
       aria-pressed={selected}
       tabIndex={active ? 0 : -1}
       onPointerDown={(e) => onPointerDown?.(arrow.id, e)}

@@ -23,7 +23,7 @@ export function HelpOverlay({ open, onClose }: { open: boolean; onClose(): void 
     ...extraRows,
   ];
   return (
-    <Modal open={open} onClose={onClose} titleId={titleId} title={t('present.help.title')}>
+    <Modal open={open} onClose={onClose} titleId={titleId} title={t('present.help.title')} closeLabel={t('common.close')}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
         <tbody>
           {rows.map(([key, desc]) => (

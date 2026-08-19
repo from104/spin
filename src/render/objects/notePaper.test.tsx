@@ -17,6 +17,7 @@ import { HIT_R_MAX_PX } from '../hitRadius.ts';
 import { createTransformWriter } from '../transformWriter.ts';
 import { NoteLabel } from './NoteLabel.tsx';
 import { NOTE_PLACEHOLDER, noteChipHeightPx, noteChipWidthPx, noteRingRadiusPx } from './noteChip.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 const id = 'nt_1' as NoteId;
 const NOTE_AT = { x: 300, y: 200 };
@@ -31,6 +32,7 @@ function renderNote(text: string, selected = false) {
     <svg>
       <NoteLabel id={id} writer={writer} text={text} selected={selected} active={false} ariaLabel="메모" />
     </svg>,
+    { wrapper: SettingsProvider },
   );
   return container;
 }
@@ -102,7 +104,7 @@ describe('(a) 빈 메모도 접힌 쪽지로 그려진다', () => {
     const c = renderNote('');
     expect(c.querySelector('.note-chip')).not.toBeNull();
     expect(c.querySelector('.note-fold')).not.toBeNull();
-    expect(c.querySelector('.note-placeholder')?.textContent).toBe(NOTE_PLACEHOLDER);
+    expect(c.querySelector('.note-placeholder')?.textContent).toBe(NOTE_PLACEHOLDER.ko);
     // 예전에는 이 값이 '' 였다 — 그게 "탭했는데 아무 일도 안 일어난다" 의 실체다.
     expect(c.textContent).not.toBe('');
   });

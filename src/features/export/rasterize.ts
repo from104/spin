@@ -20,6 +20,8 @@
 import type { RenderFrame } from '../../model/playback.ts';
 import { buildStaticScene, type StaticSceneOpts } from './buildStaticSvg.ts';
 import { canvasAlignFor, fontCssFor, textToOutputPx, type SceneMetrics, type TextPlacement } from './staticSceneLayout.ts';
+import { translate } from '../../i18n/useT.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
 /** 폰트가 로드되기 전에 그리면 등번호가 폴백 글꼴로 찍히거나 아예 빠진다(★[A-9]).
  *  `document.fonts.ready` 를 기다리되, 폰트가 영영 안 오는 환경(구형 브라우저·차단된 로컬
@@ -33,11 +35,11 @@ export function svgDataUri(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+function loadImage(src: string, locale: Locale): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('내보낼 그림을 만들지 못했습니다.'));
+    img.onerror = () => reject(new Error(translate(locale, 'export.imageLoadFailed')));
     img.src = src;
   });
 }
@@ -69,7 +71,7 @@ export interface RasterResult {
 }
 
 /** 한 장면 → PNG Blob. 실패는 예외로 던진다(호출부가 토스트로 옮긴다). */
-export async function rasterizeFrameToPng(frame: RenderFrame, opts: StaticSceneOpts): Promise<RasterResult> {
+export async function rasterizeFrameToPng(frame: RenderFrame, opts: StaticSceneOpts, locale: Locale): Promise<RasterResult> {
   const scene = buildStaticScene(frame, opts);
   const { metrics } = scene;
 
@@ -77,15 +79,15 @@ export async function rasterizeFrameToPng(frame: RenderFrame, opts: StaticSceneO
   canvas.width = metrics.widthPx;
   canvas.height = metrics.heightPx;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('이 브라우저에서는 그림으로 내보낼 수 없습니다.');
+  if (!ctx) throw new Error(translate(locale, 'export.canvasUnsupported'));
 
   // 순서가 중요하다: 폰트 대기 → 도형 → 글자. 도형을 먼저 그려야 글자가 칩 위에 얹힌다.
   await waitForFonts();
-  const img = await loadImage(svgDataUri(scene.svg));
+  const img = await loadImage(svgDataUri(scene.svg), locale);
   ctx.drawImage(img, 0, 0, metrics.widthPx, metrics.heightPx);
   paintTexts(ctx, scene.texts, metrics);
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-  if (!blob) throw new Error('그림 파일을 만들지 못했습니다.');
+  if (!blob) throw new Error(translate(locale, 'export.blobFailed'));
   return { blob, widthPx: metrics.widthPx, heightPx: metrics.heightPx };
 }

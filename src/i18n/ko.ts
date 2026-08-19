@@ -645,6 +645,41 @@ export const ko = {
   'print.session.missingDrill': ' (삭제된 드릴)',
   'print.session.nextRestSuffix': ' · 다음 휴식 {{min}}분',
   'print.session.courtAriaLabel': '{{title}} 코트',
+
+  // ── C8b — 내보내기 시트 ─────────────────────────────────────────────────────────────
+  'export.sheetTitle': '내보내기',
+  'export.closeLabel': '내보내기 닫기',
+  'export.sheetDesc': '지금 판을 어떤 형태로 꺼낼까요?',
+  'export.png.title': '그림 (PNG)',
+  'export.png.desc': '지금 이 장면 한 장. 대화방에 그대로 붙습니다.',
+  'export.print.title': '인쇄 · PDF',
+  'export.print.desc': "브라우저 인쇄 대화상자에서 '대상: PDF로 저장'을 고르면 PDF가 됩니다. 스텝마다 한 장.",
+  'export.backup.title': '기기 이사 파일 (JSON)',
+  'export.backup.desc': '드릴·세션·설정·전술판을 통째로 담습니다. 새 기기의 [설정 → 기기 이사 파일 읽기]에서 다시 엽니다.',
+  'export.noPrintContent': '인쇄할 내용이 없습니다.',
+  'export.noFrameToExport': '그림으로 만들 장면이 없습니다.',
+  'export.pngFailed': '그림으로 내보내지 못했습니다.',
+  'export.backupSaved': '드릴 {{drills}}개 · 세션 {{sessions}}개와 설정을 파일 하나에 담았습니다.',
+  'export.backupFailed': '기기 이사 파일을 만들지 못했습니다.',
+  'export.imageLoadFailed': '내보낼 그림을 만들지 못했습니다.',
+  'export.canvasUnsupported': '이 브라우저에서는 그림으로 내보낼 수 없습니다.',
+  'export.blobFailed': '그림 파일을 만들지 못했습니다.',
+
+  // ── C8b — 화살표 접근성 이름 ────────────────────────────────────────────────────────
+  'arrow.label.wideName': '넓은 화살표',
+  'arrow.label.thinName': '화살표',
+  'arrow.label.plain': '선',
+  'arrow.label.bothTemplate': '양쪽 {{name}} 선',
+  'arrow.label.oneTemplate': '{{name}} 선',
+
+  // ── C8b — 편집기 개체 레이어(콘·공·메모) ────────────────────────────────────────────
+  'objectLayer.noteAriaLabel': '메모: {{text}}',
+  'noteChip.placeholder': '메모',
+
+  // ── C8b — 규칙 위반 발화 ────────────────────────────────────────────────────────────
+  'ruleOverlay.ringWarning': '공 3 m 안에 {{names}} {{n}}명 이상 — 2-on-1 주의',
+  'ruleOverlay.fiveMeterWarning': '공 5 m 안에 {{names}} — 세트피스 5 m 제한',
+  'ruleOverlay.zoneWarning': '골 지역에 {{names}} {{n}}명 이상 — 3인 반칙',
 } as const;
 
 export type DictKey = keyof typeof ko;

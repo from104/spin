@@ -23,6 +23,8 @@ import {
 } from '../model/rules.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
 import { liveRegion } from '../ui/LiveRegion.tsx';
+import { translate } from '../i18n/useT.ts';
+import type { Locale } from '../i18n/locale.ts';
 
 /** 깨끗할 때의 선 색. 코트(#1f7a46) 위 5.34:1 — 코트 라인과 같은 값이다. */
 export const RULE_OK_STROKE = '#ffffff';
@@ -85,6 +87,7 @@ export interface RuleOverlayContext {
    *  골대도 진영도 없어 "누가 수비인가" 라는 약속 자체가 성립하지 않는다(model/rules.ts). */
   fiveMeterDefense: TeamSide | null;
   teamLabels: Record<TeamSide, string>;
+  locale: Locale;
 }
 
 export interface RuleOverlayApi {
@@ -122,6 +125,10 @@ const DEFAULT_CONTEXT: RuleOverlayContext = {
   goalMouths: [],
   fiveMeterDefense: null,
   teamLabels: { home: '홈', away: '원정' },
+  // 실사용 호출부(RuleOverlay.tsx)가 항상 setContext 로 진짜 locale 을 곧바로 심는다 —
+  // 이 값은 그 전(마운트 첫 틱)에만 잠깐 쓰이는 자리표시일 뿐이라 defaultPhase() 와 같은
+  // 이유로 'ko' 고정이다.
+  locale: 'ko',
 };
 
 const VISIBLE = 1;
@@ -211,10 +218,10 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
   function message(ringBits: number, zoneBits: number, fiveBits: number): string {
     const parts: string[] = [];
     // 문구가 문턱 상수에서 파생된다 — 규칙 수치를 고치면 발화도 따라온다.
-    if (ringBits) parts.push(`공 3 m 안에 ${names(ringBits)} ${RING_SAME_TEAM_MAX + 1}명 이상 — 2-on-1 주의`);
+    if (ringBits) parts.push(translate(ctx.locale, 'ruleOverlay.ringWarning', { names: names(ringBits), n: RING_SAME_TEAM_MAX + 1 }));
     // 5 m 는 인원수 문턱이 없다 — **한 대라도** 들어가면 걸린다(수비만). 그래서 문구도 다르다.
-    if (fiveBits) parts.push(`공 5 m 안에 ${names(fiveBits)} — 세트피스 5 m 제한`);
-    if (zoneBits) parts.push(`골 지역에 ${names(zoneBits)} ${GOAL_AREA_MAX + 1}명 이상 — 3인 반칙`);
+    if (fiveBits) parts.push(translate(ctx.locale, 'ruleOverlay.fiveMeterWarning', { names: names(fiveBits) }));
+    if (zoneBits) parts.push(translate(ctx.locale, 'ruleOverlay.zoneWarning', { names: names(zoneBits), n: GOAL_AREA_MAX + 1 }));
     return parts.join(' · ');
   }
 

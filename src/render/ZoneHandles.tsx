@@ -13,8 +13,10 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { CHAIR, INTERACT } from '../core/constants.ts';
 import type { ChairId } from '../core/ids.ts';
 import type { DragZone } from '../model/chair.ts';
+import { ZONE_LABEL } from '../model/chair.ts';
 import type { TransformWriter } from './transformWriter.ts';
 import { ZONE_CURSOR, ZONE_GLYPH } from './zoneCursors.ts';
+import { useLocale } from '../i18n/useLocale.ts';
 
 /** 화면에 그리는 핸들은 **차체 밖 견인 가이드 둘뿐**이다(기현 지시 2026-08-11).
  *
@@ -24,12 +26,6 @@ import { ZONE_CURSOR, ZONE_GLYPH } from './zoneCursors.ts';
  *  가이드가 없으면 그런 조작이 있다는 것 자체를 알 수 없다 — 그래서 앞뒤만 남긴다.
  *  차체 위 커서 변형은 ChairChip 이 계속 담당한다. */
 const ZONE_ORDER: readonly DragZone[] = ['towRear', 'towFront'];
-const ZONE_LABEL: Record<DragZone, string> = {
-  towRear: '후방 견인',
-  translate: '평행 이동',
-  spin: '제자리 회전',
-  towFront: '전방 견인',
-};
 
 export interface ZoneHandlesProps {
   /** 선택된 휠체어. null 이면 아무것도 그리지 않는다(§ 선택된 칩에만 표시). */
@@ -43,6 +39,7 @@ export interface ZoneHandlesProps {
 
 export function ZoneHandles({ chairId, writer, pxPerUnit, activeZone, onPointerDown }: ZoneHandlesProps) {
   const ref = useRef<SVGGElement | null>(null);
+  const locale = useLocale();
 
   useEffect(() => {
     if (!chairId) return;
@@ -78,7 +75,7 @@ export function ZoneHandles({ chairId, writer, pxPerUnit, activeZone, onPointerD
             />
             {/* 어두운 테두리를 먼저 깔아 밝은 차체·코트 어디에 놓여도 원의 경계가 살아 있게 한다. */}
             <circle r={viewR} fill={active ? 'var(--accent)' : '#ffffff'} stroke="rgba(0,0,0,.75)" strokeWidth={2} pointerEvents="none">
-              <title>{ZONE_LABEL[zone]}</title>
+              <title>{ZONE_LABEL[locale][zone]}</title>
             </circle>
             <g transform={`scale(${glyphScale})`} pointerEvents="none">
               <path

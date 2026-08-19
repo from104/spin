@@ -3,7 +3,8 @@
 // 핸들을 차체 로컬 (lever, 0) 에 그리고 그룹이 칩과 같은 transform 을 받기 때문이다.
 // 이 테스트는 그 합성 결과가 실제로 pointAtLever 와 같은지를 확인한다.
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { ZoneHandles } from './ZoneHandles.tsx';
 import { createTransformWriter } from './transformWriter.ts';
 import { pointAtLever } from '../model/chair.ts';
@@ -11,6 +12,9 @@ import { CHAIR, INTERACT } from '../core/constants.ts';
 import { DEG } from '../core/angle.ts';
 import type { ChairPose } from '../model/chair.ts';
 import type { ChairId } from '../core/ids.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 const CH = 'ch_a' as ChairId;
 

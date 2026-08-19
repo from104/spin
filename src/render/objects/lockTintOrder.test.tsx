@@ -10,7 +10,8 @@
 // 재는 방법: 개체 그룹의 마지막 자식이 덮개여야 한다. `.zone-cursor`(투명·커서 전용,
 // "차체의 마지막 자식" 계약이 따로 걸려 있다)만 셈에서 뺀다 — 그것은 아무것도 안 그린다.
 import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { createTransformWriter } from '../transformWriter.ts';
 import { ChairChip } from './ChairChip.tsx';
 import { BallDot } from './BallDot.tsx';
@@ -19,6 +20,9 @@ import { NoteLabel } from './NoteLabel.tsx';
 import { ArrowPath } from './ArrowPath.tsx';
 import type { ChairId, BallId, ConeId, NoteId, ArrowId } from '../../core/ids.ts';
 import type { Arrow } from '../../model/arrow.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 const ARROW: Arrow = {
   id: 'ar_1' as ArrowId,

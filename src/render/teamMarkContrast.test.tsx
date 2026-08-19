@@ -44,6 +44,7 @@ import { ChairChip } from './objects/ChairChip.tsx';
 import { createTransformWriter } from './transformWriter.ts';
 import { teamMarkFor } from './teamMark.ts';
 import { compositeOver, contrastRatio, dashChannelVisible, NON_TEXT_MIN } from '../styles/contrastMath.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 
 const TEAMS: Record<TeamSide, TeamStyle> = { home: { ...DEFAULT_TEAMS.home }, away: { ...DEFAULT_TEAMS.away } };
 const CHAIR_ID = 'ch_1' as ChairId;
@@ -93,7 +94,7 @@ function printChip(team: TeamSide, color?: string): string {
     cast: { chairs: [def], balls: [], cones: [] },
   };
   const step = { chairs: { [CHAIR_ID]: { x: 200, y: 200, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [] } as unknown as DrillStep;
-  const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" />);
+  const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" />, { wrapper: SettingsProvider });
   const g = container.querySelector('[data-print-chair]');
   expect(g, '인쇄 트리에 칩 그룹이 없다').not.toBeNull();
   return g!.outerHTML;

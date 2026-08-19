@@ -9,6 +9,7 @@ import { COURT_DEFS } from '../model/court.ts';
 import { mToPx } from '../core/units.ts';
 import { RING_5M_R_PX, RING_R_PX } from '../model/rules.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 
 const TEAMS: Record<TeamSide, { label: string }> = { home: { label: '레드' }, away: { label: '블루' } };
 const ROSTER = [
@@ -40,6 +41,7 @@ function setup(opts: { visible?: boolean; balls?: string[]; rings?: Record<strin
         teams={TEAMS}
       />
     </svg>,
+    { wrapper: SettingsProvider },
   );
   return { writer, rules, say, ...view };
 }

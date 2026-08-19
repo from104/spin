@@ -40,13 +40,11 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
   const { present: drill } = useEditorState();
   const dispatch = useEditorDispatch();
   const ids = { type: useId(), situation: useId(), level: useId(), duration: useId() };
-  // i18n C4 — DRILL_TYPE_LABELS/SITUATION_LABELS 에 로케일 차원이 붙어 최소 수정으로 컴파일을
-  // 맞춘다. 이 화면 나머지 문구(필드 라벨·"미지정" 등)의 전체 번역은 C7(드릴 편집) 몫이다.
   const locale = useLocale();
   const t = useT();
 
   return (
-    <CenterModal open={open} onClose={onClose} title={t('editor.workspace.drillInfoAriaLabel')}>
+    <CenterModal open={open} onClose={onClose} title={t('editor.workspace.drillInfoAriaLabel')} closeLabel={t('common.close')}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {/* ── 분류 (v8 두 축 + 난이도·소요시간) ─────────────────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

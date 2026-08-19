@@ -15,12 +15,16 @@
 // 틀렸다 — 이제 히트가 칩 상자를 쓰므로 그 칩이 코트의 모든 탭을 삼킨다. 상한
 // (`NOTE.chipMaxWPx` · `NOTE.maxLines`)이 그 두 재앙을 함께 막는다.
 import { NOTE } from '../../core/constants.ts';
+import { SUPPORTED_LOCALES, type Locale } from '../../i18n/locale.ts';
+import { translate } from '../../i18n/useT.ts';
 
 /** 빈 메모에 얹는 흐린 안내. "여기 쪽지가 놓였고, 글은 아직 없다" 를 뜻한다.
  *  인라인 편집은 만들지 않는다 — SVG 위 HTML 오버레이는 §6.4 판 회전과 좌표 변환을 둘 다
  *  따라가야 해서 비싸다. 글은 **모달**에서 쓴다(NoteEditModal: 배치 직후 · 더블클릭 ·
  *  개체 메뉴의 [수정]). 인스펙터의 [개체] 탭에도 같은 입력이 남아 있다. */
-export const NOTE_PLACEHOLDER = '메모';
+export const NOTE_PLACEHOLDER: Record<Locale, string> = Object.fromEntries(
+  SUPPORTED_LOCALES.map((l) => [l, translate(l, 'noteChip.placeholder')]),
+) as Record<Locale, string>;
 
 /** §3.5 NoteLabel 스키마 `size` 의 기본값. 여기저기 박혀 있던 `n.size ?? 14` 의 그 14 다 —
  *  칩 크기를 재는 쪽(히트테스트·인쇄·내보내기)이 렌더와 **같은 기본값**을 써야 한다. */

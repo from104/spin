@@ -491,7 +491,14 @@ export function FunctionBar({
       </BarItem>
 
       {/* ── 코트 팝오버 — 형태 3 + 크기 3 ───────────────────────────────────────────── */}
-      <Modal open={courtOpen} onClose={() => setCourtOpen(false)} titleId={courtId} title={t('editor.functionBar.courtModal.title')} returnFocusRef={courtBtnRef}>
+      <Modal
+        open={courtOpen}
+        onClose={() => setCourtOpen(false)}
+        titleId={courtId}
+        title={t('editor.functionBar.courtModal.title')}
+        closeLabel={t('common.close')}
+        returnFocusRef={courtBtnRef}
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* 잠금은 **이름**으로도 말한다 — 옛 헤더 세그먼트의 계약 그대로다(`코트 형태` ↔
               `코트 형태(변경 불가)`). 화면에는 아래 문구가 있지만, 스크린리더로 구역에 들어온
@@ -691,6 +698,7 @@ export function FunctionBar({
         onClose={() => setConfirmOpen(false)}
         titleId={confirmId}
         title={t('editor.functionBar.clearConfirm.title')}
+        closeLabel={t('common.close')}
         returnFocusRef={clearBtnRef}
       >
         <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.6 }}>

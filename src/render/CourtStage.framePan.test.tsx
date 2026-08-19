@@ -10,6 +10,7 @@ import { createRef } from 'react';
 import { createTransformWriter } from './transformWriter.ts';
 import { CourtStage, type CourtStageHandle, type CourtStagePointerController, type PointerDownResult } from './CourtStage.tsx';
 import type { StageRot } from './useStageMetrics.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 
 /** 기본 rect 는 풀 코트 viewBox 와 같은 825×525 — client↔world 가 1:1 이라 좌표가 읽힌다. */
 function stubSvgLayout(container: HTMLElement, rect: Partial<DOMRect> = {}): SVGSVGElement {
@@ -84,6 +85,7 @@ function mount(controller: CourtStagePointerController, ref?: React.RefObject<Co
       selection={new Set()}
       activeId={null}
     />,
+    { wrapper: SettingsProvider },
   );
 }
 

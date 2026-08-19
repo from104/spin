@@ -22,7 +22,7 @@ export function DrillInfoModal({ drill, open, onClose }: DrillInfoModalProps) {
   const locale = useLocale();
   const t = useT();
   return (
-    <CenterModal open={open} onClose={onClose} title={t('presentInfo.titlePrefix', { title: drill.title })}>
+    <CenterModal open={open} onClose={onClose} title={t('presentInfo.titlePrefix', { title: drill.title })} closeLabel={t('common.close')}>
       {/* 2026-08-19 기현님 2차 — **전 항목을 항상 보여준다**(빈 필드는 — 로). 처음에는 빈
           줄을 숨겼는데, 그러면 "이 드릴엔 장비 항목이 원래 없나, 안 적었나" 를 시연 중에
           가릴 수 없다. 편집 시트와 같은 항목 목록·같은 순서 — 입력만 없다(읽기 전용). */}

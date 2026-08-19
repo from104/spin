@@ -20,6 +20,7 @@ import { NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL, OBJ_STROKE } from '..
 import type { NoteId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 import { useUprightTransform } from '../stageRot.tsx';
+import { useLocale } from '../../i18n/useLocale.ts';
 import {
   NOTE_PLACEHOLDER,
   noteChipHeightPx,
@@ -65,6 +66,7 @@ export const NoteLabel = memo(function NoteLabel({
 }: NoteLabelProps) {
   const upright = useUprightTransform();
   const ref = useRef<SVGGElement | null>(null);
+  const locale = useLocale();
 
   useEffect(() => {
     writer.register(id, ref.current);
@@ -120,7 +122,7 @@ export const NoteLabel = memo(function NoteLabel({
             textAnchor="middle"
             dominantBaseline="central"
           >
-            {NOTE_PLACEHOLDER}
+            {NOTE_PLACEHOLDER[locale]}
           </text>
         ) : (
           // 줄바꿈(기현 지시 2026-08-17). SVG `<text>` 는 개행을 공백으로 삼키므로 줄마다

@@ -18,7 +18,8 @@
 //     × 강제색. 인쇄는 규칙 존을 아예 그리지 않는다 — 그 사실도 아래에 기록해 뒀다.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { COURT_BG } from '../core/colors.ts';
 import { COURT_MODES, COURT_SIZES, courtDefFor, type CourtMode } from '../model/court.ts';
 import type { TeamSide } from '../model/drill.ts';
@@ -40,6 +41,9 @@ import {
   RULE_ZONE_FILL,
   RULE_ZONE_FILL_OPACITY,
 } from './ruleOverlay.ts';
+import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 const rgba = (hex: string, a: number): string => {
   const [r, g, b] = (hex.replace('#', '').match(/../g) ?? []).map((x) => parseInt(x, 16));
@@ -175,7 +179,15 @@ describe('② 위반 층 — 같은 붉은 계열의 **진한 쪽**', () => {
     rules.registerZone(0, g);
     const zone = courtDefFor('full').ruleZones[0]!;
     const roster = ['a', 'b', 'c'].map((id) => ({ id, team: 'home' as TeamSide, isGk: false }));
-    rules.setContext({ enabled: true, roster, goalAreas: [{ rect: zone, defender: 'home' }], goalMouths: [], fiveMeterDefense: null, teamLabels: { home: '홈', away: '원정' } });
+    rules.setContext({
+      enabled: true,
+      roster,
+      goalAreas: [{ rect: zone, defender: 'home' }],
+      goalMouths: [],
+      fiveMeterDefense: null,
+      teamLabels: { home: '홈', away: '원정' },
+      locale: 'ko',
+    });
 
     // 깨끗: 숨어 있고 파선이다.
     rules.write({ a: { x: 0, y: 0 } });

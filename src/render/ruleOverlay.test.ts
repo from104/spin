@@ -35,6 +35,7 @@ function ctx(over: Partial<RuleOverlayContext> = {}): RuleOverlayContext {
     goalMouths: [],
     fiveMeterDefense: null,
     teamLabels: { home: '레드', away: '블루' },
+    locale: 'ko',
     ...over,
   };
 }

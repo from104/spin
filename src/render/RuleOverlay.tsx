@@ -30,6 +30,7 @@ import {
   type RuleOverlayApi,
   type RuleRosterEntry,
 } from './ruleOverlay.ts';
+import { useLocale } from '../i18n/useLocale.ts';
 
 /** 케이싱 색. 근거는 colors.ts 의 `ARROW_CASING` 과 같다 — 불투명 검정만이 코트 위 3.93:1 로
  *  모양을 남긴다(알파를 섞으면 합성 결과가 주석의 숫자와 달라진다). */
@@ -145,6 +146,7 @@ export interface RuleOverlayProps {
 }
 
 export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballRings, roster, teams, defense }: RuleOverlayProps) {
+  const locale = useLocale();
   const def = courtDefFor(mode, size);
   const zones = def.ruleZones;
   // ⚠️ `useMemo` 다. `defendedZones` 는 매번 새 배열을 만드는데, 그것이 아래 이펙트의 deps 에
@@ -165,8 +167,9 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
       goalMouths: mouths,
       fiveMeterDefense,
       teamLabels: { home: teams.home.label, away: teams.away.label },
+      locale,
     });
-  }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, teams]);
+  }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, teams, locale]);
 
   const ringOf = (id: string): BallRing => ballRings?.[id] ?? 'none';
   // §7 5.2 — **스위치가 꺼져 있어도 사용자가 켠 원은 남는다**(2026-08-13 판단, 기현님 실기 ③).

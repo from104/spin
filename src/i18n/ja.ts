@@ -646,4 +646,39 @@ export const ja: Record<DictKey, string> = {
   'print.session.missingDrill': '（削除されたドリル）',
   'print.session.nextRestSuffix': ' · 次の休憩 {{min}}分',
   'print.session.courtAriaLabel': '{{title}} コート',
+
+  // ── C8b — エクスポートシート ─────────────────────────────────────────────────────────
+  'export.sheetTitle': 'エクスポート',
+  'export.closeLabel': 'エクスポートを閉じる',
+  'export.sheetDesc': '今の盤をどの形式で書き出しますか？',
+  'export.png.title': '画像（PNG）',
+  'export.png.desc': '今のシーンを1枚。トーク画面にそのまま貼り付けられます。',
+  'export.print.title': '印刷・PDF',
+  'export.print.desc': 'ブラウザの印刷ダイアログで「PDFに保存」を選ぶとPDFになります。ステップごとに1ページ。',
+  'export.backup.title': '機種変更ファイル（JSON）',
+  'export.backup.desc': 'ドリル・セッション・設定・戦術ボードをまとめて保存します。新しい端末の［設定 → 機種変更ファイルを読み込む］で開けます。',
+  'export.noPrintContent': '印刷する内容がありません。',
+  'export.noFrameToExport': '書き出すシーンがありません。',
+  'export.pngFailed': '画像として書き出せませんでした。',
+  'export.backupSaved': 'ドリル{{drills}}個・セッション{{sessions}}個と設定を1つのファイルにまとめました。',
+  'export.backupFailed': '機種変更ファイルを作成できませんでした。',
+  'export.imageLoadFailed': '書き出す画像を作成できませんでした。',
+  'export.canvasUnsupported': 'このブラウザでは画像として書き出せません。',
+  'export.blobFailed': '画像ファイルを作成できませんでした。',
+
+  // ── C8b — 矢印のアクセシブルネーム ───────────────────────────────────────────────────
+  'arrow.label.wideName': '幅広矢印',
+  'arrow.label.thinName': '矢印',
+  'arrow.label.plain': '線',
+  'arrow.label.bothTemplate': '両端{{name}}の線',
+  'arrow.label.oneTemplate': '{{name}}の線',
+
+  // ── C8b — エディターのオブジェクトレイヤー（コーン・ボール・メモ） ──────────────────────
+  'objectLayer.noteAriaLabel': 'メモ: {{text}}',
+  'noteChip.placeholder': 'メモ',
+
+  // ── C8b — 反則発話 ──────────────────────────────────────────────────────────────────
+  'ruleOverlay.ringWarning': 'ボールの3m以内に{{names}}が{{n}}人以上 — 2対1注意',
+  'ruleOverlay.fiveMeterWarning': 'ボールの5m以内に{{names}} — セットプレー5m制限',
+  'ruleOverlay.zoneWarning': 'ゴールエリアに{{names}}が{{n}}人以上 — 3人反則',
 };

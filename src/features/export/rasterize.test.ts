@@ -198,7 +198,7 @@ describe('★ rasterizeFrameToPng 이 장면의 글자를 캔버스에 실제로
     const frame = makeFrame();
     const scene = buildStaticScene(frame, OPTS);
 
-    const res = await rasterizeFrameToPng(frame, OPTS);
+    const res = await rasterizeFrameToPng(frame, OPTS, 'ko');
 
     // 대조군 ① — 그릴 글자가 애초에 0개면 아래 일치 단언이 공허하다. 픽스처는 칩 8 + 메모 1
     // (빈 메모 1은 제외) + 캡션 2 = 11 이다.
@@ -217,19 +217,19 @@ describe('★ rasterizeFrameToPng 이 장면의 글자를 캔버스에 실제로
   });
 
   it('캔버스 크기 = SceneMetrics — 2x 의 긴 변이 2048 이다 (★A-10)', async () => {
-    const res = await rasterizeFrameToPng(makeFrame(), OPTS);
+    const res = await rasterizeFrameToPng(makeFrame(), OPTS, 'ko');
     const m = staticSceneMetrics(OPTS);
     expect(canvases).toHaveLength(1);
     expect([canvases[0]!.width, canvases[0]!.height]).toEqual([m.widthPx, m.heightPx]);
     expect([res.widthPx, res.heightPx]).toEqual([m.widthPx, m.heightPx]);
     expect(Math.max(res.widthPx, res.heightPx)).toBe(2048);
     // 대조군: 1x 는 절반이다 — 해상도 옵션이 실제로 먹는다(상수를 박아 둔 것이 아니다).
-    const one = await rasterizeFrameToPng(makeFrame(), { ...OPTS, resolution: 1 });
+    const one = await rasterizeFrameToPng(makeFrame(), { ...OPTS, resolution: 1 }, 'ko');
     expect(Math.max(one.widthPx, one.heightPx)).toBe(1024);
   });
 
   it('캡션을 끄면 캡션 두 줄만 빠지고 등번호는 남는다', async () => {
-    await rasterizeFrameToPng(makeFrame(), { ...OPTS, caption: null });
+    await rasterizeFrameToPng(makeFrame(), { ...OPTS, caption: null }, 'ko');
     expect(calls.map((c) => c.text)).not.toContain('전환 훈련');
     expect(calls.map((c) => c.text)).toContain('G'); // 대조군: 글자 경로 자체는 살아 있다
     expect(calls).toHaveLength(9);
@@ -237,7 +237,7 @@ describe('★ rasterizeFrameToPng 이 장면의 글자를 캔버스에 실제로
 
   it('toBlob 이 null 을 주면(iOS 사파리) 던진다 — 조용히 빈 파일을 내려보내지 않는다', async () => {
     blobResult = null;
-    await expect(rasterizeFrameToPng(makeFrame(), OPTS)).rejects.toThrow('그림 파일을 만들지 못했습니다.');
+    await expect(rasterizeFrameToPng(makeFrame(), OPTS, 'ko')).rejects.toThrow('그림 파일을 만들지 못했습니다.');
     // 대조군: 같은 경로가 blob 이 있을 때는 던지지 않는다(위 it 들이 그것을 이미 보였다).
   });
 });
