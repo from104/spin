@@ -115,7 +115,7 @@ describe('리포 이음매 — 삭제가 톰스톤을 남기고 쓰기가 방송
       await saveRoster(emptyRoster());
       return d;
     });
-    expect(events.map((e) => `${e.type}/${e.op}`)).toEqual(['drill/put', 'roster/put']);
+    expect(events.map((e) => (e.op === 'pass' ? 'pass' : `${e.type}/${e.op}`))).toEqual(['drill/put', 'roster/put']);
   });
 });
 

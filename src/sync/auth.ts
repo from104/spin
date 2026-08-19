@@ -98,14 +98,14 @@ function loadGis(): Promise<void> {
 let cached: { token: string; expiresAt: number } | null = null;
 
 function requestToken(prompt: '' | 'consent', loginHint?: string): Promise<string> {
+  // 구성 검사가 GIS 로드보다 먼저다 — 미구성 배포에서 스크립트 주입(구글 접속)조차 하지 않는다.
+  const clientId = syncClientId();
+  if (!clientId) {
+    return Promise.reject(new StorageError('E_SYNC_AUTH', STORAGE_ERROR_MESSAGES.E_SYNC_AUTH(), { detail: 'client id 미설정' }));
+  }
   return loadGis().then(
     () =>
       new Promise<string>((resolve, reject) => {
-        const clientId = syncClientId();
-        if (!clientId) {
-          reject(new StorageError('E_SYNC_AUTH', STORAGE_ERROR_MESSAGES.E_SYNC_AUTH(), { detail: 'client id 미설정' }));
-          return;
-        }
         let settled = false;
         const settle = (fn: () => void) => {
           if (settled) return;

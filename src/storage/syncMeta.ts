@@ -218,7 +218,10 @@ export async function ensureWriterId(): Promise<string> {
 
 export type SyncEvent =
   | { type: SyncDocType; id: string; op: 'put'; updatedAt: number }
-  | { type: SyncDocType; id: string; op: 'delete'; deletedAt: number };
+  | { type: SyncDocType; id: string; op: 'delete'; deletedAt: number }
+  /** 동기화 패스 종료(engine.ts 발신) — pulled>0 이면 각 탭의 useSyncEngine 이 라이브러리를
+   *  다시 읽는다(LibraryProvider.refresh 는 수동 호출 방식이라 이 방송이 유일한 통지 경로다). */
+  | { op: 'pass'; pushed: number; pulled: number };
 
 const listeners = new Set<(e: SyncEvent) => void>();
 
