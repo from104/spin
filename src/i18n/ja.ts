@@ -726,4 +726,11 @@ export const ja: Record<DictKey, string> = {
   'settings.sync.syncNow': '今すぐ同期',
   'settings.sync.reconnect': '再接続',
   'settings.sync.disconnect': '接続解除',
+  'settings.sync.wipe': 'Driveのデータを削除',
+  'settings.sync.wipeTitle': 'DriveのSPINデータを削除しますか?',
+  'settings.sync.wipeBody':
+    'Google Driveのアプリ専用領域からSPINのファイルをすべて削除し、この端末の同期もオフにします。この端末のドリル・セッション・名簿はそのまま残ります。元に戻せません。',
+  'settings.sync.wipeConfirm': '削除して同期をオフ',
+  'settings.sync.wipeDone': 'Driveからファイル{{n}}件を削除し、同期をオフにしました。',
+  'settings.sync.wipeFailed': 'Driveのデータ削除に失敗しました。',
 };

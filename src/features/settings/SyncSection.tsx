@@ -21,7 +21,8 @@ import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { BCP47 } from '../../i18n/locale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
-import { connectInteractive, isSyncConfigured, revokeAccess } from '../../sync/auth.ts';
+import { connectInteractive, getAccessToken, isSyncConfigured, revokeAccess } from '../../sync/auth.ts';
+import { driveWipeAll } from '../../sync/drive.ts';
 import { clearSyncDocRows, ensureWriterId, getSyncDeviceMeta, putSyncDeviceMeta } from '../../storage/syncMeta.ts';
 import { subscribeSyncStatus, syncNow, syncStatusSnapshot } from '../../sync/useSyncEngine.ts';
 import type { SyncEngineStatus } from '../../sync/engine.ts';
@@ -33,10 +34,13 @@ export function SyncSection() {
   const toast = useToast();
   const status = useSyncExternalStore(subscribeSyncStatus, syncStatusSnapshot);
   const [consentOpen, setConsentOpen] = useState(false);
+  const [wipeOpen, setWipeOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState<string | undefined>(undefined);
   const consentTitleId = useId();
+  const wipeTitleId = useId();
   const connectBtnRef = useRef<HTMLButtonElement>(null);
+  const wipeBtnRef = useRef<HTMLButtonElement>(null);
 
   const enabled = prefs.sync.enabled;
 
@@ -87,17 +91,41 @@ export function SyncSection() {
     }
   };
 
+  /** 해제의 공통 몸통 — 계정 힌트만 지운다(writerId·lastSyncAt 유지). 로컬 데이터·문서행·
+   *  톰스톤 비접촉은 ROADMAP "연결 끊어도 로컬 유지" 의 몫이다. */
+  const detach = async () => {
+    await revokeAccess();
+    const meta = await getSyncDeviceMeta();
+    if (meta) await putSyncDeviceMeta({ writerId: meta.writerId, ...(meta.lastSyncAt !== undefined ? { lastSyncAt: meta.lastSyncAt } : {}) });
+    setEmail(undefined);
+    setPrefs({ sync: { enabled: false } });
+  };
+
   const disconnect = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      await revokeAccess();
-      const meta = await getSyncDeviceMeta();
-      // 계정 힌트만 지운다 — writerId(충돌 tie-break 식별자)와 lastSyncAt 은 남는다. 로컬
-      // 데이터·문서행·톰스톤 비접촉은 ROADMAP "연결 끊어도 로컬 유지" 의 몫이다.
-      if (meta) await putSyncDeviceMeta({ writerId: meta.writerId, ...(meta.lastSyncAt !== undefined ? { lastSyncAt: meta.lastSyncAt } : {}) });
-      setEmail(undefined);
-      setPrefs({ sync: { enabled: false } });
+      await detach();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** [Drive 데이터 삭제] — 원격 전량 실삭제 **후 동기화도 끈다**. 켠 채 지우면 다음 패스가
+   *  전부 도로 올려 청소가 헛일이 된다. 문서행도 비운다(그 원격은 더 이상 존재하지 않는다).
+   *  로컬 문서·톰스톤은 그대로 — 지우는 것은 Drive 쪽뿐이다. */
+  const wipe = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const token = await getAccessToken(email);
+      const n = await driveWipeAll(token);
+      await clearSyncDocRows();
+      await detach();
+      setWipeOpen(false);
+      toast.show(t('settings.sync.wipeDone', { n }));
+    } catch (e) {
+      toast.show(storageErrorText(e, locale, t('settings.sync.wipeFailed')));
     } finally {
       setBusy(false);
     }
@@ -132,6 +160,9 @@ export function SyncSection() {
             <Button variant="secondary" aria-disabled={busy} onClick={() => void disconnect()}>
               {t('settings.sync.disconnect')}
             </Button>
+            <Button ref={wipeBtnRef} variant="secondary" aria-disabled={busy} onClick={() => setWipeOpen(true)} style={{ color: 'var(--danger-text, #c0392b)' }}>
+              {t('settings.sync.wipe')}
+            </Button>
           </div>
         </>
       ) : (
@@ -161,6 +192,25 @@ export function SyncSection() {
           </Button>
           <Button variant="primary" aria-disabled={busy} onClick={() => void connect()}>
             {t('settings.sync.consentConfirm')}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={wipeOpen}
+        onClose={() => setWipeOpen(false)}
+        titleId={wipeTitleId}
+        title={t('settings.sync.wipeTitle')}
+        closeLabel={t('common.close')}
+        returnFocusRef={wipeBtnRef}
+      >
+        <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.7 }}>{t('settings.sync.wipeBody')}</p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+          <Button variant="secondary" onClick={() => setWipeOpen(false)}>
+            {t('settings.sync.consentCancel')}
+          </Button>
+          <Button variant="primary" aria-disabled={busy} onClick={() => void wipe()}>
+            {t('settings.sync.wipeConfirm')}
           </Button>
         </div>
       </Modal>

@@ -67,6 +67,10 @@ export interface SyncEngine {
 const DEBOUNCE_MS = 3_000;
 const BACKOFF_BASE_MS = 1_000;
 const BACKOFF_CAP_MS = 60_000;
+/** 톰스톤 GC — 90일. 그보다 오래 오프라인이었던 기기는 삭제를 영영 못 듣고 옛 문서를
+ *  되살릴 수 있다(pushCreate) — 표준 톰스톤 GC 의 상수적 타협이고, 개인용 2~3 기기에서
+ *  90일 공백은 사실상 "그 기기를 버렸다" 다. 위험은 문서 부활이지 유실이 아니다. */
+export const TOMBSTONE_GC_MS = 90 * 24 * 60 * 60 * 1000;
 /** 액션 동시 실행 상한 — Drive 가 병렬을 잘 받지만 3이면 충분히 겹치고 429 를 부르지 않는다. */
 const CONCURRENCY = 3;
 
@@ -213,6 +217,20 @@ export function createSyncEngine(store: SyncStore, drive: SyncDriveApi, auth: Sy
     };
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
     if (aborted) throw aborted;
+
+    // ── 톰스톤 90일 GC — best-effort: 실패해도 패스는 성공이다(다음 패스가 또 시도한다). ──
+    const cutoff = Date.now() - TOMBSTONE_GC_MS;
+    try {
+      for (const f of files) {
+        if (f.deletedAt !== undefined && f.deletedAt < cutoff) await drive.delete(token, f.fileId);
+      }
+      for (const tb of localTombs) {
+        if (tb.deletedAt < cutoff) await store.clearTombstone(tb.type, tb.id);
+      }
+    } catch {
+      /* GC 는 언제든 다시 돌 수 있다 */
+    }
+
     await store.touchLastSyncAt(Date.now());
     return result;
   }

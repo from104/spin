@@ -8,7 +8,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
-import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
+import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { SyncSection } from './SyncSection.tsx';
 import { loadPrefs, savePrefs, makeDefaultPrefs } from '../../storage/prefs.ts';
 import { clearSyncDocRows, getSyncDeviceMeta, listSyncDocRows, listTombstones, putSyncDeviceMeta, putSyncDocRow, tombstoneRecord } from '../../storage/syncMeta.ts';
@@ -18,13 +18,34 @@ vi.mock('../../sync/auth.ts', () => ({
   isSyncConfigured: vi.fn(() => true),
   connectInteractive: vi.fn(async () => ({ token: 'tok', email: 'coach@example.com' })),
   revokeAccess: vi.fn(async () => {}),
+  getAccessToken: vi.fn(async () => 'tok'),
+}));
+vi.mock('../../sync/drive.ts', () => ({
+  driveWipeAll: vi.fn(async () => 7),
 }));
 import { connectInteractive, isSyncConfigured, revokeAccess } from '../../sync/auth.ts';
+import { driveWipeAll } from '../../sync/drive.ts';
+
+/** ToastProvider 는 상태만 든다 — 그리는 것은 AppShell 의 ToastHost 몫(ExportSheet.test 와
+ *  같은 사정). 토스트 문구 단언용으로 메시지를 그대로 흘려 그린다. */
+function ToastEcho() {
+  const { toasts } = useToast();
+  return (
+    <div>
+      {toasts.map((toast) => (
+        <span key={toast.id}>{toast.message}</span>
+      ))}
+    </div>
+  );
+}
 
 function Wrapper({ children }: { children: ReactNode }) {
   return (
     <SettingsProvider>
-      <ToastProvider>{children}</ToastProvider>
+      <ToastProvider>
+        {children}
+        <ToastEcho />
+      </ToastProvider>
     </SettingsProvider>
   );
 }
@@ -126,5 +147,24 @@ describe('켬 상태', () => {
     expect(meta?.lastSyncAt).toBe(1_700_000_000_000);
     expect((await listSyncDocRows()).some((r) => r.id === 'dr_keep')).toBe(true); // 로컬 부기 비접촉
     expect(screen.getByRole('button', { name: 'Google 계정 연결' })).toBeInTheDocument(); // 꺼짐 화면으로
+  });
+
+  it('[Drive 데이터 삭제] — 재확인 모달을 지나야 지우고, 지운 뒤 동기화도 끈다(문서행 소거·톰스톤 유지)', async () => {
+    const db = await getDB();
+    const tx = db.transaction('meta', 'readwrite');
+    tx.store.put(tombstoneRecord('drill', 'dr_gone', 99));
+    await tx.done;
+
+    const user = userEvent.setup();
+    render(<SyncSection />, { wrapper: Wrapper });
+    await user.click(await screen.findByRole('button', { name: 'Drive 데이터 삭제' }));
+    expect(driveWipeAll).not.toHaveBeenCalled(); // 모달이 먼저다
+    await user.click(screen.getByRole('button', { name: '지우고 동기화 끄기' }));
+    await waitFor(() => expect(loadPrefs().sync.enabled).toBe(false));
+    expect(driveWipeAll).toHaveBeenCalledTimes(1);
+    expect(revokeAccess).toHaveBeenCalledTimes(1);
+    expect(await listSyncDocRows()).toEqual([]); // 그 원격은 더 이상 존재하지 않는다
+    expect((await listTombstones()).some((tb) => tb.id === 'dr_gone')).toBe(true); // 로컬 톰스톤 비접촉
+    expect(await screen.findByText('Drive 에서 파일 7개를 지우고 동기화를 껐습니다.')).toBeInTheDocument(); // 토스트
   });
 });

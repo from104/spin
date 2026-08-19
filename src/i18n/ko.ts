@@ -726,6 +726,13 @@ export const ko = {
   'settings.sync.syncNow': '지금 동기화',
   'settings.sync.reconnect': '다시 연결',
   'settings.sync.disconnect': '연결 해제',
+  'settings.sync.wipe': 'Drive 데이터 삭제',
+  'settings.sync.wipeTitle': 'Drive 의 SPIN 데이터를 지울까요?',
+  'settings.sync.wipeBody':
+    'Google Drive 앱 전용 공간의 SPIN 파일을 전부 지우고 이 기기의 동기화도 끕니다. 이 기기의 드릴·세션·명단은 그대로 남습니다. 되돌릴 수 없습니다.',
+  'settings.sync.wipeConfirm': '지우고 동기화 끄기',
+  'settings.sync.wipeDone': 'Drive 에서 파일 {{n}}개를 지우고 동기화를 껐습니다.',
+  'settings.sync.wipeFailed': 'Drive 데이터 삭제에 실패했습니다.',
 } as const;
 
 export type DictKey = keyof typeof ko;

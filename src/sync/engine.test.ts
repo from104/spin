@@ -189,35 +189,40 @@ describe('2-기기 수렴', () => {
     }
   });
 
+  // ⚠️ 삭제가 낀 시나리오의 시각은 **현재 기준**이어야 한다 — 엔진의 톰스톤 GC 가 실제
+  //    벽시계로 90일을 재므로, 1970년대 epoch(100·200 같은 리터럴)로 만든 톰스톤은 첫
+  //    패스에서 GC 에 쓸려 "삭제 전파" 대신 "청소" 를 검증하게 된다(실제로 겪고 고정).
   it('삭제 전파 — A 의 삭제가 B 에 닿고, 원격에는 톰스톤 파일이 남는다(실삭제 아님)', async () => {
     const remote = memoryDrive();
     const A = memoryDevice();
     const B = memoryDevice();
     const eA = createSyncEngine(A.store, remote.api, auth());
     const eB = createSyncEngine(B.store, remote.api, auth());
-    A.edit('drill', 'dr_1', '지워질 드릴', 100);
+    const t0 = Date.now();
+    A.edit('drill', 'dr_1', '지워질 드릴', t0 - 2000);
     await settle([eA, eB]);
     expect(B.doc('drill', 'dr_1')).toBeDefined();
-    A.remove('drill', 'dr_1', 200);
+    A.remove('drill', 'dr_1', t0 - 1000);
     await settle([eA, eB]);
     expect(B.doc('drill', 'dr_1')).toBeUndefined();
     expect([...B.tombs.keys()]).toContain('drill/dr_1');
     const tombFiles = [...remote.files.values()].filter((c) => c.id === 'dr_1');
     expect(tombFiles).toHaveLength(1);
     expect(tombFiles[0]!.doc).toBeNull();
-    expect(tombFiles[0]!.deletedAt).toBe(200);
+    expect(tombFiles[0]!.deletedAt).toBe(t0 - 1000);
   });
 
-  it('삭제 후 편집 부활 — 삭제(t=200)보다 늦은 편집(t=300)이 이겨 양쪽 다 살아난다', async () => {
+  it('삭제 후 편집 부활 — 삭제보다 늦은 편집이 이겨 양쪽 다 살아난다', async () => {
     const remote = memoryDrive();
     const A = memoryDevice();
     const B = memoryDevice();
     const eA = createSyncEngine(A.store, remote.api, auth());
     const eB = createSyncEngine(B.store, remote.api, auth());
-    A.edit('drill', 'dr_1', '원본', 100);
+    const t0 = Date.now();
+    A.edit('drill', 'dr_1', '원본', t0 - 3000);
     await settle([eA, eB]);
-    A.remove('drill', 'dr_1', 200); // A 는 지웠다
-    B.edit('drill', 'dr_1', 'B의 개정판', 300); // B 는 (아직 모른 채) 더 늦게 고쳤다
+    A.remove('drill', 'dr_1', t0 - 2000); // A 는 지웠다
+    B.edit('drill', 'dr_1', 'B의 개정판', t0 - 1000); // B 는 (아직 모른 채) 더 늦게 고쳤다
     await settle([eA, eB]);
     for (const dev of [A, B]) {
       expect(dev.doc('drill', 'dr_1')?.body).toBe('B의 개정판');
@@ -302,6 +307,24 @@ describe('패스의 실패 처리', () => {
     const r = (await createSyncEngine(B.store, remote.api, auth()).runOnce()) as SyncPassResult;
     expect(r.skipped).toBe(1);
     expect(B.doc('drill', 'dr_1')?.body).toBe('B의 편집(패스 중)');
+  });
+});
+
+describe('톰스톤 90일 GC', () => {
+  it('90일 지난 원격 톰스톤 파일은 실삭제되고 지역 톰스톤도 정리된다 — 최근 것은 남는다', async () => {
+    const remote = memoryDrive();
+    const A = memoryDevice();
+    const old = Date.now() - 91 * 24 * 60 * 60 * 1000;
+    const fresh = Date.now() - 1000;
+    await remote.api.upload('tok', { container: { sync: 1, type: 'drill', id: 'dr_old', modifiedAt: old, deletedAt: old, writerId: 'wX', doc: null } });
+    await remote.api.upload('tok', { container: { sync: 1, type: 'drill', id: 'dr_new', modifiedAt: fresh, deletedAt: fresh, writerId: 'wX', doc: null } });
+    A.remove('drill', 'dr_old', old);
+    A.remove('drill', 'dr_new', fresh);
+    const eA = createSyncEngine(A.store, remote.api, auth());
+    await eA.runOnce();
+    expect([...remote.files.values()].map((c) => c.id)).toEqual(['dr_new']); // 옛것만 실삭제
+    expect([...A.tombs.keys()]).toEqual(['drill/dr_new']);
+    eA.stop();
   });
 });
 

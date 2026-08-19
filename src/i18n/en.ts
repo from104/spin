@@ -731,4 +731,11 @@ export const en: Record<DictKey, string> = {
   'settings.sync.syncNow': 'Sync now',
   'settings.sync.reconnect': 'Reconnect',
   'settings.sync.disconnect': 'Disconnect',
+  'settings.sync.wipe': 'Delete Drive data',
+  'settings.sync.wipeTitle': "Delete SPIN's data from Drive?",
+  'settings.sync.wipeBody':
+    "Deletes every SPIN file from your Google Drive's app-only space and turns off sync on this device. Drills, sessions, and the roster on this device stay. This cannot be undone.",
+  'settings.sync.wipeConfirm': 'Delete and turn off sync',
+  'settings.sync.wipeDone': 'Deleted {{n}} files from Drive and turned sync off.',
+  'settings.sync.wipeFailed': "Couldn't delete the Drive data.",
 };

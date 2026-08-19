@@ -190,7 +190,7 @@ export async function driveUpload(token: string, opts: { fileId?: string; contai
 
 // ── 삭제 ─────────────────────────────────────────────────────────────────────────────
 
-/** 실삭제 — 중복 정리(dropRemoteDup)·[Drive 의 SPIN 데이터 삭제] 전용. 문서의 삭제 전파는
+/** 실삭제 — 중복 정리(dropRemoteDup)·톰스톤 GC·[Drive 데이터 삭제] 전용. 문서의 삭제 전파는
  *  이걸 쓰지 않는다(톰스톤 = driveUpload 로 doc:null). 404 는 성공으로 접는다 — 다른 기기가
  *  먼저 지웠다면 목표 상태는 이미 달성돼 있다. */
 export async function driveDelete(token: string, fileId: string): Promise<void> {
@@ -200,4 +200,14 @@ export async function driveDelete(token: string, fileId: string): Promise<void> 
     if (e instanceof StorageError && e.code === 'E_SYNC_REMOTE' && e.detail?.startsWith('HTTP 404')) return;
     throw e;
   }
+}
+
+/** [Drive 데이터 삭제] — appDataFolder 전량 실삭제. **unrecognized(형식을 모르는 파일)까지
+ *  포함한다**: 프라이버시 청소가 목적이라 "우리가 못 읽는 파일" 이야말로 남기면 안 된다.
+ *  지운 파일 수를 돌려준다(사용자 확인용). */
+export async function driveWipeAll(token: string): Promise<number> {
+  const { files, unrecognized } = await driveListAll(token);
+  const ids = [...files.map((f) => f.fileId), ...unrecognized];
+  for (const id of ids) await driveDelete(token, id);
+  return ids.length;
 }
