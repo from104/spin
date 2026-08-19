@@ -28,15 +28,6 @@ export function IconFullscreenExit({ size = 18, ...rest }: IconProps) {
   );
 }
 
-export function IconLoop({ size = 18, ...rest }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
-      <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" />
-      <path d="M18 3v4h-4M6 21v-4h4" />
-    </svg>
-  );
-}
-
 export function IconHelp({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>

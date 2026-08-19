@@ -318,6 +318,18 @@ export function IconPause({ size = 16, ...rest }: IconProps) {
   );
 }
 
+/** 반복 재생 토글 — PlaybackControls(2026-08-20, 편집·시연 공용 재생 묶음) 전용이었던
+ *  시연 전용 아이콘(features/present/icons.tsx)을 ui 층으로 옮겼다. PlaybackControls 가
+ *  `ui/` 층에 살아 features 방향 import 를 만들 수 없어서다(§8 의존 방향). */
+export function IconLoop({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" />
+      <path d="M18 3v4h-4M6 21v-4h4" />
+    </svg>
+  );
+}
+
 /** 헤더 코트 알약 잠금 표시 12px — §6.8 "코트 모드 스위치는 v1 에서 불변이다". */
 export function IconLock({ size = 12, ...rest }: IconProps) {
   return (
