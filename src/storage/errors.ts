@@ -7,7 +7,13 @@ export type StorageErrorCode =
   | 'E_CONFLICT'
   | 'E_SCHEMA_TOO_NEW'
   | 'E_INVALID_FILE'
-  | 'E_UNSUPPORTED_KIND';
+  | 'E_UNSUPPORTED_KIND'
+  // 0.6 Drive 동기화(sync/drive.ts). 닫힌 union + 아래 Record 라서, 코드를 더하면
+  // 한국어 문구와 i18n 3언어 키(storage.error.*)가 컴파일로 강제된다.
+  | 'E_SYNC_AUTH'
+  | 'E_SYNC_NETWORK'
+  | 'E_SYNC_REMOTE'
+  | 'E_SYNC_QUOTA';
 
 export class StorageError extends Error {
   readonly code: StorageErrorCode;
@@ -37,4 +43,8 @@ export const STORAGE_ERROR_MESSAGES: Record<StorageErrorCode, (d?: string) => st
   E_SCHEMA_TOO_NEW: () => '더 새로운 버전의 SPIN에서 만든 파일입니다. 앱을 업데이트하세요.',
   E_INVALID_FILE: () => 'SPIN 파일이 아니거나 손상되었습니다.',
   E_UNSUPPORTED_KIND: (d) => `이 버전에서 지원하지 않는 파일 종류입니다${d ? ` (${d})` : ''}.`,
+  E_SYNC_AUTH: () => 'Google 계정 연결이 만료되었습니다. 설정에서 다시 연결하세요.',
+  E_SYNC_NETWORK: () => '네트워크에 연결할 수 없습니다. 연결되면 자동으로 다시 동기화합니다.',
+  E_SYNC_REMOTE: () => 'Google Drive 응답이 올바르지 않습니다. 잠시 후 다시 시도합니다.',
+  E_SYNC_QUOTA: () => 'Google Drive 저장 공간이 부족합니다. Drive 용량을 정리하세요.',
 };

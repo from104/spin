@@ -14,6 +14,10 @@ const CODE_KEY: Record<StorageErrorCode, DictKey> = {
   E_SCHEMA_TOO_NEW: 'storage.error.E_SCHEMA_TOO_NEW',
   E_INVALID_FILE: 'storage.error.E_INVALID_FILE',
   E_UNSUPPORTED_KIND: 'storage.error.E_UNSUPPORTED_KIND',
+  E_SYNC_AUTH: 'storage.error.E_SYNC_AUTH',
+  E_SYNC_NETWORK: 'storage.error.E_SYNC_NETWORK',
+  E_SYNC_REMOTE: 'storage.error.E_SYNC_REMOTE',
+  E_SYNC_QUOTA: 'storage.error.E_SYNC_QUOTA',
 };
 
 /** 화면 catch(e) 자리의 `e instanceof Error && e.message.length > 0 ? e.message : fallback`

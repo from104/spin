@@ -692,6 +692,10 @@ export const ko = {
   'storage.error.E_SCHEMA_TOO_NEW': '더 새로운 버전의 SPIN에서 만든 파일입니다. 앱을 업데이트하세요.',
   'storage.error.E_INVALID_FILE': 'SPIN 파일이 아니거나 손상되었습니다.',
   'storage.error.E_UNSUPPORTED_KIND': '이 버전에서 지원하지 않는 파일 종류입니다{{detail}}.',
+  'storage.error.E_SYNC_AUTH': 'Google 계정 연결이 만료되었습니다. 설정에서 다시 연결하세요.',
+  'storage.error.E_SYNC_NETWORK': '네트워크에 연결할 수 없습니다. 연결되면 자동으로 다시 동기화합니다.',
+  'storage.error.E_SYNC_REMOTE': 'Google Drive 응답이 올바르지 않습니다. 잠시 후 다시 시도합니다.',
+  'storage.error.E_SYNC_QUOTA': 'Google Drive 저장 공간이 부족합니다. Drive 용량을 정리하세요.',
 
   // ── C8b — 첫 실행 기본 팀 이름(storage/prefs.ts, 저장되는 값이라 생성 시점에 한 번만 고른다) ──
   'team.defaultHomeLabel': '우리 팀',

@@ -692,6 +692,10 @@ export const ja: Record<DictKey, string> = {
   'storage.error.E_SCHEMA_TOO_NEW': 'これはより新しいバージョンのSPINで作られたファイルです。アプリを更新してください。',
   'storage.error.E_INVALID_FILE': 'SPINファイルではないか、破損しています。',
   'storage.error.E_UNSUPPORTED_KIND': 'このバージョンでは対応していないファイル種類です{{detail}}。',
+  'storage.error.E_SYNC_AUTH': 'Googleアカウントの接続が切れました。設定から再接続してください。',
+  'storage.error.E_SYNC_NETWORK': 'ネットワークに接続できません。接続が戻り次第、自動的に再同期します。',
+  'storage.error.E_SYNC_REMOTE': 'Google Driveの応答が正しくありません。しばらくして再試行します。',
+  'storage.error.E_SYNC_QUOTA': 'Google Driveの容量が不足しています。Driveの空き容量を確保してください。',
 
   // ── C8b — 初回起動時のデフォルトチーム名(storage/prefs.ts。保存される値なので作成時に一度だけ決める) ──
   'team.defaultHomeLabel': '自チーム',
