@@ -98,6 +98,12 @@ export interface Preferences {
    *  로케일이 아니라 "무엇을 볼지에 대한 취향"이라 기기를 옮겨도 따라오는 게 맞다(theme·
    *  defaultFormation 과 같은 결). 해석 로직은 i18n/locale.ts 가 단일 출처다. */
   language: 'auto' | Locale;
+  /** 0.6 Drive 동기화. enabled 만 prefs 에 둔다 — 계정 이메일은 IDB meta(syncMeta.ts)에
+   *  (백업 파일이 prefs 를 통째로 실으므로 이메일이 백업을 타면 안 된다), 토큰은 어디에도
+   *  저장하지 않는다(auth.ts 머리말). 스키마 도장은 안 올린다(a11y.sound 전례 — 없으면
+   *  기본값 꺼짐). enabled 가 백업을 타고 이동하는 것은 의도다: 새 기기에서 복원하면
+   *  "다시 연결하세요" 안내가 자연스러운 온보딩이 된다(토큰이 없으니 저절로 그 상태다). */
+  sync: { enabled: boolean };
 }
 
 /** 팀 이름 기본값. DEFAULT_TEAMS(model/defaults.ts) 는 seed 드릴 전용(번역 범위 밖 — 시드
@@ -133,6 +139,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   seeded: false,
   physics: {},
   language: 'auto',
+  sync: { enabled: false },
 });
 
 /** linearKmh 에 연동되는 회전 속도 상한. 기본점(linear=10 → 30)을 지나는 선형식이며
@@ -211,6 +218,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
   const a11yRaw = isRecord(raw.a11y) ? raw.a11y : {};
   const hintsRaw = isRecord(raw.hints) ? raw.hints : {};
   const trayRaw = isRecord(raw.tray) ? raw.tray : {};
+  const syncRaw = isRecord(raw.sync) ? raw.sync : {};
 
   const uiScale: 1 | 1.15 | 1.3 = a11yRaw.uiScale === 1.15 || a11yRaw.uiScale === 1.3 ? a11yRaw.uiScale : 1;
   const reduceMotion: 'system' | 'always' = a11yRaw.reduceMotion === 'always' ? 'always' : 'system';
@@ -253,6 +261,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     seeded: bool(raw.seeded, d.seeded),
     physics: sanitizePhysicsOverride(raw.physics),
     language,
+    sync: { enabled: bool(syncRaw.enabled, d.sync.enabled) },
   };
   return { value, repairs };
 }

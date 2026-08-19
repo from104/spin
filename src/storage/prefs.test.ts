@@ -92,6 +92,14 @@ describe('validatePrefs', () => {
     expect(value.teams.home.label).toBe('Our Team');
     expect(value.teams.away.label).toBe('우리가 정한 이름');
   });
+  it('sync.enabled — 기본 꺼짐, 참값은 왕복 보존, 쓰레기는 기본값으로 접는다(0.6, 스키마 도장 불변)', () => {
+    expect(validatePrefs({}).value.sync.enabled).toBe(false); // 구버전 저장본(sync 키 없음)
+    expect(validatePrefs({ sync: { enabled: true } }).value.sync.enabled).toBe(true);
+    expect(validatePrefs({ sync: { enabled: 'yes' } }).value.sync.enabled).toBe(false);
+    expect(validatePrefs({ sync: 'on' }).value.sync.enabled).toBe(false);
+    // a11y.sound 전례 — 필드 추가로 스키마를 올리지 않는다(구앱 too-new 리셋 비용 회피)
+    expect(validatePrefs({ sync: { enabled: true } }).value.schemaVersion).toBe(makeDefaultPrefs().schemaVersion);
+  });
 });
 
 describe('resolvePhysics', () => {
