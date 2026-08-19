@@ -10,12 +10,11 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { CSSProperties, ReactNode } from 'react';
 import { Button } from '../ui/Button.tsx';
 import { Segmented } from '../ui/Segmented.tsx';
-import { IconLock, IconPresent, IconSearch } from '../ui/icons.tsx';
+import { IconInfo, IconLock, IconSearch } from '../ui/icons.tsx';
 import type { CourtMode } from '../model/court.ts';
 import { COURT_MODES, COURT_MODE_SHORT_LABELS } from '../model/court.ts';
 import { AppNavAside, AppNavSegment } from './AppNavSegment.tsx';
 import { headerPadCss } from './navChrome.ts';
-import { SCREEN_NAV_LABELS } from './screens.ts';
 import type { RailKey } from './screens.ts';
 import { useT } from '../i18n/useT.ts';
 import { useLocale } from '../i18n/useLocale.ts';
@@ -67,6 +66,12 @@ export interface HeaderTitleField {
   maxLength: number;
   onChange(v: string): void;
 }
+/** 제목 바로 우측의 ⓘ(2026-08-20, 기현님 지시 — 편집·시연 두 화면 공통). 아이콘 전용
+ *  버튼이라 접근 가능한 이름은 화면이 주는 `label` 하나로 정해진다. */
+export interface HeaderInfoButton {
+  onAction(): void;
+  label: string;
+}
 export interface HeaderConfig {
   title: string;
   /** 있으면 제목이 클릭-편집이 된다(드릴 편집 헤더 전용). `title` 은 그대로 둔다 — 편집이
@@ -75,12 +80,19 @@ export interface HeaderConfig {
   subtitle?: string;
   /** 편집중 배지 등. */
   badge?: string;
-  /** 드릴 편집 헤더 전용 — 자유 전술판·다른 화면은 안 준다(헤더가 비어 있거나 subtitle 을 쓴다). */
+  /** 드릴 편집 헤더 전용 — 자유 전술판·다른 화면은 안 준다(헤더가 비어 있거나 subtitle 을 쓴다).
+   *  `compact` 에서는 안 그린다(아래 주석). */
   description?: HeaderDescriptionField | null;
   primary?: HeaderPrimaryAction | null;
-  presentButton?: { onAction(): void } | null;
   search?: HeaderSearch | null;
   courtSwitch?: HeaderCourtSwitch | null;
+  /** 컴팩트 모드(2026-08-20, 기현님 지시 — "드릴 편집 화면과 시연 화면은 비슷한 레이아웃이어야
+   *  ux가 좋아진다") — 드릴 편집·시연 두 화면 공용 헤더. 켜지면 높이가 좁은 창과 같은 48 로
+   *  줄고(아래 AppHeader 의 headerPadCss 인자), `subtitle`·`description` 을 안 그린다 — 제목·
+   *  ⓘ·상황별 전환 버튼(primary) 한 줄만 남는다. */
+  compact?: boolean;
+  /** 제목 바로 우측의 ⓘ. `null` 이면 안 그린다(예: 편집 화면인데 onDrillInfo 콜백이 아직 없을 때). */
+  infoButton?: HeaderInfoButton | null;
 }
 
 // ⚠️ 2026-08-14 기현님 지시(*"undo, redo 버튼을 줌 버튼과 묶어 배치"*)로 **되돌리기·다시하기가
@@ -126,13 +138,15 @@ function headerConfigEqual(a: HeaderConfig, b: HeaderConfig): boolean {
     !!a.primary === !!b.primary &&
     a.primary?.label === b.primary?.label &&
     a.primary?.disabled === b.primary?.disabled &&
-    !!a.presentButton === !!b.presentButton &&
     !!a.search === !!b.search &&
     a.search?.value === b.search?.value &&
     a.search?.placeholder === b.search?.placeholder &&
     !!a.courtSwitch === !!b.courtSwitch &&
     a.courtSwitch?.value === b.courtSwitch?.value &&
-    a.courtSwitch?.locked === b.courtSwitch?.locked
+    a.courtSwitch?.locked === b.courtSwitch?.locked &&
+    !!a.compact === !!b.compact &&
+    !!a.infoButton === !!b.infoButton &&
+    a.infoButton?.label === b.infoButton?.label
   );
 }
 
@@ -159,9 +173,10 @@ export function useAppHeader(config: HeaderConfig): void {
     config.badge,
     config.description ? [config.description.value, config.description.placeholder, config.description.maxLength] : null,
     config.primary ? [config.primary.label, config.primary.disabled ?? false] : null,
-    !!config.presentButton,
     config.search ? [config.search.value, config.search.placeholder ?? ''] : null,
     config.courtSwitch ? [config.courtSwitch.value, config.courtSwitch.locked ?? true] : null,
+    config.compact ?? false,
+    config.infoButton ? config.infoButton.label : null,
   ]);
 
   useEffect(() => {
@@ -187,7 +202,6 @@ export function useAppHeader(config: HeaderConfig): void {
           }
         : null,
       primary: c.primary ? { ...c.primary, onAction: () => latest.current.primary?.onAction() } : null,
-      presentButton: c.presentButton ? { onAction: () => latest.current.presentButton?.onAction() } : null,
       search: c.search
         ? { value: c.search.value, placeholder: c.search.placeholder, onChange: (v) => latest.current.search?.onChange(v) }
         : null,
@@ -199,6 +213,8 @@ export function useAppHeader(config: HeaderConfig): void {
             onChange: (m) => latest.current.courtSwitch?.onChange?.(m),
           }
         : null,
+      compact: c.compact,
+      infoButton: c.infoButton ? { label: c.infoButton.label, onAction: () => latest.current.infoButton?.onAction() } : null,
     });
     // key 로 원시값 변화만 추적한다 — ctxRef 는 ref 라 의존성 배열에 넣을 필요도, 넣어서도 안 된다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -253,10 +269,14 @@ export function AppHeader({
   const ctx = useContext(HeaderContext);
   const config = override ?? ctx?.config ?? EMPTY_CONFIG;
   const t = useT();
-  const locale = useLocale();
 
   return (
-    <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow) }}>
+    // ⚠️ 2026-08-20 — `config.compact` 는 `minHeight` 를 62 → **48** 로 덮어쓴다(드릴 편집·시연
+    // 공용 헤더). HEADER_STYLE 의 `minHeight: 62` 리터럴은 그대로 둔다 — chromeBudget.test.ts
+    // 가 소스에서 그 글자를 찾아 예산 표(row.wide)와 대조한다. 패딩도 좁은 창 값(HEADER_PAD_PX
+    // .narrow)으로 맞춘다 — `narrow` prop(레일↔세그먼트 판정)과는 독립이다: 넓은 창에서도
+    // compact 면 48px 여야 하고, 그때 좌측 세그먼트는 안 선다(아래 `{narrow && …}` 그대로).
+    <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow || !!config.compact), ...(config.compact ? { minHeight: 48 } : null) }}>
       {narrow && <AppNavSegment active={activeRail} />}
       <div style={{ minWidth: 0, flex: '1 1 12rem' }}>
         <div style={{ fontSize: '0.9375rem', fontWeight: 700, letterSpacing: '-0.02rem', display: 'flex', alignItems: 'center', gap: '0.5625rem' }}>
@@ -272,6 +292,26 @@ export function AppHeader({
             >
               {config.title}
             </span>
+          )}
+          {/* ⓘ — 제목 바로 우측(2026-08-20, §B). 편집·시연 공용 자리. */}
+          {config.infoButton && (
+            <button
+              type="button"
+              aria-label={config.infoButton.label}
+              onClick={config.infoButton.onAction}
+              style={{
+                flex: 'none',
+                width: 28,
+                height: 28,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '0.5rem',
+                color: 'var(--muted)',
+              }}
+            >
+              <IconInfo size={17} />
+            </button>
           )}
           {config.badge && (
             <span
@@ -289,7 +329,8 @@ export function AppHeader({
             </span>
           )}
         </div>
-        {config.subtitle && (
+        {/* compact 는 subtitle·description 을 안 그린다(§A) — 한 줄(제목·ⓘ·전환 버튼)만 남긴다. */}
+        {!config.compact && config.subtitle && (
           <div
             style={{
               fontSize: '0.71875rem',
@@ -303,7 +344,7 @@ export function AppHeader({
             {config.subtitle}
           </div>
         )}
-        {config.description && <HeaderDescriptionEditor cfg={config.description} />}
+        {!config.compact && config.description && <HeaderDescriptionEditor cfg={config.description} />}
       </div>
 
       <div style={{ marginLeft: 'auto', flex: 'none', display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
@@ -342,12 +383,6 @@ export function AppHeader({
               }}
             />
           </label>
-        )}
-
-        {config.presentButton && (
-          <Button variant="secondary" icon={<IconPresent size={15} />} onClick={config.presentButton.onAction}>
-            {SCREEN_NAV_LABELS[locale].present}
-          </Button>
         )}
 
         {config.primary && (

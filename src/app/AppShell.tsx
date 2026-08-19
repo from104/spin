@@ -248,7 +248,15 @@ export function AppShell() {
   //   코트 축척이 0.8990 → 0.9905 로 **10% 커진다.**
   //   ⚠️ 여유가 **1px** 이다. 기둥에 칸이나 구분선을 하나만 더해도 도로 2열이 된다 —
   //      더할 때는 functionBarMetrics 의 요구 높이부터 계산할 것.
-  const showHeader = narrow || nav.screen !== 'board';
+  //
+  //   ⚠️ 2026-08-20 (기현님 지시) — **드릴 편집이 다시 헤더를 얻는다.** 되살리는 이유는 이번엔
+  //   [저장]·[시연]이 아니라 *"드릴 편집 화면과 시연 화면은 비슷한 레이아웃이어야 ux가
+  //   좋아진다"* — 두 화면이 같은 헤더(제목·ⓘ·상황별 전환 버튼)를 쓰게 맞춘다. 위 10% 이득은
+  //   **다시 치른다**: 헤더 48(세로) + 하단 재생 묶음이 60px 재생 버튼을 실으며 +16(세로) +
+  //   1024×600 에서 기능 바가 도로 2열로 흘러 폭 +44. 대가를 알고도 맞추는 쪽을 택했다 —
+  //   실측 문턱이 바뀐 것은 아니라서, 작은 창(1024×600 급)에서 코트가 준 체감을 실기로 확인해야
+  //   한다(계획서 "치러야 하는 대가" 참고). `stageTarget` 이 판정에 **돌아온다.**
+  const showHeader = narrow || nav.screen !== 'board' || stageTarget.kind === 'drill';
   const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav);
 
   // §7.6: 화면 전환(go·back·popstate 전부) 시 <main id="main"> 에 포커스 + 라이브 리전 발표.

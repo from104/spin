@@ -52,13 +52,15 @@ describe('예산 합계 — 못박은 값', () => {
     expect(CHROME_WIDTH_NARROW_PX).toBe(173);
   });
 
-  it('세로 합계는 196 → 109 이다', () => {
+  it('세로 합계는 196 → 125 이다', () => {
     expect(sumNow('height')).toBe(CHROME_HEIGHT_NOW_PX);
     expect(CHROME_HEIGHT_NOW_PX).toBe(196);
     expect(chromeHeightPx(narrowState)).toBe(CHROME_HEIGHT_NARROW_PX);
-    // 132 → 128(2026-08-14 좁은 헤더 52 → 48) → **109**(2026-08-18 하단 철거: 하단 바 64 가
-    // 빠지고 노트 패널 접힘 줄 45 가 들어왔다 — 순이득 19px).
-    expect(CHROME_HEIGHT_NARROW_PX).toBe(109);
+    // 132 → 128(2026-08-14 좁은 헤더 52 → 48) → 109(2026-08-18 하단 철거: 하단 바 64 가
+    // 빠지고 노트 패널 접힘 줄 45 가 들어왔다 — 순이득 19px) → **125**(2026-08-20 재생 묶음
+    // 공용화: 노트 패널 행이 45 → 61 로 자란다 — 좁은 창의 appHeader 는 이미 narrow 값 48 을
+    // 쓰고 있었으므로 그대로고, 늘어난 16 은 전부 이 행 몫이다).
+    expect(CHROME_HEIGHT_NARROW_PX).toBe(125);
   });
 
   it('행별 값이 §5.2 표와 같다', () => {
@@ -72,7 +74,7 @@ describe('예산 합계 — 못박은 값', () => {
     // stepSidebar(폭, 재편 후 태생이라 now 0)와 notePanel(접힘 줄 45)이다.
     expect([byId.transportBar!.now, byId.transportBar!.wide, byId.transportBar!.narrow]).toEqual([94, 0, 0]);
     expect([byId.stepSidebar!.now, byId.stepSidebar!.wide, byId.stepSidebar!.narrow]).toEqual([0, 154, 0]);
-    expect([byId.notePanel!.now, byId.notePanel!.wide, byId.notePanel!.narrow]).toEqual([0, 45, 45]);
+    expect([byId.notePanel!.now, byId.notePanel!.wide, byId.notePanel!.narrow]).toEqual([0, 61, 61]);
     expect([byId.courtPadY!.now, byId.courtPadY!.narrow]).toEqual([40, 16]);
   });
 
@@ -81,12 +83,14 @@ describe('예산 합계 — 못박은 값', () => {
     // 커진다(§5.4). §5.3 의 PC 두 행이 이 93 으로 계산된 값이다 — 78 로 두면 표가 안 맞는다.
     expect(chromeWidthPx(pcOverlay)).toBe(281);
     expect(chromeWidthPx(pcPinned)).toBe(594);
-    // 세로 166 → 104(2026-08-15: 넓은 창 헤더 철거) → **85**(2026-08-18 하단 철거): 남는 것은
-    // 노트 패널 접힘 줄 45 + 코트 래퍼 상하 40 이다.
-    expect(chromeHeightPx(pcOverlay)).toBe(85);
-    // 재편 전 196 → 85. 94 는 하단 바가 통째로 돌려준 몫, 62 는 헤더 몫이고, 새로 든 것은
-    // 노트 패널 45 뿐이다(94 + 62 − 45 = 111).
-    expect(CHROME_HEIGHT_NOW_PX - chromeHeightPx(pcOverlay)).toBe(111);
+    // 세로 166 → 104(2026-08-15: 넓은 창 헤더 철거) → 85(2026-08-18 하단 철거: 남는 것은
+    // 노트 패널 접힘 줄 45 + 코트 래퍼 상하 40) → **149**(2026-08-20 — 드릴 편집이 넓은 창에서도
+    // 컴팩트 헤더 48 을 도로 얻고, 노트 행이 45 → 61 로 자란다: 85 + 48 + 16 = 149).
+    expect(chromeHeightPx(pcOverlay)).toBe(149);
+    // 재편 전 196 → 149. 94 는 하단 바가 통째로 돌려준 몫, 62 는 예전 표준 헤더 몫인데 이제
+    // 컴팩트 48 을 도로 쓰므로 **14 만** 돌아온다(62 − 48), 새로 든 것은 노트 패널 61 이다
+    // (94 + 14 − 61 = 47).
+    expect(CHROME_HEIGHT_NOW_PX - chromeHeightPx(pcOverlay)).toBe(47);
   });
 
   it('인스펙터 행만 narrow 가 아니라 자기 모드가 정한다', () => {
@@ -119,31 +123,33 @@ describe('예산 합계 — 못박은 값', () => {
 describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
   const px = (box: Size): number => courtScale('full', box).pxPerUnit;
 
-  it('1024×600 가로 — 0.6073 → 0.9352 (+54.0%)', () => {
+  it('1024×600 가로 — 0.6073 → 0.9048 (+49.0%)', () => {
     const before = nowBox({ w: 1024, h: 600 });
     const after = courtBoxPx({ w: 1024, h: 600 }, narrowState);
     expect(before).toEqual({ w: 501, h: 404 });
-    // h 472 → 491: 2026-08-18 하단 철거의 +19(하단 바 64 → 노트 접힘 줄 45).
-    expect(after).toEqual({ w: 807, h: 491 });
+    // h 472 → 491(2026-08-18 하단 철거: 하단 바 64 → 노트 접힘 줄 45) → **475**(2026-08-20
+    // 재생 묶음 공용화: 노트 행 45 → 61, −16).
+    expect(after).toEqual({ w: 807, h: 475 });
     expect(px(before)).toBeCloseTo(0.6073, 4);
-    expect(px(after)).toBeCloseTo(0.9352, 4);
-    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(54.0, 1);
-    // '1 m' 열. 23.4 px 은 휠체어(1.5 m)가 화면에서 35 px 로 그려진다는 뜻이다.
-    expect(courtScale('full', after).pxPerMeter).toBeCloseTo(23.4, 1);
+    expect(px(after)).toBeCloseTo(0.9048, 4);
+    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(49.0, 1);
+    // '1 m' 열. 22.6 px 은 휠체어(1.5 m)가 화면에서 34 px 로 그려진다는 뜻이다.
+    expect(courtScale('full', after).pxPerMeter).toBeCloseTo(22.6, 1);
   });
 
-  it('800×480 진짜 7인치 — 0.3358 → 0.7067 (+110.5%)', () => {
+  it('800×480 진짜 7인치 — 0.3358 → 0.6762 (+101.4%)', () => {
     const before = nowBox({ w: 800, h: 480 });
     const after = courtBoxPx({ w: 800, h: 480 }, narrowState);
     expect(before).toEqual({ w: 277, h: 284 });
-    expect(after).toEqual({ w: 583, h: 371 });
+    // h 371(2026-08-18 하단 철거로 균형점에 섰던 값) → **355**(2026-08-20 노트 행 45 → 61).
+    expect(after).toEqual({ w: 583, h: 355 });
     expect(px(before)).toBeCloseTo(0.3358, 4);
-    expect(px(after)).toBeCloseTo(0.7067, 4);
-    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(110.5, 1);
-    // 2026-08-18 하단 철거(+19px)로 이 기기의 상자가 정확히 **균형점**에 섰다 —
-    // 583·525 = 371·825 = 306075 라 폭 비율과 세로 비율이 유리수로 같다. 세로가 절대
-    // 제약이던 §5.3 정직한 인정 4번은 "이제 양변이 같이 제약" 으로 갱신된다.
-    expect(after.w / 825).toBeCloseTo(after.h / 525, 12);
+    expect(px(after)).toBeCloseTo(0.6762, 4);
+    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(101.4, 1);
+    // ⚠️ 2026-08-20 — 노트 행이 다시 자라며(45→61) **균형점이 깨졌다.** 2026-08-18 은 이
+    // 기기를 폭·세로 양쪽이 동시에 제약인 유리수 균형(583·525 = 371·825)에 세웠는데, 세로
+    // 크롬이 다시 16 늘면서 세로가 홀로 제약으로 돌아갔다(355/525 = 0.6762 < 583/825 = 0.7067).
+    expect(after.h / 525).toBeLessThan(after.w / 825);
   });
 
   // [2.10 정정] 계획서 §5.3 의 PC 두 행은 하단 바가 넓은 창에서 94 로 남는다는 전제로
@@ -157,9 +163,11 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
     const overlay = courtBoxPx(view, pcOverlay);
     const pinned = courtBoxPx(view, pcPinned);
     expect(before).toEqual({ w: 757, h: 604 });
-    // h 696 → 715: 2026-08-18 하단 철거의 +19. 두 경우 다 **폭이 제약**이라 축척은 안 변한다.
-    expect(overlay).toEqual({ w: 999, h: 715 });
-    expect(pinned).toEqual({ w: 686, h: 715 });
+    // h 696 → 715(2026-08-18 하단 철거의 +19) → **651**(2026-08-20 — 드릴 편집이 넓은 창에서도
+    // 컴팩트 헤더 48 을 도로 얻고 노트 행이 45→61: 715 − 48 − 16 = 651). 두 경우 다 여전히
+    // **폭이 제약**이라(651/525 > 999/825, 651/525 > 686/825) 축척 자체는 그대로다.
+    expect(overlay).toEqual({ w: 999, h: 651 });
+    expect(pinned).toEqual({ w: 686, h: 651 });
     expect(px(before)).toBeCloseTo(0.9176, 4);
     expect(px(overlay)).toBeCloseTo(1.2109, 4);
     // 핀은 **폭**이 제약이라 세로 30px 이 남아도 축척이 안 변한다 — 하단 바 갱신이 이 행을
@@ -174,7 +182,9 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
 
   it('1920×1080 PC 핀 — 1.607 (기능 바 56 만큼 폭이 더 빠졌다)', () => {
     const box = courtBoxPx({ w: 1920, h: 1080 }, pcPinned);
-    expect(box).toEqual({ w: 1326, h: 995 });
+    // h 995 → **931**(2026-08-20 — 컴팩트 헤더 48 + 노트 행 +16). 여전히 폭이 제약이라
+    // (931/525 > 1326/825) 축척은 그대로다.
+    expect(box).toEqual({ w: 1326, h: 931 });
     expect(px(box)).toBeCloseTo(1.6073, 3);
     expect(courtScale('full', box).pxPerMeter).toBeCloseTo(40.2, 1);
   });
@@ -186,10 +196,10 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
 describe('§5.3 half/flat 행 [A-13]', () => {
   const at = (mode: 'full' | 'half' | 'flat', box: Size): number => courtScale(mode, box).pxPerUnit;
 
-  it('1024×600 narrow — full 0.9352 · half 1.0911 · flat 은 half 와 같다', () => {
+  it('1024×600 narrow — full 0.9048 · half 1.0556 · flat 은 half 와 같다', () => {
     const box = courtBoxPx({ w: 1024, h: 600 }, narrowState);
-    expect(at('full', box)).toBeCloseTo(0.9352, 4);
-    expect(at('half', box)).toBeCloseTo(1.0911, 4);
+    expect(at('full', box)).toBeCloseTo(0.9048, 4);
+    expect(at('half', box)).toBeCloseTo(1.0556, 4);
     // D12 — half↔flat 은 viewBox 가 정확히 같아야 무손실 전환이다. 축척도 따라서 같다.
     expect(at('flat', box)).toBe(at('half', box));
     expect(COURT_DEFS.flat.vbW).toBe(COURT_DEFS.half.vbW);
@@ -201,27 +211,30 @@ describe('§5.3 half/flat 행 [A-13]', () => {
     // 재편 전 풀 코트는 **폭**이 제약이었다(501/825 < 404/525). 그래서 폭 크롬 523→117 이
     // 그대로 이득이 된다.
     expect(before.w / 825).toBeLessThan(before.h / 525);
-    expect((at('full', after) / at('full', before) - 1) * 100).toBeCloseTo(54.0, 1);
+    expect((at('full', after) / at('full', before) - 1) * 100).toBeCloseTo(49.0, 1);
     // 하프는 재편 전에도 **세로**가 제약이었다(404/450 < 501/525). 폭을 아무리 벌어도 안 커지고,
-    // 세로 예산 196→109 만큼만(491/404 = +21.5%) 커진다. (하단 철거의 +19 가 여기도 실린다.)
+    // 세로 예산만큼만(475/404 = +17.6%) 커진다. (2026-08-20 재생 묶음 공용화로 세로 예산이
+    // 109→125 로 늘어 이득이 21.5%→17.6% 로 준다.)
     expect(before.h / 450).toBeLessThan(before.w / 525);
-    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo(21.5, 1);
-    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo((491 / 404 - 1) * 100, 4);
+    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo(17.6, 1);
+    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo((475 / 404 - 1) * 100, 4);
   });
 
-  it('800×480 에서도 하프가 세로에 갇힌다 — 0.5276 → 0.8244 (+56.3%)', () => {
+  it('800×480 에서도 하프가 세로에 갇힌다 — 0.5276 → 0.7889 (+49.5%)', () => {
     const before = nowBox({ w: 800, h: 480 });
     const after = courtBoxPx({ w: 800, h: 480 }, narrowState);
     expect(at('half', before)).toBeCloseTo(0.5276, 4);
-    expect(at('half', after)).toBeCloseTo(0.8244, 4);
-    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo(56.3, 1);
+    expect(at('half', after)).toBeCloseTo(0.7889, 4);
+    expect((at('half', after) / at('half', before) - 1) * 100).toBeCloseTo(49.5, 1);
   });
 
   it('세로로 긴 창에서는 코트가 돌고, 축척도 돌린 값으로 잰다', () => {
     // iPad 세로 834×1194. 여기서 rotForFit 이 개입하지 않으면 예산표가 화면과 다른 숫자를
     // 말하게 된다 — 판이 돌면 상자에 맞는 변이 바뀌기 때문이다.
     const box = courtBoxPx({ w: 834, h: 1194 }, narrowState);
-    expect(box).toEqual({ w: 661, h: 1085 });
+    // h 1085 → **1069**(2026-08-20 노트 행 +16). 이 케이스는 여전히 **폭**이 제약이라
+    // (rot 90 에서 661/525 < 1069/825) 축척(pxPerUnit)은 그대로다.
+    expect(box).toEqual({ w: 661, h: 1069 });
     const full = courtScale('full', box);
     expect(full.rot).toBe(90);
     expect(full.pxPerUnit).toBeCloseTo(1.2590, 4);
@@ -237,26 +250,28 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     const bare = courtBoxPx({ w: 1024, h: 600 }, narrowState);
     const explicit = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_NONE });
     expect(explicit).toEqual(bare);
-    expect(explicit).toEqual({ w: 807, h: 491 });
+    expect(explicit).toEqual({ w: 807, h: 475 });
   });
 
-  it('아이패드 홈 인디케이터 20px 이 세로 예산에서 더 빠진다 — 0.8990 이 아니라 0.8610', () => {
+  it('아이패드 홈 인디케이터 20px 이 세로 예산에서 더 빠진다 — 0.9048 이 아니라 0.8667', () => {
     // §5.2 가 *"확정 배율 0.8914 는 안드로이드 태블릿 기준 상한이지 아이패드 실측이 아니다"*
-    // 라고 적어 둔 것의 계산이 이것이다. 4.3% 작다.
+    // 라고 적어 둔 것의 계산이 이것이다. 2026-08-20 재생 묶음 공용화 뒤에도 이 여백은 세로
+    // 예산 위에 그대로 더해진다 — 대략 4.2% 작다.
     const box = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR });
-    expect(box).toEqual({ w: 807, h: 471 });
+    expect(box).toEqual({ w: 807, h: 455 });
     expect(chromeHeightPx({ ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR })).toBe(CHROME_HEIGHT_NARROW_PX + 20);
-    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8971, 4);
+    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8667, 4);
   });
 
   it('노치 기기를 눕히면 폭이 88 더 빠진다', () => {
     const state: ChromeState = { ...narrowState, safeArea: SAFE_AREA_NOTCH_LANDSCAPE };
     expect(chromeWidthPx(state)).toBe(CHROME_WIDTH_NARROW_PX + 88);
     const box = courtBoxPx({ w: 1024, h: 600 }, state);
-    expect(box).toEqual({ w: 719, h: 470 });
-    // 2026-08-18 하단 철거 뒤에는 이 상자가 **폭 제약**으로 넘어갔다(719/825 < 470/525) —
-    // 노치의 폭 88 이 이제 실제 대가다.
-    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8715, 4);
+    expect(box).toEqual({ w: 719, h: 454 });
+    // 2026-08-18 하단 철거 뒤에는 이 상자가 **폭 제약**으로 넘어갔었다(719/825 < 470/525).
+    // 2026-08-20 재생 묶음 공용화로 세로가 다시 줄며(470→454) **도로 세로 제약**이 된다
+    // (454/525 < 719/825) — 노치의 폭 88 은 더 이상 유일한 대가가 아니다.
+    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8648, 4);
   });
 
   it('창보다 크롬이 크면 상자는 0 이다 — 음수 상자로 축척을 계산하지 않는다', () => {
@@ -323,15 +338,17 @@ describe('예산표가 실제 소스와 어긋나지 않는다', () => {
     expect(workspace, '리터럴 패딩이 되살아나면 예산표와 화면이 갈라진다').not.toContain("padding: '20px 24px'");
   });
 
-  it('하단 바 후계 행이 실제 소스와 같다 — 스텝 바 폭 154 · 노트 접힘 줄 45 (2026-08-18)', () => {
+  it('하단 바 후계 행이 실제 소스와 같다 — 스텝 바 폭 154 · 노트+재생 줄 61 (2026-08-20)', () => {
     // 옛 검증(transportBarHeightPx 가 행의 wide/narrow)은 바와 함께 은퇴했다. 후계 계약:
     //  · stepSidebar 행의 wide 는 StepSidebar.tsx 의 SIDEBAR_WIDTH_PX 리터럴과 같다(자기
     //    사본 문제 때문에 import 비교가 아니라 **소스 텍스트**로 잡는다 — 트레이 표와 같다).
-    //  · notePanel 행의 45 는 토글 줄 --hit(44) + 경계선 1 — NotePanel 이 minHeight 를
-    //    var(--hit) 아닌 다른 값으로 바꾸면 여기가 빨개져야 한다.
+    //  · notePanel 행의 61 은 2026-08-20 부터 토글 줄 --hit(44) + 경계선 1(=45, 2026-08-17
+    //    기준) 이 아니라 **공용 PlaybackControls 의 60px 재생 버튼 + 경계선 1** 이다 — 노트
+    //    자체는 여전히 NotePanel(minHeight var(--hit))이지만, 같은 줄에 선 재생 묶음이 더
+    //    크므로 행 높이는 그쪽이 정한다.
     expect(read('src/features/editor/StepSidebar.tsx')).toContain(`export const SIDEBAR_WIDTH_PX = ${row('stepSidebar').wide};`);
     expect(read('src/features/editor/NotePanel.tsx')).toContain("minHeight: 'var(--hit)'");
-    expect(row('notePanel').wide).toBe(44 + 1);
+    expect(row('notePanel').wide).toBe(60 + 1);
     // 은퇴 행은 현재값이 0 이어야 한다 — 값이 살아나면 있지도 않은 바를 예산이 도로 뺀다.
     expect([row('transportBar').wide, row('transportBar').narrow]).toEqual([0, 0]);
   });

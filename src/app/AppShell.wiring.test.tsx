@@ -796,6 +796,20 @@ describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접
     expect(document.querySelector('header')).not.toBeNull();
   });
 
+  it('★ 드릴 편집은 넓은 창에서도 헤더가 선다 — 2026-08-20 재설계로 자유 전술판만 예외다', async () => {
+    // 기현 지시 2026-08-20: *"드릴 편집 화면과 시연 화면은 비슷한 레이아웃이어야 ux가
+    // 좋아진다"* — 두 화면이 같은 컴팩트 헤더를 쓰도록 `showHeader` 판정에
+    // `stageTarget.kind === 'drill'` 이 돌아왔다(AppShell.tsx 그 주석). 자유 전술판(위 it)
+    // 만 여전히 예외다 — 같은 board 자리인데 무엇이 떠 있는지에 따라 갈린다.
+    stubMedia(false);
+    await renderShell();
+    expect(document.querySelector('header'), '넓은 창 자유 전술판에 헤더가 남아 있다').toBeNull();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '드릴' }));
+    await user.click(screen.getByRole('button', { name: '드릴 열기' }));
+    expect(within(header()).getByText('편집기가 선언한 헤더')).toBeInTheDocument();
+  });
+
   it('★ 좁은 창 헤더는 **이동이 왼쪽 끝, 테마·버전이 오른 끝**이다 — 레일과 같은 규칙', async () => {
     // 기현 지시 2026-08-14: *"좁은창 헤더에서 테마 선택, 버전이 오른 끝으로 가야 일관성 있다."*
     // 넓은 창 84px 레일이 그 모양이다(이동 3칸이 맨 위, 테마·버전이 맨 끝). 좁은 창에서

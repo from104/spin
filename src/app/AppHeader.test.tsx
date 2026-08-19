@@ -51,11 +51,10 @@ describe('AppHeader / useAppHeader', () => {
     expect(screen.queryByText('편집기(무시돼야 함)')).not.toBeInTheDocument();
   });
 
-  it('배지·주 액션 클릭·시연 버튼 클릭을 실제로 처리한다', async () => {
+  it('배지·주 액션 클릭을 실제로 처리한다', async () => {
     const onSave = vi.fn();
-    const onPresent = vi.fn();
     function EditorPublisher() {
-      useAppHeader({ title: '측면 돌파', badge: '편집중', primary: { label: '저장', onAction: onSave }, presentButton: { onAction: onPresent } });
+      useAppHeader({ title: '측면 돌파', badge: '편집중', primary: { label: '저장', onAction: onSave } });
       return null;
     }
     render(
@@ -69,8 +68,62 @@ describe('AppHeader / useAppHeader', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '저장' }));
     expect(onSave).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole('button', { name: '시연' }));
-    expect(onPresent).toHaveBeenCalledTimes(1);
+  });
+
+  // 2026-08-20 §A·B — presentButton 필드는 폐기됐다(편집 화면의 [시연]은 이제 primary 다,
+  // 위 테스트가 그 경로를 본다). 대신 신설된 compact·infoButton 을 여기서 본다.
+  it('infoButton 을 선언하면 제목 옆에 ⓘ가 서고 클릭하면 onAction 을 부른다', async () => {
+    const onInfo = vi.fn();
+    function InfoPublisher() {
+      useAppHeader({ title: '측면 돌파', infoButton: { onAction: onInfo, label: '드릴 정보' } });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <InfoPublisher />
+      </HeaderProvider>,
+      { wrapper: SettingsProvider },
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '드릴 정보' }));
+    expect(onInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('infoButton 이 null 이면 ⓘ를 안 그린다', () => {
+    function NoInfoPublisher() {
+      useAppHeader({ title: '측면 돌파', infoButton: null });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <NoInfoPublisher />
+      </HeaderProvider>,
+      { wrapper: SettingsProvider },
+    );
+    expect(screen.queryByRole('button', { name: '드릴 정보' })).toBeNull();
+  });
+
+  it('compact 는 높이를 48 로 줄이고 subtitle·description 을 안 그린다', () => {
+    function CompactPublisher() {
+      useAppHeader({
+        title: '측면 돌파',
+        subtitle: '이 문구는 compact 에서 안 보인다',
+        compact: true,
+      });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <CompactPublisher />
+      </HeaderProvider>,
+      { wrapper: SettingsProvider },
+    );
+    expect(screen.getByText('측면 돌파')).toBeInTheDocument();
+    expect(screen.queryByText('이 문구는 compact 에서 안 보인다')).not.toBeInTheDocument();
+    expect(document.querySelector('header')).toHaveStyle({ minHeight: '48px' });
   });
 
   it('잠긴 코트 스위치는 비활성 알약 클릭 시 값을 바꾸지 않고 onLockedAttempt 만 부른다', async () => {

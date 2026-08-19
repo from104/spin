@@ -283,7 +283,7 @@ describe('④ rot 불변 상자 — 이 안에 있는 동안은 답이 안 바�
     }
   });
 
-  it('상자는 문턱 근처에서만 좁다 — 1024×768 에서 ±75px 이다(resize 마다 다시 재지 않는다)', () => {
+  it('상자는 문턱 근처에서만 좁다 — 1024×768 에서 ±77px 이다(resize 마다 다시 재지 않는다)', () => {
     // 이 숫자가 1 로 주저앉으면 사실상 resize 리스너가 되어 규율이 사라진다.
     const b = stageRotHoldBox('full', '30x18', { narrow: false, inspector: 'hidden' }, { w: 1024, h: 768 });
     // ⚠️ 2026-08-15 (재설계 ②) — 상자가 좁아졌다: 폭 ±75 → **±41**(983…1065). 기둥 56 이
@@ -292,8 +292,13 @@ describe('④ rot 불변 상자 — 이 안에 있는 동안은 답이 안 바�
     //    41 은 아직 resize 리스너와 거리가 멀다.
     // ⚠️ 2026-08-18 (하단 철거) — 세로 크롬이 19px 줄며(하단 바 64 → 노트 접힘 줄 45) 경계
     //    전부가 1px 안팎으로 밀렸다(982…1066 / 726…810). 폭·높이 반경 ±42 는 그대로다.
-    expect(b).toEqual({ minW: 982, maxW: 1066, minH: 726, maxH: 810 });
-    expect(stageRotHoldQuery(b)).toBe('(min-width: 982px) and (max-width: 1066px) and (min-height: 726px) and (max-height: 810px)');
+    // ⚠️ 2026-08-20 (기현님 지시) — 드릴 편집이 넓은 창에서도 컴팩트 헤더(48)를 도로 얻고
+    //    (이 `state` 는 board 를 안 준다 = 드릴 편집 취급) 노트 행이 45→61 로 자라며, 문턱
+    //    근처의 히스테리시스 폭 자체가 **±42 → ±77** 로 넓어졌다(947…1101 / 691…845, 중심은
+    //    그대로 1024/768). 반경이 커진 것은 상수 하나가 아니라 두 축의 크롬 비율이 바뀌어
+    //    회전 판정이 문턱에서 더 둔감해졌기 때문이다 — 77 도 resize 리스너와는 거리가 멀다.
+    expect(b).toEqual({ minW: 947, maxW: 1101, minH: 691, maxH: 845 });
+    expect(stageRotHoldQuery(b)).toBe('(min-width: 947px) and (max-width: 1101px) and (min-height: 691px) and (max-height: 845px)');
   });
 
   it('상한 있는 좁히기다 — 코트 상자가 0 인 구석에서도 끝난다(행으로 죽지 않는다)', () => {
