@@ -50,13 +50,19 @@ export interface NotePanelProps {
   onNoteChange(note: string): void;
 }
 
-const TOGGLE_ROW: CSSProperties = {
+// 2026-08-20 (기현님 지시 — "'노트' 레이블이 한 줄을 차지하는 것이 공간 낭비, 왼쪽으로
+// 붙이고 펼쳤을 때 본문이 레이블 바로 오른쪽에서 아래로 펼쳐지게") — 옛 모습은 이 버튼이
+// `width:'100%'` 라 접힌 줄 전체를 차지했고, 펼치면 그 아래 새 줄에 textarea 가 왔다. 이제
+// 버튼은 **레이블 폭만** 차지하는 `flex:none` 이고, 컨테이너(NotePanel 의 최상위 div)가
+// `display:flex` 로 버튼과 본문(미리보기 또는 textarea)을 가로로 나란히 세운다 — 본문이
+// "레이블 바로 오른쪽에서" 시작하고, 펼쳤을 때는 그 오른쪽 칸이 세로로(textarea 의 rows) 큰다.
+const TOGGLE_BTN: CSSProperties = {
+  flex: 'none',
   display: 'flex',
   alignItems: 'center',
   gap: 8,
-  width: '100%',
   minHeight: 'var(--hit)',
-  padding: '0 17px',
+  padding: '0 8px 0 17px',
   fontSize: '0.75rem',
   fontWeight: 700,
   color: 'var(--muted)',
@@ -75,32 +81,41 @@ export function NotePanel({ stepId, note, onNoteChange }: NotePanelProps) {
   const hasNote = preview.length > 0;
 
   return (
-    <div style={{ flex: 'none', borderTop: '1px solid var(--border)', background: 'var(--panel)' }}>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls={panelId} style={TOGGLE_ROW}>
+    <div
+      style={{
+        flex: 'none',
+        display: 'flex',
+        alignItems: open ? 'flex-start' : 'center',
+        borderTop: '1px solid var(--border)',
+        background: 'var(--panel)',
+      }}
+    >
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls={panelId} style={TOGGLE_BTN}>
         {/* 여는 방향 표식. 이름에는 안 들어간다(aria-hidden) — StageControls [보기▾]와 같은 규칙. */}
         <span aria-hidden style={{ fontSize: '0.5625rem', lineHeight: 1, flex: 'none' }}>
           {open ? '▾' : '▸'}
         </span>
         <span style={{ flex: 'none' }}>{t('editor.notePanel.toggleLabel')}</span>
-        {/* 접힌 상태 + 노트가 있을 때만 미리보기를 낸다 — 펼치면 textarea 자체가 그 역할을 한다. */}
-        {!open && hasNote && (
-          <span
-            style={{
-              flex: 1,
-              minWidth: 0,
-              fontWeight: 500,
-              color: 'var(--faint-text)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {preview}
-          </span>
-        )}
       </button>
+      {/* 접힌 상태 + 노트가 있을 때만 미리보기를 낸다 — 펼치면 textarea 자체가 그 역할을 한다. */}
+      {!open && hasNote && (
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            paddingRight: 17,
+            fontWeight: 500,
+            color: 'var(--faint-text)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {preview}
+        </span>
+      )}
       {open && (
-        <div id={panelId} style={{ padding: '0 17px 14px' }}>
+        <div id={panelId} style={{ flex: 1, minWidth: 0, padding: '0.75rem 17px 14px 0' }}>
           <textarea
             key={stepId}
             aria-label={t('editor.notePanel.textareaAriaLabel')}
