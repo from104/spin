@@ -302,3 +302,26 @@ describe('validateSession (v2 — 구획 계층)', () => {
     expect(r.repairs.some((rep) => rep.path === 'phases.items')).toBe(true);
   });
 });
+
+// ── 팀 이름(§0.5 미배송 빚, 2026-08-20) — 입력 UI가 생기며 상한이 필요해졌다
+// (LIMITS.teamLabelLen 머리말 "인스펙터에 입력 칸이 생기는 순간 상한을 매겼다" 관례).
+describe('validateDrill — 팀 이름 상한', () => {
+  it('teamLabelLen 을 넘는 팀 이름은 잘리고 repairs 에 기록된다', () => {
+    const d = createDrill({ courtMode: 'full' });
+    const long = 'x'.repeat(LIMITS.teamLabelLen + 10);
+    const r = validateDrill({ ...d, teams: { ...d.teams, home: { ...d.teams.home, label: long } } });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.teams.home.label).toBe(long.slice(0, LIMITS.teamLabelLen));
+    expect(r.repairs.some((rep) => rep.path === 'teams.home.label')).toBe(true);
+  });
+
+  it('상한 안쪽 이름은 그대로 통과하고 repairs 가 안 남는다', () => {
+    const d = createDrill({ courtMode: 'full' });
+    const r = validateDrill({ ...d, teams: { ...d.teams, away: { ...d.teams.away, label: '레드팀' } } });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.teams.away.label).toBe('레드팀');
+    expect(r.repairs.some((rep) => rep.path === 'teams.away.label')).toBe(false);
+  });
+});

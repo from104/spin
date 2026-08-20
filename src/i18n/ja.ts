@@ -615,6 +615,8 @@ export const ja: Record<DictKey, string> = {
   // ── C7 — ドリルメタシート ────────────────────────────────────────────────────────────
   'editor.drillMetaSheet.durationLabel': '所要時間（分）',
   'editor.drillMetaSheet.tagsLabel': 'タグ（カンマ区切り、最大{{max}}個）',
+  'editor.drillMetaSheet.homeTeamLabel': '自チーム名',
+  'editor.drillMetaSheet.awayTeamLabel': '相手チーム名',
   'editor.drillMetaSheet.objectiveLabel': '目的 — このドリルで何を得るか（{{max}}文字以内）',
   'editor.drillMetaSheet.descriptionLabel': '進め方（{{max}}文字以内）',
   'editor.drillMetaSheet.variationLabel': 'バリエーション — 易しく/難しく（{{max}}文字以内）',

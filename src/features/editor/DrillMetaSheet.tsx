@@ -129,6 +129,43 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
           />
         </Field>
 
+        {/* ── 팀 이름(§0.5 미배송 빚, 2026-08-20) — drill.teams[side].label 은 코트 칩·
+            시연·[코트] 진영 문구가 전부 읽는 값인데 지금까지 고칠 자리가 없었다. 이 드릴
+            자신의 값을 바로 고친다(설정의 팀 **색상**과 다르다 — 그건 "미래에 만들 드릴"의
+            기본값이라 이미 만든 드릴엔 반영되지 않는 반쪽 진실 문제가 있었고, 그래서 폐기
+            결정이 났다. 이름은 드릴 자신의 값을 고치므로 그 문제 자체가 없다). 빈 값은
+            커밋하지 않는다(HeaderTitleEditor 와 같은 규칙 — 이름 없는 팀을 만들지 않는다). */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <Field label={t('editor.drillMetaSheet.homeTeamLabel')}>
+            <input
+              type="text"
+              maxLength={LIMITS.teamLabelLen}
+              defaultValue={drill.teams.home.label}
+              onBlur={(e) => {
+                const v = e.target.value.trim().slice(0, LIMITS.teamLabelLen);
+                if (v.length > 0 && v !== drill.teams.home.label) {
+                  dispatch({ type: 'META_SET', patch: { teams: { ...drill.teams, home: { ...drill.teams.home, label: v } } } });
+                }
+              }}
+              style={inputStyle}
+            />
+          </Field>
+          <Field label={t('editor.drillMetaSheet.awayTeamLabel')}>
+            <input
+              type="text"
+              maxLength={LIMITS.teamLabelLen}
+              defaultValue={drill.teams.away.label}
+              onBlur={(e) => {
+                const v = e.target.value.trim().slice(0, LIMITS.teamLabelLen);
+                if (v.length > 0 && v !== drill.teams.away.label) {
+                  dispatch({ type: 'META_SET', patch: { teams: { ...drill.teams, away: { ...drill.teams.away, label: v } } } });
+                }
+              }}
+              style={inputStyle}
+            />
+          </Field>
+        </div>
+
         <div style={{ height: 1, background: 'var(--border)' }} />
 
         {/* ── 서술 3필드 (USPSA: Purpose / Setup / Variation) ─────────────────────── */}

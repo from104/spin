@@ -620,6 +620,8 @@ export const en: Record<DictKey, string> = {
   // ── C7 — Drill meta sheet ───────────────────────────────────────────────────────────
   'editor.drillMetaSheet.durationLabel': 'Duration (min)',
   'editor.drillMetaSheet.tagsLabel': 'Tags (comma-separated, up to {{max}})',
+  'editor.drillMetaSheet.homeTeamLabel': 'Home team name',
+  'editor.drillMetaSheet.awayTeamLabel': 'Away team name',
   'editor.drillMetaSheet.objectiveLabel': 'Objective — what this drill achieves (≤{{max}} chars)',
   'editor.drillMetaSheet.descriptionLabel': 'How to run it (≤{{max}} chars)',
   'editor.drillMetaSheet.variationLabel': 'Variation — easier/harder (≤{{max}} chars)',

@@ -615,6 +615,8 @@ export const ko = {
   // ── C7 — 드릴 메타 시트 ─────────────────────────────────────────────────────────────
   'editor.drillMetaSheet.durationLabel': '소요 시간(분)',
   'editor.drillMetaSheet.tagsLabel': '태그 (쉼표로 구분, 최대 {{max}}개)',
+  'editor.drillMetaSheet.homeTeamLabel': '우리 팀 이름',
+  'editor.drillMetaSheet.awayTeamLabel': '상대 팀 이름',
   'editor.drillMetaSheet.objectiveLabel': '목적 — 이 드릴로 무엇을 얻는가 (≤{{max}}자)',
   'editor.drillMetaSheet.descriptionLabel': '진행 방법 (≤{{max}}자)',
   'editor.drillMetaSheet.variationLabel': '변형 — 더 쉽게/어렵게 (≤{{max}}자)',

@@ -92,6 +92,9 @@ export const LIMITS = {
   /** 변형(v8, USPSA Variation). 진행 방법(description)과 동급의 서술 필드라 같은 상한. */
   variationLen: 400,
   chairNameLen: 24, // 등번호 칩 옆에 붙는 이름이다. 길면 트레이 손잡이 이름이 문단이 된다
+  // 팀 이름(§0.5 미배송 빚, 2026-08-20). chairNameLen 과 같은 규모 — FunctionBar 의 진영
+  // 설명 문장·PresentObjects 의 aria-label 문장에 그대로 끼워지므로 길면 문장이 안 읽힌다.
+  teamLabelLen: 24,
   // §3.2 교육 필드. 숫자 상한은 "깨진 파일 방어" 이자 인스펙터 입력의 min/max 단일 출처다.
   // (훈련량 repsMax/setsMax/intervalSecMax 는 v8 에서 필드와 함께 폐기 — migrate.ts v7→v8)
   objectiveLen: 200,
@@ -298,10 +301,10 @@ function parseCones(raw: unknown, repairs: Repair[]): ConeDef[] {
   return out;
 }
 
-function sanitizeTeamStyle(raw: unknown, fallback: TeamStyle): TeamStyle {
+function sanitizeTeamStyle(raw: unknown, fallback: TeamStyle, path: string, repairs: Repair[]): TeamStyle {
   if (!isRecord(raw)) return { ...fallback };
   return {
-    label: typeof raw.label === 'string' ? raw.label : fallback.label,
+    label: sanitizeText(raw.label, LIMITS.teamLabelLen, `${path}.label`, '팀 이름', repairs) ?? fallback.label,
     color: typeof raw.color === 'string' ? raw.color : fallback.color,
     gkColor: typeof raw.gkColor === 'string' ? raw.gkColor : fallback.gkColor,
   };
@@ -565,8 +568,8 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
   const coneIds = new Set(cones.map((c) => c.id as string));
 
   const teams: Record<TeamSide, TeamStyle> = {
-    home: sanitizeTeamStyle(isRecord(doc.teams) ? doc.teams.home : undefined, DEFAULT_TEAMS.home),
-    away: sanitizeTeamStyle(isRecord(doc.teams) ? doc.teams.away : undefined, DEFAULT_TEAMS.away),
+    home: sanitizeTeamStyle(isRecord(doc.teams) ? doc.teams.home : undefined, DEFAULT_TEAMS.home, 'teams.home', repairs),
+    away: sanitizeTeamStyle(isRecord(doc.teams) ? doc.teams.away : undefined, DEFAULT_TEAMS.away, 'teams.away', repairs),
   };
 
   let title = typeof doc.title === 'string' ? doc.title : '';

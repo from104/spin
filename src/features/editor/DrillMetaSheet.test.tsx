@@ -106,4 +106,36 @@ describe('DrillMetaSheet', () => {
     fireEvent.blur(duration);
     expect(lastDrill!.durationMin).toBe(25);
   });
+
+  // ── 팀 이름(§0.5 미배송 빚, 2026-08-20) ────────────────────────────────────────────
+  it('팀 이름을 고치면 META_SET 으로 반영된다 — 색상은 안 건드린다', async () => {
+    renderSheet();
+    const user = userEvent.setup();
+    const before = lastDrill!.teams;
+
+    const home = screen.getByLabelText('우리 팀 이름');
+    await user.clear(home);
+    await user.type(home, '독수리');
+    fireEvent.blur(home);
+    expect(lastDrill!.teams.home.label).toBe('독수리');
+    expect(lastDrill!.teams.home.color).toBe(before.home.color); // 이름만 바뀐다
+    expect(lastDrill!.teams.away).toEqual(before.away); // 상대 팀은 그대로
+
+    const away = screen.getByLabelText('상대 팀 이름');
+    await user.clear(away);
+    await user.type(away, '늑대');
+    fireEvent.blur(away);
+    expect(lastDrill!.teams.away.label).toBe('늑대');
+  });
+
+  it('팀 이름을 지우고 blur 하면 커밋하지 않는다 — 이름 없는 팀을 만들지 않는다', async () => {
+    renderSheet();
+    const user = userEvent.setup();
+    const original = lastDrill!.teams.home.label;
+
+    const home = screen.getByLabelText('우리 팀 이름');
+    await user.clear(home);
+    fireEvent.blur(home);
+    expect(lastDrill!.teams.home.label).toBe(original);
+  });
 });
