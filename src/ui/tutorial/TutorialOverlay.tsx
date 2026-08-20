@@ -50,6 +50,7 @@ function measure(target: string): Rect | null {
 export function TutorialOverlay({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: TutorialOverlayProps) {
   const t = useT();
   const [rect, setRect] = useState<Rect | null>(null);
+  const [cardHeight, setCardHeight] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const nextBtnRef = useRef<HTMLButtonElement | null>(null);
 
@@ -59,6 +60,13 @@ export function TutorialOverlay({ step, stepIndex, totalSteps, onNext, onPrev, o
     window.addEventListener('resize', remeasure);
     return () => window.removeEventListener('resize', remeasure);
   }, [step.target]);
+
+  // 카드 높이는 문구 길이(번역·단계마다 다름)에 좌우돼 고정값을 못 쓴다 — 매 커밋 뒤
+  // 실측해서 배치를 다시 계산한다. 값이 바뀔 때만 setState 하므로 안정화되면 더 안 돈다.
+  useLayoutEffect(() => {
+    const h = cardRef.current?.offsetHeight ?? 0;
+    if (h > 0 && h !== cardHeight) setCardHeight(h);
+  });
 
   useEffect(() => {
     liveRegion.say(`${stepIndex + 1}/${totalSteps} ${t(step.titleKey)} — ${t(step.bodyKey)}`);
@@ -109,16 +117,37 @@ export function TutorialOverlay({ step, stepIndex, totalSteps, onNext, onPrev, o
   const holeRight = rect.x + rect.width;
   const holeBottom = rect.y + rect.height;
 
-  // 구멍 아래에 카드(≈140px)가 들어갈 공간이 있으면 아래, 없으면 위.
-  const belowSpace = vh - holeBottom;
-  const cardBelow = belowSpace > 160;
-  const cardLeft = Math.min(Math.max(rect.x, CARD_MARGIN), vw - CARD_WIDTH - CARD_MARGIN);
+  // 첫 페인트 전(아직 실측 못한 때)은 넉넉한 추정치로 자리를 잡는다 — 실측되면 위
+  // useLayoutEffect 가 cardHeight state 를 갱신해 다음 커밋에서 정확한 자리로 보정된다.
+  const effectiveCardHeight = cardHeight || 220;
+  const belowSpace = vh - holeBottom - CARD_GAP - CARD_MARGIN;
+  const aboveSpace = rect.y - CARD_GAP - CARD_MARGIN;
+
+  // 구멍(스포트라이트)이 카드보다 커서 위·아래 어느 쪽에도 안 들어가면, 구멍과 겹치는 것을
+  // 허용하고 화면 안에 완전히 들어오는 쪽(공간이 더 넓은 쪽)에 붙인다 — "화면 밖으로 나감"
+  // 신고(2026-08-20 실기)의 원인이 정확히 이 분기 없음이었다: 항상 안 겹치는 자리를 찾으려다
+  // 구멍이 크면 음수 좌표까지 밀려났다.
+  let top: number;
+  if (belowSpace >= effectiveCardHeight) {
+    top = holeBottom + CARD_GAP;
+  } else if (aboveSpace >= effectiveCardHeight) {
+    top = rect.y - CARD_GAP - effectiveCardHeight;
+  } else {
+    top = belowSpace >= aboveSpace ? holeBottom + CARD_GAP : rect.y - CARD_GAP - effectiveCardHeight;
+  }
+  // 최종 안전망 — 위 분기가 무엇을 골랐든 뷰포트 밖으로는 절대 못 나간다.
+  top = Math.min(Math.max(top, CARD_MARGIN), Math.max(CARD_MARGIN, vh - CARD_MARGIN - effectiveCardHeight));
+
+  const cardWidth = Math.min(CARD_WIDTH, vw - CARD_MARGIN * 2);
+  const cardLeft = Math.min(Math.max(rect.x, CARD_MARGIN), Math.max(CARD_MARGIN, vw - cardWidth - CARD_MARGIN));
 
   const cardStyle: CSSProperties = {
     position: 'fixed',
-    left: Math.max(CARD_MARGIN, cardLeft),
-    width: CARD_WIDTH,
-    ...(cardBelow ? { top: holeBottom + CARD_GAP } : { bottom: vh - rect.y + CARD_GAP }),
+    left: cardLeft,
+    top,
+    width: cardWidth,
+    maxHeight: vh - CARD_MARGIN * 2,
+    overflowY: 'auto',
     zIndex: 301,
     padding: '14px 16px',
     borderRadius: 12,

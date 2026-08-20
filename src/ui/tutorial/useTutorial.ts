@@ -72,7 +72,14 @@ export function useTutorial(screen: TutorialScreenKey, steps: readonly TutorialS
       id = requestAnimationFrame(tryStart);
     };
     id = requestAnimationFrame(tryStart);
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(id);
+      // React.StrictMode(개발 서버)는 마운트 직후 effect→cleanup→effect 를 한 번 더 돌린다.
+      // 첫 실행이 재시도 루프 도중에 취소되면 이 ref 를 되돌려 두 번째 실행이 다시 시작할 수
+      // 있게 해야 한다 — 되돌리지 않으면 "이미 시도했음" 판정에 걸려 첫 진입 자동 시작이
+      // 조용히 증발한다(실기 신고: 2026-08-20, 도움말의 수동 재시작은 이 ref 를 안 타서 멀쩡했다).
+      startedAutoRef.current = false;
+    };
   }, [autoStart, seen, start, steps]);
 
   const markSeen = useCallback(() => {
