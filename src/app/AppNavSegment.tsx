@@ -9,7 +9,7 @@
 // 레일과 **같은 세 항목·같은 아이콘·같은 활성 표시**를 쓴다(navChrome.ts 의 RAIL_ICONS).
 // 화면 키만 보고 `SCREEN_TO_RAIL` 로 접는 것도 레일과 같다 — 이 컴포넌트도 StageTarget 을
 // 모른다(내비가 편집기 상태에 결합되는 것을 막는 2.1 원칙 3).
-import { IconMoon, IconSun } from '../ui/icons.tsx';
+import { IconHelp, IconMoon, IconSun } from '../ui/icons.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
@@ -17,6 +17,7 @@ import type { RailKey } from './screens.ts';
 import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
 import { useT } from '../i18n/useT.ts';
 import { useLocale } from '../i18n/useLocale.ts';
+import { useHelpShow } from '../ui/help/HelpTriggerProvider.tsx';
 
 /** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page" — 레일과 **같은 이름·같은 계약**
  *  이다. 좁은 창에서 이름이 바뀌면 스크린리더 사용자에게는 다른 앱이 된다.
@@ -102,9 +103,31 @@ export function AppNavAside() {
   const { setPrefs } = useSettingsActions();
   const isDark = prefs.theme === 'dark';
   const t = useT();
+  const showHelp = useHelpShow();
 
   return (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+      {/* [도움말] — §0.5 Phase 5(계획서 §A) "좁은 창에서는 AppNavAside 에 함께 들어간다".
+          넓은 레일과 같은 순서(도움말 → 테마 → 버전)로 맨 앞에 둔다. */}
+      <button
+        type="button"
+        aria-label={t('help.center.title')}
+        title={t('help.center.title')}
+        onClick={showHelp}
+        style={{
+          flex: 'none',
+          width: 'var(--hit)',
+          height: 'var(--hit)',
+          border: '1px solid var(--border)',
+          borderRadius: '0.625rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--muted)',
+        }}
+      >
+        <IconHelp />
+      </button>
       <button
         type="button"
         aria-label={isDark ? t('app.theme.toggleToLight') : t('app.theme.toggleToDark')}

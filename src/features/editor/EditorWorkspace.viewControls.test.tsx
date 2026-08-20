@@ -96,6 +96,8 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
 
   it('줌 3 · 이력 2 · 코트 · 골대 · 비우기 · 내보내기 · 속도 · 보기 — 전부 기능 바 안이다', async () => {
     await openBoard();
+    // 2026-08-20(§0.5 Phase 5) — [도움말]은 이 목록에서 빠졌다. 기둥 자기 칸이 아니라
+    // 레일(AppRail·AppNavAside, 이 화면 밖)의 상시 칸 하나로 일원화됐다.
     const names = [
       '확대',
       '축소',
@@ -107,7 +109,6 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
       '코트 비우기',
       '내보내기',
       '보기',
-      '도움말',
       '드릴로 저장',
     ];
     for (const name of names) {
@@ -278,36 +279,12 @@ describe('[보기] 서랍 — 손이 닿으면 뜨고 떠나면 닫힌다', () =
   });
 });
 
-// ── [도움말]은 서랍 **밖**, 한 번 클릭 (2026-08-16 기현 지시) ────────────────────────────
-// 옛 배치: [보기] 팝오버의 셋째 항목. 도움말은 "무엇이 어떻게 되는지 모르겠다" 일 때 여는
-// 문인데 그 문이 다른 메뉴 안에 있었다 — 길을 잃은 사람에게 길찾기를 한 번 더 시키는 배치다.
-describe('[도움말] — 기둥 상시 칸', () => {
-  it('첫 화면에서 한 번 눌러 열린다 — 메뉴를 먼저 열 필요가 없다', async () => {
-    const { user } = await openBoard();
-    const help = screen.getByRole('button', { name: '도움말' });
-    expect(help.getAttribute('aria-haspopup')).toBe('dialog');
-
-    await user.click(help);
-
-    expect(await screen.findByRole('dialog', { name: '도움말' })).toBeInTheDocument();
-    // [보기] 서랍은 이 길에 끼어들지 않는다.
-    expect(screen.queryByRole('group', { name: '보기' })).toBeNull();
-  });
-
-  it('닫으면 [도움말] 버튼으로 돌아온다 — 트리거가 제자리에 남아 있다', async () => {
-    const { user } = await openBoard();
-    const help = screen.getByRole('button', { name: '도움말' });
-    await user.click(help);
-    await screen.findByRole('dialog', { name: '도움말' });
-    // 옛 배치에서는 트리거가 팝오버와 함께 떨어져 나가 [보기] 로 우회해야 했다(help.test.tsx).
-    expect(help.isConnected).toBe(true);
-
-    await user.keyboard('{Escape}');
-
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '도움말' })).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(help));
-  });
-});
+// ── [도움말] — 은퇴한 경위(지우지 않는다) ────────────────────────────────────────────
+// 2026-08-16: [보기] 팝오버 셋째 항목 → 기둥 상시 칸(한 클릭으로 열림, 트리거가 제자리에
+// 남아 포커스가 그대로 돌아옴). 2026-08-20(§0.5 Phase 5): 그 기둥 칸도 없어졌다 — 레일
+// (AppRail·AppNavAside, 이 화면 밖) 상시 칸 하나로 일원화됐다. "이 화면에 도움말 트리거가
+// 있는가" 는 더 이상 이 화면의 배선 몫이 아니라 EditorWorkspace.help.test.tsx(레일 통합)가
+// 본다 — 그 파일이 이 describe 를 이어받았다.
 
 // ── Esc 우선순위 4단 (완료 판정) ──────────────────────────────────────────────────
 // 계약은 InspectorHost.tsx:17-24 에 있고 **등록 단계**가 보장한다:

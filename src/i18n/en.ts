@@ -312,7 +312,6 @@ export const en: Record<DictKey, string> = {
   'present.emptyText': 'Choose a drill from the list to present.',
   'present.backToList': 'Back to list',
   'present.infoAriaLabel': 'Drill info',
-  'present.helpAriaLabel': 'Help',
   'present.fullscreenEnter': 'Fullscreen',
   'present.fullscreenExit': 'Exit fullscreen',
   'present.sideBarAriaLabel': 'Presentation controls',
@@ -336,7 +335,6 @@ export const en: Record<DictKey, string> = {
 
   'present.stageAriaLabel': '{{court}} presentation screen',
 
-  'present.help.title': 'Presentation shortcuts',
   'present.help.swipeKey': '←→ Swipe',
   'present.help.swipeDesc': 'Previous / next step',
 
@@ -559,9 +557,6 @@ export const en: Record<DictKey, string> = {
   'editor.functionBar.view.label': 'View',
   'editor.functionBar.view.name': 'View',
   'editor.functionBar.view.title': 'Grid · Goal-area guide',
-  'editor.functionBar.help.label': 'Help',
-  'editor.functionBar.help.name': 'Help',
-  'editor.functionBar.help.titleTemplate': 'Keyboard shortcuts and controls guide ({{key}})',
   'editor.functionBar.save.label': 'Save',
   'editor.functionBar.save.nameDrill': 'Save as Drill',
   'editor.functionBar.save.titleBoard': 'Adds the current board as a new item in your drill library. The tactics board itself stays as it is.',

@@ -21,7 +21,7 @@
 // 옛 주석의 "드릴 카드에는 애초에 시연 개념이 없다" 는 문장은 이 시점부터 무효다. 같은 이유로
 // 헤더 주 액션도 세션 탭에서 "새 세션"으로 바뀌지 않는다(app-shell 의 정적 헤더 계산은 탭
 // 상태를 모른다) — 대신 세션 탭 본문에 자체 "새 세션" 진입점(빈 상태 CTA)을 둔다.
-import { useId, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { DRILL_TYPES, DRILL_TYPE_LABELS, DRILL_SITUATIONS, SITUATION_LABELS } from '../../model/drill.ts';
@@ -46,6 +46,8 @@ import { DRILL_LEVEL_LABELS } from '../../model/drill.ts';
 import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
 import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
 import { LIBRARY_TUTORIAL_STEPS } from './tutorialSteps.ts';
+import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
+import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 
 export interface LibraryScreenProps {
   nav: HomeNav;
@@ -63,6 +65,11 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
   // status가 'ready'가 되기 전에 자동 시작을 걸면 드릴이 아직 안 실려 있어(§10.7 로딩 4상태)
   // library-card 대상이 없는 채로 시작한다 — 목록이 실제로 그려진 뒤로 미룬다.
   const tutorial = useTutorial('library', LIBRARY_TUTORIAL_STEPS, status === 'ready');
+  // §0.5 Phase 5 — 이 화면은 원래 도움말이 없었다(§8 이라 app-shell 의 헤더·기능바에 못 얹혔다).
+  // 레일 일원화로 처음 생긴 진입점이다 — 다른 화면과 같은 helpOpen state + HelpCenter 패턴.
+  const [helpOpen, setHelpOpen] = useState(false);
+  const showHelp = useCallback(() => setHelpOpen(true), []);
+  usePublishHelpShow(showHelp);
 
   const openDrill = (id: DrillSummary['id']) => nav.openDrill(id);
   const goNewDrill = () => nav.newDrill();
@@ -321,6 +328,8 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
           onSkip={tutorial.skip}
         />
       )}
+
+      <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="library" onRestartTutorial={() => tutorial.start()} />
     </main>
   );
 }

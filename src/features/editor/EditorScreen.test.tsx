@@ -118,9 +118,10 @@ describe('드릴 편집 모드', () => {
     expect(screen.queryByRole('group', { name: '확대' }), '트레이의 옛 줌 묶음이 남아 있다').toBeNull();
     // 코트 위 묶음은 해체된 그대로다 — 격자·가이드는 [보기] 서랍을 열어야 나온다.
     expect(screen.queryByRole('button', { name: '격자 표시 전환' })).toBeNull();
-    // ⚠️ 2026-08-16 — [도움말]만은 예외다. 서랍 밖으로 나와 **기둥 상시 칸**이 됐다(기현 지시):
-    // 길을 잃었을 때 여는 문이 다른 메뉴 안에 있으면 길찾기를 한 번 더 시키는 셈이다.
-    expect(bar.contains(screen.getByRole('button', { name: '도움말' })), '[도움말]이 기둥 밖이다').toBe(true);
+    // 2026-08-16 에는 [도움말]이 기둥 상시 칸이었다(옛 기록) — 2026-08-20(§0.5 Phase 5) 에
+    // 레일(AppRail·AppNavAside, 이 테스트가 렌더하지 않는 화면 밖)로 옮겨가며 기둥에서도
+    // 완전히 빠졌다. 이 화면(EditorScreen 단독 렌더)에는 이제 [도움말] 버튼이 아예 없다.
+    expect(screen.queryByRole('button', { name: '도움말' })).toBeNull();
   });
 
   /** 사이드바 카드. 이름은 안 보여주므로(§"스텝 정보 최소화") aria-label 은 순번뿐이다 —

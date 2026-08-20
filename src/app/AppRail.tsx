@@ -8,7 +8,7 @@
 // 3.-2: **좁은 창에서는 이 컴포넌트가 아예 서지 않는다** — AppShell 이 `useIsNarrow()` 로 갈라
 // AppNavSegment(헤더 좌측 3칸)를 대신 세운다. 여기 84 는 크롬 예산의 appRail 행 `wide` 값이고,
 // 그래서 이 폭을 바꾸면 chromeBudget.test.ts 의 소스 대조가 빨간불이 된다.
-import { IconMoon, IconSun } from '../ui/icons.tsx';
+import { IconHelp, IconMoon, IconSun } from '../ui/icons.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
@@ -16,6 +16,7 @@ import type { RailKey } from './screens.ts';
 import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
 import { useT } from '../i18n/useT.ts';
 import { useLocale } from '../i18n/useLocale.ts';
+import { useHelpShow } from '../ui/help/HelpTriggerProvider.tsx';
 
 /** §7.5a "<nav aria-label='주요 메뉴'>" + aria-current="page".
  *
@@ -29,6 +30,7 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
   const isDark = prefs.theme === 'dark';
   const locale = useLocale();
   const t = useT();
+  const showHelp = useHelpShow();
 
   return (
     <nav
@@ -100,13 +102,34 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         );
       })}
 
+      {/* [도움말] — §0.5 Phase 5(계획서 §A) "테마 토글 위에 [도움말] 버튼". `marginTop:'auto'`
+          를 여기로 옮겨 이 버튼이 남는 세로 공간을 먹고 바닥에 붙는다 — 테마 토글·버전은
+          평범한 flow 로 바로 뒤따라 함께 바닥 쪽에 선다. */}
+      <button
+        type="button"
+        aria-label={t('help.center.title')}
+        title={t('help.center.title')}
+        onClick={showHelp}
+        style={{
+          marginTop: 'auto',
+          width: 44,
+          height: 44,
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--muted)',
+        }}
+      >
+        <IconHelp />
+      </button>
       <button
         type="button"
         aria-label={isDark ? t('app.theme.toggleToLight') : t('app.theme.toggleToDark')}
         title={t('app.theme.toggleTitle')}
         onClick={() => setPrefs({ theme: isDark ? 'light' : 'dark' })}
         style={{
-          marginTop: 'auto',
           width: 44,
           height: 44,
           border: '1px solid var(--border)',

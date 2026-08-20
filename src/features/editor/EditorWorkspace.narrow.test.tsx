@@ -302,8 +302,11 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //    `data-tut="editor-tray"`/`"editor-court"`, 자유 전술판 전용 서랍·기능바·저장 칸에
     //    `data-tut="board-draw"`/`"board-functionbar"`/`"board-save"` 가 붙었다. 뼈대 스냅샷
     //    (인라인 style 목록)은 안 바뀌었다 — 속성 추가뿐이다.
+    //    2026-08-20 (§0.5 Phase 5) 갱신 — 기능 바의 [도움말] 칸이 레일로 옮겨가며 통째로
+    //    빠졌다(버튼 하나 = <button><span>…</span></button> 통짜가 사라진다). 뼈대 스냅샷도
+    //    같은 이유로 버튼 한 줄이 준다(위 update).
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '824fb704ae8d324cb0a06790237b44fa758e36009e34de69fb6493c2210c84ff',
+      'b5ae9a071c4b9d9be6ea9fbebb561874fcc3eacd90287aba3bb06b03f7c70761',
     );
   });
 

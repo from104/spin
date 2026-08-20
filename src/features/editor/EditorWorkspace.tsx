@@ -42,7 +42,8 @@ import { StepSidebar } from './StepSidebar.tsx';
 import { NotePanel } from './NotePanel.tsx';
 import { FunctionBar } from './FunctionBar.tsx';
 import { useContainerWidth } from './useContainerWidth.ts';
-import { HelpModal } from './HelpModal.tsx';
+import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
+import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
 import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
 import { BOARD_TUTORIAL_STEPS, EDITOR_TUTORIAL_STEPS } from './tutorialSteps.ts';
@@ -105,19 +106,15 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   const step = drill.steps[stepIndex] ?? drill.steps[0]!;
 
   const stageRef = useRef<CourtStageHandle | null>(null);
-  // 3.9 — 도움말은 문이 둘이라 돌아갈 곳도 둘이다. **버튼**으로 열면 그 버튼으로 돌아간다
-  // (Safari 는 클릭이 버튼에 포커스를 주지 않아 Modal 의 openedBy 폴백이 body 가 된다 —
-  // ref 로 못박는다). **Shift+?** 로 열면 ref 를 비워 폴백이 이기게 한다 — 열던 순간의
-  // 포커스(코트·개체)로 돌아가야지, 쓴 적도 없는 버튼으로 끌려가면 안 된다.
-  const helpTriggerRef = useRef<HTMLElement | null>(null);
-  // 옛 기록(2026-08-14): 도움말이 [보기] 팝오버 **안**에 있던 시절에는 이 ref 가 [도움말]
-  // 항목이 아니라 **[보기] 버튼**을 가리켜야 했다 — 팝오버는 도움말이 열리기 직전에 닫히므로
-  // 항목 자신이 이미 DOM 에서 떨어져 나갔고, Modal 의 복귀는 isConnected 를 검사하기
-  // 때문이다(ui/Modal.tsx:70). 2026-08-16 에 [도움말]이 기둥 상시 칸으로 나오면서 그 우회가
-  // 없어졌다 — 트리거가 열리는 동안에도 제자리에 있다.
-  const helpButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pendingPlayerId, setPendingPlayerId] = useState<ChairId | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  // §0.5 Phase 5 — 도움말 트리거가 이제 이 컴포넌트 밖(레일 AppRail·AppNavAside)에도 있다.
+  // helpOpen 을 여는 함수를 HelpTriggerProvider 에 등록해 두면 레일 버튼이 "지금 이 화면"의
+  // 도움말을 연다. 옛 "문이 둘이라 돌아갈 곳도 둘" 복잡함(helpTriggerRef/helpButtonRef)은
+  // FunctionBar 자기 [도움말] 칸이 사라지며 함께 없어졌다 — CenterModal 의 openedBy 폴백
+  // (열던 순간의 포커스로 돌아간다)이 레일 버튼 문·Shift+? 문 양쪽 다 이미 맞는 답이다.
+  const showHelp = useCallback(() => setHelpOpen(true), []);
+  usePublishHelpShow(showHelp);
   // 드릴 편집·자유 전술판 튜토리얼(Phase 2·3) — 화면 키가 다르므로(§0.5, 'editor'/'board')
   // tutorialsSeen 도 따로 찍힌다. 데이터는 이 컴포넌트가 그려질 때 이미 `state.present` 로
   // 와 있으므로(로딩 state 없음) 첫 렌더가 곧 "화면이 실제로 그려진 시점"이다.
@@ -518,10 +515,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
     // 토글 전용 채널**(Alt+G·Alt+Z)이라 같은 수식키에 "이 스텝만" 이라는 다른 뜻을 겹칠 수
     // 없다. 범위 개념 자체는 2단계에서 모델에서도 걷어낸다(기현 지시).
     onEraseSelection: () => eraseIds(Array.from(state.selection), 'onward'),
-    onShowHelp: () => {
-      helpTriggerRef.current = null; // 키보드 문 — openedBy 폴백(열던 순간의 포커스)이 이긴다
-      setHelpOpen(true);
-    },
+    onShowHelp: showHelp,
     // [A-3] Esc = 선택 해제. 2단 히트(1.6) 이후 붐비는 코트에서 "빈 곳 탭" 이 사라져도
     // 해제가 가능해야 한다. 재탭 해제(useEditorPointer)와 함께 대체 경로 한 쌍이다.
     onSelectionClear: () => dispatch({ type: 'SELECT_CLEAR' }),
@@ -649,16 +643,6 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       onToggleGrid={toggleGrid}
       showRuleZones={showRuleZones}
       onToggleRuleZones={toggleRuleZones}
-      onShowHelp={() => {
-        // 버튼 문 — 닫히면 [도움말] 버튼으로 돌아온다. ⚠️ **이중 보증의 둘째 벨트다**:
-        // 이 줄을 지워도 Modal 의 openedBy 폴백(열던 순간의 포커스 = 방금 누른 그 버튼)이
-        // 같은 곳을 집는다. 남기는 이유는 반대 문(Shift+?)이 이 ref 를 **비워** 폴백에
-        // 맡기기 때문이다 — 두 문이 같은 자리를 명시적으로 갈라 놔야 한쪽이 바뀔 때 조용히
-        // 어긋나지 않는다.
-        helpTriggerRef.current = helpButtonRef.current;
-        setHelpOpen(true);
-      }}
-      helpButtonRef={helpButtonRef}
       // 드릴 편집에서는 FunctionBar 가 [저장] 칸 자체를 안 그리므로 이 콜백이 안 불린다 —
       // board 일 때만 실제로 쓰인다(위 머리말).
       onSaveAsDrill={() => board?.onSaveAsDrill()}
@@ -896,7 +880,12 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
         </div>
       )}
 
-      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpTriggerRef} mode={mode} />
+      <HelpCenter
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        initialSection={isBoard ? 'board' : 'editor'}
+        onRestartTutorial={() => tutorial.start()}
+      />
 
       {tutorial.step && (
         <TutorialOverlay

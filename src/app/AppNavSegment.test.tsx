@@ -19,6 +19,16 @@ import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { RAIL_ITEMS } from './screens.ts';
 import { CHROME_ROWS } from './chromeBudget.ts';
 import { HEADER_PAD_PX, headerContentMaxPx, headerPadCss, navSegmentHeightPx } from './navChrome.ts';
+import { HelpTriggerProvider, usePublishHelpShow } from '../ui/help/HelpTriggerProvider.tsx';
+
+/** 실제 화면이 usePublishHelpShow 로 등록하는 것을 흉내낸다 — 여기서는 관측만 한다. */
+let shown = false;
+function ShowHelpProbe() {
+  usePublishHelpShow(() => {
+    shown = true;
+  });
+  return null;
+}
 
 type HarnessProps = { children: ReactNode };
 // C4(react-router) — useAppHistory 가 라우터 위의 어댑터가 되면서 하네스도 메모리 라우터로
@@ -47,6 +57,7 @@ beforeEach(() => {
   harnessPath = '/';
   harnessRouter = null;
   window.localStorage.clear();
+  shown = false;
 });
 
 const NAV_LABELS = ['보드', '드릴', '세션', '설정'] as const;
@@ -88,6 +99,23 @@ describe('AppNavSegment — 레일과 같은 계약', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '라이트 테마로 전환' }));
     expect(screen.getByRole('button', { name: '다크 테마로 전환' })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem('spin.prefs') ?? '{}').theme).toBe('light');
+  });
+
+  // §0.5 Phase 5 — 좁은 창에서는 [도움말]이 AppNavAside 에 함께 들어간다(테마·버전과 같은 자리).
+  it('[도움말] 이 테마 앞(맨 앞)에 서고, 누르면 useHelpShow() 가 불린다', async () => {
+    render(
+      <HelpTriggerProvider>
+        <ShowHelpProbe />
+        <AppNavAside />
+      </HelpTriggerProvider>,
+      { wrapper: Harness },
+    );
+    const help = screen.getByRole('button', { name: '도움말' });
+    const theme = screen.getByRole('button', { name: /테마로 전환/ });
+    expect(help.compareDocumentPosition(theme) & Node.DOCUMENT_POSITION_FOLLOWING, '테마가 도움말보다 뒤다').toBeTruthy();
+
+    await userEvent.setup().click(help);
+    expect(shown).toBe(true);
   });
 
   it('버전이 함께 따라온다 — 좁은 창에서만 제보용 숫자가 사라지지 않는다', () => {

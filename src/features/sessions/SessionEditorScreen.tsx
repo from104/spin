@@ -10,10 +10,11 @@
 // 저장은 드로어의 낙관 패턴 그대로다: setSession(즉시) → putSession → refresh. 편집 연산은
 // 전부 model/session.ts 의 순수 헬퍼를 거친다 — 화면이 phases 를 손으로 주무르면 "빈 구획을
 // 지워야 하나" 같은 규칙이 화면마다 갈라진다(그 헬퍼들의 존재 이유).
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
+import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { getSession, putSession } from '../../storage/sessionRepo.ts';
 import { exportOneSession } from '../library/transfer.ts';
 import type { SessionId } from '../../core/ids.ts';
@@ -47,7 +48,11 @@ import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
 import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
+import { withTutorialUnseen } from '../../ui/tutorial/resetTutorialSeen.ts';
 import { SESSION_EDITOR_TUTORIAL_STEPS } from './tutorialSteps.ts';
+import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
+import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
+import type { TutorialScreenKey } from '../../storage/prefs.ts';
 
 export interface SessionEditorScreenProps {
   nav: HomeNav;
@@ -57,6 +62,8 @@ export interface SessionEditorScreenProps {
 export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps) {
   const { drills, refresh } = useLibrary();
   const toast = useToast();
+  const { prefs } = useSettingsState();
+  const { setPrefs } = useSettingsActions();
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [missing, setMissing] = useState(false);
   const t = useT();
@@ -80,6 +87,19 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
   // session 은 getSession 이 비동기로 채운다(위 useEffect) — 로딩 중엔 sessionEditor-* 대상이
   // 하나도 없다. 실제로 그려진 뒤로 자동 시작을 미룬다.
   const tutorial = useTutorial('sessionEditor', SESSION_EDITOR_TUTORIAL_STEPS, session !== null && resolved !== null);
+  // §0.5 Phase 5 — SessionsScreen 과 같은 이유(§8 이라 옛 도움말 진입점이 없던 화면).
+  const [helpOpen, setHelpOpen] = useState(false);
+  const showHelp = useCallback(() => setHelpOpen(true), []);
+  usePublishHelpShow(showHelp);
+  // 도움말 "세션" 섹션은 세션 목록·세션 편집 둘 다를 위한 [투어 다시 보기]를 낸다. 세션
+  // 목록은 지금 마운트돼 있지 않으므로 그 투어는 직접 못 열고 "안 봤음" 으로 되돌린다.
+  const onRestartTutorial = (screen: TutorialScreenKey) => {
+    if (screen === 'sessionEditor') {
+      tutorial.start();
+      return;
+    }
+    setPrefs({ tutorialsSeen: withTutorialUnseen(prefs.tutorialsSeen, screen) });
+  };
 
   async function save(next: TrainingSession): Promise<void> {
     setSession(next); // 낙관적 반영 — 입력 필드가 왕복 지연 없이 즉시 갱신된다(드로어 패턴)
@@ -246,6 +266,8 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
           onSkip={tutorial.skip}
         />
       )}
+
+      <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="sessions" onRestartTutorial={onRestartTutorial} />
     </Main>
   );
 }

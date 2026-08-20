@@ -25,8 +25,13 @@
  *  ⚠️ **화면과 이 숫자가 어긋나면 아무도 안 잡던 자리였다.** 2026-08-15 에 [진영]을 더하고도
  *  이 상수가 12 로 남아 전체 테스트가 초록이었다 — 그 어긋남은 열 수 계산(functionBarColumnsAt)
  *  을 통해 **코트 상자 폭**을 틀리게 만들고, 그 오차가 판 회전 판정을 뒤집을 수 있다.
- *  그래서 FunctionBar.items.test.tsx 가 이제 화면의 칸을 실제로 세어 이 값과 대조한다. */
-export const FUNCTION_BAR_ITEMS = 13;
+ *  그래서 FunctionBar.items.test.tsx 가 이제 화면의 칸을 실제로 세어 이 값과 대조한다.
+ *
+ *  2026-08-20(§0.5 도움말·튜토리얼 Phase 5) — [도움말]이 레일의 상시 칸(AppRail·AppNavAside)
+ *  하나로 일원화되며 이 바에서 **빠졌다** — 13 → 12. 표적 예산은 늘지 않는다: 레일에 새로
+ *  하나 생긴 만큼 여기서 하나가 빠져 상쇄한다(계획서 §C "레일 [도움말] +1 은 편집 기능바
+ *  [도움말] −1 과 상쇄"). */
+export const FUNCTION_BAR_ITEMS = 12;
 /** 드릴 편집의 칸 수 — 전술판에서 **[비우기]·[저장] 둘이 빠진다.**
  *
  *  [비우기]가 빠지는 이유: 전술판의 [코트 비우기]는 *"되돌릴 수 없습니다"* 인 판 초기화다.
@@ -42,8 +47,10 @@ export const FUNCTION_BAR_ITEMS = 13;
  *
  *  ⚠️ **이 값이 전술판과 다르다는 사실 자체가 예산에 실려야 한다**(아래 `functionBarItemsFor`).
  *  한 숫자로 뭉개면 드릴 편집에서 열 수 계산이 한 칸만큼 틀리고, 그 오차가 코트 상자 폭을
- *  거쳐 판 회전 판정을 뒤집을 수 있다. */
-export const FUNCTION_BAR_ITEMS_DRILL = 11;
+ *  거쳐 판 회전 판정을 뒤집을 수 있다.
+ *
+ *  2026-08-20(§0.5 Phase 5) — [도움말]이 레일로 옮겨가며 여기서도 하나 빠진다 — 11 → 10. */
+export const FUNCTION_BAR_ITEMS_DRILL = 10;
 
 /** 이 화면의 칸 수. 예산(chromeBudget)과 화면(FunctionBar)이 **같은 함수**를 봐야 한다. */
 export const functionBarItemsFor = (board: boolean): number => (board ? FUNCTION_BAR_ITEMS : FUNCTION_BAR_ITEMS_DRILL);

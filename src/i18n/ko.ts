@@ -310,7 +310,6 @@ export const ko = {
   'present.emptyText': '시연할 드릴을 목록에서 선택하세요.',
   'present.backToList': '목록으로',
   'present.infoAriaLabel': '드릴 정보',
-  'present.helpAriaLabel': '도움말',
   'present.fullscreenEnter': '전체화면',
   'present.fullscreenExit': '전체화면 종료',
   'present.sideBarAriaLabel': '시연 조작',
@@ -334,7 +333,6 @@ export const ko = {
 
   'present.stageAriaLabel': '{{court}} 시연 화면',
 
-  'present.help.title': '시연 단축키',
   'present.help.swipeKey': '←→ 스와이프',
   'present.help.swipeDesc': '이전 / 다음 스텝',
 
@@ -557,9 +555,6 @@ export const ko = {
   'editor.functionBar.view.label': '보기',
   'editor.functionBar.view.name': '보기',
   'editor.functionBar.view.title': '격자 · 골 지역 가이드',
-  'editor.functionBar.help.label': '도움말',
-  'editor.functionBar.help.name': '도움말',
-  'editor.functionBar.help.titleTemplate': '단축키와 조작 안내 ({{key}})',
   'editor.functionBar.save.label': '저장',
   'editor.functionBar.save.nameDrill': '드릴로 저장',
   'editor.functionBar.save.titleBoard': '지금 판을 드릴 라이브러리에 새 항목으로 넣습니다. 전술판은 그대로 남습니다.',

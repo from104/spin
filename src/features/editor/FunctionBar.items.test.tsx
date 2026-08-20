@@ -53,7 +53,6 @@ function mount(
         onToggleGrid={noop}
         showRuleZones
         onToggleRuleZones={noop}
-        onShowHelp={noop}
         onSaveAsDrill={noop}
       />
       </ToastProvider>

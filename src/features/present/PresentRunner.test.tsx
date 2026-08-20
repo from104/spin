@@ -184,18 +184,25 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     expect(nav.back).toHaveBeenCalledTimes(1); // 편집으로 가는 길은 back 이 아니다
   });
 
-  it('Shift+? 로 도움말 오버레이가 열리고 Esc 로 닫힌다', async () => {
+  it('Shift+? 로 도움말(HelpCenter)이 열리고 Esc 로 닫힌다 — 시연 섹션이 먼저 열려 있다', async () => {
+    // §0.5 Phase 5 — 옛 HelpOverlay(제목 "시연 단축키")는 은퇴했다. Shift+? 는 이제 통합
+    // HelpCenter(제목 "도움말")를 열고, 단축키 표는 그 안의 "단축키" 섹션으로 옮겨갔다.
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
     await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
 
     await userEvent.keyboard('{Shift>}?{/Shift}');
-    const dialog = await screen.findByRole('dialog', { name: '시연 단축키' });
-    expect(within(dialog).getByText('다음 스텝')).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog', { name: '도움말' });
+    expect(within(dialog).getByText('스텝 진행바')).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '단축키' }));
+    // "다음 스텝" 은 드릴·전술판 표에도 나온다(같은 전역 키맵에서 파생) — 시연에만 있는
+    // 스와이프 줄로 좁혀서 이 화면 표가 실제로 실렸는지 본다.
+    expect(within(dialog).getByText('←→ 스와이프')).toBeInTheDocument();
 
     await userEvent.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '시연 단축키' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '도움말' })).not.toBeInTheDocument());
   });
 });
 

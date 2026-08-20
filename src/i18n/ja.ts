@@ -311,7 +311,6 @@ export const ja: Record<DictKey, string> = {
   'present.emptyText': '一覧からプレゼンするドリルを選んでください。',
   'present.backToList': '一覧へ',
   'present.infoAriaLabel': 'ドリル情報',
-  'present.helpAriaLabel': 'ヘルプ',
   'present.fullscreenEnter': '全画面表示',
   'present.fullscreenExit': '全画面表示を終了',
   'present.sideBarAriaLabel': '上映操作',
@@ -335,7 +334,6 @@ export const ja: Record<DictKey, string> = {
 
   'present.stageAriaLabel': '{{court}} プレゼン画面',
 
-  'present.help.title': 'プレゼンのショートカット',
   'present.help.swipeKey': '←→ スワイプ',
   'present.help.swipeDesc': '前 / 次のステップ',
 
@@ -558,9 +556,6 @@ export const ja: Record<DictKey, string> = {
   'editor.functionBar.view.label': '表示',
   'editor.functionBar.view.name': '表示',
   'editor.functionBar.view.title': 'グリッド・ゴールエリアガイド',
-  'editor.functionBar.help.label': 'ヘルプ',
-  'editor.functionBar.help.name': 'ヘルプ',
-  'editor.functionBar.help.titleTemplate': 'ショートカットと操作ガイド（{{key}}）',
   'editor.functionBar.save.label': '保存',
   'editor.functionBar.save.nameDrill': 'ドリルとして保存',
   'editor.functionBar.save.titleBoard': '今の盤をドリルライブラリに新しい項目として追加します。戦術ボード自体はそのまま残ります。',

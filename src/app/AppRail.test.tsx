@@ -12,6 +12,16 @@ import { AppRail } from './AppRail.tsx';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { PREFS_KEY, makeDefaultPrefs } from '../storage/prefs.ts';
+import { HelpTriggerProvider, usePublishHelpShow } from '../ui/help/HelpTriggerProvider.tsx';
+
+/** 실제 화면이 usePublishHelpShow 로 등록하는 것을 흉내낸다 — 여기서는 관측만 한다. */
+let shown = false;
+function ShowHelpProbe() {
+  usePublishHelpShow(() => {
+    shown = true;
+  });
+  return null;
+}
 
 type HarnessProps = { children: ReactNode };
 // C4(react-router) — useAppHistory 가 라우터 위의 어댑터가 되면서 하네스도 메모리 라우터로
@@ -40,6 +50,7 @@ beforeEach(() => {
   harnessPath = '/';
   harnessRouter = null;
   window.localStorage.clear();
+  shown = false;
 });
 
 describe('AppRail', () => {
@@ -98,6 +109,24 @@ describe('AppRail', () => {
     expect(screen.getByRole('button', { name: '다크 테마로 전환' })).toBeInTheDocument();
     const saved = JSON.parse(window.localStorage.getItem('spin.prefs') ?? '{}');
     expect(saved.theme).toBe('light');
+  });
+
+  // §0.5 Phase 5 — [도움말]이 테마 토글 바로 위, 레일 맨 끝 쪽에 상시 칸으로 선다.
+  it('[도움말] 이 테마 토글 바로 앞(위)에 서고, 누르면 useHelpShow() 가 불린다', async () => {
+    render(
+      <Harness>
+        <HelpTriggerProvider>
+          <ShowHelpProbe />
+          <AppRail />
+        </HelpTriggerProvider>
+      </Harness>,
+    );
+    const help = screen.getByRole('button', { name: '도움말' });
+    const theme = screen.getByRole('button', { name: /테마로 전환/ });
+    expect(help.compareDocumentPosition(theme) & Node.DOCUMENT_POSITION_FOLLOWING, '테마가 도움말보다 뒤(아래)다').toBeTruthy();
+
+    await userEvent.setup().click(help);
+    expect(shown).toBe(true);
   });
 });
 

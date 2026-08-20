@@ -35,6 +35,7 @@ import { AppHeader, HeaderProvider } from './AppHeader.tsx';
 import type { HeaderConfig } from './AppHeader.tsx';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import type { AppHistoryApi, NavTarget } from './useAppHistory.ts';
+import { HelpTriggerProvider } from '../ui/help/HelpTriggerProvider.tsx';
 import { announceFor } from './announce.ts';
 import { SCREEN_SUBTITLES, SCREEN_TITLES, railFor } from './screens.ts';
 import type { Screen } from './screens.ts';
@@ -288,16 +289,22 @@ export function AppShell() {
       <HeaderProvider>
         <StageTargetContext.Provider value={stageTarget}>
           <PresentTargetContext.Provider value={presentTarget}>
-            <SkipLink label={t('a11y.skipToContent')} />
-            <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
-              {!narrow && <AppRail active={activeRail} />}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
-                {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId)}
+            {/* §0.5 Phase 5 — 레일 [도움말] 이 "지금 열려 있는 화면" 의 도움말을 열려면, 그
+                화면(AppRail 의 형제, 아래 renderScreen)이 자기 HelpCenter 를 여는 함수를
+                등록할 곳이 필요하다. AppNavProvider 안(레일·화면이 같은 트리)이라 등록·조회가
+                항상 "지금 그려진 화면" 을 가리킨다 — HelpTriggerProvider.tsx 머리말 참고. */}
+            <HelpTriggerProvider>
+              <SkipLink label={t('a11y.skipToContent')} />
+              <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
+                {!narrow && <AppRail active={activeRail} />}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
+                  {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId)}
+                </div>
               </div>
-            </div>
-            <ToastHost toasts={toasts} onDismiss={dismiss} />
-            <LiveRegion />
+              <ToastHost toasts={toasts} onDismiss={dismiss} />
+              <LiveRegion />
+            </HelpTriggerProvider>
           </PresentTargetContext.Provider>
         </StageTargetContext.Provider>
       </HeaderProvider>

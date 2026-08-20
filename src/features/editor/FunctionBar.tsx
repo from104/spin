@@ -43,7 +43,6 @@ import {
   IconBoard,
   IconGoalReset,
   IconGrid,
-  IconHelp,
   IconRedo,
   IconRuleZone,
   IconSaveDrill,
@@ -215,7 +214,6 @@ export interface FunctionBarProps {
   onToggleGrid(): void;
   showRuleZones: boolean;
   onToggleRuleZones(): void;
-  onShowHelp(): void;
   /** 자유 전술판을 드릴 라이브러리에 새 항목으로 넣는다 — 옛 헤더의 주 액션이었다.
    *  2026-08-14 기현님 지시로 헤더가 넓은 창에서 사라지면서 갈 곳이 여기밖에 없었다.
    *  **드릴 편집에서는 뜻이 다르다**: 자동저장을 지금 밀어 넣는다(아래 `mode`). */
@@ -228,10 +226,6 @@ export interface FunctionBarProps {
   mode?: 'board' | 'drill';
   /** [코트]가 잠겼는가에 대한 설명. 드릴은 코트가 불변이라 언제나 잠겨 있다. */
   courtSizeLocked?: boolean;
-  /** 도움말이 닫힐 때 돌아올 곳 — EditorWorkspace 가 helpTriggerRef 에 꽂는다.
-   *  2026-08-16 에 `viewButtonRef` 에서 개명했다: 도움말이 [보기] 메뉴 밖으로 나와 **자기
-   *  버튼**을 갖게 되면서, 돌아갈 곳이 남의 버튼일 이유가 없어졌다. */
-  helpButtonRef?: RefObject<HTMLButtonElement | null>;
 }
 
 export function FunctionBar({
@@ -258,9 +252,7 @@ export function FunctionBar({
   onToggleGrid,
   showRuleZones,
   onToggleRuleZones,
-  onShowHelp,
   onSaveAsDrill,
-  helpButtonRef,
   mode = 'board',
 }: FunctionBarProps) {
   const isBoard = mode === 'board';
@@ -272,11 +264,9 @@ export function FunctionBar({
   const confirmId = useId();
   const courtBtnRef = useRef<HTMLButtonElement | null>(null);
   const viewBtnRef = useRef<HTMLButtonElement | null>(null);
-  const localHelpRef = useRef<HTMLButtonElement | null>(null);
   const clearBtnRef = useRef<HTMLButtonElement | null>(null);
   const exportBtnRef = useRef<HTMLButtonElement | null>(null);
   const firstCourtRef = useRef<HTMLButtonElement | null>(null);
-  const helpBtnRef = helpButtonRef ?? localHelpRef;
   const fly = useFlyout<'view'>();
 
   const { prefs, physics } = useSettingsState();
@@ -399,7 +389,8 @@ export function FunctionBar({
       {/* ⚠️ 2026-08-16 — [진영]은 **[코트] 모달 안으로 들어갔다**(기현 지시). 진영은 골 지역이
           있어야 뜻이 있는 값이고(플랫에는 없다), 골 지역은 코트 형태가 정한다 — 즉 코트를
           정하는 자리에서 함께 정해지는 것이 맞다. 기둥에서는 그 셋이 서로 떨어져 있었다.
-          빠진 한 칸은 [도움말]이 받는다(아래) — 칸 수는 그대로 13/12 다. */}
+          빠진 한 칸은 [도움말]이 받았었다(2026-08-16) — 2026-08-20(§0.5 Phase 5)에 [도움말]이
+          레일 상시 칸으로 옮겨가며 그 칸도 없어졌다. 칸 수는 이제 12/10. */}
       {/* ⚠️ [비우기]는 **전술판에만** 있다(2026-08-15). 드릴에는 되돌리기와 스텝이 있어
           "비운다" 가 한 가지 뜻으로 정해지지 않는다 — functionBarMetrics 의
           FUNCTION_BAR_ITEMS_DRILL 이 그 근거를 갖는다. */}
@@ -456,23 +447,6 @@ export function FunctionBar({
       >
         <IconEye />
       </BarItem>
-      {/* ── [도움말] — 서랍 **밖**, 한 번 클릭 (2026-08-16 기현 지시) ──────────────────
-          [보기] 팝오버의 셋째 항목이었다. 도움말은 "무엇이 어떻게 되는지 모르겠다" 일 때 여는
-          문인데, 그 문이 **다른 메뉴 안에** 있었다 — 길을 잃은 사람에게 길찾기를 한 번 더
-          시키는 배치다. 상시 칸으로 나오면서 부수적으로 복귀 포커스도 단순해졌다: 옛 배치는
-          누르는 순간 트리거가 메뉴와 함께 DOM 에서 떨어져 나가 **[보기] 로 돌아가야** 했다.
-          이제 트리거가 그 자리에 남아 있다. */}
-      <BarItem
-        label={t('editor.functionBar.help.label')}
-        name={t('editor.functionBar.help.name')}
-        title={t('editor.functionBar.help.titleTemplate', { key: keyLabel('help') })}
-        buttonRef={helpBtnRef}
-        aria-haspopup="dialog"
-        onClick={onShowHelp}
-      >
-        <IconHelp />
-      </BarItem>
-
       {isBoard && (
         <>
           <div aria-hidden style={DIVIDER} />

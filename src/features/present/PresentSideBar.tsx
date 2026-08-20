@@ -9,11 +9,11 @@
 // 오른쪽 끝(= 이 바 바로 왼쪽)이 창 폭과 무관하게 항상 같은 자리가 된다 — §3 불변식 1
 // (절대 위치로 만드는 공간 기억)을 시연에도 적용한 것이다.
 //
-// 항목이 둘(전체화면·도움말)뿐이라 FunctionBar 의 구분선·flexWrap 열 계산(functionBarMetrics)
-// 은 필요 없다 — 칸 시각 스타일(ITEM/ITEM_LABEL)만 같은 값으로 맞춘다. 두 바가 항목 수·구성이
-// 근본적으로 달라(13 대 2) 공용 컴포넌트로 묶기보다 시각 스타일만 값으로 맞추는 쪽을 택했다.
+// 2026-08-20(§0.5 Phase 5) — [도움말]이 레일 상시 칸(AppRail·AppNavAside)으로 옮겨가며
+// **전체화면 한 칸만 남았다.** 항목이 하나뿐이라 FunctionBar 의 구분선·flexWrap 열 계산
+// (functionBarMetrics)은 여전히 필요 없다 — 칸 시각 스타일(ITEM/ITEM_LABEL)만 같은 값으로 맞춘다.
 import type { CSSProperties } from 'react';
-import { IconFullscreenEnter, IconFullscreenExit, IconHelp } from './icons.tsx';
+import { IconFullscreenEnter, IconFullscreenExit } from './icons.tsx';
 import type { useFullscreen } from './useFullscreen.ts';
 import { useT } from '../../i18n/useT.ts';
 
@@ -46,10 +46,9 @@ const ITEM_LABEL: CSSProperties = {
 
 export interface PresentSideBarProps {
   fullscreen: ReturnType<typeof useFullscreen>;
-  onShowHelp(): void;
 }
 
-export function PresentSideBar({ fullscreen, onShowHelp }: PresentSideBarProps) {
+export function PresentSideBar({ fullscreen }: PresentSideBarProps) {
   const t = useT();
   return (
     <nav
@@ -80,12 +79,6 @@ export function PresentSideBar({ fullscreen, onShowHelp }: PresentSideBarProps) 
         {fullscreen.state === 'off' ? <IconFullscreenEnter size={18} /> : <IconFullscreenExit size={18} />}
         <span aria-hidden style={ITEM_LABEL}>
           {t('present.fullscreenEnter')}
-        </span>
-      </button>
-      <button type="button" aria-label={t('present.helpAriaLabel')} onClick={onShowHelp} style={ITEM}>
-        <IconHelp size={18} />
-        <span aria-hidden style={ITEM_LABEL}>
-          {t('present.helpAriaLabel')}
         </span>
       </button>
     </nav>

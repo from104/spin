@@ -36,7 +36,8 @@ import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
 import { PRESENT_TUTORIAL_STEPS } from './tutorialSteps.ts';
 import { progressCellState } from './progressCells.ts';
 import { DrillInfoModal } from './DrillInfoModal.tsx';
-import { HelpOverlay } from './HelpOverlay.tsx';
+import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
+import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 import { useFullscreen } from './useFullscreen.ts';
 import { useWakeLock } from './useWakeLock.ts';
 import { useSwipe } from './useSwipe.ts';
@@ -309,6 +310,10 @@ function PresentBody({
   const playbackActions = usePlaybackActions();
   const t = useT();
   const tutorial = useTutorial('present', PRESENT_TUTORIAL_STEPS, true);
+  // §0.5 Phase 5 — 레일 [도움말] 이 "지금 이 화면" 을 열 수 있게 등록한다(EditorWorkspace 와
+  // 같은 이유). PresentSideBar 자기 [도움말] 칸은 이제 없다.
+  const showHelp = useCallback(() => setHelpOpen(true), [setHelpOpen]);
+  usePublishHelpShow(showHelp);
 
   const drills = load.kind === 'session' ? load.drills : [load.drill];
   const phaseInfo = load.kind === 'session' ? load.phases : null;
@@ -712,7 +717,7 @@ function PresentBody({
         </div>
       </div>
 
-      <PresentSideBar fullscreen={fullscreen} onShowHelp={() => setHelpOpen(true)} />
+      <PresentSideBar fullscreen={fullscreen} />
 
       {interstitial && (
         <div
@@ -742,7 +747,7 @@ function PresentBody({
 
       {(wakeLock === 'unsupported' || wakeLock === 'denied') && <VisuallyHiddenNotice />}
 
-      <HelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="present" onRestartTutorial={() => tutorial.start()} />
 
       {tutorial.step && (
         <TutorialOverlay

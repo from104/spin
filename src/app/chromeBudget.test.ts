@@ -262,7 +262,9 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     // 라고 적어 둔 것의 계산이 이것이다. 2026-08-20 재생 묶음 공용화 뒤에도 이 여백은 세로
     // 예산 위에 그대로 더해진다 — 대략 4.2% 작다.
     const box = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR });
-    expect(box).toEqual({ w: 807, h: 455 });
+    // 807 → 851(2026-08-20 §0.5 Phase 5, 위 §5.3 1024×600 케이스와 같은 이유 — [도움말] 칸이
+    // 기능 바에서 빠져 1열 요구가 줄었다).
+    expect(box).toEqual({ w: 851, h: 455 });
     expect(chromeHeightPx({ ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR })).toBe(CHROME_HEIGHT_NARROW_PX + 20);
     expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8667, 4);
   });
@@ -271,7 +273,8 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     const state: ChromeState = { ...narrowState, safeArea: SAFE_AREA_NOTCH_LANDSCAPE };
     expect(chromeWidthPx(state)).toBe(CHROME_WIDTH_NARROW_PX + 88);
     const box = courtBoxPx({ w: 1024, h: 600 }, state);
-    expect(box).toEqual({ w: 719, h: 454 });
+    // 719 → 763(2026-08-20 §0.5 Phase 5, 위와 같은 이유).
+    expect(box).toEqual({ w: 763, h: 454 });
     // 2026-08-18 하단 철거 뒤에는 이 상자가 **폭 제약**으로 넘어갔었다(719/825 < 470/525).
     // 2026-08-20 재생 묶음 공용화로 세로가 다시 줄며(470→454) **도로 세로 제약**이 된다
     // (454/525 < 719/825) — 노치의 폭 88 은 더 이상 유일한 대가가 아니다.

@@ -10,7 +10,7 @@
 // 부트 스크립트(index.html)가 심어 둔 테마와 App.tsx 의 ThemeEffects 가 uiScale·큰 터치 타깃
 // 부작용을 이미 처리하므로(§4.6/§7.4), 이 화면은 prefs 를 쓰기만 하면 된다 — 별도로
 // document.documentElement 를 건드리지 않는다.
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useSettings } from '../../store/settings/SettingsProvider.tsx';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
@@ -36,6 +36,8 @@ import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
 import { LOCALE_NAMES, SUPPORTED_LOCALES } from '../../i18n/locale.ts';
+import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
+import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 
 // ⚠️ 2026-08-14 7차 검증 — 여기 있던 로컬 `COLOR_NAMES` 를 지우고 `core/colors.ts` 의
 // `TEAM_COLOR_NAMES` 를 쓴다. 두 벌이던 시절의 함정: 로컬 맵은 `Record<string, string>` 이라
@@ -52,6 +54,11 @@ export function SettingsScreen() {
   const toast = useToast();
   const t = useT();
   const locale = useLocale();
+  // §0.5 Phase 5 — 설정 화면에는 튜토리얼이 없다(TutorialScreenKey 밖) 그래도 레일 [도움말]
+  // 은 "설정·데이터" 참고 섹션을 열어 준다.
+  const [helpOpen, setHelpOpen] = useState(false);
+  const showHelp = useCallback(() => setHelpOpen(true), []);
+  usePublishHelpShow(showHelp);
 
   // ── §6.1b 기기 이사 파일 읽기 ────────────────────────────────────────────────────────────
   // 고른 파일을 곧바로 복원하지 않는다. 복원은 남의 기기 내용을 이 기기에 섞는 일이고, 그중
@@ -536,6 +543,8 @@ export function SettingsScreen() {
           </Button>
         </div>
       </Modal>
+
+      <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="settings" onRestartTutorial={() => {}} />
     </main>
   );
 }
