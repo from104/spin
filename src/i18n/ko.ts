@@ -907,6 +907,13 @@ export const ko = {
   'settings.sync.wipeConfirm': '지우고 동기화 끄기',
   'settings.sync.wipeDone': 'Drive 에서 파일 {{n}}개를 지우고 동기화를 껐습니다.',
   'settings.sync.wipeFailed': 'Drive 데이터 삭제에 실패했습니다.',
+
+  // ── 도움말·튜토리얼 리셋 — §0.5 Phase 6 ──────
+  'settings.tutorial.title': '도움말·튜토리얼',
+  'settings.tutorial.resetTitle': '튜토리얼 다시 보기',
+  'settings.tutorial.resetDesc': '각 화면의 첫 방문 안내를 처음부터 다시 봅니다. 화면을 열면 자동으로 뜹니다.',
+  'settings.tutorial.resetButton': '모두 다시 보기',
+  'settings.tutorial.resetToast': '튜토리얼을 다시 봅니다 — 화면을 열면 안내가 뜹니다.',
 } as const;
 
 export type DictKey = keyof typeof ko;

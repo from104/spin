@@ -907,4 +907,11 @@ export const ja: Record<DictKey, string> = {
   'settings.sync.wipeConfirm': '削除して同期をオフ',
   'settings.sync.wipeDone': 'Driveからファイル{{n}}件を削除し、同期をオフにしました。',
   'settings.sync.wipeFailed': 'Driveのデータ削除に失敗しました。',
+
+  // ── ヘルプ・チュートリアルのリセット — §0.5 Phase 6 ──────
+  'settings.tutorial.title': 'ヘルプ・チュートリアル',
+  'settings.tutorial.resetTitle': 'チュートリアルをもう一度見る',
+  'settings.tutorial.resetDesc': '各画面の初回案内を最初からもう一度見ます。画面を開くと自動的に表示されます。',
+  'settings.tutorial.resetButton': 'すべてもう一度見る',
+  'settings.tutorial.resetToast': 'チュートリアルをもう一度表示します — 画面を開くと案内が出ます。',
 };

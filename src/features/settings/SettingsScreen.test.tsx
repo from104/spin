@@ -395,3 +395,14 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
     expect(screen.queryByRole('dialog')).toBeNull(); // 실패해도 물음은 닫힌다
   });
 });
+
+describe('SettingsScreen — 도움말·튜토리얼 (§0.5 Phase 6)', () => {
+  it('[모두 다시 보기] 를 누르면 tutorialsSeen 이 통째로 비고 토스트가 뜬다', async () => {
+    savePrefs({ ...makeDefaultPrefs(), tutorialsSeen: { editor: true, board: true, present: true } });
+    render(<SettingsScreen />, { wrapper });
+    await userEvent.setup().click(screen.getByRole('button', { name: '모두 다시 보기' }));
+
+    expect(loadPrefs().tutorialsSeen).toEqual({});
+    expect(await screen.findByText(/튜토리얼을 다시 봅니다/)).toBeInTheDocument();
+  });
+});

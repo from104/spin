@@ -473,6 +473,23 @@ export function SettingsScreen() {
           <SyncSection />
         </Section>
 
+        {/* §0.5 Phase 6(계획서 §C) — [튜토리얼 다시 보기] = tutorialsSeen 플래그 전체 삭제.
+            화면별로 하나씩 지우는 길은 HelpCenter 의 [이 화면 투어 다시 보기]가 이미 맡고
+            있다 — 여기는 "전부 처음부터" 한 번에 끄는 자리다. */}
+        <Section title={t('settings.tutorial.title')}>
+          <Row title={t('settings.tutorial.resetTitle')} desc={t('settings.tutorial.resetDesc')} borderBottom={false}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setPrefs({ tutorialsSeen: {} });
+                toast.show(t('settings.tutorial.resetToast'));
+              }}
+            >
+              {t('settings.tutorial.resetButton')}
+            </Button>
+          </Row>
+        </Section>
+
         <div style={{ textAlign: 'center', fontSize: '0.71875rem', color: 'var(--faint-text)', paddingTop: 4, lineHeight: 1.6 }}>
           {/* 이 줄은 번역하지 않는다 — "SPIN" 이라는 두문자어 자체를 풀어 쓴 영문 태그라인이다. */}
           SPIN · Strategy Planner for INclusive football

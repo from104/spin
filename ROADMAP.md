@@ -90,9 +90,13 @@ CHANGELOG [Unreleased] 가 사용자 관점 설명을 갖고 있습니다. 릴�
 - [x] **선수 실명을 종이·PNG 에 태우기** — 인쇄 첫 장과 PNG 캡션 셋째 줄(있을 때만)에 실명을
   적은 선수만 나열합니다. `model/chairLabel.ts namedRosterOf` 가 시연 범례와 공유하는
   단일 출처입니다
-- **도움말·튜토리얼** (2026-08-20 설계 확정, 정본 [`docs/PLAN-HELP-TUTORIAL.md`](docs/PLAN-HELP-TUTORIAL.md)) —
-  문서형 도움말(HelpCenter, 레일 [도움말]로 일원화) + 6개 화면 스포트라이트 튜토리얼
-  (첫 방문 자동, prefs 기기별 1회성, 설정에서 리셋). 1.0 의 "사용 설명" 항목을 앞당긴 것
+- [x] **도움말·튜토리얼** (2026-08-20 설계·구현, 정본 [`docs/PLAN-HELP-TUTORIAL.md`](docs/PLAN-HELP-TUTORIAL.md)) —
+  6개 화면(드릴 편집·자유 전술판·드릴 목록·세션 목록·세션 편집·시연) 전부에 첫 방문
+  스포트라이트 튜토리얼(자동 시작, 화면별 1회성)과 문서형 도움말(HelpCenter, 8섹션)을
+  붙였다. 도움말은 왼쪽 레일(좁은 창은 헤더)의 상시 [도움말] 칸 하나로 일원화됐고
+  (HelpTriggerProvider), 각 섹션 끝의 [이 화면 투어 다시 보기]로 튜토리얼을 재시작할 수
+  있다. 설정 맨 아래 [도움말·튜토리얼] > [모두 다시 보기]는 전체 플래그를 지운다. 1.0 의
+  "사용 설명" 항목을 앞당긴 것
 - **죽은 export 청소** — `cubicBezier`·`pxToM`·`upcomingSession` 등
 - **`PresentRunner` 의 `effectiveReduceMotion` 중복 구현 제거** — 판정식이 두 벌입니다
 

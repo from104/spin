@@ -912,4 +912,11 @@ export const en: Record<DictKey, string> = {
   'settings.sync.wipeConfirm': 'Delete and turn off sync',
   'settings.sync.wipeDone': 'Deleted {{n}} files from Drive and turned sync off.',
   'settings.sync.wipeFailed': "Couldn't delete the Drive data.",
+
+  // ── Help & tutorial reset — §0.5 Phase 6 ──────
+  'settings.tutorial.title': 'Help & tutorial',
+  'settings.tutorial.resetTitle': 'Replay tutorials',
+  'settings.tutorial.resetDesc': "Replay every screen's first-visit tour from scratch. It starts automatically when you open each screen.",
+  'settings.tutorial.resetButton': 'Replay all',
+  'settings.tutorial.resetToast': "Tutorials will replay — they'll show when you open each screen.",
 };
