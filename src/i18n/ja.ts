@@ -339,6 +339,14 @@ export const ja: Record<DictKey, string> = {
   'present.help.swipeKey': '←→ スワイプ',
   'present.help.swipeDesc': '前 / 次のステップ',
 
+  // ── チュートリアル(スポットライト) — §0.5 ヘルプ・チュートリアル, docs/PLAN-HELP-TUTORIAL.md ──
+  'tutorial.dialogAriaLabel': '画面ツアー',
+  'tutorial.stepCounter': '{{i}}/{{total}} ステップ',
+  'tutorial.skip': 'スキップ',
+  'tutorial.prev': '戻る',
+  'tutorial.next': '次へ',
+  'tutorial.done': '完了',
+
   'presentInfo.titlePrefix': 'ドリル情報 — {{title}}',
   'presentInfo.typeLabel': '種類',
   'presentInfo.situationLabel': '状況',

@@ -338,6 +338,14 @@ export const ko = {
   'present.help.swipeKey': '←→ 스와이프',
   'present.help.swipeDesc': '이전 / 다음 스텝',
 
+  // ── 튜토리얼(스포트라이트) — §0.5 도움말·튜토리얼, docs/PLAN-HELP-TUTORIAL.md ──────
+  'tutorial.dialogAriaLabel': '화면 안내',
+  'tutorial.stepCounter': '{{i}}/{{total}} 단계',
+  'tutorial.skip': '건너뛰기',
+  'tutorial.prev': '이전',
+  'tutorial.next': '다음',
+  'tutorial.done': '완료',
+
   'presentInfo.titlePrefix': '드릴 정보 — {{title}}',
   'presentInfo.typeLabel': '유형',
   'presentInfo.situationLabel': '경기 상황',

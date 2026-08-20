@@ -340,6 +340,14 @@ export const en: Record<DictKey, string> = {
   'present.help.swipeKey': '←→ Swipe',
   'present.help.swipeDesc': 'Previous / next step',
 
+  // ── Tutorial (spotlight) — §0.5 help & tutorial, docs/PLAN-HELP-TUTORIAL.md ──────
+  'tutorial.dialogAriaLabel': 'Screen tour',
+  'tutorial.stepCounter': 'Step {{i}}/{{total}}',
+  'tutorial.skip': 'Skip',
+  'tutorial.prev': 'Back',
+  'tutorial.next': 'Next',
+  'tutorial.done': 'Done',
+
   'presentInfo.titlePrefix': 'Drill info — {{title}}',
   'presentInfo.typeLabel': 'Type',
   'presentInfo.situationLabel': 'Situation',

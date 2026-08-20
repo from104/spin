@@ -106,7 +106,17 @@ export interface Preferences {
    *  기본값 꺼짐). enabled 가 백업을 타고 이동하는 것은 의도다: 새 기기에서 복원하면
    *  "다시 연결하세요" 안내가 자연스러운 온보딩이 된다(토큰이 없으니 저절로 그 상태다). */
   sync: { enabled: boolean };
+  /** 화면별 튜토리얼(스포트라이트)을 이미 봤는가(§0.5 도움말·튜토리얼, 2026-08-20 계획서
+   *  docs/PLAN-HELP-TUTORIAL.md). **본 화면만 키가 있다** — `seeded`(전역 1회성 도장)와
+   *  같은 결이지만 화면이 여럿이라 sparse 객체다. 기기별이고 드라이브 동기화 제외다(sync
+   *  머리말과 같은 이유는 아니다 — 이건 그냥 prefs 전체가 애초에 동기화 대상이 아니라서다).
+   *  새 기기에서 다시 나오는 것은 사고가 아니라 의도다. */
+  tutorialsSeen: Partial<Record<TutorialScreenKey, true>>;
 }
+
+/** 튜토리얼이 있는 화면 6개. docs/PLAN-HELP-TUTORIAL.md §D 의 표와 순서를 맞춘다. */
+export const TUTORIAL_SCREEN_KEYS = ['library', 'sessions', 'editor', 'board', 'present', 'sessionEditor'] as const;
+export type TutorialScreenKey = (typeof TUTORIAL_SCREEN_KEYS)[number];
 
 /** 팀 이름 기본값. DEFAULT_TEAMS(model/defaults.ts) 는 seed 드릴 전용(번역 범위 밖 — 시드
  *  콘텐츠)이라 그대로 두고, prefs 의 첫 실행 기본값만 로케일에 맞춰 새로 고른다. **저장되는
@@ -142,6 +152,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   physics: {},
   language: 'auto',
   sync: { enabled: false },
+  tutorialsSeen: {},
 });
 
 /** linearKmh 에 연동되는 회전 속도 상한. 기본점(linear=10 → 30)을 지나는 선형식이며
@@ -221,6 +232,11 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
   const hintsRaw = isRecord(raw.hints) ? raw.hints : {};
   const trayRaw = isRecord(raw.tray) ? raw.tray : {};
   const syncRaw = isRecord(raw.sync) ? raw.sync : {};
+  const tutorialsSeenRaw = isRecord(raw.tutorialsSeen) ? raw.tutorialsSeen : {};
+  const tutorialsSeen: Partial<Record<TutorialScreenKey, true>> = {};
+  for (const k of TUTORIAL_SCREEN_KEYS) {
+    if (tutorialsSeenRaw[k] === true) tutorialsSeen[k] = true;
+  }
 
   const uiScale: 1 | 1.15 | 1.3 = a11yRaw.uiScale === 1.15 || a11yRaw.uiScale === 1.3 ? a11yRaw.uiScale : 1;
   const reduceMotion: 'system' | 'always' = a11yRaw.reduceMotion === 'always' ? 'always' : 'system';
@@ -263,6 +279,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     physics: sanitizePhysicsOverride(raw.physics),
     language,
     sync: { enabled: bool(syncRaw.enabled, d.sync.enabled) },
+    tutorialsSeen,
   };
   return { value, repairs };
 }

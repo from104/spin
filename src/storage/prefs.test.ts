@@ -100,6 +100,15 @@ describe('validatePrefs', () => {
     // a11y.sound 전례 — 필드 추가로 스키마를 올리지 않는다(구앱 too-new 리셋 비용 회피)
     expect(validatePrefs({ sync: { enabled: true } }).value.schemaVersion).toBe(makeDefaultPrefs().schemaVersion);
   });
+
+  it('tutorialsSeen — 기본은 빈 객체(전부 안 봄), 본 화면만 왕복 보존, 모르는 화면 키·쓰레기 값은 버린다(§0.5 도움말·튜토리얼)', () => {
+    expect(validatePrefs({}).value.tutorialsSeen).toEqual({}); // 구버전 저장본(키 없음)
+    expect(validatePrefs({ tutorialsSeen: { editor: true } }).value.tutorialsSeen).toEqual({ editor: true });
+    expect(validatePrefs({ tutorialsSeen: { editor: true, board: true, library: false } }).value.tutorialsSeen).toEqual({ editor: true, board: true });
+    expect(validatePrefs({ tutorialsSeen: { editor: 'yes', nope: true } }).value.tutorialsSeen).toEqual({});
+    expect(validatePrefs({ tutorialsSeen: 'all' }).value.tutorialsSeen).toEqual({});
+    expect(validatePrefs({ tutorialsSeen: { editor: true } }).value.schemaVersion).toBe(makeDefaultPrefs().schemaVersion);
+  });
 });
 
 describe('resolvePhysics', () => {
