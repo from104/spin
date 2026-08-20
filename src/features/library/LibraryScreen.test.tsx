@@ -94,7 +94,9 @@ describe('LibraryScreen — 드릴 탭', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('복제했습니다');
   });
 
-  it('삭제하면 카드가 사라지고 되돌리기로 복구된다', async () => {
+  // §C-2(2026-08-20, PLAN-DELETE-SAFETY.md) — "덩어리가 크면 순간의 판단 미스로 몇 시간을
+  // 날릴 수 있음" 판단으로 무조건 확인을 묻는다(참조 세션 유무와 무관, §6.10 예외 없음).
+  it('삭제하면 확인 모달을 거쳐 카드가 사라지고 되돌리기로 복구된다', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '삭제 대상' });
     const nav = makeNav();
     render(<LibraryScreen nav={nav} />, { wrapper });
@@ -103,11 +105,31 @@ describe('LibraryScreen — 드릴 탭', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '삭제 대상 더보기' }));
     await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '드릴 삭제' });
+    await user.click(within(dialog).getByRole('button', { name: '삭제' }));
     await waitFor(() => expect(within(panel()).queryByText('삭제 대상')).not.toBeInTheDocument());
 
     const toast = await screen.findByRole('status');
     await user.click(within(toast).getByRole('button', { name: '되돌리기' }));
     await waitFor(() => expect(within(panel()).getByText('삭제 대상')).toBeInTheDocument());
+  });
+
+  it('참조가 없어도 확인 모달이 뜨고, 취소하면 안 지워진다', async () => {
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '비참조 드릴' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('비참조 드릴')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '비참조 드릴 더보기' }));
+    await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '드릴 삭제' });
+    expect(within(dialog).getByText('"비참조 드릴" 을(를) 삭제할까요?')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(within(panel()).getByText('비참조 드릴')).toBeInTheDocument(); // 안 지워졌다
   });
 
   // §0.5 미배송 빚(2026-08-20) — findReferrers 를 삭제 앞에 배선.
@@ -281,6 +303,10 @@ describe('LibraryScreen — 난이도 그룹 정렬의 성능 계약 (로드맵 
       const user = userEvent.setup();
       await user.click(screen.getByRole('button', { name: '고급 슈팅 더보기' }));
       await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+      // §C-2 — 무조건 확인 모달을 거친다(2026-08-20). doDelete(및 그 안의 getDrill)는
+      // [삭제] 확인을 눌러야 불린다.
+      const dialog = await screen.findByRole('dialog', { name: '드릴 삭제' });
+      await user.click(within(dialog).getByRole('button', { name: '삭제' }));
       await waitFor(() => expect(getDrill).toHaveBeenCalledTimes(1)); // 대조군 (b)
       expect(rebuild).not.toHaveBeenCalled(); // 삭제 후 재조회에서도 전역 재구축은 없다
 

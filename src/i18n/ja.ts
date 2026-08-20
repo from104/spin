@@ -196,6 +196,7 @@ export const ja: Record<DictKey, string> = {
   'library.deleteToast': '「{{title}}」を削除しました。',
   'library.deleteConfirm.title': 'ドリルを削除',
   'library.deleteConfirm.body': '「{{title}}」は{{count}}件のセッションで使われています。削除するとそのセッションからも取り除かれます。',
+  'library.deleteConfirm.bodyNoReferrers': '「{{title}}」を削除しますか？',
   'library.deleteConfirm.cancel': 'キャンセル',
   'library.deleteConfirm.confirm': '削除',
   'library.exportToast': '「{{title}}」をエクスポートしました。',

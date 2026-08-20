@@ -28,6 +28,7 @@ import { DRILL_TYPES, DRILL_TYPE_LABELS, DRILL_SITUATIONS, SITUATION_LABELS } fr
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { ConfirmDialog } from '../../ui/ConfirmDialog.tsx';
+import { DELETE_UNDO_TOAST_MS } from '../../ui/Toast.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
 import { findReferrers, resolveDrillRepo } from '../../storage/drillRepo.ts';
 import type { Referrer } from '../../storage/drillRepo.ts';
@@ -88,6 +89,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
     const full = await repo.getDrill(d.id); // 되돌리기용 원본 보관(§6.10 삭제 토스트 원칙을 목록에도 적용)
     await deleteDrill(d.id);
     toast.show(t('library.deleteToast', { title: d.title }), {
+      durationMs: DELETE_UNDO_TOAST_MS, // §C-2 — 드릴엔 앱 되돌리기 스택이 없다. 이 토스트가 유일한 복구 수단이라 3초로는 짧다.
       action: full
         ? {
             label: t('library.undoAction'),
@@ -102,17 +104,13 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
         : undefined,
     });
   };
-  // §0.5 미배송 빚(2026-08-20) — findReferrers 는 이미 있었는데 부르는 곳이 없었다.
-  // 대다수 드릴(세션에서 안 쓰임)은 §6.10 그대로 확인 없이 즉시 삭제+undo 토스트다 —
-  // 세션에서 쓰이는 드릴만 예외로 먼저 물어본다. 확인 모달은 ui/ConfirmDialog.tsx(공용,
-  // FunctionBar 의 [비우기] 확인과 같은 관용구에서 추출됨, PLAN-DELETE-SAFETY.md §D)를 쓴다.
+  // §C-2(2026-08-20, PLAN-DELETE-SAFETY.md) — 기현님 결정: "반드시 질문. 덩어리가 크면
+  // 순간의 판단 미스로 몇 시간을 날릴 수 있음." 드릴 하나가 몇 시간짜리 작업물일 수 있어
+  // §6.10 의 "안 쓰이면 확인 없이 즉시 삭제" 관례를 여기서는 깬다 — 무조건 묻는다.
+  // findReferrers 는 버려지지 않는다 — 이제 본문 문구(경고 세기)만 가른다(§C-2 판단 2).
   const [pendingDelete, setPendingDelete] = useState<{ drill: DrillSummary; referrers: Referrer[] } | null>(null);
   const requestDelete = async (d: DrillSummary) => {
     const referrers = await findReferrers(d.id);
-    if (referrers.length === 0) {
-      await doDelete(d);
-      return;
-    }
     setPendingDelete({ drill: d, referrers });
   };
   const handleExport = async (d: DrillSummary) => {
@@ -294,14 +292,18 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
           }}
           title={t('library.deleteConfirm.title')}
           body={
-            <>
-              <p>{t('library.deleteConfirm.body', { title: pendingDelete.drill.title, count: pendingDelete.referrers.length })}</p>
-              <ul style={{ margin: '8px 0', paddingLeft: 20, color: 'var(--text)' }}>
-                {pendingDelete.referrers.map((r) => (
-                  <li key={r.id}>{r.title}</li>
-                ))}
-              </ul>
-            </>
+            pendingDelete.referrers.length > 0 ? (
+              <>
+                <p>{t('library.deleteConfirm.body', { title: pendingDelete.drill.title, count: pendingDelete.referrers.length })}</p>
+                <ul style={{ margin: '8px 0', paddingLeft: 20, color: 'var(--text)' }}>
+                  {pendingDelete.referrers.map((r) => (
+                    <li key={r.id}>{r.title}</li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p>{t('library.deleteConfirm.bodyNoReferrers', { title: pendingDelete.drill.title })}</p>
+            )
           }
           confirmLabel={t('library.deleteConfirm.confirm')}
           cancelLabel={t('library.deleteConfirm.cancel')}

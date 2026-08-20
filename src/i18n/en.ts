@@ -196,6 +196,7 @@ export const en: Record<DictKey, string> = {
   'library.deleteToast': 'Deleted “{{title}}.”',
   'library.deleteConfirm.title': 'Delete drill',
   'library.deleteConfirm.body': '“{{title}}” is used in {{count}} session(s). Deleting it will also remove it from those sessions.',
+  'library.deleteConfirm.bodyNoReferrers': 'Delete “{{title}}”?',
   'library.deleteConfirm.cancel': 'Cancel',
   'library.deleteConfirm.confirm': 'Delete',
   'library.exportToast': 'Exported “{{title}}.”',

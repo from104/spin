@@ -195,6 +195,7 @@ export const ko = {
   'library.deleteToast': '"{{title}}" 을(를) 삭제했습니다.',
   'library.deleteConfirm.title': '드릴 삭제',
   'library.deleteConfirm.body': '"{{title}}" 은(는) {{count}}개 세션에서 쓰이고 있습니다. 삭제하면 그 세션들에서도 빠집니다.',
+  'library.deleteConfirm.bodyNoReferrers': '"{{title}}" 을(를) 삭제할까요?',
   'library.deleteConfirm.cancel': '취소',
   'library.deleteConfirm.confirm': '삭제',
   'library.exportToast': '"{{title}}" 을(를) 내보냈습니다.',
