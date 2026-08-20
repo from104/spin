@@ -8,7 +8,7 @@ import type { ThumbSpec } from '../model/thumb.ts';
 import type { Shape } from '../model/shape.ts';
 import { SHAPE_STROKE_PX } from '../model/shape.ts';
 import { NOTE_DEFAULT_SIZE_PX } from './objects/noteChip.ts';
-import { ARROW_COLORS } from '../core/colors.ts';
+import { ARROW_CASING, ARROW_COLORS } from '../core/colors.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 
 // CourtThumbnail 이 aria-label 번역에 useLocale()(→ SettingsProvider)을 쓰게 되면서(C7) 이
@@ -41,7 +41,8 @@ describe('CourtThumbnail', () => {
     const groups = container.querySelectorAll('svg > g');
     const layer = groups[groups.length - 1]!; // 코트 라인 g 다음에 오는 마지막 g 가 오브젝트 레이어다
     const tags = Array.from(layer.children).map((el) => el.tagName.toLowerCase());
-    expect(tags).toEqual(['path', 'path', 'circle', 'circle']); // 콘(path), 화살표(path), 휠체어(circle), 공(circle)
+    // 콘(path), 화살표(g — 2026-08-20 부터 케이싱+색선 쌍이라 g 로 묶인다), 휠체어(circle), 공(circle).
+    expect(tags).toEqual(['path', 'g', 'circle', 'circle']);
   });
 });
 
@@ -76,6 +77,47 @@ describe('화살표 색 — 저장된 첨자를 푼다', () => {
 
   it('범위 밖 첨자는 기본색으로 접는다 — 색 수를 줄인 날 카드가 빈 획이 되면 안 된다', () => {
     expect(strokes(withArrows([{ p: [0, 0, 1, 1, 2, 2], c: 99 }]))).toEqual([ARROW_COLORS[0]]);
+  });
+});
+
+// 2026-08-20 회귀 수리 — 기현님 신고 *"썸네일에서 도형과 화살표가 겹쳤을 때 화살표가 안
+// 보인다"*. z-순서는 이미 화살표가 위였다(도형·개체 순서는 아래 describe 가 계속 지킨다) —
+// 진짜 원인은 판·인쇄·PNG 세 렌더러와 달리 썸네일 화살표에만 `ARROW_CASING` 검정 밑선이
+// 없어서, 도형의 반투명 흰 면·테두리가 배경을 밝히면 하늘색(#38bdf8) 화살표가 배경과
+// 거의 같은 밝기가 됐던 것이다(model/arrow.ts 의 대비 계산과 같은 근거).
+describe('화살표 케이싱 — 도형과 겹쳐도 안 사라진다', () => {
+  const spec = (arrows: ThumbSpec['arrows'], shapes?: Shape[]): ThumbSpec => ({
+    mode: 'full',
+    chairs: [],
+    balls: [],
+    cones: [],
+    arrows,
+    ...(shapes ? { shapes } : {}),
+  });
+
+  it('화살표마다 케이싱(검정, 색선보다 굵고 색선 아래)이 깔린다 — 판·인쇄·PNG 와 같은 규약', () => {
+    const { container } = render(<CourtThumbnail mode="full" thumb={spec([{ p: [10, 10, 20, 20, 30, 30] }])} />);
+    const layer = [...container.querySelectorAll('svg > g')].at(-1)!;
+    const arrowGroup = [...layer.children].find((el) => el.tagName.toLowerCase() === 'g')!;
+    const paths = [...arrowGroup.querySelectorAll('path')];
+    expect(paths).toHaveLength(2);
+    const [casing, colorPath] = paths as [SVGPathElement, SVGPathElement];
+    // 문서 순서 = 페인트 순서 — 케이싱이 먼저(아래), 색선이 나중(위).
+    expect(casing.getAttribute('stroke')).toBe(ARROW_CASING);
+    expect(colorPath.getAttribute('stroke')).toBe(ARROW_COLORS[0]);
+    expect(Number(casing.getAttribute('stroke-width'))).toBeGreaterThan(Number(colorPath.getAttribute('stroke-width')));
+    expect(colorPath.getAttribute('stroke-width')).toBe(String(THUMB_GLYPH.arrowW));
+  });
+
+  it('도형과 겹치는 spec 에서도 화살표 케이싱이 개체 층(도형보다 위) 안에 실재한다 — 신고 시나리오', () => {
+    const SHAPE: Shape = { id: 'sh_2' as Shape['id'], kind: 'rect', x: 20, y: 20, w: 40, h: 40, rot: 0 };
+    const { container } = render(<CourtThumbnail mode="full" thumb={spec([{ p: [10, 10, 20, 20, 30, 30] }], [SHAPE])} />);
+    const topGroups = [...container.querySelectorAll('svg > g')];
+    const shapeAt = topGroups.findIndex((el) => el.hasAttribute('data-shape-layer'));
+    const objectLayer = topGroups.at(-1)!; // §3.5 — 개체 층은 항상 마지막 최상위 g 다
+    expect(shapeAt).toBeGreaterThanOrEqual(0);
+    expect(shapeAt).toBeLessThan(topGroups.indexOf(objectLayer)); // 도형이 개체보다 아래(z-순서는 무죄)
+    expect(objectLayer.querySelector(`path[stroke="${ARROW_CASING}"]`)).not.toBeNull();
   });
 });
 

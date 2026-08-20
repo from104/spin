@@ -14,6 +14,7 @@ import {
   OBJ_STROKE,
   BALL_FILL,
   CONE_COLORS,
+  ARROW_CASING,
   ARROW_COLOR,
   ARROW_COLORS,
   TEAM_COLOR_CHOICES,
@@ -94,8 +95,23 @@ export const THUMB_GLYPH = {
    *  2.3px 선이라 도형의 밝은 테두리·우윳빛 면 위를 지나면 묻혀 버렸다(기현님 지적
    *  2026-08-18: *"썸네일에서 도형에 화살표가 가려진다"* — z-순서는 판과 같이 화살표가
    *  위인데도 그랬다. 아래 shapeStroke 를 함께 줄였다). 11 이면 카드에서 ≈3.6px — 경로가
-   *  선으로 읽힌다. */
+   *  선으로 읽힌다.
+   *
+   *  ⚠️ 2026-08-20 — 굵기 완화로는 못 끝난 같은 신고가 재발했다(*"도형과 화살표가 겹쳤을 때
+   *  화살표가 안 보인다"*). 근본 원인은 굵기가 아니라 **케이싱(검정 밑선) 누락**이었다:
+   *  화살표 기본색 `#38bdf8` 은 코트 위에서도 대비 2.49:1 로 이미 WCAG 미달이고(`model/
+   *  arrow.ts` 의 그 계산), 판·인쇄·PNG 세 렌더러는 전부 `ARROW_CASING` 검정 밑선을 깔아
+   *  9.80:1 로 끌어올린다(`render/objects/ArrowPath.tsx` · `features/print/PrintCourt.tsx`
+   *  · `features/export/buildStaticSvg.ts`) — 썸네일만 색선 한 줄이었다. 도형의 반투명
+   *  흰 면·테두리가 배경을 밝히면(특히 테두리 위 ≈1.10:1) 케이싱 없는 하늘색은 배경과
+   *  사실상 같은 밝기가 된다. 아래 `arrowCasingPad` 로 판과 같은 케이싱을 깐다. */
   arrowW: 11,
+  /** 케이싱(halo) 여백 — 색선 양쪽에 절반씩 보이는 검정 테의 총합(코트좌표 유닛). 판의
+   *  규약은 +2.4(ArrowPath.tsx, 양쪽 1.2유닛 ≈ 화면 1.3px)인데 그대로 옮기면 축소 렌더인
+   *  썸네일에서 목록 카드 ≈0.4px·사이드바 카드 ≈0.2px — 테가 사실상 안 보인다. 글리프
+   *  과장 원칙(위 chairR 주석)과 같은 논리로 "화면에서 ≈1px 테" 를 목표로 키운다: 6이면
+   *  양쪽 3유닛 → 목록 카드(≈300px) ≈1.1px · 사이드바(134px, glyphScale 2) ≈0.96px. */
+  arrowCasingPad: 6,
   /** 작도 도형의 획 배수. 도형은 **면이 반투명**이라 덩어리로는 이미 보이고, 안 보이는 것은
    *  테두리(`SHAPE_STROKE_PX` 2 → 카드에서 0.7 px)다. 크기는 못 키운다 — 도형의 크기는
    *  사용자가 그린 구역 그 자체라서, 키우면 **없는 구역을 가르친다**.
@@ -167,18 +183,26 @@ export function CourtThumbnail({
               strokeWidth={THUMB_GLYPH.coneStroke * g}
             />
           ))}
-          {thumb.arrows.map((a, i) => (
-            <path
-              key={i}
-              d={`M${a.p[0]},${a.p[1]} Q${a.p[2]},${a.p[3]} ${a.p[4]},${a.p[5]}`}
-              fill="none"
-              // 저장된 것은 색이 아니라 첨자다(model/thumb.ts). 범위 밖·없음은 기본색으로
-              // 접는다 — 옛 요약(첨자 필드가 생기기 전)이 정확히 그 경우다.
-              stroke={ARROW_COLORS[a.c ?? 0] ?? ARROW_COLOR}
-              strokeWidth={THUMB_GLYPH.arrowW * g}
-              strokeLinecap="round"
-            />
-          ))}
+          {thumb.arrows.map((a, i) => {
+            const d = `M${a.p[0]},${a.p[1]} Q${a.p[2]},${a.p[3]} ${a.p[4]},${a.p[5]}`;
+            return (
+              // 케이싱(검정 밑선) 먼저, 색선 나중 — 판·인쇄·PNG 와 같은 순서(위 arrowCasingPad
+              // 주석). 화살표 A 의 색선이 화살표 B 의 케이싱에 덮이는 것은 판에도 있는 규약
+              // 그대로다(쌍으로 묶어 그리면 그 순서가 자동으로 지켜진다).
+              <g key={i}>
+                <path d={d} fill="none" stroke={ARROW_CASING} strokeWidth={(THUMB_GLYPH.arrowW + THUMB_GLYPH.arrowCasingPad) * g} strokeLinecap="round" />
+                <path
+                  d={d}
+                  fill="none"
+                  // 저장된 것은 색이 아니라 첨자다(model/thumb.ts). 범위 밖·없음은 기본색으로
+                  // 접는다 — 옛 요약(첨자 필드가 생기기 전)이 정확히 그 경우다.
+                  stroke={ARROW_COLORS[a.c ?? 0] ?? ARROW_COLOR}
+                  strokeWidth={THUMB_GLYPH.arrowW * g}
+                  strokeLinecap="round"
+                />
+              </g>
+            );
+          })}
           {thumb.chairs.map((c, i) => (
             <circle
               key={i}
