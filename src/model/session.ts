@@ -133,10 +133,24 @@ export function removeSessionItem(s: TrainingSession, itemId: string): TrainingS
 }
 
 /** 항목 패치(전 구획 수색). */
+// §0.5 미배송 빚(2026-08-20) — 메모·휴식 시간 입력이 생기며 **명시적 undefined 는 키를
+// 지운다** 규칙이 필요해졌다(store/editor/reducer.ts META_SET 과 같은 이유: 얕은 병합만
+// 하면 undefined 값을 가진 키가 그대로 남고, structuredClone(IDB)은 그 키를 보존·JSON은
+// 지우는 두 얼굴 문서가 된다 — edits.ts omitKey 머리말의 그 함정).
 export function updateSessionItem(s: TrainingSession, itemId: string, patch: Partial<SessionItem>): TrainingSession {
   return {
     ...s,
-    phases: s.phases.map((p) => ({ ...p, items: p.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)) })),
+    phases: s.phases.map((p) => ({
+      ...p,
+      items: p.items.map((it) => {
+        if (it.id !== itemId) return it;
+        const next = { ...it, ...patch };
+        for (const k of Object.keys(patch)) {
+          if ((patch as Record<string, unknown>)[k] === undefined) delete (next as unknown as Record<string, unknown>)[k];
+        }
+        return next;
+      }),
+    })),
   };
 }
 

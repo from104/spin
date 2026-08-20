@@ -325,3 +325,44 @@ describe('validateDrill — 팀 이름 상한', () => {
     expect(r.repairs.some((rep) => rep.path === 'teams.away.label')).toBe(false);
   });
 });
+
+// ── 세션 메모·항목 메모·휴식 시간 상한(§0.5 미배송 빚, 2026-08-20) ─────────────────────
+describe('validateSession — 메모·휴식 시간 상한', () => {
+  const item = (over: Record<string, unknown> = {}) => ({
+    id: 'it_1',
+    drillId: 'dr_1',
+    titleCache: '',
+    durationMinCache: 5,
+    categoryCache: '',
+    ...over,
+  });
+
+  it('세션 메모가 sessionNoteLen 을 넘으면 잘리고 repairs 에 기록된다', () => {
+    const long = 'x'.repeat(LIMITS.sessionNoteLen + 10);
+    const r = validateSession({ id: 'se_x', title: '메모', note: long, phases: [{ id: 'ph_1', kind: 'warm-up', items: [] }] });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.note).toBe(long.slice(0, LIMITS.sessionNoteLen));
+    expect(r.repairs.some((rep) => rep.path === 'note')).toBe(true);
+  });
+
+  it('항목 메모가 itemNoteLen 을 넘으면 잘린다', () => {
+    const long = 'y'.repeat(LIMITS.itemNoteLen + 10);
+    const r = validateSession({ id: 'se_x', title: '항목메모', phases: [{ id: 'ph_1', kind: 'warm-up', items: [item({ note: long })] }] });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.phases[0]!.items[0]!.note).toBe(long.slice(0, LIMITS.itemNoteLen));
+  });
+
+  it('휴식 시간은 0~restAfterMinMax 로 보정되고, 0 이하는 키가 없다(미지정과 같은 뜻)', () => {
+    const r = validateSession({
+      id: 'se_x',
+      title: '휴식',
+      phases: [{ id: 'ph_1', kind: 'warm-up', items: [item({ id: 'it_1', restAfterMin: LIMITS.restAfterMinMax + 100 }), item({ id: 'it_2', restAfterMin: -5 })] }],
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.phases[0]!.items[0]!.restAfterMin).toBe(LIMITS.restAfterMinMax);
+    expect('restAfterMin' in r.value.phases[0]!.items[1]!).toBe(false);
+  });
+});

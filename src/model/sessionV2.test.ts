@@ -108,6 +108,16 @@ describe('구획 인지 편집 헬퍼', () => {
     expect(updated.phases[1]!.items[0]!.durationOverrideMin).toBe(25);
   });
 
+  // §0.5 미배송 빚(2026-08-20) — 명시적 undefined 는 키를 지운다(reducer.ts META_SET 과
+  // 같은 규칙). 얕은 병합만 하면 structuredClone(IDB)이 undefined 값을 가진 키를 보존하고
+  // JSON 은 지우는 두 얼굴 문서가 된다.
+  it('updateSessionItem 에 명시적 undefined 를 넘기면 키 자체가 지워진다', () => {
+    const s = mkSession([{ id: 'ph_a' as never, kind: 'warm-up', items: [{ ...mkItem(1), note: '옛 메모', restAfterMin: 5 }] }]);
+    const cleared = updateSessionItem(s, 'it_1', { note: undefined, restAfterMin: undefined });
+    expect('note' in cleared.phases[0]!.items[0]!).toBe(false);
+    expect('restAfterMin' in cleared.phases[0]!.items[0]!).toBe(false);
+  });
+
   it('moveSessionItemFlat — 구획 경계를 넘는 이동은 넘어간 구획으로의 이사다', () => {
     const s = mkSession([
       { id: 'ph_a' as never, kind: 'warm-up', items: [mkItem(1), mkItem(2)] },

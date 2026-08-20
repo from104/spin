@@ -35,6 +35,7 @@ import {
   type SessionPhaseKind,
   type TrainingSession,
 } from '../../model/session.ts';
+import { LIMITS } from '../../model/validate.ts';
 import { newId } from '../../core/ids.ts';
 import { loadRoster } from '../../storage/rosterRepo.ts';
 import type { Player, Roster } from '../../model/roster.ts';
@@ -145,6 +146,20 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
                 void save(Number.isFinite(v) && v > 0 ? { ...session, goalTotalMin: v } : omit(session, 'goalTotalMin'));
               }}
               style={inputStyle}
+            />
+          </Field>
+          {/* 세션 메모(§0.5 미배송 빚, 2026-08-20) — PrintSessionPlan.tsx 는 이미 이 값을
+              인쇄물 상단에 그린다(45행). 입력 자리가 없어 늘 빈칸이었을 뿐이다. */}
+          <Field label={t('sessionEditor.noteFieldLabel')} style={{ gridColumn: '1 / -1' }}>
+            <textarea
+              rows={2}
+              maxLength={LIMITS.sessionNoteLen}
+              defaultValue={session.note ?? ''}
+              onBlur={(e) => {
+                const v = e.target.value;
+                void save(v.trim().length > 0 ? { ...session, note: v } : omit(session, 'note'));
+              }}
+              style={{ ...inputStyle, minHeight: 44, padding: '0.4rem 0.75rem', resize: 'vertical' }}
             />
           </Field>
         </section>
@@ -310,6 +325,9 @@ function PhaseCard({
 }) {
   const { phase, items, totalMin } = resolved;
   const [addDrillId, setAddDrillId] = useState('');
+  // 항목 메모·휴식 시간(§0.5 미배송 빚) — 상시 노출하면 항목이 많은 구획에서 화면이
+  // 붐빈다. NotePanel 과 같은 결(필요할 때만 펼침) 로, 한 번에 하나만 편다.
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const t = useT();
   const locale = useLocale();
   const flat = flattenSessionItems(session);
@@ -393,38 +411,77 @@ function PhaseCard({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {items.map((it) => {
             const fi = flatIndexOf(it.id);
+            const expanded = expandedItemId === it.id;
+            const hasNoteOrRest = !!it.note || !!it.restAfterMin;
             return (
-              <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--border)', borderRadius: 8, padding: '4px 8px' }}>
-                <span style={{ flex: 1, minWidth: 0, fontSize: '0.8125rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {it.titleCache}
-                  {it.missing && <span style={{ color: 'var(--danger, #ef4444)', marginLeft: 6, fontSize: '0.75rem' }}>{t('phaseCard.missingDrillBadge')}</span>}
-                </span>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: 'var(--muted)' }}>
-                  <span className="sr-only">{t('phaseCard.itemDurationAriaLabel', { title: it.titleCache })}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={480}
-                    aria-label={t('phaseCard.itemDurationAriaLabel', { title: it.titleCache })}
-                    defaultValue={it.durationOverrideMin ?? it.durationMinCache}
-                    onBlur={(e) => {
-                      const v = Math.round(Number(e.target.value));
-                      if (!Number.isFinite(v) || v < 0) return;
-                      onSave(updateSessionItem(session, it.id, { durationOverrideMin: v }));
-                    }}
-                    style={{ ...inputStyle, width: 72, minHeight: 36 }}
-                  />
-                  {t('phaseCard.minutesUnit')}
-                </label>
-                <IconBtn label={t('phaseCard.itemMoveUpAriaLabel', { title: it.titleCache })} disabled={fi <= 0} onClick={() => onSave(moveSessionItemFlat(session, fi, fi - 1))}>
-                  ↑
-                </IconBtn>
-                <IconBtn label={t('phaseCard.itemMoveDownAriaLabel', { title: it.titleCache })} disabled={fi < 0 || fi >= flat.length - 1} onClick={() => onSave(moveSessionItemFlat(session, fi, fi + 1))}>
-                  ↓
-                </IconBtn>
-                <IconBtn label={t('phaseCard.itemRemoveAriaLabel', { title: it.titleCache })} onClick={() => onSave(removeSessionItem(session, it.id))}>
-                  ✕
-                </IconBtn>
+              <div key={it.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '4px 8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: '0.8125rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {it.titleCache}
+                    {it.missing && <span style={{ color: 'var(--danger, #ef4444)', marginLeft: 6, fontSize: '0.75rem' }}>{t('phaseCard.missingDrillBadge')}</span>}
+                  </span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: 'var(--muted)' }}>
+                    <span className="sr-only">{t('phaseCard.itemDurationAriaLabel', { title: it.titleCache })}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={480}
+                      aria-label={t('phaseCard.itemDurationAriaLabel', { title: it.titleCache })}
+                      defaultValue={it.durationOverrideMin ?? it.durationMinCache}
+                      onBlur={(e) => {
+                        const v = Math.round(Number(e.target.value));
+                        if (!Number.isFinite(v) || v < 0) return;
+                        onSave(updateSessionItem(session, it.id, { durationOverrideMin: v }));
+                      }}
+                      style={{ ...inputStyle, width: 72, minHeight: 36 }}
+                    />
+                    {t('phaseCard.minutesUnit')}
+                  </label>
+                  {/* 메모·휴식 시간(§0.5 미배송 빚, 2026-08-20) — PrintSessionPlan.tsx 가
+                      이미 이 값들로 열/문단을 그린다(66·67행). 값이 있으면 손잡이 색을
+                      바꿔 "이미 적어 뒀다" 는 것을 접힌 채로도 알린다. */}
+                  <IconBtn
+                    label={t(hasNoteOrRest ? 'phaseCard.itemNoteEditAriaLabel' : 'phaseCard.itemNoteAddAriaLabel', { title: it.titleCache })}
+                    onClick={() => setExpandedItemId(expanded ? null : it.id)}
+                  >
+                    {hasNoteOrRest ? '◆' : '◇'}
+                  </IconBtn>
+                  <IconBtn label={t('phaseCard.itemMoveUpAriaLabel', { title: it.titleCache })} disabled={fi <= 0} onClick={() => onSave(moveSessionItemFlat(session, fi, fi - 1))}>
+                    ↑
+                  </IconBtn>
+                  <IconBtn label={t('phaseCard.itemMoveDownAriaLabel', { title: it.titleCache })} disabled={fi < 0 || fi >= flat.length - 1} onClick={() => onSave(moveSessionItemFlat(session, fi, fi + 1))}>
+                    ↓
+                  </IconBtn>
+                  <IconBtn label={t('phaseCard.itemRemoveAriaLabel', { title: it.titleCache })} onClick={() => onSave(removeSessionItem(session, it.id))}>
+                    ✕
+                  </IconBtn>
+                </div>
+                {expanded && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
+                    <Field label={t('phaseCard.itemNoteFieldLabel')} style={{ flex: 1, minWidth: 0 }}>
+                      <input
+                        type="text"
+                        maxLength={LIMITS.itemNoteLen}
+                        defaultValue={it.note ?? ''}
+                        onBlur={(e) => onSave(updateSessionItem(session, it.id, { note: e.target.value.trim() || undefined }))}
+                        style={inputStyle}
+                      />
+                    </Field>
+                    <Field label={t('phaseCard.itemRestFieldLabel')} style={{ flex: 'none', width: 96 }}>
+                      <input
+                        type="number"
+                        min={0}
+                        max={LIMITS.restAfterMinMax}
+                        defaultValue={it.restAfterMin ?? ''}
+                        onBlur={(e) => {
+                          const v = Math.round(Number(e.target.value));
+                          onSave(updateSessionItem(session, it.id, { restAfterMin: Number.isFinite(v) && v > 0 ? v : undefined }));
+                        }}
+                        style={inputStyle}
+                      />
+                    </Field>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -476,9 +533,9 @@ function Main({ children }: { children: ReactNode }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, children, style }: { label: string; children: ReactNode; style?: CSSProperties }) {
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)' }}>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', ...style }}>
       <span>{label}</span>
       {children}
     </label>

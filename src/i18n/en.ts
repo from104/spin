@@ -246,6 +246,7 @@ export const en: Record<DictKey, string> = {
   'sessionEditor.dateFieldLabel': 'Date & time',
   'sessionEditor.locationFieldLabel': 'Location',
   'sessionEditor.goalFieldLabel': 'Goal total time (min)',
+  'sessionEditor.noteFieldLabel': 'Session note',
   'sessionEditor.allocationSectionAriaLabel': 'Time allocation',
   'sessionEditor.allocationTotal': 'Planned total',
   'sessionEditor.allocationTotalMin': '{{total}} min',
@@ -278,6 +279,10 @@ export const en: Record<DictKey, string> = {
   'phaseCard.itemMoveUpAriaLabel': 'Move {{title}} up',
   'phaseCard.itemMoveDownAriaLabel': 'Move {{title}} down',
   'phaseCard.itemRemoveAriaLabel': 'Remove {{title}}',
+  'phaseCard.itemNoteAddAriaLabel': 'Add note & rest time for {{title}}',
+  'phaseCard.itemNoteEditAriaLabel': 'Edit note & rest time for {{title}}',
+  'phaseCard.itemNoteFieldLabel': 'Note',
+  'phaseCard.itemRestFieldLabel': 'Rest (min)',
   'phaseCard.addDrillLabel': 'Drill to add to phase {{label}}',
   'phaseCard.addDrillPlaceholder': 'Choose a drill…',
 

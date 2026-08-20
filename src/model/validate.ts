@@ -116,6 +116,13 @@ export const LIMITS = {
   sessionPhasesMax: 12, // 구획 수 상한. 표준 세션은 4~6 구획 — 12 는 깨진 파일 방어선
   phaseTitleLen: 40, // 구획 자유 이름. 스텝 이름과 같은 규모(한 줄 라벨)
   sessionGoalMinMax: 480, // 세션 목표 총 시간(분) 상한 = 8시간. 하루 훈련의 방어선
+  // §0.5 미배송 빚(2026-08-20) — 세 필드 모두 검증은 통과하는데 입력 자리가 없어 인쇄된
+  // 계획서 세 열이 영구히 빈칸이었다. 입력 UI를 만들며 상한도 함께 매긴다(위 teamLabelLen
+  // 과 같은 관례).
+  sessionNoteLen: 400, // 세션 전체 메모. description·variation 과 같은 규모
+  itemNoteLen: 200, // 항목(구획 안 드릴 한 줄) 메모. 세션 메모보다 짧다 — 화면 한 줄 곁다리
+  restAfterMinMax: 60, // 드릴 사이 휴식(분) 상한. 세션 목표 시간(480)보다 훨씬 작다 —
+  // 휴식은 몇 분 단위지 시간 단위가 아니다
   // ── 로스터 (구조 개편 C3) ─────────────────────────────────────────────────────────
   rosterMax: 30, // playersNeededMax 와 같은 근거 — 코트 8 + 교체·피더까지
   playerNameLen: 40, // chairNameLen(24)보다 넉넉한 이유: 여기는 트레이 손잡이로 안 흘러간다
@@ -837,7 +844,7 @@ export function validateSession(doc: unknown): ValidateResult<TrainingSession> {
   }
 
   const title = typeof doc.title === 'string' ? doc.title : '';
-  const note = typeof doc.note === 'string' ? doc.note : undefined;
+  const note = sanitizeText(doc.note, LIMITS.sessionNoteLen, 'note', '세션 메모', repairs);
   const scheduledAt = typeof doc.scheduledAt === 'number' && Number.isFinite(doc.scheduledAt) ? doc.scheduledAt : undefined;
   const location = typeof doc.location === 'string' ? doc.location : undefined;
   // 목표 총 시간(v2) — 0..상한 정수. 0 이하·비유한수는 키를 버린다(미지정과 같은 뜻).
@@ -891,8 +898,13 @@ export function validateSession(doc: unknown): ValidateResult<TrainingSession> {
       if (typeof rawItem.durationOverrideMin === 'number' && Number.isFinite(rawItem.durationOverrideMin)) {
         item.durationOverrideMin = rawItem.durationOverrideMin;
       }
-      if (typeof rawItem.note === 'string') item.note = rawItem.note;
-      if (typeof rawItem.restAfterMin === 'number' && Number.isFinite(rawItem.restAfterMin)) item.restAfterMin = rawItem.restAfterMin;
+      const itemNote = sanitizeText(rawItem.note, LIMITS.itemNoteLen, `${where}.note`, '항목 메모', repairs);
+      if (itemNote !== undefined) item.note = itemNote;
+      if (typeof rawItem.restAfterMin === 'number' && Number.isFinite(rawItem.restAfterMin)) {
+        const rest = Math.min(Math.max(Math.round(rawItem.restAfterMin), 0), LIMITS.restAfterMinMax);
+        if (rest !== rawItem.restAfterMin) pushRepair(repairs, `${where}.restAfterMin`, `휴식 시간을 0~${LIMITS.restAfterMinMax} 정수로 보정`, true);
+        if (rest > 0) item.restAfterMin = rest;
+      }
       out.push(item);
     }
     return out;

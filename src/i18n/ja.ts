@@ -246,6 +246,7 @@ export const ja: Record<DictKey, string> = {
   'sessionEditor.dateFieldLabel': '日時',
   'sessionEditor.locationFieldLabel': '場所',
   'sessionEditor.goalFieldLabel': '目標合計時間(分)',
+  'sessionEditor.noteFieldLabel': 'セッションメモ',
   'sessionEditor.allocationSectionAriaLabel': '時間配分',
   'sessionEditor.allocationTotal': '編成合計',
   'sessionEditor.allocationTotalMin': '{{total}}分',
@@ -278,6 +279,10 @@ export const ja: Record<DictKey, string> = {
   'phaseCard.itemMoveUpAriaLabel': '{{title}}を上へ',
   'phaseCard.itemMoveDownAriaLabel': '{{title}}を下へ',
   'phaseCard.itemRemoveAriaLabel': '{{title}}を削除',
+  'phaseCard.itemNoteAddAriaLabel': '{{title}}のメモ・休憩時間を追加',
+  'phaseCard.itemNoteEditAriaLabel': '{{title}}のメモ・休憩時間を編集',
+  'phaseCard.itemNoteFieldLabel': 'メモ',
+  'phaseCard.itemRestFieldLabel': '休憩(分)',
   'phaseCard.addDrillLabel': '{{label}}区画に追加するドリル',
   'phaseCard.addDrillPlaceholder': 'ドリルを選択…',
 

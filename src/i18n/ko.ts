@@ -245,6 +245,7 @@ export const ko = {
   'sessionEditor.dateFieldLabel': '일시',
   'sessionEditor.locationFieldLabel': '장소',
   'sessionEditor.goalFieldLabel': '목표 총 시간(분)',
+  'sessionEditor.noteFieldLabel': '세션 메모',
   'sessionEditor.allocationSectionAriaLabel': '시간 배분',
   'sessionEditor.allocationTotal': '편성 합계',
   'sessionEditor.allocationTotalMin': '{{total}}분',
@@ -277,6 +278,10 @@ export const ko = {
   'phaseCard.itemMoveUpAriaLabel': '{{title}} 위로',
   'phaseCard.itemMoveDownAriaLabel': '{{title}} 아래로',
   'phaseCard.itemRemoveAriaLabel': '{{title}} 제거',
+  'phaseCard.itemNoteAddAriaLabel': '{{title}} 메모·휴식 시간 추가',
+  'phaseCard.itemNoteEditAriaLabel': '{{title}} 메모·휴식 시간 편집',
+  'phaseCard.itemNoteFieldLabel': '메모',
+  'phaseCard.itemRestFieldLabel': '휴식(분)',
   'phaseCard.addDrillLabel': '{{label}} 구획에 추가할 드릴',
   'phaseCard.addDrillPlaceholder': '드릴 선택…',
 

@@ -178,6 +178,64 @@ describe('SessionEditorScreen', () => {
     });
   });
 
+  // ── 세션 메모·항목 메모·휴식 시간(§0.5 미배송 빚, 2026-08-20) ──────────────────────
+  it('세션 메모를 적으면 저장되고, 지우면 키가 사라진다', async () => {
+    const s = await createSession({ title: '메모 세션' });
+    await renderEditor(s.id);
+    const user = userEvent.setup();
+
+    const note = screen.getByLabelText('세션 메모');
+    await user.type(note, '체육관 조명이 어두우니 오전에');
+    (note as HTMLTextAreaElement).blur();
+    await waitFor(async () => {
+      const saved = await getSession(s.id);
+      expect(saved?.session.note).toBe('체육관 조명이 어두우니 오전에');
+    });
+
+    await user.clear(note);
+    (note as HTMLTextAreaElement).blur();
+    await waitFor(async () => {
+      const saved = await getSession(s.id);
+      expect('note' in saved!.session).toBe(false);
+    });
+  });
+
+  it('항목 메모·휴식 시간을 펼쳐서 적으면 저장되고, PrintSessionPlan 이 읽을 값이 채워진다', async () => {
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '메모 드릴', durationMin: 10 });
+    let s = await createSession({ title: '항목 메모 세션' });
+    s = await addDrillToSession(s.id, d.id);
+    await renderEditor(s.id);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: '메모 드릴 메모·휴식 시간 추가' }));
+    const itemNote = screen.getByLabelText('메모');
+    await user.type(itemNote, '물병 챙기기');
+    (itemNote as HTMLInputElement).blur();
+    await waitFor(async () => {
+      const saved = await getSession(s.id);
+      expect(flattenSessionItems(saved!.session)[0]!.note).toBe('물병 챙기기');
+    });
+
+    const rest = screen.getByLabelText('휴식(분)');
+    await user.clear(rest);
+    await user.type(rest, '5');
+    (rest as HTMLInputElement).blur();
+    await waitFor(async () => {
+      const saved = await getSession(s.id);
+      expect(flattenSessionItems(saved!.session)[0]!.restAfterMin).toBe(5);
+    });
+
+    // 값이 있으면 손잡이가 채워진 상태(◆)로 바뀌어 "편집" 문구가 된다.
+    expect(screen.getByRole('button', { name: '메모 드릴 메모·휴식 시간 편집' })).toBeInTheDocument();
+
+    await user.clear(itemNote);
+    (itemNote as HTMLInputElement).blur();
+    await waitFor(async () => {
+      const saved = await getSession(s.id);
+      expect('note' in flattenSessionItems(saved!.session)[0]!).toBe(false);
+    });
+  });
+
   it('참가자 체크가 participantIds 로 저장되고, 전부 풀면 키가 지워진다 (C8)', async () => {
     const { saveRoster } = await import('../../storage/rosterRepo.ts');
     const { addPlayer, emptyRoster } = await import('../../model/roster.ts');
