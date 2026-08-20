@@ -11,40 +11,35 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { makeDefaultPrefs } from '../../storage/prefs.ts';
 import { ko } from '../../i18n/ko.ts';
 
 const KO_TEXT = Object.values(ko).join('\n');
 const BOARD = readFileSync('src/features/board/BoardScreen.tsx', 'utf-8');
 
-describe("C2 — '기본 코트 모드' 문구가 실제 소비처와 맞다", () => {
-  it('옛 거짓 문구(코트 선택 화면 / 새 드릴)가 사전에서 사라졌다', () => {
-    // ① CourtPicker 는 은퇴했으므로 '코트 선택 화면' 은 없는 화면을 가리킨다.
+describe("C2 종결 — '기본 코트 모드'·'기본 포메이션' 설정 자체를 폐기했다 (2026-08-21 기현 지시)", () => {
+  // 6차 검증(2026-08-13)이 문구를, 설정 화면 감사(2026-08-21)가 '항상 묻기' 선택지를
+  // 고쳤지만, 같은 날 최종 결정은 **두 행 자체의 폐기**다: 포메이션은 코치 재량이라 앱이
+  // 기본값을 정하지 않고, 시작 코트는 전술판 스냅샷이 스스로 기억해 그 설정이 기기당 최초
+  // 1회만 읽히는 유령이었다. 여기는 그 폐기가 반쪽으로 돌아오지 않게 못박는다.
+  it('사전에서 두 행의 키와 옛 거짓 문구가 모두 사라졌다', () => {
     // 대조군: 사전 자체가 비어 있지 않다(사전이 깨지면 아래 없음 단언들이 전부 무의미해진다).
     expect(Object.keys(ko).length).toBeGreaterThan(10);
+    for (const k of ['courtModeTitle', 'courtModeDesc', 'courtModeAsk', 'formationTitle', 'formationDesc']) {
+      expect(`settings.team.${k}` in ko).toBe(false);
+    }
     expect(KO_TEXT.includes('코트 선택 화면')).toBe(false);
     expect(KO_TEXT.includes('선택은 매번 확인')).toBe(false);
   });
 
-  it('새 문구가 주장하는 소비처가 실재한다 — 전술판이 이 값으로 코트를 정한다', () => {
-    // 문구: "[보드] 전술판이 뜰 때의 코트입니다".
-    expect(ko['settings.team.courtModeDesc']).toContain('[보드] 전술판이 뜰 때의 코트입니다');
-    expect(BOARD).toContain("prefs.defaultCourtMode ?? 'full'");
-  });
-
-  it("'항상 묻기' 라는 이름의 선택지를 없앴다 — 실제로는 아무것도 묻지 않았기 때문(2026-08-21 재검증)", () => {
-    // 예전엔 화면에 '항상 묻기' 선택지가 있었지만 골라도 아무것도 묻지 않고 조용히 풀 코트로
-    // 접혔다(BoardScreen 의 `?? 'full'`). 존재하지 않는 동작에 이름을 붙여 보여주는 것 자체가
-    // 거짓이라 선택지를 지웠다 — 저장값이 비어 있을 때(신규 사용자·옛 저장본)의 fallback 은
-    // 그대로 'full' 이다, 이제 그 사실을 화면이 선택지로 주장하지 않을 뿐이다.
-    expect('settings.team.courtModeAsk' in ko).toBe(false);
-    expect(ko['settings.team.courtModeDesc']).not.toContain('항상 묻기');
-    expect(makeDefaultPrefs().defaultCourtMode).toBeNull();
-    expect(BOARD).toContain("prefs.defaultCourtMode ?? 'full'");
+  it('소비처도 함께 끊었다 — 전술판은 스냅샷이 없으면 풀 코트 고정으로 뜬다', () => {
+    // 주석의 폐기 기록에는 식별자가 남아 있으므로 **소비 표현식**의 부재를 단언한다.
+    expect(BOARD).not.toContain('prefs.defaultCourtMode ??');
+    expect(BOARD).not.toContain('formation: prefs.defaultFormation');
+    expect(BOARD).toContain("mode ?? 'full'");
   });
 
   it('대조군 — 이 검사에 이빨이 있다: 소비처 문자열을 틀리게 적으면 잡힌다', () => {
-    expect(BOARD).not.toContain("prefs.defaultCourtMode ?? 'half'");
+    expect(BOARD).not.toContain("mode ?? 'half'");
   });
 });
 

@@ -20,6 +20,8 @@ import type { AppHistoryApi } from '../../app/useAppHistory.ts';
 import { AppHeader, HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
+import { saveBoard } from '../../storage/board.ts';
+import { createDrill } from '../../model/defaults.ts';
 import { BoardScreen } from '../board/BoardScreen.tsx';
 import { courtCellAspectRatioCss } from './boardLayout.ts';
 import { TRAY_SECTIONS } from './trayMetrics.ts';
@@ -63,7 +65,9 @@ function stubMedia({ portrait, narrow }: { portrait: boolean; narrow: boolean })
 }
 
 async function openBoard(courtMode: CourtMode = 'full') {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: courtMode }));
+  localStorage.setItem(PREFS_KEY, JSON.stringify(makeDefaultPrefs()));
+  // prefs.defaultCourtMode 는 2026-08-21 폐기 — full 아닌 코트는 스냅샷(부팅 ②)으로 심는다.
+  if (courtMode !== 'full') saveBoard(createDrill({ courtMode, empty: true }), true);
   const user = userEvent.setup();
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());

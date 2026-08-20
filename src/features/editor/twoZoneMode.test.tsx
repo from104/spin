@@ -265,7 +265,7 @@ describe('설정 → 판 (전 구간 배선)', () => {
    *  포인터→월드 변환이 성립하지 않는다(BoardScreen.test.tsx 가 쓰는 것과 같은 경로). */
   async function openBoardWith(twoZone: boolean): Promise<Element[]> {
     const d = makeDefaultPrefs();
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...d, defaultCourtMode: 'full', a11y: { ...d.a11y, twoZone } }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...d, a11y: { ...d.a11y, twoZone } }));
     saveBoard(createDrill({ courtMode: 'full', formation: '1-2-1' }), true);
     const user = userEvent.setup();
     render(<BoardScreen />, { wrapper: Wrapper });

@@ -75,7 +75,7 @@ afterEach(() => {
 });
 
 async function openBoard(): Promise<SVGSVGElement> {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
   return document.getElementById('main')!.querySelector('svg')!;

@@ -127,15 +127,8 @@ describe('SettingsScreen — 화면', () => {
     expect(loadPrefs().showGridLabels).toBe(false);
   });
 
-  // 감사 2026-08-08 minor — 기본값은 defaultCourtMode:null. 화면은 아무것도 묻지 않고
-  // 조용히 풀 코트로 접히는 그 사실 그대로 '풀' 을 선택된 채로 보여준다(2026-08-21 재검증 —
-  // 아무것도 묻지 않는 '항상 묻기' 선택지는 지웠다, settingsDescTruth.test.tsx 참고).
-  it('기본 코트 모드를 "하프" 로 바꾸면 prefs.defaultCourtMode 가 갱신된다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    expect(screen.getByRole('radio', { name: '풀' })).toHaveAttribute('aria-checked', 'true');
-    await userEvent.setup().click(screen.getByRole('radio', { name: '하프' }));
-    expect(loadPrefs().defaultCourtMode).toBe('half');
-  });
+  // [기본 코트 모드] 행과 그 쓰기 테스트는 2026-08-21 폐기 — settingsDescTruth.test.tsx 의
+  // 'C2 종결' 블록이 행·키·소비처의 부재를 못박는다.
 });
 
 describe('SettingsScreen — 시연 (minor #5, 이전에는 설정 화면에 노출되지 않았다)', () => {

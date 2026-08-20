@@ -129,7 +129,7 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 async function openBoardWithChair() {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
   const user = userEvent.setup();
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
@@ -392,7 +392,7 @@ describe('[복제] — 무대 끝까지', () => {
   async function openBoardWithShape() {
     const rect = { x: 0, y: 0, left: 0, top: 0, right: 825, bottom: 525, width: 825, height: 525, toJSON: () => ({}) } as DOMRect;
     vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue(rect);
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
     const user = userEvent.setup();
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
@@ -485,7 +485,7 @@ describe('[복제] — 무대 끝까지', () => {
     // 2026-08-18 후속 지적("화살표에는 왜 복제 메뉴가 안 뜨나?") — 도형과 같은 문이다.
     const rect = { x: 0, y: 0, left: 0, top: 0, right: 825, bottom: 525, width: 825, height: 525, toJSON: () => ({}) } as DOMRect;
     vi.spyOn(SVGSVGElement.prototype, 'getBoundingClientRect').mockReturnValue(rect);
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
     const user = userEvent.setup();
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());

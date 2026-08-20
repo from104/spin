@@ -76,7 +76,7 @@ async function openBoard(): Promise<HTMLElement> {
   // 스냅샷이 매번 달라진다(§0.5, tutorialSteps.ts).
   localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true } }),
+    JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true } }),
   );
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());

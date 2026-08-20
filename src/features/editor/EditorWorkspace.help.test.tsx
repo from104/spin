@@ -65,7 +65,7 @@ async function openBoard() {
   // 배선 테스트가 깨진다 — "이미 봤다" 상태로 시작한다.
   localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true } }),
+    JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true } }),
   );
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());

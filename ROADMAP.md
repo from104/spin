@@ -131,6 +131,12 @@ CHANGELOG [Unreleased] 가 사용자 관점 설명을 갖고 있습니다. 릴�
 - [x] **저장소 열화·압박 경고 배너 폐기** — `storage/db.ts` 의 `ensurePersistence`·
   `storagePressure`, `prefs.ts` 의 `hints.degradedStorage` 를 지웠습니다(옛 `iosPwa` 힌트는
   별개 기능이라 유지). `docs/DESIGN.md` 세 곳에도 폐기 각주를 남겼습니다
+- [x] **`defaultFormation`·`defaultCourtMode`·`hints.iosPwa` 폐기** (2026-08-21 기현님 지시,
+  설정 화면 감사 후속) — 포메이션 기본값은 코치 재량 침범이라 걷어냈고([포메이션으로
+  채우기]·세트피스는 드릴에 새겨진 formation 을 씁니다), 기본 코트 모드는 전술판 스냅샷이
+  코트를 기억해 기기당 최초 1회만 읽히는 유령 설정이었으며, iosPwa 는 §6.9 배너가 끝내
+  미구현이라 플래그만 백업을 타고 다녔습니다. 옛 저장본의 세 필드는 validatePrefs
+  화이트리스트에서 소리 없이 증발합니다(스키마 도장 불변)
 - [x] **`propagateForward` 삭제** — `model/edits.ts` 에서 함수와 이제 안 쓰이는 헬퍼
   `poseOfCast` 를 함께 지웠습니다(같이 쓰이던 `posesEqual` 은 다른 곳에서도 써서 유지)
 - [x] **공·콘·메모 테두리를 `strokeFor` 로 넓히는 계획 취소** — 칩(`ChairChip.tsx`)만

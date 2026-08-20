@@ -60,10 +60,6 @@ export const ko = {
   'settings.team.homeColorDesc': '코트 위 칩에 적용됩니다',
   'settings.team.awayColorTitle': '상대 팀 색상',
   'settings.team.awayColorDesc': '상대 팀 칩에 적용됩니다',
-  'settings.team.formationTitle': '기본 포메이션',
-  'settings.team.formationDesc': '새 드릴 생성 시 초기 배치',
-  'settings.team.courtModeTitle': '기본 코트 모드',
-  'settings.team.courtModeDesc': '[보드] 전술판이 뜰 때의 코트입니다(만들어 둔 드릴은 각자 자기 코트를 기억합니다)',
   'settings.team.colorSwatchAriaLabel': '팀 색상: {{name}}',
   'settings.team.colorConflictToast': '상대 팀과 같은 색은 선택할 수 없습니다.',
 

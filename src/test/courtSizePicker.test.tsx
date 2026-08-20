@@ -47,7 +47,7 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 async function openBoard(): Promise<{ user: ReturnType<typeof userEvent.setup> }> {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
   const user = userEvent.setup();
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());

@@ -31,19 +31,23 @@ import { COURT_DEFS } from '../../model/court.ts';
 
 const PERSIST_DEBOUNCE_MS = 500;
 
-/** 전술판의 시작 코트는 `prefs.defaultCourtMode` 다 — CourtPicker 가 은퇴하면서 그 설정이
- *  죽은 필드가 되지 않도록 여기가 유일한 소비처가 됐다(감사 minor #4 의 후신).
+/** 전술판의 시작 코트는 **'full' 고정**이다. 한동안 `prefs.defaultCourtMode` 를 읽었지만
+ *  2026-08-21 폐기했다(설정 화면 감사 후속) — 스냅샷·세션 캐시(아래 부팅 ①②)가 코트를
+ *  기억하므로 그 설정은 기기당 사실상 최초 1회만 읽혔고, 바꿔도 화면이 안 따라오는 유령
+ *  설정이었다. 코트를 바꾸는 자리는 판 위의 코트 전환 하나로 족하다.
  *
  *  **코트는 비어 있다**(empty, 2026-08-10 기현 지시). 전술판에서는 기본 포메이션이 의미가
  *  없다 — 무엇을 그릴지 모르는 판에 8대가 깔려 있으면 매번 치우는 일부터 해야 한다.
- *  선수는 인스펙터 명단에서 하나씩 놓고, 공·콘은 도구로 만든다. */
+ *  선수는 인스펙터 명단에서 하나씩 놓고, 공·콘은 도구로 만든다. `prefs.defaultFormation`
+ *  도 같은 날 폐기했다(포메이션은 코치 재량이지 앱이 기본값을 정할 대상이 아니다) —
+ *  createDrill 이 formation 을 '1-2-1' 로 접고, [포메이션으로 채우기]·세트피스가 그
+ *  drill.formation 을 쓴다. */
 function makeBoardDrill(prefs: Preferences, locale: Locale, mode?: CourtMode, size?: CourtSize): Drill {
   return createDrill({
     title: translate(locale, 'board.defaultTitle'),
-    courtMode: mode ?? prefs.defaultCourtMode ?? 'full',
+    courtMode: mode ?? 'full',
     // §6.4 — 고른 코트 크기를 새 판에 물려 준다. 없으면 30×18(§9 ② 부기).
     courtSize: size,
-    formation: prefs.defaultFormation,
     teams: prefs.teams,
     empty: true,
   });

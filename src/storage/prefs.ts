@@ -7,10 +7,7 @@ import { DEFAULT_ZONES, DEFAULT_LIMITS } from '../core/constants.ts';
 import { TEAM_COLOR_CHOICES } from '../core/colors.ts';
 import type { ZoneConfig } from '../model/chair.ts';
 import type { TeamSide, TeamStyle } from '../model/drill.ts';
-import type { CourtMode } from '../model/court.ts';
-import { COURT_MODES } from '../model/court.ts';
-import type { FormationName } from '../model/defaults.ts';
-import { FORMATIONS, DEFAULT_TEAMS } from '../model/defaults.ts';
+import { DEFAULT_TEAMS } from '../model/defaults.ts';
 import type { Repair } from '../model/validate.ts';
 import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
 import type { Locale } from '../i18n/locale.ts';
@@ -55,8 +52,11 @@ export interface Preferences {
    *  true 여도 오버레이로 물러난다(features/editor/inspectorLayout.ts). */
   inspectorPinned: boolean;
   teams: Record<TeamSide, TeamStyle>;
-  defaultFormation: FormationName;
-  defaultCourtMode: CourtMode | null;
+  // defaultFormation·defaultCourtMode 는 2026-08-21 폐기(설정 화면 감사 후속, 기현 지시).
+  // 포메이션은 코치 재량이지 앱이 기본값을 정할 대상이 아니고([포메이션으로 채우기]는
+  // drill.formation 을 쓴다), 시작 코트는 전술판 스냅샷이 스스로 기억해 그 설정은 기기당
+  // 최초 1회만 읽히는 유령이었다. 옛 저장본의 두 필드는 아래 validatePrefs 화이트리스트
+  // 조립에서 소리 없이 증발한다(스키마 도장 불변 — 필드 추가가 아니라 제거라 안전하다).
   present: { autoFullscreen: boolean; wakeLock: boolean };
   a11y: {
     largeTargets: boolean;
@@ -80,14 +80,10 @@ export interface Preferences {
      *  한 번 더 올리지 않기 위해서다. */
     twoZone: boolean;
   };
-  // iosPwa: DESIGN.md §6.9 "iPhone Safari 최초 진입 시 1회 안내" 배너의 노출 여부(껐다 켬).
-  // 소비하는 배너 컴포넌트가 아직 없다(감사 2026-08-08 minor — src/features/present/*,
-  // app-shell 쪽 작업으로 이 담당(settings/render/editor) 범위 밖이라 배선하지 않았다).
-  // 마이그레이션 호환을 위해 필드·기본값·검증은 그대로 유지한다.
-  // ⚠️ degradedStorage(DESIGN.md §4.8 열화 모드 상시 경고)는 2026-08-20 폐기했다(로드맵
-  // §0.5 결정) — 그 배너 자체(ensurePersistence/storagePressure, storage/db.ts)를
-  // 걷어냈으니 "다시 보지 않기" 플래그만 남겨 둘 이유가 없다.
-  hints: { iosPwa: boolean };
+  // hints 브랜치는 통째로 폐기됐다: degradedStorage 는 2026-08-20(로드맵 §0.5 — 배너
+  // 자체를 걷어냄), iosPwa 는 2026-08-21(설정 화면 감사 후속) — DESIGN.md §6.9 의 iOS 안내
+  // 배너가 감사 2026-08-08 이후로도 끝내 미구현이라, 언젠가 쓸 플래그를 백업 파일에 실어
+  // 다닐 이유가 없었다. 되살리려면 그때 필드·기본값·검증·왕복 테스트를 한 커밋에서 넣는다.
   /** §3 트레이 서랍 2개(작도 · 설명)의 개폐 상태. 둘 다 기본 닫힘 — 손잡이는 처음부터 보이므로
    *  닫혀 있어도 잠긴 기능은 0개다. 단축키 R·P·T 를 누르면 그 서랍이 **영구히** 열리고(§3 불변식 2)
    *  그 '영구히' 를 기기 재시작 너머로 들고 가는 것이 이 필드다. 기기를 옮겨도 따라오는 취향이라
@@ -98,8 +94,8 @@ export interface Preferences {
   seeded: boolean;
   physics: PhysicsOverride;
   /** i18n C1. `'auto'` 는 브라우저 언어(navigator.languages)로 매 렌더 해석된다 — 값 자체는
-   *  로케일이 아니라 "무엇을 볼지에 대한 취향"이라 기기를 옮겨도 따라오는 게 맞다(theme·
-   *  defaultFormation 과 같은 결). 해석 로직은 i18n/locale.ts 가 단일 출처다. */
+   *  로케일이 아니라 "무엇을 볼지에 대한 취향"이라 기기를 옮겨도 따라오는 게 맞다(theme 과
+   *  같은 결). 해석 로직은 i18n/locale.ts 가 단일 출처다. */
   language: 'auto' | Locale;
   /** 0.6 Drive 동기화. enabled 만 prefs 에 둔다 — 계정 이메일은 IDB meta(syncMeta.ts)에
    *  (백업 파일이 prefs 를 통째로 실으므로 이메일이 백업을 타면 안 된다), 토큰은 어디에도
@@ -143,11 +139,8 @@ export const makeDefaultPrefs = (): Preferences => ({
   // language 는 항상 'auto' 로 시작하므로(아래) 이 시점의 로케일도 auto 감지가 맞다 —
   // 사용자가 고른 값이 아직 없다.
   teams: defaultTeams(resolveLocale('auto', browserLangs())),
-  defaultFormation: '1-2-1',
-  defaultCourtMode: null,
   present: { autoFullscreen: false, wakeLock: true },
   a11y: { largeTargets: false, uiScale: 1, reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true, twoZone: false },
-  hints: { iosPwa: true },
   tray: { draw: false, note: false },
   seeded: false,
   physics: {},
@@ -206,14 +199,6 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
   const theme: 'dark' | 'light' = raw.theme === 'light' ? 'light' : 'dark';
   // 1.5 를 통과시키면 STEP_INTERVAL_MS[1.5] = undefined → transitionMs = NaN → 재생이 조용히 멈춘다.
   const playbackSpeed: 0.5 | 1 | 2 = raw.playbackSpeed === 0.5 || raw.playbackSpeed === 2 ? raw.playbackSpeed : 1;
-  const defaultCourtMode: CourtMode | null =
-    typeof raw.defaultCourtMode === 'string' && (COURT_MODES as readonly string[]).includes(raw.defaultCourtMode)
-      ? (raw.defaultCourtMode as CourtMode)
-      : null;
-  const defaultFormation: FormationName =
-    typeof raw.defaultFormation === 'string' && (FORMATIONS as readonly string[]).includes(raw.defaultFormation)
-      ? (raw.defaultFormation as FormationName)
-      : '1-2-1';
 
   // teams 보정보다 먼저 정해야 한다 — 아래 sanitizeTeamStyle 폴백이 이 로케일을 쓴다.
   const language: Preferences['language'] =
@@ -236,7 +221,6 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
 
   const presentRaw = isRecord(raw.present) ? raw.present : {};
   const a11yRaw = isRecord(raw.a11y) ? raw.a11y : {};
-  const hintsRaw = isRecord(raw.hints) ? raw.hints : {};
   const trayRaw = isRecord(raw.tray) ? raw.tray : {};
   const syncRaw = isRecord(raw.sync) ? raw.sync : {};
   const tutorialsSeenRaw = isRecord(raw.tutorialsSeen) ? raw.tutorialsSeen : {};
@@ -260,8 +244,6 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     showRuleZones: bool(raw.showRuleZones, d.showRuleZones),
     inspectorPinned: bool(raw.inspectorPinned, d.inspectorPinned),
     teams,
-    defaultFormation,
-    defaultCourtMode,
     present: {
       autoFullscreen: bool(presentRaw.autoFullscreen, d.present.autoFullscreen),
       wakeLock: bool(presentRaw.wakeLock, d.present.wakeLock),
@@ -276,10 +258,8 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
       sound: bool(a11yRaw.sound, d.a11y.sound),
       twoZone: bool(a11yRaw.twoZone, d.a11y.twoZone),
     },
-    hints: {
-      iosPwa: bool(hintsRaw.iosPwa, d.hints.iosPwa),
-    },
     // 이 화이트리스트 조립부에 안 적힌 필드는 저장 왕복에서 **소리 없이 증발한다**.
+    // 폐기(defaultFormation·defaultCourtMode·hints)가 정확히 그 증발을 의도한다.
     // 모델에 필드를 넣었으면 여기도 같은 커밋에서 넣고, 왕복 테스트로 못박아라.
     tray: { draw: bool(trayRaw.draw, d.tray.draw), note: bool(trayRaw.note, d.tray.note) },
     seeded: bool(raw.seeded, d.seeded),

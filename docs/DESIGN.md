@@ -1543,13 +1543,13 @@ export interface Preferences {
   loop: boolean;
   showGrid: boolean; showGridLabels: boolean; showRuleZones: boolean;
   teams: Record<TeamSide, TeamStyle>;
-  defaultFormation: FormationName;
-  defaultCourtMode: CourtMode | null;
+  // defaultFormation·defaultCourtMode 는 2026-08-21 폐기(설정 화면 감사 — 포메이션은
+  // 코치 재량, 시작 코트는 전술판 스냅샷이 스스로 기억)
   present: { autoFullscreen: boolean; wakeLock: boolean };
   a11y: { largeTargets: boolean; uiScale: 1 | 1.15 | 1.3;
           reduceMotion: 'system' | 'always';
           singleKeyShortcuts: 'on' | 'modifier' | 'off' };
-  hints: { iosPwa: boolean };  // degradedStorage 는 2026-08-20 폐기(로드맵 §0.5 결정)
+  // hints 는 통째로 폐기 — degradedStorage 2026-08-20(로드맵 §0.5), iosPwa 2026-08-21(§6.9 배너 미구현 확정)
   physics: PhysicsOverride;
 }
 export const makeDefaultPrefs: () => Preferences;   // 상수 대신 팩토리 (공유 객체 유출 방지)
@@ -3161,7 +3161,8 @@ export function useSwipe(o: { onPrev(): void; onNext(): void }): PointerHandlers
 
 `pseudo` 폴백 CSS: `position:fixed; inset:0; z-index:100; height:100dvh; width:100vw;
 padding: env(safe-area-inset-*)`. `index.html` 에 `viewport-fit=cover` 는 이미 있다 ✓
-iPhone Safari 최초 진입 시 1회 안내(`prefs.hints.iosPwa`).
+iPhone Safari 최초 진입 시 1회 안내는 계획만 있었고 끝내 미구현 — 담아 두던
+`prefs.hints.iosPwa` 플래그도 2026-08-21 폐기했다(설정 화면 감사 후속).
 
 Wake Lock 은 **보안 컨텍스트 필수**. 사설 IP http 배포에서는 동작하지 않으므로
 `unsupported`/`denied` 폴백 문구를 반드시 구현한다(`role="status"`, 6초):

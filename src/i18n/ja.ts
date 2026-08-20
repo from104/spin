@@ -61,10 +61,6 @@ export const ja: Record<DictKey, string> = {
   'settings.team.homeColorDesc': 'コート上のチップに適用されます',
   'settings.team.awayColorTitle': '相手チームの色',
   'settings.team.awayColorDesc': '相手チームのチップに適用されます',
-  'settings.team.formationTitle': '既定のフォーメーション',
-  'settings.team.formationDesc': '新規ドリル作成時の初期配置',
-  'settings.team.courtModeTitle': '既定のコートモード',
-  'settings.team.courtModeDesc': '[ボード]戦術ボードを開いたときのコートです(保存済みドリルはそれぞれ自分のコートを覚えています)',
   'settings.team.colorSwatchAriaLabel': 'チームカラー: {{name}}',
   'settings.team.colorConflictToast': '相手チームと同じ色は選べません。',
 

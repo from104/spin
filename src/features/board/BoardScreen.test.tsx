@@ -2,8 +2,8 @@
 // 드릴 편집과 **같은 컴포넌트**(EditorWorkspace)로 동작하는지 실제 경로로 확인한다.
 //
 // 2026-08-09 재편 전에는 이 파일이 EditorScreen(CourtPicker → 드릴 생성)을 마운트했다. 지금은
-// 새 드릴이 전술판에서 태어나므로 코트 고르기 단계가 없다 — 전술판의 시작 코트는
-// `prefs.defaultCourtMode` 다(옛 minor #4 가드의 후신).
+// 새 드릴이 전술판에서 태어나므로 코트 고르기 단계가 없다 — 전술판은 'full' 로 열고
+// 스냅샷이 코트를 기억한다(`prefs.defaultCourtMode` 는 2026-08-21 폐기).
 //
 // 헤더까지 함께 렌더한다: 코트 전환 세그먼트가 헤더에 있어서, "리셋 상태에서만 전환"
 // 게이트를 화면 끝에서 확인하려면 AppHeader 가 트리에 있어야 한다.
@@ -65,7 +65,7 @@ function Wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-/** 전술판을 지정한 코트로 연다. 코트는 prefs 로 정해지므로 render 전에 심는다.
+/** 전술판을 지정한 코트로 연다. full 아닌 코트는 render 전에 스냅샷으로 심는다.
  *
  *  `placed: true` 면 **개체가 놓인 판**을 스냅샷으로 심어서 연다. 전술판은 2026-08-10 부터
  *  **빈 코트로 시작**하므로(기현 지시), 칩을 만지는 테스트는 판을 채운 상태에서 열어야 한다.
@@ -81,9 +81,12 @@ async function openBoard(
   // 화살표·liveRegion 발표문을 가로채 아래 배선 테스트가 깨진다 — "이미 봤다" 로 시작한다.
   localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: court, tutorialsSeen: { board: true } }),
+    JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true } }),
   );
+  // 코트는 스냅샷(부팅 ②)으로 심는다 — prefs.defaultCourtMode 는 2026-08-21 폐기됐고,
+  // 새 판(부팅 ③)은 'full' 고정이라 half/flat 은 저장본으로만 전달할 수 있다.
   if (opts.placed) saveBoard(createDrill({ courtMode: court, formation: '1-2-1' }), true);
+  else if (court !== 'full') saveBoard(createDrill({ title: '자유 전술판', courtMode: court, empty: true }), true);
   const user = userEvent.setup();
   const tree = opts.onRender ? (
     <Profiler id="board" onRender={opts.onRender}>
@@ -177,16 +180,14 @@ describe('자유 전술판 (대문)', () => {
     expect(loadPrefs().showRuleZones).toBe(false);
   });
 
-  // 감사 2026-08-08 minor #4 회귀 — prefs.defaultCourtMode 가 완전히 죽은 필드였다. 이제
-  // CourtPicker 가 그 값을 "기본값" 배지로 강조한다(§6.8 "1회 선택" 원칙은 유지 — 클릭은 여전히
-  // 필요하다).
-  it('전술판은 prefs.defaultCourtMode 코트로 열린다 (옛 minor #4 의 후신)', async () => {
-    // CourtPicker 가 은퇴하면서 defaultCourtMode 의 유일한 소비처가 전술판이 됐다. 이 가드가
-    // 없으면 그 설정은 다시 아무도 읽지 않는 죽은 필드가 된다(감사에서 실제로 그랬다).
-    const { user } = await openBoard('half');
+  // prefs.defaultCourtMode 는 2026-08-21 폐기 — 옛 minor #4 가드(설정 코트로 열린다)도 함께
+  // 은퇴한다. 스냅샷이 코트를 기억한다는 사실은 저장/부팅 테스트와 아래 [드릴로 저장]
+  // 테스트(openBoard('half') 가 스냅샷으로 하프를 심는다)가 이어서 지킨다.
+  it('전술판은 스냅샷이 없으면 풀 코트로 열린다 (폐기 후 고정 기본값)', async () => {
+    const { user } = await openBoard();
     await openCourt(user);
     const seg = screen.getByRole('radiogroup', { name: /코트 형태/ });
-    expect(within(seg).getByRole('radio', { name: new RegExp('하프') })).toHaveAttribute('aria-checked', 'true');
+    expect(within(seg).getByRole('radio', { name: new RegExp('풀') })).toHaveAttribute('aria-checked', 'true');
   });
 });
 
@@ -197,7 +198,7 @@ describe('격자 칸 라벨 배선 사슬 (major 회귀: prefs → EditorWorkspa
   async function mountWithGridLabels(showGridLabels: boolean) {
     localStorage.setItem(
       PREFS_KEY,
-      JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', showGrid: true, showGridLabels, tutorialsSeen: { board: true } }),
+      JSON.stringify({ ...makeDefaultPrefs(), showGrid: true, showGridLabels, tutorialsSeen: { board: true } }),
     );
     const { container } = render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
@@ -721,7 +722,7 @@ describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', (
     // 매번 치우는 일부터 해야 한다.
     localStorage.setItem(
       PREFS_KEY,
-      JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true } }),
+      JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true } }),
     );
     render(<BoardScreen />, { wrapper: Wrapper });
     const stage = screen.getByRole('application', { name: '코트 편집 영역' });
@@ -732,7 +733,7 @@ describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', (
     // 비었다고 선수까지 없어지면 안 된다 — 8대가 인스펙터 명단에 '미배치' 로 있어야 한다.
     localStorage.setItem(
       PREFS_KEY,
-      JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true } }),
+      JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true } }),
     );
     const user = userEvent.setup();
     render(<BoardScreen />, { wrapper: Wrapper });

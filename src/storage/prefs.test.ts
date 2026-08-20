@@ -53,10 +53,11 @@ describe('validatePrefs', () => {
     expect(value.loop).toBe(makeDefaultPrefs().loop);
     expect(value.showGrid).toBe(makeDefaultPrefs().showGrid);
   });
-  it('알 수 없는 defaultCourtMode/defaultFormation 은 안전한 기본값으로 떨어진다', () => {
-    const { value } = validatePrefs({ defaultCourtMode: 'bogus', defaultFormation: 'bogus' });
-    expect(value.defaultCourtMode).toBeNull();
-    expect(value.defaultFormation).toBe('1-2-1');
+  it('폐기 필드(defaultCourtMode·defaultFormation·hints)는 화이트리스트 조립에서 증발한다 (2026-08-21)', () => {
+    const { value } = validatePrefs({ defaultCourtMode: 'half', defaultFormation: '2-1-1', hints: { iosPwa: false } });
+    expect('defaultCourtMode' in value).toBe(false);
+    expect('defaultFormation' in value).toBe(false);
+    expect('hints' in value).toBe(false);
   });
   it('teams 의 색이 hex 형식이 아니면 DEFAULT_TEAMS 값으로 떨어진다', () => {
     const { value } = validatePrefs({ teams: { home: { color: 'not-a-color' }, away: {} } });
@@ -279,6 +280,8 @@ const makeV1Doc = (): Record<string, unknown> => ({
   showRuleZones: false,
   inspectorPinned: true,
   teams: { home: { label: '우리', color: '#123abc', gkColor: '#ffffff' }, away: { label: '상대', color: '#abc123', gkColor: '#000000' } },
+  // defaultFormation·defaultCourtMode·hints 는 2026-08-21 폐기됐지만 v1 실물 저장본에는
+  // 있었으므로 입력에는 남긴다 — 아래 '증발' 단언의 입력이 된다.
   defaultFormation: '2-1-1',
   defaultCourtMode: 'half',
   present: { autoFullscreen: true, wakeLock: false },
@@ -430,8 +433,6 @@ describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 �
     expect(p.showGridLabels).toBe(false);
     expect(p.showRuleZones).toBe(false);
     expect(p.inspectorPinned).toBe(true);
-    expect(p.defaultFormation).toBe('2-1-1');
-    expect(p.defaultCourtMode).toBe('half');
   });
   it('teams 가 살아 돌아온다', () => {
     expect(loadPrefs().teams).toEqual(makeV1Doc().teams);
@@ -447,8 +448,11 @@ describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 �
     expect(p.a11y.singleKeyShortcuts).toBe('off');
     expect(p.a11y.sound).toBe(false);
   });
-  it('hints 가 살아 돌아온다', () => {
-    expect(loadPrefs().hints).toEqual({ iosPwa: false });
+  it('폐기 필드는 마이그레이션을 지나도 증발한다 — defaultFormation·defaultCourtMode·hints (2026-08-21)', () => {
+    const p = loadPrefs() as unknown as Record<string, unknown>;
+    expect('defaultFormation' in p).toBe(false);
+    expect('defaultCourtMode' in p).toBe(false);
+    expect('hints' in p).toBe(false);
   });
   it('physics override 가 살아 돌아온다', () => {
     expect(loadPrefs().physics).toEqual({ linearKmh: 12, zones: { sTowRearMax: 0.16 } });

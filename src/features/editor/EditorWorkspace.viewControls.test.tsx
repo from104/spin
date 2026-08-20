@@ -65,7 +65,7 @@ async function openBoard(prefs: Partial<ReturnType<typeof makeDefaultPrefs>> = {
   // 원하면 덮어쓸 수 있다.
   localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true }, ...prefs }),
+    JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true }, ...prefs }),
   );
   const user = userEvent.setup();
   render(<BoardScreen />, { wrapper: Wrapper });

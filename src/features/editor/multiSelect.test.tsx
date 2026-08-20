@@ -195,7 +195,7 @@ describe('모아 고르기 — 도구 칸에서', () => {
   beforeEach(() => localStorage.clear());
 
   async function openBoard() {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
     const user = userEvent.setup();
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());

@@ -160,7 +160,7 @@ describe('헤더 — ⓘ·[시연으로] (2026-08-20 §A·B, 옛 C11/C12 계약 
 
 describe('노트 패널 — 자유 전술판에는 없다(대조군)', () => {
   it('스텝이 없는 화면이라 노트 토글도 없다', async () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /^노트/ })).toBeNull();

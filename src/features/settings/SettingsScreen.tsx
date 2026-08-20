@@ -22,8 +22,6 @@ import { INTERACT } from '../../core/constants.ts';
 import { TEAM_COLOR_CHOICES, TEAM_COLOR_NAMES, inkFor } from '../../core/colors.ts';
 import { RosterSection } from './RosterSection.tsx';
 import { SyncSection } from './SyncSection.tsx';
-import { FORMATIONS } from '../../model/defaults.ts';
-import { COURT_MODES, COURT_MODE_SHORT_LABELS, type CourtMode } from '../../model/court.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
@@ -230,39 +228,15 @@ export function SettingsScreen() {
           <Row title={t('settings.team.homeColorTitle')} desc={t('settings.team.homeColorDesc')}>
             <TeamColorSwatches ariaLabel={t('settings.team.homeColorTitle')} value={prefs.teams.home.color} otherValue={prefs.teams.away.color} onChange={(c) => setPrefs({ teams: { ...prefs.teams, home: { ...prefs.teams.home, color: c } } })} />
           </Row>
-          <Row title={t('settings.team.awayColorTitle')} desc={t('settings.team.awayColorDesc')}>
+          <Row title={t('settings.team.awayColorTitle')} desc={t('settings.team.awayColorDesc')} borderBottom={false}>
             <TeamColorSwatches ariaLabel={t('settings.team.awayColorTitle')} value={prefs.teams.away.color} otherValue={prefs.teams.home.color} onChange={(c) => setPrefs({ teams: { ...prefs.teams, away: { ...prefs.teams.away, color: c } } })} />
           </Row>
-          <Row title={t('settings.team.formationTitle')} desc={t('settings.team.formationDesc')}>
-            <Segmented
-              ariaLabel={t('settings.team.formationTitle')}
-              value={prefs.defaultFormation}
-              onChange={(v) => setPrefs({ defaultFormation: v })}
-              options={FORMATIONS.map((f) => ({ value: f, label: f }))}
-            />
-          </Row>
-          {/* ⚠️ 2026-08-13(6차 검증) 정정, 2026-08-21(설정 화면 감사) 재정정. 옛 문구는 *"새
-              드릴을 만들 때 코트 선택 화면에서 미리 강조 표시됩니다(선택은 매번 확인)"* 였는데
-              **두 조각 다 거짓**이었다:
-                ① '코트 선택 화면'(CourtPicker)은 2026-08-09 재편에서 은퇴했다
-                   (BoardScreen.tsx:28 · EditorScreen.tsx:4 가 그 은퇴를 기록한다).
-                ② '새 드릴' 과도 무관하다 — 이 값의 **유일한** 프로덕션 소비처는
-                   BoardScreen.tsx:37 `mode ?? prefs.defaultCourtMode ?? 'full'`, 즉 전술판이
-                   뜰 때의 코트다(rg 실측: 설정 화면 자신 말고는 그 한 줄뿐).
-              6차 검증은 문구를 사실로 고쳤지만 '항상 묻기'(=null) 선택지는 남겨 뒀다 — 그런데
-              그 선택지도 **아무것도 묻지 않는다**, 위 `?? 'full'` 이 조용히 풀 코트로 접을
-              뿐이다. 이름 붙은 동작이 실재하지 않는 선택지를 보여주는 것 자체가 거짓이라
-              이번에 지운다. 저장 모델의 null(=미설정)은 그대로 둔다 — 이 화면에서 더는 만들
-              수 없을 뿐, 옛 저장본·최초 실행 기본값은 여전히 null 이고 BoardScreen 이 여전히
-              'full' 로 접는다. 되돌리면 settingsDescTruth.test.tsx 가 빨개진다. */}
-          <Row title={t('settings.team.courtModeTitle')} desc={t('settings.team.courtModeDesc')} borderBottom={false}>
-            <Segmented
-              ariaLabel={t('settings.team.courtModeTitle')}
-              value={prefs.defaultCourtMode ?? 'full'}
-              onChange={(v) => setPrefs({ defaultCourtMode: v as CourtMode })}
-              options={COURT_MODES.map((m) => ({ value: m, label: COURT_MODE_SHORT_LABELS[locale][m] }))}
-            />
-          </Row>
+          {/* [기본 포메이션]·[기본 코트 모드] 행은 2026-08-21 폐기(설정 화면 감사 후속, 기현
+              지시). 포메이션은 코치 재량이라 앱이 기본값을 정하지 않는다 — [포메이션으로
+              채우기]·세트피스는 드릴에 새겨진 formation('1-2-1')을 쓴다. 시작 코트는 전술판
+              스냅샷이 스스로 기억해서, 그 설정은 기기당 최초 1회만 읽히고 그 뒤로는 바꿔도
+              화면이 안 따라오는 유령이었다(지금은 BoardScreen.makeBoardDrill 이 'full' 로
+              연다). 재발 가드는 settingsDescTruth.test.tsx. */}
         </Section>
 
         <Section title={t('settings.roster.sectionTitle')} desc={t('settings.roster.sectionDesc')}>

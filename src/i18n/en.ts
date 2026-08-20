@@ -61,10 +61,6 @@ export const en: Record<DictKey, string> = {
   'settings.team.homeColorDesc': 'Applied to chips on the court',
   'settings.team.awayColorTitle': 'Opponent color',
   'settings.team.awayColorDesc': 'Applied to the opponent’s chips',
-  'settings.team.formationTitle': 'Default formation',
-  'settings.team.formationDesc': 'Starting layout when creating a new drill',
-  'settings.team.courtModeTitle': 'Default court mode',
-  'settings.team.courtModeDesc': 'The court shown when the free tactics [Board] opens (saved drills remember their own court)',
   'settings.team.colorSwatchAriaLabel': 'Team color: {{name}}',
   'settings.team.colorConflictToast': 'You can’t pick the same color as the opponent.',
 

@@ -70,7 +70,7 @@ async function openBoard() {
   // 자동으로 뜨면서 이 파일의 "바이트 동일" DOM 해시 비교가 매번 깨진다(§0.5, tutorialSteps.ts).
   localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true } }),
+    JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true } }),
   );
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
