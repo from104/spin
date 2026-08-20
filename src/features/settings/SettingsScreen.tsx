@@ -29,6 +29,9 @@ import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { IconCheck } from '../../ui/icons.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
+import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
+import { downloadBlob } from '../../storage/files.ts';
+import { backupFileName } from '../export/exportNames.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
@@ -115,6 +118,25 @@ export function SettingsScreen() {
       setPendingFile(null);
       setWithPrefs(false);
       setWithBoard(false);
+    }
+  };
+
+  // ── 데이터 내보내기(2026-08-20 기현님 지시) ─────────────────────────────────────────────
+  // 드릴 편집의 [내보내기] 시트에 있던 [기기 이사 파일 (JSON)] 항목을 이리 옮겼다 — 근거는
+  // 아래 [데이터] Section 의 머리말 주석. exportingRef 는 ExportSheet.exportBackup 이 쓰던
+  // busyRef 와 같은 이유(래스터·직렬화가 수백 ms 걸려 연타하면 파일이 두 벌 떨어진다).
+  const exportingRef = useRef(false);
+  const runExport = async () => {
+    if (exportingRef.current) return;
+    exportingRef.current = true;
+    try {
+      const payload = await collectBackup();
+      downloadBlob(exportBackupFile(payload), backupFileName(Date.now()));
+      toast.show(t('settings.data.exportSaved', { drills: payload.drills.length, sessions: payload.sessions.length }));
+    } catch (e) {
+      toast.show(storageErrorText(e, locale, t('settings.data.exportFailed')));
+    } finally {
+      exportingRef.current = false;
     }
   };
 
@@ -403,12 +425,19 @@ export function SettingsScreen() {
           )}
         </Section>
 
-        {/* §6.1b/§6.4 — **내보내기는 여기 없다.** [보드] 하단 [내보내기] 하나로 모았다(2026-08-12,
-            4.7). 옛 '드릴 내보내기' 는 목록 화면에도 같은 버튼이 있던 중복이었고, 담기는 것이
-            드릴뿐이라 세션·설정·전술판이 어떤 파일에도 안 들어가는 **거짓 백업**이었다.
-            남은 것은 그 파일을 다시 여는 길이다. */}
-        <Section title={t('settings.data.title')} desc={t('settings.data.desc')}>
-          <Row title={t('settings.data.importTitle')} desc={t('settings.data.importDesc')} borderBottom={false}>
+        {/* 옛 기록(지우지 않는다, 2026-08-12 4.7): *"내보내기는 여기 없다. [보드] 하단
+            [내보내기] 하나로 모았다 — 옛 '드릴 내보내기'는 목록 화면에도 같은 버튼이 있던
+            중복이었고, 담기는 것이 드릴뿐이라 세션·설정·전술판이 어떤 파일에도 안 들어가는
+            거짓 백업이었다. 남은 것은 그 파일을 다시 여는 길이다."*
+            ⚠️ 2026-08-20 (기현님 지시 — "드릴 편집에서 json 내보내기 삭제하고 설정 밑 부분에
+            데이터 내보내기로 넣기") — **그 결정을 다시 뒤집는다.** 4.7 이 지목한 문제(거짓
+            백업)는 이미 안 겹친다: 여기 내보내기는 드릴 편집의 [내보내기]가 만들던 것과
+            **같은 backup 봉투**(collectBackup/exportBackupFile, storage/transfer.ts) —
+            드릴·세션·설정·전술판을 전부 담는다. [설정] 화면에 가져오기·내보내기가 짝으로
+            서 있는 편이 "내 데이터를 여기서 다룬다" 는 심성 모형에 맞다는 것이 이번 지시의
+            요지다. */}
+        <Section title={t('settings.data.title')}>
+          <Row title={t('settings.data.importTitle')} desc={t('settings.data.importDesc')}>
             <input
               ref={fileInputRef}
               type="file"
@@ -422,6 +451,11 @@ export function SettingsScreen() {
             />
             <Button ref={restoreBtnRef} variant="secondary" onClick={() => fileInputRef.current?.click()}>
               {t('settings.data.chooseFile')}
+            </Button>
+          </Row>
+          <Row title={t('settings.data.exportTitle')} desc={t('settings.data.exportDesc')} borderBottom={false}>
+            <Button variant="secondary" onClick={() => void runExport()}>
+              {t('settings.data.exportButton')}
             </Button>
           </Row>
         </Section>

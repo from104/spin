@@ -30,7 +30,6 @@ import { backupFileName, sceneFileName } from './exportNames.ts';
 import { rasterizeFrameToPng } from './rasterize.ts';
 import { downloadBlob } from '../../storage/files.ts';
 import { createDrill } from '../../model/defaults.ts';
-import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { PRINT_PAGE_SELECTOR } from '../print/index.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -106,15 +105,17 @@ describe('닫힌 시트는 예산에 0을 더한다', () => {
     expect(document.querySelectorAll(PRINT_PAGE_SELECTOR)).toHaveLength(0);
   });
 
-  it('대조군: 열면 세 항목이 실제로 생긴다 — 위 it 이 "아무것도 못 찾는 선택자" 로 통과한 것이 아니다', () => {
+  it('대조군: 열면 두 항목이 실제로 생긴다 — 위 it 이 "아무것도 못 찾는 선택자" 로 통과한 것이 아니다', () => {
     renderSheet(true);
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/, /^기기 이사 파일 \(JSON\)/]) {
+    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/]) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
-    // 항목 3 + 닫기 1 = 4. 4항목 시트로 불어나면 여기가 먼저 운다(§6.4 "큰 표적 3개").
-    expect(screen.getAllByRole('button')).toHaveLength(4);
+    // 2026-08-20 — [기기 이사 파일 (JSON)] 항목은 설정 화면으로 옮겼다(SettingsScreen.test.tsx).
+    expect(screen.queryByRole('button', { name: /기기 이사 파일/ })).toBeNull();
+    // 항목 2 + 닫기 1 = 3. 항목이 늘면 여기가 먼저 운다(§6.4 "큰 표적").
+    expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 });
 
@@ -230,25 +231,9 @@ describe('[인쇄] → 4.5 의 인쇄 트리를 세운 뒤에 print() 한다', (
   });
 });
 
-describe('[기기 이사 파일] → 4.1 의 backup 봉투를 부른다', () => {
-  it('IDB 의 드릴이 실제로 담긴 backup 봉투가 파일로 떨어진다', async () => {
-    await idbDrillRepo.createDrill({ courtMode: 'full', title: '백업에 담길 드릴' });
-    render(<Harness />);
-    expect(downloadMock).toHaveBeenCalledTimes(0); // 대조군
-
-    await userEvent.click(screen.getByRole('button', { name: /^기기 이사 파일 \(JSON\)/ }));
-    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
-
-    const [blob, filename] = downloadMock.mock.calls[0]!;
-    expect(filename).toMatch(/^SPIN_백업_\d{8}\.spin\.json$/);
-    expect(filename).toBe(backupFileName(Date.now()));
-    const parsed = JSON.parse(await blob.text()) as { spin: string; payload: { drills: Array<{ title: string }>; prefs: unknown } };
-    // library 봉투(드릴만)로 되돌아가면 여기가 빨개진다 — 그게 §6.1b 가 '거짓말' 이라 부른 것이다.
-    expect(parsed.spin).toBe('backup');
-    expect(parsed.payload.drills.map((d) => d.title)).toContain('백업에 담길 드릴');
-    expect(parsed.payload.prefs).toBeTruthy();
-  });
-});
+// 2026-08-20 — [기기 이사 파일 (JSON)] 항목 자체가 이 시트에서 은퇴했다(SettingsScreen.tsx
+// [데이터] 구역으로 이사). backup 봉투가 실제로 만들어지는지는 이제
+// SettingsScreen.test.tsx '데이터 내보내기' 절이 본다 — 그 화면이 유일한 소비처다.
 
 describe('파일 이름 조립 (4.1 이 "4.7 이 조립한다" 고 남긴 자리)', () => {
   it('백업은 날짜가 붙은 .spin.json 이다', () => {

@@ -22,7 +22,10 @@ import { loadPrefs, makeDefaultPrefs, resolvePhysics, savePrefs, PREFS_KEY } fro
 import { loadBoard, saveBoard } from '../../storage/board.ts';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
+import { downloadBlob } from '../../storage/files.ts';
 import { createDrill } from '../../model/defaults.ts';
+
+const downloadMock = vi.mocked(downloadBlob);
 
 function ToastHostBridge() {
   const { toasts, dismiss } = useToast();
@@ -254,27 +257,36 @@ describe('SettingsScreen — 물리 설명문 (minor 회귀)', () => {
   });
 });
 
-// 2026-08-12(4.7) — 여기 있던 '데이터 내보내기' 두 it 은 **버튼째 사라졌다.** 설정의
-// [드릴 내보내기]는 목록 화면에도 같은 것이 있던 중복이었고(계획서 §6.1b "둘 다 제거"),
-// 담기는 것이 드릴뿐이라 세션·설정·전술판이 어떤 파일에도 안 들어가는 거짓 백업이었다.
-// 쓰는 곳은 [보드] 하단 [내보내기] 하나이고(§6.4), 이 화면에는 **읽는 쪽**만 남는다.
-describe('SettingsScreen — 데이터: 내보내기는 여기 없다', () => {
-  it('내보내기 버튼이 이 화면에 없다 — 중복 제거의 완료 판정', async () => {
+// 옛 기록(2026-08-12, 4.7) — 여기 있던 '데이터 내보내기' 는 한 번 버튼째 사라졌었다. [드릴
+// 내보내기]가 목록 화면에도 같은 것이 있던 중복이었고, 담기는 것이 드릴뿐이라 세션·설정·
+// 전술판이 어떤 파일에도 안 들어가는 거짓 백업이었기 때문이다. 쓰는 곳을 [보드] 하단
+// [내보내기] 하나로 모으고 이 화면에는 읽는 쪽만 남겼다.
+//
+// ⚠️ 2026-08-20 (기현님 지시) — **내보내기가 돌아온다.** 이번엔 4.7 이 걱정하던 거짓 백업이
+// 아니다 — 드릴 편집 [내보내기]가 만들던 것과 같은 backup 봉투(드릴·세션·설정·전술판 전부)
+// 를 그대로 쓴다. 옛 아래 두 테스트("내보내기 버튼이 없다"·"만드는 곳을 말해 준다")는
+// 정확히 반대 사실을 이제 확인해야 하므로 다시 쓴다.
+describe('SettingsScreen — 데이터 내보내기(2026-08-20)', () => {
+  it('내보내기 버튼이 있고, 누르면 backup 봉투가 파일로 떨어진다', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '측면 돌파', drillType: 'tactical' });
     render(<SettingsScreen />, { wrapper });
-    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '전체 내보내기' })).toBeNull();
-    // 대조군 — 화면이 실제로 그려졌고 '데이터' 구역도 살아 있다(빈 화면이라 통과한 것이 아니다).
-    expect(screen.getByRole('button', { name: '파일 고르기' })).toBeInTheDocument();
-  });
+    expect(downloadMock).toHaveBeenCalledTimes(0); // 대조군
 
-  it('만드는 곳을 말해 준다 — 사라진 기능을 찾는 사람이 막다른 길에 서지 않는다', () => {
-    render(<SettingsScreen />, { wrapper });
-    expect(screen.getByText(/\[보드\] 화면 아래 \[내보내기\]/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: '내보내기' }));
+    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
+
+    const [blob, filename] = downloadMock.mock.calls[0]!;
+    expect(filename).toMatch(/^SPIN_백업_\d{8}\.spin\.json$/);
+    const parsed = JSON.parse(await blob.text()) as { spin: string; payload: { drills: Array<{ title: string }>; prefs: unknown } };
+    // library 봉투(드릴만)로 되돌아가면 여기가 빨개진다 — 그게 §6.1b 가 '거짓말' 이라 부른 것이다.
+    expect(parsed.spin).toBe('backup');
+    expect(parsed.payload.drills.map((d) => d.title)).toContain('측면 돌파');
+    expect(parsed.payload.prefs).toBeTruthy();
+    expect(await screen.findByText(/드릴 \d+개 · 세션 \d+개와 설정을 파일 하나에 담았습니다\./)).toBeInTheDocument();
   });
 });
 
-describe('SettingsScreen — 기기 이사 파일 읽기 (§6.1b)', () => {
+describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 이사 파일 읽기")', () => {
   /** backup 봉투 한 벌을 파일로 만든다. 지금 저장소 상태를 그대로 싣는다. */
   async function backupFile(name = 'SPIN_백업_20260812.spin.json'): Promise<File> {
     const text = await exportBackupFile(await collectBackup()).text();

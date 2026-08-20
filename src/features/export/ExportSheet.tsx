@@ -1,9 +1,17 @@
-// §6.4 내보내기 진입점 — **큰 표적 3개로만 묻는다.**
+// §6.4 내보내기 진입점 — **큰 표적으로만 묻는다.**
 //
-// 계획서 §6.4: *"[보드] 하단 바에 [내보내기] 1개 → 큰 항목 3개 시트(인쇄 / 그림 / 파일).
+// 계획서 §6.4: *"[보드] 하단 바에 [내보내기] 1개 → 큰 항목 시트(인쇄 / 그림 / 파일).
 // 헤더가 아니라 하단 바인 이유는 narrow 헤더를 52px 한 줄로 강제하기 때문이다(5.2)."*
-// 그리고 같은 절의 *"큰 타깃 3개가 작은 타깃 1개보다 싸다"* — 발 마우스·입 젓가락 사용자에게
+// 그리고 같은 절의 *"큰 타깃이 작은 타깃 1개보다 싸다"* — 발 마우스·입 젓가락 사용자에게
 // 케밥 2단계 정밀 조작은 기능 추가가 아니라 결함 추가다.
+//
+// ⚠️ 2026-08-20 (기현님 지시 — "드릴 편집에서 json 내보내기 삭제하고 설정 밑 부분에 데이터
+// 내보내기로 넣기") — **세 항목이 두 항목(그림·인쇄)으로 줄었다.** 옛 [기기 이사 파일
+// (JSON)] 항목은 설정 화면의 [데이터] 구역으로 옮겼다(SettingsScreen.tsx) — 그 파일이 담는
+// 것(드릴·세션·설정·전술판 전체)이 "지금 이 판을 어떻게 꺼낼까" 라는 이 시트의 질문과
+// 성격이 달라서다(이 시트는 **지금 보는 판** 하나를 그림·인쇄로 꺼내는 곳이지, 앱 전체를
+// 백업하는 곳이 아니다). 2026-08-12(4.7)에 정반대 방향(설정→여기로 모으기)이었던 결정을
+// 다시 뒤집은 것이다 — 그 경위는 SettingsScreen.tsx §데이터 섹션 주석에 남겨 뒀다.
 //
 // ── 왜 시트 안 항목은 예산(§3 ≤40)에 안 드는가 ────────────────────────────────────
 // 시트는 **닫혀 있으면 DOM 에 없다**(Modal 이 `if (!open) return null`). boardTargetBudget 의
@@ -13,7 +21,7 @@
 // 상주시키지 마라.** 옵션을 늘리려면 시트 안(=예산 밖)에서 늘려야 한다.
 //
 // ── 항목 순서 ─────────────────────────────────────────────────────────────────────
-// 계획서가 항목을 "인쇄 / 그림 / 파일" 로 나열하지만 **그림을 첫 칸에 둔다.** 같은 절이
+// 계획서가 항목을 "인쇄 / 그림" 순으로 나열하지만 **그림을 첫 칸에 둔다.** 같은 절이
 // 판 걸이 카드에 대해 *"[공유] 1개(= PNG, 코치가 실제로 하는 행위)"* 라고 못박았기 때문이다 —
 // 가장 자주 하는 일이 가장 가까운 칸(시트 상단 = 손가락이 올라오는 방향)에 온다.
 //
@@ -38,8 +46,7 @@ import { interpolateSteps } from '../../model/playback.ts';
 import { LIMITS, noteFirstLine } from '../../model/validate.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { downloadBlob } from '../../storage/files.ts';
-import { backupFileName, sceneFileName } from './exportNames.ts';
-import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
+import { sceneFileName } from './exportNames.ts';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { PrintRoot, printWhenReady } from '../print/index.ts';
 import type { PrintDoc } from '../print/index.ts';
@@ -130,14 +137,6 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
       onClose();
     }, t('export.pngFailed'));
 
-  const exportBackup = () =>
-    run(async () => {
-      const payload = await collectBackup();
-      downloadBlob(exportBackupFile(payload), backupFileName(Date.now()));
-      toast.show(t('export.backupSaved', { drills: payload.drills.length, sessions: payload.sessions.length }));
-      onClose();
-    }, t('export.backupFailed'));
-
   const startPrint = () => {
     // 시트를 먼저 닫는다: 인쇄 대화상자 뒤에 열린 시트가 남아 있으면 돌아왔을 때 판이 가려져
     // 있다. PrintRoot 는 시트 밖에 상주하므로(머리말 ⚠️) 닫아도 인쇄는 진행된다.
@@ -152,7 +151,6 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <SheetItem title={t('export.png.title')} desc={t('export.png.desc')} onClick={() => void exportPng()} />
           <SheetItem title={t('export.print.title')} desc={t('export.print.desc')} onClick={startPrint} />
-          <SheetItem title={t('export.backup.title')} desc={t('export.backup.desc')} onClick={() => void exportBackup()} />
         </div>
       </Modal>
       <PrintRoot doc={printDoc} onReady={onPrintReady} />

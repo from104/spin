@@ -197,7 +197,7 @@ describe('가져오기 — 다른 화면 파일의 안내 (4차 검증)', () => 
     expect(res.kind).toBe('unsupported');
     if (res.kind !== 'unsupported') return;
     expect(res.reason).toContain('설정');
-    expect(res.reason).toContain('기기 이사 파일 읽기'); // 실제 버튼 이름을 그대로 부른다
+    expect(res.reason).toContain('데이터 가져오기'); // 실제 버튼 이름을 그대로 부른다(2026-08-20 개명)
     // ★ 옛 문구로 되돌아가면 여기가 운다.
     expect(res.reason).not.toBe('지원하지 않는 파일 형식입니다.');
   });
