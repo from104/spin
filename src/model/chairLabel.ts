@@ -37,3 +37,11 @@ export function numberedName(number: string, name?: string): string {
   const n = (name ?? '').trim();
   return n ? `${number}번 ${n}` : `${number}번`;
 }
+
+/** 실명을 **적은 선수만** "3번 홍길동" 형식으로 나열한다 — 시연 범례(PresentRunner)가
+ *  세우고 인쇄·PNG(§0.5 미배송 빚, 2026-08-20)가 그대로 물려받는 단일 출처. 안 적었으면
+ *  빈 배열, 절반만 적었으면 적은 절반만 — 번호뿐인 선수를 나열하면 코트에 이미 있는
+ *  정보를 옮겨 적는 것뿐이다(PresentRunner 의 원래 근거 그대로). */
+export function namedRosterOf(chairs: readonly ChairNamed[]): string[] {
+  return chairs.filter(hasChairName).map((c) => numberedName(c.number, c.name));
+}

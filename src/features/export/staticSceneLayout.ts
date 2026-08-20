@@ -31,6 +31,10 @@ export interface SceneCaption {
   stepIndex: number;
   stepCount: number;
   stepName: string;
+  /** §7 3.4 선수 실명(§0.5 미배송 빚, 2026-08-20) — 시연 범례와 같은 값을 이미 ' · ' 로
+   *  이은 한 줄 텍스트(model/chairLabel.ts namedRosterOf 를 호출부가 join+자름). 없으면
+   *  캡션 띠가 기존 두 줄 그대로다 — 밴드가 늘어나는 것은 실명을 적은 선수가 있을 때뿐이다. */
+  roster?: string;
 }
 
 export interface StaticSceneOpts {
@@ -70,12 +74,20 @@ export const EXPORT_LAYOUT = {
   baseLongEdgePx: 1024,
   /** 캡션 띠 높이(월드 px). 두 줄(제목 20 + 부제 14)에 위아래 여백. */
   captionBandPx: 46,
+  /** 선수 실명 줄이 붙을 때 띠에 더하는 높이(§0.5 미배송 빚, 2026-08-20). 부제 14px 보다
+   *  작은 참고용 글자(11px)라 여백을 줄여도 된다 — 그래도 셋째 줄 자체는 위아래 여백을
+   *  요구하므로 부제 한 줄(14)보다는 넉넉히 20을 더한다. */
+  captionRosterExtraPx: 20,
   captionPadXPx: 14,
   captionTitleSizePx: 20,
   captionSubSizePx: 14,
+  captionRosterSizePx: 11,
   /** 제목·부제의 **세로 중심**(띠 위 기준). */
   captionTitleCy: 16,
   captionSubCy: 34,
+  /** 실명 줄의 세로 중심 — captionSubCy(34) 다음 줄. captionRosterExtraPx 와 같은 계열의
+   *  값이라 밴드가 안 늘어나면(roster 없음) 이 좌표 자체가 안 쓰인다. */
+  captionRosterCy: 50,
   /** 코트 배경 사각형의 둥근 모서리 — PresentStage 와 같은 값(썸네일 14 가 아니다). */
   courtRx: 16,
   /** 칩에 찍는 글자 크기. ChairChip.tsx 의 `LABEL_FONT_PX` 와 같은 유도식이다
@@ -112,7 +124,8 @@ export interface SceneMetrics {
 
 export function staticSceneMetrics(opts: StaticSceneOpts): SceneMetrics {
   const def = courtDefFor(opts.mode, opts.size);
-  const captionH = opts.caption ? EXPORT_LAYOUT.captionBandPx : 0;
+  const hasRoster = !!opts.caption?.roster && opts.caption.roster.length > 0;
+  const captionH = opts.caption ? EXPORT_LAYOUT.captionBandPx + (hasRoster ? EXPORT_LAYOUT.captionRosterExtraPx : 0) : 0;
   const totalH = def.vbH + captionH;
   const longEdge = EXPORT_LAYOUT.baseLongEdgePx * (opts.resolution ?? 2);
   const scale = longEdge / Math.max(def.vbW, totalH);
@@ -246,6 +259,19 @@ export function buildTextPlacements(frame: RenderFrame, opts: StaticSceneOpts): 
       font: 'body',
       opacity: 1,
     });
+    if (cap.roster && cap.roster.length > 0) {
+      out.push({
+        text: cap.roster,
+        x: EXPORT_LAYOUT.captionPadXPx,
+        y: def.vbH + EXPORT_LAYOUT.captionRosterCy,
+        sizePx: EXPORT_LAYOUT.captionRosterSizePx,
+        weight: 500,
+        color: ink.sub,
+        align: 'start',
+        font: 'body',
+        opacity: 1,
+      });
+    }
   }
 
   return out;

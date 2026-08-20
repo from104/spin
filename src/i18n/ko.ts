@@ -649,6 +649,7 @@ export const ko = {
   'print.stepCourtAriaLabel': '{{title}} 스텝 {{i}} 코트',
   'print.stepDuration': '이 스텝 {{sec}}초',
   'print.equipmentLabel': '장비',
+  'print.rosterLabel': '참가 선수',
   'print.session.totalLabel': '총 {{min}}분',
   'print.session.drillCount': '드릴 {{n}}개',
   'print.session.tableDrill': '드릴',

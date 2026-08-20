@@ -123,6 +123,9 @@ export const LIMITS = {
   itemNoteLen: 200, // 항목(구획 안 드릴 한 줄) 메모. 세션 메모보다 짧다 — 화면 한 줄 곁다리
   restAfterMinMax: 60, // 드릴 사이 휴식(분) 상한. 세션 목표 시간(480)보다 훨씬 작다 —
   // 휴식은 몇 분 단위지 시간 단위가 아니다
+  // PNG 캡션 실명 줄(§0.5 미배송 빚, 2026-08-20) — staticSceneLayout 의 캡션 띠는 고정
+  // 폭(vbW)이라 줄바꿈이 없다. stepNameLen(40)의 2배 — 실명은 여러 명을 이어 붙이므로.
+  captionRosterLen: 80,
   // ── 로스터 (구조 개편 C3) ─────────────────────────────────────────────────────────
   rosterMax: 30, // playersNeededMax 와 같은 근거 — 코트 8 + 교체·피더까지
   playerNameLen: 40, // chairNameLen(24)보다 넉넉한 이유: 여기는 트레이 손잡이로 안 흘러간다

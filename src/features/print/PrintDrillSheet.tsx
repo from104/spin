@@ -5,6 +5,7 @@
 // 된다. 평소에는 `styles/print.css` 의 `.spin-print { display:none }` 으로 통째로 접혀 있다.
 import { DRILL_LEVEL_LABELS, DRILL_TYPE_LABELS, SITUATION_LABELS } from '../../model/drill.ts';
 import type { Drill } from '../../model/drill.ts';
+import { namedRosterOf } from '../../model/chairLabel.ts';
 import type { Locale } from '../../i18n/locale.ts';
 import { PrintCourt } from './PrintCourt.tsx';
 import { prepFor, prepLine } from './prep.ts';
@@ -31,6 +32,10 @@ export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
   const locale = useLocale();
   const prep = prepLine(prepFor(drill), locale);
   const total = drill.steps.length;
+  // §7 3.4 선수 실명(§0.5 미배송 빚, 2026-08-20) — 시연 화면(PresentRunner)의 범례와
+  // 같은 값·같은 규칙(namedRosterOf). 첫 장에만(위 목적·코칭 포인트와 같은 이유 — 드릴
+  // 전체 정보를 60장마다 반복하지 않는다).
+  const namedRoster = namedRosterOf(drill.cast.chairs);
 
   return (
     <>
@@ -91,6 +96,11 @@ export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
               {drill.equipment && (
                 <p className="spin-print-dim">
                   <b>{t('print.equipmentLabel')}</b> {drill.equipment}
+                </p>
+              )}
+              {namedRoster.length > 0 && (
+                <p className="spin-print-dim">
+                  <b>{t('print.rosterLabel')}</b> {namedRoster.join(' · ')}
                 </p>
               )}
             </footer>

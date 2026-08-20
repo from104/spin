@@ -649,6 +649,7 @@ export const ja: Record<DictKey, string> = {
   'print.stepCourtAriaLabel': '{{title}} ステップ{{i}} コート',
   'print.stepDuration': 'このステップ {{sec}}秒',
   'print.equipmentLabel': '用具',
+  'print.rosterLabel': '参加選手',
   'print.session.totalLabel': '合計{{min}}分',
   'print.session.drillCount': 'ドリル{{n}}個',
   'print.session.tableDrill': 'ドリル',

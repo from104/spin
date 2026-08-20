@@ -654,6 +654,7 @@ export const en: Record<DictKey, string> = {
   'print.stepCourtAriaLabel': '{{title}} step {{i}} court',
   'print.stepDuration': 'This step: {{sec}}s',
   'print.equipmentLabel': 'Equipment',
+  'print.rosterLabel': 'Players',
   'print.session.totalLabel': 'Total {{min}} min',
   'print.session.drillCount': '{{n}} drills',
   'print.session.tableDrill': 'Drill',

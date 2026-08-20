@@ -44,6 +44,7 @@ import type { CSSProperties, ReactNode, RefObject } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import { interpolateSteps } from '../../model/playback.ts';
 import { LIMITS, noteFirstLine } from '../../model/validate.ts';
+import { namedRosterOf } from '../../model/chairLabel.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { downloadBlob } from '../../storage/files.ts';
 import { sceneFileName } from './exportNames.ts';
@@ -101,6 +102,13 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
     setPrintDoc(null);
   }, [toast, t]);
 
+  // §7 3.4 선수 실명(§0.5 미배송 빚, 2026-08-20) — 안 적었으면 undefined(캡션 띠 두 줄
+  // 그대로), 적었으면 시연 범례와 같은 값을 한 줄로 이어 붙이고 captionRosterLen 에서 자른다.
+  const rosterCaptionText = (d: Drill): string | undefined => {
+    const joined = namedRosterOf(d.cast.chairs).join(' · ');
+    return joined.length > 0 ? joined.slice(0, LIMITS.captionRosterLen) : undefined;
+  };
+
   const exportPng = () =>
     run(async () => {
       const step = drill.steps[stepIndex] ?? drill.steps[0];
@@ -131,6 +139,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
           stepIndex,
           stepCount: drill.steps.length,
           stepName: noteFirstLine(step.note).slice(0, LIMITS.stepNameLen),
+          // §7 3.4 선수 실명(§0.5 미배송 빚, 2026-08-20) — 시연 범례와 같은 값. 캡션 띠는
+          // 고정 폭이라 줄바꿈이 없어(staticSceneLayout) 여기서 미리 자른다.
+          roster: rosterCaptionText(drill),
         },
       }, locale);
       downloadBlob(blob, sceneFileName(drill.title, stepIndex));

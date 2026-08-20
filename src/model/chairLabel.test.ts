@@ -1,7 +1,7 @@
 // §7 3.4 — 선수를 뭐라고 부를 것인가. 세 화면(인스펙터 명단 · 트레이 손잡이 · 시연 자막)과
 // 4차 PDF 가 **같은 함수**를 읽는지가 이 항목의 전부라, 규칙 자체는 여기서 순수 함수로 못박는다.
 import { describe, expect, it } from 'vitest';
-import { chairName, hasChairName, numberedName } from './chairLabel.ts';
+import { chairName, hasChairName, namedRosterOf, numberedName } from './chairLabel.ts';
 import type { TeamSide, TeamStyle } from './drill.ts';
 
 const TEAMS: Record<TeamSide, TeamStyle> = {
@@ -58,5 +58,22 @@ describe('hasChairName', () => {
 
   it('한 글자라도 있으면 참', () => {
     expect(hasChairName({ name: '수' })).toBe(true);
+  });
+});
+
+// §0.5 미배송 빚(2026-08-20) — 인쇄·PNG 가 시연 범례와 같은 값을 읽는지가 이 함수의 전부다.
+describe('namedRosterOf — 인쇄·PNG 가 시연 범례와 공유하는 단일 출처', () => {
+  it('실명을 적은 선수만, 번호 순서 그대로 나열한다', () => {
+    const chairs = [
+      { team: 'home' as const, number: '2', isGk: false, name: '김민수' },
+      { team: 'home' as const, number: '3', isGk: false }, // 이름 없음 — 빠진다
+      { team: 'away' as const, number: '4', isGk: false, name: '  ' }, // 공백뿐 — 빠진다
+      { team: 'away' as const, number: 'G', isGk: true, name: '이수현' },
+    ];
+    expect(namedRosterOf(chairs)).toEqual(['2번 김민수', 'G번 이수현']);
+  });
+
+  it('아무도 이름을 안 적었으면 빈 배열', () => {
+    expect(namedRosterOf([{ team: 'home' as const, number: '2', isGk: false }])).toEqual([]);
   });
 });

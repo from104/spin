@@ -149,6 +149,30 @@ describe('buildTextPlacements — 캡션', () => {
       expect(sub!.color).toBe('rgba(255,255,255,.72)');
     }
   });
+
+  // §7 3.4 선수 실명(§0.5 미배송 빚, 2026-08-20) — 있으면 셋째 줄, 없으면 기존 두 줄 그대로.
+  it('roster 가 있으면 셋째 줄이 붙고, 띠 안(늘어난 captionBandPx)에 있다', () => {
+    const withRoster = { ...cap, roster: '2번 김민수 · G번 이수현' };
+    const ts = buildTextPlacements(makeFrame(), { ...OPTS, caption: withRoster });
+    expect(ts).toHaveLength(12); // 등번호 8 + 메모 1 + 제목 1 + 부제 1 + 실명 1
+    const roster = ts.at(-1)!;
+    expect(roster.text).toBe('2번 김민수 · G번 이수현');
+    expect(roster.align).toBe('start');
+    const top = COURT_DEFS.full.vbH;
+    expect(roster.y).toBeGreaterThan(top);
+    expect(roster.y).toBeLessThan(top + EXPORT_LAYOUT.captionBandPx + EXPORT_LAYOUT.captionRosterExtraPx);
+  });
+
+  it('roster 가 없으면(undefined·빈 문자열) 셋째 줄이 없다 — 기존 두 줄 그대로', () => {
+    expect(buildTextPlacements(makeFrame(), { ...OPTS, caption: cap })).toHaveLength(11);
+    expect(buildTextPlacements(makeFrame(), { ...OPTS, caption: { ...cap, roster: '' } })).toHaveLength(11);
+  });
+
+  it('roster 가 있으면 caption 띠 높이가 captionRosterExtraPx 만큼 늘어난다', () => {
+    const bare = staticSceneMetrics({ ...OPTS, caption: cap });
+    const withRoster = staticSceneMetrics({ ...OPTS, caption: { ...cap, roster: '2번 김민수' } });
+    expect(withRoster.totalH - bare.totalH).toBe(EXPORT_LAYOUT.captionRosterExtraPx);
+  });
 });
 
 describe('staticSceneMetrics — 출력 크기', () => {

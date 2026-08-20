@@ -128,4 +128,23 @@ describe('드릴 전체 정보는 첫 장에만', () => {
     expect(withVariation).toHaveLength(1);
     expect(withVariation[0]).toBe(pages[0]);
   });
+
+  // §7 3.4 선수 실명(§0.5 미배송 빚, 2026-08-20) — 시연 범례와 같은 규칙(실명 적은 선수만),
+  // 목적·코칭 포인트와 같은 이유로 첫 장에만.
+  it('실명을 적은 선수가 있으면 첫 장에만 명단이 실린다', () => {
+    const base = drillOf(3);
+    const chairs = base.cast.chairs.map((c, i) => (i === 0 ? { ...c, name: '김민수' } : c));
+    const drill: Drill = { ...base, cast: { ...base.cast, chairs } };
+    const { container } = render(<PrintDrillSheet drill={drill} />);
+    const pages = Array.from(container.querySelectorAll('[data-print-page="step"]'));
+    const withRoster = pages.filter((p) => p.textContent?.includes('김민수'));
+    expect(withRoster).toHaveLength(1);
+    expect(withRoster[0]).toBe(pages[0]);
+    expect(pages[0]!.textContent).toContain(`${base.cast.chairs[0]!.number}번 김민수`);
+  });
+
+  it('아무도 실명을 안 적었으면 명단 줄 자체가 없다', () => {
+    const { container } = render(<PrintDrillSheet drill={drillOf(2)} />);
+    expect(container.textContent).not.toContain('참가 선수');
+  });
 });
