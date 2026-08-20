@@ -309,6 +309,7 @@ export function FunctionBar({
     <nav
       aria-label={t('editor.functionBar.nav')}
       data-function-bar=""
+      data-tut="board-functionbar"
       style={{
         flex: 'none',
         height: '100%',
@@ -490,6 +491,7 @@ export function FunctionBar({
             title={t('editor.functionBar.save.titleBoard')}
             onClick={onSaveAsDrill}
             accent
+            data-tut="board-save"
           >
             <IconSaveDrill />
           </BarItem>

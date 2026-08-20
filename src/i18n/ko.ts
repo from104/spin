@@ -364,6 +364,18 @@ export const ko = {
   'tutorial.editor.step8.title': '시연으로',
   'tutorial.editor.step8.body': '편집을 마쳤다면 여기를 눌러 시연 화면으로 넘어갑니다.',
 
+  // ── 자유 전술판 튜토리얼 5단계 — src/features/editor/tutorialSteps.ts ──────
+  'tutorial.board.step1.title': '트레이',
+  'tutorial.board.step1.body': '선수·공·콘 등 코트에 놓을 도구를 여기서 고릅니다.',
+  'tutorial.board.step2.title': '코트에 놓기',
+  'tutorial.board.step2.body': '고른 도구를 코트에 놓고 끌어서 배치합니다.',
+  'tutorial.board.step3.title': '작도',
+  'tutorial.board.step3.body': '화살표와 도형으로 움직임과 구역을 그립니다.',
+  'tutorial.board.step4.title': '기능바',
+  'tutorial.board.step4.body': '그림(PNG) 내보내기, 격자·규칙존 보기 같은 기능이 여기 모여 있습니다.',
+  'tutorial.board.step5.title': '드릴로 저장',
+  'tutorial.board.step5.body': '지금 배치를 새 드릴로 저장해 드릴 목록에 남깁니다.',
+
   'presentInfo.titlePrefix': '드릴 정보 — {{title}}',
   'presentInfo.typeLabel': '유형',
   'presentInfo.situationLabel': '경기 상황',

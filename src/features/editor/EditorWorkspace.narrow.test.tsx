@@ -66,11 +66,11 @@ afterEach(() => {
 });
 
 async function openBoard() {
-  // tutorialsSeen.editor 를 미리 채운다 — 안 그러면 첫 렌더에 튜토리얼 스포트라이트가 자동으로
-  // 뜨면서 이 파일의 "바이트 동일" DOM 해시 비교가 매번 깨진다(§0.5 튜토리얼, tutorialSteps.ts).
+  // tutorialsSeen.board 를 미리 채운다 — 안 그러면 첫 렌더에 자유 전술판 튜토리얼 스포트라이트가
+  // 자동으로 뜨면서 이 파일의 "바이트 동일" DOM 해시 비교가 매번 깨진다(§0.5, tutorialSteps.ts).
   localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { editor: true } }),
+    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true } }),
   );
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
@@ -298,11 +298,12 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //    (전술판에는 하단 바도 인스펙터도 원래 없었으므로 구조 diff 가 0 인 것이 옳다).
     //    바로 위 뼈대 스냅샷 테스트가 통과하는 것이 "구조는 안 바뀌었다" 의 증거다.
     //    **코트 `<svg>` 바깥은 한 줄도 안 움직였다** — 판 덩어리·트레이·기둥이 전부 그대로다.
-    //    2026-08-20 (드릴 편집 튜토리얼 Phase 2) 갱신 — 튜토리얼 대상 지정용 `data-tut`
-    //    속성이 헤더 ⓘ·[시연으로] 버튼에, 재생 묶음을 감싸는 wrapper `<div>` 가 하나 새로
-    //    붙었다. 뼈대 스냅샷(인라인 style 목록)은 안 바뀌었다 — 속성 추가·비-style 래퍼뿐이다.
+    //    2026-08-20 (튜토리얼 Phase 2·3) 갱신 — 트레이·코트 래퍼(드릴 편집과 공유하는 컴포넌트)에
+    //    `data-tut="editor-tray"`/`"editor-court"`, 자유 전술판 전용 서랍·기능바·저장 칸에
+    //    `data-tut="board-draw"`/`"board-functionbar"`/`"board-save"` 가 붙었다. 뼈대 스냅샷
+    //    (인라인 style 목록)은 안 바뀌었다 — 속성 추가뿐이다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '272d9a8e2dcd50051ceab801cd4859d2d4c449f61963082c04ef96fe91b61553',
+      '824fb704ae8d324cb0a06790237b44fa758e36009e34de69fb6493c2210c84ff',
     );
   });
 

@@ -72,7 +72,12 @@ afterEach(() => {
 });
 
 async function openBoard(): Promise<HTMLElement> {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+  // tutorialsSeen.board 를 미리 채운다 — 안 그러면 튜토리얼 스포트라이트가 자동으로 떠 뼈대
+  // 스냅샷이 매번 달라진다(§0.5, tutorialSteps.ts).
+  localStorage.setItem(
+    PREFS_KEY,
+    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true } }),
+  );
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
   const main = document.getElementById('main')!;

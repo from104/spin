@@ -45,7 +45,7 @@ import { useContainerWidth } from './useContainerWidth.ts';
 import { HelpModal } from './HelpModal.tsx';
 import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
 import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
-import { EDITOR_TUTORIAL_STEPS } from './tutorialSteps.ts';
+import { BOARD_TUTORIAL_STEPS, EDITOR_TUTORIAL_STEPS } from './tutorialSteps.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { NoteEditModal } from './NoteEditModal.tsx';
@@ -118,11 +118,10 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   const helpButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pendingPlayerId, setPendingPlayerId] = useState<ChairId | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
-  // 드릴 편집 튜토리얼(Phase 2) — 자유 전술판(mode='board')은 다른 화면 키('board')라
-  // Phase 3 몫이다. steps 를 빈 배열로 넘겨 지금은 조용히 아무 일도 안 하게 둔다.
-  // 데이터는 이 컴포넌트가 그려질 때 이미 `state.present` 로 와 있으므로(로딩 state 없음)
-  // 첫 렌더가 곧 "화면이 실제로 그려진 시점"이다 — autoStart 를 마운트 시 바로 켠다.
-  const tutorial = useTutorial(isBoard ? 'board' : 'editor', isBoard ? [] : EDITOR_TUTORIAL_STEPS, !isBoard);
+  // 드릴 편집·자유 전술판 튜토리얼(Phase 2·3) — 화면 키가 다르므로(§0.5, 'editor'/'board')
+  // tutorialsSeen 도 따로 찍힌다. 데이터는 이 컴포넌트가 그려질 때 이미 `state.present` 로
+  // 와 있으므로(로딩 state 없음) 첫 렌더가 곧 "화면이 실제로 그려진 시점"이다.
+  const tutorial = useTutorial(isBoard ? 'board' : 'editor', isBoard ? BOARD_TUTORIAL_STEPS : EDITOR_TUTORIAL_STEPS, true);
   /** 글을 고치는 중인 메모(기현 지시 2026-08-17). `fresh` 는 "방금 놓은 쪽지" 라는 뜻이고,
    *  그때만 취소가 쪽지를 도로 치운다 — 자세한 근거는 `NoteEditModal` 의 같은 이름 prop.
    *  무대(EditorStage)가 아니라 여기 있는 이유: 트레이 드래그 배치가 이 파일에 있어서,

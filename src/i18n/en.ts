@@ -366,6 +366,18 @@ export const en: Record<DictKey, string> = {
   'tutorial.editor.step8.title': 'To presentation',
   'tutorial.editor.step8.body': 'Once you are done editing, tap here to move to the presentation screen.',
 
+  // ── Free tactics board tutorial, 5 steps — src/features/editor/tutorialSteps.ts ──────
+  'tutorial.board.step1.title': 'Tray',
+  'tutorial.board.step1.body': 'Pick players, balls, cones, and other tools to place on the court here.',
+  'tutorial.board.step2.title': 'Place on court',
+  'tutorial.board.step2.body': 'Drop the tool you picked onto the court and drag it into position.',
+  'tutorial.board.step3.title': 'Draw',
+  'tutorial.board.step3.body': 'Draw arrows and shapes to mark movement and zones.',
+  'tutorial.board.step4.title': 'Function bar',
+  'tutorial.board.step4.body': 'Export to PNG, toggle the grid and rule zones, and more, all here.',
+  'tutorial.board.step5.title': 'Save as drill',
+  'tutorial.board.step5.body': 'Save the current layout as a new drill in your drill library.',
+
   'presentInfo.titlePrefix': 'Drill info — {{title}}',
   'presentInfo.typeLabel': 'Type',
   'presentInfo.situationLabel': 'Situation',

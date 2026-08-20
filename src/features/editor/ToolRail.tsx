@@ -910,6 +910,7 @@ export function ToolRail({
                 ref={(el) => {
                   handleRefs.current[d.key] = el;
                 }}
+                data-tut={d.key === 'draw' ? 'board-draw' : undefined}
                 aria-expanded={isOpen}
                 aria-controls={isOpen ? panelId : undefined}
                 // 도형 3종은 숫자 키가 없다(§7.5f 의 1–8 을 안 늘렸다) — 그때는 문자 키를 보인다.

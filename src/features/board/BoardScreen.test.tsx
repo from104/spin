@@ -77,7 +77,12 @@ async function openBoard(
   court: 'full' | 'half' | 'flat' = 'full',
   opts: { placed?: boolean; onRender?: ProfilerOnRenderCallback } = {},
 ) {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: court }));
+  // 자유 전술판 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트가 Esc·
+  // 화살표·liveRegion 발표문을 가로채 아래 배선 테스트가 깨진다 — "이미 봤다" 로 시작한다.
+  localStorage.setItem(
+    PREFS_KEY,
+    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: court, tutorialsSeen: { board: true } }),
+  );
   if (opts.placed) saveBoard(createDrill({ courtMode: court, formation: '1-2-1' }), true);
   const user = userEvent.setup();
   const tree = opts.onRender ? (
@@ -192,7 +197,7 @@ describe('격자 칸 라벨 배선 사슬 (major 회귀: prefs → EditorWorkspa
   async function mountWithGridLabels(showGridLabels: boolean) {
     localStorage.setItem(
       PREFS_KEY,
-      JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', showGrid: true, showGridLabels }),
+      JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', showGrid: true, showGridLabels, tutorialsSeen: { board: true } }),
     );
     const { container } = render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
@@ -714,7 +719,10 @@ describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', (
   it('처음 열면 코트에 개체가 하나도 없다', () => {
     // "전술판에서 기본 배치는 의미가 없다" — 무엇을 그릴지 모르는 판에 8대가 깔려 있으면
     // 매번 치우는 일부터 해야 한다.
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true } }),
+    );
     render(<BoardScreen />, { wrapper: Wrapper });
     const stage = screen.getByRole('application', { name: '코트 편집 영역' });
     expect(stage.querySelectorAll('.court-obj')).toHaveLength(0);
@@ -722,7 +730,10 @@ describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', (
 
   it('선수는 명단에 남아 있어 하나씩 놓을 수 있다', async () => {
     // 비었다고 선수까지 없어지면 안 된다 — 8대가 인스펙터 명단에 '미배치' 로 있어야 한다.
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full' }));
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true } }),
+    );
     const user = userEvent.setup();
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());

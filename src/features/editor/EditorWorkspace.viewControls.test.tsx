@@ -60,7 +60,13 @@ function stubMedia({ portrait, narrow }: { portrait: boolean; narrow: boolean })
 }
 
 async function openBoard(prefs: Partial<ReturnType<typeof makeDefaultPrefs>> = {}) {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', ...prefs }));
+  // tutorialsSeen.board 를 미리 채운다 — 안 그러면 튜토리얼 스포트라이트가 [보기] 서랍의 Esc·
+  // 포커스 배선 테스트를 가로챈다(§0.5, tutorialSteps.ts). `...prefs` 뒤에 있으므로 호출부가
+  // 원하면 덮어쓸 수 있다.
+  localStorage.setItem(
+    PREFS_KEY,
+    JSON.stringify({ ...makeDefaultPrefs(), defaultCourtMode: 'full', tutorialsSeen: { board: true }, ...prefs }),
+  );
   const user = userEvent.setup();
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());

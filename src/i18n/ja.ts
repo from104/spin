@@ -365,6 +365,18 @@ export const ja: Record<DictKey, string> = {
   'tutorial.editor.step8.title': '実演へ',
   'tutorial.editor.step8.body': '編集が終わったらここをタップして実演画面に移ります。',
 
+  // ── フリー戦術ボードチュートリアル 5ステップ — src/features/editor/tutorialSteps.ts ──────
+  'tutorial.board.step1.title': 'トレイ',
+  'tutorial.board.step1.body': '選手・ボール・コーンなどコートに置く道具をここで選びます。',
+  'tutorial.board.step2.title': 'コートに置く',
+  'tutorial.board.step2.body': '選んだ道具をコートに置き、ドラッグして配置します。',
+  'tutorial.board.step3.title': '作図',
+  'tutorial.board.step3.body': '矢印と図形で動きやゾーンを描きます。',
+  'tutorial.board.step4.title': '機能バー',
+  'tutorial.board.step4.body': 'PNG書き出し、グリッド・ルールゾーン表示などの機能がここに集まっています。',
+  'tutorial.board.step5.title': 'ドリルとして保存',
+  'tutorial.board.step5.body': '今の配置を新しいドリルとしてドリル一覧に保存します。',
+
   'presentInfo.titlePrefix': 'ドリル情報 — {{title}}',
   'presentInfo.typeLabel': '種類',
   'presentInfo.situationLabel': '状況',
