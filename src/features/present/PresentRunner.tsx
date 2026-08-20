@@ -28,8 +28,9 @@ import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { isEditableTarget, isInteractiveTarget } from '../../ui/keyboard.ts';
 import { Button } from '../../ui/Button.tsx';
 import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
-import { IconFullscreenEnter, IconFullscreenExit, IconHelp } from './icons.tsx';
+import { IconEditor } from '../../ui/icons.tsx';
 import { PresentStage } from './PresentStage.tsx';
+import { PresentSideBar } from './PresentSideBar.tsx';
 import { progressCellState } from './progressCells.ts';
 import { DrillInfoModal } from './DrillInfoModal.tsx';
 import { HelpOverlay } from './HelpOverlay.tsx';
@@ -198,7 +199,13 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
     title: headerTitle,
     compact: true,
     infoButton: { onAction: () => setInfoOpen(true), label: t('present.infoAriaLabel') },
-    primary: { label: target?.kind === 'session' ? t('present.primaryToSession') : t('present.primaryToEdit'), onAction: goOrigin },
+    // 펜 아이콘은 [편집으로]에만 붙는다(2026-08-20, 기현님 지시) — "편집한다"는 뜻은
+    // [세션으로](재생목록으로 돌아간다)에는 안 맞는다. 같은 자리(primary)를 상호배타로
+    // 쓰는 두 상태라 한쪽만 아이콘이 있어도 자리가 흔들리지 않는다.
+    primary:
+      target?.kind === 'session'
+        ? { label: t('present.primaryToSession'), onAction: goOrigin }
+        : { label: t('present.primaryToEdit'), icon: <IconEditor size={16} />, onAction: goOrigin },
   });
 
   if (load.status === 'loading') {
@@ -520,7 +527,7 @@ function PresentBody({
       style={{
         flex: 1,
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
         minHeight: 0,
         background: 'var(--panel-2)',
         outline: 'none',
@@ -528,189 +535,175 @@ function PresentBody({
         ...pseudoStyle,
       }}
     >
-      {/* 우상단 상시 버튼 — 44×44, 세로로 선다(§6.9/2026-08-20 §C).
-          ⚠️ 2026-08-20 (기현님 지시, §B·C) — ⓘ가 헤더(제목 옆)로 옮겨 가면서 이 묶음은 셋
-          (도움말·전체화면·나가기)만 남았었다.
-          ⚠️ 2026-08-20 (후속, 기현님 지시 — "시연 모드에서 오른쪽 기능바에서 x버튼 지우기") —
-          나가기(X) 버튼을 걷어낸다. Esc 로 나가는 길은 그대로 있다(전체화면 중이면 먼저
-          전체화면만 빠져나오고, 한 번 더 누르면 시연을 나간다 — 키다운 핸들러의 Escape 분기).
-          남는 것은 둘(도움말·전체화면)이다.
-          ⚠️ 2026-08-20 (재후속, 기현님 지시 — "전체화면, 도움말 순서 바꾸기") — 전체화면이
-          위, 도움말이 아래다. */}
-      <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button
-          type="button"
-          aria-label={fullscreen.state === 'off' ? t('present.fullscreenEnter') : t('present.fullscreenExit')}
-          onClick={() => (fullscreen.state === 'off' ? fullscreen.enter({ userGesture: true }) : fullscreen.exit())}
-          style={iconBtnStyle}
-        >
-          {fullscreen.state === 'off' ? <IconFullscreenEnter size={18} /> : <IconFullscreenExit size={18} />}
-        </button>
-        <button type="button" aria-label={t('present.helpAriaLabel')} onClick={() => setHelpOpen(true)} style={iconBtnStyle}>
-          <IconHelp size={18} />
-        </button>
-      </div>
-
-      {load.kind === 'session' && (
-        <div style={{ flex: 'none', padding: '14px 30px 0', display: 'flex', gap: 6 }} aria-label={t('present.sessionProgressAriaLabel', { current: drillIndex + 1, total: drills.length })}>
-          {drills.map((d, i) => (
-            <button
-              key={d.id}
-              type="button"
-              aria-label={t('present.drillProgressAriaLabel', { index: i + 1, title: d.title })}
-              aria-current={i === drillIndex ? 'step' : undefined}
-              // ★ 6.6 — 강제색(Windows 고대비)에서 지나간 칸(--muted)과 남은 칸(--border)은
-              // **둘 다 Canvas** 가 되어 "어디까지 했는가" 가 통째로 사라진다(현재 칸만 Highlight
-              // 로 남는다). 이 갈고리가 styles/contrast.css ④ 에서 시스템 색으로 되살아난다.
-              // ⚠️ 갈고리는 **막대 그 자체인 요소**에 붙어야 한다 — 여기서는 버튼이 곧 4px 막대다.
-              data-progress={progressCellState(i, drillIndex)}
-              onClick={() => {
-                if (i === drillIndex) return;
-                goDrill(i - drillIndex);
-              }}
-              style={{
-                flex: 1,
-                height: 4,
-                borderRadius: 2,
-                background: i === drillIndex ? 'var(--accent)' : i < drillIndex ? 'var(--muted)' : 'var(--border)',
-                // C9 — 구획 경계에 틈을 벌린다. 칸 문법(색·data-progress)은 그대로라
-                // 고대비 갈고리(styles/contrast.css ④)와 충돌하지 않는다.
-                marginLeft: phaseInfo && i > 0 && phaseInfo.of[i] !== phaseInfo.of[i - 1] ? 12 : undefined,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      <div
-        style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '22px 30px 8px', touchAction: 'pan-y' }}
-        {...swipeHandlers}
-      >
-        <div
-          key={drill.id}
-          style={{
-            position: 'relative',
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: interstitial ? 0.15 : 1,
-            transition: reduceMotion ? undefined : 'opacity .2s ease',
-          }}
-        >
-          <PresentStage
-            drill={drill}
-            showRuleZones={showRuleZones}
-            showGrid={showGrid}
-            showGridLabels={showGridLabels}
-            reduceMotion={reduceMotion}
-            seekToken={seekToken}
-            onStepChange={onStepChange}
-            onEnded={() => playbackActions.pause()}
-          />
-        </div>
-      </div>
-
-      <div style={{ flex: 'none', padding: '6px 30px 22px' }}>
-        {/* 2026-08-20 (기현님 지시, §D·E) — 재생 묶음이 공용 PlaybackControls 로 바뀌며
-            **전폭**으로 편다(옛 `maxWidth:1080, margin:'0 auto'` 를 걷어냈다). 노트 열은
-            **고정 높이 전폭 띠**가 된다. `PRESENT_NOTE_BAND_PX` 는 STEP 줄 + 노트 2줄 + 이름
-            줄의 대략치다 — min=max 로 걸어 스텝을 넘길 때(노트 있음↔없음) 이 줄의 키가 안
-            바뀌게 한다(선택모드 출렁임을 고친 것과 같은 원리: 조건부 마운트가 아니라 높이를
-            먼저 고정하고 내용만 교체한다). 긴 노트는 `overflowY:'auto'` 로 안쪽에서만
-            스크롤되어 띠를 밀지 않는다.
-            ⚠️ 2026-08-20 재배치(기현님 지시) — PlaybackControls 는 **이 줄이 아니라 아래
-            진행바 줄**의 최우측으로 옮겼다. 편집기(EditorWorkspace)의 재생 묶음이 화면 맨
-            아래 줄(노트 옆)에 있는 것과 같은 자리가 되려면, 시연에서도 재생 묶음이 **맨 아래
-            줄**(여기서는 진행바가 있는 줄)에 있어야 한다 — 노트 줄에 있으면 그 아래 진행바
-            줄 하나가 더 있어 화면상 자리가 어긋난다. 진행바는 그만큼 전폭을 안 쓰고 옆에
-            재생 묶음 자리를 낸다(아래 flex:1). */}
-        <div style={{ minHeight: PRESENT_NOTE_BAND_PX, maxHeight: PRESENT_NOTE_BAND_PX, overflowY: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 5 }}>
-            <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 12, fontWeight: 700, color: 'var(--accent-text)', letterSpacing: 1 }}>
-              STEP {stepIndex + 1}/{drill.steps.length}
-            </span>
-            {/* C9 — 지금 어느 구획인가. 세션에 구획이 둘 이상일 때만 선다(라벨 소음 방지). */}
-            {phaseInfo && phaseIdx !== null && (
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
-                {phaseInfo.labels[phaseIdx]} {phaseIdx + 1}/{phaseInfo.labels.length}
-              </span>
-            )}
-            {/* 스텝 이름 헤드라인은 과제⑦(2026-08-17)로 폐기됐다 — name 은 로드 시 note 로
-                이관돼 항상 ''다(§스텝 카드, "번호 + 썸네일만"과 같은 축소). 스텝 텍스트는
-                아래 note 문단 하나로만 보여준다. */}
-            <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: drillTypeColor(drill.drillType), flex: 'none' }} />
-          </div>
-          {currentStep?.note && <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.55, maxWidth: 760 }}>{currentStep.note}</p>}
-          {/* §7 3.4 선수 실명 — **번호 ↔ 사람을 잇는 범례**다. 코트의 칩은 등번호만 찍고
-              (2026-08-11 등번호 2/3 크기 결정) 접근성 트리에서는 통째로 aria-hidden 이라
-              (PresentStage) 이름을 적어 둔 코치에게 그 이름이 시연에서 한 번도 안 나왔다.
-              이름을 **적은 선수만** 싣는다: 안 적었으면 이 줄 자체가 없고, 절반만 적었으면
-              적은 절반만 나온다 — 번호뿐인 항목을 나열하면 코트에 이미 있는 정보를 옮겨
-              적는 것이라 자막이 길어지기만 한다. */}
-          {namedRoster.length > 0 && (
-            <p aria-label={t('present.rosterAriaLabel')} style={{ fontSize: 12.5, color: 'var(--faint-text)', lineHeight: 1.5, marginTop: 5, maxWidth: 760 }}>
-              {namedRoster.join(' · ')}
-            </p>
-          )}
-        </div>
-        {/* 막대는 시각적으로 6px 이지만 버튼 자체는 44px 여야 한다 — §7.3 이 정한 절대 하한은
-            24px(WCAG 2.5.8)이고 6px 막대를 그대로 버튼으로 두면 손가락으로 못 짚는다.
-            편집기 TransportBar 와 같은 방식(투명 히트 래퍼 + 안쪽 span 막대).
-            재생 묶음과 한 줄이 되며 `flex:1` 로 남는 폭만 쓴다 — PlaybackControls(약 272px)
-            만큼 좁아지는 것이 "진행바 폭을 적당히 줄인다"의 실체다(2026-08-20). */}
-        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 22 }}>
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 9 }}>
-            {drill.steps.map((s, i) => (
+      {/* 2026-08-20 (기현님 지시 — "오른쪽 기능바를 편집화면의 오른쪽바 형식으로 채워 하단
+          오른쪽의 재생버튼 셋이 위치가 고정될 수 있게") — 옛 모습은 `<main>` 이 세로 한 줄
+          (column)이고 전체화면·도움말이 코트 위 절대위치 버튼 둘이었다(경위는 PresentSideBar.tsx
+          머리말). 이제 `<main>` 은 편집 화면(EditorWorkspace)과 같은 가로(row) 이고, 세션진행바·
+          코트·하단(노트/진행바/재생묶음)이 이 컬럼 하나에, PresentSideBar 가 그 오른쪽 형제다. */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+        {load.kind === 'session' && (
+          <div style={{ flex: 'none', padding: '14px 30px 0', display: 'flex', gap: 6 }} aria-label={t('present.sessionProgressAriaLabel', { current: drillIndex + 1, total: drills.length })}>
+            {drills.map((d, i) => (
               <button
-                key={s.id}
+                key={d.id}
                 type="button"
-                aria-label={t('present.stepJumpAriaLabel', { n: i + 1 })}
-                aria-current={i === stepIndex ? 'step' : undefined}
-                onClick={() => seekToStep(i)}
+                aria-label={t('present.drillProgressAriaLabel', { index: i + 1, title: d.title })}
+                aria-current={i === drillIndex ? 'step' : undefined}
+                // ★ 6.6 — 강제색(Windows 고대비)에서 지나간 칸(--muted)과 남은 칸(--border)은
+                // **둘 다 Canvas** 가 되어 "어디까지 했는가" 가 통째로 사라진다(현재 칸만 Highlight
+                // 로 남는다). 이 갈고리가 styles/contrast.css ④ 에서 시스템 색으로 되살아난다.
+                // ⚠️ 갈고리는 **막대 그 자체인 요소**에 붙어야 한다 — 여기서는 버튼이 곧 4px 막대다.
+                data-progress={progressCellState(i, drillIndex)}
+                onClick={() => {
+                  if (i === drillIndex) return;
+                  goDrill(i - drillIndex);
+                }}
                 style={{
                   flex: 1,
-                  height: 44,
-                  minHeight: 44,
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: 'none',
-                  border: 'none',
+                  height: 4,
+                  borderRadius: 2,
+                  background: i === drillIndex ? 'var(--accent)' : i < drillIndex ? 'var(--muted)' : 'var(--border)',
+                  // C9 — 구획 경계에 틈을 벌린다. 칸 문법(색·data-progress)은 그대로라
+                  // 고대비 갈고리(styles/contrast.css ④)와 충돌하지 않는다.
+                  marginLeft: phaseInfo && i > 0 && phaseInfo.of[i] !== phaseInfo.of[i - 1] ? 12 : undefined,
                 }}
-              >
-                <span
-                  aria-hidden="true"
-                  // ★ 6.6 — 위 세션 줄과 **같은 갈고리**. 다만 여기서 막대는 버튼이 아니라 이
-                  // 안쪽 span 이다(버튼은 §7.3 하한을 채우는 44px 투명 히트 래퍼다). 갈고리를
-                  // 버튼에 붙이면 강제색에서 44px 짜리 덩어리가 통째로 칠해진다.
-                  data-progress={progressCellState(i, stepIndex)}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    height: 6,
-                    borderRadius: 3,
-                    background: i === stepIndex ? 'var(--accent)' : i < stepIndex ? 'var(--muted)' : 'var(--border)',
-                    transition: 'background .2s ease',
-                  }}
-                />
-              </button>
+              />
             ))}
           </div>
-          <PlaybackControls
-            playing={playback.playing}
-            canPlay
-            onTogglePlay={togglePlay}
-            loop={playback.loop}
-            onToggleLoop={() => playbackActions.setLoop(!playback.loop)}
-            onPrev={prevStep}
-            onNext={nextStep}
-            speed={playback.speed}
-            onCycleSpeed={() => playbackActions.setSpeed(playback.speed === 0.5 ? 1 : playback.speed === 1 ? 2 : 0.5)}
-          />
+        )}
+
+        <div
+          style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '22px 30px 8px', touchAction: 'pan-y' }}
+          {...swipeHandlers}
+        >
+          <div
+            key={drill.id}
+            style={{
+              position: 'relative',
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: interstitial ? 0.15 : 1,
+              transition: reduceMotion ? undefined : 'opacity .2s ease',
+            }}
+          >
+            <PresentStage
+              drill={drill}
+              showRuleZones={showRuleZones}
+              showGrid={showGrid}
+              showGridLabels={showGridLabels}
+              reduceMotion={reduceMotion}
+              seekToken={seekToken}
+              onStepChange={onStepChange}
+              onEnded={() => playbackActions.pause()}
+            />
+          </div>
+        </div>
+
+        <div style={{ flex: 'none', padding: '6px 30px 22px' }}>
+          {/* 2026-08-20 (기현님 지시, §D·E) — 재생 묶음이 공용 PlaybackControls 로 바뀌며
+              **전폭**으로 편다(옛 `maxWidth:1080, margin:'0 auto'` 를 걷어냈다). 노트 열은
+              **고정 높이 전폭 띠**가 된다. `PRESENT_NOTE_BAND_PX` 는 STEP 줄 + 노트 2줄 + 이름
+              줄의 대략치다 — min=max 로 걸어 스텝을 넘길 때(노트 있음↔없음) 이 줄의 키가 안
+              바뀌게 한다(선택모드 출렁임을 고친 것과 같은 원리: 조건부 마운트가 아니라 높이를
+              먼저 고정하고 내용만 교체한다). 긴 노트는 `overflowY:'auto'` 로 안쪽에서만
+              스크롤되어 띠를 밀지 않는다.
+              ⚠️ 2026-08-20 재배치(기현님 지시) — PlaybackControls 는 **이 줄이 아니라 아래
+              진행바 줄**의 최우측으로 옮겼다. 편집기(EditorWorkspace)의 재생 묶음이 화면 맨
+              아래 줄(노트 옆)에 있는 것과 같은 자리가 되려면, 시연에서도 재생 묶음이 **맨 아래
+              줄**(여기서는 진행바가 있는 줄)에 있어야 한다 — 노트 줄에 있으면 그 아래 진행바
+              줄 하나가 더 있어 화면상 자리가 어긋난다. 진행바는 그만큼 전폭을 안 쓰고 옆에
+              재생 묶음 자리를 낸다(아래 flex:1). */}
+          <div style={{ minHeight: PRESENT_NOTE_BAND_PX, maxHeight: PRESENT_NOTE_BAND_PX, overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 5 }}>
+              <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 12, fontWeight: 700, color: 'var(--accent-text)', letterSpacing: 1 }}>
+                STEP {stepIndex + 1}/{drill.steps.length}
+              </span>
+              {/* C9 — 지금 어느 구획인가. 세션에 구획이 둘 이상일 때만 선다(라벨 소음 방지). */}
+              {phaseInfo && phaseIdx !== null && (
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
+                  {phaseInfo.labels[phaseIdx]} {phaseIdx + 1}/{phaseInfo.labels.length}
+                </span>
+              )}
+              {/* 스텝 이름 헤드라인은 과제⑦(2026-08-17)로 폐기됐다 — name 은 로드 시 note 로
+                  이관돼 항상 ''다(§스텝 카드, "번호 + 썸네일만"과 같은 축소). 스텝 텍스트는
+                  아래 note 문단 하나로만 보여준다. */}
+              <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: drillTypeColor(drill.drillType), flex: 'none' }} />
+            </div>
+            {currentStep?.note && <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.55, maxWidth: 760 }}>{currentStep.note}</p>}
+            {/* §7 3.4 선수 실명 — **번호 ↔ 사람을 잇는 범례**다. 코트의 칩은 등번호만 찍고
+                (2026-08-11 등번호 2/3 크기 결정) 접근성 트리에서는 통째로 aria-hidden 이라
+                (PresentStage) 이름을 적어 둔 코치에게 그 이름이 시연에서 한 번도 안 나왔다.
+                이름을 **적은 선수만** 싣는다: 안 적었으면 이 줄 자체가 없고, 절반만 적었으면
+                적은 절반만 나온다 — 번호뿐인 항목을 나열하면 코트에 이미 있는 정보를 옮겨
+                적는 것이라 자막이 길어지기만 한다. */}
+            {namedRoster.length > 0 && (
+              <p aria-label={t('present.rosterAriaLabel')} style={{ fontSize: 12.5, color: 'var(--faint-text)', lineHeight: 1.5, marginTop: 5, maxWidth: 760 }}>
+                {namedRoster.join(' · ')}
+              </p>
+            )}
+          </div>
+          {/* 막대는 시각적으로 6px 이지만 버튼 자체는 44px 여야 한다 — §7.3 이 정한 절대 하한은
+              24px(WCAG 2.5.8)이고 6px 막대를 그대로 버튼으로 두면 손가락으로 못 짚는다.
+              편집기 TransportBar 와 같은 방식(투명 히트 래퍼 + 안쪽 span 막대).
+              재생 묶음과 한 줄이 되며 `flex:1` 로 남는 폭만 쓴다 — PlaybackControls(약 272px)
+              만큼 좁아지는 것이 "진행바 폭을 적당히 줄인다"의 실체다(2026-08-20). */}
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 22 }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 9 }}>
+              {drill.steps.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-label={t('present.stepJumpAriaLabel', { n: i + 1 })}
+                  aria-current={i === stepIndex ? 'step' : undefined}
+                  onClick={() => seekToStep(i)}
+                  style={{
+                    flex: 1,
+                    height: 44,
+                    minHeight: 44,
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'none',
+                    border: 'none',
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    // ★ 6.6 — 위 세션 줄과 **같은 갈고리**. 다만 여기서 막대는 버튼이 아니라 이
+                    // 안쪽 span 이다(버튼은 §7.3 하한을 채우는 44px 투명 히트 래퍼다). 갈고리를
+                    // 버튼에 붙이면 강제색에서 44px 짜리 덩어리가 통째로 칠해진다.
+                    data-progress={progressCellState(i, stepIndex)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      height: 6,
+                      borderRadius: 3,
+                      background: i === stepIndex ? 'var(--accent)' : i < stepIndex ? 'var(--muted)' : 'var(--border)',
+                      transition: 'background .2s ease',
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+            <PlaybackControls
+              playing={playback.playing}
+              canPlay
+              onTogglePlay={togglePlay}
+              loop={playback.loop}
+              onToggleLoop={() => playbackActions.setLoop(!playback.loop)}
+              onPrev={prevStep}
+              onNext={nextStep}
+              speed={playback.speed}
+              onCycleSpeed={() => playbackActions.setSpeed(playback.speed === 0.5 ? 1 : playback.speed === 1 ? 2 : 0.5)}
+            />
+          </div>
         </div>
       </div>
+
+      <PresentSideBar fullscreen={fullscreen} onShowHelp={() => setHelpOpen(true)} />
 
       {interstitial && (
         <div
@@ -775,19 +768,6 @@ function VisuallyHiddenNotice() {
   const t = useT();
   return <span className="sr-only">{t('present.wakeLockUnavailable')}</span>;
 }
-
-const iconBtnStyle: CSSProperties = {
-  position: 'static',
-  width: 44,
-  height: 44,
-  borderRadius: 10,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: 'var(--text)',
-  background: 'color-mix(in srgb, var(--panel) 70%, transparent)',
-  border: '1px solid var(--border)',
-};
 
 /** 코트 아래 노트 띠의 고정 높이(2026-08-20 §E) — STEP 줄(≈17) + 노트 최대 2줄(14px·lh 1.55
  *  ≈ 43) + 이름 줄(≈24, marginTop 포함)의 대략치다. min=max 로 걸어 노트 유무와 무관하게

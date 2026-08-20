@@ -306,6 +306,7 @@ export const en: Record<DictKey, string> = {
   'present.helpAriaLabel': 'Help',
   'present.fullscreenEnter': 'Fullscreen',
   'present.fullscreenExit': 'Exit fullscreen',
+  'present.sideBarAriaLabel': 'Presentation controls',
   'present.sessionProgressAriaLabel': 'Session progress {{current}}/{{total}}',
   'present.drillProgressAriaLabel': 'Drill {{index}}: {{title}}',
   'present.rosterAriaLabel': 'Roster',

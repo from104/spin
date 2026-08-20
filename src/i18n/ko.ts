@@ -304,6 +304,7 @@ export const ko = {
   'present.helpAriaLabel': '도움말',
   'present.fullscreenEnter': '전체화면',
   'present.fullscreenExit': '전체화면 종료',
+  'present.sideBarAriaLabel': '시연 조작',
   'present.sessionProgressAriaLabel': '세션 진행 {{current}}/{{total}}',
   'present.drillProgressAriaLabel': '{{index}}번째 드릴: {{title}}',
   'present.rosterAriaLabel': '선수 명단',
