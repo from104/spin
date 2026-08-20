@@ -21,14 +21,16 @@
 // 옛 주석의 "드릴 카드에는 애초에 시연 개념이 없다" 는 문장은 이 시점부터 무효다. 같은 이유로
 // 헤더 주 액션도 세션 탭에서 "새 세션"으로 바뀌지 않는다(app-shell 의 정적 헤더 계산은 탭
 // 상태를 모른다) — 대신 세션 탭 본문에 자체 "새 세션" 진입점(빈 상태 CTA)을 둔다.
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { DRILL_TYPES, DRILL_TYPE_LABELS, DRILL_SITUATIONS, SITUATION_LABELS } from '../../model/drill.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Button } from '../../ui/Button.tsx';
+import { Modal } from '../../ui/Modal.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
-import { resolveDrillRepo } from '../../storage/drillRepo.ts';
+import { findReferrers, resolveDrillRepo } from '../../storage/drillRepo.ts';
+import type { Referrer } from '../../storage/drillRepo.ts';
 import { DRILL_LEVELS } from '../../model/drill.ts';
 import type { DrillSummary } from '../../model/summary.ts';
 import { DrillCard, DrillRow } from './DrillCard.tsx';
@@ -68,7 +70,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
       action: { label: t('library.openAction'), onAction: () => openDrill(copy.id) },
     });
   };
-  const handleDelete = async (d: DrillSummary) => {
+  const doDelete = async (d: DrillSummary) => {
     const { repo } = await resolveDrillRepo();
     const full = await repo.getDrill(d.id); // 되돌리기용 원본 보관(§6.10 삭제 토스트 원칙을 목록에도 적용)
     await deleteDrill(d.id);
@@ -84,6 +86,20 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
           }
         : undefined,
     });
+  };
+  // §0.5 미배송 빚(2026-08-20) — findReferrers 는 이미 있었는데 부르는 곳이 없었다.
+  // 대다수 드릴(세션에서 안 쓰임)은 §6.10 그대로 확인 없이 즉시 삭제+undo 토스트다 —
+  // 세션에서 쓰이는 드릴만 예외로 먼저 물어본다. 확인 모달 자체는 새 장치가 아니라
+  // FunctionBar 의 [비우기] 확인과 같은 관용구(Modal + 취소/확인 버튼)를 재사용한다.
+  const [pendingDelete, setPendingDelete] = useState<{ drill: DrillSummary; referrers: Referrer[] } | null>(null);
+  const deleteConfirmId = useId();
+  const requestDelete = async (d: DrillSummary) => {
+    const referrers = await findReferrers(d.id);
+    if (referrers.length === 0) {
+      await doDelete(d);
+      return;
+    }
+    setPendingDelete({ drill: d, referrers });
   };
   const handleExport = async (d: DrillSummary) => {
     await exportOneDrill(d.id, locale);
@@ -231,7 +247,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
                             onOpen={() => openDrill(d.id)}
                             onPresent={() => presentDrill(d.id)}
                             onDuplicate={() => void handleDuplicate(d)}
-                            onDelete={() => void handleDelete(d)}
+                            onDelete={() => void requestDelete(d)}
                             onExport={() => void handleExport(d)}
                           />
                         );
@@ -252,6 +268,42 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
           onConfirm={(resolutions) => void commitPreview(importPreview, resolutions)}
         />
       )}
+
+      <Modal
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        titleId={deleteConfirmId}
+        title={t('library.deleteConfirm.title')}
+        closeLabel={t('common.close')}
+      >
+        {pendingDelete && (
+          <>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+              {t('library.deleteConfirm.body', { title: pendingDelete.drill.title, count: pendingDelete.referrers.length })}
+            </p>
+            <ul style={{ margin: '8px 0', paddingLeft: 20, fontSize: '0.8125rem', color: 'var(--text)' }}>
+              {pendingDelete.referrers.map((r) => (
+                <li key={r.id}>{r.title}</li>
+              ))}
+            </ul>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+              <Button variant="secondary" onClick={() => setPendingDelete(null)}>
+                {t('library.deleteConfirm.cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const d = pendingDelete.drill;
+                  setPendingDelete(null);
+                  void doDelete(d);
+                }}
+              >
+                {t('library.deleteConfirm.confirm')}
+              </Button>
+            </div>
+          </>
+        )}
+      </Modal>
     </main>
   );
 }

@@ -16,7 +16,7 @@ import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { SUMMARY_BUILD } from '../../model/summary.ts';
-import { deleteSession, listSessions } from '../../storage/sessionRepo.ts';
+import { addDrillToSession, createSession, deleteSession, listSessions } from '../../storage/sessionRepo.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { exportLibraryFile } from '../../storage/transfer.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -104,6 +104,44 @@ describe('LibraryScreen — 드릴 탭', () => {
     const toast = await screen.findByRole('status');
     await user.click(within(toast).getByRole('button', { name: '되돌리기' }));
     await waitFor(() => expect(within(panel()).getByText('삭제 대상')).toBeInTheDocument());
+  });
+
+  // §0.5 미배송 빚(2026-08-20) — findReferrers 를 삭제 앞에 배선.
+  it('세션에서 쓰이는 드릴을 지우려 하면 확인 모달이 뜨고, 취소하면 안 지워진다', async () => {
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '참조된 드릴' });
+    const s = await createSession({ title: '참조 세션' });
+    await addDrillToSession(s.id, d.id);
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('참조된 드릴')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '참조된 드릴 더보기' }));
+    await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '드릴 삭제' });
+    expect(within(dialog).getByText('참조 세션')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(within(panel()).getByText('참조된 드릴')).toBeInTheDocument(); // 안 지워졌다
+  });
+
+  it('세션에서 쓰이는 드릴도 확인 모달에서 [삭제]를 누르면 지워진다', async () => {
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '참조된 드릴2' });
+    const s = await createSession({ title: '참조 세션2' });
+    await addDrillToSession(s.id, d.id);
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('참조된 드릴2')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '참조된 드릴2 더보기' }));
+    await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+    const dialog = await screen.findByRole('dialog', { name: '드릴 삭제' });
+    await user.click(within(dialog).getByRole('button', { name: '삭제' }));
+
+    await waitFor(() => expect(within(panel()).queryByText('참조된 드릴2')).not.toBeInTheDocument());
+    expect(await screen.findByRole('status')).toHaveTextContent('삭제했습니다');
   });
 
   it('카드의 [시연] 1클릭이 nav.presentDrill 을 그 드릴 id 로 호출한다 — openDrill 은 안 불린다', async () => {
