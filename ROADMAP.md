@@ -90,6 +90,9 @@ CHANGELOG [Unreleased] 가 사용자 관점 설명을 갖고 있습니다. 릴�
 - [x] **선수 실명을 종이·PNG 에 태우기** — 인쇄 첫 장과 PNG 캡션 셋째 줄(있을 때만)에 실명을
   적은 선수만 나열합니다. `model/chairLabel.ts namedRosterOf` 가 시연 범례와 공유하는
   단일 출처입니다
+- **도움말·튜토리얼** (2026-08-20 설계 확정, 정본 [`docs/PLAN-HELP-TUTORIAL.md`](docs/PLAN-HELP-TUTORIAL.md)) —
+  문서형 도움말(HelpCenter, 레일 [도움말]로 일원화) + 6개 화면 스포트라이트 튜토리얼
+  (첫 방문 자동, prefs 기기별 1회성, 설정에서 리셋). 1.0 의 "사용 설명" 항목을 앞당긴 것
 - **죽은 export 청소** — `cubicBezier`·`pxToM`·`upcomingSession` 등
 - **`PresentRunner` 의 `effectiveReduceMotion` 중복 구현 제거** — 판정식이 두 벌입니다
 
@@ -148,7 +151,9 @@ CHANGELOG [Unreleased] 가 사용자 관점 설명을 갖고 있습니다. 릴�
 
 - 웹·데스크톱 3종·모바일 2종이 **같은 버전으로** 나갑니다
 - `docs/FIELD-TEST.md` 기기 매트릭스를 실제로 채웁니다 (지금은 비어 있습니다)
-- 사용 설명 — 앱 안에서 읽는 짧은 안내
+- ~~사용 설명 — 앱 안에서 읽는 짧은 안내~~ → **0.5 로 앞당김** — 2026-08-20 기현님 지시로
+  문서형 도움말 + 화면별 튜토리얼(스포트라이트) 설계가 확정됐다. 정본은
+  [`docs/PLAN-HELP-TUTORIAL.md`](docs/PLAN-HELP-TUTORIAL.md)
 
 > 씨앗 드릴은 2026-08-20 기현님 결정으로 **폐기**했습니다(0.5 절의 결정 반영 참조) —
 > 빈 앱은 빈 채로 시작합니다.
