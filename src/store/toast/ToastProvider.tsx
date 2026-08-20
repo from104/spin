@@ -11,7 +11,9 @@ export interface ToastOptions {
 }
 export interface ToastApi {
   toasts: readonly ToastItem[];
-  show(message: string, opts?: ToastOptions): void;
+  /** 만든 토스트의 id 를 돌려준다 — 호출부가 그 특정 토스트만 나중에 dismiss 하려 할 때 쓴다
+   *  (예: SessionEditorScreen §C-3, 다른 저장이 일어나면 이 undo 토스트를 거둔다). */
+  show(message: string, opts?: ToastOptions): string;
   dismiss(id: string): void;
 }
 
@@ -25,16 +27,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((cur) => cur.filter((t) => t.id !== id));
   }, []);
 
-  const show = useCallback((message: string, opts?: ToastOptions) => {
+  const show = useCallback((message: string, opts?: ToastOptions): string => {
+    // id 는 setToasts 갱신 함수 **밖**에서 만든다 — StrictMode 는 그 함수를 두 번 부를 수 있는데
+    // seq 증가가 안에 있으면 두 번 늘어난다(해는 안 되지만), 무엇보다 반환값이 필요해서 갱신이
+    // 끝나기 전에 id 가 이미 정해져 있어야 한다.
+    seq.current += 1;
+    const id = `tst_${Date.now().toString(36)}_${seq.current}`;
     setToasts((cur) => {
-      seq.current += 1;
-      const item: ToastItem = { id: `tst_${Date.now().toString(36)}_${seq.current}`, message, action: opts?.action, durationMs: opts?.durationMs };
+      const item: ToastItem = { id, message, action: opts?.action, durationMs: opts?.durationMs };
       const dupIdx = cur.findIndex((t) => t.message === message);
       if (dupIdx === -1) return [...cur, item];
       const next = cur.slice();
       next[dupIdx] = item; // id 교체 = 타이머 리셋
       return next;
     });
+    return id;
   }, []);
 
   const api = useMemo<ToastApi>(() => ({ toasts, show, dismiss }), [toasts, show, dismiss]);

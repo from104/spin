@@ -10,7 +10,7 @@
 // 저장은 드로어의 낙관 패턴 그대로다: setSession(즉시) → putSession → refresh. 편집 연산은
 // 전부 model/session.ts 의 순수 헬퍼를 거친다 — 화면이 phases 를 손으로 주무르면 "빈 구획을
 // 지워야 하나" 같은 규칙이 화면마다 갈라진다(그 헬퍼들의 존재 이유).
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
@@ -43,7 +43,6 @@ import type { Player, Roster } from '../../model/roster.ts';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
 import type { HomeNav } from '../home/nav.ts';
-import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
@@ -101,12 +100,43 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
     setPrefs({ tutorialsSeen: withTutorialUnseen(prefs.tutorialsSeen, screen) });
   };
 
+  // §C-3(2026-08-20, PLAN-DELETE-SAFETY.md) — 구획 삭제·편성 항목 제거의 되돌리기 토스트가
+  // 떠 있는 동안 이 id 를 들고 있는다.
+  const undoToastIdRef = useRef<string | null>(null);
+
   async function save(next: TrainingSession): Promise<void> {
+    // 삭제 undo 토스트가 떠 있는 동안 다른 저장이 일어나면 그 토스트를 거둔다 — 안 그러면
+    // 나중 편집을 스냅샷이 덮어써 "되돌렸더니 방금 고친 것도 사라졌다" 가 된다(§C-3 위험).
+    if (undoToastIdRef.current) {
+      toast.dismiss(undoToastIdRef.current);
+      undoToastIdRef.current = null;
+    }
     setSession(next); // 낙관적 반영 — 입력 필드가 왕복 지연 없이 즉시 갱신된다(드로어 패턴)
     const saved = await putSession(next);
     setSession(saved);
     await refresh();
   }
+
+  // 구획 삭제·편성 항목 제거 전용 — 파괴적 편집 직전 스냅샷(session, 지금 이 클릭 시점의
+  // 값)을 들고 있다가 [실행 취소]가 그 스냅샷을 그대로 save() 한다. 세션 편집엔 편집기의
+  // withHistory 같은 되돌리기 스택이 없어(별도 화면·별도 저장 경로) 화면 단위 스냅샷이
+  // 가장 싼 되돌리기다 — 구획 삭제는 항목이 이웃 구획으로 **이동**하므로(removePhase) 부분
+  // 되돌리기보다 통짜 스냅샷이 오히려 더 간단하고 정확하다. 확인 모달은 안 붙인다 —
+  // 되돌아가니까(원칙 그대로).
+  const saveWithUndo = (next: TrainingSession, message: string) => {
+    if (!session) return;
+    const before = session;
+    void save(next);
+    undoToastIdRef.current = toast.show(message, {
+      action: {
+        label: t('sessionEditor.undoAction'),
+        onAction: () => {
+          undoToastIdRef.current = null;
+          void save(before);
+        },
+      },
+    });
+  };
 
   if (missing) {
     return (
@@ -231,6 +261,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
               session={session}
               drills={drills}
               onSave={(next) => void save(next)}
+              onSaveWithUndo={saveWithUndo}
             />
           ))}
           <Button
@@ -355,6 +386,7 @@ function PhaseCard({
   session,
   drills,
   onSave,
+  onSaveWithUndo,
 }: {
   resolved: ResolvedPhase;
   index: number;
@@ -362,6 +394,8 @@ function PhaseCard({
   session: TrainingSession;
   drills: DrillSummary[];
   onSave(next: TrainingSession): void;
+  /** 구획 삭제·항목 제거 전용(§C-3) — SessionEditorScreen.saveWithUndo 그대로. */
+  onSaveWithUndo(next: TrainingSession, message: string): void;
 }) {
   const { phase, items, totalMin } = resolved;
   const [addDrillId, setAddDrillId] = useState('');
@@ -438,8 +472,9 @@ function PhaseCard({
             label={t('phaseCard.deleteAriaLabel', { label: phaseLabel(phase, locale) })}
             disabled={count === 1 && items.length > 0}
             onClick={() => {
-              onSave(removePhase(session, phase.id));
-              if (items.length > 0) liveRegion.say(t('phaseCard.deleteAnnounce'));
+              // 토스트가 이제 낭독 채널이라(role=status, ui/Toast.tsx 머리말) 여기 있던
+              // liveRegion.say 는 지웠다 — 같은 말을 두 번 듣게 하지 않으려고(§C-1 과 같은 이유).
+              onSaveWithUndo(removePhase(session, phase.id), items.length > 0 ? t('phaseCard.deleteAnnounce') : t('phaseCard.deleteToastEmpty'));
             }}
           >
             ✕
@@ -492,7 +527,10 @@ function PhaseCard({
                   <IconBtn label={t('phaseCard.itemMoveDownAriaLabel', { title: it.titleCache })} disabled={fi < 0 || fi >= flat.length - 1} onClick={() => onSave(moveSessionItemFlat(session, fi, fi + 1))}>
                     ↓
                   </IconBtn>
-                  <IconBtn label={t('phaseCard.itemRemoveAriaLabel', { title: it.titleCache })} onClick={() => onSave(removeSessionItem(session, it.id))}>
+                  <IconBtn
+                    label={t('phaseCard.itemRemoveAriaLabel', { title: it.titleCache })}
+                    onClick={() => onSaveWithUndo(removeSessionItem(session, it.id), t('phaseCard.itemRemoveToast', { title: it.titleCache }))}
+                  >
                     ✕
                   </IconBtn>
                 </div>

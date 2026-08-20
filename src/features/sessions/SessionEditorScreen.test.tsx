@@ -7,7 +7,8 @@ import type { ReactNode } from 'react';
 import { SessionEditorScreen } from './SessionEditorScreen.tsx';
 import type { HomeNav } from '../home/nav.ts';
 import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
-import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
+import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
+import { ToastHost } from '../../ui/ToastHost.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { createSession, deleteSession, getSession, listSessions, addDrillToSession } from '../../storage/sessionRepo.ts';
 import { flattenSessionItems } from '../../model/session.ts';
@@ -26,10 +27,20 @@ function makeNav(): HomeNav {
   };
 }
 
+function ToastHostBridge() {
+  const { toasts, dismiss } = useToast();
+  return <ToastHost toasts={toasts} onDismiss={dismiss} />;
+}
+
+// §C-3(2026-08-20) 되돌리기 토스트를 실제로 검증하려면 ToastHost 도 함께 마운트해야 한다
+// (LibraryScreen.test.tsx 와 같은 이유 — ToastProvider 는 상태만, 표시는 ToastHost 몫).
 const wrapper = ({ children }: { children: ReactNode }) => (
   <SettingsProvider>
     <LibraryProvider>
-      <ToastProvider>{children}</ToastProvider>
+      <ToastProvider>
+        {children}
+        <ToastHostBridge />
+      </ToastProvider>
     </LibraryProvider>
   </SettingsProvider>
 );
@@ -179,6 +190,77 @@ describe('SessionEditorScreen', () => {
     await waitFor(async () => {
       const saved = await getSession(s.id);
       expect(flattenSessionItems(saved!.session).map((it) => it.drillId)).toEqual([d1.id]);
+    });
+  });
+
+  // PLAN-DELETE-SAFETY.md §C-3(2026-08-20) — 구획 삭제·항목 제거는 확인 없이 되돌리기
+  // 토스트만 띄운다(원칙: 되돌아가니까 안 묻는다). 착수 전까지 이 화면엔 이 둘 다 확인도
+  // undo 도 없는 "완전 무방비" 상태였다.
+  describe('삭제 되돌리기 토스트(§C-3)', () => {
+    it('항목을 제거하면 되돌리기 토스트가 뜨고, 누르면 원래대로 돌아온다', async () => {
+      const d1 = await idbDrillRepo.createDrill({ courtMode: 'full', title: '남을 드릴', durationMin: 10 });
+      const d2 = await idbDrillRepo.createDrill({ courtMode: 'full', title: '제거될 드릴', durationMin: 10 });
+      let s = await createSession({ title: '항목 되돌리기 세션' });
+      s = await addDrillToSession(s.id, d1.id);
+      s = await addDrillToSession(s.id, d2.id);
+      await renderEditor(s.id);
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: '제거될 드릴 제거' }));
+      await waitFor(async () => {
+        const saved = await getSession(s.id);
+        expect(flattenSessionItems(saved!.session).map((it) => it.drillId)).toEqual([d1.id]);
+      });
+
+      const toast = await screen.findByRole('status');
+      expect(toast).toHaveTextContent('제거될 드릴');
+      await user.click(within(toast).getByRole('button', { name: '되돌리기' }));
+      await waitFor(async () => {
+        const saved = await getSession(s.id);
+        expect(flattenSessionItems(saved!.session).map((it) => it.drillId)).toEqual([d1.id, d2.id]);
+      });
+    });
+
+    it('구획을 지우면 되돌리기 토스트가 뜨고, 누르면 지워진 구획이 되살아난다', async () => {
+      const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '되돌릴 병합 드릴', durationMin: 10 });
+      let s = await createSession({ title: '구획 되돌리기 세션' });
+      s = await addDrillToSession(s.id, d.id); // 기본 구획('훈련')에 하나
+      await renderEditor(s.id);
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: '구획 추가' })); // 두 번째 구획(자유)
+      await waitFor(async () => expect((await getSession(s.id))?.session.phases).toHaveLength(2));
+
+      await user.click(screen.getByRole('button', { name: '구획 훈련 삭제' }));
+      await waitFor(async () => expect((await getSession(s.id))?.session.phases).toHaveLength(1));
+
+      const toast = await screen.findByRole('status');
+      await user.click(within(toast).getByRole('button', { name: '되돌리기' }));
+      await waitFor(async () => {
+        const saved = await getSession(s.id);
+        expect(saved?.session.phases).toHaveLength(2);
+        expect(flattenSessionItems(saved!.session).map((it) => it.drillId)).toEqual([d.id]);
+      });
+    });
+
+    it('되돌리기 토스트가 떠 있는 동안 다른 저장을 하면 그 토스트를 거둔다(§H-3 위험)', async () => {
+      const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '거둘 토스트용 드릴', durationMin: 10 });
+      let s = await createSession({ title: '토스트 거두기 세션' });
+      s = await addDrillToSession(s.id, d.id);
+      await renderEditor(s.id);
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: '거둘 토스트용 드릴 제거' }));
+      await screen.findByRole('status'); // undo 토스트가 떴다
+
+      // 다른(비파괴적) 저장 — 세션명 편집.
+      const input = screen.getByLabelText('세션명');
+      await user.clear(input);
+      await user.type(input, '이름 바뀜');
+      (input as HTMLInputElement).blur();
+
+      // 거둬졌으니 더 이상 없다 — 남아 있었다면 이 되돌리기가 방금 고친 이름까지 지웠을 것이다.
+      await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
     });
   });
 
