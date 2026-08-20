@@ -56,7 +56,7 @@ import {
 import { flyoutPosition, useFlyout, type FlyoutHandleProps } from './useFlyout.ts';
 import { KEYMAP } from '../../core/keymap.ts';
 import { Modal } from '../../ui/Modal.tsx';
-import { Button } from '../../ui/Button.tsx';
+import { ConfirmDialog } from '../../ui/ConfirmDialog.tsx';
 import { ExportSheet } from '../export/ExportSheet.tsx';
 import { COURT_DEFS, COURT_SIZE_LABELS, COURT_SIZES, courtDefFor, type CourtMode, type CourtSize } from '../../model/court.ts';
 import type { Drill, TeamSide, TeamStyle } from '../../model/drill.ts';
@@ -261,7 +261,6 @@ export function FunctionBar({
   const [exportOpen, setExportOpen] = useState(false);
   const courtId = useId();
   const viewPanelId = useId();
-  const confirmId = useId();
   const courtBtnRef = useRef<HTMLButtonElement | null>(null);
   const viewBtnRef = useRef<HTMLButtonElement | null>(null);
   const clearBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -675,32 +674,23 @@ export function FunctionBar({
         : null}
 
       {/* ── 비우기 확인 ─────────────────────────────────────────────────────────────── */}
-      <Modal
+      <ConfirmDialog
         open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        titleId={confirmId}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          onReset();
+        }}
         title={t('editor.functionBar.clearConfirm.title')}
-        closeLabel={t('common.close')}
+        body={
+          <>
+            {t('editor.functionBar.clearConfirm.body')} <strong>{t('editor.functionBar.clearConfirm.bodyStrong')}</strong>
+          </>
+        }
+        confirmLabel={t('editor.functionBar.clearConfirm.confirm')}
+        cancelLabel={t('editor.functionBar.clearConfirm.cancel')}
         returnFocusRef={clearBtnRef}
-      >
-        <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.6 }}>
-          {t('editor.functionBar.clearConfirm.body')} <strong>{t('editor.functionBar.clearConfirm.bodyStrong')}</strong>
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
-          <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
-            {t('editor.functionBar.clearConfirm.cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setConfirmOpen(false);
-              onReset();
-            }}
-          >
-            {t('editor.functionBar.clearConfirm.confirm')}
-          </Button>
-        </div>
-      </Modal>
+      />
 
       {/* ⚠️ 시트는 **닫혀 있어도 마운트된 채**여야 한다 — [인쇄]를 고르면 시트가 닫히고 인쇄
           트리(PrintRoot)는 이 안에 산다. 조건부로 렌더하면 백지가 인쇄된다. 닫힌 시트의 표적은 0 이다. */}
