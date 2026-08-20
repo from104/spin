@@ -246,7 +246,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
                     <div
                       style={
                         view === 'cards'
-                          ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 18 }
+                          ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(207px, 1fr))', gap: 18 }
                           : { display: 'flex', flexDirection: 'column', gap: 8 }
                       }
                     >
