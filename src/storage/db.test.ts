@@ -1,6 +1,6 @@
-// §10.6 db. getDB/persistence/pressure/toStorageError 의 기본 동작.
+// §10.6 db. getDB/toStorageError 의 기본 동작.
 import { describe, it, expect } from 'vitest';
-import { getDB, isStorageStale, ensurePersistence, storagePressure, toStorageError, DB_NAME, DB_VERSION } from './db.ts';
+import { getDB, isStorageStale, toStorageError, DB_NAME, DB_VERSION } from './db.ts';
 import { StorageError } from './errors.ts';
 
 describe('getDB', () => {
@@ -17,18 +17,6 @@ describe('getDB', () => {
   });
   it('isStorageStale 은 초기 상태에서 false', () => {
     expect(isStorageStale()).toBe(false);
-  });
-});
-
-describe('ensurePersistence / storagePressure', () => {
-  it('navigator.storage 가 없거나 부분 지원이어도 던지지 않는다', async () => {
-    await expect(ensurePersistence()).resolves.not.toThrow;
-    const result = await ensurePersistence();
-    expect(['persisted', 'best-effort', 'unavailable']).toContain(result);
-  });
-  it('storagePressure 는 null 또는 0~1 사이 숫자를 돌려준다', async () => {
-    const p = await storagePressure();
-    expect(p === null || (p >= 0 && p <= 1)).toBe(true);
   });
 });
 

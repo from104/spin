@@ -80,11 +80,13 @@ export interface Preferences {
     twoZone: boolean;
   };
   // iosPwa: DESIGN.md §6.9 "iPhone Safari 최초 진입 시 1회 안내" 배너의 노출 여부(껐다 켬).
-  // degradedStorage: DESIGN.md §4.8 열화 모드 상시 경고를 다시 보지 않기 설정. 두 필드 모두
   // 소비하는 배너 컴포넌트가 아직 없다(감사 2026-08-08 minor — src/features/present/*,
   // app-shell 쪽 작업으로 이 담당(settings/render/editor) 범위 밖이라 배선하지 않았다).
   // 마이그레이션 호환을 위해 필드·기본값·검증은 그대로 유지한다.
-  hints: { iosPwa: boolean; degradedStorage: boolean };
+  // ⚠️ degradedStorage(DESIGN.md §4.8 열화 모드 상시 경고)는 2026-08-20 폐기했다(로드맵
+  // §0.5 결정) — 그 배너 자체(ensurePersistence/storagePressure, storage/db.ts)를
+  // 걷어냈으니 "다시 보지 않기" 플래그만 남겨 둘 이유가 없다.
+  hints: { iosPwa: boolean };
   /** §3 트레이 서랍 2개(작도 · 설명)의 개폐 상태. 둘 다 기본 닫힘 — 손잡이는 처음부터 보이므로
    *  닫혀 있어도 잠긴 기능은 0개다. 단축키 R·P·T 를 누르면 그 서랍이 **영구히** 열리고(§3 불변식 2)
    *  그 '영구히' 를 기기 재시작 너머로 들고 가는 것이 이 필드다. 기기를 옮겨도 따라오는 취향이라
@@ -134,7 +136,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   defaultCourtMode: null,
   present: { autoFullscreen: false, wakeLock: true },
   a11y: { largeTargets: false, uiScale: 1, reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true, twoZone: false },
-  hints: { iosPwa: true, degradedStorage: true },
+  hints: { iosPwa: true },
   tray: { draw: false, note: false },
   seeded: false,
   physics: {},
@@ -253,7 +255,6 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     },
     hints: {
       iosPwa: bool(hintsRaw.iosPwa, d.hints.iosPwa),
-      degradedStorage: bool(hintsRaw.degradedStorage, d.hints.degradedStorage),
     },
     // 이 화이트리스트 조립부에 안 적힌 필드는 저장 왕복에서 **소리 없이 증발한다**.
     // 모델에 필드를 넣었으면 여기도 같은 커밋에서 넣고, 왕복 테스트로 못박아라.

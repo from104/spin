@@ -32,12 +32,6 @@ function replaceStep(d: Drill, i: number, step: DrillStep): Drill {
   return { ...d, steps };
 }
 
-function poseOfCast(step: DrillStep, id: CastId): StoredChairPose | Vec2 | undefined {
-  if (isId(id, 'ch')) return step.chairs[id];
-  if (isId(id, 'bl')) return step.balls[id];
-  return step.cones[id];
-}
-
 function posesEqual(a: StoredChairPose | Vec2, b: StoredChairPose | Vec2): boolean {
   if (a.x !== b.x || a.y !== b.y) return false;
   const aa = (a as StoredChairPose).angleDeg;
@@ -235,25 +229,6 @@ export function removeFromThisStepOnly(d: Drill, i: number, id: CastId): Drill {
   const next = removeFromStep(step, id);
   if (next === step) return d;
   return pruneOrphanCast(replaceStep(d, i, next));
-}
-
-/** 스텝 i 의 현재 pose 를 그 이후 모든 스텝으로 전파(고정)한다. */
-export function propagateForward(d: Drill, i: number, id: CastId): Drill {
-  const base = d.steps[i];
-  if (!base) return d;
-  const pose = poseOfCast(base, id);
-  if (pose === undefined) return d;
-  let changed = false;
-  const steps = d.steps.map((s, k) => {
-    if (k <= i) return s;
-    const cur = poseOfCast(s, id);
-    if (cur !== undefined && posesEqual(cur, pose)) return s;
-    changed = true;
-    if (isId(id, 'ch')) return { ...s, chairs: withMap(s.chairs, id, pose as StoredChairPose) };
-    if (isId(id, 'bl')) return { ...s, balls: withMap(s.balls, id, pose as Vec2) };
-    return { ...s, cones: withMap(s.cones, id, pose as Vec2) };
-  });
-  return changed ? { ...d, steps } : d;
 }
 
 /** 직전 스텝 복제. 화살표·메모 id 는 그대로 보존한다(§3.5 스코프 표).

@@ -13,7 +13,6 @@ import {
   moveStep,
   omitKey,
   placeChair,
-  propagateForward,
   removeArrow,
   removeFromStepOnward,
   removeFromThisStepOnly,
@@ -158,7 +157,7 @@ describe('omitKey', () => {
   });
 });
 
-describe('removeFromStepOnward / removeFromThisStepOnly / propagateForward', () => {
+describe('removeFromStepOnward / removeFromThisStepOnly', () => {
   it('removeFromStepOnward 는 이 스텝부터 끝까지 제거한다', () => {
     let d = freshDrill();
     d = addStepAfter(d, 0);
@@ -175,16 +174,6 @@ describe('removeFromStepOnward / removeFromThisStepOnly / propagateForward', () 
     const d2 = removeFromThisStepOnly(d, 0, id);
     expect(d2.steps[0]!.chairs[id]).toBeUndefined();
     expect(d2.steps[1]!.chairs[id]).toBeDefined();
-  });
-
-  it('propagateForward 는 이후 스텝에 현재 pose 를 고정 전파한다', () => {
-    let d = freshDrill();
-    d = addStepAfter(d, 0);
-    const id = d.cast.chairs[0]!.id;
-    const pose = { x: 111, y: 222, angleDeg: 33 };
-    d = setPose(d, 0, id, pose);
-    const d2 = propagateForward(d, 0, id);
-    expect(d2.steps[1]!.chairs[id]).toEqual(pose);
   });
 });
 

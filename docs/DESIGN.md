@@ -901,7 +901,7 @@ export function setPose(d: Drill, i: number, id: ConeId,  p: Vec2): Drill;
 export function removeFromStepOnward(d: Drill, i: number, id: CastId): Drill;   // 기본 '삭제'
 export function removeFromThisStepOnly(d: Drill, i: number, id: CastId): Drill;
 export function removeEverywhere(d: Drill, id: CastId): Drill;                  // cast + 전 스텝
-export function propagateForward(d: Drill, i: number, id: CastId): Drill;
+// propagateForward 는 2026-08-20 폐기(로드맵 §0.5 결정) — 구현됐으나 부를 UI 가 끝내 없었다.
 export function addStepAfter(d: Drill, i: number): Drill;      // 직전 스텝 복제, 이름 '스텝 N'
 export function duplicateStep(d: Drill, i: number): Drill;
 export function deleteStep(d: Drill, i: number): Drill;        // steps.length === 1 이면 no-op
@@ -1327,8 +1327,8 @@ export function isStorageStale(): boolean;
 export function onStorageStale(cb: () => void): void;
 export function beginWrite(): void;   /** in-flight 카운터 ++ */
 export function endWrite(): void;     /** -- */
-export async function ensurePersistence(): Promise<'persisted'|'best-effort'|'unavailable'>;
-export async function storagePressure(): Promise<number | null>;   // usage/quota, 0.8 초과면 배너
+// ensurePersistence·storagePressure 는 2026-08-20 폐기(로드맵 §0.5 결정) — 배너 소비처가
+// 끝내 안 생겨 "설계는 있고 안 쓰는" 상태로 남느니 걷어냈다.
 export function toStorageError(e: unknown, fallback: StorageErrorCode): StorageError;
 ```
 
@@ -1377,9 +1377,9 @@ blocking() {
 `terminated()` 는 `dbPromise = null`. 그리고 `dbPromise = openDB(...).catch(e => { dbPromise = null; throw e; })`
 로 실패를 캐싱하지 않는다.
 
-**영속화·쿼터**: 앱 부팅과 첫 저장 성공 시 `ensurePersistence()`. `best-effort` 면 대문에
-"저장소가 보호되지 않았습니다 — 주기적으로 내보내기" 상시 배너. 서버 백업이 없으므로
-origin 축출은 전량 소실이다.
+**영속화·쿼터**: 2026-08-20 폐기(로드맵 §0.5 결정, storage/db.ts 의 `ensurePersistence`·
+`storagePressure` 를 지웠다) — 옛 기록: 앱 부팅과 첫 저장 성공 시 `ensurePersistence()`.
+`best-effort` 면 대문에 "저장소가 보호되지 않았습니다 — 주기적으로 내보내기" 상시 배너.
 
 **모든 쓰기는 `await tx.done` 을 한다.** `put()` 의 Promise 만 await 하면 커밋 단계에서 터지는
 `QuotaExceededError` 를 놓쳐 "저장 성공처럼 보이는데 드릴이 없는" 상태가 된다.
@@ -1549,7 +1549,7 @@ export interface Preferences {
   a11y: { largeTargets: boolean; uiScale: 1 | 1.15 | 1.3;
           reduceMotion: 'system' | 'always';
           singleKeyShortcuts: 'on' | 'modifier' | 'off' };
-  hints: { iosPwa: boolean; degradedStorage: boolean };
+  hints: { iosPwa: boolean };  // degradedStorage 는 2026-08-20 폐기(로드맵 §0.5 결정)
   physics: PhysicsOverride;
 }
 export const makeDefaultPrefs: () => Preferences;   // 상수 대신 팩토리 (공유 객체 유출 방지)

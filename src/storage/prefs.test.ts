@@ -269,7 +269,7 @@ const makeV1Doc = (): Record<string, unknown> => ({
   defaultCourtMode: 'half',
   present: { autoFullscreen: true, wakeLock: false },
   a11y: { largeTargets: true, uiScale: 1.3, reduceMotion: 'always', singleKeyShortcuts: 'off', sound: false },
-  hints: { iosPwa: false, degradedStorage: false },
+  hints: { iosPwa: false },
   physics: { linearKmh: 12, zones: { sTowRearMax: 0.16 } },
 });
 
@@ -434,7 +434,7 @@ describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 �
     expect(p.a11y.sound).toBe(false);
   });
   it('hints 가 살아 돌아온다', () => {
-    expect(loadPrefs().hints).toEqual({ iosPwa: false, degradedStorage: false });
+    expect(loadPrefs().hints).toEqual({ iosPwa: false });
   });
   it('physics override 가 살아 돌아온다', () => {
     expect(loadPrefs().physics).toEqual({ linearKmh: 12, zones: { sTowRearMax: 0.16 } });

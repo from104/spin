@@ -96,30 +96,6 @@ export function getDB(): Promise<IDBPDatabase<SpinDB>> {
   return dbPromise;
 }
 
-/** 앱 부팅과 첫 저장 성공 시 호출. best-effort 면 상시 배너("저장소가 보호되지 않았습니다")를 띄운다 —
- *  서버 백업이 없어 origin 축출은 전량 소실이기 때문. */
-export async function ensurePersistence(): Promise<'persisted' | 'best-effort' | 'unavailable'> {
-  if (typeof navigator === 'undefined' || !navigator.storage?.persist) return 'unavailable';
-  try {
-    if (await navigator.storage.persisted?.()) return 'persisted';
-    return (await navigator.storage.persist()) ? 'persisted' : 'best-effort';
-  } catch {
-    return 'unavailable';
-  }
-}
-
-/** usage/quota 비율. 0.8 초과면 호출부에서 배너를 띄운다. */
-export async function storagePressure(): Promise<number | null> {
-  if (typeof navigator === 'undefined' || !navigator.storage?.estimate) return null;
-  try {
-    const { usage, quota } = await navigator.storage.estimate();
-    if (!quota) return null;
-    return (usage ?? 0) / quota;
-  } catch {
-    return null;
-  }
-}
-
 export function toStorageError(e: unknown, fallback: StorageErrorCode): StorageError {
   if (e instanceof StorageError) return e;
   // DOMException(jsdom 포함 일부 구현) 은 instanceof Error 가 아닐 수 있어(실측 확인) 구조적으로
