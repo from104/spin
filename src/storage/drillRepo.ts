@@ -10,7 +10,7 @@ import { buildSummary, SUMMARY_BUILD, type DrillSummary } from '../model/summary
 import { createDrill as modelCreateDrill } from '../model/defaults.ts';
 import { newId } from '../core/ids.ts';
 import type { DrillId } from '../core/ids.ts';
-import { postSyncEvent, tombstoneRecord } from './syncMeta.ts';
+import { postSyncEvent, tombstoneRecord, tombstoneKey } from './syncMeta.ts';
 
 export interface DrillQuery {
   /** v8 분류 유형 필터(DRILL_TYPES 키). 옛 category 필터의 후계다. */
@@ -38,6 +38,10 @@ export interface DrillRepo {
   getRawDrill(id: DrillId): Promise<unknown>; // 손상본 원본 JSON 내보내기용
   getDrills(ids: DrillId[]): Promise<Map<DrillId, Drill>>;
   putDrill(d: Drill, opts?: { touch?: boolean; expectedUpdatedAt?: number }): Promise<Drill>;
+  /** 삭제 [실행 취소] 전용(§E, PLAN-DELETE-SAFETY.md) — put 과 톰스톤 삭제를 한 트랜잭션에
+   *  묶는다. putDrill({touch:false}) 로는 안 된다: 톰스톤이 남으면 되살린 드릴도 다음 동기화가
+   *  다시 지운다(sync/plan.ts 의 localDeleted 판정이 deletedAt > updatedAt 을 그대로 참으로 읽는다). */
+  restoreDrill(d: Drill): Promise<Drill>;
   createDrill(init: CreateDrillInit): Promise<Drill>;
   duplicateDrill(id: DrillId, opts?: { title?: string }): Promise<Drill>;
   deleteDrill(id: DrillId): Promise<void>;
@@ -228,6 +232,28 @@ export const idbDrillRepo: DrillRepo = {
     return map;
   },
   putDrill: idbPutDrill,
+  async restoreDrill(d) {
+    assertWritable(d);
+    const summary = buildSummary(d);
+    const db = await getDB().catch((e) => {
+      throw toStorageError(e, 'E_DB_UNAVAILABLE');
+    });
+    beginWrite();
+    try {
+      // deleteDrill 과 대칭 — put 두 스토어 + 톰스톤 삭제를 같은 tx 에 원자적으로 묶는다.
+      const tx = db.transaction(['drills', 'drillSummaries', 'meta'], 'readwrite');
+      tx.objectStore('drills').put(d);
+      tx.objectStore('drillSummaries').put(summary);
+      tx.objectStore('meta').delete(tombstoneKey('drill', d.id));
+      await tx.done;
+    } catch (e) {
+      throw toStorageError(e, 'E_DB_UNAVAILABLE');
+    } finally {
+      endWrite();
+    }
+    postSyncEvent({ type: 'drill', id: d.id, op: 'put', updatedAt: d.updatedAt });
+    return d;
+  },
   async createDrill(init) {
     const d = modelCreateDrill(init);
     return idbPutDrill(d, { touch: false });
@@ -351,6 +377,11 @@ function createMemoryDrillRepo(): DrillRepo {
       const next: Drill = opts?.touch === false ? d : { ...d, updatedAt: Date.now() };
       assertWritable(next);
       return write(next);
+    },
+    async restoreDrill(d) {
+      // 메모리 폴백에는 톰스톤이 없다(sync 미지원 환경) — put 과 동치.
+      assertWritable(d);
+      return write(d);
     },
     async createDrill(init) {
       return write(modelCreateDrill(init));

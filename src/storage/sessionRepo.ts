@@ -10,7 +10,7 @@ import { refDrillIds, refreshRefs } from '../model/refs.ts';
 import type { DrillSummary } from '../model/summary.ts';
 import { newId } from '../core/ids.ts';
 import type { DrillId, SessionId } from '../core/ids.ts';
-import { postSyncEvent, tombstoneRecord } from './syncMeta.ts';
+import { postSyncEvent, tombstoneRecord, tombstoneKey } from './syncMeta.ts';
 
 type SummaryCacheSrc = Pick<DrillSummary, 'title' | 'durationMin' | 'drillType'>;
 
@@ -149,6 +149,30 @@ export async function deleteSession(id: SessionId): Promise<void> {
     endWrite();
   }
   postSyncEvent({ type: 'session', id, op: 'delete', deletedAt });
+}
+
+/** 삭제 [실행 취소] 전용(§E, PLAN-DELETE-SAFETY.md) — drillRepo.restoreDrill 과 대칭. put 과
+ *  톰스톤 삭제를 한 트랜잭션에 묶는다 — 안 묶으면 되살린 세션도 다음 동기화가 다시 지운다.
+ *  ⚠️ putSession 을 그대로 못 부른다(메타 스토어를 같은 트랜잭션에 못 낀다) — 대신
+ *  drillIds 재계산(위 머리말 불변식)만 putSession 과 동일하게 인라인한다. */
+export async function restoreSession(s: TrainingSession): Promise<TrainingSession> {
+  const next: TrainingSession = { ...s, drillIds: refDrillIds(flattenSessionItems(s)) };
+  const db = await getDB().catch((e) => {
+    throw toStorageError(e, 'E_DB_UNAVAILABLE');
+  });
+  beginWrite();
+  try {
+    const tx = db.transaction(['sessions', 'meta'], 'readwrite');
+    tx.objectStore('sessions').put(next);
+    tx.objectStore('meta').delete(tombstoneKey('session', s.id));
+    await tx.done;
+  } catch (e) {
+    throw toStorageError(e, 'E_DB_UNAVAILABLE');
+  } finally {
+    endWrite();
+  }
+  postSyncEvent({ type: 'session', id: next.id, op: 'put', updatedAt: next.updatedAt });
+  return next;
 }
 
 export async function addDrillToSession(id: SessionId, drillId: DrillId): Promise<TrainingSession> {

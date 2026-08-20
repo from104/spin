@@ -92,8 +92,10 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
         ? {
             label: t('library.undoAction'),
             onAction: async () => {
+              // putDrill({touch:false}) 이 아니라 restoreDrill — 톰스톤도 같이 지워야 다음
+              // 동기화가 되살린 드릴을 다시 안 지운다(§E, PLAN-DELETE-SAFETY.md).
               const { repo: r2 } = await resolveDrillRepo();
-              await r2.putDrill(full, { touch: false });
+              await r2.restoreDrill(full);
               await refresh();
             },
           }

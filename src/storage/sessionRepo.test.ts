@@ -1,10 +1,21 @@
 // §10.6 sessionRepo. §4.5 — putSession 이 유일한 쓰기 경로이고 drillIds 를 무조건 재계산한다.
 import { describe, it, expect } from 'vitest';
-import { createSession, putSession, addDrillToSession, reorderSessionItems, listSessions, getSession, deleteSession, upcomingSession } from './sessionRepo.ts';
+import {
+  createSession,
+  putSession,
+  addDrillToSession,
+  reorderSessionItems,
+  listSessions,
+  getSession,
+  deleteSession,
+  restoreSession,
+  upcomingSession,
+} from './sessionRepo.ts';
 import { idbDrillRepo } from './drillRepo.ts';
 import { newId } from '../core/ids.ts';
 import { addSessionItem, flattenSessionItems } from '../model/session.ts';
 import type { TrainingSession, SessionItem } from '../model/session.ts';
+import { listTombstones } from './syncMeta.ts';
 
 async function makeDrill(title: string) {
   return idbDrillRepo.createDrill({ courtMode: 'full', title });
@@ -98,6 +109,35 @@ describe('deleteSession', () => {
     const s = await createSession({ title: '삭제될 세션' });
     await deleteSession(s.id);
     expect(await getSession(s.id)).toBeUndefined();
+  });
+});
+
+describe('restoreSession (§E, PLAN-DELETE-SAFETY.md)', () => {
+  it('삭제 톰스톤을 함께 지운다 — 안 지우면 다음 동기화가 되살린 세션을 다시 지운다(회귀 방지)', async () => {
+    const s = await createSession({ title: '되돌릴 세션' });
+    await deleteSession(s.id);
+
+    let tombs = await listTombstones();
+    expect(tombs.some((t) => t.type === 'session' && t.id === s.id)).toBe(true);
+
+    await restoreSession(s);
+
+    tombs = await listTombstones();
+    expect(tombs.some((t) => t.type === 'session' && t.id === s.id)).toBe(false);
+    const restored = await getSession(s.id);
+    expect(restored?.session.title).toBe('되돌릴 세션');
+  });
+
+  it('drillIds 를 putSession 과 동일하게 재계산한다(참조 인덱스 불변식)', async () => {
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '편성 드릴' });
+    const s0 = await createSession({ title: '편성된 세션' });
+    const withItem = await addDrillToSession(s0.id, d.id);
+    await deleteSession(withItem.id);
+
+    await restoreSession(withItem);
+
+    const restored = await getSession(withItem.id);
+    expect(restored?.session.drillIds).toContain(d.id);
   });
 });
 

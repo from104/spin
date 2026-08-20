@@ -16,6 +16,7 @@ import type { Drill } from '../model/drill.ts';
 import { newId } from '../core/ids.ts';
 import { createSession } from './sessionRepo.ts';
 import { flattenSessionItems } from '../model/session.ts';
+import { listTombstones } from './syncMeta.ts';
 
 const baseInit: CreateDrillInit = { courtMode: 'full', title: '테스트 드릴' };
 
@@ -86,6 +87,40 @@ describe('idbDrillRepo.deleteDrill', () => {
     const storedSession = await db.get('sessions', session.id);
     // 세션 항목 자체는 그대로 남는다(캐스케이드 없음) — missing 파생은 resolveSession 몫.
     expect(flattenSessionItems(storedSession!).some((it) => it.drillId === d.id)).toBe(true);
+  });
+});
+
+describe('idbDrillRepo.restoreDrill (§E, PLAN-DELETE-SAFETY.md)', () => {
+  it('삭제 톰스톤을 함께 지운다 — putDrill({touch:false}) 만으로는 안 되던 것(회귀 방지)', async () => {
+    const d = await idbDrillRepo.createDrill(baseInit);
+    await idbDrillRepo.deleteDrill(d.id);
+
+    let tombs = await listTombstones();
+    expect(tombs.some((t) => t.type === 'drill' && t.id === d.id)).toBe(true); // 삭제 직후엔 있다
+
+    await idbDrillRepo.restoreDrill(d);
+
+    tombs = await listTombstones();
+    // 여기가 회귀 지점이었다 — 지워지지 않으면 다음 동기화가 되살린 드릴을 다시 지운다
+    // (sync/plan.ts 의 localDeleted 판정이 deletedAt > updatedAt 을 그대로 참으로 읽는다).
+    expect(tombs.some((t) => t.type === 'drill' && t.id === d.id)).toBe(false);
+
+    const db = await getDB();
+    expect((await db.get('drills', d.id))?.id).toBe(d.id);
+    expect((await db.get('drillSummaries', d.id))?.id).toBe(d.id);
+  });
+
+  it('드릴과 요약을 원래 내용 그대로 되살린다', async () => {
+    const d = await idbDrillRepo.createDrill(baseInit);
+    await idbDrillRepo.deleteDrill(d.id);
+
+    const restored = await idbDrillRepo.restoreDrill(d);
+    expect(restored.title).toBe(d.title);
+    expect(restored.updatedAt).toBe(d.updatedAt); // 복원은 수정이 아니다 — 시각을 안 민다
+
+    const db = await getDB();
+    const summary = await db.get('drillSummaries', d.id);
+    expect(summary?.title).toBe(d.title);
   });
 });
 
