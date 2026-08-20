@@ -606,13 +606,14 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   // 원위치]가 인스펙터 시트 안에 있었다 — 즉 **같은 조작이 화면마다 다른 자리**였고, 두 화면을
   // 오가는 코치의 공간 기억이 매번 뒤집혔다(§3 불변식 1 이 지키려던 바로 그것).
   //
-  // 다른 점은 딱 셋이다: [비우기]가 없고(FUNCTION_BAR_ITEMS_DRILL), [코트]가 언제나 잠겨
-  // 있으며(드릴의 코트는 불변이다 — 옛 헤더 세그먼트의 계약을 그대로 물려받는다), [저장]이
-  // '드릴로 저장' 이 아니라 '자동저장 지금 밀어넣기' 다.
+  // 다른 점은 둘이다(2026-08-20, 옛 기록: 셋이었다 — [저장]이 여기 있었다): [비우기]가 없고
+  // (FUNCTION_BAR_ITEMS_DRILL), [코트]가 언제나 잠겨 있다(드릴의 코트는 불변이다 — 옛 헤더
+  // 세그먼트의 계약을 그대로 물려받는다). [저장]은 자동저장이 이미 도는 마당에 "지금 밀어넣기"
+  // 뿐인 칸이 뜻이 없어 드릴 편집에서는 아예 안 그린다(FunctionBar.tsx 의 `isBoard` 게이트) —
+  // `onSaveAsDrill` prop 은 여전히 넘기지만 board 일 때만 실제로 불린다.
   const functionBar = (
     <FunctionBar
       mode={board ? 'board' : 'drill'}
-      saveStatus={isBoard ? undefined : autosave.status === 'saving' ? 'saving' : 'idle'}
       onZoomIn={() => stageRef.current?.zoomBy(INTERACT.zoomStep)}
       onZoomOut={() => stageRef.current?.zoomBy(1 / INTERACT.zoomStep)}
       onZoomReset={() => stageRef.current?.resetZoom()}
@@ -650,7 +651,9 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
         setHelpOpen(true);
       }}
       helpButtonRef={helpButtonRef}
-      onSaveAsDrill={() => (board ? board.onSaveAsDrill() : void autosave.flush())}
+      // 드릴 편집에서는 FunctionBar 가 [저장] 칸 자체를 안 그리므로 이 콜백이 안 불린다 —
+      // board 일 때만 실제로 쓰인다(위 머리말).
+      onSaveAsDrill={() => board?.onSaveAsDrill()}
     />
   );
 

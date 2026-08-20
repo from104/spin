@@ -27,22 +27,35 @@
  *  을 통해 **코트 상자 폭**을 틀리게 만들고, 그 오차가 판 회전 판정을 뒤집을 수 있다.
  *  그래서 FunctionBar.items.test.tsx 가 이제 화면의 칸을 실제로 세어 이 값과 대조한다. */
 export const FUNCTION_BAR_ITEMS = 13;
-/** 드릴 편집의 칸 수 — 전술판에서 **[비우기] 하나가 빠진다.**
+/** 드릴 편집의 칸 수 — 전술판에서 **[비우기]·[저장] 둘이 빠진다.**
  *
- *  왜 빠지는가: 전술판의 [코트 비우기]는 *"되돌릴 수 없습니다"* 인 판 초기화다. 드릴에는
- *  되돌리기가 있고 스텝이라는 시간축이 있어 "비운다" 가 무엇을 뜻하는지(이 스텝만? 이후 전부?)
- *  가 한 가지로 정해지지 않는다. 뜻이 둘인 파괴적 조작을 한 칸에 욱여넣지 않는다 —
+ *  [비우기]가 빠지는 이유: 전술판의 [코트 비우기]는 *"되돌릴 수 없습니다"* 인 판 초기화다.
+ *  드릴에는 되돌리기가 있고 스텝이라는 시간축이 있어 "비운다" 가 무엇을 뜻하는지(이 스텝만?
+ *  이후 전부?) 가 한 가지로 정해지지 않는다. 뜻이 둘인 파괴적 조작을 한 칸에 욱여넣지 않는다 —
  *  스텝 단위로 지우는 길은 개체 메뉴와 선택 후 Delete 가 이미 갖고 있다.
+ *
+ *  [저장]이 빠지는 이유(2026-08-20, 옛 기록: 여기는 12 였다) — 드릴 편집의 [저장] 칸은
+ *  "드릴로 저장"이 아니라 "자동저장을 지금 밀어넣기"였다. 자동저장이 이미 돌고 있는 마당에
+ *  누를 이유가 없는 칸이라 기현님이 지워 달라 하셨다 — 단축키(Ctrl+S 상당, useEditorKeyboard
+ *  onSave)는 그대로 있으니 "지금 바로" 가 필요하면 그 길로 간다. FunctionBar.tsx 는 이제
+ *  [저장] 칸 자체를 `isBoard` 일 때만 그린다.
  *
  *  ⚠️ **이 값이 전술판과 다르다는 사실 자체가 예산에 실려야 한다**(아래 `functionBarItemsFor`).
  *  한 숫자로 뭉개면 드릴 편집에서 열 수 계산이 한 칸만큼 틀리고, 그 오차가 코트 상자 폭을
  *  거쳐 판 회전 판정을 뒤집을 수 있다. */
-export const FUNCTION_BAR_ITEMS_DRILL = 12;
+export const FUNCTION_BAR_ITEMS_DRILL = 11;
 
 /** 이 화면의 칸 수. 예산(chromeBudget)과 화면(FunctionBar)이 **같은 함수**를 봐야 한다. */
 export const functionBarItemsFor = (board: boolean): number => (board ? FUNCTION_BAR_ITEMS : FUNCTION_BAR_ITEMS_DRILL);
-/** 구역을 가르는 선 — 줌 | 이력 | 판 | 앱 | 저장. */
+/** 구역을 가르는 선 — 줌 | 이력 | 판 | 앱 | 저장(전술판만). */
 export const FUNCTION_BAR_DIVIDERS = 4;
+/** 드릴 편집의 구분선 수 — [저장] 구역 자체가 없으니 그 앞 선도 함께 없다(2026-08-20).
+ *  줌 | 이력 | 판 | 앱, 넷을 가르는 선 셋. */
+export const FUNCTION_BAR_DIVIDERS_DRILL = 3;
+/** 이 화면의 구분선 수 — `functionBarItemsFor` 와 짝이다. 예산이 칸 수만 board 로 가르고
+ *  구분선은 그대로 4를 쓰면, 드릴 편집에서 1열 요구 높이가 실제 화면(구분선 3)보다 9px
+ *  (DIVIDER_H) + 1px(GAP) 크게 계산돼 회전·상자 폭 판정이 조용히 틀어진다. */
+export const functionBarDividersFor = (board: boolean): number => (board ? FUNCTION_BAR_DIVIDERS : FUNCTION_BAR_DIVIDERS_DRILL);
 
 export const FUNCTION_BAR_GAP = 1;
 export const FUNCTION_BAR_PAD_Y = 10;
@@ -54,13 +67,15 @@ export const FUNCTION_BAR_DIVIDER_H = 9;
  *  즉 칸 높이는 곧 `--hit` 다 — 이름 줄을 더해도 칸이 안 커진다는 것이 이 식의 요점이다. */
 export const functionBarItemHeightPx = (hitPx: number): number => hitPx;
 
-/** 1열일 때 바가 요구하는 세로. 이 값이 `<main>` 높이를 넘으면 화면은 2열로 흐른다. */
-export function functionBarContentHeightPx(hitPx: number, items: number = FUNCTION_BAR_ITEMS): number {
+/** 1열일 때 바가 요구하는 세로. 이 값이 `<main>` 높이를 넘으면 화면은 2열로 흐른다.
+ *  `dividers` 는 board 는 4, 드릴은 3 — 기본값은 board(호출부 대부분이 board 예산이던 옛
+ *  시절의 관성이고, 드릴을 재는 곳(chromeBudget)은 반드시 명시로 넘긴다). */
+export function functionBarContentHeightPx(hitPx: number, items: number = FUNCTION_BAR_ITEMS, dividers: number = FUNCTION_BAR_DIVIDERS): number {
   return (
     FUNCTION_BAR_PAD_Y * 2 +
     items * functionBarItemHeightPx(hitPx) +
-    (items + FUNCTION_BAR_DIVIDERS - 1) * FUNCTION_BAR_GAP +
-    FUNCTION_BAR_DIVIDERS * FUNCTION_BAR_DIVIDER_H
+    (items + dividers - 1) * FUNCTION_BAR_GAP +
+    dividers * FUNCTION_BAR_DIVIDER_H
   );
 }
 
@@ -70,8 +85,8 @@ export function functionBarWidthPx(hitPx: number, cols = 1): number {
 }
 
 /** 높이 `availPx` 에서 실제로 몇 열이 되는가. 화면의 `flexWrap` 이 하는 계산과 같은 식이다. */
-export function functionBarColumnsAt(hitPx: number, availPx: number, items: number = FUNCTION_BAR_ITEMS): number {
-  const need = functionBarContentHeightPx(hitPx, items);
+export function functionBarColumnsAt(hitPx: number, availPx: number, items: number = FUNCTION_BAR_ITEMS, dividers: number = FUNCTION_BAR_DIVIDERS): number {
+  const need = functionBarContentHeightPx(hitPx, items, dividers);
   if (availPx <= 0) return 1;
   return Math.max(1, Math.ceil(need / Math.max(1, availPx)));
 }

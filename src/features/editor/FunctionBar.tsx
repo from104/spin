@@ -226,8 +226,6 @@ export interface FunctionBarProps {
    *  `FUNCTION_BAR_ITEMS_DRILL`). 나머지 열둘은 자리·순서·이름이 **같다**: 두 화면을 오가는
    *  코치가 같은 자리에서 같은 것을 누르는 것이 이 재설계의 전부다. */
   mode?: 'board' | 'drill';
-  /** 드릴 편집의 자동저장 상태 — [저장] 칸이 이것을 말한다. 전술판에는 자동저장이 없다. */
-  saveStatus?: 'idle' | 'saving' | 'saved';
   /** [코트]가 잠겼는가에 대한 설명. 드릴은 코트가 불변이라 언제나 잠겨 있다. */
   courtSizeLocked?: boolean;
   /** 도움말이 닫힐 때 돌아올 곳 — EditorWorkspace 가 helpTriggerRef 에 꽂는다.
@@ -264,7 +262,6 @@ export function FunctionBar({
   onSaveAsDrill,
   helpButtonRef,
   mode = 'board',
-  saveStatus,
 }: FunctionBarProps) {
   const isBoard = mode === 'board';
   const [courtOpen, setCourtOpen] = useState(false);
@@ -475,20 +472,29 @@ export function FunctionBar({
         <IconHelp />
       </BarItem>
 
-      <div aria-hidden style={DIVIDER} />
+      {isBoard && (
+        <>
+          <div aria-hidden style={DIVIDER} />
 
-      {/* 주 액션 — 옛 헤더의 [드릴로 저장]. 유일하게 **액센트로 칠한** 칸이고 기둥 맨 끝이다:
-          맨 위는 줌이 이미 자리를 잡았고(손이 늘 가 있다), 새 칸을 위에 끼우면 아래 열한 칸의
-          좌표가 통째로 밀린다(§3 불변식 1). 끝에 붙이면 아무것도 안 움직인다. */}
-      <BarItem
-        label={t('editor.functionBar.save.label')}
-        name={isBoard ? t('editor.functionBar.save.nameDrill') : saveStatus === 'saving' ? t('editor.functionBar.save.nameSaving') : t('editor.functionBar.save.nameIdle')}
-        title={isBoard ? t('editor.functionBar.save.titleBoard') : t('editor.functionBar.save.titleDrill')}
-        onClick={onSaveAsDrill}
-        accent
-      >
-        <IconSaveDrill />
-      </BarItem>
+          {/* 주 액션 — 옛 헤더의 [드릴로 저장]. 유일하게 **액센트로 칠한** 칸이고 기둥 맨
+              끝이다: 맨 위는 줌이 이미 자리를 잡았고(손이 늘 가 있다), 새 칸을 위에 끼우면
+              아래 칸들의 좌표가 통째로 밀린다(§3 불변식 1). 끝에 붙이면 아무것도 안 움직인다.
+              ⚠️ **드릴 편집에는 이 칸이 없다**(2026-08-20 기현님 지시, 옛 기록: 여기 있었다) —
+              드릴 쪽 [저장]은 "드릴로 저장"이 아니라 "자동저장을 지금 밀어넣기"였는데,
+              자동저장이 이미 돌고 있어 누를 이유가 없는 칸이었다. 단축키(useEditorKeyboard
+              onSave)는 그대로 있다 — "지금 바로"가 필요하면 그 길로 간다. 칸·구분선 수 근거는
+              functionBarMetrics.ts 의 FUNCTION_BAR_ITEMS_DRILL 머리말. */}
+          <BarItem
+            label={t('editor.functionBar.save.label')}
+            name={t('editor.functionBar.save.nameDrill')}
+            title={t('editor.functionBar.save.titleBoard')}
+            onClick={onSaveAsDrill}
+            accent
+          >
+            <IconSaveDrill />
+          </BarItem>
+        </>
+      )}
 
       {/* ── 코트 팝오버 — 형태 3 + 크기 3 ───────────────────────────────────────────── */}
       <Modal

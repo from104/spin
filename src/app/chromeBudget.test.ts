@@ -129,7 +129,10 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
     expect(before).toEqual({ w: 501, h: 404 });
     // h 472 → 491(2026-08-18 하단 철거: 하단 바 64 → 노트 접힘 줄 45) → **475**(2026-08-20
     // 재생 묶음 공용화: 노트 행 45 → 61, −16).
-    expect(after).toEqual({ w: 807, h: 475 });
+    // w 807 → **851**(2026-08-20 [저장] 칸·구분선이 드릴 편집에서 빠지며 기능 바가 599px →
+    // 544px 요구로 줄어, 552px 가용 높이에서 2열 → 1열이 됐다 — 44px 를 코트가 돌려받는다).
+    // 세로가 병목이라(h 는 그대로) 축척·변화율·1m 열은 **전혀 안 바뀐다** — 실측으로 확인함.
+    expect(after).toEqual({ w: 851, h: 475 });
     expect(px(before)).toBeCloseTo(0.6073, 4);
     expect(px(after)).toBeCloseTo(0.9048, 4);
     expect((px(after) / px(before) - 1) * 100).toBeCloseTo(49.0, 1);
@@ -250,7 +253,8 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     const bare = courtBoxPx({ w: 1024, h: 600 }, narrowState);
     const explicit = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_NONE });
     expect(explicit).toEqual(bare);
-    expect(explicit).toEqual({ w: 807, h: 475 });
+    // 807 → 851(2026-08-20, 위 §5.3 1024×600 케이스와 같은 이유).
+    expect(explicit).toEqual({ w: 851, h: 475 });
   });
 
   it('아이패드 홈 인디케이터 20px 이 세로 예산에서 더 빠진다 — 0.9048 이 아니라 0.8667', () => {

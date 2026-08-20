@@ -17,7 +17,7 @@ import { rotForFit } from '../render/useStageMetrics.ts';
 import type { StageRot } from '../render/useStageMetrics.ts';
 import { inspectorChromeWidthPx } from '../features/editor/inspectorLayout.ts';
 import type { InspectorMode } from '../features/editor/inspectorLayout.ts';
-import { functionBarColumnsAt, functionBarItemsFor, functionBarWidthPx } from '../features/editor/functionBarMetrics.ts';
+import { functionBarColumnsAt, functionBarDividersFor, functionBarItemsFor, functionBarWidthPx } from '../features/editor/functionBarMetrics.ts';
 import { trayBandHeightPx } from '../features/editor/trayMetrics.ts';
 
 export type ChromeAxis = 'width' | 'height';
@@ -370,7 +370,11 @@ function functionBarExtraColsPx(viewport: Size, state: ChromeState): number {
   // 바는 `<main>` 의 직계라 헤더 아래 전부를 쓴다. 하단 바는 코트 컬럼 **안**이라 안 뺀다.
   const avail = viewport.h - chromeRowPx(CHROME_ROWS.find((r) => r.id === 'appHeader')!, state) - sa.top - sa.bottom;
   const hit = INTERACT.hitTargetCssPx;
-  return (functionBarColumnsAt(hit, avail, functionBarItemsFor(state.board ?? false)) - 1) * hit;
+  const board = state.board ?? false;
+  // ⚠️ items 만 board 로 가르고 dividers 는 4 로 고정하면, 드릴 편집(구분선 3)의 1열 요구
+  // 높이가 실제보다 10px(GAP 1 + DIVIDER_H 9) 크게 나와 열 수가 잘못 올림될 수 있다
+  // (2026-08-20, [저장] 칸·구분선이 드릴 편집에서 함께 빠지며 갈렸다).
+  return (functionBarColumnsAt(hit, avail, functionBarItemsFor(board), functionBarDividersFor(board)) - 1) * hit;
 }
 
 export interface CourtScale {

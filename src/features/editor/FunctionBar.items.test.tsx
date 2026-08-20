@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FunctionBar } from './FunctionBar.tsx';
-import { FUNCTION_BAR_DIVIDERS, FUNCTION_BAR_ITEMS } from './functionBarMetrics.ts';
+import { FUNCTION_BAR_DIVIDERS, FUNCTION_BAR_DIVIDERS_DRILL, FUNCTION_BAR_ITEMS, FUNCTION_BAR_ITEMS_DRILL } from './functionBarMetrics.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
 import { createDrill } from '../../model/defaults.ts';
@@ -20,12 +20,16 @@ import { DEFAULT_TEAMS } from '../../model/defaults.ts';
 
 const noop = () => {};
 
-function mount(courtMode: 'full' | 'half' | 'flat' = 'full', over: { onToggleDefense?: () => void } = {}) {
+function mount(
+  courtMode: 'full' | 'half' | 'flat' = 'full',
+  over: { onToggleDefense?: () => void; mode?: 'board' | 'drill' } = {},
+) {
   const drill = createDrill({ courtMode });
   return render(
     <SettingsProvider>
       <ToastProvider>
       <FunctionBar
+        mode={over.mode}
         onZoomIn={noop}
         onZoomOut={noop}
         onZoomReset={noop}
@@ -130,6 +134,35 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
       // 대조군: 하프 코트에는 버튼이 선다(플랫만 특별하다).
       await openCourt('half');
       expect(screen.getByRole('button', { name: /^진영 바꾸기/ })).toBeInTheDocument();
+    });
+  });
+
+  // ── 드릴 편집 — [저장] 칸이 없다(2026-08-20) ──────────────────────────────────────
+  // board 모드의 위 테스트들과 같은 이유로 존재한다: 상수만 바꾸고 화면을 안 재면 어긋나도
+  // 아무도 안 잡는다. FUNCTION_BAR_ITEMS_DRILL 을 12 → 11 로 낮추면서 구분선도 4 → 3 으로
+  // 같이 낮췄는데(FUNCTION_BAR_DIVIDERS_DRILL), 그 둘이 실제 화면과 맞는지는 이 블록이 유일한
+  // 대조다 — chromeBudget.test.ts 는 이 두 상수를 실측 픽셀로만 간접 검증한다.
+  describe('드릴 편집 — [저장] 칸·구분선이 board 보다 하나씩 적다', () => {
+    it('★ 칸 수가 FUNCTION_BAR_ITEMS_DRILL 과 같다', () => {
+      const { container } = mount('full', { mode: 'drill' });
+      expect(barItems(container), '드릴 편집 화면의 칸 수와 예산 상수가 어긋났다').toHaveLength(FUNCTION_BAR_ITEMS_DRILL);
+    });
+
+    it('구분선 수가 FUNCTION_BAR_DIVIDERS_DRILL 과 같다', () => {
+      const { container } = mount('full', { mode: 'drill' });
+      const nav = container.querySelector('nav[data-function-bar]')!;
+      const dividers = Array.from(nav.children).filter((el) => el.tagName === 'DIV' && el.getAttribute('aria-hidden') !== null);
+      expect(dividers).toHaveLength(FUNCTION_BAR_DIVIDERS_DRILL);
+    });
+
+    it('[저장] 칸이 없다 — 자동저장뿐이라 뜻이 없어진 칸이라 걷어냈다', () => {
+      const { container } = mount('full', { mode: 'drill' });
+      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(false);
+    });
+
+    it('대조군: board 모드에는 [저장] 칸이 있다', () => {
+      const { container } = mount('full', { mode: 'board' });
+      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(true);
     });
   });
 });
