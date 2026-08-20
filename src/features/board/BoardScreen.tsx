@@ -10,12 +10,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import { COURT_SIZE_LABELS, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
-import { createDrill } from '../../model/defaults.ts';
+import { createDrill, DEFAULT_TEAMS } from '../../model/defaults.ts';
 import { newId } from '../../core/ids.ts';
 import { loadBoard, saveBoard } from '../../storage/board.ts';
 import { readBoardSession, writeBoardSession } from './boardSession.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
-import type { Preferences } from '../../storage/prefs.ts';
 import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { useLibraryActions } from '../../store/library/LibraryProvider.tsx';
@@ -42,13 +41,20 @@ const PERSIST_DEBOUNCE_MS = 500;
  *  도 같은 날 폐기했다(포메이션은 코치 재량이지 앱이 기본값을 정할 대상이 아니다) —
  *  createDrill 이 formation 을 '1-2-1' 로 접고, [포메이션으로 채우기]·세트피스가 그
  *  drill.formation 을 쓴다. */
-function makeBoardDrill(prefs: Preferences, locale: Locale, mode?: CourtMode, size?: CourtSize): Drill {
+function makeBoardDrill(locale: Locale, mode?: CourtMode, size?: CourtSize): Drill {
   return createDrill({
     title: translate(locale, 'board.defaultTitle'),
     courtMode: mode ?? 'full',
     // §6.4 — 고른 코트 크기를 새 판에 물려 준다. 없으면 30×18(§9 ② 부기).
     courtSize: size,
-    teams: prefs.teams,
+    // 팀은 로케일 기본값으로 태어난다 — 설정의 팀 색상·기본 팀 저장값이 2026-08-21
+    // 폐기되면서(로드맵 '팀 색상 변경 기능 폐기') 새 판의 팀은 더 이상 어떤 저장값도 읽지
+    // 않는다. DEFAULT_TEAMS 가 색·GK색의 원본이고 라벨만 로케일로 갈아 끼운다. 팀 **이름**은
+    // 드릴 편집 ⓘ [드릴 정보] 시트에서 판마다 고친다(§0.5).
+    teams: {
+      home: { ...DEFAULT_TEAMS.home, label: translate(locale, 'team.defaultHomeLabel') },
+      away: { ...DEFAULT_TEAMS.away, label: translate(locale, 'team.defaultAwayLabel') },
+    },
     empty: true,
   });
 }
@@ -66,7 +72,7 @@ export function BoardScreen() {
     const session = readBoardSession();
     if (session) return { drill: session.state.present, pristine: session.pristineBase, init: session.state };
     const snap = loadBoard();
-    return snap ? { ...snap, init: undefined } : { drill: makeBoardDrill(prefs, locale), pristine: true, init: undefined };
+    return snap ? { ...snap, init: undefined } : { drill: makeBoardDrill(locale), pristine: true, init: undefined };
   });
 
   return (
@@ -83,7 +89,6 @@ export function BoardScreen() {
 function BoardHost({ bootPristine }: { bootPristine: boolean }) {
   const state = useEditorState();
   const dispatch = useEditorDispatch();
-  const { prefs } = useSettingsState();
   const toast = useToast();
   const nav = useAppNav();
   const { refresh } = useLibraryActions();
@@ -143,10 +148,10 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
 
   const swap = useCallback(
     (mode: CourtMode, size?: CourtSize) => {
-      dispatch({ type: 'BOARD_SET', drill: makeBoardDrill(prefs, locale, mode, size) });
+      dispatch({ type: 'BOARD_SET', drill: makeBoardDrill(locale, mode, size) });
       setPristineBase(true);
     },
-    [dispatch, prefs, locale],
+    [dispatch, locale],
   );
 
   const onCourtChange = useCallback(

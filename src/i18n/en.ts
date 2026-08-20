@@ -56,14 +56,6 @@ export const en: Record<DictKey, string> = {
   'settings.playback.loopTitle': 'Loop at the last step',
   'settings.playback.loopDesc': 'Jump back to the first step when it ends',
 
-  'settings.team.title': 'Team',
-  'settings.team.homeColorTitle': 'Our team color',
-  'settings.team.homeColorDesc': 'Applied to chips on the court',
-  'settings.team.awayColorTitle': 'Opponent color',
-  'settings.team.awayColorDesc': 'Applied to the opponent’s chips',
-  'settings.team.colorSwatchAriaLabel': 'Team color: {{name}}',
-  'settings.team.colorConflictToast': 'You can’t pick the same color as the opponent.',
-
   'settings.roster.sectionTitle': 'Roster',
   'settings.roster.sectionDesc': 'Your team roster of names and PF class (PF1 severe · PF2 mild). The participant checklist in session editing reads this roster.',
   'settings.roster.loading': 'Loading…',

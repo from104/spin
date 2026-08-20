@@ -19,13 +19,11 @@ import { Modal } from '../../ui/Modal.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
-import { TEAM_COLOR_CHOICES, TEAM_COLOR_NAMES, inkFor } from '../../core/colors.ts';
 import { RosterSection } from './RosterSection.tsx';
 import { SyncSection } from './SyncSection.tsx';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
-import { IconCheck } from '../../ui/icons.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
 import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
 import { downloadBlob } from '../../storage/files.ts';
@@ -36,15 +34,6 @@ import { storageErrorText } from '../../i18n/storageError.ts';
 import { LOCALE_NAMES, SUPPORTED_LOCALES } from '../../i18n/locale.ts';
 import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
 import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
-
-// ⚠️ 2026-08-14 7차 검증 — 여기 있던 로컬 `COLOR_NAMES` 를 지우고 `core/colors.ts` 의
-// `TEAM_COLOR_NAMES` 를 쓴다. 두 벌이던 시절의 함정: 로컬 맵은 `Record<string, string>` 이라
-// **어떤 색이 빠져도 tsc 가 아무 말을 안 했다.** 반면 `TEAM_COLOR_NAMES` 의 키는
-// `(typeof TEAM_COLOR_CHOICES)[number]` 유니언이라 선택지에 색을 하나 추가하면 tsc 가 이름을
-// **먼저 요구한다.** 즉 옛 구조에서는 색을 추가하는 순간 팔레트·개체 라벨은 새 이름을 얻는데
-// 설정 화면의 스와치만 조용히 `#c8102e` 를 낱글자로 읽는 상태가 됐다(값이 같아 눈으로는
-// 안 보이고, 5차·6차 라운드에서 두 번 보고됐지만 "내 소유가 아니라" 는 이유로 남아 있었다).
-// 되돌리면 SettingsScreen.colorName.test.tsx 의 '단일 출처' it 이 빨간불이 된다.
 
 export function SettingsScreen() {
   const { prefs, physics, persistFailed, setPrefs } = useSettings();
@@ -224,20 +213,15 @@ export function SettingsScreen() {
           </Row>
         </Section>
 
-        <Section title={t('settings.team.title')}>
-          <Row title={t('settings.team.homeColorTitle')} desc={t('settings.team.homeColorDesc')}>
-            <TeamColorSwatches ariaLabel={t('settings.team.homeColorTitle')} value={prefs.teams.home.color} otherValue={prefs.teams.away.color} onChange={(c) => setPrefs({ teams: { ...prefs.teams, home: { ...prefs.teams.home, color: c } } })} />
-          </Row>
-          <Row title={t('settings.team.awayColorTitle')} desc={t('settings.team.awayColorDesc')} borderBottom={false}>
-            <TeamColorSwatches ariaLabel={t('settings.team.awayColorTitle')} value={prefs.teams.away.color} otherValue={prefs.teams.home.color} onChange={(c) => setPrefs({ teams: { ...prefs.teams, away: { ...prefs.teams.away, color: c } } })} />
-          </Row>
-          {/* [기본 포메이션]·[기본 코트 모드] 행은 2026-08-21 폐기(설정 화면 감사 후속, 기현
-              지시). 포메이션은 코치 재량이라 앱이 기본값을 정하지 않는다 — [포메이션으로
-              채우기]·세트피스는 드릴에 새겨진 formation('1-2-1')을 쓴다. 시작 코트는 전술판
-              스냅샷이 스스로 기억해서, 그 설정은 기기당 최초 1회만 읽히고 그 뒤로는 바꿔도
-              화면이 안 따라오는 유령이었다(지금은 BoardScreen.makeBoardDrill 이 'full' 로
-              연다). 재발 가드는 settingsDescTruth.test.tsx. */}
-        </Section>
+        {/* [팀] 섹션은 2026-08-21 통째로 은퇴했다(설정 화면 감사 후속, 기현 지시). 순서대로:
+            ① [기본 포메이션] — 코치 재량이라 앱이 기본값을 정하지 않는다([포메이션으로
+            채우기]·세트피스는 드릴에 새겨진 formation('1-2-1')을 쓴다) ② [기본 코트 모드] —
+            전술판 스냅샷이 코트를 스스로 기억해 기기당 최초 1회만 읽히는 유령이었다(지금은
+            BoardScreen.makeBoardDrill 이 'full' 로 연다) ③ [팀 색상 2행] — drill.teams 가
+            생성 시점 스냅샷이라 "칩에 적용됩니다"가 이미 만든 판에는 닿지 않는 반쪽
+            진실이었고, 소급 대신 기능 제거로 닫았다(로드맵 '팀 색상 변경 기능 폐기').
+            새 판의 팀은 로케일 기본값으로 태어나고, 팀 **이름**은 드릴 편집 ⓘ [드릴 정보]
+            시트에서 판마다 고친다(§0.5). 재발 가드는 settingsDescTruth.test.tsx. */}
 
         <Section title={t('settings.roster.sectionTitle')} desc={t('settings.roster.sectionDesc')}>
           <RosterSection key={rosterReloadToken} />
@@ -621,95 +605,5 @@ function SliderRow({ label, desc, ariaLabel, value, min, max, step, format, onCh
   );
 }
 
-interface TeamColorSwatchesProps {
-  ariaLabel: string;
-  value: string;
-  otherValue: string;
-  onChange: (c: string) => void;
-}
-
-/** §7.7 "팀 색 스와치 role=radio aria-checked... 선택 표시는 링 + 안쪽 체크 마크" ·
- *  §7.8 "상대가 이미 쓰는 색은 aria-disabled 처리". */
-function TeamColorSwatches({ ariaLabel, value, otherValue, onChange }: TeamColorSwatchesProps) {
-  const refs = useRef<Array<HTMLButtonElement | null>>([]);
-  const toast = useToast();
-  const t = useT();
-  const locale = useLocale();
-  const n = TEAM_COLOR_CHOICES.length;
-
-  const moveFocus = (from: number, delta: number) => {
-    let i = from;
-    for (let step = 0; step < n; step++) {
-      i = ((i + delta) % n + n) % n;
-      if (TEAM_COLOR_CHOICES[i] !== otherValue) break;
-    }
-    refs.current[i]?.focus();
-  };
-
-  const pick = (c: string) => {
-    if (c === otherValue) {
-      toast.show(t('settings.team.colorConflictToast'));
-      return;
-    }
-    onChange(c);
-  };
-
-  return (
-    <div role="radiogroup" aria-label={ariaLabel} style={{ display: 'flex', gap: 7, flex: 'none' }}>
-      {TEAM_COLOR_CHOICES.map((c, i) => {
-        const active = c === value;
-        const disabled = c === otherValue;
-        return (
-          <button
-            key={c}
-            ref={(el) => {
-              refs.current[i] = el;
-            }}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-disabled={disabled || undefined}
-            aria-label={t('settings.team.colorSwatchAriaLabel', { name: TEAM_COLOR_NAMES[locale][c] })}
-            tabIndex={active ? 0 : -1}
-            onClick={() => pick(c)}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                e.preventDefault();
-                moveFocus(i, 1);
-              } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                e.preventDefault();
-                moveFocus(i, -1);
-              }
-            }}
-            style={{
-              flex: 'none',
-              width: 44,
-              height: 44,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: disabled ? 0.4 : 1,
-              cursor: disabled ? 'not-allowed' : 'pointer',
-            }}
-          >
-            <span
-              aria-hidden
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 9,
-                background: c,
-                border: active ? '2.5px solid var(--accent)' : '2.5px solid transparent',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {active && <IconCheck size={14} style={{ color: inkFor(c) }} />}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+/* TeamColorSwatches(§7.7 스와치 radiogroup · §7.8 상호 배제)는 2026-08-21 [팀] 섹션과 함께
+   은퇴했다 — 되살릴 일이 생기면 git 이력에서 꺼낸다. */

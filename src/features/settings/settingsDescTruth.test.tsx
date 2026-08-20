@@ -55,16 +55,20 @@ describe("C1 — '마지막 스텝에서 반복' 문구가 이제 사실이다",
   });
 });
 
-describe("C3 — '팀 색상' 문구가 스냅샷 의미를 숨기지 않는가 (보고만, 조치 아님)", () => {
-  it('⚠️ 알려진 반쪽 진실 — drill.teams 는 생성 시점 스냅샷이라 기존 판에는 안 닿는다', () => {
-    // 설정 행은 *"코트 위 칩에 적용됩니다"* 라고 적는데, 이미 만든 드릴·저장된 전술판은
-    // 자기 `teams` 스냅샷을 쓴다(drill.ts 의 teams 필드 · BoardScreen 이 loadBoard 로 복원).
-    // 즉 "**새로** 만드는 판에 적용됩니다" 가 정확하다. 문구를 고치는 것은 제품 판단이라
-    // 6차 검증은 **사실만 못박고** 7차 표에 행을 남긴다 — 이 it 이 그 사실의 기록이다.
+describe("C3 종결 — '팀 색상' 설정 폐기로 반쪽 진실이 닫혔다 (2026-08-21, 로드맵 '팀 색상 변경 기능 폐기' 이행)", () => {
+  it('설정의 팀 색상 행·문구·키가 전부 사라졌고, 드릴별 teams 스냅샷은 그대로 산다', () => {
+    // 옛 문구 *"코트 위 칩에 적용됩니다"* 는 drill.teams 가 생성 시점 스냅샷이라 이미 만든
+    // 판에는 안 닿는 반쪽 진실이었다. 소급(기존 판 갱신) 대신 **기능 제거**로 닫았다 —
+    // 위 C2 와 같은 결이다: 문구를 고치는 대신 문구가 설명하던 것 자체를 걷어냈다.
+    for (const k of ['title', 'homeColorTitle', 'homeColorDesc', 'awayColorTitle', 'awayColorDesc', 'colorSwatchAriaLabel', 'colorConflictToast']) {
+      expect(`settings.team.${k}` in ko).toBe(false);
+    }
+    expect(KO_TEXT.includes('코트 위 칩에 적용됩니다')).toBe(false);
+    // 새 판의 팀은 더 이상 어떤 저장값도 읽지 않는다 — 로케일 기본값으로 그 자리에서 만든다.
+    expect(BOARD.includes('prefs.teams')).toBe(false);
+    expect(BOARD).toContain("translate(locale, 'team.defaultHomeLabel')");
+    // 생존자 — 드릴별 teams 스냅샷(이름 편집은 §0.5 ⓘ 시트 담당)과 판 복원은 그대로다.
     expect(readFileSync('src/model/drill.ts', 'utf-8')).toContain('teams');
-    expect(BOARD).toContain('teams: prefs.teams');
     expect(BOARD).toContain('loadBoard()');
-    // 문구는 아직 옛 상태다(고치는 날 이 줄이 빨개져 이 주석을 다시 읽게 한다).
-    expect(ko['settings.team.homeColorDesc']).toBe('코트 위 칩에 적용됩니다');
   });
 });

@@ -1,5 +1,5 @@
 // §4.6/§6.8/§7.4 설정 화면. 각 컨트롤이 실제 SettingsProvider/localStorage 에 반영되는지,
-// 팀 색상 상호 배제(§7.8)와 물리 슬라이더·기본값 복원, 기기 이사 파일 읽기(§6.1b) 흐름을 확인한다.
+// 물리 슬라이더·기본값 복원과 기기 이사 파일 읽기(§6.1b) 흐름을 확인한다.
 // downloadBlob 은 <a> 클릭을 트리거한다 — jsdom 에서 no-op 이지만 URL.createObjectURL 은
 // jsdom 미구현이라 모킹한다(features/library/transfer.test.ts 와 동일 패턴).
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -147,28 +147,8 @@ describe('SettingsScreen — 시연 (minor #5, 이전에는 설정 화면에 노
   });
 });
 
-describe('SettingsScreen — 팀 색상', () => {
-  it('상대 팀이 쓰는 색은 aria-disabled 이고 클릭하면 토스트만 뜬다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    const homeGroup = screen.getByRole('radiogroup', { name: '우리 팀 색상' });
-    // 기본값: 우리 팀 빨강, 상대 팀 파랑 → 우리 팀 목록에서 파랑이 비활성.
-    const blueInHome = within(homeGroup).getByRole('radio', { name: '팀 색상: 파랑' });
-    expect(blueInHome).toHaveAttribute('aria-disabled', 'true');
-
-    await userEvent.setup().click(blueInHome);
-    expect(await screen.findByText('상대 팀과 같은 색은 선택할 수 없습니다.')).toBeInTheDocument();
-    expect(loadPrefs().teams.home.color).toBe('#d93a3a'); // 변경되지 않았다
-  });
-
-  it('사용 가능한 색을 고르면 즉시 반영된다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    const homeGroup = screen.getByRole('radiogroup', { name: '우리 팀 색상' });
-    const purple = within(homeGroup).getByRole('radio', { name: '팀 색상: 보라' });
-    await userEvent.setup().click(purple);
-    expect(purple).toHaveAttribute('aria-checked', 'true');
-    expect(loadPrefs().teams.home.color).toBe('#7c5cd6');
-  });
-});
+// 'SettingsScreen — 팀 색상' describe(§7.8 상호 배제 2건)는 2026-08-21 은퇴 — [팀] 섹션
+// 자체가 폐기됐다(settingsDescTruth.test.tsx 의 'C3 종결' 이 행·키·소비처의 부재를 못박는다).
 
 // 6.1(2026-08-13) — 물리 6종은 **닫힌 서랍**이 됐다. 아래 세 테스트(존 경계 · 기본값 복원 ·
 // 편집 속도 배수 설명)는 원래 펼쳐진 화면을 전제로 했는데, 단언을 지우지 않고 '서랍을 연다'

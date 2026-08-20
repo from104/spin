@@ -56,14 +56,6 @@ export const ja: Record<DictKey, string> = {
   'settings.playback.loopTitle': '最後のステップでループ',
   'settings.playback.loopDesc': '終わると最初のステップに戻ります',
 
-  'settings.team.title': 'チーム',
-  'settings.team.homeColorTitle': '自チームの色',
-  'settings.team.homeColorDesc': 'コート上のチップに適用されます',
-  'settings.team.awayColorTitle': '相手チームの色',
-  'settings.team.awayColorDesc': '相手チームのチップに適用されます',
-  'settings.team.colorSwatchAriaLabel': 'チームカラー: {{name}}',
-  'settings.team.colorConflictToast': '相手チームと同じ色は選べません。',
-
   'settings.roster.sectionTitle': '選手名簿',
   'settings.roster.sectionDesc': '名前とPFクラス(PF1重度・PF2軽度)を記録する自チームの名簿です。セッション編集画面の参加者チェックはこの名簿を参照します。',
   'settings.roster.loading': '読み込み中…',

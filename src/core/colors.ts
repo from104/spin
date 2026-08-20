@@ -1,5 +1,4 @@
 // §2.9 색 토큰·팔레트. 대비값은 전부 WCAG 상대휘도로 계산했다 (§2.8).
-import type { Locale } from '../i18n/locale.ts';
 export const COURT_BG = '#1f7a46'; // 다크·라이트 공통 (라이트 #2f9e5c 는 흰 라인 3.41:1
 // 로 떨어지고 격자·존이 전부 무효가 되어 폐기)
 /** 개체·라인의 밝은 테두리. **코트(#1f7a46) 위 4.78:1.**
@@ -45,17 +44,9 @@ export const drillTypeColor = (t: string): string => DRILL_TYPE_COLORS[t] ?? TYP
 /** 팀 색 선택지. 프로토타입의 #2b7fd4 는 흰 글자 대비 4.13:1 로 등번호가 읽히지 않아
  *  #1f6bb8 (5.45:1) 로 교체했다. 나머지 3색은 프로토타입 그대로. */
 export const TEAM_COLOR_CHOICES = ['#d93a3a', '#1f6bb8', '#e08a12', '#7c5cd6'] as const;
-/** 팀 색의 한국어 이름 — 색 스와치 `aria-label` 용. hex 문자열을 그대로 라벨로 내걸면
- *  스크린리더가 '빨강' 대신 "#d93a3a" 를 낱글자로 읽는다(2026-08-14 선행 수리, 설계서 §7 표).
- *  키를 TEAM_COLOR_CHOICES 원소 유니언으로 못박아 선택지에 색을 추가하면 tsc 가 먼저
- *  이름을 요구한다. SettingsScreen.tsx 의 COLOR_NAMES 와 같은 이름을 쓴다(빨강·파랑·주황·보라). */
-// i18n C3 — 로케일 차원이 붙었다(전에는 한국어 고정). 유일한 소비처(SettingsScreen)가
-// [locale] 로 인덱싱한다.
-export const TEAM_COLOR_NAMES: Record<Locale, Record<(typeof TEAM_COLOR_CHOICES)[number], string>> = {
-  ko: { '#d93a3a': '빨강', '#1f6bb8': '파랑', '#e08a12': '주황', '#7c5cd6': '보라' },
-  en: { '#d93a3a': 'Red', '#1f6bb8': 'Blue', '#e08a12': 'Orange', '#7c5cd6': 'Purple' },
-  ja: { '#d93a3a': '赤', '#1f6bb8': '青', '#e08a12': 'オレンジ', '#7c5cd6': '紫' },
-};
+// TEAM_COLOR_NAMES(스와치 aria-label 용 로케일별 색 이름)는 2026-08-21 은퇴 — 유일한
+// 소비처였던 설정 [팀] 색상 스와치가 폐기됐다(로드맵 '팀 색상 변경 기능 폐기'). CHOICES 는
+// 썸네일 폴백(CourtThumbnail)이 계속 쓴다.
 export const GK_HOME_COLOR = '#f2c811'; // 어두운 잉크 10.51:1
 export const GK_AWAY_COLOR = '#22a95b'; // 어두운 잉크 5.56:1 (흰 글자였으면 3.05:1 실패)
 export const BALL_FILL = '#fbbf24';

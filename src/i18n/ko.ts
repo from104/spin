@@ -55,14 +55,6 @@ export const ko = {
   'settings.playback.loopTitle': '마지막 스텝에서 반복',
   'settings.playback.loopDesc': '끝나면 처음 스텝으로 되돌아갑니다',
 
-  'settings.team.title': '팀',
-  'settings.team.homeColorTitle': '우리 팀 색상',
-  'settings.team.homeColorDesc': '코트 위 칩에 적용됩니다',
-  'settings.team.awayColorTitle': '상대 팀 색상',
-  'settings.team.awayColorDesc': '상대 팀 칩에 적용됩니다',
-  'settings.team.colorSwatchAriaLabel': '팀 색상: {{name}}',
-  'settings.team.colorConflictToast': '상대 팀과 같은 색은 선택할 수 없습니다.',
-
   'settings.roster.sectionTitle': '선수 명단',
   'settings.roster.sectionDesc': '이름과 PF 클래스(PF1 중증·PF2 경증)를 담는 우리 팀 명단입니다. 세션 편집 화면의 참가자 체크가 이 명단을 읽습니다.',
   'settings.roster.loading': '불러오는 중…',

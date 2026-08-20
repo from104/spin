@@ -4,16 +4,11 @@
 // 바꾸는 마이그레이션은 index.html 부트 스크립트도 같은 커밋에서 함께 고쳐야 한다.
 import { clamp } from '../core/geom.ts';
 import { DEFAULT_ZONES, DEFAULT_LIMITS } from '../core/constants.ts';
-import { TEAM_COLOR_CHOICES } from '../core/colors.ts';
 import type { ZoneConfig } from '../model/chair.ts';
-import type { TeamSide, TeamStyle } from '../model/drill.ts';
-import { DEFAULT_TEAMS } from '../model/defaults.ts';
 import type { Repair } from '../model/validate.ts';
 import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
 import type { Locale } from '../i18n/locale.ts';
-import { SUPPORTED_LOCALES, resolveLocale } from '../i18n/locale.ts';
-import { browserLangs } from '../i18n/useLocale.ts';
-import { translate } from '../i18n/useT.ts';
+import { SUPPORTED_LOCALES } from '../i18n/locale.ts';
 
 export const PREFS_KEY = 'spin.prefs';
 // `UI_KEY = 'spin.ui'` 는 여기 없다(5.0 ④ 로 삭제, 2026-08-13). 호출자 0곳인 죽은 export 였고
@@ -51,12 +46,14 @@ export interface Preferences {
    *  기기를 옮겨도 따라오는 취향이라 prefs 에 남기고, 좁은 컨테이너(<1100)에서는 이 값이
    *  true 여도 오버레이로 물러난다(features/editor/inspectorLayout.ts). */
   inspectorPinned: boolean;
-  teams: Record<TeamSide, TeamStyle>;
-  // defaultFormation·defaultCourtMode 는 2026-08-21 폐기(설정 화면 감사 후속, 기현 지시).
-  // 포메이션은 코치 재량이지 앱이 기본값을 정할 대상이 아니고([포메이션으로 채우기]는
-  // drill.formation 을 쓴다), 시작 코트는 전술판 스냅샷이 스스로 기억해 그 설정은 기기당
-  // 최초 1회만 읽히는 유령이었다. 옛 저장본의 두 필드는 아래 validatePrefs 화이트리스트
-  // 조립에서 소리 없이 증발한다(스키마 도장 불변 — 필드 추가가 아니라 제거라 안전하다).
+  // teams(기본 팀 색·이름 저장값)·defaultFormation·defaultCourtMode 는 2026-08-21 폐기
+  // (설정 화면 감사 후속, 기현 지시). 포메이션은 코치 재량이지 앱이 기본값을 정할 대상이
+  // 아니고([포메이션으로 채우기]는 drill.formation 을 쓴다), 시작 코트는 전술판 스냅샷이
+  // 스스로 기억해 기기당 최초 1회만 읽히는 유령이었으며, 팀 색은 drill.teams 생성 시점
+  // 스냅샷이라 "칩에 적용됩니다"가 기존 판에 안 닿는 반쪽 진실이었다(로드맵 '팀 색상 변경
+  // 기능 폐기' — 소급 대신 기능 제거). 새 판의 팀은 BoardScreen.makeBoardDrill 이 로케일
+  // 기본값으로 만든다. 옛 저장본의 폐기 필드는 아래 validatePrefs 화이트리스트 조립에서
+  // 소리 없이 증발한다(스키마 도장 불변 — 필드 추가가 아니라 제거라 안전하다).
   present: { autoFullscreen: boolean; wakeLock: boolean };
   a11y: {
     largeTargets: boolean;
@@ -115,17 +112,6 @@ export interface Preferences {
 export const TUTORIAL_SCREEN_KEYS = ['library', 'sessions', 'editor', 'board', 'present', 'sessionEditor'] as const;
 export type TutorialScreenKey = (typeof TUTORIAL_SCREEN_KEYS)[number];
 
-/** 팀 이름 기본값. DEFAULT_TEAMS(model/defaults.ts) 는 seed 드릴 전용(번역 범위 밖 — 시드
- *  콘텐츠)이라 그대로 두고, prefs 의 첫 실행 기본값만 로케일에 맞춰 새로 고른다. **저장되는
- *  값**이라 여기서 한 번 고르면 그 뒤로는 고정 문자열이다 — i18n/locale.ts 의 label: Record<Locale,…>
- *  패턴(매 렌더 다시 읽는 값)과는 다른 결이다. */
-function defaultTeams(locale: Locale): Record<TeamSide, TeamStyle> {
-  return {
-    home: { ...DEFAULT_TEAMS.home, label: translate(locale, 'team.defaultHomeLabel') },
-    away: { ...DEFAULT_TEAMS.away, label: translate(locale, 'team.defaultAwayLabel') },
-  };
-}
-
 /** 상수 대신 팩토리 — 공유 객체 유출 방지(호출자가 반환값을 변형해도 다음 호출엔 영향 없음). */
 export const makeDefaultPrefs = (): Preferences => ({
   schemaVersion: CURRENT_PREFS_SCHEMA,
@@ -136,9 +122,6 @@ export const makeDefaultPrefs = (): Preferences => ({
   showGridLabels: true,
   showRuleZones: true,
   inspectorPinned: false,
-  // language 는 항상 'auto' 로 시작하므로(아래) 이 시점의 로케일도 auto 감지가 맞다 —
-  // 사용자가 고른 값이 아직 없다.
-  teams: defaultTeams(resolveLocale('auto', browserLangs())),
   present: { autoFullscreen: false, wakeLock: true },
   a11y: { largeTargets: false, uiScale: 1, reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true, twoZone: false },
   tray: { draw: false, note: false },
@@ -158,16 +141,6 @@ export function bumperKmhMax(linearKmh: number): number {
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-const isHexColor = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
-
-function sanitizeTeamStyle(raw: unknown, fallback: TeamStyle): TeamStyle {
-  if (!isRecord(raw)) return { ...fallback };
-  return {
-    label: typeof raw.label === 'string' ? raw.label : fallback.label,
-    color: isHexColor(raw.color) ? raw.color : fallback.color,
-    gkColor: isHexColor(raw.gkColor) ? raw.gkColor : fallback.gkColor,
-  };
-}
 
 function sanitizePhysicsOverride(raw: unknown): PhysicsOverride {
   if (!isRecord(raw)) return {};
@@ -200,24 +173,10 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
   // 1.5 를 통과시키면 STEP_INTERVAL_MS[1.5] = undefined → transitionMs = NaN → 재생이 조용히 멈춘다.
   const playbackSpeed: 0.5 | 1 | 2 = raw.playbackSpeed === 0.5 || raw.playbackSpeed === 2 ? raw.playbackSpeed : 1;
 
-  // teams 보정보다 먼저 정해야 한다 — 아래 sanitizeTeamStyle 폴백이 이 로케일을 쓴다.
   const language: Preferences['language'] =
     raw.language === 'auto' || (SUPPORTED_LOCALES as readonly string[]).includes(raw.language as string)
       ? (raw.language as Preferences['language'])
       : d.language;
-  const fallbackTeams = defaultTeams(resolveLocale(language, browserLangs()));
-
-  const teamsRaw = isRecord(raw.teams) ? raw.teams : {};
-  const teams: Record<TeamSide, TeamStyle> = {
-    home: sanitizeTeamStyle(teamsRaw.home, fallbackTeams.home),
-    away: sanitizeTeamStyle(teamsRaw.away, fallbackTeams.away),
-  };
-  // 홈·어웨이가 같은 색으로 저장돼 있으면 코트 위에서 두 팀을 구분할 수 없다 — 설정 화면의
-  // TeamColorSwatches 는 상대 색을 aria-disabled 로 막아 UI 로는 이 상태를 만들 수 없지만,
-  // 백업 파일 복원·손상된 저장본은 그 방어를 거치지 않는다. 팔레트에서 첫 번째 다른 색으로 민다.
-  if (teams.away.color === teams.home.color) {
-    teams.away.color = TEAM_COLOR_CHOICES.find((c) => c !== teams.home.color) ?? teams.away.color;
-  }
 
   const presentRaw = isRecord(raw.present) ? raw.present : {};
   const a11yRaw = isRecord(raw.a11y) ? raw.a11y : {};
@@ -243,7 +202,6 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     showGridLabels: bool(raw.showGridLabels, d.showGridLabels),
     showRuleZones: bool(raw.showRuleZones, d.showRuleZones),
     inspectorPinned: bool(raw.inspectorPinned, d.inspectorPinned),
-    teams,
     present: {
       autoFullscreen: bool(presentRaw.autoFullscreen, d.present.autoFullscreen),
       wakeLock: bool(presentRaw.wakeLock, d.present.wakeLock),

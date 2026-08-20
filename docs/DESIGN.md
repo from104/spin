@@ -1542,7 +1542,8 @@ export interface Preferences {
   playbackSpeed: 0.5 | 1 | 2;
   loop: boolean;
   showGrid: boolean; showGridLabels: boolean; showRuleZones: boolean;
-  teams: Record<TeamSide, TeamStyle>;
+  // teams(기본 팀 색·이름)는 2026-08-21 폐기 — 로드맵 '팀 색상 변경 기능 폐기'. 새 판은
+  // 로케일 기본 팀으로 태어난다(BoardScreen.makeBoardDrill)
   // defaultFormation·defaultCourtMode 는 2026-08-21 폐기(설정 화면 감사 — 포메이션은
   // 코치 재량, 시작 코트는 전술판 스냅샷이 스스로 기억)
   present: { autoFullscreen: boolean; wakeLock: boolean };
@@ -3943,9 +3944,9 @@ export const isInteractiveTarget = (t: EventTarget | null): boolean =>
 
 | 컨트롤 | 계약 |
 |---|---|
-| 세그먼티드(코트 스위치·테마·속도·포메이션), 카테고리 알약 | 컨테이너 `role="radiogroup"` + `aria-label`, 항목 `role="radio" aria-checked`, 좌우 방향키 순회 + 로빙 tabindex. 활성 표시는 배경색 **외에** `font-weight:700` 차이도 준다 |
+| 세그먼티드(코트 스위치·테마·속도), 카테고리 알약 | 컨테이너 `role="radiogroup"` + `aria-label`, 항목 `role="radio" aria-checked`, 좌우 방향키 순회 + 로빙 tabindex. 활성 표시는 배경색 **외에** `font-weight:700` 차이도 준다 |
 | 라이브러리 탭 | `role="tablist"` / `role="tab" aria-selected aria-controls` |
-| 팀 색 스와치 | `role="radio" aria-checked` + `aria-label="팀 색상: 빨강"`, 선택 표시는 링 + **안쪽 체크 마크**(`inkFor()` 잉크) |
+| 팀 색 스와치 | (2026-08-21 폐기 — 설정 [팀] 섹션이 로드맵 '팀 색상 변경 기능 폐기'로 은퇴) |
 | 검색 | `<input type="search" id="drill-search">` + `<label class="sr-only">` + `min-height:44px`, placeholder 는 `--muted` |
 | 아이콘 전용 버튼 | `aria-label` **필수**. `title` 은 마우스 힌트로만 병기(터치·스크린리더에서 불안정) |
 | 코트 개체 `<g>` | `role="button" aria-label="A팀 3번 선수, d3 칸, 방향 90도" aria-pressed={selected}` |
@@ -3957,8 +3958,8 @@ export const isInteractiveTarget = (t: EventTarget | null): boolean =>
   추가로 JS 트윈 `ms → 0`, 카드 hover translate 제거, 인터스티셜 크로스페이드 제거.
   설정 `a11y.reduceMotion: 시스템 따름 / 항상 켬`.
 - **색 비의존**: 팀 = 색 + **등번호**(§7.1) + 명단 텍스트. 콘 = 색 + **실루엣**(§6.6).
-  화살표 = 색 + 파선/실선 + 굵기. 설정에 **상대 팀 색상 행을 신설**하고, 양쪽 스와치 목록에서
-  상대가 이미 쓰는 색은 `aria-disabled` 처리한다.
+  화살표 = 색 + 파선/실선 + 굵기. (설정의 팀 색상 행·스와치 상호 배제는 2026-08-21 폐기 —
+  로드맵 '팀 색상 변경 기능 폐기'. 색 비의존 원칙 자체는 그대로다: 팀 식별은 등번호·명단이 진다.)
 - **터치 외 입력**: 모든 인터랙션이 Pointer Events 단일 경로 → 트랙볼·헤드 마우스·스위치
   인터페이스가 기본 지원된다(단, §7.5-b 의 tab stop 축소가 전제).
 

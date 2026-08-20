@@ -24,8 +24,8 @@ describe('makeDefaultPrefs', () => {
   it('호출마다 독립된 객체를 만든다(공유 유출 방지)', () => {
     const a = makeDefaultPrefs();
     const b = makeDefaultPrefs();
-    a.teams.home.color = '#000000';
-    expect(b.teams.home.color).not.toBe('#000000');
+    a.present.autoFullscreen = true;
+    expect(b.present.autoFullscreen).toBe(false);
   });
   it("language 기본값은 'auto' 다(i18n C1)", () => {
     expect(makeDefaultPrefs().language).toBe('auto');
@@ -53,24 +53,17 @@ describe('validatePrefs', () => {
     expect(value.loop).toBe(makeDefaultPrefs().loop);
     expect(value.showGrid).toBe(makeDefaultPrefs().showGrid);
   });
-  it('폐기 필드(defaultCourtMode·defaultFormation·hints)는 화이트리스트 조립에서 증발한다 (2026-08-21)', () => {
-    const { value } = validatePrefs({ defaultCourtMode: 'half', defaultFormation: '2-1-1', hints: { iosPwa: false } });
+  it('폐기 필드(teams·defaultCourtMode·defaultFormation·hints)는 화이트리스트 조립에서 증발한다 (2026-08-21)', () => {
+    const { value } = validatePrefs({
+      teams: { home: { color: '#123abc' } },
+      defaultCourtMode: 'half',
+      defaultFormation: '2-1-1',
+      hints: { iosPwa: false },
+    });
+    expect('teams' in value).toBe(false);
     expect('defaultCourtMode' in value).toBe(false);
     expect('defaultFormation' in value).toBe(false);
     expect('hints' in value).toBe(false);
-  });
-  it('teams 의 색이 hex 형식이 아니면 DEFAULT_TEAMS 값으로 떨어진다', () => {
-    const { value } = validatePrefs({ teams: { home: { color: 'not-a-color' }, away: {} } });
-    expect(value.teams.home.color).toBe(makeDefaultPrefs().teams.home.color);
-  });
-  it('teams 의 유효한 hex 색은 통과한다', () => {
-    const { value } = validatePrefs({ teams: { home: { color: '#123abc', label: '홈', gkColor: '#ffffff' }, away: {} } });
-    expect(value.teams.home.color).toBe('#123abc');
-  });
-  it('홈·어웨이가 같은 색으로 저장돼 있으면(손상된 백업 등) 어웨이를 팔레트의 다른 색으로 민다', () => {
-    const { value } = validatePrefs({ teams: { home: { color: '#d93a3a' }, away: { color: '#d93a3a' } } });
-    expect(value.teams.home.color).toBe('#d93a3a');
-    expect(value.teams.away.color).not.toBe('#d93a3a');
   });
   it('객체가 아니면 완전한 기본값을 돌려준다', () => {
     expect(validatePrefs(null).value).toEqual(makeDefaultPrefs());
@@ -87,17 +80,9 @@ describe('validatePrefs', () => {
     expect(validatePrefs({ language: 'fr' }).value.language).toBe('auto');
     expect(validatePrefs({ language: 123 }).value.language).toBe('auto');
   });
-  it('teams 가 통째로 없으면(첫 실행) 기본 팀 이름이 language 로케일을 따라간다(C8b)', () => {
-    expect(validatePrefs({ language: 'en' }).value.teams.home.label).toBe('Our Team');
-    expect(validatePrefs({ language: 'en' }).value.teams.away.label).toBe('Opponent');
-    expect(validatePrefs({ language: 'ja' }).value.teams.home.label).toBe('自チーム');
-    expect(validatePrefs({ language: 'ko' }).value.teams.home.label).toBe('우리 팀');
-  });
-  it('teams.home 만 손상됐으면(라벨 없음) 그 자리만 language 로케일 기본값으로, 멀쩡한 away 는 그대로 둔다(C8b)', () => {
-    const { value } = validatePrefs({ language: 'en', teams: { home: { color: 'nope' }, away: { label: '우리가 정한 이름' } } });
-    expect(value.teams.home.label).toBe('Our Team');
-    expect(value.teams.away.label).toBe('우리가 정한 이름');
-  });
+  // 'teams × language 로케일' C8b 테스트 2건은 2026-08-21 은퇴 — prefs.teams 자체가 폐기됐고,
+  // 새 판의 로케일 기본 팀 조립은 BoardScreen.makeBoardDrill 로 옮겨갔다(정적 가드:
+  // settingsDescTruth.test.tsx 'C3 종결').
   it('sync.enabled — 기본 꺼짐, 참값은 왕복 보존, 쓰레기는 기본값으로 접는다(0.6, 스키마 도장 불변)', () => {
     expect(validatePrefs({}).value.sync.enabled).toBe(false); // 구버전 저장본(sync 키 없음)
     expect(validatePrefs({ sync: { enabled: true } }).value.sync.enabled).toBe(true);
@@ -280,8 +265,8 @@ const makeV1Doc = (): Record<string, unknown> => ({
   showRuleZones: false,
   inspectorPinned: true,
   teams: { home: { label: '우리', color: '#123abc', gkColor: '#ffffff' }, away: { label: '상대', color: '#abc123', gkColor: '#000000' } },
-  // defaultFormation·defaultCourtMode·hints 는 2026-08-21 폐기됐지만 v1 실물 저장본에는
-  // 있었으므로 입력에는 남긴다 — 아래 '증발' 단언의 입력이 된다.
+  // teams·defaultFormation·defaultCourtMode·hints 는 2026-08-21 폐기됐지만 v1 실물
+  // 저장본에는 있었으므로 입력에는 남긴다 — 아래 '증발' 단언의 입력이 된다.
   defaultFormation: '2-1-1',
   defaultCourtMode: 'half',
   present: { autoFullscreen: true, wakeLock: false },
@@ -434,9 +419,6 @@ describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 �
     expect(p.showRuleZones).toBe(false);
     expect(p.inspectorPinned).toBe(true);
   });
-  it('teams 가 살아 돌아온다', () => {
-    expect(loadPrefs().teams).toEqual(makeV1Doc().teams);
-  });
   it('present 가 살아 돌아온다', () => {
     expect(loadPrefs().present).toEqual({ autoFullscreen: true, wakeLock: false });
   });
@@ -448,8 +430,9 @@ describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 �
     expect(p.a11y.singleKeyShortcuts).toBe('off');
     expect(p.a11y.sound).toBe(false);
   });
-  it('폐기 필드는 마이그레이션을 지나도 증발한다 — defaultFormation·defaultCourtMode·hints (2026-08-21)', () => {
+  it('폐기 필드는 마이그레이션을 지나도 증발한다 — teams·defaultFormation·defaultCourtMode·hints (2026-08-21)', () => {
     const p = loadPrefs() as unknown as Record<string, unknown>;
+    expect('teams' in p).toBe(false);
     expect('defaultFormation' in p).toBe(false);
     expect('defaultCourtMode' in p).toBe(false);
     expect('hints' in p).toBe(false);

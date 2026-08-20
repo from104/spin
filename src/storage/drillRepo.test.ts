@@ -298,12 +298,17 @@ describe('resolveDrillRepo', () => {
   });
 });
 
-describe('createDrill 과 prefs.teams 불변식', () => {
-  it('prefs.teams 를 넘겨 만든 뒤 원본을 in-place 수정해도 드릴 색은 불변이다', async () => {
-    const { makeDefaultPrefs } = await import('./prefs.ts');
-    const prefs = makeDefaultPrefs();
-    const d = await memoryDrillRepo.createDrill({ courtMode: 'full', teams: prefs.teams });
-    prefs.teams.home.color = '#000000';
+describe('createDrill 의 teams 방어적 복사 불변식', () => {
+  // 소재가 prefs.teams 였던 시절의 테스트 — prefs.teams 는 2026-08-21 폐기됐지만(로드맵
+  // '팀 색상 변경 기능 폐기') 불변식 자체는 호출자 무관이다: BoardScreen.makeBoardDrill 이
+  // 방금 조립한 teams 객체를 넘기는 지금도, 넘긴 원본을 나중에 누가 만져도 드릴은 불변이어야 한다.
+  it('teams 를 넘겨 만든 뒤 원본 객체를 in-place 수정해도 드릴 색은 불변이다', async () => {
+    const teams = {
+      home: { label: '우리 팀', color: '#d93a3a', gkColor: '#f2c811' },
+      away: { label: '상대 팀', color: '#1f6bb8', gkColor: '#22a95b' },
+    };
+    const d = await memoryDrillRepo.createDrill({ courtMode: 'full', teams });
+    teams.home.color = '#000000';
     expect(d.teams.home.color).not.toBe('#000000');
   });
 });
