@@ -45,6 +45,9 @@ import type { HomeNav } from '../home/nav.ts';
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
+import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
+import { SESSION_EDITOR_TUTORIAL_STEPS } from './tutorialSteps.ts';
 
 export interface SessionEditorScreenProps {
   nav: HomeNav;
@@ -74,6 +77,9 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
 
   const existing = useMemo(() => new Set(drills.map((d) => d.id)), [drills]);
   const resolved = useMemo(() => (session ? resolveSession(session, existing) : null), [session, existing]);
+  // session 은 getSession 이 비동기로 채운다(위 useEffect) — 로딩 중엔 sessionEditor-* 대상이
+  // 하나도 없다. 실제로 그려진 뒤로 자동 시작을 미룬다.
+  const tutorial = useTutorial('sessionEditor', SESSION_EDITOR_TUTORIAL_STEPS, session !== null && resolved !== null);
 
   async function save(next: TrainingSession): Promise<void> {
     setSession(next); // 낙관적 반영 — 입력 필드가 왕복 지연 없이 즉시 갱신된다(드로어 패턴)
@@ -107,7 +113,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
     <Main>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 860, margin: '0 auto' }}>
         {/* ── ① 세션 정보 ─────────────────────────────────────────────────────────── */}
-        <section aria-label={t('sessionEditor.infoSectionAriaLabel')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+        <section data-tut="sessionEditor-info" aria-label={t('sessionEditor.infoSectionAriaLabel')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
           <Field label={t('sessionEditor.nameFieldLabel')}>
             <input
               type="text"
@@ -165,7 +171,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
         </section>
 
         {/* 배분 게이지 — 강제 없음(질문 ⑮). 초과는 색으로만 말한다. */}
-        <section aria-label={t('sessionEditor.allocationSectionAriaLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <section data-tut="sessionEditor-allocation" aria-label={t('sessionEditor.allocationSectionAriaLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', fontWeight: 700 }}>
             <span style={{ color: 'var(--muted)' }}>{t('sessionEditor.allocationTotal')}</span>
             <span style={{ color: over ? 'var(--danger, #ef4444)' : 'var(--text)' }}>
@@ -210,6 +216,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
           <Button
             variant="secondary"
             icon={<IconPlus size={14} />}
+            data-tut="sessionEditor-addphase"
             onClick={() => void save({ ...session, phases: [...session.phases, { id: newId('ph'), kind: 'custom', items: [] }] })}
           >
             {t('sessionEditor.addPhaseButton')}
@@ -228,6 +235,17 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
           </Button>
         </div>
       </div>
+
+      {tutorial.step && (
+        <TutorialOverlay
+          step={tutorial.step}
+          stepIndex={tutorial.stepIndex}
+          totalSteps={tutorial.totalSteps}
+          onNext={tutorial.next}
+          onPrev={tutorial.prev}
+          onSkip={tutorial.skip}
+        />
+      )}
     </Main>
   );
 }
@@ -258,7 +276,7 @@ function ParticipantChecklist({ session, onSave }: { session: TrainingSession; o
   };
 
   return (
-    <section aria-label={t('participantChecklist.sectionLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section data-tut="sessionEditor-participants" aria-label={t('participantChecklist.sectionLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <h3 style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--faint-text)' }}>{t('participantChecklist.sectionLabel')}</h3>
         {roster && roster.players.length > 0 && (
@@ -488,7 +506,7 @@ function PhaseCard({
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div data-tut="sessionEditor-adddrill" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <label className="sr-only" htmlFor={`add-${phase.id}`}>
           {t('phaseCard.addDrillLabel', { label: phaseLabel(phase, locale) })}
         </label>

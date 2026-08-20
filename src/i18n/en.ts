@@ -402,6 +402,18 @@ export const en: Record<DictKey, string> = {
   'tutorial.present.step4.title': 'Back to editing',
   'tutorial.present.step4.body': 'Tap to return to the editor. Esc or a left/right swipe also moves between steps.',
 
+  // ── Session editor tutorial, 5 steps — src/features/sessions/tutorialSteps.ts ──────
+  'tutorial.sessionEditor.step1.title': 'Session info',
+  'tutorial.sessionEditor.step1.body': 'Fill in name, date/time, location, goal time, and a note. The note prints too.',
+  'tutorial.sessionEditor.step2.title': 'Add a phase',
+  'tutorial.sessionEditor.step2.body': 'Organize the session into phases like warm-up and main work.',
+  'tutorial.sessionEditor.step3.title': 'Add drills',
+  'tutorial.sessionEditor.step3.body': 'Pick drills into each phase, and override the time if needed.',
+  'tutorial.sessionEditor.step4.title': 'Allocation gauge',
+  'tutorial.sessionEditor.step4.body': "Compares planned time against your goal. Going over isn't blocked.",
+  'tutorial.sessionEditor.step5.title': 'Participant check',
+  'tutorial.sessionEditor.step5.body': 'Check off which players are coming to this session.',
+
   'presentInfo.titlePrefix': 'Drill info — {{title}}',
   'presentInfo.typeLabel': 'Type',
   'presentInfo.situationLabel': 'Situation',

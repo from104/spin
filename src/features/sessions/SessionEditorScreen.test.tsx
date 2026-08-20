@@ -13,6 +13,7 @@ import { createSession, deleteSession, getSession, listSessions, addDrillToSessi
 import { flattenSessionItems } from '../../model/session.ts';
 import type { SessionId } from '../../core/ids.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 
 function makeNav(): HomeNav {
   return {
@@ -38,6 +39,9 @@ beforeEach(async () => {
   for (const s of await listSessions()) await deleteSession(s.session.id);
   const { getDB } = await import('../../storage/db.ts');
   await (await getDB()).clear('meta'); // 로스터 위생 — 앞 테스트의 명단이 새어 들지 않게
+  // 세션 편집 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트가 떠서 아래
+  // 배선 테스트들과 섞일 여지가 있다 — "이미 봤다" 상태로 시작한다.
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { sessionEditor: true } }));
 });
 
 async function renderEditor(sessionId: SessionId) {
@@ -270,5 +274,31 @@ describe('SessionEditorScreen', () => {
     render(<SessionEditorScreen nav={makeNav()} sessionId={'se_none' as SessionId} />, { wrapper });
     await waitFor(() => expect(screen.getByText(/세션을 찾을 수 없습니다/)).toBeInTheDocument());
     expect(screen.getByRole('button', { name: '세션 목록으로' })).toBeInTheDocument();
+  });
+});
+
+describe('세션 편집 튜토리얼(§0.5)', () => {
+  it('처음 여는 화면에서 자동으로 뜨고, 5단계가 계획서 순서대로 나온다', async () => {
+    // 이 파일의 공용 beforeEach 가 seen=true 로 채워 둔 것을 되돌려 "처음 방문" 을 재현한다.
+    localStorage.setItem(PREFS_KEY, JSON.stringify(makeDefaultPrefs()));
+    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '튜토리얼용 드릴' });
+    let s = await createSession({ title: '튜토리얼용 세션' });
+    s = await addDrillToSession(s.id, d.id); // 기본 구획에 항목 하나 — sessionEditor-adddrill 대상이 생긴다
+    const nav = makeNav();
+    render(<SessionEditorScreen nav={nav} sessionId={s.id} />, { wrapper });
+    await waitFor(() => expect(screen.getByLabelText('세션명')).toBeInTheDocument());
+
+    const dialog = await screen.findByRole('dialog', { name: '화면 안내' });
+    expect(within(dialog).getByText('1/5 단계')).toBeInTheDocument();
+    expect(within(dialog).getByText('세션 정보')).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    for (const [i, title] of ['구획 추가', '드릴 편성', '배분 게이지', '참가자 체크'].entries()) {
+      await user.click(within(dialog).getByRole('button', { name: '다음' }));
+      await waitFor(() => expect(within(dialog).getByText(`${i + 2}/5 단계`)).toBeInTheDocument());
+      expect(within(dialog).getByText(title)).toBeInTheDocument();
+    }
+    await user.click(within(dialog).getByRole('button', { name: '완료' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '화면 안내' })).toBeNull());
   });
 });

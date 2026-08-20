@@ -400,6 +400,18 @@ export const ko = {
   'tutorial.present.step4.title': '편집으로',
   'tutorial.present.step4.body': '눌러서 편집 화면으로 돌아갑니다. Esc나 좌우 스와이프로도 스텝을 넘길 수 있습니다.',
 
+  // ── 세션 편집 튜토리얼 5단계 — src/features/sessions/tutorialSteps.ts ──────
+  'tutorial.sessionEditor.step1.title': '세션 정보',
+  'tutorial.sessionEditor.step1.body': '이름·일시·장소·목표 시간과 메모를 적습니다. 메모는 인쇄물에도 실립니다.',
+  'tutorial.sessionEditor.step2.title': '구획 추가',
+  'tutorial.sessionEditor.step2.body': '워밍업·본운동 같은 구획을 나눠 세션을 조직합니다.',
+  'tutorial.sessionEditor.step3.title': '드릴 편성',
+  'tutorial.sessionEditor.step3.body': '구획마다 드릴을 골라 넣고, 필요하면 시간을 따로 정합니다.',
+  'tutorial.sessionEditor.step4.title': '배분 게이지',
+  'tutorial.sessionEditor.step4.body': '지금까지 편성한 시간과 목표 시간을 비교해 보여줍니다. 넘어도 막지 않습니다.',
+  'tutorial.sessionEditor.step5.title': '참가자 체크',
+  'tutorial.sessionEditor.step5.body': '이번 세션에 나올 선수를 명단에서 체크합니다.',
+
   'presentInfo.titlePrefix': '드릴 정보 — {{title}}',
   'presentInfo.typeLabel': '유형',
   'presentInfo.situationLabel': '경기 상황',

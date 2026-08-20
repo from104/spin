@@ -401,6 +401,18 @@ export const ja: Record<DictKey, string> = {
   'tutorial.present.step4.title': '編集へ',
   'tutorial.present.step4.body': 'タップして編集画面に戻ります。Escや左右スワイプでもステップを送れます。',
 
+  // ── セッション編集チュートリアル 5ステップ — src/features/sessions/tutorialSteps.ts ──────
+  'tutorial.sessionEditor.step1.title': 'セッション情報',
+  'tutorial.sessionEditor.step1.body': '名前・日時・場所・目標時間とメモを記入します。メモは印刷物にも載ります。',
+  'tutorial.sessionEditor.step2.title': '区画を追加',
+  'tutorial.sessionEditor.step2.body': 'ウォームアップや本練習などの区画に分けてセッションを組み立てます。',
+  'tutorial.sessionEditor.step3.title': 'ドリル編成',
+  'tutorial.sessionEditor.step3.body': '区画ごとにドリルを選び、必要なら時間を個別に設定します。',
+  'tutorial.sessionEditor.step4.title': '配分ゲージ',
+  'tutorial.sessionEditor.step4.body': 'これまでの編成時間と目標時間を比べて表示します。超えても止めません。',
+  'tutorial.sessionEditor.step5.title': '参加者チェック',
+  'tutorial.sessionEditor.step5.body': '今回のセッションに来る選手を名簿からチェックします。',
+
   'presentInfo.titlePrefix': 'ドリル情報 — {{title}}',
   'presentInfo.typeLabel': '種類',
   'presentInfo.situationLabel': '状況',
