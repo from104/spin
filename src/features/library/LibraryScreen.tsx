@@ -52,7 +52,7 @@ export interface LibraryScreenProps {
 }
 
 export function LibraryScreen({ nav }: LibraryScreenProps) {
-  const { drills, drillType, situation, sort, view, search, setDrillType, setSituation, setSort, setView, duplicateDrill, deleteDrill, refresh } = useLibrary();
+  const { status, drills, drillType, situation, sort, view, search, setDrillType, setSituation, setSort, setView, duplicateDrill, deleteDrill, refresh } = useLibrary();
   const toast = useToast();
   const t = useT();
   const locale = useLocale();
@@ -60,7 +60,9 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
-  const tutorial = useTutorial('library', LIBRARY_TUTORIAL_STEPS, true);
+  // status가 'ready'가 되기 전에 자동 시작을 걸면 드릴이 아직 안 실려 있어(§10.7 로딩 4상태)
+  // library-card 대상이 없는 채로 시작한다 — 목록이 실제로 그려진 뒤로 미룬다.
+  const tutorial = useTutorial('library', LIBRARY_TUTORIAL_STEPS, status === 'ready');
 
   const openDrill = (id: DrillSummary['id']) => nav.openDrill(id);
   const goNewDrill = () => nav.newDrill();

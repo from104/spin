@@ -390,6 +390,16 @@ export const ko = {
   'tutorial.sessions.step2.title': '세션 카드',
   'tutorial.sessions.step2.body': '카드를 누르면 열립니다. 재생 아이콘은 바로 시연입니다.',
 
+  // ── 시연 튜토리얼 4단계 — src/features/present/tutorialSteps.ts ──────
+  'tutorial.present.step1.title': '재생',
+  'tutorial.present.step1.body': '반복·이전·재생·다음·배속으로 진행을 조작합니다.',
+  'tutorial.present.step2.title': '스텝 진행바',
+  'tutorial.present.step2.body': '지금 스텝이 어디인지 보여주고, 눌러서 원하는 스텝으로 바로 건너뜁니다.',
+  'tutorial.present.step3.title': '전체화면',
+  'tutorial.present.step3.body': '화면을 꽉 채워 코트를 크게 봅니다. 도움말도 여기 있습니다.',
+  'tutorial.present.step4.title': '편집으로',
+  'tutorial.present.step4.body': '눌러서 편집 화면으로 돌아갑니다. Esc나 좌우 스와이프로도 스텝을 넘길 수 있습니다.',
+
   'presentInfo.titlePrefix': '드릴 정보 — {{title}}',
   'presentInfo.typeLabel': '유형',
   'presentInfo.situationLabel': '경기 상황',

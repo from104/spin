@@ -392,6 +392,16 @@ export const en: Record<DictKey, string> = {
   'tutorial.sessions.step2.title': 'Session card',
   'tutorial.sessions.step2.body': 'Tap the card to open it. The play icon presents it right away.',
 
+  // ── Presentation tutorial, 4 steps — src/features/present/tutorialSteps.ts ──────
+  'tutorial.present.step1.title': 'Playback',
+  'tutorial.present.step1.body': 'Loop, previous, play, next, and speed controls run the presentation.',
+  'tutorial.present.step2.title': 'Step progress',
+  'tutorial.present.step2.body': 'Shows where you are, and tap it to jump straight to any step.',
+  'tutorial.present.step3.title': 'Fullscreen',
+  'tutorial.present.step3.body': 'Fill the screen for a bigger view of the court. Help lives here too.',
+  'tutorial.present.step4.title': 'Back to editing',
+  'tutorial.present.step4.body': 'Tap to return to the editor. Esc or a left/right swipe also moves between steps.',
+
   'presentInfo.titlePrefix': 'Drill info — {{title}}',
   'presentInfo.typeLabel': 'Type',
   'presentInfo.situationLabel': 'Situation',

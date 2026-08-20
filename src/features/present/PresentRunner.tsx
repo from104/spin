@@ -31,6 +31,9 @@ import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { IconEditor } from '../../ui/icons.tsx';
 import { PresentStage } from './PresentStage.tsx';
 import { PresentSideBar } from './PresentSideBar.tsx';
+import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
+import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
+import { PRESENT_TUTORIAL_STEPS } from './tutorialSteps.ts';
 import { progressCellState } from './progressCells.ts';
 import { DrillInfoModal } from './DrillInfoModal.tsx';
 import { HelpOverlay } from './HelpOverlay.tsx';
@@ -302,6 +305,7 @@ function PresentBody({
   const playback = usePlaybackState();
   const playbackActions = usePlaybackActions();
   const t = useT();
+  const tutorial = useTutorial('present', PRESENT_TUTORIAL_STEPS, true);
 
   const drills = load.kind === 'session' ? load.drills : [load.drill];
   const phaseInfo = load.kind === 'session' ? load.phases : null;
@@ -651,7 +655,7 @@ function PresentBody({
               재생 묶음과 한 줄이 되며 `flex:1` 로 남는 폭만 쓴다 — PlaybackControls(약 272px)
               만큼 좁아지는 것이 "진행바 폭을 적당히 줄인다"의 실체다(2026-08-20). */}
           <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 22 }}>
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 9 }}>
+            <div data-tut="present-progress" style={{ flex: 1, minWidth: 0, display: 'flex', gap: 9 }}>
               {drill.steps.map((s, i) => (
                 <button
                   key={s.id}
@@ -688,17 +692,19 @@ function PresentBody({
                 </button>
               ))}
             </div>
-            <PlaybackControls
-              playing={playback.playing}
-              canPlay
-              onTogglePlay={togglePlay}
-              loop={playback.loop}
-              onToggleLoop={() => playbackActions.setLoop(!playback.loop)}
-              onPrev={prevStep}
-              onNext={nextStep}
-              speed={playback.speed}
-              onCycleSpeed={() => playbackActions.setSpeed(playback.speed === 0.5 ? 1 : playback.speed === 1 ? 2 : 0.5)}
-            />
+            <div data-tut="present-playback">
+              <PlaybackControls
+                playing={playback.playing}
+                canPlay
+                onTogglePlay={togglePlay}
+                loop={playback.loop}
+                onToggleLoop={() => playbackActions.setLoop(!playback.loop)}
+                onPrev={prevStep}
+                onNext={nextStep}
+                speed={playback.speed}
+                onCycleSpeed={() => playbackActions.setSpeed(playback.speed === 0.5 ? 1 : playback.speed === 1 ? 2 : 0.5)}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -734,6 +740,17 @@ function PresentBody({
       {(wakeLock === 'unsupported' || wakeLock === 'denied') && <VisuallyHiddenNotice />}
 
       <HelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      {tutorial.step && (
+        <TutorialOverlay
+          step={tutorial.step}
+          stepIndex={tutorial.stepIndex}
+          totalSteps={tutorial.totalSteps}
+          onNext={tutorial.next}
+          onPrev={tutorial.prev}
+          onSkip={tutorial.skip}
+        />
+      )}
     </main>
   );
 }

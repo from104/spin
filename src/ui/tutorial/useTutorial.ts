@@ -14,6 +14,9 @@ import { useSettings } from '../../store/settings/SettingsProvider.tsx';
 import type { TutorialScreenKey } from '../../storage/prefs.ts';
 import type { TutorialStep } from './types.ts';
 
+/** 자동 시작 전 "전부 찾았는가" 를 재시도할 상한 프레임 수 — 위 useEffect 주석 참고. */
+const AUTOSTART_MAX_FRAMES = 20;
+
 export interface UseTutorialResult {
   active: boolean;
   stepIndex: number;
@@ -50,10 +53,27 @@ export function useTutorial(screen: TutorialScreenKey, steps: readonly TutorialS
     // `useAppHeader(config)` 로 **다음 이펙트**에 발행하고 AppHeader 가 그걸 받아 한 틱 늦게
     // 그려낸다(EditorScreen.headerTitle.test.tsx 의 같은 관찰 — "판 커밋보다 한 틱 늦게 뜬다").
     // 이 이펙트가 같은 커밋의 마운트 순간에 그대로 querySelector 를 돌리면 그 두 대상이 아직
-    // DOM 에 없어 빈 화면 가드에 걸려 건너뛴다. rAF 한 번으로 그 한 틱을 넘긴다.
-    const id = requestAnimationFrame(() => start());
+    // DOM 에 없어 빈 화면 가드에 걸려 건너뛴다.
+    //
+    // rAF 한 번으로는 부족할 수 있다 — 부하가 큰 기기(또는 CI 의 전체 스위트 동시 실행)에서는
+    // 그 "한 틱"이 여러 프레임에 걸쳐 끝난다(실측: 격리 실행은 항상 통과, 전체 스위트 동시
+    // 실행에서만 간헐적으로 6/8 로 시작). 그래서 **전부 찾을 때까지, 최대 AUTOSTART_MAX_FRAMES
+    // 프레임까지** rAF 로 재시도한다 — 대부분 1~2 프레임 안에 끝나고, 정말로 없는 대상(빈
+    // 서랍)은 이 상한에서 포기해 무한 대기 없이 §E 의 빈 화면 가드로 넘어간다.
+    let frame = 0;
+    let id: number;
+    const tryStart = () => {
+      const allFound = steps.every((s) => document.querySelector(`[data-tut="${s.target}"]`) !== null);
+      frame += 1;
+      if (allFound || frame >= AUTOSTART_MAX_FRAMES) {
+        start();
+        return;
+      }
+      id = requestAnimationFrame(tryStart);
+    };
+    id = requestAnimationFrame(tryStart);
     return () => cancelAnimationFrame(id);
-  }, [autoStart, seen, start]);
+  }, [autoStart, seen, start, steps]);
 
   const markSeen = useCallback(() => {
     if (prefs.tutorialsSeen[screen] === true) return;

@@ -1,7 +1,7 @@
 // §6.9 시연 화면 — PresentRunner(target/nav 를 prop 으로 받는 테스트 가능한 내부)를 직접
 // 검증한다. app-shell 이 export 하지 않는 PresentTargetContext 를 우회하는 이유는 파일 헤더
 // 주석(§6.9 화면) 참고.
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -15,6 +15,13 @@ import { createSession, addDrillToSession, getSession, putSession } from '../../
 import { newId } from '../../core/ids.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { DrillId, SessionId } from '../../core/ids.ts';
+import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
+
+beforeEach(() => {
+  // 시연 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트가 Esc 를 가로채
+  // 아래 키보드 배선 테스트들이 깨진다 — "이미 봤다" 상태로 시작한다.
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { present: true } }));
+});
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <SettingsProvider>
@@ -399,4 +406,28 @@ describe('세션 드릴 전환 — 전환 안내 중 코트 상태', () => {
     await waitFor(() => expect(poseFingerprint()).not.toBe(atA), { timeout: 1500 });
     expect(screen.queryAllByText(new RegExp(`전환B ${seq}`)).length).toBeGreaterThan(0);
   }, 30000);
+});
+
+describe('시연 튜토리얼(§0.5)', () => {
+  it('처음 여는 화면에서 자동으로 뜨고, 4단계가 계획서 순서대로 나온다', async () => {
+    // 이 파일의 공용 beforeEach 가 seen=true 로 채워 둔 것을 되돌려 "처음 방문" 을 재현한다.
+    localStorage.setItem(PREFS_KEY, JSON.stringify(makeDefaultPrefs()));
+    const d = await makeTwoStepDrill(`튜토리얼 드릴 ${++seq}`);
+    const nav = makeNav();
+    render(<PresentRunner target={{ kind: 'drill', drillId: d.id }} nav={nav} />, { wrapper });
+
+    const dialog = await screen.findByRole('dialog', { name: '화면 안내' });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText('1/4 단계')).toBeInTheDocument();
+    expect(within(dialog).getByText('재생')).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    for (const [i, title] of ['스텝 진행바', '전체화면', '편집으로'].entries()) {
+      await user.click(within(dialog).getByRole('button', { name: '다음' }));
+      await waitFor(() => expect(within(dialog).getByText(`${i + 2}/4 단계`)).toBeInTheDocument());
+      expect(within(dialog).getByText(title)).toBeInTheDocument();
+    }
+    await user.click(within(dialog).getByRole('button', { name: '완료' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '화면 안내' })).toBeNull());
+  });
 });

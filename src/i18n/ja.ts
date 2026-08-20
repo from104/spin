@@ -391,6 +391,16 @@ export const ja: Record<DictKey, string> = {
   'tutorial.sessions.step2.title': 'セッションカード',
   'tutorial.sessions.step2.body': 'カードをタップすると開きます。再生アイコンはすぐ実演です。',
 
+  // ── 実演チュートリアル 4ステップ — src/features/present/tutorialSteps.ts ──────
+  'tutorial.present.step1.title': '再生',
+  'tutorial.present.step1.body': 'リピート・前へ・再生・次へ・速度で進行を操作します。',
+  'tutorial.present.step2.title': 'ステップ進行バー',
+  'tutorial.present.step2.body': '今どのステップかを示し、タップすると狙ったステップへ直接飛べます。',
+  'tutorial.present.step3.title': '全画面',
+  'tutorial.present.step3.body': '画面いっぱいにコートを大きく表示します。ヘルプもここにあります。',
+  'tutorial.present.step4.title': '編集へ',
+  'tutorial.present.step4.body': 'タップして編集画面に戻ります。Escや左右スワイプでもステップを送れます。',
+
   'presentInfo.titlePrefix': 'ドリル情報 — {{title}}',
   'presentInfo.typeLabel': '種類',
   'presentInfo.situationLabel': '状況',

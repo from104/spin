@@ -23,10 +23,12 @@ export interface SessionsScreenProps {
 }
 
 export function SessionsScreen({ nav }: SessionsScreenProps) {
-  const { sessions, createSession, refresh } = useLibrary();
+  const { status, sessions, createSession, refresh } = useLibrary();
   const toast = useToast();
   const t = useT();
-  const tutorial = useTutorial('sessions', SESSIONS_TUTORIAL_STEPS, true);
+  // status가 'ready'가 되기 전에는 세션 카드가 아직 안 실려 있다(§10.7) — 목록이 실제로
+  // 그려진 뒤로 자동 시작을 미룬다.
+  const tutorial = useTutorial('sessions', SESSIONS_TUTORIAL_STEPS, status === 'ready');
 
   const openSession = (id: SessionId) => nav.openSession(id);
 

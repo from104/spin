@@ -4,7 +4,7 @@
 // 이다(PresentStage) — 이름을 적어 둔 코치에게 그 이름이 시연에서 **한 번도 나오지 않았다.**
 // 여기서 보는 것은 두 가지다: 적은 이름이 자막에 실리는가, 그리고 **안 적었으면 아무것도 늘지
 // 않는가**(번호뿐인 항목을 나열하면 코트에 이미 있는 정보를 옮겨 적는 것이라 자막만 길어진다).
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { PresentRunner } from './PresentRunner.tsx';
@@ -14,6 +14,13 @@ import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
 import { HeaderProvider, AppHeader } from '../../app/AppHeader.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import type { Drill } from '../../model/drill.ts';
+import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
+
+beforeEach(() => {
+  // 시연 튜토리얼 스포트라이트가 자동으로 뜨면 자막 텍스트 조회와 겹칠 여지가 있다 — "이미
+  // 봤다" 상태로 시작해 이 파일이 보는 배선(자막 명단)만 남긴다.
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { present: true } }));
+});
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <SettingsProvider>

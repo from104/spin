@@ -55,6 +55,7 @@ export function PresentSideBar({ fullscreen, onShowHelp }: PresentSideBarProps) 
     <nav
       aria-label={t('present.sideBarAriaLabel')}
       data-present-sidebar=""
+      data-tut="present-sidebar"
       style={{
         flex: 'none',
         height: '100%',
