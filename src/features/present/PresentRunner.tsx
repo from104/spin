@@ -534,11 +534,10 @@ function PresentBody({
           ⚠️ 2026-08-20 (후속, 기현님 지시 — "시연 모드에서 오른쪽 기능바에서 x버튼 지우기") —
           나가기(X) 버튼을 걷어낸다. Esc 로 나가는 길은 그대로 있다(전체화면 중이면 먼저
           전체화면만 빠져나오고, 한 번 더 누르면 시연을 나간다 — 키다운 핸들러의 Escape 분기).
-          남는 것은 둘(도움말·전체화면)이다. */}
+          남는 것은 둘(도움말·전체화면)이다.
+          ⚠️ 2026-08-20 (재후속, 기현님 지시 — "전체화면, 도움말 순서 바꾸기") — 전체화면이
+          위, 도움말이 아래다. */}
       <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button type="button" aria-label={t('present.helpAriaLabel')} onClick={() => setHelpOpen(true)} style={iconBtnStyle}>
-          <IconHelp size={18} />
-        </button>
         <button
           type="button"
           aria-label={fullscreen.state === 'off' ? t('present.fullscreenEnter') : t('present.fullscreenExit')}
@@ -546,6 +545,9 @@ function PresentBody({
           style={iconBtnStyle}
         >
           {fullscreen.state === 'off' ? <IconFullscreenEnter size={18} /> : <IconFullscreenExit size={18} />}
+        </button>
+        <button type="button" aria-label={t('present.helpAriaLabel')} onClick={() => setHelpOpen(true)} style={iconBtnStyle}>
+          <IconHelp size={18} />
         </button>
       </div>
 
