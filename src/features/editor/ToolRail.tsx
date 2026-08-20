@@ -641,7 +641,7 @@ export function ToolRail({
 
   return (
     // data-tray: 코트에서 끌어온 개체를 여기 놓으면 빼낸다(useEditorPointer 가 좌표로 찾는다).
-    <nav aria-label={t('editor.toolRail.navAriaLabel')} data-tray="" style={horiz ? RAIL_STYLE_H : RAIL_STYLE}>
+    <nav aria-label={t('editor.toolRail.navAriaLabel')} data-tray="" data-tut="editor-tray" style={horiz ? RAIL_STYLE_H : RAIL_STYLE}>
       {/* §6.10c 트레이 드롭 예고 — 코트에서 끌어온 개체가 이 위에 왔을 때 **놓기 전에**
           "빼기/삭제" 를 말한다. 내용은 trayDrop.ts 가 직접 DOM 에 쓰고(드래그 중에는 React 를
           거칠 수 없다 — §6.1 규칙 1), 켜고 끄기는 nav 의 `data-drop` 을 보는 a11y.css 가 한다.

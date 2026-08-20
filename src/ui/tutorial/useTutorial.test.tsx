@@ -2,7 +2,7 @@
 // 이 못 재므로 실기 몫이다(계획서 §E) — 여기서는 "대상이 있으면 시작·없으면 안 함·진행·
 // 플래그" 라는 순수 계약만 못박는다.
 import { beforeEach, describe, expect, it } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { loadPrefs } from '../../storage/prefs.ts';
@@ -49,10 +49,13 @@ describe('useTutorial — 시작', () => {
 });
 
 describe('useTutorial — 자동 시작', () => {
-  it('autoStart=true 이고 안 봤으면 마운트 즉시 시작한다', () => {
+  it('autoStart=true 이고 안 봤으면 마운트 뒤(rAF 한 틱) 시작한다', async () => {
+    // rAF 한 틱을 미루는 이유: 헤더 버튼(header-info 등, 여러 화면 공유)처럼 useAppHeader 발행이
+    // 한 틱 늦게 뜨는 대상이 있어도 빈 화면 가드에 안 걸리게 하려는 것이다(useTutorial.ts 주석).
     document.body.innerHTML = '<div data-tut="a"></div>';
     const { result } = renderHook(() => useTutorial('editor', STEPS, true), { wrapper });
-    expect(result.current.active).toBe(true);
+    expect(result.current.active).toBe(false);
+    await waitFor(() => expect(result.current.active).toBe(true));
   });
 
   it('이미 본 화면이면 autoStart=true 여도 시작하지 않는다', () => {

@@ -844,6 +844,7 @@ export function StepSidebar({
 
         <button
           type="button"
+          data-tut="editor-add-step"
           title={atMax ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps }) : t('editor.stepSidebar.addStepTitle')}
           disabled={atMax}
           onClick={onAddStep}
@@ -887,6 +888,7 @@ export function StepSidebar({
     return (
       <nav
         aria-label={t('editor.stepSidebar.navAriaLabel')}
+        data-tut="editor-step-sidebar"
         style={{
           flex: 'none',
           width: SIDEBAR_WIDTH_PX,

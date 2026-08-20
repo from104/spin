@@ -297,6 +297,7 @@ export function AppHeader({
           {config.infoButton && (
             <button
               type="button"
+              data-tut="header-info"
               aria-label={config.infoButton.label}
               onClick={config.infoButton.onAction}
               style={{
@@ -386,7 +387,7 @@ export function AppHeader({
         )}
 
         {config.primary && (
-          <Button variant="primary" icon={config.primary.icon} disabled={config.primary.disabled} onClick={config.primary.onAction}>
+          <Button variant="primary" data-tut="header-primary" icon={config.primary.icon} disabled={config.primary.disabled} onClick={config.primary.onAction}>
             {config.primary.label}
           </Button>
         )}

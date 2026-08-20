@@ -16,6 +16,7 @@ import type { AppHistoryApi } from '../../app/useAppHistory.ts';
 import { AppHeader, HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
+import { makeDefaultPrefs, savePrefs } from '../../storage/prefs.ts';
 import type { DrillId } from '../../core/ids.ts';
 
 // ⚠️ 목은 **참조가 안정적인** 객체를 돌려줘야 한다. 렌더마다 새 객체를 만들면 EditorScreen 의
@@ -48,6 +49,10 @@ function Wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   localStorage.clear();
+  // 드릴 편집 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트가 Esc·
+  // 화살표를 가로채 아래 키보드 배선 테스트가 깨진다 — 여긴 튜토리얼을 보는 테스트가
+  // 아니므로 "이미 봤다" 상태로 시작한다.
+  savePrefs({ ...makeDefaultPrefs(), tutorialsSeen: { editor: true } });
   stageTarget = { kind: 'drill', drillId: 'dr_none' as DrillId };
 });
 

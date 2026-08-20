@@ -14,6 +14,7 @@ import type { AppHistoryApi } from '../../app/useAppHistory.ts';
 import { AppHeader, HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
+import { makeDefaultPrefs, savePrefs } from '../../storage/prefs.ts';
 import type { DrillId } from '../../core/ids.ts';
 
 let stageTarget: { kind: 'drill'; drillId: DrillId } = { kind: 'drill', drillId: 'dr_none' as DrillId };
@@ -42,6 +43,9 @@ function Wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   localStorage.clear();
+  // 튜토리얼 자동 시작이 Esc 를 스포트라이트 종료로 가로채면 아래 "Esc 는 커밋 없이 되돌린다"
+  // 테스트가 깨진다 — "이미 봤다" 상태로 시작해 이 파일이 보는 배선(제목 편집)만 남긴다.
+  savePrefs({ ...makeDefaultPrefs(), tutorialsSeen: { editor: true } });
   stageTarget = { kind: 'drill', drillId: 'dr_none' as DrillId };
 });
 

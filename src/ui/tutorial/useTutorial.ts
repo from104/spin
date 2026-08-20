@@ -46,7 +46,13 @@ export function useTutorial(screen: TutorialScreenKey, steps: readonly TutorialS
   useEffect(() => {
     if (!autoStart || startedAutoRef.current || seen) return;
     startedAutoRef.current = true;
-    start();
+    // 헤더의 ⓘ·주 액션 버튼(`header-info`·`header-primary`, 여러 화면이 공유)은 화면 컴포넌트가
+    // `useAppHeader(config)` 로 **다음 이펙트**에 발행하고 AppHeader 가 그걸 받아 한 틱 늦게
+    // 그려낸다(EditorScreen.headerTitle.test.tsx 의 같은 관찰 — "판 커밋보다 한 틱 늦게 뜬다").
+    // 이 이펙트가 같은 커밋의 마운트 순간에 그대로 querySelector 를 돌리면 그 두 대상이 아직
+    // DOM 에 없어 빈 화면 가드에 걸려 건너뛴다. rAF 한 번으로 그 한 틱을 넘긴다.
+    const id = requestAnimationFrame(() => start());
+    return () => cancelAnimationFrame(id);
   }, [autoStart, seen, start]);
 
   const markSeen = useCallback(() => {

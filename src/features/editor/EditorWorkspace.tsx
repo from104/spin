@@ -43,6 +43,9 @@ import { NotePanel } from './NotePanel.tsx';
 import { FunctionBar } from './FunctionBar.tsx';
 import { useContainerWidth } from './useContainerWidth.ts';
 import { HelpModal } from './HelpModal.tsx';
+import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
+import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
+import { EDITOR_TUTORIAL_STEPS } from './tutorialSteps.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { NoteEditModal } from './NoteEditModal.tsx';
@@ -115,6 +118,11 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   const helpButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pendingPlayerId, setPendingPlayerId] = useState<ChairId | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  // 드릴 편집 튜토리얼(Phase 2) — 자유 전술판(mode='board')은 다른 화면 키('board')라
+  // Phase 3 몫이다. steps 를 빈 배열로 넘겨 지금은 조용히 아무 일도 안 하게 둔다.
+  // 데이터는 이 컴포넌트가 그려질 때 이미 `state.present` 로 와 있으므로(로딩 state 없음)
+  // 첫 렌더가 곧 "화면이 실제로 그려진 시점"이다 — autoStart 를 마운트 시 바로 켠다.
+  const tutorial = useTutorial(isBoard ? 'board' : 'editor', isBoard ? [] : EDITOR_TUTORIAL_STEPS, !isBoard);
   /** 글을 고치는 중인 메모(기현 지시 2026-08-17). `fresh` 는 "방금 놓은 쪽지" 라는 뜻이고,
    *  그때만 취소가 쪽지를 도로 치운다 — 자세한 근거는 `NoteEditModal` 의 같은 이름 prop.
    *  무대(EditorStage)가 아니라 여기 있는 이유: 트레이 드래그 배치가 이 파일에 있어서,
@@ -782,6 +790,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 aspectRatio 는 반드시 `def`(courtDefFor)에서 뽑는다 — `view` 나 측정된 rect 로
                 만들면 각각 §3 불변식 1 위반과 쌍안정 되먹임이 된다(boardLayout.ts 의 그 함수 ⚠️). */}
             <div
+              data-tut="editor-court"
               style={{
                 flex: '0 1 auto',
                 minWidth: 0,
@@ -849,13 +858,14 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
             뿐이다 — 시연 화면과 같은 모양의 PlaybackControls 를 그대로 세운다. */}
         {isBoard ? null : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div data-tut="editor-note" style={{ flex: 1, minWidth: 0 }}>
               <NotePanel
                 stepId={step.id}
                 note={step.note}
                 onNoteChange={(note) => dispatch({ type: 'STEP_META', id: step.id, patch: { note } })}
               />
             </div>
+            <div data-tut="editor-playback">
             <PlaybackControls
               playing={playing}
               canPlay={drill.steps.length >= 2}
@@ -867,6 +877,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
               speed={speed}
               onCycleSpeed={() => playbackActions.setSpeed(speed === 0.5 ? 1 : speed === 1 ? 2 : 0.5)}
             />
+            </div>
           </div>
         )}
       </div>
@@ -887,6 +898,17 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       )}
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} returnFocusRef={helpTriggerRef} mode={mode} />
+
+      {tutorial.step && (
+        <TutorialOverlay
+          step={tutorial.step}
+          stepIndex={tutorial.stepIndex}
+          totalSteps={tutorial.totalSteps}
+          onNext={tutorial.next}
+          onPrev={tutorial.prev}
+          onSkip={tutorial.skip}
+        />
+      )}
 
       {/* 메모 글 칸. `key` 로 갈아끼우는 이유: 모달이 초깃값을 **열릴 때 한 번만** 읽으므로
           (편집 중인 글을 바깥이 덮으면 방금 친 것이 사라진다), 다른 메모를 열 때는 컴포넌트를
