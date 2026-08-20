@@ -129,6 +129,7 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
 
   return (
     <div
+      data-tut="sessions-card"
       style={{
         position: 'relative',
         display: 'flex',

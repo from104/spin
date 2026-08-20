@@ -378,6 +378,20 @@ export const en: Record<DictKey, string> = {
   'tutorial.board.step5.title': 'Save as drill',
   'tutorial.board.step5.body': 'Save the current layout as a new drill in your drill library.',
 
+  // ── Drill library tutorial, 3 steps — src/features/library/tutorialSteps.ts ──────
+  'tutorial.library.step1.title': 'New drill',
+  'tutorial.library.step1.body': 'Tap to open the free tactics board, draw a layout, then save it as a drill.',
+  'tutorial.library.step2.title': 'Drill card',
+  'tutorial.library.step2.body': 'Tap the card to open it. The play icon presents it right away; ⋮ duplicates, deletes, or exports.',
+  'tutorial.library.step3.title': 'Filter & view',
+  'tutorial.library.step3.body': 'Filter by type or situation, sort, and switch between card and list view.',
+
+  // ── Session list tutorial, 2 steps — src/features/sessions/tutorialSteps.ts ──────
+  'tutorial.sessions.step1.title': 'New session',
+  'tutorial.sessions.step1.body': 'Tap to create a new training session and start editing right away.',
+  'tutorial.sessions.step2.title': 'Session card',
+  'tutorial.sessions.step2.body': 'Tap the card to open it. The play icon presents it right away.',
+
   'presentInfo.titlePrefix': 'Drill info — {{title}}',
   'presentInfo.typeLabel': 'Type',
   'presentInfo.situationLabel': 'Situation',

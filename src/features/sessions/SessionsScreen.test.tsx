@@ -12,6 +12,7 @@ import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { createSession, deleteSession, listSessions } from '../../storage/sessionRepo.ts';
 import { formatSessionWhen } from '../../model/session.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 
 function makeNav(): HomeNav {
   return {
@@ -35,6 +36,9 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 beforeEach(async () => {
   for (const d of await idbDrillRepo.listDrillSummaries()) await idbDrillRepo.deleteDrill(d.id);
   for (const s of await listSessions()) await deleteSession(s.session.id);
+  // 세션 목록 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트 다이얼로그가
+  // 떠서 "다이얼로그 없음" 을 잰 아래 테스트들이 깨진다 — "이미 봤다" 상태로 시작한다.
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { sessions: true } }));
 });
 
 describe('SessionsScreen', () => {
@@ -104,5 +108,22 @@ describe('SessionsScreen', () => {
     render(<SessionsScreen nav={nav} />, { wrapper });
     await waitFor(() => expect(screen.getByText('미정 세션')).toBeInTheDocument());
     expect(screen.queryByRole('region', { name: '다음 세션' })).toBeNull();
+  });
+});
+
+describe('세션 목록 튜토리얼(§0.5)', () => {
+  it('처음 여는 화면에서 자동으로 뜬다 — [새 세션] 은 AppShell 헤더 몫이라 이 컴포넌트 단위 테스트엔 없다', async () => {
+    // 이 파일의 공용 beforeEach 가 seen=true 로 채워 둔 것을 되돌려 "처음 방문" 을 재현한다.
+    localStorage.setItem(PREFS_KEY, JSON.stringify(makeDefaultPrefs()));
+    await createSession({ title: '튜토리얼용 세션' });
+    const nav = makeNav();
+    render(<SessionsScreen nav={nav} />, { wrapper });
+    const dialog = await screen.findByRole('dialog', { name: '화면 안내' });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByText('1/1 단계')).toBeInTheDocument();
+    expect(screen.getByText('세션 카드')).toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: '완료' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '화면 안내' })).toBeNull());
   });
 });

@@ -20,6 +20,7 @@ import { addDrillToSession, createSession, deleteSession, listSessions } from '.
 import { createDrill } from '../../model/defaults.ts';
 import { exportLibraryFile } from '../../storage/transfer.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 
 function makeNav(): HomeNav {
   return {
@@ -56,6 +57,9 @@ const panel = () => screen.getByRole('main');
 beforeEach(async () => {
   for (const d of await idbDrillRepo.listDrillSummaries()) await idbDrillRepo.deleteDrill(d.id);
   for (const s of await listSessions()) await deleteSession(s.session.id);
+  // 드릴 목록 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트 다이얼로그가
+  // 떠서 "다이얼로그 없음" 을 잰 아래 테스트들이 깨진다 — "이미 봤다" 상태로 시작한다.
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { library: true } }));
 });
 
 describe('LibraryScreen — 드릴 탭', () => {
@@ -359,5 +363,28 @@ describe('LibraryScreen — 가져오기 보고 토스트 (로드맵 4.2)', () =
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     // 대조군: "실패 3" 이 성한 것까지 버린 결과가 아니다 — 성한 카드가 실제로 그려진다.
     await waitFor(() => expect(within(panel()).getByText('보고 성한 0')).toBeInTheDocument());
+  });
+});
+
+describe('드릴 목록 튜토리얼(§0.5)', () => {
+  it('처음 여는 화면에서 자동으로 뜬다 — [새 드릴] 은 AppShell 헤더 몫이라 이 컴포넌트 단위 테스트엔 없다', async () => {
+    // 이 파일의 공용 beforeEach 가 seen=true 로 채워 둔 것을 되돌려 "처음 방문" 을 재현한다.
+    // 여기서는 AppShell 을 안 씌우므로(§8) header-primary 대상이 없어 그 단계는 건너뛴다 —
+    // 8단계 전부가 뜨는 배선은 AppShell 을 통째로 마운트하는 화면 스모크 몫이다.
+    localStorage.setItem(PREFS_KEY, JSON.stringify(makeDefaultPrefs()));
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '튜토리얼용 드릴' });
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    const dialog = await screen.findByRole('dialog', { name: '화면 안내' });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByText('1/2 단계')).toBeInTheDocument();
+    expect(screen.getByText('드릴 카드')).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await waitFor(() => expect(screen.getByText('2/2 단계')).toBeInTheDocument());
+    expect(screen.getByText('필터·보기')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '완료' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '화면 안내' })).toBeNull());
   });
 });

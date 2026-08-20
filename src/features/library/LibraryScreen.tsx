@@ -43,6 +43,9 @@ import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
 import { DRILL_LEVEL_LABELS } from '../../model/drill.ts';
+import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
+import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
+import { LIBRARY_TUTORIAL_STEPS } from './tutorialSteps.ts';
 
 export interface LibraryScreenProps {
   nav: HomeNav;
@@ -57,6 +60,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const tutorial = useTutorial('library', LIBRARY_TUTORIAL_STEPS, true);
 
   const openDrill = (id: DrillSummary['id']) => nav.openDrill(id);
   const goNewDrill = () => nav.newDrill();
@@ -146,7 +150,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
         {/* C5 — 탭(드릴/세션)이 있던 자리. 세션이 레일의 1급 화면으로 나가면서 이 행에는
             유형 필터와 가져오기만 남았다. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div data-tut="library-filters" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <Segmented ariaLabel={t('library.typeFilterAriaLabel')} value={drillType ?? ''} onChange={(v) => setDrillType(v || null)} options={TYPE_OPTIONS} dense />
             {/* C10 — 경기 상황 필터(v8 두 번째 축)와 정렬. 정렬은 저장소(DrillQuery.sort)에
                 이미 있던 것을 UI 로 노출만 했다. */}
@@ -304,6 +308,17 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
           </>
         )}
       </Modal>
+
+      {tutorial.step && (
+        <TutorialOverlay
+          step={tutorial.step}
+          stepIndex={tutorial.stepIndex}
+          totalSteps={tutorial.totalSteps}
+          onNext={tutorial.next}
+          onPrev={tutorial.prev}
+          onSkip={tutorial.skip}
+        />
+      )}
     </main>
   );
 }

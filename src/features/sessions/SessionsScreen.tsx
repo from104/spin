@@ -14,6 +14,9 @@ import { SessionTab } from '../library/SessionTab.tsx';
 import { exportOneSession } from '../library/transfer.ts';
 import type { HomeNav } from '../home/nav.ts';
 import { useT } from '../../i18n/useT.ts';
+import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
+import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
+import { SESSIONS_TUTORIAL_STEPS } from './tutorialSteps.ts';
 
 export interface SessionsScreenProps {
   nav: HomeNav;
@@ -23,6 +26,7 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
   const { sessions, createSession, refresh } = useLibrary();
   const toast = useToast();
   const t = useT();
+  const tutorial = useTutorial('sessions', SESSIONS_TUTORIAL_STEPS, true);
 
   const openSession = (id: SessionId) => nav.openSession(id);
 
@@ -56,6 +60,17 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
           onCreate={() => void handleCreateSession()}
         />
       </div>
+
+      {tutorial.step && (
+        <TutorialOverlay
+          step={tutorial.step}
+          stepIndex={tutorial.stepIndex}
+          totalSteps={tutorial.totalSteps}
+          onNext={tutorial.next}
+          onPrev={tutorial.prev}
+          onSkip={tutorial.skip}
+        />
+      )}
     </main>
   );
 }

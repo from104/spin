@@ -377,6 +377,20 @@ export const ja: Record<DictKey, string> = {
   'tutorial.board.step5.title': 'ドリルとして保存',
   'tutorial.board.step5.body': '今の配置を新しいドリルとしてドリル一覧に保存します。',
 
+  // ── ドリル一覧チュートリアル 3ステップ — src/features/library/tutorialSteps.ts ──────
+  'tutorial.library.step1.title': '新しいドリル',
+  'tutorial.library.step1.body': 'タップしてフリー戦術ボードを開き、配置を描いてからドリルとして保存します。',
+  'tutorial.library.step2.title': 'ドリルカード',
+  'tutorial.library.step2.body': 'カードをタップすると開きます。再生アイコンはすぐ実演、⋮ は複製・削除・書き出しです。',
+  'tutorial.library.step3.title': 'フィルター・表示',
+  'tutorial.library.step3.body': '種類・状況で絞り込み、並べ替え、カード・リスト表示を切り替えられます。',
+
+  // ── セッション一覧チュートリアル 2ステップ — src/features/sessions/tutorialSteps.ts ──────
+  'tutorial.sessions.step1.title': '新しいセッション',
+  'tutorial.sessions.step1.body': 'タップして新しい練習セッションを作り、すぐ編集を始めます。',
+  'tutorial.sessions.step2.title': 'セッションカード',
+  'tutorial.sessions.step2.body': 'カードをタップすると開きます。再生アイコンはすぐ実演です。',
+
   'presentInfo.titlePrefix': 'ドリル情報 — {{title}}',
   'presentInfo.typeLabel': '種類',
   'presentInfo.situationLabel': '状況',

@@ -376,6 +376,20 @@ export const ko = {
   'tutorial.board.step5.title': '드릴로 저장',
   'tutorial.board.step5.body': '지금 배치를 새 드릴로 저장해 드릴 목록에 남깁니다.',
 
+  // ── 드릴 목록 튜토리얼 3단계 — src/features/library/tutorialSteps.ts ──────
+  'tutorial.library.step1.title': '새 드릴',
+  'tutorial.library.step1.body': '눌러서 자유 전술판을 열고, 배치를 그린 뒤 드릴로 저장합니다.',
+  'tutorial.library.step2.title': '드릴 카드',
+  'tutorial.library.step2.body': '카드를 누르면 열립니다. 재생 아이콘은 바로 시연, ⋮ 는 복제·삭제·내보내기입니다.',
+  'tutorial.library.step3.title': '필터·보기',
+  'tutorial.library.step3.body': '유형·상황으로 거르고 정렬하며, 카드·목록 보기를 바꿀 수 있습니다.',
+
+  // ── 세션 목록 튜토리얼 2단계 — src/features/sessions/tutorialSteps.ts ──────
+  'tutorial.sessions.step1.title': '새 세션',
+  'tutorial.sessions.step1.body': '눌러서 새 훈련 세션을 만들고 바로 편집을 시작합니다.',
+  'tutorial.sessions.step2.title': '세션 카드',
+  'tutorial.sessions.step2.body': '카드를 누르면 열립니다. 재생 아이콘은 바로 시연입니다.',
+
   'presentInfo.titlePrefix': '드릴 정보 — {{title}}',
   'presentInfo.typeLabel': '유형',
   'presentInfo.situationLabel': '경기 상황',

@@ -170,6 +170,7 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
 
   return (
     <div
+      data-tut="library-card"
       style={{
         position: 'relative',
         border: '1px solid var(--border)',
@@ -282,6 +283,7 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
   const locale = useLocale();
   return (
     <div
+      data-tut="library-card"
       style={{
         display: 'flex',
         alignItems: 'center',
