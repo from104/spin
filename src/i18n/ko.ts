@@ -240,7 +240,12 @@ export const ko = {
   // C5 — 세션 화면
   'common.loading': '불러오는 중…',
 
-  'sessionsScreen.deleteToast': '세션을 삭제했습니다.',
+  'sessionsScreen.deleteToast': '"{{title}}" 을(를) 삭제했습니다.',
+  'sessionsScreen.undoAction': '되돌리기',
+  'sessionsScreen.deleteConfirm.title': '세션 삭제',
+  'sessionsScreen.deleteConfirm.body': '"{{title}}" 을(를) 삭제할까요? 구획과 편성이 모두 사라집니다.',
+  'sessionsScreen.deleteConfirm.cancel': '취소',
+  'sessionsScreen.deleteConfirm.confirm': '삭제',
   'sessionsScreen.exportToast': '"{{title}}" 을(를) 내보냈습니다.',
 
   'sessionEditor.notFound': '세션을 찾을 수 없습니다 — 삭제됐거나 다른 기기의 주소입니다.',

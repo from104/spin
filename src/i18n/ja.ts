@@ -241,7 +241,12 @@ export const ja: Record<DictKey, string> = {
   // C5 — セッション画面
   'common.loading': '読み込み中…',
 
-  'sessionsScreen.deleteToast': 'セッションを削除しました。',
+  'sessionsScreen.deleteToast': '「{{title}}」を削除しました。',
+  'sessionsScreen.undoAction': '元に戻す',
+  'sessionsScreen.deleteConfirm.title': 'セッションを削除',
+  'sessionsScreen.deleteConfirm.body': '「{{title}}」を削除しますか？ 構成とドリル編成がすべて失われます。',
+  'sessionsScreen.deleteConfirm.cancel': 'キャンセル',
+  'sessionsScreen.deleteConfirm.confirm': '削除',
   'sessionsScreen.exportToast': '「{{title}}」をエクスポートしました。',
 
   'sessionEditor.notFound': 'セッションが見つかりません — 削除されたか、別の端末のアドレスです。',

@@ -241,7 +241,12 @@ export const en: Record<DictKey, string> = {
   // C5 — session screens
   'common.loading': 'Loading…',
 
-  'sessionsScreen.deleteToast': 'Deleted the session.',
+  'sessionsScreen.deleteToast': 'Deleted “{{title}}.”',
+  'sessionsScreen.undoAction': 'Undo',
+  'sessionsScreen.deleteConfirm.title': 'Delete session',
+  'sessionsScreen.deleteConfirm.body': 'Delete “{{title}}”? All its phases and drills will be removed.',
+  'sessionsScreen.deleteConfirm.cancel': 'Cancel',
+  'sessionsScreen.deleteConfirm.confirm': 'Delete',
   'sessionsScreen.exportToast': 'Exported “{{title}}.”',
 
   'sessionEditor.notFound': 'Couldn’t find that session — it may be deleted, or this link is from another device.',

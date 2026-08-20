@@ -10,7 +10,8 @@ import { useCallback, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
-import { deleteSession as repoDeleteSession, getSession } from '../../storage/sessionRepo.ts';
+import { deleteSession as repoDeleteSession, restoreSession, getSession } from '../../storage/sessionRepo.ts';
+import type { TrainingSession } from '../../model/session.ts';
 import type { SessionId } from '../../core/ids.ts';
 import type { TutorialScreenKey } from '../../storage/prefs.ts';
 import { SessionTab } from '../library/SessionTab.tsx';
@@ -23,6 +24,8 @@ import { withTutorialUnseen } from '../../ui/tutorial/resetTutorialSeen.ts';
 import { SESSIONS_TUTORIAL_STEPS } from './tutorialSteps.ts';
 import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
 import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
+import { ConfirmDialog } from '../../ui/ConfirmDialog.tsx';
+import { DELETE_UNDO_TOAST_MS } from '../../ui/Toast.tsx';
 
 export interface SessionsScreenProps {
   nav: HomeNav;
@@ -60,10 +63,34 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
     const s = await createSession({ title: t('app.header.newSession') });
     openSession(s.id);
   };
-  const handleDeleteSession = async (id: SessionId) => {
-    await repoDeleteSession(id);
+  // §C-4(2026-08-20, PLAN-DELETE-SAFETY.md) — 세션엔 앱 되돌리기 스택이 없고 여러 구획·편성을
+  // 통째로 가져간다. 드릴(§C-2)과 같은 급이라 무조건 확인 + 8초 undo 토스트로 대칭을 맞춘다.
+  // 세션은 참조 대상이 없어(아무도 세션을 가리키지 않는다) 드릴처럼 문구를 가를 필요가 없다.
+  const [pendingDeleteSession, setPendingDeleteSession] = useState<TrainingSession | null>(null);
+  const requestDeleteSession = (id: SessionId) => {
+    // sessions(useLibrary)가 이미 원본 TrainingSession 을 들고 있다(드릴과 달리 요약/본문
+    // 분리가 없다) — 되돌리기용 원본을 얻으려 따로 fetch 할 필요가 없다.
+    const target = sessions.find((r) => r.session.id === id)?.session;
+    if (target) setPendingDeleteSession(target);
+  };
+  const confirmDeleteSession = async () => {
+    if (!pendingDeleteSession) return;
+    const full = pendingDeleteSession;
+    setPendingDeleteSession(null);
+    await repoDeleteSession(full.id);
     await refresh();
-    toast.show(t('sessionsScreen.deleteToast'));
+    toast.show(t('sessionsScreen.deleteToast', { title: full.title }), {
+      durationMs: DELETE_UNDO_TOAST_MS,
+      action: {
+        label: t('sessionsScreen.undoAction'),
+        onAction: async () => {
+          // putSession({touch:false}) 이 아니라 restoreSession — 톰스톤도 같이 지워야 다음
+          // 동기화가 되살린 세션을 다시 안 지운다(§E, 드릴과 같은 이유).
+          await restoreSession(full);
+          await refresh();
+        },
+      },
+    });
   };
   const handleExportSession = async (id: SessionId) => {
     const resolved = await getSession(id);
@@ -79,7 +106,7 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
           sessions={sessions}
           onOpen={openSession}
           onPresent={(id) => nav.presentSession(id)}
-          onDelete={(id) => void handleDeleteSession(id)}
+          onDelete={requestDeleteSession}
           onExport={(id) => void handleExportSession(id)}
           onCreate={() => void handleCreateSession()}
         />
@@ -97,6 +124,18 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
       )}
 
       <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="sessions" onRestartTutorial={onRestartTutorial} />
+
+      {pendingDeleteSession && (
+        <ConfirmDialog
+          open
+          onCancel={() => setPendingDeleteSession(null)}
+          onConfirm={() => void confirmDeleteSession()}
+          title={t('sessionsScreen.deleteConfirm.title')}
+          body={t('sessionsScreen.deleteConfirm.body', { title: pendingDeleteSession.title })}
+          confirmLabel={t('sessionsScreen.deleteConfirm.confirm')}
+          cancelLabel={t('sessionsScreen.deleteConfirm.cancel')}
+        />
+      )}
     </main>
   );
 }

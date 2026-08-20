@@ -7,7 +7,8 @@ import type { ReactNode } from 'react';
 import { SessionsScreen } from './SessionsScreen.tsx';
 import type { HomeNav } from '../home/nav.ts';
 import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
-import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
+import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
+import { ToastHost } from '../../ui/ToastHost.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { createSession, deleteSession, listSessions } from '../../storage/sessionRepo.ts';
 import { formatSessionWhen } from '../../model/session.ts';
@@ -25,10 +26,20 @@ function makeNav(): HomeNav {
   };
 }
 
+function ToastHostBridge() {
+  const { toasts, dismiss } = useToast();
+  return <ToastHost toasts={toasts} onDismiss={dismiss} />;
+}
+
+// §C-4(2026-08-20) 삭제 undo 토스트를 실제로 검증하려면 ToastHost 도 함께 마운트해야 한다
+// (LibraryScreen.test.tsx 와 같은 이유 — ToastProvider 는 상태만, 표시는 ToastHost 몫).
 const wrapper = ({ children }: { children: ReactNode }) => (
   <SettingsProvider>
     <LibraryProvider>
-      <ToastProvider>{children}</ToastProvider>
+      <ToastProvider>
+        {children}
+        <ToastHostBridge />
+      </ToastProvider>
     </LibraryProvider>
   </SettingsProvider>
 );
@@ -108,6 +119,51 @@ describe('SessionsScreen', () => {
     render(<SessionsScreen nav={nav} />, { wrapper });
     await waitFor(() => expect(screen.getByText('미정 세션')).toBeInTheDocument());
     expect(screen.queryByRole('region', { name: '다음 세션' })).toBeNull();
+  });
+});
+
+// PLAN-DELETE-SAFETY.md §C-4(2026-08-20) — 착수 전까지 이 화면엔 삭제 테스트가 하나도 없었다
+// (조사에서 "완전 무방비" 로 지목된 지점). 드릴(LibraryScreen)과 대칭인 확인·되돌리기를 잰다.
+describe('SessionsScreen — 삭제 안전망(§C-4)', () => {
+  it('삭제하면 확인 모달을 거쳐 카드가 사라지고 되돌리기로 복구된다', async () => {
+    await createSession({ title: '삭제 대상 세션' });
+    const nav = makeNav();
+    render(<SessionsScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('삭제 대상 세션')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '삭제 대상 세션 더보기' }));
+    await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '세션 삭제' });
+    expect(within(dialog).getByText(/삭제 대상 세션/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: '삭제' }));
+
+    await waitFor(() => expect(screen.queryByText('삭제 대상 세션')).not.toBeInTheDocument());
+    expect(await listSessions()).toHaveLength(0);
+
+    const toast = await screen.findByRole('status');
+    expect(toast).toHaveTextContent('삭제 대상 세션');
+    await user.click(within(toast).getByRole('button', { name: '되돌리기' }));
+    await waitFor(() => expect(screen.getByText('삭제 대상 세션')).toBeInTheDocument());
+    expect(await listSessions()).toHaveLength(1);
+  });
+
+  it('확인 모달에서 [취소]를 누르면 안 지워진다', async () => {
+    await createSession({ title: '취소할 세션' });
+    const nav = makeNav();
+    render(<SessionsScreen nav={nav} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('취소할 세션')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '취소할 세션 더보기' }));
+    await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+    const dialog = await screen.findByRole('dialog', { name: '세션 삭제' });
+    await user.click(within(dialog).getByRole('button', { name: '취소' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByText('취소할 세션')).toBeInTheDocument();
+    expect(await listSessions()).toHaveLength(1);
   });
 });
 
