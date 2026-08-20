@@ -177,10 +177,13 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   const autoFullscreenTried = useRef(false);
   useEffect(() => {
     if (load.status !== 'ready' || autoFullscreenTried.current || !prefs.present.autoFullscreen) return;
+    // §0.5(계획서 §C) — 첫 방문 튜토리얼과 겹치면 안 된다: 안 본 사람은 튜토리얼이 끝나
+    // tutorialsSeen.present 가 찍힐 때까지 자동 전체화면을 미룬다. 이미 본 사람은 곧장 진입한다.
+    if (!prefs.tutorialsSeen.present) return;
     autoFullscreenTried.current = true;
     void fullscreen.enter({ userGesture: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load.status, prefs.present.autoFullscreen]);
+  }, [load.status, prefs.present.autoFullscreen, prefs.tutorialsSeen.present]);
 
   useEffect(() => {
     return () => {
