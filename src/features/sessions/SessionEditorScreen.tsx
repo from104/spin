@@ -334,7 +334,10 @@ function ParticipantChecklist({ session, onSave }: { session: TrainingSession; o
         <h3 style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--faint-text)' }}>{t('participantChecklist.sectionLabel')}</h3>
         {roster && roster.players.length > 0 && (
           <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text)' }}>
-            {t('participantChecklist.countSuffix', { checked: checked.size, total: roster.players.length })}
+            {/* checked.size 가 아니라 현재 명단에 실재하는 인원만 센다 — 체크된 뒤 명단에서
+                지워진 선수의 id 는 participantIds 에 남을 수 있고(정상, 과거 기록이다), 그걸
+                그대로 세면 "3/2명" 처럼 분모보다 큰 분자가 나온다. */}
+            {t('participantChecklist.countSuffix', { checked: roster.players.filter((p) => checked.has(p.id)).length, total: roster.players.length })}
             {/* PF2 는 경기에서 동시 출전 최대 2명(FIPFA) — 참가는 제한하지 않고 셈만 보여준다. */}
             {(() => {
               const pf2 = roster.players.filter((p) => checked.has(p.id) && p.klass === 'PF2').length;

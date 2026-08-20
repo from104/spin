@@ -3,6 +3,7 @@
 // 키는 '화면영역.요소' 점 표기 평면 구조 — 화면별 커밋마다 이 세 파일에 함께 늘어난다.
 export const ko = {
   'settings.language.title': '언어',
+  'settings.language.rowTitle': '표시 언어',
   'settings.language.desc': '메뉴와 화면에 쓸 언어를 고릅니다. 자동은 이 기기의 브라우저 언어를 따릅니다.',
   'settings.language.auto': '자동',
 
@@ -62,8 +63,7 @@ export const ko = {
   'settings.team.formationTitle': '기본 포메이션',
   'settings.team.formationDesc': '새 드릴 생성 시 초기 배치',
   'settings.team.courtModeTitle': '기본 코트 모드',
-  'settings.team.courtModeDesc': "[보드] 전술판이 뜰 때의 코트입니다(만들어 둔 드릴은 각자 자기 코트를 기억합니다). '항상 묻기' 는 풀 코트로 엽니다",
-  'settings.team.courtModeAsk': '항상 묻기',
+  'settings.team.courtModeDesc': '[보드] 전술판이 뜰 때의 코트입니다(만들어 둔 드릴은 각자 자기 코트를 기억합니다)',
   'settings.team.colorSwatchAriaLabel': '팀 색상: {{name}}',
   'settings.team.colorConflictToast': '상대 팀과 같은 색은 선택할 수 없습니다.',
 
@@ -81,6 +81,8 @@ export const ko = {
   'settings.roster.addButton': '추가',
   'settings.roster.countLine': '{{count}}/{{max}}명{{fullNote}} · 명단은 전체 백업에 함께 실립니다',
   'settings.roster.fullSuffix': ' — 정원이 찼습니다',
+  'settings.roster.removeToast': '{{name}} 선수를 명단에서 지웠습니다',
+  'settings.roster.undoAction': '되돌리기',
 
   'settings.present.title': '시연',
   'settings.present.wakeLockTitle': '화면 꺼짐 방지',

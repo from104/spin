@@ -4,6 +4,7 @@ import type { DictKey } from './ko.ts';
 
 export const ja: Record<DictKey, string> = {
   'settings.language.title': '言語',
+  'settings.language.rowTitle': '表示言語',
   'settings.language.desc': 'メニューや画面で使う言語を選びます。自動はこの端末のブラウザ言語に従います。',
   'settings.language.auto': '自動',
 
@@ -63,8 +64,7 @@ export const ja: Record<DictKey, string> = {
   'settings.team.formationTitle': '既定のフォーメーション',
   'settings.team.formationDesc': '新規ドリル作成時の初期配置',
   'settings.team.courtModeTitle': '既定のコートモード',
-  'settings.team.courtModeDesc': '[ボード]戦術ボードを開いたときのコートです(保存済みドリルはそれぞれ自分のコートを覚えています)。「毎回確認」はフルコートで開きます',
-  'settings.team.courtModeAsk': '毎回確認',
+  'settings.team.courtModeDesc': '[ボード]戦術ボードを開いたときのコートです(保存済みドリルはそれぞれ自分のコートを覚えています)',
   'settings.team.colorSwatchAriaLabel': 'チームカラー: {{name}}',
   'settings.team.colorConflictToast': '相手チームと同じ色は選べません。',
 
@@ -82,6 +82,8 @@ export const ja: Record<DictKey, string> = {
   'settings.roster.addButton': '追加',
   'settings.roster.countLine': '{{count}}/{{max}}名{{fullNote}} · 名簿は全体バックアップに含まれます',
   'settings.roster.fullSuffix': ' — 定員に達しました',
+  'settings.roster.removeToast': '{{name}}選手を名簿から削除しました',
+  'settings.roster.undoAction': '元に戻す',
 
   'settings.present.title': 'プレゼン',
   'settings.present.wakeLockTitle': '画面消灯を防止',

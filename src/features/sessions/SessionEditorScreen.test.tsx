@@ -10,9 +10,10 @@ import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
-import { createSession, deleteSession, getSession, listSessions, addDrillToSession } from '../../storage/sessionRepo.ts';
+import { createSession, deleteSession, getSession, listSessions, addDrillToSession, putSession } from '../../storage/sessionRepo.ts';
 import { flattenSessionItems } from '../../model/session.ts';
 import type { SessionId } from '../../core/ids.ts';
+import type { Player } from '../../model/roster.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 
@@ -344,6 +345,19 @@ describe('SessionEditorScreen', () => {
       const saved = await getSession(s.id);
       expect('participantIds' in saved!.session).toBe(false); // 미지정 = 키 없음
     });
+  });
+
+  it('명단에서 지워진 참가자 id 는 인원수에서 빠진다 — 분자가 분모를 넘지 않는다(설정 화면 감사 회귀)', async () => {
+    const { saveRoster } = await import('../../storage/rosterRepo.ts');
+    const { addPlayer, emptyRoster } = await import('../../model/roster.ts');
+    const roster = await saveRoster(addPlayer(emptyRoster(), '생존 선수'));
+    const s = await createSession({ title: '참가자 세션' });
+    // 과거에 체크됐다가 이후 명단에서 지워진 선수를 흉내낸다 — participantIds 에는 남지만
+    // 현재 명단(roster.players)에는 없는 id.
+    await putSession({ ...s, participantIds: [roster.players[0]!.id, 'pl_ghost' as Player['id']] });
+
+    await renderEditor(s.id);
+    expect(await screen.findByText('1/1명')).toBeInTheDocument();
   });
 
   it('[세션 시연 시작]이 nav.presentSession 으로 나가고, 없는 세션 주소는 빈 상태를 그린다', async () => {

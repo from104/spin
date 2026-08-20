@@ -4,6 +4,7 @@
 // 바꾸는 마이그레이션은 index.html 부트 스크립트도 같은 커밋에서 함께 고쳐야 한다.
 import { clamp } from '../core/geom.ts';
 import { DEFAULT_ZONES, DEFAULT_LIMITS } from '../core/constants.ts';
+import { TEAM_COLOR_CHOICES } from '../core/colors.ts';
 import type { ZoneConfig } from '../model/chair.ts';
 import type { TeamSide, TeamStyle } from '../model/drill.ts';
 import type { CourtMode } from '../model/court.ts';
@@ -226,6 +227,12 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     home: sanitizeTeamStyle(teamsRaw.home, fallbackTeams.home),
     away: sanitizeTeamStyle(teamsRaw.away, fallbackTeams.away),
   };
+  // 홈·어웨이가 같은 색으로 저장돼 있으면 코트 위에서 두 팀을 구분할 수 없다 — 설정 화면의
+  // TeamColorSwatches 는 상대 색을 aria-disabled 로 막아 UI 로는 이 상태를 만들 수 없지만,
+  // 백업 파일 복원·손상된 저장본은 그 방어를 거치지 않는다. 팔레트에서 첫 번째 다른 색으로 민다.
+  if (teams.away.color === teams.home.color) {
+    teams.away.color = TEAM_COLOR_CHOICES.find((c) => c !== teams.home.color) ?? teams.away.color;
+  }
 
   const presentRaw = isRecord(raw.present) ? raw.present : {};
   const a11yRaw = isRecord(raw.a11y) ? raw.a11y : {};

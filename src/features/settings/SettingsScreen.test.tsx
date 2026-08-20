@@ -127,10 +127,12 @@ describe('SettingsScreen — 화면', () => {
     expect(loadPrefs().showGridLabels).toBe(false);
   });
 
-  // 감사 2026-08-08 minor — 기본값은 defaultCourtMode:null → "항상 묻기".
+  // 감사 2026-08-08 minor — 기본값은 defaultCourtMode:null. 화면은 아무것도 묻지 않고
+  // 조용히 풀 코트로 접히는 그 사실 그대로 '풀' 을 선택된 채로 보여준다(2026-08-21 재검증 —
+  // 아무것도 묻지 않는 '항상 묻기' 선택지는 지웠다, settingsDescTruth.test.tsx 참고).
   it('기본 코트 모드를 "하프" 로 바꾸면 prefs.defaultCourtMode 가 갱신된다', async () => {
     render(<SettingsScreen />, { wrapper });
-    expect(screen.getByRole('radio', { name: '항상 묻기' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '풀' })).toHaveAttribute('aria-checked', 'true');
     await userEvent.setup().click(screen.getByRole('radio', { name: '하프' }));
     expect(loadPrefs().defaultCourtMode).toBe('half');
   });
@@ -241,6 +243,19 @@ describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '기본값으로 복원' }));
     await waitFor(() => expect(screen.getByRole('slider', { name: '후방 견인 경계' })).toHaveValue(String(DEFAULT_ZONES.sTowRearMax)));
     expect(loadPrefs().physics).toEqual({});
+  });
+
+  // §설정 화면 감사(2026-08-21) B-2 — speedLimit 은 이 서랍의 슬라이더 6종과 다른 층이다
+  // (편집 화면 FunctionBar 의 속도 제한 해제 토글). 이 서랍이 안 보여주는 값까지 되돌리면
+  // 편집 중 속도 제한을 꺼둔 코치가 여기서 슬라이더만 되돌려도 제한이 말없이 다시 켜진다.
+  it('기본값으로 복원해도 speedLimit(편집 화면의 속도 제한 해제)은 건드리지 않는다', async () => {
+    savePrefs({ ...makeDefaultPrefs(), physics: { zones: { sTowRearMax: 0.18 }, speedLimit: false } });
+    render(<SettingsScreen />, { wrapper });
+    await openPhysicsDrawer();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: '기본값으로 복원' }));
+    await waitFor(() => expect(screen.getByRole('slider', { name: '후방 견인 경계' })).toHaveValue(String(DEFAULT_ZONES.sTowRearMax)));
+    expect(loadPrefs().physics).toEqual({ speedLimit: false });
   });
 });
 

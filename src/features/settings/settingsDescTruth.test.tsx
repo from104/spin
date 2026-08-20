@@ -32,11 +32,15 @@ describe("C2 — '기본 코트 모드' 문구가 실제 소비처와 맞다", (
     expect(BOARD).toContain("prefs.defaultCourtMode ?? 'full'");
   });
 
-  it("문구가 말하는 대로 '항상 묻기'(=null) 는 풀 코트로 열린다", () => {
-    // 기본값이 실제로 null 이고(= 화면에서 '항상 묻기'), BoardScreen 의 `?? 'full'` 이 그것을
-    // 풀 코트로 접는다. 두 사실이 모두 참일 때만 새 문구가 참이다.
+  it("'항상 묻기' 라는 이름의 선택지를 없앴다 — 실제로는 아무것도 묻지 않았기 때문(2026-08-21 재검증)", () => {
+    // 예전엔 화면에 '항상 묻기' 선택지가 있었지만 골라도 아무것도 묻지 않고 조용히 풀 코트로
+    // 접혔다(BoardScreen 의 `?? 'full'`). 존재하지 않는 동작에 이름을 붙여 보여주는 것 자체가
+    // 거짓이라 선택지를 지웠다 — 저장값이 비어 있을 때(신규 사용자·옛 저장본)의 fallback 은
+    // 그대로 'full' 이다, 이제 그 사실을 화면이 선택지로 주장하지 않을 뿐이다.
+    expect('settings.team.courtModeAsk' in ko).toBe(false);
+    expect(ko['settings.team.courtModeDesc']).not.toContain('항상 묻기');
     expect(makeDefaultPrefs().defaultCourtMode).toBeNull();
-    expect(ko['settings.team.courtModeDesc']).toContain("'항상 묻기' 는 풀 코트로 엽니다");
+    expect(BOARD).toContain("prefs.defaultCourtMode ?? 'full'");
   });
 
   it('대조군 — 이 검사에 이빨이 있다: 소비처 문자열을 틀리게 적으면 잡힌다', () => {

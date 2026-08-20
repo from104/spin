@@ -4,6 +4,7 @@ import type { DictKey } from './ko.ts';
 
 export const en: Record<DictKey, string> = {
   'settings.language.title': 'Language',
+  'settings.language.rowTitle': 'Display language',
   'settings.language.desc': 'Choose the language for menus and screens. Auto follows this device’s browser language.',
   'settings.language.auto': 'Auto',
 
@@ -63,8 +64,7 @@ export const en: Record<DictKey, string> = {
   'settings.team.formationTitle': 'Default formation',
   'settings.team.formationDesc': 'Starting layout when creating a new drill',
   'settings.team.courtModeTitle': 'Default court mode',
-  'settings.team.courtModeDesc': 'The court shown when the free tactics [Board] opens (saved drills remember their own court). “Always ask” opens a full court',
-  'settings.team.courtModeAsk': 'Always ask',
+  'settings.team.courtModeDesc': 'The court shown when the free tactics [Board] opens (saved drills remember their own court)',
   'settings.team.colorSwatchAriaLabel': 'Team color: {{name}}',
   'settings.team.colorConflictToast': 'You can’t pick the same color as the opponent.',
 
@@ -82,6 +82,8 @@ export const en: Record<DictKey, string> = {
   'settings.roster.addButton': 'Add',
   'settings.roster.countLine': '{{count}}/{{max}}{{fullNote}} · The roster ships with full backups',
   'settings.roster.fullSuffix': ' — Roster is full',
+  'settings.roster.removeToast': 'Removed {{name}} from the roster',
+  'settings.roster.undoAction': 'Undo',
 
   'settings.present.title': 'Presentation',
   'settings.present.wakeLockTitle': 'Keep screen awake',

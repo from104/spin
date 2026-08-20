@@ -72,6 +72,12 @@ export function SettingsScreen() {
   // 아는 사람만 복원할 수 있었다. 파괴적 동작이라 기본값은 반드시 꺼짐 — withPrefs 와 같은 규율.
   const [withBoard, setWithBoard] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  // 복원이 명단을 되살려도(report.roster === 'restored') RosterSection 은 마운트 시 1회만
+  // loadRoster 를 한다 — 그대로 두면 화면은 복원 전 명단을 계속 보여주고, 그 상태에서 선수
+  // 하나만 고쳐도 saveRoster(문서 통째 저장)가 stale 명단으로 방금 복원한 명단을 덮는다.
+  // key 를 바꿔 강제 재마운트시키는 것이 가장 단순한 재적재다 — prefs 재적재(위 setPrefs
+  // (loadPrefs()))와 같은 문제, 같은 해법이다.
+  const [rosterReloadToken, setRosterReloadToken] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const restoreBtnRef = useRef<HTMLButtonElement | null>(null);
   const restoreDialogId = useId();
@@ -102,7 +108,10 @@ export function SettingsScreen() {
   const patchSpeed = (key: 'linearKmh' | 'bumperKmh' | 'editorSpeedMultiplier', value: number) => {
     setPrefs({ physics: prunePhysics({ ...prefs.physics, [key]: value }) });
   };
-  const restorePhysicsDefaults = () => setPrefs({ physics: {} });
+  // speedLimit 은 슬라이더 6종과 다른 층이다(편집 화면 FunctionBar 의 속도 제한 해제 토글) —
+  // 이 서랍이 안 보여 주는 값까지 되돌리면 편집 중 속도 제한을 꺼둔 코치가 여기서 슬라이더만
+  // 되돌려도 제한이 말없이 다시 켜진다. 현재값을 그대로 들고 가 prunePhysics 로 접는다.
+  const restorePhysicsDefaults = () => setPrefs({ physics: prunePhysics({ speedLimit: physics.speedLimit }) });
 
   const runRestore = async () => {
     const file = pendingFile;
@@ -117,6 +126,7 @@ export function SettingsScreen() {
       //   보여주고, 그 상태에서 스위치 하나만 건드려도 **방금 복원한 설정이 통째로 되돌아간다**
       //   (setPrefs 가 화면의 옛 prefs 위에 패치를 얹어 저장하기 때문).
       if (report.prefs === 'restored') setPrefs(loadPrefs());
+      if (report.roster === 'restored') setRosterReloadToken((n) => n + 1);
       toast.show(backupReportLine(report, locale));
     } catch (e) {
       toast.show(storageErrorText(e, locale, t('settings.data.readErrorFallback')));
@@ -151,7 +161,7 @@ export function SettingsScreen() {
     <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '26px 30px 46px', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <Section title={t('settings.language.title')}>
-          <Row title={t('settings.language.title')} desc={t('settings.language.desc')}>
+          <Row title={t('settings.language.rowTitle')} desc={t('settings.language.desc')}>
             <Segmented
               ariaLabel={t('settings.language.title')}
               value={prefs.language}
@@ -231,31 +241,32 @@ export function SettingsScreen() {
               options={FORMATIONS.map((f) => ({ value: f, label: f }))}
             />
           </Row>
-          {/* ⚠️ 2026-08-13(6차 검증) 정정. 옛 문구는 *"새 드릴을 만들 때 코트 선택 화면에서 미리
-              강조 표시됩니다(선택은 매번 확인)"* 였는데 **두 조각 다 거짓**이었다:
+          {/* ⚠️ 2026-08-13(6차 검증) 정정, 2026-08-21(설정 화면 감사) 재정정. 옛 문구는 *"새
+              드릴을 만들 때 코트 선택 화면에서 미리 강조 표시됩니다(선택은 매번 확인)"* 였는데
+              **두 조각 다 거짓**이었다:
                 ① '코트 선택 화면'(CourtPicker)은 2026-08-09 재편에서 은퇴했다
                    (BoardScreen.tsx:28 · EditorScreen.tsx:4 가 그 은퇴를 기록한다).
                 ② '새 드릴' 과도 무관하다 — 이 값의 **유일한** 프로덕션 소비처는
                    BoardScreen.tsx:37 `mode ?? prefs.defaultCourtMode ?? 'full'`, 즉 전술판이
                    뜰 때의 코트다(rg 실측: 설정 화면 자신 말고는 그 한 줄뿐).
-              그리고 '항상 묻기'(=null)는 **아무것도 묻지 않는다** — 위 `?? 'full'` 이 조용히
-              풀 코트로 접는다. 항목을 없앨지는 기현님 결정이라(§7.2 7차 표) 문구만 사실로
-              돌린다. 되돌리면 settingsDescTruth.test.tsx 가 빨개진다. */}
+              6차 검증은 문구를 사실로 고쳤지만 '항상 묻기'(=null) 선택지는 남겨 뒀다 — 그런데
+              그 선택지도 **아무것도 묻지 않는다**, 위 `?? 'full'` 이 조용히 풀 코트로 접을
+              뿐이다. 이름 붙은 동작이 실재하지 않는 선택지를 보여주는 것 자체가 거짓이라
+              이번에 지운다. 저장 모델의 null(=미설정)은 그대로 둔다 — 이 화면에서 더는 만들
+              수 없을 뿐, 옛 저장본·최초 실행 기본값은 여전히 null 이고 BoardScreen 이 여전히
+              'full' 로 접는다. 되돌리면 settingsDescTruth.test.tsx 가 빨개진다. */}
           <Row title={t('settings.team.courtModeTitle')} desc={t('settings.team.courtModeDesc')} borderBottom={false}>
             <Segmented
               ariaLabel={t('settings.team.courtModeTitle')}
-              value={prefs.defaultCourtMode ?? 'ask'}
-              onChange={(v) => setPrefs({ defaultCourtMode: v === 'ask' ? null : (v as CourtMode) })}
-              options={[
-                { value: 'ask', label: t('settings.team.courtModeAsk') },
-                ...COURT_MODES.map((m) => ({ value: m, label: COURT_MODE_SHORT_LABELS[locale][m] })),
-              ]}
+              value={prefs.defaultCourtMode ?? 'full'}
+              onChange={(v) => setPrefs({ defaultCourtMode: v as CourtMode })}
+              options={COURT_MODES.map((m) => ({ value: m, label: COURT_MODE_SHORT_LABELS[locale][m] }))}
             />
           </Row>
         </Section>
 
         <Section title={t('settings.roster.sectionTitle')} desc={t('settings.roster.sectionDesc')}>
-          <RosterSection />
+          <RosterSection key={rosterReloadToken} />
         </Section>
 
         <Section title={t('settings.present.title')}>
@@ -610,6 +621,7 @@ function SliderRow({ label, desc, ariaLabel, value, min, max, step, format, onCh
         <input
           type="range"
           aria-label={ariaLabel}
+          aria-valuetext={format(value)}
           min={min}
           max={max}
           step={step}

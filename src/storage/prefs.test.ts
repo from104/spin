@@ -66,6 +66,11 @@ describe('validatePrefs', () => {
     const { value } = validatePrefs({ teams: { home: { color: '#123abc', label: '홈', gkColor: '#ffffff' }, away: {} } });
     expect(value.teams.home.color).toBe('#123abc');
   });
+  it('홈·어웨이가 같은 색으로 저장돼 있으면(손상된 백업 등) 어웨이를 팔레트의 다른 색으로 민다', () => {
+    const { value } = validatePrefs({ teams: { home: { color: '#d93a3a' }, away: { color: '#d93a3a' } } });
+    expect(value.teams.home.color).toBe('#d93a3a');
+    expect(value.teams.away.color).not.toBe('#d93a3a');
+  });
   it('객체가 아니면 완전한 기본값을 돌려준다', () => {
     expect(validatePrefs(null).value).toEqual(makeDefaultPrefs());
     expect(validatePrefs('garbage').value).toEqual(makeDefaultPrefs());
