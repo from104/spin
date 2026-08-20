@@ -222,7 +222,7 @@ export function buildTextPlacements(frame: RenderFrame, opts: StaticSceneOpts): 
       out.push({
         text: line,
         x: n.x + dx,
-        y: n.y + noteLineDy(i, lines.length),
+        y: n.y + noteLineDy(i, lines.length, size),
         sizePx: size,
         weight: EXPORT_LAYOUT.noteTextWeight,
         color: safeColor(n.color, '#ffffff'),

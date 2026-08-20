@@ -28,6 +28,7 @@ import {
   noteChipWidthPx,
   noteFoldPathD,
   noteLineDy,
+  noteLineHeightPx,
   noteLines,
   noteRingRadiusPx,
 } from './noteChip.ts';
@@ -131,7 +132,7 @@ export const NoteLabel = memo(function NoteLabel({
           // 인쇄·내보내기가 같은 배열을 봐야 화면과 종이가 안 갈라진다).
           <text x={textX} y={0} fontFamily={FONT} fontSize={size} fontWeight={600} fill={color} textAnchor={align} dominantBaseline="central">
             {lines.map((line, i) => (
-              <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length) : NOTE.lineHPx}>
+              <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length, size) : noteLineHeightPx(size)}>
                 {line}
               </tspan>
             ))}

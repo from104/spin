@@ -607,6 +607,15 @@ export const ko = {
   'editor.noteEditModal.hint': '줄바꿈 Enter · 저장 Ctrl+Enter',
   'editor.noteEditModal.cancel': '취소',
   'editor.noteEditModal.confirm': '확인',
+  'editor.noteEditModal.sizeLabel': '글자 크기',
+  'editor.noteEditModal.sizeSmall': '작게',
+  'editor.noteEditModal.sizeMedium': '보통',
+  'editor.noteEditModal.sizeLarge': '크게',
+  'editor.noteEditModal.colorLabel': '색',
+  'editor.noteEditModal.color.white': '흰색',
+  'editor.noteEditModal.color.sky': '하늘색',
+  'editor.noteEditModal.color.yellow': '노란색',
+  'editor.noteEditModal.color.red': '빨간색',
 
   // ── C7 — 스텝 노트 패널 ─────────────────────────────────────────────────────────────
   'editor.notePanel.toggleLabel': '노트',

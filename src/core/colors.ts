@@ -85,6 +85,12 @@ export const ARROW_COLORS = ['#38bdf8', '#fde047', '#ef4444'] as const;
 /** 기본 화살표 색 = 순환의 첫 값. `model` 의 `ARROW_STYLE.color` 가 이것을 그대로 쓴다. */
 export const ARROW_COLOR: string = ARROW_COLORS[0];
 
+/** 메모 글자색 선택지(§0.5 미배송 빚, 2026-08-20, NoteEditModal). 화살표와 같은 팔레트를
+ *  재사용하고 흰색(기본)을 앞에 붙인다 — **메모는 화살표와 달리 hex 를 그대로 저장한다**
+ *  (model/drill.ts NoteLabel.color: string, model/thumb.ts 도 첨자가 아니라 hex 를 싣는다).
+ *  위 "색을 굽지 않는다" 원칙(첨자 저장)은 화살표 전용이라 여기는 적용되지 않는다. */
+export const NOTE_COLOR_CHOICES = ['#ffffff', ...ARROW_COLORS] as const;
+
 const srgb = (v: number): number => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
 export function relLuminance(hex: string): number {
   const [r, g, b] = (hex.replace('#', '').match(/../g) ?? []).map((x) => srgb(parseInt(x, 16) / 255));

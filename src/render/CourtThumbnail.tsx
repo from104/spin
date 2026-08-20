@@ -236,7 +236,7 @@ export function CourtThumbnail({
                   <text
                     key={li}
                     x={textX}
-                    y={noteLineDy(li, lines.length)}
+                    y={noteLineDy(li, lines.length, size)}
                     // 판(`NoteLabel.tsx`)과 같은 서체·굵기다. 3 px 짜리 글자라도 서체가 달라지면
                     // 폭이 달라지고, 폭이 달라지면 쪽지 크기가 판과 어긋난다.
                     fontFamily="'Pretendard',sans-serif"

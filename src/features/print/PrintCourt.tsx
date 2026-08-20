@@ -35,6 +35,7 @@ import {
   noteChipWidthPx,
   noteFoldPathD,
   noteLineDy,
+  noteLineHeightPx,
   noteLines,
 } from '../../render/objects/noteChip.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
@@ -213,7 +214,7 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
               {empty
                 ? NOTE_PLACEHOLDER[locale]
                 : lines.map((line, i) => (
-                    <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length) : NOTE.lineHPx}>
+                    <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length, size) : noteLineHeightPx(size)}>
                       {line}
                     </tspan>
                   ))}

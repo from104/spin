@@ -19,7 +19,7 @@ import { BallDot } from '../../render/objects/BallDot.tsx';
 import { ConeMark } from '../../render/objects/ConeMark.tsx';
 import { ArrowPath } from '../../render/objects/ArrowPath.tsx';
 import { useT } from '../../i18n/useT.ts';
-import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteChipWidthPx, noteFoldPathD, noteLineDy, noteLines } from '../../render/objects/noteChip.ts';
+import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteChipWidthPx, noteFoldPathD, noteLineDy, noteLineHeightPx, noteLines } from '../../render/objects/noteChip.ts';
 import { NOTE } from '../../core/constants.ts';
 import { NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
@@ -150,7 +150,7 @@ export function PresentNoteLayer({ notes }: { notes: RenderFrame['notes'] }) {
               {/* 줄 나눔은 편집 화면과 **같은 함수**가 정한다(noteChip.ts). 시연에서만 한 줄로
                   이어 붙으면 코치가 판에서 본 것과 관객이 보는 것이 달라진다. */}
               {lines.map((line, i) => (
-                <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length) : NOTE.lineHPx}>
+                <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length, size) : noteLineHeightPx(size)}>
                   {line}
                 </tspan>
               ))}

@@ -607,6 +607,15 @@ export const ja: Record<DictKey, string> = {
   'editor.noteEditModal.hint': '改行はEnter・保存はCtrl+Enter',
   'editor.noteEditModal.cancel': 'キャンセル',
   'editor.noteEditModal.confirm': '確定',
+  'editor.noteEditModal.sizeLabel': '文字サイズ',
+  'editor.noteEditModal.sizeSmall': '小',
+  'editor.noteEditModal.sizeMedium': '標準',
+  'editor.noteEditModal.sizeLarge': '大',
+  'editor.noteEditModal.colorLabel': '色',
+  'editor.noteEditModal.color.white': '白',
+  'editor.noteEditModal.color.sky': '水色',
+  'editor.noteEditModal.color.yellow': '黄色',
+  'editor.noteEditModal.color.red': '赤',
 
   // ── C7 — ステップノートパネル ────────────────────────────────────────────────────────
   'editor.notePanel.toggleLabel': 'ノート',

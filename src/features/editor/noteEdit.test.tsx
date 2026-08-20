@@ -21,6 +21,7 @@ import { createTransformWriter } from '../../render/transformWriter.ts';
 import { EditorStage } from './EditorStage.tsx';
 import type { ToolId } from '../../physics/index.ts';
 import { NoteEditModal } from './NoteEditModal.tsx';
+import { NOTE_DEFAULT_SIZE_PX } from '../../render/objects/noteChip.ts';
 import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
 import { placeObject } from './placement.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -237,7 +238,10 @@ describe('모달 — 줄바꿈과 취소', () => {
   function open(over: Partial<React.ComponentProps<typeof NoteEditModal>> = {}) {
     const onSave = vi.fn();
     const onCancel = vi.fn();
-    render(<NoteEditModal open initialText="" fresh={false} onSave={onSave} onCancel={onCancel} {...over} />, { wrapper: SettingsProvider });
+    render(
+      <NoteEditModal open initialText="" initialSize={NOTE_DEFAULT_SIZE_PX} initialColor="#ffffff" fresh={false} onSave={onSave} onCancel={onCancel} {...over} />,
+      { wrapper: SettingsProvider },
+    );
     return { onSave, onCancel, box: screen.getByRole('textbox', { name: '메모 내용' }) as HTMLTextAreaElement };
   }
 
@@ -245,7 +249,7 @@ describe('모달 — 줄바꿈과 취소', () => {
     const { onSave, box } = open();
     fireEvent.change(box, { target: { value: '앞선 압박\n오른쪽 전환' } });
     fireEvent.click(screen.getByRole('button', { name: '확인' }));
-    expect(onSave).toHaveBeenCalledWith('앞선 압박\n오른쪽 전환');
+    expect(onSave).toHaveBeenCalledWith('앞선 압박\n오른쪽 전환', NOTE_DEFAULT_SIZE_PX, '#ffffff');
   });
 
   it('열 때의 글이 이미 들어 있다 — 고치기지 새로 쓰기가 아니다', () => {
@@ -263,7 +267,24 @@ describe('모달 — 줄바꿈과 취소', () => {
     const { onSave, box } = open();
     fireEvent.change(box, { target: { value: '가' } });
     fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true });
-    expect(onSave).toHaveBeenCalledWith('가');
+    expect(onSave).toHaveBeenCalledWith('가', NOTE_DEFAULT_SIZE_PX, '#ffffff');
+  });
+
+  // §0.5 미배송 빚(2026-08-20) — size·color 는 모델에 처음부터 있었는데 고칠 자리가 없었다.
+  it('크기·색을 고르면 onSave 가 새 값으로 불린다', () => {
+    const { onSave, box } = open();
+    fireEvent.change(box, { target: { value: '가' } });
+    fireEvent.click(screen.getByRole('radio', { name: '크게' }));
+    fireEvent.click(screen.getByRole('radio', { name: '하늘색' }));
+    fireEvent.click(screen.getByRole('button', { name: '확인' }));
+    expect(onSave).toHaveBeenCalledWith('가', 18, '#38bdf8');
+  });
+
+  it('안 만지면 초깃값 그대로 저장된다', () => {
+    const { onSave, box } = open({ initialSize: 11, initialColor: '#ef4444' });
+    fireEvent.change(box, { target: { value: '가' } });
+    fireEvent.click(screen.getByRole('button', { name: '확인' }));
+    expect(onSave).toHaveBeenCalledWith('가', 11, '#ef4444');
   });
 
   it('한글 조합 중의 Ctrl+Enter 는 안 먹는다 — 첫 낱말마다 모달이 닫히면 못 쓴다', () => {
@@ -273,10 +294,16 @@ describe('모달 — 줄바꿈과 취소', () => {
   });
 
   it('제목이 갈린다 — 방금 놓은 쪽지면 "쓰기", 있던 것이면 "수정"', () => {
-    const { unmount } = render(<NoteEditModal open initialText="" fresh onSave={vi.fn()} onCancel={vi.fn()} />, { wrapper: SettingsProvider });
+    const { unmount } = render(
+      <NoteEditModal open initialText="" initialSize={NOTE_DEFAULT_SIZE_PX} initialColor="#ffffff" fresh onSave={vi.fn()} onCancel={vi.fn()} />,
+      { wrapper: SettingsProvider },
+    );
     expect(screen.getByRole('dialog')).toHaveAccessibleName('메모 쓰기');
     unmount();
-    render(<NoteEditModal open initialText="가" fresh={false} onSave={vi.fn()} onCancel={vi.fn()} />, { wrapper: SettingsProvider });
+    render(
+      <NoteEditModal open initialText="가" initialSize={NOTE_DEFAULT_SIZE_PX} initialColor="#ffffff" fresh={false} onSave={vi.fn()} onCancel={vi.fn()} />,
+      { wrapper: SettingsProvider },
+    );
     expect(screen.getByRole('dialog')).toHaveAccessibleName('메모 수정');
   });
 

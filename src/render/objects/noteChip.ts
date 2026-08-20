@@ -30,6 +30,13 @@ export const NOTE_PLACEHOLDER: Record<Locale, string> = Object.fromEntries(
  *  칩 크기를 재는 쪽(히트테스트·인쇄·내보내기)이 렌더와 **같은 기본값**을 써야 한다. */
 export const NOTE_DEFAULT_SIZE_PX = 14;
 
+/** 메모 글자 크기 선택지(§0.5 미배송 빚, 2026-08-20, NoteEditModal). 가운데 값이
+ *  `NOTE_DEFAULT_SIZE_PX` 와 같아야 "글자 크기를 안 만졌다" 는 뜻이 그대로 유지된다.
+ *  ⚠️ 상한을 `NOTE.chipHPx`(24, 한 줄 칩의 세로)보다 한참 낮게 잡았다 — 그보다 크면 한 줄
+ *  메모라도 글자가 칩 위아래 여백을 넘볼 수 있다(chipHPx 는 size 에 비례해 커지지 않는다,
+ *  머리말 참고). 18 은 24 대비 여백이 남는 가장 큰 정수 배수(14×1.3 반올림)다. */
+export const NOTE_SIZE_CHOICES = [11, NOTE_DEFAULT_SIZE_PX, 18] as const;
+
 /** 잘려서 안 보이는 줄이 있음을 알리는 꼬리. 글을 **버리는 것이 아니다** — 모달을 열면
  *  전문이 그대로 있다. 이 한 글자가 "여기서 끝이 아니다" 를 말한다. */
 const ELLIPSIS = '…';
@@ -115,17 +122,26 @@ export function noteChipWidthPx(text: string, size: number): number {
   return Math.max(NOTE.chipMinWPx, Math.min(w + NOTE.chipPadXPx * 2, NOTE.chipMaxWPx));
 }
 
+/** 줄 간격(월드 px) — **size 에 비례한다**(§0.5 미배송 빚, 2026-08-20). `NOTE.lineHPx`(18)
+ *  는 `size` 를 바꾸는 경로가 없던 시절 `NOTE_DEFAULT_SIZE_PX`(14)를 가정하고 고른 값이었다
+ *  (core/constants.ts 머리말 ⚠️의 그 전제) — 입력 UI가 생기며 그 전제가 깨졌으므로, 18/14
+ *  비율을 그대로 유지하는 함수로 바꾼다. 기본 size(14)에서는 결과가 한 픽셀도 안 바뀐다. */
+export function noteLineHeightPx(size: number): number {
+  return size * (NOTE.lineHPx / NOTE_DEFAULT_SIZE_PX);
+}
+
 /** 칩의 세로 크기(월드 px). **한 줄이면 정확히 `NOTE.chipHPx`** 라, 줄바꿈이 없는 메모는
- *  2026-08-17 이전과 한 픽셀도 다르지 않다. 줄이 하나 늘 때마다 `NOTE.lineHPx` 만큼 자란다. */
+ *  2026-08-17 이전과 한 픽셀도 다르지 않다. 줄이 하나 늘 때마다 `noteLineHeightPx(size)` 만큼
+ *  자란다. */
 export function noteChipHeightPx(text: string, size: number): number {
   const n = noteLines(text, size).length;
-  return NOTE.chipHPx + Math.max(0, n - 1) * NOTE.lineHPx;
+  return NOTE.chipHPx + Math.max(0, n - 1) * noteLineHeightPx(size);
 }
 
 /** i 번째 줄의 세로 오프셋(칩 중심 기준). 줄 뭉치는 칩 한가운데 놓인다 — 앵커가 곧 칩의
  *  중심이라(§3.5 좌표는 점 하나) 위로도 아래로도 똑같이 자라야 자리가 안 튄다. */
-export function noteLineDy(index: number, count: number): number {
-  return (index - (count - 1) / 2) * NOTE.lineHPx;
+export function noteLineDy(index: number, count: number, size: number): number {
+  return (index - (count - 1) / 2) * noteLineHeightPx(size);
 }
 
 /** 선택 링·잠김 덮개의 반지름. 칩을 통째로 감싸는 원이되 빈 칩에서는 예전 값(22) 그대로다.

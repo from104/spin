@@ -14,6 +14,7 @@ import {
   noteChipHeightPx,
   noteChipWidthPx,
   noteLineDy,
+  noteLineHeightPx,
   noteLines,
   noteRingRadiusPx,
 } from './noteChip.ts';
@@ -84,14 +85,22 @@ describe('칩 크기', () => {
 
 describe('줄의 자리', () => {
   it('한 줄은 앵커 한가운데다', () => {
-    expect(noteLineDy(0, 1)).toBe(0);
+    expect(noteLineDy(0, 1, S)).toBe(0);
   });
 
   it('여러 줄은 앵커를 가운데 두고 위아래로 갈라진다 — 줄이 늘어도 자리가 안 튄다', () => {
-    expect(noteLineDy(0, 2)).toBeCloseTo(-NOTE.lineHPx / 2, 9);
-    expect(noteLineDy(1, 2)).toBeCloseTo(+NOTE.lineHPx / 2, 9);
-    expect(noteLineDy(0, 3) + noteLineDy(2, 3)).toBeCloseTo(0, 9);
-    expect(noteLineDy(1, 3)).toBe(0);
+    expect(noteLineDy(0, 2, S)).toBeCloseTo(-NOTE.lineHPx / 2, 9);
+    expect(noteLineDy(1, 2, S)).toBeCloseTo(+NOTE.lineHPx / 2, 9);
+    expect(noteLineDy(0, 3, S) + noteLineDy(2, 3, S)).toBeCloseTo(0, 9);
+    expect(noteLineDy(1, 3, S)).toBe(0);
+  });
+
+  // §0.5 미배송 빚(2026-08-20) — size 입력 UI가 생기며 줄 간격이 size 비례가 됐다.
+  // 기본 size(S=14)에서는 위 테스트들이 이미 "NOTE.lineHPx(18)와 같다"를 증명한다 — 여기서는
+  // 그 비례 관계 자체(18/14 비율 유지)를 다른 size 로 확인한다.
+  it('줄 간격은 size 에 비례한다 — 기본 size 의 2배면 간격도 2배', () => {
+    expect(noteLineHeightPx(S * 2)).toBeCloseTo(NOTE.lineHPx * 2, 9);
+    expect(noteLineDy(0, 2, S * 2)).toBeCloseTo(-NOTE.lineHPx, 9);
   });
 });
 

@@ -612,6 +612,15 @@ export const en: Record<DictKey, string> = {
   'editor.noteEditModal.hint': 'Enter for new line · Ctrl+Enter to save',
   'editor.noteEditModal.cancel': 'Cancel',
   'editor.noteEditModal.confirm': 'OK',
+  'editor.noteEditModal.sizeLabel': 'Text size',
+  'editor.noteEditModal.sizeSmall': 'Small',
+  'editor.noteEditModal.sizeMedium': 'Medium',
+  'editor.noteEditModal.sizeLarge': 'Large',
+  'editor.noteEditModal.colorLabel': 'Color',
+  'editor.noteEditModal.color.white': 'White',
+  'editor.noteEditModal.color.sky': 'Sky blue',
+  'editor.noteEditModal.color.yellow': 'Yellow',
+  'editor.noteEditModal.color.red': 'Red',
 
   // ── C7 — Step note panel ────────────────────────────────────────────────────────────
   'editor.notePanel.toggleLabel': 'Notes',

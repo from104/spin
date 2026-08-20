@@ -46,6 +46,7 @@ import { HelpModal } from './HelpModal.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { NoteEditModal } from './NoteEditModal.tsx';
+import { NOTE_DEFAULT_SIZE_PX } from '../../render/objects/noteChip.ts';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
 import { useStepPlayback } from './useStepPlayback.ts';
 import { usePhysicsRenderLoop } from './usePhysicsRenderLoop.ts';
@@ -895,9 +896,11 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           key={editingNoteObj.id}
           open
           initialText={editingNoteObj.text}
+          initialSize={editingNoteObj.size ?? NOTE_DEFAULT_SIZE_PX}
+          initialColor={editingNoteObj.color ?? '#ffffff'}
           fresh={editingNote?.fresh ?? false}
-          onSave={(text) => {
-            dispatch({ type: 'NOTE_SET', note: { ...editingNoteObj, text } });
+          onSave={(text, size, color) => {
+            dispatch({ type: 'NOTE_SET', note: { ...editingNoteObj, text, size, color } });
             setEditingNote(null);
           }}
           onCancel={() => {
