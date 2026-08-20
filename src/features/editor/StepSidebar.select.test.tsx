@@ -3,7 +3,7 @@
 // 가르는 이유는 두 가지 성격(선택 모드 밖의 기본 카드 동작 vs 모드 안의 새 조작)이 섞이면
 // 어느 쪽 회귀인지 파일명만으로 안 보이기 때문이다.
 import { describe, expect, it, vi } from 'vitest';
-import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
@@ -162,7 +162,9 @@ describe('일괄 복제', () => {
 });
 
 describe('일괄 삭제', () => {
-  it('체크한 카드들의 id 로 onDeleteSteps 를 부르고, 끝나면 체크를 비운다', async () => {
+  // PLAN-DELETE-SAFETY.md §C-1(2026-08-20) — 되돌릴 수는 있어도 한 번의 오조작이 N장을
+  // 가져가므로, 버튼 클릭은 이제 즉시 지우지 않고 ConfirmDialog 를 연다.
+  it('버튼을 누르면 즉시 지우지 않고 확인 모달을 연다 — [삭제]를 눌러야 onDeleteSteps 가 불린다', async () => {
     const onDeleteSteps = vi.fn();
     const d = makeDrill(3);
     renderSidebar(d, { onDeleteSteps });
@@ -170,9 +172,29 @@ describe('일괄 삭제', () => {
     await userEvent.click(cardAt(0));
 
     await userEvent.click(screen.getByRole('button', { name: '선택 삭제' }));
+    expect(onDeleteSteps).not.toHaveBeenCalled(); // 여기서는 아직 안 지운다
+
+    const dialog = screen.getByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
     expect(onDeleteSteps).toHaveBeenCalledTimes(1);
     expect(onDeleteSteps).toHaveBeenCalledWith([d.steps[0]!.id]);
     expect(screen.getByText('선택 0장')).toBeInTheDocument();
+  });
+
+  it('확인 모달에서 [취소]를 누르면 onDeleteSteps 가 안 불리고 체크도 그대로 남는다', async () => {
+    const onDeleteSteps = vi.fn();
+    const d = makeDrill(3);
+    renderSidebar(d, { onDeleteSteps });
+    await enterSelectMode();
+    await userEvent.click(cardAt(0));
+
+    await userEvent.click(screen.getByRole('button', { name: '선택 삭제' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+
+    expect(onDeleteSteps).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('선택 1장')).toBeInTheDocument(); // 체크는 안 풀렸다
   });
 
   it('전량 선택(최소 1장 가드)이면 잠기고 이유를 말한다', async () => {
@@ -201,6 +223,8 @@ describe('일괄 삭제', () => {
     const btn = screen.getByRole('button', { name: '선택 삭제' });
     expect(btn).toBeEnabled();
     await userEvent.click(btn);
+    const dialog = screen.getByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
     expect(onDeleteSteps).toHaveBeenCalledTimes(1);
     expect(new Set(onDeleteSteps.mock.calls[0]![0])).toEqual(new Set([d.steps[0]!.id, d.steps[1]!.id]));
   });

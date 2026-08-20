@@ -308,6 +308,30 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
     [dispatch, toast, locale, t],
   );
 
+  // 스텝 삭제 undo 토스트(PLAN-DELETE-SAFETY.md §C-1) — eraseIds 와 같은 관용구. STEP_DELETE·
+  // STEPS_DELETE 는 이미 COMMIT_TYPES 라 Ctrl+Z 로 완전히 돌아가는데(actions.ts), 그 사실을
+  // 아무도 안 알려줘서 없는 것과 같았다(실기 신고 2026-08-20) — 여기서 토스트로 알린다.
+  // 일괄도 액션 하나뿐이라 UNDO 1회면 전부 원복된다(단일과 같다 — eraseIds 처럼 개수만큼
+  // 반복할 필요가 없다).
+  const deleteStep = useCallback(
+    (id: StepId) => {
+      dispatch({ type: 'STEP_DELETE', id });
+      toast.show(t('editor.stepSidebar.announce.deleted', { n: 1 }), {
+        action: { label: t('editor.workspace.undoAction'), onAction: () => dispatch({ type: 'UNDO' }) },
+      });
+    },
+    [dispatch, toast, t],
+  );
+  const deleteSteps = useCallback(
+    (ids: StepId[]) => {
+      dispatch({ type: 'STEPS_DELETE', ids });
+      toast.show(t('editor.stepSidebar.announce.deleted', { n: ids.length }), {
+        action: { label: t('editor.workspace.undoAction'), onAction: () => dispatch({ type: 'UNDO' }) },
+      });
+    },
+    [dispatch, toast, t],
+  );
+
   /** [복제](기현 지시 2026-08-18: *"복제하여 오른쪽 아래 1m 위치에 놓는거다"*, 같은 날 정정
    *  0.5 m) — 도형·메모·화살표(`canDuplicate`). 입구가 둘이다: 개체 메뉴 [복제] 와
    *  Ctrl/⌘+D(같은 날 지시 "복제 단축키 ctrl-d") — `eraseIds` 처럼 여기 한 함수로 모여야
@@ -700,10 +724,10 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           // 남는 스텝으로 옮긴다(기존 STEP_DELETE 의 이웃 선택 로직과 같은 자리).
           onMoveSteps={(ids, toIndex) => dispatch({ type: 'STEPS_MOVE', ids, toIndex })}
           onDuplicateSteps={(ids) => dispatch({ type: 'STEPS_DUPLICATE', ids })}
-          onDeleteSteps={(ids) => dispatch({ type: 'STEPS_DELETE', ids })}
+          onDeleteSteps={deleteSteps}
           // 우클릭 메뉴 [삭제](2026-08-18) — 옛 인스펙터 [스텝 삭제]와 같은 STEP_DELETE.
           // 현재 스텝 삭제 시 이웃 선택은 uiReducer 의 기존 규칙이 맡는다.
-          onDeleteStep={(id) => dispatch({ type: 'STEP_DELETE', id })}
+          onDeleteStep={deleteStep}
         />
       )}
 

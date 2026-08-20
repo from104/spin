@@ -95,6 +95,7 @@ import { useStepReorderDrag } from './useStepReorderDrag.ts';
 import { useStepGroupReorderDrag } from './useStepGroupReorderDrag.ts';
 import { StepCardMenu } from './StepCardMenu.tsx';
 import type { StepCardMenuTarget } from './StepCardMenu.tsx';
+import { ConfirmDialog } from '../../ui/ConfirmDialog.tsx';
 import { useLongPressMenu } from './useLongPressMenu.ts';
 import { useT } from '../../i18n/useT.ts';
 
@@ -443,14 +444,24 @@ export function StepSidebar({
     liveRegion.say(t('editor.stepSidebar.announce.duplicated', { n: ids.length }));
   }, [batchDupBlocked, steps, checkedIds, onDuplicateSteps, t]);
 
-  // 일괄 삭제 — 삭제된 뒤에는 그 id 들이 더 이상 화면에 없으므로 체크도 함께 비운다.
+  // 일괄 삭제 — 되돌릴 수는 있어도(STEPS_DELETE 도 COMMIT_TYPES) 한 번의 오조작이 N장을
+  // 가져간다. 그래서 여기서는 즉시 지우지 않고 확인만 연다(PLAN-DELETE-SAFETY.md §C-1) —
+  // 실제 삭제는 아래 confirmBatchDelete. 단일 삭제(카드 메뉴 onDeleteStep)는 그대로
+  // 안 묻는다 — 가장 자주 지우는 대상이라 매번 묻는 피로가 크고, undo 토스트로 충분하다.
+  const [pendingBatchDelete, setPendingBatchDelete] = useState<StepId[] | null>(null);
   const handleBatchDelete = useCallback(() => {
     if (batchDelBlocked) return;
-    const ids = steps.filter((s) => checkedIds.has(s.id)).map((s) => s.id);
-    onDeleteSteps(ids);
+    setPendingBatchDelete(steps.filter((s) => checkedIds.has(s.id)).map((s) => s.id));
+  }, [batchDelBlocked, steps, checkedIds]);
+  const confirmBatchDelete = useCallback(() => {
+    if (!pendingBatchDelete) return;
+    // liveRegion.say 는 여기 없다 — onDeleteSteps(EditorWorkspace)가 이제 undo 토스트를
+    // 띄우고, 그 role=status 가 이미 낭독 채널이다(ui/Toast.tsx 머리말) — 같은 말을 두 번
+    // 듣게 하지 않으려고 이 함수로 옮기며 지웠다.
+    onDeleteSteps(pendingBatchDelete);
     setCheckedIds(new Set());
-    liveRegion.say(t('editor.stepSidebar.announce.deleted', { n: ids.length }));
-  }, [batchDelBlocked, steps, checkedIds, onDeleteSteps, t]);
+    setPendingBatchDelete(null);
+  }, [pendingBatchDelete, onDeleteSteps]);
 
   // 스텝이 바뀌면 그 카드가 보이도록 목록을 굴린다. jsdom 에는 scrollIntoView 가 없다 —
   // 존재 가드 후 호출한다.
@@ -881,6 +892,17 @@ export function StepSidebar({
         onDuplicate={(id, toIndex) => (toIndex === undefined ? onDuplicateStep(id) : onDuplicateStep(id, toIndex))}
         onDelete={onDeleteStep}
       />
+      {pendingBatchDelete && (
+        <ConfirmDialog
+          open
+          onCancel={() => setPendingBatchDelete(null)}
+          onConfirm={confirmBatchDelete}
+          title={t('editor.stepSidebar.batchDeleteConfirm.title')}
+          body={t('editor.stepSidebar.batchDeleteConfirm.body', { n: pendingBatchDelete.length })}
+          confirmLabel={t('editor.stepSidebar.batchDeleteConfirm.confirm')}
+          cancelLabel={t('editor.stepSidebar.batchDeleteConfirm.cancel')}
+        />
+      )}
     </>
   );
 
