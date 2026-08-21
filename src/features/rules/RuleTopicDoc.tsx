@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import type { RuleBlock, RuleTopic, RuleTopicKey } from './ruleTopics.ts';
 import { MISCONDUCT_CARDS } from './ruleTopics.ts';
-import { ruleContentFor } from './ruleContent.ts';
+import { RULE_GROUP_LABELS, RULE_GROUP_ORDER, ruleContentFor } from './ruleContent.ts';
 import { RuleFigure } from './RuleFigure.tsx';
 import { RuleSceneBlock } from './RuleSceneBlock.tsx';
 import { RestartTableBlock } from './RestartTableBlock.tsx';
@@ -63,15 +63,30 @@ function MisconductCardList() {
   );
 }
 
+/** 부록(공식 룰 북) — 18개조를 그룹별로 나눠 압축 요약한다. 그룹 자체(RuleLawGroup)는
+ *  2026-08-21 사전식 화면 시절의 목록 그룹핑을 그대로 물려받은 것 — 주제별 재설계 후에도
+ *  "번호로 훑어보는 참조표"에는 여전히 유용해서 여기로 옮겨 왔다(다른 소비처가 없어 유령
+ *  export 가 될 뻔한 것을 여기서 되살렸다). */
 function LawIndexBlock() {
   const locale = useLocale();
   const laws = ruleContentFor(locale);
   return (
-    <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {laws.map((law) => (
-        <div key={law.law} style={{ paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: 4 }}>{law.title}</div>
-          <p style={{ fontSize: '0.8125rem', lineHeight: 1.55, color: 'var(--muted)', textWrap: 'pretty' }}>{law.summary.join(' ')}</p>
+    <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {RULE_GROUP_ORDER.map((group) => (
+        <div key={group}>
+          <h3 style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.02em', color: 'var(--faint-text)', marginBottom: 10 }}>
+            {RULE_GROUP_LABELS[group]}
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {laws
+              .filter((law) => law.group === group)
+              .map((law) => (
+                <div key={law.law} style={{ paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: 4 }}>{law.title}</div>
+                  <p style={{ fontSize: '0.8125rem', lineHeight: 1.55, color: 'var(--muted)', textWrap: 'pretty' }}>{law.summary.join(' ')}</p>
+                </div>
+              ))}
+          </div>
         </div>
       ))}
     </div>
