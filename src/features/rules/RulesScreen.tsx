@@ -1,18 +1,21 @@
 // 규칙 화면(2026-08-21 신설, 2026-08-22 주제별 재설계 — docs/PLAN-RULES-REDESIGN.md 정본).
 //
-// settings 와 같은 "app-shell 미의존" 화면이다: 헤더는 AppShell.useStaticHeaderConfig 가
-// 정적으로 채우고, 이 컴포넌트는 nav prop 없이 스스로 완결된 <main> 을 그린다.
+// **app-shell 의존 화면이다** — 헤더는 AppShell.useStaticHeaderConfig 가 정적으로 채우지만,
+// 딥링크(`/rules/<topic>`)가 이 화면의 선택 상태를 URL 에 실어야 해서 nav(HomeNav)/topic prop
+// 을 받는다(board/drill·session 편집과 같은 계약 — AppShell.tsx "NavTarget ↔ 화면별 대상" 절).
+// 선택 상태는 **로컬 state 가 아니라 topic prop 그 자체**다: 카드 클릭·뒤로가기·이전/다음 전부
+// `nav.openRuleTopic()` 으로 URL 을 바꾸고, 그 URL 이 다음 렌더의 topic prop 으로 돌아온다 —
+// 이중 장부(URL 과 state가 따로 노는 것)가 없어 새로고침·공유·브라우저 뒤로가기가 공짜다.
 //
-// 마스터-디테일(좌측 18개조 목록+우측 상세)을 폐기하고 카드 홈(`RulesHome`) → 전폭 문서
-// (`RuleTopicDoc`) 두 뷰로 재편했다 — 조항 순서는 "찾아보기"엔 맞지만 "익히기"엔 안 맞는다는
-// 기현님 판정(2026-08-22)의 회귀 방지. 선택 상태는 지금은 이 화면 안 `useState` 뿐이다 —
-// URL 딥링크 배선(`/rules/<topic>`)은 다음 커밋(AppShell.tsx 동반)에서 붙는다.
+// 유효하지 않은 topic(옛 `/rules/law-N` 관용 매핑 실패, 오탈자 링크 등)은 조용히 카드 홈으로
+// 떨어진다 — routes.ts 의 "모르는 경로는 board" 교리를 이 화면 안에서도 지킨다.
 import { useCallback, useState } from 'react';
-import { ruleTopicsFor } from './ruleTopics.ts';
+import { ruleTopicsFor, RULE_TOPIC_KEYS } from './ruleTopics.ts';
 import type { RuleTopicKey } from './ruleTopics.ts';
 import { RulesHome } from './RulesHome.tsx';
 import { RuleTopicDoc } from './RuleTopicDoc.tsx';
 import { useLocale } from '../../i18n/useLocale.ts';
+import type { HomeNav } from '../home/nav.ts';
 import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
 import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
@@ -24,10 +27,14 @@ import { RULES_TUTORIAL_STEPS } from './tutorialSteps.ts';
  *  돌아온 직후(같은 틱)에 부르면 아직 그리지 않은 DOM 을 보고 조용히 실패한다. */
 const RESTART_RETRY_MAX_FRAMES = 10;
 
-export function RulesScreen() {
+function isTopicKey(v: string | undefined): v is RuleTopicKey {
+  return v !== undefined && (RULE_TOPIC_KEYS as readonly string[]).includes(v);
+}
+
+export function RulesScreen({ topic, nav }: { topic?: string; nav: HomeNav }) {
   const locale = useLocale();
   const topics = ruleTopicsFor(locale);
-  const [selectedKey, setSelectedKey] = useState<RuleTopicKey | null>(null);
+  const selectedKey = isTopicKey(topic) ? topic : null;
 
   // §0.5 Phase 5 — 레일 [도움말] 이 "지금 열려 있는 화면" 을 열려면 이 화면이 자기 HelpCenter 를
   // 여는 함수를 등록해야 한다(SettingsScreen.tsx·PresentRunner.tsx 와 같은 배선).
@@ -35,11 +42,11 @@ export function RulesScreen() {
   const showHelp = useCallback(() => setHelpOpen(true), []);
   usePublishHelpShow(showHelp);
 
-  // 3앵커(rules-home/rules-card/rules-appendix) 전부 홈 뷰에 있다 — 이 화면은 항상 홈으로
-  // 마운트되므로 autoStart 는 고정 true 로 충분하다(tutorialSteps.ts 머리말).
+  // 3앵커(rules-home/rules-card/rules-appendix) 전부 홈 뷰에 있다 — 이 화면은 딥링크가 없는 한
+  // 항상 홈으로 마운트되므로 autoStart 는 고정 true 로 충분하다(tutorialSteps.ts 머리말).
   const tutorial = useTutorial('rules', RULES_TUTORIAL_STEPS, true);
   const restartTutorial = useCallback(() => {
-    setSelectedKey(null);
+    nav.openRuleTopic(); // 홈으로 — URL 이 바뀌어야 카드 그리드(앵커 3개)가 다시 선다.
     let frame = 0;
     const tryStart = () => {
       frame += 1;
@@ -51,26 +58,26 @@ export function RulesScreen() {
       requestAnimationFrame(tryStart);
     };
     requestAnimationFrame(tryStart);
-  }, [tutorial]);
+  }, [nav, tutorial]);
 
   const index = topics.findIndex((tp) => tp.key === selectedKey);
-  const topic = index >= 0 ? topics[index] : undefined;
+  const current = index >= 0 ? topics[index] : undefined;
 
   return (
     <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', background: 'var(--bg)' }}>
-      {topic ? (
+      {current ? (
         <div style={{ padding: '26px 30px 46px' }}>
           <RuleTopicDoc
-            key={topic.key}
-            topic={topic}
+            key={current.key}
+            topic={current}
             prevTopic={index > 0 ? (topics[index - 1] ?? null) : null}
             nextTopic={index < topics.length - 1 ? (topics[index + 1] ?? null) : null}
-            onBack={() => setSelectedKey(null)}
-            onSelectTopic={setSelectedKey}
+            onBack={() => nav.openRuleTopic()}
+            onSelectTopic={(key) => nav.openRuleTopic(key)}
           />
         </div>
       ) : (
-        <RulesHome topics={topics} onOpen={setSelectedKey} />
+        <RulesHome topics={topics} onOpen={(key) => nav.openRuleTopic(key)} />
       )}
       <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="rules" onRestartTutorial={restartTutorial} />
       {tutorial.step && (

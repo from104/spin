@@ -17,8 +17,9 @@
 //   /present/drill/:id     드릴 시연                    screen 'present'
 //   /present/session/:id   세션 시연                    screen 'present'
 //   /present               시연 (대상 없음 — 빈 상태)
-//   /rules                 규칙 목록                    screen 'rules'
-//   /rules/law-:N           규칙 조항 상세(딥링크)        screen 'rules' + {kind:'rule', law:N}
+//   /rules                 규칙 카드 홈                  screen 'rules'
+//   /rules/:topic          규칙 주제 상세(딥링크)         screen 'rules' + {kind:'rule', topic}
+//   /rules/law-:N          (관용) 옛 조항 딥링크          위와 동일, topic:'rulebook' 으로 흡수
 //   /settings              설정
 //
 // ⚠️ '/drills/:id' 의 화면 키가 'drills' 가 아니라 'board' 인 것은 2026-08-09 재편 그대로다:
@@ -51,7 +52,7 @@ export function pathFor(screen: Screen, target?: NavTarget): string {
       if (target?.kind === 'session') return `/present/session/${target.id}`;
       return '/present';
     case 'rules':
-      return target?.kind === 'rule' ? `/rules/law-${target.law}` : '/rules';
+      return target?.kind === 'rule' ? `/rules/${target.topic}` : '/rules';
     case 'settings':
       return '/settings';
   }
@@ -84,9 +85,11 @@ export function parsePath(pathname: string, search: string = ''): ParsedRoute {
       return { screen: 'present' };
     }
     case 'rules': {
-      const m = seg[1]?.match(/^law-(\d+)$/);
-      if (m) return { screen: 'rules', target: { kind: 'rule', law: Number(m[1]) } };
-      return { screen: 'rules' };
+      if (!seg[1]) return { screen: 'rules' };
+      // 관용: 2026-08-21 딥링크 형식(/rules/law-N) — 재설계 전 주소를 부록 주제로 흡수한다
+      // (과거 형식을 되살리는 게 아니라, 남아 있을 수 있는 링크가 죽지 않게 하는 것뿐).
+      if (/^law-\d+$/.test(seg[1])) return { screen: 'rules', target: { kind: 'rule', topic: 'rulebook' } };
+      return { screen: 'rules', target: { kind: 'rule', topic: seg[1] } };
     }
     case 'settings':
       return { screen: 'settings' };

@@ -23,6 +23,9 @@ export interface HomeNav {
   openSession(id: SessionId): void;
   presentDrill(id: DrillId): void;
   presentSession(id: SessionId): void;
+  /** 규칙 화면의 카드 홈↔주제 상세 이동(2026-08-22 주제별 재설계). 생략하면 카드 홈으로 —
+   *  세션의 `goLibrary()`(대상 없으면 목록)와 같은 모양이다. */
+  openRuleTopic(key?: string): void;
 }
 
 export type LibraryNav = HomeNav;

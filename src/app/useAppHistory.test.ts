@@ -37,6 +37,8 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
     ['present', { kind: 'drill', id: 'dr_x1' }],
     ['present', { kind: 'session', id: 'se_x1' }],
     ['present', undefined],
+    ['rules', undefined],
+    ['rules', { kind: 'rule', topic: 'two-on-one' }],
     ['settings', undefined],
   ];
   it.each(cases)('%s + %j 가 경로 왕복에서 살아남는다', (scr, target) => {
@@ -56,6 +58,14 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
   it('모르는 경로는 전술판이다 — 대문이 안 뜨는 것이 최악이라 404 를 만들지 않는다', () => {
     expect(parsePath('/whatever/else')).toEqual({ screen: 'board', target: { kind: 'board' } });
     expect(parsePath('/')).toEqual({ screen: 'board', target: { kind: 'board' } });
+  });
+
+  // 2026-08-21 딥링크 형식(/rules/law-N)의 관용 매핑 — **왕복 항등이 아니다**(옛 형식을
+  // 되살리는 게 아니라 남아 있을 수 있는 링크가 안 죽게 하는 것뿐이라, 위 cases 에는 안 넣고
+  // 단방향으로만 고정한다).
+  it('옛 /rules/law-N 딥링크는 부록 주제(rulebook)로 흡수되고, 반대 방향으로는 되돌아가지 않는다', () => {
+    expect(parsePath('/rules/law-3')).toEqual({ screen: 'rules', target: { kind: 'rule', topic: 'rulebook' } });
+    expect(pathFor('rules', { kind: 'rule', topic: 'rulebook' })).toBe('/rules/rulebook');
   });
 
   it('화면 키 전수에 pathFor 가 경로를 준다 (SCREEN_ORDER 대조군)', () => {

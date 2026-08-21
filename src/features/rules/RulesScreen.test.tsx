@@ -1,7 +1,8 @@
 // 규칙 화면(2026-08-22 주제별 재설계) 스모크 테스트 — 카드 홈·주제 상세·비교표·단일 활성.
 // 장면 데이터 자체는 `ruleScenes.test.ts`, 조항 도해는 `RuleFigure.test.tsx`, 콘텐츠 모델
 // 불변식은 `ruleTopics.test.ts` 가 따로 본다 — 여기서는 "화면에 실제로 붙어 나오는가" 만 본다.
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RulesScreen } from './RulesScreen.tsx';
@@ -9,11 +10,32 @@ import { ruleTopicsFor } from './ruleTopics.ts';
 import { ruleContentFor } from './ruleContent.ts';
 import { RESTART_COLUMNS } from './restartTable.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+import type { HomeNav } from '../home/nav.ts';
 
-function renderRules() {
+function makeNav(onOpenRuleTopic: (key?: string) => void): HomeNav {
+  return {
+    newDrill: vi.fn(),
+    openDrill: vi.fn(),
+    goLibrary: vi.fn(),
+    openSession: vi.fn(),
+    presentDrill: vi.fn(),
+    presentSession: vi.fn(),
+    openRuleTopic: onOpenRuleTopic,
+  };
+}
+
+/** 실제 AppShell 과 같은 계약(URL 이 선택 상태의 유일한 출처)을 로컬 state 로 흉내 낸다 —
+ *  RulesScreen 은 controlled 컴포넌트라 `nav.openRuleTopic()` 호출만으로는 화면이 안 바뀐다,
+ *  그 호출이 "다음 렌더의 topic prop" 으로 돌아와야 바뀐다(실제로는 react-router 가 그 역할). */
+function Harness({ initialTopic }: { initialTopic?: string }) {
+  const [topic, setTopic] = useState(initialTopic);
+  return <RulesScreen topic={topic} nav={makeNav(setTopic)} />;
+}
+
+function renderRules(initialTopic?: string) {
   return render(
     <SettingsProvider>
-      <RulesScreen />
+      <Harness initialTopic={initialTopic} />
     </SettingsProvider>,
   );
 }
@@ -92,6 +114,25 @@ describe('RulesScreen — 카드 홈', () => {
     await user.click(screen.getByRole('button', { name: '← 홈으로' }));
     await user.click(screen.getByRole('button', { name: TOPICS[TOPICS.length - 1]!.title }));
     expect(screen.queryByText('다음 주제')).toBeNull();
+  });
+});
+
+describe('RulesScreen — topic prop(딥링크)', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    stubMedia(false);
+  });
+
+  it('topic prop 이 있으면 클릭 없이도 그 주제 상세로 곧장 뜬다', () => {
+    renderRules('two-on-one');
+    expect(screen.getByRole('heading', { level: 2, name: '2-on-1' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '기본 규칙' })).toBeNull();
+  });
+
+  it('알 수 없는 topic 은 조용히 카드 홈으로 떨어진다(404 없음)', () => {
+    renderRules('no-such-topic');
+    expect(screen.getByRole('button', { name: '기본 규칙' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
   });
 });
 

@@ -29,7 +29,7 @@ export type NavTarget =
   | { kind: 'drill'; id: string }
   | { kind: 'session'; id: string }
   | { kind: 'tab'; tab: 'drills' | 'sessions' }
-  | { kind: 'rule'; law: number };
+  | { kind: 'rule'; topic: string };
 
 export interface AppHistoryApi {
   screen: Screen;
