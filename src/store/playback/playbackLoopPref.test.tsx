@@ -109,6 +109,7 @@ describe('④ 배선 지점 전수 열거 — PlaybackProvider 를 세우는 화
     { name: '전술판', file: 'src/features/board/BoardScreen.tsx' },
     { name: '드릴 편집기', file: 'src/features/editor/EditorScreen.tsx' },
     { name: '시연', file: 'src/features/present/PresentRunner.tsx' },
+    { name: '규칙', file: 'src/features/rules/RulesScreen.tsx' },
   ] as const;
 
   it('대조군 — 열거가 프로덕션의 실제 마운트 지점 전량이다(하나 늘면 여기가 먼저 빨개진다)', () => {
