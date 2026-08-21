@@ -103,55 +103,80 @@ function BallSizeFigure() {
 // ── 도해 ② 공기압 ────────────────────────────────────────────────────────────────────
 const PANEL_W = 180;
 const PANEL_GAP = 10;
-const P_FLOOR = 148;
+const P_FLOOR = 130;
 const PRESSURE_VB_W = PANEL_W * 3 + PANEL_GAP * 2;
-const PRESSURE_VB_H = 226;
+/** 판정 배지·문구는 바닥선에서 아래로 이만큼씩. 세로 치수를 전부 `P_FLOOR` 기준 상대값으로
+ *  적어 두면 바닥 높이 한 줄만 고쳐도 그림 전체가 따라온다 — 처음엔 절대값이라 위쪽에
+ *  죽은 공간이 3분의 1이나 남았는데 손댈 자리가 열 군데였다. */
+const VERDICT_BADGE_DY = 22;
+const VERDICT_HEAD_DY = 52;
+const VERDICT_TAIL_DY = 69;
+const PRESSURE_VB_H = P_FLOOR + 78;
 
-/** 체어 옆모습 — 원점(0,0)이 바닥 접지면 한가운데, 앞은 +x. 볼가드 앞면이 `CHAIR_NOSE`.
+/** 옆모습 체어 — 원점(0,0)이 **구동륜 접지점**, 앞은 +x. 로컬 좌표는 스트라이크포스(경기
+ *  전용 파워체어) 실물 옆모습 비례를 옮긴 것이다(2026-08-21 기현님이 실물 도면을 줌).
  *
- *  등받이·머리받침까지 그린다. 처음엔 상자 하나에 바퀴 둘이었는데 화면에서 **손수레로
- *  읽혔다** — 이 그림의 주장이 "체어가 공을 어떻게 다루는가" 라서, 체어로 안 보이면 세 칸
- *  비교가 통째로 무너진다. */
-const CHAIR_SCALE = 1.35;
-/** ⚠️ 두 좌표계를 섞지 말 것. `*_LOCAL` 은 `scale()` **안쪽** 값이고, `CHAIR_NOSE` 는 호출부가
- *  쓰는 **바깥쪽**(=스케일 적용 후) 값이다. 안쪽에 바깥쪽 값을 쓰면 1.35 가 두 번 곱해져
- *  볼가드만 앞으로 튀어나온다 — 실제로 한 번 그렇게 그려졌다. */
-const CHAIR_NOSE_LOCAL = 30;
+ *  ⚠️ **볼가드가 핵심이다.** 처음엔 앞면에 붙은 짧은 세로 막대로 그렸는데 실물은 그게 아니라
+ *  **바닥 가까이로 길게 뻗은 프레임**이다 — 몸통보다 한참 앞까지 나가고, 높이는 마침 공
+ *  중심쯤에서 만난다(가드 세로 범위 −20~−8 안에 공 중심 −16 이 들어온다). 이 세 칸의 주장이
+ *  전부 "가드가 공을 어떻게 만나는가" 라서, 가드 모양이 틀리면 세 칸이 통째로 거짓말이 된다.
+ *
+ *  ⚠️ 두 좌표계를 섞지 말 것. `*_LOCAL` 은 `scale()` **안쪽** 값이고 `CHAIR_NOSE`·`P_BALL_R`
+ *  은 호출부가 쓰는 **바깥쪽**(스케일 적용 후) 값이다. 안쪽에 바깥쪽 값을 쓰면 배율이 두 번
+ *  곱해져 가드만 앞으로 튀어나온다 — 실제로 한 번 그렇게 그려졌다. */
+const CHAIR_TAIL_LOCAL = -44; // 밀대 뒤끝
+const CHAIR_NOSE_LOCAL = 82; // 볼가드 앞코
+const CHAIR_LEN_LOCAL = CHAIR_NOSE_LOCAL - CHAIR_TAIL_LOCAL;
+/** 경기 전용 체어의 **어림** 전장(가드 포함). 규정 수치가 아니다 — Law 4 는 전장을 정하지
+ *  않는다. 아래 공 크기를 이 값으로 역산하므로 어림값임을 여기서 분명히 해 둔다. */
+const CHAIR_LEN_CM = 130;
+/** 공 반지름을 체어와 **같은 자로** 잰다. 이래야 이 칸의 크기 비가 도해 ①과 어긋나지 않는다
+ *  — 앞에서 "33cm 는 이만큼 크다" 고 해 놓고 여기서 체어만 한 공을 그리면 앞 그림이 죽는다. */
+const BALL_R_LOCAL = (CHAIR_LEN_LOCAL / CHAIR_LEN_CM) * (BALL_CM / 2);
+
+const CHAIR_SCALE = 0.88;
 const CHAIR_NOSE = CHAIR_NOSE_LOCAL * CHAIR_SCALE;
+const P_BALL_R = BALL_R_LOCAL * CHAIR_SCALE;
 
 function SideChair({ x, y, rotate = 0 }: { x: number; y: number; rotate?: number }) {
   return (
     <g transform={`translate(${x} ${y}) rotate(${rotate}) scale(${CHAIR_SCALE})`}>
-      <circle cx={-16} cy={-10} r={10} fill="var(--panel)" stroke={LINE} strokeWidth={1.8} />
-      <circle cx={13} cy={-8} r={8} fill="var(--panel)" stroke={LINE} strokeWidth={1.8} />
-      {/* 섀시 → 시트 → 등받이 → 머리받침 */}
-      <rect x={-26} y={-25} width={50} height={12} rx={4} fill="var(--elev)" stroke={LINE} strokeWidth={1.8} />
-      <rect x={-23} y={-37} width={35} height={12} rx={3} fill="var(--elev)" stroke={LINE} strokeWidth={1.8} />
-      <rect x={-24} y={-65} width={11} height={29} rx={4} fill="var(--elev)" stroke={LINE} strokeWidth={1.8} />
-      <rect x={-27} y={-74} width={16} height={9} rx={4} fill="var(--elev)" stroke={LINE} strokeWidth={1.8} />
-      {/* 볼가드 — 공에 닿는 유일한 면이다(`ChairChip` 의 guardPx 와 같은 자리) */}
-      <rect x={CHAIR_NOSE_LOCAL - 8} y={-30} width={8} height={26} rx={2} fill={DIM} stroke={LINE} strokeWidth={1.2} />
+      {/* 구동륜(큼) · 앞 캐스터(작음) */}
+      <circle cx={0} cy={-12} r={12} fill="var(--panel)" stroke={LINE} strokeWidth={2} />
+      <circle cx={49} cy={-5} r={5} fill="var(--panel)" stroke={LINE} strokeWidth={1.6} />
+      {/* 섀시 · 시트 · 다리받침 */}
+      <rect x={-13} y={-21} width={45} height={11} rx={3} fill="var(--elev)" stroke={LINE} strokeWidth={1.8} />
+      <rect x={-17} y={-30} width={45} height={9} rx={3} fill="var(--elev)" stroke={LINE} strokeWidth={1.8} />
+      <rect x={27} y={-26} width={7} height={16} rx={2} fill="var(--elev)" stroke={LINE} strokeWidth={1.6} />
+      {/* 뒤로 젖혀진 등받이 + 밀대 */}
+      <polygon points="-24,-29 -13,-29 -21,-57 -32,-57" fill="var(--elev)" stroke={LINE} strokeWidth={1.8} strokeLinejoin="round" />
+      <path d={`M -28 -57 C -38 -63 ${CHAIR_TAIL_LOCAL - 2} -58 ${CHAIR_TAIL_LOCAL} -50`} fill="none" stroke={LINE} strokeWidth={2.2} strokeLinecap="round" />
+      {/* ★ 볼가드 — 섀시에서 앞아래로 뻗은 버팀대 + 길고 낮은 프레임 + 앞코 범퍼 */}
+      <path d="M 2 -22 L 14 -22 L 24 -9 L 12 -9 Z" fill="var(--elev)" stroke={LINE} strokeWidth={1.6} strokeLinejoin="round" />
+      <rect x={14} y={-20} width={CHAIR_NOSE_LOCAL - 14} height={12} rx={3} fill={DIM} stroke={LINE} strokeWidth={1.6} />
+      <rect x={CHAIR_NOSE_LOCAL - 6} y={-23} width={6} height={18} rx={2} fill={DIM} stroke={LINE} strokeWidth={1.6} />
     </g>
   );
 }
 
 function Verdict({ cx, ok, head, tail }: { cx: number; ok: boolean; head: string; tail: string }) {
   const color = ok ? 'var(--accent)' : DIM;
+  const cy = P_FLOOR + VERDICT_BADGE_DY;
   return (
     <g>
-      <circle cx={cx} cy={170} r={11} fill="none" stroke={color} strokeWidth={2} />
+      <circle cx={cx} cy={cy} r={11} fill="none" stroke={color} strokeWidth={2} />
       {ok ? (
-        <path d={`M ${cx - 5} 170 l 3.6 4 l 6.6 -8`} fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+        <path d={`M ${cx - 5} ${cy} l 3.6 4 l 6.6 -8`} fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
       ) : (
         <g stroke={color} strokeWidth={2.4} strokeLinecap="round">
-          <line x1={cx - 4.6} y1={165.4} x2={cx + 4.6} y2={174.6} />
-          <line x1={cx + 4.6} y1={165.4} x2={cx - 4.6} y2={174.6} />
+          <line x1={cx - 4.6} y1={cy - 4.6} x2={cx + 4.6} y2={cy + 4.6} />
+          <line x1={cx + 4.6} y1={cy - 4.6} x2={cx - 4.6} y2={cy + 4.6} />
         </g>
       )}
-      <text x={cx} y={200} textAnchor="middle" fontSize={12.5} fontWeight={700} fill={ok ? 'var(--accent-text)' : 'var(--text)'}>
+      <text x={cx} y={P_FLOOR + VERDICT_HEAD_DY} textAnchor="middle" fontSize={12.5} fontWeight={700} fill={ok ? 'var(--accent-text)' : 'var(--text)'}>
         {head}
       </text>
-      <text x={cx} y={217} textAnchor="middle" fontSize={11.5} fill={FAINT}>
+      <text x={cx} y={P_FLOOR + VERDICT_TAIL_DY} textAnchor="middle" fontSize={11.5} fill={FAINT}>
         {tail}
       </text>
     </g>
@@ -169,9 +194,8 @@ function PanelFrame({ x0, title }: { x0: number; title: string }) {
   );
 }
 
-/** ②번 칸(알맞은 공기압)의 공 — 체어 자리를 여기서 역산한다. */
-const P2_BALL_R = 18;
-const P2_BALL_CX = 126;
+/** ②번 칸에서 체어를 놓는 자리. 공 위치는 여기서 파생시킨다(가드 앞코에 닿게). */
+const P2_CHAIR_X = 46;
 
 function BallPressureFigure() {
   const x1 = 0;
@@ -187,41 +211,49 @@ function BallPressureFigure() {
     >
       {/* ① 낮음 — 납작해진 공 위로 앞바퀴가 올라탄다 */}
       <PanelFrame x0={x1} title="공기압이 낮으면" />
-      <ellipse cx={x1 + 98} cy={P_FLOOR - 9} rx={28} ry={9} fill={BALL_FILL} stroke="#fff" strokeWidth={2} />
+      <ellipse cx={x1 + 100} cy={P_FLOOR - 8} rx={22} ry={8} fill={BALL_FILL} stroke="#fff" strokeWidth={2} />
+      <SideChair x={x1 + 52} y={P_FLOOR} rotate={-9} />
       <path
-        d={`M ${x1 + 120} 112 Q ${x1 + 146} 98 ${x1 + 164} 122`}
+        d={`M ${x1 + 128} ${P_FLOOR - 30} Q ${x1 + 150} ${P_FLOOR - 44} ${x1 + 166} ${P_FLOOR - 22}`}
         fill="none"
         stroke={DIM}
         strokeWidth={1.4}
         strokeDasharray="4 3"
       />
-      <path d={`M ${x1 + 164} 122 l -1.4 -7.6 l 6.6 2.6 Z`} fill={DIM} />
-      <SideChair x={x1 + 80} y={P_FLOOR - 6} rotate={-14} />
+      <path d={`M ${x1 + 166} ${P_FLOOR - 22} l -1.4 -7.6 l 6.6 2.6 Z`} fill={DIM} />
       <Verdict cx={x1 + PANEL_W / 2} ok={false} head="체어가 타고 넘는다" tail="공이 눌려 굴러가지 않는다" />
 
       {/* ② 알맞음 — 볼가드가 공을 앞으로 민다 */}
       <PanelFrame x0={x2} title="알맞은 공기압" />
-      <circle cx={x2 + P2_BALL_CX} cy={P_FLOOR - P2_BALL_R} r={P2_BALL_R} fill={BALL_FILL} stroke="#fff" strokeWidth={2.2} />
-      {/* 체어 자리를 손으로 찍지 않는다 — "볼가드 앞면이 공에 닿는다" 를 식으로 적으면
+      <SideChair x={x2 + P2_CHAIR_X} y={P_FLOOR} />
+      {/* 공 자리를 손으로 찍지 않는다 — "가드 앞코가 공에 닿는다" 를 식으로 적으면 체어나
           공 크기를 바꿔도 접촉이 유지된다. 이 칸의 주장이 바로 그 접촉이다. */}
-      <SideChair x={x2 + P2_BALL_CX - P2_BALL_R - CHAIR_NOSE} y={P_FLOOR} />
-      <line x1={x2 + 152} y1={P_FLOOR - 18} x2={x2 + 164} y2={P_FLOOR - 18} stroke={DIM} strokeWidth={1.6} />
-      <path d={`M ${x2 + 172} ${P_FLOOR - 18} l -8 -4.2 l 0 8.4 Z`} fill={DIM} />
+      <circle
+        cx={x2 + P2_CHAIR_X + CHAIR_NOSE + P_BALL_R}
+        cy={P_FLOOR - P_BALL_R}
+        r={P_BALL_R}
+        fill={BALL_FILL}
+        stroke="#fff"
+        strokeWidth={2.2}
+      />
+      <line x1={x2 + 152} y1={P_FLOOR - P_BALL_R} x2={x2 + 164} y2={P_FLOOR - P_BALL_R} stroke={DIM} strokeWidth={1.6} />
+      <path d={`M ${x2 + 172} ${P_FLOOR - P_BALL_R} l -8 -4.2 l 0 8.4 Z`} fill={DIM} />
       <Verdict cx={x2 + PANEL_W / 2} ok head="가드에 걸려 굴러 나간다" tail="규칙이 요구하는 상태" />
 
       {/* ③ 높음 — 튀어 올라 바닥을 떠난다 */}
       <PanelFrame x0={x3} title="공기압이 높으면" />
       <path
-        d={`M ${x3 + 80} ${P_FLOOR} Q ${x3 + 112} ${P_FLOOR - 56} ${x3 + 144} ${P_FLOOR} Q ${x3 + 160} ${P_FLOOR - 32} ${x3 + 176} ${P_FLOOR}`}
+        d={`M ${x3 + 118} ${P_FLOOR} Q ${x3 + 142} ${P_FLOOR - 58} ${x3 + 166} ${P_FLOOR} Q ${x3 + 172} ${P_FLOOR - 22} ${x3 + 178} ${P_FLOOR}`}
         fill="none"
         stroke={DIM}
         strokeWidth={1.4}
         strokeDasharray="4 3"
       />
-      <SideChair x={x3 + 40} y={P_FLOOR} />
-      {/* 첫 포물선 꼭짓점(y=120)에 공을 얹는다 — 튀어 오른 순간이다. 포물선은 공보다 **넓게**
-          그린다: 폭이 같으면 공이 첫 산을 통째로 가려서 "어디서 튀었는지" 가 안 보인다. */}
-      <circle cx={x3 + 112} cy={102} r={18} fill={BALL_FILL} stroke="#fff" strokeWidth={2.2} />
+      <SideChair x={x3 + 42} y={P_FLOOR} />
+      {/* 첫 포물선 꼭짓점(2차 베지에의 중점 = P_FLOOR−29)에 공을 얹는다 — 가드를 맞고 튀어
+          오른 순간이다. 포물선은 공보다 **넓게** 그린다: 폭이 같으면 공이 산을 통째로 가려
+          "어디서 튀었는지" 가 안 보인다. */}
+      <circle cx={x3 + 142} cy={P_FLOOR - 29 - P_BALL_R} r={P_BALL_R} fill={BALL_FILL} stroke="#fff" strokeWidth={2.2} />
       <Verdict cx={x3 + PANEL_W / 2} ok={false} head="지나치게 튄다" tail="굴리는 경기가 되지 않는다" />
     </svg>
   );
@@ -240,7 +272,7 @@ export function BallFigure() {
       <FigureCard
         title="공기압 — 규칙이 정하는 유일한 조건"
         aspect={`${PRESSURE_VB_W} / ${PRESSURE_VB_H}`}
-        caption="규칙 본문이 공에 대해 정하는 것은 지름이 아니라 압력 하나다 — 지나치게 튀지 않으면서, 파워체어가 타고 넘지 못할 만큼. 실물이 저반발·중량형인 이유가 이것이다. (모식도라 체어와 공의 크기 비는 실제와 다르다 — 실제 비율은 위 도해가 보여 준다.)"
+        caption="규칙 본문이 공에 대해 정하는 것은 지름이 아니라 압력 하나다 — 지나치게 튀지 않으면서, 파워체어가 타고 넘지 못할 만큼. 실물이 저반발·중량형인 이유가 이것이다. 체어는 경기 전용 체어의 옆모습 비례를 따랐고, 공과의 크기 비도 대략 실물이다 — 바닥 가까이 길게 뻗은 볼가드가 공 한가운데를 만난다."
       >
         <BallPressureFigure />
       </FigureCard>
