@@ -3660,6 +3660,37 @@ main (padding:22px 30px 46px, max-width:1180)
 `+N개 더`. 카드 전체가 버튼 → `go('library')` + 세션 탭 + 해당 드로어 열기.
 세션이 없으면 빈 상태 + `[세션 만들기]`.
 
+### 6.12 규칙 화면 — `src/features/rules/` (2026-08-21 신설, 설계 문서 밖 추가)
+
+레일 4번째 항목 `rules`(`#/rules`, 세션과 설정 사이)로 v1 설계에는 없던 신설 화면이다.
+FIPFA Laws of the Game(2025년판, `docs/RULES-FIPFA-2025.md` 가 정본)을 조항별로 읽는
+사전식 목록+상세 화면 — 정본 계획은 `docs/PLAN-RULES-SCREEN.md`.
+
+**§6.9 시연 재생 경로를 그대로 재사용한다.** `PresentStage`(§6.9)는 저장소를 몰라도 되는
+컴포넌트다 — `drill: Drill` prop 하나만 받아 `sampleDrill`(§3.6) 순수 보간으로 그린다.
+규칙 화면은 `model/seedDrills.ts`(§3.9 언저리, 씨앗 드릴 스펙→`Drill` 변환기)의 패턴을 빌려
+`ruleContent.ts`(조항 텍스트) · `ruleScenes.ts`(14개 장면 데이터, `courtMode:'full'` +
+`courtSize:'28x15'` 고정)로 인메모리 `Drill` 을 만들고 그걸 그대로 `PresentStage` 에 먹인다 —
+드릴 리포지토리(§4.3)·IDB 를 전혀 거치지 않는다.
+
+**§5 물리(matter-js)는 쓰지 않는다.** §5.10 이 이미 못박아 둔 구분 그대로다: 편집은 물리
+드래그, **재생은 물리가 아니라 결정론적 보간**이다. 시연이 그렇듯 규칙 화면도 재생만 하므로
+물리 엔진을 아예 import 하지 않는다(소스 레벨로 확인 — `src/features/rules/` 어디에도
+`physics/` import 가 없다).
+
+**규칙 판정 오버레이(§4.4 P2-4 계열, `render/ruleOverlay.ts`)도 그대로 재사용한다.** 장면의
+공 하나에 `BallDef.ring:'3m'|'5m'`(§3.5)을 얹어 두면 — 2-on-1 장면은 3m, 킥오프·킥인·골킥·
+코너킥·직접/간접프리킥·페널티킥(재시작 7종)은 5m — `PresentStage` 가 이미 배선해 둔
+`createRuleOverlay`/`RuleOverlay` 가 편집기·시연과 **같은 위반 판정 함수**(`model/rules.ts`
+`ruleForRing`/`ringViolation`/`fiveMeterViolation`)로 그린다. 규칙 화면이 새로 만든 판정
+로직은 없다 — 이미 검증된 것을 다른 데이터로 다시 그릴 뿐이다.
+
+목록 그룹핑(기본/경기 진행/반칙·재시작/심판·분류)과 조항 본문·장면 해설은 **한국어 전용**
+(2026-08-21 결정) — SCREEN_* 라벨(§6.8)처럼 3언어 타입 강제 대상이 아니라 `ruleContentFor(locale)`
+안에서 나중에 언어를 분기할 자리만 남겨 뒀다. 좁은 창은 §3.-2 의 "레일이 헤더로 접힌다"와
+같은 결로, 목록↔상세를 한 번에 하나만 보여주는 2뷰 전환이다(레일/헤더 접힘과는 별개의,
+화면 **내부** 반응형 분기).
+
 ---
 
 ## 7. 접근성 계약 (v1 출시 조건)
