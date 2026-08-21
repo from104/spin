@@ -2,7 +2,7 @@
 
 **Strategy Planner for INclusive football** — 파워체어 풋볼(전동휠체어 축구) 4v4 전술 보드·드릴 플래너.
 
-**▶ [지금 열기 — spin.atit.dev](https://spin.atit.dev)** (추후 `spin.atit.app` 으로 옮깁니다)
+**▶ [지금 열기 — spin.atit.app](https://spin.atit.app)** (`spin.atit.dev` 는 새 주소로 자동 이동합니다)
 
 > **상태: 개발 중 (미완성, 0.3.x)** — 실제 코트에서 써 보며 고치는 중입니다. 기능은 동작하지만
 > 판단이 뒤집히는 일이 잦습니다. 뒤집힌 결정은 지우지 않고 **왜 그렇게 정했었는지까지** 코드
@@ -235,19 +235,26 @@ npm run test:rel src/render/CourtStage.tsx   # 그 파일을 쓰는 테스트만
 
 ### 배포
 
+배포처가 둘입니다 — **spin.atit.app**(AWS Lightsail, 정본)과 **spin.atit.dev**(cube, 이제
+spin.atit.app 으로 301 리다이렉트됩니다).
+
 ```bash
-npm run deploy -- --dry-run   # 무엇이 바뀌는지만 본다 (아무것도 안 쓴다)
-npm run deploy                # 테스트 → 빌드 → 배포
+npm run deploy:aws -- --dry-run   # spin.atit.app 으로 — 무엇이 바뀌는지만 본다
+npm run deploy:aws                # 테스트 → 빌드 → 배포
+
+npm run deploy -- --dry-run       # spin.atit.dev(cube) 로 — 무엇이 바뀌는지만 본다
+npm run deploy                    # 테스트 → 빌드 → 배포
 ```
 
-배포는 `dist/` 를 cube 의 `/pool/vhost/sites/spin` 에 놓는 것이 전부입니다. 그 디렉터리는
-`spin-web`(nginx:alpine)에 읽기 전용으로 물려 있고, 앞단의 `vhost-proxy` 가
-`spin.atit.dev` 로 라우팅합니다. **서버 설정을 만질 일이 없습니다 — 파일만 갈아 끼웁니다.**
+`npm run deploy`(cube)는 `dist/` 를 cube 의 `/pool/vhost/sites/spin` 에 놓는 것이 전부입니다
+(`spin-web` nginx:alpine 에 읽기 전용으로 물려 있어 **서버 설정을 만질 일이 없습니다**).
+`npm run deploy:aws`는 같은 `dist/` 를 AWS Lightsail 의 Apache 가상호스트로 SSH+rsync
+합니다. 근거와 안전장치는 각 스크립트 머리말에 있습니다 —
+[`scripts/deploy.sh`](scripts/deploy.sh) · [`scripts/deploy-aws.sh`](scripts/deploy-aws.sh).
 
-**gofu·cube 어느 쪽에서 실행해도 됩니다.** 대상 경로가 로컬에 있으면(cube) 복사하고,
-없으면(gofu) ssh 로 rsync 합니다 — 절차를 기기마다 다르게 적어 두면 한쪽만 고쳐지고,
-그러면 "내 기기에서는 되는데" 가 다시 생깁니다. 근거와 안전장치는
-[`scripts/deploy.sh`](scripts/deploy.sh) 머리말에 있습니다.
+**cube 배포는 gofu·cube 어느 쪽에서 실행해도 됩니다.** 대상 경로가 로컬에 있으면(cube)
+복사하고, 없으면(gofu) ssh 로 rsync 합니다 — 절차를 기기마다 다르게 적어 두면 한쪽만
+고쳐지고, 그러면 "내 기기에서는 되는데" 가 다시 생깁니다.
 
 ---
 

@@ -4,6 +4,13 @@
 
 형식은 [Keep a Changelog (korean)]를 기반으로 하며 이 프로젝트는 [Semantic Versioning (korean)]을 따릅니다.
 
+## [Unreleased]
+
+### 변경됨
+
+- **기본 주소가 spin.atit.app 으로 바뀌었습니다** — 예전 주소 spin.atit.dev 는 새 주소로
+  자동 이동(301 리다이렉트)합니다. 즐겨찾기·공유해 둔 링크를 그대로 쓰셔도 됩니다.
+
 ## [0.5.0] 2026-08-21
 
 ### 추가됨
