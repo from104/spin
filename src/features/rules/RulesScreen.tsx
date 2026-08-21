@@ -14,6 +14,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { RULE_GROUP_LABELS, RULE_GROUP_ORDER, ruleContentFor } from './ruleContent.ts';
 import type { RuleLaw } from './ruleContent.ts';
+import { RuleFigure } from './RuleFigure.tsx';
 import { buildRuleScene } from './ruleScenes.ts';
 import type { RuleSceneId } from './ruleScenes.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
@@ -187,6 +188,10 @@ function RuleDetail({ law, onBack }: { law: RuleLaw; onBack?: () => void }) {
           </li>
         ))}
       </ul>
+      {/* 순서: 요약 → 도해 → 장면. "읽고 나서 본다" 는 한 방향을 지킨다 — 도해를 제목
+          바로 밑에 올리면 조문이 전부 접힌 아래로 밀린다. 도해와 장면은 배타가 아니라서
+          둘 다 있는 조항은 정지 그림 다음에 움직이는 판이 온다. */}
+      {law.figureId && <RuleFigure id={law.figureId} />}
       {law.sceneId && <RuleSceneStage key={law.sceneId} sceneId={law.sceneId} />}
     </div>
   );

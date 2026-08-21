@@ -1,5 +1,6 @@
 // 규칙 화면(2026-08-21 신설) 스모크 테스트 — 목록·상세·좁은 창 2뷰 전환.
-// 보드 애니메이션 조립은 아직 없다(장면 데이터가 생기는 다음 커밋에서 이 파일을 다시 손댄다).
+// 보드 장면 자체는 `ruleScenes.test.ts`, 조항 도해는 `RuleFigure.test.tsx` 가 따로 본다 —
+// 여기서는 "상세에 그것들이 실제로 붙어 나오는가" 만 확인한다.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -61,6 +62,17 @@ describe('RulesScreen', () => {
     expect(screen.getByRole('heading', { name: '제10조 — 득점 방법' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '제10조 — 득점 방법' })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('button', { name: '제1조 — 필드' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('도해가 있는 조항은 상세에 그림이 함께 붙는다', async () => {
+    renderRules();
+    const user = userEvent.setup();
+    // 제1조(장면만) 에는 도해가 없고, 제2조(도해) 로 옮기면 그림이 나타난다 —
+    // "조항마다 다른 것이 붙는다" 는 배선 자체를 잡는다.
+    await user.click(screen.getByRole('button', { name: '제2조 — 공' }));
+    const figures = screen.getAllByRole('img');
+    expect(figures.length).toBeGreaterThan(0);
+    expect(screen.getAllByText('33cm').length).toBeGreaterThan(0);
   });
 
   it('좁은 창에서는 목록·상세가 한 번에 하나만 보이고, [목록으로]로 돌아간다', async () => {
