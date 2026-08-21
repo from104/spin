@@ -29,6 +29,11 @@ import { PresentStage } from '../present/PresentStage.tsx';
 import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
+import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
+import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
+import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
+import { RULES_TUTORIAL_STEPS } from './tutorialSteps.ts';
 
 const LIST_WIDTH_PX = 320;
 /** 코트 아래 노트 띠의 고정 높이. `PresentRunner.tsx` 의 `PRESENT_NOTE_BAND_PX`(86)와 같은
@@ -90,10 +95,10 @@ function RuleScenePlayer({ drill, reduceMotion }: { drill: Drill; reduceMotion: 
 
   return (
     <div style={{ marginTop: 20 }}>
-      <div style={{ width: '100%', maxWidth: 560, aspectRatio: `${def.vbW} / ${def.vbH}`, borderRadius: 16, overflow: 'hidden' }}>
+      <div data-tut="rules-board" style={{ width: '100%', maxWidth: 560, aspectRatio: `${def.vbW} / ${def.vbH}`, borderRadius: 16, overflow: 'hidden' }}>
         <PresentStage drill={drill} showRuleZones reduceMotion={reduceMotion} seekToken={seekToken} onStepChange={onStepChange} />
       </div>
-      <div style={{ minHeight: NOTE_BAND_PX, maxHeight: NOTE_BAND_PX, overflow: 'hidden', marginTop: 10 }}>
+      <div data-tut="rules-note" style={{ minHeight: NOTE_BAND_PX, maxHeight: NOTE_BAND_PX, overflow: 'hidden', marginTop: 10 }}>
         {multiStep && (
           <div style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--faint-text)', marginBottom: 2 }}>
             STEP {stepIdx + 1}/{drill.steps.length}
@@ -194,6 +199,15 @@ export function RulesScreen() {
   const [selectedLaw, setSelectedLaw] = useState(1);
   const [view, setView] = useState<'list' | 'detail'>('list');
 
+  // §0.5 Phase 5 — 레일 [도움말] 이 "지금 열려 있는 화면" 을 열려면 이 화면이 자기 HelpCenter 를
+  // 여는 함수를 등록해야 한다(SettingsScreen.tsx·PresentRunner.tsx 와 같은 배선).
+  const [helpOpen, setHelpOpen] = useState(false);
+  const showHelp = useCallback(() => setHelpOpen(true), []);
+  usePublishHelpShow(showHelp);
+  // 기본 선택(제1조 — 필드)이 목록·보드·노트 셋을 항상 함께 그리므로 첫 진입에서 3단계가
+  // 전부 살아남는다(tutorialSteps.ts 머리말).
+  const tutorial = useTutorial('rules', RULES_TUTORIAL_STEPS, true);
+
   const current = laws.find((l) => l.law === selectedLaw) ?? laws[0];
 
   const select = (law: number) => {
@@ -209,6 +223,7 @@ export function RulesScreen() {
       {showList && (
         <nav
           aria-label="규칙 조항 목록"
+          data-tut="rules-list"
           style={{
             flex: narrow ? 1 : `0 0 ${LIST_WIDTH_PX}px`,
             overflowY: 'auto',
@@ -244,6 +259,17 @@ export function RulesScreen() {
         <div style={{ flex: 1, overflowY: 'auto', padding: '26px 30px 46px' }}>
           <RuleDetail law={current} onBack={narrow ? () => setView('list') : undefined} />
         </div>
+      )}
+      <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="rules" onRestartTutorial={() => tutorial.start()} />
+      {tutorial.step && (
+        <TutorialOverlay
+          step={tutorial.step}
+          stepIndex={tutorial.stepIndex}
+          totalSteps={tutorial.totalSteps}
+          onNext={tutorial.next}
+          onPrev={tutorial.prev}
+          onSkip={tutorial.skip}
+        />
       )}
     </main>
   );

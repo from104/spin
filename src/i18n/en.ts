@@ -399,6 +399,12 @@ export const en: Record<DictKey, string> = {
   'tutorial.present.step3.body': 'Fill the screen for a bigger view of the court. Help lives here too.',
   'tutorial.present.step4.title': 'Back to editing',
   'tutorial.present.step4.body': 'Tap to return to the editor. Esc or a left/right swipe also moves between steps.',
+  'tutorial.rules.step1.title': 'Law list',
+  'tutorial.rules.step1.body': 'Pick a law to see its summary and (if any) board scene on the right.',
+  'tutorial.rules.step2.title': 'Board',
+  'tutorial.rules.step2.body': 'Watch an animation of how the rule plays out on the court.',
+  'tutorial.rules.step3.title': 'Explanation',
+  'tutorial.rules.step3.body': 'Reads out what is happening in the current step.',
 
   // ── Session editor tutorial, 5 steps — src/features/sessions/tutorialSteps.ts ──────
   'tutorial.sessionEditor.step1.title': 'Session info',
@@ -421,6 +427,7 @@ export const en: Record<DictKey, string> = {
   'help.section.editor': 'Drill editor',
   'help.section.sessions': 'Sessions',
   'help.section.present': 'Presentation',
+  'help.section.rules': 'Rules',
   'help.section.settings': 'Settings & data',
   'help.section.shortcuts': 'Shortcuts',
 
@@ -432,6 +439,8 @@ export const en: Record<DictKey, string> = {
   'help.start.item3.desc': 'A training plan made of drills grouped into phases. Can be printed too.',
   'help.start.item4.term': 'Presentation',
   'help.start.item4.desc': 'Plays back a drill or session step by step to show it to others.',
+  'help.start.item5.term': 'Rules',
+  'help.start.item5.desc': 'Read powerchair football rules by law, and see calls played out on the board.',
 
   'help.board.item1.term': 'Tray',
   'help.board.item1.desc': 'Pick players, balls, cones, and other tools to place on the court.',
@@ -487,6 +496,13 @@ export const en: Record<DictKey, string> = {
   'help.present.item4.term': 'Exit',
   'help.present.item4.desc': 'Use the header [Back to editing]/[Back to session], Esc, or a left/right swipe to move between steps.',
   'help.present.restartButton': 'Replay presentation tour',
+  'help.rules.item1.term': 'Law list',
+  'help.rules.item1.desc': 'Pick a law on the left to see its summary and (if any) board scene on the right.',
+  'help.rules.item2.term': 'Board animation',
+  'help.rules.item2.desc': 'Play, loop, and change speed to see how a call unfolds step by step.',
+  'help.rules.item3.term': '3m/5m rings',
+  'help.rules.item3.desc': 'The ring around the ball visualizes the 2-on-1 (3m) and restart-distance (5m) rules directly.',
+  'help.rules.restartButton': 'Replay rules tour',
 
   'help.settings.item1.term': 'Theme & language',
   'help.settings.item1.desc': 'Pick brightness and screen language (한국어/English/日本語).',

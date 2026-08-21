@@ -397,6 +397,12 @@ export const ko = {
   'tutorial.present.step3.body': '화면을 꽉 채워 코트를 크게 봅니다. 도움말도 여기 있습니다.',
   'tutorial.present.step4.title': '편집으로',
   'tutorial.present.step4.body': '눌러서 편집 화면으로 돌아갑니다. Esc나 좌우 스와이프로도 스텝을 넘길 수 있습니다.',
+  'tutorial.rules.step1.title': '조항 목록',
+  'tutorial.rules.step1.body': '조항을 고르면 오른쪽에 요약과 보드 장면이 뜹니다.',
+  'tutorial.rules.step2.title': '보드',
+  'tutorial.rules.step2.body': '규칙이 실제 배치에서 어떻게 적용되는지 애니메이션으로 보여줍니다.',
+  'tutorial.rules.step3.title': '설명',
+  'tutorial.rules.step3.body': '지금 스텝이 무슨 상황인지 글로 풀어 읽어 줍니다.',
 
   // ── 세션 편집 튜토리얼 5단계 — src/features/sessions/tutorialSteps.ts ──────
   'tutorial.sessionEditor.step1.title': '세션 정보',
@@ -419,6 +425,7 @@ export const ko = {
   'help.section.editor': '드릴 편집',
   'help.section.sessions': '세션',
   'help.section.present': '시연',
+  'help.section.rules': '규칙',
   'help.section.settings': '설정·데이터',
   'help.section.shortcuts': '단축키',
 
@@ -430,6 +437,8 @@ export const ko = {
   'help.start.item3.desc': '여러 드릴을 구획으로 묶은 훈련 계획입니다. 인쇄물로도 뽑을 수 있습니다.',
   'help.start.item4.term': '시연',
   'help.start.item4.desc': '드릴이나 세션을 스텝 순서대로 재생해 보여주는 화면입니다.',
+  'help.start.item5.term': '규칙',
+  'help.start.item5.desc': '파워체어풋볼 규칙을 조항별로 읽고, 판정 상황을 보드 애니메이션으로 확인하는 화면입니다.',
 
   'help.board.item1.term': '트레이',
   'help.board.item1.desc': '선수·공·콘 등 도구를 골라 코트에 놓습니다.',
@@ -485,6 +494,13 @@ export const ko = {
   'help.present.item4.term': '나가기',
   'help.present.item4.desc': '헤더의 [편집으로]/[세션으로], Esc, 또는 좌우 스와이프로 스텝을 넘깁니다.',
   'help.present.restartButton': '시연 투어 다시 보기',
+  'help.rules.item1.term': '조항 목록',
+  'help.rules.item1.desc': '왼쪽에서 조항을 고르면 오른쪽에 요약과(있으면) 보드 장면이 뜹니다.',
+  'help.rules.item2.term': '보드 애니메이션',
+  'help.rules.item2.desc': '재생·반복·배속으로 판정 상황이 스텝별로 어떻게 전개되는지 볼 수 있습니다.',
+  'help.rules.item3.term': '3m/5m 원',
+  'help.rules.item3.desc': '공 주위 링은 2-on-1(3m)·재시작 거리(5m) 규정을 그대로 시각화한 것입니다.',
+  'help.rules.restartButton': '규칙 투어 다시 보기',
 
   'help.settings.item1.term': '테마·언어',
   'help.settings.item1.desc': '밝기와 화면 언어(한국어/English/日本語)를 고릅니다.',
