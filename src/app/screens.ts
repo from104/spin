@@ -98,7 +98,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     drills: '저장된 드릴을 열어 편집하거나 시연하세요',
     sessions: '드릴을 묶어 훈련 한 회를 계획하세요',
     present: '팀 앞에서 드릴을 단계별로 보여주세요',
-    rules: '조항을 고르면 보드 애니메이션으로 보여줍니다',
+    rules: '주제별로 표·보드 애니메이션과 함께 규칙을 익히세요',
     settings: '언어·화면·데이터 등 이 기기의 설정',
   },
   en: {
@@ -106,7 +106,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     drills: 'Open a saved drill to edit or present it',
     sessions: 'Group drills into a single training plan',
     present: 'Walk your team through the drill step by step',
-    rules: 'Pick a law to see it played out on the board',
+    rules: 'Learn the rules by topic, with tables and board animations',
     settings: 'Language, screen, data, and other settings for this device',
   },
   ja: {
@@ -114,7 +114,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     drills: '保存したドリルを開いて編集・プレゼンできます',
     sessions: 'ドリルをまとめて1回分の練習を計画します',
     present: 'チームの前でドリルを段階ごとに見せます',
-    rules: '条文を選ぶとボードでアニメーション再生します',
+    rules: 'トピック別に、表とボードアニメーションでルールを学べます',
     settings: '言語・画面・データなど、この端末の設定',
   },
 };
