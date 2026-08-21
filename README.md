@@ -235,26 +235,22 @@ npm run test:rel src/render/CourtStage.tsx   # 그 파일을 쓰는 테스트만
 
 ### 배포
 
-배포처가 둘입니다 — **spin.atit.app**(AWS Lightsail, 정본)과 **spin.atit.dev**(cube, 이제
-spin.atit.app 으로 301 리다이렉트됩니다).
+실제로 뜨는 곳은 **spin.atit.app**(AWS Lightsail) 하나입니다. `spin.atit.dev` 는
+콘텐츠를 서빙하지 않습니다 — **리다이렉션 전용**입니다(옛 링크·즐겨찾기가 spin.atit.app 으로
+자동 이동하게 하는 것이 그 역할 전부).
 
 ```bash
-npm run deploy:aws -- --dry-run   # spin.atit.app 으로 — 무엇이 바뀌는지만 본다
+npm run deploy:aws -- --dry-run   # 무엇이 바뀌는지만 본다 (아무것도 안 쓴다)
 npm run deploy:aws                # 테스트 → 빌드 → 배포
-
-npm run deploy -- --dry-run       # spin.atit.dev(cube) 로 — 무엇이 바뀌는지만 본다
-npm run deploy                    # 테스트 → 빌드 → 배포
 ```
 
-`npm run deploy`(cube)는 `dist/` 를 cube 의 `/pool/vhost/sites/spin` 에 놓는 것이 전부입니다
-(`spin-web` nginx:alpine 에 읽기 전용으로 물려 있어 **서버 설정을 만질 일이 없습니다**).
-`npm run deploy:aws`는 같은 `dist/` 를 AWS Lightsail 의 Apache 가상호스트로 SSH+rsync
-합니다. 근거와 안전장치는 각 스크립트 머리말에 있습니다 —
-[`scripts/deploy.sh`](scripts/deploy.sh) · [`scripts/deploy-aws.sh`](scripts/deploy-aws.sh).
+`dist/` 를 AWS Lightsail 의 Apache 가상호스트(`/opt/bitnami/apache2/spin-htdocs`)로
+SSH+rsync 하는 것이 전부입니다. 근거와 안전장치는
+[`scripts/deploy-aws.sh`](scripts/deploy-aws.sh) 머리말에 있습니다.
 
-**cube 배포는 gofu·cube 어느 쪽에서 실행해도 됩니다.** 대상 경로가 로컬에 있으면(cube)
-복사하고, 없으면(gofu) ssh 로 rsync 합니다 — 절차를 기기마다 다르게 적어 두면 한쪽만
-고쳐지고, 그러면 "내 기기에서는 되는데" 가 다시 생깁니다.
+cube 로 올리는 [`scripts/deploy.sh`](scripts/deploy.sh)(`npm run deploy`)도 저장소에는
+남아 있지만, spin.atit.dev 가 리다이렉션 전용이 된 지금은 그리로 올려도 사용자 눈에는
+보이지 않습니다 — 일상적인 배포 명령이 아닙니다.
 
 ---
 
