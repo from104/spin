@@ -9,6 +9,7 @@ import { RuleFigure } from './RuleFigure.tsx';
 import { RULE_FIGURE_IDS } from './figures/ids.ts';
 import { ruleContentFor } from './ruleContent.ts';
 import { BALL } from '../../core/constants.ts';
+import { COURT_SIZE_LABELS } from '../../model/court.ts';
 
 const LAWS = ruleContentFor('ko');
 
@@ -33,6 +34,21 @@ describe('조항 도해', () => {
 
   it('제4조(선수 장비)는 도해를 단다 — 스트라이크포스 매뉴얼 참고분', () => {
     expect(LAWS.find((l) => l.law === 4)?.figureId).toBe('equipment');
+  });
+
+  it('제1조(필드)는 도해를 단다 — 장면(field-tour)과 별개로', () => {
+    const law1 = LAWS.find((l) => l.law === 1);
+    expect(law1?.figureId).toBe('court');
+    expect(law1?.sceneId).toBe('field-tour'); // 장면·도해 동시 보유(배타 아님) 회귀 방지.
+  });
+
+  it('코트 규격 도해의 세 라벨이 COURT_SIZE_LABELS 에서 파생된다', () => {
+    // 손으로 "표준 28 × 15 m (농구 코트)" 를 다시 적으면 편집기 코트 크기 선택 UI 문구가
+    // 바뀔 때 이 도해만 따로 논다.
+    render(<RuleFigure id="court" />);
+    for (const label of Object.values(COURT_SIZE_LABELS.ko)) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
   });
 
   it('장비 도해의 속도 그림에서 전진·후진 막대 폭이 같다', () => {

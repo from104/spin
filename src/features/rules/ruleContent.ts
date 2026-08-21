@@ -59,6 +59,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '골에어리어는 폭 8m×깊이 5m, 페널티 마크는 골라인에서 3.5m, 골대 간격은 6m다.',
       '코너 트라이앵글은 각 코너에서 1m, 코너킥 침범 마크는 골포스트 안쪽 1m 지점에 둔다.',
     ],
+    figureId: 'court',
     sceneId: 'field-tour',
   },
   {

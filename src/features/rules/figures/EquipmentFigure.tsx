@@ -13,6 +13,7 @@
 // 정본 문서 쪽 출처 표기는 `docs/RULES-FIPFA-2025.md` Law 4 "실물 예시" 절 참고.
 import { FigureCard } from './FigureCard.tsx';
 import { CHAIR_NOSE_LOCAL, PowerchairSide } from './PowerchairGlyph.tsx';
+import { Callout } from './Callout.tsx';
 
 const LINE = 'var(--border-strong)';
 const DIM = 'var(--muted)';
@@ -29,20 +30,6 @@ const EQ_SCALE = 1.65;
 /** 로컬 좌표 → 화면 좌표. 경계선·말풍선 다리를 체어와 같은 자로 맞추는 유일한 통로다 —
  *  손으로 화면 좌표를 따로 찍으면 체어를 옮길 때마다 전부 다시 계산해야 한다. */
 const toScreen = (localX: number, localY: number): [number, number] => [EQ_OX + localX * EQ_SCALE, EQ_OY + localY * EQ_SCALE];
-
-/** 말풍선 다리 하나 — 체어 위 지점에 점을 찍고 라벨까지 가는 선을 긋는다. 라벨은 항상
- *  가운데 정렬이라 텍스트가 왼쪽·오른쪽 어느 쪽으로 자라는지 고민할 필요가 없다. */
-function Callout({ ax, ay, lx, ly, label }: { ax: number; ay: number; lx: number; ly: number; label: string }) {
-  return (
-    <g>
-      <line x1={ax} y1={ay} x2={lx} y2={ly} stroke={DIM} strokeWidth={1.1} strokeDasharray="3 3" opacity={0.8} />
-      <circle cx={ax} cy={ay} r={3} fill="var(--accent)" stroke="var(--panel)" strokeWidth={1} />
-      <text x={lx} y={ly} textAnchor="middle" fontSize={12} fontWeight={700} fill="var(--text)">
-        {label}
-      </text>
-    </g>
-  );
-}
 
 function EquipmentLabelFigure() {
   // 가드 라벨 자리는 `CHAIR_NOSE_LOCAL`(볼가드 앞코, 글리프 쪽 진짜 상수)에서 뺀다 — 숫자
