@@ -1,18 +1,141 @@
-// 규칙 화면(2026-08-21 신설, docs/PLAN-RULES-SCREEN.md 정본) — §A/§B 구현.
+// 규칙 화면(2026-08-21 신설, docs/PLAN-RULES-SCREEN.md 정본) — §A/§B/§C 구현.
 //
 // settings 와 같은 "app-shell 미의존" 화면이다: 헤더는 AppShell.useStaticHeaderConfig 가
 // 정적으로 채우고, 이 컴포넌트는 nav prop 없이 스스로 완결된 <main> 을 그린다.
 //
-// 이번 커밋은 목록+텍스트 상세만 담는다 — 보드 애니메이션(PresentStage 조립)은 장면 데이터가
-// 생기는 다음 커밋들(ruleScenes.ts)에서 이 파일을 다시 손댄다(계획 §C).
-import { useState } from 'react';
-import { RULE_GROUP_LABELS, RULE_GROUP_ORDER } from './ruleContent.ts';
-import { ruleContentFor } from './ruleContent.ts';
+// 보드 재생은 시연(present) 인프라를 그대로 재사용한다 — `PresentStage` 는 저장소 없이
+// 인메모리 `Drill` 을 prop 으로 받아 애니메이션한다(`PresentStage.rules.test.tsx` 가 그 성립을
+// 증명한다). `PresentRunner` 전체는 끌어오지 않는다 — 세션·전체화면·헤더 배선까지 딸려 오는
+// 무거운 화면이고, 여기 필요한 것은 "스텝 사이를 seekMs 로 오가는 최소 뼈대"뿐이다. 그 로직
+// (`stepStartsMs`/`seekToStep`/`togglePlay`)은 `PresentRunner.tsx` 의 로컬 함수와 같은
+// 모양이지만, `features/present` → `features/rules` cross-feature import 를 만들지 않기 위해
+// 이 파일 안에 다시 옮겨 적었다(각 화면이 app-shell 미의존으로 스스로 완결된다는 관례와 같은
+// 이유 — AppShell.tsx 머리말 "화면 간 계약" 참고).
+import { useCallback, useMemo, useState } from 'react';
+import { RULE_GROUP_LABELS, RULE_GROUP_ORDER, ruleContentFor } from './ruleContent.ts';
 import type { RuleLaw } from './ruleContent.ts';
+import { buildRuleScene } from './ruleScenes.ts';
+import type { RuleSceneId } from './ruleScenes.ts';
+import type { Drill, DrillStep } from '../../model/drill.ts';
+import { effectiveStepMs } from '../../model/playback.ts';
+import { courtDefFor } from '../../model/court.ts';
+import { clamp } from '../../core/geom.ts';
+import { PLAYBACK } from '../../core/constants.ts';
+import { PlaybackProvider, usePlaybackActions, usePlaybackState } from '../../store/playback/PlaybackProvider.tsx';
+import type { PlaybackSpeed } from '../../store/playback/PlaybackProvider.tsx';
+import { effectiveReduceMotion } from '../../store/editor/tween.ts';
+import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
+import { PresentStage } from '../present/PresentStage.tsx';
+import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
 const LIST_WIDTH_PX = 320;
+/** 코트 아래 노트 띠의 고정 높이. `PresentRunner.tsx` 의 `PRESENT_NOTE_BAND_PX`(86)와 같은
+ *  이유(min=max 로 걸어 스텝을 넘길 때 코트가 위아래로 안 밀리게 한다) — 이 화면은 스텝
+ *  진행바·실명 로스터 줄이 없어 그만큼 더 낮다. */
+const NOTE_BAND_PX = 64;
+
+/** 편집·시연과 같은 순환(0.5→1→2→0.5) — `ui/PlaybackControls.tsx` 의 같은 이름 상수와 동일. */
+const NEXT_SPEED: Record<PlaybackSpeed, PlaybackSpeed> = { 0.5: 1, 1: 2, 2: 0.5 };
+
+/** `sampleDrill` 과 같은 식(§3.6 타임라인)으로 스텝 시작 시각을 구한다. */
+function stepStartsMs(steps: readonly DrillStep[], baseMs: number): number[] {
+  const starts: number[] = [];
+  let acc = 0;
+  for (const s of steps) {
+    starts.push(acc);
+    acc += effectiveStepMs(s, baseMs);
+  }
+  return starts;
+}
+
+/** 장면 하나의 보드+노트+재생 버튼. `PlaybackProvider` 안에서만 쓴다. */
+function RuleScenePlayer({ drill, reduceMotion }: { drill: Drill; reduceMotion: boolean }) {
+  const playback = usePlaybackState();
+  const playbackActions = usePlaybackActions();
+  const [stepIdx, setStepIdx] = useState(0);
+  const [seekToken, setSeekToken] = useState(0);
+
+  const baseMs = PLAYBACK.stepIntervalMs[playback.speed];
+  const starts = useMemo(() => stepStartsMs(drill.steps, baseMs), [drill, baseMs]);
+
+  const seekToStep = useCallback(
+    (idx: number) => {
+      const clamped = clamp(idx, 0, drill.steps.length - 1);
+      const start = starts[clamped] ?? 0;
+      const dur = effectiveStepMs(drill.steps[clamped]!, baseMs);
+      // 스텝 구간의 끝자락(정착된 자세)으로 착지한다 — PresentRunner.seekToStep 과 같은 이유:
+      // 시작점(localT=0)은 "전환 시작" 프레임이라 방금 이동한 스텝이 이전 스텝처럼 보인다.
+      playbackActions.seekMs(start + Math.max(0, dur - 1));
+      setSeekToken((v) => v + 1);
+    },
+    [drill, starts, baseMs, playbackActions],
+  );
+
+  const togglePlay = useCallback(() => {
+    // 끝 스텝에서 [재생] = 처음으로 되감고 재생 — PresentRunner.togglePlay 와 같은 규칙.
+    if (!playback.playing && stepIdx >= drill.steps.length - 1) {
+      playbackActions.resetMs();
+      setSeekToken((v) => v + 1);
+    }
+    playbackActions.toggle();
+  }, [playback.playing, stepIdx, drill.steps.length, playbackActions]);
+
+  const onStepChange = useCallback((idx: number) => setStepIdx(idx), []);
+
+  const def = courtDefFor(drill.courtMode, drill.courtSize);
+  const step = drill.steps[stepIdx];
+  const multiStep = drill.steps.length > 1;
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ width: '100%', maxWidth: 560, aspectRatio: `${def.vbW} / ${def.vbH}`, borderRadius: 16, overflow: 'hidden' }}>
+        <PresentStage drill={drill} showRuleZones reduceMotion={reduceMotion} seekToken={seekToken} onStepChange={onStepChange} />
+      </div>
+      <div style={{ minHeight: NOTE_BAND_PX, maxHeight: NOTE_BAND_PX, overflow: 'hidden', marginTop: 10 }}>
+        {multiStep && (
+          <div style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.04em', color: 'var(--faint-text)', marginBottom: 2 }}>
+            STEP {stepIdx + 1}/{drill.steps.length}
+          </div>
+        )}
+        {step?.note && <p style={{ fontSize: '0.875rem', lineHeight: 1.5, color: 'var(--text)' }}>{step.note}</p>}
+      </div>
+      {multiStep && (
+        <div style={{ marginTop: 10 }}>
+          <PlaybackControls
+            playing={playback.playing}
+            canPlay
+            onTogglePlay={togglePlay}
+            loop={playback.loop}
+            onToggleLoop={() => playbackActions.setLoop(!playback.loop)}
+            onPrev={() => seekToStep(stepIdx - 1)}
+            onNext={() => seekToStep(stepIdx + 1)}
+            speed={playback.speed}
+            onCycleSpeed={() => playbackActions.setSpeed(NEXT_SPEED[playback.speed])}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 장면 id → 드릴 빌드 + 재생 상태 provider. `key={sceneId}`(호출부)로 조항을 바꿀 때마다
+ *  통째로 다시 마운트한다 — 재생 경과·스텝 위치가 이전 조항 것을 들고 오면 안 된다.
+ *
+ *  `initialLoop={prefs.loop}` — 전술판·드릴 편집기·시연과 같은 배선이다. `prefs.loop` 를
+ *  세 화면이 이미 내리는데 이 화면만 하드코딩하면 설정 [반복 재생]이 여기서만 안 먹힌다
+ *  (playbackLoopPref.test.tsx §④ 전수 열거가 이 자리를 붙잡는다). */
+function RuleSceneStage({ sceneId }: { sceneId: RuleSceneId }) {
+  const { prefs } = useSettingsState();
+  const drill = useMemo(() => buildRuleScene(sceneId), [sceneId]);
+  const reduceMotion = effectiveReduceMotion(prefs.a11y.reduceMotion);
+  return (
+    <PlaybackProvider initialSpeed={1} initialLoop={prefs.loop}>
+      <RuleScenePlayer drill={drill} reduceMotion={reduceMotion} />
+    </PlaybackProvider>
+  );
+}
 
 function RuleListRow({ law, active, onSelect }: { law: RuleLaw; active: boolean; onSelect: () => void }) {
   return (
@@ -59,6 +182,7 @@ function RuleDetail({ law, onBack }: { law: RuleLaw; onBack?: () => void }) {
           </li>
         ))}
       </ul>
+      {law.sceneId && <RuleSceneStage key={law.sceneId} sceneId={law.sceneId} />}
     </div>
   );
 }
