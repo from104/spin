@@ -4,7 +4,7 @@
 
 **▶ [지금 열기 — spin.atit.app](https://spin.atit.app)** (`spin.atit.dev` 는 새 주소로 자동 이동합니다)
 
-> **상태: 개발 중 (미완성, 0.3.x)** — 실제 코트에서 써 보며 고치는 중입니다. 기능은 동작하지만
+> **상태: 개발 중 (미완성, 0.5.x)** — 실제 코트에서 써 보며 고치는 중입니다. 기능은 동작하지만
 > 판단이 뒤집히는 일이 잦습니다. 뒤집힌 결정은 지우지 않고 **왜 그렇게 정했었는지까지** 코드
 > 주석과 [CHANGELOG.md](CHANGELOG.md) 에 남깁니다.
 
@@ -65,7 +65,7 @@
 
 ## 2. 무엇을 하는 앱인가
 
-화면은 다섯입니다.
+화면은 여섯입니다.
 
 ### 전술판 (`board`)
 스텝이 없는 **한 장짜리 판**. 지금 당장 그려서 보여 주는 용도입니다. 여기서 그린 판은
@@ -95,6 +95,13 @@
 ### 시연 모드 (`present`)
 팀 앞에서 보여 주는 화면. 전체화면, 큰 버튼, **화면 꺼짐 방지(Wake Lock)**, 스와이프로 스텝 이동.
 드릴 여러 개를 순서대로 묶은 **훈련 세션** 단위로도 돌릴 수 있습니다.
+
+### 규칙 (`rules`, 2026-08-21 신설)
+FIPFA Laws of the Game(2025년판)을 조항(제1조~제18조)별로 읽는 사전식 화면입니다. 판정·절차가
+있는 12개 조항은 왼쪽에서 고르면 오른쪽에 요약과 함께 **보드 애니메이션**이 뜹니다 — 시연
+화면과 같은 재생 엔진(`sampleDrill` 보간, 물리 엔진 불사용)을 재사용하고, 공 주위 3 m/5 m
+링은 위 §1 의 판정 링과 같은 컴포넌트입니다. 정본은
+[docs/RULES-FIPFA-2025.md](docs/RULES-FIPFA-2025.md)·[docs/PLAN-RULES-SCREEN.md](docs/PLAN-RULES-SCREEN.md).
 
 ### 설정 (`settings`)
 언어·테마·UI 배율, 선수 명단(세션 참가자 체크의 원본), 물리(드래그 4존 경계·속도 상한),
@@ -179,7 +186,7 @@ src/
 ├─ render/     SVG 렌더 (CourtStage.tsx 가 무대, objects/ 가 개체별 그리기)
 ├─ store/      에디터 상태 (reducer)
 ├─ storage/    IndexedDB·파일 입출력 (drillRepo·sessionRepo·prefs·transfer)
-├─ features/   화면별 기능 (board · editor · library · present · print · export · settings · home)
+├─ features/   화면별 기능 (board · editor · library · sessions · present · rules · print · export · settings · home)
 ├─ ui/         공용 UI 부품 (Modal · Button · Drawer · LiveRegion …)
 ├─ core/       상수·키맵·id
 ├─ app/        셸·라우팅
@@ -231,7 +238,7 @@ npm run test         # 전체 (커밋 직전 한 번)
 npm run test:rel src/render/CourtStage.tsx   # 그 파일을 쓰는 테스트만
 ```
 
-현재 **257개 파일 3,523개 테스트**가 돌고 있습니다.
+현재 **260개 파일 3,573개 테스트**가 돌고 있습니다.
 
 ### 배포
 
