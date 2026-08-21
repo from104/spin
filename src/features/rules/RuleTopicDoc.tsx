@@ -116,7 +116,7 @@ export function RuleTopicDoc({ topic, prevTopic, nextTopic, onBack, onSelectTopi
   const [activeSceneId, setActiveSceneId] = useState<RuleSceneId | null>(null);
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div className="rules-doc-in" style={{ maxWidth: 760 }}>
       <button
         type="button"
         onClick={onBack}

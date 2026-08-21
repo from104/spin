@@ -61,7 +61,8 @@ export function RulesHome({ topics, onOpen }: RulesHomeProps) {
             onClick={() => onOpen(topic.key)}
             aria-label={topic.title}
             data-tut={i === 0 ? 'rules-card' : topic.key === 'rulebook' ? 'rules-appendix' : undefined}
-            style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 128 }}
+            className="rules-card-in"
+            style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 128, animationDelay: `${i * 40}ms` }}
           >
             <span style={{ color: 'var(--accent-text)' }}>
               <Icon size={22} aria-hidden />

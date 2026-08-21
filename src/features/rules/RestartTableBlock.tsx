@@ -77,6 +77,7 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
                   fontSize: '0.9375rem',
                   fontWeight: 700,
                   color: open ? 'var(--text)' : 'var(--muted)',
+                  transition: 'color 150ms ease',
                 }}
               >
                 {col.label}
@@ -91,7 +92,9 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
                       </div>
                     ))}
                   </dl>
-                  <RuleSceneBlock key={col.sceneId} sceneId={col.sceneId} active={activeSceneId === col.sceneId} onActivate={() => onActivateScene(col.sceneId)} />
+                  <div key={col.sceneId} className="rules-fade-in">
+                    <RuleSceneBlock sceneId={col.sceneId} active={activeSceneId === col.sceneId} onActivate={() => onActivateScene(col.sceneId)} />
+                  </div>
                 </div>
               )}
             </div>
@@ -114,7 +117,15 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
               {RESTART_COLUMNS.map((col) => {
                 const active = col.key === selectedKey;
                 return (
-                  <th key={col.key} scope="col" style={{ padding: 0, borderBottom: `2px solid ${active ? 'var(--accent)' : 'var(--border)'}` }}>
+                  <th
+                    key={col.key}
+                    scope="col"
+                    style={{
+                      padding: 0,
+                      borderBottom: `2px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                      transition: 'border-color 150ms ease',
+                    }}
+                  >
                     <button
                       type="button"
                       aria-current={active ? 'true' : undefined}
@@ -126,6 +137,7 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
                         fontWeight: 700,
                         color: active ? 'var(--text)' : 'var(--muted)',
                         background: active ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent',
+                        transition: 'background-color 150ms ease, color 150ms ease',
                       }}
                     >
                       {col.label}
@@ -163,6 +175,7 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
                           color: 'var(--text)',
                           borderBottom: '1px solid var(--border)',
                           background: active ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent',
+                          transition: 'background-color 150ms ease',
                         }}
                       >
                         {cellText(col, key)}
@@ -175,7 +188,9 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
           </tbody>
         </table>
       </div>
-      <RuleSceneBlock key={selected.sceneId} sceneId={selected.sceneId} active={activeSceneId === selected.sceneId} onActivate={() => onActivateScene(selected.sceneId)} />
+      <div key={selected.sceneId} className="rules-fade-in">
+        <RuleSceneBlock sceneId={selected.sceneId} active={activeSceneId === selected.sceneId} onActivate={() => onActivateScene(selected.sceneId)} />
+      </div>
     </div>
   );
 }
