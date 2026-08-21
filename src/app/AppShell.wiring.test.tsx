@@ -152,9 +152,11 @@ vi.mock('../features/settings/SettingsScreen.tsx', async () => {
 });
 
 vi.mock('../features/rules/RulesScreen.tsx', () => {
-  // 2026-08-21 신설 — settings 와 같은 "app-shell 미의존, 정적 헤더" 화면이다.
-  function RulesScreen() {
-    return <div data-testid="screen-rules" />;
+  // 2026-08-21 신설(헤더는 settings 와 같은 정적 헤더), 2026-08-22 딥링크로 topic prop 을 받기
+  // 시작했다 — `data-rule-topic` 이 곧 "주제 대상이 화면까지 닿았는가" 의 관측점이다
+  // (PresentRunner 목의 `data-present-kind` 와 같은 패턴).
+  function RulesScreen({ topic }: { topic?: string }) {
+    return <div data-testid="screen-rules" data-rule-topic={topic ?? ''} />;
   }
   return { RulesScreen };
 });
@@ -298,6 +300,21 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
 
     await user.click(screen.getByRole('button', { name: '보드' }));
     expectOnlyScreen('screen-board');
+  });
+
+  it('규칙 딥링크(/rules/:topic)가 RulesScreen 까지 topic prop 으로 닿는다 (2026-08-22 재설계)', async () => {
+    initialPath = '/rules/two-on-one';
+    await renderShell();
+    expectOnlyScreen('screen-rules');
+    expect(screen.getByTestId('screen-rules')).toHaveAttribute('data-rule-topic', 'two-on-one');
+  });
+
+  it('옛 /rules/law-N 딥링크는 부록 주제(rulebook)로 흡수돼 화면까지 닿는다', async () => {
+    initialPath = '/rules/law-3';
+    await renderShell();
+    expectOnlyScreen('screen-rules');
+    expect(screen.getByTestId('screen-rules')).toHaveAttribute('data-rule-topic', 'rulebook');
+    expect(router.state.location.pathname).toBe('/rules/law-3'); // 흡수는 target 파싱만, 주소 자체를 재작성하진 않는다
   });
 
   it('board 자리는 화면 키가 아니라 StageTarget 이 가른다 — board 면 BoardScreen, drill 이면 EditorScreen', async () => {

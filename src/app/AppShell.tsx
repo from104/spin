@@ -88,6 +88,15 @@ function sessionEditFromNav(screen: Screen, target: NavTarget | undefined): Sess
   return target.id as SessionId;
 }
 
+/** 규칙 화면의 주제 상세 대상(2026-08-22 주제별 재설계) — `/rules/:topic` 에서 파생한다.
+ *  유효한 주제 키인지는 여기서 검증하지 않는다(routes.ts 는 features 를 안 물고, 이 함수도
+ *  같은 층에 있다) — 모르는 문자열이면 RulesScreen 이 스스로 카드 홈으로 폴백한다
+ *  (routes.ts 의 "모르는 경로는 board" 와 같은 404-없음 교리, 화면 단위로 축소 적용). */
+function ruleTopicFromNav(screen: Screen, target: NavTarget | undefined): string | undefined {
+  if (screen !== 'rules' || target?.kind !== 'rule') return undefined;
+  return target.topic;
+}
+
 /** board 자리의 화면들(BoardScreen/EditorScreen)이 자기가 무엇을 그릴지 알아내는 통로 —
  *  둘 다 app-shell 에 의존해도 되는 화면이라(§8 "전부") 이 훅을 직접 부를 수 있다. */
 export function useStageTarget(): StageTarget {
@@ -118,6 +127,7 @@ function useHomeNavAdapter(nav: AppHistoryApi): HomeNav {
       openSession: (id) => nav.go('drills', { kind: 'session', id }),
       presentDrill: (id) => nav.go('present', { kind: 'drill', id }),
       presentSession: (id) => nav.go('present', { kind: 'session', id }),
+      openRuleTopic: (key) => nav.go('rules', key ? { kind: 'rule', topic: key } : undefined),
     }),
     [nav],
   );
@@ -175,7 +185,7 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
   }
 }
 
-function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionEditId: SessionId | undefined) {
+function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionEditId: SessionId | undefined, ruleTopic: string | undefined) {
   switch (screen) {
     case 'board':
       // 같은 자리, 같은 EditorWorkspace — board 냐 drill 이냐만 다르다(§6.8 재편).
@@ -188,7 +198,7 @@ function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionE
     case 'present':
       return <PresentScreen />;
     case 'rules':
-      return <RulesScreen />;
+      return <RulesScreen topic={ruleTopic} nav={nav} />;
     case 'settings':
       return <SettingsScreen />;
   }
@@ -226,6 +236,7 @@ export function AppShell() {
   const stageTarget = useMemo(() => stageFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const presentTarget = useMemo(() => presentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const sessionEditId = sessionEditFromNav(nav.screen, nav.target);
+  const ruleTopic = ruleTopicFromNav(nav.screen, nav.target);
   const homeNav = useHomeNavAdapter(nav);
 
   // 레일·헤더 세그먼트의 활성 항목. **여기서 한 번만** 계산해 둘에 똑같이 내려보낸다
@@ -304,7 +315,7 @@ export function AppShell() {
                 {!narrow && <AppRail active={activeRail} />}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                   {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
-                  {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId)}
+                  {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, ruleTopic)}
                 </div>
               </div>
               <ToastHost toasts={toasts} onDismiss={dismiss} />

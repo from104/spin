@@ -23,6 +23,7 @@ function makeNav(): HomeNav {
     openSession: vi.fn(),
     presentDrill: vi.fn(),
     presentSession: vi.fn(),
+    openRuleTopic: vi.fn(),
   };
 }
 
