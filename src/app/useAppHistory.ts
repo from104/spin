@@ -28,7 +28,8 @@ export type NavTarget =
   | { kind: 'board' }
   | { kind: 'drill'; id: string }
   | { kind: 'session'; id: string }
-  | { kind: 'tab'; tab: 'drills' | 'sessions' };
+  | { kind: 'tab'; tab: 'drills' | 'sessions' }
+  | { kind: 'rule'; law: number };
 
 export interface AppHistoryApi {
   screen: Screen;

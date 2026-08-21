@@ -151,6 +151,14 @@ vi.mock('../features/settings/SettingsScreen.tsx', async () => {
   return { SettingsScreen };
 });
 
+vi.mock('../features/rules/RulesScreen.tsx', () => {
+  // 2026-08-21 신설 — settings 와 같은 "app-shell 미의존, 정적 헤더" 화면이다.
+  function RulesScreen() {
+    return <div data-testid="screen-rules" />;
+  }
+  return { RulesScreen };
+});
+
 const { AppShell } = await import('./AppShell.tsx');
 const { SettingsProvider } = await import('../store/settings/SettingsProvider.tsx');
 const { LibraryProvider } = await import('../store/library/LibraryProvider.tsx');
@@ -206,7 +214,7 @@ async function renderShell() {
   return utils;
 }
 
-const SCREEN_TESTIDS = ['screen-board', 'screen-editor', 'screen-library', 'screen-sessions', 'screen-session-editor', 'screen-present', 'screen-settings'] as const;
+const SCREEN_TESTIDS = ['screen-board', 'screen-editor', 'screen-library', 'screen-sessions', 'screen-session-editor', 'screen-present', 'screen-rules', 'screen-settings'] as const;
 
 /** renderScreen 은 switch 라 한 번에 하나만 나와야 한다 — "A 가 떴다" 뿐 아니라 "나머지는 없다"
  *  까지 봐야 스위치가 정말 갈렸는지 알 수 있다. */
@@ -224,8 +232,8 @@ function header(): HTMLElement {
   return el;
 }
 
-// 2.1 재편: 레일은 3단이다. '시연' 은 화면 키로 살아 있지만 레일에는 없다.
-const RAIL_LABELS = ['보드', '드릴', '세션', '설정'] as const;
+// 2.1 재편: 레일은 5단이다(2026-08-21 규칙 합류). '시연' 은 화면 키로 살아 있지만 레일에는 없다.
+const RAIL_LABELS = ['보드', '드릴', '세션', '규칙', '설정'] as const;
 
 /** 레일에서 정확히 하나만 aria-current="page" 인지. */
 function expectRailActive(label: (typeof RAIL_LABELS)[number]) {
@@ -273,6 +281,20 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
 
     await user.click(screen.getByRole('button', { name: '설정' }));
     expectOnlyScreen('screen-settings');
+
+    await user.click(screen.getByRole('button', { name: '보드' }));
+    expectOnlyScreen('screen-board');
+  });
+
+  it('레일 [규칙]이 규칙 화면으로 가고 URL·레일 활성이 함께 맞는다 (2026-08-21 신설)', async () => {
+    await renderShell();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: '규칙' }));
+    expectOnlyScreen('screen-rules');
+    expectRailActive('규칙');
+    expect(router.state.location.pathname).toBe('/rules');
+    expect(within(header()).getByText('경기 규칙')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '보드' }));
     expectOnlyScreen('screen-board');

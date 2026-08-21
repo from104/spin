@@ -33,6 +33,7 @@ export const en: Record<DictKey, string> = {
   'app.announce.sessionList': 'Session list',
   'app.announce.presentMode': 'Presentation mode',
   'app.announce.presentTitled': 'Presenting: {{title}}',
+  'app.announce.rules': 'Rules',
   'app.announce.settings': 'Settings',
 
   // C3 — rest of the settings screen + roster + data (import) report

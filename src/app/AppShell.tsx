@@ -51,6 +51,7 @@ import { SessionEditorScreen } from '../features/sessions/SessionEditorScreen.ts
 import { BoardScreen } from '../features/board/BoardScreen.tsx';
 import { EditorScreen } from '../features/editor/EditorScreen.tsx';
 import { PresentScreen } from '../features/present/PresentScreen.tsx';
+import { RulesScreen } from '../features/rules/RulesScreen.tsx';
 import { SettingsScreen } from '../features/settings/SettingsScreen.tsx';
 
 // ── 화면 간 라우팅 대상 (계약 밖 확장 — DESIGN.md 가 안 정한 부분을 메운다) ──────────────────
@@ -165,6 +166,8 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
           },
         },
       };
+    case 'rules':
+      return { title: SCREEN_TITLES[locale].rules, subtitle: SCREEN_SUBTITLES[locale].rules };
     case 'settings':
       return { title: SCREEN_TITLES[locale].settings, subtitle: SCREEN_SUBTITLES[locale].settings };
     default:
@@ -184,6 +187,8 @@ function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionE
       return sessionEditId ? <SessionEditorScreen nav={nav} sessionId={sessionEditId} /> : <SessionsScreen nav={nav} />;
     case 'present':
       return <PresentScreen />;
+    case 'rules':
+      return <RulesScreen />;
     case 'settings':
       return <SettingsScreen />;
   }

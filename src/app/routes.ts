@@ -17,6 +17,8 @@
 //   /present/drill/:id     드릴 시연                    screen 'present'
 //   /present/session/:id   세션 시연                    screen 'present'
 //   /present               시연 (대상 없음 — 빈 상태)
+//   /rules                 규칙 목록                    screen 'rules'
+//   /rules/law-:N           규칙 조항 상세(딥링크)        screen 'rules' + {kind:'rule', law:N}
 //   /settings              설정
 //
 // ⚠️ '/drills/:id' 의 화면 키가 'drills' 가 아니라 'board' 인 것은 2026-08-09 재편 그대로다:
@@ -48,6 +50,8 @@ export function pathFor(screen: Screen, target?: NavTarget): string {
       if (target?.kind === 'drill') return `/present/drill/${target.id}`;
       if (target?.kind === 'session') return `/present/session/${target.id}`;
       return '/present';
+    case 'rules':
+      return target?.kind === 'rule' ? `/rules/law-${target.law}` : '/rules';
     case 'settings':
       return '/settings';
   }
@@ -78,6 +82,11 @@ export function parsePath(pathname: string, search: string = ''): ParsedRoute {
       if (seg[1] === 'drill' && seg[2]) return { screen: 'present', target: { kind: 'drill', id: seg[2] } };
       if (seg[1] === 'session' && seg[2]) return { screen: 'present', target: { kind: 'session', id: seg[2] } };
       return { screen: 'present' };
+    }
+    case 'rules': {
+      const m = seg[1]?.match(/^law-(\d+)$/);
+      if (m) return { screen: 'rules', target: { kind: 'rule', law: Number(m[1]) } };
+      return { screen: 'rules' };
     }
     case 'settings':
       return { screen: 'settings' };

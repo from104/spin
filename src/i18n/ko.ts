@@ -32,6 +32,7 @@ export const ko = {
   'app.announce.sessionList': '세션 목록',
   'app.announce.presentMode': '시연 모드',
   'app.announce.presentTitled': '시연: {{title}}',
+  'app.announce.rules': '규칙',
   'app.announce.settings': '설정',
 
   // C3 — 설정 화면 나머지 섹션 + 선수 명단 + 데이터(가져오기) 보고
