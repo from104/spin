@@ -120,6 +120,7 @@ export const HELP_NARRATIVE_SECTIONS: Record<Exclude<HelpSectionKey, 'shortcuts'
       { term: 'help.rules.item1.term', desc: 'help.rules.item1.desc' },
       { term: 'help.rules.item2.term', desc: 'help.rules.item2.desc' },
       { term: 'help.rules.item3.term', desc: 'help.rules.item3.desc' },
+      { term: 'help.rules.item4.term', desc: 'help.rules.item4.desc' },
     ],
   },
   settings: {
