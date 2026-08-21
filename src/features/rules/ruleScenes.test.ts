@@ -18,11 +18,19 @@ describe('buildRuleScene', () => {
     expect(drill.courtSize).toBe('28x15');
   });
 
-  it('링 3m 은 two-on-one 에만 있다', () => {
+  it('링 3m 은 2-on-1 계열 5종 + 세트볼에만 있다', () => {
+    const THREE_METER_SCENES: readonly RuleSceneId[] = [
+      'two-on-one',
+      'two-on-one-active',
+      'two-on-one-gk',
+      'two-on-one-open',
+      'two-on-one-escape',
+      'set-ball',
+    ];
     for (const id of RULE_SCENE_IDS) {
       const drill = buildRuleScene(id);
       const rings = drill.cast.balls.map((b) => b.ring).filter(Boolean);
-      if (id === 'two-on-one') {
+      if (THREE_METER_SCENES.includes(id)) {
         expect(rings, id).toEqual(['3m']);
       } else {
         expect(rings, id).not.toContain('3m');
@@ -65,7 +73,7 @@ describe('ruleContent ↔ ruleScenes 연결', () => {
     }
   });
 
-  it('RULE_SCENE_IDS 는 정확히 14개다', () => {
-    expect(RULE_SCENE_IDS).toHaveLength(14);
+  it('RULE_SCENE_IDS 는 정확히 21개다', () => {
+    expect(RULE_SCENE_IDS).toHaveLength(21);
   });
 });
