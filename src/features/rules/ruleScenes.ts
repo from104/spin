@@ -33,14 +33,21 @@ export type RuleSceneId =
   | 'inout'
   | 'scoring'
   | 'two-on-one'
+  | 'two-on-one-active'
+  | 'two-on-one-gk'
+  | 'two-on-one-open'
+  | 'two-on-one-escape'
   | 'three-in-area'
   | 'ramming'
+  | 'spin-kick'
   | 'dfk'
   | 'ifk'
   | 'penalty'
   | 'kick-in'
   | 'goal-kick'
-  | 'corner';
+  | 'corner'
+  | 'set-ball'
+  | 'contested-touch';
 
 const COURT_SIZE: CourtSize = '28x15';
 
@@ -86,14 +93,21 @@ const SCENE_META: Record<RuleSceneId, RuleSceneMeta> = {
   inout: { cutSteps: [1] },
   scoring: { cutSteps: [1] },
   'two-on-one': { ring: '3m', defense: 'home', cutSteps: [1, 2] },
+  'two-on-one-active': { ring: '3m', defense: 'home', cutSteps: [1] },
+  'two-on-one-gk': { ring: '3m', defense: 'home' },
+  'two-on-one-open': { ring: '3m', defense: 'home' },
+  'two-on-one-escape': { ring: '3m', defense: 'home' },
   'three-in-area': { defense: 'home', cutSteps: [1] },
   ramming: { cutSteps: [1] },
+  'spin-kick': { cutSteps: [2] },
   dfk: { ring: '5m', defense: 'away' },
   ifk: { ring: '5m', defense: 'away' },
   penalty: { ring: '5m', defense: 'away' },
   'kick-in': { ring: '5m', defense: 'home' },
   'goal-kick': { ring: '5m', defense: 'home', cutSteps: [1] },
   corner: { ring: '5m', defense: 'away' },
+  'set-ball': { ring: '3m' },
+  'contested-touch': {},
 };
 
 const SPECS: Record<RuleSceneId, SeedDrillSpec> = {
@@ -294,6 +308,155 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec> = {
     ],
   },
 
+  // ── Law 11 — 2-on-1: 액티브 플레이 관여 전/후 ───────────────────────────────────────────
+  'two-on-one-active': {
+    title: '2-on-1 — 관여 전/후',
+    drillType: 'tactical',
+    situation: '2-on-1-spacing',
+    level: '초급',
+    courtMode: 'full',
+    courtSize: COURT_SIZE,
+    durationMin: 1,
+    steps: [
+      {
+        name: '',
+        note: '팀원 1명과 상대 1명이 공 3m 안에 있는 것만으로는 아직 위반이 아닙니다. 둘째 팀원이 멀리서 다가오고 있습니다.',
+        chairs: {
+          'home-2': [365, 210, 20],
+          'away-2': [400, 260, 270],
+          'home-3': [280, 130, 135],
+        },
+        balls: [[400, 225]],
+      },
+      {
+        name: '',
+        note: '둘째 팀원이 공 3m 안으로 들어와 액티브 플레이에 관여하는 순간 위반이 성립합니다 — 상대 팀에 간접프리킥.',
+        chairs: {
+          'home-2': [365, 210, 20],
+          'away-2': [400, 260, 270],
+          'home-3': [345, 190, 135],
+        },
+        balls: [[400, 225]],
+        arrows: [{ from: [280, 130], to: [345, 190] }],
+        notes: [{ at: [400, 155], text: '간접 프리킥' }],
+      },
+    ],
+  },
+
+  // ── Law 11 — 2-on-1: 골키퍼 예외 ────────────────────────────────────────────────────────
+  'two-on-one-gk': {
+    title: '2-on-1 — 골키퍼 예외',
+    drillType: 'tactical',
+    situation: '2-on-1-spacing',
+    level: '초급',
+    courtMode: 'full',
+    courtSize: COURT_SIZE,
+    durationMin: 1,
+    steps: [
+      {
+        name: '',
+        note: '자기 골에어리어 안의 골키퍼는 2-on-1 인원수에서 제외됩니다. 여기서는 골키퍼+필드 선수 1명+상대 1명이 3m 안에 있어도 위반이 아닙니다.',
+        chairs: {
+          'home-G': [75, 225, 0],
+          'home-2': [130, 190, 340],
+          'away-2': [200, 225, 180],
+        },
+        balls: [[140, 225]],
+      },
+      {
+        name: '',
+        note: '둘 중 한 명이 자기 골에어리어 안의 골키퍼면 2-on-1이 성립하지 않습니다 — 예외가 인원수보다 우선합니다.',
+        chairs: {
+          'home-G': [75, 225, 0],
+          'home-2': [130, 190, 340],
+          'away-2': [200, 225, 180],
+        },
+        balls: [[140, 225]],
+        notes: [{ at: [75, 190], text: 'GK 예외 — 위반 아님' }],
+      },
+    ],
+  },
+
+  // ── Law 11 — 2-on-1: 상대 없음 예외 ─────────────────────────────────────────────────────
+  'two-on-one-open': {
+    title: '2-on-1 — 상대 없음 예외',
+    drillType: 'tactical',
+    situation: '2-on-1-spacing',
+    level: '초급',
+    courtMode: 'full',
+    courtSize: COURT_SIZE,
+    durationMin: 1,
+    steps: [
+      {
+        name: '',
+        note: '같은 팀 2명이 공 3m 안에 있어도, 그 3m 안에 상대가 아예 없으면 2-on-1이 아닙니다.',
+        chairs: {
+          'home-2': [360, 210, 20],
+          'home-3': [410, 240, 200],
+          'away-3': [560, 150, 180],
+        },
+        balls: [[387.5, 225]],
+      },
+      {
+        name: '',
+        note: '상대(점선 밖)가 3m 안으로 들어오기 전까지는 아무리 팀원이 모여도 위반이 될 수 없습니다.',
+        chairs: {
+          'home-2': [360, 210, 20],
+          'home-3': [410, 240, 200],
+          'away-3': [560, 150, 180],
+        },
+        balls: [[387.5, 225]],
+        notes: [{ at: [387.5, 190], text: '상대 없음 — 위반 아님' }],
+      },
+    ],
+  },
+
+  // ── Law 11 — 2-on-1: 회피 이탈 ──────────────────────────────────────────────────────────
+  'two-on-one-escape': {
+    title: '2-on-1 — 회피 이탈',
+    drillType: 'tactical',
+    situation: '2-on-1-spacing',
+    level: '초급',
+    courtMode: 'full',
+    courtSize: COURT_SIZE,
+    durationMin: 1,
+    steps: [
+      {
+        name: '',
+        note: '터치라인 근처에서 2-on-1이 성립했습니다 — 팀원 하나가 회피를 준비합니다.',
+        chairs: {
+          'home-2': [280, 60, 90],
+          'home-3': [330, 55, 90],
+          'away-2': [300, 140, 270],
+        },
+        balls: [[300, 80]],
+      },
+      {
+        name: '',
+        note: '회피 목적으로 필드(터치라인)를 잠시 벗어나는 것은, 플레이의 자연스러운 흐름이고 그 페이즈가 바뀌기 전에 재진입하지 않으면 허용됩니다.',
+        chairs: {
+          'home-2': [280, 60, 90],
+          'home-3': [350, 10, 90],
+          'away-2': [300, 140, 270],
+        },
+        balls: [[300, 80]],
+        arrows: [{ from: [330, 55], to: [350, 10] }],
+        notes: [{ at: [350, 25], text: '일시 필드 이탈 — 허용' }],
+      },
+      {
+        name: '',
+        note: '원래 나간 지점 근처로, 안전하게, 상습적이지 않게 재진입하면 계속 합법입니다. 이 조건을 어기면(상습적·전술적 재배치 등) 비신사적 행위로 경고를 받습니다.',
+        chairs: {
+          'home-2': [280, 60, 90],
+          'home-3': [400, 60, 270],
+          'away-2': [300, 140, 270],
+        },
+        balls: [[300, 80]],
+        arrows: [{ from: [350, 10], to: [400, 60] }],
+      },
+    ],
+  },
+
   // ── Law 11 — 필드 포지션: 골에어리어 3인 ────────────────────────────────────────────────
   'three-in-area': {
     title: '제11조 — 필드 포지션: 골에어리어 3인',
@@ -352,6 +515,39 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec> = {
         note: '충돌이 인정되면 상대 팀에게 직접프리킥이 주어집니다. 자기 골에어리어 안이었다면 페널티킥입니다.',
         chairs: { 'home-3': [398, 225, 0], 'away-3': [412, 225, 180] },
         notes: [{ at: [405, 190], text: '직접 프리킥' }],
+      },
+    ],
+  },
+
+  // ── Law 12 — 회전킥(스핀킥)에 관하여 ────────────────────────────────────────────────────
+  'spin-kick': {
+    title: '제12조 — 회전킥에 관하여',
+    drillType: 'tactical',
+    level: '초급',
+    courtMode: 'full',
+    courtSize: COURT_SIZE,
+    durationMin: 1,
+    steps: [
+      {
+        name: '',
+        note: '회전킥은 공을 정면으로 차는 것보다 더 멀리, 더 빠르게 보내는 기술입니다. 금지되지 않습니다.',
+        chairs: { 'home-3': [320, 225, 0], 'away-3': [500, 300, 180] },
+        balls: [[350, 225]],
+      },
+      {
+        name: '',
+        note: '회전하는 동안은 일부 구간에서 공이나 다가오는 상대가 안 보일 수 있습니다 — 상대가 사각지대로 접근하면 위험한 상황이 됩니다.',
+        chairs: { 'home-3': [320, 225, 120], 'away-3': [270, 260, 60] },
+        balls: [[350, 225]],
+        arrows: [{ from: [305, 210], to: [335, 240], bow: 30 }],
+      },
+      {
+        name: '',
+        note: '이 상황이 "위험한 방법으로 플레이함"으로 판정되면 상대 팀에 위반 지점에서 간접프리킥이 주어집니다.',
+        chairs: { 'home-3': [320, 225, 250], 'away-3': [280, 255, 90] },
+        balls: [[600, 150]],
+        arrows: [{ from: [350, 225], to: [600, 150] }],
+        notes: [{ at: [450, 165], text: '위험한 플레이 → 간접FK' }],
       },
     ],
   },
@@ -540,6 +736,76 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec> = {
       },
     ],
   },
+
+  // ── Law 8 — 세트볼(Set Ball) ────────────────────────────────────────────────────────────
+  'set-ball': {
+    title: '세트볼(Set Ball)',
+    drillType: 'set-piece',
+    situation: 'set-ball',
+    level: '초급',
+    courtMode: 'full',
+    courtSize: COURT_SIZE,
+    durationMin: 1,
+    steps: [
+      {
+        name: '',
+        note: '경기가 멈춘 지점에 공을 둡니다. 각 팀 1명씩 공에서 30cm 이내에 같은 거리로, 터치라인과 평행하게 공을 바라보며 대기합니다. 그 외 전원은 3m 밖에 있어야 합니다.',
+        chairs: {
+          'home-3': [442.5, 300, 0],
+          'away-3': [457.5, 300, 180],
+          'home-G': [75, 225, 0],
+          'home-2': [250, 150, 0],
+          'home-4': [250, 380, 0],
+          'away-G': [700, 225, 180],
+          'away-2': [560, 150, 180],
+          'away-4': [560, 380, 180],
+        },
+        balls: [[450, 300]],
+      },
+      {
+        name: '',
+        note: '주심이 신호하면 재개합니다. 신호 전 참여 선수 중 한 명이라도 체어를 돌리면(턴) 상대 팀에 그 지점에서 간접프리킥이 주어집니다.',
+        chairs: {
+          'home-3': [442.5, 300, 0],
+          'away-3': [457.5, 300, 180],
+          'home-G': [75, 225, 0],
+          'home-2': [250, 150, 0],
+          'home-4': [250, 380, 0],
+          'away-G': [700, 225, 180],
+          'away-2': [560, 150, 180],
+          'away-4': [560, 380, 180],
+        },
+        balls: [[450, 300]],
+        notes: [{ at: [450, 265], text: '신호 전 턴 → 간접FK' }],
+      },
+    ],
+  },
+
+  // ── Law 15 — 경합: 동시 접촉 주행 ───────────────────────────────────────────────────────
+  'contested-touch': {
+    title: '경합 — 동시 접촉 주행',
+    drillType: 'tactical',
+    level: '초급',
+    courtMode: 'full',
+    courtSize: COURT_SIZE,
+    durationMin: 1,
+    steps: [
+      {
+        name: '',
+        note: '터치라인을 따라 달리며 두 상대가 동시에 공을 건드리고 있습니다. 곧 공이 라인을 넘어갈 상황입니다.',
+        chairs: { 'home-3': [420, 58, 0], 'away-3': [420, 38, 0] },
+        balls: [[400, 50]],
+      },
+      {
+        name: '',
+        note: '공이 터치라인을 완전히 넘으면, 바깥쪽에서 공을 라인 안에 묶어두려던 선수 쪽(away)에 킥인이 주어집니다.',
+        chairs: { 'home-3': [460, 55, 0], 'away-3': [460, 35, 0] },
+        balls: [[460, 25]],
+        arrows: [{ from: [400, 50], to: [460, 25] }],
+        notes: [{ at: [460, 65], text: '바깥쪽 선수 쪽 킥인' }],
+      },
+    ],
+  },
 };
 
 /** 스펙 하나 → 장면 드릴 하나. `ring`/`defense`/`cut` 은 `SeedDrillSpec` 표현력 밖이라
@@ -571,14 +837,21 @@ export const RULE_SCENE_IDS: readonly RuleSceneId[] = [
   'inout',
   'scoring',
   'two-on-one',
+  'two-on-one-active',
+  'two-on-one-gk',
+  'two-on-one-open',
+  'two-on-one-escape',
   'three-in-area',
   'ramming',
+  'spin-kick',
   'dfk',
   'ifk',
   'penalty',
   'kick-in',
   'goal-kick',
   'corner',
+  'set-ball',
+  'contested-touch',
 ];
 
 // GEO 는 테스트가 courtDefFor('full','28x15') 와 대조하는 데도 쓴다.
