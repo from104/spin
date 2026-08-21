@@ -17,6 +17,7 @@ import { BALL } from '../../../core/constants.ts';
 import { BALL_FILL } from '../../../core/colors.ts';
 import { FigureCard } from './FigureCard.tsx';
 import { CHAIR_NOSE_LOCAL, CHAIR_LEN_LOCAL, PowerchairSide } from './PowerchairGlyph.tsx';
+import { Verdict } from './Verdict.tsx';
 
 /** 33 — 물리 상수에서 파생. `BALL.diameterM` 이 바뀌면 도해와 캡션이 함께 따라온다.
  *  (0.33 * 100 은 부동소수라 33.000000000000004 다. 반올림이 필수.) */
@@ -106,12 +107,10 @@ const PANEL_W = 180;
 const PANEL_GAP = 10;
 const P_FLOOR = 130;
 const PRESSURE_VB_W = PANEL_W * 3 + PANEL_GAP * 2;
-/** 판정 배지·문구는 바닥선에서 아래로 이만큼씩. 세로 치수를 전부 `P_FLOOR` 기준 상대값으로
+/** 판정 배지 중심은 바닥선에서 이만큼 아래. 세로 치수를 전부 `P_FLOOR` 기준 상대값으로
  *  적어 두면 바닥 높이 한 줄만 고쳐도 그림 전체가 따라온다 — 처음엔 절대값이라 위쪽에
  *  죽은 공간이 3분의 1이나 남았는데 손댈 자리가 열 군데였다. */
 const VERDICT_BADGE_DY = 22;
-const VERDICT_HEAD_DY = 52;
-const VERDICT_TAIL_DY = 69;
 const PRESSURE_VB_H = P_FLOOR + 78;
 
 /** 체어 그림 자체는 `PowerchairGlyph.tsx` 공용 컴포넌트다(제4조 도해와 같은 체어를 쓴다 —
@@ -135,30 +134,6 @@ const BALL_R_LOCAL = (CHAIR_LEN_LOCAL / CHAIR_LEN_CM) * (BALL_CM / 2);
 const CHAIR_SCALE = 0.88;
 const CHAIR_NOSE = CHAIR_NOSE_LOCAL * CHAIR_SCALE;
 const P_BALL_R = BALL_R_LOCAL * CHAIR_SCALE;
-
-function Verdict({ cx, ok, head, tail }: { cx: number; ok: boolean; head: string; tail: string }) {
-  const color = ok ? 'var(--accent)' : DIM;
-  const cy = P_FLOOR + VERDICT_BADGE_DY;
-  return (
-    <g>
-      <circle cx={cx} cy={cy} r={11} fill="none" stroke={color} strokeWidth={2} />
-      {ok ? (
-        <path d={`M ${cx - 5} ${cy} l 3.6 4 l 6.6 -8`} fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-      ) : (
-        <g stroke={color} strokeWidth={2.4} strokeLinecap="round">
-          <line x1={cx - 4.6} y1={cy - 4.6} x2={cx + 4.6} y2={cy + 4.6} />
-          <line x1={cx + 4.6} y1={cy - 4.6} x2={cx - 4.6} y2={cy + 4.6} />
-        </g>
-      )}
-      <text x={cx} y={P_FLOOR + VERDICT_HEAD_DY} textAnchor="middle" fontSize={12.5} fontWeight={700} fill={ok ? 'var(--accent-text)' : 'var(--text)'}>
-        {head}
-      </text>
-      <text x={cx} y={P_FLOOR + VERDICT_TAIL_DY} textAnchor="middle" fontSize={11.5} fill={FAINT}>
-        {tail}
-      </text>
-    </g>
-  );
-}
 
 function PanelFrame({ x0, title }: { x0: number; title: string }) {
   return (
@@ -198,7 +173,7 @@ function BallPressureFigure() {
         strokeDasharray="4 3"
       />
       <path d={`M ${x1 + 166} ${P_FLOOR - 22} l -1.4 -7.6 l 6.6 2.6 Z`} fill={DIM} />
-      <Verdict cx={x1 + PANEL_W / 2} ok={false} head="체어가 타고 넘는다" tail="공이 눌려 굴러가지 않는다" />
+      <Verdict cx={x1 + PANEL_W / 2} cy={P_FLOOR + VERDICT_BADGE_DY} ok={false} head="체어가 타고 넘는다" tail="공이 눌려 굴러가지 않는다" />
 
       {/* ② 알맞음 — 볼가드가 공을 앞으로 민다 */}
       <PanelFrame x0={x2} title="알맞은 공기압" />
@@ -215,7 +190,7 @@ function BallPressureFigure() {
       />
       <line x1={x2 + 152} y1={P_FLOOR - P_BALL_R} x2={x2 + 164} y2={P_FLOOR - P_BALL_R} stroke={DIM} strokeWidth={1.6} />
       <path d={`M ${x2 + 172} ${P_FLOOR - P_BALL_R} l -8 -4.2 l 0 8.4 Z`} fill={DIM} />
-      <Verdict cx={x2 + PANEL_W / 2} ok head="가드에 걸려 굴러 나간다" tail="규칙이 요구하는 상태" />
+      <Verdict cx={x2 + PANEL_W / 2} cy={P_FLOOR + VERDICT_BADGE_DY} ok head="가드에 걸려 굴러 나간다" tail="규칙이 요구하는 상태" />
 
       {/* ③ 높음 — 튀어 올라 바닥을 떠난다 */}
       <PanelFrame x0={x3} title="공기압이 높으면" />
@@ -231,7 +206,7 @@ function BallPressureFigure() {
           오른 순간이다. 포물선은 공보다 **넓게** 그린다: 폭이 같으면 공이 산을 통째로 가려
           "어디서 튀었는지" 가 안 보인다. */}
       <circle cx={x3 + 142} cy={P_FLOOR - 29 - P_BALL_R} r={P_BALL_R} fill={BALL_FILL} stroke="#fff" strokeWidth={2.2} />
-      <Verdict cx={x3 + PANEL_W / 2} ok={false} head="지나치게 튄다" tail="굴리는 경기가 되지 않는다" />
+      <Verdict cx={x3 + PANEL_W / 2} cy={P_FLOOR + VERDICT_BADGE_DY} ok={false} head="지나치게 튄다" tail="굴리는 경기가 되지 않는다" />
     </svg>
   );
 }

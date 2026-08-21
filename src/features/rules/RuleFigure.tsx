@@ -9,11 +9,13 @@
 // `Record<RuleFigureId, ComponentType>` 로 잡아 두면 id 를 하나 늘리는 순간 그림을 안 그린
 // 자리가 **컴파일 오류**가 된다 — `screens.ts` 의 라벨 표와 같은 규율이다.
 import type { ComponentType } from 'react';
+import { CourtFigure } from './figures/CourtFigure.tsx';
 import { BallFigure } from './figures/BallFigure.tsx';
 import { EquipmentFigure } from './figures/EquipmentFigure.tsx';
 import type { RuleFigureId } from './figures/ids.ts';
 
 const FIGURES: Record<RuleFigureId, ComponentType> = {
+  court: CourtFigure,
   ball: BallFigure,
   equipment: EquipmentFigure,
 };
