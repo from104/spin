@@ -33,6 +33,7 @@ export const ja: Record<DictKey, string> = {
   'app.announce.sessionList': 'セッション一覧',
   'app.announce.presentMode': 'プレゼンモード',
   'app.announce.presentTitled': 'プレゼン: {{title}}',
+  'app.announce.rules': 'ルール',
   'app.announce.settings': '設定',
 
   // C3 — 設定画面の残りのセクション + 選手名簿 + データ(インポート)レポート

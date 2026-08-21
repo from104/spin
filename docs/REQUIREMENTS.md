@@ -223,15 +223,15 @@ viewBox 가 사방 12.5 px 씩 커졌다 — 마진은 코트를 줄이는 것�
 - **고대비 · 강제색(Windows 고대비) 대응** — `prefers-contrast` · `forced-colors`.
   팀 구분은 색 밖에도 있다(파선 테두리 · 등번호 잉크 뒤집기)
 
-### 7.1 화면 구조 — **5개 화면이 아니라 4개 화면 키 + 3단 레일이다**
+### 7.1 화면 구조 — **5개 화면이 아니라 6개 화면 키 + 5단 레일이다**
 
-옛 문장 *"5개 화면: 대문 / 목록 / 편집기 / 시연 / 설정"* 은 두 번의 재편으로 무효가 됐다.
+옛 문장 *"5개 화면: 대문 / 목록 / 편집기 / 시연 / 설정"* 은 세 번의 재편으로 무효가 됐다.
 사실은 `src/app/screens.ts` 가 갖고 있다:
 
 | | 값 |
 |---|---|
-| 화면 키 (`Screen`) | `board` · `drills` · `sessions` · `present` · `settings` — **5개** |
-| 레일 항목 (`RailKey`) | `board`(보드) · `drills`(드릴) · `sessions`(세션) · `settings`(설정) — **4개** |
+| 화면 키 (`Screen`) | `board` · `drills` · `sessions` · `present` · `rules` · `settings` — **6개** |
+| 레일 항목 (`RailKey`) | `board`(보드) · `drills`(드릴) · `sessions`(세션) · `rules`(규칙) · `settings`(설정) — **5개** |
 
 - **2026-08-09**: `editor` 를 화면 키에서 **없앴다**. 자유 전술판과 드릴 편집은 같은
   컴포넌트(`EditorWorkspace`)이고 둘 다 `board` 자리에 뜬다 — 무엇이 떠 있는지는 화면 키가
@@ -244,6 +244,10 @@ viewBox 가 사방 12.5 px 씩 커졌다 — 마진은 코트를 줄이는 것�
 - **2026-08-18 (구조 개편)**: `sessions` 가 1급 화면으로 합류했다(세션·드릴·전술판 동급).
   세션은 더 이상 드릴 목록의 2번째 탭이 아니고, 화면마다 해시 주소가 생겼다(react-router —
   `#/sessions` 등). 세션 시연 중 레일 활성은 `railFor` 가 [세션]으로 덮는다.
+- **2026-08-21**: `rules`(규칙)가 세션과 설정 사이에 합류했다 — 파워체어풋볼 규칙(FIPFA Laws
+  of the Game)을 조항별로 읽고, 보드 애니메이션으로 재생해 보는 화면이다. `present` 와 달리
+  대상 없이도 온전한 목적지(조항 목록)라 레일에 선다. 정본은
+  `docs/RULES-FIPFA-2025.md`·`docs/PLAN-RULES-SCREEN.md`.
 - 옛 키(`home`/`library`) 관용 표(`LEGACY_SCREEN_KEYS`)는 라우터 도입으로 은퇴했다 — 진실이
   `history.state` 에서 URL 로 옮겨 갔다.
 - 좁은 창에서는 세로 레일이 **헤더 좌측 세그먼트**로 접힌다. 같은 항목·같은 아이콘이다.

@@ -90,6 +90,18 @@ export function IconPresent({ size = 19, ...rest }: IconProps) {
   );
 }
 
+/** 규칙 — 심판 호루라기. 판정·재개를 상징하는 도구라 '규칙' 화면의 은유로 적합하다.
+ *  마우스피스(사각)+공명통(원)이 겹치는 것은 IconBoard 의 골 지역 겹침과 같은 기법이다. */
+export function IconRules({ size = 19, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="2" y="9.5" width="7.5" height="5" rx="1.5" />
+      <circle cx="15.5" cy="12" r="5.5" />
+      <path d="M15.5 7v.1" strokeWidth={2.4} />
+    </svg>
+  );
+}
+
 export function IconSettings({ size = 19, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>

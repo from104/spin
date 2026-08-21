@@ -17,16 +17,19 @@
 // 전술판 동급). 세션은 더 이상 드릴 목록의 2번째 탭이 아니다.
 import type { Locale } from '../i18n/locale.ts';
 
-export type Screen = 'board' | 'drills' | 'sessions' | 'present' | 'settings';
+export type Screen = 'board' | 'drills' | 'sessions' | 'present' | 'rules' | 'settings';
 
-export const SCREEN_ORDER: readonly Screen[] = ['board', 'drills', 'sessions', 'present', 'settings'];
+export const SCREEN_ORDER: readonly Screen[] = ['board', 'drills', 'sessions', 'present', 'rules', 'settings'];
 
 /** 레일에 실제로 서는 항목. 화면 키의 **부분집합**이다 — `present` 는 레일에 없다.
  *  시연은 목록/카드에서 들어가는 것이지 "빈 시연 화면으로 이동" 은 목적지가 아니었다
- *  (레일로 들어오면 대상이 없어 *"시연할 드릴을 목록에서 선택하세요"* 만 뜬다). */
-export type RailKey = 'board' | 'drills' | 'sessions' | 'settings';
+ *  (레일로 들어오면 대상이 없어 *"시연할 드릴을 목록에서 선택하세요"* 만 뜬다).
+ *
+ *  2026-08-21 — `rules`(규칙) 가 세션과 설정 사이에 합류했다(기현님 지시). 규칙 화면은
+ *  present 와 달리 대상 없이도 온전한 목적지(조항 목록)라 레일에 선다. */
+export type RailKey = 'board' | 'drills' | 'sessions' | 'rules' | 'settings';
 
-export const RAIL_ITEMS: readonly RailKey[] = ['board', 'drills', 'sessions', 'settings'];
+export const RAIL_ITEMS: readonly RailKey[] = ['board', 'drills', 'sessions', 'rules', 'settings'];
 
 /** 화면 키 → 레일 항목. 시연 중 활성은 [드릴]이다.
  *
@@ -37,6 +40,7 @@ export const SCREEN_TO_RAIL: Record<Screen, RailKey> = {
   drills: 'drills',
   sessions: 'sessions',
   present: 'drills', // 대상이 세션인 시연은 railFor 가 [세션]으로 덮는다(아래)
+  rules: 'rules',
   settings: 'settings',
 };
 
@@ -73,9 +77,9 @@ export function railFor(screen: Screen, stageKind: 'board' | 'drill' = 'board', 
  *  로 쓴다(예전 `[key]` 한 겹에서 한 겹 늘었다). `docsMatchCode.test.ts` 는 REQUIREMENTS.md 가
  *  한국어라 `.ko` 를 고정으로 대조한다. */
 export const SCREEN_NAV_LABELS: Record<Locale, Record<Screen, string>> = {
-  ko: { board: '보드', drills: '드릴', sessions: '세션', present: '시연', settings: '설정' },
-  en: { board: 'Board', drills: 'Drills', sessions: 'Sessions', present: 'Present', settings: 'Settings' },
-  ja: { board: 'ボード', drills: 'ドリル', sessions: 'セッション', present: 'プレゼン', settings: '設定' },
+  ko: { board: '보드', drills: '드릴', sessions: '세션', present: '시연', rules: '규칙', settings: '설정' },
+  en: { board: 'Board', drills: 'Drills', sessions: 'Sessions', present: 'Present', rules: 'Rules', settings: 'Settings' },
+  ja: { board: 'ボード', drills: 'ドリル', sessions: 'セッション', present: 'プレゼン', rules: 'ルール', settings: '設定' },
 };
 
 /** 헤더 기본 타이틀·부제. 드릴이나 전술판이 로드되면 화면이 §7.6 이하 헤더 컨텍스트로 실제
@@ -83,9 +87,9 @@ export const SCREEN_NAV_LABELS: Record<Locale, Record<Screen, string>> = {
  *  §7.6 라이브 리전 발표문은 이 표가 아니라 announce.ts 의 announceFor 가 만든다 —
  *  "무엇이 열렸는가" 는 화면 키만으로는 말할 수 없기 때문이다(계획서 2.4). */
 export const SCREEN_TITLES: Record<Locale, Record<Screen, string>> = {
-  ko: { board: '전술판', drills: '드릴 라이브러리', sessions: '훈련 세션', present: '시연 모드', settings: '설정' },
-  en: { board: 'Tactics Board', drills: 'Drill Library', sessions: 'Training Sessions', present: 'Presentation', settings: 'Settings' },
-  ja: { board: '戦術ボード', drills: 'ドリルライブラリ', sessions: 'トレーニングセッション', present: 'プレゼンモード', settings: '設定' },
+  ko: { board: '전술판', drills: '드릴 라이브러리', sessions: '훈련 세션', present: '시연 모드', rules: '경기 규칙', settings: '설정' },
+  en: { board: 'Tactics Board', drills: 'Drill Library', sessions: 'Training Sessions', present: 'Presentation', rules: 'Game Rules', settings: 'Settings' },
+  ja: { board: '戦術ボード', drills: 'ドリルライブラリ', sessions: 'トレーニングセッション', present: 'プレゼンモード', rules: '競技規則', settings: '設定' },
 };
 
 export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
@@ -94,6 +98,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     drills: '저장된 드릴을 열어 편집하거나 시연하세요',
     sessions: '드릴을 묶어 훈련 한 회를 계획하세요',
     present: '팀 앞에서 드릴을 단계별로 보여주세요',
+    rules: '조항을 고르면 보드 애니메이션으로 보여줍니다',
     settings: '언어·화면·데이터 등 이 기기의 설정',
   },
   en: {
@@ -101,6 +106,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     drills: 'Open a saved drill to edit or present it',
     sessions: 'Group drills into a single training plan',
     present: 'Walk your team through the drill step by step',
+    rules: 'Pick a law to see it played out on the board',
     settings: 'Language, screen, data, and other settings for this device',
   },
   ja: {
@@ -108,6 +114,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     drills: '保存したドリルを開いて編集・プレゼンできます',
     sessions: 'ドリルをまとめて1回分の練習を計画します',
     present: 'チームの前でドリルを段階ごとに見せます',
+    rules: '条文を選ぶとボードでアニメーション再生します',
     settings: '言語・画面・データなど、この端末の設定',
   },
 };
