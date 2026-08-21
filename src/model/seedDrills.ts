@@ -13,7 +13,7 @@ import { createDrill } from './defaults.ts';
 import { migrateStepName } from './validate.ts';
 import { defaultCtrl } from './arrow.ts';
 import type { Arrow, ArrowHead } from './arrow.ts';
-import type { CourtMode } from './court.ts';
+import type { CourtMode, CourtSize } from './court.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { ChairDef, Drill, DrillCast, DrillLevel, DrillSituation, DrillStep, DrillType, NoteLabel, PoseMap, TeamSide } from './drill.ts';
 import { SEED_DRILL_SPECS } from './seedDrillContent.ts';
@@ -60,6 +60,9 @@ export interface SeedDrillSpec {
   situation?: DrillSituation;
   level: DrillLevel;
   courtMode: CourtMode;
+  /** §5.1 코트 크기 3단. 생략하면 `createDrill` 기본값(30×18)을 따른다 — 이 필드는
+   *  2026-08-21 규칙 화면 장면(28×15 고정)을 위해 추가됐다. 기존 씨앗 드릴 3종은 안 쓴다. */
+  courtSize?: CourtSize;
   durationMin: number;
   tags?: readonly string[];
   description?: string;
@@ -153,6 +156,7 @@ export function buildSeedDrill(spec: SeedDrillSpec, createdAt: number): Drill {
   const base = createDrill({
     title: spec.title,
     courtMode: spec.courtMode,
+    ...(spec.courtSize !== undefined ? { courtSize: spec.courtSize } : {}),
     drillType: spec.drillType,
     level: spec.level,
     durationMin: spec.durationMin,

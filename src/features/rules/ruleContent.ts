@@ -8,6 +8,7 @@
 // 먼저"). en/ja 조항 본문이 생기면 이 함수 안에서 분기하면 되고, 화면 쪽 코드는 바뀌지 않는다
 // — 그래서 인자를 미리 받아 둔다(나중에 시그니처를 바꾸면 호출부 전체가 깨진다).
 import type { Locale } from '../../i18n/locale.ts';
+import type { RuleSceneId } from './ruleScenes.ts';
 
 export type RuleLawGroup = 'basics' | 'play' | 'restarts' | 'officials';
 
@@ -33,6 +34,12 @@ export interface RuleLaw {
   /** 요약 불릿. 한 항목이 한 문장(또는 밀접한 두 문장)을 넘지 않게 쓴다 — 화면이 스크롤
    *  목록이라 문단이 길면 훑어보기가 안 된다. */
   summary: string[];
+  /** 보드 애니메이션 장면(있으면). 한 조항에 장면이 둘 이상 있을 수 있는데(제11조의
+   *  2-on-1/골에어리어 3인, 제13조의 직접/간접) 이 필드는 **단일 값**이다 — 대표 장면
+   *  하나만 가리키고, 나머지는 `ruleScenes.ts` 의 `buildRuleScene`/`RULE_SCENE_IDS` 로는
+   *  여전히 존재하되 이 목록에서 직접 링크되지 않는다. 재생 조립 커밋(§C)에서 "관련 장면"
+   *  UI가 생기면 그때 다중화를 고려한다 — 지금은 텍스트 목록 하나당 장면 하나로 충분하다. */
+  sceneId?: RuleSceneId;
 }
 
 const KO_RULE_LAWS: readonly RuleLaw[] = [
@@ -47,6 +54,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '골에어리어는 폭 8m×깊이 5m, 페널티 마크는 골라인에서 3.5m, 골대 간격은 6m다.',
       '코너 트라이앵글은 각 코너에서 1m, 코너킥 침범 마크는 골포스트 안쪽 1m 지점에 둔다.',
     ],
+    sceneId: 'field-tour',
   },
   {
     law: 2,
@@ -68,6 +76,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '체어를 충분히 통제하지 못하는 선수는 주심이 출전을 제지할 수 있다.',
       '공식 대회는 선수 4명 + 교체 최대 4명. 팀시트에 없는 선수는 참가할 수 없다.',
     ],
+    sceneId: 'lineup',
   },
   {
     law: 4,
@@ -118,6 +127,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '전원 자기 진영에, 상대는 공에서 5m 이상, 공은 센터마크에 정지한 상태로 시작한다.',
       '킥커는 공이 다른 선수에 닿기 전 두 번째로 만지면 안 된다(위반 시 상대에게 간접프리킥).',
     ],
+    sceneId: 'kickoff',
   },
   {
     law: 9,
@@ -125,6 +135,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
     group: 'play',
     title: '제9조 — 인/아웃 플레이',
     summary: ['공 전체가 라인을 완전히 벗어나야(지면이든 공중이든) 아웃오브플레이다. 그 외 모든 순간은 인플레이.'],
+    sceneId: 'inout',
   },
   {
     law: 10,
@@ -136,6 +147,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '공이 바닥에서 50.8cm 이상 떠서 골라인을 넘으면 득점이 무효가 된다.',
       '더 많은 골을 넣은 팀이 승리, 동수면 무승부.',
     ],
+    sceneId: 'scoring',
   },
   {
     law: 11,
@@ -148,6 +160,10 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '회피 목적의 필드 이탈은 조건(자연스러운 흐름·즉시 재진입 금지·같은 자리 복귀·안전·비상습)을 모두 지키면 허용된다.',
       '골에어리어 3인: 자기 진영 인플레이 중 같은 팀 3명 이상이 자기 골에어리어에 있으면 반칙 — 상대에게 간접프리킥.',
     ],
+    // 이 조항은 장면이 둘(two-on-one · three-in-area)이지만 RuleLaw.sceneId 는 하나뿐이다
+    // (인터페이스 주석 참고) — 더 자주 언급되고 파워체어풋볼 고유 규칙인 2-on-1 을 대표로
+    // 삼는다. 골에어리어 3인 장면은 buildRuleScene('three-in-area') 로 여전히 만들 수 있다.
+    sceneId: 'two-on-one',
   },
   {
     law: 12,
@@ -161,6 +177,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '경고(옐로카드) 7종 — 비신사적 행위·항의·지속적 위반·재개 지연·거리 미준수·무단 입퇴장·무단 이탈.',
       '퇴장(레드카드) 8종 — 심각한 반칙·폭력·침 뱉기·고의 핸드볼로 득점 저지·득점 기회 저지·골라인 통과로 득점 저지·모욕적 언행·두 번째 경고.',
     ],
+    sceneId: 'ramming',
   },
   {
     law: 13,
@@ -172,6 +189,9 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '간접프리킥은 주심이 한 팔을 수직으로 든 신호로 표시하며, 다른 선수를 거쳐야 득점이 인정된다.',
       '상대는 공에서 최소 5m 떨어져야 한다. 킥커는 두 번째로 공을 만지면 안 된다.',
     ],
+    // 제11조와 같은 사정 — 직접(dfk)·간접(ifk) 두 장면 중 더 자주 쓰이는 직접프리킥을
+    // 대표로 삼는다. 간접프리킥 장면은 buildRuleScene('ifk') 로 여전히 만들 수 있다.
+    sceneId: 'dfk',
   },
   {
     law: 14,
@@ -183,6 +203,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '공은 페널티 마크(3.5m)에, 골키퍼는 킥 전까지 체어 전체가 골라인 뒤에서 정지해 있어야 한다.',
       '그 외 선수는 필드 안·골에어리어 밖·마크 뒤·마크에서 5m 이상 떨어진 곳에 있어야 한다.',
     ],
+    sceneId: 'penalty',
   },
   {
     law: 15,
@@ -193,6 +214,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '공 전체가 터치라인을 넘으면 마지막으로 건드린 팀의 상대에게 킥인이 주어진다. 직접 득점이 인정된다.',
       '공이 나간 지점의 터치라인에서 차며, 상대는 5m 이상 떨어져야 한다.',
     ],
+    sceneId: 'kick-in',
   },
   {
     law: 16,
@@ -204,6 +226,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '골에어리어 안 임의 지점에서 차고, 공이 에어리어를 직접 벗어나야 인플레이다(아니면 재킥).',
       '직접 득점은 상대 골에만 인정된다.',
     ],
+    sceneId: 'goal-kick',
   },
   {
     law: 17,
@@ -215,6 +238,7 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '코너 트라이앵글 안에 공을 두고 차며, 에어리어 밖 상대는 5m, 에어리어 안 상대는 1m 침범 마크 뒤에 있어야 한다.',
       '직접 득점이 인정된다.',
     ],
+    sceneId: 'corner',
   },
   {
     law: 18,
