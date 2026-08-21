@@ -398,6 +398,12 @@ export const ja: Record<DictKey, string> = {
   'tutorial.present.step3.body': '画面いっぱいにコートを大きく表示します。ヘルプもここにあります。',
   'tutorial.present.step4.title': '編集へ',
   'tutorial.present.step4.body': 'タップして編集画面に戻ります。Escや左右スワイプでもステップを送れます。',
+  'tutorial.rules.step1.title': '条文一覧',
+  'tutorial.rules.step1.body': '条文を選ぶと右側に要約と(あれば)ボードシーンが表示されます。',
+  'tutorial.rules.step2.title': 'ボード',
+  'tutorial.rules.step2.body': 'ルールが実際の配置でどう適用されるかをアニメーションで見せます。',
+  'tutorial.rules.step3.title': '説明',
+  'tutorial.rules.step3.body': '今のステップがどんな状況かを文章で読み上げます。',
 
   // ── セッション編集チュートリアル 5ステップ — src/features/sessions/tutorialSteps.ts ──────
   'tutorial.sessionEditor.step1.title': 'セッション情報',
@@ -420,6 +426,7 @@ export const ja: Record<DictKey, string> = {
   'help.section.editor': 'ドリル編集',
   'help.section.sessions': 'セッション',
   'help.section.present': '実演',
+  'help.section.rules': 'ルール',
   'help.section.settings': '設定・データ',
   'help.section.shortcuts': 'ショートカット',
 
@@ -431,6 +438,8 @@ export const ja: Record<DictKey, string> = {
   'help.start.item3.desc': '複数のドリルを区画にまとめた練習計画です。印刷もできます。',
   'help.start.item4.term': '実演',
   'help.start.item4.desc': 'ドリルやセッションをステップ順に再生して見せる画面です。',
+  'help.start.item5.term': 'ルール',
+  'help.start.item5.desc': 'パワーチェアフットボールのルールを条文ごとに読み、判定をボードアニメーションで確認する画面です。',
 
   'help.board.item1.term': 'トレイ',
   'help.board.item1.desc': '選手・ボール・コーンなどの道具を選んでコートに置きます。',
@@ -486,6 +495,13 @@ export const ja: Record<DictKey, string> = {
   'help.present.item4.term': '終了',
   'help.present.item4.desc': 'ヘッダーの[編集へ]/[セッションへ]、Esc、または左右スワイプでステップを送れます。',
   'help.present.restartButton': '実演ツアーをもう一度見る',
+  'help.rules.item1.term': '条文一覧',
+  'help.rules.item1.desc': '左で条文を選ぶと右側に要約と(あれば)ボードシーンが表示されます。',
+  'help.rules.item2.term': 'ボードアニメーション',
+  'help.rules.item2.desc': '再生・リピート・速度変更で、判定がステップごとにどう展開するか見られます。',
+  'help.rules.item3.term': '3m/5mの円',
+  'help.rules.item3.desc': 'ボール周りのリングは2-on-1(3m)・再開距離(5m)のルールをそのまま可視化したものです。',
+  'help.rules.restartButton': 'ルールツアーをもう一度見る',
 
   'help.settings.item1.term': 'テーマ・言語',
   'help.settings.item1.desc': '明るさと画面言語(한국어/English/日本語)を選びます。',
