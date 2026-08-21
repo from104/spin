@@ -75,6 +75,15 @@ describe('RulesScreen', () => {
     expect(screen.getAllByText('33cm').length).toBeGreaterThan(0);
   });
 
+  it('제4조(선수 장비)도 도해가 붙는다', async () => {
+    renderRules();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '제4조 — 선수 장비' }));
+    expect(screen.getAllByRole('img').length).toBeGreaterThan(0);
+    expect(screen.getByText('전진 10km/h')).toBeInTheDocument();
+    expect(screen.getByText('후진 10km/h')).toBeInTheDocument();
+  });
+
   it('좁은 창에서는 목록·상세가 한 번에 하나만 보이고, [목록으로]로 돌아간다', async () => {
     stubMedia(true);
     renderRules();

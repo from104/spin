@@ -16,6 +16,7 @@
 import { BALL } from '../../../core/constants.ts';
 import { BALL_FILL } from '../../../core/colors.ts';
 import { FigureCard } from './FigureCard.tsx';
+import { CHAIR_NOSE_LOCAL, CHAIR_LEN_LOCAL, PowerchairSide } from './PowerchairGlyph.tsx';
 
 /** 33 — 물리 상수에서 파생. `BALL.diameterM` 이 바뀌면 도해와 캡션이 함께 따라온다.
  *  (0.33 * 100 은 부동소수라 33.000000000000004 다. 반올림이 필수.) */
@@ -113,8 +114,8 @@ const VERDICT_HEAD_DY = 52;
 const VERDICT_TAIL_DY = 69;
 const PRESSURE_VB_H = P_FLOOR + 78;
 
-/** 옆모습 체어 — 원점(0,0)이 **구동륜 접지점**, 앞은 +x. 로컬 좌표는 스트라이크포스(경기
- *  전용 파워체어) 실물 옆모습 비례를 옮긴 것이다(2026-08-21 기현님이 실물 도면을 줌).
+/** 체어 그림 자체는 `PowerchairGlyph.tsx` 공용 컴포넌트다(제4조 도해와 같은 체어를 쓴다 —
+ *  그 파일 머리말 참고). 이 도해가 얹는 것은 **공 크기를 체어에 맞춰 역산하는 계산**뿐이다.
  *
  *  ⚠️ **볼가드가 핵심이다.** 처음엔 앞면에 붙은 짧은 세로 막대로 그렸는데 실물은 그게 아니라
  *  **바닥 가까이로 길게 뻗은 프레임**이다 — 몸통보다 한참 앞까지 나가고, 높이는 마침 공
@@ -124,9 +125,6 @@ const PRESSURE_VB_H = P_FLOOR + 78;
  *  ⚠️ 두 좌표계를 섞지 말 것. `*_LOCAL` 은 `scale()` **안쪽** 값이고 `CHAIR_NOSE`·`P_BALL_R`
  *  은 호출부가 쓰는 **바깥쪽**(스케일 적용 후) 값이다. 안쪽에 바깥쪽 값을 쓰면 배율이 두 번
  *  곱해져 가드만 앞으로 튀어나온다 — 실제로 한 번 그렇게 그려졌다. */
-const CHAIR_TAIL_LOCAL = -44; // 밀대 뒤끝
-const CHAIR_NOSE_LOCAL = 82; // 볼가드 앞코
-const CHAIR_LEN_LOCAL = CHAIR_NOSE_LOCAL - CHAIR_TAIL_LOCAL;
 /** 경기 전용 체어의 **어림** 전장(가드 포함). 규정 수치가 아니다 — Law 4 는 전장을 정하지
  *  않는다. 아래 공 크기를 이 값으로 역산하므로 어림값임을 여기서 분명히 해 둔다. */
 const CHAIR_LEN_CM = 130;
@@ -137,27 +135,6 @@ const BALL_R_LOCAL = (CHAIR_LEN_LOCAL / CHAIR_LEN_CM) * (BALL_CM / 2);
 const CHAIR_SCALE = 0.88;
 const CHAIR_NOSE = CHAIR_NOSE_LOCAL * CHAIR_SCALE;
 const P_BALL_R = BALL_R_LOCAL * CHAIR_SCALE;
-
-function SideChair({ x, y, rotate = 0 }: { x: number; y: number; rotate?: number }) {
-  return (
-    <g transform={`translate(${x} ${y}) rotate(${rotate}) scale(${CHAIR_SCALE})`}>
-      {/* 구동륜(큼) · 앞 캐스터(작음) */}
-      <circle cx={0} cy={-12} r={12} fill="var(--panel)" stroke={LINE} strokeWidth={2} />
-      <circle cx={49} cy={-5} r={5} fill="var(--panel)" stroke={LINE} strokeWidth={1.6} />
-      {/* 섀시 · 시트 · 다리받침 */}
-      <rect x={-13} y={-21} width={45} height={11} rx={3} fill="var(--elev)" stroke={LINE} strokeWidth={1.8} />
-      <rect x={-17} y={-30} width={45} height={9} rx={3} fill="var(--elev)" stroke={LINE} strokeWidth={1.8} />
-      <rect x={27} y={-26} width={7} height={16} rx={2} fill="var(--elev)" stroke={LINE} strokeWidth={1.6} />
-      {/* 뒤로 젖혀진 등받이 + 밀대 */}
-      <polygon points="-24,-29 -13,-29 -21,-57 -32,-57" fill="var(--elev)" stroke={LINE} strokeWidth={1.8} strokeLinejoin="round" />
-      <path d={`M -28 -57 C -38 -63 ${CHAIR_TAIL_LOCAL - 2} -58 ${CHAIR_TAIL_LOCAL} -50`} fill="none" stroke={LINE} strokeWidth={2.2} strokeLinecap="round" />
-      {/* ★ 볼가드 — 섀시에서 앞아래로 뻗은 버팀대 + 길고 낮은 프레임 + 앞코 범퍼 */}
-      <path d="M 2 -22 L 14 -22 L 24 -9 L 12 -9 Z" fill="var(--elev)" stroke={LINE} strokeWidth={1.6} strokeLinejoin="round" />
-      <rect x={14} y={-20} width={CHAIR_NOSE_LOCAL - 14} height={12} rx={3} fill={DIM} stroke={LINE} strokeWidth={1.6} />
-      <rect x={CHAIR_NOSE_LOCAL - 6} y={-23} width={6} height={18} rx={2} fill={DIM} stroke={LINE} strokeWidth={1.6} />
-    </g>
-  );
-}
 
 function Verdict({ cx, ok, head, tail }: { cx: number; ok: boolean; head: string; tail: string }) {
   const color = ok ? 'var(--accent)' : DIM;
@@ -212,7 +189,7 @@ function BallPressureFigure() {
       {/* ① 낮음 — 납작해진 공 위로 앞바퀴가 올라탄다 */}
       <PanelFrame x0={x1} title="공기압이 낮으면" />
       <ellipse cx={x1 + 100} cy={P_FLOOR - 8} rx={22} ry={8} fill={BALL_FILL} stroke="#fff" strokeWidth={2} />
-      <SideChair x={x1 + 52} y={P_FLOOR} rotate={-9} />
+      <PowerchairSide x={x1 + 52} y={P_FLOOR} rotate={-9} scale={CHAIR_SCALE} />
       <path
         d={`M ${x1 + 128} ${P_FLOOR - 30} Q ${x1 + 150} ${P_FLOOR - 44} ${x1 + 166} ${P_FLOOR - 22}`}
         fill="none"
@@ -225,7 +202,7 @@ function BallPressureFigure() {
 
       {/* ② 알맞음 — 볼가드가 공을 앞으로 민다 */}
       <PanelFrame x0={x2} title="알맞은 공기압" />
-      <SideChair x={x2 + P2_CHAIR_X} y={P_FLOOR} />
+      <PowerchairSide x={x2 + P2_CHAIR_X} y={P_FLOOR} scale={CHAIR_SCALE} />
       {/* 공 자리를 손으로 찍지 않는다 — "가드 앞코가 공에 닿는다" 를 식으로 적으면 체어나
           공 크기를 바꿔도 접촉이 유지된다. 이 칸의 주장이 바로 그 접촉이다. */}
       <circle
@@ -249,7 +226,7 @@ function BallPressureFigure() {
         strokeWidth={1.4}
         strokeDasharray="4 3"
       />
-      <SideChair x={x3 + 42} y={P_FLOOR} />
+      <PowerchairSide x={x3 + 42} y={P_FLOOR} scale={CHAIR_SCALE} />
       {/* 첫 포물선 꼭짓점(2차 베지에의 중점 = P_FLOOR−29)에 공을 얹는다 — 가드를 맞고 튀어
           오른 순간이다. 포물선은 공보다 **넓게** 그린다: 폭이 같으면 공이 산을 통째로 가려
           "어디서 튀었는지" 가 안 보인다. */}
