@@ -10,10 +10,12 @@
 // 자리가 **컴파일 오류**가 된다 — `screens.ts` 의 라벨 표와 같은 규율이다.
 import type { ComponentType } from 'react';
 import { BallFigure } from './figures/BallFigure.tsx';
+import { EquipmentFigure } from './figures/EquipmentFigure.tsx';
 import type { RuleFigureId } from './figures/ids.ts';
 
 const FIGURES: Record<RuleFigureId, ComponentType> = {
   ball: BallFigure,
+  equipment: EquipmentFigure,
 };
 
 export function RuleFigure({ id }: { id: RuleFigureId }) {
