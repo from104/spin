@@ -166,6 +166,106 @@
     opacity: 1;
   }
 }
+/* ── 규칙 화면 연출(2026-08-22 주제별 재설계, docs/PLAN-RULES-REDESIGN.md §4) ─────────────
+ * 커브는 이 앱 표준 easeStandard = cubic-bezier(.4,0,.2,1)(core/geom.ts, 위 tray-drop-in 과
+ * 같은 값) 그대로 — 규칙 화면만 다른 곡선을 쓰면 앱 안에 모션 언어가 두 갈래로 갈린다.
+ * `tokens.css` 의 전역 `*` 규칙(`prefers-reduced-motion` + `data-reduce-motion="true"` 둘 다)
+ * 이 이미 모든 animation-duration 을 0.01ms 로 죽이므로, 여기서는 위 트레이 예고와 같은 이중
+ * 방어(OS 설정 명시적 off)만 건다 — 앱 자체 '항상 켬' 채널은 전역 규칙에 맡긴다. */
+.rules-card-in {
+  animation: rules-card-in 180ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes rules-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/* 주제 상세 진입(카드 홈→상세, 이전/다음 주제 이동) — 살짝 아래에서 올라오며 등장한다. */
+.rules-doc-in {
+  animation: rules-doc-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes rules-doc-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* 차분한 페이드만 — 상세→홈 복귀, 표 열 선택 시 장면 교체(반복 트리거 가능이라 짧고 미묘하게). */
+.rules-fade-in {
+  animation: rules-fade-in 150ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes rules-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* 포스터→재생 전환의 컨트롤 등장 — 장면 블록당 최초 재생 1 회뿐이라 위 fade-in 보다 조금 더
+ * 또렷하게(200ms). */
+.rules-controls-in {
+  animation: rules-fade-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+/* 컷 스텝(순간 전환) 진입 — 판 테두리가 한 번 밝아졌다 사라진다. "이 장면이 방금 리셋됐다"
+ * 는 신호다. 호출부가 스텝마다 이 요소의 `key` 를 바꿔 매번 다시 재생시킨다. */
+.rules-cut-pulse {
+  animation: rules-cut-pulse 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes rules-cut-pulse {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* "아웃 오브 플레이" 주제의 거리 개념도(DistanceFigure) — 5m 원(실선)이 먼저 그려지고 3m 원
+ * (파선)이 뒤이어 나타난다. 최초 마운트 1 회만(리마운트해야 재생되므로 반복 트리거 걱정이
+ * 없다 — keyframes 로 충분). 두 반지름은 이 도해 전용 고정 상수(DistanceFigure.tsx 의
+ * R_5M=90)라 원의 둘레(2π·90≈565.49)도 고정값이다 — 그림마다 달라지는 값이 아니므로 CSS
+ * 커스텀 프로퍼티 없이 keyframe 에 직접 적는다. */
+.rules-distance-ring-5m {
+  stroke-dasharray: 565.49;
+  animation: rules-draw-in-5m 600ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes rules-draw-in-5m {
+  from {
+    stroke-dashoffset: 565.49;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* 3m 원은 이미 파선(6 5)이라 같은 draw-in 기법을 못 쓴다(패턴이 밀릴 뿐 "그려지는" 효과가 안
+ * 난다) — 5m 원이 그려지고 난 뒤 그냥 나타나는 편이 두 개념을 순차로 설명한다. */
+.rules-distance-ring-3m {
+  animation: rules-fade-in 300ms cubic-bezier(0.4, 0, 0.2, 1) 500ms both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rules-card-in,
+  .rules-doc-in,
+  .rules-fade-in,
+  .rules-controls-in,
+  .rules-cut-pulse,
+  .rules-distance-ring-5m,
+  .rules-distance-ring-3m {
+    animation: none;
+  }
+}
+
 /* 예고가 **떠 있는 것** 자체가 신호다 — 움직임은 장식이라 먼저 끈다(등장 페이드와 같은 규율). */
 @media (prefers-reduced-motion: reduce) {
   [data-tray][data-drop] > [data-tray-hint] {

@@ -57,10 +57,11 @@ export function DistanceFigure() {
         role="img"
         aria-label="재개 시 상대와의 거리 — 대부분 5미터, 세트볼만 3미터인 두 원을 겹쳐 비교한 그림"
       >
-        {/* 5m 원 — 대부분의 재개. 실선. */}
-        <circle cx={CX} cy={CY} r={R_5M} fill="none" stroke={LINE} strokeWidth={2} />
-        {/* 3m 원 — 세트볼. 파선. */}
-        <circle cx={CX} cy={CY} r={R_3M} fill="none" stroke={DIM} strokeWidth={2} strokeDasharray="6 5" />
+        {/* 5m 원 — 대부분의 재개. 실선, draw-in(§4). strokeDashoffset=0 이 최종/기본 상태라
+            reduced-motion 이 애니메이션을 꺼도 완성된 원 그대로다. */}
+        <circle cx={CX} cy={CY} r={R_5M} fill="none" stroke={LINE} strokeWidth={2} strokeDashoffset={0} className="rules-distance-ring-5m" />
+        {/* 3m 원 — 세트볼. 파선, 5m 원 draw-in 뒤에 나타난다. */}
+        <circle cx={CX} cy={CY} r={R_3M} fill="none" stroke={DIM} strokeWidth={2} strokeDasharray="6 5" className="rules-distance-ring-3m" />
         {/* 중심 공. */}
         <circle cx={CX} cy={CY} r={7} fill="var(--accent)" stroke="var(--panel)" strokeWidth={1.5} />
 

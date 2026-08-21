@@ -113,6 +113,9 @@ function RuleSceneInner({
   const step = drill.steps[stepIdx];
   const multiStep = drill.steps.length > 1;
   const showPoster = multiStep && !active;
+  // 컷 스텝(보간 없이 즉시 전환)에 진입했다는 신호 — `key={stepIdx}` 로 스텝을 넘길 때마다
+  // 이 오버레이를 다시 마운트시켜 펄스 keyframe 을 매번 재생시킨다(§4 "cut 스텝 진입" 연출).
+  const isCutStep = step?.cut === true;
 
   return (
     <div style={{ marginTop: 20 }}>
@@ -127,11 +130,23 @@ function RuleSceneInner({
         }}
       >
         <PresentStage drill={drill} showRuleZones reduceMotion={reduceMotion} seekToken={seekToken} onStepChange={onStepChange} />
-        {showPoster && (
+        {isCutStep && (
+          <div
+            key={stepIdx}
+            className="rules-cut-pulse"
+            aria-hidden
+            style={{ position: 'absolute', inset: 0, borderRadius: 16, boxShadow: 'inset 0 0 0 3px var(--accent)', pointerEvents: 'none' }}
+          />
+        )}
+        {/* 조건부 렌더가 아니라 상시 마운트 + opacity/pointer-events 전환이다 — 그래야 사라질 때도
+            (다른 장면 재생 시 포스터로 복귀할 때는 반대로) 즉시 뚝 끊기지 않고 페이드된다. */}
+        {multiStep && (
           <button
             type="button"
             onClick={handlePosterPlay}
             aria-label={t('rules.playScene')}
+            aria-hidden={!showPoster}
+            tabIndex={showPoster ? 0 : -1}
             style={{
               position: 'absolute',
               inset: 0,
@@ -139,7 +154,9 @@ function RuleSceneInner({
               alignItems: 'center',
               justifyContent: 'center',
               background: 'color-mix(in srgb, var(--panel) 35%, transparent)',
-              transition: 'background-color .15s ease',
+              opacity: showPoster ? 1 : 0,
+              pointerEvents: showPoster ? 'auto' : 'none',
+              transition: 'opacity 200ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             <span
@@ -182,7 +199,7 @@ function RuleSceneInner({
         {step?.note && <p style={{ fontSize: '0.875rem', lineHeight: 1.5, color: 'var(--text)' }}>{step.note}</p>}
       </div>
       {multiStep && active && (
-        <div style={{ marginTop: 10 }}>
+        <div className="rules-controls-in" style={{ marginTop: 10 }}>
           <PlaybackControls
             playing={playback.playing}
             canPlay
