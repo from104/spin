@@ -13,6 +13,7 @@ import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 import type { Arrow } from '../model/arrow.ts';
 import type { NoteLabel as NoteLabelData, TeamSide } from '../model/drill.ts';
 import type { TransformWriter } from './transformWriter.ts';
+import type { RuleOverlayApi } from './ruleOverlay.ts';
 import type { ZoneConfig } from '../model/chair.ts';
 import { ChairChip } from './objects/ChairChip.tsx';
 import { BallDot } from './objects/BallDot.tsx';
@@ -68,6 +69,10 @@ export interface ObjectLayerProps {
   ignored?: ReadonlySet<string>;
   /** 페이드 지속(ms). stepTransitionMs 와 같은 값이어야 위치 트윈과 한 시계로 끝난다. */
   fadeMs?: number;
+  /** 아웃오브플레이(Law 9) 공 채움색 갱신 — 있으면(=규칙 존 스위치가 배선된 화면) 공마다
+   *  circle 을 등록해 `rules.write()` 가 매 프레임 직접 fill 을 바꾼다(BallDot.tsx 참고).
+   *  옵셔널이다 — 이 값을 안 넘기는 소비처(예: 인쇄 미리보기)는 recolor 가 그냥 없다. */
+  rules?: RuleOverlayApi;
   onObjectPointerDown?(id: string, e: ReactPointerEvent<SVGGElement>): void;
   onObjectKeyDown?(id: string, e: ReactKeyboardEvent<SVGGElement>): void;
 }
@@ -89,6 +94,7 @@ export function ObjectLayer({
   fadeMs,
   locked,
   ignored,
+  rules,
   onObjectPointerDown,
   onObjectKeyDown,
 }: ObjectLayerProps) {
@@ -185,6 +191,7 @@ export function ObjectLayer({
           locked={locked?.has(id)}
           active={activeId === id}
           ariaLabel={t('present.objects.ballAriaLabel')}
+          rules={rules}
           onPointerDown={onObjectPointerDown}
           onKeyDown={onObjectKeyDown}
         />

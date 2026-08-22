@@ -867,6 +867,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           fadeMs={fadeMs}
           locked={locked}
           ignored={ignored}
+          rules={ruleOverlay?.rules}
           onObjectPointerDown={onObjectPointerDown}
           onObjectKeyDown={onObjectKeyDown}
         />
