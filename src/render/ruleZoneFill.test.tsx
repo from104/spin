@@ -187,6 +187,7 @@ describe('② 위반 층 — 같은 붉은 계열의 **진한 쪽**', () => {
       fiveMeterDefense: null,
       teamLabels: { home: '홈', away: '원정' },
       locale: 'ko',
+      court: { mode: 'full', surface: courtDefFor('full').surface },
     });
 
     // 깨끗: 숨어 있고 파선이다.

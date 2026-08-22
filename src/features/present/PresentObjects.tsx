@@ -24,6 +24,7 @@ import { NOTE } from '../../core/constants.ts';
 import { NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
 import type { TransformWriter } from '../../render/transformWriter.ts';
+import type { RuleOverlayApi } from '../../render/ruleOverlay.ts';
 import type { OpacityWriter } from './opacityWriter.ts';
 import type { ChairDef, ConeDef, TeamSide, TeamStyle } from '../../model/drill.ts';
 import type { RenderFrame } from '../../model/playback.ts';
@@ -82,11 +83,22 @@ export const PresentChairMark = memo(function PresentChairMark({
   );
 });
 
-export const PresentBallMark = memo(function PresentBallMark({ id, writer, opacityWriter }: { id: BallId; writer: TransformWriter; opacityWriter: OpacityWriter }) {
+export const PresentBallMark = memo(function PresentBallMark({
+  id,
+  writer,
+  opacityWriter,
+  rules,
+}: {
+  id: BallId;
+  writer: TransformWriter;
+  opacityWriter: OpacityWriter;
+  /** 아웃오브플레이(Law 9) 표시 — 규칙 화면·규칙 표시가 켜진 시연에서 넘어온다(PresentStage). */
+  rules?: RuleOverlayApi;
+}) {
   const t = useT();
   return (
     <Fade id={id} opacityWriter={opacityWriter}>
-      <BallDot id={id} writer={writer} selected={false} active={false} ariaLabel={t('present.objects.ballAriaLabel')} />
+      <BallDot id={id} writer={writer} selected={false} active={false} ariaLabel={t('present.objects.ballAriaLabel')} rules={rules} />
     </Fade>
   );
 });

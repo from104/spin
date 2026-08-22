@@ -232,7 +232,7 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
           <PresentChairMark key={c.id} def={c} teams={drill.teams} writer={writer} opacityWriter={opacityWriter} />
         ))}
         {drill.cast.balls.map((b) => (
-          <PresentBallMark key={b.id} id={b.id} writer={writer} opacityWriter={opacityWriter} />
+          <PresentBallMark key={b.id} id={b.id} writer={writer} opacityWriter={opacityWriter} rules={rules} />
         ))}
         <PresentNoteLayer notes={notes} />
       </g>

@@ -882,6 +882,7 @@ export const ko = {
   'ruleOverlay.ringWarning': '공 3 m 안에 {{names}} {{n}}명 이상 — 2-on-1 주의',
   'ruleOverlay.fiveMeterWarning': '공 5 m 안에 {{names}} — 세트피스 5 m 제한',
   'ruleOverlay.zoneWarning': '골 지역에 {{names}} {{n}}명 이상 — 3인 반칙',
+  'ruleOverlay.ballOutWarning': '공이 경계를 완전히 벗어났습니다 — 아웃 오브 플레이',
 
   // ── C8b — 저장소 에러(코드→화면 문구, storage/errors.ts 는 항상 한국어 .message 만 갖는다) ──
   'storage.error.E_DB_UNAVAILABLE': '저장소를 열 수 없습니다. 이번 세션 동안만 유지됩니다.',
