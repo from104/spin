@@ -25,6 +25,7 @@ import {
 import type { CourtMode, Rect } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
 import { BALL_FILL } from '../core/colors.ts';
+import { BALL } from '../core/constants.ts';
 import { liveRegion } from '../ui/LiveRegion.tsx';
 import { translate } from '../i18n/useT.ts';
 import type { Locale } from '../i18n/locale.ts';
@@ -316,7 +317,7 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     let ballOut = false;
     for (const [id, el] of ballFillEls) {
       const p = poses[id];
-      const out = p ? isBallOutOfPlay(ctx.court.mode, ctx.court.surface, p) : false;
+      const out = p ? isBallOutOfPlay(ctx.court.mode, ctx.court.surface, p, BALL.viewRadiusPx) : false;
       writeBallFill(id, el, out);
       ballOut = ballOut || out;
     }

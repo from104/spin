@@ -32,7 +32,7 @@ import {
 } from './rules.ts';
 import { COURT_DEFS, COURT_MODES, COURT_SIZES, courtDefFor, GOAL_HALF_PX, goalMouths } from './court.ts';
 import { chairOverlapsRect } from './chairOverlap.ts';
-import { CHAIR } from '../core/constants.ts';
+import { BALL as BALL_CONST, CHAIR } from '../core/constants.ts';
 import { PX_PER_M } from '../core/units.ts';
 
 const BALL = { x: 400, y: 260 };
@@ -735,38 +735,53 @@ describe('ruleForRing — 어느 규칙으로 재는가', () => {
 describe('isBallOutOfPlay — Law 9 아웃오브플레이', () => {
   const fullSurface = COURT_DEFS.full.surface;
   const halfSurface = COURT_DEFS.half.surface;
+  // 시각 반지름(뷰포트에 그려지는 크기) — 물리 반지름(BALL.radiusPx 4.125)이 아니다.
+  // 원문("공 전체가 라인을 완전히 벗어나야 아웃")을 지키려면 화면에 보이는 그 크기가 기준이어야
+  // 한다 — 아니면 공 둘레가 아직 라인에 걸쳐 보이는데도 붉게 변하는 모순이 생긴다(기현님
+  // 지시 2026-08-22: "지금은 밖으로 1/3만 걸쳐도 붉게 변한다").
+  const R = BALL_CONST.viewRadiusPx;
 
   it('경계 안이면 인플레이', () => {
     const center = { x: fullSurface.x + fullSurface.w / 2, y: fullSurface.y + fullSurface.h / 2 };
-    expect(isBallOutOfPlay('full', fullSurface, center)).toBe(false);
+    expect(isBallOutOfPlay('full', fullSurface, center, R)).toBe(false);
   });
 
-  it('라인 위는 아직 안이다 — inRect 와 같은 원칙', () => {
-    expect(isBallOutOfPlay('full', fullSurface, { x: fullSurface.x, y: fullSurface.y })).toBe(false);
-    expect(isBallOutOfPlay('full', fullSurface, { x: fullSurface.x + fullSurface.w, y: fullSurface.y + fullSurface.h })).toBe(false);
+  it('라인 위(중심 기준)는 아직 안이다 — inRect 와 같은 원칙', () => {
+    expect(isBallOutOfPlay('full', fullSurface, { x: fullSurface.x, y: fullSurface.y }, R)).toBe(false);
+    expect(isBallOutOfPlay('full', fullSurface, { x: fullSurface.x + fullSurface.w, y: fullSurface.y + fullSurface.h }, R)).toBe(false);
   });
 
-  it('풀 코트 — 네 변 전부 완전히 벗어나면 아웃(좌·우·상·하)', () => {
+  it('★ 공이 라인에 일부만 걸쳐 있으면(반지름 안쪽) 아직 인플레이다 — 중심 하나만 보면 안 된다', () => {
+    const { x, y, h } = fullSurface;
+    // 중심이 라인 밖으로 R 의 절반만큼 나갔다 — 공 둘레는 절반 넘게 아직 안쪽에 걸쳐 있다.
+    expect(isBallOutOfPlay('full', fullSurface, { x: x - R / 2, y: y + h / 2 }, R)).toBe(false);
+    // 경계 값: 중심이 정확히 R 만큼만 나가면(둘레가 라인에 접함) 아직 "완전히"는 아니다.
+    expect(isBallOutOfPlay('full', fullSurface, { x: x - R, y: y + h / 2 }, R)).toBe(false);
+  });
+
+  it('풀 코트 — 네 변 전부 반지름까지 완전히 벗어나면 아웃(좌·우·상·하)', () => {
     const { x, y, w, h } = fullSurface;
-    expect(isBallOutOfPlay('full', fullSurface, { x: x - 1, y: y + h / 2 })).toBe(true);
-    expect(isBallOutOfPlay('full', fullSurface, { x: x + w + 1, y: y + h / 2 })).toBe(true);
-    expect(isBallOutOfPlay('full', fullSurface, { x: x + w / 2, y: y - 1 })).toBe(true);
-    expect(isBallOutOfPlay('full', fullSurface, { x: x + w / 2, y: y + h + 1 })).toBe(true);
+    const d = R + 1; // 반지름 + 1px — 공 둘레 전체가 라인 밖으로 나간 최소 지점
+    expect(isBallOutOfPlay('full', fullSurface, { x: x - d, y: y + h / 2 }, R)).toBe(true);
+    expect(isBallOutOfPlay('full', fullSurface, { x: x + w + d, y: y + h / 2 }, R)).toBe(true);
+    expect(isBallOutOfPlay('full', fullSurface, { x: x + w / 2, y: y - d }, R)).toBe(true);
+    expect(isBallOutOfPlay('full', fullSurface, { x: x + w / 2, y: y + h + d }, R)).toBe(true);
   });
 
-  it('★ 하프 코트 — 위쪽 변은 하프라인이지 실제 경계가 아니다(넘어도 인플레이)', () => {
+  it('★ 하프 코트 — 위쪽 변은 하프라인이지 실제 경계가 아니다(멀리 넘어도 인플레이)', () => {
     const { x, y, w } = halfSurface;
-    expect(isBallOutOfPlay('half', halfSurface, { x: x + w / 2, y: y - 50 })).toBe(false);
+    expect(isBallOutOfPlay('half', halfSurface, { x: x + w / 2, y: y - 50 }, R)).toBe(false);
   });
 
-  it('하프 코트 — 좌·우·하(골라인)는 여전히 실제 경계다', () => {
+  it('하프 코트 — 좌·우·하(골라인)는 여전히 실제 경계다(반지름 고려)', () => {
     const { x, y, w, h } = halfSurface;
-    expect(isBallOutOfPlay('half', halfSurface, { x: x - 1, y: y + h / 2 })).toBe(true);
-    expect(isBallOutOfPlay('half', halfSurface, { x: x + w + 1, y: y + h / 2 })).toBe(true);
-    expect(isBallOutOfPlay('half', halfSurface, { x: x + w / 2, y: y + h + 1 })).toBe(true);
+    const d = R + 1;
+    expect(isBallOutOfPlay('half', halfSurface, { x: x - d, y: y + h / 2 }, R)).toBe(true);
+    expect(isBallOutOfPlay('half', halfSurface, { x: x + w + d, y: y + h / 2 }, R)).toBe(true);
+    expect(isBallOutOfPlay('half', halfSurface, { x: x + w / 2, y: y + h + d }, R)).toBe(true);
   });
 
   it('플랫 코트 — 경계 개념이 없어 언제나 인플레이', () => {
-    expect(isBallOutOfPlay('flat', fullSurface, { x: -9999, y: 9999 })).toBe(false);
+    expect(isBallOutOfPlay('flat', fullSurface, { x: -9999, y: 9999 }, R)).toBe(false);
   });
 });
