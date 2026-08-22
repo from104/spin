@@ -887,6 +887,7 @@ export const en: Record<DictKey, string> = {
   'ruleOverlay.ringWarning': '{{n}} or more {{names}} players within 3m of the ball — 2-on-1 warning',
   'ruleOverlay.fiveMeterWarning': '{{names}} within 5m of the ball — set-piece 5m limit',
   'ruleOverlay.zoneWarning': '{{n}} or more {{names}} players in the goal area — 3-player foul',
+  'ruleOverlay.ballOutWarning': 'The ball has fully crossed the boundary — out of play',
 
   // ── C8b — Storage errors (code → UI text; storage/errors.ts's .message is always Korean) ──
   'storage.error.E_DB_UNAVAILABLE': "Couldn't open storage. Changes will only last for this session.",

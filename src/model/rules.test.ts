@@ -26,6 +26,7 @@ import {
   ruleForRing,
   teamsOfBits,
   zoneViolation,
+  isBallOutOfPlay,
   type DefendedZone,
   type RuleActor,
 } from './rules.ts';
@@ -728,5 +729,44 @@ describe('ruleForRing — 어느 규칙으로 재는가', () => {
     expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'away')).toBe(TEAM_BIT.away);
     // 수비를 home 으로 두면 home 이 걸린다 — 어느 쪽이든 **2-on-1 비트가 아니라 5 m 비트**다.
     expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(TEAM_BIT.home);
+  });
+});
+
+describe('isBallOutOfPlay — Law 9 아웃오브플레이', () => {
+  const fullSurface = COURT_DEFS.full.surface;
+  const halfSurface = COURT_DEFS.half.surface;
+
+  it('경계 안이면 인플레이', () => {
+    const center = { x: fullSurface.x + fullSurface.w / 2, y: fullSurface.y + fullSurface.h / 2 };
+    expect(isBallOutOfPlay('full', fullSurface, center)).toBe(false);
+  });
+
+  it('라인 위는 아직 안이다 — inRect 와 같은 원칙', () => {
+    expect(isBallOutOfPlay('full', fullSurface, { x: fullSurface.x, y: fullSurface.y })).toBe(false);
+    expect(isBallOutOfPlay('full', fullSurface, { x: fullSurface.x + fullSurface.w, y: fullSurface.y + fullSurface.h })).toBe(false);
+  });
+
+  it('풀 코트 — 네 변 전부 완전히 벗어나면 아웃(좌·우·상·하)', () => {
+    const { x, y, w, h } = fullSurface;
+    expect(isBallOutOfPlay('full', fullSurface, { x: x - 1, y: y + h / 2 })).toBe(true);
+    expect(isBallOutOfPlay('full', fullSurface, { x: x + w + 1, y: y + h / 2 })).toBe(true);
+    expect(isBallOutOfPlay('full', fullSurface, { x: x + w / 2, y: y - 1 })).toBe(true);
+    expect(isBallOutOfPlay('full', fullSurface, { x: x + w / 2, y: y + h + 1 })).toBe(true);
+  });
+
+  it('★ 하프 코트 — 위쪽 변은 하프라인이지 실제 경계가 아니다(넘어도 인플레이)', () => {
+    const { x, y, w } = halfSurface;
+    expect(isBallOutOfPlay('half', halfSurface, { x: x + w / 2, y: y - 50 })).toBe(false);
+  });
+
+  it('하프 코트 — 좌·우·하(골라인)는 여전히 실제 경계다', () => {
+    const { x, y, w, h } = halfSurface;
+    expect(isBallOutOfPlay('half', halfSurface, { x: x - 1, y: y + h / 2 })).toBe(true);
+    expect(isBallOutOfPlay('half', halfSurface, { x: x + w + 1, y: y + h / 2 })).toBe(true);
+    expect(isBallOutOfPlay('half', halfSurface, { x: x + w / 2, y: y + h + 1 })).toBe(true);
+  });
+
+  it('플랫 코트 — 경계 개념이 없어 언제나 인플레이', () => {
+    expect(isBallOutOfPlay('flat', fullSurface, { x: -9999, y: 9999 })).toBe(false);
   });
 });

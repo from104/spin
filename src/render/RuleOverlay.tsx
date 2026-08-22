@@ -168,8 +168,9 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
       fiveMeterDefense,
       teamLabels: { home: teams.home.label, away: teams.away.label },
       locale,
+      court: { mode, surface: def.surface },
     });
-  }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, teams, locale]);
+  }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, teams, locale, mode, def]);
 
   const ringOf = (id: string): BallRing => ballRings?.[id] ?? 'none';
   // §7 5.2 — **스위치가 꺼져 있어도 사용자가 켠 원은 남는다**(2026-08-13 판단, 기현님 실기 ③).

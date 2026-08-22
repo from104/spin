@@ -3,12 +3,13 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { RULE_ALERT_STROKE, RULE_CLEAR_MS, RULE_DASH, RULE_OK_STROKE, createRuleOverlay, type RuleOverlayContext } from './ruleOverlay.ts';
+import { BALL_OUT_FILL, RULE_ALERT_STROKE, RULE_CLEAR_MS, RULE_DASH, RULE_OK_STROKE, createRuleOverlay, type RuleOverlayContext } from './ruleOverlay.ts';
 import { defendedMouths, defendedZones } from '../model/rules.ts';
 import { COURT_DEFS } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
 import { goalMouths } from '../model/court.ts';
 import { RING_5M_R_PX } from '../model/rules.ts';
+import { BALL_FILL } from '../core/colors.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const g = (): SVGGElement => document.createElementNS(SVG_NS, 'g');
@@ -35,6 +36,9 @@ function ctx(over: Partial<RuleOverlayContext> = {}): RuleOverlayContext {
     goalMouths: [],
     fiveMeterDefense: null,
     teamLabels: { home: '레드', away: '블루' },
+    // 아웃오브플레이 전용 describe 만 override 한다 — 그 외 테스트는 공을 registerBall 로
+    // 등록한 적이 없어 이 값과 무관하게 ballOut 판정 루프 자체를 타지 않는다.
+    court: { mode: 'full', surface: COURT_DEFS.full.surface },
     locale: 'ko',
     ...over,
   };
@@ -377,5 +381,57 @@ describe('5 m 원인 공', () => {
     h.api.registerRing(BALL_ID, h.ring, '5m');
     h.api.write({ ...BALL_AT, ...ONE_DEFENDER });
     expect(h.ring.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+  });
+});
+
+// ── 아웃오브플레이(Law 9) — 공 자체의 채움색 (기현 지시 2026-08-22) ──────────────────────
+// "무엇이 아웃인가" 는 model/rules.test.ts(`isBallOutOfPlay`)가 본다. 여기서 재는 것은
+// 어댑터다: 등록된 공이 write() 프레임마다 색이 바뀌는가, 스위치를 끄면 원복하는가,
+// 라이브 리전이 도는가 — 링·존과 같은 계약, 다른 대상(캐스트 자체의 circle).
+describe('ruleOverlay — 아웃오브플레이(공 채움색)', () => {
+  const FULL_SURFACE = COURT_DEFS.full.surface;
+  const HALF_SURFACE = COURT_DEFS.half.surface;
+
+  function ballHarness(over: Partial<RuleOverlayContext> = {}) {
+    const h = harness(over);
+    const ball = document.createElementNS(SVG_NS, 'circle');
+    h.api.registerBall(BALL_ID, ball);
+    return { ...h, ball };
+  }
+
+  it('코트 밖으로 나가면 붉게, 돌아오면 원래 색으로', () => {
+    const h = ballHarness();
+    h.api.write({ [BALL_ID]: { x: FULL_SURFACE.x - 10, y: 260 } });
+    expect(h.ball.getAttribute('fill')).toBe(BALL_OUT_FILL);
+    h.api.write({ [BALL_ID]: { x: 400, y: 260 } });
+    expect(h.ball.getAttribute('fill')).toBe(BALL_FILL);
+  });
+
+  it('새로 등록된 공은 write() 가 한 번도 안 와도 기본이 원래 색이다(안전한 기본값)', () => {
+    const h = ballHarness();
+    expect(h.ball.getAttribute('fill')).toBe(BALL_FILL);
+  });
+
+  it('스위치를 끄면 얼어붙은 빨간색이 풀린다', () => {
+    const h = ballHarness();
+    h.api.write({ [BALL_ID]: { x: FULL_SURFACE.x - 10, y: 260 } });
+    expect(h.ball.getAttribute('fill')).toBe(BALL_OUT_FILL);
+    h.api.setContext(ctx({ enabled: false }));
+    expect(h.ball.getAttribute('fill')).toBe(BALL_FILL);
+  });
+
+  it('★ 하프 코트 — 하프라인을 넘어도 색이 안 바뀐다(실경계가 아니다)', () => {
+    const h = ballHarness({ court: { mode: 'half', surface: HALF_SURFACE } });
+    h.api.write({ [BALL_ID]: { x: HALF_SURFACE.x + HALF_SURFACE.w / 2, y: HALF_SURFACE.y - 50 } });
+    expect(h.ball.getAttribute('fill')).toBe(BALL_FILL);
+  });
+
+  it('발화 — 나가는 순간 한 번만 말한다(연속 프레임에도 조용하다)', () => {
+    const h = ballHarness();
+    h.api.write({ [BALL_ID]: { x: FULL_SURFACE.x - 10, y: 260 } });
+    expect(h.say).toHaveBeenCalledTimes(1);
+    expect(h.say.mock.calls[0]![0] as string).toContain('아웃');
+    h.api.write({ [BALL_ID]: { x: FULL_SURFACE.x - 20, y: 260 } });
+    expect(h.say).toHaveBeenCalledTimes(1);
   });
 });

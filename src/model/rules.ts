@@ -168,6 +168,20 @@ export function inRect(r: Rect, x: number, y: number): boolean {
   return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
 }
 
+/** 공이 코트 경계를 완전히 벗어났는가(Law 9 — 인/아웃 오브 플레이). 라인 위는 아직 안이다
+ *  (`inRect` 와 같은 원칙 — 축구에서 라인 위는 언제나 그 구역 안).
+ *
+ *  ⚠️ **half 코트는 위쪽 변이 하프라인이지 실제 경계가 아니다**(model/court.ts 의
+ *  `HALF_SURFACE` 머리말 — half 는 골라인=하단, 하프라인=상단, 좌우=터치라인). 그 변까지
+ *  아웃으로 재면 하프라인만 넘어도 오판정이 된다 — 그래서 위쪽 변은 `mode === 'full'` 일 때만
+ *  본다. flat(자유 전술판)은 경기장 경계 자체가 없어 언제나 false 다. */
+export function isBallOutOfPlay(mode: CourtMode, surface: Rect, ball: Vec2): boolean {
+  if (mode === 'flat') return false;
+  if (ball.x < surface.x || ball.x > surface.x + surface.w) return true;
+  if (ball.y > surface.y + surface.h) return true;
+  return mode === 'full' && ball.y < surface.y;
+}
+
 /** 차체 사각형이 **자기 팀이 지키는** 골 지역에 조금이라도 걸치면 true(접촉 포함).
  *  예외 ①(골 지역 안의 골키퍼)이 이걸 쓴다 — 기현님 지시의 *"조금만 걸쳐있어도 면제"* 다.
  *
