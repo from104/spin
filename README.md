@@ -252,13 +252,46 @@ cube 로 올리는 [`scripts/deploy.sh`](scripts/deploy.sh)(`npm run deploy`)도
 남아 있지만, spin.atit.dev 가 리다이렉션 전용이 된 지금은 그리로 올려도 사용자 눈에는
 보이지 않습니다 — 일상적인 배포 명령이 아닙니다.
 
+### 데스크톱 (Tauri)
+
+같은 코드 한 벌로 리눅스·윈도우·맥 네이티브 앱을 냅니다. 웹앱 쪽 분기는 없습니다 —
+Tauri 는 `dist/` 를 그대로 감싸는 셸이라 `src/` 는 손대지 않았습니다.
+
+```bash
+npm run tauri:dev      # vite dev 서버 + 네이티브 창 (HMR 그대로)
+npm run tauri:build    # dist 빌드 → 설치 패키지
+```
+
+산출물은 `src-tauri/target/release/bundle/` 아래에 나옵니다. gofu(리눅스)에서는
+deb·rpm·AppImage 3종이 나오고, **윈도우·맥 패키지는 그 OS 에서만 만들어집니다** —
+그쪽은 [`.github/workflows/desktop-release.yml`](.github/workflows/desktop-release.yml)
+가 3-OS 매트릭스로 굽습니다(태그 `v*` 를 밀면 릴리스 초안, Actions 수동 실행이면
+아티팩트만). 서명·공증은 아직 없어 맥·윈도우 첫 실행에는 경고가 뜹니다.
+
+리눅스에서 처음 빌드하려면 시스템 헤더가 필요합니다:
+
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+알아 둘 것:
+
+- 라우터가 이미 `createHashRouter` 라 네이티브 셸에서 그대로 돕니다(§4 참조).
+- 창 CSP 는 `src-tauri/tauri.conf.json` 에 있습니다. `index.html` 의 FOUC 방지 부트
+  스크립트가 인라인이라 `script-src` 에 `'unsafe-inline'` 이 들어 있습니다 — 앱은 원격
+  문서를 열지 않고 렌더는 전부 React 라 유입 경로가 없지만, 부트 스크립트를 외부 파일로
+  빼면 이 예외도 없앨 수 있습니다.
+- **구글 드라이브 동기화는 데스크톱에서 아직 안 됩니다.** 웹뷰의 출처가
+  `tauri.localhost` 라 구글 OAuth 가 리다이렉트를 거부합니다 — 네이티브용 흐름(외부
+  브라우저 + 루프백 리다이렉트)이 따로 필요하고, 이는 0.6 의 남은 항목입니다.
+
 ---
 
 ## 7. 아직 아닌 것
 
 - 온라인 공유·협업 (서버가 없는 것이 설계입니다 — 파일로 옮깁니다)
 - 실시간 경기 기록·통계
-- 모바일 네이티브 앱 (웹앱이고, 홈 화면에 추가해 씁니다)
+- 모바일 네이티브 앱 (안드로이드 → 아이패드 순으로 0.7 에서 갑니다. 지금은 웹앱을 홈 화면에 추가해 씁니다)
 
 ---
 

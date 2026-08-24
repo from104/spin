@@ -1,0 +1,110 @@
+# 데스크톱(Tauri) 3-OS 빌드 — 리눅스·윈도우·맥.
+#
+# 왜 CI 인가: 각 OS 의 설치 패키지는 그 OS 에서만 나온다(맥 .dmg 는 macOS,
+# 윈도우 .msi/.exe 는 Windows). gofu 는 리눅스뿐이라 나머지 둘은 여기서 만든다.
+#
+# 언제 도는가
+#   · 태그 `v*` 를 밀면        → 산출물을 GitHub Release(초안) 에 올린다
+#   · Actions 에서 수동 실행    → 릴리스는 만들지 않고 아티팩트로만 받는다(빌드가 깨졌는지 보는 용도)
+#
+# 서명은 아직 없다. 맥은 Gatekeeper, 윈도우는 SmartScreen 경고가 뜬다 —
+# 서명·공증은 스토어 계정과 함께 0.7 에서 다룬다.
+name: desktop-release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '릴리스를 만들지 않고 아티팩트만 남긴다'
+        type: boolean
+        default: true
+
+jobs:
+  gate:
+    # 3 OS 빌드는 비싸다. 타입·테스트가 깨진 코드로 30분을 태우지 않도록 먼저 막는다.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  build:
+    needs: gate
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 맥은 인텔·애플실리콘을 한 번들에 담는다(universal) — 사용자가 고르지 않아도 된다.
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+            rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+          # ubuntu-22.04 를 고정한다. 최신 러너에서 빌드하면 그 glibc 이상에서만 돌아
+          # 조금 낡은 배포판에서 실행이 안 된다 — 낮은 쪽에서 빌드해야 위로 호환된다.
+          - platform: ubuntu-22.04
+            args: ''
+            rust-targets: ''
+          - platform: windows-latest
+            args: ''
+            rust-targets: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 리눅스 시스템 의존성
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        id: tauri
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # 태그 푸시일 때만 릴리스를 만든다. 수동 실행은 아티팩트로만 받는다.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: 'SPIN __VERSION__'
+          releaseBody: '설치 패키지는 아래 자산에 있습니다. 서명이 없어 맥·윈도우는 첫 실행 시 경고가 뜹니다.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      - name: 아티팩트 업로드
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: spin-${{ matrix.platform }}
+          path: |
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.rpm
+            src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/**/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+          if-no-files-found: warn
