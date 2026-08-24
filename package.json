@@ -8,6 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "_comment:tauri": "데스크톱(Tauri) 셸. tauri:dev 는 vite dev 서버를 띄운 뒤 네이티브 창을 붙이고, tauri:build 는 `npm run build` 로 dist 를 만든 뒤 설치 패키지(리눅스=deb·rpm·AppImage)를 src-tauri/target/release/bundle 아래에 낸다. 윈도우·맥 산출물은 각 OS 에서만 나오므로 CI(.github/workflows/desktop-release.yml) 가 맡는다.",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "test": "vitest run",
     "test:watch": "vitest",
     "_comment:test:rel": "고친 파일을 import 하는 테스트만 돈다(모듈 그래프 추적). 전체는 55초, 이쪽은 보통 2~5초다 — 커밋 직전 한 번만 `npm test` 를 돌리고 그 전까지는 이것을 쓴다. 예: npm run test:rel src/render/SideMarks.tsx",
@@ -26,6 +30,7 @@
     "react-router": "^8.3.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
