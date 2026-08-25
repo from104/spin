@@ -281,6 +281,13 @@ sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev l
   스크립트가 인라인이라 `script-src` 에 `'unsafe-inline'` 이 들어 있습니다 — 앱은 원격
   문서를 열지 않고 렌더는 전부 React 라 유입 경로가 없지만, 부트 스크립트를 외부 파일로
   빼면 이 예외도 없앨 수 있습니다.
+- **AppImage 는 입력기 함정이 하나 있습니다.** linuxdeploy 가 만드는 AppRun 이
+  `GDK_BACKEND=x11` 을 강제하는데 웨일랜드 세션은 `GTK_IM_MODULE=wayland` 를 내보내
+  둡니다 — X11 디스플레이 위에서 웨일랜드 입력기 모듈이 로드돼 창이 뜨기도 전에
+  SIGSEGV 로 죽습니다. `src-tauri/src/main.rs` 의 `fix_appimage_im_module()` 이 그
+  조합일 때만 `xim` 으로 갈아끼웁니다(한국어 조합 입력을 살리려고 입력기를 끄지 않고
+  XMODIFIERS 가 가리키는 쪽으로 잇습니다). deb·rpm 과 `npm run tauri:dev` 는 웨일랜드로
+  정상 기동하므로 해당 없습니다.
 - **구글 드라이브 동기화는 데스크톱에서 아직 안 됩니다.** 웹뷰의 출처가
   `tauri.localhost` 라 구글 OAuth 가 리다이렉트를 거부합니다 — 네이티브용 흐름(외부
   브라우저 + 루프백 리다이렉트)이 따로 필요하고, 이는 0.6 의 남은 항목입니다.
