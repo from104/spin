@@ -131,6 +131,8 @@ export const ko = {
   'settings.data.persistFailedToast': '설정이 이 탭에서만 유지됩니다.',
   'settings.data.readErrorFallback': '기기 이사 파일을 읽지 못했습니다.',
   'settings.data.libraryKindError': '드릴 모음 파일은 [드릴 목록]의 [가져오기]에서 엽니다.',
+  'settings.data.drillKindError': '드릴 파일은 [드릴 목록]의 [가져오기]에서 엽니다.',
+  'settings.data.sessionKindError': '세션 파일은 [드릴 목록]의 [가져오기]에서 엽니다.',
 
   'settings.restoreModal.title': '이 파일을 읽을까요?',
   'settings.restoreModal.copyNotice': '드릴과 세션은 사본으로 추가됩니다 — 이 기기에 있는 것은 지워지지 않습니다.',

@@ -132,6 +132,8 @@ export const en: Record<DictKey, string> = {
   'settings.data.persistFailedToast': 'Settings will only persist for this tab.',
   'settings.data.readErrorFallback': 'Couldn’t read the device-transfer file.',
   'settings.data.libraryKindError': 'Drill-collection files open from [Import] on the [Drills] screen.',
+  'settings.data.drillKindError': 'Drill files open from [Import] on the [Drills] screen.',
+  'settings.data.sessionKindError': 'Session files open from [Import] on the [Drills] screen.',
 
   'settings.restoreModal.title': 'Read this file?',
   'settings.restoreModal.copyNotice': 'Drills and sessions are added as copies — nothing on this device is deleted.',
