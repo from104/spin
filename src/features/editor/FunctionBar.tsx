@@ -34,12 +34,10 @@
 // 이고 화면 글자가 '100%'(부분 문자열 ✓)다 — 글자만 '100%' 로 바꾸고 이름을 '줌 초기화' 로
 // 두면 규칙이 깨진다. 새 항목을 더할 때 이 규칙을 먼저 확인하라.
 import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react';
 import {
   IconClear,
   IconExport,
-  IconEye,
   IconBoard,
   IconGoalReset,
   IconGrid,
@@ -53,7 +51,7 @@ import {
   IconZoomOut,
   IconZoomReset,
 } from '../../ui/icons.tsx';
-import { flyoutPosition, useFlyout, type FlyoutHandleProps } from './useFlyout.ts';
+import type { FlyoutHandleProps } from './useFlyout.ts';
 import { KEYMAP } from '../../core/keymap.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { ConfirmDialog } from '../../ui/ConfirmDialog.tsx';
@@ -98,6 +96,47 @@ const ITEM_LABEL: CSSProperties = {
  *  툴팁에 키를 손으로 적어 두면 키맵이 바뀔 때 화면만 옛말을 한다: 실제로 이 자리에 `#`·`Z`
  *  라고 적혀 있었는데 진짜 키는 `Alt+G`·`Alt+Z` 였다(2026-08-16 발견). */
 const keyLabel = (id: string): string => KEYMAP.find((d) => d.id === id)?.label ?? '';
+
+/** 절 제목 — 모달이 네 갈래가 되면서 필요해졌다(2026-08-27). 라디오그룹의 aria-label 과
+ *  **같은 문자열**을 쓴다: 보는 사람과 듣는 사람이 같은 이름으로 그 절을 부르게 된다. */
+const SECTION_LABEL: CSSProperties = { fontSize: '0.75rem', fontWeight: 700, color: 'var(--faint-text)', margin: 0 };
+
+/** 모달 안 토글 한 줄. 기둥의 `BarItem`(아이콘만) 과 달리 **글자를 함께** 놓는다 — 모달은
+ *  좁지 않고, 여기 온 사람은 아이콘을 이미 아는 사람이 아니다. */
+const MODAL_ROW: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  minHeight: 'var(--hit)',
+  padding: '0 12px',
+  borderRadius: 10,
+  fontSize: '0.875rem',
+  fontWeight: 600,
+  textAlign: 'left',
+};
+const MODAL_ACTION: CSSProperties = { ...MODAL_ROW, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' };
+
+function ModalToggle({ on, onClick, icon, text, hint }: { on: boolean; onClick(): void; icon: ReactNode; text: string; hint: string }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      title={hint}
+      style={{
+        ...MODAL_ROW,
+        border: on ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+        background: on ? 'color-mix(in srgb, var(--accent) 12%, var(--panel))' : 'var(--panel)',
+        color: on ? 'var(--accent-text)' : 'var(--text)',
+      }}
+    >
+      <span aria-hidden style={{ display: 'flex' }}>
+        {icon}
+      </span>
+      {text}
+    </button>
+  );
+}
 
 const DIVIDER: CSSProperties = {
   flex: 'none',
@@ -275,13 +314,10 @@ export function FunctionBar({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const courtId = useId();
-  const viewPanelId = useId();
   const courtBtnRef = useRef<HTMLButtonElement | null>(null);
-  const viewBtnRef = useRef<HTMLButtonElement | null>(null);
   const clearBtnRef = useRef<HTMLButtonElement | null>(null);
   const exportBtnRef = useRef<HTMLButtonElement | null>(null);
   const firstCourtRef = useRef<HTMLButtonElement | null>(null);
-  const fly = useFlyout<'view'>();
 
   const { prefs, physics } = useSettingsState();
   const { setPrefs } = useSettingsActions();
@@ -392,14 +428,6 @@ export function FunctionBar({
       >
         <IconBoard size={18} />
       </BarItem>
-      <BarItem
-        label={t('editor.functionBar.goalReset.label')}
-        name={t('editor.functionBar.goalReset.name')}
-        title={t('editor.functionBar.goalReset.title')}
-        onClick={onResetGoals}
-      >
-        <IconGoalReset />
-      </BarItem>
       {/* ⚠️ 2026-08-16 — [진영]은 **[코트] 모달 안으로 들어갔다**(기현 지시). 진영은 골 지역이
           있어야 뜻이 있는 값이고(플랫에는 없다), 골 지역은 코트 형태가 정한다 — 즉 코트를
           정하는 자리에서 함께 정해지는 것이 맞다. 기둥에서는 그 셋이 서로 떨어져 있었다.
@@ -432,34 +460,6 @@ export function FunctionBar({
         onClick={() => setExportOpen(true)}
       >
         <IconExport />
-      </BarItem>
-      {/* 속도 제한은 **켬이 기본이자 사실적인 상태**다. 꺼졌을 때를 강조한다 — 제한을 푼 채로
-          두고 왜 빠른지 모르는 상황이 더 나쁘다(옛 SpeedLimitSwitch 의 그 판단 그대로). */}
-      <BarItem
-        label={t('editor.functionBar.speed.label')}
-        name={speedLimit ? t('editor.functionBar.speed.nameOn') : t('editor.functionBar.speed.nameOff')}
-        title={speedLimit ? t('editor.functionBar.speed.titleOn') : t('editor.functionBar.speed.titleOff')}
-        active={!speedLimit}
-        onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, speedLimit: !speedLimit }) })}
-      >
-        <IconSpeed />
-      </BarItem>
-      {/* ── [보기] = **왼쪽으로 여는 서랍** (2026-08-16 기현 지시) ─────────────────────
-          팝오버(Modal)였다. 서랍으로 바꾼 이유는 남은 둘이 **토글**이기 때문이다: 모달은
-          "들어가서 → 고르고 → 나온다" 라 한 번 쓰고 마는 선택(코트 형태·크기)에 맞고,
-          격자·골 지역은 판을 보면서 켰다 껐다 하는 것이라 배경을 덮고 포커스를 가두는 장치가
-          매번 과했다. 서랍은 손이 닿으면 떠서 두 칸을 내놓고, 손이 떠나면 닫힌다.
-          트레이의 [작도]·[설명]과 **같은 장치**다(useFlyout) — 기둥이 오른쪽이라 왼쪽으로 편다. */}
-      <BarItem
-        label={t('editor.functionBar.view.label')}
-        name={t('editor.functionBar.view.name')}
-        title={t('editor.functionBar.view.title')}
-        buttonRef={viewBtnRef}
-        aria-expanded={fly.isOpen('view')}
-        aria-controls={fly.isOpen('view') ? viewPanelId : undefined}
-        {...fly.handleProps('view', () => viewBtnRef.current)}
-      >
-        <IconEye />
       </BarItem>
       {isBoard && (
         <>
@@ -632,61 +632,78 @@ export function FunctionBar({
               </p>
             </div>
           )}
+
+          {/* ── 표시 · 이동 · 골대 (2026-08-27 기현 지시로 기둥에서 들어왔다) ─────────────
+              ⚠️ **2026-08-16 의 반대 방향 결정을 명시적으로 폐기한다.** 그때는 [보기]를 모달에서
+              서랍으로 빼면서 근거를 이렇게 적었다: *"모달은 들어가서 고르고 나오는 것이라 한 번
+              쓰고 마는 선택(형태·크기)에 맞고, 격자·골 지역은 판을 보면서 켰다 껐다 하는
+              토글이라 배경을 덮고 포커스를 가두는 장치가 매번 과했다."*
+
+              그 관찰 자체는 지금도 참이다 — 뒤집은 이유는 다른 축이다: **기둥에 흩어진 네 개가
+              전부 "이 판이 어떻게 동작하는가" 라는 한 가지 이야기**인데 장치가 제각각이라
+              (모달 하나 · 즉시 실행 하나 · 즉시 토글 하나 · 서랍 하나) 어디를 눌러야 할지가
+              이름이 아니라 기억에 달려 있었다. 일관성을 택하고 토글의 번거로움을 감수한 것이며,
+              그 대가는 실재한다(격자를 켜고 끄려면 매번 모달을 연다). 되돌릴 일이 생기면
+              **이 문단이 그때의 판단이다** — 지우지 말고 다시 뒤집어 적을 것. */}
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
+
+          <div role="group" aria-label={t('editor.functionBar.courtModal.viewGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.viewGroupLabel')}</p>
+            <ModalToggle
+              on={showGrid}
+              onClick={onToggleGrid}
+              icon={<IconGrid />}
+              text={t('editor.functionBar.viewDrawer.grid.name')}
+              hint={t('editor.functionBar.viewDrawer.grid.title', { key: keyLabel('view.grid') })}
+            />
+            <ModalToggle
+              on={showRuleZones}
+              onClick={onToggleRuleZones}
+              icon={<IconRuleZone />}
+              text={t('editor.functionBar.viewDrawer.ruleZone.name')}
+              hint={t('editor.functionBar.viewDrawer.ruleZone.title', { key: keyLabel('view.ruleZones') })}
+            />
+          </div>
+
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
+
+          <div role="group" aria-label={t('editor.functionBar.courtModal.moveGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.moveGroupLabel')}</p>
+            {/* 속도 제한은 **켬이 기본이자 사실적인 상태**다(실제 파워체어 10 km/h). 그래서
+                토글의 '켜짐' 은 제한이 걸린 쪽이고, 끄면 아래 설명이 경고를 말한다 — 제한을
+                푼 채로 두고 왜 빠른지 모르는 상황이 더 나쁘다(옛 SpeedLimitSwitch 의 판단). */}
+            <ModalToggle
+              on={speedLimit}
+              onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, speedLimit: !speedLimit }) })}
+              icon={<IconSpeed />}
+              text={t('editor.functionBar.courtModal.speedText')}
+              hint={speedLimit ? t('editor.functionBar.speed.titleOn') : t('editor.functionBar.speed.titleOff')}
+            />
+          </div>
+
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
+
+          <div role="group" aria-label={t('editor.functionBar.courtModal.goalGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.goalGroupLabel')}</p>
+            {/* ⚠️ 이것만 **토글이 아니라 명령**이다(물리 세계의 골대를 제자리로 되돌린다).
+                그래서 누르면 **모달을 닫는다** — 결과는 판에 있는데 배경이 덮여 있으면 무엇이
+                일어났는지 볼 수 없다. 위 토글들과 생김새를 달리한 것도 같은 이유다. */}
+            <button
+              type="button"
+              onClick={() => {
+                setCourtOpen(false);
+                onResetGoals();
+              }}
+              style={MODAL_ACTION}
+            >
+              <span aria-hidden style={{ display: 'flex' }}>
+                <IconGoalReset />
+              </span>
+              {t('editor.functionBar.goalReset.name')}
+            </button>
+          </div>
         </div>
       </Modal>
-
-      {/* ── 보기 서랍 — 격자 · 골 지역 가이드 ─────────────────────────────────────────
-          닫힌 서랍은 **DOM 에 없다**(§3 표적 예산). 포털인 이유·좌표를 재는 이유는 useFlyout
-          머리말에 있다 — 여기서도 판 덩어리의 `overflow:hidden` 이 자르는 조상이다.
-          ⚠️ 고르고 나서 **안 닫는다.** 트레이 서랍은 도구가 서로 배타라 하나를 고르면 볼일이
-             끝나지만, 이 둘은 서로 독립인 토글이라 둘 다 만지러 온 손을 도중에 끊게 된다.
-             닫는 길은 그대로 셋이다 — 벗어나기 · Esc · 손잡이 다시 누르기. */}
-      {fly.open?.key === 'view'
-        ? createPortal(
-            <div
-              id={viewPanelId}
-              role="group"
-              aria-label={t('editor.functionBar.viewDrawer.ariaLabel')}
-              {...fly.panelProps}
-              style={{
-                position: 'fixed',
-                zIndex: 40,
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 2,
-                padding: 5,
-                borderRadius: 10,
-                border: '1px solid var(--border-strong)',
-                background: 'var(--panel)',
-                boxShadow: '0 8px 20px rgba(0,0,0,.45)',
-                ...flyoutPosition(fly.open.rect, 'left'),
-              }}
-            >
-              <BarItem
-                label={t('editor.functionBar.viewDrawer.grid.label')}
-                name={t('editor.functionBar.viewDrawer.grid.name')}
-                title={t('editor.functionBar.viewDrawer.grid.title', { key: keyLabel('view.grid') })}
-                active={showGrid}
-                aria-pressed={showGrid}
-                onClick={onToggleGrid}
-              >
-                <IconGrid />
-              </BarItem>
-              <BarItem
-                label={t('editor.functionBar.viewDrawer.ruleZone.label')}
-                name={t('editor.functionBar.viewDrawer.ruleZone.name')}
-                title={t('editor.functionBar.viewDrawer.ruleZone.title', { key: keyLabel('view.ruleZones') })}
-                active={showRuleZones}
-                aria-pressed={showRuleZones}
-                onClick={onToggleRuleZones}
-              >
-                <IconRuleZone />
-              </BarItem>
-            </div>,
-            document.body,
-          )
-        : null}
 
       {/* ── 비우기 확인 ─────────────────────────────────────────────────────────────── */}
       <ConfirmDialog

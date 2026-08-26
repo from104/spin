@@ -260,11 +260,11 @@ describe('함정 3 — 줌과 인스펙터가 트레이 폭·칩 자리를 흔�
 
     // 팝오버를 열고 닫아도 마찬가지다(열면 `<main>` 폭 판정이 다시 돈다).
     // ⚠️ 옛 단언은 [속성]이었다 — 자유 전술판에서 인스펙터가 사라져 [코트]로 갈아탔다.
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
-    await waitFor(() => expect(screen.getByRole('dialog', { name: '코트' })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '보드 설정' })).toBeInTheDocument());
     expect(snap()).toEqual(before);
     await user.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '코트' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '보드 설정' })).toBeNull());
     expect(snap()).toEqual(before);
   });
 });

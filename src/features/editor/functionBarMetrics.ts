@@ -31,7 +31,13 @@
  *  하나로 일원화되며 이 바에서 **빠졌다** — 13 → 12. 표적 예산은 늘지 않는다: 레일에 새로
  *  하나 생긴 만큼 여기서 하나가 빠져 상쇄한다(계획서 §C "레일 [도움말] +1 은 편집 기능바
  *  [도움말] −1 과 상쇄"). */
-export const FUNCTION_BAR_ITEMS = 12;
+/** 2026-08-27(기현 지시) — [골대]·[속도]·[보기] 셋이 **[보드] 모달 안으로 들어갔다**. 12 → 9.
+ *  넷이 전부 "이 판이 어떻게 동작하는가" 라는 한 이야기인데 장치가 제각각(모달·즉시 실행·
+ *  즉시 토글·서랍)이라 어디를 눌러야 할지가 이름이 아니라 기억에 달려 있었다.
+ *  ⚠️ 칸이 셋 줄면 1열 요구 높이가 그만큼 낮아져, **어떤 창 크기에서 판이 눕지 않고 서게
+ *  된다**(chromeBudget → functionBarColumnsAt → rotForFit 1.08 문턱). 그 이동은 의도된
+ *  결과이고, app/useStageRot.chrome.test.ts 의 기대값이 함께 움직인다. */
+export const FUNCTION_BAR_ITEMS = 9;
 /** 드릴 편집의 칸 수 — 전술판에서 **[비우기]·[저장] 둘이 빠진다.**
  *
  *  [비우기]가 빠지는 이유: 전술판의 [코트 비우기]는 *"되돌릴 수 없습니다"* 인 판 초기화다.
@@ -49,8 +55,9 @@ export const FUNCTION_BAR_ITEMS = 12;
  *  한 숫자로 뭉개면 드릴 편집에서 열 수 계산이 한 칸만큼 틀리고, 그 오차가 코트 상자 폭을
  *  거쳐 판 회전 판정을 뒤집을 수 있다.
  *
- *  2026-08-20(§0.5 Phase 5) — [도움말]이 레일로 옮겨가며 여기서도 하나 빠진다 — 11 → 10. */
-export const FUNCTION_BAR_ITEMS_DRILL = 10;
+ *  2026-08-20(§0.5 Phase 5) — [도움말]이 레일로 옮겨가며 여기서도 하나 빠진다 — 11 → 10.
+ *  2026-08-27 — 위 셋이 모달로 들어가며 10 → 7. */
+export const FUNCTION_BAR_ITEMS_DRILL = 7;
 
 /** 이 화면의 칸 수. 예산(chromeBudget)과 화면(FunctionBar)이 **같은 함수**를 봐야 한다. */
 export const functionBarItemsFor = (board: boolean): number => (board ? FUNCTION_BAR_ITEMS : FUNCTION_BAR_ITEMS_DRILL);

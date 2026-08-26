@@ -155,7 +155,9 @@ describe('첫 화면 표적 예산 [E-5]', () => {
     expect(has('확대'), '스테이지 컨트롤').toBe(true);
     expect(has('2번 선수 배치') || has('공'), '트레이').toBe(true);
     expect(has('코트 비우기'), '하단 바').toBe(true);
-    expect(has('개체 이동 속도 제한'), '속도 스위치(role=switch)').toBe(true);
+    // 2026-08-27 — 속도 제한은 [보드 설정] 모달 안으로 들어가 **첫 화면 표적이 아니다**.
+    // 그 자리를 대신해 기능 바의 대표로 [보드 설정]을 센다(구역이 실제로 잡히는지가 요점이다).
+    expect(has('보드 설정'), '기능 바').toBe(true);
     // 하한 — 재편 목표 내역(36)에서 크게 모자라면 세는 규칙이 새는 것이다.
     expect(targets.length).toBeGreaterThanOrEqual(25);
   });
@@ -168,7 +170,7 @@ describe('첫 화면 표적 예산 [E-5]', () => {
     // 기능 바의 [코트] 팝오버다(형태 3 + 크기 3 = 6컨트롤이 닫히면 DOM 에서 사라진다).
     await openFirstScreen();
     const before = countTargets(document.body).length;
-    screen.getByRole('button', { name: '코트 형태와 크기' }).click();
+    screen.getByRole('button', { name: '보드 설정' }).click();
     await waitFor(() => expect(countTargets(document.body).length).toBeGreaterThan(before));
   });
 });

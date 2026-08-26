@@ -84,38 +84,50 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('기능 바의 [골대 원위치] 가 실제 물리까지 닿는다', () => {
-  // ⚠️ 2026-08-14 재설계로 자리가 바뀌었다. 옛 기록(지우지 않는다): 주 자리는 **인스펙터**
-  // [드릴 정보] 맨 끝이었고, 첫 화면 표적 예산(40/40, 여유 0)을 한 칸도 안 쓰려고 닫힌 시트
-  // 안에 뒀다. 둘째 손잡이는 [코트 비우기] 확인 모달 안의 [골대만 원위치] 였다.
-  // 지금은 **오른쪽 기능 바에 상시**로 있다 — 자유 전술판에서 인스펙터가 통째로 없어졌고
-  // (기현님: *"속성 탭은 정말 무용지물"*), 예산도 35 → 33 으로 되레 여유가 늘었다.
-  // 그래서 모달 안의 둘째 손잡이도 지웠다: 같은 일을 하는 자리가 둘일 이유가 없어졌다.
-  it('첫 화면에 **있다** — 기능 바는 닫히는 서랍이 아니다', async () => {
-    await openBoard();
+describe('[보드 설정] 모달의 [골대 원위치] 가 실제 물리까지 닿는다', () => {
+  // ⚠️ 자리가 두 번 바뀌었다. 지우지 않는 옛 기록:
+  //   ① ~2026-08-14: **인스펙터** [드릴 정보] 맨 끝. 첫 화면 표적 예산(40/40, 여유 0)을 한 칸도
+  //      안 쓰려고 닫힌 시트 안에 뒀다. 둘째 손잡이는 [코트 비우기] 확인 모달 안이었다.
+  //   ② 2026-08-14~08-27: **오른쪽 기능 바에 상시**. 전술판에서 인스펙터가 통째로 없어졌고
+  //      (기현님: *"속성 탭은 정말 무용지물"*) 예산도 35 → 33 으로 여유가 늘어서다.
+  //   ③ 2026-08-27~: **[보드 설정] 모달 안**(기현 지시로 [골대]·[속도]·[보기]가 함께 들어갔다).
+  //
+  // ⚠️ 그리고 **누르면 모달이 닫힌다.** 이것만 토글이 아니라 명령이라 결과가 판에 있는데,
+  //    배경을 덮은 채로 두면 무엇이 일어났는지 볼 수 없다. 그래서 아래 포커스 계약도 바뀌었다 —
+  //    옛 계약은 "누른 뒤에도 포커스가 그 버튼" 이었지만 이제 그 버튼은 사라진다.
+  const openModal = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    return screen.getByRole('button', { name: '골대 원위치' });
+  };
+
+  it('기능 바에는 이제 없다 — [보드 설정] 안에 있다', async () => {
+    const { user } = await openBoard();
+    expect(screen.queryByRole('button', { name: '골대 원위치' }), '모달을 열기 전에는 없다').toBeNull();
+    await openModal(user);
     expect(screen.getByRole('button', { name: '골대 원위치' })).toBeInTheDocument();
   });
 
   it('누르면 world.resetGoals() 가 **1회** 불린다', async () => {
     const { user } = await openBoard();
-    const btn = screen.getByRole('button', { name: '골대 원위치' });
+    const btn = await openModal(user);
     expect(resetGoalsCalls.n, '누르기 전').toBe(0); // 대조군: "0회라서 통과" 가 아니다
     await user.click(btn);
     expect(resetGoalsCalls.n).toBe(1);
   });
 
-  it('누른 뒤에도 포커스는 그 버튼이다 — 판을 만지던 손이 자리를 안 잃는다 (§7.6)', async () => {
+  it('★ 누르면 모달이 닫힌다 — 결과가 판에 있으므로 배경을 비켜 줘야 한다', async () => {
     const { user } = await openBoard();
-    const btn = screen.getByRole('button', { name: '골대 원위치' });
+    const btn = await openModal(user);
     await user.click(btn);
-    expect(document.activeElement).toBe(btn);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '보드 설정' })).toBeNull());
   });
 
   it('연달아 두 번 누르면 2회다 — 한 번 누른 뒤 죽는 버튼이 아니다', async () => {
     const { user } = await openBoard();
-    const btn = screen.getByRole('button', { name: '골대 원위치' });
-    await user.click(btn);
-    await user.click(btn);
+    await user.click(await openModal(user));
+    expect(resetGoalsCalls.n).toBe(1);
+    // 모달이 닫혔으므로 다시 연다 — 그 자체가 위 '닫힌다' 계약의 대조군이다.
+    await user.click(await openModal(user));
     expect(resetGoalsCalls.n).toBe(2);
   });
 });
