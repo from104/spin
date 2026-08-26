@@ -8,6 +8,7 @@ import type { Drill } from '../../model/drill.ts';
 import { namedRosterOf } from '../../model/chairLabel.ts';
 import type { Locale } from '../../i18n/locale.ts';
 import { PrintCourt } from './PrintCourt.tsx';
+import type { PrintViewSwitches } from './PrintRoot.tsx';
 import { prepFor, prepLine } from './prep.ts';
 import { PRINT_PAGE_CLASS } from './printDom.ts';
 import { useT } from '../../i18n/useT.ts';
@@ -16,6 +17,7 @@ import { translate } from '../../i18n/useT.ts';
 
 export interface PrintDrillSheetProps {
   drill: Drill;
+  view: PrintViewSwitches;
 }
 
 /** "중급 · 전술 · 킥인 · 12분". 훈련량(반복·세트·인터벌)은 v8 에서 폐기됐다 — 옛 문서의 값은
@@ -27,7 +29,7 @@ function metaLine(drill: Drill, locale: Locale): string {
   return parts.join(' · ');
 }
 
-export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
+export function PrintDrillSheet({ drill, view }: PrintDrillSheetProps) {
   const t = useT();
   const locale = useLocale();
   const prep = prepLine(prepFor(drill), locale);
@@ -53,7 +55,7 @@ export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
             </p>
           )}
 
-          <PrintCourt drill={drill} step={step} ariaLabel={t('print.stepCourtAriaLabel', { title: drill.title, i: i + 1 })} />
+          <PrintCourt drill={drill} step={step} view={view} ariaLabel={t('print.stepCourtAriaLabel', { title: drill.title, i: i + 1 })} />
 
           <div className="spin-print-body">
             {/* step.name 은 과제⑦ 이후 항상 '' 다(validate.ts 정화기가 로드 시 note 로

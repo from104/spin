@@ -664,6 +664,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       onReset={() => board?.onReset()}
       drill={drill}
       showGrid={showGrid}
+      showGridLabels={prefs.showGridLabels}
       onToggleGrid={toggleGrid}
       showRuleZones={showRuleZones}
       onToggleRuleZones={toggleRuleZones}

@@ -22,9 +22,21 @@ export interface PrintRootProps {
   onReady?: () => void;
   /** 포털 대상. 기본 `document.body`. */
   container?: Element;
+  /** 표시 스위치 — 화면·PNG 와 같은 값을 종이까지 내린다. **필수다**: 옵셔널이면 배선을
+   *  빠뜨려도 조용히 컴파일되고, 그것이 2026-08-27 사고의 메커니즘이었다
+   *  (render/renderPaths.ts 머리말). */
+  view: PrintViewSwitches;
 }
 
-export function PrintRoot({ doc, onReady, container }: PrintRootProps) {
+/** 종이에 무엇을 실을지 정하는 스위치 묶음. 화면 설정(prefs)에서 그대로 온다 — 종이만
+ *  다른 규칙을 두지 않는다는 뜻이다. */
+export interface PrintViewSwitches {
+  showGrid: boolean;
+  showGridLabels: boolean;
+  showRuleZones: boolean;
+}
+
+export function PrintRoot({ doc, onReady, container, view }: PrintRootProps) {
   // ⚠️ StrictMode 는 effect 를 mount→unmount→mount 로 두 번 돌린다. 그대로 두면 개발 모드에서
   // 인쇄 대화상자가 **두 번** 뜬다(같은 인스턴스라 ref 는 살아남으므로 이 가드가 먹는다).
   const readyFor = useRef<PrintDoc | null>(null);
@@ -43,7 +55,7 @@ export function PrintRoot({ doc, onReady, container }: PrintRootProps) {
 
   return createPortal(
     <div className={PRINT_ROOT_CLASS} data-print-root="" aria-hidden="true">
-      {doc.kind === 'drill' ? <PrintDrillSheet drill={doc.drill} /> : <PrintSessionPlan plan={doc.plan} />}
+      {doc.kind === 'drill' ? <PrintDrillSheet drill={doc.drill} view={view} /> : <PrintSessionPlan plan={doc.plan} view={view} />}
     </div>,
     container ?? document.body,
   );

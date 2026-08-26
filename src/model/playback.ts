@@ -119,8 +119,13 @@ function interpList<T extends { id: string }>(
   return out;
 }
 
-/** stepIndex/t 는 sampleDrill 이 덮어쓴다 — 이 함수는 스텝 쌍 사이의 프레임 내용만 만든다. */
-export function interpolateSteps(d: Drill, from: DrillStep, to: DrillStep, e: number): RenderFrame {
+/** stepIndex/t 는 sampleDrill 이 덮어쓴다 — 이 함수는 스텝 쌍 사이의 프레임 내용만 만든다.
+ *
+ *  ⚠️ 첫 인자를 `Pick<Drill,'cast'>` 로 **좁혀 둔다**(2026-08-27). 실제로 읽는 것이 cast 뿐인데
+ *  `Drill` 을 요구하면, 드릴 전체를 안 가진 호출부 — 인쇄(`PrintCourt` 는 Pick 만 받는다) — 가
+ *  프레임을 못 만들어 **자기만의 정적 렌더를 새로 짜게 된다.** 그 중복이 곧 화면과 종이가
+ *  갈라지는 자리다(renderPaths.ts 머리말의 네 번째 사고). */
+export function interpolateSteps(d: Pick<Drill, 'cast'>, from: DrillStep, to: DrillStep, e: number): RenderFrame {
   const chairs: RenderChair[] = [];
   for (const def of d.cast.chairs) {
     const a = from.chairs[def.id];
@@ -200,6 +205,13 @@ export function interpolateSteps(d: Drill, from: DrillStep, to: DrillStep, e: nu
 
 export function effectiveStepMs(s: DrillStep, baseMs: number): number {
   return s.durationMs ?? baseMs;
+}
+
+/** 스텝 하나의 **정적** 프레임 — 보간 없이 그 스텝 그대로다(`e=0`, 같은 스텝을 양끝에 준다).
+ *  인쇄·PNG 처럼 "한 장면을 한 번 그리는" 경로가 판정 함수(ruleMarkup 등)에 넘길 자료다.
+ *  이 어댑터가 없으면 그런 경로마다 프레임 조립을 손으로 다시 적게 된다. */
+export function staticFrameOf(d: Pick<Drill, 'cast'>, step: DrillStep, stepIndex = 0): RenderFrame {
+  return { ...interpolateSteps(d, step, step, 0), stepIndex, t: 0 };
 }
 
 export function drillTotalMs(d: Drill, baseMs: number): number {

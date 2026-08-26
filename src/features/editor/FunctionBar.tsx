@@ -211,6 +211,9 @@ export interface FunctionBarProps {
   /** 내보내기 시트가 굽는 것은 지금 리듀서가 든 판이다(물리 세계가 아니라 모델). */
   drill: Drill;
   showGrid: boolean;
+  /** 격자 **번호**. 화면 토글은 설정 화면에 있고 여기엔 없지만, **내보내기 시트를 거쳐
+   *  인쇄까지 내려야 한다**(2026-08-27) — 종이에서 칸 이름으로 자리를 지목하기 위해서다. */
+  showGridLabels: boolean;
   onToggleGrid(): void;
   showRuleZones: boolean;
   onToggleRuleZones(): void;
@@ -249,6 +252,7 @@ export function FunctionBar({
   onReset,
   drill,
   showGrid,
+  showGridLabels,
   onToggleGrid,
   showRuleZones,
   onToggleRuleZones,
@@ -700,6 +704,7 @@ export function FunctionBar({
         drill={drill}
         stepIndex={0}
         showGrid={showGrid}
+        showGridLabels={showGridLabels}
         showRuleZones={showRuleZones}
         returnFocusRef={exportBtnRef}
       />

@@ -335,6 +335,8 @@ export function shapesMarkup(shapes: readonly Shape[]): string {
 
 /** 격자 — **선만** 그린다. 칸 라벨은 §6.2 표가 '안 담긴다' 로 못박았고, 글자라 어차피 못 넣는다.
  *  좌표는 `gridGeom` 하나에서 온다(GridOverlay 와 같은 출처). */
+/** 격자 선. ⚠️ 인쇄는 이 함수를 쓰지 않는다 — 종이에서는 잉크(대비)가 달라야 해서 화면
+ *  컴포넌트(`GridOverlay`)를 인쇄 variant 로 쓴다. 좌표는 양쪽 다 `gridGeom` 파생이다. */
 function gridMarkup(opts: StaticSceneOpts): string {
   if (!opts.showGrid) return '';
   const g = gridGeom(opts.mode, opts.size);
@@ -369,7 +371,13 @@ function ruleActors(frame: RenderFrame): RuleActor[] {
 /** 3 m 링 + 골 지역 위반 표시. 시각 언어는 RuleOverlay.tsx 그대로 — **깨끗하면 파선 흰색,
  *  걸리면 실선 붉은색**, 그 아래에 언제나 검정 케이싱(붉은색은 코트 위 1.75:1 로 혼자서는
  *  못 읽힌다). 색은 세 번째 채널이다. */
-function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
+/** 규칙 오버레이(골 지역 존·위반 표시·공 거리 링·세트피스 소유 화살표)를 한 번에 굽는다.
+ *
+ *  ⚠️ **PNG 전용이 아니다** — 인쇄(features/print/PrintCourt.tsx)도 이 함수를 지난다. 화면의
+ *  `RuleOverlay` 는 좌표를 rAF writer 가 DOM 에 직접 쓰는 구조라 정적 렌더에서는 링이 전부
+ *  원점에 겹친다(PrintCourt.tsx 머리말 ①). 그래서 "한 장면을 한 번 그리는" 경로는 전부
+ *  이쪽으로 온다. 새 규칙 표시를 더할 때 **여기 하나만 고치면 두 경로가 같이 따라온다.** */
+export function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   const def = courtDefFor(opts.mode, opts.size);
   const actors = ruleActors(frame);
   // 진영을 입힌 골 지역. 화면(RuleOverlay)과 **같은 함수**를 지나야 PNG 만 다른 팀을 칠하는 일이 없다.

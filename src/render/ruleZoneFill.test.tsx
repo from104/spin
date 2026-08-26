@@ -18,6 +18,7 @@
 //     × 강제색. 인쇄는 규칙 존을 아예 그리지 않는다 — 그 사실도 아래에 기록해 뒀다.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { pathDraws } from './renderPaths.ts';
 import { render as rtlRender } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { COURT_BG } from '../core/colors.ts';
@@ -258,8 +259,13 @@ describe('② 화면마다 같은 색이 나온다', () => {
     //    파선 채널까지 통째로 사라진다(contrastMath.dashChannelVisible 이 그 계산이다).
   });
 
-  it('인쇄 시트는 규칙 존을 그리지 않는다 (현 상태 기록 — 바뀌면 여기서 알려 준다)', () => {
-    expect(src('../features/print/PrintCourt.tsx')).not.toContain('RuleZones');
+  // ⚠️ 2026-08-27 에 뜻이 뒤집혔다. 원래는 *"인쇄 시트는 규칙 존을 그리지 않는다(현 상태
+  // 기록 — 바뀌면 여기서 알려 준다)"* 였는데, **바뀔 때 알려 주지 못했다**: 부정 단언은
+  // 누군가 코드를 고칠 때만 빨개지고, 이번 사고는 *아무도 안 고쳐서* 난 것이었기 때문이다.
+  // 판단은 `render/renderPaths.ts` 표로 옮겼다.
+  it('인쇄 시트도 규칙 존을 그린다 — 화면과 같은 컴포넌트로', () => {
+    expect(pathDraws('print', 'ruleZones')).toBe(true);
+    expect(src('../features/print/PrintCourt.tsx')).toContain('RuleZones');
   });
 });
 

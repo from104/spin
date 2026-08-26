@@ -65,12 +65,15 @@ export interface ExportSheetProps {
   stepIndex: number;
   /** 화면의 격자·규칙존 스위치를 그대로 넘긴다 — "보이는 대로 나온다" 가 §6.2 표의 규칙이다. */
   showGrid: boolean;
+  /** 격자 **번호**(prefs.showGridLabels). PNG 는 `<text>` 0개 규약이라 안 쓰지만 **인쇄는
+   *  쓴다** — 종이에서 "b4 로 가라" 가 통하려면 칸 이름이 찍혀야 한다(2026-08-27). */
+  showGridLabels: boolean;
   showRuleZones: boolean;
   /** 닫을 때 포커스를 되돌릴 트리거(하단 바의 [내보내기]) — §7.6. */
   returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
-export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRuleZones, returnFocusRef }: ExportSheetProps) {
+export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showGridLabels, showRuleZones, returnFocusRef }: ExportSheetProps) {
   const titleId = useId();
   const toast = useToast();
   const t = useT();
@@ -164,7 +167,7 @@ export function ExportSheet({ open, onClose, drill, stepIndex, showGrid, showRul
           <SheetItem title={t('export.print.title')} desc={t('export.print.desc')} onClick={startPrint} />
         </div>
       </Modal>
-      <PrintRoot doc={printDoc} onReady={onPrintReady} />
+      <PrintRoot doc={printDoc} onReady={onPrintReady} view={{ showGrid, showGridLabels, showRuleZones }} />
     </>
   );
 }
