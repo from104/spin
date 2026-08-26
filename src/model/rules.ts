@@ -210,11 +210,13 @@ function chairInOwnGoalArea(zones: readonly DefendedZone[], a: RuleActor): boole
  *  ⚠️ **`chairInOwnGoalArea` 와 판정이 정반대다.** 저쪽은 *걸치면* 안이고(2026-08-13 지시),
  *  이쪽은 *완전히 나가야* 뒤다(2026-08-17 지시: *"골대 뒤는 완전히 나가야 면제"*).
  *  한 함수로 뭉치면 둘 중 하나가 조용히 상대 쪽 규약으로 끌려간다. */
+function chairBehindMouth(m: DefendedMouth, a: RuleActor): boolean {
+  if (m.defender !== a.team) return false;
+  return chairInsideBounds(a.x, a.y, a.theta, m.mouth.minX, m.mouth.maxX, m.mouth.minY, m.mouth.maxY);
+}
+
 function chairBehindOwnGoalLine(mouths: readonly DefendedMouth[], a: RuleActor): boolean {
-  for (const m of mouths) {
-    if (m.defender !== a.team) continue;
-    if (chairInsideBounds(a.x, a.y, a.theta, m.mouth.minX, m.mouth.maxX, m.mouth.minY, m.mouth.maxY)) return true;
-  }
+  for (const m of mouths) if (chairBehindMouth(m, a)) return true;
   return false;
 }
 
@@ -274,12 +276,30 @@ export function ringViolation(
  *
  *  ⚠️ 링과 **같은 정의**다 — 차체 사각형이 존에 조금이라도 걸치면 그 존 안이다. 점으로
  *  되돌리면 차체가 절반 들어가 있어도 피벗이 밖이면 안 세어, 골 지역에 실제로 4대가 들어찬
- *  판이 하얗게 남는다. */
-export function zoneViolation(zone: DefendedZone, actors: readonly RuleActor[]): number {
+ *  판이 하얗게 남는다.
+ *
+ *  ⚠️ **골대 뒤로 완전히 나간 같은 팀 선수도 센다**(2026-08-27 기현 지시: *"골키퍼가 자기
+ *  진영에서 골대 뒤에 완전히 있어도 골에어리어 반칙 대상에 카운트되어야 한다"*). Laws 원문은
+ *  *"자기 골에어리어 **안**"* 이라고만 하지만, 골 뒤는 골 지역 사각형 밖이라 그대로 두면
+ *  **골 지역 안 수비 2대 + 골 뒤 골키퍼 = 3대인데 2대로 세어 판이 깨끗하게 남는다** — 골키퍼가
+ *  반 대 뒤로 물러서는 것만으로 인원 제한이 무력해진다(허용치는 골키퍼 포함 **2명**이고,
+ *  3명째부터 반칙이다 — `GOAL_AREA_MAX`). 근거는 `docs/RULES-FIPFA-2025.md` Law 11 의
+ *  "⚠️ Laws 본문에 없는 판정" 절에 적었다.
+ *
+ *  그 자리(`behind`)는 예외 ①-b(2-on-1)·예외 ④(세트피스 5 m)가 이미 쓰던 **바로 그 영역**이다
+ *  — 골키퍼가 물러나 있는 자리는 세 규칙에서 같은 곳이라야 한다. 전에는 그 영역이 **면제만
+ *  주고 인원에는 안 잡히는** 비대칭이었다.
+ *
+ *  ⚠️ `behind` 가 **선택 인자**인 이유는 `ringViolation` 의 `mouths` 와 같다 — 실제 판정
+ *  경로(오버레이·PNG)는 언제나 넘기고, 직접 부르는 곳은 테스트뿐이다. 두 경로가 갈라지지
+ *  않는지는 `buildStaticSvg` 대조 테스트가 붙잡는다. */
+export function zoneViolation(zone: DefendedZone, actors: readonly RuleActor[], behind?: DefendedMouth): number {
   let count = 0;
   for (const a of actors) {
     if (a.team !== zone.defender) continue; // 공격은 제한 없다
-    if (!chairOverlapsRect(a.x, a.y, a.theta, zone.rect.x, zone.rect.y, zone.rect.w, zone.rect.h)) continue;
+    const inZone = chairOverlapsRect(a.x, a.y, a.theta, zone.rect.x, zone.rect.y, zone.rect.w, zone.rect.h);
+    // OR 이라 골라인에 걸친 채 양쪽을 다 만족하는 차체도 한 번만 세어진다.
+    if (!inZone && !(behind !== undefined && chairBehindMouth(behind, a))) continue;
     count++;
   }
   return count > GOAL_AREA_MAX ? TEAM_BIT[zone.defender] : 0;

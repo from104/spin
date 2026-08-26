@@ -354,6 +354,48 @@ describe('rules — 골 지역 3인', () => {
     expect(zoneViolation(GZ_AWAY, attackers)).toBe(TEAM_BIT.away);
   });
 
+  // 기현 지시 2026-08-27 — *"골키퍼가 자기 진영에서 골대 뒤에 완전히 있어도 골에어리어 반칙
+  // 대상에 카운트되어야 한다."* 허용치는 골키퍼 포함 2명이고 3명째부터 반칙인데, Laws 원문이
+  // "골에어리어 **안**" 이라고만 해서 그대로 두면 **골 지역 안 2대 + 골 뒤 골키퍼 = 3대인데
+  // 2대로 세어** 판이 깨끗하게 남았다. 그 자리는 2-on-1 예외 ①-b·세트피스 5m 예외 ④ 가 이미
+  // 쓰던 영역인데, **면제만 주고 인원에는 안 잡히는** 비대칭이었다.
+  describe('★ 골대 뒤로 완전히 나간 수비도 3인에 센다 (기현 지시 2026-08-27)', () => {
+    const GOAL_LINE = COURT_DEFS.full.surface.x; // GZ 는 ruleZones[0] = 왼쪽 골 지역이다
+    const MID_Y = COURT_DEFS.full.surface.y + COURT_DEFS.full.surface.h / 2;
+    /** 골라인을 등지고(θ=180°) 차체가 통째로 골라인 **밖**에 있는 피벗 x. 5 px 을 더 물린 것은
+     *  골 지역 사각형과의 접촉까지 떼어, 이 케이스가 오직 골대 뒤 판정으로만 세어지게 하려는
+     *  것이다(경계에 걸치면 옛 경로로도 잡혀 새 동작을 못 잰다). */
+    const behindPivotX = GOAL_LINE - BACK - 5;
+    const MOUTH = defendedMouths(goalMouths(COURT_DEFS.full), 'home')[0]!;
+    const gkBehind = () => actor('home', behindPivotX, MID_Y, true, Math.PI);
+    const twoInside = () => [actor('home', inZone(0), GZ.y + 10), actor('home', inZone(1), GZ.y + 10)];
+
+    it('골 지역 안 2명 + 골대 뒤 골키퍼 = 3명이라 걸린다', () => {
+      const three = [...twoInside(), gkBehind()];
+      // 골대 입구를 안 넘기면 옛 판정 그대로 — 골 뒤는 사각형 밖이라 안 보인다.
+      expect(zoneViolation(GZ_HOME, three), '이 자리가 새 동작이 사는 곳이다').toBe(0);
+      expect(zoneViolation(GZ_HOME, three, MOUTH)).toBe(TEAM_BIT.home);
+    });
+
+    it('골 뒤에 있어도 2명까지는 여전히 괜찮다 — 문턱을 낮추는 변경이 아니다', () => {
+      expect(zoneViolation(GZ_HOME, [actor('home', inZone(0), GZ.y + 10), gkBehind()], MOUTH)).toBe(0);
+      expect(GOAL_AREA_MAX).toBe(2);
+    });
+
+    it('상대 팀 골키퍼가 이 골대 뒤에 있어도 이 존의 인원이 아니다', () => {
+      const three = [...twoInside(), actor('away', behindPivotX, MID_Y, true, Math.PI)];
+      expect(zoneViolation(GZ_HOME, three, MOUTH)).toBe(0);
+    });
+
+    it('한 대를 두 번 세지 않는다 — 골라인에 걸쳐 양쪽을 다 만족해도 1명이다', () => {
+      // 뒷변이 골라인에 정확히 닿는 자리. 사각형에도 닿고 골대 뒤 판정에도 걸릴 수 있다.
+      const straddling = actor('home', GOAL_LINE - BACK, MID_Y, true, Math.PI);
+      expect(zoneViolation(GZ_HOME, [...twoInside(), straddling], MOUTH)).toBe(TEAM_BIT.home);
+      // 두 번 세었다면 2명짜리 판도 걸렸을 것이다.
+      expect(zoneViolation(GZ_HOME, [actor('home', inZone(0), GZ.y + 10), straddling], MOUTH)).toBe(0);
+    });
+  });
+
   it('수비와 공격이 섞여 있어도 **수비만** 센다', () => {
     const mixed = [
       actor('home', inZone(0), GZ.y + 10),
