@@ -1,13 +1,14 @@
 // §7 5.2 — 재탭 순환의 **리듀서 계약**(2026-08-13 기현님 실기 피드백 ③).
 //
 // 한 번의 `BALL_RETAP` 이 두 리듀서에서 갈라진다: drillReducer 는 원을 한 칸 돌리고,
-// uiReducer 는 **5 m 였을 때만** 선택을 푼다. 그래서 순환의 네 칸이 여기서 전부 관측된다:
-//   탭① 선택(원 없음) → 탭② 3 m → 탭③ 5 m → 탭④ 원 없음 + 선택 해제.
+// uiReducer 는 **순환의 마지막 칸에서만** 선택을 푼다. 2026-08-27 에 5 m 가 두 칸으로 늘었다
+// (우리 공 / 상대 공 — 세트피스 소유):
+//   탭① 3 m → 탭② 5 m(우리) → 탭③ 5 m(상대) → 탭④ 원 없음 + 선택 해제.
 // 포인터에서 여기까지의 배선은 features/editor/useEditorPointer.tapDeselect.test.tsx 가 잰다.
 import { describe, expect, it } from 'vitest';
 import { createDrill } from '../../model/defaults.ts';
 import { addBall } from '../../model/edits.ts';
-import { ballRingOf, type BallRing, type Drill } from '../../model/drill.ts';
+import { ballRingOf, type BallRing, type Drill, type TeamSide } from '../../model/drill.ts';
 import type { BallId } from '../../core/ids.ts';
 import { COMMIT_TYPES, COALESCE_TYPES, EPOCH_BUMP_TYPES } from './actions.ts';
 import { editorRootReducer, initEditorState } from './reducer.ts';
@@ -29,8 +30,10 @@ const rings = (s: EditorState): BallRing[] => {
   return s.present.cast.balls.map((b) => ballRingOf(step, b.id));
 };
 const retap = (s: EditorState, id: BallId): EditorState => editorRootReducer(s, { type: 'BALL_RETAP', id });
+const ownerOf = (s: EditorState, id: BallId): TeamSide | undefined =>
+  (s.present.steps.find((st) => st.id === s.stepId) ?? s.present.steps[0]!).ballOwner?.[id];
 
-describe('5.2 BALL_RETAP — 순환 네 칸', () => {
+describe('5.2 BALL_RETAP — 순환 다섯 칸(5 m 가 우리 공/상대 공 둘)', () => {
   it('없음 → 3 m → 5 m 까지는 선택이 유지된다', () => {
     const { s0, a } = setup();
     const s1 = retap(s0, a);
@@ -41,11 +44,21 @@ describe('5.2 BALL_RETAP — 순환 네 칸', () => {
     expect(s2.selection.has(a)).toBe(true);
   });
 
-  it('5 m 에서 한 번 더 누르면 **원이 꺼지고 선택도 풀린다** — 순환이 닫힌다', () => {
+  it('5 m(우리) 다음 탭은 **소유만 넘긴다** — 원도 선택도 그대로다', () => {
     const { s0, a } = setup();
     const s3 = retap(retap(retap(s0, a), a), a);
-    expect(rings(s3)).toEqual(['none', 'none']);
-    expect(s3.selection.size).toBe(0);
+    expect(rings(s3)).toEqual(['5m', 'none']);
+    expect(ownerOf(s3, a)).toBe('away');
+    // ★ 여기서 선택이 풀리면 소유를 넘긴 뒤 그 공을 계속 다룰 수 없다.
+    expect(s3.selection.has(a)).toBe(true);
+  });
+
+  it('5 m(상대)에서 한 번 더 누르면 **원이 꺼지고 선택도 풀린다** — 순환이 닫힌다', () => {
+    const { s0, a } = setup();
+    const s4 = retap(retap(retap(retap(s0, a), a), a), a);
+    expect(rings(s4)).toEqual(['none', 'none']);
+    expect(ownerOf(s4, a), '원이 꺼지면 소유도 사라진다').toBeUndefined();
+    expect(s4.selection.size).toBe(0);
   });
 
   it('★ 공마다 따로 저장된다 — 한 공을 5 m 로 둔 채 다른 공을 3 m 로 만들 수 있다', () => {
@@ -99,14 +112,23 @@ describe('5.2 BALL_RETAP — 되돌리기·물리와의 관계', () => {
     expect(retap(retap(s0, a), a).past.length - s0.past.length).toBe(2);
   });
 
-  it('스텝을 옮겨도 상태가 남는다 — cast 에 살기 때문이다', () => {
+  // ⚠️ v9(2026-08-27)에 뜻이 뒤집힌 케이스다. 원래는 "스텝을 옮겨도 상태가 남는다 — cast 에
+  // 살기 때문이다" 였다. 이제 링은 스텝 소유이므로, **새 스텝이 상태를 물려받는 것은 복제
+  // 때문**이다(addStepAfter/duplicateStep 이 structuredClone 으로 스텝을 통째로 베낀다).
+  // 결과는 같아 보이지만 이유가 다르고, 그 차이는 "빈 스텝을 새로 만들면 원이 없다" 에서 갈린다.
+  it('스텝을 복제하면 원도 따라온다 — 스텝을 통째로 베끼기 때문이다', () => {
     const { s0, a } = setup();
     const s1 = retap(s0, a); // 3m
     const withStep = editorRootReducer(s1, { type: 'STEP_ADD', afterIndex: 0 });
     const moved = editorRootReducer(withStep, { type: 'STEP_SELECT', id: withStep.present.steps[1]!.id });
     expect(rings(moved)).toEqual(['3m', 'none']);
-    // 스텝을 복제해도 마찬가지다(복제는 스텝을 늘릴 뿐 cast 를 건드리지 않는다).
     const dup = editorRootReducer(moved, { type: 'STEP_DUPLICATE', id: moved.stepId });
     expect(rings(dup)).toEqual(['3m', 'none']);
+    // ★ 그러나 **앞 스텝에서 끄면 뒤 스텝은 그대로다** — 이것이 cast 소유와 갈리는 자리다.
+    const back = editorRootReducer(dup, { type: 'STEP_SELECT', id: dup.present.steps[0]!.id });
+    const off = retap(retap(retap(back, a), a), a); // 3m → 5m → 5m(상대) → 없음
+    expect(rings(off), '앞 스텝은 꺼졌고').toEqual(['none', 'none']);
+    const later = editorRootReducer(off, { type: 'STEP_SELECT', id: off.present.steps[1]!.id });
+    expect(rings(later), '뒤 스텝은 그대로 3 m 다').toEqual(['3m', 'none']);
   });
 });

@@ -15,7 +15,7 @@ import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
-import type { BallRing, Drill, DrillStep, NoteLabel } from '../../model/drill.ts';
+import type { BallRing, Drill, DrillStep, NoteLabel, TeamSide } from '../../model/drill.ts';
 
 import type { ZoneConfig } from '../../model/chair.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
@@ -194,6 +194,14 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     }
     return m;
   }, [step.ballRings]);
+  // 세트피스 소유(2026-08-27) — 링과 같은 스텝, 같은 규약이다. 없는 id 는 진영에서 파생한다.
+  const ballOwners = useMemo(() => {
+    const m: Record<string, TeamSide> = {};
+    for (const [id, t] of Object.entries(step.ballOwner ?? {})) {
+      if (t !== undefined) m[id] = t;
+    }
+    return m;
+  }, [step.ballOwner]);
   const cones = useMemo<ObjectLayerCone[]>(
     () => drill.cast.cones.filter((c) => step.cones[c.id] !== undefined).map((c) => ({ id: c.id, colorIndex: c.colorIndex })),
     [drill.cast.cones, step.cones],
@@ -671,7 +679,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       selectionOverlayRef={pointer.selectionOverlayRef}
       dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
-      ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, teamStyles: drill.teams, defense: drill.defense, ballRings } : undefined}
+      ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, teamStyles: drill.teams, defense: drill.defense, ballRings, ballOwners } : undefined}
       arrowHandles={{ arrow: selectedArrow }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />

@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createDrill } from './defaults.ts';
 import { addBall, cycleBallRing } from './edits.ts';
+import type { TeamSide } from './drill.ts';
 import {
   BALL_RINGS,
   CURRENT_DRILL_SCHEMA,
@@ -38,7 +39,7 @@ function twoBallDrill(): { drill: Drill; a: BallId; b: BallId } {
   return { drill: withTwo, a: a!, b: b! };
 }
 
-describe('5.2 순환 규칙 — 없음 → 3 m → 5 m → 없음', () => {
+describe('5.2 순환 규칙 — 없음 → 3 m → 5 m(우리) → 5 m(상대) → 없음', () => {
   it('nextBallRing 은 세 칸을 돈다 — 어디서 시작해도 3번이면 제자리다', () => {
     expect(nextBallRing('none')).toBe('3m');
     expect(nextBallRing('3m')).toBe('5m');
@@ -59,17 +60,50 @@ describe('5.2 순환 규칙 — 없음 → 3 m → 5 m → 없음', () => {
     const { drill, a, b } = twoBallDrill();
     const s1 = cycleBallRing(drill, 0, a); // a: 3m
     expect(ballsOf(s1)).toEqual(['3m', 'none']);
-    const s2 = cycleBallRing(s1, 0, a); // a: 5m
+    const s2 = cycleBallRing(s1, 0, a); // a: 5m(우리)
     expect(ballsOf(s2)).toEqual(['5m', 'none']);
     const s3 = cycleBallRing(s2, 0, b); // b: 3m — a 는 그대로
     expect(ballsOf(s3)).toEqual(['5m', '3m']);
-    const s4 = cycleBallRing(s3, 0, a); // a: 없음으로 닫힌다
-    expect(ballsOf(s4)).toEqual(['none', '3m']);
+    const s4 = cycleBallRing(s3, 0, a); // a: 5m(상대) — 원은 그대로, 소유만 넘어간다
+    expect(ballsOf(s4)).toEqual(['5m', '3m']);
+    const s5 = cycleBallRing(s4, 0, a); // a: 없음으로 닫힌다
+    expect(ballsOf(s5)).toEqual(['none', '3m']);
+  });
+
+  // 기현 지시 2026-08-27 — *"공을 가로지르는 2미터의 흐린 흰색 화살표"* 로 보여 줄 값이다.
+  // 소유가 진영과 갈라져야 하는 이유는 drill.ts `ballOwner` 머리말에 있다(골킥과 코너킥은
+  // 물러나는 팀이 정반대인데 진영 하나로는 둘을 표현할 수 없었다).
+  it('★ 5 m 두 칸이 소유를 나른다 — 우리 공 → 상대 공 → 없음', () => {
+    const { drill, a } = twoBallDrill();
+    const ownerOf = (d: Drill): TeamSide | undefined => d.steps[0]!.ballOwner?.[a];
+
+    const three = cycleBallRing(cycleBallRing(drill, 0, a), 0, a); // 없음 → 3m → 5m
+    expect(ballsOf(three)[0]).toBe('5m');
+    expect(ownerOf(three), '5 m 를 켜는 순간 소유가 정해진다').toBe('home');
+
+    const flipped = cycleBallRing(three, 0, a);
+    expect(ballsOf(flipped)[0], '원은 그대로 5 m 다').toBe('5m');
+    expect(ownerOf(flipped)).toBe('away');
+
+    const off = cycleBallRing(flipped, 0, a);
+    expect(ballsOf(off)[0]).toBe('none');
+    expect(ownerOf(off), '원이 꺼지면 소유도 함께 사라진다').toBeUndefined();
+    // 맵이 비면 키 자체가 없다 — 링과 같은 규약이다.
+    expect(Object.prototype.hasOwnProperty.call(off.steps[0]!, 'ballOwner')).toBe(false);
+  });
+
+  it('3 m 에는 소유가 붙지 않는다 — 2-on-1 은 누가 차는가와 무관한 규칙이다', () => {
+    const { drill, a } = twoBallDrill();
+    const three = cycleBallRing(drill, 0, a);
+    expect(ballsOf(three)[0]).toBe('3m');
+    expect(three.steps[0]!.ballOwner?.[a]).toBeUndefined();
   });
 
   it("'없음' 은 **키 삭제**다 — `{ring: undefined}` 로 남기지 않는다", () => {
     const { drill, a } = twoBallDrill();
-    const off = cycleBallRing(cycleBallRing(cycleBallRing(drill, 0, a), 0, a), 0, a);
+    // 순환이 네 칸이다(5 m 가 우리/상대 두 칸) — 네 번 눌러야 닫힌다.
+    let off = drill;
+    for (let i = 0; i < 4; i++) off = cycleBallRing(off, 0, a);
     // 마지막 하나가 꺼지면 맵 자체가 사라진다(locked/ignored 가 빈 배열을 지우는 것과 같다).
     expect(Object.prototype.hasOwnProperty.call(off.steps[0]!, 'ballRings')).toBe(false);
     // JSON 왕복(파일)과 structuredClone(IDB)이 같은 문서를 만든다 — 명시적 undefined 였다면

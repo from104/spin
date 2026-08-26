@@ -210,6 +210,8 @@ export interface CourtStageProps {
     /** §7 5.2 공마다 따로 켜는 거리 원(공 id → 없음/3 m/5 m). 없는 id 는 'none' 이다.
      *  안 넘기면 링이 하나도 안 그려진다 — 초기값이 '없음' 이기 때문이다. */
     ballRings?: Readonly<Record<string, BallRing>>;
+    /** 공 id → 그 공을 차는 팀(세트피스 소유 화살표·5 m 판정). 통과만 시킨다. */
+    ballOwners?: Readonly<Record<string, TeamSide>>;
   };
   /** 드래그 중 스테이지 전체에 거는 커서. 포인터 캡처로 커서가 개체 밖으로 나가도
    *  잡고 있다는 표시가 유지되어야 하므로 컨테이너에 건다. */
@@ -840,6 +842,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             rules={ruleOverlay.rules}
             ballIds={balls}
             ballRings={ruleOverlay.ballRings}
+            ballOwners={ruleOverlay.ballOwners}
             roster={ruleOverlay.roster}
             defense={ruleOverlay.defense}
             teams={ruleOverlay.teams}

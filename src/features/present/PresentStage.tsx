@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { COURT_BG } from '../../core/colors.ts';
 import { courtDefFor, type CourtMode } from '../../model/court.ts';
-import type { BallRing, Drill, DrillStep } from '../../model/drill.ts';
+import type { BallRing, Drill, DrillStep, TeamSide } from '../../model/drill.ts';
 
 import { arrowColor } from '../../model/arrow.ts';
 import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playback.ts';
@@ -94,6 +94,15 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
     const m: Record<string, BallRing> = {};
     for (const [id, r] of Object.entries(drill.steps[stepIdx]?.ballRings ?? {})) {
       if (r !== undefined) m[id] = r;
+    }
+    return m;
+  }, [drill.steps, stepIdx]);
+  // 세트피스 소유 — 편집 화면과 같은 규약(스텝별). 시연에도 화살표가 나가야 보는 사람이
+  // "지금 누구 공인지" 를 안다(기현 지시 2026-08-27).
+  const ballOwners = useMemo(() => {
+    const m: Record<string, TeamSide> = {};
+    for (const [id, t] of Object.entries(drill.steps[stepIdx]?.ballOwner ?? {})) {
+      if (t !== undefined) m[id] = t;
     }
     return m;
   }, [drill.steps, stepIdx]);
@@ -219,7 +228,7 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
           ⚠️ 도형은 스텝을 따라간다(화살표·메모와 같다). 시연은 프레임 보간을 쓰지만 도형은
           움직이는 개체가 아니라 **표시**라, 보간 없이 지금 스텝의 것을 그대로 그린다. */}
       <ShapeLayer shapes={drill.steps[stepIdx]?.shapes ?? []} />
-      <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} ballRings={ballRings} roster={ruleRoster} teams={drill.teams} defense={drill.defense} />
+      <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} ballRings={ballRings} ballOwners={ballOwners} roster={ruleRoster} teams={drill.teams} defense={drill.defense} />
       {/* 개체 자체는 접근성 트리에서 뺀다 — 실제 서술은 아래 스텝 이름·메모(텍스트)와
           §7.5e 라이브 리전(스텝 전환 발표)이 맡는다. render-stage 리프가 강제하는
           role="button" 은 시연에서 실제로 클릭 가능하지 않아 노출하면 오히려 오도한다. */}

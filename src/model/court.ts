@@ -448,6 +448,22 @@ export interface GoalMouth {
  *  ⚠️ 배열 순서는 `ruleZones` 와 **같다**(풀: 왼쪽·오른쪽, 하프: 하나). 진영을 입히는 규약이
  *  둘 다 같으므로, 순서가 갈리면 면제가 **상대 골대**에서 붙는다.
  *  플랫 코트는 골대가 없어 빈 배열이다. */
+/** 골대 `i` 를 지키는 팀이 **공격하는 방향**(축 정렬 단위 벡터). 골대는 언제나 경기면 중심의
+ *  반대쪽에 있으므로, 골대에서 중심을 향하는 쪽이 곧 그 팀이 밀고 나가는 방향이다.
+ *
+ *  배열 순서는 `goalMouths`·`ruleZones` 와 **같다**(`defendedZones`/`defendedMouths` 가
+ *  `[0]` = `Drill.defense` 로 진영을 입히는 그 순서). 골대가 없으면(플랫) null 이다.
+ *
+ *  쓰는 곳: 세트피스 소유 화살표 — 심판이 팔로 가리키는 그 방향이다. */
+export function attackDir(def: CourtDef, i: number): Vec2 | null {
+  const a = def.goalPosts[i * 2];
+  const b = def.goalPosts[i * 2 + 1];
+  if (!a || !b) return null;
+  const s = def.surface;
+  if (a.x === b.x) return { x: a.x < s.x + s.w / 2 ? 1 : -1, y: 0 }; // 세로 골라인(풀 좌·우)
+  return { x: 0, y: a.y < s.y + s.h / 2 ? 1 : -1 }; // 가로 골라인(하프 아래)
+}
+
 export function goalMouths(def: CourtDef): GoalMouth[] {
   const s = def.surface;
   const cx = s.x + s.w / 2;

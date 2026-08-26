@@ -302,7 +302,7 @@ describe('[A-3 예외 / 5.2] 선택된 **공** 재탭 = 원 순환', () => {
   // v9 — 링은 스텝 소유다. 이 하네스는 스텝이 하나뿐이라 첫 스텝이 곧 편집 중인 스텝이다.
   const ringOf = (r: Harness, id: BallId): BallRing => ballRingOf(r.current.state.present.steps[0]!, id);
 
-  it('탭 넷이 한 바퀴를 돈다 — 없음 → 3 m → 5 m → 없음 + 해제', () => {
+  it('탭 다섯이 한 바퀴를 돈다 — 없음 → 3 m → 5 m(우리) → 5 m(상대) → 없음 + 해제', () => {
     const { drill, ballId } = makeBallDrill();
     const { result } = mount(drill);
 
@@ -318,7 +318,12 @@ describe('[A-3 예외 / 5.2] 선택된 **공** 재탭 = 원 순환', () => {
     expect(ringOf(result, ballId)).toBe('5m');
     expect(result.current.state.selection.has(ballId)).toBe(true);
 
-    tap(result, BALL_AT); // ④ 닫힌다
+    tap(result, BALL_AT); // ④ 소유가 상대로 넘어간다. 원도 선택도 그대로다.
+    expect(ringOf(result, ballId)).toBe('5m');
+    expect(result.current.state.present.steps[0]!.ballOwner?.[ballId]).toBe('away');
+    expect(result.current.state.selection.has(ballId)).toBe(true);
+
+    tap(result, BALL_AT); // ⑤ 닫힌다
     expect(ringOf(result, ballId)).toBe('none');
     expect(result.current.state.selection.size).toBe(0);
   });

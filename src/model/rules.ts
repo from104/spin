@@ -366,6 +366,22 @@ export function fiveMeterViolation(
   return 0;
 }
 
+export const otherSide = (s: TeamSide): TeamSide => (s === 'home' ? 'away' : 'home');
+
+/** 5 m 를 **물러나야 하는 팀** = 공을 차는 팀의 반대.
+ *
+ *  ⚠️ 이 함수가 있는 이유는 `Drill.defense`(골 지역을 지키는 팀)와 "물러나는 팀" 이 **같은
+ *  값이 아니기 때문**이다. 코너킥·킥인은 공격이 차니 수비가 물러나 둘이 우연히 겹치지만,
+ *  **골킥·수비 프리킥은 수비가 차므로 정반대**다. 소유(`DrillStep.ballOwner`)가 명시돼 있으면
+ *  그 반대를 돌려주고, 없으면 진영을 그대로 쓴다 — 그것이 이 필드가 생기기 전의 동작이라
+ *  옛 문서의 그림이 보존된다(drill.ts `ballOwner` 머리말).
+ *
+ *  `defense` 가 null 이면(플랫 코트) 5 m 규칙 자체가 꺼진 것이므로 null 을 지나 보낸다. */
+export function fiveMeterRetreat(owner: TeamSide | undefined, defense: TeamSide | null): TeamSide | null {
+  if (defense === null) return null;
+  return owner !== undefined ? otherSide(owner) : defense;
+}
+
 /** 공 하나의 링 판정 — **어느 규칙인지는 원이 정한다**(`ruleForRing`). 소비자 둘이 이 함수
  *  하나를 지나므로 화면과 PNG 가 갈라질 자리가 없다. 반환은 위반한 팀의 비트합이다. */
 export function ballRingViolation(

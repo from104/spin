@@ -9,6 +9,7 @@ import type { ChairId } from '../../core/ids.ts';
 import { ChairChip } from '../../render/objects/ChairChip.tsx';
 import { createTransformWriter } from '../../render/transformWriter.ts';
 import { RULE_ALERT_STROKE, RULE_ZONE_ALERT_FILL } from '../../render/ruleOverlay.ts';
+import { mToPx } from '../../core/units.ts';
 import { RING_5M_R_PX, RING_R_PX } from '../../model/rules.ts';
 import { buildStaticSvg, buildStaticScene } from './buildStaticSvg.ts';
 import { staticSceneMetrics, EXPORT_LAYOUT } from './staticSceneLayout.ts';
@@ -262,6 +263,36 @@ describe('buildStaticSvg — 규칙 오버레이(거리 원 · 골 지역)', () 
     target.y = 262.5;
     return f;
   };
+
+  // 기현 지시 2026-08-27 — 소유 화살표는 **시연·PNG 에도** 나가야 한다. 화면만 그리면
+  // 코치가 판에서 본 것과 내보낸 그림이 갈라진다(진영 깃발이 그림에서만 빠졌던 사고와 같은 형태).
+  describe('세트피스 소유 화살표', () => {
+    const withOwner = (owner: 'home' | 'away') => {
+      const f = ringFrame('5m');
+      f.balls = f.balls.map((b) => ({ ...b, owner }));
+      return f;
+    };
+    const arrowD = `M ${-mToPx(2) / 2} 0 L ${mToPx(2) / 2} 0`;
+
+    it('5 m + 소유가 있으면 그림에도 화살표가 실린다', () => {
+      expect(buildStaticSvg(withOwner('home'), ringOpts)).toContain(arrowD);
+    });
+
+    it('소유가 없으면 안 그린다 — 진영에서 파생하는 옛 문서는 화살표가 없다', () => {
+      expect(buildStaticSvg(ringFrame('5m'), ringOpts)).not.toContain(arrowD);
+    });
+
+    it('3 m 에는 안 그린다 — 2-on-1 은 누가 차는가와 무관하다', () => {
+      const f = ringFrame('3m');
+      f.balls = f.balls.map((b) => ({ ...b, owner: 'home' as const }));
+      expect(buildStaticSvg(f, ringOpts)).not.toContain(arrowD);
+    });
+
+    it('★ 두 팀이 정확히 반대 방향이다 — 화면(RuleOverlay)과 같은 규약', () => {
+      const deg = (svg: string): number => Number(/rotate\(([-\d.]+)\)" opacity/.exec(svg)![1]);
+      expect(Math.abs(deg(buildStaticSvg(withOwner('away'), ringOpts)) - deg(buildStaticSvg(withOwner('home'), ringOpts)))).toBe(180);
+    });
+  });
 
   it('showRuleZones 가 꺼져 있으면 링도 존도 없다', () => {
     const svg = buildStaticSvg(makeFrame(), OPTS);

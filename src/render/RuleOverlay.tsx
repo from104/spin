@@ -18,11 +18,16 @@
 // 규율은 하나도 바뀌지 않았다. 바뀐 것은 **몇 개를 그리는가** 뿐이다. 그리고 **판정은 표시와
 // 무관하다**: 원이 '없음' 인 공도 링 그룹은 등록되어 2-on-1 판정과 발화를 그대로 탄다.
 import { useEffect, useMemo, useRef } from 'react';
-import { courtDefFor, goalMouths, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
+import { attackDir, courtDefFor, goalMouths, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
-import { defaultDefense, defendedMouths, defendedZones, ringRadiusPx } from '../model/rules.ts';
+import { defaultDefense, defendedMouths, defendedZones, otherSide, ringRadiusPx } from '../model/rules.ts';
 import type { TransformWriter } from './transformWriter.ts';
 import {
+  ownerArrowPath,
+  OWNER_ARROW_HEAD_PX,
+  OWNER_ARROW_LEN_PX,
+  OWNER_ARROW_OPACITY,
+  OWNER_ARROW_W,
   RULE_DASH,
   RULE_OK_STROKE,
   RULE_ZONE_ALERT_FILL,
@@ -51,6 +56,11 @@ interface RingProps {
   id: string;
   /** 5.2 — 이 공의 원(없음/3 m/5 m). 반지름은 `ringRadiusPx` 에서만 온다(리터럴 금지). */
   ring: BallRing;
+  /** 이 공을 차는 팀. 5 m 링일 때만 화살표를 그린다 — 3 m(2-on-1)에는 소유 개념이 없다. */
+  owner?: TeamSide;
+  /** 소유 팀이 공격하는 방향(도). `attackDir` 에서 파생해 호출부가 계산한다 — 코트 정의를
+   *  공마다 다시 읽지 않기 위해서다. */
+  ownerDeg?: number;
   writer: TransformWriter;
   rules: RuleOverlayApi;
 }
@@ -62,7 +72,7 @@ interface RingProps {
  *  원(圓)이 없을 뿐 그리는 것이 없는 것이고, 등록을 건너뛰면 그 공은 `judge()` 의 rings 순회에서
  *  빠져 **2-on-1 판정과 라이브 리전 발화가 통째로 사라진다**(표시와 판정은 독립이다). 실측으로
  *  확인한 자리다: 조건부 등록으로 만들면 "원을 끈 공 옆에서 반칙이 나도 아무도 말하지 않는다". */
-function RuleRing({ id, ring, writer, rules }: RingProps) {
+function RuleRing({ id, ring, owner, ownerDeg, writer, rules }: RingProps) {
   const followRef = useRef<SVGGElement | null>(null);
   const stateRef = useRef<SVGGElement | null>(null);
 
@@ -74,10 +84,12 @@ function RuleRing({ id, ring, writer, rules }: RingProps) {
 
   // ⚠️ deps 에 `ring` 이 있어야 한다 — **판정 규칙이 원에서 갈리기 때문**이다(model/rules.ts 의
   //    `ruleForRing`). 빼면 3 m 로 등록된 공을 5 m 로 바꿔도 판정이 2-on-1 에 머문다.
+  // ⚠️ `owner` 도 deps 다 — 소유가 뒤집히면 5 m 를 물러날 팀이 반대가 되므로(fiveMeterRetreat)
+  //    등록을 다시 타야 한다. `ring` 을 deps 에 둔 것과 같은 이유다.
   useEffect(() => {
-    rules.registerRing(id, stateRef.current, ring);
+    rules.registerRing(id, stateRef.current, ring, owner);
     return () => rules.registerRing(id, null);
-  }, [rules, id, ring]);
+  }, [rules, id, ring, owner]);
 
   const r = ringRadiusPx(ring);
   return (
@@ -90,6 +102,18 @@ function RuleRing({ id, ring, writer, rules }: RingProps) {
           </>
         )}
       </g>
+      {ring === '5m' && owner !== undefined && ownerDeg !== undefined && (
+        <g transform={`rotate(${ownerDeg})`} opacity={OWNER_ARROW_OPACITY} aria-hidden>
+          <path
+            d={ownerArrowPath(OWNER_ARROW_LEN_PX, OWNER_ARROW_HEAD_PX)}
+            fill="none"
+            stroke={RULE_OK_STROKE}
+            strokeWidth={OWNER_ARROW_W}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
+      )}
     </g>
   );
 }
@@ -136,6 +160,10 @@ export interface RuleOverlayProps {
    *  대부분의 공이 여기 없다). 전역 스위치 하나가 아니라 표를 받는 것이 핵심이다: 공 두 개가
    *  서로 다른 원을 가질 수 있어야 한다. */
   ballRings?: Readonly<Record<string, BallRing>>;
+  /** 공 id → 그 공을 **차는 팀**(`DrillStep.ballOwner`). 5 m 링일 때만 뜻이 있다. 없는 id 는
+   *  진영에서 파생한다(model/rules.ts `fiveMeterRetreat`) — 그것이 이 필드가 생기기 전의
+   *  동작이라 옛 드릴의 그림이 보존된다. */
+  ballOwners?: Readonly<Record<string, TeamSide>>;
   /** 선수 명단(팀·골키퍼). 좌표는 프레임에서 온다 — 여기로 내리지 않는다. */
   roster: readonly RuleRosterEntry[];
   teams: Record<TeamSide, { label: string }>;
@@ -145,7 +173,7 @@ export interface RuleOverlayProps {
   defense?: TeamSide;
 }
 
-export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballRings, roster, teams, defense }: RuleOverlayProps) {
+export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballRings, ballOwners, roster, teams, defense }: RuleOverlayProps) {
   const locale = useLocale();
   const def = courtDefFor(mode, size);
   const zones = def.ruleZones;
@@ -173,6 +201,14 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
   }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, teams, locale, mode, def]);
 
   const ringOf = (id: string): BallRing => ballRings?.[id] ?? 'none';
+  // 소유 화살표의 방향 — **코트당 한 번만** 계산한다(공마다 코트 정의를 다시 읽지 않는다).
+  // `attackDir(def, 0)` 은 진영(`side`) 팀이 공격하는 방향이므로, 상대가 소유면 뒤집는다.
+  const ownerDegs = useMemo(() => {
+    const d = attackDir(def, 0);
+    if (!d) return null; // 플랫 코트 — 골대가 없어 "어느 쪽으로 공격" 이 성립하지 않는다
+    const deg = (Math.atan2(d.y, d.x) * 180) / Math.PI;
+    return { [side]: deg, [otherSide(side)]: deg + 180 } as Record<TeamSide, number>;
+  }, [def, side]);
   // §7 5.2 — **스위치가 꺼져 있어도 사용자가 켠 원은 남는다**(2026-08-13 판단, 기현님 실기 ③).
   // 골 지역 존과 다른 축이기 때문이다: 존은 "규칙을 보여 줘" 라는 화면 설정이고, 개별 공의 원은
   // 그 공을 세 번 눌러 **명시적으로 켠 것**이다. 스위치로 지워 버리면 켠 사람이 이유를 알 수
@@ -191,9 +227,20 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
         goalAreas.map((z, i) => (
           <RuleZoneMark key={`${z.rect.x},${z.rect.y}`} index={i} zone={z.rect} rules={rules} />
         ))}
-      {shown.map((id) => (
-        <RuleRing key={id} id={id} ring={ringOf(id)} writer={writer} rules={rules} />
-      ))}
+      {shown.map((id) => {
+        const owner = ballOwners?.[id];
+        return (
+          <RuleRing
+            key={id}
+            id={id}
+            ring={ringOf(id)}
+            owner={owner}
+            ownerDeg={owner !== undefined ? ownerDegs?.[owner] : undefined}
+            writer={writer}
+            rules={rules}
+          />
+        );
+      })}
     </g>
   );
 }

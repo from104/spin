@@ -5,7 +5,7 @@ import type { Vec2 } from '../core/units.ts';
 import { lerpAngle, shortestDelta, arcTangentK } from '../core/angle.ts';
 import { easeStandard } from '../core/geom.ts';
 import type { ChairId, BallId, ConeId } from '../core/ids.ts';
-import type { Drill, DrillStep, ChairDef, NoteLabel, StoredBallRing } from './drill.ts';
+import type { Drill, DrillStep, ChairDef, NoteLabel, StoredBallRing, TeamSide } from './drill.ts';
 import type { Arrow } from './arrow.ts';
 import { poseFromStored, type ChairPose } from './chair.ts';
 
@@ -37,6 +37,9 @@ export interface RenderBall {
    *  프레임으로 옮겨 싣는 표시 상태다). **PNG 가 이것을 읽는다** — 프레임에 안 실으면
    *  내보낸 그림에만 원이 사라지거나(또는 모든 공에 3 m 가 다시 뜨거나) 한다. */
   ring?: StoredBallRing;
+  /** 그 스텝에서 이 공을 **차는 팀**(세트피스 소유). 링과 같은 이유로 프레임에 싣는다 —
+   *  PNG 가 이것을 읽어 화살표를 그리고 5 m 판정의 방향을 정한다. 없으면 진영에서 파생한다. */
+  owner?: TeamSide;
 }
 export interface RenderCone {
   id: ConeId;
@@ -149,13 +152,15 @@ export function interpolateSteps(d: Drill, from: DrillStep, to: DrillStep, e: nu
     // 방향과 같다(drill.ts 사슬 절). 그래서 원은 스텝 경계에서 즉시 갈린다.
     const r = to.ballRings?.[def.id];
     const ring = r !== undefined ? { ring: r } : {};
+    const o = to.ballOwner?.[def.id];
+    const owner = o !== undefined ? { owner: o } : {};
     if (presence === 'both') {
       const p = lerpVec(a!, b!, e);
-      balls.push({ id: def.id, x: p.x, y: p.y, opacity: 1, ...ring });
+      balls.push({ id: def.id, x: p.x, y: p.y, opacity: 1, ...ring, ...owner });
     } else if (presence === 'exit') {
-      balls.push({ id: def.id, x: a!.x, y: a!.y, opacity: 1 - e, ...ring });
+      balls.push({ id: def.id, x: a!.x, y: a!.y, opacity: 1 - e, ...ring, ...owner });
     } else {
-      balls.push({ id: def.id, x: b!.x, y: b!.y, opacity: e, ...ring });
+      balls.push({ id: def.id, x: b!.x, y: b!.y, opacity: e, ...ring, ...owner });
     }
   }
 
