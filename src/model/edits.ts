@@ -104,28 +104,39 @@ export function updateChairDef(d: Drill, id: ChairId, patch: Partial<Omit<ChairD
   return { ...d, cast: { ...d.cast, chairs } };
 }
 
-/** 5.2 — **그 공 하나**의 거리 원을 한 칸 돌린다: 없음 → 3 m → 5 m → 없음.
+/** 5.2 — **그 스텝의 그 공 하나**의 거리 원을 한 칸 돌린다: 없음 → 3 m → 5 m → 없음.
  *
- *  ⚠️ 공마다 따로다. `cast.balls` 배열에서 그 항목만 갈아 끼우므로 다른 공의 원은 손대지
- *  않는다 — 여기를 드릴 레벨 필드 하나(예: `d.ringMode`)로 바꾸면 공 두 개가 서로 다른
- *  원을 가질 수 없게 되고, **공이 하나뿐인 테스트는 그대로 초록불**이다(그래서 두 개짜리
- *  단언이 따로 있다: model/ballRing.test.ts).
+ *  ⚠️ **스텝 하나만 바꾼다**(2026-08-27 기현 결정). 다른 스텝의 같은 공은 손대지 않는다 —
+ *  킥오프처럼 "멈춰 있는 동안만 5 m" 를 표현하려면 이래야 한다. 대가는 탭 횟수다(12스텝
+ *  드릴에서 내내 켜려면 12번). 그 비용을 알고 고른 것이라, "이후 전부에 적용" 같은 편의를
+ *  나중에 얹더라도 **이 함수는 한 스텝짜리로 남긴다** — 범위는 부르는 쪽이 정한다.
+ *
+ *  ⚠️ 공마다 따로다. 맵에서 그 키만 갈아 끼우므로 다른 공의 원은 손대지 않는다 — 여기를
+ *  스텝 레벨 필드 하나(예: `step.ringMode`)로 바꾸면 공 두 개가 서로 다른 원을 가질 수 없게
+ *  되고, **공이 하나뿐인 테스트는 그대로 초록불**이다(그래서 두 개짜리 단언이 따로 있다:
+ *  model/ballRing.test.ts).
  *  ⚠️ '없음' 은 `ring: undefined` 가 아니라 **키 삭제**다(omitKey 머리말과 같은 이유:
- *  structuredClone 은 undefined 키를 보존하고 JSON 은 지운다 → export 왕복으로 뜻이 바뀐다). */
-export function cycleBallRing(d: Drill, id: BallId): Drill {
-  const idx = d.cast.balls.findIndex((b) => b.id === id);
-  if (idx === -1) return d;
-  const cur = d.cast.balls[idx]!;
-  const next = nextBallRing(ballRingOf(cur));
-  const balls = d.cast.balls.slice();
-  if (next === 'none') {
-    const { ring, ...rest } = cur;
-    void ring;
-    balls[idx] = rest;
-  } else {
-    balls[idx] = { ...cur, ring: next };
-  }
-  return { ...d, cast: { ...d.cast, balls } };
+ *  structuredClone 은 undefined 키를 보존하고 JSON 은 지운다 → export 왕복으로 뜻이 바뀐다).
+ *  맵이 비면 `ballRings` 키 자체를 지운다 — `locked`/`ignored` 가 빈 배열을 지우는 것과 같다. */
+export function cycleBallRing(d: Drill, stepIndex: number, id: BallId): Drill {
+  const step = d.steps[stepIndex];
+  if (!step) return d;
+  if (!d.cast.balls.some((b) => b.id === id)) return d;
+  // 그 스텝의 판에 없는 공은 원을 가질 수 없다(validate 가 떨굴 값을 만들지 않는다).
+  if (step.balls[id] === undefined) return d;
+
+  const next = nextBallRing(ballRingOf(step, id));
+  const { [id]: _cur, ...restRings } = step.ballRings ?? {};
+  void _cur;
+  const rings = next === 'none' ? restRings : { ...restRings, [id]: next };
+
+  const nextStep = { ...step };
+  if (Object.keys(rings).length === 0) delete nextStep.ballRings;
+  else nextStep.ballRings = rings;
+
+  const steps = d.steps.slice();
+  steps[stepIndex] = nextStep;
+  return { ...d, steps };
 }
 
 // 오버로드로 id ↔ pose 상관을 강제한다. 단일 유니온이면 휠체어에 {x,y} 를 넣어도 컴파일된다

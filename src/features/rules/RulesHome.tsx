@@ -48,6 +48,8 @@ export function RulesHome({ topics, onOpen }: RulesHomeProps) {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
         gap: 14,
+        maxWidth: 1180,
+        margin: '0 auto',
         padding: '26px 30px 46px',
       }}
     >

@@ -299,7 +299,8 @@ describe('[A-3 예외 / 5.2] 선택된 **공** 재탭 = 원 순환', () => {
     return { chairId, ballId, drill: { ...base, steps: [step] } };
   }
 
-  const ringOf = (r: Harness, id: BallId): BallRing => ballRingOf(r.current.state.present.cast.balls.find((b) => b.id === id)!);
+  // v9 — 링은 스텝 소유다. 이 하네스는 스텝이 하나뿐이라 첫 스텝이 곧 편집 중인 스텝이다.
+  const ringOf = (r: Harness, id: BallId): BallRing => ballRingOf(r.current.state.present.steps[0]!, id);
 
   it('탭 넷이 한 바퀴를 돈다 — 없음 → 3 m → 5 m → 없음 + 해제', () => {
     const { drill, ballId } = makeBallDrill();

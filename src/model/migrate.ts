@@ -51,10 +51,10 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
       return out;
     },
   },
-  // 5.2 `BallDef.ring`(공마다 3 m/5 m 원)은 **여기에 단계를 더하지 않는다** — 근거 셋은
-  // drill.ts 의 CURRENT_DRILL_SCHEMA 주석에 있다. 요지: 없으면 'none' 이 전역이라 채울 것이
-  // 0 이고, 옛 앱이 몰라도 좌표의 뜻이 안 바뀌며, 도장을 올리면 배포된 v0.1.0 이 새 파일을
-  // 전부 too-new 로 거절한다. **이 체인의 마지막 to 는 CURRENT_DRILL_SCHEMA 와 같아야 한다**
+  // 5.2 `BallDef.ring`(공마다 3 m/5 m 원)은 오래 **여기에 단계가 없었다** — 근거 셋은 drill.ts
+  // 의 CURRENT_DRILL_SCHEMA 주석에 있고, 링이 cast 에 사는 동안은 그 판단이 옳았다. 2026-08-27
+  // 에 링이 스텝으로 내려오면서(v9) 결국 단계가 생겼다 — 이 체인 **맨 끝**을 보라.
+  // **이 체인의 마지막 to 는 CURRENT_DRILL_SCHEMA 와 같아야 한다**
   // (같지 않으면 migrateDoc 이 no-path 로 떨어져 모든 옛 파일이 열리지 않는다).
   {
     from: 3,
@@ -216,6 +216,52 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
       delete out.reps;
       delete out.sets;
       delete out.intervalSec;
+      return out;
+    },
+  },
+  {
+    from: 8,
+    to: 9,
+    describe: 'drill v8→v9: 공의 거리 원을 cast 에서 스텝으로 — cast.balls[].ring → steps[].ballRings',
+    // ⚠️ **위 "여기에 단계를 더하지 않는다" 주석이 가리키던 그 필드다**(2026-08-13 판단).
+    // 그때는 참이었다 — 근거 ①이 *"없으면 'none' 이 전역이라 채울 것이 0"* 이었고, 링이 cast 에
+    // 사는 한 그 말이 맞았다. 2026-08-27 에 링이 스텝으로 내려오면서 ①이 깨졌다: cast 의 값을
+    // **전 스텝에 옮겨 적어야** 지금 보이는 그림이 보존된다.
+    //
+    // ⚠️ 옮겨 적지 않으면 조용한 손실이다. 링은 표시가 아니라 **규칙 선택**이라('5m' = 이 공은
+    // 세트피스, model/rules.ts `ruleForRing`), 잃으면 2-on-1 판정으로 조용히 되돌아간다.
+    //
+    // 전 스텝에 같은 값을 적는 것이 **지금 그림 그대로**다 — cast 소유였다는 말이 곧 "모든
+    // 스텝이 한 값을 공유했다" 이기 때문이다. 스텝마다 다르게 만드는 것은 이제 사용자 몫이다.
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      const cast = out.cast;
+      if (!cast || typeof cast !== 'object') return out;
+      const balls = (cast as Record<string, unknown>).balls;
+      if (!Array.isArray(balls)) return out;
+
+      // cast 에서 ring 을 걷어내면서 id→ring 을 모은다.
+      const rings: Record<string, string> = {};
+      const strippedBalls = balls.map((b) => {
+        if (!b || typeof b !== 'object') return b;
+        const { ring, ...rest } = b as Record<string, unknown>;
+        const id = rest.id;
+        if (typeof id === 'string' && (ring === '3m' || ring === '5m')) rings[id] = ring;
+        return rest;
+      });
+      out.cast = { ...(cast as Record<string, unknown>), balls: strippedBalls };
+
+      if (Object.keys(rings).length === 0) return out; // 켜 둔 링이 없으면 스텝은 그대로
+      if (!Array.isArray(out.steps)) return out;
+      out.steps = out.steps.map((st) => {
+        if (!st || typeof st !== 'object') return st;
+        const step = st as Record<string, unknown>;
+        // 그 스텝에 실제로 있는 공만 싣는다 — 없는 공의 링은 validate 가 고아로 떨굴 값이다.
+        const present = step.balls && typeof step.balls === 'object' ? Object.keys(step.balls as object) : [];
+        const mine: Record<string, string> = {};
+        for (const id of present) if (rings[id] !== undefined) mine[id] = rings[id];
+        return Object.keys(mine).length === 0 ? step : { ...step, ballRings: mine };
+      });
       return out;
     },
   },

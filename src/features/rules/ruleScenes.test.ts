@@ -4,6 +4,12 @@ import { buildRuleScene, RULE_SCENE_IDS } from './ruleScenes.ts';
 import type { RuleSceneId } from './ruleScenes.ts';
 import { ruleContentFor } from './ruleContent.ts';
 import { validateDrill } from '../../model/validate.ts';
+import type { Drill } from '../../model/drill.ts';
+
+/** v9 — 링은 스텝 소유다. 장면 전체에서 쓰인 링의 **집합**을 본다(중복 제거) — 지금 장면들은
+ *  전부 "장면 내내 같은 링" 이라, 예전에 `cast.balls` 한 줄을 보던 것과 같은 것을 잰다.
+ *  스텝마다 다른 링을 쓰는 장면이 생기면 이 헬퍼가 그 사실을 드러낸다(집합이 둘이 된다). */
+const ringsOf = (d: Drill): string[] => [...new Set(d.steps.flatMap((s) => Object.values(s.ballRings ?? {}).filter((r): r is NonNullable<typeof r> => r !== undefined)))];
 
 describe('buildRuleScene', () => {
   it.each(RULE_SCENE_IDS)('%s — validateDrill 을 통과한다(저장 왕복 불변)', (id) => {
@@ -29,7 +35,7 @@ describe('buildRuleScene', () => {
     ];
     for (const id of RULE_SCENE_IDS) {
       const drill = buildRuleScene(id);
-      const rings = drill.cast.balls.map((b) => b.ring).filter(Boolean);
+      const rings = ringsOf(drill);
       if (THREE_METER_SCENES.includes(id)) {
         expect(rings, id).toEqual(['3m']);
       } else {
@@ -42,7 +48,7 @@ describe('buildRuleScene', () => {
     const FIVE_METER_SCENES: readonly RuleSceneId[] = ['kickoff', 'kick-in', 'goal-kick', 'corner', 'dfk', 'ifk', 'penalty'];
     for (const id of RULE_SCENE_IDS) {
       const drill = buildRuleScene(id);
-      const rings = drill.cast.balls.map((b) => b.ring).filter(Boolean);
+      const rings = ringsOf(drill);
       if (FIVE_METER_SCENES.includes(id)) {
         expect(rings, id).toEqual(['5m']);
       } else {

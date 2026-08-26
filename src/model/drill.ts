@@ -21,11 +21,19 @@ export interface ChairDef {
 }
 /** §7 5.2 공마다 따로 켜는 거리 원(2026-08-13, 기현님 실기 피드백 ③).
  *
- *  **왜 스텝이 아니라 `cast`(공 자체의 속성)인가**: 스텝은 *자세*(pose)만 갖는다
- *  (`DrillStep.balls: PoseMap<BallId, Vec2>` — 값이 좌표뿐이라 상태를 실을 자리가 없다).
- *  콘의 `colorIndex`·휠체어의 `color`/`isGk` 처럼 **개체의 정체성에 붙는 값**은 전부 cast 에
- *  있고, 그래야 스텝을 옮겨도·스텝을 복제해도 같은 공이 같은 원을 갖는다. 스텝마다 두면
- *  스텝 12개짜리 드릴에서 원 하나 켜는 데 탭이 12번 필요하다.
+ *  **스텝마다 따로다**(2026-08-27 기현 지시: *"각 스텝마다 공의 원 상태 … 가 각각 저장되어야
+ *  한다"*). 저장 자리는 `DrillStep.ballRings` 이고, 재탭은 **그 스텝만** 바꾼다.
+ *
+ *  ⚠️ 이 결정은 **뒤집힌 것**이다. 2026-08-13~08-26 에는 `BallDef.ring` 으로 cast 에 있었고,
+ *  근거는 *"콘의 colorIndex·휠체어의 color/isGk 처럼 개체의 정체성에 붙는 값은 cast 에 있다"*
+ *  와 *"스텝마다 두면 스텝 12개짜리 드릴에서 원 하나 켜는 데 탭이 12번 필요하다"* 였다.
+ *  실제로 규칙 장면을 만들면서 그 전제가 깨졌다 — **링은 정체성이 아니라 국면이다.** 킥오프는
+ *  공이 멈춰 있는 동안만 5 m 제한을 받고 킥 이후에는 받지 않는데, cast 소유로는 그 한 장면조차
+ *  표현할 수 없었다(전 스텝이 한 값을 공유한다). 탭 비용은 실재하지만, 표현할 수 없는 것이
+ *  있는 쪽이 더 큰 손해다.
+ *
+ *  ⚠️ 그래서 이것은 `locked`/`ignored`/`cut` 과 **같은 부류**다 — "그 스텝의 판이 어떤
+ *  상태인가". 저장 방식도 그쪽 규약을 따른다: **예외만 싣고, 없으면 'none'**.
  *
  *  ⚠️ **'none' 은 키 없음으로만 표현한다**(그래서 저장형이 `StoredBallRing` 이다) —
  *  `{ring: undefined}` 는 structuredClone(IDB)이 보존하고 JSON 이 지운다(edits.ts `omitKey`
@@ -37,10 +45,10 @@ export type StoredBallRing = Exclude<BallRing, 'none'>;
 
 export interface BallDef {
   id: BallId;
-  /** 없으면 'none'. 값을 채우는 자리는 **재탭 순환 하나뿐**이다(store/editor 의 BALL_RETAP). */
-  ring?: StoredBallRing;
 }
-export const ballRingOf = (b: BallDef): BallRing => b.ring ?? 'none';
+/** 그 스텝에서 이 공이 갖는 원. 값을 채우는 자리는 **재탭 순환 하나뿐**이다
+ *  (store/editor 의 BALL_RETAP → edits.ts 의 `cycleBallRing`). */
+export const ballRingOf = (step: Pick<DrillStep, 'ballRings'>, id: BallId): BallRing => step.ballRings?.[id] ?? 'none';
 /** ⚠️ 이 값은 **표시가 아니라 규칙 선택**이다(2026-08-17). '5m' 은 *"이 공은 세트피스"* 라는
  *  약속이라, 그 공은 2-on-1 대신 **5 m 제한**으로 판정된다 — `model/rules.ts` 의 `ruleForRing`. */
 /** 재탭 순환: 없음 → 3 m → 5 m → 없음. 4번째 탭에서 선택도 함께 풀리는 것은 **여기가 아니라**
@@ -78,6 +86,11 @@ export interface DrillStep {
   durationMs?: number; // 이 스텝만 재생 간격 override
   chairs: PoseMap<ChairId, StoredChairPose>;
   balls: PoseMap<BallId, Vec2>;
+  /** 이 스텝에서 각 공이 갖는 거리 원(2026-08-27, v9). `balls` 옆에 **따로** 두는 이유는
+   *  `balls` 의 값이 `Vec2` 라서다 — 거기에 필드를 얹으면 `sanitizeVec`(좌표 정화기)·
+   *  `setPose` 가 전부 흔들린다. `locked`/`ignored` 처럼 **예외만 싣는 별도 자리**가 이
+   *  파일의 기존 규약이고, 그 규약을 그대로 따른다. 없으면 전부 'none'. */
+  ballRings?: PoseMap<BallId, StoredBallRing>;
   cones: PoseMap<ConeId, Vec2>;
   arrows: Arrow[];
   notes: NoteLabel[];
@@ -220,6 +233,13 @@ export interface TeamStyle {
  *  없이 **틀린 전술 그림**이 나온다. 도장을 올려 두면 옛 앱이 too-new 로 정직하게 거절한다.
  *  (봉투 버전 ENVELOPE_VERSION 은 1 그대로다 — 그릇이 아니라 내용의 버전이다.)
  *
+ *  ⚠️⚠️ **아래 "v4 로 올리지 않았다" 문단은 2026-08-27 에 수명을 다했다.** 링이 cast 에서
+ *  스텝으로 옮겨가며(v9) 도장이 올라갔기 때문이다. 문단을 지우지 않는 이유는 그때의 판단이
+ *  **그때는 옳았기** 때문이다 — 조건 ①②③은 "링이 공의 정체성" 이라는 전제 위에서 셋 다 참이었고,
+ *  무너진 것은 그 전제다(위 `BallRing` 머리말: 링은 정체성이 아니라 국면이다). v9 는 조건 ①이
+ *  깨져서 올린 것이다: 이제 마이그레이션이 **할 일이 있다**(cast 의 값을 전 스텝에 옮겨 적어야
+ *  지금 보이는 그림이 보존된다). ②③은 여전히 참이지만 ①만으로 충분하다.
+ *
  *  ⚠️ **5.2 `BallDef.ring` 은 v4 로 올리지 않았다**(2026-08-13). 위 courtSize 문단과 반대
  *  판단이라 근거를 남긴다 — 셋 다 성립해야 안 올린다:
  *   ① **없으면 'none'** 이 전역(全域)이다. v3 문서에는 이 키가 없고, 없는 것이 곧 초기값이라
@@ -282,7 +302,18 @@ export interface TeamStyle {
  *  없이 **분류가 통째로 사라진** 드릴이 나온다. courtSize 가 문제 삼은 "조용히 다른 문서"
  *  의 형태라 거절이 정답이다. 폐기 셋은 마이그레이션이 description 말미에 텍스트로 보존한다
  *  (migrate.ts v7→v8 — 사용자가 적은 값은 형식이 죽어도 글로 남긴다). */
-export const CURRENT_DRILL_SCHEMA = 8;
+/** v9 = 공의 거리 원이 cast(`BallDef.ring`)에서 스텝(`DrillStep.ballRings`)으로 — 2026-08-27
+ *  기현 지시. 근거는 위 `BallRing` 머리말(링은 정체성이 아니라 국면이다).
+ *
+ *  ⚠️ **②를 넘는다**(도장을 올린다). 2026-08-13 이 "안 올린다" 고 판단할 때 든 조건 ①이
+ *  *"없으면 'none' 이 전역이라 마이그레이션이 할 일이 0"* 이었는데, 이번에는 **할 일이 있다** —
+ *  cast 에 있던 값을 전 스텝에 옮겨 적어야 지금 보이는 그림이 그대로 보존된다. 옮겨 적지 않으면
+ *  링을 켜 둔 옛 드릴이 전부 '원 없음' 으로 열린다(= 5 m 세트피스 판정이 조용히 꺼진다 —
+ *  `ruleForRing`. 표시가 아니라 **규칙 선택**이라 조용한 손실이다).
+ *
+ *  옛 앱 쪽도 거절이 정답이다: v8 앱은 `steps[].ballRings` 를 몰라 전부 무시하고 `cast.balls[].ring`
+ *  을 찾는데 새 파일에는 그 키가 없다 — 파일은 멀쩡히 열리고 **링이 통째로 사라진** 드릴이 나온다. */
+export const CURRENT_DRILL_SCHEMA = 9;
 
 export interface Drill {
   schemaVersion: number;
