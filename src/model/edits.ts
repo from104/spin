@@ -3,7 +3,7 @@
 import type { Vec2 } from '../core/units.ts';
 import { isId, newId } from '../core/ids.ts';
 import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId, ShapeId, StepId } from '../core/ids.ts';
-import type { Drill, DrillStep, DrillCast, ChairDef, NoteLabel, PoseMap } from './drill.ts';
+import type { Drill, DrillStep, DrillCast, ChairDef, NoteLabel, PoseMap, BallRing, TeamSide } from './drill.ts';
 import type { Shape } from './shape.ts';
 import { ballRingOf, nextBallRing } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
@@ -125,14 +125,37 @@ export function cycleBallRing(d: Drill, stepIndex: number, id: BallId): Drill {
   // 그 스텝의 판에 없는 공은 원을 가질 수 없다(validate 가 떨굴 값을 만들지 않는다).
   if (step.balls[id] === undefined) return d;
 
-  const next = nextBallRing(ballRingOf(step, id));
-  const { [id]: _cur, ...restRings } = step.ballRings ?? {};
-  void _cur;
-  const rings = next === 'none' ? restRings : { ...restRings, [id]: next };
+  // 5 m 두 칸(우리 공 / 상대 공)은 **한 순환 안에** 있다 — 5 m 를 켜는 순간은 어차피 소유를
+  // 정해야 하므로 탭 하나가 낭비가 아니고, 새 제스처를 배우지 않아도 된다(기현 결정 2026-08-27).
+  const cur = ballRingOf(step, id);
+  const curOwner = step.ballOwner?.[id];
+  const home: TeamSide = 'home';
+  const away: TeamSide = 'away';
+  let nextRing: BallRing;
+  let nextOwner: TeamSide | undefined;
+  if (cur !== '5m') {
+    nextRing = nextBallRing(cur); // 없음 → 3 m → 5 m
+    nextOwner = nextRing === '5m' ? home : undefined;
+  } else if (curOwner !== away) {
+    nextRing = '5m'; // 5 m(우리) → 5 m(상대)
+    nextOwner = away;
+  } else {
+    nextRing = 'none'; // 5 m(상대) → 없음, 순환이 닫힌다
+    nextOwner = undefined;
+  }
+
+  const { [id]: _r, ...restRings } = step.ballRings ?? {};
+  void _r;
+  const rings = nextRing === 'none' ? restRings : { ...restRings, [id]: nextRing };
+  const { [id]: _o, ...restOwners } = step.ballOwner ?? {};
+  void _o;
+  const owners = nextOwner === undefined ? restOwners : { ...restOwners, [id]: nextOwner };
 
   const nextStep = { ...step };
   if (Object.keys(rings).length === 0) delete nextStep.ballRings;
   else nextStep.ballRings = rings;
+  if (Object.keys(owners).length === 0) delete nextStep.ballOwner;
+  else nextStep.ballOwner = owners;
 
   const steps = d.steps.slice();
   steps[stepIndex] = nextStep;

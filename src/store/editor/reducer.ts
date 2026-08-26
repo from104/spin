@@ -214,8 +214,10 @@ function uiReducerInner(s: EditorState, a: EditorAction): EditorState {
     // Esc · 빈 코트 탭 · 다른 개체 선택. Esc 가 어느 개체든 즉시 해제인 것은 그대로다.
     case 'BALL_RETAP': {
       // v9 — 링은 스텝 소유다. 지금 편집 중인 스텝에서 읽는다(`s.stepId`).
+      // 순환의 **마지막 칸**에서만 풀린다 — 2026-08-27 에 5 m 가 두 칸(우리 공/상대 공)으로
+      // 늘면서, 예전의 "5 m 면 해제" 는 소유를 넘기는 중간 탭에서 선택을 빼앗게 됐다.
       const step = s.present.steps.find((st) => st.id === s.stepId);
-      if (!step || ballRingOf(step, a.id) !== '5m') return s;
+      if (!step || ballRingOf(step, a.id) !== '5m' || step.ballOwner?.[a.id] !== 'away') return s;
       return s.selection.size === 0 ? s : { ...s, selection: new Set<string>() };
     }
     case 'STEP_SELECT':

@@ -37,14 +37,20 @@
 import { DEG } from '../../core/angle.ts';
 import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR, CONE } from '../../core/constants.ts';
-import { courtDefFor, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
+import { attackDir, courtDefFor, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
+import type { TeamSide } from '../../model/drill.ts';
 import type { Shape } from '../../model/shape.ts';
-import { ballRingViolation, defaultDefense, defendedMouths, defendedZones, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
+import { ballRingViolation, defaultDefense, defendedMouths, defendedZones, fiveMeterRetreat, otherSide, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
 import { COURT_LINE_WEIGHTS } from '../../render/CourtSurface.tsx';
 import {
+  ownerArrowPath,
+  OWNER_ARROW_HEAD_PX,
+  OWNER_ARROW_LEN_PX,
+  OWNER_ARROW_OPACITY,
+  OWNER_ARROW_W,
   RULE_ALERT_STROKE,
   RULE_DASH,
   RULE_OK_STROKE,
@@ -96,6 +102,18 @@ const ZONE_MARK_W = 3;
 const ZONE_CASING_W = 6.4;
 
 const attrOpacity = (o: number): string => (o >= 1 ? '' : ` opacity="${num(o)}"`);
+
+/** 세트피스 소유 화살표 — 화면(RuleOverlay.tsx)과 **같은 path 함수·같은 상수**를 쓴다.
+ *  5 m 링이 아니거나 소유가 없거나 방향을 모르면(플랫) 빈 문자열이다. */
+function ownerArrowMarkup(ring: string | undefined, owner: TeamSide | undefined, degs: Record<TeamSide, number> | null): string {
+  if (ring !== '5m' || owner === undefined || degs === null) return '';
+  const d = ownerArrowPath(OWNER_ARROW_LEN_PX, OWNER_ARROW_HEAD_PX);
+  return (
+    `<g transform="rotate(${num(degs[owner])})" opacity="${OWNER_ARROW_OPACITY}">` +
+    `<path d="${d}" fill="none" stroke="${RULE_OK_STROKE}" stroke-width="${OWNER_ARROW_W}" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `</g>`
+  );
+}
 
 /** `translate(x y)` — 회전이 0 이면 붙이지 않는다(문자열이 짧을수록 data URI 가 짧다). */
 function poseTransform(x: number, y: number, theta = 0): string {
@@ -361,6 +379,13 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   // 만드는 것과 **같은 두 값**이다. 플랫 코트는 골대가 없어 규칙 자체가 꺼진다.
   const mouths = defendedMouths(goalMouths(def), side);
   const fiveDefense = def.goalPosts.length === 0 ? null : side;
+  // 소유 화살표 방향 — 코트당 한 번. `attackDir(def,0)` 은 진영 팀의 공격 방향이라 상대는 반대다.
+  const ownerDegOf = ((): Record<TeamSide, number> | null => {
+    const d = attackDir(def, 0);
+    if (!d) return null;
+    const deg = (Math.atan2(d.y, d.x) * 180) / Math.PI;
+    return { [side]: deg, [otherSide(side)]: deg + 180 } as Record<TeamSide, number>;
+  })();
   // §7 5.2(2026-08-13) — **조기 반환을 여기서 뺐다.** 개별 공의 원은 사용자가 그 공을 눌러
   // 명시적으로 켠 것이라 규칙 존 스위치와 다른 축이다(화면 RuleOverlay.tsx 와 같은 판단) —
   // `showRuleZones` 가 꺼져 있어도 PNG 에 실린다. 존·존 위반 표시만 스위치에 매인다.
@@ -390,13 +415,19 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
     // 지나므로 PNG 만 다른 규칙으로 붉어질 자리가 없다 — ⚠️ 여기서 `ringViolation` 을 직접
     // 부르면 5 m 원을 켠 공이 그림에서만 2-on-1 로 판정된다.
     // 스위치가 꺼져 있으면 화면과 같이 판정도 서지 않으므로 흰 파선 그대로 나간다.
-    const bad = (opts.showRuleZones ?? false) && ballRingViolation(b.ring ?? 'none', b, actors, zones, mouths, fiveDefense) !== 0;
+    // 5 m 를 물러날 팀은 **공마다** 다르다 — 그 공을 차는 팀의 반대다. 화면
+    // (render/ruleOverlay.ts)과 같은 함수를 지나므로 PNG 만 반대 팀을 붉히는 일이 없다.
+    const retreat = fiveMeterRetreat(b.owner, fiveDefense);
+    const bad = (opts.showRuleZones ?? false) && ballRingViolation(b.ring ?? 'none', b, actors, zones, mouths, retreat) !== 0;
     const stroke = bad ? RULE_ALERT_STROKE : RULE_OK_STROKE;
     const dash = bad ? '' : ` stroke-dasharray="${RULE_DASH}"`;
     out +=
       `<g transform="${poseTransform(b.x, b.y)}"${attrOpacity(b.opacity)}>` +
       `<circle r="${num(r)}" fill="none" stroke="${RULE_CASING}" stroke-width="${RING_CASING_W}" opacity="${RULE_CASING_OPACITY}"/>` +
       `<circle r="${num(r)}" fill="none" stroke="${stroke}" stroke-width="${RING_MARK_W}"${dash}/>` +
+      // 세트피스 소유 화살표 — 화면(RuleOverlay.tsx)과 **같은 path 함수**를 쓴다. 모양을 여기
+      // 다시 적으면 판 크기·화살촉을 고친 날 그림에서만 어긋난다(§sideFlags 와 같은 교훈).
+      ownerArrowMarkup(b.ring, b.owner, ownerDegOf) +
       `</g>`;
   }
   return out;

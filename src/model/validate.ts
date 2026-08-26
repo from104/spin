@@ -727,6 +727,19 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       }
       if (val === '3m' || val === '5m') ringsMap[key as BallId] = val;
     }
+    // 세트피스 소유(2026-08-27) — 링과 같은 규약이다. **5 m 가 아닌 공의 소유는 뜻이 없어
+    // 버린다**: 3 m(2-on-1)는 누가 차는가와 무관한 규칙이라, 남겨 두면 "보이지도 판정되지도
+    // 않는데 파일에는 있는" 값이 되어 sameDrill 비교만 흔든다.
+    const ownerMap: PoseMap<BallId, TeamSide> = {};
+    const ownerRaw = isRecord(rawStep.ballOwner) ? rawStep.ballOwner : {};
+    for (const [key, val] of Object.entries(ownerRaw)) {
+      if (!ballIds.has(key) || ballsMap[key as BallId] === undefined) {
+        orphanDropped = true;
+        continue;
+      }
+      if (ringsMap[key as BallId] !== '5m') continue;
+      if (val === 'home' || val === 'away') ownerMap[key as BallId] = val;
+    }
     const conesMap: PoseMap<ConeId, Vec2> = {};
     const conesRaw = isRecord(rawStep.cones) ? rawStep.cones : {};
     for (const [key, val] of Object.entries(conesRaw)) {
@@ -773,6 +786,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       chairs: chairsMap,
       balls: ballsMap,
       ...(Object.keys(ringsMap).length > 0 ? { ballRings: ringsMap } : {}),
+      ...(Object.keys(ownerMap).length > 0 ? { ballOwner: ownerMap } : {}),
       cones: conesMap,
       arrows,
       notes,

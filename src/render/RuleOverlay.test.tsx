@@ -22,7 +22,7 @@ const ROSTER = [
  *  옛 단언들이 보던 "공이 있으면 링이 있다" 를 그대로 두려면 픽스처가 원을 켜 줘야 한다.
  *  기본을 '3m' 으로 둔 것은 옛 계약(시각 언어·팔로워·판정 배선)을 계속 재기 위한 것이고,
  *  **초기값이 '없음'** 이라는 새 계약은 아래 'ballRings 를 안 넘기면' 테스트가 따로 잰다. */
-function setup(opts: { visible?: boolean; balls?: string[]; rings?: Record<string, BallRing>; mode?: 'full' | 'half' | 'flat' } = {}) {
+function setup(opts: { visible?: boolean; balls?: string[]; rings?: Record<string, BallRing>; owners?: Record<string, TeamSide>; mode?: 'full' | 'half' | 'flat' } = {}) {
   const writer = createTransformWriter();
   const say = vi.fn();
   const rules = createRuleOverlay({ say, now: () => 0 });
@@ -37,6 +37,7 @@ function setup(opts: { visible?: boolean; balls?: string[]; rings?: Record<strin
         rules={rules}
         ballIds={ballIds}
         ballRings={rings}
+        ballOwners={opts.owners}
         roster={ROSTER}
         teams={TEAMS}
       />
@@ -234,5 +235,50 @@ describe('RuleOverlay — 판정이 그림에 닿는다', () => {
     unmount();
     rules.write(violating);
     expect(ring!.state.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+  });
+});
+
+// 기현 지시 2026-08-27 — *"공을 가로지르는 2미터의 흐린 흰색 화살표로 (심판 시그널과 일맥상통)"*
+describe('RuleOverlay — 세트피스 소유 화살표', () => {
+  /** 소유 화살표만 고른다(링은 circle, 화살표는 path 다). */
+  const arrows = (c: HTMLElement): SVGPathElement[] =>
+    Array.from(c.querySelectorAll('path')).filter((el) => (el.getAttribute('d') ?? '').startsWith('M -25 0'));
+
+  it('5 m + 소유가 있어야 그린다 — 3 m 에는 소유 개념이 없다', () => {
+    expect(arrows(setup({ rings: { bl_1: '3m' }, owners: { bl_1: 'home' } }).container), '3 m').toHaveLength(0);
+    expect(arrows(setup({ rings: { bl_1: '5m' } }).container), '소유 없음').toHaveLength(0);
+    expect(arrows(setup({ rings: { bl_1: '5m' }, owners: { bl_1: 'home' } }).container), '5 m + 소유').toHaveLength(1);
+  });
+
+  it('★ 길이가 2 m 다 — 공을 가로질러 ±1 m', () => {
+    const { container } = setup({ rings: { bl_1: '5m' }, owners: { bl_1: 'home' } });
+    const d = arrows(container)[0]!.getAttribute('d')!;
+    // 몸통이 -25 → +25 = 50 px = 2 m (25 px/m). 리터럴이 아니라 mToPx(2) 파생이다.
+    expect(d).toContain(`M ${-mToPx(2) / 2} 0 L ${mToPx(2) / 2} 0`);
+  });
+
+  it('★ 소유 팀이 **공격하는 방향**을 가리킨다 — 두 팀이 정확히 반대다', () => {
+    const home = setup({ rings: { bl_1: '5m' }, owners: { bl_1: 'home' } });
+    const away = setup({ rings: { bl_1: '5m' }, owners: { bl_1: 'away' } });
+    const degOf = (c: HTMLElement): number => {
+      const t = arrows(c)[0]!.parentElement!.getAttribute('transform')!;
+      return Number(/rotate\(([-\d.]+)\)/.exec(t)![1]);
+    };
+    // 풀 코트 기본 진영은 home(왼쪽 골) → home 은 +x(0°), away 는 그 반대(180°).
+    expect(degOf(home.container)).toBe(0);
+    expect(Math.abs(degOf(away.container) - degOf(home.container))).toBe(180);
+  });
+
+  it('★ 위반 색에 물들지 않는다 — 소유는 판정과 다른 축이다', () => {
+    const { container } = setup({ rings: { bl_1: '5m' }, owners: { bl_1: 'home' } });
+    const arrow = arrows(container)[0]!;
+    // 링의 상태 그룹(stateRef) 안에 있으면 위반 시 붉어진다. 밖에 있어야 흰색으로 남는다.
+    expect(arrow.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    expect(arrow.closest('[stroke-dasharray]'), '링의 상태 그룹 안에 들어갔다').toBeNull();
+  });
+
+  it('플랫 코트는 골대가 없어 방향이 성립하지 않는다 — 그리지 않는다', () => {
+    const { container } = setup({ mode: 'flat', rings: { bl_1: '5m' }, owners: { bl_1: 'home' } });
+    expect(arrows(container)).toHaveLength(0);
   });
 });

@@ -80,8 +80,8 @@ describe('§5.2 IDB 왕복 — 화이트리스트에 이름이 없으면 여기�
     await idbDrillRepo.putDrill(cycleBallRing(made, 0, id)); // 3m
     const on = (await (await getDB()).get('drills', made.id)) as Drill;
     expect(on.steps[0]!.ballRings).toEqual({ [id]: '3m' });
-    // 3m → 5m → 없음
-    await idbDrillRepo.putDrill(cycleBallRing(cycleBallRing(on, 0, id), 0, id));
+    // 3m → 5m(우리) → 5m(상대) → 없음. 5 m 가 두 칸인 것은 소유(공을 차는 팀)를 나르기 때문이다.
+    await idbDrillRepo.putDrill(cycleBallRing(cycleBallRing(cycleBallRing(on, 0, id), 0, id), 0, id));
     const off = (await (await getDB()).get('drills', made.id)) as Drill;
     // 맵이 비면 **키 자체가** 사라진다(locked/ignored 가 빈 배열을 지우는 것과 같다).
     expect(Object.prototype.hasOwnProperty.call(off.steps[0]!, 'ballRings')).toBe(false);
