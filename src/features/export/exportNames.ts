@@ -24,7 +24,14 @@ export function sceneZipName(title: string): string {
 }
 
 /** 한 장면 그림. 스텝 번호는 **1-based** — 캡션에 찍히는 'n/N'(staticSceneLayout.captionSubText)
- *  과 같은 숫자여야 코치가 파일과 그림을 짝지을 수 있다. */
+ *  과 같은 숫자여야 코치가 파일과 그림을 짝지을 수 있다.
+ *
+ *  ⚠️ **두 자리로 채운다**(2026-08-27 기현 지시). 여러 장을 한 번에 뽑을 수 있게 되면서
+ *  드러난 문제다: 패딩이 없으면 파일 탐색기가 문자열로 정렬해 `1, 10, 11, 2, …` 로 흩어진다.
+ *  스텝 상한이 60(`LIMITS.maxSteps`)이라 두 자리면 전부 덮지만, `padStart` 라 혹시 상한이
+ *  올라가도 세 자리로 자연히 늘어난다(잘리지 않는다).
+ *
+ *  캡션의 'n/N' 과는 여전히 짝이 맞는다 — 앞의 0 은 읽는 사람이 같은 숫자로 읽는다. */
 export function sceneFileName(title: string, stepIndex: number): string {
-  return `SPIN_${slugify(title)}_${stepIndex + 1}.png`;
+  return `SPIN_${slugify(title)}_${String(stepIndex + 1).padStart(2, '0')}.png`;
 }
