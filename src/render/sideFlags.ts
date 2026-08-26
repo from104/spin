@@ -39,6 +39,7 @@ import { PX_PER_M } from '../core/units.ts';
 import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 import type { TeamSide, TeamStyle } from '../model/drill.ts';
 import { defaultDefense, defendedZones } from '../model/rules.ts';
+import type { StageRot } from './useStageMetrics.ts';
 
 // ── 깃대에 매달린 정삼각 페넌트, 꼭짓점은 **언제나 오른쪽** (기현 지시 2026-08-16) ─────────
 // 처음에는 골라인에 밑변을 대고 판 밖으로 꼭짓점을 보냈다 — 즉 왼쪽 골의 깃발은 왼쪽을,
@@ -90,6 +91,13 @@ export interface SideFlagInput {
   teams: Record<TeamSide, TeamStyle>;
   /** `ruleZones[0]` 을 지키는 팀. 없으면 `defaultDefense(mode)`. */
   defense?: TeamSide;
+  /** §6.4 표시 회전. **깃발은 판이 돌아도 화면에서 제 모양을 지킨다**(기현 지시 2026-08-27) —
+   *  글자를 되돌려 세우는 격자 라벨과 같은 규칙이다. 여기서 하는 일은 그 되돌림에 맞춰
+   *  **자리를 잡아 주는 것**뿐이다: 되돌리면 깃발 상자의 가로·세로가 뒤바뀌므로, 골라인에서
+   *  0.5 m 를 지키려면 중심을 그만큼 다시 밀어야 한다. 되돌림 자체는 `SideMarks` 가 건다.
+   *
+   *  ⚠️ 안 넘기면 0 이다 — PNG·인쇄는 판을 안 돌리므로 그쪽 호출은 한 줄도 안 바뀐다. */
+  rot?: StageRot;
 }
 
 /** 존 하나의 깃발 둘이 앉을 자리·바깥 방향·**골라인 방향**.
@@ -122,6 +130,11 @@ export interface SideFlagGeom {
   /** 페넌트의 `points` 속성 **문자열**. 그림 쪽도 이 문자열을 그대로 쓴다 — 반올림 규약까지
    *  한 곳에 묶어 두려는 것이다. */
   pennant: string;
+  /** 깃발 상자의 중심. **되돌림 회전의 중심**이다(`SideMarks` 의 `uprightAt(rot, cx, cy)`).
+   *  다른 점을 중심으로 삼으면 깃발이 제자리에서 도는 대신 옆으로 밀려, 위 `rot` 이 맞춰 둔
+   *  0.5 m 간격이 도로 어긋난다. */
+  cx: number;
+  cy: number;
 }
 
 /** 존(=골 지역) 하나가 갖는 깃발 둘. */
@@ -144,7 +157,7 @@ export interface SideFlagGroup {
  *  이 파일 머리말이 리터럴 좌표를 금지한 것과 같은 이유다. 그래서 식은 여기 하나만 둔다.
  *
  *  플랫 코트는 빈 배열이다(`ruleZones` 가 비어 있다 = 진영이라는 개념이 없다). */
-export function sideFlagGroups({ mode, size, teams, defense }: SideFlagInput): SideFlagGroup[] {
+export function sideFlagGroups({ mode, size, teams, defense, rot = 0 }: SideFlagInput): SideFlagGroup[] {
   const def = courtDefFor(mode, size);
   if (def.ruleZones.length === 0) return [];
   return defendedZones(def.ruleZones, defense ?? defaultDefense(mode)).map((z) => {
@@ -165,7 +178,15 @@ export function sideFlagGroups({ mode, size, teams, defense }: SideFlagInput): S
       // 가장 가까운지가 골라인 방향에 따라 갈린다(세로 골라인이면 페넌트 꼭짓점 또는
       // 깃대, 가로 골라인이면 깃대의 위 끝). 그래서 상자 중심을 골라인에서
       // `0.5 m + 그 방향으로의 반폭` 만큼 민다 — 두 경우가 한 식으로 닫힌다.
-      const reach = (Math.abs(p.ox) * SIDE_FLAG_H_PX + Math.abs(p.oy) * SIDE_FLAG_POLE_PX) / 2;
+      //
+      // ⚠️ 2026-08-27 — **되돌림 회전이 상자의 두 변을 맞바꾼다.** 판이 90° 돌면 `SideMarks`
+      // 가 깃발을 −90° 되돌려 화면에서 제 모양을 지키게 하는데(기현 지시), 그러면 바깥
+      // 방향으로 뻗는 길이가 페넌트 높이(12.1)에서 깃대 길이(19)로 바뀐다. 여기서 안 바꾸면
+      // 중심이 그대로라 깃발이 골라인 쪽으로 3.45 파고들어 0.5 m 규칙이 깨진다.
+      // 여백은 견딘다: 12.5 + 19 = 31.5 ≤ 37.5(하프 코트가 원래 쓰던 그 조합이다).
+      const across = rot === 90 ? SIDE_FLAG_POLE_PX : SIDE_FLAG_H_PX;
+      const along = rot === 90 ? SIDE_FLAG_H_PX : SIDE_FLAG_POLE_PX;
+      const reach = (Math.abs(p.ox) * across + Math.abs(p.oy) * along) / 2;
       const cx = p.cx + p.ox * (SIDE_FLAG_GAP_PX + reach) + p.ax * t;
       const cy = p.cy + p.oy * (SIDE_FLAG_GAP_PX + reach) + p.ay * t;
       // 깃대는 상자 왼쪽 변, 페넌트는 그 **위쪽**에 매달린다 — 아래쪽 토막이 맨 대다.
@@ -178,6 +199,8 @@ export function sideFlagGroups({ mode, size, teams, defense }: SideFlagInput): S
         poleY1: top,
         poleY2: top + SIDE_FLAG_POLE_PX,
         pennant: `${poleX},${top} ${poleX},${top + SIDE_FLAG_SIDE_PX} ${poleX + SIDE_FLAG_H_PX},${top + SIDE_FLAG_SIDE_PX / 2}`,
+        cx,
+        cy,
       };
     });
     return { defender: z.defender, key: `${z.rect.x},${z.rect.y}`, flags };

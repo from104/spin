@@ -22,6 +22,8 @@ import { COURT_MODES, COURT_SIZES, courtDefFor } from '../model/court.ts';
 import { DEFAULT_TEAMS } from '../model/defaults.ts';
 import type { CourtMode, CourtSize } from '../model/court.ts';
 import type { TeamSide } from '../model/drill.ts';
+import { StageRotProvider } from './stageRot.tsx';
+import type { StageRot } from './useStageMetrics.ts';
 
 type Pt = { x: number; y: number };
 const num = (el: Element, a: string): number => Number(el.getAttribute(a));
@@ -49,13 +51,32 @@ interface Flag {
   all: Pt[];
   /** 페넌트 무게중심 — 깃발이 어느 골 옆인지 가르고 둘 사이 간격을 잴 때 쓴다. */
   at: Pt;
+  /** 되돌림 회전(`transform`). 회전이 없으면 `null` 이다. */
+  upright: string | null;
 }
 
-function marks(mode: CourtMode, defense: TeamSide = 'home', size?: CourtSize) {
+/** `transform="rotate(θ cx cy)"` 를 점 하나에 실제로 적용한다.
+ *
+ *  jsdom 은 SVG transform 을 계산하지 않으므로 좌표만 읽으면 **되돌림이 없는 것과 같은 값**이
+ *  나온다 — 그대로 재면 "돌려도 0.5 m" 를 못 지키는 코드도 초록불이 된다. 그래서 여기서 손으로
+ *  먹인다. `rotate(-90 cx cy)`: (x,y) → (cx + (y−cy), cy − (x−cx)). */
+function applyTransform(t: string | null, p: Pt): Pt {
+  if (!t) return p;
+  const m = /^rotate\((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)$/.exec(t);
+  if (!m) throw new Error(`못 읽는 transform: ${t}`);
+  const [th, cx, cy] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const rad = (th * Math.PI) / 180;
+  const [dx, dy] = [p.x - cx, p.y - cy];
+  return { x: cx + dx * Math.cos(rad) - dy * Math.sin(rad), y: cy + dx * Math.sin(rad) + dy * Math.cos(rad) };
+}
+
+function marks(mode: CourtMode, defense: TeamSide = 'home', size?: CourtSize, rot: StageRot = 0) {
   const { container } = render(
-    <svg>
-      <SideMarks mode={mode} size={size} teams={DEFAULT_TEAMS as Parameters<typeof SideMarks>[0]['teams']} defense={defense} />
-    </svg>,
+    <StageRotProvider rot={rot}>
+      <svg>
+        <SideMarks mode={mode} size={size} teams={DEFAULT_TEAMS as Parameters<typeof SideMarks>[0]['teams']} defense={defense} />
+      </svg>
+    </StageRotProvider>,
   );
   const flags: Flag[] = Array.from(container.querySelectorAll('g[data-side-flag]')).map((g) => {
     const poly = g.querySelector('polygon')!;
@@ -68,6 +89,7 @@ function marks(mode: CourtMode, defense: TeamSide = 'home', size?: CourtSize) {
     return {
       role: g.getAttribute('data-side-flag')!,
       fill: poly.getAttribute('fill')!,
+      upright: g.getAttribute('transform'),
       pts,
       pole,
       all: [...pts, ...pole],
@@ -275,5 +297,64 @@ describe('진영 표시 — 색이 곧 진영이다', () => {
       </svg>,
     );
     expect(half.container.querySelector('g[data-side-mark]')!.getAttribute('data-side-mark')).toBe('away');
+  });
+});
+
+// ── §6.4 표시 회전 (기현 지시 2026-08-27) ───────────────────────────────────────────────
+// *"화면 폭에 의해서 코트가 90도 회전하면 골대뒤의 깃발도 90도 회전해야함"* — 판이 돌아도
+// 깃발은 **화면에서** 제 모양(깃대 세로 · 꼭짓점 오른쪽)을 지켜야 한다는 뜻이다. 격자 라벨이
+// 글자를 되돌려 세우는 것과 같은 규칙이고, 그래서 같은 헬퍼(`uprightAt`)를 쓴다.
+//
+// ⚠️ 이 블록이 없으면 회귀가 조용하다: 되돌림은 **판 회전 안**에서 상쇄되는 값이라, 빠져도
+//    깃발은 여전히 골라인 뒤 제자리에 그려진다. 달라지는 것은 화면에서의 방향뿐이고 그것을
+//    보는 것은 사람뿐이다.
+describe('진영 표시 — 판이 돌아도 화면에서는 제 모양이다 (§6.4)', () => {
+  it('★ 90° 회전이면 깃발마다 되돌림이 붙는다 — 중심은 그 깃발의 상자 중심이다', () => {
+    const fs = marks('full', 'home', undefined, 90).flags;
+    expect(fs).toHaveLength(4);
+    for (const f of fs) {
+      // 중심이 딴 점이면 깃발이 제자리에서 도는 대신 옆으로 밀린다(아래 0.5 m 검사가 그 감시자다).
+      expect(f.upright).toMatch(/^rotate\(-90 -?[\d.]+ -?[\d.]+\)$/);
+    }
+  });
+
+  it('회전이 없으면 transform 자체가 없다 — PNG·인쇄가 예전 그대로인 이유', () => {
+    for (const f of marks('full').flags) expect(f.upright).toBeNull();
+    // 불필요한 transform 은 렌더 품질만 깎는다(uprightAt 이 undefined 를 주는 근거).
+    for (const f of marks('half', 'away').flags) expect(f.upright).toBeNull();
+  });
+
+  it('★ 되돌려도 골라인에서 정확히 0.5 m 다 — 상자의 두 변이 맞바뀌므로 자리를 다시 잡는다', () => {
+    // 되돌리면 바깥으로 뻗는 길이가 페넌트 높이(12.1)에서 깃대 길이(19)로 바뀐다. 자리를
+    // 안 고치면 깃발이 골라인 쪽으로 3.45 파고든다 — 여기서 잡는 것이 정확히 그것이다.
+    const full = courtDefFor('full');
+    const mid = full.vbW / 2;
+    const fs = marks('full', 'home', undefined, 90).flags.map((f) => ({
+      ...f,
+      moved: f.all.map((p) => applyTransform(f.upright, p)),
+      center: applyTransform(f.upright, f.at),
+    }));
+    for (const f of fs.filter((x) => x.center.x < mid)) {
+      expect(Math.max(...f.moved.map((p) => p.x)), '왼쪽 골').toBeCloseTo(full.surface.x - SIDE_FLAG_GAP_PX, 6);
+    }
+    for (const f of fs.filter((x) => x.center.x > mid)) {
+      expect(Math.min(...f.moved.map((p) => p.x)), '오른쪽 골').toBeCloseTo(full.surface.x + full.surface.w + SIDE_FLAG_GAP_PX, 6);
+    }
+  });
+
+  it('★ 되돌려도 viewBox 를 안 넘는다 — 여백 37.5 는 깃대(19)+간격(12.5)=31.5 를 견딘다', () => {
+    for (const mode of COURT_MODES) {
+      for (const size of [undefined, ...COURT_SIZES]) {
+        const def = courtDefFor(mode, size as CourtSize | undefined);
+        for (const f of marks(mode, 'home', size as CourtSize | undefined, 90).flags) {
+          for (const p of f.all.map((q) => applyTransform(f.upright, q))) {
+            expect(p.x, `${mode}/${size ?? '기본'} x`).toBeGreaterThanOrEqual(0);
+            expect(p.x, `${mode}/${size ?? '기본'} x`).toBeLessThanOrEqual(def.vbW);
+            expect(p.y, `${mode}/${size ?? '기본'} y`).toBeGreaterThanOrEqual(0);
+            expect(p.y, `${mode}/${size ?? '기본'} y`).toBeLessThanOrEqual(def.vbH);
+          }
+        }
+      }
+    }
   });
 });
