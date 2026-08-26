@@ -99,6 +99,10 @@ const keyLabel = (id: string): string => KEYMAP.find((d) => d.id === id)?.label 
 
 /** 절 제목 — 모달이 네 갈래가 되면서 필요해졌다(2026-08-27). 라디오그룹의 aria-label 과
  *  **같은 문자열**을 쓴다: 보는 사람과 듣는 사람이 같은 이름으로 그 절을 부르게 된다. */
+/** 모달 안 보조 설명. **말할 것이 있을 때만** 쓴다 — 2026-08-27 지시로 "아무 일 없음" 을
+ *  알리던 줄들을 지웠다. 남은 것은 셋뿐이다: 잠긴 사유 · 크기가 안 먹는 사실 · 지금 진영. */
+const HINT: CSSProperties = { fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6, margin: 0 };
+
 const SECTION_LABEL: CSSProperties = { fontSize: '0.75rem', fontWeight: 700, color: 'var(--faint-text)', margin: 0 };
 
 /** 모달 안 토글 한 줄. 기둥의 `BarItem`(아이콘만) 과 달리 **글자를 함께** 놓는다 — 모달은
@@ -495,6 +499,13 @@ export function FunctionBar({
         closeLabel={t('common.close')}
         returnFocusRef={courtBtnRef}
       >
+        {/* ── 2단 배치 (2026-08-27 기현 지시: *"모달에서 설명을 최소화 하고 2단으로 배치"*) ──
+            왼쪽은 **코트가 무엇인가**(형태·크기·진영), 오른쪽은 **판이 어떻게 동작하는가**
+            (표시·이동·골대). `auto-fit` + `minmax` 라 좁은 창에서는 저절로 1단으로 접힌다 —
+            분기를 따로 두지 않는다.
+            ⚠️ 이 모달의 설계 근거는 *"한 화면에 나란히 읽힌다"* 였다(파일 머리말). 넷이 들어와
+               세로로 길어지면서 그 근거가 스크롤에 먹히고 있었고, 2단은 그것을 되돌린다. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* 잠금은 **이름**으로도 말한다 — 옛 헤더 세그먼트의 계약 그대로다(`코트 형태` ↔
               `코트 형태(변경 불가)`). 화면에는 아래 문구가 있지만, 스크린리더로 구역에 들어온
@@ -543,9 +554,7 @@ export function FunctionBar({
           {/* 크기 3단은 **풀 코트에서만 뜻이 있다** — 하프·플랫은 값을 들고 다니되 판을 안 바꾼다
               (court.ts COURT_DEFS 근거). 그때 고르게 두면 판이 거짓말을 하므로 사실을 적는다. */}
           {courtMode !== 'full' ? (
-            <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-              {t('editor.functionBar.courtModal.sizeInfoFullOnly', { size: COURT_SIZE_LABELS[locale][courtSize] })}
-            </p>
+            <p style={HINT}>{t('editor.functionBar.courtModal.sizeInfoFullOnly', { size: COURT_SIZE_LABELS[locale][courtSize] })}</p>
           ) : courtLocked ? (
             // ⚠️ **잠기면 버튼을 안 낸다.** 형태 셋과 다른 이유: 형태는 눌러 보고 이유를 듣는
             // 것이 옛 헤더 세그먼트의 계약이었고(onLockedAttempt), 크기는 옛 인스펙터에서
@@ -553,9 +562,7 @@ export function FunctionBar({
             // 한쪽으로 통일하지 않는 이유: 각자 그 자리에서 실기로 정해진 것이고, 여기서
             // 바꾸면 이번 이사가 **동작까지** 바꾸는 것이 된다. 값은 계속 보인다 — 못 바꾸는
             // 것과 안 보이는 것은 다르다.
-            <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-              {t('editor.functionBar.courtModal.sizeInfoLocked', { size: COURT_SIZE_LABELS[locale][courtSize] })}
-            </p>
+            <p style={HINT}>{t('editor.functionBar.courtModal.sizeInfoLocked', { size: COURT_SIZE_LABELS[locale][courtSize] })}</p>
           ) : (
             <div
               role="radiogroup"
@@ -588,11 +595,11 @@ export function FunctionBar({
             </div>
           )}
 
-          <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6, marginTop: 4 }}>
-            {courtLocked ? t('editor.functionBar.courtModal.mustClearFirst') : t('editor.functionBar.courtModal.freeToChange')}
-          </p>
-
-          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+          {/* ⚠️ **잠겼을 때만** 적는다. 예전에는 안 잠겼을 때도 *"지금은 자유롭게 바꿀 수
+              있습니다"* 를 냈는데, 그건 아무 일도 없다는 것을 굳이 말하는 줄이었다 — 설명을
+              줄이라는 지시(2026-08-27)에서 첫 번째로 지운 자리다. 잠긴 사유는 남는다:
+              못 바꾸는 이유가 화면 어디에도 없으면 안 된다. */}
+          {courtLocked && <p style={HINT}>{t('editor.functionBar.courtModal.mustClearFirst')}</p>}
 
           {/* ── 진영 (2026-08-16 기현 지시로 기둥에서 이사) ─────────────────────────────
               골 지역 3인 반칙이 **어느 팀에 걸리는지**를 정한다. 화면의 골라인 뒤 깃발 둘
@@ -603,9 +610,7 @@ export function FunctionBar({
                  disabled 로 두었지만, 모달 안에는 지킬 절대 위치가 없다. 대신 크기 3단이 이미
                  세워 둔 계약을 따른다: *"골라도 안 변하는 컨트롤은 거짓말이다"* → 사실을 적는다. */}
           {courtMode === 'flat' ? (
-            <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-              {t('editor.functionBar.courtModal.flatNoDefense')}
-            </p>
+            <p style={HINT}>{t('editor.functionBar.courtModal.flatNoDefense')}</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
@@ -623,16 +628,21 @@ export function FunctionBar({
                 </span>
                 {t('editor.functionBar.courtModal.defenseButtonText')}
               </button>
-              <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-                {t('editor.functionBar.courtModal.defenseDescPrefix', {
+              {/* 설명 최소화(2026-08-27) — 예전에는 *"지금 왼쪽 골을 지키는 팀은 **홈** 입니다
+                  — 골 지역 3인 반칙은 이 팀에만 걸립니다"* 두 줄이었다. **지금 값**만 남기고
+                  까닭은 버튼의 title 로 옮겼다: 매번 읽을 것은 값이고, 까닭은 한 번 읽으면 된다. */}
+              <p style={HINT}>
+                {t('editor.functionBar.courtModal.defenseNow', {
                   goal: courtMode === 'half' ? t('editor.functionBar.courtModal.goalWord') : t('editor.functionBar.courtModal.leftGoalWord'),
+                  team: teams[defense].label,
                 })}
-                <strong>{teams[defense].label}</strong>
-                {t('editor.functionBar.courtModal.defenseDescSuffix')}
               </p>
             </div>
           )}
+        </div>
 
+        {/* ── 오른쪽 단 — 판이 어떻게 동작하는가 ─────────────────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* ── 표시 · 이동 · 골대 (2026-08-27 기현 지시로 기둥에서 들어왔다) ─────────────
               ⚠️ **2026-08-16 의 반대 방향 결정을 명시적으로 폐기한다.** 그때는 [보기]를 모달에서
               서랍으로 빼면서 근거를 이렇게 적었다: *"모달은 들어가서 고르고 나오는 것이라 한 번
@@ -645,8 +655,6 @@ export function FunctionBar({
               이름이 아니라 기억에 달려 있었다. 일관성을 택하고 토글의 번거로움을 감수한 것이며,
               그 대가는 실재한다(격자를 켜고 끄려면 매번 모달을 연다). 되돌릴 일이 생기면
               **이 문단이 그때의 판단이다** — 지우지 말고 다시 뒤집어 적을 것. */}
-          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
-
           <div role="group" aria-label={t('editor.functionBar.courtModal.viewGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.viewGroupLabel')}</p>
             <ModalToggle
@@ -702,6 +710,7 @@ export function FunctionBar({
               {t('editor.functionBar.goalReset.name')}
             </button>
           </div>
+        </div>
         </div>
       </Modal>
 
