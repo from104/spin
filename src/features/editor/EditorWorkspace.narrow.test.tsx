@@ -305,8 +305,13 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //    2026-08-20 (§0.5 Phase 5) 갱신 — 기능 바의 [도움말] 칸이 레일로 옮겨가며 통째로
     //    빠졌다(버튼 하나 = <button><span>…</span></button> 통짜가 사라진다). 뼈대 스냅샷도
     //    같은 이유로 버튼 한 줄이 준다(위 update).
+    //    2026-08-27 (코트 축척 수리) 갱신 — diff 는 **인라인 style 두 줄뿐**이다: 판 덩어리에
+    //    `height:100%` 가 붙고, 코트 칸이 `width:100%` → `height:100%; align-self:center;
+    //    max-width:100%` 로 바뀌었다. 띠 배치에서 코트가 폭 기준으로 커지다 상자를 넘어
+    //    overflow 에 잘리던 것을 높이 기준으로 뒤집은 것이다(EditorWorkspace 의 그 두 주석).
+    //    뼈대 스냅샷 diff 도 정확히 같은 두 줄이고, 그 밖에는 한 줄도 안 움직였다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      'b5ae9a071c4b9d9be6ea9fbebb561874fcc3eacd90287aba3bb06b03f7c70761',
+      '3d72afbbbd2bf564e240f2172ea5a6e2fa964c7a3d56000a6be18b7f502fa91f',
     );
   });
 

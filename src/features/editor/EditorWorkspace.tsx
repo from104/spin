@@ -781,8 +781,14 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
             style={{
               display: 'flex',
               flexDirection: trayAxis,
-              // 띠(column)면 폭을 다 쓰고 높이를 가둔다. 기둥(row)이면 그 반대다.
-              ...(trayBand ? { width: '100%' } : { height: '100%' }),
+              // **양쪽 다 세로를 다 쓴다.** 띠(column)일 때 폭도 함께 다 쓰는 이유는 트레이가
+              // 가로 띠라 카드 폭을 따라가기 때문이다 — 카드를 shrink-to-fit 로 두면 칩 줄의
+              // 요구 폭이 카드 폭을 정하고, 코트가 그 폭에 끌려간다.
+              //
+              // ⚠️ `height:'100%'` 가 **띠에도** 붙는 것이 2026-08-27 수리의 핵심이다. 없으면
+              // 카드 높이가 내용 기반(auto)이 되고, 그러면 코트 칸의 `height:'100%'` 가 참조할
+              // 높이가 없어 무시된다 → 코트가 다시 폭 기준으로 커진다(아래 코트 칸 주석 참고).
+              ...(trayBand ? { width: '100%', height: '100%' } : { height: '100%' }),
               maxWidth: '100%',
               maxHeight: '100%',
               minWidth: 0,
@@ -804,7 +810,21 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 minHeight: 0,
                 position: 'relative',
                 aspectRatio: courtAspect,
-                ...(trayBand ? { width: '100%' } : { height: '100%' }),
+                // **높이가 기준이다. 두 배치 모두.** (2026-08-27 기현님 지시로 수리)
+                //
+                // 옛 코드는 띠(column)일 때 `width:'100%'` 였다. 그러면 aspectRatio 가 폭에서
+                // **높이를 만들어** 내는데, 상자가 가로로 넓을수록 그 높이가 상자를 넘는다 —
+                // 넘친 만큼은 판 덩어리의 `overflow:hidden` 이 잘라내므로, 화면에서는 코트
+                // 아래쪽이 트레이 밑으로 사라진 것처럼 보인다(2560×1440 최대화에서 발견).
+                // 창이 넓을수록 심해지는 종류라 데스크톱에서 먼저 드러났을 뿐, 웹에서도 같다.
+                //
+                // 높이를 기준으로 삼으면 그 방향이 뒤집힌다: 주축(세로) 크기를 flex 가 정하고
+                // — `flex:'0 1 auto'` + `height:'100%'` 라 트레이와 합쳐 넘칠 때 **코트가
+                // 줄어든다** — 그 높이에서 aspectRatio 가 폭을 만든다. 남는 폭은 좌우 여백이다.
+                //
+                // `alignSelf:'center'` 가 없으면 교차축(가로) 기본 stretch 가 폭을 100% 로
+                // 늘려 aspectRatio 를 무효로 만든다. 이 한 줄이 빠지면 수리 전으로 돌아간다.
+                ...(trayBand ? { height: '100%', alignSelf: 'center', maxWidth: '100%' } : { height: '100%' }),
               }}
             >
               <EditorStage
