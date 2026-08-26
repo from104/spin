@@ -130,8 +130,16 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
     const { board } = await openBoard();
     const cell = courtCell(board);
     // ⚠️ 2026-08-14 — 축이 뒤집혔다. 트레이가 **코트 긴 변**에 붙으므로 가로 창에서는 코트가
-    // 눕고 트레이가 아래 띠다: 코트 칸이 폭을 다 쓰고 높이는 종횡비가 정한다(옛 반대).
-    expect(cell.style.width).toBe('100%');
+    // 눕고 트레이가 아래 띠다.
+    // ⚠️ 2026-08-27 (기현님 지시) — **띠에서도 높이가 기준이다.** 옛 계약은 여기서 폭을 다
+    // 쓰고(`width:'100%'`) 종횡비가 높이를 만들게 했는데, 상자가 가로로 넓으면 그 높이가
+    // 상자를 넘어 판 덩어리의 overflow 에 잘렸다(2560×1440 최대화에서 코트 아래가 트레이
+    // 밑으로 사라졌다). 이제 flex 가 정한 높이에서 종횡비가 폭을 만들고, 남는 폭은 여백이다.
+    expect(cell.style.height).toBe('100%');
+    expect(cell.style.width, '폭은 종횡비가 만든다 — 못박으면 다시 폭 기준이 된다').toBe('');
+    // 교차축 기본 stretch 를 끄지 않으면 폭이 100% 로 늘어나 종횡비가 무효가 된다.
+    expect(cell.style.alignSelf).toBe('center');
+    expect(cell.style.maxWidth).toBe('100%');
     expect(cell.style.aspectRatio).toBe(courtCellAspectRatioCss('full', undefined, 0));
     expect(cell.style.aspectRatio).toBe('825 / 525');
     // 함정 2 — minWidth:0 이 없으면 min-width:auto 가 shrink 를 막아 폭 제약에서 넘친다.
@@ -161,6 +169,8 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
     const cell = courtCell(board);
     expect(cell.style.height).toBe('100%');
     expect(cell.style.width).toBe('');
+    // 기둥은 남는 폭을 트레이가 먹으므로 stretch 를 끌 이유가 없다(띠와 갈리는 지점).
+    expect(cell.style.alignSelf).toBe('');
     expect(cell.style.aspectRatio).toBe(courtCellAspectRatioCss('full', undefined, 90));
     expect(cell.style.aspectRatio).toBe('525 / 825');
     // 띠는 여전히 판 덩어리 안 두 번째 칸이다 — 인접축만 세로로 바뀐다.
@@ -184,7 +194,11 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
     stubMedia({ portrait: false, narrow: false });
     const { board } = await openBoard();
     expect(board.style.flexDirection).toBe('column');
-    expect(courtCell(board).style.height).toBe('');
+    // ⚠️ 2026-08-27 — 두 배치를 가르는 것이 **높이 기준 여부가 아니게 됐다**(둘 다 높이 기준).
+    // 이제 갈리는 곳은 교차축이다: 띠는 남는 **폭**을 여백으로 두므로 stretch 를 끄고(center),
+    // 기둥은 남는 폭을 트레이가 먹으므로 끌 것이 없다. 이 대조가 사라지면 두 배치를 한 줄로
+    // 뭉뚱그린 셈이 되어, 한쪽만 깨지는 회귀를 아무도 못 잡는다.
+    expect(courtCell(board).style.alignSelf).toBe('center');
   });
 });
 
