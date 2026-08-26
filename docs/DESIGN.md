@@ -751,6 +751,13 @@ export interface DrillStep {
   cut?: true;
   chairs: PoseMap<ChairId, StoredChairPose>;
   balls:  PoseMap<BallId, Vec2>;
+  // v9(2026-08-27 기현 지시) — 공의 거리 원(3 m/5 m)이 cast(`BallDef.ring`)에서 여기로 왔다.
+  // **링은 개체의 정체성이 아니라 그 국면의 상태**다: 킥오프는 공이 멈춰 있는 동안만 5 m
+  // 제한을 받고 킥 이후에는 받지 않는데, cast 소유로는 그 한 장면도 표현할 수 없었다.
+  // `balls`(Vec2) 안에 얹지 않고 별도 맵인 이유는 좌표 정화기(sanitizeVec)·setPose 를 흔들지
+  // 않기 위해서다 — `locked`/`ignored` 와 같은 규약(예외만 싣고, 없으면 전부 'none').
+  // 재탭(BALL_RETAP)은 **그 스텝만** 바꾼다.
+  ballRings?: PoseMap<BallId, StoredBallRing>;
   cones:  PoseMap<ConeId, Vec2>;
   arrows: Arrow[];
   notes:  NoteLabel[];
@@ -3723,7 +3730,7 @@ FIPFA Laws of the Game(2025년판, `docs/RULES-FIPFA-2025.md` 가 정본)을 익
 `physics/` import 가 없다).
 
 **규칙 판정 오버레이(§4.4 P2-4 계열, `render/ruleOverlay.ts`)도 그대로 재사용한다.** 장면의
-공 하나에 `BallDef.ring:'3m'|'5m'`(§3.5)을 얹어 두면 — 2-on-1 계열 5종(기본·관여 전후·GK
+공 하나에 `DrillStep.ballRings`(§3.5, v9 전에는 `BallDef.ring`)로 `'3m'|'5m'` 을 얹어 두면 — 2-on-1 계열 5종(기본·관여 전후·GK
 예외·상대 없음·회피 이탈)과 세트볼은 3m, 킥오프·킥인·골킥·코너킥·직접/간접프리킥·
 페널티킥(재시작 7종)은 5m — `PresentStage` 가 이미 배선해 둔 `createRuleOverlay`/
 `RuleOverlay` 가 편집기·시연과 **같은 위반 판정 함수**(`model/rules.ts` `ruleForRing`/

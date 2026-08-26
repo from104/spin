@@ -78,7 +78,8 @@ export function buildRuleScene(id: RuleSceneId): Drill;  // 내부에서 buildSe
   Law 1).
 - 스텝별 해설은 `DrillStep.note`(≤600자)에, 거리 표기는 `notes`(NoteLabel)·`arrows`로.
 - `cut: true`로 "위반 장면 → (컷) → 올바른 장면" 리셋 점프를 표현.
-- `BallDef.ring: '3m'|'5m'`로 2-on-1의 3m 판정선, 리스타트 5m 후퇴선을 시각화.
+- `DrillStep.ballRings`(v9 전에는 `BallDef.ring`)의 `'3m'|'5m'`로 2-on-1의 3m 판정선, 리스타트
+  5m 후퇴선을 시각화. 스텝마다 따로라 "멈춰 있는 동안만 5m" 같은 국면 변화도 표현할 수 있다.
 - `situation` 필드는 기존 `DrillSituation` 값(`'kick-off'`·`'kick-in'`·`'2-on-1-spacing'` 등)에
   매핑.
 
