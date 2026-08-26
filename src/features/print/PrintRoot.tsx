@@ -55,7 +55,7 @@ export function PrintRoot({ doc, onReady, container, view }: PrintRootProps) {
 
   return createPortal(
     <div className={PRINT_ROOT_CLASS} data-print-root="" aria-hidden="true">
-      {doc.kind === 'drill' ? <PrintDrillSheet drill={doc.drill} view={view} /> : <PrintSessionPlan plan={doc.plan} view={view} />}
+      {doc.kind === 'drill' ? <PrintDrillSheet drill={doc.drill} stepIndexes={doc.stepIndexes} view={view} /> : <PrintSessionPlan plan={doc.plan} view={view} />}
     </div>,
     container ?? document.body,
   );

@@ -103,6 +103,9 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
 
   const drill = state.present;
   const stepIndex = selectStepIndex(state);
+  // 사이드바에서 체크한 스텝의 **사본**. 원본은 StepSidebar 로컬이고(그 파일 머리말: 리듀서·
+  // undo 에 넣지 않는다) 여기는 내보내기 시트에 넘겨 주기 위한 미러다 — 단방향이라 안전하다.
+  const [checkedSteps, setCheckedSteps] = useState<ReadonlySet<StepId>>(new Set());
   const step = drill.steps[stepIndex] ?? drill.steps[0]!;
 
   const stageRef = useRef<CourtStageHandle | null>(null);
@@ -663,6 +666,8 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       onToggleDefense={toggleDefense}
       onReset={() => board?.onReset()}
       drill={drill}
+      stepIndex={stepIndex}
+      checkedStepIds={checkedSteps}
       showGrid={showGrid}
       showGridLabels={prefs.showGridLabels}
       onToggleGrid={toggleGrid}
@@ -706,6 +711,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       {isBoard ? null : (
         <StepSidebar
           drill={drill}
+          onCheckedStepsChange={setCheckedSteps}
           stepId={state.stepId}
           onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
           onReorderStep={(id, toIndex) => dispatch({ type: 'STEP_REORDER', id, toIndex })}

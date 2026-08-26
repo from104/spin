@@ -60,6 +60,7 @@ import { ConfirmDialog } from '../../ui/ConfirmDialog.tsx';
 import { ExportSheet } from '../export/ExportSheet.tsx';
 import { COURT_DEFS, COURT_SIZE_LABELS, COURT_SIZES, courtDefFor, type CourtMode, type CourtSize } from '../../model/court.ts';
 import type { Drill, TeamSide, TeamStyle } from '../../model/drill.ts';
+import type { StepId } from '../../core/ids.ts';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { prunePhysics } from '../../storage/prefs.ts';
 import { useT } from '../../i18n/useT.ts';
@@ -210,6 +211,14 @@ export interface FunctionBarProps {
   onReset(): void;
   /** 내보내기 시트가 굽는 것은 지금 리듀서가 든 판이다(물리 세계가 아니라 모델). */
   drill: Drill;
+  /** 지금 편집 중인 스텝의 인덱스. **내보내기 시트가 "이 스텝" 을 알아야 한다.**
+   *
+   *  ⚠️ 2026-08-27 까지 여기 없었고, 시트 호출부가 `stepIndex={0}` 을 박아 두고 있었다 —
+   *  드릴 편집에서 3번 스텝을 보며 [그림]을 눌러도 **언제나 1번 스텝이 구워졌다.** 보드는
+   *  스텝이 한 장뿐이라 무해했고, 그래서 드러나지 않았다(기현님 신고로 발견). */
+  stepIndex: number;
+  /** 사이드바에서 체크한 스텝 — 내보내기 시트의 [선택한 N장] 기본값이 된다(2026-08-27). */
+  checkedStepIds?: ReadonlySet<StepId>;
   showGrid: boolean;
   /** 격자 **번호**. 화면 토글은 설정 화면에 있고 여기엔 없지만, **내보내기 시트를 거쳐
    *  인쇄까지 내려야 한다**(2026-08-27) — 종이에서 칸 이름으로 자리를 지목하기 위해서다. */
@@ -251,6 +260,8 @@ export function FunctionBar({
   onToggleDefense,
   onReset,
   drill,
+  stepIndex,
+  checkedStepIds,
   showGrid,
   showGridLabels,
   onToggleGrid,
@@ -702,7 +713,8 @@ export function FunctionBar({
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         drill={drill}
-        stepIndex={0}
+        stepIndex={stepIndex}
+        checkedStepIds={checkedStepIds}
         showGrid={showGrid}
         showGridLabels={showGridLabels}
         showRuleZones={showRuleZones}

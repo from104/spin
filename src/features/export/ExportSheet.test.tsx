@@ -250,3 +250,109 @@ describe('파일 이름 조립 (4.1 이 "4.7 이 조립한다" 고 남긴 자리
     expect(sceneFileName('a/b:c', 0)).toBe('SPIN_a-b-c_1.png');
   });
 });
+
+// ── 내보내기 범위 (기현 지시 2026-08-27) ────────────────────────────────────────────────
+// *"드릴 편집 화면에서 png,인쇄 내보내기에서 어떤 스텝을 내보낼건가 라는 기준이 없음.
+//  선택한것만, 또는 전체를 고르게 해야함"* / *"호환성 때문에 여러개면 zip으로 가자 한개면 png고."*
+describe('내보내기 범위', () => {
+  /** 스텝 n 장짜리 드릴. 각 스텝 id 가 달라야 체크 목록을 만들 수 있다. */
+  const drillOf = (n: number) => {
+    const base = createDrill({ courtMode: 'full', title: '범위 드릴', empty: true });
+    const s0 = base.steps[0]!;
+    return { ...base, steps: Array.from({ length: n }, (_, i) => ({ ...s0, id: `st_${i}` as typeof s0.id })) };
+  };
+  const sheetOf = (d: ReturnType<typeof drillOf>, stepIndex = 0, checked?: ReadonlySet<string>) =>
+    render(
+      <ExportSheet
+        open
+        onClose={() => {}}
+        drill={d}
+        stepIndex={stepIndex}
+        checkedStepIds={checked as ReadonlySet<never> | undefined}
+        showGrid={false}
+        showGridLabels
+        showRuleZones
+      />,
+      { wrapper },
+    );
+
+  it('스텝이 1장이면 범위 컨트롤이 아예 없다 — 보드에는 고를 것이 없다', () => {
+    sheetOf(drillOf(1));
+    expect(screen.queryByRole('button', { name: /전체/ })).toBeNull();
+    // 대조군: 항목 2 + 닫기 1 = 3 그대로다(칩이 표적 수를 늘리지 않았다).
+    expect(screen.getAllByRole('button')).toHaveLength(3);
+  });
+
+  it('스텝이 여럿이면 [이 스텝]·[전체] 가 뜨고, 체크가 없으면 [선택한 N장] 은 안 뜬다', () => {
+    sheetOf(drillOf(4));
+    expect(screen.getByRole('button', { name: /이 스텝/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /전체 4장/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /선택한/ }), '고를 수 없는 것을 보여 주지 않는다').toBeNull();
+  });
+
+  it('★ 사이드바 체크가 있으면 그것이 기본값이다', () => {
+    sheetOf(drillOf(4), 0, new Set(['st_1', 'st_2']));
+    const chip = screen.getByRole('button', { name: /선택한 2장/ });
+    expect(chip.getAttribute('aria-pressed'), '열자마자 선택 범위가 잡혀 있어야 한다').toBe('true');
+    expect(screen.getByRole('button', { name: /이 스텝/ }).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('★ 한 장이면 PNG 그대로 떨어진다', async () => {
+    sheetOf(drillOf(4), 2);
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
+    expect(rasterMock).toHaveBeenCalledTimes(1);
+    const [blob, name] = downloadMock.mock.calls[0]!;
+    expect(name).toMatch(/\.png$/);
+    expect(blob.type).toBe('image/png');
+  });
+
+  it('★ 지금 보고 있는 스텝을 굽는다 — stepIndex={0} 하드코딩 회귀 방지', async () => {
+    // 2026-08-27 이전에는 FunctionBar 가 0 을 박아 두어 **3번 스텝을 보며 눌러도 1번**이
+    // 구워졌다. 여기서 그 배선을 세운다.
+    sheetOf(drillOf(4), 2);
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(rasterMock).toHaveBeenCalledTimes(1));
+    expect(rasterMock.mock.calls[0]![0].stepIndex, '보고 있던 3번 스텝(index 2)이어야 한다').toBe(2);
+    expect(downloadMock.mock.calls[0]![1]).toBe('SPIN_범위 드릴_3.png'); // 1-based, slugify 는 공백을 지운다
+  });
+
+  it('★ 여러 장이면 ZIP 한 벌이다 — 낱개 순차 다운로드가 아니다', async () => {
+    sheetOf(drillOf(4));
+    await userEvent.click(screen.getByRole('button', { name: /전체 4장/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
+    // 굽기는 4번, 다운로드는 **1번**이다.
+    expect(rasterMock).toHaveBeenCalledTimes(4);
+    const [blob, name] = downloadMock.mock.calls[0]!;
+    expect(name).toMatch(/\.png\.zip$/);
+    expect(blob.type).toBe('application/zip');
+  });
+
+  it('★ 선택한 스텝만 굽는다 — 체크한 것 그대로', async () => {
+    sheetOf(drillOf(5), 0, new Set(['st_1', 'st_3']));
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
+    expect(rasterMock).toHaveBeenCalledTimes(2);
+    expect(rasterMock.mock.calls.map((c) => c[0].stepIndex)).toEqual([1, 3]);
+  });
+
+  it('★ 인쇄도 같은 범위를 쓴다 — 그림과 종이가 다른 스텝을 내면 안 된다', async () => {
+    // 인쇄 페이지는 `window.print` 가 불리는 **그 순간에만** DOM 에 있다(끝나면 철거된다) —
+    // 그래서 스파이 안에서 센다. 위 '순서가 계약이다' 와 같은 수법이다.
+    const seen: (string | null)[] = [];
+    const original = window.print;
+    window.print = vi.fn(() => {
+      seen.push(...[...document.querySelectorAll('[data-print-page="step"]')].map((e) => e.getAttribute('data-step-index')));
+    });
+    try {
+      sheetOf(drillOf(5), 0, new Set(['st_1', 'st_3']));
+      await userEvent.click(screen.getByRole('button', { name: /^인쇄 · PDF/ }));
+      await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+      // 두 장만, 그리고 번호는 **원래 스텝 번호**를 유지한다(1,2 로 다시 매기지 않는다).
+      expect(seen).toEqual(['1', '3']);
+    } finally {
+      window.print = original;
+    }
+  });
+});
