@@ -1748,12 +1748,23 @@ export const sameDrill = (a: Drill, b: Drill): boolean => {
 };
 ```
 
-**파일명** — `.spin.json` 이중 확장자 (여전히 JSON 으로 열리고, 목록에서 SPIN 파일임이 보이며,
-`<input accept=".json,application/json">` 에 그대로 걸린다):
+**파일명** — `.spin.<종류>.json` 삼중 확장자 (`storage/files.ts` 의 `SPIN_EXT`). 여전히 JSON 으로
+열리고, 목록에서 SPIN 파일임과 **그 종류**가 함께 보이며, 화면별 `accept`(`ACCEPT_LIBRARY` /
+`ACCEPT_BACKUP`)로 좁힐 수 있다:
 ```
-SPIN_{slug(title)}_{YYYYMMDD}.spin.json        예: SPIN_측면-돌파-후-크로스_20260807.spin.json
-SPIN_세션_{slug(title)}_{YYYYMMDD}.spin.json   SPIN_전체_{YYYYMMDD}.spin.json
+SPIN_{slug(title)}_{YYYYMMDD}.spin.drill.json           예: SPIN_측면-돌파-후-크로스_20260807.spin.drill.json
+SPIN_session_{slug(title)}_{YYYYMMDD}.spin.session.json
+SPIN_backup_{YYYYMMDD}.spin.backup.json
 ```
+2026-08-26 이전에는 전 종류가 `.spin.json` 하나였다. 종류를 이름에 실은 이유는 **어느 화면에
+넣어야 하는 파일인지가 이름에 없었기 때문**이다 — 드릴 파일을 설정 화면의 기기 이사 복원에
+넣는 사고가 실제로 났고, 두 화면의 `accept` 가 똑같아 파일 선택창도 걸러 주지 못했다.
+
+⚠️ **판별은 파일명이 아니라 봉투 안 `spin` 필드가 한다.** 파일명은 사람이 읽는 표지일 뿐이라
+옛 `.spin.json` 파일도 그대로 열리고, 이름만 바꾼 파일이 통과하는 것도 정상이다. 이름이 아니라
+봉투를 읽고 **갈 화면을 알려주는** 안내가 진짜 방어다(`dataExport.ts` 의
+`OPENS_ON_LIBRARY_SCREEN` ↔ `library/transfer.ts` 의 backup·prefs 분기가 서로를 가리킨다).
+파일명 세그먼트는 언어 중립이다(i18n C4) — `백업` 을 `backup` 으로 고친 것이 그 규약이다.
 `slugify`: NFC 정규화 → 금지문자 `[\x00-\x1f<>:"/\\|?*]` 를 `-` 로 → 연속 `-` 축약 →
 앞뒤 `-` 제거 → `[...s].slice(0,max)`(서로게이트 페어 보호). 빈 문자열이면 `'drill'`. 한글 유지.
 
