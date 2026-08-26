@@ -132,6 +132,8 @@ export const ja: Record<DictKey, string> = {
   'settings.data.persistFailedToast': '設定はこのタブでのみ保持されます。',
   'settings.data.readErrorFallback': '機器移行ファイルを読み込めませんでした。',
   'settings.data.libraryKindError': 'ドリル集ファイルは[ドリル一覧]の[インポート]から開きます。',
+  'settings.data.drillKindError': 'ドリルファイルは[ドリル一覧]の[インポート]から開きます。',
+  'settings.data.sessionKindError': 'セッションファイルは[ドリル一覧]の[インポート]から開きます。',
 
   'settings.restoreModal.title': 'このファイルを読み込みますか?',
   'settings.restoreModal.copyNotice': 'ドリルとセッションはコピーとして追加されます — この端末にあるものは削除されません。',
