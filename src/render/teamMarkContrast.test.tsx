@@ -94,7 +94,7 @@ function printChip(team: TeamSide, color?: string): string {
     cast: { chairs: [def], balls: [], cones: [] },
   };
   const step = { chairs: { [CHAIR_ID]: { x: 200, y: 200, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [] } as unknown as DrillStep;
-  const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" />, { wrapper: SettingsProvider });
+  const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />, { wrapper: SettingsProvider });
   const g = container.querySelector('[data-print-chair]');
   expect(g, '인쇄 트리에 칩 그룹이 없다').not.toBeNull();
   return g!.outerHTML;

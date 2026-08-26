@@ -17,13 +17,17 @@
 // 와 `class=` 를 하나도 못 쓰지만(§6.2), 인쇄는 **문서 컨텍스트**라 Pretendard·Space Grotesk
 // 가 그대로 먹는다. 여기서 색을 토큰(`var(--…)`)이 아니라 리터럴로 쓰는 이유도 그것과는
 // 별개다 — 다크 테마 사용자가 인쇄해도 **종이는 언제나 같아야** 하기 때문이다.
-import { useId } from 'react';
+import { useId, useMemo } from 'react';
 import { CHAIR, BALL, NOTE } from '../../core/constants.ts';
 import { COURT_BG, OBJ_STROKE, BALL_FILL, CONE_COLORS, ARROW_CASING, NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL } from '../../core/colors.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { ARROW_STYLE, arrowColor, arrowPath, headFromOf, headToOf } from '../../model/arrow.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
+import { GridOverlay } from '../../render/GridOverlay.tsx';
+import { RuleZones } from '../../render/RuleZones.tsx';
+import { staticFrameOf } from '../../model/playback.ts';
+import { ruleMarkup } from '../../features/export/buildStaticSvg.ts';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
 import { ShapeLayer } from '../../render/ShapeLayer.tsx';
 import { SideMarks } from '../../render/SideMarks.tsx';
@@ -53,15 +57,37 @@ export interface PrintCourtProps {
   step: DrillStep;
   /** 그림 설명. 스크린리더가 아니라 **인쇄 미리보기의 대체 텍스트**를 위한 것이기도 하다. */
   ariaLabel: string;
+  /** 표시 스위치 — 화면·PNG 와 **같은 값**을 받는다(prefs.showGrid / showGridLabels /
+   *  showRuleZones).
+   *
+   *  ⚠️ **기본값을 주지 않는다.** 옵셔널이면 배선을 빠뜨려도 조용히 컴파일되는데, 그것이
+   *  2026-08-27 사고의 정확한 메커니즘이었다(인쇄만 6가지를 안 그리는데 아무도 몰랐다 —
+   *  render/renderPaths.ts 머리말). 호출부가 반드시 값을 정하게 한다. */
+  view: { showGrid: boolean; showGridLabels: boolean; showRuleZones: boolean };
 }
 
-export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
+export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
   // §6.4 — 종이도 판과 같은 코트여야 한다. 인쇄는 '나가서 쓰는' 마지막 단계라 여기서
   // 크기가 갈라지면 코치는 실제 체육관 바닥과 다른 판을 들고 나간다.
   const def = courtDefFor(drill.courtMode, drill.courtSize);
   // 마커 id 는 SVG 루트마다 유일해야 한다(§6.6). 한 문서에 60장이 동시에 있으므로 여기서
   // 고정 id 를 쓰면 url(#…) 이 전부 첫 장을 가리켜 2장부터 화살촉이 사라진다.
   const uid = useId().replace(/:/g, '');
+  // 규칙 오버레이는 **판정을 거쳐야** 그려진다(위반이면 붉은 실선, 아니면 흰 파선). 그 판정
+  // 함수들은 프레임(좌표 + 차체 각도)을 요구하므로 스텝을 정적 프레임으로 한 번 편다 —
+  // `staticFrameOf` 가 그 어댑터이고, PNG 도 같은 자료형을 쓴다.
+  const ruleSvg = useMemo(() => {
+    const frame = staticFrameOf(drill, step);
+    // `teams` 는 `StaticSceneOpts` 의 필수 필드지만 ruleMarkup 은 안 읽는다(규칙 표시는 팀
+    // 색이 아니라 판정 색으로 말한다) — 그래도 타입을 우회하지 않고 진짜 값을 넘긴다.
+    return ruleMarkup(frame, {
+      mode: drill.courtMode,
+      size: drill.courtSize,
+      teams: drill.teams,
+      defense: drill.defense,
+      showRuleZones: view.showRuleZones,
+    });
+  }, [drill, step, view.showRuleZones]);
   const usedColors = Array.from(new Set(step.arrows.map((a) => arrowColor(a))));
   const locale = useLocale();
 
@@ -85,9 +111,16 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
           화면·PNG 와 **같은 함수**(render/sideFlags.ts)가 좌표를 준다. */}
       <SideMarks mode={drill.courtMode} size={drill.courtSize} teams={drill.teams} defense={drill.defense} />
 
-      {/* §3.5 렌더 레이어 순서: 코트면 → 진영 → 콘 → 화살표 → 휠체어 → 공 → 메모.
-          (격자·규칙존·선택 링은 종이에 싣지 않는다 — §6.2 의 PNG 포함 목록과 같은 판단이다.
-           진영 표시는 규칙존과 달리 **골라인 밖**이라 개체를 가리지 않는다.) */}
+      {/* 격자·규칙 존 — 화면과 **같은 컴포넌트**다(둘 다 순수 memo 라 writer 없이 선다).
+          2026-08-27 이전에는 여기 없었고, 그 근거로 적힌 것이 *"§6.2 의 PNG 포함 목록과 같은
+          판단"* 이었다. **그 근거가 그 뒤 뒤집혔다** — PNG 는 지금 넷을 전부 굽는다. 근거가
+          딴 파일에 있으면 근거가 바뀐 것을 아무도 모른다. 그래서 이제 판단은
+          `render/renderPaths.ts` 한 곳에 있고, 테스트가 표와 코드를 대조한다. */}
+      {view.showGrid && <GridOverlay mode={drill.courtMode} size={drill.courtSize} showLabels={view.showGridLabels} forPrint />}
+      <RuleZones mode={drill.courtMode} size={drill.courtSize} visible={view.showRuleZones} />
+
+      {/* §3.5 렌더 레이어 순서: 코트면 → 진영 → 격자·규칙존 → 콘 → 화살표 → 휠체어 → 공 → 메모.
+          (선택 링·핸들은 편집 도구라 종이에 없다 — 장면의 내용이 아니다.) */}
       {drill.cast.cones.map((c) => {
         const p = step.cones[c.id];
         if (!p) return null;
@@ -98,6 +131,13 @@ export function PrintCourt({ drill, step, ariaLabel }: PrintCourtProps) {
           </g>
         );
       })}
+
+      {/* 공 거리 링 · 세트피스 소유 화살표 · 존 위반 표시 — **PNG 와 같은 함수**(ruleMarkup)가
+          굽는다. 화면의 `RuleOverlay` 를 쓸 수 없는 이유는 이 파일 머리말 ①과 같다: 좌표를
+          rAF writer 가 DOM 에 직접 쓰는 구조라 정적 트리에서는 링이 전부 원점에 겹친다.
+          문자열을 삼키는 것이 못생겼지만, 기하를 여기 다시 적는 것보다 **훨씬 낫다** — 그
+          중복이 곧 종이만 다른 그림이 되는 자리다(renderPaths.ts 의 네 번째 사고). */}
+      {ruleSvg !== '' && <g dangerouslySetInnerHTML={{ __html: ruleSvg }} />}
 
       {/* 작도 도형 — 화면과 **같은 층·같은 컴포넌트**다. 인쇄만 따로 그리면 반투명 값이
           어긋나는 날 종이에서만 진한 판이 나오고, 그건 코트에서야 알게 된다. */}

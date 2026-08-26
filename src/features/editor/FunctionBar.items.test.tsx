@@ -30,6 +30,7 @@ function mount(
       <ToastProvider>
       <FunctionBar
         mode={over.mode}
+        showGridLabels
         onZoomIn={noop}
         onZoomOut={noop}
         onZoomReset={noop}

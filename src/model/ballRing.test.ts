@@ -6,8 +6,6 @@
 // 화이트리스트(validate)와 마이그레이션(migrate). 화면 배선은 render/RuleOverlay.test.tsx,
 // 편집기·시연·PNG 는 각 화면의 rules 테스트, 실제 저장 경로 왕복은
 // storage/ballRing.roundtrip.test.ts 가 잰다.
-/// <reference types="node" />
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createDrill } from './defaults.ts';
 import { addBall, cycleBallRing } from './edits.ts';
@@ -23,6 +21,7 @@ import {
 import { DRILL_MIGRATIONS, migrateDoc } from './migrate.ts';
 import { validateDrill } from './validate.ts';
 import { RING_5M_R_PX, RING_R_PX, ringRadiusPx, ringViolation } from './rules.ts';
+import { pathsDrawing, RENDER_PATHS } from '../render/renderPaths.ts';
 import { mToPx } from '../core/units.ts';
 import type { BallId } from '../core/ids.ts';
 
@@ -161,21 +160,22 @@ describe('5.2 반지름 — 25 px = 1 m 축척에서만 나온다', () => {
 });
 
 describe('5.2 축 열거 — 원을 그리는 화면이 몇 개인가', () => {
-  // 5차의 오진("시연 화면만 팀 구분을 잃었다")과 같은 형태를 막는 자리다. 규칙 링을 그리는
-  // 화면은 셋뿐이고(편집 CourtStage · 시연 PresentStage · PNG buildStaticSvg) 셋 다 배선했다.
-  // **인쇄와 썸네일은 규칙 오버레이 자체가 없다** — 배선할 것이 없다는 사실을 여기 못박는다.
-  // 나중에 인쇄에 규칙 존을 얹는 사람이 있으면 이 단언이 먼저 빨개져 "공의 원은?" 을 묻는다.
-  it('인쇄·썸네일은 규칙 오버레이를 아예 그리지 않는다', () => {
-    const print = readFileSync('src/features/print/PrintCourt.tsx', 'utf-8');
-    const thumb = readFileSync('src/render/CourtThumbnail.tsx', 'utf-8');
-    for (const src of [print, thumb]) {
-      expect(src).not.toContain('ruleOverlay');
-      expect(src).not.toContain('RING_');
-    }
-    // 대조군 — 같은 grep 이 실제 소비처 셋은 찾아낸다(못 찾으면 위 단언이 공허하다).
-    for (const p of ['src/render/RuleOverlay.tsx', 'src/features/present/PresentStage.tsx', 'src/features/export/buildStaticSvg.ts']) {
-      expect(readFileSync(p, 'utf-8'), p).toContain('ruleOverlay');
-    }
+  // ⚠️ 이 describe 는 2026-08-27 에 **뜻이 뒤집혔다.** 원래는 인쇄·썸네일 소스에
+  // `'ruleOverlay'`·`'RING_'` 문자열이 **없어야** 한다고 단언했다 — 즉 *부재를 계약으로
+  // 승격*시키고 있었다. 그리고 그 주석은 이렇게 끝났다: *"나중에 인쇄에 규칙 존을 얹는 사람이
+  // 있으면 이 단언이 먼저 빨개져 '공의 원은?' 을 묻는다."*
+  //
+  // 실제로 일어난 일은 그 반대였다. 기현님이 **종이에 원이 안 나온다고 신고**할 때까지 아무도
+  // 안 물었다. 부정 단언은 "여기 없다" 를 지킬 뿐 "어디에 있어야 하는가" 를 모르기 때문이다.
+  // 그래서 판단을 `render/renderPaths.ts` 표로 옮기고, 여기서는 **그 표를 읽는다**.
+  it('규칙 링을 그리는 경로는 표가 정한다 — 화면 둘 + 정적 렌더 둘', () => {
+    expect(pathsDrawing('ballRings')).toEqual(['editor', 'present', 'png', 'print']);
+  });
+
+  it('썸네일이 링을 안 그리는 것은 **사유가 적힌 판단**이다 — 우연한 누락이 아니다', () => {
+    const s = RENDER_PATHS.thumbnail.ballRings;
+    expect(s.draws).toBe(false);
+    if (!s.draws) expect(s.why).toContain('개략');
   });
 });
 

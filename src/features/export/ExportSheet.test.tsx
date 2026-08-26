@@ -48,7 +48,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 const drill = createDrill({ courtMode: 'full', title: '자유 전술판', empty: true });
 
 function renderSheet(open: boolean) {
-  return render(<ExportSheet open={open} onClose={() => {}} drill={drill} stepIndex={0} showGrid={false} showRuleZones />, { wrapper });
+  return render(<ExportSheet open={open} onClose={() => {}} drill={drill} stepIndex={0} showGrid={false} showGridLabels showRuleZones />, { wrapper });
 }
 
 /** 토스트는 프로바이더 **상태**에만 있다 — 호스트가 없으면 화면에 안 뜬다(BoardScreen.test 와
@@ -81,6 +81,7 @@ function Harness({ onClose }: { onClose?: () => void }) {
           drill={drill}
           stepIndex={0}
           showGrid={false}
+          showGridLabels
           showRuleZones
         />
         <ToastProbe />
@@ -157,7 +158,7 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
     render(
       <SettingsProvider>
         <ToastProvider>
-          <ExportSheet open onClose={() => {}} drill={withShape} stepIndex={0} showGrid={false} showRuleZones />
+          <ExportSheet open onClose={() => {}} drill={withShape} stepIndex={0} showGrid={false} showGridLabels showRuleZones />
         </ToastProvider>
       </SettingsProvider>,
     );
@@ -173,7 +174,7 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
     render(
       <SettingsProvider>
         <ToastProvider>
-          <ExportSheet open onClose={() => {}} drill={withNote} stepIndex={0} showGrid={false} showRuleZones />
+          <ExportSheet open onClose={() => {}} drill={withNote} stepIndex={0} showGrid={false} showGridLabels showRuleZones />
         </ToastProvider>
       </SettingsProvider>,
     );
