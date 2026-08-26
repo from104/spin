@@ -31,6 +31,7 @@ function mount(
       <FunctionBar
         mode={over.mode}
         showGridLabels
+        stepIndex={0}
         onZoomIn={noop}
         onZoomOut={noop}
         onZoomReset={noop}

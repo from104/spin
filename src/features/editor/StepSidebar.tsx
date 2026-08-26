@@ -102,6 +102,13 @@ import { useT } from '../../i18n/useT.ts';
 export interface StepSidebarProps {
   /** 카드마다 판을 그리므로 steps 만으로는 부족하다 — cast·팀 색·코트가 함께 필요하다. */
   drill: Drill;
+  /** 체크한 스텝이 바뀔 때마다 알린다(2026-08-27). **상태는 여전히 여기 로컬이다** — 위로
+   *  보내는 것은 사본뿐이고, 리듀서·undo 에는 들어가지 않는다(이 파일 머리말의 결정 그대로).
+   *
+   *  쓰는 곳은 내보내기 시트다: *"선택한 것만, 또는 전체를 고르게 해야 한다"*(기현 지시).
+   *  시트가 사이드바의 체크를 **기본값**으로 집어야 하는데, 그러려면 값이 위로 한 번은
+   *  올라와야 한다. 끌어올리지 않고 알리기만 하는 이유는 그것으로 충분하기 때문이다. */
+  onCheckedStepsChange?(ids: ReadonlySet<StepId>): void;
   stepId: StepId;
   onSelectStep(id: StepId): void;
   /** 순서 변경. `toIndex` 는 옮긴 **뒤**의 자리(edits.ts moveStep 과 같은 규칙). */
@@ -314,6 +321,7 @@ function gapDuplicateSpec(
 
 export function StepSidebar({
   drill,
+  onCheckedStepsChange,
   stepId,
   onSelectStep,
   onReorderStep,
@@ -337,6 +345,11 @@ export function StepSidebar({
   // 다음 진입까지 살아 있으면 "내가 언제 이걸 체크했지" 가 된다.
   const [selectMode, setSelectMode] = useState(false);
   const [checkedIds, setCheckedIds] = useState<ReadonlySet<StepId>>(new Set());
+  // 선택 모드를 끄면 checkedIds 가 비워지므로 빈 집합이 자동으로 전달된다 — 시트는 그때
+  // "선택한 스텝" 선택지를 감춘다(고를 수 없는 것을 보여 주지 않는다).
+  useEffect(() => {
+    onCheckedStepsChange?.(checkedIds);
+  }, [checkedIds, onCheckedStepsChange]);
   const toggleSelectMode = useCallback(() => {
     setSelectMode((v) => !v);
     setCheckedIds(new Set());

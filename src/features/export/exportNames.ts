@@ -16,6 +16,13 @@ export function backupFileName(nowMs: number): string {
   return `SPIN_backup_${ymdLocal(nowMs)}${SPIN_EXT.backup}`;
 }
 
+/** 여러 장을 한 벌로 받을 때(2026-08-27). 낱개 순차 다운로드 대신 ZIP 을 쓰는 이유는
+ *  `storage/zip.ts` 머리말과 ExportSheet 의 분기 주석에 있다 — 요지는 호환성이다.
+ *  안에 들어가는 낱장 이름은 `sceneFileName` 그대로라 풀면 번호가 붙은 PNG 들이 나온다. */
+export function sceneZipName(title: string): string {
+  return `SPIN_${slugify(title)}_${ymdLocal(Date.now())}.png.zip`;
+}
+
 /** 한 장면 그림. 스텝 번호는 **1-based** — 캡션에 찍히는 'n/N'(staticSceneLayout.captionSubText)
  *  과 같은 숫자여야 코치가 파일과 그림을 짝지을 수 있다. */
 export function sceneFileName(title: string, stepIndex: number): string {
