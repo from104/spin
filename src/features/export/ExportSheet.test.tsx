@@ -242,12 +242,15 @@ describe('파일 이름 조립 (4.1 이 "4.7 이 조립한다" 고 남긴 자리
   });
 
   it('그림은 1-based 스텝 번호가 붙는다 — 캡션의 n/N 과 같은 숫자여야 짝이 지어진다', () => {
-    expect(sceneFileName('측면 돌파', 0)).toBe('SPIN_측면 돌파_1.png');
-    expect(sceneFileName('측면 돌파', 4)).toBe('SPIN_측면 돌파_5.png');
+    expect(sceneFileName('측면 돌파', 0)).toBe('SPIN_측면 돌파_01.png');
+    expect(sceneFileName('측면 돌파', 4)).toBe('SPIN_측면 돌파_05.png');
+    // ★ 두 자리 패딩이 없으면 탐색기가 1, 10, 11, 2 로 정렬한다(2026-08-27).
+    expect(sceneFileName('측면 돌파', 9)).toBe('SPIN_측면 돌파_10.png');
+    expect(sceneFileName('측면 돌파', 59)).toBe('SPIN_측면 돌파_60.png');
   });
 
   it('파일 이름에 쓸 수 없는 글자는 slugify 가 막는다', () => {
-    expect(sceneFileName('a/b:c', 0)).toBe('SPIN_a-b-c_1.png');
+    expect(sceneFileName('a/b:c', 0)).toBe('SPIN_a-b-c_01.png');
   });
 });
 
@@ -314,7 +317,7 @@ describe('내보내기 범위', () => {
     await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
     await waitFor(() => expect(rasterMock).toHaveBeenCalledTimes(1));
     expect(rasterMock.mock.calls[0]![0].stepIndex, '보고 있던 3번 스텝(index 2)이어야 한다').toBe(2);
-    expect(downloadMock.mock.calls[0]![1]).toBe('SPIN_범위 드릴_3.png'); // 1-based, slugify 는 공백을 지운다
+    expect(downloadMock.mock.calls[0]![1]).toBe('SPIN_범위 드릴_03.png'); // 1-based + 두 자리 패딩
   });
 
   it('★ 여러 장이면 ZIP 한 벌이다 — 낱개 순차 다운로드가 아니다', async () => {
