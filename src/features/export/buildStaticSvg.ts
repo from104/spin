@@ -366,8 +366,10 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   // `showRuleZones` 가 꺼져 있어도 PNG 에 실린다. 존·존 위반 표시만 스위치에 매인다.
   let out = opts.showRuleZones ? ruleZonesMarkup(opts.mode, opts.size) : '';
 
-  for (const dz of opts.showRuleZones ? zones : []) {
-    if (zoneViolation(dz, actors) === 0) continue;
+  for (const [zi, dz] of (opts.showRuleZones ? zones : []).entries()) {
+    // 화면(render/ruleOverlay.ts)과 **같은 인자**로 잰다 — 골 뒤로 완전히 나간 수비를 인원에
+    // 세는 판정(2026-08-27)이 여기서 빠지면 판은 붉은데 그림만 깨끗해진다.
+    if (zoneViolation(dz, actors, mouths[zi]) === 0) continue;
     const z = dz.rect;
     const box = `x="${num(z.x)}" y="${num(z.y)}" width="${num(z.w)}" height="${num(z.h)}"`;
     out +=

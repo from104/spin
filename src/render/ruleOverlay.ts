@@ -306,7 +306,9 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     let zoneBits = 0;
     for (const [index, el] of zones) {
       const zone = ctx.goalAreas[index];
-      const bits = zone ? zoneViolation(zone, live) : 0;
+      // 같은 인덱스의 골대 입구를 함께 넘긴다 — 골 뒤로 완전히 나간 수비도 인원에 세기
+      // 위해서다. 두 배열의 순서가 같다는 것은 court.ts 의 goalMouths 가 못박은 계약이다.
+      const bits = zone ? zoneViolation(zone, live, ctx.goalMouths[index]) : 0;
       // 존 표시는 위반일 때만 나타난다 — 깨끗한 존은 RuleZones 의 흰 파선 그대로다.
       writeZone(index, el, bits ? VISIBLE | VIOLATED : 0);
       zoneBits |= bits;
