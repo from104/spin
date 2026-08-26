@@ -42,9 +42,7 @@ function makeDrill(onStep: string[], ring: BallRing = '3m'): Drill {
     },
     cast: {
       chairs: CAST.map((c, i) => ({ id: c.id as ChairId, team: c.team, number: String(i + 1), isGk: false })),
-      // ⚠️ 'none' 은 **키 없음**이다(그래서 삼항이다) — `{ring: undefined}` 를 쓰면 JSON 왕복에서
-      //    뜻이 달라진다(model/drill.ts BallRing 주석).
-      balls: [ring === 'none' ? { id: 'bl_1' as BallId } : { id: 'bl_1' as BallId, ring }],
+      balls: [{ id: 'bl_1' as BallId }],
       cones: [],
     },
     steps: [
@@ -54,6 +52,9 @@ function makeDrill(onStep: string[], ring: BallRing = '3m'): Drill {
         note: '',
         chairs: Object.fromEntries(onStep.map((id) => [id, { x: 0, y: 0, angleDeg: 0 }])),
         balls: { bl_1: BALL },
+        // ⚠️ v9 — 링은 스텝 소유다. 'none' 은 **키 없음**이므로 맵 자체를 만들지 않는다
+        //    (`{ring: undefined}` 를 쓰면 JSON 왕복에서 뜻이 달라진다 — drill.ts BallRing 주석).
+        ...(ring === 'none' ? {} : { ballRings: { bl_1: ring } }),
         cones: {},
         arrows: [],
         notes: [],
@@ -210,8 +211,8 @@ describe('EditorStage — 공의 원이 cast 에서 화면까지 온다', () => 
     const d = makeDrill(['ch_a'], '3m');
     const two: Drill = {
       ...d,
-      cast: { ...d.cast, balls: [{ id: 'bl_1' as BallId, ring: '3m' }, { id: 'bl_2' as BallId, ring: '5m' }] },
-      steps: [{ ...d.steps[0]!, balls: { bl_1: BALL, bl_2: { x: BALL.x + 200, y: BALL.y } } }],
+      cast: { ...d.cast, balls: [{ id: 'bl_1' as BallId }, { id: 'bl_2' as BallId }] },
+      steps: [{ ...d.steps[0]!, balls: { bl_1: BALL, bl_2: { x: BALL.x + 200, y: BALL.y } }, ballRings: { bl_1: '3m', bl_2: '5m' } }],
     };
     const { container } = mount(two);
     expect(container.querySelectorAll(`circle[r="${RING_R_PX}"]:not([cx])`)).toHaveLength(2); // 케이싱 + 표시선

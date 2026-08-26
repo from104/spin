@@ -144,7 +144,11 @@ export function interpolateSteps(d: Drill, from: DrillStep, to: DrillStep, e: nu
     if (presence === 'absent') continue;
     // 5.2 — '없음' 은 **키를 만들지 않는다**(`ring: undefined` 를 쓰면 toStrictEqual 비교와
     // JSON 왕복에서 `{}` 와 다른 것이 된다 — edits.ts omitKey 머리말의 함정과 같은 값).
-    const ring = def.ring !== undefined ? { ring: def.ring } : {};
+    // 링은 v9 부터 **스텝 소유**다. 보간하지 않고 `to`(지금 향하는 스텝)의 값을 쓴다 —
+    // 색·좌표와 달리 중간값이 없는 이산 상태이고, `cut` 이 "다음 스텝이 이긴다" 로 정한
+    // 방향과 같다(drill.ts 사슬 절). 그래서 원은 스텝 경계에서 즉시 갈린다.
+    const r = to.ballRings?.[def.id];
+    const ring = r !== undefined ? { ring: r } : {};
     if (presence === 'both') {
       const p = lerpVec(a!, b!, e);
       balls.push({ id: def.id, x: p.x, y: p.y, opacity: 1, ...ring });

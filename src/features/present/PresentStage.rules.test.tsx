@@ -42,8 +42,7 @@ function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: numb
     },
     cast: {
       chairs: chairs.map((c, i) => ({ id: c.id as ChairId, team: c.team, number: String(i + 1), isGk: c.isGk ?? false })),
-      // 'none' 은 **키 없음**이다(model/drill.ts BallRing 주석) — 그래서 삼항이다.
-      balls: [ring === 'none' ? { id: 'bl_1' as BallId } : { id: 'bl_1' as BallId, ring }],
+      balls: [{ id: 'bl_1' as BallId }],
       cones: [],
     },
     steps: [
@@ -53,6 +52,9 @@ function makeDrill(chairs: { id: string; team: TeamSide; isGk?: boolean; x: numb
         note: '',
         chairs: Object.fromEntries(chairs.map((c) => [c.id, { x: c.x, y: c.y, angleDeg: c.deg ?? 0 }])),
         balls: { bl_1: BALL },
+        // ⚠️ v9 — 링은 스텝 소유다. 'none' 은 **키 없음**이므로 맵 자체를 만들지 않는다
+        //    (`{ring: undefined}` 를 쓰면 JSON 왕복에서 뜻이 달라진다 — drill.ts BallRing 주석).
+        ...(ring === 'none' ? {} : { ballRings: { bl_1: ring } }),
         cones: {},
         arrows: [],
         notes: [],
@@ -195,8 +197,8 @@ describe('PresentStage — 공의 원이 시연에도 온다', () => {
     const base = makeDrill([{ id: 'ch_a', team: 'home', x: 100, y: 100 }], '3m');
     const two: Drill = {
       ...base,
-      cast: { ...base.cast, balls: [{ id: 'bl_1' as BallId, ring: '3m' }, { id: 'bl_2' as BallId, ring: '5m' }] },
-      steps: [{ ...base.steps[0]!, balls: { bl_1: BALL, bl_2: { x: BALL.x + 200, y: BALL.y } } }],
+      cast: { ...base.cast, balls: [{ id: 'bl_1' as BallId }, { id: 'bl_2' as BallId }] },
+      steps: [{ ...base.steps[0]!, balls: { bl_1: BALL, bl_2: { x: BALL.x + 200, y: BALL.y } }, ballRings: { bl_1: '3m', bl_2: '5m' } }],
     };
     const { container } = mount(two);
     expect(container.querySelectorAll(`circle[r="${RING_R_PX}"]:not([cx])`)).toHaveLength(2);

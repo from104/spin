@@ -21,7 +21,7 @@ import { COURT_MODES, COURT_SIZES, DEFAULT_COURT_SIZE, clampToViewBox, type Cour
 import { FORMATIONS, defaultStep, DEFAULT_TEAMS } from './defaults.ts';
 import { defaultDefense } from './rules.ts';
 import { CURRENT_DRILL_SCHEMA, DRILL_LEVELS, DRILL_TYPES, DRILL_SITUATIONS } from './drill.ts';
-import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, DrillType, DrillSituation, PoseMap, NoteLabel } from './drill.ts';
+import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, DrillType, DrillSituation, PoseMap, NoteLabel, StoredBallRing } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow, ArrowHead } from './arrow.ts';
 import { CURRENT_SESSION_SCHEMA, SESSION_PHASE_KINDS, flattenSessionItems } from './session.ts';
@@ -276,11 +276,9 @@ function parseBalls(raw: unknown, repairs: Repair[]): BallDef[] {
     }
     seen.add(id);
     // ★ 화이트리스트 — **여기 없는 필드는 IDB/파일 왕복에서 소리 없이 증발한다**(§3.8 규율).
-    // 5.2 거리 원: '3m'|'5m' 만 싣고 그 외(없음·'none'·쓰레기)는 **키를 만들지 않는다** =
-    // 'none'. 'none' 을 값으로 적으면 `{ring:'none'}` 과 `{}` 라는 같은 뜻의 두 문서가 생겨
-    // sameDrill(canonical 비교)이 둘을 다른 문서로 보고 백업 복원마다 (사본) 을 만든다.
-    const ring = item.ring === '3m' || item.ring === '5m' ? item.ring : undefined;
-    out.push(ring === undefined ? { id: id as BallId } : { id: id as BallId, ring });
+    // 거리 원(`ring`)은 2026-08-27(v9)에 **여기서 스텝으로 떠났다** — `parseStepBallRings`.
+    // 마이그레이션이 옮겨 적으므로 이 자리에 남은 옛 키는 그대로 증발시키는 것이 맞다.
+    out.push({ id: id as BallId });
   }
   if (out.length > LIMITS.maxBalls) {
     pushRepair(repairs, 'cast.balls', '공 개수 상한(10) 초과 — 뒤에서 절단', true);
@@ -714,6 +712,21 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       const p = sanitizeVec(val, courtMode, courtSize);
       if (p) ballsMap[key as BallId] = p;
     }
+    // 거리 원(v9) — `balls` 와 **별도 맵**이다. 값 화이트리스트는 옛 `parseBalls` 의 그것을
+    // 그대로 물려받는다: '3m'|'5m' 만 싣고 그 외(없음·'none'·쓰레기)는 **키를 만들지 않는다**
+    // = 'none'. 'none' 을 값으로 적으면 `{ring:'none'}` 과 `{}` 라는 같은 뜻의 두 문서가 생겨
+    // sameDrill(canonical 비교)이 둘을 다른 문서로 보고 백업 복원마다 (사본) 을 만든다.
+    // 빈 맵도 키를 만들지 않는다(`locked`/`ignored` 가 빈 배열을 지우는 것과 같은 절약).
+    const ringsMap: PoseMap<BallId, StoredBallRing> = {};
+    const ringsRaw = isRecord(rawStep.ballRings) ? rawStep.ballRings : {};
+    for (const [key, val] of Object.entries(ringsRaw)) {
+      // 그 스텝의 판에 없는 공의 링은 뜻이 없다 — 좌표와 같은 기준으로 떨군다.
+      if (!ballIds.has(key) || ballsMap[key as BallId] === undefined) {
+        orphanDropped = true;
+        continue;
+      }
+      if (val === '3m' || val === '5m') ringsMap[key as BallId] = val;
+    }
     const conesMap: PoseMap<ConeId, Vec2> = {};
     const conesRaw = isRecord(rawStep.cones) ? rawStep.cones : {};
     for (const [key, val] of Object.entries(conesRaw)) {
@@ -759,6 +772,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       ...(durationMs !== undefined ? { durationMs } : {}),
       chairs: chairsMap,
       balls: ballsMap,
+      ...(Object.keys(ringsMap).length > 0 ? { ballRings: ringsMap } : {}),
       cones: conesMap,
       arrows,
       notes,

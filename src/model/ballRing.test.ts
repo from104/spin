@@ -25,7 +25,9 @@ import { RING_5M_R_PX, RING_R_PX, ringRadiusPx, ringViolation } from './rules.ts
 import { mToPx } from '../core/units.ts';
 import type { BallId } from '../core/ids.ts';
 
-const ballsOf = (d: Drill): BallRing[] => d.cast.balls.map(ballRingOf);
+/** v9 — 링은 스텝 소유다. 별도 지정이 없으면 **첫 스텝**을 본다(옛 케이스들은 전부 스텝이
+ *  하나이거나 첫 스텝만 건드리므로, 그때의 뜻이 그대로 보존된다). */
+const ballsOf = (d: Drill, i = 0): BallRing[] => d.cast.balls.map((b) => ballRingOf(d.steps[i]!, b.id));
 
 /** 공 두 개짜리 판. **하나짜리로는 "개별 저장" 을 잴 수 없다** — 전역 상태 하나로 구현해도
  *  공이 하나면 모든 단언이 통과한다(계획서가 지목한 헛통과 형태). */
@@ -55,34 +57,42 @@ describe('5.2 순환 규칙 — 없음 → 3 m → 5 m → 없음', () => {
 
   it('cycleBallRing 이 그 공 하나만 돌린다 — **공 두 개가 서로 다른 상태를 갖는다**', () => {
     const { drill, a, b } = twoBallDrill();
-    const s1 = cycleBallRing(drill, a); // a: 3m
+    const s1 = cycleBallRing(drill, 0, a); // a: 3m
     expect(ballsOf(s1)).toEqual(['3m', 'none']);
-    const s2 = cycleBallRing(s1, a); // a: 5m
+    const s2 = cycleBallRing(s1, 0, a); // a: 5m
     expect(ballsOf(s2)).toEqual(['5m', 'none']);
-    const s3 = cycleBallRing(s2, b); // b: 3m — a 는 그대로
+    const s3 = cycleBallRing(s2, 0, b); // b: 3m — a 는 그대로
     expect(ballsOf(s3)).toEqual(['5m', '3m']);
-    const s4 = cycleBallRing(s3, a); // a: 없음으로 닫힌다
+    const s4 = cycleBallRing(s3, 0, a); // a: 없음으로 닫힌다
     expect(ballsOf(s4)).toEqual(['none', '3m']);
   });
 
   it("'없음' 은 **키 삭제**다 — `{ring: undefined}` 로 남기지 않는다", () => {
     const { drill, a } = twoBallDrill();
-    const off = cycleBallRing(cycleBallRing(cycleBallRing(drill, a), a), a);
-    expect(Object.prototype.hasOwnProperty.call(off.cast.balls[0]!, 'ring')).toBe(false);
+    const off = cycleBallRing(cycleBallRing(cycleBallRing(drill, 0, a), 0, a), 0, a);
+    // 마지막 하나가 꺼지면 맵 자체가 사라진다(locked/ignored 가 빈 배열을 지우는 것과 같다).
+    expect(Object.prototype.hasOwnProperty.call(off.steps[0]!, 'ballRings')).toBe(false);
     // JSON 왕복(파일)과 structuredClone(IDB)이 같은 문서를 만든다 — 명시적 undefined 였다면
     // 둘이 갈라져 "내보냈다 가져오면 뜻이 달라지는" 문서가 된다.
-    expect(JSON.parse(JSON.stringify(off.cast.balls))).toEqual(structuredClone(off.cast.balls));
+    expect(JSON.parse(JSON.stringify(off.steps))).toEqual(structuredClone(off.steps));
   });
 
   it('없는 공 id 는 no-op 이고 **같은 참조**를 돌려준다(리렌더·히스토리 억제)', () => {
     const { drill } = twoBallDrill();
-    expect(cycleBallRing(drill, 'bl_nope' as BallId)).toBe(drill);
+    expect(cycleBallRing(drill, 0, 'bl_nope' as BallId)).toBe(drill);
   });
 
-  it('스텝을 건드리지 않는다 — 상태는 cast 에 산다(스텝마다가 아니라)', () => {
-    const { drill, a } = twoBallDrill();
-    const next = cycleBallRing(drill, a);
-    expect(next.steps).toBe(drill.steps); // 스텝 배열 자체가 그대로다
+  // ⚠️ 이 케이스는 2026-08-27 에 **정반대로 뒤집혔다.** 원래 이름은 "스텝을 건드리지 않는다 —
+  // 상태는 cast 에 산다" 였고, `next.steps` 가 참조까지 같기를 요구했다. v9 에서 링이 스텝으로
+  // 내려오면서 그 단언이 곧 "고장" 을 뜻하게 됐다.
+  it('그 스텝만 건드린다 — cast 는 그대로고, 다른 스텝도 그대로다', () => {
+    const { drill: one, a } = twoBallDrill();
+    // 스텝 둘짜리로 늘린다(하나뿐이면 "다른 스텝은 그대로" 를 잴 수 없다).
+    const drill: Drill = { ...one, steps: [one.steps[0]!, { ...one.steps[0]!, id: 'st_2' as typeof one.steps[0]['id'] }] };
+    const next = cycleBallRing(drill, 0, a);
+    expect(next.cast).toBe(drill.cast); // cast 는 손대지 않는다
+    expect(ballsOf(next, 0)).toEqual(['3m', 'none']); // 건드린 스텝만 바뀌고
+    expect(ballsOf(next, 1)).toEqual(['none', 'none']); // 다른 스텝은 그대로다
   });
 });
 
@@ -136,23 +146,37 @@ describe('5.2 축 열거 — 원을 그리는 화면이 몇 개인가', () => {
 });
 
 describe('5.2 스키마 관문 ① — validateDrill 화이트리스트', () => {
-  const doc = (balls: unknown[]): Record<string, unknown> => ({
+  /** v9 — 링은 스텝에 싣는다. 공 좌표도 함께 넣는 것이 중요하다: 그 스텝의 판에 없는 공의
+   *  링은 뜻이 없어서 validate 가 좌표와 같은 기준으로 떨구기 때문이다. */
+  const doc = (rings: Record<string, unknown>): Record<string, unknown> => ({
     schemaVersion: CURRENT_DRILL_SCHEMA,
     id: 'dr_x',
     courtMode: 'full',
-    cast: { chairs: [], balls, cones: [] },
-    steps: [{ id: 'st_1', name: '', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [] }],
+    cast: { chairs: [], balls: [{ id: 'bl_1' }, { id: 'bl_2' }, { id: 'bl_3' }], cones: [] },
+    steps: [
+      {
+        id: 'st_1',
+        name: '',
+        note: '',
+        chairs: {},
+        balls: { bl_1: { x: 400, y: 260 }, bl_2: { x: 420, y: 260 }, bl_3: { x: 440, y: 260 } },
+        ballRings: rings,
+        cones: {},
+        arrows: [],
+        notes: [],
+      },
+    ],
   });
 
   it("'3m'·'5m' 이 살아남고 **공마다 다르게** 살아남는다", () => {
-    const v = validateDrill(doc([{ id: 'bl_1', ring: '3m' }, { id: 'bl_2', ring: '5m' }, { id: 'bl_3' }]));
+    const v = validateDrill(doc({ bl_1: '3m', bl_2: '5m' }));
     expect(v.ok).toBe(true);
     if (!v.ok) return;
     expect(ballsOf(v.value)).toEqual(['3m', '5m', 'none']);
   });
 
   it("'none'·쓰레기·엉뚱한 타입은 **키 없음**으로 접힌다 = 'none'", () => {
-    const v = validateDrill(doc([{ id: 'bl_1', ring: 'none' }, { id: 'bl_2', ring: '9m' }, { id: 'bl_3', ring: 42 }]));
+    const v = validateDrill(doc({ bl_1: 'none', bl_2: '9m', bl_3: 42 }));
     expect(v.ok).toBe(true);
     if (!v.ok) return;
     expect(ballsOf(v.value)).toEqual(['none', 'none', 'none']);
@@ -162,40 +186,60 @@ describe('5.2 스키마 관문 ① — validateDrill 화이트리스트', () => 
   });
 
   it('검증은 멱등이다 — 한 번 지난 문서를 다시 넣어도 원이 그대로다', () => {
-    const first = validateDrill(doc([{ id: 'bl_1', ring: '5m' }]));
+    const first = validateDrill(doc({ bl_1: '5m' }));
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     const second = validateDrill(JSON.parse(JSON.stringify(first.value)));
     expect(second.ok).toBe(true);
     if (!second.ok) return;
-    expect(ballsOf(second.value)).toEqual(['5m']);
+    expect(ballsOf(second.value)).toEqual(['5m', 'none', 'none']);
   });
 });
 
-describe('5.2 스키마 관문 ② — 도장을 올리지 않은 것이 성립하는가', () => {
-  it('체인의 끝이 곧 현재 버전이다 — **링 때문에 오른 단계는 없다**', () => {
-    // ⚠️ 2026-08-14 — 스키마가 4 가 됐다. 그러나 **링 때문이 아니다**: v3→v4 는 작도 도형
-    // (`DrillStep.shapes`) 때문이고, 그 판단 근거는 drill.ts 의 CURRENT_DRILL_SCHEMA 주석에
-    // 링과 **나란히** 적혀 있다(링은 조건 ②를 넘어 안 올렸고, 도형은 못 넘어 올렸다).
-    // ⚠️ 2026-08-15 — 5 가 됐다. 역시 링 때문이 아니다(v4→v5 는 자유 삼각형 `Shape.pts`).
-    // ⚠️ 2026-08-15 — 6 이 됐다. 역시 링 때문이 아니다(v5→v6 은 진영 `Drill.defense`).
-    // ⚠️ 2026-08-16 — 7 이 됐다. 역시 링 때문이 아니다(v6→v7 은 선 통일 — 화살표 kind 삭제).
-    // ⚠️ 2026-08-18 — 8 이 됐다. 역시 링 때문이 아니다(v7→v8 은 분류 개편 — drillType/훈련량 폐기).
-    // 이 describe 가 지키는 것은 여전히 "링이 도장을 올리지 않았다" 이므로, 그 사실을 링을
-    // 건드리는 단계가 체인에 없다는 것으로 잰다.
+describe('5.2 스키마 관문 ② — 도장을 올렸고, 옮겨 적기가 무손실인가', () => {
+  // ⚠️ 이 describe 는 2026-08-27 에 **뜻이 뒤집혔다.** 원래 이름은 *"도장을 올리지 않은 것이
+  // 성립하는가"* 였고, v4~v8 이 오를 때마다 "역시 링 때문이 아니다" 를 한 줄씩 덧붙여 왔다.
+  // v9 에서 마침내 **링 때문에** 올랐다(cast → 스텝). 그래서 지키는 것도 바뀐다: 이제
+  // "안 건드렸는가" 가 아니라 **"옮겨 적었는가"** 다. 옛 문서의 링이 조용히 사라지는 것이
+  // 이 변경의 유일한 손실 경로이기 때문이다(링은 표시가 아니라 규칙 선택이다 — ruleForRing).
+  it('체인의 끝이 곧 현재 버전이다', () => {
     const last = DRILL_MIGRATIONS[DRILL_MIGRATIONS.length - 1]!;
     expect(last.to).toBe(CURRENT_DRILL_SCHEMA);
-    expect(CURRENT_DRILL_SCHEMA).toBe(8);
-    // ⚠️ 문구로 세지 않는다 — v1→v2 의 '필요 **인원**' 이 '원' 을 품고 있어 헛걸린다.
-    // 행동으로 잰다: 전 체인을 돌려도 `cast.balls` 가 바이트 동일해야 한다.
-    const balls = [{ id: 'bl_1', ring: '5m' }, { id: 'bl_2' }];
-    const doc = { schemaVersion: 1, id: 'dr_x', courtMode: 'full', cast: { chairs: [], balls, cones: [] }, steps: [] };
-    const m = migrateDoc(doc, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
-    expect(m.ok).toBe(true);
-    if (m.ok) expect((m.doc as { cast: { balls: unknown } }).cast.balls, '링을 건드리는 단계가 생겼다').toEqual(balls);
+    expect(CURRENT_DRILL_SCHEMA).toBe(9);
   });
 
-  it("**손으로 만든 v3 문서가 무손실로 열린다** — 도형 단계를 지나도 원은 손대지 않는다", () => {
+  it('★ 옛 문서(v1)의 cast 링이 전 스텝으로 옮겨 적히고, cast 에서는 사라진다', () => {
+    const balls = [{ id: 'bl_1', ring: '5m' }, { id: 'bl_2' }];
+    const steps = [
+      { id: 'st_1', balls: { bl_1: { x: 400, y: 260 }, bl_2: { x: 420, y: 260 } } },
+      { id: 'st_2', balls: { bl_1: { x: 500, y: 300 }, bl_2: { x: 520, y: 300 } } },
+    ];
+    const doc = { schemaVersion: 1, id: 'dr_x', courtMode: 'full', cast: { chairs: [], balls, cones: [] }, steps };
+    const m = migrateDoc(doc, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
+    expect(m.ok).toBe(true);
+    if (!m.ok) return;
+    const out = m.doc as { cast: { balls: { id: string; ring?: string }[] }; steps: { ballRings?: Record<string, string> }[] };
+    // cast 에는 더 이상 링이 없다.
+    expect(out.cast.balls.every((b) => b.ring === undefined), 'cast 에 링이 남았다').toBe(true);
+    // 전 스텝이 같은 값을 물려받는다 = cast 소유였다는 말의 정확한 뜻(모든 스텝이 한 값을 공유).
+    for (const st of out.steps) expect(st.ballRings).toEqual({ bl_1: '5m' });
+  });
+
+  it('★ 링이 하나도 없던 문서는 스텝에 키를 만들지 않는다 — 없음은 계속 키 없음이다', () => {
+    const doc = {
+      schemaVersion: 1,
+      id: 'dr_y',
+      courtMode: 'full',
+      cast: { chairs: [], balls: [{ id: 'bl_1' }], cones: [] },
+      steps: [{ id: 'st_1', balls: { bl_1: { x: 400, y: 260 } } }],
+    };
+    const m = migrateDoc(doc, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
+    expect(m.ok).toBe(true);
+    if (!m.ok) return;
+    expect((m.doc as { steps: { ballRings?: unknown }[] }).steps[0]!.ballRings).toBeUndefined();
+  });
+
+  it("**손으로 만든 v3 문서가 무손실로 열린다** — v9 를 지나며 원이 스텝으로 옮겨 적힌다", () => {
     const handMade = {
       schemaVersion: 3,
       id: 'dr_hand',
@@ -203,16 +247,20 @@ describe('5.2 스키마 관문 ② — 도장을 올리지 않은 것이 성립�
       courtMode: 'full',
       courtSize: '28x15',
       cast: { chairs: [], balls: [{ id: 'bl_1', ring: '5m' }, { id: 'bl_2' }], cones: [] },
-      steps: [{ id: 'st_1', name: '', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [] }],
+      // 공 좌표가 있어야 링이 그 스텝에 실린다(판에 없는 공의 링은 뜻이 없다).
+      steps: [{ id: 'st_1', name: '', note: '', chairs: {}, balls: { bl_1: { x: 400, y: 260 }, bl_2: { x: 420, y: 260 } }, cones: {}, arrows: [], notes: [] }],
     };
     const mig = migrateDoc(handMade, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
     expect(mig.ok).toBe(true);
     if (!mig.ok) return;
-    // 2026-08-14 — v3→v4(도형) 한 단계는 지난다. **원과 무관한 단계**라는 것이 요점이다.
+    // 2026-08-14 — v3→v4(도형) 한 단계는 지난다. **원과 무관한 단계**라는 것이 요점이었다.
     // 2026-08-15 — v4→v5·v5→v6, 2026-08-16 — v6→v7, 2026-08-18 — v7→v8 이 붙어 다섯이 됐다.
-    // 역시 원과 무관하다.
-    expect(mig.applied).toHaveLength(5);
-    expect((mig.doc as { cast: { balls: unknown[] } }).cast.balls, '도형 단계가 원을 건드렸다').toEqual(handMade.cast.balls);
+    // 2026-08-27 — v8→v9 가 붙어 여섯. **이번엔 원과 무관하지 않다** — 이 단계가 원을 옮긴다.
+    expect(mig.applied).toHaveLength(6);
+    const migrated = mig.doc as { cast: { balls: { ring?: string }[] }; steps: { ballRings?: Record<string, string> }[] };
+    // 옮겼으므로 cast 에는 안 남고, 스텝에 있어야 한다. 둘 중 하나만 참이면 손실이다.
+    expect(migrated.cast.balls.every((b) => b.ring === undefined), 'cast 에 원이 남았다').toBe(true);
+    expect(migrated.steps[0]!.ballRings, '스텝으로 옮겨 적히지 않았다').toEqual({ bl_1: '5m' });
     const v = validateDrill(mig.doc);
     expect(v.ok).toBe(true);
     if (!v.ok) return;
@@ -233,7 +281,7 @@ describe('5.2 스키마 관문 ② — 도장을 올리지 않은 것이 성립�
     if (!mig.ok) return;
     // 2026-08-14 — 체인이 셋이 됐다(v3→v4 작도 도형).
     // 2026-08-15 — 다섯. 2026-08-16 — 여섯(v6→v7 선 통일). 2026-08-18 — 일곱(v7→v8 분류 개편).
-    expect(mig.applied).toHaveLength(7); // v1→v2→v3 은 그대로 돈다(대조군)
+    expect(mig.applied).toHaveLength(8); // v1→v2→v3 은 그대로 돈다(대조군)
     const v = validateDrill(mig.doc);
     expect(v.ok).toBe(true);
     if (!v.ok) return;

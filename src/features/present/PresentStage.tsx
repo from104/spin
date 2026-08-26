@@ -11,7 +11,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { COURT_BG } from '../../core/colors.ts';
 import { courtDefFor, type CourtMode } from '../../model/court.ts';
 import type { BallRing, Drill, DrillStep } from '../../model/drill.ts';
-import { ballRingOf } from '../../model/drill.ts';
+
 import { arrowColor } from '../../model/arrow.ts';
 import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playback.ts';
 import { PLAYBACK } from '../../core/constants.ts';
@@ -89,14 +89,14 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
   );
   // §7 5.2 — 시연도 **같은 표**를 본다. 여기가 빠지면 편집 화면에서 켠 5 m 원이 시연에서만
   // 사라진다(5차의 "시연 화면만 팀 구분을 잃었다" 와 같은 형태의 축 누락이다).
+  // v9 — 링은 스텝 소유라 `stepIdx` 를 따라 갈린다(편집 화면 EditorStage 와 같은 규약).
   const ballRings = useMemo(() => {
     const m: Record<string, BallRing> = {};
-    for (const b of drill.cast.balls) {
-      const r = ballRingOf(b);
-      if (r !== 'none') m[b.id] = r;
+    for (const [id, r] of Object.entries(drill.steps[stepIdx]?.ballRings ?? {})) {
+      if (r !== undefined) m[id] = r;
     }
     return m;
-  }, [drill.cast.balls]);
+  }, [drill.steps, stepIdx]);
   const ruleBallIds = useMemo(() => {
     const s = drill.steps[stepIdx];
     if (!s) return [];

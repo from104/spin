@@ -78,7 +78,13 @@ const GEO = {
 const RULE_SCENE_CREATED_AT = 1755000000000;
 
 interface RuleSceneMeta {
-  /** cast.balls[0] 에 얹을 규칙 링. 생략 = 링 없음. */
+  /** 첫 공에 얹을 규칙 링 — **전 스텝에** 같은 값으로 깐다. 생략 = 링 없음.
+   *
+   *  v9(2026-08-27)에 링이 cast 에서 스텝으로 내려갔지만 여기 표현은 그대로 뒀다: 지금 21개
+   *  장면은 전부 "장면 내내 같은 링" 이라 스텝별로 적을 것이 없다. 스텝마다 다른 링이 필요해지면
+   *  (예: 킥오프에서 공이 멈춘 스텝만 5 m, 킥 이후엔 없음) `cutSteps` 와 같은 꼴로
+   *  `ringSteps?: Readonly<Record<number, '3m'|'5m'>>` 를 더하면 된다 — 아래 주입 루프가 이미
+   *  스텝을 돌고 있어 자리는 준비돼 있다. */
   ring?: '3m' | '5m';
   /** Drill.defense 후처리. 생략 = createDrill 기본값(홈, 왼쪽 골) 그대로. */
   defense?: TeamSide;
@@ -814,17 +820,23 @@ export function buildRuleScene(id: RuleSceneId): Drill {
   const drill = buildSeedDrill(SPECS[id], RULE_SCENE_CREATED_AT);
   const meta = SCENE_META[id];
 
-  const cast =
-    meta.ring !== undefined && drill.cast.balls[0]
-      ? { ...drill.cast, balls: drill.cast.balls.map((b, i) => (i === 0 ? { ...b, ring: meta.ring } : b)) }
-      : drill.cast;
-
+  // v9 — 링은 스텝 소유다. cut 과 **한 번의 순회**로 함께 얹는다.
   const cutSet = new Set(meta.cutSteps ?? []);
-  const steps = cutSet.size === 0 ? drill.steps : drill.steps.map((step, i) => (cutSet.has(i) ? { ...step, cut: true as const } : step));
+  const ringBallId = meta.ring !== undefined ? drill.cast.balls[0]?.id : undefined;
+  const steps =
+    cutSet.size === 0 && ringBallId === undefined
+      ? drill.steps
+      : drill.steps.map((step, i) => {
+          let out = cutSet.has(i) ? { ...step, cut: true as const } : step;
+          // 그 스텝의 판에 공이 없으면 링도 없다 — validate 가 고아로 떨굴 값을 만들지 않는다.
+          if (ringBallId !== undefined && meta.ring !== undefined && step.balls[ringBallId] !== undefined) {
+            out = { ...out, ballRings: { [ringBallId]: meta.ring } };
+          }
+          return out;
+        });
 
   return {
     ...drill,
-    cast,
     steps,
     ...(meta.defense !== undefined ? { defense: meta.defense } : {}),
   };

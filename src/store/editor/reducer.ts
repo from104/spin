@@ -213,8 +213,9 @@ function uiReducerInner(s: EditorState, a: EditorAction): EditorState {
     // ⚠️ 상태를 5 m 로 **남긴 채** 해제하고 싶으면 순환을 타지 않는 세 경로를 쓴다:
     // Esc · 빈 코트 탭 · 다른 개체 선택. Esc 가 어느 개체든 즉시 해제인 것은 그대로다.
     case 'BALL_RETAP': {
-      const def = s.present.cast.balls.find((b) => b.id === a.id);
-      if (!def || ballRingOf(def) !== '5m') return s;
+      // v9 — 링은 스텝 소유다. 지금 편집 중인 스텝에서 읽는다(`s.stepId`).
+      const step = s.present.steps.find((st) => st.id === s.stepId);
+      if (!step || ballRingOf(step, a.id) !== '5m') return s;
       return s.selection.size === 0 ? s : { ...s, selection: new Set<string>() };
     }
     case 'STEP_SELECT':
@@ -363,9 +364,10 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return placeChair(d, i, a.id, a.pose);
     case 'CHAIR_DEF':
       return updateChairDef(d, a.id, a.patch);
-    // 5.2 — 순환 규칙 자체는 순수 함수(model/edits.cycleBallRing)에 있다. 그 공 하나만 바뀐다.
+    // 5.2 — 순환 규칙 자체는 순수 함수(model/edits.cycleBallRing)에 있다. v9 부터 **그 스텝의**
+    // 그 공 하나만 바뀐다(i = 지금 편집 중인 스텝 인덱스, 이 리듀서가 이미 받고 있다).
     case 'BALL_RETAP':
-      return cycleBallRing(d, a.id);
+      return cycleBallRing(d, i, a.id);
     case 'OBJECT_NUDGE':
       return applyNudge(d, i, a.id, a.d, a.dTheta);
     case 'GROUP_NUDGE':

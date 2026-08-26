@@ -22,7 +22,12 @@ function setup(): { s0: EditorState; a: BallId; b: BallId } {
   return { s0: { ...s0, selection: new Set([a!]) }, a: a!, b: b! };
 }
 
-const rings = (s: EditorState): BallRing[] => s.present.cast.balls.map(ballRingOf);
+/** v9 — 링은 스텝 소유다. **지금 편집 중인 스텝**(s.stepId)에서 읽는다: BALL_RETAP 이 바꾸는
+ *  것도 그 스텝이므로, 이 헬퍼가 cast 를 보던 시절과 같은 것을 재려면 여기여야 한다. */
+const rings = (s: EditorState): BallRing[] => {
+  const step = s.present.steps.find((st) => st.id === s.stepId) ?? s.present.steps[0]!;
+  return s.present.cast.balls.map((b) => ballRingOf(step, b.id));
+};
 const retap = (s: EditorState, id: BallId): EditorState => editorRootReducer(s, { type: 'BALL_RETAP', id });
 
 describe('5.2 BALL_RETAP — 순환 네 칸', () => {

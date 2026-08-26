@@ -16,7 +16,7 @@ import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import type { BallRing, Drill, DrillStep, NoteLabel } from '../../model/drill.ts';
-import { ballRingOf } from '../../model/drill.ts';
+
 import type { ZoneConfig } from '../../model/chair.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
 import type { Arrow, ArrowPart } from '../../model/arrow.ts';
@@ -184,16 +184,16 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     () => drill.cast.chairs.filter((d) => step.chairs[d.id] !== undefined).map((d) => ({ id: d.id, team: d.team, isGk: d.isGk })),
     [drill.cast.chairs, step.chairs],
   );
-  // §7 5.2 — 공마다 따로 켠 거리 원. `cast` 에서 온다(스텝이 아니라) — 그래야 스텝을 옮겨도
-  // 같은 공이 같은 원을 갖는다. 'none' 인 공은 표에 **넣지 않는다**(없는 id = 'none').
+  // §7 5.2 — 공마다 따로 켠 거리 원. v9 부터 **지금 스텝**에서 온다(cast 가 아니라) — 링은
+  // 공의 정체성이 아니라 그 국면의 상태라, 스텝을 넘기면 원도 갈린다(drill.ts BallRing 머리말).
+  // 'none' 인 공은 표에 **넣지 않는다**(없는 id = 'none').
   const ballRings = useMemo(() => {
     const m: Record<string, BallRing> = {};
-    for (const b of drill.cast.balls) {
-      const r = ballRingOf(b);
-      if (r !== 'none') m[b.id] = r;
+    for (const [id, r] of Object.entries(step.ballRings ?? {})) {
+      if (r !== undefined) m[id] = r;
     }
     return m;
-  }, [drill.cast.balls]);
+  }, [step.ballRings]);
   const cones = useMemo<ObjectLayerCone[]>(
     () => drill.cast.cones.filter((c) => step.cones[c.id] !== undefined).map((c) => ({ id: c.id, colorIndex: c.colorIndex })),
     [drill.cast.cones, step.cones],
