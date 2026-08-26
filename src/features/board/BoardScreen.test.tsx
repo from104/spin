@@ -104,8 +104,8 @@ async function openBoard(
  *  들어갔다 — 그 전에는 DOM 에 아예 없다(닫힌 오버레이는 표적 예산 밖이라는 그 규칙 그대로).
  *  ⚠️ 자유 전술판에는 **인스펙터가 없다.** 옛 `openInspector` 는 그래서 사라졌다. */
 async function openCourt(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
-  return screen.getByRole('dialog', { name: '코트' });
+  await user.click(screen.getByRole('button', { name: '보드 설정' }));
+  return screen.getByRole('dialog', { name: '보드 설정' });
 }
 
 /** 코트 위 개체의 translate 좌표를 읽는다. */
@@ -170,8 +170,9 @@ describe('자유 전술판 (대문)', () => {
     expect(loadPrefs().showRuleZones).toBe(true);
 
     // 2026-08-14(설계서 §5-P2): 두 토글은 코트 위 묶음에서 하단 바 [보기▾] 팝오버 안으로
-    // 들어갔다. **묻는 것은 그대로다** — 이름도 그대로고, 늘어난 것은 문 하나뿐이다.
-    await user.click(screen.getByRole('button', { name: '보기' }));
+    // 들어갔다. 2026-08-16 에 서랍이 됐고, 2026-08-27 에 [보드 설정] 모달로 들어갔다.
+    // **묻는 것은 세 번 다 그대로다** — 이름도 그대로고, 바뀐 것은 여는 문뿐이다.
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
 
     await user.click(screen.getByRole('button', { name: '격자 표시 전환' }));
     expect(loadPrefs().showGrid).toBe(false);
@@ -403,7 +404,7 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
   /** 팝오버가 닫혀 있으면 열고 세그먼트를 돌려준다. 2026-08-14 재설계로 코트 전환이 헤더에서
    *  기능 바의 [코트] **안**으로 들어갔다 — 닫혀 있으면 DOM 에 아예 없다(표적 예산 밖). */
   async function seg(user: ReturnType<typeof userEvent.setup>, name: string) {
-    if (!screen.queryByRole('dialog', { name: '코트' })) await openCourt(user);
+    if (!screen.queryByRole('dialog', { name: '보드 설정' })) await openCourt(user);
     return screen.findByRole('radiogroup', { name });
   }
   /** 팝오버를 닫는다 — 고르지 않고 빠져나오는 유일한 길이다. */
@@ -513,7 +514,7 @@ describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', ()
     // 새로 마운트 = 새로고침 후 다시 방문. prefs 는 그대로, 스냅샷만 살아 있다.
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-    await userEvent.setup().click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: '보드 설정' }));
     expect(screen.getByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: '코트 형태' })).toBeNull();
   }, 20000);
@@ -553,7 +554,7 @@ describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', ()
 
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-    await userEvent.setup().click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: '보드 설정' }));
     expect(screen.getByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument();
   }, 20000);
 });
@@ -598,7 +599,7 @@ describe('세션 왕복 — 떠났다 오면 새 판이 아니다', () => {
     unmount();
     render(<BoardScreen />, { wrapper: Wrapper });
     await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-    await userEvent.setup().click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: '보드 설정' }));
     expect(screen.getByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
   }, 20000);
 });
@@ -787,7 +788,7 @@ describe('코트 비우기 — 되돌릴 수 없으므로 반드시 확인을 �
   it('비우면 코트 전환 잠금이 풀린다', async () => {
     const { user } = await openAndClickClear();
     await user.click(screen.getByRole('button', { name: '비우기' }));
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     expect(await screen.findByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument();
   });
 });

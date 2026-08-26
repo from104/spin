@@ -98,10 +98,10 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
   // 지켜야 아래 칸들의 절대 위치가 안 밀리기 때문이었다(§3 불변식 1). 모달 안에는 지킬 절대
   // 위치가 없으므로 그 근거가 함께 없어졌고, 대신 크기 3단이 이미 세워 둔 계약을 따른다 —
   // *"골라도 안 변하는 컨트롤은 거짓말이다"* → 버튼 대신 사실을 적는다.
-  describe('[진영]은 이제 [코트] 모달 안이다', () => {
+  describe('[진영]·[표시]·[이동]·[골대]는 이제 [보드 설정] 모달 안이다', () => {
     const openCourt = async (mode: 'full' | 'half' | 'flat') => {
       const r = mount(mode);
-      await userEvent.setup().click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+      await userEvent.setup().click(screen.getByRole('button', { name: '보드 설정' }));
       return r;
     };
 
@@ -115,7 +115,7 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
       const onToggleDefense = vi.fn();
       const r = mount('full', { onToggleDefense });
       const user = userEvent.setup();
-      await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+      await user.click(screen.getByRole('button', { name: '보드 설정' }));
 
       const btn = screen.getByRole('button', { name: /^진영 바꾸기/ });
       // 이름 규칙(WCAG 2.5.3) — 화면 글자가 접근성 이름의 부분 문자열이어야 한다.

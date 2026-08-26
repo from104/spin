@@ -108,9 +108,10 @@ describe('드릴 편집 모드', () => {
     expect(sidebar.contains(play), '재생이 여전히 스텝 바 안에 있다').toBe(false);
     expect(sidebar.contains(speed), '배속이 여전히 스텝 바 안에 있다').toBe(false);
 
-    // [보기]는 이제 기둥 안이다 — 하단 바가 아니라.
+    // [보드 설정]은 기둥 안이다 — 하단 바가 아니라. (2026-08-27: 옛 [보기] 서랍이 이 모달로
+    // 흡수됐다. 격자·가이드는 이제 모달을 열어야 나온다.)
     const bar = screen.getByRole('navigation', { name: '판 조작' });
-    expect(bar.contains(screen.getByRole('button', { name: '보기' })), '[보기]가 기둥 밖에 있다').toBe(true);
+    expect(bar.contains(screen.getByRole('button', { name: '보드 설정' })), '[보드 설정]이 기둥 밖에 있다').toBe(true);
     // 줌도 기둥이다. 옛 트레이 묶음(role=group '확대')은 **사라졌다** — 그 이사가 ①이다.
     for (const name of ['확대', '축소', '배율 100%']) {
       expect(bar.contains(screen.getByRole('button', { name })), name).toBe(true);
@@ -165,7 +166,7 @@ describe('드릴 편집 모드', () => {
     //    옛 계약(잠긴 이름 '코트 형태(변경 불가)' + 눌러도 안 바뀜)은 한 글자도 안 바뀌었다 —
     //    바뀐 것은 그 물음을 어디서 하느냐뿐이다.
     expect(screen.queryByRole('radiogroup', { name: /코트 형태/ }), '팝오버를 열기 전에 이미 떠 있다').toBeNull();
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     const locked = await screen.findByRole('radiogroup', { name: '코트 형태(변경 불가)' });
     expect(screen.queryByRole('radiogroup', { name: '코트 형태' })).toBeNull();
 

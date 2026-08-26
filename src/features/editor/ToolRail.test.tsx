@@ -93,22 +93,22 @@ const expanded = (label: '작도' | '설명') => handle(label).getAttribute('ari
 // 단언이 언제나 거짓이 된다(실제로 그렇게 빨개졌다).
 const hasTool = (label: string) => screen.queryByRole('button', { name: new RegExp(`^${label}$`) }) !== null;
 describe('ToolRail — 기능 구역', () => {
-  it('모드 도구는 3표적이다 — 선택 · 작도 손잡이 · 설명 손잡이 (3.7)', () => {
+  it('모드 도구는 3표적이다 — 선택 · 작도 손잡이 · 메모 (3.7)', () => {
     // 5종 상시 노출로 되돌리면 §3 의 미착수분(도움말 1 · 빈 판 채우기 1)이 들어올 때
     // 2.5 게이트(≤40)가 빨간불이 된다. 접는 것이지 없애는 게 아니다 — 아래 it 들이 그 증명.
     render(<ControlledRail />);
     // 2026-08-16 — 지우개가 사라져 넷에서 셋이 됐다(삭제는 선택 후 Delete 로 일원화).
-    expect(functionTargets()).toEqual(['선택', '작도', '설명']);
+    // 2026-08-27 — `설명` **서랍이 사라지고 메모가 단일 버튼이 됐다**(기현 지시). 표적 수는
+    // 그대로 셋이다: 손잡이 하나가 도구 하나로 바뀌었을 뿐이라 자리도 안 움직인다.
+    expect(functionTargets()).toEqual(['선택', '작도', '메모']);
   });
 
-  it('접힌 2종(선·메모)은 닫힌 서랍 안이라 첫 화면 표적이 아니다', () => {
+  it('접힌 것은 선(작도 서랍)뿐이다 — 메모는 이제 상시 표적이다', () => {
     // 숨기기(display:none)가 아니라 **DOM 에 없음**이라야 표적 수가 실제로 준다.
     render(<ControlledRail />);
-    for (const label of ['선', '메모']) {
-      expect(hasTool(label), label).toBe(false);
-    }
+    expect(hasTool('선'), '선은 작도 서랍 안이라 안 보인다').toBe(false);
+    expect(hasTool('메모'), '메모는 서랍이 사라져 상시로 보인다').toBe(true);
     expect(expanded('작도')).toBe('false');
-    expect(expanded('설명')).toBe('false');
   });
 
   it('작도 손잡이를 누르면 선이 나온다 — 메모는 그대로 접혀 있다(대조군)', async () => {
@@ -118,21 +118,22 @@ describe('ToolRail — 기능 구역', () => {
     expect(expanded('작도')).toBe('true');
     expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();
     for (const label of ['선']) expect(hasTool(label), label).toBe(true);
-    // 대조군이 없으면 "손잡이 아무거나 누르면 전부 열린다" 인 구현도 통과한다.
-    expect(hasTool('메모')).toBe(false);
-    expect(expanded('설명')).toBe('false');
+    // 대조군: 서랍을 열어도 상시 도구는 그대로다(메모는 원래 보인다 — 서랍과 무관).
+    expect(hasTool('메모')).toBe(true);
   });
 
-  it('설명 손잡이를 누르면 메모가 나온다 — 선은 그대로 접혀 있다(대조군)', async () => {
-    // 서랍을 둘로 가른 값이 여기 있다: 코트에 설명만 붙이는 사람이 화살표 2종을 상시
-    // 표적으로 떠안지 않는다. 한 서랍이면 이 it 이 성립하지 않는다.
+  // ⚠️ 여기 있던 '설명 손잡이를 누르면 메모가 나온다' 는 2026-08-27 에 폐기됐다 —
+  // 손잡이 자체가 사라졌기 때문이다(기현 지시: *"다른 기능이 서랍에 들어갈 가능성 아직 없음"*).
+  // 그때의 근거는 남긴다: *"서랍을 둘로 가른 값 — 코트에 설명만 붙이는 사람이 화살표 2종을
+  // 상시 표적으로 떠안지 않는다."* 그 값은 **여전히 유효하지만**, 반대편 비용(고를 것이
+  // 하나뿐인데 호버로 열고 260 ms 유예로 닫히는 장치를 지나야 했다)이 더 컸다.
+  it('메모는 서랍 없이 바로 눌린다 — 한 겹이 빠졌다', async () => {
     render(<ControlledRail />);
     const user = userEvent.setup();
-    await user.click(handle('설명'));
-    expect(expanded('설명')).toBe('true');
-    expect(screen.getByRole('group', { name: '설명 도구' })).toBeInTheDocument();
-    expect(hasTool('메모')).toBe(true);
-    for (const label of ['선']) expect(hasTool(label), label).toBe(false);
+    expect(screen.queryByRole('button', { name: /^설명/ }), '손잡이가 남아 있다').toBeNull();
+    await user.click(screen.getByRole('button', { name: /메모/ }));
+    // 선은 여전히 서랍 안이다 — 작도 쪽 구조는 그대로라는 대조군.
+    expect(hasTool('선')).toBe(false);
     expect(expanded('작도')).toBe('false');
   });
 
@@ -150,13 +151,12 @@ describe('ToolRail — 기능 구역', () => {
     expect(onSelectTool).toHaveBeenCalledTimes(1);
   });
 
-  it('손잡이 둘 다 --hit 손잡이다 — 서랍을 여는 것이 44 미만이면 접은 값이 없다', () => {
+  it('손잡이가 --hit 이다 — 서랍을 여는 것이 44 미만이면 접은 값이 없다', () => {
+    // 2026-08-27 — `설명` 서랍이 사라져 손잡이는 [작도] 하나뿐이다.
     render(<ControlledRail />);
-    for (const label of ['작도', '설명'] as const) {
-      expect(handle(label).style.minWidth, label).toBe('var(--hit)');
-      expect(handle(label).style.minHeight, label).toBe('var(--hit)');
-      expect(handle(label).style.width, label).toBe('52px');
-    }
+    expect(handle('작도').style.minWidth).toBe('var(--hit)');
+    expect(handle('작도').style.minHeight).toBe('var(--hit)');
+    expect(handle('작도').style.width).toBe('52px');
   });
 
   it("'선수' 는 모드 버튼이 아니라 칩으로 놓인다", () => {
@@ -457,12 +457,15 @@ describe('ToolRail — 서랍 플라이아웃', () => {
     }
   });
 
-  it('한 번에 하나만 열린다 — 둘이 겹쳐 뜨면 어느 것이 어느 서랍인지 사라진다', () => {
+  // ⚠️ '한 번에 하나만 열린다' 는 서랍이 하나가 되며 잴 대상이 없어졌다(2026-08-27).
+  // `useFlyout` 의 그 규율 자체는 [보드 설정]과 무관하게 살아 있고, 서랍이 다시 둘이 되면
+  // 이 자리에 되살릴 것 — 그때는 열린 것이 바뀌는지를 재면 된다.
+  it('열려 있는 동안 손잡이가 자기 상태를 말한다 — aria-expanded', () => {
     render(<ControlledRail />);
+    expect(expanded('작도')).toBe('false');
     fireEvent.pointerEnter(handle('작도'), { pointerType: 'mouse' });
-    fireEvent.pointerEnter(handle('설명'), { pointerType: 'mouse' });
-    expect(screen.queryByRole('group', { name: '작도 도구' })).toBeNull();
-    expect(screen.getByRole('group', { name: '설명 도구' })).toBeInTheDocument();
+    expect(expanded('작도')).toBe('true');
+    expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();
   });
 
   it('Esc 로 닫힌다', () => {

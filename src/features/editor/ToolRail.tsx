@@ -16,7 +16,7 @@ import { LOCKABLE_TOOLS } from '../../store/editor/reducer.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
 import { CHAIR } from '../../core/constants.ts';
 import { numberedName } from '../../model/chairLabel.ts';
-import { IconPin, IconToolNote, IconToolRoute } from '../../ui/icons.tsx';
+import { IconPin, IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
 import {
   CHIP_BOX_H_CSS,
@@ -282,8 +282,16 @@ type DrawerKey = keyof TrayDrawers;
  *  3.-1 에서 미리 예고해 둔 이동이다) — 그래도 자리를 옮긴 것은 사실이라 커밋 메시지에 적는다. */
 const DRAWERS = [
   { key: 'draw', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'line' || t.id.startsWith('shape')) },
-  { key: 'note', Icon: IconToolNote, tools: TOOLS.filter((t) => t.id === 'note') },
 ] as const satisfies readonly { key: DrawerKey; Icon: typeof IconToolRoute; tools: readonly ToolDef[] }[];
+
+/** ⚠️ **`설명` 서랍은 2026-08-27 에 사라졌다**(기현 지시: *"노트 버튼도 서랍에서 단일 버튼으로
+ *  수정 — 다른 기능이 서랍에 들어갈 가능성 아직 없음"*). 위 주석이 유보 사유로 적어 둔
+ *  *"3 m 링이 아직 도구가 아니라 `설명` 이 한 칸짜리 서랍이 된다"* 가 그대로 결론이 됐다.
+ *
+ *  서랍은 **고르는 장치**다 — 고를 것이 하나뿐이면 손잡이를 눌러 여는 동작이 순수한 비용이다
+ *  (호버로 열리고 260 ms 유예로 닫히는 장치를 지나야 메모 하나에 닿았다). 도구는 그대로고
+ *  자리도 그대로다(기능 구역의 끝, 작도 손잡이 다음) — 한 겹이 빠졌을 뿐이다. */
+const SOLO_TOOLS = TOOLS.filter((t) => t.id === 'note');
 
 /** 서랍 이름 — DRAWERS 는 렌더 밖(모듈 최상단)에서 한 번 만들어져 t() 를 못 쓴다.
  *  key(2가지)만으로 정해지므로 렌더 시점에 여기서 고른다. */
@@ -896,6 +904,9 @@ export function ToolRail({
             어느 서랍에서 나왔는지가 사라진다** — 손잡이 옆에 붙어 있지 않은 것은 서랍이 아니다.
             밀림이 한 번뿐이라는 점이 이 선택의 근거다: 서랍은 열면 그대로 남고(prefs.tray),
             그 뒤로는 두 손잡이 모두 영구히 같은 자리다. */}
+        {/* 메모 — 서랍이 아니라 **단일 버튼**이다(위 SOLO_TOOLS 주석). 작도 손잡이 **뒤**에
+            둔 것은 옛 `설명` 손잡이가 있던 자리 그대로여서다: 자리를 옮기면 §3 불변식 1 이
+            말하는 "조준 대상이 움직이지 않는다" 가 깨진다. */}
         {DRAWERS.map((d) => {
           const isOpen = flyout?.key === d.key;
           const active = d.tools.some((tl) => tl.id === tool);
@@ -994,6 +1005,15 @@ export function ToolRail({
             </div>
           );
         })}
+        {SOLO_TOOLS.map((tl) => (
+          <ToolButton
+            key={tl.id}
+            def={tl}
+            active={tl.id === tool}
+            locked={tl.id === tool && toolLock}
+            onSelect={() => onSelectTool(tl.id)}
+          />
+        ))}
       </div>
 
       {!horiz && (
