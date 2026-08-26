@@ -264,7 +264,7 @@ describe('SettingsScreen — 데이터 내보내기(2026-08-20)', () => {
     await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
 
     const [blob, filename] = downloadMock.mock.calls[0]!;
-    expect(filename).toMatch(/^SPIN_백업_\d{8}\.spin\.json$/);
+    expect(filename).toMatch(/^SPIN_backup_\d{8}\.spin\.backup\.json$/);
     const parsed = JSON.parse(await blob.text()) as { spin: string; payload: { drills: Array<{ title: string }>; prefs: unknown } };
     // library 봉투(드릴만)로 되돌아가면 여기가 빨개진다 — 그게 §6.1b 가 '거짓말' 이라 부른 것이다.
     expect(parsed.spin).toBe('backup');

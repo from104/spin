@@ -1,6 +1,6 @@
 // §10.6 transfer/files. 파일명 규칙, 봉투 파싱, sameDrill, 배치 가져오기/커밋, 세션 리맵.
 import { describe, it, expect } from 'vitest';
-import { slugify, ymdLocal, drillFileName, readTextFile } from './files.ts';
+import { slugify, ymdLocal, drillFileName, readTextFile, SPIN_EXT } from './files.ts';
 import {
   ENVELOPE_VERSION,
   parseSpinFile,
@@ -65,11 +65,18 @@ describe('ymdLocal / drillFileName', () => {
     const ms = new Date(2026, 7, 8, 3, 4, 5).getTime(); // 2026-08-08 (월=7 → 8월)
     expect(ymdLocal(ms)).toBe('20260808');
   });
-  it('drillFileName 은 .spin.json 이중 확장자를 쓴다', () => {
+  it('drillFileName 은 종류가 드러나는 .spin.drill.json 을 쓴다', () => {
     const d = createDrill({ courtMode: 'full', title: '측면-돌파-후-크로스' });
     const name = drillFileName(d);
     expect(name.startsWith('SPIN_측면-돌파-후-크로스_')).toBe(true);
-    expect(name.endsWith('.spin.json')).toBe(true);
+    expect(name.endsWith(SPIN_EXT.drill)).toBe(true);
+    // 여전히 .json 으로 끝난다 — 확장자를 늘려도 JSON 으로 열리는 성질을 잃으면 안 된다.
+    expect(name.endsWith('.json')).toBe(true);
+  });
+  it('종류마다 확장자가 다르다 — 파일 이름만 보고 갈 화면을 고를 수 있어야 한다', () => {
+    const exts = Object.values(SPIN_EXT);
+    expect(new Set(exts).size, '중복된 확장자가 있으면 구분이 안 된다').toBe(exts.length);
+    for (const ext of exts) expect(ext.startsWith('.spin.') && ext.endsWith('.json')).toBe(true);
   });
 });
 

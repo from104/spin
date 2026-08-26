@@ -236,8 +236,8 @@ describe('[인쇄] → 4.5 의 인쇄 트리를 세운 뒤에 print() 한다', (
 // SettingsScreen.test.tsx '데이터 내보내기' 절이 본다 — 그 화면이 유일한 소비처다.
 
 describe('파일 이름 조립 (4.1 이 "4.7 이 조립한다" 고 남긴 자리)', () => {
-  it('백업은 날짜가 붙은 .spin.json 이다', () => {
-    expect(backupFileName(new Date(2026, 7, 12, 9, 30).getTime())).toBe('SPIN_백업_20260812.spin.json');
+  it('백업은 날짜가 붙은 .spin.backup.json 이고, 이름 세그먼트는 언어 중립이다', () => {
+    expect(backupFileName(new Date(2026, 7, 12, 9, 30).getTime())).toBe('SPIN_backup_20260812.spin.backup.json');
   });
 
   it('그림은 1-based 스텝 번호가 붙는다 — 캡션의 n/N 과 같은 숫자여야 짝이 지어진다', () => {

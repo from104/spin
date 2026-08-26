@@ -1,5 +1,6 @@
 // §4.7 파일 I/O 저수준 유틸 — 파일명 생성·읽기·다운로드. 봉투·가져오기 비즈니스 로직은 transfer.ts.
 import type { Drill } from '../model/drill.ts';
+import type { SpinFileKind } from './transfer.ts';
 
 const FORBIDDEN_CHARS = /[\x00-\x1f<>:"/\\|?*]/g;
 
@@ -23,10 +24,34 @@ export function ymdLocal(ms: number): string {
   return `${y}${m}${day}`;
 }
 
-/** .spin.json 이중 확장자 — 여전히 JSON 으로 열리고, 목록에서 SPIN 파일임이 보이며,
- *  <input accept=".json,application/json"> 에 그대로 걸린다. 예: SPIN_측면-돌파-후-크로스_20260807.spin.json */
+/** 봉투 종류별 삼중 확장자 `.spin.<종류>.json` (2026-08-26 기현 지시).
+ *
+ *  전에는 전 종류가 `.spin.json` 하나였다 — 여전히 JSON 으로 열리고 SPIN 파일임도 보였지만,
+ *  **어느 화면에 넣어야 하는 파일인지가 이름에 없었다.** 실제로 드릴 파일을 설정 화면의 기기
+ *  이사 복원에 넣는 사고가 났고(파일은 멀쩡했다), 두 화면의 `accept` 가 똑같아서 파일 선택창이
+ *  걸러 주지도 못했다. 종류를 이름에 실으면 목록에서 눈으로 갈리고 `accept` 로 좁힐 수도 있다.
+ *
+ *  ⚠️ **판별은 여전히 봉투 안 `spin` 필드가 한다** — 파일명은 사람이 읽는 표지일 뿐이다.
+ *  그래서 2026-08-26 이전에 뽑은 `.spin.json` 파일도 이름 그대로 계속 열린다(가져오기 경로는
+ *  파일명을 보지 않는다). 이름만 바꾼 파일이 통과하는 것도 같은 이유로 정상이다. */
+export const SPIN_EXT: Record<SpinFileKind, string> = {
+  drill: '.spin.drill.json',
+  session: '.spin.session.json',
+  library: '.spin.library.json',
+  backup: '.spin.backup.json',
+  prefs: '.spin.prefs.json',
+  drillSet: '.spin.drillset.json',
+};
+
+/** 화면별 파일 선택 필터. 옛 `.spin.json` 과 맨 `.json` 을 **남긴다** — 필터는 힌트이지 검증이
+ *  아니고(사용자는 언제나 '모든 파일' 을 고를 수 있다), 예전에 뽑아 둔 파일이 목록에서 사라지면
+ *  그게 더 나쁘다. 진짜 방어는 봉투를 읽고 갈 곳을 알려주는 안내 쪽이다. */
+export const ACCEPT_LIBRARY = `${SPIN_EXT.drill},${SPIN_EXT.session},${SPIN_EXT.library},.spin.json,.json,application/json`;
+export const ACCEPT_BACKUP = `${SPIN_EXT.backup},.spin.json,.json,application/json`;
+
+/** 예: SPIN_측면-돌파-후-크로스_20260807.spin.drill.json */
 export function drillFileName(d: Drill): string {
-  return `SPIN_${slugify(d.title)}_${ymdLocal(Date.now())}.spin.json`;
+  return `SPIN_${slugify(d.title)}_${ymdLocal(Date.now())}${SPIN_EXT.drill}`;
 }
 
 export function readTextFile(f: File): Promise<string> {

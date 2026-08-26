@@ -4,12 +4,16 @@
 //
 // 4.1 이 "파일 이름은 여기서 만들지 않았다(files.ts 는 4.3 소유). 4.7 이 조립해 downloadBlob 에
 // 넘겨라" 고 남긴 자리가 여기다.
-import { slugify, ymdLocal } from '../../storage/files.ts';
+import { slugify, ymdLocal, SPIN_EXT } from '../../storage/files.ts';
 
-/** 기기 이사 파일. `.spin.json` 이중 확장자는 files.ts 의 규약을 그대로 따른다 — 여전히 JSON
- *  으로 열리고, 목록에서 SPIN 파일임이 보이며, `accept=".json"` 에 그대로 걸린다. */
+/** 기기 이사 파일. 확장자 규약은 files.ts 의 `SPIN_EXT` 를 그대로 따른다.
+ *
+ *  ⚠️ 이름 세그먼트를 `백업` 에서 `backup` 으로 바꿨다(2026-08-26) — 드릴·세션 파일명이
+ *  이미 언어 중립인데(i18n C4: "파일명 세그먼트는 번역하지 않는다") 백업만 한국어라
+ *  같은 폴더에서 셋이 다른 규칙으로 보였다. 옛 이름 파일은 그대로 열린다(판별은 파일명이
+ *  아니라 봉투 안 `spin` 필드다). */
 export function backupFileName(nowMs: number): string {
-  return `SPIN_백업_${ymdLocal(nowMs)}.spin.json`;
+  return `SPIN_backup_${ymdLocal(nowMs)}${SPIN_EXT.backup}`;
 }
 
 /** 한 장면 그림. 스텝 번호는 **1-based** — 캡션에 찍히는 'n/N'(staticSceneLayout.captionSubText)
