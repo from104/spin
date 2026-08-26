@@ -758,6 +758,17 @@ export interface DrillStep {
   // 않기 위해서다 — `locked`/`ignored` 와 같은 규약(예외만 싣고, 없으면 전부 'none').
   // 재탭(BALL_RETAP)은 **그 스텝만** 바꾼다.
   ballRings?: PoseMap<BallId, StoredBallRing>;
+  // 세트피스 소유(2026-08-27 기현 지시) — 그 스텝에서 이 공을 **차는 팀**. 5 m 링일 때만 뜻이
+  // 있다. **없으면 진영(Drill.defense)에서 파생**하므로 옛 문서가 그대로 열린다(도장 불변).
+  //
+  // ⚠️ 진영과 갈라야 했던 이유: `defense` 는 "골 지역을 지키는 팀" 이고 5 m 를 물러날 팀은
+  // "공을 **안** 차는 팀" 이다. 코너킥·킥인은 둘이 우연히 같지만 **골킥·수비 프리킥은 정반대**라,
+  // 진영 하나로는 골킥 장면에서 골 지역 3인 판정까지 함께 뒤집혔다. 물러날 팀은
+  // `model/rules.ts` 의 `fiveMeterRetreat` 가 정한다.
+  //
+  // 표시는 공을 가로지르는 2 m 흐린 흰색 화살표 — 소유 팀이 **공격하는 방향**을 가리킨다
+  // (`attackDir`). 심판이 팔로 방향을 가리키는 어휘다. 편집기·시연·PNG 셋 다 그린다.
+  ballOwner?: PoseMap<BallId, TeamSide>;
   cones:  PoseMap<ConeId, Vec2>;
   arrows: Arrow[];
   notes:  NoteLabel[];
