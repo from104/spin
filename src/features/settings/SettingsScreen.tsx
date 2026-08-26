@@ -26,7 +26,7 @@ import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
 import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
-import { downloadBlob } from '../../storage/files.ts';
+import { downloadBlob, ACCEPT_BACKUP } from '../../storage/files.ts';
 import { backupFileName } from '../export/exportNames.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
@@ -417,7 +417,7 @@ export function SettingsScreen() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".json,application/json"
+              accept={ACCEPT_BACKUP}
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];

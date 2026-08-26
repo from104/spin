@@ -164,7 +164,9 @@ describe('exportOneDrill — 드릴 1개 공유 파일(살아 있는 계약)', (
     await exportOneDrill(d.id);
     expect(downloadBlob).toHaveBeenCalledTimes(1);
     const [blob, filename] = vi.mocked(downloadBlob).mock.calls[0]!;
-    expect(filename).toMatch(/^SPIN_.*\.spin\.json$/);
+    // 파일 이름이 봉투 종류와 일치해야 한다 — 이 둘이 갈라지면 사용자는 파일을 엉뚱한 화면에
+    // 넣게 된다(2026-08-26 실제 사고: 드릴 파일을 설정의 기기 이사 복원에 넣었다).
+    expect(filename).toMatch(/^SPIN_.*\.spin\.drill\.json$/);
     const text = await (blob as Blob).text();
     expect(JSON.parse(text).spin).toBe('drill');
   });
