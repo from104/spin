@@ -23,5 +23,10 @@ tauri-build = { version = "2.6.3", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.11.3", features = [] }
+# `devtools` — 릴리스 빌드에서도 웹 인스펙터를 연다(창에서 우클릭 → 요소 검사).
+# 데스크톱은 웹 콘솔이 stdout 에 안 찍혀서, 이게 없으면 화면 안에서 벌어지는 일(CSP 차단·
+# 팝업 침묵·구글 쪽 오류)을 볼 방법이 아예 없다 — 2026-08-27 드라이브 연결이 아무 반응 없이
+# 멈췄을 때 실제로 그래서 막혔다. 배포본에 남겨도 사용자에게 해가 없고, 체육관에서 나는
+# 문제를 원격으로 물어볼 수 있는 유일한 창구다.
+tauri = { version = "2.11.3", features = ["devtools"] }
 tauri-plugin-log = "2"
