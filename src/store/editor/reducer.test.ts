@@ -405,27 +405,38 @@ describe('drillReducer 위임 — 대표 경로', () => {
 });
 
 describe('BOARD_SET — 자유 전술판 갈아끼우기 (§6.8)', () => {
-  it('히스토리를 쌓지 않고 비운다 — 그래야 코트를 두 번 이상 바꿀 수 있다', () => {
-    // 회귀 방어: DRILL_LOAD 로 대신하면 past 에 한 칸 쌓여 "리셋 상태에서만 전환" 게이트가
-    // 첫 전환 직후 스스로 닫힌다. 여기서 past 가 비어 있는지가 그 게이트의 전제다.
+  // ⚠️ 2026-08-28 뒤집힘. 여기 있던 두 케이스는 *"히스토리를 쌓지 않고 **비운다** — 그래야
+  //    코트를 두 번 이상 바꿀 수 있다"* 와 *"연달아 세 번 바꿔도 매번 past 가 비어 있다"* 였고,
+  //    근거는 *"DRILL_LOAD 로 대신하면 past 에 한 칸 쌓여 '리셋 상태에서만 전환' 게이트가 첫
+  //    전환 직후 스스로 닫힌다"* 였다. 그 게이트가 히스토리 대신 **판 위 개체**를 세게 되면서
+  //    전제가 사라졌고, 기현님 지시로 코트 전환도 되돌릴 수 있는 편집이 됐다.
+  it('past 에 쌓는다 — 코트 전환도 되돌릴 수 있는 편집이다', () => {
     let s = freshState();
     s = editorRootReducer(s, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 100, y: 100 }, id: newId('bl') });
-    expect(s.past.length).toBeGreaterThan(0); // 편집이 쌓였다
+    const before = s.present;
 
     const half = createDrill({ courtMode: 'half', formation: '1-2-1' });
     s = editorRootReducer(s, { type: 'BOARD_SET', drill: half });
 
-    expect(s.past).toHaveLength(0);
-    expect(s.future).toHaveLength(0);
     expect(s.present).toBe(half);
     expect(s.present.courtMode).toBe('half');
+    expect(s.future).toHaveLength(0); // 새 분기라 redo 는 끊긴다
+    // 되돌리면 **코트까지** 돌아온다 — courtMode 가 present(Drill) 안에 있어서다.
+    const undone = editorRootReducer(s, { type: 'UNDO' });
+    expect(undone.present).toBe(before);
+    expect(undone.present.courtMode).toBe('full');
   });
 
-  it('연달아 세 번 바꿔도 매번 past 가 비어 있다', () => {
+  it('연달아 세 번 바꾸면 세 칸이 쌓여 하나씩 거슬러 올라간다', () => {
     let s = freshState();
+    const base = s.past.length;
     for (const mode of ['half', 'flat', 'full'] as const) {
       s = editorRootReducer(s, { type: 'BOARD_SET', drill: createDrill({ courtMode: mode, formation: '1-2-1' }) });
-      expect(s.past).toHaveLength(0);
+      expect(s.present.courtMode).toBe(mode);
+    }
+    expect(s.past).toHaveLength(base + 3);
+    for (const mode of ['flat', 'half'] as const) {
+      s = editorRootReducer(s, { type: 'UNDO' });
       expect(s.present.courtMode).toBe(mode);
     }
   });

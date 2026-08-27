@@ -71,10 +71,19 @@ export function withHistory<S extends HistoryState>(reducer: (s: S, a: EditorAct
     if (a.type === 'COMMIT_BREAK') {
       return s.lastCommit === null ? s : { ...s, lastCommit: null };
     }
-    // 전술판 갈아끼우기 — past/future 를 **비운다**(쌓지 않는다). 이유는 actions.ts 의
-    // BOARD_SET 주석 참고. epoch 을 올려 물리 월드를 즉시 새 코트로 재구성시킨다.
+    // 전술판 코트 갈아끼우기 — **past 에 쌓는다**(2026-08-28 기현님 지시). epoch 을 올려 물리
+    // 월드를 즉시 새 코트로 재구성시킨다.
+    //
+    // ⚠️ 옛 동작은 `past: [], future: []` 였다. 근거 둘 다 지금은 안 맞는다:
+    //   ① *"COMMIT 이면 past.length > 0 이 되어 게이트가 스스로 닫힌다"* — 그 게이트가 판 위
+    //      개체를 직접 세게 되면서(EditorWorkspace) 히스토리와 무관해졌다.
+    //   ② *"전환 결과는 언제나 그 코트의 기본 배치라 되돌릴 과거가 없다"* — 전환 **결과**에는
+    //      없지만 **과거**에는 있다. 코트를 바꾸려면 판이 비어 있어야 하므로 [비우기]와 코트
+    //      전환은 사실상 붙어 다니고, 옛 동작은 방금 되돌릴 수 있게 만든 그 비우기를 다음
+    //      클릭에서 도로 빼앗았다.
+    // 되돌리면 코트도 함께 돌아온다 — courtMode/courtSize 가 present(Drill) 안에 있어서다.
     if (a.type === 'BOARD_SET') {
-      return { ...s, past: [], present: a.drill, future: [], lastCommit: null, epoch: s.epoch + 1 };
+      return { ...s, past: pushPast(s.past, s.present), present: a.drill, future: [], lastCommit: null, epoch: s.epoch + 1 };
     }
     // 드래그 세션: PLACE_BEGIN 이 경계를 열고(past 에 push, present 불변), PLACE_COMMIT 이
     // past 를 건드리지 않고 present 만 교체한다 — 드래그 1회 = undo 1회(§6.7).
