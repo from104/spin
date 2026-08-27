@@ -65,9 +65,8 @@ export interface BoardControls {
   /** §6.4 코트 크기 3단. 코트 형태 전환과 **같은 문**(판이 비었는가)을 지난다 — 그래야 판 위에
    *  개체가 하나도 없을 때만 규격이 바뀌어 "코트를 줄였더니 선수가 밖에 서 있다" 가 없다. */
   onCourtSizeChange(size: CourtSize): void;
-  /** [비우기]. **되돌릴 수 있어야 한다**(2026-08-28 기현님 지적) — 화면 쪽이 히스토리에 쌓이는
-   *  액션으로 구현한다(BoardScreen.onReset). */
-  onReset(): void;
+  // ⚠️ `onReset` 은 여기 없다(2026-08-28). [비우기]가 드릴 편집에도 생기면서 두 모드가 같은
+  //    액션(STEP_CLEAR)을 쓰게 됐고, 구현이 이 파일 안(clearStep)으로 올라왔다.
   onSaveAsDrill(): void;
   /** Ctrl/⌘+S — 디바운스를 건너뛰고 스냅샷을 지금 저장한다(2026-08-15 보드 단축키 정리).
    *  드릴의 `autosave.flush()` 자리를 전술판에서 대신 채우는 것이다. */
@@ -270,6 +269,21 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           },
         },
   );
+
+  /** [비우기] — **지금 스텝을 비운다.** 2026-08-28 기현 지시로 드릴 편집에도 생기면서 화면 쪽
+   *  구현(BoardScreen.onReset)에서 여기로 올라왔다: 하는 일이 리듀서 액션 하나뿐이라
+   *  저장소를 아는 화면이 쥘 이유가 없고, 두 모드가 같은 코드를 쓰는 것이 "뜻이 하나다" 를
+   *  코드로도 지키는 길이다.
+   *
+   *  ⚠️ 개체를 하나씩 지우는 `eraseIds` 로 대신하지 않는다 — 되돌리기가 개체 수만큼 조각난다
+   *     (STEP_CLEAR 는 한 칸, actions.ts 그 주석). */
+  const clearStep = useCallback(() => {
+    dispatch({ type: 'STEP_CLEAR', id: state.stepId });
+    // 알리는 내용이 모드마다 다르다. 전술판은 **비우기가 코트 전환을 여는 열쇠**라 그 사실이
+    // 다음 행동이고, 드릴은 코트가 언제나 잠겨 있으므로(courtLocked) 같은 말을 하면 거짓말이다
+    // — 대신 "다른 스텝은 그대로" 가 그 자리에서 궁금한 것이다.
+    toast.show(isBoard ? t('board.clearedToast') : t('editor.workspace.clearedStepToast'));
+  }, [dispatch, state.stepId, toast, t, isBoard]);
 
   const eraseIds = useCallback(
     (ids: string[], scope: 'onward' | 'thisStep') => {
@@ -673,7 +687,8 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       defense={drill.defense ?? defaultDefense(drill.courtMode)}
       teams={drill.teams}
       onToggleDefense={toggleDefense}
-      onReset={() => board?.onReset()}
+      onReset={clearStep}
+      stepEmpty={isStepEmpty(step)}
       drill={drill}
       stepIndex={stepIndex}
       checkedStepIds={checkedSteps}

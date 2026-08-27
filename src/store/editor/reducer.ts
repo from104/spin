@@ -22,6 +22,7 @@ import {
   moveSteps,
   duplicateSteps,
   deleteSteps,
+  clearStep,
   setArrow,
   removeArrow,
   setNote,
@@ -329,6 +330,10 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return duplicateSteps(d, a.ids);
     case 'STEPS_DELETE':
       return deleteSteps(d, a.ids);
+    case 'STEP_CLEAR': {
+      const idx = d.steps.findIndex((st) => st.id === a.id);
+      return idx < 0 ? d : clearStep(d, idx);
+    }
     case 'STEP_META': {
       const idx = d.steps.findIndex((st) => st.id === a.id);
       if (idx < 0) return d;

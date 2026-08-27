@@ -451,7 +451,8 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
     await seg(user, LOCKED);
     await closeCourt(user);
 
-    await user.click(screen.getByRole('button', { name: '코트 비우기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    await user.click(await screen.findByRole('button', { name: '코트 비우기' }));
     await user.click(await screen.findByRole('button', { name: '비우기' })); // 확인 다이얼로그
 
     expect(await seg(user, UNLOCKED)).toBeInTheDocument();
@@ -795,7 +796,10 @@ describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', (
 describe('코트 비우기 — 덩어리가 크므로 확인을 받고, 되돌릴 수 있다', () => {
   async function openAndClickClear() {
     const r = await openBoard('full', { placed: true });
-    await r.user.click(screen.getByRole('button', { name: '코트 비우기' }));
+    // [코트 비우기]는 2026-08-28 부터 [보드 설정] 모달 안이다. 누르면 그 모달이 닫히고
+    // 확인 다이얼로그가 뜬다 — 아래 케이스들이 보는 것은 그 뒤부터다.
+    await r.user.click(screen.getByRole('button', { name: '보드 설정' }));
+    await r.user.click(await screen.findByRole('button', { name: '코트 비우기' }));
     return r;
   }
 
@@ -804,7 +808,9 @@ describe('코트 비우기 — 덩어리가 크므로 확인을 받고, 되돌�
   it('버튼만 눌러서는 지워지지 않는다 — 확인 다이얼로그가 뜬다', async () => {
     const before = (await openBoard('full', { placed: true })) && objs();
     expect(before).toBeGreaterThan(0);
-    await userEvent.setup().click(screen.getByRole('button', { name: '코트 비우기' }));
+    const u = userEvent.setup();
+    await u.click(screen.getByRole('button', { name: '보드 설정' }));
+    await u.click(await screen.findByRole('button', { name: '코트 비우기' }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(objs()).toBe(before); // 아직 그대로다
   });

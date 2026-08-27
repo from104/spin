@@ -9,6 +9,9 @@ import { ballRingOf, nextBallRing } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
 import { LIMITS } from './validate.ts';
+// `emptyStep` 하나만 빌려 온다 — "빈 스텝이 무엇인가" 의 출처를 둘로 만들지 않기 위해서다.
+// (defaults.ts 는 edits.ts 를 import 하지 않으므로 순환이 아니다.)
+import { emptyStep } from './defaults.ts';
 
 /** '없음' 은 오직 키 삭제로만 표현한다. `{...m, [k]: undefined}` 는 절대 금지 —
  *  structuredClone(IDB)은 undefined 키를 보존하고 JSON 은 지운다(실측) →
@@ -243,6 +246,32 @@ function pruneOrphanCast(d: Drill): Drill {
   const cones = d.cast.cones.filter((c) => d.steps.some((s) => s.cones[c.id] !== undefined));
   if (balls.length === d.cast.balls.length && cones.length === d.cast.cones.length) return d;
   return { ...d, cast: { ...d.cast, balls, cones } };
+}
+
+/** 스텝 하나를 **비운다**(2026-08-28 기현 지시로 드릴 편집에도 [비우기]가 생기며 신설).
+ *
+ *  지우는 것: 휠체어·공·콘의 배치와 화살표·메모·도형, 그리고 스텝 노트. 남기는 것: 스텝의
+ *  **신원과 시간축**(`id` · `durationMs` · `cut`) — 비우기는 내용을 지우는 것이지 스텝을
+ *  없애거나 새로 만드는 것이 아니다(그 길은 STEP_DELETE·STEP_ADD 다).
+ *
+ *  ⚠️ 스텝 노트도 지운다. 코트 전환 게이트가 `isStepEmpty`(노트를 센다)로 열리므로, 노트를
+ *  남기면 *"비웠는데 코트가 안 바뀐다"* 가 된다 — 화면에는 아무것도 없는데 이유가 안 보인다.
+ *
+ *  ⚠️ `id` 를 유지하는 것이 중요하다. 새 id 로 갈면 `EditorState.stepId` 가 못 찾아 0번으로
+ *  떨어지고(무증상), 여러 스텝짜리 드릴에서는 **다른 스텝으로 튄다.**
+ *
+ *  공·콘은 `pruneOrphanCast` 가 명단에서도 거둔다 — 어느 스텝에도 안 남은 것만이다(전술판은
+ *  스텝이 하나라 전부, 드릴은 다른 스텝에 살아 있으면 그대로). 휠체어는 남는다(그 함수 주석). */
+export function clearStep(d: Drill, i: number): Drill {
+  const step = d.steps[i];
+  if (!step) return d;
+  const next: DrillStep = {
+    ...emptyStep(d.courtMode),
+    id: step.id,
+    ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
+    ...(step.cut ? { cut: step.cut } : {}),
+  };
+  return pruneOrphanCast(replaceStep(d, i, next));
 }
 
 /** 기본 '삭제': 이 스텝부터 끝까지 pose 를 지운다. */

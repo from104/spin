@@ -138,6 +138,14 @@ export type EditorAction =
    *  2026-08-16 — 키보드에서 Alt 로 범위를 고르던 길은 없앴다(Alt 는 보기 토글 전용 채널이
    *  됐다). `'everywhere'` 는 아무도 디스패치하지 않아 함께 걷어냈다. */
   | { type: 'OBJECT_REMOVE'; id: CastId; scope: 'onward' | 'thisStep' }
+  /** 스텝 하나를 통째로 **비운다**([비우기], 2026-08-28 기현 지시로 드릴 편집에도 생겼다).
+   *
+   *  개체를 하나씩 지우는 `OBJECT_REMOVE` 를 반복하지 **않는다**: 그러면 되돌리기가 개체 수만큼
+   *  필요해져(EditorWorkspace 의 eraseIds 가 그렇다) "한 번에 비웠는데 되돌리려면 열 번" 이 된다.
+   *  비우기는 한 동작이므로 되돌리기도 한 칸이어야 한다.
+   *
+   *  스텝 **id 를 유지**하므로 uiReducer 가 stepId 를 손볼 일이 없다(STEP_DELETE 류와 다르다). */
+  | { type: 'STEP_CLEAR'; id: StepId }
   | { type: 'CHAIR_PLACE'; id: ChairId; pose: StoredChairPose }
   | { type: 'CHAIR_DEF'; id: ChairId; patch: Partial<Omit<ChairDef, 'id' | 'team'>> }
   // §7 5.2 — **선택된 공을 그 자리에서 다시 탭했다**(2026-08-13, 기현님 실기 피드백 ③).
@@ -214,6 +222,7 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'STEPS_DELETE',
   'OBJECT_ADD',
   'OBJECT_REMOVE',
+  'STEP_CLEAR',
   'CHAIR_PLACE',
   'CHAIR_DEF',
   // 5.2 원 순환은 **드릴 내용**이라 되돌리기에 실린다 — `CHAIR_DEF`(개별 색·이름·역할)와 같은
@@ -268,5 +277,7 @@ export const EPOCH_BUMP_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'STEPS_DELETE',
   'OBJECT_ADD',
   'OBJECT_REMOVE',
+  // 판이 통째로 비므로 물리 바디도 전량 사라져야 한다 — 안 올리면 모델은 비었는데 칩이 남는다.
+  'STEP_CLEAR',
   'CHAIR_PLACE',
 ]);
