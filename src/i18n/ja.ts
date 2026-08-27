@@ -627,8 +627,10 @@ export const ja: Record<DictKey, string> = {
   'board.courtSizeChangedToast': '{{size}}コートに変更しました。',
   'board.clearedToast': 'コートを空にしました。これでコートの形とサイズを変更できます。',
   'board.defaultDrillTitle': '新しいドリル',
+  'board.saveDialog.title': 'ドリルとして保存',
+  'board.saveDialog.hint': '戦術ボードはそのまま残ります。保存すると作成したドリルの編集画面に移ります。',
+  'board.saveDialog.submit': '保存',
   'board.savedToast': '「{{title}}」としてドリルに保存しました。',
-  'board.savedToastAction': 'ライブラリで見る',
   'board.saveFailedToast': 'ドリルとして保存できませんでした。ストレージの空き容量を確認してください。',
 
   // ── C7 — ステップサイドバー ──────────────────────────────────────────────────────────

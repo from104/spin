@@ -628,8 +628,11 @@ export const ko = {
   'board.courtSizeChangedToast': '{{size}} 코트로 바꿨습니다.',
   'board.clearedToast': '코트를 비웠습니다. 이제 코트 형태와 크기를 바꿀 수 있습니다.',
   'board.defaultDrillTitle': '새 드릴',
+  // 전술판 [저장] 다이얼로그(2026-08-28) — 이름만 묻고 곧장 편집기로.
+  'board.saveDialog.title': '드릴로 저장',
+  'board.saveDialog.hint': '전술판은 그대로 남습니다. 저장하면 만들어진 드릴의 편집 화면으로 넘어갑니다.',
+  'board.saveDialog.submit': '저장',
   'board.savedToast': "'{{title}}' 드릴로 저장했습니다.",
-  'board.savedToastAction': '목록에서 보기',
   'board.saveFailedToast': '드릴로 저장하지 못했습니다. 저장 공간을 확인해 주세요.',
 
   // ── C7 — 스텝 사이드바 ──────────────────────────────────────────────────────────────

@@ -628,8 +628,10 @@ export const en: Record<DictKey, string> = {
   'board.courtSizeChangedToast': 'Switched to the {{size}} court.',
   'board.clearedToast': 'Cleared the court. You can now change its shape and size.',
   'board.defaultDrillTitle': 'New Drill',
+  'board.saveDialog.title': 'Save as drill',
+  'board.saveDialog.hint': 'The tactics board stays as it is. Saving opens the new drill for editing.',
+  'board.saveDialog.submit': 'Save',
   'board.savedToast': "Saved as drill '{{title}}'.",
-  'board.savedToastAction': 'View in Library',
   'board.saveFailedToast': 'Could not save as a drill. Please check your storage space.',
 
   // ── C7 — Step sidebar ────────────────────────────────────────────────────────────────

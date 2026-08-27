@@ -22,6 +22,9 @@ import { useAppNav } from '../../app/useAppHistory.ts';
 import { EditorProvider, useEditorDispatch, useEditorState } from '../../store/editor/EditorProvider.tsx';
 import { PlaybackProvider } from '../../store/playback/PlaybackProvider.tsx';
 import { EditorWorkspace } from '../editor/EditorWorkspace.tsx';
+// §8 — board 는 library 와 같은 층(screen-home-library)이다. 이름 칸을 공유하려고 다이얼로그
+// 둘이 한 파일에 산다(NewDrillDialog.tsx 의 SaveAsDrillDialog 머리말).
+import { SaveAsDrillDialog } from '../library/NewDrillDialog.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import type { Locale } from '../../i18n/locale.ts';
@@ -194,13 +197,21 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
     toast.show(t('board.clearedToast'));
   }, [state.present.courtMode, state.present.courtSize, swap, toast, t]);
 
-  const onSaveAsDrill = useCallback(() => {
-    // 승격은 **복사**다 — 전술판은 그대로 남는다. 저장 직후 판이 사라지면 "방금 그리던 것"을
-    // 잃은 것처럼 보인다.
-    const now = Date.now();
-    const title = state.present.title.trim() || t('board.defaultDrillTitle');
-    const promoted: Drill = { ...structuredClone(state.present), id: newId('dr'), title, createdAt: now, updatedAt: now };
-    void (async () => {
+  // [저장]은 **이름부터 묻는다**(2026-08-28 기현 지시). 옛 동작(지우지 않는다): 누르는 즉시
+  // 판의 제목(없으면 '새 드릴')으로 저장하고 [목록에서 보기] 토스트를 냈다. 이름을 안 붙인
+  // 판이 전부 '새 드릴' 로 쌓였고, 목록에 가서야 그것을 알았다.
+  const [saveOpen, setSaveOpen] = useState(false);
+  const onSaveAsDrill = useCallback(() => setSaveOpen(true), []);
+
+  /** 다이얼로그가 준 이름으로 승격한다. **성공했을 때만** true — 실패하면 모달이 열린 채로
+   *  남아야 방금 친 이름을 잃지 않는다. */
+  const commitSaveAsDrill = useCallback(
+    async (name: string): Promise<boolean> => {
+      // 승격은 **복사**다 — 전술판은 그대로 남는다. 저장 직후 판이 사라지면 "방금 그리던 것"을
+      // 잃은 것처럼 보인다.
+      const now = Date.now();
+      const title = name || t('board.defaultDrillTitle');
+      const promoted: Drill = { ...structuredClone(state.present), id: newId('dr'), title, createdAt: now, updatedAt: now };
       try {
         const { repo } = await resolveDrillRepo();
         await repo.putDrill(promoted);
@@ -208,14 +219,23 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
         // (App.tsx), 이걸 빼면 IDB 에는 저장됐는데 목록·대문 통계에는 새로고침 전까지 안 뜬다
         // — 사용자에겐 "저장이 안 된 것" 으로 보인다(실제로 그렇게 보였다).
         await refresh();
-        toast.show(t('board.savedToast', { title }), {
-          action: { label: t('board.savedToastAction'), onAction: () => nav.go('drills') },
-        });
+        toast.show(t('board.savedToast', { title }));
+        // 곧장 그 드릴의 편집기로. [목록에서 보기] 토스트 액션은 은퇴했다 — 목록을 거치지
+        // 않고 바로 도착하므로 눌러야 할 자리가 없다.
+        nav.go('board', { kind: 'drill', id: promoted.id });
+        return true;
       } catch {
         toast.show(t('board.saveFailedToast'));
+        return false;
       }
-    })();
-  }, [state.present, toast, nav, refresh, t]);
+    },
+    [state.present, toast, nav, refresh, t],
+  );
 
-  return <EditorWorkspace mode="board" board={{ pristine: pristineBase, onCourtChange, onCourtSizeChange, onReset, onSaveAsDrill, onSave: saveNow }} />;
+  return (
+    <>
+      <EditorWorkspace mode="board" board={{ pristine: pristineBase, onCourtChange, onCourtSizeChange, onReset, onSaveAsDrill, onSave: saveNow }} />
+      <SaveAsDrillDialog open={saveOpen} onClose={() => setSaveOpen(false)} defaultTitle={state.present.title} onSubmit={commitSaveAsDrill} />
+    </>
+  );
 }

@@ -16,11 +16,17 @@
 // 화면 안에 두면 헤더에서 누른 경우를 못 받는다 — 그래서 마운트는 AppShell 이 하고, 이 파일은
 // 그 자리에서 자족하도록 저장(useLibrary)까지 자기가 한다.
 //
+// ── 이 파일에 둘이 산다 ──────────────────────────────────────────────────────────────
+// `NewDrillDialog`(이름+코트 → `createDrill`)와 `SaveAsDrillDialog`(전술판 [저장] — 이름만).
+// 한 파일인 이유는 **이름 칸을 공유**해서다(`NameField`) — 라벨·자리 표시자·길이 상한이 두
+// 벌이 되면 한쪽만 고쳐지는 날이 온다. 저장 방식은 각자 다르다(하나는 여기서, 하나는 판을
+// 아는 BoardScreen 에서) — 그쪽 머리말 참고.
+//
 // ⚠️ 코트 크기 3단이 **풀 코트에서만 뜻이 있다**는 규칙은 편집기 [보드 설정] 모달과 같다
 //    (court.ts COURT_DEFS 근거). 그래서 문구도 그쪽 i18n 키를 그대로 쓴다 — 같은 사실을 두
 //    벌로 번역해 두면 한쪽만 고쳐지는 날이 온다.
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, RefObject } from 'react';
 import { Modal } from '../../ui/Modal.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
@@ -97,17 +103,7 @@ export function NewDrillDialog({ open, onClose, onCreated }: NewDrillDialogProps
         }}
         style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
       >
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)' }}>
-          <span>{t('newDrill.nameLabel')}</span>
-          <input
-            ref={nameRef}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={t('newDrill.namePlaceholder')}
-            maxLength={80}
-            style={INPUT}
-          />
-        </label>
+        <NameField inputRef={nameRef} value={title} onChange={setTitle} />
 
         {/* 형태·크기는 [보드 설정] 모달과 같은 2단 — 좁은 창에서는 auto-fit 이 알아서 1단으로 접는다. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, alignItems: 'start' }}>
@@ -163,6 +159,90 @@ export function NewDrillDialog({ open, onClose, onCreated }: NewDrillDialogProps
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** §6.8 전술판 [저장] — **이름만** 묻고 곧장 편집기로 (2026-08-28 기현 지시:
+ *  *"첫 화면의 [저장] 버튼은 이름 묻는 모달 띄우고 입력하면 바로 드릴 편집으로 넘어가"*).
+ *
+ *  코트를 안 묻는 이유: 판이 이미 코트를 들고 있다. 여기서 다시 고르게 하면 그 순간
+ *  "고른 코트로 옮겨 담을 것인가" 라는, 답이 없는 질문(court.ts 의 그 좌표 사상 문제)이 생긴다.
+ *
+ *  ⚠️ **저장은 이 컴포넌트가 하지 않는다.** 전술판 승격은 `structuredClone(state.present)` 에
+ *  새 id 를 다는 복사이고, 그 판을 아는 것은 BoardScreen 뿐이다 — 여기는 이름만 받아 넘긴다.
+ *  실패해도 화면이 안 넘어가야 하므로 성공 여부는 부른 쪽이 판정한다(`onSubmit` 은 Promise).
+ *
+ *  [새 드릴] 과 한 파일에 사는 이유는 **이름 칸을 공유**해서다(`NameField`) — 라벨·자리
+ *  표시자·길이 상한이 두 벌이 되면 한쪽만 고쳐지는 날이 온다. */
+export interface SaveAsDrillDialogProps {
+  open: boolean;
+  onClose: () => void;
+  /** 판이 들고 있던 제목. 비어 있으면 자리 표시자만 뜬다. */
+  defaultTitle: string;
+  /** 이름을 받아 실제로 저장한다. **성공했을 때만** true 를 돌려주면 그때 모달이 닫힌다. */
+  onSubmit: (title: string) => Promise<boolean>;
+}
+
+export function SaveAsDrillDialog({ open, onClose, defaultTitle, onSubmit }: SaveAsDrillDialogProps) {
+  const t = useT();
+  const nameRef = useRef<HTMLInputElement>(null);
+  const [title, setTitle] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  // 열 때 판의 제목을 실어 준다 — 인스펙터에서 이미 이름을 붙여 둔 사람에게 빈 칸을 내밀면
+  // 그 이름이 어디로 갔는지 알 수 없다. 커서가 칸에 서므로 그대로 눌러도, 고쳐 써도 된다.
+  useEffect(() => {
+    if (!open) return;
+    setTitle(defaultTitle);
+    setBusy(false);
+    // 이름을 통째로 갈아 끼우는 것이 흔한 동작이라 열자마자 전체 선택해 둔다.
+    nameRef.current?.select();
+  }, [open, defaultTitle]);
+
+  const submit = () => {
+    if (busy) return;
+    setBusy(true);
+    void (async () => {
+      try {
+        if (await onSubmit(title.trim())) onClose();
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} titleId="save-as-drill-dialog-title" title={t('board.saveDialog.title')} closeLabel={t('common.close')} initialFocusRef={nameRef}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+      >
+        <NameField inputRef={nameRef} value={title} onChange={setTitle} />
+        <p style={HINT}>{t('board.saveDialog.hint')}</p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button type="button" onClick={onClose}>
+            {t('newDrill.cancel')}
+          </Button>
+          <Button type="submit" variant="primary" disabled={busy}>
+            {t('board.saveDialog.submit')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** 두 다이얼로그가 함께 쓰는 이름 칸. 라벨·자리 표시자·길이 상한이 한 곳에 있다. */
+function NameField({ inputRef, value, onChange }: { inputRef: RefObject<HTMLInputElement | null>; value: string; onChange: (v: string) => void }) {
+  const t = useT();
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)' }}>
+      <span>{t('newDrill.nameLabel')}</span>
+      <input ref={inputRef} value={value} onChange={(e) => onChange(e.target.value)} placeholder={t('newDrill.namePlaceholder')} maxLength={80} style={INPUT} />
+    </label>
   );
 }
 
