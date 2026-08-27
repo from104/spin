@@ -30,3 +30,4 @@ log = "0.4"
 # 문제를 원격으로 물어볼 수 있는 유일한 창구다.
 tauri = { version = "2.11.3", features = ["devtools"] }
 tauri-plugin-log = "2"
+tauri-plugin-opener = "2"

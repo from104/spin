@@ -11,7 +11,14 @@
 //   대화형(consent)은 타임아웃이 없다: 사용자가 계정 고르는 시간은 우리가 정할 수 없다.
 // - client id 는 VITE_GOOGLE_CLIENT_ID 주입(하드코딩 0). 미설정 빌드는 설정 화면이 섹션을
 //   비활성으로 보여준다(isSyncConfigured).
+//
+// ⚠️ 2026-08-27 — **데스크톱(Tauri)은 이 길을 못 쓴다.** GIS 는 웹뷰에서 팝업을 못 띄우고
+// (`Failed to open popup window`), 띄웠어도 origin 이 `tauri://localhost` 라 구글 콘솔에
+// 등록할 수 없다. 그래서 아래 공개 함수 넷은 **플랫폼을 보고 authDesktop.ts 로 넘긴다** —
+// 외부 브라우저 + 루프백 + PKCE(설치형 앱 흐름). 갈라지는 곳을 이 파일 한 군데로 모은 것은
+// 소비자(SyncSection·엔진)가 플랫폼을 몰라도 되게 하려는 것이다: 그쪽은 한 줄도 안 바뀐다.
 import { StorageError, STORAGE_ERROR_MESSAGES } from '../storage/errors.ts';
+import * as desktop from './authDesktop.ts';
 
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
@@ -58,7 +65,7 @@ export function syncClientId(): string | undefined {
 
 /** 이 배포에 동기화가 구성돼 있는가 — 설정 화면이 섹션 활성/비활성을 가르는 기준. */
 export function isSyncConfigured(): boolean {
-  return syncClientId() !== undefined;
+  return desktop.isDesktop() ? desktop.isConfigured() : syncClientId() !== undefined;
 }
 
 // ── GIS 로드 ─────────────────────────────────────────────────────────────────────────
@@ -146,6 +153,8 @@ function requestToken(prompt: '' | 'consent', loginHint?: string): Promise<strin
 /** 엔진의 유일한 입구. 캐시가 살아 있으면 그대로, 아니면 무음 갱신 — 실패는 E_SYNC_AUTH 로
  *  올라가 엔진이 멈추고 설정에 '재연결' 칩이 뜬다(대화형 재시도는 사용자 제스처에서만). */
 export function getAccessToken(loginHint?: string): Promise<string> {
+  // 데스크톱은 갱신 토큰으로 조용히 새로 받는다 — 힌트가 필요 없다(계정이 토큰에 박혀 있다).
+  if (desktop.isDesktop()) return desktop.getAccessToken();
   if (cached && cached.expiresAt - EXPIRY_MARGIN_MS > Date.now()) return Promise.resolve(cached.token);
   return requestToken('', loginHint);
 }
@@ -154,6 +163,7 @@ export function getAccessToken(loginHint?: string): Promise<string> {
  *  이메일 힌트는 부가 정보다: about 호출이 실패해도 연결 자체는 성공으로 친다(힌트가 없으면
  *  무음 갱신에서 계정 선택이 뜰 수 있을 뿐, 데이터에는 아무 영향이 없다). */
 export async function connectInteractive(): Promise<{ token: string; email?: string }> {
+  if (desktop.isDesktop()) return desktop.connectInteractive();
   const token = await requestToken('consent');
   let email: string | undefined;
   try {
@@ -172,6 +182,9 @@ export async function connectInteractive(): Promise<{ token: string; email?: str
 
 /** 401 을 받은 호출자가 부른다 — 캐시를 버려 다음 getAccessToken 이 무음 갱신을 시도하게. */
 export function invalidateToken(): void {
+  // 양쪽 캐시를 다 버린다 — 한 프로세스에 둘 중 하나만 사는데, 어느 쪽인지 여기서 따질
+  // 이유가 없다(둘 다 버리는 것이 안전하고 싸다).
+  desktop.invalidateToken();
   cached = null;
 }
 
@@ -179,6 +192,7 @@ export function invalidateToken(): void {
  *  확실히 버린다. 로컬 데이터·동기화 행·톰스톤은 **여기서 건드리지 않는다**(ROADMAP "연결
  *  끊어도 로컬 유지" — 해제는 prefs.sync.enabled 를 끄는 호출자의 몫과 합쳐 완성된다). */
 export async function revokeAccess(): Promise<void> {
+  if (desktop.isDesktop()) return desktop.revokeAccess();
   const token = cached?.token;
   cached = null;
   if (!token) return;
@@ -196,6 +210,7 @@ export async function revokeAccess(): Promise<void> {
 
 /** 테스트 전용 — 모듈 상태 초기화. */
 export function resetAuthForTest(): void {
+  desktop.resetDesktopAuthForTest();
   cached = null;
   gisLoading = null;
 }

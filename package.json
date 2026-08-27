@@ -23,6 +23,8 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-opener": "^2.5.4",
     "idb": "^8.0.3",
     "matter-js": "^0.20.0",
     "react": "^19.2.8",
