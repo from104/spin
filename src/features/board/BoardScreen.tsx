@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import { COURT_SIZE_LABELS, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
-import { createDrill, DEFAULT_TEAMS, emptyStep } from '../../model/defaults.ts';
+import { createDrill, DEFAULT_TEAMS } from '../../model/defaults.ts';
 import { newId } from '../../core/ids.ts';
 import { loadBoard, saveBoard } from '../../storage/board.ts';
 import { readBoardSession, writeBoardSession } from './boardSession.ts';
@@ -182,28 +182,11 @@ function BoardHost() {
     [state.present.courtMode, state.present.courtSize, swap, toast, t, locale],
   );
 
-  /** [비우기] — **되돌릴 수 있는 편집이다**(2026-08-28 기현님 지적: *"비우기가 왜 되돌리기를
-   *  안 되게 했어? 기술적으로 안 되는 거야?"* — 아니었다).
-   *
-   *  옛 동작은 `swap()`, 즉 코트 전환과 **같은 문**인 BOARD_SET 이었고 그것이 히스토리를
-   *  통째로 비웠다. 기술적 제약이 아니라 게이트를 지키려던 대가였다: 게이트가
-   *  `past.length === 0` 를 "판이 비었다" 의 대용으로 썼으므로, 비우기가 히스토리에 쌓이면
-   *  비우자마자 코트 전환이 잠겼다. 게이트가 판을 직접 보게 된 지금은 그 사슬이 없다.
-   *
-   *  ⚠️ **판을 갈아끼우지 않는다.** `makeBoardDrill` 로 새 판을 밀면 제목·팀·id 까지 기본값으로
-   *  돌아간다 — 비우기는 내용을 지우는 것이지 판을 새로 내주는 것이 아니다. 코트(형태·크기)를
-   *  유지하는 옛 규율은 그대로다: 크기를 고른 뒤 한 번 잘못 놓고 비우는 흔한 동작에서 규격이
-   *  조용히 30×18 로 돌아가면 안 된다.
-   *
-   *  공은 명단(cast)에서도 뺀다 — 미배치인 채 남으면 어떤 UI 로도 못 놓는데 10개 상한에는
-   *  계속 잡힌다(defaults.ts `createDrill.empty` 의 그 유령). 선수 명단은 남는다. */
-  const onReset = useCallback(() => {
-    const d = state.present;
-    // DRILL_LOAD 는 COMMIT 이라 past 에 한 칸 쌓인다(actions.ts) — 그래서 되돌아온다.
-    // epoch 도 함께 올라가 물리 월드가 즉시 빈 판으로 재구성된다.
-    dispatch({ type: 'DRILL_LOAD', drill: { ...d, cast: { ...d.cast, balls: [] }, steps: [emptyStep(d.courtMode)] } });
-    toast.show(t('board.clearedToast'));
-  }, [state.present, dispatch, toast, t]);
+  // ⚠️ [비우기]는 2026-08-28 부터 이 파일에 없다. 드릴 편집에도 같은 기능이 생기면서
+  //    구현이 EditorWorkspace.clearStep(STEP_CLEAR 한 방)으로 올라갔다 — 하는 일이 리듀서
+  //    액션 하나뿐이라 저장소를 아는 이 화면이 쥘 이유가 없었다.
+  //    옛 기록: 그 직전(같은 날)에 여기서 `swap()`(BOARD_SET, 히스토리 소멸) → DRILL_LOAD 로
+  //    한 번 옮겼었다. 이유는 `store/editor/actions.ts` 의 STEP_CLEAR·BOARD_SET 주석에 있다.
 
   // [저장]은 **이름부터 묻는다**(2026-08-28 기현 지시). 옛 동작(지우지 않는다): 누르는 즉시
   // 판의 제목(없으면 '새 드릴')으로 저장하고 [목록에서 보기] 토스트를 냈다. 이름을 안 붙인
@@ -242,7 +225,7 @@ function BoardHost() {
 
   return (
     <>
-      <EditorWorkspace mode="board" board={{ onCourtChange, onCourtSizeChange, onReset, onSaveAsDrill, onSave: saveNow }} />
+      <EditorWorkspace mode="board" board={{ onCourtChange, onCourtSizeChange, onSaveAsDrill, onSave: saveNow }} />
       <SaveAsDrillDialog open={saveOpen} onClose={() => setSaveOpen(false)} defaultTitle={state.present.title} onSubmit={commitSaveAsDrill} />
     </>
   );

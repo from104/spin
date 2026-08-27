@@ -26,6 +26,8 @@ import { AppHeader, HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { BoardScreen } from '../board/BoardScreen.tsx';
+import { saveBoard } from '../../storage/board.ts';
+import { createDrill } from '../../model/defaults.ts';
 
 /** 진짜 월드를 만들고 `resetGoals` 만 세는 얇은 껍데기. 통째로 가짜를 세우면 "가짜가 불렸다"
  *  만 확인하게 되고, 골대가 실제로 코트 정의 자리로 가는지는 physics/index.test.ts 가 이미
@@ -67,12 +69,18 @@ function Wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-async function openBoard() {
+/** `placed` 면 **개체가 놓인 판**으로 연다. [코트 비우기]는 판이 비어 있으면 꺼져 있으므로
+ *  (2026-08-28 — 눌러도 안 변할 버튼을 살려 두지 않는다) 그 버튼을 실제로 누르는 케이스는
+ *  반드시 채운 판에서 열어야 한다. */
+async function openBoard(opts: { placed?: boolean } = {}) {
   localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
+  if (opts.placed) saveBoard(createDrill({ courtMode: 'full', formation: '1-2-1' }));
   const user = userEvent.setup();
   render(<BoardScreen />, { wrapper: Wrapper });
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-  await waitFor(() => expect(screen.getByRole('button', { name: '코트 비우기' })).toBeInTheDocument());
+  // 2026-08-28 — [코트 비우기]는 [보드 설정] 모달 안이라 준비 신호로 못 쓴다. 기능 바에
+  // 상시 서는 칸이면 되므로 그 모달을 여는 칸을 본다.
+  await waitFor(() => expect(screen.getByRole('button', { name: '보드 설정' })).toBeInTheDocument());
   return { user };
 }
 
@@ -134,15 +142,17 @@ describe('[보드 설정] 모달의 [골대 원위치] 가 실제 물리까지 �
 
 describe('대조군 — 비우기와 섞이지 않는다', () => {
   it('[코트 비우기] 확인 모달의 [비우기] 는 골대 복귀를 부르지 않는다', async () => {
-    const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 비우기' }));
-    await user.click(screen.getByRole('button', { name: '비우기' }));
+    const { user } = await openBoard({ placed: true });
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    await user.click(await screen.findByRole('button', { name: '코트 비우기' }));
+    await user.click(await screen.findByRole('button', { name: '비우기' }));
     expect(resetGoalsCalls.n).toBe(0);
   });
 
   it('모달 안에는 [골대만 원위치] 가 **없다** — 손잡이는 이제 하나뿐이다', async () => {
-    const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 비우기' }));
+    const { user } = await openBoard({ placed: true });
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    await user.click(await screen.findByRole('button', { name: '코트 비우기' }));
     expect(screen.queryByRole('button', { name: '골대만 원위치' })).toBeNull();
   });
 });

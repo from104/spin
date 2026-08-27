@@ -251,7 +251,11 @@ export interface FunctionBarProps {
   /** 한 번 누르면 두 팀이 자리를 맞바꾼다. 손잡이는 **[코트] 모달 안**이다(2026-08-16 이사).
    *  플랫 코트에서는 버튼 자체를 안 낸다 — 골 지역이 없어 진영이라는 개념이 없다. */
   onToggleDefense(): void;
+  /** [비우기] — **지금 스텝**을 비운다(전술판은 스텝이 하나라 곧 판 전체다). */
   onReset(): void;
+  /** 지금 스텝이 이미 비었는가. [비우기]를 끄는 데 쓴다 — 눌러도 안 변할 버튼을 살려 두지
+   *  않는다(이 모달의 크기 3단이 세운 계약과 같은 규율). */
+  stepEmpty: boolean;
   /** 내보내기 시트가 굽는 것은 지금 리듀서가 든 판이다(물리 세계가 아니라 모델). */
   drill: Drill;
   /** 지금 편집 중인 스텝의 인덱스. **내보내기 시트가 "이 스텝" 을 알아야 한다.**
@@ -302,6 +306,7 @@ export function FunctionBar({
   teams,
   onToggleDefense,
   onReset,
+  stepEmpty,
   drill,
   stepIndex,
   checkedStepIds,
@@ -319,7 +324,6 @@ export function FunctionBar({
   const [exportOpen, setExportOpen] = useState(false);
   const courtId = useId();
   const courtBtnRef = useRef<HTMLButtonElement | null>(null);
-  const clearBtnRef = useRef<HTMLButtonElement | null>(null);
   const exportBtnRef = useRef<HTMLButtonElement | null>(null);
   const firstCourtRef = useRef<HTMLButtonElement | null>(null);
 
@@ -437,21 +441,10 @@ export function FunctionBar({
           정하는 자리에서 함께 정해지는 것이 맞다. 기둥에서는 그 셋이 서로 떨어져 있었다.
           빠진 한 칸은 [도움말]이 받았었다(2026-08-16) — 2026-08-20(§0.5 Phase 5)에 [도움말]이
           레일 상시 칸으로 옮겨가며 그 칸도 없어졌다. 칸 수는 이제 12/10. */}
-      {/* ⚠️ [비우기]는 **전술판에만** 있다(2026-08-15). 드릴에는 되돌리기와 스텝이 있어
-          "비운다" 가 한 가지 뜻으로 정해지지 않는다 — functionBarMetrics 의
-          FUNCTION_BAR_ITEMS_DRILL 이 그 근거를 갖는다. */}
-      {isBoard && (
-        <BarItem
-          label={t('editor.functionBar.clear.label')}
-          name={t('editor.functionBar.clear.name')}
-          title={t('editor.functionBar.clear.title')}
-          buttonRef={clearBtnRef}
-          aria-haspopup="dialog"
-          onClick={() => setConfirmOpen(true)}
-        >
-          <IconClear />
-        </BarItem>
-      )}
+      {/* ⚠️ [비우기]는 2026-08-28 부터 **[보드 설정] 모달 안**이다(기현 지시). 함께 뒤집힌 것:
+          옛 기록은 *"[비우기]는 전술판에만 있다(2026-08-15). 드릴에는 되돌리기와 스텝이 있어
+          '비운다' 가 한 가지 뜻으로 정해지지 않는다"* 였는데, 이제 **드릴 편집에도 있고** 뜻은
+          하나로 정했다: **지금 스텝을 비운다**(STEP_CLEAR). 다른 스텝은 건드리지 않는다. */}
 
       <div aria-hidden style={DIVIDER} />
 
@@ -556,13 +549,20 @@ export function FunctionBar({
           {courtMode !== 'full' ? (
             <p style={HINT}>{t('editor.functionBar.courtModal.sizeInfoFullOnly', { size: COURT_SIZE_LABELS[locale][courtSize] })}</p>
           ) : courtLocked ? (
+            // 드릴은 **비워도 안 열린다**(코트는 드릴을 만들 때 정해진다) — 전술판 문장을 그대로
+            // 쓰면 아래 [비우기]를 누르면 열릴 것처럼 읽힌다. 2026-08-28 에 [비우기]가 이 모달로
+            // 들어오면서 그 오독이 실제 행동을 부르게 돼(눌러도 안 열린다) 문장을 갈랐다.
             // ⚠️ **잠기면 버튼을 안 낸다.** 형태 셋과 다른 이유: 형태는 눌러 보고 이유를 듣는
             // 것이 옛 헤더 세그먼트의 계약이었고(onLockedAttempt), 크기는 옛 인스펙터에서
             // *"골라도 안 변하는 컨트롤은 거짓말이다"* 라는 반대 계약을 갖고 있었다. 두 계약을
             // 한쪽으로 통일하지 않는 이유: 각자 그 자리에서 실기로 정해진 것이고, 여기서
             // 바꾸면 이번 이사가 **동작까지** 바꾸는 것이 된다. 값은 계속 보인다 — 못 바꾸는
             // 것과 안 보이는 것은 다르다.
-            <p style={HINT}>{t('editor.functionBar.courtModal.sizeInfoLocked', { size: COURT_SIZE_LABELS[locale][courtSize] })}</p>
+            <p style={HINT}>
+              {isBoard
+                ? t('editor.functionBar.courtModal.sizeInfoLocked', { size: COURT_SIZE_LABELS[locale][courtSize] })
+                : t('editor.functionBar.courtModal.sizeInfoLockedDrill', { size: COURT_SIZE_LABELS[locale][courtSize] })}
+            </p>
           ) : (
             <div
               role="radiogroup"
@@ -599,7 +599,32 @@ export function FunctionBar({
               있습니다"* 를 냈는데, 그건 아무 일도 없다는 것을 굳이 말하는 줄이었다 — 설명을
               줄이라는 지시(2026-08-27)에서 첫 번째로 지운 자리다. 잠긴 사유는 남는다:
               못 바꾸는 이유가 화면 어디에도 없으면 안 된다. */}
-          {courtLocked && <p style={HINT}>{t('editor.functionBar.courtModal.mustClearFirst')}</p>}
+          {courtLocked && (
+            <p style={HINT}>{isBoard ? t('editor.functionBar.courtModal.mustClearFirst') : t('editor.functionBar.courtModal.lockedDrill')}</p>
+          )}
+
+          {/* ── 비우기 (2026-08-28 기현 지시로 기둥에서 이사) ───────────────────────────
+              **잠금 사유 바로 밑**이다. 위 문구가 *"코트를 바꾸려면 먼저 판을 비우세요"* 라고
+              말하는데 그 버튼이 기둥 저쪽에 있으면, 읽은 사람이 눈을 옮겨 찾아야 했다.
+              이제 시키는 말과 시키는 대로 할 손잡이가 같은 자리에 있다.
+              ⚠️ 이미 비었으면 **끈다**. 눌러도 안 변하는 컨트롤은 거짓말이라는 이 모달의 기존
+                 계약(크기 3단)과 같은 규율이고, 여기서는 꺼짐 자체가 "이미 비었다" 를 말한다. */}
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            disabled={stepEmpty}
+            title={isBoard ? t('editor.functionBar.clear.title') : t('editor.functionBar.clear.titleDrill')}
+            onClick={() => {
+              setCourtOpen(false);
+              setConfirmOpen(true);
+            }}
+            style={{ ...MODAL_ACTION, opacity: stepEmpty ? 0.45 : 1 }}
+          >
+            <span aria-hidden style={{ display: 'flex' }}>
+              <IconClear />
+            </span>
+            {t('editor.functionBar.clear.name')}
+          </button>
 
           {/* ── 진영 (2026-08-16 기현 지시로 기둥에서 이사) ─────────────────────────────
               골 지역 3인 반칙이 **어느 팀에 걸리는지**를 정한다. 화면의 골라인 뒤 깃발 둘
@@ -725,12 +750,18 @@ export function FunctionBar({
         title={t('editor.functionBar.clearConfirm.title')}
         body={
           <>
-            {t('editor.functionBar.clearConfirm.body')} <strong>{t('editor.functionBar.clearConfirm.bodyStrong')}</strong>
+            {/* 드릴은 **스텝이 여럿**이라 "코트 위의" 로는 범위를 알 수 없다 — 어디까지 지우는지가
+                파괴적 조작의 확인에서 가장 중요한 한 줄이므로 모드별로 다른 문장을 쓴다. */}
+            {isBoard ? t('editor.functionBar.clearConfirm.body') : t('editor.functionBar.clearConfirm.bodyDrill')}{' '}
+            <strong>{t('editor.functionBar.clearConfirm.bodyStrong')}</strong>
           </>
         }
         confirmLabel={t('editor.functionBar.clearConfirm.confirm')}
         cancelLabel={t('editor.functionBar.clearConfirm.cancel')}
-        returnFocusRef={clearBtnRef}
+        // ⚠️ [비우기]가 아니라 **[보드 설정]** 으로 돌려보낸다 — 확인을 여는 그 누름이 모달을
+        //    닫으므로 비우기 버튼은 이미 DOM 에 없다(Modal 의 isConnected 가드가 걸려 포커스가
+        //    <body> 로 떨어진다). 사용자가 되돌아갈 자리는 모달을 연 그 칸이다.
+        returnFocusRef={courtBtnRef}
       />
 
       {/* ⚠️ 시트는 **닫혀 있어도 마운트된 채**여야 한다 — [인쇄]를 고르면 시트가 닫히고 인쇄

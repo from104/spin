@@ -98,19 +98,20 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
   const bar = () => document.querySelector<HTMLElement>('nav[data-function-bar]')!;
   const tray = () => document.querySelector<HTMLElement>('nav[data-tray]')!;
 
-  it('줌 3 · 이력 2 · 보드 설정 · 비우기 · 내보내기 — 전부 기능 바 안이다', async () => {
+  it('줌 3 · 이력 2 · 보드 설정 · 내보내기 — 전부 기능 바 안이다', async () => {
     await openBoard();
     // 2026-08-20(§0.5 Phase 5) — [도움말]은 이 목록에서 빠졌다. 레일의 상시 칸으로 일원화.
     // 2026-08-27 — [골대]·[속도]·[보기] 셋이 **[보드 설정] 모달 안으로** 들어가 목록에서 빠졌다
     // (기현 지시). 셋의 존재는 아래 '[보드 설정] 모달' describe 가 따로 잰다.
-    const names = ['확대', '축소', '배율 100%', '되돌리기', '다시하기', '보드 설정', '코트 비우기', '내보내기', '드릴로 저장'];
+    // 2026-08-28 — [코트 비우기]도 같은 모달로 들어갔다(기현 지시). 아래 부정 목록으로 옮겼다.
+    const names = ['확대', '축소', '배율 100%', '되돌리기', '다시하기', '보드 설정', '내보내기', '드릴로 저장'];
     for (const name of names) {
       const btn = screen.getByRole('button', { name });
       expect(bar().contains(btn), `${name} 가 기능 바 밖이다`).toBe(true);
       expect(tray().contains(btn), `${name} 가 트레이 안에 남아 있다`).toBe(false);
     }
     // ★ 셋은 기둥에 **없다** — 목록이 줄었다는 것을 부정으로도 못박는다.
-    for (const gone of ['골대 원위치', '보기']) {
+    for (const gone of ['골대 원위치', '보기', '코트 비우기']) {
       expect(screen.queryByRole('button', { name: gone }), `${gone} 가 아직 기둥에 있다`).toBeNull();
     }
     expect(screen.queryByRole('button', { name: /개체 이동 속도 제한/ })).toBeNull();

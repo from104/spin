@@ -197,7 +197,9 @@ describe('§6.4 코트 크기 선택 — 잠금은 코트 형태 전환과 같�
     expect(screen.queryByRole('radiogroup', { name: '코트 크기' })).toBeNull();
     await user.keyboard('{Escape}');
 
-    await user.click(screen.getByRole('button', { name: '코트 비우기' }));
+    // 2026-08-28 — [코트 비우기]는 [보드 설정] 모달 안이다(잠금 사유 바로 밑).
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    await user.click(await screen.findByRole('button', { name: '코트 비우기' }));
     await user.click(screen.getByRole('button', { name: '비우기' }));
 
     await user.click(screen.getByRole('button', { name: '보드 설정' }));

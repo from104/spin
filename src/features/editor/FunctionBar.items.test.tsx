@@ -56,6 +56,7 @@ function mount(
         showRuleZones
         onToggleRuleZones={noop}
         onSaveAsDrill={noop}
+        stepEmpty={false}
       />
       </ToastProvider>
     </SettingsProvider>,

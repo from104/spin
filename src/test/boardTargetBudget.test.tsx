@@ -104,7 +104,9 @@ async function openFirstScreen() {
   );
   // 판이 실제로 다 선 뒤에 센다 — 트레이·하단 바가 늦게 오면 반쪽 화면을 세고 초록불이 난다.
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-  await waitFor(() => expect(screen.getByRole('button', { name: '코트 비우기' })).toBeInTheDocument());
+  // 2026-08-28 — [코트 비우기]가 [보드 설정] 모달 안으로 들어가서 준비 신호로 못 쓴다.
+  // 기능 바에 상시 서는 칸 아무거나면 되므로 그 모달을 여는 칸을 본다.
+  await waitFor(() => expect(screen.getByRole('button', { name: '보드 설정' })).toBeInTheDocument());
 }
 
 describe('첫 화면 표적 예산 [E-5]', () => {
@@ -154,7 +156,10 @@ describe('첫 화면 표적 예산 [E-5]', () => {
     expect(has('본문으로 건너뛰기') || targets.some((el) => el.matches('a[href]')), 'SkipLink').toBe(true);
     expect(has('확대'), '스테이지 컨트롤').toBe(true);
     expect(has('2번 선수 배치') || has('공'), '트레이').toBe(true);
-    expect(has('코트 비우기'), '하단 바').toBe(true);
+    // ⚠️ 2026-08-28 — '하단 바' 행이 여기서 **빠졌다.** 증인이 [코트 비우기]였는데 그 칸은
+    //    애초에 기능 바 소속이었고(이번에 [보드 설정] 모달로 다시 이사했다), 자유 전술판에는
+    //    하단 재생 묶음이 **없다** — 1장짜리라 스텝도 트랜스포트도 없다(DESIGN §6.8 각주).
+    //    즉 이 행은 기능 바를 '하단 바' 라는 이름으로 두 번 세고 있었다. 아래 한 줄로 족하다.
     // 2026-08-27 — 속도 제한은 [보드 설정] 모달 안으로 들어가 **첫 화면 표적이 아니다**.
     // 그 자리를 대신해 기능 바의 대표로 [보드 설정]을 센다(구역이 실제로 잡히는지가 요점이다).
     expect(has('보드 설정'), '기능 바').toBe(true);
