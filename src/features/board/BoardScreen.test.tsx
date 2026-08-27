@@ -44,8 +44,12 @@ function Toasts() {
   return <ToastHost toasts={toasts} onDismiss={dismiss} />;
 }
 
+/** `Wrapper` 는 render 의 wrapper 라 prop 을 못 받는다 — 화면 전환을 보고 싶은 테스트만
+ *  `openBoard({ onGo })` 로 이 자리에 귀를 꽂는다. 테스트마다 초기화한다(아래 beforeEach). */
+let navGo: (...args: Parameters<AppHistoryApi['go']>) => void = () => {};
+
 function Wrapper({ children }: { children: ReactNode }) {
-  const nav: AppHistoryApi = { screen: 'board', go: () => {}, back: () => {} };
+  const nav: AppHistoryApi = { screen: 'board', go: (...args) => navGo(...args), back: () => {} };
   return (
     <SettingsProvider>
       <LibraryProvider>
@@ -75,8 +79,9 @@ function Wrapper({ children }: { children: ReactNode }) {
  *  (§6.1 규칙 1)를 화면 끝에서 세는 유일한 방법이다. */
 async function openBoard(
   court: 'full' | 'half' | 'flat' = 'full',
-  opts: { placed?: boolean; onRender?: ProfilerOnRenderCallback } = {},
+  opts: { placed?: boolean; onRender?: ProfilerOnRenderCallback; onGo?: (...args: Parameters<AppHistoryApi['go']>) => void } = {},
 ) {
+  navGo = opts.onGo ?? (() => {});
   // 자유 전술판 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트가 Esc·
   // 화살표·liveRegion 발표문을 가로채 아래 배선 테스트가 깨진다 — "이미 봤다" 로 시작한다.
   localStorage.setItem(
@@ -610,7 +615,10 @@ describe('[드릴로 저장] — 전술판을 정식 드릴로 승격', () => {
     const before = await repo.countDrills();
 
     const { user } = await openBoard('half');
+    // 2026-08-28 — [저장]은 곧바로 저장하지 않는다. 이름을 묻고, 판의 제목이 실려 있다.
     await user.click(screen.getByRole('button', { name: '드릴로 저장' }));
+    expect(screen.getByLabelText('드릴 이름')).toHaveValue('자유 전술판');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }));
 
     await waitFor(async () => {
       expect(await repo.countDrills()).toBe(before + 1);
@@ -632,6 +640,7 @@ describe('[드릴로 저장] — 전술판을 정식 드릴로 승격', () => {
     const { repo } = await resolveDrillRepo();
     const { user } = await openBoard('full');
     await user.click(screen.getByRole('button', { name: '드릴로 저장' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }));
     await screen.findByText(/드릴로 저장했습니다/);
 
     // 화면이 들고 있는 목록이 저장소와 **같아야** 한다. refresh() 를 빼면 화면 쪽이 저장 전
@@ -642,6 +651,38 @@ describe('[드릴로 저장] — 전술판을 정식 드릴로 승격', () => {
       expect(inStorage).toBeGreaterThan(0);
       expect(Number(screen.getByTestId('library-drill-count').textContent)).toBe(inStorage);
     });
+  }, 20000);
+
+  it('다이얼로그에서 고친 이름으로 저장되고, 곧장 그 드릴의 편집기로 넘어간다', async () => {
+    const goes: unknown[][] = [];
+    const { repo } = await resolveDrillRepo();
+    const { user } = await openBoard('full', { onGo: (...args) => goes.push(args) });
+
+    await user.click(screen.getByRole('button', { name: '드릴로 저장' }));
+    const dialog = screen.getByRole('dialog');
+    await user.clear(within(dialog).getByLabelText('드릴 이름'));
+    await user.type(within(dialog).getByLabelText('드릴 이름'), '2-4 골킥');
+    await user.click(within(dialog).getByRole('button', { name: '저장' }));
+
+    await screen.findByText(/드릴로 저장했습니다/);
+    const saved = (await repo.listDrillSummaries()).find((d) => d.title === '2-4 골킥');
+    expect(saved).toBeDefined();
+    // 목록을 거치지 않는다 — 만들어진 그 드릴을 board 자리에 연다.
+    expect(goes).toContainEqual(['board', { kind: 'drill', id: saved!.id }]);
+    // 저장에 성공했으므로 모달은 닫힌다.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  }, 20000);
+
+  it('[취소] 하면 아무것도 저장되지 않는다', async () => {
+    const { repo } = await resolveDrillRepo();
+    const before = await repo.countDrills();
+    const { user } = await openBoard('full');
+
+    await user.click(screen.getByRole('button', { name: '드릴로 저장' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '취소' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(await repo.countDrills()).toBe(before);
   }, 20000);
 });
 
