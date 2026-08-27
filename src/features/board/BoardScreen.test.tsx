@@ -853,6 +853,33 @@ describe('코트 비우기 — 덩어리가 크므로 확인을 받고, 되돌�
     await waitFor(() => expect(objs()).toBe(before));
   });
 
+  // ★ 2026-08-28 기현님 확인: *"비워진 상태에서 코트 형태 바꾸면 히스토리가 없어지는거지?"*
+  //   — 그랬고, 그래서 함께 고쳤다. 코트를 바꾸려면 판이 비어 있어야 하므로 [비우기]와 코트
+  //   전환은 사실상 한 동작으로 붙어 다닌다. 전환이 히스토리를 비우면 방금 되돌릴 수 있게
+  //   만든 그 비우기를 **다음 클릭에서** 도로 빼앗는 셈이었다. 화면 끝에서 전 구간을 본다.
+  it('비우고 코트를 바꾼 뒤에도 두 번 되돌리면 그리던 판이 그 코트로 돌아온다', async () => {
+    const { user } = await openAndClickClear();
+    const before = objs();
+    await user.click(screen.getByRole('button', { name: '비우기' }));
+    await waitFor(() => expect(objs()).toBe(0));
+
+    // 비었으니 전환이 열려 있다.
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    const court = await screen.findByRole('dialog', { name: '보드 설정' });
+    await user.click(within(court).getByRole('radio', { name: /하프/ }));
+
+    // ① 되돌리기 — 전환 직전(빈 풀 코트)
+    await user.click(screen.getByRole('button', { name: '되돌리기' }));
+    await waitFor(() => expect(objs()).toBe(0));
+    // ② 한 번 더 — 그리던 판. 코트도 함께 돌아온다.
+    await user.click(screen.getByRole('button', { name: '되돌리기' }));
+    await waitFor(() => expect(objs()).toBe(before));
+
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    const court2 = await screen.findByRole('dialog', { name: '보드 설정' });
+    expect(within(court2).getByRole('radio', { name: /풀/ })).toHaveAttribute('aria-checked', 'true');
+  }, 20000);
+
   // 되돌린 뒤에는 판에 잃을 것이 다시 생겼다 — 게이트도 따라 닫혀야 앞뒤가 맞는다.
   it('되돌리면 코트 전환이 다시 잠긴다 — 게이트가 판을 따라간다', async () => {
     const { user } = await openAndClickClear();
