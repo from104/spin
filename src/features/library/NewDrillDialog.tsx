@@ -67,6 +67,11 @@ export function NewDrillDialog({ open, onClose, onCreated }: NewDrillDialogProps
         const d = await createDrill({
           courtMode,
           courtSize,
+          // **빈 판으로 태어난다**(2026-08-28 기현 지시). 기본 포메이션 8대가 미리 깔려 있으면
+          // 무엇을 그릴지 아는 사람은 매번 치우는 일부터 해야 한다 — 자유 전술판이 `empty` 를
+          // 쓰는 이유(defaults.ts 그 주석)가 여기서도 그대로 성립한다. 채우고 싶으면
+          // 편집기의 [포메이션으로 채우기]가 한 번에 놓는다. 반대로 치우는 쪽은 한 번이 아니다.
+          empty: true,
           ...(named ? { title: named } : {}),
         });
         onCreated(d.id);
