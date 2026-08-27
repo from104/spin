@@ -185,6 +185,11 @@ export const ja: Record<DictKey, string> = {
   'library.emptyFiltered': '条件に合うドリルがありません。',
   'library.emptyNoDrills': 'まだドリルがありません。最初のドリルを作りましょう。',
   'library.createFirstDrill': 'ドリルを作成',
+  'newDrill.dialogTitle': '新規ドリル',
+  'newDrill.nameLabel': 'ドリル名',
+  'newDrill.namePlaceholder': '新規ドリル',
+  'newDrill.cancel': 'キャンセル',
+  'newDrill.create': '作成',
   'library.duplicateToast': '「{{title}}」を複製しました。',
   'library.deleteToast': '「{{title}}」を削除しました。',
   'library.deleteConfirm.title': 'ドリルを削除',
@@ -379,7 +384,7 @@ export const ja: Record<DictKey, string> = {
 
   // ── ドリル一覧チュートリアル 3ステップ — src/features/library/tutorialSteps.ts ──────
   'tutorial.library.step1.title': '新しいドリル',
-  'tutorial.library.step1.body': 'タップしてフリー戦術ボードを開き、配置を描いてからドリルとして保存します。',
+  'tutorial.library.step1.body': '名前とコートを選ぶと、ステップ1つのドリルができて編集画面に入ります。',
   'tutorial.library.step2.title': 'ドリルカード',
   'tutorial.library.step2.body': 'カードをタップすると開きます。再生アイコンはすぐ実演、⋮ は複製・削除・書き出しです。',
   'tutorial.library.step3.title': 'フィルター・表示',
@@ -454,7 +459,7 @@ export const ja: Record<DictKey, string> = {
   'help.board.restartButton': 'フリー戦術ボードツアーをもう一度見る',
 
   'help.library.item1.term': '新しいドリル',
-  'help.library.item1.desc': 'フリー戦術ボードを開いて新しく描きます。',
+  'help.library.item1.desc': '名前とコートを聞いてドリルを作ります。その場で描いたものを残したいときはボードの［ドリルとして保存］を使います。',
   'help.library.item2.term': 'カード',
   'help.library.item2.desc': 'カードをタップすると開き、再生アイコンはすぐ実演、⋮は複製・削除・書き出しです。',
   'help.library.item3.term': 'フィルター・並べ替え',

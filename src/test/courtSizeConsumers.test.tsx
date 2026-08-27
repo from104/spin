@@ -36,6 +36,10 @@ const COURT_DEFS_ALLOWED: Record<string, string> = {
     '2026-08-19 i18n C7 — ToolRail 의 courtLabel(기둥 맨 아래 작게 뜨는 코트 형태 이름)을 ' +
     'court.ts 정의에서 그대로 읽는다. BoardScreen.tsx 와 같은 이유(그 세 이름을 또 한 번 손으로 ' +
     '베끼지 않는다)로 여기도 형태 셋만 본다 — 크기 3단은 이 파일에서 COURT_DEFS 를 보지 않는다.',
+  'src/features/library/NewDrillDialog.tsx':
+    '2026-08-28 [새 드릴] 다이얼로그 — 드릴이 **태어나기 전에** 형태를 고르는 유일한 UI 다. ' +
+    'FunctionBar 와 같은 이유로 세 형태의 이름·설명을 정의에서 그대로 읽는다(손으로 베끼면 갈라진다). ' +
+    '크기 3단은 여기서도 courtDefFor 로 읽으므로 COURT_DEFS 를 보는 것은 형태 셋뿐이다.',
   'src/model/court.ts': '정의 그 자체 + courtDefFor 의 구현부. 여기가 유일한 출처다.',
   'src/render/courtLines/HalfCourtLines.tsx':
     '하프 코트는 크기 3단을 따라가지 않는다(court.ts COURT_DEFS 주석 근거 셋: 규격 부재 · 격자 붕괴 · flat 파급). ' +

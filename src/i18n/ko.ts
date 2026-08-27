@@ -184,6 +184,13 @@ export const ko = {
   'library.emptyFiltered': '조건에 맞는 드릴이 없습니다.',
   'library.emptyNoDrills': '아직 만든 드릴이 없습니다. 첫 드릴을 만들어 보세요.',
   'library.createFirstDrill': '새 드릴 만들기',
+  // [새 드릴] 다이얼로그(2026-08-28). 코트 형태·크기 문구는 editor.functionBar.courtModal.* 를
+  // 그대로 쓴다 — 같은 사실이라 두 벌로 번역해 두면 한쪽만 고쳐진다.
+  'newDrill.dialogTitle': '새 드릴',
+  'newDrill.nameLabel': '드릴 이름',
+  'newDrill.namePlaceholder': '새 드릴',
+  'newDrill.cancel': '취소',
+  'newDrill.create': '만들기',
   'library.duplicateToast': '"{{title}}" 을(를) 복제했습니다.',
   'library.deleteToast': '"{{title}}" 을(를) 삭제했습니다.',
   'library.deleteConfirm.title': '드릴 삭제',
@@ -378,7 +385,7 @@ export const ko = {
 
   // ── 드릴 목록 튜토리얼 3단계 — src/features/library/tutorialSteps.ts ──────
   'tutorial.library.step1.title': '새 드릴',
-  'tutorial.library.step1.body': '눌러서 자유 전술판을 열고, 배치를 그린 뒤 드릴로 저장합니다.',
+  'tutorial.library.step1.body': '이름과 코트를 고르면 스텝 하나짜리 드릴이 만들어지고, 바로 편집으로 들어갑니다.',
   'tutorial.library.step2.title': '드릴 카드',
   'tutorial.library.step2.body': '카드를 누르면 열립니다. 재생 아이콘은 바로 시연, ⋮ 는 복제·삭제·내보내기입니다.',
   'tutorial.library.step3.title': '필터·보기',
@@ -453,7 +460,7 @@ export const ko = {
   'help.board.restartButton': '자유 전술판 투어 다시 보기',
 
   'help.library.item1.term': '새 드릴',
-  'help.library.item1.desc': '자유 전술판을 열어 새로 그립니다.',
+  'help.library.item1.desc': '이름과 코트를 물어보고 드릴을 만듭니다. 즉흥으로 그리다 남기고 싶으면 전술판의 [드릴로 저장]을 쓰세요.',
   'help.library.item2.term': '카드',
   'help.library.item2.desc': '카드를 열면 편집, 재생 아이콘은 바로 시연, ⋮ 는 복제·삭제·내보내기입니다.',
   'help.library.item3.term': '필터·정렬',
