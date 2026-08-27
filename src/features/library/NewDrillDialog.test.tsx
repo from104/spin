@@ -58,6 +58,22 @@ describe('새 드릴 다이얼로그', () => {
     expect(d.steps).toHaveLength(1);
   });
 
+  it('빈 판으로 태어난다 — 기본 포메이션을 미리 깔지 않는다', async () => {
+    const user = userEvent.setup();
+    const { onCreated } = open();
+    await user.click(screen.getByRole('button', { name: '만들기' }));
+
+    const d = await created(onCreated);
+    const step = d.steps[0]!;
+    expect(Object.keys(step.chairs)).toHaveLength(0);
+    expect(Object.keys(step.balls)).toHaveLength(0);
+    // 공은 cast 에서도 빠져야 한다 — 미배치인 채 cast 에만 남으면 어떤 UI 로도 못 놓는데
+    // 10개 상한에는 계속 잡힌다(defaults.ts `empty` 주석의 그 유령).
+    expect(d.cast.balls).toHaveLength(0);
+    // 선수 명단은 남는다 — 인스펙터에서 하나씩 놓는다.
+    expect(d.cast.chairs.length).toBeGreaterThan(0);
+  });
+
   it('이름을 비워도 막지 않는다 — 기본 이름으로 태어나고 편집기에서 고친다', async () => {
     const user = userEvent.setup();
     const { onCreated } = open();
