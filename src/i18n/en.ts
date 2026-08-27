@@ -574,7 +574,7 @@ export const en: Record<DictKey, string> = {
   'editor.functionBar.goalReset.title': 'Moves goals pushed out of place by wheelchairs back to their original spot. Nothing else on the board is touched.',
   'editor.functionBar.clear.label': 'Clear',
   'editor.functionBar.clear.name': 'Clear Court',
-  'editor.functionBar.clear.title': 'Removes all players, balls, cones, arrows, and notes from the court. This cannot be undone.',
+  'editor.functionBar.clear.title': 'Removes all players, balls, cones, arrows, and notes from the court. Undo brings them back.',
   'editor.functionBar.export.label': 'Export',
   'editor.functionBar.export.name': 'Export',
   'editor.functionBar.export.title': 'Print the board, or export it as an image or backup file.',
@@ -617,7 +617,7 @@ export const en: Record<DictKey, string> = {
   'editor.functionBar.viewDrawer.ruleZone.title': 'Shows the goal-area 3-player foul zone as a translucent overlay ({{key}})',
   'editor.functionBar.clearConfirm.title': 'Clear the court?',
   'editor.functionBar.clearConfirm.body': 'All players, balls, cones, arrows, and notes on the court will be removed.',
-  'editor.functionBar.clearConfirm.bodyStrong': 'This cannot be undone.',
+  'editor.functionBar.clearConfirm.bodyStrong': 'Undo brings them back.',
   'editor.functionBar.clearConfirm.cancel': 'Cancel',
   'editor.functionBar.clearConfirm.confirm': 'Clear',
 

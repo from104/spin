@@ -11,7 +11,7 @@
 import { getDB, beginWrite, endWrite, toStorageError } from './db.ts';
 import { StorageError, STORAGE_ERROR_MESSAGES } from './errors.ts';
 import type { Drill } from '../model/drill.ts';
-import { CURRENT_DRILL_SCHEMA } from '../model/drill.ts';
+import { CURRENT_DRILL_SCHEMA, isStepEmpty } from '../model/drill.ts';
 import type { TrainingSession, SessionItem } from '../model/session.ts';
 import { CURRENT_SESSION_SCHEMA } from '../model/session.ts';
 import { validateDrill, validateSession, validateRoster, type Repair } from '../model/validate.ts';
@@ -334,7 +334,7 @@ export async function collectBackup(): Promise<BackupPayload> {
     drills,
     sessions,
     prefs: loadPrefs(),
-    board: board ? { schemaVersion: CURRENT_BOARD_SCHEMA, pristine: board.pristine, drill: board.drill } : null,
+    board: board ? { schemaVersion: CURRENT_BOARD_SCHEMA, drill: board.drill } : null,
     ...(roster.players.length > 0 ? { roster } : {}), // 빈 명단 = 키 생략(BackupPayload 주석)
   };
 }
@@ -448,9 +448,12 @@ function restoreBoardFrom(raw: unknown, mode: NonNullable<RestoreBackupOptions['
     // ⚠️ 편집 중인 판은 목록에 뜨지도 않고 되돌릴 수도 없는 단 한 장이라 auto 는 덮지 않는다.
     //    다만 그 사실을 'skipped' 로 뭉개면 사용자는 이유도, 회피책([전술판 교체] 재시도)도
     //    영영 모른다 — 그래서 별도 사유로 돌려준다(5.0 ②a).
-    if (local && !local.pristine) return 'kept-local-edited';
+    // 2026-08-28 — 판정이 `!local.pristine`(= 저장본 기준선) 에서 **판을 직접 세는 것**으로
+    // 바뀌었다. 묻는 것은 그때나 지금이나 "덮으면 잃을 것이 있는가" 이고, 개체를 세는 쪽이
+    // 그 질문에 곧바로 답한다(EditorWorkspace 의 코트 전환 게이트와 같은 술어를 쓴다).
+    if (local && !local.drill.steps.every(isStepEmpty)) return 'kept-local-edited';
   }
-  return saveBoard(v.value, raw.pristine === true) ? 'restored' : 'unreadable';
+  return saveBoard(v.value) ? 'restored' : 'unreadable';
 }
 
 async function restoreRosterFrom(raw: unknown, mode: NonNullable<RestoreBackupOptions['roster']>): Promise<BackupRestoreReport['roster']> {

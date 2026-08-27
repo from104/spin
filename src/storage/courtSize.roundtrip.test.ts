@@ -93,7 +93,7 @@ describe('§5.1 기기 이사 파일이 코트 크기를 담는다', () => {
       made.push(await idbDrillRepo.createDrill({ courtMode: 'full', courtSize: size, title: `이사 ${size}` }));
     }
     // 자유 전술판도 크기를 갖는다 — backup 은 판까지 담는 봉투다.
-    saveBoard(createDrill({ courtMode: 'full', courtSize: '28x15', title: '이사 전술판' }), false);
+    saveBoard(createDrill({ courtMode: 'full', courtSize: '28x15', title: '이사 전술판' }));
 
     const text = await exportBackupFile(await collectBackup()).text();
     const payload = (JSON.parse(text) as { payload: { drills: Array<{ courtSize?: string }>; board: { drill: { courtSize?: string } } | null } }).payload;

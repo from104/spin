@@ -10,18 +10,12 @@ beforeEach(() => {
 describe('전술판 스냅샷 왕복', () => {
   it('저장한 판이 그대로 되살아난다', () => {
     const d = createDrill({ courtMode: 'half', formation: '1-2-1' });
-    expect(saveBoard(d, true)).toBe(true);
+    expect(saveBoard(d)).toBe(true);
 
     const back = loadBoard();
     expect(back).not.toBeNull();
     expect(back!.drill.id).toBe(d.id);
     expect(back!.drill.courtMode).toBe('half');
-    expect(back!.pristine).toBe(true);
-  });
-
-  it('pristine=false 가 보존된다 — 이게 코트 전환 게이트의 저장분', () => {
-    saveBoard(createDrill({ courtMode: 'full' }), false);
-    expect(loadBoard()!.pristine).toBe(false);
   });
 
   it('저장된 적이 없으면 null', () => {
@@ -73,17 +67,14 @@ describe('되살리기 실패는 조용히 null — 대문이 안 뜨는 것이 
   });
 });
 
-describe('pristine 없음은 false 로 본다 (안전한 쪽)', () => {
-  it('필드가 아예 없으면 false — true 로 보면 편집된 판에서 코트 전환이 열려 배치가 날아간다', () => {
-    const d = createDrill({ courtMode: 'full' });
-    localStorage.setItem(BOARD_KEY, JSON.stringify({ schemaVersion: 1, drill: d }));
-    expect(loadBoard()!.pristine).toBe(false);
-  });
-
-  it('true 가 아닌 아무 값이어도 false', () => {
-    const d = createDrill({ courtMode: 'full' });
-    localStorage.setItem(BOARD_KEY, JSON.stringify({ schemaVersion: 1, pristine: 'yes', drill: d }));
-    expect(loadBoard()!.pristine).toBe(false);
+// 2026-08-28 — `pristine` 필드가 은퇴하면서 그 판정을 못박던 describe 셋(보존·없음·비-true)이
+// 함께 사라졌다. 게이트가 저장본이 아니라 **판 위 개체**를 세므로(EditorWorkspace) 스냅샷이
+// 실을 값 자체가 없다. 옛 스냅샷에 남아 있는 pristine 은 그냥 무시된다 — 아래가 그 대조군이다.
+describe('옛 스냅샷의 pristine 필드는 무시된다', () => {
+  it('남아 있어도 판은 그대로 되살아난다', () => {
+    const d = createDrill({ courtMode: 'half' });
+    localStorage.setItem(BOARD_KEY, JSON.stringify({ schemaVersion: 1, pristine: false, drill: d }));
+    expect(loadBoard()!.drill.courtMode).toBe('half');
   });
 });
 
@@ -93,8 +84,8 @@ describe('저장 실패가 앱을 죽이지 않는다', () => {
     const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('quota', 'QuotaExceededError');
     });
-    expect(() => saveBoard(createDrill({ courtMode: 'full' }), true)).not.toThrow();
-    expect(saveBoard(createDrill({ courtMode: 'full' }), true)).toBe(false);
+    expect(() => saveBoard(createDrill({ courtMode: 'full' }))).not.toThrow();
+    expect(saveBoard(createDrill({ courtMode: 'full' }))).toBe(false);
     spy.mockRestore();
   });
 
@@ -109,7 +100,7 @@ describe('저장 실패가 앱을 죽이지 않는다', () => {
 
 describe('clearBoard', () => {
   it('지우면 다시 null', () => {
-    saveBoard(createDrill({ courtMode: 'full' }), true);
+    saveBoard(createDrill({ courtMode: 'full' }));
     clearBoard();
     expect(loadBoard()).toBeNull();
   });

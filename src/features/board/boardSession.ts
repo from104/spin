@@ -6,7 +6,6 @@
 //
 //   · 되돌리기·다시하기 이력 (past/future) — 판을 떠났다 오면 되돌리기 버튼이 죽어 있었다
 //   · 선택 · 활성 도구 · 현재 스텝
-//   · 코트 전환 게이트의 기준선 (pristineBase)
 //
 // 그래서 배치는 그대로인데도 **다른 판을 새로 연 것처럼** 읽혔다.
 //
@@ -16,16 +15,16 @@
 // 스냅샷(배치)만 살아나면 된다 — 이력까지 되살아나야 한다는 요구는 없었다.
 //
 // ⚠️ 그래서 **`unmount()` 후 다시 `render` 하는 것은 더 이상 "새로고침" 이 아니다.** 새로고침을
-// 흉내내려면 `clearBoardSession()` 을 함께 불러야 한다. 안 부르면 스냅샷 경로(pristine 을 판정에
-// 끌고 가는 그 계약)를 검사하던 테스트가 캐시를 읽고 조용히 초록불이 된다.
+// 흉내내려면 `clearBoardSession()` 을 함께 불러야 한다. 안 부르면 스냅샷 경로를 검사하던
+// 테스트가 캐시를 읽고 조용히 초록불이 된다.
 import type { StageView } from '../../render/useStageMetrics.ts';
 import type { EditorState } from '../../store/editor/reducer.ts';
 
 export interface BoardSession {
   /** 리듀서 상태 통째로 — present 뿐 아니라 past/future/selection/tool/stepId 까지. */
   state: EditorState;
-  /** 코트 전환 게이트의 저장본 기준선(BoardHost 의 pristineBase). 리듀서 밖 상태라 따로 싣는다. */
-  pristineBase: boolean;
+  // ⚠️ 2026-08-28 — `pristineBase` 가 여기 있었다. 코트 전환 게이트가 판 위 개체를 직접 세게
+  //    되면서 리듀서 밖에 들고 다닐 기준선 자체가 없어졌다(EditorWorkspace 의 게이트 주석).
   /** 줌·패닝. 아직 배선 전이라 항상 undefined 다 — CourtStage 가 마운트마다 자기 view 를
    *  초기화하는 구조여서 별도 손질이 필요하다(그 이펙트를 건드리는 것은 다른 커밋의 일). */
   view?: StageView;
