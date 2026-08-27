@@ -573,7 +573,7 @@ export const ja: Record<DictKey, string> = {
   'editor.functionBar.goalReset.title': '車いすに押されたゴールを元の位置に戻します。盤上の他のものには触れません。',
   'editor.functionBar.clear.label': 'クリア',
   'editor.functionBar.clear.name': 'コートをクリア',
-  'editor.functionBar.clear.title': 'コート上の選手・ボール・コーン・矢印・メモをすべて消します。元に戻せません。',
+  'editor.functionBar.clear.title': 'コート上の選手・ボール・コーン・矢印・メモをすべて消します。元に戻すで復元できます。',
   'editor.functionBar.export.label': '書き出し',
   'editor.functionBar.export.name': '書き出し',
   'editor.functionBar.export.title': '盤を印刷したり、画像・バックアップファイルとして書き出します。',
@@ -616,7 +616,7 @@ export const ja: Record<DictKey, string> = {
   'editor.functionBar.viewDrawer.ruleZone.title': 'ゴールエリアの3人反則区画を半透明で表示します（{{key}}）',
   'editor.functionBar.clearConfirm.title': 'コートを空にしますか？',
   'editor.functionBar.clearConfirm.body': 'コート上の選手・ボール・コーン・矢印・メモがすべて消えます。',
-  'editor.functionBar.clearConfirm.bodyStrong': '元に戻せません。',
+  'editor.functionBar.clearConfirm.bodyStrong': '元に戻すで復元できます。',
   'editor.functionBar.clearConfirm.cancel': 'キャンセル',
   'editor.functionBar.clearConfirm.confirm': '空にする',
 

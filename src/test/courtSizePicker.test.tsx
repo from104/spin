@@ -23,6 +23,7 @@ import { BOARD_KEY, CURRENT_BOARD_SCHEMA, loadBoard } from '../storage/board.ts'
 import { BoardScreen } from '../features/board/BoardScreen.tsx';
 import { createDrill } from '../model/defaults.ts';
 import type { Drill } from '../model/drill.ts';
+import { isStepEmpty } from '../model/drill.ts';
 import { courtDefFor, COURT_SIZES, COURT_SIZE_LABELS as COURT_SIZE_LABELS_ALL, DEFAULT_COURT_SIZE, type CourtSize } from '../model/court.ts';
 
 const COURT_SIZE_LABELS = COURT_SIZE_LABELS_ALL.ko;
@@ -147,7 +148,8 @@ describe('§6.4 코트 크기 선택 — 고르면 판이 실제로 바뀐다', 
     await user.click(screen.getByRole('radio', { name: `코트 크기 ${COURT_SIZE_LABELS['25x14']}` }));
     // 저장은 500ms 디바운스다 — 실제로 써질 때까지 기다린다(마운트 직후만 재면 헛통과다).
     await waitFor(() => expect(loadBoard()?.drill.courtSize).toBe('25x14'), { timeout: 3000 });
-    expect(loadBoard()?.pristine).toBe(true); // 갈아끼운 판은 다시 비어 있다
+    // 갈아끼운 판은 다시 비어 있다 — 2026-08-28 부터 그 사실을 스냅샷 필드가 아니라 판에서 읽는다.
+    expect(loadBoard()!.drill.steps.every(isStepEmpty)).toBe(true);
   });
 
   it('크기를 바꾼 판은 **비어 있다** — 코트를 줄여도 개체가 밖에 남지 않는다', async () => {

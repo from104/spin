@@ -145,6 +145,25 @@ export interface DrillStep {
   cut?: true;
 }
 
+/** 이 스텝에 **잃을 것이 있는가**(2026-08-28). 자유 전술판의 코트 전환 게이트가 묻는 진짜
+ *  질문이다 — 그전에는 리듀서의 `past.length === 0`(= 되돌릴 편집이 없다)을 대용으로 썼고,
+ *  그 대용이 [비우기]를 되돌릴 수 없게 만든 원인이었다(EditorWorkspace 의 게이트 주석).
+ *
+ *  글(`note`)도 센다. 코트를 바꾸면 판이 통째로 갈리므로 적어 둔 메모도 함께 사라진다 —
+ *  "잃을 것이 없을 때만 전환한다" 는 규율에서 메모는 개체와 같은 자격이다.
+ *  (`name` 은 2026-08-17 폐기 필드라 앱을 거친 드릴에서는 언제나 ''다 — 세지 않는다.) */
+export function isStepEmpty(s: DrillStep): boolean {
+  return (
+    Object.keys(s.chairs).length === 0 &&
+    Object.keys(s.balls).length === 0 &&
+    Object.keys(s.cones).length === 0 &&
+    s.arrows.length === 0 &&
+    s.notes.length === 0 &&
+    s.shapes.length === 0 &&
+    s.note === ''
+  );
+}
+
 export type DrillLevel = '초급' | '중급' | '고급';
 export const DRILL_LEVELS = ['초급', '중급', '고급'] as const;
 /** i18n C4 — **저장값(DrillLevel)은 한국어 리터럴 그대로 둔다**(스키마 마이그레이션 없이).

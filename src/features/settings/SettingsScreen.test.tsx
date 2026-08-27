@@ -346,9 +346,9 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
   });
 
   it('끈 채 읽으면 편집 중인 판은 남고, 토스트가 **이유와 다음 행동**을 말한다', async () => {
-    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }), false);
+    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }));
     const file = await backupFile(); // 이 파일에는 판이 들어 있다
-    saveBoard(createDrill({ courtMode: 'full', title: '이 기기의 편집 중 판' }), false);
+    saveBoard(createDrill({ courtMode: 'full', title: '이 기기의 편집 중 판' }));
 
     render(<SettingsScreen />, { wrapper });
     await pick(file);
@@ -361,9 +361,9 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
   });
 
   it('켜고 읽으면 편집 중인 판이 파일 속 판으로 바뀐다 — 체크박스가 실제로 replace 를 배선한다', async () => {
-    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }), false);
+    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }));
     const file = await backupFile();
-    saveBoard(createDrill({ courtMode: 'full', title: '희생될 편집 중 판' }), false);
+    saveBoard(createDrill({ courtMode: 'full', title: '희생될 편집 중 판' }));
 
     render(<SettingsScreen />, { wrapper });
     await pick(file);

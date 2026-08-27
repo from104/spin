@@ -118,7 +118,7 @@ describe('§5.2 기기 이사 파일이 공의 원을 담는다', () => {
     const made = await idbDrillRepo.createDrill({ courtMode: 'full', title: '이사' });
     await idbDrillRepo.putDrill({ ...mixedDrill('이사'), id: made.id, createdAt: made.createdAt, updatedAt: made.updatedAt });
     // 자유 전술판도 공을 갖는다 — backup 은 판까지 담는 봉투다.
-    saveBoard(mixedDrill('이사 전술판'), false);
+    saveBoard(mixedDrill('이사 전술판'));
 
     const text = await exportBackupFile(await collectBackup()).text();
     const payload = (JSON.parse(text) as { payload: { drills: Drill[]; board: { drill: Drill } | null } }).payload;

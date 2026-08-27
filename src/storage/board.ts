@@ -19,12 +19,11 @@ export const CURRENT_BOARD_SCHEMA = 1;
 
 export interface BoardSnapshot {
   schemaVersion: number;
-  /** 기본 배치에서 아무것도 안 건드린 상태인가. **코트 자유 전환의 게이트**다(§6.8).
-   *
-   *  런타임에는 리듀서의 `past.length === 0` 로도 같은 판정이 되지만 그것만으로는 부족하다 —
-   *  편집된 판을 저장하고 다시 열면 그 판이 새 "초기 상태" 가 되어 past 가 비게 되므로,
-   *  dirty 인데도 clean 이라고 거짓말한다. 그래서 판정을 저장본까지 끌고 간다. */
-  pristine: boolean;
+  // ⚠️ 2026-08-28 — `pristine: boolean` 이 여기 있었다. 코트 자유 전환 게이트의 저장본
+  //    기준선이었고, 사유는 *"편집된 판을 저장하고 다시 열면 그 판이 새 초기 상태가 되어
+  //    past 가 비므로 dirty 인데도 clean 이라고 거짓말한다"* 였다. 게이트가 판 위 개체를
+  //    직접 세게 되면서(EditorWorkspace) 그 거짓말이 성립하지 않아 필드째 은퇴했다.
+  //    옛 스냅샷에 남아 있어도 그냥 무시된다 — 읽지 않으므로 스키마 도장은 올리지 않는다.
   drill: Drill;
 }
 
@@ -32,9 +31,9 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 
 /** prefs 와 같은 이유로 절대 throw 하지 않는다 — Safari 프라이빗 모드의 QuotaExceededError 가
  *  드래그 정착 콜백 안에서 터지면 에러 바운더리까지 올라가 판이 통째로 날아간다. */
-export function saveBoard(drill: Drill, pristine: boolean): boolean {
+export function saveBoard(drill: Drill): boolean {
   try {
-    const snap: BoardSnapshot = { schemaVersion: CURRENT_BOARD_SCHEMA, pristine, drill };
+    const snap: BoardSnapshot = { schemaVersion: CURRENT_BOARD_SCHEMA, drill };
     localStorage.setItem(BOARD_KEY, JSON.stringify(snap));
     return true;
   } catch {
@@ -44,7 +43,7 @@ export function saveBoard(drill: Drill, pristine: boolean): boolean {
 
 /** 되살릴 수 없으면 null — 호출부가 기본 전술판을 새로 만든다. 손상된 판 하나 때문에 대문이
  *  안 뜨는 것이 최악이므로, 애매하면 버리고 새로 시작하는 쪽을 택한다. */
-export function loadBoard(): { drill: Drill; pristine: boolean } | null {
+export function loadBoard(): { drill: Drill } | null {
   let raw: unknown;
   try {
     const s = localStorage.getItem(BOARD_KEY);
@@ -60,9 +59,7 @@ export function loadBoard(): { drill: Drill; pristine: boolean } | null {
   const res = validateDrill(mig.ok ? mig.doc : raw.drill);
   if (!res.ok) return null;
 
-  // pristine 이 아예 없으면(구버전·수기 편집) 안전한 쪽인 false 로 본다 — 잘못 true 로 보면
-  // 편집된 판에서 코트 전환이 열려 배치가 소리 없이 날아간다.
-  return { drill: res.value, pristine: raw.pristine === true };
+  return { drill: res.value };
 }
 
 export function clearBoard(): void {

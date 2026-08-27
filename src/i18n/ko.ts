@@ -574,7 +574,7 @@ export const ko = {
   'editor.functionBar.goalReset.title': '휠체어에 밀린 골대를 제자리로 되돌립니다. 판의 다른 것은 건드리지 않습니다.',
   'editor.functionBar.clear.label': '비우기',
   'editor.functionBar.clear.name': '코트 비우기',
-  'editor.functionBar.clear.title': '코트 위의 선수·공·콘·화살표·메모를 모두 지웁니다. 되돌릴 수 없습니다.',
+  'editor.functionBar.clear.title': '코트 위의 선수·공·콘·화살표·메모를 모두 지웁니다. 되돌리기로 되살릴 수 있습니다.',
   'editor.functionBar.export.label': '내보내기',
   'editor.functionBar.export.name': '내보내기',
   'editor.functionBar.export.title': '판을 인쇄하거나 이미지·백업 파일로 꺼냅니다.',
@@ -617,7 +617,7 @@ export const ko = {
   'editor.functionBar.viewDrawer.ruleZone.title': '골 지역 3인 반칙 구획을 반투명하게 보여 줍니다 ({{key}})',
   'editor.functionBar.clearConfirm.title': '코트를 비울까요?',
   'editor.functionBar.clearConfirm.body': '코트 위의 선수·공·콘·화살표·메모가 모두 사라집니다.',
-  'editor.functionBar.clearConfirm.bodyStrong': '되돌릴 수 없습니다.',
+  'editor.functionBar.clearConfirm.bodyStrong': '되돌리기로 되살릴 수 있습니다.',
   'editor.functionBar.clearConfirm.cancel': '취소',
   'editor.functionBar.clearConfirm.confirm': '비우기',
 

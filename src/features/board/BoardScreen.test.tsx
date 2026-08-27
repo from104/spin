@@ -26,6 +26,8 @@ import { loadPrefs, makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { BOARD_KEY, saveBoard } from '../../storage/board.ts';
 import { clearBoardSession } from './boardSession.ts';
 import { createDrill } from '../../model/defaults.ts';
+import { isStepEmpty } from '../../model/drill.ts';
+import type { Drill } from '../../model/drill.ts';
 import { setArrow } from '../../model/edits.ts';
 import { newId } from '../../core/ids.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
@@ -90,8 +92,8 @@ async function openBoard(
   );
   // 코트는 스냅샷(부팅 ②)으로 심는다 — prefs.defaultCourtMode 는 2026-08-21 폐기됐고,
   // 새 판(부팅 ③)은 'full' 고정이라 half/flat 은 저장본으로만 전달할 수 있다.
-  if (opts.placed) saveBoard(createDrill({ courtMode: court, formation: '1-2-1' }), true);
-  else if (court !== 'full') saveBoard(createDrill({ title: '자유 전술판', courtMode: court, empty: true }), true);
+  if (opts.placed) saveBoard(createDrill({ courtMode: court, formation: '1-2-1' }));
+  else if (court !== 'full') saveBoard(createDrill({ title: '자유 전술판', courtMode: court, empty: true }));
   const user = userEvent.setup();
   const tree = opts.onRender ? (
     <Profiler id="board" onRender={opts.onRender}>
@@ -486,22 +488,23 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
   });
 });
 
-describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', () => {
-  it('편집한 판을 저장하고 다시 열면 잠겨 있다', async () => {
-    // ⚠️ 런타임의 past.length 만으로 판정하면 여기서 무너진다 — 다시 열린 판이 새 "초기
-    // 상태" 가 되어 past 가 비므로, dirty 인데도 전환이 열려 배치가 소리 없이 날아간다.
-    // 그래서 pristine 을 스냅샷에 함께 저장한다(storage/board.ts).
+describe('저장·재로딩을 건너도 코트 전환 게이트가 정확하다 (핵심 회귀)', () => {
+  it('개체가 놓인 판을 저장하고 다시 열면 잠겨 있다', async () => {
+    // ⚠️ 이 회귀는 옛 구현에서 `past.length === 0` 만으로 판정하면 무너졌다 — 다시 열린 판이
+    // 새 "초기 상태" 가 되어 past 가 비므로, dirty 인데도 전환이 열려 배치가 날아갔다.
+    // 그때 해법은 pristine 을 스냅샷에 함께 저장하는 것이었다. 2026-08-28 부터는 게이트가
+    // **판 위 개체**를 직접 세므로 저장·재로딩과 무관하게 참이다 — 이 테스트가 그 대조군이다.
     const { user, stage, unmount } = await openBoard('full', { placed: true });
     const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
     chair.focus();
     await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
 
-    // 디바운스(500ms) 뒤 스냅샷에 pristine:false 가 적히기를 기다린다.
+    // 디바운스(500ms) 뒤 스냅샷에 개체가 놓인 판이 적히기를 기다린다.
     await waitFor(
       () => {
         const raw = localStorage.getItem(BOARD_KEY);
         expect(raw).not.toBeNull();
-        expect(JSON.parse(raw!).pristine).toBe(false);
+        expect((JSON.parse(raw!) as { drill: Drill }).drill.steps.every(isStepEmpty)).toBe(false);
       },
       { timeout: 5000 },
     );
@@ -541,16 +544,16 @@ describe('전술판 스냅샷이 게이트를 끌고 간다 (핵심 회귀)', ()
 
     const after = localStorage.getItem(BOARD_KEY)!;
     expect(after).not.toEqual(before);
-    expect(JSON.parse(after).pristine).toBe(false);
+    expect((JSON.parse(after) as { drill: Drill }).drill.steps.every(isStepEmpty)).toBe(false);
   }, 20000);
 
-  it('리셋 상태로 저장된 판을 다시 열면 여전히 열려 있다 (게이트가 무조건 잠그는 것은 아니다)', async () => {
+  it('빈 판으로 저장된 판을 다시 열면 여전히 열려 있다 (게이트가 무조건 잠그는 것은 아니다)', async () => {
     const { unmount } = await openBoard('full');
     await waitFor(
       () => {
         const raw = localStorage.getItem(BOARD_KEY);
         expect(raw).not.toBeNull();
-        expect(JSON.parse(raw!).pristine).toBe(true);
+        expect((JSON.parse(raw!) as { drill: Drill }).drill.steps.every(isStepEmpty)).toBe(true);
       },
       { timeout: 5000 },
     );
@@ -787,7 +790,9 @@ describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', (
 
 });
 
-describe('코트 비우기 — 되돌릴 수 없으므로 반드시 확인을 받는다', () => {
+// 2026-08-28 — 옛 제목은 *"되돌릴 수 없으므로 반드시 확인을 받는다"* 였다. 되돌리기가 생긴
+// 지금도 확인은 남긴다: 한 번에 여덟 대를 걷어내는 조작이라 확인 자체의 값은 그대로다.
+describe('코트 비우기 — 덩어리가 크므로 확인을 받고, 되돌릴 수 있다', () => {
   async function openAndClickClear() {
     const r = await openBoard('full', { placed: true });
     await r.user.click(screen.getByRole('button', { name: '코트 비우기' }));
@@ -832,6 +837,33 @@ describe('코트 비우기 — 되돌릴 수 없으므로 반드시 확인을 �
     await user.click(screen.getByRole('button', { name: '보드 설정' }));
     expect(await screen.findByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument();
   });
+
+  // ★ 2026-08-28 기현님 지적: *"비우기가 왜 되돌리기를 안 되게 했어? 기술적으로 안 되는 거야?"*
+  //   — 아니었다. 게이트가 `past.length === 0` 를 "판이 비었다" 의 대용으로 쓰는 바람에
+  //   비우기가 히스토리를 **비우는** 액션(BOARD_SET)으로 갈 수밖에 없었던 것뿐이다.
+  it('비운 것을 되돌리면 개체가 그대로 돌아온다', async () => {
+    const { user } = await openAndClickClear();
+    const before = objs();
+    expect(before).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('button', { name: '비우기' }));
+    await waitFor(() => expect(objs()).toBe(0));
+
+    await user.click(screen.getByRole('button', { name: '되돌리기' }));
+    await waitFor(() => expect(objs()).toBe(before));
+  });
+
+  // 되돌린 뒤에는 판에 잃을 것이 다시 생겼다 — 게이트도 따라 닫혀야 앞뒤가 맞는다.
+  it('되돌리면 코트 전환이 다시 잠긴다 — 게이트가 판을 따라간다', async () => {
+    const { user } = await openAndClickClear();
+    await user.click(screen.getByRole('button', { name: '비우기' }));
+    await waitFor(() => expect(objs()).toBe(0));
+    await user.click(screen.getByRole('button', { name: '되돌리기' }));
+    await waitFor(() => expect(objs()).toBeGreaterThan(0));
+
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    expect(await screen.findByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
+  });
 });
 
 describe('개체의 키보드 조작 — 2026-08-16 전면 개편', () => {
@@ -852,7 +884,7 @@ describe('개체의 키보드 조작 — 2026-08-16 전면 개편', () => {
       ctrl: { ...CTRL },
       to: { ...TO },
     });
-    saveBoard(drill, false);
+    saveBoard(drill);
     const opened = await openBoard('full');
     const el = opened.stage.querySelector(`#obj-${id}`) as SVGGElement | null;
     expect(el).not.toBeNull(); // 심은 화살표가 실제로 그려졌다 — 아래 단언들의 전제
@@ -966,7 +998,7 @@ describe('Ctrl+방향키는 개체·배치 커서를 지나 전역까지 간다 
   it('개체에 포커스가 있어도 화살표는 꿈쩍 않고 키는 전역까지 간다', async () => {
     // 화살표를 쓰는 이유: 물리 바디가 없어 좌표가 리듀서 산출물 그대로다(정착으로 흔들리지 않는다).
     const id = newId('ar');
-    saveBoard(setArrow(createDrill({ courtMode: 'full', formation: '1-2-1' }), 0, { id, from: { ...FROM }, ctrl: { ...CTRL }, to: { ...TO } }), false);
+    saveBoard(setArrow(createDrill({ courtMode: 'full', formation: '1-2-1' }), 0, { id, from: { ...FROM }, ctrl: { ...CTRL }, to: { ...TO } }));
     const { user, stage } = await openBoard('full');
     const arrow = stage.querySelector(`#obj-${id}`) as SVGGElement;
     expect(arrow).not.toBeNull();

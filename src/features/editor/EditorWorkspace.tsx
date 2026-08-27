@@ -12,6 +12,7 @@ import { IconPlay } from '../../ui/icons.tsx';
 import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { defaultDefense } from '../../model/rules.ts';
 import { LIMITS } from '../../model/validate.ts';
+import { isStepEmpty } from '../../model/drill.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
 import { useAppHeader } from '../../app/AppHeader.tsx';
 import { useAppNav } from '../../app/useAppHistory.ts';
@@ -58,13 +59,14 @@ import { usePhysicsRenderLoop } from './usePhysicsRenderLoop.ts';
 /** 자유 전술판일 때만 내려오는 조작부. 판을 갈아끼우는 일(코트 전환·초기화)과 정식 드릴로의
  *  승격은 저장소를 만지므로 화면(screen-board) 책임이고, 여기서는 호출만 한다. */
 export interface BoardControls {
-  /** 저장본이 리셋 상태였는가. 런타임의 `past.length === 0` 와 **AND** 로 코트 전환 게이트를
-   *  만든다 — 저장본까지 봐야 하는 이유는 storage/board.ts 의 pristine 주석 참고. */
-  pristine: boolean;
+  // ⚠️ `pristine` 은 은퇴했다(2026-08-28). 게이트가 저장본 기준선 대신 **판 자체**를 보게 되면서
+  //    저장·재로딩을 건너 다닐 값이 없어졌다 — 아래 boardPristine 주석 참고.
   onCourtChange(mode: CourtMode): void;
-  /** §6.4 코트 크기 3단. 코트 형태 전환과 **같은 문**(pristine)을 지난다 — 그래야 판 위에
+  /** §6.4 코트 크기 3단. 코트 형태 전환과 **같은 문**(판이 비었는가)을 지난다 — 그래야 판 위에
    *  개체가 하나도 없을 때만 규격이 바뀌어 "코트를 줄였더니 선수가 밖에 서 있다" 가 없다. */
   onCourtSizeChange(size: CourtSize): void;
+  /** [비우기]. **되돌릴 수 있어야 한다**(2026-08-28 기현님 지적) — 화면 쪽이 히스토리에 쌓이는
+   *  액션으로 구현한다(BoardScreen.onReset). */
   onReset(): void;
   onSaveAsDrill(): void;
   /** Ctrl/⌘+S — 디바운스를 건너뛰고 스냅샷을 지금 저장한다(2026-08-15 보드 단축키 정리).
@@ -195,15 +197,22 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   usePhysicsRenderLoop(worldRef, writer, rules);
   useStepPlayback(drill, state.stepId, dispatch);
 
-  // ★ 코트 자유 전환 게이트(§6.8 재편, 기현 결정) — **판이 리셋 상태일 때만** 연다.
+  // ★ 코트 자유 전환 게이트(§6.8 재편, 기현 결정) — **판 위에 잃을 것이 없을 때만** 연다.
   //
   // D12 는 full↔half 전환이 배치를 보존할 수 없다고 못박았다(30×18m 와 18×15m 는 어떤 아핀
   // 변환으로도 같은 전술이 안 된다). 경고를 띄우고 날리는 대신, 잃을 배치가 없을 때로 전환을
   // 한정해 손실 자체를 만들지 않는다.
   //
-  // 두 조건을 **모두** 봐야 한다. past.length 만 보면 편집된 판을 저장하고 다시 열었을 때
-  // 그 판이 새 기준선이 되어 past 가 비므로 dirty 인데도 열린다(storage/board.ts pristine 주석).
-  const boardPristine = isBoard && (board?.pristine ?? false) && state.past.length === 0;
+  // ⚠️ **2026-08-28 — 묻는 질문을 바꿨다.** 옛 게이트는 `board.pristine && past.length === 0`,
+  // 즉 *"되돌릴 편집이 없는가"* 였다. 그 대용(proxy)이 값을 두 개 치르고 있었다:
+  //   ① [비우기]가 **되돌리기를 죽였다.** 비우기가 히스토리에 쌓이면 past.length > 0 이 되어
+  //      게이트가 스스로 닫히므로, 비우기는 히스토리를 **비우는** BOARD_SET 으로 갈 수밖에
+  //      없었다. 기술적 제약이 아니라 대용을 지키려던 대가였다(기현님 지적).
+  //   ② 저장본을 다시 열면 past 가 비어 dirty 한 판이 clean 으로 보였고, 그 거짓말을 막으려고
+  //      `pristine` 을 스냅샷·세션 캐시까지 끌고 다녀야 했다(storage/board.ts 옛 주석).
+  // 판을 직접 보면 둘 다 사라진다 — 개체가 0이면 잃을 것이 없다는 것이 **저장·재로딩·되돌리기와
+  // 무관하게** 참이기 때문이다. 그래서 `pristine` 배선은 통째로 은퇴했다.
+  const boardPristine = isBoard && state.present.steps.every(isStepEmpty);
 
   // 되돌리기·다시하기. **2026-08-14 기현님 지시로 헤더에서 트레이(줌 바로 아래)로 옮겼다** —
   // 아래 ToolRail 의 `history` 로 간다. useAppHeader 에는 더 이상 안 넘긴다.
