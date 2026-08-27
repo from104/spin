@@ -12,8 +12,10 @@ import type { DrillId, SessionId } from '../../core/ids.ts';
 export type LibraryTab = 'drills' | 'sessions';
 
 export interface HomeNav {
-  /** 헤더 주 액션 "새 드릴" / 히어로 "새 드릴 만들기" — 코트 선택은 편집기 화면(screen-editor)
-   *  소관이라 drillId 없이 편집기로 이동하기만 한다. */
+  /** 헤더 주 액션 "새 드릴" / 빈 상태 "새 드릴 만들기" — **화면을 옮기지 않는다.** 이름과 코트를
+   *  묻는 다이얼로그를 열고, 거기서 드릴이 태어나면 그때 `openDrill` 로 이어진다
+   *  (2026-08-28 기현 지시, app-shell 이 다이얼로그를 세운다 — NewDrillDialog.tsx 머리말).
+   *  부르는 쪽은 여전히 "무엇이 뜰지" 를 모른다 — 이 계약이 좁은 콜백인 이유 그대로다. */
   newDrill(): void;
   openDrill(id: DrillId): void;
   goLibrary(opts?: { tab?: LibraryTab; openSessionId?: SessionId }): void;

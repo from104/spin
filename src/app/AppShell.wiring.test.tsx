@@ -64,7 +64,7 @@ vi.mock('../features/library/LibraryScreen.tsx', async () => {
           세션 열기
         </button>
         <button type="button" onClick={() => nav.newDrill()}>
-          빈 판으로
+          새 드릴
         </button>
       </div>
     );
@@ -336,10 +336,16 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     expectOnlyScreen('screen-board');
     expect(router.state.location.pathname).toBe('/');
 
-    // nav.newDrill = go('board', {kind:'board'}) — 같은 자리를 판으로 되돌린다.
+    // nav.newDrill 은 **화면을 안 옮긴다**(2026-08-28) — 이름·코트를 묻는 다이얼로그를 연다.
+    // 옛 계약은 `go('board', {kind:'board'})` 였고 여기서 `expectOnlyScreen('screen-board')`
+    // 를 봤다. 지금은 있던 화면이 그대로 서 있는 것이 계약이다.
     await user.click(screen.getByRole('button', { name: '드릴' }));
-    await user.click(screen.getByRole('button', { name: '빈 판으로' }));
-    expectOnlyScreen('screen-board');
+    // 헤더 주 액션도 이름이 '새 드릴' 이다 — 목록 안으로 좁혀 고른다(둘 다 같은 콜백이라
+    // 어느 쪽을 눌러도 같은 다이얼로그가 떠야 하는 것이 계약이기도 하다).
+    await user.click(within(screen.getByTestId('screen-library')).getByRole('button', { name: '새 드릴' }));
+    expectOnlyScreen('screen-library');
+    expect(screen.getByRole('dialog', { name: '새 드릴' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/drills');
   });
 
   it('세션 열기가 전용 편집 화면(/sessions/:id)으로 간다 (C6 — 드릴의 목록→편집 꼴)', async () => {
@@ -698,8 +704,10 @@ describe('AppShell 배선 — 라이브 리전 발표 (§7.6 / 계획서 2.4)', 
 
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
     const editing = announced();
-    await user.click(screen.getByRole('button', { name: '드릴' }));
-    await user.click(screen.getByRole('button', { name: '빈 판으로' }));
+    // 자유판으로 돌아가는 길은 **레일 [보드]** 다. 2026-08-28 이전에는 목록의 [새 드릴]이
+    // 같은 곳으로 데려갔지만(이 자리에 '빈 판으로' 목 버튼이 있었다), 지금 그 버튼은 화면을
+    // 안 옮기고 다이얼로그를 연다 — 발표 대상이 아니다.
+    await user.click(screen.getByRole('button', { name: '보드' }));
     const free = announced();
 
     expect(free).toBe('자유 전술판');

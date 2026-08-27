@@ -185,6 +185,11 @@ export const en: Record<DictKey, string> = {
   'library.emptyFiltered': 'No drills match these filters.',
   'library.emptyNoDrills': 'No drills yet. Create your first one.',
   'library.createFirstDrill': 'Create a drill',
+  'newDrill.dialogTitle': 'New drill',
+  'newDrill.nameLabel': 'Drill name',
+  'newDrill.namePlaceholder': 'New drill',
+  'newDrill.cancel': 'Cancel',
+  'newDrill.create': 'Create',
   'library.duplicateToast': 'Duplicated “{{title}}.”',
   'library.deleteToast': 'Deleted “{{title}}.”',
   'library.deleteConfirm.title': 'Delete drill',
@@ -380,7 +385,7 @@ export const en: Record<DictKey, string> = {
 
   // ── Drill library tutorial, 3 steps — src/features/library/tutorialSteps.ts ──────
   'tutorial.library.step1.title': 'New drill',
-  'tutorial.library.step1.body': 'Tap to open the free tactics board, draw a layout, then save it as a drill.',
+  'tutorial.library.step1.body': 'Pick a name and a court, and a one-step drill opens straight in the editor.',
   'tutorial.library.step2.title': 'Drill card',
   'tutorial.library.step2.body': 'Tap the card to open it. The play icon presents it right away; ⋮ duplicates, deletes, or exports.',
   'tutorial.library.step3.title': 'Filter & view',
@@ -455,7 +460,7 @@ export const en: Record<DictKey, string> = {
   'help.board.restartButton': 'Replay free tactics board tour',
 
   'help.library.item1.term': 'New drill',
-  'help.library.item1.desc': 'Opens the free tactics board to draw a new one.',
+  'help.library.item1.desc': 'Asks for a name and a court, then creates the drill. To keep something you sketched on the fly, use Save as drill on the board.',
   'help.library.item2.term': 'Card',
   'help.library.item2.desc': 'Tap the card to edit, the play icon to present right away, and ⋮ to duplicate, delete, or export.',
   'help.library.item3.term': 'Filter & sort',

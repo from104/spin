@@ -20,7 +20,7 @@
 //    옛 "React state + history.state 두 곳에 쓴다" 이중 장부는 은퇴했다.
 //  · `<main id="main" tabIndex={-1}>` 는 각 화면이 §7.5a 대로 스스로 렌더한다 — AppShell 은
 //    화면 스위치 바깥에 별도 <main> 을 두지 않는다(board/drills 쪽과 상호 확인 완료).
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { SkipLink } from '../ui/SkipLink.tsx';
 import { useIsNarrow } from '../ui/useIsNarrow.ts';
 import { LiveRegion, liveRegion } from '../ui/LiveRegion.tsx';
@@ -46,6 +46,7 @@ import { useLocale } from '../i18n/useLocale.ts';
 // Wave 4 는 이 다섯 모듈이 병렬로 진행되므로, 형제 모듈의 산출물이 아직 없는 동안은 이 import
 // 가 타입체크를 막는다(정상 — 통합 시점에 다시 확인한다). 최종 보고서에 명시.
 import { LibraryScreen } from '../features/library/LibraryScreen.tsx';
+import { NewDrillDialog } from '../features/library/NewDrillDialog.tsx';
 import { SessionsScreen } from '../features/sessions/SessionsScreen.tsx';
 import { SessionEditorScreen } from '../features/sessions/SessionEditorScreen.tsx';
 import { BoardScreen } from '../features/board/BoardScreen.tsx';
@@ -113,15 +114,19 @@ export function usePresentTarget(): PresentTarget | null {
  *  대상을 **두 곳에** 쓴다: (1) React state(즉시 — 화면 키와 같은 배치에서 바뀌어야 판이
  *  board→drill 로 한 프레임 깜빡이지 않는다) (2) history.state 의 NavTarget(리로드·뒤로가기
  *  생존). 둘 중 하나만 쓰면 각각 "리로드하면 빈 화면"·"한 프레임 헛 마운트" 가 된다. */
-function useHomeNavAdapter(nav: AppHistoryApi): HomeNav {
+function useHomeNavAdapter(nav: AppHistoryApi, openNewDrill: () => void): HomeNav {
   return useMemo<HomeNav>(
     () => ({
-      // "새 드릴" = 전술판으로 데려가기. 새 드릴은 전술판에서 그린 뒤 [드릴로 저장] 으로
-      // 승격시키는 것이 재편 후의 주 경로다(§6.8). 여기서 판을 초기화하지는 **않는다** —
-      // 목록에서 버튼 하나 눌렀다고 그리던 판이 날아가면 안 된다.
+      // "새 드릴" = **화면 전환이 아니라 다이얼로그**(2026-08-28 기현 지시). 이름과 코트를
+      // 먼저 묻고, [만들기] 로 태어난 드릴의 편집기로 간다 — NewDrillDialog.tsx 머리말 참고.
+      //
+      // 옛 기록(지우지 않는다): 2026-08-09 재편에서 이 자리는 `nav.go('board', {kind:'board'})`
+      // 였다 — *"새 드릴은 전술판에서 그린 뒤 [드릴로 저장] 으로 승격시키는 것이 주 경로다(§6.8).
+      // 여기서 판을 초기화하지는 않는다 — 목록에서 버튼 하나 눌렀다고 그리던 판이 날아가면 안 된다."*
+      // 그 승격 경로는 전술판에 그대로 남아 있고, 여기만 갈라졌다.
       // C4 — 대상은 URL 로만 간다. 옛 "React state + history.state 두 곳 쓰기" 는 URL 이
       // 진실이 되면서 한 곳으로 접혔다(한 프레임 헛 마운트의 원인이던 이중 장부가 사라졌다).
-      newDrill: () => nav.go('board', { kind: 'board' }),
+      newDrill: openNewDrill,
       openDrill: (id) => nav.go('board', { kind: 'drill', id }),
       goLibrary: (opts) => nav.go('drills', opts?.tab ? { kind: 'tab', tab: opts.tab } : undefined),
       openSession: (id) => nav.go('drills', { kind: 'session', id }),
@@ -129,7 +134,7 @@ function useHomeNavAdapter(nav: AppHistoryApi): HomeNav {
       presentSession: (id) => nav.go('present', { kind: 'session', id }),
       openRuleTopic: (key) => nav.go('rules', key ? { kind: 'rule', topic: key } : undefined),
     }),
-    [nav],
+    [nav, openNewDrill],
   );
 }
 
@@ -237,7 +242,13 @@ export function AppShell() {
   const presentTarget = useMemo(() => presentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const sessionEditId = sessionEditFromNav(nav.screen, nav.target);
   const ruleTopic = ruleTopicFromNav(nav.screen, nav.target);
-  const homeNav = useHomeNavAdapter(nav);
+  // [새 드릴] 다이얼로그는 **화면이 아니라 앱 껍데기**가 세운다 — 진입점이 목록 화면의 빈 상태
+  // CTA 와 헤더 주 액션 둘이라, 화면 안에 두면 헤더에서 누른 경우를 못 받는다.
+  // URL 로 안 올리는 이유: 이 모달은 되돌아올 자리가 없다(취소하면 있던 화면 그대로, 만들면
+  // 편집기로 간다). 히스토리에 한 칸을 만들면 편집기에서 뒤로가기가 빈 모달로 되돌아온다.
+  const [newDrillOpen, setNewDrillOpen] = useState(false);
+  const openNewDrill = useCallback(() => setNewDrillOpen(true), []);
+  const homeNav = useHomeNavAdapter(nav, openNewDrill);
 
   // 레일·헤더 세그먼트의 활성 항목. **여기서 한 번만** 계산해 둘에 똑같이 내려보낸다
   // (`narrow` 가 간 길과 같다 — AppHeader.tsx 의 그 주석). 화면 키만으로는 드릴을 편집하는
@@ -283,7 +294,7 @@ export function AppShell() {
   // 발표문은 화면 키가 아니라 announceFor 가 만든다 — 화면 키만 읽으면 자유판이든 드릴이든
   // 늘 "전술판 화면" 이라, 시각장애 코치는 방금 무엇이 열렸는지 알 수 없다(계획서 2.4).
   // 그래서 의존성에 대상 둘이 함께 들어간다: 같은 board 화면 안에서 대상만 바뀌는 전환
-  // (드릴 열기·[빈 판으로])도 발표 대상이다.
+  // (드릴 열기·레일 [보드])도 발표 대상이다.
   // C4 — 전환 신호를 **값의 열쇠**로 접는다: 파생 객체는 location 이 바뀔 때마다 새 참조라
   // 객체를 deps 에 두면 같은 화면 재방문에도 발표가 반복된다. 열쇠 문자열이 그 함정을 막는다.
   const stageKey = stageTarget.kind === 'drill' ? `drill:${stageTarget.drillId}` : 'board';
@@ -318,6 +329,14 @@ export function AppShell() {
                   {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, ruleTopic)}
                 </div>
               </div>
+              <NewDrillDialog
+                open={newDrillOpen}
+                onClose={() => setNewDrillOpen(false)}
+                onCreated={(id) => {
+                  setNewDrillOpen(false);
+                  homeNav.openDrill(id);
+                }}
+              />
               <ToastHost toasts={toasts} onDismiss={dismiss} />
               <LiveRegion />
             </HelpTriggerProvider>
