@@ -87,6 +87,7 @@ export const HELP_NARRATIVE_SECTIONS: Record<Exclude<HelpSectionKey, 'shortcuts'
       { term: 'help.editor.item3.term', desc: 'help.editor.item3.desc' },
       { term: 'help.editor.item4.term', desc: 'help.editor.item4.desc' },
       { term: 'help.editor.item5.term', desc: 'help.editor.item5.desc' },
+      { term: 'help.editor.item6.term', desc: 'help.editor.item6.desc' },
     ],
   },
   sessions: {
@@ -111,6 +112,7 @@ export const HELP_NARRATIVE_SECTIONS: Record<Exclude<HelpSectionKey, 'shortcuts'
       { term: 'help.present.item2.term', desc: 'help.present.item2.desc' },
       { term: 'help.present.item3.term', desc: 'help.present.item3.desc' },
       { term: 'help.present.item4.term', desc: 'help.present.item4.desc' },
+      { term: 'help.present.item5.term', desc: 'help.present.item5.desc' },
     ],
   },
   rules: {
