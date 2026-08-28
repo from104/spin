@@ -61,16 +61,23 @@ export const FUNCTION_BAR_ITEMS = 8;
  *
  *  2026-08-20(§0.5 Phase 5) — [도움말]이 레일로 옮겨가며 여기서도 하나 빠진다 — 11 → 10.
  *  2026-08-27 — 위 셋이 모달로 들어가며 10 → 7. [비우기]는 애초에 없었으므로 2026-08-28 의
- *  이사에도 7 그대로다. */
-export const FUNCTION_BAR_ITEMS_DRILL = 7;
+ *  이사에도 7 그대로다.
+ *  2026-08-28 — **[정보]가 들어왔다**(기현 지시로 헤더 제목 옆 ⓘ 에서 이사). 7 → 8.
+ *  전술판에는 안 생긴다 — 드릴 메타가 없는 판이라 열 것이 없다. 그래서 두 값이 지금 **둘 다
+ *  8** 이지만 우연이고, `functionBarItemsFor` 는 그대로 갈라 둔다(한 숫자로 뭉개면 다음에 한쪽만
+ *  움직일 때 조용히 어긋난다 — 아래 ⚠️ 가 그 사고를 적어 두고 있다).
+ *  ⚠️ 이 값은 **[정보] 칸이 실제로 그려진다는 전제** 위에 있다. FunctionBar 는 `onDrillInfo`
+ *     가 없으면 칸을 안 그리는데, 드릴 편집에서는 EditorScreen 이 언제나 넘긴다. */
+export const FUNCTION_BAR_ITEMS_DRILL = 8;
 
 /** 이 화면의 칸 수. 예산(chromeBudget)과 화면(FunctionBar)이 **같은 함수**를 봐야 한다. */
 export const functionBarItemsFor = (board: boolean): number => (board ? FUNCTION_BAR_ITEMS : FUNCTION_BAR_ITEMS_DRILL);
 /** 구역을 가르는 선 — 줌 | 이력 | 판 | 앱 | 저장(전술판만). */
 export const FUNCTION_BAR_DIVIDERS = 4;
-/** 드릴 편집의 구분선 수 — [저장] 구역 자체가 없으니 그 앞 선도 함께 없다(2026-08-20).
- *  줌 | 이력 | 판 | 앱, 넷을 가르는 선 셋. */
-export const FUNCTION_BAR_DIVIDERS_DRILL = 3;
+/** 드릴 편집의 구분선 수 — [저장] 구역 자체가 없으니 그 앞 선도 함께 없었다(2026-08-20, 3).
+ *  2026-08-28 에 [정보]가 자기 구역으로 들어오며 그 앞 선이 생겨 **다시 4** 다: 줌 | 이력 |
+ *  판 | 앱 | 정보. 전술판과 같은 수가 됐지만 가르는 것이 다르다(저쪽 마지막 구역은 [저장]). */
+export const FUNCTION_BAR_DIVIDERS_DRILL = 4;
 /** 이 화면의 구분선 수 — `functionBarItemsFor` 와 짝이다. 예산이 칸 수만 board 로 가르고
  *  구분선은 그대로 4를 쓰면, 드릴 편집에서 1열 요구 높이가 실제 화면(구분선 3)보다 9px
  *  (DIVIDER_H) + 1px(GAP) 크게 계산돼 회전·상자 폭 판정이 조용히 틀어진다. */

@@ -598,6 +598,40 @@ export function IconSaveDrill({ size = 18, ...rest }: IconProps) {
 
 /** 원(타원) 도형. 정원이 아니라 **타원**으로 그린다 — 가로·세로를 따로 늘릴 수 있다는 것이
  *  이 도구의 성질이고, 아이콘이 정원이면 그 성질이 그림에서 사라진다. */
+/** 드릴 정보 — **고칠 수 있다**(드릴 편집 기능 바, 2026-08-28 기현 지시로 헤더 ⓘ 에서 이사).
+ *
+ *  아래 `IconDrillInfoRead` 와 **한 벌**이다: 같은 정보 카드(둥근 사각 + 글줄 둘) 위에 수정자만
+ *  다르다 — 여기는 연필, 저기는 눈. 두 화면을 오가는 사람이 "같은 것의 두 모드" 로 읽어야
+ *  하므로 밑판을 공유하고, 무엇이 다른지는 수정자 하나가 말한다.
+ *
+ *  ⓘ(원 안의 i)를 안 쓰는 이유: 그 글리프는 "읽을거리" 라는 뜻이 굳어 있어 **고칠 수 있다**를
+ *  얹을 자리가 없다. 헤더에서는 두 화면이 그 하나를 함께 써서 구분이 아예 없었다. */
+export function IconDrillInfoEdit({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M20 11.5V5.5a1.5 1.5 0 0 0-1.5-1.5h-13A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20h6" />
+      <path d="M8 9h8M8 13h5" />
+      {/* 연필 — 카드 오른쪽 아래를 비집고 나온다. 밑판 밖으로 살짝 나가야 '덧대어진 도구' 로 읽힌다. */}
+      <path d="m15.5 20.5 4.7-4.7 2.3 2.3-4.7 4.7-2.8.5z" />
+    </svg>
+  );
+}
+
+/** 드릴 정보 — **보기만 한다**(시연 화면 기능 바). 위 `IconDrillInfoEdit` 와 밑판이 같고
+ *  수정자만 눈이다. 시연 중에 드릴을 고칠 수 없다는 사실은 모달을 열기 **전에** 보여야 한다 —
+ *  열고 나서 입력 칸이 없는 것을 보고 알게 되면 그건 알려 준 것이 아니다. */
+export function IconDrillInfoRead({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M20 11.5V5.5a1.5 1.5 0 0 0-1.5-1.5h-13A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20h6" />
+      <path d="M8 9h8M8 13h5" />
+      {/* 눈 — 연필과 같은 자리, 같은 크기. 둘을 나란히 놓았을 때 밑판이 흔들리지 않아야 한다. */}
+      <path d="M13.5 19.5s1.8-3 4.5-3 4.5 3 4.5 3-1.8 3-4.5 3-4.5-3-4.5-3Z" />
+      <circle cx="18" cy="19.5" r="1.1" />
+    </svg>
+  );
+}
+
 export function IconShapeEllipse({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>

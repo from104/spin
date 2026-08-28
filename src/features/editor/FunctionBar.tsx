@@ -37,6 +37,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react';
 import {
   IconClear,
+  IconDrillInfoEdit,
   IconExport,
   IconBoard,
   IconGoalReset,
@@ -253,6 +254,10 @@ export interface FunctionBarProps {
   onToggleDefense(): void;
   /** [비우기] — **지금 스텝**을 비운다(전술판은 스텝이 하나라 곧 판 전체다). */
   onReset(): void;
+  /** [정보] — 드릴 정보 시트를 연다. **드릴 모드에만 있다**(전술판에는 메타가 없다). 없으면
+   *  칸 자체를 안 그린다 — 자리를 비워 두지 않는다(§3 불변식 1 은 있는 칸의 좌표를 지키는
+   *  규칙이지, 없는 기능의 자리를 지키라는 규칙이 아니다). */
+  onDrillInfo?(): void;
   /** 지금 스텝이 이미 비었는가. [비우기]를 끄는 데 쓴다 — 눌러도 안 변할 버튼을 살려 두지
    *  않는다(이 모달의 크기 3단이 세운 계약과 같은 규율). */
   stepEmpty: boolean;
@@ -307,6 +312,7 @@ export function FunctionBar({
   onToggleDefense,
   onReset,
   stepEmpty,
+  onDrillInfo,
   drill,
   stepIndex,
   checkedStepIds,
@@ -458,6 +464,28 @@ export function FunctionBar({
       >
         <IconExport />
       </BarItem>
+
+      {/* [정보] — 2026-08-28 기현 지시로 헤더 제목 옆 ⓘ 에서 이사. **드릴에만** 있다(전술판에는
+          메타가 없다). 아이콘이 시연 쪽(PresentSideBar)의 같은 칸과 **한 벌**이다: 밑판(정보
+          카드)이 같고 수정자만 연필 ↔ 눈이다 — 여기서는 고칠 수 있다는 뜻이다.
+          자리는 **맨 끝**이다. 위에 끼우면 아래 칸들의 좌표가 통째로 밀린다(§3 불변식 1) —
+          전술판의 [드릴로 저장]이 끝에 붙은 것과 같은 이유다. */}
+      {!isBoard && onDrillInfo && (
+        <>
+          <div aria-hidden style={DIVIDER} />
+          <BarItem
+            label={t('editor.functionBar.drillInfo.label')}
+            name={t('editor.workspace.drillInfoAriaLabel')}
+            title={t('editor.functionBar.drillInfo.title')}
+            aria-haspopup="dialog"
+            data-tut="drill-info"
+            onClick={onDrillInfo}
+          >
+            <IconDrillInfoEdit />
+          </BarItem>
+        </>
+      )}
+
       {isBoard && (
         <>
           <div aria-hidden style={DIVIDER} />

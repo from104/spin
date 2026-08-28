@@ -71,40 +71,13 @@ describe('AppHeader / useAppHeader', () => {
   });
 
   // 2026-08-20 §A·B — presentButton 필드는 폐기됐다(편집 화면의 [시연]은 이제 primary 다,
-  // 위 테스트가 그 경로를 본다). 대신 신설된 compact·infoButton 을 여기서 본다.
-  it('infoButton 을 선언하면 제목 옆에 ⓘ가 서고 클릭하면 onAction 을 부른다', async () => {
-    const onInfo = vi.fn();
-    function InfoPublisher() {
-      useAppHeader({ title: '측면 돌파', infoButton: { onAction: onInfo, label: '드릴 정보' } });
-      return null;
-    }
-    render(
-      <HeaderProvider>
-        <AppHeader />
-        <InfoPublisher />
-      </HeaderProvider>,
-      { wrapper: SettingsProvider },
-    );
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '드릴 정보' }));
-    expect(onInfo).toHaveBeenCalledTimes(1);
-  });
-
-  it('infoButton 이 null 이면 ⓘ를 안 그린다', () => {
-    function NoInfoPublisher() {
-      useAppHeader({ title: '측면 돌파', infoButton: null });
-      return null;
-    }
-    render(
-      <HeaderProvider>
-        <AppHeader />
-        <NoInfoPublisher />
-      </HeaderProvider>,
-      { wrapper: SettingsProvider },
-    );
-    expect(screen.queryByRole('button', { name: '드릴 정보' })).toBeNull();
-  });
-
+  // 위 테스트가 그 경로를 본다). 그때 함께 신설된 compact 는 아래에서 본다.
+  //
+  // ⚠️ 2026-08-28 — **infoButton 케이스 둘이 여기서 사라졌다**(*"ⓘ가 제목 옆에 선다"* ·
+  //    *"null 이면 안 그린다"*). 필드 자체가 폐기됐다: 편집·시연이 같은 ⓘ 하나를 나눠 써서
+  //    눌러 보기 전에는 고칠 수 있는지 알 수 없었다(기현 지시). 지금 그 버튼은 각 화면의
+  //    오른쪽 세로 바에 아이콘을 달리해 서고, 계약은 그쪽 테스트가 본다 —
+  //    EditorWorkspace.viewControls(편집) · PresentRunner(시연).
   it('compact 는 높이를 48 로 줄이고 subtitle·description 을 안 그린다', () => {
     function CompactPublisher() {
       useAppHeader({

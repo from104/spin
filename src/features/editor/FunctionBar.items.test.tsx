@@ -57,6 +57,9 @@ function mount(
         onToggleRuleZones={noop}
         onSaveAsDrill={noop}
         stepEmpty={false}
+        // [정보]는 드릴 모드에서 **항상 온다**(EditorScreen 이 언제나 넘긴다) — 예산 상수
+        // FUNCTION_BAR_ITEMS_DRILL 이 그 전제 위에 서 있으므로 여기서도 넘긴다.
+        onDrillInfo={noop}
       />
       </ToastProvider>
     </SettingsProvider>,
@@ -165,6 +168,19 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
     it('대조군: board 모드에는 [저장] 칸이 있다', () => {
       const { container } = mount('full', { mode: 'board' });
       expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(true);
+    });
+
+    // ★ 2026-08-28 기현 지시 — 헤더 제목 옆 ⓘ 가 여기로 왔다.
+    it('[드릴 정보] 칸이 있다 — 헤더 ⓘ 의 후계', () => {
+      const { container } = mount('full', { mode: 'drill' });
+      const info = barItems(container).find((b) => b.getAttribute('aria-label') === '드릴 정보');
+      expect(info, '드릴 편집 기능 바에 [드릴 정보] 칸이 없다').toBeTruthy();
+      expect(info!.getAttribute('aria-haspopup')).toBe('dialog');
+    });
+
+    it('대조군: board 모드에는 [드릴 정보] 칸이 없다 — 전술판에는 열 메타가 없다', () => {
+      const { container } = mount('full', { mode: 'board' });
+      expect(barItems(container).some((b) => b.getAttribute('aria-label') === '드릴 정보')).toBe(false);
     });
   });
 });

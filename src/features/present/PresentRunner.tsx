@@ -205,7 +205,6 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   useAppHeader({
     title: headerTitle,
     compact: true,
-    infoButton: { onAction: () => setInfoOpen(true), label: t('present.infoAriaLabel') },
     // 펜 아이콘은 [편집으로]에만 붙는다(2026-08-20, 기현님 지시) — "편집한다"는 뜻은
     // [세션으로](재생목록으로 돌아간다)에는 안 맞는다. 같은 자리(primary)를 상호배타로
     // 쓰는 두 상태라 한쪽만 아이콘이 있어도 자리가 흔들리지 않는다.
@@ -717,7 +716,7 @@ function PresentBody({
         </div>
       </div>
 
-      <PresentSideBar fullscreen={fullscreen} />
+      <PresentSideBar fullscreen={fullscreen} onDrillInfo={() => setInfoOpen(true)} />
 
       {interstitial && (
         <div

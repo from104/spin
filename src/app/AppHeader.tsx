@@ -10,7 +10,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { CSSProperties, ReactNode } from 'react';
 import { Button } from '../ui/Button.tsx';
 import { Segmented } from '../ui/Segmented.tsx';
-import { IconInfo, IconLock, IconSearch } from '../ui/icons.tsx';
+import { IconLock, IconSearch } from '../ui/icons.tsx';
 import type { CourtMode } from '../model/court.ts';
 import { COURT_MODES, COURT_MODE_SHORT_LABELS } from '../model/court.ts';
 import { AppNavAside, AppNavSegment } from './AppNavSegment.tsx';
@@ -66,12 +66,14 @@ export interface HeaderTitleField {
   maxLength: number;
   onChange(v: string): void;
 }
-/** 제목 바로 우측의 ⓘ(2026-08-20, 기현님 지시 — 편집·시연 두 화면 공통). 아이콘 전용
- *  버튼이라 접근 가능한 이름은 화면이 주는 `label` 하나로 정해진다. */
-export interface HeaderInfoButton {
-  onAction(): void;
-  label: string;
-}
+// ⚠️ 2026-08-28 (기현 지시) — **`HeaderInfoButton`/`infoButton` 이 통째로 폐기됐다.**
+// 옛 자리는 제목 바로 우측의 ⓘ 였고(2026-08-20), 편집·시연 두 화면이 그 하나를 공유했다.
+// 폐기 이유는 자리가 아니라 **아이콘**이다: 같은 글리프 하나라서 눌러 보기 전에는 그 화면에서
+// 드릴 정보를 고칠 수 있는지 볼 수만 있는지 알 수 없었다. 지금은 각 화면의 오른쪽 세로 바가
+// 자기 칸으로 낸다 — features/editor/FunctionBar(IconDrillInfoEdit, 연필)와
+// features/present/PresentSideBar(IconDrillInfoRead, 눈). 밑판이 같고 수정자만 다른 한 벌이다.
+// 여기에 되살리지 마라 — 같은 이름('드릴 정보')의 표적이 둘이 되면 그 이름으로 찍는 테스트가
+// "여러 개" 로 터진다(위 되돌리기·다시하기가 헤더에서 빠진 것과 같은 이유).
 export interface HeaderConfig {
   title: string;
   /** 있으면 제목이 클릭-편집이 된다(드릴 편집 헤더 전용). `title` 은 그대로 둔다 — 편집이
@@ -91,8 +93,6 @@ export interface HeaderConfig {
    *  줄고(아래 AppHeader 의 headerPadCss 인자), `subtitle`·`description` 을 안 그린다 — 제목·
    *  ⓘ·상황별 전환 버튼(primary) 한 줄만 남는다. */
   compact?: boolean;
-  /** 제목 바로 우측의 ⓘ. `null` 이면 안 그린다(예: 편집 화면인데 onDrillInfo 콜백이 아직 없을 때). */
-  infoButton?: HeaderInfoButton | null;
 }
 
 // ⚠️ 2026-08-14 기현님 지시(*"undo, redo 버튼을 줌 버튼과 묶어 배치"*)로 **되돌리기·다시하기가
@@ -145,8 +145,7 @@ function headerConfigEqual(a: HeaderConfig, b: HeaderConfig): boolean {
     a.courtSwitch?.value === b.courtSwitch?.value &&
     a.courtSwitch?.locked === b.courtSwitch?.locked &&
     !!a.compact === !!b.compact &&
-    !!a.infoButton === !!b.infoButton &&
-    a.infoButton?.label === b.infoButton?.label
+    true
   );
 }
 
@@ -176,7 +175,6 @@ export function useAppHeader(config: HeaderConfig): void {
     config.search ? [config.search.value, config.search.placeholder ?? ''] : null,
     config.courtSwitch ? [config.courtSwitch.value, config.courtSwitch.locked ?? true] : null,
     config.compact ?? false,
-    config.infoButton ? config.infoButton.label : null,
   ]);
 
   useEffect(() => {
@@ -214,7 +212,6 @@ export function useAppHeader(config: HeaderConfig): void {
           }
         : null,
       compact: c.compact,
-      infoButton: c.infoButton ? { label: c.infoButton.label, onAction: () => latest.current.infoButton?.onAction() } : null,
     });
     // key 로 원시값 변화만 추적한다 — ctxRef 는 ref 라 의존성 배열에 넣을 필요도, 넣어서도 안 된다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,27 +289,6 @@ export function AppHeader({
             >
               {config.title}
             </span>
-          )}
-          {/* ⓘ — 제목 바로 우측(2026-08-20, §B). 편집·시연 공용 자리. */}
-          {config.infoButton && (
-            <button
-              type="button"
-              data-tut="header-info"
-              aria-label={config.infoButton.label}
-              onClick={config.infoButton.onAction}
-              style={{
-                flex: 'none',
-                width: 28,
-                height: 28,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '0.5rem',
-                color: 'var(--muted)',
-              }}
-            >
-              <IconInfo size={17} />
-            </button>
           )}
           {config.badge && (
             <span
