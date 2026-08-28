@@ -14,6 +14,29 @@ vi.mock('../../storage/drillRepo.ts', async (importOriginal) => {
 const wrapper = ({ children }: { children: ReactNode }) => <LibraryProvider>{children}</LibraryProvider>;
 
 describe('LibraryProvider — 4상태', () => {
+  // ★ 2026-08-28 기현님 신고: *"드릴 목록이 왜 실시간으로 갱신이 안 되지?"*
+  //
+  // 그전에는 쓴 쪽이 `refresh()` 를 **기억해서** 불러야 했고, 편집기(자동저장)만 안 불렀다.
+  // 이 케이스가 보는 것은 그 구멍이 아니라 **구멍이 생길 수 없는 구조**다: 프로바이더의
+  // 액션을 **거치지 않고** 저장소에 직접 쓴 뒤에도 목록이 따라오는가. 다음에 누가 새 writer 를
+  // 만들어도 `postSyncEvent` 만 쏘면 목록은 저절로 맞는다.
+  it('프로바이더를 거치지 않은 저장도 목록에 반영된다 — 쓴 쪽이 refresh 를 기억할 필요가 없다', async () => {
+    const { result } = renderHook(() => useLibrary(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    const before = result.current.drills.length;
+
+    const { repo } = await resolveDrillRepo();
+    const outside = await repo.createDrill({ courtMode: 'full', title: '바깥에서 만든 드릴' });
+    // ⚠️ 제목을 **저장소에 직접** 고친다(putDrill) — createDrill 은 프로바이더도 갖고 있어
+    //    "액션을 통한 갱신" 과 구분이 안 된다. 자동저장이 실제로 타는 길이 이쪽이다.
+    await repo.putDrill({ ...outside, title: '바깥에서 고친 제목' });
+
+    await waitFor(() => {
+      expect(result.current.drills.length).toBe(before + 1);
+      expect(result.current.drills.some((d) => d.title === '바깥에서 고친 제목')).toBe(true);
+    });
+  });
+
   it('idle → loading → ready 로 전이하고 drills/sessions 를 채운다', async () => {
     const { result } = renderHook(() => useLibrary(), { wrapper });
     // 마운트 직후 effect 가 아직 안 돈 렌더에서는 idle 이거나 이미 loading 일 수 있다 —
