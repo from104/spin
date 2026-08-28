@@ -51,8 +51,8 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     '고른 개체 지우기 — 하나든 여럿이든': 'Delete selected objects — one or many',
     '이 도움말': 'This help',
     // ── C7 — scope:'object' ──
-    '개체 이동 — Shift 는 정밀': 'Move object — hold Shift for fine control',
-    '개체 회전 — Shift 는 정밀': 'Rotate object — hold Shift for fine control',
+    '개체 이동 — Shift 는 큰 걸음': 'Move object — hold Shift for large steps',
+    '개체 회전 — Shift 는 큰 걸음': 'Rotate object — hold Shift for large steps',
     '이전 개체로': 'To previous object',
     '다음 개체로': 'To next object',
     '이전 개체를 선택에 더하며 이동': 'Add previous object to selection and move',
@@ -100,8 +100,8 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     '고른 개체 지우기 — 하나든 여럿이든': '選択したオブジェクトを削除 — 単数でも複数でも',
     '이 도움말': 'このヘルプ',
     // ── C7 — scope:'object' ──
-    '개체 이동 — Shift 는 정밀': 'オブジェクト移動 — Shiftで微調整',
-    '개체 회전 — Shift 는 정밀': 'オブジェクト回転 — Shiftで微調整',
+    '개체 이동 — Shift 는 큰 걸음': 'オブジェクト移動 — Shiftで大きく移動',
+    '개체 회전 — Shift 는 큰 걸음': 'オブジェクト回転 — Shiftで大きく回転',
     '이전 개체로': '前のオブジェクトへ',
     '다음 개체로': '次のオブジェクトへ',
     '이전 개체를 선택에 더하며 이동': '前のオブジェクトを選択に追加して移動',

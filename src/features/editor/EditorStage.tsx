@@ -360,10 +360,20 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       const def = lookupDef('object', e);
       if (!def) return;
 
-      // Shift 는 **정밀**이다 — 기본이 큰 걸음. 개편 전에는 반대(기본 2.5px, Shift 25px)였고
-      // 화살표에서만 또 달랐다. 뜻을 하나로 접으면 개체 종류를 세지 않아도 손이 안다.
-      const step = e.shiftKey ? 2.5 : 25;
-      const deg = e.shiftKey ? 5 : 15;
+      // Shift 는 **큰 걸음**이다 — 기본이 정밀. 2026-08-28 기현님 지시로 뒤집혔다:
+      // *"큰 움직임은 마우스로, 미세 움직임은 키보드로 하는 게 실사용 시 유용하다."*
+      //
+      // 두 입력이 잘하는 일이 다르다. 마우스는 판 어디로든 한 번에 데려가지만 마지막 몇 px 을
+      // 못 맞추고, 키보드는 그 몇 px 을 정확히 준다. 키보드의 **무수식** 기본값이 25px 이면
+      // 그 강점을 쓰려면 매번 Shift 를 쥐어야 했다 — 잦은 쪽에 수식키를 물린 셈이다.
+      //
+      // 옛 기록(지우지 않는다): 2026-08-16 개편에서 이 자리는 `기본 25 / Shift 2.5` 가 됐고,
+      // 그 전에는 `기본 2.5 / Shift 25`(지금과 같다)였다. 그때 뒤집은 이유는 값이 아니라
+      // **통일**이었다 — 화살표 개체에서만 Shift 가 "조준점만 이동" 이라는 세 번째 뜻을
+      // 갖고 있었고, 그 셋을 하나로 접는 것이 목적이었다. 그 통일은 그대로 남는다: 지금도
+      // Shift 의 뜻은 어디서나 하나(정도만 바꾼다)이고, 어느 쪽이 기본인지만 돌아왔다.
+      const step = e.shiftKey ? 25 : 2.5;
+      const deg = e.shiftKey ? 15 : 5;
 
       switch (def.id) {
         case 'obj.move': {
