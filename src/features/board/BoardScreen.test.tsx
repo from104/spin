@@ -238,10 +238,12 @@ describe('키보드 이동 후 물리 동기화 (회귀)', () => {
     const holder = chair.closest('g[transform]') as SVGGElement;
     const start = poseOf(holder);
 
-    // 키보드로 오른쪽으로 크게 두 번 민다. 2026-08-16 부터 **기본이 큰 걸음(25px)** 이고
-    // Shift 가 정밀(2.5px)이다 — 예전과 반대라 여기서 Shift 를 쓰면 두 번 밀어도 5px 다.
+    // 키보드로 오른쪽으로 크게 두 번 민다. 2026-08-28 부터 **큰 걸음은 Shift**(25px)이고
+    // 무수식이 정밀(2.5px)이다 — 뒤집히기 전에는 반대였다(그때 이 자리는 수식키가 없었다).
+    // 여기서 큰 걸음을 쓰는 이유는 물리 정착이 다듬는 몇 px 에 단언이 묻히지 않게 하려는
+    // 것뿐이다 — 이 테스트가 보는 것은 걸음 크기가 아니라 물리 동기화다.
     chair.focus();
-    await user.keyboard('{ArrowRight}{ArrowRight}');
+    await user.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}');
     const nudged = poseOf(holder);
     expect(nudged.x).toBeGreaterThan(start.x + 40); // 25 × 2 만큼 이동
 
@@ -933,16 +935,19 @@ describe('개체의 키보드 조작 — 2026-08-16 전면 개편', () => {
     return { from: { x: n[0], y: n[1] }, ctrl: { x: n[2], y: n[3] }, to: { x: n[4], y: n[5] } };
   }
 
-  it('방향키로 화살표 전체가 25px 움직인다 (모양은 그대로)', async () => {
+  // ⚠️ 2026-08-28 뒤집힘(기현 지시) — **기본이 정밀(2.5px), Shift 가 큰 걸음(25px)** 이다.
+  //    옛 기대값은 그 반대였다. 근거: *"큰 움직임은 마우스로, 미세 움직임은 키보드로 하는 게
+  //    실사용 시 유용하다."* 잦은 쪽(정밀)에 수식키를 물리지 않는다.
+  it('방향키로 화살표 전체가 2.5px 움직인다 (모양은 그대로)', async () => {
     const { user, arrow } = await openWithArrow();
     expect(pointsOf(arrow)).toEqual({ from: FROM, ctrl: CTRL, to: TO });
 
     arrow.focus();
     await user.keyboard('{ArrowRight}');
-    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x + 25));
+    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x + 2.5));
     const p = pointsOf(arrow);
-    expect(p.ctrl.x).toBe(CTRL.x + 25);
-    expect(p.to.x).toBe(TO.x + 25);
+    expect(p.ctrl.x).toBe(CTRL.x + 2.5);
+    expect(p.to.x).toBe(TO.x + 2.5);
     expect([p.from.y, p.ctrl.y, p.to.y]).toEqual([FROM.y, CTRL.y, TO.y]); // 세로는 안 움직였다
   });
 
@@ -951,37 +956,47 @@ describe('개체의 키보드 조작 — 2026-08-16 전면 개편', () => {
     const { user, arrow } = await openWithArrow();
     arrow.focus();
     await user.keyboard('d');
-    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x + 25));
+    await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x + 2.5));
     await user.keyboard('s');
-    await waitFor(() => expect(pointsOf(arrow).from.y).toBe(FROM.y + 25));
+    await waitFor(() => expect(pointsOf(arrow).from.y).toBe(FROM.y + 2.5));
     await user.keyboard('a');
     await waitFor(() => expect(pointsOf(arrow).from.x).toBe(FROM.x));
     await user.keyboard('w');
     await waitFor(() => expect(pointsOf(arrow).from.y).toBe(FROM.y));
   });
 
-  it('Shift 는 **정밀**이다 — 개체 종류와 무관하게 2.5px', async () => {
-    // 개편 전에는 Shift 가 개체마다 다른 뜻이었다: 보통은 '25px 큰 걸음', 화살표에서만
-    // '조준점 하나만 옮기기'. 같은 수식키가 개체 종류마다 다른 일을 하면 손이 배울 것이
-    // 개체 수만큼 늘어난다. 이제 어디서나 "정밀" 하나다.
+  it('Shift 는 **큰 걸음**이다 — 개체 종류와 무관하게 25px', async () => {
+    // 2026-08-16 개편의 요점은 **Shift 의 뜻을 하나로 접는 것**이었다: 그전에는 개체마다
+    // 달랐다(보통은 큰 걸음, 화살표에서만 '조준점 하나만 옮기기'). 그 통일은 지금도 그대로고,
+    // 2026-08-28 에 바뀐 것은 어느 쪽이 기본이냐 하나다(기현 지시).
     const { user, arrow } = await openWithArrow();
     arrow.focus();
     await user.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}');
-    await waitFor(() => expect(pointsOf(arrow).to.x).toBe(TO.x + 5));
+    await waitFor(() => expect(pointsOf(arrow).to.x).toBe(TO.x + 50));
     const p = pointsOf(arrow);
     // **전체가** 움직인다 — 끝점만 옮기던 옛 동작이 아니다.
-    expect(p.from.x).toBe(FROM.x + 5);
-    expect(p.ctrl.x).toBe(CTRL.x + 5);
+    expect(p.from.x).toBe(FROM.x + 50);
+    expect(p.ctrl.x).toBe(CTRL.x + 50);
   });
 
-  it('휠체어도 같은 규칙이다 — 기본 큰 걸음, Shift 가 정밀 (대조군)', async () => {
+  it('휠체어도 같은 규칙이다 — 기본 정밀, Shift 가 큰 걸음 (대조군)', async () => {
+    // 개체 종류를 세지 않아도 손이 안다는 것이 이 대조군의 요점이다 — 물리 바디가 있는
+    // 휠체어에서도 무수식은 작게, Shift 는 크게 움직인다.
     const { user, stage } = await openWithArrow();
     const chair = stage.querySelector('g[id^="obj-ch_"]') as SVGGElement;
     const holder = chair.closest('g[transform]') as SVGGElement;
+
     const start = poseOf(holder);
     chair.focus();
     await user.keyboard('{ArrowRight}');
-    await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(start.x + 20));
+    // 정착이 좌표를 몇 px 다듬으므로 정확한 값이 아니라 **자릿수**로 가른다: 2.5 는
+    // 한 자리, 25 는 두 자리다.
+    await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(start.x));
+    expect(poseOf(holder).x - start.x).toBeLessThan(10);
+
+    const mid = poseOf(holder);
+    await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
+    await waitFor(() => expect(poseOf(holder).x).toBeGreaterThan(mid.x + 20));
   });
 
   it('[ / ] 는 개체 순회다 — 조준점 전환이 아니다', async () => {
@@ -1043,11 +1058,11 @@ describe('Ctrl+방향키는 개체·배치 커서를 지나 전역까지 간다 
       expect(arrowPoints(arrow)).toEqual(FROM); // 개체는 한 톨도 안 움직였다
       expect(w.keys).toContain('ArrowRight'); // 그리고 전역까지 갔다
 
-      // 대조군 — 수식키가 없으면 개체가 먹고(기본 걸음 25px) 전역까지 **가지 않는다**.
-      // 이 짝이 없으면 위 단언이 '리스너가 아예 안 걸렸다' 로도 통과한다.
+      // 대조군 — 수식키가 없으면 개체가 먹고(기본 걸음 2.5px, 2026-08-28 뒤집힘) 전역까지
+      // **가지 않는다**. 이 짝이 없으면 위 단언이 '리스너가 아예 안 걸렸다' 로도 통과한다.
       w.keys.length = 0;
       await user.keyboard('{ArrowRight}');
-      await waitFor(() => expect(arrowPoints(arrow).x).toBe(FROM.x + 25));
+      await waitFor(() => expect(arrowPoints(arrow).x).toBe(FROM.x + 2.5));
       expect(w.keys).toEqual([]);
     } finally {
       w.stop();
