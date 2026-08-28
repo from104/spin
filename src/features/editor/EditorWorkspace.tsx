@@ -78,9 +78,13 @@ export interface EditorWorkspaceProps {
    *  'drill' = 정식 드릴 편집(스텝·자동저장 있음·코트 불변). 판을 그리는 부분은 완전히 같다. */
   mode?: 'board' | 'drill';
   board?: BoardControls;
-  /** C11(2026-08-19 기현님) — [드릴 정보] 모달 열기. 드릴 모드 전용이고, 버튼은 하단 노트
-   *  패널 **왼쪽**에 선다(옛 스테이지 우상단 오버레이는 판 조작과 겹쳐 은퇴). 콜백만 받고
-   *  모달 자체는 EditorScreen 소유다 — 워크스페이스는 메타 편집을 모른다. */
+  /** C11(2026-08-19 기현님) — [드릴 정보] 모달 열기. 드릴 모드 전용이다. 콜백만 받고 모달
+   *  자체는 EditorScreen 소유다 — 워크스페이스는 메타 편집을 모른다.
+   *
+   *  버튼 자리는 세 번 옮겼다: 스테이지 우상단 오버레이(판 조작과 겹쳐 은퇴) → 하단 노트 패널
+   *  왼쪽 → 헤더 제목 옆 ⓘ(2026-08-20) → **오른쪽 기능 바**(2026-08-28 기현 지시). 마지막
+   *  이사의 이유는 자리가 아니라 **아이콘**이다 — 헤더에서는 편집과 시연이 같은 ⓘ 하나를
+   *  나눠 써서 눌러 보기 전에는 고칠 수 있는지 알 수 없었다. */
   onDrillInfo?(): void;
 }
 
@@ -261,7 +265,11 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           },
           badge: t('editor.workspace.editingBadge'),
           compact: true,
-          infoButton: onDrillInfo ? { onAction: onDrillInfo, label: t('editor.workspace.drillInfoAriaLabel') } : null,
+          // ⚠️ 2026-08-28 (기현 지시) — ⓘ 가 **오른쪽 기능 바로** 갔다. 헤더에 있던 동안 편집과
+          //    시연이 **같은 글리프 하나**를 나눠 써서, 눌러 보기 전에는 고칠 수 있는지 볼 수만
+          //    있는지 알 수 없었다. 기능 바에서는 아이콘이 갈린다(IconDrillInfoEdit /
+          //    IconDrillInfoRead). `HeaderConfig.infoButton` 자체가 이번에 폐기됐다 —
+          //    편집·시연이 유일한 사용처였다(§A 의 presentButton 이 간 길과 같다).
           primary: {
             label: t('editor.workspace.presentLabel'),
             icon: <IconPlay size={15} />,
@@ -689,6 +697,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       onToggleDefense={toggleDefense}
       onReset={clearStep}
       stepEmpty={isStepEmpty(step)}
+      onDrillInfo={onDrillInfo}
       drill={drill}
       stepIndex={stepIndex}
       checkedStepIds={checkedSteps}

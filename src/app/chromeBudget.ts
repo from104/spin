@@ -359,13 +359,18 @@ export function courtBoxPx(viewport: Size, state: ChromeState): Size {
   };
 }
 
-/** 기능 바가 **둘째 열로 흐르면** 그만큼 폭을 더 먹는다. 행 표는 1열만 세므로 그 차이를
+/** 기능 바가 **둘째 열로 흐르면** 그만큼 폭을 더 먹는다.
+ *
+ *  ⚠️ **export 하는 이유는 `stageRotHoldBox` 다**(2026-08-28). 이 값은 창 높이의 **계단
+ *  함수**라, rot 불변 상자가 계단을 걸치면 상자 안에서 코트 상자가 더 이상 아핀이 아니게 되고
+ *  "네 꼭짓점이 같으면 상자 전체가 같다" 는 볼록성 논증이 깨진다(그쪽 머리말). 그래서 상자를
+ *  좁힐 때 이 값의 불변까지 함께 요구한다 — 그 검사가 이 함수를 필요로 한다. 행 표는 1열만 세므로 그 차이를
  *  여기서 더한다 — 열 수는 창 **높이**의 함수라 행 표(폭 축)로는 표현할 수 없기 때문이다.
  *
  *  ⚠️ 왜 근사하지 않는가: 2열이면 44px(hit 44)이고, 800×480 의 코트 상자 폭이 약 660 이다.
  *  6.7% 를 안 세면 `rotForFit` 의 1.08 문턱을 넘나드는 구간에서 **판이 눕느냐 서느냐가 갈린다.**
  *  예산이 화면과 다른 답을 내는 순간 그 화면은 재현이 안 된다(P1 이 끊은 그 부류의 사고다). */
-function functionBarExtraColsPx(viewport: Size, state: ChromeState): number {
+export function functionBarExtraColsPx(viewport: Size, state: ChromeState): number {
   const sa = state.safeArea ?? SAFE_AREA_NONE;
   // 바는 `<main>` 의 직계라 헤더 아래 전부를 쓴다. 하단 바는 코트 컬럼 **안**이라 안 뺀다.
   const avail = viewport.h - chromeRowPx(CHROME_ROWS.find((r) => r.id === 'appHeader')!, state) - sa.top - sa.bottom;

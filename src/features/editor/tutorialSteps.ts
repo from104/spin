@@ -9,7 +9,7 @@ export const EDITOR_TUTORIAL_STEPS: TutorialStep[] = [
   { target: 'editor-court', titleKey: 'tutorial.editor.step4.title', bodyKey: 'tutorial.editor.step4.body' },
   { target: 'editor-playback', titleKey: 'tutorial.editor.step5.title', bodyKey: 'tutorial.editor.step5.body' },
   { target: 'editor-note', titleKey: 'tutorial.editor.step6.title', bodyKey: 'tutorial.editor.step6.body' },
-  { target: 'header-info', titleKey: 'tutorial.editor.step7.title', bodyKey: 'tutorial.editor.step7.body' },
+  { target: 'drill-info', titleKey: 'tutorial.editor.step7.title', bodyKey: 'tutorial.editor.step7.body' },
   { target: 'header-primary', titleKey: 'tutorial.editor.step8.title', bodyKey: 'tutorial.editor.step8.body' },
 ];
 

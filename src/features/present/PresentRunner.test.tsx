@@ -242,7 +242,20 @@ describe('PresentRunner — 세션 시연', () => {
 });
 
 describe('PresentRunner — 드릴 정보 모달·메모 칩·격자 (C11)', () => {
-  it('ⓘ [드릴 정보]가 읽기 전용 모달을 열고, 헤더 [×]로 닫힌다', async () => {
+  it('버튼은 **오른쪽 기능 바 안**이다 — 헤더에는 없다', async () => {
+    const d = await makeTwoStepDrill(`정보 자리 ${++seq}`);
+    render(<PresentRunner target={{ kind: 'drill', drillId: d.id }} nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+
+    const btn = screen.getByRole('button', { name: '드릴 정보' });
+    // 표적이 하나뿐이어야 한다 — 헤더에 남아 있으면 같은 이름이 둘이 되어 이 질의부터 터진다.
+    expect(btn.closest('nav[data-present-sidebar]'), '[드릴 정보]가 시연 기능 바 밖에 있다').toBeTruthy();
+    expect(btn.closest('header')).toBeNull();
+  });
+
+  // ⚠️ 2026-08-28 (기현 지시) — 여는 버튼이 **헤더 제목 옆 ⓘ 에서 오른쪽 기능 바로** 옮겼다.
+  //    아이콘도 갈렸다(눈 = 볼 수만 있다). 아래 '자리' 케이스가 그 이사를 못박는다.
+  it('[드릴 정보]가 읽기 전용 모달을 열고, 헤더 [×]로 닫힌다', async () => {
     const d = await makeTwoStepDrill(`정보 드릴 ${++seq}`);
     await idbDrillRepo.putDrill({ ...d, objective: '정보 모달 목적', equipment: '공 3개' }, { touch: false });
     render(<PresentRunner target={{ kind: 'drill', drillId: d.id }} nav={makeNav()} />, { wrapper });
