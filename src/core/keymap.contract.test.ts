@@ -5,7 +5,7 @@
 // 여기서 재는 것은 **표 자체가 성립하는가**: 한 키가 한 층에서 두 뜻을 갖지 않는가,
 // 층 사이에서 서로를 삼키지 않는가, 도구 목록과 어긋나지 않는가.
 import { describe, it, expect } from 'vitest';
-import { KEYMAP, TOOL_KEY_PREFIX, lookupKey, matchesKey, helpRows, toolHelpRows, type KeyScope } from './keymap.ts';
+import { KEYMAP, TOOL_KEY_PREFIX, eventCode, lookupKey, matchesKey, helpRows, toolHelpRows, type KeyScope } from './keymap.ts';
 
 /** 표에 등장하는 모든 code × 수식키 8가지. 이 곱집합이 곧 키보드로 만들 수 있는 사건 전부다
  *  (표에 없는 code 는 어차피 아무 정의도 안 잡으므로 셀 필요가 없다). */
@@ -118,6 +118,66 @@ describe('키맵 — code 를 쓴다(key 가 아니다)', () => {
   it('모든 code 가 KeyboardEvent.code 표기법이다', () => {
     const bad = KEYMAP.flatMap((d) => d.codes).filter((c) => !/^([A-Z][A-Za-z0-9]*)$/.test(c) || c.length === 1);
     expect(bad, 'code 가 아니라 key 문자가 섞였다').toEqual([]);
+  });
+});
+
+// `code` 를 안 싣는 사건(일부 화면 키보드·매크로·보조 입력 장치 — eventCode 머리말)에서
+// **방향키만 살고 문자키는 죽던** 비대칭을 없앤 것이 2026-08-28 변경이다. 폴백을 두기로 한
+// 이유가 참이면 W A S D 에도 똑같이 참인데, 옛 폴백은 이름이 같은 키(ArrowRight)만 구제했다.
+//
+// ⚠️ 같은 날 *"wasd qe이 왜 안 먹나?"* 신고를 쫓다 짚은 자리지만 **그 원인은 아니었다**
+//    (실제 원인은 SPIN 밖 — 입력기). 이 describe 를 그 신고의 회귀 방어로 읽지 마라.
+describe('eventCode — code 가 없으면 key 로 물러선다', () => {
+  it('code 가 있으면 그대로 쓴다 — 폴백은 안 돈다', () => {
+    expect(eventCode({ code: 'KeyD', key: 'd' })).toBe('KeyD');
+    // 한글 모드의 진짜 키보드: key 는 'ㅇ' 이지만 code 가 있으므로 그것이 이긴다.
+    expect(eventCode({ code: 'KeyD', key: 'ㅇ' })).toBe('KeyD');
+  });
+
+  it('code 가 없으면 ASCII 한 글자를 물리 키 이름으로 올린다', () => {
+    for (const [key, code] of [
+      ['w', 'KeyW'],
+      ['a', 'KeyA'],
+      ['s', 'KeyS'],
+      ['d', 'KeyD'],
+      ['q', 'KeyQ'],
+      ['e', 'KeyE'],
+      ['D', 'KeyD'], // Shift 가 눌린 사건
+    ] as const) {
+      expect(eventCode({ key }), `${key} 가 ${code} 로 안 올라간다`).toBe(code);
+    }
+  });
+
+  it('이름이 같은 키는 표 없이도 통과한다 (옛 폴백이 지키던 것)', () => {
+    for (const k of ['ArrowRight', 'ArrowUp', 'Escape', 'Enter', 'PageUp', 'Delete']) {
+      expect(eventCode({ key: k })).toBe(k);
+    }
+  });
+
+  it('이름이 다른 비문자 키도 올린다 — [ ] / = - 0 · Space', () => {
+    expect(eventCode({ key: ' ' })).toBe('Space');
+    expect(eventCode({ key: '[' })).toBe('BracketLeft');
+    expect(eventCode({ key: ']' })).toBe('BracketRight');
+    expect(eventCode({ key: '/' })).toBe('Slash');
+    expect(eventCode({ key: '=' })).toBe('Equal');
+    expect(eventCode({ key: '-' })).toBe('Minus');
+    expect(eventCode({ key: '0' })).toBe('Digit0');
+  });
+
+  // ⚠️ 옛 주석이 지키려던 것 — 이것만은 그대로다.
+  it('한글은 구제하지 않는다 — 오발화 방어는 유지된다', () => {
+    for (const k of ['ㅈ', 'ㅁ', 'ㄴ', 'ㅇ', 'ㅍ']) {
+      expect(eventCode({ key: k })).toBe(k); // 어떤 code 로도 안 올라간다
+      expect(lookupKey('object', { code: '', key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false })).toBeUndefined();
+    }
+  });
+
+  it('★ 끝에서 끝 — code 없는 W A S D · Q E 가 개체 층에서 실제로 잡힌다', () => {
+    const ev = (key: string) => ({ code: '', key, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false });
+    for (const k of ['w', 'a', 's', 'd']) expect(lookupKey('object', ev(k)), k).toBe('obj.move');
+    for (const k of ['q', 'e']) expect(lookupKey('object', ev(k)), k).toBe('obj.rotate');
+    // 대조군 — 방향키는 전에도 살아 있었다(이 회귀가 그 둘을 갈랐다는 것이 요점이다).
+    expect(lookupKey('object', ev('ArrowRight'))).toBe('obj.move');
   });
 });
 

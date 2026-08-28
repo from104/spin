@@ -293,18 +293,50 @@ export const KEYMAP: readonly KeyDef[] = [
   { id: 'help', scope: 'present', codes: ['Slash'], keys: ['?'], shift: 'yes', label: 'Shift+?', desc: '도움말' },
 ];
 
+/** `key` 만 오는 사건에서 물리 키 이름을 복원하는 표 — **이름이 서로 다른 키만** 싣는다.
+ *  방향키·Enter·Escape 처럼 `code` 와 `key` 가 같은 이름인 키는 여기 없어도 그대로 통과한다. */
+const KEY_TO_CODE: Record<string, string> = {
+  ' ': 'Space',
+  '[': 'BracketLeft',
+  ']': 'BracketRight',
+  '/': 'Slash',
+  '?': 'Slash', // Shift+/ — US 배열. `help` 는 keys 로도 잡지만 code 경로도 맞춰 둔다
+  '=': 'Equal',
+  '+': 'Equal',
+  '-': 'Minus',
+  '_': 'Minus',
+  '0': 'Digit0',
+};
+
 /** 사건이 가리키는 물리 키. `code` 가 비어 있을 때만 `key` 로 물러선다.
  *
  *  왜 폴백이 필요한가 — **합성 사건은 code 를 안 싣는 경우가 있다**(테스트에서 만든
  *  `KeyboardEvent`, 일부 화면 키보드·매크로 장치). 그때 방향키·Esc·PageUp 처럼 code 와 key 가
  *  **같은 이름**인 키까지 죽는 것은 손해뿐이다.
  *
- *  ⚠️ 이 폴백은 문자키를 구제하지 **않는다**. 한글 모드의 'ㅍ' 는 'KeyV' 와 안 맞으므로 그대로
- *  아무 일도 안 난다 — 그것이 옳다. code 를 싣는 진짜 사건에서는 폴백 자체가 안 돈다. */
+ *  ⚠️ **2026-08-28 — 폴백이 문자키까지 구제한다.** 옛 주석은 여기에 *"이 폴백은 문자키를
+ *  구제하지 않는다 — 그것이 옳다"* 라고 적혀 있었다. 그 판단을 뒤집는 이유는 **비대칭**이다:
+ *  같은 사건에서 방향키는 살고(`key` 가 'ArrowRight' 로 이름이 같다) 문자키만 죽는데
+ *  (`key` 가 'd' 라 `codes` 의 'KeyD' 와 안 맞는다), 그 갈림에는 아무 근거가 없다. 폴백을
+ *  두기로 한 이유(`code` 를 안 싣는 장치가 있다)가 참이면 W A S D 에도 똑같이 참이다.
+ *
+ *  ⚠️ **한글 오발화 방어는 그대로다.** 구제 대상을 **ASCII 한 글자**로 못박았으므로 한글 모드의
+ *  'ㅍ'·'ㅈ' 는 여전히 아무 데도 안 맞는다. 게다가 진짜 키보드는 한글 모드에서도 `code` 를
+ *  싣기 때문에 그 경우는 애초에 이 폴백을 안 탄다 — 옛 주석이 막으려던 것은 이 함수가 만든 적
+ *  없는 위험이었다.
+ *
+ *  ⚠️ **이 변경은 어떤 신고도 고치지 않았다.** 2026-08-28 *"wasd qe이 왜 안 먹나?"* 를 쫓다가
+ *  후보로 짚은 자리인데, 실제 원인은 SPIN 밖(기현님의 입력기 unim)이었다. 남겨 둔 이유는 위
+ *  비대칭 하나뿐이다 — 그 신고와 엮어 읽지 마라. */
 export function eventCode(e: { code?: string; key?: string }): string {
   if (e.code && e.code !== 'Unknown') return e.code;
   const k = e.key ?? '';
-  return k === ' ' ? 'Space' : k; // Space 만 code 와 key 의 이름이 다르다
+  const mapped = KEY_TO_CODE[k];
+  if (mapped) return mapped;
+  // 'd' → 'KeyD'. 한 글자 **ASCII 알파벳**만이다.
+  if (k.length === 1 && k >= 'a' && k <= 'z') return `Key${k.toUpperCase()}`;
+  if (k.length === 1 && k >= 'A' && k <= 'Z') return `Key${k}`;
+  return k;
 }
 
 /** 눌린 키가 이 정의에 맞는가. 지정하지 않은 수식키는 **눌리지 않아야** 한다 —
