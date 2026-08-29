@@ -136,6 +136,9 @@ export interface CourtStageProps {
   cones: readonly ObjectLayerCone[];
   /** 골대 포스트 id. 편집기만 넘긴다(§5.4). */
   goals?: readonly string[];
+  /** 제자리를 벗어난 골대들 · 그것을 눌렀을 때(모든 골대 원위치) — ObjectLayer 로 그대로 간다. */
+  displacedGoals?: ReadonlySet<string>;
+  onGoalReturn?(): void;
   notes: readonly NoteLabelData[];
   /** 작도 도형(2026-08-14). **코트 위·칩 아래** 층이라 렌더 순서가 곧 계약이다 —
    *  아래 JSX 에서 RuleOverlay 와 ObjectLayer **사이**에 있다. */
@@ -236,6 +239,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     balls,
     cones,
     goals,
+    displacedGoals,
+    onGoalReturn,
     notes,
     arrows,
     selection,
@@ -859,6 +864,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           balls={balls}
           cones={cones}
           goals={goals}
+          displacedGoals={displacedGoals}
+          onGoalReturn={onGoalReturn}
           notes={notes}
           arrows={arrows}
           markerUid={markerUid}

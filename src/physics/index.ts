@@ -67,6 +67,10 @@ export const DEFAULT_DRAG_LIMITS: DragLimits = {
 
 /** 골대 포스트 id 접두사. cast 가 아니므로 CastId 체계(ch_/bl_/cn_)와 섞이지 않게 따로 둔다. */
 export const GOAL_ID_PREFIX = 'gp_';
+/** 골대가 "제자리에 없다" 고 볼 최소 거리(px). 물리의 `goalsDisplaced()` 와 화면의 복귀
+ *  손잡이(GoalPost 의 hover)가 **같은 문턱**을 봐야 한다 — 다르면 커서는 뜨는데 눌러도
+ *  아무 일이 없거나(화면이 더 관대), 밀렸는데 커서가 안 뜬다(물리가 더 관대). */
+export const GOAL_DISPLACED_EPS_PX = 0.5;
 
 export interface PhysicsSnapshot {
   [id: string]: { x: number; y: number; theta: number };
@@ -614,7 +618,7 @@ export function createPhysicsWorld(
     goalsDisplaced() {
       return goalHome.some((g) => {
         const cur = world.pointOf(g.id as CastId);
-        return Math.hypot(cur.x - g.p.x, cur.y - g.p.y) > 0.5;
+        return Math.hypot(cur.x - g.p.x, cur.y - g.p.y) > GOAL_DISPLACED_EPS_PX;
       });
     },
 
