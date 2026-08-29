@@ -120,11 +120,15 @@ describe('§6.4 코트 크기 선택 — 자리(§3 표적 예산)', () => {
     await user.click(screen.getByRole('button', { name: '보드 설정' }));
     const group = screen.getByRole('radiogroup', { name: '코트 크기' });
     const btns = [...group.querySelectorAll('button')];
-    expect(btns.map((b) => b.textContent)).toEqual(COURT_SIZES.map((s) => COURT_SIZE_LABELS[s]));
+    // 2026-08-29 — 칸 안에 **설명 줄이 함께** 선다(툴팁은 터치에서 안 뜬다). 그래서 완전
+    // 일치가 아니라 포함으로 본다: 이 테스트가 지키는 것은 *"치수만 적지 않는다"* 이지
+    // *"치수만 적는다"* 가 아니었다.
+    expect(btns.map((b) => b.textContent)).toHaveLength(COURT_SIZES.length);
+    COURT_SIZES.forEach((s, i) => expect(btns[i]!.textContent).toContain(COURT_SIZE_LABELS[s]));
     // 지금 값은 aria-pressed 로 말한다(select 의 value 자리). §9 ② 부기 — 기본은 30×18 그대로다.
     const pressed = btns.filter((b) => b.getAttribute('aria-checked') === 'true');
     expect(pressed).toHaveLength(1);
-    expect(pressed[0]!.textContent).toBe(COURT_SIZE_LABELS[DEFAULT_COURT_SIZE]);
+    expect(pressed[0]!.textContent).toContain(COURT_SIZE_LABELS[DEFAULT_COURT_SIZE]);
   });
 });
 
@@ -206,7 +210,7 @@ describe('§6.4 코트 크기 선택 — 잠금은 코트 형태 전환과 같�
     const group = await screen.findByRole('radiogroup', { name: '코트 크기' });
     // 지금 값은 aria-pressed 다. 비우기가 규격까지 되돌리지는 않는다.
     const pressed = [...group.querySelectorAll('button')].find((b) => b.getAttribute('aria-checked') === 'true');
-    expect(pressed?.textContent).toBe(COURT_SIZE_LABELS['28x15']);
+    expect(pressed?.textContent).toContain(COURT_SIZE_LABELS['28x15']);
     const def = courtDefFor('full', '28x15');
     expect(boardViewBox()).toBe(`0 0 ${def.vbW} ${def.vbH}`);
   });

@@ -57,6 +57,7 @@ import { KEYMAP } from '../../core/keymap.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { ConfirmDialog } from '../../ui/ConfirmDialog.tsx';
 import { ExportSheet } from '../export/ExportSheet.tsx';
+import { OptionText, OPTION_STACK } from '../../ui/OptionText.tsx';
 import { COURT_DEFS, COURT_SIZE_LABELS, COURT_SIZES, courtDefFor, type CourtMode, type CourtSize } from '../../model/court.ts';
 import type { Drill, TeamSide, TeamStyle } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
@@ -562,9 +563,9 @@ export function FunctionBar({
                     setCourtOpen(false);
                     onCourtModeChange(m);
                   }}
-                  style={toggleStyle(on)}
+                  style={{ ...toggleStyle(on), ...OPTION_STACK }}
                 >
-                  {d.label[locale]}
+                  <OptionText label={d.label[locale]} desc={d.desc[locale]} />
                 </button>
               );
             })}
@@ -613,10 +614,11 @@ export function FunctionBar({
                       setCourtOpen(false);
                       onCourtSizeChange(s);
                     }}
-                    style={toggleStyle(on)}
+                    style={{ ...toggleStyle(on), ...OPTION_STACK }}
                   >
-                    {/* 치수만 적으면 무엇이 표준인지 알 수 없다 — 규정상의 이름을 함께 낸다. */}
-                    {COURT_SIZE_LABELS[locale][s]}
+                    {/* 치수만 적으면 무엇이 표준인지 알 수 없다 — 규정상의 이름을 함께 낸다.
+                        그리고 그 셋이 무엇에 맞는 코트인지는 툴팁에만 있었다(터치에서는 없다). */}
+                    <OptionText label={COURT_SIZE_LABELS[locale][s]} desc={d.desc[locale]} />
                   </button>
                 );
               })}

@@ -454,7 +454,7 @@ export const ja: Record<DictKey, string> = {
   'help.board.item2.term': '作図',
   'help.board.item2.desc': '矢印と図形で動きやゾーンを描きます。',
   'help.board.item3.term': '機能バー',
-  'help.board.item3.desc': '元に戻す・コート形状・グリッド・PNG書き出しなどが集まっています。',
+  'help.board.item3.desc': '元に戻す・コート形状・グリッド・PNG書き出しなどが集まっています。ディフェンス側の設定は、ゴールエリア3人の反則がどちらのチームに適用されるかを決めます。',
   'help.board.item4.term': 'ドリルとして保存',
   'help.board.item4.desc': '今の配置を新しいドリルとして残します。自動保存はされないので忘れず押してください。',
   'help.board.restartButton': 'フリー戦術ボードツアーをもう一度見る',
