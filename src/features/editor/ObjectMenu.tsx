@@ -13,7 +13,7 @@
 // ── 자리 잡기 ────────────────────────────────────────────────────────────────────────
 // 포인터 위치에 그대로 띄우면 화면 오른쪽·아래 가장자리에서 메뉴가 잘린다. 넘치면 반대편으로
 // 뒤집는다 — 자리를 옮기는 것이 아니라 **뒤집는 것**이라, 메뉴 모서리 하나는 언제나 손끝에 붙어 있다.
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LOCK_TINT_COLOR } from '../../core/colors.ts';
 import { isId } from '../../core/ids.ts';
@@ -98,7 +98,106 @@ export interface ObjectMenuProps {
   /** 도형·메모 복제(2026-08-18). 사본을 어디 놓는가는 부르는 쪽(EditorStage) 소관이다 —
    *  메뉴는 좌표계를 모른다. `canDuplicate` 가 거짓이면 호출되지 않는다. */
   onDuplicate(ids: string[]): void;
+  /** 미세 이동 — **단위 벡터**를 보낸다(-1·0·1). 걸음 크기는 부르는 쪽(EditorStage)이 키보드와
+   *  같은 상수로 곱한다. `dTheta` 는 회전 방향이고, `canRotate` 가 거짓이면 언제나 0 이다. */
+  onNudge(ids: string[], dx: number, dy: number, dTheta: number): void;
 }
+
+// ── 미세 이동 패드 (2026-08-29) ────────────────────────────────────────────────────────
+// **왜 여기인가.** 2026-08-28 에 키보드의 무수식 기본값을 정밀(2.5px·5°)로 뒤집었다 — 큰
+// 움직임은 마우스, 마지막 몇 px 은 키보드. 그런데 **태블릿에는 키보드가 없다.** 100% 터치
+// 환경에서 개체를 놓는 길은 드래그 + 6px 스냅뿐이고, 그보다 정밀하게 놓을 방법이 아예 없었다
+// (세트피스 거리 맞추기 같은 작업이 그 기기에서만 불가능했다).
+//
+// 자리를 여기로 정한 근거(다른 후보를 왜 버렸는가):
+//   - **코트 위 떠 있는 패드**: 못 쓴다. 판 덩어리 안에는 흐름 밖 요소가 하나도 없고
+//     (EditorWorkspace 의 그 주석) 네 변의 56px 고무줄 띠를 edge-pan 게이트가 못박는다.
+//   - **기능 바**: 칸 수가 레이아웃 입력이다(FUNCTION_BAR_ITEMS → 판이 도는가). 조건부로
+//     늘리면 개체를 고를 때마다 판이 돌 수 있다.
+//   - **트레이 서랍**: 상시 표적 1개 + prefs 스키마(`tray`)에 열쇠 하나가 는다.
+//   - **개체 메뉴(여기)**: 상시 표적 **0개**. 이미 터치의 개체 조작 창구이고(긴 누름),
+//     대상이 곧 이 메뉴의 `ids` 라 무엇이 움직이는지 되물을 것이 없다.
+//
+// ⚠️ 이 칸들만 **메뉴를 닫지 않는다.** 나머지는 전부 한 번 누르면 끝나는 명령이고 이것은
+//    여러 번 눌러 맞추는 조작이다 — 한 번에 닫히면 2.5px 을 옮길 때마다 메뉴를 다시 열어야
+//    한다. 그래서 `act()` 를 쓰지 않는다.
+//
+// ⚠️ 값은 **키보드와 같은 것**이어야 한다(EditorStage 의 FINE_STEP_*). 그래서 여기서는
+//    단위 벡터(-1·0·1)만 보내고 곱셈은 부르는 쪽이 한다 — 두 곳에 숫자를 적으면 언젠가 갈린다.
+
+/** 누르고 있으면 반복한다. 없으면 25px 을 옮기는 데 열 번을 눌러야 하고, 그건 정밀 조작을
+ *  주려다 반복 조작을 새로 만드는 것이다. 700ms 병합(COALESCE_TYPES)이 있으므로 이 반복은
+ *  되돌리기 한 칸으로 합쳐진다. */
+const REPEAT_DELAY_MS = 380;
+const REPEAT_MS = 70;
+
+const PAD_BTN: React.CSSProperties = {
+  minWidth: 'var(--hit)',
+  minHeight: 'var(--hit)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: '1px solid var(--border)',
+  borderRadius: 9,
+  background: 'transparent',
+  color: 'var(--text)',
+  fontSize: '0.9375rem',
+  lineHeight: 1,
+  // 길게 눌러도 텍스트 선택·확대 제스처가 끼어들지 않게(터치 전용 기능이므로 특히 중요).
+  touchAction: 'none',
+  userSelect: 'none',
+};
+
+function NudgeButton({ label, glyph, onFire }: { label: string; glyph: string; onFire(): void }) {
+  const fireRef = useRef(onFire);
+  fireRef.current = onFire;
+  const timers = useRef<{ delay?: number; rep?: number }>({});
+  const stop = useCallback(() => {
+    if (timers.current.delay !== undefined) window.clearTimeout(timers.current.delay);
+    if (timers.current.rep !== undefined) window.clearInterval(timers.current.rep);
+    timers.current = {};
+  }, []);
+  // 손을 뗀 신호를 못 받고 언마운트되면(메뉴가 닫히면) 인터벌이 계속 돌아 개체가 혼자 간다.
+  useEffect(() => stop, [stop]);
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      aria-label={label}
+      onPointerDown={(e) => {
+        if (e.button !== 0 && e.pointerType === 'mouse') return;
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        fireRef.current();
+        timers.current.delay = window.setTimeout(() => {
+          timers.current.rep = window.setInterval(() => fireRef.current(), REPEAT_MS);
+        }, REPEAT_DELAY_MS);
+      }}
+      onPointerUp={stop}
+      onPointerCancel={stop}
+      onPointerLeave={stop}
+      // 키보드로 이 메뉴에 온 사람도 쓸 수 있어야 한다 — pointerdown 만 달면 Enter 가 죽는다
+      // (이 칸은 click 을 안 듣는다: pointerdown 에서 이미 한 번 쳤으므로 click 까지 들으면 두 번이다).
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        fireRef.current();
+      }}
+      style={PAD_BTN}
+    >
+      <span aria-hidden>{glyph}</span>
+    </button>
+  );
+}
+
+/** 미세 이동이 **먹는** 개체인가. `EditorStage.nudge` 가 실제로 다루는 종류와 같아야 한다 —
+ *  도형(`sh`)은 거기서도 빠져 있어 여기서도 뺀다(있는데 안 먹는 칸을 내지 않는다). */
+const canNudge = (ids: readonly string[]): boolean =>
+  ids.length > 0 && ids.every((id) => isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn') || isId(id, 'nt') || isId(id, 'ar'));
+
+/** 회전은 **휠체어 하나일 때만**이다. 무리의 회전축이 무엇인지 답이 하나로 안 나오고
+ *  (EditorStage 의 `nudge` 주석), 키보드의 Q·E 도 `isId(id,'ch')` 에서만 먹는다 — 방향을
+ *  가진 개체가 휠체어뿐이라서다. 공·콘에 회전 칸을 내면 눌러도 아무 일이 없다. */
+const canRotate = (ids: readonly string[]): boolean => ids.length === 1 && isId(ids[0]!, 'ch');
 
 const ITEM: React.CSSProperties = {
   display: 'flex',
@@ -116,7 +215,7 @@ const ITEM: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit, onDuplicate }: ObjectMenuProps) {
+export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit, onDuplicate, onNudge }: ObjectMenuProps) {
   const t = useT();
   const locale = useLocale();
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -199,6 +298,37 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
           visibility: pos ? 'visible' : 'hidden',
         }}
       >
+        {/* 미세 이동 패드가 **맨 위**다(2026-08-29). 아래 칸들과 등급이 다르다: 이것만 메뉴를
+            안 닫고 여러 번 눌러 맞추는 조작이다. 위에 두는 이유는 안전이기도 하다 — 맨 아래
+            [빼기]/[삭제] 바로 위에 두면 반복해 두드리는 손가락이 그 옆을 자주 지난다.
+            ⚠️ 열자마자 서는 포커스(`firstRef`)는 여기로 **안 온다.** 키보드로 온 사람에게는
+               방향키·QE 가 이미 있고, 첫 칸이 반복 조작이면 Enter 한 번이 판을 움직인다. */}
+        {!target.locked && canNudge(target.ids) && (
+          <>
+            <div
+              role="group"
+              aria-label={t('editor.objectMenu.nudgeGroup')}
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, padding: '2px 8px 6px' }}
+            >
+              {canRotate(target.ids) ? (
+                <NudgeButton label={t('editor.objectMenu.rotateLeft')} glyph="↺" onFire={() => onNudge(target.ids, 0, 0, -1)} />
+              ) : (
+                <span aria-hidden />
+              )}
+              <NudgeButton label={t('editor.objectMenu.nudgeUp')} glyph="▲" onFire={() => onNudge(target.ids, 0, -1, 0)} />
+              {canRotate(target.ids) ? (
+                <NudgeButton label={t('editor.objectMenu.rotateRight')} glyph="↻" onFire={() => onNudge(target.ids, 0, 0, 1)} />
+              ) : (
+                <span aria-hidden />
+              )}
+              <NudgeButton label={t('editor.objectMenu.nudgeLeft')} glyph="◀" onFire={() => onNudge(target.ids, -1, 0, 0)} />
+              <NudgeButton label={t('editor.objectMenu.nudgeDown')} glyph="▼" onFire={() => onNudge(target.ids, 0, 1, 0)} />
+              <NudgeButton label={t('editor.objectMenu.nudgeRight')} glyph="▶" onFire={() => onNudge(target.ids, 1, 0, 0)} />
+            </div>
+            <div aria-hidden style={{ height: 1, margin: '0 10px 5px', background: 'var(--border)' }} />
+          </>
+        )}
+
         {/* 고르기가 **맨 위**다. 아래 셋은 판을 바꾸는 조작이고 이것 하나만 아니다 — 다른
             등급의 항목을 아래 뭉치에 섞으면 실수로 누를 때 값이 다르다. 열자마자 포커스가
             여기 서는 것도 그래서 맞다(되돌릴 것이 없는 항목). */}

@@ -728,6 +728,9 @@ export const ko = {
     '트레이의 선수·공·콘을 코트로 끌어다 놓습니다. 도구를 고른 뒤 코트를 탭해도 됩니다. 하나 놓으면 선택 도구로 돌아가고 방금 놓은 것이 선택되어 있어 바로 자리를 고칠 수 있습니다.',
   'editor.helpModal.basics.placeMany.key': '여러 개 놓기',
   'editor.helpModal.basics.placeMany.desc': '같은 도구를 한 번 더 누르면 고정되어 연속으로 놓입니다. 도구 칸에 핀 표시가 켜지고, 놓기가 아닌 다른 동작을 하면 바로 풀립니다.',
+  'editor.helpModal.basics.fine.key': '미세 조정',
+  'editor.helpModal.basics.fine.desc':
+    '마지막 몇 px 은 방향키·WASD 로, 방향은 Q·E 로 맞춥니다 — Shift 를 더하면 큰 걸음입니다. 키보드가 없는 태블릿에서는 개체를 길게 눌러 나오는 메뉴 맨 위의 미세 이동 패드가 같은 일을 하고, 누르고 있으면 이어집니다.',
   'editor.helpModal.basics.move.key': '옮기기',
   'editor.helpModal.basics.move.desc': '휠체어는 잡는 곳이 곧 동작입니다 — 뒤 절반을 잡으면 그대로 이동, 앞 절반은 제자리 회전, 차체 밖 앞뒤 손잡이는 줄로 끄는 견인입니다.',
   'editor.helpModal.basics.select.key': '선택·해제',
@@ -763,6 +766,13 @@ export const ko = {
 
   // ── C7 — 개체 메뉴 ──────────────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': '개체 메뉴',
+  'editor.objectMenu.nudgeGroup': '미세 이동',
+  'editor.objectMenu.nudgeUp': '위로 조금',
+  'editor.objectMenu.nudgeDown': '아래로 조금',
+  'editor.objectMenu.nudgeLeft': '왼쪽으로 조금',
+  'editor.objectMenu.nudgeRight': '오른쪽으로 조금',
+  'editor.objectMenu.rotateLeft': '왼쪽으로 조금 회전',
+  'editor.objectMenu.rotateRight': '오른쪽으로 조금 회전',
   'editor.objectMenu.edit': '수정',
   'editor.objectMenu.duplicate': '복제',
   'editor.objectMenu.duplicateCount': '{{n}}개 복제',

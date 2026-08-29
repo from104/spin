@@ -11,18 +11,20 @@
 //    한 번 읽으면 되는 *까닭*은 여전히 도움말로 간다. 여기 오는 것은 매번 필요한 *구분*뿐이다.
 //
 // `title` 은 그대로 둔다 — 마우스에는 여전히 뜨고, 길이 제한이 없어 더 긴 문장을 담을 수 있다.
+//
+// ⚠️ 호출부에 **스타일 상수를 넘기지 않는다.** 세로 쌓기를 안쪽 `<span>` 이 스스로 진다 —
+//    그래야 부르는 쪽이 자기 버튼 스타일(테두리·강조 어휘)을 그대로 두고 내용만 바꿀 수 있고,
+//    이 파일이 컴포넌트 하나만 내보내게 된다.
 import type { CSSProperties, ReactNode } from 'react';
 
-/** 두 줄이 되므로 한 줄용 `alignItems:'center'`·`padding:'0 12px'` 를 덮는다.
- *  호출부의 기존 스타일 **뒤에** 펼쳐 넣는다. */
-export const OPTION_STACK: CSSProperties = {
+const STACK: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
-  justifyContent: 'center',
   gap: 2,
-  padding: '8px 12px',
+  padding: '6px 0',
   lineHeight: 1.35,
+  minWidth: 0,
 };
 
 /** 설명 줄 — 이름보다 작고 흐리다. 이름과 같은 굵기·크기로 두면 두 줄 다 이름처럼 읽힌다. */
@@ -37,9 +39,9 @@ const DESC: CSSProperties = {
 
 export function OptionText({ label, desc }: { label: string; desc?: string }): ReactNode {
   return (
-    <>
+    <span style={STACK}>
       <span>{label}</span>
       {desc ? <span style={DESC}>{desc}</span> : null}
-    </>
+    </span>
   );
 }

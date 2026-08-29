@@ -726,6 +726,9 @@ export const ja: Record<DictKey, string> = {
     'トレイの選手・ボール・コーンをコートへドラッグして置きます。ツールを選んでからコートをタップしても構いません。1つ置くと選択ツールに戻り、今置いたものが選択された状態になるので、すぐに位置を調整できます。',
   'editor.helpModal.basics.placeMany.key': '連続配置',
   'editor.helpModal.basics.placeMany.desc': '同じツールをもう一度押すと固定され、連続で配置できます。ツールの枠にピン表示が点灯し、配置以外の操作をするとすぐに解除されます。',
+  'editor.helpModal.basics.fine.key': '微調整',
+  'editor.helpModal.basics.fine.desc':
+    '最後の数ピクセルは方向キー・WASD で、向きは Q・E で合わせます — Shift を足すと大きく動きます。キーボードのないタブレットでは、オブジェクトを長押しして出るメニュー上部の微調整パッドが同じ働きをし、押し続けると連続します。',
   'editor.helpModal.basics.move.key': '移動',
   'editor.helpModal.basics.move.desc': '車いすはつかむ場所がそのまま動作になります — 後ろ半分をつかむと移動、前半分はその場回転、車体の外の前後ハンドルは線に沿ったけん引です。',
   'editor.helpModal.basics.select.key': '選択・解除',
@@ -761,6 +764,13 @@ export const ja: Record<DictKey, string> = {
 
   // ── C7 — オブジェクトメニュー ────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': 'オブジェクトメニュー',
+  'editor.objectMenu.nudgeGroup': '微調整',
+  'editor.objectMenu.nudgeUp': '少し上へ',
+  'editor.objectMenu.nudgeDown': '少し下へ',
+  'editor.objectMenu.nudgeLeft': '少し左へ',
+  'editor.objectMenu.nudgeRight': '少し右へ',
+  'editor.objectMenu.rotateLeft': '少し左に回転',
+  'editor.objectMenu.rotateRight': '少し右に回転',
   'editor.objectMenu.edit': '編集',
   'editor.objectMenu.duplicate': '複製',
   'editor.objectMenu.duplicateCount': '{{n}}個複製',

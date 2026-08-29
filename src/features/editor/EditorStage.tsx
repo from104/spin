@@ -102,6 +102,16 @@ function nearestCell(mode: CourtMode, p: { x: number; y: number }, size?: CourtS
 /** 한 번 만들어 돌려 쓰는 빈 집합 — 매번 새 Set 을 만들면 그 자체가 상태 변경으로 읽힌다. */
 const EMPTY_IDS: ReadonlySet<string> = new Set<string>();
 
+/** 걸음 크기 — 무수식이 **정밀**, Shift 가 큰 걸음이다(2026-08-28 기현 지시, 아래 키 처리부의
+ *  긴 주석이 근거를 쥔다). 상수로 뽑은 이유는 이제 **두 번째 소비자**가 생겼기 때문이다:
+ *  개체 메뉴의 미세 이동 패드(ObjectMenu 머리말)가 터치에서 같은 일을 한다. 숫자를 두 곳에
+ *  적으면 언젠가 갈리고, 갈린 순간 "키보드로는 되는데 손가락으로는 다르게 간다" 가 된다.
+ *  패드는 정밀만 쓴다 — 큰 움직임은 손가락에도 드래그가 있다. */
+const FINE_STEP_PX = 2.5;
+const FINE_STEP_DEG = 5;
+const COARSE_STEP_PX = 25;
+const COARSE_STEP_DEG = 15;
+
 const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note', 'shapeEllipse', 'shapeTriangle', 'shapeRect']);
 
 /** 개체 이동 방향 — `W A S D` 와 방향키가 같은 자리를 가리킨다. 값은 **화면 기준** 단위
@@ -405,8 +415,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // **통일**이었다 — 화살표 개체에서만 Shift 가 "조준점만 이동" 이라는 세 번째 뜻을
       // 갖고 있었고, 그 셋을 하나로 접는 것이 목적이었다. 그 통일은 그대로 남는다: 지금도
       // Shift 의 뜻은 어디서나 하나(정도만 바꾼다)이고, 어느 쪽이 기본인지만 돌아왔다.
-      const step = e.shiftKey ? 25 : 2.5;
-      const deg = e.shiftKey ? 15 : 5;
+      const step = e.shiftKey ? COARSE_STEP_PX : FINE_STEP_PX;
+      const deg = e.shiftKey ? COARSE_STEP_DEG : FINE_STEP_DEG;
 
       switch (def.id) {
         case 'obj.move': {
@@ -733,6 +743,21 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     <ObjectMenu
       target={menu}
       onClose={() => setMenu(null)}
+      // 미세 이동(2026-08-29) — 키보드 `obj.move`/`obj.rotate` 와 **같은 통로**다.
+      // ★ 이동이 **화면 기준**인 것도 그대로다: 스테이지가 90° 돌아 있으면 ▲가 월드 축과
+      //   어긋나 개체가 옆으로 간다(키 처리부의 그 ★ 주석과 같은 사고).
+      onNudge={(ids, ux, uy, ut) => {
+        const id = ids[0];
+        if (!id) return;
+        if (ut !== 0) {
+          nudge(id, 0, 0, ut * FINE_STEP_DEG * RAD);
+          return;
+        }
+        const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+        const w = screenDeltaToWorld({ rot }, ux * FINE_STEP_PX, uy * FINE_STEP_PX);
+        // 여럿이면 `nudge` 안의 무리 갈래가 받는다(ids 는 곧 선택이다 — ObjectMenuTarget.ids).
+        nudge(id, w.x, w.y, 0);
+      }}
       onToggleLock={(ids, on) => dispatch({ type: 'FLAG_SET', flag: 'locked', ids, on })}
       onToggleIgnore={(ids, on) => dispatch({ type: 'FLAG_SET', flag: 'ignored', ids, on })}
       // 치우는 길은 **한 곳뿐**이다(§6.10b). 개편 전에는 메뉴가 종류별로 직접 액션을 쐈고
