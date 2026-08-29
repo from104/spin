@@ -488,8 +488,12 @@ describe('goalMouths — 골라인 바깥 반평면', () => {
     const [left, right] = goalMouths(def);
     expect(left!.minX).toBe(-Infinity);
     expect(right!.maxX).toBe(Infinity);
-    // 근거를 숫자로 남긴다: 골라인 밖 여백(마진)과 차체 길이가 **같다**.
-    expect(def.surface.x).toBeCloseTo(CHAIR.pivotToRearPx + CHAIR.pivotToFrontPx, 9);
+    // 근거를 숫자로 남긴다: 골라인 밖 여백(마진)에 **차체가 통째로 들어간다**.
+    // ⚠️ 2026-08-29 까지는 `toBeCloseTo`(정확히 같다) 였다. 그때는 마진 1.5 m 와 차체 길이
+    //    1.5 m 가 우연히 같았고, 실측으로 차체가 1.3 m 가 되면서 그 우연이 깨졌다. 원래
+    //    지키려던 성질은 "같다" 가 아니라 **"들어간다"** 이므로 그쪽으로 적는다 — 마진은
+    //    코트 설계값(2026-08-10 지시)이고 차체는 실물이라, 둘이 같아야 할 이유가 없다.
+    expect(def.surface.x).toBeGreaterThanOrEqual(CHAIR.pivotToRearPx + CHAIR.pivotToFrontPx);
   });
 
   it('★ 폭은 골라인 중점 ± 3 m = **6 m 고정**이다 — 골포스트에서 재지 않는다', () => {
