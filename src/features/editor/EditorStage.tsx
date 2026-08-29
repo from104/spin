@@ -677,6 +677,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       cones={cones}
       goals={goals}
       displacedGoals={displacedGoals}
+      goalHomes={goalHomes}
       onGoalReturn={onResetGoals}
       notes={notes}
       arrows={arrows}

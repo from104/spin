@@ -17,7 +17,7 @@ import type { RuleOverlayApi } from './ruleOverlay.ts';
 import type { ZoneConfig } from '../model/chair.ts';
 import { ChairChip } from './objects/ChairChip.tsx';
 import { BallDot } from './objects/BallDot.tsx';
-import { GoalPost } from './objects/GoalPost.tsx';
+import { GoalHomeGhost, GoalPost } from './objects/GoalPost.tsx';
 import { ConeMark } from './objects/ConeMark.tsx';
 import { NoteLabel } from './objects/NoteLabel.tsx';
 import { ArrowPath } from './objects/ArrowPath.tsx';
@@ -47,6 +47,9 @@ export interface ObjectLayerProps {
   goals?: readonly string[];
   /** 그중 **제자리를 벗어난** 것들. 이 골대만 복귀 커서를 얻고 눌린다(GoalPost 머리말). */
   displacedGoals?: ReadonlySet<string>;
+  /** 골대의 제자리(코트 정의 좌표). `goals` 와 **같은 순서**다. 밀린 골대에 점선 유령을
+   *  남기는 데만 쓴다 — 없으면 유령 없이 강조 링만 뜬다(마우스는 커서로도 안다). */
+  goalHomes?: readonly { x: number; y: number }[];
   /** 밀린 골대를 눌렀을 때 — **모든** 골대를 원위치로. 편집기에서만 넘긴다. */
   onGoalReturn?: () => void;
   notes: readonly NoteLabelData[];
@@ -88,6 +91,7 @@ export function ObjectLayer({
   cones,
   goals,
   displacedGoals,
+  goalHomes,
   onGoalReturn,
   notes,
   arrows,
@@ -138,6 +142,13 @@ export function ObjectLayer({
 
   return (
     <>
+      {/* 유령이 **먼저** — 제자리는 밀린 골대와 겹칠 수 있고(막 밀리기 시작한 순간), 그때
+          위에 오면 진짜 골대를 가린다. */}
+      {(goals ?? []).map((gid, i) => {
+        const home = goalHomes?.[i];
+        if (!home || !displacedGoals?.has(gid)) return null;
+        return <GoalHomeGhost key={`${gid}_home`} x={home.x} y={home.y} />;
+      })}
       {(goals ?? []).map((gid) => (
         <GoalPost key={gid} id={gid} writer={writer} displaced={displacedGoals?.has(gid) ?? false} onReturn={onGoalReturn} />
       ))}
