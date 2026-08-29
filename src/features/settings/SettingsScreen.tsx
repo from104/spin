@@ -21,6 +21,7 @@ import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
 import { RosterSection } from './RosterSection.tsx';
 import { SyncSection } from './SyncSection.tsx';
+import { subscribeSyncEvents } from '../../storage/syncMeta.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
@@ -65,6 +66,17 @@ export function SettingsScreen() {
   // key 를 바꿔 강제 재마운트시키는 것이 가장 단순한 재적재다 — prefs 재적재(위 setPrefs
   // (loadPrefs()))와 같은 문제, 같은 해법이다.
   const [rosterReloadToken, setRosterReloadToken] = useState(0);
+  // ⚠️ 위 사고는 **복원 말고 동기화에서도 난다**(2026-08-29 점검). 드라이브 패스가 다른 기기의
+  //    명단을 당겨 오면(pulled > 0) IDB 는 새 명단인데 이 화면은 마운트 시 읽은 옛 명단을 그대로
+  //    들고 있고, 그 상태에서 선수 하나만 고치면 saveRoster(문서 통째 저장)가 **방금 당겨온
+  //    명단을 옛것으로 덮는다.** 복원 쪽만 막고 이쪽은 비어 있었다 — 같은 해법(재마운트)을 쓴다.
+  //
+  //    'pass' 만 본다. put/delete 는 이 화면 자신의 저장이 낸 에코라, 그걸로 재마운트하면
+  //    선수 이름을 고치는 중에 화면이 스스로 갈아엎힌다(useSyncEngine 이 에코를 거르는 것과
+  //    같은 이유·같은 판정).
+  useEffect(() => subscribeSyncEvents((e) => {
+    if (e.op === 'pass' && e.pulled > 0) setRosterReloadToken((n) => n + 1);
+  }), []);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const restoreBtnRef = useRef<HTMLButtonElement | null>(null);
   const restoreDialogId = useId();
