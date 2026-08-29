@@ -455,7 +455,7 @@ export const en: Record<DictKey, string> = {
   'help.board.item2.term': 'Draw',
   'help.board.item2.desc': 'Draw arrows and shapes to mark movement and zones.',
   'help.board.item3.term': 'Function bar',
-  'help.board.item3.desc': 'Undo, court shape, grid, PNG export, and more, all here.',
+  'help.board.item3.desc': 'Undo, court shape, grid, PNG export, and more, all here. The defending side decides which team the three-in-the-goal-area foul applies to.',
   'help.board.item4.term': 'Save as drill',
   'help.board.item4.desc': "Keeps the current layout as a new drill. Nothing auto-saves — don't forget to tap it.",
   'help.board.restartButton': 'Replay free tactics board tour',
