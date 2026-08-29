@@ -728,6 +728,9 @@ export const en: Record<DictKey, string> = {
   'editor.helpModal.basics.placeMany.key': 'Place Multiple',
   'editor.helpModal.basics.placeMany.desc':
     'Press the same tool again to lock it, so it keeps placing continuously. A pin badge lights up on the tool, and doing anything other than placing releases it right away.',
+  'editor.helpModal.basics.fine.key': 'Fine-tune',
+  'editor.helpModal.basics.fine.desc':
+    'Nudge the last few pixels with the arrow keys or WASD, and turn with Q/E — hold Shift for a bigger step. On a tablet with no keyboard, the nudge pad at the top of the long-press menu does the same thing, and repeats while held.',
   'editor.helpModal.basics.move.key': 'Move',
   'editor.helpModal.basics.move.desc':
     'For wheelchairs, where you grab it is the action — grab the back half to move it, the front half to spin in place, and the handles outside the body (front/back) to tow it along a line.',
@@ -766,6 +769,13 @@ export const en: Record<DictKey, string> = {
 
   // ── C7 — Object menu ────────────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': 'Object Menu',
+  'editor.objectMenu.nudgeGroup': 'Nudge',
+  'editor.objectMenu.nudgeUp': 'Nudge up',
+  'editor.objectMenu.nudgeDown': 'Nudge down',
+  'editor.objectMenu.nudgeLeft': 'Nudge left',
+  'editor.objectMenu.nudgeRight': 'Nudge right',
+  'editor.objectMenu.rotateLeft': 'Rotate left a little',
+  'editor.objectMenu.rotateRight': 'Rotate right a little',
   'editor.objectMenu.edit': 'Edit',
   'editor.objectMenu.duplicate': 'Duplicate',
   'editor.objectMenu.duplicateCount': 'Duplicate {{n}}',

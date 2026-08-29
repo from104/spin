@@ -28,7 +28,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, RefObject } from 'react';
 import { Modal } from '../../ui/Modal.tsx';
-import { OptionText, OPTION_STACK } from '../../ui/OptionText.tsx';
+import { OptionText } from '../../ui/OptionText.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { COURT_DEFS, COURT_SIZES, COURT_SIZE_LABELS, DEFAULT_COURT_SIZE, courtDefFor } from '../../model/court.ts';
@@ -122,7 +122,7 @@ export function NewDrillDialog({ open, onClose, onCreated }: NewDrillDialogProps
                   aria-label={d.label[locale]}
                   title={d.desc[locale]}
                   onClick={() => setCourtMode(m)}
-                  style={{ ...toggleStyle(on), ...OPTION_STACK }}
+                  style={toggleStyle(on)}
                 >
                   <OptionText label={d.label[locale]} desc={d.desc[locale]} />
                 </button>
@@ -148,7 +148,7 @@ export function NewDrillDialog({ open, onClose, onCreated }: NewDrillDialogProps
                       aria-label={t('editor.functionBar.courtModal.sizeRadioAriaLabel', { size: COURT_SIZE_LABELS[locale][s] })}
                       title={courtDefFor('full', s).desc[locale]}
                       onClick={() => setCourtSize(s)}
-                      style={{ ...toggleStyle(on), ...OPTION_STACK }}
+                      style={toggleStyle(on)}
                     >
                       <OptionText label={COURT_SIZE_LABELS[locale][s]} desc={courtDefFor('full', s).desc[locale]} />
                     </button>
