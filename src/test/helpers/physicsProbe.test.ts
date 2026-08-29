@@ -59,23 +59,23 @@ describe('physicsProbe 자기 검산 — 겹침 깊이 계기', () => {
   const setup = (gap: number) => ({
     chairs: [
       { id: chA, x: CHAIR.pivotToRearPx + gap, y: Y }, // 뒷면이 x=gap
-      { id: chB, x: WALL_X + CHAIR.pivotToRearPx, y: Y }, // 앞면이 x=37.5
+      { id: chB, x: WALL_X + CHAIR.pivotToRearPx, y: Y }, // 앞면이 x=32.5
     ],
     watch: [[chA, chB]] as ReadonlyArray<readonly [string, string]>,
   });
 
   it('맞물린 두 휠체어 — matter 경로와 obb.satOverlap 경로가 같은 값을 준다', () => {
-    // A 뒷면 x=25, B 앞면 x=37.5 → 겹침 12.5. 가로 겹침(12.5)이 세로 겹침(25)보다 작으므로
-    // SAT 의 최소축은 x 다.
+    // A 뒷면 x=25, B 앞면 x=32.5 → 겹침 7.5. 가로 겹침(7.5)이 세로 겹침(20)보다 작으므로
+    // SAT 의 최소축은 x 다. (2026-08-29 실측 전에는 12.5/25 였다 — 배치는 그대로다.)
     const probe = createPhysicsProbe(setup(25));
-    expect(probe.depthBetween(chA, chB)).toBeCloseTo(12.5, 9);
-    expect(probe.chairSatDepth(chA, chB)).toBeCloseTo(12.5, 9);
-    expect(probe.trace[0]!.depths[`${chA}|${chB}`]).toBeCloseTo(12.5, 9);
+    expect(probe.depthBetween(chA, chB)).toBeCloseTo(7.5, 9);
+    expect(probe.chairSatDepth(chA, chB)).toBeCloseTo(7.5, 9);
+    expect(probe.trace[0]!.depths[`${chA}|${chB}`]).toBeCloseTo(7.5, 9);
     probe.dispose();
   });
 
   it('떨어져 있으면 0 (두 경로 모두)', () => {
-    const probe = createPhysicsProbe(setup(40)); // A 뒷면 x=40, B 앞면 x=37.5 → 2.5 px 간격
+    const probe = createPhysicsProbe(setup(40)); // A 뒷면 x=40, B 앞면 x=32.5 → 7.5 px 간격
     expect(probe.depthBetween(chA, chB)).toBe(0);
     expect(probe.chairSatDepth(chA, chB)).toBe(0);
     probe.dispose();
@@ -112,24 +112,25 @@ describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다'
     return probe;
   }
 
-  it('손을 떼기 직전: 15.00 px 겹친 채로 이미 isSettled()===true 다(속도만 보는 판정)', () => {
+  it('손을 떼기 직전: 9.00 px 겹친 채로 이미 isSettled()===true 다(속도만 보는 판정)', () => {
     const probe = draggedIntoWallChip();
     const last = probe.trace.at(-1)!;
 
     expect(last.poses[chA]!.x).toBeCloseTo(DRAG_TO_X, 6); // 목표에 도달해 멈춰 있다
-    expect(last.depths[`${chA}|${chB}`]).toBeCloseTo(15, 6);
-    expect(probe.chairSatDepth(chA, chB)).toBeCloseTo(15, 6); // 독립 경로 교차검증
-    // ★ 15 px 이 겹쳐 있는데도 "정착" 이다 — allAtRest 는 속도만 본다(world.ts:221-225).
+    expect(last.depths[`${chA}|${chB}`]).toBeCloseTo(9, 6);
+    expect(probe.chairSatDepth(chA, chB)).toBeCloseTo(9, 6); // 독립 경로 교차검증
+    // ★ 9 px 이 겹쳐 있는데도 "정착" 이다 — allAtRest 는 속도만 본다(world.ts:221-225).
     expect(last.settled).toBe(true);
     expect(last.running).toBe(true); // 아직은 드래그가 루프를 붙들고 있다
 
     // 대조군: 마지막 행의 true 는 "처음부터 켜져 있던 상수" 가 아니다. 30 px 를 vLin 으로 가는
-    // 데 52 프레임이 걸리고(30 ÷ 0.5787 = 51.8), 그중 B 가 실제로 밀리는 26~52 프레임은
+    // 데 52 프레임이 걸리고(30 ÷ 0.5787 = 51.8), 그중 B 가 실제로 밀리는 37~52 프레임은
+    // (2026-08-29 실측으로 차체가 짧아져 A 가 B 에 **더 늦게** 닿는다 — 옛 시작은 26 이었다)
     // isSettled()===false 였다. 손을 뗄 때의 true 는 "B 가 낀 채로 멎었다" 는 뜻이다.
     const arrived = probe.trace.findIndex((r) => Math.abs(r.poses[chA]!.x - DRAG_TO_X) < 1e-9);
     expect(arrived).toBe(52);
     const unsettled = probe.trace.filter((r) => !r.settled).map((r) => r.frame);
-    expect([unsettled[0], unsettled.at(-1)]).toEqual([26, 52]);
+    expect([unsettled[0], unsettled.at(-1)]).toEqual([37, 52]);
 
     probe.dispose();
   });
@@ -146,7 +147,7 @@ describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다'
     expect(end.id).toBe(chA);
     expect(end.frame).toBe(releaseFrame);
 
-    // 하지만 판은 아직 서지 않았다 — 15.00 px 이 겹쳐 있으므로 루프가 3 프레임 더 남는다.
+    // 하지만 판은 아직 서지 않았다 — 9.00 px 이 겹쳐 있으므로 루프가 3 프레임 더 남는다.
     // (고치기 전에는 이 값이 1 이었고, 그 1 이 곧 P0-1 이었다.)
     expect(framesToStop).toBe(3);
 
@@ -160,7 +161,7 @@ describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다'
     probe.dispose();
   });
 
-  it('★ 겹침 15.00 px 는 손을 뗀 뒤 두 substep 만에 3.073 → 0 으로 풀린다', () => {
+  it('★ 겹침 9.00 px 는 손을 뗀 뒤 두 substep 만에 풀린다', () => {
     const probe = draggedIntoWallChip();
     const releaseFrame = probe.frame();
     probe.endDrag();
@@ -173,17 +174,17 @@ describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다'
     expect(held.substeps).toBe(1); // endDrag 를 품은 substep
     expect(held.settled).toBe(true);
     expect(held.running).toBe(true); // ★ 고치기 전에는 여기가 false 였다
-    expect(held.depths[`${chA}|${chB}`]).toBeCloseTo(15, 6);
+    expect(held.depths[`${chA}|${chB}`]).toBeCloseTo(9, 6);
 
-    // (2) 다음 프레임 — 위치 해결이 처음으로 돈다. 15.00 → 3.073, A 가 11.9 px 물러난다.
+    // (2) 다음 프레임 — 위치 해결이 처음으로 돈다. 9.00 → 1.859, A 가 7.1 px 물러난다.
     //     ★ 그 11.9 px 동안에도 isSettled() 는 **참**이다: matter 의 위치 해결은 positionPrev
     //     까지 같이 옮겨 속도를 만들지 않는다(Resolver.postSolvePosition). 이 한 줄이 1.3 의
     //     전제 그 자체다 — 속도만 보는 판정은 이 움직임을 원리적으로 못 본다.
     probe.stepFrames(1);
     const first = probe.trace.at(-1)!;
     expect(first.substeps).toBe(1);
-    expect(first.depths[`${chA}|${chB}`]).toBeCloseTo(3.073, 3);
-    expect(first.poses[chA]!.x - DRAG_TO_X).toBeCloseTo(11.927, 2);
+    expect(first.depths[`${chA}|${chB}`]).toBeCloseTo(1.859, 3);
+    expect(first.poses[chA]!.x - DRAG_TO_X).toBeCloseTo(7.141, 2);
     expect(first.settled).toBe(true);
 
     // (3) 그 다음 프레임에 겹침이 0 이 된다. 푸는 데 필요했던 것은 8.3 ms 두 조각뿐이었다.

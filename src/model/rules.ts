@@ -146,7 +146,7 @@ export function defendedMouths(mouths: readonly GoalMouth[], defense: TeamSide):
 
 /** 판정에 필요한 것만 담은 선수 1명. 좌표는 **그 프레임의 실제 위치**다(모델 저장값이 아니라).
  *
- *  ⚠️ `theta`(rad)가 없으면 안 된다. 2026-08-13 부터 판정은 피벗 점이 아니라 **1.5 × 1.0 m
+ *  ⚠️ `theta`(rad)가 없으면 안 된다. 2026-08-13 부터 판정은 피벗 점이 아니라 **1.3 × 0.8 m
  *  차체 사각형**으로 재고(chairOverlap.ts 머리말), 사각형은 방향 없이는 만들어지지 않는다.
  *  이 필드를 옵셔널로 풀면 어느 화면 하나가 조용히 "언제나 +x 를 보는 차체" 로 판정한다. */
 export interface RuleActor {

@@ -15,7 +15,7 @@ import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
 
 describe('ChairChip', () => {
-  it('§3.4 마크업대로 rect(-7.5,-12.5,37.5,25)·볼가드·머리 원을 그린다', () => {
+  it('§3.4 마크업대로 rect(-6.5,-10,32.5,20)·볼가드·머리 원을 그린다', () => {
     const writer = createTransformWriter();
     const { container } = render(
       <svg>
@@ -23,13 +23,13 @@ describe('ChairChip', () => {
       </svg>,
     );
     const body = container.querySelector(`#obj-ch_1`)!;
-    const rect = body.querySelector('rect[x="-7.5"]');
+    const rect = body.querySelector('rect[x="-6.5"]');
     expect(rect).not.toBeNull();
-    expect(rect).toHaveAttribute('width', '37.5');
-    expect(rect).toHaveAttribute('height', '25');
-    const guard = body.querySelector('rect[x="24.375"]');
+    expect(rect).toHaveAttribute('width', '32.5');
+    expect(rect).toHaveAttribute('height', '20');
+    const guard = body.querySelector('rect[x="21.125"]');
     expect(guard).not.toBeNull();
-    expect(guard).toHaveAttribute('width', '5.625');
+    expect(guard).toHaveAttribute('width', '4.875');
     const head = body.querySelector('circle[r="4.2"]');
     expect(head).not.toBeNull();
     expect(body.querySelector('text')?.textContent).toBe('4');

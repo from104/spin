@@ -149,7 +149,8 @@ describe('트레이 DOM — 칩·폭이 --hit 파생 calc 로 걸려 있다', ()
     // 기준이 뒤집혔다: 상자가 정사각이 되면서 **세로**가 상자 높이에서 나오고 가로가 비율로
     // 따라온다(옛 식은 가로가 --hit 에서 나오고 세로가 1.5배였다).
     expect(svg.style.height).toBe('calc(var(--hit) - 6px)');
-    expect(svg.style.width).toBe('calc((var(--hit) - 6px) / 1.5)');
+    // 1.625 = 32.5/20(차체 종횡비). 2026-08-29 실측 전에는 37.5/25 = 1.5 였다.
+    expect(svg.style.width).toBe('calc((var(--hit) - 6px) / 1.625)');
   });
 
   it('공·콘 상자와 기능 도구는 min 으로만 자란다 — 기본 52×50, 큰 터치 타깃이면 56', () => {

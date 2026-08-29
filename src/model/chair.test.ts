@@ -1,11 +1,13 @@
 // §3.4 검증 — projectGrab 4존 경계값을 θ = 0·90·180·270° 에서 검증.
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ZONES } from '../core/constants.ts';
+import { CHAIR, DEFAULT_ZONES } from '../core/constants.ts';
 import { classifyZone, pointAtLever, projectGrab, type ChairPose, type DragZone } from './chair.ts';
 
 // s = sPivot + ax/L 이므로 ax = (s - sPivot) * L. 각 경계 바로 안쪽/바깥쪽 값을 만든다.
-const L = 37.5;
-const S_PIVOT = 0.2;
+// ⚠️ 상수를 **읽는다**(2026-08-29). 여기 37.5·0.2 를 손으로 적어 두었더니 실측으로 차체가
+// 1.3 m 가 된 날 이 파일만 옛 차체를 검산했다 — 통과했으면 더 나빴을 것이다.
+const L = CHAIR.lengthPx;
+const S_PIVOT = CHAIR.sPivot;
 const axFor = (s: number): number => (s - S_PIVOT) * L;
 
 // 2026-08-11 기현 지시로 차체를 **둘로만** 나눈다: 뒤 1/3 그대로 이동, 앞 2/3 제자리 회전.

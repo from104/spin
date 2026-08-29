@@ -36,9 +36,12 @@ afterEach(() => {
 });
 
 /** physicsProbe.test.ts 의 P0-1 배치 그대로: 벽에 뒷면을 붙여 세워 둔 칩(B) 위로 다른
- *  칩(A)을 끌어다 놓고, 잠깐 멈춘 상태. B 앞면 x=37.5 · A 뒷면 x=22.5 라 겹침은 해석적으로
- *  정확히 15.00 px 다. B 가 벽 너머로 밀려나지 않는 것은 §4.2 P0-3 의 안전망이 매 substep
- *  되돌리기 때문이다(1.4 이전에는 B 가 피벗 x=-5 까지 나갔고, 그때의 겹침은 12.50 이었다). */
+ *  칩(A)을 끌어다 놓고, 잠깐 멈춘 상태. B 앞면 x=32.5 · A 뒷면 x=23.5 라 겹침은 해석적으로
+ *  정확히 9.00 px 다. B 가 벽 너머로 밀려나지 않는 것은 §4.2 P0-3 의 안전망이 매 substep
+ *  되돌리기 때문이다(1.4 이전에는 B 가 피벗 x=-5 까지 나갔다).
+ *  ⚠️ 2026-08-29 실측(차체 1.5 → 1.3 m)으로 이 겹침이 15.00 → 9.00 이 됐다. 배치(x=60 에서
+ *     x=30 으로 끌기)는 그대로 두고 **전제 숫자만** 옮긴다 — 이 테스트가 지키는 것은 겹침의
+ *     크기가 아니라 *손을 떼면 스스로 벌어지는가* 이고, 그 단언은 0 이라 안 바뀐다. */
 function draggedIntoWallChip() {
   const probe = createPhysicsProbe({
     chairs: [
@@ -56,7 +59,7 @@ function draggedIntoWallChip() {
 describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다', () => {
   it('★ 벽에 붙은 칩 위에 놓고 손을 떼면 스스로 벌어진다 — 정착 후 겹침 0', () => {
     const probe = draggedIntoWallChip();
-    expect(probe.depthBetween(chA, chB)).toBeCloseTo(15, 6); // 전제: 손 뗄 때 15.00 겹쳐 있다
+    expect(probe.depthBetween(chA, chB)).toBeCloseTo(9, 6); // 전제: 손 뗄 때 9.00 겹쳐 있다
 
     probe.endDrag();
     // 3 프레임. 내역: 겹침이 루프를 붙잡는 릴리스 프레임 + 위치 해결이 도는 2 프레임.
@@ -67,13 +70,15 @@ describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다'
     expect(probe.depthBetween(chA, chB)).toBe(0);
     expect(probe.chairSatDepth(chA, chB)).toBe(0);
     // 벽에 붙은 쪽은 물러설 자리가 없으므로 밀려난 것은 얹힌 쪽이다.
-    expect(probe.api.read()[chA]!.x).toBeGreaterThan(DRAG_TO_X + 10);
+    // 문턱은 겹침(9.00)보다 조금 낮게 — 정확한 도달점은 분리 알고리즘 소관이고, 여기서 볼 것은
+    // "손 떼던 자리에 머물지 않는다" 다(2026-08-29 실측 전에는 겹침 15 라 +10 이었다).
+    expect(probe.api.read()[chA]!.x).toBeGreaterThan(DRAG_TO_X + 8);
     expect(probe.trace.at(-1)!.settled).toBe(true);
 
     probe.dispose();
   });
 
-  it('손 뗀 그 프레임에는 멎지 않는다 — 15.00 px 겹침이 루프를 붙잡는다', () => {
+  it('손 뗀 그 프레임에는 멎지 않는다 — 9.00 px 겹침이 루프를 붙잡는다', () => {
     const probe = draggedIntoWallChip();
     const releaseFrame = probe.frame(); // 릴리스 체이스가 완결될 프레임
 
@@ -83,7 +88,7 @@ describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다'
     const row = probe.trace.at(-1)!;
     expect(row.frame).toBe(releaseFrame);
     expect(row.substeps).toBe(1); // endDrag 를 품은 그 substep
-    expect(row.depths[PAIR]).toBeCloseTo(15, 6);
+    expect(row.depths[PAIR]).toBeCloseTo(9, 6);
     // 속도로만 보면 완벽한 정지다 — allAtRest 의 뜻은 그대로 두었다.
     expect(row.settled).toBe(true);
     // ★ 그런데도 루프는 살아 있다. 이 한 줄이 1.3 의 전부다(고치기 전에는 false 였다).
@@ -108,7 +113,9 @@ describe('P0-1 — 손을 떼면 겹침이 풀릴 때까지 루프가 남는다'
     const b = seen[0]![chB]!;
     // 통지 좌표로 다시 재도 겹치지 않는다 — 재커밋이 겹친 좌표를 모델에 쓰는 일이 없다.
     expect(satOverlap(a, b, 0).depth).toBeLessThanOrEqual(0);
-    expect(a.x).toBeGreaterThan(DRAG_TO_X + 10); // 손 떼던 자리에 머물지 않는다
+    // 벽 쪽 칩은 못 물러나므로 A 가 겹침(9.00)을 거의 통째로 떠안는다. 문턱을 겹침보다
+    // 조금 낮게 잡아 "확실히 옮겨 갔다" 만 본다 — 정확한 도달점은 분리 알고리즘 소관이다.
+    expect(a.x).toBeGreaterThan(DRAG_TO_X + 8); // 손 떼던 자리에 머물지 않는다
 
     probe.dispose();
   });
@@ -140,7 +147,7 @@ describe('P0-1 — 붙잡지 않는 것들', () => {
   it('손이 쥐고 있는 칩의 겹침은 붙잡지 않는다 — 그건 사용자가 만들고 있는 겹침이다', () => {
     const probe = draggedIntoWallChip(); // 손은 그대로 쥐고 있다
     const separate = vi.spyOn(obbModule, 'separateOverlaps');
-    expect(probe.depthBetween(chA, chB)).toBeCloseTo(15, 6);
+    expect(probe.depthBetween(chA, chB)).toBeCloseTo(9, 6);
 
     // 쥔 채로 [골대 원위치] 를 누른다(태블릿에서 두 번째 손가락으로 누르면 실제로 눌린다).
     probe.api.resetGoals();
@@ -157,7 +164,7 @@ describe('P0-1 — 붙잡지 않는 것들', () => {
     expect(probe.isRunning()).toBe(true); // 손이 판 위에 있는 동안은 루프가 산다
     expect(separate).not.toHaveBeenCalled();
     expect(probe.api.read()[chA]!.x).toBeCloseTo(DRAG_TO_X, 6); // 쥔 칩은 제자리
-    expect(probe.depthBetween(chA, chB)).toBeCloseTo(15, 6);
+    expect(probe.depthBetween(chA, chB)).toBeCloseTo(9, 6);
 
     probe.dispose();
   });
@@ -196,7 +203,11 @@ describe('P0-1 — 상한 8초와 기하 분리 폴백', () => {
   // 칩(폭 25)이 두 대 들어갈 수 없는 40 px 짜리 판. 물리가 아무리 밀어도 겹침이 남는다 —
   // 정규 코트에는 이런 배치가 없어서(실측: 16대를 한 점에 쌓아도 120 프레임 안에 slop 까지
   // 풀린다) 하네스의 판 크기 탈출구로 만든다.
-  const COURT = { w: 60, h: 40 };
+  // ⚠️ 세로는 **차체 폭에서 역산한다**(2026-08-29). 이 시나리오는 *겹침이 영영 안 풀리는 판*
+  //    이 전제이므로 `2·widthPx > h` 여야 한다 — 실측 전(폭 25)에는 40 이 그 조건을
+  //    만족했지만 폭 20 에서는 두 대가 나란히 딱 들어가(2·20 = 40) 겹침이 0 이 되고
+  //    시나리오가 통째로 무의미해진다. 강제 겹침 10 px 을 유지하도록 h = 2·widthPx − 10.
+  const COURT = { w: 60, h: 2 * CHAIR.widthPx - 10 };
 
   it('겹침이 영영 안 풀리는 배치에서도 8초 안에 반드시 멎고, 나가기 전에 기하로 한 번 뗀다', () => {
     const probe = createPhysicsProbe({
