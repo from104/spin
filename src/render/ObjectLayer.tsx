@@ -45,6 +45,10 @@ export interface ObjectLayerProps {
   cones: readonly ObjectLayerCone[];
   /** 골대 포스트 id(`gp_0`…). 편집기에서만 넘긴다 — 시연·썸네일은 코트 라인의 정적 표시를 쓴다. */
   goals?: readonly string[];
+  /** 그중 **제자리를 벗어난** 것들. 이 골대만 복귀 커서를 얻고 눌린다(GoalPost 머리말). */
+  displacedGoals?: ReadonlySet<string>;
+  /** 밀린 골대를 눌렀을 때 — **모든** 골대를 원위치로. 편집기에서만 넘긴다. */
+  onGoalReturn?: () => void;
   notes: readonly NoteLabelData[];
   arrows: readonly Arrow[];
   /** ArrowMarkers 가 이 SVG 루트에 만든 `useId()` 접두사. */
@@ -83,6 +87,8 @@ export function ObjectLayer({
   balls,
   cones,
   goals,
+  displacedGoals,
+  onGoalReturn,
   notes,
   arrows,
   markerUid,
@@ -133,7 +139,7 @@ export function ObjectLayer({
   return (
     <>
       {(goals ?? []).map((gid) => (
-        <GoalPost key={gid} id={gid} writer={writer} />
+        <GoalPost key={gid} id={gid} writer={writer} displaced={displacedGoals?.has(gid) ?? false} onReturn={onGoalReturn} />
       ))}
       {cones.map((c) => (
         <ConeMark

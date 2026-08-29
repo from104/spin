@@ -21,7 +21,8 @@ import type { ZoneConfig } from '../../model/chair.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
 import type { Arrow, ArrowPart } from '../../model/arrow.ts';
 import { courtDefFor, gridCellCenter, cellLabelAt, type CourtMode, type CourtSize } from '../../model/court.ts';
-import { GOAL_ID_PREFIX } from '../../physics/index.ts';
+import { GOAL_ID_PREFIX, GOAL_DISPLACED_EPS_PX } from '../../physics/index.ts';
+import { raf } from '../../render/rafLoop.ts';
 import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
 import { screenDeltaToWorld } from '../../render/useStageMetrics.ts';
 import type { StageRot } from '../../render/useStageMetrics.ts';
@@ -81,6 +82,9 @@ export interface EditorStageProps {
   /** 3.10 — 시점 점프 감지(§6.7 immediate 와 같은 규칙: undo/redo·스텝 추가삭제). 점프에는
    *  트윈과 마찬가지로 등장/퇴장 페이드도 걸지 않는다. */
   epoch?: number;
+  /** 밀린 골대를 눌렀을 때 — **모든** 골대를 원위치로(2026-08-29). 손잡이가 [보드 설정] 안
+   *  버튼과 같은 함수를 받아야 둘이 갈라지지 않는다(EditorWorkspace.resetGoals 하나다). */
+  onResetGoals?(): void;
   /** 이 스텝으로의 전환 시간(ms) — 반드시 stepTransitionMs(tween.ts) 값으로 준다. 트윈(위치·
    *  화살표)과 페이드(등장/퇴장)가 같은 시계로 끝나야 한다. 0/미지정 = 페이드 없음. */
   transitionMs?: number;
@@ -95,6 +99,9 @@ function nearestCell(mode: CourtMode, p: { x: number; y: number }, size?: CourtS
 
 // 키보드 커서(§7.5d)가 격자 칸 가운데를 조준하는 도구들. 2026-08-14 에 도형 3종이 합쳤다 —
 // 놓는 도구인데 여기 없으면 **키보드로는 못 놓는** 도구가 된다.
+/** 한 번 만들어 돌려 쓰는 빈 집합 — 매번 새 Set 을 만들면 그 자체가 상태 변경으로 읽힌다. */
+const EMPTY_IDS: ReadonlySet<string> = new Set<string>();
+
 const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note', 'shapeEllipse', 'shapeTriangle', 'shapeRect']);
 
 /** 개체 이동 방향 — `W A S D` 와 방향키가 같은 자리를 가리킨다. 값은 **화면 기준** 단위
@@ -116,7 +123,7 @@ const OBJ_MOVE_DIR: Record<string, readonly [number, number]> = {
 // 포인터(손잡이 끌기)가 맡는다 — 남은 상태·타입 정리는 2단계다.
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0 },
+  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0, onResetGoals },
   stageRef,
 ) {
   // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
@@ -292,6 +299,32 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     () => courtDefFor(drill.courtMode, drill.courtSize).goalPosts.map((_, i) => `${GOAL_ID_PREFIX}${i}`),
     [drill.courtMode, drill.courtSize],
   );
+
+  /** 제자리를 벗어난 골대들 — 그 골대만 복귀 커서를 얻는다(2026-08-29 기현 지시, GoalPost 머리말).
+   *
+   *  ⚠️ **매 프레임 setState 하지 않는다.** 물리 좌표는 프레임마다 바뀌지만 "밀렸나" 는 좀처럼
+   *  안 바뀌는 값이라, 같으면 이전 Set 을 **그대로 돌려줘** React 가 렌더를 건너뛰게 한다
+   *  (§6.1 규칙 1 "드래그 중 React 리렌더 0회" 가 이 자리에서도 지켜져야 한다 — 골대가 밀리는
+   *  것은 대개 드래그 도중이다).
+   *
+   *  문턱은 물리와 **같은 상수**를 쓴다(GOAL_DISPLACED_EPS_PX) — 다르면 커서는 뜨는데 눌러도
+   *  아무 일이 없는 상태가 생긴다. */
+  const [displacedGoals, setDisplacedGoals] = useState<ReadonlySet<string>>(EMPTY_IDS);
+  const goalHomes = useMemo(() => courtDefFor(drill.courtMode, drill.courtSize).goalPosts, [drill.courtMode, drill.courtSize]);
+  useEffect(() => {
+    return raf.add(() => {
+      const w = worldRef.current;
+      if (!w) return;
+      const frame = w.read();
+      const next = new Set<string>();
+      goalHomes.forEach((home, i) => {
+        const id = `${GOAL_ID_PREFIX}${i}`;
+        const p = frame[id];
+        if (p && Math.hypot(p.x - home.x, p.y - home.y) > GOAL_DISPLACED_EPS_PX) next.add(id);
+      });
+      setDisplacedGoals((prev) => (prev.size === next.size && [...next].every((id) => prev.has(id)) ? prev : next));
+    });
+  }, [goalHomes, worldRef]);
 
   // §7.5b 순회 순서: 팀A 선수 → 팀B 선수 → 공 → 콘 → 메모 → 화살표.
   const order = useMemo(() => {
@@ -643,6 +676,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       balls={balls}
       cones={cones}
       goals={goals}
+      displacedGoals={displacedGoals}
+      onGoalReturn={onResetGoals}
       notes={notes}
       arrows={arrows}
       shapes={step.shapes}

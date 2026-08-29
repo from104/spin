@@ -164,11 +164,17 @@ describe('대조군 — 비우기와 섞이지 않는다', () => {
 describe('소유권 — 핸들러는 하나다', () => {
   const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'EditorWorkspace.tsx'), 'utf-8');
 
-  it('EditorWorkspace 는 `onResetGoals={resetGoals}` 를 정확히 한 곳(기능 바)에 넘긴다', () => {
-    // 2026-08-18 인스펙터 폐기로 둘째 손잡이(인스펙터 [드릴 정보] 맨 끝)가 사라졌다 —
-    // 이제 받는 곳은 FunctionBar 하나다. 사본이 늘면 여기서 걸린다(위 머리말과 같은 이유).
-    const passes = src.match(/onResetGoals=\{resetGoals\}/g) ?? [];
-    expect(passes, `찾은 것: ${passes.length}개`).toHaveLength(1);
+  it('`onResetGoals` 를 받는 모든 곳이 **같은 resetGoals** 를 받는다', () => {
+    // 옛 계약(2026-08-18~2026-08-29): *"정확히 한 곳(기능 바)"*. 인스펙터 폐기로 손잡이가
+    // 하나만 남았던 동안에는 개수로도 같은 것을 말할 수 있었다.
+    //
+    // 2026-08-29 기현 지시로 손잡이가 **둘**이 됐다(기능 바 [보드 설정] > [골대 원위치] ·
+    // 밀린 골대 클릭). 그래서 개수가 아니라 **무엇을 넘기는가**를 센다 — 이 파일 머리말이
+    // 원래 지키려던 것이 그것이다: *"나중에 누군가 한쪽에 자기 사본을 만들어 붙여도 동작
+    // 단언은 전부 초록이고, 그때부터 두 손잡이의 규칙이 갈린다."*
+    const all = src.match(/onResetGoals=\{[^}]*\}/g) ?? [];
+    expect(all.length, '아무도 안 받는다면 계약 자체가 사라진 것이다').toBeGreaterThan(0);
+    expect(new Set(all), `찾은 것: ${all.join(' · ')}`).toEqual(new Set(['onResetGoals={resetGoals}']));
   });
 
   it('world.resetGoals() 호출부는 파일 안에 하나뿐이다 — 사본이 생기면 여기서 걸린다', () => {

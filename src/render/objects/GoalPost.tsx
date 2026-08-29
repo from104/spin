@@ -5,23 +5,56 @@
 // 변형에서만 이렇게 그리고, 시연·썸네일은 여전히 코트 라인 쪽 정적 표시를 쓴다(그쪽은 물리가
 // 돌지 않아 움직일 일이 없다).
 //
-// 사용자가 직접 잡을 수는 없다: 드래그 대상이 아니고 포커스도 받지 않는다(§7.5b 순회 순서에도
-// 들어가지 않는다). 오직 휠체어에 밀려서 움직이고, `골대 원위치` 버튼으로 되돌린다.
+// 사용자가 직접 **끌 수는** 없다: 드래그 대상이 아니고 포커스도 받지 않는다(§7.5b 순회
+// 순서에도 들어가지 않는다). 오직 휠체어에 밀려서 움직인다.
+//
+// ── 제자리 복귀 손잡이 (2026-08-29 기현 지시) ──────────────────────────────────────────
+// *"제자리에 있지 않은 골대 위로 마우스 오버 시 복귀를 표시할 수 있는 커서로 바꾸고 클릭 시
+//  모든 골대 원위치 트리거 발동해."*
+//
+// **밀렸을 때만** 포인터를 받는다. 제자리에 있는 골대가 커서를 바꾸면 "여기 뭔가 할 수 있다"
+// 는 거짓말이 되고, 무엇보다 코트 위에서 클릭이 먹히는 자리가 늘어 고무줄 선택이 빗나간다.
+//
+// ⚠️ **누르는 곳은 한 대인데 돌아가는 것은 전부다.** 지시가 그렇고, 그것이 [보드 설정] 안
+//    [골대 원위치] 버튼과 같은 동작이기도 하다 — 두 손잡이가 다른 일을 하면 하나를 배운 사람이
+//    다른 하나에서 틀린다. 밀린 골대가 여럿일 때 한 대씩 되돌리는 길은 만들지 않는다.
+//
+// ⚠️ `aria-hidden` 을 **유지한다.** 이 칸은 마우스 지름길이지 새 기능이 아니다 — 같은 동작이
+//    이름 있는 버튼([보드 설정] > [골대 원위치])으로 이미 있고, 키보드·스크린리더는 그쪽으로
+//    간다. 여기를 접근성 트리에 올리면 이름 없는 표적이 하나 늘고(§3 표적 예산) 순회 순서에도
+//    끼어든다 — 얻는 것 없이 잃기만 한다.
 import { memo, useEffect, useRef } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { OBJ_STROKE } from '../../core/colors.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 
 export interface GoalPostProps {
   id: string;
   writer: TransformWriter;
+  /** 제자리에서 벗어나 있는가. 참일 때만 커서가 바뀌고 눌린다. */
+  displaced?: boolean;
+  /** 누르면 **모든** 골대를 원위치로. 없으면 이 칸은 예전처럼 포인터를 안 받는다. */
+  onReturn?: () => void;
 }
 
 /** 코트 라인의 spot 표시와 같은 색·크기다(FullCourtLines 의 goalPosts 원과 동일) — 물리 바디로
  *  바뀌었다고 생김새까지 달라지면 "골대가 다른 것으로 교체됐다" 로 읽힌다. */
 const R = 4;
 
-export const GoalPost = memo(function GoalPost({ id, writer }: GoalPostProps) {
+/** 보이지 않는 손잡이 반지름. 보이는 원(R=4)은 화면에서 4 px 안팎이라 그대로는 못 겨눈다.
+ *  §7.3 의 44 px 을 그대로 쓰지는 않는다 — 코트 좌표에서 22 는 휠체어 한 대(37.5×25)만 한
+ *  구멍이라 그 근처의 고무줄 선택과 칩 집기를 통째로 삼킨다. 12(지름 24 ≈ 화면 22~24 px)면
+ *  겨누기에 충분하면서 이웃을 안 먹는다. 밀린 동안에만 존재하는 표적이기도 하다. */
+const HIT_R = 12;
+
+/** 복귀를 뜻하는 커서 — 반시계 회살표(되돌리기와 같은 어휘). 흰 테두리를 두른 이유는 코트가
+ *  밝고 어두운 테마를 오가기 때문이다: 한 색으로만 그리면 한쪽 테마에서 안 보인다.
+ *  마지막의 `pointer` 는 폴백이다(데이터 URI 커서를 막는 환경에서도 "누를 수 있다" 는 남는다). */
+const RETURN_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 8.5v5h5'/%3E%3Cpath d='M5.9 13.2A7 7 0 1 0 7.6 7.6'/%3E%3C/g%3E%3Cg fill='none' stroke='%23111111' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 8.5v5h5'/%3E%3Cpath d='M5.9 13.2A7 7 0 1 0 7.6 7.6'/%3E%3C/g%3E%3C/svg%3E") 12 12, pointer`;
+
+export const GoalPost = memo(function GoalPost({ id, writer, displaced = false, onReturn }: GoalPostProps) {
   const ref = useRef<SVGGElement | null>(null);
+  const live = displaced && onReturn !== undefined;
 
   useEffect(() => {
     writer.register(id, ref.current);
@@ -29,7 +62,27 @@ export const GoalPost = memo(function GoalPost({ id, writer }: GoalPostProps) {
   }, [writer, id]);
 
   return (
-    <g ref={ref} className="goal-post" aria-hidden="true" pointerEvents="none">
+    <g
+      ref={ref}
+      className="goal-post"
+      aria-hidden="true"
+      pointerEvents={live ? 'auto' : 'none'}
+      style={live ? { cursor: RETURN_CURSOR } : undefined}
+      // ⚠️ `pointerdown` 에서 끝낸다(click 이 아니다). 코트의 손짓은 전부 pointerdown 에서
+      //    시작하므로(CourtStage), click 까지 기다리면 그 사이에 고무줄 선택이 이미 열린다.
+      //    stopPropagation 이 그 열림 자체를 막는다.
+      onPointerDown={
+        live
+          ? (e: ReactPointerEvent<SVGGElement>) => {
+              if (e.button !== 0) return; // 오른쪽·가운데는 판의 것이다(CourtStage 와 같은 규율)
+              e.stopPropagation();
+              onReturn();
+            }
+          : undefined
+      }
+    >
+      {/* 손잡이가 **먼저** 온다 — 뒤에 오면 보이는 원 위에 덮여 그 4 px 만 눌린다. */}
+      {live && <circle cx={0} cy={0} r={HIT_R} fill="transparent" />}
       <circle cx={0} cy={0} r={R} fill="#f5f5f5" stroke="#c2410c" strokeWidth={1.6} />
       <circle cx={0} cy={0} r={R} fill="none" stroke={OBJ_STROKE} strokeWidth={0.4} />
     </g>

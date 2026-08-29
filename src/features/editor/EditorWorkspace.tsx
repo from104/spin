@@ -874,6 +874,9 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 onEraseIds={eraseIds}
                 onDuplicateIds={duplicateObjIds}
                 onEditNote={(id, fresh) => setEditingNote({ id, fresh })}
+                // 밀린 골대를 눌렀을 때(2026-08-29) — [보드 설정] 안 [골대 원위치]와 **같은
+                // 함수**다. 두 손잡이가 다른 함수를 타면 언젠가 규칙이 갈린다(막힘 토스트 등).
+                onResetGoals={resetGoals}
                 epoch={state.epoch}
                 // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와
                 // 위치 이동이 한 시계로 끝난다. immediate(시점 점프)는 EditorStage 가 epoch 로
