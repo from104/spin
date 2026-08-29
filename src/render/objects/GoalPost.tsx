@@ -19,6 +19,15 @@
 //    [골대 원위치] 버튼과 같은 동작이기도 하다 — 두 손잡이가 다른 일을 하면 하나를 배운 사람이
 //    다른 하나에서 틀린다. 밀린 골대가 여럿일 때 한 대씩 되돌리는 길은 만들지 않는다.
 //
+// ── 터치에서도 보이는 표시 (2026-08-29) ────────────────────────────────────────────────
+// 위 손잡이는 처음에 **커서로만** 알렸다. 커서는 마우스에만 있으므로 태블릿에서는 발견 경로가
+// 0이었다 — 눌리기는 하는데 누를 수 있다는 것을 아무도 모른다. 그래서 밀렸을 때 화면에 남긴다:
+//   ① 밀린 골대에 **실선 강조 링** — "이건 누를 수 있다"
+//   ② 제자리에 **점선 유령**(GoalHomeGhost, ObjectLayer 가 코트 좌표에 정적으로 그린다)
+//      — "원래 여기 있어야 한다"
+// 실선/점선의 갈림이 뜻을 나른다: 실선은 지금 있는 표적, 점선은 비어 있는 자리다. 색만으로
+// 전하지 않는다(§3 — 강제색·흑백 인쇄에서도 실선/점선은 남는다).
+//
 // ⚠️ `aria-hidden` 을 **유지한다.** 이 칸은 마우스 지름길이지 새 기능이 아니다 — 같은 동작이
 //    이름 있는 버튼([보드 설정] > [골대 원위치])으로 이미 있고, 키보드·스크린리더는 그쪽으로
 //    간다. 여기를 접근성 트리에 올리면 이름 없는 표적이 하나 늘고(§3 표적 예산) 순회 순서에도
@@ -46,6 +55,30 @@ const R = 4;
  *  구멍이라 그 근처의 고무줄 선택과 칩 집기를 통째로 삼킨다. 12(지름 24 ≈ 화면 22~24 px)면
  *  겨누기에 충분하면서 이웃을 안 먹는다. 밀린 동안에만 존재하는 표적이기도 하다. */
 const HIT_R = 12;
+
+/** 밀렸음을 **보이게** 하는 강조 링 반지름. 손잡이(12)보다 안쪽이라 링을 겨누면 반드시 손잡이
+ *  안이고, 보이는 원(4)보다 바깥이라 골대 자체를 가리지 않는다. */
+const RING_R = 8.5;
+
+/** 골대의 두 색. 링·유령도 같은 색을 쓴다 — 다른 색을 쓰면 "다른 것"으로 읽힌다. */
+const GOAL_FILL = '#f5f5f5';
+const GOAL_EDGE = '#c2410c';
+
+/** 밝고 어두운 코트를 모두 견디게 하는 밑깔이 두께(흰 후광). 커서 아이콘과 같은 수법이다. */
+const HALO_W = 2.4;
+
+/** 골대가 **원래 있어야 할 자리**에 남기는 점선 유령. 밀린 골대마다 한 개.
+ *
+ *  writer 가 구동하는 GoalPost 와 달리 **코트 좌표에 정적으로** 선다 — 제자리는 코트 정의에서
+ *  오는 고정값이라 프레임마다 바뀌지 않는다(그래서 물리도, 리렌더도 타지 않는다). */
+export const GoalHomeGhost = memo(function GoalHomeGhost({ x, y }: { x: number; y: number }) {
+  return (
+    <g aria-hidden="true" pointerEvents="none">
+      <circle cx={x} cy={y} r={R} fill="none" stroke={GOAL_FILL} strokeWidth={HALO_W} opacity={0.7} />
+      <circle cx={x} cy={y} r={R} fill="none" stroke={GOAL_EDGE} strokeWidth={1.2} strokeDasharray="2.2 1.8" />
+    </g>
+  );
+});
 
 /** 복귀를 뜻하는 커서 — 반시계 회살표(되돌리기와 같은 어휘). 흰 테두리를 두른 이유는 코트가
  *  밝고 어두운 테마를 오가기 때문이다: 한 색으로만 그리면 한쪽 테마에서 안 보인다.
@@ -82,8 +115,14 @@ export const GoalPost = memo(function GoalPost({ id, writer, displaced = false, 
       }
     >
       {/* 손잡이가 **먼저** 온다 — 뒤에 오면 보이는 원 위에 덮여 그 4 px 만 눌린다. */}
-      {live && <circle cx={0} cy={0} r={HIT_R} fill="transparent" />}
-      <circle cx={0} cy={0} r={R} fill="#f5f5f5" stroke="#c2410c" strokeWidth={1.6} />
+      {live && (
+        <>
+          <circle cx={0} cy={0} r={HIT_R} fill="transparent" />
+          <circle cx={0} cy={0} r={RING_R} fill="none" stroke={GOAL_FILL} strokeWidth={HALO_W} opacity={0.85} />
+          <circle cx={0} cy={0} r={RING_R} fill="none" stroke={GOAL_EDGE} strokeWidth={1.2} />
+        </>
+      )}
+      <circle cx={0} cy={0} r={R} fill={GOAL_FILL} stroke={GOAL_EDGE} strokeWidth={1.6} />
       <circle cx={0} cy={0} r={R} fill="none" stroke={OBJ_STROKE} strokeWidth={0.4} />
     </g>
   );
