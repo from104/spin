@@ -4,18 +4,13 @@
     <meta charset="UTF-8" />
     <!-- 파비콘. 마스터는 `public/logo.svg` 하나이고 아래 PNG 는 거기서 구운 것이다(art/README.md).
          SVG 를 먼저 두는 이유: 확대·고배율 화면에서 안 뭉개지고 1.6 KB 로 가장 작다.
-         PNG 두 벌을 함께 두는 이유: **16px 로 줄면 차체 뒤끝의 흰 파선이 뭉개진다** — 그 크기에서는
+         PNG 두 벌을 함께 두는 이유: **16px 로 줄면 코트의 흰 파선이 뭉개진다** — 그 크기에서는
          브라우저가 골라 쓰도록 32/48 을 미리 구워 준다(SVG 를 못 읽는 브라우저의 대비이기도 하다). -->
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- 브라우저 크롬(주소창·상태바) 색. **2026-08-31 기현 지시로 코트 나무색으로** — 앱
-         아이콘이 그리는 그 바닥색(`core/colors.ts` COURT_BG)과 같은 값이라, 탭 아이콘과
-         주소창이 한 물건으로 읽힌다. 옛 값 '#0b0f14'(앱 배경).
-         ⚠️ manifest 의 `background_color` 는 **바꾸지 않았다** — 그쪽은 스플래시 화면 색이고,
-         앱이 실제로 처음 그리는 배경(#0b0f14)과 다르면 뜨는 순간 색이 한 번 깜빡인다. -->
-    <meta name="theme-color" content="#a9713c" />
+    <meta name="theme-color" content="#0b0f14" />
     <!-- §6.4 태블릿 앱 경험 — "홈 화면에 추가" 하면 브라우저 크롬 없이 전체화면으로 뜬다.
          나중에 네이티브 태블릿 앱으로 포팅하기 전까지 그 자리를 대신하고, 포팅 후에도
          start_url·아이콘·테마색은 그대로 재사용된다.
