@@ -685,6 +685,12 @@ export function StepSidebar({
               color: 'var(--text)',
               fontSize: '0.78125rem',
               fontWeight: 600,
+              // ⚠️ **명시해야 한다**(기현 지시 2026-08-30). 네이티브 button 은 글자를 가운데
+              //    두지만 `styles/tokens.css` 의 리셋이 `text-align: left` 로 덮는다 — 이 앱의
+              //    버튼은 대개 아이콘+글자가 왼쪽에서 시작하는 줄이라 그 리셋이 맞다. 여기만
+              //    다르다: 폭을 꽉 채우는(flex:1) 글자 하나짜리 칸이라, 왼쪽에 붙으면 오른쪽
+              //    절반이 이유 없이 비어 보인다.
+              textAlign: 'center',
             }}
           >
             {t('editor.stepSidebar.selectMode.on')}
