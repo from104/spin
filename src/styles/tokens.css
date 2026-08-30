@@ -90,7 +90,13 @@ body {
   --text: #e7edf3;
   --muted: #93a1b2;
   --faint: #63717f;
-  --accent: #c2f74e;
+  /* 액센트 — **2026-08-31 기현 지시로 형광 라임 → 앰버**(*"앱 테마색은 연두 형광색 그대로야?"*).
+   * 코트 바닥이 나무(#a9713c)가 되고 앱 마크도 따라간 뒤, UI 액센트만 옛 초록 팔레트에 남아
+   * 있었다 — 라임은 잔디 시절의 짝이었다. 값은 앱이 이미 쓰는 공 색(`colors.ts` BALL_FILL)과
+   * **같다**: 새 색을 들이지 않고 팔레트를 닫으면서, 나무·버건디와 같은 따뜻한 계열이 된다.
+   * 옛 값 '#c2f74e'(라임). 표면 대비 bg 11.51 / panel 10.70 / panel-2 11.09 / elev 9.61 —
+   * §2.8 의 --accent-text 계약(≥7)을 네 표면 모두에서 넘긴다. */
+  --accent: #fbbf24;
   --accent-ink: #0b0f14;
 }
 
@@ -105,21 +111,25 @@ body {
   --text: #0f1720;
   --muted: #56626f;
   --faint: #8b97a4;
-  --accent: #6ba80f;
+  /* 라이트 짝. 다크와 같은 관계를 유지한다 — 채도 높은 앰버를 한 단계 내려 흰 글자를 얹는다.
+   * 옛 값 '#6ba80f'(진한 라임). ⚠️ 이 토큰은 **표면 대비가 3 미만이다**(2.42~2.81, 옛 값도
+   * 2.49~2.90 으로 같았다). 그래서 글자·아웃라인에는 절대 쓰지 않고 아래 --accent-text 가
+   * 그 몫을 진다 — a11y.test.ts 가 이 사실을 대조군으로 못박아 두고 있다. */
+  --accent: #c8901a;
   --accent-ink: #ffffff;
 }
 
 /* §2.8 추가 토큰 — 기존 12개 토큰(위)은 건드리지 않는다. 대비값은 전부 WCAG 상대휘도로 계산했다. */
 :root {
   --faint-text: #8794a3; /* /panel 5.78:1  /panel-2 5.99:1 */
-  --accent-text: var(--accent); /* /panel 14.21:1 */
-  --accent-ink-strong: #0b0f14; /* /accent 15.29:1 */
+  --accent-text: var(--accent); /* /panel 10.70:1 */
+  --accent-ink-strong: #0b0f14; /* /accent 11.51:1 */
   --hit: 44px;
 }
 [data-theme="light"] {
   --faint-text: #626c78; /* /panel 5.34  /panel-2 4.96  /bg 4.58 */
-  --accent-text: #446f00; /* /panel 5.97  /panel-2 5.55  /bg 5.12 */
-  --accent-ink-strong: #14200a; /* /accent 5.83 */
+  --accent-text: #6b3f10; /* /panel 8.96  /panel-2 8.33  /bg 7.69 */
+  --accent-ink-strong: #1f1408; /* /accent 6.42 */
 }
 body[data-touch="large"] {
   --hit: 56px;
