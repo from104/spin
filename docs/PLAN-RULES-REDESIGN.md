@@ -219,7 +219,7 @@ prose(판본·출처: FIPFA Laws of the Game, 2025-04 승인판) → **law-index
 | 1 | PresentStage Provider 비의존 | ✘ — usePlayback* 무조건 호출(PresentStage.tsx:61-62). 포스터도 Provider+paused (§3에 반영) |
 | 2 | 체어 회전 표현 | ✔ — `SeedPose=[x,y,angleDeg]`, transformWriter가 rotate 적용. 회전킥은 스텝당 angleDeg 90°+씩 회전으로 연출(공 스핀은 화살표·노트 보조) |
 | 3 | situation | ✔ — 옵셔널이고 **`'set-ball'`·`'2-on-1-spacing'`이 유니언에 이미 존재**(drill.ts:157-168) — 신규 장면에 그대로 사용 |
-| 4 | RULE_SCENE_GEO | ✔ — cx/cy·goal*·area*·penalty*·centerMark·surface로 신규 7장면 전부 커버(터치라인 y=surface.y0) |
+| 4 | RULE_SCENE_GEO | ✔ — cx/cy·goal*·area*·penalty*·centerMark·surface로 신규 7장면 전부 커버(터치라인 y=surface.y0). **⚠️ 2026-08-31 사후 정정**: 커버는 맞았지만 장면들은 결국 GEO 를 *참조하지 않고* 손 리터럴로 적혔다 → `GEO`/`RULE_SCENE_GEO` 는 읽는 코드 0건이다. 같은 시기 `ruleScenes.ts` 머리말이 적어 온 *"`ruleScenes.test.ts` 가 `courtDefFor('full','28x15')` 와 대조해 드리프트를 잡는다"* 는 단언은 **실재한 적이 없다**(`rg courtDefFor src/features/rules/*.test.ts` = 0건). 그 파일 꼬리 주석에 상태를 정확히 다시 적었고, 표는 남겨 뒀다 — 손코딩 장면이 남아 있는 한 드리프트 테스트의 재료가 이것뿐이라서다. **⚠️ 같은 날 재정정**: 그 드리프트 테스트를 **실제로 붙였다**(`ruleScenes.test.ts` 의 describe *"RULE_SCENE_GEO ↔ court.ts 드리프트"* — viewBox·경기면·중심·센터 마크·골포스트·골에어리어·페널티 마크 대조). 즉 "읽는 코드 0건" 은 이제 사실이 아니고, 이 가정 4 는 세 번의 약속 끝에 실물이 됐다 |
 | 5 | NavTarget 파급 | 참조처 3곳뿐(useAppHistory.ts:32, routes.ts:54·88). useAppHistory.test 왕복 배열은 수동 — topic 케이스 손으로 추가 |
 | 6 | 헤더 부제 | 동적 발행 구조는 있으나(board/present 선례) 정적 config와 동시 사용 불가 + wiring 테스트('경기 규칙') 파손 → **정적 유지, 주제 제목은 문서 상단에** |
 | 7 | 아이콘 재고 | 60여 개 보유. 8카드 후보: IconBoard/IconListSteps/IconSides/IconGoalReset/IconToolPlayer/IconClear/IconToolBall/IconRules — 신규 제작 0~2개 |
