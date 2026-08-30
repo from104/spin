@@ -140,6 +140,8 @@ export interface CourtStageProps {
   displacedGoals?: ReadonlySet<string>;
   /** 골대의 제자리 — 밀린 골대에 점선 유령을 남긴다(`goals` 와 같은 순서). */
   goalHomes?: readonly { x: number; y: number }[];
+  /** 골대 받침판 방향(`goals` 와 같은 순서) — ObjectLayer 로 그대로 간다. */
+  goalBaseDirs?: readonly ({ x: number; y: number } | null)[];
   onGoalReturn?(): void;
   notes: readonly NoteLabelData[];
   /** 작도 도형(2026-08-14). **코트 위·칩 아래** 층이라 렌더 순서가 곧 계약이다 —
@@ -243,6 +245,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     goals,
     displacedGoals,
     goalHomes,
+    goalBaseDirs,
     onGoalReturn,
     notes,
     arrows,
@@ -869,6 +872,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           goals={goals}
           displacedGoals={displacedGoals}
           goalHomes={goalHomes}
+          goalBaseDirs={goalBaseDirs}
           onGoalReturn={onGoalReturn}
           notes={notes}
           arrows={arrows}

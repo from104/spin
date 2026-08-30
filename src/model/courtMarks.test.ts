@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '../core/units.ts';
 import { PX_PER_M } from '../core/units.ts';
+import { GOAL } from '../core/constants.ts';
 import {
   CENTER_MARK_HALF_PX,
   CENTER_MARK_SPEC_PX,
@@ -18,6 +19,7 @@ import {
   COURT_SIZES,
   COURT_DEFS,
   courtDefFor,
+  goalBaseRect,
   isOnSurface,
   SPOT_CROSS_HALF_PX,
   type CourtDef,
@@ -269,5 +271,68 @@ describe('§5.3 센터 마크 — 페널티 스팟과 같은 크기의 "X", 그�
       // half 는 2026-08-13 에 센터 마크가 생기며 4 → **5** 가 됐다.
       expect(paths.length, mode).toBe(mode === 'full' ? 9 : mode === 'half' ? 5 : 0);
     }
+  });
+});
+
+// ── 골대 받침판 (2026-08-30 기현님 실물 사진) ──────────────────────────────────────────
+// 지시: *"골대를 지지하는 사각형을 골대에 추가하라. 사각형의 위치는 골라인쪽+사이드라인쪽."*
+//
+// 방향 성분 둘의 **부호**가 이 기능의 전부다. 뒤집혀도 화면에는 여전히 사각형이 그려지므로
+// 눈으로는 "있다" 만 보이고, 판이 골 입구를 막고 있거나 코트 한복판에 서 있는 것은 코트를
+// 자세히 볼 때에야 드러난다. 그래서 부호를 성질로 못박는다 — 좌표가 아니라 관계로.
+describe('골대 받침판 — 경기면 밖 + 골 입구 밖', () => {
+  const modes = [
+    ['full', COURT_DEFS.full],
+    ['half', COURT_DEFS.half],
+  ] as const;
+
+  it.each(modes)('[%s] 판이 경기면을 침범하지 않는다 — 기둥이 박힌 만큼(inset)이 전부다', (_label, def) => {
+    const s = def.surface;
+    let seen = 0;
+    def.goalPosts.forEach((_p, i) => {
+      const b = goalBaseRect(def, i)!;
+      expect(b).not.toBeNull();
+      seen += 1;
+      // 기둥은 판의 가까운 모서리에서 `baseInsetPx` 안쪽에 박혀 있고, 그 기둥이 골라인 위에
+      // 선다 — 그러므로 판은 **정확히 그 inset 만큼** 경기면을 넘어 들어온다. 실물이 그렇다.
+      // 방향이 뒤집히면 침범 깊이가 `baseSidePx − inset`(10 px)이 되므로 여기가 먼저 걸린다.
+      const inX = Math.max(0, Math.min(b.x + b.w, s.x + s.w) - Math.max(b.x, s.x));
+      const inY = Math.max(0, Math.min(b.y + b.h, s.y + s.h) - Math.max(b.y, s.y));
+      const intrusion = Math.min(inX, inY);
+      expect(intrusion, `${_label} 골대 ${i} 의 판이 경기면을 파고든다`).toBeLessThanOrEqual(GOAL.baseInsetPx);
+    });
+    expect(seen, '대조군: 골대가 실제로 있다').toBeGreaterThan(0);
+  });
+
+  it.each(modes)('[%s] 판이 두 기둥 사이(골 입구)에 놓이지 않는다 — 사이드라인 쪽이다', (_label, def) => {
+    for (let pair = 0; pair * 2 + 1 < def.goalPosts.length; pair += 1) {
+      const a = def.goalPosts[pair * 2]!;
+      const b = def.goalPosts[pair * 2 + 1]!;
+      const mouthIsY = a.x === b.x;
+      for (const i of [pair * 2, pair * 2 + 1]) {
+        const p = def.goalPosts[i]!;
+        const r = goalBaseRect(def, i)!;
+        // 입구 축에서 판의 중심이 기둥보다 **바깥**(입구 중점 반대쪽)에 있어야 한다.
+        const mid = mouthIsY ? (a.y + b.y) / 2 : (a.x + b.x) / 2;
+        const postAxis = mouthIsY ? p.y : p.x;
+        const baseAxis = mouthIsY ? r.y + r.h / 2 : r.x + r.w / 2;
+        expect(Math.sign(baseAxis - postAxis), `${_label} 골대 ${i}`).toBe(Math.sign(postAxis - mid));
+      }
+    }
+  });
+
+  it.each(modes)('[%s] 판이 판(viewBox) 밖으로 나가지 않는다 — 마진 안에 들어간다', (_label, def) => {
+    def.goalPosts.forEach((_p, i) => {
+      const r = goalBaseRect(def, i)!;
+      expect(r.x, `${_label} ${i} 왼쪽`).toBeGreaterThanOrEqual(0);
+      expect(r.y, `${_label} ${i} 위`).toBeGreaterThanOrEqual(0);
+      expect(r.x + r.w, `${_label} ${i} 오른쪽`).toBeLessThanOrEqual(def.vbW);
+      expect(r.y + r.h, `${_label} ${i} 아래`).toBeLessThanOrEqual(def.vbH);
+    });
+  });
+
+  it('플랫 코트에는 골대가 없으므로 판도 없다', () => {
+    expect(COURT_DEFS.flat.goalPosts).toHaveLength(0);
+    expect(goalBaseRect(COURT_DEFS.flat, 0)).toBeNull();
   });
 });
