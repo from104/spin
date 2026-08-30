@@ -323,8 +323,10 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //    후속 지시(*"불투명하게하고 실제는 50cm지만 75cm로 그려"*)로 그 rect 의 크기와
     //    fill-opacity 속성이 함께 바뀌었다. 그 뒤 판 채움색이 **흰색에 가까운 주황**
     //    (`GOAL_BASE_FILL`)이 되며 한 번 더 바뀌었다 — 골대 그룹의 rect 4장만 움직인다.
+    //    2026-08-30 갱신 — **코트 바닥이 초록 → 나무**(`COURT_BG`). 바닥 rect 의 fill 한
+    //    글자만 바뀐다: 라인·개체는 색이 그대로라(대비가 기준을 계속 넘는다) 안 움직인다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '07320dbdc667c96c6371fbf81d56409254c3789c641d361e3c09317a33542c0f',
+      'e6c3352794c2736c00f884ce9d8fe0f70aff0e2dae30b3e025bbff9eb1027838',
     );
   });
 
