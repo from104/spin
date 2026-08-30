@@ -596,8 +596,15 @@ export function clampToViewBox(mode: CourtMode, p: Vec2): Vec2;
 > `goalBaseDir(def, i)` 가 대각 단위 벡터(골라인 밖 × 골 입구 밖)를, `goalBaseRect(def, i)` 가
 > 코트 좌표 사각형을, `goalBaseLocalRect(dir)` 이 기둥 원점 좌표 사각형을 준다.
 > 한 자를 네 경로가 나눠 쓴다: `GoalPostMarks`(시연·인쇄·썸네일) · `GoalPost`(편집기, 물리
-> 바디라 로컬 좌표) · `buildStaticSvg`(PNG). 치수는 `GOAL.baseSidePx`(0.5 m) ·
-> `GOAL.baseInsetPx`(0.1 m, 기둥이 판 모서리에서 안쪽으로 박히는 깊이)다.
+> 바디라 로컬 좌표) · `buildStaticSvg`(PNG).
+> 치수: `GOAL.baseSpecM`(**실물 0.5 m**, 기현님 실측) ↔ `GOAL.baseSidePx`(**표시 0.75 m** =
+> 18.75 px). 둘이 다른 것은 실수가 아니라 지시다(*"실제는 50cm지만 75cm로 그려"*) — 30 m
+> 코트에서 0.5 m 판은 기둥 원의 테두리처럼 읽혀 "무엇 위에 서 있는가" 가 안 보인다. 센터
+> 마크의 규격값↔표시값, 공의 `radiusPx`↔`viewRadiusPx` 와 같은 종류의 과장이고, 규격값을
+> 지우지 않는 이유도 같다(다음 사람이 표시값을 규격으로 착각하지 않게).
+> `GOAL.baseInsetPx`(0.1 m)은 기둥이 판 모서리에서 안쪽으로 박히는 깊이 — **판을 키워도 같이
+> 키우지 않는다**(그 값이 곧 골라인을 덮는 양이다). 채움은 불투명하다: 반투명이면 판 아래
+> 골라인이 비쳐 장비가 아니라 표시로 읽힌다.
 > ⚠️ **규정 치수가 아니다** — Laws 는 기둥 간격 6 m 와 "파일런 또는 콘" 만 정하고 받침에는
 > 아무 말이 없다. ⚠️ **물리 바디가 아니다** — 충돌은 계속 기둥(반지름 5)만 한다. 판까지
 > 막으면 골라인 바깥에서 도는 휠체어가 보이지 않는 벽에 걸린다.

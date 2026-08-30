@@ -94,7 +94,7 @@ const RETURN_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2
  *  기하(`goalBaseLocalRect`)를 쓰므로 편집기와 시연이 어긋날 자리가 없다. */
 function BasePlate({ dir }: { dir: Vec2 }) {
   const r = goalBaseLocalRect(dir);
-  return <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={GOAL_EDGE} fillOpacity={0.3} stroke={GOAL_EDGE} strokeWidth={0.8} />;
+  return <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={GOAL_EDGE} />;
 }
 
 export const GoalPost = memo(function GoalPost({ id, writer, baseDir, displaced = false, onReturn }: GoalPostProps) {
