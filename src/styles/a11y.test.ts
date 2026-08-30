@@ -34,8 +34,8 @@ describe('포커스 링 CSS 소스 — outline 색이 accent 가 아니라 accen
 
 describe('라이트 테마 --accent-text 를 outline 색으로 쓰면 모든 표면에서 3:1 을 넘는다 (SC 1.4.11)', () => {
   // tokens.css §2.8 의 실제 라이트 토큰값을 그대로 옮겨왔다(중복 정의는 의도적 — colors.test.ts 와 같은 관례).
-  const LIGHT_ACCENT = '#6ba80f'; // 기존 outline 색 — 회귀 확인용 대조군(3:1 미달이어야 정상)
-  const LIGHT_ACCENT_TEXT = '#446f00'; // 수정된 outline 색
+  const LIGHT_ACCENT = '#c8901a'; // outline 에 쓰면 안 되는 색 — 회귀 확인용 대조군(3:1 미달이어야 정상)
+  const LIGHT_ACCENT_TEXT = '#6b3f10'; // 실제 outline 색
   const LIGHT_SURFACES: Record<string, string> = {
     bg: '#eaeef3',
     panel: '#ffffff',
@@ -97,7 +97,7 @@ describe('§4.3 P1-1 접합부 — TransformWriter 가 붙이는 .chip--held 를
 });
 
 describe('다크 테마는 accent == accent-text 라 값 변경이 무영향이다', () => {
-  const DARK_ACCENT_TEXT = '#c2f74e';
+  const DARK_ACCENT_TEXT = '#fbbf24';
   const DARK_SURFACES: Record<string, string> = {
     bg: '#0b0f14',
     panel: '#12181f',
