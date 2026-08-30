@@ -92,7 +92,6 @@ export type EditorAction =
         >
       >;
     }
-  | { type: 'STEP_ADD'; afterIndex: number }
   /** 스텝 복제(§복제, 기현님 확정 2026-08-17) — **후방 복제가 기본**이라 `toIndex` 를
    *  안 주면 `model/edits.ts duplicateStep` 계약대로 바로 뒤(`i+1`)에 꽂힌다. 카드 자체의
    *  복제 버튼과 틈(gap) g>0 의 + 버튼은 그 기본값 그대로 쓴다(틈 g 는 위 스텝 g-1 을
@@ -212,7 +211,6 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'DRILL_LOAD',
   'PRESET_APPLY',
   'META_SET',
-  'STEP_ADD',
   'STEP_DUPLICATE',
   'STEP_DELETE',
   'STEP_REORDER',
@@ -265,7 +263,6 @@ export const EPOCH_BUMP_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'REDO',
   'DRILL_LOAD',
   'PRESET_APPLY',
-  'STEP_ADD',
   'STEP_DUPLICATE',
   'STEP_DELETE',
   'STEP_REORDER',

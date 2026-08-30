@@ -114,12 +114,12 @@ describe('5.2 BALL_RETAP — 되돌리기·물리와의 관계', () => {
 
   // ⚠️ v9(2026-08-27)에 뜻이 뒤집힌 케이스다. 원래는 "스텝을 옮겨도 상태가 남는다 — cast 에
   // 살기 때문이다" 였다. 이제 링은 스텝 소유이므로, **새 스텝이 상태를 물려받는 것은 복제
-  // 때문**이다(addStepAfter/duplicateStep 이 structuredClone 으로 스텝을 통째로 베낀다).
+  // 때문**이다(duplicateStep 이 structuredClone 으로 스텝을 통째로 베낀다).
   // 결과는 같아 보이지만 이유가 다르고, 그 차이는 "빈 스텝을 새로 만들면 원이 없다" 에서 갈린다.
   it('스텝을 복제하면 원도 따라온다 — 스텝을 통째로 베끼기 때문이다', () => {
     const { s0, a } = setup();
     const s1 = retap(s0, a); // 3m
-    const withStep = editorRootReducer(s1, { type: 'STEP_ADD', afterIndex: 0 });
+    const withStep = editorRootReducer(s1, { type: 'STEP_DUPLICATE', id: s1.present.steps[0]!.id });
     const moved = editorRootReducer(withStep, { type: 'STEP_SELECT', id: withStep.present.steps[1]!.id });
     expect(rings(moved)).toEqual(['3m', 'none']);
     const dup = editorRootReducer(moved, { type: 'STEP_DUPLICATE', id: moved.stepId });

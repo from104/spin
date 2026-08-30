@@ -11,7 +11,7 @@ import { StepSidebar } from './StepSidebar.tsx';
 import { SIDEBAR_GLYPH_SCALE } from '../../render/CourtThumbnail.tsx';
 import { THUMB_GLYPH } from '../../render/CourtThumbnail.tsx';
 import { createDrill } from '../../model/defaults.ts';
-import { addStepAfter } from '../../model/edits.ts';
+import { duplicateStep } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -22,7 +22,7 @@ const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider }
 
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
-  for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
+  for (let i = 1; i < n; i++) d = duplicateStep(d, i - 1);
   return d;
 }
 

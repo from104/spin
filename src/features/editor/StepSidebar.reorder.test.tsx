@@ -22,7 +22,7 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { StepSidebar } from './StepSidebar.tsx';
 import { createDrill } from '../../model/defaults.ts';
-import { addStepAfter, moveStep, setArrow, setNote } from '../../model/edits.ts';
+import { duplicateStep, moveStep, setArrow, setNote } from '../../model/edits.ts';
 import type { Drill } from '../../model/drill.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
@@ -46,7 +46,7 @@ const centerOf = (i: number) => i * (CARD_H + CARD_GAP) + CARD_H / 2;
 
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
-  for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
+  for (let i = 1; i < n; i++) d = duplicateStep(d, i - 1);
   return d;
 }
 

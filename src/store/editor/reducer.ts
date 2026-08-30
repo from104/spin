@@ -15,7 +15,6 @@ import {
   setPose,
   removeFromStepOnward,
   removeFromThisStepOnly,
-  addStepAfter,
   duplicateStep,
   deleteStep,
   moveStep,
@@ -308,8 +307,6 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       }
       return next;
     }
-    case 'STEP_ADD':
-      return addStepAfter(d, a.afterIndex);
     case 'STEP_DUPLICATE': {
       const idx = d.steps.findIndex((st) => st.id === a.id);
       return idx < 0 ? d : duplicateStep(d, idx, a.toIndex);

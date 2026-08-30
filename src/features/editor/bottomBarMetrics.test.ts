@@ -8,7 +8,7 @@ import {
   movedOrderGroup,
 } from './bottomBarMetrics.ts';
 import { createDrill } from '../../model/defaults.ts';
-import { addStepAfter, moveStep, moveSteps } from '../../model/edits.ts';
+import { duplicateStep, moveStep, moveSteps } from '../../model/edits.ts';
 
 describe('끌어 놓을 자리 판정 (dropIndexAt)', () => {
   const centers = [35, 115, 195]; // 칩 폭 70 · 간격 10
@@ -73,9 +73,9 @@ describe('미리보기 순서 (movedOrder)', () => {
 
   it('**커밋(edits.moveStep)과 같은 순서를 낸다** — 미리보기와 결과가 갈라지면 손을 뗄 때 판이 튄다', () => {
     let d = createDrill({ courtMode: 'full' });
-    d = addStepAfter(d, 0);
-    d = addStepAfter(d, 1);
-    d = addStepAfter(d, 2); // 4장
+    d = duplicateStep(d, 0);
+    d = duplicateStep(d, 1);
+    d = duplicateStep(d, 2); // 4장
     for (const [from, to] of [
       [0, 3],
       [3, 0],
@@ -111,9 +111,9 @@ describe('묶음 미리보기 순서 (movedOrderGroup)', () => {
 
   it('**커밋(edits.moveSteps)과 같은 순서를 낸다** — 미리보기와 결과가 갈라지면 손을 뗄 때 판이 튄다', () => {
     let d = createDrill({ courtMode: 'full' });
-    d = addStepAfter(d, 0);
-    d = addStepAfter(d, 1);
-    d = addStepAfter(d, 2); // 4장: A B C D
+    d = duplicateStep(d, 0);
+    d = duplicateStep(d, 1);
+    d = duplicateStep(d, 2); // 4장: A B C D
     const ids = d.steps.map((s) => s.id);
     const groupIds = new Set([ids[0]!, ids[2]!]); // A, C 선택(흩어져 있다) — 뭉쳐야 한다
     for (const toIndex of [0, 1, 2]) {
