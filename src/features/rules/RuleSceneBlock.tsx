@@ -35,6 +35,21 @@ import { useT } from '../../i18n/useT.ts';
  *  이유(min=max 로 스텝을 넘길 때 코트가 위아래로 안 밀리게 한다). */
 const NOTE_BAND_PX = 64;
 
+/** 이 장면이 노트 띠에 **글이 들어가는** 장면인가 — 고정 높이를 걸지 말지를 가른다.
+ *
+ *  ⚠️ 판단 단위는 **스텝이 아니라 장면**이다. 스텝마다 재면 노트가 있는 스텝과 없는 스텝을
+ *  오갈 때 띠가 생겼다 사라졌다 하며 재생 중에 판이 위아래로 뛴다 — `NOTE_BAND_PX` 고정이
+ *  애초에 막으려던 바로 그 현상이다. 장면 전체에 노트가 하나라도 있으면 그 장면은
+ *  처음부터 끝까지 고정 높이를 쓴다(= 지금까지의 동작 그대로).
+ *
+ *  반대로 한 스텝도 노트가 없는 장면은 띠에 `STEP n/m` 한 줄만 남거나(다스텝) 아무것도
+ *  안 남는다(1스텝). 그 높이는 스텝이 바뀌어도 변하지 않으므로 고정할 이유가 없고,
+ *  고정하면 빈 64px 이 그대로 자리를 먹는다. 편집기로 만든 장면들(scenes/*.scene.ts)은
+ *  설명을 스텝 노트가 아니라 코트 위 라벨(`step.notes[]`)로 적어서 전부 여기에 해당한다. */
+function sceneHasNote(steps: readonly DrillStep[]): boolean {
+  return steps.some((s) => (s.note ?? '').trim() !== '');
+}
+
 /** 편집·시연과 같은 순환(0.5→1→2→0.5) — `ui/PlaybackControls.tsx` 의 같은 이름 상수와 동일. */
 const NEXT_SPEED: Record<PlaybackSpeed, PlaybackSpeed> = { 0.5: 1, 1: 2, 2: 0.5 };
 
@@ -112,6 +127,7 @@ function RuleSceneInner({
   const def = courtDefFor(drill.courtMode, drill.courtSize);
   const step = drill.steps[stepIdx];
   const multiStep = drill.steps.length > 1;
+  const hasNote = useMemo(() => sceneHasNote(drill.steps), [drill]);
   const showPoster = multiStep && !active;
   // 컷 스텝(보간 없이 즉시 전환)에 진입했다는 신호 — `key={stepIdx}` 로 스텝을 넘길 때마다
   // 이 오버레이를 다시 마운트시켜 펄스 keyframe 을 매번 재생시킨다(§4 "cut 스텝 진입" 연출).
@@ -181,23 +197,33 @@ function RuleSceneInner({
           </button>
         )}
       </div>
-      <div style={{ minHeight: NOTE_BAND_PX, maxHeight: NOTE_BAND_PX, overflow: 'hidden', marginTop: 10 }}>
-        {multiStep && (
-          <div
-            style={{
-              fontSize: '0.6875rem',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              color: 'var(--faint-text)',
-              marginBottom: 2,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            STEP {stepIdx + 1}/{drill.steps.length}
-          </div>
-        )}
-        {step?.note && <p style={{ fontSize: '0.875rem', lineHeight: 1.5, color: 'var(--text)' }}>{step.note}</p>}
-      </div>
+      {/* 노트도 없고 STEP 줄도 없으면(노트 없는 1스텝 장면) 띠를 아예 렌더하지 않는다 —
+          빈 div 만 남겨도 marginTop 10 이 그대로 자리를 먹는다. */}
+      {(hasNote || multiStep) && (
+        <div
+          style={
+            hasNote
+              ? { minHeight: NOTE_BAND_PX, maxHeight: NOTE_BAND_PX, overflow: 'hidden', marginTop: 10 }
+              : { marginTop: 10 }
+          }
+        >
+          {multiStep && (
+            <div
+              style={{
+                fontSize: '0.6875rem',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                color: 'var(--faint-text)',
+                marginBottom: 2,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              STEP {stepIdx + 1}/{drill.steps.length}
+            </div>
+          )}
+          {step?.note && <p style={{ fontSize: '0.875rem', lineHeight: 1.5, color: 'var(--text)' }}>{step.note}</p>}
+        </div>
+      )}
       {multiStep && active && (
         <div className="rules-controls-in" style={{ marginTop: 10 }}>
           <PlaybackControls

@@ -275,18 +275,24 @@ describe('RulesScreen — 포스터+단일 활성', () => {
   it('여러 장면이 있는 주제에서 하나를 재생하면 나머지는 포스터로 남고, 다른 것을 재생하면 앞엣것이 포스터로 되돌아간다', async () => {
     renderRules();
     const user = userEvent.setup();
-    // "2-on-1 반칙" 주제 — 장면 5개(전부 다스텝, 전부 포스터를 가진다).
+    // "2-on-1 반칙" 주제 — 장면은 5개인데 **포스터는 4개다**(2026-08-31).
+    // 줄어든 이유: `two-on-one` 이 기현님 편집기 드릴로 교체되면서 **1스텝** 정지 판이 됐고
+    // (계획 PLAN-RULES-9CARDS.md §4.2 — 정적 배치 설명이라 의도에 맞다), `RuleSceneBlock` 은
+    // `steps.length > 1` 일 때만 포스터를 그린다 — 1스텝은 재생할 것이 없어 처음부터 판이 그대로
+    // 뜬다. 나머지 4개(active·gk·open·escape)는 손코딩 다스텝 장면이라 그대로다.
+    // ⚠️ 이 4가 흔들리면 원인은 여기가 아니라 **장면의 스텝 수**다 —
+    // `ruleScenes.test.ts` 의 `RULE_SCENE_EXPECT.steps` 가 먼저 빨개져 어느 장면인지 가리킨다.
     await user.click(screen.getByRole('button', { name: titleOf('two-on-one') }));
 
     const posters = () => screen.getAllByRole('button', { name: '장면 재생' });
-    expect(posters()).toHaveLength(5);
+    expect(posters()).toHaveLength(4);
 
     await user.click(posters()[0]!);
     expect(screen.getAllByRole('button', { name: '일시정지' })).toHaveLength(1);
-    expect(posters()).toHaveLength(4);
+    expect(posters()).toHaveLength(3);
 
     await user.click(posters()[0]!); // 이제 남은 첫 포스터 = 원래 둘째 장면
     expect(screen.getAllByRole('button', { name: '일시정지' })).toHaveLength(1);
-    expect(posters()).toHaveLength(4); // 하나만 활성 — 늘지도 줄지도 않는다
+    expect(posters()).toHaveLength(3); // 하나만 활성 — 늘지도 줄지도 않는다
   });
 });

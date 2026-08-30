@@ -1,30 +1,90 @@
 // 규칙 화면(2026-08-21 신설)의 보드 애니메이션 장면 데이터 — docs/PLAN-RULES-SCREEN.md §B.
 //
-// `model/seedDrills.ts` 의 `SeedDrillSpec`/`buildSeedDrill` 변환기를 그대로 쓴다 — 드릴 문서는
-// id 8종·pose 맵·cast 참조가 얽혀 있어 손으로 `Drill` 리터럴을 적으면 오탈자가 조용한 데이터
-// 유실이 된다(그 파일 머리말의 근거와 동일). 여기서는 좌표와 문장만 적고, id·cast 연결은
-// 변환기가 기계적으로 만든다.
+// **장면 소스는 두 갈래다**(2026-08-31 유니온 개방, docs/PLAN-RULES-9CARDS.md §4):
 //
-// 코트는 전부 **28×15m(FIPFA 표준 = 농구 코트, courtMode:'full' + courtSize:'28x15')** 로
-// 고정한다 — 근거는 docs/RULES-FIPFA-2025.md 의 "앱 반영 시 참고" 절. PX_PER_M=25 로 계산한
-// 좌표 상수는 아래 GEO 에 모아 뒀다(court.ts 의 buildFullCourt 계산을 손으로 재현한 값 —
-// ruleScenes.test.ts 가 courtDefFor('full','28x15') 와 대조해 드리프트를 잡는다).
+//  (1) `SeedDrillSpec` — 이 파일에 손으로 적는 장면. `model/seedDrills.ts` 의 `buildSeedDrill`
+//      변환기를 그대로 쓴다 — 드릴 문서는 id 8종·pose 맵·cast 참조가 얽혀 있어 손으로 `Drill`
+//      리터럴을 적으면 오탈자가 조용한 데이터 유실이 된다(그 파일 머리말의 근거와 동일).
+//      여기서는 좌표와 문장만 적고, id·cast 연결은 변환기가 기계적으로 만든다.
+//  (2) raw `Drill` — 드릴 편집기로 만들어 `scripts/import-rule-scene.mjs` 로 떨군 장면.
+//      **역변환(Drill → SeedDrillSpec)은 하지 않는다**: shapes·ballOwner·화살표 색·자유 ctrl·
+//      메모 스타일이 `SeedDrillSpec` 표현력 밖이라 되돌리는 순간 구조적으로 유실된다. 대신
+//      `SPECS` 의 값 타입을 유니온으로 열고 `'schemaVersion' in src` 로 갈래를 나눈다. 남은
+//      손코딩 장면을 하나씩 옮길 수 있고, 마지막 `SeedDrillSpec` 이 사라지는 날 유니온은 저절로
+//      접힌다.
+//
+// (1) 갈래의 코트는 전부 **28×15m(FIPFA 표준 = 농구 코트, courtMode:'full' + courtSize:'28x15')**
+// 로 고정한다 — 근거는 docs/RULES-FIPFA-2025.md 의 "앱 반영 시 참고" 절. PX_PER_M=25 로 계산한
+// 좌표 상수는 아래 GEO 에 모아 뒀다(court.ts 의 buildFullCourt 계산을 손으로 재현한 값).
+// (2) 갈래는 코트 모드·크기를 데이터가 들고 온다 — 이 파일이 정하지 않는다.
+//
+// 2026-08-31 (2) 갈래에 **12벌이 들어왔다**(계획 §4.2 매핑): kickoff·kick-in·goal-kick·corner·
+// dfk·ifk·penalty·inout·scoring·set-ball·three-in-area·two-on-one. 나머지 9개는 손코딩 그대로다.
+//
+// ⚠️ 아래 `SEED_SCENE_META`(ring/defense/cutSteps 후처리)와 `RULE_SCENE_CREATED_AT` 은 **(1) 갈래
+// 전용**이다. (2) 갈래는 그 값들을 이미 JSON 안에 들고 있고 **그것이 교체의 요점이다** — 여기서
+// 덮으면 편집기에서 찍은 것이 이 파일의 표에 지워진다.
+//
+// **2026-08-31 — 옛 `SCENE_META` 를 둘로 쪼갰다**(계획 §6.1 이 "개명하라"고 남긴 인계의 이행).
+// 한 표가 **입력**이면서 동시에 **기대값**이면 어느 쪽인지 아무도 구분할 수 없다: (1) 갈래에서는
+// 표를 고치면 장면이 따라 바뀌고(테스트는 계속 초록), (2) 갈래에서는 표를 고치면 테스트가 빨개진다.
+// 같은 이름의 같은 칸이 정반대로 행동하는 표는 다음 사람을 반드시 속인다.
+//  - `SEED_SCENE_META` — **입력**. (1) 갈래 9개만 담는다. (2) 갈래 12개를 남겨 두면 아무도 읽지
+//    않는 값이 살아 있는 것처럼 보인다(옛 표의 12칸이 정확히 그 상태였다).
+//  - `RULE_SCENE_EXPECT` — **검사표**. 21개 전부를 담고 **이 파일은 읽지 않는다**
+//    (`ruleScenes.test.ts` 전용). 표를 버리면 링·컷 불변식이 **JSON 자기증명**이 되어 조용히
+//    무장해제된다. ⚠️ 둘이 (1) 갈래 9개에서 겹쳐 보인다고 **합치지 마라** — 합치는 순간 그 9개의
+//    검사가 "내가 넣은 값이 나온다" 는 동어반복이 된다. 겹침은 낭비가 아니라 이중 기장이다.
+//
+// ⚠️ 옛 표의 값은 **그대로 검사표가 되지 못했다**(2026-08-31 실측). 교체된 12개에서 `ring` 은
+// 12/12 일치했지만 `defense` 8개·`cutSteps` 7개(합쳐 장면 9개)가 어긋났다. 어긋난 쪽은
+// **데이터가 옳다**: 옛 표는 손코딩 장면을 보고 적은 값이고, 편집기 데이터는 기현님이 판을 보며
+// 찍은 값이다(goal-kick 이 옛 표의 defense:'home' 때문에 킥커를 5m 위반으로 칠하던 버그가
+// 데이터의 away 로 낫는 것이 §4.1 근거 3 이다). 그래서 검사표는 옛 표를 베끼지 않고 **계획 §4.2
+// 표와 docs/RULES-FIPFA-2025.md 의 거리 규정**에서 다시 떴다(표 머리의 「출처」 참조).
+//   defense: kickoff away→home · two-on-one·three-in-area·kick-in·goal-kick home→away ·
+//            inout·scoring·set-ball 없음(기본 home)→away
+//   cutSteps: inout·scoring·three-in-area [1]→없음 · two-on-one [1,2]→없음 ·
+//            goal-kick [1]→[2] · kick-in 없음→[2] · corner 없음→[4]
 //
 // ⚠️ `SeedStepSpec` 에는 `cut` 필드가 없다(seedDrills.ts 는 훈련 드릴만 상대해 왔고 지금까지
 // 컷이 필요 없었다). 공용 변환기를 더 건드리지 않기 위해(계획 §B "seedDrills.ts 는 courtSize
-// 확장만") **여기서 빌드 후 후처리로** 특정 스텝에 `cut: true` 를 얹는다 — `SCENE_META.cutSteps`
-// 가 0-based 스텝 인덱스를 담는다.
+// 확장만") **여기서 빌드 후 후처리로** 특정 스텝에 `cut: true` 를 얹는다 —
+// `SEED_SCENE_META.cutSteps` 가 0-based 스텝 인덱스를 담는다.
 //
 // ring/defense 도 같은 이유로 후처리다: `SeedDrillSpec` 에는 `BallDef.ring`(공 개체 속성)과
 // `Drill.defense`(드릴 진영)를 실을 자리가 없다 — 씨앗 드릴 3종은 둘 다 쓴 적이 없어서 애초에
 // 변환기가 모른다. `ring` 은 표시가 아니라 **규칙 선택**이다(model/drill.ts 의 그 근거 — '5m' 은
 // "이 공은 세트피스" 라는 약속이라 그 공은 2-on-1 대신 5m 제한으로 판정된다, model/rules.ts
-// ruleForRing). 재시작 7종엔 '5m', 2-on-1 엔 '3m' 을 얹어 두면 다음 커밋(보드 조립)이 붙일
-// RuleOverlay 가 이미 검증된 위반 판정 로직을 그대로 재사용한다.
-import type { CourtSize } from '../../model/court.ts';
-import type { Drill, TeamSide } from '../../model/drill.ts';
+// ruleForRing). 재시작에 '5m', 2-on-1 에 '3m' 을 얹어 두면 보드가 붙일 RuleOverlay 가 이미
+// 검증된 위반 판정 로직을 그대로 재사용한다 — (2) 갈래 12벌도 편집기에서 같은 규칙으로 찍혀 있다.
+import type { CourtMode, CourtSize } from '../../model/court.ts';
+import type { Drill, StoredBallRing, TeamSide } from '../../model/drill.ts';
+import { DEFAULT_TEAMS } from '../../model/defaults.ts';
 import { buildSeedDrill } from '../../model/seedDrills.ts';
 import type { SeedDrillSpec } from '../../model/seedDrills.ts';
+
+// (2) 갈래 — 편집기가 만든 raw Drill. **파일당 한 장면이다**: 12벌을 이 모듈에 몰면 이 파일이
+// 100KB를 넘어(2026-08-31 실측) 손코딩 장면이 그 안에 묻힌다(계획 §4.3).
+// ⚠️ 합계 바이트수는 여기 적지 않는다 — 장면이 하나 늘 때마다 낡는 숫자다. 재려면
+// `stat -c %s src/features/rules/scenes/*.scene.ts`(`du` 는 압축된 디스크 사용량이라 더 작게 나온다).
+// 각 파일은 스크립트가 찍은 것이고
+// 머리말에 재실행·드리프트 검사 명령이 박혀 있다.
+// ⚠️ 그 명령이 가리키는 봉투(`SPIN_backup_20260831.spin.backup.json`)는 **저장소에 없다** —
+// `.gitignore:37` 이 `*.spin.backup.json` 을 막는다(백업엔 기기 데이터가 통째로 들어 있다).
+// 드리프트 검사를 돌리려면 그 백업이 손에 있어야 한다. 없으면 이 12벌이 정본이다.
+import { drill as kickoffScene } from './scenes/kickoff.scene.ts';
+import { drill as inoutScene } from './scenes/inout.scene.ts';
+import { drill as scoringScene } from './scenes/scoring.scene.ts';
+import { drill as twoOnOneScene } from './scenes/two-on-one.scene.ts';
+import { drill as threeInAreaScene } from './scenes/three-in-area.scene.ts';
+import { drill as dfkScene } from './scenes/dfk.scene.ts';
+import { drill as ifkScene } from './scenes/ifk.scene.ts';
+import { drill as penaltyScene } from './scenes/penalty.scene.ts';
+import { drill as kickInScene } from './scenes/kick-in.scene.ts';
+import { drill as goalKickScene } from './scenes/goal-kick.scene.ts';
+import { drill as cornerScene } from './scenes/corner.scene.ts';
+import { drill as setBallScene } from './scenes/set-ball.scene.ts';
 
 export type RuleSceneId =
   | 'field-tour'
@@ -74,49 +134,189 @@ const GEO = {
 } as const;
 
 /** 장면은 저장되지 않으므로(인메모리 전용) 값 자체는 무의미하다 — `buildSeedDrill` 이 요구하는
- *  고정 타임스탬프 하나만 있으면 된다. */
+ *  고정 타임스탬프 하나만 있으면 된다. (1) 갈래 전용: raw `Drill` 은 자기 것을 들고 온다. */
 const RULE_SCENE_CREATED_AT = 1755000000000;
 
 interface RuleSceneMeta {
-  /** 첫 공에 얹을 규칙 링 — **전 스텝에** 같은 값으로 깐다. 생략 = 링 없음.
+  /** 첫 공에 얹을 규칙 링 — **그 공이 놓인 모든 스텝에** 같은 값으로 깐다(공이 없는 스텝은
+   *  건너뛴다 — 아래 `fromSpec` 의 가드). 생략 = 링 없음.
    *
-   *  v9(2026-08-27)에 링이 cast 에서 스텝으로 내려갔지만 여기 표현은 그대로 뒀다: 지금 21개
-   *  장면은 전부 "장면 내내 같은 링" 이라 스텝별로 적을 것이 없다. 스텝마다 다른 링이 필요해지면
-   *  (예: 킥오프에서 공이 멈춘 스텝만 5 m, 킥 이후엔 없음) `cutSteps` 와 같은 꼴로
-   *  `ringSteps?: Readonly<Record<number, '3m'|'5m'>>` 를 더하면 된다 — 아래 주입 루프가 이미
-   *  스텝을 돌고 있어 자리는 준비돼 있다. */
+   *  v9(2026-08-27)에 링이 cast 에서 스텝으로 내려갔지만 여기 표현은 그대로 뒀다: 남은 (1) 갈래
+   *  9개는 전부 "장면 내내 같은 링" 이라 스텝별로 적을 것이 없다.
+   *  ⚠️ 2026-08-31 정정 — 이 문장이 오래 *"지금 21개 장면은 전부"* 라고 적혀 있었으나 (2) 갈래에는
+   *  **스텝마다 링이 다른 장면이 있다** — 12벌 중 **6벌**이다(실측: dfk·ifk·penalty 는 첫 스텝만
+   *  5m, goal-kick 은 스텝 2 만, corner 는 스텝 4 만, kick-in 은 스텝 2·3). 나머지 6벌은 이 한계에
+   *  걸리지 않는다: kickoff 은 두 스텝 **다** 5m, set-ball·two-on-one 은 1스텝이라 갈릴 자리가
+   *  없고, inout·scoring·three-in-area 는 링이 아예 없다. 편집기가 이미 그 표현을 갖고 있어서다.
+   *  (재측정: `RULE_SCENE_EXPECT` 의 `rings`·`steps` 를 나란히 읽으면 그대로 세어진다.) 그러니
+   *  이 한계는 (1) 갈래에만 남았다 — 여기에도 필요해지면 `cutSteps` 와 같은 꼴로
+   *  `ringSteps?: Readonly<Record<number, '3m'|'5m'>>` 를 더하면 된다(주입 루프가 이미 스텝을
+   *  돌고 있어 자리는 준비돼 있다). */
   ring?: '3m' | '5m';
-  /** Drill.defense 후처리. 생략 = createDrill 기본값(홈, 왼쪽 골) 그대로. */
+  /** Drill.defense 후처리. 생략 = createDrill 기본값(`defaultDefense`: 풀=home, 하프=away). */
   defense?: TeamSide;
   /** 0-based 스텝 인덱스 — 이 스텝들에 cut:true 를 얹는다(보간 없이 즉시 컷). */
   cutSteps?: readonly number[];
 }
 
-const SCENE_META: Record<RuleSceneId, RuleSceneMeta> = {
+/** **입력** 표 — (1) 갈래(손코딩 `SeedDrillSpec`) 9개 전용. 파일 머리말의 "표를 둘로 쪼갰다" 참조.
+ *
+ *  (2) 갈래 12개는 **여기 없다.** 있으면 아무도 읽지 않는 값이 살아 있는 것처럼 보인다.
+ *  `Record<RuleSceneId, …>` 가 아니라 `Partial` 인 것도 같은 이유다 — 빠진 키가 곧 "raw Drill 로
+ *  옮겨 갔다" 는 뜻이고, `{}` 가 어차피 정당한 값이라(field-tour·lineup·contested-touch) 전수
+ *  Record 로 강제해 봐야 얻는 안전이 없다. 실제 안전망은 `RULE_SCENE_EXPECT` 쪽이다. */
+const SEED_SCENE_META: Partial<Record<RuleSceneId, RuleSceneMeta>> = {
   'field-tour': {},
   lineup: {},
-  kickoff: { ring: '5m', defense: 'away' },
-  inout: { cutSteps: [1] },
-  scoring: { cutSteps: [1] },
-  'two-on-one': { ring: '3m', defense: 'home', cutSteps: [1, 2] },
   'two-on-one-active': { ring: '3m', defense: 'home', cutSteps: [1] },
   'two-on-one-gk': { ring: '3m', defense: 'home' },
   'two-on-one-open': { ring: '3m', defense: 'home' },
   'two-on-one-escape': { ring: '3m', defense: 'home' },
-  'three-in-area': { defense: 'home', cutSteps: [1] },
   ramming: { cutSteps: [1] },
   'spin-kick': { cutSteps: [2] },
-  dfk: { ring: '5m', defense: 'away' },
-  ifk: { ring: '5m', defense: 'away' },
-  penalty: { ring: '5m', defense: 'away' },
-  'kick-in': { ring: '5m', defense: 'home' },
-  'goal-kick': { ring: '5m', defense: 'home', cutSteps: [1] },
-  corner: { ring: '5m', defense: 'away' },
-  'set-ball': { ring: '3m' },
   'contested-touch': {},
 };
 
-const SPECS: Record<RuleSceneId, SeedDrillSpec> = {
+/** 장면 하나가 **담고 있어야 하는 것**. 값의 성격이 칸마다 다르므로 칸별로 근거를 적는다 —
+ *  전부 같은 무게의 "사실" 인 척하면 다음 사람이 스냅샷 핀을 규정으로 착각한다. */
+export interface RuleSceneExpect {
+  /** 코트 모드. (1) 갈래는 전부 'full'(머리말), (2) 갈래는 계획 §4.2 표가 정한다 — 12벌 중
+   *  `kickoff` 만 full 이고 나머지 11개가 half. **근거 있는 주장이다.** */
+  mode: CourtMode;
+  /** 코트 크기. (1) 갈래 '28x15'(FIPFA 표준), (2) 갈래는 §4.2 표대로 전부 '30x18'.
+   *  **근거 있는 주장이다.** */
+  size: CourtSize;
+  /** **스텝별** 링 도장 — `0-based 스텝 인덱스 → 그 스텝에 찍힌 링 종류`(공 하나에 하나씩,
+   *  중복 포함·정렬). 링이 하나도 없는 스텝은 **키가 없다.**
+   *
+   *  종류의 근거는 docs/RULES-FIPFA-2025.md 의 거리 규정이다 — 재개 7종(킥오프·직접/간접FK·
+   *  페널티·킥인·골킥·코너킥)은 상대가 공에서 5m, 세트볼은 참여자 외 전원이 3m, 2-on-1 은
+   *  공 3m 이내가 판정 반경. **거기까지가 근거 있는 주장이고, 어느 스텝에 찍는가는 스냅샷 핀이다**
+   *  — "재개 장면의 몇 번째 판에서 원을 켤까" 는 어느 문서도 규정하지 않는 연출 판단이라
+   *  `cut` 과 같은 성격이다.
+   *
+   *  ⚠️ 2026-08-31 — 옛 정의는 **종류의 집합** 하나였다(`['3m']`). 그 단위는 후처리가 링을
+   *  **전 스텝에** 깔던 시절엔 "집합 크기 1 = 전 스텝 전 공" 이라 뜻이 통했지만, 편집기 데이터는
+   *  1~2 스텝에만 찍는다(실측: dfk·ifk·penalty 첫 스텝만, goal-kick 스텝 2 만, corner 스텝 4 만,
+   *  kick-in 스텝 2·3). 그래서 집합으로 접으면 **링을 잃은 스텝이 초록으로 통과했다** — 링은
+   *  장식이 아니라 규칙 선택이라(model/rules.ts `ruleForRing`) 링을 잃은 스텝은 5m 대신
+   *  2-on-1 로 판정된다.
+   *  개수도 같은 이유로 살린다: `two-on-one` 은 공 2개에 3m 을 각각 찍으므로 `{ 0: ['3m','3m'] }`
+   *  이고, 한 공이 링을 잃으면 `['3m']` 이 되어 여기서 빨개진다 — 옛 `two-on-one` 전용 단언이
+   *  하던 일을 이 칸이 흡수했다. */
+  rings: Readonly<Record<number, readonly StoredBallRing[]>>;
+  /** 5m 링이 걸린 스텝에서 **5m 를 물러나야 하는 팀** — `스텝 인덱스 → 팀`. '5m' 이 없는 스텝은
+   *  키가 없다(3m 링은 2-on-1 로 판정돼 이 값이 뜻을 잃는다 — `ruleForRing`).
+   *
+   *  값은 `model/rules.ts` 의 `fiveMeterRetreat(step.ballOwner?.[ballId], defense)` 가 내는 답이고,
+   *  그 함수는 **공을 차는 팀의 반대**를 돌려준다(소유가 없으면 진영을 그대로 쓴다).
+   *
+   *  ⚠️ 세 재개는 **정본이 킥커를 못 박아** 근거 있는 주장이다 — 골킥은 수비 팀이 차고(Law 16),
+   *  코너킥은 수비가 마지막으로 건드려 공격 팀이 차며(Law 17), 페널티킥은 자기 골에어리어에서
+   *  반칙한 팀(= 그 골을 지키는 수비)의 상대가 찬다(Law 14). 나머지 넷은 **스냅샷 핀**이다:
+   *  킥오프의 킥커는 동전 던지기(Law 8), 킥인은 마지막으로 건드린 팀의 상대(Law 15), 프리킥은
+   *  반칙당한 팀(Law 12 — 5m 거리 규정만 Law 13) — 전부 장면이 고른 이야기지 규정이 정하는
+   *  값이 아니다(어느 팀이 반칙했나·마지막으로 건드렸나를 문서가 정해 주지 않는다). 앞의 셋은
+   *  `ruleScenes.test.ts` 가 이 표를 거치지 않고 **진영과의 관계**로 한 번 더 건다.
+   *
+   *  ⚠️ 이 칸이 없던 동안 `goal-kick` 스텝 2 의 `ballOwner` 를 지워도 테스트가 전부 초록이었다
+   *  (2026-08-31 실증). 지우면 `fiveMeterRetreat(undefined,'away') = 'away'` 가 되어 **차는 팀인
+   *  away 가 다시 5m 위반으로 칠해진다** — §4.1 근거 3 이 고쳤다는 그 버그의 거울상이다. */
+  retreat: Readonly<Record<number, TeamSide>>;
+  /** cut:true 스텝의 0-based 인덱스, 오름차순.
+   *  ⚠️ **스냅샷 핀이다** — "어디서 뚝 끊을까" 는 어느 문서도 규정하지 않는 연출 판단이라
+   *  기댓값을 문서에서 유도할 수 없다. 그래서 이 칸은 "지금 데이터가 이렇다" 를 못 박아 **다시
+   *  임베드했을 때 조용히 달라지는 것**을 잡는 용도다. 값이 바뀌었다면 먼저 재임베드를 의심하고,
+   *  의도한 변경이면 이 칸을 고친다. 구조적 규칙(컷은 첫 스텝일 수 없다)만은 별도 단언이 지킨다. */
+  cut: readonly number[];
+  /** 스텝 수. §4.2 가 못 박은 넷은 근거 있는 주장이다 — `inout` 5 · `scoring` 6 ·
+   *  `set-ball` 1 · `two-on-one` 1. 나머지는 스냅샷 핀.
+   *  ⚠️ 1스텝은 화면 동작을 바꾼다: `RuleSceneBlock` 이 `steps.length > 1` 일 때만 포스터를
+   *  그리므로 1스텝 장면은 포스터 없이 정지 판으로 뜬다(RulesScreen.test.tsx 의 포스터 개수가
+   *  이 값에 걸려 있다). */
+  steps: number;
+  /** 수비 진영(왼쪽/아래 골을 지키는 팀).
+   *  ⚠️ **스냅샷 핀이다.** 다만 이 칸이 옛 표에서 틀려 실물 버그를 냈으므로(goal-kick 이
+   *  킥커를 5m 위반으로 칠했다, §4.1 근거 3) 비워 두지 않는다. 실측하면 21/21 이
+   *  `defaultDefense(courtMode)`(풀=home, 하프=away)와 같다 — 즉 지금은 `mode` 에서 유도되는
+   *  값이지만, **그 기본값에서 벗어나는 장면이 들어오는 순간 이 칸이 그 사실을 드러낸다.**
+   *  유도로 바꿔 적으면 그 예외가 영원히 안 보인다. */
+  defense: TeamSide;
+}
+
+/** **검사표** — 21개 전수. **이 파일은 읽지 않는다**(`ruleScenes.test.ts` 전용).
+ *
+ *  출처: (2) 갈래 12개는 계획 §4.2 표(코트)와 docs/RULES-FIPFA-2025.md(거리 5m/3m · 재개별
+ *  킥커). (1) 갈래 9개는 이 파일의 `SPECS` 리터럴과 `SEED_SCENE_META` 가 **주장하는** 값을 손으로
+ *  옮겨 적은 것 — 파생이 아니라 **재진술**이다. 후처리 루프가 조용히 망가지면(예: "공 없는 스텝엔
+ *  링도 없다" 가드가 전부를 떨구면) 그 재진술만이 알아챈다. 그래서 두 표를 합치면 안 된다.
+ *
+ *  ⚠️ 값이 데이터와 어긋나면 **표를 먼저 의심하라.** 옛 `SCENE_META` 를 그대로 뒤집었다면 9개가
+ *  즉시 빨개졌을 것이고, 그때 옳은 쪽은 데이터였다(머리말의 실측 목록). */
+export const RULE_SCENE_EXPECT: Record<RuleSceneId, RuleSceneExpect> = {
+  // ── (1) 손코딩 갈래 9개 — 28×15 풀 코트 고정 ───────────────────────────────────────────────
+  // 링은 `SEED_SCENE_META.ring` 이 **공이 놓인 모든 스텝에** 같은 값으로 깐다(`fromSpec`) —
+  // 그래서 2-on-1 4종은 스텝 인덱스가 빠짐없이 채워져 있고, 그 빈틈없음 자체가 후처리 루프가
+  // 살아 있다는 증거다(가드 하나가 전부를 떨구면 여기가 빨개진다).
+  'field-tour': { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [], steps: 1, defense: 'home' },
+  lineup: { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [], steps: 1, defense: 'home' },
+  'two-on-one-active': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [1], steps: 2, defense: 'home' },
+  'two-on-one-gk': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [], steps: 2, defense: 'home' },
+  'two-on-one-open': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [], steps: 2, defense: 'home' },
+  'two-on-one-escape': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'], 2: ['3m'] }, retreat: {}, cut: [], steps: 3, defense: 'home' },
+  ramming: { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [1], steps: 2, defense: 'home' },
+  'spin-kick': { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [2], steps: 3, defense: 'home' },
+  'contested-touch': { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [], steps: 2, defense: 'home' },
+
+  // ── (2) 편집기 갈래 12개 — 30×18, kickoff 만 full (§4.2) ──────────────────────────────────
+  // 여기 `rings` 는 **띄엄띄엄하다** — 편집기 데이터는 링을 재개가 실제로 일어나는 판에만 찍는다.
+  // 그 배치가 7종에서 서로 다른 것은 기현님 판단 항목으로 남겨 뒀다(계획 §4.2 인계).
+  kickoff: { mode: 'full', size: '30x18', rings: { 0: ['5m'], 1: ['5m'] }, retreat: { 0: 'home', 1: 'home' }, cut: [], steps: 2, defense: 'home' },
+  inout: { mode: 'half', size: '30x18', rings: {}, retreat: {}, cut: [], steps: 5, defense: 'away' },
+  scoring: { mode: 'half', size: '30x18', rings: {}, retreat: {}, cut: [], steps: 6, defense: 'away' },
+  'two-on-one': { mode: 'half', size: '30x18', rings: { 0: ['3m', '3m'] }, retreat: {}, cut: [], steps: 1, defense: 'away' },
+  'three-in-area': { mode: 'half', size: '30x18', rings: {}, retreat: {}, cut: [], steps: 2, defense: 'away' },
+  dfk: { mode: 'half', size: '30x18', rings: { 0: ['5m'] }, retreat: { 0: 'away' }, cut: [], steps: 2, defense: 'away' },
+  ifk: { mode: 'half', size: '30x18', rings: { 0: ['5m'] }, retreat: { 0: 'away' }, cut: [], steps: 3, defense: 'away' },
+  penalty: { mode: 'half', size: '30x18', rings: { 0: ['5m'] }, retreat: { 0: 'away' }, cut: [], steps: 2, defense: 'away' },
+  // ⚠️ 스텝 3 은 링이 있는데 `ballOwner` 가 없다 — 폴백(진영 'away')이 스텝 2 의 답과 우연히
+  // 같아서 값이 갈라지지 않는다. 우연이 깨지는 날을 위해 기현님 판단 항목으로 올려 뒀다.
+  'kick-in': { mode: 'half', size: '30x18', rings: { 2: ['5m'], 3: ['5m'] }, retreat: { 2: 'away', 3: 'away' }, cut: [2], steps: 4, defense: 'away' },
+  // ⚠️ **이 커밋의 간판.** 골킥은 정본 Law 16 대로 **수비 팀(= 진영 away)이 찬다** — 그래서
+  // 물러나는 팀은 그 반대인 'home' 이고, 진영과 다른 유일한 칸이다. 옛 표가 이 자리를 진영으로
+  // 읽어 킥커를 5m 위반으로 칠했다(§4.1 근거 3).
+  'goal-kick': { mode: 'half', size: '30x18', rings: { 2: ['5m'] }, retreat: { 2: 'home' }, cut: [2], steps: 4, defense: 'away' },
+  corner: { mode: 'half', size: '30x18', rings: { 4: ['5m'] }, retreat: { 4: 'away' }, cut: [4], steps: 5, defense: 'away' },
+  'set-ball': { mode: 'half', size: '30x18', rings: { 0: ['3m'] }, retreat: {}, cut: [], steps: 1, defense: 'away' },
+};
+
+/** 정본이 **킥커를 못 박는** 재개 — 값이 아니라 `Drill.defense` 와의 **관계**다.
+ *
+ *  `RULE_SCENE_EXPECT.retreat` 는 손으로 옮겨 적은 표라 데이터에 맞춰 고쳐지면 그만이다.
+ *  이 표는 그 자리를 한 겹 더 받는다: 여기 셋은 "누가 차는가" 가 docs/RULES-FIPFA-2025.md 로
+ *  결정되므로, 물러나는 팀을 **장면 데이터를 보지 않고** 진영에서 유도할 수 있다.
+ *  `ruleScenes.test.ts` 가 유도한 값과 데이터를 대조한다.
+ *
+ *  - `goal-kick` — Law 16: *"수비 팀 선수가 골에어리어 안 임의 지점에서 찬다"* → 킥커 = 진영.
+ *  - `corner` — Law 17: *"수비 팀이 마지막으로 건드린 공이 골라인을 완전히 넘으면 코너킥"* →
+ *    킥커 = 공격(진영의 반대).
+ *  - `penalty` — Law 14: *"자기 팀 골에어리어 안에서 … 반칙을 저지르면 페널티킥"* → 반칙한 쪽이
+ *    그 골을 지키는 진영이므로 킥커 = 공격.
+ *
+ *  나머지 넷은 여기 **없다.** 킥오프의 킥커는 동전 던지기(Law 8), 킥인은 마지막으로 건드린 팀의
+ *  상대(Law 15), 직접/간접프리킥은 반칙당한 팀(Law 12 — *"아래 반칙을 저지르면 상대 팀에
+ *  직접프리킥"*. Law 13 이 정하는 것은 5m 거리이지 누가 차는가가 아니다) — 정본은 관계만 정하고
+ *  누가 반칙했나·누가 마지막으로 건드렸나는 장면이 고른다.
+ *  없는 근거를 지어내 넣으면 이 표의 뜻이 곧바로 죽는다. */
+export const RULE_SCENE_KICKER_BY_LAW: Partial<Record<RuleSceneId, 'defense' | 'attack'>> = {
+  'goal-kick': 'defense',
+  corner: 'attack',
+  penalty: 'attack',
+};
+
+// 값 타입이 유니온인 이유는 머리말 (2) 참조. `'schemaVersion' in src` 로 갈래를 나눈다 —
+// `SeedDrillSpec` 에는 그 키가 없다(seedDrills.ts 는 스키마 버전을 `createDrill` 이 붙이게 둔다).
+const SPECS: Record<RuleSceneId, SeedDrillSpec | Drill> = {
   // ── Law 1 — 필드 규격: 정지 도해, 선수·공 전부 미배치 ─────────────────────────────────────
   'field-tour': {
     title: '제1조 — 필드 규격',
@@ -172,147 +372,16 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec> = {
   },
 
   // ── Law 8 — 킥오프 ──────────────────────────────────────────────────────────────────────
-  kickoff: {
-    title: '제8조 — 시작과 재개: 킥오프',
-    drillType: 'set-piece',
-    situation: 'kick-off',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '경기 시작·득점 후·후반 시작마다 킥오프로 재개합니다. 전원 자기 진영에 있어야 하고, 상대 팀은 공에서 최소 5m 떨어져야 하며, 공은 센터마크에 정지해 있어야 합니다.',
-        chairs: {
-          'home-G': [75, 225, 0],
-          'home-2': [300, 170, 0],
-          'home-3': [355, 225, 0],
-          'home-4': [300, 280, 0],
-          'away-G': [700, 225, 180],
-          'away-2': [525, 165, 180],
-          'away-3': [525, 285, 180],
-          'away-4': [560, 225, 180],
-        },
-        balls: [[387.5, 225]],
-      },
-      {
-        name: '',
-        note: '주심 신호 후 공을 차서 움직이면 인플레이입니다. 킥커는 공이 다른 선수에 닿기 전 두 번째로 만지면 안 됩니다 — 어기면 상대에게 간접프리킥이 주어집니다.',
-        chairs: {
-          'home-G': [75, 225, 0],
-          'home-2': [300, 170, 0],
-          'home-3': [370, 235, 0],
-          'home-4': [330, 255, 0],
-          'away-G': [700, 225, 180],
-          'away-2': [525, 165, 180],
-          'away-3': [525, 285, 180],
-          'away-4': [560, 225, 180],
-        },
-        balls: [[330, 255]],
-        arrows: [{ from: [387.5, 225], to: [330, 255] }],
-      },
-    ],
-  },
+  kickoff: kickoffScene,
 
   // ── Law 9 — 인/아웃 플레이 ──────────────────────────────────────────────────────────────
-  inout: {
-    title: '제9조 — 인/아웃 플레이',
-    drillType: 'tactical',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '공은 지면이든 공중이든 라인을 완전히 벗어나야 아웃오브플레이입니다. 공이 라인에 걸쳐 있으면 아직 인플레이입니다.',
-        chairs: { 'home-4': [400, 90, 270] },
-        balls: [[400, 37.5]],
-      },
-      {
-        name: '',
-        note: '공 전체가 터치라인을 완전히 넘으면 그 순간 아웃오브플레이가 되고, 마지막으로 공을 건드린 팀의 상대에게 킥인이 주어집니다(제15조).',
-        chairs: { 'home-4': [400, 90, 270] },
-        balls: [[400, 15]],
-      },
-    ],
-  },
+  inout: inoutScene,
 
   // ── Law 10 — 득점 방법 ──────────────────────────────────────────────────────────────────
-  scoring: {
-    title: '제10조 — 득점 방법',
-    drillType: 'tactical',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '공 전체가 골포스트 사이 골라인을 굴러서 완전히 통과하면 득점입니다. 들리거나 실려서 넘어가면 안 됩니다.',
-        chairs: { 'home-4': [700, 225, 0] },
-        balls: [[750, 225]],
-      },
-      {
-        name: '',
-        note: '공이 골라인에 못 미치면(또는 바닥에서 50.8cm 이상 떠서 넘으면) 득점으로 인정되지 않습니다.',
-        chairs: { 'home-4': [700, 225, 0] },
-        balls: [[725, 225]],
-      },
-    ],
-  },
+  scoring: scoringScene,
 
   // ── Law 11 — 필드 포지션: 2-on-1 ────────────────────────────────────────────────────────
-  'two-on-one': {
-    title: '제11조 — 필드 포지션: 2-on-1',
-    drillType: 'tactical',
-    situation: '2-on-1-spacing',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '인플레이 공 3m 안에 같은 팀 2명과 상대 1명이 있고, 둘 다 액티브 플레이(패스·방해·이득)에 관여하면 2-on-1 위반입니다.',
-        chairs: {
-          'home-2': [370, 210, 20],
-          'home-3': [420, 240, 200],
-          'away-2': [400, 260, 270],
-          'home-4': [200, 350, 0],
-          'away-3': [600, 150, 180],
-        },
-        balls: [[400, 225]],
-        arrows: [{ from: [370, 210], to: [420, 240] }],
-      },
-      {
-        name: '',
-        note: '위반이 인정되면 주심은 위반이 일어난 지점에서 상대 팀에게 간접프리킥을 줍니다.',
-        chairs: {
-          'home-2': [370, 210, 20],
-          'home-3': [420, 240, 200],
-          'away-2': [400, 260, 270],
-          'home-4': [200, 350, 0],
-          'away-3': [600, 150, 180],
-        },
-        balls: [[400, 225]],
-        notes: [{ at: [400, 190], text: '간접 프리킥' }],
-      },
-      {
-        name: '',
-        note: '팀원 하나가 공에서 3m 밖으로 빠지면 더 이상 2-on-1이 아닙니다 — 남은 팀원과 상대 각 1명은 위반이 아닙니다.',
-        chairs: {
-          'home-2': [370, 210, 20],
-          'home-3': [500, 320, 200],
-          'away-2': [400, 260, 270],
-          'home-4': [200, 350, 0],
-          'away-3': [600, 150, 180],
-        },
-        balls: [[400, 225]],
-      },
-    ],
-  },
+  'two-on-one': twoOnOneScene,
 
   // ── Law 11 — 2-on-1: 액티브 플레이 관여 전/후 ───────────────────────────────────────────
   'two-on-one-active': {
@@ -464,39 +533,7 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec> = {
   },
 
   // ── Law 11 — 필드 포지션: 골에어리어 3인 ────────────────────────────────────────────────
-  'three-in-area': {
-    title: '제11조 — 필드 포지션: 골에어리어 3인',
-    drillType: 'tactical',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '공이 자기 진영에서 인플레이인 동안 같은 팀 3명 이상이 동시에 자기 골에어리어 안에 있으면 위반입니다.',
-        chairs: {
-          'home-G': [75, 225, 0],
-          'home-2': [110, 160, 90],
-          'home-3': [110, 290, 270],
-          'home-4': [280, 225, 0],
-        },
-        balls: [[300, 225]],
-      },
-      {
-        name: '',
-        note: '위반이 인정되면 상대 팀에게 위반 지점에서 간접프리킥이 주어집니다. 득점 기회를 저지했다면 제12조(카드)까지 적용될 수 있습니다.',
-        chairs: {
-          'home-G': [75, 225, 0],
-          'home-2': [110, 160, 90],
-          'home-3': [110, 290, 270],
-          'home-4': [280, 225, 0],
-        },
-        balls: [[300, 225]],
-        notes: [{ at: [110, 225], text: '간접 프리킥' }],
-      },
-    ],
-  },
+  'three-in-area': threeInAreaScene,
 
   // ── Law 12 — 반칙과 비신사적 행위: 램핑 ──────────────────────────────────────────────────
   ramming: {
@@ -559,233 +596,25 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec> = {
   },
 
   // ── Law 13 — 프리킥: 직접 ───────────────────────────────────────────────────────────────
-  dfk: {
-    title: '제13조 — 프리킥: 직접프리킥',
-    drillType: 'set-piece',
-    situation: 'direct-fk',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '반칙이 일어난 지점에서 직접프리킥을 찹니다. 상대는 공에서 최소 5m 떨어져야 하고, 공은 정지 상태여야 합니다.',
-        chairs: { 'home-3': [280, 225, 0], 'away-3': [450, 225, 180], 'away-G': [700, 225, 180] },
-        balls: [[300, 225]],
-      },
-      {
-        name: '',
-        note: '직접프리킥이 상대 골로 직접 들어가면 득점이 인정됩니다.',
-        chairs: { 'home-3': [280, 225, 0], 'away-3': [450, 225, 180], 'away-G': [700, 225, 180] },
-        balls: [[690, 220]],
-        arrows: [{ from: [300, 225], to: [690, 220] }],
-        notes: [{ at: [500, 190], text: '직접 득점 인정' }],
-      },
-    ],
-  },
+  dfk: dfkScene,
 
   // ── Law 13 — 프리킥: 간접 ───────────────────────────────────────────────────────────────
-  ifk: {
-    title: '제13조 — 프리킥: 간접프리킥',
-    drillType: 'set-piece',
-    situation: 'indirect-fk',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '간접프리킥은 주심이 한 팔을 머리 위로 곧게 들어 표시합니다. 다른 선수를 거쳐야만 득점이 인정됩니다.',
-        chairs: { 'home-3': [280, 225, 0], 'home-4': [400, 260, 0], 'away-3': [450, 225, 180], 'away-G': [700, 225, 180] },
-        balls: [[300, 225]],
-        notes: [{ at: [280, 190], text: '간접 — 주심이 팔을 든다' }],
-      },
-      {
-        name: '',
-        note: '홈이 짧게 내주고 받은 선수가 슈팅합니다 — 다른 선수를 거쳤으므로 득점이 인정됩니다.',
-        chairs: { 'home-3': [280, 225, 0], 'home-4': [400, 260, 0], 'away-3': [450, 225, 180], 'away-G': [700, 225, 180] },
-        balls: [[690, 220]],
-        arrows: [
-          { from: [300, 225], to: [400, 260] },
-          { from: [400, 260], to: [690, 220] },
-        ],
-      },
-    ],
-  },
+  ifk: ifkScene,
 
   // ── Law 14 — 페널티킥 ───────────────────────────────────────────────────────────────────
-  penalty: {
-    title: '제14조 — 페널티킥',
-    drillType: 'set-piece',
-    situation: 'penalty',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '공은 페널티 마크(골라인에서 3.5m)에 정지합니다. 수비 골키퍼는 킥 전까지 체어 전체가 골라인 뒤에 정지해 있어야 합니다. 그 외 선수는 필드 안·골에어리어 밖·마크 뒤·마크에서 5m 이상 떨어져 있어야 합니다.',
-        chairs: {
-          'away-G': [735, 225, 180],
-          'home-3': [630, 225, 0],
-          'home-2': [500, 150, 0],
-          'home-4': [500, 300, 0],
-          'away-2': [500, 190, 180],
-          'away-3': [500, 260, 180],
-        },
-        balls: [[650, 225]],
-      },
-      {
-        name: '',
-        note: '킥커가 페널티킥을 찹니다. 직접 득점이 인정됩니다.',
-        chairs: {
-          'away-G': [735, 225, 180],
-          'home-3': [630, 225, 0],
-          'home-2': [500, 150, 0],
-          'home-4': [500, 300, 0],
-          'away-2': [500, 190, 180],
-          'away-3': [500, 260, 180],
-        },
-        balls: [[730, 220]],
-        arrows: [{ from: [650, 225], to: [730, 220] }],
-      },
-    ],
-  },
+  penalty: penaltyScene,
 
   // ── Law 15 — 킥인 ───────────────────────────────────────────────────────────────────────
-  'kick-in': {
-    title: '제15조 — 킥인',
-    drillType: 'set-piece',
-    situation: 'kick-in',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '공 전체가 터치라인을 넘으면 마지막으로 건드린 팀의 상대가 그 지점에서 킥인을 합니다. 상대는 공이 인플레이 될 때까지 5m 이상 떨어져야 합니다.',
-        chairs: { 'away-3': [300, 45, 90], 'home-2': [300, 170, 90], 'home-3': [420, 100, 180] },
-        balls: [[300, 37.5]],
-      },
-      {
-        name: '',
-        note: '공을 차서 움직이면 인플레이입니다. 킥인에서도 직접 득점이 인정됩니다.',
-        chairs: { 'away-3': [300, 45, 90], 'home-2': [300, 170, 90], 'home-3': [420, 100, 180] },
-        balls: [[320, 90]],
-        arrows: [{ from: [300, 37.5], to: [320, 90] }],
-      },
-    ],
-  },
+  'kick-in': kickInScene,
 
   // ── Law 16 — 골킥 ───────────────────────────────────────────────────────────────────────
-  'goal-kick': {
-    title: '제16조 — 골킥',
-    drillType: 'set-piece',
-    situation: 'goal-kick',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '공격 팀이 마지막으로 건드린 공이 골라인을 넘으면 골킥으로 재개합니다. 수비 팀 선수가 골에어리어 안 임의 지점에서 차고, 상대는 5m 이상 떨어져야 합니다.',
-        chairs: { 'home-2': [100, 225, 0], 'away-3': [280, 225, 180] },
-        balls: [[100, 225]],
-      },
-      {
-        name: '',
-        note: '공이 골에어리어를 직접 벗어나야 인플레이입니다 — 벗어나지 못하면 재킥입니다.',
-        chairs: { 'home-2': [100, 225, 0], 'away-3': [280, 225, 180] },
-        balls: [[220, 225]],
-        arrows: [{ from: [100, 225], to: [220, 225] }],
-      },
-    ],
-  },
+  'goal-kick': goalKickScene,
 
   // ── Law 17 — 코너킥 ─────────────────────────────────────────────────────────────────────
-  corner: {
-    title: '제17조 — 코너킥',
-    drillType: 'set-piece',
-    situation: 'corner',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '수비 팀이 마지막으로 건드린 공이 골라인을 넘으면 코너킥입니다. 공은 코너 트라이앵글 안에 두고, 에어리어 밖 상대는 5m, 에어리어 안 상대는 1m 침범 마크 뒤(또는 골라인 위 골키퍼)에 있어야 합니다.',
-        chairs: {
-          'home-3': [700, 380, 315],
-          'away-G': [735, 225, 180],
-          'away-4': [650, 220, 180],
-          'away-3': [550, 300, 180],
-        },
-        balls: [[715, 395]],
-      },
-      {
-        name: '',
-        note: '직접 득점이 인정됩니다 — 골 앞으로 크로스합니다.',
-        chairs: {
-          'home-3': [700, 380, 315],
-          'away-G': [735, 225, 180],
-          'away-4': [650, 220, 180],
-          'away-3': [550, 300, 180],
-        },
-        balls: [[680, 240]],
-        arrows: [{ from: [715, 395], to: [680, 240] }],
-      },
-    ],
-  },
+  corner: cornerScene,
 
   // ── Law 8 — 세트볼(Set Ball) ────────────────────────────────────────────────────────────
-  'set-ball': {
-    title: '세트볼(Set Ball)',
-    drillType: 'set-piece',
-    situation: 'set-ball',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '경기가 멈춘 지점에 공을 둡니다. 각 팀 1명씩 공에서 30cm 이내에 같은 거리로, 터치라인과 평행하게 공을 바라보며 대기합니다. 그 외 전원은 3m 밖에 있어야 합니다.',
-        chairs: {
-          'home-3': [442.5, 300, 0],
-          'away-3': [457.5, 300, 180],
-          'home-G': [75, 225, 0],
-          'home-2': [250, 150, 0],
-          'home-4': [250, 380, 0],
-          'away-G': [700, 225, 180],
-          'away-2': [560, 150, 180],
-          'away-4': [560, 380, 180],
-        },
-        balls: [[450, 300]],
-      },
-      {
-        name: '',
-        note: '주심이 신호하면 재개합니다. 신호 전 참여 선수 중 한 명이라도 체어를 돌리면(턴) 상대 팀에 그 지점에서 간접프리킥이 주어집니다.',
-        chairs: {
-          'home-3': [442.5, 300, 0],
-          'away-3': [457.5, 300, 180],
-          'home-G': [75, 225, 0],
-          'home-2': [250, 150, 0],
-          'home-4': [250, 380, 0],
-          'away-G': [700, 225, 180],
-          'away-2': [560, 150, 180],
-          'away-4': [560, 380, 180],
-        },
-        balls: [[450, 300]],
-        notes: [{ at: [450, 265], text: '신호 전 턴 → 간접FK' }],
-      },
-    ],
-  },
+  'set-ball': setBallScene,
 
   // ── Law 15 — 경합: 동시 접촉 주행 ───────────────────────────────────────────────────────
   'contested-touch': {
@@ -814,11 +643,50 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec> = {
   },
 };
 
-/** 스펙 하나 → 장면 드릴 하나. `ring`/`defense`/`cut` 은 `SeedDrillSpec` 표현력 밖이라
- *  변환 후 후처리한다(파일 머리말 근거). */
+/** 장면 하나를 만든다. 갈래는 머리말 (1)/(2) — `'schemaVersion' in src` 하나로 갈린다.
+ *
+ *  `?? {}` 는 "(1) 갈래인데 메타가 없다" = 링·컷·진영 후처리가 없다는 뜻이다. `{}` 는 정당한
+ *  값이므로(field-tour 등) 여기서 던지지 않는다 — 값이 실제로 맞는지는 `RULE_SCENE_EXPECT` 가 본다. */
 export function buildRuleScene(id: RuleSceneId): Drill {
-  const drill = buildSeedDrill(SPECS[id], RULE_SCENE_CREATED_AT);
-  const meta = SCENE_META[id];
+  const src = SPECS[id];
+  return 'schemaVersion' in src ? fromRawDrill(src) : fromSpec(src, SEED_SCENE_META[id] ?? {});
+}
+
+/** (2) 편집기가 만든 raw `Drill`. **후처리를 하지 않는 것이 이 갈래의 요점이다** — ring·defense·
+ *  cut·좌표·메모는 이미 데이터 안에 있고, 표로 덮으면 편집기에서 찍은 것이 지워진다. 그래서 이
+ *  12개는 `SEED_SCENE_META` 에 **키조차 없다** — 후처리가 실수로 되살아날 자리를 없앤 것이다.
+ *
+ *  두 가지만 손댄다.
+ *  - `teams`: 앱 기본값(`DEFAULT_TEAMS`)으로 갈아끼운다. 안 하면 드릴을 만든 기기의 팀색·팀이름이
+ *    규칙 화면 팀색으로 굳는다 — 규칙 도해는 특정 기기 설정이 아니라 앱 기본을 보여야 한다.
+ *    (지금 들어 있는 12벌은 이미 기본값이라 값이 안 바뀐다. 앞으로 들어올 것을 위한 방어다.)
+ *  - 사본: 모듈 상수를 그대로 넘기면 호출자가 공유 객체를 잡는다. `buildSeedDrill` 갈래는 매번
+ *    새 객체를 주므로, 두 갈래의 계약을 같게 맞춘다.
+ *
+ *  **`title`·`id`·`createdAt`/`updatedAt` 은 봉투 값 그대로 둔다**(2026-08-31 판단, 근거 셋).
+ *  - `title`: 규칙 화면은 드릴 제목을 **안 그린다** — `RuleSceneBlock` 이 쓰는 것은 코트·스텝
+ *    수·`step.note` 뿐이고(`PresentStage` 도 title 을 안 읽는다), 화면에 보이는 제목은 별개
+ *    데이터인 `topic.title`/`law.title`(RuleTopicDoc)이다. 그래서 조항 형식('제8조 —')으로
+ *    고쳐 적어도 보이는 것이 없고, 대신 기현님 라이브러리의 제목('2-1 킥오프')을 그대로 두면
+ *    그 제목이 곧 `--title` 키라 `--check` 드리프트 검사가 계속 산다.
+ *  - `id`: 라이브러리와 같은 `dr_…` 를 들고 오지만 이 값은 **저장소에 닿지 않는다** —
+ *    `buildRuleScene` 호출자는 `RuleSceneBlock` 하나뿐이고(그 밖은 테스트), 거기서 드릴은
+ *    `PresentStage` 로 내려가 그려지기만 한다. 규칙 화면에 쓰기 경로가 없다(features/rules 전체에
+ *    storage/repo 호출 0건). 접두사를 붙이면 원본과 대조가 끊기므로 붙이지 않는다. 언젠가 이
+ *    드릴을 저장하는 경로가 생기면 **그때** 접두사가 필요해진다.
+ *  - 타임스탬프: `RULE_SCENE_CREATED_AT` 이 지키려던 것은 "빌드할 때마다 값이 달라지지 않는 것"
+ *    이다. 봉투 값도 소스에 박힌 리터럴이라 그 재현성은 그대로다(기계 시계를 읽지 않는다). */
+function fromRawDrill(src: Drill): Drill {
+  return {
+    ...structuredClone(src),
+    teams: { home: { ...DEFAULT_TEAMS.home }, away: { ...DEFAULT_TEAMS.away } },
+  };
+}
+
+/** (1) 손코딩 `SeedDrillSpec`. `ring`/`defense`/`cut` 은 `SeedDrillSpec` 표현력 밖이라
+ *  변환 후 후처리한다(파일 머리말 근거). */
+function fromSpec(spec: SeedDrillSpec, meta: RuleSceneMeta): Drill {
+  const drill = buildSeedDrill(spec, RULE_SCENE_CREATED_AT);
 
   // v9 — 링은 스텝 소유다. cut 과 **한 번의 순회**로 함께 얹는다.
   const cutSet = new Set(meta.cutSteps ?? []);
@@ -866,5 +734,22 @@ export const RULE_SCENE_IDS: readonly RuleSceneId[] = [
   'contested-touch',
 ];
 
-// GEO 는 테스트가 courtDefFor('full','28x15') 와 대조하는 데도 쓴다.
+// ⚠️ 상태 정정(2026-08-31). 이 export 와 머리말은 오래 *"ruleScenes.test.ts 가
+// courtDefFor('full','28x15') 와 대조해 드리프트를 잡는다"* 고 적어 왔지만 **그런 단언은 실재한
+// 적이 없다** — `rg courtDefFor src/features/rules/*.test.ts` 가 0건이다. 즉 지금 GEO 는
+// **읽는 코드가 없다**: 위 (1) 갈래 장면들의 좌표는 GEO 를 참조하지 않고 손으로 적힌 리터럴이고,
+// GEO 는 그 숫자들이 어디서 나왔는지를 적어 둔 대조표다.
+//
+// 그래도 지우지 않는 이유: 약속된 그 드리프트 테스트가 아직 **쓸 값이 있는** 물건이다. 손코딩
+// 장면 9개가 남아 있는 한 court.ts 의 28×15 계산이 바뀌면 그 좌표들은 조용히 어긋나고, 그걸
+// 잡는 유일한 재료가 이 표다.
+//
+// ✅ 2026-08-31 — **그 테스트를 붙였다.** `ruleScenes.test.ts` 의 describe
+// *"RULE_SCENE_GEO ↔ court.ts 드리프트"* 가 `courtDefFor('full','28x15')` 와 위 표를 대조한다
+// (viewBox·경기면·중심·센터 마크·골포스트 4개·골에어리어 2개+깊이·페널티 마크 2개).
+// 이 export 는 그 단언 하나가 유일한 소비자다 — 즉 **읽는 코드가 생겼다.**
+//
+// ⚠️ 여기 세 번이나 "붙이면 쓸 값이 있다" 는 약속만 적혔던 자리다(그 반복 자체가 지적이었다).
+// **약속을 더 적지 마라** — 다음 사람이 이 표에 뭔가 더 해야 한다고 생각되면, 적는 대신 붙여라.
+// 손코딩 장면이 0개가 되는 날에는 표와 단언을 함께 지운다.
 export { GEO as RULE_SCENE_GEO };

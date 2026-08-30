@@ -766,6 +766,13 @@ blocks: `prose` → `law-index`
 - **`.json` + import 가 아니라 `.ts` 를 쓰는 이유**: `tsconfig.app.json` 에 `resolveJsonModule`
   이 없어 빌드 설정을 건드려야 하고, `satisfies Drill` 이라야 스키마가 올라가는 날
   **컴파일 오류로** 알려 준다(장면은 저장 대상이 아니라 too-new 거절 보호를 못 받는다).
+  > ⚠️ **2026-08-31 정정 — 윗줄 뒷부분은 거짓이다.** `satisfies Drill` 은 필드 이름·타입의
+  > 오탈자는 잡지만 **스키마 번호가 올라가는 날은 못 잡는다**: `Drill.schemaVersion` 은 리터럴 9 가
+  > 아니라 `number` 다(`src/model/drill.ts:351`). 찍힌 `schemaVersion: 9` 는 `CURRENT_DRILL_SCHEMA`
+  > 가 10이 되어도 그대로 통과한다. 그 자리는 `src/features/rules/ruleScenes.test.ts` 의
+  > *"schemaVersion 도장이 CURRENT_DRILL_SCHEMA 와 같다"* 단언이 대신 선다.
+  > (윗줄을 지우지 않는 이유: 이 계획서를 읽고 그렇게 믿은 사람이 있었고, 그 믿음이 어디서 왔는지가
+  > 정정보다 오래 쓸모 있다. `.ts` 를 고른 결론 자체는 남은 근거 둘로 여전히 선다.)
 
 ---
 
@@ -964,7 +971,7 @@ npm run test             # 커밋 직전 한 번
 | 1 | `docs/PLAN-RULES-9CARDS.md`(이 문서) + 정본 포인터 6곳 | 이 문서를 싣고 `README.md`·`ROADMAP.md`·`REQUIREMENTS.md`·`DESIGN.md`·`RULES-FIPFA-2025.md`·`FIELD-TEST.md` 의 정본 포인터를 옮긴다. ⚠️ `REQUIREMENTS.md` 의 옛 포인터(`PLAN-RULES-SCREEN.md`)도 정정 |
 | 2 | `docs/research/powerchair-football/README.md` | §3.4 채택 문안 목록 + 못 박을 세 줄 |
 | 3 | `scripts/import-rule-scene.mjs` + `src/features/rules/scenes/*.scene.ts` ×12 | §4.3 파이프라인과 12개 생성(아직 아무도 import 하지 않는다 → 테스트 무영향) |
-| 4 | `src/features/rules/ruleScenes.ts` | (a) SPECS 유니온 열기 + `'schemaVersion' in src` 가드 (b) `SCENE_META` → `RULE_SCENE_EXPECT` 검사표 (c) 죽은 `GEO`/`RULE_SCENE_GEO` 삭제(참조 0건) (d) 머리말의 거짓 주석 정정 — *"`ruleScenes.test.ts` 가 `courtDefFor` 와 대조해 드리프트를 잡는다"* 는 단언은 **실재한 적이 없다**(`PLAN-RULES-REDESIGN.md` 의 '가정 4 ✔' 도 같이 정정) |
+| 4 | `src/features/rules/ruleScenes.ts` | (a) SPECS 유니온 열기 + `'schemaVersion' in src` 가드 (b) `SCENE_META` → `RULE_SCENE_EXPECT` 검사표 (c) ~~죽은 `GEO`/`RULE_SCENE_GEO` 삭제(참조 0건)~~ → **2026-08-31 정정: 삭제하지 않고 반대로 갔다.** 지우는 대신 약속돼 있던 드리프트 단언을 실제로 붙였다(`ruleScenes.test.ts` 의 describe *"RULE_SCENE_GEO ↔ court.ts 드리프트"*) — 손코딩 장면 9개의 좌표가 court.ts 의 28×15 계산과 갈리는 것을 잡는 재료가 이 표뿐이고, 이 저장소 규율은 "호출자 0이라고 다 지우지 마라" 다. 이제 참조는 0건이 아니다. (d) 머리말의 거짓 주석 정정 — *"`ruleScenes.test.ts` 가 `courtDefFor` 와 대조해 드리프트를 잡는다"* 는 단언은 **그때까지 실재한 적이 없었다**(`PLAN-RULES-REDESIGN.md` 의 '가정 4 ✔' 도 같이 정정). 지금은 실재한다 — (c) 가 붙였다 |
 | 5 | `src/features/rules/ruleTopics.ts` | 9주제 재작성. `RuleTopicKey`·`RULE_TOPIC_KEYS`·`TOPICS_KO` 세 곳을 같은 순서로. `contested` 폐기. `RuleBlock` 에 `scene-slot` 추가. **장면 검산: scene 블록 14 + 표 7 = 21, 고아 0** |
 | 6 | `src/features/rules/RuleTopicDoc.tsx` | `case 'scene-slot': return null` + `default` → `const _exhaustive: never`. 함께: (a) 블록 React key 를 index → `${topic.key}-${i}-${block.kind}`(이번 개편이 정확히 블록 재배열이라, 지금 구조면 표의 선택 열 state 가 엉뚱한 블록으로 승계될 수 있다) (b) 주제 마운트마다 h2 로 포커스 이동 + 스크롤 맨 위 복귀(주제 전환은 화면 키가 안 바뀌어 `AppShell` 의 포커스 이펙트가 안 돈다) |
 | 7 | `src/features/rules/RulesHome.tsx` | `TOPIC_ICONS` 9키: `intro`→`IconInfo`(신규 import), ~~`purpose`→`IconToolBall`(폐기되는 `contested` 에서 반납), 나머지 7 유지~~ → **2026-08-31 구현 중 뒤집음(§3.2 에 근거): `purpose`→`IconGoalReset`, 그 자리를 내준 `goal-area`→`IconRuleZone`(골라인 + 그 앞 사각 구역 = 골에어리어 도식 그 자체), 나머지 6 유지.** 튜토리얼 앵커를 위치·키 삼항에서 **데이터(`tutorialAnchor?: 'rules-card' | 'rules-appendix'`)로** 옮긴다 — ~~지금 배치에서 동작은 같지만~~ **동작이 같지 않았다(2026-08-31 구현 중 발견): 삼항의 "첫 카드"가 `basics`→`intro` 로 밀리면서 튜토리얼 2단계가 배지 없는 카드를 가리키며 배지를 설명하게 됐다. 앵커는 `basics`(배지 있음)·`rulebook` 에 데이터로 박는다** — 다음에 순서를 만지는 사람이 튜토리얼을 조용히 죽이는 것을 막는다(이 앵커에는 지키는 테스트가 하나도 없다) |
