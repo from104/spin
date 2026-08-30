@@ -353,8 +353,14 @@ export function SettingsScreen() {
                 desc={t('settings.physics.spinDesc')}
                 ariaLabel={t('settings.physics.spinTitle')}
                 value={physics.zones.sSpinMin}
+                // ⚠️ 상한은 **정리 함수(prefs.sanitize)가 허용하는 끝**과 같아야 한다(0.9).
+                //    2026-08-30 발견: 여기가 0.45 로 굳어 있었다 — 네 토막이던 시절(기본
+                //    0.32)의 범위다. 2026-08-11 에 기본이 0.5 가 되면서 이미 **기본값이 슬라이더
+                //    밖**이었고(엄지가 끝에 붙어 있고, 건드리는 순간 0.45 로 조용히 내려간다),
+                //    2026-08-30 에 2/3 가 되며 더 벌어졌다. 기본값을 못 담는 슬라이더는
+                //    조정기가 아니라 함정이다.
                 min={0.22}
-                max={0.45}
+                max={0.9}
                 step={0.01}
                 format={(v) => v.toFixed(2)}
                 onChange={(v) => patchZone('sSpinMin', v)}

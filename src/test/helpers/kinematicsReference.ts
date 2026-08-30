@@ -139,7 +139,10 @@ export function stepSpinGolden(
 /** (C) tow — §5.5. 단방향 로프(밀 수 없음) + 로프 길이 정확 유지 + 피벗 통과 반경 게인.
  *  이완 판정은 "목표점이 로프 원 안인가"(|T−P| < rho) 다 — 링크 길이가 rho 로 고정이므로
  *  원 안쪽 점은 압축 없이는 닿을 수 없다. 로프 방향과의 각도로 판정하면 옆으로 비스듬히 끄는
- *  정상 제스처까지 회전이 죽는다(2026-08-09 정정). */
+ *  정상 제스처까지 회전이 죽는다(2026-08-09 정정).
+ *  이완 갈래는 **제자리 회전**이다(2026-08-30 기현 지시로 평행 이동에서 바뀌었다) — 그쪽
+ *  주석(physics/kinematics.ts stepTow)이 근거를 쥔다. 여기서는 같은 규칙을 독립적으로 옮겨
+ *  적는다: 이 파일의 값어치는 두 구현이 같은 답을 내는지 보는 것이므로 규칙이 갈리면 안 된다. */
 export function stepTowGolden(
   pose: ChairPoseGolden,
   grab: GrabLatchGolden,
@@ -151,10 +154,14 @@ export function stepTowGolden(
   const err = { x: target.x - g.x, y: target.y - g.y };
   const toPivotX = target.x - pose.x;
   const toPivotY = target.y - pose.y;
-  if (Math.hypot(toPivotX, toPivotY) < grab.rho) {
-    // 로프 이완 — 밀 수 없다. 회전 없이 평행 이동만.
-    const d = clampMagGolden(err, GOLDEN_PARAMS.vLin * dt);
-    return { x: pose.x + d.x, y: pose.y + d.y, theta: pose.theta };
+  const dPivot = Math.hypot(toPivotX, toPivotY);
+  if (dPivot < grab.rho) {
+    // 로프 이완 — 밀 수 없다. **제자리에서 손끝 쪽으로만** 돈다(이동 0).
+    const thetaSlack = Math.atan2(toPivotY, toPivotX) - grab.beta;
+    const gainSlack = Math.min(1, dPivot / Math.max(grab.rho * 0.5, 1e-6));
+    const maxD = GOLDEN_PARAMS.omega * dt;
+    const dSlack = Math.max(-maxD, Math.min(maxD, wrapPiGolden(thetaSlack - pose.theta) * gainSlack));
+    return { x: pose.x, y: pose.y, theta: pose.theta + dSlack };
   }
   const vGrab = GOLDEN_PARAMS.vLin + GOLDEN_PARAMS.omega * grab.rho;
   const dG = clampMagGolden(err, vGrab * dt);

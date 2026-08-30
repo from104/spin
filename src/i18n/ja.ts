@@ -730,7 +730,7 @@ export const ja: Record<DictKey, string> = {
   'editor.helpModal.basics.fine.desc':
     '最後の数ピクセルは方向キー・WASD で、向きは Q・E で合わせます — Shift を足すと大きく動きます。キーボードのないタブレットでは、オブジェクトを長押しして出るメニュー上部の微調整パッドが同じ働きをし、押し続けると連続します。',
   'editor.helpModal.basics.move.key': '移動',
-  'editor.helpModal.basics.move.desc': '車いすはつかむ場所がそのまま動作になります — 後ろ半分をつかむと移動、前半分はその場回転、車体の外の前後ハンドルは線に沿ったけん引です。',
+  'editor.helpModal.basics.move.desc': '車いすはつかむ場所がそのまま動作になります — 後ろ2/3をつかむと移動、前1/3はその場回転、車体の外の前後ハンドルは先に向きを変えてから引くけん引です。',
   'editor.helpModal.basics.select.key': '選択・解除',
   'editor.helpModal.basics.select.desc': '選択ツールは少しずれて押しても一番近いオブジェクトをつかみます。選択したオブジェクトをその場でもう一度タップするか、Escを押すと解除されます。',
   'editor.helpModal.basics.selectMany.key': '複数選択',

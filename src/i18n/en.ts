@@ -733,7 +733,7 @@ export const en: Record<DictKey, string> = {
     'Nudge the last few pixels with the arrow keys or WASD, and turn with Q/E — hold Shift for a bigger step. On a tablet with no keyboard, the nudge pad at the top of the long-press menu does the same thing, and repeats while held.',
   'editor.helpModal.basics.move.key': 'Move',
   'editor.helpModal.basics.move.desc':
-    'For wheelchairs, where you grab it is the action — grab the back half to move it, the front half to spin in place, and the handles outside the body (front/back) to tow it along a line.',
+    'For wheelchairs, where you grab it is the action — grab the back two thirds to move it, the front third to spin in place, and the handles outside the body (front/back) to tow it, turning first.',
   'editor.helpModal.basics.select.key': 'Select / Deselect',
   'editor.helpModal.basics.select.desc':
     'With the select tool, tapping slightly off still grabs the nearest object. Tap the selected object again in place, or press Esc, to deselect it.',

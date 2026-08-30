@@ -58,17 +58,18 @@ describe('3.9 첫 섹션 — 어떻게 놓는가 / 어떻게 옮기는가', () =
   it('4존 운동학이 **한 문장**이다 — 뒤 절반 이동 · 앞 절반 제자리 회전 · 차체 밖 견인', () => {
     const move = editorBasicsRows(t).find(([term]) => term === '옮기기')!;
     const line = move[1];
-    for (const word of ['뒤 절반', '그대로 이동', '앞 절반', '제자리 회전', '차체 밖', '견인']) {
+    for (const word of ['뒤 2/3', '그대로 이동', '앞 1/3', '제자리 회전', '차체 밖', '견인']) {
       expect(line, word).toContain(word);
     }
     // "한 문장으로" 가 명세다(§7 3.9) — 마침표가 하나면 문장도 하나다.
     expect(line.match(/\./g), '한 문장이어야 한다').toHaveLength(1);
   });
 
-  it('그 문장의 출처가 아직 사실이다 — DEFAULT_ZONES 가 반반 + 차체 밖 견인', () => {
-    // 도움말은 코드를 못 본다. 이 단언이 둘을 묶는다: 경계를 다시 옮기면(반반이 아니게 되면)
-    // 여기가 깨지고, 고치는 사람은 editorBasicsRows 의 '뒤 절반/앞 절반' 문구도 함께 고쳐야 한다.
-    expect(DEFAULT_ZONES.sSpinMin).toBe(1 / 2);
+  it('그 문장의 출처가 아직 사실이다 — DEFAULT_ZONES 가 2:1 + 차체 밖 견인', () => {
+    // 도움말은 코드를 못 본다. 이 단언이 둘을 묶는다: 경계를 다시 옮기면 여기가 깨지고,
+    // 고치는 사람은 editorBasicsRows 의 '뒤 2/3 · 앞 1/3' 문구도 함께 고쳐야 한다.
+    // (2026-08-30 기현 지시로 반반 → 2:1. 그때 실제로 이 단언이 먼저 빨개졌다.)
+    expect(DEFAULT_ZONES.sSpinMin).toBe(2 / 3);
     expect(DEFAULT_ZONES.sTowRearMax).toBe(0); // 차체 안 견인 없음 — 견인은 차체 밖 가이드뿐
     expect(DEFAULT_ZONES.sTowFrontMin).toBe(1);
   });
