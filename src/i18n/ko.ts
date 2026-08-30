@@ -732,7 +732,7 @@ export const ko = {
   'editor.helpModal.basics.fine.desc':
     '마지막 몇 px 은 방향키·WASD 로, 방향은 Q·E 로 맞춥니다 — Shift 를 더하면 큰 걸음입니다. 키보드가 없는 태블릿에서는 개체를 길게 눌러 나오는 메뉴 맨 위의 미세 이동 패드가 같은 일을 하고, 누르고 있으면 이어집니다.',
   'editor.helpModal.basics.move.key': '옮기기',
-  'editor.helpModal.basics.move.desc': '휠체어는 잡는 곳이 곧 동작입니다 — 뒤 절반을 잡으면 그대로 이동, 앞 절반은 제자리 회전, 차체 밖 앞뒤 손잡이는 줄로 끄는 견인입니다.',
+  'editor.helpModal.basics.move.desc': '휠체어는 잡는 곳이 곧 동작입니다 — 뒤 2/3 를 잡으면 그대로 이동, 앞 1/3 은 제자리 회전, 차체 밖 앞뒤 손잡이는 줄로 끌되 회전을 먼저 하는 견인입니다.',
   'editor.helpModal.basics.select.key': '선택·해제',
   'editor.helpModal.basics.select.desc': '선택 도구는 조금 빗나가게 눌러도 가장 가까운 개체가 잡히고, 선택된 개체를 그 자리에서 다시 탭하거나 Esc 를 누르면 풀립니다.',
   'editor.helpModal.basics.selectMany.key': '여러 개 고르기',

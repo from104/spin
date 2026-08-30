@@ -392,9 +392,10 @@ describe('선택 표시와 4개 드래그 존', () => {
     const alphaOf = (el: Element): number => Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(el.getAttribute('fill') ?? '')?.[1] ?? 0);
     const widthOf = (el: Element): number => Number(el.getAttribute('width') ?? 0);
     const xOf = (el: Element): number => Number(el.getAttribute('x') ?? 0);
-    // 반반이라 폭으로는 앞뒤를 못 가른다 — 차체 로컬 x 가 작은 쪽이 뒤(그대로 이동)다.
+    // 차체 로컬 x 가 작은 쪽이 뒤(그대로 이동)다. 2026-08-30 부터 폭이 2:1 이라 폭으로도
+    // 갈리지만, 순서는 계속 x 로 정한다 — 비율이 또 바뀌어도 이 줄은 안 흔들린다.
     const [rear, front] = rects.slice().sort((a, b) => xOf(a) - xOf(b));
-    expect(widthOf(rear!) / widthOf(front!), '앞뒤가 반반이 아니다').toBeCloseTo(1, 3);
+    expect(widthOf(rear!) / widthOf(front!), '이동:회전이 2:1 이 아니다').toBeCloseTo(2, 3);
     expect(alphaOf(rear!), '그대로 이동 구역이 더 진해야 한다').toBeGreaterThan(alphaOf(front!));
   });
 });

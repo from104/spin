@@ -233,8 +233,9 @@ describe('판이 거짓말하지 않는다 — 차체 음영이 판정과 같은
   it.each(COURTS)('[%s] 대조군 OFF — 음영이 둘로 갈리고 각각 차체의 절반이다', (mode) => {
     const t = tints(false, mode);
     expect(t).toHaveLength(2);
-    expect(t[0]!.w).toBeCloseTo(CHAIR.lengthPx / 2, 6);
-    expect(t[1]!.w).toBeCloseTo(CHAIR.lengthPx / 2, 6);
+    // 2026-08-30 기현 지시로 이동:회전 = 2:1(그 전에는 반반).
+    expect(t[0]!.w).toBeCloseTo((CHAIR.lengthPx * 2) / 3, 6);
+    expect(t[1]!.w).toBeCloseTo(CHAIR.lengthPx / 3, 6);
     // 합은 같아도 장수가 다르다 — 이 두 it 이 붙어 있어야 "언제나 한 장" 도 "언제나 두 장" 도 못 지난다.
     expect(t[0]!.w + t[1]!.w).toBeCloseTo(CHAIR.lengthPx, 6);
   });

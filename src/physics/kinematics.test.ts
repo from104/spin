@@ -203,11 +203,19 @@ describe('G5 로프 이완 · 견인 회전 (blocker 회귀)', () => {
   // 정상 제스처까지 회전을 죽였다(전방 앵커 135° 방향 1초 → θ=0.0°, 미끄러지기만 함).
   // 아래 세 성질이 동시에 성립해야 한다.
 
-  it('끌어 놓고 살짝 되밀어 미세 조정하면 차체가 돌지 않는다 (원래 가드의 목적)', () => {
+  // ⚠️ 2026-08-30 기현 지시로 **이 계약이 뒤집혔다.** 옛 이름은 *"끌어 놓고 살짝 되밀어 미세
+  //    조정하면 차체가 돌지 않는다 (원래 가드의 목적)"* 였고, 되밀면 회전 0 · 평행 이동으로
+  //    뒷걸음질쳤다. 지시: *"앞뒤로 끌기 액션도 아무리 예각의 끌기여도 회전을 우선하여
+  //    움직이기"*. 그래서 이완 갈래는 이제 **이동 0 · 손끝 쪽으로 회전**이다.
+  //
+  //    옛 가드가 진짜로 막으려던 것(§10.9 G5 의 ∓167° 한 프레임 잭나이프)은 여기서 함께 본다:
+  //    회전량이 손떨림에 **연속**이고 폭주하지 않는가.
+  it('되밀면 뒤로 밀리지 않고 손끝 쪽으로 조금 돈다 — 회전 우선, 이동 0', () => {
     // 매 드래그마다 일어나는 동작이라 여기서 방향이 흔들리면 못 쓴다.
     for (const s of [1.0, 0.0]) {
       const grab = latchFromSLat(s, 0);
       const dir = s >= 0.5 ? 1 : -1;
+      const turned: number[] = [];
       for (const eps of [1, -1, 0.2, -0.2]) {
         let pose: Pose = { x: 300, y: 250, theta: 0 };
         const G0 = grabPoint(pose as never, grab);
@@ -216,17 +224,34 @@ describe('G5 로프 이완 · 견인 회전 (blocker 회귀)', () => {
           pose = stepTow({ pose: pose as never, grab, target: { x: G0.x + dir * 40 * Math.min(1, t / 0.6), y: G0.y }, dt: DT }, LIM);
         }
         const Gc = grabPoint(pose as never, grab);
+        const pushBackFrom = { x: pose.x, y: pose.y };
         for (let k = 0; k < 84; k++) {
           pose = stepTow({ pose: pose as never, grab, target: { x: Gc.x - dir * 6, y: Gc.y + eps }, dt: DT }, LIM);
         }
-        expect(Math.abs(pose.theta * DEG)).toBeLessThan(0.01);
+        // ★ 핵심 — 되민 만큼 **뒤로 가지 않는다**. 예전에는 여기서 피벗이 6 px 물러났다.
+        expect(pose.x, `s=${s} eps=${eps} 피벗이 움직였다`).toBeCloseTo(pushBackFrom.x, 6);
+        expect(pose.y).toBeCloseTo(pushBackFrom.y, 6);
+        // 회전은 있되 작고, 손떨림 크기에 **연속**이다(잭나이프면 여기가 세 자릿수로 뜬다).
+        // ⚠️ 상한이 앵커마다 다른 것은 **로프 길이가 달라서**다: 전방 앵커는 rho=26 이라 6 px
+        //    되밀기가 작은 각이지만, 후방 앵커는 rho=6.5 뿐이라 같은 6 px 이 큰 각이 된다
+        //    (짧은 지레). 폭주가 아니라 기하다 — 아래 대칭·단조 단언이 그것을 갈라 준다.
+        const cap = s >= 0.5 ? 10 : 45;
+        expect(Math.abs(pose.theta * DEG), `s=${s} eps=${eps} 회전이 폭주했다`).toBeLessThan(cap);
+        turned.push(pose.theta * DEG);
       }
+      const [p1, m1, p02, m02] = turned as [number, number, number, number];
+      expect(Math.sign(p1)).toBe(-Math.sign(m1)); // 좌우 대칭
+      expect(Math.abs(p1 + m1)).toBeLessThan(1e-6);
+      expect(Math.abs(p02)).toBeLessThan(Math.abs(p1)); // 작은 섭동 → 작은 회전
+      expect(Math.abs(m02)).toBeLessThan(Math.abs(m1));
     }
   });
 
-  it('로프 원 밖으로 크게 되밀면 회전하되, 그 양이 섭동에 연속이다', () => {
-    // 반대편까지 끌고 가면 도는 게 물리적으로 맞다. 문제였던 것은 회전 여부가 아니라
-    // 손떨림 0.2px 에 ∓167° 로 갈리던 것 — 반경 게인으로 연속이 됐는지를 본다.
+  it('★ 앵커를 반대편으로 끌면 제자리에서 크게 돈다 — 회전 우선(2026-08-30 지시)', () => {
+    // 지시의 예: *"앞 앵커를 바로 뒤로(180도) 끌면 휠체어는 제자리회전하여 끌려야 한다."*
+    // 2026-08-30 이전에는 손가락이 로프 원 안을 지나는 동안 이완 갈래에 갇혀 **후진만** 했고,
+    // 84 스텝 뒤 회전이 30° 도 안 됐다(그때의 단언이 `< 30` 이었다). 지금은 168° 넘게 돈다.
+    // 옛 blocker(손떨림 0.2px 에 ∓167° 로 갈리던 것)는 방향이 **연속**인지로 계속 지킨다.
     const grab = latchFromSLat(1.0, 0);
     const run = (eps: number): number => {
       let pose: Pose = { x: 300, y: 250, theta: 0 };
@@ -247,7 +272,8 @@ describe('G5 로프 이완 · 견인 회전 (blocker 회귀)', () => {
     expect(Math.sign(run(-1))).toBe(-1);
     expect(Math.abs(run(-1) + big)).toBeLessThan(0.01); // 좌우 대칭
     expect(Math.abs(small)).toBeLessThan(Math.abs(big)); // 작은 섭동 → 작은 회전
-    expect(Math.abs(big)).toBeLessThan(30); // 폭주하지 않는다(예전엔 167°)
+    // ★ 크게 돈다 — 이것이 새 계약이다. 예전 값은 `< 30`(사실상 안 돎)이었다.
+    expect(Math.abs(big)).toBeGreaterThan(150);
   });
 
   it('앵커를 비스듬히 끌면 차체가 따라 돈다 (사용자 신고 회귀)', () => {
