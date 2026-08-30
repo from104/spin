@@ -248,13 +248,20 @@ viewBox 가 사방 12.5 px 씩 커졌다 — 마진은 코트를 줄이는 것�
   `#/sessions` 등). 세션 시연 중 레일 활성은 `railFor` 가 [세션]으로 덮는다.
 - **2026-08-21**: `rules`(규칙)가 세션과 설정 사이에 합류했다 — 파워체어풋볼 규칙(FIPFA Laws
   of the Game)을 조항별로 읽고, 보드 애니메이션으로 재생해 보는 화면이다. `present` 와 달리
-  대상 없이도 온전한 목적지(조항 목록)라 레일에 선다. 정본은
-  `docs/RULES-FIPFA-2025.md`·`docs/PLAN-RULES-SCREEN.md`.
+  대상 없이도 온전한 목적지(조항 목록)라 레일에 선다. 규칙 팩트 정본은
+  `docs/RULES-FIPFA-2025.md`, 화면 인프라의 원설계는 `docs/PLAN-RULES-SCREEN.md`(설계
+  히스토리 — 콘텐츠 구조는 이후 두 번 뒤집혔다).
 - **2026-08-22 (주제별 재설계)**: 화면 키·레일 항목 수는 그대로다(위 표 무변) — 바뀐 것은
-  `rules` **화면 안** 구조다. 조항 사전식 좌측 목록을 8개 주제 카드 홈(`RuleTopicKey`)으로
-  갈아엎었다 — 18개조는 압축판 부록(`ruleContent.ts`, 카드 하나)으로 강등됐다. 딥링크는
-  `/rules/law-N` → `/rules/:topic` 으로 바뀌었다(옛 형식은 부록 주제로 흡수하는 단방향 관용만
-  남았다 — `routes.ts`). 정본은 `docs/PLAN-RULES-REDESIGN.md`.
+  `rules` **화면 안** 구조다. 조항 사전식 좌측 목록을 주제 카드 홈(`RuleTopicKey`, 그때는
+  8주제)으로 갈아엎었다 — 18개조는 압축판 부록(`ruleContent.ts`, 카드 하나)으로 강등됐다.
+  딥링크는 `/rules/law-N` → `/rules/:topic` 으로 바뀌었다(옛 형식은 부록 주제로 흡수하는
+  단방향 관용만 남았다 — `routes.ts`). 이 회차의 원설계는 `docs/PLAN-RULES-REDESIGN.md`
+  (설계 히스토리).
+- **2026-08-31 (9카드 개편)**: 화면 키·레일 항목 수는 또 그대로고(위 표 무변), 카드 홈이
+  **8장 → 9장**이 됐다. 앞에 `intro`(파워체어풋볼이란)·`purpose`(게임의 목적)가 서고,
+  `contested`(경합)는 `restarts` 로 흡수돼 폐기됐다 — 옛 딥링크 `/rules/contested` 는
+  `routes.ts` 의 단방향 흡수 분기가 `restarts` 로 받는다. **콘텐츠 정본은
+  `docs/PLAN-RULES-9CARDS.md`** 다.
 - 옛 키(`home`/`library`) 관용 표(`LEGACY_SCREEN_KEYS`)는 라우터 도입으로 은퇴했다 — 진실이
   `history.state` 에서 URL 로 옮겨 갔다.
 - 좁은 창에서는 세로 레일이 **헤더 좌측 세그먼트**로 접힌다. 같은 항목·같은 아이콘이다.

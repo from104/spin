@@ -49,7 +49,14 @@ export function IconLibrary({ size = 19, ...rest }: IconProps) {
   );
 }
 
-/** 정보 ⓘ — 드릴 메타 시트(C7)의 열기 버튼. */
+/** 정보 ⓘ.
+ *
+ *  원래 용도는 **드릴 메타 시트(C7)의 열기 버튼**이었다. 그 자리는 2026-08-28(310f9eb)에
+ *  아래 `IconDrillInfoEdit`(연필) / `IconDrillInfoRead`(눈) 한 벌로 갈려 나가면서 비었고,
+ *  한동안 이 아이콘은 호출자가 0이었다. 2026-08-31 규칙 화면 9카드 개편에서 카드 1
+ *  [파워체어풋볼이란]의 주제 아이콘으로 다시 쓴다(`features/rules/RulesHome.tsx`, 현재 유일한
+ *  호출자). 옛 용도를 지우지 않고 남기는 이유: 다음에 ⓘ 를 쓸 사람이 "메타 시트 관례"를
+ *  물려받는 줄 알고 고르지 않도록. */
 export function IconInfo({ size = 19, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>

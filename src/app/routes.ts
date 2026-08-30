@@ -20,6 +20,7 @@
 //   /rules                 규칙 카드 홈                  screen 'rules'
 //   /rules/:topic          규칙 주제 상세(딥링크)         screen 'rules' + {kind:'rule', topic}
 //   /rules/law-:N          (관용) 옛 조항 딥링크          위와 동일, topic:'rulebook' 으로 흡수
+//   /rules/contested       (관용) 폐기된 옛 주제           위와 동일, topic:'restarts' 로 흡수
 //   /settings              설정
 //
 // ⚠️ '/drills/:id' 의 화면 키가 'drills' 가 아니라 'board' 인 것은 2026-08-09 재편 그대로다:
@@ -89,6 +90,9 @@ export function parsePath(pathname: string, search: string = ''): ParsedRoute {
       // 관용: 2026-08-21 딥링크 형식(/rules/law-N) — 재설계 전 주소를 부록 주제로 흡수한다
       // (과거 형식을 되살리는 게 아니라, 남아 있을 수 있는 링크가 죽지 않게 하는 것뿐).
       if (/^law-\d+$/.test(seg[1])) return { screen: 'rules', target: { kind: 'rule', topic: 'rulebook' } };
+      // 관용: 2026-08-31 9카드 개편에서 폐기된 주제(contested) — 그 콘텐츠가 간 곳(restarts)으로
+      // 흡수한다. 없으면 북마크가 404 도 없이 조용히 카드 홈으로 떨어진다.
+      if (seg[1] === 'contested') return { screen: 'rules', target: { kind: 'rule', topic: 'restarts' } };
       return { screen: 'rules', target: { kind: 'rule', topic: seg[1] } };
     }
     case 'settings':

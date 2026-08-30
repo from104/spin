@@ -8,7 +8,7 @@
 //
 // 호출부가 `key={topic.key}` 를 줘야 한다 — 주제를 바꿀 때 이 컴포넌트 전체가 다시 마운트되며
 // activeSceneId 등 내부 상태가 저절로 초기화된다(RestartTableBlock 의 선택 열도 함께 리셋).
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RuleBlock, RuleTopic, RuleTopicKey } from './ruleTopics.ts';
 import { MISCONDUCT_CARDS } from './ruleTopics.ts';
 import { RULE_GROUP_LABELS, RULE_GROUP_ORDER, ruleContentFor } from './ruleContent.ts';
@@ -93,28 +93,48 @@ function LawIndexBlock() {
   );
 }
 
-function renderBlock(block: RuleBlock, index: number, activeSceneId: RuleSceneId | null, onActivate: (id: RuleSceneId) => void) {
+/** 블록 하나를 그린다.
+ *
+ *  key 에 `topicKey` 와 `block.kind` 를 섞는 이유 — 지금 이 순간에는 **인덱스 키만 써도 무해하다**:
+ *  호출부(RulesScreen.tsx)가 `key={current.key}` 로 이 문서를 주제마다 통째로 리마운트시켜서,
+ *  "인덱스는 같은데 블록 종류가 다른 다음 주제" 가 앞 주제 블록의 상태를 승계할 경로 자체가 없다.
+ *  그래도 바꾼다: 그 방어는 **호출부 사정**이고, 이 컴포넌트가 남의 리마운트에 기대고 있으면
+ *  호출부가 언젠가 key 를 떼는 순간(예: 주제 전환 애니메이션을 위해 인스턴스를 유지하는 개편)
+ *  조용히 상태가 새는 버그로 돌아온다. 자기 key 는 자기가 책임진다. */
+function renderBlock(block: RuleBlock, index: number, topicKey: RuleTopicKey, activeSceneId: RuleSceneId | null, onActivate: (id: RuleSceneId) => void) {
+  const key = `${topicKey}-${index}-${block.kind}`;
   switch (block.kind) {
     case 'prose':
-      return <ProseBlock key={index} heading={block.heading} body={block.body} />;
+      return <ProseBlock key={key} heading={block.heading} body={block.body} />;
     case 'figure':
       return (
-        <div key={index} style={{ marginTop: 16 }}>
+        <div key={key} style={{ marginTop: 16 }}>
           <RuleFigure id={block.figureId} />
         </div>
       );
     case 'scene':
+      // 장면만 sceneId 를 key 로 쓴다 — 같은 장면이 위치를 옮겨도 재생 상태를 이어가야 한다.
       return (
         <RuleSceneBlock key={block.sceneId} sceneId={block.sceneId} active={activeSceneId === block.sceneId} onActivate={() => onActivate(block.sceneId)} />
       );
     case 'restart-table':
-      return <RestartTableBlock key={index} activeSceneId={activeSceneId} onActivateScene={onActivate} />;
+      return <RestartTableBlock key={key} activeSceneId={activeSceneId} onActivateScene={onActivate} />;
     case 'card-list':
-      return <MisconductCardList key={index} />;
+      return <MisconductCardList key={key} />;
     case 'law-index':
-      return <LawIndexBlock key={index} />;
-    default:
+      return <LawIndexBlock key={key} />;
+    case 'scene-slot':
+      // 일부러 아무것도 안 그린다 — "준비 중"·"coming soon" 자리표시자를 사용자에게 배송하지
+      // 않는 것이 요점이다(계획 §5.2). 자리는 화면이 아니라 blocks 배열의 인덱스와 `note`
+      // 메모로 지킨다: 장면이 들어오면 이 블록을 kind:'scene' 으로 바꾸기만 하면 된다.
+      // (`note` 는 소스에만 사는 필드다 — 이 case 가 아무것도 안 읽는 것이 정상이다.)
       return null;
+    default: {
+      // exhaustive 검사 — 예전의 `default: return null` 은 유니온에 kind 를 더하고 case 를
+      // 빠뜨렸을 때 **조용히 안 그려졌다**. scene-slot 이 그 구멍을 막으면서 들어오는 첫 kind다.
+      const _exhaustive: never = block;
+      return _exhaustive;
+    }
   }
 }
 
@@ -129,6 +149,34 @@ export interface RuleTopicDocProps {
 export function RuleTopicDoc({ topic, prevTopic, nextTopic, onBack, onSelectTopic }: RuleTopicDocProps) {
   const t = useT();
   const [activeSceneId, setActiveSceneId] = useState<RuleSceneId | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // 주제가 열릴 때마다 제목으로 포커스를 옮기고 스크롤을 맨 위로 되돌린다(9CARDS §8-6b).
+  //
+  // AppShell 의 §7.6 포커스 이펙트는 여기서 **안 돈다** — 그 이펙트의 의존성은 화면 키와 무대
+  // 대상뿐이고(AppShell.tsx), 주제 전환은 `/rules/<topic>` 안에서만 움직여 셋 다 그대로다.
+  // 그래서 문서 맨 아래 [다음 주제] 를 누르면 새 주제가 **바닥에 스크롤된 채** 뜨고, 포커스는
+  // 방금 사라진 카드 버튼에 남아 아무 데도 없는 상태가 된다. 카드가 8→9로 늘어 이 경로를
+  // 밟는 횟수가 늘었다.
+  //
+  // 스크롤 대상은 window 가 아니라 상위 <main> 이다: appShell.css 가 `html, body, #root` 를
+  // overflow:hidden 으로 못박아 페이지 자체는 절대 스크롤하지 않고, 이 화면의 스크롤은
+  // RulesScreen.tsx 의 `<main id="main" style={{ overflowY:'auto' }}>` 이 혼자 진다.
+  // id 대신 closest('main') 으로 찾는다 — 이 문서가 어느 화면에 얹히든 자기를 담은 스크롤
+  // 컨테이너를 따라간다.
+  //
+  // 포커스 링: outline:none 을 걸지 않고 a11y.css 의 전역 `:focus-visible` 에 맡긴다. 프로그램
+  // 포커스는 직전 입력이 키보드였을 때만 :focus-visible 에 걸리므로, 마우스로 카드를 누른
+  // 사용자에게는 링이 안 뜨고 Enter 로 넘어온 키보드 사용자에게는 뜬다 — 원하는 그대로다.
+  useEffect(() => {
+    const h2 = headingRef.current;
+    if (!h2) return;
+    // preventScroll — 브라우저가 알아서 맞추는 위치가 아니라 "맨 위"를 우리가 정한다
+    // (제목 위에 [← 홈으로] 버튼이 있어 h2 를 보이게만 하면 그 줄이 잘린다).
+    h2.focus({ preventScroll: true });
+    const scroller = h2.closest('main');
+    if (scroller) scroller.scrollTop = 0;
+  }, [topic.key]);
 
   return (
     <div className="rules-doc-in" style={{ maxWidth: 760, margin: '0 auto' }}>
@@ -148,10 +196,12 @@ export function RuleTopicDoc({ topic, prevTopic, nextTopic, onBack, onSelectTopi
       >
         ← {t('rules.backToHome')}
       </button>
-      <h2 style={{ fontSize: '1.375rem', fontWeight: 700, marginTop: 8, textWrap: 'balance' }}>{topic.title}</h2>
+      <h2 ref={headingRef} tabIndex={-1} style={{ fontSize: '1.375rem', fontWeight: 700, marginTop: 8, textWrap: 'balance' }}>
+        {topic.title}
+      </h2>
       <p style={{ fontSize: '0.875rem', color: 'var(--muted)', marginTop: 4 }}>{topic.tagline}</p>
 
-      {topic.blocks.map((block, i) => renderBlock(block, i, activeSceneId, setActiveSceneId))}
+      {topic.blocks.map((block, i) => renderBlock(block, i, topic.key, activeSceneId, setActiveSceneId))}
 
       {(prevTopic || nextTopic) && (
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 40 }}>

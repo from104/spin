@@ -7,6 +7,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RulesScreen } from './RulesScreen.tsx';
 import { ruleTopicsFor } from './ruleTopics.ts';
+import type { RuleTopicKey } from './ruleTopics.ts';
 import { ruleContentFor } from './ruleContent.ts';
 import { RESTART_COLUMNS } from './restartTable.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -60,15 +61,20 @@ function stubMedia(narrow: boolean) {
 
 const TOPICS = ruleTopicsFor('ko');
 
+/** 제목은 개편 때마다 바뀌지만 key 는 딥링크라 잘 안 바뀐다 — 제목은 데이터에서 읽는다.
+ *  인자를 `string` 이 아니라 `RuleTopicKey` 로 좁혀야 오타가 **컴파일 때** 잡힌다 — string 이면
+ *  없는 key 가 런타임에 `undefined.title` 로 터지고, 그때 non-null `!` 은 거짓말이 된다. */
+const titleOf = (key: RuleTopicKey) => TOPICS.find((t) => t.key === key)!.title;
+
 describe('RulesScreen — 카드 홈', () => {
   beforeEach(() => {
     window.localStorage.clear();
     stubMedia(false);
   });
 
-  it('8주제 카드가 전부 뜬다', () => {
+  it('9주제 카드가 전부 뜬다', () => {
     renderRules();
-    expect(TOPICS).toHaveLength(8);
+    expect(TOPICS).toHaveLength(9);
     for (const topic of TOPICS) {
       expect(screen.getByRole('button', { name: topic.title })).toBeInTheDocument();
     }
@@ -79,22 +85,38 @@ describe('RulesScreen — 카드 홈', () => {
     expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
   });
 
+  it('튜토리얼 앵커가 렌더된 DOM 에 실제로 붙는다', () => {
+    // `ruleTopics.test.ts` 는 **데이터**(어느 주제가 앵커를 갖는가)만 지킨다. 정작 8→9 개편에서
+    // 조용히 깨졌던 자리는 `RulesHome` 이 그 데이터를 `data-tut` 으로 **내보내는** 한 줄이었다
+    // (그전엔 `i === 0` 위치 의존이라 첫 카드가 basics→intro 로 바뀌자 배지 없는 카드를 가리켰다).
+    // 튜토리얼이 실제로 쓰는 조회(`document.querySelector`)와 같은 경로로 재야 그 줄이 지켜진다.
+    renderRules();
+    const anchored = document.querySelectorAll('[data-tut="rules-card"]');
+    expect(anchored).toHaveLength(1);
+    expect(anchored[0]).toHaveAccessibleName(titleOf('basics'));
+    expect(document.querySelectorAll('[data-tut="rules-appendix"]')).toHaveLength(1);
+    expect(document.querySelector('[data-tut="rules-appendix"]')).toHaveAccessibleName(titleOf('rulebook'));
+  });
+
   it('카드를 고르면 상세로 들어가고, [홈으로]로 되돌아간다', async () => {
     renderRules();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '기본 규칙' }));
-    expect(screen.getByRole('heading', { level: 2, name: '기본 규칙' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '경기 재개 한눈에' })).toBeNull();
+    // 제목 문자열을 직접 쓰지 않고 인덱스로 집는다 — 카드 구성이 바뀔 때마다 깨지지 않게.
+    await user.click(screen.getByRole('button', { name: TOPICS[0]!.title }));
+    expect(screen.getByRole('heading', { level: 2, name: TOPICS[0]!.title })).toBeInTheDocument();
+    // 상세에 들어가면 다른 주제의 '카드' 버튼은 사라진다 — 아래쪽 [다음 주제] 링크는 접근성
+    // 이름이 제목보다 길어서(안내 문구 포함) 정확 일치로는 안 잡힌다.
+    expect(screen.queryByRole('button', { name: TOPICS[1]!.title })).toBeNull();
 
     await user.click(screen.getByRole('button', { name: '← 홈으로' }));
-    expect(screen.getByRole('button', { name: '기본 규칙' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: TOPICS[0]!.title })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
   });
 
   it('상세 하단의 이전/다음 주제로 이웃 주제를 오간다', async () => {
     renderRules();
     const user = userEvent.setup();
-    // 두 번째 주제(경기 재개 한눈에)로 들어가면 이전=기본 규칙·다음=아웃 오브 플레이가 있다.
+    // 두 번째 주제로 들어가면 이전=첫 주제·다음=세 번째 주제가 있다.
     await user.click(screen.getByRole('button', { name: TOPICS[1]!.title }));
     expect(screen.getByRole('heading', { level: 2, name: TOPICS[1]!.title })).toBeInTheDocument();
 
@@ -103,6 +125,33 @@ describe('RulesScreen — 카드 홈', () => {
 
     await user.click(screen.getByRole('button', { name: new RegExp(TOPICS[1]!.title) }));
     expect(screen.getByRole('heading', { level: 2, name: TOPICS[1]!.title })).toBeInTheDocument();
+  });
+
+  it('주제를 열면 제목(h2)이 포커스를 받는다 — 이전/다음으로 넘어가도 마찬가지', async () => {
+    // AppShell 의 §7.6 포커스 이펙트는 화면 키가 안 바뀌는 주제 전환에서는 안 돈다 —
+    // 이 문서가 스스로 제목으로 포커스를 옮기지 않으면 [다음 주제]를 누른 뒤 포커스가
+    // 사라진 노드에 남는다(9CARDS §8-6b).
+    renderRules();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: TOPICS[0]!.title }));
+    expect(screen.getByRole('heading', { level: 2, name: TOPICS[0]!.title })).toHaveFocus();
+
+    await user.click(screen.getByRole('button', { name: new RegExp(TOPICS[1]!.title) }));
+    expect(screen.getByRole('heading', { level: 2, name: TOPICS[1]!.title })).toHaveFocus();
+  });
+
+  it('다음 주제로 넘어가면 스크롤이 맨 위로 돌아온다', async () => {
+    // 포커스와 스크롤 복귀는 같은 이펙트의 두 줄인데, 포커스만 재면 스크롤 줄을 지워도 아무도
+    // 모른다. 되감는 대상이 `window` 가 아니라 `<main id="main">` 인 것이 핵심이다 —
+    // `appShell.css` 가 html/body/#root 를 `overflow:hidden` 으로 못박아 페이지 자체는 안 구른다.
+    renderRules();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: TOPICS[0]!.title }));
+
+    const scroller = document.getElementById('main')!;
+    scroller.scrollTop = 400;
+    await user.click(screen.getByRole('button', { name: new RegExp(TOPICS[1]!.title) }));
+    expect(scroller.scrollTop).toBe(0);
   });
 
   it('첫 주제엔 이전 주제 링크가 없고, 마지막 주제엔 다음 주제 링크가 없다', async () => {
@@ -125,13 +174,13 @@ describe('RulesScreen — topic prop(딥링크)', () => {
 
   it('topic prop 이 있으면 클릭 없이도 그 주제 상세로 곧장 뜬다', () => {
     renderRules('two-on-one');
-    expect(screen.getByRole('heading', { level: 2, name: '2-on-1' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '기본 규칙' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: titleOf('two-on-one') })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: titleOf('basics') })).toBeNull();
   });
 
   it('알 수 없는 topic 은 조용히 카드 홈으로 떨어진다(404 없음)', () => {
     renderRules('no-such-topic');
-    expect(screen.getByRole('button', { name: '기본 규칙' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: titleOf('basics') })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
   });
 });
@@ -142,10 +191,10 @@ describe('RulesScreen — 도해·부록', () => {
     stubMedia(false);
   });
 
-  it('"기본 규칙" 주제에 공·장비 도해가 붙는다', async () => {
+  it('"선수·코트·공·장비" 주제에 공·장비 도해가 붙는다', async () => {
     renderRules();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '기본 규칙' }));
+    await user.click(screen.getByRole('button', { name: titleOf('basics') }));
     expect(screen.getAllByRole('img').length).toBeGreaterThan(0);
     expect(screen.getAllByText('33cm').length).toBeGreaterThan(0);
     expect(screen.getByText('전진 10km/h')).toBeInTheDocument();
@@ -155,7 +204,7 @@ describe('RulesScreen — 도해·부록', () => {
   it('"공식 룰 북" 주제에 18개조가 압축 목록으로 전부 뜬다', async () => {
     renderRules();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '공식 룰 북' }));
+    await user.click(screen.getByRole('button', { name: titleOf('rulebook') }));
     const laws = ruleContentFor('ko');
     expect(laws).toHaveLength(18);
     for (const law of laws) {
@@ -166,7 +215,7 @@ describe('RulesScreen — 도해·부록', () => {
   it('"그 외의 반칙" 주제에 경고 7종·퇴장 8종 카드 목록이 붙는다', async () => {
     renderRules();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '그 외의 반칙' }));
+    await user.click(screen.getByRole('button', { name: titleOf('fouls') }));
     expect(screen.getByText(/경고\(옐로카드\) 7종/)).toBeInTheDocument();
     expect(screen.getByText(/퇴장\(레드카드\) 8종/)).toBeInTheDocument();
   });
@@ -181,7 +230,7 @@ describe('RulesScreen — 재개 비교표', () => {
   it('7열 표가 뜨고, 열을 고르면 그 재개가 표시로 선택된다', async () => {
     renderRules();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '경기 재개 한눈에' }));
+    await user.click(screen.getByRole('button', { name: titleOf('restarts') }));
 
     const table = screen.getByRole('table');
     for (const col of RESTART_COLUMNS) {
@@ -198,14 +247,16 @@ describe('RulesScreen — 재개 비교표', () => {
     stubMedia(true);
     renderRules();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '경기 재개 한눈에' }));
+    await user.click(screen.getByRole('button', { name: titleOf('restarts') }));
 
     expect(screen.queryByRole('table')).toBeNull();
     // 첫 재개(킥오프)가 기본으로 펼쳐져 있다 — 넓은 화면의 "표 아래 기본 kickoff 재생기"와
     // 같은 기본값이다.
     const first = screen.getByRole('button', { name: RESTART_COLUMNS[0]!.label });
     expect(first).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: '장면 재생' })).toBeInTheDocument();
+    // 포스터는 펼쳐진 카드 '안'에서 찾는다 — 이 주제가 contested-touch 장면까지 흡수해
+    // (9CARDS §3.2) 같은 화면에 표 바깥 포스터가 하나 더 있다.
+    expect(within(first.parentElement!).getByRole('button', { name: '장면 재생' })).toBeInTheDocument();
 
     const second = screen.getByRole('button', { name: RESTART_COLUMNS[1]!.label });
     expect(second).toHaveAttribute('aria-expanded', 'false');
@@ -224,8 +275,8 @@ describe('RulesScreen — 포스터+단일 활성', () => {
   it('여러 장면이 있는 주제에서 하나를 재생하면 나머지는 포스터로 남고, 다른 것을 재생하면 앞엣것이 포스터로 되돌아간다', async () => {
     renderRules();
     const user = userEvent.setup();
-    // "2-on-1" 주제 — 장면 5개(전부 다스텝, 전부 포스터를 가진다).
-    await user.click(screen.getByRole('button', { name: '2-on-1' }));
+    // "2-on-1 반칙" 주제 — 장면 5개(전부 다스텝, 전부 포스터를 가진다).
+    await user.click(screen.getByRole('button', { name: titleOf('two-on-one') }));
 
     const posters = () => screen.getAllByRole('button', { name: '장면 재생' });
     expect(posters()).toHaveLength(5);
