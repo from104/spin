@@ -70,6 +70,13 @@ const sidebarCards = () => within(screen.getByRole('navigation', { name: '스텝
 const noteToggle = () => screen.getByRole('button', { name: /^노트/ });
 const noteInput = () => screen.getByLabelText('스텝 노트') as HTMLTextAreaElement;
 
+/** 스텝 한 장 늘리기 — **목록 끝 틈의 [+]**(2026-08-30 기현 지시로 [한 장 더 찍기] 폐기).
+ *  옛 버튼과 마찬가지로 **누르면 새 장이 선택된다**(EditorWorkspace 의 duplicateStepAt). */
+async function addStepAtEnd(user: { click(el: Element): Promise<void> }): Promise<void> {
+  const n = sidebarCards().length;
+  await user.click(screen.getByRole('button', { name: `스텝 ${n} 을 복제해 바로 뒤에 넣기` }));
+}
+
 describe('노트 패널 — 실제 화면 배선', () => {
   it('접힌 채로 시작한다 — 기본값은 감춤이다', async () => {
     await openDrill();
@@ -96,7 +103,7 @@ describe('노트 패널 — 실제 화면 배선', () => {
 
   it('연속 타이핑은 되돌리기 한 칸으로 합쳐진다(COALESCE_TYPES) — 스텝 추가까지 함께 지워지면 안 된다', async () => {
     const { user } = await openDrill();
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' })); // 2장째, 그 장이 선택된다
+    await addStepAtEnd(user); // 2장째, 그 장이 선택된다
     await user.click(noteToggle());
     await user.type(noteInput(), '전개');
     expect(noteInput()).toHaveValue('전개');
@@ -117,7 +124,7 @@ describe('노트 패널 — 실제 화면 배선', () => {
 
   it('대조군: 스텝이 다르면 합쳐지지 않는다 — 한 칸은 방금 그 스텝만 지운다', async () => {
     const { user } = await openDrill();
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
+    await addStepAtEnd(user);
     await user.click(noteToggle());
 
     await user.click(sidebarCards()[0]!);

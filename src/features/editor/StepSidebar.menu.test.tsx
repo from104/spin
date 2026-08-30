@@ -31,7 +31,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     stepId: d.steps[0]!.id,
     onSelectStep: noop,
     onReorderStep: noop,
-    onAddStep: noop,
     onDuplicateStep: noop,
     onToggleCut: noop,
     collapsed: false,

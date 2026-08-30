@@ -139,20 +139,21 @@ describe('드릴 편집 모드', () => {
     expect(screen.getByRole('navigation', { name: '스텝 목록' })).toBeInTheDocument();
     expect(stepCards()).toHaveLength(1);
     expect(currentStepCard()).toHaveAccessibleName('스텝 1');
-    expect(screen.getByRole('button', { name: '한 장 더 찍기' })).toBeInTheDocument();
+    // 스텝을 늘리는 길 — 2026-08-30 부터 **틈의 [+]** 뿐이다([한 장 더 찍기] 폐기).
+    expect(screen.getByRole('button', { name: '스텝 1 을 복제해 바로 뒤에 넣기' })).toBeInTheDocument();
   });
 
-  // §4.4 P2-3 — "[한 장 더 찍기] 1버튼". 인스펙터(오버레이)를 열고 26×22 버튼을 찾아 누르던
-  // 경로가 사이드바의 44px 버튼 **한 번**이 됐는지, 그리고 찍은 뒤 그 장이 손에 들리는지 본다.
-  // 찍고도 옛 장이 선택돼 있으면 다음 조작이 엉뚱한 판에 들어간다.
-  // ⚠️ 2026-08-17 재편(PLAN-STEP-EDITING.md §스텝 카드, 기현님 확정) — 여기 있던 대조군
-  // ("인스펙터의 [스텝 추가]는 선택을 안 옮긴다")은 그 두 번째 경로 자체(StepsSection)가
-  // 철거되며 함께 사라졌다. [한 장 더 찍기]가 이제 스텝을 늘리는 유일한 버튼이다.
-  it('[한 장 더 찍기] 한 번으로 새 장이 뒤에 쌓이고 그 장이 선택된다', async () => {
+  // 스텝을 늘리는 길의 **끝에서 끝까지** 배선을 본다(화면 → 리듀서 → 사이드바): 한 번에
+  // 새 장이 뒤에 쌓이고, **그 장이 손에 들린다**. 찍고도 옛 장이 선택돼 있으면 다음 조작이
+  // 엉뚱한 판에 들어간다(§4.4 P2-3 의 근거).
+  // ⚠️ 2026-08-30 기현 지시로 [한 장 더 찍기] 버튼이 폐기됐다. **계약은 안 바뀌었다** —
+  //    틈의 [+](STEP_DUPLICATE)도 EditorWorkspace 의 `duplicateStepAt` 이 같은 뒷정리를
+  //    하고 있어서, 늘리는 길이 하나로 합쳐졌을 뿐이다. 표적만 옮겨 적는다.
+  it('목록 끝 틈의 [+] 한 번으로 새 장이 뒤에 쌓이고 그 장이 선택된다', async () => {
     const { user } = await openDrill();
     expect(stepCards()).toHaveLength(1);
 
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
+    await user.click(screen.getByRole('button', { name: '스텝 1 을 복제해 바로 뒤에 넣기' }));
 
     expect(stepCards()).toHaveLength(2);
     expect(currentStepCard()).toHaveAccessibleName('스텝 2');
@@ -180,11 +181,11 @@ describe('드릴 편집 모드', () => {
   it('배치 도구 + 코트 포커스에서 ArrowRight 는 스텝을 넘기지 않고 배치 커서만 이동한다(§7.5d)', async () => {
     const { user, stage } = await openDrill();
 
-    // 스텝 3개로 만든다(기본 1개 + [한 장 더 찍기] 2회 — 2026-08-17 재편으로 스텝을 늘리는
-    // 유일한 버튼이다). 그 버튼은 찍을 때마다 새 장을 선택하므로(§4.4 P2-3), 이 테스트가
-    // 보려는 '스텝 1에서 ArrowRight' 를 재현하려면 다 찍고 나서 첫 카드로 되돌아온다.
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
+    // 스텝 3개로 만든다(기본 1개 + 목록 끝 틈의 [+] 2회). [+]는 누를 때마다 새 장을
+    // 선택하므로, 이 테스트가 보려는 '스텝 1에서 ArrowRight' 를 재현하려면 다 만들고 나서
+    // 첫 카드로 되돌아온다.
+    await user.click(screen.getByRole('button', { name: '스텝 1 을 복제해 바로 뒤에 넣기' }));
+    await user.click(screen.getByRole('button', { name: '스텝 2 을 복제해 바로 뒤에 넣기' }));
     await user.click(stepCards()[0]!);
 
     // 공 도구를 켠다(배치 도구). 도구 레일로 범위를 좁힌다 — 스텝 추가로 놓인 기본 공

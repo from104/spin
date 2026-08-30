@@ -34,7 +34,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     stepId: d.steps[0]!.id,
     onSelectStep: noop,
     onReorderStep: noop,
-    onAddStep: noop,
     onDuplicateStep: noop,
     onToggleCut: noop,
     collapsed: false,
@@ -86,33 +85,10 @@ describe('카드 목록 — 고정(비접힘) 모드', () => {
     expect(cards()[0]!.textContent).toBe('1');
   });
 
-  it('목록 끝에 [한 장 더 찍기] 가 있고 누르면 onAddStep 이 나간다', async () => {
-    const onAddStep = vi.fn();
-    renderSidebar(makeDrill(2), { onAddStep });
-    await userEvent.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
-    expect(onAddStep).toHaveBeenCalledTimes(1);
-  });
-
-  it('상한(60장)에서는 [한 장 더 찍기] 가 잠기고 이유를 말한다', async () => {
-    const onAddStep = vi.fn();
-    renderSidebar(makeDrill(LIMITS.maxSteps), { onAddStep });
-    const btn = screen.getByRole('button', { name: '한 장 더 찍기' });
-    expect(btn).toBeDisabled();
-    expect(btn).toHaveAttribute('title', expect.stringContaining(String(LIMITS.maxSteps)));
-    await userEvent.click(btn);
-    expect(onAddStep).not.toHaveBeenCalled();
-  });
-
-  // 위의 "안 불렸다" 가 '배선이 아예 없어서' 통과하는 것이 아님을 보이는 대조군이다
-  // (옛 TransportBar.test.tsx 의 이사).
-  it('대조군: 59장에서는 열려 있고 실제로 발화한다', async () => {
-    const onAddStep = vi.fn();
-    renderSidebar(makeDrill(LIMITS.maxSteps - 1), { onAddStep });
-    const btn = screen.getByRole('button', { name: '한 장 더 찍기' });
-    expect(btn).toBeEnabled();
-    await userEvent.click(btn);
-    expect(onAddStep).toHaveBeenCalledTimes(1);
-  });
+  // ⚠️ [한 장 더 찍기] 버튼의 세 케이스(있다·정원에서 잠긴다·59장 대조군)가 여기 있었다.
+  //    2026-08-30 기현 지시로 그 버튼이 없어졌다 — 스텝을 늘리는 길은 이제 틈의 [+] 뿐이고,
+  //    그 정원 가드는 아래 §틈 섹션이 **N+1 개 전부** + 59장 대조군으로 이미 잡고 있다.
+  //    같은 것을 두 곳에서 재지 않으려고 옮기지 않고 지웠다.
 
   it('틈이 카드 수 + 1 개다 — 양 끝 + 카드 사이', () => {
     const { container } = renderSidebar(makeDrill(3));
@@ -169,7 +145,7 @@ describe('카드 복제 버튼', () => {
     });
   });
 
-  // '한 장 더 찍기' 대조군과 같은 이유(§105) — 잠김이 배선 자체가 없어서가 아님을 보인다.
+  // 잠김이 '배선 자체가 없어서' 통과하는 것이 아님을 보이는 대조군이다.
   it('대조군: 59장에서는 열려 있고 실제로 발화한다', async () => {
     const onDuplicateStep = vi.fn();
     renderSidebar(makeDrill(LIMITS.maxSteps - 1), { onDuplicateStep });
@@ -293,7 +269,6 @@ describe('틈(gap)의 사슬 토글', () => {
         stepId={d.steps[0]!.id}
         onSelectStep={noop}
         onReorderStep={noop}
-        onAddStep={noop}
         onDuplicateStep={noop}
         onToggleCut={noop}
         collapsed={false}
@@ -311,7 +286,6 @@ describe('틈(gap)의 사슬 토글', () => {
         stepId={d.steps[0]!.id}
         onSelectStep={noop}
         onReorderStep={noop}
-        onAddStep={noop}
         onDuplicateStep={noop}
         onToggleCut={noop}
         collapsed={false}
