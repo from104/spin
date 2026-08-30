@@ -71,6 +71,25 @@ export function PresentSideBar({ fullscreen, onDrillInfo }: PresentSideBarProps)
         background: 'var(--panel)',
       }}
     >
+      {/* [정보] — 2026-08-28 기현 지시로 헤더 ⓘ 에서 이사. 아이콘이 편집 화면(FunctionBar)의
+          같은 칸과 **한 벌**이다: 밑판(정보 카드)이 같고 수정자만 눈 ↔ 연필이다. 여기서는
+          **볼 수만 있다**는 뜻이고, 그 사실은 모달을 열기 전에 보여야 한다 — 열고 나서 입력
+          칸이 없는 것을 보고 알게 되면 알려 준 것이 아니다.
+
+          ⚠️ **자리가 [전체화면] 뒤 → 맨 위로 바뀌었다**(기현 지시 2026-08-30). 옛 근거를
+             지우지 않는다: *"[전체화면] 뒤다. 그 칸은 2026-08-20 부터 이 바의 유일한 칸이었고
+             손이 그 자리를 기억한다 — 위에 끼우면 그 좌표가 밀린다(§3 불변식 1)."* 그 대가는
+             실재하지만 한 번뿐이고, **편집 화면의 같은 칸과 같은 자리**가 되는 것이 그보다
+             크다: 두 화면을 오가는 코치가 [정보]를 같은 높이에서 찾는다. */}
+      {onDrillInfo && (
+        <button type="button" aria-haspopup="dialog" data-tut="drill-info" aria-label={t('present.infoAriaLabel')} onClick={onDrillInfo} style={ITEM}>
+          <IconDrillInfoRead size={18} />
+          <span aria-hidden style={ITEM_LABEL}>
+            {t('present.infoLabel')}
+          </span>
+        </button>
+      )}
+
       {/* 이름 규칙(WCAG 2.5.3 Label in Name) — 화면 라벨은 항상 "전체화면"(FunctionBar 의
           [100%]·[속도] 칸과 같은 관례: 라벨은 고정, aria-label 만 상태로 바뀐다). "전체화면"은
           "전체화면 종료"의 부분 문자열이라 종료 상태에서도 규칙이 깨지지 않는다. */}
@@ -86,20 +105,6 @@ export function PresentSideBar({ fullscreen, onDrillInfo }: PresentSideBarProps)
         </span>
       </button>
 
-      {/* [정보] — 2026-08-28 기현 지시로 헤더 ⓘ 에서 이사. 아이콘이 편집 화면(FunctionBar)의
-          같은 칸과 **한 벌**이다: 밑판(정보 카드)이 같고 수정자만 눈 ↔ 연필이다. 여기서는
-          **볼 수만 있다**는 뜻이고, 그 사실은 모달을 열기 전에 보여야 한다 — 열고 나서 입력
-          칸이 없는 것을 보고 알게 되면 알려 준 것이 아니다.
-          ⚠️ [전체화면] **뒤**다. 그 칸은 2026-08-20 부터 이 바의 유일한 칸이었고 손이 그 자리를
-             기억한다 — 위에 끼우면 그 좌표가 밀린다(§3 불변식 1). */}
-      {onDrillInfo && (
-        <button type="button" aria-haspopup="dialog" data-tut="drill-info" aria-label={t('present.infoAriaLabel')} onClick={onDrillInfo} style={ITEM}>
-          <IconDrillInfoRead size={18} />
-          <span aria-hidden style={ITEM_LABEL}>
-            {t('present.infoLabel')}
-          </span>
-        </button>
-      )}
     </nav>
   );
 }

@@ -379,6 +379,34 @@ export function FunctionBar({
         background: 'var(--panel)',
       }}
     >
+      {/* [정보] — 2026-08-28 기현 지시로 헤더 제목 옆 ⓘ 에서 이사. **드릴에만** 있다(전술판에는
+          메타가 없다). 아이콘이 시연 쪽(PresentSideBar)의 같은 칸과 **한 벌**이다: 밑판(정보
+          카드)이 같고 수정자만 연필 ↔ 눈이다 — 여기서는 고칠 수 있다는 뜻이다.
+
+          ⚠️ **자리가 맨 끝 → 맨 위로 바뀌었다**(기현 지시 2026-08-30). 옛 근거를 지우지 않고
+             적어 둔다: *"자리는 맨 끝이다. 위에 끼우면 아래 칸들의 좌표가 통째로 밀린다
+             (§3 불변식 1) — 전술판의 [드릴로 저장]이 끝에 붙은 것과 같은 이유다."* 그 대가는
+             실재한다 — 드릴 편집에서 줌·되돌리기 아래 칸들이 한 칸(+구분선)씩 내려간다.
+             다만 **한 번뿐인 이동**이고, 그 뒤로는 새 기준이 굳는다. 전술판(isBoard)에는 이
+             칸이 없으므로 그쪽 배치는 한 픽셀도 안 움직인다.
+          ⚠️ 칸·구분선 **개수는 그대로다**(8칸 / 구분선 4) — 자리만 옮겼다. functionBarMetrics
+             의 예산이 그 수를 붙잡고 있고, 수가 바뀌면 판이 도는 문턱까지 움직인다. */}
+      {!isBoard && onDrillInfo && (
+        <>
+          <BarItem
+            label={t('editor.functionBar.drillInfo.label')}
+            name={t('editor.workspace.drillInfoAriaLabel')}
+            title={t('editor.functionBar.drillInfo.title')}
+            aria-haspopup="dialog"
+            data-tut="drill-info"
+            onClick={onDrillInfo}
+          >
+            <IconDrillInfoEdit />
+          </BarItem>
+          <div aria-hidden style={DIVIDER} />
+        </>
+      )}
+
       <BarItem
         label={t('editor.functionBar.zoomIn.label')}
         name={t('editor.functionBar.zoomIn.name')}
@@ -465,27 +493,6 @@ export function FunctionBar({
       >
         <IconExport />
       </BarItem>
-
-      {/* [정보] — 2026-08-28 기현 지시로 헤더 제목 옆 ⓘ 에서 이사. **드릴에만** 있다(전술판에는
-          메타가 없다). 아이콘이 시연 쪽(PresentSideBar)의 같은 칸과 **한 벌**이다: 밑판(정보
-          카드)이 같고 수정자만 연필 ↔ 눈이다 — 여기서는 고칠 수 있다는 뜻이다.
-          자리는 **맨 끝**이다. 위에 끼우면 아래 칸들의 좌표가 통째로 밀린다(§3 불변식 1) —
-          전술판의 [드릴로 저장]이 끝에 붙은 것과 같은 이유다. */}
-      {!isBoard && onDrillInfo && (
-        <>
-          <div aria-hidden style={DIVIDER} />
-          <BarItem
-            label={t('editor.functionBar.drillInfo.label')}
-            name={t('editor.workspace.drillInfoAriaLabel')}
-            title={t('editor.functionBar.drillInfo.title')}
-            aria-haspopup="dialog"
-            data-tut="drill-info"
-            onClick={onDrillInfo}
-          >
-            <IconDrillInfoEdit />
-          </BarItem>
-        </>
-      )}
 
       {isBoard && (
         <>
