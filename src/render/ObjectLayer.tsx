@@ -50,6 +50,8 @@ export interface ObjectLayerProps {
   /** 골대의 제자리(코트 정의 좌표). `goals` 와 **같은 순서**다. 밀린 골대에 점선 유령을
    *  남기는 데만 쓴다 — 없으면 유령 없이 강조 링만 뜬다(마우스는 커서로도 안다). */
   goalHomes?: readonly { x: number; y: number }[];
+  /** 골대 받침판을 놓을 방향. `goals` 와 **같은 순서**다(2026-08-30 실물 사진). */
+  goalBaseDirs?: readonly ({ x: number; y: number } | null)[];
   /** 밀린 골대를 눌렀을 때 — **모든** 골대를 원위치로. 편집기에서만 넘긴다. */
   onGoalReturn?: () => void;
   notes: readonly NoteLabelData[];
@@ -92,6 +94,7 @@ export function ObjectLayer({
   goals,
   displacedGoals,
   goalHomes,
+  goalBaseDirs,
   onGoalReturn,
   notes,
   arrows,
@@ -149,8 +152,15 @@ export function ObjectLayer({
         if (!home || !displacedGoals?.has(gid)) return null;
         return <GoalHomeGhost key={`${gid}_home`} x={home.x} y={home.y} />;
       })}
-      {(goals ?? []).map((gid) => (
-        <GoalPost key={gid} id={gid} writer={writer} displaced={displacedGoals?.has(gid) ?? false} onReturn={onGoalReturn} />
+      {(goals ?? []).map((gid, i) => (
+        <GoalPost
+          key={gid}
+          id={gid}
+          writer={writer}
+          baseDir={goalBaseDirs?.[i] ?? null}
+          displaced={displacedGoals?.has(gid) ?? false}
+          onReturn={onGoalReturn}
+        />
       ))}
       {cones.map((c) => (
         <ConeMark

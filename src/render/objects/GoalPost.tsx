@@ -35,11 +35,16 @@
 import { memo, useEffect, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { OBJ_STROKE } from '../../core/colors.ts';
+import { goalBaseLocalRect } from '../../model/court.ts';
+import type { Vec2 } from '../../core/units.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 
 export interface GoalPostProps {
   id: string;
   writer: TransformWriter;
+  /** 받침판을 놓을 방향(±1 성분). `model/court.ts` 의 `goalBaseDir` 가 정한다 — 없으면 판을
+   *  안 그린다(플랫 코트처럼 골대가 없는 판, 또는 방향을 못 정한 경우). */
+  baseDir?: Vec2 | null;
   /** 제자리에서 벗어나 있는가. 참일 때만 커서가 바뀌고 눌린다. */
   displaced?: boolean;
   /** 누르면 **모든** 골대를 원위치로. 없으면 이 칸은 예전처럼 포인터를 안 받는다. */
@@ -85,7 +90,14 @@ export const GoalHomeGhost = memo(function GoalHomeGhost({ x, y }: { x: number; 
  *  마지막의 `pointer` 는 폴백이다(데이터 URI 커서를 막는 환경에서도 "누를 수 있다" 는 남는다). */
 const RETURN_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 8.5v5h5'/%3E%3Cpath d='M5.9 13.2A7 7 0 1 0 7.6 7.6'/%3E%3C/g%3E%3Cg fill='none' stroke='%23111111' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 8.5v5h5'/%3E%3Cpath d='M5.9 13.2A7 7 0 1 0 7.6 7.6'/%3E%3C/g%3E%3C/svg%3E") 12 12, pointer`;
 
-export const GoalPost = memo(function GoalPost({ id, writer, displaced = false, onReturn }: GoalPostProps) {
+/** 받침판. 기둥 로컬 좌표(원점 = 기둥)로 그린다 — 정적 경로의 `GoalPostMarks` 와 같은
+ *  기하(`goalBaseLocalRect`)를 쓰므로 편집기와 시연이 어긋날 자리가 없다. */
+function BasePlate({ dir }: { dir: Vec2 }) {
+  const r = goalBaseLocalRect(dir);
+  return <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={GOAL_EDGE} fillOpacity={0.3} stroke={GOAL_EDGE} strokeWidth={0.8} />;
+}
+
+export const GoalPost = memo(function GoalPost({ id, writer, baseDir, displaced = false, onReturn }: GoalPostProps) {
   const ref = useRef<SVGGElement | null>(null);
   const live = displaced && onReturn !== undefined;
 
@@ -114,6 +126,10 @@ export const GoalPost = memo(function GoalPost({ id, writer, displaced = false, 
           : undefined
       }
     >
+      {/* 받침판이 **맨 아래**다 — 기둥은 판에 꽂힌 것이므로 위에 있어야 한다. 로컬 좌표라
+          골대가 밀려도 판이 함께 따라간다(실물에서도 붙어 있다). 판은 물리 바디가 아니다:
+          충돌은 계속 기둥만 한다(GOAL.baseSidePx 주석의 ⚠️). */}
+      {baseDir && <BasePlate dir={baseDir} />}
       {/* 손잡이가 **먼저** 온다 — 뒤에 오면 보이는 원 위에 덮여 그 4 px 만 눌린다. */}
       {live && (
         <>

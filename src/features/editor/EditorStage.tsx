@@ -20,7 +20,7 @@ import type { BallRing, Drill, DrillStep, NoteLabel, TeamSide } from '../../mode
 import type { ZoneConfig } from '../../model/chair.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
 import type { Arrow, ArrowPart } from '../../model/arrow.ts';
-import { courtDefFor, gridCellCenter, cellLabelAt, type CourtMode, type CourtSize } from '../../model/court.ts';
+import { courtDefFor, goalBaseDir, gridCellCenter, cellLabelAt, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { GOAL_ID_PREFIX, GOAL_DISPLACED_EPS_PX } from '../../physics/index.ts';
 import { raf } from '../../render/rafLoop.ts';
 import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
@@ -321,6 +321,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
    *  아무 일이 없는 상태가 생긴다. */
   const [displacedGoals, setDisplacedGoals] = useState<ReadonlySet<string>>(EMPTY_IDS);
   const goalHomes = useMemo(() => courtDefFor(drill.courtMode, drill.courtSize).goalPosts, [drill.courtMode, drill.courtSize]);
+  /** 받침판 방향(2026-08-30 실물 사진) — 코트 정의에서 나오는 고정값이라 코트가 바뀔 때만 다시 센다. */
+  const goalBaseDirs = useMemo(() => {
+    const def = courtDefFor(drill.courtMode, drill.courtSize);
+    return def.goalPosts.map((_p, i) => goalBaseDir(def, i));
+  }, [drill.courtMode, drill.courtSize]);
   useEffect(() => {
     return raf.add(() => {
       const w = worldRef.current;
@@ -688,6 +693,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       goals={goals}
       displacedGoals={displacedGoals}
       goalHomes={goalHomes}
+      goalBaseDirs={goalBaseDirs}
       onGoalReturn={onResetGoals}
       notes={notes}
       arrows={arrows}

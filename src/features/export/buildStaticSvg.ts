@@ -37,7 +37,8 @@
 import { DEG } from '../../core/angle.ts';
 import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR, CONE } from '../../core/constants.ts';
-import { attackDir, courtDefFor, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
+import { attackDir, courtDefFor, goalBaseRect, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
+import type { CourtDef } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
@@ -145,11 +146,21 @@ function goalCrossD(marks: readonly { x: number; y: number }[]): string {
     .join('');
 }
 
-/** 골대 원. 편집기와 달리 여기는 물리 바디가 없으므로 `present` 처럼 정적 원을 그린다. */
-function goalPostsMarkup(posts: readonly { x: number; y: number }[]): string {
+/** 골대 받침판 + 기둥. 편집기와 달리 여기는 물리 바디가 없으므로 `present` 처럼 정적으로
+ *  그린다. 받침판 기하는 `model/court.ts` 의 `goalBaseRect` 하나에서 온다 — 화면(GoalPostMarks)·
+ *  편집기(GoalPost)와 같은 자를 쓰므로 내보낸 그림이 화면과 어긋날 자리가 없다.
+ *  판이 **먼저**(아래 층), 기둥이 그 위다. */
+function goalPostsMarkup(def: CourtDef): string {
+  const posts = def.goalPosts;
   if (posts.length === 0) return '';
+  const bases = posts
+    .map((_p, i) => goalBaseRect(def, i))
+    .filter((b): b is NonNullable<typeof b> => b !== null)
+    .map((b) => `<rect x="${num(b.x)}" y="${num(b.y)}" width="${num(b.w)}" height="${num(b.h)}" fill="#c2410c" fill-opacity="0.3"/>`)
+    .join('');
   return (
     `<g fill="#f5f5f5" stroke="#c2410c" stroke-width="${num(W.spotSw!)}">` +
+    bases +
     posts.map((p) => `<circle cx="${num(p.x)}" cy="${num(p.y)}" r="${num(W.spotR!)}"/>`).join('') +
     `</g>`
   );
@@ -203,7 +214,7 @@ export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSce
       // 하프에는 센터 흰 점이 없다 — HalfCourtLines.tsx 머리말이 "추가하지 않는다" 로 못박았다.
       // (그 문장에서 살아남은 것은 **점**뿐이다. X 는 위에서 그린다 — 2026-08-13.)
       `<g fill="none" stroke="#ffffff" stroke-width="${num(W.goalCross!)}" stroke-linecap="round">${goalCrossD(def.spotMarks)}</g>` +
-      goalPostsMarkup(def.goalPosts)
+      goalPostsMarkup(def)
     );
   }
 
@@ -219,7 +230,7 @@ export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSce
     centerMarkMarkup(def.centerMark) +
     `</g>` +
     `<g fill="none" stroke="#ffffff" stroke-width="${num(W.goalCross!)}" stroke-linecap="round">${goalCrossD(def.spotMarks)}</g>` +
-    goalPostsMarkup(def.goalPosts)
+    goalPostsMarkup(def)
   );
 }
 

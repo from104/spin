@@ -590,6 +590,20 @@ export function clampToViewBox(mode: CourtMode, p: Vec2): Vec2;
 > 기준점이 코너가 아니라 **포스트**인 것이 핵심이다(코너 삼각형도 마침 1 m 라 헷갈린다).
 > `centerMark: string \| null` — 하프라인 중점의 15 cm "X". **풀 코트만** 값이 있다.
 >
+> **②-b 골대 받침판** (2026-08-30 기현님 실물 사진: *"골대를 지지하는 사각형을 골대에
+> 추가하라. 사각형의 위치는 골라인쪽+사이드라인쪽"*). `CourtDef` 의 필드가 아니라 **파생
+> 함수**다 — 기둥 좌표에서 계산되므로 코트 크기 3단을 저절로 따라간다(규칙 10: 좌표 리터럴 금지).
+> `goalBaseDir(def, i)` 가 대각 단위 벡터(골라인 밖 × 골 입구 밖)를, `goalBaseRect(def, i)` 가
+> 코트 좌표 사각형을, `goalBaseLocalRect(dir)` 이 기둥 원점 좌표 사각형을 준다.
+> 한 자를 네 경로가 나눠 쓴다: `GoalPostMarks`(시연·인쇄·썸네일) · `GoalPost`(편집기, 물리
+> 바디라 로컬 좌표) · `buildStaticSvg`(PNG). 치수는 `GOAL.baseSidePx`(0.5 m) ·
+> `GOAL.baseInsetPx`(0.1 m, 기둥이 판 모서리에서 안쪽으로 박히는 깊이)다.
+> ⚠️ **규정 치수가 아니다** — Laws 는 기둥 간격 6 m 와 "파일런 또는 콘" 만 정하고 받침에는
+> 아무 말이 없다. ⚠️ **물리 바디가 아니다** — 충돌은 계속 기둥(반지름 5)만 한다. 판까지
+> 막으면 골라인 바깥에서 도는 휠체어가 보이지 않는 벽에 걸린다.
+> 판이 경기면을 파고드는 깊이는 정확히 `baseInsetPx` 다(기둥이 골라인 위에 서 있으므로).
+> `courtMarks.test.ts` 가 그 깊이·입구 바깥 방향·viewBox 안을 세 가지로 붙잡는다.
+>
 > **③ 좌표 조회 함수들이 `size` 를 받는다**: `courtDefFor(mode, size?)` ·
 > `gridCellCenter(mode, col, row, size?)` · `cellLabelAt(mode, p, size?)` ·
 > `isOnSurface(mode, p, size?)` · `clampToViewBox(mode, p, size?)`.

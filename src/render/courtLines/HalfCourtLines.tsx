@@ -19,6 +19,7 @@
 // 좌표 출처는 COURT_DEFS.half 하나뿐이다(진실 공급원 통일 — 감사 2026-08-08 minor).
 import { COURT_DEFS, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import { COURT_LINE_WEIGHTS, type CourtLineVariant } from '../CourtSurface.tsx';
+import { GoalPostMarks } from './GoalPostMarks.tsx';
 
 export interface HalfCourtLinesProps {
   variant: CourtLineVariant;
@@ -81,13 +82,8 @@ export function HalfCourtLines({ variant }: HalfCourtLinesProps) {
         </g>
       )}
       {w.spotR !== undefined && (
-        <g fill="#f5f5f5" stroke="#c2410c" strokeWidth={w.spotSw}>
-          {/* 편집기에서는 골대가 물리 바디라 ObjectLayer 가 그린다(§5.4) — 여기 정적 원을
-              같이 그리면 원위치 표시와 실제 골대가 겹쳐 두 개로 보인다. */}
-          {(variant === 'editor' ? [] : DEF.goalPosts).map((p) => (
-            <circle key={`${p.x},${p.y}`} cx={p.x} cy={p.y} r={w.spotR} />
-          ))}
-        </g>
+        // 받침판 + 기둥. 편집기 갈래(물리 바디가 그린다)도 그 컴포넌트가 안다.
+        <GoalPostMarks def={DEF} variant={variant} spotR={w.spotR} spotSw={w.spotSw} />
       )}
     </>
   );
