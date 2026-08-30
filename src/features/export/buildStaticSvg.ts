@@ -156,7 +156,7 @@ function goalPostsMarkup(def: CourtDef): string {
   const bases = posts
     .map((_p, i) => goalBaseRect(def, i))
     .filter((b): b is NonNullable<typeof b> => b !== null)
-    .map((b) => `<rect x="${num(b.x)}" y="${num(b.y)}" width="${num(b.w)}" height="${num(b.h)}" fill="#c2410c" fill-opacity="0.3"/>`)
+    .map((b) => `<rect x="${num(b.x)}" y="${num(b.y)}" width="${num(b.w)}" height="${num(b.h)}" fill="#c2410c"/>`)
     .join('');
   return (
     `<g fill="#f5f5f5" stroke="#c2410c" stroke-width="${num(W.spotSw!)}">` +

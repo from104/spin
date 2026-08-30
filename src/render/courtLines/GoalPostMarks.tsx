@@ -23,8 +23,10 @@ export interface GoalPostMarksProps {
 }
 
 /** 받침판 색 — 기둥 테두리와 **같은 주황**이다(같은 장비의 두 부분이라 색이 갈리면 안 된다).
- *  다만 채도를 낮춰 깔아, 기둥이 판 위에서 읽히게 한다. */
-const BASE_FILL_OPACITY = 0.3;
+ *  기둥은 흰 채움이라 불투명한 판 위에서도 또렷하다 — 실물 사진과 같은 대비다.
+ *  ⚠️ 2026-08-30 까지는 30% 반투명이었다(기현 지시로 불투명). 반투명이면 판 아래 골라인·
+ *     코트면이 비쳐 "장비" 가 아니라 "표시" 로 읽혔다. */
+const BASE_FILL = '#c2410c';
 
 export function GoalPostMarks({ def, variant, spotR, spotSw }: GoalPostMarksProps) {
   if (variant === 'editor' || def.goalPosts.length === 0) return null;
@@ -33,7 +35,7 @@ export function GoalPostMarks({ def, variant, spotR, spotSw }: GoalPostMarksProp
       {def.goalPosts.map((p, i) => {
         const b = goalBaseRect(def, i);
         return b === null ? null : (
-          <rect key={`base-${p.x},${p.y}`} x={b.x} y={b.y} width={b.w} height={b.h} fill="#c2410c" fillOpacity={BASE_FILL_OPACITY} />
+          <rect key={`base-${p.x},${p.y}`} x={b.x} y={b.y} width={b.w} height={b.h} fill={BASE_FILL} />
         );
       })}
       {def.goalPosts.map((p) => (
