@@ -408,14 +408,14 @@ export const PLAYBACK = {
 ```css
 :root {                         /* 다크 (기존 토큰 아래에 이어서) */
   --faint-text: #8794a3;        /* /panel 5.78:1  /panel-2 5.99:1 */
-  --accent-text: var(--accent); /* /panel 10.70:1 */
-  --accent-ink-strong: #0b0f14; /* /accent 11.51:1 */
+  --accent-text: var(--accent); /* /panel 14.21:1 */
+  --accent-ink-strong: #0b0f14; /* /accent 15.29:1 */
   --hit: 44px;
 }
 [data-theme="light"] {
   --faint-text: #626c78;        /* /panel 5.34  /panel-2 4.96  /bg 4.58 */
-  --accent-text: #6b3f10;       /* /panel 8.96  /panel-2 8.33  /bg 7.69 */
-  --accent-ink-strong: #1f1408; /* /accent 6.42 */
+  --accent-text: #446f00;       /* /panel 5.97  /panel-2 5.55  /bg 5.12 */
+  --accent-ink-strong: #14200a; /* /accent 5.83 */
 }
 body[data-touch="large"] { --hit: 56px; }
 ```

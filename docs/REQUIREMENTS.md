@@ -219,13 +219,9 @@ viewBox 가 사방 12.5 px 씩 커졌다 — 마진은 코트를 줄이는 것�
 
 프로토타입의 시각 언어를 유지한다.
 
-- 다크/라이트 테마, 액센트 앰버 `#fbbf24` (라이트에서는 `#c8901a`) — 2026-08-31 기현 지시로
-  프로토타입의 형광 라임(`#c2f74e`/`#6ba80f`)에서 옮겼다. 코트 바닥이 초록에서 나무로 바뀌며
-  라임이 짝을 잃었고, 앰버는 앱이 이미 쓰는 공 색이라 팔레트가 닫힌다
+- 다크/라이트 테마, 액센트 라임 `#c2f74e` (라이트에서는 `#6ba80f`)
 - 폰트: 본문 Pretendard, 숫자·영문 라벨 Space Grotesk (둘 다 `src/assets/fonts/`에 번들)
-- CSS 변수 토큰은 `docs/prototype/template.html`의 `:root` 블록에서 출발했다 — **다만 액센트
-  4종(`--accent`·`--accent-ink`·`--accent-text`·`--accent-ink-strong`)은 이제 갈라졌다**(위 줄).
-  프로토타입은 옛 색 그대로이니 값을 비교할 때는 `src/styles/tokens.css` 가 정본이다
+- CSS 변수 토큰은 `docs/prototype/template.html`의 `:root` 블록을 그대로 쓴다
 - **고대비 · 강제색(Windows 고대비) 대응** — `prefers-contrast` · `forced-colors`.
   팀 구분은 색 밖에도 있다(파선 테두리 · 등번호 잉크 뒤집기)
 
