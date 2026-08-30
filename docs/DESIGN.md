@@ -975,8 +975,9 @@ export function removeFromStepOnward(d: Drill, i: number, id: CastId): Drill;   
 export function removeFromThisStepOnly(d: Drill, i: number, id: CastId): Drill;
 export function removeEverywhere(d: Drill, id: CastId): Drill;                  // cast + 전 스텝
 // propagateForward 는 2026-08-20 폐기(로드맵 §0.5 결정) — 구현됐으나 부를 UI 가 끝내 없었다.
-export function addStepAfter(d: Drill, i: number): Drill;      // 직전 스텝 복제, 이름 '스텝 N'
-export function duplicateStep(d: Drill, i: number): Drill;
+// addStepAfter 는 2026-08-31 폐기 — 이름을 비우는 것 말고는 duplicateStep 과 같았는데, 과제⑦
+// 이후 이름을 가진 스텝 자체가 없어 그 차이가 죽었다([한 장 더 찍기] 폐기로 호출자도 사라졌다).
+export function duplicateStep(d: Drill, i: number, insertAt?: number): Drill;
 export function deleteStep(d: Drill, i: number): Drill;        // steps.length === 1 이면 no-op
 export function moveStep(d: Drill, from: number, to: number): Drill;
 export function setArrow(d: Drill, i: number, a: Arrow): Drill;
@@ -2869,7 +2870,7 @@ export type EditorAction =
   // 드릴 데이터 (히스토리 커밋)
   | { type: 'DRILL_LOAD'; drill: Drill }
   | { type: 'META_SET'; patch: Partial<Pick<Drill,'title'|'drillType'|'situation'|'level'|'durationMin'|'tags'|'description'|'variation'|'formation'>> }  // + 교육 필드·defense (actions.ts 가 전체 목록)
-  | { type: 'STEP_ADD'; afterIndex: number } | { type: 'STEP_DUPLICATE'; id: StepId }
+  | { type: 'STEP_DUPLICATE'; id: StepId; toIndex?: number }   // STEP_ADD 는 2026-08-31 폐기
   | { type: 'STEP_DELETE'; id: StepId } | { type: 'STEP_REORDER'; id: StepId; toIndex: number }
   | { type: 'STEP_META'; id: StepId; patch: { name?: string; note?: string; durationMs?: number } }
   | { type: 'OBJECT_ADD'; kind: 'ball'|'cone'; at: Vec2; colorIndex?: 0|1 }
@@ -3235,8 +3236,8 @@ UI 에서 폐기했지만 모델에는 남긴다 — 기존 드릴에 실제 이
 - 그 외에는 `이름\nnote` 로 **앞에 이름을 붙여** 병합한다. 노트 상한(600자) 초과 시
   **뒤(원래 note 쪽)만** 자르고 이름은 항상 보존한다 — merged 문자열을 앞에서부터 slice
   하는 것만으로 이름이 잘리지 않는 성질을 이용한다.
-- 새로 만드는 스텝은 항상 `name: ''` — `addStepAfter` 의 옛 `'스텝 N'` 자동 이름 생성은
-  끊었다.
+- 새로 만드는 스텝은 항상 `name: ''` — 옛 `'스텝 N'` 자동 이름 생성은 끊었다(그 생성을 맡던
+  `addStepAfter` 는 이 규칙 때문에 duplicateStep 과 같아져 2026-08-31 에 폐기됐다).
 
 ⚠️ **PresentRunner 의 스텝 이름 헤드라인도 함께 제거했다.** name 필드가 구조적으로 항상
 `''` 이 되므로 "이름 없음" 자리표시자를 상시 노출하는 대신, 헤드라인 개념 자체를 폐기하고

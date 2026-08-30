@@ -252,7 +252,7 @@ function pruneOrphanCast(d: Drill): Drill {
  *
  *  지우는 것: 휠체어·공·콘의 배치와 화살표·메모·도형, 그리고 스텝 노트. 남기는 것: 스텝의
  *  **신원과 시간축**(`id` · `durationMs` · `cut`) — 비우기는 내용을 지우는 것이지 스텝을
- *  없애거나 새로 만드는 것이 아니다(그 길은 STEP_DELETE·STEP_ADD 다).
+ *  없애거나 새로 만드는 것이 아니다(그 길은 STEP_DELETE·STEP_DUPLICATE 다).
  *
  *  ⚠️ 스텝 노트도 지운다. 코트 전환 게이트가 `isStepEmpty`(노트를 센다)로 열리므로, 노트를
  *  남기면 *"비웠는데 코트가 안 바뀐다"* 가 된다 — 화면에는 아무것도 없는데 이유가 안 보인다.
@@ -294,25 +294,16 @@ export function removeFromThisStepOnly(d: Drill, i: number, id: CastId): Drill {
   return pruneOrphanCast(replaceStep(d, i, next));
 }
 
-/** 직전 스텝 복제. 화살표·메모 id 는 그대로 보존한다(§3.5 스코프 표).
- *  이름은 이제 생성하지 않는다(기현님 확정 2026-08-17, 과제⑦) — 자동 생성 '스텝 N' 은
- *  사용자 내용이 아니라 UI 가 채울 자리를 메우던 자리표시자였다. UI 가 이름 필드를 이미
- *  폐기했으니 새 스텝의 name 은 ''(정화기가 이관할 것도, 버릴 것도 없다). */
-export function addStepAfter(d: Drill, i: number): Drill {
-  const base = d.steps[i];
-  if (!base) return d;
-  const clone = structuredClone(base);
-  clone.id = newId('st');
-  clone.name = '';
-  const steps = d.steps.slice();
-  steps.splice(i + 1, 0, clone);
-  return { ...d, steps };
-}
-
 /** 스텝 i 를 그대로(이름 포함) 복제한다. 화살표·메모 id 보존이 D6 크로스페이드의 핵심이다.
  *  삽입 자리는 기본이 **바로 뒤**(`i + 1`, 후방 복제 — §복제 기현님 확정 2026-08-17)지만,
  *  맨 앞 틈의 [+]("아래 첫 스텝의 복제를 맨 앞에")처럼 다른 자리가 필요하면 `insertAt` 으로
- *  덮어쓴다. `Array.prototype.splice` 가 범위를 알아서 clamp 하므로 여기서 따로 막지 않는다. */
+ *  덮어쓴다. `Array.prototype.splice` 가 범위를 알아서 clamp 하므로 여기서 따로 막지 않는다.
+ *
+ *  🪦 형제였던 `addStepAfter`(＝복제하되 `name` 만 '' 로 비움)는 2026-08-31 에 지웠다. 두
+ *  함수를 가른 근거는 "복제는 이름을 물려주고 추가는 새 이름을 짓는다" 였는데, 과제⑦
+ *  (2026-08-17)이 스텝 이름 편집 UI 를 없애고 `validate.ts` 정화기가 로드 때마다 name 을
+ *  노트로 이관해 비우면서 **이름을 가진 스텝 자체가 존재할 수 없게** 됐다 — 그때부터 둘은
+ *  같은 함수였고, [한 장 더 찍기] 버튼 폐기로 남은 UI 호출자마저 사라졌다. */
 export function duplicateStep(d: Drill, i: number, insertAt?: number): Drill {
   const base = d.steps[i];
   if (!base) return d;

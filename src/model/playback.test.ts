@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { wrapPi } from '../core/angle.ts';
 import { createDrill } from './defaults.ts';
-import { addStepAfter } from './edits.ts';
+import { duplicateStep } from './edits.ts';
 import { setPose } from './edits.ts';
 import type { ChairPose } from './chair.ts';
 import {
@@ -57,7 +57,7 @@ describe('interpChair', () => {
 describe('interpolateSteps', () => {
   it('출력 배열은 id 로 유일하다', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const frame = interpolateSteps(d, d.steps[0]!, d.steps[1]!, 0.5);
     expect(new Set(frame.arrows.map((a) => a.id)).size).toBe(frame.arrows.length);
     expect(new Set(frame.notes.map((n) => n.id)).size).toBe(frame.notes.length);
@@ -67,7 +67,7 @@ describe('interpolateSteps', () => {
   it('presence: exit 는 A 자세를 유지한 채 opacity 가 1→0', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
     const id = d.cast.chairs[0]!.id;
-    d = addStepAfter(d, 0); // 스텝1은 스텝0 복제
+    d = duplicateStep(d, 0); // 스텝1은 스텝0 복제
     // 스텝1에서만 제거.
     const steps = d.steps.slice();
     const chairs = { ...steps[1]!.chairs };
@@ -84,7 +84,7 @@ describe('interpolateSteps', () => {
 describe('sampleDrill', () => {
   it('동일 입력 1000회가 비트 단위로 동일하다(결정성)', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const opts = { baseMs: 1500, transitionMs: 600, loop: true };
     const first = sampleDrill(d, 777, opts);
     for (let i = 0; i < 1000; i++) {
@@ -95,7 +95,7 @@ describe('sampleDrill', () => {
 
   it('루프 상태에서 총 길이 시점은 마지막→첫 스텝 전환의 시작(t=0)이다', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const opts = { baseMs: 1500, transitionMs: 600, loop: true };
     const total = drillTotalMs(d, opts.baseMs);
     const frame = sampleDrill(d, total, opts);
@@ -111,7 +111,7 @@ describe('sampleDrill', () => {
 
   it('루프 상태에서 총 길이 직후는 마지막↔첫 스텝 사이의 보간값이다', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const chairId = d.cast.chairs[0]!.id;
     d = setPose(d, 1, chairId, { x: 999, y: 1, angleDeg: 0 }); // 두 스텝의 자세를 뚜렷이 다르게 만든다
     const opts = { baseMs: 1500, transitionMs: 600, loop: true };
@@ -127,7 +127,7 @@ describe('sampleDrill', () => {
 
   it('non-loop: 총 길이를 넘는 시각은 마지막 스텝에 고정된다', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const opts = { baseMs: 1500, transitionMs: 600, loop: false };
     const total = drillTotalMs(d, opts.baseMs);
     const frame = sampleDrill(d, total + 5000, opts);
@@ -139,7 +139,7 @@ describe('sampleDrill', () => {
 describe('sampleDrill — cut (사슬 끊긴 경계, 2026-08-17)', () => {
   it('cut 경계: 경계를 넘는 즉시(전환 도중 포함) 스텝 i+1(toStep) 포즈로 점프한다(보간 없음)', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const chairId = d.cast.chairs[0]!.id;
     d = setPose(d, 1, chairId, { x: 999, y: 1, angleDeg: 0 }); // 두 스텝의 자세를 뚜렷이 다르게
     const steps = d.steps.slice();
@@ -164,7 +164,7 @@ describe('sampleDrill — cut (사슬 끊긴 경계, 2026-08-17)', () => {
   it('cut 경계: enter 개체가 경계를 넘는 즉시 opacity=1 로 나타난다(팝, 지연 없음)', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
     const enteringId = d.cast.chairs[0]!.id;
-    d = addStepAfter(d, 0); // 스텝1은 스텝0 복제
+    d = duplicateStep(d, 0); // 스텝1은 스텝0 복제
     // 스텝0에서는 없다가 스텝1에서 등장(enter)하도록 만든다.
     let steps = d.steps.slice();
     const step0Chairs = { ...steps[0]!.chairs };
@@ -188,7 +188,7 @@ describe('sampleDrill — cut (사슬 끊긴 경계, 2026-08-17)', () => {
 
   it('cut 없는 경계: 기존 보간 동작이 그대로다(회귀 가드)', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const chairId = d.cast.chairs[0]!.id;
     d = setPose(d, 1, chairId, { x: 999, y: 1, angleDeg: 0 });
     const opts = { baseMs: 1500, transitionMs: 600, loop: false };
@@ -206,7 +206,7 @@ describe('sampleDrill — cut (사슬 끊긴 경계, 2026-08-17)', () => {
 
   it('cut 경계: 구간이 끝나는 순간(t=1)에도 여전히(계속) toStep 그대로다', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const chairId = d.cast.chairs[0]!.id;
     d = setPose(d, 1, chairId, { x: 999, y: 1, angleDeg: 0 });
     const steps = d.steps.slice();
@@ -222,7 +222,7 @@ describe('sampleDrill — cut (사슬 끊긴 경계, 2026-08-17)', () => {
 describe('effectiveStepMs / drillTotalMs', () => {
   it('durationMs override 가 있으면 그 값을, 없으면 baseMs 를 쓴다', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const steps = d.steps.slice();
     steps[1] = { ...steps[1]!, durationMs: 999 };
     d = { ...d, steps };

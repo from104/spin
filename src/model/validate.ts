@@ -43,9 +43,9 @@ export type ValidateResult<T> =
   | { ok: true; value: T; repairs: Repair[] }
   | { ok: false; issues: ValidationIssue[] };
 
-// 자동 생성 스텝 이름 패턴(과제⑦, 2026-08-17까지의 생성 규칙). addStepAfter(edits.ts)·
-// emptyStep·defaultStep(defaults.ts) 이 그 시점까지 정확히 이 모양('스텝' + 공백 + 숫자)의
-// 이름을 붙였다 — 사용자가 타이핑한 적 없는 자리표시자다. 세 함수는 이제 ''를 쓰지만, 그
+// 자동 생성 스텝 이름 패턴(과제⑦, 2026-08-17까지의 생성 규칙). addStepAfter(edits.ts, 지금은
+// 폐기)·emptyStep·defaultStep(defaults.ts) 이 그 시점까지 정확히 이 모양('스텝' + 공백 +
+// 숫자)의 이름을 붙였다 — 사용자가 타이핑한 적 없는 자리표시자다. 남은 둘은 이제 ''를 쓰지만, 그
 // 전에 저장된 옛 드릴에는 이 패턴이 그대로 남아 있을 수 있어 정화기가 걸러낸다. 옛 생성
 // 규칙과 **정확히** 일치하는 것만 버려야 한다 — "스텝 3: 킥오프" 처럼 패턴을 접두어로만
 // 쓴 사용자 이름까지 버리면 진짜 유실이 된다. 그래서 전체 일치(`^…$`)다.
