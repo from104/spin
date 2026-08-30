@@ -276,9 +276,27 @@ export function AppHeader({
     <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow || !!config.compact), ...(config.compact ? { minHeight: 48 } : null) }}>
       {narrow && <AppNavSegment active={activeRail} />}
       <div style={{ minWidth: 0, flex: '1 1 12rem' }}>
-        <div style={{ fontSize: '0.9375rem', fontWeight: 700, letterSpacing: '-0.02rem', display: 'flex', alignItems: 'center', gap: '0.5625rem' }}>
+        {/* ⚠️ `compact`(드릴 편집·시연)에서만 **가운데 정렬**이다(기현 지시 2026-08-30:
+            *"드릴 편집 화면, 시연 화면에서 드릴 제목 및 편집중 아이콘, 제목 수정 폼을 가운데
+            정렬로"*). 다른 화면은 왼쪽 그대로 — 목록·설정처럼 부제·설명이 함께 서는 헤더에서
+            제목만 가운데로 가면 두 줄이 어긋난 계단이 된다.
+            ⚠️ 여기서 말하는 "가운데" 는 **이 칸의 가운데**다(헤더 전체의 가운데가 아니다).
+            오른쪽 액션은 `flex:'none'` 으로 자기 폭을 갖고, 이 칸이 그 나머지를 채운다. 헤더
+            절대 중앙에 맞추려면 왼쪽에 같은 폭의 빈 칸을 세워야 하는데, 그러면 긴 제목이
+            훨씬 일찍 잘린다 — 제목을 읽는 것이 가운데 두는 것보다 중요하다. */}
+        <div
+          style={{
+            fontSize: '0.9375rem',
+            fontWeight: 700,
+            letterSpacing: '-0.02rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5625rem',
+            ...(config.compact ? { justifyContent: 'center' } : null),
+          }}
+        >
           {config.titleField ? (
-            <HeaderTitleEditor cfg={config.titleField} />
+            <HeaderTitleEditor cfg={config.titleField} centered={!!config.compact} />
           ) : (
             <span
               style={{
@@ -384,9 +402,13 @@ export function AppHeader({
  *  HeaderDescriptionEditor 와 같은 관용구(표시 버튼 ↔ 편집 input, blur 커밋, Enter=blur 위임,
  *  Esc=되돌림)에 두 가지만 다르다: 글꼴이 제목 그대로(부모 div 에서 상속)이고, **trim 결과가
  *  비면 커밋하지 않는다**(이름 없는 드릴을 만들지 않는다 — 인터페이스 주석). */
-function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
+function HeaderTitleEditor({ cfg, centered = false }: { cfg: HeaderTitleField; centered?: boolean }) {
   const [editing, setEditing] = useState(false);
   const t = useT();
+  // 표시 버튼은 줄어들어 글자에 맞으므로 부모의 justifyContent 가 이미 가운데로 보낸다.
+  // **입력 칸은 다르다** — 폭 100% 라 칸 자체는 늘 꽉 차고, 안의 글자가 왼쪽에 붙어 있으면
+  // 편집을 시작하는 순간 제목이 가운데에서 왼쪽으로 뛴다. 그래서 글자 정렬을 함께 넘긴다.
+  const textAlign = centered ? ('center' as const) : ('left' as const);
 
   if (editing) {
     return (
@@ -422,6 +444,7 @@ function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
           border: '1px solid var(--border-strong)',
           borderRadius: '0.375rem',
           padding: '0.125rem 0.4375rem',
+          textAlign,
         }}
       />
     );
@@ -441,7 +464,7 @@ function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        textAlign: 'left',
+        textAlign,
         padding: 0,
       }}
     >
