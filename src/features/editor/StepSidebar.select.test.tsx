@@ -35,7 +35,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     stepId: d.steps[0]!.id,
     onSelectStep: noop,
     onReorderStep: noop,
-    onAddStep: noop,
     onDuplicateStep: noop,
     onToggleCut: noop,
     collapsed: false,
@@ -260,7 +259,6 @@ function GroupHarness({ initial, onMove }: { initial: Drill; onMove?: (ids: Step
       stepId={stepId}
       onSelectStep={setStepId}
       onReorderStep={(id, to) => setDrill((d) => moveStep(d, d.steps.findIndex((s) => s.id === id), to))}
-      onAddStep={() => {}}
       onDuplicateStep={() => {}}
       onToggleCut={() => {}}
       collapsed={false}
@@ -330,7 +328,6 @@ describe('일괄 이동(드래그) — 상대 순서 보존, 흩어진 선택은
         stepId={d.steps[0]!.id}
         onSelectStep={noop}
         onReorderStep={onReorder}
-        onAddStep={noop}
         onDuplicateStep={noop}
         onToggleCut={noop}
         collapsed={false}

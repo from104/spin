@@ -162,7 +162,9 @@ describe('자유 전술판 (대문)', () => {
     const { user } = await openBoard();
     await openCourt(user);
     expect(screen.queryByRole('button', { name: '스텝 추가' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '한 장 더 찍기' })).toBeNull();
+    // 스텝을 늘리는 [+](틈)도 전술판에는 없다 — 2026-08-30 까지는 [한 장 더 찍기] 버튼이
+    // 그 자리를 대신 재고 있었는데, 그 버튼이 폐기되며 살아 있는 표적으로 옮겼다.
+    expect(screen.queryByRole('button', { name: /복제해/ })).toBeNull();
     // 2026-08-17 재편(구현 순서 ②) — 스텝 목록은 왼쪽 세로 사이드바(StepSidebar.tsx)다.
     // 자유 전술판(isBoard)은 스텝이 없으니 **완전 무변**이어야 한다 — 고정 자리도, 접힘
     // 모드의 여는 버튼도 있으면 안 된다.

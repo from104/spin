@@ -113,9 +113,6 @@ export interface StepSidebarProps {
   onSelectStep(id: StepId): void;
   /** 순서 변경. `toIndex` 는 옮긴 **뒤**의 자리(edits.ts moveStep 과 같은 규칙). */
   onReorderStep(id: StepId, toIndex: number): void;
-  /** [한 장 더 찍기] — 지금 스텝을 복제해 바로 뒤에 넣는다(STEP_ADD 의미 그대로,
-   *  EditorWorkspace.addStepHere 가 이어 커밋 뒤 새 스텝을 선택한다). */
-  onAddStep(): void;
   /** 복제(§복제, 기현님 확정 2026-08-17). `toIndex` 를 안 주면 `STEP_DUPLICATE`/
    *  `duplicateStep` 의 기본값(바로 뒤)이 그대로 적용된다 — 카드 자체의 복제 버튼과 틈
    *  g>0 의 + 버튼이 이 경로다. **맨 앞 틈(g=0)** 만 `toIndex: 0` 을 실어 보내
@@ -198,6 +195,7 @@ function GapSlot({
   label,
   onDuplicate,
   chain,
+  tut,
 }: {
   index: number;
   active: boolean;
@@ -206,11 +204,15 @@ function GapSlot({
   onDuplicate: () => void;
   /** undefined = 맨 앞·맨 뒤 틈(경계 없음) — 사슬 버튼 자체를 안 그린다. */
   chain?: GapChain;
+  /** 튜토리얼 앵커(`data-tut`). **맨 뒤 틈에만** 준다(2026-08-30) — [한 장 더 찍기] 버튼이
+   *  없어지며 그 앵커가 갈 곳이 필요했고, 스텝을 늘리는 길이 이제 이 [+] 뿐이다. */
+  tut?: string;
 }) {
   const t = useT();
   return (
     <div
       data-gap-index={index}
+      data-tut={tut}
       style={{
         position: 'relative',
         flex: 'none',
@@ -325,7 +327,6 @@ export function StepSidebar({
   stepId,
   onSelectStep,
   onReorderStep,
-  onAddStep,
   onDuplicateStep,
   onToggleCut,
   collapsed,
@@ -864,39 +865,16 @@ export function StepSidebar({
             </div>,
           ];
         })}
+        {/* 맨 뒤 틈 — 2026-08-30 부터 **스텝을 늘리는 유일한 길**이다(기현 지시로 [한 장 더
+            찍기] 버튼이 없어졌다). 그래서 튜토리얼 앵커가 여기로 왔다. */}
         <GapSlot
           index={order.length}
           active={false}
           disabled={atMax}
+          tut="editor-add-step"
           label={gapDuplicateSpec(order.length, order, t).label}
           onDuplicate={() => fireDuplicate(gapDuplicateSpec(order.length, order, t))}
         />
-
-        <button
-          type="button"
-          data-tut="editor-add-step"
-          title={atMax ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps }) : t('editor.stepSidebar.addStepTitle')}
-          disabled={atMax}
-          onClick={onAddStep}
-          style={{
-            flex: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            minHeight: 'var(--hit)',
-            marginTop: 4,
-            border: '1px dashed var(--border-strong)',
-            borderRadius: 10,
-            color: 'var(--faint-text)',
-            fontSize: '0.78125rem',
-            fontWeight: 600,
-            opacity: atMax ? 0.4 : 1,
-          }}
-        >
-          <IconPlus size={15} />
-          {t('editor.stepSidebar.addStepButton')}
-        </button>
       </div>
       {/* 재생 컨트롤(2026-08-18)은 여기 없다 — 2026-08-20 재설계(§D)로 편집·시연 공용
           PlaybackControls 가 되어 EditorWorkspace 하단 줄(노트 옆, 최우측)로 옮겨 갔다.

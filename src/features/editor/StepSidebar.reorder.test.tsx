@@ -63,7 +63,6 @@ function Harness({ initial, onReorder }: { initial: Drill; onReorder?: (id: Step
         onReorder?.(id, to);
         setDrill((d) => moveStep(d, d.steps.findIndex((s) => s.id === id), to));
       }}
-      onAddStep={() => {}}
       onDuplicateStep={() => {}}
       onToggleCut={() => {}}
       collapsed={false}

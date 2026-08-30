@@ -56,10 +56,18 @@ async function openDrill() {
 
 const sidebarCards = () => within(screen.getByRole('navigation', { name: '스텝 목록' })).getAllByRole('button', { name: /^스텝 \d+$/ });
 
+/** 스텝 한 장 늘리기 — **목록 끝 틈의 [+]**. 2026-08-30 기현 지시로 [한 장 더 찍기] 버튼이
+ *  없어지면서 이것이 스텝을 늘리는 유일한 길이 됐다.
+ *  옛 버튼과 마찬가지로 **누르면 새 장이 선택된다**(EditorWorkspace 의 duplicateStepAt). */
+async function addStepAtEnd(user: { click(el: Element): Promise<void> }): Promise<void> {
+  const n = sidebarCards().length;
+  await user.click(screen.getByRole('button', { name: `스텝 ${n} 을 복제해 바로 뒤에 넣기` }));
+}
+
 describe('편집 화면 — 공용 재생 묶음(2026-08-20 §D)', () => {
   it('재생 묶음 5개가 코트 아래(노트 옆)에 산다', async () => {
     await openDrill();
-    await userEvent.click(screen.getByRole('button', { name: '한 장 더 찍기' })); // canPlay 조건(스텝 2장 이상)
+    await addStepAtEnd(userEvent); // canPlay 조건(스텝 2장 이상)
     expect(screen.getByRole('button', { name: /^반복/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '이전 스텝' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '재생' })).toBeInTheDocument();
@@ -75,7 +83,7 @@ describe('편집 화면 — 공용 재생 묶음(2026-08-20 §D)', () => {
   // §F — 끝 스텝에서 [재생] = 처음으로 되감고 재생. loop 설정과 무관하다.
   it('끝 스텝에서 [재생] 을 누르면 첫 스텝으로 되감고 재생한다(loop 꺼짐, §F)', async () => {
     const { user } = await openDrill();
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' })); // 2장째, 그 장(끝 스텝)이 선택된다
+    await addStepAtEnd(user); // 2장째, 그 장(끝 스텝)이 선택된다
     expect(sidebarCards()[1]).toHaveAttribute('aria-current', 'step');
 
     await user.click(screen.getByRole('button', { name: '재생' }));
@@ -85,7 +93,7 @@ describe('편집 화면 — 공용 재생 묶음(2026-08-20 §D)', () => {
 
   it('끝 스텝에서 [재생] — 반복이 켜져 있어도 같은 되감기가 일어난다(loop 켜짐, §F)', async () => {
     const { user } = await openDrill();
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
+    await addStepAtEnd(user);
     expect(sidebarCards()[1]).toHaveAttribute('aria-current', 'step');
 
     const loopBtn = screen.getByRole('button', { name: /^반복/ });
@@ -98,8 +106,8 @@ describe('편집 화면 — 공용 재생 묶음(2026-08-20 §D)', () => {
 
   it('중간 스텝에서 [재생]은 되감지 않는다 — 대조군(끝 스텝일 때만 되감는다)', async () => {
     const { user } = await openDrill();
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' })); // 2장, 2번째(끝) 선택
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' })); // 3장, 3번째(끝) 선택
+    await addStepAtEnd(user); // 2장
+    await addStepAtEnd(user); // 3장
     await user.click(sidebarCards()[1]!); // 가운데(2번째)로 이동 — 끝이 아니다
 
     await user.click(screen.getByRole('button', { name: '재생' }));

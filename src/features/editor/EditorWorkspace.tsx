@@ -462,23 +462,17 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
     playbackActions.toggle();
   }, [playing, stepIndex, drill.steps, dispatch, playbackActions]);
 
-  // [한 장 더 찍기](§4.4 P2-3)는 **한 번**의 조작이어야 한다 — 찍고 나면 방금 찍은 장이
-  // 손에 들려 있어야지, 옛 장을 든 채 새 장이 옆에 쌓이면 다음 동작이 엉뚱한 판에 들어간다.
-  // STEP_ADD 는 새 스텝의 id 를 돌려주지 않으므로(리듀서는 순수하다) 커밋된 뒤 **바로 뒤**
-  // 스텝을 고른다 — addStepAfter 가 i+1 에 꽂는 것이 그 함수의 계약이다(edits.ts).
-  // 인스펙터의 [스텝 추가]는 이 경로를 타지 않는다(거기서는 목록이 통째로 보인다).
-  const [addedAfter, setAddedAfter] = useState<number | null>(null);
-  const addStepHere = useCallback(() => {
-    const i = selectStepIndex(state);
-    setAddedAfter(i);
-    dispatch({ type: 'STEP_ADD', afterIndex: i });
-  }, [dispatch, state]);
-  useEffect(() => {
-    if (addedAfter === null) return;
-    setAddedAfter(null);
-    const added = drill.steps[addedAfter + 1];
-    if (added) dispatch({ type: 'STEP_SELECT', id: added.id });
-  }, [addedAfter, drill.steps, dispatch]);
+  // ⚠️ **[한 장 더 찍기] 가 없어졌다**(기현 지시 2026-08-30: *"그 버튼 지워"*). 여기 있던
+  //    `addStepHere`(+ 커밋 뒤 새 스텝을 고르는 `addedAfter` 이펙트)도 함께 사라졌다.
+  //    옛 근거를 기록으로 남긴다: *"찍기는 한 번의 조작이어야 한다 — 찍고 나면 방금 찍은
+  //    장이 손에 들려 있어야지, 옛 장을 든 채 새 장이 옆에 쌓이면 다음 동작이 엉뚱한 판에
+  //    들어간다."* **그 근거는 그대로 살아 있다** — 스텝을 늘리는 길이 이제 틈의 [+]
+  //    (STEP_DUPLICATE) 뿐인데, 바로 아래 `duplicateStepAt` 이 같은 뒷정리를 이미 하고 있다
+  //    (삽입 자리를 미리 계산해 두고 다음 렌더에서 그 스텝을 고른다). 즉 없어진 것은 버튼
+  //    하나이고, "찍으면 그 장이 손에 들린다" 는 계약은 한 곳으로 합쳐졌다.
+  //    ⚠️ 그래서 `STEP_ADD` 액션과 `edits.addStepAfter` 는 **UI 호출자가 없어졌다.** 지우지
+  //       않고 둔다: 리듀서 계약과 테스트가 온전하고, "현재 스텝 뒤에 꽂고 그리로 옮긴다" 는
+  //       의미는 STEP_DUPLICATE 와 다르다 — 다시 필요해질 때 되살릴 자리다.
 
   // [스텝 복제](§복제, 기현님 확정 2026-08-17) — 위 [한 장 더 찍기] 와 같은 이유로 같은
   // 패턴이다: 복제한 장이 손에 들려야 다음 조작(도형 그리기 등)이 그 장에 들어간다.
@@ -748,7 +742,6 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           stepId={state.stepId}
           onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
           onReorderStep={(id, toIndex) => dispatch({ type: 'STEP_REORDER', id, toIndex })}
-          onAddStep={addStepHere}
           onDuplicateStep={duplicateStepAt}
           // ④ 사슬 토글(기현님 확정 2026-08-17) — cut:false 는 STEP_META 리듀서가 키 삭제로
           // 해석한다(reducer.ts STEP_META 주석). 복제와 달리 선택 이동이 없어 여기서는
