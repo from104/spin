@@ -34,7 +34,7 @@
 //    끼어든다 — 얻는 것 없이 잃기만 한다.
 import { memo, useEffect, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { OBJ_STROKE } from '../../core/colors.ts';
+import { GOAL_BASE_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { goalBaseLocalRect } from '../../model/court.ts';
 import type { Vec2 } from '../../core/units.ts';
 import type { TransformWriter } from '../transformWriter.ts';
@@ -94,7 +94,7 @@ const RETURN_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2
  *  기하(`goalBaseLocalRect`)를 쓰므로 편집기와 시연이 어긋날 자리가 없다. */
 function BasePlate({ dir }: { dir: Vec2 }) {
   const r = goalBaseLocalRect(dir);
-  return <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={GOAL_EDGE} />;
+  return <rect x={r.x} y={r.y} width={r.w} height={r.h} fill={GOAL_BASE_FILL} />;
 }
 
 export const GoalPost = memo(function GoalPost({ id, writer, baseDir, displaced = false, onReturn }: GoalPostProps) {

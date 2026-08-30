@@ -9,6 +9,7 @@
 // `goalBaseRect` 하나가 정한다 — 이 파일도, 편집기도, PNG 내보내기도 거기서 받는다.
 //
 // ⚠️ 판이 **먼저** 온다(기둥보다 아래 층). 기둥은 판에 꽂힌 것이므로 위에 있어야 한다.
+import { GOAL_BASE_FILL } from '../../core/colors.ts';
 import { goalBaseRect } from '../../model/court.ts';
 import type { CourtDef } from '../../model/court.ts';
 
@@ -22,12 +23,6 @@ export interface GoalPostMarksProps {
   spotSw: number | undefined;
 }
 
-/** 받침판 색 — 기둥 테두리와 **같은 주황**이다(같은 장비의 두 부분이라 색이 갈리면 안 된다).
- *  기둥은 흰 채움이라 불투명한 판 위에서도 또렷하다 — 실물 사진과 같은 대비다.
- *  ⚠️ 2026-08-30 까지는 30% 반투명이었다(기현 지시로 불투명). 반투명이면 판 아래 골라인·
- *     코트면이 비쳐 "장비" 가 아니라 "표시" 로 읽혔다. */
-const BASE_FILL = '#c2410c';
-
 export function GoalPostMarks({ def, variant, spotR, spotSw }: GoalPostMarksProps) {
   if (variant === 'editor' || def.goalPosts.length === 0) return null;
   return (
@@ -35,7 +30,7 @@ export function GoalPostMarks({ def, variant, spotR, spotSw }: GoalPostMarksProp
       {def.goalPosts.map((p, i) => {
         const b = goalBaseRect(def, i);
         return b === null ? null : (
-          <rect key={`base-${p.x},${p.y}`} x={b.x} y={b.y} width={b.w} height={b.h} fill={BASE_FILL} />
+          <rect key={`base-${p.x},${p.y}`} x={b.x} y={b.y} width={b.w} height={b.h} fill={GOAL_BASE_FILL} />
         );
       })}
       {def.goalPosts.map((p) => (

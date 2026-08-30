@@ -321,9 +321,10 @@ describe('narrow === false — PC 경로는 한 바이트도 안 바뀐다', () 
     //    2026-08-30 갱신 — 골대에 **받침판**(rect 4장)이 붙었다(기현님 실물 사진). 코트
     //    `<svg>` 안에서 골대 그룹에만 원소가 늘고, 그 밖은 한 줄도 안 움직인다. 같은 날
     //    후속 지시(*"불투명하게하고 실제는 50cm지만 75cm로 그려"*)로 그 rect 의 크기와
-    //    fill-opacity 속성이 함께 바뀌었다.
+    //    fill-opacity 속성이 함께 바뀌었다. 그 뒤 판 채움색이 **흰색에 가까운 주황**
+    //    (`GOAL_BASE_FILL`)이 되며 한 번 더 바뀌었다 — 골대 그룹의 rect 4장만 움직인다.
     expect(createHash('sha256').update(main.outerHTML).digest('hex')).toBe(
-      '1e788a3b541e630fe2aee2229eba956cfc1a2f9384d3500f9de764c5f75d4c2c',
+      '07320dbdc667c96c6371fbf81d56409254c3789c641d361e3c09317a33542c0f',
     );
   });
 

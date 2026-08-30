@@ -35,7 +35,7 @@
 // (staticSceneLayout.ts)가 따로 돌려주고 래스터 어댑터가 캔버스에서 그린다. 근거는 그 파일
 // 머리말에 있다. 부수 이득: 사용자 문자열이 SVG 에 실리지 않아 이스케이프 사고가 원천 봉쇄된다.
 import { DEG } from '../../core/angle.ts';
-import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
+import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, GOAL_BASE_FILL, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR, CONE } from '../../core/constants.ts';
 import { attackDir, courtDefFor, goalBaseRect, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import type { CourtDef } from '../../model/court.ts';
@@ -156,7 +156,7 @@ function goalPostsMarkup(def: CourtDef): string {
   const bases = posts
     .map((_p, i) => goalBaseRect(def, i))
     .filter((b): b is NonNullable<typeof b> => b !== null)
-    .map((b) => `<rect x="${num(b.x)}" y="${num(b.y)}" width="${num(b.w)}" height="${num(b.h)}" fill="#c2410c"/>`)
+    .map((b) => `<rect x="${num(b.x)}" y="${num(b.y)}" width="${num(b.w)}" height="${num(b.h)}" fill="${GOAL_BASE_FILL}"/>`)
     .join('');
   return (
     `<g fill="#f5f5f5" stroke="#c2410c" stroke-width="${num(W.spotSw!)}">` +
