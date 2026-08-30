@@ -1,4 +1,5 @@
 // 주제별 콘텐츠 모델(2026-08-22 재설계) 불변식 — docs/PLAN-RULES-REDESIGN.md §6.
+// 주제 구성 자체의 정본은 2026-08-31 부터 docs/PLAN-RULES-9CARDS.md 다(8주제 → 9카드).
 import { describe, expect, it } from 'vitest';
 import { ruleTopicsFor, RULE_TOPIC_KEYS, MISCONDUCT_CARDS } from './ruleTopics.ts';
 import { RESTART_COLUMNS, RESTART_ROW_LABELS } from './restartTable.ts';
@@ -8,10 +9,20 @@ import { RULE_FIGURE_IDS } from './figures/ids.ts';
 const TOPICS = ruleTopicsFor('ko');
 
 describe('ruleTopicsFor', () => {
-  it('주제는 정확히 8개이고 key 가 유일하다', () => {
-    expect(TOPICS).toHaveLength(8);
-    expect(new Set(TOPICS.map((t) => t.key)).size).toBe(8);
+  it('주제는 정확히 9개이고 key 가 유일하다', () => {
+    // 8 → 9: 앞에 intro·purpose 를 세우고 contested 를 restarts 로 흡수했다(9CARDS §1.1).
+    expect(TOPICS).toHaveLength(9);
+    // 유일성 단언에는 하드넘버를 쓰지 않는다 — 개수는 위 한 줄이 이미 못박는다.
+    expect(new Set(TOPICS.map((t) => t.key)).size).toBe(TOPICS.length);
     expect(TOPICS.map((t) => t.key)).toEqual(RULE_TOPIC_KEYS);
+  });
+
+  it('첫 카드는 intro 다', () => {
+    // 순서 단언을 여기 하나 못박아 둔다 — 다른 테스트들이 제목 리터럴 대신 `TOPICS[i].title`
+    // 자기참조로 바뀌면서(개편 때마다 깨지지 않게) **순서를 뒤집어도 전부 통과하게** 됐다.
+    // 입구 카드(intro)를 맨 앞에 세우는 것이 이번 9카드 개편의 핵심 결정이라(9CARDS §1.1),
+    // 그 결정만은 자기참조가 아닌 하드코딩으로 지킨다.
+    expect(RULE_TOPIC_KEYS[0]).toBe('intro');
   });
 
   it('모든 주제가 title·tagline·blocks 를 최소 1개씩 가진다', () => {
@@ -71,6 +82,26 @@ describe('ruleTopicsFor', () => {
     for (const topic of TOPICS) {
       const has = topic.blocks.some((b) => b.kind === 'restart-table');
       expect(has, topic.key).toBe(topic.key === 'restarts');
+    }
+  });
+
+  it('튜토리얼 앵커 rules-card·rules-appendix 가 각각 정확히 한 주제에만 붙는다', () => {
+    // RULES_TUTORIAL_STEPS 3단계 중 2·3단계가 이 앵커를 `document.querySelector` 로 찾는다
+    // (tutorialSteps.ts). 앵커가 0개면 그 단계가 조용히 대상을 못 찾고, 2개 이상이면 어느
+    // 카드를 가리킬지가 카드 배열 순서에 좌우된다 — 어느 쪽도 CI 가 못 잡던 침묵이었다.
+    // 앵커는 카드에 붙는 데이터(RuleTopic.tutorialAnchor)이므로 여기서 지킨다.
+    const anchored = (anchor: string) => TOPICS.filter((t) => t.tutorialAnchor === anchor).map((t) => t.key);
+    expect(anchored('rules-card')).toEqual(['basics']);
+    expect(anchored('rules-appendix')).toEqual(['rulebook']);
+  });
+
+  it('scene-slot 은 intro·purpose 에만 있고 각각 1개다', () => {
+    // scene-slot 은 "기현님이 만들 장면이 들어올 자리"를 지키는 빈 블록이다(9CARDS §5).
+    // 자리가 없으면 카드 1·2 는 산문만 남고, 장면이 도착해도 어디에 넣을지가 다시 논쟁이 된다.
+    // 반대로 아무 카드에나 늘어나면 "미완성 자리"가 화면 곳곳에 흩어지므로 두 카드로 못박는다.
+    for (const topic of TOPICS) {
+      const count = topic.blocks.filter((b) => b.kind === 'scene-slot').length;
+      expect(count, topic.key).toBe(topic.key === 'intro' || topic.key === 'purpose' ? 1 : 0);
     }
   });
 });

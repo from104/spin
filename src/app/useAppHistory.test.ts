@@ -68,6 +68,13 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
     expect(pathFor('rules', { kind: 'rule', topic: 'rulebook' })).toBe('/rules/rulebook');
   });
 
+  // 2026-08-31 9카드 개편에서 주제 contested 가 폐기되고 그 콘텐츠는 restarts 로 갔다.
+  // 같은 이유로 단방향이다 — 옛 주소를 살리는 게 아니라 북마크를 안 죽이는 것뿐.
+  it('폐기된 /rules/contested 딥링크는 경기 재개(restarts)로 흡수된다', () => {
+    expect(parsePath('/rules/contested')).toEqual({ screen: 'rules', target: { kind: 'rule', topic: 'restarts' } });
+    expect(pathFor('rules', { kind: 'rule', topic: 'restarts' })).toBe('/rules/restarts');
+  });
+
   it('화면 키 전수에 pathFor 가 경로를 준다 (SCREEN_ORDER 대조군)', () => {
     for (const scr of SCREEN_ORDER) expect(pathFor(scr).startsWith('/')).toBe(true);
   });
