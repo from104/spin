@@ -9,7 +9,6 @@ import {
   getSession,
   deleteSession,
   restoreSession,
-  upcomingSession,
 } from './sessionRepo.ts';
 import { idbDrillRepo } from './drillRepo.ts';
 import { newId } from '../core/ids.ts';
@@ -141,20 +140,7 @@ describe('restoreSession (§E, PLAN-DELETE-SAFETY.md)', () => {
   });
 });
 
-describe('upcomingSession', () => {
-  it('미래 일정 중 가장 가까운 세션을 고른다', async () => {
-    // 이 describe 만 scheduledAt 을 쓰므로(다른 테스트는 미지정) 결정적으로 검증할 수 있다.
-    const now = Date.now();
-    await createSession({ title: '먼 미래', scheduledAt: now + 100000 });
-    const near = await createSession({ title: '가까운 미래', scheduledAt: now + 1000 });
-    const upcoming = await upcomingSession();
-    expect(upcoming?.session.id).toBe(near.id);
-  });
-
-  it('과거 일정은 후보에서 제외된다', async () => {
-    const now = Date.now();
-    const past = await createSession({ title: '이미 지남', scheduledAt: now - 1000 });
-    const upcoming = await upcomingSession();
-    expect(upcoming?.session.id).not.toBe(past.id);
-  });
-});
+// `upcomingSession` 테스트 2건은 그 함수와 함께 폐기했다(2026-08-31). "가까운 미래를 고르고
+// 과거는 뺀다" 는 판정 자체는 사라지지 않았다 — 그 함수가 위임하던 `model/session.ts
+// pickNextSession` 의 계약이고, `model/refs.test.ts` 가 과거·먼 미래·가까운 미래·일정 없음을
+// 한 목록에 섞어 검사한다.

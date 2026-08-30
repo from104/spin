@@ -305,10 +305,9 @@ export function loadPrefs(): Preferences {
   return validatePrefs(input).value;
 }
 
-export function patchPrefs(patch: Partial<Preferences>): { prefs: Preferences; persisted: boolean } {
-  const merged: Preferences = { ...loadPrefs(), ...patch };
-  return { prefs: merged, persisted: savePrefs(merged) };
-}
+// `patchPrefs(patch)`(＝`savePrefs({ ...loadPrefs(), ...patch })` 한 줄에 저장 성공 여부를
+// 얹어 돌려주던 것)는 2026-08-31 위생 청소로 뺐다 — 호출자가 테스트뿐이었다. 설정 화면은
+// prefs 전체를 들고 있는 store 를 거쳐 savePrefs 를 직접 부르므로 부분 병합이 필요 없다.
 
 export function resetPrefs(): void {
   try {

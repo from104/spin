@@ -8,7 +8,6 @@ import {
   makeDefaultPrefs,
   loadPrefs,
   savePrefs,
-  patchPrefs,
   validatePrefs,
   resolvePhysics,
   prunePhysics,
@@ -186,7 +185,7 @@ describe('savePrefs', () => {
   });
 });
 
-describe('loadPrefs / patchPrefs / resetPrefs', () => {
+describe('loadPrefs / resetPrefs', () => {
   it('저장된 값이 없으면 기본값을 돌려준다', () => {
     expect(loadPrefs()).toEqual(makeDefaultPrefs());
   });
@@ -197,12 +196,6 @@ describe('loadPrefs / patchPrefs / resetPrefs', () => {
   it('too-new schemaVersion 은 완전히 기본값으로 되돌린다', () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ schemaVersion: 999, theme: 'light' }));
     expect(loadPrefs().theme).toBe('dark'); // 구조를 신뢰할 수 없어 theme 도 기본값
-  });
-  it('patchPrefs 는 저장하고 병합된 값을 돌려준다', () => {
-    const { prefs, persisted } = patchPrefs({ loop: true });
-    expect(persisted).toBe(true);
-    expect(prefs.loop).toBe(true);
-    expect(loadPrefs().loop).toBe(true);
   });
   it('resetPrefs 이후 loadPrefs 는 기본값', () => {
     savePrefs({ ...makeDefaultPrefs(), loop: true });
@@ -463,9 +456,10 @@ describe('3.0 저장 왕복 — 화이트리스트 조립부에 안 적힌 필�
     expect(loadPrefs().a11y.twoZone).toBe(true);
     expect(loadPrefs().a11y.sound).toBe(true); // 대조군 — a11y 가 통째로 갈린 것이 아니다
   });
-  it('patchPrefs 로 서랍만 만져도 나머지 prefs 는 그대로다', () => {
+  it('서랍만 만져도 나머지 prefs 는 그대로다', () => {
     savePrefs({ ...makeDefaultPrefs(), theme: 'light', seeded: true });
-    const { prefs } = patchPrefs({ tray: { draw: true, note: true } });
+    savePrefs({ ...loadPrefs(), tray: { draw: true, note: true } });
+    const prefs = loadPrefs();
     expect(prefs.tray).toEqual({ draw: true, note: true });
     expect(prefs.theme).toBe('light');
     expect(prefs.seeded).toBe(true);

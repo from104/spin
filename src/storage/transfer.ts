@@ -309,6 +309,11 @@ export function exportDrillFile(d: Drill): Blob {
 export function exportSessionFile(s: TrainingSession, drills: Drill[]): Blob {
   return toBlob(toEnvelope('session', { session: s, drills }));
 }
+/** ⚠️ **화면에서 부르는 곳이 없다. 그래도 지우지 마라** (2026-08-31 위생 청소에서 살려 둔 것).
+ *  'library' 봉투를 **읽는** 길(`parseSpinFile` → `readImportFile`)은 계약으로 살아 있다 —
+ *  옛 버전이 내보낸 파일을 지금도 열 수 있어야 하기 때문이다. 그 읽기를 검증하려면 그 형식의
+ *  파일을 만들 줄 알아야 하고, 이 함수가 유일한 생성기다(`features/library/transfer.test.ts`
+ *  가 정확히 그렇게 쓴다). 지우면 읽기 계약이 소리 없이 검증 밖으로 나간다. */
 export function exportLibraryFile(ds: Drill[]): Blob {
   return toBlob(toEnvelope('library', ds));
 }
