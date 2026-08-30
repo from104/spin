@@ -17,13 +17,14 @@
 
 | 산출물 | 크기 | 바탕 | 쓰임 |
 |---|---|---|---|
-| `favicon-32.png` · `favicon-48.png` | 32 · 48 | 투명 | 탭·북마크. 16px 로 줄면 코트의 흰 파선이 뭉개져 미리 구워 준다 |
-| `apple-touch-icon.png` | 180 | 잔디색 정사각 | iOS 홈 화면 |
-| `icon-192.png` · `icon-512.png` | 192 · 512 | 잔디색 정사각 | manifest(설치형). 512 는 maskable 로도 쓴다 |
+| `favicon-32.png` · `favicon-48.png` | 32 · 48 | 투명 | 탭·북마크. 16px 로 줄면 차체 뒤끝의 흰 파선이 뭉개져 미리 구워 준다 |
+| `apple-touch-icon.png` | 180 | 짙은 나무색 정사각 | iOS 홈 화면 |
+| `icon-192.png` · `icon-512.png` | 192 · 512 | 짙은 나무색 정사각 | manifest(설치형). 512 는 maskable 로도 쓴다 |
 
 ⚠️ **정사각 셋은 바탕을 채워야 한다.** iOS 는 투명을 검게 칠하고, maskable 은 모서리를
-잘라내므로 투명한 원을 주면 원이 잘린다. 잔디색(`#24421f`) 바탕에 마크를 82~86% 로 넣어
-안전 영역을 확보한다.
+잘라내므로 투명한 원을 주면 원이 잘린다. 짙은 나무색(`#3d2612`) 바탕에 마크를 82~86% 로 넣어
+안전 영역을 확보한다. (2026-08-31 이전에는 잔디색 `#24421f` 였다 — 마크의 바닥이 초록에서
+나무로 바뀌면서 함께 옮겼다.)
 
 굽는 법(의존성 추가 금지라 ImageMagick + 시스템 파이썬 PIL 을 쓴다):
 
@@ -33,7 +34,7 @@ convert -background none -density 600 public/logo.svg -resize 1024x1024 /tmp/log
 ```python
 from PIL import Image
 src = Image.open('/tmp/logo1024.png').convert('RGBA')
-GRASS = (36, 66, 31)  # #24421f
+WOOD = (61, 38, 18)  # #3d2612 — 마크 바닥(#a9713c)보다 짙은 나무
 
 def bake(size, path, square_bg=None, inset=1.0):
     im = src.resize((int(size * inset), int(size * inset)), Image.LANCZOS)
@@ -43,9 +44,9 @@ def bake(size, path, square_bg=None, inset=1.0):
     (canvas if square_bg is None else canvas.convert('RGB')).save(path, optimize=True)
 
 bake(32, 'public/favicon-32.png'); bake(48, 'public/favicon-48.png')
-bake(180, 'public/apple-touch-icon.png', GRASS, 0.86)
-bake(192, 'public/icon-192.png', GRASS, 0.82)
-bake(512, 'public/icon-512.png', GRASS, 0.82)
+bake(180, 'public/apple-touch-icon.png', WOOD, 0.86)
+bake(192, 'public/icon-192.png', WOOD, 0.82)
+bake(512, 'public/icon-512.png', WOOD, 0.82)
 ```
 
 ⚠️ SVG 를 고쳤으면 **PNG 다섯도 다시 구워야 한다.** 한쪽만 바뀌면 탭 아이콘과 앱 안 로고가
