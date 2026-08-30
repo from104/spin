@@ -7,7 +7,9 @@ import { radToStoredDeg, storedDegToRad } from '../core/angle.ts';
 import type { Locale } from '../i18n/locale.ts';
 
 export type DragZone = 'towRear' | 'translate' | 'spin' | 'towFront';
-export const DRAG_ZONES = ['towRear', 'translate', 'spin', 'towFront'] as const;
+// 같은 네 값을 담던 런타임 배열 `DRAG_ZONES` 는 2026-08-31 위생 청소로 뺐다 — 순회할 곳이
+// 한 군데도 없었다(존을 다루는 코드는 전부 타입으로만 쓴다). 필요해지면 위 유니온을 그대로
+// `as const` 배열로 적고 타입을 거기서 파생시켜라 — 두 벌을 손으로 맞추던 지금 모양 말고.
 
 /** 존 핸들의 발화·툴팁 이름 — `features/editor/useEditorPointer.ts`(존을 잡을 때 발화)와
  *  `render/ZoneHandles.tsx`(견인 핸들의 SVG &lt;title&gt;) 가 같은 값을 쓴다. render/ 가 features/

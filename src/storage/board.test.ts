@@ -1,7 +1,7 @@
 // §6.8 자유 전술판 스냅샷 — 되살리기·pristine 게이트·손상 내성.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDrill } from '../model/defaults.ts';
-import { BOARD_KEY, clearBoard, loadBoard, saveBoard } from './board.ts';
+import { BOARD_KEY, loadBoard, saveBoard } from './board.ts';
 
 beforeEach(() => {
   localStorage.clear();
@@ -89,19 +89,7 @@ describe('저장 실패가 앱을 죽이지 않는다', () => {
     spy.mockRestore();
   });
 
-  it('clearBoard 도 던지지 않는다', () => {
-    const spy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
-      throw new DOMException('quota', 'QuotaExceededError');
-    });
-    expect(() => clearBoard()).not.toThrow();
-    spy.mockRestore();
-  });
 });
 
-describe('clearBoard', () => {
-  it('지우면 다시 null', () => {
-    saveBoard(createDrill({ courtMode: 'full' }));
-    clearBoard();
-    expect(loadBoard()).toBeNull();
-  });
-});
+// clearBoard 테스트 2건(프라이빗 모드에서 안 던진다 · 지우면 다시 null)은 그 함수와 함께
+// 2026-08-31 에 폐기했다 — 호출자가 이 테스트뿐이었다(board.ts 의 그 자리 주석 참고).

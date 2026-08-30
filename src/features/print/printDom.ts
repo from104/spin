@@ -18,6 +18,7 @@ export const PRINT_ROOT_SELECTOR = '[data-print-root]';
 /** 페이지를 세는 선택자. 0장이면 `window.print()` 를 부르면 안 된다(빈 종이가 나온다). */
 export const PRINT_PAGE_SELECTOR = '[data-print-page]';
 
-/** `data-print-page` 값 — 표지 / 세션 계획서의 드릴 장 / 드릴 시트의 스텝 장. */
-export const PRINT_PAGE_KINDS = ['cover', 'drill', 'step'] as const;
-export type PrintPageKind = (typeof PRINT_PAGE_KINDS)[number];
+// `data-print-page` 가 갖는 값은 'cover'(표지) · 'drill'(세션 계획서의 드릴 장) · 'step'
+// (드릴 시트의 스텝 장) 셋이다. 그 목록을 담던 `PRINT_PAGE_KINDS` 배열과 거기서 파생하던
+// `PrintPageKind` 타입은 2026-08-31 위생 청소로 뺐다 — 읽는 이가 서로뿐이었다. 인쇄 코드는
+// 값을 JSX 에서 직접 문자열로 쓰고, 세는 쪽은 위 `PRINT_PAGE_SELECTOR` 로 종류를 안 가린다.

@@ -5,7 +5,7 @@
 import { getDB, beginWrite, endWrite, toStorageError } from './db.ts';
 import { StorageError, STORAGE_ERROR_MESSAGES } from './errors.ts';
 import type { TrainingSession, SessionItem, ResolvedSession } from '../model/session.ts';
-import { CURRENT_SESSION_SCHEMA, resolveSession, pickNextSession, flattenSessionItems, addSessionItem, moveSessionItemFlat } from '../model/session.ts';
+import { CURRENT_SESSION_SCHEMA, resolveSession, flattenSessionItems, addSessionItem, moveSessionItemFlat } from '../model/session.ts';
 import { refDrillIds, refreshRefs } from '../model/refs.ts';
 import type { DrillSummary } from '../model/summary.ts';
 import { newId } from '../core/ids.ts';
@@ -199,11 +199,6 @@ export async function reorderSessionItems(id: SessionId, from: number, to: numbe
   return putSession(moveSessionItemFlat(s, from, to));
 }
 
-export async function upcomingSession(): Promise<ResolvedSession | undefined> {
-  const db = await getDB();
-  const all = await db.getAll('sessions');
-  const next = pickNextSession(all);
-  if (!next) return undefined;
-  const existing = await existingDrillIdSet();
-  return resolveSession(next, existing);
-}
+// `upcomingSession()`(다음 일정 세션 하나를 해석해 돌려주던 것)은 2026-08-31 위생 청소로
+// 폐기했다 — 호출자가 테스트뿐이었다. 라이브러리의 [다음 세션] 칸은 목록을 이미 들고 있어
+// 저장소를 다시 읽지 않고 `model/session.ts pickNextSession` 을 직접 부른다(SessionTab).

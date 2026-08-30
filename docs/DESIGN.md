@@ -1576,7 +1576,9 @@ export function createSession(init: { title: string; scheduledAt?: number; locat
 export function deleteSession(id: SessionId): Promise<void>;
 export function addDrillToSession(id: SessionId, drillId: DrillId): Promise<TrainingSession>;
 export function reorderSessionItems(id: SessionId, from: number, to: number): Promise<TrainingSession>;
-export function upcomingSession(): Promise<ResolvedSession | undefined>;
+// upcomingSession(): Promise<ResolvedSession|undefined> 은 2026-08-31 위생 청소로 폐기 —
+// 대문 카드(아래 §6.11)가 끝내 안 만들어져 호출자가 테스트뿐이었다. 판정 자체는 model/session.ts
+// pickNextSession 에 그대로 있고, 라이브러리의 [다음 세션] 칸이 목록을 들고 그것을 직접 부른다.
 ```
 
 **`sessions.put` 을 모듈 밖으로 노출하지 않는다.** 모든 쓰기가 `putSession` 을 통과하고,
@@ -3791,7 +3793,9 @@ main (padding:22px 30px 46px, max-width:1180)
 드로어는 `role="dialog" aria-modal="false"`, 열 때 제목(`<h2 tabIndex={-1}>`)에 포커스,
 `Esc`/닫기 시 **트리거였던 세션 행으로 포커스 복귀**.
 
-**대문 '다음 훈련 세션' 카드**는 `upcomingSession()` 으로 실기능화한다.
+**대문 '다음 훈련 세션' 카드**는 `pickNextSession(목록)` + `resolveSession` 으로 실기능화한다
+(원래 여기 적혀 있던 저장소 헬퍼 `upcomingSession()` 은 이 카드가 안 만들어진 채 호출자가
+테스트뿐이라 2026-08-31 에 폐기했다 — 만들 때 라이브러리 [다음 세션] 칸과 같은 길로 가면 된다).
 시각 문자열은 `formatSessionWhen` 으로 직접 조립(로케일 조합 차이 방지). 드릴 행 최대 4개 +
 `+N개 더`. 카드 전체가 버튼 → `go('library')` + 세션 탭 + 해당 드로어 열기.
 세션이 없으면 빈 상태 + `[세션 만들기]`.

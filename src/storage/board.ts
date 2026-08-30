@@ -62,10 +62,6 @@ export function loadBoard(): { drill: Drill } | null {
   return { drill: res.value };
 }
 
-export function clearBoard(): void {
-  try {
-    localStorage.removeItem(BOARD_KEY);
-  } catch {
-    // savePrefs 와 동일 — 프라이빗 모드에서 removeItem 도 던질 수 있다.
-  }
-}
+// `clearBoard()`(BOARD_KEY 를 removeItem 하던 것)는 2026-08-31 위생 청소로 뺐다 — 호출자가
+// 테스트뿐이었다. 앱에는 이 키를 **지우는** 경로가 아예 없다(전술판은 덮어써서 비운다). 되살릴
+// 일이 생기면 removeItem 을 try/catch 로 감싸라 — 프라이빗 모드에서 던진다(savePrefs 와 동일).
