@@ -84,19 +84,13 @@ describe('② 평소 층 — 연한 붉은 계열', () => {
     expect(redness(RULE_ZONE_FILL)).toBeGreaterThan(0);
   });
 
-  // ⚠️ **2026-08-30 코트가 초록 → 나무(#a9713c)가 되며 이 단언의 전제가 무너졌다.**
-  //    옛 계약은 *"합성색이 코트보다 붉은 쪽으로 간다"* 였다 — 초록 코트(붉기 −65) 위에 옅은
-  //    붉은을 얹으면 붉기가 +30 오르는 것이 곧 "칠한 것이 보인다" 의 증거였다.
-  //    나무 코트는 **그 자체가 붉기 +82.5** 라, 어떤 붉은 tint 도 붉기를 더 올리지 못한다
-  //    (실측: 82.5 → 81.0). 색 채널이 사라진 것이지 칠이 안 된 것이 아니다.
-  //    그래서 재는 것을 코트에 안 매인 성질로 바꾼다: **면이 코트와 다르되 연하다**.
-  //    기능은 원래 면이 아니라 흰 파선 테두리가 나른다(파일 머리말) — 그쪽은 나무 위에서도
-  //    4.11:1 이라 온전하다. 아래 '두 상태' 단언이 평소↔위반 갈림을 따로 지킨다.
-  it('면이 코트와 다르되 **연하다** — 칠한 것이 보이되 판을 덮지 않는다', () => {
-    expect(contrastRatio(normalFace, COURT_BG)).toBeGreaterThan(1.1);
+  it('합성색이 코트보다 **붉은 쪽으로** 간다 — 색을 얹었는데 화면은 그대로가 아니다', () => {
+    expect(redness(normalFace)).toBeGreaterThan(redness(COURT_BG) + 20);
+    // 대조군 ①: 옛 흰 .14 는 코트보다 겨우 8.5 만 붉어졌다(무채색이라 초록이 그대로 남는다).
+    expect(redness(compositeOver(rgba('#ffffff', 0.14), COURT_BG))).toBeLessThan(redness(COURT_BG) + 20);
+    // 대조군 ②: 그런데도 **연하다** — 코트 대비는 1.5:1 미만이다(면은 여전히 장식이다).
     expect(contrastRatio(normalFace, COURT_BG)).toBeLessThan(1.5);
-    // 대조군: 아무것도 안 칠하면 대비는 정확히 1 이다 — 이 잣대가 무엇이든 통과시키지 않는다.
-    expect(contrastRatio(COURT_BG, COURT_BG)).toBe(1);
+    expect(contrastRatio(normalFace, COURT_BG)).toBeGreaterThan(1.1);
   });
 
   it('★ 흰 파선 채널이 실제로 보인다 — 요소 opacity 가 테두리를 깎지 않는다', () => {
@@ -148,12 +142,9 @@ describe('② 위반 층 — 같은 붉은 계열의 **진한 쪽**', () => {
   });
 
   it('★ 두 상태가 **색으로도 밝기로도** 갈린다 (색맹 대조군 포함)', () => {
-    // ① 색: 위반 면이 평소 면보다 **뚜렷하게 붉다**.
-    //    ⚠️ 2026-08-30 까지는 *"붉기의 부호가 뒤집힌다(초록 우세 → 붉은 우세)"* 였다. 그건
-    //       초록 코트에서만 성립하는 표현이다 — 나무 코트에서는 둘 다 붉기가 양수이므로
-    //       부호가 아니라 **차이**로 잰다(실측: 81.0 → 130.5). 초록 코트에서도 참이던 성질이라
-    //       (−34.5 → +72.5) 이 잣대가 느슨해진 것이 아니다.
-    expect(redness(alertFace) - redness(normalFace)).toBeGreaterThan(40);
+    // ① 색: 붉기의 부호가 뒤집힌다(초록 우세 → 붉은 우세).
+    expect(redness(normalFace)).toBeLessThan(0);
+    expect(redness(alertFace)).toBeGreaterThan(0);
     // ② 밝기: 색을 전혀 못 보는 눈(전색맹)에게도 남는 채널 — 상대휘도 대비.
     expect(contrastRatio(alertFace, normalFace)).toBeGreaterThanOrEqual(1.3);
     // 대조군: 옛 조합(#ff5a5a fill-opacity .2 를 흰 .14 위에)은 1.04:1 로 **밝기 채널이 없었다**.

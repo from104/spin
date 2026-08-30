@@ -216,8 +216,7 @@ describe('테마 축(라이트/다크) — 판의 색에는 테마가 개입할 
   });
 
   it('코트 배경은 라이트·다크 공통 상수 하나다 — 그래서 위 표의 코트 대비가 두 테마에서 같다', () => {
-    // 2026-08-30 초록 → 나무(기현 지시). 리터럴로 못박는 것은 값이 아니라 **한 값뿐**이라는 사실이다.
-    expect(COURT_BG).toBe('#a9713c');
+    expect(COURT_BG).toBe('#1f7a46');
     const tokens = readFileSync('src/styles/tokens.css', 'utf-8');
     expect(tokens).not.toContain('--court'); // 코트 색을 테마 토큰으로 내린 적이 없다
   });
