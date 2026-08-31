@@ -85,7 +85,7 @@ import { drill as kickInScene } from './scenes/kick-in.scene.ts';
 import { drill as goalKickScene } from './scenes/goal-kick.scene.ts';
 import { drill as cornerScene } from './scenes/corner.scene.ts';
 import { drill as setBallScene } from './scenes/set-ball.scene.ts';
-import { SCENE_NOTES_EN, SCENE_LABELS_EN } from './ruleScenes.en.ts';
+import { sceneTextFor } from './sceneText.ts';
 import { translate } from '../../i18n/useT.ts';
 import type { Locale } from '../../i18n/locale.ts';
 
@@ -667,31 +667,36 @@ export function buildRuleScene(id: RuleSceneId, locale: Locale = 'ko'): Drill {
  *  남고, 화면의 안내가 이미 그 가능성을 말한다). */
 function applySceneLocale(drill: Drill, id: RuleSceneId, locale: Locale): Drill {
   if (locale === 'ko') return drill;
+
   // 팀 이름은 **모든** 장면에 적용한다 — 편집기에서 온 12개도 포함이다. 좌표·쪽지는 기현님
-  // 저작물이지만 팀 이름은 `fromRawDrill` 이 이미 앱 기본값으로 덮어쓰고 있던 값이라
-  // 기현님이 찍은 것이 아니다. 화면 글자로는 안 보이지만 **체어의 aria-label 과 위반 발화**에
-  // 들어간다(`PresentObjects.tsx`·`RuleOverlay.tsx`) — 영어 화면에서 스크린리더가
-  // "우리 팀 4번" 이라고 읽던 자리다.
+  // 저작물이지만 팀 이름은 `fromRawDrill` 이 이미 앱 기본값으로 덮어쓰던 값이라 기현님이 찍은
+  // 것이 아니다. 화면 글자로는 안 보이지만 **체어의 aria-label 과 위반 발화**에 들어간다
+  // (`PresentObjects.tsx`·`RuleOverlay.tsx`) — 영어 화면에서 스크린리더가 "우리 팀 4번" 이라고
+  // 읽던 자리다.
   const teams = {
     home: { ...drill.teams.home, label: translate(locale, 'team.defaultHomeLabel') },
     away: { ...drill.teams.away, label: translate(locale, 'team.defaultAwayLabel') },
   };
-  const notes = SCENE_NOTES_EN[id];
-  const labels = SCENE_LABELS_EN[id];
-  // 손코딩 갈래만 글이 있다. 스텝 수가 어긋나면 그 종류는 통째로 원본을 쓴다 — 절반만 갈면
-  // 한 장면 안에서 두 언어가 섞인다.
-  const useNotes = locale === 'en' && notes && notes.length === drill.steps.length;
-  const useLabels = locale === 'en' && labels && labels.length === drill.steps.length;
-  if (!useNotes && !useLabels) return { ...drill, teams };
+
+  const text = sceneTextFor(locale)?.[id];
+  if (!text) return { ...drill, teams };
+
+  // ⚠️ **개수가 어긋나면 그 종류는 통째로 원본을 쓴다.** 기현님이 쪽지를 고쳐 개수가 달라지는
+  // 날, 절반만 덮으면 한 장면 안에 두 언어가 섞인다 — 조용히 한국어로 되돌아가는 편이 낫다
+  // (깨지지 않고 **되돌아가는** 것이 오버레이 설계의 요점이다, `sceneText.ts` 머리말).
+  const useNote = text.note?.length === drill.steps.length;
+  const useLabels = text.labels?.length === drill.steps.length;
+  if (!useNote && !useLabels) return { ...drill, teams };
+
   return {
     ...drill,
     teams,
     steps: drill.steps.map((st, i) => ({
       ...st,
-      note: useNotes ? (notes[i] ?? st.note) : st.note,
+      note: useNote ? (text.note![i] ?? st.note) : st.note,
       notes:
-        useLabels && labels[i]!.length === st.notes.length
-          ? st.notes.map((n, j) => ({ ...n, text: labels[i]![j] ?? n.text }))
+        useLabels && text.labels![i]!.length === st.notes.length
+          ? st.notes.map((n, j) => ({ ...n, text: text.labels![i]![j] ?? n.text }))
           : st.notes,
     })),
   };
