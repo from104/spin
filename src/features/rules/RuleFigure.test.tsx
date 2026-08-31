@@ -4,7 +4,13 @@
 // 따로 놀기 시작하는 것(손으로 33 을 적어 넣고 상수만 바뀌는 경우), ③코트 전용 갈고리
 // `stage-svg` 를 무심코 도해에 붙여 터치 스크롤을 죽이는 것.
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+
+/** 도해가 `useLocale()` 로 로케일별 문자열을 고르므로(2026-08-31 도해 다국어) 설정 컨텍스트가
+ *  있어야 렌더된다. 이 테스트는 **한국어** 도해를 재는 것이므로 기본 로케일이면 충분하다. */
+const render = (ui: ReactElement) => rtlRender(<SettingsProvider>{ui}</SettingsProvider>);
 import { RuleFigure } from './RuleFigure.tsx';
 import { RULE_FIGURE_IDS } from './figures/ids.ts';
 import { ruleContentFor } from './ruleContent.ts';

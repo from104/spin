@@ -18,6 +18,8 @@ import { BALL_FILL } from '../../../core/colors.ts';
 import { FigureCard } from './FigureCard.tsx';
 import { CHAIR_NOSE_LOCAL, CHAIR_LEN_LOCAL, PowerchairSide } from './PowerchairGlyph.tsx';
 import { Verdict } from './Verdict.tsx';
+import { figureTextFor } from './text.ts';
+import { useLocale } from '../../../i18n/useLocale.ts';
 
 /** 33 — 물리 상수에서 파생. `BALL.diameterM` 이 바뀌면 도해와 캡션이 함께 따라온다.
  *  (0.33 * 100 은 부동소수라 33.000000000000004 다. 반올림이 필수.) */
@@ -67,13 +69,14 @@ function DimLine({ x0, x1, y, label, extendTo }: { x0: number; x1: number; y: nu
 }
 
 function BallSizeFigure() {
+  const T = figureTextFor(useLocale());
   return (
     <svg
       viewBox={`0 0 ${SIZE_VB_W} ${SIZE_VB_H}`}
       width="100%"
       height="100%"
       role="img"
-      aria-label={`파워체어풋볼 공(지름 ${BALL_CM}cm)과 축구공 5호(지름 약 ${SOCCER5_CM}cm)를 같은 축척으로 나란히 놓은 크기 비교 그림`}
+      aria-label={T.ball.sizeAria(BALL_CM, SOCCER5_CM)}
     >
       {/* 바닥선 — 두 공이 같은 바닥에 서 있어야 크기 차이가 눈으로 읽힌다 */}
       <line x1={8} y1={FLOOR_Y} x2={SIZE_VB_W - 8} y2={FLOOR_Y} stroke={LINE} strokeWidth={1.5} />
@@ -81,23 +84,23 @@ function BallSizeFigure() {
       {/* 축구공 5호 — 채우지 않고 파선 윤곽으로 둔다. "이건 비교용 참고물이지 경기구가 아니다" */}
       <circle cx={SOCCER_CX} cy={SOCCER_CY} r={R_SOCCER} fill="var(--panel)" stroke={DIM} strokeWidth={1.8} strokeDasharray="6 4" />
       <text x={SOCCER_CX} y={SOCCER_CY - 4} textAnchor="middle" fontSize={13} fontWeight={600} fill={DIM}>
-        축구공
+        {T.ball.soccerName}
       </text>
       <text x={SOCCER_CX} y={SOCCER_CY + 15} textAnchor="middle" fontSize={12} fill={FAINT}>
-        5호
+        {T.ball.soccerSize}
       </text>
 
       {/* 경기구 — 보드 위의 공과 같은 색(BALL_FILL)·같은 흰 테두리라 "판에서 보던 그 공"으로 읽힌다 */}
       <circle cx={BALL_CX} cy={BALL_CY} r={R_BALL} fill={BALL_FILL} stroke="#fff" strokeWidth={2.6} />
       <text x={BALL_CX} y={BALL_CY - 4} textAnchor="middle" fontSize={16} fontWeight={700} fill="#1a1206">
-        파워체어풋볼
+        {T.ball.matchBallName}
       </text>
       <text x={BALL_CX} y={BALL_CY + 18} textAnchor="middle" fontSize={13} fontWeight={600} fill="#1a1206" opacity={0.78}>
-        경기구 · 13인치
+        {T.ball.matchBallSub}
       </text>
 
       <DimLine x0={BALL_CX - R_BALL} x1={BALL_CX + R_BALL} y={28} extendTo={BALL_CY} label={`${BALL_CM}cm`} />
-      <DimLine x0={SOCCER_CX - R_SOCCER} x1={SOCCER_CX + R_SOCCER} y={SIZE_VB_H - 14} extendTo={SOCCER_CY} label={`약 ${SOCCER5_CM}cm`} />
+      <DimLine x0={SOCCER_CX - R_SOCCER} x1={SOCCER_CX + R_SOCCER} y={SIZE_VB_H - 14} extendTo={SOCCER_CY} label={T.ball.approx(SOCCER5_CM)} />
     </svg>
   );
 }
@@ -150,6 +153,7 @@ function PanelFrame({ x0, title }: { x0: number; title: string }) {
 const P2_CHAIR_X = 46;
 
 function BallPressureFigure() {
+  const T = figureTextFor(useLocale());
   const x1 = 0;
   const x2 = PANEL_W + PANEL_GAP;
   const x3 = (PANEL_W + PANEL_GAP) * 2;
@@ -159,7 +163,7 @@ function BallPressureFigure() {
       width="100%"
       height="100%"
       role="img"
-      aria-label="공기압 세 경우 비교 그림. 낮으면 눌린 공을 체어가 타고 넘고, 알맞으면 볼가드에 걸려 굴러 나가며, 높으면 공이 지나치게 튄다."
+      aria-label={T.ball.pressureAria}
     >
       {/* ① 낮음 — 납작해진 공 위로 앞바퀴가 올라탄다 */}
       <PanelFrame x0={x1} title="공기압이 낮으면" />
@@ -212,17 +216,18 @@ function BallPressureFigure() {
 }
 
 export function BallFigure() {
+  const T = figureTextFor(useLocale());
   return (
     <>
       <FigureCard
-        title="크기 — 같은 축척 비교"
+        title={T.ball.sizeCardTitle}
         aspect={`${SIZE_VB_W} / ${SIZE_VB_H}`}
         caption={`경기구는 지름 ${BALL_CM}cm(13인치)로, 축구공 5호(약 ${SOCCER5_CM}cm)의 1.5배다. 이 치수는 Laws 본문이 아니라 FIPFA 장비 규격에서 온다 — 앱의 물리 상수 BALL.diameterM 도 같은 값이다.`}
       >
         <BallSizeFigure />
       </FigureCard>
       <FigureCard
-        title="공기압 — 규칙이 정하는 유일한 조건"
+        title={T.ball.pressureCardTitle}
         aspect={`${PRESSURE_VB_W} / ${PRESSURE_VB_H}`}
         caption="규칙 본문이 공에 대해 정하는 것은 지름이 아니라 압력 하나다 — 지나치게 튀지 않으면서, 파워체어가 타고 넘지 못할 만큼. 실물이 저반발·중량형인 이유가 이것이다. 체어는 경기 전용 체어의 옆모습 비례를 따랐고, 공과의 크기 비도 대략 실물이다 — 바닥 가까이 길게 뻗은 볼가드가 공 한가운데를 만난다."
       >

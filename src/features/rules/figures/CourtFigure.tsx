@@ -16,6 +16,8 @@ import { COURT_SIZES, COURT_SIZE_LABELS } from '../../../model/court.ts';
 import { FigureCard } from './FigureCard.tsx';
 import { Callout } from './Callout.tsx';
 import { Verdict } from './Verdict.tsx';
+import { figureTextFor } from './text.ts';
+import { useLocale } from '../../../i18n/useLocale.ts';
 
 const LINE = 'var(--border-strong)';
 const DIM = 'var(--muted)';
@@ -189,6 +191,7 @@ function FloorPanel({ x0, title, wood, ok, head, tail }: { x0: number; title: st
 }
 
 function FloorMaterialFigure() {
+  const T = figureTextFor(useLocale());
   const x1 = 0;
   const x2 = FL_PANEL_W + FL_GAP;
   return (
@@ -197,7 +200,7 @@ function FloorMaterialFigure() {
       width="100%"
       height="100%"
       role="img"
-      aria-label="바닥재 비교 그림. 목재·인조 마루는 미끄럼이 적고 부드러워 규정이 권장하고, 콘크리트·아스팔트는 거칠어 규정이 피하라고 한다."
+      aria-label={T.court.surfaceAria}
     >
       <FloorPanel x0={x1} title="목재·인조 마루" wood ok head="미끄럼 적고 바퀴에 부드럽다" tail="규정이 권장하는 표면" />
       <FloorPanel x0={x2} title="콘크리트·아스팔트" wood={false} ok={false} head="거칠어 타이어가 마모된다" tail="규정이 피하라는 표면" />
@@ -206,19 +209,20 @@ function FloorMaterialFigure() {
 }
 
 export function CourtFigure() {
+  const T = figureTextFor(useLocale());
   return (
     <>
       <FigureCard
-        title="코트 규격 — 3단 비교"
+        title={T.court.sizeCardTitle}
         aspect={`${CT_VB_W} / ${CT_VB_H}`}
         caption={`규정 범위는 ${COURT_SIZE_LABELS.ko['30x18']}부터 ${COURT_SIZE_LABELS.ko['25x14']}까지다. 그 사이 ${COURT_SIZE_LABELS.ko['28x15']} — 표준 농구 코트와 정확히 같은 크기라, 새 체육관을 구할 때 "농구 코트가 있는가"만 물으면 된다.`}
       >
         <CourtSizeFigure />
       </FigureCard>
       <FigureCard
-        title="바닥재 — 권장 vs 지양"
+        title={T.court.surfaceCardTitle}
         aspect={`${FL_VB_W} / ${FL_VB_H}`}
-        caption="field-tour 장면이 보여주는 도형(라인·마크)과 달리 표면 재질은 코트 규격에는 안 나온다 — 목재·인조 마루는 미끄럼이 적고 파워체어 바퀴에 부드럽지만, 콘크리트·아스팔트는 거칠어 타이어 마모가 빠르고 제어가 어렵다."
+        caption={T.court.surfaceCardCaption}
       >
         <FloorMaterialFigure />
       </FigureCard>

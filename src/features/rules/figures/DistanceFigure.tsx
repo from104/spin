@@ -8,6 +8,8 @@
 // 이 그림은 코트 좌표계 위에 있지 않으므로 맞출 이유가 없다(코트 재현이 아니라 독립 삽화).
 import { FigureCard } from './FigureCard.tsx';
 import { PowerchairSide } from './PowerchairGlyph.tsx';
+import { figureTextFor } from './text.ts';
+import { useLocale } from '../../../i18n/useLocale.ts';
 
 const VB_W = 320;
 const VB_H = 280;
@@ -44,18 +46,19 @@ function RadialDim({ x1, y1, x2, y2, label, lx, ly }: { x1: number; y1: number; 
 }
 
 export function DistanceFigure() {
+  const T = figureTextFor(useLocale());
   return (
     <FigureCard
-      title="재개 거리 — 5m vs 3m"
+      title={T.distance.title}
       aspect={`${VB_W} / ${VB_H}`}
-      caption="대부분의 재개는 상대와 5m, 세트볼만 3m입니다 — 대신 세트볼 참여 2명은 공에서 30cm 이내로 붙습니다(docs/RULES-FIPFA-2025.md Law 8)."
+      caption={T.distance.caption}
     >
       <svg
         viewBox={`0 0 ${VB_W} ${VB_H}`}
         width="100%"
         height="100%"
         role="img"
-        aria-label="재개 시 상대와의 거리 — 대부분 5미터, 세트볼만 3미터인 두 원을 겹쳐 비교한 그림"
+        aria-label={T.distance.aria}
       >
         {/* 5m 원 — 대부분의 재개. 실선, draw-in(§4). strokeDashoffset=0 이 최종/기본 상태라
             reduced-motion 이 애니메이션을 꺼도 완성된 원 그대로다. */}
@@ -65,8 +68,8 @@ export function DistanceFigure() {
         {/* 중심 공. */}
         <circle cx={CX} cy={CY} r={7} fill="var(--accent)" stroke="var(--panel)" strokeWidth={1.5} />
 
-        <RadialDim x1={CX} y1={CY} x2={CX + R_5M} y2={CY} label="5m — 대부분의 재개" lx={CX + R_5M / 2} ly={CY - 12} />
-        <RadialDim x1={CX} y1={CY} x2={CX} y2={CY + R_3M} label="3m — 세트볼" lx={CX - 34} ly={CY + R_3M / 2 + 4} />
+        <RadialDim x1={CX} y1={CY} x2={CX + R_5M} y2={CY} label={T.distance.fiveM} lx={CX + R_5M / 2} ly={CY - 12} />
+        <RadialDim x1={CX} y1={CY} x2={CX} y2={CY + R_3M} label={T.distance.threeM} lx={CX - 34} ly={CY + R_3M / 2 + 4} />
 
         {/* 5m 원 위 체어 — 중심을 바라보도록(코 방향 180°). */}
         <PowerchairSide x={CX + R_5M} y={CY} rotate={180} scale={0.5} />
@@ -74,7 +77,7 @@ export function DistanceFigure() {
         <PowerchairSide x={CX} y={CY + R_3M} rotate={270} scale={0.5} />
 
         <text x={CX} y={VB_H - 12} textAnchor="middle" fontSize={11} fill={FAINT}>
-          공을 중심으로 두 재개의 필요 거리를 겹쳐 그렸습니다
+          {T.distance.note}
         </text>
       </svg>
     </FigureCard>
