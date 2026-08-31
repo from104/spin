@@ -54,3 +54,19 @@ export const SCENE_NOTES_EN: Partial<Record<RuleSceneId, readonly string[]>> = {
     'Once the whole ball crosses the touchline, the kick-in goes to the player who was on the outside trying to keep it in — here, away.',
   ],
 };
+
+/** 손코딩 장면의 **코트 위 라벨**(`step.notes[].text`) — 영어판.
+ *  띠 노트(`step.note`)와 갈라 둔 이유: 이쪽은 판 위에 그려지는 짧은 꼬리표라 **길이가 곧 레이아웃**이다.
+ *  한국어보다 길어지면 코트 밖으로 삐져나가므로 짧게 유지한다(좌표는 손대지 않는다).
+ *  스텝별·라벨별 순서는 원본과 같아야 한다 — 개수가 다르면 그 스텝은 원본을 그대로 쓴다. */
+export const SCENE_LABELS_EN: Partial<Record<RuleSceneId, readonly (readonly string[])[]>> = {
+  'field-tour': [['Goal area 8×5m', 'Penalty mark (3.5m)', 'Centre mark', 'Goal 6m wide', 'Corner 1m']],
+  lineup: [[]],
+  'two-on-one-active': [[], ['Indirect free kick']],
+  'two-on-one-gk': [[], ['GK exception — no violation']],
+  'two-on-one-open': [[], ['No opponent — no violation']],
+  'two-on-one-escape': [[], ['Briefly off the field — allowed'], []],
+  ramming: [[], ['Direct free kick']],
+  'spin-kick': [[], [], ['Dangerous play → indirect FK']],
+  'contested-touch': [[], ['Kick-in to the outside player']],
+};
