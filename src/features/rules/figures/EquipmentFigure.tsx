@@ -14,6 +14,8 @@
 import { FigureCard } from './FigureCard.tsx';
 import { CHAIR_NOSE_LOCAL, PowerchairSide } from './PowerchairGlyph.tsx';
 import { Callout } from './Callout.tsx';
+import { figureTextFor } from './text.ts';
+import { useLocale } from '../../../i18n/useLocale.ts';
 
 const LINE = 'var(--border-strong)';
 const DIM = 'var(--muted)';
@@ -32,6 +34,7 @@ const EQ_SCALE = 1.65;
 const toScreen = (localX: number, localY: number): [number, number] => [EQ_OX + localX * EQ_SCALE, EQ_OY + localY * EQ_SCALE];
 
 function EquipmentLabelFigure() {
+  const T = figureTextFor(useLocale());
   // 가드 라벨 자리는 `CHAIR_NOSE_LOCAL`(볼가드 앞코, 글리프 쪽 진짜 상수)에서 뺀다 — 숫자
   // 48 을 손으로 다시 적으면 글리프가 가드 길이를 바꿀 때 라벨만 따로 논다.
   const guard: [number, number] = toScreen((14 + CHAIR_NOSE_LOCAL) / 2, -14);
@@ -52,7 +55,7 @@ function EquipmentLabelFigure() {
       width="100%"
       height="100%"
       role="img"
-      aria-label="경기용 파워체어 옆모습 라벨 도해. 프런트가드·시트벨트·좌우 측면지지대·전도방지 바·후방 전도방지 캐스터·밑판 경계선을 표시한다."
+      aria-label={T.equipment.chairAria}
     >
       <line x1={40} y1={EQ_OY} x2={EQ_VB_W - 40} y2={EQ_OY} stroke={LINE} strokeWidth={1.5} />
 
@@ -98,7 +101,7 @@ function SpeedRow({
   emphasize,
 }: {
   y: number;
-  labelLines: string[];
+  labelLines: readonly string[];
   fwdW: number;
   revW: number;
   fwdText: string;
@@ -128,6 +131,7 @@ function SpeedRow({
 }
 
 function SpeedSymmetryFigure() {
+  const T = figureTextFor(useLocale());
   const rowARevW = 82; // 정성적 비교용 — "더 느리다" 만 주장하므로 정확한 비율을 적지 않는다.
   const rowBY = 118;
   const rowBGap = 22;
@@ -138,15 +142,15 @@ function SpeedSymmetryFigure() {
       width="100%"
       height="100%"
       role="img"
-      aria-label="속도 비교 그림. 일반 전동휠체어·스쿠터는 후진이 전진보다 느린 경우가 많지만, 파워체어풋볼 규정은 전진과 후진 최고 속도를 10km/h로 동일하게 제한한다."
+      aria-label={T.equipment.speedAria}
     >
       <SpeedRow
         y={40}
-        labelLines={['일반 전동휠체어', '· 스쿠터']}
+        labelLines={T.equipment.ordinaryChair}
         fwdW={SPD_EQUAL_W}
         revW={rowARevW}
-        fwdText="전진"
-        revText="후진 · 더 느림"
+        fwdText={T.equipment.forward}
+        revText={T.equipment.reverseSlower}
         emphasize={false}
       />
       <text x={SPD_BAR_X} y={40 + 22 * 2 + 14} fontSize={10.5} fill={FAINT}>
@@ -157,11 +161,11 @@ function SpeedSymmetryFigure() {
 
       <SpeedRow
         y={rowBY}
-        labelLines={['파워체어풋볼', '규정(Law 4)']}
+        labelLines={T.equipment.ruleChair}
         fwdW={SPD_EQUAL_W}
         revW={SPD_EQUAL_W}
-        fwdText="전진 10km/h"
-        revText="후진 10km/h"
+        fwdText={T.equipment.forwardLimit}
+        revText={T.equipment.reverseLimit}
         emphasize
       />
       {/* 두 막대 오른쪽 끝이 같은 x — 눈으로도 "동일" 이 보이도록 대괄호로 한 번 더 묶는다. */}
@@ -179,17 +183,18 @@ function SpeedSymmetryFigure() {
 }
 
 export function EquipmentFigure() {
+  const T = figureTextFor(useLocale());
   return (
     <>
       <FigureCard
-        title="규정 장비 — 옆모습 라벨 도해"
+        title={T.equipment.chairCardTitle}
         aspect={`${EQ_VB_W} / ${EQ_VB_H}`}
         caption="프런트가드는 FIPFA 규격에 맞춰 위치가 고정된다(조정 불가). 전도방지 바는 제2조 공기압 조항이 요구하는 '체어가 공을 타고 넘지 못하게'를 체어 쪽에서 구현한 부착물이고, 후방 캐스터는 뒤로 넘어지는 것을 막는다. 밑판 경계선 밖으로는 시트·머리받침·몸 어느 것도 나갈 수 없다 — 가드는 별도 필수 부착물이라 예외다."
       >
         <EquipmentLabelFigure />
       </FigureCard>
       <FigureCard
-        title="속도 — 전진·후진 대칭"
+        title={T.equipment.speedCardTitle}
         aspect={`${SPD_VB_W} / ${SPD_VB_H}`}
         caption="많은 전동휠체어·스쿠터는 안전을 위해 후진 상한을 전진보다 낮게 둔다. 파워체어풋볼은 다르다 — 드리블도 몸싸움도 양방향으로 똑같이 벌어지는 경기라, 규정도 전진·후진을 같은 10km/h 하나로 묶는다."
       >

@@ -85,6 +85,8 @@ import { drill as kickInScene } from './scenes/kick-in.scene.ts';
 import { drill as goalKickScene } from './scenes/goal-kick.scene.ts';
 import { drill as cornerScene } from './scenes/corner.scene.ts';
 import { drill as setBallScene } from './scenes/set-ball.scene.ts';
+import { SCENE_NOTES_EN } from './ruleScenes.en.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
 export type RuleSceneId =
   | 'field-tour'
@@ -647,9 +649,26 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec | Drill> = {
  *
  *  `?? {}` 는 "(1) 갈래인데 메타가 없다" = 링·컷·진영 후처리가 없다는 뜻이다. `{}` 는 정당한
  *  값이므로(field-tour 등) 여기서 던지지 않는다 — 값이 실제로 맞는지는 `RULE_SCENE_EXPECT` 가 본다. */
-export function buildRuleScene(id: RuleSceneId): Drill {
+export function buildRuleScene(id: RuleSceneId, locale: Locale = 'ko'): Drill {
   const src = SPECS[id];
-  return 'schemaVersion' in src ? fromRawDrill(src) : fromSpec(src, SEED_SCENE_META[id] ?? {});
+  const drill = 'schemaVersion' in src ? fromRawDrill(src) : fromSpec(src, SEED_SCENE_META[id] ?? {});
+  return applySceneLocale(drill, id, locale);
+}
+
+/** 손코딩 9개의 스텝 노트를 로케일판으로 갈아끼운다.
+ *
+ *  ⚠️ **편집기에서 온 12개는 건드리지 않는다** — 그 코트 위 쪽지는 기현님이 찍은 좌표 데이터
+ *  안에 있고, 로케일별로 바꾸려면 드릴 데이터 모델 결정이 선행된다(PLAN-RULES-9CARDS §9.3-4).
+ *  `SCENE_NOTES_EN` 에 그 12개의 키가 아예 없는 것이 그 경계선이다.
+ *
+ *  스텝 수가 다르면 **아무것도 바꾸지 않는다** — 인덱스가 어긋난 채 절반만 갈아끼우면 그 장면은
+ *  한국어와 영어가 뒤섞인 채로 뜬다. 조용히 원본을 쓰는 편이 낫다(그 경우 노트 띠가 한국어로
+ *  남고, 화면의 안내가 이미 그 가능성을 말한다). */
+function applySceneLocale(drill: Drill, id: RuleSceneId, locale: Locale): Drill {
+  if (locale !== 'en') return drill;
+  const notes = SCENE_NOTES_EN[id];
+  if (!notes || notes.length !== drill.steps.length) return drill;
+  return { ...drill, steps: drill.steps.map((st, i) => ({ ...st, note: notes[i] ?? st.note })) };
 }
 
 /** (2) 편집기가 만든 raw `Drill`. **후처리를 하지 않는 것이 이 갈래의 요점이다** — ring·defense·

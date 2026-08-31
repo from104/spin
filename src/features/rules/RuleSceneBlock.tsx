@@ -30,6 +30,7 @@ import { PresentStage } from '../present/PresentStage.tsx';
 import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { IconPlay } from '../../ui/icons.tsx';
 import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 
 /** 코트 아래 노트 띠의 고정 높이 — `PresentRunner.tsx` 의 `PRESENT_NOTE_BAND_PX`(86)와 같은
  *  이유(min=max 로 스텝을 넘길 때 코트가 위아래로 안 밀리게 한다). */
@@ -254,7 +255,8 @@ export interface RuleSceneBlockProps {
  *  (재생 위치가 이전 장면 것을 들고 오지 않도록). */
 export function RuleSceneBlock({ sceneId, active, onActivate }: RuleSceneBlockProps) {
   const { prefs } = useSettingsState();
-  const drill = useMemo(() => buildRuleScene(sceneId), [sceneId]);
+  const locale = useLocale();
+  const drill = useMemo(() => buildRuleScene(sceneId, locale), [sceneId, locale]);
   const reduceMotion = effectiveReduceMotion(prefs.a11y.reduceMotion);
   return (
     <PlaybackProvider initialSpeed={1} initialLoop={prefs.loop}>
