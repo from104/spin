@@ -21,17 +21,17 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         kind: 'prose',
         body: [
           'Powerchair football is football played in a powered wheelchair. The rules are close to football. The chair does the kicking instead of a foot.',
-          'It is the first competitive team sport built for people who use a powered wheelchair.',
-          'In the United States it is called "power soccer". Both names mean this game.',
+          'It is the first competitive team sport designed specifically for people who use a powered wheelchair.',
+          'In the United States it is called "power soccer". The two names mean the same game.',
         ],
       },
       {
         kind: 'prose',
         heading: 'What you see on court',
         body: [
-          'Four players a side, on a gymnasium basketball court.',
+          'Four players a side, on an indoor basketball court.',
           'A frontguard is fitted to the front of the chair. That is what kicks the ball. It also protects the player’s feet and the chair.',
-          'The player’s skill is joined to the speed and power of the chair.',
+          'The player’s skill combines with the speed and power of the chair itself.',
         ],
       },
       {
@@ -40,7 +40,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         body: [
           'The ball is 33cm across — one and a half times the diameter of an adult football (about 22cm).',
           'A smaller ball would wedge under a chair, which is dangerous. That is why it is this big.',
-          'The goals have no net and no crossbar. A net catches wheels.',
+          'The goals have no net and no crossbar — a net would catch the wheels.',
         ],
       },
       {
@@ -77,7 +77,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         kind: 'prose',
         heading: 'Where the sport stands',
         body: [
-          'A World Cup is held every four years in principle. The first was Tokyo 2007; the most recent was Sydney 2023.',
+          'In principle the World Cup is held every four years. The first was Tokyo 2007; the most recent was Sydney 2023.',
           'More than thirty countries play, Korea among them.',
           'The International Paralympic Committee recognised the sport in 2009. It is still not a Paralympic medal sport.',
         ],
@@ -93,7 +93,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
       {
         kind: 'prose',
         body: [
-          'There is one object: move the ball over the opposing team’s goal line, and stop them doing the same.',
+          'Move the ball over the opposing team’s goal line, and stop them doing the same. That is the whole of it.',
           'Two halves of 20 minutes. Whoever has scored more at the end wins. Equal scores are a draw.',
           'Half-time is at most 10 minutes.',
           'Time lost to substitutions, injuries and repairs is added back to that half.',
@@ -105,7 +105,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         heading: 'A goal has to roll in',
         body: [
           'The whole ball must roll over the goal line between the two posts.',
-          'Carried in, it is not a goal. Higher than 50.8cm off the floor as it crosses, it is not a goal.',
+          'If it is carried in rather than rolling, it is not a goal. Nor is it a goal if the ball is more than 50.8cm off the floor as it crosses.',
           'And not a goal if the scoring team broke a rule first.',
         ],
       },
@@ -151,9 +151,9 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         heading: 'What the game leaves behind',
         body: [
           'People with severe disabilities experience loneliness and social isolation at higher rates than others.',
-          'This sport puts a team there. Players say the friendships outlast the sport, and that they mentor newer players and speak for the game.',
+          'This sport gives them a team. Players describe friendships that reach beyond the game itself, and chances to mentor newer players and to speak for the sport.',
           'It is not only physical. Strategy and persistence are part of it.',
-          'It looks like only a joystick moves, but heart rate during play rises measurably above rest.',
+          'It may look as though only a joystick moves, but heart rate during play is measurably higher than at rest.',
           'In one study the players’ physical quality-of-life scores were higher than the general population’s. It was a small study of ten players.',
           'The barriers are just as clear: transport, too few teams, equipment, volunteers, and ableist attitudes.',
           'Players also named a shortage of referees and coaches who know the rules.',
@@ -170,7 +170,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         kind: 'prose',
         heading: 'The court',
         body: [
-          'The standard size is 28×15m — a basketball court. Sanctioned international events use up to 30×18m.',
+          'The standard size is 28×15m — a basketball court. Sanctioned international events are expected to use the maximum, 30×18m.',
           'The floor must be hard, smooth and level. Wood or an artificial surface is recommended; concrete and tarmac are avoided.',
           'Two posts 6m apart at the centre of each goal line make the goal. The 8m wide, 5m deep area in front of it is the goal area. The penalty mark is 3.5m out from the goal line.',
         ],
@@ -199,8 +199,8 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         kind: 'prose',
         heading: 'Equipment',
         body: [
-          'A powerchair must have four or more wheels. Top speed during a match is 10 kph, forward and reverse alike.',
-          'A lap seatbelt, a frontguard and lateral side supports on both sides are required. No part of the chair, or of the player, may overhang the front or rear of the chair base.',
+          'A powerchair must have four or more wheels. Top speed during a match is 10 kph, forward and reverse.',
+          'A lap seatbelt, a frontguard and lateral supports (armrests) on both sides are required. No part of the chair, or of the player, may overhang the front or rear of the chair base.',
         ],
       },
       { kind: 'figure', figureId: 'equipment' },
@@ -215,10 +215,10 @@ export const TOPICS_EN: readonly RuleTopic[] = [
       {
         kind: 'prose',
         body: [
-          'The whole ball must cross the line to be out. Touching the line at all, it is still in.',
-          'On the ground or in the air, the same.',
+          'The whole ball must be past the line to be out. If any part of it is still on the line, it is still in.',
+          'The same applies on the ground and in the air.',
           'It is also out if it stays wedged between opponents for more than 5 seconds.',
-          'And out if it rises more than 50.8cm off the floor and the referee judges that dangerous. If the referee does not, play goes on.',
+          'And out if it rises more than 50.8cm off the floor and the referee judges that dangerous. If the referee does not, play continues.',
           'When the ball goes out, play restarts with a kick-in, a goal kick or a corner kick — depending on which line it crossed and who touched it last. See the [Restarts] card.',
         ],
       },
@@ -234,7 +234,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         heading: 'Set ball',
         body: [
           'The restart used when play is stopped for a reason the Laws do not name elsewhere. A ball bursting in play is one example.',
-          'The referee places the ball where play stopped. One player from each team comes to within 30cm of it, the same distance apart, facing the ball. Everyone else stays 3m back.',
+          'The referee places the ball where play stopped. One player from each team takes position within 30cm of it, each the same distance away, both facing the ball. Everyone else stays 3m back.',
           'Play restarts on the referee’s signal.',
         ],
       },
@@ -250,15 +250,15 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         kind: 'prose',
         body: [
           'When the ball stops, there is a set way to start it again. Seven are gathered in the table below — eight, counting the set ball you just saw.',
-          'Pick one in the table to see its scene.',
-          'One rule is common to all seven. Whoever takes the kick must not touch the ball again before another player does. Breaking it gives the opponents an indirect free kick where the second touch happened. The only exception is a penalty kick touched with the hands.',
+          'Pick one from the table to see its scene.',
+          'One rule is common to all seven. Whoever takes the kick must not touch the ball again before another player does. Breaking it gives the opponents an indirect free kick where the second touch happened. At a penalty kick a second touch with the hands is treated more severely still — a direct free kick.',
         ],
       },
       {
         kind: 'prose',
         heading: 'Distance',
         body: [
-          'For most restarts opponents must be 5m clear of the ball. The set ball uses 3m — for everyone except the two players facing each other over it.',
+          'For most restarts opponents must be 5m clear of the ball. For a set ball it is 3m, and that applies to everyone except the two players facing each other over it.',
           'Not respecting that distance is a cautionable offense.',
         ],
       },
@@ -266,7 +266,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
       { kind: 'restart-table' },
       {
         kind: 'prose',
-        heading: 'Who gets it when both touched it?',
+        heading: 'Who gets the kick-in when both touched the ball?',
         body: [
           'When the whole ball crosses a touchline it is a kick-in, taken by the opponents of whoever touched it last.',
           'If two opposing players were touching the ball at the same time while driving along the touchline, the kick-in goes to the one on the outside trying to keep it in.',
@@ -278,13 +278,13 @@ export const TOPICS_EN: readonly RuleTopic[] = [
   {
     key: 'goal-area',
     title: 'Goal area violation',
-    tagline: 'The third player is the violation',
+    tagline: 'Two in the area, not three',
     blocks: [
       {
         kind: 'prose',
         body: [
-          'Three players of the same team inside their own goal area at once is a violation — but only while the ball is in play and in their half.',
-          'The goalkeeper counts. Two, including the goalkeeper, is the limit.',
+          'It is a violation to have three players of the same team inside their own goal area at once — but only while the ball is in play in their half.',
+          'The goalkeeper counts towards that number. The limit is two, goalkeeper included.',
           'The opponents get an indirect free kick there. If it denied a clear scoring chance, a card can follow.',
         ],
       },
@@ -294,7 +294,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         heading: 'Behind the goal counts too',
         body: [
           'This app also counts a teammate who has gone fully over the goal line, behind the goal.',
-          'That is not in the Laws. Without it, a goalkeeper could lift the limit simply by backing out behind the goal.',
+          'That is not in the Laws. Without it, a goalkeeper could get around the limit simply by backing out behind the goal.',
         ],
       },
       {
@@ -314,9 +314,9 @@ export const TOPICS_EN: readonly RuleTopic[] = [
       {
         kind: 'prose',
         body: [
-          'While the ball is in play, two teammates and one opponent within 3m of it is a 2-on-1.',
-          'It is only a violation if all three are actually involved in active play. Simply being within 3m is not yet one. The referee judges this.',
-          'Involvement is not only touching the ball. Blocking an opponent’s path, or gaining from a ball that rebounds to you off a post or an opponent, counts too.',
+          'While the ball is in play, two teammates and one opponent all within 3m of it makes a 2-on-1.',
+          'It is only a violation if all three are actually involved in active play. Simply being within 3m is not yet a violation. The referee judges that.',
+          'Involvement is not only touching the ball. Blocking an opponent’s path counts, and so does gaining an advantage from a ball that rebounds off a post or off an opponent.',
         ],
       },
       { kind: 'scene', sceneId: 'two-on-one' },
@@ -337,7 +337,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         heading: 'Leaving the court to avoid it',
         body: [
           'Driving off the court to avoid a 2-on-1 is allowed, as long as it is for the natural flow of play.',
-          'You must not come back until that phase of play has ended, and you must come back near where you left. Not dangerously, and not as a habit.',
+          'The player must not re-enter until that phase of play has ended, and must come back near where they left. It must not be dangerous, and it must not become a habit.',
           'Otherwise it is unsporting behaviour and a caution.',
         ],
       },
@@ -348,14 +348,14 @@ export const TOPICS_EN: readonly RuleTopic[] = [
   {
     key: 'fouls',
     title: 'Other offenses',
-    tagline: 'Fouls bring kicks, worse brings cards',
+    tagline: 'Fouls bring free kicks; worse brings cards',
     blocks: [
       {
         kind: 'prose',
         heading: 'Direct free kick offenses',
         body: [
-          'Ramming an opponent is an offense when it is careless, reckless, or uses excessive force. Along with holding an opponent with the chair, deliberate handball, using the arms to push, hold or strike (including attempts), spitting, and denying a scoring chance — these six give the opponents a direct free kick.',
-          'Committed inside your own goal area while the ball is in play, it becomes a penalty kick.',
+          'Ramming an opponent is an offense when it is careless or reckless, or uses excessive force. Together with holding an opponent with the chair, deliberate handball, using the arms to push, hold or strike (attempts included), spitting, and denying a scoring chance, these six give the opponents a direct free kick.',
+          'If any of the six happens inside your own goal area while the ball is in play, it is a penalty kick instead.',
         ],
       },
       {
@@ -383,8 +383,8 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         kind: 'prose',
         heading: 'The spin kick is not banned',
         body: [
-          'A spin kick sends the ball farther and faster. The Laws do not prohibit it.',
-          'But for part of the turn the kicker cannot see the ball or anyone coming toward it. Close to an opponent in that state, it can be judged playing in a dangerous manner.',
+          'A spin kick sends the ball farther and faster than driving straight at it. The Laws do not prohibit it.',
+          'But for part of the turn the kicker cannot see the ball, or anyone coming towards it. If that happens close to an opponent, it can be judged as playing in a dangerous manner.',
         ],
       },
       { kind: 'scene', sceneId: 'spin-kick' },

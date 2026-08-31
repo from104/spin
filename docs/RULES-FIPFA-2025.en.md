@@ -575,9 +575,19 @@ the referee of irresponsible behaviour in the technical area.
   10 kph · 50.8 cm · 20 minutes · 10 minutes · 15 seconds · 5 seconds · 13 in). Do not round or
   paraphrase them.
 - **The two-touch prohibition is stated in all seven restarts** — kick-off, direct free kick,
-  indirect free kick, kick-in, goal kick, corner kick and penalty kick (the penalty kick excepting
-  the hands). The sanction is the same everywhere: indirect free kick to the opponents at the place
-  of the infringement. A comparison table must not present it as a quirk of one restart.
+  indirect free kick, kick-in, goal kick, corner kick and penalty kick. The sanction is an indirect
+  free kick to the opponents at the place of the infringement. A comparison table must not present
+  it as a quirk of one restart.
+  ⚠️ At a **penalty kick** the original writes *"(except with his hands)"*. That is **not an
+  exemption**: a second touch by hand is deliberate handling, and Law 14 gives the opponents a
+  **direct** free kick for it — a heavier sanction, not a lighter one. Both canonicals said
+  "except with the hands" for a long time, which read as leniency. Corrected 2026-08-31.
+
+- **Spelling.** The original is internally mixed (British *behaviour · colour · penalised ·
+  manoeuvrability · centre*; American *offense · maneuver*). App English uses **British spelling for
+  ordinary words** — that is where the original leans — and keeps **`offense`** for the defined
+  rules term, because that is what the Laws' own section headings say (24 occurrences against 1).
+  Law 11's called event is a **`violation`**, which is the original's word there (all 5 uses).
 - **The set ball is also a restart** (Law 8 calls it "a way of restarting the match"). Counting
   "seven restarts" refers to the seven with the two-touch clause, not to the total.
 - English app strings are derived from **this** file, never from `docs/RULES-FIPFA-2025.md`
