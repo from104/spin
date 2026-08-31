@@ -65,18 +65,18 @@ function EquipmentLabelFigure() {
 
       <PowerchairSide x={EQ_OX} y={EQ_OY} scale={EQ_SCALE} showAntiTip showBelt showArmrest />
 
-      <Callout ax={guard[0]} ay={guard[1]} lx={372} ly={258} label="프런트가드" />
-      <Callout ax={belt[0]} ay={belt[1]} lx={78} ly={118} label="시트벨트" />
-      <Callout ax={armrest[0]} ay={armrest[1]} lx={230} ly={40} label="측면지지대" />
-      <Callout ax={antiTip[0]} ay={antiTip[1]} lx={78} ly={302} label="전도방지바" />
-      <Callout ax={caster[0]} ay={caster[1]} lx={150} ly={345} label="후방캐스터" />
+      <Callout ax={guard[0]} ay={guard[1]} lx={372} ly={258} label={T.equipment.frontguard} />
+      <Callout ax={belt[0]} ay={belt[1]} lx={78} ly={118} label={T.equipment.seatbelt} />
+      <Callout ax={armrest[0]} ay={armrest[1]} lx={230} ly={40} label={T.equipment.sideSupport} />
+      <Callout ax={antiTip[0]} ay={antiTip[1]} lx={78} ly={302} label={T.equipment.antiTipBar} />
+      <Callout ax={caster[0]} ay={caster[1]} lx={150} ly={345} label={T.equipment.rearCaster} />
       <line x1={rearX} y1={boundaryTopY} x2={330} y2={345} stroke={DIM} strokeWidth={1.1} strokeDasharray="3 3" opacity={0.8} />
       <line x1={frontX} y1={boundaryTopY} x2={330} y2={345} stroke={DIM} strokeWidth={1.1} strokeDasharray="3 3" opacity={0.8} />
       <text x={330} y={345} textAnchor="middle" fontSize={12} fontWeight={700} fill="var(--text)">
-        밑판 경계선
+        {T.equipment.baseLine}
       </text>
       <text x={330} y={361} textAnchor="middle" fontSize={10.5} fill={FAINT}>
-        (가드는 예외)
+        {T.equipment.baseLineExcept}
       </text>
     </svg>
   );
@@ -154,7 +154,7 @@ function SpeedSymmetryFigure() {
         emphasize={false}
       />
       <text x={SPD_BAR_X} y={40 + 22 * 2 + 14} fontSize={10.5} fill={FAINT}>
-        보통 후진 상한을 더 낮게 둔다(정확한 비율은 기종마다 다르다)
+        {T.equipment.reverseNote}
       </text>
 
       <line x1={4} y1={100} x2={SPD_VB_W - 4} y2={100} stroke={LINE} strokeWidth={1} opacity={0.5} />
@@ -176,7 +176,7 @@ function SpeedSymmetryFigure() {
         strokeWidth={1.8}
       />
       <text x={bracketX + 10} y={rowBY + (rowBGap + SPD_BAR_H) / 2 + 4} fontSize={12} fontWeight={700} fill="var(--accent-text)">
-        동일
+        {T.equipment.same}
       </text>
     </svg>
   );
@@ -189,14 +189,14 @@ export function EquipmentFigure() {
       <FigureCard
         title={T.equipment.chairCardTitle}
         aspect={`${EQ_VB_W} / ${EQ_VB_H}`}
-        caption="프런트가드는 FIPFA 규격에 맞춰 위치가 고정된다(조정 불가). 전도방지 바는 제2조 공기압 조항이 요구하는 '체어가 공을 타고 넘지 못하게'를 체어 쪽에서 구현한 부착물이고, 후방 캐스터는 뒤로 넘어지는 것을 막는다. 밑판 경계선 밖으로는 시트·머리받침·몸 어느 것도 나갈 수 없다 — 가드는 별도 필수 부착물이라 예외다."
+        caption={T.equipment.chairCardCaption}
       >
         <EquipmentLabelFigure />
       </FigureCard>
       <FigureCard
         title={T.equipment.speedCardTitle}
         aspect={`${SPD_VB_W} / ${SPD_VB_H}`}
-        caption="많은 전동휠체어·스쿠터는 안전을 위해 후진 상한을 전진보다 낮게 둔다. 파워체어풋볼은 다르다 — 드리블도 몸싸움도 양방향으로 똑같이 벌어지는 경기라, 규정도 전진·후진을 같은 10km/h 하나로 묶는다."
+        caption={T.equipment.speedCardCaption}
       >
         <SpeedSymmetryFigure />
       </FigureCard>

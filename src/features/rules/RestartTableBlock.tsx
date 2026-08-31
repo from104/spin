@@ -18,6 +18,7 @@ import { RuleSceneBlock } from './RuleSceneBlock.tsx';
 import type { RuleSceneId } from './ruleScenes.ts';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
 import { IconCheck } from '../../ui/icons.tsx';
+import { useT } from '../../i18n/useT.ts';
 
 export interface RestartTableBlockProps {
   activeSceneId: RuleSceneId | null;
@@ -58,6 +59,7 @@ function cellText(col: RestartColumn, key: keyof RestartCells) {
 export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTableBlockProps) {
   const narrow = useIsNarrow();
   const locale = useLocale();
+  const t = useT();
   const columns = restartColumnsFor(locale);
   const rowLabels = restartRowLabelsFor(locale);
   const [selectedKey, setSelectedKey] = useState(columns[0]!.key);
@@ -114,7 +116,7 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
           <caption style={{ textAlign: 'left', fontSize: '0.75rem', color: 'var(--faint-text)', marginBottom: 8 }}>
-            재개 7종 비교 — 열을 고르면 아래에서 그 장면을 볼 수 있습니다
+            {t('rules.table.caption')}
           </caption>
           <thead>
             <tr>

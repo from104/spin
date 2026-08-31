@@ -526,6 +526,7 @@ export const ko = {
   'rules.langNotice.scenesOnly': '일부 장면의 코트 위 설명은 한국어로 표시됩니다.',
   'rules.langNotice.title': '규칙 내용은 한국어로만 제공됩니다',
   'rules.langNotice.body': '아래 문서는 한국어로 쓰여 있습니다. 경기규칙의 공식판은 FIPFA 가 영어로 펴내며, 그 PDF 가 정본입니다.',
+  'rules.table.caption': '재개 7종 비교 — 열을 고르면 아래에서 그 장면을 볼 수 있습니다',
   'rules.badge.figures': '도해 {{n}}',
   'rules.badge.scenes': '장면 {{n}}',
   'rules.badge.table': '비교표',

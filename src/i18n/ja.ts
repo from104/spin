@@ -525,6 +525,7 @@ export const ja: Record<DictKey, string> = {
   'rules.langNotice.scenesOnly': '一部のシーンのコート上の説明は韓国語で表示されます。',
   'rules.langNotice.title': 'ルールの解説は韓国語のみです',
   'rules.langNotice.body': '以下のページは韓国語で書かれています。競技規則の公式版は FIPFA が英語で発行しており、その PDF が正本です。',
+  'rules.table.caption': '再開7種の比較 — 列を選ぶと下でそのシーンが見られます',
   'rules.badge.figures': '図解 {{n}}',
   'rules.badge.scenes': 'シーン {{n}}',
   'rules.badge.table': '比較表',
