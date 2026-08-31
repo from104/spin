@@ -1,8 +1,9 @@
-// 규칙 화면 카드 홈 — docs/PLAN-RULES-REDESIGN.md §3 "카드 홈(/rules)".
+// 규칙 화면 카드 홈 — 정본은 **docs/PLAN-RULES-9CARDS.md**(2026-08-31 9카드 개편).
+// 그 이전 정본이던 docs/PLAN-RULES-REDESIGN.md §3 "카드 홈(/rules)" 은 히스토리로만 남는다.
 //
 // 18개조 사전 목록을 대체하는 최상위 탐색. 카드에 번호를 안 붙인다(설치된 frontend-design
 // 스킬 지침: 주제는 순서가 아니라 분류다) — 순서는 그리드 배열로만 말한다.
-// (2026-08-31 9카드 개편 전에는 8주제였다 — 개수를 적어 두면 늘 때마다 거짓이 된다.)
+// (개편 전에는 8주제였다 — 개수를 주석에 적어 두면 늘 때마다 거짓이 된다.)
 //
 // 메타 배지(장면·도해 개수)는 `RuleTopic.blocks` 에서 **파생**한다 — 손으로 "장면 5" 를 적으면
 // 장면을 추가할 때마다 카드와 실제 콘텐츠가 따로 논다.
@@ -30,6 +31,26 @@ const TOPIC_ICONS: Record<RuleTopicKey, ComponentType<IconProps>> = {
   rulebook: IconRules,
 };
 
+/** 카드 홈 격자 — 네 값이 **함께** "3×3" 을 만든다(기현 지시 2026-08-31).
+ *
+ *  ⚠️ **열이 실제로 나눠 갖는 것은 `GRID_CONTENT_PX` 이지 `style.maxWidth` 가 아니다.**
+ *  `tokens.css:3` 이 전역 `box-sizing: border-box` 라 max-width 안에 좌우 패딩이 들어간다.
+ *  2026-08-31 첫 시도가 정확히 여기서 틀렸다 — max-width 를 800 으로 두고 3열을 기대했는데
+ *  열이 받은 폭은 800 − 30×2 = 740 이라 **2열**이 떴다. 그래서 상한을 직접 적지 않고
+ *  `콘텐츠 폭 + 패딩` 으로 **계산해서** 준다. 패딩을 고치는 사람이 상한을 잊을 수 없다.
+ *
+ *  열 수 = floor((content + gap) / (min + gap)) — `auto-fit` 의 정의다.
+ *  지금 값으로 (800+14)/(240+14) = 3.20 → **3열**, 카드 한 장 (800−28)/3 ≈ 257px.
+ *  하나만 움직여도 조용히 달라진다: content 를 1002 위로 올리면 4열, `CARD_MIN_PX` 를 267 위로
+ *  올리면 2열이 된다. 컴파일도 렌더도 안 깨지므로 `RulesHome.test.tsx` 가 그 산술을 지킨다. */
+export const CARD_MIN_PX = 240;
+export const GRID_GAP_PX = 14;
+/** 열이 실제로 나눠 갖는 폭. */
+export const GRID_CONTENT_PX = 800;
+export const GRID_PAD_X_PX = 30;
+/** `style.maxWidth` 에 들어갈 값 — border-box 라 패딩을 더해야 콘텐츠가 위 폭을 받는다. */
+export const GRID_MAX_PX = GRID_CONTENT_PX + GRID_PAD_X_PX * 2;
+
 function topicMeta(topic: RuleTopic): string[] {
   const figures = topic.blocks.filter((b) => b.kind === 'figure').length;
   const scenes = topic.blocks.filter((b) => b.kind === 'scene').length;
@@ -53,11 +74,19 @@ export function RulesHome({ topics, onOpen }: RulesHomeProps) {
       data-tut="rules-home"
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-        gap: 14,
-        maxWidth: 1180,
+        // 9장을 **3×3** 으로 세운다(기현 지시 2026-08-31). 열 수를 `repeat(3, 1fr)` 로 못박지
+        // 않는 이유: 그러면 좁은 창에서 카드가 100px 까지 눌린다. 대신 **컨테이너를 GRID_MAX_PX
+        // 로 묶고** `auto-fit` 에 맡긴다 — 4열이 되려면 4×240 + 3×14 = 1002px 이 필요한데 상한이
+        // 800 이라 넓은 창에서는 **항상 3열**이고, 창이 좁아지면 2열 → 1열로 저절로 접힌다.
+        // §5.1("기기 분기 boolean 은 useIsNarrow·useIsPortrait 둘뿐")을 지키려고 새 문턱을 안 만든다.
+        gridTemplateColumns: `repeat(auto-fit, minmax(min(${CARD_MIN_PX}px, 100%), 1fr))`,
+        gap: GRID_GAP_PX,
+        // 기현 지시 "카드 폭을 2/3 으로". 옛 상한 1180 에서 3열이면 카드가 384px 인데, 그 폭에는
+        // 제목 한 줄 + 태그라인 한 줄 + 배지밖에 안 들어가 여백만 커진다. 384 × 2/3 ≈ 256 이 목표고
+        // 지금 값이 257px 이다. ⚠️ 여기 들어가는 것은 콘텐츠 폭이 아니라 **패딩까지 더한 상한**이다.
+        maxWidth: GRID_MAX_PX,
         margin: '0 auto',
-        padding: '26px 30px 46px',
+        padding: `26px ${GRID_PAD_X_PX}px 46px`,
       }}
     >
       {topics.map((topic, i) => {
