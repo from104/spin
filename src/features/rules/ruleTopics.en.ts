@@ -263,6 +263,16 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         ],
       },
       { kind: 'figure', figureId: 'distance' },
+      {
+        kind: 'prose',
+        heading: 'The goalkeeper is exempt from the 5m',
+        body: [
+          'At a free kick or corner kick taken by the attacking team, a goalkeeper who is fully behind their own goal line between the posts does not have to keep the 5m.',
+          'Pushing back the one player guarding the goal would empty it.',
+          'Every other defender still keeps the 5m.',
+        ],
+      },
+      { kind: 'scene', sceneId: 'gk-behind-line' },
       { kind: 'restart-table' },
       {
         kind: 'prose',
@@ -326,11 +336,21 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         heading: 'When it is not a 2-on-1',
         body: [
           'Not a 2-on-1 if one of the two teammates is the goalkeeper inside their own goal area.',
+          'Touching the goal area line at all counts as being inside it — lines belong to the area they bound. Fully outside, the exemption is gone.',
           'Not a 2-on-1 if there is no opponent within 3m of the ball at all.',
           'This app also excludes a goalkeeper who has gone fully over the goal line behind the goal — that part is the app’s own, not in the Laws.',
         ],
       },
       { kind: 'scene', sceneId: 'two-on-one-gk' },
+      {
+        kind: 'prose',
+        heading: 'Only the goalkeeper is exempt',
+        body: [
+          'The goalkeeper being exempt does not make the whole team exempt.',
+          'Leave the goalkeeper out, and if two teammates and one opponent are still involved within 3m of the ball, that is a 2-on-1 in its own right.',
+        ],
+      },
+      { kind: 'scene', sceneId: 'two-on-one-gk-only' },
       { kind: 'scene', sceneId: 'two-on-one-open' },
       {
         kind: 'prose',

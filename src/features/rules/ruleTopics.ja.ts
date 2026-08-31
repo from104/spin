@@ -260,6 +260,16 @@ export const TOPICS_JA: readonly RuleTopic[] = [
         ],
       },
       { kind: 'figure', figureId: 'distance' },
+      {
+        kind: 'prose',
+        heading: 'ゴールキーパーは5mの対象外です',
+        body: [
+          '攻撃側が蹴るフリーキックやコーナーキックでは、ゴールキーパーがポスト間の自陣ゴールラインの後ろに完全に出ていれば、5mの距離を守らなくてかまいません。',
+          'ゴールを守るために下がったゴールキーパーまで5mの外へ押し出すと、ゴールが空いてしまうからです。',
+          '他の守備選手はそのまま5mです。',
+        ],
+      },
+      { kind: 'scene', sceneId: 'gk-behind-line' },
       { kind: 'restart-table' },
       {
         kind: 'prose',
@@ -323,11 +333,21 @@ export const TOPICS_JA: readonly RuleTopic[] = [
         heading: '2対1にならない場合',
         body: [
           '味方2人のうち1人が自陣ゴールエリア内のゴールキーパーであれば2対1ではありません。',
+          'ゴールエリアの線に少しでもかかっていれば中にいるものとみなします — ラインはそれが境界となる区域に属します。完全に出れば免除ではありません。',
           'ボールの3m以内に相手が1人もいない場合も2対1ではありません。',
           'このアプリは、ゴールラインを完全に越えてゴールの後ろに出たゴールキーパーもここから除きます — これは競技規則にはないアプリ独自の判定です。',
         ],
       },
       { kind: 'scene', sceneId: 'two-on-one-gk' },
+      {
+        kind: 'prose',
+        heading: '免除されるのはゴールキーパー1人だけです',
+        body: [
+          'ゴールキーパーが免除だからといって、そのチーム全体が免除になるわけではありません。',
+          'ゴールキーパーを除いても、味方2人と相手1人がボールの3m以内で関与していれば、それはそれで2対1です。',
+        ],
+      },
+      { kind: 'scene', sceneId: 'two-on-one-gk-only' },
       { kind: 'scene', sceneId: 'two-on-one-open' },
       {
         kind: 'prose',

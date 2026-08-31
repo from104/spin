@@ -259,7 +259,13 @@ describe('ruleContent ↔ ruleScenes 연결', () => {
     }
   });
 
-  it('RULE_SCENE_IDS 는 정확히 21개다', () => {
-    expect(RULE_SCENE_IDS).toHaveLength(21);
+  it('RULE_SCENE_IDS 는 정확히 23개다', () => {
+    // 21 → 23 (2026-09-01). 기현님이 새 드릴 4벌을 주셨고, 그중 둘은 손코딩 장면을 **교체**했고
+    // (two-on-one-gk · contested-touch) 둘은 **신설**이다:
+    //   `two-on-one-gk-only` — 골키퍼 면제가 팀 전체 면제가 아니라는 것
+    //   `gk-behind-line`     — 골라인 뒤 골키퍼의 5m 예외(정본 Law 13 에 빠져 있던 조항)
+    // 개수를 하드코딩해 두는 이유는 장면이 **조용히 늘거나 줄지 않게** 하기 위해서다 —
+    // 늘리는 커밋은 반드시 이 줄을 함께 고치며 "왜 늘었나" 를 적게 된다.
+    expect(RULE_SCENE_IDS).toHaveLength(23);
   });
 });

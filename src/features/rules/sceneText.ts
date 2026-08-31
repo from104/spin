@@ -31,6 +31,37 @@ export interface SceneText {
 export type SceneTextTable = Partial<Record<RuleSceneId, SceneText>>;
 
 const EN: SceneTextTable = {
+  // 🆕 2026-09-01 기현님 신규 4벌(2つ replace + 2つ new)
+  'two-on-one-gk': {
+    labels: [
+      ['GK inside our own goal area = 2-on-1 exemption'],
+      ['GK inside our own goal area = 2-on-1 exemption', 'Even touching the goal area line counts as inside'],
+      ['Fully outside the goal area = no exemption!'],
+    ],
+  },
+  'two-on-one-gk-only': {
+    labels: [
+      ['GK inside our own goal area = 2-on-1 exemption'],
+      ['GK inside our own goal area = 2-on-1 exemption', 'Even touching the goal area line counts as inside'],
+      [
+        'GK inside our own goal area = 2-on-1 exemption',
+        'Even touching the goal area line counts as inside',
+        'The GK is exempt — but blue 2 and 3 are in a 2-on-1 position!',
+      ],
+    ],
+  },
+  'contested-touch': {
+    labels: [[], [], ['When two players move with the ball between them and it goes out, possession goes to the player whose angle was keeping it in.']],
+  },
+  'gk-behind-line': {
+    labels: [
+      ['At a restart the defence must be 5m clear — blue 2 has to move outside the 5m'],
+      [
+        'At a restart the defence must be 5m clear — blue 2 has to move outside the 5m',
+        'But the GK is free of the 5m rule, provided they are fully behind the goal line between the posts.',
+      ],
+    ],
+  },
   // ── 앱이 쓴 장면 9개 ──────────────────────────────────────────────────────
   'field-tour': {
     note: [
@@ -48,13 +79,6 @@ const EN: SceneTextTable = {
       'The moment the second teammate comes within 3m and joins active play, it is a violation — indirect free kick to the opponents.',
     ],
     labels: [[], ['Indirect free kick']],
-  },
-  'two-on-one-gk': {
-    note: [
-      'A goalkeeper inside their own goal area does not count towards a 2-on-1. Here the goalkeeper, one outfield teammate and one opponent are all within 3m, and it is still not a violation.',
-      'If one of the two is the goalkeeper inside their own goal area, there is no 2-on-1 — the exception outranks the head count.',
-    ],
-    labels: [[], ['GK exception — no violation']],
   },
   'two-on-one-open': {
     note: [
@@ -85,13 +109,6 @@ const EN: SceneTextTable = {
       'If the referee judges it playing in a dangerous manner, the opponents get an indirect free kick at that spot.',
     ],
     labels: [[], [], ['Dangerous play → indirect FK']],
-  },
-  'contested-touch': {
-    note: [
-      'Two opponents are touching the ball at the same time while driving along the touchline. The ball is about to cross it.',
-      'Once the whole ball crosses the touchline, the kick-in goes to the player who was on the outside trying to keep it in — here, away.',
-    ],
-    labels: [[], ['Kick-in to the outside player']],
   },
 
   // ── 기현님이 편집기로 만든 12개 — **좌표는 그대로, 글자만 덮는다** ────────────
@@ -189,6 +206,37 @@ const EN: SceneTextTable = {
 
 /** 로케일 → 장면 글자 표. 없는 로케일은 원본(한국어)을 그대로 쓴다. */
 const JA: SceneTextTable = {
+  // 🆕 2026-09-01 기현님 신규 4벌
+  'two-on-one-gk': {
+    labels: [
+      ['GKが自陣ゴールエリア内にいれば2対1の反則は免除'],
+      ['GKが自陣ゴールエリア内にいれば2対1の反則は免除', 'ゴールエリアの線に少しでもかかっていれば免除'],
+      ['完全にゴールエリアを出ると免除ではない！'],
+    ],
+  },
+  'two-on-one-gk-only': {
+    labels: [
+      ['GKが自陣ゴールエリア内にいれば2対1の反則は免除'],
+      ['GKが自陣ゴールエリア内にいれば2対1の反則は免除', 'ゴールエリアの線に少しでもかかっていれば免除'],
+      [
+        'GKが自陣ゴールエリア内にいれば2対1の反則は免除',
+        'ゴールエリアの線に少しでもかかっていれば免除',
+        'GKは免除でも、青チームの2番・3番が2対1の位置！',
+      ],
+    ],
+  },
+  'contested-touch': {
+    labels: [[], [], ['2人がボールを挟んで動きボールが出た場合、角度上ボールを内側に生かそうとしていた選手に所有権が与えられます。']],
+  },
+  'gk-behind-line': {
+    labels: [
+      ['再開時、守備は5m離れること — 青2番が5mの外に出る必要がある'],
+      [
+        '再開時、守備は5m離れること — 青2番が5mの外に出る必要がある',
+        'ただしGKは、ポスト間のゴールラインを完全に越えていることを前提に5mの制約を受けません。',
+      ],
+    ],
+  },
   // ── アプリが書いたシーン9つ ────────────────────────────────────────────────
   'field-tour': {
     note: ['コートの規格は28×15m（バスケットボールコート標準）です。ゴールエリアは8×5m、ペナルティーマークはゴールラインから3.5m、ポストの間隔は6m、コーナートライアングルは各コーナーから1mです。'],
@@ -204,13 +252,6 @@ const JA: SceneTextTable = {
       '2人目の味方がボールの3m以内に入りアクティブプレーに関与した瞬間に反則が成立します — 相手に間接フリーキック。',
     ],
     labels: [[], ['間接フリーキック']],
-  },
-  'two-on-one-gk': {
-    note: [
-      '自陣ゴールエリア内のゴールキーパーは2対1の人数に数えません。ここではGK＋フィールド選手1人＋相手1人が3m以内にいても反則ではありません。',
-      '2人のうち1人が自陣ゴールエリア内のゴールキーパーであれば2対1は成立しません — 例外が人数より優先します。',
-    ],
-    labels: [[], ['GK例外 — 反則ではない']],
   },
   'two-on-one-open': {
     note: [
@@ -241,13 +282,6 @@ const JA: SceneTextTable = {
       'これが「危険な方法でのプレー」と判定されると、その地点から相手に間接フリーキックが与えられます。',
     ],
     labels: [[], [], ['危険なプレー → 間接FK']],
-  },
-  'contested-touch': {
-    note: [
-      'タッチライン沿いを走りながら、相手同士が同時にボールに触れています。まもなくボールがラインを越えます。',
-      'ボールがタッチラインを完全に越えると、外側からボールをとどめようとしていた側（away）にキックインが与えられます。',
-    ],
-    labels: [[], ['外側の選手にキックイン']],
   },
 
   // ── 기현님が編集機で作った12つ — 座標はそのまま、文字だけ差し替える ──────────

@@ -85,6 +85,10 @@ import { drill as kickInScene } from './scenes/kick-in.scene.ts';
 import { drill as goalKickScene } from './scenes/goal-kick.scene.ts';
 import { drill as cornerScene } from './scenes/corner.scene.ts';
 import { drill as setBallScene } from './scenes/set-ball.scene.ts';
+import { drill as twoOnOneGkOnly } from './scenes/two-on-one-gk-only.scene.ts';
+import { drill as gkBehindLine } from './scenes/gk-behind-line.scene.ts';
+import { drill as twoOnOneGkDrill } from './scenes/two-on-one-gk.scene.ts';
+import { drill as contestedTouchDrill } from './scenes/contested-touch.scene.ts';
 import { sceneTextFor } from './sceneText.ts';
 import { translate } from '../../i18n/useT.ts';
 import type { Locale } from '../../i18n/locale.ts';
@@ -98,6 +102,7 @@ export type RuleSceneId =
   | 'two-on-one'
   | 'two-on-one-active'
   | 'two-on-one-gk'
+  | 'two-on-one-gk-only'
   | 'two-on-one-open'
   | 'two-on-one-escape'
   | 'three-in-area'
@@ -110,7 +115,8 @@ export type RuleSceneId =
   | 'goal-kick'
   | 'corner'
   | 'set-ball'
-  | 'contested-touch';
+  | 'contested-touch'
+  | 'gk-behind-line';
 
 const COURT_SIZE: CourtSize = '28x15';
 
@@ -172,12 +178,10 @@ const SEED_SCENE_META: Partial<Record<RuleSceneId, RuleSceneMeta>> = {
   'field-tour': {},
   lineup: {},
   'two-on-one-active': { ring: '3m', defense: 'home', cutSteps: [1] },
-  'two-on-one-gk': { ring: '3m', defense: 'home' },
   'two-on-one-open': { ring: '3m', defense: 'home' },
   'two-on-one-escape': { ring: '3m', defense: 'home' },
   ramming: { cutSteps: [1] },
   'spin-kick': { cutSteps: [2] },
-  'contested-touch': {},
 };
 
 /** 장면 하나가 **담고 있어야 하는 것**. 값의 성격이 칸마다 다르므로 칸별로 근거를 적는다 —
@@ -264,12 +268,10 @@ export const RULE_SCENE_EXPECT: Record<RuleSceneId, RuleSceneExpect> = {
   'field-tour': { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [], steps: 1, defense: 'home' },
   lineup: { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [], steps: 1, defense: 'home' },
   'two-on-one-active': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [1], steps: 2, defense: 'home' },
-  'two-on-one-gk': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [], steps: 2, defense: 'home' },
   'two-on-one-open': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [], steps: 2, defense: 'home' },
   'two-on-one-escape': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'], 2: ['3m'] }, retreat: {}, cut: [], steps: 3, defense: 'home' },
   ramming: { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [1], steps: 2, defense: 'home' },
   'spin-kick': { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [2], steps: 3, defense: 'home' },
-  'contested-touch': { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [], steps: 2, defense: 'home' },
 
   // ── (2) 편집기 갈래 12개 — 30×18, kickoff 만 full (§4.2) ──────────────────────────────────
   // 여기 `rings` 는 **띄엄띄엄하다** — 편집기 데이터는 링을 재개가 실제로 일어나는 판에만 찍는다.
@@ -278,6 +280,13 @@ export const RULE_SCENE_EXPECT: Record<RuleSceneId, RuleSceneExpect> = {
   inout: { mode: 'half', size: '30x18', rings: {}, retreat: {}, cut: [], steps: 5, defense: 'away' },
   scoring: { mode: 'half', size: '30x18', rings: {}, retreat: {}, cut: [], steps: 6, defense: 'away' },
   'two-on-one': { mode: 'half', size: '30x18', rings: { 0: ['3m', '3m'] }, retreat: {}, cut: [], steps: 1, defense: 'away' },
+  // 🆕 2026-09-01 기현님 신규 4벌. 3m 링은 2-on-1 판정이므로 `retreat` 는 비어 있는 것이 맞다
+  // (5m 후퇴 대상이 아니다). `gk-behind-line` 만 5m 이고, 소유가 home(공격)이므로 물러날 팀은
+  // away — 정본 Law 13 의 "상대는 5m 이상"에서 유도한 값이지 데이터를 베낀 것이 아니다.
+  'two-on-one-gk': { mode: 'half', size: '30x18', rings: { 0: ['3m'], 1: ['3m'], 2: ['3m'] }, retreat: {}, cut: [], steps: 3, defense: 'away' },
+  'two-on-one-gk-only': { mode: 'half', size: '30x18', rings: { 0: ['3m'], 1: ['3m'], 2: ['3m'] }, retreat: {}, cut: [], steps: 3, defense: 'away' },
+  'contested-touch': { mode: 'half', size: '30x18', rings: {}, retreat: {}, cut: [], steps: 3, defense: 'away' },
+  'gk-behind-line': { mode: 'half', size: '30x18', rings: { 0: ['5m'], 1: ['5m'] }, retreat: { 0: 'away', 1: 'away' }, cut: [], steps: 2, defense: 'away' },
   'three-in-area': { mode: 'half', size: '30x18', rings: {}, retreat: {}, cut: [], steps: 2, defense: 'away' },
   dfk: { mode: 'half', size: '30x18', rings: { 0: ['5m'] }, retreat: { 0: 'away' }, cut: [], steps: 2, defense: 'away' },
   ifk: { mode: 'half', size: '30x18', rings: { 0: ['5m'] }, retreat: { 0: 'away' }, cut: [], steps: 3, defense: 'away' },
@@ -422,38 +431,8 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec | Drill> = {
   },
 
   // ── Law 11 — 2-on-1: 골키퍼 예외 ────────────────────────────────────────────────────────
-  'two-on-one-gk': {
-    title: '2-on-1 — 골키퍼 예외',
-    drillType: 'tactical',
-    situation: '2-on-1-spacing',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '자기 골에어리어 안의 골키퍼는 2-on-1 인원수에서 제외됩니다. 여기서는 골키퍼+필드 선수 1명+상대 1명이 3m 안에 있어도 위반이 아닙니다.',
-        chairs: {
-          'home-G': [75, 225, 0],
-          'home-2': [130, 190, 340],
-          'away-2': [200, 225, 180],
-        },
-        balls: [[140, 225]],
-      },
-      {
-        name: '',
-        note: '둘 중 한 명이 자기 골에어리어 안의 골키퍼면 2-on-1이 성립하지 않습니다 — 예외가 인원수보다 우선합니다.',
-        chairs: {
-          'home-G': [75, 225, 0],
-          'home-2': [130, 190, 340],
-          'away-2': [200, 225, 180],
-        },
-        balls: [[140, 225]],
-        notes: [{ at: [75, 190], text: 'GK 예외 — 위반 아님' }],
-      },
-    ],
-  },
+  'two-on-one-gk': twoOnOneGkDrill,
+  'two-on-one-gk-only': twoOnOneGkOnly,
 
   // ── Law 11 — 2-on-1: 상대 없음 예외 ─────────────────────────────────────────────────────
   'two-on-one-open': {
@@ -620,30 +599,8 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec | Drill> = {
   'set-ball': setBallScene,
 
   // ── Law 15 — 경합: 동시 접촉 주행 ───────────────────────────────────────────────────────
-  'contested-touch': {
-    title: '경합 — 동시 접촉 주행',
-    drillType: 'tactical',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '터치라인을 따라 달리며 두 상대가 동시에 공을 건드리고 있습니다. 곧 공이 라인을 넘어갈 상황입니다.',
-        chairs: { 'home-3': [420, 58, 0], 'away-3': [420, 38, 0] },
-        balls: [[400, 50]],
-      },
-      {
-        name: '',
-        note: '공이 터치라인을 완전히 넘으면, 바깥쪽에서 공을 라인 안에 묶어두려던 선수 쪽(away)에 킥인이 주어집니다.',
-        chairs: { 'home-3': [460, 55, 0], 'away-3': [460, 35, 0] },
-        balls: [[460, 25]],
-        arrows: [{ from: [400, 50], to: [460, 25] }],
-        notes: [{ at: [460, 65], text: '바깥쪽 선수 쪽 킥인' }],
-      },
-    ],
-  },
+  'contested-touch': contestedTouchDrill,
+  'gk-behind-line': gkBehindLine,
 };
 
 /** 장면 하나를 만든다. 갈래는 머리말 (1)/(2) — `'schemaVersion' in src` 하나로 갈린다.
@@ -769,6 +726,7 @@ export const RULE_SCENE_IDS: readonly RuleSceneId[] = [
   'two-on-one',
   'two-on-one-active',
   'two-on-one-gk',
+  'two-on-one-gk-only',
   'two-on-one-open',
   'two-on-one-escape',
   'three-in-area',
@@ -782,6 +740,7 @@ export const RULE_SCENE_IDS: readonly RuleSceneId[] = [
   'corner',
   'set-ball',
   'contested-touch',
+  'gk-behind-line',
 ];
 
 // ⚠️ 상태 정정(2026-08-31). 이 export 와 머리말은 오래 *"ruleScenes.test.ts 가
