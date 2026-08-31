@@ -140,13 +140,13 @@ const RESTART_COLUMNS_EN: readonly RestartColumn[] = [
     when: 'Attacker touched it out over the goal line', ball: 'Anywhere in the goal area', distance: '5m',
     directGoal: { ok: true, label: 'Opponents’ goal only' }, notes: 'In play once it leaves the goal area' } },
   { key: 'dfk', label: 'Direct free kick', sceneId: 'dfk', cells: {
-    when: 'Ramming, handball, arms, denying a chance', ball: 'Where the offence was', distance: '5m',
+    when: 'Ramming, handball, arms, denying a chance', ball: 'Where the offense was', distance: '5m',
     directGoal: { ok: true, label: 'Yes' }, notes: 'Inside your own goal area it becomes a penalty kick' } },
   { key: 'ifk', label: 'Indirect free kick', sceneId: 'ifk', cells: {
-    when: 'Dangerous play, impeding, 2-on-1, 3 in the area', ball: 'Where the offence was', distance: '5m',
+    when: 'Dangerous play, impeding, 2-on-1, 3 in the area', ball: 'Where the offense was', distance: '5m',
     directGoal: { ok: false, label: 'Must touch another player' }, notes: 'Referee holds an arm up until it is touched' } },
   { key: 'penalty', label: 'Penalty kick', sceneId: 'penalty', cells: {
-    when: 'Direct-kick offence in your own goal area', ball: 'Penalty mark (3.5m)', distance: '5m, behind the mark',
+    when: 'Direct-kick offense in your own goal area', ball: 'Penalty mark (3.5m)', distance: '5m, behind the mark',
     directGoal: { ok: true, label: 'Yes' }, notes: 'Goalkeeper still behind the line; kicker has 15 seconds' } },
 ];
 

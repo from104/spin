@@ -133,7 +133,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         body: [
           'If the ball cannot be lifted, there is no way over a crowd. Space does not open by itself.',
           'When players bunch around the ball the game jams — the ball gets wedged between chairs and nobody can free it.',
-          'So the rules spread the players out. Two rules limit where players may be: [Goal area offence] and [2-on-1 offence]. The 2-on-1 rule exists to keep the space around the ball open.',
+          'So the rules spread the players out. Two rules limit where players may be: [Goal area violation] and [2-on-1 violation]. The 2-on-1 rule exists to keep the space around the ball open.',
         ],
       },
       {
@@ -143,7 +143,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
           'A stopped ball is not simply kicked again.',
           'How play restarts depends on whether the ball left the field, or stopped for some other reason. Eight ways are gathered in the [Restarts] card.',
           'A foul gives the other team a kick — a direct free kick, an indirect free kick, or a penalty kick. Serious ones bring a yellow or red card.',
-          'Which foul brings which kick is in the [Other offences] card.',
+          'Which foul brings which kick is in the [Other offenses] card.',
         ],
       },
       {
@@ -259,7 +259,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         heading: 'Distance',
         body: [
           'For most restarts opponents must be 5m clear of the ball. The set ball uses 3m — for everyone except the two players facing each other over it.',
-          'Not respecting that distance is a cautionable offence.',
+          'Not respecting that distance is a cautionable offense.',
         ],
       },
       { kind: 'figure', figureId: 'distance' },
@@ -277,13 +277,13 @@ export const TOPICS_EN: readonly RuleTopic[] = [
   },
   {
     key: 'goal-area',
-    title: 'Goal area offence',
-    tagline: 'The third player is the offence',
+    title: 'Goal area violation',
+    tagline: 'The third player is the violation',
     blocks: [
       {
         kind: 'prose',
         body: [
-          'Three players of the same team inside their own goal area at once is an offence — but only while the ball is in play and in their half.',
+          'Three players of the same team inside their own goal area at once is a violation — but only while the ball is in play and in their half.',
           'The goalkeeper counts. Two, including the goalkeeper, is the limit.',
           'The opponents get an indirect free kick there. If it denied a clear scoring chance, a card can follow.',
         ],
@@ -308,14 +308,14 @@ export const TOPICS_EN: readonly RuleTopic[] = [
   },
   {
     key: 'two-on-one',
-    title: '2-on-1 offence',
+    title: '2-on-1 violation',
     tagline: 'Two on one within 3m',
     blocks: [
       {
         kind: 'prose',
         body: [
           'While the ball is in play, two teammates and one opponent within 3m of it is a 2-on-1.',
-          'It is only an offence if all three are actually involved in active play. Simply being within 3m is not yet one. The referee judges this.',
+          'It is only a violation if all three are actually involved in active play. Simply being within 3m is not yet one. The referee judges this.',
           'Involvement is not only touching the ball. Blocking an opponent’s path, or gaining from a ball that rebounds to you off a post or an opponent, counts too.',
         ],
       },
@@ -342,19 +342,19 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         ],
       },
       { kind: 'scene', sceneId: 'two-on-one-escape' },
-      { kind: 'prose', body: ['When it is an offence, the opponents get an indirect free kick at that spot.'] },
+      { kind: 'prose', body: ['When it is a violation, the opponents get an indirect free kick at that spot.'] },
     ],
   },
   {
     key: 'fouls',
-    title: 'Other offences',
+    title: 'Other offenses',
     tagline: 'Fouls bring kicks, worse brings cards',
     blocks: [
       {
         kind: 'prose',
-        heading: 'Direct free kick offences',
+        heading: 'Direct free kick offenses',
         body: [
-          'Ramming an opponent is an offence when it is careless, reckless, or uses excessive force. Along with holding an opponent with the chair, deliberate handball, using the arms to push, hold or strike (including attempts), spitting, and denying a scoring chance — these six give the opponents a direct free kick.',
+          'Ramming an opponent is an offense when it is careless, reckless, or uses excessive force. Along with holding an opponent with the chair, deliberate handball, using the arms to push, hold or strike (including attempts), spitting, and denying a scoring chance — these six give the opponents a direct free kick.',
           'Committed inside your own goal area while the ball is in play, it becomes a penalty kick.',
         ],
       },
@@ -363,7 +363,7 @@ export const TOPICS_EN: readonly RuleTopic[] = [
         heading: 'Where contact is allowed',
         body: [
           'Tackling and fair charging are allowed — but only frontguard against frontguard.',
-          'Contact with any other part of the chairs is an offence.',
+          'Contact with any other part of the chairs is an offense.',
           'Ramming is driving deliberately into an opponent, with or without the ball, at speed or with excessive force. It makes no difference whether they were moving or still.',
           'Holding is deliberately restricting the movement of an opponent’s chair.',
           'Clipping is a form of holding: deliberately contacting the side or back of an opponent’s chair to impede them.',
@@ -372,10 +372,10 @@ export const TOPICS_EN: readonly RuleTopic[] = [
       { kind: 'scene', sceneId: 'ramming' },
       {
         kind: 'prose',
-        heading: 'Indirect free kick offences',
+        heading: 'Indirect free kick offenses',
         body: [
           'A player other than the goalkeeper crossing their own goal line completely (unless pushed by an opponent), a third player entering their own goal area, playing in a dangerous manner, impeding an opponent, deliberately moving or knocking over a goalpost — these give the opponents an indirect free kick.',
-          'So does any other offence for which play is stopped to caution or send off a player.',
+          'So does any other offense for which play is stopped to caution or send off a player.',
           'A direct free kick can score straight in. An indirect one must touch another player first.',
         ],
       },

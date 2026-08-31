@@ -171,8 +171,8 @@ referees · checking field, ball and equipment · collecting and verifying team 
 **timekeeper** and keeping a match record · stopping, suspending or abandoning the match at
 discretion, for outside interference, for serious injury, for a dangerous situation, or when a
 player is in danger of flipping over or major chair components fall onto the field · playing
-advantage and penalising the original offence if the advantage does not come · punishing the more
-serious offence when several are committed at once · taking disciplinary action (not necessarily
+advantage and penalising the original offense if the advantage does not come · punishing the more
+serious offense when several are committed at once · taking disciplinary action (not necessarily
 at once, but by the next stoppage) · acting on assistant referees' advice for what was not seen ·
 providing a match report.
 
@@ -190,7 +190,7 @@ Assistant referees may be appointed to indicate: when the whole ball has passed 
 or goal line · which side gets a corner kick, goal kick or kick-in · when a substitution is
 requested · when a team has **exceeded the allowed number of players in the goal area** · when a
 player other than the goalkeeper has **completely crossed the goal line between the posts** ·
-misconduct out of the referee's view · offences where the assistant is closer to the action ·
+misconduct out of the referee's view · offenses where the assistant is closer to the action ·
 at penalty kicks, whether the goalkeeper moved before the kick and whether the ball crossed the
 line.
 
@@ -278,8 +278,12 @@ elevates above 50.8 cm **without** creating a dangerous situation in the referee
 
 ## Law 11 — Field Position
 
-Two position-based offences: **2-on-1** and **3 in the goal area**. Position alone is not the
-offence — criteria must be met.
+Two position-based violations: **2-on-1** and **3 in the goal area**. Position alone is not the
+violation — criteria must be met.
+
+> **Wording**: the original heads these sections "Offense" but calls the thing the referee whistles
+> a **violation** (all five uses of the word in the Laws are here, in Law 11). Law 12's fouls are
+> **offenses**. The app follows that split.
 
 ### 2-on-1
 
@@ -291,7 +295,7 @@ offence — criteria must be met.
   a gesture or movement that deceives or distracts them) · *gaining an advantage by being in that
   position* (playing a ball that rebounds off a post or off an opponent while in a 2-on-1
   position).
-- Two teammates and an opponent within 3 m is **not** an offence until the **second** teammate
+- Two teammates and an opponent within 3 m is **not** a violation until the **second** teammate
   becomes involved in active play.
 - **Not a 2-on-1** if one of the two teammates is the **goalkeeper in their own goal area**, or if
   **no opponent** is within 3 m of the ball.
@@ -321,7 +325,7 @@ the referee considers careless, reckless or using excessive force; or:
 - spits at an opponent;
 - denies a goal-scoring opportunity.
 
-Taken from where the offence occurred.
+Taken from where the offense occurred.
 
 **Penalty kick** if any of the above is committed by a player **inside their own goal area**,
 irrespective of where the ball is, provided it is in play.
@@ -332,7 +336,7 @@ irrespective of where the ball is, provided it is in play.
   during play (**without being pushed by an opponent**);
 - a **third player** enters their own goal area while the ball is in play in their half;
 - or, in the referee's opinion, a player plays in a **dangerous manner**, **impedes** an opponent's
-  progress, **deliberately moves or pushes over a goalpost**, or commits **any other offence not
+  progress, **deliberately moves or pushes over a goalpost**, or commits **any other offense not
   named in Law 12** for which play is stopped to caution or dismiss.
 
 ### Definitions (Law 12's own)
@@ -355,15 +359,15 @@ Players, substitutes and team officials in the technical area may all be shown a
 offender cannot be identified, the senior team coach in the technical area receives the sanction.**
 The referee's authority runs **from entering the venue until leaving it after the final whistle**.
 
-**Cautions (yellow card) — seven offences**: 1 unsporting behaviour · 2 dissent by word or action ·
+**Cautions (yellow card) — seven offenses**: 1 unsporting behaviour · 2 dissent by word or action ·
 3 persistent infringement of the Laws · 4 delaying the restart of play · 5 failing to respect the
 required distance at a corner kick, kick-in, free kick, goal kick or set ball · 6 entering or
 re-entering the field without permission · 7 deliberately leaving the field without permission.
 
-**Sending-off (red card) — eight offences**: 1 serious foul play · 2 violent conduct · 3 spitting
+**Sending-off (red card) — eight offenses**: 1 serious foul play · 2 violent conduct · 3 spitting
 at an opponent or any other person · 4 denying a goal or an obvious goal-scoring opportunity by
 deliberate handball · 5 denying an obvious goal-scoring opportunity to an opponent moving towards
-the goal, by an offence punishable by a free kick or penalty kick · 6 denying a goal by completely
+the goal, by an offense punishable by a free kick or penalty kick · 6 denying a goal by completely
 crossing the goal line (goalkeepers excepted) · 7 offensive, insulting or abusive language or
 gestures · 8 receiving a second caution in the same match.
 
@@ -399,7 +403,7 @@ own goal area is not kicked directly into play, it is retaken.
 
 ## Law 14 — The Penalty Kick
 
-Awarded against a team that commits a **direct-free-kick offence inside its own goal area while
+Awarded against a team that commits a **direct-free-kick offense inside its own goal area while
 the ball is in play**. **A goal may be scored directly.** Additional time is allowed at the end of
 each half, or of extra time, for a penalty kick to be taken.
 

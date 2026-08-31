@@ -64,7 +64,7 @@ export const LAWS_EN: readonly RuleLaw[] = [
     key: 'assistants',
     group: 'officials',
     title: 'Law 6 — The Assistant Referees',
-    summary: ['Signal the ball out of play, which side restarts, substitutions, goal-area and goal-line offences, and penalty-kick infringements.'],
+    summary: ['Signal the ball out of play, which side restarts, substitutions, goal-area and goal-line offenses, and penalty-kick infringements.'],
   },
   {
     law: 7,
@@ -127,8 +127,8 @@ export const LAWS_EN: readonly RuleLaw[] = [
     title: 'Law 12 — Fouls and Misconduct',
     summary: [
       'Ramming, handball, use of the arms and the like bring a direct free kick — a penalty kick inside your own goal area. Dangerous play and impeding bring an indirect free kick.',
-      'Tackling and charging are allowed frontguard to frontguard only; contact elsewhere is an offence (ramming, holding, clipping).',
-      'Seven cautionable offences (yellow) and eight sending-off offences (red).',
+      'Tackling and charging are allowed frontguard to frontguard only; contact elsewhere is an offense (ramming, holding, clipping).',
+      'Seven cautionable offenses (yellow) and eight sending-off offenses (red).',
     ],
     sceneId: 'ramming',
   },
@@ -149,7 +149,7 @@ export const LAWS_EN: readonly RuleLaw[] = [
     group: 'restarts',
     title: 'Law 14 — The Penalty Kick',
     summary: [
-      'Awarded for a direct-free-kick offence inside your own goal area while the ball is in play. A goal may be scored directly.',
+      'Awarded for a direct-free-kick offense inside your own goal area while the ball is in play. A goal may be scored directly.',
       'Ball on the penalty mark, everyone else 5m back and behind it; the goalkeeper stays still behind the goal line. The kicker has 15 seconds.',
     ],
     sceneId: 'penalty',
