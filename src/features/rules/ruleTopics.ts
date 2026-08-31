@@ -143,7 +143,7 @@ const MISCONDUCT_CARDS_EN: readonly MisconductCard[] = [
   { kind: 'sendingOff', text: 'Violent conduct' },
   { kind: 'sendingOff', text: 'Spitting at an opponent or anyone else' },
   { kind: 'sendingOff', text: 'Denying a goal or an obvious chance by deliberate handball' },
-  { kind: 'sendingOff', text: 'Denying an obvious goal-scoring opportunity by a free-kick or penalty offence' },
+  { kind: 'sendingOff', text: 'Denying an obvious goal-scoring opportunity by a free-kick or penalty offense' },
   { kind: 'sendingOff', text: 'Denying a goal by completely crossing the goal line (goalkeepers excepted)' },
   { kind: 'sendingOff', text: 'Offensive, insulting or abusive language or gestures' },
   { kind: 'sendingOff', text: 'A second caution in the same match' },
