@@ -16,6 +16,12 @@
 //
 // `ruleContentFor(locale)` 와 같은 패턴: 지금은 모든 로케일이 ko 배열을 반환한다. 규칙 콘텐츠는
 // ko 전용(2026-08-21 결정), UI 라벨만 en/ja 타입이 강제된다.
+//
+// ⚠️ 2026-08-31 — 그 사실을 **주석이 아니라 데이터로** 옮겼다(`RULE_CONTENT_LOCALES`).
+// 기현님 지적(*"규칙은 i18n가 안 되어있네?"*)의 실제 증상은 `DEFAULT_LOCALE = 'en'` 과 겹쳐서
+// 나온다 — 브라우저가 ko/ja 가 아니면 영어로 떨어지는데, 그때 화면은 **버튼만 영어이고 내용은
+// 전부 한국어**가 된다. 읽는 사람에게는 앱이 고장 난 것으로 보인다. 주석은 그 사람에게
+// 아무 말도 해 주지 못하므로, 판정을 코드로 꺼내 화면이 스스로 안내하게 했다.
 import type { Locale } from '../../i18n/locale.ts';
 import type { RuleFigureId } from './figures/ids.ts';
 import type { RuleSceneId } from './ruleScenes.ts';
@@ -544,6 +550,28 @@ const TOPICS_KO: readonly RuleTopic[] = [
   },
 ];
 
+/** 규칙 **콘텐츠**(카드 제목·산문·18개조·재개표·장면 노트)가 실제로 존재하는 로케일.
+ *
+ *  UI 사전(`src/i18n/*.ts`)은 셋 다 채워져 있지만 콘텐츠는 ko 뿐이다 — 그 비대칭이 이 앱의
+ *  다른 어디에도 없는 상태라, 화면이 스스로 안내하려면 판정할 값이 필요하다.
+ *
+ *  ⚠️ **여기에 'en' 을 넣는 것만으로는 아무 일도 안 일어난다.** 이 상수는 *번역이 있다*고
+ *  주장할 뿐이고, 실제 번역은 `TOPICS_KO` 옆에 로케일별 배열이 서야 생긴다. 늘리려면
+ *  `docs/PLAN-RULES-9CARDS.md` §9 의 선행 조건 둘을 먼저 볼 것 —
+ *  (1) 영어는 한국어 요약을 되번역하지 말고 **FIPFA 영어 원문**에서 다시 쓴다
+ *      (지금 정본 `docs/RULES-FIPFA-2025.md` 자체가 영어 원문의 한국어 요약본이다),
+ *  (2) 장면의 코트 위 쪽지 42건은 기현님 저작물이라 드릴 데이터 모델 결정이 선행된다. */
+export const RULE_CONTENT_LOCALES: readonly Locale[] = ['ko'];
+
+/** 이 로케일로 규칙 콘텐츠를 읽을 수 있는가. 거짓이면 화면이 안내를 띄우고 ko 로 폴백한다. */
+export function hasRuleContentFor(locale: Locale): boolean {
+  return RULE_CONTENT_LOCALES.includes(locale);
+}
+
+/** ⚠️ 인자를 받지만 **지금은 언제나 ko 를 돌려준다** — 콘텐츠가 ko 뿐이기 때문이고, en/ja 에서
+ *  빈 화면을 주는 것보다 한국어라도 보여주고 **안내를 함께 띄우는** 편이 낫다
+ *  (`RuleLanguageNotice`). 인자를 살려 두는 것은 로케일별 배열이 생기는 날 이 함수 하나만
+ *  고치면 되게 하려는 것이다. 폴백이라는 사실은 `hasRuleContentFor` 가 화면 쪽에서 말한다. */
 export function ruleTopicsFor(_locale: Locale): readonly RuleTopic[] {
   return TOPICS_KO;
 }
