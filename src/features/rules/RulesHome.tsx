@@ -13,6 +13,8 @@ import { Card } from '../../ui/Card.tsx';
 import { Pill } from '../../ui/Pill.tsx';
 import { IconBoard, IconClear, IconGoalReset, IconInfo, IconListSteps, IconRuleZone, IconRules, IconSides, IconToolPlayer } from '../../ui/icons.tsx';
 import type { IconProps } from '../../ui/icons.tsx';
+import { useT } from '../../i18n/useT.ts';
+import type { TFunction } from '../../i18n/useT.ts';
 
 // 아이콘은 주제마다 겹치지 않아야 한다 — 카드 홈은 아이콘 하나로 주제를 되찾는 자리다.
 const TOPIC_ICONS: Record<RuleTopicKey, ComponentType<IconProps>> = {
@@ -51,15 +53,15 @@ export const GRID_PAD_X_PX = 30;
 /** `style.maxWidth` 에 들어갈 값 — border-box 라 패딩을 더해야 콘텐츠가 위 폭을 받는다. */
 export const GRID_MAX_PX = GRID_CONTENT_PX + GRID_PAD_X_PX * 2;
 
-function topicMeta(topic: RuleTopic): string[] {
+function topicMeta(topic: RuleTopic, t: TFunction): string[] {
   const figures = topic.blocks.filter((b) => b.kind === 'figure').length;
   const scenes = topic.blocks.filter((b) => b.kind === 'scene').length;
   const badges: string[] = [];
-  if (figures > 0) badges.push(`도해 ${figures}`);
-  if (scenes > 0) badges.push(`장면 ${scenes}`);
-  if (topic.blocks.some((b) => b.kind === 'restart-table')) badges.push('비교표');
-  if (topic.blocks.some((b) => b.kind === 'card-list')) badges.push('카드 목록');
-  if (topic.blocks.some((b) => b.kind === 'law-index')) badges.push('18개조 부록');
+  if (figures > 0) badges.push(t('rules.badge.figures', { n: figures }));
+  if (scenes > 0) badges.push(t('rules.badge.scenes', { n: scenes }));
+  if (topic.blocks.some((b) => b.kind === 'restart-table')) badges.push(t('rules.badge.table'));
+  if (topic.blocks.some((b) => b.kind === 'card-list')) badges.push(t('rules.badge.cards'));
+  if (topic.blocks.some((b) => b.kind === 'law-index')) badges.push(t('rules.badge.laws'));
   return badges;
 }
 
@@ -69,6 +71,7 @@ export interface RulesHomeProps {
 }
 
 export function RulesHome({ topics, onOpen }: RulesHomeProps) {
+  const t = useT();
   return (
     <div
       data-tut="rules-home"
@@ -116,7 +119,7 @@ export function RulesHome({ topics, onOpen }: RulesHomeProps) {
               <div style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginTop: 2 }}>{topic.tagline}</div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 'auto' }}>
-              {topicMeta(topic).map((label) => (
+              {topicMeta(topic, t).map((label) => (
                 <Pill key={label} tone="neutral">
                   {label}
                 </Pill>

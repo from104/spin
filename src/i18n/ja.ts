@@ -522,8 +522,16 @@ export const ja: Record<DictKey, string> = {
   'rules.playScene': 'シーンを再生',
   // ルール本文を持たないロケールで表示する案内（2026-08-31）。以下のページは意図的に韓国語の
   // ままにしている — 韓国語要約の機械翻訳より、FIPFA が発行する英語の正本を案内する方がよい。
+  'rules.langNotice.scenesOnly': 'ボード上のシーン内の説明は韓国語で表示されます。',
   'rules.langNotice.title': 'ルールの解説は韓国語のみです',
   'rules.langNotice.body': '以下のページは韓国語で書かれています。競技規則の公式版は FIPFA が英語で発行しており、その PDF が正本です。',
+  'rules.badge.figures': '図解 {{n}}',
+  'rules.badge.scenes': 'シーン {{n}}',
+  'rules.badge.table': '比較表',
+  'rules.badge.cards': 'カード一覧',
+  'rules.badge.laws': '18条 付録',
+  'rules.cards.cautions': '警告（イエロー）{{n}}種',
+  'rules.cards.sendingOffs': '退場（レッド）{{n}}種',
   'rules.langNotice.original': 'FIPFA Laws of the Game（2025年4月承認版）公式PDF：',
 
   'help.settings.item1.term': 'テーマ・言語',

@@ -10,7 +10,6 @@ import { RULE_CONTENT_LOCALES, hasRuleContentFor, ruleTopicsFor } from './ruleTo
 import { FIPFA_LAWS_PDF_URL } from './RuleLanguageNotice.tsx';
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '../../i18n/locale.ts';
 import type { Locale } from '../../i18n/locale.ts';
-import { en } from '../../i18n/en.ts';
 import { ja } from '../../i18n/ja.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { PREFS_KEY, makeDefaultPrefs } from '../../storage/prefs.ts';
@@ -67,15 +66,10 @@ describe('규칙 화면 — 콘텐츠 언어 안내', () => {
   });
 
   it('주제 상세로 곧장 들어와도 뜬다 — 딥링크가 홈을 건너뛴다', () => {
-    renderAt('en', 'two-on-one');
+    renderAt('ja', 'two-on-one');
     expect(notice()).not.toBeNull();
     // 상세가 실제로 열린 상태여야 이 단언에 뜻이 있다(안내만 뜨고 본문이 없으면 다른 버그다).
     expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
-  });
-
-  it('읽는 사람의 언어로 말한다 — 한국어 안내를 영어 화면에 띄우지 않는다', () => {
-    renderAt('en');
-    expect(screen.getByText(en['rules.langNotice.title'])).toBeInTheDocument();
   });
 
   it('일본어 화면에는 일본어 안내가 뜬다', () => {
@@ -84,7 +78,7 @@ describe('규칙 화면 — 콘텐츠 언어 안내', () => {
   });
 
   it('FIPFA 영어 원문 주소를 함께 준다 — 안내만 하고 갈 곳을 안 주면 반쪽이다', () => {
-    renderAt('en');
+    renderAt('ja');
     expect(screen.getByText(FIPFA_LAWS_PDF_URL)).toBeInTheDocument();
   });
 
@@ -92,13 +86,15 @@ describe('규칙 화면 — 콘텐츠 언어 안내', () => {
     // `DEFAULT_LOCALE = 'en'` 이라, 브라우저가 ko/ja 가 아닌 사람은 **처음부터** 이 상태로 들어온다.
     // 이 단언이 빨개지는 날(= 기본이 ko 가 되거나 en 콘텐츠가 생기는 날)은 안내의 전제가 바뀐 날이니
     // 이 파일 전체를 다시 볼 것.
-    expect(hasRuleContentFor(DEFAULT_LOCALE)).toBe(false);
-    expect(RULE_CONTENT_LOCALES).toEqual(['ko']);
+    // 2026-08-31 영어 콘텐츠가 들어오며 기본 로케일(en)은 이제 콘텐츠가 있다. 안내가 남아 있는
+    // 이유는 **일본어**다 — 여전히 콘텐츠가 없고, 그 사람에게는 여전히 한국어 화면이 나간다.
+    expect(hasRuleContentFor(DEFAULT_LOCALE)).toBe(true);
+    expect(RULE_CONTENT_LOCALES).toEqual(['ko', 'en']);
   });
 
   it('콘텐츠가 없어도 화면은 비지 않는다 — ko 로 폴백해 9카드를 그대로 보여준다', () => {
-    expect(ruleTopicsFor('en')).toEqual(ruleTopicsFor('ko'));
-    renderAt('en');
+    expect(ruleTopicsFor('ja')).toEqual(ruleTopicsFor('ko'));
+    renderAt('ja');
     expect(screen.getAllByRole('button').length).toBeGreaterThan(8);
   });
 });

@@ -10,7 +10,9 @@
 // 접기는 앱의 기존 관례(진짜 `<button>` + `aria-expanded` + 형제 `<div>`)를 따른다 —
 // `<details>/<summary>` 는 이 저장소에 선례가 없다.
 import { useState } from 'react';
-import { RESTART_COLUMNS, RESTART_ROW_LABELS } from './restartTable.ts';
+import { restartColumnsFor, restartRowLabelsFor } from './restartTable.ts';
+import type { RestartColumn } from './restartTable.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 import type { RestartCells } from './restartTable.ts';
 import { RuleSceneBlock } from './RuleSceneBlock.tsx';
 import type { RuleSceneId } from './ruleScenes.ts';
@@ -48,20 +50,23 @@ function DirectGoalMark({ ok, label }: { ok: boolean; label: string }) {
 
 const CELL_KEYS: readonly (keyof RestartCells)[] = ['when', 'ball', 'distance', 'directGoal', 'notes'];
 
-function cellText(col: (typeof RESTART_COLUMNS)[number], key: keyof RestartCells) {
+function cellText(col: RestartColumn, key: keyof RestartCells) {
   const v = col.cells[key];
   return typeof v === 'string' ? v : <DirectGoalMark ok={v.ok} label={v.label} />;
 }
 
 export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTableBlockProps) {
   const narrow = useIsNarrow();
-  const [selectedKey, setSelectedKey] = useState(RESTART_COLUMNS[0]!.key);
-  const selected = RESTART_COLUMNS.find((c) => c.key === selectedKey) ?? RESTART_COLUMNS[0]!;
+  const locale = useLocale();
+  const columns = restartColumnsFor(locale);
+  const rowLabels = restartRowLabelsFor(locale);
+  const [selectedKey, setSelectedKey] = useState(columns[0]!.key);
+  const selected = columns.find((c) => c.key === selectedKey) ?? columns[0]!;
 
   if (narrow) {
     return (
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {RESTART_COLUMNS.map((col) => {
+        {columns.map((col) => {
           const open = col.key === selectedKey;
           return (
             <div key={col.key} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--panel)' }}>
@@ -87,7 +92,7 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
                   <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 12px', margin: 0 }}>
                     {CELL_KEYS.map((key, i) => (
                       <div key={key} style={{ display: 'contents' }}>
-                        <dt style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--faint-text)' }}>{RESTART_ROW_LABELS[i]}</dt>
+                        <dt style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--faint-text)' }}>{rowLabels[i]}</dt>
                         <dd style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text)' }}>{cellText(col, key)}</dd>
                       </div>
                     ))}
@@ -114,7 +119,7 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
           <thead>
             <tr>
               <th scope="col" style={{ width: '9em' }} />
-              {RESTART_COLUMNS.map((col) => {
+              {columns.map((col) => {
                 const active = col.key === selectedKey;
                 return (
                   <th
@@ -148,7 +153,7 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
             </tr>
           </thead>
           <tbody>
-            {RESTART_ROW_LABELS.map((rowLabel, i) => {
+            {rowLabels.map((rowLabel, i) => {
               const key = CELL_KEYS[i]!;
               return (
                 <tr key={key}>
@@ -164,7 +169,7 @@ export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTab
                   >
                     {rowLabel}
                   </th>
-                  {RESTART_COLUMNS.map((col) => {
+                  {columns.map((col) => {
                     const active = col.key === selectedKey;
                     return (
                       <td

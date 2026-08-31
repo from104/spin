@@ -10,7 +10,7 @@
 // 유효하지 않은 topic(옛 `/rules/law-N` 관용 매핑 실패, 오탈자 링크 등)은 조용히 카드 홈으로
 // 떨어진다 — routes.ts 의 "모르는 경로는 board" 교리를 이 화면 안에서도 지킨다.
 import { useCallback, useState } from 'react';
-import { ruleTopicsFor, hasRuleContentFor, RULE_TOPIC_KEYS } from './ruleTopics.ts';
+import { ruleTopicsFor, hasRuleContentFor, hasSceneTextFor, RULE_TOPIC_KEYS } from './ruleTopics.ts';
 import type { RuleTopicKey } from './ruleTopics.ts';
 import { RulesHome } from './RulesHome.tsx';
 import { RuleTopicDoc } from './RuleTopicDoc.tsx';
@@ -38,7 +38,7 @@ export function RulesScreen({ topic, nav }: { topic?: string; nav: HomeNav }) {
   // 콘텐츠는 ko 뿐이다(`RULE_CONTENT_LOCALES`). en/ja 로 들어온 사람에게 **왜** 한국어인지
   // 말해 주지 않으면 앱이 고장 난 것으로 읽힌다. 카드 홈과 주제 상세 **양쪽**에 띄운다 —
   // 딥링크(`/rules/<topic>`)로 상세에 곧장 들어오는 경로가 있어서 홈에만 두면 놓친다.
-  const needsLangNotice = !hasRuleContentFor(locale);
+  const needsLangNotice = !hasRuleContentFor(locale) || !hasSceneTextFor(locale);
   const selectedKey = isTopicKey(topic) ? topic : null;
 
   // §0.5 Phase 5 — 레일 [도움말] 이 "지금 열려 있는 화면" 을 열려면 이 화면이 자기 HelpCenter 를
