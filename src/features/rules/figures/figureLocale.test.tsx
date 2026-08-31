@@ -12,6 +12,7 @@ import { RuleFigure } from '../RuleFigure.tsx';
 import { RULE_FIGURE_IDS } from './ids.ts';
 import { SettingsProvider } from '../../../store/settings/SettingsProvider.tsx';
 import { PREFS_KEY, makeDefaultPrefs } from '../../../storage/prefs.ts';
+import { SUPPORTED_LOCALES } from '../../../i18n/locale.ts';
 import type { Locale } from '../../../i18n/locale.ts';
 
 const HANGUL = /[가-힣]/;
@@ -39,10 +40,15 @@ function renderedStrings(locale: Locale, id: (typeof RULE_FIGURE_IDS)[number]): 
 }
 
 describe('조항 도해 — 로케일', () => {
-  it.each(RULE_FIGURE_IDS)('%s 도해는 영어에서 한국어를 한 글자도 안 남긴다', (id) => {
-    const leftovers = renderedStrings('en', id).filter((s) => HANGUL.test(s));
-    expect(leftovers, `${id}: 번역 안 된 문자열`).toEqual([]);
-  });
+  // ko 가 아닌 로케일 **전부**를 돈다 — 로케일이 늘어도 검사가 저절로 따라온다(2026-08-31 ja 추가).
+  const OTHERS = SUPPORTED_LOCALES.filter((l) => l !== 'ko');
+  it.each(OTHERS.flatMap((l) => RULE_FIGURE_IDS.map((id) => [l, id] as const)))(
+    '%s 로케일의 %s 도해에 한국어가 한 글자도 안 남는다',
+    (locale, id) => {
+      const leftovers = renderedStrings(locale, id).filter((s) => HANGUL.test(s));
+      expect(leftovers, `${locale}/${id}: 번역 안 된 문자열`).toEqual([]);
+    },
+  );
 
   it.each(RULE_FIGURE_IDS)('%s 도해는 한국어에서 그대로 한국어다', (id) => {
     // 반대 방향도 잰다 — 안 그러면 "전부 영어로 하드코딩" 이라는 회귀가 위 단언을 통과한다.

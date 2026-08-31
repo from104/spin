@@ -33,8 +33,12 @@ export const RESTART_ROW_LABELS: readonly [string, string, string, string, strin
 /** 영어판 행 라벨. 표의 **뼈대**라 셀과 함께 갈아야 반쪽 번역이 안 된다. */
 const RESTART_ROW_LABELS_EN: readonly [string, string, string, string, string] = ['When', 'Ball', 'Opponents', 'Direct goal', 'Note'];
 
+const RESTART_ROW_LABELS_JA: readonly [string, string, string, string, string] = ['いつ', 'ボール位置', '相手の距離', '直接得点', '特記'];
+
 export function restartRowLabelsFor(locale: Locale): readonly [string, string, string, string, string] {
-  return locale === 'en' ? RESTART_ROW_LABELS_EN : RESTART_ROW_LABELS;
+  if (locale === 'en') return RESTART_ROW_LABELS_EN;
+  if (locale === 'ja') return RESTART_ROW_LABELS_JA;
+  return RESTART_ROW_LABELS;
 }
 
 export const RESTART_COLUMNS: readonly RestartColumn[] = [
@@ -150,6 +154,33 @@ const RESTART_COLUMNS_EN: readonly RestartColumn[] = [
     directGoal: { ok: true, label: 'Yes' }, notes: 'Goalkeeper still behind the line; kicker has 15 seconds' } },
 ];
 
+/** 日本語版。key・sceneId・順序は同じ。用語は日本で定着したものを使う（ruleTopics.ja.ts 冒頭）。 */
+const RESTART_COLUMNS_JA: readonly RestartColumn[] = [
+  { key: 'kickoff', label: 'キックオフ', sceneId: 'kickoff', cells: {
+    when: '開始・得点後・後半開始', ball: 'センターマーク', distance: '5m',
+    directGoal: { ok: true, label: '認められる' }, notes: '全員が自陣にいること' } },
+  { key: 'kick-in', label: 'キックイン', sceneId: 'kick-in', cells: {
+    when: 'タッチラインを越えて出た', ball: '出た地点', distance: '5m',
+    directGoal: { ok: true, label: '認められる' }, notes: '同時接触は外側の選手に' } },
+  { key: 'corner', label: 'コーナーキック', sceneId: 'corner', cells: {
+    when: '守備側が最後に触れゴールラインを越えた', ball: 'コーナートライアングル', distance: '5m',
+    directGoal: { ok: true, label: '認められる' }, notes: 'ゴールエリア内は1mマークの後ろ' } },
+  { key: 'goal-kick', label: 'ゴールキック', sceneId: 'goal-kick', cells: {
+    when: '攻撃側が最後に触れゴールラインを越えた', ball: 'ゴールエリア内の任意の地点', distance: '5m',
+    directGoal: { ok: true, label: '相手ゴールのみ' }, notes: 'エリアを直接出た時点でインプレー' } },
+  { key: 'dfk', label: '直接フリーキック', sceneId: 'dfk', cells: {
+    when: 'ラミング・ハンド・腕の使用・得点機会の阻止', ball: '反則のあった地点', distance: '5m',
+    directGoal: { ok: true, label: '認められる' }, notes: '自陣ゴールエリア内ならペナルティーキック' } },
+  { key: 'ifk', label: '間接フリーキック', sceneId: 'ifk', cells: {
+    when: '危険なプレー・進行妨害・2対1・エリア3人', ball: '反則のあった地点', distance: '5m',
+    directGoal: { ok: false, label: '他の選手に触れること' }, notes: '主審が触れられるまで腕を上げる' } },
+  { key: 'penalty', label: 'ペナルティーキック', sceneId: 'penalty', cells: {
+    when: '自陣ゴールエリア内の直接キック対象の反則', ball: 'ペナルティーマーク（3.5m）', distance: '5m・マークの後方',
+    directGoal: { ok: true, label: '認められる' }, notes: 'GKはライン後方で静止・キッカーは15秒以内' } },
+];
+
 export function restartColumnsFor(locale: Locale): readonly RestartColumn[] {
-  return locale === 'en' ? RESTART_COLUMNS_EN : RESTART_COLUMNS;
+  if (locale === 'en') return RESTART_COLUMNS_EN;
+  if (locale === 'ja') return RESTART_COLUMNS_JA;
+  return RESTART_COLUMNS;
 }

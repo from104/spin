@@ -241,6 +241,85 @@ const EN: FigureText = {
   },
 };
 
+const JA: FigureText = {
+  ball: {
+    sizeAria: (b, s) => `電動車椅子サッカーのボール（直径${b}cm）とサッカーボール5号（直径およそ${s}cm）を同じ縮尺で並べた大きさ比較の図`,
+    soccerName: 'サッカーボール',
+    soccerSize: '5号',
+    matchBallName: '電動車椅子サッカー',
+    matchBallSub: '競技球 · 13インチ',
+    approx: (cm) => `およそ${cm}cm`,
+    pressureAria: '空気圧の3つの場合を比べた図。低いとつぶれたボールを車椅子が乗り越え、適正ならガードに当たって転がり出て、高いと過度に弾む。',
+    lowTitle: '空気圧が低いと',
+    lowVerdict: '車椅子が乗り越える',
+    lowTail: 'つぶれて転がらない',
+    okTitle: '適正な空気圧',
+    okVerdict: 'ガードに当たって転がる',
+    okTail: '規則が求める状態',
+    highTitle: '空気圧が高いと',
+    highVerdict: '過度に弾む',
+    highTail: '転がす競技にならない',
+    sizeCardTitle: '大きさ — 同じ縮尺での比較',
+    sizeCardCaption: (b, s) =>
+      `競技球は直径${b}cm（13インチ）で、サッカーボール5号（およそ${s}cm）の1.5倍です。この寸法は競技規則本文ではなくFIPFAの用具基準によるもので、アプリの物理定数 BALL.diameterM も同じ値です。`,
+    pressureCardTitle: '空気圧 — 規則が定める唯一の条件',
+    pressureCardCaption:
+      '競技規則がボールについて定めるのは寸法ではなく空気圧だけです — 過度に弾まず、かつ電動車椅子が乗り越えられない程度。実物が低反発・重量型なのはそのためです。ここでの車椅子は競技用車椅子の側面比率に従い、ボールとの大きさの比もおおむね実物どおりです — 床近くまで伸びたボールガードがボールの中央に当たります。',
+  },
+  court: {
+    sizeAria: (l) => `3つのコート規格を同じ縮尺で重ねた比較の図。${l.join('、')}。標準規格はバスケットボールコートと同じ大きさ。`,
+    basketballCallout: 'バスケコート',
+    surfaceAria: '床材の比較図。木材・人工素材の床は滑りにくく車輪にやさしいので規則が推奨し、コンクリート・アスファルトは粗いので規則が避けるよう求めている。',
+    goodSurface: '木材・人工素材',
+    badSurface: 'コンクリート・アスファルト',
+    sizeCardTitle: 'コート規格 — 3段階の比較',
+    sizeCardCaption: (max, min, std) =>
+      `規定の範囲は${max}から${min}までです。その間の${std}は標準的なバスケットボールコートとまったく同じ大きさなので、新しい体育館を探すときは「バスケットボールコートがあるか」だけ確かめれば足ります。`,
+    goodHead: '滑りにくく車輪にやさしい',
+    goodTail: '規則が推奨する床',
+    badHead: '粗くタイヤが摩耗する',
+    badTail: '規則が避けるよう求める床',
+    surfaceCardTitle: '床材 — 推奨と非推奨',
+    surfaceCardCaption:
+      'field-tour のシーンが示す図形（ラインやマーク）と違い、表面の材質はコート規格には含まれません — 木材・人工素材の床は滑りにくく電動車椅子の車輪にやさしいのに対し、コンクリートやアスファルトは粗くタイヤの摩耗が早く、操作も難しくなります。',
+  },
+  equipment: {
+    chairAria: '競技用電動車椅子の側面ラベル図。フットガード・シートベルト・左右の側方サポート・転倒防止バー・後方転倒防止キャスター・ベース境界線を示す。',
+    frontguard: 'フットガード',
+    seatbelt: 'シートベルト',
+    sideSupport: '側方サポート',
+    antiTipBar: '転倒防止バー',
+    rearCaster: '後方キャスター',
+    baseLine: 'ベース境界線',
+    baseLineExcept: '（ガードは例外）',
+    speedAria: '速度の比較図。一般の電動車椅子やスクーターは後進が前進より遅いことが多いが、電動車椅子サッカーの規則は前進・後進とも最高速度を10km/hに揃えている。',
+    ordinaryChair: ['一般の電動車椅子', '· スクーター'],
+    ruleChair: ['電動車椅子サッカー', '規則（第4条）'],
+    forward: '前進',
+    reverseSlower: '後進 · より遅い',
+    forwardLimit: '前進 10km/h',
+    reverseLimit: '後進 10km/h',
+    reverseNote: '通常は後進の上限を低く設定する（正確な比率は機種による）',
+    same: '同じ',
+    chairCardTitle: '規定の用具 — 側面ラベル図',
+    chairCardCaption:
+      'フットガードはFIPFA規格に合わせて位置が固定されます（調整不可）。転倒防止バーは第2条の空気圧条項が求める「車椅子がボールを乗り越えないこと」を車椅子側で実現する取り付け具で、後方キャスターは後ろへの転倒を防ぎます。ベース境界線の外にはシートもヘッドレストも身体も出てはいけません — ガードは別途必須の取り付け具なので例外です。',
+    speedCardTitle: '速度 — 前進・後進が同じ',
+    speedCardCaption:
+      '多くの電動車椅子やスクーターは安全のため後進の上限を前進より低くします。電動車椅子サッカーは違います — ドリブルも接触も両方向で等しく起こる競技なので、規則も前進・後進を同じ10km/hひとつにまとめています。',
+  },
+  distance: {
+    title: '再開時の距離 — 5m と 3m',
+    caption: 'ほとんどの再開で相手は5m離れ、セットボールだけが3mです — その代わりセットボールに参加する2人はボールから30cm以内に近づきます。',
+    aria: '再開時に相手が保つ距離 — ほとんどが5メートル、セットボールだけ3メートルの2つの円を重ねた比較図',
+    fiveM: '5m — ほとんどの再開',
+    threeM: '3m — セットボール',
+    note: 'ボールを中心に、2つの再開で必要な距離を重ねて描いています',
+  },
+};
+
 export function figureTextFor(locale: Locale): FigureText {
-  return locale === 'en' ? EN : KO;
+  if (locale === 'en') return EN;
+  if (locale === 'ja') return JA;
+  return KO;
 }
