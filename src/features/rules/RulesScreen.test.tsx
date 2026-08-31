@@ -191,6 +191,22 @@ describe('RulesScreen — 도해·부록', () => {
     stubMedia(false);
   });
 
+  it('산문 소제목이 본문과 눈에 띄게 다르다 — 크기와 선 둘 다', async () => {
+    // 2026-08-31 이전에는 소제목이 본문과 **글자 크기가 같았고**(둘 다 0.9375rem) 굵기만 달랐다.
+    // 카드 하나에 소제목이 6개까지 늘어난 뒤로는 훑어서 절을 찾을 수가 없었다.
+    // 굵기는 jsdom 이 스타일시트를 안 태워도 인라인으로 읽히지만, 굵기만으로는 그때도 통과했다 —
+    // 그래서 **크기**와 **선**을 함께 잰다. 색은 안 잰다(고대비 모드에서 치환되므로 색에 기대면 안 된다).
+    renderRules();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: titleOf('basics') }));
+
+    const heading = screen.getByRole('heading', { level: 3, name: '코트' });
+    const body = screen.getByText(/기본 규격은 28×15m/);
+    const size = (el: HTMLElement) => Number.parseFloat(getComputedStyle(el).fontSize);
+    expect(size(heading)).toBeGreaterThan(size(body));
+    expect(heading.style.borderBottom).not.toBe('');
+  });
+
   it('"선수·코트·공·장비" 주제에 공·장비 도해가 붙는다', async () => {
     renderRules();
     const user = userEvent.setup();

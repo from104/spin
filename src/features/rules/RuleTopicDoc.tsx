@@ -21,10 +21,34 @@ import { Badge } from '../../ui/Badge.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
+/** 소제목은 **본문과 확실히 달라야 한다**(기현 지시 2026-08-31). 2026-08-31 이전에는 굵기만
+ *  달랐다 — `fontSize` 가 본문과 똑같은 `0.9375rem` 이라, 카드 하나에 소제목이 6개까지 늘어난
+ *  뒤로는 훑어서 원하는 절을 찾을 수가 없었다. 셋을 함께 준다:
+ *   ① 크기 — 본문 15px 대 소제목 17px. 굵기 하나로는 스캔이 안 된다.
+ *   ② 밑줄 하나 — 색이 아니라 **선**으로 가른다. 색만 쓰면 `forced-colors`(고대비 모드)에서
+ *      치환돼 구분이 사라지지만 border 는 살아남는다(`contrast.css` 가 그 모드를 다룬다).
+ *   ③ 위 여백 — 소제목이 있는 블록은 앞 블록에서 더 멀리 떨어뜨린다(20 → 32). 여백이
+ *      "여기서 절이 바뀐다" 를 가장 먼저 말해 준다.
+ *  ⚠️ 부록의 그룹 라벨(`LawIndexBlock`)은 같은 h3 이지만 **역할이 다르다**(작고 흐린 눈썹형
+ *  라벨) — 여기와 통일하지 말 것. */
 function ProseBlock({ heading, body }: { heading?: string; body: readonly string[] }) {
   return (
-    <div style={{ marginTop: 20, maxWidth: 760 }}>
-      {heading && <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, marginBottom: 8 }}>{heading}</h3>}
+    <div style={{ marginTop: heading ? 32 : 20, maxWidth: 760 }}>
+      {heading && (
+        <h3
+          style={{
+            fontSize: '1.0625rem',
+            fontWeight: 700,
+            lineHeight: 1.35,
+            marginBottom: 12,
+            paddingBottom: 7,
+            borderBottom: '1px solid var(--border-strong)',
+            textWrap: 'balance',
+          }}
+        >
+          {heading}
+        </h3>
+      )}
       {body.map((p, i) => (
         <p key={i} style={{ fontSize: '0.9375rem', lineHeight: 1.65, color: 'var(--text)', textWrap: 'pretty', marginTop: i === 0 ? 0 : 10 }}>
           {p}
