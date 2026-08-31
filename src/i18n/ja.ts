@@ -520,6 +520,11 @@ export const ja: Record<DictKey, string> = {
   'rules.prevTopic': '前のトピック',
   'rules.nextTopic': '次のトピック',
   'rules.playScene': 'シーンを再生',
+  // ルール本文を持たないロケールで表示する案内（2026-08-31）。以下のページは意図的に韓国語の
+  // ままにしている — 韓国語要約の機械翻訳より、FIPFA が発行する英語の正本を案内する方がよい。
+  'rules.langNotice.title': 'ルールの解説は韓国語のみです',
+  'rules.langNotice.body': '以下のページは韓国語で書かれています。競技規則の公式版は FIPFA が英語で発行しており、その PDF が正本です。',
+  'rules.langNotice.original': 'FIPFA Laws of the Game（2025年4月承認版）公式PDF：',
 
   'help.settings.item1.term': 'テーマ・言語',
   'help.settings.item1.desc': '明るさと画面言語(한국어/English/日本語)を選びます。',
