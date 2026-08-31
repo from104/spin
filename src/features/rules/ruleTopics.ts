@@ -26,6 +26,7 @@ import type { Locale } from '../../i18n/locale.ts';
 import type { RuleFigureId } from './figures/ids.ts';
 import type { RuleSceneId } from './ruleScenes.ts';
 import { TOPICS_EN } from './ruleTopics.en.ts';
+import { hasFullSceneText } from './sceneText.ts';
 
 export type RuleTopicKey =
   | 'intro'
@@ -626,15 +627,16 @@ export function hasRuleContentFor(locale: Locale): boolean {
   return RULE_CONTENT_LOCALES.includes(locale);
 }
 
-/** 장면(보드 애니메이션)의 **코트 위 쪽지**가 이 로케일로 있는가.
+/** 장면(보드 애니메이션)의 **글자**가 이 로케일로 있는가.
  *
- *  산문과 갈라 두는 이유: 쪽지는 산문이 아니라 **드릴 좌표 데이터 안에** 들어 있다
- *  (`scenes/*.scene.ts` 의 `notes[].text`, 기현님이 편집기로 찍은 저작물). 로케일별로 바꾸려면
- *  드릴 데이터 모델에 다국어 필드를 넣어야 하고 그것은 규칙 화면 밖으로 번진다
- *  (PLAN-RULES-9CARDS §9.3-4). 그래서 영어 산문이 들어온 뒤에도 **장면 자막은 한국어로 남는다** —
- *  그 사실을 화면이 말하지 않으면 영어 사용자는 반쯤 번역된 화면을 이유 없이 보게 된다. */
+ *  산문과 갈라 두는 이유: 장면의 쪽지 일부는 기현님이 편집기로 찍은 **좌표 데이터 안**에 있어
+ *  (`scenes/*.scene.ts` 의 `notes[].text`) 산문과 같은 방식으로 못 옮긴다. 그래서 규칙 장면
+ *  전용 **오버레이 표**(`sceneText.ts`)로 글자만 덮는다 — 기현님 데이터는 안 바뀐다.
+ *
+ *  판정은 하드코딩이 아니라 그 표에서 **계산**한다(`hasFullSceneText`) — 표를 덜 채운 채
+ *  로케일을 추가하면 화면 안내가 거짓말을 하게 되기 때문이다. */
 export function hasSceneTextFor(locale: Locale): boolean {
-  return locale === 'ko';
+  return hasFullSceneText(locale);
 }
 
 /** ⚠️ 인자를 받지만 **지금은 언제나 ko 를 돌려준다** — 콘텐츠가 ko 뿐이기 때문이고, en/ja 에서
