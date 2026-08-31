@@ -26,7 +26,7 @@ import type { Locale } from '../../i18n/locale.ts';
 import type { RuleFigureId } from './figures/ids.ts';
 import type { RuleSceneId } from './ruleScenes.ts';
 import { TOPICS_EN } from './ruleTopics.en.ts';
-import { hasFullSceneText } from './sceneText.ts';
+import { TOPICS_JA } from './ruleTopics.ja.ts';
 
 export type RuleTopicKey =
   | 'intro'
@@ -151,8 +151,28 @@ const MISCONDUCT_CARDS_EN: readonly MisconductCard[] = [
 ];
 
 /** ⚠️ 개수(경고 7·퇴장 8)는 로케일과 무관하게 같아야 한다 — 조문 개수이지 번역 사정이 아니다. */
+const MISCONDUCT_CARDS_JA: readonly MisconductCard[] = [
+  { kind: 'caution', text: '非紳士的行為' },
+  { kind: 'caution', text: '言動による異議' },
+  { kind: 'caution', text: '繰り返し競技規則に違反する' },
+  { kind: 'caution', text: '再開を遅らせる' },
+  { kind: 'caution', text: 'コーナーキック・キックイン・フリーキック・ゴールキック・セットボールで必要な距離を守らない' },
+  { kind: 'caution', text: '主審の許可なくフィールドに入る・再び入る' },
+  { kind: 'caution', text: '主審の許可なく故意にフィールドを離れる' },
+  { kind: 'sendingOff', text: '著しく不正なプレー' },
+  { kind: 'sendingOff', text: '乱暴な行為' },
+  { kind: 'sendingOff', text: '相手や他の人につばを吐く' },
+  { kind: 'sendingOff', text: '故意のハンドで得点や明らかな得点機会を阻む' },
+  { kind: 'sendingOff', text: 'フリーキック・ペナルティーキックの対象となる反則で明らかな得点機会を阻む' },
+  { kind: 'sendingOff', text: 'ゴールラインを完全に越えて得点を阻む（GKを除く）' },
+  { kind: 'sendingOff', text: '侮辱的・下品な言動やジェスチャー' },
+  { kind: 'sendingOff', text: '同じ試合で2度目の警告を受ける' },
+];
+
 export function misconductCardsFor(locale: Locale): readonly MisconductCard[] {
-  return locale === 'en' ? MISCONDUCT_CARDS_EN : MISCONDUCT_CARDS_KO;
+  if (locale === 'en') return MISCONDUCT_CARDS_EN;
+  if (locale === 'ja') return MISCONDUCT_CARDS_JA;
+  return MISCONDUCT_CARDS_KO;
 }
 
 const TOPICS_KO: readonly RuleTopic[] = [
@@ -620,29 +640,25 @@ const TOPICS_KO: readonly RuleTopic[] = [
  *  (1) 영어는 한국어 요약을 되번역하지 말고 **FIPFA 영어 원문**에서 다시 쓴다
  *      (지금 정본 `docs/RULES-FIPFA-2025.md` 자체가 영어 원문의 한국어 요약본이다),
  *  (2) 장면의 코트 위 쪽지 42건은 기현님 저작물이라 드릴 데이터 모델 결정이 선행된다. */
-export const RULE_CONTENT_LOCALES: readonly Locale[] = ['ko', 'en'];
+export const RULE_CONTENT_LOCALES: readonly Locale[] = ['ko', 'en', 'ja'];
 
 /** 이 로케일로 규칙 콘텐츠를 읽을 수 있는가. 거짓이면 화면이 안내를 띄우고 ko 로 폴백한다. */
 export function hasRuleContentFor(locale: Locale): boolean {
   return RULE_CONTENT_LOCALES.includes(locale);
 }
 
-/** 장면(보드 애니메이션)의 **글자**가 이 로케일로 있는가.
- *
- *  산문과 갈라 두는 이유: 장면의 쪽지 일부는 기현님이 편집기로 찍은 **좌표 데이터 안**에 있어
- *  (`scenes/*.scene.ts` 의 `notes[].text`) 산문과 같은 방식으로 못 옮긴다. 그래서 규칙 장면
- *  전용 **오버레이 표**(`sceneText.ts`)로 글자만 덮는다 — 기현님 데이터는 안 바뀐다.
- *
- *  판정은 하드코딩이 아니라 그 표에서 **계산**한다(`hasFullSceneText`) — 표를 덜 채운 채
- *  로케일을 추가하면 화면 안내가 거짓말을 하게 되기 때문이다. */
-export function hasSceneTextFor(locale: Locale): boolean {
-  return hasFullSceneText(locale);
-}
+// 🪦 `hasSceneTextFor()` 폐기 — 2026-08-31. `RuleLanguageNotice`(콘텐츠가 없는 로케일에 "여기는
+// 한국어입니다" 를 알리던 안내)의 유일한 소비처였는데, 같은 날 ko·en·ja 가 **전부 완역**되면서
+// 안내와 함께 존재 이유가 사라졌다. 판정 자체는 `sceneText.ts` 의 `hasFullSceneText()` 에 살아
+// 있다 — 네 번째 로케일이 들어오다 덜 채워지면 그 함수가 거짓을 돌려주므로, 그때 안내를
+// 되살리려면 여기가 아니라 그쪽을 보면 된다.
 
 /** ⚠️ 인자를 받지만 **지금은 언제나 ko 를 돌려준다** — 콘텐츠가 ko 뿐이기 때문이고, en/ja 에서
  *  빈 화면을 주는 것보다 한국어라도 보여주고 **안내를 함께 띄우는** 편이 낫다
  *  (`RuleLanguageNotice`). 인자를 살려 두는 것은 로케일별 배열이 생기는 날 이 함수 하나만
  *  고치면 되게 하려는 것이다. 폴백이라는 사실은 `hasRuleContentFor` 가 화면 쪽에서 말한다. */
 export function ruleTopicsFor(locale: Locale): readonly RuleTopic[] {
-  return locale === 'en' ? TOPICS_EN : TOPICS_KO;
+  if (locale === 'en') return TOPICS_EN;
+  if (locale === 'ja') return TOPICS_JA;
+  return TOPICS_KO;
 }

@@ -15,6 +15,8 @@ import { ruleTopicsFor } from './ruleTopics.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { PREFS_KEY, makeDefaultPrefs } from '../../storage/prefs.ts';
 import type { HomeNav } from '../home/nav.ts';
+import { SUPPORTED_LOCALES } from '../../i18n/locale.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
 const HANGUL = /[가-힣]/;
 
@@ -47,7 +49,9 @@ function korean(root: HTMLElement): string[] {
   return [...new Set(out)];
 }
 
-describe('규칙 화면 — 영어에 한국어가 남지 않는다', () => {
+const OTHERS = SUPPORTED_LOCALES.filter((l) => l !== 'ko');
+
+describe('규칙 화면 — ko 가 아닌 로케일에 한국어가 남지 않는다', () => {
   beforeEach(() => {
     window.localStorage.clear();
     Object.defineProperty(window, 'matchMedia', {
@@ -55,19 +59,23 @@ describe('규칙 화면 — 영어에 한국어가 남지 않는다', () => {
       writable: true,
       value: (q: string) => ({ matches: false, media: q, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => true }),
     });
-    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), language: 'en' }));
   });
 
-  it('카드 홈', () => {
+  const seed = (locale: Locale) =>
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), language: locale }));
+
+  it.each(OTHERS)('%s — 카드 홈', (locale) => {
+    seed(locale);
     const { container } = render(
       <SettingsProvider>
         <RulesScreen nav={nav(() => {})} />
       </SettingsProvider>,
     );
-    expect(korean(container), '카드 홈에 번역 안 된 문자열').toEqual([]);
+    expect(korean(container), `${locale} 카드 홈에 번역 안 된 문자열`).toEqual([]);
   });
 
-  it.each(ruleTopicsFor('en').map((t) => t.key))('%s 카드 상세', async (key) => {
+  it.each(OTHERS.flatMap((l) => ruleTopicsFor(l).map((t) => [l, t.key] as const)))('%s — %s 카드 상세', async (locale, key) => {
+    seed(locale);
     const { container } = render(
       <SettingsProvider>
         <RulesScreen topic={key} nav={nav(() => {})} />
@@ -77,6 +85,6 @@ describe('규칙 화면 — 영어에 한국어가 남지 않는다', () => {
     // 열을 하나씩 눌러 전 열의 셀을 화면에 올린 뒤 잰다 — 안 그러면 여섯 열이 안 잡힌다.
     const cols = screen.queryAllByRole('button').filter((b) => b.getAttribute('aria-pressed') !== null);
     for (const c of cols) await userEvent.click(c);
-    expect(korean(container), `${key} 카드에 번역 안 된 문자열`).toEqual([]);
+    expect(korean(container), `${locale}/${key} 카드에 번역 안 된 문자열`).toEqual([]);
   });
 });
