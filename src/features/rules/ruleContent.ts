@@ -8,6 +8,7 @@
 // 먼저"). en/ja 조항 본문이 생기면 이 함수 안에서 분기하면 되고, 화면 쪽 코드는 바뀌지 않는다
 // — 그래서 인자를 미리 받아 둔다(나중에 시그니처를 바꾸면 호출부 전체가 깨진다).
 import type { Locale } from '../../i18n/locale.ts';
+import { LAWS_EN } from './ruleContent.en.ts';
 import type { RuleFigureId } from './figures/ids.ts';
 import type { RuleSceneId } from './ruleScenes.ts';
 
@@ -234,6 +235,15 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
   },
 ];
 
-export function ruleContentFor(_locale: Locale): readonly RuleLaw[] {
-  return KO_RULE_LAWS;
+export function ruleContentFor(locale: Locale): readonly RuleLaw[] {
+  return locale === 'en' ? LAWS_EN : KO_RULE_LAWS;
+}
+
+/** 그룹 라벨도 부록의 뼈대라 함께 간다 — 조항이 영어인데 그룹만 한국어면 반쪽이다. */
+const RULE_GROUP_LABELS_EN: Record<RuleLawGroup, string> = {
+  basics: 'Setup', play: 'Play', restarts: 'Fouls & restarts', officials: 'Officials & classification',
+};
+
+export function ruleGroupLabelsFor(locale: Locale): Record<RuleLawGroup, string> {
+  return locale === 'en' ? RULE_GROUP_LABELS_EN : RULE_GROUP_LABELS;
 }

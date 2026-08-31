@@ -8,6 +8,7 @@
 // 소음이 되므로, 공통 규칙은 표 위 산문(ruleTopics.ts 의 `restarts` 주제 첫 블록)에서 한 번만
 // 말하고, "특이" 행은 그 재개만의 진짜 차별점으로 채운다.
 import type { RuleSceneId } from './ruleScenes.ts';
+import type { Locale } from '../../i18n/locale.ts';
 
 export type RestartKey = 'kickoff' | 'kick-in' | 'corner' | 'goal-kick' | 'dfk' | 'ifk' | 'penalty';
 
@@ -28,6 +29,13 @@ export interface RestartColumn {
 }
 
 export const RESTART_ROW_LABELS: readonly [string, string, string, string, string] = ['언제', '볼 위치', '상대 거리', '직접 득점', '특이'];
+
+/** 영어판 행 라벨. 표의 **뼈대**라 셀과 함께 갈아야 반쪽 번역이 안 된다. */
+const RESTART_ROW_LABELS_EN: readonly [string, string, string, string, string] = ['When', 'Ball', 'Opponents', 'Direct goal', 'Note'];
+
+export function restartRowLabelsFor(locale: Locale): readonly [string, string, string, string, string] {
+  return locale === 'en' ? RESTART_ROW_LABELS_EN : RESTART_ROW_LABELS;
+}
 
 export const RESTART_COLUMNS: readonly RestartColumn[] = [
   {
@@ -115,3 +123,33 @@ export const RESTART_COLUMNS: readonly RestartColumn[] = [
     },
   },
 ];
+
+/** 영어판 열. 한국어판과 **key·sceneId·순서가 같아야 한다** — 표↔장면 1:1 단언이 로케일과
+ *  무관하게 걸린다. 바뀌는 것은 `label` 과 셀 문구뿐이다. 정본은 `docs/RULES-FIPFA-2025.en.md`. */
+const RESTART_COLUMNS_EN: readonly RestartColumn[] = [
+  { key: 'kickoff', label: 'Kick-off', sceneId: 'kickoff', cells: {
+    when: 'Start · after a goal · second half', ball: 'Centre mark', distance: '5m',
+    directGoal: { ok: true, label: 'Yes' }, notes: 'Everyone in their own half' } },
+  { key: 'kick-in', label: 'Kick-in', sceneId: 'kick-in', cells: {
+    when: 'Ball out over a touchline', ball: 'Where it left', distance: '5m',
+    directGoal: { ok: true, label: 'Yes' }, notes: 'Simultaneous touch: to the player on the outside' } },
+  { key: 'corner', label: 'Corner kick', sceneId: 'corner', cells: {
+    when: 'Defender touched it out over the goal line', ball: 'Corner triangle', distance: '5m',
+    directGoal: { ok: true, label: 'Yes' }, notes: 'In the goal area: behind the 1m mark' } },
+  { key: 'goal-kick', label: 'Goal kick', sceneId: 'goal-kick', cells: {
+    when: 'Attacker touched it out over the goal line', ball: 'Anywhere in the goal area', distance: '5m',
+    directGoal: { ok: true, label: 'Opponents’ goal only' }, notes: 'In play once it leaves the goal area' } },
+  { key: 'dfk', label: 'Direct free kick', sceneId: 'dfk', cells: {
+    when: 'Ramming, handball, arms, denying a chance', ball: 'Where the offence was', distance: '5m',
+    directGoal: { ok: true, label: 'Yes' }, notes: 'Inside your own goal area it becomes a penalty kick' } },
+  { key: 'ifk', label: 'Indirect free kick', sceneId: 'ifk', cells: {
+    when: 'Dangerous play, impeding, 2-on-1, 3 in the area', ball: 'Where the offence was', distance: '5m',
+    directGoal: { ok: false, label: 'Must touch another player' }, notes: 'Referee holds an arm up until it is touched' } },
+  { key: 'penalty', label: 'Penalty kick', sceneId: 'penalty', cells: {
+    when: 'Direct-kick offence in your own goal area', ball: 'Penalty mark (3.5m)', distance: '5m, behind the mark',
+    directGoal: { ok: true, label: 'Yes' }, notes: 'Goalkeeper still behind the line; kicker has 15 seconds' } },
+];
+
+export function restartColumnsFor(locale: Locale): readonly RestartColumn[] {
+  return locale === 'en' ? RESTART_COLUMNS_EN : RESTART_COLUMNS;
+}

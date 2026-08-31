@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { RulesHome, CARD_MIN_PX, GRID_GAP_PX, GRID_CONTENT_PX } from './RulesHome.tsx';
 import { ruleTopicsFor } from './ruleTopics.ts';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 /** `repeat(auto-fit, minmax(min, 1fr))` 이 폭 `content` 안에 세우는 열 수 — n 열은
  *  n·min + (n−1)·gap ≤ content 일 때 선다(CSS 사양). jsdom 은 레이아웃을 안 하므로
@@ -23,7 +24,11 @@ const columnsIn = (content: number) => Math.max(1, Math.floor((content + GRID_GA
 /** 렌더된 격자에서 **열이 실제로 나눠 갖는 폭**을 읽어 낸다 — border-box 이므로 max-width 에서
  *  좌우 패딩을 빼야 한다. 상수를 그대로 믿지 않는 것이 이 헬퍼의 존재 이유다. */
 function renderedContentWidth(): number {
-  const { container } = render(<RulesHome topics={ruleTopicsFor('ko')} onOpen={() => {}} />);
+  const { container } = render(
+    <SettingsProvider>
+      <RulesHome topics={ruleTopicsFor('ko')} onOpen={() => {}} />
+    </SettingsProvider>,
+  );
   const grid = container.querySelector('[data-tut="rules-home"]') as HTMLElement;
   const px = (v: string) => Number.parseFloat(v || '0');
   return px(grid.style.maxWidth) - px(grid.style.paddingLeft) - px(grid.style.paddingRight);
@@ -64,7 +69,11 @@ describe('RulesHome — 3×3 격자', () => {
   });
 
   it('열 수를 하드코딩하지 않는다 — repeat(3, …) 이면 좁은 창에서 카드가 눌린다', () => {
-    const { container } = render(<RulesHome topics={ruleTopicsFor('ko')} onOpen={() => {}} />);
+    const { container } = render(
+    <SettingsProvider>
+      <RulesHome topics={ruleTopicsFor('ko')} onOpen={() => {}} />
+    </SettingsProvider>,
+  );
     const grid = container.querySelector('[data-tut="rules-home"]') as HTMLElement;
     expect(grid.style.display).toBe('grid');
     expect(grid.style.gridTemplateColumns).toContain('auto-fit');

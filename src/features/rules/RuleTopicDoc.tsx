@@ -10,8 +10,8 @@
 // activeSceneId 등 내부 상태가 저절로 초기화된다(RestartTableBlock 의 선택 열도 함께 리셋).
 import { useEffect, useRef, useState } from 'react';
 import type { RuleBlock, RuleTopic, RuleTopicKey } from './ruleTopics.ts';
-import { MISCONDUCT_CARDS } from './ruleTopics.ts';
-import { RULE_GROUP_LABELS, RULE_GROUP_ORDER, ruleContentFor } from './ruleContent.ts';
+import { misconductCardsFor } from './ruleTopics.ts';
+import { RULE_GROUP_ORDER, ruleContentFor, ruleGroupLabelsFor } from './ruleContent.ts';
 import { RuleFigure } from './RuleFigure.tsx';
 import { RuleSceneBlock } from './RuleSceneBlock.tsx';
 import { RestartTableBlock } from './RestartTableBlock.tsx';
@@ -59,12 +59,14 @@ function ProseBlock({ heading, body }: { heading?: string; body: readonly string
 }
 
 function MisconductCardList() {
-  const cautions = MISCONDUCT_CARDS.filter((c) => c.kind === 'caution');
-  const sendingOffs = MISCONDUCT_CARDS.filter((c) => c.kind === 'sendingOff');
+  const t = useT();
+  const cards = misconductCardsFor(useLocale());
+  const cautions = cards.filter((c) => c.kind === 'caution');
+  const sendingOffs = cards.filter((c) => c.kind === 'sendingOff');
   return (
     <div style={{ marginTop: 20, maxWidth: 760, display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div>
-        <Badge tone="warning">경고(옐로카드) {cautions.length}종</Badge>
+        <Badge tone="warning">{t('rules.cards.cautions', { n: cautions.length })}</Badge>
         <ul style={{ marginTop: 10, paddingLeft: '1.1em', listStyle: 'disc', display: 'flex', flexDirection: 'column', gap: 6 }}>
           {cautions.map((c, i) => (
             <li key={i} style={{ fontSize: '0.875rem', lineHeight: 1.5, color: 'var(--text)' }}>
@@ -74,7 +76,7 @@ function MisconductCardList() {
         </ul>
       </div>
       <div>
-        <Badge tone="danger">퇴장(레드카드) {sendingOffs.length}종</Badge>
+        <Badge tone="danger">{t('rules.cards.sendingOffs', { n: sendingOffs.length })}</Badge>
         <ul style={{ marginTop: 10, paddingLeft: '1.1em', listStyle: 'disc', display: 'flex', flexDirection: 'column', gap: 6 }}>
           {sendingOffs.map((c, i) => (
             <li key={i} style={{ fontSize: '0.875rem', lineHeight: 1.5, color: 'var(--text)' }}>
@@ -94,12 +96,13 @@ function MisconductCardList() {
 function LawIndexBlock() {
   const locale = useLocale();
   const laws = ruleContentFor(locale);
+  const groupLabels = ruleGroupLabelsFor(locale);
   return (
     <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 24 }}>
       {RULE_GROUP_ORDER.map((group) => (
         <div key={group}>
           <h3 style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.02em', color: 'var(--faint-text)', marginBottom: 10 }}>
-            {RULE_GROUP_LABELS[group]}
+            {groupLabels[group]}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {laws

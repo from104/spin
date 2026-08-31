@@ -25,6 +25,7 @@
 import type { Locale } from '../../i18n/locale.ts';
 import type { RuleFigureId } from './figures/ids.ts';
 import type { RuleSceneId } from './ruleScenes.ts';
+import { TOPICS_EN } from './ruleTopics.en.ts';
 
 export type RuleTopicKey =
   | 'intro'
@@ -112,7 +113,7 @@ export interface MisconductCard {
 }
 
 /** 제12조 경고(옐로카드) 7종 + 퇴장(레드카드) 8종 — 도해 없이 사유 요약만(2026-08-22 결정). */
-export const MISCONDUCT_CARDS: readonly MisconductCard[] = [
+const MISCONDUCT_CARDS_KO: readonly MisconductCard[] = [
   { kind: 'caution', text: '비신사적 행위' },
   { kind: 'caution', text: '말이나 행동으로 항의' },
   { kind: 'caution', text: '지속적으로 규칙 위반' },
@@ -129,6 +130,29 @@ export const MISCONDUCT_CARDS: readonly MisconductCard[] = [
   { kind: 'sendingOff', text: '모욕적·경멸적·욕설성 언행이나 제스처' },
   { kind: 'sendingOff', text: '한 경기에서 두 번째 경고를 받음' },
 ];
+
+const MISCONDUCT_CARDS_EN: readonly MisconductCard[] = [
+  { kind: 'caution', text: 'Unsporting behaviour' },
+  { kind: 'caution', text: 'Dissent by word or action' },
+  { kind: 'caution', text: 'Persistently infringing the Laws' },
+  { kind: 'caution', text: 'Delaying the restart of play' },
+  { kind: 'caution', text: 'Not respecting the required distance at a corner kick, kick-in, free kick, goal kick or set ball' },
+  { kind: 'caution', text: 'Entering or re-entering the field without permission' },
+  { kind: 'caution', text: 'Deliberately leaving the field without permission' },
+  { kind: 'sendingOff', text: 'Serious foul play' },
+  { kind: 'sendingOff', text: 'Violent conduct' },
+  { kind: 'sendingOff', text: 'Spitting at an opponent or anyone else' },
+  { kind: 'sendingOff', text: 'Denying a goal or an obvious chance by deliberate handball' },
+  { kind: 'sendingOff', text: 'Denying an obvious goal-scoring opportunity by a free-kick or penalty offence' },
+  { kind: 'sendingOff', text: 'Denying a goal by completely crossing the goal line (goalkeepers excepted)' },
+  { kind: 'sendingOff', text: 'Offensive, insulting or abusive language or gestures' },
+  { kind: 'sendingOff', text: 'A second caution in the same match' },
+];
+
+/** ⚠️ 개수(경고 7·퇴장 8)는 로케일과 무관하게 같아야 한다 — 조문 개수이지 번역 사정이 아니다. */
+export function misconductCardsFor(locale: Locale): readonly MisconductCard[] {
+  return locale === 'en' ? MISCONDUCT_CARDS_EN : MISCONDUCT_CARDS_KO;
+}
 
 const TOPICS_KO: readonly RuleTopic[] = [
   {
@@ -595,17 +619,28 @@ const TOPICS_KO: readonly RuleTopic[] = [
  *  (1) 영어는 한국어 요약을 되번역하지 말고 **FIPFA 영어 원문**에서 다시 쓴다
  *      (지금 정본 `docs/RULES-FIPFA-2025.md` 자체가 영어 원문의 한국어 요약본이다),
  *  (2) 장면의 코트 위 쪽지 42건은 기현님 저작물이라 드릴 데이터 모델 결정이 선행된다. */
-export const RULE_CONTENT_LOCALES: readonly Locale[] = ['ko'];
+export const RULE_CONTENT_LOCALES: readonly Locale[] = ['ko', 'en'];
 
 /** 이 로케일로 규칙 콘텐츠를 읽을 수 있는가. 거짓이면 화면이 안내를 띄우고 ko 로 폴백한다. */
 export function hasRuleContentFor(locale: Locale): boolean {
   return RULE_CONTENT_LOCALES.includes(locale);
 }
 
+/** 장면(보드 애니메이션)의 **코트 위 쪽지**가 이 로케일로 있는가.
+ *
+ *  산문과 갈라 두는 이유: 쪽지는 산문이 아니라 **드릴 좌표 데이터 안에** 들어 있다
+ *  (`scenes/*.scene.ts` 의 `notes[].text`, 기현님이 편집기로 찍은 저작물). 로케일별로 바꾸려면
+ *  드릴 데이터 모델에 다국어 필드를 넣어야 하고 그것은 규칙 화면 밖으로 번진다
+ *  (PLAN-RULES-9CARDS §9.3-4). 그래서 영어 산문이 들어온 뒤에도 **장면 자막은 한국어로 남는다** —
+ *  그 사실을 화면이 말하지 않으면 영어 사용자는 반쯤 번역된 화면을 이유 없이 보게 된다. */
+export function hasSceneTextFor(locale: Locale): boolean {
+  return locale === 'ko';
+}
+
 /** ⚠️ 인자를 받지만 **지금은 언제나 ko 를 돌려준다** — 콘텐츠가 ko 뿐이기 때문이고, en/ja 에서
  *  빈 화면을 주는 것보다 한국어라도 보여주고 **안내를 함께 띄우는** 편이 낫다
  *  (`RuleLanguageNotice`). 인자를 살려 두는 것은 로케일별 배열이 생기는 날 이 함수 하나만
  *  고치면 되게 하려는 것이다. 폴백이라는 사실은 `hasRuleContentFor` 가 화면 쪽에서 말한다. */
-export function ruleTopicsFor(_locale: Locale): readonly RuleTopic[] {
-  return TOPICS_KO;
+export function ruleTopicsFor(locale: Locale): readonly RuleTopic[] {
+  return locale === 'en' ? TOPICS_EN : TOPICS_KO;
 }

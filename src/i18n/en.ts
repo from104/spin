@@ -524,8 +524,16 @@ export const en: Record<DictKey, string> = {
   // Shown when the viewer's locale has no rules content (2026-08-31). The pages below stay in
   // Korean on purpose — a machine translation of a Korean summary would be worse than pointing
   // at FIPFA's own English Laws, which is the authoritative text.
+  'rules.langNotice.scenesOnly': 'Captions inside the animated scenes are shown in Korean.',
   'rules.langNotice.title': 'The rules reference is available in Korean only',
   'rules.langNotice.body': 'The pages below are written in Korean. The official Laws of the Game are published in English by FIPFA, and that PDF is the authoritative text.',
+  'rules.badge.figures': '{{n}} diagram(s)',
+  'rules.badge.scenes': '{{n}} scene(s)',
+  'rules.badge.table': 'Table',
+  'rules.badge.cards': 'Card list',
+  'rules.badge.laws': '18 Laws',
+  'rules.cards.cautions': 'Cautions (yellow) — {{n}}',
+  'rules.cards.sendingOffs': 'Sending-off (red) — {{n}}',
   'rules.langNotice.original': 'FIPFA Laws of the Game (approved April 2025), official PDF:',
 
   'help.settings.item1.term': 'Theme & language',

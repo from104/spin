@@ -1,7 +1,7 @@
 // 주제별 콘텐츠 모델(2026-08-22 재설계) 불변식 — docs/PLAN-RULES-REDESIGN.md §6.
 // 주제 구성 자체의 정본은 2026-08-31 부터 docs/PLAN-RULES-9CARDS.md 다(8주제 → 9카드).
 import { describe, expect, it } from 'vitest';
-import { ruleTopicsFor, RULE_TOPIC_KEYS, MISCONDUCT_CARDS } from './ruleTopics.ts';
+import { ruleTopicsFor, RULE_TOPIC_KEYS, misconductCardsFor } from './ruleTopics.ts';
 import { RESTART_COLUMNS, RESTART_ROW_LABELS } from './restartTable.ts';
 import { RULE_SCENE_IDS } from './ruleScenes.ts';
 import { RULE_FIGURE_IDS } from './figures/ids.ts';
@@ -138,9 +138,12 @@ describe('restartTable', () => {
   });
 });
 
-describe('MISCONDUCT_CARDS', () => {
+describe('misconductCardsFor', () => {
   it('경고 7종 + 퇴장 8종 = 15개다', () => {
-    expect(MISCONDUCT_CARDS.filter((c) => c.kind === 'caution')).toHaveLength(7);
-    expect(MISCONDUCT_CARDS.filter((c) => c.kind === 'sendingOff')).toHaveLength(8);
+    // 개수는 **조문 개수**이지 번역 사정이 아니다 — 로케일이 늘어도 7·8 이어야 한다.
+    for (const locale of ['ko', 'en'] as const) {
+      expect(misconductCardsFor(locale).filter((c) => c.kind === 'caution'), locale).toHaveLength(7);
+      expect(misconductCardsFor(locale).filter((c) => c.kind === 'sendingOff'), locale).toHaveLength(8);
+    }
   });
 });

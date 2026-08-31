@@ -523,8 +523,16 @@ export const ko = {
   'rules.playScene': '장면 재생',
   // 규칙 콘텐츠가 없는 로케일에 뜨는 안내(2026-08-31). ko 값은 **화면에 안 뜬다** — 사전 키는
   // 세 언어가 같아야 하므로 자리만 채운다. 실제로 읽히는 것은 en·ja 다.
+  'rules.langNotice.scenesOnly': '보드 장면의 코트 위 설명은 한국어로 표시됩니다.',
   'rules.langNotice.title': '규칙 내용은 한국어로만 제공됩니다',
   'rules.langNotice.body': '아래 문서는 한국어로 쓰여 있습니다. 경기규칙의 공식판은 FIPFA 가 영어로 펴내며, 그 PDF 가 정본입니다.',
+  'rules.badge.figures': '도해 {{n}}',
+  'rules.badge.scenes': '장면 {{n}}',
+  'rules.badge.table': '비교표',
+  'rules.badge.cards': '카드 목록',
+  'rules.badge.laws': '18개조 부록',
+  'rules.cards.cautions': '경고(옐로카드) {{n}}종',
+  'rules.cards.sendingOffs': '퇴장(레드카드) {{n}}종',
   'rules.langNotice.original': 'FIPFA Laws of the Game (2025년 4월 승인판) 공식 PDF:',
 
   'help.settings.item1.term': '테마·언어',

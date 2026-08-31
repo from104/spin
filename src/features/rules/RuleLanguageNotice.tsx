@@ -20,6 +20,8 @@
 // 것과 같은 이유다(PLAN-RULES-9CARDS §7 기본값 3: Tauri 데스크톱의 외부 링크 처리가 미검증이라
 // 검증 못 한 코드를 배송하지 않는다). 선택·복사는 된다.
 import { useT } from '../../i18n/useT.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
+import { hasRuleContentFor } from './ruleTopics.ts';
 
 /** 카드 9 의 산문과 **같은 주소**다. 두 곳이 갈리면 한쪽이 죽은 링크가 되므로 여기서 단일 출처로
  *  두고, `RuleLanguageNotice.test.tsx` 가 정본 문서의 주소와 대조한다. */
@@ -27,6 +29,16 @@ export const FIPFA_LAWS_PDF_URL = 'https://fipfa.org/wp-content/uploads/2025/06/
 
 export function RuleLanguageNotice() {
   const t = useT();
+  // 두 모드다. 콘텐츠 자체가 없으면(ja) 전체 안내, 콘텐츠는 있는데 장면 자막만 한국어면(en)
+  // 그 한 줄만. 후자에 전체 안내를 띄우면 "여기 다 한국어" 라는 거짓말이 된다.
+  const sceneOnly = hasRuleContentFor(useLocale());
+  if (sceneOnly) {
+    return (
+      <aside data-testid="rule-language-notice" style={{ maxWidth: 760, margin: '0 auto 4px', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 10 }}>
+        <p style={{ fontSize: '0.8125rem', lineHeight: 1.6, color: 'var(--muted)', textWrap: 'pretty' }}>{t('rules.langNotice.scenesOnly')}</p>
+      </aside>
+    );
+  }
   return (
     <aside
       data-testid="rule-language-notice"
