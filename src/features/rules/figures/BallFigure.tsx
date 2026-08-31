@@ -166,7 +166,7 @@ function BallPressureFigure() {
       aria-label={T.ball.pressureAria}
     >
       {/* ① 낮음 — 납작해진 공 위로 앞바퀴가 올라탄다 */}
-      <PanelFrame x0={x1} title="공기압이 낮으면" />
+      <PanelFrame x0={x1} title={T.ball.lowTitle} />
       <ellipse cx={x1 + 100} cy={P_FLOOR - 8} rx={22} ry={8} fill={BALL_FILL} stroke="#fff" strokeWidth={2} />
       <PowerchairSide x={x1 + 52} y={P_FLOOR} rotate={-9} scale={CHAIR_SCALE} />
       <path
@@ -177,10 +177,10 @@ function BallPressureFigure() {
         strokeDasharray="4 3"
       />
       <path d={`M ${x1 + 166} ${P_FLOOR - 22} l -1.4 -7.6 l 6.6 2.6 Z`} fill={DIM} />
-      <Verdict cx={x1 + PANEL_W / 2} cy={P_FLOOR + VERDICT_BADGE_DY} ok={false} head="체어가 타고 넘는다" tail="공이 눌려 굴러가지 않는다" />
+      <Verdict cx={x1 + PANEL_W / 2} cy={P_FLOOR + VERDICT_BADGE_DY} ok={false} head={T.ball.lowVerdict} tail={T.ball.lowTail} />
 
       {/* ② 알맞음 — 볼가드가 공을 앞으로 민다 */}
-      <PanelFrame x0={x2} title="알맞은 공기압" />
+      <PanelFrame x0={x2} title={T.ball.okTitle} />
       <PowerchairSide x={x2 + P2_CHAIR_X} y={P_FLOOR} scale={CHAIR_SCALE} />
       {/* 공 자리를 손으로 찍지 않는다 — "가드 앞코가 공에 닿는다" 를 식으로 적으면 체어나
           공 크기를 바꿔도 접촉이 유지된다. 이 칸의 주장이 바로 그 접촉이다. */}
@@ -194,10 +194,10 @@ function BallPressureFigure() {
       />
       <line x1={x2 + 152} y1={P_FLOOR - P_BALL_R} x2={x2 + 164} y2={P_FLOOR - P_BALL_R} stroke={DIM} strokeWidth={1.6} />
       <path d={`M ${x2 + 172} ${P_FLOOR - P_BALL_R} l -8 -4.2 l 0 8.4 Z`} fill={DIM} />
-      <Verdict cx={x2 + PANEL_W / 2} cy={P_FLOOR + VERDICT_BADGE_DY} ok head="가드에 걸려 굴러 나간다" tail="규칙이 요구하는 상태" />
+      <Verdict cx={x2 + PANEL_W / 2} cy={P_FLOOR + VERDICT_BADGE_DY} ok head={T.ball.okVerdict} tail={T.ball.okTail} />
 
       {/* ③ 높음 — 튀어 올라 바닥을 떠난다 */}
-      <PanelFrame x0={x3} title="공기압이 높으면" />
+      <PanelFrame x0={x3} title={T.ball.highTitle} />
       <path
         d={`M ${x3 + 118} ${P_FLOOR} Q ${x3 + 142} ${P_FLOOR - 58} ${x3 + 166} ${P_FLOOR} Q ${x3 + 172} ${P_FLOOR - 22} ${x3 + 178} ${P_FLOOR}`}
         fill="none"
@@ -210,7 +210,7 @@ function BallPressureFigure() {
           오른 순간이다. 포물선은 공보다 **넓게** 그린다: 폭이 같으면 공이 산을 통째로 가려
           "어디서 튀었는지" 가 안 보인다. */}
       <circle cx={x3 + 142} cy={P_FLOOR - 29 - P_BALL_R} r={P_BALL_R} fill={BALL_FILL} stroke="#fff" strokeWidth={2.2} />
-      <Verdict cx={x3 + PANEL_W / 2} cy={P_FLOOR + VERDICT_BADGE_DY} ok={false} head="지나치게 튄다" tail="굴리는 경기가 되지 않는다" />
+      <Verdict cx={x3 + PANEL_W / 2} cy={P_FLOOR + VERDICT_BADGE_DY} ok={false} head={T.ball.highVerdict} tail={T.ball.highTail} />
     </svg>
   );
 }
@@ -222,14 +222,14 @@ export function BallFigure() {
       <FigureCard
         title={T.ball.sizeCardTitle}
         aspect={`${SIZE_VB_W} / ${SIZE_VB_H}`}
-        caption={`경기구는 지름 ${BALL_CM}cm(13인치)로, 축구공 5호(약 ${SOCCER5_CM}cm)의 1.5배다. 이 치수는 Laws 본문이 아니라 FIPFA 장비 규격에서 온다 — 앱의 물리 상수 BALL.diameterM 도 같은 값이다.`}
+        caption={T.ball.sizeCardCaption(BALL_CM, SOCCER5_CM)}
       >
         <BallSizeFigure />
       </FigureCard>
       <FigureCard
         title={T.ball.pressureCardTitle}
         aspect={`${PRESSURE_VB_W} / ${PRESSURE_VB_H}`}
-        caption="규칙 본문이 공에 대해 정하는 것은 지름이 아니라 압력 하나다 — 지나치게 튀지 않으면서, 파워체어가 타고 넘지 못할 만큼. 실물이 저반발·중량형인 이유가 이것이다. 체어는 경기 전용 체어의 옆모습 비례를 따랐고, 공과의 크기 비도 대략 실물이다 — 바닥 가까이 길게 뻗은 볼가드가 공 한가운데를 만난다."
+        caption={T.ball.pressureCardCaption}
       >
         <BallPressureFigure />
       </FigureCard>

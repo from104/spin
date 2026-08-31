@@ -43,14 +43,18 @@ const [STD_HW, STD_HH] = halfSizePx(COURT_SIZES[1]); // '28x15'
 const [MIN_HW, MIN_HH] = halfSizePx(COURT_SIZES[2]); // '25x14'
 
 function CourtSizeFigure() {
-  const labels = COURT_SIZE_LABELS.ko;
+  const locale = useLocale();
+  const T = figureTextFor(locale);
+  // ⚠️ `.ko` 하드코딩이었다 — `COURT_SIZE_LABELS` 는 처음부터 3개 언어를 갖고 있었는데
+  // 도해만 한국어를 집어 쓰고 있었다(2026-08-31 기현님이 화면에서 발견).
+  const labels = COURT_SIZE_LABELS[locale];
   return (
     <svg
       viewBox={`0 0 ${CT_VB_W} ${CT_VB_H}`}
       width="100%"
       height="100%"
       role="img"
-      aria-label={`세 코트 규격을 같은 축척으로 겹쳐 그린 비교 그림. ${labels['30x18']}, ${labels['28x15']}, ${labels['25x14']}. 표준 규격은 농구 코트와 같은 크기다.`}
+      aria-label={T.court.sizeAria([labels['30x18'], labels['28x15'], labels['25x14']])}
     >
       {/* 최대(30×18) — 범위의 바깥쪽 경계. 굵은 치수 화살표로 한 번 더 못박는다. */}
       <rect x={CT_OX - MAX_HW} y={CT_OY - MAX_HH} width={MAX_HW * 2} height={MAX_HH * 2} fill="none" stroke={DIM} strokeWidth={1.6} strokeDasharray="7 5" />
@@ -81,7 +85,7 @@ function CourtSizeFigure() {
         stroke="var(--accent)"
         strokeWidth={2.2}
       />
-      <Callout ax={CT_OX + STD_HW} ay={CT_OY} lx={CT_OX + STD_HW + 66} ly={CT_OY} label="농구 코트" />
+      <Callout ax={CT_OX + STD_HW} ay={CT_OY} lx={CT_OX + STD_HW + 66} ly={CT_OY} label={T.court.basketballCallout} />
 
       {/* 최소(25×14) — 안쪽 경계. */}
       <rect x={CT_OX - MIN_HW} y={CT_OY - MIN_HH} width={MIN_HW * 2} height={MIN_HH * 2} fill="none" stroke={FAINT} strokeWidth={1.6} strokeDasharray="2 3.5" />
@@ -202,20 +206,22 @@ function FloorMaterialFigure() {
       role="img"
       aria-label={T.court.surfaceAria}
     >
-      <FloorPanel x0={x1} title="목재·인조 마루" wood ok head="미끄럼 적고 바퀴에 부드럽다" tail="규정이 권장하는 표면" />
-      <FloorPanel x0={x2} title="콘크리트·아스팔트" wood={false} ok={false} head="거칠어 타이어가 마모된다" tail="규정이 피하라는 표면" />
+      <FloorPanel x0={x1} title={T.court.goodSurface} wood ok head={T.court.goodHead} tail={T.court.goodTail} />
+      <FloorPanel x0={x2} title={T.court.badSurface} wood={false} ok={false} head={T.court.badHead} tail={T.court.badTail} />
     </svg>
   );
 }
 
 export function CourtFigure() {
-  const T = figureTextFor(useLocale());
+  const locale = useLocale();
+  const T = figureTextFor(locale);
+  const L = COURT_SIZE_LABELS[locale];
   return (
     <>
       <FigureCard
         title={T.court.sizeCardTitle}
         aspect={`${CT_VB_W} / ${CT_VB_H}`}
-        caption={`규정 범위는 ${COURT_SIZE_LABELS.ko['30x18']}부터 ${COURT_SIZE_LABELS.ko['25x14']}까지다. 그 사이 ${COURT_SIZE_LABELS.ko['28x15']} — 표준 농구 코트와 정확히 같은 크기라, 새 체육관을 구할 때 "농구 코트가 있는가"만 물으면 된다.`}
+        caption={T.court.sizeCardCaption(L['30x18'], L['25x14'], L['28x15'])}
       >
         <CourtSizeFigure />
       </FigureCard>

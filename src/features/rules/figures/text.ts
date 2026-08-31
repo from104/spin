@@ -22,10 +22,13 @@ export interface FigureText {
     pressureAria: string;
     lowTitle: string;
     lowVerdict: string;
+    lowTail: string;
     okTitle: string;
     okVerdict: string;
+    okTail: string;
     highTitle: string;
     highVerdict: string;
+    highTail: string;
     sizeCardTitle: string;
     sizeCardCaption: (ballCm: number, soccerCm: number) => string;
     pressureCardTitle: string;
@@ -38,7 +41,11 @@ export interface FigureText {
     goodSurface: string;
     badSurface: string;
     sizeCardTitle: string;
-    sizeCardCaption: (min: string, max: string, std: string) => string;
+    sizeCardCaption: (max: string, min: string, std: string) => string;
+    goodHead: string;
+    goodTail: string;
+    badHead: string;
+    badTail: string;
     surfaceCardTitle: string;
     surfaceCardCaption: string;
   };
@@ -86,25 +93,33 @@ const KO: FigureText = {
     pressureAria: '공기압 세 경우 비교 그림. 낮으면 눌린 공을 체어가 타고 넘고, 알맞으면 볼가드에 걸려 굴러 나가며, 높으면 공이 지나치게 튄다.',
     lowTitle: '공기압이 낮으면',
     lowVerdict: '체어가 타고 넘는다',
+    lowTail: '공이 눌려 굴러가지 않는다',
     okTitle: '알맞은 공기압',
     okVerdict: '가드에 걸려 굴러 나간다',
+    okTail: '규칙이 요구하는 상태',
     highTitle: '공기압이 높으면',
     highVerdict: '지나치게 튄다',
+    highTail: '굴리는 경기가 되지 않는다',
     sizeCardTitle: '크기 — 같은 축척 비교',
     sizeCardCaption: (b, s) =>
       `경기구는 지름 ${b}cm(13인치)로, 축구공 5호(약 ${s}cm)의 1.5배다. 이 치수는 Laws 본문이 아니라 FIPFA 장비 규격에서 온다 — 앱의 물리 상수 BALL.diameterM 도 같은 값이다.`,
     pressureCardTitle: '공기압 — 규칙이 정하는 유일한 조건',
     pressureCardCaption:
-      '규칙 본문이 공에 대해 정하는 것은 지름이 아니라 압력 하나다 — 지나치게 튀지 않으면서, 파워체어가 타고 넘지 못할 만큼. 실물이 저반발·중량형인 이유가 이것이다.',
+      '규칙 본문이 공에 대해 정하는 것은 지름이 아니라 압력 하나다 — 지나치게 튀지 않으면서, 파워체어가 타고 넘지 못할 만큼. 실물이 저반발·중량형인 이유가 이것이다. 체어는 경기 전용 체어의 옆모습 비례를 따랐고, 공과의 크기 비도 대략 실물이다 — 바닥 가까이 길게 뻗은 볼가드가 공 한가운데를 만난다.',
   },
   court: {
-    sizeAria: (l) => `세 코트 규격을 같은 축척으로 겹쳐 그린 비교 그림. ${l.join(', ')}.`,
+    sizeAria: (l) => `세 코트 규격을 같은 축척으로 겹쳐 그린 비교 그림. ${l.join(', ')}. 표준 규격은 농구 코트와 같은 크기다.`,
     basketballCallout: '농구 코트',
     surfaceAria: '바닥재 비교 그림. 목재·인조 마루는 미끄럼이 적고 부드러워 규정이 권장하고, 콘크리트·아스팔트는 거칠어 규정이 피하라고 한다.',
     goodSurface: '목재·인조 마루',
     badSurface: '콘크리트·아스팔트',
     sizeCardTitle: '코트 규격 — 3단 비교',
-    sizeCardCaption: (min, max, std) => `규정 범위는 ${min}부터 ${max}까지다. 그 사이 ${std}가 국제경기 표준이다.`,
+    sizeCardCaption: (max, min, std) =>
+      `규정 범위는 ${max}부터 ${min}까지다. 그 사이 ${std} — 표준 농구 코트와 정확히 같은 크기라, 새 체육관을 구할 때 "농구 코트가 있는가"만 물으면 된다.`,
+    goodHead: '미끄럼 적고 바퀴에 부드럽다',
+    goodTail: '규정이 권장하는 표면',
+    badHead: '거칠어 타이어가 마모된다',
+    badTail: '규정이 피하라는 표면',
     surfaceCardTitle: '바닥재 — 권장 vs 지양',
     surfaceCardCaption:
       'field-tour 장면이 보여주는 도형(라인·마크)과 달리 표면 재질은 코트 규격에는 안 나온다 — 목재·인조 마루는 미끄럼이 적고 파워체어 바퀴에 부드럽지만, 콘크리트·아스팔트는 거칠어 타이어 마모가 빠르고 제어가 어렵다.',
@@ -156,26 +171,34 @@ const EN: FigureText = {
       'Three inflation cases compared. Under-inflated, a chair rides over the flattened ball; correctly inflated, it catches on the guard and rolls away; over-inflated, it bounces too much.',
     lowTitle: 'Under-inflated',
     lowVerdict: 'the chair rides over it',
+    lowTail: 'flattened, it will not roll',
     okTitle: 'Correct pressure',
     okVerdict: 'it catches the guard and rolls',
+    okTail: 'what the Laws ask for',
     highTitle: 'Over-inflated',
     highVerdict: 'it bounces too much',
+    highTail: 'no longer a rolling game',
     sizeCardTitle: 'Size — drawn to the same scale',
     sizeCardCaption: (b, s) =>
       `The match ball is ${b}cm (13in) across — one and a half times a size 5 football (about ${s}cm). That figure comes from FIPFA equipment guidance, not from the Laws; the app's physics constant BALL.diameterM uses the same value.`,
     pressureCardTitle: 'Pressure — the only thing the Laws fix',
     pressureCardCaption:
-      'The Laws say nothing about the ball’s size, only its pressure: low enough not to bounce much, high enough that a powerchair cannot ride over it. That is why the real ball is low-bounce and heavyweight.',
+      'The Laws say nothing about the ball’s size, only its pressure: low enough not to bounce much, high enough that a powerchair cannot ride over it. That is why the real ball is low-bounce and heavyweight. The chair here follows the side-view proportions of a real match chair, and its size against the ball is roughly true — the long low guard meets the ball at its middle.',
   },
   court: {
-    sizeAria: (l) => `Three court sizes drawn over one another to the same scale: ${l.join(', ')}.`,
+    sizeAria: (l) => `Three court sizes drawn over one another to the same scale: ${l.join(', ')}. The standard size is the same as a basketball court.`,
     basketballCallout: 'basketball court',
     surfaceAria:
       'Surface comparison. Wood and artificial flooring is smooth and easy on the wheels, which the Laws recommend; concrete and tarmac are rough, which the Laws say to avoid.',
     goodSurface: 'Wood · artificial',
     badSurface: 'Concrete · tarmac',
     sizeCardTitle: 'Court size — three sizes compared',
-    sizeCardCaption: (min, max, std) => `The permitted range runs from ${min} to ${max}. Between them, ${std} is the international standard.`,
+    sizeCardCaption: (max, min, std) =>
+      `The permitted range runs from ${max} down to ${min}. Between them sits ${std} — exactly the size of a standard basketball court, so finding a venue comes down to one question: does it have a basketball court?`,
+    goodHead: 'Low grip loss, easy on wheels',
+    goodTail: 'the surface the Laws recommend',
+    badHead: 'Rough — wears tyres',
+    badTail: 'the surface the Laws say to avoid',
     surfaceCardTitle: 'Surface — recommended vs avoided',
     surfaceCardCaption:
       'Unlike the lines and marks the field-tour scene shows, the surface material is not part of the court dimensions. Wood and artificial flooring is smooth and kind to powerchair wheels; concrete and tarmac are rough, wear tyres quickly and make control harder.',

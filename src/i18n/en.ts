@@ -527,6 +527,7 @@ export const en: Record<DictKey, string> = {
   'rules.langNotice.scenesOnly': 'On-court captions in some scenes are shown in Korean.',
   'rules.langNotice.title': 'The rules reference is available in Korean only',
   'rules.langNotice.body': 'The pages below are written in Korean. The official Laws of the Game are published in English by FIPFA, and that PDF is the authoritative text.',
+  'rules.table.caption': 'Seven restarts compared — pick a column to see its scene below',
   'rules.badge.figures': '{{n}} diagram(s)',
   'rules.badge.scenes': '{{n}} scene(s)',
   'rules.badge.table': 'Table',
