@@ -122,8 +122,9 @@ export function AppNavAside() {
         title={t('settings.language.title')}
         aria-haspopup="dialog"
         onClick={() => setLangOpen(true)}
-        // 넓은 레일과 **같은 정도로** 진하다(AppRail 의 그 주석에 근거). 두 곳이 갈리면
-        // 창을 좁혔을 때만 강조가 사라지는, 가장 늦게 발견되는 어긋남이 된다.
+        // 넓은 레일과 **같은 정도로** 진하다 — 지구본만 악센트색, 테두리는 그대로
+        // (AppRail 의 그 주석에 근거). 두 곳이 갈리면 창을 좁혔을 때만 강조가 사라지는,
+        // 가장 늦게 발견되는 어긋남이 된다.
         style={{
           flex: 'none',
           width: 'var(--hit)',
@@ -133,7 +134,7 @@ export function AppNavAside() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--text)',
+          color: 'var(--accent)',
         }}
       >
         <IconLanguage />
