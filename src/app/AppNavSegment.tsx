@@ -9,7 +9,9 @@
 // 레일과 **같은 세 항목·같은 아이콘·같은 활성 표시**를 쓴다(navChrome.ts 의 RAIL_ICONS).
 // 화면 키만 보고 `SCREEN_TO_RAIL` 로 접는 것도 레일과 같다 — 이 컴포넌트도 StageTarget 을
 // 모른다(내비가 편집기 상태에 결합되는 것을 막는 2.1 원칙 3).
-import { IconHelp, IconMoon, IconSun } from '../ui/icons.tsx';
+import { useRef, useState } from 'react';
+import { IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
+import { LanguageModal } from './LanguageModal.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
@@ -104,9 +106,37 @@ export function AppNavAside() {
   const isDark = prefs.theme === 'dark';
   const t = useT();
   const showHelp = useHelpShow();
+  const [langOpen, setLangOpen] = useState(false);
+  const langBtnRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+      {/* [언어] — 넓은 레일에서 [도움말] **위**인 것이 여기서는 **앞**이다(이 줄은 가로다).
+          ⚠️ 좁은 창에는 AppRail 이 아예 안 선다(AppShell 의 `!narrow`). 언어를 레일에만 두면
+             **태블릿에서 언어를 바꿀 길이 통째로 사라진다** — 2026-09-02 개편으로 설정 화면의
+             언어 섹션을 뺐기 때문에 대체 경로도 없다. 태블릿은 이 앱의 주 대상 기기다. */}
+      <button
+        type="button"
+        ref={langBtnRef}
+        aria-label={t('settings.language.title')}
+        title={t('settings.language.title')}
+        aria-haspopup="dialog"
+        onClick={() => setLangOpen(true)}
+        style={{
+          flex: 'none',
+          width: 'var(--hit)',
+          height: 'var(--hit)',
+          border: '1px solid var(--border)',
+          borderRadius: '0.625rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--muted)',
+        }}
+      >
+        <IconLanguage />
+      </button>
+      <LanguageModal open={langOpen} onClose={() => setLangOpen(false)} returnFocusRef={langBtnRef} />
       {/* [도움말] — §0.5 Phase 5(계획서 §A) "좁은 창에서는 AppNavAside 에 함께 들어간다".
           넓은 레일과 같은 순서(도움말 → 테마 → 버전)로 맨 앞에 둔다. */}
       <button

@@ -542,6 +542,25 @@ export function IconRuleZone({ size = 18, ...rest }: IconProps) {
 
 /** 도움말 — 2026-08-16 기현 지시로 [보기] 안에서 **기둥 상시 칸**으로 나왔다. 한 번에 닿아야
  *  하는 것이 메뉴 안에 있었다. */
+/** 언어 — 지구본(경선·위선). 레일에서 [도움말] 바로 위에 선다(2026-09-02 기현 지시로 설정
+ *  화면에서 옮겨 왔다).
+ *
+ *  **왜 지구본이고 글자가 아닌가**: "A/가" 나 "文" 같은 글자 아이콘은 그 글자를 읽는 사람에게만
+ *  뜻이 통한다. 언어를 바꾸려는 사람은 **지금 화면 글자를 못 읽는 사람**일 수 있으므로, 그때
+ *  아이콘이 글자면 찾을 방법이 없다. 지구본은 이 자리의 국제 관례이기도 하다.
+ *
+ *  위선을 둘만 긋는다(±4.5) — 19px 로 줄면 셋 이상은 원 안에서 뭉개져 회색 덩어리가 된다. */
+export function IconLanguage({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c2.6 2.5 4 5.6 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.6-4-9s1.4-6.5 4-9Z" />
+      <path d="M5.2 7.5h13.6M5.2 16.5h13.6" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
 export function IconHelp({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
