@@ -4,6 +4,7 @@
 // 더한다.
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
+import { NudgePad, type NudgePadTarget } from './NudgePad.tsx';
 import { useLongPressMenu } from './useLongPressMenu.ts';
 import { sameKindGroup } from './selectSame.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
@@ -104,7 +105,7 @@ const EMPTY_IDS: ReadonlySet<string> = new Set<string>();
 
 /** 걸음 크기 — 무수식이 **정밀**, Shift 가 큰 걸음이다(2026-08-28 기현 지시, 아래 키 처리부의
  *  긴 주석이 근거를 쥔다). 상수로 뽑은 이유는 이제 **두 번째 소비자**가 생겼기 때문이다:
- *  개체 메뉴의 미세 이동 패드(ObjectMenu 머리말)가 터치에서 같은 일을 한다. 숫자를 두 곳에
+ *  개체 메뉴 [미세 조정] 이 여는 패드(NudgePad 머리말)가 터치에서 같은 일을 한다. 숫자를 두 곳에
  *  적으면 언젠가 갈리고, 갈린 순간 "키보드로는 되는데 손가락으로는 다르게 간다" 가 된다.
  *  패드는 정밀만 쓴다 — 큰 움직임은 손가락에도 드래그가 있다. */
 const FINE_STEP_PX = 2.5;
@@ -597,6 +598,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
 
   // ── 개체 메뉴 (2026-08-14 기현 지시) ────────────────────────────────────────────────
   const [menu, setMenu] = useState<ObjectMenuTarget | null>(null);
+  // 미세 조정 패드(2026-09-02) — 개체 메뉴와 **같은 자리**에 뜬다. 상태가 메뉴와 따로인 이유:
+  // 메뉴는 항목을 누르면 닫히고 패드는 그 뒤에 혼자 남아야 한다(NudgePad 머리말).
+  const [nudgePad, setNudgePad] = useState<NudgePadTarget | null>(null);
 
   /** "같은 것 전부 고르기" 가 훑을 명단. 무대가 이미 들고 있는 조각들을 한 자리에 모은 것뿐이라
    *  따로 계산하는 것이 없다 — 명단이 두 벌이 되면 "메뉴에는 넷인데 화면에는 셋" 이 생긴다. */
@@ -749,21 +753,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     <ObjectMenu
       target={menu}
       onClose={() => setMenu(null)}
-      // 미세 이동(2026-08-29) — 키보드 `obj.move`/`obj.rotate` 와 **같은 통로**다.
-      // ★ 이동이 **화면 기준**인 것도 그대로다: 스테이지가 90° 돌아 있으면 ▲가 월드 축과
-      //   어긋나 개체가 옆으로 간다(키 처리부의 그 ★ 주석과 같은 사고).
-      onNudge={(ids, ux, uy, ut) => {
-        const id = ids[0];
-        if (!id) return;
-        if (ut !== 0) {
-          nudge(id, 0, 0, ut * FINE_STEP_DEG * RAD);
-          return;
-        }
-        const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
-        const w = screenDeltaToWorld({ rot }, ux * FINE_STEP_PX, uy * FINE_STEP_PX);
-        // 여럿이면 `nudge` 안의 무리 갈래가 받는다(ids 는 곧 선택이다 — ObjectMenuTarget.ids).
-        nudge(id, w.x, w.y, 0);
-      }}
+      // [미세 조정](2026-09-02) — 메뉴는 닫고 **그 자리에** 반투명 패드를 연다. 메뉴가 닫히면
+      // `menu` 가 null 이 되므로 좌표를 **여기서 미리 떠서** 넘긴다(패드가 0,0 에 뜨지 않게).
+      onFineTune={(ids) => setNudgePad({ ids, x: menu?.x ?? 0, y: menu?.y ?? 0 })}
       onToggleLock={(ids, on) => dispatch({ type: 'FLAG_SET', flag: 'locked', ids, on })}
       onToggleIgnore={(ids, on) => dispatch({ type: 'FLAG_SET', flag: 'ignored', ids, on })}
       // 치우는 길은 **한 곳뿐**이다(§6.10b). 개편 전에는 메뉴가 종류별로 직접 액션을 쐈고
@@ -778,6 +770,25 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 이미 판에 있는 메모라 `fresh` 는 false 다 — 취소해도 쪽지는 그대로 남는다.
       onEdit={(id) => onEditNote(id as NoteId, false)}
       onDuplicate={onDuplicateIds}
+    />
+    {/* 미세 조정 패드 — 키보드 `obj.move`/`obj.rotate` 와 **같은 통로**다.
+        ★ 이동이 **화면 기준**인 것도 그대로다: 스테이지가 90° 돌아 있으면 ▲가 월드 축과
+          어긋나 개체가 옆으로 간다(키 처리부의 그 ★ 주석과 같은 사고). */}
+    <NudgePad
+      target={nudgePad}
+      onClose={() => setNudgePad(null)}
+      onNudge={(ids, ux, uy, ut) => {
+        const id = ids[0];
+        if (!id) return;
+        if (ut !== 0) {
+          nudge(id, 0, 0, ut * FINE_STEP_DEG * RAD);
+          return;
+        }
+        const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+        const w = screenDeltaToWorld({ rot }, ux * FINE_STEP_PX, uy * FINE_STEP_PX);
+        // 여럿이면 `nudge` 안의 무리 갈래가 받는다(ids 는 곧 선택이다 — NudgePadTarget.ids).
+        nudge(id, w.x, w.y, 0);
+      }}
     />
     </>
   );

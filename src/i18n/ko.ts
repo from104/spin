@@ -736,7 +736,7 @@ export const ko = {
   'editor.helpModal.basics.placeMany.desc': '같은 도구를 한 번 더 누르면 고정되어 연속으로 놓입니다. 도구 칸에 핀 표시가 켜지고, 놓기가 아닌 다른 동작을 하면 바로 풀립니다.',
   'editor.helpModal.basics.fine.key': '미세 조정',
   'editor.helpModal.basics.fine.desc':
-    '마지막 몇 px 은 방향키·WASD 로, 방향은 Q·E 로 맞춥니다 — Shift 를 더하면 큰 걸음입니다. 키보드가 없는 태블릿에서는 개체를 길게 눌러 나오는 메뉴 맨 위의 미세 이동 패드가 같은 일을 하고, 누르고 있으면 이어집니다.',
+    '마지막 몇 px 은 방향키·WASD 로, 방향은 Q·E 로 맞춥니다 — Shift 를 더하면 큰 걸음입니다. 키보드가 없는 태블릿에서는 개체를 길게 눌러 [미세 조정] 을 고르면 반투명 패드가 그 자리에 떠서 같은 일을 하고, 누르고 있으면 이어집니다. 아무 키나 누르거나 바깥을 누르면 닫힙니다.',
   'editor.helpModal.basics.move.key': '옮기기',
   'editor.helpModal.basics.move.desc': '휠체어는 잡는 곳이 곧 동작입니다 — 뒤 2/3 를 잡으면 그대로 이동, 앞 1/3 은 제자리 회전, 차체 밖 앞뒤 손잡이는 줄로 끌되 회전을 먼저 하는 견인입니다.',
   'editor.helpModal.basics.select.key': '선택·해제',
@@ -772,7 +772,8 @@ export const ko = {
 
   // ── C7 — 개체 메뉴 ──────────────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': '개체 메뉴',
-  'editor.objectMenu.nudgeGroup': '미세 이동',
+  'editor.objectMenu.fineTune': '미세 조정',
+  'editor.nudgePad.ariaLabel': '미세 조정 패드',
   'editor.objectMenu.nudgeUp': '위로 조금',
   'editor.objectMenu.nudgeDown': '아래로 조금',
   'editor.objectMenu.nudgeLeft': '왼쪽으로 조금',
