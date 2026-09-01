@@ -1,14 +1,53 @@
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
+import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // 버전 문자열은 package.json 하나에서만 나온다 — 화면에 박아 두면 릴리스 때 반드시 어긋난다.
 // package.json 을 import 하면 번들에 파일 전체가 들어가므로 값만 뽑아 주입한다.
-const pkgVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')).version
+const PKG_PATH = fileURLToPath(new URL('./package.json', import.meta.url))
+const pkgVersion = JSON.parse(readFileSync(PKG_PATH, 'utf-8')).version
+
+/** package.json 의 version 이 바뀌면 개발 서버를 다시 세운다 (2026-09-02).
+ *
+ *  **왜 필요한가.** 위 `pkgVersion` 은 이 설정 파일이 **뜰 때 딱 한 번** 읽힌다. Vite 는
+ *  `vite.config.ts` 자체는 감시해서 자동 재시작하지만, 설정이 *읽어 들이는* 파일까지는
+ *  모른다. 그래서 릴리스로 버전을 올려도 이미 떠 있는 개발 서버는 **옛 번호를 계속 보여준다.**
+ *
+ *  실제로 그렇게 됐다: 0.6.0 으로 올린 뒤에도 화면이 0.5.99 였고, 개발 서버가 이틀째
+ *  같은 프로세스였다는 걸 알아채기까지 시간이 걸렸다. 코드는 HMR 로 최신인데 **번호 하나만**
+ *  낡아 있어서, 겉으로는 "빌드가 반영이 안 되나?" 로 보이는 것이 이 함정의 고약한 점이다.
+ *
+ *  ⚠️ 번호가 **실제로 달라졌을 때만** 다시 세운다. package.json 은 `npm install` 만 해도
+ *  써지는 파일이라, 쓰였다고 무조건 재시작하면 의존성 하나 추가할 때마다 서버가 죽었다 산다. */
+function restartOnVersionChange(): Plugin {
+  return {
+    name: 'spin:restart-on-version-change',
+    // 빌드는 매번 새 프로세스라 이 문제가 없다 — 개발 서버에서만 단다.
+    apply: 'serve',
+    configureServer(server) {
+      server.watcher.add(PKG_PATH)
+      server.watcher.on('change', (file) => {
+        if (file !== PKG_PATH) return
+        let next: string
+        try {
+          next = JSON.parse(readFileSync(PKG_PATH, 'utf-8')).version
+        } catch {
+          // 쓰는 중간에 읽으면 반쪽 JSON 일 수 있다. 다음 change 에 다시 온다.
+          return
+        }
+        if (next === pkgVersion) return
+        server.config.logger.info(`[spin] 버전 ${pkgVersion} → ${next} · 개발 서버를 다시 세웁니다.`)
+        void server.restart()
+      })
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), restartOnVersionChange()],
   define: { __APP_VERSION__: JSON.stringify(pkgVersion) },
   server: {
     // cube 밖(gofu 등 같은 LAN)에서 붙을 수 있게 0.0.0.0 바인딩.
