@@ -8,7 +8,9 @@
 // 3.-2: **좁은 창에서는 이 컴포넌트가 아예 서지 않는다** — AppShell 이 `useIsNarrow()` 로 갈라
 // AppNavSegment(헤더 좌측 3칸)를 대신 세운다. 여기 84 는 크롬 예산의 appRail 행 `wide` 값이고,
 // 그래서 이 폭을 바꾸면 chromeBudget.test.ts 의 소스 대조가 빨간불이 된다.
-import { IconHelp, IconMoon, IconSun } from '../ui/icons.tsx';
+import { useRef, useState } from 'react';
+import { IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
+import { LanguageModal } from './LanguageModal.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
@@ -31,6 +33,10 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
   const locale = useLocale();
   const t = useT();
   const showHelp = useHelpShow();
+  // 언어 모달(2026-09-02) — 레일이 직접 쥔다. 여는 버튼이 여기 하나뿐이라 위로 끌어올릴
+  // 이유가 없고, 올리면 AppShell 이 모달 하나를 더 아는 값이 없는 결합이 는다.
+  const [langOpen, setLangOpen] = useState(false);
+  const langBtnRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <nav
@@ -102,16 +108,43 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         );
       })}
 
-      {/* [도움말] — §0.5 Phase 5(계획서 §A) "테마 토글 위에 [도움말] 버튼". `marginTop:'auto'`
-          를 여기로 옮겨 이 버튼이 남는 세로 공간을 먹고 바닥에 붙는다 — 테마 토글·버전은
-          평범한 flow 로 바로 뒤따라 함께 바닥 쪽에 선다. */}
+      {/* [언어] — 설정 화면에서 옮겨 왔다(2026-09-02 기현 지시). **[도움말] 바로 위**다.
+          `marginTop:'auto'` 도 여기로 함께 왔다: 바닥 뭉치의 **맨 위 항목**이 그것을 지녀야
+          아래 셋(도움말·테마·버전)이 평범한 flow 로 뒤따라 바닥에 붙는다. 도움말에 남겨 두면
+          언어 버튼만 목록 바로 밑에 떠서 뭉치가 갈라진다.
+
+          아이콘이 지구본인 근거는 IconLanguage 주석에 있다 — 요약하면, 언어를 바꾸려는 사람은
+          지금 화면 글자를 못 읽는 사람일 수 있어서 아이콘이 글자면 안 된다. */}
+      <button
+        type="button"
+        ref={langBtnRef}
+        aria-label={t('settings.language.title')}
+        title={t('settings.language.title')}
+        aria-haspopup="dialog"
+        onClick={() => setLangOpen(true)}
+        style={{
+          marginTop: 'auto',
+          width: 44,
+          height: 44,
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--muted)',
+        }}
+      >
+        <IconLanguage />
+      </button>
+      <LanguageModal open={langOpen} onClose={() => setLangOpen(false)} returnFocusRef={langBtnRef} />
+
+      {/* [도움말] — §0.5 Phase 5(계획서 §A) "테마 토글 위에 [도움말] 버튼". */}
       <button
         type="button"
         aria-label={t('help.center.title')}
         title={t('help.center.title')}
         onClick={showHelp}
         style={{
-          marginTop: 'auto',
           width: 44,
           height: 44,
           border: '1px solid var(--border)',

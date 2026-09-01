@@ -47,31 +47,16 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-describe('SettingsScreen — 언어(i18n C1)', () => {
-  it("맨 위 섹션이다 — 기본값 '자동'이 선택돼 있다", () => {
+// 🪦 '언어' describe 는 2026-09-02 에 languageModal.test.tsx 로 옮겼다 — 설정 화면에서
+// 왼쪽 레일의 지구본으로 자리를 옮겼기 때문이다(SettingsScreen 안의 묘비 주석에 근거).
+// 대신 **여기서 지킬 것 하나**를 남긴다: 설정 화면에 언어가 **다시 생기지 않는 것**.
+// 두 곳에서 같은 값을 고르게 되면 둘 중 하나만 고쳐지는 날이 온다.
+describe('SettingsScreen — 언어는 여기 없다', () => {
+  it('언어 고르개가 설정 화면에 없다 — 레일의 지구본 하나가 유일한 문이다', () => {
     render(<SettingsScreen />, { wrapper });
-    const group = screen.getByRole('radiogroup', { name: '언어' });
-    expect(within(group).getByRole('radio', { name: '자동' })).toHaveAttribute('aria-checked', 'true');
-  });
-
-  it('한국어를 고르면 즉시 반영되고 localStorage 에 저장된다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('radio', { name: '한국어' }));
-    expect(screen.getByRole('radio', { name: '한국어' })).toHaveAttribute('aria-checked', 'true');
-    expect(loadPrefs().language).toBe('ko');
-  });
-
-  it('English 를 고르면 이 섹션의 문구가 곧바로 영어로 바뀐다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('radio', { name: 'English' }));
-    expect(loadPrefs().language).toBe('en');
-    expect(screen.getByRole('radiogroup', { name: 'Language' })).toBeInTheDocument();
-  });
-
-  it('日本語를 고르면 prefs 에 ja 로 저장된다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('radio', { name: '日本語' }));
-    expect(loadPrefs().language).toBe('ja');
+    expect(screen.queryByRole('radiogroup', { name: '언어' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: '한국어' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: '日本語' })).toBeNull();
   });
 });
 

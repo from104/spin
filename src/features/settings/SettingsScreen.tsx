@@ -32,7 +32,6 @@ import { backupFileName } from '../export/exportNames.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
-import { LOCALE_NAMES, SUPPORTED_LOCALES } from '../../i18n/locale.ts';
 import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
 import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 
@@ -159,19 +158,11 @@ export function SettingsScreen() {
   return (
     <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '26px 30px 46px', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Section title={t('settings.language.title')}>
-          <Row title={t('settings.language.rowTitle')} desc={t('settings.language.desc')}>
-            <Segmented
-              ariaLabel={t('settings.language.title')}
-              value={prefs.language}
-              onChange={(v) => setPrefs({ language: v })}
-              options={[
-                { value: 'auto', label: t('settings.language.auto') },
-                ...SUPPORTED_LOCALES.map((loc) => ({ value: loc, label: LOCALE_NAMES[loc] })),
-              ]}
-            />
-          </Row>
-        </Section>
+        {/* 🪦 [언어] 섹션은 2026-09-02 에 **왼쪽 레일의 지구본**으로 옮겼다(기현 지시).
+            근거는 LanguageModal 머리말: 언어는 다른 설정과 등급이 다르다 — "가끔 손보는 것"
+            이 아니라 **글자를 못 읽어서 찾아가야 하는 것**이라, 설정 화면까지 가는 길 전체가
+            읽지 못하는 글자면 그 길이 막힌 것과 같다. 레일 아이콘은 글자 없이 도달한다.
+            `settings.language.*` 사전 키는 그대로 산다 — 모달이 같은 키를 쓴다. */}
         <Section title={t('settings.screen.title')}>
           <Row title={t('settings.screen.themeTitle')} desc={t('settings.screen.themeDesc')}>
             <Segmented
