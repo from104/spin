@@ -144,7 +144,7 @@ describe('문 ② 개체 메뉴 [수정]', () => {
       <ObjectMenu
         target={{ ...base, ...over }}
         onClose={noop}
-        onNudge={() => {}}
+        onFineTune={() => {}}
         onToggleLock={noop}
         onToggleIgnore={noop}
         onRemove={noop}

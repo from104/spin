@@ -286,7 +286,7 @@ describe('메뉴 — 화면 끝', () => {
         <ObjectMenu
           target={{ ...base, ids: [returnsToTray ? 'ch_1' : 'ar_1'] }}
           onClose={noop}
-          onNudge={() => {}}
+          onFineTune={() => {}}
           onToggleLock={noop}
           onToggleIgnore={noop}
           onRemove={noop}
@@ -340,7 +340,7 @@ describe('[복제] — 항목은 도형·메모에만 뜬다', () => {
       <ObjectMenu
         target={{ ...base, ids }}
         onClose={noop}
-        onNudge={() => {}}
+        onFineTune={() => {}}
         onToggleLock={noop}
         onToggleIgnore={noop}
         onRemove={noop}
@@ -579,23 +579,21 @@ describe('브라우저 기본 메뉴 — 코트 위에서는 언제나 막는다
   });
 });
 
-// ── 미세 이동 패드 (2026-08-29) ────────────────────────────────────────────────────────
-// 이 패드가 지키는 계약 중 **조용히 깨지는 것**은 하나다: *"눌러도 메뉴가 안 닫힌다."*
-// 나머지 칸은 전부 `act()` 를 타 닫히고, 누가 이 칸을 그 관용구로 통일하는 순간 2.5px 을
-// 옮길 때마다 메뉴를 다시 열어야 하는 물건이 된다 — 그런데 화면에는 여전히 잘 보이고
-// 첫 탭도 잘 먹으므로 눈으로는 안 드러난다. 방향·회전의 배선은 여기서 함께 본다.
-describe('미세 이동 패드', () => {
+// ── [미세 조정] 칸 (2026-09-02) ────────────────────────────────────────────────────────
+// 패드 자체는 이제 메뉴 밖(NudgePad)이다. 메뉴가 지는 몫은 **칸을 낼지 말지**와 **대상을
+// 그대로 넘기는지** 둘뿐이라 여기서는 그것만 잰다. 패드의 동작은 nudgePad.test.tsx 소관.
+describe('[미세 조정] 칸', () => {
   const base = { x: 10, y: 10, locked: false, ignored: false, canIgnore: true, editable: null, selectSame: null };
   const noop = () => {};
 
-  const open = (ids: string[]) => {
-    const calls: number[][] = [];
+  const open = (ids: string[], locked = false) => {
+    const fine: string[][] = [];
     const onClose = vi.fn();
     render(
       <ObjectMenu
-        target={{ ...base, ids }}
+        target={{ ...base, ids, locked }}
         onClose={onClose}
-        onNudge={(_ids, dx, dy, dt) => calls.push([dx, dy, dt])}
+        onFineTune={(x) => fine.push(x)}
         onToggleLock={noop}
         onToggleIgnore={noop}
         onRemove={noop}
@@ -605,19 +603,23 @@ describe('미세 이동 패드', () => {
       />,
       { wrapper: SettingsProvider },
     );
-    return { calls, onClose };
+    return { fine, onClose };
   };
 
-  it('★ 눌러도 메뉴가 닫히지 않는다 — 단위 벡터가 그대로 간다', () => {
-    const { calls, onClose } = open(['ch_1']);
-    fireEvent.pointerDown(screen.getByRole('menuitem', { name: '오른쪽으로 조금' }), { pointerId: 1 });
-    expect(calls).toEqual([[1, 0, 0]]);
-    expect(onClose, '이 칸만은 명령이 아니라 반복 조작이다').not.toHaveBeenCalled();
+  it('누르면 대상을 그대로 넘기고 메뉴는 닫힌다 — 패드가 그 자리를 이어받는다', () => {
+    const { fine, onClose } = open(['ch_1']);
+    fireEvent.click(screen.getByRole('menuitem', { name: '미세 조정' }));
+    expect(fine).toEqual([['ch_1']]);
+    expect(onClose, '패드를 열었으면 메뉴는 물러나야 한다').toHaveBeenCalled();
   });
 
-  it('회전은 휠체어 하나일 때만 난다 — 공에는 각도가 없다', () => {
-    open(['bl_1']);
-    expect(screen.queryByRole('menuitem', { name: '왼쪽으로 조금 회전' }), '눌러도 안 도는 칸을 내지 않는다').toBeNull();
-    expect(screen.getByRole('menuitem', { name: '왼쪽으로 조금' }), '이동은 공에도 난다').toBeInTheDocument();
+  it('잠긴 개체에는 안 난다 — 눌러도 안 움직이는 칸을 내지 않는다', () => {
+    open(['ch_1'], true);
+    expect(screen.queryByRole('menuitem', { name: '미세 조정' })).toBeNull();
+  });
+
+  it('미세 조정이 안 먹는 개체(도형)에는 안 난다', () => {
+    open(['sh_1']);
+    expect(screen.queryByRole('menuitem', { name: '미세 조정' })).toBeNull();
   });
 });

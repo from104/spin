@@ -734,7 +734,7 @@ export const ja: Record<DictKey, string> = {
   'editor.helpModal.basics.placeMany.desc': '同じツールをもう一度押すと固定され、連続で配置できます。ツールの枠にピン表示が点灯し、配置以外の操作をするとすぐに解除されます。',
   'editor.helpModal.basics.fine.key': '微調整',
   'editor.helpModal.basics.fine.desc':
-    '最後の数ピクセルは方向キー・WASD で、向きは Q・E で合わせます — Shift を足すと大きく動きます。キーボードのないタブレットでは、オブジェクトを長押しして出るメニュー上部の微調整パッドが同じ働きをし、押し続けると連続します。',
+    '最後の数ピクセルは方向キー・WASD で、向きは Q・E で合わせます — Shift を足すと大きく動きます。キーボードのないタブレットでは、オブジェクトを長押しして［微調整］を選ぶと半透明のパッドがその場に出て同じ働きをし、押し続けると連続します。どれかキーを押すか外側をタップすると閉じます。',
   'editor.helpModal.basics.move.key': '移動',
   'editor.helpModal.basics.move.desc': '車いすはつかむ場所がそのまま動作になります — 後ろ2/3をつかむと移動、前1/3はその場回転、車体の外の前後ハンドルは先に向きを変えてから引くけん引です。',
   'editor.helpModal.basics.select.key': '選択・解除',
@@ -770,7 +770,8 @@ export const ja: Record<DictKey, string> = {
 
   // ── C7 — オブジェクトメニュー ────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': 'オブジェクトメニュー',
-  'editor.objectMenu.nudgeGroup': '微調整',
+  'editor.objectMenu.fineTune': '微調整',
+  'editor.nudgePad.ariaLabel': '微調整パッド',
   'editor.objectMenu.nudgeUp': '少し上へ',
   'editor.objectMenu.nudgeDown': '少し下へ',
   'editor.objectMenu.nudgeLeft': '少し左へ',
