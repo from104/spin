@@ -122,16 +122,23 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         title={t('settings.language.title')}
         aria-haspopup="dialog"
         onClick={() => setLangOpen(true)}
+        // 아래 두 형제(도움말·테마)보다 **약간 진하다**(기현 지시 2026-09-02): 글자색은
+        // `--muted` 가 아니라 `--text`, 테두리도 한 단 굵은 토큰. 셋 중 이것만 강조하는
+        // 근거는 IconLanguage 주석과 같다 — 나머지 둘은 "찾으면 좋은 것" 이지만 이것은
+        // **화면 글자를 못 읽는 사람이 찾아내야 하는 것**이라, 같은 회색으로 묻히면 안 된다.
+        // 강조를 여기서 멈추는(악센트 색·채운 배경까지 안 가는) 이유: 레일에서 악센트는
+        // **지금 켜진 화면**의 표시다(위 목록의 `active`). 그 뜻을 상시 버튼이 빌려 쓰면
+        // 어느 화면에 있는지가 흐려진다.
         style={{
           marginTop: 'auto',
           width: 44,
           height: 44,
-          border: '1px solid var(--border)',
+          border: '1px solid var(--border-strong)',
           borderRadius: 12,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--muted)',
+          color: 'var(--text)',
         }}
       >
         <IconLanguage />
