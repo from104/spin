@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run seo",
+    "_comment:seo": "SEO C2 — 규칙 해설을 언어별 정적 HTML 로 굽고(3언어 × 11장) sitemap.xml 을 만든다. 앱은 클라이언트 렌더라 크롤러가 2차 크롤에서야 보는데, 규칙 글은 고정 텍스트라 미리 구워 두면 그 불확실성이 사라진다. 노드가 TS 를 못 읽어 vite 의 SSR 빌드를 한 단계 거친다(tsx·esbuild 같은 새 의존성을 안 들이려고). build 가 끝에 부르므로 따로 칠 일은 없다.",
+    "seo": "vite build --ssr src/seo/prerenderData.ts --outDir .seo-build --logLevel warn && node scripts/prerender.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",

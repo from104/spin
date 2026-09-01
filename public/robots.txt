@@ -1,0 +1,22 @@
+# SPIN — https://spin.atit.app
+#
+# 색인할 것은 대문과 규칙 해설이다. 나머지 화면(드릴 목록·세션·시연·설정)은 이 기기의
+# IndexedDB 를 읽어서 그리므로 크롤러에게는 **언제나 빈 화면**이다 — 색인되면 내용 없는
+# 페이지가 사이트 평가를 깎는다. 그래서 막는다. 사람에게는 그대로 열려 있다.
+
+User-agent: *
+Allow: /
+Disallow: /drills
+Disallow: /sessions
+Disallow: /present
+Disallow: /settings
+Disallow: /en/drills
+Disallow: /en/sessions
+Disallow: /en/present
+Disallow: /en/settings
+Disallow: /ja/drills
+Disallow: /ja/sessions
+Disallow: /ja/present
+Disallow: /ja/settings
+
+Sitemap: https://spin.atit.app/sitemap.xml
