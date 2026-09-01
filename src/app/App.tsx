@@ -6,7 +6,8 @@ import { useEffect, useRef } from 'react';
 import { cues } from '../ui/cues.ts';
 import { resolveDrillRepo } from '../storage/drillRepo.ts';
 import { seedDrillsOnce } from '../storage/seed.ts';
-import { createHashRouter, RouterProvider } from 'react-router';
+import { createBrowserRouter, createHashRouter, RouterProvider } from 'react-router';
+import { legacyHashPath, splitLocalePrefix } from './localePrefix.ts';
 import { SettingsProvider, useSettingsActions, useSettingsState } from '../store/settings/SettingsProvider.tsx';
 import { LibraryProvider, useLibraryActions } from '../store/library/LibraryProvider.tsx';
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
@@ -48,9 +49,13 @@ export function ThemeEffects() {
   return null;
 }
 
-/** i18n C1 — `<html lang>` 반영. 테마와 달리 부트 스크립트 짝이 없다: React 가 그리기 전엔
- *  정적 HTML 에 애초에 어떤 언어의 텍스트도 없어서(빈 `#root`) FOUC 위험 자체가 없다 — 반응형
- *  갱신 하나로 충분하다. export 는 테스트용(ThemeEffects 와 같은 관례). */
+/** i18n C1 — `<html lang>` 반영. 테마와 달리 부트 스크립트 짝이 없다: React 가 그리기 전에
+ *  뜨는 정적 HTML 은 **자기 언어를 이미 `<html lang>` 에 달고 나온다** — 프리렌더(SEO C1,
+ *  scripts/prerender.mjs)가 페이지마다 박아 주기 때문이다. 그러니 여기가 하는 일은 첫 화면을
+ *  맞추는 것이 아니라, 설정에서 언어를 바꿨을 때 따라가는 것이다.
+ *
+ *  ⚠️ 2026-09-02 이전 주석은 *"정적 HTML 에 어떤 언어의 텍스트도 없다(빈 `#root`)"* 였다.
+ *  프리렌더가 `#root` 안에 규칙 본문을 넣으면서 그 전제가 죽었다. export 는 테스트용. */
 export function LocaleEffects() {
   const locale = useLocale();
 
@@ -108,7 +113,52 @@ export function SeedDrills() {
  *  진다. 중첩 라우트가 0 인 앱이라(레일+헤더는 화면이 아니라 크롬이다) Outlet 계층을 세우면
  *  얻는 것 없이 화면-크롬 사이에 컨텍스트 배관만 는다 — 화면이 정말 중첩되는 날 다시 편다.
  *  **해시 라우터인 이유는 routes.ts 머리말에** (정적 파일 배포 = SPA fallback 없음). */
-const router = createHashRouter([{ path: '*', element: <AppShell /> }]);
+/** **왜 더 이상 해시가 아닌가** (2026-09-02). routes.ts 머리말이 적어 둔 해시의 근거는
+ *  *"배포가 정적 파일 복사라 SPA fallback 재작성 규칙이 없다 — BrowserRouter 는 `/drills`
+ *  새로고침에서 404 다"* 였다. **그 전제가 죽었다**: 지금 배포처(spin.atit.app)의 vhost 에는
+ *  `FallbackResource /index.html` 이 있고 `/library` 가 200 으로 뜬다(실측). 두 번째 근거였던
+ *  *"URL 공유가 제품 시나리오에 없다"* 도, 규칙 해설을 검색에서 찾아 들어오게 만들기로 한
+ *  순간 죽었다 — 해시 뒤는 구글이 URL 로 보지 않아서 앱 전체가 **한 장짜리 페이지**였다.
+ *
+ *  `file:` 만 예외로 남긴다. 데스크톱(Tauri)·로컬 파일 열기에는 서버가 없어 fallback 이
+ *  없으므로 거기서는 해시가 여전히 유일한 방법이다 — 옛 근거가 아직 살아 있는 자리다. */
+function createAppRouter() {
+  const routes = [{ path: '*', element: <AppShell /> }];
+  if (typeof window === 'undefined' || window.location.protocol === 'file:') {
+    return createHashRouter(routes);
+  }
+  // 0.6.0 까지 나간 해시 주소를 먼저 경로로 갈아 끼운다. 라우터를 만들기 **전**이어야 한다 —
+  // 뒤에 하면 라우터가 이미 뿌리를 첫 엔트리로 잡아 board 를 한 번 그린다.
+  const moved = legacyHashPath(window.location.pathname, window.location.hash);
+  if (moved) window.history.replaceState(null, '', moved);
+  return createBrowserRouter(routes, { basename: splitLocalePrefix(window.location.pathname).basename });
+}
+
+const router = createAppRouter();
+
+/** SEO C1 — 주소가 언어를 명시했으면(`/en/…`·`/ja/…`) 그 언어로 연다.
+ *
+ *  일본어 검색 결과를 눌러 들어온 사람에게 한국어 화면을 보여주면 그 방문은 거기서 끝난다.
+ *  **저장된 설정보다 주소가 세다** — 주소의 언어는 방문자가 방금 고른 것이고, 설정은 예전에
+ *  고른 것이기 때문이다. 그래서 prefs 를 실제로 바꾼다(설정 화면에서 되돌릴 수 있다).
+ *  뿌리(`/`)로 들어오면 아무것도 안 한다 — 그쪽은 설정·자동감지의 영역 그대로다. */
+export function LocaleFromUrl() {
+  const { prefs } = useSettingsState();
+  const { setPrefs } = useSettingsActions();
+  const appliedRef = useRef(false);
+
+  useEffect(() => {
+    if (appliedRef.current) return;
+    appliedRef.current = true;
+    const { locale } = splitLocalePrefix(window.location.pathname);
+    if (locale && prefs.language !== locale) setPrefs({ language: locale });
+    // 의존성을 비워 두는 것이 계약이다 — 첫 진입에만 본다. 안 그러면 설정 화면에서 언어를
+    // 바꾸는 순간 주소가 그것을 다시 되돌린다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
 
 /** 0.6 Drive 동기화 — SeedDrills 와 같은 자리·같은 모양(아무것도 안 그리고 부작용 배선).
  *  LibraryProvider 안인 이유: 패스가 문서를 내려받으면 refresh 로 목록을 다시 읽어야 한다.
@@ -122,6 +172,7 @@ export default function App() {
   return (
     <SettingsProvider>
       <ThemeEffects />
+      <LocaleFromUrl />
       <LocaleEffects />
       <LibraryProvider>
         <SeedDrills />

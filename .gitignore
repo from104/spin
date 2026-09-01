@@ -35,3 +35,6 @@ client_secret_*.apps.googleusercontent.com.json
 # 이름은 `backupFileName()` 이 짓는다 — `SPIN_backup_YYYYMMDD.spin.backup.json`
 # (`src/storage/files.ts` 의 확장자 표, `ExportSheet.test.tsx` 가 형식을 붙잡는다).
 *.spin.backup.json
+
+# SEO C2 — 프리렌더가 쓰는 중간 SSR 산출물(scripts/prerender.mjs 가 읽고 버린다).
+.seo-build/
