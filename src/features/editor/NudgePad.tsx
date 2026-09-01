@@ -5,7 +5,7 @@
 //  기존 오른 버튼에 나오는 키보드 이동 패드를 이걸로 대체"*
 //
 // ── 왜 메뉴 안에서 꺼냈는가 ──────────────────────────────────────────────────────────
-// 2026-08-29 에는 이 3×3 판이 **개체 메뉴 안에** 박혀 있었다. 그래서 두 가지가 겹쳤다:
+// 2026-08-29 에는 이 3×2 판이 **개체 메뉴 안에** 박혀 있었다. 그래서 두 가지가 겹쳤다:
 //   ① 메뉴가 불투명해서, 조정하는 동안 **정작 움직이는 개체가 메뉴 밑에 깔렸다.** 2.5px 을
 //      맞추는 조작인데 결과가 안 보이면 맞출 수가 없다.
 //   ② 이 칸들만 메뉴를 안 닫는 예외라, 같은 메뉴 안에 "한 번 누르면 끝나는 명령" 과
@@ -52,7 +52,7 @@ const PAD_BTN: React.CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 9,
   // 칸 자체도 반투명이다 — 패널만 비치고 칸이 꽉 차 있으면 정작 개체가 있는 가운데가 가려진다.
-  background: 'color-mix(in srgb, var(--panel-2) 55%, transparent)',
+  background: 'color-mix(in srgb, var(--panel-2) 30%, transparent)',
   color: 'var(--text)',
   fontSize: '1.0625rem',
   lineHeight: 1,
@@ -172,6 +172,9 @@ export function NudgePad({ target, onClose, onNudge }: NudgePadProps) {
           top: pos?.top ?? target.y,
           zIndex: 61,
           display: 'grid',
+          // **3열 × 2행**(기현 지시 2026-09-02). 한 번 십자꼴(3×3)로 폈다가 되돌린 것이다:
+          // 같은 여섯 칸을 담는데 빈 칸 셋 때문에 판이 한 줄만큼 커졌고, 이 팝업은 코트 위에
+          // 뜨므로 큰 만큼 그대로 가림이다 — 반투명으로 벌어 놓은 것을 크기로 도로 까먹는다.
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: 6,
           padding: 8,
@@ -180,7 +183,9 @@ export function NudgePad({ target, onClose, onNudge }: NudgePadProps) {
           // ★ 반투명이 이 팝업의 존재 이유다(기현 지시) — 조정하는 동안 **개체가 비쳐 보여야**
           //   2.5px 을 맞출 수 있다. 패널 전체에 opacity 를 걸지 않는 이유: 그러면 화살표
           //   글리프까지 흐려져 코트 무늬와 섞인다. 배경만 섞고 글자는 불투명하게 둔다.
-          background: 'color-mix(in srgb, var(--panel) 72%, transparent)',
+          //   72% → 45% 로 더 옅게(2026-09-02 기현 지시) — 첫 값은 개체가 비치긴 해도 색이
+          //   눌려서, 팀 색이 다른 칩 둘을 나란히 맞출 때 어느 쪽이 어느 팀인지 흐릿했다.
+          background: 'color-mix(in srgb, var(--panel) 45%, transparent)',
           boxShadow: '0 12px 28px rgba(0,0,0,.45)',
           // 자리를 아직 못 쟀으면 그리지 않는다(위 useLayoutEffect 의 첫 통과).
           visibility: pos ? 'visible' : 'hidden',
@@ -198,11 +203,8 @@ export function NudgePad({ target, onClose, onNudge }: NudgePadProps) {
           <span aria-hidden />
         )}
         <NudgeButton label={t('editor.objectMenu.nudgeLeft')} glyph="◀" onFire={() => onNudge(target.ids, -1, 0, 0)} />
-        <span aria-hidden />
-        <NudgeButton label={t('editor.objectMenu.nudgeRight')} glyph="▶" onFire={() => onNudge(target.ids, 1, 0, 0)} />
-        <span aria-hidden />
         <NudgeButton label={t('editor.objectMenu.nudgeDown')} glyph="▼" onFire={() => onNudge(target.ids, 0, 1, 0)} />
-        <span aria-hidden />
+        <NudgeButton label={t('editor.objectMenu.nudgeRight')} glyph="▶" onFire={() => onNudge(target.ids, 1, 0, 0)} />
       </div>
     </>,
     document.body,
