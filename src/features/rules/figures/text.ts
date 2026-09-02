@@ -19,20 +19,8 @@ export interface FigureText {
     matchBallName: string;
     matchBallSub: string;
     approx: (cm: number) => string;
-    pressureAria: string;
-    lowTitle: string;
-    lowVerdict: string;
-    lowTail: string;
-    okTitle: string;
-    okVerdict: string;
-    okTail: string;
-    highTitle: string;
-    highVerdict: string;
-    highTail: string;
     sizeCardTitle: string;
     sizeCardCaption: (ballCm: number, soccerCm: number) => string;
-    pressureCardTitle: string;
-    pressureCardCaption: string;
   };
   court: {
     sizeAria: (labels: readonly string[]) => string;
@@ -67,22 +55,9 @@ const KO: FigureText = {
     matchBallName: '파워체어풋볼',
     matchBallSub: '경기구 · 13인치',
     approx: (cm) => `약 ${cm}cm`,
-    pressureAria: '공기압 세 경우 비교 그림. 낮으면 눌린 공을 체어가 타고 넘고, 알맞으면 볼가드에 걸려 굴러 나가며, 높으면 공이 지나치게 튄다.',
-    lowTitle: '공기압이 낮으면',
-    lowVerdict: '체어가 타고 넘는다',
-    lowTail: '공이 눌려 굴러가지 않는다',
-    okTitle: '알맞은 공기압',
-    okVerdict: '가드에 걸려 굴러 나간다',
-    okTail: '규칙이 요구하는 상태',
-    highTitle: '공기압이 높으면',
-    highVerdict: '지나치게 튄다',
-    highTail: '굴리는 경기가 되지 않는다',
     sizeCardTitle: '크기 — 같은 축척 비교',
     sizeCardCaption: (b, s) =>
       `경기구는 지름 ${b}cm(13인치)로, 축구공 5호(약 ${s}cm)의 1.5배다. 이 치수는 Laws 본문이 아니라 FIPFA 장비 규격에서 온다 — 앱의 물리 상수 BALL.diameterM 도 같은 값이다.`,
-    pressureCardTitle: '공기압 — 규칙이 정하는 유일한 조건',
-    pressureCardCaption:
-      '규칙 본문이 공에 대해 정하는 것은 지름이 아니라 압력 하나다 — 지나치게 튀지 않으면서, 파워체어가 타고 넘지 못할 만큼. 실물이 저반발·중량형인 이유가 이것이다. 체어는 경기 전용 체어의 옆모습 비례를 따랐고, 공과의 크기 비도 대략 실물이다 — 바닥 가까이 길게 뻗은 볼가드가 공 한가운데를 만난다.',
   },
   court: {
     sizeAria: (l) => `세 코트 규격을 같은 축척으로 겹쳐 그린 비교 그림. ${l.join(', ')}. 표준 규격은 농구 코트와 같은 크기다.`,
@@ -120,23 +95,9 @@ const EN: FigureText = {
     matchBallName: 'Powerchair football',
     matchBallSub: 'match ball · 13in',
     approx: (cm) => `about ${cm}cm`,
-    pressureAria:
-      'Three inflation cases compared. Under-inflated, a chair rides over the flattened ball; correctly inflated, it catches on the guard and rolls away; over-inflated, it bounces too much.',
-    lowTitle: 'Under-inflated',
-    lowVerdict: 'the chair rides over it',
-    lowTail: 'flattened, it will not roll',
-    okTitle: 'Correct pressure',
-    okVerdict: 'it catches the guard and rolls',
-    okTail: 'what the Laws ask for',
-    highTitle: 'Over-inflated',
-    highVerdict: 'it bounces too much',
-    highTail: 'no longer a rolling game',
     sizeCardTitle: 'Size — drawn to the same scale',
     sizeCardCaption: (b, s) =>
       `The match ball is ${b}cm (13in) across — one and a half times a size 5 football (about ${s}cm). That figure comes from FIPFA equipment guidance, not from the Laws; the app's physics constant BALL.diameterM uses the same value.`,
-    pressureCardTitle: 'Pressure — the only thing the Laws fix',
-    pressureCardCaption:
-      'The Laws say nothing about the ball’s size, only its pressure: low enough not to bounce much, high enough that a powerchair cannot ride over it. That is why the real ball is low-bounce and heavyweight. The chair here follows the side-view proportions of a real match chair, and its size against the ball is roughly true — the long low guard meets the ball at its middle.',
   },
   court: {
     sizeAria: (l) => `Three court sizes drawn over one another to the same scale: ${l.join(', ')}. The standard size is the same as a basketball court.`,
@@ -175,22 +136,9 @@ const JA: FigureText = {
     matchBallName: '電動車椅子サッカー',
     matchBallSub: '競技球 · 13インチ',
     approx: (cm) => `およそ${cm}cm`,
-    pressureAria: '空気圧の3つの場合を比べた図。低いとつぶれたボールを車椅子が乗り越え、適正ならガードに当たって転がり出て、高いと過度に弾む。',
-    lowTitle: '空気圧が低いと',
-    lowVerdict: '車椅子が乗り越える',
-    lowTail: 'つぶれて転がらない',
-    okTitle: '適正な空気圧',
-    okVerdict: 'ガードに当たって転がる',
-    okTail: '規則が求める状態',
-    highTitle: '空気圧が高いと',
-    highVerdict: '過度に弾む',
-    highTail: '転がす競技にならない',
     sizeCardTitle: '大きさ — 同じ縮尺での比較',
     sizeCardCaption: (b, s) =>
       `競技球は直径${b}cm（13インチ）で、サッカーボール5号（およそ${s}cm）の1.5倍です。この寸法は競技規則本文ではなくFIPFAの用具基準によるもので、アプリの物理定数 BALL.diameterM も同じ値です。`,
-    pressureCardTitle: '空気圧 — 規則が定める唯一の条件',
-    pressureCardCaption:
-      '競技規則がボールについて定めるのは寸法ではなく空気圧だけです — 過度に弾まず、かつ電動車椅子が乗り越えられない程度。実物が低反発・重量型なのはそのためです。ここでの車椅子は競技用車椅子の側面比率に従い、ボールとの大きさの比もおおむね実物どおりです — 床近くまで伸びたボールガードがボールの中央に当たります。',
   },
   court: {
     sizeAria: (l) => `3つのコート規格を同じ縮尺で重ねた比較の図。${l.join('、')}。標準規格はバスケットボールコートと同じ大きさ。`,

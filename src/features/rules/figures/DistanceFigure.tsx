@@ -2,12 +2,15 @@
 //
 // 대부분의 재개(킥오프·킥인·코너킥·골킥·프리킥·페널티킥)는 상대가 공에서 5m 밖에 있어야
 // 하고, 세트볼만 3m 밖(참여 2명은 오히려 30cm 이내)이다 — 산문만으로는 "5m 대 3m"이 감이
-// 안 와서 두 반지름을 겹쳐 그린다. 체어 두 대를 각 링 위에 놓아 사람 스케일로 읽히게 한다.
+// 안 와서 두 반지름을 겹쳐 그린다.
+//
+// 🪦 2026-09-03: 각 링 위에 놓았던 체어 옆모습 두 대를 뺐다 — 기현 지시 *"조악하기도 하고 글자를
+// 가리기도 한다."* 체어가 5m·3m 라벨과 같은 자리(링과 반지름이 만나는 점)에 앉아서 치수 글자를
+// 덮었다. 사람 스케일은 잃지만, 이 그림의 주장은 "5m 대 3m" 이지 체어 크기가 아니다.
 //
 // 좌표는 이 도해 전용 스케일(18px/m)이다 — `ruleScenes.ts` 의 GEO(25px/m)와는 다른 값이다.
 // 이 그림은 코트 좌표계 위에 있지 않으므로 맞출 이유가 없다(코트 재현이 아니라 독립 삽화).
 import { FigureCard } from './FigureCard.tsx';
-import { PowerchairSide } from './PowerchairGlyph.tsx';
 import { figureTextFor } from './text.ts';
 import { useLocale } from '../../../i18n/useLocale.ts';
 
@@ -38,7 +41,21 @@ function RadialDim({ x1, y1, x2, y2, label, lx, ly }: { x1: number; y1: number; 
     <g>
       <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={DIM} strokeWidth={1.6} />
       <path d={`M ${x2} ${y2} L ${backX + perpX} ${backY + perpY} L ${backX - perpX} ${backY - perpY} Z`} fill={DIM} />
-      <text x={lx} y={ly} textAnchor="middle" fontSize={13} fontWeight={700} fill={DIM}>
+      {/* 라벨 뒤에 바탕색 테두리(halo)를 깐다 — 라벨이 점선 링과 겹치는 자리라 선이 글자를
+          가로지른다. 2026-09-03 체어를 뺀 뒤 드러난 것: 체어가 글자를 덮던 자리를 비우니 이번엔
+          링이 글자를 지나갔다. paint-order 로 stroke 를 먼저 칠하면 글자 둘레만 바탕색으로 판다. */}
+      <text
+        x={lx}
+        y={ly}
+        textAnchor="middle"
+        fontSize={13}
+        fontWeight={700}
+        fill={DIM}
+        stroke="var(--panel)"
+        strokeWidth={4}
+        strokeLinejoin="round"
+        paintOrder="stroke"
+      >
         {label}
       </text>
     </g>
@@ -70,11 +87,6 @@ export function DistanceFigure() {
 
         <RadialDim x1={CX} y1={CY} x2={CX + R_5M} y2={CY} label={T.distance.fiveM} lx={CX + R_5M / 2} ly={CY - 12} />
         <RadialDim x1={CX} y1={CY} x2={CX} y2={CY + R_3M} label={T.distance.threeM} lx={CX - 34} ly={CY + R_3M / 2 + 4} />
-
-        {/* 5m 원 위 체어 — 중심을 바라보도록(코 방향 180°). */}
-        <PowerchairSide x={CX + R_5M} y={CY} rotate={180} scale={0.5} />
-        {/* 3m 원 위 체어 — 위(중심)를 바라보도록(코 방향 270°). */}
-        <PowerchairSide x={CX} y={CY + R_3M} rotate={270} scale={0.5} />
 
         <text x={CX} y={VB_H - 12} textAnchor="middle" fontSize={11} fill={FAINT}>
           {T.distance.note}
