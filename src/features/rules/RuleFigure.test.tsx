@@ -38,9 +38,7 @@ describe('조항 도해', () => {
     expect(LAWS.find((l) => l.law === 2)?.figureId).toBe('ball');
   });
 
-  it('제4조(선수 장비)는 도해를 단다 — 스트라이크포스 매뉴얼 참고분', () => {
-    expect(LAWS.find((l) => l.law === 4)?.figureId).toBe('equipment');
-  });
+  // 🪦 '제4조(선수 장비)는 도해를 단다' 는 2026-09-03 에 지웠다 — 장비 도해 자체가 없어졌다(ids.ts 묘비).
 
   it('제1조(필드)는 도해를 단다 — 장면(field-tour)과 별개로', () => {
     const law1 = LAWS.find((l) => l.law === 1);
@@ -55,19 +53,6 @@ describe('조항 도해', () => {
     for (const label of Object.values(COURT_SIZE_LABELS.ko)) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
-  });
-
-  it('장비 도해의 속도 그림에서 전진·후진 막대 폭이 같다', () => {
-    // "전후진 동일 10km/h" 가 이 그림의 주장이다 — 두 막대 중 하나만 폭이 달라지면
-    // 그림이 규칙과 반대되는 말을 하게 된다.
-    const { container } = render(<RuleFigure id="equipment" />);
-    // 두 번째 svg 가 속도 도해다(첫 번째는 장비 라벨 도해) — 그쪽만 본다. 장비 라벨 도해의
-    // 시트벨트 버클도 accent 색 rect 라서 스코프를 안 좁히면 그것까지 섞여 든다.
-    const speedSvg = container.querySelectorAll('svg')[1]!;
-    const bars = speedSvg.querySelectorAll('rect[fill="var(--accent)"]');
-    expect(bars.length).toBe(2);
-    const [a, b] = bars;
-    expect(a!.getAttribute('width')).toBe(b!.getAttribute('width'));
   });
 
   it.each(RULE_FIGURE_IDS)('%s 도해가 그림 역할로 렌더된다', (id) => {

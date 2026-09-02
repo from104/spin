@@ -207,14 +207,15 @@ describe('RulesScreen — 도해·부록', () => {
     expect(heading.style.borderBottom).not.toBe('');
   });
 
-  it('"선수·코트·공·장비" 주제에 공·장비 도해가 붙는다', async () => {
+  it('"선수·코트·공·장비" 주제에 공 도해가 붙는다', async () => {
+    // 2026-09-03 까지는 장비 도해(전진·후진 10km/h 막대)도 함께 쟀다. 그 도해는 기현님이
+    // 조악하다고 판정해 지웠고, 10km/h 는 산문이 말한다 — 그래서 여기서는 공 도해만 잰다.
     renderRules();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: titleOf('basics') }));
     expect(screen.getAllByRole('img').length).toBeGreaterThan(0);
     expect(screen.getAllByText('33cm').length).toBeGreaterThan(0);
-    expect(screen.getByText('전진 10km/h')).toBeInTheDocument();
-    expect(screen.getByText('후진 10km/h')).toBeInTheDocument();
+    expect(screen.queryByText('전진 10km/h'), '장비 도해는 다시 오지 않는다').toBeNull();
   });
 
   it('"공식 룰 북" 주제에 18개조가 압축 목록으로 전부 뜬다', async () => {

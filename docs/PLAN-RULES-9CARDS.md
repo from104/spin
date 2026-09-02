@@ -525,12 +525,21 @@ blocks: `prose` → `prose` → `prose` → `scene-slot`
 > ③ **안 건드린 것**: `코트` 소제목과 *"기본 규격은 28×15m"* 문장(RulesScreen.test 가 잰다),
 > 골대·골에어리어·페널티 마크 정의(이 카드가 유일한 집), 공의 출처 구분 문장(카드 1 의 33cm 가
 > 기댄다), `ball`·`equipment` 도해(RulesScreen.test *"공·장비 도해가 붙는다"*), `tutorialAnchor`.
-> 새 블록 순서: **prose · figure(court) · prose · scene(lineup) · prose · figure(ball) · prose · figure(equipment)**
-> (도해 3 · 장면 1 — 튜토리얼 배지 설명은 그대로 성립).
+> 새 블록 순서: **prose · figure(court) · prose · scene(lineup) · prose · figure(ball) · prose**
+> (도해 2 · 장면 1 — 튜토리얼 배지 설명은 그대로 성립).
+>
+> 🪦 **2026-09-03 (같은 날 2차) — `figure equipment` 삭제.** 기현 지시: *"3번 카드의 휠체어 관련
+> 도해는 조악하다. 차라리 빼는 게 낫다."* 제4조 장비 도해(옆모습 체어 + 필수 장비 라벨, 전·후진
+> 속도 막대)를 **컴포넌트째** 지웠다(`EquipmentFigure.tsx`·`ids.ts`·`figures/text.ts` 3개 로케일·
+> 제4조 `figureId` 결속·테스트 2건). 속도 막대 패널은 조악 판정의 대상이 아니었지만 같은 도해의
+> 절반이라 함께 갔다 — 그 사실(전·후진 10km/h 동일)은 [장비] 산문 첫 줄이 그대로 말한다.
+> **체어 옆모습 글리프(`PowerchairGlyph`)는 남는다** — 공 도해가 공 크기를 체어에 맞춰 역산하고
+> 거리 도해(카드 5)가 3m·5m 링에 체어를 놓아 사람 스케일을 준다. 같은 판정이 그 둘에도 미치는지는
+> 기현님께 되물었다(아래 §7 실기 항목).
 
 tagline **코트 28×15m, 한 팀 4명**
 blocks: `prose`(코트) → `figure` court → `scene` field-tour → `prose`(선수) → `scene` lineup
-→ `prose`(공) → `figure` ball → `prose`(장비) → `figure` equipment
+→ `prose`(공) → `figure` ball → `prose`(장비) (🪦 `figure` equipment 는 2026-09-03 삭제)
 
 > tagline 을 바꾼 이유: 초안의 `코트·선수·공·장비` 는 제목 `선수·코트·공·장비` 와 사실상 같은
 > 문자열이다. 카드 앞면에서 같은 말을 두 번 하지 않는다.
@@ -585,7 +594,7 @@ blocks: `prose`(코트) → `figure` court → `scene` field-tour → `prose`(�
 > **L93**(기본 필수 장비), 측면 지지대는 **L100** 이다.
 > **용어 평이화**: *"밑판"* → **"바닥판"**, *"경계를 넘으면"* → 정본 그대로 **"튀어나오면"**.
 
-**블록 9** `figure` `equipment` — 손대지 않는다(`RuleFigure.test.tsx` 가 두 번째 svg 의 속도 막대 2개·동일 폭 강제).
+**블록 9** `figure` `equipment` — ~~손대지 않는다(`RuleFigure.test.tsx` 가 두 번째 svg 의 속도 막대 2개·동일 폭 강제).~~ 🪦 2026-09-03 삭제(위 2차 노트).
 
 > ⚠️ **이 카드가 가장 길다**(산문 4 + 도해 3 + 장면 2). §7 의 실기 항목으로 스크롤 길이를 잰다.
 
@@ -1222,7 +1231,7 @@ blocks: `prose` → `law-index`
 
 | 파일 | 지켜지는 이유 |
 |---|---|
-| `RuleFigure.test.tsx` | 조항↔도해 연결 3건(Law1 court+`field-tour`, Law2 ball, Law4 equipment)이 `ruleContent.ts` 에 걸려 있는데 안 건드린다. **`field-tour` 를 카드 3 에 남긴 것이 이 단언을 지키는 이유 중 하나다** |
+| `RuleFigure.test.tsx` | 조항↔도해 연결 2건(Law1 court+`field-tour`, Law2 ball — Law4 equipment 는 2026-09-03 삭제)이 `ruleContent.ts` 에 걸려 있는데 안 건드린다. **`field-tour` 를 카드 3 에 남긴 것이 이 단언을 지키는 이유 중 하나다** |
 | `rulesDocTruth.test.ts` | `ruleContent.ts` 한 글자도 안 고치므로 `CORE_FACTS` 12토큰 전부 무사. ⚠️ REDESIGN 이 남긴 **`30cm` 추가 부채는 이번에 청산하지 않는다** — 넣으려면 부록 압축 원고에 30cm 문장을 먼저 넣어야 한다 |
 | `AppShell.wiring.test.tsx` | `vi.mock` 이 `RulesScreen` export 이름·파일 경로·`topic` prop 에 걸려 있는데 셋 다 안 건드린다. 쓰는 키가 `two-on-one`·`rulebook` 둘인데 **둘 다 유지** |
 | `playbackLoopPref.test.tsx:108-132` | `MOUNTS` 가 `src/features/rules/RuleSceneBlock.tsx` 경로와 `<PlaybackProvider>` 사용 파일 집합의 **완전 일치**를 요구한다. `RuleSceneBlock` 을 옮기지도 쪼개지도 않고 새 재생 블록도 만들지 않는다 — **`scene-slot` 이 아무것도 렌더하지 않는 이유가 여기에도 있다** |
@@ -1295,6 +1304,8 @@ npm run test             # 커밋 직전 한 번
 6. **카드 1·2 가 배지 0개로 뜨는 모습** — 산문 전용 카드 두 장이 홈에서 어색하지 않은지.
 
 ---
+
+- [ ] **(2026-09-03 되물음) 공 도해·거리 도해의 체어 옆모습 글리프** — 카드 3 의 장비 도해를 조악하다고 지웠는데, 같은 옆모습 체어(`PowerchairGlyph`)가 공 도해(카드 3, 셋)와 거리 도해(카드 5, 둘)에도 있다. 같은 판정이면 글리프를 고치거나 두 도해에서 체어를 뺀다 — 기현님 판단.
 
 ## 8. 착수 순서
 
