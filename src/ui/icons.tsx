@@ -312,6 +312,16 @@ export function IconChevronPrev({ size = 14, ...rest }: IconProps) {
   );
 }
 
+/** 규칙 카드 헤더의 [← 목록으로](2026-09-03). ChevronPrev 는 "이전 단계" 의 채운 글리프라 뜻이
+ *  다르다 — 이건 "한 단계 위로 돌아간다" 는 선 화살표다. */
+export function IconArrowLeft({ size = 16, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
 export function IconChevronNext({ size = 14, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...fillBase} {...rest}>

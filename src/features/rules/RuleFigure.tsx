@@ -16,6 +16,8 @@ import { PfQuotaFigure } from './figures/PfQuotaFigure.tsx';
 import { LineageFigure } from './figures/LineageFigure.tsx';
 import { MatchClockFigure } from './figures/MatchClockFigure.tsx';
 import { StuckBallFigure } from './figures/StuckBallFigure.tsx';
+import { GoalPostsFigure } from './figures/GoalPostsFigure.tsx';
+import { GoalHeightFigure } from './figures/GoalHeightFigure.tsx';
 import type { RuleFigureId } from './figures/ids.ts';
 
 const FIGURES: Record<RuleFigureId, ComponentType> = {
@@ -26,6 +28,8 @@ const FIGURES: Record<RuleFigureId, ComponentType> = {
   lineage: LineageFigure,
   'match-clock': MatchClockFigure,
   'stuck-ball': StuckBallFigure,
+  'goal-posts': GoalPostsFigure,
+  'goal-height': GoalHeightFigure,
 };
 
 export function RuleFigure({ id }: { id: RuleFigureId }) {

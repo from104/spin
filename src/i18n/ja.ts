@@ -516,7 +516,7 @@ export const ja: Record<DictKey, string> = {
   'help.rules.item4.term': '再開比較表',
   'help.rules.item4.desc': '表で再開を選ぶと、その下でボードシーンがすぐ再生されます。',
   'help.rules.restartButton': 'ルールツアーをもう一度見る',
-  'rules.backToHome': 'ホームへ',
+  'rules.backToList': '一覧へ',
   'rules.prevTopic': '前のトピック',
   'rules.nextTopic': '次のトピック',
   'rules.playScene': 'シーンを再生',

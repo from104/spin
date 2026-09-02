@@ -25,7 +25,7 @@ import { SkipLink } from '../ui/SkipLink.tsx';
 import { useIsNarrow } from '../ui/useIsNarrow.ts';
 import { LiveRegion, liveRegion } from '../ui/LiveRegion.tsx';
 import { ToastHost } from '../ui/ToastHost.tsx';
-import { IconPlus } from '../ui/icons.tsx';
+import { IconPlus, IconArrowLeft } from '../ui/icons.tsx';
 import { useToast } from '../store/toast/ToastProvider.tsx';
 import { useLibrary } from '../store/library/LibraryProvider.tsx';
 import type { DrillId, SessionId } from '../core/ids.ts';
@@ -53,6 +53,7 @@ import { BoardScreen } from '../features/board/BoardScreen.tsx';
 import { EditorScreen } from '../features/editor/EditorScreen.tsx';
 import { PresentScreen } from '../features/present/PresentScreen.tsx';
 import { RulesScreen } from '../features/rules/RulesScreen.tsx';
+import { RULE_TOPIC_KEYS, ruleTopicsFor } from '../features/rules/ruleTopics.ts';
 import { SettingsScreen } from '../features/settings/SettingsScreen.tsx';
 
 // ── 화면 간 라우팅 대상 (계약 밖 확장 — DESIGN.md 가 안 정한 부분을 메운다) ──────────────────
@@ -143,7 +144,7 @@ function useHomeNavAdapter(nav: AppHistoryApi, openNewDrill: () => void): HomeNa
  *  courtMode·저장 상태처럼 화면 내부 Provider 안의 값이 필요해서 대신 스스로 useAppHeader 로
  *  선언한다 — 이 함수는 그 둘에서 undefined 를 반환해 AppHeader 가 Context 값을 쓰게 비켜준다
  *  (정적 계산과 Context 선언이 같은 프레임에 동시에 밀어넣으면 서로 경합한다). */
-function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | undefined {
+function useStaticHeaderConfig(screen: Screen, nav: HomeNav, ruleTopic: string | undefined): HeaderConfig | undefined {
   const { search, setSearch } = useLibrary();
   const { createSession } = useLibrary();
   const locale = useLocale();
@@ -181,8 +182,22 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
           },
         },
       };
-    case 'rules':
-      return { title: SCREEN_TITLES[locale].rules, subtitle: SCREEN_SUBTITLES[locale].rules };
+    case 'rules': {
+      // 2026-09-03 기현 지시 — 목록은 화면 제목·부제를 **가운데**, 카드 안은 카드 주제목·부제목을
+      // 가운데 + 왼쪽 끝 [← 목록으로]. 규칙 화면은 §8 표대로 app-shell 미의존이라 여기서 계산한다
+      // (문서 맨 위에 있던 [← 홈으로] 버튼은 이 버튼으로 옮겨 갔다 — RuleTopicDoc 에서 뺐다).
+      const topic =
+        ruleTopic && (RULE_TOPIC_KEYS as readonly string[]).includes(ruleTopic)
+          ? ruleTopicsFor(locale).find((tp) => tp.key === ruleTopic)
+          : undefined;
+      if (!topic) return { title: SCREEN_TITLES[locale].rules, subtitle: SCREEN_SUBTITLES[locale].rules, align: 'center' };
+      return {
+        title: topic.title,
+        subtitle: topic.tagline,
+        align: 'center',
+        leading: { label: t('rules.backToList'), icon: <IconArrowLeft size={16} />, onAction: () => nav.openRuleTopic() },
+      };
+    }
     case 'settings':
       return { title: SCREEN_TITLES[locale].settings, subtitle: SCREEN_SUBTITLES[locale].settings };
     default:
@@ -285,7 +300,7 @@ export function AppShell() {
   //   실측 문턱이 바뀐 것은 아니라서, 작은 창(1024×600 급)에서 코트가 준 체감을 실기로 확인해야
   //   한다(계획서 "치러야 하는 대가" 참고). `stageTarget` 이 판정에 **돌아온다.**
   const showHeader = narrow || nav.screen !== 'board' || stageTarget.kind === 'drill';
-  const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav);
+  const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav, ruleTopic);
 
   // §7.6: 화면 전환(go·back·popstate 전부) 시 <main id="main"> 에 포커스 + 라이브 리전 발표.
   // 최초 마운트(직접 진입)는 제외한다 — 브라우저가 이미 페이지 로드 시점의 포커스를 다뤘다.

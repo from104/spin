@@ -72,7 +72,6 @@ export function RulesScreen({ topic, nav }: { topic?: string; nav: HomeNav }) {
             topic={current}
             prevTopic={index > 0 ? (topics[index - 1] ?? null) : null}
             nextTopic={index < topics.length - 1 ? (topics[index + 1] ?? null) : null}
-            onBack={() => nav.openRuleTopic()}
             onSelectTopic={(key) => nav.openRuleTopic(key)}
           />
         </div>

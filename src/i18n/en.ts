@@ -517,7 +517,7 @@ export const en: Record<DictKey, string> = {
   'help.rules.item4.term': 'Restart comparison table',
   'help.rules.item4.desc': 'Pick a restart in the table and its board scene plays right below it.',
   'help.rules.restartButton': 'Replay rules tour',
-  'rules.backToHome': 'Home',
+  'rules.backToList': 'Back to list',
   'rules.prevTopic': 'Previous topic',
   'rules.nextTopic': 'Next topic',
   'rules.playScene': 'Play scene',

@@ -43,6 +43,8 @@ export const TOPICS_EN: readonly RuleTopic[] = [
           'The goals have no net and no crossbar — a net would catch the wheels.',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'goal-posts' },
       {
         kind: 'scene-slot',
         note: [
@@ -115,6 +117,8 @@ export const TOPICS_EN: readonly RuleTopic[] = [
           'And not a goal if the scoring team broke a rule first.',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'goal-height' },
       {
         kind: 'prose',
         heading: 'The chair moves the ball',
