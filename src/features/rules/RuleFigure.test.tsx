@@ -16,6 +16,7 @@ import { RULE_FIGURE_IDS } from './figures/ids.ts';
 import { ruleContentFor } from './ruleContent.ts';
 import { BALL } from '../../core/constants.ts';
 import { COURT_SIZE_LABELS } from '../../model/court.ts';
+import { LAW } from './ruleConstants.ts';
 
 const LAWS = ruleContentFor('ko');
 
@@ -71,11 +72,40 @@ describe('조항 도해', () => {
     expect(screen.getAllByText(`${cm}cm`).length).toBeGreaterThan(0);
   });
 
-  it('도해 SVG 는 코트 전용 갈고리(stage-svg)를 달지 않는다', () => {
+  it.each(RULE_FIGURE_IDS)('%s 도해 SVG 는 코트 전용 갈고리(stage-svg)를 달지 않는다', (id) => {
     // `.stage-svg` 는 강제색 제외와 함께 `touch-action: none` 을 물고 온다(FigureCard.tsx
     // 머리말). 도해는 세로로 긴 읽기 흐름 안에 있어 그걸 달면 태블릿에서 스크롤이 죽는다.
-    const { container } = render(<RuleFigure id="ball" />);
+    // 2026-09-03 까지는 ball 한 장만 봤다 — 새 도해 4장이 들어오며 전 도해로 넓혔다.
+    const { container } = render(<RuleFigure id={id} />);
     expect(container.querySelectorAll('.stage-svg')).toHaveLength(0);
     expect(container.querySelectorAll('svg').length).toBeGreaterThan(0);
+  });
+
+  // 2026-09-03 카드 1·2 도해 4장(PLAN §11) — 셋 다 '수치가 LAW 상수에서 파생되는가' 만 잰다.
+  // lineage 는 단언이 없다: 연도·이름을 단언하면 검사표가 데이터를 베끼는 자기증명이다.
+  it('등급 정원 도해의 칸 수가 LAW 에서 파생된다', () => {
+    // 손으로 4·2 를 적어 넣으면 상한이 바뀔 때 이 도해만 따로 논다.
+    const { container } = render(<RuleFigure id="pf-quota" />);
+    expect(container.querySelectorAll('rect[data-slot]').length).toBe(LAW.teamMaxOnCourt);
+    expect(container.querySelectorAll('rect[data-slot="pf2"]').length).toBe(LAW.pf2MaxOnCourt);
+  });
+
+  it('경기 시간 도해의 세 칸 폭이 LAW 의 분수에서 파생된다', () => {
+    // 손으로 88·176 을 적으면 LAW.halfMin/halftimeMaxMin 이 바뀌어도 그림만 옛 비율로 남는다.
+    const { container } = render(<RuleFigure id="match-clock" />);
+    const w = (seg: string) =>
+      Number(container.querySelector(`rect[data-seg="${seg}"]`)?.getAttribute('width'));
+    expect(w('halftime') / w('first')).toBeCloseTo(LAW.halftimeMaxMin / LAW.halfMin, 5);
+  });
+
+  it('물림 도해의 인플레이 : 아웃 폭 비가 LAW.stuckBallSec 에서 파생된다', () => {
+    // 축 스케일(px/초)이 LAW.stuckBallSec 에서 나오므로, 인플레이(5초분) ÷ 아웃(1초분) 은
+    // 상수와 같아야 한다. 인플레이 폭을 300 으로 손으로 적으면 상수가 6 이 되는 순간 빨개진다.
+    const { container } = render(<RuleFigure id="stuck-ball" />);
+    const inPlay = container.querySelector('rect[data-seg="in-play"]');
+    const out = container.querySelector('rect[data-seg="out"]');
+    const w = (el: Element | null) => Number(el?.getAttribute('width'));
+    expect(w(out)).toBeGreaterThan(0);
+    expect(w(inPlay) / w(out)).toBeCloseTo(LAW.stuckBallSec);
   });
 });

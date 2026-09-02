@@ -63,6 +63,8 @@ export const TOPICS_JA: readonly RuleTopic[] = [
           '男女の制限はありません。男女が同じチームで一緒にプレーします。',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'pf-quota' },
       {
         kind: 'prose',
         heading: '規則はひとつです',
@@ -73,6 +75,8 @@ export const TOPICS_JA: readonly RuleTopic[] = [
           'この画面が扱うのはその国際規則です — FIPFA競技規則（Laws of the Game）2025年4月承認版。',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'lineage' },
       {
         kind: 'prose',
         heading: 'いま、そして日本',
@@ -100,6 +104,8 @@ export const TOPICS_JA: readonly RuleTopic[] = [
           '後半は陣地を入れ替えます。守っていたゴールを攻め、攻めていたゴールを守ります。',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'match-clock' },
       {
         kind: 'prose',
         heading: 'ゴールは転がって入らなければなりません',
@@ -134,6 +140,8 @@ export const TOPICS_JA: readonly RuleTopic[] = [
           'だから規則が選手を散らします。選手の位置を制限する規則が2つあります。[ゴールエリアの反則]と[2対1の反則]です。そのうち2対1は、ボールの周りを空けておくための規則です。',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'stuck-ball' },
       {
         kind: 'prose',
         heading: 'ボールが止まったら、反則をしたら',

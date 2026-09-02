@@ -51,7 +51,7 @@ function RadialDim({ x1, y1, x2, y2, label, lx, ly }: { x1: number; y1: number; 
         fontSize={13}
         fontWeight={700}
         fill={DIM}
-        stroke="var(--panel)"
+        stroke="var(--panel-2)"
         strokeWidth={4}
         strokeLinejoin="round"
         paintOrder="stroke"
@@ -83,7 +83,7 @@ export function DistanceFigure() {
         {/* 3m 원 — 세트볼. 파선, 5m 원 draw-in 뒤에 나타난다. */}
         <circle cx={CX} cy={CY} r={R_3M} fill="none" stroke={DIM} strokeWidth={2} strokeDasharray="6 5" className="rules-distance-ring-3m" />
         {/* 중심 공. */}
-        <circle cx={CX} cy={CY} r={7} fill="var(--accent)" stroke="var(--panel)" strokeWidth={1.5} />
+        <circle cx={CX} cy={CY} r={7} fill="var(--accent)" stroke="var(--panel-2)" strokeWidth={1.5} />
 
         <RadialDim x1={CX} y1={CY} x2={CX + R_5M} y2={CY} label={T.distance.fiveM} lx={CX + R_5M / 2} ly={CY - 12} />
         <RadialDim x1={CX} y1={CY} x2={CX} y2={CY + R_3M} label={T.distance.threeM} lx={CX - 34} ly={CY + R_3M / 2 + 4} />
