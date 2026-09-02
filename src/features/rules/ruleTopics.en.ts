@@ -63,6 +63,8 @@ export const TOPICS_EN: readonly RuleTopic[] = [
           'There is no gender restriction. Women and men play on the same team.',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'pf-quota' },
       {
         kind: 'prose',
         heading: 'One set of rules',
@@ -73,6 +75,8 @@ export const TOPICS_EN: readonly RuleTopic[] = [
           'That international set is what this screen covers — the FIPFA Laws of the Game, approved April 2025.',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'lineage' },
       {
         kind: 'prose',
         heading: 'Where the sport stands',
@@ -100,6 +104,8 @@ export const TOPICS_EN: readonly RuleTopic[] = [
           'The teams change ends at half-time.',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'match-clock' },
       {
         kind: 'prose',
         heading: 'A goal has to roll in',
@@ -136,6 +142,8 @@ export const TOPICS_EN: readonly RuleTopic[] = [
           'So the rules spread the players out. Two rules limit where players may be: [Goal area violation] and [2-on-1 violation]. The 2-on-1 rule exists to keep the space around the ball open.',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'stuck-ball' },
       {
         kind: 'prose',
         heading: 'When the ball stops, when a foul happens',

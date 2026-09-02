@@ -14,9 +14,14 @@ export interface VerdictProps {
   ok: boolean;
   head: string;
   tail: string;
+  /** 표제·부제의 `cy` 기준 오프셋. 기본값(30/47)은 배지가 빈 자리에 설 때의 간격이고, 배지가
+   *  **칸 안**에 서서 글이 칸 아래로 나가야 할 때 늘린다(2026-09-03 pf-quota — 기본값으로는
+   *  56 높이 칸의 바닥선이 표제를 관통했다). */
+  headDy?: number;
+  tailDy?: number;
 }
 
-export function Verdict({ cx, cy, ok, head, tail }: VerdictProps) {
+export function Verdict({ cx, cy, ok, head, tail, headDy = HEAD_DY, tailDy = TAIL_DY }: VerdictProps) {
   const color = ok ? 'var(--accent)' : 'var(--muted)';
   return (
     <g>
@@ -29,10 +34,10 @@ export function Verdict({ cx, cy, ok, head, tail }: VerdictProps) {
           <line x1={cx + 4.6} y1={cy - 4.6} x2={cx - 4.6} y2={cy + 4.6} />
         </g>
       )}
-      <text x={cx} y={cy + HEAD_DY} textAnchor="middle" fontSize={12.5} fontWeight={700} fill={ok ? 'var(--accent-text)' : 'var(--text)'}>
+      <text x={cx} y={cy + headDy} textAnchor="middle" fontSize={12.5} fontWeight={700} fill={ok ? 'var(--accent-text)' : 'var(--text)'}>
         {head}
       </text>
-      <text x={cx} y={cy + TAIL_DY} textAnchor="middle" fontSize={11.5} fill="var(--faint-text)">
+      <text x={cx} y={cy + tailDy} textAnchor="middle" fontSize={11.5} fill="var(--faint-text)">
         {tail}
       </text>
     </g>

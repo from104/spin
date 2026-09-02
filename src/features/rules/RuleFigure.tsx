@@ -12,12 +12,20 @@ import type { ComponentType } from 'react';
 import { CourtFigure } from './figures/CourtFigure.tsx';
 import { BallFigure } from './figures/BallFigure.tsx';
 import { DistanceFigure } from './figures/DistanceFigure.tsx';
+import { PfQuotaFigure } from './figures/PfQuotaFigure.tsx';
+import { LineageFigure } from './figures/LineageFigure.tsx';
+import { MatchClockFigure } from './figures/MatchClockFigure.tsx';
+import { StuckBallFigure } from './figures/StuckBallFigure.tsx';
 import type { RuleFigureId } from './figures/ids.ts';
 
 const FIGURES: Record<RuleFigureId, ComponentType> = {
   court: CourtFigure,
   ball: BallFigure,
   distance: DistanceFigure,
+  'pf-quota': PfQuotaFigure,
+  lineage: LineageFigure,
+  'match-clock': MatchClockFigure,
+  'stuck-ball': StuckBallFigure,
 };
 
 export function RuleFigure({ id }: { id: RuleFigureId }) {
