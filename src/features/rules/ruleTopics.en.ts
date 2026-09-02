@@ -203,7 +203,6 @@ export const TOPICS_EN: readonly RuleTopic[] = [
           'A lap seatbelt, a frontguard and lateral supports (armrests) on both sides are required. No part of the chair, or of the player, may overhang the front or rear of the chair base.',
         ],
       },
-      { kind: 'figure', figureId: 'equipment' },
     ],
     tutorialAnchor: 'rules-card',
   },

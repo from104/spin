@@ -201,7 +201,6 @@ export const TOPICS_JA: readonly RuleTopic[] = [
           'ラップシートベルト、フットガード、左右両側の側方サポート（アームレスト）が必須です。車椅子のどの部分も、選手の身体も、車椅子ベースの前後にはみ出してはいけません。',
         ],
       },
-      { kind: 'figure', figureId: 'equipment' },
     ],
   },
   {

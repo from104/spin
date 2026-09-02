@@ -50,7 +50,6 @@ export const LAWS_EN: readonly RuleLaw[] = [
       'Four or more wheels; maximum 10 kph forward and reverse. Lap seatbelt, frontguard and lateral supports on both sides.',
       'Guards must be unbreakable, flat or convex, never angled to lift the ball. Nothing may be built to trap or hold the ball.',
     ],
-    figureId: 'equipment',
   },
   {
     law: 5,

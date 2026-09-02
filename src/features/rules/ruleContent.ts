@@ -95,7 +95,6 @@ const KO_RULE_LAWS: readonly RuleLaw[] = [
       '전동휠체어 4바퀴 이상, 경기 중 최고 속도는 전진·후진 동일 10km/h.',
       '랩 시트벨트·프런트가드·좌우 측면지지대 필수, 체어 밑판 앞뒤 경계를 넘는 부분 금지.',
     ],
-    figureId: 'equipment',
   },
   {
     law: 5,

@@ -11,14 +11,12 @@
 import type { ComponentType } from 'react';
 import { CourtFigure } from './figures/CourtFigure.tsx';
 import { BallFigure } from './figures/BallFigure.tsx';
-import { EquipmentFigure } from './figures/EquipmentFigure.tsx';
 import { DistanceFigure } from './figures/DistanceFigure.tsx';
 import type { RuleFigureId } from './figures/ids.ts';
 
 const FIGURES: Record<RuleFigureId, ComponentType> = {
   court: CourtFigure,
   ball: BallFigure,
-  equipment: EquipmentFigure,
   distance: DistanceFigure,
 };
 

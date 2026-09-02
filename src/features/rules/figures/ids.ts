@@ -3,8 +3,10 @@
 // 컴포넌트(`RuleFigure.tsx`)와 **일부러 갈라 놓았다**. 조항 데이터(`ruleContent.ts`)는 순수
 // 데이터 모듈인데 도해 id 하나 때문에 `.tsx` 를 물면 데이터가 렌더 트리를 끌고 다닌다. 겸사
 // react-refresh 도 파일 하나가 컴포넌트만 내보낼 때 제대로 돈다.
-export type RuleFigureId = 'court' | 'ball' | 'equipment' | 'distance';
+export type RuleFigureId = 'court' | 'ball' | 'distance';
 
 /** 도해 전량. `RuleFigure.tsx` 의 `Record<RuleFigureId, …>` 가 여기 없는 id 를 컴파일에서
  *  거른다 — 목록만 늘리고 그림을 안 그리는 사고가 안 난다. */
-export const RULE_FIGURE_IDS: readonly RuleFigureId[] = ['court', 'ball', 'equipment', 'distance'];
+// 🪦 'equipment'(제4조 장비 도해)는 2026-09-03 에 지웠다 — 기현님이 조악하다고 판정. 체어 옆모습
+// 글리프(PowerchairGlyph)는 공·거리 도해가 계속 쓰므로 남는다.
+export const RULE_FIGURE_IDS: readonly RuleFigureId[] = ['court', 'ball', 'distance'];
