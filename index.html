@@ -23,6 +23,11 @@
          env(safe-area-inset-*) 여백이 받아낸다(둘은 한 쌍이라 하나만 두면 UI 가 먹힌다). -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- 검색엔진 소유 확인 (2026-09-02). ⚠️ **SEO:START 마커 바깥**이어야 한다 —
+         그 구간은 scripts/prerender.mjs 가 페이지마다 통째로 갈아 끼우므로, 안에 넣으면
+         프리렌더된 32장에서 이 태그가 사라진다. 확인은 대문만 보지만 전 페이지에 남는 편이
+         안전하다(재확인 시점에 어느 주소를 볼지 우리가 정하지 않는다). -->
+    <meta name="naver-site-verification" content="a9d42acd1a54c40c4ab9bfec846bc65fd8856205" />
     <title>SPIN — 파워체어 풋볼 드릴 플래너</title>
     <!-- SEO:START — 이 구간은 scripts/prerender.mjs 가 페이지마다 **통째로 갈아 끼운다.**
          마커를 지우면 프리렌더가 실패한다(조용히 넘어가면 페이지마다 canonical 이 두 벌씩
