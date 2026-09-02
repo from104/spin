@@ -98,7 +98,7 @@ describe('RulesScreen — 카드 홈', () => {
     expect(document.querySelector('[data-tut="rules-appendix"]')).toHaveAccessibleName(titleOf('rulebook'));
   });
 
-  it('카드를 고르면 상세로 들어가고, [홈으로]로 되돌아간다', async () => {
+  it('카드를 고르면 상세로 들어간다 — 되돌아가는 [목록으로]는 앱 헤더의 것이라 AppShell.wiring.test 가 잰다', async () => {
     renderRules();
     const user = userEvent.setup();
     // 제목 문자열을 직접 쓰지 않고 인덱스로 집는다 — 카드 구성이 바뀔 때마다 깨지지 않게.
@@ -107,10 +107,8 @@ describe('RulesScreen — 카드 홈', () => {
     // 상세에 들어가면 다른 주제의 '카드' 버튼은 사라진다 — 아래쪽 [다음 주제] 링크는 접근성
     // 이름이 제목보다 길어서(안내 문구 포함) 정확 일치로는 안 잡힌다.
     expect(screen.queryByRole('button', { name: TOPICS[1]!.title })).toBeNull();
-
-    await user.click(screen.getByRole('button', { name: '← 홈으로' }));
-    expect(screen.getByRole('button', { name: TOPICS[0]!.title })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
+    // 2026-09-03: 문서 안 [← 홈으로] 는 헤더 [← 목록으로] 로 올라갔다 — 이 화면 단독 렌더에는 없다.
+    expect(screen.queryByRole('button', { name: /홈으로|목록으로/ })).toBeNull();
   });
 
   it('상세 하단의 이전/다음 주제로 이웃 주제를 오간다', async () => {
@@ -155,13 +153,14 @@ describe('RulesScreen — 카드 홈', () => {
   });
 
   it('첫 주제엔 이전 주제 링크가 없고, 마지막 주제엔 다음 주제 링크가 없다', async () => {
-    renderRules();
+    const first = renderRules();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: TOPICS[0]!.title }));
     expect(screen.queryByText('이전 주제')).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: '← 홈으로' }));
-    await user.click(screen.getByRole('button', { name: TOPICS[TOPICS.length - 1]!.title }));
+    // 되돌아가는 버튼은 앱 헤더의 것이라 이 화면 단독 렌더에는 없다 — 마지막 주제는 딥링크로 연다.
+    first.unmount();
+    renderRules(TOPICS[TOPICS.length - 1]!.key);
     expect(screen.queryByText('다음 주제')).toBeNull();
   });
 });

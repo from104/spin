@@ -22,6 +22,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ruleTopicsFor } from '../features/rules/ruleTopics.ts';
 import type { DrillId, SessionId } from '../core/ids.ts';
 import type { HomeNav } from '../features/home/nav.ts';
 import { CHROME_ROWS } from './chromeBudget.ts';
@@ -307,6 +308,22 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     await renderShell();
     expectOnlyScreen('screen-rules');
     expect(screen.getByTestId('screen-rules')).toHaveAttribute('data-rule-topic', 'two-on-one');
+  });
+
+  it('규칙 카드 안에서는 헤더가 카드 제목·부제를 보이고 [목록으로]가 목록으로 되돌린다 (2026-09-03 신설)', async () => {
+    // 기현 지시: 목록일 때는 화면 제목·부제 가운데, 카드로 들어가면 카드 주제목·부제목 가운데 +
+    // 헤더 왼쪽 끝 [← 목록으로]. 문서 안에 있던 [← 홈으로] 는 이 버튼으로 옮겨 갔다.
+    initialPath = '/rules/two-on-one';
+    await renderShell();
+    const user = userEvent.setup();
+    const topic = ruleTopicsFor('ko').find((tp) => tp.key === 'two-on-one')!;
+    expect(within(header()).getByText(topic.title)).toBeInTheDocument();
+    expect(within(header()).getByText(topic.tagline)).toBeInTheDocument();
+
+    await user.click(within(header()).getByRole('button', { name: '목록으로' }));
+    expect(router.state.location.pathname).toBe('/rules');
+    expect(within(header()).getByText('경기 규칙')).toBeInTheDocument();
+    expect(within(header()).queryByRole('button', { name: '목록으로' })).toBeNull();
   });
 
   it('옛 /rules/law-N 딥링크는 부록 주제(rulebook)로 흡수돼 화면까지 닿는다', async () => {

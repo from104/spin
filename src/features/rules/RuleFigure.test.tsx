@@ -15,7 +15,9 @@ import { RuleFigure } from './RuleFigure.tsx';
 import { RULE_FIGURE_IDS } from './figures/ids.ts';
 import { ruleContentFor } from './ruleContent.ts';
 import { BALL } from '../../core/constants.ts';
-import { COURT_SIZE_LABELS } from '../../model/court.ts';
+import { COURT_SIZE_LABELS, GOAL_HALF_PX } from '../../model/court.ts';
+import { PX_PER_M } from '../../core/units.ts';
+import { figureTextFor } from './figures/text.ts';
 import { LAW } from './ruleConstants.ts';
 
 const LAWS = ruleContentFor('ko');
@@ -107,5 +109,26 @@ describe('조항 도해', () => {
     const w = (el: Element | null) => Number(el?.getAttribute('width'));
     expect(w(out)).toBeGreaterThan(0);
     expect(w(inPlay) / w(out)).toBeCloseTo(LAW.stuckBallSec);
+  });
+
+  // 2026-09-03 저녁 — 카드당 3장(goal-posts·goal-height). 역시 상수 파생만 잰다.
+  it('골대 도해의 간격 라벨이 GOAL_HALF_PX·PX_PER_M 에서 파생된다', () => {
+    // 손으로 '6m' 을 적어 넣으면 골대 폭 상수가 바뀔 때 이 도해만 옛 수치로 남는다.
+    // 기대값도 text.ts 의 포맷 함수로 조립한다 — 검사표가 '6m' 이라는 문자열을 따로 아는 순간
+    // 로케일 문구(예: 'width 6 m')가 바뀌어도 초록으로 남아 아무것도 지키지 못한다.
+    const widthM = (GOAL_HALF_PX * 2) / PX_PER_M;
+    const { container } = render(<RuleFigure id="goal-posts" />);
+    const label = container.querySelector('text[data-dim="goal-width"]');
+    expect(label?.textContent).toBe(figureTextFor('ko').goalPosts.width(widthM));
+  });
+
+  it('골 높이 도해의 한계선 높이 : 공 지름 비가 규정 상수에서 파생된다', () => {
+    // 축척(px/cm) 하나에서 두 길이가 나오므로 픽셀 비 = LAW.liftedBallM : BALL.diameterM 이어야
+    // 한다. 한계선을 100px 로 손으로 적으면(= "공 한 개 반쯤" 이라는 어림) 여기서 빨개진다.
+    const { container } = render(<RuleFigure id="goal-height" />);
+    const limitH = Number(container.querySelector('[data-limit-h]')?.getAttribute('data-limit-h'));
+    const ballR = Number(container.querySelector('circle[data-ball="grounded"]')?.getAttribute('r'));
+    expect(ballR).toBeGreaterThan(0);
+    expect(limitH / (ballR * 2)).toBeCloseTo(LAW.liftedBallM / BALL.diameterM, 5);
   });
 });

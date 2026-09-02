@@ -46,6 +46,8 @@ export const TOPICS_JA: readonly RuleTopic[] = [
           'ゴールにはネットもクロスバーもありません。ネットは車輪が絡みやすいからです。',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'goal-posts' },
       {
         kind: 'scene-slot',
         note: ['sceneId `intro-tour`（기현님 챕터 1-1）の席。韓国語版・英語版と同じ位置に置く。'],
@@ -115,6 +117,8 @@ export const TOPICS_JA: readonly RuleTopic[] = [
           '得点したチームがその前に規則を破っていた場合も得点になりません。',
         ],
       },
+      // 2026-09-03 ko 와 같은 도해 — 한국어 카드 재작성 뒤 옮길 것(PLAN §11)
+      { kind: 'figure', figureId: 'goal-height' },
       {
         kind: 'prose',
         heading: 'ボールは車椅子で動かします',

@@ -19,6 +19,13 @@ export const LAW = {
   halftimeMaxMin: 10,
   /** 액티브 플레이 중인 상대 둘 이상 사이에 공이 물린 채 이 초를 넘기면 아웃오브플레이. docs/RULES-FIPFA-2025.md:166 (Law 9) */
   stuckBallSec: 5,
+  /** 공이 바닥에서 이 높이 이상 떠서 골라인을 넘으면 득점 무효(Law 10 :180). 같은 높이가 Law 9 :168 에도 있으나
+   *  거기서는 '주심이 보기에 위험'해야 아웃이다 — 도해(goal-height)는 Law 10 만 그린다. 20in = 0.508m. */
+  liftedBallM: 0.508,
+  /** 골포스트 실물 — 코트 라인 굵기의 파이프, 높이 1.5m, 바닥에서 0.5m 에 표시. Laws 본문이 아니라 현장 규격
+   *  (2026-09-03 기현님, docs/RULES-FIPFA-2025.md Law 1 ⬆ 항목). 0.5m 표시는 liftedBallM 판정의 눈금이다. */
+  goalPostHeightM: 1.5,
+  goalPostMarkM: 0.5,
 } as const;
 
 /** 규칙 계보 도해(카드 1 `lineage`)의 시점들. 연도는 text.ts 에 적지 않고 여기서 포맷한다. */

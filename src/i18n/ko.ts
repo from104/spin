@@ -517,7 +517,7 @@ export const ko = {
   'help.rules.item4.term': '재개 비교표',
   'help.rules.item4.desc': '표에서 재개 하나를 고르면 그 아래에서 바로 보드로 재생됩니다.',
   'help.rules.restartButton': '규칙 투어 다시 보기',
-  'rules.backToHome': '홈으로',
+  'rules.backToList': '목록으로',
   'rules.prevTopic': '이전 주제',
   'rules.nextTopic': '다음 주제',
   'rules.playScene': '장면 재생',

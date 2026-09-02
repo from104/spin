@@ -12,7 +12,10 @@ export type RuleFigureId =
   | 'pf-quota'
   | 'lineage'
   | 'match-clock'
-  | 'stuck-ball';
+  | 'stuck-ball'
+  // 2026-09-03 기현님 "카드당 3개는 적절함" — 상한을 3 으로 올리며 후보에서 상한 때문에만 밀렸던 둘을 넣었다.
+  | 'goal-posts'
+  | 'goal-height';
 
 /** 도해 전량. `RuleFigure.tsx` 의 `Record<RuleFigureId, …>` 가 여기 없는 id 를 컴파일에서
  *  거른다 — 목록만 늘리고 그림을 안 그리는 사고가 안 난다. */
@@ -26,4 +29,6 @@ export const RULE_FIGURE_IDS: readonly RuleFigureId[] = [
   'lineage',
   'match-clock',
   'stuck-ball',
+  'goal-posts',
+  'goal-height',
 ];

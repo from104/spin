@@ -99,6 +99,36 @@ export interface FigureText {
     cond3: string;
     allThree: string;
   };
+  /** 카드 1 `goal-posts` — 골대 정면: 기둥 둘, 간격 6m, 크로스바·그물 없음(Law 1 :58). 폭은 GOAL_HALF_PX 파생. */
+  goalPosts: {
+    title: (widthM: number) => string;
+    caption: string;
+    aria: (widthM: number) => string;
+    width: (widthM: number) => string;
+    /** 기둥 높이·50cm 표시 라벨 — 인자는 LAW.goalPostHeightM·goalPostMarkM 을 cm 로 바꾼 값. */
+    postHeight: (cm: number) => string;
+    mark: (cm: number) => string;
+    goalLine: string;
+    /** 없는 것 둘의 ✕ 배지 머리·꼬리. */
+    noCrossbarHead: string;
+    noCrossbarTail: string;
+    noNetHead: string;
+    noNetTail: string;
+  };
+  /** 카드 2 `goal-height` — 골라인 단면: 바닥에서 50.8cm 파선, 같은 축척의 공(Law 10 :179-180). 수치는 LAW.liftedBallM·BALL.diameterM 파생. */
+  goalHeight: {
+    title: (limitCm: number) => string;
+    caption: string;
+    aria: (limitCm: number, ballCm: number) => string;
+    limit: (limitCm: number, limitIn: number) => string;
+    floor: string;
+    goalLine: string;
+    ballDia: (ballCm: number) => string;
+    okHead: string;
+    okTail: string;
+    noHead: string;
+    noTail: string;
+  };
 }
 
 const KO: FigureText = {
@@ -190,6 +220,33 @@ const KO: FigureText = {
     cond2: '액티브 플레이 중',
     cond3: '공이 움직이지 못함',
     allThree: '셋 다 맞아야',
+  },
+  goalPosts: {
+    title: (m) => `골대 — 기둥 둘, 간격 ${m}m`,
+    caption: '기둥은 코트 라인 굵기의 파이프입니다. 크로스바도 그물도 없어서, 골의 위쪽 경계는 기둥의 표시 높이로 규칙이 따로 정합니다.',
+    aria: (m) => `골대를 정면에서 본 그림. 골라인 위에 가는 기둥 둘이 ${m}m 간격으로 서 있고, 기둥마다 바닥 가까이에 높이 표시가 있으며, 그 위(크로스바)와 사이(그물)는 비어 있다는 ✕ 표시.`,
+    width: (m) => `${m}m`,
+    postHeight: (cm) => `높이 ${cm}cm`,
+    mark: (cm) => `${cm}cm 표시`,
+    goalLine: '골라인',
+    noCrossbarHead: '크로스바',
+    noCrossbarTail: '없습니다',
+    noNetHead: '그물',
+    noNetTail: '없습니다',
+  },
+  goalHeight: {
+    title: (cm) => `골 높이의 한계 — ${cm}cm`,
+    caption: '골대에 크로스바가 없어서, 기둥의 표시 높이가 골의 위쪽 경계입니다. 공이 그 위로 떠서 넘으면 골이 아닙니다.',
+    aria: (cm, b) =>
+      `골라인을 옆에서 자른 단면. 골라인에 선 골대 기둥의 표시에서 바닥 ${cm}cm 높이의 파선이 뻗어 나가고, 같은 축척의 공(지름 ${b}cm) 둘이 골라인을 넘은 쪽에 있다 — 바닥을 굴러 넘은 공은 골, 기둥 바로 옆에서 파선 위로 떠서 넘은 공은 골이 아니라는 표시.`,
+    limit: (cm, inch) => `${cm}cm (${inch}in)`,
+    floor: '바닥',
+    goalLine: '골라인',
+    ballDia: (b) => `공 ${b}cm`,
+    okHead: '굴러서 넘으면',
+    okTail: '골',
+    noHead: '떠서 넘으면',
+    noTail: '골 아님',
   },
 };
 
@@ -284,6 +341,33 @@ const EN: FigureText = {
     cond3: 'Ball cannot move',
     allThree: 'All three together',
   },
+  goalPosts: {
+    title: (m) => `Goal — two posts, ${m}m apart`,
+    caption: 'The posts are pipes as thick as a court line. With no crossbar and no net, the Laws set the top edge of a goal separately — at the mark on the post.',
+    aria: (m) => `Front view of the goal: two thin posts ${m}m apart on the goal line, each with a height mark near the floor, and crossed-out marks showing there is no crossbar above and no net between.`,
+    width: (m) => `${m}m`,
+    postHeight: (cm) => `${cm}cm tall`,
+    mark: (cm) => `${cm}cm mark`,
+    goalLine: 'goal line',
+    noCrossbarHead: 'Crossbar',
+    noCrossbarTail: 'none',
+    noNetHead: 'Net',
+    noNetTail: 'none',
+  },
+  goalHeight: {
+    title: (cm) => `Goal height limit — ${cm}cm`,
+    caption: 'With no crossbar, the mark on the post is the top edge of the goal. A ball that crosses above it is no goal.',
+    aria: (cm, b) =>
+      `Side section at the goal line: a goal post stands on the line with its mark, a dashed line runs from that mark ${cm}cm above the floor, and two balls (${b}cm across, same scale) are on the far side of the line — the one rolling on the floor is a goal, the one next to the post crossing above the line is not.`,
+    limit: (cm, inch) => `${cm}cm (${inch}in)`,
+    floor: 'floor',
+    goalLine: 'goal line',
+    ballDia: (b) => `ball ${b}cm`,
+    okHead: 'Rolls across',
+    okTail: 'goal',
+    noHead: 'Flies across',
+    noTail: 'no goal',
+  },
 };
 
 const JA: FigureText = {
@@ -374,6 +458,33 @@ const JA: FigureText = {
     cond2: 'アクティブプレー中',
     cond3: 'ボールが動かない',
     allThree: '3つとも必要',
+  },
+  goalPosts: {
+    title: (m) => `ゴール — 支柱2本、間隔${m}m`,
+    caption: '支柱はコートラインと同じ太さのパイプです。クロスバーもネットもないので、ゴールの上端は支柱の印の高さで規則が別に定めます。',
+    aria: (m) => `ゴールを正面から見た図。ゴールライン上に細い支柱2本が${m}m間隔で立ち、それぞれ床の近くに高さの印があり、その上（クロスバー）と間（ネット）は空だという✕表示。`,
+    width: (m) => `${m}m`,
+    postHeight: (cm) => `高さ${cm}cm`,
+    mark: (cm) => `${cm}cmの印`,
+    goalLine: 'ゴールライン',
+    noCrossbarHead: 'クロスバー',
+    noCrossbarTail: 'なし',
+    noNetHead: 'ネット',
+    noNetTail: 'なし',
+  },
+  goalHeight: {
+    title: (cm) => `ゴールの高さの限界 — ${cm}cm`,
+    caption: 'クロスバーがないので、支柱の印の高さがゴールの上端です。その上に浮いて越えたボールはゴールではありません。',
+    aria: (cm, b) =>
+      `ゴールラインを横から切った断面。ゴールラインに立つ支柱の印から床${cm}cmの高さの破線が伸び、同じ縮尺のボール（直径${b}cm）2つがラインを越えた側にある — 床を転がって越えたボールはゴール、支柱のすぐ横で破線より上に浮いて越えたボールはゴールではないという表示。`,
+    limit: (cm, inch) => `${cm}cm (${inch}in)`,
+    floor: '床',
+    goalLine: 'ゴールライン',
+    ballDia: (b) => `${b}cm`,
+    okHead: '転がって越えれば',
+    okTail: 'ゴール',
+    noHead: '浮いて越えれば',
+    noTail: 'ゴールではない',
   },
 };
 

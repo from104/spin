@@ -169,11 +169,10 @@ export interface RuleTopicDocProps {
   topic: RuleTopic;
   prevTopic: RuleTopic | null;
   nextTopic: RuleTopic | null;
-  onBack: () => void;
   onSelectTopic: (key: RuleTopicKey) => void;
 }
 
-export function RuleTopicDoc({ topic, prevTopic, nextTopic, onBack, onSelectTopic }: RuleTopicDocProps) {
+export function RuleTopicDoc({ topic, prevTopic, nextTopic, onSelectTopic }: RuleTopicDocProps) {
   const t = useT();
   const [activeSceneId, setActiveSceneId] = useState<RuleSceneId | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -199,7 +198,7 @@ export function RuleTopicDoc({ topic, prevTopic, nextTopic, onBack, onSelectTopi
     const h2 = headingRef.current;
     if (!h2) return;
     // preventScroll — 브라우저가 알아서 맞추는 위치가 아니라 "맨 위"를 우리가 정한다
-    // (제목 위에 [← 홈으로] 버튼이 있어 h2 를 보이게만 하면 그 줄이 잘린다).
+    // (h2 는 sr-only 라 스크롤 기준이 될 수 없다 — 문서 첫 블록이 맨 위에 와야 한다).
     h2.focus({ preventScroll: true });
     const scroller = h2.closest('main');
     if (scroller) scroller.scrollTop = 0;
@@ -207,26 +206,12 @@ export function RuleTopicDoc({ topic, prevTopic, nextTopic, onBack, onSelectTopi
 
   return (
     <div className="rules-doc-in" style={{ maxWidth: 760, margin: '0 auto' }}>
-      <button
-        type="button"
-        onClick={onBack}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          minHeight: 44,
-          marginLeft: -10,
-          padding: '0 10px',
-          color: 'var(--muted)',
-          fontSize: '0.8125rem',
-          fontWeight: 600,
-        }}
-      >
-        ← {t('rules.backToHome')}
-      </button>
-      <h2 ref={headingRef} tabIndex={-1} style={{ fontSize: '1.375rem', fontWeight: 700, marginTop: 8, textWrap: 'balance' }}>
+      {/* 2026-09-03 기현 지시 — 제목·부제·[← 목록으로]는 **앱 헤더**가 보여 준다(AppShell 의
+          useStaticHeaderConfig 'rules'). 문서에는 스크린리더용 h2 만 남긴다: 헤더 제목은 span 이라
+          문서 구조(heading)는 여기가 지고, 주제 전환 때 포커스가 앉는 자리도 여기다(아래 effect). */}
+      <h2 ref={headingRef} tabIndex={-1} className="sr-only">
         {topic.title}
       </h2>
-      <p style={{ fontSize: '0.875rem', color: 'var(--muted)', marginTop: 4 }}>{topic.tagline}</p>
 
       {topic.blocks.map((block, i) => renderBlock(block, i, topic.key, activeSceneId, setActiveSceneId))}
 
