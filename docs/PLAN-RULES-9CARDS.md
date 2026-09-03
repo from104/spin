@@ -896,7 +896,7 @@ blocks: `prose`(직접) → `scene` ramming → `prose`(간접) → `prose`(회�
 > **"상대와 근접했을 때"** 가 *"위험해지면"* 이라는 동어반복으로 바뀌어 무엇을 조심하라는
 > 것인지가 사라져 있었다.
 
-**블록 5** `scene` `spin-kick` — 손코딩 유지.
+**블록 5** `scene` `spin-kick` — 손코딩 유지. → **2026-09-04 교체**: 기현님 드릴 **회전킥 시도 및 방해**(half/30x18, 1스텝).
 **블록 6** `card-list` — 손대지 않는다(경고 7·퇴장 8 개수가 테스트 두 곳에 이중으로 박혀 있다).
 
 **블록 7** `prose` (heading 없음)
@@ -1509,8 +1509,8 @@ en → ja 순으로 완역되면서 **띄울 로케일이 하나도 남지 않�
 장면 **21 → 23**. 손코딩은 9 → 7 로 줄었다(`field-tour`·`lineup`·`two-on-one-active`·
 `two-on-one-open`·`two-on-one-escape`·`ramming`·`spin-kick`).
 
-> 2026-09-04: `two-on-one-active`·`two-on-one-escape` 도 교체돼 손코딩은 **5**
-> (`field-tour`·`lineup`·`two-on-one-open`·`ramming`·`spin-kick`), 편집기 갈래는 **18**.
+> 2026-09-04: `two-on-one-active`·`two-on-one-escape`·`spin-kick` 도 교체돼 손코딩은 **4**
+> (`field-tour`·`lineup`·`two-on-one-open`·`ramming`), 편집기 갈래는 **19**.
 
 ### 10.1 정본이 먼저 넓어져야 했다
 

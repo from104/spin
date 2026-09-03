@@ -100,13 +100,13 @@ const EN: SceneTextTable = {
     labels: [[], ['Direct free kick']],
   },
   'spin-kick': {
-    note: [
-      'A spin kick sends the ball farther and faster than driving straight at it. The Laws do not prohibit it.',
-      'But for part of the turn the kicker cannot see the ball, or an opponent approaching — an opponent coming into that blind arc makes it dangerous.',
-      'If the referee judges it playing in a dangerous manner, the opponents get an indirect free kick at that spot.',
-    ],
-    labels: [[], [], ['Dangerous play → indirect FK']],
+    // 2026-09-04 편집기 드릴로 교체 — 캡션(note)은 원본이 비어 있고, 코트 위 쪽지(labels) 2개뿐이다.
+    labels: [[
+      'A foul if you take a big spin kick while an opponent is close by',
+      'A foul if an opponent rushes in from a distance to interfere with the spin kick',
+    ]],
   },
+
 
   // ── 기현님이 편집기로 만든 12개 — **좌표는 그대로, 글자만 덮는다** ────────────
   // 기현님의 연출 문법을 그대로 옮긴다: 노랑 쪽지는 조건, 빨강은 판정. 특히 인·아웃과 득점의
@@ -268,13 +268,12 @@ const JA: SceneTextTable = {
     labels: [[], ['直接フリーキック']],
   },
   'spin-kick': {
-    note: [
-      '回転キックは、まっすぐ蹴るよりボールを遠く、速く飛ばす技術です。禁止されていません。',
-      'ただし回転の途中の一部で、ボールも近づいてくる相手も見えません — 相手が死角から近づくと危険な状況になります。',
-      'これが「危険な方法でのプレー」と判定されると、その地点から相手に間接フリーキックが与えられます。',
-    ],
-    labels: [[], [], ['危険なプレー → 間接FK']],
+    labels: [[
+      '相手が近くにいるのに大きく回転キックをすると反則',
+      '回転キックをしようとしているところへ相手が遠くから素早く近づいて妨害すると反則',
+    ]],
   },
+
 
   // ── 기현님が編集機で作った12つ — 座標はそのまま、文字だけ差し替える ──────────
   kickoff: {
