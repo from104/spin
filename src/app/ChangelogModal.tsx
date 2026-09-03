@@ -100,17 +100,25 @@ export function ChangelogModal({ open, onClose, returnFocusRef }: ChangelogModal
       // 절마다 항목 수가 들쭉날쭉해(0.3.0 은 스물여덟 줄, 0.6.1 은 여섯 줄) 좌우로 넘길 때마다
       // 창 높이가 늘었다 줄었다 하면 손이 화면 위에서 계속 움직여야 한다(2026-09-03 기현 지시:
       // *"체인지로그 모달 높이를 화면 높이의 60%로 고정"*) — `maxHeight` 가 아니라 `height` 로
-      // 박아 짧은 절도 빈 여백을 두고 그 높이를 지킨다. 안쪽 스크롤(Modal 의 `overflowY: auto`)
-      // 은 그대로라 긴 절은 이 높이 안에서 스크롤된다.
-      panelStyle={{ height: '60vh', maxHeight: '60vh' }}
+      // 박아 짧은 절도 빈 여백을 두고 그 높이를 지킨다.
+      //
+      // ⚠️ `overflowY: 'hidden'` 로 Modal 기본값(패널 전체가 통째로 스크롤)을 끈다 — 곧이은
+      // 지시 *"스크롤은 내용만 되게(제목·버튼·버전·날짜 등은 모달 상단 고정)"* 때문이다. 대신
+      // `display:flex; flexDirection:column` 을 얹어 패널을 세로 기둥으로 만든다 — Modal 이
+      // 그리는 `<h2>` 제목 하나, 그리고 children(아래 nav-row + 스크롤 상자) 둘이 그 기둥의
+      // flex item 이 된다. 닫기 ✕ 는 `position:absolute` 라 이 흐름과 무관하게 항상 고정이다.
+      panelStyle={{ height: '60vh', maxHeight: '60vh', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}
     >
       {current ? (
-        <div>
-          {/* 좌우 넘기기 — 모달 자신의 두 번째 줄 헤더. 양쪽 버튼 사이에 지금 보는 버전·날짜가
-              선다(2026-09-03 기현 지시, 곧이어 *"이전 버전 다음버전 좌우 바꿈"* — 화살표는 항상
+        // `minHeight: 0` 이 없으면 flex item 은 내용만큼 늘어나려 해서 아래 스크롤 상자가
+        // 패널 밖으로 넘친다(flex 의 기본 `min-height: auto` 함정) — 이 값이 있어야 자식의
+        // `overflowY: auto` 가 실제로 발동한다.
+        <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}>
+          {/* 좌우 넘기기 — 상단 고정 구역. 양쪽 버튼 사이에 지금 보는 버전·날짜가 선다
+              (2026-09-03 기현 지시, 곧이어 *"이전 버전 다음버전 좌우 바꿈"* — 화살표는 항상
               바깥(왼쪽 끝은 ←, 오른쪽 끝은 →)을 가리키고, 그 자리에 어느 동작이 서는지만 바꿨다).
               `aria-live` 로 화면리더가 넘길 때마다 새 버전을 읽는다. */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '-4px 0 14px', paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+          <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '-4px 0 14px', paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
             <button
               type="button"
               onClick={() => newer && setIndex(index - 1)}
@@ -132,16 +140,19 @@ export function ChangelogModal({ open, onClose, returnFocusRef }: ChangelogModal
               {t('app.changelog.older')} →
             </button>
           </div>
-          {current.groups.map((g, i) => (
-            <div key={i}>
-              {g.heading && (
-                <h3 style={{ margin: i === 0 ? '0 0 6px' : '16px 0 6px', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--muted)' }}>
-                  {g.heading}
-                </h3>
-              )}
-              <ItemList items={g.items} level={0} />
-            </div>
-          ))}
+          {/* 스크롤은 이 안에서만 — 위 nav-row 와 Modal 의 제목·닫기는 패널에 고정된 채 남는다. */}
+          <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
+            {current.groups.map((g, i) => (
+              <div key={i}>
+                {g.heading && (
+                  <h3 style={{ margin: i === 0 ? '0 0 6px' : '16px 0 6px', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--muted)' }}>
+                    {g.heading}
+                  </h3>
+                )}
+                <ItemList items={g.items} level={0} />
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
         <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.875rem', lineHeight: 1.6 }}>{t('app.changelog.empty')}</p>
