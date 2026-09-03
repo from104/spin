@@ -381,8 +381,8 @@ export const en: Record<DictKey, string> = {
   'tutorial.board.step3.body': 'Draw arrows and shapes to mark movement and zones.',
   'tutorial.board.step4.title': 'Function bar',
   'tutorial.board.step4.body': 'Export to PNG, toggle the grid and rule zones, and more, all here.',
-  'tutorial.board.step5.title': 'Save as drill',
-  'tutorial.board.step5.body': 'Name the current layout and keep it as a drill. Saving opens that drill for editing; the tactics board stays as it is.',
+  'tutorial.board.step5.title': 'Edit as drill',
+  'tutorial.board.step5.body': 'Name the current layout and keep it as a drill. Naming it opens that drill for editing; the tactics board stays as it is.',
 
   // ── Drill library tutorial, 3 steps — src/features/library/tutorialSteps.ts ──────
   'tutorial.library.step1.title': 'New drill',
@@ -440,7 +440,7 @@ export const en: Record<DictKey, string> = {
   'help.section.shortcuts': 'Shortcuts',
 
   'help.start.item1.term': 'Free tactics board',
-  'help.start.item1.desc': "A board you sketch on right away, nothing saved. Keep it with [Save as drill] if you like it.",
+  'help.start.item1.desc': "A board you sketch on right away, nothing saved. Keep it with [Edit as drill] if you like it.",
   'help.start.item2.term': 'Drill',
   'help.start.item2.desc': 'A saved scene (or a sequence of steps). Open it from the library and present it.',
   'help.start.item3.term': 'Session',
@@ -456,12 +456,12 @@ export const en: Record<DictKey, string> = {
   'help.board.item2.desc': 'Draw arrows and shapes to mark movement and zones.',
   'help.board.item3.term': 'Function bar',
   'help.board.item3.desc': 'Undo, court shape, grid, PNG export, and more, all here. The defending side decides which team the three-in-the-goal-area foul applies to.',
-  'help.board.item4.term': 'Save as drill',
+  'help.board.item4.term': 'Edit as drill',
   'help.board.item4.desc': "Keeps the current layout as a new drill. Nothing auto-saves — don't forget to tap it.",
   'help.board.restartButton': 'Replay free tactics board tour',
 
   'help.library.item1.term': 'New drill',
-  'help.library.item1.desc': 'Asks for a name and a court, then creates the drill. To keep something you sketched on the fly, use Save as drill on the board.',
+  'help.library.item1.desc': 'Asks for a name and a court, then creates the drill. To keep something you sketched on the fly, use Edit as drill on the board.',
   'help.library.item2.term': 'Card',
   'help.library.item2.desc': 'Tap the card to edit, the play icon to present right away, and ⋮ to duplicate, delete, or export.',
   'help.library.item3.term': 'Filter & sort',
@@ -602,9 +602,6 @@ export const en: Record<DictKey, string> = {
   'editor.functionBar.view.label': 'View',
   'editor.functionBar.view.name': 'View',
   'editor.functionBar.view.title': 'Grid · Goal-area guide',
-  'editor.functionBar.save.label': 'Save',
-  'editor.functionBar.save.nameDrill': 'Save as Drill',
-  'editor.functionBar.save.titleBoard': 'Adds the current board as a new item in your drill library. The tactics board itself stays as it is.',
   'editor.functionBar.courtModal.title': 'Board settings',
   'editor.functionBar.courtModal.viewGroupLabel': 'Display',
   'editor.functionBar.courtModal.moveGroupLabel': 'Object movement',
@@ -642,6 +639,7 @@ export const en: Record<DictKey, string> = {
 
   'courtThumbnail.previewAriaLabel': '{{label}} preview',
 
+  'board.editAsDrill': 'Edit as drill',
   'board.defaultTitle': 'Free Tactics Board',
   'board.courtChangedToast': 'Switched to {{label}}.',
   'board.courtSizeChangedToast': 'Switched to the {{size}} court.',

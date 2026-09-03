@@ -848,26 +848,26 @@ describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접
     for (const l of RAIL_LABELS) expect(within(nav).getByRole('button', { name: l })).toBeInTheDocument();
   });
 
-  it('★ 자유 전술판은 **넓은 창에서 헤더가 아예 없다** — 62px 을 판에 돌려준다', async () => {
-    // 기현 지시 2026-08-14: *"레이블, 문구 삭제하고 … 상단 헤더 삭제. 공간 확보."*
-    // 헤더가 지던 것이 전부 딴 데로 갔다(코트 전환·되돌리기·[드릴로 저장] → 기능 바,
-    // 제목·부제 → 삭제). 남은 것은 빈 줄뿐이었다.
+  it('★ 자유 전술판도 넓은 창에서 헤더가 선다 — 제목·부제·[드릴로 편집] (2026-09-03 뒤집음)', async () => {
+    // 🔁 2026-08-14 *"상단 헤더 삭제. 공간 확보"* 로 넓은 창 전술판만 헤더가 없었다(그때 헤더는 빈
+    // 줄뿐이었다 — 코트 전환·되돌리기·[드릴로 저장]이 기능 바로 내려간 뒤). 2026-09-03 기현 지시로
+    // 헤더가 제목·부제·주 액션 [+ 드릴로 편집]을 지면서 되돌아왔다. [드릴로 저장] 칸은 기능 바에서
+    // 빠졌다(같은 이름의 표적이 둘이 되지 않게).
     stubMedia(false);
     await renderShell();
-    expect(document.querySelector('header'), '넓은 창 전술판에 헤더가 남아 있다').toBeNull();
-    // 대조군: 화면을 옮기면 헤더가 다시 선다 — 통째로 없앤 것이 아니다.
-    await userEvent.setup().click(screen.getByRole('button', { name: '설정' }));
-    expect(document.querySelector('header')).not.toBeNull();
+    // BoardScreen 은 이 파일에서 목이라 실제 제목·[드릴로 편집]은 BoardScreen.test 가 잰다 — 여기서는
+    // 넓은 창에서 헤더가 서고 그 화면이 선언한 내용을 보인다는 배선만 본다.
+    expect(document.querySelector('header'), '넓은 창 전술판에 헤더가 없다').not.toBeNull();
+    expect(within(header()).getByText('보드가 선언한 헤더')).toBeInTheDocument();
   });
 
-  it('★ 드릴 편집은 넓은 창에서도 헤더가 선다 — 2026-08-20 재설계로 자유 전술판만 예외다', async () => {
+  it('★ 드릴 편집은 넓은 창에서도 헤더가 선다 — 편집기가 선언한 컴팩트 헤더', async () => {
     // 기현 지시 2026-08-20: *"드릴 편집 화면과 시연 화면은 비슷한 레이아웃이어야 ux가
     // 좋아진다"* — 두 화면이 같은 컴팩트 헤더를 쓰도록 `showHeader` 판정에
     // `stageTarget.kind === 'drill'` 이 돌아왔다(AppShell.tsx 그 주석). 자유 전술판(위 it)
     // 만 여전히 예외다 — 같은 board 자리인데 무엇이 떠 있는지에 따라 갈린다.
     stubMedia(false);
     await renderShell();
-    expect(document.querySelector('header'), '넓은 창 자유 전술판에 헤더가 남아 있다').toBeNull();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));

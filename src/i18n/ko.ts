@@ -381,8 +381,8 @@ export const ko = {
   'tutorial.board.step3.body': '화살표와 도형으로 움직임과 구역을 그립니다.',
   'tutorial.board.step4.title': '기능바',
   'tutorial.board.step4.body': '확대·되돌리기·내보내기가 여기 있고, [보드 설정]을 열면 코트 형태·크기·진영과 격자·골 지역 표시, 코트 비우기가 한자리에 있습니다.',
-  'tutorial.board.step5.title': '드릴로 저장',
-  'tutorial.board.step5.body': '지금 배치에 이름을 붙여 드릴로 남깁니다. 저장하면 그 드릴의 편집 화면이 바로 열리고, 전술판은 그대로 남습니다.',
+  'tutorial.board.step5.title': '드릴로 편집',
+  'tutorial.board.step5.body': '지금 배치에 이름을 붙여 드릴로 남깁니다. 이름을 붙이면 그 드릴의 편집 화면이 바로 열리고, 전술판은 그대로 남습니다.',
 
   // ── 드릴 목록 튜토리얼 3단계 — src/features/library/tutorialSteps.ts ──────
   'tutorial.library.step1.title': '새 드릴',
@@ -440,7 +440,7 @@ export const ko = {
   'help.section.shortcuts': '단축키',
 
   'help.start.item1.term': '자유 전술판',
-  'help.start.item1.desc': '저장 없이 바로 그려 보는 판입니다. 마음에 들면 [드릴로 저장]으로 남깁니다.',
+  'help.start.item1.desc': '저장 없이 바로 그려 보는 판입니다. 마음에 들면 [드릴로 편집]으로 남깁니다.',
   'help.start.item2.term': '드릴',
   'help.start.item2.desc': '저장해 둔 장면(또는 여러 스텝으로 이어진 장면)입니다. 목록에서 열고 시연할 수 있습니다.',
   'help.start.item3.term': '세션',
@@ -456,12 +456,12 @@ export const ko = {
   'help.board.item2.desc': '화살표와 도형으로 움직임과 구역을 그립니다.',
   'help.board.item3.term': '기능바',
   'help.board.item3.desc': '확대·되돌리기·PNG 내보내기가 있고, [보드 설정] 안에 코트 형태·크기·진영, 격자·골 지역 표시, 개체 이동 속도 제한, 골대 원위치, 코트 비우기가 모여 있습니다. 진영은 골 지역 3인 반칙이 어느 팀에 걸리는지를 정합니다.',
-  'help.board.item4.term': '드릴로 저장',
+  'help.board.item4.term': '드릴로 편집',
   'help.board.item4.desc': '이름을 물어본 뒤 지금 배치를 드릴로 남기고, 그 드릴의 편집 화면으로 넘어갑니다. 전술판은 그대로 남습니다 — 자동 저장은 안 되니 남기고 싶으면 눌러야 합니다.',
   'help.board.restartButton': '자유 전술판 투어 다시 보기',
 
   'help.library.item1.term': '새 드릴',
-  'help.library.item1.desc': '이름과 코트를 물어보고 드릴을 만듭니다. 즉흥으로 그리다 남기고 싶으면 전술판의 [드릴로 저장]을 쓰세요.',
+  'help.library.item1.desc': '이름과 코트를 물어보고 드릴을 만듭니다. 즉흥으로 그리다 남기고 싶으면 전술판의 [드릴로 편집]을 쓰세요.',
   'help.library.item2.term': '카드',
   'help.library.item2.desc': '카드를 열면 편집, 재생 아이콘은 바로 시연, ⋮ 는 복제·삭제·내보내기입니다.',
   'help.library.item3.term': '필터·정렬',
@@ -602,9 +602,6 @@ export const ko = {
   'editor.functionBar.view.label': '보기',
   'editor.functionBar.view.name': '보기',
   'editor.functionBar.view.title': '격자 · 골 지역 가이드',
-  'editor.functionBar.save.label': '저장',
-  'editor.functionBar.save.nameDrill': '드릴로 저장',
-  'editor.functionBar.save.titleBoard': '지금 판을 드릴 라이브러리에 새 항목으로 넣습니다. 전술판은 그대로 남습니다.',
   'editor.functionBar.courtModal.title': '보드 설정',
   'editor.functionBar.courtModal.viewGroupLabel': '표시',
   'editor.functionBar.courtModal.moveGroupLabel': '개체 이동',
@@ -642,6 +639,7 @@ export const ko = {
 
   'courtThumbnail.previewAriaLabel': '{{label}} 미리보기',
 
+  'board.editAsDrill': '드릴로 편집',
   'board.defaultTitle': '자유 전술판',
   'board.courtChangedToast': '{{label}}로 바꿨습니다.',
   'board.courtSizeChangedToast': '{{size}} 코트로 바꿨습니다.',

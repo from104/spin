@@ -44,7 +44,6 @@ import {
   IconGrid,
   IconRedo,
   IconRuleZone,
-  IconSaveDrill,
   IconSides,
   IconSpeed,
   IconUndo,
@@ -279,10 +278,6 @@ export interface FunctionBarProps {
   onToggleGrid(): void;
   showRuleZones: boolean;
   onToggleRuleZones(): void;
-  /** 자유 전술판을 드릴 라이브러리에 새 항목으로 넣는다 — 옛 헤더의 주 액션이었다.
-   *  2026-08-14 기현님 지시로 헤더가 넓은 창에서 사라지면서 갈 곳이 여기밖에 없었다.
-   *  **드릴 편집에서는 뜻이 다르다**: 자동저장을 지금 밀어 넣는다(아래 `mode`). */
-  onSaveAsDrill(): void;
   /** 어느 화면의 기둥인가(2026-08-15 드릴 편집 재설계 ②).
    *
    *  칸 목록이 하나 다르다 — 드릴에는 **[비우기]가 없다**(근거는 functionBarMetrics 의
@@ -322,7 +317,6 @@ export function FunctionBar({
   onToggleGrid,
   showRuleZones,
   onToggleRuleZones,
-  onSaveAsDrill,
   mode = 'board',
 }: FunctionBarProps) {
   const isBoard = mode === 'board';
@@ -498,24 +492,9 @@ export function FunctionBar({
         <>
           <div aria-hidden style={DIVIDER} />
 
-          {/* 주 액션 — 옛 헤더의 [드릴로 저장]. 유일하게 **액센트로 칠한** 칸이고 기둥 맨
-              끝이다: 맨 위는 줌이 이미 자리를 잡았고(손이 늘 가 있다), 새 칸을 위에 끼우면
-              아래 칸들의 좌표가 통째로 밀린다(§3 불변식 1). 끝에 붙이면 아무것도 안 움직인다.
-              ⚠️ **드릴 편집에는 이 칸이 없다**(2026-08-20 기현님 지시, 옛 기록: 여기 있었다) —
-              드릴 쪽 [저장]은 "드릴로 저장"이 아니라 "자동저장을 지금 밀어넣기"였는데,
-              자동저장이 이미 돌고 있어 누를 이유가 없는 칸이었다. 단축키(useEditorKeyboard
-              onSave)는 그대로 있다 — "지금 바로"가 필요하면 그 길로 간다. 칸·구분선 수 근거는
-              functionBarMetrics.ts 의 FUNCTION_BAR_ITEMS_DRILL 머리말. */}
-          <BarItem
-            label={t('editor.functionBar.save.label')}
-            name={t('editor.functionBar.save.nameDrill')}
-            title={t('editor.functionBar.save.titleBoard')}
-            onClick={onSaveAsDrill}
-            accent
-            data-tut="board-save"
-          >
-            <IconSaveDrill />
-          </BarItem>
+          {/* 🪦 [드릴로 저장] 칸은 2026-09-03 에 헤더 주 액션 [+ 드릴로 편집]으로 돌아갔다(기현 지시 —
+              보드에도 헤더가 다시 서면서). 2026-08-14 에 헤더가 사라지며 여기 맨 끝에 붙었던 것이고,
+              그동안 기둥의 유일한 액센트 칸이었다. 되살리지 마라 — 같은 이름의 표적이 둘이 된다. */}
         </>
       )}
 

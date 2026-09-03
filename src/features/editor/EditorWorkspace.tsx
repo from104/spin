@@ -8,7 +8,7 @@ import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
 import { COURT_DEFS, courtDefFor, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
-import { IconPlay } from '../../ui/icons.tsx';
+import { IconPlay, IconPlus } from '../../ui/icons.tsx';
 import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { defaultDefense } from '../../model/rules.ts';
 import { LIMITS } from '../../model/validate.ts';
@@ -50,6 +50,7 @@ import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
 import { BOARD_TUTORIAL_STEPS, EDITOR_TUTORIAL_STEPS } from './tutorialSteps.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { SCREEN_SUBTITLES, SCREEN_TITLES } from '../../app/screens.ts';
 import { NoteEditModal } from './NoteEditModal.tsx';
 import { NOTE_DEFAULT_SIZE_PX } from '../../render/objects/noteChip.ts';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
@@ -229,17 +230,16 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   useAppHeader(
     isBoard
       ? {
-          // ⚠️ **자유 전술판의 헤더는 비어 있다**(기현 지시 2026-08-14: *"레이블, 문구 삭제하고
-          // 드릴로 저장 버튼 오른쪽 도구모음으로 옮기고 상단 헤더 삭제. 공간 확보"*).
-          //  · 코트 전환 세그먼트 → 기능 바 [코트]
-          //  · 되돌리기·다시하기 → 기능 바
-          //  · [드릴로 저장]    → 기능 바 맨 끝(주 액션)
-          //  · 제목 '자유 전술판' · 부제 → **삭제**. 판이 화면을 다 쓰는데 그 위에 "지금
-          //    전술판을 보고 있습니다" 를 적어 두는 것은 자리만 먹는다.
-          // 넓은 창에서는 AppShell 이 헤더 자체를 **안 세운다**(레일이 이동을 진다).
-          // 좁은 창에서는 남는다 — 거기서는 헤더의 3칸 세그먼트가 유일한 이동 수단이다
-          // (기현님 확인: *"좁은창 이동에서의 헤더는 유지"*). 그때도 내용은 세그먼트뿐이다.
-          title: '',
+          // 🔁 2026-09-03 기현 지시(*"보드에도 다른 화면들처럼 헤더 넣고 가운데 정렬로 제목 크게, 짧은
+          // 설명 부제목으로. 맨 오른쪽에 [+ 드릴로 편집] 버튼 추가. 오른쪽 기능바의 [저장] 버튼 삭제"*)
+          // 로 **헤더가 다시 내용을 진다.** 2026-08-14 의 "헤더 삭제, 공간 확보" 는 헤더가 빈 줄뿐일 때의
+          // 결정이었다(그때 코트 전환·되돌리기는 기능 바로 갔고 그건 그대로다). [드릴로 저장]만 기능 바
+          // 맨 끝에서 여기 주 액션으로 돌아왔다 — 뜻은 같고(이름을 물어 드릴로 남기고 그 편집 화면을
+          // 연다) 이름만 "편집"이다. 같은 이름의 표적이 둘이 되지 않게 기능 바 칸은 지웠다.
+          title: SCREEN_TITLES[locale].board,
+          subtitle: SCREEN_SUBTITLES[locale].board,
+          align: 'center',
+          primary: { label: t('board.editAsDrill'), icon: <IconPlus size={15} />, onAction: () => board?.onSaveAsDrill() },
         }
       : {
           // ⚠️ 2026-08-15 (재설계 ②) — 헤더에서 **[저장]과 코트 세그먼트가 빠졌다.**
@@ -664,8 +664,8 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   // 다른 점은 둘이다(2026-08-20, 옛 기록: 셋이었다 — [저장]이 여기 있었다): [비우기]가 없고
   // (FUNCTION_BAR_ITEMS_DRILL), [코트]가 언제나 잠겨 있다(드릴의 코트는 불변이다 — 옛 헤더
   // 세그먼트의 계약을 그대로 물려받는다). [저장]은 자동저장이 이미 도는 마당에 "지금 밀어넣기"
-  // 뿐인 칸이 뜻이 없어 드릴 편집에서는 아예 안 그린다(FunctionBar.tsx 의 `isBoard` 게이트) —
-  // `onSaveAsDrill` prop 은 여전히 넘기지만 board 일 때만 실제로 불린다.
+  // 뿐인 칸이 뜻이 없어 드릴 편집에서는 아예 안 그렸다. 2026-09-03 부터는 보드의 [드릴로 저장]도
+  // 기능 바에 없다 — 헤더 주 액션 [+ 드릴로 편집](위 useAppHeader 의 board 분기)이 그 일을 한다.
   const functionBar = (
     <FunctionBar
       mode={board ? 'board' : 'drill'}
@@ -701,9 +701,6 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       onToggleGrid={toggleGrid}
       showRuleZones={showRuleZones}
       onToggleRuleZones={toggleRuleZones}
-      // 드릴 편집에서는 FunctionBar 가 [저장] 칸 자체를 안 그리므로 이 콜백이 안 불린다 —
-      // board 일 때만 실제로 쓰인다(위 머리말).
-      onSaveAsDrill={() => board?.onSaveAsDrill()}
     />
   );
 

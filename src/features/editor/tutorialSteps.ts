@@ -24,5 +24,5 @@ export const BOARD_TUTORIAL_STEPS: TutorialStep[] = [
   { target: 'editor-court', titleKey: 'tutorial.board.step2.title', bodyKey: 'tutorial.board.step2.body' },
   { target: 'board-draw', titleKey: 'tutorial.board.step3.title', bodyKey: 'tutorial.board.step3.body' },
   { target: 'board-functionbar', titleKey: 'tutorial.board.step4.title', bodyKey: 'tutorial.board.step4.body' },
-  { target: 'board-save', titleKey: 'tutorial.board.step5.title', bodyKey: 'tutorial.board.step5.body' },
+  { target: 'header-primary', titleKey: 'tutorial.board.step5.title', bodyKey: 'tutorial.board.step5.body' },
 ];
