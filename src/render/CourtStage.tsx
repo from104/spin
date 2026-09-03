@@ -36,6 +36,8 @@ import { SelectionOverlay, type SelectionOverlayHandle } from './SelectionOverla
 import { ZoneHandles } from './ZoneHandles.tsx';
 import type { ZoneConfig } from '../model/chair.ts';
 import { ArrowHandles } from './ArrowHandles.tsx';
+import { StrokeHandles } from './StrokeHandles.tsx';
+import { STROKE_DEFAULT_WIDTH_PX, strokeColor, strokePath, strokeWidthOf, type Stroke, type StrokeGrip } from '../model/stroke.ts';
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
 import { StageRotProvider } from './stageRot.tsx';
@@ -154,6 +156,14 @@ export interface CourtStageProps {
    *  갈라진다(panByScreen 이 rect 를 매번 다시 재는 것과 같은 이유). */
   onShapeChange?: (next: Shape) => void;
   arrows: readonly Arrow[];
+  /** 자유 그리기 획(2026-09-03). 화살표 **바로 아래** 층이다 — 근거는 ObjectLayer 머리말. */
+  strokes?: readonly Stroke[];
+  /** **그리는 중**인 획의 점열(`useEditorPointer` 의 `strokeDraft`). 아직 모델에 없는 것이라
+   *  개체가 아니라 판 위의 자국으로 그린다 — 케이싱도 화살촉도 선택 halo 도 없는 얇은 파선.
+   *
+   *  ⚠️ 완성된 획과 **달라 보여야** 한다. 같게 그리면 손을 떼기 전인지 뗀 뒤인지 화면으로
+   *  구별할 수 없고, 그러면 "그려졌는데 저장이 안 됐다" 를 사용자가 알아챌 채널이 없다. */
+  strokeDraft?: readonly Vec2[] | null;
   selection: ReadonlySet<string>;
   /** 편집기에서만 넘긴다 — 차체 위 4개 존에 존별 마우스 커서를 얹는다. */
   zoneCursors?: ZoneConfig | null;
@@ -195,6 +205,11 @@ export interface CourtStageProps {
   };
   /** 선택된 도형의 손잡이 셋(가로·세로·회전). 화살표 핸들과 같은 모양의 prop 이다. */
   shapeHandles?: { shape: Shape | null };
+  /** 선택된 획의 손잡이 셋(양끝·회전). 화살표 핸들과 같은 모양의 prop 이다. */
+  strokeHandles?: {
+    stroke: Stroke | null;
+    onPointerDown?: (which: StrokeGrip, e: ReactPointerEvent<SVGGElement>) => void;
+  };
   arrowHandles?: {
     arrow: Arrow | null;
     /** 키보드 조준점(§4.3 1.11) — Shift+방향키가 옮길 점. null 이면 강조하지 않는다. */
@@ -275,6 +290,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     onGoalReturn,
     notes,
     arrows,
+    strokes,
+    strokeDraft,
     selection,
     zoneCursors,
     activeId,
@@ -297,6 +314,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     zoneHandles: zoneHandlesProps,
     shapeHandles: shapeHandlesProps,
     arrowHandles: arrowHandlesProps,
+    strokeHandles: strokeHandlesProps,
     keyboardCursor,
     ruleOverlay,
     dragCursor,
@@ -306,7 +324,14 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
 ) {
   const def = courtDefFor(mode, size);
   const markerUid = useId();
-  const usedColors = useMemo(() => Array.from(new Set(arrows.map((a) => arrowColor(a)))), [arrows]);
+  // 마커는 (색 × 굵기)마다 하나다 — 획이 굵기 축을 들여왔기 때문이다(arrowHeadGeom.ts).
+  // 실제로 쓰인 조합만 굽는다: 색은 화살표·획을 합쳐서, 굵기는 획에서만 모은다(화살표 굵기는
+  // ArrowMarkers 의 기본값이라 안 넘겨도 언제나 만들어진다).
+  const usedColors = useMemo(
+    () => Array.from(new Set([...arrows.map((a) => arrowColor(a)), ...(strokes ?? []).map((s) => strokeColor(s))])),
+    [arrows, strokes],
+  );
+  const usedWidths = useMemo(() => Array.from(new Set((strokes ?? []).map((s) => strokeWidthOf(s)))), [strokes]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [view, setView] = useState<StageView>({ x: 0, y: 0, w: def.vbW, h: def.vbH });
@@ -859,7 +884,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       onContextMenu={handleContextMenu}
     >
       <defs>
-        <ArrowMarkers uid={markerUid} colors={usedColors} />
+        <ArrowMarkers uid={markerUid} colors={usedColors} widths={usedWidths} />
       </defs>
       {/* ★ 표시 회전(§6.4 태블릿). 월드 콘텐츠 전체를 이 하나로 돌린다 — 아래 자식들은
           회전을 전혀 모른다. 좌표·물리·모델은 그대로이고 바라보는 각도만 바뀐다.
@@ -908,6 +933,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           onGoalReturn={onGoalReturn}
           notes={notes}
           arrows={arrows}
+          strokes={strokes}
           markerUid={markerUid}
           selection={selection}
           zoneCursors={zoneCursors}
@@ -943,6 +969,32 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             arrow={arrowHandlesProps.arrow}
             pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
             onPointerDown={arrowHandlesProps.onPointerDown}
+          />
+        )}
+        {strokeHandlesProps && (
+          <StrokeHandles
+            stroke={strokeHandlesProps.stroke}
+            pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
+            onPointerDown={strokeHandlesProps.onPointerDown}
+          />
+        )}
+        {/* 그리는 중인 획 — 아직 개체가 아니다. 맨 위에 그리되 손을 **통과**시킨다
+            (pointer-events 를 먹으면 그리는 중인 선 자신이 다음 표본의 히트 대상이 된다).
+            색·굵기는 손을 떼면 생길 획의 기본값 그대로 — 파선인 것만이 "아직 아니다" 를
+            말한다. 케이싱은 안 깐다: 케이싱은 완성된 표기의 대비 장치이고, 여기서 깔면
+            자국이 완성된 획과 똑같이 무거워져 파선의 뜻이 묻힌다. */}
+        {strokeDraft && strokeDraft.length > 0 && (
+          <path
+            data-stroke-draft=""
+            d={strokePath({ points: strokeDraft })}
+            fill="none"
+            stroke={strokeColor({})}
+            strokeWidth={STROKE_DEFAULT_WIDTH_PX}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="6 5"
+            opacity={0.85}
+            pointerEvents="none"
           />
         )}
         {keyboardCursor && <KeyboardCursor visible={keyboardCursor.visible} x={keyboardCursor.x} y={keyboardCursor.y} label={keyboardCursor.label} />}

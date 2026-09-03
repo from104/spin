@@ -688,6 +688,7 @@ export const en: Record<DictKey, string> = {
   // ── C7 — Tool definitions ───────────────────────────────────────────────────────────
   'editor.toolDefs.select': 'Select',
   'editor.toolDefs.line': 'Line',
+  'editor.toolDefs.freehand': 'Freehand',
   'editor.toolDefs.shapeEllipse': 'Circle',
   'editor.toolDefs.shapeTriangle': 'Triangle',
   'editor.toolDefs.shapeRect': 'Square',
@@ -801,6 +802,7 @@ export const en: Record<DictKey, string> = {
   'editor.workspace.shapeCapToast': 'Shapes are limited to {{max}} per step.',
   'editor.workspace.noteCapToast': 'Notes are limited to {{max}} per step.',
   'editor.workspace.arrowCapToast': 'Arrows are limited to {{max}} per step.',
+  'editor.workspace.strokeCapToast': 'Freehand strokes are limited to {{max}} per step.',
   'editor.workspace.goalsBlockedToast': 'Could not reset — a wheelchair is on the goal spot. Move it, then press again.',
   'editor.workspace.courtLockedBoardToast': 'Clear the tactics board to change the court shape and size.',
   'editor.workspace.clearedStepToast': 'Cleared this step. Other steps are untouched.',
@@ -819,6 +821,7 @@ export const en: Record<DictKey, string> = {
   'editor.selectSame.notes': 'Select all notes',
   'editor.selectSame.arrows': 'Select all arrows',
   'editor.selectSame.shapes': 'Select all shapes',
+  'editor.selectSame.strokes': 'Select all freehand strokes',
 
   // ── C7 — Step card context menu ─────────────────────────────────────────────────────
   'editor.stepCardMenu.ariaLabelTemplate': 'Step {{n}} menu',

@@ -689,6 +689,9 @@ export const ko = {
   // ── C7 — 도구 정의 ──────────────────────────────────────────────────────────────────
   'editor.toolDefs.select': '선택',
   'editor.toolDefs.line': '선',
+  // 레일 버튼은 52px 폭이라 라벨이 4자를 넘으면 줄이 접힌다 — 정식 이름 '자유 그리기' 는
+  // 툴팁(title)과 도움말 표(keymap.ts 의 desc)가 나른다.
+  'editor.toolDefs.freehand': '자유',
   'editor.toolDefs.shapeEllipse': '원',
   'editor.toolDefs.shapeTriangle': '삼각',
   'editor.toolDefs.shapeRect': '사각',
@@ -798,6 +801,7 @@ export const ko = {
   'editor.workspace.shapeCapToast': '도형은 스텝당 {{max}}개까지입니다.',
   'editor.workspace.noteCapToast': '메모는 스텝당 {{max}}개까지입니다.',
   'editor.workspace.arrowCapToast': '화살표는 스텝당 {{max}}개까지입니다.',
+  'editor.workspace.strokeCapToast': '자유 그리기는 스텝당 {{max}}개까지입니다.',
   'editor.workspace.goalsBlockedToast': '골대 자리에 휠체어가 있어 되돌리지 못했습니다. 휠체어를 옮긴 뒤 다시 눌러 주세요.',
   'editor.workspace.courtLockedBoardToast': '전술판을 초기화하면 코트 형태와 크기를 바꿀 수 있습니다.',
   'editor.workspace.clearedStepToast': '이 스텝을 비웠습니다. 다른 스텝은 그대로입니다.',
@@ -817,6 +821,7 @@ export const ko = {
   'editor.selectSame.notes': '메모 전부 고르기',
   'editor.selectSame.arrows': '화살표 전부 고르기',
   'editor.selectSame.shapes': '도형 전부 고르기',
+  'editor.selectSame.strokes': '자유 그리기 전부 고르기',
 
   // ── C7 — 스텝 카드 우클릭 메뉴 ──────────────────────────────────────────────────────
   'editor.stepCardMenu.ariaLabelTemplate': '스텝 {{n}} 메뉴',

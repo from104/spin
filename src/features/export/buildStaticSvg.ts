@@ -40,6 +40,8 @@ import { BALL, CHAIR, CONE } from '../../core/constants.ts';
 import { attackDir, courtDefFor, goalBaseRect, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import type { CourtDef } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
+import { strokePath, strokeWidthOf } from '../../model/stroke.ts';
+import { ARROW_HEAD_KINDS, STROKE_CASING_PAD, arrowHeadGeom, arrowMarkerColorKey, arrowMarkerId, type ArrowHeadKind } from '../../render/arrowHeadGeom.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
 import type { TeamSide } from '../../model/drill.ts';
@@ -236,40 +238,44 @@ export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSce
 
 /** 화살촉 마커. ArrowMarkers.tsx 와 **id 규약·모양이 같아야 한다** — 다르면 화살촉이 사라진다.
  *  케이싱을 먼저 그리는 이유도 그쪽과 같다(#38bdf8 는 코트 대비 2.49:1 로 WCAG 1.4.11 미달). */
-/** 화살촉 둘 — **ArrowMarkers.tsx 의 HEADS 와 한 픽셀도 다르면 안 된다**(2026-08-16).
- *  courtLines.contract.test 가 두 구현을 도형 단위로 대조한다. */
-const ARROW_HEADS = {
-  thin: { d: 'M0.353,0.353 L6.853,3.553 L0.353,6.753 z', w: 7.21, h: 7.11, refY: 3.553 },
-  wide: { d: 'M0.353,0.353 L6.853,5.853 L0.353,11.353 z', w: 7.21, h: 11.71, refY: 5.853 },
-} as const;
-/** 화살촉 테두리 두께 — ArrowMarkers 의 HEAD_CASING_W 와 **한 글자도 달라선 안 된다**. */
-const ARROW_HEAD_CASING_W = 0.71;
-type ExportHead = keyof typeof ARROW_HEADS;
+/** 화살촉 기하는 **화면과 같은 함수**에서 온다(render/arrowHeadGeom.ts). 예전에는 리터럴을
+ *  양쪽에 적어 두고 `courtLines.contract.test` 가 대조했는데, 획이 굵기 축을 들여오면서
+ *  경우의 수가 (색 × 굵기 × 종류)로 늘었다 — 그 표를 손으로 두 벌 적는 것은 드리프트를
+ *  기다리는 일이다. 대조 테스트는 그대로 남는다(이제 같은 함수를 부르는지까지 확인한다). */
+type ExportHead = ArrowHeadKind;
 
 /** 양 끝 화살촉 속성. 'none' 이면 그 속성 자체를 안 쓴다 — 빈 url(#…) 은 SVG 가 무시하지만
  *  문자열에 남으면 대조 테스트가 화면 컴포넌트와 어긋난다. */
-function headAttr(a: { headFrom?: ExportHead | 'none'; headTo?: ExportHead | 'none' }, color: string): string {
+function headAttr(
+  a: { headFrom?: ExportHead | 'none'; headTo?: ExportHead | 'none' },
+  color: string,
+  lineWidth: number = ARROW_STYLE.width,
+  /** 화살표는 끝 촉 기본이 'thin', 획은 'none' 이다(PLAN 결정 5) — 그 하나만 다르다. */
+  headToDefault: ExportHead | 'none' = 'thin',
+): string {
   const f = a.headFrom ?? 'none';
-  const t = a.headTo ?? 'thin';
-  const k = markerKey(color);
+  const t = a.headTo ?? headToDefault;
+  const id = (k: ExportHead): string => arrowMarkerId(MARKER_UID, markerKey(color), k, lineWidth);
   return (
-    (f === 'none' ? '' : ` marker-start="url(#${MARKER_UID}-${k}-${f})"`) +
-    (t === 'none' ? '' : ` marker-end="url(#${MARKER_UID}-${k}-${t})"`)
+    (f === 'none' ? '' : ` marker-start="url(#${id(f)})"`) +
+    (t === 'none' ? '' : ` marker-end="url(#${id(t)})"`)
   );
 }
 
-export function arrowMarkersMarkup(colors: readonly string[]): string {
-  const kinds: readonly ExportHead[] = ['thin', 'wide'];
-  const marker = (id: string, fill: string, k: ExportHead): string => {
-    const h = ARROW_HEADS[k];
+export function arrowMarkersMarkup(colors: readonly string[], widths?: readonly number[]): string {
+  // 화살표 굵기는 **언제나** 만든다 — ArrowMarkers 와 같은 이유(획이 없거나 전부 다른 굵기인
+  // 스텝에서 화살표가 참조할 마커가 사라진다).
+  const ws = Array.from(new Set([ARROW_STYLE.width, ...(widths ?? [])]));
+  const marker = (fill: string, k: ExportHead, w: number): string => {
+    const g = arrowHeadGeom(k, w);
     return (
-      `<marker id="${id}" markerWidth="${h.w}" markerHeight="${h.h}" refX="5.353" refY="${h.refY}" orient="auto-start-reverse">` +
-      `<path d="${h.d}" fill="${fill}" stroke="${ARROW_CASING}" stroke-width="${num(ARROW_HEAD_CASING_W)}" stroke-linejoin="round"/>` +
+      `<marker id="${arrowMarkerId(MARKER_UID, markerKey(fill), k, w)}" markerWidth="${g.markerWidth}" markerHeight="${g.markerHeight}" refX="${g.refX}" refY="${g.refY}" orient="auto-start-reverse">` +
+      `<path d="${g.d}" fill="${fill}" stroke="${ARROW_CASING}" stroke-width="${num(g.casingWidth)}" stroke-linejoin="round"/>` +
       `</marker>`
     );
   };
   // 케이싱 전용 마커는 없다 — 화살촉의 대비는 위 stroke 가 맡는다(ArrowMarkers 와 같은 근거).
-  return colors.flatMap((c) => kinds.map((k) => marker(`${MARKER_UID}-${markerKey(c)}-${k}`, c, k))).join('');
+  return colors.flatMap((c) => ws.flatMap((w) => ARROW_HEAD_KINDS.map((k) => marker(c, k, w)))).join('');
 }
 
 /** 규칙 존(흰 파선 테두리 + **연한 붉은** 채움). RuleZones.tsx 와 같은 값 — 면이 아니라 파선이
@@ -467,6 +473,29 @@ function conesMarkup(frame: RenderFrame): string {
   return out;
 }
 
+/** 자유 그리기 획 — 화살표와 **같은 층 구조**(케이싱 먼저, 본선 뒤에)이고, 굵기만 상수가
+ *  아니라 획마다 다르다. 케이싱 여유는 굵기와 무관한 상수다(`STROKE_CASING_PAD`
+ *  — 근거는 render/arrowHeadGeom.ts, 화살촉의 검은 테와 짝이 맞아야 한다).
+ *
+ *  ⚠️ 호출 순서가 곧 z-order 다: `strokesMarkup` 은 `arrowsMarkup` **앞**에 온다(획이 아래).
+ *     근거는 render/ObjectLayer.tsx 머리말 — 판·시연·종이가 같은 순서여야 한다. */
+function strokesMarkup(frame: RenderFrame): string {
+  let out = '';
+  for (const s of frame.strokes) {
+    if (s.opacity <= 0) continue;
+    const d = strokePath(s);
+    if (d === '') continue; // 점이 없는 획은 그릴 것이 없다(validate 가 걸러도 방어)
+    const w = strokeWidthOf(s);
+    const color = safeColor(s.color, ARROW_STYLE.color);
+    out +=
+      `<g id="obj-${safeId(s.id)}"${attrOpacity(s.opacity)}>` +
+      `<path d="${d}" fill="none" stroke="${ARROW_CASING}" stroke-width="${num(w + STROKE_CASING_PAD)}" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<path d="${d}" fill="none" stroke="${color}" stroke-width="${num(w)}" stroke-linecap="round" stroke-linejoin="round"${headAttr(s, color, w, 'none')}/>` +
+      `</g>`;
+  }
+  return out;
+}
+
 /** 화살표 — 케이싱(검정 halo)을 먼저, 본선을 뒤에. `#38bdf8` 는 코트 대비 2.49:1 로 WCAG
  *  1.4.11 미달이라 케이싱이 없으면 시각 대비 요건을 못 채운다(ArrowPath.tsx 와 같은 근거). */
 function arrowsMarkup(frame: RenderFrame): string {
@@ -490,7 +519,7 @@ function arrowsMarkup(frame: RenderFrame): string {
  *  않으면(이름색) slice 가 앞 글자를 먹으므로 그때만 다르게 접는다 — 두 곳이 어긋나면
  *  화살촉이 통째로 사라진다. */
 function markerKey(color: string): string {
-  return safeId(color.startsWith('#') ? color.slice(1) : color);
+  return safeId(arrowMarkerColorKey(color));
 }
 
 /** 휠체어 — 차체 · 볼가드 · 머리(피벗). 등번호는 여기 없다(★[A-9] 캔버스가 그린다).
@@ -565,6 +594,21 @@ function usedArrowColors(frame: RenderFrame): string[] {
     // 그쪽이 `marker-end` 로 참조하므로, 갈라지면 화살촉이 통째로 사라진다.
     set.add(safeColor(a.color, arrowColor(a)));
   }
+  // 획도 같은 마커를 참조한다(strokesMarkup 의 `headAttr`) — 같은 식이어야 하는 이유도 같다.
+  for (const s of frame.strokes) {
+    if (s.opacity <= 0) continue;
+    set.add(safeColor(s.color, ARROW_STYLE.color));
+  }
+  return Array.from(set);
+}
+
+/** 이 장면의 획이 실제로 쓴 굵기만 마커로 만든다 — 색과 같은 규율(안 쓰는 마커를 굽지 않는다). */
+function usedStrokeWidths(frame: RenderFrame): number[] {
+  const set = new Set<number>();
+  for (const s of frame.strokes) {
+    if (s.opacity <= 0) continue;
+    set.add(strokeWidthOf(s));
+  }
   return Array.from(set);
 }
 
@@ -575,7 +619,7 @@ function usedArrowColors(frame: RenderFrame): string[] {
 export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): string {
   const m = staticSceneMetrics(opts);
   const bg = opts.background ?? 'black';
-  const markers = arrowMarkersMarkup(usedArrowColors(frame));
+  const markers = arrowMarkersMarkup(usedArrowColors(frame), usedStrokeWidths(frame));
 
   return (
     // ★[A-10] width/height 명시. viewBox 만 있으면 <img> 내재 크기가 불확정이라 브라우저마다
@@ -599,6 +643,7 @@ export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): strin
     ruleMarkup(frame, opts) +
     shapesMarkup(opts.shapes ?? []) +
     conesMarkup(frame) +
+    strokesMarkup(frame) +
     arrowsMarkup(frame) +
     chairsMarkup(frame, opts) +
     ballsMarkup(frame) +

@@ -3,6 +3,7 @@
 // 되돌려지지 않는다.
 import { DEG } from '../core/angle.ts';
 import { arrowPath, arrowPointKey, parseArrowPointKey } from '../model/arrow.ts';
+import { parseStrokePointKey, strokePath, strokePointKey } from '../model/stroke.ts';
 
 export interface TransformWriter {
   register(id: string, el: SVGGElement | null): void;
@@ -13,6 +14,14 @@ export interface TransformWriter {
    *  그룹 안의 모든 `<path>` 에 같은 `d` 를 쓴다(케이싱·본선·포커스 링이 전부 같은 d 를 쓰는
    *  ArrowPath 구조 전제). */
   registerArrow(id: string, el: SVGGElement | null): void;
+  /** 획 `<g>`(§6.6 StrokePath). 화살표와 **같은 방식**이다 — transform 이 아니라 `d` 재조립.
+   *
+   *  다른 점은 `count`(그 획의 점 수)를 함께 받는다는 것뿐이다. 프레임 키가
+   *  `${id}@${점수}@${첨자}`(model/stroke.ts 규약)라 점 수를 모르면 키를 만들 수 없고,
+   *  **점 수를 노드가 쥐는 것이 곧 스냅 정책**이다: 스텝 전환 중 프레임에는 두 스텝의 키가
+   *  모두 실리는데, React 가 렌더한 획(도착 스텝, 점 N개)은 자기 N 으로만 키를 찾으므로
+   *  점 수가 달라진 획은 도착 값을 그대로 집어 스냅하고, 같으면 점별 보간이 흐른다. */
+  registerStroke(id: string, el: SVGGElement | null, count?: number): void;
   /** 개체와 **같은** transform 을 받는 부속 그룹(존 핸들 등). 개체 본체와 별개의 SVG 위치에
    *  그려지면서도 60fps 로 함께 움직여야 하는 오버레이용 — 본체 <g> 안에 넣을 수 없을 때 쓴다.
    *
@@ -62,6 +71,7 @@ export function createTransformWriter(): TransformWriter {
   const counters = new Map<string, SVGGElement>();
   const followers = new Map<string, Follower>();
   const arrowEls = new Map<string, SVGGElement>();
+  const strokeEls = new Map<string, { el: SVGGElement; count: number }>();
   const prev = new Map<string, Pose>();
   // 마지막으로 기록된 프레임 전체 — register() 가 늦게 마운트된 노드에 즉시 흘려보낼 때 쓴다.
   const frame = new Map<string, Pose>();
@@ -130,6 +140,31 @@ export function createTransformWriter(): TransformWriter {
     applyArrow(id);
   }
 
+  /** 프레임에 실린 점들로 `d` 를 다시 조립해 그룹의 모든 `<path>` 에 쓴다. 한 점이라도
+   *  없으면(트윈이 이 획을 아직 안 만졌거나, 점 수가 다른 스텝의 키만 있을 때) React 가
+   *  렌더한 d 를 그대로 둔다 — `applyArrow` 와 같은 규율이다. */
+  function applyStroke(id: string): void {
+    const entry = strokeEls.get(id);
+    if (!entry) return;
+    const points: Pose[] = [];
+    for (let i = 0; i < entry.count; i += 1) {
+      const p = frame.get(strokePointKey(id, entry.count, i));
+      if (!p) return;
+      points.push(p);
+    }
+    const d = strokePath({ points });
+    for (const p of entry.el.querySelectorAll('path')) p.setAttribute('d', d);
+  }
+
+  function registerStroke(id: string, el: SVGGElement | null, count = 0): void {
+    if (!el) {
+      strokeEls.delete(id);
+      return;
+    }
+    strokeEls.set(id, { el, count });
+    applyStroke(id);
+  }
+
   function registerCounter(id: string, el: SVGGElement | null): void {
     if (!el) {
       counters.delete(id);
@@ -161,6 +196,13 @@ export function createTransformWriter(): TransformWriter {
       applyArrow(ap.id);
       return;
     }
+    // 획 점 키(`fh_…@12@3`)도 transform 이 아니라 d 재조립 대상이다. 화살표를 먼저 보는
+    // 순서에 뜻은 없다 — 두 파서는 id 접두(`ar`/`fh`)로 갈리므로 겹치지 않는다.
+    const sp = parseStrokePointKey(id);
+    if (sp) {
+      applyStroke(sp.id);
+      return;
+    }
     const el = els.get(id);
     if (el) applyMain(el, id, x, y, rad);
     const counter = counters.get(id);
@@ -173,17 +215,26 @@ export function createTransformWriter(): TransformWriter {
     // 화살표는 한 프레임에 세 점이 같이 오므로, write() 로 낱개 처리하면 d 를 최대 세 번
     // 조립한다 — 여기서 모아 화살표당 한 번만 조립한다.
     let dirtyArrows: Set<string> | null = null;
+    // 획도 같은 이유로 모은다 — 400점짜리 획을 낱개로 처리하면 한 프레임에 `d` 를 400번
+    // 조립한다(그리고 그 문자열은 전부 버려진다).
+    let dirtyStrokes: Set<string> | null = null;
     // 요건 4: for...in 대신 Object.keys().
     for (const id of Object.keys(f)) {
       const p = f[id]!;
       const ap = parseArrowPointKey(id);
-      if (ap === null) {
-        write(id, p.x, p.y, p.theta);
+      if (ap !== null) {
+        if (writePose(id, p.x, p.y, p.theta)) (dirtyArrows ??= new Set()).add(ap.id);
         continue;
       }
-      if (writePose(id, p.x, p.y, p.theta)) (dirtyArrows ??= new Set()).add(ap.id);
+      const sp = parseStrokePointKey(id);
+      if (sp !== null) {
+        if (writePose(id, p.x, p.y, p.theta)) (dirtyStrokes ??= new Set()).add(sp.id);
+        continue;
+      }
+      write(id, p.x, p.y, p.theta);
     }
     if (dirtyArrows) for (const id of dirtyArrows) applyArrow(id);
+    if (dirtyStrokes) for (const id of dirtyStrokes) applyStroke(id);
   }
 
   function setHeld(id: string, next: boolean): void {
@@ -212,10 +263,11 @@ export function createTransformWriter(): TransformWriter {
     counters.clear();
     followers.clear();
     arrowEls.clear();
+    strokeEls.clear();
     prev.clear();
     frame.clear();
     held.clear();
   }
 
-  return { register, registerCounter, registerArrow, registerFollower, write, writeFrame, setHeld, snapshot, clear };
+  return { register, registerCounter, registerArrow, registerStroke, registerFollower, write, writeFrame, setHeld, snapshot, clear };
 }

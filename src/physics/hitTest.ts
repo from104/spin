@@ -1,11 +1,13 @@
 // 포인터 → 대상/존 판정, 존 핸들 배치. §5.12.
 import type { Vec2 } from '../core/units.ts';
 import { CHAIR, BALL, CONE, NOTE, INTERACT } from '../core/constants.ts';
-import type { ChairId, BallId, ConeId, NoteId, ArrowId } from '../core/ids.ts';
+import type { ChairId, BallId, ConeId, NoteId, ArrowId, StrokeId } from '../core/ids.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
 import { chairCorners, projectGrab, pointAtLever } from '../model/chair.ts';
 import { ARROW_STYLE, arrowRotateHandlePoint } from '../model/arrow.ts';
 import type { ArrowGrip } from '../model/arrow.ts';
+import { strokeHandlePoints } from '../model/stroke.ts';
+import type { StrokeGrip } from '../model/stroke.ts';
 
 /** §6.10 편집기 도구 8종의 key. 원 소유자는 store/screen-editor(Wave 3/4)지만, hitTest 의
  *  `HitContext` 시그니처가 §5.12 계약에 `tool: ToolId` 로 이미 못박혀 있고 physics-world 는
@@ -31,7 +33,13 @@ export type ToolId =
   // 클릭만·붉은 X 커서·빈 곳을 찍으면 스스로 빠지는 **일시 모드**다.
   // ⚠️ 아래 `forgivingRadius` 의 `tool === 'select'` 가드가 이 도구의 안전장치다 —
   //    관대한 44px 반경이 파괴에 붙으면 18px 떨어진 공이 조용히 사라진다(§9.4 F1).
-  | 'eraser';
+  | 'eraser'
+  // 2026-09-03 — 자유 그리기(기현 지시: *"드릴 편집 작도에 자유 그리기 추가. 백터로 그리고…"*).
+  // 이 도구는 **배치도 선택도 아니다**: 누른 자리에서 손을 떼는 자리까지의 궤적 자체가 입력이라
+  // `TOOL_TO_PLACE` 에도 없고, 러버밴드도 열지 않는다(useEditorPointer 의 freehand 분기).
+  // 히트테스트는 이 도구에서 아예 돌지 않는다 — 개체 위에서 시작해도 그 개체를 잡지 않고
+  // 그 자리부터 그린다(그게 "자유" 의 뜻이다). 그래서 아래 표에는 `'freehand'` 분기가 없다.
+  | 'freehand';
 
 /** §5.12/§6.5 가 참조하는 히트 반경 상한. 값의 출처는 §6.5(render-stage 소유 `hitRadius.ts`)지만
  *  그 파일은 별도 Wave(3)의 별도 모듈 소유라 physics-world 가 import 할 수 없다(의존 방향 위반).
@@ -49,11 +57,18 @@ export type ToolId =
 const HIT_R_MAX_PX = { chair: 21.25, ball: 11.25, cone: 8.75, note: 22 } as const;
 
 export interface HitResult {
-  kind: 'chair' | 'ball' | 'cone' | 'note' | 'arrow' | 'arrowHandle' | 'zoneHandle';
+  // 2026-09-03 — `stroke`(획 몸통) · `strokeHandle`(획 앵커 셋)이 늘었다. 이름이 화살표의
+  // `arrow`/`arrowHandle` 과 나란한 것은 우연이 아니라 계약이다: 획은 화살표의 N점 판이고
+  // (model/stroke.ts 머리말), 두 개체의 조작 규칙이 같으므로 히트 결과의 모양도 같아야 한다.
+  kind: 'chair' | 'ball' | 'cone' | 'note' | 'arrow' | 'arrowHandle' | 'stroke' | 'strokeHandle' | 'zoneHandle';
   id: string;
   s?: number; // chair 직접 드래그: 축 방향 정규 위치
   zone?: DragZone; // zoneHandle
   which?: ArrowGrip; // arrowHandle — 세 점 + 회전 앵커(2026-08-18)
+  /** strokeHandle — 양 끝 + 회전 앵커(2026-09-03). `which` 와 **따로 두는** 이유는 두 집합이
+   *  겹치지 않기 때문이다(`ArrowGrip` 에는 'ctrl' 이 있고 `StrokeGrip` 에는 없다). 한 필드에
+   *  합집합으로 담으면 화살표 분기에서 'ctrl' 검사를 빠뜨려도 타입이 조용히 통과한다. */
+  grip?: StrokeGrip;
 }
 
 export interface HitContext {
@@ -62,6 +77,12 @@ export interface HitContext {
   pointerType: string;
   selectedChairId: ChairId | null;
   selectedArrowId: ArrowId | null;
+  /** 앵커를 띄울 획(2026-09-03). 화살표와 **같은 규칙**이다 — 앵커는 선택된 하나에만 그려지고
+   *  (StrokeHandles), 히트도 그때만 `strokeHandle` 을 돌려준다. 선택 사항인 이유는
+   *  `selectedArrowId` 와 다르다: 저 필드는 계약이 이미 못박은 것이고 이것은 나중에 붙은
+   *  것이라, 획을 모르는 옛 호출부(다른 개체를 재는 단위 테스트들)를 깨지 않으려는 것이다.
+   *  안 주면 획 앵커가 안 잡힐 뿐 몸통 히트는 그대로 산다. */
+  selectedStrokeId?: StrokeId | null;
   handlesVisible: boolean;
   tool: ToolId;
   /** §7.3 히트 타깃(CSS px). 기본 `INTERACT.hitTargetCssPx`(44), "큰 터치 타깃" 설정에서 56.
@@ -85,6 +106,14 @@ export interface SceneSnapshot {
    *  22 px 로 캡돼 있었고, 그 결과 긴 메모는 칩 한복판을 눌러도 안 잡혔다. */
   notes: ReadonlyArray<{ id: NoteId; p: Vec2; halfW: number; halfH: number }>;
   arrows: ReadonlyArray<{ id: ArrowId; from: Vec2; ctrl: Vec2; to: Vec2 }>;
+  /** 자유 그리기 획(2026-09-03) — 점열만 싣는다. 색·굵기·화살촉은 히트에 아무 영향이 없고
+   *  (아래 `strokeTolerance` 주석), 안 실으면 이 스냅샷이 렌더 스타일까지 나르는 물건이 된다.
+   *
+   *  ⚠️ **필수 필드다.** `selectedStrokeId` 를 선택 사항으로 둔 것과 갈리는데, 이유가 있다:
+   *  저쪽은 빠뜨려도 "지금 고른 획이 없다" 라는 **참인 상태**로 읽히지만, 이쪽을 빠뜨리면
+   *  "판에 획이 없다" 라고 **거짓말**을 하게 되고 그 결과는 조용한 미스히트다(손으로 그은
+   *  선만 안 잡힌다). 컴파일러가 모든 장면 조립부에 한 번씩 물어보게 두는 편이 싸다. */
+  strokes: ReadonlyArray<{ id: StrokeId; points: readonly Vec2[] }>;
 }
 
 export function zoneHandles(
@@ -161,6 +190,23 @@ function bezierPoint(from: Vec2, ctrl: Vec2, to: Vec2, t: number): Vec2 {
     x: mt * mt * from.x + 2 * mt * t * ctrl.x + t * t * to.x,
     y: mt * mt * from.y + 2 * mt * t * ctrl.y + t * t * to.y,
   };
+}
+
+/** 점열(획)까지의 최단거리. 점이 하나면 그 점까지의 거리, 없으면 무한대다.
+ *
+ *  화살표처럼 곡선을 샘플링하지 않는 이유: 획의 저장 형태가 **이미 폴리라인**이다. 화면에서는
+ *  Catmull-Rom 으로 부드럽게 이어 그리지만(strokePath), 그 스플라인은 저장된 점들을 반드시
+ *  지나고 점 사이에서만 살짝 부풀 뿐이라 폴리라인과의 차이가 픽 패드(6 CSS px)보다 훨씬 작다.
+ *  샘플링을 더하면 비용만 점 수에 비례해 늘고 판정은 안 달라진다. */
+function distPointToPolyline(p: Vec2, pts: readonly Vec2[]): number {
+  if (pts.length === 0) return Infinity;
+  if (pts.length === 1) return dist(p, pts[0]!);
+  let min = Infinity;
+  for (let i = 1; i < pts.length; i++) {
+    const d = distPointToSegment(p, pts[i - 1]!, pts[i]!);
+    if (d < min) min = d;
+  }
+  return min;
 }
 
 /** 2차 베지에 곡선까지의 최단거리 근사(16 세그먼트 폴리라인 샘플링). 화살표 stroke 히트에만 쓴다. */
@@ -293,6 +339,29 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
     }
   }
 
+  // 3b) 선택된 획의 앵커(from/to/rotate) — 2026-09-03. 화살표 앵커와 **같은 우선순위·같은
+  //     반경**이고, 자리는 `strokeHandlePoints` 가 정한다(StrokeHandles 가 그리는 것과 같은
+  //     순수 함수 — 보이는 자리와 잡히는 자리가 갈리지 않는 유일한 방법이다).
+  //     화살표 뒤인 것은 순서일 뿐 경쟁이 아니다: 선택은 한 번에 하나라 두 필드가 동시에
+  //     차는 일이 없다(useEditorPointer.buildHitContext 가 selection 에서 종류별로 하나씩 뽑는다).
+  if (ctx.selectedStrokeId) {
+    const s = scene.strokes.find((x) => x.id === ctx.selectedStrokeId);
+    if (s) {
+      const hp = strokeHandlePoints(s);
+      const candidates: Array<{ grip: StrokeGrip; pt: Vec2 }> = [
+        { grip: 'from', pt: hp.from },
+        { grip: 'to', pt: hp.to },
+        { grip: 'rotate', pt: hp.rotate },
+      ];
+      let nearest: { grip: StrokeGrip; d: number } | null = null;
+      for (const c of candidates) {
+        const d = dist(p, c.pt);
+        if (d <= r.handle && (!nearest || d < nearest.d)) nearest = { grip: c.grip, d };
+      }
+      if (nearest) return { kind: 'strokeHandle', id: s.id, grip: nearest.grip };
+    }
+  }
+
   // 4) 선택된 휠체어의 존 핸들(표시 중일 때만, 최근접 1개).
   if (ctx.handlesVisible && ctx.selectedChairId) {
     const c = scene.chairs.find((x) => x.id === ctx.selectedChairId);
@@ -315,14 +384,26 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
   }
   if (padBest) return { kind: 'chair', id: padBest.id, s: padBest.s };
 
-  // 6) 화살표 stroke.
-  let arrowBest: { id: string; d: number } | null = null;
+  // 6) 선 몸통 — 화살표와 획이 **같은 칸에서 겨룬다**(2026-09-03).
+  //    한쪽을 먼저 훑고 return 하면 겹친 자리에서 개체 종류가 곧 우선순위가 되는데, 그
+  //    서열에는 아무 근거가 없다(둘 다 판에 덧그린 선이다). 1)의 공·콘·메모가 이미 쓰는
+  //    "가장 가까운 것이 이긴다" 를 여기서도 쓴다 — 화살표만 있는 판에서는 답이 예전과 같다.
+  //
+  //    ⚠️ 허용 오차는 **획의 굵기를 안 본다.** 굵기 3단(2.4/3.4/5.2)의 반두께 차이는 최대
+  //    1.4 px 인데 픽 패드(`arrowPad` = 6 CSS px)가 그보다 네 배 넘게 크다 — 굵기별로 나누면
+  //    손이 못 느끼는 차이를 위해 판정이 개체마다 달라진다. 화살표와 같은 값이라 "화살표 옆에
+  //    그은 획이 같은 선으로 보인다"(STROKE_DEFAULT_WIDTH_PX)가 잡는 손에도 참이 된다.
+  const tol = ARROW_STYLE.width / 2 + r.arrowPad;
+  let lineBest: { kind: 'arrow' | 'stroke'; id: string; d: number } | null = null;
   for (const a of scene.arrows) {
-    const tol = ARROW_STYLE.width / 2 + r.arrowPad;
     const d = distPointToQuadBezier(p, a.from, a.ctrl, a.to);
-    if (d <= tol && (!arrowBest || d < arrowBest.d)) arrowBest = { id: a.id, d };
+    if (d <= tol && (!lineBest || d < lineBest.d)) lineBest = { kind: 'arrow', id: a.id, d };
   }
-  if (arrowBest) return { kind: 'arrow', id: arrowBest.id };
+  for (const s of scene.strokes) {
+    const d = distPointToPolyline(p, s.points);
+    if (d <= tol && (!lineBest || d < lineBest.d)) lineBest = { kind: 'stroke', id: s.id, d };
+  }
+  if (lineBest) return { kind: lineBest.kind, id: lineBest.id };
 
   return null;
 }

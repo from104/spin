@@ -22,6 +22,8 @@ import {
   GK_AWAY_COLOR,
 } from '../core/colors.ts';
 import { NOTE_FILL, NOTE_FOLD_FILL } from '../core/colors.ts';
+import { STROKE_DEFAULT_WIDTH_PX, STROKE_WIDTHS, STROKE_WIDTH_DEFAULT, strokePath } from '../model/stroke.ts';
+import type { Vec2 } from '../core/units.ts';
 import { CourtSurface } from './CourtSurface.tsx';
 import { ShapeLayer } from './ShapeLayer.tsx';
 import { useT } from '../i18n/useT.ts';
@@ -119,6 +121,16 @@ export const THUMB_GLYPH = {
    *  화살표(위 arrowW 주석)와 경합했다 — 도형은 조연이다. 8유닛(≈1.3px)이면 구역 경계로
    *  충분히 보인다. */
   shapeStroke: 2,
+  /** 자유 그리기 획의 **기본 굵기 배수**(2026-09-03). 획은 굵기가 3단(`STROKE_WIDTHS`)이라
+   *  화살표처럼 절대값 하나로 못 적는다 — 저장된 굵기 첨자에 이 배수를 곱해 세 단의 **비율을
+   *  지킨 채** 칩에서 읽히게 키운다. 값은 화살표와 같은 자리에 오게 잡았다: 3.4 × 3.2 ≈ 11 =
+   *  위 `arrowW`. 같은 판에서 화살표 옆에 그은 획이 카드에서도 같은 굵기로 보여야 한다
+   *  (그 등식은 model/stroke.ts 의 `STROKE_DEFAULT_WIDTH_PX` 가 판에서 쥐고 있는 것과 같다). */
+  strokeScale: 3.2,
+  /** 획 케이싱의 여백. **판의 `+2.4` 를 그대로 옮기지 않는다** — 위 `arrowCasingPad` 주석의
+   *  근거가 글자 그대로 걸린다(축소 렌더라 그대로 두면 카드에서 ≈0.4 px, 사실상 안 보인다).
+   *  화살표와 같은 6 을 쓰는 것은 두 선의 검은 테가 칩에서도 같은 두께로 보여야 하기 때문이다. */
+  strokeCasingPad: 6,
   /** 메모 글자 배수. 판 기본 14 px × 0.6 ≈ 8.4 → 목록 카드에서 **약 3 px** 이 된다
    *  (기현님 지시: *"메모(글자를 2~3px로) 등도 잡혀야지"*). 다른 글리프처럼 2배로 키우면
    *  쪽지가 코트 절반을 덮는다 — 쪽지 크기는 글자 크기에서 나오기 때문이다(`noteChip.ts`). */
@@ -171,8 +183,9 @@ export function CourtThumbnail({
           '카드만 진한' 판이 나오고, 그건 코트에서야 알게 된다. */}
       {thumb?.shapes && <ShapeLayer shapes={thumb.shapes} strokeScale={THUMB_GLYPH.shapeStroke * g} />}
       {thumb && (
-        // §3.5 렌더 레이어 순서: 코트면 → 격자 → 규칙존 → 콘 → 화살표 → 휠체어 → 공 → 메모.
-        // 썸네일은 격자·규칙존을 그리지 않으므로 콘 → 화살표 → 휠체어 → 공 → 메모 순서다.
+        // §3.5 렌더 레이어 순서: 코트면 → 격자 → 규칙존 → 콘 → 획 → 화살표 → 휠체어 → 공 → 메모.
+        // 썸네일은 격자·규칙존을 그리지 않으므로 콘 → 획 → 화살표 → 휠체어 → 공 → 메모 순서다.
+        // (획이 화살표 아래인 근거는 render/ObjectLayer.tsx 머리말 — 판과 같은 단일 순서다.)
         <g>
           {thumb.cones.map(([x, y, c], i) => (
             <path
@@ -183,6 +196,24 @@ export function CourtThumbnail({
               strokeWidth={THUMB_GLYPH.coneStroke * g}
             />
           ))}
+          {/* 자유 그리기 획(2026-09-03). 요약이 담은 것은 **평탄한 좌표 열**이고 색·굵기는
+              값이 아니라 첨자다(model/thumb.ts) — 그 두 첨자를 여기서 펼친다. 없거나 범위
+              밖이면 기본값으로 접는다(옛 요약이 정확히 그 경우다).
+              점열을 `strokePath` 에 그대로 태워 판과 **같은 곡선**을 얻는다: 여기서 `L` 로
+              이으면 칩에서만 획이 각져 보이고, 그건 코트에서야 알게 된다. */}
+          {thumb.strokes?.map((s, i) => {
+            const pts: Vec2[] = [];
+            for (let k = 0; k + 1 < s.p.length; k += 2) pts.push({ x: s.p[k]!, y: s.p[k + 1]! });
+            if (pts.length < 2) return null;
+            const d = strokePath({ points: pts });
+            const w = (STROKE_WIDTHS[s.w ?? STROKE_WIDTH_DEFAULT] ?? STROKE_DEFAULT_WIDTH_PX) * THUMB_GLYPH.strokeScale * g;
+            return (
+              <g key={i}>
+                <path d={d} fill="none" stroke={ARROW_CASING} strokeWidth={w + THUMB_GLYPH.strokeCasingPad * g} strokeLinecap="round" strokeLinejoin="round" />
+                <path d={d} fill="none" stroke={ARROW_COLORS[s.c ?? 0] ?? ARROW_COLOR} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" />
+              </g>
+            );
+          })}
           {thumb.arrows.map((a, i) => {
             const d = `M${a.p[0]},${a.p[1]} Q${a.p[2]},${a.p[3]} ${a.p[4]},${a.p[5]}`;
             return (

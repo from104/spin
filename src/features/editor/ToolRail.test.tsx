@@ -140,13 +140,15 @@ describe('ToolRail — 기능 구역', () => {
     expect(expanded('작도')).toBe('false');
   });
 
-  it('작도 손잡이를 누르면 선이 나온다 — 메모는 그대로 접혀 있다(대조군)', async () => {
+  it('작도 손잡이를 누르면 선·자유 그리기가 나온다 — 메모는 그대로 접혀 있다(대조군)', async () => {
     render(<ControlledRail />);
     const user = userEvent.setup();
     await user.click(handle('작도'));
     expect(expanded('작도')).toBe('true');
     expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();
-    for (const label of ['선']) expect(hasTool(label), label).toBe(true);
+    // 🔁 2026-09-03 — `자유` 가 합류했다(기현 지시). **서랍 안**이라 첫 화면 표적은 안 늘고,
+    //    서랍을 연 상태의 예산만 하나 오른다(boardTargetBudget 머리말의 그 셈).
+    for (const label of ['선', '자유']) expect(hasTool(label), label).toBe(true);
     // 대조군: 서랍을 열어도 상시 도구는 그대로다(메모는 원래 보인다 — 서랍과 무관).
     expect(hasTool('메모')).toBe(true);
   });

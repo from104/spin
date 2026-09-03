@@ -101,6 +101,10 @@ export const KEYMAP: readonly KeyDef[] = [
   // ── 도구 ────────────────────────────────────────────────────────────────
   toolKey('select', 'KeyV', 'V', '선택'),
   toolKey('line', 'KeyL', 'L', '선'),
+  // 2026-09-03 자유 그리기 — 머릿글자 규칙(위 원칙 2)이 **막히지 않은 드문 경우**다.
+  // `freehand` 의 f 는 도구·개체 어느 층에서도 안 쓰였고, 시연 화면의 `Alt+F`(전체화면)와는
+  // 수식키가 갈라 안 부딪힌다. 규칙이 통하는데 예외를 만들 이유가 없다.
+  toolKey('freehand', 'KeyF', 'F', '자유 그리기'),
   toolKey('shapeEllipse', 'KeyO', 'O', '원'),
   toolKey('shapeTriangle', 'KeyT', 'T', '삼각'),
   toolKey('shapeRect', 'KeyR', 'R', '사각'),
@@ -405,7 +409,7 @@ export function helpRows(scope: KeyScope, opts: { steps: boolean }): ReadonlyArr
   return rows;
 }
 
-/** 도구 — **글자마다 한 줄**. 표의 순서 = 레일 순서다(2026-09-03 지우기 합류로 10종).
+/** 도구 — **글자마다 한 줄**. 표의 순서 = 레일 순서다(2026-09-03 지우기·자유 그리기 합류로 11종).
  *
  *  ⚠️ 2026-08-16 기현 지시(*"도움말에 어느 키가 뭔지는 적어야지"*)로 한 줄에서 아홉 줄이 됐다.
  *  옛 모양은 `['V L O T R B C P N', '도구 선택']` 이었다 — 표가 도구 목록이 되는 것을 피하려고

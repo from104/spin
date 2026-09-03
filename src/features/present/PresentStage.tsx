@@ -13,6 +13,7 @@ import { courtDefFor, type CourtMode } from '../../model/court.ts';
 import type { BallRing, Drill, DrillStep, TeamSide } from '../../model/drill.ts';
 
 import { arrowColor } from '../../model/arrow.ts';
+import { strokeColor, strokeWidthOf } from '../../model/stroke.ts';
 import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playback.ts';
 import { PLAYBACK } from '../../core/constants.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
@@ -27,7 +28,7 @@ import { createTransformWriter } from '../../render/transformWriter.ts';
 import { raf } from '../../render/rafLoop.ts';
 import { usePlaybackState, usePlaybackActions } from '../../store/playback/PlaybackProvider.tsx';
 import { createOpacityWriter } from './opacityWriter.ts';
-import { PresentChairMark, PresentBallMark, PresentConeMark, PresentArrowLayer, PresentNoteLayer } from './PresentObjects.tsx';
+import { PresentChairMark, PresentBallMark, PresentConeMark, PresentArrowLayer, PresentNoteLayer, PresentStrokeLayer } from './PresentObjects.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
@@ -47,7 +48,7 @@ export interface PresentStageProps {
   onEnded?(): void;
 }
 
-const emptyFrame = (): RenderFrame => ({ stepIndex: 0, t: 0, chairs: [], balls: [], cones: [], arrows: [], notes: [] });
+const emptyFrame = (): RenderFrame => ({ stepIndex: 0, t: 0, chairs: [], balls: [], cones: [], arrows: [], notes: [], strokes: [] });
 
 export function PresentStage({ drill, showRuleZones, showGrid = false, showGridLabels = false, reduceMotion, seekToken, onStepChange, onEnded }: PresentStageProps) {
   const t = useT();
@@ -77,6 +78,7 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
 
   const [arrows, setArrows] = useState<RenderFrame['arrows']>([]);
   const [notes, setNotes] = useState<RenderFrame['notes']>([]);
+  const [strokes, setStrokes] = useState<RenderFrame['strokes']>([]);
   // 링을 그릴 공을 고르는 데만 쓴다 — 스텝이 바뀔 때만 갱신되므로 60fps 리렌더가 아니다
   // (화살표·메모는 원래 매 프레임 state 로 다시 그린다 — 파일 머리말).
   const [stepIdx, setStepIdx] = useState(0);
@@ -116,7 +118,19 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
   // 드릴 전체를 한 번 훑어 계산한다. 그래야 재생 중 매 프레임 <marker> DOM 이 재생성되지 않는다.
   const usedColors = useMemo(() => {
     const set = new Set<string>();
-    for (const step of drill.steps) for (const a of step.arrows) set.add(arrowColor(a));
+    for (const step of drill.steps) {
+      for (const a of step.arrows) set.add(arrowColor(a));
+      // 획도 같은 팔레트를 쓰고 같은 마커를 참조한다 — 여기서 빠뜨리면 화살촉을 켠 획만
+      // 촉이 안 보인다(없는 id 를 가리키는 url(#…) 을 SVG 는 조용히 무시한다).
+      for (const s of step.strokes ?? []) set.add(strokeColor(s));
+    }
+    return Array.from(set);
+  }, [drill]);
+  /** 마커는 (색 × 굵기)마다 하나다 — 굵기 축은 획만 갖는다(arrowHeadGeom.ts). 색과 같은
+   *  이유로 드릴 전체를 한 번만 훑는다. */
+  const usedWidths = useMemo(() => {
+    const set = new Set<number>();
+    for (const step of drill.steps) for (const s of step.strokes ?? []) set.add(strokeWidthOf(s));
     return Array.from(set);
   }, [drill]);
 
@@ -151,6 +165,7 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
       rules.write(rulePoses);
 
       setArrows(frame.arrows);
+      setStrokes(frame.strokes);
       setNotes(frame.notes);
 
       if (frame.stepIndex !== stepIndexRef.current) {
@@ -213,7 +228,7 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
       style={{ display: 'block', width: '100%', height: '100%', filter: 'drop-shadow(0 22px 40px rgba(0,0,0,.5))' }}
     >
       <defs>
-        <ArrowMarkers uid={markerUid} colors={usedColors} />
+        <ArrowMarkers uid={markerUid} colors={usedColors} widths={usedWidths} />
       </defs>
       <rect width={def.vbW} height={def.vbH} rx={16} fill={COURT_BG} />
       <CourtSurface mode={mode} size={drill.courtSize} variant="present" />
@@ -236,6 +251,9 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
         {drill.cast.cones.map((c) => (
           <PresentConeMark key={c.id} def={c} writer={writer} opacityWriter={opacityWriter} />
         ))}
+        {/* 획은 화살표 **바로 아래** — 편집기(ObjectLayer 머리말)와 같은 순서다. 두 화면의
+            z-order 가 갈리면 코치가 판에서 본 그림과 관객이 보는 그림이 달라진다. */}
+        <PresentStrokeLayer strokes={strokes} markerUid={markerUid} />
         <PresentArrowLayer arrows={arrows} markerUid={markerUid} />
         {drill.cast.chairs.map((c) => (
           <PresentChairMark key={c.id} def={c} teams={drill.teams} writer={writer} opacityWriter={opacityWriter} />

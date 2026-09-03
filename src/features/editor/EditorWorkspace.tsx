@@ -36,6 +36,7 @@ import { placeObject } from './placement.ts';
 import { removalToast, returnsToTray } from './removal.ts';
 import { canDuplicate } from './ObjectMenu.tsx';
 import { nudgeArrow } from '../../model/arrow.ts';
+import { nudgeStroke } from '../../model/stroke.ts';
 import { PX_PER_M } from '../../core/units.ts';
 import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
@@ -314,6 +315,13 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           // 고장난 것처럼 보였다. 지우는 길이 여기 하나로 모이면서 그 구멍이 닫힌다.
           dispatch({ type: 'SHAPE_REMOVE', id });
           done.push(id);
+        } else if (isId(id, 'fh')) {
+          // 2026-09-03 획. 위 'sh' 갈래가 2026-08-16 에 없어서 겪은 그 고장(누르면 조용히
+          // 아무 일도 안 남)이 여기 없으면 그대로 재현된다 — 이 함수가 **지우는 유일한 문**이라
+          // ([지우기] 도구 · Delete · 개체 메뉴 · 트레이 드롭이 전부 여기로 온다) 갈래 하나가
+          // 비면 그 개체는 어느 문으로도 안 지워진다.
+          dispatch({ type: 'STROKE_REMOVE', id });
+          done.push(id);
         }
       }
       const count = done.length;
@@ -390,9 +398,11 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       let nShapes = step.shapes.length;
       let nNotes = step.notes.length;
       let nArrows = step.arrows.length;
+      let nStrokes = step.strokes?.length ?? 0;
       let shapeCap = false;
       let noteCap = false;
       let arrowCap = false;
+      let strokeCap = false;
       for (const id of ids) {
         if (isId(id, 'sh')) {
           const sh = step.shapes.find((x) => x.id === id);
@@ -429,15 +439,37 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           dispatch({ type: 'ARROW_SET', arrow: { ...nudgeArrow(ar, 'whole', { x: dx, y: dy }), id: nid } });
           made.push(nid);
           nArrows++;
+        } else if (isId(id, 'fh')) {
+          const fh = step.strokes?.find((x) => x.id === id);
+          if (!fh) continue;
+          if (nStrokes >= LIMITS.strokesPerStep) {
+            strokeCap = true;
+            continue;
+          }
+          const nid = newId('fh');
+          // 화살표와 **같은 방식**으로 자른다: 점마다 클램프하면 사본의 모양이 원본과 달라진다
+          // (손으로 그은 곡선이 판 가장자리에서 납작해진다). 이동량 자체를 줄여 강체로 옮긴다.
+          let maxX = -Infinity;
+          let maxY = -Infinity;
+          for (const p of fh.points) {
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+          }
+          const dx = Math.max(0, Math.min(off, court.vbW - maxX));
+          const dy = Math.max(0, Math.min(off, court.vbH - maxY));
+          dispatch({ type: 'STROKE_SET', stroke: { ...nudgeStroke(fh, { x: dx, y: dy }), id: nid } });
+          made.push(nid);
+          nStrokes++;
         }
       }
       // 토스트는 종류당 한 번이다 — 정원에서 여럿을 복제하면 같은 문장이 개수만큼 쌓인다.
       if (shapeCap) toast.show(t('editor.workspace.shapeCapToast', { max: LIMITS.maxShapesPerStep }));
       if (noteCap) toast.show(t('editor.workspace.noteCapToast', { max: LIMITS.maxNotesPerStep }));
       if (arrowCap) toast.show(t('editor.workspace.arrowCapToast', { max: LIMITS.maxArrowsPerStep }));
+      if (strokeCap) toast.show(t('editor.workspace.strokeCapToast', { max: LIMITS.strokesPerStep }));
       if (made.length > 0) dispatch({ type: 'SELECT_SET', ids: made });
     },
-    [drill.courtMode, drill.courtSize, step.shapes, step.notes, step.arrows, dispatch, toast, t],
+    [drill.courtMode, drill.courtSize, step.shapes, step.notes, step.arrows, step.strokes, dispatch, toast, t],
   );
 
   const gotoStep = useCallback(

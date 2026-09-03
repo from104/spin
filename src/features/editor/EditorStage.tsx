@@ -21,6 +21,7 @@ import type { BallRing, Drill, DrillStep, NoteLabel, TeamSide } from '../../mode
 import type { ZoneConfig } from '../../model/chair.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
 import type { Arrow, ArrowPart } from '../../model/arrow.ts';
+import { nudgeStroke, rotateStrokeAbout, strokeCenter } from '../../model/stroke.ts';
 import { courtDefFor, goalBaseDir, gridCellCenter, cellLabelAt, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { GOAL_ID_PREFIX, GOAL_DISPLACED_EPS_PX } from '../../physics/index.ts';
 import { raf } from '../../render/rafLoop.ts';
@@ -395,9 +396,22 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         // 그것이 어려운 입력에는 사실상 없는 기능과 같다.
         const arrow = step.arrows.find((a) => a.id === id);
         if (arrow) dispatch({ type: 'ARROW_SET', arrow: nudgeArrow(arrow, arrowPart, { x: dx, y: dy }) });
+        return;
+      }
+      if (isId(id, 'fh')) {
+        // 획(2026-09-03). 메모·화살표와 같이 물리 바디가 없다. 회전이 여기 있는 유일한
+        // 비캐스트 개체인 이유: 축이 값 하나로 정해진다(경계상자 중심 — `strokeCenter` 주석).
+        // 포인터의 회전 앵커와 **같은 함수**를 써야 손과 키보드가 같은 축으로 돈다.
+        const stroke = step.strokes?.find((s) => s.id === id);
+        if (!stroke) return;
+        if (dThetaRad !== 0) {
+          dispatch({ type: 'STROKE_SET', stroke: rotateStrokeAbout(stroke, strokeCenter(stroke), dThetaRad) });
+          return;
+        }
+        dispatch({ type: 'STROKE_SET', stroke: nudgeStroke(stroke, { x: dx, y: dy }) });
       }
     },
-    [dispatch, step.arrows, step.notes, worldRef, selection, lockedSet, ignoredSet],
+    [dispatch, step.arrows, step.notes, step.strokes, worldRef, selection, lockedSet, ignoredSet],
   );
 
   const handleObjectKeyDown = useCallback(
@@ -603,6 +617,16 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     return step.shapes.find((sh) => sh.id === id) ?? null;
   }, [selection, step.shapes, lockedSet]);
 
+  /** 앵커를 띄울 획 — 도형·화살표와 **같은 세 조건**이다: 선택이 정확히 하나, 그것이 획,
+   *  잠기지 않음. 잠긴 것에 손잡이를 내면 끌어도 안 바뀌는 손잡이라 화면이 거짓말을 한다.
+   *  hitTest 쪽 게이트(`selectedStrokeId`)와 같은 판정이라야 **보이는 앵커만 잡힌다**. */
+  const selectedStroke = useMemo(() => {
+    if (selection.size !== 1) return null;
+    const id = [...selection][0]!;
+    if (lockedSet.has(id)) return null;
+    return step.strokes?.find((s) => s.id === id) ?? null;
+  }, [selection, step.strokes, lockedSet]);
+
   // ── 개체 메뉴 (2026-08-14 기현 지시) ────────────────────────────────────────────────
   const [menu, setMenu] = useState<ObjectMenuTarget | null>(null);
   // 미세 조정 패드(2026-09-02) — 개체 메뉴와 **같은 자리**에 뜬다. 상태가 메뉴와 따로인 이유:
@@ -619,9 +643,10 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       notes: step.notes.map((n) => n.id as string),
       arrows: step.arrows.map((a) => a.id as string),
       shapes: (step.shapes ?? []).map((s) => s.id as string),
+      strokes: (step.strokes ?? []).map((s) => s.id as string),
       locked: lockedSet,
     }),
-    [chairs, balls, cones, step.notes, step.arrows, step.shapes, lockedSet],
+    [chairs, balls, cones, step.notes, step.arrows, step.shapes, step.strokes, lockedSet],
   );
 
   const openMenu = useCallback(
@@ -765,7 +790,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       onObjectKeyDown={handleObjectKeyDown}
       onContainerKeyDown={handleContainerKeyDown}
       selectionOverlayRef={pointer.selectionOverlayRef}
-      dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
+      // 자유 그리기는 **잡을 것이 없으므로** activeZone 이 영영 안 찬다 — 그 자리에 십자선을
+      // 넣어 "지금 누르면 여기서부터 그어진다" 를 말한다. 새 prop 을 안 만드는 이유는 이 갈래가
+      // 이미 있는 것과 같은 성질이기 때문이다(도구가 정하는 커서). 태블릿에는 커서가 없으므로
+      // 레일 버튼의 켜짐 표시가 같은 말을 한다.
+      dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : tool === 'freehand' ? 'crosshair' : null}
       // 2026-09-03 — 도구를 그대로 넘기지 않고 **갈림 하나만** 넘긴다(CourtStage 의 그 prop
       // 주석: 그 층은 도구를 모른다). 태블릿에는 커서가 없으므로 이것이 유일한 신호가 아니다 —
       // 레일 버튼의 붉은 활성 표시가 같은 말을 한다(ToolRail 의 DANGER_TONE).
@@ -773,6 +802,12 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
       ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, teamStyles: drill.teams, defense: drill.defense, ballRings, ballOwners } : undefined}
       arrowHandles={{ arrow: selectedArrow }}
+      // 자유 그리기 획(2026-09-03) — 화살표와 나란한 세 줄이다. `strokeDraft` 는 손을 떼기
+      // 전까지의 **단순화 전** 표본이라 확정 획과 아주 조금 다른 모양인데, 그것이 맞다
+      // (useEditorPointer 의 그 필드 주석: 매 프레임 RDP 를 돌리면 이미 그은 선이 살아 움직인다).
+      strokes={step.strokes}
+      strokeDraft={pointer.strokeDraft}
+      strokeHandles={{ stroke: selectedStroke }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />
     {/* 개체 메뉴 — 잠김 · 무시 · 빼기/삭제. 무대 **밖**(포털)이라 코트의 overflow·회전에 안 잘린다. */}

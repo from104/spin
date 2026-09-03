@@ -687,6 +687,7 @@ export const ja: Record<DictKey, string> = {
   // ── C7 — 道具定義 ────────────────────────────────────────────────────────────────────
   'editor.toolDefs.select': '選択',
   'editor.toolDefs.line': '線',
+  'editor.toolDefs.freehand': 'フリー',
   'editor.toolDefs.shapeEllipse': '円',
   'editor.toolDefs.shapeTriangle': '三角',
   'editor.toolDefs.shapeRect': '四角',
@@ -796,6 +797,7 @@ export const ja: Record<DictKey, string> = {
   'editor.workspace.shapeCapToast': '図形は1ステップあたり{{max}}個までです。',
   'editor.workspace.noteCapToast': 'メモは1ステップあたり{{max}}個までです。',
   'editor.workspace.arrowCapToast': '矢印は1ステップあたり{{max}}個までです。',
+  'editor.workspace.strokeCapToast': 'フリーハンドは1ステップあたり{{max}}個までです。',
   'editor.workspace.goalsBlockedToast': 'ゴールの位置に車いすがあるため元に戻せませんでした。車いすを動かしてからもう一度押してください。',
   'editor.workspace.courtLockedBoardToast': '戦術ボードを空にするとコートの形とサイズを変更できます。',
   'editor.workspace.clearedStepToast': 'このステップを空にしました。他のステップはそのままです。',
@@ -814,6 +816,7 @@ export const ja: Record<DictKey, string> = {
   'editor.selectSame.notes': 'メモ全部選択',
   'editor.selectSame.arrows': '矢印全部選択',
   'editor.selectSame.shapes': '図形全部選択',
+  'editor.selectSame.strokes': 'フリーハンド全部選択',
 
   // ── C7 — ステップカード右クリックメニュー ────────────────────────────────────────────
   'editor.stepCardMenu.ariaLabelTemplate': 'ステップ{{n}}メニュー',

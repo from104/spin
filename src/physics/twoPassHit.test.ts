@@ -36,7 +36,7 @@ const baseCtx: HitContext = {
   tool: 'select',
 };
 
-const emptyScene = (): SceneSnapshot => ({ chairs: [], balls: [], cones: [], notes: [], arrows: [] });
+const emptyScene = (): SceneSnapshot => ({ chairs: [], balls: [], cones: [], notes: [], arrows: [], strokes: [] });
 
 // 2026-08-16 — 지우개가 사라져 9종이다(중복으로 두 번 적혀 있던 'line' 도 정리했다).
 const ALL_TOOLS: ToolId[] = ['select', 'line', 'shapeEllipse', 'shapeTriangle', 'shapeRect', 'ball', 'cone', 'player', 'note'];

@@ -99,7 +99,7 @@ describe('buildStaticSvg — 계획서 §6.2 가드 5종', () => {
 });
 
 describe('buildStaticSvg — 무엇이 실제로 그려졌는가 (하한 대조군)', () => {
-  it('칩 8 · 화살표 2 · 콘 2 · 공 1 · 쪽지 2 가 전부 문서에 있다', () => {
+  it('칩 8 · 화살표 2 · 콘 2 · 공 1 · 쪽지 2 · 획 1 이 전부 문서에 있다', () => {
     const doc = parse(buildStaticSvg(makeFrame(), OPTS));
     const ids = (prefix: string): number => doc.querySelectorAll(`[id^="obj-${prefix}"]`).length;
     expect(ids('ch_')).toBe(8);
@@ -108,10 +108,13 @@ describe('buildStaticSvg — 무엇이 실제로 그려졌는가 (하한 대조�
     expect(ids('bl_')).toBe(1);
     // 빈 메모도 쪽지는 그려진다 — 글자만 안 나온다.
     expect(ids('nt_')).toBe(2);
+    // 자유 그리기 획(2026-09-03). 모양·굵기 파생은 render/strokeRender.paths.test 가 잰다 —
+    // 여기서는 **PNG 경로가 획을 들렀는가**만 본다(이 파일의 하한 대조군 성격 그대로).
+    expect(ids('fh_')).toBe(1);
   });
 
   it('빈 프레임은 개체가 0개다 — 위 하한이 "무엇을 넣어도 통과" 가 아님을 보인다', () => {
-    const empty = makeFrame({ chairs: [], balls: [], cones: [], arrows: [], notes: [] });
+    const empty = makeFrame({ chairs: [], balls: [], cones: [], arrows: [], notes: [], strokes: [] });
     const doc = parse(buildStaticSvg(empty, OPTS));
     expect(doc.querySelectorAll('[id^="obj-"]')).toHaveLength(0);
     // 그래도 코트는 그려진다(코트 라인은 프레임과 무관하다).
