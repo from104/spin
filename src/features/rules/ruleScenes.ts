@@ -20,6 +20,9 @@
 //
 // 2026-08-31 (2) 갈래에 **12벌이 들어왔다**(계획 §4.2 매핑): kickoff·kick-in·goal-kick·corner·
 // dfk·ifk·penalty·inout·scoring·set-ball·three-in-area·two-on-one. 나머지 9개는 손코딩 그대로다.
+// 그 뒤 gk-behind-line·two-on-one-gk·two-on-one-gk-only·contested-touch(2026-09-01~03)에 이어
+// 2026-09-04 two-on-one-active 가 들어와 (2) 갈래 17벌, 손코딩은 6개다(field-tour·lineup·
+// two-on-one-open·two-on-one-escape·ramming·spin-kick). 아래 "12벌"·"9개" 는 그날의 수다.
 //
 // ⚠️ 아래 `SEED_SCENE_META`(ring/defense/cutSteps 후처리)와 `RULE_SCENE_CREATED_AT` 은 **(1) 갈래
 // 전용**이다. (2) 갈래는 그 값들을 이미 JSON 안에 들고 있고 **그것이 교체의 요점이다** — 여기서
@@ -89,6 +92,7 @@ import { drill as twoOnOneGkOnly } from './scenes/two-on-one-gk-only.scene.ts';
 import { drill as gkBehindLine } from './scenes/gk-behind-line.scene.ts';
 import { drill as twoOnOneGkDrill } from './scenes/two-on-one-gk.scene.ts';
 import { drill as contestedTouchDrill } from './scenes/contested-touch.scene.ts';
+import { drill as twoOnOneActiveScene } from './scenes/two-on-one-active.scene.ts';
 import { sceneTextFor } from './sceneText.ts';
 import { translate } from '../../i18n/useT.ts';
 import type { Locale } from '../../i18n/locale.ts';
@@ -177,7 +181,6 @@ interface RuleSceneMeta {
 const SEED_SCENE_META: Partial<Record<RuleSceneId, RuleSceneMeta>> = {
   'field-tour': {},
   lineup: {},
-  'two-on-one-active': { ring: '3m', defense: 'home', cutSteps: [1] },
   'two-on-one-open': { ring: '3m', defense: 'home' },
   'two-on-one-escape': { ring: '3m', defense: 'home' },
   ramming: { cutSteps: [1] },
@@ -267,7 +270,9 @@ export const RULE_SCENE_EXPECT: Record<RuleSceneId, RuleSceneExpect> = {
   // 살아 있다는 증거다(가드 하나가 전부를 떨구면 여기가 빨개진다).
   'field-tour': { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [], steps: 1, defense: 'home' },
   lineup: { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [], steps: 1, defense: 'home' },
-  'two-on-one-active': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [1], steps: 2, defense: 'home' },
+  // 2026-09-04 (2) 갈래로 교체 — 옛 핀 { full 28x15 · cut [1] · home } 은 손코딩 원고 값이었다.
+  // 편집기 데이터는 하프 코트(defaultDefense 가 away)이고 컷을 두지 않았다. 링 3m 은 두 스텝 다 그대로.
+  'two-on-one-active': { mode: 'half', size: '30x18', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [], steps: 2, defense: 'away' },
   'two-on-one-open': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [], steps: 2, defense: 'home' },
   'two-on-one-escape': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'], 2: ['3m'] }, retreat: {}, cut: [], steps: 3, defense: 'home' },
   ramming: { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [1], steps: 2, defense: 'home' },
@@ -395,40 +400,10 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec | Drill> = {
   // ── Law 11 — 필드 포지션: 2-on-1 ────────────────────────────────────────────────────────
   'two-on-one': twoOnOneScene,
 
-  // ── Law 11 — 2-on-1: 액티브 플레이 관여 전/후 ───────────────────────────────────────────
-  'two-on-one-active': {
-    title: '2-on-1 — 관여 전/후',
-    drillType: 'tactical',
-    situation: '2-on-1-spacing',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '팀원 1명과 상대 1명이 공 3m 안에 있는 것만으로는 아직 위반이 아닙니다. 둘째 팀원이 멀리서 다가오고 있습니다.',
-        chairs: {
-          'home-2': [365, 210, 20],
-          'away-2': [400, 260, 270],
-          'home-3': [280, 130, 135],
-        },
-        balls: [[400, 225]],
-      },
-      {
-        name: '',
-        note: '둘째 팀원이 공 3m 안으로 들어와 액티브 플레이에 관여하는 순간 위반이 성립합니다 — 상대 팀에 간접프리킥.',
-        chairs: {
-          'home-2': [365, 210, 20],
-          'away-2': [400, 260, 270],
-          'home-3': [345, 190, 135],
-        },
-        balls: [[400, 225]],
-        arrows: [{ from: [280, 130], to: [345, 190] }],
-        notes: [{ at: [400, 155], text: '간접 프리킥' }],
-      },
-    ],
-  },
+  // ── Law 11 — 2-on-1: 액티브 플레이 관여 전/후 ────────────────────────────
+  // 2026-09-04 기현 지시(*"규칙카드 7번 2번째 장면을 … 로 교체"*)로 손코딩 → 편집기 드릴
+  // "2대1 반칙의 성립"(half/30x18, 2스텝). 옛 손코딩 원고는 git 이력에 있다(a4c5adb 이전).
+  'two-on-one-active': twoOnOneActiveScene,
 
   // ── Law 11 — 2-on-1: 골키퍼 예외 ────────────────────────────────────────────────────────
   'two-on-one-gk': twoOnOneGkDrill,
