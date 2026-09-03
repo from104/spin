@@ -90,19 +90,34 @@ export function ChangelogModal({ open, onClose, returnFocusRef }: ChangelogModal
   const newer = versions[index - 1] ?? null;
 
   return (
-    <Modal open={open} onClose={onClose} titleId="changelog-modal-title" title={t('app.changelog.title')} closeLabel={t('common.close')} returnFocusRef={returnFocusRef}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      titleId="changelog-modal-title"
+      title={t('app.changelog.title')}
+      closeLabel={t('common.close')}
+      returnFocusRef={returnFocusRef}
+      // 절마다 항목 수가 들쭉날쭉해(0.3.0 은 스물여덟 줄, 0.6.1 은 여섯 줄) 좌우로 넘길 때마다
+      // 창 높이가 늘었다 줄었다 하면 손이 화면 위에서 계속 움직여야 한다(2026-09-03 기현 지시:
+      // *"체인지로그 모달 높이를 화면 높이의 60%로 고정"*) — `maxHeight` 가 아니라 `height` 로
+      // 박아 짧은 절도 빈 여백을 두고 그 높이를 지킨다. 안쪽 스크롤(Modal 의 `overflowY: auto`)
+      // 은 그대로라 긴 절은 이 높이 안에서 스크롤된다.
+      panelStyle={{ height: '60vh', maxHeight: '60vh' }}
+    >
       {current ? (
         <div>
           {/* 좌우 넘기기 — 모달 자신의 두 번째 줄 헤더. 양쪽 버튼 사이에 지금 보는 버전·날짜가
-              선다(2026-09-03 기현 지시). `aria-live` 로 화면리더가 넘길 때마다 새 버전을 읽는다. */}
+              선다(2026-09-03 기현 지시, 곧이어 *"이전 버전 다음버전 좌우 바꿈"* — 화살표는 항상
+              바깥(왼쪽 끝은 ←, 오른쪽 끝은 →)을 가리키고, 그 자리에 어느 동작이 서는지만 바꿨다).
+              `aria-live` 로 화면리더가 넘길 때마다 새 버전을 읽는다. */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '-4px 0 14px', paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
             <button
               type="button"
-              onClick={() => older && setIndex(index + 1)}
-              disabled={!older}
-              style={{ flex: 'none', background: 'none', border: 'none', padding: '6px 4px', minHeight: 'var(--hit)', fontSize: '0.8125rem', fontWeight: 600, color: older ? 'var(--text)' : 'var(--faint-text)', cursor: older ? 'pointer' : 'default', opacity: older ? 1 : 0.4 }}
+              onClick={() => newer && setIndex(index - 1)}
+              disabled={!newer}
+              style={{ flex: 'none', background: 'none', border: 'none', padding: '6px 4px', minHeight: 'var(--hit)', fontSize: '0.8125rem', fontWeight: 600, color: newer ? 'var(--text)' : 'var(--faint-text)', cursor: newer ? 'pointer' : 'default', opacity: newer ? 1 : 0.4 }}
             >
-              ← {t('app.changelog.older')}
+              ← {t('app.changelog.newer')}
             </button>
             <div aria-live="polite" style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '0.9375rem', fontWeight: 700 }}>v{current.version}</div>
@@ -110,11 +125,11 @@ export function ChangelogModal({ open, onClose, returnFocusRef }: ChangelogModal
             </div>
             <button
               type="button"
-              onClick={() => newer && setIndex(index - 1)}
-              disabled={!newer}
-              style={{ flex: 'none', background: 'none', border: 'none', padding: '6px 4px', minHeight: 'var(--hit)', fontSize: '0.8125rem', fontWeight: 600, color: newer ? 'var(--text)' : 'var(--faint-text)', cursor: newer ? 'pointer' : 'default', opacity: newer ? 1 : 0.4 }}
+              onClick={() => older && setIndex(index + 1)}
+              disabled={!older}
+              style={{ flex: 'none', background: 'none', border: 'none', padding: '6px 4px', minHeight: 'var(--hit)', fontSize: '0.8125rem', fontWeight: 600, color: older ? 'var(--text)' : 'var(--faint-text)', cursor: older ? 'pointer' : 'default', opacity: older ? 1 : 0.4 }}
             >
-              {t('app.changelog.newer')} →
+              {t('app.changelog.older')} →
             </button>
           </div>
           {current.groups.map((g, i) => (
