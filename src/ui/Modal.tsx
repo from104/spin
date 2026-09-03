@@ -19,6 +19,11 @@ export interface ModalProps {
    *  `autoFocus` 로 해결할 수 없다 — React 의 autoFocus 는 커밋 때 걸리고 이 훅은 그 뒤에
    *  도는 부모 effect 라, 부모가 도로 ✕ 로 끌어간다. 그래서 **여는 쪽이 지정한다.** */
   initialFocusRef?: RefObject<HTMLElement | null>;
+  /** 패널 자체(테두리 상자)에 얹는 추가 스타일 — 기본값 위에 덮어쓴다. 대부분의 모달은 내용
+   *  길이에 맞춰 늘어나는 것이 맞아 안 쓰지만(기본 `maxHeight: 85vh`), 좌우로 다른 절을 넘겨
+   *  보는 모달(ChangelogModal)처럼 절마다 길이가 들쭉날쭉해 **넘길 때마다 창이 커졌다 작아지면
+   *  안 되는** 경우에 고정 높이를 준다(2026-09-03 기현 지시). */
+  panelStyle?: CSSProperties;
   children: ReactNode;
 }
 
@@ -27,7 +32,7 @@ const FOCUSABLE_SELECTOR =
 
 /** §7.5f "Shift+? 도움말 오버레이 (role="dialog", 포커스 트랩, Esc)" 의 일반형.
  * `role="dialog" aria-modal="true"` + Tab 순환 트랩 + Esc 닫기 + 트리거로 포커스 복귀. */
-export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', returnFocusRef, initialFocusRef, children }: ModalProps) {
+export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', returnFocusRef, initialFocusRef, panelStyle: panelStyleOverride, children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openedByRef = useRef<HTMLElement | null>(null);
 
@@ -133,6 +138,7 @@ export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', re
     color: 'var(--text)',
     padding: '1.5rem',
     position: 'relative',
+    ...panelStyleOverride,
   };
 
   return createPortal(
