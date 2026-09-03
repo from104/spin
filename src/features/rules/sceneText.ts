@@ -74,11 +74,8 @@ const EN: SceneTextTable = {
     labels: [[]],
   },
   'two-on-one-active': {
-    note: [
-      'One teammate and one opponent within 3m of the ball is not yet a violation. The second teammate is still approaching.',
-      'The moment the second teammate comes within 3m and joins active play, it is a violation — indirect free kick to the opponents.',
-    ],
-    labels: [[], ['Indirect free kick']],
+    // 2026-09-04 편집기 드릴로 교체 — 스텝 캡션(note)은 원본이 비어 있어 덮지 않는다(개수 계약, 머리말).
+    labels: [['Not yet a 2-on-1 foul'], ['A second player entering within 3 m of the ball and playing it = 2-on-1 foul!']],
   },
   'two-on-one-open': {
     note: [
@@ -247,11 +244,7 @@ const JA: SceneTextTable = {
     labels: [[]],
   },
   'two-on-one-active': {
-    note: [
-      '味方1人と相手1人がボールの3m以内にいるだけでは、まだ反則ではありません。2人目の味方が遠くから近づいています。',
-      '2人目の味方がボールの3m以内に入りアクティブプレーに関与した瞬間に反則が成立します — 相手に間接フリーキック。',
-    ],
-    labels: [[], ['間接フリーキック']],
+    labels: [['まだ2対1の反則ではない'], ['2人目の選手がボールの半径3m以内に入ってプレーすると2対1の反則！']],
   },
   'two-on-one-open': {
     note: [

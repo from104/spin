@@ -797,7 +797,7 @@ blocks: `prose` → `scene` two-on-one → `scene` two-on-one-active → `prose`
 > `two-on-one-active` 장면의 `lead` 로 옮긴다(§7 기본값 5).
 
 **블록 2** `scene` `two-on-one` — ★ 기현님 드릴 **5-1 2-on-1 반칙 1** 로 교체(§4). ⚠️ 1스텝 → 포스터가 안 뜬다.
-**블록 3** `scene` `two-on-one-active` — 손코딩 유지.
+**블록 3** `scene` `two-on-one-active` — 손코딩 유지. → **2026-09-04 교체**: 기현님 드릴 **2대1 반칙의 성립**(half/30x18, 2스텝, 컷 없음).
 
 **블록 4** `prose` heading **2-on-1이 아닌 경우**
 
@@ -1508,6 +1508,9 @@ en → ja 순으로 완역되면서 **띄울 로케일이 하나도 남지 않�
 
 장면 **21 → 23**. 손코딩은 9 → 7 로 줄었다(`field-tour`·`lineup`·`two-on-one-active`·
 `two-on-one-open`·`two-on-one-escape`·`ramming`·`spin-kick`).
+
+> 2026-09-04: `two-on-one-active` 도 교체돼 손코딩은 **6** (`field-tour`·`lineup`·`two-on-one-open`·
+> `two-on-one-escape`·`ramming`·`spin-kick`), 편집기 갈래는 **17**.
 
 ### 10.1 정본이 먼저 넓어져야 했다
 
