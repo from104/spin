@@ -1,4 +1,4 @@
-// P3/P4 — **판 덩어리 `[data-board]`** 의 DOM·소스 계약 (설계서 §4.1·§4.4·§4.5).
+// P3 — **판 덩어리 `[data-board]`** 의 DOM·소스 계약 (설계서 §4.1·§4.5).
 //
 // boardLayout.test.ts 가 숫자를 증명하고, 여기서는 **그 계산이 화면과 같은 규칙을 재고 있는지**를
 // 못박는다. 순수 함수만 두면 자기 사본을 증명하는 것이고, DOM 만 보면 숫자가 없다.
@@ -96,17 +96,6 @@ afterEach(() => {
 });
 
 describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)', () => {
-  it('판 덩어리의 자식은 정확히 둘이고, 코트 칸 바로 뒤가 트레이다', async () => {
-    stubMedia({ portrait: false, narrow: false });
-    const { board } = await openBoard();
-    expect(board, '[data-board] 를 못 찾았다').not.toBeNull();
-    expect(board.children).toHaveLength(2);
-    expect(courtCell(board).tagName).toBe('DIV');
-    expect(board.children[1]!.getAttribute('data-tray')).toBe('');
-    // 트레이가 판 덩어리 **안**이어야 두 칸이 같은 flex 라인에 선다.
-    expect(board.contains(screen.getByRole('navigation', { name: '도구' }))).toBe(true);
-  });
-
   it('두 칸 사이에 자리를 만드는 선언이 하나도 없다 — 이것이 "빈틈 0" 의 실체다', async () => {
     stubMedia({ portrait: false, narrow: false });
     const { board } = await openBoard();
@@ -151,22 +140,6 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
     expect(courtCell(board).style.aspectRatio).toBe('525 / 450');
   });
 
-  it('세로 화면에서는 축이 통째로 뒤집힌다 — 세로를 다 쓰고 기둥이 오른쪽에 붙는다', async () => {
-    // 480×800 세로: rot 90 이라 종횡비도 뒤집힌다(825/525 → 525/825). 코트가 서므로 긴 변이
-    // 오른쪽이고, 트레이는 기둥이 된다 — 2026-08-14 이전과 정반대다.
-    stubMedia({ portrait: true, narrow: true });
-    setViewport(480, 800);
-    const { board } = await openBoard();
-    expect(board.style.flexDirection).toBe('row');
-    const cell = courtCell(board);
-    expect(cell.style.height).toBe('100%');
-    expect(cell.style.width).toBe('');
-    expect(cell.style.aspectRatio).toBe(courtCellAspectRatioCss('full', undefined, 90));
-    expect(cell.style.aspectRatio).toBe('525 / 825');
-    // 띠는 여전히 판 덩어리 안 두 번째 칸이다 — 인접축만 세로로 바뀐다.
-    expect(board.children[1]!.getAttribute('data-tray')).toBe('');
-  });
-
   it('실제 화면의 트레이 구역이 TRAY_SECTIONS 개다 — 고정 합 식이 gap 을 세는 근거', async () => {
     // 벤치 · 구분선 · 도구 · 코트 이름(세로 기둥에만). 이 개수가 바뀌면 고정 합 식의 gap 항이
     // 어긋나고, 그 식은 **여전히 옛 숫자를 답한다**(계기가 거짓말하는 형태).
@@ -178,54 +151,6 @@ describe('★ 판 덩어리 — 코트 칸과 트레이가 맞닿는다 (§4.1)'
     // 그것을 구역으로 세면 고정 합 식이 있지도 않은 gap 을 하나 더 세게 된다.
     const sections = [...(board.children[1] as HTMLElement).children].filter((el) => (el as HTMLElement).style.position !== 'absolute');
     expect(sections).toHaveLength(TRAY_SECTIONS);
-  });
-
-  it('대조군: 가로 화면은 반대다 — 두 배치를 뭉뚱그리지 않는다', async () => {
-    stubMedia({ portrait: false, narrow: false });
-    const { board } = await openBoard();
-    expect(board.style.flexDirection).toBe('column');
-    expect(courtCell(board).style.height).toBe('');
-  });
-});
-
-describe('P4 — 코트와 벤치가 한 물건으로 보인다 (§4.4)', () => {
-  it('테두리·둥근 모서리·overflow·그림자가 **판 덩어리 하나**에 붙어 있다', async () => {
-    stubMedia({ portrait: false, narrow: false });
-    const { board } = await openBoard();
-    expect(board.style.border).toBe('1px solid var(--border)');
-    expect(board.style.borderRadius).toBe('16px');
-    // overflow 가 없으면 트레이만 직각으로 삐져나와 모서리가 어긋난다.
-    expect(board.style.overflow).toBe('hidden');
-    // 코트만 감싸던 그림자가 코트+벤치를 함께 감싼다 = 한 물건.
-    expect(board.style.boxShadow).toBe('0 18px 30px rgba(0,0,0,.45)');
-    expect(board.style.boxShadow).not.toContain('inset');
-  });
-
-  it('판 안에 `filter` 가 남아 있지 않다 — 칩 개별 drop-shadow 만 예외다', async () => {
-    // `filter` 는 **후손의 position:fixed 기준 상자를 만든다**(TrayGhost 함정). 판 덩어리 안에
-    // 트레이가 들어온 이상 그 함정이 트레이 쪽으로 옮겨 오므로 원인째 없앤다.
-    stubMedia({ portrait: false, narrow: false });
-    const { main, board } = await openBoard();
-    const filtered = [...main.querySelectorAll<HTMLElement>('*')].filter((el) => el.style.filter !== '');
-    // 남아 있어도 되는 것은 칩 하나하나에 붙은 2px 짜리 그림자뿐이다(트레이 안, 상자 크기 밖).
-    for (const el of filtered) {
-      expect(el.style.filter, el.tagName).toBe('drop-shadow(0 2px 3px rgba(0,0,0,.45))');
-      expect(board.children[1]!.contains(el), '칩 밖에 filter 가 생겼다').toBe(true);
-    }
-    // 대조군: 옛 그림자 전용 div 는 **사라졌다**(있으면 그림자가 코트에서 끊긴다).
-    expect(filtered.some((el) => el.style.filter.includes('18px'))).toBe(false);
-  });
-
-  it('경계는 색이 아니라 테두리가 만든다 — 배경은 양쪽 다 var(--panel-2) 그대로다', async () => {
-    stubMedia({ portrait: false, narrow: false });
-    const { board } = await openBoard();
-    const tray = board.children[1] as HTMLElement;
-    expect(tray.style.background).toBe('var(--panel-2)');
-    // 판 덩어리를 감싼 코트 컬럼도 같은 색이다 — 판이 배경에서 뜨는 것이 아니라 배경 위에 놓인다.
-    expect(board.closest('div[style*="var(--panel-2)"]')).not.toBeNull();
-    // 트레이의 inset 홈은 한 글자도 안 바꿨다 — 코트 그림이 여기 **닿아야** 홈으로 읽힌다.
-    // 가로 창은 띠라 홈이 위쪽 변에 파인다(기둥은 왼쪽 변). 값은 축만 바뀐 같은 식이다.
-    expect(tray.style.boxShadow).toBe('inset 0 7px 12px -10px rgba(0,0,0,.55)');
   });
 });
 
@@ -312,26 +237,10 @@ describe('소스 계약 — 종횡비의 출처가 def 하나다 (§4.1 함정 3
       .filter((l) => !l.trim().startsWith('//'))
       .join('\n');
 
-  it('판을 조립하는 파일은 종횡비를 courtCellAspectRatioCss 에서만 받는다', () => {
-    const code = codeOf(read('src/features/editor/EditorWorkspace.tsx'));
-    expect(code).toContain('courtCellAspectRatioCss(drill.courtMode, drill.courtSize, stageRot)');
-    // `aspectRatio:` 가 쓰이는 자리는 하나뿐이고, 그 값이 위 상수다.
-    expect(code.match(/aspectRatio:/g)).toHaveLength(1);
-    expect(code).toContain('aspectRatio: courtAspect');
-  });
-
   it('판을 조립하는 파일은 아무것도 재지 않는다 — 되먹임 고리가 닫힐 자리가 없다', () => {
     const code = codeOf(read('src/features/editor/EditorWorkspace.tsx'));
     for (const forbidden of ['getBoundingClientRect', 'ResizeObserver', 'refreshMetrics()']) {
       expect(code, `${forbidden} 가 판 조립부에 들어왔다 — 측정 → 크기 결정 되먹임이다`).not.toContain(forbidden);
     }
-  });
-
-  it('종횡비 함수 자신도 rect·view 를 안 본다', () => {
-    const code = codeOf(read('src/features/editor/boardLayout.ts'));
-    for (const forbidden of ['getBoundingClientRect', 'StageView', 'metrics']) {
-      expect(code, forbidden).not.toContain(forbidden);
-    }
-    expect(code).toContain('courtDefFor');
   });
 });

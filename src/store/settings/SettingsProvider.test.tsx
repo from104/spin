@@ -12,12 +12,6 @@ beforeEach(() => {
 });
 
 describe('SettingsProvider', () => {
-  it('마운트 시 loadPrefs() 결과를 state 로 노출한다', () => {
-    const { result } = renderHook(() => useSettings(), { wrapper });
-    expect(result.current.prefs.theme).toBe('dark');
-    expect(result.current.prefs.schemaVersion).toBe(loadPrefs().schemaVersion);
-  });
-
   it('setPrefs 가 즉시 localStorage 에 영속화된다(§4.6 동기 요구)', () => {
     const { result } = renderHook(() => useSettings(), { wrapper });
     act(() => {

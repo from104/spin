@@ -5,7 +5,7 @@
 // 여기서 보는 것은 두 가지다: 적은 이름이 자막에 실리는가, 그리고 **안 적었으면 아무것도 늘지
 // 않는가**(번호뿐인 항목을 나열하면 코트에 이미 있는 정보를 옮겨 적는 것이라 자막만 길어진다).
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { PresentRunner } from './PresentRunner.tsx';
 import type { PresentNav } from './PresentRunner.tsx';
@@ -78,14 +78,5 @@ describe('3.4 시연 자막 — 번호와 사람을 잇는 범례', () => {
     render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
     const el = await screen.findByLabelText('선수 명단');
     expect(el.textContent).toBe('3번 박지훈');
-  });
-
-  it('범례는 시연 자막 블록 안에 있다 — 스텝 진행 표시와 같은 자리에서 읽힌다', async () => {
-    const drill = await makeDrill({ 'home:4': '정하늘' });
-    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
-    const el = await screen.findByLabelText('선수 명단');
-    const block = el.parentElement!;
-    // 스텝 이름은 과제⑦(2026-08-17)로 폐기됐다 — 같은 블록의 STEP 배지로 확인한다.
-    expect(within(block).getByText('STEP 1/1')).toBeInTheDocument();
   });
 });

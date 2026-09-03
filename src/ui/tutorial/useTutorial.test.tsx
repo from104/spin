@@ -89,10 +89,7 @@ describe('useTutorial — 진행·종료·플래그', () => {
     expect(result.current.stepIndex).toBe(1);
     act(() => result.current.prev());
     expect(result.current.stepIndex).toBe(0);
-  });
-
-  it('prev() 는 첫 단계에서 더 못 내려간다', () => {
-    const { result } = open();
+    // 첫 단계에서 prev() 를 또 불러도 더 못 내려간다(clamp).
     act(() => result.current.prev());
     expect(result.current.stepIndex).toBe(0);
   });

@@ -55,26 +55,6 @@ function ringGroups(container: HTMLElement, r: number = RING_R_PX): { follower: 
     .map((state) => ({ state, follower: state.parentElement as unknown as SVGGElement }));
 }
 
-describe('RuleOverlay — 그림', () => {
-  it('공마다 3 m 링을 하나씩 그린다', () => {
-    const { container } = setup({ balls: ['bl_1', 'bl_2'] });
-    expect(ringGroups(container)).toHaveLength(2);
-    // 반지름은 model/rules.ts 의 3 m 와 같은 값이다(리터럴 금지).
-    expect(container.querySelectorAll(`circle[r="${RING_R_PX}"]`).length).toBe(4); // 링당 케이싱 + 표시선
-  });
-
-  it('공이 없으면 링도 없다', () => {
-    const { container } = setup({ balls: [] });
-    expect(ringGroups(container)).toHaveLength(0);
-  });
-
-  it('visible=false 면 아무것도 그리지 않는다 — 아무 공도 원을 안 켰을 때', () => {
-    const { container } = setup({ visible: false, rings: {} });
-    expect(container.querySelectorAll('circle')).toHaveLength(0);
-    expect(container.querySelectorAll('rect')).toHaveLength(0);
-  });
-});
-
 // ── §7 5.2 공마다 따로 켜는 거리 원(2026-08-13 기현님 실기 ③) ────────────────────────────
 describe('RuleOverlay — 공마다 따로 켜는 원', () => {
   it('ballRings 를 안 넘기면 원이 하나도 없다 — **초기 배치는 원 없음**이다', () => {
@@ -105,6 +85,10 @@ describe('RuleOverlay — 공마다 따로 켜는 원', () => {
     const { container } = setup({ visible: false, rings: { bl_1: '5m' } });
     expect(ringGroups(container, RING_5M_R_PX)).toHaveLength(1);
     expect(container.querySelectorAll('rect')).toHaveLength(0); // 존 표시는 스위치에 매인다
+    // 반대로 아무 공도 원을 안 켰으면 존과 함께 원도 없다 — 남는 것은 '명시적으로 켠' 원뿐이다.
+    const none = setup({ visible: false, rings: {} });
+    expect(none.container.querySelectorAll('circle')).toHaveLength(0);
+    expect(none.container.querySelectorAll('rect')).toHaveLength(0);
   });
 });
 
@@ -248,6 +232,8 @@ describe('RuleOverlay — 세트피스 소유 화살표', () => {
     expect(arrows(setup({ rings: { bl_1: '3m' }, owners: { bl_1: 'home' } }).container), '3 m').toHaveLength(0);
     expect(arrows(setup({ rings: { bl_1: '5m' } }).container), '소유 없음').toHaveLength(0);
     expect(arrows(setup({ rings: { bl_1: '5m' }, owners: { bl_1: 'home' } }).container), '5 m + 소유').toHaveLength(1);
+    // 플랫 코트는 골대가 없어 방향이 성립하지 않는다 — 5 m + 소유가 갖춰져도 안 그린다.
+    expect(arrows(setup({ mode: 'flat', rings: { bl_1: '5m' }, owners: { bl_1: 'home' } }).container), '플랫').toHaveLength(0);
   });
 
   it('★ 길이가 2 m 다 — 공을 가로질러 ±1 m', () => {
@@ -275,10 +261,5 @@ describe('RuleOverlay — 세트피스 소유 화살표', () => {
     // 링의 상태 그룹(stateRef) 안에 있으면 위반 시 붉어진다. 밖에 있어야 흰색으로 남는다.
     expect(arrow.getAttribute('stroke')).toBe(RULE_OK_STROKE);
     expect(arrow.closest('[stroke-dasharray]'), '링의 상태 그룹 안에 들어갔다').toBeNull();
-  });
-
-  it('플랫 코트는 골대가 없어 방향이 성립하지 않는다 — 그리지 않는다', () => {
-    const { container } = setup({ mode: 'flat', rings: { bl_1: '5m' }, owners: { bl_1: 'home' } });
-    expect(arrows(container)).toHaveLength(0);
   });
 });

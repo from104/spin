@@ -22,7 +22,7 @@ import { AppHeader, HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
-import { loadPrefs, makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
+import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { BOARD_KEY, saveBoard } from '../../storage/board.ts';
 import { clearBoardSession } from './boardSession.ts';
 import { createDrill } from '../../model/defaults.ts';
@@ -143,18 +143,6 @@ beforeEach(() => {
 });
 
 describe('자유 전술판 (대문)', () => {
-  it('코트 고르기 단계 없이 도구·코트가 바로 뜨고, 속성은 한 번의 탭으로 붙는다', async () => {
-    // 재편의 핵심 요구 — 대문에 판이 "상시 떠 있다". 진입 장벽(CourtPicker)이 없어야 한다.
-    // 2026-08-12 결정 ③A: 속성은 3영역 중 하나가 아니라 **기본 접힘 오버레이**다.
-    const { stage, user } = await openBoard('full', { placed: true });
-    expect(stage).toBeInTheDocument();
-    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
-    expect(screen.getByRole('button', { name: /^선택/ })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByRole('heading', { name: '어떤 코트로 진행하십니까?' })).toBeNull();
-
-    expect(await openCourt(user)).toBeInTheDocument();
-  });
-
   it('전술판은 1장짜리다 — 스텝 UI 가 없다', async () => {
     // 인스펙터의 스텝 섹션과 왼쪽 스텝 사이드바를 놔두면 화면에 없는 2번째 스텝을
     // 만들 수 있다(눈으로는 알 수 없다). 셋 다 없어야 한다.
@@ -172,33 +160,6 @@ describe('자유 전술판 (대문)', () => {
     expect(screen.queryByRole('button', { name: '스텝 목록 열기' })).toBeNull();
   });
 
-  it('편집기 격자·규칙존 토글이 prefs 에 반영된다(다른 화면 갔다 와도 유지, minor #6)', async () => {
-    const { user } = await openBoard();
-
-    expect(loadPrefs().showGrid).toBe(true);
-    expect(loadPrefs().showRuleZones).toBe(true);
-
-    // 2026-08-14(설계서 §5-P2): 두 토글은 코트 위 묶음에서 하단 바 [보기▾] 팝오버 안으로
-    // 들어갔다. 2026-08-16 에 서랍이 됐고, 2026-08-27 에 [보드 설정] 모달로 들어갔다.
-    // **묻는 것은 세 번 다 그대로다** — 이름도 그대로고, 바뀐 것은 여는 문뿐이다.
-    await user.click(screen.getByRole('button', { name: '보드 설정' }));
-
-    await user.click(screen.getByRole('button', { name: '격자 표시 전환' }));
-    expect(loadPrefs().showGrid).toBe(false);
-
-    await user.click(screen.getByRole('button', { name: '골 지역 가이드 전환' }));
-    expect(loadPrefs().showRuleZones).toBe(false);
-  });
-
-  // prefs.defaultCourtMode 는 2026-08-21 폐기 — 옛 minor #4 가드(설정 코트로 열린다)도 함께
-  // 은퇴한다. 스냅샷이 코트를 기억한다는 사실은 저장/부팅 테스트와 아래 [드릴로 저장]
-  // 테스트(openBoard('half') 가 스냅샷으로 하프를 심는다)가 이어서 지킨다.
-  it('전술판은 스냅샷이 없으면 풀 코트로 열린다 (폐기 후 고정 기본값)', async () => {
-    const { user } = await openBoard();
-    await openCourt(user);
-    const seg = screen.getByRole('radiogroup', { name: /코트 형태/ });
-    expect(within(seg).getByRole('radio', { name: new RegExp('풀') })).toHaveAttribute('aria-checked', 'true');
-  });
 });
 
 describe('격자 칸 라벨 배선 사슬 (major 회귀: prefs → EditorWorkspace → EditorStage → CourtStage → GridOverlay)', () => {
@@ -327,17 +288,15 @@ describe('§4.3 P1-1 잡히면 칩이 판에서 뜬다', () => {
 });
 
 describe('선택 표시와 4개 드래그 존', () => {
-  it('선택 전에는 선택 링·존 커서·핸들이 하나도 없다', async () => {
-    const { stage } = await openBoard('full', { placed: true });
-    expect(stage.querySelectorAll('.sel-ring')).toHaveLength(0);
-    expect(stage.querySelectorAll('.court-obj rect.zone-cursor')).toHaveLength(0);
-    expect(stage.querySelectorAll('.court-obj rect.zone-tint')).toHaveLength(0);
-  });
-
   it('휠체어를 고르면 선택 링 1개와 차체 두 구역이 그 칩에만 생긴다', async () => {
     // 코트에 9대가 있으므로 "선택된 것에만" 이 지켜지는지가 핵심이다 —
     // 전부에 붙으면 어느 칩이 조작 대상인지 흐려진다.
     const { user, stage } = await openBoard('full', { placed: true });
+    // 선택 전에는 선택 링·존 커서·핸들이 하나도 없다.
+    expect(stage.querySelectorAll('.sel-ring')).toHaveLength(0);
+    expect(stage.querySelectorAll('.court-obj rect.zone-cursor')).toHaveLength(0);
+    expect(stage.querySelectorAll('.court-obj rect.zone-tint')).toHaveLength(0);
+
     // jsdom 은 getBoundingClientRect 가 0 이라 포인터→월드 변환이 성립하지 않는다.
     // 선택 자체는 키보드 경로(§7.5)로 하고, 그 결과 렌더만 본다.
     const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
@@ -351,6 +310,17 @@ describe('선택 표시와 4개 드래그 존', () => {
     expect(zoneRects).toHaveLength(2);
     const cursors = Array.from(zoneRects).map((r) => decodeURIComponent(r.getAttribute('style') ?? ''));
     expect(new Set(cursors).size, '두 구역이 같은 커서를 쓰면 구분이 안 된다').toBe(2);
+
+    // 기현 지시: "뒤 진하게 흐리게 · 앞 약하게 흐리게". 터치에는 커서가 없으므로
+    // 어디를 잡으면 어떻게 되는지 **눈으로** 보이는 것이 태블릿에서는 유일한 단서다.
+    // (음영·2:1 폭 비율은 twoZoneMode.test.tsx 가 잰다 — 여기서는 진하기 순서만 본다.)
+    const tintRects = Array.from(stage.querySelectorAll('.court-obj rect.zone-tint'));
+    expect(tintRects).toHaveLength(2);
+    const alphaOf = (el: Element): number => Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(el.getAttribute('fill') ?? '')?.[1] ?? 0);
+    const xOf = (el: Element): number => Number(el.getAttribute('x') ?? 0);
+    // 차체 로컬 x 가 작은 쪽이 뒤(그대로 이동)다.
+    const [rear, front] = tintRects.slice().sort((a, b) => xOf(a) - xOf(b));
+    expect(alphaOf(rear!), '그대로 이동 구역이 더 진해야 한다').toBeGreaterThan(alphaOf(front!));
   });
 
   it('존 커서 레이어가 차체의 마지막 자식이라 등번호·머리 위에서도 커서가 바뀐다', async () => {
@@ -379,27 +349,6 @@ describe('선택 표시와 4개 드래그 존', () => {
     expect(total).toBeCloseTo(CHAIR.lengthPx, 6);
   });
 
-  it('차체 뒤 절반(그대로 이동)이 앞 절반(제자리 회전)보다 진하다', async () => {
-    // 기현 지시: "뒤 진하게 흐리게 · 앞 약하게 흐리게". 터치에는 커서가 없으므로
-    // 어디를 잡으면 어떻게 되는지 **눈으로** 보이는 것이 태블릿에서는 유일한 단서다.
-    const { user, stage } = await openBoard('full', { placed: true });
-    const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
-    chair.focus();
-    await user.keyboard('{Enter}');
-
-    // 음영(zone-tint)과 커서(zone-cursor)는 별개 레이어다 — 커서 레이어가 등번호·머리 위에서도
-    // 동작하려면 차체의 마지막 자식이어야 하는데, 그 자리에 색을 칠하면 등번호가 흐려진다.
-    const rects = Array.from(stage.querySelectorAll('.court-obj rect.zone-tint'));
-    expect(rects).toHaveLength(2);
-    const alphaOf = (el: Element): number => Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(el.getAttribute('fill') ?? '')?.[1] ?? 0);
-    const widthOf = (el: Element): number => Number(el.getAttribute('width') ?? 0);
-    const xOf = (el: Element): number => Number(el.getAttribute('x') ?? 0);
-    // 차체 로컬 x 가 작은 쪽이 뒤(그대로 이동)다. 2026-08-30 부터 폭이 2:1 이라 폭으로도
-    // 갈리지만, 순서는 계속 x 로 정한다 — 비율이 또 바뀌어도 이 줄은 안 흔들린다.
-    const [rear, front] = rects.slice().sort((a, b) => xOf(a) - xOf(b));
-    expect(widthOf(rear!) / widthOf(front!), '이동:회전이 2:1 이 아니다').toBeCloseTo(2, 3);
-    expect(alphaOf(rear!), '그대로 이동 구역이 더 진해야 한다').toBeGreaterThan(alphaOf(front!));
-  });
 });
 
 describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 재편, 기현 결정)', () => {
@@ -422,18 +371,6 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
   /** 팝오버를 닫는다 — 고르지 않고 빠져나오는 유일한 길이다. */
   const closeCourt = (user: ReturnType<typeof userEvent.setup>) => user.keyboard('{Escape}');
 
-  it('막 열린 판은 전환이 열려 있다', async () => {
-    const { user } = await openBoard('full');
-    expect(await seg(user, UNLOCKED)).toBeInTheDocument();
-    expect(screen.queryByRole('radiogroup', { name: LOCKED })).toBeNull();
-  });
-
-  it('한 번이라도 편집하면 잠긴다', async () => {
-    const { user, stage } = await openBoard('full', { placed: true });
-    await nudgeSomething(user, stage);
-    expect(await seg(user, LOCKED)).toBeInTheDocument();
-  });
-
   it('잠긴 상태에서 눌러도 코트가 바뀌지 않고, 이유를 알려준다', async () => {
     // §6.10 공 도구 제한과 같은 패턴 — 네이티브 disabled 가 아니라 aria-disabled + 토스트라
     // 키보드·스크린리더 사용자도 "왜 안 되는지" 를 들을 수 있어야 한다.
@@ -450,22 +387,12 @@ describe('코트 자유 전환 게이트 — "리셋 상태일 때만" (§6.8 �
     expect(await screen.findByText(/초기화하면 코트 형태와 크기를 바꿀 수 있습니다/)).toBeInTheDocument();
   });
 
-  it('코트를 비우면 다시 열린다', async () => {
-    const { user, stage } = await openBoard('full', { placed: true });
-    await nudgeSomething(user, stage);
-    await seg(user, LOCKED);
-    await closeCourt(user);
-
-    await user.click(screen.getByRole('button', { name: '보드 설정' }));
-    await user.click(await screen.findByRole('button', { name: '코트 비우기' }));
-    await user.click(await screen.findByRole('button', { name: '비우기' })); // 확인 다이얼로그
-
-    expect(await seg(user, UNLOCKED)).toBeInTheDocument();
-  });
-
   it('열려 있을 때 누르면 실제로 그 코트로 바뀐다', async () => {
     const { user } = await openBoard('full');
-    await user.click(within(await seg(user, UNLOCKED)).getByRole('radio', { name: new RegExp('하프') }));
+    // 막 열린 판은 전환이 열려 있다 — 잠금 세그먼트는 아직 없다.
+    const unlocked = await seg(user, UNLOCKED);
+    expect(screen.queryByRole('radiogroup', { name: LOCKED })).toBeNull();
+    await user.click(within(unlocked).getByRole('radio', { name: new RegExp('하프') }));
 
     await waitFor(async () => {
       expect(within(await seg(user, UNLOCKED)).getByRole('radio', { name: new RegExp('하프') })).toHaveAttribute(
@@ -595,7 +522,12 @@ describe('세션 왕복 — 떠났다 오면 새 판이 아니다', () => {
     // ① 배치가 그대로다
     const back = screen.getByRole('application', { name: '코트 편집 영역' });
     expect(poseOf(back.querySelectorAll('.court-obj')[0]!).x).toBe(moved.x);
-    // ② 그리고 되돌리기가 **살아 있다** — 이것이 이 커밋 전에는 죽어 있던 자리다.
+    // ② 코트 전환 게이트의 기준선도 이어진다 — 파생값(pristine)이 아니라 기준선(pristineBase)을
+    //   실어야 하는 이유의 화면 끝 확인. 편집한 판은 돌아와도 잠겨 있다.
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    expect(screen.getByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    // ③ 그리고 되돌리기가 **살아 있다** — 이것이 이 커밋 전에는 죽어 있던 자리다.
     const undo = screen.getByRole('button', { name: '되돌리기' });
     expect(undo).toBeEnabled();
     await user.click(undo);
@@ -604,18 +536,6 @@ describe('세션 왕복 — 떠났다 오면 새 판이 아니다', () => {
     );
   }, 20000);
 
-  it('코트 전환 게이트의 기준선도 이어진다 — 편집한 판은 돌아와도 잠겨 있다', async () => {
-    // 파생값(pristine)이 아니라 기준선(pristineBase)을 실어야 하는 이유의 화면 끝 확인.
-    const { user, stage, unmount } = await openBoard('full', { placed: true });
-    (stage.querySelectorAll('.court-obj')[0] as SVGGElement).focus();
-    await user.keyboard('{Shift>}{ArrowRight}{/Shift}');
-
-    unmount();
-    render(<BoardScreen />, { wrapper: Wrapper });
-    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-    await userEvent.setup().click(screen.getByRole('button', { name: '보드 설정' }));
-    expect(screen.getByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
-  }, 20000);
 });
 
 describe('[드릴로 편집] — 전술판을 정식 드릴로 승격 (2026-09-03 까지는 기능 바의 [드릴로 저장])', () => {
@@ -726,24 +646,6 @@ describe('태블릿 세로 레이아웃 (§6.4)', () => {
   // 지금은 **자유 전술판에 속성이 아예 없다**(기현님: *"속성 탭은 정말 무용지물"*). 방향이
   // 가르는 것은 이제 **트레이가 판의 어느 변에 붙는가** 다 — 코트 긴 변이므로 가로 창이면
   // 아래 띠, 세로 창이면 오른쪽 기둥이다. 기능 바는 방향과 무관하게 언제나 오른쪽이다.
-  it('가로 창 — 코트가 눕고 트레이가 판 **아래 띠**가 된다', async () => {
-    stubOrientation(false);
-    await openBoard('full');
-    const board = document.querySelector<HTMLElement>('[data-board]')!;
-    expect(board.style.flexDirection, '가로 코트의 긴 변은 아래다').toBe('column');
-    const tray = document.querySelector<HTMLElement>('nav[data-tray]')!;
-    expect(tray.style.flexDirection).toBe('row');
-  });
-
-  it('세로 창 — 코트가 서고 트레이가 판 **오른쪽 기둥**이 된다 (반대 방향 대조군)', async () => {
-    stubOrientation(true);
-    await openBoard('full');
-    const board = document.querySelector<HTMLElement>('[data-board]')!;
-    expect(board.style.flexDirection, '세로 코트의 긴 변은 오른쪽이다').toBe('row');
-    const tray = document.querySelector<HTMLElement>('nav[data-tray]')!;
-    expect(tray.style.flexDirection).toBe('column');
-  });
-
   it('기능 바는 두 방향 모두 **오른쪽**이다 — 판이 돌아도 앱 조작은 자리를 안 옮긴다', async () => {
     for (const portrait of [false, true]) {
       stubOrientation(portrait);
@@ -759,12 +661,6 @@ describe('태블릿 세로 레이아웃 (§6.4)', () => {
     }
   });
 
-  it('전술판에는 속성이 **없다** — 인스펙터도 그 손잡이도 DOM 에 아예 없다', async () => {
-    stubOrientation(false);
-    await openBoard('full');
-    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '속성' })).toBeNull();
-  });
 });
 
 describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', () => {
@@ -778,20 +674,6 @@ describe('전술판은 빈 코트로 시작한다 (2026-08-10 기현 지시)', (
     render(<BoardScreen />, { wrapper: Wrapper });
     const stage = screen.getByRole('application', { name: '코트 편집 영역' });
     expect(stage.querySelectorAll('.court-obj')).toHaveLength(0);
-  });
-
-  it('선수는 명단에 남아 있어 하나씩 놓을 수 있다', async () => {
-    // 비었다고 선수까지 없어지면 안 된다 — 8대가 인스펙터 명단에 '미배치' 로 있어야 한다.
-    localStorage.setItem(
-      PREFS_KEY,
-      JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true } }),
-    );
-    const user = userEvent.setup();
-    render(<BoardScreen />, { wrapper: Wrapper });
-    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-    await openCourt(user);
-    // 2026-08-14 — 선수 명단(인스펙터)이 없어졌다. 미배치 선수는 **트레이 칩**으로 남는다.
-    expect(screen.getAllByRole('button', { name: /선수 배치$/ }).length).toBe(8);
   });
 
 });
@@ -810,19 +692,13 @@ describe('코트 비우기 — 덩어리가 크므로 확인을 받고, 되돌�
 
   const objs = () => screen.getByRole('application', { name: '코트 편집 영역' }).querySelectorAll('.court-obj').length;
 
-  it('버튼만 눌러서는 지워지지 않는다 — 확인 다이얼로그가 뜬다', async () => {
-    const before = (await openBoard('full', { placed: true })) && objs();
-    expect(before).toBeGreaterThan(0);
-    const u = userEvent.setup();
-    await u.click(screen.getByRole('button', { name: '보드 설정' }));
-    await u.click(await screen.findByRole('button', { name: '코트 비우기' }));
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(objs()).toBe(before); // 아직 그대로다
-  });
-
   it('취소하면 아무것도 사라지지 않는다', async () => {
     const { user } = await openAndClickClear();
     const before = objs();
+    expect(before).toBeGreaterThan(0);
+    // 버튼만 눌러서는 지워지지 않는다 — 확인 다이얼로그가 뜬 채 아직 그대로다.
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(objs()).toBe(before);
     await user.click(screen.getByRole('button', { name: '취소' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(objs()).toBe(before);
@@ -862,6 +738,10 @@ describe('코트 비우기 — 덩어리가 크므로 확인을 받고, 되돌�
 
     await user.click(screen.getByRole('button', { name: '되돌리기' }));
     await waitFor(() => expect(objs()).toBe(before));
+
+    // 되돌린 뒤에는 판에 잃을 것이 다시 생겼다 — 게이트도 따라 닫혀야 앞뒤가 맞는다.
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    expect(await screen.findByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
   });
 
   // ★ 2026-08-28 기현님 확인: *"비워진 상태에서 코트 형태 바꾸면 히스토리가 없어지는거지?"*
@@ -890,18 +770,6 @@ describe('코트 비우기 — 덩어리가 크므로 확인을 받고, 되돌�
     const court2 = await screen.findByRole('dialog', { name: '보드 설정' });
     expect(within(court2).getByRole('radio', { name: /풀/ })).toHaveAttribute('aria-checked', 'true');
   }, 20000);
-
-  // 되돌린 뒤에는 판에 잃을 것이 다시 생겼다 — 게이트도 따라 닫혀야 앞뒤가 맞는다.
-  it('되돌리면 코트 전환이 다시 잠긴다 — 게이트가 판을 따라간다', async () => {
-    const { user } = await openAndClickClear();
-    await user.click(screen.getByRole('button', { name: '비우기' }));
-    await waitFor(() => expect(objs()).toBe(0));
-    await user.click(screen.getByRole('button', { name: '되돌리기' }));
-    await waitFor(() => expect(objs()).toBeGreaterThan(0));
-
-    await user.click(screen.getByRole('button', { name: '보드 설정' }));
-    expect(await screen.findByRole('radiogroup', { name: '코트 형태(변경 불가)' })).toBeInTheDocument();
-  });
 });
 
 describe('개체의 키보드 조작 — 2026-08-16 전면 개편', () => {

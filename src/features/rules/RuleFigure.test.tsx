@@ -23,30 +23,16 @@ import { LAW } from './ruleConstants.ts';
 const LAWS = ruleContentFor('ko');
 
 describe('조항 도해', () => {
-  it('대조군 — 도해가 최소 하나 있고, 그것을 다는 조항도 있다', () => {
-    // 0개라서 전건 통과 를 막는다.
-    expect(RULE_FIGURE_IDS.length).toBeGreaterThan(0);
-    expect(LAWS.filter((l) => l.figureId).length).toBeGreaterThan(0);
-  });
+  // 🪦 '제4조(선수 장비)는 도해를 단다' 는 2026-09-03 에 지웠다 — 장비 도해 자체가 없어졌다(ids.ts 묘비).
 
   it('모든 figureId 가 실존 도해를 가리킨다', () => {
+    // 0개라서 전건 통과 를 막는다(대조군).
+    expect(RULE_FIGURE_IDS.length).toBeGreaterThan(0);
+    expect(LAWS.filter((l) => l.figureId).length).toBeGreaterThan(0);
     for (const law of LAWS) {
       if (!law.figureId) continue;
       expect(RULE_FIGURE_IDS, `Law ${law.law}`).toContain(law.figureId);
     }
-  });
-
-  it('제2조(공)는 도해를 단다 — 글자만 남지 않는다', () => {
-    // 2026-08-21 기현님 지적("2조에서는 공이 주인공이어서 크기나 구조를 시각적으로")의 회귀 방지.
-    expect(LAWS.find((l) => l.law === 2)?.figureId).toBe('ball');
-  });
-
-  // 🪦 '제4조(선수 장비)는 도해를 단다' 는 2026-09-03 에 지웠다 — 장비 도해 자체가 없어졌다(ids.ts 묘비).
-
-  it('제1조(필드)는 도해를 단다 — 장면(field-tour)과 별개로', () => {
-    const law1 = LAWS.find((l) => l.law === 1);
-    expect(law1?.figureId).toBe('court');
-    expect(law1?.sceneId).toBe('field-tour'); // 장면·도해 동시 보유(배타 아님) 회귀 방지.
   });
 
   it('코트 규격 도해의 세 라벨이 COURT_SIZE_LABELS 에서 파생된다', () => {

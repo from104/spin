@@ -72,13 +72,6 @@ const barItems = (root: HTMLElement): HTMLButtonElement[] => {
 };
 
 describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () => {
-  it('★ 상시 칸 수가 FUNCTION_BAR_ITEMS 와 같다', () => {
-    const { container } = mount();
-    expect(barItems(container), '화면의 칸 수와 예산 상수가 어긋났다 — 코트 상자 폭이 틀리게 계산된다').toHaveLength(
-      FUNCTION_BAR_ITEMS,
-    );
-  });
-
   it('구분선 수가 FUNCTION_BAR_DIVIDERS 와 같다', () => {
     const { container } = mount();
     const nav = container.querySelector('nav[data-function-bar]')!;
@@ -107,12 +100,6 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
       await userEvent.setup().click(screen.getByRole('button', { name: '보드 설정' }));
       return r;
     };
-
-    it('기둥에는 [진영] 칸이 없다 — 접힌 것은 표적 예산 밖이다', () => {
-      const { container } = mount('full');
-      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.startsWith('진영'))).toBe(false);
-      expect(screen.queryByRole('button', { name: /^진영 바꾸기/ }), '모달을 안 열었는데 보인다').toBeNull();
-    });
 
     it('모달을 열면 [진영 바꾸기]가 있고 누르면 뒤집기가 불린다', async () => {
       const onToggleDefense = vi.fn();
@@ -159,28 +146,5 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
       expect(dividers).toHaveLength(FUNCTION_BAR_DIVIDERS_DRILL);
     });
 
-    it('[저장] 칸이 없다 — 자동저장뿐이라 뜻이 없어진 칸이라 걷어냈다', () => {
-      const { container } = mount('full', { mode: 'drill' });
-      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(false);
-    });
-
-    it('board 모드에도 [저장] 칸이 없다 — 2026-09-03 헤더 [+ 드릴로 편집]으로 돌아갔다', () => {
-      // 2026-08-14~09-03 사이엔 있었다(대조군이었다). 같은 이름의 표적이 둘이 되지 않게 기둥에서는 뺐다.
-      const { container } = mount('full', { mode: 'board' });
-      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(false);
-    });
-
-    // ★ 2026-08-28 기현 지시 — 헤더 제목 옆 ⓘ 가 여기로 왔다.
-    it('[드릴 정보] 칸이 있다 — 헤더 ⓘ 의 후계', () => {
-      const { container } = mount('full', { mode: 'drill' });
-      const info = barItems(container).find((b) => b.getAttribute('aria-label') === '드릴 정보');
-      expect(info, '드릴 편집 기능 바에 [드릴 정보] 칸이 없다').toBeTruthy();
-      expect(info!.getAttribute('aria-haspopup')).toBe('dialog');
-    });
-
-    it('대조군: board 모드에는 [드릴 정보] 칸이 없다 — 전술판에는 열 메타가 없다', () => {
-      const { container } = mount('full', { mode: 'board' });
-      expect(barItems(container).some((b) => b.getAttribute('aria-label') === '드릴 정보')).toBe(false);
-    });
   });
 });

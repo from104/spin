@@ -17,10 +17,8 @@ import { AppNavProvider } from '../../app/useAppHistory.ts';
 import type { AppHistoryApi } from '../../app/useAppHistory.ts';
 import { AppHeader, HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
-import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import type { DrillId } from '../../core/ids.ts';
-import { BoardScreen } from '../board/BoardScreen.tsx';
 
 let stageTarget: { kind: 'drill'; drillId: DrillId } = { kind: 'drill', drillId: 'dr_none' as DrillId };
 vi.mock('../../app/AppShell.tsx', () => ({
@@ -78,12 +76,6 @@ async function addStepAtEnd(user: { click(el: Element): Promise<void> }): Promis
 }
 
 describe('노트 패널 — 실제 화면 배선', () => {
-  it('접힌 채로 시작한다 — 기본값은 감춤이다', async () => {
-    await openDrill();
-    expect(noteToggle()).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText('스텝 노트')).toBeNull();
-  });
-
   it('입력하면 STEP_META 가 나가 자동저장 → IDB 왕복 → 시연 화면이 그 문장을 읽는다', async () => {
     const { user, drillId, view } = await openDrill();
     await user.click(noteToggle());
@@ -162,14 +154,5 @@ describe('헤더 — ⓘ·[시연으로] (2026-08-20 §A·B, 옛 C11/C12 계약 
     // nav.go 로 그 드릴 시연에 간다.
     await user.click(await screen.findByRole('button', { name: '시연으로' }));
     expect(navGo).toHaveBeenCalledWith('present', { kind: 'drill', id: drillId });
-  });
-});
-
-describe('노트 패널 — 자유 전술판에는 없다(대조군)', () => {
-  it('스텝이 없는 화면이라 노트 토글도 없다', async () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
-    render(<BoardScreen />, { wrapper: Wrapper });
-    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /^노트/ })).toBeNull();
   });
 });

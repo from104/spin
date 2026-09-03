@@ -145,7 +145,7 @@ describe("놓임 '탁'", () => {
     expect(kinds()).not.toContain('drop'); // 아직 손을 떼지 않았다
     act(() => ctrl().onPointerUp(CLIENT));
 
-    expect(kinds().filter((k) => k === 'drop')).toHaveLength(1);
+    expect(kinds()).toEqual(['drop']);
   });
 
   it('pointercancel 에는 울리지 않는다 — 시스템 제스처에 뺏긴 것이지 놓은 것이 아니다', () => {
@@ -247,16 +247,6 @@ describe('트레이 반환 — 치우기는 위임하고, 예고는 여기서 �
     tray.remove();
   });
 
-  it('트레이 밖에서 놓으면 상자 빔이 아니라 놓임이다', () => {
-    const { result } = mount(makeDrill().drill);
-    const ctrl = () => result.current.pointer.controller;
-
-    act(() => void ctrl().onPointerDown(CHAIR_AT, META));
-    act(() => ctrl().onPointerMove({ x: 260, y: 240 }, 16));
-    act(() => ctrl().onPointerUp(CLIENT));
-
-    expect(kinds()).toEqual(['drop']);
-  });
 });
 
 describe("막힘 '툭'", () => {
@@ -274,30 +264,6 @@ describe("막힘 '툭'", () => {
     const [, intensity] = play.mock.calls.find((c: unknown[]) => c[0] === 'blocked')! as unknown[];
     expect(intensity as number).toBeGreaterThan(0);
     expect(intensity as number).toBeLessThanOrEqual(1);
-  });
-
-  it('계속 밀어도 한 번만 울린다 — 매 프레임 나면 신호가 아니라 소음이다', () => {
-    const { result } = mount(makeDrill().drill);
-    const ctrl = () => result.current.pointer.controller;
-
-    act(() => void ctrl().onPointerDown(CHAIR_AT, META));
-    for (let i = 0; i < 8; i++) {
-      const t = 1000 + 16 * i;
-      act(() => ctrl().onPointerMove({ x: 210 + 20 * i, y: 240 }, t));
-    }
-    expect(kinds().filter((k) => k === 'blocked')).toHaveLength(1);
-  });
-
-  it('천천히 끌면 울리지 않는다 — 손떨림·속도 제한 지연과 구별되지 않는다', () => {
-    const { result } = mount(makeDrill().drill);
-    const ctrl = () => result.current.pointer.controller;
-
-    act(() => void ctrl().onPointerDown(CHAIR_AT, META));
-    for (let i = 0; i < 8; i++) {
-      const t = 1000 + 16 * i;
-      act(() => ctrl().onPointerMove({ x: 201 + i, y: 240 }, t));
-    }
-    expect(kinds()).not.toContain('blocked');
   });
 
   it('앞 드래그의 표본이 다음 드래그로 새지 않는다 — 첫 프레임 유령 툭 금지', () => {

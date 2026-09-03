@@ -274,17 +274,13 @@ describe('몸통 — 누르면 굵기가 돌고, 끌면 통째로 간다', () =>
     expect(Object.hasOwn(strokeOf(h, strokeId), 'width'), '기본으로 돌아왔는데 width 키가 남았다').toBe(false);
   });
 
-  it('★ 첫 클릭은 고르기도 한다 — 굵기를 돌리려면 그 획의 앵커가 보여야 한다', () => {
-    const { h, strokeId } = mountFixture();
-    tapAt(h, BODY);
-    expect(h.result.current.state.selection.has(strokeId)).toBe(true);
-  });
-
   it('★ 재탭에도 선택이 **안 풀린다** — 굵기를 고르는 동안 앵커를 잃으면 안 된다', () => {
     // 화살표 몸통과 갈리는 자리다(그쪽은 재탭 = 해제). 근거는 useEditorPointer 의
     // `hit.kind !== 'stroke'` 가드 주석: 탭에 도는 값이 있는 개체는 탭이 해제로 안 흘러간다.
     const { h, strokeId } = mountFixture();
     tapAt(h, BODY);
+    // 첫 클릭도 고르기다 — 굵기를 돌리려면 그 획의 앵커가 보여야 한다.
+    expect(h.result.current.state.selection.has(strokeId)).toBe(true);
     tapAt(h, BODY);
     expect(h.result.current.state.selection.has(strokeId), '재탭에 선택이 풀렸다').toBe(true);
   });
@@ -293,13 +289,10 @@ describe('몸통 — 누르면 굵기가 돌고, 끌면 통째로 간다', () =>
     const { h, strokeId } = mountFixture();
     const d = { x: 40, y: -25 };
     dragFromTo(h, BODY, { x: BODY.x + d.x, y: BODY.y + d.y });
-    expect(strokeOf(h, strokeId).points).toEqual(PTS.map((p) => ({ x: p.x + d.x, y: p.y + d.y })));
-  });
-
-  it('★ 끌었으면 굵기는 안 돈다 — 누르기와 끌기가 갈린다', () => {
-    const { h, strokeId } = mountFixture();
-    dragFromTo(h, BODY, { x: BODY.x + 40, y: BODY.y });
-    expect(strokeWidthIndexOf(strokeOf(h, strokeId)), '끌었는데 굵기까지 돌았다').toBe(STROKE_WIDTH_DEFAULT);
+    const s = strokeOf(h, strokeId);
+    expect(s.points).toEqual(PTS.map((p) => ({ x: p.x + d.x, y: p.y + d.y })));
+    // 끌었으면 굵기는 안 돈다 — 누르기와 끌기가 갈린다.
+    expect(strokeWidthIndexOf(s), '끌었는데 굵기까지 돌았다').toBe(STROKE_WIDTH_DEFAULT);
   });
 
   it('탭 임계 안 떨림은 여전히 누르기다 — 1px 흔들려도 획이 안 옮겨진다', () => {

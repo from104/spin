@@ -17,16 +17,6 @@ function Publisher({ title, subtitle }: { title: string; subtitle?: string }) {
 }
 
 describe('AppHeader / useAppHeader', () => {
-  it('아무도 선언하지 않으면 빈 타이틀을 그린다', () => {
-    render(
-      <HeaderProvider>
-        <AppHeader />
-      </HeaderProvider>,
-      { wrapper: SettingsProvider },
-    );
-    expect(document.querySelector('header')).toBeInTheDocument();
-  });
-
   it('useAppHeader 로 선언한 내용을 AppHeader 가 그린다', () => {
     render(
       <HeaderProvider>

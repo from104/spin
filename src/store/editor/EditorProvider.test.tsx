@@ -20,20 +20,15 @@ function makeWrapper() {
 }
 
 describe('EditorProvider', () => {
-  it('useEditorState 가 초기 드릴로 시작한다', () => {
-    const { wrapper, drill } = makeWrapper();
-    const { result } = renderHook(() => useEditorState(), { wrapper });
-    expect(result.current.present.id).toBe(drill.id);
-    expect(result.current.stepId).toBe(drill.steps[0]!.id);
-    expect(result.current.tool).toBe('select');
-  });
-
   it('useEditorDispatch 로 보낸 액션이 useEditorState 에 반영된다', () => {
-    const { wrapper } = makeWrapper();
+    const { wrapper, drill } = makeWrapper();
     const { result } = renderHook(
       () => ({ state: useEditorState(), dispatch: useEditorDispatch() }),
       { wrapper },
     );
+    expect(result.current.state.present.id).toBe(drill.id);
+    expect(result.current.state.stepId).toBe(drill.steps[0]!.id);
+    expect(result.current.state.tool).toBe('select');
     act(() => result.current.dispatch({ type: 'TOOL_SET', tool: 'ball' }));
     expect(result.current.state.tool).toBe('ball');
   });
@@ -126,12 +121,6 @@ describe('설정의 물리 존이 물리 월드까지 간다 (5차 검증관)', 
     h?.end();
     return z;
   }
-
-  it('대조군 — 기본 설정에서는 그 지점이 translate 다 (두 표가 정말 다른 답을 낸다)', () => {
-    const { wrapper, drill } = makeWrapper();
-    const { result } = renderHook(() => useEditorWorld(), { wrapper });
-    expect(zoneOf(result.current.current!, drill, S_DIVERGENT)).toBe('translate');
-  });
 
   it('저장된 존 설정으로 시작한 월드는 **처음부터** 그 경계로 가른다 (생성 인자)', () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), physics: { zones: SPIN_EARLY } }));

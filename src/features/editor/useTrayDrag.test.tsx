@@ -4,7 +4,7 @@
 // 여기서 지키려는 것은 좌표 변환 자체가 아니라(그건 useStageMetrics.test 가 본다) **언제
 // 놓이고 언제 안 놓이는가** 다.
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { useRef } from 'react';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
 import type { StageMetrics } from '../../render/useStageMetrics.ts';
@@ -65,14 +65,14 @@ describe('useTrayDrag', () => {
     up(102, 101);
     expect(onTap).toHaveBeenCalledTimes(1);
     expect(onDrop).not.toHaveBeenCalled();
-  });
 
-  it('전혀 움직이지 않아도 탭이다', () => {
-    const { onDrop, onTap, src } = setup();
-    down(src, 100, 100);
+    // 경계값: 전혀 움직이지 않아도(이동량 0) 마찬가지로 탭이다.
+    cleanup();
+    const zero = setup();
+    down(zero.src, 100, 100);
     up(100, 100);
-    expect(onTap).toHaveBeenCalledTimes(1);
-    expect(onDrop).not.toHaveBeenCalled();
+    expect(zero.onTap).toHaveBeenCalledTimes(1);
+    expect(zero.onDrop).not.toHaveBeenCalled();
   });
 
   it('문턱을 넘어 코트 안에서 놓으면 그 자리에 놓인다', () => {

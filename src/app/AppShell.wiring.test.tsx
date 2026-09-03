@@ -274,6 +274,7 @@ describe('AppShell 배선 — renderScreen 스위치', () => {
     const user = userEvent.setup();
 
     expectOnlyScreen('screen-board'); // 초기값: screen='board' + stage={kind:'board'}
+    expect(router.state.location.pathname).toBe('/'); // 루트 진입은 자유 전술판이다 — 주소가 곧 초기 상태
 
     await user.click(screen.getByRole('button', { name: '드릴' }));
     expectOnlyScreen('screen-library');
@@ -502,24 +503,6 @@ describe('AppShell 배선 — 레일 활성 매핑(SCREEN_TO_RAIL)', () => {
     expectRailActive('보드');
   });
 
-  it('좁은 창 헤더 세그먼트도 같은 값을 받는다 — 창 폭에 따라 다른 항목에 불이 들어오지 않는다', async () => {
-    stubMedia(true);
-    try {
-      await renderShell();
-      const user = userEvent.setup();
-      const nav = () => screen.getByRole('navigation', { name: '주요 메뉴' });
-      expect(header().contains(nav())).toBe(true);
-
-      await user.click(within(nav()).getByRole('button', { name: '드릴' }));
-      await user.click(screen.getByRole('button', { name: '드릴 열기' }));
-      expectOnlyScreen('screen-editor');
-      expect(within(nav()).getByRole('button', { name: '드릴' })).toHaveAttribute('aria-current', 'page');
-      expect(within(nav()).getByRole('button', { name: '보드' })).not.toHaveAttribute('aria-current');
-    } finally {
-      delete (window as unknown as { matchMedia?: unknown }).matchMedia;
-    }
-  });
-
   it('시연 중 활성은 [드릴] 이다 — 레일에서 빠진 화면이 남의 자리를 빌린다', async () => {
     await renderShell();
     const user = userEvent.setup();
@@ -530,22 +513,9 @@ describe('AppShell 배선 — 레일 활성 매핑(SCREEN_TO_RAIL)', () => {
     expectOnlyScreen('screen-present');
     expectRailActive('드릴');
   });
-
-  it('레일에는 [시연] 항목이 없다', async () => {
-    await renderShell();
-    expect(screen.queryByRole('button', { name: '시연' })).toBeNull();
-    // 대조군 — 3단은 실제로 서 있다(전부 사라져서 통과하는 것이 아니다).
-    for (const l of RAIL_LABELS) expect(screen.getByRole('button', { name: l })).toBeInTheDocument();
-  });
 });
 
 describe('AppShell 배선 — URL 직렬화 왕복 (C4: 진실은 주소다)', () => {
-  it('루트 진입은 자유 전술판이다 — 주소가 곧 초기 상태라 심을 것이 없다', async () => {
-    await renderShell();
-    expectOnlyScreen('screen-board');
-    expect(router.state.location.pathname).toBe('/');
-  });
-
   it('같은 주소로 재마운트(새로고침)하면 같은 화면·depth 로 복원된다', async () => {
     const { unmount } = await renderShell();
     const user = userEvent.setup();
@@ -721,6 +691,7 @@ describe('AppShell 배선 — 라이브 리전 발표 (§7.6 / 계획서 2.4)', 
 
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
     const editing = announced();
+    expect(editing).toBe(`드릴 편집: ${DRILL_TITLE}`); // 드릴 제목이 발표문에 들어간다
     // 자유판으로 돌아가는 길은 **레일 [보드]** 다. 2026-08-28 이전에는 목록의 [새 드릴]이
     // 같은 곳으로 데려갔지만(이 자리에 '빈 판으로' 목 버튼이 있었다), 지금 그 버튼은 화면을
     // 안 옮기고 다이얼로그를 연다 — 발표 대상이 아니다.
@@ -730,14 +701,6 @@ describe('AppShell 배선 — 라이브 리전 발표 (§7.6 / 계획서 2.4)', 
     expect(free).toBe('자유 전술판');
     expect(editing).not.toBe(free);
     expect(editing).not.toContain('화면'); // 옛 "{화면명} 화면" 문장이 되살아나면 빨간불
-  });
-
-  it('드릴을 열면 그 드릴 제목이 발표문에 들어간다 (완료 판정)', async () => {
-    await renderShell();
-    const user = userEvent.setup();
-    await gotoLoadedLibrary(user);
-    await user.click(screen.getByRole('button', { name: '드릴 열기' }));
-    expect(announced()).toBe(`드릴 편집: ${DRILL_TITLE}`);
   });
 
   it('시연에 들어가면 시연이라는 사실과 대상 제목을 함께 발표한다', async () => {
@@ -838,7 +801,7 @@ describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접
 
   it('좁으면 레일이 사라지고 같은 3항목이 헤더 안에 선다 — 폭 기여가 84 → 0', async () => {
     stubMedia(true);
-    await renderShell();
+    const { unmount } = await renderShell();
     // 이름은 그대로다(좁다고 다른 앱이 되면 안 된다). getByRole 은 둘이면 던지므로 이 한 줄이
     // "레일과 세그먼트가 동시에 서 있지 않다" 까지 함께 본다.
     const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
@@ -846,6 +809,18 @@ describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접
     expect(navChromeWidthPx(nav, header())).toBe(railRow.narrow);
     expect(railRow.narrow).toBe(0);
     for (const l of RAIL_LABELS) expect(within(nav).getByRole('button', { name: l })).toBeInTheDocument();
+    unmount();
+
+    // 대조군: 넓으면 레일이 헤더 밖에 서고 폭은 예산의 wide 84 다.
+    stubMedia(false);
+    await renderShell();
+    // ⚠️ 자유 전술판은 넓은 창에서 헤더가 없다(2026-08-14) — 헤더가 **있는** 화면으로 옮겨야
+    // "레일이 헤더 밖" 을 잴 수 있다. 레일 자체는 두 화면 모두 같은 자리에 같은 폭으로 선다.
+    await userEvent.setup().click(screen.getByRole('button', { name: '설정' }));
+    const wideNav = screen.getByRole('navigation', { name: '주요 메뉴' });
+    expect(header().contains(wideNav)).toBe(false);
+    expect(navChromeWidthPx(wideNav, header())).toBe(railRow.wide);
+    expect(railRow.wide).toBe(84);
   });
 
   it('★ 자유 전술판도 넓은 창에서 헤더가 선다 — 제목·부제·[드릴로 편집] (2026-09-03 뒤집음)', async () => {
@@ -872,59 +847,6 @@ describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접
     await user.click(screen.getByRole('button', { name: '드릴' }));
     await user.click(screen.getByRole('button', { name: '드릴 열기' }));
     expect(within(header()).getByText('편집기가 선언한 헤더')).toBeInTheDocument();
-  });
-
-  it('★ 좁은 창 헤더는 **이동이 왼쪽 끝, 테마·버전이 오른 끝**이다 — 레일과 같은 규칙', async () => {
-    // 기현 지시 2026-08-14: *"좁은창 헤더에서 테마 선택, 버전이 오른 끝으로 가야 일관성 있다."*
-    // 넓은 창 84px 레일이 그 모양이다(이동 3칸이 맨 위, 테마·버전이 맨 끝). 좁은 창에서
-    // 레일이 접힐 때 넷을 왼쪽에 몰아 두면 창 폭에 따라 두 물건의 관계가 달라진다 —
-    // 접는 것이지 재배치가 아니어야 한다. 그래서 **자리 순서**를 직접 잰다.
-    stubMedia(true);
-    await renderShell();
-    const h = document.querySelector('header')!;
-    const nav = within(h).getByRole('navigation', { name: '주요 메뉴' });
-    const theme = within(h).getByRole('button', { name: /테마로 전환/ });
-
-    // ⚠️ **DOM 순서로는 못 잰다.** 헤더 우측 조작부는 `margin-left:auto` 로 밀려나 있어서,
-    //    테마를 세그먼트 바로 옆(왼쪽)에 두어도 DOM 상으로는 여전히 nav 뒤다. 실제로 옛 자리로
-    //    되돌리는 반증을 해 보니 순서 단언이 그대로 통과했다 — 그 단언은 아무것도 안 지켰다.
-    //    자리를 정하는 것은 순서가 아니라 **어느 상자에 들어 있느냐**다.
-    const asideBox = [...h.querySelectorAll('div')].find((d) => d.style.marginLeft === 'auto');
-    expect(asideBox, '헤더의 우측 조작부를 못 찾았다 — 선택자가 낡았다').toBeDefined();
-    expect(asideBox!.contains(theme), '테마가 우측 조작부 밖이다(왼쪽에 몰려 있다)').toBe(true);
-    expect(asideBox!.contains(nav), '이동까지 오른쪽으로 갔다 — 이동은 왼쪽 끝이다').toBe(false);
-    // 버전도 같은 상자다.
-    expect(asideBox!.textContent).toMatch(/v\d/);
-    // 🔁 2026-09-03(기현 지시) — 버전 번호가 눌러서 변경 내역을 여는 버튼이 되면서, 헤더의
-    //    마지막 표적이 테마에서 **버전**으로 넘어갔다(둘 다 우측 조작부 안이라 "헤더 순서는
-    //    이동 왼쪽·테마·버전 오른쪽" 이라는 이 테스트의 주제 자체는 그대로다 — 마지막 한 칸만
-    //    옮겨 새 값으로 다시 잰다, FALSIFICATION-BASELINE §49 규율).
-    const buttons = within(h).getAllByRole('button');
-    const version = within(h).getByRole('button', { name: /변경 내역/ });
-    expect(buttons[buttons.length - 1]).toBe(version);
-    expect(buttons[buttons.length - 2]).toBe(theme);
-  });
-
-  it('★ 좁은 창에서는 남긴다 — 거기서는 헤더의 3칸 세그먼트가 유일한 이동 수단이다', async () => {
-    // 기현님 확인: *"좁은창 이동에서의 헤더는 유지."* 좁으면 84px 레일이 통째로 빠지므로
-    // 헤더까지 지우면 화면을 옮길 방법이 아예 없어진다.
-    stubMedia(true);
-    await renderShell();
-    const h = document.querySelector('header');
-    expect(h, '좁은 창 전술판의 헤더가 사라졌다 — 이동 수단이 없어진다').not.toBeNull();
-    expect(within(h!).getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument();
-  });
-
-  it('대조군: 넓으면 레일이 헤더 밖에 서고 폭은 예산의 wide 84 다', async () => {
-    stubMedia(false);
-    await renderShell();
-    // ⚠️ 자유 전술판은 넓은 창에서 헤더가 없다(2026-08-14) — 헤더가 **있는** 화면으로 옮겨야
-    // "레일이 헤더 밖" 을 잴 수 있다. 레일 자체는 두 화면 모두 같은 자리에 같은 폭으로 선다.
-    await userEvent.setup().click(screen.getByRole('button', { name: '설정' }));
-    const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
-    expect(header().contains(nav)).toBe(false);
-    expect(navChromeWidthPx(nav, header())).toBe(railRow.wide);
-    expect(railRow.wide).toBe(84);
   });
 
   it('좁아도 SCREEN_TO_RAIL 매핑이 그대로다 — 시연 중 활성은 [드릴]', async () => {

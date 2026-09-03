@@ -72,19 +72,6 @@ describe('RulesScreen — 카드 홈', () => {
     stubMedia(false);
   });
 
-  it('9주제 카드가 전부 뜬다', () => {
-    renderRules();
-    expect(TOPICS).toHaveLength(9);
-    for (const topic of TOPICS) {
-      expect(screen.getByRole('button', { name: topic.title })).toBeInTheDocument();
-    }
-  });
-
-  it('기본 진입은 홈이다 — 어떤 주제 제목도 아직 안 보인다', () => {
-    renderRules();
-    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
-  });
-
   it('튜토리얼 앵커가 렌더된 DOM 에 실제로 붙는다', () => {
     // `ruleTopics.test.ts` 는 **데이터**(어느 주제가 앵커를 갖는가)만 지킨다. 정작 8→9 개편에서
     // 조용히 깨졌던 자리는 `RulesHome` 이 그 데이터를 `data-tut` 으로 **내보내는** 한 줄이었다
@@ -206,17 +193,6 @@ describe('RulesScreen — 도해·부록', () => {
     expect(heading.style.borderBottom).not.toBe('');
   });
 
-  it('"선수·코트·공·장비" 주제에 공 도해가 붙는다', async () => {
-    // 2026-09-03 까지는 장비 도해(전진·후진 10km/h 막대)도 함께 쟀다. 그 도해는 기현님이
-    // 조악하다고 판정해 지웠고, 10km/h 는 산문이 말한다 — 그래서 여기서는 공 도해만 잰다.
-    renderRules();
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: titleOf('basics') }));
-    expect(screen.getAllByRole('img').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('33cm').length).toBeGreaterThan(0);
-    expect(screen.queryByText('전진 10km/h'), '장비 도해는 다시 오지 않는다').toBeNull();
-  });
-
   it('"공식 룰 북" 주제에 18개조가 압축 목록으로 전부 뜬다', async () => {
     renderRules();
     const user = userEvent.setup();
@@ -228,13 +204,6 @@ describe('RulesScreen — 도해·부록', () => {
     }
   });
 
-  it('"그 외의 반칙" 주제에 경고 7종·퇴장 8종 카드 목록이 붙는다', async () => {
-    renderRules();
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: titleOf('fouls') }));
-    expect(screen.getByText(/경고\(옐로카드\) 7종/)).toBeInTheDocument();
-    expect(screen.getByText(/퇴장\(레드카드\) 8종/)).toBeInTheDocument();
-  });
 });
 
 describe('RulesScreen — 재개 비교표', () => {

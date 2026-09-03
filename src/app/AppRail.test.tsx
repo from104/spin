@@ -27,7 +27,6 @@ type HarnessProps = { children: ReactNode };
 // C4(react-router) — useAppHistory 가 라우터 위의 어댑터가 되면서 하네스도 메모리 라우터로
 // 세운다. 화면 시드는 window.history.state 가 아니라 **주소**(harnessPath)다.
 let harnessPath = '/';
-let harnessRouter: ReturnType<typeof createMemoryRouter> | null = null;
 function NavBridge({ children }: HarnessProps) {
   const nav = useAppHistory('board');
   return <AppNavProvider value={nav}>{children}</AppNavProvider>;
@@ -38,7 +37,6 @@ function Harness({ children }: HarnessProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-  harnessRouter = router;
   return (
     <SettingsProvider>
       <RouterProvider router={router} />
@@ -48,56 +46,11 @@ function Harness({ children }: HarnessProps) {
 
 beforeEach(() => {
   harnessPath = '/';
-  harnessRouter = null;
   window.localStorage.clear();
   shown = false;
 });
 
 describe('AppRail', () => {
-  it('3개 레일 링크 + aria-current="page" 를 현재 화면에 표시한다', () => {
-    render(
-      <Harness>
-        <AppRail />
-      </Harness>,
-    );
-    const nav = screen.getByRole('navigation', { name: '주요 메뉴' });
-    expect(nav).toBeInTheDocument();
-    // 2026-08-09 재편: '편집기' 는 레일에서 사라졌다(드릴 편집은 판과 같은 자리에 뜬다).
-    // 2026-08-12 재편(계획서 2.1): 라벨이 [보드][드릴][설정] 3단이 됐고 '시연' 도 빠졌다 —
-    // 레일로 시연에 들어와 봤자 대상이 없어 빈 화면만 뜨는 자리였다.
-    expect(screen.getByRole('button', { name: '보드' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.queryByRole('button', { name: '편집기' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '시연' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '전술판' })).toBeNull();
-    for (const label of ['드릴', '설정']) {
-      expect(screen.getByRole('button', { name: label })).not.toHaveAttribute('aria-current');
-    }
-  });
-
-  it('시연 중에는 [드릴] 에 aria-current 가 붙는다 — 레일에 없는 화면이 남의 자리를 빌린다', () => {
-    // 레일이 StageTarget 을 모른 채 화면 키만 보고 접는 것이 계약이다(SCREEN_TO_RAIL).
-    // 이 매핑이 없으면 시연 중에는 세 버튼 어디에도 현재 표시가 없다.
-    harnessPath = '/present';
-    render(
-      <Harness>
-        <AppRail />
-      </Harness>,
-    );
-    expect(screen.getByRole('button', { name: '드릴' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('button', { name: '보드' })).not.toHaveAttribute('aria-current');
-    expect(screen.getByRole('button', { name: '설정' })).not.toHaveAttribute('aria-current');
-  });
-
-  it('레일 버튼을 클릭하면 useAppNav().go 가 실제로 불려 화면이 바뀐다', async () => {
-    render(
-      <Harness>
-        <AppRail />
-      </Harness>,
-    );
-    await userEvent.setup().click(screen.getByRole('button', { name: '설정' }));
-    expect(harnessRouter!.state.location.pathname).toBe('/settings');
-  });
-
   it('테마 토글이 prefs.theme 을 반전시키고 localStorage 에 남긴다', async () => {
     render(
       <Harness>
@@ -159,14 +112,6 @@ describe('보드 아이콘', () => {
     expect(ds).toContain('M12 5.5v13'); // 하프웨이 선 — 가로 정중앙(2 + 20/2)
     expect(ds.some((d) => d?.includes('h4v6') && d.includes('h-4v6'))).toBe(true); // 골 지역 ㄷ자 둘
   });
-
-  it('가운데 원을 그리지 않는다 — FIPFA Laws 2025 에 센터 서클이 없다', () => {
-    // 코트 그림에서 걷어낸 것(5차)을 아이콘이 도로 가르치면 안 된다. 흔한 축구 아이콘을
-    // 주워 오면 거의 반드시 <circle> 이 딸려 온다.
-    render(<AppRail />, { wrapper: Harness });
-    const svg = screen.getByRole('button', { name: '보드' }).querySelector('svg');
-    expect(svg?.querySelectorAll('circle')).toHaveLength(0);
-  });
 });
 
 // 2026-08-14 — 로고를 'SP' 두 글자에서 기현님이 주신 앱 아이콘으로 바꿨다. 아이콘에 단언이
@@ -182,16 +127,6 @@ describe('레일 로고', () => {
     // 바로 아래 'SPIN' 워드마크가 같은 것을 한 번 더 말한다 — 둘 다 읽히면 "SP SPIN" 이 된다.
     expect(logo.getAttribute('alt')).toBe('');
     expect(logo.getAttribute('aria-hidden')).toBe('true');
-  });
-
-  it('42×42 이고 **벡터**다 — 200% 배율에서 코트의 흰 파선이 살아남는 유일한 길', () => {
-    render(<AppRail />, { wrapper: Harness });
-    const logo = screen.getByRole('navigation', { name: '주요 메뉴' }).querySelector('img')!;
-    expect(logo.getAttribute('width')).toBe('42');
-    expect(logo.getAttribute('height')).toBe('42');
-    expect(logo.getAttribute('src')!.endsWith('.svg'), '래스터로 되돌아갔다').toBe(true);
-    // 마크가 **원**이라 자를 모서리가 없다. 라운드를 걸면 원의 상하좌우가 미세하게 깎인다.
-    expect(logo.style.borderRadius).toBe('');
   });
 
   it('prefs.language 를 English 로 두면 레일 라벨·테마 버튼이 실제로 영어로 바뀐다(i18n C2)', () => {

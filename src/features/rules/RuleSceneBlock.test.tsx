@@ -5,7 +5,7 @@
 //  ② 노트가 한 줄도 없는 장면은 그 64px 을 빈 채로 물고 있으면 안 된다.
 // 한쪽만 재면 "다 접어 버리기"나 "아무것도 안 하기"가 초록으로 통과한다.
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { RuleSceneBlock } from './RuleSceneBlock.tsx';
 import { buildRuleScene } from './ruleScenes.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -48,12 +48,11 @@ describe('RuleSceneBlock — 노트 띠 높이', () => {
     // STEP 줄은 진행 위치를 알려 주는 유일한 읽을거리라 남는다.
     expect(screen.getByText('STEP 1/5')).toBeInTheDocument();
     expect(fixedBands(container)).toHaveLength(0);
-  });
 
-  it('노트도 STEP 줄도 없는 1스텝 장면은 띠를 아예 안 만든다', () => {
-    const { container } = renderScene('set-ball');
+    // 노트도 STEP 줄도 없는 1스텝 장면(set-ball)도 같은 결론(fixedBands 0) — 띠를 아예 안 만든다.
+    const single = renderScene('set-ball');
     expect(buildRuleScene('set-ball').steps).toHaveLength(1);
-    expect(screen.queryByText(/^STEP /)).toBeNull();
-    expect(fixedBands(container)).toHaveLength(0);
+    expect(within(single.container).queryByText(/^STEP /)).toBeNull();
+    expect(fixedBands(single.container)).toHaveLength(0);
   });
 });

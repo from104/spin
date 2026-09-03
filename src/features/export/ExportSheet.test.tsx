@@ -279,18 +279,15 @@ describe('내보내기 범위', () => {
       { wrapper },
     );
 
-  it('스텝이 1장이면 범위 컨트롤이 아예 없다 — 보드에는 고를 것이 없다', () => {
-    sheetOf(drillOf(1));
-    expect(screen.queryByRole('button', { name: /전체/ })).toBeNull();
-    // 대조군: 항목 2 + 닫기 1 = 3 그대로다(칩이 표적 수를 늘리지 않았다).
-    expect(screen.getAllByRole('button')).toHaveLength(3);
-  });
-
   it('스텝이 여럿이면 [이 스텝]·[전체] 가 뜨고, 체크가 없으면 [선택한 N장] 은 안 뜬다', () => {
     sheetOf(drillOf(4));
     expect(screen.getByRole('button', { name: /이 스텝/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /전체 4장/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /선택한/ }), '고를 수 없는 것을 보여 주지 않는다').toBeNull();
+    // 대조군 — 스텝이 1장이면 범위 컨트롤이 아예 없다(보드에는 고를 것이 없다).
+    cleanup();
+    sheetOf(drillOf(1));
+    expect(screen.queryByRole('button', { name: /전체/ })).toBeNull();
   });
 
   it('★ 사이드바 체크가 있으면 그것이 기본값이다', () => {
@@ -298,16 +295,6 @@ describe('내보내기 범위', () => {
     const chip = screen.getByRole('button', { name: /선택한 2장/ });
     expect(chip.getAttribute('aria-pressed'), '열자마자 선택 범위가 잡혀 있어야 한다').toBe('true');
     expect(screen.getByRole('button', { name: /이 스텝/ }).getAttribute('aria-pressed')).toBe('false');
-  });
-
-  it('★ 한 장이면 PNG 그대로 떨어진다', async () => {
-    sheetOf(drillOf(4), 2);
-    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
-    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
-    expect(rasterMock).toHaveBeenCalledTimes(1);
-    const [blob, name] = downloadMock.mock.calls[0]!;
-    expect(name).toMatch(/\.png$/);
-    expect(blob.type).toBe('image/png');
   });
 
   it('★ 지금 보고 있는 스텝을 굽는다 — stepIndex={0} 하드코딩 회귀 방지', async () => {
@@ -318,6 +305,7 @@ describe('내보내기 범위', () => {
     await waitFor(() => expect(rasterMock).toHaveBeenCalledTimes(1));
     expect(rasterMock.mock.calls[0]![0].stepIndex, '보고 있던 3번 스텝(index 2)이어야 한다').toBe(2);
     expect(downloadMock.mock.calls[0]![1]).toBe('SPIN_범위 드릴_03.png'); // 1-based + 두 자리 패딩
+    expect(downloadMock.mock.calls[0]![0].type).toBe('image/png');
   });
 
   it('★ 여러 장이면 ZIP 한 벌이다 — 낱개 순차 다운로드가 아니다', async () => {

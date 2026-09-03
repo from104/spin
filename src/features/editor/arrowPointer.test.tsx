@@ -116,11 +116,8 @@ describe('끝 앵커 — 누르면 순환, 끌면 이동', () => {
     expect(headToOf(arrowOf(h, arrowId))).toBe('none');
     tapAt(h, ARROW.to);
     expect(headToOf(arrowOf(h, arrowId)), '세 번 눌러도 제자리로 안 왔다').toBe('thin');
-  });
 
-  it('★ 시작점도 따로 돈다 — 없음에서 시작하고 반대쪽은 안 건드린다', () => {
-    const { h, arrowId } = mount();
-    selectFirst(h);
+    // 시작점도 따로 돈다 — 없음에서 시작하고 반대쪽은 안 건드린다.
     expect(headFromOf(arrowOf(h, arrowId))).toBe('none');
     tapAt(h, ARROW.from);
     expect(headFromOf(arrowOf(h, arrowId))).toBe('thin');
@@ -150,15 +147,6 @@ describe('끝 앵커 — 누르면 순환, 끌면 이동', () => {
     expect(headToOf(a), '임계 안 떨림인데 순환이 안 됐다').toBe('wide');
   });
 
-  it('굽힘점(ctrl)에는 화살촉이 없다 — 거기서 도는 것은 색이다', () => {
-    const { h, arrowId } = mount();
-    selectFirst(h);
-    const before = arrowOf(h, arrowId);
-    tapAt(h, ARROW.ctrl);
-    const after = arrowOf(h, arrowId);
-    expect(headFromOf(after), '굽힘점을 눌렀는데 시작 화살촉이 돌았다').toBe(headFromOf(before));
-    expect(headToOf(after), '굽힘점을 눌렀는데 끝 화살촉이 돌았다').toBe(headToOf(before));
-  });
 });
 
 // 기현 지시 2026-08-17 — *"작도 선의 중간 앵커를 반복클릭하면 색이 하늘(기본색),노랑,붉은색으로
@@ -167,23 +155,18 @@ describe('굽힘 앵커 — 누르면 색이 돈다', () => {
   it('★ 하늘(기본) → 노랑 → 빨강 → 하늘 로 한 바퀴 돈다', () => {
     const { h, arrowId } = mount();
     selectFirst(h);
-    expect(arrowColor(arrowOf(h, arrowId)), '기본색이 하늘이 아니다').toBe(ARROW_STYLE.color);
+    const before = arrowOf(h, arrowId);
+    expect(arrowColor(before), '기본색이 하늘이 아니다').toBe(ARROW_STYLE.color);
     tapAt(h, ARROW.ctrl);
     expect(arrowColor(arrowOf(h, arrowId))).toBe(ARROW_COLOR_CYCLE[1]);
     tapAt(h, ARROW.ctrl);
     expect(arrowColor(arrowOf(h, arrowId))).toBe(ARROW_COLOR_CYCLE[2]);
     tapAt(h, ARROW.ctrl);
-    expect(arrowColor(arrowOf(h, arrowId)), '세 번 눌러도 제자리로 안 왔다').toBe(ARROW_STYLE.color);
-  });
-
-  it('한 바퀴 돌면 color 키가 **사라진다** — 기본색은 덮어쓰기 해제이지 하늘색 지정이 아니다', () => {
-    const { h, arrowId } = mount();
-    selectFirst(h);
-    tapAt(h, ARROW.ctrl);
-    expect(arrowOf(h, arrowId).color).toBe(ARROW_COLOR_CYCLE[1]);
-    tapAt(h, ARROW.ctrl);
-    tapAt(h, ARROW.ctrl);
-    expect(Object.hasOwn(arrowOf(h, arrowId), 'color'), '기본색으로 돌아왔는데 color 키가 남았다').toBe(false);
+    const after = arrowOf(h, arrowId);
+    expect(arrowColor(after), '세 번 눌러도 제자리로 안 왔다').toBe(ARROW_STYLE.color);
+    // 굽힘점(ctrl)에는 화살촉이 없다 — 거기서 도는 것은 색이다.
+    expect(headFromOf(after), '굽힘점을 눌렀는데 시작 화살촉이 돌았다').toBe(headFromOf(before));
+    expect(headToOf(after), '굽힘점을 눌렀는데 끝 화살촉이 돌았다').toBe(headToOf(before));
   });
 
   it('★ 끌면 색이 아니라 **굽힘점이 옮겨진다** (대조군 — 누르기와 끌기가 갈린다)', () => {
@@ -208,13 +191,6 @@ describe('몸통 — 끌면 선이 통째로 간다', () => {
     expect(a.from).toEqual({ x: ARROW.from.x + d.x, y: ARROW.from.y + d.y });
     expect(a.ctrl).toEqual({ x: ARROW.ctrl.x + d.x, y: ARROW.ctrl.y + d.y });
     expect(a.to).toEqual({ x: ARROW.to.x + d.x, y: ARROW.to.y + d.y });
-  });
-
-  it('★ 몸통을 끌어도 화살촉은 안 바뀐다', () => {
-    const { h, arrowId } = mount();
-    dragFromTo(h, BODY, { x: BODY.x + 40, y: BODY.y });
-    expect(headToOf(arrowOf(h, arrowId))).toBe('thin');
-    expect(headFromOf(arrowOf(h, arrowId))).toBe('none');
   });
 
   it('★ 몸통 재탭 해제가 살아 있다 — 몸통 드래그 세션이 그 판정을 삼키면 안 된다', () => {
@@ -276,15 +252,12 @@ describe('회전 앵커 — 끌면 세 점이 축 둘레로 돈다', () => {
     expect(headFromOf(after)).toBe(headFromOf(before));
     expect(headToOf(after)).toBe(headToOf(before));
     expect(arrowColor(after)).toBe(arrowColor(before));
-  });
 
-  it('탭 임계 안 떨림도 회전이 아니다 — 1px 흔들려도 선이 안 돈다', () => {
-    const { h, arrowId } = mount();
-    selectFirst(h);
+    // 탭 임계 안 떨림도 회전이 아니다 — 1px 흔들려도 선이 안 돈다.
     dragFromTo(h, ANCHOR, { x: ANCHOR.x + INTERACT.tapMaxMoveCssPx - 1, y: ANCHOR.y });
-    const a = arrowOf(h, arrowId);
-    expect(a.from).toEqual(ARROW.from);
-    expect(a.to).toEqual(ARROW.to);
+    const jittered = arrowOf(h, arrowId);
+    expect(jittered.from).toEqual(ARROW.from);
+    expect(jittered.to).toEqual(ARROW.to);
   });
 
   it('선택 전에는 앵커가 없다 — 그 자리를 눌러도 회전이 안 시작된다(핸들은 선택된 화살표에만)', () => {

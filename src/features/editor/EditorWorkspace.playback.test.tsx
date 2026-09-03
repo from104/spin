@@ -65,16 +65,6 @@ async function addStepAtEnd(user: { click(el: Element): Promise<void> }): Promis
 }
 
 describe('편집 화면 — 공용 재생 묶음(2026-08-20 §D)', () => {
-  it('재생 묶음 5개가 코트 아래(노트 옆)에 산다', async () => {
-    await openDrill();
-    await addStepAtEnd(userEvent); // canPlay 조건(스텝 2장 이상)
-    expect(screen.getByRole('button', { name: /^반복/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '이전 스텝' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '재생' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '다음 스텝' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^재생 속도/ })).toBeInTheDocument();
-  });
-
   it('스텝이 1장뿐이면 재생이 잠긴다 — canPlay 계약', async () => {
     await openDrill();
     expect(screen.getByRole('button', { name: '재생' })).toBeDisabled();
@@ -89,16 +79,13 @@ describe('편집 화면 — 공용 재생 묶음(2026-08-20 §D)', () => {
     await user.click(screen.getByRole('button', { name: '재생' }));
     expect(await screen.findByRole('button', { name: '일시정지' })).toBeInTheDocument();
     await waitFor(() => expect(sidebarCards()[0]).toHaveAttribute('aria-current', 'step'));
-  });
+    await user.click(screen.getByRole('button', { name: '일시정지' })); // 다음 단계를 위해 멈춘다
 
-  it('끝 스텝에서 [재생] — 반복이 켜져 있어도 같은 되감기가 일어난다(loop 켜짐, §F)', async () => {
-    const { user } = await openDrill();
-    await addStepAtEnd(user);
-    expect(sidebarCards()[1]).toHaveAttribute('aria-current', 'step');
-
+    // 반복이 켜져 있어도 같은 되감기가 일어난다 — loop 설정과 무관하다.
     const loopBtn = screen.getByRole('button', { name: /^반복/ });
     if (loopBtn.getAttribute('aria-pressed') !== 'true') await user.click(loopBtn);
     expect(screen.getByRole('button', { name: /^반복/ })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(sidebarCards()[1]!);
 
     await user.click(screen.getByRole('button', { name: '재생' }));
     await waitFor(() => expect(sidebarCards()[0]).toHaveAttribute('aria-current', 'step'));

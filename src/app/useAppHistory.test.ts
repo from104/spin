@@ -81,13 +81,11 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
 });
 
 describe('useAppHistory — 어댑터 계약', () => {
-  it('루트 진입은 board + {kind:board} 다', () => {
+  it('주소로 직접 진입해도 화면·대상이 복원된다(새로고침 생존 — URL 이 저장소다)', () => {
     mount('/');
     expect(captured!.screen).toBe('board');
     expect(captured!.target).toEqual({ kind: 'board' });
-  });
 
-  it('주소로 직접 진입해도 화면·대상이 복원된다(새로고침 생존 — URL 이 저장소다)', () => {
     mount('/present/drill/dr_abc');
     expect(captured!.screen).toBe('present');
     expect(captured!.target).toEqual({ kind: 'drill', id: 'dr_abc' });
@@ -105,8 +103,10 @@ describe('useAppHistory — 어댑터 계약', () => {
     const router = mount('/');
     captured!.go('drills');
     await waitFor(() => expect(captured!.screen).toBe('drills'));
+    expect(router.state.location.state).toEqual({ depth: 1 }); // depth 는 go 마다 +1
     captured!.go('present', { kind: 'drill', id: 'dr_1' });
     await waitFor(() => expect(captured!.screen).toBe('present'));
+    expect(router.state.location.state).toEqual({ depth: 2 });
     captured!.back('board');
     await waitFor(() => expect(captured!.screen).toBe('drills')); // fallback 이 아니라 직전 화면
     expect(router.state.location.pathname).toBe('/drills');
@@ -121,14 +121,5 @@ describe('useAppHistory — 어댑터 계약', () => {
     // replace 라 히스토리 스택 길이가 그대로 1 이다 — 브라우저 뒤로가기가 시연 재진입 토글이
     // 되지 않는다(옛 구현은 여기서 push 를 해 그 토글 위험을 안고 있었다).
     expect(router.state.location.state).toEqual({ depth: 0 });
-  });
-
-  it('depth 가 location.state 로 이어진다 — go 마다 +1', async () => {
-    const router = mount('/');
-    captured!.go('drills');
-    await waitFor(() => expect(captured!.screen).toBe('drills'));
-    captured!.go('settings');
-    await waitFor(() => expect(captured!.screen).toBe('settings'));
-    expect(router.state.location.state).toEqual({ depth: 2 });
   });
 });

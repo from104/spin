@@ -151,25 +151,6 @@ describe('SessionEditorScreen', () => {
     await waitFor(() => expect(screen.getByText(/30분 \/ 목표 20분 — 초과/)).toBeInTheDocument());
   });
 
-  it('구획 삭제는 항목을 버리지 않는다 — 이웃 구획에 병합된다 (removePhase 규칙)', async () => {
-    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '병합 드릴', durationMin: 10 });
-    let s = await createSession({ title: '병합 세션' });
-    s = await addDrillToSession(s.id, d.id); // 기본 구획('훈련')에 하나
-    await renderEditor(s.id);
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole('button', { name: '구획 추가' })); // 두 번째 구획(자유)
-    await waitFor(async () => expect((await getSession(s.id))?.session.phases).toHaveLength(2));
-
-    // 항목을 가진 첫 구획을 지운다 → 항목이 남은 구획으로 병합.
-    await user.click(screen.getByRole('button', { name: '구획 훈련 삭제' }));
-    await waitFor(async () => {
-      const saved = await getSession(s.id);
-      expect(saved?.session.phases).toHaveLength(1);
-      expect(flattenSessionItems(saved!.session).map((it) => it.drillId)).toEqual([d.id]);
-    });
-  });
-
   it('항목 제거·시간 override 가 구획 안에서 동작한다', async () => {
     const d1 = await idbDrillRepo.createDrill({ courtMode: 'full', title: '드릴 하나', durationMin: 10 });
     const d2 = await idbDrillRepo.createDrill({ courtMode: 'full', title: '드릴 둘', durationMin: 10 });
@@ -233,8 +214,13 @@ describe('SessionEditorScreen', () => {
       await user.click(screen.getByRole('button', { name: '구획 추가' })); // 두 번째 구획(자유)
       await waitFor(async () => expect((await getSession(s.id))?.session.phases).toHaveLength(2));
 
+      // 항목을 가진 구획을 지운다 → 항목이 남은 구획으로 병합된다(버려지지 않는다).
       await user.click(screen.getByRole('button', { name: '구획 훈련 삭제' }));
-      await waitFor(async () => expect((await getSession(s.id))?.session.phases).toHaveLength(1));
+      await waitFor(async () => {
+        const saved = await getSession(s.id);
+        expect(saved?.session.phases).toHaveLength(1);
+        expect(flattenSessionItems(saved!.session).map((it) => it.drillId)).toEqual([d.id]);
+      });
 
       const toast = await screen.findByRole('status');
       await user.click(within(toast).getByRole('button', { name: '되돌리기' }));

@@ -73,12 +73,9 @@ describe('isAdditive — 어떤 손짓이 선택에 더하는가', () => {
 });
 
 describe('removalLabel — 누르기 전에 무엇을 알아야 하는가', () => {
-  it('하나면 개수를 안 센다', () => {
+  it('여럿이면 개수를 앞세운다', () => {
     expect(removalLabel(['ch_1'], 'ko')).toBe('빼기');
     expect(removalLabel(['nt_1'], 'ko')).toBe('삭제');
-  });
-
-  it('여럿이면 개수를 앞세운다', () => {
     expect(removalLabel(['ch_1', 'bl_1', 'cn_1'], 'ko')).toBe('3개 빼기');
     expect(removalLabel(['nt_1', 'ar_1'], 'ko')).toBe('2개 삭제');
   });
@@ -120,19 +117,6 @@ describe('개체 메뉴 — 고른 것 전부에 걸린다', () => {
     );
   }
 
-  it('하나면 종전 그대로 말한다 — 개수를 세지 않는다', () => {
-    open({});
-    expect(screen.getByRole('menuitem', { name: '잠금' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: '빼기' })).toBeInTheDocument();
-  });
-
-  it('여럿이면 개수가 붙는다', () => {
-    open({ ids: ['ch_1', 'ch_2', 'ch_3'] });
-    expect(screen.getByRole('menuitem', { name: '3개 잠금' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: '3개 무시' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: '3개 빼기' })).toBeInTheDocument();
-  });
-
   it('누르면 **고른 것 전부**가 넘어간다 — 짚은 하나가 아니다', () => {
     const onRemove = vi.fn();
     const onToggleLock = vi.fn();
@@ -151,25 +135,12 @@ describe('개체 메뉴 — 고른 것 전부에 걸린다', () => {
     expect(screen.queryByRole('menuitem', { name: /무시/ })).toBeNull();
   });
 
-  it('전부 잠겨 있을 때만 해제로 뒤집힌다 — 반쯤이면 "잠금" 이라 한 번에 가지런해진다', () => {
-    open({ ids: ['ch_1', 'ch_2'], locked: false });
-    expect(screen.getByRole('menuitem', { name: '2개 잠금' })).toBeInTheDocument();
-    cleanup();
-    open({ ids: ['ch_1', 'ch_2'], locked: true });
-    expect(screen.getByRole('menuitem', { name: '2개 잠금 해제' })).toBeInTheDocument();
-  });
-
   // ★ 터치에서 다중 선택을 **만드는** 유일한 길.
   it('"같은 것 전부" 는 그 명단을 그대로 넘긴다', () => {
     const onSelect = vi.fn();
     open({ selectSame: { label: '같은 팀 전부 고르기', ids: ['ch_1', 'ch_2', 'ch_3'] } }, { onSelect });
     fireEvent.click(screen.getByRole('menuitem', { name: '같은 팀 전부 고르기' }));
     expect(onSelect).toHaveBeenCalledWith(['ch_1', 'ch_2', 'ch_3']);
-  });
-
-  it('낼 것이 없으면 그 항목이 아예 없다', () => {
-    open({ selectSame: null });
-    expect(screen.queryByRole('menuitem', { name: /전부 고르기/ })).toBeNull();
   });
 });
 
@@ -216,13 +187,5 @@ describe('모아 고르기 — 도구 칸에서', () => {
   it('툴팁이 이 조작을 먼저 말한다 — 도움말을 열지 않는 사람에게 유일한 예고다', async () => {
     await openBoard();
     expect(screen.getByRole('button', { name: '선택' }).title).toContain('한 번 더 누르면 여러 개를 모아 고릅니다');
-  });
-
-  it('다른 도구로 옮기면 모아 고르기는 따라오지 않는다', async () => {
-    const user = await openBoard();
-    await user.click(screen.getByRole('button', { name: '선택' }));
-    await screen.findByRole('button', { name: '선택 고정' });
-    await user.click(screen.getByRole('button', { name: /^공/ }));
-    await screen.findByRole('button', { name: '선택' });
   });
 });

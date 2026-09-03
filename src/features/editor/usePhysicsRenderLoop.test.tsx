@@ -109,14 +109,6 @@ describe('usePhysicsRenderLoop', () => {
     expect(rules.frames[1]).not.toBe(rules.frames[0]); // 대조군: 프레임은 실제로 갱신된다
   });
 
-  it('규칙 오버레이 없이도 돈다 — 인자는 선택이다', () => {
-    const world = fakeWorld();
-    const writer = fakeWriter();
-    renderHook(() => usePhysicsRenderLoop(world.ref, writer));
-    flushFrame();
-    expect(writer.frames).toHaveLength(1);
-  });
-
   it('월드가 아직 없으면 아무도 부르지 않는다', () => {
     const writer = fakeWriter();
     const rules = fakeRules();

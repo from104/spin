@@ -14,11 +14,9 @@ describe('storageErrorText', () => {
     const e = new StorageError('E_UNSUPPORTED_KIND', '이 버전에서 지원하지 않는 파일 종류입니다 (drillSet).', { detail: 'drillSet' });
     expect(storageErrorText(e, 'ko', 'fallback')).toBe('이 버전에서 지원하지 않는 파일 종류입니다 (drillSet).');
     expect(storageErrorText(e, 'en', 'fallback')).toBe("This file type isn't supported in this version (drillSet).");
-  });
 
-  it('detail 이 없으면 괄호를 안 붙인다', () => {
-    const e = new StorageError('E_UNSUPPORTED_KIND', '이 버전에서 지원하지 않는 파일 종류입니다.');
-    expect(storageErrorText(e, 'ko', 'fallback')).toBe('이 버전에서 지원하지 않는 파일 종류입니다.');
+    const withoutDetail = new StorageError('E_UNSUPPORTED_KIND', '이 버전에서 지원하지 않는 파일 종류입니다.');
+    expect(storageErrorText(withoutDetail, 'ko', 'fallback')).toBe('이 버전에서 지원하지 않는 파일 종류입니다.');
   });
 
   it('localized:true 인 StorageError 는 재번역하지 않고 .message 를 그대로 믿는다', () => {
@@ -28,11 +26,8 @@ describe('storageErrorText', () => {
     expect(storageErrorText(e, 'en', 'fallback')).toBe('Drill-collection files open from [Import] on the [Drills] screen.');
   });
 
-  it('일반 Error 는 .message 를 그대로 쓴다', () => {
-    expect(storageErrorText(new Error('원인 불명 오류'), 'ko', 'fallback')).toBe('원인 불명 오류');
-  });
-
   it('message 가 빈 문자열이거나 Error 가 아니면 fallback 을 쓴다', () => {
+    expect(storageErrorText(new Error('원인 불명 오류'), 'ko', 'fallback')).toBe('원인 불명 오류');
     expect(storageErrorText(new Error(''), 'ko', 'fallback')).toBe('fallback');
     expect(storageErrorText('그냥 문자열', 'ko', 'fallback')).toBe('fallback');
     expect(storageErrorText(undefined, 'ko', 'fallback')).toBe('fallback');

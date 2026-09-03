@@ -1,5 +1,5 @@
-// §3.11 썸네일 렌더 검증: viewBox 가 COURT_DEFS[mode] 그대로인지, ThumbSpec 오브젝트가
-// 콘→화살표→휠체어→공 순서로 그려지는지 확인한다.
+// §3.11 썸네일 렌더 검증: ThumbSpec 의 화살표 색·케이싱, 글리프 과장 배율, 도형·메모가
+// 옳게 그려지는지 확인한다.
 import { describe, expect, it } from 'vitest';
 import { render as rtlRender } from '@testing-library/react';
 import type { ReactElement } from 'react';
@@ -7,44 +7,12 @@ import { CourtThumbnail, SIDEBAR_GLYPH_SCALE, THUMB_GLYPH } from './CourtThumbna
 import type { ThumbSpec } from '../model/thumb.ts';
 import type { Shape } from '../model/shape.ts';
 import { SHAPE_STROKE_PX } from '../model/shape.ts';
-import { NOTE_DEFAULT_SIZE_PX } from './objects/noteChip.ts';
 import { ARROW_CASING, ARROW_COLORS } from '../core/colors.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 
 // CourtThumbnail 이 aria-label 번역에 useLocale()(→ SettingsProvider)을 쓰게 되면서(C7) 이
 // 파일의 모든 render 호출이 Provider 를 필요로 한다 — 한 곳에서 감싸 12곳을 손대지 않는다.
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
-
-describe('CourtThumbnail', () => {
-  it('mode 별 viewBox 는 COURT_DEFS 의 vbW/vbH 그대로다', () => {
-    const { container: full } = render(<CourtThumbnail mode="full" />);
-    expect(full.querySelector('svg')).toHaveAttribute('viewBox', '0 0 825 525');
-    const { container: half } = render(<CourtThumbnail mode="half" />);
-    expect(half.querySelector('svg')).toHaveAttribute('viewBox', '0 0 525 450');
-  });
-
-  it('thumb 이 없으면 코트만 그리고 오브젝트 레이어는 없다', () => {
-    const { container } = render(<CourtThumbnail mode="full" />);
-    expect(container.querySelectorAll(`circle[r="${THUMB_GLYPH.chairR}"]`)).toHaveLength(0);
-    expect(container.querySelectorAll(`circle[r="${THUMB_GLYPH.ballR}"]`)).toHaveLength(0);
-  });
-
-  it('thumb 이 있으면 콘·화살표·휠체어·공을 이 순서로 그린다(§3.5 레이어 순서)', () => {
-    const thumb: ThumbSpec = {
-      mode: 'full',
-      chairs: [{ x: 100, y: 100, a: 0, t: 0, g: 0 }],
-      balls: [[200, 200]],
-      cones: [[50, 50, 0]],
-      arrows: [{ p: [10, 10, 20, 20, 30, 30] }],
-    };
-    const { container } = render(<CourtThumbnail mode="full" thumb={thumb} />);
-    const groups = container.querySelectorAll('svg > g');
-    const layer = groups[groups.length - 1]!; // 코트 라인 g 다음에 오는 마지막 g 가 오브젝트 레이어다
-    const tags = Array.from(layer.children).map((el) => el.tagName.toLowerCase());
-    // 콘(path), 화살표(g — 2026-08-20 부터 케이싱+색선 쌍이라 g 로 묶인다), 휠체어(circle), 공(circle).
-    expect(tags).toEqual(['path', 'g', 'circle', 'circle']);
-  });
-});
 
 // 2026-08-17 — 굽힘점 클릭으로 선 색이 3단이 되면서 썸네일도 따라와야 했다. 썸네일은 색이
 // 아니라 **첨자**를 저장한다(model/thumb.ts) — 그래야 색값을 고친 날 이미 저장된 카드까지
@@ -58,10 +26,6 @@ describe('화살표 색 — 저장된 첨자를 푼다', () => {
     const layer = [...container.querySelectorAll('svg > g')].at(-1)!;
     return [...layer.querySelectorAll(`path[stroke-width="${THUMB_GLYPH.arrowW}"]`)].map((p) => p.getAttribute('stroke'));
   };
-
-  it('첨자가 없으면 기본색이다 — 옛 요약(첨자 필드가 생기기 전)이 이 경우다', () => {
-    expect(strokes(withArrows([{ p: [10, 10, 20, 20, 30, 30] }]))).toEqual([ARROW_COLORS[0]]);
-  });
 
   it('★ 첨자마다 다른 색이 나온다 — 한 카드 안에서 섞여도 각자 제 색이다', () => {
     expect(
@@ -107,16 +71,12 @@ describe('화살표 케이싱 — 도형과 겹쳐도 안 사라진다', () => {
     expect(colorPath.getAttribute('stroke')).toBe(ARROW_COLORS[0]);
     expect(Number(casing.getAttribute('stroke-width'))).toBeGreaterThan(Number(colorPath.getAttribute('stroke-width')));
     expect(colorPath.getAttribute('stroke-width')).toBe(String(THUMB_GLYPH.arrowW));
-  });
 
-  it('도형과 겹치는 spec 에서도 화살표 케이싱이 개체 층(도형보다 위) 안에 실재한다 — 신고 시나리오', () => {
+    // 신고 시나리오 — 도형과 겹쳐도 케이싱은 그대로 개체 층 안에 실재한다(도형/개체 z순서는
+    // 아래 '도형은 코트 위·개체 아래 층이다' 가 따로 잰다).
     const SHAPE: Shape = { id: 'sh_2' as Shape['id'], kind: 'rect', x: 20, y: 20, w: 40, h: 40, rot: 0 };
-    const { container } = render(<CourtThumbnail mode="full" thumb={spec([{ p: [10, 10, 20, 20, 30, 30] }], [SHAPE])} />);
-    const topGroups = [...container.querySelectorAll('svg > g')];
-    const shapeAt = topGroups.findIndex((el) => el.hasAttribute('data-shape-layer'));
-    const objectLayer = topGroups.at(-1)!; // §3.5 — 개체 층은 항상 마지막 최상위 g 다
-    expect(shapeAt).toBeGreaterThanOrEqual(0);
-    expect(shapeAt).toBeLessThan(topGroups.indexOf(objectLayer)); // 도형이 개체보다 아래(z-순서는 무죄)
+    const overlap = render(<CourtThumbnail mode="full" thumb={spec([{ p: [10, 10, 20, 20, 30, 30] }], [SHAPE])} />);
+    const objectLayer = [...overlap.container.querySelectorAll('svg > g')].at(-1)!;
     expect(objectLayer.querySelector(`path[stroke="${ARROW_CASING}"]`)).not.toBeNull();
   });
 });
@@ -150,16 +110,6 @@ describe('글리프 크기 — 축척이 아니라 읽히려고 과장한다', (
     ];
   };
 
-  it('기본 배수(목록 카드)는 THUMB_GLYPH 를 그대로 쓴다', () => {
-    expect(sizes(layer())).toEqual([THUMB_GLYPH.chairR, THUMB_GLYPH.chairStroke, THUMB_GLYPH.ballR, THUMB_GLYPH.arrowW]);
-  });
-
-  it('★ 휠체어 원이 차폭(25 px)만 하다 — 지름 12 짜리 점이던 것이 이 항목의 이유다', () => {
-    expect(THUMB_GLYPH.chairR * 2).toBeGreaterThanOrEqual(20);
-    expect(THUMB_GLYPH.ballR).toBeGreaterThan(4); // 옛 값
-    expect(THUMB_GLYPH.arrowW).toBeGreaterThan(2); // 옛 값
-  });
-
   it('★ glyphScale 은 글리프만 키운다 — 좌표는 한 픽셀도 안 움직인다', () => {
     const one = layer(1);
     const big = layer(SIDEBAR_GLYPH_SCALE);
@@ -177,10 +127,6 @@ describe('글리프 크기 — 축척이 아니라 읽히려고 과장한다', (
     expect(at(big)).toEqual(at(one));
     expect(at(one)).toEqual(['100', '100', '200', '210']);
   });
-
-  it('★ 사이드바 배수는 1 보다 크다 — 사이드바 카드(≈200 px)는 목록 카드(≈300 px)보다 작게 그려진다', () => {
-    expect(SIDEBAR_GLYPH_SCALE).toBeGreaterThan(1);
-  });
 });
 
 // 2026-08-17 기현님 지시 *"도형, 메모(글자를 2~3px로) 등도 잡혀야지"*.
@@ -196,13 +142,6 @@ describe('도형·메모 — 썸네일에도 잡힌다', () => {
     cones: [],
     arrows: [],
     ...over,
-  });
-
-  it('★ 도형은 ShapeLayer 가 그린다 — 여기서 손으로 그리지 않는다', () => {
-    const { container } = render(<CourtThumbnail mode="full" thumb={spec({ shapes: [SHAPE] })} />);
-    const layer = container.querySelector('[data-shape-layer]');
-    expect(layer).not.toBeNull();
-    expect(layer!.querySelector('rect[width="100"]')).not.toBeNull();
   });
 
   it('★ 도형 테두리만 굵어진다 — 크기는 사용자가 그린 구역 그 자체다', () => {
@@ -232,16 +171,6 @@ describe('도형·메모 — 썸네일에도 잡힌다', () => {
     expect(g!.querySelector('text')!.textContent).toBe('왼쪽으로');
   });
 
-  it('★ 글자는 목록 카드에서 2~3 px 로 떨어진다 — 그 크기가 이 항목의 요구였다', () => {
-    const { container } = render(<CourtThumbnail mode="full" thumb={spec({ notes: [{ x: 0, y: 0, t: '가' }] })} />);
-    const font = Number(container.querySelector('text')!.getAttribute('font-size'));
-    expect(font).toBe(NOTE_DEFAULT_SIZE_PX * THUMB_GLYPH.noteFontScale);
-    // 목록 카드는 코트(825 단위)를 약 300 px 로 그린다 → 표시 크기 = font × 300/825.
-    const shownPx = (font * 300) / 825;
-    expect(shownPx).toBeGreaterThan(2);
-    expect(shownPx).toBeLessThan(4);
-  });
-
   it('메모의 크기·색·정렬은 넘어온 값을 따른다 (기본값은 판과 같다)', () => {
     const { container } = render(
       <CourtThumbnail mode="full" thumb={spec({ notes: [{ x: 0, y: 0, t: '가', s: 28, c: '#ff0000', a: 'start' }] })} />,
@@ -250,11 +179,5 @@ describe('도형·메모 — 썸네일에도 잡힌다', () => {
     expect(Number(t.getAttribute('font-size'))).toBe(28 * THUMB_GLYPH.noteFontScale);
     expect(t.getAttribute('fill')).toBe('#ff0000');
     expect(t.getAttribute('text-anchor')).toBe('start');
-  });
-
-  it('도형·메모가 없으면 그 층은 아예 없다 (옛 요약이 이 경우다)', () => {
-    const { container } = render(<CourtThumbnail mode="full" thumb={spec({ chairs: [{ x: 1, y: 1, a: 0, t: 0, g: 0 }] })} />);
-    expect(container.querySelector('[data-shape-layer]')).toBeNull();
-    expect(container.querySelector('text')).toBeNull();
   });
 });

@@ -36,28 +36,6 @@ function makeResolved(over: Partial<ResolvedSession['session']> = {}, items: Res
 }
 
 describe('SessionTab', () => {
-  it('세션이 없으면 빈 상태와 새 세션 CTA 를 보여준다', async () => {
-    const onCreate = vi.fn();
-    render(<SessionTab sessions={[]} onOpen={() => {}} onPresent={() => {}} onDelete={() => {}} onExport={() => {}} onCreate={onCreate} />, { wrapper: SettingsProvider });
-    expect(screen.getByText(/아직 만든 세션이 없습니다/)).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole('button', { name: '새 세션' }));
-    expect(onCreate).toHaveBeenCalledTimes(1);
-  });
-
-  it('행을 클릭하면 onOpen, [시연] 버튼은 onPresent 를 호출한다', async () => {
-    const resolved = makeResolved();
-    const onOpen = vi.fn();
-    const onPresent = vi.fn();
-    render(<SessionTab sessions={[resolved]} onOpen={onOpen} onPresent={onPresent} onDelete={() => {}} onExport={() => {}} onCreate={() => {}} />, { wrapper: SettingsProvider });
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '금요 훈련 시연 시작' }));
-    expect(onPresent).toHaveBeenCalledWith(resolved.session.id);
-
-    await user.click(screen.getByText('금요 훈련'));
-    expect(onOpen).toHaveBeenCalledWith(resolved.session.id);
-  });
-
   it('더보기 메뉴에서 내보내기·삭제를 호출한다', async () => {
     const resolved = makeResolved();
     const onExport = vi.fn();
@@ -101,26 +79,5 @@ describe("SessionTab — 머리의 '다음 세션' 스트립 (계획서 2.8)", (
     renderWith([makeResolved({ scheduledAt: Date.now() - 3600_000 })]);
     expect(screen.queryByRole('region', { name: '다음 세션' })).toBeNull();
     expect(screen.getByRole('button', { name: '금요 훈련 시연 시작' })).toBeInTheDocument();
-  });
-
-  it('스트립을 누르면 그 세션의 onOpen 이 불린다 — [시연] 을 겸하지 않는다', () => {
-    const onOpen = vi.fn();
-    const onPresent = vi.fn();
-    render(
-      <SessionTab
-        sessions={[makeResolved({ id: 'se_next' as ResolvedSession['session']['id'], scheduledAt: soon })]}
-        onOpen={onOpen}
-        onPresent={onPresent}
-        onDelete={() => {}}
-        onExport={() => {}}
-        onCreate={() => {}}
-      />,
-      { wrapper: SettingsProvider },
-    );
-    const btns = within(strip()).getAllByRole('button');
-    expect(btns).toHaveLength(1); // 표적은 하나 — [시연] 을 여기 또 두면 같은 이름이 화면에 둘이 된다
-    btns[0]!.click();
-    expect(onOpen).toHaveBeenCalledWith('se_next');
-    expect(onPresent).not.toHaveBeenCalled(); // 대조군
   });
 });

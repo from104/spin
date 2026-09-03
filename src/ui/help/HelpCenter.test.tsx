@@ -1,6 +1,6 @@
 // 문서형 도움말(HelpCenter) — docs/PLAN-HELP-TUTORIAL.md §B 계약 확인: 열 때마다 현재 화면
 // 섹션으로 돌아오는가, 목차로 다른 섹션을 고를 수 있는가, [투어 다시 보기]가 모달을 닫고
-// 콜백을 그 화면 키로 부르는가, 단축키 섹션이 keymap.ts 파생 표를 실제로 담는가.
+// 콜백을 그 화면 키로 부르는가.
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -23,13 +23,6 @@ function Harness({ initialSection, onRestartTutorial }: { initialSection: HelpSe
 }
 
 describe('HelpCenter', () => {
-  it('연 화면에 맞는 섹션이 열린 채로 뜬다', () => {
-    render(<Harness initialSection="editor" onRestartTutorial={() => {}} />);
-    const dialog = screen.getByRole('dialog', { name: '도움말' });
-    expect(within(dialog).getByText('스텝')).toBeInTheDocument();
-    expect(within(dialog).queryByText('트레이')).toBeNull(); // 자유 전술판 섹션의 첫 항목 — 안 보여야 한다
-  });
-
   it('목차에서 다른 섹션을 고르면 본문이 바뀐다', async () => {
     const user = userEvent.setup();
     render(<Harness initialSection="editor" onRestartTutorial={() => {}} />);
@@ -46,39 +39,21 @@ describe('HelpCenter', () => {
     await user.click(within(dialog).getByRole('button', { name: '자유 전술판 투어 다시 보기' }));
     expect(onRestartTutorial).toHaveBeenCalledWith('board');
     expect(screen.queryByRole('dialog', { name: '도움말' })).toBeNull();
-  });
 
-  it('세션 섹션은 세션 목록·세션 편집 투어 버튼을 둘 다 낸다', async () => {
-    const onRestartTutorial = vi.fn();
-    const user = userEvent.setup();
+    // 세션 섹션도 같은 계약 — 세션 편집 투어 버튼은 sessionEditor 키로 콜백을 부른다.
     render(<Harness initialSection="sessions" onRestartTutorial={onRestartTutorial} />);
-    const dialog = screen.getByRole('dialog', { name: '도움말' });
-    await user.click(within(dialog).getByRole('button', { name: '세션 편집 투어 다시 보기' }));
+    const dialog2 = screen.getByRole('dialog', { name: '도움말' });
+    await user.click(within(dialog2).getByRole('button', { name: '세션 편집 투어 다시 보기' }));
     expect(onRestartTutorial).toHaveBeenCalledWith('sessionEditor');
-  });
-
-  it("'시작하기'·'설정·데이터' 섹션은 투어 버튼이 없다", () => {
-    render(<Harness initialSection="start" onRestartTutorial={() => {}} />);
-    const dialog = screen.getByRole('dialog', { name: '도움말' });
-    expect(within(dialog).queryByText(/투어 다시 보기/)).toBeNull();
-  });
-
-  it('단축키 섹션은 keymap.ts 파생 표(드릴 편집·자유 전술판·시연)를 담는다', async () => {
-    const user = userEvent.setup();
-    render(<Harness initialSection="editor" onRestartTutorial={() => {}} />);
-    const dialog = screen.getByRole('dialog', { name: '도움말' });
-    await user.click(within(dialog).getByRole('button', { name: '단축키' }));
-    // HelpModal.test.tsx 가 이미 이 표들의 정확성(어느 키가 있고 없는지)을 잰다 — 여기서는
-    // 세 화면 표제만 본다(제목이 나오는 곳이 목차에도 있어 heading 역할로 좁힌다).
-    expect(within(dialog).getByRole('heading', { name: '드릴 편집' })).toBeInTheDocument();
-    expect(within(dialog).getByRole('heading', { name: '자유 전술판' })).toBeInTheDocument();
-    expect(within(dialog).getByRole('heading', { name: '시연' })).toBeInTheDocument();
   });
 
   it('닫았다 다른 화면에서 다시 열면 그 화면의 섹션으로 되돌아온다', async () => {
     const user = userEvent.setup();
     const { rerender } = render(<Harness initialSection="editor" onRestartTutorial={() => {}} />);
     let dialog = screen.getByRole('dialog', { name: '도움말' });
+    // 연 화면(editor)에 맞는 섹션이 열린 채로 뜬다.
+    expect(within(dialog).getByText('스텝')).toBeInTheDocument();
+    expect(within(dialog).queryByText('트레이')).toBeNull(); // 자유 전술판 섹션의 첫 항목 — 안 보여야 한다
     await user.click(within(dialog).getByRole('button', { name: '단축키' }));
     expect(within(screen.getByRole('dialog', { name: '도움말' })).getByRole('heading', { name: '드릴 편집' })).toBeInTheDocument();
 

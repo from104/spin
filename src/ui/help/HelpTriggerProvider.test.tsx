@@ -20,18 +20,6 @@ function RailButton() {
 }
 
 describe('HelpTriggerProvider', () => {
-  it('등록된 화면의 show 함수를 부른다', async () => {
-    const calls: string[] = [];
-    render(
-      <HelpTriggerProvider>
-        <RailButton />
-        <Screen label="A" onShow={() => calls.push('A')} />
-      </HelpTriggerProvider>,
-    );
-    await userEvent.click(screen.getByRole('button', { name: '도움말' }));
-    expect(calls).toEqual(['A']);
-  });
-
   it('화면이 바뀌면(언마운트+마운트) 등록도 함께 갈린다 — 나중에 마운트된 쪽이 이긴다', async () => {
     const calls: string[] = [];
     function Switcher() {

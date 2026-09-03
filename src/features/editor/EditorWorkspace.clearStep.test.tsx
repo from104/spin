@@ -86,13 +86,6 @@ async function clearCurrentStep(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('드릴 편집의 [비우기] — 뜻은 하나다: 지금 스텝만', () => {
-  it('[보드 설정] 모달 안에 있다 — 기능 바에는 없다', async () => {
-    await openDrill();
-    expect(screen.queryByRole('button', { name: '코트 비우기' })).toBeNull();
-    await userEvent.setup().click(screen.getByRole('button', { name: '보드 설정' }));
-    expect(await screen.findByRole('button', { name: '코트 비우기' })).toBeInTheDocument();
-  }, 20000);
-
   it('확인 문구가 범위를 말한다 — "이 스텝" 이고 "다른 스텝은 그대로"', async () => {
     const { user } = await openDrill();
     await user.click(screen.getByRole('button', { name: '보드 설정' }));
