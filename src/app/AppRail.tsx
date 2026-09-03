@@ -198,7 +198,9 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
           릴리스 때 반드시 어긋난다. 사용자가 "지금 뭘 보고 있는지" 를 말할 수 있어야
           제보를 커밋에 붙일 수 있어서 눈에 띄지 않게, 그러나 항상 보이게 둔다.
           2026-09-03 기현 지시로 **눌러서 이번 버전 변경 내역**을 보는 문이 됐다 — 값은
-          여전히 하나(package.json)이고, CHANGELOG.md 도 옮겨 적지 않는다(ChangelogModal.tsx). */}
+          여전히 하나(package.json)이고, CHANGELOG.md 도 옮겨 적지 않는다(ChangelogModal.tsx).
+          색은 곧이어 지구본(언어)과 같은 `--accent` 로 — 둘 다 "눌러서 뭔가 열리는 상시
+          버튼"이고, 지금은 지구본만 튀어서 버전은 눌러 보기 전까진 버튼처럼 안 보였다. */}
       <button
         type="button"
         ref={versionBtnRef}
@@ -216,7 +218,7 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
           fontSize: '0.625rem',
           fontWeight: 600,
           letterSpacing: '0.02em',
-          color: 'var(--faint-text)',
+          color: 'var(--accent)',
         }}
       >
         v{__APP_VERSION__}

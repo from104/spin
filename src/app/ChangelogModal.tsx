@@ -1,20 +1,33 @@
 // 변경 내역 모달 — 레일·좁은 헤더의 버전 번호가 연다(2026-09-03 기현 지시: *"버전 클릭하면 이번
 // 버전 changelog 보이는 모달 띄우자 일단 한국어만"*, 곧이어 *"모든 버전이 모달 헤더 양쪽 버튼으로
-// 좌우로 스크롤 되게"*).
+// 좌우로 스크롤 되게"*, 같은 날 안에 *"영어, 일본어로 체인지로그 번역해"*).
 //
-// 데이터는 `CHANGELOG.md` 그 자체를 `?raw` 로 읽어 `changelog.ts` 가 파싱한다 — 별도로 옮겨
-// 적지 않는다(두 벌은 반드시 어긋난다). 처음 열리는 자리는 화면에 박힌 `v{__APP_VERSION__}` 과
+// 데이터는 `CHANGELOG.md`(한국어)·`CHANGELOG.en.md`·`CHANGELOG.ja.md` 그 자체를 `?raw` 로 읽어
+// `changelog.ts` 가 파싱한다 — 별도 데이터로 옮겨 적지 않는다(두 벌은 반드시 어긋난다). 세 파일은
+// `ruleTopics.ts`/`.en.ts`/`.ja.ts` 와 같은 파일-당-로케일 관례이고, 함께 유지하는 규칙은
+// `AGENTS.md` "세 언어를 함께 간다". 처음 열리는 자리는 화면에 박힌 `v{__APP_VERSION__}` 과
 // 같은 절이고, 좌우 버튼으로 다른 버전(오래된 쪽·새 쪽)을 넘겨 본다. `[Unreleased]` 는 아직
 // 나가지 않은 절이라 넘기기 목록에서 뺀다 — 사용자가 화면에서 볼 수 있는 것은 이미 나간 버전
-// 뿐이다. "이번 버전" 이 목록에 없으면(릴리스 준비 중이라 `CHANGELOG.md` 에 그 절이 아직 없는
-// 순간) 가장 최근 버전에서 시작한다.
+// 뿐이다. "이번 버전" 이 목록에 없으면(릴리스 준비 중이라 그 언어 파일에 절이 아직 없는 순간)
+// 가장 최근 버전에서 시작한다.
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { Modal } from '../ui/Modal.tsx';
 import { useT } from '../i18n/useT.ts';
+import { useLocale } from '../i18n/useLocale.ts';
+import type { Locale } from '../i18n/locale.ts';
 import { parseAllChangelogVersions } from './changelog.ts';
 import type { ChangelogItem, ChangelogVersion } from './changelog.ts';
-import changelogRaw from '../../CHANGELOG.md?raw';
+import changelogKo from '../../CHANGELOG.md?raw';
+import changelogEn from '../../CHANGELOG.en.md?raw';
+import changelogJa from '../../CHANGELOG.ja.md?raw';
+
+/** 로케일 → 그 언어의 CHANGELOG 원문. `figureTextFor`(figures/text.ts)와 같은 모양의 스위치다. */
+function changelogRawFor(locale: Locale): string {
+  if (locale === 'en') return changelogEn;
+  if (locale === 'ja') return changelogJa;
+  return changelogKo;
+}
 
 /** 지금 실행 중인 앱 버전이 목록 몇 번째인지. 못 찾으면(빌드는 올랐는데 `CHANGELOG.md` 절이
  *  아직 없는 릴리스 준비 중 순간) 목록 맨 앞 — 배열이 최신→과거 순이라 그게 가장 최근 나간
@@ -72,10 +85,14 @@ function ItemList({ items, level }: { items: readonly ChangelogItem[]; level: 0 
 
 export function ChangelogModal({ open, onClose, returnFocusRef }: ChangelogModalProps) {
   const t = useT();
-  // 모달이 열릴 때마다 CHANGELOG.md 를 다시 파싱할 이유가 없다 — 파일 내용은 렌더 사이에
-  // 안 바뀐다(핫리로드는 이 파일 자체를 다시 평가한다). 목록은 파일에 적힌 순서 그대로라
-  // 최신이 인덱스 0 이다.
-  const versions = useMemo(() => parseAllChangelogVersions(changelogRaw).filter((v) => v.version !== 'Unreleased'), []);
+  const locale = useLocale();
+  // 모달이 열릴 때마다 다시 파싱할 이유가 없다 — 파일 내용은 렌더 사이에 안 바뀐다(핫리로드는
+  // 이 파일 자체를 다시 평가한다). 로케일이 바뀌면(언어 모달에서 고르면) 다른 원문을 다시 판다
+  // — 목록은 파일에 적힌 순서 그대로라 최신이 인덱스 0 이다.
+  const versions = useMemo(
+    () => parseAllChangelogVersions(changelogRawFor(locale)).filter((v) => v.version !== 'Unreleased'),
+    [locale],
+  );
   const [index, setIndex] = useState(() => findCurrentVersionIndex(versions));
   // ⚠️ `Modal` 은 부모(AppRail/AppNavSegment)가 `open` 값과 무관하게 **상시 렌더**한다 — `Modal`
   // 자신은 `!open` 일 때 반환값만 `null` 로 바꿀 뿐(Modal.tsx:114) 이 컴포넌트(그 부모)는 한 번도
