@@ -381,26 +381,18 @@ export const TOPICS_EN: readonly RuleTopic[] = [
     title: 'Other offenses',
     tagline: 'Fouls bring free kicks; worse brings cards',
     blocks: [
+      // 2026-09-04 — the ramming scene is gone; merged with the ko source (see its comment).
       {
         kind: 'prose',
         heading: 'Direct free kick offenses',
         body: [
-          'Ramming an opponent is an offense when it is careless or reckless, or uses excessive force. Together with holding an opponent with the chair, deliberate handball, using the arms to push, hold or strike (attempts included), spitting, and denying a scoring chance, these six give the opponents a direct free kick.',
-          'If any of the six happens inside your own goal area while the ball is in play, it is a penalty kick instead.',
+          'Tackling and fair charging are allowed — but only frontguard against frontguard. Contact with any other part of the chairs is an offense.',
+          'Driving deliberately into an opponent, with or without the ball, at speed or with excessive force, is ramming — an offense. It makes no difference whether they were moving or still, and the same applies when it is careless or reckless.',
+          'Deliberately restricting the movement of an opponent’s chair (holding), and deliberately contacting the side or back of their chair to impede them (clipping, a form of holding), are offenses too.',
+          'Deliberate handball, using the arms to push, hold or strike (attempts included), spitting, and denying a scoring chance also give the opponents a direct free kick.',
+          'If any of these happens inside your own goal area while the ball is in play, it is a penalty kick instead.',
         ],
       },
-      {
-        kind: 'prose',
-        heading: 'Where contact is allowed',
-        body: [
-          'Tackling and fair charging are allowed — but only frontguard against frontguard.',
-          'Contact with any other part of the chairs is an offense.',
-          'Ramming is driving deliberately into an opponent, with or without the ball, at speed or with excessive force. It makes no difference whether they were moving or still.',
-          'Holding is deliberately restricting the movement of an opponent’s chair.',
-          'Clipping is a form of holding: deliberately contacting the side or back of an opponent’s chair to impede them.',
-        ],
-      },
-      { kind: 'scene', sceneId: 'ramming' },
       {
         kind: 'prose',
         heading: 'Indirect free kick offenses',

@@ -129,7 +129,6 @@ export const LAWS_EN: readonly RuleLaw[] = [
       'Tackling and charging are allowed frontguard to frontguard only; contact elsewhere is an offense (ramming, holding, clipping).',
       'Seven cautionable offenses (yellow) and eight sending-off offenses (red).',
     ],
-    sceneId: 'ramming',
   },
   {
     law: 13,

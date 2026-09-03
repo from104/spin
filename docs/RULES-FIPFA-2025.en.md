@@ -44,7 +44,7 @@ read in repaired form and checked for sense against surrounding text.
 | 9 | The Ball In and Out of Play | scene |
 | 10 | The Method of Scoring | scene |
 | 11 | Field Position (2-on-1 · 3 in the goal area) | 2 scenes |
-| 12 | Fouls and Misconduct | scene (ramming) + text (cards) |
+| 12 | Fouls and Misconduct | text (foul list, cards) — ramming scene removed 2026-09-04 |
 | 13 | Free Kicks | 2 scenes (direct/indirect) |
 | 14 | The Penalty Kick | scene |
 | 15 | The Kick-In | scene |

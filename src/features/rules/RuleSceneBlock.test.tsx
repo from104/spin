@@ -33,9 +33,10 @@ describe('RuleSceneBlock — 노트 띠 높이', () => {
   it('노트가 있는 **다스텝** 장면도 고정 높이를 유지한다 — 고정이 실제로 필요한 유일한 경우', () => {
     // 위 케이스(field-tour)는 1스텝이라, 판정을 "1스텝일 때만 고정"으로 좁히는 회귀를 못 잡는다.
     // 그런데 64px 고정이 애초에 막으려던 것은 **재생 중** 노트 길이가 달라져 판이 뛰는 것이라,
-    // 보호가 정말 필요한 쪽은 다스텝이다. 손코딩 장면 9벌 중 하나로 그 자리를 막는다.
-    const { container } = renderScene('ramming');
-    const steps = buildRuleScene('ramming').steps;
+    // 보호가 정말 필요한 쪽은 다스텝이다. 손코딩 장면 3벌 중 하나로 그 자리를 막는다.
+    // (2026-09-04 — 예전엔 ramming 이었으나 카드 8 에서 지워지며 장면 자체가 없어졌다.)
+    const { container } = renderScene('two-on-one-open');
+    const steps = buildRuleScene('two-on-one-open').steps;
     expect(steps.length).toBeGreaterThan(1);
     expect(steps.every((s) => s.note)).toBe(true); // 전제가 깨지면 이 케이스는 무의미해진다
     expect(fixedBands(container)).toHaveLength(1);
