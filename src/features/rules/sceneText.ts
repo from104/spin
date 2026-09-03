@@ -85,12 +85,12 @@ const EN: SceneTextTable = {
     labels: [[], ['No opponent — no violation']],
   },
   'two-on-one-escape': {
-    note: [
-      'A 2-on-1 has formed near the touchline — one teammate prepares to drive out of it.',
-      'Leaving the field briefly to avoid it is allowed, as long as it serves the natural flow of play and the player does not re-enter before that phase of play has ended.',
-      'Re-entering near where they left, safely, and not as a habit keeps it legal. Breaking those conditions — re-entering early, doing it repeatedly, repositioning for advantage — is unsporting behaviour and a caution.',
+    // 2026-09-04 편집기 드릴로 교체 — 캡션(note)은 원본이 비어 있고, 코트 위 쪽지(labels)만 있다.
+    labels: [
+      ['If this continues, the blue team is about to commit a 2-on-1 foul'],
+      ['If this continues, the blue team is about to commit a 2-on-1 foul'],
+      ['A player may briefly step outside the sideline to avoid it — but may only re-enter once play has moved well away'],
     ],
-    labels: [[], ['Briefly off the field — allowed'], []],
   },
   ramming: {
     note: [
@@ -254,12 +254,11 @@ const JA: SceneTextTable = {
     labels: [[], ['相手なし — 反則ではない']],
   },
   'two-on-one-escape': {
-    note: [
-      'タッチライン付近で2対1が成立しました — 味方の1人が回避に入ります。',
-      '回避のために一時的にフィールドを出ることは、プレーの自然な流れであり、その局面が変わる前に戻らなければ認められます。',
-      '出た地点の近くから、安全に、常習的でなく戻れば適法のままです。この条件を破ると（早い復帰・繰り返し・戦術的な位置取り）非紳士的行為として警告を受けます。',
+    labels: [
+      ['このままだと青チームが2対1の反則寸前'],
+      ['このままだと青チームが2対1の反則寸前'],
+      ['一時的にサイドラインの外に出ることができる — ただしプレーが十分離れた場合のみフィールドに戻れる'],
     ],
-    labels: [[], ['一時的なフィールド外 — 認められる'], []],
   },
   ramming: {
     note: [

@@ -21,8 +21,8 @@
 // 2026-08-31 (2) 갈래에 **12벌이 들어왔다**(계획 §4.2 매핑): kickoff·kick-in·goal-kick·corner·
 // dfk·ifk·penalty·inout·scoring·set-ball·three-in-area·two-on-one. 나머지 9개는 손코딩 그대로다.
 // 그 뒤 gk-behind-line·two-on-one-gk·two-on-one-gk-only·contested-touch(2026-09-01~03)에 이어
-// 2026-09-04 two-on-one-active 가 들어와 (2) 갈래 17벌, 손코딩은 6개다(field-tour·lineup·
-// two-on-one-open·two-on-one-escape·ramming·spin-kick). 아래 "12벌"·"9개" 는 그날의 수다.
+// 2026-09-04 two-on-one-active·two-on-one-escape 가 들어와 (2) 갈래 18벌, 손코딩은 5개다
+// (field-tour·lineup·two-on-one-open·ramming·spin-kick). 아래 "12벌"·"9개" 는 그날의 수다.
 //
 // ⚠️ 아래 `SEED_SCENE_META`(ring/defense/cutSteps 후처리)와 `RULE_SCENE_CREATED_AT` 은 **(1) 갈래
 // 전용**이다. (2) 갈래는 그 값들을 이미 JSON 안에 들고 있고 **그것이 교체의 요점이다** — 여기서
@@ -93,6 +93,7 @@ import { drill as gkBehindLine } from './scenes/gk-behind-line.scene.ts';
 import { drill as twoOnOneGkDrill } from './scenes/two-on-one-gk.scene.ts';
 import { drill as contestedTouchDrill } from './scenes/contested-touch.scene.ts';
 import { drill as twoOnOneActiveScene } from './scenes/two-on-one-active.scene.ts';
+import { drill as twoOnOneEscapeScene } from './scenes/two-on-one-escape.scene.ts';
 import { sceneTextFor } from './sceneText.ts';
 import { translate } from '../../i18n/useT.ts';
 import type { Locale } from '../../i18n/locale.ts';
@@ -182,7 +183,6 @@ const SEED_SCENE_META: Partial<Record<RuleSceneId, RuleSceneMeta>> = {
   'field-tour': {},
   lineup: {},
   'two-on-one-open': { ring: '3m', defense: 'home' },
-  'two-on-one-escape': { ring: '3m', defense: 'home' },
   ramming: { cutSteps: [1] },
   'spin-kick': { cutSteps: [2] },
 };
@@ -274,6 +274,7 @@ export const RULE_SCENE_EXPECT: Record<RuleSceneId, RuleSceneExpect> = {
   // 편집기 데이터는 하프 코트(defaultDefense 가 away)이고 컷을 두지 않았다. 링 3m 은 두 스텝 다 그대로.
   'two-on-one-active': { mode: 'half', size: '30x18', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [], steps: 2, defense: 'away' },
   'two-on-one-open': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [], steps: 2, defense: 'home' },
+  // 2026-09-04 (2) 갈래로 교체 — 우연히 옛 손코딩 핀과 mode·size·defense·rings·cut·steps 값이 전부 같다.
   'two-on-one-escape': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'], 2: ['3m'] }, retreat: {}, cut: [], steps: 3, defense: 'home' },
   ramming: { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [1], steps: 2, defense: 'home' },
   'spin-kick': { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [2], steps: 3, defense: 'home' },
@@ -443,51 +444,10 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec | Drill> = {
     ],
   },
 
-  // ── Law 11 — 2-on-1: 회피 이탈 ──────────────────────────────────────────────────────────
-  'two-on-one-escape': {
-    title: '2-on-1 — 회피 이탈',
-    drillType: 'tactical',
-    situation: '2-on-1-spacing',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '터치라인 근처에서 2-on-1이 성립했습니다 — 팀원 하나가 회피를 준비합니다.',
-        chairs: {
-          'home-2': [280, 60, 90],
-          'home-3': [330, 55, 90],
-          'away-2': [300, 140, 270],
-        },
-        balls: [[300, 80]],
-      },
-      {
-        name: '',
-        note: '회피 목적으로 필드(터치라인)를 잠시 벗어나는 것은, 플레이의 자연스러운 흐름이고 그 페이즈가 바뀌기 전에 재진입하지 않으면 허용됩니다.',
-        chairs: {
-          'home-2': [280, 60, 90],
-          'home-3': [350, 10, 90],
-          'away-2': [300, 140, 270],
-        },
-        balls: [[300, 80]],
-        arrows: [{ from: [330, 55], to: [350, 10] }],
-        notes: [{ at: [350, 25], text: '일시 필드 이탈 — 허용' }],
-      },
-      {
-        name: '',
-        note: '원래 나간 지점 근처로, 안전하게, 상습적이지 않게 재진입하면 계속 합법입니다. 이 조건을 어기면(상습적·전술적 재배치 등) 비신사적 행위로 경고를 받습니다.',
-        chairs: {
-          'home-2': [280, 60, 90],
-          'home-3': [400, 60, 270],
-          'away-2': [300, 140, 270],
-        },
-        balls: [[300, 80]],
-        arrows: [{ from: [350, 10], to: [400, 60] }],
-      },
-    ],
-  },
+  // ── Law 11 — 2-on-1: 회피 이탈 ──────────────────────────────────────────
+  // 2026-09-04 기현 지시로 손코딩 → 편집기 드릴 "2매1 반칙 일시적 회피"(full/28x15, 3스텝).
+  // 옛 손코딩 원고는 git 이력에 있다(42366d1 이전).
+  'two-on-one-escape': twoOnOneEscapeScene,
 
   // ── Law 11 — 필드 포지션: 골에어리어 3인 ────────────────────────────────────────────────
   'three-in-area': threeInAreaScene,
