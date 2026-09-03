@@ -4,6 +4,7 @@ import { newId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
+import type { Stroke } from '../../model/stroke.ts';
 import { editorRootReducer, initEditorState, selectStepIndex } from './reducer.ts';
 import type { EditorState } from './reducer.ts';
 
@@ -402,6 +403,26 @@ describe('drillReducer 위임 — 대표 경로', () => {
     const s1 = editorRootReducer(s0, { type: 'META_SET', patch: { title: '새 이름' } });
     expect(s1.present.title).toBe('새 이름');
   });
+
+  it('STROKE_SET 이 현재 스텝에 획을 넣고 히스토리에 한 칸 쌓는다', () => {
+    const s0 = freshState();
+    const stroke: Stroke = { id: newId('fh'), points: [{ x: 10, y: 10 }, { x: 40, y: 30 }] };
+    const s1 = editorRootReducer(s0, { type: 'STROKE_SET', stroke });
+    expect(s1.present.steps[0]!.strokes).toEqual([stroke]);
+    // COMMIT_TYPES 에 없으면 present 가 바뀔 길이 아예 없다 — 그린 획이 화면에도 파일에도
+    // 남지 않는다(BALL_RETAP 주석이 같은 함정을 설명한다).
+    expect(s1.past).toHaveLength(s0.past.length + 1);
+    expect(s0.present.steps[0]!.strokes).toBeUndefined(); // 원본 불변
+  });
+
+  it('STROKE_REMOVE 가 그 획만 지운다', () => {
+    const keep: Stroke = { id: newId('fh'), points: [{ x: 0, y: 0 }, { x: 5, y: 5 }] };
+    const drop: Stroke = { id: newId('fh'), points: [{ x: 1, y: 1 }, { x: 6, y: 6 }] };
+    let s = editorRootReducer(freshState(), { type: 'STROKE_SET', stroke: keep });
+    s = editorRootReducer(s, { type: 'STROKE_SET', stroke: drop });
+    s = editorRootReducer(s, { type: 'STROKE_REMOVE', id: drop.id });
+    expect(s.present.steps[0]!.strokes).toEqual([keep]);
+  });
 });
 
 describe('BOARD_SET — 자유 전술판 갈아끼우기 (§6.8)', () => {
@@ -532,6 +553,9 @@ describe('§6.10a 도구 고정 — 연속 배치', () => {
     ['SAVED (자동저장)', { type: 'SAVED', at: 1 } as const],
     ['SETTLE_ARM (물리 정착)', { type: 'SETTLE_ARM', until: 1 } as const],
     ['COMMIT_BREAK (키 리피트 경계)', { type: 'COMMIT_BREAK' } as const],
+    // ⚠️ 획 하나를 그을 때마다 난다(2026-09-03). 허용 목록에 없으면 자유 그리기 도구가
+    //    **첫 획에서 풀려** 연속으로 긋는다는 말 자체가 성립하지 않는다.
+    ['STROKE_SET (획을 하나 그음)', { type: 'STROKE_SET', stroke: { id: 'fh_1' as never, points: [] } } as const],
   ])('연속 동작·뒷정리는 고정을 살려 둔다 — %s', (_name, action) => {
     expect(editorRootReducer(armed(), action).toolLock).toBe(true);
   });

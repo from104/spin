@@ -696,6 +696,7 @@ export const ko = {
   'editor.toolDefs.cone': '콘',
   'editor.toolDefs.player': '선수',
   'editor.toolDefs.note': '메모',
+  'editor.toolDefs.eraser': '지우기',
 
   // ── C7 — 트레이(개체·기능) ──────────────────────────────────────────────────────────
   'editor.toolRail.navAriaLabel': '도구',

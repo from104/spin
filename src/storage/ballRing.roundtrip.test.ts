@@ -23,7 +23,7 @@ import { PREFS_KEY } from './prefs.ts';
 import { BOARD_KEY, saveBoard, loadBoard } from './board.ts';
 import { createDrill } from '../model/defaults.ts';
 import { addBall, cycleBallRing } from '../model/edits.ts';
-import { ballRingOf, type BallRing, type Drill } from '../model/drill.ts';
+import { CURRENT_DRILL_SCHEMA, ballRingOf, type BallRing, type Drill } from '../model/drill.ts';
 
 async function wipeAll(): Promise<void> {
   const db = await getDB();
@@ -95,10 +95,12 @@ describe('§5.2 드릴 파일 왕복 — 내보낸 파일을 다시 가져와도
     // 봉투 안 payload 에 필드가 실제로 실려 있다(직렬화 단계에서 사라지는 것을 막는다).
     const payload = (JSON.parse(text) as { payload: Drill }).payload;
     expect(payload.steps[0]!.ballRings).toEqual({ [payload.cast.balls[0]!.id]: '3m', [payload.cast.balls[1]!.id]: '5m' });
-    // ⚠️ 도장은 **9** 다 — 2026-08-27 에 **이 필드(ring)가** 올렸다. 링이 cast 에서 스텝으로
-    // 내려가면서 마이그레이션이 할 일이 생겼기 때문이다(옛 값을 전 스텝에 옮겨 적는다).
-    // 오래 "링은 도장을 올리지 않았다" 를 지키던 자리라, 뒤집힌 사실을 여기 남긴다.
-    expect(payload.schemaVersion).toBe(9);
+    // ⚠️ 링이 도장을 올린 것은 **9** 였다 — 2026-08-27 에 링이 cast 에서 스텝으로 내려가면서
+    // 마이그레이션이 할 일이 생겼기 때문이다(옛 값을 전 스텝에 옮겨 적는다). 오래 "링은 도장을
+    // 올리지 않았다" 를 지키던 자리라, 뒤집힌 그 사실을 여기 남긴다.
+    // 2026-09-03 — 그 뒤 v10(자유 그리기 획)이 올랐다. 여기서 지키는 것은 "링이 9를 올렸다" 가
+    // 아니라 **내보낸 봉투가 현재 도장을 싣는다** 이므로, 상수에서 끌어온다.
+    expect(payload.schemaVersion).toBe(CURRENT_DRILL_SCHEMA);
 
     const cands = await prepareDrillImport(parseSpinFile(text));
     expect(cands).toHaveLength(1);

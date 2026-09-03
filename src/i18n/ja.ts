@@ -694,6 +694,7 @@ export const ja: Record<DictKey, string> = {
   'editor.toolDefs.cone': 'コーン',
   'editor.toolDefs.player': '選手',
   'editor.toolDefs.note': 'メモ',
+  'editor.toolDefs.eraser': '消去',
 
   // ── C7 — トレイ(オブジェクト・機能) ──────────────────────────────────────────────────
   'editor.toolRail.navAriaLabel': '道具',

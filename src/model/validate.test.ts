@@ -305,6 +305,78 @@ describe('validateSession (v2 — 구획 계층)', () => {
 
 // ── 팀 이름(§0.5 미배송 빚, 2026-08-20) — 입력 UI가 생기며 상한이 필요해졌다
 // (LIMITS.teamLabelLen 머리말 "인스펙터에 입력 칸이 생기는 순간 상한을 매겼다" 관례).
+describe('validateDrill — 자유 그리기 획(2026-09-03)', () => {
+  const withStrokes = (strokes: unknown): Record<string, unknown> => ({
+    id: 'dr_x',
+    courtMode: 'flat',
+    cast: { chairs: [], balls: [], cones: [] },
+    steps: [{ id: 'st_1', name: '', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [], strokes }],
+  });
+  const ok = (raw: Record<string, unknown>) => {
+    const r = validateDrill(raw);
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error('unreachable');
+    return r;
+  };
+  const pts = (n: number) => Array.from({ length: n }, (_, i) => ({ x: i, y: 0 }));
+
+  it('획이 없는 스텝에는 strokes 키를 만들지 않는다 — v9 저장본과 모양이 같아야 왕복이 조용하다', () => {
+    expect(ok(withStrokes([])).value.steps[0]!.strokes).toBeUndefined();
+  });
+
+  it('점이 둘 미만인 획은 통째로 버린다 — 보이지 않는데 잡히는 개체가 된다', () => {
+    const r = ok(withStrokes([{ id: 'fh_1', points: [{ x: 1, y: 1 }] }, { id: 'fh_2', points: [] }]));
+    expect(r.value.steps[0]!.strokes).toBeUndefined();
+  });
+
+  it('좌표가 유한수가 아닌 점만 빠지고 나머지는 산다', () => {
+    const r = ok(withStrokes([{ id: 'fh_1', points: [{ x: 0, y: 0 }, { x: NaN, y: 1 }, { x: 2, y: 2 }] }]));
+    expect(r.value.steps[0]!.strokes![0]!.points).toEqual([{ x: 0, y: 0 }, { x: 2, y: 2 }]);
+  });
+
+  it('굵기는 0~2 의 정수만 남고 그 밖은 키째 사라진다(= 기본 굵기로 열린다)', () => {
+    const r = ok(
+      withStrokes([
+        { id: 'fh_1', points: pts(2), width: 2 },
+        { id: 'fh_2', points: pts(2), width: 3 },
+        { id: 'fh_3', points: pts(2), width: 1.5 },
+        { id: 'fh_4', points: pts(2), width: '1' },
+      ]),
+    );
+    const got = r.value.steps[0]!.strokes!;
+    expect(got.map((s) => s.width)).toEqual([2, undefined, undefined, undefined]);
+  });
+
+  it('알 수 없는 화살촉 값은 버려진다 — 화살표와 같은 규율', () => {
+    const r = ok(withStrokes([{ id: 'fh_1', points: pts(2), headFrom: 'wide', headTo: 'teleport' }]));
+    expect(r.value.steps[0]!.strokes![0]!.headFrom).toBe('wide');
+    expect(r.value.steps[0]!.strokes![0]!.headTo).toBeUndefined();
+  });
+
+  it('스텝 안 중복 id 는 재발급된다 — 같은 id 둘이면 편집이 엉뚱한 획을 덮어쓴다', () => {
+    const r = ok(withStrokes([{ id: 'fh_1', points: pts(2) }, { id: 'fh_1', points: pts(3) }]));
+    const got = r.value.steps[0]!.strokes!;
+    expect(got).toHaveLength(2);
+    expect(got[0]!.id).not.toBe(got[1]!.id);
+  });
+
+  it('상한을 넘으면 뒤에서 절단한다 — 개수와 점 수 둘 다', () => {
+    const many = Array.from({ length: LIMITS.strokesPerStep + 3 }, (_, i) => ({ id: `fh_${i}`, points: pts(2) }));
+    const long = [{ id: 'fh_long', points: pts(LIMITS.pointsPerStroke + 50) }];
+    expect(ok(withStrokes(many)).value.steps[0]!.strokes!).toHaveLength(LIMITS.strokesPerStep);
+    expect(ok(withStrokes(long)).value.steps[0]!.strokes![0]!.points).toHaveLength(LIMITS.pointsPerStroke);
+  });
+
+  it('멱등: 정화한 결과를 다시 넣으면 보정이 없다', () => {
+    const first = ok(withStrokes([{ id: 'fh_1', points: pts(4), width: 0, headTo: 'thin', color: '#fde047' }]));
+    const second = validateDrill(first.value);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.repairs).toHaveLength(0);
+    expect(second.value.steps[0]!.strokes).toEqual(first.value.steps[0]!.strokes);
+  });
+});
+
 describe('validateDrill — 팀 이름 상한', () => {
   it('teamLabelLen 을 넘는 팀 이름은 잘리고 repairs 에 기록된다', () => {
     const d = createDrill({ courtMode: 'full' });

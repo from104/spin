@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, renderHook } from '@testing-library/react';
 import { Modal } from '../../ui/Modal.tsx';
 import { useEditorKeyboard, type EditorKeyboardDeps, type SingleKeyMode } from './useEditorKeyboard.ts';
+import type { ToolId } from '../../physics/index.ts';
 
 function baseDeps(overrides: Partial<EditorKeyboardDeps>): EditorKeyboardDeps {
   return {
@@ -203,6 +204,33 @@ describe('useEditorKeyboard — [A-3] Esc = 선택 해제', () => {
     renderHook(() => useEditorKeyboard(deps));
 
     pressOnBody('Escape');
+    expect(deps.onSelectionClear).toHaveBeenCalledTimes(1);
+  });
+
+  // 2026-09-03 — 지우기 도구의 **세 출구 중 Esc**(나머지 둘: 빈 곳 클릭은
+  // useEditorPointer.cues.test, 버튼 재클릭은 ToolRail.test 가 잰다).
+  it('지우기 도구가 켜져 있으면 Esc 가 select 로도 되돌린다 — 파괴 모드가 먼저 풀린다', () => {
+    const deps = baseDeps({ tool: 'eraser' as ToolId });
+    renderHook(() => useEditorKeyboard(deps));
+
+    pressOnBody('Escape');
+    expect(deps.onSelectTool).toHaveBeenCalledWith('select');
+    // 선택 해제는 그대로 이어서 한다 — Esc 의 뜻이 둘로 갈리는 것이 아니라 물릴 것이 둘이다.
+    expect(deps.onSelectionClear).toHaveBeenCalledTimes(1);
+    // ⚠️ **정확히 한 번**이라야 한다. `TOOL_SET` 은 멱등이 아니라서(같은 도구를 한 번 더 =
+    //    고정 토글), 두 번 쏘면 Esc 가 `select` 의 모아 고르기를 켜 버린다. EditorStage 의
+    //    Escape 분기에 같은 줄을 두지 않은 이유가 이것이다(그 파일의 그 주석).
+    expect(deps.onSelectTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('대조군 — 다른 도구에서는 Esc 가 도구를 건드리지 않는다', () => {
+    // 이 대조군이 없으면 위 it 은 "Esc 는 늘 select 로 간다" 라는 다른 규칙으로도 통과한다.
+    // 그 규칙이었다면 콘을 놓다가 Esc 를 누른 손이 도구까지 잃는다.
+    const deps = baseDeps({ tool: 'cone' as ToolId });
+    renderHook(() => useEditorKeyboard(deps));
+
+    pressOnBody('Escape');
+    expect(deps.onSelectTool).not.toHaveBeenCalled();
     expect(deps.onSelectionClear).toHaveBeenCalledTimes(1);
   });
 

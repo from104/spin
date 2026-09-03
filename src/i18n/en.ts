@@ -695,6 +695,7 @@ export const en: Record<DictKey, string> = {
   'editor.toolDefs.cone': 'Cone',
   'editor.toolDefs.player': 'Player',
   'editor.toolDefs.note': 'Note',
+  'editor.toolDefs.eraser': 'Erase',
 
   // ── C7 — Tray (objects · functions) ─────────────────────────────────────────────────
   'editor.toolRail.navAriaLabel': 'Tools',

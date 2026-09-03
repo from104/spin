@@ -164,6 +164,10 @@ describe('트레이는 코트 긴 변에 붙는다 — 가로 창이면 아래 �
     expect(document.querySelector('svg.stage-svg')!.getAttribute('viewBox')).toBe('0 0 525 825');
   });
 
+  // 2026-09-03 갱신 — **[지우기] 도구가 되살아나** 트레이 기능 구역 맨 끝에 ToolButton 한 칸
+  // (button + span 셋)이 붙었다. diff 는 그 4줄뿐이고 앞 칸들은 한 픽셀도 안 움직인다
+  // (§3 불변식 1 — 그래서 맨 끝이다). 넓은 창 쪽 diff 와 **같은 4줄**인 것이, 두 방향이 같은
+  // 트레이 컴포넌트를 쓴다는 사실의 재확인이다.
   it('세로 경로의 상자 뼈대', async () => {
     setViewport(480, 800);
     stubMedia({ portrait: true, narrow: true });

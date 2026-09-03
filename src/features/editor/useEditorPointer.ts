@@ -529,6 +529,48 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
 
+      // ── 지우기 도구(2026-09-03) ─────────────────────────────────────────────
+      // 이 분기가 하는 일은 셋뿐이고, 그 셋이 도구의 전부다:
+      //   ① 맞았으면 **그 하나**를 즉시 치우고 도구를 유지한다 = 연속 삭제.
+      //   ② 빈 곳이면 `select` 로 빠진다(세 출구 중 하나 — 나머지는 버튼 재클릭·Esc).
+      //   ③ 잠긴 것·무시된 것은 **안 치우고** 고르기만 한다.
+      //
+      // ⚠️ 히트는 `buildHitContext('eraser')` 로 낸다 — `'select'` 를 넣으면 `forgivingRadius`
+      //    의 허용 목록이 열려 **44 CSS px 반경 파괴 도구**가 된다(§9.4 F1 이 실검한 그 사고).
+      //    도구 이름을 여기 그대로 흘려보내는 것이 그 가드가 작동하는 유일한 조건이다.
+      // ⚠️ 러버밴드·팬·드래그 세션을 **하나도 열지 않는다.** 다중 삭제는 여전히 러버밴드 선택
+      //    후 Delete 가 맡는다 — 훑어서 지우는 손짓은 2026-08-16 에 없앤 옛 지우개의 것이고,
+      //    되살린 것은 클릭만 받는 모드다(toolDefs.ts 의 뒤집기 근거 ②).
+      if (ctx.tool === 'eraser') {
+        // 핸들을 판정에서 **뺀다**(selectedChairId·selectedArrowId 를 null 로). 존 핸들은 차체
+        // **밖** 45px 에, 화살표 회전 앵커는 48px 바깥에 앉는다 — 남겨 두면 개체에서 한 뼘
+        // 떨어진 허공을 찍었는데 그 개체가 사라진다. 관대한 반경을 막아 놓고(위 ⚠️) 같은 사고를
+        // 핸들로 되들이는 셈이라, 파괴 도구에서는 **몸통만** 표적이다.
+        const hit = hitTest(world, buildScene(), {
+          ...buildHitContext('eraser'),
+          selectedChairId: null,
+          selectedArrowId: null,
+          handlesVisible: false,
+        });
+        if (!hit || !hit.id) {
+          ctx.dispatch({ type: 'TOOL_SET', tool: 'select' });
+          return {};
+        }
+        // 잠김·무시는 select 경로와 **똑같이** 다룬다(그쪽 ★ 주석이 근거를 쥔다): 고르기는
+        // 되고 손대는 것은 안 된다. 여기서 지워 버리면 잠금이 "이동만 막는다" 가 아니라
+        // "지우기만 빼고 다 막는다" 라는 셋째 뜻을 갖게 된다 — 잠금은 뜻이 하나라야 한다.
+        // 골라 주는 것이 안내다: 개체 메뉴를 열어 잠금을 풀 수 있는 상태로 남는다.
+        if ((ctx.locked?.has(hit.id) ?? false) || (ctx.ignored?.has(hit.id) ?? false)) {
+          ctx.dispatch({ type: 'SELECT_SET', ids: [hit.id] });
+          return {};
+        }
+        // 트레이 드롭과 **같은 함수**로 들어간다(§6.10c) — 소리·토스트·되돌리기가 입구마다
+        // 갈리지 않게 하는 유일한 방법이다. 스코프도 그쪽과 같은 `'onward'`: cast(칩·공·콘)를
+        // 이 스텝에서만 빼면 다음 스텝에 되살아나 "지웠는데 아직 있다" 가 된다.
+        ctx.onEraseIds?.([hit.id], 'onward');
+        return {};
+      }
+
       if (ctx.tool === 'line') {
         const scene = buildScene();
         let from = world;

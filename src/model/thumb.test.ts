@@ -9,6 +9,14 @@ import { ARROW_COLOR_CYCLE } from './arrow.ts';
 import type { Arrow } from './arrow.ts';
 import type { Drill, NoteLabel } from './drill.ts';
 import type { Shape } from './shape.ts';
+import {
+  STROKE_WIDTH_DEFAULT,
+  cycleStrokeColor,
+  cycleStrokeWidth,
+  strokeColor,
+  strokeWidthIndexOf,
+  type Stroke,
+} from './stroke.ts';
 import { buildStepThumb, THUMB_CAPS } from './thumb.ts';
 
 const line = (color?: string): Arrow => {
@@ -104,5 +112,48 @@ describe('buildStepThumb — 도형·메모도 싣는다', () => {
     const t = buildStepThumb({ ...base, steps: [old as unknown as Drill['steps'][number]] }, 0);
     expect(Object.hasOwn(t, 'shapes')).toBe(false);
     expect(Object.hasOwn(t, 'notes')).toBe(false);
+  });
+});
+
+// 획(2026-09-03). 화살표와 같은 규약을 따르는지 — 색·굵기는 값이 아니라 **첨자**이고,
+// 기본값이면 키를 안 넣는다 — 그리고 점 수에 상한이 서는지를 잰다.
+describe('buildStepThumb — 자유 그리기 획', () => {
+  const withStrokes = (strokes: Stroke[]): Drill => {
+    const base = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    return { ...base, steps: [{ ...base.steps[0]!, strokes }] };
+  };
+  // 지그재그 — 직선이면 RDP 가 2점으로 접어 상한 검사가 무의미해진다.
+  const zigzag = (n: number): Stroke => ({
+    id: newId('fh'),
+    points: Array.from({ length: n }, (_, i) => ({ x: i * 20, y: i % 2 === 0 ? 0 : 40 })),
+  });
+
+  it('점은 평탄한 좌표 열이고, 개수는 THUMB_CAPS 로 잘린다', () => {
+    const [s] = buildStepThumb(withStrokes([zigzag(80)]), 0).strokes!;
+    expect(s).toBeDefined();
+    expect(s!.p.length % 2, '평탄한 좌표 열이라 길이는 짝수다').toBe(0);
+    expect(s!.p.length / 2).toBeLessThanOrEqual(THUMB_CAPS.strokePoints);
+    expect(s!.p.length / 2).toBeGreaterThanOrEqual(2); // 두 점이 안 되면 칩에서 선이 아니다
+  });
+
+  it('기본 색·굵기면 키를 안 넣는다 — arrows 의 `c` 와 같은 규약', () => {
+    const plain = buildStepThumb(withStrokes([zigzag(5)]), 0).strokes![0]!;
+    expect(Object.hasOwn(plain, 'c'), '기본색인데 첨자가 실렸다').toBe(false);
+    expect(Object.hasOwn(plain, 'w'), '기본 굵기인데 첨자가 실렸다').toBe(false);
+  });
+
+  it('바꾼 색·굵기는 hex/px 가 아니라 첨자로 실리고, 풀면 원래 값이 나온다', () => {
+    const src = cycleStrokeWidth(cycleStrokeColor(zigzag(5)));
+    const styled = buildStepThumb(withStrokes([src]), 0).strokes![0]!;
+    expect(typeof styled.c, '색을 구우면 테마·팀색을 바꿔도 썸네일이 안 따라온다').toBe('number');
+    expect(ARROW_COLOR_CYCLE[styled.c!]).toBe(strokeColor(src));
+    expect(styled.w).toBe(strokeWidthIndexOf(src));
+    expect(styled.w, '대조군 — 기본 굵기였다면 위 케이스처럼 키가 없어야 한다').not.toBe(STROKE_WIDTH_DEFAULT);
+  });
+
+  it('획 수는 캡까지만 싣고, 없으면 키 자체가 없다', () => {
+    const many = Array.from({ length: THUMB_CAPS.strokes + 2 }, () => zigzag(4));
+    expect(buildStepThumb(withStrokes(many), 0).strokes).toHaveLength(THUMB_CAPS.strokes);
+    expect(buildStepThumb(withStrokes([]), 0).strokes).toBeUndefined();
   });
 });

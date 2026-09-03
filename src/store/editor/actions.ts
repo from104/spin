@@ -3,12 +3,13 @@
 // 정착 시점의 스텝 전체 pose 맵(PoseMap)을 그대로 담아 present 를 단방향 교체하는 용도이므로
 // DrillStep 의 동명 필드와 같은 타입으로 채웠다(§6.7 "PLACE_COMMIT 은 이미 DOM/물리와 값이
 // 같으므로 어떤 재동기화도 하지 않는다" 문단과 일관).
-import type { ChairId, StepId, ArrowId, NoteId, CastId, BallId, ConeId, ShapeId } from '../../core/ids.ts';
+import type { ChairId, StepId, ArrowId, NoteId, CastId, BallId, ConeId, ShapeId, StrokeId } from '../../core/ids.ts';
 import type { Vec2 } from '../../core/units.ts';
 import type { Drill, ChairDef, NoteLabel, PoseMap } from '../../model/drill.ts';
 import type { Shape } from '../../model/shape.ts';
 import type { StoredChairPose } from '../../model/chair.ts';
 import type { Arrow } from '../../model/arrow.ts';
+import type { Stroke } from '../../model/stroke.ts';
 import type { ToolId } from '../../physics/index.ts';
 
 export type EditorAction =
@@ -190,6 +191,11 @@ export type EditorAction =
   | { type: 'SETTLE_ARM'; until: number }
   | { type: 'ARROW_SET'; arrow: Arrow }
   | { type: 'ARROW_REMOVE'; id: ArrowId }
+  /** 자유 그리기 획(2026-09-03). 캡처가 끝난 새 획도, 앵커로 돌리거나 색·굵기·화살촉을 바꾼
+   *  편집도 **같은 액션**이다 — 화살표·도형이 걸어 둔 길이고(`ARROW_SET`/`SHAPE_SET`), 갈래를
+   *  나누면 되돌리기·병합·자동저장 세 곳에 각각 예외가 생긴다. */
+  | { type: 'STROKE_SET'; stroke: Stroke }
+  | { type: 'STROKE_REMOVE'; id: StrokeId }
   | { type: 'NOTE_SET'; note: NoteLabel }
   | { type: 'NOTE_REMOVE'; id: NoteId }
   // 작도 도형(2026-08-14). 화살표·메모와 **완전히 같은 모양**의 쌍이다 — 도형만 다른 규칙을
@@ -241,6 +247,8 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'NOTE_REMOVE',
   'SHAPE_SET',
   'SHAPE_REMOVE',
+  'STROKE_SET',
+  'STROKE_REMOVE',
   'FLAG_SET',
 ]);
 
@@ -252,6 +260,12 @@ export const COALESCE_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'ARROW_SET',
   // 도형은 끌면 매 프레임 SHAPE_SET 이 난다 — 병합 없이는 한 번 끄는 데 되돌리기 수십 칸이다.
   'SHAPE_SET',
+  // 획도 같다 — 회전 앵커를 끄는 동안 매 프레임 STROKE_SET 이 난다.
+  // ⚠️ 대가를 알고 넣는다: 굵기·색 순환(반복 클릭)도 같은 액션이라 700ms 안의 연타가 한 칸으로
+  // 병합된다(`BALL_RETAP` 을 여기서 뺀 이유가 정확히 그 증상이다). 그래도 넣는 것은 화살표가
+  // 이미 같은 처지이기 때문이다 — `ARROW_SET` 이 굽힘점 색 순환과 드래그를 함께 나른다. 획만
+  // 다르게 굴면 같은 판 위의 두 선이 되돌리기에서 다르게 반응한다.
+  'STROKE_SET',
   'OBJECT_NUDGE',
   // 덩어리를 끄는 동안 매 프레임 난다 — 병합 없이는 한 번 끄는 데 되돌리기 수십 칸이다.
   'GROUP_NUDGE',

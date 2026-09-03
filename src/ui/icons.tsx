@@ -191,11 +191,17 @@ export function IconToolNote({ size = 18, ...rest }: IconProps) {
   );
 }
 
+/** 지우기 도구. 2026-08-16 에 도구가 사라진 뒤로 **사용처 0** 인 채 살아남아 있다가
+ *  2026-09-03 에 되살아난 도구가 다시 쓴다(toolDefs.ts 의 그 문단이 뒤집기 근거를 쥔다).
+ *
+ *  🔁 그때의 그림(비스듬한 지우개 글리프, `M4 16l7-7 7 7-4 4H8z` + 받침선)은 **버렸다.**
+ *  근거는 지금 커서가 붉은 `X` 라는 것 하나다 — 버튼과 커서가 다른 그림이면 "이 버튼을
+ *  누르면 저 커서가 된다" 를 눌러 봐야만 알 수 있고, 태블릿에는 커서가 아예 없어서(실기 확인
+ *  항목) 이 아이콘 혼자 그 뜻을 나른다. 단축키 글자 `X` 도 같은 그림에서 나왔다(keymap.ts). */
 export function IconToolErase({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
-      <path d="M4 16l7-7 7 7-4 4H8z" />
-      <path d="M9 21h11" />
+      <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
 }

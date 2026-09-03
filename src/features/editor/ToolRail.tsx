@@ -291,7 +291,23 @@ const DRAWERS = [
  *  서랍은 **고르는 장치**다 — 고를 것이 하나뿐이면 손잡이를 눌러 여는 동작이 순수한 비용이다
  *  (호버로 열리고 260 ms 유예로 닫히는 장치를 지나야 메모 하나에 닿았다). 도구는 그대로고
  *  자리도 그대로다(기능 구역의 끝, 작도 손잡이 다음) — 한 겹이 빠졌을 뿐이다. */
-const SOLO_TOOLS = TOOLS.filter((t) => t.id === 'note');
+/** 🔁 2026-09-03 — **[지우기]가 [메모] 옆에 합류했다**(기현 지시: *"메모 옆에 (객체)지우기
+ *  버튼 추가"*). 위 `ALWAYS_TOOLS` 주석의 *"`erase` 는 도구 자체가 없어졌다"* 는 2026-08-16 의
+ *  참이고, 뒤집는 근거는 toolDefs.ts 의 그 문단이 쥔다(옛것은 드래그 도구, 지금 것은 일시 모드).
+ *
+ *  자리는 **메모 뒤**다 — §3 불변식 1(조준 대상이 사용 중에 이동하지 않는다)이 요구하는 것은
+ *  기존 표적이 안 움직이는 것이고, 맨 끝에 붙이면 선택·작도 손잡이·메모의 좌표가 한 픽셀도
+ *  안 변한다. 옛 지우개가 손잡이 **앞**에 섰던 규칙은 그때 손잡이가 둘이라 그 뒤가 '서랍
+ *  내용물의 자리' 였기 때문인데, 서랍이 하나로 줄고 메모가 단일 버튼이 되면서 끝이 비었다. */
+const SOLO_TOOLS = TOOLS.filter((t) => t.id === 'note' || t.id === 'eraser');
+
+/** 이 도구는 **파괴 모드**라 켜짐 표시가 강조색이 아니라 붉은색이다.
+ *
+ *  왜 색을 가르는가 — 태블릿에는 커서가 없다(실기 확인 항목). 마우스에서는 붉은 X 커서가
+ *  "지금 누르면 사라진다" 를 계속 말해 주지만, 손가락에는 그 말을 할 자리가 **활성 표시밖에**
+ *  없다. 값은 ObjectMenu 의 [삭제] 항목과 같은 `#ff6b6b` 다 — 이 앱에서 붉은색은 이미
+ *  "판에서 사라진다" 의 뜻이고(DESIGN §6.10), 뜻이 같으면 색도 같아야 한다. */
+const DANGER_TONE = '#ff6b6b';
 
 /** 서랍 이름 — DRAWERS 는 렌더 밖(모듈 최상단)에서 한 번 만들어져 t() 를 못 쓴다.
  *  key(2가지)만으로 정해지므로 렌더 시점에 여기서 고른다. */
@@ -426,7 +442,8 @@ function RemainingBadge({ n }: { n: number }) {
  *  표시가 하나인 것이 맞다: 사용자가 한 손짓이 하나이므로 그 손짓이 켜졌다는 신호도 하나다.
  *  도구·공·콘 세 자리가 이 한 조각을 같이 쓴다 — 자리마다 따로 그리면 "콘만 고정 표시가
  *  없다" 가 조용히 생긴다. */
-function ActiveRing({ locked = false }: { locked?: boolean }) {
+function ActiveRing({ locked = false, tone }: { locked?: boolean; tone?: string }) {
+  const ink = tone ?? 'var(--accent)';
   return (
     <>
       <span
@@ -435,10 +452,10 @@ function ActiveRing({ locked = false }: { locked?: boolean }) {
           position: 'absolute',
           inset: 0,
           borderRadius: 11,
-          border: '1.5px solid var(--accent)',
-          background: `color-mix(in srgb, var(--accent) ${locked ? 28 : 15}%, transparent)`,
+          border: `1.5px solid ${ink}`,
+          background: `color-mix(in srgb, ${ink} ${locked ? 28 : 15}%, transparent)`,
           // 바깥으로 한 겹 더 — 곁눈으로도 '평소 켜짐' 과 다르다는 것이 먼저 보인다.
-          boxShadow: locked ? '0 0 0 1.5px var(--accent)' : undefined,
+          boxShadow: locked ? `0 0 0 1.5px ${ink}` : undefined,
         }}
       />
       {locked && (
@@ -504,6 +521,9 @@ function ToolButton({
   const t = useT();
   const locale = useLocale();
   const label = def.label[locale];
+  // 파괴 모드만 켜짐 색이 다르다 — 근거는 DANGER_TONE 주석. 꺼져 있을 때는 다른 도구와
+  // 똑같이 `--muted` 다: 안 켠 도구까지 붉으면 레일이 늘 경고를 띄우고 있는 것으로 읽힌다.
+  const tone = def.id === 'eraser' ? DANGER_TONE : undefined;
   return (
     <button
       type="button"
@@ -514,9 +534,9 @@ function ToolButton({
       aria-label={locked ? t('editor.toolRail.lockedAriaLabelTemplate', { label }) : undefined}
       aria-pressed={active}
       onClick={onSelect}
-      style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
+      style={{ ...BTN_STYLE, color: active ? (tone ?? 'var(--accent-text)') : 'var(--muted)' }}
     >
-      {active && <ActiveRing locked={locked} />}
+      {active && <ActiveRing locked={locked} tone={tone} />}
       <span style={{ position: 'relative', display: 'flex' }}>
         <def.Icon />
       </span>
@@ -1011,7 +1031,13 @@ export function ToolRail({
             def={tl}
             active={tl.id === tool}
             locked={tl.id === tool && toolLock}
-            onSelect={() => onSelectTool(tl.id)}
+            // ⚠️ **[지우기]만 "같은 도구를 한 번 더 = 고정" 관례를 비켜 간다**(2026-09-03 기현
+            //    지시: *"다시 지우기 버튼을 누르면 선택으로 복귀"*). 리듀서는 그 관례의 정본이고
+            //    거기서 갈래를 만들 이유가 없다 — `LOCKABLE_TOOLS` 가 허용 목록이라 eraser 를
+            //    한 번 더 주면 `TOOL_SET` 은 **아무 일도 안 한다**(상태 그대로 반환). 즉 여기서
+            //    가로채지 않으면 재클릭이 조용히 죽어 세 출구 중 하나가 사라진다.
+            //    나가는 곳을 `select` 로 못박는 것은 그것이 유일한 상시 출구이기 때문이다.
+            onSelect={() => onSelectTool(tl.id === 'eraser' && tool === 'eraser' ? 'select' : tl.id)}
           />
         ))}
       </div>

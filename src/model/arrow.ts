@@ -81,11 +81,24 @@ const ARROW_COLOR_CUSTOM: Record<Locale, string> = { ko: '사용자 지정', en:
 export const arrowColorName = (a: Pick<Arrow, 'color'>, locale: Locale): string =>
   ARROW_COLOR_NAMES[locale][arrowColor(a)] ?? ARROW_COLOR_CUSTOM[locale];
 
-/** 다음 색으로 돌린 화살표. 순환 밖의 색(인스펙터가 언젠가 임의 색을 넣는다면)은 `indexOf`
- *  가 -1 이라 **첫 값**으로 간다 — `cycleHead` 와 같은 규약이다. */
+/** 순환에서 **다음 색**, 또는 기본색으로 한 바퀴 돌아왔음을 뜻하는 `null`.
+ *
+ *  순환 밖의 색(인스펙터가 언젠가 임의 색을 넣는다면)은 `indexOf` 가 -1 이라 **첫 값**으로
+ *  간다 — `cycleHead` 와 같은 규약이다.
+ *
+ *  ⚠️ 화살표만 쓰는 함수가 아니다. 획(`model/stroke.ts`)이 같은 팔레트를 쓰므로(PLAN 결정 1)
+ *  "다음 색은 무엇이고 언제 키를 지우는가" 를 여기 한 곳에만 적는다 — 두 곳에 적으면 팔레트를
+ *  손보는 날 한쪽만 고쳐진다. */
+export function nextArrowColor(color: string | undefined): string | null {
+  const cur = color ?? ARROW_STYLE.color;
+  const next = ARROW_COLOR_CYCLE[(ARROW_COLOR_CYCLE.indexOf(cur) + 1) % ARROW_COLOR_CYCLE.length]!;
+  return next === ARROW_STYLE.color ? null : next;
+}
+
+/** 다음 색으로 돌린 화살표. */
 export function cycleArrowColor(a: Arrow): Arrow {
-  const next = ARROW_COLOR_CYCLE[(ARROW_COLOR_CYCLE.indexOf(arrowColor(a)) + 1) % ARROW_COLOR_CYCLE.length]!;
-  if (next !== ARROW_STYLE.color) return { ...a, color: next };
+  const next = nextArrowColor(a.color);
+  if (next !== null) return { ...a, color: next };
   // 기본색으로 돌아왔다 = 덮어쓰기 해제. 키를 남기지 않는 것이 `color?` 의 계약이다.
   const { color: _drop, ...rest } = a;
   return rest;

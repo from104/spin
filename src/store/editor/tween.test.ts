@@ -5,6 +5,7 @@ import { newId } from '../../core/ids.ts';
 import { PLAYBACK } from '../../core/constants.ts';
 import type { DrillStep } from '../../model/drill.ts';
 import { arrowPointKey } from '../../model/arrow.ts';
+import { strokePointKey } from '../../model/stroke.ts';
 import { poseFrame, startTween, stepTransitionMs } from './tween.ts';
 import type { PoseXYT, RafAdd, TweenWriter } from './tween.ts';
 
@@ -62,6 +63,33 @@ describe('poseFrame', () => {
     expect(frame[arrowPointKey(arId, 'to')]).toEqual({ x: 5, y: 6, theta: 0 });
     // 대조군 — 화살표 id 자체는 항목이 아니다(transform 대상이 아니라 d 재조립 대상).
     expect(frame[arId]).toBeUndefined();
+  });
+
+  it('획은 점마다 한 항목이고, 키에 **점 수**가 들어간다(2026-09-03)', () => {
+    const fhId = newId('fh');
+    const step = emptyStep();
+    step.strokes = [{ id: fhId, points: [{ x: 1, y: 2 }, { x: 3, y: 4 }] }];
+    const frame = poseFrame(step);
+    expect(frame[strokePointKey(fhId, 2, 0)]).toEqual({ x: 1, y: 2, theta: 0 });
+    expect(frame[strokePointKey(fhId, 2, 1)]).toEqual({ x: 3, y: 4, theta: 0 });
+    expect(frame[fhId]).toBeUndefined(); // 화살표와 같다 — id 자체는 transform 대상이 아니다
+  });
+
+  it('★ 점 수가 다른 두 스텝은 키가 하나도 안 겹친다 — 그래서 보간이 아니라 스냅이 된다', () => {
+    // 이 겹침 없음이 정책 그 자체다(tween.ts 주석): 점 수가 다른 두 획을 점별로 이으면
+    // 5번째 점이 12번째 점을 향해 기어가는 형체 불명의 애니메이션이 나온다.
+    const fhId = newId('fh');
+    const a = emptyStep();
+    const b = emptyStep();
+    a.strokes = [{ id: fhId, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }];
+    b.strokes = [{ id: fhId, points: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 10, y: 0 }] }];
+    const ka = Object.keys(poseFrame(a));
+    const kb = Object.keys(poseFrame(b));
+    expect(ka.filter((k) => kb.includes(k))).toEqual([]);
+    // 대조군 — 점 수가 같으면 키가 그대로 겹쳐 점별 보간이 된다.
+    const c = emptyStep();
+    c.strokes = [{ id: fhId, points: [{ x: 9, y: 9 }, { x: 20, y: 3 }] }];
+    expect(Object.keys(poseFrame(c))).toEqual(ka);
   });
 });
 

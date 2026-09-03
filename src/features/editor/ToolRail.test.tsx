@@ -93,14 +93,43 @@ const expanded = (label: '작도' | '설명') => handle(label).getAttribute('ari
 // 단언이 언제나 거짓이 된다(실제로 그렇게 빨개졌다).
 const hasTool = (label: string) => screen.queryByRole('button', { name: new RegExp(`^${label}$`) }) !== null;
 describe('ToolRail — 기능 구역', () => {
-  it('모드 도구는 3표적이다 — 선택 · 작도 손잡이 · 메모 (3.7)', () => {
+  it('모드 도구는 4표적이다 — 선택 · 작도 손잡이 · 메모 · 지우기 (2026-09-03)', () => {
     // 5종 상시 노출로 되돌리면 §3 의 미착수분(도움말 1 · 빈 판 채우기 1)이 들어올 때
     // 2.5 게이트(≤40)가 빨간불이 된다. 접는 것이지 없애는 게 아니다 — 아래 it 들이 그 증명.
     render(<ControlledRail />);
     // 2026-08-16 — 지우개가 사라져 넷에서 셋이 됐다(삭제는 선택 후 Delete 로 일원화).
     // 2026-08-27 — `설명` **서랍이 사라지고 메모가 단일 버튼이 됐다**(기현 지시). 표적 수는
     // 그대로 셋이다: 손잡이 하나가 도구 하나로 바뀌었을 뿐이라 자리도 안 움직인다.
-    expect(functionTargets()).toEqual(['선택', '작도', '메모']);
+    // 🔁 2026-09-03 — 지우기가 돌아와 **셋에서 넷**이 됐다(기현 지시: *"메모 옆에 (객체)지우기
+    //    버튼 추가"*). 늘어난 하나는 예산에서 그대로 나간다 — boardTargetBudget 이 그 여파를
+    //    재고, 새 값은 목록으로 다시 적었다(파생식으로 바꾸면 무엇이 들어와도 초록이다).
+    //    자리는 **맨 끝**이다: 앞 셋의 좌표가 한 픽셀도 안 움직여야 §3 불변식 1 이 산다.
+    expect(functionTargets()).toEqual(['선택', '작도', '메모', '지우기']);
+  });
+
+  // 2026-09-03 — **[지우기]만 "같은 도구 한 번 더 = 고정" 관례를 비켜 간다**(기현 지시:
+  // *"다시 지우기 버튼을 누르면 선택으로 복귀"*). 리듀서의 `TOOL_SET` 은 고정 허용 목록
+  // (`LOCKABLE_TOOLS`)에 없는 도구를 한 번 더 받으면 **상태를 그대로 돌려준다** — 즉 레일이
+  // 가로채지 않으면 재클릭이 조용히 죽고 세 출구 중 하나가 사라진다. 그 가로채기를 잰다.
+  it('켜진 [지우기]를 다시 누르면 select 로 돌아간다 — 재클릭이 고정이 아니라 출구다', async () => {
+    const onSelectTool = vi.fn<(t: ToolId) => void>();
+    renderWithTool('eraser', onSelectTool);
+    await userEvent.setup().click(screen.getByRole('button', { name: /^지우기$/ }));
+    expect(onSelectTool).toHaveBeenCalledWith('select');
+  });
+
+  it('대조군 — 꺼진 [지우기]를 누르면 그 도구가 켜진다(출구가 입구까지 삼키지 않았다)', async () => {
+    const onSelectTool = vi.fn<(t: ToolId) => void>();
+    renderWithTool('select', onSelectTool);
+    await userEvent.setup().click(screen.getByRole('button', { name: /^지우기$/ }));
+    expect(onSelectTool).toHaveBeenCalledWith('eraser');
+  });
+
+  it('대조군 — [메모]는 관례 그대로다: 켜진 채 다시 눌러도 자기 id 를 보낸다(고정 토글)', async () => {
+    const onSelectTool = vi.fn<(t: ToolId) => void>();
+    renderWithTool('note', onSelectTool);
+    await userEvent.setup().click(screen.getByRole('button', { name: /^메모$/ }));
+    expect(onSelectTool).toHaveBeenCalledWith('note');
   });
 
   it('접힌 것은 선(작도 서랍)뿐이다 — 메모는 이제 상시 표적이다', () => {

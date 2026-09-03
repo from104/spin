@@ -2,12 +2,13 @@
 // (리렌더·히스토리 억제). 시간축 규약: 추가도 삭제도 "이 스텝부터 끝까지".
 import type { Vec2 } from '../core/units.ts';
 import { isId, newId } from '../core/ids.ts';
-import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId, ShapeId, StepId } from '../core/ids.ts';
+import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId, ShapeId, StepId, StrokeId } from '../core/ids.ts';
 import type { Drill, DrillStep, DrillCast, ChairDef, NoteLabel, PoseMap, BallRing, TeamSide } from './drill.ts';
 import type { Shape } from './shape.ts';
 import { ballRingOf, nextBallRing } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
+import type { Stroke } from './stroke.ts';
 import { LIMITS } from './validate.ts';
 // `emptyStep` 하나만 빌려 온다 — "빈 스텝이 무엇인가" 의 출처를 둘로 만들지 않기 위해서다.
 // (defaults.ts 는 edits.ts 를 import 하지 않으므로 순환이 아니다.)
@@ -441,6 +442,40 @@ export function removeArrow(d: Drill, i: number, id: ArrowId): Drill {
   if (!step.arrows.some((a) => a.id === id)) return d;
   // 잠근 채로 지우면 플래그가 죽은 id 로 남는다 — 개체 제거와 같은 규칙이다(stripStepFlags).
   return replaceStep(d, i, stripStepFlags({ ...step, arrows: step.arrows.filter((a) => a.id !== id) }, id));
+}
+
+function strokesEqual(a: Stroke, b: Stroke): boolean {
+  if (a.id !== b.id || a.color !== b.color || a.width !== b.width) return false;
+  if (a.headFrom !== b.headFrom || a.headTo !== b.headTo) return false;
+  // 점은 개수부터 본다 — 다시 그린 획은 여기서 갈린다. 좌표 비교는 화살표의 세 점 비교와
+  // 같은 성격이고(참조가 아니라 값), 회전 드래그는 매 프레임 새 배열을 만들므로 참조로는
+  // 언제나 "달라졌다" 가 나온다.
+  if (a.points.length !== b.points.length) return false;
+  for (let i = 0; i < a.points.length; i += 1) {
+    if (a.points[i]!.x !== b.points[i]!.x || a.points[i]!.y !== b.points[i]!.y) return false;
+  }
+  return true;
+}
+
+export function setStroke(d: Drill, i: number, s: Stroke): Drill {
+  const step = d.steps[i];
+  if (!step) return d;
+  // `strokes` 는 optional 이다(v10 이전 스텝 객체에는 키가 없다) — 읽는 자리마다 `?? []`.
+  const cur = step.strokes ?? [];
+  const idx = cur.findIndex((x) => x.id === s.id);
+  if (idx !== -1 && strokesEqual(cur[idx]!, s)) return d;
+  const strokes = cur.slice();
+  if (idx === -1) strokes.push(s);
+  else strokes[idx] = s;
+  return replaceStep(d, i, { ...step, strokes });
+}
+
+export function removeStroke(d: Drill, i: number, id: StrokeId): Drill {
+  const step = d.steps[i];
+  if (!step) return d;
+  const cur = step.strokes ?? [];
+  if (!cur.some((s) => s.id === id)) return d;
+  return replaceStep(d, i, stripStepFlags({ ...step, strokes: cur.filter((s) => s.id !== id) }, id));
 }
 
 function notesEqual(a: NoteLabel, b: NoteLabel): boolean {

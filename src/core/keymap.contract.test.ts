@@ -182,7 +182,10 @@ describe('eventCode — code 가 없으면 key 로 물러선다', () => {
 });
 
 describe('키맵 — 도구', () => {
-  it('도구 9종이 전부 자기 키를 갖는다', () => {
+  // 2026-09-03 — 9종에서 **10종**이 됐다(지우기 합류). 목록을 파생식으로 바꾸지 않고 새 값을
+  // 그대로 적는다: 이 단언이 잡아야 하는 사고가 "표와 레일이 갈라짐" 이라, 표에서 계산해
+  // 만든 목록으로 표를 검사하면 무엇을 넣든 초록이다.
+  it('도구 10종이 전부 자기 키를 갖는다', () => {
     const tools = KEYMAP.filter((d) => d.id.startsWith(TOOL_KEY_PREFIX)).map((d) => d.id.slice(TOOL_KEY_PREFIX.length));
     expect(tools).toEqual([
       'select',
@@ -194,11 +197,20 @@ describe('키맵 — 도구', () => {
       'cone',
       'player',
       'note',
+      'eraser',
     ]);
   });
 
-  it('지우개에는 키가 없다 — Delete 로 일원화했다', () => {
+  // 🔁 여기 있던 것은 *'지우개에는 키가 없다 — Delete 로 일원화했다'* 였다(2026-08-16,
+  // `tool:erase` 가 없음을 단언). 2026-09-03 에 도구가 `tool:eraser` 로 돌아오면서 뒤집힌다.
+  // 그때의 참은 남는다: **`erase` 라는 id 는 지금도 없다.** 지우는 키 `Delete` 의 동작 id 가
+  // `erase.selection` 이라, 도구 접두어와 겹치는 이름을 다시 쓰면 두 개념이 한 글자 차이로
+  // 붙는다 — 도구는 `eraser`(물건), 동작은 `erase.*`(하는 일)로 갈라 둔다.
+  it('도구 지우기는 `eraser` 다 — 옛 `erase` id 는 되살리지 않았다(Delete 동작과 이름이 겹친다)', () => {
     expect(KEYMAP.some((d) => d.id === `${TOOL_KEY_PREFIX}erase`)).toBe(false);
+    expect(KEYMAP.some((d) => d.id === `${TOOL_KEY_PREFIX}eraser`)).toBe(true);
+    // 대조군: 삭제 **동작**은 그대로 Delete 다. 도구가 돌아왔다고 키보드 경로가 바뀌지 않았다.
+    expect(KEYMAP.some((d) => d.id === 'erase.selection')).toBe(true);
   });
 
   it('숫자키로 도구를 고르지 않는다', () => {
@@ -271,6 +283,8 @@ describe('도움말은 표에서 나온다', () => {
       ['C', '콘 도구'],
       ['P', '선수 도구'],
       ['N', '메모 도구'],
+      // 2026-09-03 — 열째 줄. `X` 는 머릿글자가 아니라 **화면의 그림**에서 왔다(붉은 X 커서).
+      ['X', '지우기 도구'],
     ]);
     // 일반 단축키 표에는 여전히 안 섞인다 — 구역이 갈려 있다는 것이 이 단언이다.
     expect(helpRows('global', { steps: true }).some(([k]) => k === 'V')).toBe(false);
