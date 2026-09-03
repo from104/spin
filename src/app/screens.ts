@@ -94,7 +94,7 @@ export const SCREEN_TITLES: Record<Locale, Record<Screen, string>> = {
 
 export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
   ko: {
-    board: '',
+    board: '저장 없이 바로 그려 보는 판 — 마음에 들면 드릴로 편집하세요',
     drills: '저장된 드릴을 열어 편집하거나 시연하세요',
     sessions: '드릴을 묶어 훈련 한 회를 계획하세요',
     present: '팀 앞에서 드릴을 단계별로 보여주세요',
@@ -102,7 +102,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     settings: '언어·화면·데이터 등 이 기기의 설정',
   },
   en: {
-    board: '',
+    board: 'Sketch freely, nothing saved — edit it as a drill when you like it',
     drills: 'Open a saved drill to edit or present it',
     sessions: 'Group drills into a single training plan',
     present: 'Walk your team through the drill step by step',
@@ -110,7 +110,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     settings: 'Language, screen, data, and other settings for this device',
   },
   ja: {
-    board: '',
+    board: '保存せずにすぐ描ける板 — 気に入ったらドリルとして編集',
     drills: '保存したドリルを開いて編集・プレゼンできます',
     sessions: 'ドリルをまとめて1回分の練習を計画します',
     present: 'チームの前でドリルを段階ごとに見せます',

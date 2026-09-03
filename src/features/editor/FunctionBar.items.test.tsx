@@ -55,7 +55,6 @@ function mount(
         onToggleGrid={noop}
         showRuleZones
         onToggleRuleZones={noop}
-        onSaveAsDrill={noop}
         stepEmpty={false}
         // [정보]는 드릴 모드에서 **항상 온다**(EditorScreen 이 언제나 넘긴다) — 예산 상수
         // FUNCTION_BAR_ITEMS_DRILL 이 그 전제 위에 서 있으므로 여기서도 넘긴다.
@@ -165,9 +164,10 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
       expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(false);
     });
 
-    it('대조군: board 모드에는 [저장] 칸이 있다', () => {
+    it('board 모드에도 [저장] 칸이 없다 — 2026-09-03 헤더 [+ 드릴로 편집]으로 돌아갔다', () => {
+      // 2026-08-14~09-03 사이엔 있었다(대조군이었다). 같은 이름의 표적이 둘이 되지 않게 기둥에서는 뺐다.
       const { container } = mount('full', { mode: 'board' });
-      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(true);
+      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(false);
     });
 
     // ★ 2026-08-28 기현 지시 — 헤더 제목 옆 ⓘ 가 여기로 왔다.

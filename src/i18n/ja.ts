@@ -380,7 +380,7 @@ export const ja: Record<DictKey, string> = {
   'tutorial.board.step3.body': '矢印と図形で動きやゾーンを描きます。',
   'tutorial.board.step4.title': '機能バー',
   'tutorial.board.step4.body': 'PNG書き出し、グリッド・ルールゾーン表示などの機能がここに集まっています。',
-  'tutorial.board.step5.title': 'ドリルとして保存',
+  'tutorial.board.step5.title': 'ドリルとして編集',
   'tutorial.board.step5.body': '今の配置に名前を付けてドリルとして残します。保存するとそのドリルの編集画面が開き、戦術ボードはそのまま残ります。',
 
   // ── ドリル一覧チュートリアル 3ステップ — src/features/library/tutorialSteps.ts ──────
@@ -439,7 +439,7 @@ export const ja: Record<DictKey, string> = {
   'help.section.shortcuts': 'ショートカット',
 
   'help.start.item1.term': 'フリー戦術ボード',
-  'help.start.item1.desc': '保存せずすぐ描けるボードです。気に入ったら[ドリルとして保存]で残します。',
+  'help.start.item1.desc': '保存せずすぐ描けるボードです。気に入ったら[ドリルとして編集]で残します。',
   'help.start.item2.term': 'ドリル',
   'help.start.item2.desc': '保存した場面(または複数ステップの連なり)です。一覧から開いて実演できます。',
   'help.start.item3.term': 'セッション',
@@ -455,12 +455,12 @@ export const ja: Record<DictKey, string> = {
   'help.board.item2.desc': '矢印と図形で動きやゾーンを描きます。',
   'help.board.item3.term': '機能バー',
   'help.board.item3.desc': '元に戻す・コート形状・グリッド・PNG書き出しなどが集まっています。ディフェンス側の設定は、ゴールエリア3人の反則がどちらのチームに適用されるかを決めます。',
-  'help.board.item4.term': 'ドリルとして保存',
+  'help.board.item4.term': 'ドリルとして編集',
   'help.board.item4.desc': '今の配置を新しいドリルとして残します。自動保存はされないので忘れず押してください。',
   'help.board.restartButton': 'フリー戦術ボードツアーをもう一度見る',
 
   'help.library.item1.term': '新しいドリル',
-  'help.library.item1.desc': '名前とコートを聞いてドリルを作ります。その場で描いたものを残したいときはボードの［ドリルとして保存］を使います。',
+  'help.library.item1.desc': '名前とコートを聞いてドリルを作ります。その場で描いたものを残したいときはボードの［ドリルとして編集］を使います。',
   'help.library.item2.term': 'カード',
   'help.library.item2.desc': 'カードをタップすると開き、再生アイコンはすぐ実演、⋮は複製・削除・書き出しです。',
   'help.library.item3.term': 'フィルター・並べ替え',
@@ -601,9 +601,6 @@ export const ja: Record<DictKey, string> = {
   'editor.functionBar.view.label': '表示',
   'editor.functionBar.view.name': '表示',
   'editor.functionBar.view.title': 'グリッド・ゴールエリアガイド',
-  'editor.functionBar.save.label': '保存',
-  'editor.functionBar.save.nameDrill': 'ドリルとして保存',
-  'editor.functionBar.save.titleBoard': '今の盤をドリルライブラリに新しい項目として追加します。戦術ボード自体はそのまま残ります。',
   'editor.functionBar.courtModal.title': 'ボード設定',
   'editor.functionBar.courtModal.viewGroupLabel': '表示',
   'editor.functionBar.courtModal.moveGroupLabel': 'オブジェクト移動',
@@ -641,6 +638,7 @@ export const ja: Record<DictKey, string> = {
 
   'courtThumbnail.previewAriaLabel': '{{label}}のプレビュー',
 
+  'board.editAsDrill': 'ドリルとして編集',
   'board.defaultTitle': 'フリー戦術ボード',
   'board.courtChangedToast': '{{label}}に変更しました。',
   'board.courtSizeChangedToast': '{{size}}コートに変更しました。',

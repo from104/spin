@@ -618,14 +618,14 @@ describe('세션 왕복 — 떠났다 오면 새 판이 아니다', () => {
   }, 20000);
 });
 
-describe('[드릴로 저장] — 전술판을 정식 드릴로 승격', () => {
+describe('[드릴로 편집] — 전술판을 정식 드릴로 승격 (2026-09-03 까지는 기능 바의 [드릴로 저장])', () => {
   it('저장소에 드릴이 생기고, 전술판은 그대로 남는다', async () => {
     const { repo } = await resolveDrillRepo();
     const before = await repo.countDrills();
 
     const { user } = await openBoard('half');
     // 2026-08-28 — [저장]은 곧바로 저장하지 않는다. 이름을 묻고, 판의 제목이 실려 있다.
-    await user.click(screen.getByRole('button', { name: '드릴로 저장' }));
+    await user.click(screen.getByRole('button', { name: '드릴로 편집' }));
     expect(screen.getByLabelText('드릴 이름')).toHaveValue('자유 전술판');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }));
 
@@ -648,7 +648,7 @@ describe('[드릴로 저장] — 전술판을 정식 드릴로 승격', () => {
     // 으로 보인다 — 브라우저에서 실제로 그렇게 보였다.
     const { repo } = await resolveDrillRepo();
     const { user } = await openBoard('full');
-    await user.click(screen.getByRole('button', { name: '드릴로 저장' }));
+    await user.click(screen.getByRole('button', { name: '드릴로 편집' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }));
     await screen.findByText(/드릴로 저장했습니다/);
 
@@ -667,7 +667,7 @@ describe('[드릴로 저장] — 전술판을 정식 드릴로 승격', () => {
     const { repo } = await resolveDrillRepo();
     const { user } = await openBoard('full', { onGo: (...args) => goes.push(args) });
 
-    await user.click(screen.getByRole('button', { name: '드릴로 저장' }));
+    await user.click(screen.getByRole('button', { name: '드릴로 편집' }));
     const dialog = screen.getByRole('dialog');
     await user.clear(within(dialog).getByLabelText('드릴 이름'));
     await user.type(within(dialog).getByLabelText('드릴 이름'), '2-4 골킥');
@@ -687,7 +687,7 @@ describe('[드릴로 저장] — 전술판을 정식 드릴로 승격', () => {
     const before = await repo.countDrills();
     const { user } = await openBoard('full');
 
-    await user.click(screen.getByRole('button', { name: '드릴로 저장' }));
+    await user.click(screen.getByRole('button', { name: '드릴로 편집' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '취소' }));
 
     expect(screen.queryByRole('dialog')).toBeNull();

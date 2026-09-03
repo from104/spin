@@ -160,6 +160,7 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav, ruleTopic: string |
       return {
         title: SCREEN_TITLES[locale].drills,
         subtitle: SCREEN_SUBTITLES[locale].drills,
+        align: 'center',
         primary: { label: t('app.header.newDrill'), icon: <IconPlus size={15} />, onAction: nav.newDrill },
         search: { value: search, onChange: setSearch, placeholder: t('app.header.drillSearchPlaceholder') },
       };
@@ -169,6 +170,7 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav, ruleTopic: string |
       return {
         title: SCREEN_TITLES[locale].sessions,
         subtitle: SCREEN_SUBTITLES[locale].sessions,
+        align: 'center',
         primary: {
           label: t('app.header.newSession'),
           icon: <IconPlus size={15} />,
@@ -199,7 +201,7 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav, ruleTopic: string |
       };
     }
     case 'settings':
-      return { title: SCREEN_TITLES[locale].settings, subtitle: SCREEN_SUBTITLES[locale].settings };
+      return { title: SCREEN_TITLES[locale].settings, subtitle: SCREEN_SUBTITLES[locale].settings, align: 'center' };
     default:
       return undefined;
   }
@@ -299,7 +301,12 @@ export function AppShell() {
   //   1024×600 에서 기능 바가 도로 2열로 흘러 폭 +44. 대가를 알고도 맞추는 쪽을 택했다 —
   //   실측 문턱이 바뀐 것은 아니라서, 작은 창(1024×600 급)에서 코트가 준 체감을 실기로 확인해야
   //   한다(계획서 "치러야 하는 대가" 참고). `stageTarget` 이 판정에 **돌아온다.**
-  const showHeader = narrow || nav.screen !== 'board' || stageTarget.kind === 'drill';
+  // 🔁 2026-09-03 기현 지시(*"보드에도 다른 화면들처럼 헤더 넣고 가운데 정렬로 제목 크게, 짧은 설명
+  //   부제목으로. 맨 오른쪽에 [+ 드릴로 편집]"*)로 **자유 전술판도 헤더가 선다.** 2026-08-14 의
+  //   "상단 헤더 삭제, 공간 확보" 는 헤더가 빈 줄뿐이었을 때의 결정이었고, 이제 헤더가 제목·부제·주
+  //   액션을 진다(위 62px 이득은 다시 치른다). 옛 판정식은 이랬다:
+  //   `narrow || nav.screen !== 'board' || stageTarget.kind === 'drill'`.
+  const showHeader = true;
   const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav, ruleTopic);
 
   // §7.6: 화면 전환(go·back·popstate 전부) 시 <main id="main"> 에 포커스 + 라이브 리전 발표.

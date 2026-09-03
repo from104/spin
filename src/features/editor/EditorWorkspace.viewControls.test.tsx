@@ -104,7 +104,7 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
     // 2026-08-27 — [골대]·[속도]·[보기] 셋이 **[보드 설정] 모달 안으로** 들어가 목록에서 빠졌다
     // (기현 지시). 셋의 존재는 아래 '[보드 설정] 모달' describe 가 따로 잰다.
     // 2026-08-28 — [코트 비우기]도 같은 모달로 들어갔다(기현 지시). 아래 부정 목록으로 옮겼다.
-    const names = ['확대', '축소', '배율 100%', '되돌리기', '다시하기', '보드 설정', '내보내기', '드릴로 저장'];
+    const names = ['확대', '축소', '배율 100%', '되돌리기', '다시하기', '보드 설정', '내보내기'];
     for (const name of names) {
       const btn = screen.getByRole('button', { name });
       expect(bar().contains(btn), `${name} 가 기능 바 밖이다`).toBe(true);
@@ -117,15 +117,13 @@ describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하�
     expect(screen.queryByRole('button', { name: /개체 이동 속도 제한/ })).toBeNull();
   });
 
-  it('[드릴로 저장]은 기둥 **맨 끝**이고 유일한 액센트 칸이다', async () => {
-    // 맨 끝인 이유: 새 칸을 위에 끼우면 아래 열한 칸의 좌표가 통째로 밀린다(§3 불변식 1).
-    // 액센트가 하나뿐인 이유: 둘이 되는 순간 어느 것도 주 액션이 아니게 된다.
+  it('기둥에 [드릴로 저장] 칸이 없고 액센트 칸도 없다 — 2026-09-03 헤더 [+ 드릴로 편집]으로 돌아갔다', async () => {
+    // 옛 근거("맨 끝·유일한 액센트")는 칸이 기능 바에 있던 2026-08-14~09-03 의 것이다. 이제 같은
+    // 이름의 표적이 둘이 되지 않게 기능 바에는 없어야 한다(AppShell.wiring.test 가 헤더 쪽을 잰다).
     await openBoard();
     const items = [...bar().querySelectorAll('button')];
-    expect(items[items.length - 1]!.getAttribute('aria-label')).toBe('드릴로 저장');
-    const accented = items.filter((b) => b.style.background === 'var(--accent)');
-    expect(accented).toHaveLength(1);
-    expect(accented[0]!.getAttribute('aria-label')).toBe('드릴로 저장');
+    expect(items.some((b) => b.getAttribute('aria-label') === '드릴로 저장')).toBe(false);
+    expect(items.filter((b) => b.style.background === 'var(--accent)')).toHaveLength(0);
   });
 
   it('[속성]은 **없다** — 자유 전술판에서 인스펙터가 통째로 사라졌다', async () => {
