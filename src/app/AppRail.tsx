@@ -11,6 +11,7 @@
 import { useRef, useState } from 'react';
 import { IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
 import { LanguageModal } from './LanguageModal.tsx';
+import { ChangelogModal } from './ChangelogModal.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
@@ -37,6 +38,9 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
   // 이유가 없고, 올리면 AppShell 이 모달 하나를 더 아는 값이 없는 결합이 는다.
   const [langOpen, setLangOpen] = useState(false);
   const langBtnRef = useRef<HTMLButtonElement | null>(null);
+  // 2026-09-03 기현 지시 — 버전 번호를 누르면 이번 버전의 변경 내역이 뜬다.
+  const [changelogOpen, setChangelogOpen] = useState(false);
+  const versionBtnRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <nav
@@ -192,10 +196,22 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
 
       {/* 버전 — 값은 package.json 하나에서만 나온다(vite define). 화면에 박아 두면
           릴리스 때 반드시 어긋난다. 사용자가 "지금 뭘 보고 있는지" 를 말할 수 있어야
-          제보를 커밋에 붙일 수 있어서 눈에 띄지 않게, 그러나 항상 보이게 둔다. */}
-      <span
+          제보를 커밋에 붙일 수 있어서 눈에 띄지 않게, 그러나 항상 보이게 둔다.
+          2026-09-03 기현 지시로 **눌러서 이번 버전 변경 내역**을 보는 문이 됐다 — 값은
+          여전히 하나(package.json)이고, CHANGELOG.md 도 옮겨 적지 않는다(ChangelogModal.tsx). */}
+      <button
+        type="button"
+        ref={versionBtnRef}
+        aria-label={t('app.changelog.openTitle', { version: __APP_VERSION__ })}
+        title={t('app.changelog.openTitle', { version: __APP_VERSION__ })}
+        aria-haspopup="dialog"
+        onClick={() => setChangelogOpen(true)}
         style={{
           marginTop: 8,
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
           fontFamily: "'Space Grotesk', sans-serif",
           fontSize: '0.625rem',
           fontWeight: 600,
@@ -204,7 +220,8 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         }}
       >
         v{__APP_VERSION__}
-      </span>
+      </button>
+      <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} returnFocusRef={versionBtnRef} />
     </nav>
   );
 }

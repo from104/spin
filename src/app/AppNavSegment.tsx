@@ -12,6 +12,7 @@
 import { useRef, useState } from 'react';
 import { IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
 import { LanguageModal } from './LanguageModal.tsx';
+import { ChangelogModal } from './ChangelogModal.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
@@ -108,6 +109,9 @@ export function AppNavAside() {
   const showHelp = useHelpShow();
   const [langOpen, setLangOpen] = useState(false);
   const langBtnRef = useRef<HTMLButtonElement | null>(null);
+  // 2026-09-03 기현 지시 — 버전 번호를 누르면 이번 버전의 변경 내역이 뜬다.
+  const [changelogOpen, setChangelogOpen] = useState(false);
+  const versionBtnRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
@@ -183,10 +187,22 @@ export function AppNavAside() {
 
       {/* 버전 — 레일이 지고 있던 것을 함께 옮긴다. 좁은 창이라고 조용히 없애면 제보에 붙일
           숫자가 그 기기에서만 사라진다(AppRail.tsx 의 같은 주석). 표적은 아니라 예산에
-          들어가지 않고, 폭도 30px 남짓이다. */}
-      <span
+          들어가지 않고, 폭도 30px 남짓이다.
+          2026-09-03 기현 지시로 **눌러서 이번 버전 변경 내역**을 보는 문이 됐다 — AppRail.tsx
+          와 같은 배선(ChangelogModal.tsx, CHANGELOG.md 를 정본으로 파싱). */}
+      <button
+        type="button"
+        ref={versionBtnRef}
+        aria-label={t('app.changelog.openTitle', { version: __APP_VERSION__ })}
+        title={t('app.changelog.openTitle', { version: __APP_VERSION__ })}
+        aria-haspopup="dialog"
+        onClick={() => setChangelogOpen(true)}
         style={{
           flex: 'none',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
           fontFamily: "'Space Grotesk', sans-serif",
           fontSize: '0.625rem',
           fontWeight: 600,
@@ -195,7 +211,8 @@ export function AppNavAside() {
         }}
       >
         v{__APP_VERSION__}
-      </span>
+      </button>
+      <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} returnFocusRef={versionBtnRef} />
     </div>
   );
 }
