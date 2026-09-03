@@ -265,6 +265,26 @@ export const DRILL_MIGRATIONS: DocMigration[] = [
       return out;
     },
   },
+  {
+    from: 9,
+    to: 10,
+    describe: 'drill v9→v10: 자유 그리기 획(strokes) — 옛 스텝에는 빈 배열을 찍는다',
+    // ⚠️ **적을 참말이 없는 상승이다**(v3→v4 와 같은 형태 — drill.ts 의 CURRENT_DRILL_SCHEMA
+    // 주석). 빈 배열은 sanitize 가 어차피 만들어 주므로 이 함수는 사실상 아무 일도 안 한다.
+    // 목적은 도장이고, 도장의 목적은 **옛 앱이 새 파일을 정직하게 거절하게** 하는 것이다:
+    // v9 앱은 `steps[].strokes` 를 몰라 손으로 그은 선을 통째로 빠뜨린 채 파일을 멀쩡히 연다.
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      if (Array.isArray(out.steps)) {
+        out.steps = out.steps.map((st) =>
+          st && typeof st === 'object' && !Array.isArray((st as Record<string, unknown>).strokes)
+            ? { ...(st as Record<string, unknown>), strokes: [] }
+            : st,
+        );
+      }
+      return out;
+    },
+  },
 ];
 /** 세션 v1 → v2 (2026-08-18 구조 개편) — 평평한 items 를 **단일 custom 구획**으로 감싼다.
  *  무손실: 항목 배열이 값째로 옮겨 갈 뿐이고, 빈 items 는 빈 phases 가 된다(빈 구획 하나를

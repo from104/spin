@@ -8,7 +8,7 @@ import type { ChairId, BallId } from '../core/ids.ts';
 import { INTERACT } from '../core/constants.ts';
 import type { ChairPose } from '../model/chair.ts';
 import { grabFromLever, grabPoint } from '../physics/kinematics.ts';
-import { hitTest, zoneHandles } from '../physics/index.ts';
+import { hitTest, zoneHandles, forgivingRadius } from '../physics/index.ts';
 import type { HitContext, SceneSnapshot } from '../physics/index.ts';
 
 const chairId = (n: number) => `ch_t${n}` as ChairId;
@@ -63,6 +63,18 @@ describe('hitTest 우선순위(§5.12) — render-stage 소비 관점', () => {
     const hit = hitTest(tap, scene, ctx);
     expect(hit?.kind).toBe('chair');
     expect(hit?.id).toBe(chairB);
+  });
+
+  // 2026-09-03 — 지우기 도구가 돌아왔다. §9.4 F1 이 실검한 사고가 정확히 이 도구의 것이었으므로
+  // (가드를 지우자 *"지우개가 18px 떨어진 공을 지운다"*), 그 가드를 도구 이름으로 다시 못박는다.
+  // 값이 아니라 **null 이냐**를 재는 이유: null 은 '2차 패스를 아예 안 돈다' 는 뜻이고, 어떤
+  // 반경 숫자를 적어 두면 그 숫자가 0 이든 44 든 2차 패스는 돌아 버린다.
+  it('eraser 는 관대한 2차 패스가 없다 — 파괴 도구에 44px 반경을 주면 안 짚은 것이 사라진다(§9.4 F1)', () => {
+    const eraseCtx: HitContext = { ...baseCtx, tool: 'eraser' };
+    expect(forgivingRadius(eraseCtx)).toBeNull();
+    // 대조군 둘 — 이 단언이 "늘 null" 로 고장 나 통과하는 것을 막는다.
+    expect(forgivingRadius({ ...baseCtx, tool: 'select' })).toBeGreaterThan(0);
+    expect(forgivingRadius({ ...baseCtx, tool: 'cone' })).toBeNull();
   });
 });
 

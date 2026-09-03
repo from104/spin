@@ -6,6 +6,7 @@ import { radToStoredDeg, storedDegToRad } from '../../core/angle.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { ballRingOf } from '../../model/drill.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
+import { nudgeStroke } from '../../model/stroke.ts';
 import {
   addBall,
   cycleBallRing,
@@ -27,7 +28,9 @@ import {
   setNote,
   removeNote,
   removeShape,
+  removeStroke,
   setShape,
+  setStroke,
   setStepFlag,
 } from '../../model/edits.ts';
 import type { EditorAction } from './actions.ts';
@@ -120,6 +123,13 @@ export const LOCKABLE_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
   'shapeEllipse',
   'shapeTriangle',
   'shapeRect',
+  // ⚠️ TODO(자유 그리기 3단계) — `'freehand'` 가 여기 들어와야 한다. 연속으로 여러 획을 긋는
+  //    것이 그 도구의 기본 사용법이라 고정의 뜻이 가장 또렷한 도구다. 지금 못 넣는 이유는
+  //    `ToolId` 에 아직 그 값이 없어서다(도구·입력 단계가 `physics/hitTest.ts` 에서 넓힌다).
+  //    `KEEPS_PLACE_LOCK` 쪽 배선(`STROKE_SET`)은 이미 끝나 있다.
+  //
+  // ⚠️ `'eraser'` 는 **넣지 않는다**(PLAN 결정 8) — 연속 삭제는 도구의 성질이지 고정이 아니고,
+  //    고정에 넣으면 파괴 모드가 잠긴 채 남는다.
 ]);
 
 /** 어느 고정에서든 살아남는 액션 — **사용자가 낸 것이 아니기 때문에** 그렇다.
@@ -142,6 +152,9 @@ const KEEPS_PLACE_LOCK: ReadonlySet<EditorAction['type']> = new Set<EditorAction
   'NOTE_SET',
   'SHAPE_SET',
   'ARROW_SET',
+  // 획 캡처가 끝날 때마다 난다(2026-09-03). ⚠️ **없으면 획 하나를 그을 때마다 고정이 풀린다** —
+  // 자유 그리기는 연속으로 여러 획을 긋는 도구라 그러면 고정이 아무 뜻이 없다.
+  'STROKE_SET',
   // 콘 색을 바꿔 가며 까는 것은 한 가지 연속 동작이다.
   'CONE_SLOT_SET',
 ]);
@@ -400,6 +413,10 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return setShape(d, i, a.shape);
     case 'SHAPE_REMOVE':
       return removeShape(d, i, a.id);
+    case 'STROKE_SET':
+      return setStroke(d, i, a.stroke);
+    case 'STROKE_REMOVE':
+      return removeStroke(d, i, a.id);
     case 'FLAG_SET':
       // 여럿이면 접어 넣는다 — 히스토리에는 이 액션 한 칸만 남는다(actions.ts 주석).
       return a.ids.reduce((acc, id) => setStepFlag(acc, i, a.flag, id, a.on), d);
@@ -432,6 +449,11 @@ function applyGroupNudge(d: Drill, i: number, ids: readonly string[], delta: { x
     } else if (isId(id, 'sh')) {
       const sh = step.shapes?.find((x) => x.id === id);
       if (sh) out = setShape(out, i, { ...sh, x: sh.x + delta.x, y: sh.y + delta.y });
+    } else if (isId(id, 'fh')) {
+      const fh = step.strokes?.find((x) => x.id === id);
+      // 점 전부를 함께 민다 — 화살표의 'whole' 과 같은 뜻이고, 같은 함수를 포인터의 몸통
+      // 드래그도 쓴다(그래야 키보드와 마우스가 안 갈린다 — §7.5 의 요구).
+      if (fh) out = setStroke(out, i, nudgeStroke(fh, delta));
     }
   }
   return out;

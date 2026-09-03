@@ -80,6 +80,37 @@ describe('migrateDoc — 체인 연속성 (합성 체인)', () => {
   });
 });
 
+describe('drill v9→v10 — 자유 그리기 획', () => {
+  const v9 = (): Record<string, unknown> => ({
+    schemaVersion: 9,
+    steps: [{ id: 'st_1' }, { id: 'st_2', strokes: [{ id: 'fh_1', points: [{ x: 1, y: 2 }] }] }],
+  });
+
+  it('획이 없던 스텝에 빈 배열을 찍고 도장을 올린다', () => {
+    const r = migrateDoc(v9(), DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.doc.schemaVersion).toBe(CURRENT_DRILL_SCHEMA);
+    expect((r.doc.steps as Array<Record<string, unknown>>)[0]!.strokes).toEqual([]);
+  });
+
+  it('이미 있는 획은 건드리지 않는다 — 마이그레이션은 없는 자리만 채운다', () => {
+    const r = migrateDoc(v9(), DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect((r.doc.steps as Array<Record<string, unknown>>)[1]!.strokes).toEqual([
+      { id: 'fh_1', points: [{ x: 1, y: 2 }] },
+    ]);
+  });
+
+  it('v10 을 아는 앱만 v10 파일을 연다 — 옛 앱은 too-new 로 정직하게 거절한다', () => {
+    // 도장을 올린 목적 그 자체다(drill.ts CURRENT_DRILL_SCHEMA v10 주석): v9 앱이 새 파일을
+    // 열면 손으로 그은 선을 통째로 빠뜨린 채 "멀쩡한" 드릴을 보여 준다.
+    const r = migrateDoc({ schemaVersion: CURRENT_DRILL_SCHEMA }, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA - 1);
+    expect(r).toEqual({ ok: false, reason: 'too-new', found: CURRENT_DRILL_SCHEMA, supported: CURRENT_DRILL_SCHEMA - 1 });
+  });
+});
+
 describe('drill.v1.json 픽스처', () => {
   it('migrate → validate 가 통과한다', () => {
     const migrated = migrateDoc(drillV1Fixture, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);

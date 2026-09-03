@@ -5,6 +5,7 @@ import type { CourtMode, CourtSize } from './court.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
 import type { Shape } from './shape.ts';
+import type { Stroke } from './stroke.ts';
 import type { Locale } from '../i18n/locale.ts';
 
 export type PoseMap<K extends string, P> = Partial<Record<K, P>>;
@@ -110,6 +111,15 @@ export interface DrillStep {
   /** 작도 도형 — 코트 위, 칩·화살표 **아래** 층(2026-08-14). 스텝마다 따로다: 화살표·메모와
    *  같은 규율이고, 스텝이 곧 "그때의 판" 이므로 구역 표시도 스텝을 따라가야 한다. */
   shapes: Shape[];
+  /** 자유 그리기 획(2026-09-03 기현 지시). 화살표·메모·도형과 같은 부류 — 스텝이 통째로
+   *  소유한다.
+   *
+   *  ⚠️ **optional 인 것은 `shapes` 와 다르다.** 도형은 v3→v4 마이그레이션이 옛 스텝마다
+   *  빈 배열을 찍어 두어 필수로 둘 수 있었는데, 획은 그 길(v9→v10)을 지나지 않은 스텝 객체가
+   *  아직 저장소 곳곳에 있다(테스트 픽스처·손편집 리터럴). 필수로 만들면 그 파일들이 한꺼번에
+   *  컴파일 오류가 난다 — `courtSize`·§3.2 교육 필드가 optional 인 것과 같은 판단이다.
+   *  **없으면 획 0개**이고, 정화기가 키를 만들지 않는 것이 곧 그 뜻이다. */
+  strokes?: Stroke[];
   // ── 개체 상태 플래그 (2026-08-14 기현 지시, 스텝마다 따로) ────────────────────────────
   // *"오른쪽 클릭 또는 긴 터치 … 잠김, 무시, 삭제 메뉴"*.
   //
@@ -160,6 +170,9 @@ export function isStepEmpty(s: DrillStep): boolean {
     s.arrows.length === 0 &&
     s.notes.length === 0 &&
     s.shapes.length === 0 &&
+    // 획도 센다 — 코치가 손으로 그은 것이라 도형과 같은 자격이다. 안 세면 획만 있는 스텝이
+    // "비었다" 로 판정돼 코트 전환이 경고 없이 그것을 지운다(위 문단의 `note` 와 같은 논거).
+    (s.strokes ?? []).length === 0 &&
     s.note === ''
   );
 }
@@ -345,7 +358,20 @@ export interface TeamStyle {
  *
  *  옛 앱 쪽도 거절이 정답이다: v8 앱은 `steps[].ballRings` 를 몰라 전부 무시하고 `cast.balls[].ring`
  *  을 찾는데 새 파일에는 그 키가 없다 — 파일은 멀쩡히 열리고 **링이 통째로 사라진** 드릴이 나온다. */
-export const CURRENT_DRILL_SCHEMA = 9;
+/** v10 = 자유 그리기 획(`DrillStep.strokes`) — 2026-09-03 기현 지시
+ *  (*"드릴 편집 작도에 자유 그리기 추가. 백터로 그리고 …"*).
+ *
+ *  ⚠️ **②를 넘는다**(도장을 올린다). v4(작도 도형)와 **같은 형태의 판단**이라 그 문단을 그대로
+ *  따라 읽으면 된다: ① 없으면 획 0개라 마이그레이션이 적을 참말은 없다 ② ✗ **획은 문서
+ *  내용이다** — 코치가 판에 손으로 그은 것이라, v9 앱은 `steps[].strokes` 를 모르므로 그것을
+ *  통째로 빠뜨리고 나머지를 그린다. 옛 앱이 파일을 **멀쩡히 열면서 획을 통째로 잃는다** —
+ *  courtSize 가 문제 삼은 *"파일은 멀쩡히 열리고 아무 경고도 없이 틀린 전술 그림이 나온다"* 의
+ *  형태다. 압박 방향을 손으로 그려 보낸 드릴이 상대 기기에서 선 없는 판으로 열리면 그것은 다른
+ *  드릴이다 ③ 대가는 그대로다 — 배포된 옛 빌드가 새 파일을 too-new 로 거절한다. 그러나 ②가
+ *  성립하는 한 **거절이 정답**이고, 그것이 이 상승의 목적이다.
+ *
+ *  즉 v4 와 마찬가지로 "도장만 올리는 상승" 이 맞지만, 도장 자체가 목적이다. */
+export const CURRENT_DRILL_SCHEMA = 10;
 
 export interface Drill {
   schemaVersion: number;

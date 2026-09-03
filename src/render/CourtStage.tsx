@@ -223,9 +223,35 @@ export interface CourtStageProps {
   /** 드래그 중 스테이지 전체에 거는 커서. 포인터 캡처로 커서가 개체 밖으로 나가도
    *  잡고 있다는 표시가 유지되어야 하므로 컨테이너에 건다. */
   dragCursor?: string | null;
+  /** 지우기 도구가 켜져 있는가(2026-09-03). 참이면 판 위 커서가 **붉은 X** 가 된다 —
+   *  기현 지시 *"클릭하고 보드로 커서가 가면 붉은 X 변화"*.
+   *
+   *  ⚠️ `ToolId` 를 받지 않고 boolean 인 이유: 이 층은 도구를 하나도 모른다(§8 의존 방향).
+   *  커서는 "무슨 도구냐" 가 아니라 "이 판을 누르면 무엇이 되냐" 의 함수이고, 그 답이 지금
+   *  갈리는 경우가 하나뿐이므로 갈림을 그대로 boolean 으로 받는다. */
+  eraseCursor?: boolean;
 }
 
 const STAGE_STYLE: CSSProperties = { touchAction: 'none', userSelect: 'none', width: '100%', height: '100%', display: 'block' };
+
+/** 붉은 X 커서. **SVG data-URI 를 인라인으로 굽는다** — 파일로 두면 CSS `url()` 이 별도
+ *  요청이 되어 첫 전환에서 한 프레임 동안 기본 커서가 남고, 그 한 프레임이 하필 "지금 파괴
+ *  모드다" 를 말해야 하는 순간이다.
+ *
+ *  24px·핫스팟 12 12(정중앙) — X 의 교차점이 곧 지울 지점이라 중앙이 아니면 손이 빗나간다.
+ *  ⚠️ **흰 테두리를 함께 굽는다**(붉은 획 아래에 더 굵은 흰 획을 깐다): 코트는 초록이고 칩은
+ *  붉은 팀·파란 팀이라, 테두리가 없으면 붉은 칩 위에서 커서가 통째로 사라진다.
+ *  뒤에 `crosshair` 폴백을 둔다 — data-URI 커서를 막는 브라우저에서도 "평소와 다른 모드" 는
+ *  남아야 한다(그때 남는 것이 기본 화살표면 모드 표시가 0 이 된다). */
+const ERASE_CURSOR = (() => {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">` +
+    `<g stroke-linecap="round" fill="none">` +
+    `<path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="5.5"/>` +
+    `<path d="M6 6l12 12M18 6L6 18" stroke="#ef4444" stroke-width="3"/>` +
+    `</g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 12 12, crosshair`;
+})();
 
 export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function CourtStage(
   {
@@ -274,6 +300,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     keyboardCursor,
     ruleOverlay,
     dragCursor,
+    eraseCursor = false,
   },
   ref,
 ) {
@@ -813,11 +840,16 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       tabIndex={0}
       className="stage-svg"
       style={
+        // 순서가 곧 우선순위다. 팬 무장이 맨 앞인 것은 **지금 손이 하려는 일**이 판 밀기라서고,
+        // 지우기 커서가 드래그 커서보다 앞인 것은 이 도구에서 드래그 세션이 아예 시작되지
+        // 않기 때문이다(useEditorPointer 의 eraser 분기 — 잡을 것이 없으니 dragCursor 도 없다).
         panArmed
           ? { ...STAGE_STYLE, cursor: 'crosshair' }
-          : dragCursor
-            ? { ...STAGE_STYLE, cursor: dragCursor }
-            : STAGE_STYLE
+          : eraseCursor
+            ? { ...STAGE_STYLE, cursor: ERASE_CURSOR }
+            : dragCursor
+              ? { ...STAGE_STYLE, cursor: dragCursor }
+              : STAGE_STYLE
       }
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

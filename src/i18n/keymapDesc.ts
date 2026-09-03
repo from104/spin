@@ -33,6 +33,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     '콘 도구': 'Cone tool',
     '선수 도구': 'Player tool',
     '메모 도구': 'Note tool',
+    '지우기 도구': 'Erase tool',
     // ── C7 — scope:'global' ──
     '콘 색 바꾸기(주황 ↔ 파랑)': 'Change cone color (orange ↔ blue)',
     '실행 취소': 'Undo',
@@ -82,6 +83,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     '콘 도구': 'コーンツール',
     '선수 도구': '選手ツール',
     '메모 도구': 'メモツール',
+    '지우기 도구': '消去ツール',
     // ── C7 — scope:'global' ──
     '콘 색 바꾸기(주황 ↔ 파랑)': 'コーンの色を変更（オレンジ↔青）',
     '실행 취소': '元に戻す',

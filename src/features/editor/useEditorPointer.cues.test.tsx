@@ -61,7 +61,7 @@ function makeBallFullDrill(): Drill {
   return { ...base, cast: { ...base.cast, balls: defs }, steps: [{ ...step0, balls }] };
 }
 
-function useHarness(tool: ToolId, toasts: string[], erased: string[]) {
+function useHarness(tool: ToolId, toasts: string[], erased: string[], locked?: ReadonlySet<string>) {
   const state = useEditorState();
   const dispatch = useEditorDispatch();
   const worldRef = useEditorWorld();
@@ -93,13 +93,20 @@ function useHarness(tool: ToolId, toasts: string[], erased: string[]) {
       for (const id of ids) if (isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn')) dispatch({ type: 'OBJECT_REMOVE', id: id as CastId, scope: 'onward' });
     },
     showToast: (m) => toasts.push(m),
+    // 2026-09-03 — 지우기 도구가 잠긴 개체를 만났을 때를 재려고 열었다. 기본은 undefined 라
+    // 기존 it 들의 문맥은 한 글자도 안 바뀐다(잠금은 꺼짐이 기본이다).
+    locked,
     forceHandlesVisible: false,
     largeTargets: false,
   });
-  return { state, pointer };
+  // `dispatch` 를 함께 내보낸다(2026-09-03). 이 하네스는 도구를 **인자로** 받아 훅에 꽂으므로
+  // 리듀서의 `state.tool` 과 두 벌이 된다 — 지우기 도구는 자기가 `TOOL_SET` 을 쏘는 유일한
+  // 도구라, 그 발화를 재려면 두 벌을 먼저 맞춰 놓아야 한다(안 맞추면 '선택으로 빠졌다' 가
+  // 처음부터 참이라 아무것도 안 재는 단언이 된다).
+  return { state, dispatch, pointer };
 }
 
-function mount(drill: Drill, tool: ToolId = 'select') {
+function mount(drill: Drill, tool: ToolId = 'select', locked?: ReadonlySet<string>) {
   const toasts: string[] = [];
   const erased: string[] = [];
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -107,7 +114,7 @@ function mount(drill: Drill, tool: ToolId = 'select') {
       <EditorProvider drill={drill}>{children}</EditorProvider>
     </SettingsProvider>
   );
-  const r = renderHook(() => useHarness(tool, toasts, erased), { wrapper });
+  const r = renderHook(() => useHarness(tool, toasts, erased, locked), { wrapper });
   return { ...r, toasts, erased };
 }
 
@@ -354,6 +361,52 @@ describe('[D-7] 소리와 발화가 같은 사건을 두 번 통보하지 않는
     expect(say).not.toHaveBeenCalled();
     document.elementFromPoint = () => null;
     tray.remove();
+  });
+});
+
+// ── 지우기 도구 (2026-09-03) ────────────────────────────────────────────────────
+// 소리 파일이면서 이 절이 여기 있는 이유: 이 하네스가 `onEraseIds` 위임을 이미 기록하고 있어
+// (트레이 드롭 절이 쓰던 그 배열) 새 하네스를 세우면 위임 관례가 두 벌이 된다. 재는 것은
+// 소리가 아니라 **어느 손짓이 어느 위임을 부르는가** 이고, 그것이 이 파일의 주제다.
+describe('지우기 도구 — 클릭만, 연속, 잠긴 것은 남긴다', () => {
+  /** 훅에 꽂은 도구와 리듀서의 도구를 맞춘다 — 이유는 useHarness 의 반환값 주석. */
+  const armEraser = (result: { current: { dispatch: ReturnType<typeof useEditorDispatch> } }) => {
+    act(() => result.current.dispatch({ type: 'TOOL_SET', tool: 'eraser' }));
+  };
+
+  it('개체를 찍으면 그 하나가 치우기 함수로 위임되고 **도구는 그대로다**(연속 삭제)', () => {
+    const { chairId, drill } = makeDrill();
+    const { result, erased } = mount(drill, 'eraser');
+    armEraser(result);
+    act(() => void result.current.pointer.controller.onPointerDown(CHAIR_AT, META));
+    // 트레이 드롭·메뉴·Delete 와 **같은 함수**로 들어간다 — 소리·토스트·되돌리기가 입구마다
+    // 갈리지 않게 하는 유일한 방법이다(EditorWorkspace.eraseIds).
+    expect(erased).toEqual([chairId]);
+    // 연속 삭제의 전부가 이 한 줄이다: 하나 지웠다고 select 로 돌아가지 않는다.
+    expect(result.current.state.tool).toBe('eraser');
+  });
+
+  it('빈 곳을 찍으면 아무것도 안 지우고 **select 로 빠진다** — 세 출구 중 하나', () => {
+    // 나머지 둘은 다른 파일이 잰다: 버튼 재클릭(ToolRail.test) · Esc(EditorStage 의 Escape 분기).
+    const { result, erased } = mount(makeDrill().drill, 'eraser');
+    armEraser(result);
+    expect(result.current.state.tool, '대조군 — 재기 전에 이미 select 면 아무것도 안 재는 단언이다').toBe('eraser');
+    act(() => void result.current.pointer.controller.onPointerDown({ x: 600, y: 180 }, META));
+    expect(erased).toEqual([]);
+    expect(result.current.state.tool).toBe('select');
+  });
+
+  it('잠긴 개체는 지우지 않고 **고르기만** 한다 — 잠금의 뜻이 하나로 남는다', () => {
+    // 잠금은 "손으로 옮기는 것만 막는다" 이고(2026-08-14 기현 지시), 고르기는 열려 있어야
+    // 개체 메뉴로 잠금을 풀 수 있다. 여기서 지워 버리면 잠금에 셋째 뜻이 생긴다.
+    const { chairId, drill } = makeDrill();
+    const { result, erased } = mount(drill, 'eraser', new Set([chairId]));
+    armEraser(result);
+    act(() => void result.current.pointer.controller.onPointerDown(CHAIR_AT, META));
+    expect(erased).toEqual([]);
+    expect([...result.current.state.selection]).toEqual([chairId]);
+    // 대조군: 빠져나가지도 않았다 — 잠긴 것을 짚은 것은 '빈 곳' 이 아니다.
+    expect(result.current.state.tool).toBe('eraser');
   });
 });
 

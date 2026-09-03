@@ -138,6 +138,10 @@ describe('§4.1 개체 수량 표 = constants / LIMITS', () => {
     expect(S).toContain(`드릴당 최대 ${LIMITS.maxSteps}`);
   });
 
+  it('획은 두 축이라 두 숫자가 다 적혀 있다 — 스텝당 개수와 획당 점 수', () => {
+    expect(S).toContain(`스텝당 최대 ${LIMITS.strokesPerStep}, 획당 ${LIMITS.pointsPerStroke}점`);
+  });
+
   it('LIMITS 가 UI 상한이 아니라 파일 방어 클램프라는 사실이 숫자와 함께 적혀 있다', () => {
     expect(S).toContain(`\`maxBalls: ${LIMITS.maxBalls}\``);
     expect(S).toContain(`\`maxCones: ${LIMITS.maxCones}\``);

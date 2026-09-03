@@ -501,6 +501,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       const code = eventCode(e);
       if (code === 'Escape') {
         (stageRef as RefObject<CourtStageHandle | null>).current?.focusContainer();
+        // ⚠️ 2026-09-03 — **지우기 도구의 Esc 출구를 여기 두지 않았다.** 자연스러운 자리처럼
+        //    보이지만 두 이유로 틀린다: (a) 이 핸들러는 무대 svg 의 onKeyDown 이라 포커스가
+        //    코트 밖이면 안 불리고, (b) 여기는 stopPropagation 을 걸지 않으므로 같은 Esc 가
+        //    전역 핸들러까지 가서 `TOOL_SET` 이 **두 번** 발화한다 — 두 번째가 `select` 의
+        //    고정을 켠다(TOOL_SET 은 멱등이 아니다). 그래서 출구는 전역 한 곳에만 있다:
+        //    `useEditorKeyboard` 의 `select.clear` 분기. 아래 SELECT_CLEAR 가 겹쳐도 괜찮은
+        //    것은 그 액션이 멱등이기 때문이고, 그 차이가 이 결정의 전부다.
         dispatch({ type: 'SELECT_CLEAR' });
         return;
       }
@@ -704,7 +711,22 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       shapes={step.shapes}
       // 도형을 잡으면 **선택만** 바꾼다. 지우기는 선택 후 Delete 가 맡는다 — 2026-08-16 에
       // 지우개 도구가 사라지면서 도형만의 예외 분기도 함께 없어졌다.
-      onShapeSelect={(id) => dispatch({ type: 'SELECT_SET', ids: [id] })}
+      // 🔁 2026-09-03 — 지우기 도구가 돌아오면서 그 예외 분기도 **여기 한 줄로** 돌아왔다.
+      //    도형은 코트 히트테스트(§5.12)에 아예 없다 — 물리 바디가 아니라 SVG 이벤트가 직접
+      //    받는 유일한 개체다. 그래서 useEditorPointer 의 eraser 분기가 도형을 못 보고,
+      //    도형만 "지우기로 안 지워지는 개체" 가 되는 것을 이 줄이 막는다.
+      //    잠긴 도형은 `lockedSet` 검사로 걸러 코트 쪽 규칙(고르기는 되고 손대기는 안 된다)과
+      //    맞춘다 — ShapeLayer 가 잠긴 도형에도 이 콜백을 준다.
+      onShapeSelect={(id) => {
+        if (tool === 'eraser' && !lockedSet.has(id)) {
+          // 스코프는 코트 쪽 분기와 **같은 `'onward'`** 다. 도형에는 스코프가 아무 뜻도 없지만
+          // (`eraseIds` 의 `SHAPE_REMOVE` 갈래가 인자를 안 본다), 한 도구가 두 스코프로
+          // 갈라져 적혀 있으면 다음 사람이 그 갈림에 뜻이 있다고 읽는다.
+          onEraseIds([id], 'onward');
+          return;
+        }
+        dispatch({ type: 'SELECT_SET', ids: [id] });
+      }}
       onShapeChange={(next) => dispatch({ type: 'SHAPE_SET', shape: next })}
       shapeHandles={{ shape: selectedShape }}
       locked={lockedSet}
@@ -744,6 +766,10 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       onContainerKeyDown={handleContainerKeyDown}
       selectionOverlayRef={pointer.selectionOverlayRef}
       dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
+      // 2026-09-03 — 도구를 그대로 넘기지 않고 **갈림 하나만** 넘긴다(CourtStage 의 그 prop
+      // 주석: 그 층은 도구를 모른다). 태블릿에는 커서가 없으므로 이것이 유일한 신호가 아니다 —
+      // 레일 버튼의 붉은 활성 표시가 같은 말을 한다(ToolRail 의 DANGER_TONE).
+      eraseCursor={tool === 'eraser'}
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
       ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, teamStyles: drill.teams, defense: drill.defense, ballRings, ballOwners } : undefined}
       arrowHandles={{ arrow: selectedArrow }}

@@ -26,6 +26,9 @@
 //                   일러스트레이터·XD 가 전부 V 라 외부 관습을 근거로 삼은 **유일한 예외**다.
 //   · 원(circle)    콘(cone)과 c 가 겹침 → 도형을 oval 로 보고 `O`. 둘 다 머릿글자로 산다.
 //   · 지우개(erase) e·r·a·s 가 전부 막힘 → **도구를 없애고** Delete 로 일원화(2단계).
+//     🔁 2026-09-03 — 도구가 돌아오면서 **머릿글자를 포기하고 `X` 를 줬다.** 옛 문장은
+//     "머릿글자가 없으면 키가 없다" 를 전제했는데, 그 전제는 규칙 2 가 아니라 규칙 2 의
+//     기계적 적용이었다. 이 도구는 화면에서 붉은 X 로 나타나므로 글자가 그림을 따라간다.
 //
 // WCAG 2.1.4 (Character Key Shortcuts, Level A) — DESIGN §7.5f 가 준수 필수로 못 박았다.
 // 근거: 음성 인식 사용자가 발화하면 단일 문자키가 연쇄 발화한다. 이 표는 두 층으로 나눠 푼다.
@@ -105,6 +108,13 @@ export const KEYMAP: readonly KeyDef[] = [
   toolKey('cone', 'KeyC', 'C', '콘'),
   toolKey('player', 'KeyP', 'P', '선수'),
   toolKey('note', 'KeyN', 'N', '메모'),
+  // 🔁 2026-09-03 — **지우기가 돌아왔고 글자가 생겼다.** 위 "머릿글자 규칙이 막힌 곳" 표의
+  // *"지우개(erase) e·r·a·s 가 전부 막힘 → 도구를 없애고 Delete 로 일원화"* 는 그때의 참이다.
+  // 뒤집는 근거는 **머릿글자를 포기했기 때문**이다: 이 도구의 이름은 사용자에게 글자가 아니라
+  // **모양**이다 — 커서가 붉은 `X` 로 바뀌고, 판 위에서 보이는 것도 X 다. `X` 는 도구·개체
+  // 어느 층에서도 안 쓰이던 빈 자리라 아무것도 밀어내지 않는다(select 가 V 를 외부 관습에서
+  // 가져온 것과 같은 종류의 예외이고, 여기서는 근거가 관습이 아니라 화면의 그림이다).
+  toolKey('eraser', 'KeyX', 'X', '지우기'),
   // §6.10a — 콘 색 바꾸기가 `C` 재입력에서 **여기로 옮겨 왔다**(2026-08-16). 개편 전에는
   // "콘을 든 채 C 를 다시" 가 색 토글이었는데, 같은 날 *같은 도구를 한 번 더 = 연속 배치
   // 고정* 이 모든 도구의 규칙이 되면서 콘에서만 뜻이 달라졌다 — 마우스로 콘 상자를 두 번
@@ -385,7 +395,7 @@ export function helpRows(scope: KeyScope, opts: { steps: boolean }): ReadonlyArr
   for (const def of KEYMAP) {
     if (def.scope !== scope) continue;
     if (def.needsSteps && !opts.steps) continue;
-    // 도구 9종은 한 줄로 접는다 — 아홉 줄을 따로 세우면 표가 도구 목록이 되어버린다.
+    // 도구는 한 줄로 접는다 — 열 줄을 따로 세우면 표가 도구 목록이 되어버린다.
     if (def.id.startsWith(TOOL_KEY_PREFIX)) continue;
     const key = `${def.label} ${def.desc}`;
     if (seen.has(key)) continue;
@@ -395,7 +405,7 @@ export function helpRows(scope: KeyScope, opts: { steps: boolean }): ReadonlyArr
   return rows;
 }
 
-/** 도구 9종 — **글자마다 한 줄**. 표의 순서 = 레일 순서다.
+/** 도구 — **글자마다 한 줄**. 표의 순서 = 레일 순서다(2026-09-03 지우기 합류로 10종).
  *
  *  ⚠️ 2026-08-16 기현 지시(*"도움말에 어느 키가 뭔지는 적어야지"*)로 한 줄에서 아홉 줄이 됐다.
  *  옛 모양은 `['V L O T R B C P N', '도구 선택']` 이었다 — 표가 도구 목록이 되는 것을 피하려고
