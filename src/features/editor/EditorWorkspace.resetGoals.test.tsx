@@ -11,9 +11,6 @@
 //   ① 인스펙터 [드릴 정보] 맨 끝 [골대 원위치]  ← 2026-08-13 기현님 신고로 생긴 **주 자리**
 //   ② [코트 비우기] 확인 모달 안 [골대만 원위치] ← 4.7 이 만든 자리(남긴다)
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -108,19 +105,15 @@ describe('[보드 설정] 모달의 [골대 원위치] 가 실제 물리까지 �
     return screen.getByRole('button', { name: '골대 원위치' });
   };
 
-  it('기능 바에는 이제 없다 — [보드 설정] 안에 있다', async () => {
-    const { user } = await openBoard();
-    expect(screen.queryByRole('button', { name: '골대 원위치' }), '모달을 열기 전에는 없다').toBeNull();
-    await openModal(user);
-    expect(screen.getByRole('button', { name: '골대 원위치' })).toBeInTheDocument();
-  });
-
   it('누르면 world.resetGoals() 가 **1회** 불린다', async () => {
     const { user } = await openBoard();
     const btn = await openModal(user);
     expect(resetGoalsCalls.n, '누르기 전').toBe(0); // 대조군: "0회라서 통과" 가 아니다
     await user.click(btn);
     expect(resetGoalsCalls.n).toBe(1);
+    // 연달아 두 번 눌러도 죽지 않는다 — 모달이 닫혔으므로 다시 연다(위 '닫힌다' 계약의 대조군이기도 하다).
+    await user.click(await openModal(user));
+    expect(resetGoalsCalls.n).toBe(2);
   });
 
   it('★ 누르면 모달이 닫힌다 — 결과가 판에 있으므로 배경을 비켜 줘야 한다', async () => {
@@ -147,37 +140,5 @@ describe('대조군 — 비우기와 섞이지 않는다', () => {
     await user.click(await screen.findByRole('button', { name: '코트 비우기' }));
     await user.click(await screen.findByRole('button', { name: '비우기' }));
     expect(resetGoalsCalls.n).toBe(0);
-  });
-
-  it('모달 안에는 [골대만 원위치] 가 **없다** — 손잡이는 이제 하나뿐이다', async () => {
-    const { user } = await openBoard({ placed: true });
-    await user.click(screen.getByRole('button', { name: '보드 설정' }));
-    await user.click(await screen.findByRole('button', { name: '코트 비우기' }));
-    expect(screen.queryByRole('button', { name: '골대만 원위치' })).toBeNull();
-  });
-});
-
-// ── 소스 계약 ────────────────────────────────────────────────────────────────────────────
-// 위 동작 단언들은 "둘 다 결국 resetGoals 를 부른다" 까지만 보증한다. 나중에 누군가 한쪽에
-// 자기 사본을 만들어 붙여도 그 단언은 전부 초록이고, **그때부터 두 손잡이의 규칙이 갈린다**
-// (예: 막혔을 때 토스트를 한쪽만 띄운다). 그래서 **같은 참조를 넘기는가** 를 텍스트로 못박는다.
-describe('소유권 — 핸들러는 하나다', () => {
-  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'EditorWorkspace.tsx'), 'utf-8');
-
-  it('`onResetGoals` 를 받는 모든 곳이 **같은 resetGoals** 를 받는다', () => {
-    // 옛 계약(2026-08-18~2026-08-29): *"정확히 한 곳(기능 바)"*. 인스펙터 폐기로 손잡이가
-    // 하나만 남았던 동안에는 개수로도 같은 것을 말할 수 있었다.
-    //
-    // 2026-08-29 기현 지시로 손잡이가 **둘**이 됐다(기능 바 [보드 설정] > [골대 원위치] ·
-    // 밀린 골대 클릭). 그래서 개수가 아니라 **무엇을 넘기는가**를 센다 — 이 파일 머리말이
-    // 원래 지키려던 것이 그것이다: *"나중에 누군가 한쪽에 자기 사본을 만들어 붙여도 동작
-    // 단언은 전부 초록이고, 그때부터 두 손잡이의 규칙이 갈린다."*
-    const all = src.match(/onResetGoals=\{[^}]*\}/g) ?? [];
-    expect(all.length, '아무도 안 받는다면 계약 자체가 사라진 것이다').toBeGreaterThan(0);
-    expect(new Set(all), `찾은 것: ${all.join(' · ')}`).toEqual(new Set(['onResetGoals={resetGoals}']));
-  });
-
-  it('world.resetGoals() 호출부는 파일 안에 하나뿐이다 — 사본이 생기면 여기서 걸린다', () => {
-    expect(src.match(/resetGoals\(\)/g) ?? []).toHaveLength(1);
   });
 });

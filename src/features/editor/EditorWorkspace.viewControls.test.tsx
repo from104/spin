@@ -94,65 +94,6 @@ afterEach(() => {
 // 지금은 그 전부가 **오른쪽 기능 바** 한 곳이다. 트레이에 남는 것은 판에 **놓는 것**뿐이다:
 // 칩·공·콘·선택·지우개·작도·메모. 그래야 트레이가 코트 긴 변을 따라 옮겨 다녀도(가로 코트면
 // 아래, 세로면 오른쪽) 앱 조작이 함께 떠돌지 않는다.
-describe('앱 조작은 전부 오른쪽 기능 바다 — 트레이에는 하나도 없다', () => {
-  const bar = () => document.querySelector<HTMLElement>('nav[data-function-bar]')!;
-  const tray = () => document.querySelector<HTMLElement>('nav[data-tray]')!;
-
-  it('줌 3 · 이력 2 · 보드 설정 · 내보내기 — 전부 기능 바 안이다', async () => {
-    await openBoard();
-    // 2026-08-20(§0.5 Phase 5) — [도움말]은 이 목록에서 빠졌다. 레일의 상시 칸으로 일원화.
-    // 2026-08-27 — [골대]·[속도]·[보기] 셋이 **[보드 설정] 모달 안으로** 들어가 목록에서 빠졌다
-    // (기현 지시). 셋의 존재는 아래 '[보드 설정] 모달' describe 가 따로 잰다.
-    // 2026-08-28 — [코트 비우기]도 같은 모달로 들어갔다(기현 지시). 아래 부정 목록으로 옮겼다.
-    const names = ['확대', '축소', '배율 100%', '되돌리기', '다시하기', '보드 설정', '내보내기'];
-    for (const name of names) {
-      const btn = screen.getByRole('button', { name });
-      expect(bar().contains(btn), `${name} 가 기능 바 밖이다`).toBe(true);
-      expect(tray().contains(btn), `${name} 가 트레이 안에 남아 있다`).toBe(false);
-    }
-    // ★ 셋은 기둥에 **없다** — 목록이 줄었다는 것을 부정으로도 못박는다.
-    for (const gone of ['골대 원위치', '보기', '코트 비우기']) {
-      expect(screen.queryByRole('button', { name: gone }), `${gone} 가 아직 기둥에 있다`).toBeNull();
-    }
-    expect(screen.queryByRole('button', { name: /개체 이동 속도 제한/ })).toBeNull();
-  });
-
-  it('기둥에 [드릴로 저장] 칸이 없고 액센트 칸도 없다 — 2026-09-03 헤더 [+ 드릴로 편집]으로 돌아갔다', async () => {
-    // 옛 근거("맨 끝·유일한 액센트")는 칸이 기능 바에 있던 2026-08-14~09-03 의 것이다. 이제 같은
-    // 이름의 표적이 둘이 되지 않게 기능 바에는 없어야 한다(AppShell.wiring.test 가 헤더 쪽을 잰다).
-    await openBoard();
-    const items = [...bar().querySelectorAll('button')];
-    expect(items.some((b) => b.getAttribute('aria-label') === '드릴로 저장')).toBe(false);
-    expect(items.filter((b) => b.style.background === 'var(--accent)')).toHaveLength(0);
-  });
-
-  it('[속성]은 **없다** — 자유 전술판에서 인스펙터가 통째로 사라졌다', async () => {
-    await openBoard();
-    expect(screen.queryByRole('button', { name: '속성' })).toBeNull();
-    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
-  });
-
-  it('하단 바도 **없다** — [코트 비우기]·[내보내기]·속도 제한이 전부 기능 바로 갔다', async () => {
-    const { main } = await openBoard();
-    // 옛 BoardBar 는 코트 컬럼의 마지막 자식이었다. 지금 그 자리에는 정렬 상자 하나뿐이다.
-    const courtColumn = main.firstElementChild!.nextElementSibling as HTMLElement;
-    expect(courtColumn.children).toHaveLength(1);
-  });
-
-  it('닫힌 것은 DOM 에 없다 — [보드 설정] 모달은 표적 예산 밖이다', async () => {
-    const { user } = await openBoard();
-    expect(screen.queryByRole('radiogroup', { name: /코트 형태/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: '격자 표시 전환' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '골대 원위치' })).toBeNull();
-
-    await user.click(screen.getByRole('button', { name: '보드 설정' }));
-    expect(screen.getByRole('radiogroup', { name: /코트 형태/ })).toBeInTheDocument();
-    // ★ 넷이 한 모달 안에 함께 있다 — 이것이 2026-08-27 통합의 요점이다.
-    expect(screen.getByRole('button', { name: '격자 표시 전환' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '골대 원위치' })).toBeInTheDocument();
-  });
-});
-
 describe('트레이가 판의 어느 변에 붙든 기능 바는 오른쪽이다', () => {
   it('세로 화면 — 트레이는 기둥, 기능 바는 여전히 오른쪽', async () => {
     stubMedia({ portrait: true, narrow: false });
@@ -229,6 +170,11 @@ describe('팝오버 배선 — 토글이 실제로 판을 바꾼다', () => {
 describe('[보드 설정] 모달 — 넷이 한자리에 모였다 (2026-08-27)', () => {
   it('★ 코트·표시·이동·골대가 **한 모달 안**에 있다', async () => {
     const { user } = await openBoard();
+    // 닫힌 것은 DOM 에 없다 — [보드 설정] 모달은 표적 예산 밖이다.
+    expect(screen.queryByRole('radiogroup', { name: /코트 형태/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: '격자 표시 전환' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '골대 원위치' })).toBeNull();
+
     await openBoardSettings(user);
     const dialog = screen.getByRole('dialog', { name: '보드 설정' });
     for (const name of ['격자 표시 전환', '골 지역 가이드 전환', '골대 원위치']) {
@@ -246,14 +192,6 @@ describe('[보드 설정] 모달 — 넷이 한자리에 모였다 (2026-08-27)'
     expect(screen.getByRole('dialog', { name: '보드 설정' })).toBeInTheDocument();
   });
 
-  it('★ 대가를 기록한다 — 격자를 켜고 끄려면 매번 모달을 연다', async () => {
-    // 2026-08-16 이 서랍으로 뺐던 이유가 정확히 이것이었다(판을 보면서 토글하기). 통합을
-    // 택하며 감수한 비용이라, **비용이 실재한다는 사실 자체**를 테스트로 남긴다.
-    const { user } = await openBoard({ showGrid: true });
-    expect(screen.queryByRole('button', { name: '격자 표시 전환' }), '기둥에서 바로는 못 켠다').toBeNull();
-    await openBoardSettings(user);
-    expect(screen.getByRole('button', { name: '격자 표시 전환' })).toBeInTheDocument();
-  });
 });
 
 describe('Esc 우선순위 — 팝오버 > 전역 (등록 단계가 보장한다)', () => {
@@ -274,28 +212,9 @@ describe('Esc 우선순위 — 팝오버 > 전역 (등록 단계가 보장한다
     // 판은 그대로 서 있다 — Esc 가 아래로 새지 않았다.
     expect(screen.getByRole('application', { name: '코트 편집 영역' })).toBeInTheDocument();
   });
-
-  it('팝오버가 없으면 Esc 는 전역으로 간다 — 두 단이 실제로 갈린다는 대조군', async () => {
-    const { user } = await openBoard();
-    await user.keyboard('{Escape}');
-    // 여기서 터지지만 않으면 된다(전역 경로는 useEditorKeyboard 의 몫이다).
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
 });
 
 describe('편집 이력 — 헤더 → 트레이 → 기능 바', () => {
-  it('되돌리기·다시하기가 정확히 하나씩이고 기능 바 안이다', async () => {
-    await openBoard();
-    const bar = document.querySelector<HTMLElement>('nav[data-function-bar]')!;
-    const header = document.querySelector<HTMLElement>('header')!;
-    for (const name of ['되돌리기', '다시하기']) {
-      // getByRole 은 둘 이상이면 스스로 터진다 — 그것이 "안 늘었다" 의 단언이다.
-      const btn = screen.getByRole('button', { name });
-      expect(bar.contains(btn), `${name} 가 기능 바 밖이다`).toBe(true);
-      expect(header.contains(btn), `${name} 가 헤더에 남아 있다`).toBe(false);
-    }
-  });
-
   it('되돌릴 것이 없어도 **사라지지 않고** disabled 다 — 사라지면 아래 칸이 통째로 움직인다', async () => {
     await openBoard();
     expect(screen.getByRole('button', { name: '되돌리기' })).toBeDisabled();

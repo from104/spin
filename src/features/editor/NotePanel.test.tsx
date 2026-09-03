@@ -37,36 +37,28 @@ describe('NotePanel — 기본은 접힘', () => {
 
     expect(toggle()).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByLabelText('스텝 노트')).toHaveValue('오른쪽으로 벌린다');
-  });
 
-  it('다시 누르면 접힌다', async () => {
-    const user = userEvent.setup();
-    render(<NotePanel stepId={STEP_A} note="메모" onNoteChange={() => {}} />);
+    // 다시 누르면 접힌다 — 같은 setup 의 왕복 절반.
     await user.click(toggle());
-    expect(screen.getByLabelText('스텝 노트')).toBeInTheDocument();
-
-    await user.click(toggle());
-
     expect(toggle()).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByLabelText('스텝 노트')).toBeNull();
   });
+
 });
 
 describe('NotePanel — 노트 있음 표시(접힌 상태)', () => {
-  it('note 가 있으면 접힌 줄에 첫 줄이 미리보기로 보인다 — 둘째 줄은 안 보인다', () => {
-    render(<NotePanel stepId={STEP_A} note={'오른쪽으로 벌린다\n둘째 줄'} onNoteChange={() => {}} />);
+  it('note 가 있으면 접힌 줄에 첫 줄이 미리보기로 보인다 — 둘째 줄은 안 보인다', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<NotePanel stepId={STEP_A} note={'오른쪽으로 벌린다\n둘째 줄'} onNoteChange={() => {}} />);
     expect(screen.getByText('오른쪽으로 벌린다')).toBeInTheDocument();
     expect(screen.queryByText('둘째 줄')).toBeNull();
-  });
 
-  it('대조군 — note 가 없으면 미리보기가 없다(라벨만 뜬다)', () => {
-    render(<NotePanel stepId={STEP_A} note="" onNoteChange={() => {}} />);
+    // 대조군: note 가 없으면 미리보기가 없다(라벨만 뜬다).
+    rerender(<NotePanel stepId={STEP_A} note="" onNoteChange={() => {}} />);
     expect(screen.getByRole('button', { name: '노트' })).toBeInTheDocument();
-  });
 
-  it('펼치면 미리보기가 사라진다 — textarea 자체가 그 자리를 대신한다', async () => {
-    const user = userEvent.setup();
-    render(<NotePanel stepId={STEP_A} note="오른쪽으로 벌린다" onNoteChange={() => {}} />);
+    // 펼치면 미리보기가 사라진다 — textarea 자체가 그 자리를 대신한다.
+    rerender(<NotePanel stepId={STEP_A} note="오른쪽으로 벌린다" onNoteChange={() => {}} />);
     await user.click(toggle());
     expect(screen.queryByText('오른쪽으로 벌린다', { selector: 'span' })).toBeNull();
   });

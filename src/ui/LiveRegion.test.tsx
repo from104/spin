@@ -11,14 +11,7 @@ describe('LiveRegion', () => {
     expect(el.className).toBe('sr-only');
   });
 
-  it('say() 는 마운트된 엘리먼트의 textContent 를 즉시 갱신한다(React state 를 거치지 않는다)', () => {
-    render(<LiveRegion />);
-    liveRegion.say('A팀 3번 · d3 칸');
-    // seq 홀짝에 따라 널 폭 공백이 붙을 수 있다(아래 테스트) — 보이는 텍스트만 검증한다.
-    expect(liveRegion.el?.textContent?.startsWith('A팀 3번 · d3 칸')).toBe(true);
-  });
-
-  it('연속으로 같은 문구를 불러도 매번 textContent 가 실제로 바뀐다(중복 낭독 보장)', () => {
+  it('연속으로 같은 문구를 불러도 매번 textContent 가 실제로 바뀐다(중복 낭독 보장) — say() 는 React state 를 거치지 않고 마운트된 엘리먼트를 즉시 갱신한다', () => {
     render(<LiveRegion />);
     liveRegion.say('저장됨');
     const first = liveRegion.el?.textContent;

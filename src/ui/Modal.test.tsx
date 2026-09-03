@@ -48,6 +48,11 @@ describe('Modal', () => {
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(trigger).toHaveFocus();
+
+    // 닫기 ✕ 경로도 같은 복귀를 보장한다 — 가드가 복귀 focus() 를 방해하지 않는다.
+    await user.click(trigger);
+    await user.click(screen.getByRole('button', { name: '닫기' }));
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it('IME 조합 중의 Esc(isComposing·keyCode 229)는 닫지 않는다 — 조합 취소를 빼앗으면 안 된다', () => {
@@ -166,15 +171,5 @@ describe('Modal', () => {
     // ✕ 로 끌고 가면 되돌린 것이 아니다.
     await waitFor(() => expect(last).toHaveFocus());
     outside.remove();
-  });
-
-  it('닫힐 때의 복귀는 가드가 방해하지 않는다', async () => {
-    const user = userEvent.setup();
-    render(<Harness />);
-    const trigger = screen.getByRole('button', { name: '도움말 열기' });
-    await user.click(trigger);
-    await user.click(screen.getByRole('button', { name: '닫기' }));
-    // 가드를 복귀 focus() 보다 나중에 뗐다면 여기서 사라질 패널로 도로 끌려간다.
-    await waitFor(() => expect(trigger).toHaveFocus());
   });
 });

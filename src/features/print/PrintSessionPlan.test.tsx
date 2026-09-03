@@ -51,22 +51,15 @@ describe('장 수 = 표지 1 + 드릴 n', () => {
     expect(pages).toHaveLength(4);
     expect(pages[0]!.getAttribute('data-print-page')).toBe('cover');
     expect(container.querySelectorAll('[data-print-page="drill"]')).toHaveLength(3);
-  });
-
-  it('드릴 1개짜리 세션은 2장이다 — 드릴 수에 실제로 반응하는가', () => {
-    expect(render(<PrintSessionPlan plan={planOf(['A'])} view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />).container.querySelectorAll('[data-print-page]')).toHaveLength(2);
-  });
-
-  it('대조군: 드릴이 0개여도 표지 1장은 나온다(빈 종이가 아니다)', () => {
-    const { container } = render(<PrintSessionPlan plan={planOf([])} view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />);
-    expect(container.querySelectorAll('[data-print-page]')).toHaveLength(1);
-    expect(container.textContent).toContain('화요일 훈련');
-  });
-
-  it('드릴 장의 순서가 세션 순서다', () => {
-    const { container } = render(<PrintSessionPlan plan={planOf(['A', 'B', 'C'])} view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />);
+    // 드릴 장의 순서가 세션 순서다.
     const orders = Array.from(container.querySelectorAll('[data-print-page="drill"]')).map((el) => el.getAttribute('data-plan-order'));
     expect(orders).toEqual(['1', '2', '3']);
+    // 대조군: 드릴 1개짜리 세션은 2장이다 — 드릴 수에 실제로 반응하는가.
+    expect(render(<PrintSessionPlan plan={planOf(['A'])} view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />).container.querySelectorAll('[data-print-page]')).toHaveLength(2);
+    // 대조군: 드릴이 0개여도 표지 1장은 나온다(빈 종이가 아니다).
+    const empty = render(<PrintSessionPlan plan={planOf([])} view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />);
+    expect(empty.container.querySelectorAll('[data-print-page]')).toHaveLength(1);
+    expect(empty.container.textContent).toContain('화요일 훈련');
   });
 });
 
@@ -77,11 +70,6 @@ describe('표지', () => {
     expect(cover.textContent).toContain('2026-08-12');
     expect(cover.textContent).toContain('체육관 A');
     expect(cover.textContent).toContain('총 20분'); // 기본 10분 × 2
-  });
-
-  it('타임테이블 줄 수 = 항목 수', () => {
-    const cover = render(<PrintSessionPlan plan={planOf(['A', 'B', 'C'])} view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />).container.querySelector('[data-print-page="cover"]')!;
-    expect(cover.querySelectorAll('[data-plan-row]')).toHaveLength(3);
   });
 
   it('휴식은 있으면 분으로, 없으면 —', () => {
@@ -97,12 +85,10 @@ describe('삭제된 드릴 — 표에는 남고 장은 없다', () => {
     expect(container.querySelectorAll('[data-plan-row]')).toHaveLength(3);
     expect(container.querySelectorAll('[data-print-page="drill"]')).toHaveLength(2);
     expect(container.querySelector('[data-plan-row="2"]')!.textContent).toContain('삭제된 드릴');
-  });
-
-  it('대조군: 아무것도 안 지웠으면 3장 다 나온다', () => {
-    const { container } = render(<PrintSessionPlan plan={planOf(['A', 'B', 'C'])} view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />);
-    expect(container.querySelectorAll('[data-print-page="drill"]')).toHaveLength(3);
-    expect(container.textContent).not.toContain('삭제된 드릴');
+    // 대조군: 아무것도 안 지웠으면 3장 다 나온다.
+    const intact = render(<PrintSessionPlan plan={planOf(['A', 'B', 'C'])} view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />);
+    expect(intact.container.querySelectorAll('[data-print-page="drill"]')).toHaveLength(3);
+    expect(intact.container.textContent).not.toContain('삭제된 드릴');
   });
 });
 

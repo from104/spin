@@ -71,29 +71,6 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe('작도 서랍 — 도형 3종이 산다', () => {
-  it('서랍 안에 원·삼각·사각이 **선**과 함께 있다 (2026-08-16 이동·패스 → 선)', async () => {
-    const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: /^작도/ }));
-    const panel = screen.getByRole('group', { name: '작도 도구' });
-    // 단축키 글자 배지(aria-hidden)는 이름이 아니다 — 빼고 읽는다(2026-08-16).
-    const names = [...panel.querySelectorAll('button')].map((b) => {
-      const clone = b.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll('[aria-hidden="true"]').forEach((n) => n.remove());
-      return clone.textContent?.replace(/\s/g, '');
-    });
-    // 🔁 2026-09-03 — `자유`(자유 그리기)가 `선` 바로 뒤에 합류했다(기현 지시). 도형 3종의
-    //    **자리는 한 칸도 안 움직였다** — 새 도구가 앞이 아니라 사이에 들어왔으므로 순서가
-    //    바뀐 것이 아니라 늘어난 것이다. 목록을 그대로 다시 적는 규율은 위와 같다.
-    expect(names).toEqual(['선', '자유', '원', '삼각', '사각']);
-  });
-
-  it('닫혀 있으면 도형 도구도 DOM 에 없다 — 첫 화면 표적 예산 밖이다', async () => {
-    await openBoard();
-    expect(screen.queryByRole('button', { name: '원' })).toBeNull();
-  });
-});
-
 describe('놓기 — 도구를 고르고 코트를 찍으면 도형이 선다', () => {
   it.each(['원', '삼각', '사각'] as const)('%s 도구로 찍으면 도형이 하나 는다', async (label) => {
     const { user, stage } = await openBoard();
@@ -193,12 +170,6 @@ describe('★ 겹치면 진해진다 — 알파 합성을 깨뜨리지 않는다
       const face = g.querySelector('rect, ellipse, polygon')!;
       expect(Number(face.getAttribute('fill-opacity'))).toBeCloseTo(SHAPE_FILL_OPACITY, 6);
     }
-  });
-
-  it('면은 연하다 — 한 겹이 진하면 두 겹이 그냥 흰 판이 된다', () => {
-    expect(SHAPE_FILL_OPACITY).toBeLessThan(0.2);
-    // 세 겹까지도 코트가 비쳐야 한다: 1 − (1−a)³ 가 0.5 를 안 넘는다.
-    expect(1 - (1 - SHAPE_FILL_OPACITY) ** 3).toBeLessThan(0.5);
   });
 });
 

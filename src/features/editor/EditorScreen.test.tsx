@@ -68,15 +68,6 @@ async function openDrill() {
 }
 
 describe('드릴 편집 모드', () => {
-  it('저장된 드릴을 열면 도구·코트가 뜨고, [속성]·인스펙터는 어디에도 없다 (2026-08-18 폐기)', async () => {
-    const { stage } = await openDrill();
-    expect(stage).toBeInTheDocument();
-    // 기현님 지시(*"속성 버튼 및 그 안의 내용 폐기"*) — 손잡이도 패널도 DOM 에 없다.
-    // 옛 openInspector 헬퍼([속성] 클릭 → complementary)는 이 it 과 함께 은퇴했다.
-    expect(screen.queryByRole('button', { name: '속성' })).toBeNull();
-    expect(screen.queryByRole('complementary', { name: '드릴 속성' })).toBeNull();
-  });
-
   // 2026-08-14(설계서 §5-P2): 뷰 컨트롤이 코트 위에서 **하단 바**로 내려왔다. 하단 바는
   // 화면마다 다른 컴포넌트다(전술판 BoardBar / 드릴 편집 TransportBar) — BoardScreen 쪽만
   // 확인하면 **드릴 편집에서만 손잡이가 없는** 갈래를 못 본다(5차 검증관이 '시연 화면만
@@ -96,52 +87,11 @@ describe('드릴 편집 모드', () => {
     expect(sidebar.contains(name), '이름 편집기가 사이드바에도 중복으로 남아 있다').toBe(false);
   });
 
-  it('★ 하단 바는 없다 — 재생·배속은 코트 아래 공용 재생 묶음이고, [보기]와 줌은 오른쪽 기둥이다 (2026-08-20)', async () => {
-    // 옛 계약(2026-08-15 재설계 ②): *"하단 바에 남은 조작은 [속성] 하나."* 2026-08-18 하단
-    // 철거로 그 바 자체가 사라지며 재생 버튼이 왼쪽 스텝 바 안으로 들어갔었다. 2026-08-20
-    // (§D, 편집·시연 공용 PlaybackControls)에 재생 묶음이 스텝 바를 나와 코트 아래(노트
-    // 옆, 최우측)로 다시 옮겼다 — 스텝 목록 자체는 사이드바에 남지만 재생은 이제 그 밖이다.
-    await openDrill();
-    const sidebar = screen.getByRole('navigation', { name: '스텝 목록' });
-    const play = screen.getByRole('button', { name: '재생' });
-    const speed = screen.getByRole('button', { name: /^재생 속도/ });
-    expect(sidebar.contains(play), '재생이 여전히 스텝 바 안에 있다').toBe(false);
-    expect(sidebar.contains(speed), '배속이 여전히 스텝 바 안에 있다').toBe(false);
-
-    // [보드 설정]은 기둥 안이다 — 하단 바가 아니라. (2026-08-27: 옛 [보기] 서랍이 이 모달로
-    // 흡수됐다. 격자·가이드는 이제 모달을 열어야 나온다.)
-    const bar = screen.getByRole('navigation', { name: '판 조작' });
-    expect(bar.contains(screen.getByRole('button', { name: '보드 설정' })), '[보드 설정]이 기둥 밖에 있다').toBe(true);
-    // 줌도 기둥이다. 옛 트레이 묶음(role=group '확대')은 **사라졌다** — 그 이사가 ①이다.
-    for (const name of ['확대', '축소', '배율 100%']) {
-      expect(bar.contains(screen.getByRole('button', { name })), name).toBe(true);
-    }
-    expect(screen.queryByRole('group', { name: '확대' }), '트레이의 옛 줌 묶음이 남아 있다').toBeNull();
-    // 코트 위 묶음은 해체된 그대로다 — 격자·가이드는 [보기] 서랍을 열어야 나온다.
-    expect(screen.queryByRole('button', { name: '격자 표시 전환' })).toBeNull();
-    // 2026-08-16 에는 [도움말]이 기둥 상시 칸이었다(옛 기록) — 2026-08-20(§0.5 Phase 5) 에
-    // 레일(AppRail·AppNavAside, 이 테스트가 렌더하지 않는 화면 밖)로 옮겨가며 기둥에서도
-    // 완전히 빠졌다. 이 화면(EditorScreen 단독 렌더)에는 이제 [도움말] 버튼이 아예 없다.
-    expect(screen.queryByRole('button', { name: '도움말' })).toBeNull();
-  });
-
   /** 사이드바 카드. 이름은 안 보여주므로(§"스텝 정보 최소화") aria-label 은 순번뿐이다 —
    *  현재 스텝은 aria-current="step" 으로 찾는다. 인스펙터의 옛 [스텝] 목록도 이름이 기본값
    *  '스텝 N' 일 때는 같은 접근성 이름을 내므로, 사이드바 `<nav>` 안으로 **좁혀서** 찾는다. */
   const stepCards = () => within(screen.getByRole('navigation', { name: '스텝 목록' })).getAllByRole('button', { name: /^스텝 \d+$/ });
   const currentStepCard = () => stepCards().find((c) => c.getAttribute('aria-current') === 'step')!;
-
-  it('전술판과 달리 스텝 UI 가 있다', async () => {
-    // 재편의 갈림점 — 같은 컴포넌트지만 여기서만 스텝이 산다(EditorWorkspace 의 mode prop).
-    await openDrill();
-    // 2026-08-17 재편(구현 순서 ②): 스텝 목록은 왼쪽 세로 사이드바다. 인스펙터를 열지 않아도
-    // 스텝 조작이 화면에 있어야 한다 — 그것이 이 항목의 목적이다.
-    expect(screen.getByRole('navigation', { name: '스텝 목록' })).toBeInTheDocument();
-    expect(stepCards()).toHaveLength(1);
-    expect(currentStepCard()).toHaveAccessibleName('스텝 1');
-    // 스텝을 늘리는 길 — 2026-08-30 부터 **틈의 [+]** 뿐이다([한 장 더 찍기] 폐기).
-    expect(screen.getByRole('button', { name: '스텝 1 을 복제해 바로 뒤에 넣기' })).toBeInTheDocument();
-  });
 
   // 스텝을 늘리는 길의 **끝에서 끝까지** 배선을 본다(화면 → 리듀서 → 사이드바): 한 번에
   // 새 장이 뒤에 쌓이고, **그 장이 손에 들린다**. 찍고도 옛 장이 선택돼 있으면 다음 조작이

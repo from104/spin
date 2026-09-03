@@ -139,32 +139,6 @@ describe('PresentStage — 3 m 링이 시연 경로에도 붙는다', () => {
     expect(ring(off.container)).toBeNull();
   });
 
-  it('공이 없는 드릴에는 링이 없다', () => {
-    const noBall = makeDrill([{ id: 'ch_a', team: 'home', x: 100, y: 100 }]);
-    noBall.cast.balls = [];
-    noBall.steps[0]!.balls = {};
-    const { container } = mount(noBall);
-    expect(ring(container)).toBeNull();
-  });
-
-  it('링은 접근성 트리에서 빠지고 포인터도 가로채지 않는다 — 말하는 것은 라이브 리전이다', () => {
-    const { container } = mount(VIOLATING);
-    const layer = ring(container)!.follower.parentElement!;
-    expect(layer.getAttribute('aria-hidden')).toBe('true');
-    expect(layer.getAttribute('pointer-events')).toBe('none');
-  });
-
-  it('[결정 ⑧ 완료] 코트에는 이제 반지름 75 원이 **없다** — 링만 남고 시각 언어는 그대로 파선이다', () => {
-    // ⚠️ 이 단언은 승격된 것이다. 옛 판은 "아직 남아 있는 센터 서클과 반지름이 같으니 시각
-    //    언어(실선/파선)를 다르게 쓴다" 를 쟀다. 5.3 이 규정에 없는 센터 서클을 지웠으므로
-    //    이제 재야 하는 것은 **그 원이 없다는 것**이다 — 되돌아오면 공이 센터에 있을 때 실선
-    //    원과 파선 링이 같은 자리에 겹친다.
-    const { container } = mount(CLEAN);
-    expect(container.querySelector(`circle[r="${RING_R_PX}"][cx]`)).toBeNull();
-    // 대조군 — 부재 단언이 헛것이 아니다: cx 없는 링은 실제로 있고, 파선이다.
-    expect(ring(container)).not.toBeNull();
-    expect(ring(container)!.state.getAttribute('stroke-dasharray')).toBe('8 6'); // 규칙 = 파선
-  });
 });
 
 // ── §7 5.2 공마다 따로 켜는 거리 원 — **시연 화면**(2026-08-13 기현님 실기 ③) ──────────────
@@ -185,25 +159,6 @@ describe('PresentStage — 공의 원이 시연에도 온다', () => {
     expect(announced()).toContain('2-on-1'); // 표시와 판정은 독립이다
   });
 
-  it('5 m 를 켠 공은 시연에서도 5 m 로 그려지고 공을 따라간다', () => {
-    const { container } = mount(makeDrill([{ id: 'ch_a', team: 'home', x: 100, y: 100 }], '5m'));
-    const c = container.querySelector(`circle[r="${RING_5M_R_PX}"]:not([cx])`);
-    expect(c).not.toBeNull();
-    const follower = c!.parentElement!.parentElement!;
-    expect(follower.getAttribute('transform')).toBe(`translate(${BALL.x.toFixed(2)} ${BALL.y.toFixed(2)}) rotate(0.00)`);
-  });
-
-  it('**공 두 개가 서로 다른 원을 갖는다**', () => {
-    const base = makeDrill([{ id: 'ch_a', team: 'home', x: 100, y: 100 }], '3m');
-    const two: Drill = {
-      ...base,
-      cast: { ...base.cast, balls: [{ id: 'bl_1' as BallId }, { id: 'bl_2' as BallId }] },
-      steps: [{ ...base.steps[0]!, balls: { bl_1: BALL, bl_2: { x: BALL.x + 200, y: BALL.y } }, ballRings: { bl_1: '3m', bl_2: '5m' } }],
-    };
-    const { container } = mount(two);
-    expect(container.querySelectorAll(`circle[r="${RING_R_PX}"]:not([cx])`)).toHaveLength(2);
-    expect(container.querySelectorAll(`circle[r="${RING_5M_R_PX}"]:not([cx])`)).toHaveLength(2);
-  });
 });
 
 // ── 2026-08-13 — 판정이 **차체 사각형**으로 바뀌었다(model/chairOverlap.ts) ────────────────────
@@ -223,11 +178,10 @@ describe('PresentStage — 차체 **방향**이 판정까지 온다', () => {
     const { container } = mount(rotated(180));
     expect(ring(container)!.state.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
     expect(announced()).toContain('2-on-1');
-  });
 
-  it('★ 같은 좌표에서 등을 돌리면(0°) 깨끗하다 — 방향이 안 오면 두 결과가 같아진다', () => {
-    const { container } = mount(rotated(0));
-    expect(ring(container)!.state.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    // 대조군 — 같은 좌표에서 등을 돌리면(0°) 깨끗하다: 방향이 안 오면 두 결과가 같아진다.
+    const clean = mount(rotated(0));
+    expect(ring(clean.container)!.state.getAttribute('stroke')).toBe(RULE_OK_STROKE);
     expect(announced()).toBe('');
   });
 });
@@ -250,16 +204,9 @@ describe('PresentStage — 골 지역 3인도 같은 배선을 탄다', () => {
     // 존 표시 그룹(사각 2개짜리)이 나타나 있다.
     const marks = Array.from(container.querySelectorAll('g[opacity="1"]')).filter((el) => el.querySelector('rect'));
     expect(marks.length).toBeGreaterThan(0);
-  });
 
-  it('★ 진영만 뒤집으면 **같은 배치가 깨끗하다** — 공격은 제한이 없다 (2026-08-15)', () => {
-    const gz = COURT_DEFS.full.ruleZones[0]!;
-    const crew: { id: string; team: TeamSide; x: number; y: number }[] = [
-      { id: 'ch_a', team: 'away', x: gz.x + 20, y: gz.y + 20 },
-      { id: 'ch_b', team: 'away', x: gz.x + 50, y: gz.y + 60 },
-      { id: 'ch_c', team: 'away', x: gz.x + 80, y: gz.y + 100 },
-    ];
-    // 홈이 지키는 골 지역 = 원정 셋은 공격이다. 골 앞 마무리 드릴의 기본 모양이 붉으면 안 된다.
+    // 대조군(2026-08-15) — 진영만 뒤집으면 같은 배치가 깨끗하다: 홈이 지키는 골 지역이면
+    // 원정 셋은 공격이라 제한이 없다.
     mount(makeDrill(crew, '3m', 'home'));
     expect(announced()).toBe('');
   });

@@ -7,16 +7,11 @@ import { ToastProvider, useToast } from './ToastProvider.tsx';
 const wrapper = ({ children }: { children: ReactNode }) => <ToastProvider>{children}</ToastProvider>;
 
 describe('ToastProvider', () => {
-  it('show() 가 큐에 항목을 추가한다', () => {
-    const { result } = renderHook(() => useToast(), { wrapper });
-    act(() => result.current.show('공은 최대 10개까지 놓을 수 있습니다.'));
-    expect(result.current.toasts).toHaveLength(1);
-    expect(result.current.toasts[0]!.message).toBe('공은 최대 10개까지 놓을 수 있습니다.');
-  });
-
   it('같은 message 로 다시 show() 하면 새로 쌓지 않고 id 를 교체한다(타이머 리셋)', () => {
     const { result } = renderHook(() => useToast(), { wrapper });
     act(() => result.current.show('중복 메시지'));
+    expect(result.current.toasts).toHaveLength(1);
+    expect(result.current.toasts[0]!.message).toBe('중복 메시지');
     const firstId = result.current.toasts[0]!.id;
     act(() => result.current.show('중복 메시지'));
     expect(result.current.toasts).toHaveLength(1);

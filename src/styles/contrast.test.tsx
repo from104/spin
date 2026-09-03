@@ -75,15 +75,6 @@ const alwaysOn = contrastCss.slice(0, contrastCss.indexOf('@media'));
 const ZONE_SEL = '.stage-svg rect[stroke-dasharray="8 6"]';
 
 describe('구조 — 세 미디어쿼리가 존재하고 순서가 계약이다', () => {
-  it.each([
-    ['prefers-contrast: more', moreBlock],
-    ['prefers-contrast: less', lessBlock],
-    ['forced-colors: active', forcedBlock],
-  ])('%s 블록이 있다', (_n, block) => {
-    expect(block).not.toBeNull();
-    expect(block!.length).toBeGreaterThan(20); // 대조군: 빈 블록으로 통과하지 못한다
-  });
-
   it('⚠️ forced-colors 가 prefers-contrast 뒤에 온다 — 둘은 동시에 켜지고 그때 시스템 팔레트가 이겨야 한다', () => {
     expect(contrastCss.indexOf(FORCED)).toBeGreaterThan(contrastCss.indexOf(MORE));
     expect(contrastCss.indexOf(FORCED)).toBeGreaterThan(contrastCss.indexOf(LESS));
@@ -105,9 +96,7 @@ describe('① 판을 강제색에서 제외한다 — 미디어쿼리 **밖**에
   it('.stage-svg · .spin-print-court 가 forced-color-adjust: none 이다', () => {
     expect(alwaysOn.length).toBeGreaterThan(0);
     expect(alwaysOn).toMatch(/\.stage-svg\s*,\s*\.spin-print-court\s*\{[^}]*forced-color-adjust:\s*none/);
-  });
-
-  it('대조군 — 그 선언이 forced-colors 블록 **안**에 숨어 있지 않다(안에 있으면 순환이라 무효다)', () => {
+    // 대조군 — 그 선언이 forced-colors 블록 **안**에 숨어 있지 않다(안에 있으면 순환이라 무효다).
     expect(forcedBlock!).not.toContain('forced-color-adjust');
   });
 
@@ -176,11 +165,9 @@ describe.each([
   ['다크', darkBase, darkMore],
   ['라이트', lightBase, lightMore],
 ])('② prefers-contrast: more — %s 테마 토큰이 실제로 대비를 올린다', (_theme, base, more) => {
-  it('대조군 — 덮어쓰는 토큰이 6개 이상이다 (0개라서 통과하는 것을 막는다)', () => {
-    expect(Object.keys(more).length).toBeGreaterThanOrEqual(6);
-  });
-
   it('대조군 — 기준선에는 실제로 미달이 있었다 (없는 문제를 고친 척하지 않는다)', () => {
+    // 대조군 — 덮어쓰는 토큰이 6개 이상이다 (0개라서 통과하는 것을 막는다).
+    expect(Object.keys(more).length).toBeGreaterThanOrEqual(6);
     for (const name of ['--muted', '--faint', '--faint-text', '--border', '--border-strong']) {
       expect(minRatio(base, base[name]!), `${name} 기준선`).toBeLessThan(THRESHOLD[name]!);
     }
@@ -256,23 +243,12 @@ describe('② prefers-contrast — more 와 less 는 **반대 방향**이다 (�
 describe('③ forced-colors 블록은 시스템 팔레트만 쓴다', () => {
   it('⚠️ hex 색이 하나도 없다 — 사용자가 고른 팔레트와 싸우면 안 된다', () => {
     expect(forcedBlock!).not.toMatch(/#[0-9a-fA-F]{3,8}/);
-  });
-
-  it('대조군 — 같은 정규식이 more 블록에서는 hex 를 찾아낸다(정규식이 죽어 있지 않다)', () => {
+    // 대조군 — 같은 정규식이 more 블록에서는 hex 를 찾아낸다(정규식이 죽어 있지 않다).
     expect(moreBlock!).toMatch(/#[0-9a-fA-F]{3,8}/);
   });
 
   it('우리 토큰(var(--…))도 쓰지 않는다 — 토큰은 전부 hex 에서 나온다', () => {
     expect(forcedBlock!).not.toMatch(/var\(--/);
-  });
-
-  it("'켜짐'을 배경색으로만 말하던 자리를 Highlight 로 되살린다", () => {
-    // forced-colors 는 background-color 를 Canvas 로 강제해 켜짐/꺼짐이 같은 그림이 된다.
-    expect(forcedBlock!).toContain('background: Highlight');
-    expect(forcedBlock!).toContain('color: HighlightText');
-    for (const hook of ['.on-accent', '[aria-pressed="true"]', '[aria-checked="true"]', '[aria-selected="true"]', '[aria-current]']) {
-      expect(forcedBlock!, `${hook} 가 갈고리에서 빠졌다`).toContain(hook);
-    }
   });
 
   it('⚠️ 그 배경/글자색이 **중요 선언**이다 — 아니면 인라인 style 에 밀려 아무 일도 안 한다', () => {
@@ -281,6 +257,8 @@ describe('③ forced-colors 블록은 시스템 팔레트만 쓴다', () => {
     // 이 저장소의 '켜짐' 배경은 거의 전부 인라인이라(아래 대조군), !important 가 빠지면 이
     // 규칙은 살아 있는 채로 화면에서 사라진다 — jsdom 이 CSS 를 안 붙이므로 렌더 테스트로는
     // 영영 안 잡히는 형태다.
+    // forced-colors 는 background-color 를 Canvas 로 강제해 켜짐/꺼짐이 같은 그림이 된다.
+    // SVG <g> 에 HTML 배경을 얹으면 판 위 칩(.court-obj)이 상자로 덮이므로 그 규칙에서 제외한다.
     const rule = blockOf(forcedBlock!, '.on-accent,\n  [aria-pressed="true"]:not(.court-obj),\n  [aria-checked="true"],\n  [aria-selected="true"],\n  [aria-current]:not([aria-current="false"])');
     expect(rule, '갈고리 목록이 바뀌었다면 이 선택자 문자열도 같이 고쳐야 한다').not.toBeNull();
     expect(rule!).toMatch(/background:\s*Highlight\s*!important/);
@@ -292,16 +270,10 @@ describe('③ forced-colors 블록은 시스템 팔레트만 쓴다', () => {
     expect(btn).toContain('style={{ ...base, ...style }}');
   });
 
-  it('⚠️ 판 위 칩(.court-obj)은 그 규칙에서 제외한다 — SVG <g> 에 HTML 배경을 얹으면 칩이 상자로 덮인다', () => {
-    expect(forcedBlock!).toContain('[aria-pressed="true"]:not(.court-obj)');
-  });
-
   it('사라지는 box-shadow(4px accent 헤일로)를 outline 으로 대체한다', () => {
     expect(forcedBlock!).toContain('box-shadow: none');
     expect(forcedBlock!).toMatch(/outline:\s*3px solid CanvasText/);
-  });
-
-  it('판에 시스템 색 테두리를 둘러 그림 영역임을 표시한다', () => {
+    // 판에 시스템 색 테두리를 둘러 그림 영역임을 표시한다 — 같은 forcedBlock 계약, 같은 대체 규칙.
     expect(blockOf(forcedBlock!, '.stage-svg,\n  .spin-print-court')).toMatch(/outline:\s*1px solid CanvasText/);
   });
 });

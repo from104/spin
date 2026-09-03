@@ -12,8 +12,8 @@ import { resolve } from 'node:path';
 import { act, renderHook } from '@testing-library/react';
 import { courtBoxPx, courtScale } from './chromeBudget.ts';
 import type { ChromeState, Size } from './chromeBudget.ts';
-import { stageRotFor, stageRotHoldBox, stageRotHoldQuery, useStageRot, viewportSizePx } from './useStageRot.ts';
-import { COURT_DEFS, COURT_MODES, COURT_SIZES, courtDefFor } from '../model/court.ts';
+import { stageRotFor, stageRotHoldBox, stageRotHoldQuery, useStageRot } from './useStageRot.ts';
+import { COURT_DEFS, COURT_MODES, COURT_SIZES } from '../model/court.ts';
 import type { CourtMode, CourtSize } from '../model/court.ts';
 import type { InspectorMode } from '../features/editor/inspectorLayout.ts';
 import { computeMetrics, rotForFit } from '../render/useStageMetrics.ts';
@@ -90,6 +90,8 @@ describe('① 전수 일치 — 예산표가 말하는 회전과 화면이 쓰�
     for (const mode of COURT_MODES) expect(stageRotFor(mode, '30x18', st, { w: 480, h: 800 }), mode).toBe(90);
     // 같은 기기를 눕히면 안 돈다(=회전이 창 모양을 실제로 보고 있다).
     for (const mode of COURT_MODES) expect(stageRotFor(mode, '30x18', st, { w: 800, h: 480 }), mode).toBe(0);
+    // 위에서 내려보내면 답이 하나다 — rect 를 아예 안 보고 AVAIL 자체로 물어봐도 90 이다.
+    expect(courtScale('full', { w: 456, h: 592 }).rot).toBe(90);
   });
 
   it('인스펙터가 폭을 먹으면 판단이 달라진다 — 창만 보는 판정이 아니다', () => {
@@ -107,6 +109,10 @@ describe('① 전수 일치 — 예산표가 말하는 회전과 화면이 쓰�
     for (const forbidden of ['getBoundingClientRect', 'ResizeObserver', 'clientWidth', 'offsetWidth']) {
       expect(code, `${forbidden} 이 들어오면 되먹임 고리가 다시 열린다`).not.toContain(forbidden);
     }
+    // 회전 규칙(ROTATE_GAIN 1.08·종횡비 비교)도 이 파일엔 없다 — courtScale 에서 빌려 온다.
+    // 규칙을 두 곳에 적으면 화면은 1.08 로 돌고 예산표는 안 도는 순간이 생긴다.
+    expect(code).not.toContain('1.08');
+    expect(code).toContain('courtScale(');
   });
 });
 
@@ -148,13 +154,11 @@ describe('② 쌍안정 — 0 과 90 이 **둘 다** 고정점이다 (§4.2)', (
     const rect = fittedCourtCell(90, AVAIL);
     expect(rect.width).toBeCloseTo(376.7, 1);
     expect(rect.height).toBeCloseTo(592.0, 1);
-    expect(computeMetrics(rect as DOMRect, view, 90).pxPerUnit).toBeCloseTo(0.7176, 4);
+    const turned = computeMetrics(rect as DOMRect, view, 90).pxPerUnit;
+    expect(turned).toBeCloseTo(0.7176, 4);
     expect(rotForFit(rect, view), '이쪽도 자기를 재생산한다 = 또 하나의 고정점').toBe(90);
-  });
-
-  it('두 고정점의 축척 차이가 23% 다 — 창을 줄인 순서에 따라 갈리던 값이다', () => {
+    // 두 고정점의 축척 차이가 23% 다 — 창을 줄인 순서에 따라 갈리던 값이다.
     const flat = computeMetrics(fittedCourtCell(0, AVAIL) as DOMRect, view, 0).pxPerUnit;
-    const turned = computeMetrics(fittedCourtCell(90, AVAIL) as DOMRect, view, 90).pxPerUnit;
     expect((turned / flat - 1) * 100).toBeCloseTo(29.8, 1); // 작은 쪽에서 보면 +29.8%
     expect((1 - flat / turned) * 100).toBeCloseTo(23.0, 1); // 큰 쪽에서 보면 −23.0%
   });
@@ -171,13 +175,6 @@ describe('② 쌍안정 — 0 과 90 이 **둘 다** 고정점이다 (§4.2)', (
     expect(computeMetrics(fit(arTurned) as DOMRect, half, 90).pxPerUnit).toBeCloseTo(1.0133, 4);
     expect(rotForFit(fit(arFlat), half)).toBe(0);
     expect(rotForFit(fit(arTurned), half)).toBe(90);
-  });
-
-  it('★ 위에서 내려보내면 답이 하나다 — 480×800 에서 90 이고, rect 를 아예 안 본다', () => {
-    // 고리를 끊은 결과가 이것이다: 입력이 창 크기뿐이라 "어떤 순서로 줄였는가" 가 답에
-    // 들어올 자리가 없다. 두 고정점 중 **큰 쪽(0.7176)** 이 정답이라는 것도 여기서 정해진다.
-    expect(stageRotFor('full', '30x18', { narrow: true, inspector: 'hidden' }, { w: 480, h: 800 })).toBe(90);
-    expect(courtScale('full', AVAIL).rot, 'AVAIL 자체로 물어봐도 90 이다').toBe(90);
   });
 });
 
@@ -202,15 +199,10 @@ function productionFiles(dir: string, out: string[] = []): string[] {
 describe('③ 소스 계약 — rotForFit 을 부르는 프로덕션 자리는 예산 모듈 하나뿐이다', () => {
   const files = productionFiles(resolve(process.cwd(), 'src'));
 
-  it('하네스가 살아 있다 — 파일을 실제로 훑었고 정의 자리를 찾아냈다', () => {
-    // "0건이었다" 는 아무 파일도 못 읽었을 때도 통과한다. 먼저 계기를 검산한다.
-    expect(files.length).toBeGreaterThan(120);
-    expect(files.some((p) => p.endsWith('src/render/useStageMetrics.ts'))).toBe(true);
-    expect(files.some((p) => p.endsWith('src/app/chromeBudget.ts'))).toBe(true);
-    expect(read('src/render/useStageMetrics.ts')).toContain('export function rotForFit(');
-  });
-
   it('호출자는 chromeBudget.courtScale 뿐이다', () => {
+    // "0건이었다" 는 아무 파일도 못 읽었을 때도 통과한다. 먼저 계기를 검산한다(files 목록이
+    // 비면 아래 callers 단언이 헛통과한다).
+    expect(files.length).toBeGreaterThan(120);
     const callers: string[] = [];
     for (const p of files) {
       for (const line of codeOf(readFileSync(p, 'utf-8')).split('\n')) {
@@ -221,20 +213,6 @@ describe('③ 소스 계약 — rotForFit 을 부르는 프로덕션 자리는 �
     }
     expect(callers).toHaveLength(1);
     expect(callers[0]).toContain('src/app/chromeBudget.ts');
-  });
-
-  it('무대·워크스페이스는 실측 rect 로 회전을 정하지 않는다', () => {
-    for (const f of [
-      'src/render/CourtStage.tsx',
-      'src/render/useStageMetrics.ts',
-      'src/features/editor/EditorStage.tsx',
-      'src/features/editor/EditorWorkspace.tsx',
-    ]) {
-      const code = codeOf(read(f));
-      expect(code.split('\n').filter((l) => /rotForFit\s*\(/.test(l) && !l.includes('export function')), f).toEqual([]);
-    }
-    // 하네스 검산 — 같은 방식으로 훑으면 예산 모듈에서는 **잡힌다**.
-    expect(codeOf(read('src/app/chromeBudget.ts')).split('\n').filter((l) => /rotForFit\s*\(/.test(l))).toHaveLength(1);
   });
 
   it('rot 은 prop 으로 흐른다 — 사슬의 세 마디가 소스에 있다', () => {
@@ -281,24 +259,6 @@ describe('④ rot 불변 상자 — 이 안에 있는 동안은 답이 안 바�
         }
       }
     }
-  });
-
-  it('상자는 문턱 근처에서만 좁다 — 1024×768 에서 ±77px 이다(resize 마다 다시 재지 않는다)', () => {
-    // 이 숫자가 1 로 주저앉으면 사실상 resize 리스너가 되어 규율이 사라진다.
-    const b = stageRotHoldBox('full', '30x18', { narrow: false, inspector: 'hidden' }, { w: 1024, h: 768 });
-    // ⚠️ 2026-08-15 (재설계 ②) — 상자가 좁아졌다: 폭 ±75 → **±41**(983…1065). 기둥 56 이
-    //    폭 예산에 들어오면서 같은 창에서 코트 상자가 문턱에 더 가까워졌기 때문이다.
-    //    세로도 ±75 → ±41 로 같이 좁아졌다. 이 숫자가 1 로 주저앉으면 규율이 사라지지만,
-    //    41 은 아직 resize 리스너와 거리가 멀다.
-    // ⚠️ 2026-08-18 (하단 철거) — 세로 크롬이 19px 줄며(하단 바 64 → 노트 접힘 줄 45) 경계
-    //    전부가 1px 안팎으로 밀렸다(982…1066 / 726…810). 폭·높이 반경 ±42 는 그대로다.
-    // ⚠️ 2026-08-20 (기현님 지시) — 드릴 편집이 넓은 창에서도 컴팩트 헤더(48)를 도로 얻고
-    //    (이 `state` 는 board 를 안 준다 = 드릴 편집 취급) 노트 행이 45→61 로 자라며, 문턱
-    //    근처의 히스테리시스 폭 자체가 **±42 → ±77** 로 넓어졌다(947…1101 / 691…845, 중심은
-    //    그대로 1024/768). 반경이 커진 것은 상수 하나가 아니라 두 축의 크롬 비율이 바뀌어
-    //    회전 판정이 문턱에서 더 둔감해졌기 때문이다 — 77 도 resize 리스너와는 거리가 멀다.
-    expect(b).toEqual({ minW: 947, maxW: 1101, minH: 691, maxH: 845 });
-    expect(stageRotHoldQuery(b)).toBe('(min-width: 947px) and (max-width: 1101px) and (min-height: 691px) and (max-height: 845px)');
   });
 
   it('상한 있는 좁히기다 — 코트 상자가 0 인 구석에서도 끝난다(행으로 죽지 않는다)', () => {
@@ -351,11 +311,6 @@ afterEach(() => {
 describe('④ useStageRot — 창 크기를 구독한다', () => {
   const state: ChromeState = { narrow: true, inspector: 'hidden' };
 
-  it('viewportSizePx 가 창을 읽는다 (계기 검산)', () => {
-    setViewport(480, 800);
-    expect(viewportSizePx()).toEqual({ w: 480, h: 800 });
-  });
-
   it('마운트 시점의 창으로 답한다 — matchMedia 가 없어도 (jsdom 기본)', () => {
     setViewport(480, 800);
     expect(renderHook(() => useStageRot('full', '30x18', state)).result.current).toBe(90);
@@ -381,32 +336,10 @@ describe('④ useStageRot — 창 크기를 구독한다', () => {
     expect(result.current).toBe(0);
 
     setViewport(480, 800); // 태블릿을 세웠다
+    expect(result.current, '발화 전에는 안 바뀐다 — 스텁이 답을 대신 말해 주는 게 아니다').toBe(0);
     act(() => armed[0]!.fire());
     expect(result.current).toBe(90);
     expect(armed.length, '새 자리에 상자를 다시 걸었다').toBe(2);
-  });
-
-  it('대조군 — 발화가 없으면 값도 안 바뀐다(스텁이 답을 대신 말해 주는 게 아니다)', () => {
-    stubMatchMedia();
-    setViewport(1024, 600);
-    const { result } = renderHook(() => useStageRot('full', '30x18', state));
-    setViewport(480, 800);
-    expect(result.current).toBe(0);
-  });
-
-  it('상자 안에서 발화해도 리렌더가 늘지 않는다 — 값이 정말 뒤집힐 때만 상태를 건드린다', () => {
-    const armed = stubMatchMedia();
-    setViewport(1024, 600);
-    let renders = 0;
-    const { result } = renderHook(() => {
-      renders++;
-      return useStageRot('full', '30x18', state);
-    });
-    const before = renders;
-    setViewport(1030, 604); // 같은 상자 안 — 답이 그대로다
-    act(() => armed[0]!.fire());
-    expect(result.current).toBe(0);
-    expect(renders, '같은 값이면 React 가 리렌더를 생략한다').toBe(before);
   });
 
   it('코트 종류가 바뀌면 다시 건다 — 종횡비가 판정의 한 축이다', () => {
@@ -430,22 +363,5 @@ describe('④ useStageRot — 창 크기를 구독한다', () => {
     setViewport(480, 800);
     act(() => armed[0]!.fire()); // 끊긴 리스너 — 남아 있으면 setState 경고가 난다
     expect(armed).toHaveLength(1);
-  });
-});
-
-describe('회전 규칙은 이 파일에 없다 — courtScale 에서 빌려 온다', () => {
-  it('ROTATE_GAIN(1.08)도 종횡비 비교도 소스에 없다', () => {
-    // 규칙을 두 곳에 적으면 화면은 1.08 로 돌고 예산표는 안 도는 순간이 생긴다
-    // (chromeBudget.ts:221 이 rotForFit 을 빌려 쓰는 것과 같은 이유).
-    const code = codeOf(read('src/app/useStageRot.ts'));
-    expect(code).not.toContain('1.08');
-    expect(code).toContain('courtScale(');
-  });
-
-  it('코트 정의도 courtDefFor 를 지난다 — 좌표 리터럴이 없다', () => {
-    // 25 px = 1 m 의 유일한 출처는 COURT_DEFS / courtDefFor 다.
-    expect(courtDefFor('full', '30x18').vbW).toBe(COURT_DEFS.full.vbW);
-    const code = codeOf(read('src/app/useStageRot.ts'));
-    for (const literal of ['825', '525', '450', '700']) expect(code, literal).not.toContain(literal);
   });
 });

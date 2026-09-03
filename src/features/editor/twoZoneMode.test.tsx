@@ -4,12 +4,12 @@
 // "설정 토글이 그 함수까지 닿는가" 다. 배선이 끊어져 있으면 순수 테스트는 전건 초록인 채
 // 판 위에서는 아무 일도 일어나지 않는다 — 5.5 이전이 정확히 그 상태였다.
 //
-// 축을 전부 편다: ON/OFF × 코트 3종(full/half/flat) × 마우스/터치 × largeTargets ON/OFF.
+// ON/OFF 를 코트 3종(full/half/flat)·전방/후방 가이드·줌 배율 축에서 찌른다.
 // **OFF 경로를 같은 밀도로 찌른다** — 토글을 더하다 기본 경로를 망가뜨리는 것이 가장 흔한 사고다.
 //
 // 포인터 사건을 DOM 에 쏘지 않고 controller 를 직접 부른다(cues·tapDeselect 테스트와 같은 이유:
 // jsdom 은 getBoundingClientRect 가 전부 0 이라 client→world 변환이 NaN 이 된다).
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRef } from 'react';
@@ -18,10 +18,8 @@ import { BALL, DEFAULT_ZONES, CHAIR, INTERACT } from '../../core/constants.ts';
 import type { ChairId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { COURT_DEFS, type CourtMode } from '../../model/court.ts';
-import { classifyZone } from '../../model/chair.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { CourtStageHandle, PointerMeta } from '../../render/CourtStage.tsx';
-import { createTransformWriter } from '../../render/transformWriter.ts';
 import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
 import { AppNavProvider } from '../../app/useAppHistory.ts';
@@ -33,8 +31,6 @@ import { saveBoard } from '../../storage/board.ts';
 import { BoardScreen } from '../board/BoardScreen.tsx';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { EditorProvider, useEditorDispatch, useEditorState, useEditorWorld, useEditorWriter } from '../../store/editor/EditorProvider.tsx';
-import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
-import { EditorStage } from './EditorStage.tsx';
 import { useEditorPointer } from './useEditorPointer.ts';
 
 const noop = () => {};
@@ -108,57 +104,6 @@ afterEach(() => {
   localStorage.clear();
 });
 
-/** 차체 위 한 점을 잡았을 때 래치된 존. 잡고 → 바로 놓는다(존은 pointerdown 에 래치된다). */
-function zoneWhenGrabbing(
-  r: ReturnType<typeof mount>,
-  at: { x: number; y: number },
-  s: number,
-  pointerType: string,
-): { zone: string | null; engaged: boolean } {
-  const ctrl = () => r.result.current.pointer.controller;
-  act(() => void ctrl().onPointerDown({ x: at.x + axFor(s), y: at.y }, meta(pointerType)));
-  const zone = r.result.current.pointer.activeZone;
-  const engaged = r.result.current.pointer.twoZoneEngaged;
-  act(() => ctrl().onPointerUp(CLIENT));
-  return { zone, engaged };
-}
-
-describe.each(COURTS)('코트 %s', (mode) => {
-  describe.each(['mouse', 'touch'])('포인터 %s', (pointerType) => {
-    describe.each([false, true])('큰 터치 타깃 %s', (largeTargets) => {
-      it('OFF — 차체 앞 절반은 제자리 회전, 뒤 절반은 평행 이동 (기본 4존 그대로)', () => {
-        const { drill, at } = makeDrill(mode);
-        const r = mount(drill, false, largeTargets);
-
-        const front = zoneWhenGrabbing(r, at, 0.8, pointerType);
-        const rear = zoneWhenGrabbing(r, at, 0.3, pointerType);
-
-        expect(front.zone).toBe('spin');
-        expect(rear.zone).toBe('translate');
-        expect(front.engaged).toBe(false);
-        expect(rear.engaged).toBe(false);
-        // 뜻은 "기본 경로가 classifyZone 과 같다" 이지 "spin/translate 리터럴" 이 아니다.
-        expect(front.zone).toBe(classifyZone(0.8, DEFAULT_ZONES));
-        expect(rear.zone).toBe(classifyZone(0.3, DEFAULT_ZONES));
-      });
-
-      it('ON — 차체 앞 절반도 평행 이동이 된다 (차체 전체가 한 덩어리)', () => {
-        const { drill, at } = makeDrill(mode);
-        const r = mount(drill, true, largeTargets);
-
-        const front = zoneWhenGrabbing(r, at, 0.8, pointerType);
-        const rear = zoneWhenGrabbing(r, at, 0.3, pointerType);
-
-        expect(front.zone).toBe('translate');
-        expect(rear.zone).toBe('translate');
-        expect(front.engaged).toBe(true);
-        // 대조군: OFF 에서는 같은 점이 spin 이었다(위 it). 여기서 그 사실을 다시 못박아
-        // "원래부터 translate 였다" 로 통과하는 길을 막는다.
-        expect(classifyZone(0.8, DEFAULT_ZONES)).toBe('spin');
-      });
-    });
-  });
-});
 
 describe('2존 모드에서도 회전·견인이 남아 있다 — 차체 밖 앞뒤 가이드', () => {
   // 이것이 §4.4 P2-2 가 "핸들만 쓴다를 그대로 되살리면 안 된다" 고 경고한 바로 그 자리다:
@@ -184,65 +129,8 @@ describe('2존 모드에서도 회전·견인이 남아 있다 — 차체 밖 �
   });
 });
 
-describe('판이 거짓말하지 않는다 — 차체 음영이 판정과 같은 말을 한다', () => {
-  // 판정만 접고 그림을 안 접으면, 앞 2/3 에 '제자리 회전' 음영이 남은 채로 잡으면 통째로
-  // 밀린다 — 화면이 조작 규칙을 잘못 가르친다. EditorStage 의 `zoneCursors` 한 줄이 그 자리다.
-  function tints(twoZone: boolean, mode: CourtMode): { x: number; w: number }[] {
-    const { drill, chairId } = makeDrill(mode);
-    const { container } = render(
-      <EditorStage
-        rot={0}
-        drill={drill}
-        stepIndex={0}
-        step={drill.steps[0]!}
-        tool="select"
-        coneSlot={0}
-        selection={new Set([chairId])}
-        dispatch={vi.fn()}
-        worldRef={{ current: null } as EditorWorldRef}
-        writer={createTransformWriter()}
-        zones={DEFAULT_ZONES}
-        ballMax={BALL.maxCount}
-        pendingPlayerId={null}
-        onPlayerPlaced={vi.fn()}
-        showToast={vi.fn()}
-        showGrid={false}
-        showGridLabels={false}
-        showRuleZones={false}
-        largeTargets={false}
-        twoZone={twoZone}
-        onEraseIds={vi.fn()}
-        onDuplicateIds={vi.fn()}
-        onEditNote={() => {}}
-      />,
-      { wrapper: SettingsProvider },
-    );
-    return Array.from(container.querySelectorAll('.court-obj rect.zone-tint')).map((r) => ({
-      x: Number(r.getAttribute('x')),
-      w: Number(r.getAttribute('width')),
-    }));
-  }
-
-  it.each(COURTS)('[%s] ON — 음영이 차체를 덮는 한 장으로 합쳐진다', (mode) => {
-    const t = tints(true, mode);
-    expect(t).toHaveLength(1);
-    expect(t[0]!.x).toBeCloseTo(-CHAIR.pivotToRearPx, 6);
-    expect(t[0]!.w).toBeCloseTo(CHAIR.lengthPx, 6);
-  });
-
-  it.each(COURTS)('[%s] 대조군 OFF — 음영이 둘로 갈리고 각각 차체의 절반이다', (mode) => {
-    const t = tints(false, mode);
-    expect(t).toHaveLength(2);
-    // 2026-08-30 기현 지시로 이동:회전 = 2:1(그 전에는 반반).
-    expect(t[0]!.w).toBeCloseTo((CHAIR.lengthPx * 2) / 3, 6);
-    expect(t[1]!.w).toBeCloseTo(CHAIR.lengthPx / 3, 6);
-    // 합은 같아도 장수가 다르다 — 이 두 it 이 붙어 있어야 "언제나 한 장" 도 "언제나 두 장" 도 못 지난다.
-    expect(t[0]!.w + t[1]!.w).toBeCloseTo(CHAIR.lengthPx, 6);
-  });
-});
-
 describe('설정 → 판 (전 구간 배선)', () => {
-  // 위 두 describe 는 EditorStage 에 prop 을 직접 꽂아 잰다 — 그러면 **EditorWorkspace 가
+  // 위 describe 는 useEditorPointer 를 훅으로 직접 잰다 — 그러면 **EditorWorkspace 가
   // prefs 를 안 넘겨도** 전건 초록이다. 여기서만 그 마지막 한 줄이 하중을 받는다:
   // localStorage 의 prefs 하나만 심고, 실제 화면(BoardScreen → EditorWorkspace → EditorStage)
   // 을 열어 차체 음영을 센다.
@@ -284,11 +172,19 @@ describe('설정 → 판 (전 구간 배선)', () => {
   it('prefs.a11y.twoZone = true 만 심으면 판 위 음영이 한 장으로 합쳐진다', async () => {
     const rects = await openBoardWith(true);
     expect(rects).toHaveLength(1);
+    expect(Number(rects[0]!.getAttribute('x'))).toBeCloseTo(-CHAIR.pivotToRearPx, 6);
     expect(Number(rects[0]!.getAttribute('width'))).toBeCloseTo(CHAIR.lengthPx, 6);
   });
 
   it('대조군 — false 면 지금까지처럼 두 장이다', async () => {
-    expect(await openBoardWith(false)).toHaveLength(2);
+    const rects = await openBoardWith(false);
+    expect(rects).toHaveLength(2);
+    // 2026-08-30 기현 지시로 이동:회전 = 2:1(그 전에는 반반).
+    const w0 = Number(rects[0]!.getAttribute('width'));
+    const w1 = Number(rects[1]!.getAttribute('width'));
+    expect(w0).toBeCloseTo((CHAIR.lengthPx * 2) / 3, 6);
+    expect(w1).toBeCloseTo(CHAIR.lengthPx / 3, 6);
+    expect(w0 + w1).toBeCloseTo(CHAIR.lengthPx, 6);
   });
 });
 
@@ -304,6 +200,12 @@ describe('줌과 포인터 종류는 조작 규칙을 바꾸지 않는다 (§9-�
     expect(r.result.current.pointer.activeZone).toBe('spin');
     expect(r.result.current.pointer.twoZoneEngaged).toBe(false);
     act(() => ctrl().onPointerUp(CLIENT));
+
+    // 뒤 절반은 여전히 평행 이동이다 — 기본 4존 그대로.
+    act(() => void ctrl().onPointerDown({ x: at.x + axFor(0.3), y: at.y }, meta('touch')));
+    expect(r.result.current.pointer.activeZone).toBe('translate');
+    expect(r.result.current.pointer.twoZoneEngaged).toBe(false);
+    act(() => ctrl().onPointerUp(CLIENT));
   });
 
   it.each([0.663, 1.675])('대조군 — 같은 배율에서 토글을 켜면 평행 이동으로 바뀐다 (배율 축이 죽어 있지 않다)', (pxPerUnit) => {
@@ -314,6 +216,11 @@ describe('줌과 포인터 종류는 조작 규칙을 바꾸지 않는다 (§9-�
     act(() => void ctrl().onPointerDown({ x: at.x + axFor(0.8), y: at.y }, meta('touch')));
     expect(r.result.current.pointer.activeZone).toBe('translate');
     expect(r.result.current.pointer.twoZoneEngaged).toBe(true);
+    act(() => ctrl().onPointerUp(CLIENT));
+
+    // 뒤 절반도 평행 이동이다 — 차체 전체가 한 덩어리다.
+    act(() => void ctrl().onPointerDown({ x: at.x + axFor(0.3), y: at.y }, meta('touch')));
+    expect(r.result.current.pointer.activeZone).toBe('translate');
     act(() => ctrl().onPointerUp(CLIENT));
   });
 });

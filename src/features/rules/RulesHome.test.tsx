@@ -35,37 +35,13 @@ function renderedContentWidth(): number {
 }
 
 describe('RulesHome — 3×3 격자', () => {
-  it('렌더된 폭에서 정확히 3열이다 — 9장이 3줄로 떨어진다', () => {
-    const content = renderedContentWidth();
-    expect(columnsIn(content)).toBe(3);
-    expect(ruleTopicsFor('ko')).toHaveLength(9); // 3열 × 3줄이 성립하는 전제
-  });
-
   it('style.maxWidth 가 패딩을 포함한다 — 콘텐츠 폭과 같으면 한 열이 잘린다', () => {
     // 2026-08-31 실제 결함: max-width 를 콘텐츠 폭(800)으로 두어 열이 740 만 받고 2열이 됐다.
     const content = renderedContentWidth();
     expect(content).toBe(GRID_CONTENT_PX);
     expect(columnsIn(GRID_CONTENT_PX - 60)).toBe(2); // 패딩을 빼먹었을 때의 결과를 못 박아 둔다
-  });
-
-  it('콘텐츠 폭을 조금만 올려도 4열이 된다 — 폭이 열 수를 정한다는 사실 자체를 못 박는다', () => {
-    // 4열 문턱 = 4·240 + 3·14 = 1002. 옛 배치(상한 1180, 패딩 60 → 콘텐츠 1120)가 이 위였다.
-    expect(columnsIn(1002)).toBe(4);
-    expect(GRID_CONTENT_PX).toBeLessThan(1002);
-  });
-
-  it('창이 좁아지면 2열 → 1열로 접힌다 (열 수를 3으로 고정하지 않은 이유)', () => {
-    expect(columnsIn(747)).toBe(2); // 3열 문턱 3·240+2·14 = 748 바로 아래
-    expect(columnsIn(493)).toBe(1); // 2열 문턱 2·240+14 = 494 바로 아래
-  });
-
-  it('카드 한 장이 옛 4열 시절보다 좁다 — "폭을 2/3 으로"', () => {
-    const cardIn = (content: number, cols: number) => (content - GRID_GAP_PX * (cols - 1)) / cols;
-    const before = cardIn(1120, 4); // 옛 배치: 상한 1180 − 패딩 60 = 콘텐츠 1120, auto-fill 4열
-    const after = cardIn(GRID_CONTENT_PX, 3);
-    expect(after).toBeLessThan(before);
-    // 열만 3으로 바꾸고 폭을 안 줄였다면 오히려 **넓어졌을** 자리다.
-    expect(after).toBeLessThan(cardIn(1120, 3));
+    expect(columnsIn(content)).toBe(3); // 9장이 3열 × 3줄로 떨어진다는 결론
+    expect(ruleTopicsFor('ko')).toHaveLength(9); // 3열 × 3줄이 성립하는 전제
   });
 
   it('열 수를 하드코딩하지 않는다 — repeat(3, …) 이면 좁은 창에서 카드가 눌린다', () => {

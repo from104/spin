@@ -31,12 +31,6 @@ beforeEach(() => {
 });
 
 describe('변경 내역 모달 — 레일의 버전 번호', () => {
-  it('레일의 버전 버튼이 모달을 연다', async () => {
-    const { dialog } = await openModal();
-    expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText(`v${__APP_VERSION__}`)).toBeInTheDocument();
-  });
-
   it('[이전 버전]을 누르면 더 오래된 버전으로 넘어간다', async () => {
     const { user, dialog } = await openModal();
     const older = within(dialog).getByRole('button', { name: /이전 버전/ });

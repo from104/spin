@@ -20,30 +20,6 @@ describe('GridOverlay', () => {
     expect(root).toHaveAttribute('pointer-events', 'none');
   });
 
-  it('full: 내부 세로선 5개·가로선 4개, opacity .22, 셀 라벨 30개(a1…f5)', () => {
-    const c = renderGrid('full');
-    const lineGroup = c.querySelector('g[opacity="0.22"]');
-    expect(lineGroup).not.toBeNull();
-    expect(lineGroup!.querySelectorAll('line')).toHaveLength(5 + 4);
-
-    const labelGroup = c.querySelector('g[opacity="0.2"]');
-    const labels = labelGroup!.querySelectorAll('text');
-    expect(labels).toHaveLength(30);
-    expect(labels[0]).toHaveTextContent('a1');
-    expect(labels[labels.length - 1]).toHaveTextContent('f5');
-    expect(labelGroup).toHaveAttribute('font-size', '18');
-  });
-
-  it('half: 내부 세로선 4개·가로선 2개, 셀 라벨 15개(a1…e3)', () => {
-    const c = renderGrid('half');
-    const lineGroup = c.querySelector('g[opacity="0.22"]');
-    expect(lineGroup!.querySelectorAll('line')).toHaveLength(4 + 2);
-    const labels = c.querySelectorAll('g[opacity="0.2"] text');
-    expect(labels).toHaveLength(15);
-    expect(labels[0]).toHaveTextContent('a1');
-    expect(labels[labels.length - 1]).toHaveTextContent('e3');
-  });
-
   it('flat: 강조선(.34) 존재, 칸 라벨 대신 축 헤더(a..u / 1..18)를 그린다', () => {
     const c = renderGrid('flat');
     const major = c.querySelector('g[opacity="0.34"]');

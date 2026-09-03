@@ -37,16 +37,6 @@ describe('LibraryProvider — 4상태', () => {
     });
   });
 
-  it('idle → loading → ready 로 전이하고 drills/sessions 를 채운다', async () => {
-    const { result } = renderHook(() => useLibrary(), { wrapper });
-    // 마운트 직후 effect 가 아직 안 돈 렌더에서는 idle 이거나 이미 loading 일 수 있다 —
-    // 결정적으로 관찰 가능한 것은 최종적으로 ready 에 도달한다는 사실이다.
-    await waitFor(() => expect(result.current.status).toBe('ready'));
-    expect(Array.isArray(result.current.drills)).toBe(true);
-    expect(Array.isArray(result.current.sessions)).toBe(true);
-    expect(result.current.error).toBeNull();
-  });
-
   it('resolveDrillRepo 가 실패하면 error 상태로 전이하고 message 를 담는다', async () => {
     vi.mocked(resolveDrillRepo).mockRejectedValueOnce(new Error('강제 실패'));
     const { result } = renderHook(() => useLibrary(), { wrapper });
@@ -57,7 +47,12 @@ describe('LibraryProvider — 4상태', () => {
 
   it('createDrill 후 목록에 반영되고(refresh), deleteDrill 로 사라진다', async () => {
     const { result } = renderHook(() => useLibrary(), { wrapper });
+    // 마운트 직후 effect 가 아직 안 돈 렌더에서는 idle 이거나 이미 loading 일 수 있다 —
+    // 결정적으로 관찰 가능한 것은 최종적으로 ready 에 도달한다는 사실이다.
     await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(Array.isArray(result.current.drills)).toBe(true);
+    expect(Array.isArray(result.current.sessions)).toBe(true);
+    expect(result.current.error).toBeNull();
     const before = result.current.drills.length;
 
     let created: Awaited<ReturnType<typeof result.current.createDrill>>;

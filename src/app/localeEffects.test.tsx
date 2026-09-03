@@ -18,15 +18,15 @@ beforeEach(() => {
 describe('LocaleEffects — <html lang>', () => {
   it("'auto' 는 테스트 환경 고정값(ko-KR, test/setup.ts)대로 lang='ko' 를 심는다", () => {
     seed('auto');
-    render(
+    const { unmount } = render(
       <SettingsProvider>
         <LocaleEffects />
       </SettingsProvider>,
     );
     expect(document.documentElement.lang).toBe('ko');
-  });
+    unmount();
 
-  it("명시 값 'ja' 는 navigator 와 무관하게 그대로 lang='ja' 를 심는다", () => {
+    // 명시 값('ja')은 navigator 와 무관하게 그대로 심긴다 — auto 만 환경값을 본다.
     seed('ja');
     render(
       <SettingsProvider>

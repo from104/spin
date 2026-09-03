@@ -118,14 +118,13 @@ describe('컨트롤러가 pan 을 판정하면 끌기가 판을 민다', () => {
     // 판을 미는 상한은 `CHAIR.hullRadiusPx` 만큼의 여백이다(useStageMetrics) — 실측으로
     // 32.5 → 27.8567766 이 됐다. 상수를 읽어 두면 다음 실측에서 또 안 깨진다.
     expect(viewOf(svg)[0]).toBeCloseTo(-CHAIR.hullRadiusPx, 6);
-  });
 
-  it('세로도 같이 민다 — 두 축이 각각 걸린다', () => {
-    const { container } = mount(makeController({ pan: true }));
-    const svg = stubSvgLayout(container);
-    act(() => pointer(svg, 'pointerdown', 400, 250));
-    act(() => pointer(svg, 'pointermove', 400, 270));
-    const [x, y] = viewOf(svg);
+    // 세로도 같이 민다 — 두 축이 각각 걸린다(같은 mount·끌기 설정, 축만 다르다).
+    const vert = mount(makeController({ pan: true }));
+    const svgV = stubSvgLayout(vert.container);
+    act(() => pointer(svgV, 'pointerdown', 400, 250));
+    act(() => pointer(svgV, 'pointermove', 400, 270));
+    const [x, y] = viewOf(svgV);
     expect(y).toBeCloseTo(-20, 6);
     expect(x).toBe(0); // 안 민 축은 그대로다
   });

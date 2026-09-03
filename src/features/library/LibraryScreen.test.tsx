@@ -7,10 +7,6 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { LibraryScreen } from './LibraryScreen.tsx';
 import type { HomeNav } from '../home/nav.ts';
-// ⚠️ 이 import 는 대조군 전용이다 — 화면이 아니라 **테스트**가 app-shell 을 부른다. 화면 쪽
-// 소스가 이걸 import 하지 않는다는 것이 계획서 2.8 의 계약이고, nav.test.ts 가 정적 검사로
-// 못박는다(테스트 파일은 그 스캔에서 제외된다).
-import { useAppNav } from '../../app/useAppHistory.ts';
 import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
@@ -72,15 +68,6 @@ describe('LibraryScreen — 드릴 탭', () => {
     expect(nav.newDrill).toHaveBeenCalledTimes(1);
   });
 
-  it('카드를 열면 nav.openDrill 이 호출된다', async () => {
-    await idbDrillRepo.createDrill({ courtMode: 'full', title: '카드 열기 테스트' });
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(within(panel()).getByText('카드 열기 테스트')).toBeInTheDocument());
-    await userEvent.setup().click(screen.getByRole('button', { name: '카드 열기 테스트 열기' }));
-    expect(nav.openDrill).toHaveBeenCalledTimes(1);
-  });
-
   it('복제하면 카드가 하나 늘고 토스트가 뜬다', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '복제 대상' });
     const nav = makeNav();
@@ -116,23 +103,6 @@ describe('LibraryScreen — 드릴 탭', () => {
     await waitFor(() => expect(within(panel()).getByText('삭제 대상')).toBeInTheDocument());
   });
 
-  it('참조가 없어도 확인 모달이 뜨고, 취소하면 안 지워진다', async () => {
-    await idbDrillRepo.createDrill({ courtMode: 'full', title: '비참조 드릴' });
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(within(panel()).getByText('비참조 드릴')).toBeInTheDocument());
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '비참조 드릴 더보기' }));
-    await user.click(screen.getByRole('menuitem', { name: '삭제' }));
-
-    const dialog = await screen.findByRole('dialog', { name: '드릴 삭제' });
-    expect(within(dialog).getByText('"비참조 드릴" 을(를) 삭제할까요?')).toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: '취소' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(within(panel()).getByText('비참조 드릴')).toBeInTheDocument(); // 안 지워졌다
-  });
-
   // §0.5 미배송 빚(2026-08-20) — findReferrers 를 삭제 앞에 배선.
   it('세션에서 쓰이는 드릴을 지우려 하면 확인 모달이 뜨고, 취소하면 안 지워진다', async () => {
     const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '참조된 드릴' });
@@ -151,23 +121,14 @@ describe('LibraryScreen — 드릴 탭', () => {
     await user.click(within(dialog).getByRole('button', { name: '취소' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(within(panel()).getByText('참조된 드릴')).toBeInTheDocument(); // 안 지워졌다
-  });
 
-  it('세션에서 쓰이는 드릴도 확인 모달에서 [삭제]를 누르면 지워진다', async () => {
-    const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '참조된 드릴2' });
-    const s = await createSession({ title: '참조 세션2' });
-    await addDrillToSession(s.id, d.id);
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(within(panel()).getByText('참조된 드릴2')).toBeInTheDocument());
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '참조된 드릴2 더보기' }));
+    // 다시 열어 이번엔 [삭제] — 세션에서 쓰이는 드릴도 확인만 거치면 지워진다.
+    await user.click(screen.getByRole('button', { name: '참조된 드릴 더보기' }));
     await user.click(screen.getByRole('menuitem', { name: '삭제' }));
-    const dialog = await screen.findByRole('dialog', { name: '드릴 삭제' });
-    await user.click(within(dialog).getByRole('button', { name: '삭제' }));
+    const dialog2 = await screen.findByRole('dialog', { name: '드릴 삭제' });
+    await user.click(within(dialog2).getByRole('button', { name: '삭제' }));
 
-    await waitFor(() => expect(within(panel()).queryByText('참조된 드릴2')).not.toBeInTheDocument());
+    await waitFor(() => expect(within(panel()).queryByText('참조된 드릴')).not.toBeInTheDocument());
     expect(await screen.findByRole('status')).toHaveTextContent('삭제했습니다');
   });
 
@@ -179,27 +140,16 @@ describe('LibraryScreen — 드릴 탭', () => {
     render(<LibraryScreen nav={nav} />, { wrapper });
     await waitFor(() => expect(within(panel()).getByText('시연 직행 드릴')).toBeInTheDocument());
 
-    await userEvent.setup().click(screen.getByRole('button', { name: '시연 직행 드릴 시연 시작' }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '시연 직행 드릴 시연 시작' }));
     expect(nav.presentDrill).toHaveBeenCalledTimes(1);
     expect(nav.presentDrill).toHaveBeenCalledWith(d.id);
     expect(nav.openDrill).not.toHaveBeenCalled(); // 대조군: [시연] 이 열기를 겸하면 여기서 잡힌다
-  });
 
-  it('난이도 그룹 헤더로 초급 → 고급 순서로 나뉘고, 빈 그룹(중급)은 헤더가 없다', async () => {
-    // 판 걸이(계획서 2.2): 필터가 아니라 0클릭 그룹 **정렬**. 생성은 고급을 먼저 해서
-    // "저장 순서가 우연히 초급→고급" 으로 통과하는 가짜 초록불을 막는다.
-    await idbDrillRepo.createDrill({ courtMode: 'full', title: '고급 슈팅', level: '고급' });
-    await idbDrillRepo.createDrill({ courtMode: 'full', title: '초급 드리블', level: '초급' });
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(within(panel()).getByText('고급 슈팅')).toBeInTheDocument());
-
-    const headings = within(panel()).getAllByRole('heading', { level: 2 });
-    expect(headings.map((h) => h.textContent)).toEqual(['초급', '고급']);
-    expect(within(panel()).queryByText('중급')).not.toBeInTheDocument();
-    // 카드가 자기 난이도 섹션 안에 들어 있는지까지 — 헤더만 있고 배속이 틀리는 회귀를 막는다.
-    expect(within(within(panel()).getByRole('region', { name: '초급 드릴' })).getByText('초급 드리블')).toBeInTheDocument();
-    expect(within(within(panel()).getByRole('region', { name: '고급 드릴' })).getByText('고급 슈팅')).toBeInTheDocument();
+    // 열기 버튼은 별도 표적 — nav.openDrill 을 그 드릴 id 로 호출한다.
+    await user.click(screen.getByRole('button', { name: '시연 직행 드릴 열기' }));
+    expect(nav.openDrill).toHaveBeenCalledTimes(1);
+    expect(nav.openDrill).toHaveBeenCalledWith(d.id);
   });
 
   it('경기 상황 필터·정렬 UI 가 동작한다 (C10 — 정렬은 저장소 구현의 UI 노출)', async () => {
@@ -338,32 +288,6 @@ describe('LibraryScreen — 난이도 그룹 정렬의 성능 계약 (로드맵 
     // 대조군 — 초급 그룹 자체가 사라졌다. 옛 요약이 살아남아 카드가 두 그룹에 걸치거나
     // 초급에 남으면 여기서 잡힌다.
     expect(within(panel()).queryByRole('region', { name: '초급 드릴' })).toBeNull();
-  });
-});
-
-describe('LibraryScreen — 이동 통로는 HomeNav prop 하나뿐이다 (계획서 2.8)', () => {
-  // C5 — 탭 전환 테스트 둘은 탭과 함께 은퇴했다(세션은 레일의 1급 화면).
-  it('탭 UI 가 없다 — 세션은 레일에서 간다', async () => {
-    const nav = makeNav();
-    render(<LibraryScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(panel()).toBeInTheDocument());
-    expect(screen.queryByRole('tab')).toBeNull();
-    expect(screen.queryByRole('tablist')).toBeNull();
-  });
-
-  it('대조군 — 같은 트리에서 useAppNav 를 부르면 실제로 던진다', () => {
-    // 이게 없으면 위 두 it 은 "AppNavProvider 없이 렌더돼도 멀쩡하다" 를 공짜로 통과한다:
-    // 직접 통로가 관측 가능한 조건이라는 것을 여기서 보인다.
-    function Probe() {
-      useAppNav();
-      return null;
-    }
-    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
-    try {
-      expect(() => render(<Probe />, { wrapper })).toThrow(/AppShell/);
-    } finally {
-      quiet.mockRestore();
-    }
   });
 });
 

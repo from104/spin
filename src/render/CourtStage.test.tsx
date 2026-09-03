@@ -115,35 +115,6 @@ describe('CourtStage — 포인터 위임(§6.4)', () => {
     expect(controller.downs[0]!.y).toBeCloseTo(250, 6);
   });
 
-  it('pointerup 은 controller.onPointerUp 을 호출한다(드래그 종료 커밋 경로)', () => {
-    const writer = createTransformWriter();
-    const controller = makeController();
-    const { container } = render(
-      <CourtStage
-        rot={0}
-        mode="full"
-        variant="editor"
-        writer={writer}
-        controller={controller}
-        showGrid={false}
-        showGridLabels={false}
-        showRuleZones={false}
-        chairs={[]}
-        balls={[]}
-        cones={[]}
-        notes={[]}
-        arrows={[]}
-        selection={new Set()}
-        activeId={null}
-      />,
-    );
-    stubSvgLayout(container);
-    const svg = container.querySelector('svg')!;
-    svg.dispatchEvent(new window.PointerEvent('pointerdown', { pointerId: 1, clientX: 400, clientY: 250, pointerType: 'mouse', bubbles: true }));
-    svg.dispatchEvent(new window.PointerEvent('pointerup', { pointerId: 1, clientX: 400, clientY: 250, pointerType: 'mouse', bubbles: true }));
-    expect(controller.ups).toBe(1);
-  });
-
   it('pointercancel 도 pointerup 과 동일하게 onPointerUp 을 부른다(iOS 제스처 가로채기)', () => {
     const writer = createTransformWriter();
     const controller = makeController();

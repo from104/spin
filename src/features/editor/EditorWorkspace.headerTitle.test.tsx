@@ -72,13 +72,10 @@ async function openDrill() {
 const inHeader = () => within(document.querySelector('header') as HTMLElement);
 
 describe('헤더 드릴 이름 — 실제 화면 배선(창 폭과 무관한 유일한 자리)', () => {
-  it('제목이 클릭-편집 버튼으로 뜬다 — 이름이 aria 에 실린다', async () => {
-    await openDrill();
-    expect(inHeader().getByRole('button', { name: /^드릴 이름: .+\. 눌러서 수정$/ })).toBeInTheDocument();
-  });
-
   it('클릭 → 입력 → blur 로 META_SET 이 나가 자동저장까지 간다', async () => {
     const { user, drillId, view } = await openDrill();
+    // 제목이 클릭-편집 버튼으로 뜬다 — 이름이 aria 에 실린다.
+    expect(inHeader().getByRole('button', { name: /^드릴 이름: .+\. 눌러서 수정$/ })).toBeInTheDocument();
     await user.click(inHeader().getByRole('button', { name: /^드릴 이름/ }));
     const input = inHeader().getByRole('textbox', { name: '드릴 이름' });
     await user.clear(input);

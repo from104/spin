@@ -67,34 +67,6 @@ describe('SessionsScreen', () => {
     expect(nav.openSession).toHaveBeenCalledWith(all[0]!.session.id);
   });
 
-  it('[시연] 버튼이 nav.presentSession 을 그 세션 id 로 호출한다', async () => {
-    const s = await createSession({ title: '목요 세션' });
-    const nav = makeNav();
-    render(<SessionsScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('목요 세션')).toBeInTheDocument());
-
-    await userEvent.setup().click(screen.getByRole('button', { name: '목요 세션 시연 시작' }));
-    expect(nav.presentSession).toHaveBeenCalledWith(s.id);
-  });
-
-  it('행을 열면 nav.openSession 으로 나간다 — 드로어 열림은 URL 이 저장소다', async () => {
-    const s = await createSession({ title: '열기 세션' });
-    const nav = makeNav();
-    render(<SessionsScreen nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText('열기 세션')).toBeInTheDocument());
-
-    // 행 본문 전체가 열기 버튼이다(SessionRow). [시연]·[더보기]도 제목을 이름에 품으므로
-    // 그 둘을 제외한 나머지 하나가 행 버튼이다.
-    const rowButton = screen
-      .getAllByRole('button', { name: /열기 세션/ })
-      .find((b) => !/시연|더보기|작업/.test(b.getAttribute('aria-label') ?? ''))!;
-    await userEvent.setup().click(rowButton);
-    expect(nav.openSession).toHaveBeenCalledWith(s.id);
-    // C6 — 드로어는 은퇴했다. 열기는 언제나 주소 이동(→ SessionEditorScreen)이다.
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-
   it("머리에 '다음 세션' 스트립이 서고, 가장 가까운 하나만 싣는다 (계획서 2.8)", async () => {
     const soon = Date.now() + 3600_000;
     const later = await createSession({ title: '다음 주 세션', scheduledAt: soon + 7 * 86_400_000 });

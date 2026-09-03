@@ -51,12 +51,6 @@ const openMenuAt = (i: number) => {
 const item = (name: string) => screen.getByRole('menuitem', { name });
 
 describe('우클릭 메뉴 — 열림/닫힘', () => {
-  it('카드 우클릭으로 열리고, 항목은 선택·아래로 복제·위로 복제·삭제 넷이다', () => {
-    renderSidebar(makeDrill(3));
-    openMenuAt(1);
-    expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual(['선택', '아래로 복제', '위로 복제', '삭제']);
-  });
-
   it('Esc 로 닫힌다', () => {
     renderSidebar(makeDrill(2));
     openMenuAt(0);

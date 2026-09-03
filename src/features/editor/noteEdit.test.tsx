@@ -109,19 +109,15 @@ describe('문 ① 더블클릭', () => {
     fireEvent.pointerDown(el, { pointerId: 1, button: 0, clientX: 40, clientY: 40 });
     fireEvent.pointerUp(el, { pointerId: 1, button: 0, clientX: 40, clientY: 40 });
     expect(onEditNote).not.toHaveBeenCalled();
+    // 빈 코트를 두 번 눌러도 마찬가지다.
+    doubleTap(container.querySelector('svg')!);
+    expect(onEditNote).not.toHaveBeenCalled();
   });
 
   it('배치 도구에서는 안 연다 — 거기서 빠른 두 번은 개체 둘이다', () => {
     const id = newId('nt');
     const { container, onEditNote } = mountStage(makeDrill(id, '앞선 압박'), 'cone');
     doubleTap(container.querySelector(`#obj-${id}`)!);
-    expect(onEditNote).not.toHaveBeenCalled();
-  });
-
-  it('빈 코트를 두 번 눌러도 뜻이 없다', () => {
-    const id = newId('nt');
-    const { container, onEditNote } = mountStage(makeDrill(id));
-    doubleTap(container.querySelector('svg')!);
     expect(onEditNote).not.toHaveBeenCalled();
   });
 });
@@ -166,9 +162,6 @@ describe('문 ② 개체 메뉴 [수정]', () => {
   it('여럿을 골랐으면 안 뜬다 — 다섯 개의 글을 한 칸에 넣을 방법이 없다', () => {
     open({ ids: ['nt_1', 'nt_2'], editable: null });
     expect(screen.queryByRole('menuitem', { name: '수정' })).toBeNull();
-  });
-
-  it('메모가 아니면 안 뜬다', () => {
     open({ ids: ['ch_1'], editable: null });
     expect(screen.queryByRole('menuitem', { name: '수정' })).toBeNull();
   });
@@ -211,10 +204,9 @@ describe('문 ③ 배치 직후', () => {
     // 놓인 그 쪽지여야 한다 — 다른 id 로 열면 방금 놓은 것이 아닌 메모를 고치게 된다.
     const dispatched = dispatch.mock.calls.find((c) => c[0].type === 'NOTE_SET')![0] as { note: { id: NoteId } };
     expect(onNotePlaced).toHaveBeenCalledWith(dispatched.note.id);
-  });
 
-  it('공·콘을 놓을 때는 안 연다', () => {
-    const onNotePlaced = vi.fn();
+    // 공·콘을 놓을 때는 안 연다.
+    const onBallPlaced = vi.fn();
     placeObject(
       'ball',
       NOTE_AT,
@@ -227,11 +219,11 @@ describe('문 ③ 배치 직후', () => {
         dispatch: vi.fn(),
         showToast: vi.fn(),
         onPlayerPlaced: vi.fn(),
-        onNotePlaced,
+        onNotePlaced: onBallPlaced,
         locale: 'ko',
       },
     );
-    expect(onNotePlaced).not.toHaveBeenCalled();
+    expect(onBallPlaced).not.toHaveBeenCalled();
   });
 });
 
@@ -251,11 +243,6 @@ describe('모달 — 줄바꿈과 취소', () => {
     fireEvent.change(box, { target: { value: '앞선 압박\n오른쪽 전환' } });
     fireEvent.click(screen.getByRole('button', { name: '확인' }));
     expect(onSave).toHaveBeenCalledWith('앞선 압박\n오른쪽 전환', NOTE_DEFAULT_SIZE_PX, '#ffffff');
-  });
-
-  it('열 때의 글이 이미 들어 있다 — 고치기지 새로 쓰기가 아니다', () => {
-    const { box } = open({ initialText: '앞선 압박' });
-    expect(box.value).toBe('앞선 압박');
   });
 
   it('맨 Enter 는 저장이 아니다 — 줄바꿈이어야 한다', () => {
@@ -282,7 +269,9 @@ describe('모달 — 줄바꿈과 취소', () => {
   });
 
   it('안 만지면 초깃값 그대로 저장된다', () => {
-    const { onSave, box } = open({ initialSize: 11, initialColor: '#ef4444' });
+    const { onSave, box } = open({ initialText: '앞선 압박', initialSize: 11, initialColor: '#ef4444' });
+    // 열 때의 글이 이미 들어 있다 — 고치기지 새로 쓰기가 아니다.
+    expect(box.value).toBe('앞선 압박');
     fireEvent.change(box, { target: { value: '가' } });
     fireEvent.click(screen.getByRole('button', { name: '확인' }));
     expect(onSave).toHaveBeenCalledWith('가', 11, '#ef4444');
@@ -292,20 +281,6 @@ describe('모달 — 줄바꿈과 취소', () => {
     const { onSave, box } = open();
     fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true, isComposing: true });
     expect(onSave).not.toHaveBeenCalled();
-  });
-
-  it('제목이 갈린다 — 방금 놓은 쪽지면 "쓰기", 있던 것이면 "수정"', () => {
-    const { unmount } = render(
-      <NoteEditModal open initialText="" initialSize={NOTE_DEFAULT_SIZE_PX} initialColor="#ffffff" fresh onSave={vi.fn()} onCancel={vi.fn()} />,
-      { wrapper: SettingsProvider },
-    );
-    expect(screen.getByRole('dialog')).toHaveAccessibleName('메모 쓰기');
-    unmount();
-    render(
-      <NoteEditModal open initialText="가" initialSize={NOTE_DEFAULT_SIZE_PX} initialColor="#ffffff" fresh={false} onSave={vi.fn()} onCancel={vi.fn()} />,
-      { wrapper: SettingsProvider },
-    );
-    expect(screen.getByRole('dialog')).toHaveAccessibleName('메모 수정');
   });
 
   // 기현 신고 2026-08-17: *"첫 배치 시 모달의 텍스트박스에 포커스가 안 간다"*. 글을 쓰러 여는
