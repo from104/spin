@@ -28,30 +28,33 @@ export interface ChangelogVersion {
 
 const VERSION_HEADING_RE = /^## \[([^\]]+)\](?:\s+(\S+))?\s*$/;
 
-/** `raw`(CHANGELOG.md 전문)에서 `## [version]` 절 하나를 잘라 파싱한다. 없으면 `null`. */
-export function parseChangelogVersion(raw: string, version: string): ChangelogVersion | null {
-  const lines = raw.split('\n');
-  let start = -1;
-  let date: string | null = null;
+/** `raw`(CHANGELOG.md 전문)의 `## [version]` 절 전부를, 파일에 나온 순서(최신이 위) 그대로 판다.
+ *  버전 모달의 좌우 넘기기(2026-09-03, 기현 지시: *"모든 버전이 모달 헤더 양쪽 버튼으로 좌우로
+ *  스크롤 되게"*)가 이 배열 위에서 인덱스만 옮겨 다닌다. */
+export function parseAllChangelogVersions(raw: string): ChangelogVersion[] {
+  // 파일 맨 끝의 `<!-- Links -->` + 참조 링크 각주(`[label]: url`)는 마지막 버전 절 안이 아니라
+  // 문서 전체의 각주다. 이 자르기가 없으면 그 두 줄이 **가장 오래된 버전의 마지막 글머리에**
+  // 이어지는 줄로 붙어 버린다(모든 버전 절이 "다음 헤딩 앞까지" 를 자기 몸통으로 보는데, 파일의
+  // 진짜 끝은 마지막 헤딩의 몸통이 아니라 각주이기 때문 — 2026-09-03 좌우 넘기기를 넣으며 가장
+  // 오래된 버전까지 실제로 넘겨 보다가 발견했다).
+  const allLines = raw.split('\n');
+  const footerAt = allLines.findIndex((l) => l.trimStart().startsWith('<!--'));
+  const lines = footerAt === -1 ? allLines : allLines.slice(0, footerAt);
+  const headings: { index: number; version: string; date: string | null }[] = [];
   for (let i = 0; i < lines.length; i++) {
     const m = VERSION_HEADING_RE.exec(lines[i]!);
-    if (m && m[1] === version) {
-      start = i + 1;
-      date = m[2] ?? null;
-      break;
-    }
-  }
-  if (start === -1) return null;
-
-  let end = lines.length;
-  for (let i = start; i < lines.length; i++) {
-    if (VERSION_HEADING_RE.test(lines[i]!)) {
-      end = i;
-      break;
-    }
+    if (m) headings.push({ index: i, version: m[1]!, date: m[2] ?? null });
   }
 
-  return { version, date, groups: parseGroups(lines.slice(start, end)) };
+  return headings.map(({ index, version, date }, i) => {
+    const end = i + 1 < headings.length ? headings[i + 1]!.index : lines.length;
+    return { version, date, groups: parseGroups(lines.slice(index + 1, end)) };
+  });
+}
+
+/** `raw` 에서 `## [version]` 절 하나만 잘라 파싱한다. 없으면 `null`. */
+export function parseChangelogVersion(raw: string, version: string): ChangelogVersion | null {
+  return parseAllChangelogVersions(raw).find((v) => v.version === version) ?? null;
 }
 
 /** `### 소제목` + `- 글머리`(2단, 연속 줄은 앞 항목에 이어붙임) 만 다룬다 — CHANGELOG.md 가
