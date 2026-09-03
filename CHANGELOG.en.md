@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog], and this project follows [Semantic Versioning].
 
-## [Unreleased]
+## [0.6.2] 2026-09-04
 
 ### Added
 
@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 - Added centered card titles and a [← Back to list] button to the [Rules] header
 - Rewrote the [What is powerchair football?], [The object of the game], and [Players, court, ball, equipment] cards (Korean only for now)
 - Removed the wheelchair equipment diagram from [Players, court, ball, equipment], the wheelchair drawing from the distance diagram, and the pressure panel from the ball diagram
+- Replaced 2 scene examples on the [2-on-1 violation] card
+- Reorganized the foul descriptions on the [Other offenses] card, tidied up its scene examples
 
 ## [0.6.1] 2026-09-02
 
