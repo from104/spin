@@ -893,10 +893,16 @@ describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접
     expect(asideBox, '헤더의 우측 조작부를 못 찾았다 — 선택자가 낡았다').toBeDefined();
     expect(asideBox!.contains(theme), '테마가 우측 조작부 밖이다(왼쪽에 몰려 있다)').toBe(true);
     expect(asideBox!.contains(nav), '이동까지 오른쪽으로 갔다 — 이동은 왼쪽 끝이다').toBe(false);
-    // 버전도 같은 상자다. 그리고 테마는 헤더의 마지막 표적이다.
+    // 버전도 같은 상자다.
     expect(asideBox!.textContent).toMatch(/v\d/);
+    // 🔁 2026-09-03(기현 지시) — 버전 번호가 눌러서 변경 내역을 여는 버튼이 되면서, 헤더의
+    //    마지막 표적이 테마에서 **버전**으로 넘어갔다(둘 다 우측 조작부 안이라 "헤더 순서는
+    //    이동 왼쪽·테마·버전 오른쪽" 이라는 이 테스트의 주제 자체는 그대로다 — 마지막 한 칸만
+    //    옮겨 새 값으로 다시 잰다, FALSIFICATION-BASELINE §49 규율).
     const buttons = within(h).getAllByRole('button');
-    expect(buttons[buttons.length - 1]).toBe(theme);
+    const version = within(h).getByRole('button', { name: /변경 내역/ });
+    expect(buttons[buttons.length - 1]).toBe(version);
+    expect(buttons[buttons.length - 2]).toBe(theme);
   });
 
   it('★ 좁은 창에서는 남긴다 — 거기서는 헤더의 3칸 세그먼트가 유일한 이동 수단이다', async () => {
