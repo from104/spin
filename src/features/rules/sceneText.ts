@@ -92,13 +92,7 @@ const EN: SceneTextTable = {
       ['A player may briefly step outside the sideline to avoid it — but may only re-enter once play has moved well away'],
     ],
   },
-  ramming: {
-    note: [
-      'Driving into an opponent, or attempting to, is an offense when it is careless or reckless, or uses excessive force.',
-      'When it is called, the opponents get a direct free kick — or a penalty kick if it happened inside the offender’s own goal area.',
-    ],
-    labels: [[], ['Direct free kick']],
-  },
+
   'spin-kick': {
     // 2026-09-04 편집기 드릴로 교체 — 캡션(note)은 원본이 비어 있고, 코트 위 쪽지(labels) 2개뿐이다.
     labels: [[
@@ -260,13 +254,7 @@ const JA: SceneTextTable = {
       ['一時的にサイドラインの外に出ることができる — ただしプレーが十分離れた場合のみフィールドに戻れる'],
     ],
   },
-  ramming: {
-    note: [
-      '不注意・無謀、または過剰な力で相手に突っ込む、あるいは突っ込もうとすると反則です。',
-      '認められると相手に直接フリーキックが与えられます。自陣ゴールエリア内であればペナルティーキックです。',
-    ],
-    labels: [[], ['直接フリーキック']],
-  },
+
   'spin-kick': {
     labels: [[
       '相手が近くにいるのに大きく回転キックをすると反則',

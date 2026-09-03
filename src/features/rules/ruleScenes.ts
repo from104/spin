@@ -22,7 +22,9 @@
 // dfk·ifk·penalty·inout·scoring·set-ball·three-in-area·two-on-one. 나머지 9개는 손코딩 그대로다.
 // 그 뒤 gk-behind-line·two-on-one-gk·two-on-one-gk-only·contested-touch(2026-09-01~03)에 이어
 // 2026-09-04 two-on-one-active·two-on-one-escape·spin-kick 이 들어와 (2) 갈래 19벌, 손코딩은
-// 4개다(field-tour·lineup·two-on-one-open·ramming). 아래 "12벌"·"9개" 는 그날의 수다.
+// 3개로 줄었다(field-tour·lineup·two-on-one-open) — 같은 날 ramming 은 카드 8 에서 아예
+// 지워졌다(scene 자체가 없다, 위 경위 참조). 전체 장면 수는 23 → 22. 아래 "12벌"·"9개"
+// 는 그날의 수다.
 //
 // ⚠️ 아래 `SEED_SCENE_META`(ring/defense/cutSteps 후처리)와 `RULE_SCENE_CREATED_AT` 은 **(1) 갈래
 // 전용**이다. (2) 갈래는 그 값들을 이미 JSON 안에 들고 있고 **그것이 교체의 요점이다** — 여기서
@@ -112,7 +114,6 @@ export type RuleSceneId =
   | 'two-on-one-open'
   | 'two-on-one-escape'
   | 'three-in-area'
-  | 'ramming'
   | 'spin-kick'
   | 'dfk'
   | 'ifk'
@@ -184,7 +185,6 @@ const SEED_SCENE_META: Partial<Record<RuleSceneId, RuleSceneMeta>> = {
   'field-tour': {},
   lineup: {},
   'two-on-one-open': { ring: '3m', defense: 'home' },
-  ramming: { cutSteps: [1] },
 };
 
 /** 장면 하나가 **담고 있어야 하는 것**. 값의 성격이 칸마다 다르므로 칸별로 근거를 적는다 —
@@ -276,7 +276,6 @@ export const RULE_SCENE_EXPECT: Record<RuleSceneId, RuleSceneExpect> = {
   'two-on-one-open': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'] }, retreat: {}, cut: [], steps: 2, defense: 'home' },
   // 2026-09-04 (2) 갈래로 교체 — 우연히 옛 손코딩 핀과 mode·size·defense·rings·cut·steps 값이 전부 같다.
   'two-on-one-escape': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'], 2: ['3m'] }, retreat: {}, cut: [], steps: 3, defense: 'home' },
-  ramming: { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [1], steps: 2, defense: 'home' },
   // 2026-09-04 (2) 갈래로 교체 — 옛 핀 { full 28x15 · 3스텝 · cut [2] · home } 은 손코딩 원고 값이었다.
   // 편집기 데이터는 하프 코트(defaultDefense 가 away)이고 1스텝이라 컷이 없다.
   'spin-kick': { mode: 'half', size: '30x18', rings: {}, retreat: {}, cut: [], steps: 1, defense: 'away' },
@@ -455,31 +454,13 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec | Drill> = {
   'three-in-area': threeInAreaScene,
 
   // ── Law 12 — 반칙과 비신사적 행위: 램핑 ──────────────────────────────────────────────────
-  ramming: {
-    title: '제12조 — 반칙과 비신사적 행위: 램핑',
-    drillType: 'tactical',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '부주의하거나 무모하거나 과도한 힘으로 상대를 들이받거나 시도하면 반칙입니다.',
-        chairs: { 'home-3': [340, 225, 0], 'away-3': [460, 225, 180] },
-        arrows: [
-          { from: [340, 225], to: [400, 225] },
-          { from: [460, 225], to: [410, 225] },
-        ],
-      },
-      {
-        name: '',
-        note: '충돌이 인정되면 상대 팀에게 직접프리킥이 주어집니다. 자기 골에어리어 안이었다면 페널티킥입니다.',
-        chairs: { 'home-3': [398, 225, 0], 'away-3': [412, 225, 180] },
-        notes: [{ at: [405, 190], text: '직접 프리킥' }],
-      },
-    ],
-  },
+  // 2026-09-04 기현 지시로 카드 8 에서 이 장면을 지웠다 — ruleTopics.ts 의 카드 8 'ramming'
+  // scene 블록을 없애고 그 앞 두 prose 블록을 하나로 합쳤다(중복 정의 제거). 이 장면은
+  // 어디에도 배치되지 않으므로(ruleTopics.test.ts 의 '고아 장면 없음' 불변식) 완전히
+  // 뺀다 — RuleSceneId 유니온·RULE_SCENE_IDS·SEED_SCENE_META·RULE_SCENE_EXPECT 전부에서.
+  // ruleContent.ts(룰 북 부록) Law 12 의 sceneId 참조도 같이 뺐다 — 그쪽은 애초에 이
+  // 불변식이 세는 '배치'가 아니었다(law-index 는 RuleSceneBlock 을 그리지 않는다). 옛
+  // 좌표는 git 이력에 있다(이 커밋 이전).
 
   // ── Law 12 — 회전킥(스핀킥)에 관하여 ────────────────────────────────────────
   // 2026-09-04 기현 지시로 손코딩 → 편집기 드릴 "회전킥 시도 및 방해"(half/30x18, 1스텝).
@@ -639,7 +620,6 @@ export const RULE_SCENE_IDS: readonly RuleSceneId[] = [
   'two-on-one-open',
   'two-on-one-escape',
   'three-in-area',
-  'ramming',
   'spin-kick',
   'dfk',
   'ifk',
