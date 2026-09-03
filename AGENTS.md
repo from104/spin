@@ -1,7 +1,214 @@
 # AGENTS.md
 
 이 저장소에서 일하는 에이전트가 지켜야 할 규칙 가운데, 특정 파일 하나에 딸리지 않는 저장소
-공통 규칙을 모은다. 코드 규율은 각 파일 머리말 주석이 정본이다.
+공통 규칙을 모은다. **코드 규율은 각 파일 머리말 주석이 정본**이고, 이 문서는 파일들에 흩어진
+관행을 귀납한 것이다. 2026-09-04 기현 지시: *"지금까지의 코딩 스타일, 관행 등을 분석 후
+AGENTS.md 에 기록하여 일관된 결과물 나오게"* — 아래 §1~§9 는 실제 트리(`.ts`/`.tsx` 592개,
+커밋 460여 개)에서 센 것이지 바람이 아니다.
+
+이 문서가 자라는 법: 절 제목에 `(YYYY-MM-DD 기현 지시)` 를 달고, 지시 원문을 인용 블록으로
+앞세우고, 근거와 금지·허용 목록을 적는다. **규칙은 그 규칙을 처음 적용한 커밋과 같은 커밋에서
+넣는다** — 규칙만 따로 커밋하지 않는다.
+
+## 0. 정본 지도 — 어디를 먼저 읽나
+
+| 알고 싶은 것 | 정본 |
+|---|---|
+| 앞으로 할 일 | `ROADMAP.md` |
+| 요구사항·숫자 | `docs/REQUIREMENTS.md` (숫자는 `src/test/docsMatchCode.test.ts` 가 지킨다) |
+| 좌표·상수·시그니처·파일 소유권·색 토큰·접근성 계약 | `docs/DESIGN.md` §0 읽는 법 → §0.1 정정 색인 → §2 상수표 → §2.8 색 토큰 → §3 데이터 모델 |
+| 깨져도 되는 테스트 · 절대 안 되는 단언 | `docs/FALSIFICATION-BASELINE.md` §1·§3·§4 |
+| 실기에서 볼 것 | `docs/FIELD-TEST.md`, 각 계획서의 「실기 확인」 절 |
+| 기능 하나의 설계·결정·착수 순서 | `docs/PLAN-<주제>.md` |
+| 규칙 조문 | `docs/RULES-FIPFA-2025.md` (+ `.en.md`) |
+| 단위·각도·색·id·단축키 | `src/core/*` |
+| 저장소 규율 3개(주석은 테스트가 확인 / 좁혀 돌리기 / 뒤집은 결정은 근거를 남긴다) | `README.md` §5 |
+
+읽는 순서를 하나만 고른다면 `src/core/constants.ts` → `src/model/court.ts` → `src/render/CourtStage.tsx`.
+
+## 1. 코드 관행
+
+### 1.1 파일 머리말 주석 — 전 파일 (94%)
+
+- 모든 소스·테스트 파일은 **1행부터 `//` 주석**으로 시작한다. 중앙값 7줄. 담는 것은 "무엇을
+  하는가"가 아니라 **왜 이 파일이 존재하는가, 무엇을 하면 안 되는가**다.
+- 계획서 절 번호(`§6.2`), 지시 인용(`(2026-08-27 기현 지시: *"…"*)`), 심사관 번호(`심사관 1 [치명]
+  2번`), 관련 문서 경로를 적는다. 인용문은 이탤릭 큰따옴표 `*"…"*`.
+- `⚠️` 는 **깨면 안 되는 계약**에만 붙인다. 장식으로 쓰지 않는다.
+- 긴 머리말은 `// ── 제목 ──────` 구획선으로 나눈다. 예: `src/render/renderPaths.ts`,
+  `src/render/objects/GoalPost.tsx`, `src/core/keymap.ts`.
+
+### 1.2 인라인 근거 주석
+
+- 값·분기·순서가 "왜 그런지" 자명하지 않으면 그 줄 옆에 한 줄 근거를 단다(`// ★ index 가 아니라 id`).
+- **근거는 일반 원리로 쓴다.** 한 사람의 입력장치("발 마우스는 흔들리므로")로 대지 않는다 —
+  "누른 채 미세하게 흔들리는 입력이 흔하므로", "표적이 움직이면 공간 기억이 깨진다"로 쓴다
+  (2026-08-15 기현 지시: *"발 마우스 타령은 그만, 범용 앱을 만들고 있다."*). 접근성 규율 자체는
+  그대로다 — 바뀌는 것은 누구를 위한 것이라고 쓰느냐뿐이다. 주석·커밋·CHANGELOG 전부에 적용된다.
+- 사고 기록을 지우지 않는다. 정의가 네 곳에 흩어져 도움말과 어긋났던 일이 `src/core/keymap.ts`
+  머리말에, 좌표 리터럴 사고가 `docsMatchCode.test.ts` 머리말에 남아 있는 식이다.
+
+### 1.3 TypeScript
+
+- 상대 import 에 **`.ts`/`.tsx` 확장자를 붙인다**(`allowImportingTsExtensions` + `verbatimModuleSyntax`).
+  예외는 `?raw` 쿼리뿐.
+- `import type` 은 별도 줄. `enum` 은 쓰지 않는다 — 문자열 유니언 + `as const` 배열
+  (`RENDER_PATH_IDS = [...] as const`).
+- 배열 속성은 `readonly`. 객체 모양은 `export interface`, 유니언·별칭은 `export type`.
+- `export default` 는 앱 진입점(`App.tsx`) 하나뿐. 나머지는 named export.
+- non-null `!` 는 테스트에서는 자유, 제품 코드에서는 절제한다.
+- `tsconfig.app.json` 이 `noUnusedLocals`·`noUnusedParameters`·`noFallthroughCasesInSwitch`·
+  `erasableSyntaxOnly` 를 켠다 — 안 쓰는 것은 컴파일 에러다.
+
+### 1.4 React
+
+- 컴포넌트는 예외 없이 `export function Name()`. 훅은 `useX.ts` 로 파일을 나눈다.
+- **스타일은 인라인 `style={{}}` 이 기본.** CSS 파일 7개(`src/index.css`,
+  `src/styles/{tokens,contrast,a11y,appShell,print,fonts}.css`)는 토큰·접근성·인쇄 같은 전역만 맡는다.
+- 색은 리터럴을 쓰지 않고 `var(--…)` 토큰만 쓴다. 정의처 `src/styles/tokens.css`. 토큰은
+  **추가만 한다**(DESIGN §2.8). `--border-strong` 은 테두리 토큰이지 굵은 선이 아니다 — 뜻이 있는
+  선은 `--muted`, 후광은 `--panel-2`(2026-09-03 도해 작업에서 배운 것, PLAN-RULES-9CARDS §11.5).
+- **글자 크기는 rem, 표적·간격은 px.** 표적 크기는 `var(--hit)` 하나로만(기본 44, 큰 터치 56).
+- 상태는 `store/<도메인>/XProvider.tsx` + `reducer.ts` + `actions.ts`(+ `history.ts`). 상태 훅과
+  동작 훅을 가른다: `useEditorState`/`useEditorDispatch`, `useSettingsState`/`useSettingsActions`.
+- 내비는 편집기 상태에 결합되지 않는다(`AppNavSegment` 도 StageTarget 을 모른다).
+
+### 1.5 상태·모델
+
+- 문서 종류마다 **스키마 상수 · migrate · validate** 3종 세트(`CURRENT_DRILL_SCHEMA`,
+  `src/model/migrate.ts`, `src/model/validate.ts`; 세션·로스터도 같은 꼴). 마이그레이션 체인의
+  마지막 `to` 는 스키마 상수와 같아야 하고, 데이터가 실제로 안 변하는 상승은 `⚠️ 적을 참말이 없는
+  상승이다` 로 표시한다. 옛 기기가 새 문서를 받으면 조용히 깨지지 않고 **거절**한다.
+- 액션 타입은 대문자 스네이크 문자열 유니언(`'TOOL_SET'`, `'STEP_DUPLICATE'`).
+- id 는 두 글자 접두 + 밑줄(`src/core/ids.ts`: `dr se st ch bl cn ar nt sh it ph pl fh`),
+  `newId('ch')`/`isId(id,'fh')`. 새 접두를 고르면 왜 안 겹치는지 주석에 적는다.
+- 불변 갱신은 스프레드 + `structuredClone`.
+- 검증 한계(스텝당 획 40, 점 400 등)는 `validate.ts` 에만 둔다.
+
+### 1.6 명명·배치
+
+- 컴포넌트 파일 PascalCase, 로직·유틸 camelCase, 상수 대문자 스네이크.
+- 테스트는 대상과 같은 이름 + `.test`. 관점이 갈리면 `X.facet.test.tsx`(`CourtStage.framePan`,
+  `AppShell.wiring`, `hitTest.contract`).
+- `src/{app,core,model,store,render,physics,features,ui,i18n,styles,storage,sync,seo,test,assets}`.
+  `features/*` 는 화면 단위, `ui/` 는 화면 독립 위젯, `core/` 는 단위·각도·색·상수·id·단축키 정본.
+- 문자열은 컴포넌트에 박지 않고 `src/i18n/{ko,en,ja}.ts` → `useT()`.
+
+### 1.7 접근성 — 핵심 기능이다
+
+- `aria-label` 과 `title` 을 **짝**으로, 둘 다 `t()` 를 거친다.
+- 표적은 `--hit`. 코트 위 히트 반경도 그 값에 매단다(`src/render/hitRadius.ts`). 표적 예산(40개)을
+  넘기지 않는다.
+- 단축키는 `src/core/keymap.ts` 가 정본이고 배선·도움말이 거기서 나온다.
+  `keymap.contract.test.ts` 가 일치를 묶는다.
+- 고대비는 스위치 없이 `prefers-contrast`/`forced-colors` 미디어쿼리로만. `forced-colors` 블록에
+  hex 를 두지 않는다.
+- 모달은 `returnFocusRef` 로 여는 버튼에 초점을 돌려준다. 좁은 창에서 기능이 사라지면 안 된다
+  (레일이 접혀도 언어·도움말·테마·버전은 헤더에 남는다).
+
+## 2. 결정을 뒤집을 때 (README §5 규율 3)
+
+이 저장소는 결정의 근거를 코드 주석과 `DESIGN.md` 의 D-번호·R-번호 표에 쥐고 있다. 지시는 그
+결정을 자주 뒤집는다. 뒤집을 때 세 가지를 한다.
+
+1. **옛 근거를 지우지 않는다.** 원문을 그대로 두고 아래에
+   `── ⚠️ 2026-08-13: 위 문단은 … 지시로 뒤집혔다 ──` 를 붙인다. 표본 `src/render/courtLines/HalfCourtLines.tsx`.
+2. **전제가 언제 죽었는지 찾는다.** 옛 근거의 전제가 이미 소멸해 있으면 그 사실과 날짜를 함께 적는다.
+3. **대가를 숫자로 적는다.** 무엇이 한 칸 밀리고 몇 px 줄었는지.
+
+폐기(deprecate)도 같다 — 지우는 대신 왜 죽었는지를 남기고, 근거가 딴 파일에 있으면 그 파일이
+바뀐 것을 아무도 모르므로 근거를 **쓰는 자리 옆**으로 옮긴다.
+
+## 3. 정본 우선 — 두 벌 두지 않는다
+
+- 규칙 사실의 정본은 `docs/RULES-FIPFA-2025.md`. 앱 상수(`src/features/rules/ruleConstants.ts`)는
+  값마다 정본 줄 번호를 주석에 달고, **정본이 먼저 바뀌고 앱이 따른다.**
+- 도해·컴포넌트에 치수를 리터럴로 적지 않는다. 상수에서 파생한다.
+- 물리 상수(`src/core/constants.ts`)와 규정 상수(`ruleConstants.ts`)는 일부러 가른다 — 섞으면
+  "이것도 계산에 들어가나"를 헷갈리게 한다.
+- CHANGELOG 는 앱이 직접 파싱한다. REQUIREMENTS 의 숫자는 테스트가 텍스트로 읽어 대조한다.
+  **검사표에 손으로 적은 숫자를 넣지 마라** — 그 파일이 다음 드리프트의 발원지가 된다.
+- 파생시킬 코드 상수가 없는 도메인(사람이 쓴 두 텍스트)만 `CORE_FACTS` 토큰 대조 같은 예외를
+  쓰고, 예외 사유를 머리말에 적는다.
+
+## 4. i18n
+
+- `src/i18n/ko.ts` 가 키의 단일 출처(`DictKey = keyof typeof ko`). `en.ts`·`ja.ts` 는
+  `Record<DictKey,string>` 이라 키 하나가 빠지면 컴파일 에러다 — 세 파일을 **같은 커밋**에서 갱신한다.
+- 키는 `'화면영역.요소'` 점 표기 평면 구조. 치환은 `{{var}}`, 호출은 `t('key', { var })`.
+- **파일-당-로케일** 갈래: `ruleTopics.ts/.en.ts/.ja.ts`, `ruleContent.*`, `figures/text.ts`,
+  `CHANGELOG.md/.en.md/.ja.md`, `docs/RULES-FIPFA-2025.md/.en.md`. 그림의 부품인 문자열은 그림
+  코드 옆에서 함께 봐야 하기 때문이다.
+- 도해 다국어에서 `aria-label` 누락이 최악이다(화면은 영어인데 읽어 주는 말이 한국어). 소스 grep
+  은 이걸 못 잡는다 — **렌더 결과를 DOM 에서 재는** 검사(`figures/figureLocale.test.tsx`)로 잡는다.
+- 화면·버튼 이름은 대괄호 `[규칙]`. 번역본에서는 그 언어의 실제 UI 문자열(`[Rules]`/`[ルール]`).
+- 영어·일본어 라벨은 한국어보다 길다 — 도해·버튼 폭은 셋 다 실기에서 본다.
+
+## 5. 콘텐츠 — 시연은 편집기로 만든다 (2026-08-23 기현 판정)
+
+> *"네가 만든 규칙 내 시연은 미묘하게 조악하다. 다 내가 만들거다."*
+
+- 체어·공 위치, 스텝 이동, 타이밍 같은 연출 콘텐츠는 **손코딩하지 않는다.** 기현님이 드릴
+  편집기로 만들고, 에이전트는 export JSON 을 저장소에 앉히는 파이프라인만 맡는다.
+- 옮길 때 좌표를 손으로 적지 않는다 — `scripts/import-rule-scene.mjs` 가 `.scene.ts` 를 통째로
+  찍는다. 찍힌 파일을 손으로 고치지 않는다(`--check` 드리프트 탐지가 영구 불일치로 죽는다).
+  값을 갈아야 하면 찍는 단계(`--situation` 등)에서 갈고 무엇을 갈았는지 적는다.
+- 도해는 `src/features/rules/figures/` 아래 컴포넌트 1개 = 도해 1개, 공용 부품 `FigureCard`·
+  `Callout`·`Verdict`, 식별자는 `ids.ts`. 카드당 도해는 3개까지.
+- 시드 드릴·초안 문서는 제목에 승인 상태를 적는다(`SEED-DRILLS-DRAFT.md` — "기현님 승인 대기").
+
+## 6. 작업 절차 — 검증
+
+- 평소에는 좁혀서 돈다: `npm run test:rel <파일>`(2~5초), `npm run lint:rel`. 전체 `npm test`·
+  `npm run lint` 는 **커밋 직전 한 번.** 타입체크는 **`npm run typecheck`** 만 — `npx tsc --noEmit -p .`
+  은 루트 tsconfig 이 references 뿐이라 0개를 검사하고 조용히 exit 0 이다.
+- 저장소에 스크립트가 있으면 도구를 직접 부르지 않는다. 새 스크립트를 넣으면 `package.json` 에
+  짝이 되는 `_comment:<script>` 키를 함께 넣는다.
+- 오랜 린트 경고(약 40건, 거의 `only-export-components`)는 고칠 계획이 없다. 전체 린트에 새 경고가
+  묻히므로 `lint:rel` 로 방금 만든 것을 본다. 빈 목록으로 `oxlint` 를 부르면 전체가 돈다.
+- 새 단언은 **돌연변이**(구현을 일부러 망가뜨려 빨간불 확인)로 값을 증명한 뒤 남기고, 커밋 본문에
+  "돌연변이 N건으로 실효 확인"이라 적는다.
+- 전체 스위트가 부하에 약하다. 실패 집합이 회차마다 바뀌면 회귀가 아니라 경쟁이다 — 잔여
+  헤드리스 크롬·vitest 프로세스를 pid 로 죽이고(`pkill -f` 는 셸 자신을 죽인다) 단독으로 재확인한다.
+- **jsdom 이 못 재는 것은 실기로 간다**(`getBoundingClientRect` 가 전부 0). 화면에 보이는 것을
+  바꿨으면 "테스트 통과"로 끝내지 말고 보고에 **실기에서 볼 항목**을 짚는다. 개발 서버는
+  `http://100.75.15.13:5173/`(태블릿). 헤드리스 크롬 스크린샷은 검수 보조이지 실기 대체가 아니다.
+
+## 7. 커밋 · 푸시 · 릴리스 · 배포
+
+- 제목 `type(scope): 한국어 설명 — 부연`. type: `feat fix docs content refactor chore test style
+  build`. scope 는 기능 폴더 이름(`rules editor app sync settings present library sessions board ui
+  physics render export i18n seo …`), 두 곳이면 쉼표(`feat(editor,present)`), 저장소 전체면 생략
+  (`chore:`, `test:`). 계획서가 있으면 제목 끝 괄호에 절 번호(`(PLAN-FREEHAND-ERASER §3 3·4단계)`).
+- 본문 첫 줄은 **지시 원문 인용** `기현 지시(2026-09-03): "…"`, 지시가 없으면 문제 제기 문장.
+  가운데는 `- ` 글머리로 무엇/왜 + 함정 기록. **마지막 줄은 검증 결과 한 줄**:
+  `typecheck 0 · lint 경고 47(기존) · vitest 278 파일 3621 통과.` 그 아래 세션이 지정한 트레일러.
+- 커밋 하나 = 기능 하나 + 그 기능이 건드린 문서·테스트 전부. 문서만·테스트만 따로 커밋하지 않는다.
+- **push 는 명시적 지시가 있을 때만.** 커밋은 쌓아 두되 올리지 않는다.
+- 릴리스 커밋은 한 꼴: `chore: 버전 a.b.c → a.b.d · CHANGELOG [Unreleased] 를 [a.b.d] 로 확정`.
+  건드리는 파일은 `CHANGELOG.md`(+`.en`·`.ja`) · `ROADMAP.md` · `package.json` · `package-lock.json`
+  뿐, 기능 변경을 섞지 않는다. 태그는 주석 태그(`v0.6.1 — 그 회차 요약`).
+- 배포는 **`npm run deploy:aws` 하나**(spin.atit.app). `npm run deploy`(spin.atit.dev)는 돌리지
+  않는다 — dev 는 app 으로 리다이렉트된다. 테스트를 방금 돌렸으면 `-- --no-test`.
+
+## 8. 계획 문서
+
+- 기능 하나 = `docs/PLAN-<주제>.md` 하나. 뼈대(표본 `PLAN-FREEHAND-ERASER.md`): 제목에 날짜 →
+  지시 원문 인용 → `## 0. 한 줄 원칙` → `## 1. 결정`(`| # | 결정 | 근거 |` 표, 뒤집기 쉽게) →
+  `## 2. 손대는 곳` → `## 3. 착수 순서` → `## 4. 실기 확인(jsdom 이 못 재는 것)`.
+- 계획서는 머리말에 자기 **정본 지위**와 상위 정본을 선언한다.
+- 랜딩 뒤 검수가 잡은 것은 계획서 안에 **교훈 절**로 남긴다(`PLAN-RULES-9CARDS.md` §11.5 「검수
+  워크플로우가 잡은 것」, §11.6).
+- 기능이 랜딩하면 `DESIGN.md`(계약) · `FALSIFICATION-BASELINE.md`(반증선) · 해당 `PLAN-*.md` ·
+  필요하면 `REQUIREMENTS.md` 를 **같은 커밋**에서 옮긴다.
+
+## 9. 죽은 코드를 지울 때 (2026-08-31 교훈)
+
+1. **감사 목록은 낡는다.** 옛 감사가 "죽었다"고 적은 것도 지우기 전에 `rg` 로 현재 참조 수를 다시 센다.
+2. **호출자 0 ≠ 지워도 됨.** 결과표를 하드코딩해서 호출자가 없어진 생성 함수는 `scripts/` 로
+   이관하고 `--check` 로 일치를 확인한다. 읽기 계약이 살아 있는 형식의 생성기는 남기고 주석에 못박는다.
+3. **옛 결정의 전제가 먼저 죽는 경우**를 찾는다(§2).
+4. LSP 의 "참조 0" 은 확장자별 서버가 갈려 교차 언어 사용처를 못 본다 — 반드시 `rg` 로 교차 검증.
 
 ## CHANGELOG.md 작성 규칙 (2026-09-03 기현 지시)
 
