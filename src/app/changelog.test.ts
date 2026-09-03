@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseAllChangelogVersions, parseChangelogVersion } from './changelog.ts';
+import changelogKo from '../../CHANGELOG.md?raw';
+import changelogEn from '../../CHANGELOG.en.md?raw';
+import changelogJa from '../../CHANGELOG.ja.md?raw';
 
 // CHANGELOG.md 의 실제 서식을 그대로 축약해 흉내낸다(2026-09-03) — 소제목 · 이어지는 줄 ·
 // 중첩 글머리 셋을 한 픽스처에 담는다.
@@ -121,5 +124,42 @@ describe('parseAllChangelogVersions — 맨 끝 참조 링크 각주', () => {
     const without = parseAllChangelogVersions(FIXTURE);
     expect(withFooter.length).toBe(without.length);
     expect(withFooter[withFooter.length - 1]).toEqual(without[without.length - 1]);
+  });
+});
+
+// AGENTS.md "세 언어를 함께 간다" 를 코드로 못박는다 — 세 파일이 실제 저장소 파일이라, 누가
+// 한 언어만 고치고 나머지를 잊으면(번역이 밀려도 파일 자체는 여전히 유효한 마크다운이라 위
+// 파서 테스트들은 계속 초록이다) 이 테스트만 그 사실을 잡는다.
+describe('CHANGELOG.md · .en.md · .ja.md — 세 언어 구조 동기화', () => {
+  const ko = parseAllChangelogVersions(changelogKo);
+  const en = parseAllChangelogVersions(changelogEn);
+  const ja = parseAllChangelogVersions(changelogJa);
+
+  it('버전 헤딩(번호·날짜) 목록이 세 언어 모두 같은 순서로 같다', () => {
+    const strip = (vs: typeof ko) => vs.map((v) => `${v.version}|${v.date ?? ''}`);
+    expect(strip(en)).toEqual(strip(ko));
+    expect(strip(ja)).toEqual(strip(ko));
+  });
+
+  it('버전마다 소제목 목록 길이·항목 개수가 세 언어 모두 같다', () => {
+    for (let i = 0; i < ko.length; i++) {
+      const [k, e, j] = [ko[i]!, en[i]!, ja[i]!];
+      const counts = (v: (typeof ko)[number]) => v.groups.map((g) => g.items.length);
+      expect(counts(e), `${k.version} (en) 소제목·항목 수 불일치`).toEqual(counts(k));
+      expect(counts(j), `${k.version} (ja) 소제목·항목 수 불일치`).toEqual(counts(k));
+    }
+  });
+
+  it('한국어 문장이 영어·일본어 판에 안 섞여 있다 — 번역이 빠진 채 원문이 남았는지 잡는다', () => {
+    const hangul = /[가-힣]/;
+    for (const [label, vs] of [['en', en] as const, ['ja', ja] as const]) {
+      for (const v of vs) {
+        for (const g of v.groups) {
+          for (const it of g.items) {
+            expect(hangul.test(it.text), `${label} ${v.version} 항목에 한글: ${it.text}`).toBe(false);
+          }
+        }
+      }
+    }
   });
 });

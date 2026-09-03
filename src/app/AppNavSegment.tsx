@@ -189,7 +189,8 @@ export function AppNavAside() {
           숫자가 그 기기에서만 사라진다(AppRail.tsx 의 같은 주석). 표적은 아니라 예산에
           들어가지 않고, 폭도 30px 남짓이다.
           2026-09-03 기현 지시로 **눌러서 이번 버전 변경 내역**을 보는 문이 됐다 — AppRail.tsx
-          와 같은 배선(ChangelogModal.tsx, CHANGELOG.md 를 정본으로 파싱). */}
+          와 같은 배선(ChangelogModal.tsx, CHANGELOG.md 를 정본으로 파싱). 색도 AppRail.tsx 와
+          같이 지구본(언어)과 맞춘 `--accent` — 근거는 그쪽 주석. */}
       <button
         type="button"
         ref={versionBtnRef}
@@ -207,7 +208,7 @@ export function AppNavAside() {
           fontSize: '0.625rem',
           fontWeight: 600,
           letterSpacing: '0.02em',
-          color: 'var(--faint-text)',
+          color: 'var(--accent)',
         }}
       >
         v{__APP_VERSION__}
