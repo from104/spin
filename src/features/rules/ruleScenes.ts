@@ -21,8 +21,8 @@
 // 2026-08-31 (2) 갈래에 **12벌이 들어왔다**(계획 §4.2 매핑): kickoff·kick-in·goal-kick·corner·
 // dfk·ifk·penalty·inout·scoring·set-ball·three-in-area·two-on-one. 나머지 9개는 손코딩 그대로다.
 // 그 뒤 gk-behind-line·two-on-one-gk·two-on-one-gk-only·contested-touch(2026-09-01~03)에 이어
-// 2026-09-04 two-on-one-active·two-on-one-escape 가 들어와 (2) 갈래 18벌, 손코딩은 5개다
-// (field-tour·lineup·two-on-one-open·ramming·spin-kick). 아래 "12벌"·"9개" 는 그날의 수다.
+// 2026-09-04 two-on-one-active·two-on-one-escape·spin-kick 이 들어와 (2) 갈래 19벌, 손코딩은
+// 4개다(field-tour·lineup·two-on-one-open·ramming). 아래 "12벌"·"9개" 는 그날의 수다.
 //
 // ⚠️ 아래 `SEED_SCENE_META`(ring/defense/cutSteps 후처리)와 `RULE_SCENE_CREATED_AT` 은 **(1) 갈래
 // 전용**이다. (2) 갈래는 그 값들을 이미 JSON 안에 들고 있고 **그것이 교체의 요점이다** — 여기서
@@ -94,6 +94,7 @@ import { drill as twoOnOneGkDrill } from './scenes/two-on-one-gk.scene.ts';
 import { drill as contestedTouchDrill } from './scenes/contested-touch.scene.ts';
 import { drill as twoOnOneActiveScene } from './scenes/two-on-one-active.scene.ts';
 import { drill as twoOnOneEscapeScene } from './scenes/two-on-one-escape.scene.ts';
+import { drill as spinKickScene } from './scenes/spin-kick.scene.ts';
 import { sceneTextFor } from './sceneText.ts';
 import { translate } from '../../i18n/useT.ts';
 import type { Locale } from '../../i18n/locale.ts';
@@ -184,7 +185,6 @@ const SEED_SCENE_META: Partial<Record<RuleSceneId, RuleSceneMeta>> = {
   lineup: {},
   'two-on-one-open': { ring: '3m', defense: 'home' },
   ramming: { cutSteps: [1] },
-  'spin-kick': { cutSteps: [2] },
 };
 
 /** 장면 하나가 **담고 있어야 하는 것**. 값의 성격이 칸마다 다르므로 칸별로 근거를 적는다 —
@@ -277,7 +277,9 @@ export const RULE_SCENE_EXPECT: Record<RuleSceneId, RuleSceneExpect> = {
   // 2026-09-04 (2) 갈래로 교체 — 우연히 옛 손코딩 핀과 mode·size·defense·rings·cut·steps 값이 전부 같다.
   'two-on-one-escape': { mode: 'full', size: '28x15', rings: { 0: ['3m'], 1: ['3m'], 2: ['3m'] }, retreat: {}, cut: [], steps: 3, defense: 'home' },
   ramming: { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [1], steps: 2, defense: 'home' },
-  'spin-kick': { mode: 'full', size: '28x15', rings: {}, retreat: {}, cut: [2], steps: 3, defense: 'home' },
+  // 2026-09-04 (2) 갈래로 교체 — 옛 핀 { full 28x15 · 3스텝 · cut [2] · home } 은 손코딩 원고 값이었다.
+  // 편집기 데이터는 하프 코트(defaultDefense 가 away)이고 1스텝이라 컷이 없다.
+  'spin-kick': { mode: 'half', size: '30x18', rings: {}, retreat: {}, cut: [], steps: 1, defense: 'away' },
 
   // ── (2) 편집기 갈래 12개 — 30×18, kickoff 만 full (§4.2) ──────────────────────────────────
   // 여기 `rings` 는 **띄엄띄엄하다** — 편집기 데이터는 링을 재개가 실제로 일어나는 판에만 찍는다.
@@ -479,38 +481,10 @@ const SPECS: Record<RuleSceneId, SeedDrillSpec | Drill> = {
     ],
   },
 
-  // ── Law 12 — 회전킥(스핀킥)에 관하여 ────────────────────────────────────────────────────
-  'spin-kick': {
-    title: '제12조 — 회전킥에 관하여',
-    drillType: 'tactical',
-    level: '초급',
-    courtMode: 'full',
-    courtSize: COURT_SIZE,
-    durationMin: 1,
-    steps: [
-      {
-        name: '',
-        note: '회전킥은 공을 정면으로 차는 것보다 더 멀리, 더 빠르게 보내는 기술입니다. 금지되지 않습니다.',
-        chairs: { 'home-3': [320, 225, 0], 'away-3': [500, 300, 180] },
-        balls: [[350, 225]],
-      },
-      {
-        name: '',
-        note: '회전하는 동안은 일부 구간에서 공이나 다가오는 상대가 안 보일 수 있습니다 — 상대가 사각지대로 접근하면 위험한 상황이 됩니다.',
-        chairs: { 'home-3': [320, 225, 120], 'away-3': [270, 260, 60] },
-        balls: [[350, 225]],
-        arrows: [{ from: [305, 210], to: [335, 240], bow: 30 }],
-      },
-      {
-        name: '',
-        note: '이 상황이 "위험한 방법으로 플레이함"으로 판정되면 상대 팀에 위반 지점에서 간접프리킥이 주어집니다.',
-        chairs: { 'home-3': [320, 225, 250], 'away-3': [280, 255, 90] },
-        balls: [[600, 150]],
-        arrows: [{ from: [350, 225], to: [600, 150] }],
-        notes: [{ at: [450, 165], text: '위험한 플레이 → 간접FK' }],
-      },
-    ],
-  },
+  // ── Law 12 — 회전킥(스핀킥)에 관하여 ────────────────────────────────────────
+  // 2026-09-04 기현 지시로 손코딩 → 편집기 드릴 "회전킥 시도 및 방해"(half/30x18, 1스텝).
+  // 옛 손코딩 원고는 git 이력에 있다(917c193 이전).
+  'spin-kick': spinKickScene,
 
   // ── Law 13 — 프리킥: 직접 ───────────────────────────────────────────────────────────────
   dfk: dfkScene,
