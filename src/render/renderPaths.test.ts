@@ -46,6 +46,7 @@ const EVIDENCE: Record<SceneElementId, readonly string[]> = {
   cones: ['ConeMark', 'conesMarkup', 'cones'],
   shapes: ['ShapeLayer', 'shapesMarkup'],
   arrows: ['ArrowPath', 'arrowsMarkup', 'arrowPath', 'PresentArrowLayer'],
+  strokes: ['StrokePath', 'strokesMarkup', 'strokePath', 'PresentStrokeLayer'],
   notes: ['NoteLabel', 'notesMarkup', 'noteChip', 'PresentNoteLayer'],
 };
 
@@ -121,8 +122,10 @@ describe('③ 이번 사고가 다시 나는지 — 인쇄가 여섯 가지를 �
     expect(pathsDrawing('ownerArrow')).toEqual(['editor', 'present', 'png', 'print']);
   });
 
-  it('썸네일은 허용 목록대로 넷 + 코트만 그린다 (기현 지시 2026-08-27)', () => {
+  it('썸네일은 허용 목록대로 다섯 + 코트만 그린다 (2026-08-27 지시 + 2026-09-03 획)', () => {
+    // 목록이 거부가 아니라 **허용**이라는 것이 이 줄의 요점이다 — 새 요소는 여기를 고치지
+    // 않는 한 썸네일에 자동으로 실리지 않는다(그 자동 승선이 44 px 칩을 뭉갠다).
     const drawn = SCENE_ELEMENT_IDS.filter((el) => pathDraws('thumbnail', el));
-    expect(drawn).toEqual(['courtLines', 'goalPosts', 'chairs', 'balls', 'shapes', 'arrows']);
+    expect(drawn).toEqual(['courtLines', 'goalPosts', 'chairs', 'balls', 'shapes', 'strokes', 'arrows']);
   });
 });

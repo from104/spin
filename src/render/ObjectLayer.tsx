@@ -7,6 +7,18 @@
 // 실제 구현(콘 → 화살표 → 휠체어 → 공 순서로 한 그룹에 나열)은 둘 다 화살표가 콘 "다음"·
 // 휠체어 "앞"에 오는 단일 순서를 쓴다. §0 원칙("계약서와 실제 코드가 다르면 실제 코드가
 // 맞다")에 따라 이 파일도 CourtThumbnail 과 같은 단일 순서(콘→화살표→휠체어→공→메모)를 쓴다.
+//
+// ── 획은 어디에 끼는가 (2026-09-03) ──────────────────────────────────────────────────
+// **콘 → 획 → 화살표 → 휠체어 → 공 → 메모.** 획은 화살표 바로 **아래**다.
+//
+// 근거는 케이싱이다. 두 선 다 검정 케이싱을 깔고(대비 요건), 케이싱은 자기 아래 지나가는
+// 남의 선을 **지운다** — 겹치는 자리에서 한쪽은 반드시 끊긴다. 그러니 "누가 끊겨도 되는가" 를
+// 정해야 하는데, 화살표는 어휘가 좁고 뜻이 정해진 전술 표기(경로·패스)이고 획은 그 위에
+// 손으로 덧쓰는 자유 필기다. 자유 필기 한 줄이 판을 가로지르며 화살표 여럿을 토막 내는 것이
+// 그 반대보다 잃는 것이 크다. 아래에 두어도 획은 도형·콘 위라 묻히지 않는다.
+//
+// (같은 부류 안에서 앞의 것이 뒤의 것 케이싱에 덮이는 것은 화살표에도 이미 있는 규약이다 —
+//  `ArrowPath.tsx`. 여기서 정한 것은 **부류 사이**의 순서뿐이다.)
 import { useLayoutEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { BallId, ChairId, ConeId } from '../core/ids.ts';
@@ -21,6 +33,8 @@ import { GoalHomeGhost, GoalPost } from './objects/GoalPost.tsx';
 import { ConeMark } from './objects/ConeMark.tsx';
 import { NoteLabel } from './objects/NoteLabel.tsx';
 import { ArrowPath } from './objects/ArrowPath.tsx';
+import { StrokePath } from './objects/StrokePath.tsx';
+import type { Stroke } from '../model/stroke.ts';
 import { useT } from '../i18n/useT.ts';
 
 export interface ObjectLayerChair {
@@ -56,6 +70,9 @@ export interface ObjectLayerProps {
   onGoalReturn?: () => void;
   notes: readonly NoteLabelData[];
   arrows: readonly Arrow[];
+  /** 자유 그리기 획(2026-09-03). 화살표 **바로 아래** 층이다(머리말의 z-order 근거).
+   *  옵셔널이다 — 획이 생기기 전 호출부(테스트 픽스처 포함)를 전부 고치게 만들 이유가 없다. */
+  strokes?: readonly Stroke[];
   /** ArrowMarkers 가 이 SVG 루트에 만든 `useId()` 접두사. */
   markerUid: string;
   selection: ReadonlySet<string>;
@@ -98,6 +115,7 @@ export function ObjectLayer({
   onGoalReturn,
   notes,
   arrows,
+  strokes,
   markerUid,
   selection,
   zoneCursors,
@@ -175,6 +193,20 @@ export function ObjectLayer({
           onPointerDown={onObjectPointerDown}
           onKeyDown={onObjectKeyDown}
         />
+      ))}
+      {(strokes ?? []).map((s) => (
+        <g key={s.id} {...fadeProps(s.id)}>
+          <StrokePath
+            stroke={s}
+            markerUid={markerUid}
+            writer={writer}
+            selected={selection.has(s.id)}
+            locked={locked?.has(s.id)}
+            active={activeId === s.id}
+            onPointerDown={onObjectPointerDown}
+            onKeyDown={onObjectKeyDown}
+          />
+        </g>
       ))}
       {arrows.map((a) => (
         <g key={a.id} {...fadeProps(a.id)}>

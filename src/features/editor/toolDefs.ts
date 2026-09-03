@@ -13,6 +13,7 @@ import {
   IconToolCone,
   IconToolPlayer,
   IconToolNote,
+  IconToolFreehand,
   IconToolErase,
   IconShapeEllipse,
   IconShapeTriangle,
@@ -49,6 +50,11 @@ const def = (id: ToolId, labelKey: DictKey, Icon: ComponentType<IconProps>): Too
 export const TOOLS: readonly ToolDef[] = [
   def('select', 'editor.toolDefs.select', IconToolSelect),
   def('line', 'editor.toolDefs.line', IconToolRoute),
+  // 2026-09-03 — 자유 그리기. 자리가 `line` **바로 옆**인 것이 결정이다(PLAN 결정 7): 둘 다
+  // "선을 긋는" 도구이고 갈리는 것은 모양이 정해져 있는가뿐이라, 서랍 안에서 이웃해야 고를 때
+  // 견줄 대상이 눈앞에 함께 온다. 서랍의 기본 도구(손잡이가 접힌 채 보여 주는 것)는 `line`
+  // 그대로다 — 자유 그리기는 손이 정밀해야 값이 나오는 도구라 첫 칸의 기본값으로는 무겁다.
+  def('freehand', 'editor.toolDefs.freehand', IconToolFreehand),
   def('shapeEllipse', 'editor.toolDefs.shapeEllipse', IconShapeEllipse),
   def('shapeTriangle', 'editor.toolDefs.shapeTriangle', IconShapeTriangle),
   def('shapeRect', 'editor.toolDefs.shapeRect', IconShapeRect),

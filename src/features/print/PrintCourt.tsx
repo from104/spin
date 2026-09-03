@@ -29,6 +29,8 @@ import { RuleZones } from '../../render/RuleZones.tsx';
 import { staticFrameOf } from '../../model/playback.ts';
 import { ruleMarkup } from '../../features/export/buildStaticSvg.ts';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
+import { STROKE_CASING_PAD, arrowMarkerId } from '../../render/arrowHeadGeom.ts';
+import { strokeColor, strokeHeadFrom, strokeHeadTo, strokePath, strokeWidthOf } from '../../model/stroke.ts';
 import { ShapeLayer } from '../../render/ShapeLayer.tsx';
 import { SideMarks } from '../../render/SideMarks.tsx';
 import {
@@ -88,7 +90,10 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
       showRuleZones: view.showRuleZones,
     });
   }, [drill, step, view.showRuleZones]);
-  const usedColors = Array.from(new Set(step.arrows.map((a) => arrowColor(a))));
+  // 마커는 (색 × 굵기)마다 하나다 — 색은 화살표·획을 합쳐서, 굵기 축은 획만 갖는다
+  // (render/arrowHeadGeom.ts). 여기서 획의 색을 빠뜨리면 촉을 켠 획만 종이에서 촉을 잃는다.
+  const usedColors = Array.from(new Set([...step.arrows.map((a) => arrowColor(a)), ...(step.strokes ?? []).map((s) => strokeColor(s))]));
+  const usedWidths = Array.from(new Set((step.strokes ?? []).map((s) => strokeWidthOf(s))));
   const locale = useLocale();
 
   return (
@@ -100,7 +105,7 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
       aria-label={ariaLabel}
     >
       <defs>
-        <ArrowMarkers uid={uid} colors={usedColors} />
+        <ArrowMarkers uid={uid} colors={usedColors} widths={usedWidths} />
       </defs>
       <rect width={def.vbW} height={def.vbH} rx={10} fill={COURT_BG} />
       <CourtSurface mode={drill.courtMode} size={drill.courtSize} variant="present" />
@@ -119,7 +124,10 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
       {view.showGrid && <GridOverlay mode={drill.courtMode} size={drill.courtSize} showLabels={view.showGridLabels} forPrint />}
       <RuleZones mode={drill.courtMode} size={drill.courtSize} visible={view.showRuleZones} />
 
-      {/* §3.5 렌더 레이어 순서: 코트면 → 진영 → 격자·규칙존 → 콘 → 화살표 → 휠체어 → 공 → 메모.
+      {/* §3.5 렌더 레이어 순서: 코트면 → 진영 → 격자·규칙존 → 콘 → 획 → 화살표 → 휠체어 →
+          공 → 메모. 획이 화살표 아래인 근거는 render/ObjectLayer.tsx 머리말에 있다(케이싱이
+          남의 선을 지우므로 누가 끊겨도 되는지를 정해야 한다). 종이가 화면과 다른 순서를
+          쓰면 코치가 판에서 본 그림과 손에 든 종이가 달라진다.
           (선택 링·핸들은 편집 도구라 종이에 없다 — 장면의 내용이 아니다.) */}
       {drill.cast.cones.map((c) => {
         const p = step.cones[c.id];
@@ -142,6 +150,33 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
       {/* 작도 도형 — 화면과 **같은 층·같은 컴포넌트**다. 인쇄만 따로 그리면 반투명 값이
           어긋나는 날 종이에서만 진한 판이 나오고, 그건 코트에서야 알게 된다. */}
       <ShapeLayer shapes={step.shapes} />
+      {/* 자유 그리기 획 — 화살표와 **같은 층 구조**(케이싱 먼저, 본선 뒤에). 다른 것은 굵기가
+          획마다 다르다는 것뿐이고, 케이싱 여유·마커 id 는 화면과 같은 상수·같은 함수에서 온다.
+          ⚠️ `StrokePath` 를 그대로 쓰지 않는 이유는 이 파일 머리말 ①과 같다 — 그쪽은 writer
+             등록·포커스 링·잠김 덮개를 달고 있어 종이에 필요 없는 것이 함께 실린다. */}
+      {(step.strokes ?? []).map((s) => {
+        const d = strokePath(s);
+        const w = strokeWidthOf(s);
+        const color = strokeColor(s);
+        const hFrom = strokeHeadFrom(s);
+        const hTo = strokeHeadTo(s);
+        return (
+          <g key={s.id} data-print-stroke={s.id}>
+            <path d={d} fill="none" stroke={ARROW_CASING} strokeWidth={w + STROKE_CASING_PAD} strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d={d}
+              fill="none"
+              stroke={color}
+              strokeWidth={w}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              markerStart={hFrom === 'none' ? undefined : `url(#${arrowMarkerId(uid, color, hFrom, w)})`}
+              markerEnd={hTo === 'none' ? undefined : `url(#${arrowMarkerId(uid, color, hTo, w)})`}
+            />
+          </g>
+        );
+      })}
+
       {step.arrows.map((a) => {
         const d = arrowPath(a);
         const style = ARROW_STYLE;

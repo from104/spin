@@ -44,6 +44,32 @@ describe('ArrowMarkers', () => {
     }
   });
 
+  // 2026-09-03 — 굵기 축이 생기면서 이 컴포넌트가 리터럴에서 식으로 바뀌었다(arrowHeadGeom.ts).
+  // 그 변경이 **화살표만 쓰는 화면의 DOM 을 한 바이트도 안 바꾼다**는 것이 전제였는데, 전제는
+  // 적어 두는 것이 아니라 재는 것이다: 편집 화면에는 판 DOM 을 통째로 해시하는 기준선 테스트가
+  // 있어서(EditorWorkspace.narrow.test), 여기가 한 글자만 달라져도 그 해시가 깨진다.
+  // 아래 문자열은 옛 구현이 내던 마크업을 **손으로 옮겨 적은 것**이다 — 지금 구현을 돌려 만든
+  // 것이 아니다. 그래야 "안 바뀌었다" 를 증명한다.
+  it('획이 없는 화면(굵기 미지정)의 마크업은 굵기 축이 생기기 전과 바이트 동일하다', () => {
+    const legacy =
+      '<marker id="abc-38bdf8-thin" markerWidth="7.21" markerHeight="7.11" refX="5.353" refY="3.553" orient="auto-start-reverse">' +
+      '<path d="M0.353,0.353 L6.853,3.553 L0.353,6.753 z" fill="#38bdf8" stroke="#000000" stroke-width="0.71" stroke-linejoin="round"></path>' +
+      '</marker>' +
+      '<marker id="abc-38bdf8-wide" markerWidth="7.21" markerHeight="11.71" refX="5.353" refY="5.853" orient="auto-start-reverse">' +
+      '<path d="M0.353,0.353 L6.853,5.853 L0.353,11.353 z" fill="#38bdf8" stroke="#000000" stroke-width="0.71" stroke-linejoin="round"></path>' +
+      '</marker>';
+    // 케이싱 색은 상수에서 온다 — 위 리터럴이 그 상수와 갈리면 대조가 무의미해지므로 함께 잰다.
+    expect(ARROW_CASING).toBe('#000000');
+    const { container } = render(
+      <svg>
+        <defs>
+          <ArrowMarkers uid="abc" colors={['#38bdf8']} />
+        </defs>
+      </svg>,
+    );
+    expect(container.querySelector('defs')!.innerHTML).toBe(legacy);
+  });
+
   it('색상이 없으면 마커도 없다', () => {
     const { container } = render(
       <svg>

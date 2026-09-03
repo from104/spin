@@ -35,8 +35,11 @@ import type { DictKey } from '../../i18n/ko.ts';
  *  통째로 안 낸다 — 항목이 있는데 절반에만 먹는 것보다 없는 편이 정직하다. */
 // export 인 이유(2026-08-18): Ctrl/⌘+D 의 1·2층 갈림(useEditorKeyboard)이 같은 판정을
 // 써야 "메뉴에는 뜨는데 키는 스텝을 복제하는" 어긋남이 없다.
+// 🔁 2026-09-03 — 획(`fh`)이 합류했다. 위 문단의 술어("스텝 배열이라 정원 문제가 없다")가
+// 그대로 참이라 새 근거가 필요 없다 — 오히려 여기 없으면 손으로 그린 넷 중 하나만 복제가
+// 안 되는 갈래가 생기고, 그 갈림에는 아무 뜻이 없다.
 export const canDuplicate = (ids: readonly string[]): boolean =>
-  ids.every((id) => isId(id, 'sh') || isId(id, 'nt') || isId(id, 'ar'));
+  ids.every((id) => isId(id, 'sh') || isId(id, 'nt') || isId(id, 'ar') || isId(id, 'fh'));
 
 /** 여럿일 때만 개수를 낸다 — 하나짜리에 *"1개 잠금"* 은 셀 것이 없는데 세는 말이다.
  *  마지막 항목(빼기/삭제)만은 `removalLabel` 이 따로 만든다: 거기서는 개수가 두 갈래로

@@ -75,6 +75,7 @@ function pngChip(team: TeamSide, color?: string): string {
     cones: [],
     arrows: [],
     notes: [],
+    strokes: [],
   };
   const svg = buildStaticSvg(frame, { mode: 'full', teams: TEAMS, caption: null });
   const g = /<g id="obj-ch_1"[\s\S]*?<\/g>/.exec(svg);

@@ -1,6 +1,8 @@
 // §3.6 presence · 재생 검증.
 import { describe, expect, it } from 'vitest';
 import { wrapPi } from '../core/angle.ts';
+import { newId } from '../core/ids.ts';
+import type { Vec2 } from '../core/units.ts';
 import { createDrill } from './defaults.ts';
 import { duplicateStep } from './edits.ts';
 import { setPose } from './edits.ts';
@@ -12,6 +14,7 @@ import {
   interpolateSteps,
   presenceOf,
   sampleDrill,
+  staticFrameOf,
 } from './playback.ts';
 
 describe('presenceOf', () => {
@@ -78,6 +81,60 @@ describe('interpolateSteps', () => {
     const rc = frame.chairs.find((c) => c.id === id);
     expect(rc).toBeDefined();
     expect(rc!.opacity).toBeCloseTo(0.7, 9);
+  });
+});
+
+// 획(2026-09-03). 시연·PNG 는 스텝이 아니라 **프레임**을 소비하므로, 여기가 그 두 경로가 획을
+// 보는 유일한 창이다. 지키는 것은 보간 규칙 하나 — 편집기 트윈(store/editor/tween.ts)이 키에
+// 점 수를 넣어 구조적으로 얻는 그 판정을, 이쪽은 조건으로 적는다. 둘이 갈리면 같은 전환이
+// 편집기와 시연에서 다르게 보인다.
+describe('interpolateSteps — 자유 그리기 획', () => {
+  const withStrokes = (aPts: Array<[number, number]>, bPts: Array<[number, number]>) => {
+    let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    d = duplicateStep(d, 0);
+    const id = newId('fh');
+    const toPts = (ps: Array<[number, number]>): Vec2[] => ps.map(([x, y]) => ({ x, y }));
+    const steps = d.steps.slice();
+    steps[0] = { ...steps[0]!, strokes: [{ id, points: toPts(aPts) }] };
+    steps[1] = { ...steps[1]!, strokes: [{ id, points: toPts(bPts), width: 2 }] };
+    return { d: { ...d, steps }, id };
+  };
+
+  it('점 수가 같으면 점별로 보간한다', () => {
+    const { d } = withStrokes([[0, 0], [100, 0]], [[0, 100], [100, 100]]);
+    const s = interpolateSteps(d, d.steps[0]!, d.steps[1]!, 0.25).strokes[0]!;
+    expect(s.points.map((p) => p.y)).toEqual([25, 25]);
+    expect(s.points.map((p) => p.x)).toEqual([0, 100]); // x 는 안 움직인 축(대조군)
+    expect(s.opacity).toBe(1);
+  });
+
+  it('★ 점 수가 다르면 보간하지 않고 to 로 스냅한다', () => {
+    // 이으면 2번째 점이 3번째 점을 향해 기어간다 — 형체 불명의 애니메이션이 된다.
+    const { d } = withStrokes([[0, 0], [100, 0]], [[0, 100], [50, 100], [100, 100]]);
+    const s = interpolateSteps(d, d.steps[0]!, d.steps[1]!, 0.25).strokes[0]!;
+    expect(s.points).toEqual([{ x: 0, y: 100 }, { x: 50, y: 100 }, { x: 100, y: 100 }]);
+  });
+
+  it('색·굵기·화살촉은 늘 to 쪽 값이다 — 화살표의 `...b` 와 같다', () => {
+    const { d } = withStrokes([[0, 0], [100, 0]], [[0, 100], [100, 100]]);
+    expect(interpolateSteps(d, d.steps[0]!, d.steps[1]!, 0.25).strokes[0]!.width).toBe(2);
+    expect(d.steps[0]!.strokes![0]!.width, '대조군 — from 쪽은 기본 굵기였다').toBeUndefined();
+  });
+
+  it('등장·퇴장은 다른 개체와 같은 페이드다', () => {
+    let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    d = duplicateStep(d, 0);
+    const steps = d.steps.slice();
+    steps[1] = { ...steps[1]!, strokes: [{ id: newId('fh'), points: [{ x: 0, y: 0 }, { x: 9, y: 9 }] }] };
+    d = { ...d, steps };
+    expect(interpolateSteps(d, d.steps[0]!, d.steps[1]!, 0.3).strokes[0]!.opacity).toBeCloseTo(0.3, 9);
+    expect(interpolateSteps(d, d.steps[1]!, d.steps[0]!, 0.3).strokes[0]!.opacity).toBeCloseTo(0.7, 9);
+  });
+
+  it('획이 없는 스텝(키 자체가 없다)도 빈 배열로 나온다 — 프레임 필드는 늘 있다', () => {
+    const d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    expect(staticFrameOf(d, d.steps[0]!).strokes).toEqual([]);
+    expect(sampleDrill({ ...d, steps: [] }, 0, { baseMs: 1000, transitionMs: 300, loop: false }).strokes).toEqual([]);
   });
 });
 

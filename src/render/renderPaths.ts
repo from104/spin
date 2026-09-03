@@ -50,6 +50,7 @@ export type SceneElementId =
   | 'balls'
   | 'cones'
   | 'shapes'
+  | 'strokes'
   | 'arrows'
   | 'notes';
 export const SCENE_ELEMENT_IDS = [
@@ -65,6 +66,9 @@ export const SCENE_ELEMENT_IDS = [
   'balls',
   'cones',
   'shapes',
+  // 획은 화살표 **바로 아래** 층이다 — 목록 순서를 z-order 와 같이 두어 읽는 사람이 두 벌을
+  // 외우지 않게 한다(층 결정의 근거는 ObjectLayer.tsx 머리말).
+  'strokes',
   'arrows',
   'notes',
 ] as const;
@@ -96,6 +100,7 @@ export const RENDER_PATHS: Record<RenderPathId, Record<SceneElementId, ElementSu
     balls: YES,
     cones: YES,
     shapes: YES,
+    strokes: YES,
     arrows: YES,
     notes: YES,
   },
@@ -112,6 +117,7 @@ export const RENDER_PATHS: Record<RenderPathId, Record<SceneElementId, ElementSu
     balls: YES,
     cones: YES,
     shapes: YES,
+    strokes: YES,
     arrows: YES,
     notes: YES,
   },
@@ -128,6 +134,7 @@ export const RENDER_PATHS: Record<RenderPathId, Record<SceneElementId, ElementSu
     balls: YES,
     cones: YES,
     shapes: YES,
+    strokes: YES,
     arrows: YES,
     notes: YES,
   },
@@ -144,6 +151,7 @@ export const RENDER_PATHS: Record<RenderPathId, Record<SceneElementId, ElementSu
     balls: YES,
     cones: YES,
     shapes: YES,
+    strokes: YES,
     arrows: YES,
     notes: YES,
   },
@@ -160,6 +168,11 @@ export const RENDER_PATHS: Record<RenderPathId, Record<SceneElementId, ElementSu
     balls: YES,
     cones: THUMB,
     shapes: YES,
+    // 2026-09-03 — 허용 목록이 다섯으로 늘었다. 2026-08-27 지시("휠체어칩, 공, 화살표, 도형만")
+    // 이후에 없던 것이 생겼고(자유 그리기), 획은 **코치가 판에 직접 그은 자국**이라 목록에서
+    // 그 판을 알아보는 단서가 된다 — 그리는 사람이 그린 것이 요약에서 사라지면 요약이 아니다.
+    // 값이 아니라 판단이 바뀐 자리라, 옛 지시의 넷을 지우지 않고 여기에 다섯째를 더해 적는다.
+    strokes: YES,
     arrows: YES,
     notes: THUMB,
   },

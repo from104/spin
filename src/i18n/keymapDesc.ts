@@ -26,6 +26,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     // ── C7 — 도구 9종("{도구} 도구") ──
     '선택 도구': 'Select tool',
     '선 도구': 'Line tool',
+    '자유 그리기 도구': 'Freehand tool',
     '원 도구': 'Circle tool',
     '삼각 도구': 'Triangle tool',
     '사각 도구': 'Square tool',
@@ -76,6 +77,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     // ── C7 — 道具9種("{道具} 도구") ──
     '선택 도구': '選択ツール',
     '선 도구': '線ツール',
+    '자유 그리기 도구': 'フリーハンドツール',
     '원 도구': '円ツール',
     '삼각 도구': '三角ツール',
     '사각 도구': '四角ツール',

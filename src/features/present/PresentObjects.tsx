@@ -18,6 +18,7 @@ import { ChairChip } from '../../render/objects/ChairChip.tsx';
 import { BallDot } from '../../render/objects/BallDot.tsx';
 import { ConeMark } from '../../render/objects/ConeMark.tsx';
 import { ArrowPath } from '../../render/objects/ArrowPath.tsx';
+import { StrokePath } from '../../render/objects/StrokePath.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteChipWidthPx, noteFoldPathD, noteLineDy, noteLineHeightPx, noteLines } from '../../render/objects/noteChip.ts';
 import { NOTE } from '../../core/constants.ts';
@@ -124,6 +125,26 @@ export function PresentArrowLayer({ arrows, markerUid }: { arrows: RenderFrame['
         </g>
       ))}
     </>
+  );
+}
+
+/** 획 — 화살표와 **같은 경로·같은 근거**다(위 헤더 주석). `StrokePath` 를 그대로 쓰고
+ *  `writer` 는 안 넘긴다: 시연의 좌표는 매 프레임 `interpolateSteps` 가 만든 프레임에서 오고,
+ *  그 값이 곧 `stroke.points` 라 React 재렌더가 이미 모양을 갱신한다(편집기만 트윈 writer 로
+ *  `d` 를 직접 쓴다).
+ *
+ *  ⚠️ 읽기 전용이다 — `onPointerDown` 을 안 넘기므로 `StrokePath` 가 커서도 안 걸고 손도 안
+ *  받는다. `aria-hidden` 을 씌우는 것은 시연 화면이 개체 하나하나를 읽히는 자리가 아니기
+ *  때문이다(관객용 재생이고, 내용은 스텝 메모가 말한다). */
+export function PresentStrokeLayer({ strokes, markerUid }: { strokes: RenderFrame['strokes']; markerUid: string }) {
+  return (
+    <g aria-hidden="true">
+      {strokes.map((s) => (
+        <g key={s.id} opacity={s.opacity}>
+          <StrokePath stroke={s} markerUid={markerUid} selected={false} active={false} />
+        </g>
+      ))}
+    </g>
   );
 }
 

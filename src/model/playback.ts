@@ -7,6 +7,7 @@ import { easeStandard } from '../core/geom.ts';
 import type { ChairId, BallId, ConeId } from '../core/ids.ts';
 import type { Drill, DrillStep, ChairDef, NoteLabel, StoredBallRing, TeamSide } from './drill.ts';
 import type { Arrow } from './arrow.ts';
+import type { Stroke } from './stroke.ts';
 import { poseFromStored, type ChairPose } from './chair.ts';
 
 export { easeStandard };
@@ -56,6 +57,10 @@ export interface RenderFrame {
   cones: RenderCone[];
   arrows: Array<Arrow & { opacity: number }>;
   notes: Array<NoteLabel & { opacity: number }>;
+  /** 자유 그리기 획(2026-09-03). 화살표와 나란한 자리다 — 시연(`PresentObjects`)과 PNG
+   *  (`buildStaticSvg`)은 스텝이 아니라 **이 프레임**을 소비하므로, 여기 없으면 그 두 경로는
+   *  획을 그릴 방법 자체가 없다(인쇄는 `step` 을 직접 읽어 해당 없음). */
+  strokes: Array<Stroke & { opacity: number }>;
 }
 
 const dirVec = (theta: number): Vec2 => ({ x: Math.cos(theta), y: Math.sin(theta) });
@@ -200,7 +205,21 @@ export function interpolateSteps(d: Pick<Drill, 'cast'>, from: DrillStep, to: Dr
     opacity: 1,
   }));
 
-  return { stepIndex: -1, t: e, chairs, balls, cones, arrows, notes };
+  // 획 — **점 수가 같을 때만** 점별 보간, 다르면 `to` 로 스냅(색·굵기·화살촉은 늘 `to` 쪽,
+  // 화살표의 `...b` 와 같다).
+  //
+  // ⚠️ 스냅은 타협이 아니라 규약이다. 같은 id 의 획이라도 스텝마다 점 수가 다를 수 있는데
+  // (다시 그렸다), 그 둘을 점별로 이으면 5번째 점이 12번째 점을 향해 기어가는 형체 불명의
+  // 애니메이션이 나온다. 편집기 트윈(`store/editor/tween.ts`)이 같은 판정을 **키에 점 수를
+  // 넣어** 구조적으로 얻는데, 여기서는 두 획을 한자리에서 보므로 조건으로 적는다 — 두 경로가
+  // 같은 그림을 내야 하므로 규칙이 갈리면 안 된다(`model/stroke.ts` 의 `strokePointKey` 주석이
+  // 이 규약의 단일 출처다).
+  const strokes = interpList(from.strokes ?? [], to.strokes ?? [], e, (a, b, ee) => {
+    if (a.points.length !== b.points.length) return { ...b, opacity: 1 };
+    return { ...b, points: b.points.map((p, i) => lerpVec(a.points[i]!, p, ee)), opacity: 1 };
+  });
+
+  return { stepIndex: -1, t: e, chairs, balls, cones, arrows, notes, strokes };
 }
 
 export function effectiveStepMs(s: DrillStep, baseMs: number): number {
@@ -228,7 +247,7 @@ export function sampleDrill(
   o: { baseMs: number; transitionMs: number; loop: boolean },
 ): RenderFrame {
   const n = d.steps.length;
-  if (n === 0) return { stepIndex: 0, t: 0, chairs: [], balls: [], cones: [], arrows: [], notes: [] };
+  if (n === 0) return { stepIndex: 0, t: 0, chairs: [], balls: [], cones: [], arrows: [], notes: [], strokes: [] };
 
   const starts: number[] = new Array(n);
   let acc = 0;

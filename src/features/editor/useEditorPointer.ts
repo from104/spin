@@ -14,7 +14,7 @@ import { poseFromStored } from '../../model/chair.ts';
 import type { Dispatch, RefObject } from 'react';
 import type { Vec2 } from '../../core/units.ts';
 import { isId, newId } from '../../core/ids.ts';
-import type { ArrowId, BallId, CastId, ChairId, ConeId, NoteId } from '../../core/ids.ts';
+import type { ArrowId, BallId, CastId, ChairId, ConeId, NoteId, StrokeId } from '../../core/ids.ts';
 import { INTERACT, PHYS } from '../../core/constants.ts';
 import { isApplePlatform } from '../../core/platform.ts';
 import { hitTest, handlesVisible as computeHandlesVisible, applyTwoZone, twoZoneViewConfig } from '../../physics/index.ts';
@@ -28,6 +28,24 @@ import { isOnSurface } from '../../model/court.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
 import type { Arrow, ArrowGrip } from '../../model/arrow.ts';
 import { arrowColorName, arrowMid, cycleArrowColor, cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow, rotateArrowAbout } from '../../model/arrow.ts';
+import type { Stroke, StrokeGrip } from '../../model/stroke.ts';
+import {
+  STROKE_MIN_STEP_PX,
+  STROKE_WIDTHS,
+  cycleStrokeColor,
+  cycleStrokeHead,
+  cycleStrokeWidth,
+  makeStroke,
+  rotateStrokeAbout,
+  simplifyPoints,
+  strokeCenter,
+  strokeHeadFrom,
+  strokeHeadTo,
+  strokeWidthIndexOf,
+  translateStroke,
+} from '../../model/stroke.ts';
+import { LIMITS } from '../../model/validate.ts';
+import { translate } from '../../i18n/useT.ts';
 import { arrowLabel } from '../../render/objects/ArrowPath.tsx';
 import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipWidthPx, noteRingRadiusPx } from '../../render/objects/noteChip.ts';
 import type { CourtStageHandle, PointerMeta, PointerDownResult, CourtStagePointerController } from '../../render/CourtStage.tsx';
@@ -129,8 +147,29 @@ export interface UseEditorPointerResult {
    *  화면이 조작 규칙을 잘못 가르치는 상태가 생긴다. */
   zoneCursors: ZoneConfig;
   arrowDraft: Arrow | null;
+  /** 진행 중인 자유 그리기 획의 점열(월드 px, 2026-09-03). 손을 떼기 전까지의 **미리보기**라
+   *  아직 모델에 없다 — 그리는 동안 화면에 아무 자국도 안 남으면 손이 지나간 자리를 알 수 없고,
+   *  그 상태로는 "여기서 한 번 더 꺾자" 같은 판단 자체가 불가능하다. 안 그리는 동안은 null.
+   *
+   *  ⚠️ **단순화 전 원본 표본이다**(`simplifyPoints` 는 손을 뗄 때 한 번만 돈다). 미리보기와
+   *  확정 획의 모양이 아주 조금 다르다는 뜻인데, 그게 맞다: 그리는 중에 매 프레임 RDP 를 돌리면
+   *  이미 그은 부분의 점이 손이 나아감에 따라 사라졌다 생겼다 하며 선이 살아 움직인다.
+   *
+   *  계약: 이 값을 화면에 잇는 것은 렌더 층의 일이다(`strokePath` 로 같은 곡선을 만든다). */
+  strokeDraft: readonly Vec2[] | null;
   /** §7.5d 키보드 커서 Enter — pointerdown 과 같은 배치 로직을 재사용한다. */
   placeAtCursor(world: Vec2): void;
+}
+
+/** 점열의 총 길이(월드 px). 자유 그리기 캡처가 **탭인가 획인가**를 가르는 자다.
+ *
+ *  시작점–끝점 직선거리를 안 쓰는 이유: 동그라미를 그리면 그 값이 0 에 가까워 방금 그린 원이
+ *  통째로 버려진다. 화살표(`from`→`to` 12px)와 갈리는 것은 개체의 성질 차이다 — 화살표는 두
+ *  점이 전부라 직선거리가 곧 크기지만, 획은 손이 지나간 거리가 크기다. */
+function polylineLength(pts: readonly Vec2[]): number {
+  let sum = 0;
+  for (let i = 1; i < pts.length; i += 1) sum += Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y);
+  return sum;
 }
 
 function shapeOf(kind: HitResult['kind']): SelectionShape | null {
@@ -172,6 +211,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   const selectionOverlayRef = useRef<SelectionOverlayHandle | null>(null);
   const [activeZone, setActiveZone] = useState<DragZone | null>(null);
   const [arrowDraft, setArrowDraft] = useState<Arrow | null>(null);
+  const [strokeDraft, setStrokeDraft] = useState<readonly Vec2[] | null>(null);
   const [twoZoneEngaged, setTwoZoneEngaged] = useState(false);
 
   const dragHandleRef = useRef<DragHandle | null>(null);
@@ -195,6 +235,19 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
   /** 선 몸통을 잡아 **통째로** 옮기는 세션(2026-08-16 기현 지시). 도형의 body 드래그와 같은 뜻이라
    *  커서도 같은 `move` 다 — 그 커서가 곧 "여기를 잡으면 통째로 간다" 는 유일한 예고다. */
   const arrowBodyDragRef = useRef<{ arrowId: ArrowId; last: Vec2 } | null>(null);
+  /** 자유 그리기 캡처 세션(2026-09-03). `points` 는 **원본 표본**이고 단순화는 손을 뗄 때 한
+   *  번만 돈다(`strokeDraft` 주석). 붙어 있는 표본(2px 미만)은 여기서 이미 버리므로
+   *  `simplifyPoints` 의 ① 단계와 겹치는데, 그 중복은 의도다: 저장 함수 쪽 필터는 어디서 온
+   *  점열이든 지키는 계약이고, 여기 필터는 손이 멈춰 있는 동안 배열이 무한정 자라지 않게 하는
+   *  것이다(400점 상한은 파일 방어선이지 세션 중 메모리 상한이 아니다). */
+  const strokeCaptureRef = useRef<{ points: Vec2[] } | null>(null);
+  /** 획 앵커 세션. 화살표의 `arrowHandleDragRef` 와 **같은 모양·같은 규칙**이다 —
+   *  `moved` 가 누르기(값 순환)와 끌기(회전)를 가르고, 회전은 잡는 순간의 획을 **래치**해서
+   *  중심이 함께 돌아 흘러 다니지 않게 한다(`rotateStrokeAbout` 의 계약). */
+  const strokeHandleDragRef = useRef<{ strokeId: StrokeId; grip: StrokeGrip; start: Vec2; startStroke: Stroke | null; moved: boolean } | null>(null);
+  /** 획 몸통 세션. 화살표 몸통과 갈리는 것은 **탭에 뜻이 있다**는 것 하나다(굵기 순환) —
+   *  그래서 `moved` 를 들고 다닌다. 화살표 몸통은 탭에 도는 값이 없어 매 프레임 바로 민다. */
+  const strokeBodyDragRef = useRef<{ strokeId: StrokeId; start: Vec2; last: Vec2; moved: boolean } | null>(null);
   /** 여럿을 골라 두고 그중 하나를 잡은 세션(§6.10b) — **고른 것이 통째로 간다**.
    *
    *  물리 드래그를 안 쓰는 이유는 물리 월드가 드래그 세션을 한 번에 하나만 쥐기 때문이다
@@ -284,6 +337,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         halfH: noteChipHeightPx(n.text, n.size ?? NOTE_DEFAULT_SIZE_PX) / 2,
       })),
       arrows: ctx.step.arrows.map((a) => ({ id: a.id, from: a.from, ctrl: a.ctrl, to: a.to })),
+      // 획은 스텝이 통째로 소유한다(물리 바디가 없다) — 도형과 같은 부류라 물리 스냅샷이
+      // 아니라 `ctx.step` 에서 읽는다. v9 이하로 저장됐던 스텝에는 필드가 아예 없다.
+      strokes: ctx.step.strokes ?? [],
     };
   }, []);
 
@@ -291,12 +347,14 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     const ctx = ctxRef.current;
     const selectedChairId = (Array.from(ctx.selection).find((id) => isId(id, 'ch')) as ChairId | undefined) ?? null;
     const selectedArrowId = (Array.from(ctx.selection).find((id) => isId(id, 'ar')) as ArrowId | undefined) ?? null;
+    const selectedStrokeId = (Array.from(ctx.selection).find((id) => isId(id, 'fh')) as StrokeId | undefined) ?? null;
     return {
       zones: ctx.zones,
       pxPerUnit: metricsRef.current.pxPerUnit,
       pointerType: metricsRef.current.pointerType,
       selectedChairId,
       selectedArrowId,
+      selectedStrokeId,
       // 히트 게이트는 **화면에 보이는 것과 같아야** 한다(회귀): 예전에는 여기만
       // computeHandlesVisible(터치 + 많이 축소)로 판정해서, 마우스에서는 핸들이 그려져
       // 있는데도 hitTest 가 zoneHandle 을 절대 돌려주지 않았다 — 특히 차체 밖 앞뒤 핸들은
@@ -550,6 +608,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
           ...buildHitContext('eraser'),
           selectedChairId: null,
           selectedArrowId: null,
+          // 획 앵커도 같은 이유로 뺀다(2026-09-03) — 회전 앵커는 획 끝에서 48px **바깥**에
+          // 앉으므로, 남겨 두면 획이 지나간 적도 없는 허공을 찍었는데 그 획이 사라진다.
+          selectedStrokeId: null,
           handlesVisible: false,
         });
         if (!hit || !hit.id) {
@@ -568,6 +629,20 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         // 갈리지 않게 하는 유일한 방법이다. 스코프도 그쪽과 같은 `'onward'`: cast(칩·공·콘)를
         // 이 스텝에서만 빼면 다음 스텝에 되살아나 "지웠는데 아직 있다" 가 된다.
         ctx.onEraseIds?.([hit.id], 'onward');
+        return {};
+      }
+
+      // ── 자유 그리기(2026-09-03) ─────────────────────────────────────────────
+      // 히트테스트를 **안 돌린다.** 이 도구에서는 개체 위에서 시작해도 그 개체를 잡는 것이
+      // 아니라 그 자리부터 긋는 것이 맞다 — 코트 위에 뭐가 있든 손이 지나간 자리가 획이라는
+      // 것이 "자유" 의 뜻이고, 붐비는 판에서 그릴 자리를 찾아 헤매게 만들면 도구가 죽는다.
+      // (`line` 도구가 개체 중심 15px 안에서 시작점을 빨아들이는 것과 반대다: 그쪽은 개체와
+      //  개체를 잇는 도구라 흡착이 값이고, 이쪽은 판에 덧그리는 도구라 흡착이 방해다.)
+      //
+      // 러버밴드·팬도 열지 않는다(반환 `{}`). 손을 뗄 때까지 이 세션은 획 하나만 만든다.
+      if (ctx.tool === 'freehand') {
+        strokeCaptureRef.current = { points: [world] };
+        setStrokeDraft([world]);
         return {};
       }
 
@@ -697,6 +772,14 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         ctx.dispatch({ type: 'SELECT_SET', ids: [hit.id] });
         return;
       }
+      if (hit.kind === 'strokeHandle') {
+        // 화살표 앵커와 **같은 세션**이다 — 잡는 순간의 획을 래치해 두고, 손을 뗄 때
+        // `moved` 가 누르기(값 순환)와 끌기(회전)를 가른다.
+        const startStroke = ctx.step.strokes?.find((s) => s.id === hit.id) ?? null;
+        strokeHandleDragRef.current = { strokeId: hit.id as StrokeId, grip: hit.grip!, start: world, startStroke, moved: false };
+        ctx.dispatch({ type: 'SELECT_SET', ids: [hit.id] });
+        return;
+      }
       if (hit.kind === 'chair' || hit.kind === 'ball' || hit.kind === 'cone') {
         // [A-3] 이미 선택된 개체의 재탭이면 해제 후보로 문다 — 판정은 up 에서(움직였으면 드래그다).
         // additive 는 아래 toggleId 가 pointerdown 시점에 즉시 빼 주므로 여기 대상이 아니다.
@@ -721,8 +804,11 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         if (hit.kind === 'chair') setActiveZone(handle?.zone ?? null);
         return;
       }
-      // note / arrow
+      // note / arrow / stroke
       // [A-3] 메모·화살표도 같은 재탭 해제 계약을 따른다 — 5.2 가 뒤집은 것은 **공 하나뿐**이다.
+      // 획은 세션을 여기서 함께 물지만 **결말이 다르다**(pointerup 의 strokeBody 갈래가 탭 판정
+      // 앞에서 끝난다) — 그 갈림의 근거는 거기 ★ 주석이 쥔다. 여기서 미리 거르지 않는 이유는
+      // 조건을 두 곳에 적으면 한쪽만 고쳐지는 날이 오기 때문이다.
       if (!additive && ctx.selection.has(hit.id)) tapDeselectRef.current = { start: world, moved: false, ballId: null };
       const nextSel = additive ? toggleId(ctx.selection, hit.id) : [hit.id];
       ctx.dispatch({ type: 'SELECT_SET', ids: nextSel });
@@ -735,6 +821,15 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         // 이 둘은 상자로 돌아갈 자리가 없어 결과가 '삭제' 다(removal.ts) — 예고도 그렇게 뜬다.
         const before = ctx.step.arrows.find((a) => a.id === hit.id);
         if (before) trayCargoRef.current = { ids: [before.id], revert: () => ctxRef.current.dispatch({ type: 'ARROW_SET', arrow: before }) };
+      }
+      if (hit.kind === 'stroke') {
+        // 몸통 — 끌면 점 전부가 함께 가고, 안 끌고 떼면 굵기가 한 칸 돈다(pointerup).
+        // 트레이 드롭은 화살표와 같다: 상자로 돌아갈 자리가 없어 결과가 '삭제' 다(removal.ts).
+        const before = ctx.step.strokes?.find((s) => s.id === hit.id);
+        if (before) {
+          strokeBodyDragRef.current = { strokeId: before.id, start: world, last: world, moved: false };
+          trayCargoRef.current = { ids: [before.id], revert: () => ctxRef.current.dispatch({ type: 'STROKE_SET', stroke: before }) };
+        }
       }
       if (hit.kind === 'note') {
         const note = ctx.step.notes.find((n) => n.id === hit.id);
@@ -759,6 +854,20 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 저마다 return 으로 끝나므로, 여기 말고는 모든 갈래가 지나는 자리가 없다.
       // 짐이 없으면(고무줄·작도·손잡이) 아무 일도 안 한다.
       if (trayCargoRef.current && client) setOverTray(isOverTray(client));
+
+      // 자유 그리기 캡처 — 다른 어떤 세션과도 배타적이라 **맨 앞**에서 걷어낸다.
+      // 붙어 있는 표본은 여기서 버린다(`STROKE_MIN_STEP_PX`): 손끝이 멈춰 있어도 포인터 이벤트는
+      // 계속 오는데, 그 점들은 모양에 아무것도 더하지 않으면서 배열과 매 프레임 렌더만 갉아먹는다.
+      const cap = strokeCaptureRef.current;
+      if (cap) {
+        const last = cap.points[cap.points.length - 1]!;
+        if (Math.hypot(world.x - last.x, world.y - last.y) >= STROKE_MIN_STEP_PX) {
+          cap.points.push({ x: world.x, y: world.y });
+          // 새 배열을 넘긴다 — 같은 참조를 밀어 넣으면 React 가 변화를 못 보고 미리보기가 안 는다.
+          setStrokeDraft(cap.points.slice());
+        }
+        return;
+      }
 
       // [A-3] 탭 임계를 넘는 순간 이 세션은 드래그다 — 한 번 넘었으면 되돌아와도 드래그다
       // (러버밴드의 tapPx 판정과 같은 임계·같은 화면 기준 환산).
@@ -892,6 +1001,51 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         return;
       }
 
+      if (strokeHandleDragRef.current) {
+        const h = strokeHandleDragRef.current;
+        if (!h.moved) {
+          const tapPx = INTERACT.tapMaxMoveCssPx / metricsRef.current.pxPerUnit;
+          if (Math.hypot(world.x - h.start.x, world.y - h.start.y) > tapPx) h.moved = true;
+        }
+        if (!h.moved) return;
+        // 회전 앵커 — 축은 **래치한 시작 획**의 경계상자 중심이고, 각은 시작점 대비 변위다.
+        // 화살표의 그 분기와 한 글자도 다르지 않은 계산이라(중심 함수만 갈린다) 두 개체가
+        // 같은 손짓에 같은 반응을 낸다.
+        if (h.grip === 'rotate') {
+          if (!h.startStroke) return;
+          const center = strokeCenter(h.startStroke);
+          const delta = Math.atan2(world.y - center.y, world.x - center.x) - Math.atan2(h.start.y - center.y, h.start.x - center.x);
+          ctx.dispatch({ type: 'STROKE_SET', stroke: rotateStrokeAbout(h.startStroke, center, delta) });
+          return;
+        }
+        // ⚠️ **양 끝 앵커를 끌어도 아무 일이 없다.** 화살표는 끝점을 끌면 그 점이 옮겨지지만,
+        //    획의 끝점은 세 점 중 하나가 아니라 N 점의 **맨 끝**이라 그것만 옮기면 마지막 선분
+        //    하나가 늘어나 손으로 그은 모양이 깨진다. 기현 지시도 양 끝은 *"그냥 클릭 3단계"*
+        //    (화살촉 순환)뿐이다. 몸통 이동으로 대신 처리하지도 않는다 — 앵커를 잡았는데 획이
+        //    통째로 따라오면 그 앵커가 무엇인지 손이 다시 배워야 한다. 비어 있는 자리는 비워 둔다.
+        return;
+      }
+
+      if (strokeBodyDragRef.current) {
+        const b = strokeBodyDragRef.current;
+        if (!b.moved) {
+          const tapPx = INTERACT.tapMaxMoveCssPx / metricsRef.current.pxPerUnit;
+          if (Math.hypot(world.x - b.start.x, world.y - b.start.y) > tapPx) b.moved = true;
+        }
+        // 임계 전에는 한 톨도 안 옮긴다 — 굵기를 돌리려고 누른 손이 획을 1px 흔들면 안 된다.
+        // ⚠️ 넘은 뒤에도 `last` 를 시작점으로 두는 것이 요점이다: 여기서 `last = world` 로
+        //    다시 잡으면 임계만큼(6 CSS px) 획이 손보다 뒤처진 채 끌려간다(덩어리 이동과 같은 규율).
+        if (!b.moved) return;
+        const stroke = ctx.step.strokes?.find((s) => s.id === b.strokeId);
+        if (stroke) {
+          const d = { x: world.x - b.last.x, y: world.y - b.last.y };
+          b.last = world;
+          // 키보드 이동(`nudgeStroke`)·무리 이동(GROUP_NUDGE 의 'fh' 갈래)과 **같은 함수**다.
+          ctx.dispatch({ type: 'STROKE_SET', stroke: translateStroke(stroke, d) });
+        }
+        return;
+      }
+
       if (rubberRef.current) {
         const { start } = rubberRef.current;
         rubberRectRef.current = { x: Math.min(start.x, world.x), y: Math.min(start.y, world.y), w: Math.abs(world.x - start.x), h: Math.abs(world.y - start.y) };
@@ -991,6 +1145,37 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       return;
     }
 
+    // ── 자유 그리기 캡처의 끝(2026-09-03) ──────────────────────────────────────
+    // 트레이와 무관하다(짐을 안 실었다) — 그리는 중에는 개체를 손에 든 것이 아니라 만드는
+    // 중이라, 트레이 위에서 손을 떼도 아무 일이 없는 것이 맞다(trayCargoRef 머리말과 같은 규율).
+    const cap = strokeCaptureRef.current;
+    if (cap) {
+      strokeCaptureRef.current = null;
+      setStrokeDraft(null);
+      const tapPx = INTERACT.tapMaxMoveCssPx / metricsRef.current.pxPerUnit;
+      const pts = simplifyPoints(cap.points);
+      // 관문이 둘인 이유가 다르다. **길이**는 "그리려던 손짓인가" 를 묻고(제자리 탭으로 점 하나
+      // 짜리 획이 쌓이면 판이 보이지 않는 쓰레기로 덮인다), **점 수**는 모델의 최소 요건이다
+      // (`validate.sanitizeStroke` 가 2점 미만을 버린다 — 여기서 안 막으면 저장했다 여는 순간
+      //  조용히 사라지는 획이 생긴다). 길이는 **원본**으로 잰다: 단순화가 지나간 뒤에는 잔떨림이
+      // 이미 접혀 있어 "얼마나 움직였나" 의 답이 달라진다.
+      if (pts.length >= 2 && polylineLength(cap.points) > tapPx) {
+        // 상한을 여기서 막는다(2026-09-03). 화살표·메모는 놓기에 검사가 없지만(복제 쪽 주석)
+        // 획은 손을 한 번 그을 때마다 하나씩 늘어 40 을 넘기기가 가장 쉬운 개체다 — 안 막으면
+        // 다음 로드 때 validate 가 뒤에서 잘라, **저장은 됐는데 열면 없는** 획이 생긴다.
+        if ((ctx.step.strokes?.length ?? 0) >= LIMITS.strokesPerStep) {
+          ctx.showToast(translate(locale, 'editor.workspace.strokeCapToast', { max: LIMITS.strokesPerStep }));
+          return;
+        }
+        const stroke = makeStroke(newId('fh'), pts);
+        ctx.dispatch({ type: 'STROKE_SET', stroke });
+        // 화살표와 같은 배치 뒤끝(§6.10a): 방금 그은 것을 고르고, 고정이 아니면 선택 도구로
+        // 돌아간다. 그 규칙은 리듀서(PLACED)가 쥔다 — 빠뜨리면 자유 그리기만 혼자 계속 켜져 있다.
+        ctx.dispatch({ type: 'PLACED', id: stroke.id });
+      }
+      return;
+    }
+
     if (arrowSessionRef.current) {
       const draft = arrowDraft;
       arrowSessionRef.current = null;
@@ -1054,6 +1239,59 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       return;
     }
 
+    if (strokeHandleDragRef.current) {
+      const h = strokeHandleDragRef.current;
+      strokeHandleDragRef.current = null;
+      // ★ 끌지 않고 뗐다 = **그 앵커가 나르는 값을 한 칸 돌린다**(기현 지시: *"양끝 화살표 그냥
+      //   클릭 3단계, 약간 외각에 회전(드래그는 회전, 그냥 클릭은 색 순환)"*). 화살표의 세 앵커와
+      //   같은 규칙 아래 있고, 갈리는 것은 **회전 앵커에 탭 뜻이 생겼다**는 것 하나다: 화살표는
+      //   굽힘점(ctrl)이 색을 맡아 회전 앵커가 비었지만, 획에는 굽힘점이 없어(모양을 점들이 쥔다)
+      //   색이 갈 자리가 여기뿐이다.
+      if (!h.moved) {
+        const s = ctx.step.strokes?.find((x) => x.id === h.strokeId);
+        if (s) {
+          const next = h.grip === 'rotate' ? cycleStrokeColor(s) : cycleStrokeHead(s, h.grip);
+          ctx.dispatch({ type: 'STROKE_SET', stroke: next });
+          // 발화는 **방금 바뀐 것**만 말한다(화살표 앵커와 같은 규율).
+          // ⚠️ `arrowLabel` 에 획을 그대로 넘기면 안 된다 — 그 함수의 `headToOf` 기본값은
+          //    'thin'(화살표)인데 획의 기본값은 'none' 이라, 화살촉이 없는 획이 "화살표" 로
+          //    읽힌다. 두 기본값을 각자의 함수로 푼 **결과**만 넘겨 그 갈림을 지운다.
+          liveRegion.say(
+            h.grip === 'rotate'
+              ? `${arrowColorName(next, locale)} 획`
+              : arrowLabel({ headFrom: strokeHeadFrom(next), headTo: strokeHeadTo(next) }, locale),
+          );
+        }
+      }
+      return;
+    }
+
+    if (strokeBodyDragRef.current) {
+      const b = strokeBodyDragRef.current;
+      strokeBodyDragRef.current = null;
+      if (trayDrop) {
+        dropToTray();
+        return;
+      }
+      // ★ 끌지 않고 뗐다 = **굵기 한 칸**(기현 지시: *"선 (반복 클릭 굵기 3단계, 드래그 이동)"*).
+      //
+      // ⚠️ **여기서 `finishTap()` 을 부르지 않는 것이 이 갈래의 절반이다** — 화살표 몸통과
+      //    정확히 반대다(그쪽은 안 부르면 재탭 해제가 죽어서 2026-08-16 에 한 번 고장 났다).
+      //    갈리는 근거는 개체 종류가 아니라 **탭에 도는 값이 있는가**다: 화살표 몸통에는 없어서
+      //    탭이 해제로 흘러가야 하고, 획 몸통에는 굵기가 있어서 여기서 멈춰야 한다. 함께 걸면
+      //    두 번째 클릭마다 선택이 풀려, **굵기를 고르는 동안 그 획의 앵커를 잃는다.**
+      //    선택을 푸는 길은 그대로 셋이다: 빈 곳 탭 · Esc · 다른 개체 선택.
+      if (!b.moved) {
+        const s = ctx.step.strokes?.find((x) => x.id === b.strokeId);
+        if (s) {
+          const next = cycleStrokeWidth(s);
+          ctx.dispatch({ type: 'STROKE_SET', stroke: next });
+          liveRegion.say(`굵기 ${strokeWidthIndexOf(next) + 1} / ${STROKE_WIDTHS.length}`);
+        }
+      }
+      return;
+    }
+
     if (rubberRef.current) {
       const { additive, clearsOnTap } = rubberRef.current;
       const rect = rubberRectRef.current;
@@ -1089,6 +1327,11 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       //   한다. 둘을 같은 출처에서 읽으면 "화살표는 되는데 도형은 안 되는" 갈래가 안 생긴다.
       for (const a of ctx.step.arrows) if (inRect(arrowMid(a), rect) && takeable(a.id)) ids.push(a.id);
       for (const sh of ctx.step.shapes ?? []) if (inRect({ x: sh.x, y: sh.y }, rect) && takeable(sh.id)) ids.push(sh.id);
+      // 획의 대표점은 **경계상자 중심**이다(`strokeCenter`) — 회전축과 같은 점이라, 화면에서
+      // "이 획의 한가운데" 로 읽히는 자리가 사각형 판정에서도 한가운데다. 점 하나라도 걸리면
+      // 담는 방식(선분 교차)을 안 쓰는 이유는 화살표·도형과 규칙이 갈려서다: 여기 넷은 전부
+      // 대표점 하나로 판정한다.
+      for (const fh of ctx.step.strokes ?? []) if (inRect(strokeCenter(fh), rect) && takeable(fh.id)) ids.push(fh.id);
       if (ids.length > 0) {
         ctx.dispatch({ type: 'SELECT_SET', ids: additive ? Array.from(new Set([...ctx.selection, ...ids])) : ids });
       } else if (!additive) {
@@ -1111,6 +1354,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
     twoZoneEngaged,
     zoneCursors,
     arrowDraft,
+    strokeDraft,
     placeAtCursor: placeAt,
   };
 }

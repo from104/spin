@@ -191,6 +191,20 @@ export function IconToolNote({ size = 18, ...rest }: IconProps) {
   );
 }
 
+/** 자유 그리기 도구(2026-09-03). 획 하나를 그대로 그린 것 — 굽이가 셋인 손 그림 곡선이다.
+ *
+ *  ⚠️ 연필·펜을 안 그렸다. 서랍 안 이웃(선 `IconToolRoute` · 원 · 삼각 · 사각)이 전부
+ *  **결과물의 모양**을 보여 주는데 여기만 도구를 보여 주면, 같은 줄에서 그림의 뜻이 갈린다
+ *  ("이건 무엇을 놓는가" 와 "이건 무엇으로 놓는가" 가 섞인다). 획 자체를 그리면 `strokeBase`
+ *  의 둥근 끝·둥근 이음이 그대로 이 도구가 판에 남기는 선의 생김새이기도 하다. */
+export function IconToolFreehand({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M3 17c2.5 0 2.5-9 5.5-9s3 12 6 12 3.5-9 6.5-9" />
+    </svg>
+  );
+}
+
 /** 지우기 도구. 2026-08-16 에 도구가 사라진 뒤로 **사용처 0** 인 채 살아남아 있다가
  *  2026-09-03 에 되살아난 도구가 다시 쓴다(toolDefs.ts 의 그 문단이 뒤집기 근거를 쥔다).
  *

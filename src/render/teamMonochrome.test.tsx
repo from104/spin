@@ -76,6 +76,7 @@ function pngChip(team: TeamSide, color?: string): string {
     cones: [],
     arrows: [],
     notes: [],
+    strokes: [],
   };
   const svg = buildStaticSvg(frame, { mode: 'full', teams: TEAMS, caption: null });
   const g = /<g id="obj-ch_1"[\s\S]*?<\/g>/.exec(svg);
@@ -90,7 +91,7 @@ function printChip(team: TeamSide, color?: string): string {
     teams: TEAMS,
     cast: { chairs: [def], balls: [], cones: [] },
   };
-  const step = { chairs: { [CHAIR_ID]: { x: 200, y: 200, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [] } as unknown as DrillStep;
+  const step = { chairs: { [CHAIR_ID]: { x: 200, y: 200, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [], strokes: [] } as unknown as DrillStep;
   const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />, { wrapper: SettingsProvider });
   const g = container.querySelector('[data-print-chair]');
   expect(g, '인쇄 트리에 칩 그룹이 없다').not.toBeNull();

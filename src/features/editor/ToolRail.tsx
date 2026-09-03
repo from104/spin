@@ -280,8 +280,12 @@ type DrawerKey = keyof TrayDrawers;
  *  ⚠️ 이 갈림에서 **메모가 `작도` 에서 `설명` 으로 한 칸 옮겨 간다.** 개폐로 움직이는 것이
  *  아니라 **재편으로** 움직이는 것이라 §3 불변식 1 위반은 아니다(FALSIFICATION §26.6 이
  *  3.-1 에서 미리 예고해 둔 이동이다) — 그래도 자리를 옮긴 것은 사실이라 커밋 메시지에 적는다. */
+/** 🔁 2026-09-03 — `freehand` 가 [작도] 서랍에 합류했다(PLAN 결정 7). 서랍 **안**이라 첫 화면의
+ *  표적 수는 한 개도 안 는다 — 손잡이 하나가 그대로 다섯을 나른다. 순서는 `TOOLS` 가 정하므로
+ *  (여기는 거르기만 한다) `line` 바로 다음 칸이고, 손잡이 아이콘(`IconToolRoute` = 선)도 그대로다:
+ *  손잡이가 보여 주는 것은 서랍의 **대표**이지 담긴 것 전부가 아니다. */
 const DRAWERS = [
-  { key: 'draw', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'line' || t.id.startsWith('shape')) },
+  { key: 'draw', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'line' || t.id === 'freehand' || t.id.startsWith('shape')) },
 ] as const satisfies readonly { key: DrawerKey; Icon: typeof IconToolRoute; tools: readonly ToolDef[] }[];
 
 /** ⚠️ **`설명` 서랍은 2026-08-27 에 사라졌다**(기현 지시: *"노트 버튼도 서랍에서 단일 버튼으로

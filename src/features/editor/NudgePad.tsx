@@ -30,12 +30,22 @@ import { useT } from '../../i18n/useT.ts';
  *  도형(`sh`)은 거기서도 빠져 있어 여기서도 뺀다(있는데 안 먹는 칸을 내지 않는다).
  *  export 인 이유: 개체 메뉴가 [미세 조정] 칸을 낼지 말지 **같은 판정**으로 정해야 한다. */
 export const canNudge = (ids: readonly string[]): boolean =>
-  ids.length > 0 && ids.every((id) => isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn') || isId(id, 'nt') || isId(id, 'ar'));
+  ids.length > 0 &&
+  ids.every((id) => isId(id, 'ch') || isId(id, 'bl') || isId(id, 'cn') || isId(id, 'nt') || isId(id, 'ar') || isId(id, 'fh'));
 
-/** 회전은 **휠체어 하나일 때만**이다. 무리의 회전축이 무엇인지 답이 하나로 안 나오고
- *  (EditorStage 의 `nudge` 주석), 키보드의 Q·E 도 `isId(id,'ch')` 에서만 먹는다 — 방향을
- *  가진 개체가 휠체어뿐이라서다. 공·콘에 회전 칸을 내면 눌러도 아무 일이 없다. */
-export const canRotate = (ids: readonly string[]): boolean => ids.length === 1 && isId(ids[0]!, 'ch');
+/** 회전은 **하나일 때만**, 그리고 **회전축이 하나로 정해지는 개체**에만 낸다.
+ *
+ *  · 휠체어(`ch`) — 방향을 가진 유일한 캐스트다. 축은 피벗이고, 키보드 Q·E 와 같은 길이다.
+ *  · 획(`fh`, 2026-09-03) — 축은 경계상자 중심(`strokeCenter`)이고, 포인터의 회전 앵커가
+ *    이미 그 축으로 돈다. 여기서 안 내면 **정밀 드래그로만 되는 조작**이 하나 생기는데,
+ *    회전 앵커는 반경 22 CSS px 표적이라 그것이 어려운 손에는 사실상 없는 기능과 같다.
+ *    (개체 순회 `order` 에는 아직 획이 없어 물리 키보드로는 못 닿는다 — 도형과 같은 상태다.
+ *     이 패드는 개체 메뉴에서 열리므로 그 제약을 안 탄다.)
+ *
+ *  화살표가 빠지는 것은 원리가 아니라 아직 안 이은 배선이다(포인터에는 회전 앵커가 있다) —
+ *  뒤집을 때 이 문장이 근거가 되라고 적어 둔다. 공·콘·메모는 축이 곧 자기 좌표라 돌 것이 없다. */
+export const canRotate = (ids: readonly string[]): boolean =>
+  ids.length === 1 && (isId(ids[0]!, 'ch') || isId(ids[0]!, 'fh'));
 
 /** 누르고 있으면 반복한다. 없으면 25px 을 옮기는 데 열 번을 눌러야 하고, 그건 정밀 조작을
  *  주려다 반복 조작을 새로 만드는 것이다. 700ms 병합(COALESCE_TYPES)이 있으므로 이 반복은

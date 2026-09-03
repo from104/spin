@@ -82,7 +82,10 @@ describe('작도 서랍 — 도형 3종이 산다', () => {
       clone.querySelectorAll('[aria-hidden="true"]').forEach((n) => n.remove());
       return clone.textContent?.replace(/\s/g, '');
     });
-    expect(names).toEqual(['선', '원', '삼각', '사각']);
+    // 🔁 2026-09-03 — `자유`(자유 그리기)가 `선` 바로 뒤에 합류했다(기현 지시). 도형 3종의
+    //    **자리는 한 칸도 안 움직였다** — 새 도구가 앞이 아니라 사이에 들어왔으므로 순서가
+    //    바뀐 것이 아니라 늘어난 것이다. 목록을 그대로 다시 적는 규율은 위와 같다.
+    expect(names).toEqual(['선', '자유', '원', '삼각', '사각']);
   });
 
   it('닫혀 있으면 도형 도구도 DOM 에 없다 — 첫 화면 표적 예산 밖이다', async () => {

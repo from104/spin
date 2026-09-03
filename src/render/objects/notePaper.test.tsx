@@ -84,6 +84,7 @@ const scene: SceneSnapshot = {
   cones: [],
   notes: [{ id, p: NOTE_AT, halfW: NOTE.chipMinWPx / 2, halfH: NOTE.chipHPx / 2 }],
   arrows: [],
+  strokes: [],
 };
 
 /** **지우개**로 잰다 — select 는 2차(관대) 패스가 있어 1차 반경을 가려 버린다(§4.3 P1-2 [A-2]).

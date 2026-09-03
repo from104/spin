@@ -123,10 +123,10 @@ export const LOCKABLE_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
   'shapeEllipse',
   'shapeTriangle',
   'shapeRect',
-  // ⚠️ TODO(자유 그리기 3단계) — `'freehand'` 가 여기 들어와야 한다. 연속으로 여러 획을 긋는
-  //    것이 그 도구의 기본 사용법이라 고정의 뜻이 가장 또렷한 도구다. 지금 못 넣는 이유는
-  //    `ToolId` 에 아직 그 값이 없어서다(도구·입력 단계가 `physics/hitTest.ts` 에서 넓힌다).
-  //    `KEEPS_PLACE_LOCK` 쪽 배선(`STROKE_SET`)은 이미 끝나 있다.
+  // 2026-09-03 — 자유 그리기. **고정의 뜻이 가장 또렷한 도구다**: 판에 손으로 덧그리는 일은
+  // 한 획으로 끝나는 법이 거의 없어서(동선 하나에 곡선 서넛), 고정이 없으면 획마다 도구를
+  // 다시 골라야 한다. `KEEPS_PLACE_LOCK` 의 `STROKE_SET` 이 그 고정을 캡처마다 살려 준다.
+  'freehand',
   //
   // ⚠️ `'eraser'` 는 **넣지 않는다**(PLAN 결정 8) — 연속 삭제는 도구의 성질이지 고정이 아니고,
   //    고정에 넣으면 파괴 모드가 잠긴 채 남는다.
