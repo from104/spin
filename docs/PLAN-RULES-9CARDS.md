@@ -833,7 +833,7 @@ blocks: `prose` → `scene` two-on-one → `scene` two-on-one-active → `prose`
 > 충돌한다(페이즈가 바뀌기 전에는 돌아오면 안 되므로 '잠깐'이 아니다).
 > **밀도 수리**: 한 문장에 조건 넷 + 그중 셋이 부정형이라 읽는 사람이 부정을 세 번 뒤집어야 했다.
 
-**블록 8** `scene` `two-on-one-escape` — 손코딩 유지.
+**블록 8** `scene` `two-on-one-escape` — 손코딩 유지. → **2026-09-04 교체**: 기현님 드릴 **2매1 반칙 일시적 회피**(full/28x15, 3스텝).
 
 **블록 9** `prose` (heading 없음)
 
@@ -1509,8 +1509,8 @@ en → ja 순으로 완역되면서 **띄울 로케일이 하나도 남지 않�
 장면 **21 → 23**. 손코딩은 9 → 7 로 줄었다(`field-tour`·`lineup`·`two-on-one-active`·
 `two-on-one-open`·`two-on-one-escape`·`ramming`·`spin-kick`).
 
-> 2026-09-04: `two-on-one-active` 도 교체돼 손코딩은 **6** (`field-tour`·`lineup`·`two-on-one-open`·
-> `two-on-one-escape`·`ramming`·`spin-kick`), 편집기 갈래는 **17**.
+> 2026-09-04: `two-on-one-active`·`two-on-one-escape` 도 교체돼 손코딩은 **5**
+> (`field-tour`·`lineup`·`two-on-one-open`·`ramming`·`spin-kick`), 편집기 갈래는 **18**.
 
 ### 10.1 정본이 먼저 넓어져야 했다
 
