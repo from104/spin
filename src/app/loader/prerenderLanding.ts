@@ -13,6 +13,14 @@
 //
 // SSR·테스트처럼 `document` 가 없는 환경에서는 false 다(면제 없음 = 평소 경로).
 
-/** 프리렌더 본문(`.seo-prerender`)이 깔린 채로 이번 로드가 시작됐는가. 모듈 최상위 1회 판정. */
+// ⚠️ 2026-09-05: 판정을 `.seo-prerender` 전부에서 **규칙 글(`data-seo-page="rules"`)** 로 좁혔다.
+// 홈(`/`·`/en/`·`/ja/`)도 프리렌더되므로(scripts/prerender.mjs — SEO 용 h1 한 줄 + 링크) 옛 판정은
+// 배포본의 **모든** 첫 방문을 면제했다. 0.6.3 로더가 spin.atit.app 에서 한 번도 안 뜬 이유다.
+// 개발 서버는 프리렌더를 안 돌려 거기서만 보였고, 헤드리스 검증도 개발 서버로 해서 못 잡았다 —
+// 로더처럼 빌드 산출물에 달린 것은 `dist/` 를 띄워 본다. 홈의 프리렌더 텍스트는 "읽을 것" 이
+// 아니라 검색엔진용 한 줄이라 덮어도 후퇴가 아니다. 종류 표식은 프리렌더 스크립트가 박는다.
+
+/** 프리렌더 **규칙 글** 본문이 깔린 채로 이번 로드가 시작됐는가. 모듈 최상위 1회 판정. */
 export const LANDED_ON_PRERENDER: boolean =
-  typeof document !== 'undefined' && document.querySelector('.seo-prerender') !== null;
+  typeof document !== 'undefined' &&
+  document.querySelector('.seo-prerender[data-seo-page="rules"]') !== null;

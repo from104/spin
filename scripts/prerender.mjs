@@ -66,9 +66,15 @@ function render(page) {
   // 덧붙이기만 하면 페이지마다 canonical 이 둘이 되고, 서로 다른 주소를 가리키는 canonical
   // 두 개는 구글이 둘 다 버린다 — 첫 구현이 실제로 그랬다(2026-09-02, 출력을 보고 잡았다).
   html = html.replace(SEO_BLOCK, `${head}\n    <!-- SEO:END -->`);
+  // 부팅 로더의 면제 판정(src/app/loader/prerenderLanding.ts)이 이 종류를 읽는다. 홈은 h1 한 줄과
+  // 링크뿐이라 "이미 읽을 것을 보고 있다" 에 해당하지 않는다. ⚠️ 2026-09-05 까지는 종류 없이
+  // `.seo-prerender` 만 봤고 홈도 프리렌더라 **배포본의 모든 첫 방문이 면제**됐다 — 0.6.3 로더가
+  // spin.atit.app 에서 한 번도 안 뜬 이유. 개발 서버는 프리렌더를 안 돌려 거기서만 보였다.
+  // 종류는 이 스크립트의 주소 규칙(pageUrl)에서 나온다: `/rules/` 아래가 규칙 글이다.
+  const seoPage = /\/rules\//.test(page.url) ? 'rules' : 'home';
   html = html.replace(
     '<div id="root"></div>',
-    `<div id="root"><div class="seo-prerender">\n${page.body}\n</div></div>`,
+    `<div id="root"><div class="seo-prerender" data-seo-page="${seoPage}">\n${page.body}\n</div></div>`,
   );
   return html;
 }
