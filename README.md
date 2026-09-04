@@ -307,6 +307,14 @@ sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev l
   입력기 쪽을 X11 에 맞추는 방향(`GTK_IM_MODULE=xim`)도 해 봤지만 **창이 통째로
   얼어붙습니다** — xim 은 동기 프로토콜이라 웹뷰가 있는 구성에서 물립니다. 고치지
   마세요.
+- **그 가드에는 탈출구가 있습니다.** `WAYLAND_DISPLAY` 가 없는 실행 맥락(systemd 유저
+  유닛·일부 런처, `env -u WAYLAND_DISPLAY` 로 재현)에서도 같은 쌍이 성립하므로, 그때는
+  `GTK_IM_MODULE` 쪽을 지워 쌍을 끊습니다(앱은 x11 로 뜨고 입력기는 GTK 기본으로
+  떨어질 수 있습니다). 반대로 AppImage 를 일부러 X11 로 돌리고 싶으면 `SPIN_FORCE_X11=1` 을
+  주고 띄우세요 — 이 가드를 끄고 `GDK_BACKEND=x11` 을 그대로 두되, 크래시 쌍이 성립하면
+  `GTK_IM_MODULE` 만 뗍니다(웨일랜드 백엔드가 다시 말썽일 때의 회피로). AppImage 밖(deb·rpm)
+  에서는 이 변수가 아무것도 바꾸지 않습니다 — 거기서 X11 을 원하면 `GDK_BACKEND=x11` 을 직접
+  주면 되고, 그때도 `GTK_IM_MODULE=wayland` 는 앱이 알아서 뗍니다.
 - **드라이브 동기화는 데스크톱에서 로그인 흐름이 다릅니다.** 웹은 GIS 팝업이지만
   데스크톱 웹뷰는 팝업을 못 띄우고(`Failed to open popup window`), 띄웠어도 출처가
   `tauri://localhost` 라 구글 콘솔에 등록할 수 없습니다. 그래서 데스크톱은 **설치형 앱
@@ -318,9 +326,13 @@ sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev l
   클라이언트로는 이 흐름이 안 됩니다). 만든 값은 `.env.local` 에 넣습니다:
 
   ```
-  VITE_GOOGLE_DESKTOP_CLIENT_ID=…
-  VITE_GOOGLE_DESKTOP_CLIENT_SECRET=…
+  SPIN_DESKTOP_GOOGLE_CLIENT_ID=…
+  SPIN_DESKTOP_GOOGLE_CLIENT_SECRET=…
   ```
+
+  `VITE_` 가 아니라 `SPIN_DESKTOP_` 접두어인 것이 중요합니다 — `vite.config.ts` 의
+  `envPrefix` 가 이 접두어를 **Tauri 빌드에서만** 주입하므로, `npm run build`(웹)에는 이
+  값이 아예 실리지 않습니다.
 
   그 '시크릿' 은 이름과 달리 **비밀이 아닙니다** — 설치형 앱은 배포본을 뜯으면 누구나
   읽을 수 있고 구글도 그 전제로 설계했습니다(그래서 PKCE 가 있습니다). 그래도 저장소에는
