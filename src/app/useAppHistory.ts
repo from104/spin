@@ -15,9 +15,18 @@
 // 구 키(home/library) 관용 경로(LEGACY_SCREEN_KEYS·readNavEntry)는 **여기서 은퇴했다** —
 // 진실이 history.state 에서 URL 로 옮겨 가면서 옛 state 엔트리는 더 이상 아무도 읽지 않는다
 // (한시적 관용 경로라던 그 약속의 이행이다).
+//
+// `lastNavFromHistory` (PLAN-0-6-3-LOADER-NOTICE 결정 11) — 화면 전환 로더가 뒤로가기를
+// 면제하는 신호다. 되돌아가기가 갈 때보다 느려지면 안 된다: 로더의 최소 표시 시간은 어차피
+// 인위적인 지연이고, 그 지연을 "이미 본 화면으로 돌아가는 길" 에까지 물리면 사용자는 뒤로가기를
+// 누를 때마다 벌을 받는 셈이 된다. `useNavigationType()` 이 이미 브라우저 표준 POP/PUSH/REPLACE
+// 를 들고 있으므로 새 상태를 만들지 않고 그 값을 한 글자로 접기만 한다 — `back()` 의 진짜-뒤로
+// 분기(`navigate(-1)`)와 브라우저 뒤로/앞으로 버튼은 둘 다 POP 다. `back()` 의 교체 분기(depth 0,
+// REPLACE)와 `go()`(PUSH)는 false 다. 기존 필드(screen/target/go/back)는 시그니처를 한 글자도
+// 바꾸지 않는다 — 이 필드는 **더한** 것이지 바꾼 것이 아니다.
 import { createContext, createElement, useCallback, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate, useNavigationType } from 'react-router';
 import type { Screen } from './screens.ts';
 import { parsePath, pathFor } from './routes.ts';
 
@@ -35,6 +44,13 @@ export interface AppHistoryApi {
   screen: Screen;
   /** 지금 주소가 싣고 있는 대상. AppShell 이 이걸로 스테이지/시연 대상을 파생한다. */
   target?: NavTarget;
+  /** 이번 렌더의 전환이 POP(브라우저 뒤로/앞으로, 또는 back() 의 진짜-뒤로 분기)에서 왔는가.
+   *  결정 11 — 화면 로더가 이 신호를 보고 뒤로가기 전환의 표시를 면제한다. **옵셔널이다** —
+   *  이 저장소는 목 내비를 AppHistoryApi 객체 리터럴로 수십 곳에 직접 박아 두므로(테스트
+   *  전역), 필수로 두면 이 파일 하나의 변경이 그 파일들을 전부 컴파일 에러로 깨운다. 실제
+   *  구현(useAppHistory)은 항상 값을 채워 돌려주므로 소비자(AppShell)만 `?? false` 로 받으면
+   *  된다 — "기존 API 는 한 글자도 바꾸지 않는다" 는 계약을 목 리터럴에도 지키는 방법이다. */
+  lastNavFromHistory?: boolean;
   go(next: Screen, target?: NavTarget): void;
   back(fallback: Screen, fallbackTarget?: NavTarget): void;
 }
@@ -50,6 +66,7 @@ function depthOf(state: unknown): number {
 export function useAppHistory(_initial: Screen = 'board'): AppHistoryApi {
   const location = useLocation();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
   const parsed = useMemo(() => parsePath(location.pathname, location.search), [location.pathname, location.search]);
   const depth = depthOf(location.state);
 
@@ -74,7 +91,7 @@ export function useAppHistory(_initial: Screen = 'board'): AppHistoryApi {
     [navigate, depth],
   );
 
-  return { screen: parsed.screen, target: parsed.target, go, back };
+  return { screen: parsed.screen, target: parsed.target, lastNavFromHistory: navigationType === 'POP', go, back };
 }
 
 // ── 화면 트리 전역 공유 (계약 밖 확장 export) ──────────────────────────────

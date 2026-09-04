@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog], and this project follows [Semantic Versioning].
 
+## [Unreleased]
+
+### Added
+
+- Added a spin-kick loading screen on first launch and when switching between the main menus (tap the screen or press any key to skip)
+- Added a notice that phones and tablets under 7 inches are not recommended ([Don't show this again] option, restore it from [Settings])
+
 ## [0.6.2] 2026-09-04
 
 ### Added

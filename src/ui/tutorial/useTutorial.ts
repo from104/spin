@@ -9,9 +9,20 @@
 // (드릴이 0개라 안내할 카드가 없는 등) 그 단계는 걸러진다. 걸러진 뒤 하나도 안 남으면
 // 아예 시작하지 않고, 자동 시작이었다면 **플래그도 안 찍는다** — 다음에 데이터가 생겼을 때
 // 다시 시도할 기회를 남긴다.
+//
+// ── 자동 시작 게이트 (docs/PLAN-0-6-3-LOADER-NOTICE.md 결정 30·31) ──────────
+// 2026-09-04 에 화면 로더(오버레이)와 작은 화면 안내 모달이 들어오면서 첫 실행에 셋이 같은
+// 1~2초를 놓고 겹치게 됐다. 겹치면 두 가지가 실제로 깨진다: ① `TutorialOverlay` 는 z-index
+// 300/301 이라 로더(z 220)를 **뚫고 나온다** — 화면을 덮는 로더 위에 그 화면을 가리키는
+// 스포트라이트가 서는 그림이다 ② 안내 모달과 튜토리얼 오버레이가 `aria-modal="true"` 를 **둘**
+// 세워, 보조기술이 무엇이 지금 유일한 대화상자인지 판정할 수 없게 된다.
+// 그래서 자동 시작에만 `useTutorialGate()` 를 AND 로 건다(수동 시작은 무관 — 사람이 직접
+// 누른 시점에는 겹칠 상대가 이미 사라졌다). ready 는 나중에 true 가 되므로 effect 의존성에
+// 넣어, 로더·안내가 걷힌 **그때** 자동 시작이 이어지게 한다.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSettings } from '../../store/settings/SettingsProvider.tsx';
 import type { TutorialScreenKey } from '../../storage/prefs.ts';
+import { useTutorialGate } from './tutorialGate.tsx';
 import type { TutorialStep } from './types.ts';
 
 /** 자동 시작 전 "전부 찾았는가" 를 재시도할 상한 프레임 수 — 위 useEffect 주석 참고. */
@@ -32,6 +43,7 @@ export interface UseTutorialResult {
 
 export function useTutorial(screen: TutorialScreenKey, steps: readonly TutorialStep[], autoStart: boolean): UseTutorialResult {
   const { prefs, setPrefs } = useSettings();
+  const gateReady = useTutorialGate(); // Provider 밖에서는 true — 게이트가 없던 때와 같다
   const [active, setActive] = useState(false);
   const [visibleSteps, setVisibleSteps] = useState<TutorialStep[]>([]);
   const [stepIndex, setStepIndex] = useState(0);
@@ -47,7 +59,9 @@ export function useTutorial(screen: TutorialScreenKey, steps: readonly TutorialS
 
   const seen = prefs.tutorialsSeen[screen] === true;
   useEffect(() => {
-    if (!autoStart || startedAutoRef.current || seen) return;
+    // ★ gateReady 는 자동 시작에만 건다 — 위 머리말 「자동 시작 게이트」. false 면 아무것도
+    // 하지 않고(ref 도 안 찍고) 물러나, 나중에 true 가 될 때 이 effect 가 다시 돌아 이어받는다.
+    if (!autoStart || !gateReady || startedAutoRef.current || seen) return;
     startedAutoRef.current = true;
     // 기능 바의 [정보]·헤더 주 액션 버튼(`drill-info`·`header-primary`, 여러 화면이 공유)은 화면 컴포넌트가
     // `useAppHeader(config)` 로 **다음 이펙트**에 발행하고 AppHeader 가 그걸 받아 한 틱 늦게
@@ -80,7 +94,7 @@ export function useTutorial(screen: TutorialScreenKey, steps: readonly TutorialS
       // 조용히 증발한다(실기 신고: 2026-08-20, 도움말의 수동 재시작은 이 ref 를 안 타서 멀쩡했다).
       startedAutoRef.current = false;
     };
-  }, [autoStart, seen, start, steps]);
+  }, [autoStart, gateReady, seen, start, steps]);
 
   const markSeen = useCallback(() => {
     if (prefs.tutorialsSeen[screen] === true) return;

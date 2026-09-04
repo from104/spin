@@ -312,4 +312,19 @@ describe('SettingsScreen — 도움말·튜토리얼 (§0.5 Phase 6)', () => {
     expect(loadPrefs().tutorialsSeen).toEqual({});
     expect(await screen.findByText(/튜토리얼을 다시 봅니다/)).toBeInTheDocument();
   });
+
+  // PLAN-0-6-3-LOADER-NOTICE 결정 26 — 되돌리는 손잡이가 실제로 도장을 지우는지.
+  // 지우면 새는 버그: 버튼이 화면에는 있지만 클릭해도 smallScreenNoticeDismissed 가
+  // 그대로 true 로 남아, [다시 보지 않기] 를 한 번 누른 사람이 영영 안내를 못 본다.
+  it('[작은 화면 안내 다시 보기] 를 누르면 smallScreenNoticeDismissed 가 꺼지고 토스트가 뜬다', async () => {
+    savePrefs({ ...makeDefaultPrefs(), smallScreenNoticeDismissed: true });
+    render(<SettingsScreen />, { wrapper });
+    // Row 제목("작은 화면 안내 다시 보기")과 버튼 라벨("다시 보기")이 전용 키로 갈라졌다
+    // (PLAN-0-6-3-LOADER-NOTICE §10.2 남는 빚 처리) — 버튼은 role 로 좁혀서 잡는다.
+    await userEvent.setup().click(screen.getByRole('button', { name: '다시 보기' }));
+
+    // 판정은 라벨 문자열이 아니라 상태(prefs 값)와 역할(role=status)로 — AGENTS 테스트 규칙.
+    expect(loadPrefs().smallScreenNoticeDismissed).toBe(false);
+    expect(await screen.findByRole('status')).toBeInTheDocument();
+  });
 });

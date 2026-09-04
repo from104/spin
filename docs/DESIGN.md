@@ -57,6 +57,7 @@
 | §5.12 | `handlesVisible = forced \|\| (touch && pxPerUnit < 1.28)` | **자동 배율 문턱을 뗐다** — `forced` 만 본다(5.5 결정 ④) | `physics/hitTest.ts:100` |
 | §6.8 | 화면 키 5개 `home\|library\|editor\|present\|settings` | **4개** `board\|drills\|present\|settings` + 레일 3항목 | `src/app/screens.ts` |
 | §8 | 소유권 표의 모듈 15종 | 화면 모듈이 **개명·분화**했다(아래 §8 각주) | `src/features/` |
+| §7.6 | 화면 전환 시 `#main` 포커스 + 발표가 **전환 effect 안에서 즉시** | 로더가 뜰 수 있는 환경에서는 **로더가 걷히는 커밋**으로 미룬다(0ms 환경에서는 종전대로 즉시). 2026-09-04, 계약 전문 §6.13 | `src/app/AppShell.tsx`, `src/app/loader/appLoaderTiming.ts` |
 
 **여기 없는 것도 어긋나 있을 수 있다.** 이 문서에 적힌 `파일:행` 참조는 재편으로 파일이
 옮겨지고 늘어나 **대부분 어긋나 있다.** 6.3 은 자기가 손댄 문단의 참조만 실제로 열어 확인했다.
@@ -3988,6 +3989,33 @@ Laws 본문에 없는 실물 참고(스트라이크포스 매뉴얼)와 달리 �
 `/rules/law-N` 형식은 부록 주제로 흡수하는 **단방향** 관용만 남았다 — `routes.ts` 의
 왕복 항등 배열에는 넣지 않는다(되살리는 게 아니라 남아 있을 링크가 안 죽게 하는 것뿐이라서).
 
+### 6.13 화면 로더 · 작은 화면 안내 — `src/app/loader/`, `src/app/SmallScreenNotice.tsx` (2026-09-04 신설, 계획서 `docs/PLAN-0-6-3-LOADER-NOTICE.md`)
+
+**로더는 덮개일 뿐 문이 아니다.** 화면은 지금처럼 동기로 마운트되고(`React.lazy` 없음), 로더는
+그 위에 얹히는 오버레이 하나다 — 최소 표시 시간이 0 이면 오버레이는 한 프레임도 존재하지 않고
+앱은 2026-09-04 이전과 글자 하나 다르지 않게 움직인다. 계약은 아래 아홉 줄이 전부다.
+
+| 계약 | 값 · 정본 |
+|---|---|
+| 덮는 범위 | **헤더 + 본문 열 전체. 레일은 안 덮는다** — 전환 중에도 마음을 바꿀 수 있어야 한다. 새 래퍼를 끼우지 않고 기존 열 노드(`AppShell.tsx`)에 `position:'relative'` 만 더해 마지막 자식으로 `position:absolute; inset:0` 를 넣는다(코트 축척 여유가 1px 이라 흐름을 건드리면 안 된다) |
+| z-index | **220** — `Modal` 200 위, `TutorialOverlay` 300/301 아래. 값은 `AppLoaderOverlay.tsx` 안에 있고 `AppShell` 은 몰라도 된다 |
+| ARIA | 오버레이 루트 `aria-hidden="true"`(텍스트 0 · 포커스 가능 요소 0), 덮인 열에 `aria-busy="true"` + `inert`. 1초짜리 인위적 지연에 "불러오는 중"을 방송하면 전환마다 발표가 두 번이 된다. `inert` 는 보이지 않는 컨트롤이 Tab 에 잡히는 문제를 원천 차단한다 |
+| 최소 표시 시간 | `src/app/loader/appLoaderTiming.ts` **한 곳** — `APP_LOADER_MS = { boot: 1500, rail: 1000 }`. ⚠️ 레일 값은 실기 비교(1000/600/0) 전까지 **미정**이다. 아무 입력(pointerdown·keydown·wheel, capture, `preventDefault` 없음)에나 즉시 걷힌다 |
+| 감축 모션 | `loaderMinMs(kind, reduced)` 가 **0** → 로더가 한 프레임도 안 뜬다. 판정은 `effectiveReduceMotion`(`store/editor/tween.ts`) 재사용. 그래도 CSS 는 `animation:none` 을 두 셀렉터(`@media (prefers-reduced-motion: reduce)` · `:root[data-reduce-motion="true"]`)에 명시한다 — 전역 억제가 애니메이션을 **마지막 프레임에 고정**하므로 끝 자세를 만지는 사람이 반쪽 마크를 만들 수 있다 |
+| 발표·포커스 | 로더가 덮을 수 있는 환경에서는 §7.6 의 `#main` 포커스 + `announceFor` 를 **`loader.visible` 이 꺼지는 커밋**으로 미룬다(`inert` 로 덮인 동안 `focus()` 는 무효라 초점이 body 로 떨어진다). 0ms 환경에서는 §7.6 표 그대로 같은 effect 안에서 동기로 발화한다. ⚠️ 기준이 아래 「걷힘」(퇴장 완료)이 **아니라** `visible` 인 것이 계약이다 — `inert` 가 `visible` 과 같이 떨어지므로 그 순간 이미 `focus()` 가 먹고, 퇴장 페이드를 더 기다리면 발표만 늦어진다 |
+| 「걷힘」의 뜻 | 오버레이는 `visible` 이 꺼진 뒤에도 `EXIT_MS`(boot 200 / rail 160ms) 동안 살아 opacity 를 녹인다 — 그 구간은 눈에 **아직 덮여 있는** 구간이다. 그래서 오버레이가 스스로 사라지는 시점을 `onExited` 로 알리고, 아래 3중 순서의 "로더 걷힘" 은 **그 시점**을 뜻한다. ⚠️ 0ms 환경·프리렌더 착지에서는 `onExited` 가 영영 안 오므로 소비처의 초기값이 그것을 대신한다(`AppShell` 의 `coverSettled` 초기값 = `!loader.visible`) |
+| 첫 실행 3중 순서 | **로더 걷힘(퇴장 완료) → 안내 모달 판정·닫힘 → 튜토리얼 시작.** `AppShell` 이 `ready = coverSettled && noticeDecided && !noticeOpen` 을 `TutorialGateProvider`(`src/ui/tutorial/tutorialGate.tsx`)로 발행하고 `useTutorial` 이 **자동 시작 조건에만** AND 한다(수동 [이 화면 투어 다시 보기]는 게이트를 안 탄다). `coverSettled` 는 덮개가 서는 **그 커밋**에 렌더 중 파생으로 꺼진다(effect 로 미루면 새 화면 첫 커밋에 게이트가 열린다). `noticeDecided` 가 없으면 안내를 여는 effect 보다 튜토리얼이 먼저 선다. Provider 밖 기본값은 `true` 라 화면 단독 렌더는 종전과 같다 |
+| 작은 기기 판정 | `Math.min(screen.width, screen.height) < 600` **AND** `matchMedia('(pointer: coarse)').matches` — `src/app/smallScreen.ts` 의 순수 함수. 창이 아니라 **기기 화면**을 보고(짧은 변만 봐서 회전에 안 뒤집힌다), `coarse` 는 200~300% 확대한 데스크톱이 작은 기기로 오판되는 것을 막는 장치다. **마운트 1회** 판정 — resize·matchMedia 구독 없음 |
+
+첫 방문은 **이번 페이지 로드에서 처음**이라는 뜻이고 prefs 도장을 쓰지 않는다. 프리렌더 착지
+(`.seo-prerender`)에서는 부팅 로더를 건너뛰며, 그 판정을 `createRoot` **전에** 모듈 최상위에서
+1회 읽는 것이 계약이다(`src/app/loader/prerenderLanding.ts`). 전환 열쇠는 `activeRail` 하나
+(`loaderKeyFor()`)라 드릴 열기·시연 진입·규칙 주제 상세에는 안 뜨고, 뒤로/앞으로가기(POP,
+`useAppHistory` 의 `lastNavFromHistory`)에는 면제한다. 안내 모달의 도장은
+`prefs.smallScreenNoticeDismissed`(최상위 옵셔널, `CURRENT_PREFS_SCHEMA` 는 3 그대로)이고 저장
+시점은 `onClose` **한 곳**, 되돌리는 손잡이는 [설정] → [작은 화면 안내 다시 보기]다. 마크의
+회전 기하·키프레임 백분율은 계획서 §5 가 정본이고 브랜드 색 3종의 정본은 `public/logo.svg` 다.
+
 ---
 
 ## 7. 접근성 계약 (v1 출시 조건)
@@ -4280,6 +4308,14 @@ export const isInteractiveTarget = (t: EventTarget | null): boolean =>
 | 세션 드로어 열기 | 제목 `<h2 tabIndex={-1}>` 에 포커스 |
 | 세션 드로어 닫기 (`Esc`·[×]) | `triggerRef.current?.focus()` |
 | 토스트 | 포커스 이동 없음 (`role="status"`) |
+
+> **※ 정정 (2026-09-04, `docs/PLAN-0-6-3-LOADER-NOTICE.md` 결정 7)** — 화면 로더가 뜰 수 있는
+> 환경에서는 위 표 첫 줄이 전환 effect 가 아니라 **로더가 걷히는 커밋**에서 발화한다(`inert` 로
+> 덮인 동안 `focus()` 가 무효라 초점이 body 로 떨어지기 때문). 최소 표시 시간이 0 인 환경
+> (감축 모션·테스트)에서는 표 그대로 즉시다. 전문은 §6.13.
+> ⚠️ 여기서 "걷히는" 은 `loader.visible` 이 꺼져 `inert` 가 떨어지는 커밋이다 — 그 뒤 160~200ms
+> 이어지는 **퇴장 페이드의 끝이 아니다**(그 끝을 뜻하는 「걷힘」은 튜토리얼 게이트 쪽 계약이고
+> §6.13 표의 그 줄이 둘을 가른다).
 
 ### 7.7 ARIA 마크업 계약
 

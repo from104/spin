@@ -998,4 +998,15 @@ export const en: Record<DictKey, string> = {
   'settings.tutorial.resetDesc': "Replay every screen's first-visit tour from scratch. It starts automatically when you open each screen.",
   'settings.tutorial.resetButton': 'Replay all',
   'settings.tutorial.resetToast': "Tutorials will replay — they'll show when you open each screen.",
+
+  // ── Small-screen notice (SmallScreenNotice) — PLAN-0-6-3-LOADER-NOTICE §6, decisions 22 & 26 ──────
+  'app.smallScreen.title': 'This screen may be too small to work on',
+  'app.smallScreen.body':
+    'SPIN is built around seeing the whole court while you drag pieces across it. When the short side of the display is narrow, the court shrinks a long way and the tools crowd together. A 7-inch or larger tablet, or a computer, is much easier to work on. You can keep going on this device.',
+  'app.smallScreen.dismiss': "Don't show this again on this device",
+  'app.smallScreen.continue': 'Continue',
+  'settings.smallScreen.resetTitle': 'Show the small-screen notice again',
+  'settings.smallScreen.resetDesc': 'Undoes "Don\'t show this again" for this device.',
+  'settings.smallScreen.resetButton': 'Show again',
+  'settings.smallScreen.resetToast': 'The small-screen notice will show again next time you open the app.',
 };

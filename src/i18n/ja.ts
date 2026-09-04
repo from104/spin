@@ -993,4 +993,15 @@ export const ja: Record<DictKey, string> = {
   'settings.tutorial.resetDesc': '各画面の初回案内を最初からもう一度見ます。画面を開くと自動的に表示されます。',
   'settings.tutorial.resetButton': 'すべてもう一度見る',
   'settings.tutorial.resetToast': 'チュートリアルをもう一度表示します — 画面を開くと案内が出ます。',
+
+  // ── 小さい画面の案内(SmallScreenNotice) — PLAN-0-6-3-LOADER-NOTICE §6, 決定22・26 ──────
+  'app.smallScreen.title': '画面が小さいと使いにくいことがあります',
+  'app.smallScreen.body':
+    'SPIN はコート全体を見ながら駒をドラッグして使うアプリです。画面の短い辺が狭いとコートが大きく縮み、道具どうしが近づきます。7インチ以上のタブレットやパソコンで開くと、ずっと扱いやすくなります。この端末のまま続けることもできます。',
+  'app.smallScreen.dismiss': 'この端末では次から表示しない',
+  'app.smallScreen.continue': '続ける',
+  'settings.smallScreen.resetTitle': '小さい画面の案内を再表示',
+  'settings.smallScreen.resetDesc': '「次から表示しない」を解除します。',
+  'settings.smallScreen.resetButton': '再表示',
+  'settings.smallScreen.resetToast': '次にアプリを開くと、小さい画面の案内が再び表示されます。',
 };
