@@ -12,11 +12,23 @@ export interface GridOverlayProps {
   size?: CourtSize;
   /** prefs.showGridLabels — false 면 축 헤더/셀 텍스트 블록을 그리지 않는다(선만 남는다). */
   showLabels: boolean;
+  /** 종이용 잉크(2026-08-27, 인쇄가 격자를 그리게 되면서). **기하는 한 톨도 안 바뀐다** —
+   *  불투명도만 올린다. 화면 값(0.2~0.34)은 모니터의 발광 대비를 전제한 것이라, 그대로
+   *  인쇄하면 잉크 절약 설정에서 격자가 통째로 사라진다(코치가 "구역 나눔이 안 나온다" 고
+   *  신고한 그 형태). variant 를 나누지 않고 한 값으로 합치면 화면이 지저분해진다. */
+  forPrint?: boolean;
 }
 
 const FONT = "'Space Grotesk',sans-serif";
 
-export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels }: GridOverlayProps) {
+/** 화면 / 종이 두 벌. 짝을 한자리에 두는 이유는 한쪽만 고치는 것을 막기 위해서다. */
+const INK = {
+  screen: { line: 0.22, major: 0.34, cell: 0.2, axis: 0.28 },
+  print: { line: 0.55, major: 0.75, cell: 0.55, axis: 0.65 },
+} as const;
+
+export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels, forPrint = false }: GridOverlayProps) {
+  const ink = forPrint ? INK.print : INK.screen;
   // 판이 돌아도 칸 이름은 바로 서 있어야 읽힌다(§6.4).
   const rot = useStageRot();
   const g = gridGeom(mode, size);
@@ -27,7 +39,7 @@ export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels }:
 
   return (
     <g aria-hidden="true" pointerEvents="none">
-      <g stroke="#ffffff" strokeWidth={1} opacity={0.22} shapeRendering="crispEdges">
+      <g stroke="#ffffff" strokeWidth={1} opacity={ink.line} shapeRendering="crispEdges">
         {g.inner.vx.map((x) => (
           <line className="grid-line" key={`v${x}`} x1={x} y1={yMin} x2={x} y2={yMax} />
         ))}
@@ -36,7 +48,7 @@ export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels }:
         ))}
       </g>
       {g.major && (
-        <g stroke="#ffffff" strokeWidth={1} opacity={0.34} shapeRendering="crispEdges">
+        <g stroke="#ffffff" strokeWidth={1} opacity={ink.major} shapeRendering="crispEdges">
           {g.major.vx.map((x) => (
             <line className="grid-line" key={`mv${x}`} x1={x} y1={yMin} x2={x} y2={yMax} />
           ))}
@@ -54,7 +66,7 @@ export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels }:
         <g
           className="grid-cell-labels"
           fill="#ffffff"
-          opacity={0.2}
+          opacity={ink.cell}
           fontFamily={FONT}
           fontSize={18}
           fontWeight={600}
@@ -72,7 +84,7 @@ export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels }:
         <g
           className="grid-axis-labels"
           fill="#ffffff"
-          opacity={0.28}
+          opacity={ink.axis}
           fontFamily={FONT}
           fontSize={11}
           fontWeight={600}

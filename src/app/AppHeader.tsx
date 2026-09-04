@@ -10,7 +10,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { CSSProperties, ReactNode } from 'react';
 import { Button } from '../ui/Button.tsx';
 import { Segmented } from '../ui/Segmented.tsx';
-import { IconInfo, IconLock, IconSearch } from '../ui/icons.tsx';
+import { IconLock, IconSearch } from '../ui/icons.tsx';
 import type { CourtMode } from '../model/court.ts';
 import { COURT_MODES, COURT_MODE_SHORT_LABELS } from '../model/court.ts';
 import { AppNavAside, AppNavSegment } from './AppNavSegment.tsx';
@@ -66,12 +66,14 @@ export interface HeaderTitleField {
   maxLength: number;
   onChange(v: string): void;
 }
-/** 제목 바로 우측의 ⓘ(2026-08-20, 기현님 지시 — 편집·시연 두 화면 공통). 아이콘 전용
- *  버튼이라 접근 가능한 이름은 화면이 주는 `label` 하나로 정해진다. */
-export interface HeaderInfoButton {
-  onAction(): void;
-  label: string;
-}
+// ⚠️ 2026-08-28 (기현 지시) — **`HeaderInfoButton`/`infoButton` 이 통째로 폐기됐다.**
+// 옛 자리는 제목 바로 우측의 ⓘ 였고(2026-08-20), 편집·시연 두 화면이 그 하나를 공유했다.
+// 폐기 이유는 자리가 아니라 **아이콘**이다: 같은 글리프 하나라서 눌러 보기 전에는 그 화면에서
+// 드릴 정보를 고칠 수 있는지 볼 수만 있는지 알 수 없었다. 지금은 각 화면의 오른쪽 세로 바가
+// 자기 칸으로 낸다 — features/editor/FunctionBar(IconDrillInfoEdit, 연필)와
+// features/present/PresentSideBar(IconDrillInfoRead, 눈). 밑판이 같고 수정자만 다른 한 벌이다.
+// 여기에 되살리지 마라 — 같은 이름('드릴 정보')의 표적이 둘이 되면 그 이름으로 찍는 테스트가
+// "여러 개" 로 터진다(위 되돌리기·다시하기가 헤더에서 빠진 것과 같은 이유).
 export interface HeaderConfig {
   title: string;
   /** 있으면 제목이 클릭-편집이 된다(드릴 편집 헤더 전용). `title` 은 그대로 둔다 — 편집이
@@ -91,8 +93,20 @@ export interface HeaderConfig {
    *  줄고(아래 AppHeader 의 headerPadCss 인자), `subtitle`·`description` 을 안 그린다 — 제목·
    *  ⓘ·상황별 전환 버튼(primary) 한 줄만 남는다. */
   compact?: boolean;
-  /** 제목 바로 우측의 ⓘ. `null` 이면 안 그린다(예: 편집 화면인데 onDrillInfo 콜백이 아직 없을 때). */
-  infoButton?: HeaderInfoButton | null;
+  /** 제목·부제를 **헤더 절대 중앙**에 놓는다(2026-09-03 기현 지시, 규칙 화면: *"목록일 때 지금의 헤더
+   *  내용으로 가운데 정렬, 카드로 들어가면 카드 주제목·부제목 가운데 정렬"*). `compact` 의 가운데는
+   *  "제목 칸 안의 가운데" 인데 이건 다르다 — 왼쪽(leading)·오른쪽(액션) 칸을 같은 flex 로 세워
+   *  제목이 헤더 한가운데 온다. 긴 드릴 제목이 일찍 잘린다는 compact 의 우려는 규칙 화면에는
+   *  없다(제목이 짧고 편집 폼이 없다). */
+  align?: 'start' | 'center';
+  /** 헤더 왼쪽 끝의 되돌아가기 버튼 — 규칙 카드의 [← 목록으로]. 화면 안 문서 맨 위에 있던
+   *  [← 홈으로] 를 여기로 올렸다(같은 지시). 없는 화면은 안 준다. */
+  leading?: HeaderLeadingAction | null;
+}
+export interface HeaderLeadingAction {
+  label: string;
+  icon?: ReactNode;
+  onAction(): void;
 }
 
 // ⚠️ 2026-08-14 기현님 지시(*"undo, redo 버튼을 줌 버튼과 묶어 배치"*)로 **되돌리기·다시하기가
@@ -145,8 +159,10 @@ function headerConfigEqual(a: HeaderConfig, b: HeaderConfig): boolean {
     a.courtSwitch?.value === b.courtSwitch?.value &&
     a.courtSwitch?.locked === b.courtSwitch?.locked &&
     !!a.compact === !!b.compact &&
-    !!a.infoButton === !!b.infoButton &&
-    a.infoButton?.label === b.infoButton?.label
+    true &&
+    (a.align ?? 'start') === (b.align ?? 'start') &&
+    !!a.leading === !!b.leading &&
+    a.leading?.label === b.leading?.label
   );
 }
 
@@ -176,7 +192,8 @@ export function useAppHeader(config: HeaderConfig): void {
     config.search ? [config.search.value, config.search.placeholder ?? ''] : null,
     config.courtSwitch ? [config.courtSwitch.value, config.courtSwitch.locked ?? true] : null,
     config.compact ?? false,
-    config.infoButton ? config.infoButton.label : null,
+    config.align ?? 'start',
+    config.leading ? config.leading.label : null,
   ]);
 
   useEffect(() => {
@@ -214,7 +231,8 @@ export function useAppHeader(config: HeaderConfig): void {
           }
         : null,
       compact: c.compact,
-      infoButton: c.infoButton ? { label: c.infoButton.label, onAction: () => latest.current.infoButton?.onAction() } : null,
+      align: c.align,
+      leading: c.leading ? { label: c.leading.label, icon: c.leading.icon, onAction: () => latest.current.leading?.onAction() } : null,
     });
     // key 로 원시값 변화만 추적한다 — ctxRef 는 ref 라 의존성 배열에 넣을 필요도, 넣어서도 안 된다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -269,6 +287,37 @@ export function AppHeader({
   const ctx = useContext(HeaderContext);
   const config = override ?? ctx?.config ?? EMPTY_CONFIG;
   const t = useT();
+  /** `absolute`: 3칸(왼쪽·제목·오른쪽) 대칭으로 제목을 헤더 한가운데에(align:'center'). `centered` 는
+   *  글자 정렬만 — compact 는 자기 칸 안에서 가운데(아래 주석), absolute 는 헤더 전체의 가운데. */
+  const absolute = config.align === 'center';
+  const centered = !!config.compact || absolute;
+  /** 3칸 대칭(정확한 가운데)은 레일이 선 넓은 창에서만 — 좁은 창은 좌측 세그먼트(≈590px)가 헤더를
+   *  먹어 세 칸을 같은 폭으로 세우면 제목이 50px 로 잘린다(1000px 실측 "What is powerchair…").
+   *  거기서는 양옆 칸을 내용 폭으로 두고 제목이 남는 폭을 다 쓴다 — 제목을 읽는 것이 가운데 두는
+   *  것보다 중요하다(compact 주석의 같은 원칙). */
+  const symmetric = absolute && !narrow;
+  const leading = config.leading && (
+    <button
+      type="button"
+      onClick={config.leading.onAction}
+      style={{
+        flex: 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.375rem',
+        minHeight: 44,
+        padding: '0 0.625rem',
+        marginLeft: '-0.625rem',
+        color: 'var(--muted)',
+        fontSize: '0.8125rem',
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {config.leading.icon}
+      {config.leading.label}
+    </button>
+  );
 
   return (
     // ⚠️ 2026-08-20 — `config.compact` 는 `minHeight` 를 62 → **48** 로 덮어쓴다(드릴 편집·시연
@@ -278,10 +327,41 @@ export function AppHeader({
     // compact 면 48px 여야 하고, 그때 좌측 세그먼트는 안 선다(아래 `{narrow && …}` 그대로).
     <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow || !!config.compact), ...(config.compact ? { minHeight: 48 } : null) }}>
       {narrow && <AppNavSegment active={activeRail} />}
-      <div style={{ minWidth: 0, flex: '1 1 12rem' }}>
-        <div style={{ fontSize: '0.9375rem', fontWeight: 700, letterSpacing: '-0.02rem', display: 'flex', alignItems: 'center', gap: '0.5625rem' }}>
+      {/* align:'center' 면 왼쪽 칸은 오른쪽 액션 칸과 같은 flex(1 1 0)로 서서 제목을 한가운데 민다.
+          leading 버튼이 없어도 칸은 선다 — 그래야 목록(버튼 없음)과 카드(버튼 있음)에서 제목 자리가
+          같다. */}
+      {symmetric ? (
+        <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>{leading}</div>
+      ) : (
+        leading
+      )}
+      {/* absolute 는 세 칸 전부 `1 1 0` — basis 를 0 으로 둬야 긴 부제(영어 목록 부제 ≈400px)가
+          hypothetical size 로 헤더를 두 줄로 접지 않는다(flex-wrap 은 줄어든 크기가 아니라 basis 로
+          접는다). 긴 제목·부제는 칸 안에서 말줄임된다. */}
+      <div style={{ minWidth: 0, flex: absolute ? (symmetric ? '1 1 0' : '1 1 6rem') : '1 1 12rem' }}>
+        {/* ⚠️ `compact`(드릴 편집·시연)에서만 **가운데 정렬**이다(기현 지시 2026-08-30:
+            *"드릴 편집 화면, 시연 화면에서 드릴 제목 및 편집중 아이콘, 제목 수정 폼을 가운데
+            정렬로"*). 다른 화면은 왼쪽 그대로 — 목록·설정처럼 부제·설명이 함께 서는 헤더에서
+            제목만 가운데로 가면 두 줄이 어긋난 계단이 된다.
+            ⚠️ 여기서 말하는 "가운데" 는 **이 칸의 가운데**다(헤더 전체의 가운데가 아니다).
+            오른쪽 액션은 `flex:'none'` 으로 자기 폭을 갖고, 이 칸이 그 나머지를 채운다. 헤더
+            절대 중앙에 맞추려면 왼쪽에 같은 폭의 빈 칸을 세워야 하는데, 그러면 긴 제목이
+            훨씬 일찍 잘린다 — 제목을 읽는 것이 가운데 두는 것보다 중요하다. */}
+        <div
+          style={{
+            // align:'center'(규칙 화면)는 한 단계 크게 — 기현 지시 2026-09-03 *"헤더의 주제목, 부제목
+            // 크기를 조금 키워"*. 다른 화면은 그대로(제목 옆에 편집 폼·배지가 서는 헤더라 함께 커진다).
+            fontSize: absolute ? '1.0625rem' : '0.9375rem',
+            fontWeight: 700,
+            letterSpacing: '-0.02rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5625rem',
+            ...(centered ? { justifyContent: 'center' } : null),
+          }}
+        >
           {config.titleField ? (
-            <HeaderTitleEditor cfg={config.titleField} />
+            <HeaderTitleEditor cfg={config.titleField} centered={centered} />
           ) : (
             <span
               style={{
@@ -292,27 +372,6 @@ export function AppHeader({
             >
               {config.title}
             </span>
-          )}
-          {/* ⓘ — 제목 바로 우측(2026-08-20, §B). 편집·시연 공용 자리. */}
-          {config.infoButton && (
-            <button
-              type="button"
-              data-tut="header-info"
-              aria-label={config.infoButton.label}
-              onClick={config.infoButton.onAction}
-              style={{
-                flex: 'none',
-                width: 28,
-                height: 28,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '0.5rem',
-                color: 'var(--muted)',
-              }}
-            >
-              <IconInfo size={17} />
-            </button>
           )}
           {config.badge && (
             <span
@@ -334,12 +393,13 @@ export function AppHeader({
         {!config.compact && config.subtitle && (
           <div
             style={{
-              fontSize: '0.71875rem',
+              fontSize: absolute ? '0.8125rem' : '0.71875rem',
               color: 'var(--faint-text)',
               marginTop: '0.125rem',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              ...(centered ? { textAlign: 'center' as const } : null),
             }}
           >
             {config.subtitle}
@@ -348,7 +408,7 @@ export function AppHeader({
         {!config.compact && config.description && <HeaderDescriptionEditor cfg={config.description} />}
       </div>
 
-      <div style={{ marginLeft: 'auto', flex: 'none', display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
+      <div style={{ marginLeft: 'auto', flex: symmetric ? '1 1 0' : 'none', justifyContent: 'flex-end', display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
         {config.courtSwitch && <CourtSwitchControl cfg={config.courtSwitch} />}
 
         {config.search && (
@@ -408,9 +468,13 @@ export function AppHeader({
  *  HeaderDescriptionEditor 와 같은 관용구(표시 버튼 ↔ 편집 input, blur 커밋, Enter=blur 위임,
  *  Esc=되돌림)에 두 가지만 다르다: 글꼴이 제목 그대로(부모 div 에서 상속)이고, **trim 결과가
  *  비면 커밋하지 않는다**(이름 없는 드릴을 만들지 않는다 — 인터페이스 주석). */
-function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
+function HeaderTitleEditor({ cfg, centered = false }: { cfg: HeaderTitleField; centered?: boolean }) {
   const [editing, setEditing] = useState(false);
   const t = useT();
+  // 표시 버튼은 줄어들어 글자에 맞으므로 부모의 justifyContent 가 이미 가운데로 보낸다.
+  // **입력 칸은 다르다** — 폭 100% 라 칸 자체는 늘 꽉 차고, 안의 글자가 왼쪽에 붙어 있으면
+  // 편집을 시작하는 순간 제목이 가운데에서 왼쪽으로 뛴다. 그래서 글자 정렬을 함께 넘긴다.
+  const textAlign = centered ? ('center' as const) : ('left' as const);
 
   if (editing) {
     return (
@@ -446,6 +510,7 @@ function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
           border: '1px solid var(--border-strong)',
           borderRadius: '0.375rem',
           padding: '0.125rem 0.4375rem',
+          textAlign,
         }}
       />
     );
@@ -465,7 +530,7 @@ function HeaderTitleEditor({ cfg }: { cfg: HeaderTitleField }) {
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        textAlign: 'left',
+        textAlign,
         padding: 0,
       }}
     >

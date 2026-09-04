@@ -5,6 +5,7 @@ import type { CourtMode, CourtSize } from './court.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
 import type { Shape } from './shape.ts';
+import type { Stroke } from './stroke.ts';
 import type { Locale } from '../i18n/locale.ts';
 
 export type PoseMap<K extends string, P> = Partial<Record<K, P>>;
@@ -21,11 +22,19 @@ export interface ChairDef {
 }
 /** §7 5.2 공마다 따로 켜는 거리 원(2026-08-13, 기현님 실기 피드백 ③).
  *
- *  **왜 스텝이 아니라 `cast`(공 자체의 속성)인가**: 스텝은 *자세*(pose)만 갖는다
- *  (`DrillStep.balls: PoseMap<BallId, Vec2>` — 값이 좌표뿐이라 상태를 실을 자리가 없다).
- *  콘의 `colorIndex`·휠체어의 `color`/`isGk` 처럼 **개체의 정체성에 붙는 값**은 전부 cast 에
- *  있고, 그래야 스텝을 옮겨도·스텝을 복제해도 같은 공이 같은 원을 갖는다. 스텝마다 두면
- *  스텝 12개짜리 드릴에서 원 하나 켜는 데 탭이 12번 필요하다.
+ *  **스텝마다 따로다**(2026-08-27 기현 지시: *"각 스텝마다 공의 원 상태 … 가 각각 저장되어야
+ *  한다"*). 저장 자리는 `DrillStep.ballRings` 이고, 재탭은 **그 스텝만** 바꾼다.
+ *
+ *  ⚠️ 이 결정은 **뒤집힌 것**이다. 2026-08-13~08-26 에는 `BallDef.ring` 으로 cast 에 있었고,
+ *  근거는 *"콘의 colorIndex·휠체어의 color/isGk 처럼 개체의 정체성에 붙는 값은 cast 에 있다"*
+ *  와 *"스텝마다 두면 스텝 12개짜리 드릴에서 원 하나 켜는 데 탭이 12번 필요하다"* 였다.
+ *  실제로 규칙 장면을 만들면서 그 전제가 깨졌다 — **링은 정체성이 아니라 국면이다.** 킥오프는
+ *  공이 멈춰 있는 동안만 5 m 제한을 받고 킥 이후에는 받지 않는데, cast 소유로는 그 한 장면조차
+ *  표현할 수 없었다(전 스텝이 한 값을 공유한다). 탭 비용은 실재하지만, 표현할 수 없는 것이
+ *  있는 쪽이 더 큰 손해다.
+ *
+ *  ⚠️ 그래서 이것은 `locked`/`ignored`/`cut` 과 **같은 부류**다 — "그 스텝의 판이 어떤
+ *  상태인가". 저장 방식도 그쪽 규약을 따른다: **예외만 싣고, 없으면 'none'**.
  *
  *  ⚠️ **'none' 은 키 없음으로만 표현한다**(그래서 저장형이 `StoredBallRing` 이다) —
  *  `{ring: undefined}` 는 structuredClone(IDB)이 보존하고 JSON 이 지운다(edits.ts `omitKey`
@@ -37,10 +46,10 @@ export type StoredBallRing = Exclude<BallRing, 'none'>;
 
 export interface BallDef {
   id: BallId;
-  /** 없으면 'none'. 값을 채우는 자리는 **재탭 순환 하나뿐**이다(store/editor 의 BALL_RETAP). */
-  ring?: StoredBallRing;
 }
-export const ballRingOf = (b: BallDef): BallRing => b.ring ?? 'none';
+/** 그 스텝에서 이 공이 갖는 원. 값을 채우는 자리는 **재탭 순환 하나뿐**이다
+ *  (store/editor 의 BALL_RETAP → edits.ts 의 `cycleBallRing`). */
+export const ballRingOf = (step: Pick<DrillStep, 'ballRings'>, id: BallId): BallRing => step.ballRings?.[id] ?? 'none';
 /** ⚠️ 이 값은 **표시가 아니라 규칙 선택**이다(2026-08-17). '5m' 은 *"이 공은 세트피스"* 라는
  *  약속이라, 그 공은 2-on-1 대신 **5 m 제한**으로 판정된다 — `model/rules.ts` 의 `ruleForRing`. */
 /** 재탭 순환: 없음 → 3 m → 5 m → 없음. 4번째 탭에서 선택도 함께 풀리는 것은 **여기가 아니라**
@@ -78,12 +87,39 @@ export interface DrillStep {
   durationMs?: number; // 이 스텝만 재생 간격 override
   chairs: PoseMap<ChairId, StoredChairPose>;
   balls: PoseMap<BallId, Vec2>;
+  /** 이 스텝에서 각 공이 갖는 거리 원(2026-08-27, v9). `balls` 옆에 **따로** 두는 이유는
+   *  `balls` 의 값이 `Vec2` 라서다 — 거기에 필드를 얹으면 `sanitizeVec`(좌표 정화기)·
+   *  `setPose` 가 전부 흔들린다. `locked`/`ignored` 처럼 **예외만 싣는 별도 자리**가 이
+   *  파일의 기존 규약이고, 그 규약을 그대로 따른다. 없으면 전부 'none'. */
+  ballRings?: PoseMap<BallId, StoredBallRing>;
+  /** 이 스텝에서 그 공을 **차는(소유한) 팀** — 5 m 링일 때만 뜻이 있다(2026-08-27 기현 지시).
+   *
+   *  ⚠️ **없으면 진영에서 파생한다**: `Drill.defense` 의 **반대**가 소유 팀이다. 그것이 이
+   *  필드가 생기기 전의 동작(수비 진영 팀이 5 m 물러난다)과 정확히 같은 값이라, 옛 문서에
+   *  이 키가 없다는 사실이 곧 "그때 보이던 그림" 이다 — 그래서 마이그레이션도, 도장 상승도
+   *  필요 없다(`locked`/`ignored`/`cut` 과 같은 논법).
+   *
+   *  ⚠️ **왜 진영과 갈라야 했나**: `defense` 의 뜻은 "골 지역을 지키는 팀" 인데, 5 m 를 물러날
+   *  팀은 "공을 **안** 차는 팀" 이다. 둘은 재개 종류에 따라 갈린다 — 코너킥·킥인은 공격이
+   *  차니 수비가 물러나 두 값이 우연히 같지만, **골킥·수비 프리킥은 수비가 차므로 정반대**다.
+   *  한 필드로 묶여 있는 동안에는 골킥 장면에서 진영을 뒤집어야 했고, 그러면 골 지역 3인
+   *  판정까지 함께 뒤집혀 못 쓸 판이 됐다. */
+  ballOwner?: PoseMap<BallId, TeamSide>;
   cones: PoseMap<ConeId, Vec2>;
   arrows: Arrow[];
   notes: NoteLabel[];
   /** 작도 도형 — 코트 위, 칩·화살표 **아래** 층(2026-08-14). 스텝마다 따로다: 화살표·메모와
    *  같은 규율이고, 스텝이 곧 "그때의 판" 이므로 구역 표시도 스텝을 따라가야 한다. */
   shapes: Shape[];
+  /** 자유 그리기 획(2026-09-03 기현 지시). 화살표·메모·도형과 같은 부류 — 스텝이 통째로
+   *  소유한다.
+   *
+   *  ⚠️ **optional 인 것은 `shapes` 와 다르다.** 도형은 v3→v4 마이그레이션이 옛 스텝마다
+   *  빈 배열을 찍어 두어 필수로 둘 수 있었는데, 획은 그 길(v9→v10)을 지나지 않은 스텝 객체가
+   *  아직 저장소 곳곳에 있다(테스트 픽스처·손편집 리터럴). 필수로 만들면 그 파일들이 한꺼번에
+   *  컴파일 오류가 난다 — `courtSize`·§3.2 교육 필드가 optional 인 것과 같은 판단이다.
+   *  **없으면 획 0개**이고, 정화기가 키를 만들지 않는 것이 곧 그 뜻이다. */
+  strokes?: Stroke[];
   // ── 개체 상태 플래그 (2026-08-14 기현 지시, 스텝마다 따로) ────────────────────────────
   // *"오른쪽 클릭 또는 긴 터치 … 잠김, 무시, 삭제 메뉴"*.
   //
@@ -117,6 +153,28 @@ export interface DrillStep {
   // drill.ts 상단 v3→v4 주석 참조). 스키마 도장도 올리지 않는다: 옛 앱이 이 키를 몰라도
   // "전부 보간" 으로 여전히 읽히므로 courtSize 류의 "다른 그림" 위험이 없다.
   cut?: true;
+}
+
+/** 이 스텝에 **잃을 것이 있는가**(2026-08-28). 자유 전술판의 코트 전환 게이트가 묻는 진짜
+ *  질문이다 — 그전에는 리듀서의 `past.length === 0`(= 되돌릴 편집이 없다)을 대용으로 썼고,
+ *  그 대용이 [비우기]를 되돌릴 수 없게 만든 원인이었다(EditorWorkspace 의 게이트 주석).
+ *
+ *  글(`note`)도 센다. 코트를 바꾸면 판이 통째로 갈리므로 적어 둔 메모도 함께 사라진다 —
+ *  "잃을 것이 없을 때만 전환한다" 는 규율에서 메모는 개체와 같은 자격이다.
+ *  (`name` 은 2026-08-17 폐기 필드라 앱을 거친 드릴에서는 언제나 ''다 — 세지 않는다.) */
+export function isStepEmpty(s: DrillStep): boolean {
+  return (
+    Object.keys(s.chairs).length === 0 &&
+    Object.keys(s.balls).length === 0 &&
+    Object.keys(s.cones).length === 0 &&
+    s.arrows.length === 0 &&
+    s.notes.length === 0 &&
+    s.shapes.length === 0 &&
+    // 획도 센다 — 코치가 손으로 그은 것이라 도형과 같은 자격이다. 안 세면 획만 있는 스텝이
+    // "비었다" 로 판정돼 코트 전환이 경고 없이 그것을 지운다(위 문단의 `note` 와 같은 논거).
+    (s.strokes ?? []).length === 0 &&
+    s.note === ''
+  );
 }
 
 export type DrillLevel = '초급' | '중급' | '고급';
@@ -220,6 +278,13 @@ export interface TeamStyle {
  *  없이 **틀린 전술 그림**이 나온다. 도장을 올려 두면 옛 앱이 too-new 로 정직하게 거절한다.
  *  (봉투 버전 ENVELOPE_VERSION 은 1 그대로다 — 그릇이 아니라 내용의 버전이다.)
  *
+ *  ⚠️⚠️ **아래 "v4 로 올리지 않았다" 문단은 2026-08-27 에 수명을 다했다.** 링이 cast 에서
+ *  스텝으로 옮겨가며(v9) 도장이 올라갔기 때문이다. 문단을 지우지 않는 이유는 그때의 판단이
+ *  **그때는 옳았기** 때문이다 — 조건 ①②③은 "링이 공의 정체성" 이라는 전제 위에서 셋 다 참이었고,
+ *  무너진 것은 그 전제다(위 `BallRing` 머리말: 링은 정체성이 아니라 국면이다). v9 는 조건 ①이
+ *  깨져서 올린 것이다: 이제 마이그레이션이 **할 일이 있다**(cast 의 값을 전 스텝에 옮겨 적어야
+ *  지금 보이는 그림이 보존된다). ②③은 여전히 참이지만 ①만으로 충분하다.
+ *
  *  ⚠️ **5.2 `BallDef.ring` 은 v4 로 올리지 않았다**(2026-08-13). 위 courtSize 문단과 반대
  *  판단이라 근거를 남긴다 — 셋 다 성립해야 안 올린다:
  *   ① **없으면 'none'** 이 전역(全域)이다. v3 문서에는 이 키가 없고, 없는 것이 곧 초기값이라
@@ -282,7 +347,31 @@ export interface TeamStyle {
  *  없이 **분류가 통째로 사라진** 드릴이 나온다. courtSize 가 문제 삼은 "조용히 다른 문서"
  *  의 형태라 거절이 정답이다. 폐기 셋은 마이그레이션이 description 말미에 텍스트로 보존한다
  *  (migrate.ts v7→v8 — 사용자가 적은 값은 형식이 죽어도 글로 남긴다). */
-export const CURRENT_DRILL_SCHEMA = 8;
+/** v9 = 공의 거리 원이 cast(`BallDef.ring`)에서 스텝(`DrillStep.ballRings`)으로 — 2026-08-27
+ *  기현 지시. 근거는 위 `BallRing` 머리말(링은 정체성이 아니라 국면이다).
+ *
+ *  ⚠️ **②를 넘는다**(도장을 올린다). 2026-08-13 이 "안 올린다" 고 판단할 때 든 조건 ①이
+ *  *"없으면 'none' 이 전역이라 마이그레이션이 할 일이 0"* 이었는데, 이번에는 **할 일이 있다** —
+ *  cast 에 있던 값을 전 스텝에 옮겨 적어야 지금 보이는 그림이 그대로 보존된다. 옮겨 적지 않으면
+ *  링을 켜 둔 옛 드릴이 전부 '원 없음' 으로 열린다(= 5 m 세트피스 판정이 조용히 꺼진다 —
+ *  `ruleForRing`. 표시가 아니라 **규칙 선택**이라 조용한 손실이다).
+ *
+ *  옛 앱 쪽도 거절이 정답이다: v8 앱은 `steps[].ballRings` 를 몰라 전부 무시하고 `cast.balls[].ring`
+ *  을 찾는데 새 파일에는 그 키가 없다 — 파일은 멀쩡히 열리고 **링이 통째로 사라진** 드릴이 나온다. */
+/** v10 = 자유 그리기 획(`DrillStep.strokes`) — 2026-09-03 기현 지시
+ *  (*"드릴 편집 작도에 자유 그리기 추가. 백터로 그리고 …"*).
+ *
+ *  ⚠️ **②를 넘는다**(도장을 올린다). v4(작도 도형)와 **같은 형태의 판단**이라 그 문단을 그대로
+ *  따라 읽으면 된다: ① 없으면 획 0개라 마이그레이션이 적을 참말은 없다 ② ✗ **획은 문서
+ *  내용이다** — 코치가 판에 손으로 그은 것이라, v9 앱은 `steps[].strokes` 를 모르므로 그것을
+ *  통째로 빠뜨리고 나머지를 그린다. 옛 앱이 파일을 **멀쩡히 열면서 획을 통째로 잃는다** —
+ *  courtSize 가 문제 삼은 *"파일은 멀쩡히 열리고 아무 경고도 없이 틀린 전술 그림이 나온다"* 의
+ *  형태다. 압박 방향을 손으로 그려 보낸 드릴이 상대 기기에서 선 없는 판으로 열리면 그것은 다른
+ *  드릴이다 ③ 대가는 그대로다 — 배포된 옛 빌드가 새 파일을 too-new 로 거절한다. 그러나 ②가
+ *  성립하는 한 **거절이 정답**이고, 그것이 이 상승의 목적이다.
+ *
+ *  즉 v4 와 마찬가지로 "도장만 올리는 상승" 이 맞지만, 도장 자체가 목적이다. */
+export const CURRENT_DRILL_SCHEMA = 10;
 
 export interface Drill {
   schemaVersion: number;

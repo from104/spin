@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { createPhysicsWorld } from './index.ts';
 import type { HitResult } from './hitTest.ts';
 import type { DrillCast, DrillStep } from '../model/drill.ts';
-import { BALL, CONE, PHYS } from '../core/constants.ts';
+import { BALL, CHAIR, CONE, PHYS } from '../core/constants.ts';
 import type { BallId, ChairId, ConeId, StepId } from '../core/ids.ts';
 
 const mover = 'ch_mover' as ChairId;
@@ -79,8 +79,10 @@ describe('잠긴 휠체어는 통과할 수 없다', () => {
 
   it('★ 잠긴 칩은 넘어가지 못한다 — 끄는 칩이 그 앞에서 멈춘다', () => {
     const { moverX, wallX } = dragMoverRight({ locked: [wall] });
-    // 맞닿는 지점은 중심 간 37.5 다. 잠긴 칩(500)의 왼쪽에 남아 있어야 한다.
-    expect(moverX, '잠긴 칩을 통과했다 — static–static 이라 물리가 쌍을 안 만든다').toBeLessThan(500 - 37.5 + 1);
+    // 맞닿는 지점은 중심 간 차체 길이(32.5)다. 잠긴 칩(500)의 왼쪽에 남아 있어야 한다.
+    // ⚠️ 상수를 읽는다(2026-08-29) — 여기 37.5 를 손으로 적어 두었더니 실측으로 차체가
+    //    1.3 m 가 된 날 **통과를 허용하는 문턱**이 됐다(빨개져서 알았다).
+    expect(moverX, '잠긴 칩을 통과했다 — static–static 이라 물리가 쌍을 안 만든다').toBeLessThan(500 - CHAIR.lengthPx + 1);
     // 그리고 잠긴 쪽은 한 픽셀도 안 움직인다(2026-08-15 앞 라운드의 계약).
     expect(wallX, '잠긴 칩이 밀렸다').toBeCloseTo(500, 3);
   });
@@ -159,8 +161,8 @@ describe('잠긴 공도 통과할 수 없다 — 원 장애물', () => {
 
   it('★ 잠긴 공 앞에서 멈춘다', () => {
     const { moverX, ballX } = dragMoverIntoBall({ locked: [ballId] });
-    // 앞범퍼(피벗 +30)가 공 표면(500 − 4.125)에 닿는 지점이 상한이다.
-    expect(moverX, '잠긴 공을 통과했다 — 원–OBB 경로가 안 걸렸다').toBeLessThan(500 - BALL.radiusPx - 30 + 1);
+    // 앞범퍼(피벗 +26)가 공 표면(500 − 4.125)에 닿는 지점이 상한이다.
+    expect(moverX, '잠긴 공을 통과했다 — 원–OBB 경로가 안 걸렸다').toBeLessThan(500 - BALL.radiusPx - CHAIR.pivotToFrontPx + 1);
     expect(ballX, '잠긴 공이 밀렸다').toBeCloseTo(500, 3);
   });
 
@@ -182,7 +184,7 @@ describe('잠긴 공도 통과할 수 없다 — 원 장애물', () => {
     }
     handle.end();
     const snap = api.read();
-    expect(snap[mover]!.x, '잠긴 콘을 통과했다').toBeLessThan(500 - CONE.radiusPx - 30 + 1);
+    expect(snap[mover]!.x, '잠긴 콘을 통과했다').toBeLessThan(500 - CONE.radiusPx - CHAIR.pivotToFrontPx + 1);
     expect(snap[coneId]!.x, '잠긴 콘이 밀렸다').toBeCloseTo(500, 3);
     api.dispose();
   });

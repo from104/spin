@@ -9,7 +9,10 @@
 // 레일과 **같은 세 항목·같은 아이콘·같은 활성 표시**를 쓴다(navChrome.ts 의 RAIL_ICONS).
 // 화면 키만 보고 `SCREEN_TO_RAIL` 로 접는 것도 레일과 같다 — 이 컴포넌트도 StageTarget 을
 // 모른다(내비가 편집기 상태에 결합되는 것을 막는 2.1 원칙 3).
-import { IconHelp, IconMoon, IconSun } from '../ui/icons.tsx';
+import { useRef, useState } from 'react';
+import { IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
+import { LanguageModal } from './LanguageModal.tsx';
+import { ChangelogModal } from './ChangelogModal.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
@@ -104,9 +107,43 @@ export function AppNavAside() {
   const isDark = prefs.theme === 'dark';
   const t = useT();
   const showHelp = useHelpShow();
+  const [langOpen, setLangOpen] = useState(false);
+  const langBtnRef = useRef<HTMLButtonElement | null>(null);
+  // 2026-09-03 기현 지시 — 버전 번호를 누르면 이번 버전의 변경 내역이 뜬다.
+  const [changelogOpen, setChangelogOpen] = useState(false);
+  const versionBtnRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+      {/* [언어] — 넓은 레일에서 [도움말] **위**인 것이 여기서는 **앞**이다(이 줄은 가로다).
+          ⚠️ 좁은 창에는 AppRail 이 아예 안 선다(AppShell 의 `!narrow`). 언어를 레일에만 두면
+             **태블릿에서 언어를 바꿀 길이 통째로 사라진다** — 2026-09-02 개편으로 설정 화면의
+             언어 섹션을 뺐기 때문에 대체 경로도 없다. 태블릿은 이 앱의 주 대상 기기다. */}
+      <button
+        type="button"
+        ref={langBtnRef}
+        aria-label={t('settings.language.title')}
+        title={t('settings.language.title')}
+        aria-haspopup="dialog"
+        onClick={() => setLangOpen(true)}
+        // 넓은 레일과 **같은 정도로** 진하다 — 지구본만 악센트색, 테두리는 그대로
+        // (AppRail 의 그 주석에 근거). 두 곳이 갈리면 창을 좁혔을 때만 강조가 사라지는,
+        // 가장 늦게 발견되는 어긋남이 된다.
+        style={{
+          flex: 'none',
+          width: 'var(--hit)',
+          height: 'var(--hit)',
+          border: '1px solid var(--border-strong)',
+          borderRadius: '0.625rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--accent)',
+        }}
+      >
+        <IconLanguage />
+      </button>
+      <LanguageModal open={langOpen} onClose={() => setLangOpen(false)} returnFocusRef={langBtnRef} />
       {/* [도움말] — §0.5 Phase 5(계획서 §A) "좁은 창에서는 AppNavAside 에 함께 들어간다".
           넓은 레일과 같은 순서(도움말 → 테마 → 버전)로 맨 앞에 둔다. */}
       <button
@@ -150,19 +187,33 @@ export function AppNavAside() {
 
       {/* 버전 — 레일이 지고 있던 것을 함께 옮긴다. 좁은 창이라고 조용히 없애면 제보에 붙일
           숫자가 그 기기에서만 사라진다(AppRail.tsx 의 같은 주석). 표적은 아니라 예산에
-          들어가지 않고, 폭도 30px 남짓이다. */}
-      <span
+          들어가지 않고, 폭도 30px 남짓이다.
+          2026-09-03 기현 지시로 **눌러서 이번 버전 변경 내역**을 보는 문이 됐다 — AppRail.tsx
+          와 같은 배선(ChangelogModal.tsx, CHANGELOG.md 를 정본으로 파싱). 색도 AppRail.tsx 와
+          같이 지구본(언어)과 맞춘 `--accent` — 근거는 그쪽 주석. */}
+      <button
+        type="button"
+        ref={versionBtnRef}
+        aria-label={t('app.changelog.openTitle', { version: __APP_VERSION__ })}
+        title={t('app.changelog.openTitle', { version: __APP_VERSION__ })}
+        aria-haspopup="dialog"
+        onClick={() => setChangelogOpen(true)}
         style={{
           flex: 'none',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
           fontFamily: "'Space Grotesk', sans-serif",
           fontSize: '0.625rem',
           fontWeight: 600,
           letterSpacing: '0.02em',
-          color: 'var(--faint-text)',
+          color: 'var(--accent)',
         }}
       >
         v{__APP_VERSION__}
-      </span>
+      </button>
+      <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} returnFocusRef={versionBtnRef} />
     </div>
   );
 }

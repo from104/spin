@@ -9,9 +9,29 @@ export interface ModalProps {
   /** 제목 요소의 id — `aria-labelledby` 로 연결한다. */
   titleId: string;
   title: ReactNode;
+  /** 본문 요소의 id — 주면 패널에 `aria-describedby` 로 건다. 생략하면 속성을 붙이지 않는다(기존
+   *  사용처 무영향인 가산적 확장, 2026-09 계획서 결정 28).
+   *
+   *  `aria-labelledby` 만으로는 스크린리더가 다이얼로그에 들어올 때 **제목**만 읽는다. 포커스가
+   *  트리거 버튼(대개 [계속하기])에 서면 그 뒤로는 제목과 버튼 이름뿐이라, 본문이 곧 전부인
+   *  모달(안내문·경고문 한 단락으로 끝나는 것들)에서는 사람이 본문을 한 번도 못 듣고 닫을 수
+   *  있다. 여는 쪽이 본문 컨테이너에 id 를 달아 여기로 넘긴다. */
+  descriptionId?: string;
   closeLabel?: string;
   /** 닫힐 때 포커스를 되돌릴 대상(연 트리거 버튼). */
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /** 열 때 포커스를 받을 요소. 생략하면 패널의 **첫 포커스 가능 요소**(= 닫기 ✕)다.
+   *
+   *  2026-08-28 [새 드릴] 다이얼로그에서 처음 필요해졌다: 이름 칸이 주인공인 모달인데 기본
+   *  규칙대로면 커서가 ✕ 에 서고, 사람은 Tab 을 한 번 눌러야 이름을 쓸 수 있다. 자식 쪽에서
+   *  `autoFocus` 로 해결할 수 없다 — React 의 autoFocus 는 커밋 때 걸리고 이 훅은 그 뒤에
+   *  도는 부모 effect 라, 부모가 도로 ✕ 로 끌어간다. 그래서 **여는 쪽이 지정한다.** */
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  /** 패널 자체(테두리 상자)에 얹는 추가 스타일 — 기본값 위에 덮어쓴다. 대부분의 모달은 내용
+   *  길이에 맞춰 늘어나는 것이 맞아 안 쓰지만(기본 `maxHeight: 85vh`), 좌우로 다른 절을 넘겨
+   *  보는 모달(ChangelogModal)처럼 절마다 길이가 들쭉날쭉해 **넘길 때마다 창이 커졌다 작아지면
+   *  안 되는** 경우에 고정 높이를 준다(2026-09-03 기현 지시). */
+  panelStyle?: CSSProperties;
   children: ReactNode;
 }
 
@@ -20,7 +40,7 @@ const FOCUSABLE_SELECTOR =
 
 /** §7.5f "Shift+? 도움말 오버레이 (role="dialog", 포커스 트랩, Esc)" 의 일반형.
  * `role="dialog" aria-modal="true"` + Tab 순환 트랩 + Esc 닫기 + 트리거로 포커스 복귀. */
-export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', returnFocusRef, children }: ModalProps) {
+export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel = '닫기', returnFocusRef, initialFocusRef, panelStyle: panelStyleOverride, children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openedByRef = useRef<HTMLElement | null>(null);
 
@@ -28,7 +48,7 @@ export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', re
     if (!open) return;
     openedByRef.current = (document.activeElement as HTMLElement) ?? null;
     const panel = panelRef.current;
-    const first = panel?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+    const first = initialFocusRef?.current ?? panel?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
 
     // 포커스가 패널 **밖으로** 새면 되돌린다.
     //
@@ -126,11 +146,12 @@ export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', re
     color: 'var(--text)',
     padding: '1.5rem',
     position: 'relative',
+    ...panelStyleOverride,
   };
 
   return createPortal(
     <div style={backdropStyle} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} style={panelStyle}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} style={panelStyle}>
         <button
           type="button"
           aria-label={closeLabel}

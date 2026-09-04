@@ -11,7 +11,7 @@ import { StepSidebar } from './StepSidebar.tsx';
 import { SIDEBAR_GLYPH_SCALE } from '../../render/CourtThumbnail.tsx';
 import { THUMB_GLYPH } from '../../render/CourtThumbnail.tsx';
 import { createDrill } from '../../model/defaults.ts';
-import { addStepAfter } from '../../model/edits.ts';
+import { duplicateStep } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -22,7 +22,7 @@ const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider }
 
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
-  for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
+  for (let i = 1; i < n; i++) d = duplicateStep(d, i - 1);
   return d;
 }
 
@@ -34,7 +34,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     stepId: d.steps[0]!.id,
     onSelectStep: noop,
     onReorderStep: noop,
-    onAddStep: noop,
     onDuplicateStep: noop,
     onToggleCut: noop,
     collapsed: false,
@@ -50,16 +49,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
 const cards = () => screen.getAllByRole('button', { name: /^스텝 \d+$/ });
 
 describe('카드 목록 — 고정(비접힘) 모드', () => {
-  it('카드 수는 스텝 수와 같고, 번호를 보여준다', () => {
-    const d = makeDrill(3);
-    renderSidebar(d);
-    const list = cards();
-    expect(list).toHaveLength(3);
-    list.forEach((c, i) => {
-      expect(within(c).getByText(String(i + 1))).toBeInTheDocument();
-    });
-  });
-
   it('현재 스텝 카드에만 aria-current="step" 이 붙는다', () => {
     const d = makeDrill(3);
     renderSidebar(d, { stepId: d.steps[1]!.id });
@@ -77,52 +66,10 @@ describe('카드 목록 — 고정(비접힘) 모드', () => {
     expect(onSelectStep).toHaveBeenCalledWith(d.steps[2]!.id);
   });
 
-  it('스텝 이름은 카드에 없다 — "스텝 정보 최소화"(기현님 확정)', () => {
-    const d = makeDrill(1);
-    renderSidebar(d);
-    // 기본 이름 '스텝 1' 같은 문구가 카드 안에 텍스트로 나와서는 안 된다. aria-label 자체는
-    // '스텝 1' 이지만 그것은 순번이지 이름이 아니다 — 번호가 아닌 별도 이름 문구가 없음을 본다.
-    expect(cards()[0]).toHaveAccessibleName('스텝 1');
-    expect(cards()[0]!.textContent).toBe('1');
-  });
-
-  it('목록 끝에 [한 장 더 찍기] 가 있고 누르면 onAddStep 이 나간다', async () => {
-    const onAddStep = vi.fn();
-    renderSidebar(makeDrill(2), { onAddStep });
-    await userEvent.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
-    expect(onAddStep).toHaveBeenCalledTimes(1);
-  });
-
-  it('상한(60장)에서는 [한 장 더 찍기] 가 잠기고 이유를 말한다', async () => {
-    const onAddStep = vi.fn();
-    renderSidebar(makeDrill(LIMITS.maxSteps), { onAddStep });
-    const btn = screen.getByRole('button', { name: '한 장 더 찍기' });
-    expect(btn).toBeDisabled();
-    expect(btn).toHaveAttribute('title', expect.stringContaining(String(LIMITS.maxSteps)));
-    await userEvent.click(btn);
-    expect(onAddStep).not.toHaveBeenCalled();
-  });
-
-  // 위의 "안 불렸다" 가 '배선이 아예 없어서' 통과하는 것이 아님을 보이는 대조군이다
-  // (옛 TransportBar.test.tsx 의 이사).
-  it('대조군: 59장에서는 열려 있고 실제로 발화한다', async () => {
-    const onAddStep = vi.fn();
-    renderSidebar(makeDrill(LIMITS.maxSteps - 1), { onAddStep });
-    const btn = screen.getByRole('button', { name: '한 장 더 찍기' });
-    expect(btn).toBeEnabled();
-    await userEvent.click(btn);
-    expect(onAddStep).toHaveBeenCalledTimes(1);
-  });
-
-  it('틈이 카드 수 + 1 개다 — 양 끝 + 카드 사이', () => {
-    const { container } = renderSidebar(makeDrill(3));
-    expect(container.querySelectorAll('[data-gap-index]')).toHaveLength(4);
-  });
-
-  it('고정 모드에는 여는 버튼이 없다', () => {
-    renderSidebar(makeDrill(1));
-    expect(screen.queryByRole('button', { name: '스텝 목록 열기' })).toBeNull();
-  });
+  // ⚠️ [한 장 더 찍기] 버튼의 세 케이스(있다·정원에서 잠긴다·59장 대조군)가 여기 있었다.
+  //    2026-08-30 기현 지시로 그 버튼이 없어졌다 — 스텝을 늘리는 길은 이제 틈의 [+] 뿐이고,
+  //    그 정원 가드는 아래 §틈 섹션이 **N+1 개 전부** + 59장 대조군으로 이미 잡고 있다.
+  //    같은 것을 두 곳에서 재지 않으려고 옮기지 않고 지웠다.
 });
 
 // §복제(기현님 확정 2026-08-17) — 카드 복제 버튼, 틈(gap) + 버튼. 후방 복제가 기본이고,
@@ -147,11 +94,6 @@ describe('카드 복제 버튼', () => {
     expect(onDuplicateStep).toHaveBeenCalledWith(d.steps[1]!.id);
   });
 
-  it('한국어 aria-label 이 "스텝 N 을 아래로 복제" 류다', () => {
-    renderSidebar(makeDrill(1));
-    expect(screen.getByRole('button', { name: '스텝 1 을 아래로 복제' })).toBeInTheDocument();
-  });
-
   it('복제 버튼을 눌러도 카드 선택(onSelectStep)은 안 딸려온다', async () => {
     const onSelectStep = vi.fn();
     const onDuplicateStep = vi.fn();
@@ -169,7 +111,7 @@ describe('카드 복제 버튼', () => {
     });
   });
 
-  // '한 장 더 찍기' 대조군과 같은 이유(§105) — 잠김이 배선 자체가 없어서가 아님을 보인다.
+  // 잠김이 '배선 자체가 없어서' 통과하는 것이 아님을 보이는 대조군이다.
   it('대조군: 59장에서는 열려 있고 실제로 발화한다', async () => {
     const onDuplicateStep = vi.fn();
     renderSidebar(makeDrill(LIMITS.maxSteps - 1), { onDuplicateStep });
@@ -188,6 +130,10 @@ describe('틈(gap)의 + 버튼', () => {
     await userEvent.click(gapBtn(container, 2)); // 카드 1(B) 과 카드 2(C) 사이
     expect(onDuplicateStep).toHaveBeenCalledTimes(1);
     expect(onDuplicateStep).toHaveBeenCalledWith(d.steps[1]!.id);
+
+    // 맨 끝 틈(카드 수만큼의 index) 도 같은 일반 규칙이다 — 마지막 스텝을 복제해 뒤에 넣는다.
+    await userEvent.click(gapBtn(container, 3));
+    expect(onDuplicateStep).toHaveBeenCalledWith(d.steps[2]!.id);
   });
 
   it('맨 앞 틈(g=0) 은 첫 스텝의 id 와 toIndex:0 으로 onDuplicateStep 을 부른다', async () => {
@@ -197,22 +143,6 @@ describe('틈(gap)의 + 버튼', () => {
     await userEvent.click(gapBtn(container, 0));
     expect(onDuplicateStep).toHaveBeenCalledTimes(1);
     expect(onDuplicateStep).toHaveBeenCalledWith(d.steps[0]!.id, 0);
-  });
-
-  it('맨 끝 틈(카드 수만큼의 index) 은 마지막 스텝을 복제해 뒤에 넣는다(g=0 과 같은 일반 규칙)', async () => {
-    const onDuplicateStep = vi.fn();
-    const d = makeDrill(3);
-    const { container } = renderSidebar(d, { onDuplicateStep });
-    await userEvent.click(gapBtn(container, 3));
-    expect(onDuplicateStep).toHaveBeenCalledWith(d.steps[2]!.id);
-  });
-
-  it('포커스가 닿는다 — 상시 노출이라 Tab 순서에서 빠지지 않는다', () => {
-    const d = makeDrill(2);
-    const { container } = renderSidebar(d);
-    const btn = gapBtn(container, 1) as HTMLButtonElement;
-    btn.focus();
-    expect(document.activeElement).toBe(btn);
   });
 
   // 잠기는 것은 [+](정원 가드)뿐이다 — 사슬 토글은 스텝을 늘리지 않으니 정원과 무관하게
@@ -293,7 +223,6 @@ describe('틈(gap)의 사슬 토글', () => {
         stepId={d.steps[0]!.id}
         onSelectStep={noop}
         onReorderStep={noop}
-        onAddStep={noop}
         onDuplicateStep={noop}
         onToggleCut={noop}
         collapsed={false}
@@ -311,7 +240,6 @@ describe('틈(gap)의 사슬 토글', () => {
         stepId={d.steps[0]!.id}
         onSelectStep={noop}
         onReorderStep={noop}
-        onAddStep={noop}
         onDuplicateStep={noop}
         onToggleCut={noop}
         collapsed={false}
@@ -345,17 +273,13 @@ describe('카드 썸네일 — SIDEBAR_GLYPH_SCALE 로 그린다', () => {
 });
 
 describe('접힘 모드 — 여는 버튼 + 오버레이', () => {
-  it('처음엔 여는 버튼만 있고 카드 목록은 없다', () => {
-    renderSidebar(makeDrill(3), { collapsed: true });
-    const btn = screen.getByRole('button', { name: '스텝 목록 열기' });
-    expect(btn).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('navigation', { name: '스텝 목록' })).toBeNull();
-  });
-
   it('버튼을 누르면 오버레이로 카드 목록이 뜨고 aria-expanded 가 왕복한다', async () => {
     const d = makeDrill(3);
     renderSidebar(d, { collapsed: true });
     const btn = screen.getByRole('button', { name: '스텝 목록 열기' });
+    // 처음엔 여는 버튼만 있고 카드 목록은 없다.
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('navigation', { name: '스텝 목록' })).toBeNull();
 
     await userEvent.click(btn);
     expect(screen.getByRole('button', { name: '스텝 목록 닫기' })).toHaveAttribute('aria-expanded', 'true');

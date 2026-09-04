@@ -1,5 +1,6 @@
-// §6.11/부록A 드릴 카드. 열기·더보기 메뉴(복제/파일로 내보내기/삭제) 동작과
-// 판 걸이(로드맵 2.7)의 상시 노출 [시연]·코트 비율 썸네일을 확인한다.
+// §6.11/부록A 드릴 카드. 더보기 메뉴(복제/파일로 내보내기/삭제) 동작과
+// 판 걸이(로드맵 2.7)의 코트 비율 썸네일을 확인한다. 열기·상시 노출 [시연] 클릭은
+// LibraryScreen.test.tsx 가 nav 배선까지 포함해 잰다.
 //
 // i18n C4 — DrillCard 가 useT/useLocale(→ useSettingsState)을 직접 쓰게 되면서 SettingsProvider
 // 없이는 못 선다. 전부 `{ wrapper: SettingsProvider }` 로 감싼다(테스트 로케일은 test/setup.ts
@@ -23,25 +24,6 @@ function noopHandlers() {
 }
 
 describe('DrillCard', () => {
-  it('카드를 클릭하면 onOpen 이 호출된다', async () => {
-    const onOpen = vi.fn();
-    const d = makeSummary();
-    render(<DrillCard drill={d} {...noopHandlers()} onOpen={onOpen} />, { wrapper: SettingsProvider });
-    await userEvent.setup().click(screen.getByRole('button', { name: `${d.title} 열기` }));
-    expect(onOpen).toHaveBeenCalledTimes(1);
-  });
-
-  it('상시 노출 [시연] 을 클릭하면 onPresent 만 호출된다 — onOpen 은 안 불린다', async () => {
-    // 대조군: [시연] 이 카드면 버튼 안에 겹쳐 들어가 열기를 겸하게 되는 회귀를 잡는다.
-    const onPresent = vi.fn();
-    const onOpen = vi.fn();
-    const d = makeSummary();
-    render(<DrillCard drill={d} {...noopHandlers()} onOpen={onOpen} onPresent={onPresent} />, { wrapper: SettingsProvider });
-    await userEvent.setup().click(screen.getByRole('button', { name: `${d.title} 시연 시작` }));
-    expect(onPresent).toHaveBeenCalledTimes(1);
-    expect(onOpen).not.toHaveBeenCalled();
-  });
-
   it('썸네일 상자가 그 드릴 코트의 실제 비율이다 — full 825/525, half 525/450', () => {
     // 판 걸이: 320/192 고정 틀이 아니라 COURT_DEFS viewBox 비율. 카드 둘을 나란히 그려
     // 서로 다른 비율이 나오는 것까지 본다(한 장만 보면 "전부 같은 값" 회귀를 못 잡는다).
@@ -103,13 +85,5 @@ describe('DrillCard', () => {
     const d = { ...makeSummary(), description: '카드 부제 문구' };
     render(<DrillCard drill={d} {...noopHandlers()} />, { wrapper: SettingsProvider });
     expect(screen.getByText('카드 부제 문구')).toBeInTheDocument();
-  });
-
-  it('부제가 없으면 그 줄 자체가 없다 — 빈 줄로 카드 세로 리듬을 깨지 않는다', () => {
-    const d = makeSummary(); // buildSummary 는 description 없는 드릴에 키를 안 만든다
-    expect('description' in d).toBe(false);
-    const { container } = render(<DrillCard drill={d} {...noopHandlers()} />, { wrapper: SettingsProvider });
-    // 부제 자리는 title 과 아이콘 행 사이의 fontSize 0.78125rem 줄 하나뿐이라 그 존재 여부로 판정.
-    expect(container.querySelector('[style*="0.78125rem"]')).toBeNull();
   });
 });

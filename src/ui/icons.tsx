@@ -49,7 +49,14 @@ export function IconLibrary({ size = 19, ...rest }: IconProps) {
   );
 }
 
-/** 정보 ⓘ — 드릴 메타 시트(C7)의 열기 버튼. */
+/** 정보 ⓘ.
+ *
+ *  원래 용도는 **드릴 메타 시트(C7)의 열기 버튼**이었다. 그 자리는 2026-08-28(310f9eb)에
+ *  아래 `IconDrillInfoEdit`(연필) / `IconDrillInfoRead`(눈) 한 벌로 갈려 나가면서 비었고,
+ *  한동안 이 아이콘은 호출자가 0이었다. 2026-08-31 규칙 화면 9카드 개편에서 카드 1
+ *  [파워체어풋볼이란]의 주제 아이콘으로 다시 쓴다(`features/rules/RulesHome.tsx`, 현재 유일한
+ *  호출자). 옛 용도를 지우지 않고 남기는 이유: 다음에 ⓘ 를 쓸 사람이 "메타 시트 관례"를
+ *  물려받는 줄 알고 고르지 않도록. */
 export function IconInfo({ size = 19, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
@@ -86,6 +93,18 @@ export function IconPresent({ size = 19, ...rest }: IconProps) {
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
       <rect x="3" y="4" width="18" height="12" rx="1.5" />
       <path d="M12 16v4M8.5 20h7" />
+    </svg>
+  );
+}
+
+/** 규칙 — 심판 호루라기. 판정·재개를 상징하는 도구라 '규칙' 화면의 은유로 적합하다.
+ *  마우스피스(사각)+공명통(원)이 겹치는 것은 IconBoard 의 골 지역 겹침과 같은 기법이다. */
+export function IconRules({ size = 19, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="2" y="9.5" width="7.5" height="5" rx="1.5" />
+      <circle cx="15.5" cy="12" r="5.5" />
+      <path d="M15.5 7v.1" strokeWidth={2.4} />
     </svg>
   );
 }
@@ -172,11 +191,31 @@ export function IconToolNote({ size = 18, ...rest }: IconProps) {
   );
 }
 
+/** 자유 그리기 도구(2026-09-03). 획 하나를 그대로 그린 것 — 굽이가 셋인 손 그림 곡선이다.
+ *
+ *  ⚠️ 연필·펜을 안 그렸다. 서랍 안 이웃(선 `IconToolRoute` · 원 · 삼각 · 사각)이 전부
+ *  **결과물의 모양**을 보여 주는데 여기만 도구를 보여 주면, 같은 줄에서 그림의 뜻이 갈린다
+ *  ("이건 무엇을 놓는가" 와 "이건 무엇으로 놓는가" 가 섞인다). 획 자체를 그리면 `strokeBase`
+ *  의 둥근 끝·둥근 이음이 그대로 이 도구가 판에 남기는 선의 생김새이기도 하다. */
+export function IconToolFreehand({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M3 17c2.5 0 2.5-9 5.5-9s3 12 6 12 3.5-9 6.5-9" />
+    </svg>
+  );
+}
+
+/** 지우기 도구. 2026-08-16 에 도구가 사라진 뒤로 **사용처 0** 인 채 살아남아 있다가
+ *  2026-09-03 에 되살아난 도구가 다시 쓴다(toolDefs.ts 의 그 문단이 뒤집기 근거를 쥔다).
+ *
+ *  🔁 그때의 그림(비스듬한 지우개 글리프, `M4 16l7-7 7 7-4 4H8z` + 받침선)은 **버렸다.**
+ *  근거는 지금 커서가 붉은 `X` 라는 것 하나다 — 버튼과 커서가 다른 그림이면 "이 버튼을
+ *  누르면 저 커서가 된다" 를 눌러 봐야만 알 수 있고, 태블릿에는 커서가 아예 없어서(실기 확인
+ *  항목) 이 아이콘 혼자 그 뜻을 나른다. 단축키 글자 `X` 도 같은 그림에서 나왔다(keymap.ts). */
 export function IconToolErase({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
-      <path d="M4 16l7-7 7 7-4 4H8z" />
-      <path d="M9 21h11" />
+      <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
 }
@@ -289,6 +328,16 @@ export function IconChevronPrev({ size = 14, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...fillBase} {...rest}>
       <path d="M6 5h2v14H6zM20 5v14l-11-7z" />
+    </svg>
+  );
+}
+
+/** 규칙 카드 헤더의 [← 목록으로](2026-09-03). ChevronPrev 는 "이전 단계" 의 채운 글리프라 뜻이
+ *  다르다 — 이건 "한 단계 위로 돌아간다" 는 선 화살표다. */
+export function IconArrowLeft({ size = 16, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M19 12H5M12 19l-7-7 7-7" />
     </svg>
   );
 }
@@ -523,6 +572,25 @@ export function IconRuleZone({ size = 18, ...rest }: IconProps) {
 
 /** 도움말 — 2026-08-16 기현 지시로 [보기] 안에서 **기둥 상시 칸**으로 나왔다. 한 번에 닿아야
  *  하는 것이 메뉴 안에 있었다. */
+/** 언어 — 지구본(경선·위선). 레일에서 [도움말] 바로 위에 선다(2026-09-02 기현 지시로 설정
+ *  화면에서 옮겨 왔다).
+ *
+ *  **왜 지구본이고 글자가 아닌가**: "A/가" 나 "文" 같은 글자 아이콘은 그 글자를 읽는 사람에게만
+ *  뜻이 통한다. 언어를 바꾸려는 사람은 **지금 화면 글자를 못 읽는 사람**일 수 있으므로, 그때
+ *  아이콘이 글자면 찾을 방법이 없다. 지구본은 이 자리의 국제 관례이기도 하다.
+ *
+ *  위선을 둘만 긋는다(±4.5) — 19px 로 줄면 셋 이상은 원 안에서 뭉개져 회색 덩어리가 된다. */
+export function IconLanguage({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c2.6 2.5 4 5.6 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.6-4-9s1.4-6.5 4-9Z" />
+      <path d="M5.2 7.5h13.6M5.2 16.5h13.6" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
 export function IconHelp({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
@@ -586,6 +654,40 @@ export function IconSaveDrill({ size = 18, ...rest }: IconProps) {
 
 /** 원(타원) 도형. 정원이 아니라 **타원**으로 그린다 — 가로·세로를 따로 늘릴 수 있다는 것이
  *  이 도구의 성질이고, 아이콘이 정원이면 그 성질이 그림에서 사라진다. */
+/** 드릴 정보 — **고칠 수 있다**(드릴 편집 기능 바, 2026-08-28 기현 지시로 헤더 ⓘ 에서 이사).
+ *
+ *  아래 `IconDrillInfoRead` 와 **한 벌**이다: 같은 정보 카드(둥근 사각 + 글줄 둘) 위에 수정자만
+ *  다르다 — 여기는 연필, 저기는 눈. 두 화면을 오가는 사람이 "같은 것의 두 모드" 로 읽어야
+ *  하므로 밑판을 공유하고, 무엇이 다른지는 수정자 하나가 말한다.
+ *
+ *  ⓘ(원 안의 i)를 안 쓰는 이유: 그 글리프는 "읽을거리" 라는 뜻이 굳어 있어 **고칠 수 있다**를
+ *  얹을 자리가 없다. 헤더에서는 두 화면이 그 하나를 함께 써서 구분이 아예 없었다. */
+export function IconDrillInfoEdit({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M20 11.5V5.5a1.5 1.5 0 0 0-1.5-1.5h-13A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20h6" />
+      <path d="M8 9h8M8 13h5" />
+      {/* 연필 — 카드 오른쪽 아래를 비집고 나온다. 밑판 밖으로 살짝 나가야 '덧대어진 도구' 로 읽힌다. */}
+      <path d="m15.5 20.5 4.7-4.7 2.3 2.3-4.7 4.7-2.8.5z" />
+    </svg>
+  );
+}
+
+/** 드릴 정보 — **보기만 한다**(시연 화면 기능 바). 위 `IconDrillInfoEdit` 와 밑판이 같고
+ *  수정자만 눈이다. 시연 중에 드릴을 고칠 수 없다는 사실은 모달을 열기 **전에** 보여야 한다 —
+ *  열고 나서 입력 칸이 없는 것을 보고 알게 되면 그건 알려 준 것이 아니다. */
+export function IconDrillInfoRead({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M20 11.5V5.5a1.5 1.5 0 0 0-1.5-1.5h-13A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20h6" />
+      <path d="M8 9h8M8 13h5" />
+      {/* 눈 — 연필과 같은 자리, 같은 크기. 둘을 나란히 놓았을 때 밑판이 흔들리지 않아야 한다. */}
+      <path d="M13.5 19.5s1.8-3 4.5-3 4.5 3 4.5 3-1.8 3-4.5 3-4.5-3-4.5-3Z" />
+      <circle cx="18" cy="19.5" r="1.1" />
+    </svg>
+  );
+}
+
 export function IconShapeEllipse({ size = 18, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>

@@ -2,6 +2,9 @@
 #
 # SPIN 배포 — spin.atit.app (AWS Lightsail)
 #
+# ★ **이것이 기본 배포다.** spin.atit.dev 는 여기로 리다이렉트하므로(2026-09-01 기현님 확인)
+#   "배포" 라고만 하면 이 스크립트다. scripts/deploy.sh(cube)는 사본을 놓는 용도로만 남아 있다.
+#
 # ── 배포가 무엇인가 ──────────────────────────────────────────────────────────────────
 # spin.atit.dev(scripts/deploy.sh, cube)와 별개의 두 번째 배포처다. AWS Lightsail
 # (54.180.213.12, mocil 과 같은 서버)에 Apache 이름기반 가상호스트를 하나 추가해 뒀다
@@ -113,6 +116,10 @@ if [ "$DRY" = 1 ]; then
 fi
 
 # ── 배포 기록 ────────────────────────────────────────────────────────────────────────
+# 이 파일은 **웹에서 안 읽힌다** — `by` 에 배포자의 사용자명@호스트명이 들어가는데 그게 공개로
+# 흘러서, 2026-09-01 에 vhost(spin-vhost.conf)에서 점 파일을 403 으로 막았다. `.well-known` 만
+# 예외다(인증서 갱신). 그래서 "지금 떠 있는 게 어느 커밋인가" 는 curl 이 아니라 ssh 로 본다:
+#   ssh -i "$PEM" "$USER@$HOST" "cat $DEST/.deployed.json"
 INFO=$(printf '{"commit":"%s","version":"%s","at":"%s","by":"%s@%s","target":"aws"}\n' \
   "$(git rev-parse HEAD)" \
   "$(node -p "require('./package.json').version")" \

@@ -35,9 +35,9 @@ describe('§5.1 마이그레이션 — 옛 드릴은 30×18 로 못박혀 올라
     expect(r.doc.courtSize).toBe('30x18');
     expect(r.doc.schemaVersion).toBe(CURRENT_DRILL_SCHEMA);
     // v2 문서는 v3(코트 크기)·v4(도형)·v5(자유 삼각형)·v6(진영)·v7(선 통일)·v8(분류 개편)
-    // 여섯 단계를 지난다.
+    // ·v9(공 링 이관)·v10(자유 그리기 획) 여덟 단계를 지난다.
     expect(r.applied[0]).toBe('drill v2→v3: 코트 크기 3단(courtSize) — 옛 드릴은 30×18 로 못박는다');
-    expect(r.applied).toHaveLength(6);
+    expect(r.applied).toHaveLength(8);
   });
 
   it('무손실 — v2 의 모든 키가 값째로 살아남는다', () => {
@@ -49,6 +49,18 @@ describe('§5.1 마이그레이션 — 옛 드릴은 30×18 로 못박혀 올라
       if (k === 'schemaVersion') continue; // 도장만 최신으로
       // v7→v8 이 category 를 drillType 으로 대체하고 원문을 tags 에 편입한다(drillV2.test.ts 가 단언).
       if (k === 'category' || k === 'tags') continue;
+      if (k === 'steps') {
+        // ⚠️ 2026-09-03 — v9→v10 이 스텝마다 `strokes: []` 를 **더한다**(자유 그리기). 무손실의
+        //    뜻은 "잃지 않는다" 이지 "한 글자도 안 는다" 가 아니다 — 더해진 키를 빼고 대조한다
+        //    (drillV2.test.ts 가 `shapes` 에 같은 처리를 한다). `shapes` 가 여기 없는 이유는
+        //    픽스처가 `createDrill` 산이라 그 키를 이미 갖고 있어서다.
+        const got = (r.doc.steps as Record<string, unknown>[]).map(({ strokes, ...rest }) => {
+          expect(strokes, '획 단계가 스텝에 빈 배열을 안 찍었다').toEqual([]);
+          return rest;
+        });
+        expect(got, "v2 의 'steps' 가 사라지거나 바뀌었다").toEqual(v);
+        continue;
+      }
       expect(r.doc[k], `v2 의 '${k}' 가 사라지거나 바뀌었다`).toEqual(v);
     }
     // 대조군 — 픽스처가 알맹이를 갖고 있어야 위 루프가 의미를 갖는다.
@@ -56,13 +68,13 @@ describe('§5.1 마이그레이션 — 옛 드릴은 30×18 로 못박혀 올라
     expect((r.doc.steps as unknown[]).length).toBeGreaterThan(0);
   });
 
-  it('v1 → v8 전 체인이 한 번에 돈다 (교육 필드 + 코트 크기 + 도형 + 자유 삼각형 + 진영 + 선 통일 + 분류 개편)', () => {
+  it('v1 → v10 전 체인이 한 번에 돈다 (교육 필드 + 코트 크기 + 도형 + 자유 삼각형 + 진영 + 선 통일 + 분류 개편 + 공 링 이관 + 자유 그리기 획)', () => {
     const r = migrateDoc(v1, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.doc.courtSize).toBe('30x18');
     expect(r.doc.objective).toBe(''); // v1→v2 도 여전히 돈다(뒷문장에도 단언을 둔다)
-    expect(r.applied).toHaveLength(7);
+    expect(r.applied).toHaveLength(9);
     // 멱등 — 이미 최신인 문서를 다시 넣으면 아무 일도 안 한다.
     const again = migrateDoc(r.doc, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
     expect(again.ok).toBe(true);

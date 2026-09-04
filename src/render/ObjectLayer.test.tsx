@@ -71,12 +71,9 @@ describe('ObjectLayer — 초기 프레임 확정(§6.2)', () => {
     expect(chairEl.getAttribute('transform')).toBe('translate(100.00 50.00) rotate(0.00)');
     const ballEl = container.querySelector(`#obj-${ballId}`)!;
     expect(ballEl.getAttribute('transform')).toBe('translate(10.00 20.00) rotate(0.00)');
-  });
-
-  it('initialFrame 이 없으면(예: 아직 아무도 write 하지 않음) transform 이 비어 있다', () => {
-    const { container } = renderLayer();
-    const chairEl = container.querySelector(`#obj-${chairId}`)!;
-    expect(chairEl.getAttribute('transform')).toBeNull();
+    // initialFrame 이 없으면(예: 아직 아무도 write 하지 않음) transform 은 비어 있다(대조군).
+    const noFrameEl = renderLayer().container.querySelector(`#obj-${chairId}`)!;
+    expect(noFrameEl.getAttribute('transform')).toBeNull();
   });
 });
 

@@ -31,15 +31,28 @@ export interface ZoneStateGolden {
 }
 export type DragZoneGolden = 'towRear' | 'translate' | 'spin' | 'towFront';
 
-/** §10.9 이 못박은 파라미터. 값을 바꾸지 마라 — 골든값은 이 상수들로 생성됐다. */
+/** §10.9 이 못박은 파라미터. 값을 바꾸지 마라 — 골든값은 이 상수들로 생성됐다.
+ *
+ *  ⚠️ **차체 기하 셋(L·W·spinRadiusMinPx)만은 제품 상수와 같아야 한다**(2026-08-29 실측).
+ *  이 파일의 값어치는 같은 입력에 두 독립 구현이 같은 답을 내는지 보는 데 있는데, 한쪽이
+ *  `core/constants.ts` 를 읽고 다른 쪽이 숫자를 손에 들고 있으면 차체가 바뀐 날 **비교 자체가
+ *  무의미해진다** — 실측 당일 실제로 그랬다(actual 45.80° vs golden 43.49°, 둘 다 옳고 둘 다
+ *  다른 차를 굴리고 있었다).
+ *
+ *  그런데 여기서 그 상수를 import 하면 이 파일 머리말의 독립성 규율이 깨진다. 그래서 값은
+ *  **손으로 옮겨 적고**, 어긋남은 `kinematicsReference.test.ts` 첫 단언이 잡는다 — 거기서는
+ *  양쪽을 다 import 해도 되기 때문이다. 차체를 다시 만지면 여기 셋도 함께 옮길 것.
+ *
+ *  `vLin`·`omega`·`dt` 는 계속 언 값이다 — 그 셋은 시나리오 **입력**이고 테스트가 두 구현에
+ *  똑같이 먹여 준다. 사용자 설정(속도 제한)으로 바뀌는 값이라 제품 상수에 매어 두면 안 된다. */
 export const GOLDEN_PARAMS = {
-  L: 37.5,
-  W: 25,
+  L: 32.5,
+  W: 20,
   sPivot: 0.2,
   vLin: 69.44444444,
   omega: 6.944444444,
   dt: 1 / 120,
-  spinRadiusMinPx: 9.375,
+  spinRadiusMinPx: 8.125,
   sTowRearMax: 0.12,
   sSpinMin: 0.32,
   sTowFrontMin: 0.85,
@@ -126,7 +139,10 @@ export function stepSpinGolden(
 /** (C) tow — §5.5. 단방향 로프(밀 수 없음) + 로프 길이 정확 유지 + 피벗 통과 반경 게인.
  *  이완 판정은 "목표점이 로프 원 안인가"(|T−P| < rho) 다 — 링크 길이가 rho 로 고정이므로
  *  원 안쪽 점은 압축 없이는 닿을 수 없다. 로프 방향과의 각도로 판정하면 옆으로 비스듬히 끄는
- *  정상 제스처까지 회전이 죽는다(2026-08-09 정정). */
+ *  정상 제스처까지 회전이 죽는다(2026-08-09 정정).
+ *  이완 갈래는 **제자리 회전**이다(2026-08-30 기현 지시로 평행 이동에서 바뀌었다) — 그쪽
+ *  주석(physics/kinematics.ts stepTow)이 근거를 쥔다. 여기서는 같은 규칙을 독립적으로 옮겨
+ *  적는다: 이 파일의 값어치는 두 구현이 같은 답을 내는지 보는 것이므로 규칙이 갈리면 안 된다. */
 export function stepTowGolden(
   pose: ChairPoseGolden,
   grab: GrabLatchGolden,
@@ -138,10 +154,14 @@ export function stepTowGolden(
   const err = { x: target.x - g.x, y: target.y - g.y };
   const toPivotX = target.x - pose.x;
   const toPivotY = target.y - pose.y;
-  if (Math.hypot(toPivotX, toPivotY) < grab.rho) {
-    // 로프 이완 — 밀 수 없다. 회전 없이 평행 이동만.
-    const d = clampMagGolden(err, GOLDEN_PARAMS.vLin * dt);
-    return { x: pose.x + d.x, y: pose.y + d.y, theta: pose.theta };
+  const dPivot = Math.hypot(toPivotX, toPivotY);
+  if (dPivot < grab.rho) {
+    // 로프 이완 — 밀 수 없다. **제자리에서 손끝 쪽으로만** 돈다(이동 0).
+    const thetaSlack = Math.atan2(toPivotY, toPivotX) - grab.beta;
+    const gainSlack = Math.min(1, dPivot / Math.max(grab.rho * 0.5, 1e-6));
+    const maxD = GOLDEN_PARAMS.omega * dt;
+    const dSlack = Math.max(-maxD, Math.min(maxD, wrapPiGolden(thetaSlack - pose.theta) * gainSlack));
+    return { x: pose.x, y: pose.y, theta: pose.theta + dSlack };
   }
   const vGrab = GOLDEN_PARAMS.vLin + GOLDEN_PARAMS.omega * grab.rho;
   const dG = clampMagGolden(err, vGrab * dt);

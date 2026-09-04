@@ -17,10 +17,8 @@ import { AppNavProvider } from '../../app/useAppHistory.ts';
 import type { AppHistoryApi } from '../../app/useAppHistory.ts';
 import { AppHeader, HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
-import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import type { DrillId } from '../../core/ids.ts';
-import { BoardScreen } from '../board/BoardScreen.tsx';
 
 let stageTarget: { kind: 'drill'; drillId: DrillId } = { kind: 'drill', drillId: 'dr_none' as DrillId };
 vi.mock('../../app/AppShell.tsx', () => ({
@@ -70,13 +68,14 @@ const sidebarCards = () => within(screen.getByRole('navigation', { name: '스텝
 const noteToggle = () => screen.getByRole('button', { name: /^노트/ });
 const noteInput = () => screen.getByLabelText('스텝 노트') as HTMLTextAreaElement;
 
-describe('노트 패널 — 실제 화면 배선', () => {
-  it('접힌 채로 시작한다 — 기본값은 감춤이다', async () => {
-    await openDrill();
-    expect(noteToggle()).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText('스텝 노트')).toBeNull();
-  });
+/** 스텝 한 장 늘리기 — **목록 끝 틈의 [+]**(2026-08-30 기현 지시로 [한 장 더 찍기] 폐기).
+ *  옛 버튼과 마찬가지로 **누르면 새 장이 선택된다**(EditorWorkspace 의 duplicateStepAt). */
+async function addStepAtEnd(user: { click(el: Element): Promise<void> }): Promise<void> {
+  const n = sidebarCards().length;
+  await user.click(screen.getByRole('button', { name: `스텝 ${n} 을 복제해 바로 뒤에 넣기` }));
+}
 
+describe('노트 패널 — 실제 화면 배선', () => {
   it('입력하면 STEP_META 가 나가 자동저장 → IDB 왕복 → 시연 화면이 그 문장을 읽는다', async () => {
     const { user, drillId, view } = await openDrill();
     await user.click(noteToggle());
@@ -96,7 +95,7 @@ describe('노트 패널 — 실제 화면 배선', () => {
 
   it('연속 타이핑은 되돌리기 한 칸으로 합쳐진다(COALESCE_TYPES) — 스텝 추가까지 함께 지워지면 안 된다', async () => {
     const { user } = await openDrill();
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' })); // 2장째, 그 장이 선택된다
+    await addStepAtEnd(user); // 2장째, 그 장이 선택된다
     await user.click(noteToggle());
     await user.type(noteInput(), '전개');
     expect(noteInput()).toHaveValue('전개');
@@ -117,7 +116,7 @@ describe('노트 패널 — 실제 화면 배선', () => {
 
   it('대조군: 스텝이 다르면 합쳐지지 않는다 — 한 칸은 방금 그 스텝만 지운다', async () => {
     const { user } = await openDrill();
-    await user.click(screen.getByRole('button', { name: '한 장 더 찍기' }));
+    await addStepAtEnd(user);
     await user.click(noteToggle());
 
     await user.click(sidebarCards()[0]!);
@@ -155,14 +154,5 @@ describe('헤더 — ⓘ·[시연으로] (2026-08-20 §A·B, 옛 C11/C12 계약 
     // nav.go 로 그 드릴 시연에 간다.
     await user.click(await screen.findByRole('button', { name: '시연으로' }));
     expect(navGo).toHaveBeenCalledWith('present', { kind: 'drill', id: drillId });
-  });
-});
-
-describe('노트 패널 — 자유 전술판에는 없다(대조군)', () => {
-  it('스텝이 없는 화면이라 노트 토글도 없다', async () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
-    render(<BoardScreen />, { wrapper: Wrapper });
-    await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /^노트/ })).toBeNull();
   });
 });

@@ -20,12 +20,31 @@
 //    옛 "React state + history.state 두 곳에 쓴다" 이중 장부는 은퇴했다.
 //  · `<main id="main" tabIndex={-1}>` 는 각 화면이 §7.5a 대로 스스로 렌더한다 — AppShell 은
 //    화면 스위치 바깥에 별도 <main> 을 두지 않는다(board/drills 쪽과 상호 확인 완료).
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+//
+// ── 2026-09-04 (v0.6.3) 화면 로더 · 작은 화면 안내 배선 (docs/PLAN-0-6-3-LOADER-NOTICE.md) ──
+// 이 파일이 그 계획서의 **유일한 합류점**이다(§3 U9). 로더 상태기계·오버레이·안내 모달·기기
+// 판정·튜토리얼 게이트는 각각 자기 파일이 지고, 여기는 그것들을 잇기만 한다. 못박는 것 넷:
+//  ⚠️ **결정 2 — 덮는 범위는 헤더 + 본문 열 전체이고 레일은 안 덮는다.** 나중에 "헤더는 남기는
+//     게 예쁘다" 며 본문만 덮게 좁히지 마라: 헤더 소유자가 바뀌는 전환(board → present)에서
+//     헤더가 한 프레임 빈 줄로 보인다 — 아래 useStaticHeaderConfig 주석이 기록한 "헤더가 통째로
+//     사라진" 사고와 같은 그림이다. 레일을 일부러 남기는 것은 전환 중에도 마음을 바꿀 수 있어야
+//     하기 때문이다.
+//  ⚠️ **결정 3 — 오버레이에 새 래퍼 <div> 를 끼우지 않는다.** 기존 열 노드에 `position:'relative'`
+//     만 더하고 절대 위치 자식으로 얹는다. 래퍼를 하나 끼우면 화면 root
+//     `<main style={{flex:1, overflowY:'auto'}}>` 가 flex 자식 자리를 잃는데, 이 열은 코트 축척
+//     여유가 **1px** 이다(아래 showHeader 실측 주석). 절대 위치는 흐름 밖이라 기둥을 안 건드린다.
+//  · 결정 7 — §7.6(포커스 + 발표)은 **로더가 걷히는 시점**으로 옮긴다. 단 로더가 한 프레임도
+//     안 뜨는 환경(감축 모션·테스트)에서는 지금까지와 같은 effect 에서 동기로 난다.
+//  ⚠️ **결정 30 — 첫 실행의 3중 순서(로더 걷힘 → 안내 모달 닫힘 → 튜토리얼 시작)를 여기서
+//     발행한다.** "걷힘" 은 `loader.visible === false` 가 **아니라 퇴장 transition 까지 끝난
+//     시점**이다(2026-09-04 실측: 페이드 도중 프레임에 말풍선이 이미 떠 있었다). 그 시점은
+//     오버레이가 `onExited` 로 알려 준다 — 아래 coverSettled 주석.
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { SkipLink } from '../ui/SkipLink.tsx';
 import { useIsNarrow } from '../ui/useIsNarrow.ts';
 import { LiveRegion, liveRegion } from '../ui/LiveRegion.tsx';
 import { ToastHost } from '../ui/ToastHost.tsx';
-import { IconPlus } from '../ui/icons.tsx';
+import { IconPlus, IconArrowLeft } from '../ui/icons.tsx';
 import { useToast } from '../store/toast/ToastProvider.tsx';
 import { useLibrary } from '../store/library/LibraryProvider.tsx';
 import type { DrillId, SessionId } from '../core/ids.ts';
@@ -36,6 +55,18 @@ import type { HeaderConfig } from './AppHeader.tsx';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import type { AppHistoryApi, NavTarget } from './useAppHistory.ts';
 import { HelpTriggerProvider } from '../ui/help/HelpTriggerProvider.tsx';
+import { TutorialGateProvider } from '../ui/tutorial/tutorialGate.tsx';
+import { useSettingsActions, useSettingsState } from '../store/settings/SettingsProvider.tsx';
+import { effectiveReduceMotion } from '../store/editor/tween.ts';
+import { AppLoaderOverlay } from './loader/AppLoaderOverlay.tsx';
+import { loaderKeyFor } from './loader/loaderKeyFor.ts';
+// ⚠️ 모듈 최상위 1회 판정이라 **import 되는 시점**이 곧 판정 시점이다(prerenderLanding.ts 머리말).
+// main.tsx → App.tsx → 이 파일로 이어지는 import 사슬이 `createRoot()` 보다 먼저 평가되므로 계약이
+// 지켜진다 — 이 import 를 동적 import 나 지연 평가로 바꾸면 판정이 조용히 항상 false 가 된다.
+import { LANDED_ON_PRERENDER } from './loader/prerenderLanding.ts';
+import { useAppLoader } from './loader/useAppLoader.ts';
+import { SmallScreenNotice } from './SmallScreenNotice.tsx';
+import { isSmallDevice, readDeviceMetrics } from './smallScreen.ts';
 import { announceFor } from './announce.ts';
 import { SCREEN_SUBTITLES, SCREEN_TITLES, railFor } from './screens.ts';
 import type { Screen } from './screens.ts';
@@ -46,11 +77,14 @@ import { useLocale } from '../i18n/useLocale.ts';
 // Wave 4 는 이 다섯 모듈이 병렬로 진행되므로, 형제 모듈의 산출물이 아직 없는 동안은 이 import
 // 가 타입체크를 막는다(정상 — 통합 시점에 다시 확인한다). 최종 보고서에 명시.
 import { LibraryScreen } from '../features/library/LibraryScreen.tsx';
+import { NewDrillDialog } from '../features/library/NewDrillDialog.tsx';
 import { SessionsScreen } from '../features/sessions/SessionsScreen.tsx';
 import { SessionEditorScreen } from '../features/sessions/SessionEditorScreen.tsx';
 import { BoardScreen } from '../features/board/BoardScreen.tsx';
 import { EditorScreen } from '../features/editor/EditorScreen.tsx';
 import { PresentScreen } from '../features/present/PresentScreen.tsx';
+import { RulesScreen } from '../features/rules/RulesScreen.tsx';
+import { RULE_TOPIC_KEYS, ruleTopicsFor } from '../features/rules/ruleTopics.ts';
 import { SettingsScreen } from '../features/settings/SettingsScreen.tsx';
 
 // ── 화면 간 라우팅 대상 (계약 밖 확장 — DESIGN.md 가 안 정한 부분을 메운다) ──────────────────
@@ -87,6 +121,15 @@ function sessionEditFromNav(screen: Screen, target: NavTarget | undefined): Sess
   return target.id as SessionId;
 }
 
+/** 규칙 화면의 주제 상세 대상(2026-08-22 주제별 재설계) — `/rules/:topic` 에서 파생한다.
+ *  유효한 주제 키인지는 여기서 검증하지 않는다(routes.ts 는 features 를 안 물고, 이 함수도
+ *  같은 층에 있다) — 모르는 문자열이면 RulesScreen 이 스스로 카드 홈으로 폴백한다
+ *  (routes.ts 의 "모르는 경로는 board" 와 같은 404-없음 교리, 화면 단위로 축소 적용). */
+function ruleTopicFromNav(screen: Screen, target: NavTarget | undefined): string | undefined {
+  if (screen !== 'rules' || target?.kind !== 'rule') return undefined;
+  return target.topic;
+}
+
 /** board 자리의 화면들(BoardScreen/EditorScreen)이 자기가 무엇을 그릴지 알아내는 통로 —
  *  둘 다 app-shell 에 의존해도 되는 화면이라(§8 "전부") 이 훅을 직접 부를 수 있다. */
 export function useStageTarget(): StageTarget {
@@ -103,22 +146,27 @@ export function usePresentTarget(): PresentTarget | null {
  *  대상을 **두 곳에** 쓴다: (1) React state(즉시 — 화면 키와 같은 배치에서 바뀌어야 판이
  *  board→drill 로 한 프레임 깜빡이지 않는다) (2) history.state 의 NavTarget(리로드·뒤로가기
  *  생존). 둘 중 하나만 쓰면 각각 "리로드하면 빈 화면"·"한 프레임 헛 마운트" 가 된다. */
-function useHomeNavAdapter(nav: AppHistoryApi): HomeNav {
+function useHomeNavAdapter(nav: AppHistoryApi, openNewDrill: () => void): HomeNav {
   return useMemo<HomeNav>(
     () => ({
-      // "새 드릴" = 전술판으로 데려가기. 새 드릴은 전술판에서 그린 뒤 [드릴로 저장] 으로
-      // 승격시키는 것이 재편 후의 주 경로다(§6.8). 여기서 판을 초기화하지는 **않는다** —
-      // 목록에서 버튼 하나 눌렀다고 그리던 판이 날아가면 안 된다.
+      // "새 드릴" = **화면 전환이 아니라 다이얼로그**(2026-08-28 기현 지시). 이름과 코트를
+      // 먼저 묻고, [만들기] 로 태어난 드릴의 편집기로 간다 — NewDrillDialog.tsx 머리말 참고.
+      //
+      // 옛 기록(지우지 않는다): 2026-08-09 재편에서 이 자리는 `nav.go('board', {kind:'board'})`
+      // 였다 — *"새 드릴은 전술판에서 그린 뒤 [드릴로 저장] 으로 승격시키는 것이 주 경로다(§6.8).
+      // 여기서 판을 초기화하지는 않는다 — 목록에서 버튼 하나 눌렀다고 그리던 판이 날아가면 안 된다."*
+      // 그 승격 경로는 전술판에 그대로 남아 있고, 여기만 갈라졌다.
       // C4 — 대상은 URL 로만 간다. 옛 "React state + history.state 두 곳 쓰기" 는 URL 이
       // 진실이 되면서 한 곳으로 접혔다(한 프레임 헛 마운트의 원인이던 이중 장부가 사라졌다).
-      newDrill: () => nav.go('board', { kind: 'board' }),
+      newDrill: openNewDrill,
       openDrill: (id) => nav.go('board', { kind: 'drill', id }),
       goLibrary: (opts) => nav.go('drills', opts?.tab ? { kind: 'tab', tab: opts.tab } : undefined),
       openSession: (id) => nav.go('drills', { kind: 'session', id }),
       presentDrill: (id) => nav.go('present', { kind: 'drill', id }),
       presentSession: (id) => nav.go('present', { kind: 'session', id }),
+      openRuleTopic: (key) => nav.go('rules', key ? { kind: 'rule', topic: key } : undefined),
     }),
-    [nav],
+    [nav, openNewDrill],
   );
 }
 
@@ -127,7 +175,7 @@ function useHomeNavAdapter(nav: AppHistoryApi): HomeNav {
  *  courtMode·저장 상태처럼 화면 내부 Provider 안의 값이 필요해서 대신 스스로 useAppHeader 로
  *  선언한다 — 이 함수는 그 둘에서 undefined 를 반환해 AppHeader 가 Context 값을 쓰게 비켜준다
  *  (정적 계산과 Context 선언이 같은 프레임에 동시에 밀어넣으면 서로 경합한다). */
-function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | undefined {
+function useStaticHeaderConfig(screen: Screen, nav: HomeNav, ruleTopic: string | undefined): HeaderConfig | undefined {
   const { search, setSearch } = useLibrary();
   const { createSession } = useLibrary();
   const locale = useLocale();
@@ -143,6 +191,7 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
       return {
         title: SCREEN_TITLES[locale].drills,
         subtitle: SCREEN_SUBTITLES[locale].drills,
+        align: 'center',
         primary: { label: t('app.header.newDrill'), icon: <IconPlus size={15} />, onAction: nav.newDrill },
         search: { value: search, onChange: setSearch, placeholder: t('app.header.drillSearchPlaceholder') },
       };
@@ -152,6 +201,7 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
       return {
         title: SCREEN_TITLES[locale].sessions,
         subtitle: SCREEN_SUBTITLES[locale].sessions,
+        align: 'center',
         primary: {
           label: t('app.header.newSession'),
           icon: <IconPlus size={15} />,
@@ -165,14 +215,30 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav): HeaderConfig | und
           },
         },
       };
+    case 'rules': {
+      // 2026-09-03 기현 지시 — 목록은 화면 제목·부제를 **가운데**, 카드 안은 카드 주제목·부제목을
+      // 가운데 + 왼쪽 끝 [← 목록으로]. 규칙 화면은 §8 표대로 app-shell 미의존이라 여기서 계산한다
+      // (문서 맨 위에 있던 [← 홈으로] 버튼은 이 버튼으로 옮겨 갔다 — RuleTopicDoc 에서 뺐다).
+      const topic =
+        ruleTopic && (RULE_TOPIC_KEYS as readonly string[]).includes(ruleTopic)
+          ? ruleTopicsFor(locale).find((tp) => tp.key === ruleTopic)
+          : undefined;
+      if (!topic) return { title: SCREEN_TITLES[locale].rules, subtitle: SCREEN_SUBTITLES[locale].rules, align: 'center' };
+      return {
+        title: topic.title,
+        subtitle: topic.tagline,
+        align: 'center',
+        leading: { label: t('rules.backToList'), icon: <IconArrowLeft size={16} />, onAction: () => nav.openRuleTopic() },
+      };
+    }
     case 'settings':
-      return { title: SCREEN_TITLES[locale].settings, subtitle: SCREEN_SUBTITLES[locale].settings };
+      return { title: SCREEN_TITLES[locale].settings, subtitle: SCREEN_SUBTITLES[locale].settings, align: 'center' };
     default:
       return undefined;
   }
 }
 
-function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionEditId: SessionId | undefined) {
+function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionEditId: SessionId | undefined, ruleTopic: string | undefined) {
   switch (screen) {
     case 'board':
       // 같은 자리, 같은 EditorWorkspace — board 냐 drill 이냐만 다르다(§6.8 재편).
@@ -184,6 +250,8 @@ function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionE
       return sessionEditId ? <SessionEditorScreen nav={nav} sessionId={sessionEditId} /> : <SessionsScreen nav={nav} />;
     case 'present':
       return <PresentScreen />;
+    case 'rules':
+      return <RulesScreen topic={ruleTopic} nav={nav} />;
     case 'settings':
       return <SettingsScreen />;
   }
@@ -193,6 +261,8 @@ export function AppShell() {
   const nav = useAppHistory('board');
   const { toasts, dismiss } = useToast();
   const { drills, sessions } = useLibrary();
+  const { prefs } = useSettingsState();
+  const { setPrefs } = useSettingsActions();
   const isFirstRender = useRef(true);
   const locale = useLocale();
   const t = useT();
@@ -221,13 +291,80 @@ export function AppShell() {
   const stageTarget = useMemo(() => stageFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const presentTarget = useMemo(() => presentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const sessionEditId = sessionEditFromNav(nav.screen, nav.target);
-  const homeNav = useHomeNavAdapter(nav);
+  const ruleTopic = ruleTopicFromNav(nav.screen, nav.target);
+  // [새 드릴] 다이얼로그는 **화면이 아니라 앱 껍데기**가 세운다 — 진입점이 목록 화면의 빈 상태
+  // CTA 와 헤더 주 액션 둘이라, 화면 안에 두면 헤더에서 누른 경우를 못 받는다.
+  // URL 로 안 올리는 이유: 이 모달은 되돌아올 자리가 없다(취소하면 있던 화면 그대로, 만들면
+  // 편집기로 간다). 히스토리에 한 칸을 만들면 편집기에서 뒤로가기가 빈 모달로 되돌아온다.
+  const [newDrillOpen, setNewDrillOpen] = useState(false);
+  const openNewDrill = useCallback(() => setNewDrillOpen(true), []);
+  const homeNav = useHomeNavAdapter(nav, openNewDrill);
 
   // 레일·헤더 세그먼트의 활성 항목. **여기서 한 번만** 계산해 둘에 똑같이 내려보낸다
   // (`narrow` 가 간 길과 같다 — AppHeader.tsx 의 그 주석). 화면 키만으로는 드릴을 편집하는
   // 중에도 [보드]에 불이 들어온다: board 자리에 무엇이 떠 있는지를 화면 키는 말하지 않고,
   // 그것을 아는 값은 renderScreen 이 보는 stageTarget 하나다(2026-08-14 기현님 지시).
   const activeRail = railFor(nav.screen, stageTarget.kind, presentTarget?.kind ?? null);
+
+  // ── 화면 로더 (결정 5·8·10·11·12·13) ────────────────────────────────────────────────────
+  // 전환 열쇠는 **이미 계산돼 있는 activeRail** 하나다(결정 10) — 표시(레일 활성)와 동작(로더)이
+  // 같은 값에서 나와야 "레일은 [드릴]인데 로더는 안 뜬다" 는 조합이 생기지 않는다. 이 훅은 열쇠가
+  // 바뀌었다는 사실만 보고, 무엇으로 만든 열쇠인지는 모른다(loaderKeyFor.ts 가 그 한 곳이다).
+  const reduceMotion = effectiveReduceMotion(prefs.a11y.reduceMotion);
+  const loader = useAppLoader({
+    key: loaderKeyFor(activeRail),
+    // 판정을 여기서 새로 조립하지 않는다(결정 8) — PresentRunner 가 지역 복제했다가 2026-08-31 에
+    // 걷어낸 그 왕복을 반복한다. 감축 모션이면 최소 표시 시간이 0 이라 로더가 한 프레임도 안 뜬다.
+    reduceMotion,
+    // 프리렌더 착지면 부팅 로더를 건너뛴다(결정 13). 검색으로 들어온 사람은 **이미 읽을 것을 보고
+    // 있다** — 그 글을 1.5초 스플래시로 덮는 것은 후퇴이고 LCP 도 로더 마크로 바뀐다.
+    skipBoot: LANDED_ON_PRERENDER,
+    // 뒤로/앞으로가기는 한 회 면제(결정 11) — 되돌아가기가 갈 때보다 느려지면 안 된다.
+    // 옵셔널 필드라 `?? false` 로 받는다: 저장소 전역의 nav 목 리터럴이 이 필드를 안 싣는다
+    // (useAppHistory.ts 머리말이 옵셔널로 둔 이유).
+    fromHistory: nav.lastNavFromHistory ?? false,
+  });
+
+  // ── 결정 30 의 "걷힘" 은 `visible === false` 가 아니라 **퇴장 완료**다 ────────────────────
+  // 오버레이는 `visible` 이 꺼진 뒤에도 EXIT_MS(160~200ms) 동안 살아 opacity 를 녹인다(결정 16).
+  // 그 구간은 사람 눈에 아직 덮여 있는 구간이라, `!loader.visible` 을 "걷혔다" 로 읽으면 아직
+  // 거의 불투명한 판 **위에** 튜토리얼 말풍선(z 300)이 뜨는 프레임이 생긴다(2026-09-04 실측).
+  // 그래서 걷힘의 시점은 판이 스스로 알려 준다(`onExited`) — 퇴장 길이는 kind 마다 다르고,
+  // 퇴장 중에 다음 전환이 들어오면 되조준되어 아예 오지 않으므로 여기서 계산할 수 없다.
+  //
+  // ⚠️ 초기값은 `!loader.visible` 이다 — 덮개가 애초에 안 서는 환경·경로(0ms 환경인 감축 모션·
+  // 테스트, 그리고 프리렌더 착지의 skipBoot)에서는 `onExited` 가 **영영 안 오기** 때문이다.
+  // 그 판정을 여기서 다시 조립하지 않고 상태기계가 이미 낸 답을 읽는다(판정 두 벌 금지).
+  const [coverSettled, setCoverSettled] = useState(() => !loader.visible);
+  // 덮개가 서는 **그 커밋**에 게이트도 같이 닫혀야 한다 — `useAppLoader` 가 열쇠 변화를 렌더
+  // 중에 보는 것과 같은 규율이다(그 파일 머리말). effect 로 미루면 새 화면의 첫 커밋에서만
+  // ready 가 true 라, 그 한 커밋에 튜토리얼이 자동 시작해 결정 30 의 순서가 깨진다.
+  // 조건이 붙어 있어 무한 재렌더가 아니다(한 번 false 가 되면 이 줄은 다시 안 탄다).
+  if (loader.visible && coverSettled) setCoverSettled(false);
+
+  // ── 작은 화면 안내 (결정 22·23·25·30) ───────────────────────────────────────────────────
+  // 기기 등급 판정은 **마운트 1회**뿐이다(결정 23). resize·matchMedia 구독을 달면 "이 기기에서
+  // 왜 이렇게 보이나" 를 아무도 재현하지 못한다(useIsNarrow.ts 머리말의 그 경고).
+  const [isSmallScreen] = useState(() => isSmallDevice(readDeviceMetrics()));
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  /** 안내를 띄울지는 이번 실행에서 **한 번만** 판정한다 — 이 도장이 없으면 레일 전환마다 로더가
+   *  걷힐 때 같은 안내가 되살아난다(닫은 사람에게 같은 모달을 다시 미는 꼴). */
+  const noticeSettledRef = useRef(false);
+  /** 위 판정이 끝났는가(모달을 열었든 안 열었든). 튜토리얼 게이트가 이 값을 봐야 "안 뜨는
+   *  기기라서 안 열린 것" 과 "곧 열릴 것" 을 구별한다 — 판정 전에 게이트를 열면 안내와 투어가
+   *  같은 프레임에서 `aria-modal` 을 둘 세울 수 있다(결정 30 이 막으려던 그림). ref 는 effect 가
+   *  두 번 도는 것을 막는 빗장이고, 이 state 는 그 사실을 렌더에 내보내는 창구다. */
+  const [noticeDecided, setNoticeDecided] = useState(false);
+  useEffect(() => {
+    // 로더가 **다 걷힌** 뒤에만 연다(결정 30 의 3중 순서 중 첫 두 칸). 로더 위(z 220)로 모달
+    // (z 200)이 못 올라오므로, 덮인 채로 열면 사용자는 안 보이는 모달에 갇힌다. 판정 기준이
+    // `!loader.visible` 이 아니라 `coverSettled` 인 이유는 위 「걷힘 = 퇴장 완료」 — 페이드가
+    // 남아 있는 동안 열면 반투명한 판 너머로 모달이 비친다.
+    if (noticeSettledRef.current || !coverSettled) return;
+    noticeSettledRef.current = true;
+    setNoticeDecided(true);
+    if (isSmallScreen && !prefs.smallScreenNoticeDismissed) setNoticeOpen(true);
+  }, [coverSettled, isSmallScreen, prefs.smallScreenNoticeDismissed]);
 
   // ★ 자유 전술판은 **넓은 창에서 헤더를 안 세운다**(기현 지시 2026-08-14: *"상단 헤더 삭제.
   //   공간 확보"*). 헤더가 지고 있던 것이 전부 딴 데로 갔기 때문이다 — 코트 전환·되돌리기·
@@ -257,8 +394,13 @@ export function AppShell() {
   //   1024×600 에서 기능 바가 도로 2열로 흘러 폭 +44. 대가를 알고도 맞추는 쪽을 택했다 —
   //   실측 문턱이 바뀐 것은 아니라서, 작은 창(1024×600 급)에서 코트가 준 체감을 실기로 확인해야
   //   한다(계획서 "치러야 하는 대가" 참고). `stageTarget` 이 판정에 **돌아온다.**
-  const showHeader = narrow || nav.screen !== 'board' || stageTarget.kind === 'drill';
-  const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav);
+  // 🔁 2026-09-03 기현 지시(*"보드에도 다른 화면들처럼 헤더 넣고 가운데 정렬로 제목 크게, 짧은 설명
+  //   부제목으로. 맨 오른쪽에 [+ 드릴로 편집]"*)로 **자유 전술판도 헤더가 선다.** 2026-08-14 의
+  //   "상단 헤더 삭제, 공간 확보" 는 헤더가 빈 줄뿐이었을 때의 결정이었고, 이제 헤더가 제목·부제·주
+  //   액션을 진다(위 62px 이득은 다시 치른다). 옛 판정식은 이랬다:
+  //   `narrow || nav.screen !== 'board' || stageTarget.kind === 'drill'`.
+  const showHeader = true;
+  const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav, ruleTopic);
 
   // §7.6: 화면 전환(go·back·popstate 전부) 시 <main id="main"> 에 포커스 + 라이브 리전 발표.
   // 최초 마운트(직접 진입)는 제외한다 — 브라우저가 이미 페이지 로드 시점의 포커스를 다뤘다.
@@ -267,22 +409,60 @@ export function AppShell() {
   // 발표문은 화면 키가 아니라 announceFor 가 만든다 — 화면 키만 읽으면 자유판이든 드릴이든
   // 늘 "전술판 화면" 이라, 시각장애 코치는 방금 무엇이 열렸는지 알 수 없다(계획서 2.4).
   // 그래서 의존성에 대상 둘이 함께 들어간다: 같은 board 화면 안에서 대상만 바뀌는 전환
-  // (드릴 열기·[빈 판으로])도 발표 대상이다.
+  // (드릴 열기·레일 [보드])도 발표 대상이다.
   // C4 — 전환 신호를 **값의 열쇠**로 접는다: 파생 객체는 location 이 바뀔 때마다 새 참조라
   // 객체를 deps 에 두면 같은 화면 재방문에도 발표가 반복된다. 열쇠 문자열이 그 함정을 막는다.
   const stageKey = stageTarget.kind === 'drill' ? `drill:${stageTarget.drillId}` : 'board';
   const presentKey = presentTarget ? `${presentTarget.kind}:${presentTarget.kind === 'drill' ? presentTarget.drillId : presentTarget.sessionId}` : '';
+  //
+  // ⚠️ 2026-09-04 (결정 7) — 발화 **시점**이 로더 뒤로 밀렸다. 위 계약(무엇을·언제 한 번)은
+  // 그대로이고, 덮개가 걷힌 뒤로 미루는 이유는 `inert` 로 덮인 동안 `focus()` 가 무효라 초점이
+  // body 로 떨어지기 때문이다(그러면 Tab 이 문서 처음부터 다시 시작한다).
+  const announceScreenChange = useCallback(() => {
+    document.getElementById('main')?.focus({ preventScroll: true });
+    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, locale, { titleOf }));
+  }, [nav.screen, stageTarget, presentTarget, locale, titleOf]);
+
+  const [announcePending, setAnnouncePending] = useState(false);
+
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    document.getElementById('main')?.focus({ preventScroll: true });
-    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, locale, { titleOf }));
+    // ⚠️ 여기서 보는 `loader.visible` 은 **이 전환 커밋의 값**이다. `useAppLoader` 가 열쇠 변화를
+    // 렌더 중에 보므로(그 파일 머리말) 덮개는 새 화면과 같은 커밋에 이미 서 있고, 이 effect 는
+    // 그 커밋 뒤에 돈다. 덮여 있지 않으면 = 이 전환에 덮개가 없는 갈래(0ms 환경·뒤로가기 면제·
+    // 같은 레일 안의 대상 변경)이므로 2026-09-04 이전과 똑같이 지금 동기로 발표한다.
+    //
+    // ── ⚠️ 2026-09-04 정정: 옛 판정식 `loaderMinMs('rail', reduceMotion) > 0` 은 은퇴했다 ──
+    // 옛 근거(지우지 않는다): *"전환이 일어난 그 커밋에서는 상태기계의 setState 가 아직 반영
+    // 전이라 loader.visible 이 항상 false 로 읽히고, 그러면 곧 덮일 화면에 대고 focus() 를 불러
+    // 초점이 body 로 떨어진다. 그래서 '지금 덮여 있나' 가 아니라 '이 환경에서 덮개가 존재할 수
+    // 있나' 를 본다."* 그 전제("setState 가 아직 반영 전")가 같은 날 죽었다 — 판정이 effect 에서
+    // 렌더 중 파생으로 옮겨 갔기 때문이다. 대가로 얻은 것: 덮개가 실제로는 안 뜨는 전환에서
+    // 발표·포커스가 한 커밋 늦던 것(계획서 §10.2 의 그 부수 효과)이 사라졌다.
+    if (!loader.visible) {
+      announceScreenChange();
+      return;
+    }
+    // 덮여 있으면 **예약만** 한다. 예약을 ref 가 아니라 state 로 두는 이유: 걷히는 커밋이
+    // 반드시 한 번 오게 만들어야 발표가 증발하지 않는다.
+    setAnnouncePending(true);
     // titleOf 는 발표문의 재료일 뿐 전환 신호가 아니다 — 목록이 뒤늦게 읽혔다고 같은 화면을
-    // 다시 발표하면 안 된다(포커스도 함께 튄다).
+    // 다시 발표하면 안 된다(포커스도 함께 튄다). announceScreenChange·loader.visible 도 같은
+    // 이유로 방아쇠가 아니다(전자는 재료가 바뀌면 새 참조, 후자는 걷힐 때 아래 effect 가 받는다).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nav.screen, stageKey, presentKey]);
+
+  useEffect(() => {
+    if (!announcePending || loader.visible) return;
+    setAnnouncePending(false);
+    // 덮개가 걷힌 지금의 화면·대상으로 발표한다. 로더가 떠 있는 동안 전환이 여러 번 겹쳐도
+    // 이 effect 는 마지막 렌더의 값으로 **한 번만** 돈다.
+    announceScreenChange();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [announcePending, loader.visible]);
 
   return (
     <AppNavProvider value={nav}>
@@ -294,16 +474,81 @@ export function AppShell() {
                 등록할 곳이 필요하다. AppNavProvider 안(레일·화면이 같은 트리)이라 등록·조회가
                 항상 "지금 그려진 화면" 을 가리킨다 — HelpTriggerProvider.tsx 머리말 참고. */}
             <HelpTriggerProvider>
-              <SkipLink label={t('a11y.skipToContent')} />
-              <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
-                {!narrow && <AppRail active={activeRail} />}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
-                  {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId)}
+              {/* 결정 30 — 첫 실행에서 로더·안내 모달·화면 투어 셋이 같은 1~2초를 놓고 겹친다.
+                  튜토리얼은 TutorialOverlay z 300/301 로 로더(z 220)를 뚫고 나오고 aria-modal 을
+                  둘 세운다. 그래서 순서를 **여기서** 발행한다: 로더가 걷히고 안내가 닫혀야 자동
+                  시작이 열린다. 수동 시작([이 화면 투어 다시 보기])은 이 값을 보지 않는다.
+                  ⚠️ 이 식이 실제로 순서를 지키는 전제는 **전환 커밋에서 덮개가 이미 서 있다**는
+                  것이다(useAppLoader 가 열쇠 변화를 렌더 중에 보고, coverSettled 도 렌더 중에
+                  꺼진다). 그 전제가 없던 동안에는 새 화면의 첫 커밋에 ready 가 true 라 튜토리얼이
+                  자동 시작해 말풍선(z 300)이 로더 위에 뜨는 프레임이 실측으로 잡혔다.
+
+                  ── ⚠️ 2026-09-04 정정: 옛 식 `!loader.visible && !noticeOpen` 은 뒤집혔다 ──
+                  옛 근거(지우지 않는다): *"로더가 걷히고 안내가 닫혀야 자동 시작이 열린다."* 뜻은
+                  그대로이고 **"걷힘" 의 정의가 틀렸었다** — `visible=false` 는 퇴장 페이드의 시작
+                  이지 끝이 아니다(EXIT_MS 160~200ms). 실측에서 그 페이드 도중 프레임에 말풍선이
+                  이미 떠 있었다(판이 아직 거의 불투명한데 그 위에). 그리고 작은 기기에서는 안내
+                  모달을 여는 effect 가 돌기 **전 커밋**에 ready 가 참이라 튜토리얼이 안내보다
+                  먼저 시작할 수 있었다. 그래서 세 칸을 전부 명시한다:
+                    coverSettled  — 퇴장 transition 까지 끝나 판이 트리에서 사라졌다(onExited)
+                    noticeDecided — 안내를 띄울지 말지 판정이 끝났다(이번 실행 1회)
+                    !noticeOpen   — 떠 있는 안내가 없다
+                  대가: 0ms 환경(감축 모션·테스트)에서도 noticeDecided 가 첫 effect 에서 서므로
+                  자동 시작이 **한 커밋 늦다**(사람 눈에는 같은 프레임, `useTutorial` 은 gateReady
+                  를 effect 의존성에 두어 이어받는다). */}
+              <TutorialGateProvider ready={coverSettled && noticeDecided && !noticeOpen}>
+                <SkipLink label={t('a11y.skipToContent')} />
+                <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
+                  {!narrow && <AppRail active={activeRail} />}
+                  {/* ⚠️ 결정 2·3 — 로더가 덮는 것은 **이 열**(헤더 + 본문)이고 레일은 덮지 않는다.
+                      새 래퍼를 끼우는 대신 이 노드에 position:'relative' 만 더한다(파일 머리말의
+                      두 ⚠️ 항목이 이유이고, 코트 축척 여유는 1px 이다).
+                      aria-busy 와 inert 는 덮여 있는 동안만 선다(결정 6): inert 가 보이지 않는
+                      컨트롤이 Tab 에 잡히는 문제를 원천 차단하고, 로더 자신은 aria-hidden 이라
+                      "불러오는 중" 을 방송하지 않는다. false 대신 undefined 를 주는 이유는
+                      aria-busy="false" 라는 속성이 남지 않게 하려는 것이다 — 0ms 환경에서는 두
+                      속성 다 DOM 에 **한 번도** 안 붙는다. */}
+                  <div
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}
+                    aria-busy={loader.visible || undefined}
+                    inert={loader.visible || undefined}
+                  >
+                    {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
+                    {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, ruleTopic)}
+                    {/* 조건부로 감싸지 않는다(`{visible && <…/>}` 금지) — 이 컴포넌트가 퇴장
+                        transition 을 스스로 지고 끝난 뒤에야 null 이 된다(결정 16). 한 번도
+                        visible 이 아니었으면 처음부터 null 이라 0ms 환경에서 DOM 이 안 생긴다.
+                        onExited 는 그 null 이 되는 순간 = 결정 30 의 "로더 걷힘" 이다(위
+                        coverSettled 주석). 0ms 환경에서는 안 불리므로 초기값이 그것을 대신한다. */}
+                    <AppLoaderOverlay
+                      visible={loader.visible}
+                      kind={loader.kind}
+                      reduceMotion={reduceMotion}
+                      onExited={() => setCoverSettled(true)}
+                    />
+                  </div>
                 </div>
-              </div>
-              <ToastHost toasts={toasts} onDismiss={dismiss} />
-              <LiveRegion />
+                <NewDrillDialog
+                  open={newDrillOpen}
+                  onClose={() => setNewDrillOpen(false)}
+                  onCreated={(id) => {
+                    setNewDrillOpen(false);
+                    homeNav.openDrill(id);
+                  }}
+                />
+                <SmallScreenNotice
+                  open={noticeOpen}
+                  onClose={(dismissed) => {
+                    setNoticeOpen(false);
+                    // 저장은 **이 한 곳**뿐이다(결정 25) — ✕·Esc·백드롭·[계속하기] 넷이 전부 이
+                    // 길로 온다. 경로마다 저장을 흩으면 Esc 로 닫은 사람만 체크가 무시되는 반쪽
+                    // 상태가 생긴다. 되돌리는 손잡이는 [설정] → [도움말] 절에 있다(결정 26).
+                    if (dismissed) setPrefs({ smallScreenNoticeDismissed: true });
+                  }}
+                />
+                <ToastHost toasts={toasts} onDismiss={dismiss} />
+                <LiveRegion />
+              </TutorialGateProvider>
             </HelpTriggerProvider>
           </PresentTargetContext.Provider>
         </StageTargetContext.Provider>

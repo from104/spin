@@ -35,16 +35,25 @@
 // (staticSceneLayout.ts)가 따로 돌려주고 래스터 어댑터가 캔버스에서 그린다. 근거는 그 파일
 // 머리말에 있다. 부수 이득: 사용자 문자열이 SVG 에 실리지 않아 이스케이프 사고가 원천 봉쇄된다.
 import { DEG } from '../../core/angle.ts';
-import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
+import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, GOAL_BASE_FILL, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR, CONE } from '../../core/constants.ts';
-import { courtDefFor, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
+import { attackDir, courtDefFor, goalBaseRect, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
+import type { CourtDef } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
+import { strokePath, strokeWidthOf } from '../../model/stroke.ts';
+import { ARROW_HEAD_KINDS, STROKE_CASING_PAD, arrowHeadGeom, arrowMarkerColorKey, arrowMarkerId, type ArrowHeadKind } from '../../render/arrowHeadGeom.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
+import type { TeamSide } from '../../model/drill.ts';
 import type { Shape } from '../../model/shape.ts';
-import { ballRingViolation, defaultDefense, defendedMouths, defendedZones, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
+import { ballRingViolation, defaultDefense, defendedMouths, defendedZones, fiveMeterRetreat, otherSide, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
 import { COURT_LINE_WEIGHTS } from '../../render/CourtSurface.tsx';
 import {
+  ownerArrowPath,
+  OWNER_ARROW_HEAD_PX,
+  OWNER_ARROW_LEN_PX,
+  OWNER_ARROW_OPACITY,
+  OWNER_ARROW_W,
   RULE_ALERT_STROKE,
   RULE_DASH,
   RULE_OK_STROKE,
@@ -97,6 +106,18 @@ const ZONE_CASING_W = 6.4;
 
 const attrOpacity = (o: number): string => (o >= 1 ? '' : ` opacity="${num(o)}"`);
 
+/** 세트피스 소유 화살표 — 화면(RuleOverlay.tsx)과 **같은 path 함수·같은 상수**를 쓴다.
+ *  5 m 링이 아니거나 소유가 없거나 방향을 모르면(플랫) 빈 문자열이다. */
+function ownerArrowMarkup(ring: string | undefined, owner: TeamSide | undefined, degs: Record<TeamSide, number> | null): string {
+  if (ring !== '5m' || owner === undefined || degs === null) return '';
+  const d = ownerArrowPath(OWNER_ARROW_LEN_PX, OWNER_ARROW_HEAD_PX);
+  return (
+    `<g transform="rotate(${num(degs[owner])})" opacity="${OWNER_ARROW_OPACITY}">` +
+    `<path d="${d}" fill="none" stroke="${RULE_OK_STROKE}" stroke-width="${OWNER_ARROW_W}" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `</g>`
+  );
+}
+
 /** `translate(x y)` — 회전이 0 이면 붙이지 않는다(문자열이 짧을수록 data URI 가 짧다). */
 function poseTransform(x: number, y: number, theta = 0): string {
   const t = `translate(${num(x)} ${num(y)})`;
@@ -127,11 +148,21 @@ function goalCrossD(marks: readonly { x: number; y: number }[]): string {
     .join('');
 }
 
-/** 골대 원. 편집기와 달리 여기는 물리 바디가 없으므로 `present` 처럼 정적 원을 그린다. */
-function goalPostsMarkup(posts: readonly { x: number; y: number }[]): string {
+/** 골대 받침판 + 기둥. 편집기와 달리 여기는 물리 바디가 없으므로 `present` 처럼 정적으로
+ *  그린다. 받침판 기하는 `model/court.ts` 의 `goalBaseRect` 하나에서 온다 — 화면(GoalPostMarks)·
+ *  편집기(GoalPost)와 같은 자를 쓰므로 내보낸 그림이 화면과 어긋날 자리가 없다.
+ *  판이 **먼저**(아래 층), 기둥이 그 위다. */
+function goalPostsMarkup(def: CourtDef): string {
+  const posts = def.goalPosts;
   if (posts.length === 0) return '';
+  const bases = posts
+    .map((_p, i) => goalBaseRect(def, i))
+    .filter((b): b is NonNullable<typeof b> => b !== null)
+    .map((b) => `<rect x="${num(b.x)}" y="${num(b.y)}" width="${num(b.w)}" height="${num(b.h)}" fill="${GOAL_BASE_FILL}"/>`)
+    .join('');
   return (
     `<g fill="#f5f5f5" stroke="#c2410c" stroke-width="${num(W.spotSw!)}">` +
+    bases +
     posts.map((p) => `<circle cx="${num(p.x)}" cy="${num(p.y)}" r="${num(W.spotR!)}"/>`).join('') +
     `</g>`
   );
@@ -185,7 +216,7 @@ export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSce
       // 하프에는 센터 흰 점이 없다 — HalfCourtLines.tsx 머리말이 "추가하지 않는다" 로 못박았다.
       // (그 문장에서 살아남은 것은 **점**뿐이다. X 는 위에서 그린다 — 2026-08-13.)
       `<g fill="none" stroke="#ffffff" stroke-width="${num(W.goalCross!)}" stroke-linecap="round">${goalCrossD(def.spotMarks)}</g>` +
-      goalPostsMarkup(def.goalPosts)
+      goalPostsMarkup(def)
     );
   }
 
@@ -201,46 +232,50 @@ export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSce
     centerMarkMarkup(def.centerMark) +
     `</g>` +
     `<g fill="none" stroke="#ffffff" stroke-width="${num(W.goalCross!)}" stroke-linecap="round">${goalCrossD(def.spotMarks)}</g>` +
-    goalPostsMarkup(def.goalPosts)
+    goalPostsMarkup(def)
   );
 }
 
 /** 화살촉 마커. ArrowMarkers.tsx 와 **id 규약·모양이 같아야 한다** — 다르면 화살촉이 사라진다.
  *  케이싱을 먼저 그리는 이유도 그쪽과 같다(#38bdf8 는 코트 대비 2.49:1 로 WCAG 1.4.11 미달). */
-/** 화살촉 둘 — **ArrowMarkers.tsx 의 HEADS 와 한 픽셀도 다르면 안 된다**(2026-08-16).
- *  courtLines.contract.test 가 두 구현을 도형 단위로 대조한다. */
-const ARROW_HEADS = {
-  thin: { d: 'M0.353,0.353 L6.853,3.553 L0.353,6.753 z', w: 7.21, h: 7.11, refY: 3.553 },
-  wide: { d: 'M0.353,0.353 L6.853,5.853 L0.353,11.353 z', w: 7.21, h: 11.71, refY: 5.853 },
-} as const;
-/** 화살촉 테두리 두께 — ArrowMarkers 의 HEAD_CASING_W 와 **한 글자도 달라선 안 된다**. */
-const ARROW_HEAD_CASING_W = 0.71;
-type ExportHead = keyof typeof ARROW_HEADS;
+/** 화살촉 기하는 **화면과 같은 함수**에서 온다(render/arrowHeadGeom.ts). 예전에는 리터럴을
+ *  양쪽에 적어 두고 `courtLines.contract.test` 가 대조했는데, 획이 굵기 축을 들여오면서
+ *  경우의 수가 (색 × 굵기 × 종류)로 늘었다 — 그 표를 손으로 두 벌 적는 것은 드리프트를
+ *  기다리는 일이다. 대조 테스트는 그대로 남는다(이제 같은 함수를 부르는지까지 확인한다). */
+type ExportHead = ArrowHeadKind;
 
 /** 양 끝 화살촉 속성. 'none' 이면 그 속성 자체를 안 쓴다 — 빈 url(#…) 은 SVG 가 무시하지만
  *  문자열에 남으면 대조 테스트가 화면 컴포넌트와 어긋난다. */
-function headAttr(a: { headFrom?: ExportHead | 'none'; headTo?: ExportHead | 'none' }, color: string): string {
+function headAttr(
+  a: { headFrom?: ExportHead | 'none'; headTo?: ExportHead | 'none' },
+  color: string,
+  lineWidth: number = ARROW_STYLE.width,
+  /** 화살표는 끝 촉 기본이 'thin', 획은 'none' 이다(PLAN 결정 5) — 그 하나만 다르다. */
+  headToDefault: ExportHead | 'none' = 'thin',
+): string {
   const f = a.headFrom ?? 'none';
-  const t = a.headTo ?? 'thin';
-  const k = markerKey(color);
+  const t = a.headTo ?? headToDefault;
+  const id = (k: ExportHead): string => arrowMarkerId(MARKER_UID, markerKey(color), k, lineWidth);
   return (
-    (f === 'none' ? '' : ` marker-start="url(#${MARKER_UID}-${k}-${f})"`) +
-    (t === 'none' ? '' : ` marker-end="url(#${MARKER_UID}-${k}-${t})"`)
+    (f === 'none' ? '' : ` marker-start="url(#${id(f)})"`) +
+    (t === 'none' ? '' : ` marker-end="url(#${id(t)})"`)
   );
 }
 
-export function arrowMarkersMarkup(colors: readonly string[]): string {
-  const kinds: readonly ExportHead[] = ['thin', 'wide'];
-  const marker = (id: string, fill: string, k: ExportHead): string => {
-    const h = ARROW_HEADS[k];
+export function arrowMarkersMarkup(colors: readonly string[], widths?: readonly number[]): string {
+  // 화살표 굵기는 **언제나** 만든다 — ArrowMarkers 와 같은 이유(획이 없거나 전부 다른 굵기인
+  // 스텝에서 화살표가 참조할 마커가 사라진다).
+  const ws = Array.from(new Set([ARROW_STYLE.width, ...(widths ?? [])]));
+  const marker = (fill: string, k: ExportHead, w: number): string => {
+    const g = arrowHeadGeom(k, w);
     return (
-      `<marker id="${id}" markerWidth="${h.w}" markerHeight="${h.h}" refX="5.353" refY="${h.refY}" orient="auto-start-reverse">` +
-      `<path d="${h.d}" fill="${fill}" stroke="${ARROW_CASING}" stroke-width="${num(ARROW_HEAD_CASING_W)}" stroke-linejoin="round"/>` +
+      `<marker id="${arrowMarkerId(MARKER_UID, markerKey(fill), k, w)}" markerWidth="${g.markerWidth}" markerHeight="${g.markerHeight}" refX="${g.refX}" refY="${g.refY}" orient="auto-start-reverse">` +
+      `<path d="${g.d}" fill="${fill}" stroke="${ARROW_CASING}" stroke-width="${num(g.casingWidth)}" stroke-linejoin="round"/>` +
       `</marker>`
     );
   };
   // 케이싱 전용 마커는 없다 — 화살촉의 대비는 위 stroke 가 맡는다(ArrowMarkers 와 같은 근거).
-  return colors.flatMap((c) => kinds.map((k) => marker(`${MARKER_UID}-${markerKey(c)}-${k}`, c, k))).join('');
+  return colors.flatMap((c) => ws.flatMap((w) => ARROW_HEAD_KINDS.map((k) => marker(c, k, w)))).join('');
 }
 
 /** 규칙 존(흰 파선 테두리 + **연한 붉은** 채움). RuleZones.tsx 와 같은 값 — 면이 아니라 파선이
@@ -317,6 +352,8 @@ export function shapesMarkup(shapes: readonly Shape[]): string {
 
 /** 격자 — **선만** 그린다. 칸 라벨은 §6.2 표가 '안 담긴다' 로 못박았고, 글자라 어차피 못 넣는다.
  *  좌표는 `gridGeom` 하나에서 온다(GridOverlay 와 같은 출처). */
+/** 격자 선. ⚠️ 인쇄는 이 함수를 쓰지 않는다 — 종이에서는 잉크(대비)가 달라야 해서 화면
+ *  컴포넌트(`GridOverlay`)를 인쇄 variant 로 쓴다. 좌표는 양쪽 다 `gridGeom` 파생이다. */
 function gridMarkup(opts: StaticSceneOpts): string {
   if (!opts.showGrid) return '';
   const g = gridGeom(opts.mode, opts.size);
@@ -351,7 +388,13 @@ function ruleActors(frame: RenderFrame): RuleActor[] {
 /** 3 m 링 + 골 지역 위반 표시. 시각 언어는 RuleOverlay.tsx 그대로 — **깨끗하면 파선 흰색,
  *  걸리면 실선 붉은색**, 그 아래에 언제나 검정 케이싱(붉은색은 코트 위 1.75:1 로 혼자서는
  *  못 읽힌다). 색은 세 번째 채널이다. */
-function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
+/** 규칙 오버레이(골 지역 존·위반 표시·공 거리 링·세트피스 소유 화살표)를 한 번에 굽는다.
+ *
+ *  ⚠️ **PNG 전용이 아니다** — 인쇄(features/print/PrintCourt.tsx)도 이 함수를 지난다. 화면의
+ *  `RuleOverlay` 는 좌표를 rAF writer 가 DOM 에 직접 쓰는 구조라 정적 렌더에서는 링이 전부
+ *  원점에 겹친다(PrintCourt.tsx 머리말 ①). 그래서 "한 장면을 한 번 그리는" 경로는 전부
+ *  이쪽으로 온다. 새 규칙 표시를 더할 때 **여기 하나만 고치면 두 경로가 같이 따라온다.** */
+export function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   const def = courtDefFor(opts.mode, opts.size);
   const actors = ruleActors(frame);
   // 진영을 입힌 골 지역. 화면(RuleOverlay)과 **같은 함수**를 지나야 PNG 만 다른 팀을 칠하는 일이 없다.
@@ -361,13 +404,22 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   // 만드는 것과 **같은 두 값**이다. 플랫 코트는 골대가 없어 규칙 자체가 꺼진다.
   const mouths = defendedMouths(goalMouths(def), side);
   const fiveDefense = def.goalPosts.length === 0 ? null : side;
+  // 소유 화살표 방향 — 코트당 한 번. `attackDir(def,0)` 은 진영 팀의 공격 방향이라 상대는 반대다.
+  const ownerDegOf = ((): Record<TeamSide, number> | null => {
+    const d = attackDir(def, 0);
+    if (!d) return null;
+    const deg = (Math.atan2(d.y, d.x) * 180) / Math.PI;
+    return { [side]: deg, [otherSide(side)]: deg + 180 } as Record<TeamSide, number>;
+  })();
   // §7 5.2(2026-08-13) — **조기 반환을 여기서 뺐다.** 개별 공의 원은 사용자가 그 공을 눌러
   // 명시적으로 켠 것이라 규칙 존 스위치와 다른 축이다(화면 RuleOverlay.tsx 와 같은 판단) —
   // `showRuleZones` 가 꺼져 있어도 PNG 에 실린다. 존·존 위반 표시만 스위치에 매인다.
   let out = opts.showRuleZones ? ruleZonesMarkup(opts.mode, opts.size) : '';
 
-  for (const dz of opts.showRuleZones ? zones : []) {
-    if (zoneViolation(dz, actors) === 0) continue;
+  for (const [zi, dz] of (opts.showRuleZones ? zones : []).entries()) {
+    // 화면(render/ruleOverlay.ts)과 **같은 인자**로 잰다 — 골 뒤로 완전히 나간 수비를 인원에
+    // 세는 판정(2026-08-27)이 여기서 빠지면 판은 붉은데 그림만 깨끗해진다.
+    if (zoneViolation(dz, actors, mouths[zi]) === 0) continue;
     const z = dz.rect;
     const box = `x="${num(z.x)}" y="${num(z.y)}" width="${num(z.w)}" height="${num(z.h)}"`;
     out +=
@@ -388,13 +440,19 @@ function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
     // 지나므로 PNG 만 다른 규칙으로 붉어질 자리가 없다 — ⚠️ 여기서 `ringViolation` 을 직접
     // 부르면 5 m 원을 켠 공이 그림에서만 2-on-1 로 판정된다.
     // 스위치가 꺼져 있으면 화면과 같이 판정도 서지 않으므로 흰 파선 그대로 나간다.
-    const bad = (opts.showRuleZones ?? false) && ballRingViolation(b.ring ?? 'none', b, actors, zones, mouths, fiveDefense) !== 0;
+    // 5 m 를 물러날 팀은 **공마다** 다르다 — 그 공을 차는 팀의 반대다. 화면
+    // (render/ruleOverlay.ts)과 같은 함수를 지나므로 PNG 만 반대 팀을 붉히는 일이 없다.
+    const retreat = fiveMeterRetreat(b.owner, fiveDefense);
+    const bad = (opts.showRuleZones ?? false) && ballRingViolation(b.ring ?? 'none', b, actors, zones, mouths, retreat) !== 0;
     const stroke = bad ? RULE_ALERT_STROKE : RULE_OK_STROKE;
     const dash = bad ? '' : ` stroke-dasharray="${RULE_DASH}"`;
     out +=
       `<g transform="${poseTransform(b.x, b.y)}"${attrOpacity(b.opacity)}>` +
       `<circle r="${num(r)}" fill="none" stroke="${RULE_CASING}" stroke-width="${RING_CASING_W}" opacity="${RULE_CASING_OPACITY}"/>` +
       `<circle r="${num(r)}" fill="none" stroke="${stroke}" stroke-width="${RING_MARK_W}"${dash}/>` +
+      // 세트피스 소유 화살표 — 화면(RuleOverlay.tsx)과 **같은 path 함수**를 쓴다. 모양을 여기
+      // 다시 적으면 판 크기·화살촉을 고친 날 그림에서만 어긋난다(§sideFlags 와 같은 교훈).
+      ownerArrowMarkup(b.ring, b.owner, ownerDegOf) +
       `</g>`;
   }
   return out;
@@ -410,6 +468,29 @@ function conesMarkup(frame: RenderFrame): string {
       `<g id="obj-${safeId(c.id)}" transform="${poseTransform(c.x, c.y)}"${attrOpacity(c.opacity)}>` +
       `<path d="${CONE_TRI_D}" fill="${fill}" stroke="${OBJ_STROKE}" stroke-width="${CONE_STROKE_W}"/>` +
       (c.colorIndex === 1 ? `<path d="${CONE_BASE_D}" fill="${fill}" stroke="${OBJ_STROKE}" stroke-width="${CONE_STROKE_W}"/>` : '') +
+      `</g>`;
+  }
+  return out;
+}
+
+/** 자유 그리기 획 — 화살표와 **같은 층 구조**(케이싱 먼저, 본선 뒤에)이고, 굵기만 상수가
+ *  아니라 획마다 다르다. 케이싱 여유는 굵기와 무관한 상수다(`STROKE_CASING_PAD`
+ *  — 근거는 render/arrowHeadGeom.ts, 화살촉의 검은 테와 짝이 맞아야 한다).
+ *
+ *  ⚠️ 호출 순서가 곧 z-order 다: `strokesMarkup` 은 `arrowsMarkup` **앞**에 온다(획이 아래).
+ *     근거는 render/ObjectLayer.tsx 머리말 — 판·시연·종이가 같은 순서여야 한다. */
+function strokesMarkup(frame: RenderFrame): string {
+  let out = '';
+  for (const s of frame.strokes) {
+    if (s.opacity <= 0) continue;
+    const d = strokePath(s);
+    if (d === '') continue; // 점이 없는 획은 그릴 것이 없다(validate 가 걸러도 방어)
+    const w = strokeWidthOf(s);
+    const color = safeColor(s.color, ARROW_STYLE.color);
+    out +=
+      `<g id="obj-${safeId(s.id)}"${attrOpacity(s.opacity)}>` +
+      `<path d="${d}" fill="none" stroke="${ARROW_CASING}" stroke-width="${num(w + STROKE_CASING_PAD)}" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<path d="${d}" fill="none" stroke="${color}" stroke-width="${num(w)}" stroke-linecap="round" stroke-linejoin="round"${headAttr(s, color, w, 'none')}/>` +
       `</g>`;
   }
   return out;
@@ -438,7 +519,7 @@ function arrowsMarkup(frame: RenderFrame): string {
  *  않으면(이름색) slice 가 앞 글자를 먹으므로 그때만 다르게 접는다 — 두 곳이 어긋나면
  *  화살촉이 통째로 사라진다. */
 function markerKey(color: string): string {
-  return safeId(color.startsWith('#') ? color.slice(1) : color);
+  return safeId(arrowMarkerColorKey(color));
 }
 
 /** 휠체어 — 차체 · 볼가드 · 머리(피벗). 등번호는 여기 없다(★[A-9] 캔버스가 그린다).
@@ -513,6 +594,21 @@ function usedArrowColors(frame: RenderFrame): string[] {
     // 그쪽이 `marker-end` 로 참조하므로, 갈라지면 화살촉이 통째로 사라진다.
     set.add(safeColor(a.color, arrowColor(a)));
   }
+  // 획도 같은 마커를 참조한다(strokesMarkup 의 `headAttr`) — 같은 식이어야 하는 이유도 같다.
+  for (const s of frame.strokes) {
+    if (s.opacity <= 0) continue;
+    set.add(safeColor(s.color, ARROW_STYLE.color));
+  }
+  return Array.from(set);
+}
+
+/** 이 장면의 획이 실제로 쓴 굵기만 마커로 만든다 — 색과 같은 규율(안 쓰는 마커를 굽지 않는다). */
+function usedStrokeWidths(frame: RenderFrame): number[] {
+  const set = new Set<number>();
+  for (const s of frame.strokes) {
+    if (s.opacity <= 0) continue;
+    set.add(strokeWidthOf(s));
+  }
   return Array.from(set);
 }
 
@@ -523,7 +619,7 @@ function usedArrowColors(frame: RenderFrame): string[] {
 export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): string {
   const m = staticSceneMetrics(opts);
   const bg = opts.background ?? 'black';
-  const markers = arrowMarkersMarkup(usedArrowColors(frame));
+  const markers = arrowMarkersMarkup(usedArrowColors(frame), usedStrokeWidths(frame));
 
   return (
     // ★[A-10] width/height 명시. viewBox 만 있으면 <img> 내재 크기가 불확정이라 브라우저마다
@@ -547,6 +643,7 @@ export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): strin
     ruleMarkup(frame, opts) +
     shapesMarkup(opts.shapes ?? []) +
     conesMarkup(frame) +
+    strokesMarkup(frame) +
     arrowsMarkup(frame) +
     chairsMarkup(frame, opts) +
     ballsMarkup(frame) +

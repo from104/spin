@@ -77,10 +77,6 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('§6.4 EditorProvider — 물리 세계가 코트 크기를 따라간다', () => {
-  it('대조군: 세 크기의 viewBox 가 애초에 서로 다르다', () => {
-    expect(new Set(COURT_SIZES.map((s) => `${courtDefFor('full', s).vbW}×${courtDefFor('full', s).vbH}`)).size).toBe(3);
-  });
-
   it.each(COURT_SIZES)('%s — 벽이 그 크기의 viewBox 로 선다', (size) => {
     const def = courtDefFor('full', size);
     mount(size);

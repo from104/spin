@@ -166,9 +166,369 @@
     opacity: 1;
   }
 }
+/* ── 규칙 화면 연출(2026-08-22 주제별 재설계, docs/PLAN-RULES-REDESIGN.md §4) ─────────────
+ * 커브는 이 앱 표준 easeStandard = cubic-bezier(.4,0,.2,1)(core/geom.ts, 위 tray-drop-in 과
+ * 같은 값) 그대로 — 규칙 화면만 다른 곡선을 쓰면 앱 안에 모션 언어가 두 갈래로 갈린다.
+ * `tokens.css` 의 전역 `*` 규칙(`prefers-reduced-motion` + `data-reduce-motion="true"` 둘 다)
+ * 이 이미 모든 animation-duration 을 0.01ms 로 죽이므로, 여기서는 위 트레이 예고와 같은 이중
+ * 방어(OS 설정 명시적 off)만 건다 — 앱 자체 '항상 켬' 채널은 전역 규칙에 맡긴다. */
+.rules-card-in {
+  animation: rules-card-in 180ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes rules-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/* 주제 상세 진입(카드 홈→상세, 이전/다음 주제 이동) — 살짝 아래에서 올라오며 등장한다. */
+.rules-doc-in {
+  animation: rules-doc-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes rules-doc-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* 차분한 페이드만 — 상세→홈 복귀, 표 열 선택 시 장면 교체(반복 트리거 가능이라 짧고 미묘하게). */
+.rules-fade-in {
+  animation: rules-fade-in 150ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes rules-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* 포스터→재생 전환의 컨트롤 등장 — 장면 블록당 최초 재생 1 회뿐이라 위 fade-in 보다 조금 더
+ * 또렷하게(200ms). */
+.rules-controls-in {
+  animation: rules-fade-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+/* 컷 스텝(순간 전환) 진입 — 판 테두리가 한 번 밝아졌다 사라진다. "이 장면이 방금 리셋됐다"
+ * 는 신호다. 호출부가 스텝마다 이 요소의 `key` 를 바꿔 매번 다시 재생시킨다. */
+.rules-cut-pulse {
+  animation: rules-cut-pulse 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes rules-cut-pulse {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* "아웃 오브 플레이" 주제의 거리 개념도(DistanceFigure) — 5m 원(실선)이 먼저 그려지고 3m 원
+ * (파선)이 뒤이어 나타난다. 최초 마운트 1 회만(리마운트해야 재생되므로 반복 트리거 걱정이
+ * 없다 — keyframes 로 충분). 두 반지름은 이 도해 전용 고정 상수(DistanceFigure.tsx 의
+ * R_5M=90)라 원의 둘레(2π·90≈565.49)도 고정값이다 — 그림마다 달라지는 값이 아니므로 CSS
+ * 커스텀 프로퍼티 없이 keyframe 에 직접 적는다. */
+.rules-distance-ring-5m {
+  stroke-dasharray: 565.49;
+  animation: rules-draw-in-5m 600ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes rules-draw-in-5m {
+  from {
+    stroke-dashoffset: 565.49;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* 3m 원은 이미 파선(6 5)이라 같은 draw-in 기법을 못 쓴다(패턴이 밀릴 뿐 "그려지는" 효과가 안
+ * 난다) — 5m 원이 그려지고 난 뒤 그냥 나타나는 편이 두 개념을 순차로 설명한다. */
+.rules-distance-ring-3m {
+  animation: rules-fade-in 300ms cubic-bezier(0.4, 0, 0.2, 1) 500ms both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rules-card-in,
+  .rules-doc-in,
+  .rules-fade-in,
+  .rules-controls-in,
+  .rules-cut-pulse,
+  .rules-distance-ring-5m,
+  .rules-distance-ring-3m {
+    animation: none;
+  }
+}
+
 /* 예고가 **떠 있는 것** 자체가 신호다 — 움직임은 장식이라 먼저 끈다(등장 페이드와 같은 규율). */
 @media (prefers-reduced-motion: reduce) {
   [data-tray][data-drop] > [data-tray-hint] {
     animation: none;
+  }
+}
+
+/* ── 화면 로더 마크 — 스핀킥(2026-09-04, docs/PLAN-0-6-3-LOADER-NOTICE.md §5) ────────────
+ * 첫 방문과 큰 메뉴 전환을 덮는 오버레이 안에서 앱 마크가 회전킥을 찬다. 도형·색·좌표의
+ * 정본은 `public/logo.svg` 이고(결정 32), 이 절이 지는 것은 **그 도형을 어떻게 움직이는가**
+ * 하나뿐이다. 키프레임을 새 CSS 파일로 빼지 않는 이유(결정 15): 이 저장소의 모든
+ * `@keyframes` 가 여기 산다 — 새 파일은 `main.tsx` 의 import 순서라는 계약을 하나 더 만든다.
+ *
+ * 백분율이 정본이다(결정 21). 부팅 1200ms · 레일 전환 820ms 두 변주는 호출부가
+ * `animation-duration` **하나만** 갈아 끼운다 — 아래 %·각도·좌표는 두 변주에서 같은 값이다.
+ * 그래서 두 변주가 같은 동작으로 읽히고, 길이를 조정할 때 손댈 곳이 한 곳이다.
+ *
+ * 회전축 (275.38, 186.62)는 **머리(흰 원)의 중심**이다(결정 17). 선수의 몸이 축이고 차체가 그
+ * 둘레를 돈다 — 2026-09-04 기현 지시: *"잘 만들었는데 회전축이 머리(동그라미)였고… 그럴려면
+ * 시계 방향으로 돌아 좌하단으로 차게 공이 나아가야 한다."* 값은 logo.svg 의 머리 로컬 (67,0)
+ * 을 그룹 변환 translate(228 234) rotate(-45) 로 옮긴 점이다: (228+67cos45°, 234−67sin45°).
+ * 머리가 축이라 흰 원은 사이클 내내 **한 점에 못박혀 있고**, 차체는 그 점에서 앞끝 179 ·
+ * 뒤끝 45 · 반폭 65 인 팔로 돈다.
+ *
+ * ── ⚠️ 2026-09-04: 아래 옛 근거는 위 지시로 뒤집혔다 ──────────────────────────────────
+ * 옛 축은 (180.48, 281.52) = 차체 로컬 x −67.2(뒤에서 길이의 20%, core/constants.ts CHAIR 의
+ * sPivot 0.2)였고 방향은 반시계였다. 그 근거 자체는 지금도 참이다 — 앱이 코트에 그리는
+ * 휠체어의 **선회** 피벗은 그 점이 맞다. 죽은 것은 전제다: 이 마크가 그리는 것은 코트 위
+ * 선회가 아니라 **회전킥**이고, 회전킥의 축은 차체의 선회 중심이 아니라 몸이다. 옛 축에서는
+ * 머리가 반경 67 로 원을 그려, *"흰 원이 머리인데 한 귀퉁이로 몰리면 안 된다"*(logo.svg 주석)
+ * 는 그 지적을 회전으로 되살리는 꼴이었다. 옛 값이 남긴 사실 하나는 그대로 유효하다: 축을
+ * 차체 도형 중심(228,234)에 두면 최대반경 hypot(112,65)=129.5 가 공까지 못 미쳐 **차체가
+ * 공에 닿지 못한다.** 대가로 딸려 온 것: 머리가 코트 원 중심에서 72 떨어져 있어 회전 중
+ * 100.5°~201° 구간에 차체 모서리가 테두리 원(r 248) 밖으로 최대 9 단위(마크 폭의 1.8%)
+ * 삐져나온다 — viewBox 밖으로는 안 나간다(최대 257 < 362).
+ * ──────────────────────────────────────────────────────────────────────────────────
+ *
+ * 회전은 시계(SVG 각도가 증가하는 쪽)다(결정 18). 머리 기준으로 공은 **+79.41°**(거리 161.1),
+ * 정지 자세의 차체 앞끝은 **+135°**(거리 179)다. 반시계로 돌면 앞끝이 **15.9° 만에** 공에 닿아
+ * "돈다" 가 안 읽히고, 시계로 돌면 겹침 창의 시작(=접촉)까지 264.67°, 앞축이 공 방향에
+ * 정렬할 때까지 304.41° 가 쓸린다. 예비동작 −10° 를 더해 접촉까지 **274.67°**(지시의
+ * "270° 이상"), 한 사이클의 순환량은 정확히 **+360°** 라 시작 자세와 끝 자세가 같다(결정 19)
+ * — 이음매가 안 보이고, 로딩이 최소 표시 시간보다 길어져도 한 바퀴 더 돈다.
+ * ⚠️ 예비동작을 **−15.86° 보다 깊게 감지 마라** — 반시계 쪽이 공에 가까운 쪽이라 그 각에서
+ * 차체가 이미 공을 파고든다(예비동작이 곧 첫 접촉이 된다).
+ *
+ * 이징(결정 20): 앱 표준 easeStandard = cubic-bezier(.4,0,.2,1)(core/geom.ts)의 **반쪽 짝만**
+ * 쓴다 — 가속 (.4,0,1,1) · 감속 (0,0,.2,1). 이 앱의 UI 에 가속(ease-in)을 쓰는 것은 예외인데,
+ * 여기서 가속하는 것은 UI 가 아니라 **물리 묘사**이고 최고속을 사용자가 보는 순간(접촉)에
+ * 놓기 때문이다. linear 는 §5 표가 등속으로 지정한 구간(쓸림·비행·파선 행진)에만 쓴다 —
+ * 그 구간의 속도 변화는 이미 키프레임 값 자체가 지고 있어 곡선을 겹쳐 걸면 값이 두 벌이 된다.
+ * 새 곡선을 들이지 마라: 앱 안에 모션 언어가 두 갈래로 갈린다(위 규칙 화면 절의 그 경고).
+ *
+ * 계약 셋 — 깨져도 테스트는 초록이고 화면에서만 드러난다:
+ *  1. `.spin-mark` 에 등장·퇴장 transition 을 걸지 마라. 이 절이 그 요소의 transform 을
+ *     애니메이션하는데 **실행 중인 애니메이션은 같은 속성의 transition 을 이긴다** — 등장
+ *     배율이 소리 없이 무시된다. 등장·퇴장은 오버레이 루트 `.spin-loader` 가 진다(결정 16).
+ *  2. `.spin-chair` 는 logo.svg 의 `translate(228 234) rotate(-45)` 그룹을 **감싸는** 바깥
+ *     그룹이다. 그 안쪽을 만지면 마크가 아닌 것이 된다. 정지 각 0° 는 안쪽 정적 `<g>` 가
+ *     지므로 바깥에 변환이 없는 것이 곧 logo.svg 의 정지 자세다.
+ *  3. 아래 forced-colors 블록에 hex 도 `var(--…)` 도 쓰지 마라(결정 33, contrast.css 와 같은
+ *     규율 — 사용자가 고른 팔레트와 싸우지 않는다).
+ *
+ * `transform-box: view-box` 는 Chrome 64+ / Safari 15.4+ / Firefox 55+ 다. 그 아래 구형
+ * 웹뷰에서는 회전축이 요소 박스 기준으로 읽혀 차체가 엉뚱하게 돈다(계획서 §8-3, 눈으로 잡는다). */
+.spin-chair {
+  transform-box: view-box;
+  transform-origin: 275.38px 186.62px; /* 머리(흰 원) 중심 — 위 주석. 차체 중심도, 선회 피벗도 아니다 */
+  animation: spin-chair 1200ms linear infinite;
+}
+.spin-ball {
+  transform-box: view-box;
+  transform-origin: 305px 345px; /* 공 중심(logo.svg) — 눌림 배율이 공 자리에서 일어나야 한다 */
+  animation: spin-ball 1200ms linear infinite;
+}
+.spin-mark {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: spin-mark 1200ms linear infinite;
+}
+.spin-dash {
+  animation: spin-dash 1200ms linear infinite;
+}
+
+/* 네 박자로 읽혀야 한다: 예비(0~16.67%) → 가속(~58.33%) → 최고속·접촉(65.83%) → 브레이크(~100%).
+ * 65.83% 가 겹침 창의 시작 = 차체 **옆면**이 공에 닿는 순간이고, 그 순간 공이 떠나기 시작한다
+ * (같은 백분율을 spin-ball 이 쓴다 — 두 키프레임의 유일한 접점이다).
+ * 접촉 뒤는 **한 구간**(65.83~100%)의 감속 곡선 하나가 다 진다. 중간에 키프레임을 끼우면
+ * 구간마다 곡선이 처음부터 다시 빨라져 브레이크가 물결친다 — 4구간으로 쪼갠 판을 재 보니
+ * 접촉 직후 각속도가 0.54 → 0.93 → 0.54 → 0.87 °/ms 로 출렁였다.
+ * 각속도(1200ms 기준): 최고 1.39 °/ms(707ms) → 접촉 순간 1.16(감속 곡선 (0,0,.2,1) 의 초기
+ * 기울기가 5 라 95.33°/410ms × 5) → 794.7ms 0.89 → 850ms 0.46 → 1100ms 0.07.
+ * 도출값(키프레임 아님, 계획서 §5): 정렬각 304.41° 통과 71.08%(853ms) · 겹침 창 끝 344.14°
+ * 통과 82.67%(992ms) · 95% 에 358.9°(그래서 공을 다시 켜도 겹치지 않는다).
+ * 회전량 264.67°/304.41° 는 기하가 정한 값이라 **맨 마지막에 만진다**(계획서 §4-2). */
+@keyframes spin-chair {
+  0% {
+    transform: rotate(0deg);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1); /* 감속 — 예비동작은 뒤로 감기다 */
+  }
+  13.33% {
+    transform: rotate(-10deg); /* 반시계로 감는다. −15.86° 를 넘기면 그 자리에서 공에 닿는다 */
+    animation-timing-function: linear; /* 한 박 멈춤(값이 같으므로 곡선은 무의미하지만 표대로) */
+  }
+  16.67% {
+    transform: rotate(-10deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1); /* 가속 — 최고속을 접촉에 놓는다 */
+  }
+  58.33% {
+    transform: rotate(140deg);
+    animation-timing-function: linear; /* 최고속 등속 쓸림 124.67°(1.39 °/ms) */
+  }
+  65.83% {
+    transform: rotate(264.67deg); /* 접촉 = 겹침 창 시작 */
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1); /* 감속 — 접촉의 스냅부터 정지까지 한 구간 */
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 공은 **닿은 면의 바깥 법선**으로 날아간다. 닿는 것은 앞 범퍼가 아니라 차체의 옆면이고
+ * (접촉점은 차체 로컬 (−56.9, −65) — 앞끝에서 55 안쪽의 긴 변), 평평한 면이 쓸고 지나가면
+ * 공은 그 면에 수직으로 튀어 나간다. 그 방향이 **129.67°**(SVG y-down) = 좌하이고, 단위벡터
+ * (−0.638, +0.770)에 길이를 곱한 것이 아래 translate 다(32 → −20,25 / 100 → −64,77 /
+ * 300 → −192,231). 위에서 본 그림이라 **직선**이다 — 포물선은 틀린 물리다.
+ * ⚠️ 접선 방향(169.41°)이 아니다. 접촉점의 속도는 접선이지만 공이 받는 것은 그 속도의
+ * **법선 성분**뿐이라, 접선으로 쏘면 공이 차체를 따라 돌면서 계속 깔린다.
+ *
+ * 통과 금지의 산수(계획서 §4-1): 공은 접촉 순간부터 2.13 단위/ms(→2.7) 로 나간다. 차체 옆면이
+ * 공 쪽으로 전진하는 속도는 접촉 순간 1.16 °/ms × 2.16 = 2.50 단위/ms 로 **공보다 빠르다** —
+ * 그 초과분이 약 2.4ms 이어지고(≈792.4ms 에 각속도가 공 속도 아래로 내려온다, 794.7ms 에
+ * 0.89 °/ms) 그 적분이 곧 최대 침투 **0.3 단위 · 7.5ms** 다. 여유가 있어서가 아니라 초과가
+ * 짧아서 스치고 지나가는 것이다. 공을 늦추거나 접촉 직후 감속을 완만하게 하면 초과분이
+ * 길어져 곧바로 파고든다(옛 판은 47 단위를 파고들었다).
+ * 눌림 배율이 scale(0.88, 1.14) 인 것은 비행이 수평에서 50.4° 로 **세로에 더 가깝기** 때문이다.
+ * 정확히는 129.67° 축으로 늘려야 하지만 rotate·scale·rotate 세 겹을 모든 키프레임에 다는
+ * 값이 5.4° 어긋남보다 크다.
+ * 76.67%(920ms)에는 공이 이미 프레임 밖이다(클리핑 시작 863ms · 완전 이탈 903ms) — 페이드는
+ * 사라지는 수단이 아니라 그 클리핑 모서리를 가리는 장치다. 76.67~95% 는 안 보이는 동안
+ * 제자리로 돌아오는 구간이고, 그 복귀는 차체가 겹침 창을 빠져나온 뒤(82.67%)라 다시 켜도
+ * 겹치지 않는다. 95~100% 의 짧은 페이드인이 이음매를 메운다(공이 "뿅" 하고 나타나면 그
+ * 구간을 늘린다 — 계획서 §4-3). */
+@keyframes spin-ball {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  65.83% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+    animation-timing-function: linear; /* 접촉 — 여기부터 공이 떠난다 */
+  }
+  67.08% {
+    transform: translate(-20px, 25px) scale(0.88, 1.14); /* 눌림 */
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  69.17% {
+    transform: translate(-64px, 77px) scale(1); /* 펴짐 */
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  76.67% {
+    transform: translate(-192px, 231px) scale(0.9);
+    opacity: 0;
+  }
+  95% {
+    transform: translate(0, 0) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* 임팩트 펄스 — 접촉은 20~40ms 사건이라 마크가 한 번 튀지 않으면 "맞았다" 가 안 읽힌다.
+ * 두 구간 모두 감속인 이유: 충격은 즉시 서고 그 뒤가 잦아드는 모양이다(가속으로 부풀면
+ * 타격이 아니라 호흡으로 읽힌다). 안 읽히면 1.03 → 1.05 가 첫 조정 손잡이다(계획서 §4-2). */
+@keyframes spin-mark {
+  0% {
+    transform: scale(1);
+  }
+  65.83% {
+    transform: scale(1);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+  71.67% {
+    transform: scale(1.03);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+  80% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 차체 끝 흰 파선의 행진 — 바퀴가 돈다는 공짜 단서다. 72 는 logo.svg 의
+ * stroke-dasharray="21 15"(주기 36)의 **정확히 두 주기**라 사이클 이음매가 안 보인다.
+ * 회전이 시계로 뒤집혀도 이 줄은 안 뒤집는다 — 파선은 진행 방향에 **수직**으로 놓인 범퍼
+ * 줄무늬라 행진 방향이 회전 방향과 묶여 있지 않다(뒤집으면 근거 없는 값이 하나 는다).
+ * 저사양 기기에서 60fps 가 안 나오면 이 한 줄만 뺀다 — 다른 것에 의존이 없다(계획서 §4-5). */
+@keyframes spin-dash {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 72;
+  }
+}
+
+/* 감축 모션(결정 9) — `tokens.css` 의 전역 억제는 `animation-iteration-count: 1` 을 함께 걸어
+ * 애니메이션을 **마지막 프레임에 고정**한다. 우리 사이클의 100% 가 정지 자세와 같은 것은
+ * 우연이므로 그 우연에 기대지 않고 여기서 `animation: none` 을 명시한다 — 나중에 끝 프레임을
+ * 만지는 사람이 감축 모션에서 공 없는 반쪽 마크를 만들지 않도록.
+ * `transform: none` 은 등장·퇴장의 배율까지 걷어 **opacity 만** 남긴다(움직임은 장식이고,
+ * 밀려나는 느낌이 감축 모션 사용자에게 남을 이유가 없다).
+ * 두 셀렉터인 이유: 미디어쿼리는 OS 채널만 보고, 앱 설정 '항상 켬' 은 SettingsProvider 가
+ * documentElement 에 심는 `data-reduce-motion="true"` 로 온다(§7.8).
+ * 실제로는 결정 8 에 따라 감축 모션에서 로더가 한 프레임도 안 뜬다 — 이 경로는 나중에
+ * `pending` 이 붙어 로더가 **진짜 로딩**을 덮게 되는 날을 위한 것이다.
+ * 한계: 등장·퇴장 배율을 호출부가 인라인 style 로 쓰면 이 `transform: none` 은 캐스케이드에서
+ * 진다. 그때도 tokens.css 가 transition-duration 을 0.01ms 로 죽여 배율이 즉시 확정되므로
+ * 움직임은 안 남지만, 끝값이 scale(1) 이 아닌 자세로 굳지 않는지는 호출부가 확인한다. */
+@media (prefers-reduced-motion: reduce) {
+  .spin-loader,
+  .spin-mark,
+  .spin-chair,
+  .spin-ball,
+  .spin-dash {
+    animation: none;
+    transform: none;
+  }
+}
+:root[data-reduce-motion='true'] .spin-loader,
+:root[data-reduce-motion='true'] .spin-mark,
+:root[data-reduce-motion='true'] .spin-chair,
+:root[data-reduce-motion='true'] .spin-ball,
+:root[data-reduce-motion='true'] .spin-dash {
+  animation: none;
+  transform: none;
+}
+
+/* 강제색(결정 33) — 오버레이는 아래 화면을 **가리는 것이 일**이라 반투명이 되면 기능을 잃는다.
+ * 시스템 팔레트의 바탕색으로 못박아 사용자가 고른 색으로 덮는다. 지금 이 오버레이에는 글자가
+ * 0개지만(진행 막대·퍼센트·문구를 두지 않는다 — 계획서 §5) `color` 를 함께 적는 이유는,
+ * 나중에 글자가 한 줄 들어올 때 그 줄만 상속받은 색으로 남아 Canvas 위에서 사라지는 사고를
+ * 막기 위해서다. hex 도 var(--…) 도 여기 두지 않는다. */
+@media (forced-colors: active) {
+  .spin-loader {
+    background: Canvas;
+    color: CanvasText;
+  }
+  /* 2026-09-04 결정 33 의 근거 정정 — 강제색은 SVG 의 fill/stroke 도 시스템 색으로 치환한다.
+   * 그래서 contrast.css 가 `.stage-svg` 에 같은 줄을 미디어쿼리 밖에서 걸고 contrast.test.tsx 가
+   * 그것을 못박는다. 마크는 코트 위 개체와 같은 물건(초록 코트·파란 휠체어·노란 공)이라 그
+   * 색 관계가 곧 그림이다 — 단색 덩어리가 되면 "회전하는 무엇" 만 남는다. 바깥 `.spin-loader`
+   * 의 Canvas/CanvasText 는 그대로다(글자·배경은 사용자 팔레트를 따른다). */
+  .spin-mark {
+    forced-color-adjust: none;
   }
 }

@@ -14,6 +14,7 @@ import {
   stepZone,
   unitFwd,
 } from '../../physics/kinematics.ts';
+import { CHAIR, SPIN_RADIUS_MIN_PX } from '../../core/constants.ts';
 import type { DragZone } from '../../model/chair.ts';
 import type { DragLimits, GrabLatch, KinInput, ZoneState } from '../../physics/types.ts';
 import {
@@ -68,6 +69,17 @@ function mulberry32(seed: number): () => number {
 }
 
 describe('§10.9 kinematicsReference.ts 교차검증', () => {
+  // ★ 표류 감시 (2026-08-29). 참조 구현은 독립성을 지키려고 `core/constants.ts` 를 import 하지
+  //   않고 차체 기하를 **손으로** 들고 있다. 그 손이 미끄러지면 아래 교차검증 전부가 "서로 다른
+  //   차를 굴리는 두 구현" 을 비교하게 되는데, 그때 나는 실패는 원인이 전혀 안 보이는 각도 차이다
+  //   (실측 반영 당일 겪었다: 45.80° vs 43.49°). 여기서 먼저 걸리면 한 줄로 끝난다.
+  it('★ 참조 구현의 차체 기하가 제품 상수와 같다 — 여기가 빨개지면 아래는 전부 무의미하다', () => {
+    expect(GOLDEN_PARAMS.L).toBe(CHAIR.lengthPx);
+    expect(GOLDEN_PARAMS.W).toBe(CHAIR.widthPx);
+    expect(GOLDEN_PARAMS.sPivot).toBe(CHAIR.sPivot);
+    expect(GOLDEN_PARAMS.spinRadiusMinPx).toBe(SPIN_RADIUS_MIN_PX);
+  });
+
   it('unitFwd/classifyZone/grabFrom/grabPoint — 무작위 100 샘플에서 완전 일치(1e-12)', () => {
     const rng = mulberry32(42);
     for (let i = 0; i < 100; i++) {
@@ -123,7 +135,7 @@ describe('§10.9 kinematicsReference.ts 교차검증', () => {
     }
   });
 
-  it('G6 피벗 통과 ε=±2 — 참조 구현도 실제 구현과 같은 43.4855°(§10.2 각주 2026-08-08 정정값)를 낸다', () => {
+  it('G6 피벗 통과 ε=±2 — 참조 구현도 실제 구현과 같은 45.79575°(차체 1.3 m 재유도값)를 낸다', () => {
     function runPassActual(eps: number): Pose {
       const pose0: Pose = { x: 0, y: 0, theta: 0 };
       let pose: Pose = pose0;
@@ -163,7 +175,7 @@ describe('§10.9 kinematicsReference.ts 교차검증', () => {
       const actual = runPassActual(eps);
       const golden = runPassGolden(eps);
       expect(actual.theta * (180 / Math.PI)).toBeCloseTo(golden.theta * (180 / Math.PI), 3);
-      expect(Math.abs(actual.theta * (180 / Math.PI))).toBeCloseTo(43.4855, 3);
+      expect(Math.abs(actual.theta * (180 / Math.PI))).toBeCloseTo(45.79575, 3);
     }
   });
 });

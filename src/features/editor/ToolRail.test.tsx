@@ -10,7 +10,6 @@ import { FLYOUT_LEAVE_CLOSE_MS, FLYOUT_PICK_CLOSE_MS } from './useFlyout.ts';
 import type { ChairId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import { BALL, CONE } from '../../core/constants.ts';
-import { CHIP_BOX_H_CSS, trayChipBoxPx } from './trayMetrics.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
 // ToolRail 이 useT()/useLocale()(→ SettingsProvider)을 쓴다(C7) — 이 파일 전체를 감싼다.
@@ -72,20 +71,6 @@ function renderWithTool(tool: ToolId, onSelectTool: (t: ToolId) => void = () => 
   );
 }
 
-/** 기능 구역 안의 표적만 센다 — 첫 화면 표적 예산(2.5)이 세는 것과 같은 단위다. */
-/** 버튼이 **스크린리더에게 불리는 이름**. `aria-hidden` 붙은 장식은 뺀다 — 2026-08-16 에
- *  단축키 글자 배지가 버튼 모서리에 붙었는데, 그것은 눈으로 보라고 있는 것이지 이름의
- *  일부가 아니다(그래서 aria-hidden 이다). textContent 를 그냥 읽으면 '선택V' 가 되어
- *  **실제 접근성 이름과 다른 것**을 재게 된다. */
-const accName = (b: HTMLElement): string => {
-  const clone = b.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll('[aria-hidden="true"]').forEach((n) => n.remove());
-  // 여는 방향 표식 — 2026-08-14 플라이아웃 이후 세로 기둥은 ◂, 가로 띠는 ▴ 다.
-  return clone.textContent?.replace(/[▸▾◂▴]/g, '').trim() ?? '';
-};
-
-const functionTargets = () => [...document.querySelectorAll<HTMLElement>('[aria-label="기능"] button')].map(accName);
-
 const handle = (label: '작도' | '설명') => screen.getByRole('button', { name: new RegExp(`^${label}`) });
 const expanded = (label: '작도' | '설명') => handle(label).getAttribute('aria-expanded');
 // ⚠️ 접두 매칭이 아니라 **정확 매칭**이다(2026-08-16). 도구 이름이 '선' 이 되면서 '선택' 과
@@ -93,51 +78,53 @@ const expanded = (label: '작도' | '설명') => handle(label).getAttribute('ari
 // 단언이 언제나 거짓이 된다(실제로 그렇게 빨개졌다).
 const hasTool = (label: string) => screen.queryByRole('button', { name: new RegExp(`^${label}$`) }) !== null;
 describe('ToolRail — 기능 구역', () => {
-  it('모드 도구는 3표적이다 — 선택 · 작도 손잡이 · 설명 손잡이 (3.7)', () => {
-    // 5종 상시 노출로 되돌리면 §3 의 미착수분(도움말 1 · 빈 판 채우기 1)이 들어올 때
-    // 2.5 게이트(≤40)가 빨간불이 된다. 접는 것이지 없애는 게 아니다 — 아래 it 들이 그 증명.
-    render(<ControlledRail />);
-    // 2026-08-16 — 지우개가 사라져 넷에서 셋이 됐다(삭제는 선택 후 Delete 로 일원화).
-    expect(functionTargets()).toEqual(['선택', '작도', '설명']);
+  // 2026-09-03 — **[지우기]만 "같은 도구 한 번 더 = 고정" 관례를 비켜 간다**(기현 지시:
+  // *"다시 지우기 버튼을 누르면 선택으로 복귀"*). 리듀서의 `TOOL_SET` 은 고정 허용 목록
+  // (`LOCKABLE_TOOLS`)에 없는 도구를 한 번 더 받으면 **상태를 그대로 돌려준다** — 즉 레일이
+  // 가로채지 않으면 재클릭이 조용히 죽고 세 출구 중 하나가 사라진다. 그 가로채기를 잰다.
+  it('켜진 [지우기]를 다시 누르면 select 로 돌아간다 — 재클릭이 고정이 아니라 출구다', async () => {
+    const onSelectTool = vi.fn<(t: ToolId) => void>();
+    renderWithTool('eraser', onSelectTool);
+    await userEvent.setup().click(screen.getByRole('button', { name: /^지우기$/ }));
+    expect(onSelectTool).toHaveBeenCalledWith('select');
   });
 
-  it('접힌 2종(선·메모)은 닫힌 서랍 안이라 첫 화면 표적이 아니다', () => {
+  it('대조군 — 꺼진 [지우기]를 누르면 그 도구가 켜진다(출구가 입구까지 삼키지 않았다)', async () => {
+    const onSelectTool = vi.fn<(t: ToolId) => void>();
+    renderWithTool('select', onSelectTool);
+    await userEvent.setup().click(screen.getByRole('button', { name: /^지우기$/ }));
+    expect(onSelectTool).toHaveBeenCalledWith('eraser');
+  });
+
+  it('대조군 — [메모]는 관례 그대로다: 켜진 채 다시 눌러도 자기 id 를 보낸다(고정 토글)', async () => {
+    const onSelectTool = vi.fn<(t: ToolId) => void>();
+    renderWithTool('note', onSelectTool);
+    await userEvent.setup().click(screen.getByRole('button', { name: /^메모$/ }));
+    expect(onSelectTool).toHaveBeenCalledWith('note');
+  });
+
+  it('접힌 것은 선(작도 서랍)뿐이다 — 메모는 이제 상시 표적이다', () => {
     // 숨기기(display:none)가 아니라 **DOM 에 없음**이라야 표적 수가 실제로 준다.
     render(<ControlledRail />);
-    for (const label of ['선', '메모']) {
-      expect(hasTool(label), label).toBe(false);
-    }
+    // 2026-08-27 — 설명 손잡이는 폐기됐다(기현 지시: 서랍에 다른 기능 들어갈 가능성 없음) — 남아 있으면 회귀다.
+    expect(screen.queryByRole('button', { name: /^설명/ }), '손잡이가 남아 있다').toBeNull();
+    expect(hasTool('선'), '선은 작도 서랍 안이라 안 보인다').toBe(false);
+    expect(hasTool('메모'), '메모는 서랍이 사라져 상시로 보인다').toBe(true);
     expect(expanded('작도')).toBe('false');
-    expect(expanded('설명')).toBe('false');
   });
 
-  it('작도 손잡이를 누르면 선이 나온다 — 메모는 그대로 접혀 있다(대조군)', async () => {
+  it('작도 손잡이를 누르면 선·자유 그리기가 나온다 — 메모는 그대로 접혀 있다(대조군)', async () => {
     render(<ControlledRail />);
     const user = userEvent.setup();
     await user.click(handle('작도'));
     expect(expanded('작도')).toBe('true');
     expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();
-    for (const label of ['선']) expect(hasTool(label), label).toBe(true);
-    // 대조군이 없으면 "손잡이 아무거나 누르면 전부 열린다" 인 구현도 통과한다.
-    expect(hasTool('메모')).toBe(false);
-    expect(expanded('설명')).toBe('false');
-  });
-
-  it('설명 손잡이를 누르면 메모가 나온다 — 선은 그대로 접혀 있다(대조군)', async () => {
-    // 서랍을 둘로 가른 값이 여기 있다: 코트에 설명만 붙이는 사람이 화살표 2종을 상시
-    // 표적으로 떠안지 않는다. 한 서랍이면 이 it 이 성립하지 않는다.
-    render(<ControlledRail />);
-    const user = userEvent.setup();
-    await user.click(handle('설명'));
-    expect(expanded('설명')).toBe('true');
-    expect(screen.getByRole('group', { name: '설명 도구' })).toBeInTheDocument();
+    // 🔁 2026-09-03 — `자유` 가 합류했다(기현 지시). **서랍 안**이라 첫 화면 표적은 안 늘고,
+    //    서랍을 연 상태의 예산만 하나 오른다(boardTargetBudget 머리말의 그 셈).
+    for (const label of ['선', '자유']) expect(hasTool(label), label).toBe(true);
+    // 대조군: 서랍을 열어도 상시 도구는 그대로다(메모는 원래 보인다 — 서랍과 무관).
     expect(hasTool('메모')).toBe(true);
-    for (const label of ['선']) expect(hasTool(label), label).toBe(false);
-    expect(expanded('작도')).toBe('false');
   });
-
-
-
 
   it('서랍 안 도구를 누르면 그 도구가 켜진다 — 접었지 없애지 않았다', async () => {
     const onSelectTool = vi.fn<(t: ToolId) => void>();
@@ -149,226 +136,7 @@ describe('ToolRail — 기능 구역', () => {
     // 대조군: 손잡이 자체는 도구를 고르지 않는다(열고 닫기만 한다) — 위 1회가 전부다.
     expect(onSelectTool).toHaveBeenCalledTimes(1);
   });
-
-  it('손잡이 둘 다 --hit 손잡이다 — 서랍을 여는 것이 44 미만이면 접은 값이 없다', () => {
-    render(<ControlledRail />);
-    for (const label of ['작도', '설명'] as const) {
-      expect(handle(label).style.minWidth, label).toBe('var(--hit)');
-      expect(handle(label).style.minHeight, label).toBe('var(--hit)');
-      expect(handle(label).style.width, label).toBe('52px');
-    }
-  });
-
-  it("'선수' 는 모드 버튼이 아니라 칩으로 놓인다", () => {
-    // 개체를 모드 버튼으로 두면 "고르고 → 찍는" 2단계가 되고, 그게 공개판 최대 불만이었다.
-    render(<ControlledRail chairSlots={SLOTS} />);
-    expect(screen.queryByRole('button', { name: /^선수$/ })).toBeNull();
-    expect(screen.getByRole('button', { name: '2번 선수 배치' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'G번 선수 배치' })).toBeInTheDocument();
-  });
 });
-
-// ─── 세로 트레이의 **좌표 모형** ────────────────────────────────────────────────
-// jsdom 에는 레이아웃이 없다 — `getBoundingClientRect()` 가 전부 0 을 돌려주므로 *"서랍을
-// 열어도 위쪽 항목이 한 픽셀도 안 움직인다"*(§3 불변식 1)를 브라우저에게 물어볼 수 없다.
-// 그래서 트레이가 실제로 쓰는 **flex 상자 모형을 여기서 다시 계산한다**: 크기·gap·padding·
-// margin·wrap 이 전부 인라인 style 에 선언돼 있다.
-// `var(--hit)`·`calc(...)`·`100%` 는 §5.4 기본 44 로 푼다 — trayMetrics 의 픽셀 함수와 같은 해석이다.
-//
-// **문서 순서보다 강한 이유**: 순서가 그대로여도 위쪽 어딘가의 크기·gap·padding 이 바뀌면
-// 아래 항목의 좌표는 움직인다. 그 경우를 잡는다(3.-1 은 순서로만 쟀고 이 자리를 열어 뒀다).
-// **못 보는 것**: CSS 파일 쪽 규칙과 `order`, 교차축 정렬(alignItems). 흐름 밖(position:absolute)·
-// 화면 밖(sr-only)은 아예 세지 않는다 — 실제 CSS 도 그것들에 자리를 주지 않는다.
-//
-// ── 2026-08-14 P3 로 모형을 두 군데 넓혔다 (설계서 §6 의 4단계 절차) ─────────────────────
-//  ① **wrap** — 트레이가 유동 폭이 되면서 개체·기능 구역이 column 에서 row + wrap 으로 바뀌었다.
-//     wrap 을 모르는 모형은 모든 항목을 한 줄에 세워 놓고 "아무도 안 움직였다" 고 답한다.
-//     그래서 트레이 폭(=칩 열 수)이 모형의 **입력**이 됐다: `trayBoxes(cols)`.
-//  ② **x 좌표** — 이게 없으면 §6 이 요구한 반증 실험이 그냥 통과해 버린다. 서랍 손잡이를 도구
-//     그룹 **앞**으로 옮기면 선택·지우개가 오른쪽으로 밀리는데 wrap 축에서는 **y 가 한 픽셀도
-//     안 변한다.** 세로로 쌓이던 시절 y 가 하던 일을 이제 x 가 한다.
-//     (실제로 2026-08-14 에 이 반증을 돌려 확인했다 — 아래 '반증 실험' it 이 그 절차다.)
-const HIT_PX = 44;
-/** 칩 `cols` 열짜리 트레이의 안쪽 폭. 좌우 패딩이 0 이라 이것이 곧 트레이 폭이다. */
-const trayW = (cols: number): number => HIT_PX * cols + 5 * (cols - 1);
-
-/** 치수 하나를 픽셀로. `100%` 는 부모 안쪽 폭(basis)으로 푼다.
- *  못 푸는 문자열은 0 이다 — 그 자리는 아래 대조군 it 들이 지킨다. */
-function pxOf(v: string, basis = 0): number {
-  if (!v) return 0;
-  const s = v.trim();
-  if (s === CHIP_BOX_H_CSS) return trayChipBoxPx(HIT_PX).h;
-  if (s === 'var(--hit)') return HIT_PX;
-  if (s === '100%') return basis;
-  // 트레이 하한·상한 폭 — `calc(var(--hit) * N + Mpx)`.
-  const calc = /^calc\(var\(--hit\) \* (\d+) \+ (\d+)px\)$/.exec(s);
-  if (calc) return HIT_PX * Number(calc[1]) + Number(calc[2]);
-  const m = /^(-?[\d.]+)px$/.exec(s);
-  return m ? Number(m[1]) : 0;
-}
-
-interface TrayBox {
-  name: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-interface Measured {
-  w: number;
-  h: number;
-  /** 이 요소의 **마진 상자 원점** 기준 좌표. 부모가 자기 자리만큼 밀어 준다. */
-  boxes: TrayBox[];
-}
-
-/** 줄바꿈 판정의 부동소수 여유. */
-const EPS = 0.5;
-
-/** 이름 — 스크린리더 이름이 있으면 그것, 없으면 흐름 안 텍스트(배지·활성 링은 absolute 라 뺀다). */
-function nameOf(el: HTMLElement): string {
-  const label = el.getAttribute('aria-label');
-  if (label) return label;
-  const clone = el.cloneNode(true) as HTMLElement;
-  for (const d of [...clone.querySelectorAll<HTMLElement>('*')]) if (d.style.position === 'absolute') d.remove();
-  // 여는 방향 표식 넷 다 뺀다. `◂`·`▴` 는 2026-08-14 플라이아웃 때 생겼는데 이 정규식은
-  // `▸`·`▾` 만 걸러 왔다 — 손잡이를 이름으로 찾는 단언이 없어서 안 드러났을 뿐이다.
-  return (clone.textContent ?? '').replace(/[▸▾◂▴]/g, '').replace(/\s+/g, ' ').trim() || '·';
-}
-
-/** 한 상자를 재고 자기 크기(margin 포함)와 안쪽 상자들의 좌표를 돌려준다.
- *  선언된 **높이**가 있으면 잎이다 — 버튼·칩·구분선이 그렇고, 그 안쪽(아이콘·라벨)은 상자
- *  크기를 바꾸지 못하므로 안 들어간다.
- *  `stretch` 는 "부모가 세로(column)라 교차축으로 늘어난다" 는 뜻이다 — 가로(row) 부모의
- *  자식은 flex 항목이라 폭이 **내용 기준**이다(flex-basis auto).
- *  jsdom 은 축약형을 longhand 로 펼쳐 두므로 longhand 만 읽는다(둘 다 읽으면 이중 계산). */
-function measure(el: HTMLElement, availW: number, stretch: boolean): Measured {
-  const s = el.style;
-  const mt = pxOf(s.marginTop);
-  const mb = pxOf(s.marginBottom);
-  const ml = pxOf(s.marginLeft);
-  const mr = pxOf(s.marginRight);
-  const minW = pxOf(s.minWidth, availW);
-  const maxW = s.maxWidth ? pxOf(s.maxWidth, availW) : Number.POSITIVE_INFINITY;
-  const fit = (w: number): number => Math.min(maxW, Math.max(minW, w));
-  const explicitW = pxOf(s.width, availW);
-  const own = Math.max(pxOf(s.height), pxOf(s.minHeight));
-  if (own > 0) {
-    const w = fit(explicitW || (stretch ? availW : 0));
-    return { w: w + ml + mr, h: own + mt + mb, boxes: [{ name: nameOf(el), x: ml, y: mt, w, h: own }] };
-  }
-  const padT = pxOf(s.paddingTop);
-  const padB = pxOf(s.paddingBottom);
-  const padL = pxOf(s.paddingLeft);
-  const padR = pxOf(s.paddingRight);
-  const box = explicitW || (stretch ? fit(availW) : 0);
-  const inner = (box > 0 ? box : availW) - padL - padR;
-  const gap = pxOf(s.gap);
-  const row = s.flexDirection === 'row';
-  const wrap = s.flexWrap === 'wrap';
-  const boxes: TrayBox[] = [];
-  let cx = 0;
-  let cy = 0;
-  let lineH = 0;
-  let widest = 0;
-  let n = 0;
-  for (const child of [...el.children] as HTMLElement[]) {
-    if (child.style.position === 'absolute') continue; // 흐름 밖
-    if (child.classList.contains('sr-only')) continue; // 화면 밖(실제 CSS 도 absolute 다)
-    const m = measure(child, inner, !row);
-    if (row) {
-      if (n > 0) {
-        if (wrap && cx + gap + m.w > inner + EPS) {
-          cy += lineH + gap;
-          cx = 0;
-          lineH = 0;
-        } else {
-          cx += gap;
-        }
-      }
-      for (const b of m.boxes) boxes.push({ ...b, x: b.x + cx, y: b.y + cy });
-      cx += m.w;
-      lineH = Math.max(lineH, m.h);
-      widest = Math.max(widest, cx);
-    } else {
-      if (n > 0) cy += gap;
-      for (const b of m.boxes) boxes.push({ ...b, y: b.y + cy });
-      cy += m.h;
-      widest = Math.max(widest, m.w);
-    }
-    n += 1;
-  }
-  const dx = ml + padL;
-  const dy = mt + padT;
-  return {
-    w: (box > 0 ? box : fit(widest + padL + padR)) + ml + mr,
-    h: (row ? cy + lineH : cy) + padT + padB + mt + mb,
-    boxes: boxes.map((b) => ({ ...b, x: b.x + dx, y: b.y + dy })),
-  };
-}
-
-/** 트레이의 모든 상자를 문서 순서 + (x, y) 로. `cols` 는 칩 열 수 = 트레이 폭이다. */
-function trayBoxes(cols = 5): TrayBox[] {
-  return measure(document.querySelector<HTMLElement>('nav[data-tray]')!, trayW(cols), true).boxes;
-}
-
-const at = (boxes: TrayBox[], name: string): TrayBox => boxes.find((b) => b.name === name)!;
-const boxY = (boxes: TrayBox[], name: string): number => at(boxes, name).y;
-const boxX = (boxes: TrayBox[], name: string): number => at(boxes, name).x;
-
-/** 선수 8명 — 실제 드릴의 기본 인원(defaultCast: 두 팀 × G·2·3·4)이자 wrap 이 실제로
- *  일어나는 유일한 개수다. 2명짜리 SLOTS 로는 5열에서 줄이 안 넘어가 wrap 을 못 찌른다. */
-const EIGHT: ChairSlot[] = ['G', '2', '3', '4', 'G', '2', '3', '4'].map((n, i) => ({
-  id: `ch_w${i}` as ChairId,
-  number: n,
-  name: `선수${i}`,
-  color: i < 4 ? '#d93a3a' : '#1f6bb8',
-  ink: '#fff',
-  placed: false,
-}));
-const chipName = (i: number): string => `${EIGHT[i]!.number}번 ${EIGHT[i]!.name} 선수 배치`;
-
-describe('ToolRail — 좌표 모형이 wrap 을 실제로 흉내낸다 (§6 절차 ②)', () => {
-  // §6: *"모형이 실제를 못 흉내내면 이 테스트는 헛통과한다."* 그래서 **열 수를 바꿔가며 같은 줄/
-  // 다른 줄이 실제로 바뀌는지**를 먼저 못박는다. 이 절이 통과해야 아래 불변식 절이 의미를 갖는다.
-  it('칩은 열 수만큼 한 줄에 서고 그 다음이 아랫줄로 넘어간다 — 5열', () => {
-    render(<ControlledRail chairSlots={EIGHT} />);
-    const b = trayBoxes(5);
-    // 1행 다섯(같은 y, x 는 hit+gap 씩), 2행 셋(첫 칸 x 가 1행 첫 칸과 같다 = flex-start)
-    for (let i = 1; i < 5; i++) {
-      expect(boxY(b, chipName(i)), `칩 ${i}`).toBe(boxY(b, chipName(0)));
-      expect(boxX(b, chipName(i)), `칩 ${i}`).toBe(boxX(b, chipName(0)) + i * (HIT_PX + 5));
-    }
-    expect(boxY(b, chipName(5))).toBe(boxY(b, chipName(0)) + trayChipBoxPx(HIT_PX).h + 5);
-    expect(boxX(b, chipName(5)), '2행이 1행 아래에 안 맞춰 섰다 — justifyContent 가 center 인가').toBe(
-      boxX(b, chipName(0)),
-    );
-  });
-
-  it('2열로 좁히면 같은 칩이 다른 줄로 간다 — 모형이 폭을 정말 보고 있다', () => {
-    render(<ControlledRail chairSlots={EIGHT} />);
-    const wide = trayBoxes(5);
-    const narrowTray = trayBoxes(2);
-    // 5열에서는 0·2 가 같은 줄, 2열에서는 다른 줄. 같은 DOM 인데 답이 갈려야 한다.
-    expect(boxY(wide, chipName(2))).toBe(boxY(wide, chipName(0)));
-    expect(boxY(narrowTray, chipName(2))).toBeGreaterThan(boxY(narrowTray, chipName(0)));
-    expect(boxX(narrowTray, chipName(2))).toBe(boxX(narrowTray, chipName(0)));
-  });
-
-  it('도구 손잡이 셋도 폭 따라 접힌다 — 5열이면 한 줄, 2열이면 여러 줄', () => {
-    // 설계서 §4.3 검산표의 '도구 50 / 215' 가 정확히 이 두 경우다.
-    // 2026-08-16 — 지우개가 사라져 [선택] 다음 칸은 작도 손잡이다. 재는 것은 그대로 "옆에
-    // 서는가 / 아래로 접히는가" 이고, 기준 짝만 바뀌었다.
-    render(<ControlledRail chairSlots={EIGHT} />);
-    const wide = trayBoxes(5);
-    const narrowTray = trayBoxes(2);
-    expect(boxY(wide, '작도')).toBe(boxY(wide, '선택'));
-    expect(boxX(wide, '작도')).toBe(boxX(wide, '선택') + 52 + 5); // 버튼 52 + 기능 구역 gap 5
-    expect(boxY(narrowTray, '작도')).toBe(boxY(narrowTray, '선택') + 50 + 5); // 버튼 50 + gap 5
-    expect(boxX(narrowTray, '작도')).toBe(boxX(narrowTray, '선택'));
-  });
-});
-
 
 // ── 서랍 = 플라이아웃 (2026-08-14 기현님 재설계) ──────────────────────────────────────
 //
@@ -413,8 +181,11 @@ describe('ToolRail — 서랍 플라이아웃', () => {
   it('마우스가 올라가면 열린다 — 누르지 않아도 된다', async () => {
     render(<ControlledRail />);
     expect(screen.queryByRole('group', { name: '작도 도구' })).toBeNull();
+    expect(expanded('작도')).toBe('false');
     fireEvent.pointerEnter(handle('작도'), { pointerType: 'mouse' });
     expect(screen.getByRole('group', { name: '작도 도구' })).toBeInTheDocument();
+    // 열린 동안 손잡이도 자기 상태를 말한다 — aria-expanded.
+    expect(expanded('작도')).toBe('true');
   });
 
   it('터치의 pointerenter 로는 안 열린다 — 열자마자 click 이 도로 닫는 것을 막는다', () => {
@@ -457,14 +228,9 @@ describe('ToolRail — 서랍 플라이아웃', () => {
     }
   });
 
-  it('한 번에 하나만 열린다 — 둘이 겹쳐 뜨면 어느 것이 어느 서랍인지 사라진다', () => {
-    render(<ControlledRail />);
-    fireEvent.pointerEnter(handle('작도'), { pointerType: 'mouse' });
-    fireEvent.pointerEnter(handle('설명'), { pointerType: 'mouse' });
-    expect(screen.queryByRole('group', { name: '작도 도구' })).toBeNull();
-    expect(screen.getByRole('group', { name: '설명 도구' })).toBeInTheDocument();
-  });
-
+  // ⚠️ '한 번에 하나만 열린다' 는 서랍이 하나가 되며 잴 대상이 없어졌다(2026-08-27).
+  // `useFlyout` 의 그 규율 자체는 [보드 설정]과 무관하게 살아 있고, 서랍이 다시 둘이 되면
+  // 이 자리에 되살릴 것 — 그때는 열린 것이 바뀌는지를 재면 된다.
   it('Esc 로 닫힌다', () => {
     render(<ControlledRail />);
     fireEvent.pointerEnter(handle('작도'), { pointerType: 'mouse' });
@@ -494,6 +260,7 @@ describe('ToolRail — 개체 상자', () => {
         onConeSlotChange={() => {}}
         {...FULL}
         ballCount={3}
+        coneCounts={[5, 1]}
         chairSlots={[]}
         pendingPlayerId={null}
         onArmPlayer={() => {}}
@@ -505,6 +272,13 @@ describe('ToolRail — 개체 상자', () => {
     // 개수는 **이름**이 아니라 설명이다 — 이름이 흔들리면 같은 버튼이 매번 다르게 들린다.
     expect(ballBtn).toHaveAccessibleName('공');
     expect(ballBtn).toHaveAccessibleDescription(`${BALL.maxCount - 3}개 남음`);
+    // 콘은 색마다 상자가 따로고 남은 수도 따로다 — 배지 하나로 두 색의 재고를 나타낼 수 없다.
+    expect(screen.getByRole('button', { name: '주황 콘' })).toHaveAccessibleDescription(
+      `${CONE.maxCountPerColor - 5}개 남음`,
+    );
+    expect(screen.getByRole('button', { name: '파랑 콘' })).toHaveAccessibleDescription(
+      `${CONE.maxCountPerColor - 1}개 남음`,
+    );
   });
 
   it('공 상자가 비면 aria-disabled 가 되고 남은 수가 0 이다', () => {
@@ -525,30 +299,6 @@ describe('ToolRail — 개체 상자', () => {
     const ballBtn = screen.getByRole('button', { name: /^공/ });
     expect(ballBtn).toHaveAttribute('aria-disabled', 'true');
     expect(ballBtn).toHaveAccessibleDescription(`상자가 비었습니다 — 최대 ${BALL.maxCount}개`);
-  });
-
-  it('콘은 색마다 상자가 따로고 남은 수도 따로다', () => {
-    // 배지 하나로 두 색의 재고를 나타낼 수 없다 — 그래서 재클릭 색 토글 팝오버를 버렸다.
-    render(
-      <ToolRail
-        tool="select"
-        onSelectTool={() => {}}
-        coneSlot={0}
-        onConeSlotChange={() => {}}
-        {...FULL}
-        coneCounts={[5, 1]}
-        chairSlots={[]}
-        pendingPlayerId={null}
-        onArmPlayer={() => {}}
-        courtLabel="풀 코트"
-      />,
-    );
-    expect(screen.getByRole('button', { name: '주황 콘' })).toHaveAccessibleDescription(
-      `${CONE.maxCountPerColor - 5}개 남음`,
-    );
-    expect(screen.getByRole('button', { name: '파랑 콘' })).toHaveAccessibleDescription(
-      `${CONE.maxCountPerColor - 1}개 남음`,
-    );
   });
 
   it('콘 상자를 누르면 그 색이 곧 선택된 색이 된다', async () => {

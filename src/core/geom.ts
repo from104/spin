@@ -17,51 +17,14 @@ export const dist2 = (a: Vec2, b: Vec2): number => {
   return dx * dx + dy * dy;
 };
 
-/** 표준 cubic-bezier(p1x,p1y,p2x,p2y) 타이밍 함수 팩토리.
- *  x(t) 에 대해 입력 x 를 만족하는 t 를 Newton–Raphson 4회 + 이분 보정으로 구하고 y(t) 를 반환한다
- *  (CSS cubic-bezier() 와 동일한 표준 솔버 — WebKit UnitBezier 알고리즘). */
-export function cubicBezier(p1x: number, p1y: number, p2x: number, p2y: number): (x: number) => number {
-  const cx = 3 * p1x;
-  const bx = 3 * (p2x - p1x) - cx;
-  const ax = 1 - cx - bx;
-  const cy = 3 * p1y;
-  const by = 3 * (p2y - p1y) - cy;
-  const ay = 1 - cy - by;
-
-  const sampleCurveX = (t: number): number => ((ax * t + bx) * t + cx) * t;
-  const sampleCurveY = (t: number): number => ((ay * t + by) * t + cy) * t;
-  const sampleCurveDerivativeX = (t: number): number => (3 * ax * t + 2 * bx) * t + cx;
-
-  function solveCurveX(x: number): number {
-    let t = x;
-    for (let i = 0; i < 4; i++) {
-      const dx = sampleCurveX(t) - x;
-      const d = sampleCurveDerivativeX(t);
-      if (Math.abs(d) < 1e-6) break;
-      t -= dx / d;
-    }
-    let lo = 0;
-    let hi = 1;
-    for (let i = 0; i < 20; i++) {
-      const x2 = sampleCurveX(t);
-      if (Math.abs(x2 - x) < 1e-7) break;
-      if (x2 < x) lo = t;
-      else hi = t;
-      t = (lo + hi) / 2;
-    }
-    return t;
-  }
-
-  return (x: number): number => {
-    if (x <= 0) return 0;
-    if (x >= 1) return 1;
-    return sampleCurveY(solveCurveX(x));
-  };
-}
-
 /** easeStandard = cubic-bezier(.4,0,.2,1) (§3.6/§6). 모듈 로드 시점의 부동소수 계산 순서에
- *  결정성 테스트가 의존하지 않도록, `cubicBezier(0.4,0,0.2,1)` 로 미리 계산해 둔 129점 값을
- *  소스에 그대로 하드코딩한다 (i/128, i=0..128). 런타임에는 이 표를 선형보간만 한다. */
+ *  결정성 테스트가 의존하지 않도록, 미리 계산해 둔 129점 값을 소스에 그대로 하드코딩한다
+ *  (i/128, i=0..128). 런타임에는 이 표를 선형보간만 한다.
+ *
+ *  표를 찍는 베지에 솔버는 여기 있었던 `cubicBezier` 인데, 표가 하드코딩이라 런타임 호출자가
+ *  하나도 없어 2026-08-31 에 **`scripts/gen-ease-lut.mjs` 로 옮겼다**(위생 청소). 표를 고칠
+ *  일이 생기면 `node scripts/gen-ease-lut.mjs`, 표가 그 솔버와 여전히 일치하는지 보려면
+ *  `--check` — 옮길 때 129점 전부 일치를 확인했다. */
 const EASE_STANDARD_LUT: readonly number[] = [
   0.000000000000, 0.000129118740, 0.000524575095, 0.001199110266, 0.002166300169, 0.003440616868, 0.005037493468, 0.006973392172,
   0.009265874904, 0.011933675624, 0.014996772992, 0.018476461475, 0.022395418222, 0.026777762020, 0.031649099360, 0.037036550959,

@@ -5,8 +5,9 @@ import type { Vec2 } from '../core/units.ts';
 import { lerpAngle, shortestDelta, arcTangentK } from '../core/angle.ts';
 import { easeStandard } from '../core/geom.ts';
 import type { ChairId, BallId, ConeId } from '../core/ids.ts';
-import type { Drill, DrillStep, ChairDef, NoteLabel, StoredBallRing } from './drill.ts';
+import type { Drill, DrillStep, ChairDef, NoteLabel, StoredBallRing, TeamSide } from './drill.ts';
 import type { Arrow } from './arrow.ts';
+import type { Stroke } from './stroke.ts';
 import { poseFromStored, type ChairPose } from './chair.ts';
 
 export { easeStandard };
@@ -37,6 +38,9 @@ export interface RenderBall {
    *  프레임으로 옮겨 싣는 표시 상태다). **PNG 가 이것을 읽는다** — 프레임에 안 실으면
    *  내보낸 그림에만 원이 사라지거나(또는 모든 공에 3 m 가 다시 뜨거나) 한다. */
   ring?: StoredBallRing;
+  /** 그 스텝에서 이 공을 **차는 팀**(세트피스 소유). 링과 같은 이유로 프레임에 싣는다 —
+   *  PNG 가 이것을 읽어 화살표를 그리고 5 m 판정의 방향을 정한다. 없으면 진영에서 파생한다. */
+  owner?: TeamSide;
 }
 export interface RenderCone {
   id: ConeId;
@@ -53,6 +57,10 @@ export interface RenderFrame {
   cones: RenderCone[];
   arrows: Array<Arrow & { opacity: number }>;
   notes: Array<NoteLabel & { opacity: number }>;
+  /** 자유 그리기 획(2026-09-03). 화살표와 나란한 자리다 — 시연(`PresentObjects`)과 PNG
+   *  (`buildStaticSvg`)은 스텝이 아니라 **이 프레임**을 소비하므로, 여기 없으면 그 두 경로는
+   *  획을 그릴 방법 자체가 없다(인쇄는 `step` 을 직접 읽어 해당 없음). */
+  strokes: Array<Stroke & { opacity: number }>;
 }
 
 const dirVec = (theta: number): Vec2 => ({ x: Math.cos(theta), y: Math.sin(theta) });
@@ -116,8 +124,13 @@ function interpList<T extends { id: string }>(
   return out;
 }
 
-/** stepIndex/t 는 sampleDrill 이 덮어쓴다 — 이 함수는 스텝 쌍 사이의 프레임 내용만 만든다. */
-export function interpolateSteps(d: Drill, from: DrillStep, to: DrillStep, e: number): RenderFrame {
+/** stepIndex/t 는 sampleDrill 이 덮어쓴다 — 이 함수는 스텝 쌍 사이의 프레임 내용만 만든다.
+ *
+ *  ⚠️ 첫 인자를 `Pick<Drill,'cast'>` 로 **좁혀 둔다**(2026-08-27). 실제로 읽는 것이 cast 뿐인데
+ *  `Drill` 을 요구하면, 드릴 전체를 안 가진 호출부 — 인쇄(`PrintCourt` 는 Pick 만 받는다) — 가
+ *  프레임을 못 만들어 **자기만의 정적 렌더를 새로 짜게 된다.** 그 중복이 곧 화면과 종이가
+ *  갈라지는 자리다(renderPaths.ts 머리말의 네 번째 사고). */
+export function interpolateSteps(d: Pick<Drill, 'cast'>, from: DrillStep, to: DrillStep, e: number): RenderFrame {
   const chairs: RenderChair[] = [];
   for (const def of d.cast.chairs) {
     const a = from.chairs[def.id];
@@ -144,14 +157,20 @@ export function interpolateSteps(d: Drill, from: DrillStep, to: DrillStep, e: nu
     if (presence === 'absent') continue;
     // 5.2 — '없음' 은 **키를 만들지 않는다**(`ring: undefined` 를 쓰면 toStrictEqual 비교와
     // JSON 왕복에서 `{}` 와 다른 것이 된다 — edits.ts omitKey 머리말의 함정과 같은 값).
-    const ring = def.ring !== undefined ? { ring: def.ring } : {};
+    // 링은 v9 부터 **스텝 소유**다. 보간하지 않고 `to`(지금 향하는 스텝)의 값을 쓴다 —
+    // 색·좌표와 달리 중간값이 없는 이산 상태이고, `cut` 이 "다음 스텝이 이긴다" 로 정한
+    // 방향과 같다(drill.ts 사슬 절). 그래서 원은 스텝 경계에서 즉시 갈린다.
+    const r = to.ballRings?.[def.id];
+    const ring = r !== undefined ? { ring: r } : {};
+    const o = to.ballOwner?.[def.id];
+    const owner = o !== undefined ? { owner: o } : {};
     if (presence === 'both') {
       const p = lerpVec(a!, b!, e);
-      balls.push({ id: def.id, x: p.x, y: p.y, opacity: 1, ...ring });
+      balls.push({ id: def.id, x: p.x, y: p.y, opacity: 1, ...ring, ...owner });
     } else if (presence === 'exit') {
-      balls.push({ id: def.id, x: a!.x, y: a!.y, opacity: 1 - e, ...ring });
+      balls.push({ id: def.id, x: a!.x, y: a!.y, opacity: 1 - e, ...ring, ...owner });
     } else {
-      balls.push({ id: def.id, x: b!.x, y: b!.y, opacity: e, ...ring });
+      balls.push({ id: def.id, x: b!.x, y: b!.y, opacity: e, ...ring, ...owner });
     }
   }
 
@@ -186,11 +205,32 @@ export function interpolateSteps(d: Drill, from: DrillStep, to: DrillStep, e: nu
     opacity: 1,
   }));
 
-  return { stepIndex: -1, t: e, chairs, balls, cones, arrows, notes };
+  // 획 — **점 수가 같을 때만** 점별 보간, 다르면 `to` 로 스냅(색·굵기·화살촉은 늘 `to` 쪽,
+  // 화살표의 `...b` 와 같다).
+  //
+  // ⚠️ 스냅은 타협이 아니라 규약이다. 같은 id 의 획이라도 스텝마다 점 수가 다를 수 있는데
+  // (다시 그렸다), 그 둘을 점별로 이으면 5번째 점이 12번째 점을 향해 기어가는 형체 불명의
+  // 애니메이션이 나온다. 편집기 트윈(`store/editor/tween.ts`)이 같은 판정을 **키에 점 수를
+  // 넣어** 구조적으로 얻는데, 여기서는 두 획을 한자리에서 보므로 조건으로 적는다 — 두 경로가
+  // 같은 그림을 내야 하므로 규칙이 갈리면 안 된다(`model/stroke.ts` 의 `strokePointKey` 주석이
+  // 이 규약의 단일 출처다).
+  const strokes = interpList(from.strokes ?? [], to.strokes ?? [], e, (a, b, ee) => {
+    if (a.points.length !== b.points.length) return { ...b, opacity: 1 };
+    return { ...b, points: b.points.map((p, i) => lerpVec(a.points[i]!, p, ee)), opacity: 1 };
+  });
+
+  return { stepIndex: -1, t: e, chairs, balls, cones, arrows, notes, strokes };
 }
 
 export function effectiveStepMs(s: DrillStep, baseMs: number): number {
   return s.durationMs ?? baseMs;
+}
+
+/** 스텝 하나의 **정적** 프레임 — 보간 없이 그 스텝 그대로다(`e=0`, 같은 스텝을 양끝에 준다).
+ *  인쇄·PNG 처럼 "한 장면을 한 번 그리는" 경로가 판정 함수(ruleMarkup 등)에 넘길 자료다.
+ *  이 어댑터가 없으면 그런 경로마다 프레임 조립을 손으로 다시 적게 된다. */
+export function staticFrameOf(d: Pick<Drill, 'cast'>, step: DrillStep, stepIndex = 0): RenderFrame {
+  return { ...interpolateSteps(d, step, step, 0), stepIndex, t: 0 };
 }
 
 export function drillTotalMs(d: Drill, baseMs: number): number {
@@ -207,7 +247,7 @@ export function sampleDrill(
   o: { baseMs: number; transitionMs: number; loop: boolean },
 ): RenderFrame {
   const n = d.steps.length;
-  if (n === 0) return { stepIndex: 0, t: 0, chairs: [], balls: [], cones: [], arrows: [], notes: [] };
+  if (n === 0) return { stepIndex: 0, t: 0, chairs: [], balls: [], cones: [], arrows: [], notes: [], strokes: [] };
 
   const starts: number[] = new Array(n);
   let acc = 0;

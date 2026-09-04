@@ -7,19 +7,34 @@
 // 실제 구현(콘 → 화살표 → 휠체어 → 공 순서로 한 그룹에 나열)은 둘 다 화살표가 콘 "다음"·
 // 휠체어 "앞"에 오는 단일 순서를 쓴다. §0 원칙("계약서와 실제 코드가 다르면 실제 코드가
 // 맞다")에 따라 이 파일도 CourtThumbnail 과 같은 단일 순서(콘→화살표→휠체어→공→메모)를 쓴다.
+//
+// ── 획은 어디에 끼는가 (2026-09-03) ──────────────────────────────────────────────────
+// **콘 → 획 → 화살표 → 휠체어 → 공 → 메모.** 획은 화살표 바로 **아래**다.
+//
+// 근거는 케이싱이다. 두 선 다 검정 케이싱을 깔고(대비 요건), 케이싱은 자기 아래 지나가는
+// 남의 선을 **지운다** — 겹치는 자리에서 한쪽은 반드시 끊긴다. 그러니 "누가 끊겨도 되는가" 를
+// 정해야 하는데, 화살표는 어휘가 좁고 뜻이 정해진 전술 표기(경로·패스)이고 획은 그 위에
+// 손으로 덧쓰는 자유 필기다. 자유 필기 한 줄이 판을 가로지르며 화살표 여럿을 토막 내는 것이
+// 그 반대보다 잃는 것이 크다. 아래에 두어도 획은 도형·콘 위라 묻히지 않는다.
+//
+// (같은 부류 안에서 앞의 것이 뒤의 것 케이싱에 덮이는 것은 화살표에도 이미 있는 규약이다 —
+//  `ArrowPath.tsx`. 여기서 정한 것은 **부류 사이**의 순서뿐이다.)
 import { useLayoutEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 import type { Arrow } from '../model/arrow.ts';
 import type { NoteLabel as NoteLabelData, TeamSide } from '../model/drill.ts';
 import type { TransformWriter } from './transformWriter.ts';
+import type { RuleOverlayApi } from './ruleOverlay.ts';
 import type { ZoneConfig } from '../model/chair.ts';
 import { ChairChip } from './objects/ChairChip.tsx';
 import { BallDot } from './objects/BallDot.tsx';
-import { GoalPost } from './objects/GoalPost.tsx';
+import { GoalHomeGhost, GoalPost } from './objects/GoalPost.tsx';
 import { ConeMark } from './objects/ConeMark.tsx';
 import { NoteLabel } from './objects/NoteLabel.tsx';
 import { ArrowPath } from './objects/ArrowPath.tsx';
+import { StrokePath } from './objects/StrokePath.tsx';
+import type { Stroke } from '../model/stroke.ts';
 import { useT } from '../i18n/useT.ts';
 
 export interface ObjectLayerChair {
@@ -44,8 +59,20 @@ export interface ObjectLayerProps {
   cones: readonly ObjectLayerCone[];
   /** 골대 포스트 id(`gp_0`…). 편집기에서만 넘긴다 — 시연·썸네일은 코트 라인의 정적 표시를 쓴다. */
   goals?: readonly string[];
+  /** 그중 **제자리를 벗어난** 것들. 이 골대만 복귀 커서를 얻고 눌린다(GoalPost 머리말). */
+  displacedGoals?: ReadonlySet<string>;
+  /** 골대의 제자리(코트 정의 좌표). `goals` 와 **같은 순서**다. 밀린 골대에 점선 유령을
+   *  남기는 데만 쓴다 — 없으면 유령 없이 강조 링만 뜬다(마우스는 커서로도 안다). */
+  goalHomes?: readonly { x: number; y: number }[];
+  /** 골대 받침판을 놓을 방향. `goals` 와 **같은 순서**다(2026-08-30 실물 사진). */
+  goalBaseDirs?: readonly ({ x: number; y: number } | null)[];
+  /** 밀린 골대를 눌렀을 때 — **모든** 골대를 원위치로. 편집기에서만 넘긴다. */
+  onGoalReturn?: () => void;
   notes: readonly NoteLabelData[];
   arrows: readonly Arrow[];
+  /** 자유 그리기 획(2026-09-03). 화살표 **바로 아래** 층이다(머리말의 z-order 근거).
+   *  옵셔널이다 — 획이 생기기 전 호출부(테스트 픽스처 포함)를 전부 고치게 만들 이유가 없다. */
+  strokes?: readonly Stroke[];
   /** ArrowMarkers 가 이 SVG 루트에 만든 `useId()` 접두사. */
   markerUid: string;
   selection: ReadonlySet<string>;
@@ -68,6 +95,10 @@ export interface ObjectLayerProps {
   ignored?: ReadonlySet<string>;
   /** 페이드 지속(ms). stepTransitionMs 와 같은 값이어야 위치 트윈과 한 시계로 끝난다. */
   fadeMs?: number;
+  /** 아웃오브플레이(Law 9) 공 채움색 갱신 — 있으면(=규칙 존 스위치가 배선된 화면) 공마다
+   *  circle 을 등록해 `rules.write()` 가 매 프레임 직접 fill 을 바꾼다(BallDot.tsx 참고).
+   *  옵셔널이다 — 이 값을 안 넘기는 소비처(예: 인쇄 미리보기)는 recolor 가 그냥 없다. */
+  rules?: RuleOverlayApi;
   onObjectPointerDown?(id: string, e: ReactPointerEvent<SVGGElement>): void;
   onObjectKeyDown?(id: string, e: ReactKeyboardEvent<SVGGElement>): void;
 }
@@ -78,8 +109,13 @@ export function ObjectLayer({
   balls,
   cones,
   goals,
+  displacedGoals,
+  goalHomes,
+  goalBaseDirs,
+  onGoalReturn,
   notes,
   arrows,
+  strokes,
   markerUid,
   selection,
   zoneCursors,
@@ -89,6 +125,7 @@ export function ObjectLayer({
   fadeMs,
   locked,
   ignored,
+  rules,
   onObjectPointerDown,
   onObjectKeyDown,
 }: ObjectLayerProps) {
@@ -126,8 +163,22 @@ export function ObjectLayer({
 
   return (
     <>
-      {(goals ?? []).map((gid) => (
-        <GoalPost key={gid} id={gid} writer={writer} />
+      {/* 유령이 **먼저** — 제자리는 밀린 골대와 겹칠 수 있고(막 밀리기 시작한 순간), 그때
+          위에 오면 진짜 골대를 가린다. */}
+      {(goals ?? []).map((gid, i) => {
+        const home = goalHomes?.[i];
+        if (!home || !displacedGoals?.has(gid)) return null;
+        return <GoalHomeGhost key={`${gid}_home`} x={home.x} y={home.y} />;
+      })}
+      {(goals ?? []).map((gid, i) => (
+        <GoalPost
+          key={gid}
+          id={gid}
+          writer={writer}
+          baseDir={goalBaseDirs?.[i] ?? null}
+          displaced={displacedGoals?.has(gid) ?? false}
+          onReturn={onGoalReturn}
+        />
       ))}
       {cones.map((c) => (
         <ConeMark
@@ -142,6 +193,20 @@ export function ObjectLayer({
           onPointerDown={onObjectPointerDown}
           onKeyDown={onObjectKeyDown}
         />
+      ))}
+      {(strokes ?? []).map((s) => (
+        <g key={s.id} {...fadeProps(s.id)}>
+          <StrokePath
+            stroke={s}
+            markerUid={markerUid}
+            writer={writer}
+            selected={selection.has(s.id)}
+            locked={locked?.has(s.id)}
+            active={activeId === s.id}
+            onPointerDown={onObjectPointerDown}
+            onKeyDown={onObjectKeyDown}
+          />
+        </g>
       ))}
       {arrows.map((a) => (
         <g key={a.id} {...fadeProps(a.id)}>
@@ -185,6 +250,7 @@ export function ObjectLayer({
           locked={locked?.has(id)}
           active={activeId === id}
           ariaLabel={t('present.objects.ballAriaLabel')}
+          rules={rules}
           onPointerDown={onObjectPointerDown}
           onKeyDown={onObjectKeyDown}
         />

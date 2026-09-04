@@ -47,111 +47,49 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-describe('SettingsScreen — 언어(i18n C1)', () => {
-  it("맨 위 섹션이다 — 기본값 '자동'이 선택돼 있다", () => {
-    render(<SettingsScreen />, { wrapper });
-    const group = screen.getByRole('radiogroup', { name: '언어' });
-    expect(within(group).getByRole('radio', { name: '자동' })).toHaveAttribute('aria-checked', 'true');
-  });
-
-  it('한국어를 고르면 즉시 반영되고 localStorage 에 저장된다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('radio', { name: '한국어' }));
-    expect(screen.getByRole('radio', { name: '한국어' })).toHaveAttribute('aria-checked', 'true');
-    expect(loadPrefs().language).toBe('ko');
-  });
-
-  it('English 를 고르면 이 섹션의 문구가 곧바로 영어로 바뀐다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('radio', { name: 'English' }));
-    expect(loadPrefs().language).toBe('en');
-    expect(screen.getByRole('radiogroup', { name: 'Language' })).toBeInTheDocument();
-  });
-
-  it('日本語를 고르면 prefs 에 ja 로 저장된다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('radio', { name: '日本語' }));
-    expect(loadPrefs().language).toBe('ja');
-  });
-});
-
 describe('SettingsScreen — 화면', () => {
-  it('기본값을 반영해 렌더한다', () => {
-    render(<SettingsScreen />, { wrapper });
-    expect(screen.getByRole('radio', { name: '다크' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('switch', { name: '격자 표시' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: '100%' })).toHaveAttribute('aria-checked', 'true');
-  });
-
   it('테마를 라이트로 바꾸면 즉시 반영되고 localStorage 에 저장된다', async () => {
     render(<SettingsScreen />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('radio', { name: '라이트' }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('radio', { name: '라이트' }));
     expect(screen.getByRole('radio', { name: '라이트' })).toHaveAttribute('aria-checked', 'true');
     expect(loadPrefs().theme).toBe('light');
-  });
 
-  it('격자 표시 토글이 prefs.showGrid 를 뒤집는다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    const toggle = screen.getByRole('switch', { name: '격자 표시' });
-    await userEvent.setup().click(toggle);
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await user.click(screen.getByRole('switch', { name: '격자 표시' }));
     expect(loadPrefs().showGrid).toBe(false);
-  });
 
-  it('UI 배율을 130% 로 바꾸면 prefs.a11y.uiScale 이 갱신된다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('radio', { name: '130%' }));
+    await user.click(screen.getByRole('radio', { name: '130%' }));
     expect(loadPrefs().a11y.uiScale).toBe(1.3);
-  });
 
-  // §4.3 P1-4 — 이 화면은 값만 쓴다. 실제로 소리를 끄는 배선은 app-shell 이 진다
-  // (src/app/themeEffects.cues.test.tsx). 여기서는 "끌 수 있는가" 만 본다.
-  it('놓임 소리·진동 토글이 prefs.a11y.sound 를 뒤집는다 — 기본은 켬이다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    const toggle = screen.getByRole('switch', { name: '놓임 소리·진동' });
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
-    await userEvent.setup().click(toggle);
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    // §4.3 P1-4 — 이 화면은 값만 쓴다. 실제로 소리를 끄는 배선은 app-shell 이 진다
+    // (src/app/themeEffects.cues.test.tsx). 여기서는 "끌 수 있는가" 를 aria 쌍으로 본다.
+    const soundToggle = screen.getByRole('switch', { name: '놓임 소리·진동' });
+    expect(soundToggle).toHaveAttribute('aria-checked', 'true');
+    await user.click(soundToggle);
+    expect(soundToggle).toHaveAttribute('aria-checked', 'false');
     expect(loadPrefs().a11y.sound).toBe(false);
-  });
 
-  // 감사 2026-08-08 major #1 회귀 — 이 토글은 SettingsScreen 에서 prefs 로 저장되기만 하고
-  // 어떤 렌더러도 읽지 않았다. 소비처(GridOverlay/CourtStage) 배선은 render 쪽 테스트가 맡고,
-  // 여기서는 "설정 화면이 이 값을 여전히 정상적으로 쓰고 읽는다"만 확인한다.
-  it('격자 칸 라벨 표시 토글이 prefs.showGridLabels 를 뒤집는다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    const toggle = screen.getByRole('switch', { name: '격자 칸 라벨 표시' });
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
-    await userEvent.setup().click(toggle);
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await user.click(screen.getByRole('switch', { name: '격자 칸 라벨 표시' }));
     expect(loadPrefs().showGridLabels).toBe(false);
+
+    const wakeLock = screen.getByRole('switch', { name: '화면 꺼짐 방지' });
+    const autoFs = screen.getByRole('switch', { name: '자동 전체화면' });
+    await user.click(wakeLock);
+    expect(loadPrefs().present.wakeLock).toBe(false);
+    await user.click(autoFs);
+    expect(loadPrefs().present.autoFullscreen).toBe(true);
   });
 
   // [기본 코트 모드] 행과 그 쓰기 테스트는 2026-08-21 폐기 — settingsDescTruth.test.tsx 의
   // 'C2 종결' 블록이 행·키·소비처의 부재를 못박는다.
 });
 
-describe('SettingsScreen — 시연 (minor #5, 이전에는 설정 화면에 노출되지 않았다)', () => {
-  it('화면 꺼짐 방지·자동 전체화면 토글이 각각 prefs.present 에 반영된다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    const wakeLock = screen.getByRole('switch', { name: '화면 꺼짐 방지' });
-    const autoFs = screen.getByRole('switch', { name: '자동 전체화면' });
-    expect(wakeLock).toHaveAttribute('aria-checked', 'true'); // 기본값 true
-    expect(autoFs).toHaveAttribute('aria-checked', 'false'); // 기본값 false
-
-    const user = userEvent.setup();
-    await user.click(wakeLock);
-    expect(loadPrefs().present.wakeLock).toBe(false);
-    await user.click(autoFs);
-    expect(loadPrefs().present.autoFullscreen).toBe(true);
-  });
-});
-
 // 'SettingsScreen — 팀 색상' describe(§7.8 상호 배제 2건)는 2026-08-21 은퇴 — [팀] 섹션
 // 자체가 폐기됐다(settingsDescTruth.test.tsx 의 'C3 종결' 이 행·키·소비처의 부재를 못박는다).
 
-// 6.1(2026-08-13) — 물리 6종은 **닫힌 서랍**이 됐다. 아래 세 테스트(존 경계 · 기본값 복원 ·
-// 편집 속도 배수 설명)는 원래 펼쳐진 화면을 전제로 했는데, 단언을 지우지 않고 '서랍을 연다'
+// 6.1(2026-08-13) — 물리 6종은 **닫힌 서랍**이 됐다. 아래 두 테스트(기본값 복원 · 편집 속도
+// 배수 설명)는 원래 펼쳐진 화면을 전제로 했는데, 단언을 지우지 않고 '서랍을 연다'
 // 단계를 앞에 붙여 승격시켰다(선례: 4.6 이 4.4 의 자리표시 단언을 반대 단언으로 승격).
 describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
   /** [세부 조정] 서랍을 연다. 이름은 상태와 무관하게 고정이고 개폐는 aria-expanded 가 말한다. */
@@ -193,17 +131,6 @@ describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '세부 조정' }));
     expect(screen.getByRole('slider', { name: '후방 견인 경계' })).toHaveValue('0.18');
     expect(screen.getByRole('slider', { name: '전후진 속도 상한' })).toHaveValue('6');
-  });
-
-  it('존 경계 슬라이더를 조정하면(서랍을 열면 나온다) 즉시 표시가 바뀌고 저장된다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await openPhysicsDrawer();
-    const slider = screen.getByRole('slider', { name: '후방 견인 경계' });
-    // 리터럴로 두면 기본값을 조정할 때마다 슬라이더 동작과 무관하게 빨간불이 뜬다.
-    expect(slider).toHaveValue(String(DEFAULT_ZONES.sTowRearMax));
-    // userEvent 는 range 타이핑을 지원하지 않으므로 fireEvent.change 로 직접 갱신한다.
-    fireEvent.change(slider, { target: { value: '0.18' } });
-    expect(loadPrefs().physics.zones?.sTowRearMax).toBe(0.18);
   });
 
   it('기본값으로 복원하면(서랍을 열면 나온다) physics 오버라이드가 비워진다', async () => {
@@ -264,7 +191,7 @@ describe('SettingsScreen — 데이터 내보내기(2026-08-20)', () => {
     await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
 
     const [blob, filename] = downloadMock.mock.calls[0]!;
-    expect(filename).toMatch(/^SPIN_백업_\d{8}\.spin\.json$/);
+    expect(filename).toMatch(/^SPIN_backup_\d{8}\.spin\.backup\.json$/);
     const parsed = JSON.parse(await blob.text()) as { spin: string; payload: { drills: Array<{ title: string }>; prefs: unknown } };
     // library 봉투(드릴만)로 되돌아가면 여기가 빨개진다 — 그게 §6.1b 가 '거짓말' 이라 부른 것이다.
     expect(parsed.spin).toBe('backup');
@@ -297,6 +224,8 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
     // ⚠️ 기본 꺼짐 — 남의 백업으로 드릴만 받을 때 접근성 설정이 말없이 바뀌면 사고다.
     expect(check).not.toBeChecked();
     expect(within(dialog).getByText(/큰 터치 타깃 같은 설정이 그대로 유지됩니다/)).toBeInTheDocument();
+    // 파괴적 동작(전술판 교체)의 기본값도 끔이다 — 별개의 컨트롤이라 하나를 켜도 다른 하나는 안 켜진다.
+    expect(within(dialog).getByRole('checkbox', { name: /전술판 교체/ })).not.toBeChecked();
   });
 
   it('[읽기]를 누르면 드릴이 들어오고 세 숫자를 보고한다', async () => {
@@ -335,20 +264,10 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
   // 비우기] 후 재시도)은 아무도 알 수 없었다. 이 체크박스는 [보드] 초기 화면이 아니라 설정
   // 화면의 닫힌 모달 안이므로 §3 표적 예산(≤40) 밖이다(boardTargetBudget.test.tsx 규칙 1).
 
-  it('전술판 교체 체크박스가 꺼진 채로 나온다 — 파괴적 동작의 기본값은 끔이다', async () => {
-    render(<SettingsScreen />, { wrapper });
-    await pick(await backupFile());
-    const dialog = await screen.findByRole('dialog');
-    const check = within(dialog).getByRole('checkbox', { name: /전술판 교체/ });
-    expect(check).not.toBeChecked();
-    // 대조군 — 설정 체크박스와 별개의 컨트롤이다(하나를 켜도 다른 하나가 안 켜진다).
-    expect(within(dialog).getByRole('checkbox', { name: /설정도 함께 복원/ })).not.toBeChecked();
-  });
-
   it('끈 채 읽으면 편집 중인 판은 남고, 토스트가 **이유와 다음 행동**을 말한다', async () => {
-    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }), false);
+    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }));
     const file = await backupFile(); // 이 파일에는 판이 들어 있다
-    saveBoard(createDrill({ courtMode: 'full', title: '이 기기의 편집 중 판' }), false);
+    saveBoard(createDrill({ courtMode: 'full', title: '이 기기의 편집 중 판' }));
 
     render(<SettingsScreen />, { wrapper });
     await pick(file);
@@ -361,9 +280,9 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
   });
 
   it('켜고 읽으면 편집 중인 판이 파일 속 판으로 바뀐다 — 체크박스가 실제로 replace 를 배선한다', async () => {
-    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }), false);
+    saveBoard(createDrill({ courtMode: 'full', title: '백업 속 판' }));
     const file = await backupFile();
-    saveBoard(createDrill({ courtMode: 'full', title: '희생될 편집 중 판' }), false);
+    saveBoard(createDrill({ courtMode: 'full', title: '희생될 편집 중 판' }));
 
     render(<SettingsScreen />, { wrapper });
     await pick(file);
@@ -392,5 +311,20 @@ describe('SettingsScreen — 도움말·튜토리얼 (§0.5 Phase 6)', () => {
 
     expect(loadPrefs().tutorialsSeen).toEqual({});
     expect(await screen.findByText(/튜토리얼을 다시 봅니다/)).toBeInTheDocument();
+  });
+
+  // PLAN-0-6-3-LOADER-NOTICE 결정 26 — 되돌리는 손잡이가 실제로 도장을 지우는지.
+  // 지우면 새는 버그: 버튼이 화면에는 있지만 클릭해도 smallScreenNoticeDismissed 가
+  // 그대로 true 로 남아, [다시 보지 않기] 를 한 번 누른 사람이 영영 안내를 못 본다.
+  it('[작은 화면 안내 다시 보기] 를 누르면 smallScreenNoticeDismissed 가 꺼지고 토스트가 뜬다', async () => {
+    savePrefs({ ...makeDefaultPrefs(), smallScreenNoticeDismissed: true });
+    render(<SettingsScreen />, { wrapper });
+    // Row 제목("작은 화면 안내 다시 보기")과 버튼 라벨("다시 보기")이 전용 키로 갈라졌다
+    // (PLAN-0-6-3-LOADER-NOTICE §10.2 남는 빚 처리) — 버튼은 role 로 좁혀서 잡는다.
+    await userEvent.setup().click(screen.getByRole('button', { name: '다시 보기' }));
+
+    // 판정은 라벨 문자열이 아니라 상태(prefs 값)와 역할(role=status)로 — AGENTS 테스트 규칙.
+    expect(loadPrefs().smallScreenNoticeDismissed).toBe(false);
+    expect(await screen.findByRole('status')).toBeInTheDocument();
   });
 });

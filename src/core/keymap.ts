@@ -26,6 +26,9 @@
 //                   일러스트레이터·XD 가 전부 V 라 외부 관습을 근거로 삼은 **유일한 예외**다.
 //   · 원(circle)    콘(cone)과 c 가 겹침 → 도형을 oval 로 보고 `O`. 둘 다 머릿글자로 산다.
 //   · 지우개(erase) e·r·a·s 가 전부 막힘 → **도구를 없애고** Delete 로 일원화(2단계).
+//     🔁 2026-09-03 — 도구가 돌아오면서 **머릿글자를 포기하고 `X` 를 줬다.** 옛 문장은
+//     "머릿글자가 없으면 키가 없다" 를 전제했는데, 그 전제는 규칙 2 가 아니라 규칙 2 의
+//     기계적 적용이었다. 이 도구는 화면에서 붉은 X 로 나타나므로 글자가 그림을 따라간다.
 //
 // WCAG 2.1.4 (Character Key Shortcuts, Level A) — DESIGN §7.5f 가 준수 필수로 못 박았다.
 // 근거: 음성 인식 사용자가 발화하면 단일 문자키가 연쇄 발화한다. 이 표는 두 층으로 나눠 푼다.
@@ -98,6 +101,10 @@ export const KEYMAP: readonly KeyDef[] = [
   // ── 도구 ────────────────────────────────────────────────────────────────
   toolKey('select', 'KeyV', 'V', '선택'),
   toolKey('line', 'KeyL', 'L', '선'),
+  // 2026-09-03 자유 그리기 — 머릿글자 규칙(위 원칙 2)이 **막히지 않은 드문 경우**다.
+  // `freehand` 의 f 는 도구·개체 어느 층에서도 안 쓰였고, 시연 화면의 `Alt+F`(전체화면)와는
+  // 수식키가 갈라 안 부딪힌다. 규칙이 통하는데 예외를 만들 이유가 없다.
+  toolKey('freehand', 'KeyF', 'F', '자유 그리기'),
   toolKey('shapeEllipse', 'KeyO', 'O', '원'),
   toolKey('shapeTriangle', 'KeyT', 'T', '삼각'),
   toolKey('shapeRect', 'KeyR', 'R', '사각'),
@@ -105,6 +112,13 @@ export const KEYMAP: readonly KeyDef[] = [
   toolKey('cone', 'KeyC', 'C', '콘'),
   toolKey('player', 'KeyP', 'P', '선수'),
   toolKey('note', 'KeyN', 'N', '메모'),
+  // 🔁 2026-09-03 — **지우기가 돌아왔고 글자가 생겼다.** 위 "머릿글자 규칙이 막힌 곳" 표의
+  // *"지우개(erase) e·r·a·s 가 전부 막힘 → 도구를 없애고 Delete 로 일원화"* 는 그때의 참이다.
+  // 뒤집는 근거는 **머릿글자를 포기했기 때문**이다: 이 도구의 이름은 사용자에게 글자가 아니라
+  // **모양**이다 — 커서가 붉은 `X` 로 바뀌고, 판 위에서 보이는 것도 X 다. `X` 는 도구·개체
+  // 어느 층에서도 안 쓰이던 빈 자리라 아무것도 밀어내지 않는다(select 가 V 를 외부 관습에서
+  // 가져온 것과 같은 종류의 예외이고, 여기서는 근거가 관습이 아니라 화면의 그림이다).
+  toolKey('eraser', 'KeyX', 'X', '지우기'),
   // §6.10a — 콘 색 바꾸기가 `C` 재입력에서 **여기로 옮겨 왔다**(2026-08-16). 개편 전에는
   // "콘을 든 채 C 를 다시" 가 색 토글이었는데, 같은 날 *같은 도구를 한 번 더 = 연속 배치
   // 고정* 이 모든 도구의 규칙이 되면서 콘에서만 뜻이 달라졌다 — 마우스로 콘 상자를 두 번
@@ -223,16 +237,17 @@ export const KEYMAP: readonly KeyDef[] = [
   // 여기서부터가 WCAG 2.1.4 "Active only on focus" 예외 구간이다. 이 키들은 개체에 포커스가
   // 있을 때만 산다 — 전역으로 올리면 예외가 깨지고 문자키 게이트가 필요해진다.
   //
-  // Shift 는 **정밀**이다(기본이 큰 걸음). 개편 전에는 반대였고, 게다가 화살표 개체에서만
-  // "조준점만 이동" 이라는 세 번째 뜻이 있었다. 같은 수식키가 개체 종류마다 다른 일을 하면
-  // 손이 배울 것이 개체 수만큼 늘어난다 — 하나로 접는다.
+  // Shift 는 **큰 걸음**이다(기본이 정밀 — 2026-08-28 기현 지시로 뒤집혔다: *"큰 움직임은
+  // 마우스로, 미세 움직임은 키보드로"*). 2026-08-16 개편에서 화살표 개체에만 있던 세 번째
+  // 뜻("조준점만 이동")을 걷어내며 Shift 의 뜻을 하나로 접은 것은 **그대로 남는다** —
+  // 어디서나 '정도만 바꾼다' 이고, 이번에 바뀐 것은 어느 쪽이 기본이냐 하나다.
   {
     id: 'obj.move',
     scope: 'object',
     codes: ['KeyW', 'KeyA', 'KeyS', 'KeyD', ...ARROWS],
     shift: 'any',
     label: 'W A S D · 방향키',
-    desc: '개체 이동 — Shift 는 정밀',
+    desc: '개체 이동 — Shift 는 큰 걸음',
   },
   {
     id: 'obj.rotate',
@@ -240,7 +255,7 @@ export const KEYMAP: readonly KeyDef[] = [
     codes: ['KeyQ', 'KeyE'],
     shift: 'any',
     label: 'Q E',
-    desc: '개체 회전 — Shift 는 정밀',
+    desc: '개체 회전 — Shift 는 큰 걸음',
   },
   // `[` `]` 는 QE 가 회전을, PageUp/Dn 이 스텝을 가져가면서 통째로 비었다. 가로로 나란한 한
   // 쌍이라 "이전/다음" 연상이 맞고, Alt 를 토글 전용으로 비워둘 수 있다.
@@ -292,18 +307,50 @@ export const KEYMAP: readonly KeyDef[] = [
   { id: 'help', scope: 'present', codes: ['Slash'], keys: ['?'], shift: 'yes', label: 'Shift+?', desc: '도움말' },
 ];
 
+/** `key` 만 오는 사건에서 물리 키 이름을 복원하는 표 — **이름이 서로 다른 키만** 싣는다.
+ *  방향키·Enter·Escape 처럼 `code` 와 `key` 가 같은 이름인 키는 여기 없어도 그대로 통과한다. */
+const KEY_TO_CODE: Record<string, string> = {
+  ' ': 'Space',
+  '[': 'BracketLeft',
+  ']': 'BracketRight',
+  '/': 'Slash',
+  '?': 'Slash', // Shift+/ — US 배열. `help` 는 keys 로도 잡지만 code 경로도 맞춰 둔다
+  '=': 'Equal',
+  '+': 'Equal',
+  '-': 'Minus',
+  '_': 'Minus',
+  '0': 'Digit0',
+};
+
 /** 사건이 가리키는 물리 키. `code` 가 비어 있을 때만 `key` 로 물러선다.
  *
  *  왜 폴백이 필요한가 — **합성 사건은 code 를 안 싣는 경우가 있다**(테스트에서 만든
  *  `KeyboardEvent`, 일부 화면 키보드·매크로 장치). 그때 방향키·Esc·PageUp 처럼 code 와 key 가
  *  **같은 이름**인 키까지 죽는 것은 손해뿐이다.
  *
- *  ⚠️ 이 폴백은 문자키를 구제하지 **않는다**. 한글 모드의 'ㅍ' 는 'KeyV' 와 안 맞으므로 그대로
- *  아무 일도 안 난다 — 그것이 옳다. code 를 싣는 진짜 사건에서는 폴백 자체가 안 돈다. */
+ *  ⚠️ **2026-08-28 — 폴백이 문자키까지 구제한다.** 옛 주석은 여기에 *"이 폴백은 문자키를
+ *  구제하지 않는다 — 그것이 옳다"* 라고 적혀 있었다. 그 판단을 뒤집는 이유는 **비대칭**이다:
+ *  같은 사건에서 방향키는 살고(`key` 가 'ArrowRight' 로 이름이 같다) 문자키만 죽는데
+ *  (`key` 가 'd' 라 `codes` 의 'KeyD' 와 안 맞는다), 그 갈림에는 아무 근거가 없다. 폴백을
+ *  두기로 한 이유(`code` 를 안 싣는 장치가 있다)가 참이면 W A S D 에도 똑같이 참이다.
+ *
+ *  ⚠️ **한글 오발화 방어는 그대로다.** 구제 대상을 **ASCII 한 글자**로 못박았으므로 한글 모드의
+ *  'ㅍ'·'ㅈ' 는 여전히 아무 데도 안 맞는다. 게다가 진짜 키보드는 한글 모드에서도 `code` 를
+ *  싣기 때문에 그 경우는 애초에 이 폴백을 안 탄다 — 옛 주석이 막으려던 것은 이 함수가 만든 적
+ *  없는 위험이었다.
+ *
+ *  ⚠️ **이 변경은 어떤 신고도 고치지 않았다.** 2026-08-28 *"wasd qe이 왜 안 먹나?"* 를 쫓다가
+ *  후보로 짚은 자리인데, 실제 원인은 SPIN 밖(기현님의 입력기 unim)이었다. 남겨 둔 이유는 위
+ *  비대칭 하나뿐이다 — 그 신고와 엮어 읽지 마라. */
 export function eventCode(e: { code?: string; key?: string }): string {
   if (e.code && e.code !== 'Unknown') return e.code;
   const k = e.key ?? '';
-  return k === ' ' ? 'Space' : k; // Space 만 code 와 key 의 이름이 다르다
+  const mapped = KEY_TO_CODE[k];
+  if (mapped) return mapped;
+  // 'd' → 'KeyD'. 한 글자 **ASCII 알파벳**만이다.
+  if (k.length === 1 && k >= 'a' && k <= 'z') return `Key${k.toUpperCase()}`;
+  if (k.length === 1 && k >= 'A' && k <= 'Z') return `Key${k}`;
+  return k;
 }
 
 /** 눌린 키가 이 정의에 맞는가. 지정하지 않은 수식키는 **눌리지 않아야** 한다 —
@@ -352,7 +399,7 @@ export function helpRows(scope: KeyScope, opts: { steps: boolean }): ReadonlyArr
   for (const def of KEYMAP) {
     if (def.scope !== scope) continue;
     if (def.needsSteps && !opts.steps) continue;
-    // 도구 9종은 한 줄로 접는다 — 아홉 줄을 따로 세우면 표가 도구 목록이 되어버린다.
+    // 도구는 한 줄로 접는다 — 열 줄을 따로 세우면 표가 도구 목록이 되어버린다.
     if (def.id.startsWith(TOOL_KEY_PREFIX)) continue;
     const key = `${def.label} ${def.desc}`;
     if (seen.has(key)) continue;
@@ -362,7 +409,7 @@ export function helpRows(scope: KeyScope, opts: { steps: boolean }): ReadonlyArr
   return rows;
 }
 
-/** 도구 9종 — **글자마다 한 줄**. 표의 순서 = 레일 순서다.
+/** 도구 — **글자마다 한 줄**. 표의 순서 = 레일 순서다(2026-09-03 지우기·자유 그리기 합류로 11종).
  *
  *  ⚠️ 2026-08-16 기현 지시(*"도움말에 어느 키가 뭔지는 적어야지"*)로 한 줄에서 아홉 줄이 됐다.
  *  옛 모양은 `['V L O T R B C P N', '도구 선택']` 이었다 — 표가 도구 목록이 되는 것을 피하려고

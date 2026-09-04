@@ -24,16 +24,12 @@ describe('PlaybackProvider', () => {
     expect(result.current.playing).toBe(false);
   });
 
-  it('advanceMs 는 재생 중이 아니면 누적하지 않는다', () => {
+  it('advanceMs 는 재생 중일 때 speed 배수로 누적된다(React state 리렌더 없이 ref 로)', () => {
     const { result } = renderHook(() => usePlayback(), { wrapper });
     act(() => {
       result.current.advanceMs(16);
     });
-    expect(result.current.getElapsedMs()).toBe(0);
-  });
-
-  it('advanceMs 는 재생 중일 때 speed 배수로 누적된다(React state 리렌더 없이 ref 로)', () => {
-    const { result } = renderHook(() => usePlayback(), { wrapper });
+    expect(result.current.getElapsedMs(), '재생 중이 아니면 누적하지 않는다').toBe(0);
     act(() => {
       result.current.play();
       result.current.setSpeed(2);

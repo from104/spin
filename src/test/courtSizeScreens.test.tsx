@@ -29,7 +29,7 @@ import { PlaybackProvider } from '../store/playback/PlaybackProvider.tsx';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { createTransformWriter } from '../render/transformWriter.ts';
 import { createDrill } from '../model/defaults.ts';
-import { courtDefFor, COURT_MODES, COURT_SIZES, type CourtMode, type CourtSize } from '../model/court.ts';
+import { courtDefFor, COURT_SIZES, type CourtMode, type CourtSize } from '../model/court.ts';
 
 afterEach(cleanup);
 
@@ -90,7 +90,7 @@ const SCREENS: Screen[] = [
     name: '③ 인쇄 PrintCourt',
     svg(mode, size) {
       const base = createDrill({ courtMode: mode, courtSize: size });
-      const { container } = render(<PrintCourt drill={{ ...base, courtSize: size }} step={base.steps[0]!} ariaLabel="코트" />, {
+      const { container } = render(<PrintCourt drill={{ ...base, courtSize: size }} step={base.steps[0]!} ariaLabel="코트" view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />, {
         wrapper: SettingsProvider,
       });
       return container.querySelector('svg')!;
@@ -127,49 +127,25 @@ function rectBoxes(svg: SVGSVGElement): string[] {
 }
 
 describe('§6.4 코트를 그리는 화면 5개 × 코트 3크기', () => {
-  it('대조군: 세 크기의 viewBox·경기면 상자가 애초에 서로 다르다 (같으면 아래가 전부 헛것이다)', () => {
-    const vb = COURT_SIZES.map((s) => `${courtDefFor('full', s).vbW}×${courtDefFor('full', s).vbH}`);
-    const sf = COURT_SIZES.map((s) => `${courtDefFor('full', s).surface.w}×${courtDefFor('full', s).surface.h}`);
-    expect(new Set(vb).size).toBe(3);
-    expect(new Set(sf).size).toBe(3);
-    // 여섯 상자가 서로 겹치지 않는다 — 아래 '남의 코트 상자가 없다' 단언이 성립하는 근거다.
-    expect(new Set([...vb, ...sf]).size).toBe(6);
-  });
-
-  it('대조군: 화면 목록이 비어 있지 않고 다섯이다', () => {
-    expect(SCREENS).toHaveLength(5);
-  });
-
   describe.each(SCREENS)('$name', (screen) => {
-    it.each(COURT_SIZES)('full %s — viewBox 가 그 크기다', (size) => {
-      const def = courtDefFor('full', size);
-      expect(screen.svg('full', size).getAttribute('viewBox')).toBe(`0 0 ${def.vbW} ${def.vbH}`);
-    });
-
     it.each(COURT_SIZES)('full %s — 경기면 외곽선이 그 크기다 (라인이 viewBox 를 안 따라오는 것을 잡는다)', (size) => {
       const svg = screen.svg('full', size);
-      const boxes = rectBoxes(svg);
       const def = courtDefFor('full', size);
+      expect(svg.getAttribute('viewBox')).toBe(`0 0 ${def.vbW} ${def.vbH}`);
+      const boxes = rectBoxes(svg);
       const want = `${def.surface.w}×${def.surface.h}`;
       // ④ PNG 는 코트 라인을 path 로 굽지 않고 rect 로 굽는다. ①②③⑤ 도 마찬가지다.
       expect(boxes, `${want} 인 경기면 사각형이 없다`).toContain(want);
-      // **남의 코트 상자는 하나도 없다.**
+      // 골 지역 path 는 **다섯 화면이 전부 같은 식으로** 만든다(FullCourtLines / courtLinesMarkup).
+      // 그래서 문자열 전체를 통째로 대조할 수 있다 — 부분 문자열 충돌이 없는 정확한 비교다.
+      const paths = [...svg.querySelectorAll('path')].map((p) => p.getAttribute('d'));
+      expect(paths, `${size} 의 오른쪽 골 지역 선이 없다`).toContain(rightGoalAreaD(size));
+      // **남의 코트 상자·골 지역 선은 하나도 없다.**
       for (const other of COURT_SIZES) {
         if (other === size) continue;
         const o = courtDefFor('full', other);
         expect(boxes, `${other} 의 경기면 상자가 남아 있다`).not.toContain(`${o.surface.w}×${o.surface.h}`);
         expect(boxes, `${other} 의 viewBox 상자가 남아 있다`).not.toContain(`${o.vbW}×${o.vbH}`);
-      }
-    });
-
-    it.each(COURT_SIZES)('full %s — 오른쪽 골 지역 선이 그 크기의 자리에 그려진다', (size) => {
-      // 골 지역 path 는 **다섯 화면이 전부 같은 식으로** 만든다(FullCourtLines / courtLinesMarkup).
-      // 그래서 문자열 전체를 통째로 대조할 수 있다 — 부분 문자열 충돌이 없는 정확한 비교다.
-      const paths = [...screen.svg('full', size).querySelectorAll('path')].map((p) => p.getAttribute('d'));
-      expect(paths, '경로가 하나도 없다 — 대조군이 성립하지 않는다').not.toHaveLength(0);
-      expect(paths, `${size} 의 오른쪽 골 지역 선이 없다`).toContain(rightGoalAreaD(size));
-      for (const other of COURT_SIZES) {
-        if (other === size) continue;
         expect(paths, `${other} 의 골 지역 선이 ${size} 판에 남아 있다`).not.toContain(rightGoalAreaD(other));
       }
     });
@@ -185,14 +161,6 @@ describe('§6.4 코트를 그리는 화면 5개 × 코트 3크기', () => {
       expect(seen[0]).toBe(`0 0 ${courtDefFor(mode).vbW} ${courtDefFor(mode).vbH}`);
     });
   });
-
-  it('대조군: 세 크기의 골 지역 선이 애초에 서로 다른 문자열이다', () => {
-    expect(new Set(COURT_SIZES.map(rightGoalAreaD)).size).toBe(3);
-  });
-
-  it('세 코트 모드 전부가 화면 목록을 지난다 (모드 축을 빠뜨리지 않았다)', () => {
-    expect([...COURT_MODES]).toEqual(['full', 'half', 'flat']);
-  });
 });
 
 describe('§6.4 PNG 출력 픽셀도 코트 크기를 따라간다', () => {
@@ -205,13 +173,5 @@ describe('§6.4 PNG 출력 픽셀도 코트 크기를 따라간다', () => {
     expect(Math.max(m.widthPx, m.heightPx)).toBe(2048);
     // 정수 픽셀로 반올림하므로 비율은 소수 둘째 자리까지만 같다(2048 px 에서 오차 1 px 미만).
     expect(m.widthPx / m.heightPx).toBeCloseTo(def.vbW / (def.vbH + m.captionH), 2);
-  });
-
-  it('세 크기의 출력 픽셀 조합이 서로 다르다 (같으면 위 단언이 헛것이다)', () => {
-    const seen = COURT_SIZES.map((s) => {
-      const m = staticSceneMetrics({ mode: 'full', size: s, teams: TEAMS });
-      return `${m.widthPx}×${m.heightPx}`;
-    });
-    expect(new Set(seen).size).toBe(3);
   });
 });

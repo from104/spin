@@ -18,6 +18,7 @@ import { createPortal } from 'react-dom';
 import { LOCK_TINT_COLOR } from '../../core/colors.ts';
 import { isId } from '../../core/ids.ts';
 import { removalLabel, returnsToTray } from './removal.ts';
+import { canNudge } from './NudgePad.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import type { DictKey } from '../../i18n/ko.ts';
@@ -34,8 +35,11 @@ import type { DictKey } from '../../i18n/ko.ts';
  *  통째로 안 낸다 — 항목이 있는데 절반에만 먹는 것보다 없는 편이 정직하다. */
 // export 인 이유(2026-08-18): Ctrl/⌘+D 의 1·2층 갈림(useEditorKeyboard)이 같은 판정을
 // 써야 "메뉴에는 뜨는데 키는 스텝을 복제하는" 어긋남이 없다.
+// 🔁 2026-09-03 — 획(`fh`)이 합류했다. 위 문단의 술어("스텝 배열이라 정원 문제가 없다")가
+// 그대로 참이라 새 근거가 필요 없다 — 오히려 여기 없으면 손으로 그린 넷 중 하나만 복제가
+// 안 되는 갈래가 생기고, 그 갈림에는 아무 뜻이 없다.
 export const canDuplicate = (ids: readonly string[]): boolean =>
-  ids.every((id) => isId(id, 'sh') || isId(id, 'nt') || isId(id, 'ar'));
+  ids.every((id) => isId(id, 'sh') || isId(id, 'nt') || isId(id, 'ar') || isId(id, 'fh'));
 
 /** 여럿일 때만 개수를 낸다 — 하나짜리에 *"1개 잠금"* 은 셀 것이 없는데 세는 말이다.
  *  마지막 항목(빼기/삭제)만은 `removalLabel` 이 따로 만든다: 거기서는 개수가 두 갈래로
@@ -98,6 +102,11 @@ export interface ObjectMenuProps {
   /** 도형·메모 복제(2026-08-18). 사본을 어디 놓는가는 부르는 쪽(EditorStage) 소관이다 —
    *  메뉴는 좌표계를 모른다. `canDuplicate` 가 거짓이면 호출되지 않는다. */
   onDuplicate(ids: string[]): void;
+  /** [미세 조정] — 떠 있는 반투명 패드(`NudgePad`)를 연다. 메뉴는 그 패드를 그리지 않는다:
+   *  **여러 번 눌러 맞추는 조작**이라 한 번 누르면 닫히는 메뉴 안에 있을 수 없고, 무엇보다
+   *  불투명한 메뉴가 정작 움직이는 개체를 가린다(NudgePad 머리말에 근거).
+   *  `canNudge` 가 거짓이거나 잠겨 있으면 칸을 안 내므로 호출되지 않는다. */
+  onFineTune(ids: string[]): void;
 }
 
 const ITEM: React.CSSProperties = {
@@ -116,7 +125,7 @@ const ITEM: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit, onDuplicate }: ObjectMenuProps) {
+export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit, onDuplicate, onFineTune }: ObjectMenuProps) {
   const t = useT();
   const locale = useLocale();
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -199,6 +208,23 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
           visibility: pos ? 'visible' : 'hidden',
         }}
       >
+        {/* [미세 조정] — 떠 있는 반투명 패드를 연다(2026-09-02 기현 지시로 메뉴 안의 3×3 판을
+            이것으로 대체). **맨 위**인 이유는 예전 판과 같다: 맨 아래 [빼기]/[삭제] 바로 위에
+            두면 자주 누르는 항목이 그 옆에 붙는다.
+            ⚠️ 열자마자 서는 포커스(`firstRef`)는 여기로 **안 온다.** 키보드로 온 사람에게는
+               방향키·QE 가 이미 있어 이 칸이 필요 없다(NudgePad 머리말의 그 근거). */}
+        {!target.locked && canNudge(target.ids) && (
+          <>
+            <button type="button" role="menuitem" onClick={act(() => onFineTune(target.ids))} style={ITEM}>
+              <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.7 }}>
+                ✥
+              </span>
+              {t('editor.objectMenu.fineTune')}
+            </button>
+            <div aria-hidden style={{ height: 1, margin: '5px 10px', background: 'var(--border)' }} />
+          </>
+        )}
+
         {/* 고르기가 **맨 위**다. 아래 셋은 판을 바꾸는 조작이고 이것 하나만 아니다 — 다른
             등급의 항목을 아래 뭉치에 섞으면 실수로 누를 때 값이 다르다. 열자마자 포커스가
             여기 서는 것도 그래서 맞다(되돌릴 것이 없는 항목). */}

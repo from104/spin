@@ -48,7 +48,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 const drill = createDrill({ courtMode: 'full', title: '자유 전술판', empty: true });
 
 function renderSheet(open: boolean) {
-  return render(<ExportSheet open={open} onClose={() => {}} drill={drill} stepIndex={0} showGrid={false} showRuleZones />, { wrapper });
+  return render(<ExportSheet open={open} onClose={() => {}} drill={drill} stepIndex={0} showGrid={false} showGridLabels showRuleZones />, { wrapper });
 }
 
 /** 토스트는 프로바이더 **상태**에만 있다 — 호스트가 없으면 화면에 안 뜬다(BoardScreen.test 와
@@ -81,6 +81,7 @@ function Harness({ onClose }: { onClose?: () => void }) {
           drill={drill}
           stepIndex={0}
           showGrid={false}
+          showGridLabels
           showRuleZones
         />
         <ToastProbe />
@@ -157,7 +158,7 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
     render(
       <SettingsProvider>
         <ToastProvider>
-          <ExportSheet open onClose={() => {}} drill={withShape} stepIndex={0} showGrid={false} showRuleZones />
+          <ExportSheet open onClose={() => {}} drill={withShape} stepIndex={0} showGrid={false} showGridLabels showRuleZones />
         </ToastProvider>
       </SettingsProvider>,
     );
@@ -173,7 +174,7 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
     render(
       <SettingsProvider>
         <ToastProvider>
-          <ExportSheet open onClose={() => {}} drill={withNote} stepIndex={0} showGrid={false} showRuleZones />
+          <ExportSheet open onClose={() => {}} drill={withNote} stepIndex={0} showGrid={false} showGridLabels showRuleZones />
         </ToastProvider>
       </SettingsProvider>,
     );
@@ -236,16 +237,113 @@ describe('[인쇄] → 4.5 의 인쇄 트리를 세운 뒤에 print() 한다', (
 // SettingsScreen.test.tsx '데이터 내보내기' 절이 본다 — 그 화면이 유일한 소비처다.
 
 describe('파일 이름 조립 (4.1 이 "4.7 이 조립한다" 고 남긴 자리)', () => {
-  it('백업은 날짜가 붙은 .spin.json 이다', () => {
-    expect(backupFileName(new Date(2026, 7, 12, 9, 30).getTime())).toBe('SPIN_백업_20260812.spin.json');
+  it('백업은 날짜가 붙은 .spin.backup.json 이고, 이름 세그먼트는 언어 중립이다', () => {
+    expect(backupFileName(new Date(2026, 7, 12, 9, 30).getTime())).toBe('SPIN_backup_20260812.spin.backup.json');
   });
 
   it('그림은 1-based 스텝 번호가 붙는다 — 캡션의 n/N 과 같은 숫자여야 짝이 지어진다', () => {
-    expect(sceneFileName('측면 돌파', 0)).toBe('SPIN_측면 돌파_1.png');
-    expect(sceneFileName('측면 돌파', 4)).toBe('SPIN_측면 돌파_5.png');
+    expect(sceneFileName('측면 돌파', 0)).toBe('SPIN_측면 돌파_01.png');
+    expect(sceneFileName('측면 돌파', 4)).toBe('SPIN_측면 돌파_05.png');
+    // ★ 두 자리 패딩이 없으면 탐색기가 1, 10, 11, 2 로 정렬한다(2026-08-27).
+    expect(sceneFileName('측면 돌파', 9)).toBe('SPIN_측면 돌파_10.png');
+    expect(sceneFileName('측면 돌파', 59)).toBe('SPIN_측면 돌파_60.png');
   });
 
   it('파일 이름에 쓸 수 없는 글자는 slugify 가 막는다', () => {
-    expect(sceneFileName('a/b:c', 0)).toBe('SPIN_a-b-c_1.png');
+    expect(sceneFileName('a/b:c', 0)).toBe('SPIN_a-b-c_01.png');
+  });
+});
+
+// ── 내보내기 범위 (기현 지시 2026-08-27) ────────────────────────────────────────────────
+// *"드릴 편집 화면에서 png,인쇄 내보내기에서 어떤 스텝을 내보낼건가 라는 기준이 없음.
+//  선택한것만, 또는 전체를 고르게 해야함"* / *"호환성 때문에 여러개면 zip으로 가자 한개면 png고."*
+describe('내보내기 범위', () => {
+  /** 스텝 n 장짜리 드릴. 각 스텝 id 가 달라야 체크 목록을 만들 수 있다. */
+  const drillOf = (n: number) => {
+    const base = createDrill({ courtMode: 'full', title: '범위 드릴', empty: true });
+    const s0 = base.steps[0]!;
+    return { ...base, steps: Array.from({ length: n }, (_, i) => ({ ...s0, id: `st_${i}` as typeof s0.id })) };
+  };
+  const sheetOf = (d: ReturnType<typeof drillOf>, stepIndex = 0, checked?: ReadonlySet<string>) =>
+    render(
+      <ExportSheet
+        open
+        onClose={() => {}}
+        drill={d}
+        stepIndex={stepIndex}
+        checkedStepIds={checked as ReadonlySet<never> | undefined}
+        showGrid={false}
+        showGridLabels
+        showRuleZones
+      />,
+      { wrapper },
+    );
+
+  it('스텝이 여럿이면 [이 스텝]·[전체] 가 뜨고, 체크가 없으면 [선택한 N장] 은 안 뜬다', () => {
+    sheetOf(drillOf(4));
+    expect(screen.getByRole('button', { name: /이 스텝/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /전체 4장/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /선택한/ }), '고를 수 없는 것을 보여 주지 않는다').toBeNull();
+    // 대조군 — 스텝이 1장이면 범위 컨트롤이 아예 없다(보드에는 고를 것이 없다).
+    cleanup();
+    sheetOf(drillOf(1));
+    expect(screen.queryByRole('button', { name: /전체/ })).toBeNull();
+  });
+
+  it('★ 사이드바 체크가 있으면 그것이 기본값이다', () => {
+    sheetOf(drillOf(4), 0, new Set(['st_1', 'st_2']));
+    const chip = screen.getByRole('button', { name: /선택한 2장/ });
+    expect(chip.getAttribute('aria-pressed'), '열자마자 선택 범위가 잡혀 있어야 한다').toBe('true');
+    expect(screen.getByRole('button', { name: /이 스텝/ }).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('★ 지금 보고 있는 스텝을 굽는다 — stepIndex={0} 하드코딩 회귀 방지', async () => {
+    // 2026-08-27 이전에는 FunctionBar 가 0 을 박아 두어 **3번 스텝을 보며 눌러도 1번**이
+    // 구워졌다. 여기서 그 배선을 세운다.
+    sheetOf(drillOf(4), 2);
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(rasterMock).toHaveBeenCalledTimes(1));
+    expect(rasterMock.mock.calls[0]![0].stepIndex, '보고 있던 3번 스텝(index 2)이어야 한다').toBe(2);
+    expect(downloadMock.mock.calls[0]![1]).toBe('SPIN_범위 드릴_03.png'); // 1-based + 두 자리 패딩
+    expect(downloadMock.mock.calls[0]![0].type).toBe('image/png');
+  });
+
+  it('★ 여러 장이면 ZIP 한 벌이다 — 낱개 순차 다운로드가 아니다', async () => {
+    sheetOf(drillOf(4));
+    await userEvent.click(screen.getByRole('button', { name: /전체 4장/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
+    // 굽기는 4번, 다운로드는 **1번**이다.
+    expect(rasterMock).toHaveBeenCalledTimes(4);
+    const [blob, name] = downloadMock.mock.calls[0]!;
+    expect(name).toMatch(/\.png\.zip$/);
+    expect(blob.type).toBe('application/zip');
+  });
+
+  it('★ 선택한 스텝만 굽는다 — 체크한 것 그대로', async () => {
+    sheetOf(drillOf(5), 0, new Set(['st_1', 'st_3']));
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
+    expect(rasterMock).toHaveBeenCalledTimes(2);
+    expect(rasterMock.mock.calls.map((c) => c[0].stepIndex)).toEqual([1, 3]);
+  });
+
+  it('★ 인쇄도 같은 범위를 쓴다 — 그림과 종이가 다른 스텝을 내면 안 된다', async () => {
+    // 인쇄 페이지는 `window.print` 가 불리는 **그 순간에만** DOM 에 있다(끝나면 철거된다) —
+    // 그래서 스파이 안에서 센다. 위 '순서가 계약이다' 와 같은 수법이다.
+    const seen: (string | null)[] = [];
+    const original = window.print;
+    window.print = vi.fn(() => {
+      seen.push(...[...document.querySelectorAll('[data-print-page="step"]')].map((e) => e.getAttribute('data-step-index')));
+    });
+    try {
+      sheetOf(drillOf(5), 0, new Set(['st_1', 'st_3']));
+      await userEvent.click(screen.getByRole('button', { name: /^인쇄 · PDF/ }));
+      await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+      // 두 장만, 그리고 번호는 **원래 스텝 번호**를 유지한다(1,2 로 다시 매기지 않는다).
+      expect(seen).toEqual(['1', '3']);
+    } finally {
+      window.print = original;
+    }
   });
 });

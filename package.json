@@ -1,12 +1,16 @@
 {
   "name": "spin",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run seo",
+    "_comment:seo": "SEO C2 — 규칙 해설을 언어별 정적 HTML 로 굽고(3언어 × 11장) sitemap.xml 을 만든다. 앱은 클라이언트 렌더라 크롤러가 2차 크롤에서야 보는데, 규칙 글은 고정 텍스트라 미리 구워 두면 그 불확실성이 사라진다. 노드가 TS 를 못 읽어 vite 의 SSR 빌드를 한 단계 거친다(tsx·esbuild 같은 새 의존성을 안 들이려고). build 가 끝에 부르므로 따로 칠 일은 없다.",
+    "seo": "vite build --ssr src/seo/prerenderData.ts --outDir .seo-build --logLevel warn && node scripts/prerender.mjs",
     "lint": "oxlint",
+    "_comment:lint:rel": "고친 파일만 린트한다(HEAD 이후 바뀐 .ts/.tsx, 또는 인자로 준 파일). 전체는 고칠 계획이 없는 오랜 경고 46줄을 함께 뱉어서 방금 만든 한 줄이 그 속에 묻힌다 — 이쪽은 0.3초에 끝나고 출력이 비어 있으면 깨끗한 것이다. test:rel 과 같은 짝이고, 전체 lint 는 커밋 직전 한 번이면 된다. 예: npm run lint:rel src/app/AppRail.tsx",
+    "lint:rel": "bash scripts/lint-rel.sh",
     "preview": "vite preview",
     "_comment:tauri": "데스크톱(Tauri) 셸. tauri:dev 는 vite dev 서버를 띄운 뒤 네이티브 창을 붙이고, tauri:build 는 `npm run build` 로 dist 를 만든 뒤 설치 패키지(리눅스=deb·rpm·AppImage)를 src-tauri/target/release/bundle 아래에 낸다. 윈도우·맥 산출물은 각 OS 에서만 나오므로 CI(.github/workflows/desktop-release.yml) 가 맡는다.",
     "tauri": "tauri",

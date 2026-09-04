@@ -194,6 +194,21 @@ export function useEditorKeyboard(deps: EditorKeyboardDeps): void {
           // stopPropagation 을 걸지 않는다 — CourtStage 의 팬 무장 해제(window 리스너)도
           // 같은 Esc 로 풀려야 하고, 둘 다 "일시 상태를 물린다" 라 충돌이 아니다.
           // 모달이 열려 있으면 여기까지 오지 않는다(Modal 이 **캡처** 단계에서 멈춘다).
+          //
+          // 2026-09-03 — **지우기 도구의 세 출구 중 Esc 가 여기다**(나머지: 빈 곳 클릭 ·
+          // 버튼 재클릭). Esc 의 뜻은 "지금 걸린 것을 물린다" 하나이고, 파괴 모드가 걸려
+          // 있으면 그것이 가장 먼저 물릴 것이다 — 선택 해제는 그대로 이어서 한다.
+          //
+          // ⚠️ **EditorStage 의 Escape 분기가 아니라 여기인 이유가 둘이다.**
+          //   ① 포커스가 코트 밖(사이드바·기능 바)일 때도 물려야 한다. 저쪽은 무대 svg 의
+          //      onKeyDown 이라 그때는 아예 안 불린다.
+          //   ② **두 곳에 두면 한 번의 Esc 가 `TOOL_SET` 을 두 번 쏜다.** 저쪽은
+          //      stopPropagation 을 걸지 않으므로(위 문단의 이유로 걸어서도 안 된다) 같은
+          //      사건이 여기까지 온다. 그리고 `TOOL_SET` 은 **멱등이 아니다**: 첫 번째가
+          //      eraser → select 로 바꾸고 나면, 두 번째는 "같은 도구를 한 번 더" 가 되어
+          //      `select` 의 고정(모아 고르기 §6.10b)을 **켜 버린다** — Esc 를 눌렀더니
+          //      켠 적 없는 모드가 켜지는, 조용해서 더 나쁜 종류의 사고다.
+          if (d.tool === 'eraser') d.onSelectTool('select');
           d.onSelectionClear();
           return;
         case 'help':

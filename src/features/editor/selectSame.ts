@@ -19,6 +19,9 @@ export interface SameKindScene {
   notes: readonly string[];
   arrows: readonly string[];
   shapes: readonly string[];
+  /** 자유 그리기 획(2026-09-03). 화살표·도형과 같은 부류라 같은 자리에 선다 — 코치가
+   *  *"손으로 그린 거 다 지워"* 라고 말하는 덩어리가 이것이다. */
+  strokes: readonly string[];
   /** 이 스텝에서 잠긴 개체. 덩어리 선택은 이것들을 **집지 않는다** — 아래 주석 참고. */
   locked: ReadonlySet<string>;
 }
@@ -59,5 +62,8 @@ function groupOf(id: string, s: SameKindScene, locale: Locale): SameKindGroup | 
   if (isId(id, 'nt')) return { label: translate(locale, 'editor.selectSame.notes'), ids: [...s.notes] };
   if (isId(id, 'ar')) return { label: translate(locale, 'editor.selectSame.arrows'), ids: [...s.arrows] };
   if (isId(id, 'sh')) return { label: translate(locale, 'editor.selectSame.shapes'), ids: [...s.shapes] };
+  // 획은 굵기 3단·색 3종으로 갈리지만 그것으로 나누지 않는다 — 콘 색과 같은 근거다(굵기·색이
+  // 무엇을 뜻하는지가 판마다 다르다). 종류로 묶으면 뜻이 하나다.
+  if (isId(id, 'fh')) return { label: translate(locale, 'editor.selectSame.strokes'), ids: [...s.strokes] };
   return null;
 }

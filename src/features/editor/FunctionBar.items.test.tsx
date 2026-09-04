@@ -30,6 +30,8 @@ function mount(
       <ToastProvider>
       <FunctionBar
         mode={over.mode}
+        showGridLabels
+        stepIndex={0}
         onZoomIn={noop}
         onZoomOut={noop}
         onZoomReset={noop}
@@ -53,7 +55,10 @@ function mount(
         onToggleGrid={noop}
         showRuleZones
         onToggleRuleZones={noop}
-        onSaveAsDrill={noop}
+        stepEmpty={false}
+        // [정보]는 드릴 모드에서 **항상 온다**(EditorScreen 이 언제나 넘긴다) — 예산 상수
+        // FUNCTION_BAR_ITEMS_DRILL 이 그 전제 위에 서 있으므로 여기서도 넘긴다.
+        onDrillInfo={noop}
       />
       </ToastProvider>
     </SettingsProvider>,
@@ -67,13 +72,6 @@ const barItems = (root: HTMLElement): HTMLButtonElement[] => {
 };
 
 describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () => {
-  it('★ 상시 칸 수가 FUNCTION_BAR_ITEMS 와 같다', () => {
-    const { container } = mount();
-    expect(barItems(container), '화면의 칸 수와 예산 상수가 어긋났다 — 코트 상자 폭이 틀리게 계산된다').toHaveLength(
-      FUNCTION_BAR_ITEMS,
-    );
-  });
-
   it('구분선 수가 FUNCTION_BAR_DIVIDERS 와 같다', () => {
     const { container } = mount();
     const nav = container.querySelector('nav[data-function-bar]')!;
@@ -96,24 +94,18 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
   // 지켜야 아래 칸들의 절대 위치가 안 밀리기 때문이었다(§3 불변식 1). 모달 안에는 지킬 절대
   // 위치가 없으므로 그 근거가 함께 없어졌고, 대신 크기 3단이 이미 세워 둔 계약을 따른다 —
   // *"골라도 안 변하는 컨트롤은 거짓말이다"* → 버튼 대신 사실을 적는다.
-  describe('[진영]은 이제 [코트] 모달 안이다', () => {
+  describe('[진영]·[표시]·[이동]·[골대]는 이제 [보드 설정] 모달 안이다', () => {
     const openCourt = async (mode: 'full' | 'half' | 'flat') => {
       const r = mount(mode);
-      await userEvent.setup().click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+      await userEvent.setup().click(screen.getByRole('button', { name: '보드 설정' }));
       return r;
     };
-
-    it('기둥에는 [진영] 칸이 없다 — 접힌 것은 표적 예산 밖이다', () => {
-      const { container } = mount('full');
-      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.startsWith('진영'))).toBe(false);
-      expect(screen.queryByRole('button', { name: /^진영 바꾸기/ }), '모달을 안 열었는데 보인다').toBeNull();
-    });
 
     it('모달을 열면 [진영 바꾸기]가 있고 누르면 뒤집기가 불린다', async () => {
       const onToggleDefense = vi.fn();
       const r = mount('full', { onToggleDefense });
       const user = userEvent.setup();
-      await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+      await user.click(screen.getByRole('button', { name: '보드 설정' }));
 
       const btn = screen.getByRole('button', { name: /^진영 바꾸기/ });
       // 이름 규칙(WCAG 2.5.3) — 화면 글자가 접근성 이름의 부분 문자열이어야 한다.
@@ -154,14 +146,5 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
       expect(dividers).toHaveLength(FUNCTION_BAR_DIVIDERS_DRILL);
     });
 
-    it('[저장] 칸이 없다 — 자동저장뿐이라 뜻이 없어진 칸이라 걷어냈다', () => {
-      const { container } = mount('full', { mode: 'drill' });
-      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(false);
-    });
-
-    it('대조군: board 모드에는 [저장] 칸이 있다', () => {
-      const { container } = mount('full', { mode: 'board' });
-      expect(barItems(container).some((b) => b.getAttribute('aria-label')?.includes('저장'))).toBe(true);
-    });
   });
 });

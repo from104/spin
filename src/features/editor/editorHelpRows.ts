@@ -18,6 +18,11 @@ export function editorBasicsRows(t: ReturnType<typeof useT>): readonly HelpRow[]
     [t('editor.helpModal.basics.select.key'), t('editor.helpModal.basics.select.desc')],
     [t('editor.helpModal.basics.selectMany.key'), t('editor.helpModal.basics.selectMany.desc')],
     [t('editor.helpModal.basics.moveMany.key'), t('editor.helpModal.basics.moveMany.desc')],
+    // 미세 조정(2026-08-29) — '옮기기' 에 붙이지 않고 **줄을 새로 낸다.** 그쪽은 *"4존 운동학이
+    // 한 문장"* 이 명세이고(editorHelpRows.test), 그 문장에 키보드·패드 이야기를 이어 붙이면
+    // 명세가 깨진다. 자리는 '여럿 옮기기' 다음 — 옮기기 세 줄이 굵은 것에서 가는 것 순으로
+    // 이어진다(잡아 끌기 → 여럿 → 마지막 몇 px).
+    [t('editor.helpModal.basics.fine.key'), t('editor.helpModal.basics.fine.desc')],
     [t('editor.helpModal.basics.note.key'), t('editor.helpModal.basics.note.desc')],
     [t('editor.helpModal.basics.remove.key'), t('editor.helpModal.basics.remove.desc')],
   ];

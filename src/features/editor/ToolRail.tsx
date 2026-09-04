@@ -16,7 +16,7 @@ import { LOCKABLE_TOOLS } from '../../store/editor/reducer.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
 import { CHAIR } from '../../core/constants.ts';
 import { numberedName } from '../../model/chairLabel.ts';
-import { IconPin, IconToolNote, IconToolRoute } from '../../ui/icons.tsx';
+import { IconPin, IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
 import {
   CHIP_BOX_H_CSS,
@@ -280,10 +280,38 @@ type DrawerKey = keyof TrayDrawers;
  *  ⚠️ 이 갈림에서 **메모가 `작도` 에서 `설명` 으로 한 칸 옮겨 간다.** 개폐로 움직이는 것이
  *  아니라 **재편으로** 움직이는 것이라 §3 불변식 1 위반은 아니다(FALSIFICATION §26.6 이
  *  3.-1 에서 미리 예고해 둔 이동이다) — 그래도 자리를 옮긴 것은 사실이라 커밋 메시지에 적는다. */
+/** 🔁 2026-09-03 — `freehand` 가 [작도] 서랍에 합류했다(PLAN 결정 7). 서랍 **안**이라 첫 화면의
+ *  표적 수는 한 개도 안 는다 — 손잡이 하나가 그대로 다섯을 나른다. 순서는 `TOOLS` 가 정하므로
+ *  (여기는 거르기만 한다) `line` 바로 다음 칸이고, 손잡이 아이콘(`IconToolRoute` = 선)도 그대로다:
+ *  손잡이가 보여 주는 것은 서랍의 **대표**이지 담긴 것 전부가 아니다. */
 const DRAWERS = [
-  { key: 'draw', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'line' || t.id.startsWith('shape')) },
-  { key: 'note', Icon: IconToolNote, tools: TOOLS.filter((t) => t.id === 'note') },
+  { key: 'draw', Icon: IconToolRoute, tools: TOOLS.filter((t) => t.id === 'line' || t.id === 'freehand' || t.id.startsWith('shape')) },
 ] as const satisfies readonly { key: DrawerKey; Icon: typeof IconToolRoute; tools: readonly ToolDef[] }[];
+
+/** ⚠️ **`설명` 서랍은 2026-08-27 에 사라졌다**(기현 지시: *"노트 버튼도 서랍에서 단일 버튼으로
+ *  수정 — 다른 기능이 서랍에 들어갈 가능성 아직 없음"*). 위 주석이 유보 사유로 적어 둔
+ *  *"3 m 링이 아직 도구가 아니라 `설명` 이 한 칸짜리 서랍이 된다"* 가 그대로 결론이 됐다.
+ *
+ *  서랍은 **고르는 장치**다 — 고를 것이 하나뿐이면 손잡이를 눌러 여는 동작이 순수한 비용이다
+ *  (호버로 열리고 260 ms 유예로 닫히는 장치를 지나야 메모 하나에 닿았다). 도구는 그대로고
+ *  자리도 그대로다(기능 구역의 끝, 작도 손잡이 다음) — 한 겹이 빠졌을 뿐이다. */
+/** 🔁 2026-09-03 — **[지우기]가 [메모] 옆에 합류했다**(기현 지시: *"메모 옆에 (객체)지우기
+ *  버튼 추가"*). 위 `ALWAYS_TOOLS` 주석의 *"`erase` 는 도구 자체가 없어졌다"* 는 2026-08-16 의
+ *  참이고, 뒤집는 근거는 toolDefs.ts 의 그 문단이 쥔다(옛것은 드래그 도구, 지금 것은 일시 모드).
+ *
+ *  자리는 **메모 뒤**다 — §3 불변식 1(조준 대상이 사용 중에 이동하지 않는다)이 요구하는 것은
+ *  기존 표적이 안 움직이는 것이고, 맨 끝에 붙이면 선택·작도 손잡이·메모의 좌표가 한 픽셀도
+ *  안 변한다. 옛 지우개가 손잡이 **앞**에 섰던 규칙은 그때 손잡이가 둘이라 그 뒤가 '서랍
+ *  내용물의 자리' 였기 때문인데, 서랍이 하나로 줄고 메모가 단일 버튼이 되면서 끝이 비었다. */
+const SOLO_TOOLS = TOOLS.filter((t) => t.id === 'note' || t.id === 'eraser');
+
+/** 이 도구는 **파괴 모드**라 켜짐 표시가 강조색이 아니라 붉은색이다.
+ *
+ *  왜 색을 가르는가 — 태블릿에는 커서가 없다(실기 확인 항목). 마우스에서는 붉은 X 커서가
+ *  "지금 누르면 사라진다" 를 계속 말해 주지만, 손가락에는 그 말을 할 자리가 **활성 표시밖에**
+ *  없다. 값은 ObjectMenu 의 [삭제] 항목과 같은 `#ff6b6b` 다 — 이 앱에서 붉은색은 이미
+ *  "판에서 사라진다" 의 뜻이고(DESIGN §6.10), 뜻이 같으면 색도 같아야 한다. */
+const DANGER_TONE = '#ff6b6b';
 
 /** 서랍 이름 — DRAWERS 는 렌더 밖(모듈 최상단)에서 한 번 만들어져 t() 를 못 쓴다.
  *  key(2가지)만으로 정해지므로 렌더 시점에 여기서 고른다. */
@@ -418,7 +446,8 @@ function RemainingBadge({ n }: { n: number }) {
  *  표시가 하나인 것이 맞다: 사용자가 한 손짓이 하나이므로 그 손짓이 켜졌다는 신호도 하나다.
  *  도구·공·콘 세 자리가 이 한 조각을 같이 쓴다 — 자리마다 따로 그리면 "콘만 고정 표시가
  *  없다" 가 조용히 생긴다. */
-function ActiveRing({ locked = false }: { locked?: boolean }) {
+function ActiveRing({ locked = false, tone }: { locked?: boolean; tone?: string }) {
+  const ink = tone ?? 'var(--accent)';
   return (
     <>
       <span
@@ -427,10 +456,10 @@ function ActiveRing({ locked = false }: { locked?: boolean }) {
           position: 'absolute',
           inset: 0,
           borderRadius: 11,
-          border: '1.5px solid var(--accent)',
-          background: `color-mix(in srgb, var(--accent) ${locked ? 28 : 15}%, transparent)`,
+          border: `1.5px solid ${ink}`,
+          background: `color-mix(in srgb, ${ink} ${locked ? 28 : 15}%, transparent)`,
           // 바깥으로 한 겹 더 — 곁눈으로도 '평소 켜짐' 과 다르다는 것이 먼저 보인다.
-          boxShadow: locked ? '0 0 0 1.5px var(--accent)' : undefined,
+          boxShadow: locked ? `0 0 0 1.5px ${ink}` : undefined,
         }}
       />
       {locked && (
@@ -496,6 +525,9 @@ function ToolButton({
   const t = useT();
   const locale = useLocale();
   const label = def.label[locale];
+  // 파괴 모드만 켜짐 색이 다르다 — 근거는 DANGER_TONE 주석. 꺼져 있을 때는 다른 도구와
+  // 똑같이 `--muted` 다: 안 켠 도구까지 붉으면 레일이 늘 경고를 띄우고 있는 것으로 읽힌다.
+  const tone = def.id === 'eraser' ? DANGER_TONE : undefined;
   return (
     <button
       type="button"
@@ -506,9 +538,9 @@ function ToolButton({
       aria-label={locked ? t('editor.toolRail.lockedAriaLabelTemplate', { label }) : undefined}
       aria-pressed={active}
       onClick={onSelect}
-      style={{ ...BTN_STYLE, color: active ? 'var(--accent-text)' : 'var(--muted)' }}
+      style={{ ...BTN_STYLE, color: active ? (tone ?? 'var(--accent-text)') : 'var(--muted)' }}
     >
-      {active && <ActiveRing locked={locked} />}
+      {active && <ActiveRing locked={locked} tone={tone} />}
       <span style={{ position: 'relative', display: 'flex' }}>
         <def.Icon />
       </span>
@@ -896,6 +928,9 @@ export function ToolRail({
             어느 서랍에서 나왔는지가 사라진다** — 손잡이 옆에 붙어 있지 않은 것은 서랍이 아니다.
             밀림이 한 번뿐이라는 점이 이 선택의 근거다: 서랍은 열면 그대로 남고(prefs.tray),
             그 뒤로는 두 손잡이 모두 영구히 같은 자리다. */}
+        {/* 메모 — 서랍이 아니라 **단일 버튼**이다(위 SOLO_TOOLS 주석). 작도 손잡이 **뒤**에
+            둔 것은 옛 `설명` 손잡이가 있던 자리 그대로여서다: 자리를 옮기면 §3 불변식 1 이
+            말하는 "조준 대상이 움직이지 않는다" 가 깨진다. */}
         {DRAWERS.map((d) => {
           const isOpen = flyout?.key === d.key;
           const active = d.tools.some((tl) => tl.id === tool);
@@ -994,6 +1029,21 @@ export function ToolRail({
             </div>
           );
         })}
+        {SOLO_TOOLS.map((tl) => (
+          <ToolButton
+            key={tl.id}
+            def={tl}
+            active={tl.id === tool}
+            locked={tl.id === tool && toolLock}
+            // ⚠️ **[지우기]만 "같은 도구를 한 번 더 = 고정" 관례를 비켜 간다**(2026-09-03 기현
+            //    지시: *"다시 지우기 버튼을 누르면 선택으로 복귀"*). 리듀서는 그 관례의 정본이고
+            //    거기서 갈래를 만들 이유가 없다 — `LOCKABLE_TOOLS` 가 허용 목록이라 eraser 를
+            //    한 번 더 주면 `TOOL_SET` 은 **아무 일도 안 한다**(상태 그대로 반환). 즉 여기서
+            //    가로채지 않으면 재클릭이 조용히 죽어 세 출구 중 하나가 사라진다.
+            //    나가는 곳을 `select` 로 못박는 것은 그것이 유일한 상시 출구이기 때문이다.
+            onSelect={() => onSelectTool(tl.id === 'eraser' && tool === 'eraser' ? 'select' : tl.id)}
+          />
+        ))}
       </div>
 
       {!horiz && (

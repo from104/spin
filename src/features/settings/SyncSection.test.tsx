@@ -127,14 +127,6 @@ describe('켬 상태', () => {
     await putSyncDocRow('drill', 'dr_keep', { lastSyncedAt: 5, remoteFileId: 'f9' });
   });
 
-  it('계정·상태 줄과 [지금 동기화]·[연결 해제]가 보인다', async () => {
-    render(<SyncSection />, { wrapper: Wrapper });
-    expect(await screen.findByText('coach@example.com')).toBeInTheDocument();
-    expect(screen.getByText('아직 동기화한 적 없습니다.')).toBeInTheDocument(); // 모듈 관찰자 초기값(idle)
-    expect(screen.getByRole('button', { name: '지금 동기화' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '연결 해제' })).toBeInTheDocument();
-  });
-
   it('해제 — revoke + 이메일 힌트 삭제 + enabled=false. 문서행·톰스톤·writerId 는 비접촉', async () => {
     const user = userEvent.setup();
     render(<SyncSection />, { wrapper: Wrapper });

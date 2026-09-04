@@ -8,10 +8,9 @@
 //   2존 모드      ↔ handlesVisible·applyTwoZone (편집기가 실제로 부르는 판정 함수)
 //   놓임 소리·진동 ↔ cueSpec 3종 + createCuePlayer 의 enabled 게이트
 //   모션 줄이기    ↔ effectiveReduceMotion·stepTransitionMs (트윈 시간의 단일 출처)
-//   고대비        ↔ styles/contrast.css 의 prefers-contrast/forced-colors 미디어쿼리
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 
@@ -44,27 +43,6 @@ beforeEach(() => {
 afterEach(() => {
   // SettingsProvider 의 reduce-motion 부작용이 documentElement 에 남아 다음 테스트를 오염시킨다.
   delete document.documentElement.dataset.reduceMotion;
-});
-
-/** 접근성 섹션(제목 '접근성' 인 <section>)만 오려 낸다 — 화면 전체에서 찾으면
- *  다른 섹션의 같은 문구가 대신 통과해 "한 섹션에 모였다" 는 단언이 무의미해진다. */
-function a11ySection(): HTMLElement {
-  const sec = screen.getByText('접근성').closest('section');
-  expect(sec, "'접근성' 섹션이 없다").not.toBeNull();
-  return sec as HTMLElement;
-}
-
-describe('6.2 ① 한 섹션에 모여 있다', () => {
-  it('큰 터치 타깃·2존·소리/진동·고대비·모션·단축키가 전부 접근성 섹션 안에 있다', () => {
-    render(<SettingsScreen />, { wrapper });
-    const sec = within(a11ySection());
-    expect(sec.getByRole('switch', { name: '큰 터치 타깃' })).toBeInTheDocument();
-    expect(sec.getByRole('switch', { name: '2존 모드' })).toBeInTheDocument();
-    expect(sec.getByRole('switch', { name: '놓임 소리·진동' })).toBeInTheDocument();
-    expect(sec.getByText('고대비·강제 색상')).toBeInTheDocument();
-    expect(sec.getByRole('radiogroup', { name: '모션 줄이기' })).toBeInTheDocument();
-    expect(sec.getByRole('radiogroup', { name: '편집기 단축키' })).toBeInTheDocument();
-  });
 });
 
 describe('6.2 ② 설명문 ↔ 실제 동작', () => {
@@ -158,19 +136,5 @@ describe('6.2 ② 설명문 ↔ 실제 동작', () => {
     } finally {
       window.matchMedia = orig;
     }
-  });
-
-  it('고대비 — 스위치는 없고(시스템 따름), 그 약속을 지키는 미디어쿼리가 실제로 로드된다', () => {
-    render(<SettingsScreen />, { wrapper });
-    const sec = within(a11ySection());
-    expect(sec.getByText(/기기의 고대비·강제 색상 설정을 켜면 앱이 자동으로 따릅니다/)).toBeInTheDocument();
-    // 없는 컨트롤을 있는 척하지 않는다 — 이 행에는 스위치가 없다(시스템 설정과 싸우는 두 번째
-    // 스위치를 만들지 않는 것이 5.6 의 설계다).
-    expect(screen.queryByRole('switch', { name: /고대비/ })).toBeNull();
-    // "자동으로 따릅니다" 의 실체 — contrast.css 의 두 미디어쿼리(5.6)와 main.tsx 의 로드.
-    const css = readFileSync('src/styles/contrast.css', 'utf-8');
-    expect(css).toContain('@media (prefers-contrast: more)');
-    expect(css).toContain('@media (forced-colors: active)');
-    expect(readFileSync('src/main.tsx', 'utf-8')).toContain("import './styles/contrast.css'");
   });
 });

@@ -144,12 +144,12 @@ describe('epoch — 구조 변경·시점 점프에만 증가', () => {
     expect(s.epoch).toBe(e0);
   });
 
-  it('UNDO/REDO/DRILL_LOAD/STEP_ADD/OBJECT_ADD/CHAIR_PLACE 는 epoch 를 증가시킨다', () => {
+  it('UNDO/REDO/DRILL_LOAD/STEP_DUPLICATE/OBJECT_ADD/CHAIR_PLACE 는 epoch 를 증가시킨다', () => {
     let s = freshState();
     const e0 = s.epoch;
     s = editorRootReducer(s, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 5, y: 5 }, id: newId('bl') });
     expect(s.epoch).toBe(e0 + 1);
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
     expect(s.epoch).toBe(e0 + 2);
     const undone = editorRootReducer(s, { type: 'UNDO' });
     expect(undone.epoch).toBe(e0 + 3);

@@ -41,6 +41,8 @@ export function announceFor(screen: Screen, stage: StageTarget, present: Present
       const title_ = title(present);
       return title_ ? t('app.announce.presentTitled', { title: title_ }) : t('app.announce.presentMode');
     }
+    case 'rules':
+      return t('app.announce.rules');
     case 'settings':
       return t('app.announce.settings');
   }

@@ -4,7 +4,7 @@
 
 **▶ [지금 열기 — spin.atit.app](https://spin.atit.app)** (`spin.atit.dev` 는 새 주소로 자동 이동합니다)
 
-> **상태: 개발 중 (미완성, 0.3.x)** — 실제 코트에서 써 보며 고치는 중입니다. 기능은 동작하지만
+> **상태: 개발 중 (미완성, 0.6.x)** — 실제 코트에서 써 보며 고치는 중입니다. 기능은 동작하지만
 > 판단이 뒤집히는 일이 잦습니다. 뒤집힌 결정은 지우지 않고 **왜 그렇게 정했었는지까지** 코드
 > 주석과 [CHANGELOG.md](CHANGELOG.md) 에 남깁니다.
 
@@ -65,7 +65,7 @@
 
 ## 2. 무엇을 하는 앱인가
 
-화면은 다섯입니다.
+화면은 여섯입니다.
 
 ### 전술판 (`board`)
 스텝이 없는 **한 장짜리 판**. 지금 당장 그려서 보여 주는 용도입니다. 여기서 그린 판은
@@ -95,6 +95,23 @@
 ### 시연 모드 (`present`)
 팀 앞에서 보여 주는 화면. 전체화면, 큰 버튼, **화면 꺼짐 방지(Wake Lock)**, 스와이프로 스텝 이동.
 드릴 여러 개를 순서대로 묶은 **훈련 세션** 단위로도 돌릴 수 있습니다.
+
+### 규칙 (`rules`, 2026-08-21 신설, 2026-08-22 주제별 재설계, 2026-08-31 9카드 개편)
+FIPFA Laws of the Game(2025년판)을 **주제별로** 익히는 화면입니다. 조항 순서 사전이 아니라
+9개 주제 카드([파워체어풋볼이란]·[게임의 목적]·[선수·코트·공·장비]·[인·아웃과 득점]·
+[경기 재개]·[골에어리어 반칙]·[2-on-1 반칙]·[그 외의 반칙]·[공식 룰 북])로 들어가고,
+카드 하나가 산문·도해·
+**보드 애니메이션**·비교표를 순서대로 담습니다 — 시연 화면과 같은 재생 엔진(`sampleDrill`
+보간, 물리 엔진 불사용)을 재사용하고, 공 주위 3 m/5 m 링은 위 §1 의 판정 링과 같은
+컴포넌트입니다. 장면은 재생 버튼을 누르기 전까지 정지 이미지이고 한 번에 하나만 재생됩니다.
+조항 번호로 찾고 싶으면 [공식 룰 북] 카드에 18개조 압축 요약이 있습니다. `/rules/<주제>` 로
+딥링크됩니다. 규칙 팩트 정본은 [docs/RULES-FIPFA-2025.md](docs/RULES-FIPFA-2025.md), 콘텐츠
+정본은 [docs/PLAN-RULES-9CARDS.md](docs/PLAN-RULES-9CARDS.md)입니다(옛 설계는
+[docs/PLAN-RULES-REDESIGN.md](docs/PLAN-RULES-REDESIGN.md)·[docs/PLAN-RULES-SCREEN.md](docs/PLAN-RULES-SCREEN.md)
+에 히스토리로 남습니다). 카드 [파워체어풋볼이란]·[게임의 목적]의 일부 문장은 정본 밖
+연구자료에서 나오므로, 그 출처·자료 등급은
+[docs/research/powerchair-football/README.md](docs/research/powerchair-football/README.md)
+의 채택 문안 목록에 적혀 있습니다.
 
 ### 설정 (`settings`)
 언어·테마·UI 배율, 선수 명단(세션 참가자 체크의 원본), 물리(드래그 4존 경계·속도 상한),
@@ -179,7 +196,7 @@ src/
 ├─ render/     SVG 렌더 (CourtStage.tsx 가 무대, objects/ 가 개체별 그리기)
 ├─ store/      에디터 상태 (reducer)
 ├─ storage/    IndexedDB·파일 입출력 (drillRepo·sessionRepo·prefs·transfer)
-├─ features/   화면별 기능 (board · editor · library · present · print · export · settings · home)
+├─ features/   화면별 기능 (board · editor · library · sessions · present · rules · print · export · settings · home)
 ├─ ui/         공용 UI 부품 (Modal · Button · Drawer · LiveRegion …)
 ├─ core/       상수·키맵·id
 ├─ app/        셸·라우팅
@@ -204,7 +221,7 @@ src/
 3. **뒤집은 결정은 근거를 남긴다.** 왜 그렇게 정했었는지를 지우면, 몇 달 뒤에 같은 이유로
    같은 결정을 다시 하게 됩니다.
 
-에이전트용 세부 규약은 `CLAUDE.md` 와 [docs/DESIGN.md](docs/DESIGN.md) §0(문서 지위·읽는 법)에 있습니다.
+에이전트용 세부 규약(코드·커밋·문서·테스트·i18n 관행)은 [AGENTS.md](AGENTS.md) 에, 구현 계약은 [docs/DESIGN.md](docs/DESIGN.md) §0(문서 지위·읽는 법)에 있습니다.
 
 ### 문서 지도
 
@@ -231,7 +248,7 @@ npm run test         # 전체 (커밋 직전 한 번)
 npm run test:rel src/render/CourtStage.tsx   # 그 파일을 쓰는 테스트만
 ```
 
-현재 **257개 파일 3,523개 테스트**가 돌고 있습니다.
+현재 **260개 파일 3,573개 테스트**가 돌고 있습니다.
 
 ### 배포
 

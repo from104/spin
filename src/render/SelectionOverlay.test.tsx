@@ -16,22 +16,18 @@ function setup() {
 }
 
 describe('SelectionOverlay', () => {
-  it('setRing(null) 상태에서는 링이 숨겨져 있다', () => {
-    const { container } = setup();
-    const ring = container.querySelector('rect[rx="8"]')!.parentElement as unknown as SVGGElement;
-    expect(ring.style.display).toBe('none');
-  });
-
   it('setRing("chair", ...) 은 React 리렌더 없이 즉시 transform 을 쓴다', () => {
     const { ref, container } = setup();
+    // setRing(null) 상태(초기값)에서는 링이 숨겨져 있다(대조군).
+    const initialRing = container.querySelector('rect[rx="8"]')!.parentElement as unknown as SVGGElement;
+    expect(initialRing.style.display).toBe('none');
+
     ref.current!.setRing('chair', 12, -34, Math.PI);
     const ringGroup = container.querySelector('rect[rx="8"]')!.parentElement as unknown as SVGGElement;
     expect(ringGroup.style.display).toBe('');
     expect(ringGroup.getAttribute('transform')).toBe('translate(12.00 -34.00) rotate(180.00)');
-  });
 
-  it('setRing("ball", ...) 은 원형 링을 보이고 사각 링은 숨긴다', () => {
-    const { ref, container } = setup();
+    // setRing("ball", ...) 은 원형 링을 보이고 사각 링은 숨긴다.
     ref.current!.setRing('ball', 0, 0, 0);
     const rect = container.querySelector('rect[rx="8"]') as SVGRectElement;
     const circle = container.querySelector('circle[r="12"]') as SVGCircleElement;

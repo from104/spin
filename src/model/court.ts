@@ -7,6 +7,7 @@
 // court.test.ts 의 '코트 외곽 마진' 불변식이 네 변을 모두 붙잡고 있다.
 import type { Vec2 } from '../core/units.ts';
 import { PX_PER_M } from '../core/units.ts';
+import { GOAL } from '../core/constants.ts';
 import type { Locale } from '../i18n/locale.ts';
 
 export type CourtMode = 'full' | 'half' | 'flat';
@@ -421,8 +422,9 @@ export function clampToViewBox(mode: CourtMode, p: Vec2, size?: CourtSize): Vec2
  *
  *  ⚠️ 사각형(`Rect`)이 아니라 **경계값**인 이유: 바깥쪽에는 끝이 없다. 세트피스 5 m 면제는
  *  *"완전히 나가야"* 성립하는데(기현 지시 2026-08-17), 바깥을 viewBox 로 막으면 그 구역의
- *  깊이가 마진과 같은 **1.5 m** 이고 차체 길이도 **정확히 1.5 m** 라, 차체가 자로 잰 듯
- *  들어가야만 면제가 된다 — 사실상 아무도 못 받는 규칙이 된다. 골라인은 선이지 상자가 아니다. */
+ *  깊이가 마진(**1.5 m**)에 갇혀 차체 길이(2026-08-29 실측 1.3 m)와 20 cm 밖에 차이가 안 난다
+ *  — 차체가 자로 잰 듯 들어가야만 면제가 되어 사실상 아무도 못 받는 규칙이 된다. 골라인은
+ *  선이지 상자가 아니다. (실측 전에는 마진과 차체 길이가 **정확히 같아** 여유가 0 이었다.) */
 export interface GoalMouth {
   minX: number;
   maxX: number;
@@ -448,6 +450,64 @@ export interface GoalMouth {
  *  ⚠️ 배열 순서는 `ruleZones` 와 **같다**(풀: 왼쪽·오른쪽, 하프: 하나). 진영을 입히는 규약이
  *  둘 다 같으므로, 순서가 갈리면 면제가 **상대 골대**에서 붙는다.
  *  플랫 코트는 골대가 없어 빈 배열이다. */
+/** 골대 `i` 를 지키는 팀이 **공격하는 방향**(축 정렬 단위 벡터). 골대는 언제나 경기면 중심의
+ *  반대쪽에 있으므로, 골대에서 중심을 향하는 쪽이 곧 그 팀이 밀고 나가는 방향이다.
+ *
+ *  배열 순서는 `goalMouths`·`ruleZones` 와 **같다**(`defendedZones`/`defendedMouths` 가
+ *  `[0]` = `Drill.defense` 로 진영을 입히는 그 순서). 골대가 없으면(플랫) null 이다.
+ *
+ *  쓰는 곳: 세트피스 소유 화살표 — 심판이 팔로 가리키는 그 방향이다. */
+export function attackDir(def: CourtDef, i: number): Vec2 | null {
+  const a = def.goalPosts[i * 2];
+  const b = def.goalPosts[i * 2 + 1];
+  if (!a || !b) return null;
+  const s = def.surface;
+  if (a.x === b.x) return { x: a.x < s.x + s.w / 2 ? 1 : -1, y: 0 }; // 세로 골라인(풀 좌·우)
+  return { x: 0, y: a.y < s.y + s.h / 2 ? 1 : -1 }; // 가로 골라인(하프 아래)
+}
+
+/** 골대 받침판이 기둥에서 **어느 쪽으로** 놓이는가 — 축 정렬 대각 단위 벡터.
+ *
+ *  기현님 실물 사진(2026-08-30): *"사각형의 위치는 골라인쪽+사이드라인쪽"*. 두 성분이다.
+ *   · 골라인쪽 = 경기면 **밖**(골라인 너머). `attackDir` 의 정반대다 — 그쪽이 중심을 향한다.
+ *   · 사이드라인쪽 = 골 입구 축을 따라 **입구 바깥**, 즉 두 기둥 사이가 아니라 가까운
+ *     사이드라인 쪽. 그래야 판이 골 입구를 가로막지 않는다.
+ *
+ *  골대가 없으면(플랫) null. 인덱스는 `goalPosts` 의 것이고, 두 개가 한 골대다. */
+export function goalBaseDir(def: CourtDef, i: number): Vec2 | null {
+  const p = def.goalPosts[i];
+  if (!p) return null;
+  const pair = Math.floor(i / 2);
+  const a = def.goalPosts[pair * 2];
+  const b = def.goalPosts[pair * 2 + 1];
+  if (!a || !b) return null;
+  const attack = attackDir(def, pair);
+  if (!attack) return null;
+  // 골 입구 축은 두 기둥이 **갈라지는** 축이고, 골라인 법선은 그 반대 축이다.
+  // 세로 골라인(풀 좌·우)이면 입구는 y 축, 가로 골라인(하프 아래)이면 x 축이다.
+  return a.x === b.x
+    ? { x: -attack.x, y: Math.sign(p.y - (a.y + b.y) / 2) || 1 }
+    : { x: Math.sign(p.x - (a.x + b.x) / 2) || 1, y: -attack.y };
+}
+
+/** 받침판을 코트 좌표의 사각형으로. 정적 경로(시연·썸네일·PNG·인쇄)가 쓴다 —
+ *  편집기는 골대가 물리 바디라 기둥 로컬 좌표로 그린다(`goalBaseLocalRect`). */
+export function goalBaseRect(def: CourtDef, i: number): Rect | null {
+  const p = def.goalPosts[i];
+  const dir = goalBaseDir(def, i);
+  if (!p || !dir) return null;
+  const r = goalBaseLocalRect(dir);
+  return { x: p.x + r.x, y: p.y + r.y, w: r.w, h: r.h };
+}
+
+/** 기둥을 원점으로 둔 받침판. 방향 성분은 ±1 이어야 한다.
+ *  기둥은 판의 **가까운 모서리에서 `baseInsetPx` 안쪽**에 꽂힌다(GOAL 의 그 주석). */
+export function goalBaseLocalRect(dir: Vec2): Rect {
+  const s = GOAL.baseSidePx;
+  const t = GOAL.baseInsetPx;
+  return { x: dir.x > 0 ? -t : -(s - t), y: dir.y > 0 ? -t : -(s - t), w: s, h: s };
+}
+
 export function goalMouths(def: CourtDef): GoalMouth[] {
   const s = def.surface;
   const cx = s.x + s.w / 2;

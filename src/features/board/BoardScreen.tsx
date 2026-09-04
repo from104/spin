@@ -3,7 +3,7 @@
 // 않고, 다른 것은 이 화면이 쥐고 있는 세 가지뿐이다:
 //
 //   ① 스냅샷 1장의 수명 (storage/board.ts — 목록에 뜨지 않는 임시 판)
-//   ② 코트 자유 전환 게이트의 기준선(pristine)
+//   ② 코트 자유 전환 게이트가 여는 조작(코트 전환·비우기)
 //   ③ 정식 드릴로의 승격
 //
 // 드릴을 열었을 때는 이 화면이 아니라 EditorScreen 이 같은 자리에 mode='drill' 로 뜬다.
@@ -22,6 +22,9 @@ import { useAppNav } from '../../app/useAppHistory.ts';
 import { EditorProvider, useEditorDispatch, useEditorState } from '../../store/editor/EditorProvider.tsx';
 import { PlaybackProvider } from '../../store/playback/PlaybackProvider.tsx';
 import { EditorWorkspace } from '../editor/EditorWorkspace.tsx';
+// §8 — board 는 library 와 같은 층(screen-home-library)이다. 이름 칸을 공유하려고 다이얼로그
+// 둘이 한 파일에 산다(NewDrillDialog.tsx 의 SaveAsDrillDialog 머리말).
+import { SaveAsDrillDialog } from '../library/NewDrillDialog.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import type { Locale } from '../../i18n/locale.ts';
@@ -70,23 +73,23 @@ export function BoardScreen() {
   //   ③ 새 판 — 저장본이 없다.
   const [boot] = useState(() => {
     const session = readBoardSession();
-    if (session) return { drill: session.state.present, pristine: session.pristineBase, init: session.state };
+    if (session) return { drill: session.state.present, init: session.state };
     const snap = loadBoard();
-    return snap ? { ...snap, init: undefined } : { drill: makeBoardDrill(locale), pristine: true, init: undefined };
+    return snap ? { drill: snap.drill, init: undefined } : { drill: makeBoardDrill(locale), init: undefined };
   });
 
   return (
     <EditorProvider drill={boot.drill} init={boot.init}>
       {/* 설정 [재생] > '마지막 스텝에서 반복'. 전술판 재생(useStepPlayback)도 같은 스위치를 본다. */}
       <PlaybackProvider initialLoop={prefs.loop}>
-        <BoardHost bootPristine={boot.pristine} />
+        <BoardHost />
       </PlaybackProvider>
     </EditorProvider>
   );
 }
 
 /** 판 갈아끼우기·스냅샷 저장은 리듀서 상태를 봐야 하므로 Provider **안쪽**에 있어야 한다. */
-function BoardHost({ bootPristine }: { bootPristine: boolean }) {
+function BoardHost() {
   const state = useEditorState();
   const dispatch = useEditorDispatch();
   const toast = useToast();
@@ -95,26 +98,19 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
   const t = useT();
   const locale = useLocale();
 
-  // 저장본 기준선. 판을 갈아끼우면(코트 전환·초기화) 다시 true 가 된다. 실제 게이트는
-  // EditorWorkspace 가 여기에 `past.length === 0` 를 AND 해서 만든다.
-  const [pristineBase, setPristineBase] = useState(bootPristine);
-  const pristine = pristineBase && state.past.length === 0;
-
   // 스냅샷 저장 — 디바운스. present 참조가 바뀔 때만 돈다(편집 리듀서는 변경 경로만 새 객체를
-  // 만든다, §6.7). pristine 을 같이 저장해야 다음에 열었을 때 게이트가 정확해진다.
-  const pristineRef = useRef(pristine);
-  pristineRef.current = pristine;
+  // 만든다, §6.7).
+  //
+  // ⚠️ 2026-08-28 — 여기 있던 `pristineBase`/`pristine` 배선이 통째로 사라졌다. 코트 전환
+  //    게이트가 저장본 기준선 대신 **판 자체**(개체가 0인가)를 보게 됐기 때문이다. 그 기준선은
+  //    "저장하고 다시 열면 past 가 비어 dirty 한 판이 clean 으로 보인다" 를 막으려고 있었는데,
+  //    판을 직접 세면 그 거짓말 자체가 성립하지 않는다(EditorWorkspace 의 게이트 주석).
   const presentRef = useRef(state.present);
   presentRef.current = state.present;
-  // 세션 캐시에 실을 것들. `pristineBase` 는 `pristine`(= base && past.length===0)이 아니라
-  // **기준선 자체**다 — 파생값을 저장하면 이력을 그대로 이어받은 판이 다음 마운트에서
-  // base=false 로 굳어, 판을 비워도(past 가 0 이 돼도) 코트 전환이 영영 안 열린다.
   const stateRef = useRef(state);
   stateRef.current = state;
-  const pristineBaseRef = useRef(pristineBase);
-  pristineBaseRef.current = pristineBase;
   useEffect(() => {
-    const t = window.setTimeout(() => saveBoard(state.present, pristineRef.current), PERSIST_DEBOUNCE_MS);
+    const t = window.setTimeout(() => saveBoard(state.present), PERSIST_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [state.present]);
 
@@ -129,10 +125,10 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
   // present 를 넣으면 **편집할 때마다** 저장이 돌아 디바운스가 통째로 무의미해진다.
   useEffect(() => {
     return () => {
-      saveBoard(presentRef.current, pristineRef.current);
+      saveBoard(presentRef.current);
       // 같은 자리에서 세션 캐시도 채운다. 디스크에는 배치만, 메모리에는 상태 전부 —
       // 둘의 역할 분담은 boardSession.ts 머리말에 있다.
-      writeBoardSession({ state: stateRef.current, pristineBase: pristineBaseRef.current });
+      writeBoardSession({ state: stateRef.current });
     };
   }, []);
 
@@ -143,13 +139,12 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
   // 아무 일도 안 나면서 도움말에는 '저장' 이라고 적혀 있었다. 전술판에도 저장할 것은 있다:
   // 500ms 디바운스로 미뤄 둔 스냅샷이다.
   const saveNow = useCallback(() => {
-    saveBoard(presentRef.current, pristineRef.current);
+    saveBoard(presentRef.current);
   }, []);
 
   const swap = useCallback(
     (mode: CourtMode, size?: CourtSize) => {
       dispatch({ type: 'BOARD_SET', drill: makeBoardDrill(locale, mode, size) });
-      setPristineBase(true);
     },
     [dispatch, locale],
   );
@@ -174,7 +169,7 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
    *      id·제목이 바뀌면 storage/board.ts 의 판이 다른 판으로 갈아치워진 것처럼 보인다.
    *   ② 저 함수는 `defaultStep` 으로 **8대를 깔아 준다**. 전술판은 비어서 뜨는 것이 확정 사항이다
    *      (2026-08-10 기현 지시 — defaults.ts createDrill.empty 주석).
-   *   ③ 무엇보다, 여기서는 **잃을 배치가 없다**. 게이트가 pristine 이라 판 위에 개체가 0이고,
+   *   ③ 무엇보다, 여기서는 **잃을 배치가 없다**. 게이트가 판 위 개체 0을 보고 열리므로,
    *      그래서 "코트를 줄였더니 선수가 밖에 서 있다" 가 구조적으로 불가능하다 — cloneToCourt 가
    *      해결하려는 문제(좌표를 어떻게 옮길 것인가)가 이 경로에는 아예 발생하지 않는다.
    *  판이 더러우면 이 함수는 불리지 않는다(잠금은 EditorWorkspace 가 건다). */
@@ -187,20 +182,27 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
     [state.present.courtMode, state.present.courtSize, swap, toast, t, locale],
   );
 
-  const onReset = useCallback(() => {
-    // 비우기는 **크기를 유지한다** — 코트를 비웠다고 고른 규격까지 되돌리면, 크기를 고른 뒤
-    // 한 번 잘못 놓고 비우는 흔한 동작에서 규격이 조용히 30×18 로 돌아간다.
-    swap(state.present.courtMode, state.present.courtSize);
-    toast.show(t('board.clearedToast'));
-  }, [state.present.courtMode, state.present.courtSize, swap, toast, t]);
+  // ⚠️ [비우기]는 2026-08-28 부터 이 파일에 없다. 드릴 편집에도 같은 기능이 생기면서
+  //    구현이 EditorWorkspace.clearStep(STEP_CLEAR 한 방)으로 올라갔다 — 하는 일이 리듀서
+  //    액션 하나뿐이라 저장소를 아는 이 화면이 쥘 이유가 없었다.
+  //    옛 기록: 그 직전(같은 날)에 여기서 `swap()`(BOARD_SET, 히스토리 소멸) → DRILL_LOAD 로
+  //    한 번 옮겼었다. 이유는 `store/editor/actions.ts` 의 STEP_CLEAR·BOARD_SET 주석에 있다.
 
-  const onSaveAsDrill = useCallback(() => {
-    // 승격은 **복사**다 — 전술판은 그대로 남는다. 저장 직후 판이 사라지면 "방금 그리던 것"을
-    // 잃은 것처럼 보인다.
-    const now = Date.now();
-    const title = state.present.title.trim() || t('board.defaultDrillTitle');
-    const promoted: Drill = { ...structuredClone(state.present), id: newId('dr'), title, createdAt: now, updatedAt: now };
-    void (async () => {
+  // [저장]은 **이름부터 묻는다**(2026-08-28 기현 지시). 옛 동작(지우지 않는다): 누르는 즉시
+  // 판의 제목(없으면 '새 드릴')으로 저장하고 [목록에서 보기] 토스트를 냈다. 이름을 안 붙인
+  // 판이 전부 '새 드릴' 로 쌓였고, 목록에 가서야 그것을 알았다.
+  const [saveOpen, setSaveOpen] = useState(false);
+  const onSaveAsDrill = useCallback(() => setSaveOpen(true), []);
+
+  /** 다이얼로그가 준 이름으로 승격한다. **성공했을 때만** true — 실패하면 모달이 열린 채로
+   *  남아야 방금 친 이름을 잃지 않는다. */
+  const commitSaveAsDrill = useCallback(
+    async (name: string): Promise<boolean> => {
+      // 승격은 **복사**다 — 전술판은 그대로 남는다. 저장 직후 판이 사라지면 "방금 그리던 것"을
+      // 잃은 것처럼 보인다.
+      const now = Date.now();
+      const title = name || t('board.defaultDrillTitle');
+      const promoted: Drill = { ...structuredClone(state.present), id: newId('dr'), title, createdAt: now, updatedAt: now };
       try {
         const { repo } = await resolveDrillRepo();
         await repo.putDrill(promoted);
@@ -208,14 +210,23 @@ function BoardHost({ bootPristine }: { bootPristine: boolean }) {
         // (App.tsx), 이걸 빼면 IDB 에는 저장됐는데 목록·대문 통계에는 새로고침 전까지 안 뜬다
         // — 사용자에겐 "저장이 안 된 것" 으로 보인다(실제로 그렇게 보였다).
         await refresh();
-        toast.show(t('board.savedToast', { title }), {
-          action: { label: t('board.savedToastAction'), onAction: () => nav.go('drills') },
-        });
+        toast.show(t('board.savedToast', { title }));
+        // 곧장 그 드릴의 편집기로. [목록에서 보기] 토스트 액션은 은퇴했다 — 목록을 거치지
+        // 않고 바로 도착하므로 눌러야 할 자리가 없다.
+        nav.go('board', { kind: 'drill', id: promoted.id });
+        return true;
       } catch {
         toast.show(t('board.saveFailedToast'));
+        return false;
       }
-    })();
-  }, [state.present, toast, nav, refresh, t]);
+    },
+    [state.present, toast, nav, refresh, t],
+  );
 
-  return <EditorWorkspace mode="board" board={{ pristine: pristineBase, onCourtChange, onCourtSizeChange, onReset, onSaveAsDrill, onSave: saveNow }} />;
+  return (
+    <>
+      <EditorWorkspace mode="board" board={{ onCourtChange, onCourtSizeChange, onSaveAsDrill, onSave: saveNow }} />
+      <SaveAsDrillDialog open={saveOpen} onClose={() => setSaveOpen(false)} defaultTitle={state.present.title} onSubmit={commitSaveAsDrill} />
+    </>
+  );
 }

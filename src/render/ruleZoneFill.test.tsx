@@ -18,24 +18,22 @@
 //     × 강제색. 인쇄는 규칙 존을 아예 그리지 않는다 — 그 사실도 아래에 기록해 뒀다.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { pathDraws } from './renderPaths.ts';
 import { render as rtlRender } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { COURT_BG } from '../core/colors.ts';
-import { COURT_MODES, COURT_SIZES, courtDefFor, type CourtMode } from '../model/court.ts';
+import { COURT_SIZES, courtDefFor, type CourtMode } from '../model/court.ts';
 import type { TeamSide } from '../model/drill.ts';
 import { compositeOver, contrastRatio, NON_TEXT_MIN } from '../styles/contrastMath.ts';
 import { buildStaticSvg } from '../features/export/buildStaticSvg.ts';
 import { makeFrame, TEAMS } from '../features/export/sceneFixture.ts';
 import { RuleOverlay } from './RuleOverlay.tsx';
 import { RuleZones } from './RuleZones.tsx';
-import { FullCourtLines } from './courtLines/FullCourtLines.tsx';
-import { HalfCourtLines } from './courtLines/HalfCourtLines.tsx';
 import { createTransformWriter } from './transformWriter.ts';
 import {
   createRuleOverlay,
   RULE_ALERT_STROKE,
   RULE_DASH,
-  RULE_OK_STROKE,
   RULE_ZONE_ALERT_FILL,
   RULE_ZONE_ALERT_FILL_OPACITY,
   RULE_ZONE_FILL,
@@ -73,16 +71,6 @@ function zoneRects(mode: CourtMode, size?: (typeof COURT_SIZES)[number]): SVGRec
 }
 
 describe('② 평소 층 — 연한 붉은 계열', () => {
-  it('채움 색이 붉은 계열이다 (흰색이 아니다)', () => {
-    const [r, g, b] = (RULE_ZONE_FILL.replace('#', '').match(/../g) ?? []).map((x) => parseInt(x, 16));
-    expect(r).toBeGreaterThan(g!);
-    expect(r).toBeGreaterThan(b!);
-    expect(RULE_ZONE_FILL).not.toBe('#ffffff');
-    // 대조군: 옛 값(흰색)은 붉기가 0 이다 — 이 잣대가 무엇이든 통과시키는 잣대가 아니다.
-    expect(redness('#ffffff')).toBe(0);
-    expect(redness(RULE_ZONE_FILL)).toBeGreaterThan(0);
-  });
-
   it('합성색이 코트보다 **붉은 쪽으로** 간다 — 색을 얹었는데 화면은 그대로가 아니다', () => {
     expect(redness(normalFace)).toBeGreaterThan(redness(COURT_BG) + 20);
     // 대조군 ①: 옛 흰 .14 는 코트보다 겨우 8.5 만 붉어졌다(무채색이라 초록이 그대로 남는다).
@@ -104,42 +92,9 @@ describe('② 평소 층 — 연한 붉은 계열', () => {
     expect(contrastRatio(compositeOver(rgba('#ffffff', 0.14), old), old)).toBeLessThan(NON_TEXT_MIN);
   });
 
-  it('DOM 이 상수와 같은 값을 쓴다 — 코트 3모드 × 3크기 전부', () => {
-    for (const mode of COURT_MODES) {
-      for (const size of COURT_SIZES) {
-        const rects = zoneRects(mode, size);
-        expect(rects).toHaveLength(courtDefFor(mode, size).ruleZones.length);
-        for (const rect of rects) {
-          expect(rect.getAttribute('fill')).toBe(RULE_ZONE_FILL);
-          expect(Number(rect.getAttribute('fill-opacity'))).toBe(RULE_ZONE_FILL_OPACITY);
-          expect(rect.getAttribute('stroke')).toBe(RULE_OK_STROKE);
-          expect(rect.getAttribute('stroke-dasharray')).toBe(RULE_DASH);
-        }
-      }
-    }
-    // 대조군: flat 은 존이 0개라 위 루프가 아무것도 안 세는 모드가 섞여 있다 — full 은 2개다.
-    expect(zoneRects('full')).toHaveLength(2);
-    expect(zoneRects('flat')).toHaveLength(0);
-  });
 });
 
 describe('② 위반 층 — 같은 붉은 계열의 **진한 쪽**', () => {
-  it('농도가 평소보다 진하다', () => {
-    expect(RULE_ZONE_ALERT_FILL_OPACITY).toBeGreaterThan(RULE_ZONE_FILL_OPACITY * 2);
-  });
-
-  it('세 색이 **한 색상각(0°)의 밝기 3단**이다 — 연한 면 → 경고선 → 진한 면', () => {
-    for (const hex of [RULE_ZONE_FILL, RULE_ALERT_STROKE, RULE_ZONE_ALERT_FILL]) {
-      const [r, g, b] = (hex.replace('#', '').match(/../g) ?? []).map((x) => parseInt(x, 16));
-      expect(g, `${hex} 는 순수 색상각 0° 가 아니다`).toBe(b);
-      expect(r).toBeGreaterThan(g!);
-    }
-    // 밝기 순서: 평소 면이 가장 밝고, 위반 면이 가장 어둡다.
-    const lightness = (hex: string): number => parseInt(hex.slice(1, 3), 16) + parseInt(hex.slice(3, 5), 16);
-    expect(lightness(RULE_ZONE_FILL)).toBeGreaterThan(lightness(RULE_ALERT_STROKE));
-    expect(lightness(RULE_ALERT_STROKE)).toBeGreaterThan(lightness(RULE_ZONE_ALERT_FILL));
-  });
-
   it('★ 두 상태가 **색으로도 밝기로도** 갈린다 (색맹 대조군 포함)', () => {
     // ① 색: 붉기의 부호가 뒤집힌다(초록 우세 → 붉은 우세).
     expect(redness(normalFace)).toBeLessThan(0);
@@ -187,6 +142,7 @@ describe('② 위반 층 — 같은 붉은 계열의 **진한 쪽**', () => {
       fiveMeterDefense: null,
       teamLabels: { home: '홈', away: '원정' },
       locale: 'ko',
+      court: { mode: 'full', surface: courtDefFor('full').surface },
     });
 
     // 깨끗: 숨어 있고 파선이다.
@@ -257,107 +213,12 @@ describe('② 화면마다 같은 색이 나온다', () => {
     //    파선 채널까지 통째로 사라진다(contrastMath.dashChannelVisible 이 그 계산이다).
   });
 
-  it('인쇄 시트는 규칙 존을 그리지 않는다 (현 상태 기록 — 바뀌면 여기서 알려 준다)', () => {
-    expect(src('../features/print/PrintCourt.tsx')).not.toContain('RuleZones');
-  });
-});
-
-// ── 6차 검증관 발견 (2026-08-13) ─────────────────────────────────────────────────────
-// **흰 파선 테두리는 화면에 한 픽셀도 기여하지 않는다.** ② 가 요소 `opacity` 를 `fill-opacity`
-// 로 갈라내며 "흰 선/면 4.23:1" 을 얻었다고 적었지만, 그 대비쌍(흰 선 vs 붉은 면)은 **화면에
-// 나타나지 않는 쌍**이다: 규칙 존 rect 의 네 변이 코트 자신의 **흰 실선 위에 정확히 겹쳐**
-// 그어지고, 그 실선이 파선보다 **굵다**. 파선의 빈칸에는 아래 실선이 그대로 보이므로 파선은
-// 연속된 흰 선으로 뭉개진다 — 즉 존을 켜고 끄는 차이는 **면(fill)뿐**이다.
-//
-// 실측(편집 variant, 30×18):
-//   · 존 rect  x=37.5 y=162.5 w=125 h=200, stroke-width **2**(파선 8 6)
-//   · 골 지역  path `M37.5,162.5 L162.5,162.5 L162.5,362.5 L37.5,362.5`, stroke-width **2.8**
-//     → 위·오른·아래 세 변이 이 실선 안에 완전히 들어간다(2 < 2.8, 같은 중심선).
-//   · 왼쪽 변(골라인)은 외곽선 rect(stroke-width **3**)의 왼쪽 변 안에 들어간다.
-// 그래서 RuleZones.tsx 머리말의 *"면이 아니라 파선 테두리가 기능을 전달한다"* 는 **옛 값에서도
-// 지금 값에서도 사실이 아니다**. 지우지 않고 남기되(기록이다), 사실은 여기서 못박는다.
-//
-// 되돌리면(= 파선을 코트 실선보다 굵게 하거나 존을 안쪽으로 들이면) 이 단언이 빨개진다.
-// 그 판단은 기현님 몫이라 값은 바꾸지 않았다 — 지금은 **사실을 고정**만 한다.
-describe('⚠️ 규칙 존의 흰 파선은 코트 실선에 완전히 가려진다 (6차 검증관 실측)', () => {
-  interface Seg { x1: number; y1: number; x2: number; y2: number; w: number }
-
-  /** 렌더된 코트 라인 그룹에서 축평행 선분을 전부 끌어낸다(rect·line·path 의 L 명령). */
-  function courtSegs(el: Element): Seg[] {
-    const out: Seg[] = [];
-    for (const node of el.querySelectorAll('rect,line,path')) {
-      const w = Number(node.getAttribute('stroke-width') ?? node.closest('g')?.getAttribute('stroke-width') ?? 0);
-      if (!w) continue;
-      if (node.tagName === 'rect') {
-        const x = Number(node.getAttribute('x')), y = Number(node.getAttribute('y'));
-        const rw = Number(node.getAttribute('width')), rh = Number(node.getAttribute('height'));
-        out.push({ x1: x, y1: y, x2: x + rw, y2: y, w }, { x1: x, y1: y + rh, x2: x + rw, y2: y + rh, w });
-        out.push({ x1: x, y1: y, x2: x, y2: y + rh, w }, { x1: x + rw, y1: y, x2: x + rw, y2: y + rh, w });
-      } else if (node.tagName === 'line') {
-        out.push({ x1: Number(node.getAttribute('x1')), y1: Number(node.getAttribute('y1')), x2: Number(node.getAttribute('x2')), y2: Number(node.getAttribute('y2')), w });
-      } else {
-        const pts = (node.getAttribute('d') ?? '').split(/(?=[ML])/).map((t) => t.trim()).filter(Boolean);
-        let prev: { x: number; y: number } | null = null;
-        for (const t of pts) {
-          const [x, y] = t.slice(1).split(',').map(Number) as [number, number];
-          if (t[0] === 'L' && prev) out.push({ x1: prev.x, y1: prev.y, x2: x, y2: y, w });
-          prev = { x, y };
-        }
-      }
-    }
-    return out;
-  }
-
-  /** `a` 가 `b` 안에 완전히 숨는가 — 같은 직선 위에 있고, 구간이 덮이고, `b` 가 더 굵다. */
-  function hiddenIn(a: Seg, b: Seg): boolean {
-    const horiz = (s: Seg): boolean => s.y1 === s.y2;
-    const vert = (s: Seg): boolean => s.x1 === s.x2;
-    if (b.w < a.w) return false;
-    if (horiz(a) && horiz(b) && a.y1 === b.y1) {
-      return Math.min(a.x1, a.x2) >= Math.min(b.x1, b.x2) && Math.max(a.x1, a.x2) <= Math.max(b.x1, b.x2);
-    }
-    if (vert(a) && vert(b) && a.x1 === b.x1) {
-      return Math.min(a.y1, a.y2) >= Math.min(b.y1, b.y2) && Math.max(a.y1, a.y2) <= Math.max(b.y1, b.y2);
-    }
-    return false;
-  }
-
-  for (const mode of ['full', 'half'] as const) {
-    it(`${mode}: 존 rect 의 네 변이 전부 더 굵은 코트 실선 안에 있다`, () => {
-      const Lines = mode === 'full' ? FullCourtLines : HalfCourtLines;
-      const court = render(<svg>{<Lines variant="editor" />}</svg>);
-      const lines = courtSegs(court.container.querySelector('svg')!);
-      court.unmount();
-
-      const zones = render(<svg><RuleZones mode={mode} visible /></svg>);
-      const zoneRect = zones.container.querySelector('rect')!;
-      expect(zoneRect.getAttribute('stroke-dasharray'), '파선이 실제로 있다').toBe(RULE_DASH);
-      const edges = courtSegs(zones.container.querySelector('g')!);
-      zones.unmount();
-
-      // full 은 좌·우 골 지역 2개, half 는 1개 — 존마다 네 변이다.
-      expect(edges, '존마다 네 변').toHaveLength(4 * courtDefFor(mode).ruleZones.length);
-      for (const e of edges) {
-        expect(lines.some((l) => hiddenIn(e, l)), `${mode} 변 ${JSON.stringify(e)} 을 덮는 실선이 없다`).toBe(true);
-      }
-    });
-  }
-
-  it('대조군 — hiddenIn 은 실제로 거짓을 낼 수 있다 (통과가 검사기 고장이 아니다)', () => {
-    const thin = { x1: 0, y1: 0, x2: 10, y2: 0, w: 2 };
-    expect(hiddenIn(thin, { x1: 0, y1: 0, x2: 10, y2: 0, w: 3 })).toBe(true);
-    expect(hiddenIn(thin, { x1: 0, y1: 0, x2: 10, y2: 0, w: 1 })).toBe(false); // 더 얇으면 못 가린다
-    expect(hiddenIn(thin, { x1: 0, y1: 5, x2: 10, y2: 5, w: 3 })).toBe(false); // 다른 직선
-    expect(hiddenIn(thin, { x1: 0, y1: 0, x2: 5, y2: 0, w: 3 })).toBe(false); // 구간이 짧다
-  });
-
-  it('그래서 존을 켰다 끄는 차이는 **면뿐**이다 — 그 면의 코트 대비는 3:1 미만이다', () => {
-    const normal = compositeOver(rgba(RULE_ZONE_FILL, RULE_ZONE_FILL_OPACITY), COURT_BG);
-    const r = contrastRatio(normal, COURT_BG);
-    expect(r).toBeLessThan(NON_TEXT_MIN);
-    // ⚠️ 이것을 "결함" 이 아니라 **기록**으로 두는 이유: 골 지역의 경계 자체는 코트 실선이
-    //    언제나 그리고 있고(위 단언이 그 실선의 존재를 증명한다), 존의 면은 그 위에 얹는
-    //    강조다. 기현님 지시 ② 가 요구한 것도 "안쪽 흐린 효과" 라는 **면**이다.
-    expect(r).toBeGreaterThan(1.2); // 그래도 코트와 같은 색은 아니다(1.02:1 폐기안과의 대조군)
+  // ⚠️ 2026-08-27 에 뜻이 뒤집혔다. 원래는 *"인쇄 시트는 규칙 존을 그리지 않는다(현 상태
+  // 기록 — 바뀌면 여기서 알려 준다)"* 였는데, **바뀔 때 알려 주지 못했다**: 부정 단언은
+  // 누군가 코드를 고칠 때만 빨개지고, 이번 사고는 *아무도 안 고쳐서* 난 것이었기 때문이다.
+  // 판단은 `render/renderPaths.ts` 표로 옮겼다.
+  it('인쇄 시트도 규칙 존을 그린다 — 화면과 같은 컴포넌트로', () => {
+    expect(pathDraws('print', 'ruleZones')).toBe(true);
+    expect(src('../features/print/PrintCourt.tsx')).toContain('RuleZones');
   });
 });

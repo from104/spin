@@ -4,9 +4,19 @@
 // 해시 경로로 접고 펴는 순수 함수 둘만 만들었다 — useAppHistory(어댑터)·테스트가 공유한다.
 // 여기가 갈라지면 go() 가 만든 주소를 새로고침이 못 읽는다.
 //
-// **왜 해시 라우터인가**: 배포가 정적 파일 복사(vhost)라 SPA fallback 재작성 규칙이 없다 —
-// BrowserRouter 는 `/drills` 새로고침에서 404 다. URL 공유가 제품 시나리오에 없으므로
-// (§6.8 원 근거 그대로) 해시의 미관 비용은 0 이고, 무설정이 정답이다.
+// **[2026-09-02 뒤집힘] 왜 해시 라우터였는가**: 배포가 정적 파일 복사(vhost)라 SPA fallback
+// 재작성 규칙이 없다 — BrowserRouter 는 `/drills` 새로고침에서 404 다. URL 공유가 제품
+// 시나리오에 없으므로 (§6.8 원 근거 그대로) 해시의 미관 비용은 0 이고, 무설정이 정답이다.
+//
+// ⬆ **이 근거는 지금 둘 다 죽었다** — 근거를 지우지 않고 남기는 이유는, 다음 사람이 "왜 굳이
+// 해시였지" 를 다시 파헤치지 않게 하기 위해서다.
+//   ① *fallback 이 없다* — 있다. 배포처 vhost 에 `FallbackResource /index.html` 이 있고
+//      `/library` 가 200 으로 뜬다(2026-09-01 실측). 이 전제는 AWS vhost 를 세운 날 죽었고
+//      아무도 눈치채지 못한 채 남아 있었다.
+//   ② *URL 공유가 제품 시나리오에 없다* — 검색 유입을 목표로 잡은 날 죽었다. 해시 뒤는
+//      구글이 URL 로 세지 않아서, 규칙 해설 27장(9주제 × 3언어)이 통째로 색인 밖이었다.
+// 지금은 BrowserRouter 이고, `file:`(Tauri·로컬 파일)만 해시로 남는다 — 거기서는 ①이 아직
+// 참이다. 라우터 선택은 App.tsx 의 `createAppRouter`, 언어 접두사는 localePrefix.ts 가 쥔다.
 //
 // 경로 표 (C4 기초 + C5 세션 1급 합류):
 //   /                      전술판 (자유 보드)          screen 'board' + {kind:'board'}
@@ -17,6 +27,10 @@
 //   /present/drill/:id     드릴 시연                    screen 'present'
 //   /present/session/:id   세션 시연                    screen 'present'
 //   /present               시연 (대상 없음 — 빈 상태)
+//   /rules                 규칙 카드 홈                  screen 'rules'
+//   /rules/:topic          규칙 주제 상세(딥링크)         screen 'rules' + {kind:'rule', topic}
+//   /rules/law-:N          (관용) 옛 조항 딥링크          위와 동일, topic:'rulebook' 으로 흡수
+//   /rules/contested       (관용) 폐기된 옛 주제           위와 동일, topic:'restarts' 로 흡수
 //   /settings              설정
 //
 // ⚠️ '/drills/:id' 의 화면 키가 'drills' 가 아니라 'board' 인 것은 2026-08-09 재편 그대로다:
@@ -48,6 +62,8 @@ export function pathFor(screen: Screen, target?: NavTarget): string {
       if (target?.kind === 'drill') return `/present/drill/${target.id}`;
       if (target?.kind === 'session') return `/present/session/${target.id}`;
       return '/present';
+    case 'rules':
+      return target?.kind === 'rule' ? `/rules/${target.topic}` : '/rules';
     case 'settings':
       return '/settings';
   }
@@ -78,6 +94,16 @@ export function parsePath(pathname: string, search: string = ''): ParsedRoute {
       if (seg[1] === 'drill' && seg[2]) return { screen: 'present', target: { kind: 'drill', id: seg[2] } };
       if (seg[1] === 'session' && seg[2]) return { screen: 'present', target: { kind: 'session', id: seg[2] } };
       return { screen: 'present' };
+    }
+    case 'rules': {
+      if (!seg[1]) return { screen: 'rules' };
+      // 관용: 2026-08-21 딥링크 형식(/rules/law-N) — 재설계 전 주소를 부록 주제로 흡수한다
+      // (과거 형식을 되살리는 게 아니라, 남아 있을 수 있는 링크가 죽지 않게 하는 것뿐).
+      if (/^law-\d+$/.test(seg[1])) return { screen: 'rules', target: { kind: 'rule', topic: 'rulebook' } };
+      // 관용: 2026-08-31 9카드 개편에서 폐기된 주제(contested) — 그 콘텐츠가 간 곳(restarts)으로
+      // 흡수한다. 없으면 북마크가 404 도 없이 조용히 카드 홈으로 떨어진다.
+      if (seg[1] === 'contested') return { screen: 'rules', target: { kind: 'rule', topic: 'restarts' } };
+      return { screen: 'rules', target: { kind: 'rule', topic: seg[1] } };
     }
     case 'settings':
       return { screen: 'settings' };

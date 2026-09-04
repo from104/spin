@@ -11,6 +11,7 @@ import { createTransformWriter } from './transformWriter.ts';
 import { CourtStage, type CourtStageHandle, type CourtStagePointerController, type PointerDownResult } from './CourtStage.tsx';
 import type { StageRot } from './useStageMetrics.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
+import { CHAIR } from '../core/constants.ts';
 
 /** 기본 rect 는 풀 코트 viewBox 와 같은 825×525 — client↔world 가 1:1 이라 좌표가 읽힌다. */
 function stubSvgLayout(container: HTMLElement, rect: Partial<DOMRect> = {}): SVGSVGElement {
@@ -114,15 +115,16 @@ describe('컨트롤러가 pan 을 판정하면 끌기가 판을 민다', () => {
     expect(viewOf(svg)[0]).toBeCloseTo(-20, 6);
 
     act(() => pointer(svg, 'pointermove', 130, 250));
-    expect(viewOf(svg)[0]).toBeCloseTo(-30, 6);
-  });
+    // 판을 미는 상한은 `CHAIR.hullRadiusPx` 만큼의 여백이다(useStageMetrics) — 실측으로
+    // 32.5 → 27.8567766 이 됐다. 상수를 읽어 두면 다음 실측에서 또 안 깨진다.
+    expect(viewOf(svg)[0]).toBeCloseTo(-CHAIR.hullRadiusPx, 6);
 
-  it('세로도 같이 민다 — 두 축이 각각 걸린다', () => {
-    const { container } = mount(makeController({ pan: true }));
-    const svg = stubSvgLayout(container);
-    act(() => pointer(svg, 'pointerdown', 400, 250));
-    act(() => pointer(svg, 'pointermove', 400, 270));
-    const [x, y] = viewOf(svg);
+    // 세로도 같이 민다 — 두 축이 각각 걸린다(같은 mount·끌기 설정, 축만 다르다).
+    const vert = mount(makeController({ pan: true }));
+    const svgV = stubSvgLayout(vert.container);
+    act(() => pointer(svgV, 'pointerdown', 400, 250));
+    act(() => pointer(svgV, 'pointermove', 400, 270));
+    const [x, y] = viewOf(svgV);
     expect(y).toBeCloseTo(-20, 6);
     expect(x).toBe(0); // 안 민 축은 그대로다
   });

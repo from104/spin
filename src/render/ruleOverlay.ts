@@ -12,7 +12,9 @@
 // 어긋나면 "링은 붉은데 아무도 안 들어와 있다" 가 된다).
 import {
   ballRingViolation,
+  fiveMeterRetreat,
   GOAL_AREA_MAX,
+  isBallOutOfPlay,
   RING_SAME_TEAM_MAX,
   ruleForRing,
   teamsOfBits,
@@ -21,7 +23,11 @@ import {
   type DefendedZone,
   type RuleActor,
 } from '../model/rules.ts';
+import type { CourtMode, Rect } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
+import { BALL_FILL } from '../core/colors.ts';
+import { mToPx } from '../core/units.ts';
+import { BALL } from '../core/constants.ts';
 import { liveRegion } from '../ui/LiveRegion.tsx';
 import { translate } from '../i18n/useT.ts';
 import type { Locale } from '../i18n/locale.ts';
@@ -32,6 +38,12 @@ export const RULE_OK_STROKE = '#ffffff';
  *  깔고(RuleOverlay.tsx) 그 위에 얹는다. 색은 세 번째 채널이고, 앞의 둘은 **파선→실선**과
  *  **라이브 리전 발화**다(§7.1 색 하나에 기대지 않는다). */
 export const RULE_ALERT_STROKE = '#ff5a5a';
+
+/** 아웃오브플레이 공의 채움색. `RULE_ALERT_STROKE` 와 **같은 값**을 쓴다 — "위반·이상 상태는
+ *  이 붉은색" 이라는 이 앱의 색 어휘를 하나로 유지한다(2026-08-22 기현님 지시: "그냥 공이
+ *  붉어지는 효과", 별도 테두리·배지 없음). 케이싱이 없어도 되는 이유: 공은 이미 `stroke="#fff"`
+ *  흰 테두리를 두르고 있어(BallDot.tsx) 그 자체가 코트(#1f7a46) 위에서 케이싱 역할을 한다. */
+export const BALL_OUT_FILL = RULE_ALERT_STROKE;
 
 /* ── 골 지역 **안쪽 채움** 두 단(2026-08-13 기현 지시 ②) ────────────────────────────────
  * *"골에리어 안쪽 흐린 효과 붉은 계열로 수정 (골에리어 반칙 표시는 진하게, 그냥은 연하게)"*
@@ -59,6 +71,29 @@ export const RULE_ZONE_ALERT_FILL_OPACITY = 0.5;
  *  골 지역)과 구별되는 시각 언어다. 5.3 이 규정에 없는 센터 서클을 지운 뒤로는 겹쳐 보이는
  *  원 자체가 없지만, 이 구분은 원 때문이 아니라 **규칙과 코트를 가르기 위한 것**이라 남는다. */
 export const RULE_DASH = '8 6';
+
+/* ── 세트피스 소유 화살표 (기현 지시 2026-08-27) ──────────────────────────────────────────
+ * *"공을 가로지르는 2미터의 흐린 흰색 화살표로 (심판 시그널과 일맥상통)"*
+ *
+ * 심판이 팔을 들어 **어느 쪽 공인지**를 방향으로 가리키는 그 어휘다. 그래서 화살표는 소유 팀이
+ * **공격하는 방향**을 가리킨다(`model/court.ts` 의 `attackDir`).
+ *
+ * ⚠️ 링의 상태 그룹(stateRef) **밖**에 둔다. 안에 두면 위반일 때 함께 붉어지는데, 소유는
+ *    위반과 **다른 축**이다 — 붉은 화살표는 "이 방향이 반칙" 으로 잘못 읽힌다.
+ * ⚠️ 색 하나에 기대지 않는다(§7.1): 방향(모양)이 1차 채널이고 흐린 흰색은 "판정이 아니라
+ *    안내" 라는 2차 신호일 뿐이다. */
+export const OWNER_ARROW_LEN_PX = mToPx(2);
+export const OWNER_ARROW_OPACITY = 0.45;
+export const OWNER_ARROW_W = 2.2;
+/** 화살촉 — 몸통 끝에서 열린 V. `marker` 를 안 쓰는 이유는 PNG(buildStaticSvg)가 같은 모양을
+ *  **같은 식으로** 그려야 하는데, 정적 SVG 쪽에 marker 정의를 따로 만들면 둘이 갈라지기
+ *  때문이다. 좌표는 +x 를 향한 기준형이고 방향은 바깥 `rotate` 가 준다. */
+export const OWNER_ARROW_HEAD_PX = 7;
+export function ownerArrowPath(len: number, head: number): string {
+  const h = len / 2;
+  return `M ${-h} 0 L ${h} 0 M ${h - head} ${-head * 0.72} L ${h} 0 L ${h - head} ${head * 0.72}`;
+}
+
 
 /** 위반이 사라진 뒤 이만큼 깨끗해야 "해소" 로 친다. 문턱 위에서 떠는 개체가 발화를
  *  연타하는 것을 막는다(400ms 는 사람이 두 번의 알림으로 인식하는 최소 간격 언저리다). */
@@ -88,6 +123,10 @@ export interface RuleOverlayContext {
   fiveMeterDefense: TeamSide | null;
   teamLabels: Record<TeamSide, string>;
   locale: Locale;
+  /** 아웃오브플레이(Law 9) 판정 대상 코트 — `isBallOutOfPlay` 가 mode 로 half 의 하프라인을
+   *  가려낸다(model/rules.ts). RuleOverlay.tsx 가 이미 계산해 둔 `courtDefFor(mode,size).surface`
+   *  를 그대로 넘긴다 — 여기서 다시 계산하지 않는다. */
+  court: { mode: CourtMode; surface: Rect };
 }
 
 export interface RuleOverlayApi {
@@ -96,8 +135,12 @@ export interface RuleOverlayApi {
    *
    *  `ring` 은 그 공의 원(없음/3 m/5 m)이다 — **판정 규칙이 여기서 갈린다**(`ruleForRing`).
    *  원을 바꾸면 등록도 다시 해야 한다(RuleOverlay.tsx 의 이펙트 deps 에 `ring` 이 있는 이유).
-   *  생략하면 'none' = 2-on-1 로 잰다: 원이 없는 공도 판정은 그대로 탄다는 옛 계약이다. */
-  registerRing(ballId: string, el: SVGGElement | null, ring?: BallRing): void;
+   *  생략하면 'none' = 2-on-1 로 잰다: 원이 없는 공도 판정은 그대로 탄다는 옛 계약이다.
+   *
+   *  `owner` 는 그 공을 **차는 팀**(5 m 링일 때만 뜻이 있다). 생략하면 진영에서 파생한다 —
+   *  `model/rules.ts` 의 `fiveMeterRetreat`. 링과 **같은 자리에서** 받는 이유는 둘의 생명주기가
+   *  같기 때문이다: 소유만 바뀌어도 판정이 뒤집히므로 등록을 다시 타야 한다. */
+  registerRing(ballId: string, el: SVGGElement | null, ring?: BallRing, owner?: TeamSide): void;
   /** 골 지역 위반 표시 그룹(존 index 별). 깨끗하면 opacity 0 으로 숨는다. */
   registerZone(index: number, el: SVGGElement | null): void;
   /** 한 프레임. 키는 개체 id, 값은 그 프레임의 실제 좌표다.
@@ -110,6 +153,11 @@ export interface RuleOverlayApi {
    *  그 배선을 재는 것은 EditorStage.rules.test.tsx / PresentStage.rules.test.tsx 의
    *  '차체 방향이 판정까지 온다' 다. */
   write(poses: Readonly<Record<string, { x: number; y: number; theta?: number }>>): void;
+  /** 공 하나의 **채움색**(캐스트 자체, 오버레이 그룹이 아니다). `write()` 가 매 프레임 이
+   *  공의 좌표로 `isBallOutOfPlay` 를 재고, 나갔으면 `BALL_OUT_FILL` 로, 아니면 원래 색
+   *  (`BALL_FILL`)으로 되돌린다 — 링·존과 달리 판정 대상(공)의 DOM 을 직접 쓴다
+   *  (BallDot.tsx 의 circle ref). */
+  registerBall(ballId: string, el: SVGCircleElement | null): void;
   clear(): void;
 }
 
@@ -129,6 +177,9 @@ const DEFAULT_CONTEXT: RuleOverlayContext = {
   // 이 값은 그 전(마운트 첫 틱)에만 잠깐 쓰이는 자리표시일 뿐이라 defaultPhase() 와 같은
   // 이유로 'ko' 고정이다.
   locale: 'ko',
+  // mode:'flat' → isBallOutOfPlay 가 항상 false. setContext 가 오기 전(마운트 첫 틱)에
+  // 실수로 공을 붉게 칠하지 않는 안전한 기본값이다.
+  court: { mode: 'flat', surface: { x: 0, y: 0, w: 0, h: 0 } },
 };
 
 const VISIBLE = 1;
@@ -143,9 +194,15 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
   /** 공 id → 그 공의 원. 판정 규칙이 여기서 갈린다(`ruleForRing`). 노드와 같은 생명주기라
    *  `registerRing` 이 함께 넣고 함께 지운다 — 따로 두면 지운 공의 원이 남는다. */
   const ringKind = new Map<string, BallRing>();
+  /** 공 id → 그 공을 차는 팀. 없으면 진영에서 파생한다(fiveMeterRetreat). ringKind 와 같은
+   *  생명주기라 registerRing 이 함께 넣고 함께 지운다. */
+  const ringOwner = new Map<string, TeamSide>();
   const zones = new Map<number, SVGGElement>();
   const ringState = new Map<string, number>();
   const zoneState = new Map<number, number>();
+  /** 아웃오브플레이 표시 대상 공(circle 자체 — 오버레이 그룹이 아니다). */
+  const ballFillEls = new Map<string, SVGCircleElement>();
+  const ballOutState = new Map<string, boolean>();
 
   // 프레임마다 새 배열을 만들지 않는다(§6.2 요건 3 과 같은 규율) — 명단 크기만큼 풀을 두고
   // 좌표만 갈아 끼운다. 판 위에 없는(= 이 프레임 좌표가 없는) 선수는 live 에서 빠진다.
@@ -209,19 +266,27 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     applyState(el, state);
   }
 
+  function writeBallFill(id: string, el: SVGCircleElement, out: boolean): void {
+    if (ballOutState.get(id) === out) return; // 안 바뀌면 DOM 을 건드리지 않는다(다른 writer 와 같은 규율)
+    ballOutState.set(id, out);
+    el.setAttribute('fill', out ? BALL_OUT_FILL : BALL_FILL);
+  }
+
   function names(bits: number): string {
     return teamsOfBits(bits)
       .map((s) => ctx.teamLabels[s])
       .join('·');
   }
 
-  function message(ringBits: number, zoneBits: number, fiveBits: number): string {
+  function message(ringBits: number, zoneBits: number, fiveBits: number, ballOut: boolean): string {
     const parts: string[] = [];
     // 문구가 문턱 상수에서 파생된다 — 규칙 수치를 고치면 발화도 따라온다.
     if (ringBits) parts.push(translate(ctx.locale, 'ruleOverlay.ringWarning', { names: names(ringBits), n: RING_SAME_TEAM_MAX + 1 }));
     // 5 m 는 인원수 문턱이 없다 — **한 대라도** 들어가면 걸린다(수비만). 그래서 문구도 다르다.
     if (fiveBits) parts.push(translate(ctx.locale, 'ruleOverlay.fiveMeterWarning', { names: names(fiveBits) }));
     if (zoneBits) parts.push(translate(ctx.locale, 'ruleOverlay.zoneWarning', { names: names(zoneBits), n: GOAL_AREA_MAX + 1 }));
+    // 아웃오브플레이는 팀 위반이 아니다(공 자체의 상태) — 이름·문턱 보간이 없다.
+    if (ballOut) parts.push(translate(ctx.locale, 'ruleOverlay.ballOutWarning'));
     return parts.join(' · ');
   }
 
@@ -231,8 +296,10 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
    *  - 조합이 바뀌면(링만 → 링+존) 곧바로 다시 말한다.
    *  - 해소는 말하지 않는다 — 코치가 알아야 하는 것은 "지금 반칙이다" 이고, 해소까지 읽으면
    *    드래그 한 번에 두 번 말하게 된다(2.11 [D-7] 이 잠근 이중 통보와 같은 문제다). */
-  function announce(ringBits: number, zoneBits: number, fiveBits: number): void {
-    const key = ringBits | (zoneBits << 2) | (fiveBits << 4);
+  function announce(ringBits: number, zoneBits: number, fiveBits: number, ballOut: boolean): void {
+    // ringBits/zoneBits/fiveBits 는 TEAM_BIT 조합(0~3, 2비트)이라 <<2 씩 벌린다. ballOut 은
+    // 팀 비트가 아니라 단일 불리언이라 그 위(<<6)에 한 비트만 얹는다.
+    const key = ringBits | (zoneBits << 2) | (fiveBits << 4) | (ballOut ? 1 << 6 : 0);
     if (key === 0) {
       if (spokenKey === 0) return;
       const t = now();
@@ -246,7 +313,7 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     cleanSinceMs = null;
     if (key === spokenKey) return;
     spokenKey = key;
-    say(message(ringBits, zoneBits, fiveBits));
+    say(message(ringBits, zoneBits, fiveBits, ballOut));
   }
 
   function resetAnnounce(): void {
@@ -261,7 +328,10 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     for (const [id, el] of rings) {
       const p = poses[id];
       const ring = ringKind.get(id) ?? 'none';
-      const bits = p ? ballRingViolation(ring, p, live, ctx.goalAreas, ctx.goalMouths, ctx.fiveMeterDefense) : 0;
+      // 5 m 를 물러날 팀은 **공마다** 다르다 — 그 공을 차는 팀의 반대다(골킥과 코너킥이
+      // 서로 반대인 이유). 소유가 없으면 진영을 그대로 써서 옛 동작이 보존된다.
+      const retreat = fiveMeterRetreat(ringOwner.get(id), ctx.fiveMeterDefense);
+      const bits = p ? ballRingViolation(ring, p, live, ctx.goalAreas, ctx.goalMouths, retreat) : 0;
       // 이 프레임에 좌표가 없는 공은 판에 없는 공이다(시연의 퇴장 페이드·다른 스텝) — 숨긴다.
       writeRing(id, el, (p ? VISIBLE : 0) | (bits ? VIOLATED : 0));
       // 링 그림은 어느 규칙이든 같지만 **발화 문구는 다르다** — 그래서 여기서 갈라 담는다.
@@ -271,12 +341,24 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     let zoneBits = 0;
     for (const [index, el] of zones) {
       const zone = ctx.goalAreas[index];
-      const bits = zone ? zoneViolation(zone, live) : 0;
+      // 같은 인덱스의 골대 입구를 함께 넘긴다 — 골 뒤로 완전히 나간 수비도 인원에 세기
+      // 위해서다. 두 배열의 순서가 같다는 것은 court.ts 의 goalMouths 가 못박은 계약이다.
+      const bits = zone ? zoneViolation(zone, live, ctx.goalMouths[index]) : 0;
       // 존 표시는 위반일 때만 나타난다 — 깨끗한 존은 RuleZones 의 흰 파선 그대로다.
       writeZone(index, el, bits ? VISIBLE | VIOLATED : 0);
       zoneBits |= bits;
     }
-    announce(ringBits, zoneBits, fiveBits);
+    // 아웃오브플레이(Law 9) — 선수 위반과 달리 판정 대상이 공 자체다. 등록된 공마다 이번
+    // 프레임 좌표로 재고, 하나라도 나가 있으면 발화 조합에 얹는다(2-on-1·5m 처럼 팀별로
+    // 갈릴 이유가 없다 — "공이 나갔다"는 사실 하나뿐).
+    let ballOut = false;
+    for (const [id, el] of ballFillEls) {
+      const p = poses[id];
+      const out = p ? isBallOutOfPlay(ctx.court.mode, ctx.court.surface, p, BALL.viewRadiusPx) : false;
+      writeBallFill(id, el, out);
+      ballOut = ballOut || out;
+    }
+    announce(ringBits, zoneBits, fiveBits, ballOut);
   }
 
   return {
@@ -293,20 +375,24 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
         // '스위치를 끄면 얼어붙은 위반 표시가 풀린다' 가 빨개진다.
         for (const [id, el] of rings) writeRing(id, el, VISIBLE);
         for (const [index, el] of zones) writeZone(index, el, 0);
+        for (const [id, el] of ballFillEls) writeBallFill(id, el, false);
         return;
       }
       // 문맥이 늦게 왔거나(마운트) 스위치를 지금 켰다 — 마지막 프레임으로 곧바로 판정한다.
       if (lastPoses) judge(lastPoses);
     },
-    registerRing(ballId, el, ring = 'none') {
+    registerRing(ballId, el, ring = 'none', owner) {
       if (!el) {
         rings.delete(ballId);
         ringState.delete(ballId);
         ringKind.delete(ballId);
+        ringOwner.delete(ballId);
         return;
       }
       rings.set(ballId, el);
       ringKind.set(ballId, ring);
+      if (owner === undefined) ringOwner.delete(ballId);
+      else ringOwner.set(ballId, owner);
       // 새 노드는 마지막 상태를 곧바로 받는다(다른 writer 들과 같은 규율) — 안 하면
       // 재마운트 직후 한 프레임 동안 기본 모양으로 깜빡인다.
       //
@@ -329,6 +415,19 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       zoneState.set(index, s);
       applyState(el, s);
     },
+    registerBall(ballId, el) {
+      if (!el) {
+        ballFillEls.delete(ballId);
+        ballOutState.delete(ballId);
+        return;
+      }
+      ballFillEls.set(ballId, el);
+      // 기본은 **안-아웃**이다(대부분의 스텝에서 공은 코트 안에 있다) — 재마운트 직후
+      // 한 프레임 동안 실제와 다른 색으로 깜빡이지 않도록 마지막 상태를 곧바로 적용한다.
+      const s = ballOutState.get(ballId) ?? false;
+      ballOutState.set(ballId, s);
+      el.setAttribute('fill', s ? BALL_OUT_FILL : BALL_FILL);
+    },
     write(poses) {
       // 꺼져 있어도 프레임은 기억한다 — 스위치를 켜는 순간 다음 프레임을 기다리지 않고
       // 곧바로 판정이 서야 한다(일시정지한 시연에서는 다음 프레임이 오지 않는다).
@@ -344,6 +443,8 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       zones.clear();
       ringState.clear();
       zoneState.clear();
+      ballFillEls.clear();
+      ballOutState.clear();
       pool.length = 0;
       live.length = 0;
       lastPoses = null;

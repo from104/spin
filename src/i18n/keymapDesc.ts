@@ -26,6 +26,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     // ── C7 — 도구 9종("{도구} 도구") ──
     '선택 도구': 'Select tool',
     '선 도구': 'Line tool',
+    '자유 그리기 도구': 'Freehand tool',
     '원 도구': 'Circle tool',
     '삼각 도구': 'Triangle tool',
     '사각 도구': 'Square tool',
@@ -33,6 +34,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     '콘 도구': 'Cone tool',
     '선수 도구': 'Player tool',
     '메모 도구': 'Note tool',
+    '지우기 도구': 'Erase tool',
     // ── C7 — scope:'global' ──
     '콘 색 바꾸기(주황 ↔ 파랑)': 'Change cone color (orange ↔ blue)',
     '실행 취소': 'Undo',
@@ -51,8 +53,8 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     '고른 개체 지우기 — 하나든 여럿이든': 'Delete selected objects — one or many',
     '이 도움말': 'This help',
     // ── C7 — scope:'object' ──
-    '개체 이동 — Shift 는 정밀': 'Move object — hold Shift for fine control',
-    '개체 회전 — Shift 는 정밀': 'Rotate object — hold Shift for fine control',
+    '개체 이동 — Shift 는 큰 걸음': 'Move object — hold Shift for large steps',
+    '개체 회전 — Shift 는 큰 걸음': 'Rotate object — hold Shift for large steps',
     '이전 개체로': 'To previous object',
     '다음 개체로': 'To next object',
     '이전 개체를 선택에 더하며 이동': 'Add previous object to selection and move',
@@ -75,6 +77,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     // ── C7 — 道具9種("{道具} 도구") ──
     '선택 도구': '選択ツール',
     '선 도구': '線ツール',
+    '자유 그리기 도구': 'フリーハンドツール',
     '원 도구': '円ツール',
     '삼각 도구': '三角ツール',
     '사각 도구': '四角ツール',
@@ -82,6 +85,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     '콘 도구': 'コーンツール',
     '선수 도구': '選手ツール',
     '메모 도구': 'メモツール',
+    '지우기 도구': '消去ツール',
     // ── C7 — scope:'global' ──
     '콘 색 바꾸기(주황 ↔ 파랑)': 'コーンの色を変更（オレンジ↔青）',
     '실행 취소': '元に戻す',
@@ -100,8 +104,8 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     '고른 개체 지우기 — 하나든 여럿이든': '選択したオブジェクトを削除 — 単数でも複数でも',
     '이 도움말': 'このヘルプ',
     // ── C7 — scope:'object' ──
-    '개체 이동 — Shift 는 정밀': 'オブジェクト移動 — Shiftで微調整',
-    '개체 회전 — Shift 는 정밀': 'オブジェクト回転 — Shiftで微調整',
+    '개체 이동 — Shift 는 큰 걸음': 'オブジェクト移動 — Shiftで大きく移動',
+    '개체 회전 — Shift 는 큰 걸음': 'オブジェクト回転 — Shiftで大きく回転',
     '이전 개체로': '前のオブジェクトへ',
     '다음 개체로': '次のオブジェクトへ',
     '이전 개체를 선택에 더하며 이동': '前のオブジェクトを選択に追加して移動',

@@ -40,6 +40,7 @@ import type { HomeNav } from '../home/nav.ts';
 import { buildImportReport, commitDrills, commitSession, exportOneDrill, importReportLine, readImportFile } from './transfer.ts';
 import type { ImportPreview } from './transfer.ts';
 import type { ImportResolution } from '../../storage/transfer.ts';
+import { ACCEPT_LIBRARY } from '../../storage/files.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
@@ -196,7 +197,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".json,application/json"
+              accept={ACCEPT_LIBRARY}
               className="sr-only"
               onChange={async (e) => {
                 const f = e.target.files?.[0];

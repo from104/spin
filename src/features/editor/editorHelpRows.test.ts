@@ -16,7 +16,7 @@ import { editorBasicsRows, editorShortcutRows, editorToolRows } from './editorHe
 const t = (key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) => translate('ko', key, params);
 
 describe('3.9 첫 섹션 — 어떻게 놓는가 / 어떻게 옮기는가', () => {
-  it('놓기·옮기기·선택/해제 8줄이 이 순서다 — 단축키 표가 아니다', () => {
+  it('놓기·옮기기·선택/해제 9줄이 이 순서다 — 단축키 표가 아니다', () => {
     // 2026-08-16 §6.10a — '여러 개 놓기' 가 둘째 줄로 들어왔다. 도구 고정은 "같은 것을 한 번
     // 더" 라 눌러 보기 전에는 알 수 없는 조작이라, 단축키 표가 아니라 **여기** 있어야 한다.
     // 2026-08-16 §6.10b — 뒤에 둘이 더 붙었다. '여러 개 고르기'/'여럿 옮기기' 는 선택 쪽
@@ -26,7 +26,10 @@ describe('3.9 첫 섹션 — 어떻게 놓는가 / 어떻게 옮기는가', () =
     // 2026-08-17 — '메모 쓰기' 가 '치우기' 앞에 붙었다. 글 칸을 여는 손짓 셋(놓자마자 열림·
     // 더블클릭·긴 누름 메뉴) 중 **화면에 적힌 것이 하나도 없어서**, 여기가 아니면 알 길이 없다.
     const terms = editorBasicsRows(t).map(([term]) => term);
-    expect(terms).toEqual(['놓기', '여러 개 놓기', '옮기기', '선택·해제', '여러 개 고르기', '여럿 옮기기', '메모 쓰기', '치우기']);
+    // 2026-08-29 — '미세 조정' 이 '여럿 옮기기' 뒤에 붙었다. 옮기기 세 줄이 굵은 것에서 가는
+    // 것 순으로 이어진다(잡아 끌기 → 여럿 → 마지막 몇 px). '옮기기' 에 이어 붙이지 못한
+    // 이유는 아래 '한 문장' 계약이다 — 4존 운동학은 한 문장이어야 한다.
+    expect(terms).toEqual(['놓기', '여러 개 놓기', '옮기기', '선택·해제', '여러 개 고르기', '여럿 옮기기', '미세 조정', '메모 쓰기', '치우기']);
   });
 
   // ★ 2026-08-16 — `Delete` 는 전역과 개체 **두 층**에 같은 id 로 서 있다(기현 지시: 하나든
@@ -55,17 +58,18 @@ describe('3.9 첫 섹션 — 어떻게 놓는가 / 어떻게 옮기는가', () =
   it('4존 운동학이 **한 문장**이다 — 뒤 절반 이동 · 앞 절반 제자리 회전 · 차체 밖 견인', () => {
     const move = editorBasicsRows(t).find(([term]) => term === '옮기기')!;
     const line = move[1];
-    for (const word of ['뒤 절반', '그대로 이동', '앞 절반', '제자리 회전', '차체 밖', '견인']) {
+    for (const word of ['뒤 2/3', '그대로 이동', '앞 1/3', '제자리 회전', '차체 밖', '견인']) {
       expect(line, word).toContain(word);
     }
     // "한 문장으로" 가 명세다(§7 3.9) — 마침표가 하나면 문장도 하나다.
     expect(line.match(/\./g), '한 문장이어야 한다').toHaveLength(1);
   });
 
-  it('그 문장의 출처가 아직 사실이다 — DEFAULT_ZONES 가 반반 + 차체 밖 견인', () => {
-    // 도움말은 코드를 못 본다. 이 단언이 둘을 묶는다: 경계를 다시 옮기면(반반이 아니게 되면)
-    // 여기가 깨지고, 고치는 사람은 editorBasicsRows 의 '뒤 절반/앞 절반' 문구도 함께 고쳐야 한다.
-    expect(DEFAULT_ZONES.sSpinMin).toBe(1 / 2);
+  it('그 문장의 출처가 아직 사실이다 — DEFAULT_ZONES 가 2:1 + 차체 밖 견인', () => {
+    // 도움말은 코드를 못 본다. 이 단언이 둘을 묶는다: 경계를 다시 옮기면 여기가 깨지고,
+    // 고치는 사람은 editorBasicsRows 의 '뒤 2/3 · 앞 1/3' 문구도 함께 고쳐야 한다.
+    // (2026-08-30 기현 지시로 반반 → 2:1. 그때 실제로 이 단언이 먼저 빨개졌다.)
+    expect(DEFAULT_ZONES.sSpinMin).toBe(2 / 3);
     expect(DEFAULT_ZONES.sTowRearMax).toBe(0); // 차체 안 견인 없음 — 견인은 차체 밖 가이드뿐
     expect(DEFAULT_ZONES.sTowFrontMin).toBe(1);
   });

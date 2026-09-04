@@ -8,7 +8,7 @@ import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { StepSidebar } from './StepSidebar.tsx';
 import { createDrill } from '../../model/defaults.ts';
-import { addStepAfter } from '../../model/edits.ts';
+import { duplicateStep } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
@@ -21,7 +21,7 @@ const noop = () => {};
 
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
-  for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
+  for (let i = 1; i < n; i++) d = duplicateStep(d, i - 1);
   return d;
 }
 
@@ -31,7 +31,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     stepId: d.steps[0]!.id,
     onSelectStep: noop,
     onReorderStep: noop,
-    onAddStep: noop,
     onDuplicateStep: noop,
     onToggleCut: noop,
     collapsed: false,
@@ -52,12 +51,6 @@ const openMenuAt = (i: number) => {
 const item = (name: string) => screen.getByRole('menuitem', { name });
 
 describe('우클릭 메뉴 — 열림/닫힘', () => {
-  it('카드 우클릭으로 열리고, 항목은 선택·아래로 복제·위로 복제·삭제 넷이다', () => {
-    renderSidebar(makeDrill(3));
-    openMenuAt(1);
-    expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual(['선택', '아래로 복제', '위로 복제', '삭제']);
-  });
-
   it('Esc 로 닫힌다', () => {
     renderSidebar(makeDrill(2));
     openMenuAt(0);

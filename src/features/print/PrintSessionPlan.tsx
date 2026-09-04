@@ -7,6 +7,7 @@
 // 없기 때문이다. 표에서까지 지우면 코치가 "내가 넣었던 그 드릴이 어디 갔지" 를 종이만 보고는
 // 알 수 없다(sessionPlan.ts `planDrillEntries` 머리말과 짝).
 import { PrintCourt } from './PrintCourt.tsx';
+import type { PrintViewSwitches } from './PrintRoot.tsx';
 import { prepLine } from './prep.ts';
 import { PRINT_PAGE_CLASS } from './printDom.ts';
 import { planDrillEntries, type SessionPlan } from './sessionPlan.ts';
@@ -15,9 +16,10 @@ import { useLocale } from '../../i18n/useLocale.ts';
 
 export interface PrintSessionPlanProps {
   plan: SessionPlan;
+  view: PrintViewSwitches;
 }
 
-export function PrintSessionPlan({ plan }: PrintSessionPlanProps) {
+export function PrintSessionPlan({ plan, view }: PrintSessionPlanProps) {
   const t = useT();
   const locale = useLocale();
   const drillEntries = planDrillEntries(plan);
@@ -92,7 +94,7 @@ export function PrintSessionPlan({ plan }: PrintSessionPlanProps) {
               </p>
             )}
 
-            {first && <PrintCourt drill={drill} step={first} ariaLabel={t('print.session.courtAriaLabel', { title: e.title })} />}
+            {first && <PrintCourt drill={drill} step={first} view={view} ariaLabel={t('print.session.courtAriaLabel', { title: e.title })} />}
 
             <div className="spin-print-body">
               {drill.objective && (

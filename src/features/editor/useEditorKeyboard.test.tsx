@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, renderHook } from '@testing-library/react';
 import { Modal } from '../../ui/Modal.tsx';
 import { useEditorKeyboard, type EditorKeyboardDeps, type SingleKeyMode } from './useEditorKeyboard.ts';
+import type { ToolId } from '../../physics/index.ts';
 
 function baseDeps(overrides: Partial<EditorKeyboardDeps>): EditorKeyboardDeps {
   return {
@@ -73,14 +74,10 @@ describe('useEditorKeyboard — 도구 키', () => {
   it('W A S D · Q E 는 도구를 열지 않는다 — 개체 조작 자리다', () => {
     const deps = baseDeps({});
     renderHook(() => useEditorKeyboard(deps));
-    for (const c of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE']) press(c);
-    expect(deps.onSelectTool).not.toHaveBeenCalled();
-  });
-
-  it('숫자키는 도구를 열지 않는다 — 숫자 체계를 폐지했다', () => {
-    const deps = baseDeps({});
-    renderHook(() => useEditorKeyboard(deps));
-    for (const c of ['Digit1', 'Digit2', 'Digit5', 'Digit8']) press(c);
+    // 숫자키도 마찬가지다 — 숫자 체계를 폐지했다.
+    for (const c of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'Digit1', 'Digit2', 'Digit5', 'Digit8']) {
+      press(c);
+    }
     expect(deps.onSelectTool).not.toHaveBeenCalled();
   });
 
@@ -206,6 +203,33 @@ describe('useEditorKeyboard — [A-3] Esc = 선택 해제', () => {
     expect(deps.onSelectionClear).toHaveBeenCalledTimes(1);
   });
 
+  // 2026-09-03 — 지우기 도구의 **세 출구 중 Esc**(나머지 둘: 빈 곳 클릭은
+  // useEditorPointer.cues.test, 버튼 재클릭은 ToolRail.test 가 잰다).
+  it('지우기 도구가 켜져 있으면 Esc 가 select 로도 되돌린다 — 파괴 모드가 먼저 풀린다', () => {
+    const deps = baseDeps({ tool: 'eraser' as ToolId });
+    renderHook(() => useEditorKeyboard(deps));
+
+    pressOnBody('Escape');
+    expect(deps.onSelectTool).toHaveBeenCalledWith('select');
+    // 선택 해제는 그대로 이어서 한다 — Esc 의 뜻이 둘로 갈리는 것이 아니라 물릴 것이 둘이다.
+    expect(deps.onSelectionClear).toHaveBeenCalledTimes(1);
+    // ⚠️ **정확히 한 번**이라야 한다. `TOOL_SET` 은 멱등이 아니라서(같은 도구를 한 번 더 =
+    //    고정 토글), 두 번 쏘면 Esc 가 `select` 의 모아 고르기를 켜 버린다. EditorStage 의
+    //    Escape 분기에 같은 줄을 두지 않은 이유가 이것이다(그 파일의 그 주석).
+    expect(deps.onSelectTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('대조군 — 다른 도구에서는 Esc 가 도구를 건드리지 않는다', () => {
+    // 이 대조군이 없으면 위 it 은 "Esc 는 늘 select 로 간다" 라는 다른 규칙으로도 통과한다.
+    // 그 규칙이었다면 콘을 놓다가 Esc 를 누른 손이 도구까지 잃는다.
+    const deps = baseDeps({ tool: 'cone' as ToolId });
+    renderHook(() => useEditorKeyboard(deps));
+
+    pressOnBody('Escape');
+    expect(deps.onSelectTool).not.toHaveBeenCalled();
+    expect(deps.onSelectionClear).toHaveBeenCalledTimes(1);
+  });
+
   it('텍스트 입력 중에는 발화하지 않는다 — 필드의 Esc(IME 조합 취소)를 빼앗으면 안 된다', () => {
     const deps = baseDeps({});
     renderHook(() => useEditorKeyboard(deps));
@@ -259,13 +283,9 @@ describe('useEditorKeyboard — Ctrl/Cmd + 방향키는 판을 민다', () => {
     press('ArrowUp', { ctrlKey: true });
     expect(deps.onPanView).toHaveBeenLastCalledWith(0, -STEP);
     expect(deps.onPanView).toHaveBeenCalledTimes(4);
-  });
-
-  it('Cmd(meta) 도 같다 — 이 저장소는 Ctrl 과 Cmd 를 한 몸으로 다룬다', () => {
-    const deps = baseDeps({});
-    renderHook(() => useEditorKeyboard(deps));
+    // Cmd(meta) 도 같다 — 이 저장소는 Ctrl 과 Cmd 를 한 몸으로 다룬다.
     press('ArrowRight', { metaKey: true });
-    expect(deps.onPanView).toHaveBeenCalledWith(STEP, 0);
+    expect(deps.onPanView).toHaveBeenLastCalledWith(STEP, 0);
   });
 
   it('기본 동작을 막는다 — macOS 의 Cmd+←/→ 는 브라우저 뒤로/앞으로다', () => {
@@ -350,22 +370,14 @@ describe('useEditorKeyboard — Delete 는 수식키 없이 지운다', () => {
     renderHook(() => useEditorKeyboard(deps));
     press('Delete');
     expect(deps.onEraseSelection).toHaveBeenCalledTimes(1);
-  });
-
-  it('Backspace 도 같다 — 두 키가 같은 뜻인 것은 종전 그대로다', () => {
-    const deps = baseDeps({});
-    renderHook(() => useEditorKeyboard(deps));
+    // Backspace 도 같다 — 두 키가 같은 뜻인 것은 종전 그대로다.
     press('Backspace');
-    expect(deps.onEraseSelection).toHaveBeenCalledTimes(1);
-  });
-
-  // 수식키를 붙인 쪽은 이제 **아무 일도 안 한다**. 규모를 수식키로 가르던 개념 자체가
-  // 없어졌으므로, 남겨 두면 "Ctrl 을 붙이면 뭔가 다른 게 지워지나" 를 되묻게 만든다.
-  it('Ctrl+Delete 는 더 이상 따로 있지 않다', () => {
-    const deps = baseDeps({});
-    renderHook(() => useEditorKeyboard(deps));
+    expect(deps.onEraseSelection).toHaveBeenCalledTimes(2);
+    // Ctrl+Delete 는 더 이상 따로 있지 않다 — 수식키를 붙인 쪽은 이제 **아무 일도 안 한다**.
+    // 규모를 수식키로 가르던 개념 자체가 없어졌으므로, 남겨 두면 "Ctrl 을 붙이면 뭔가 다른
+    // 게 지워지나" 를 되묻게 만든다. 호출 횟수가 안 늘어나는 것으로 잰다.
     press('Delete', { ctrlKey: true });
-    expect(deps.onEraseSelection).not.toHaveBeenCalled();
+    expect(deps.onEraseSelection).toHaveBeenCalledTimes(2);
   });
 });
 

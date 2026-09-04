@@ -1,0 +1,1653 @@
+{
+  "spin": "backup",
+  "envelope": 1,
+  "app": "SPIN",
+  "exportedAt": 1787700252199,
+  "payload": {
+    "drills": [
+      {
+        "schemaVersion": 8,
+        "id": "dr_mt63dq4212n0q7",
+        "title": "③ 2-on-1 을 피하는 대각 전환",
+        "drillType": "tactical",
+        "level": "고급",
+        "durationMin": 15,
+        "tags": [
+          "볼 운반",
+          "2-on-1",
+          "전환",
+          "규정"
+        ],
+        "objective": "지원하러 들어간 선수가 2-on-1 을 만드는 순간을 알아보고, 빠지면서 반대편으로 전환하는 길을 연다.",
+        "coachingPoints": [
+          "공 3 m 안의 두 번째 우리 편은 곧 반칙이다 — 관여하지 않아도 위험하다",
+          "빠지는 방향은 뒤가 아니라 반대 측면이다",
+          "전환 패스는 상대 두 명의 사이가 아니라 바깥으로 넘긴다",
+          "골키퍼는 전환이 끝날 때까지 골 지역을 지킨다"
+        ],
+        "playersNeeded": 8,
+        "equipment": "공 1개",
+        "courtMode": "full",
+        "courtSize": "30x18",
+        "defense": "home",
+        "formation": "1-2-1",
+        "teams": {
+          "home": {
+            "label": "우리 팀",
+            "color": "#d93a3a",
+            "gkColor": "#f2c811"
+          },
+          "away": {
+            "label": "상대",
+            "color": "#1f6bb8",
+            "gkColor": "#22a95b"
+          }
+        },
+        "cast": {
+          "chairs": [
+            {
+              "id": "ch_mt63dq420sp3jj",
+              "team": "home",
+              "number": "G",
+              "isGk": true,
+              "name": "도현"
+            },
+            {
+              "id": "ch_mt63dq420t0zre",
+              "team": "home",
+              "number": "2",
+              "isGk": false,
+              "name": "민수"
+            },
+            {
+              "id": "ch_mt63dq420ub7o1",
+              "team": "home",
+              "number": "3",
+              "isGk": false,
+              "name": "지훈"
+            },
+            {
+              "id": "ch_mt63dq420vf70a",
+              "team": "home",
+              "number": "4",
+              "isGk": false,
+              "name": "서연"
+            },
+            {
+              "id": "ch_mt63dq420w80bi",
+              "team": "away",
+              "number": "G",
+              "isGk": true
+            },
+            {
+              "id": "ch_mt63dq420xvj75",
+              "team": "away",
+              "number": "2",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt63dq420y6m5l",
+              "team": "away",
+              "number": "3",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt63dq420zvolt",
+              "team": "away",
+              "number": "4",
+              "isGk": false
+            }
+          ],
+          "balls": [
+            {
+              "id": "bl_mt63dq4213myd5"
+            }
+          ],
+          "cones": []
+        },
+        "steps": [
+          {
+            "id": "st_mt63dq4214gmn1",
+            "name": "",
+            "note": "출발 — 볼 캐리어와 지원\n왼쪽에서 공을 잡고 출발합니다. 지원은 아직 멀리 있고, 상대 둘이 안쪽 길을 막고 있습니다.\n조작: 선수에게 이름을 붙이면 트레이 손잡이와 시연 자막이 번호 대신 이름으로 부릅니다 — 인스펙터 [개체] 구역의 이름 칸입니다. 코트의 칩에는 번호만 찍힙니다.",
+            "durationMs": 4000,
+            "chairs": {
+              "ch_mt63dq420sp3jj": {
+                "x": 75,
+                "y": 262.5,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420t0zre": {
+                "x": 230,
+                "y": 180,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420ub7o1": {
+                "x": 230,
+                "y": 345,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420vf70a": {
+                "x": 420,
+                "y": 262.5,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420w80bi": {
+                "x": 750,
+                "y": 262.5,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420xvj75": {
+                "x": 330,
+                "y": 210,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420y6m5l": {
+                "x": 330,
+                "y": 315,
+                "angleDeg": 180
+              }
+            },
+            "balls": {
+              "bl_mt63dq4213myd5": {
+                "x": 278,
+                "y": 180
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [],
+            "shapes": []
+          },
+          {
+            "id": "st_mt63dq42172ghn",
+            "name": "",
+            "note": "3 m 안에 둘이 되면 반칙\n지원이 너무 가까이 들어왔습니다. 공 3 m 안에 우리 편 둘 + 상대 하나면 2-on-1 입니다 — 두 번째 선수가 플레이에 관여하는 순간 반칙입니다.\n조작: 스텝마다 시간을 따로 줄 수 있습니다. 인스펙터 맨 위 [스텝 시간(초)] 칸에 적으면 시연에서 그 스텝만 오래 머뭅니다. 이 스텝은 5초입니다.",
+            "durationMs": 5000,
+            "chairs": {
+              "ch_mt63dq420sp3jj": {
+                "x": 75,
+                "y": 262.5,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420t0zre": {
+                "x": 230,
+                "y": 180,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420ub7o1": {
+                "x": 250,
+                "y": 245,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420vf70a": {
+                "x": 420,
+                "y": 262.5,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420w80bi": {
+                "x": 750,
+                "y": 262.5,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420xvj75": {
+                "x": 330,
+                "y": 210,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420y6m5l": {
+                "x": 330,
+                "y": 315,
+                "angleDeg": 180
+              }
+            },
+            "balls": {
+              "bl_mt63dq4213myd5": {
+                "x": 278,
+                "y": 180
+              }
+            },
+            "cones": {},
+            "arrows": [
+              {
+                "id": "ar_mt63dq42159gwd",
+                "from": {
+                  "x": 250,
+                  "y": 245
+                },
+                "ctrl": {
+                  "x": 242.5,
+                  "y": 297.5
+                },
+                "to": {
+                  "x": 235,
+                  "y": 350
+                }
+              }
+            ],
+            "notes": [
+              {
+                "id": "nt_mt63dq4216mbdo",
+                "x": 300,
+                "y": 120,
+                "text": "공에서 3 m — 우리 편 둘이면 2-on-1"
+              }
+            ],
+            "shapes": []
+          },
+          {
+            "id": "st_mt63dq4219ne2f",
+            "name": "",
+            "note": "지원이 빠지고 폭을 만든다\n지원은 뒤가 아니라 반대 측면으로 빠집니다. 동시에 앞선이 넓게 벌려 전환 받을 자리를 만듭니다.\n조작: 되돌리기는 헤더 오른쪽의 [되돌리기] 단추이고 Ctrl+Z 도 같습니다. 글자를 적는 중에는 그 칸의 글자만 되돌아갑니다 — 판이 통째로 되돌아가지 않습니다.",
+            "durationMs": 4000,
+            "chairs": {
+              "ch_mt63dq420sp3jj": {
+                "x": 75,
+                "y": 262.5,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420t0zre": {
+                "x": 230,
+                "y": 180,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420ub7o1": {
+                "x": 230,
+                "y": 345,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420vf70a": {
+                "x": 420,
+                "y": 262.5,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420w80bi": {
+                "x": 750,
+                "y": 262.5,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420xvj75": {
+                "x": 330,
+                "y": 210,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420y6m5l": {
+                "x": 330,
+                "y": 315,
+                "angleDeg": 180
+              }
+            },
+            "balls": {
+              "bl_mt63dq4213myd5": {
+                "x": 278,
+                "y": 180
+              }
+            },
+            "cones": {},
+            "arrows": [
+              {
+                "id": "ar_mt63dq421822oe",
+                "from": {
+                  "x": 420,
+                  "y": 262.5
+                },
+                "ctrl": {
+                  "x": 470,
+                  "y": 318.75
+                },
+                "to": {
+                  "x": 520,
+                  "y": 375
+                }
+              }
+            ],
+            "notes": [],
+            "shapes": []
+          },
+          {
+            "id": "st_mt63dq421bl3my",
+            "name": "",
+            "note": "대각으로 넘긴다\n상대 둘의 사이가 아니라 바깥으로 넘깁니다. 길지만 상대가 따라붙기 전에 도착하는 길입니다.\n조작: 재생을 누르면 스텝 사이가 이어져 보입니다. 개체가 실제 속도(10 km/h)를 넘지 않게 움직이는데, 판 아래 스위치로 그 제한을 잠시 끌 수 있습니다.",
+            "durationMs": 4000,
+            "chairs": {
+              "ch_mt63dq420sp3jj": {
+                "x": 75,
+                "y": 262.5,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420t0zre": {
+                "x": 230,
+                "y": 180,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420ub7o1": {
+                "x": 230,
+                "y": 345,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420vf70a": {
+                "x": 520,
+                "y": 375,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420w80bi": {
+                "x": 750,
+                "y": 262.5,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420xvj75": {
+                "x": 330,
+                "y": 210,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420y6m5l": {
+                "x": 330,
+                "y": 315,
+                "angleDeg": 180
+              }
+            },
+            "balls": {
+              "bl_mt63dq4213myd5": {
+                "x": 568,
+                "y": 375
+              }
+            },
+            "cones": {},
+            "arrows": [
+              {
+                "id": "ar_mt63dq421alnyx",
+                "from": {
+                  "x": 278,
+                  "y": 180
+                },
+                "ctrl": {
+                  "x": 423,
+                  "y": 277.5
+                },
+                "to": {
+                  "x": 568,
+                  "y": 375
+                }
+              }
+            ],
+            "notes": [],
+            "shapes": []
+          },
+          {
+            "id": "st_mt63dq421epmac",
+            "name": "",
+            "note": "마무리\n받은 쪽이 각을 좁히며 들어가 마무리합니다. 여기까지 6회 × 3세트, 사이는 2분입니다.\n조작: 다 만든 드릴은 목록에서 난이도별로 묶여 보입니다. 세션에 넣으면 훈련 하나의 차례가 되고, 시연 화면에서는 좌우로 밀어 스텝을 넘깁니다.",
+            "durationMs": 3000,
+            "chairs": {
+              "ch_mt63dq420sp3jj": {
+                "x": 75,
+                "y": 262.5,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420t0zre": {
+                "x": 230,
+                "y": 180,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420ub7o1": {
+                "x": 230,
+                "y": 345,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420vf70a": {
+                "x": 640,
+                "y": 330,
+                "angleDeg": 0
+              },
+              "ch_mt63dq420w80bi": {
+                "x": 750,
+                "y": 262.5,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420xvj75": {
+                "x": 330,
+                "y": 210,
+                "angleDeg": 180
+              },
+              "ch_mt63dq420y6m5l": {
+                "x": 330,
+                "y": 315,
+                "angleDeg": 180
+              }
+            },
+            "balls": {
+              "bl_mt63dq4213myd5": {
+                "x": 690,
+                "y": 320
+              }
+            },
+            "cones": {},
+            "arrows": [
+              {
+                "id": "ar_mt63dq421cddjx",
+                "from": {
+                  "x": 520,
+                  "y": 375
+                },
+                "ctrl": {
+                  "x": 580,
+                  "y": 352.5
+                },
+                "to": {
+                  "x": 640,
+                  "y": 330
+                }
+              },
+              {
+                "id": "ar_mt63dq421dn9i2",
+                "from": {
+                  "x": 690,
+                  "y": 320
+                },
+                "ctrl": {
+                  "x": 737.5,
+                  "y": 320
+                },
+                "to": {
+                  "x": 785,
+                  "y": 320
+                }
+              }
+            ],
+            "notes": [],
+            "shapes": []
+          }
+        ],
+        "createdAt": 1787506772129,
+        "updatedAt": 1787506772129,
+        "situation": "2-on-1-spacing",
+        "description": "공 3 m 안에 우리 편이 둘이 되는 순간을 만들어 보고, 그것을 푸는 대각 전환까지."
+      },
+      {
+        "schemaVersion": 8,
+        "id": "dr_mt63rvxl00rm7m",
+        "title": "2-1 킥오프",
+        "drillType": "game-scenario",
+        "level": "초급",
+        "durationMin": 1,
+        "tags": [],
+        "objective": "",
+        "coachingPoints": [],
+        "playersNeeded": 0,
+        "equipment": "",
+        "courtMode": "full",
+        "courtSize": "30x18",
+        "defense": "home",
+        "formation": "1-2-1",
+        "teams": {
+          "home": {
+            "label": "우리 팀",
+            "color": "#d93a3a",
+            "gkColor": "#f2c811"
+          },
+          "away": {
+            "label": "상대",
+            "color": "#1f6bb8",
+            "gkColor": "#22a95b"
+          }
+        },
+        "cast": {
+          "chairs": [
+            {
+              "id": "ch_mt63dpzh00g1uu",
+              "team": "home",
+              "number": "G",
+              "isGk": true
+            },
+            {
+              "id": "ch_mt63dpzh0120ru",
+              "team": "home",
+              "number": "2",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt63dpzh0292r4",
+              "team": "home",
+              "number": "3",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt63dpzh03zvkt",
+              "team": "home",
+              "number": "4",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt63dpzh041ttp",
+              "team": "away",
+              "number": "G",
+              "isGk": true
+            },
+            {
+              "id": "ch_mt63dpzh05q91u",
+              "team": "away",
+              "number": "2",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt63dpzh06qyto",
+              "team": "away",
+              "number": "3",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt63dpzh07z4nu",
+              "team": "away",
+              "number": "4",
+              "isGk": false
+            }
+          ],
+          "balls": [
+            {
+              "id": "bl_mt63ngh700qhs3",
+              "ring": "5m"
+            }
+          ],
+          "cones": []
+        },
+        "steps": [
+          {
+            "id": "st_mt63dpzh09wcjj",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt63dpzh00g1uu": {
+                "x": 116.2,
+                "y": 310.7,
+                "angleDeg": -88.4
+              },
+              "ch_mt63dpzh0120ru": {
+                "x": 144.8,
+                "y": 227.3,
+                "angleDeg": 90
+              },
+              "ch_mt63dpzh0292r4": {
+                "x": 262.2,
+                "y": 227.3,
+                "angleDeg": 9.1
+              },
+              "ch_mt63dpzh03zvkt": {
+                "x": 187.7,
+                "y": 326.9,
+                "angleDeg": -87.3
+              },
+              "ch_mt63dpzh041ttp": {
+                "x": 722.6,
+                "y": 234,
+                "angleDeg": -90
+              },
+              "ch_mt63dpzh07z4nu": {
+                "x": 411.6,
+                "y": 440.5,
+                "angleDeg": -88.2
+              },
+              "ch_mt63dpzh05q91u": {
+                "x": 441.2,
+                "y": 245.7,
+                "angleDeg": -133.5
+              },
+              "ch_mt63dpzh06qyto": {
+                "x": 377.1,
+                "y": 120.6,
+                "angleDeg": 167.1
+              }
+            },
+            "balls": {
+              "bl_mt63ngh700qhs3": {
+                "x": 411.6,
+                "y": 263.5
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [
+              {
+                "id": "nt_mt63sotb00n9z1",
+                "x": 235.2,
+                "y": 136.9,
+                "text": "수비는 공으로부터 5미터 떨어져있어야 함",
+                "size": 14,
+                "color": "#fde047"
+              },
+              {
+                "id": "nt_mt643fsm0074yn",
+                "x": 415,
+                "y": 91.3,
+                "text": "각자 자기 진영에 있어야함.",
+                "size": 14,
+                "color": "#fde047"
+              }
+            ],
+            "shapes": []
+          },
+          {
+            "id": "st_mt7a34rc014le5",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt63dpzh00g1uu": {
+                "x": 116.2,
+                "y": 310.7,
+                "angleDeg": -88.4
+              },
+              "ch_mt63dpzh0120ru": {
+                "x": 144.8,
+                "y": 227.3,
+                "angleDeg": 90
+              },
+              "ch_mt63dpzh0292r4": {
+                "x": 187.7,
+                "y": 183,
+                "angleDeg": 89.5
+              },
+              "ch_mt63dpzh03zvkt": {
+                "x": 187.7,
+                "y": 326.9,
+                "angleDeg": -87.3
+              },
+              "ch_mt63dpzh041ttp": {
+                "x": 722.6,
+                "y": 234,
+                "angleDeg": -90
+              },
+              "ch_mt63dpzh07z4nu": {
+                "x": 411.6,
+                "y": 440.5,
+                "angleDeg": -88.2
+              },
+              "ch_mt63dpzh05q91u": {
+                "x": 441.2,
+                "y": 245.7,
+                "angleDeg": -133.5
+              },
+              "ch_mt63dpzh06qyto": {
+                "x": 425.4,
+                "y": 104.7,
+                "angleDeg": 167.1
+              }
+            },
+            "balls": {
+              "bl_mt63ngh700qhs3": {
+                "x": 411.6,
+                "y": 263.5
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [
+              {
+                "id": "nt_mt63sotb00n9z1",
+                "x": 235.2,
+                "y": 136.9,
+                "text": "수비는 공으로부터 5미터 떨어져있어야 함",
+                "size": 14,
+                "color": "#fde047"
+              },
+              {
+                "id": "nt_mt643fsm0074yn",
+                "x": 420.2,
+                "y": 71,
+                "text": "각자 자기 진영에 있어야함.",
+                "size": 14,
+                "color": "#fde047"
+              }
+            ],
+            "shapes": []
+          }
+        ],
+        "createdAt": 1787507434857,
+        "updatedAt": 1787578804014,
+        "situation": "kick-off"
+      },
+      {
+        "schemaVersion": 8,
+        "id": "dr_mt7ab80000o6km",
+        "title": "2-2 킥인",
+        "drillType": "technical",
+        "level": "초급",
+        "durationMin": 10,
+        "tags": [],
+        "objective": "",
+        "coachingPoints": [],
+        "playersNeeded": 0,
+        "equipment": "",
+        "courtMode": "half",
+        "courtSize": "30x18",
+        "defense": "away",
+        "formation": "1-2-1",
+        "teams": {
+          "home": {
+            "label": "우리 팀",
+            "color": "#d93a3a",
+            "gkColor": "#f2c811"
+          },
+          "away": {
+            "label": "상대",
+            "color": "#1f6bb8",
+            "gkColor": "#22a95b"
+          }
+        },
+        "cast": {
+          "chairs": [
+            {
+              "id": "ch_mt7ab2gn00puo0",
+              "team": "home",
+              "number": "G",
+              "isGk": true
+            },
+            {
+              "id": "ch_mt7ab2gn01gd8g",
+              "team": "home",
+              "number": "2",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2gn027k8h",
+              "team": "home",
+              "number": "3",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2gn031sex",
+              "team": "home",
+              "number": "4",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2gn04zfmu",
+              "team": "away",
+              "number": "G",
+              "isGk": true
+            },
+            {
+              "id": "ch_mt7ab2gn05gr8o",
+              "team": "away",
+              "number": "2",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2go004uu4",
+              "team": "away",
+              "number": "3",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2go01q6lh",
+              "team": "away",
+              "number": "4",
+              "isGk": false
+            }
+          ],
+          "balls": [
+            {
+              "id": "bl_mt7ace5i00yssn",
+              "ring": "5m"
+            }
+          ],
+          "cones": []
+        },
+        "steps": [
+          {
+            "id": "st_mt7ab2go034hy8",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn04zfmu": {
+                "x": 196.5,
+                "y": 381.1,
+                "angleDeg": -90
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 111.3,
+                "y": 346.5,
+                "angleDeg": -95.6
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 279.3,
+                "y": 212.6,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 90.3,
+                "y": 278.8,
+                "angleDeg": 81.2
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 375.5,
+                "y": 93.7,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 297,
+                "y": 389.3,
+                "angleDeg": -90
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 346.4,
+                "y": 278.8,
+                "angleDeg": 166.9
+              },
+              "ch_mt7ab2gn00puo0": {
+                "x": 155,
+                "y": 102.1,
+                "angleDeg": 32.6
+              }
+            },
+            "balls": {
+              "bl_mt7ace5i00yssn": {
+                "x": 90.3,
+                "y": 327.4
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [],
+            "shapes": []
+          },
+          {
+            "id": "st_mt7almxt01kncp",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn04zfmu": {
+                "x": 196.5,
+                "y": 381.1,
+                "angleDeg": -90
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 111.3,
+                "y": 346.5,
+                "angleDeg": -177.6
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 279.3,
+                "y": 212.6,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 90.3,
+                "y": 278.8,
+                "angleDeg": 156.5
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 375.5,
+                "y": 93.7,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 297,
+                "y": 389.3,
+                "angleDeg": -90
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 346.4,
+                "y": 278.8,
+                "angleDeg": 166.9
+              },
+              "ch_mt7ab2gn00puo0": {
+                "x": 155,
+                "y": 102.1,
+                "angleDeg": 32.6
+              }
+            },
+            "balls": {
+              "bl_mt7ace5i00yssn": {
+                "x": 12.8,
+                "y": 346.5
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [],
+            "shapes": []
+          },
+          {
+            "id": "st_mt7ag4pn010qse",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn04zfmu": {
+                "x": 198.2,
+                "y": 354,
+                "angleDeg": -90
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 198.3,
+                "y": 398.8,
+                "angleDeg": -90
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 162.5,
+                "y": 252.8,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 59.6,
+                "y": 357.3,
+                "angleDeg": 177.4
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 47.3,
+                "y": 181.9,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 330.5,
+                "y": 239.2,
+                "angleDeg": 105.3
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 209.9,
+                "y": 309.7,
+                "angleDeg": 178.8
+              },
+              "ch_mt7ab2gn00puo0": {
+                "x": 421.8,
+                "y": 239.2,
+                "angleDeg": 133.1
+              }
+            },
+            "balls": {
+              "bl_mt7ace5i00yssn": {
+                "x": 37.5,
+                "y": 327.2
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [
+              {
+                "id": "nt_mt7aqviy00uwum",
+                "x": 210.9,
+                "y": 221.3,
+                "text": "수비는 5미터 떨어져야함",
+                "size": 14,
+                "color": "#fde047"
+              }
+            ],
+            "shapes": [],
+            "cut": true
+          },
+          {
+            "id": "st_mt7as4yf01xv00",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn04zfmu": {
+                "x": 198.3,
+                "y": 351.7,
+                "angleDeg": -90
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 198.3,
+                "y": 398.8,
+                "angleDeg": -90
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 191.5,
+                "y": 251,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 60,
+                "y": 344.7,
+                "angleDeg": 177.4
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 47.3,
+                "y": 181.9,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 344.1,
+                "y": 251,
+                "angleDeg": 105.3
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 212.3,
+                "y": 303.5,
+                "angleDeg": 178.7
+              },
+              "ch_mt7ab2gn00puo0": {
+                "x": 372,
+                "y": 280.5,
+                "angleDeg": 134.8
+              }
+            },
+            "balls": {
+              "bl_mt7ace5i00yssn": {
+                "x": 37.5,
+                "y": 327.2
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [
+              {
+                "id": "nt_mt7aqviy00uwum",
+                "x": 219,
+                "y": 192.2,
+                "text": "수비는 5미터 떨어져야함",
+                "size": 14,
+                "color": "#fde047"
+              }
+            ],
+            "shapes": []
+          }
+        ],
+        "createdAt": 1787578880832,
+        "updatedAt": 1787579944878
+      },
+      {
+        "schemaVersion": 8,
+        "id": "dr_mt7b6hq000e3pk",
+        "title": "2-3 코너킥",
+        "drillType": "technical",
+        "level": "초급",
+        "durationMin": 10,
+        "tags": [],
+        "objective": "",
+        "coachingPoints": [],
+        "playersNeeded": 0,
+        "equipment": "",
+        "courtMode": "half",
+        "courtSize": "30x18",
+        "defense": "away",
+        "formation": "1-2-1",
+        "teams": {
+          "home": {
+            "label": "우리 팀",
+            "color": "#d93a3a",
+            "gkColor": "#f2c811"
+          },
+          "away": {
+            "label": "상대",
+            "color": "#1f6bb8",
+            "gkColor": "#22a95b"
+          }
+        },
+        "cast": {
+          "chairs": [
+            {
+              "id": "ch_mt7ab2gn00puo0",
+              "team": "home",
+              "number": "G",
+              "isGk": true
+            },
+            {
+              "id": "ch_mt7ab2gn01gd8g",
+              "team": "home",
+              "number": "2",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2gn027k8h",
+              "team": "home",
+              "number": "3",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2gn031sex",
+              "team": "home",
+              "number": "4",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2gn04zfmu",
+              "team": "away",
+              "number": "G",
+              "isGk": true
+            },
+            {
+              "id": "ch_mt7ab2gn05gr8o",
+              "team": "away",
+              "number": "2",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2go004uu4",
+              "team": "away",
+              "number": "3",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2go01q6lh",
+              "team": "away",
+              "number": "4",
+              "isGk": false
+            }
+          ],
+          "balls": [
+            {
+              "id": "bl_mt7b1hp1008xtf",
+              "ring": "5m"
+            }
+          ],
+          "cones": []
+        },
+        "steps": [
+          {
+            "id": "st_mt7ab2go034hy8",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn00puo0": {
+                "x": 114.6,
+                "y": 106.4,
+                "angleDeg": -161.5
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 125.4,
+                "y": 276.8,
+                "angleDeg": 54
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 362.5,
+                "y": 287.5,
+                "angleDeg": 54.2
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 271.6,
+                "y": 136.1,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2gn04zfmu": {
+                "x": 322.7,
+                "y": 356.3,
+                "angleDeg": -158
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 249.2,
+                "y": 391.1,
+                "angleDeg": -166.7
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 347.8,
+                "y": 240.3,
+                "angleDeg": 128.7
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 181,
+                "y": 245.2,
+                "angleDeg": 88.4
+              }
+            },
+            "balls": {
+              "bl_mt7b1hp1008xtf": {
+                "x": 347.8,
+                "y": 311.8
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [],
+            "shapes": []
+          },
+          {
+            "id": "st_mt7b8ib90118zh",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn00puo0": {
+                "x": 114.6,
+                "y": 106.4,
+                "angleDeg": -161.5
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 139.8,
+                "y": 304.4,
+                "angleDeg": 54
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 362.5,
+                "y": 287.5,
+                "angleDeg": 147.1
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 271.6,
+                "y": 136.1,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2gn04zfmu": {
+                "x": 256.6,
+                "y": 357.2,
+                "angleDeg": -174.5
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 232.8,
+                "y": 391.1,
+                "angleDeg": -166.7
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 347.8,
+                "y": 240.3,
+                "angleDeg": 128.7
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 181,
+                "y": 245.2,
+                "angleDeg": 88.4
+              }
+            },
+            "balls": {
+              "bl_mt7b1hp1008xtf": {
+                "x": 162.5,
+                "y": 331.4
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [],
+            "shapes": []
+          },
+          {
+            "id": "st_mt7b9tob010kks",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn00puo0": {
+                "x": 114.6,
+                "y": 106.4,
+                "angleDeg": -161.5
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 144.5,
+                "y": 310.8,
+                "angleDeg": 54
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 362.5,
+                "y": 287.5,
+                "angleDeg": 147.1
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 271.6,
+                "y": 136.1,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2gn04zfmu": {
+                "x": 225,
+                "y": 354.1,
+                "angleDeg": -174.5
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 225,
+                "y": 389.8,
+                "angleDeg": -166.7
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 347.8,
+                "y": 240.3,
+                "angleDeg": 128.7
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 181,
+                "y": 245.2,
+                "angleDeg": 88.4
+              }
+            },
+            "balls": {
+              "bl_mt7b1hp1008xtf": {
+                "x": 188.6,
+                "y": 372.8
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [],
+            "shapes": []
+          },
+          {
+            "id": "st_mt7banja01dwh4",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn00puo0": {
+                "x": 114.6,
+                "y": 106.4,
+                "angleDeg": -161.5
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 147.8,
+                "y": 322.5,
+                "angleDeg": 54
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 362.5,
+                "y": 287.5,
+                "angleDeg": 147.1
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 271.6,
+                "y": 136.1,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2gn04zfmu": {
+                "x": 194.4,
+                "y": 363.9,
+                "angleDeg": -174.5
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 194.4,
+                "y": 397,
+                "angleDeg": 175.9
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 347.8,
+                "y": 240.3,
+                "angleDeg": 128.7
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 181,
+                "y": 245.2,
+                "angleDeg": 88.4
+              }
+            },
+            "balls": {
+              "bl_mt7b1hp1008xtf": {
+                "x": 131.8,
+                "y": 426.6
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [],
+            "shapes": []
+          },
+          {
+            "id": "st_mt7bcqhd01q235",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn00puo0": {
+                "x": 320.3,
+                "y": 165.4,
+                "angleDeg": 107.6
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 27.4,
+                "y": 407.4,
+                "angleDeg": 66.5
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 148.9,
+                "y": 303,
+                "angleDeg": 48.3
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 356.2,
+                "y": 287.5,
+                "angleDeg": 128.3
+              },
+              "ch_mt7ab2gn04zfmu": {
+                "x": 195.9,
+                "y": 432.1,
+                "angleDeg": 0.8
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 232.3,
+                "y": 407.4,
+                "angleDeg": -88.2
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 387.8,
+                "y": 247.4,
+                "angleDeg": 128.7
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 162.5,
+                "y": 247.4,
+                "angleDeg": 88.4
+              }
+            },
+            "balls": {
+              "bl_mt7b1hp1008xtf": {
+                "x": 62.5,
+                "y": 412.5
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [
+              {
+                "id": "nt_mt7bmx7700f0fw",
+                "x": 39.13450526599725,
+                "y": 329.6421449932384,
+                "text": "코너 삼각형 아무곳에 놓고 시작",
+                "size": 14,
+                "color": "#fde047"
+              },
+              {
+                "id": "nt_mt7bung6000hef",
+                "x": 388.8309153064613,
+                "y": 415.86290003655034,
+                "text": "골키퍼는 골대사이 골라인을 완전히 넘어가 위치해야함",
+                "size": 14,
+                "color": "#fde047"
+              },
+              {
+                "id": "nt_mt7c10b200xpsg",
+                "x": 276.42562461068485,
+                "y": 342.3316052828283,
+                "text": "제2수비수는 골대 안쪽 1미터 밖의 선을 벗어나야함.",
+                "size": 14,
+                "color": "#fde047"
+              },
+              {
+                "id": "nt_mt7upj540067z4",
+                "x": 127.0128000385152,
+                "y": 224.92968466700722,
+                "text": "그 외 수비수는 5미터 이상 떨어져야함.",
+                "size": 14,
+                "color": "#ffffff"
+              }
+            ],
+            "shapes": [],
+            "cut": true
+          }
+        ],
+        "createdAt": 1787580339768,
+        "updatedAt": 1787613196387
+      }
+    ],
+    "sessions": [],
+    "prefs": {
+      "schemaVersion": 3,
+      "theme": "dark",
+      "playbackSpeed": 1,
+      "loop": false,
+      "showGrid": true,
+      "showGridLabels": true,
+      "showRuleZones": true,
+      "inspectorPinned": false,
+      "present": {
+        "autoFullscreen": false,
+        "wakeLock": true
+      },
+      "a11y": {
+        "largeTargets": false,
+        "uiScale": 1,
+        "reduceMotion": "system",
+        "singleKeyShortcuts": "on",
+        "sound": true,
+        "twoZone": false
+      },
+      "tray": {
+        "draw": false,
+        "note": false
+      },
+      "seeded": true,
+      "physics": {
+        "speedLimit": false
+      },
+      "language": "auto",
+      "sync": {
+        "enabled": false
+      },
+      "tutorialsSeen": {
+        "library": true,
+        "editor": true,
+        "board": true,
+        "present": true,
+        "rules": true
+      }
+    },
+    "board": {
+      "schemaVersion": 1,
+      "pristine": false,
+      "drill": {
+        "schemaVersion": 8,
+        "id": "dr_mt7ab2go04ga2j",
+        "title": "자유 전술판",
+        "drillType": "technical",
+        "level": "초급",
+        "durationMin": 10,
+        "tags": [],
+        "objective": "",
+        "coachingPoints": [],
+        "playersNeeded": 0,
+        "equipment": "",
+        "courtMode": "half",
+        "courtSize": "30x18",
+        "defense": "away",
+        "formation": "1-2-1",
+        "teams": {
+          "home": {
+            "label": "우리 팀",
+            "color": "#d93a3a",
+            "gkColor": "#f2c811"
+          },
+          "away": {
+            "label": "상대",
+            "color": "#1f6bb8",
+            "gkColor": "#22a95b"
+          }
+        },
+        "cast": {
+          "chairs": [
+            {
+              "id": "ch_mt7ab2gn00puo0",
+              "team": "home",
+              "number": "G",
+              "isGk": true
+            },
+            {
+              "id": "ch_mt7ab2gn01gd8g",
+              "team": "home",
+              "number": "2",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2gn027k8h",
+              "team": "home",
+              "number": "3",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2gn031sex",
+              "team": "home",
+              "number": "4",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2gn04zfmu",
+              "team": "away",
+              "number": "G",
+              "isGk": true
+            },
+            {
+              "id": "ch_mt7ab2gn05gr8o",
+              "team": "away",
+              "number": "2",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2go004uu4",
+              "team": "away",
+              "number": "3",
+              "isGk": false
+            },
+            {
+              "id": "ch_mt7ab2go01q6lh",
+              "team": "away",
+              "number": "4",
+              "isGk": false
+            }
+          ],
+          "balls": [
+            {
+              "id": "bl_mt7b1hp1008xtf"
+            }
+          ],
+          "cones": []
+        },
+        "steps": [
+          {
+            "id": "st_mt7ab2go034hy8",
+            "name": "",
+            "note": "",
+            "chairs": {
+              "ch_mt7ab2gn00puo0": {
+                "x": 114.6,
+                "y": 106.4,
+                "angleDeg": -161.5
+              },
+              "ch_mt7ab2gn027k8h": {
+                "x": 125.4,
+                "y": 276.8,
+                "angleDeg": 54
+              },
+              "ch_mt7ab2gn01gd8g": {
+                "x": 362.5,
+                "y": 287.5,
+                "angleDeg": 54.2
+              },
+              "ch_mt7ab2gn031sex": {
+                "x": 271.6,
+                "y": 136.1,
+                "angleDeg": 90
+              },
+              "ch_mt7ab2gn04zfmu": {
+                "x": 241.7,
+                "y": 348.6,
+                "angleDeg": -158
+              },
+              "ch_mt7ab2gn05gr8o": {
+                "x": 249.2,
+                "y": 391.1,
+                "angleDeg": 173.1
+              },
+              "ch_mt7ab2go004uu4": {
+                "x": 347.8,
+                "y": 240.3,
+                "angleDeg": 128.7
+              },
+              "ch_mt7ab2go01q6lh": {
+                "x": 181,
+                "y": 245.2,
+                "angleDeg": 88.4
+              }
+            },
+            "balls": {
+              "bl_mt7b1hp1008xtf": {
+                "x": 347.8,
+                "y": 311.8
+              }
+            },
+            "cones": {},
+            "arrows": [],
+            "notes": [],
+            "shapes": []
+          }
+        ],
+        "createdAt": 1787578873655,
+        "updatedAt": 1787578873655
+      }
+    }
+  }
+}

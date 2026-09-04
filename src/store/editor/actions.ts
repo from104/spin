@@ -3,12 +3,13 @@
 // 정착 시점의 스텝 전체 pose 맵(PoseMap)을 그대로 담아 present 를 단방향 교체하는 용도이므로
 // DrillStep 의 동명 필드와 같은 타입으로 채웠다(§6.7 "PLACE_COMMIT 은 이미 DOM/물리와 값이
 // 같으므로 어떤 재동기화도 하지 않는다" 문단과 일관).
-import type { ChairId, StepId, ArrowId, NoteId, CastId, BallId, ConeId, ShapeId } from '../../core/ids.ts';
+import type { ChairId, StepId, ArrowId, NoteId, CastId, BallId, ConeId, ShapeId, StrokeId } from '../../core/ids.ts';
 import type { Vec2 } from '../../core/units.ts';
 import type { Drill, ChairDef, NoteLabel, PoseMap } from '../../model/drill.ts';
 import type { Shape } from '../../model/shape.ts';
 import type { StoredChairPose } from '../../model/chair.ts';
 import type { Arrow } from '../../model/arrow.ts';
+import type { Stroke } from '../../model/stroke.ts';
 import type { ToolId } from '../../physics/index.ts';
 
 export type EditorAction =
@@ -32,11 +33,18 @@ export type EditorAction =
   | { type: 'STEP_SELECT'; id: StepId } // ★ index 가 아니라 id
   | { type: 'SAVED'; at: number }
   | { type: 'COMMIT_BREAK' } // 키 리피트 경계
-  // 자유 전술판 전용 — 판 갈아끼우기(코트 전환·초기화). 히스토리를 **쌓지 않고 비운다**.
-  // DRILL_LOAD 로 대신할 수 없다: 그건 COMMIT 이라 past 에 한 칸 쌓이므로, 코트를 한 번
-  // 바꾸는 순간 past.length > 0 이 되어 "리셋 상태에서만 전환" 게이트가 스스로 닫혀버린다
-  // (두 번째 전환이 불가능해진다). 전환 결과는 언제나 그 코트의 기본 배치이므로 되돌릴
-  // 과거가 있는 것 자체가 의미 없다.
+  // 자유 전술판 전용 — **코트 갈아끼우기**. `past` 에 쌓는 COMMIT 이라 되돌릴 수 있고,
+  // 되돌리면 코트까지 함께 돌아온다(courtMode 가 Drill 안에 있다).
+  //
+  // ⚠️ **2026-08-28 에 두 가지가 함께 뒤집혔다**(기현님 지적). 그전까지 이 액션은 히스토리를
+  //    통째로 **비웠고**, [비우기]도 여기로 왔다. 사슬은 게이트였다: 게이트가
+  //    `past.length === 0` 를 "판이 비었다" 의 대용으로 썼으므로 비우기가 COMMIT 이면
+  //    비우자마자 코트 전환이 잠겼다. 게이트가 판 위 개체를 직접 세게 되면서(EditorWorkspace)
+  //    그 사슬이 끊겼고, 이제 ① [비우기]는 DRILL_LOAD 로 가고(제목·id 를 유지해야 해서다 —
+  //    BoardScreen.onReset) ② 이 액션도 되돌릴 수 있다.
+  //    옛 근거 *"전환 결과는 언제나 그 코트의 기본 배치이므로 되돌릴 과거가 의미 없다"* 는
+  //    전환 **결과**에만 맞는 말이었다: 코트를 바꾸려면 판이 비어 있어야 하므로 비우기와 코트
+  //    전환은 붙어 다니고, 그 **과거**에는 방금 지운 배치가 있다.
   | { type: 'BOARD_SET'; drill: Drill }
   // 드릴 데이터 (히스토리 커밋)
   | { type: 'DRILL_LOAD'; drill: Drill }
@@ -85,7 +93,6 @@ export type EditorAction =
         >
       >;
     }
-  | { type: 'STEP_ADD'; afterIndex: number }
   /** 스텝 복제(§복제, 기현님 확정 2026-08-17) — **후방 복제가 기본**이라 `toIndex` 를
    *  안 주면 `model/edits.ts duplicateStep` 계약대로 바로 뒤(`i+1`)에 꽂힌다. 카드 자체의
    *  복제 버튼과 틈(gap) g>0 의 + 버튼은 그 기본값 그대로 쓴다(틈 g 는 위 스텝 g-1 을
@@ -131,6 +138,14 @@ export type EditorAction =
    *  2026-08-16 — 키보드에서 Alt 로 범위를 고르던 길은 없앴다(Alt 는 보기 토글 전용 채널이
    *  됐다). `'everywhere'` 는 아무도 디스패치하지 않아 함께 걷어냈다. */
   | { type: 'OBJECT_REMOVE'; id: CastId; scope: 'onward' | 'thisStep' }
+  /** 스텝 하나를 통째로 **비운다**([비우기], 2026-08-28 기현 지시로 드릴 편집에도 생겼다).
+   *
+   *  개체를 하나씩 지우는 `OBJECT_REMOVE` 를 반복하지 **않는다**: 그러면 되돌리기가 개체 수만큼
+   *  필요해져(EditorWorkspace 의 eraseIds 가 그렇다) "한 번에 비웠는데 되돌리려면 열 번" 이 된다.
+   *  비우기는 한 동작이므로 되돌리기도 한 칸이어야 한다.
+   *
+   *  스텝 **id 를 유지**하므로 uiReducer 가 stepId 를 손볼 일이 없다(STEP_DELETE 류와 다르다). */
+  | { type: 'STEP_CLEAR'; id: StepId }
   | { type: 'CHAIR_PLACE'; id: ChairId; pose: StoredChairPose }
   | { type: 'CHAIR_DEF'; id: ChairId; patch: Partial<Omit<ChairDef, 'id' | 'team'>> }
   // §7 5.2 — **선택된 공을 그 자리에서 다시 탭했다**(2026-08-13, 기현님 실기 피드백 ③).
@@ -176,6 +191,11 @@ export type EditorAction =
   | { type: 'SETTLE_ARM'; until: number }
   | { type: 'ARROW_SET'; arrow: Arrow }
   | { type: 'ARROW_REMOVE'; id: ArrowId }
+  /** 자유 그리기 획(2026-09-03). 캡처가 끝난 새 획도, 앵커로 돌리거나 색·굵기·화살촉을 바꾼
+   *  편집도 **같은 액션**이다 — 화살표·도형이 걸어 둔 길이고(`ARROW_SET`/`SHAPE_SET`), 갈래를
+   *  나누면 되돌리기·병합·자동저장 세 곳에 각각 예외가 생긴다. */
+  | { type: 'STROKE_SET'; stroke: Stroke }
+  | { type: 'STROKE_REMOVE'; id: StrokeId }
   | { type: 'NOTE_SET'; note: NoteLabel }
   | { type: 'NOTE_REMOVE'; id: NoteId }
   // 작도 도형(2026-08-14). 화살표·메모와 **완전히 같은 모양**의 쌍이다 — 도형만 다른 규칙을
@@ -197,7 +217,6 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'DRILL_LOAD',
   'PRESET_APPLY',
   'META_SET',
-  'STEP_ADD',
   'STEP_DUPLICATE',
   'STEP_DELETE',
   'STEP_REORDER',
@@ -207,6 +226,7 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'STEPS_DELETE',
   'OBJECT_ADD',
   'OBJECT_REMOVE',
+  'STEP_CLEAR',
   'CHAIR_PLACE',
   'CHAIR_DEF',
   // 5.2 원 순환은 **드릴 내용**이라 되돌리기에 실린다 — `CHAIR_DEF`(개별 색·이름·역할)와 같은
@@ -227,6 +247,8 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'NOTE_REMOVE',
   'SHAPE_SET',
   'SHAPE_REMOVE',
+  'STROKE_SET',
+  'STROKE_REMOVE',
   'FLAG_SET',
 ]);
 
@@ -238,6 +260,12 @@ export const COALESCE_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'ARROW_SET',
   // 도형은 끌면 매 프레임 SHAPE_SET 이 난다 — 병합 없이는 한 번 끄는 데 되돌리기 수십 칸이다.
   'SHAPE_SET',
+  // 획도 같다 — 회전 앵커를 끄는 동안 매 프레임 STROKE_SET 이 난다.
+  // ⚠️ 대가를 알고 넣는다: 굵기·색 순환(반복 클릭)도 같은 액션이라 700ms 안의 연타가 한 칸으로
+  // 병합된다(`BALL_RETAP` 을 여기서 뺀 이유가 정확히 그 증상이다). 그래도 넣는 것은 화살표가
+  // 이미 같은 처지이기 때문이다 — `ARROW_SET` 이 굽힘점 색 순환과 드래그를 함께 나른다. 획만
+  // 다르게 굴면 같은 판 위의 두 선이 되돌리기에서 다르게 반응한다.
+  'STROKE_SET',
   'OBJECT_NUDGE',
   // 덩어리를 끄는 동안 매 프레임 난다 — 병합 없이는 한 번 끄는 데 되돌리기 수십 칸이다.
   'GROUP_NUDGE',
@@ -249,7 +277,6 @@ export const EPOCH_BUMP_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'REDO',
   'DRILL_LOAD',
   'PRESET_APPLY',
-  'STEP_ADD',
   'STEP_DUPLICATE',
   'STEP_DELETE',
   'STEP_REORDER',
@@ -261,5 +288,7 @@ export const EPOCH_BUMP_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'STEPS_DELETE',
   'OBJECT_ADD',
   'OBJECT_REMOVE',
+  // 판이 통째로 비므로 물리 바디도 전량 사라져야 한다 — 안 올리면 모델은 비었는데 칩이 남는다.
+  'STEP_CLEAR',
   'CHAIR_PLACE',
 ]);

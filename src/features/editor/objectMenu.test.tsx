@@ -154,38 +154,19 @@ afterEach(() => {
 });
 
 describe('메뉴 — 화면 끝', () => {
-  it('휠체어를 오른쪽 클릭하면 잠금 · 무시 · 빼기가 뜬다', async () => {
-    const { chair } = await openBoardWithChair();
-    expect(menu()).toBeNull(); // 대조군
-    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
-    await waitFor(() => expect(menu()).not.toBeNull());
-    for (const name of ['잠금', '무시', '빼기']) {
-      expect(screen.getByRole('menuitem', { name }), name).toBeInTheDocument();
-    }
-  });
-
-  it('★ 잠그면 보라 덮개가 얹힌다', async () => {
-    // ⚠️ **끌기 차단은 여기서 못 잰다.** jsdom 에는 레이아웃이 없어 좌표가 전부 0 이라,
-    // 차단이 있든 없든 개체가 안 움직인다 — 실제로 차단을 지우고 돌려 보니 그대로
-    // 초록이었다(2026-08-14 반증). 아무것도 안 지키는 단언은 없느니만 못하므로 뺐다.
-    // 차단은 `lockedDrag.test.tsx` 가 컨트롤러를 직접 불러 잰다.
-    const { user, chair } = await openBoardWithChair();
-    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
-    await user.click(await screen.findByRole('menuitem', { name: '잠금' }));
-    // ⚠️ 처음에는 **붉은 테두리**였다(기현 첫 지시). 실기에서 선택 테두리와 겹쳐서
-    // 보라 반투명 덮개로 바뀌었다 — 링 둘이 같은 픽셀을 다투던 것이 원인이라, 면으로
-    // 바꾼 것이 수리다(LockTint.tsx 머리말).
-    await waitFor(() => expect(chair.querySelector('.lock-tint'), '보라 덮개가 없다').not.toBeNull());
-    expect(chair.querySelector('.lock-ring'), '옛 붉은 테두리가 되살아났다').toBeNull();
-  });
-
   it('★ 잠김 덮개와 선택 테두리가 **함께 떠도** 서로 다른 요소다 — 겹침이 이 수리의 이유였다', async () => {
     // 기현님 실측: *"붉은 테두리로 정했는데 선택 테두리와 겹친다."* 잠긴 것을 고를 수 있어야
     // 하므로 **둘이 동시에 뜨는 것이 정상 상태**인데, 둘 다 개체 둘레의 링이라 같은 픽셀을
     // 다퉜다. 덮개는 면이라 축이 다르다 — 이 단언이 그 분리를 지킨다.
+    // ⚠️ 처음에는 **붉은 테두리**였다(기현 첫 지시). 실기에서 선택 테두리와 겹쳐서
+    // 보라 반투명 덮개로 바뀌었다 — 링 둘이 같은 픽셀을 다투던 것이 원인이라, 면으로
+    // 바꾼 것이 수리다(LockTint.tsx 머리말). **끌기 차단은 여기서 못 잰다** — jsdom 에는
+    // 레이아웃이 없어 좌표가 전부 0 이라 차단이 있든 없든 개체가 안 움직인다(2026-08-14
+    // 반증). 차단은 `lockedDrag.test.tsx` 가 컨트롤러를 직접 불러 잰다.
     const { user, chair } = await openBoardWithChair();
     fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
     await user.click(await screen.findByRole('menuitem', { name: '잠금' }));
+    expect(chair.querySelector('.lock-ring'), '옛 붉은 테두리가 되살아났다').toBeNull();
     await user.pointer([{ target: chair, keys: '[MouseLeft]', coords: { clientX: 40, clientY: 40 } }]);
 
     await waitFor(() => expect(chair.querySelector('.sel-ring'), '선택 테두리가 없다').not.toBeNull());
@@ -206,17 +187,6 @@ describe('메뉴 — 화면 끝', () => {
     // 그리고 메뉴는 '잠금 해제' 로 바뀐다.
     fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
     expect(await screen.findByRole('menuitem', { name: '잠금 해제' })).toBeInTheDocument();
-  });
-
-  it('★ 무시하면 흐려진다 (물리에서 빠지는 것은 physics 테스트가 잰다)', async () => {
-    const { user, chair } = await openBoardWithChair();
-    fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
-    await user.click(await screen.findByRole('menuitem', { name: '무시' }));
-
-    await waitFor(() => {
-      const ghost = chair.parentElement as HTMLElement;
-      expect(Number(ghost.style.opacity), '안 흐려졌다').toBeLessThan(0.5);
-    });
   });
 
   it('★ 무시해도 **손이 닿는다** — 안 닿으면 무시를 풀 방법이 없다 (기현 신고 2026-08-14)', async () => {
@@ -286,6 +256,7 @@ describe('메뉴 — 화면 끝', () => {
         <ObjectMenu
           target={{ ...base, ids: [returnsToTray ? 'ch_1' : 'ar_1'] }}
           onClose={noop}
+          onFineTune={() => {}}
           onToggleLock={noop}
           onToggleIgnore={noop}
           onRemove={noop}
@@ -297,24 +268,12 @@ describe('메뉴 — 화면 끝', () => {
       );
 
     it('다시 꺼낼 자리가 있으면 [빼기] 다 — 칩·공·콘', () => {
-      openWith(true);
-      expect(screen.getByRole('menuitem', { name: '빼기' })).toBeInTheDocument();
-      expect(screen.queryByRole('menuitem', { name: '삭제' })).toBeNull();
-    });
-
-    it('다시 꺼낼 자리가 없으면 [삭제] 다 — 화살표·메모·도형', () => {
-      openWith(false);
-      expect(screen.getByRole('menuitem', { name: '삭제' })).toBeInTheDocument();
-      expect(screen.queryByRole('menuitem', { name: '빼기' })).toBeNull();
-    });
-
-    it('둘 다 붉다 — 색의 근거는 되돌릴 수 있는가가 아니라 판에서 사라지는가다', () => {
-      // 색까지 갈라 버리면 "빼기는 안전한 항목" 으로 읽혀 잠금·무시와 한 덩어리가 된다.
+      // 화살표·메모·도형처럼 다시 꺼낼 자리가 없는 쪽은 [삭제] 다 — 반대편도 같은 하네스로 돈다.
       for (const returnsToTray of [true, false]) {
         cleanup();
         openWith(returnsToTray);
-        const item = screen.getByRole('menuitem', { name: returnsToTray ? '빼기' : '삭제' });
-        expect(item.style.color, String(returnsToTray)).toBe('rgb(255, 107, 107)');
+        expect(screen.getByRole('menuitem', { name: returnsToTray ? '빼기' : '삭제' })).toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', { name: returnsToTray ? '삭제' : '빼기' })).toBeNull();
       }
     });
   });
@@ -339,6 +298,7 @@ describe('[복제] — 항목은 도형·메모에만 뜬다', () => {
       <ObjectMenu
         target={{ ...base, ids }}
         onClose={noop}
+        onFineTune={() => {}}
         onToggleLock={noop}
         onToggleIgnore={noop}
         onRemove={noop}
@@ -360,11 +320,8 @@ describe('[복제] — 항목은 도형·메모에만 뜬다', () => {
     cleanup();
     openWith(['sh_1', 'nt_1', 'ar_1']);
     expect(screen.getByRole('menuitem', { name: '3개 복제' })).toBeInTheDocument();
-  });
-
-  it('칩·공·콘에는 안 뜬다 — 하나라도 섞이면 통째로 안 뜬다', () => {
-    // 칩·공·콘은 정원이 cast 에 있어 "하나 더" 가 정의 추가가 된다(canDuplicate 주석).
-    // 섞인 무리에서 안 내는 것은 무시와 같은 규율이다.
+    // 반대 분기 — 칩·공·콘은 정원이 cast 에 있어 "하나 더" 가 정의 추가가 된다(canDuplicate
+    // 주석). 하나라도 섞이면 통째로 안 뜬다 — 섞인 무리에서 안 내는 것은 무시와 같은 규율이다.
     for (const ids of [['ch_1'], ['bl_1'], ['cn_1'], ['sh_1', 'ch_1'], ['ar_1', 'bl_1']]) {
       cleanup();
       openWith(ids);
@@ -541,11 +498,7 @@ describe('브라우저 기본 메뉴 — 코트 위에서는 언제나 막는다
     const { stage } = await openBoardWithChair();
     const notPrevented = fireEvent.contextMenu(stage, { clientX: 300, clientY: 300 });
     expect(notPrevented, '기본 동작이 살아 있다 — 크롬 메뉴가 뜬다').toBe(false);
-  });
-
-  it('빈 코트에서는 **우리 메뉴도** 안 뜬다 — 열 개체가 없다', async () => {
-    const { stage } = await openBoardWithChair();
-    fireEvent.contextMenu(stage, { clientX: 300, clientY: 300 });
+    // 우리 메뉴도 안 뜬다 — 열 개체가 없다.
     expect(menu()).toBeNull();
   });
 
@@ -574,5 +527,49 @@ describe('브라우저 기본 메뉴 — 코트 위에서는 언제나 막는다
     const notPrevented = fireEvent.contextMenu(chair, { clientX: 40, clientY: 40 });
     expect(notPrevented, '개체 위에서 기본 동작이 살아 있다').toBe(false);
     await waitFor(() => expect(menu()).not.toBeNull());
+  });
+});
+
+// ── [미세 조정] 칸 (2026-09-02) ────────────────────────────────────────────────────────
+// 패드 자체는 이제 메뉴 밖(NudgePad)이다. 메뉴가 지는 몫은 **칸을 낼지 말지**와 **대상을
+// 그대로 넘기는지** 둘뿐이라 여기서는 그것만 잰다. 패드의 동작은 nudgePad.test.tsx 소관.
+describe('[미세 조정] 칸', () => {
+  const base = { x: 10, y: 10, locked: false, ignored: false, canIgnore: true, editable: null, selectSame: null };
+  const noop = () => {};
+
+  const open = (ids: string[], locked = false) => {
+    const fine: string[][] = [];
+    const onClose = vi.fn();
+    render(
+      <ObjectMenu
+        target={{ ...base, ids, locked }}
+        onClose={onClose}
+        onFineTune={(x) => fine.push(x)}
+        onToggleLock={noop}
+        onToggleIgnore={noop}
+        onRemove={noop}
+        onSelect={noop}
+        onDuplicate={noop}
+        onEdit={noop}
+      />,
+      { wrapper: SettingsProvider },
+    );
+    return { fine, onClose };
+  };
+
+  it('누르면 대상을 그대로 넘기고 메뉴는 닫힌다 — 패드가 그 자리를 이어받는다', () => {
+    const { fine, onClose } = open(['ch_1']);
+    fireEvent.click(screen.getByRole('menuitem', { name: '미세 조정' }));
+    expect(fine).toEqual([['ch_1']]);
+    expect(onClose, '패드를 열었으면 메뉴는 물러나야 한다').toHaveBeenCalled();
+  });
+
+  it('잠긴 개체에는 안 난다 — 눌러도 안 움직이는 칸을 내지 않는다', () => {
+    open(['ch_1'], true);
+    expect(screen.queryByRole('menuitem', { name: '미세 조정' })).toBeNull();
+    // 미세 조정이 안 먹는 개체(도형)도 마찬가지다 — 잠김과 다른 입력, 같은 결과.
+    cleanup();
+    open(['sh_1']);
+    expect(screen.queryByRole('menuitem', { name: '미세 조정' })).toBeNull();
   });
 });

@@ -9,6 +9,12 @@ import { SUMMARY_BUILD, type DrillSummary } from '../../model/summary.ts';
 import type { ResolvedSession, TrainingSession } from '../../model/session.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { DrillId, SessionId } from '../../core/ids.ts';
+import { subscribeSyncEvents } from '../../storage/syncMeta.ts';
+
+/** 쓰기 사건을 모아 한 번만 읽는 창(ms). 자동저장 디바운스(800ms)보다 **짧아야** 한다 —
+ *  길면 연달아 저장할 때 갱신이 계속 뒤로 밀린다. 가져오기처럼 사건이 한꺼번에 쏟아지는
+ *  경우를 한 번으로 접는 것이 이 값의 일이다. */
+const SYNC_REFRESH_COALESCE_MS = 250;
 
 export type LibraryStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -120,6 +126,36 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     void refresh();
     // drillType/search 가 바뀌면 repo.listDrillSummaries(q) 를 다시 태운다(§4.3: 요약 전량을 읽어
     // 메모리에서 필터·정렬 — 200건 = 140 KB 수준이라 재조회 비용이 낮다).
+  }, [refresh]);
+
+  /** 저장소에 쓰기가 나면 **목록이 스스로 따라온다**(2026-08-28 기현님 신고: *"드릴 목록이 왜
+   *  실시간으로 갱신이 안 되지?"*).
+   *
+   *  그전에는 쓴 쪽이 `refresh()` 를 **기억해서** 불러야 했다. 만들기·복제·삭제·가져오기·
+   *  동기화는 불렀고 **편집기만 안 불렀다** — 그래서 제목을 고치고 목록으로 나가면 옛 제목·옛
+   *  수정시각이 그대로 서 있었다. 부르는 자리를 하나 더 추가하는 대신 **듣는 쪽을 만든다**:
+   *  같은 실수가 다음 writer 에서 다시 나지 않는 유일한 방법이다(render-path 레지스트리와 같은 논법).
+   *
+   *  방송은 이미 있었다 — 모든 writer 가 `postSyncEvent` 를 쏘고(`storage/syncMeta.ts`,
+   *  drillRepo·sessionRepo·rosterRepo), 그 함수는 **로컬 리스너에게 먼저 dispatch** 한 뒤
+   *  BroadcastChannel 로 보낸다. 듣는 곳이 없었을 뿐이다.
+   *
+   *  ⚠️ **모아서 한 번만 읽는다.** 자동저장은 800ms 마다, 가져오기는 드릴 수만큼 사건을 쏜다 —
+   *  그대로 받으면 50건 가져오기가 요약 전량 읽기 50회가 된다.
+   *  ⚠️ 다른 탭의 쓰기도 같은 사건으로 온다(BroadcastChannel) — 그쪽은 덤이다. */
+  useEffect(() => {
+    let timer: number | null = null;
+    const off = subscribeSyncEvents(() => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        void refresh();
+      }, SYNC_REFRESH_COALESCE_MS);
+    });
+    return () => {
+      off();
+      if (timer !== null) window.clearTimeout(timer);
+    };
   }, [refresh]);
 
   const createDrill = useCallback(

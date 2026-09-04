@@ -50,40 +50,24 @@ function tintIsOnTop(node: React.ReactNode, id: string): { last: string; hasTint
 describe('잠김 덮개는 개체보다 **뒤에** 그려진다 (= 위에 보인다)', () => {
   const writer = createTransformWriter();
 
-  it('★ 휠체어', () => {
-    const r = tintIsOnTop(
-      <ChairChip id={'ch_1' as ChairId} writer={writer} color="#d93a3a" team="home" number="4" selected={false} active={false} locked ariaLabel="A팀 4번" />,
+  it.each([
+    [
+      '★ 휠체어',
+      <ChairChip key="ch_1" id={'ch_1' as ChairId} writer={writer} color="#d93a3a" team="home" number="4" selected={false} active={false} locked ariaLabel="A팀 4번" />,
       'ch_1',
-    );
-    expect(r.hasTint, '덮개가 아예 없다').toBe(true);
-    expect(r.last, '덮개가 차체 뒤에 없다 — 불투명한 차체가 가려서 화면에는 안 보인다').toBe('lock-tint');
-  });
-
-  it('★ 공', () => {
-    const r = tintIsOnTop(<BallDot id={'ba_1' as BallId} writer={writer} selected={false} active={false} locked ariaLabel="공" />, 'ba_1');
-    expect(r.hasTint).toBe(true);
-    expect(r.last).toBe('lock-tint');
-  });
-
-  it('★ 콘', () => {
-    const r = tintIsOnTop(<ConeMark id={'co_1' as ConeId} writer={writer} colorIndex={0} selected={false} active={false} locked ariaLabel="콘 주황" />, 'co_1');
-    expect(r.hasTint).toBe(true);
-    expect(r.last).toBe('lock-tint');
-  });
-
-  it('★ 메모', () => {
-    const r = tintIsOnTop(
-      <NoteLabel id={'no_1' as NoteId} writer={writer} text="여기" size={14} color="#fff" align="middle" selected={false} active={false} locked ariaLabel="메모: 여기" />,
+    ],
+    ['★ 공', <BallDot key="ba_1" id={'ba_1' as BallId} writer={writer} selected={false} active={false} locked ariaLabel="공" />, 'ba_1'],
+    ['★ 콘', <ConeMark key="co_1" id={'co_1' as ConeId} writer={writer} colorIndex={0} selected={false} active={false} locked ariaLabel="콘 주황" />, 'co_1'],
+    [
+      '★ 메모',
+      <NoteLabel key="no_1" id={'no_1' as NoteId} writer={writer} text="여기" size={14} color="#fff" align="middle" selected={false} active={false} locked ariaLabel="메모: 여기" />,
       'no_1',
-    );
-    expect(r.hasTint).toBe(true);
-    expect(r.last).toBe('lock-tint');
-  });
-
-  it('★ 화살표', () => {
-    const r = tintIsOnTop(<ArrowPath arrow={ARROW} markerUid="t" writer={writer} selected={false} active={false} locked />, 'ar_1');
-    expect(r.hasTint).toBe(true);
-    expect(r.last).toBe('lock-tint');
+    ],
+    ['★ 화살표', <ArrowPath key="ar_1" arrow={ARROW} markerUid="t" writer={writer} selected={false} active={false} locked />, 'ar_1'],
+  ] as const)('%s', (_label, node, id) => {
+    const r = tintIsOnTop(node, id);
+    expect(r.hasTint, '덮개가 아예 없다').toBe(true);
+    expect(r.last, '덮개가 개체 뒤에 없다 — 불투명한 몸통이 가려서 화면에는 안 보인다').toBe('lock-tint');
   });
 
   it('대조군: 안 잠그면 덮개가 아예 없다 — "언제나 마지막" 이 아니라 "잠갔을 때 마지막" 이다', () => {

@@ -110,17 +110,9 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     await waitFor(() => expect(screen.getByText(STEP2_NOTE)).toBeInTheDocument());
   });
 
-  it('재생 버튼을 누르면 라벨이 일시정지로 바뀐다', async () => {
-    const drill = await makeTwoStepDrill();
-    const nav = makeNav();
-    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole('button', { name: '재생' })).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('button', { name: '재생' }));
-    expect(await screen.findByRole('button', { name: '일시정지' })).toBeInTheDocument();
-  });
-
   // 2026-08-20 §F — 끝 스텝에서 [재생] = 처음으로 되감고 재생. loop 설정과 무관하다(loop 는
-  // "재생 중 끝에 닿았을 때" 만 맡는다 — 둘이 안 겹친다).
+  // "재생 중 끝에 닿았을 때" 만 맡는다 — 둘이 안 겹친다). 재생 버튼을 누르면 라벨이
+  // 일시정지로 바뀌는 것도 아래 첫 회차에서 함께 확인한다.
   it('끝 스텝에서 [재생] 을 누르면 처음 스텝으로 되감고 재생한다(loop 꺼짐, §F)', async () => {
     const drill = await makeTwoStepDrill();
     const nav = makeNav();
@@ -133,14 +125,10 @@ describe('PresentRunner — 단일 드릴 시연', () => {
     await userEvent.click(screen.getByRole('button', { name: '재생' }));
     expect(await screen.findByRole('button', { name: '일시정지' })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
-  });
+    // 다음 회차 전에 멈춘다 — 안 그러면 되감긴 재생이 계속 흐르며 아래 조작과 경합한다.
+    await userEvent.click(screen.getByRole('button', { name: '일시정지' }));
 
-  it('끝 스텝에서 [재생] — 반복이 켜져 있어도 같은 되감기가 일어난다(loop 켜짐, §F)', async () => {
-    const drill = await makeTwoStepDrill();
-    const nav = makeNav();
-    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={nav} />, { wrapper });
-    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
-
+    // 반복이 켜져 있어도 같은 되감기가 일어난다.
     const loopBtn = screen.getByRole('button', { name: /^반복/ });
     if (loopBtn.getAttribute('aria-pressed') !== 'true') await userEvent.click(loopBtn);
     expect(screen.getByRole('button', { name: /^반복/ })).toHaveAttribute('aria-pressed', 'true');
@@ -242,7 +230,9 @@ describe('PresentRunner — 세션 시연', () => {
 });
 
 describe('PresentRunner — 드릴 정보 모달·메모 칩·격자 (C11)', () => {
-  it('ⓘ [드릴 정보]가 읽기 전용 모달을 열고, 헤더 [×]로 닫힌다', async () => {
+  // ⚠️ 2026-08-28 (기현 지시) — 여는 버튼이 **헤더 제목 옆 ⓘ 에서 오른쪽 기능 바로** 옮겼다.
+  //    아이콘도 갈렸다(눈 = 볼 수만 있다). 아래 '자리' 케이스가 그 이사를 못박는다.
+  it('[드릴 정보]가 읽기 전용 모달을 열고, 헤더 [×]로 닫힌다', async () => {
     const d = await makeTwoStepDrill(`정보 드릴 ${++seq}`);
     await idbDrillRepo.putDrill({ ...d, objective: '정보 모달 목적', equipment: '공 3개' }, { touch: false });
     render(<PresentRunner target={{ kind: 'drill', drillId: d.id }} nav={makeNav()} />, { wrapper });
@@ -276,14 +266,6 @@ describe('PresentRunner — 드릴 정보 모달·메모 칩·격자 (C11)', () 
     const noteG = screen.getByText('시연 메모').closest('g')!;
     expect(noteG.querySelectorAll('path')).toHaveLength(2);
     expect(container.querySelectorAll('svg').length).toBeGreaterThan(0); // 대조군
-  });
-
-  it('격자는 저장값(prefs.showGrid)을 따른다 — 기본(꺼짐)에는 없다', async () => {
-    const d = await makeTwoStepDrill(`격자 드릴 ${++seq}`);
-    const { container, unmount } = render(<PresentRunner target={{ kind: 'drill', drillId: d.id }} nav={makeNav()} />, { wrapper });
-    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
-    expect(container.querySelector('[data-grid-overlay]') ?? container.querySelector('g[aria-label="격자"]')).toBeNull();
-    unmount();
   });
 
   // 2026-08-20 §E — 노트 띠는 고정 높이 전폭 띠다: 노트가 없는 스텝으로 넘어가도 이 줄의

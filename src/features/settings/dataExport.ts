@@ -14,11 +14,28 @@
 // `파일에 있던 수 − (기록 + 건너뜀 + 실패)` 로 구한다. 집계 지점이 갈라지면 두 화면의 숫자가
 // 서로 다르게 거짓말한다.
 import { parseSpinFile, restoreBackup } from '../../storage/transfer.ts';
-import type { BackupRestoreReport, RestoreBackupOptions } from '../../storage/transfer.ts';
+import type { BackupRestoreReport, RestoreBackupOptions, SpinFileKind } from '../../storage/transfer.ts';
+import type { DictKey } from '../../i18n/ko.ts';
 import { StorageError } from '../../storage/errors.ts';
 import { readTextFile } from '../../storage/files.ts';
 import type { Locale } from '../../i18n/locale.ts';
 import { translate } from '../../i18n/useT.ts';
+
+/** 이 화면이 아니라 **드릴 목록 화면**에서 여는 봉투들 → 각자의 안내 문구.
+ *
+ *  반대 방향(목록 화면에 기기 이사 파일·설정 파일을 넣는 경우)은 `features/library/transfer.ts`
+ *  가 이미 같은 방식으로 받아 준다 — 두 화면이 서로를 가리켜야 어느 쪽으로 잘못 들어와도
+ *  길이 끊기지 않는다.
+ *
+ *  ⚠️ 여기 빠진 종류는 restoreBackup 의 일반 거절('이 버전에서 지원하지 않는 파일 종류입니다')
+ *  로 흘러간다. 그 문구는 **진짜 모르는 종류**(drillSet 등)에만 맞다 — 앱이 스스로 만들어 준
+ *  파일에 그 말을 하면 사용자는 파일이 깨졌다고 믿는다(2026-08-26 실제 사고: 드릴 파일을 이
+ *  화면에 넣었더니 '지원하지 않는 종류' 가 떴다. 파일은 멀쩡했고 열 자리만 달랐다). */
+const OPENS_ON_LIBRARY_SCREEN: Partial<Record<SpinFileKind, DictKey>> = {
+  drill: 'settings.data.drillKindError',
+  session: 'settings.data.sessionKindError',
+  library: 'settings.data.libraryKindError',
+};
 
 /** 파일 하나 → 복원 보고. 파싱 실패·kind 불일치는 StorageError 로 그대로 던진다(화면이 문구를
  *  토스트로 옮긴다) — 여기서 삼키면 "아무 일도 안 일어난 것처럼" 보인다. */
@@ -31,8 +48,9 @@ export async function restoreBackupFromFile(file: File, opts: RestoreBackupOptio
   //    자기 백업이 죽었다고 믿는다. a509d76 과 같은 수법이다: 공용 메시지
   //    (STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND)는 건드리지 않고 **이 화면에서만** kind 를
   //    특별대우한다. 진짜 모르는 kind(drillSet 등)는 그대로 restoreBackup 의 일반 문구를 받는다.
-  if (parsed.spin === 'library') {
-    throw new StorageError('E_UNSUPPORTED_KIND', translate(locale, 'settings.data.libraryKindError'), { localized: true });
+  const elsewhere = OPENS_ON_LIBRARY_SCREEN[parsed.spin];
+  if (elsewhere) {
+    throw new StorageError('E_UNSUPPORTED_KIND', translate(locale, elsewhere), { localized: true });
   }
   return restoreBackup(parsed, opts);
 }

@@ -50,7 +50,7 @@ describe('useTutorial — 시작', () => {
 
 describe('useTutorial — 자동 시작', () => {
   it('autoStart=true 이고 안 봤으면 마운트 뒤(rAF 한 틱) 시작한다', async () => {
-    // rAF 한 틱을 미루는 이유: 헤더 버튼(header-info 등, 여러 화면 공유)처럼 useAppHeader 발행이
+    // rAF 한 틱을 미루는 이유: 헤더 버튼(header-primary 등, 여러 화면 공유)처럼 useAppHeader 발행이
     // 한 틱 늦게 뜨는 대상이 있어도 빈 화면 가드에 안 걸리게 하려는 것이다(useTutorial.ts 주석).
     document.body.innerHTML = '<div data-tut="a"></div>';
     const { result } = renderHook(() => useTutorial('editor', STEPS, true), { wrapper });
@@ -89,10 +89,7 @@ describe('useTutorial — 진행·종료·플래그', () => {
     expect(result.current.stepIndex).toBe(1);
     act(() => result.current.prev());
     expect(result.current.stepIndex).toBe(0);
-  });
-
-  it('prev() 는 첫 단계에서 더 못 내려간다', () => {
-    const { result } = open();
+    // 첫 단계에서 prev() 를 또 불러도 더 못 내려간다(clamp).
     act(() => result.current.prev());
     expect(result.current.stepIndex).toBe(0);
   });

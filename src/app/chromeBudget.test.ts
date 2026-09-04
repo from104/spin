@@ -145,7 +145,9 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
     const after = courtBoxPx({ w: 800, h: 480 }, narrowState);
     expect(before).toEqual({ w: 277, h: 284 });
     // h 371(2026-08-18 하단 철거로 균형점에 섰던 값) → **355**(2026-08-20 노트 행 45 → 61).
-    expect(after).toEqual({ w: 583, h: 355 });
+    // w 583 → **627**(2026-08-27): 기능 바 칸이 12 → 9 가 되며 2열이 1열로 접혔다. 800×480 도
+    // 좁은 창이라 바에 남는 높이가 12칸을 못 담았던 것이고, 셋이 모달로 들어가며 담기게 됐다.
+    expect(after).toEqual({ w: 627, h: 355 });
     expect(px(before)).toBeCloseTo(0.3358, 4);
     expect(px(after)).toBeCloseTo(0.6762, 4);
     expect((px(after) / px(before) - 1) * 100).toBeCloseTo(101.4, 1);
