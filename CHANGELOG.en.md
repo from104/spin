@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 - Fixed clicks on the empty bands beside the court placing the ball outside the court on very wide windows (the court is now always sized by height)
 - Fixed side flags tipping over with the court when a narrow screen rotates the board 90 degrees
+- Fixed the first-visit loading screen (0.6.3) never appearing on the deployed site (it is now skipped only when you land directly on a rules article from search)
 
 ## [0.6.3] 2026-09-05
 
