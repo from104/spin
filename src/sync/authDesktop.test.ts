@@ -41,8 +41,8 @@ beforeEach(() => {
   openUrl.mockReset();
   openUrl.mockResolvedValue(undefined);
   asDesktop(true);
-  vi.stubEnv('VITE_GOOGLE_DESKTOP_CLIENT_ID', 'desktop-id');
-  vi.stubEnv('VITE_GOOGLE_DESKTOP_CLIENT_SECRET', 'desktop-secret');
+  vi.stubEnv('SPIN_DESKTOP_GOOGLE_CLIENT_ID', 'desktop-id');
+  vi.stubEnv('SPIN_DESKTOP_GOOGLE_CLIENT_SECRET', 'desktop-secret');
 });
 
 afterEach(() => {
@@ -60,10 +60,10 @@ describe('데스크톱 감지와 구성', () => {
 
   it('id 와 secret 이 **둘 다** 있어야 구성된 것이다', () => {
     expect(isConfigured()).toBe(true);
-    vi.stubEnv('VITE_GOOGLE_DESKTOP_CLIENT_SECRET', '');
+    vi.stubEnv('SPIN_DESKTOP_GOOGLE_CLIENT_SECRET', '');
     expect(isConfigured()).toBe(false);
-    vi.stubEnv('VITE_GOOGLE_DESKTOP_CLIENT_SECRET', 'desktop-secret');
-    vi.stubEnv('VITE_GOOGLE_DESKTOP_CLIENT_ID', '  ');
+    vi.stubEnv('SPIN_DESKTOP_GOOGLE_CLIENT_SECRET', 'desktop-secret');
+    vi.stubEnv('SPIN_DESKTOP_GOOGLE_CLIENT_ID', '  ');
     expect(isConfigured()).toBe(false);
   });
 });

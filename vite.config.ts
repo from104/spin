@@ -45,8 +45,23 @@ function restartOnVersionChange(): Plugin {
   }
 }
 
+// 데스크톱 client_secret 이 웹 번들로 새던 구멍(2026-09-05 감사, [치명 2]) — Vite 는 기본적으로
+// `.env.local` 의 `VITE_*` 를 **웹이든 데스크톱이든 구분 없이** 번들에 인라인한다. 그런데
+// `SPIN_DESKTOP_GOOGLE_CLIENT_SECRET` 은 데스크톱(Tauri)에서만 필요하고, `npm run deploy:aws`
+// 같은 웹 빌드에 들어가면 공개 서버로 그대로 나간다. `envPrefix` 로 Tauri 빌드일 때만
+// `SPIN_DESKTOP_` 접두어도 허용해, 웹 빌드에서는 그 값이 애초에 `import.meta.env` 에 존재하지
+// 않게 막는다. `TAURI_ENV_PLATFORM` 은 Tauri CLI 가 beforeDevCommand/beforeBuildCommand 를 부를
+// 때만 넣어 주는 변수라 이 갈림의 신뢰할 판별자다.
+//
+// 여기서 "동적 import 로 분리"하지 않는 이유: 별도 청크로 쪼개도 그 청크 파일 자체가
+// `npm run build` 산출물로 공개 서버(dist/)에 그대로 오른다 — 시크릿을 옮겨 실을 뿐 감추지
+// 못한다. 또 `authDesktop.ts` 의 `isDesktop()`·`isConfigured()` 는 동기 호출이라 정적 import 를
+// 요구한다. 그래서 값 자체를 웹 빌드에 아예 주입하지 않는 이 방식으로 막는다.
+const isTauriBuild = process.env.TAURI_ENV_PLATFORM !== undefined;
+
 // https://vite.dev/config/
 export default defineConfig({
+  envPrefix: isTauriBuild ? ['VITE_', 'SPIN_DESKTOP_'] : ['VITE_'],
   plugins: [react(), restartOnVersionChange()],
   define: { __APP_VERSION__: JSON.stringify(pkgVersion) },
   server: {

@@ -84,6 +84,28 @@ npm run build
 # 죽는데 스크립트는 성공으로 끝난다.
 [ -f dist/index.html ] || { echo "dist/index.html 이 없습니다 — 빌드가 실패했습니다." >&2; exit 1; }
 
+# 데스크톱 client_secret 이 이 웹 빌드에 새지 않았는지 확인한다(2026-09-05 감사, [치명 2]).
+# `.env.local` 이 있고 그 값이 비어 있지 않은데 dist/ 어딘가에 그대로 박혀 있으면, 그건
+# `vite.config.ts` 의 envPrefix 게이팅이 깨졌거나 다른 경로로 새어 들어갔다는 뜻이다 — 화면에
+# 값을 절대 내지 않고(grep 결과만 참/거짓으로 판정) 배포를 여기서 멈춘다.
+if [ -f .env.local ]; then
+  # 따옴표·공백은 벗긴다 — dotenv 는 벗겨서 넣으므로 번들에는 맨 값만 실린다. 안 벗기면
+  # 따옴표로 감싼 값이 영영 안 맞아 경보가 무음이 된다(2026-09-05 검수).
+  DESKTOP_SECRET=$(sed -n 's/^SPIN_DESKTOP_GOOGLE_CLIENT_SECRET=//p' .env.local | tr -d '"'"'"' ')
+  if [ -n "$DESKTOP_SECRET" ]; then
+    if grep -rqF -- "$DESKTOP_SECRET" dist/; then
+      echo "데스크톱 client_secret 이 웹 번들에 들어 있습니다 — 배포 중단" >&2
+      exit 1
+    fi
+    echo "누출 검사: 데스크톱 client_secret 이 dist/ 에 없음 — 통과"
+  else
+    # '검사했고 깨끗함' 과 '검사 안 함' 이 화면에서 구별돼야 한다.
+    echo "누출 검사 건너뜀: .env.local 에 SPIN_DESKTOP_GOOGLE_CLIENT_SECRET 이 없음" >&2
+  fi
+else
+  echo "누출 검사 건너뜀: .env.local 없음" >&2
+fi
+
 # ── 대상 안전장치 ────────────────────────────────────────────────────────────────────
 # `--delete` 를 쓰므로 **경로가 틀리면 남의 디렉터리를 비운다.** 대상에 이전 배포본의
 # index.html 이 있는지 먼저 확인해 첫 배포와 경로 오타를 구분한다.
