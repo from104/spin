@@ -146,7 +146,7 @@ export function defendedMouths(mouths: readonly GoalMouth[], defense: TeamSide):
 
 /** 판정에 필요한 것만 담은 선수 1명. 좌표는 **그 프레임의 실제 위치**다(모델 저장값이 아니라).
  *
- *  ⚠️ `theta`(rad)가 없으면 안 된다. 2026-08-13 부터 판정은 피벗 점이 아니라 **1.5 × 1.0 m
+ *  ⚠️ `theta`(rad)가 없으면 안 된다. 2026-08-13 부터 판정은 피벗 점이 아니라 **1.3 × 0.8 m
  *  차체 사각형**으로 재고(chairOverlap.ts 머리말), 사각형은 방향 없이는 만들어지지 않는다.
  *  이 필드를 옵셔널로 풀면 어느 화면 하나가 조용히 "언제나 +x 를 보는 차체" 로 판정한다. */
 export interface RuleActor {
@@ -166,6 +166,27 @@ export interface RuleActor {
  *  그쪽은 **점의 문제**가 맞으므로 뜻을 바꾸지 않는다. */
 export function inRect(r: Rect, x: number, y: number): boolean {
   return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+}
+
+/** 공이 코트 경계를 **완전히** 벗어났는가(Law 9 — 인/아웃 오브 플레이. 원문: "공 전체가
+ *  라인을 완전히 벗어나야 아웃오브플레이 — 라인에 걸쳐 있으면 아직 인플레이"). 그래서 공의
+ *  중심점이 아니라 **원(중심 ± radiusPx)이 그 변에서 완전히 떨어졌는가**를 본다.
+ *
+ *  ⚠️ **radiusPx 는 물리 반지름(`BALL.radiusPx` 4.125)이 아니라 화면에 그려지는 시각 반지름
+ *  (`BALL.viewRadiusPx` 7)을 넘겨야 한다**(기현님 지시 2026-08-22: "공이 실제 축척보다 크게
+ *  잡혀있으면 공 경계선도 그 크기에 맞게 판정" — 중심 기준으로만 재면, 화면에 아직 공 둘레가
+ *  라인에 걸쳐 보이는데도 이미 붉게 변하는 모순이 생긴다). 좌표계는 월드px 로 `surface`·
+ *  `ball` 과 동일해 단위 환산이 필요 없다.
+ *
+ *  ⚠️ **half 코트는 위쪽 변이 하프라인이지 실제 경계가 아니다**(model/court.ts 의
+ *  `HALF_SURFACE` 머리말 — half 는 골라인=하단, 하프라인=상단, 좌우=터치라인). 그 변까지
+ *  아웃으로 재면 하프라인만 넘어도 오판정이 된다 — 그래서 위쪽 변은 `mode === 'full'` 일 때만
+ *  본다. flat(자유 전술판)은 경기장 경계 자체가 없어 언제나 false 다. */
+export function isBallOutOfPlay(mode: CourtMode, surface: Rect, ball: Vec2, radiusPx: number): boolean {
+  if (mode === 'flat') return false;
+  if (ball.x + radiusPx < surface.x || ball.x - radiusPx > surface.x + surface.w) return true;
+  if (ball.y - radiusPx > surface.y + surface.h) return true;
+  return mode === 'full' && ball.y + radiusPx < surface.y;
 }
 
 /** 차체 사각형이 **자기 팀이 지키는** 골 지역에 조금이라도 걸치면 true(접촉 포함).
@@ -189,11 +210,13 @@ function chairInOwnGoalArea(zones: readonly DefendedZone[], a: RuleActor): boole
  *  ⚠️ **`chairInOwnGoalArea` 와 판정이 정반대다.** 저쪽은 *걸치면* 안이고(2026-08-13 지시),
  *  이쪽은 *완전히 나가야* 뒤다(2026-08-17 지시: *"골대 뒤는 완전히 나가야 면제"*).
  *  한 함수로 뭉치면 둘 중 하나가 조용히 상대 쪽 규약으로 끌려간다. */
+function chairBehindMouth(m: DefendedMouth, a: RuleActor): boolean {
+  if (m.defender !== a.team) return false;
+  return chairInsideBounds(a.x, a.y, a.theta, m.mouth.minX, m.mouth.maxX, m.mouth.minY, m.mouth.maxY);
+}
+
 function chairBehindOwnGoalLine(mouths: readonly DefendedMouth[], a: RuleActor): boolean {
-  for (const m of mouths) {
-    if (m.defender !== a.team) continue;
-    if (chairInsideBounds(a.x, a.y, a.theta, m.mouth.minX, m.mouth.maxX, m.mouth.minY, m.mouth.maxY)) return true;
-  }
+  for (const m of mouths) if (chairBehindMouth(m, a)) return true;
   return false;
 }
 
@@ -253,12 +276,30 @@ export function ringViolation(
  *
  *  ⚠️ 링과 **같은 정의**다 — 차체 사각형이 존에 조금이라도 걸치면 그 존 안이다. 점으로
  *  되돌리면 차체가 절반 들어가 있어도 피벗이 밖이면 안 세어, 골 지역에 실제로 4대가 들어찬
- *  판이 하얗게 남는다. */
-export function zoneViolation(zone: DefendedZone, actors: readonly RuleActor[]): number {
+ *  판이 하얗게 남는다.
+ *
+ *  ⚠️ **골대 뒤로 완전히 나간 같은 팀 선수도 센다**(2026-08-27 기현 지시: *"골키퍼가 자기
+ *  진영에서 골대 뒤에 완전히 있어도 골에어리어 반칙 대상에 카운트되어야 한다"*). Laws 원문은
+ *  *"자기 골에어리어 **안**"* 이라고만 하지만, 골 뒤는 골 지역 사각형 밖이라 그대로 두면
+ *  **골 지역 안 수비 2대 + 골 뒤 골키퍼 = 3대인데 2대로 세어 판이 깨끗하게 남는다** — 골키퍼가
+ *  반 대 뒤로 물러서는 것만으로 인원 제한이 무력해진다(허용치는 골키퍼 포함 **2명**이고,
+ *  3명째부터 반칙이다 — `GOAL_AREA_MAX`). 근거는 `docs/RULES-FIPFA-2025.md` Law 11 의
+ *  "⚠️ Laws 본문에 없는 판정" 절에 적었다.
+ *
+ *  그 자리(`behind`)는 예외 ①-b(2-on-1)·예외 ④(세트피스 5 m)가 이미 쓰던 **바로 그 영역**이다
+ *  — 골키퍼가 물러나 있는 자리는 세 규칙에서 같은 곳이라야 한다. 전에는 그 영역이 **면제만
+ *  주고 인원에는 안 잡히는** 비대칭이었다.
+ *
+ *  ⚠️ `behind` 가 **선택 인자**인 이유는 `ringViolation` 의 `mouths` 와 같다 — 실제 판정
+ *  경로(오버레이·PNG)는 언제나 넘기고, 직접 부르는 곳은 테스트뿐이다. 두 경로가 갈라지지
+ *  않는지는 `buildStaticSvg` 대조 테스트가 붙잡는다. */
+export function zoneViolation(zone: DefendedZone, actors: readonly RuleActor[], behind?: DefendedMouth): number {
   let count = 0;
   for (const a of actors) {
     if (a.team !== zone.defender) continue; // 공격은 제한 없다
-    if (!chairOverlapsRect(a.x, a.y, a.theta, zone.rect.x, zone.rect.y, zone.rect.w, zone.rect.h)) continue;
+    const inZone = chairOverlapsRect(a.x, a.y, a.theta, zone.rect.x, zone.rect.y, zone.rect.w, zone.rect.h);
+    // OR 이라 골라인에 걸친 채 양쪽을 다 만족하는 차체도 한 번만 세어진다.
+    if (!inZone && !(behind !== undefined && chairBehindMouth(behind, a))) continue;
     count++;
   }
   return count > GOAL_AREA_MAX ? TEAM_BIT[zone.defender] : 0;
@@ -323,6 +364,22 @@ export function fiveMeterViolation(
     return TEAM_BIT[defense];
   }
   return 0;
+}
+
+export const otherSide = (s: TeamSide): TeamSide => (s === 'home' ? 'away' : 'home');
+
+/** 5 m 를 **물러나야 하는 팀** = 공을 차는 팀의 반대.
+ *
+ *  ⚠️ 이 함수가 있는 이유는 `Drill.defense`(골 지역을 지키는 팀)와 "물러나는 팀" 이 **같은
+ *  값이 아니기 때문**이다. 코너킥·킥인은 공격이 차니 수비가 물러나 둘이 우연히 겹치지만,
+ *  **골킥·수비 프리킥은 수비가 차므로 정반대**다. 소유(`DrillStep.ballOwner`)가 명시돼 있으면
+ *  그 반대를 돌려주고, 없으면 진영을 그대로 쓴다 — 그것이 이 필드가 생기기 전의 동작이라
+ *  옛 문서의 그림이 보존된다(drill.ts `ballOwner` 머리말).
+ *
+ *  `defense` 가 null 이면(플랫 코트) 5 m 규칙 자체가 꺼진 것이므로 null 을 지나 보낸다. */
+export function fiveMeterRetreat(owner: TeamSide | undefined, defense: TeamSide | null): TeamSide | null {
+  if (defense === null) return null;
+  return owner !== undefined ? otherSide(owner) : defense;
 }
 
 /** 공 하나의 링 판정 — **어느 규칙인지는 원이 정한다**(`ruleForRing`). 소비자 둘이 이 함수

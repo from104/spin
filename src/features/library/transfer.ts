@@ -14,7 +14,7 @@ import {
   type ImportResolution,
   type ImportOutcome,
 } from '../../storage/transfer.ts';
-import { drillFileName, slugify, ymdLocal, readTextFile, downloadBlob } from '../../storage/files.ts';
+import { drillFileName, slugify, ymdLocal, readTextFile, downloadBlob, SPIN_EXT } from '../../storage/files.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { TrainingSession } from '../../model/session.ts';
 import type { DrillId } from '../../core/ids.ts';
@@ -41,7 +41,7 @@ export async function exportOneSession(session: TrainingSession): Promise<void> 
   const drills = session.drillIds.map((id) => map.get(id)).filter((d): d is Drill => d !== undefined);
   // i18n C4 — 파일명 세그먼트는 번역하지 않는다(드릴 쪽 drillFileName 도 언어 중립이다) — 다운로드
   // 파일명은 UI 문구가 아니라 파일 시스템 호환성이 우선이라, '세션'을 영문 'session' 으로 고쳤다.
-  downloadBlob(exportSessionFile(session, drills), `SPIN_session_${slugify(session.title)}_${ymdLocal(Date.now())}.spin.json`);
+  downloadBlob(exportSessionFile(session, drills), `SPIN_session_${slugify(session.title)}_${ymdLocal(Date.now())}${SPIN_EXT.session}`);
 }
 
 /** 가져오기 1단계: 파일을 읽고 파싱해 후보 목록을 만든다. UI 는 이 결과로 conflict:'exists' 만

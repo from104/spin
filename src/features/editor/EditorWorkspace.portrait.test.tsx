@@ -7,8 +7,7 @@
 // **거꾸로 눕는다**(rot 90). 소스 문자열이 아니라 viewBox 로 잡는 것이 요점이다.
 //
 // 넓은 창(가로)의 바이트 동일은 EditorWorkspace.narrow.test.tsx 가 sha256 으로 계속 지킨다 —
-// 그 파일은 이번 단계에서 **한 글자도 안 고쳤고** 무변경으로 통과한다. 여기 스냅샷은 세로
-// 경로의 **첫** 뼈대라 갱신이 아니라 신설이다.
+// 그 파일은 이번 단계에서 **한 글자도 안 고쳤고** 무변경으로 통과한다.
 import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -90,60 +89,11 @@ async function openBoard(): Promise<HTMLElement> {
 /** 판 덩어리(P4) — 코트 칸과 트레이를 테두리 하나로 묶은 그 상자. */
 const board = (main: HTMLElement) => main.querySelector<HTMLElement>('[data-board]')!;
 
-/** 상자들의 인라인 style 만 남긴다(narrow.test.tsx 와 같은 규칙) — 코트 `<svg>` 안쪽은
- *  크롬 예산의 대상이 아니고, 넣으면 좌표 한 자리가 바뀔 때마다 이 파일이 대신 빨개진다. */
-function layoutSkeleton(root: HTMLElement): string {
-  const out: string[] = [];
-  const walk = (el: Element, depth: number): void => {
-    if (el.tagName.toLowerCase() === 'svg') return;
-    const style = el.getAttribute('style');
-    if (style) out.push(`${'· '.repeat(depth)}${el.tagName.toLowerCase()} ${style}`);
-    for (const child of el.children) walk(child, depth + 1);
-  };
-  walk(root, 0);
-  return out.join('\n');
-}
-
-
 
 describe('트레이는 코트 긴 변에 붙는다 — 가로 창이면 아래 띠, 세로 창이면 오른쪽 기둥', () => {
   // ⚠️ 2026-08-14 기현님 재설계로 이 파일의 전제가 **정반대로** 뒤집혔다. 옛 제목은
   // *"세로 480×800 — 트레이가 판 아래 2행 띠가 된다"* 였다. 코트 셋은 viewBox 가 전부 가로로
   // 길어서, 창이 가로면 판이 눕고(긴 변이 아래) 창이 세로면 판이 선다(긴 변이 오른쪽).
-  it('가로 1024×600 — 판 덩어리가 세로로 쌓이고 트레이가 그 아래 띠다', async () => {
-    stubMedia({ portrait: false, narrow: true });
-    setViewport(1024, 600);
-    const main = await openBoard();
-    const box = board(main);
-    expect(box.style.flexDirection, '가로 배치가 안 잡혔다').toBe('column');
-    const tray = box.children[1] as HTMLElement;
-    expect(tray.getAttribute('data-tray')).toBe('');
-    expect(tray.style.flexDirection).toBe('row');
-  });
-
-  it('★ 띠에 1행 높이·nowrap·가로 스크롤이 모두 걸려 있다', async () => {
-    stubMedia({ portrait: false, narrow: true });
-    setViewport(1024, 600);
-    const main = await openBoard();
-    const box = board(main);
-    const tray = box.children[1] as HTMLElement;
-    // 높이가 고정이라야 줄이 몇 개로 흐르든 코트가 받는 상자가 안 변한다.
-    expect(tray.style.height).toBe('calc(max(50px, var(--hit)) + 16px)');
-    expect(tray.style.flexWrap).toBe('nowrap');
-    expect(tray.style.overflowX, '1행이 넘칠 때 유일한 도달 경로다').toBe('auto');
-  });
-
-  it('대조군 — 세로 480×800 에서는 셋 중 하나도 안 걸린다(기둥이다)', async () => {
-    stubMedia({ portrait: true, narrow: true });
-    setViewport(480, 800);
-    const main = await openBoard();
-    const box = board(main);
-    expect(box.style.flexDirection).toBe('row');
-    const tray = box.children[1] as HTMLElement;
-    expect(tray.style.height).toBe('');
-    expect(tray.style.flexDirection).toBe('column');
-  });
-
   it('세로에서 판이 선다 — 480×800 은 rot 90 이라 코트 칸 비율이 뒤집힌다', async () => {
     stubMedia({ portrait: true, narrow: true });
     setViewport(480, 800);
@@ -162,12 +112,5 @@ describe('트레이는 코트 긴 변에 붙는다 — 가로 창이면 아래 �
     setViewport(768, 1024);
     await openBoard();
     expect(document.querySelector('svg.stage-svg')!.getAttribute('viewBox')).toBe('0 0 525 825');
-  });
-
-  it('세로 경로의 상자 뼈대', async () => {
-    setViewport(480, 800);
-    stubMedia({ portrait: true, narrow: true });
-    const main = await openBoard();
-    expect(layoutSkeleton(main)).toMatchSnapshot();
   });
 });

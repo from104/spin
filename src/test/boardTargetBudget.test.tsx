@@ -6,6 +6,19 @@
 // 빈 판 채우기 1. 40 은 그 위의 **상한**이다 — 여유분 4 는 항목 하나의 실수를 흡수하는 폭이지
 // "4개 더 넣어도 된다"는 초대장이 아니다.
 //
+// 🔁 2026-09-03 실측: **35 → 36**(여유 4). [지우기] 도구가 되살아나 기능 구역 버튼이 하나
+// 늘었다(기현 지시 — `features/editor/toolDefs.ts` 가 뒤집기 근거를 쥔다). 서랍과 무관한
+// 단독 버튼이라 아래 첫 화면 셈이 **36** 이다.
+// 상한 40 은 **안 올린다** — 위 문단이 말한 그대로, 여유는 초대장이 아니다.
+//
+// 🔁 2026-09-03(2차) 실측: **첫 화면은 36 그대로**다. [자유 그리기] 가 늘었지만 [작도] 서랍
+// **안**이라 손잡이 하나가 그대로 다섯을 나른다 — 이 게이트가 서랍을 접어 산 값이 정확히 이것이다.
+// 다만 **손잡이에 손을 얹어 플라이아웃이 펼쳐진 순간의 셈은 40 → 41 로 올랐다**(아래 대조군
+// it 이 여는 그 상태). 그 상태는 게이트 밖이고, 그것이 실수가 아니라 재설계의 결론이다:
+// 플라이아웃은 손이 그 자리에 머무는 동안만 있는 **일시 표적**이라 "첫 화면에서 눈이 훑어야
+// 하는 것" 이 아니다. 값을 여기 적어 두는 이유는 그 예외가 **무한정이 아니기 때문**이다 —
+// 서랍 안이 계속 불면 언젠가 서랍을 가르는 것이 답이 되고, 그때 41 이 출발점이 된다.
+//
 // ── 세는 규칙 (이게 애매하면 게이트가 무의미하다) ──────────────────────────────
 // 1. 대상: 실제 앱 첫 화면 전체 — AppShell(레일 + 헤더 + [보드]) + SkipLink. 오버레이(모달·
 //    시트·토스트)는 초기 상태에 닫혀 있으므로 DOM 에 없다 — "초기 상태"의 정의가 그것이다.
@@ -24,7 +37,6 @@ import { AppShell } from '../app/AppShell.tsx';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { LibraryProvider } from '../store/library/LibraryProvider.tsx';
-import { makeDefaultPrefs, PREFS_KEY } from '../storage/prefs.ts';
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
 
 const BUDGET = 40;
@@ -104,7 +116,9 @@ async function openFirstScreen() {
   );
   // 판이 실제로 다 선 뒤에 센다 — 트레이·하단 바가 늦게 오면 반쪽 화면을 세고 초록불이 난다.
   await waitFor(() => expect(screen.getByRole('navigation', { name: '도구' })).toBeInTheDocument());
-  await waitFor(() => expect(screen.getByRole('button', { name: '코트 비우기' })).toBeInTheDocument());
+  // 2026-08-28 — [코트 비우기]가 [보드 설정] 모달 안으로 들어가서 준비 신호로 못 쓴다.
+  // 기능 바에 상시 서는 칸 아무거나면 되므로 그 모달을 여는 칸을 본다.
+  await waitFor(() => expect(screen.getByRole('button', { name: '보드 설정' })).toBeInTheDocument());
 }
 
 describe('첫 화면 표적 예산 [E-5]', () => {
@@ -115,48 +129,7 @@ describe('첫 화면 표적 예산 [E-5]', () => {
     // 내역을 고치는 결정과 함께가 아니면 이 상한을 올리지 마라.
     const names = targets.map((el) => el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 20) ?? el.tagName);
     expect(targets.length, `표적 ${targets.length}개:\n${names.join('\n')}`).toBeLessThanOrEqual(BUDGET);
-  });
-
-  // 2026-08-12 3차 검증관 지적: 위 게이트는 매번 localStorage 를 비우고 재므로 **실사용 경로를
-  // 못 본다.** seed 드릴에 화살표 8곳·메모 2곳이 있어 §3 불변식 3 이 두 서랍을 다 열고, 개폐는
-  // `prefs.tray` 에 남는다 — **seed 드릴을 한 번 열면 그 뒤 전술판은 영구히 서랍이 열린 상태**다.
-  // 그 상태의 실측이 40 이라 여유가 0 이고, 5.4 의 [포메이션 채우기] 1 이 오면 41 = 초과다.
-  // 게이트가 그것을 못 잡으면 예산은 종이 위에만 있는 것이다.
-  it(`서랍이 둘 다 열린 실사용 상태도 ${BUDGET} 이하다 — seed 드릴을 한 번 열면 이 상태가 영구다`, async () => {
-    localStorage.setItem(
-      PREFS_KEY,
-      JSON.stringify({ ...makeDefaultPrefs(), tray: { draw: true, note: true } }),
-    );
-    await openFirstScreen();
-    const targets = countTargets(document.body);
-    const names = targets.map((el) => el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 20) ?? el.tagName);
-    expect(targets.length, `서랍 열림 표적 ${targets.length}개:\n${names.join('\n')}`).toBeLessThanOrEqual(BUDGET);
-  });
-
-  it('대조군: 서랍을 열면 표적이 실제로 는다 — 위 it 이 같은 화면을 두 번 센 것이 아니다', async () => {
-    // ⚠️ 2026-08-14 — 여는 방법이 바뀌었다. 옛 경로는 `prefs.tray` 주입(서랍이 열린 채로
-    // 시작한다)이었는데, 서랍이 플라이아웃이 되면서 그 저장값 자체가 사라졌다. 지금은 손잡이에
-    // 손을 얹어야 열린다 — 그래서 **첫 화면 예산에는 영영 안 들어간다**(그것이 이 재설계의 값이다).
-    await openFirstScreen();
-    const closed = countTargets(document.body).length;
-    fireEvent.pointerEnter(screen.getByRole('button', { name: /^작도/ }), { pointerType: 'mouse' });
-    expect(countTargets(document.body).length).toBeGreaterThan(closed);
-  });
-
-  it('대조군: 셈이 화면 전 구역을 실제로 보고 있다 — 구역별 표적이 최소 1개씩 잡힌다', async () => {
-    // "0개라서 통과"를 막는다(스파이 단언의 대조군과 같은 규율). 선택자가 낡아 아무것도 못
-    // 세면 위 게이트는 영원히 초록불이다 — 구역별 최소치가 그 헛통과를 잡는다.
-    await openFirstScreen();
-    const targets = countTargets(document.body);
-    const label = (el: HTMLElement) => el.getAttribute('aria-label') ?? el.textContent?.trim() ?? '';
-    const has = (name: string) => targets.some((el) => label(el).startsWith(name));
-    expect(has('주요 메뉴') || targets.some((el) => el.closest('[aria-label="주요 메뉴"]')), '레일').toBe(true);
-    expect(has('본문으로 건너뛰기') || targets.some((el) => el.matches('a[href]')), 'SkipLink').toBe(true);
-    expect(has('확대'), '스테이지 컨트롤').toBe(true);
-    expect(has('2번 선수 배치') || has('공'), '트레이').toBe(true);
-    expect(has('코트 비우기'), '하단 바').toBe(true);
-    expect(has('개체 이동 속도 제한'), '속도 스위치(role=switch)').toBe(true);
-    // 하한 — 재편 목표 내역(36)에서 크게 모자라면 세는 규칙이 새는 것이다.
+    // 하한 — 재편 목표 내역(36)에서 크게 모자라면 세는 규칙이 새는 것이다("0개라서 통과"를 막는다).
     expect(targets.length).toBeGreaterThanOrEqual(25);
   });
 
@@ -168,7 +141,12 @@ describe('첫 화면 표적 예산 [E-5]', () => {
     // 기능 바의 [코트] 팝오버다(형태 3 + 크기 3 = 6컨트롤이 닫히면 DOM 에서 사라진다).
     await openFirstScreen();
     const before = countTargets(document.body).length;
-    screen.getByRole('button', { name: '코트 형태와 크기' }).click();
+    screen.getByRole('button', { name: '보드 설정' }).click();
     await waitFor(() => expect(countTargets(document.body).length).toBeGreaterThan(before));
+    // 서랍(플라이아웃)도 같은 방식이다 — ⚠️ 2026-08-14, 손을 얹어야 열리고 그래서 첫 화면
+    // 예산에는 영영 안 들어간다(그것이 이 재설계의 값이다). 위 오버레이 열림과 같은 화면을
+    // 두 번 센 것이 아님을 여기서 함께 잡는다.
+    fireEvent.pointerEnter(screen.getByRole('button', { name: /^작도/ }), { pointerType: 'mouse' });
+    expect(countTargets(document.body).length).toBeGreaterThan(before);
   });
 });

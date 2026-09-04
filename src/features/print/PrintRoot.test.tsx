@@ -25,13 +25,13 @@ const docOf = (n: number): PrintDoc => ({ kind: 'drill', drill: drillOf(n) });
 
 describe('PrintRoot — 문서가 없으면 아무것도 없다', () => {
   it('doc 이 null 이면 인쇄 트리 자체가 DOM 에 없다', () => {
-    render(<PrintRoot doc={null} />);
+    render(<PrintRoot doc={null} view={VIEW} />);
     expect(document.querySelector('[data-print-root]')).toBeNull();
     expect(document.querySelectorAll('[data-print-page]')).toHaveLength(0);
   });
 
   it('doc 이 있으면 body 포털로 붙는다 — #root 안이 아니다 (인쇄 시 #root 는 접힌다)', () => {
-    const { container } = render(<PrintRoot doc={docOf(3)} />);
+    const { container } = render(<PrintRoot doc={docOf(3)} view={VIEW} />);
     const root = document.querySelector('[data-print-root]');
     expect(root).not.toBeNull();
     expect(container.contains(root)).toBe(false);
@@ -42,31 +42,33 @@ describe('PrintRoot — 문서가 없으면 아무것도 없다', () => {
 describe('printWhenReady — 0장이면 부르지 않는다', () => {
   it('대조군: 인쇄 트리가 없으면 print() 를 부르지 않고 false 를 준다', () => {
     const print = vi.fn();
-    render(<PrintRoot doc={null} />);
+    render(<PrintRoot doc={null} view={VIEW} />);
     expect(printWhenReady({ win: { print } })).toBe(false);
     expect(print).not.toHaveBeenCalled();
   });
 
   it('트리가 있으면 정확히 1회 부른다', () => {
     const print = vi.fn();
-    render(<PrintRoot doc={docOf(2)} />);
+    render(<PrintRoot doc={docOf(2)} view={VIEW} />);
     expect(printWhenReady({ win: { print } })).toBe(true);
     expect(print).toHaveBeenCalledTimes(1);
   });
 
   it('기본 인자는 진짜 window.print 다 — 주입이 없으면 아무 일도 안 하는 함수가 되면 안 된다', () => {
     const spy = vi.spyOn(window, 'print').mockImplementation(() => {});
-    render(<PrintRoot doc={docOf(1)} />);
+    render(<PrintRoot doc={docOf(1)} view={VIEW} />);
     expect(printWhenReady()).toBe(true);
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRestore();
   });
 });
 
+const VIEW = { showGrid: true, showGridLabels: true, showRuleZones: true };
+
 describe('onReady — 페이지가 DOM 에 붙은 **뒤**에 부른다', () => {
   it('★ onReady 안에서 이미 페이지가 세어진다 (여기서 print() 를 불러도 백지가 아니다)', () => {
     let pagesAtCall = -1;
-    render(<PrintRoot doc={docOf(4)} onReady={() => { pagesAtCall = document.querySelectorAll('[data-print-page]').length; }} />);
+    render(<PrintRoot doc={docOf(4)} view={VIEW} onReady={() => { pagesAtCall = document.querySelectorAll('[data-print-page]').length; }} />);
     // -1 이면 아예 안 불렸다는 뜻이고, 0 이면 붙기 전에 불렸다는 뜻이다. 둘 다 백지 사고다.
     expect(pagesAtCall).toBe(4);
   });
@@ -74,8 +76,8 @@ describe('onReady — 페이지가 DOM 에 붙은 **뒤**에 부른다', () => {
   it('문서당 1회다 — 같은 doc 으로 다시 렌더해도 두 번 인쇄되지 않는다', () => {
     const onReady = vi.fn();
     const doc = docOf(2);
-    const { rerender } = render(<PrintRoot doc={doc} onReady={onReady} />);
-    rerender(<PrintRoot doc={doc} onReady={onReady} />);
+    const { rerender } = render(<PrintRoot doc={doc} onReady={onReady} view={VIEW} />);
+    rerender(<PrintRoot doc={doc} onReady={onReady} view={VIEW} />);
     expect(onReady).toHaveBeenCalledTimes(1);
   });
 
@@ -83,7 +85,7 @@ describe('onReady — 페이지가 DOM 에 붙은 **뒤**에 부른다', () => {
     const onReady = vi.fn();
     render(
       <StrictMode>
-        <PrintRoot doc={docOf(2)} onReady={onReady} />
+        <PrintRoot doc={docOf(2)} onReady={onReady} view={VIEW} />
       </StrictMode>,
     );
     expect(onReady).toHaveBeenCalledTimes(1);
@@ -92,9 +94,9 @@ describe('onReady — 페이지가 DOM 에 붙은 **뒤**에 부른다', () => {
   it('닫았다가 다시 열면 또 부른다 — 한 번 쓰고 죽는 가드가 아니다', () => {
     const onReady = vi.fn();
     const doc = docOf(1);
-    const { rerender } = render(<PrintRoot doc={doc} onReady={onReady} />);
-    rerender(<PrintRoot doc={null} onReady={onReady} />);
-    rerender(<PrintRoot doc={doc} onReady={onReady} />);
+    const { rerender } = render(<PrintRoot doc={doc} onReady={onReady} view={VIEW} />);
+    rerender(<PrintRoot doc={null} onReady={onReady} view={VIEW} />);
+    rerender(<PrintRoot doc={doc} onReady={onReady} view={VIEW} />);
     expect(onReady).toHaveBeenCalledTimes(2);
   });
 });

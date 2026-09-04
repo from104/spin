@@ -2,13 +2,17 @@
 // (리렌더·히스토리 억제). 시간축 규약: 추가도 삭제도 "이 스텝부터 끝까지".
 import type { Vec2 } from '../core/units.ts';
 import { isId, newId } from '../core/ids.ts';
-import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId, ShapeId, StepId } from '../core/ids.ts';
-import type { Drill, DrillStep, DrillCast, ChairDef, NoteLabel, PoseMap } from './drill.ts';
+import type { ChairId, BallId, ConeId, CastId, ArrowId, NoteId, ShapeId, StepId, StrokeId } from '../core/ids.ts';
+import type { Drill, DrillStep, DrillCast, ChairDef, NoteLabel, PoseMap, BallRing, TeamSide } from './drill.ts';
 import type { Shape } from './shape.ts';
 import { ballRingOf, nextBallRing } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow } from './arrow.ts';
+import type { Stroke } from './stroke.ts';
 import { LIMITS } from './validate.ts';
+// `emptyStep` 하나만 빌려 온다 — "빈 스텝이 무엇인가" 의 출처를 둘로 만들지 않기 위해서다.
+// (defaults.ts 는 edits.ts 를 import 하지 않으므로 순환이 아니다.)
+import { emptyStep } from './defaults.ts';
 
 /** '없음' 은 오직 키 삭제로만 표현한다. `{...m, [k]: undefined}` 는 절대 금지 —
  *  structuredClone(IDB)은 undefined 키를 보존하고 JSON 은 지운다(실측) →
@@ -104,28 +108,62 @@ export function updateChairDef(d: Drill, id: ChairId, patch: Partial<Omit<ChairD
   return { ...d, cast: { ...d.cast, chairs } };
 }
 
-/** 5.2 — **그 공 하나**의 거리 원을 한 칸 돌린다: 없음 → 3 m → 5 m → 없음.
+/** 5.2 — **그 스텝의 그 공 하나**의 거리 원을 한 칸 돌린다: 없음 → 3 m → 5 m → 없음.
  *
- *  ⚠️ 공마다 따로다. `cast.balls` 배열에서 그 항목만 갈아 끼우므로 다른 공의 원은 손대지
- *  않는다 — 여기를 드릴 레벨 필드 하나(예: `d.ringMode`)로 바꾸면 공 두 개가 서로 다른
- *  원을 가질 수 없게 되고, **공이 하나뿐인 테스트는 그대로 초록불**이다(그래서 두 개짜리
- *  단언이 따로 있다: model/ballRing.test.ts).
+ *  ⚠️ **스텝 하나만 바꾼다**(2026-08-27 기현 결정). 다른 스텝의 같은 공은 손대지 않는다 —
+ *  킥오프처럼 "멈춰 있는 동안만 5 m" 를 표현하려면 이래야 한다. 대가는 탭 횟수다(12스텝
+ *  드릴에서 내내 켜려면 12번). 그 비용을 알고 고른 것이라, "이후 전부에 적용" 같은 편의를
+ *  나중에 얹더라도 **이 함수는 한 스텝짜리로 남긴다** — 범위는 부르는 쪽이 정한다.
+ *
+ *  ⚠️ 공마다 따로다. 맵에서 그 키만 갈아 끼우므로 다른 공의 원은 손대지 않는다 — 여기를
+ *  스텝 레벨 필드 하나(예: `step.ringMode`)로 바꾸면 공 두 개가 서로 다른 원을 가질 수 없게
+ *  되고, **공이 하나뿐인 테스트는 그대로 초록불**이다(그래서 두 개짜리 단언이 따로 있다:
+ *  model/ballRing.test.ts).
  *  ⚠️ '없음' 은 `ring: undefined` 가 아니라 **키 삭제**다(omitKey 머리말과 같은 이유:
- *  structuredClone 은 undefined 키를 보존하고 JSON 은 지운다 → export 왕복으로 뜻이 바뀐다). */
-export function cycleBallRing(d: Drill, id: BallId): Drill {
-  const idx = d.cast.balls.findIndex((b) => b.id === id);
-  if (idx === -1) return d;
-  const cur = d.cast.balls[idx]!;
-  const next = nextBallRing(ballRingOf(cur));
-  const balls = d.cast.balls.slice();
-  if (next === 'none') {
-    const { ring, ...rest } = cur;
-    void ring;
-    balls[idx] = rest;
+ *  structuredClone 은 undefined 키를 보존하고 JSON 은 지운다 → export 왕복으로 뜻이 바뀐다).
+ *  맵이 비면 `ballRings` 키 자체를 지운다 — `locked`/`ignored` 가 빈 배열을 지우는 것과 같다. */
+export function cycleBallRing(d: Drill, stepIndex: number, id: BallId): Drill {
+  const step = d.steps[stepIndex];
+  if (!step) return d;
+  if (!d.cast.balls.some((b) => b.id === id)) return d;
+  // 그 스텝의 판에 없는 공은 원을 가질 수 없다(validate 가 떨굴 값을 만들지 않는다).
+  if (step.balls[id] === undefined) return d;
+
+  // 5 m 두 칸(우리 공 / 상대 공)은 **한 순환 안에** 있다 — 5 m 를 켜는 순간은 어차피 소유를
+  // 정해야 하므로 탭 하나가 낭비가 아니고, 새 제스처를 배우지 않아도 된다(기현 결정 2026-08-27).
+  const cur = ballRingOf(step, id);
+  const curOwner = step.ballOwner?.[id];
+  const home: TeamSide = 'home';
+  const away: TeamSide = 'away';
+  let nextRing: BallRing;
+  let nextOwner: TeamSide | undefined;
+  if (cur !== '5m') {
+    nextRing = nextBallRing(cur); // 없음 → 3 m → 5 m
+    nextOwner = nextRing === '5m' ? home : undefined;
+  } else if (curOwner !== away) {
+    nextRing = '5m'; // 5 m(우리) → 5 m(상대)
+    nextOwner = away;
   } else {
-    balls[idx] = { ...cur, ring: next };
+    nextRing = 'none'; // 5 m(상대) → 없음, 순환이 닫힌다
+    nextOwner = undefined;
   }
-  return { ...d, cast: { ...d.cast, balls } };
+
+  const { [id]: _r, ...restRings } = step.ballRings ?? {};
+  void _r;
+  const rings = nextRing === 'none' ? restRings : { ...restRings, [id]: nextRing };
+  const { [id]: _o, ...restOwners } = step.ballOwner ?? {};
+  void _o;
+  const owners = nextOwner === undefined ? restOwners : { ...restOwners, [id]: nextOwner };
+
+  const nextStep = { ...step };
+  if (Object.keys(rings).length === 0) delete nextStep.ballRings;
+  else nextStep.ballRings = rings;
+  if (Object.keys(owners).length === 0) delete nextStep.ballOwner;
+  else nextStep.ballOwner = owners;
+
+  const steps = d.steps.slice();
+  steps[stepIndex] = nextStep;
+  return { ...d, steps };
 }
 
 // 오버로드로 id ↔ pose 상관을 강제한다. 단일 유니온이면 휠체어에 {x,y} 를 넣어도 컴파일된다
@@ -211,6 +249,32 @@ function pruneOrphanCast(d: Drill): Drill {
   return { ...d, cast: { ...d.cast, balls, cones } };
 }
 
+/** 스텝 하나를 **비운다**(2026-08-28 기현 지시로 드릴 편집에도 [비우기]가 생기며 신설).
+ *
+ *  지우는 것: 휠체어·공·콘의 배치와 화살표·메모·도형, 그리고 스텝 노트. 남기는 것: 스텝의
+ *  **신원과 시간축**(`id` · `durationMs` · `cut`) — 비우기는 내용을 지우는 것이지 스텝을
+ *  없애거나 새로 만드는 것이 아니다(그 길은 STEP_DELETE·STEP_DUPLICATE 다).
+ *
+ *  ⚠️ 스텝 노트도 지운다. 코트 전환 게이트가 `isStepEmpty`(노트를 센다)로 열리므로, 노트를
+ *  남기면 *"비웠는데 코트가 안 바뀐다"* 가 된다 — 화면에는 아무것도 없는데 이유가 안 보인다.
+ *
+ *  ⚠️ `id` 를 유지하는 것이 중요하다. 새 id 로 갈면 `EditorState.stepId` 가 못 찾아 0번으로
+ *  떨어지고(무증상), 여러 스텝짜리 드릴에서는 **다른 스텝으로 튄다.**
+ *
+ *  공·콘은 `pruneOrphanCast` 가 명단에서도 거둔다 — 어느 스텝에도 안 남은 것만이다(전술판은
+ *  스텝이 하나라 전부, 드릴은 다른 스텝에 살아 있으면 그대로). 휠체어는 남는다(그 함수 주석). */
+export function clearStep(d: Drill, i: number): Drill {
+  const step = d.steps[i];
+  if (!step) return d;
+  const next: DrillStep = {
+    ...emptyStep(d.courtMode),
+    id: step.id,
+    ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
+    ...(step.cut ? { cut: step.cut } : {}),
+  };
+  return pruneOrphanCast(replaceStep(d, i, next));
+}
+
 /** 기본 '삭제': 이 스텝부터 끝까지 pose 를 지운다. */
 export function removeFromStepOnward(d: Drill, i: number, id: CastId): Drill {
   let changed = false;
@@ -231,25 +295,16 @@ export function removeFromThisStepOnly(d: Drill, i: number, id: CastId): Drill {
   return pruneOrphanCast(replaceStep(d, i, next));
 }
 
-/** 직전 스텝 복제. 화살표·메모 id 는 그대로 보존한다(§3.5 스코프 표).
- *  이름은 이제 생성하지 않는다(기현님 확정 2026-08-17, 과제⑦) — 자동 생성 '스텝 N' 은
- *  사용자 내용이 아니라 UI 가 채울 자리를 메우던 자리표시자였다. UI 가 이름 필드를 이미
- *  폐기했으니 새 스텝의 name 은 ''(정화기가 이관할 것도, 버릴 것도 없다). */
-export function addStepAfter(d: Drill, i: number): Drill {
-  const base = d.steps[i];
-  if (!base) return d;
-  const clone = structuredClone(base);
-  clone.id = newId('st');
-  clone.name = '';
-  const steps = d.steps.slice();
-  steps.splice(i + 1, 0, clone);
-  return { ...d, steps };
-}
-
 /** 스텝 i 를 그대로(이름 포함) 복제한다. 화살표·메모 id 보존이 D6 크로스페이드의 핵심이다.
  *  삽입 자리는 기본이 **바로 뒤**(`i + 1`, 후방 복제 — §복제 기현님 확정 2026-08-17)지만,
  *  맨 앞 틈의 [+]("아래 첫 스텝의 복제를 맨 앞에")처럼 다른 자리가 필요하면 `insertAt` 으로
- *  덮어쓴다. `Array.prototype.splice` 가 범위를 알아서 clamp 하므로 여기서 따로 막지 않는다. */
+ *  덮어쓴다. `Array.prototype.splice` 가 범위를 알아서 clamp 하므로 여기서 따로 막지 않는다.
+ *
+ *  🪦 형제였던 `addStepAfter`(＝복제하되 `name` 만 '' 로 비움)는 2026-08-31 에 지웠다. 두
+ *  함수를 가른 근거는 "복제는 이름을 물려주고 추가는 새 이름을 짓는다" 였는데, 과제⑦
+ *  (2026-08-17)이 스텝 이름 편집 UI 를 없애고 `validate.ts` 정화기가 로드 때마다 name 을
+ *  노트로 이관해 비우면서 **이름을 가진 스텝 자체가 존재할 수 없게** 됐다 — 그때부터 둘은
+ *  같은 함수였고, [한 장 더 찍기] 버튼 폐기로 남은 UI 호출자마저 사라졌다. */
 export function duplicateStep(d: Drill, i: number, insertAt?: number): Drill {
   const base = d.steps[i];
   if (!base) return d;
@@ -387,6 +442,40 @@ export function removeArrow(d: Drill, i: number, id: ArrowId): Drill {
   if (!step.arrows.some((a) => a.id === id)) return d;
   // 잠근 채로 지우면 플래그가 죽은 id 로 남는다 — 개체 제거와 같은 규칙이다(stripStepFlags).
   return replaceStep(d, i, stripStepFlags({ ...step, arrows: step.arrows.filter((a) => a.id !== id) }, id));
+}
+
+function strokesEqual(a: Stroke, b: Stroke): boolean {
+  if (a.id !== b.id || a.color !== b.color || a.width !== b.width) return false;
+  if (a.headFrom !== b.headFrom || a.headTo !== b.headTo) return false;
+  // 점은 개수부터 본다 — 다시 그린 획은 여기서 갈린다. 좌표 비교는 화살표의 세 점 비교와
+  // 같은 성격이고(참조가 아니라 값), 회전 드래그는 매 프레임 새 배열을 만들므로 참조로는
+  // 언제나 "달라졌다" 가 나온다.
+  if (a.points.length !== b.points.length) return false;
+  for (let i = 0; i < a.points.length; i += 1) {
+    if (a.points[i]!.x !== b.points[i]!.x || a.points[i]!.y !== b.points[i]!.y) return false;
+  }
+  return true;
+}
+
+export function setStroke(d: Drill, i: number, s: Stroke): Drill {
+  const step = d.steps[i];
+  if (!step) return d;
+  // `strokes` 는 optional 이다(v10 이전 스텝 객체에는 키가 없다) — 읽는 자리마다 `?? []`.
+  const cur = step.strokes ?? [];
+  const idx = cur.findIndex((x) => x.id === s.id);
+  if (idx !== -1 && strokesEqual(cur[idx]!, s)) return d;
+  const strokes = cur.slice();
+  if (idx === -1) strokes.push(s);
+  else strokes[idx] = s;
+  return replaceStep(d, i, { ...step, strokes });
+}
+
+export function removeStroke(d: Drill, i: number, id: StrokeId): Drill {
+  const step = d.steps[i];
+  if (!step) return d;
+  const cur = step.strokes ?? [];
+  if (!cur.some((s) => s.id === id)) return d;
+  return replaceStep(d, i, stripStepFlags({ ...step, strokes: cur.filter((s) => s.id !== id) }, id));
 }
 
 function notesEqual(a: NoteLabel, b: NoteLabel): boolean {

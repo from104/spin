@@ -22,7 +22,7 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { StepSidebar } from './StepSidebar.tsx';
 import { createDrill } from '../../model/defaults.ts';
-import { addStepAfter, moveStep, setArrow, setNote } from '../../model/edits.ts';
+import { duplicateStep, moveStep, setArrow, setNote } from '../../model/edits.ts';
 import type { Drill } from '../../model/drill.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 
@@ -46,7 +46,7 @@ const centerOf = (i: number) => i * (CARD_H + CARD_GAP) + CARD_H / 2;
 
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
-  for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
+  for (let i = 1; i < n; i++) d = duplicateStep(d, i - 1);
   return d;
 }
 
@@ -63,7 +63,6 @@ function Harness({ initial, onReorder }: { initial: Drill; onReorder?: (id: Step
         onReorder?.(id, to);
         setDrill((d) => moveStep(d, d.steps.findIndex((s) => s.id === id), to));
       }}
-      onAddStep={() => {}}
       onDuplicateStep={() => {}}
       onToggleCut={() => {}}
       collapsed={false}
@@ -91,7 +90,14 @@ describe('끌어서 순서 변경', () => {
   it('첫 카드를 맨 뒤 중심 너머로 끌면 줄이 갈리고, 손을 뗄 때 **한 번** 커밋한다', () => {
     stubCardRects();
     const onReorder = vi.fn();
-    const d = makeDrill(3);
+    let d = makeDrill(3);
+    // 스텝마다 화살표·메모를 다르게 심는다 — 통째로 같은 값이면 "안 바뀌었다" 가 무의미해진다.
+    d = setArrow(d, 0, { id: 'ar_a' as ArrowId, from: { x: 10, y: 10 }, ctrl: { x: 20, y: 20 }, to: { x: 30, y: 30 } });
+    d = setArrow(d, 2, { id: 'ar_c' as ArrowId, from: { x: 40, y: 40 }, ctrl: { x: 50, y: 50 }, to: { x: 60, y: 60 } });
+    d = setNote(d, 0, { id: 'nt_a' as NoteId, x: 1, y: 2, text: '가' });
+    d = setNote(d, 1, { id: 'nt_b' as NoteId, x: 3, y: 4, text: '나' });
+    const before = d.steps.map((s) => ({ id: s.id, arrows: s.arrows, notes: s.notes }));
+
     render(<Harness initial={d} onReorder={onReorder} />);
     const [id0, id1, id2] = d.steps.map((s) => s.id);
     expect(cardOrder()).toEqual([id0, id1, id2]);
@@ -107,6 +113,16 @@ describe('끌어서 순서 변경', () => {
     expect(onReorder).toHaveBeenCalledTimes(1);
     expect(onReorder).toHaveBeenCalledWith(id0, 2);
     expect(cardOrder()).toEqual([id1, id2, id0]); // 커밋된 순서로 남는다
+
+    // 완료 판정: 화살표·메모 id 가 보존된다(D6 크로스페이드 전제). id 만이 아니라 **객체
+    // 그대로** 다 — 새 id 를 발급하면 크로스페이드가 매번 새 화살표를 그리며 튄다
+    // (edits.ts duplicateStep 주석의 그 계약).
+    const after = moveStep(d, 0, 2);
+    expect(after.steps.map((s) => s.id)).toEqual([before[1]!.id, before[2]!.id, before[0]!.id]);
+    expect(after.steps[2]!.arrows).toBe(before[0]!.arrows);
+    expect(after.steps[2]!.notes).toBe(before[0]!.notes);
+    expect(after.steps.flatMap((s) => s.arrows.map((a) => a.id)).sort()).toEqual(['ar_a', 'ar_c']);
+    expect(after.steps.flatMap((s) => s.notes.map((n) => n.id)).sort()).toEqual(['nt_a', 'nt_b']);
   });
 
   it('문턱(6px)을 못 넘으면 끌기가 아니라 **선택**이다', () => {
@@ -140,38 +156,6 @@ describe('끌어서 순서 변경', () => {
     expect(cardAt(1)).not.toHaveAttribute('aria-current');
   });
 
-  it('완료 판정: 순서를 바꿔도 화살표·메모 id 가 보존된다 (D6 크로스페이드 전제)', () => {
-    stubCardRects();
-    let d = makeDrill(3);
-    // 스텝마다 화살표·메모를 다르게 심는다 — 통째로 같은 값이면 "안 바뀌었다" 가 무의미해진다.
-    d = setArrow(d, 0, { id: 'ar_a' as ArrowId, from: { x: 10, y: 10 }, ctrl: { x: 20, y: 20 }, to: { x: 30, y: 30 } });
-    d = setArrow(d, 2, { id: 'ar_c' as ArrowId, from: { x: 40, y: 40 }, ctrl: { x: 50, y: 50 }, to: { x: 60, y: 60 } });
-    d = setNote(d, 0, { id: 'nt_a' as NoteId, x: 1, y: 2, text: '가' });
-    d = setNote(d, 1, { id: 'nt_b' as NoteId, x: 3, y: 4, text: '나' });
-    const before = d.steps.map((s) => ({ id: s.id, arrows: s.arrows, notes: s.notes }));
-
-    let after: Drill = d;
-    render(
-      <Harness
-        initial={d}
-        onReorder={(id, to) => {
-          after = moveStep(d, d.steps.findIndex((s) => s.id === id), to);
-        }}
-      />,
-    );
-
-    down(cardAt(0), centerOf(0));
-    move(centerOf(2) + 1);
-    up(centerOf(2) + 1);
-
-    expect(after.steps.map((s) => s.id)).toEqual([before[1]!.id, before[2]!.id, before[0]!.id]);
-    // id 만이 아니라 **객체 그대로** 다. 새 id 를 발급하면 크로스페이드가 매번 새 화살표를
-    // 그리며 튄다(edits.ts duplicateStep 주석의 그 계약).
-    expect(after.steps[2]!.arrows).toBe(before[0]!.arrows);
-    expect(after.steps[2]!.notes).toBe(before[0]!.notes);
-    expect(after.steps.flatMap((s) => s.arrows.map((a) => a.id)).sort()).toEqual(['ar_a', 'ar_c']);
-    expect(after.steps.flatMap((s) => s.notes.map((n) => n.id)).sort()).toEqual(['nt_a', 'nt_b']);
-  });
 });
 
 describe('키보드 순서 변경 (포인터가 실패하기 쉬운 상황의 동등한 주 경로)', () => {
@@ -203,6 +187,10 @@ describe('키보드 순서 변경 (포인터가 실패하기 쉬운 상황의 �
     expect(onReorder).not.toHaveBeenCalled();
     // 대조군 — 같은 카드를 집으면 같은 키가 실제로 발화한다(스파이가 안 걸린 것이 아니다).
     fireEvent.keyDown(card, { key: ' ' });
+    fireEvent.keyDown(card, { key: 'ArrowDown' });
+    expect(onReorder).toHaveBeenCalledTimes(1);
+    // Space 로 다시 놓으면 그 뒤 ↑/↓ 는 순서를 안 건드린다.
+    fireEvent.keyDown(card, { key: ' ' }); // 놓았다
     fireEvent.keyDown(card, { key: 'ArrowDown' });
     expect(onReorder).toHaveBeenCalledTimes(1);
   });
@@ -275,17 +263,6 @@ describe('키보드 순서 변경 (포인터가 실패하기 쉬운 상황의 �
     fireEvent.keyDown(first, { key: 'ArrowUp' });
     expect(onReorder).not.toHaveBeenCalled();
     expect(cardOrder()).toEqual(d.steps.map((s) => s.id));
-  });
-
-  it('Space 로 다시 놓으면 그 뒤 ↑/↓ 는 순서를 안 건드린다', () => {
-    const onReorder = vi.fn();
-    render(<Harness initial={makeDrill(3)} onReorder={onReorder} />);
-    const card = cardAt(0);
-    card.focus();
-    fireEvent.keyDown(card, { key: ' ' });
-    fireEvent.keyDown(card, { key: ' ' }); // 놓았다
-    fireEvent.keyDown(card, { key: 'ArrowDown' });
-    expect(onReorder).not.toHaveBeenCalled();
   });
 
   it('무엇을 어떻게 하는지 카드가 스스로 말한다 (aria-describedby)', () => {

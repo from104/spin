@@ -8,6 +8,7 @@ import type { Drill } from '../../model/drill.ts';
 import { namedRosterOf } from '../../model/chairLabel.ts';
 import type { Locale } from '../../i18n/locale.ts';
 import { PrintCourt } from './PrintCourt.tsx';
+import type { PrintViewSwitches } from './PrintRoot.tsx';
 import { prepFor, prepLine } from './prep.ts';
 import { PRINT_PAGE_CLASS } from './printDom.ts';
 import { useT } from '../../i18n/useT.ts';
@@ -16,6 +17,11 @@ import { translate } from '../../i18n/useT.ts';
 
 export interface PrintDrillSheetProps {
   drill: Drill;
+  /** 인쇄할 스텝(문서 순서). 생략하면 **전부** — 세션 계획서와 옛 호출부가 그 뜻이다.
+   *  번호(n/N)는 **원래 스텝 번호**를 그대로 쓴다: 3·5번만 뽑아도 종이에는 3, 5 로 찍혀야
+   *  코치가 판과 종이를 짝지을 수 있다(1, 2 로 다시 매기면 짝이 끊긴다). */
+  stepIndexes?: readonly number[];
+  view: PrintViewSwitches;
 }
 
 /** "중급 · 전술 · 킥인 · 12분". 훈련량(반복·세트·인터벌)은 v8 에서 폐기됐다 — 옛 문서의 값은
@@ -27,7 +33,7 @@ function metaLine(drill: Drill, locale: Locale): string {
   return parts.join(' · ');
 }
 
-export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
+export function PrintDrillSheet({ drill, stepIndexes, view }: PrintDrillSheetProps) {
   const t = useT();
   const locale = useLocale();
   const prep = prepLine(prepFor(drill), locale);
@@ -39,7 +45,12 @@ export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
 
   return (
     <>
-      {drill.steps.map((step, i) => (
+      {/* 원래 인덱스를 들고 다닌다 — 아래 번호 표시와 `data-step-index` 가 **판의 번호**를
+          그대로 써야 코치가 종이와 화면을 짝지을 수 있다(위 stepIndexes 주석). */}
+      {drill.steps
+        .map((step, i) => ({ step, i }))
+        .filter(({ i }) => stepIndexes === undefined || stepIndexes.includes(i))
+        .map(({ step, i }) => (
         <section key={step.id} className={PRINT_PAGE_CLASS} data-print-page="step" data-step-index={i}>
           <header className="spin-print-head">
             <span className="spin-print-title">{drill.title}</span>
@@ -53,7 +64,7 @@ export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
             </p>
           )}
 
-          <PrintCourt drill={drill} step={step} ariaLabel={t('print.stepCourtAriaLabel', { title: drill.title, i: i + 1 })} />
+          <PrintCourt drill={drill} step={step} view={view} ariaLabel={t('print.stepCourtAriaLabel', { title: drill.title, i: i + 1 })} />
 
           <div className="spin-print-body">
             {/* step.name 은 과제⑦ 이후 항상 '' 다(validate.ts 정화기가 로드 시 note 로
@@ -106,7 +117,7 @@ export function PrintDrillSheet({ drill }: PrintDrillSheetProps) {
             </footer>
           )}
         </section>
-      ))}
+        ))}
     </>
   );
 }

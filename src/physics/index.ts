@@ -67,6 +67,10 @@ export const DEFAULT_DRAG_LIMITS: DragLimits = {
 
 /** 골대 포스트 id 접두사. cast 가 아니므로 CastId 체계(ch_/bl_/cn_)와 섞이지 않게 따로 둔다. */
 export const GOAL_ID_PREFIX = 'gp_';
+/** 골대가 "제자리에 없다" 고 볼 최소 거리(px). 물리의 `goalsDisplaced()` 와 화면의 복귀
+ *  손잡이(GoalPost 의 hover)가 **같은 문턱**을 봐야 한다 — 다르면 커서는 뜨는데 눌러도
+ *  아무 일이 없거나(화면이 더 관대), 밀렸는데 커서가 안 뜬다(물리가 더 관대). */
+export const GOAL_DISPLACED_EPS_PX = 0.5;
 
 export interface PhysicsSnapshot {
   [id: string]: { x: number; y: number; theta: number };
@@ -407,6 +411,25 @@ export function createPhysicsWorld(
    *  ※ 공개 `isSettled()` 는 여기 얽히지 않는다. 그건 §5.13 계약 그대로 "속도가 0 인가" 이고,
    *    "판이 다 섰다" 를 밖에 알리는 신호는 onSettled 통지다. */
   function settleReady(): boolean {
+    // ★ 골대가 돌아오는 중이면 판은 **아직 안 섰다**(2026-08-28 기현님 신고: *"골대 위치 복귀가
+    //   실시간으로 반영 안 됨"*).
+    //
+    //   이 한 줄이 없으면 [골대 원위치]가 **첫 프레임에서 죽는다.** `resetGoals()` 는 아무
+    //   바디도 깨우지 않고 `goalReturnUntilMs` 만 세운 뒤 루프를 켠다 — 골대를 실제로 미는 것은
+    //   substep 안의 `driveGoalsHome()` 이다. 그런데 `loop.start()` 는 누산기를 0 으로 두고
+    //   시작하므로 **첫 rAF 프레임에서는 substep 이 한 번도 안 돌 수 있고**(첫 델타 ~8~16ms <
+    //   dtMs 16.667), 그 프레임 말미의 정지 판정이 "아무도 안 움직인다" 를 보고 즉시 stop() 한다.
+    //   골대는 한 픽셀도 못 움직이고 버튼은 고장난 것처럼 보인다.
+    //
+    //   `docs/PLAN-2026-08.md` P0-1 이 endDrag 에서 적어 둔 것과 **같은 사고**다: *"칩이 dynamic
+    //   이 된 뒤의 Engine.update 가 단 한 번도 실행되지 않는다."* 그쪽은 속도가 생겨 스스로
+    //   풀렸지만(리졸버가 깨운다), 골대 복귀는 구동(driven) 이동이라 **substep 이 돌기 전에는
+    //   깨울 속도 자체가 없다** — 그래서 "아직 할 일이 남았다" 를 술어가 직접 말해야 한다.
+    //
+    //   종료는 보장된다: `driveGoalsHome` 이 다 왔거나 `GOAL.returnMaxMs`(500ms)를 넘기면
+    //   `goalReturnUntilMs = 0` 으로 스스로 닫고, 그 값은 `PHYS.settleMaxMs`(8000ms)보다 한참
+    //   짧아 루프의 데드라인이 먼저 걸릴 일도 없다.
+    if (goalReturnUntilMs !== 0) return false;
     if (performance.now() < settleUntilMs) {
       // 정상 경로: 속도가 0 이고(기존 판정 그대로) 겹침도 없어야 판이 다 선 것이다.
       return world.allAtRest() && !anyOverlap(unheldChairs());
@@ -595,7 +618,7 @@ export function createPhysicsWorld(
     goalsDisplaced() {
       return goalHome.some((g) => {
         const cur = world.pointOf(g.id as CastId);
-        return Math.hypot(cur.x - g.p.x, cur.y - g.p.y) > 0.5;
+        return Math.hypot(cur.x - g.p.x, cur.y - g.p.y) > GOAL_DISPLACED_EPS_PX;
       });
     },
 

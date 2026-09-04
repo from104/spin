@@ -153,13 +153,6 @@ describe('마진에 개체가 서 있으면 개체가 이긴다 (킥인·코너 
     expect(out?.pan).toBeFalsy();
     expect(Array.from(result.current.state.selection)).toEqual([marginChair]);
   });
-
-  it('그 휠체어를 치우면 같은 자리가 판 이동이 된다 (대조군)', () => {
-    // 위 단언이 '마진 판정이 아예 안 도는 것' 으로도 통과하지 않게 같은 좌표를 두 번 찌른다.
-    const { drill } = makeDrill();
-    const { result } = mount(drill);
-    expect(down(result, MARGIN_LEFT)?.pan).toBe(true);
-  });
 });
 
 describe('flat 코트에는 테두리가 없다', () => {

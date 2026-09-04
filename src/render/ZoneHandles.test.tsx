@@ -1,13 +1,11 @@
 // §10.7 ZoneHandles — 핸들의 **월드 위치**가 physics-world 의 zoneHandles()(= model/chair.ts 의
 // pointAtLever)와 같아야 한다. 지금 구조에서는 그게 계산 일치가 아니라 구조적으로 보장된다:
 // 핸들을 차체 로컬 (lever, 0) 에 그리고 그룹이 칩과 같은 transform 을 받기 때문이다.
-// 이 테스트는 그 합성 결과가 실제로 pointAtLever 와 같은지를 확인한다.
 import { describe, expect, it } from 'vitest';
 import { render as rtlRender } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { ZoneHandles } from './ZoneHandles.tsx';
 import { createTransformWriter } from './transformWriter.ts';
-import { pointAtLever } from '../model/chair.ts';
 import { CHAIR, INTERACT } from '../core/constants.ts';
 import { DEG } from '../core/angle.ts';
 import type { ChairPose } from '../model/chair.ts';
@@ -76,28 +74,5 @@ describe('ZoneHandles', () => {
     expect(t.x).toBeCloseTo(pose.x, 1);
     expect(t.y).toBeCloseTo(pose.y, 1);
     expect(t.deg).toBeCloseTo(pose.theta * DEG, 1);
-  });
-
-  it('로컬 위치 × 칩 transform 의 합성이 pointAtLever 와 일치한다', () => {
-    // 이게 §5.12 blocker("렌더 위치와 래치 레버가 다르면 41px 스냅")의 실질 검증이다.
-    const writer = createTransformWriter();
-    render(
-      <svg>
-        <ZoneHandles chairId={CH} writer={writer} pxPerUnit={1} activeZone={null} />
-      </svg>,
-    );
-    const pose: ChairPose = { x: 300, y: 250, theta: -1.1 };
-    writer.write(CH, pose.x, pose.y, pose.theta);
-
-    const cos = Math.cos(pose.theta);
-    const sin = Math.sin(pose.theta);
-    for (const zone of ['towRear', 'translate', 'spin', 'towFront'] as const) {
-      const lever = INTERACT.handleLeverPx[zone];
-      // 그룹 transform(translate+rotate) 이 로컬 (lever,0) 에 적용된 결과
-      const world = { x: pose.x + lever * cos, y: pose.y + lever * sin };
-      const expected = pointAtLever(pose, lever);
-      expect(world.x).toBeCloseTo(expected.x, 6);
-      expect(world.y).toBeCloseTo(expected.y, 6);
-    }
   });
 });

@@ -34,18 +34,16 @@
 // 이고 화면 글자가 '100%'(부분 문자열 ✓)다 — 글자만 '100%' 로 바꾸고 이름을 '줌 초기화' 로
 // 두면 규칙이 깨진다. 새 항목을 더할 때 이 규칙을 먼저 확인하라.
 import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react';
 import {
   IconClear,
+  IconDrillInfoEdit,
   IconExport,
-  IconEye,
   IconBoard,
   IconGoalReset,
   IconGrid,
   IconRedo,
   IconRuleZone,
-  IconSaveDrill,
   IconSides,
   IconSpeed,
   IconUndo,
@@ -53,13 +51,15 @@ import {
   IconZoomOut,
   IconZoomReset,
 } from '../../ui/icons.tsx';
-import { flyoutPosition, useFlyout, type FlyoutHandleProps } from './useFlyout.ts';
+import type { FlyoutHandleProps } from './useFlyout.ts';
 import { KEYMAP } from '../../core/keymap.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { ConfirmDialog } from '../../ui/ConfirmDialog.tsx';
 import { ExportSheet } from '../export/ExportSheet.tsx';
+import { OptionText } from '../../ui/OptionText.tsx';
 import { COURT_DEFS, COURT_SIZE_LABELS, COURT_SIZES, courtDefFor, type CourtMode, type CourtSize } from '../../model/court.ts';
 import type { Drill, TeamSide, TeamStyle } from '../../model/drill.ts';
+import type { StepId } from '../../core/ids.ts';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { prunePhysics } from '../../storage/prefs.ts';
 import { useT } from '../../i18n/useT.ts';
@@ -97,6 +97,51 @@ const ITEM_LABEL: CSSProperties = {
  *  툴팁에 키를 손으로 적어 두면 키맵이 바뀔 때 화면만 옛말을 한다: 실제로 이 자리에 `#`·`Z`
  *  라고 적혀 있었는데 진짜 키는 `Alt+G`·`Alt+Z` 였다(2026-08-16 발견). */
 const keyLabel = (id: string): string => KEYMAP.find((d) => d.id === id)?.label ?? '';
+
+/** 절 제목 — 모달이 네 갈래가 되면서 필요해졌다(2026-08-27). 라디오그룹의 aria-label 과
+ *  **같은 문자열**을 쓴다: 보는 사람과 듣는 사람이 같은 이름으로 그 절을 부르게 된다. */
+/** 모달 안 보조 설명. **말할 것이 있을 때만** 쓴다 — 2026-08-27 지시로 "아무 일 없음" 을
+ *  알리던 줄들을 지웠다. 남은 것은 셋뿐이다: 잠긴 사유 · 크기가 안 먹는 사실 · 지금 진영. */
+const HINT: CSSProperties = { fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6, margin: 0 };
+
+const SECTION_LABEL: CSSProperties = { fontSize: '0.75rem', fontWeight: 700, color: 'var(--faint-text)', margin: 0 };
+
+/** 모달 안 토글 한 줄. 기둥의 `BarItem`(아이콘만) 과 달리 **글자를 함께** 놓는다 — 모달은
+ *  좁지 않고, 여기 온 사람은 아이콘을 이미 아는 사람이 아니다. */
+const MODAL_ROW: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  minHeight: 'var(--hit)',
+  padding: '0 12px',
+  borderRadius: 10,
+  fontSize: '0.875rem',
+  fontWeight: 600,
+  textAlign: 'left',
+};
+const MODAL_ACTION: CSSProperties = { ...MODAL_ROW, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' };
+
+function ModalToggle({ on, onClick, icon, text, hint }: { on: boolean; onClick(): void; icon: ReactNode; text: string; hint: string }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      title={hint}
+      style={{
+        ...MODAL_ROW,
+        border: on ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+        background: on ? 'color-mix(in srgb, var(--accent) 12%, var(--panel))' : 'var(--panel)',
+        color: on ? 'var(--accent-text)' : 'var(--text)',
+      }}
+    >
+      <span aria-hidden style={{ display: 'flex' }}>
+        {icon}
+      </span>
+      {text}
+    </button>
+  );
+}
 
 const DIVIDER: CSSProperties = {
   flex: 'none',
@@ -207,17 +252,32 @@ export interface FunctionBarProps {
   /** 한 번 누르면 두 팀이 자리를 맞바꾼다. 손잡이는 **[코트] 모달 안**이다(2026-08-16 이사).
    *  플랫 코트에서는 버튼 자체를 안 낸다 — 골 지역이 없어 진영이라는 개념이 없다. */
   onToggleDefense(): void;
+  /** [비우기] — **지금 스텝**을 비운다(전술판은 스텝이 하나라 곧 판 전체다). */
   onReset(): void;
+  /** [정보] — 드릴 정보 시트를 연다. **드릴 모드에만 있다**(전술판에는 메타가 없다). 없으면
+   *  칸 자체를 안 그린다 — 자리를 비워 두지 않는다(§3 불변식 1 은 있는 칸의 좌표를 지키는
+   *  규칙이지, 없는 기능의 자리를 지키라는 규칙이 아니다). */
+  onDrillInfo?(): void;
+  /** 지금 스텝이 이미 비었는가. [비우기]를 끄는 데 쓴다 — 눌러도 안 변할 버튼을 살려 두지
+   *  않는다(이 모달의 크기 3단이 세운 계약과 같은 규율). */
+  stepEmpty: boolean;
   /** 내보내기 시트가 굽는 것은 지금 리듀서가 든 판이다(물리 세계가 아니라 모델). */
   drill: Drill;
+  /** 지금 편집 중인 스텝의 인덱스. **내보내기 시트가 "이 스텝" 을 알아야 한다.**
+   *
+   *  ⚠️ 2026-08-27 까지 여기 없었고, 시트 호출부가 `stepIndex={0}` 을 박아 두고 있었다 —
+   *  드릴 편집에서 3번 스텝을 보며 [그림]을 눌러도 **언제나 1번 스텝이 구워졌다.** 보드는
+   *  스텝이 한 장뿐이라 무해했고, 그래서 드러나지 않았다(기현님 신고로 발견). */
+  stepIndex: number;
+  /** 사이드바에서 체크한 스텝 — 내보내기 시트의 [선택한 N장] 기본값이 된다(2026-08-27). */
+  checkedStepIds?: ReadonlySet<StepId>;
   showGrid: boolean;
+  /** 격자 **번호**. 화면 토글은 설정 화면에 있고 여기엔 없지만, **내보내기 시트를 거쳐
+   *  인쇄까지 내려야 한다**(2026-08-27) — 종이에서 칸 이름으로 자리를 지목하기 위해서다. */
+  showGridLabels: boolean;
   onToggleGrid(): void;
   showRuleZones: boolean;
   onToggleRuleZones(): void;
-  /** 자유 전술판을 드릴 라이브러리에 새 항목으로 넣는다 — 옛 헤더의 주 액션이었다.
-   *  2026-08-14 기현님 지시로 헤더가 넓은 창에서 사라지면서 갈 곳이 여기밖에 없었다.
-   *  **드릴 편집에서는 뜻이 다르다**: 자동저장을 지금 밀어 넣는다(아래 `mode`). */
-  onSaveAsDrill(): void;
   /** 어느 화면의 기둥인가(2026-08-15 드릴 편집 재설계 ②).
    *
    *  칸 목록이 하나 다르다 — 드릴에는 **[비우기]가 없다**(근거는 functionBarMetrics 의
@@ -247,12 +307,16 @@ export function FunctionBar({
   teams,
   onToggleDefense,
   onReset,
+  stepEmpty,
+  onDrillInfo,
   drill,
+  stepIndex,
+  checkedStepIds,
   showGrid,
+  showGridLabels,
   onToggleGrid,
   showRuleZones,
   onToggleRuleZones,
-  onSaveAsDrill,
   mode = 'board',
 }: FunctionBarProps) {
   const isBoard = mode === 'board';
@@ -260,13 +324,9 @@ export function FunctionBar({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const courtId = useId();
-  const viewPanelId = useId();
   const courtBtnRef = useRef<HTMLButtonElement | null>(null);
-  const viewBtnRef = useRef<HTMLButtonElement | null>(null);
-  const clearBtnRef = useRef<HTMLButtonElement | null>(null);
   const exportBtnRef = useRef<HTMLButtonElement | null>(null);
   const firstCourtRef = useRef<HTMLButtonElement | null>(null);
-  const fly = useFlyout<'view'>();
 
   const { prefs, physics } = useSettingsState();
   const { setPrefs } = useSettingsActions();
@@ -313,6 +373,34 @@ export function FunctionBar({
         background: 'var(--panel)',
       }}
     >
+      {/* [정보] — 2026-08-28 기현 지시로 헤더 제목 옆 ⓘ 에서 이사. **드릴에만** 있다(전술판에는
+          메타가 없다). 아이콘이 시연 쪽(PresentSideBar)의 같은 칸과 **한 벌**이다: 밑판(정보
+          카드)이 같고 수정자만 연필 ↔ 눈이다 — 여기서는 고칠 수 있다는 뜻이다.
+
+          ⚠️ **자리가 맨 끝 → 맨 위로 바뀌었다**(기현 지시 2026-08-30). 옛 근거를 지우지 않고
+             적어 둔다: *"자리는 맨 끝이다. 위에 끼우면 아래 칸들의 좌표가 통째로 밀린다
+             (§3 불변식 1) — 전술판의 [드릴로 저장]이 끝에 붙은 것과 같은 이유다."* 그 대가는
+             실재한다 — 드릴 편집에서 줌·되돌리기 아래 칸들이 한 칸(+구분선)씩 내려간다.
+             다만 **한 번뿐인 이동**이고, 그 뒤로는 새 기준이 굳는다. 전술판(isBoard)에는 이
+             칸이 없으므로 그쪽 배치는 한 픽셀도 안 움직인다.
+          ⚠️ 칸·구분선 **개수는 그대로다**(8칸 / 구분선 4) — 자리만 옮겼다. functionBarMetrics
+             의 예산이 그 수를 붙잡고 있고, 수가 바뀌면 판이 도는 문턱까지 움직인다. */}
+      {!isBoard && onDrillInfo && (
+        <>
+          <BarItem
+            label={t('editor.functionBar.drillInfo.label')}
+            name={t('editor.workspace.drillInfoAriaLabel')}
+            title={t('editor.functionBar.drillInfo.title')}
+            aria-haspopup="dialog"
+            data-tut="drill-info"
+            onClick={onDrillInfo}
+          >
+            <IconDrillInfoEdit />
+          </BarItem>
+          <div aria-hidden style={DIVIDER} />
+        </>
+      )}
+
       <BarItem
         label={t('editor.functionBar.zoomIn.label')}
         name={t('editor.functionBar.zoomIn.name')}
@@ -377,34 +465,15 @@ export function FunctionBar({
       >
         <IconBoard size={18} />
       </BarItem>
-      <BarItem
-        label={t('editor.functionBar.goalReset.label')}
-        name={t('editor.functionBar.goalReset.name')}
-        title={t('editor.functionBar.goalReset.title')}
-        onClick={onResetGoals}
-      >
-        <IconGoalReset />
-      </BarItem>
       {/* ⚠️ 2026-08-16 — [진영]은 **[코트] 모달 안으로 들어갔다**(기현 지시). 진영은 골 지역이
           있어야 뜻이 있는 값이고(플랫에는 없다), 골 지역은 코트 형태가 정한다 — 즉 코트를
           정하는 자리에서 함께 정해지는 것이 맞다. 기둥에서는 그 셋이 서로 떨어져 있었다.
           빠진 한 칸은 [도움말]이 받았었다(2026-08-16) — 2026-08-20(§0.5 Phase 5)에 [도움말]이
           레일 상시 칸으로 옮겨가며 그 칸도 없어졌다. 칸 수는 이제 12/10. */}
-      {/* ⚠️ [비우기]는 **전술판에만** 있다(2026-08-15). 드릴에는 되돌리기와 스텝이 있어
-          "비운다" 가 한 가지 뜻으로 정해지지 않는다 — functionBarMetrics 의
-          FUNCTION_BAR_ITEMS_DRILL 이 그 근거를 갖는다. */}
-      {isBoard && (
-        <BarItem
-          label={t('editor.functionBar.clear.label')}
-          name={t('editor.functionBar.clear.name')}
-          title={t('editor.functionBar.clear.title')}
-          buttonRef={clearBtnRef}
-          aria-haspopup="dialog"
-          onClick={() => setConfirmOpen(true)}
-        >
-          <IconClear />
-        </BarItem>
-      )}
+      {/* ⚠️ [비우기]는 2026-08-28 부터 **[보드 설정] 모달 안**이다(기현 지시). 함께 뒤집힌 것:
+          옛 기록은 *"[비우기]는 전술판에만 있다(2026-08-15). 드릴에는 되돌리기와 스텝이 있어
+          '비운다' 가 한 가지 뜻으로 정해지지 않는다"* 였는데, 이제 **드릴 편집에도 있고** 뜻은
+          하나로 정했다: **지금 스텝을 비운다**(STEP_CLEAR). 다른 스텝은 건드리지 않는다. */}
 
       <div aria-hidden style={DIVIDER} />
 
@@ -418,56 +487,14 @@ export function FunctionBar({
       >
         <IconExport />
       </BarItem>
-      {/* 속도 제한은 **켬이 기본이자 사실적인 상태**다. 꺼졌을 때를 강조한다 — 제한을 푼 채로
-          두고 왜 빠른지 모르는 상황이 더 나쁘다(옛 SpeedLimitSwitch 의 그 판단 그대로). */}
-      <BarItem
-        label={t('editor.functionBar.speed.label')}
-        name={speedLimit ? t('editor.functionBar.speed.nameOn') : t('editor.functionBar.speed.nameOff')}
-        title={speedLimit ? t('editor.functionBar.speed.titleOn') : t('editor.functionBar.speed.titleOff')}
-        active={!speedLimit}
-        onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, speedLimit: !speedLimit }) })}
-      >
-        <IconSpeed />
-      </BarItem>
-      {/* ── [보기] = **왼쪽으로 여는 서랍** (2026-08-16 기현 지시) ─────────────────────
-          팝오버(Modal)였다. 서랍으로 바꾼 이유는 남은 둘이 **토글**이기 때문이다: 모달은
-          "들어가서 → 고르고 → 나온다" 라 한 번 쓰고 마는 선택(코트 형태·크기)에 맞고,
-          격자·골 지역은 판을 보면서 켰다 껐다 하는 것이라 배경을 덮고 포커스를 가두는 장치가
-          매번 과했다. 서랍은 손이 닿으면 떠서 두 칸을 내놓고, 손이 떠나면 닫힌다.
-          트레이의 [작도]·[설명]과 **같은 장치**다(useFlyout) — 기둥이 오른쪽이라 왼쪽으로 편다. */}
-      <BarItem
-        label={t('editor.functionBar.view.label')}
-        name={t('editor.functionBar.view.name')}
-        title={t('editor.functionBar.view.title')}
-        buttonRef={viewBtnRef}
-        aria-expanded={fly.isOpen('view')}
-        aria-controls={fly.isOpen('view') ? viewPanelId : undefined}
-        {...fly.handleProps('view', () => viewBtnRef.current)}
-      >
-        <IconEye />
-      </BarItem>
+
       {isBoard && (
         <>
           <div aria-hidden style={DIVIDER} />
 
-          {/* 주 액션 — 옛 헤더의 [드릴로 저장]. 유일하게 **액센트로 칠한** 칸이고 기둥 맨
-              끝이다: 맨 위는 줌이 이미 자리를 잡았고(손이 늘 가 있다), 새 칸을 위에 끼우면
-              아래 칸들의 좌표가 통째로 밀린다(§3 불변식 1). 끝에 붙이면 아무것도 안 움직인다.
-              ⚠️ **드릴 편집에는 이 칸이 없다**(2026-08-20 기현님 지시, 옛 기록: 여기 있었다) —
-              드릴 쪽 [저장]은 "드릴로 저장"이 아니라 "자동저장을 지금 밀어넣기"였는데,
-              자동저장이 이미 돌고 있어 누를 이유가 없는 칸이었다. 단축키(useEditorKeyboard
-              onSave)는 그대로 있다 — "지금 바로"가 필요하면 그 길로 간다. 칸·구분선 수 근거는
-              functionBarMetrics.ts 의 FUNCTION_BAR_ITEMS_DRILL 머리말. */}
-          <BarItem
-            label={t('editor.functionBar.save.label')}
-            name={t('editor.functionBar.save.nameDrill')}
-            title={t('editor.functionBar.save.titleBoard')}
-            onClick={onSaveAsDrill}
-            accent
-            data-tut="board-save"
-          >
-            <IconSaveDrill />
-          </BarItem>
+          {/* 🪦 [드릴로 저장] 칸은 2026-09-03 에 헤더 주 액션 [+ 드릴로 편집]으로 돌아갔다(기현 지시 —
+              보드에도 헤더가 다시 서면서). 2026-08-14 에 헤더가 사라지며 여기 맨 끝에 붙었던 것이고,
+              그동안 기둥의 유일한 액센트 칸이었다. 되살리지 마라 — 같은 이름의 표적이 둘이 된다. */}
         </>
       )}
 
@@ -480,6 +507,13 @@ export function FunctionBar({
         closeLabel={t('common.close')}
         returnFocusRef={courtBtnRef}
       >
+        {/* ── 2단 배치 (2026-08-27 기현 지시: *"모달에서 설명을 최소화 하고 2단으로 배치"*) ──
+            왼쪽은 **코트가 무엇인가**(형태·크기·진영), 오른쪽은 **판이 어떻게 동작하는가**
+            (표시·이동·골대). `auto-fit` + `minmax` 라 좁은 창에서는 저절로 1단으로 접힌다 —
+            분기를 따로 두지 않는다.
+            ⚠️ 이 모달의 설계 근거는 *"한 화면에 나란히 읽힌다"* 였다(파일 머리말). 넷이 들어와
+               세로로 길어지면서 그 근거가 스크롤에 먹히고 있었고, 2단은 그것을 되돌린다. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* 잠금은 **이름**으로도 말한다 — 옛 헤더 세그먼트의 계약 그대로다(`코트 형태` ↔
               `코트 형태(변경 불가)`). 화면에는 아래 문구가 있지만, 스크린리더로 구역에 들어온
@@ -517,7 +551,7 @@ export function FunctionBar({
                   }}
                   style={toggleStyle(on)}
                 >
-                  {d.label[locale]}
+                  <OptionText label={d.label[locale]} desc={d.desc[locale]} />
                 </button>
               );
             })}
@@ -528,18 +562,21 @@ export function FunctionBar({
           {/* 크기 3단은 **풀 코트에서만 뜻이 있다** — 하프·플랫은 값을 들고 다니되 판을 안 바꾼다
               (court.ts COURT_DEFS 근거). 그때 고르게 두면 판이 거짓말을 하므로 사실을 적는다. */}
           {courtMode !== 'full' ? (
-            <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-              {t('editor.functionBar.courtModal.sizeInfoFullOnly', { size: COURT_SIZE_LABELS[locale][courtSize] })}
-            </p>
+            <p style={HINT}>{t('editor.functionBar.courtModal.sizeInfoFullOnly', { size: COURT_SIZE_LABELS[locale][courtSize] })}</p>
           ) : courtLocked ? (
+            // 드릴은 **비워도 안 열린다**(코트는 드릴을 만들 때 정해진다) — 전술판 문장을 그대로
+            // 쓰면 아래 [비우기]를 누르면 열릴 것처럼 읽힌다. 2026-08-28 에 [비우기]가 이 모달로
+            // 들어오면서 그 오독이 실제 행동을 부르게 돼(눌러도 안 열린다) 문장을 갈랐다.
             // ⚠️ **잠기면 버튼을 안 낸다.** 형태 셋과 다른 이유: 형태는 눌러 보고 이유를 듣는
             // 것이 옛 헤더 세그먼트의 계약이었고(onLockedAttempt), 크기는 옛 인스펙터에서
             // *"골라도 안 변하는 컨트롤은 거짓말이다"* 라는 반대 계약을 갖고 있었다. 두 계약을
             // 한쪽으로 통일하지 않는 이유: 각자 그 자리에서 실기로 정해진 것이고, 여기서
             // 바꾸면 이번 이사가 **동작까지** 바꾸는 것이 된다. 값은 계속 보인다 — 못 바꾸는
             // 것과 안 보이는 것은 다르다.
-            <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-              {t('editor.functionBar.courtModal.sizeInfoLocked', { size: COURT_SIZE_LABELS[locale][courtSize] })}
+            <p style={HINT}>
+              {isBoard
+                ? t('editor.functionBar.courtModal.sizeInfoLocked', { size: COURT_SIZE_LABELS[locale][courtSize] })
+                : t('editor.functionBar.courtModal.sizeInfoLockedDrill', { size: COURT_SIZE_LABELS[locale][courtSize] })}
             </p>
           ) : (
             <div
@@ -565,19 +602,45 @@ export function FunctionBar({
                     }}
                     style={toggleStyle(on)}
                   >
-                    {/* 치수만 적으면 무엇이 표준인지 알 수 없다 — 규정상의 이름을 함께 낸다. */}
-                    {COURT_SIZE_LABELS[locale][s]}
+                    {/* 치수만 적으면 무엇이 표준인지 알 수 없다 — 규정상의 이름을 함께 낸다.
+                        그리고 그 셋이 무엇에 맞는 코트인지는 툴팁에만 있었다(터치에서는 없다). */}
+                    <OptionText label={COURT_SIZE_LABELS[locale][s]} desc={d.desc[locale]} />
                   </button>
                 );
               })}
             </div>
           )}
 
-          <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6, marginTop: 4 }}>
-            {courtLocked ? t('editor.functionBar.courtModal.mustClearFirst') : t('editor.functionBar.courtModal.freeToChange')}
-          </p>
+          {/* ⚠️ **잠겼을 때만** 적는다. 예전에는 안 잠겼을 때도 *"지금은 자유롭게 바꿀 수
+              있습니다"* 를 냈는데, 그건 아무 일도 없다는 것을 굳이 말하는 줄이었다 — 설명을
+              줄이라는 지시(2026-08-27)에서 첫 번째로 지운 자리다. 잠긴 사유는 남는다:
+              못 바꾸는 이유가 화면 어디에도 없으면 안 된다. */}
+          {courtLocked && (
+            <p style={HINT}>{isBoard ? t('editor.functionBar.courtModal.mustClearFirst') : t('editor.functionBar.courtModal.lockedDrill')}</p>
+          )}
 
-          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+          {/* ── 비우기 (2026-08-28 기현 지시로 기둥에서 이사) ───────────────────────────
+              **잠금 사유 바로 밑**이다. 위 문구가 *"코트를 바꾸려면 먼저 판을 비우세요"* 라고
+              말하는데 그 버튼이 기둥 저쪽에 있으면, 읽은 사람이 눈을 옮겨 찾아야 했다.
+              이제 시키는 말과 시키는 대로 할 손잡이가 같은 자리에 있다.
+              ⚠️ 이미 비었으면 **끈다**. 눌러도 안 변하는 컨트롤은 거짓말이라는 이 모달의 기존
+                 계약(크기 3단)과 같은 규율이고, 여기서는 꺼짐 자체가 "이미 비었다" 를 말한다. */}
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            disabled={stepEmpty}
+            title={isBoard ? t('editor.functionBar.clear.title') : t('editor.functionBar.clear.titleDrill')}
+            onClick={() => {
+              setCourtOpen(false);
+              setConfirmOpen(true);
+            }}
+            style={{ ...MODAL_ACTION, opacity: stepEmpty ? 0.45 : 1 }}
+          >
+            <span aria-hidden style={{ display: 'flex' }}>
+              <IconClear />
+            </span>
+            {t('editor.functionBar.clear.name')}
+          </button>
 
           {/* ── 진영 (2026-08-16 기현 지시로 기둥에서 이사) ─────────────────────────────
               골 지역 3인 반칙이 **어느 팀에 걸리는지**를 정한다. 화면의 골라인 뒤 깃발 둘
@@ -588,9 +651,7 @@ export function FunctionBar({
                  disabled 로 두었지만, 모달 안에는 지킬 절대 위치가 없다. 대신 크기 3단이 이미
                  세워 둔 계약을 따른다: *"골라도 안 변하는 컨트롤은 거짓말이다"* → 사실을 적는다. */}
           {courtMode === 'flat' ? (
-            <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-              {t('editor.functionBar.courtModal.flatNoDefense')}
-            </p>
+            <p style={HINT}>{t('editor.functionBar.courtModal.flatNoDefense')}</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
@@ -608,70 +669,91 @@ export function FunctionBar({
                 </span>
                 {t('editor.functionBar.courtModal.defenseButtonText')}
               </button>
-              <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', lineHeight: 1.6 }}>
-                {t('editor.functionBar.courtModal.defenseDescPrefix', {
+              {/* 설명 최소화(2026-08-27) — 예전에는 *"지금 왼쪽 골을 지키는 팀은 **홈** 입니다
+                  — 골 지역 3인 반칙은 이 팀에만 걸립니다"* 두 줄이었다. **지금 값**만 남기고
+                  까닭은 버튼의 title 로 옮겼다: 매번 읽을 것은 값이고, 까닭은 한 번 읽으면 된다. */}
+              <p style={HINT}>
+                {t('editor.functionBar.courtModal.defenseNow', {
                   goal: courtMode === 'half' ? t('editor.functionBar.courtModal.goalWord') : t('editor.functionBar.courtModal.leftGoalWord'),
+                  team: teams[defense].label,
                 })}
-                <strong>{teams[defense].label}</strong>
-                {t('editor.functionBar.courtModal.defenseDescSuffix')}
               </p>
             </div>
           )}
         </div>
-      </Modal>
 
-      {/* ── 보기 서랍 — 격자 · 골 지역 가이드 ─────────────────────────────────────────
-          닫힌 서랍은 **DOM 에 없다**(§3 표적 예산). 포털인 이유·좌표를 재는 이유는 useFlyout
-          머리말에 있다 — 여기서도 판 덩어리의 `overflow:hidden` 이 자르는 조상이다.
-          ⚠️ 고르고 나서 **안 닫는다.** 트레이 서랍은 도구가 서로 배타라 하나를 고르면 볼일이
-             끝나지만, 이 둘은 서로 독립인 토글이라 둘 다 만지러 온 손을 도중에 끊게 된다.
-             닫는 길은 그대로 셋이다 — 벗어나기 · Esc · 손잡이 다시 누르기. */}
-      {fly.open?.key === 'view'
-        ? createPortal(
-            <div
-              id={viewPanelId}
-              role="group"
-              aria-label={t('editor.functionBar.viewDrawer.ariaLabel')}
-              {...fly.panelProps}
-              style={{
-                position: 'fixed',
-                zIndex: 40,
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 2,
-                padding: 5,
-                borderRadius: 10,
-                border: '1px solid var(--border-strong)',
-                background: 'var(--panel)',
-                boxShadow: '0 8px 20px rgba(0,0,0,.45)',
-                ...flyoutPosition(fly.open.rect, 'left'),
+        {/* ── 오른쪽 단 — 판이 어떻게 동작하는가 ─────────────────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* ── 표시 · 이동 · 골대 (2026-08-27 기현 지시로 기둥에서 들어왔다) ─────────────
+              ⚠️ **2026-08-16 의 반대 방향 결정을 명시적으로 폐기한다.** 그때는 [보기]를 모달에서
+              서랍으로 빼면서 근거를 이렇게 적었다: *"모달은 들어가서 고르고 나오는 것이라 한 번
+              쓰고 마는 선택(형태·크기)에 맞고, 격자·골 지역은 판을 보면서 켰다 껐다 하는
+              토글이라 배경을 덮고 포커스를 가두는 장치가 매번 과했다."*
+
+              그 관찰 자체는 지금도 참이다 — 뒤집은 이유는 다른 축이다: **기둥에 흩어진 네 개가
+              전부 "이 판이 어떻게 동작하는가" 라는 한 가지 이야기**인데 장치가 제각각이라
+              (모달 하나 · 즉시 실행 하나 · 즉시 토글 하나 · 서랍 하나) 어디를 눌러야 할지가
+              이름이 아니라 기억에 달려 있었다. 일관성을 택하고 토글의 번거로움을 감수한 것이며,
+              그 대가는 실재한다(격자를 켜고 끄려면 매번 모달을 연다). 되돌릴 일이 생기면
+              **이 문단이 그때의 판단이다** — 지우지 말고 다시 뒤집어 적을 것. */}
+          <div role="group" aria-label={t('editor.functionBar.courtModal.viewGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.viewGroupLabel')}</p>
+            <ModalToggle
+              on={showGrid}
+              onClick={onToggleGrid}
+              icon={<IconGrid />}
+              text={t('editor.functionBar.viewDrawer.grid.name')}
+              hint={t('editor.functionBar.viewDrawer.grid.title', { key: keyLabel('view.grid') })}
+            />
+            <ModalToggle
+              on={showRuleZones}
+              onClick={onToggleRuleZones}
+              icon={<IconRuleZone />}
+              text={t('editor.functionBar.viewDrawer.ruleZone.name')}
+              hint={t('editor.functionBar.viewDrawer.ruleZone.title', { key: keyLabel('view.ruleZones') })}
+            />
+          </div>
+
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
+
+          <div role="group" aria-label={t('editor.functionBar.courtModal.moveGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.moveGroupLabel')}</p>
+            {/* 속도 제한은 **켬이 기본이자 사실적인 상태**다(실제 파워체어 10 km/h). 그래서
+                토글의 '켜짐' 은 제한이 걸린 쪽이고, 끄면 아래 설명이 경고를 말한다 — 제한을
+                푼 채로 두고 왜 빠른지 모르는 상황이 더 나쁘다(옛 SpeedLimitSwitch 의 판단). */}
+            <ModalToggle
+              on={speedLimit}
+              onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, speedLimit: !speedLimit }) })}
+              icon={<IconSpeed />}
+              text={t('editor.functionBar.courtModal.speedText')}
+              hint={speedLimit ? t('editor.functionBar.speed.titleOn') : t('editor.functionBar.speed.titleOff')}
+            />
+          </div>
+
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
+
+          <div role="group" aria-label={t('editor.functionBar.courtModal.goalGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.goalGroupLabel')}</p>
+            {/* ⚠️ 이것만 **토글이 아니라 명령**이다(물리 세계의 골대를 제자리로 되돌린다).
+                그래서 누르면 **모달을 닫는다** — 결과는 판에 있는데 배경이 덮여 있으면 무엇이
+                일어났는지 볼 수 없다. 위 토글들과 생김새를 달리한 것도 같은 이유다. */}
+            <button
+              type="button"
+              onClick={() => {
+                setCourtOpen(false);
+                onResetGoals();
               }}
+              style={MODAL_ACTION}
             >
-              <BarItem
-                label={t('editor.functionBar.viewDrawer.grid.label')}
-                name={t('editor.functionBar.viewDrawer.grid.name')}
-                title={t('editor.functionBar.viewDrawer.grid.title', { key: keyLabel('view.grid') })}
-                active={showGrid}
-                aria-pressed={showGrid}
-                onClick={onToggleGrid}
-              >
-                <IconGrid />
-              </BarItem>
-              <BarItem
-                label={t('editor.functionBar.viewDrawer.ruleZone.label')}
-                name={t('editor.functionBar.viewDrawer.ruleZone.name')}
-                title={t('editor.functionBar.viewDrawer.ruleZone.title', { key: keyLabel('view.ruleZones') })}
-                active={showRuleZones}
-                aria-pressed={showRuleZones}
-                onClick={onToggleRuleZones}
-              >
-                <IconRuleZone />
-              </BarItem>
-            </div>,
-            document.body,
-          )
-        : null}
+              <span aria-hidden style={{ display: 'flex' }}>
+                <IconGoalReset />
+              </span>
+              {t('editor.functionBar.goalReset.name')}
+            </button>
+          </div>
+        </div>
+        </div>
+      </Modal>
 
       {/* ── 비우기 확인 ─────────────────────────────────────────────────────────────── */}
       <ConfirmDialog
@@ -684,12 +766,18 @@ export function FunctionBar({
         title={t('editor.functionBar.clearConfirm.title')}
         body={
           <>
-            {t('editor.functionBar.clearConfirm.body')} <strong>{t('editor.functionBar.clearConfirm.bodyStrong')}</strong>
+            {/* 드릴은 **스텝이 여럿**이라 "코트 위의" 로는 범위를 알 수 없다 — 어디까지 지우는지가
+                파괴적 조작의 확인에서 가장 중요한 한 줄이므로 모드별로 다른 문장을 쓴다. */}
+            {isBoard ? t('editor.functionBar.clearConfirm.body') : t('editor.functionBar.clearConfirm.bodyDrill')}{' '}
+            <strong>{t('editor.functionBar.clearConfirm.bodyStrong')}</strong>
           </>
         }
         confirmLabel={t('editor.functionBar.clearConfirm.confirm')}
         cancelLabel={t('editor.functionBar.clearConfirm.cancel')}
-        returnFocusRef={clearBtnRef}
+        // ⚠️ [비우기]가 아니라 **[보드 설정]** 으로 돌려보낸다 — 확인을 여는 그 누름이 모달을
+        //    닫으므로 비우기 버튼은 이미 DOM 에 없다(Modal 의 isConnected 가드가 걸려 포커스가
+        //    <body> 로 떨어진다). 사용자가 되돌아갈 자리는 모달을 연 그 칸이다.
+        returnFocusRef={courtBtnRef}
       />
 
       {/* ⚠️ 시트는 **닫혀 있어도 마운트된 채**여야 한다 — [인쇄]를 고르면 시트가 닫히고 인쇄
@@ -698,8 +786,10 @@ export function FunctionBar({
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         drill={drill}
-        stepIndex={0}
+        stepIndex={stepIndex}
+        checkedStepIds={checkedStepIds}
         showGrid={showGrid}
+        showGridLabels={showGridLabels}
         showRuleZones={showRuleZones}
         returnFocusRef={exportBtnRef}
       />

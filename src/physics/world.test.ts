@@ -605,7 +605,11 @@ describe('무게 위계 — 같은 힘으로 밀었을 때 공이 콘보다 훨�
   function pushDistance(kind: 'ball' | 'cone'): number {
     const w = createWorld(BOUNDS.w, BOUNDS.h);
     const vLin = kmhToPxPerS(DEFAULT_LIMITS.linearKmh);
-    let pose: ChairPose = { x: -60, y: 200, theta: 0 };
+    // 시작 자리는 피벗이 아니라 **앞범퍼** 기준으로 잡는다(2026-08-29). 이 시나리오에서
+    // 대상에 닿는 것은 범퍼이고, 피벗에 −60 을 못박아 두었더니 실측으로 레버가 30 → 26 이 된
+    // 순간 범퍼가 4 px 모자라 **아무것도 안 밀었다**(밀린 거리 0). 범퍼를 −30 에서 출발시키면
+    // 차체 길이와 무관하게 예전과 똑같은 접근 거리가 된다.
+    let pose: ChairPose = { x: -30 - CHAIR.pivotToFrontPx, y: 200, theta: 0 };
     w.addChair(chairId(), pose);
     // §5.4 'push' 모드: 구동되는 칩은 앱에서 **드래그 중**이라 static 이다. 하네스도 같게 맞춘다.
     w.setChairDragging(chairId(), true);

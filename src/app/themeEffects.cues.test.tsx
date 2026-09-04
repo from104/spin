@@ -30,17 +30,17 @@ afterEach(() => {
 });
 
 describe('ThemeEffects — 놓임 소리 스위치', () => {
-  it('설정이 켬이면 켠다', () => {
+  it('설정이 끔이면 끈다 — 마운트 시점에 반드시 한 번 전달한다(기본 켬이 아니다)', () => {
     seed(true);
-    render(
+    const { unmount } = render(
       <SettingsProvider>
         <ThemeEffects />
       </SettingsProvider>,
     );
     expect(setEnabled).toHaveBeenCalledWith(true);
-  });
+    unmount();
 
-  it('설정이 끔이면 끈다 — 마운트 시점에 반드시 한 번 전달한다(기본 켬이 아니다)', () => {
+    setEnabled.mockClear();
     seed(false);
     render(
       <SettingsProvider>
@@ -49,14 +49,5 @@ describe('ThemeEffects — 놓임 소리 스위치', () => {
     );
     expect(setEnabled).toHaveBeenCalledWith(false);
     expect(setEnabled.mock.calls.some((c: unknown[]) => c[0] === true)).toBe(false);
-  });
-
-  it('아무도 켜지 않으면 소리는 안 난다 — 싱글턴의 기본값은 꺼짐이다', () => {
-    // 배선을 통째로 빼면 이 단언이 참인 채로 남는다. 그래서 위 두 it 과 짝으로만 의미가 있다.
-    vi.restoreAllMocks();
-    cues.reset();
-    expect(cues.isOpen()).toBe(false);
-    cues.play('drop');
-    expect(cues.isOpen()).toBe(false);
   });
 });

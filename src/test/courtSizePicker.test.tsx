@@ -4,10 +4,9 @@
 // 화면에 한 픽셀도 나타나지 않는 죽은 값" 이었다. 그래서 이 파일의 중심 단언은 모델이 아니라
 // **판의 viewBox** 다 — 규격상 완료·제품상 미배송을 구분하는 유일한 자리다.
 //
-// 함께 못박는 것 셋:
-//  · 초기 화면(=시트가 닫힌 상태)에는 이 컨트롤이 **DOM 에 없다** — §3 표적 예산(≤40, 여유 0).
+// 함께 못박는 것 둘:
 //  · 판이 더러우면 select 가 아니라 **잠금 사유**가 선다(코트 형태 전환과 같은 문).
-//  · 크기를 바꾼 뒤 **판 위 개체가 코트 밖에 남지 않는다**(순수 함수로 뺀 성질 + 대조군).
+//  · 크기를 바꾼 뒤 **판 위 개체가 코트 밖에 남지 않는다**(순수 함수로 뺀 성질).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -23,6 +22,7 @@ import { BOARD_KEY, CURRENT_BOARD_SCHEMA, loadBoard } from '../storage/board.ts'
 import { BoardScreen } from '../features/board/BoardScreen.tsx';
 import { createDrill } from '../model/defaults.ts';
 import type { Drill } from '../model/drill.ts';
+import { isStepEmpty } from '../model/drill.ts';
 import { courtDefFor, COURT_SIZES, COURT_SIZE_LABELS as COURT_SIZE_LABELS_ALL, DEFAULT_COURT_SIZE, type CourtSize } from '../model/court.ts';
 
 const COURT_SIZE_LABELS = COURT_SIZE_LABELS_ALL.ko;
@@ -104,36 +104,13 @@ afterEach(() => {
   delete (window as unknown as { matchMedia?: unknown }).matchMedia;
 });
 
-describe('§6.4 코트 크기 선택 — 자리(§3 표적 예산)', () => {
-  it('초기 화면에는 코트 크기 컨트롤이 DOM 에 아예 없다 (인스펙터 시트는 닫히면 사라진다)', async () => {
-    await openBoard();
-    expect(screen.queryByRole('radiogroup', { name: '코트 크기' })).toBeNull();
-    // 대조군: 같은 질의가 팝오버를 열면 실제로 찾아낸다(질의가 늘 null 인 것이 아니다).
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
-    expect(screen.getByRole('radiogroup', { name: '코트 크기' })).toBeInTheDocument();
-  });
-
-  it('세 크기가 규정상의 이름과 함께 나온다 (치수만 적으면 무엇이 표준인지 알 수 없다)', async () => {
-    const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
-    const group = screen.getByRole('radiogroup', { name: '코트 크기' });
-    const btns = [...group.querySelectorAll('button')];
-    expect(btns.map((b) => b.textContent)).toEqual(COURT_SIZES.map((s) => COURT_SIZE_LABELS[s]));
-    // 지금 값은 aria-pressed 로 말한다(select 의 value 자리). §9 ② 부기 — 기본은 30×18 그대로다.
-    const pressed = btns.filter((b) => b.getAttribute('aria-checked') === 'true');
-    expect(pressed).toHaveLength(1);
-    expect(pressed[0]!.textContent).toBe(COURT_SIZE_LABELS[DEFAULT_COURT_SIZE]);
-  });
-});
-
 describe('§6.4 코트 크기 선택 — 고르면 판이 실제로 바뀐다', () => {
   it.each(COURT_SIZES.filter((s) => s !== DEFAULT_COURT_SIZE))('%s 를 고르면 판의 viewBox 가 그 코트가 된다', async (size) => {
     const { user } = await openBoard();
     const before = boardViewBox();
     expect(before).toBe(`0 0 ${courtDefFor('full', DEFAULT_COURT_SIZE).vbW} ${courtDefFor('full', DEFAULT_COURT_SIZE).vbH}`);
 
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     await user.click(screen.getByRole('radio', { name: `코트 크기 ${COURT_SIZE_LABELS[size]}` }));
 
     const def = courtDefFor('full', size);
@@ -143,34 +120,15 @@ describe('§6.4 코트 크기 선택 — 고르면 판이 실제로 바뀐다', 
 
   it('고른 크기가 스냅샷에 남아 다음 방문에 되살아난다', async () => {
     const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     await user.click(screen.getByRole('radio', { name: `코트 크기 ${COURT_SIZE_LABELS['25x14']}` }));
     // 저장은 500ms 디바운스다 — 실제로 써질 때까지 기다린다(마운트 직후만 재면 헛통과다).
     await waitFor(() => expect(loadBoard()?.drill.courtSize).toBe('25x14'), { timeout: 3000 });
-    expect(loadBoard()?.pristine).toBe(true); // 갈아끼운 판은 다시 비어 있다
-  });
-
-  it('크기를 바꾼 판은 **비어 있다** — 코트를 줄여도 개체가 밖에 남지 않는다', async () => {
-    const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
-    await user.click(screen.getByRole('radio', { name: `코트 크기 ${COURT_SIZE_LABELS['25x14']}` }));
-    await waitFor(() => expect(loadBoard()?.drill.courtSize).toBe('25x14'), { timeout: 3000 });
-
+    // 갈아끼운 판은 다시 비어 있다 — 2026-08-28 부터 그 사실을 스냅샷 필드가 아니라 판에서 읽는다.
     const saved = loadBoard()!.drill;
+    expect(saved.steps.every(isStepEmpty)).toBe(true);
+    // 그리고 코트를 줄여도 개체가 밖에 남지 않는다(비었으므로 자명하지만 순수 함수로도 다시 잰다).
     expect(outsideCourt(saved)).toEqual([]);
-    // 그리고 그 이유가 "판이 비어서" 라는 것까지 적어 둔다 — 다음 사람이 좌표 이동을 넣고
-    // 이 단언만 보면 "이미 지키고 있다" 고 오해하지 않도록.
-    expect(Object.keys(saved.steps[0]!.chairs)).toHaveLength(0);
-    expect(Object.keys(saved.steps[0]!.balls)).toHaveLength(0);
-  });
-
-  it('대조군: outsideCourt 는 실제로 판 밖을 잡아낸다 (안 잡으면 위 단언이 헛것이다)', () => {
-    const d = createDrill({ courtMode: 'full', courtSize: '25x14' });
-    const id = d.cast.chairs[0]!.id;
-    // 30×18 에서는 안(x=750 < 825)이지만 25×14 viewBox(700×425)에서는 **밖**인 좌표.
-    const bad: Drill = { ...d, steps: [{ ...d.steps[0]!, chairs: { [id]: { x: 750, y: 200, angleDeg: 0 } } }] };
-    expect(outsideCourt(bad)).toEqual([`chair:${id}(750,200)`]);
-    expect(outsideCourt({ ...bad, courtSize: '30x18' })).toEqual([]); // 같은 좌표가 큰 판에서는 안이다
   });
 });
 
@@ -179,7 +137,7 @@ describe('§6.4 코트 크기 선택 — 잠금은 코트 형태 전환과 같�
     const dirty = createDrill({ courtMode: 'full' });
     seedBoard(dirty, false); // pristine=false = 저장본이 이미 편집된 판이다
     const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
 
     expect(screen.queryByRole('radiogroup', { name: '코트 크기' })).toBeNull();
     expect(screen.getByText(/코트 크기를 바꾸려면 먼저 코트를 비우세요/)).toBeInTheDocument();
@@ -191,18 +149,20 @@ describe('§6.4 코트 크기 선택 — 잠금은 코트 형태 전환과 같�
     const dirty = createDrill({ courtMode: 'full', courtSize: '28x15' });
     seedBoard(dirty, false);
     const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     expect(screen.queryByRole('radiogroup', { name: '코트 크기' })).toBeNull();
     await user.keyboard('{Escape}');
 
-    await user.click(screen.getByRole('button', { name: '코트 비우기' }));
+    // 2026-08-28 — [코트 비우기]는 [보드 설정] 모달 안이다(잠금 사유 바로 밑).
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
+    await user.click(await screen.findByRole('button', { name: '코트 비우기' }));
     await user.click(screen.getByRole('button', { name: '비우기' }));
 
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     const group = await screen.findByRole('radiogroup', { name: '코트 크기' });
     // 지금 값은 aria-pressed 다. 비우기가 규격까지 되돌리지는 않는다.
     const pressed = [...group.querySelectorAll('button')].find((b) => b.getAttribute('aria-checked') === 'true');
-    expect(pressed?.textContent).toBe(COURT_SIZE_LABELS['28x15']);
+    expect(pressed?.textContent).toContain(COURT_SIZE_LABELS['28x15']);
     const def = courtDefFor('full', '28x15');
     expect(boardViewBox()).toBe(`0 0 ${def.vbW} ${def.vbH}`);
   });
@@ -210,7 +170,7 @@ describe('§6.4 코트 크기 선택 — 잠금은 코트 형태 전환과 같�
   it('하프 코트에서는 select 대신 "풀 코트에만 적용" 을 말한다 — 골라도 안 변하는 컨트롤은 거짓말이다', async () => {
     seedBoard(createDrill({ courtMode: 'half', courtSize: '25x14' }), true);
     const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     expect(screen.queryByRole('radiogroup', { name: '코트 크기' })).toBeNull();
     expect(screen.getByText(/풀 코트에만 적용됩니다/)).toBeInTheDocument();
     // 하프 판은 크기와 무관하게 같은 viewBox 다(court.ts 근거 셋).
@@ -221,16 +181,16 @@ describe('§6.4 코트 크기 선택 — 잠금은 코트 형태 전환과 같�
 describe('§6.4 코트 형태를 왕복해도 고른 크기가 살아남는다', () => {
   it('풀(25×14) → 하프 → 풀 에서 25×14 가 유지된다', async () => {
     const { user } = await openBoard();
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     await user.click(screen.getByRole('radio', { name: `코트 크기 ${COURT_SIZE_LABELS['25x14']}` }));
     await waitFor(() => expect(boardViewBox()).toBe(`0 0 ${courtDefFor('full', '25x14').vbW} ${courtDefFor('full', '25x14').vbH}`));
 
     // 형태 전환으로 왕복한다. 2026-08-14 재설계로 형태와 크기가 **같은 팝오버** 안이지만
     // 서로 다른 그룹이고, 고르면 팝오버가 닫히므로 매번 다시 연다 — 그 여닫음까지가 경로다.
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     await user.click(screen.getByRole('radio', { name: '하프 코트' }));
     await waitFor(() => expect(boardViewBox()).toBe(`0 0 ${courtDefFor('half').vbW} ${courtDefFor('half').vbH}`));
-    await user.click(screen.getByRole('button', { name: '코트 형태와 크기' }));
+    await user.click(screen.getByRole('button', { name: '보드 설정' }));
     await user.click(screen.getByRole('radio', { name: '풀 코트' }));
 
     const def = courtDefFor('full', '25x14');

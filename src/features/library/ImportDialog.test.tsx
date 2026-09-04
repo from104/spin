@@ -18,21 +18,19 @@ function candidate(over: Partial<ImportCandidate<Drill>>): ImportCandidate<Drill
 }
 
 describe('ImportDialog', () => {
-  it('conflict:none/identical 항목은 목록에 나타나지 않는다', () => {
+  it('conflict:exists 항목만 노출하고 기본값은 사본으로 추가다', async () => {
+    // 후보 셋(none·identical·exists)을 한 번에 렌더해 exists 만 노출되는지와 기본 해상도를
+    // 같은 케이스에서 잰다.
     const drills = [
       candidate({ doc: { title: '새 드릴' } as Drill, conflict: 'none' }),
       candidate({ doc: { title: '동일 드릴' } as Drill, conflict: 'identical' }),
+      candidate({ doc: { title: '충돌 드릴' } as Drill, conflict: 'exists', existing: { title: '기존 드릴', updatedAt: 0 } }),
     ];
-    render(<ImportDialog open drills={drills} onCancel={() => {}} onConfirm={() => {}} />, { wrapper: SettingsProvider });
-    expect(screen.queryByText('새 드릴')).not.toBeInTheDocument();
-    expect(screen.queryByText('동일 드릴')).not.toBeInTheDocument();
-  });
-
-  it('conflict:exists 항목만 노출하고 기본값은 사본으로 추가다', async () => {
-    const drills = [candidate({ doc: { title: '충돌 드릴' } as Drill, conflict: 'exists', existing: { title: '기존 드릴', updatedAt: 0 } })];
     const onConfirm = vi.fn();
     render(<ImportDialog open drills={drills} onCancel={() => {}} onConfirm={onConfirm} />, { wrapper: SettingsProvider });
 
+    expect(screen.queryByText('새 드릴')).not.toBeInTheDocument();
+    expect(screen.queryByText('동일 드릴')).not.toBeInTheDocument();
     expect(screen.getByText('충돌 드릴')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '사본으로 추가' })).toHaveAttribute('aria-checked', 'true');
 

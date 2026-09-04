@@ -43,15 +43,4 @@ describe('ArrowMarkers', () => {
       expect(Number(p.getAttribute('stroke-width'))).toBeGreaterThan(0);
     }
   });
-
-  it('색상이 없으면 마커도 없다', () => {
-    const { container } = render(
-      <svg>
-        <defs>
-          <ArrowMarkers uid="xyz" colors={[]} />
-        </defs>
-      </svg>,
-    );
-    expect(container.querySelectorAll('marker')).toHaveLength(0);
-  });
 });

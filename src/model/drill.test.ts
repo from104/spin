@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { newId } from '../core/ids.ts';
 import { createDrill } from './defaults.ts';
-import { addChair, addCone, addStepAfter, setArrow, setNote } from './edits.ts';
+import { addChair, addCone, duplicateStep, setArrow, setNote } from './edits.ts';
 
 describe('직렬화 동치', () => {
   it('구성 요소가 다양하게 채워진 드릴도 structuredClone 과 JSON 왕복이 원본과 deep-equal 이다', () => {
@@ -19,7 +19,7 @@ describe('직렬화 동치', () => {
       color: '#abcdef',
     });
     d = setNote(d, 0, { id: newId('nt'), x: 3, y: 4, text: '메모', size: 18, color: '#fff', align: 'end' });
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
 
     const cloned = structuredClone(d);
     const roundtrip = JSON.parse(JSON.stringify(d));

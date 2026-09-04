@@ -52,9 +52,9 @@ describe('handlesVisible — 자동 배율 문턱은 죽었다 (§9 결정 ④)'
     }
   });
 
-  it('문턱 상수(1.28)의 양쪽을 정확히 짚어도 답이 안 바뀐다 — 되살리면 여기가 빨개진다', () => {
+  it('문턱 상수(2.2154)의 양쪽을 정확히 짚어도 답이 안 바뀐다 — 되살리면 여기가 빨개진다', () => {
     const t = INTERACT.zoneDirectMinPxPerUnit;
-    expect(t).toBeCloseTo(1.28, 6); // 문턱 자체는 상수로 남아 있다(constants.test.ts 가 유도식을 지킨다)
+    expect(t).toBeCloseTo(2.2154, 6); // 문턱 자체는 상수로 남아 있다(constants.test.ts 가 유도식을 지킨다)
     // 옛 식이라면 아래 첫 줄만 true 가 됐다. 그 비대칭이 바로 "줌이 조작 규칙을 바꾸는 사고" 다.
     expect(handlesVisible(t - 0.0001, 'touch', false)).toBe(false);
     expect(handlesVisible(t + 0.0001, 'touch', false)).toBe(false);

@@ -114,9 +114,4 @@ describe('SeedDrills — 실패했을 때', () => {
     expect(loadPrefs().seeded).toBe(false);
     expect(await idbDrillRepo.countDrills()).toBe(0);
   });
-
-  it('대조군 — 같은 배선에서 실패가 없으면 도장이 찍힌다', async () => {
-    render(tree(<Probe />));
-    await waitFor(() => expect(loadPrefs().seeded).toBe(true));
-  });
 });

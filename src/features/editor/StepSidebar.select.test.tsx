@@ -9,7 +9,7 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { StepSidebar } from './StepSidebar.tsx';
 import { createDrill } from '../../model/defaults.ts';
-import { addStepAfter, moveStep, moveSteps } from '../../model/edits.ts';
+import { duplicateStep, moveStep, moveSteps } from '../../model/edits.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
@@ -20,7 +20,7 @@ const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider }
 
 function makeDrill(n: number): Drill {
   let d = createDrill({ courtMode: 'full' });
-  for (let i = 1; i < n; i++) d = addStepAfter(d, i - 1);
+  for (let i = 1; i < n; i++) d = duplicateStep(d, i - 1);
   return d;
 }
 
@@ -35,7 +35,6 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     stepId: d.steps[0]!.id,
     onSelectStep: noop,
     onReorderStep: noop,
-    onAddStep: noop,
     onDuplicateStep: noop,
     onToggleCut: noop,
     collapsed: false,
@@ -51,14 +50,12 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
 const enterSelectMode = () => userEvent.click(screen.getByRole('button', { name: '선택 모드' }));
 
 describe('선택 모드 진입/이탈', () => {
-  it('진입 전에는 카드에 체크 표시(aria-pressed)가 없다 — 평소 카드 그대로', () => {
-    renderSidebar(makeDrill(2));
-    cards().forEach((c) => expect(c).not.toHaveAttribute('aria-pressed'));
-    expect(screen.getByRole('button', { name: '선택 모드' })).toHaveAttribute('aria-pressed', 'false');
-  });
-
   it('진입하면 카드가 체크 가능(aria-pressed=false)해지고, 카운트·일괄 버튼이 나타난다', async () => {
     renderSidebar(makeDrill(2));
+    // 진입 전에는 카드에 체크 표시(aria-pressed)가 없다 — 평소 카드 그대로.
+    cards().forEach((c) => expect(c).not.toHaveAttribute('aria-pressed'));
+    expect(screen.getByRole('button', { name: '선택 모드' })).toHaveAttribute('aria-pressed', 'false');
+
     await enterSelectMode();
 
     expect(screen.getByRole('button', { name: '선택 모드 끄기' })).toHaveAttribute('aria-pressed', 'true');
@@ -86,17 +83,6 @@ describe('선택 모드 진입/이탈', () => {
 });
 
 describe('카드 탭 의미 전환 — 모드 밖은 STEP_SELECT, 모드 안은 체크 토글', () => {
-  // 대조군: 모드 밖에서는 이동/체크가 아니라 스텝 선택이다(StepSidebar.test.tsx 의 "카드를
-  // 탭하면 그 스텝이 선택된다" 와 같은 계약을 여기서도 짧게 재확인한다 — 아래 "모드 안" 과
-  // 나란히 있어야 "탭의 뜻이 바뀌었다" 는 대비가 한 파일 안에서 보인다).
-  it('대조군 — 모드 밖에서 카드 탭은 onSelectStep 을 부른다', async () => {
-    const onSelectStep = vi.fn();
-    const d = makeDrill(2);
-    renderSidebar(d, { onSelectStep });
-    await userEvent.click(cardAt(1));
-    expect(onSelectStep).toHaveBeenCalledWith(d.steps[1]!.id);
-  });
-
   it('모드 안에서 카드 탭은 체크를 토글하고, onSelectStep 은 안 불린다', async () => {
     const onSelectStep = vi.fn();
     const d = makeDrill(2);
@@ -260,7 +246,6 @@ function GroupHarness({ initial, onMove }: { initial: Drill; onMove?: (ids: Step
       stepId={stepId}
       onSelectStep={setStepId}
       onReorderStep={(id, to) => setDrill((d) => moveStep(d, d.steps.findIndex((s) => s.id === id), to))}
-      onAddStep={() => {}}
       onDuplicateStep={() => {}}
       onToggleCut={() => {}}
       collapsed={false}
@@ -330,7 +315,6 @@ describe('일괄 이동(드래그) — 상대 순서 보존, 흩어진 선택은
         stepId={d.steps[0]!.id}
         onSelectStep={noop}
         onReorderStep={onReorder}
-        onAddStep={noop}
         onDuplicateStep={noop}
         onToggleCut={noop}
         collapsed={false}

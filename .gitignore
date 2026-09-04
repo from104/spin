@@ -28,3 +28,13 @@ coverage
 .scratch/
 
 client_secret_*.apps.googleusercontent.com.json
+
+# 앱이 내보낸 백업 파일 — 기현님의 실제 드릴·세션·명단 데이터다.
+# 저장소 루트에 놓고 작업하는 일이 잦아서, `git add -A` 한 번에 개인 데이터가
+# 커밋되는 것을 막는다.
+# 이름은 `backupFileName()` 이 짓는다 — `SPIN_backup_YYYYMMDD.spin.backup.json`
+# (`src/storage/files.ts` 의 확장자 표, `ExportSheet.test.tsx` 가 형식을 붙잡는다).
+*.spin.backup.json
+
+# SEO C2 — 프리렌더가 쓰는 중간 SSR 산출물(scripts/prerender.mjs 가 읽고 버린다).
+.seo-build/

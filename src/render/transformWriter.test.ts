@@ -2,6 +2,7 @@
 /// <reference types="node" />
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { strokePointKey } from '../model/stroke.ts';
 import { arrowPointKey } from '../model/arrow.ts';
 import { createTransformWriter } from './transformWriter.ts';
 
@@ -195,6 +196,54 @@ describe('registerArrow — 화살표 d 재조립(3.10)', () => {
     const writer = createTransformWriter();
     writer.writeFrame({ [keys.f]: { x: 5, y: 6, theta: 0 } });
     expect(writer.snapshot()[keys.f]).toEqual({ x: 5, y: 6, theta: 0 });
+  });
+});
+
+describe('registerStroke — 획 d 재조립(2026-09-03)', () => {
+  const fhId = 'fh_test000000000a';
+  const key = (count: number, i: number): string => strokePointKey(fhId, count, i);
+
+  it('점이 다 실리면 그룹의 모든 path 에 같은 d 를 쓴다 — 화살표와 같은 규약', () => {
+    const writer = createTransformWriter();
+    const { g, ds } = makeArrowG(3);
+    writer.registerStroke(fhId, g, 2);
+    writer.writeFrame({ [key(2, 0)]: { x: 0, y: 0, theta: 0 }, [key(2, 1)]: { x: 40, y: 10, theta: 0 } });
+    expect(ds()).toEqual(['M0,0 L40,10', 'M0,0 L40,10', 'M0,0 L40,10']);
+    // 획 그룹에도 transform 은 절대 안 쓴다(모양 변화라 transform 으로 표현이 안 된다).
+    expect(g.getAttribute('transform')).toBeNull();
+  });
+
+  it('**점 수가 다른 스텝의 키만 있으면 아무것도 안 쓴다** — 그것이 스냅 정책이다', () => {
+    // 노드는 점 3개짜리 획을 렌더했는데 프레임에는 이전 스텝(점 2개)의 키만 있다.
+    // 여기서 뭔가를 그리면 5번째 점이 12번째 점을 향해 기어가는 애니메이션이 나온다
+    // (model/stroke.ts 의 strokePointKey 주석). React 가 렌더한 d 를 그대로 두는 것이 맞다.
+    const writer = createTransformWriter();
+    const { g, ds } = makeArrowG(1);
+    g.querySelector('path')!.setAttribute('d', 'M9,9');
+    writer.registerStroke(fhId, g, 3);
+    writer.writeFrame({ [key(2, 0)]: { x: 0, y: 0, theta: 0 }, [key(2, 1)]: { x: 40, y: 10, theta: 0 } });
+    expect(ds()).toEqual(['M9,9']);
+    // 대조군 — 같은 점 수의 키가 오면 그때는 쓴다(위가 "아무 키도 못 읽어서 통과" 가 아니다).
+    writer.writeFrame({ [key(3, 0)]: { x: 0, y: 0, theta: 0 }, [key(3, 1)]: { x: 20, y: 5, theta: 0 }, [key(3, 2)]: { x: 40, y: 0, theta: 0 } });
+    expect(ds()[0]).toContain('C');
+  });
+
+  it('writeFrame → registerStroke 순서(재마운트)에서도 d 를 즉시 재생한다', () => {
+    const writer = createTransformWriter();
+    writer.writeFrame({ [key(2, 0)]: { x: 1, y: 1, theta: 0 }, [key(2, 1)]: { x: 3, y: 3, theta: 0 } });
+    const { g, ds } = makeArrowG(1);
+    writer.registerStroke(fhId, g, 2);
+    expect(ds()).toEqual(['M1,1 L3,3']);
+  });
+
+  it('registerStroke(id, null)·clear 이후에는 그 노드에 더 쓰지 않는다', () => {
+    const writer = createTransformWriter();
+    const { g, ds } = makeArrowG(1);
+    writer.registerStroke(fhId, g, 2);
+    writer.writeFrame({ [key(2, 0)]: { x: 1, y: 1, theta: 0 }, [key(2, 1)]: { x: 3, y: 3, theta: 0 } });
+    writer.registerStroke(fhId, null);
+    writer.writeFrame({ [key(2, 0)]: { x: 90, y: 90, theta: 0 }, [key(2, 1)]: { x: 92, y: 92, theta: 0 } });
+    expect(ds()).toEqual(['M1,1 L3,3']);
   });
 });
 

@@ -9,6 +9,7 @@
 //    저장된 드릴을 열어도 라인은 30×18 이 그려졌다. size 를 prop 으로 받는 이 구조가 그 수정이다.
 import { courtDefFor, DEFAULT_COURT_SIZE, SPOT_CROSS_HALF_PX, type CourtSize } from '../../model/court.ts';
 import { COURT_LINE_WEIGHTS, type CourtLineVariant } from '../CourtSurface.tsx';
+import { GoalPostMarks } from './GoalPostMarks.tsx';
 
 export interface FullCourtLinesProps {
   variant: CourtLineVariant;
@@ -71,13 +72,8 @@ export function FullCourtLines({ variant, size = DEFAULT_COURT_SIZE }: FullCourt
         </g>
       )}
       {w.spotR !== undefined && (
-        <g fill="#f5f5f5" stroke="#c2410c" strokeWidth={w.spotSw}>
-          {/* 편집기에서는 골대가 물리 바디라 ObjectLayer 가 그린다(§5.4) — 여기 정적 원을
-              같이 그리면 원위치 표시와 실제 골대가 겹쳐 두 개로 보인다. */}
-          {(variant === 'editor' ? [] : DEF.goalPosts).map((p) => (
-            <circle key={`${p.x},${p.y}`} cx={p.x} cy={p.y} r={w.spotR} />
-          ))}
-        </g>
+        // 받침판 + 기둥. 편집기 갈래(물리 바디가 그린다)도 그 컴포넌트가 안다.
+        <GoalPostMarks def={DEF} variant={variant} spotR={w.spotR} spotSw={w.spotSw} />
       )}
     </>
   );

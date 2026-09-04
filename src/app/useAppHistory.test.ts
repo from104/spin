@@ -37,6 +37,8 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
     ['present', { kind: 'drill', id: 'dr_x1' }],
     ['present', { kind: 'session', id: 'se_x1' }],
     ['present', undefined],
+    ['rules', undefined],
+    ['rules', { kind: 'rule', topic: 'two-on-one' }],
     ['settings', undefined],
   ];
   it.each(cases)('%s + %j 가 경로 왕복에서 살아남는다', (scr, target) => {
@@ -58,19 +60,32 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
     expect(parsePath('/')).toEqual({ screen: 'board', target: { kind: 'board' } });
   });
 
+  // 2026-08-21 딥링크 형식(/rules/law-N)의 관용 매핑 — **왕복 항등이 아니다**(옛 형식을
+  // 되살리는 게 아니라 남아 있을 수 있는 링크가 안 죽게 하는 것뿐이라, 위 cases 에는 안 넣고
+  // 단방향으로만 고정한다).
+  it('옛 /rules/law-N 딥링크는 부록 주제(rulebook)로 흡수되고, 반대 방향으로는 되돌아가지 않는다', () => {
+    expect(parsePath('/rules/law-3')).toEqual({ screen: 'rules', target: { kind: 'rule', topic: 'rulebook' } });
+    expect(pathFor('rules', { kind: 'rule', topic: 'rulebook' })).toBe('/rules/rulebook');
+  });
+
+  // 2026-08-31 9카드 개편에서 주제 contested 가 폐기되고 그 콘텐츠는 restarts 로 갔다.
+  // 같은 이유로 단방향이다 — 옛 주소를 살리는 게 아니라 북마크를 안 죽이는 것뿐.
+  it('폐기된 /rules/contested 딥링크는 경기 재개(restarts)로 흡수된다', () => {
+    expect(parsePath('/rules/contested')).toEqual({ screen: 'rules', target: { kind: 'rule', topic: 'restarts' } });
+    expect(pathFor('rules', { kind: 'rule', topic: 'restarts' })).toBe('/rules/restarts');
+  });
+
   it('화면 키 전수에 pathFor 가 경로를 준다 (SCREEN_ORDER 대조군)', () => {
     for (const scr of SCREEN_ORDER) expect(pathFor(scr).startsWith('/')).toBe(true);
   });
 });
 
 describe('useAppHistory — 어댑터 계약', () => {
-  it('루트 진입은 board + {kind:board} 다', () => {
+  it('주소로 직접 진입해도 화면·대상이 복원된다(새로고침 생존 — URL 이 저장소다)', () => {
     mount('/');
     expect(captured!.screen).toBe('board');
     expect(captured!.target).toEqual({ kind: 'board' });
-  });
 
-  it('주소로 직접 진입해도 화면·대상이 복원된다(새로고침 생존 — URL 이 저장소다)', () => {
     mount('/present/drill/dr_abc');
     expect(captured!.screen).toBe('present');
     expect(captured!.target).toEqual({ kind: 'drill', id: 'dr_abc' });
@@ -88,8 +103,10 @@ describe('useAppHistory — 어댑터 계약', () => {
     const router = mount('/');
     captured!.go('drills');
     await waitFor(() => expect(captured!.screen).toBe('drills'));
+    expect(router.state.location.state).toEqual({ depth: 1 }); // depth 는 go 마다 +1
     captured!.go('present', { kind: 'drill', id: 'dr_1' });
     await waitFor(() => expect(captured!.screen).toBe('present'));
+    expect(router.state.location.state).toEqual({ depth: 2 });
     captured!.back('board');
     await waitFor(() => expect(captured!.screen).toBe('drills')); // fallback 이 아니라 직전 화면
     expect(router.state.location.pathname).toBe('/drills');
@@ -104,14 +121,5 @@ describe('useAppHistory — 어댑터 계약', () => {
     // replace 라 히스토리 스택 길이가 그대로 1 이다 — 브라우저 뒤로가기가 시연 재진입 토글이
     // 되지 않는다(옛 구현은 여기서 push 를 해 그 토글 위험을 안고 있었다).
     expect(router.state.location.state).toEqual({ depth: 0 });
-  });
-
-  it('depth 가 location.state 로 이어진다 — go 마다 +1', async () => {
-    const router = mount('/');
-    captured!.go('drills');
-    await waitFor(() => expect(captured!.screen).toBe('drills'));
-    captured!.go('settings');
-    await waitFor(() => expect(captured!.screen).toBe('settings'));
-    expect(router.state.location.state).toEqual({ depth: 2 });
   });
 });

@@ -110,16 +110,19 @@ describe('pushChairIntoBounds (§4.2 P0-3 판 밖 고착 방지)', () => {
   it('판 안이면 한 픽셀도 움직이지 않는다 — 임의 θ 20개에서 안전 no-op', () => {
     for (let i = 0; i < 20; i++) {
       const theta = (i / 20) * Math.PI * 2 - Math.PI;
-      // hullRadiusPx(32.5) 이내로 안쪽에 두면 어떤 회전에도 판을 안 벗어난다.
+      // hullRadiusPx(27.86) 이내로 안쪽에 두면 어떤 회전에도 판을 안 벗어난다.
       const pose: ChairPose = { x: 200, y: 150, theta };
       expect(pushChairIntoBounds(pose, bounds)).toEqual({ x: 200, y: 150 });
     }
   });
 
   it('왼쪽 벽을 파고든 칩을 hull 이 정확히 경계에 닿는 지점까지 되민다 (P0-3 실측 배치)', () => {
-    // 실측: 드래그 중인 static 칩과 벽 사이에 낀 칩이 피벗 x=-5(차체 뒤끝 -12.5)로 나갔다.
+    // 실측: 드래그 중인 static 칩과 벽 사이에 낀 칩이 피벗 x=-5 로 나갔다.
+    // (차체 뒤끝 = -5 − pivotToRearPx = -11.5. 2026-08-29 실측 전에는 -12.5 였다 — 배치는
+    //  그대로 두고 전제 숫자만 차체를 따라 옮긴다. 이 테스트가 보는 것은 깊이 값이 아니라
+    //  *되민 뒤에 뒷면이 정확히 x=0 에 닿는가* 이고, 그 단언은 상수 파생이라 안 바뀐다.)
     const pinned: ChairPose = { x: -5, y: 262.5, theta: 0 };
-    expect(out(pinned)).toBeCloseTo(12.5, 9); // 전제: 12.5 px 나가 있다
+    expect(out(pinned)).toBeCloseTo(11.5, 9); // 전제: 11.5 px 나가 있다
     const fixed = pushChairIntoBounds(pinned, bounds);
     expect(fixed).toEqual({ x: CHAIR.pivotToRearPx, y: 262.5 }); // 뒷면이 x=0 에 닿는다
     expect(out({ ...fixed, theta: 0 })).toBeCloseTo(0, 12); // 더도 덜도 아니게
@@ -260,23 +263,23 @@ describe('separateOverlaps (§4.2 P0-1 기하 분리 폴백)', () => {
   });
 
   it('맞물린 두 칩을 떼어 놓는다 — 최소침투축으로 절반씩', () => {
-    // A 뒷면 x=525, B 앞면 x=537.5 → 겹침 12.5. 세로 겹침(25)보다 작으므로 최소축은 x 다.
+    // A 뒷면 x=525, B 앞면 x=532.5 → 겹침 7.5. 세로 겹침(20)보다 작으므로 최소축은 x 다.
     const poses: ChairPose[] = [
       { x: 500 + CHAIR.pivotToRearPx + 25, y: 500, theta: 0 },
       { x: 500 + CHAIR.pivotToRearPx, y: 500, theta: 0 },
     ];
-    expect(worst(poses)).toBeCloseTo(12.5, 9); // 전제
+    expect(worst(poses)).toBeCloseTo(7.5, 9); // 전제
     const out = separateOverlaps(poses, BOUNDS);
     expect(worst(out)).toBeLessThanOrEqual(0);
     // 양쪽이 정확히 같은 만큼, 서로 반대로, x 축으로만 움직인다.
-    expect(out[0]!.x - poses[0]!.x).toBeCloseTo(6.255, 9);
-    expect(poses[1]!.x - out[1]!.x).toBeCloseTo(6.255, 9);
+    expect(out[0]!.x - poses[0]!.x).toBeCloseTo(3.755, 9);
+    expect(poses[1]!.x - out[1]!.x).toBeCloseTo(3.755, 9);
     expect(out[0]!.y).toBe(poses[0]!.y);
     expect(out[1]!.y).toBe(poses[1]!.y);
   });
 
   it('벽에 막혀 물러설 자리가 없는 칩의 몫은 상대가 받는다 (P0-1 의 실제 배치)', () => {
-    // 뒷면을 왼쪽 벽에 붙인 칩(피벗 7.5) 위에 다른 칩이 12.5 px 얹혀 있다. 반씩 나누면
+    // 뒷면을 왼쪽 벽에 붙인 칩(피벗 6.5) 위에 다른 칩이 7.5 px 얹혀 있다. 반씩 나누면
     // 벽 쪽 절반이 통째로 버려져 겹침이 남는다 — 그래서 남은 몫을 상대에게 넘긴다.
     const poses: ChairPose[] = [
       { x: CHAIR.pivotToRearPx + 25, y: 500, theta: 0 },
@@ -285,7 +288,7 @@ describe('separateOverlaps (§4.2 P0-1 기하 분리 폴백)', () => {
     const out = separateOverlaps(poses, BOUNDS);
     expect(worst(out)).toBeLessThanOrEqual(0);
     expect(out[1]!).toEqual(poses[1]!); // 벽 쪽 칩은 한 픽셀도 안 움직인다
-    expect(out[0]!.x - poses[0]!.x).toBeCloseTo(12.51, 9); // 전부 반대쪽이 물러난다
+    expect(out[0]!.x - poses[0]!.x).toBeCloseTo(7.51, 9); // 전부 반대쪽이 물러난다
   });
 
   it('각도는 건드리지 않는다 — 안전망이 사용자가 놓은 방향을 바꾸지 않는다', () => {

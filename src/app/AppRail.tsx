@@ -8,7 +8,10 @@
 // 3.-2: **좁은 창에서는 이 컴포넌트가 아예 서지 않는다** — AppShell 이 `useIsNarrow()` 로 갈라
 // AppNavSegment(헤더 좌측 3칸)를 대신 세운다. 여기 84 는 크롬 예산의 appRail 행 `wide` 값이고,
 // 그래서 이 폭을 바꾸면 chromeBudget.test.ts 의 소스 대조가 빨간불이 된다.
-import { IconHelp, IconMoon, IconSun } from '../ui/icons.tsx';
+import { useRef, useState } from 'react';
+import { IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
+import { LanguageModal } from './LanguageModal.tsx';
+import { ChangelogModal } from './ChangelogModal.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
@@ -31,6 +34,13 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
   const locale = useLocale();
   const t = useT();
   const showHelp = useHelpShow();
+  // 언어 모달(2026-09-02) — 레일이 직접 쥔다. 여는 버튼이 여기 하나뿐이라 위로 끌어올릴
+  // 이유가 없고, 올리면 AppShell 이 모달 하나를 더 아는 값이 없는 결합이 는다.
+  const [langOpen, setLangOpen] = useState(false);
+  const langBtnRef = useRef<HTMLButtonElement | null>(null);
+  // 2026-09-03 기현 지시 — 버전 번호를 누르면 이번 버전의 변경 내역이 뜬다.
+  const [changelogOpen, setChangelogOpen] = useState(false);
+  const versionBtnRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <nav
@@ -102,16 +112,57 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         );
       })}
 
-      {/* [도움말] — §0.5 Phase 5(계획서 §A) "테마 토글 위에 [도움말] 버튼". `marginTop:'auto'`
-          를 여기로 옮겨 이 버튼이 남는 세로 공간을 먹고 바닥에 붙는다 — 테마 토글·버전은
-          평범한 flow 로 바로 뒤따라 함께 바닥 쪽에 선다. */}
+      {/* [언어] — 설정 화면에서 옮겨 왔다(2026-09-02 기현 지시). **[도움말] 바로 위**다.
+          `marginTop:'auto'` 도 여기로 함께 왔다: 바닥 뭉치의 **맨 위 항목**이 그것을 지녀야
+          아래 셋(도움말·테마·버전)이 평범한 flow 로 뒤따라 바닥에 붙는다. 도움말에 남겨 두면
+          언어 버튼만 목록 바로 밑에 떠서 뭉치가 갈라진다.
+
+          아이콘이 지구본인 근거는 IconLanguage 주석에 있다 — 요약하면, 언어를 바꾸려는 사람은
+          지금 화면 글자를 못 읽는 사람일 수 있어서 아이콘이 글자면 안 된다. */}
+      <button
+        type="button"
+        ref={langBtnRef}
+        aria-label={t('settings.language.title')}
+        title={t('settings.language.title')}
+        aria-haspopup="dialog"
+        onClick={() => setLangOpen(true)}
+        // 아래 두 형제(도움말·테마)보다 진하다. 셋 중 이것만 강조하는 근거는 IconLanguage
+        // 주석과 같다 — 나머지 둘은 "찾으면 좋은 것" 이지만 이것은 **화면 글자를 못 읽는
+        // 사람이 찾아내야 하는 것**이라, 같은 회색으로 묻히면 안 된다.
+        //
+        // **지구본만 악센트색이다**(기현 지시 2026-09-02, 2차). 테두리는 `--border-strong`
+        // 그대로 둔다 — 아이콘만 올리라는 지시이기도 하고, 테두리까지 물들이면 목록 항목의
+        // 선택 표시와 같은 꼴이 된다.
+        //
+        // [2026-09-02 1차에서 뒤집힘] 처음엔 `--text` 에서 멈췄고 근거는 *"레일에서 악센트는
+        // 지금 켜진 화면의 표시(위 목록의 `active`)라 상시 버튼이 빌려 쓰면 어느 화면에
+        // 있는지가 흐려진다"* 였다. 근거를 지우지 않고 남기는 이유는 다음 사람이 같은 고민을
+        // 다시 하지 않게 하기 위해서다. 실물을 보고 기현님이 그 정도로는 안 보인다고 판단했고,
+        // 실제로 충돌이 크지 않다: `active` 표시는 **아이콘 + 글자 + 배경**이 함께 서는 것이라
+        // 글자 없는 44px 아이콘 하나와 혼동되지 않는다.
+        style={{
+          marginTop: 'auto',
+          width: 44,
+          height: 44,
+          border: '1px solid var(--border-strong)',
+          borderRadius: 12,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--accent)',
+        }}
+      >
+        <IconLanguage />
+      </button>
+      <LanguageModal open={langOpen} onClose={() => setLangOpen(false)} returnFocusRef={langBtnRef} />
+
+      {/* [도움말] — §0.5 Phase 5(계획서 §A) "테마 토글 위에 [도움말] 버튼". */}
       <button
         type="button"
         aria-label={t('help.center.title')}
         title={t('help.center.title')}
         onClick={showHelp}
         style={{
-          marginTop: 'auto',
           width: 44,
           height: 44,
           border: '1px solid var(--border)',
@@ -145,19 +196,34 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
 
       {/* 버전 — 값은 package.json 하나에서만 나온다(vite define). 화면에 박아 두면
           릴리스 때 반드시 어긋난다. 사용자가 "지금 뭘 보고 있는지" 를 말할 수 있어야
-          제보를 커밋에 붙일 수 있어서 눈에 띄지 않게, 그러나 항상 보이게 둔다. */}
-      <span
+          제보를 커밋에 붙일 수 있어서 눈에 띄지 않게, 그러나 항상 보이게 둔다.
+          2026-09-03 기현 지시로 **눌러서 이번 버전 변경 내역**을 보는 문이 됐다 — 값은
+          여전히 하나(package.json)이고, CHANGELOG.md 도 옮겨 적지 않는다(ChangelogModal.tsx).
+          색은 곧이어 지구본(언어)과 같은 `--accent` 로 — 둘 다 "눌러서 뭔가 열리는 상시
+          버튼"이고, 지금은 지구본만 튀어서 버전은 눌러 보기 전까진 버튼처럼 안 보였다. */}
+      <button
+        type="button"
+        ref={versionBtnRef}
+        aria-label={t('app.changelog.openTitle', { version: __APP_VERSION__ })}
+        title={t('app.changelog.openTitle', { version: __APP_VERSION__ })}
+        aria-haspopup="dialog"
+        onClick={() => setChangelogOpen(true)}
         style={{
           marginTop: 8,
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
           fontFamily: "'Space Grotesk', sans-serif",
           fontSize: '0.625rem',
           fontWeight: 600,
           letterSpacing: '0.02em',
-          color: 'var(--faint-text)',
+          color: 'var(--accent)',
         }}
       >
         v{__APP_VERSION__}
-      </span>
+      </button>
+      <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} returnFocusRef={versionBtnRef} />
     </nav>
   );
 }

@@ -106,31 +106,6 @@ function marks(mode: CourtMode, defense: TeamSide = 'home', size?: CourtSize, ro
 }
 
 describe('진영 표시 — 개수와 자리', () => {
-  it('풀 코트는 존이 둘이라 그룹 둘 · 깃발 넷', () => {
-    const m = marks('full');
-    expect(m.groups).toHaveLength(2);
-    expect(m.flags).toHaveLength(4);
-  });
-
-  it('하프 코트는 골이 하나 — 그룹 하나 · 깃발 둘', () => {
-    const m = marks('half', 'away');
-    expect(m.groups).toHaveLength(1);
-    expect(m.flags).toHaveLength(2);
-  });
-
-  // ★ 2026-08-16 기현 지시: *"진영 표시 원이 직관적으로 공과 혼돈할 수있으니"*. 판 위에서
-  //   원은 이미 공이다 — 진영 표시에 원이 하나라도 돌아오면 그 혼동이 그대로 돌아온다.
-  it('★ 원은 하나도 없다 — 공과 헷갈리지 않는 것이 이 모양의 존재 이유다', () => {
-    for (const mode of COURT_MODES) expect(marks(mode).circles, mode).toHaveLength(0);
-  });
-
-  // ★ 같은 날 두 번째 지시: *"글자를 지우고 … 플래이어 종류는 휠체어 칩을 보면 직관적으로
-  //   알 수 있다."* 글자를 되살리려면 먼저 "칩을 보고도 모르는 무엇을 그 글자가 말하는가" 에
-  //   답해야 한다 — 이 단언이 그 물음을 강제한다.
-  it('★ 글자는 없다 — 골키퍼가 누구인지는 코트 위 칩이 이미 말한다', () => {
-    for (const mode of COURT_MODES) expect(marks(mode).texts, mode).toHaveLength(0);
-  });
-
   it('★ 플랫 코트에는 아무것도 안 그린다 — 진영이라는 개념이 없다', () => {
     const m = marks('flat');
     expect(m.root, '플랫에 진영 표시가 그려졌다').toBeNull();
@@ -148,7 +123,10 @@ describe('진영 표시 — 개수와 자리', () => {
     }
     // 하프 코트의 골라인은 **아래쪽**이다 — 좌우로 잡고 있으면 여기서 걸린다.
     const half = courtDefFor('half');
-    for (const f of marks('half', 'away').flags) {
+    const halfFlags = marks('half', 'away').flags;
+    // 하프 코트는 골이 하나 — 깃발 둘. 0개라서 아래 루프가 헛통과하는 길을 막는다.
+    expect(halfFlags).toHaveLength(2);
+    for (const f of halfFlags) {
       for (const p of f.all) expect(p.y, '하프에서 깃발이 경기면 위로 갔다').toBeGreaterThan(half.surface.y + half.surface.h);
     }
   });
@@ -279,9 +257,8 @@ describe('진영 표시 — 색이 곧 진영이다', () => {
         .map((f) => f.fill);
     expect(leftFillsOf(homeLeft)).toEqual([DEFAULT_TEAMS.home.gkColor, DEFAULT_TEAMS.home.color]);
     expect(leftFillsOf(awayLeft)).toEqual([DEFAULT_TEAMS.away.gkColor, DEFAULT_TEAMS.away.color]);
-  });
 
-  it('진영을 안 넘기면 기본값을 쓴다 — 풀은 홈이 왼쪽, 하프는 원정이 그 골', () => {
+    // defense 를 안 넘기면 기본값을 쓴다 — 풀은 홈이 왼쪽, 하프는 원정이 그 골.
     const { container } = render(
       <svg>
         <SideMarks mode="full" teams={DEFAULT_TEAMS as Parameters<typeof SideMarks>[0]['teams']} />

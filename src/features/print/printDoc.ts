@@ -4,4 +4,8 @@
 import type { Drill } from '../../model/drill.ts';
 import type { SessionPlan } from './sessionPlan.ts';
 
-export type PrintDoc = { kind: 'drill'; drill: Drill } | { kind: 'session'; plan: SessionPlan };
+export type PrintDoc =
+  /** `stepIndexes` 가 있으면 **그 스텝만** 인쇄한다(2026-08-27, 기현 지시 *"선택한것만, 또는
+   *  전체를 고르게 해야함"*). 없으면 전부 — 옛 호출부와 세션 계획서가 그 뜻이다. */
+  | { kind: 'drill'; drill: Drill; stepIndexes?: readonly number[] }
+  | { kind: 'session'; plan: SessionPlan };

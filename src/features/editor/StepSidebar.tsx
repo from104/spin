@@ -102,13 +102,17 @@ import { useT } from '../../i18n/useT.ts';
 export interface StepSidebarProps {
   /** 카드마다 판을 그리므로 steps 만으로는 부족하다 — cast·팀 색·코트가 함께 필요하다. */
   drill: Drill;
+  /** 체크한 스텝이 바뀔 때마다 알린다(2026-08-27). **상태는 여전히 여기 로컬이다** — 위로
+   *  보내는 것은 사본뿐이고, 리듀서·undo 에는 들어가지 않는다(이 파일 머리말의 결정 그대로).
+   *
+   *  쓰는 곳은 내보내기 시트다: *"선택한 것만, 또는 전체를 고르게 해야 한다"*(기현 지시).
+   *  시트가 사이드바의 체크를 **기본값**으로 집어야 하는데, 그러려면 값이 위로 한 번은
+   *  올라와야 한다. 끌어올리지 않고 알리기만 하는 이유는 그것으로 충분하기 때문이다. */
+  onCheckedStepsChange?(ids: ReadonlySet<StepId>): void;
   stepId: StepId;
   onSelectStep(id: StepId): void;
   /** 순서 변경. `toIndex` 는 옮긴 **뒤**의 자리(edits.ts moveStep 과 같은 규칙). */
   onReorderStep(id: StepId, toIndex: number): void;
-  /** [한 장 더 찍기] — 지금 스텝을 복제해 바로 뒤에 넣는다(STEP_ADD 의미 그대로,
-   *  EditorWorkspace.addStepHere 가 이어 커밋 뒤 새 스텝을 선택한다). */
-  onAddStep(): void;
   /** 복제(§복제, 기현님 확정 2026-08-17). `toIndex` 를 안 주면 `STEP_DUPLICATE`/
    *  `duplicateStep` 의 기본값(바로 뒤)이 그대로 적용된다 — 카드 자체의 복제 버튼과 틈
    *  g>0 의 + 버튼이 이 경로다. **맨 앞 틈(g=0)** 만 `toIndex: 0` 을 실어 보내
@@ -191,6 +195,7 @@ function GapSlot({
   label,
   onDuplicate,
   chain,
+  tut,
 }: {
   index: number;
   active: boolean;
@@ -199,11 +204,15 @@ function GapSlot({
   onDuplicate: () => void;
   /** undefined = 맨 앞·맨 뒤 틈(경계 없음) — 사슬 버튼 자체를 안 그린다. */
   chain?: GapChain;
+  /** 튜토리얼 앵커(`data-tut`). **맨 뒤 틈에만** 준다(2026-08-30) — [한 장 더 찍기] 버튼이
+   *  없어지며 그 앵커가 갈 곳이 필요했고, 스텝을 늘리는 길이 이제 이 [+] 뿐이다. */
+  tut?: string;
 }) {
   const t = useT();
   return (
     <div
       data-gap-index={index}
+      data-tut={tut}
       style={{
         position: 'relative',
         flex: 'none',
@@ -314,10 +323,10 @@ function gapDuplicateSpec(
 
 export function StepSidebar({
   drill,
+  onCheckedStepsChange,
   stepId,
   onSelectStep,
   onReorderStep,
-  onAddStep,
   onDuplicateStep,
   onToggleCut,
   collapsed,
@@ -337,6 +346,11 @@ export function StepSidebar({
   // 다음 진입까지 살아 있으면 "내가 언제 이걸 체크했지" 가 된다.
   const [selectMode, setSelectMode] = useState(false);
   const [checkedIds, setCheckedIds] = useState<ReadonlySet<StepId>>(new Set());
+  // 선택 모드를 끄면 checkedIds 가 비워지므로 빈 집합이 자동으로 전달된다 — 시트는 그때
+  // "선택한 스텝" 선택지를 감춘다(고를 수 없는 것을 보여 주지 않는다).
+  useEffect(() => {
+    onCheckedStepsChange?.(checkedIds);
+  }, [checkedIds, onCheckedStepsChange]);
   const toggleSelectMode = useCallback(() => {
     setSelectMode((v) => !v);
     setCheckedIds(new Set());
@@ -672,6 +686,12 @@ export function StepSidebar({
               color: 'var(--text)',
               fontSize: '0.78125rem',
               fontWeight: 600,
+              // ⚠️ **명시해야 한다**(기현 지시 2026-08-30). 네이티브 button 은 글자를 가운데
+              //    두지만 `styles/tokens.css` 의 리셋이 `text-align: left` 로 덮는다 — 이 앱의
+              //    버튼은 대개 아이콘+글자가 왼쪽에서 시작하는 줄이라 그 리셋이 맞다. 여기만
+              //    다르다: 폭을 꽉 채우는(flex:1) 글자 하나짜리 칸이라, 왼쪽에 붙으면 오른쪽
+              //    절반이 이유 없이 비어 보인다.
+              textAlign: 'center',
             }}
           >
             {t('editor.stepSidebar.selectMode.on')}
@@ -845,39 +865,16 @@ export function StepSidebar({
             </div>,
           ];
         })}
+        {/* 맨 뒤 틈 — 2026-08-30 부터 **스텝을 늘리는 유일한 길**이다(기현 지시로 [한 장 더
+            찍기] 버튼이 없어졌다). 그래서 튜토리얼 앵커가 여기로 왔다. */}
         <GapSlot
           index={order.length}
           active={false}
           disabled={atMax}
+          tut="editor-add-step"
           label={gapDuplicateSpec(order.length, order, t).label}
           onDuplicate={() => fireDuplicate(gapDuplicateSpec(order.length, order, t))}
         />
-
-        <button
-          type="button"
-          data-tut="editor-add-step"
-          title={atMax ? t('editor.stepSidebar.maxStepsNotice', { max: LIMITS.maxSteps }) : t('editor.stepSidebar.addStepTitle')}
-          disabled={atMax}
-          onClick={onAddStep}
-          style={{
-            flex: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            minHeight: 'var(--hit)',
-            marginTop: 4,
-            border: '1px dashed var(--border-strong)',
-            borderRadius: 10,
-            color: 'var(--faint-text)',
-            fontSize: '0.78125rem',
-            fontWeight: 600,
-            opacity: atMax ? 0.4 : 1,
-          }}
-        >
-          <IconPlus size={15} />
-          {t('editor.stepSidebar.addStepButton')}
-        </button>
       </div>
       {/* 재생 컨트롤(2026-08-18)은 여기 없다 — 2026-08-20 재설계(§D)로 편집·시연 공용
           PlaybackControls 가 되어 EditorWorkspace 하단 줄(노트 옆, 최우측)로 옮겨 갔다.

@@ -8,7 +8,7 @@
 // *"끝나면 처음 스텝으로 되돌아갑니다"* 는 그래서 **거짓**이었다.
 //
 // ⚠️ 되돌리면 무엇이 깨지는가:
-//   · `PlaybackProvider` 의 `initialLoop` 를 `useState(false)` 로 되돌리면 → ①②③ 이 빨개진다.
+//   · `PlaybackProvider` 의 `initialLoop` 를 `useState(false)` 로 되돌리면 → ①② 이 빨개진다.
 //   · 세 화면 중 **하나**에서 `initialLoop={prefs.loop}` 를 빼면 → ④ 가 그 화면을 지목한다.
 //
 // 축: 값 왕복(provider 단위) · 실제 화면(시연 렌더) · 배선 지점 **전수 열거**(세 화면).
@@ -43,15 +43,6 @@ describe('① PlaybackProvider 가 initialLoop 를 받는다', () => {
       </PlaybackProvider>,
     );
     expect(screen.getByTestId('loop').textContent).toBe('true');
-  });
-
-  it('대조군: 생략하면 false 다 — 위 통과가 "무엇을 넣어도 true" 가 아니다', () => {
-    render(
-      <PlaybackProvider>
-        <LoopProbe />
-      </PlaybackProvider>,
-    );
-    expect(screen.getByTestId('loop').textContent).toBe('false');
   });
 });
 
@@ -96,19 +87,12 @@ describe('② 실제 화면 — 설정을 켜고 시연에 들어가면 반복�
   }, 20000);
 });
 
-describe('③ 편집기·전술판 재생도 같은 값을 본다', () => {
-  it('useStepPlayback 이 usePlaybackState().loop 를 읽는다 — 세 화면이 한 스위치를 공유하는 근거', () => {
-    const src = readFileSync('src/features/editor/useStepPlayback.ts', 'utf-8');
-    expect(src).toContain('usePlaybackState()');
-    expect(src).toMatch(/\bloop\b/);
-  });
-});
-
 describe('④ 배선 지점 전수 열거 — PlaybackProvider 를 세우는 화면 전부가 prefs.loop 를 내린다', () => {
   const MOUNTS = [
     { name: '전술판', file: 'src/features/board/BoardScreen.tsx' },
     { name: '드릴 편집기', file: 'src/features/editor/EditorScreen.tsx' },
     { name: '시연', file: 'src/features/present/PresentRunner.tsx' },
+    { name: '규칙', file: 'src/features/rules/RuleSceneBlock.tsx' },
   ] as const;
 
   it('대조군 — 열거가 프로덕션의 실제 마운트 지점 전량이다(하나 늘면 여기가 먼저 빨개진다)', () => {

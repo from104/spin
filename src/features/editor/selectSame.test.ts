@@ -17,6 +17,7 @@ function scene(over: Partial<SameKindScene> = {}): SameKindScene {
     notes: ['nt_1'],
     arrows: ['ar_1', 'ar_2'],
     shapes: ['sh_1', 'sh_2'],
+    strokes: ['fh_1', 'fh_2'],
     locked: new Set<string>(),
     ...over,
   };

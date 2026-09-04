@@ -7,6 +7,7 @@ import { PLAYBACK } from '../../core/constants.ts';
 import type { DrillStep } from '../../model/drill.ts';
 import { poseFromStored, type ChairPose } from '../../model/chair.ts';
 import { arrowPointKey } from '../../model/arrow.ts';
+import { strokePointKey } from '../../model/stroke.ts';
 import { effectiveStepMs, interpChair } from '../../model/playback.ts';
 
 export type PoseXYT = { x: number; y: number; theta: number };
@@ -54,6 +55,19 @@ export function poseFrame(step: DrillStep): Record<string, PoseXYT> {
     out[arrowPointKey(a.id, 'from')] = { x: a.from.x, y: a.from.y, theta: 0 };
     out[arrowPointKey(a.id, 'ctrl')] = { x: a.ctrl.x, y: a.ctrl.y, theta: 0 };
     out[arrowPointKey(a.id, 'to')] = { x: a.to.x, y: a.to.y, theta: 0 };
+  }
+  // 획(2026-09-03) — 화살표와 **같은 정책**이다: 점 하나가 프레임 항목 하나이고, 아래
+  // `frameAt` 의 일반 선형 보간이 그대로 적용된다. 다른 점은 키에 **점 수가 들어간다**는 것뿐:
+  // 같은 id 의 획이라도 스텝마다 점 수가 다를 수 있는데(다시 그렸다), 점 수가 다르면 두 스텝의
+  // 키 집합이 아예 겹치지 않아 "한쪽에만 있으면 있는 쪽 값" 갈래가 **스냅**을 만든다. 점 수가
+  // 같으면 키가 겹쳐 점별 보간이 된다 — 조건문 하나 없이 정책 둘이 나온다(stroke.ts 의
+  // `strokePointKey` 주석이 이 규약의 단일 출처다).
+  for (const s of step.strokes ?? []) {
+    const n = s.points.length;
+    for (let i = 0; i < n; i += 1) {
+      const p = s.points[i]!;
+      out[strokePointKey(s.id, n, i)] = { x: p.x, y: p.y, theta: 0 };
+    }
   }
   return out;
 }

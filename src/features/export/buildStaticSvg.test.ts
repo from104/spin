@@ -9,6 +9,7 @@ import type { ChairId } from '../../core/ids.ts';
 import { ChairChip } from '../../render/objects/ChairChip.tsx';
 import { createTransformWriter } from '../../render/transformWriter.ts';
 import { RULE_ALERT_STROKE, RULE_ZONE_ALERT_FILL } from '../../render/ruleOverlay.ts';
+import { mToPx } from '../../core/units.ts';
 import { RING_5M_R_PX, RING_R_PX } from '../../model/rules.ts';
 import { buildStaticSvg, buildStaticScene } from './buildStaticSvg.ts';
 import { staticSceneMetrics, EXPORT_LAYOUT } from './staticSceneLayout.ts';
@@ -41,29 +42,6 @@ function editorChipMarkup(): string {
 }
 
 describe('buildStaticSvg — 계획서 §6.2 가드 5종', () => {
-  it('class= 가 0회다 (외부 CSS 가 없는 곳에서 열리므로 클래스는 의미가 없다)', () => {
-    const svg = buildStaticSvg(makeFrame(), OPTS);
-    expect(svg.match(/class=/g)).toBeNull();
-    // 대조군 ①: 같은 정규식이 편집기 원본 칩에서는 실제로 잡아낸다.
-    expect(editorChipMarkup().match(/class=/g)!.length).toBeGreaterThan(0);
-    // 대조군 ②: 출력이 비어서 통과한 것이 아니다.
-    expect(svg.length).toBeGreaterThan(1000);
-  });
-
-  it('var(-- 가 0회다 (CSS 변수는 SVG 를 따로 열면 전부 무너진다)', () => {
-    const svg = buildStaticSvg(makeFrame(), OPTS);
-    expect(svg.includes('var(--')).toBe(false);
-    // 대조군: 편집기 원본 칩의 선택 링은 var(--accent) 를 쓴다.
-    expect(editorChipMarkup().includes('var(--accent)')).toBe(true);
-  });
-
-  it('focus-ind 가 0회다 (포커스 링이 그림에 찍히면 안 된다)', () => {
-    const svg = buildStaticSvg(makeFrame(), OPTS);
-    expect(svg.includes('focus-ind')).toBe(false);
-    // 대조군: 원본 칩에는 focus-ind-outer/inner 가 둘 다 있다.
-    expect(editorChipMarkup().match(/focus-ind/g)!.length).toBeGreaterThanOrEqual(2);
-  });
-
   it('★A-9 <text> 노드가 0개다 — 글자는 전부 캔버스가 그린다', () => {
     const scene = buildStaticScene(makeFrame(), { ...OPTS, caption: { title: '전환 훈련', stepIndex: 2, stepCount: 7, stepName: '왼쪽 전환' } });
     expect(parse(scene.svg).querySelectorAll('text')).toHaveLength(0);
@@ -94,11 +72,22 @@ describe('buildStaticSvg — 계획서 §6.2 가드 5종', () => {
     expect(svg.includes('foreignObject')).toBe(false);
     // url(...) 은 marker-end 의 문서 내부 참조(`url(#...)`)뿐이어야 한다.
     for (const m of svg.matchAll(/url\(([^)]*)\)/g)) expect(m[1]!.startsWith('#')).toBe(true);
+    // class=·var(--·focus-ind 도 새지 않는다 — 외부 CSS 가 없는 곳에서 클래스는 의미가 없고,
+    // CSS 변수는 SVG 를 따로 열면 전부 무너지고, 포커스 링이 그림에 찍히면 안 된다.
+    expect(svg.match(/class=/g)).toBeNull();
+    expect(svg.includes('var(--')).toBe(false);
+    expect(svg.includes('focus-ind')).toBe(false);
+    // 대조군: 같은 정규식들이 편집기 원본 칩에서는 실제로 잡아낸다 — 정규식이 아무것도 못
+    // 잡아서 통과한 게 아니다.
+    const chip = editorChipMarkup();
+    expect(chip.match(/class=/g)!.length).toBeGreaterThan(0);
+    expect(chip.includes('var(--accent)')).toBe(true);
+    expect(chip.match(/focus-ind/g)!.length).toBeGreaterThanOrEqual(2);
   });
 });
 
 describe('buildStaticSvg — 무엇이 실제로 그려졌는가 (하한 대조군)', () => {
-  it('칩 8 · 화살표 2 · 콘 2 · 공 1 · 쪽지 2 가 전부 문서에 있다', () => {
+  it('칩 8 · 화살표 2 · 콘 2 · 공 1 · 쪽지 2 · 획 1 이 전부 문서에 있다', () => {
     const doc = parse(buildStaticSvg(makeFrame(), OPTS));
     const ids = (prefix: string): number => doc.querySelectorAll(`[id^="obj-${prefix}"]`).length;
     expect(ids('ch_')).toBe(8);
@@ -107,14 +96,12 @@ describe('buildStaticSvg — 무엇이 실제로 그려졌는가 (하한 대조�
     expect(ids('bl_')).toBe(1);
     // 빈 메모도 쪽지는 그려진다 — 글자만 안 나온다.
     expect(ids('nt_')).toBe(2);
-  });
-
-  it('빈 프레임은 개체가 0개다 — 위 하한이 "무엇을 넣어도 통과" 가 아님을 보인다', () => {
-    const empty = makeFrame({ chairs: [], balls: [], cones: [], arrows: [], notes: [] });
-    const doc = parse(buildStaticSvg(empty, OPTS));
-    expect(doc.querySelectorAll('[id^="obj-"]')).toHaveLength(0);
-    // 그래도 코트는 그려진다(코트 라인은 프레임과 무관하다).
-    expect(doc.querySelectorAll('rect').length).toBeGreaterThan(0);
+    // 자유 그리기 획(2026-09-03). 모양·굵기 파생은 render/strokeRender.paths.test 가 잰다 —
+    // 여기서는 **PNG 경로가 획을 들렀는가**만 본다(이 파일의 하한 대조군 성격 그대로).
+    expect(ids('fh_')).toBe(1);
+    // 대조군 — 빈 프레임이면 개체가 0개다(위 하한이 "무엇을 넣어도 통과" 가 아님을 보인다).
+    const emptyDoc = parse(buildStaticSvg(makeFrame({ chairs: [], balls: [], cones: [], arrows: [], notes: [], strokes: [] }), OPTS));
+    expect(emptyDoc.querySelectorAll('[id^="obj-"]')).toHaveLength(0);
   });
 
   it('opacity 0 인 개체는 그리지 않는다 (스텝 전환 퇴장 프레임)', () => {
@@ -263,6 +250,32 @@ describe('buildStaticSvg — 규칙 오버레이(거리 원 · 골 지역)', () 
     return f;
   };
 
+  // 기현 지시 2026-08-27 — 소유 화살표는 **시연·PNG 에도** 나가야 한다. 화면만 그리면
+  // 코치가 판에서 본 것과 내보낸 그림이 갈라진다(진영 깃발이 그림에서만 빠졌던 사고와 같은 형태).
+  describe('세트피스 소유 화살표', () => {
+    const withOwner = (owner: 'home' | 'away') => {
+      const f = ringFrame('5m');
+      f.balls = f.balls.map((b) => ({ ...b, owner }));
+      return f;
+    };
+    const arrowD = `M ${-mToPx(2) / 2} 0 L ${mToPx(2) / 2} 0`;
+
+    it('5 m + 소유가 있으면 그림에도 화살표가 실린다', () => {
+      expect(buildStaticSvg(withOwner('home'), ringOpts)).toContain(arrowD);
+      // 대조군 — 소유가 없으면 안 그린다(진영에서 파생하는 옛 문서는 화살표가 없다).
+      expect(buildStaticSvg(ringFrame('5m'), ringOpts)).not.toContain(arrowD);
+      // 대조군 — 3 m 에는 안 그린다(2-on-1 은 누가 차는가와 무관하다).
+      const threeWithOwner = ringFrame('3m');
+      threeWithOwner.balls = threeWithOwner.balls.map((b) => ({ ...b, owner: 'home' as const }));
+      expect(buildStaticSvg(threeWithOwner, ringOpts)).not.toContain(arrowD);
+    });
+
+    it('★ 두 팀이 정확히 반대 방향이다 — 화면(RuleOverlay)과 같은 규약', () => {
+      const deg = (svg: string): number => Number(/rotate\(([-\d.]+)\)" opacity/.exec(svg)![1]);
+      expect(Math.abs(deg(buildStaticSvg(withOwner('away'), ringOpts)) - deg(buildStaticSvg(withOwner('home'), ringOpts)))).toBe(180);
+    });
+  });
+
   it('showRuleZones 가 꺼져 있으면 링도 존도 없다', () => {
     const svg = buildStaticSvg(makeFrame(), OPTS);
     expect(svg.includes('stroke-dasharray="8 6"')).toBe(false);
@@ -400,19 +413,13 @@ describe('buildStaticSvg — 모델에서 온 문자열이 SVG 를 깨뜨리지 
     const f = makeFrame();
     f.chairs[0]!.def = { ...f.chairs[0]!.def, color: '#fff" onload="alert(1)' };
     f.notes[0]!.color = 'red"/><script/>';
+    f.balls[0]!.id = 'bl_1"/><g x="' as never; // id 에 이상한 문자가 섞여도 속성이 깨지지 않는다
     const svg = buildStaticSvg(f, OPTS);
     expect(svg.includes('onload')).toBe(false);
     expect(svg.includes('<script')).toBe(false);
+    expect(svg.includes('bl_1"')).toBe(false);
     parse(svg); // 여전히 XML 로 파싱된다
     // 대조군: 정상 색은 그대로 실린다.
     expect(buildStaticSvg(makeFrame(), OPTS).includes('#d93a3a')).toBe(true);
-  });
-
-  it('id 에 이상한 문자가 있어도 속성이 깨지지 않는다', () => {
-    const f = makeFrame();
-    f.balls[0]!.id = 'bl_1"/><g x="' as never;
-    const svg = buildStaticSvg(f, OPTS);
-    expect(svg.includes('bl_1"')).toBe(false);
-    parse(svg);
   });
 });

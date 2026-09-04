@@ -32,12 +32,8 @@ describe('TrayGhost — 휠체어는 놓일 각도 그대로 매달린다', () =
     const { el } = chairGhost('full', 'home');
     const label = el.querySelector('span') as HTMLElement;
     expect(label.style.transform).toBe(`rotate(${-COURT_DEFS.full.homeHeadingDeg}deg)`);
-  });
-
-  it('상자는 차체 치수 그대로 그린다 — 회전은 transform 이 맡는다', () => {
-    // 폭·높이를 미리 바꿔치기하면 90°·270° 아닌 각도에서 조용히 어긋난다.
-    const { el } = chairGhost('full', 'home');
-    expect(el.style.width).toBe('37.5px');
-    expect(el.style.height).toBe('25px');
+    // 폭·높이는 차체 치수 그대로 — 회전은 transform 이 맡는다. 미리 바꿔치기하면 90°·270° 아닌 각도에서 조용히 어긋난다.
+    expect(el.style.width).toBe('32.5px');
+    expect(el.style.height).toBe('20px');
   });
 });

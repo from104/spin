@@ -97,7 +97,7 @@ describe('P0-3 — 밀린 칩이 판 밖으로 나가지 않는다', () => {
     // 순간의 스냅샷이 그대로 커밋되므로). 안전망이 매 substep 도는 덕에 그런 스텝은 열자마자
     // 스스로 낫는다 — 판정 시점을 "드래그" 로 좁히지 않는 이유다.
     const probe = createPhysicsProbe({ chairs: [{ id: chB, x: -5, y: Y }] });
-    expect(outOfBounds(probe.api.read()[chB]!, FULL).depth).toBeCloseTo(12.5, 9); // 전제
+    expect(outOfBounds(probe.api.read()[chB]!, FULL).depth).toBeCloseTo(11.5, 9); // 전제
     probe.forceSteps(1);
     expect(probe.api.read()[chB]!.x).toBeCloseTo(CHAIR.pivotToRearPx, 9);
     probe.dispose();

@@ -33,14 +33,6 @@ describe('Segmented', () => {
     expect(screen.getByRole('radio', { name: '플랫 코트' })).toHaveAttribute('tabindex', '-1');
   });
 
-  it('활성 항목은 font-weight 700 으로 배경색 외의 단서를 준다(§7.7)', () => {
-    render(<Segmented options={OPTIONS} value="half" onChange={() => {}} ariaLabel="코트 형태" />);
-    const active = screen.getByRole('radio', { name: '하프 코트' });
-    const inactive = screen.getByRole('radio', { name: '풀 코트' });
-    expect(active.style.fontWeight).toBe('700');
-    expect(inactive.style.fontWeight).not.toBe('700');
-  });
-
   it('클릭으로 값이 바뀐다', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

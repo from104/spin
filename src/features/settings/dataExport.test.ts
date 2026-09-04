@@ -178,7 +178,27 @@ describe('restoreBackupFromFile — 다른 화면 파일의 안내 (5.0 ③)', (
     }
   });
 
-  it('대조군: 진짜 모르는 kind(drillSet)는 여전히 일반 문구다 — library 만 특별대우한다', async () => {
+  // 2026-08-26 실제 사고: 드릴 하나짜리 파일을 이 화면(기기 이사 복원)에 넣었더니 '지원하지
+  // 않는 파일 종류 (drill)' 이 떴다. 파일은 멀쩡했고 — 앱이 방금 자기가 만들어 준 것이다 —
+  // 열 자리만 달랐다. library 와 같은 처지인데 안내가 library 에만 있었다.
+  it.each([
+    ['drill', '드릴 파일'],
+    ['session', '세션 파일'],
+  ])('%s 봉투도 "지원하지 않는다" 가 아니라 [드릴 목록]으로 보낸다', async (kind) => {
+    const payload = kind === 'session' ? { session: {}, drills: [] } : {};
+    const env = JSON.stringify({ spin: kind, envelope: 1, app: 'SPIN', exportedAt: Date.now(), payload });
+    try {
+      await restoreBackupFromFile(fileOf(env));
+      expect.unreachable();
+    } catch (e) {
+      const msg = (e as Error).message;
+      expect(msg).toContain('[드릴 목록]');
+      expect(msg).toContain('[가져오기]');
+      expect(msg).not.toContain('지원하지 않는');
+    }
+  });
+
+  it('대조군: 진짜 모르는 kind(drillSet)는 여전히 일반 문구다 — 아는 종류만 특별대우한다', async () => {
     const env = JSON.stringify({ spin: 'drillSet', envelope: 1, app: 'SPIN', exportedAt: Date.now(), payload: {} });
     try {
       await restoreBackupFromFile(fileOf(env));

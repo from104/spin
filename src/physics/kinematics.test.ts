@@ -203,11 +203,19 @@ describe('G5 로프 이완 · 견인 회전 (blocker 회귀)', () => {
   // 정상 제스처까지 회전을 죽였다(전방 앵커 135° 방향 1초 → θ=0.0°, 미끄러지기만 함).
   // 아래 세 성질이 동시에 성립해야 한다.
 
-  it('끌어 놓고 살짝 되밀어 미세 조정하면 차체가 돌지 않는다 (원래 가드의 목적)', () => {
+  // ⚠️ 2026-08-30 기현 지시로 **이 계약이 뒤집혔다.** 옛 이름은 *"끌어 놓고 살짝 되밀어 미세
+  //    조정하면 차체가 돌지 않는다 (원래 가드의 목적)"* 였고, 되밀면 회전 0 · 평행 이동으로
+  //    뒷걸음질쳤다. 지시: *"앞뒤로 끌기 액션도 아무리 예각의 끌기여도 회전을 우선하여
+  //    움직이기"*. 그래서 이완 갈래는 이제 **이동 0 · 손끝 쪽으로 회전**이다.
+  //
+  //    옛 가드가 진짜로 막으려던 것(§10.9 G5 의 ∓167° 한 프레임 잭나이프)은 여기서 함께 본다:
+  //    회전량이 손떨림에 **연속**이고 폭주하지 않는가.
+  it('되밀면 뒤로 밀리지 않고 손끝 쪽으로 조금 돈다 — 회전 우선, 이동 0', () => {
     // 매 드래그마다 일어나는 동작이라 여기서 방향이 흔들리면 못 쓴다.
     for (const s of [1.0, 0.0]) {
       const grab = latchFromSLat(s, 0);
       const dir = s >= 0.5 ? 1 : -1;
+      const turned: number[] = [];
       for (const eps of [1, -1, 0.2, -0.2]) {
         let pose: Pose = { x: 300, y: 250, theta: 0 };
         const G0 = grabPoint(pose as never, grab);
@@ -216,17 +224,34 @@ describe('G5 로프 이완 · 견인 회전 (blocker 회귀)', () => {
           pose = stepTow({ pose: pose as never, grab, target: { x: G0.x + dir * 40 * Math.min(1, t / 0.6), y: G0.y }, dt: DT }, LIM);
         }
         const Gc = grabPoint(pose as never, grab);
+        const pushBackFrom = { x: pose.x, y: pose.y };
         for (let k = 0; k < 84; k++) {
           pose = stepTow({ pose: pose as never, grab, target: { x: Gc.x - dir * 6, y: Gc.y + eps }, dt: DT }, LIM);
         }
-        expect(Math.abs(pose.theta * DEG)).toBeLessThan(0.01);
+        // ★ 핵심 — 되민 만큼 **뒤로 가지 않는다**. 예전에는 여기서 피벗이 6 px 물러났다.
+        expect(pose.x, `s=${s} eps=${eps} 피벗이 움직였다`).toBeCloseTo(pushBackFrom.x, 6);
+        expect(pose.y).toBeCloseTo(pushBackFrom.y, 6);
+        // 회전은 있되 작고, 손떨림 크기에 **연속**이다(잭나이프면 여기가 세 자릿수로 뜬다).
+        // ⚠️ 상한이 앵커마다 다른 것은 **로프 길이가 달라서**다: 전방 앵커는 rho=26 이라 6 px
+        //    되밀기가 작은 각이지만, 후방 앵커는 rho=6.5 뿐이라 같은 6 px 이 큰 각이 된다
+        //    (짧은 지레). 폭주가 아니라 기하다 — 아래 대칭·단조 단언이 그것을 갈라 준다.
+        const cap = s >= 0.5 ? 10 : 45;
+        expect(Math.abs(pose.theta * DEG), `s=${s} eps=${eps} 회전이 폭주했다`).toBeLessThan(cap);
+        turned.push(pose.theta * DEG);
       }
+      const [p1, m1, p02, m02] = turned as [number, number, number, number];
+      expect(Math.sign(p1)).toBe(-Math.sign(m1)); // 좌우 대칭
+      expect(Math.abs(p1 + m1)).toBeLessThan(1e-6);
+      expect(Math.abs(p02)).toBeLessThan(Math.abs(p1)); // 작은 섭동 → 작은 회전
+      expect(Math.abs(m02)).toBeLessThan(Math.abs(m1));
     }
   });
 
-  it('로프 원 밖으로 크게 되밀면 회전하되, 그 양이 섭동에 연속이다', () => {
-    // 반대편까지 끌고 가면 도는 게 물리적으로 맞다. 문제였던 것은 회전 여부가 아니라
-    // 손떨림 0.2px 에 ∓167° 로 갈리던 것 — 반경 게인으로 연속이 됐는지를 본다.
+  it('★ 앵커를 반대편으로 끌면 제자리에서 크게 돈다 — 회전 우선(2026-08-30 지시)', () => {
+    // 지시의 예: *"앞 앵커를 바로 뒤로(180도) 끌면 휠체어는 제자리회전하여 끌려야 한다."*
+    // 2026-08-30 이전에는 손가락이 로프 원 안을 지나는 동안 이완 갈래에 갇혀 **후진만** 했고,
+    // 84 스텝 뒤 회전이 30° 도 안 됐다(그때의 단언이 `< 30` 이었다). 지금은 168° 넘게 돈다.
+    // 옛 blocker(손떨림 0.2px 에 ∓167° 로 갈리던 것)는 방향이 **연속**인지로 계속 지킨다.
     const grab = latchFromSLat(1.0, 0);
     const run = (eps: number): number => {
       let pose: Pose = { x: 300, y: 250, theta: 0 };
@@ -247,7 +272,8 @@ describe('G5 로프 이완 · 견인 회전 (blocker 회귀)', () => {
     expect(Math.sign(run(-1))).toBe(-1);
     expect(Math.abs(run(-1) + big)).toBeLessThan(0.01); // 좌우 대칭
     expect(Math.abs(small)).toBeLessThan(Math.abs(big)); // 작은 섭동 → 작은 회전
-    expect(Math.abs(big)).toBeLessThan(30); // 폭주하지 않는다(예전엔 167°)
+    // ★ 크게 돈다 — 이것이 새 계약이다. 예전 값은 `< 30`(사실상 안 돎)이었다.
+    expect(Math.abs(big)).toBeGreaterThan(150);
   });
 
   it('앵커를 비스듬히 끌면 차체가 따라 돈다 (사용자 신고 회귀)', () => {
@@ -270,7 +296,10 @@ describe('G5 로프 이완 · 견인 회전 (blocker 회귀)', () => {
 
 describe('G6 spin 피벗 통과 안정성 (major 회귀)', () => {
   // 궤적 재구성 메모: 아래 궤적은 §10.9 표의 산문 설명만으로 재구성한 것이다(§10.9 참조 구현
-  // src/test/helpers/kinematicsReference.ts 와는 독립적으로 재현한 값 — 둘 다 43.4855° 로 일치한다).
+  // src/test/helpers/kinematicsReference.ts 와는 독립적으로 재현한 값 — 둘 다 45.79575° 로 일치한다).
+  // ⚠️ 스윕 폭 ±11.25 는 **시나리오 상수로 언 값이다**(옛 차체의 반몸통에서 왔지만 지금은
+  //    그냥 고정 궤적이다). 차체를 따라 줄이면 골든이 또 움직이는데, 이 테스트가 지키는 것은
+  //    치수가 아니라 *피벗을 통과할 때 폭주하지 않는다* 이므로 궤적은 얼려 두는 편이 낫다.
   // ε(측방 섭동)를 통과 스윕 18스텝 + 유지 60스텝 내내 y 오프셋으로 유지해야
   // 결과가 골든값 자릿수에 근접한다(유지 구간에만 적용하면 스윕이 피벗을 정확히 통과해
   // r<1e-9 특이점에 걸리며 전혀 다른 값이 나온다). phiPrev 는 루프 첫 호출(k=1)에서 스스로
@@ -293,18 +322,21 @@ describe('G6 spin 피벗 통과 안정성 (major 회귀)', () => {
     return pose;
   }
 
-  it('ε=±0.4 → θ ≈ ±17.0188°(재구성 궤적이 golden 과 0.001° 이내로 일치)', () => {
-    expect(Math.abs(runPass(0.4).theta * DEG - 17.0188)).toBeLessThan(0.01);
-    expect(Math.abs(runPass(-0.4).theta * DEG + 17.0188)).toBeLessThan(0.01);
+  it('ε=±0.4 → θ ≈ ±18.7372°(재구성 궤적이 golden 과 0.001° 이내로 일치)', () => {
+    expect(Math.abs(runPass(0.4).theta * DEG - 18.7372)).toBeLessThan(0.01);
+    expect(Math.abs(runPass(-0.4).theta * DEG + 18.7372)).toBeLessThan(0.01);
   });
 
-  it('ε=±2 → θ = ±43.4855°(2026-08-08 DESIGN.md 정정값과 golden 정합, §10.2 각주)', () => {
-    // 43.4855°는 더 이상 "불일치"가 아니다 — DESIGN.md §10.2 각주가 2026-08-08 에 골든 표를
-    // 이 값으로 정정했다(원래 적혀 있던 42.9838°는 서로 독립인 세 구현이 전부 재현 실패했던
-    // 오기). physics-kin 본 구현·§10.9 참조 구현(kinematicsReference.ts)·이 재구성 궤적 셋 다
-    // 43.4855°로 일치한다.
-    expect(runPass(2).theta * DEG).toBeCloseTo(43.4855, 3);
-    expect(runPass(-2).theta * DEG).toBeCloseTo(-43.4855, 3);
+  it('ε=±2 → θ = ±45.79575°(세 구현 정합. 차체 1.3 m 재유도값)', () => {
+    // 값의 내력(지우지 않는다):
+    //   · §10.9 골든 표 원본 42.9838° — **오기**였다. 서로 독립인 세 구현이 전부 재현 실패했다.
+    //   · 2026-08-08 DESIGN.md §10.2 각주가 43.4855° 로 정정. 차체 1.5 m 시절의 값이다.
+    //   · 2026-08-29 실측(차체 1.3 m)으로 `SPIN_RADIUS_MIN_PX` 가 9.375 → 8.125 가 되면서
+    //     **45.79575°** 가 됐다. 게인 감쇠 반경이 줄면 같은 궤적에서 더 많이 돈다.
+    // 지금도 셋(physics-kin 본 구현 · §10.9 참조 구현 · 이 재구성 궤적)이 전부 일치한다 —
+    // 바뀐 것은 답이 아니라 차다.
+    expect(runPass(2).theta * DEG).toBeCloseTo(45.79575, 3);
+    expect(runPass(-2).theta * DEG).toBeCloseTo(-45.79575, 3);
   });
 
   it('부호가 ε 부호와 항상 일치 (질적 회귀 방지)', () => {

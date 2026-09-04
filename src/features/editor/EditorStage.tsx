@@ -4,6 +4,7 @@
 // 더한다.
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
+import { NudgePad, type NudgePadTarget } from './NudgePad.tsx';
 import { useLongPressMenu } from './useLongPressMenu.ts';
 import { sameKindGroup } from './selectSame.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
@@ -15,13 +16,15 @@ import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
-import type { BallRing, Drill, DrillStep, NoteLabel } from '../../model/drill.ts';
-import { ballRingOf } from '../../model/drill.ts';
+import type { BallRing, Drill, DrillStep, NoteLabel, TeamSide } from '../../model/drill.ts';
+
 import type { ZoneConfig } from '../../model/chair.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
 import type { Arrow, ArrowPart } from '../../model/arrow.ts';
-import { courtDefFor, gridCellCenter, cellLabelAt, type CourtMode, type CourtSize } from '../../model/court.ts';
-import { GOAL_ID_PREFIX } from '../../physics/index.ts';
+import { nudgeStroke, rotateStrokeAbout, strokeCenter } from '../../model/stroke.ts';
+import { courtDefFor, goalBaseDir, gridCellCenter, cellLabelAt, type CourtMode, type CourtSize } from '../../model/court.ts';
+import { GOAL_ID_PREFIX, GOAL_DISPLACED_EPS_PX } from '../../physics/index.ts';
+import { raf } from '../../render/rafLoop.ts';
 import { CourtStage, type CourtStageHandle } from '../../render/CourtStage.tsx';
 import { screenDeltaToWorld } from '../../render/useStageMetrics.ts';
 import type { StageRot } from '../../render/useStageMetrics.ts';
@@ -81,6 +84,9 @@ export interface EditorStageProps {
   /** 3.10 — 시점 점프 감지(§6.7 immediate 와 같은 규칙: undo/redo·스텝 추가삭제). 점프에는
    *  트윈과 마찬가지로 등장/퇴장 페이드도 걸지 않는다. */
   epoch?: number;
+  /** 밀린 골대를 눌렀을 때 — **모든** 골대를 원위치로(2026-08-29). 손잡이가 [보드 설정] 안
+   *  버튼과 같은 함수를 받아야 둘이 갈라지지 않는다(EditorWorkspace.resetGoals 하나다). */
+  onResetGoals?(): void;
   /** 이 스텝으로의 전환 시간(ms) — 반드시 stepTransitionMs(tween.ts) 값으로 준다. 트윈(위치·
    *  화살표)과 페이드(등장/퇴장)가 같은 시계로 끝나야 한다. 0/미지정 = 페이드 없음. */
   transitionMs?: number;
@@ -95,6 +101,19 @@ function nearestCell(mode: CourtMode, p: { x: number; y: number }, size?: CourtS
 
 // 키보드 커서(§7.5d)가 격자 칸 가운데를 조준하는 도구들. 2026-08-14 에 도형 3종이 합쳤다 —
 // 놓는 도구인데 여기 없으면 **키보드로는 못 놓는** 도구가 된다.
+/** 한 번 만들어 돌려 쓰는 빈 집합 — 매번 새 Set 을 만들면 그 자체가 상태 변경으로 읽힌다. */
+const EMPTY_IDS: ReadonlySet<string> = new Set<string>();
+
+/** 걸음 크기 — 무수식이 **정밀**, Shift 가 큰 걸음이다(2026-08-28 기현 지시, 아래 키 처리부의
+ *  긴 주석이 근거를 쥔다). 상수로 뽑은 이유는 이제 **두 번째 소비자**가 생겼기 때문이다:
+ *  개체 메뉴 [미세 조정] 이 여는 패드(NudgePad 머리말)가 터치에서 같은 일을 한다. 숫자를 두 곳에
+ *  적으면 언젠가 갈리고, 갈린 순간 "키보드로는 되는데 손가락으로는 다르게 간다" 가 된다.
+ *  패드는 정밀만 쓴다 — 큰 움직임은 손가락에도 드래그가 있다. */
+const FINE_STEP_PX = 2.5;
+const FINE_STEP_DEG = 5;
+const COARSE_STEP_PX = 25;
+const COARSE_STEP_DEG = 15;
+
 const PLACEMENT_TOOLS: ReadonlySet<ToolId> = new Set(['ball', 'cone', 'player', 'note', 'shapeEllipse', 'shapeTriangle', 'shapeRect']);
 
 /** 개체 이동 방향 — `W A S D` 와 방향키가 같은 자리를 가리킨다. 값은 **화면 기준** 단위
@@ -116,7 +135,7 @@ const OBJ_MOVE_DIR: Record<string, readonly [number, number]> = {
 // 포인터(손잡이 끌기)가 맡는다 — 남은 상태·타입 정리는 2단계다.
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0 },
+  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0, onResetGoals },
   stageRef,
 ) {
   // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
@@ -184,16 +203,24 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     () => drill.cast.chairs.filter((d) => step.chairs[d.id] !== undefined).map((d) => ({ id: d.id, team: d.team, isGk: d.isGk })),
     [drill.cast.chairs, step.chairs],
   );
-  // §7 5.2 — 공마다 따로 켠 거리 원. `cast` 에서 온다(스텝이 아니라) — 그래야 스텝을 옮겨도
-  // 같은 공이 같은 원을 갖는다. 'none' 인 공은 표에 **넣지 않는다**(없는 id = 'none').
+  // §7 5.2 — 공마다 따로 켠 거리 원. v9 부터 **지금 스텝**에서 온다(cast 가 아니라) — 링은
+  // 공의 정체성이 아니라 그 국면의 상태라, 스텝을 넘기면 원도 갈린다(drill.ts BallRing 머리말).
+  // 'none' 인 공은 표에 **넣지 않는다**(없는 id = 'none').
   const ballRings = useMemo(() => {
     const m: Record<string, BallRing> = {};
-    for (const b of drill.cast.balls) {
-      const r = ballRingOf(b);
-      if (r !== 'none') m[b.id] = r;
+    for (const [id, r] of Object.entries(step.ballRings ?? {})) {
+      if (r !== undefined) m[id] = r;
     }
     return m;
-  }, [drill.cast.balls]);
+  }, [step.ballRings]);
+  // 세트피스 소유(2026-08-27) — 링과 같은 스텝, 같은 규약이다. 없는 id 는 진영에서 파생한다.
+  const ballOwners = useMemo(() => {
+    const m: Record<string, TeamSide> = {};
+    for (const [id, t] of Object.entries(step.ballOwner ?? {})) {
+      if (t !== undefined) m[id] = t;
+    }
+    return m;
+  }, [step.ballOwner]);
   const cones = useMemo<ObjectLayerCone[]>(
     () => drill.cast.cones.filter((c) => step.cones[c.id] !== undefined).map((c) => ({ id: c.id, colorIndex: c.colorIndex })),
     [drill.cast.cones, step.cones],
@@ -285,6 +312,37 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     [drill.courtMode, drill.courtSize],
   );
 
+  /** 제자리를 벗어난 골대들 — 그 골대만 복귀 커서를 얻는다(2026-08-29 기현 지시, GoalPost 머리말).
+   *
+   *  ⚠️ **매 프레임 setState 하지 않는다.** 물리 좌표는 프레임마다 바뀌지만 "밀렸나" 는 좀처럼
+   *  안 바뀌는 값이라, 같으면 이전 Set 을 **그대로 돌려줘** React 가 렌더를 건너뛰게 한다
+   *  (§6.1 규칙 1 "드래그 중 React 리렌더 0회" 가 이 자리에서도 지켜져야 한다 — 골대가 밀리는
+   *  것은 대개 드래그 도중이다).
+   *
+   *  문턱은 물리와 **같은 상수**를 쓴다(GOAL_DISPLACED_EPS_PX) — 다르면 커서는 뜨는데 눌러도
+   *  아무 일이 없는 상태가 생긴다. */
+  const [displacedGoals, setDisplacedGoals] = useState<ReadonlySet<string>>(EMPTY_IDS);
+  const goalHomes = useMemo(() => courtDefFor(drill.courtMode, drill.courtSize).goalPosts, [drill.courtMode, drill.courtSize]);
+  /** 받침판 방향(2026-08-30 실물 사진) — 코트 정의에서 나오는 고정값이라 코트가 바뀔 때만 다시 센다. */
+  const goalBaseDirs = useMemo(() => {
+    const def = courtDefFor(drill.courtMode, drill.courtSize);
+    return def.goalPosts.map((_p, i) => goalBaseDir(def, i));
+  }, [drill.courtMode, drill.courtSize]);
+  useEffect(() => {
+    return raf.add(() => {
+      const w = worldRef.current;
+      if (!w) return;
+      const frame = w.read();
+      const next = new Set<string>();
+      goalHomes.forEach((home, i) => {
+        const id = `${GOAL_ID_PREFIX}${i}`;
+        const p = frame[id];
+        if (p && Math.hypot(p.x - home.x, p.y - home.y) > GOAL_DISPLACED_EPS_PX) next.add(id);
+      });
+      setDisplacedGoals((prev) => (prev.size === next.size && [...next].every((id) => prev.has(id)) ? prev : next));
+    });
+  }, [goalHomes, worldRef]);
+
   // §7.5b 순회 순서: 팀A 선수 → 팀B 선수 → 공 → 콘 → 메모 → 화살표.
   const order = useMemo(() => {
     const homeIds = chairs.filter((c) => drill.cast.chairs.find((d) => d.id === c.id)?.team === 'home').map((c) => c.id as string);
@@ -338,9 +396,22 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         // 그것이 어려운 입력에는 사실상 없는 기능과 같다.
         const arrow = step.arrows.find((a) => a.id === id);
         if (arrow) dispatch({ type: 'ARROW_SET', arrow: nudgeArrow(arrow, arrowPart, { x: dx, y: dy }) });
+        return;
+      }
+      if (isId(id, 'fh')) {
+        // 획(2026-09-03). 메모·화살표와 같이 물리 바디가 없다. 회전이 여기 있는 유일한
+        // 비캐스트 개체인 이유: 축이 값 하나로 정해진다(경계상자 중심 — `strokeCenter` 주석).
+        // 포인터의 회전 앵커와 **같은 함수**를 써야 손과 키보드가 같은 축으로 돈다.
+        const stroke = step.strokes?.find((s) => s.id === id);
+        if (!stroke) return;
+        if (dThetaRad !== 0) {
+          dispatch({ type: 'STROKE_SET', stroke: rotateStrokeAbout(stroke, strokeCenter(stroke), dThetaRad) });
+          return;
+        }
+        dispatch({ type: 'STROKE_SET', stroke: nudgeStroke(stroke, { x: dx, y: dy }) });
       }
     },
-    [dispatch, step.arrows, step.notes, worldRef, selection, lockedSet, ignoredSet],
+    [dispatch, step.arrows, step.notes, step.strokes, worldRef, selection, lockedSet, ignoredSet],
   );
 
   const handleObjectKeyDown = useCallback(
@@ -352,10 +423,20 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       const def = lookupDef('object', e);
       if (!def) return;
 
-      // Shift 는 **정밀**이다 — 기본이 큰 걸음. 개편 전에는 반대(기본 2.5px, Shift 25px)였고
-      // 화살표에서만 또 달랐다. 뜻을 하나로 접으면 개체 종류를 세지 않아도 손이 안다.
-      const step = e.shiftKey ? 2.5 : 25;
-      const deg = e.shiftKey ? 5 : 15;
+      // Shift 는 **큰 걸음**이다 — 기본이 정밀. 2026-08-28 기현님 지시로 뒤집혔다:
+      // *"큰 움직임은 마우스로, 미세 움직임은 키보드로 하는 게 실사용 시 유용하다."*
+      //
+      // 두 입력이 잘하는 일이 다르다. 마우스는 판 어디로든 한 번에 데려가지만 마지막 몇 px 을
+      // 못 맞추고, 키보드는 그 몇 px 을 정확히 준다. 키보드의 **무수식** 기본값이 25px 이면
+      // 그 강점을 쓰려면 매번 Shift 를 쥐어야 했다 — 잦은 쪽에 수식키를 물린 셈이다.
+      //
+      // 옛 기록(지우지 않는다): 2026-08-16 개편에서 이 자리는 `기본 25 / Shift 2.5` 가 됐고,
+      // 그 전에는 `기본 2.5 / Shift 25`(지금과 같다)였다. 그때 뒤집은 이유는 값이 아니라
+      // **통일**이었다 — 화살표 개체에서만 Shift 가 "조준점만 이동" 이라는 세 번째 뜻을
+      // 갖고 있었고, 그 셋을 하나로 접는 것이 목적이었다. 그 통일은 그대로 남는다: 지금도
+      // Shift 의 뜻은 어디서나 하나(정도만 바꾼다)이고, 어느 쪽이 기본인지만 돌아왔다.
+      const step = e.shiftKey ? COARSE_STEP_PX : FINE_STEP_PX;
+      const deg = e.shiftKey ? COARSE_STEP_DEG : FINE_STEP_DEG;
 
       switch (def.id) {
         case 'obj.move': {
@@ -434,6 +515,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       const code = eventCode(e);
       if (code === 'Escape') {
         (stageRef as RefObject<CourtStageHandle | null>).current?.focusContainer();
+        // ⚠️ 2026-09-03 — **지우기 도구의 Esc 출구를 여기 두지 않았다.** 자연스러운 자리처럼
+        //    보이지만 두 이유로 틀린다: (a) 이 핸들러는 무대 svg 의 onKeyDown 이라 포커스가
+        //    코트 밖이면 안 불리고, (b) 여기는 stopPropagation 을 걸지 않으므로 같은 Esc 가
+        //    전역 핸들러까지 가서 `TOOL_SET` 이 **두 번** 발화한다 — 두 번째가 `select` 의
+        //    고정을 켠다(TOOL_SET 은 멱등이 아니다). 그래서 출구는 전역 한 곳에만 있다:
+        //    `useEditorKeyboard` 의 `select.clear` 분기. 아래 SELECT_CLEAR 가 겹쳐도 괜찮은
+        //    것은 그 액션이 멱등이기 때문이고, 그 차이가 이 결정의 전부다.
         dispatch({ type: 'SELECT_CLEAR' });
         return;
       }
@@ -529,8 +617,21 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     return step.shapes.find((sh) => sh.id === id) ?? null;
   }, [selection, step.shapes, lockedSet]);
 
+  /** 앵커를 띄울 획 — 도형·화살표와 **같은 세 조건**이다: 선택이 정확히 하나, 그것이 획,
+   *  잠기지 않음. 잠긴 것에 손잡이를 내면 끌어도 안 바뀌는 손잡이라 화면이 거짓말을 한다.
+   *  hitTest 쪽 게이트(`selectedStrokeId`)와 같은 판정이라야 **보이는 앵커만 잡힌다**. */
+  const selectedStroke = useMemo(() => {
+    if (selection.size !== 1) return null;
+    const id = [...selection][0]!;
+    if (lockedSet.has(id)) return null;
+    return step.strokes?.find((s) => s.id === id) ?? null;
+  }, [selection, step.strokes, lockedSet]);
+
   // ── 개체 메뉴 (2026-08-14 기현 지시) ────────────────────────────────────────────────
   const [menu, setMenu] = useState<ObjectMenuTarget | null>(null);
+  // 미세 조정 패드(2026-09-02) — 개체 메뉴와 **같은 자리**에 뜬다. 상태가 메뉴와 따로인 이유:
+  // 메뉴는 항목을 누르면 닫히고 패드는 그 뒤에 혼자 남아야 한다(NudgePad 머리말).
+  const [nudgePad, setNudgePad] = useState<NudgePadTarget | null>(null);
 
   /** "같은 것 전부 고르기" 가 훑을 명단. 무대가 이미 들고 있는 조각들을 한 자리에 모은 것뿐이라
    *  따로 계산하는 것이 없다 — 명단이 두 벌이 되면 "메뉴에는 넷인데 화면에는 셋" 이 생긴다. */
@@ -542,9 +643,10 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       notes: step.notes.map((n) => n.id as string),
       arrows: step.arrows.map((a) => a.id as string),
       shapes: (step.shapes ?? []).map((s) => s.id as string),
+      strokes: (step.strokes ?? []).map((s) => s.id as string),
       locked: lockedSet,
     }),
-    [chairs, balls, cones, step.notes, step.arrows, step.shapes, lockedSet],
+    [chairs, balls, cones, step.notes, step.arrows, step.shapes, step.strokes, lockedSet],
   );
 
   const openMenu = useCallback(
@@ -625,12 +727,31 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       balls={balls}
       cones={cones}
       goals={goals}
+      displacedGoals={displacedGoals}
+      goalHomes={goalHomes}
+      goalBaseDirs={goalBaseDirs}
+      onGoalReturn={onResetGoals}
       notes={notes}
       arrows={arrows}
       shapes={step.shapes}
       // 도형을 잡으면 **선택만** 바꾼다. 지우기는 선택 후 Delete 가 맡는다 — 2026-08-16 에
       // 지우개 도구가 사라지면서 도형만의 예외 분기도 함께 없어졌다.
-      onShapeSelect={(id) => dispatch({ type: 'SELECT_SET', ids: [id] })}
+      // 🔁 2026-09-03 — 지우기 도구가 돌아오면서 그 예외 분기도 **여기 한 줄로** 돌아왔다.
+      //    도형은 코트 히트테스트(§5.12)에 아예 없다 — 물리 바디가 아니라 SVG 이벤트가 직접
+      //    받는 유일한 개체다. 그래서 useEditorPointer 의 eraser 분기가 도형을 못 보고,
+      //    도형만 "지우기로 안 지워지는 개체" 가 되는 것을 이 줄이 막는다.
+      //    잠긴 도형은 `lockedSet` 검사로 걸러 코트 쪽 규칙(고르기는 되고 손대기는 안 된다)과
+      //    맞춘다 — ShapeLayer 가 잠긴 도형에도 이 콜백을 준다.
+      onShapeSelect={(id) => {
+        if (tool === 'eraser' && !lockedSet.has(id)) {
+          // 스코프는 코트 쪽 분기와 **같은 `'onward'`** 다. 도형에는 스코프가 아무 뜻도 없지만
+          // (`eraseIds` 의 `SHAPE_REMOVE` 갈래가 인자를 안 본다), 한 도구가 두 스코프로
+          // 갈라져 적혀 있으면 다음 사람이 그 갈림에 뜻이 있다고 읽는다.
+          onEraseIds([id], 'onward');
+          return;
+        }
+        dispatch({ type: 'SELECT_SET', ids: [id] });
+      }}
       onShapeChange={(next) => dispatch({ type: 'SHAPE_SET', shape: next })}
       shapeHandles={{ shape: selectedShape }}
       locked={lockedSet}
@@ -669,16 +790,33 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       onObjectKeyDown={handleObjectKeyDown}
       onContainerKeyDown={handleContainerKeyDown}
       selectionOverlayRef={pointer.selectionOverlayRef}
-      dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : null}
+      // 자유 그리기는 **잡을 것이 없으므로** activeZone 이 영영 안 찬다 — 그 자리에 십자선을
+      // 넣어 "지금 누르면 여기서부터 그어진다" 를 말한다. 새 prop 을 안 만드는 이유는 이 갈래가
+      // 이미 있는 것과 같은 성질이기 때문이다(도구가 정하는 커서). 태블릿에는 커서가 없으므로
+      // 레일 버튼의 켜짐 표시가 같은 말을 한다.
+      dragCursor={pointer.activeZone ? ZONE_CURSOR_DRAGGING[pointer.activeZone] : tool === 'freehand' ? 'crosshair' : null}
+      // 2026-09-03 — 도구를 그대로 넘기지 않고 **갈림 하나만** 넘긴다(CourtStage 의 그 prop
+      // 주석: 그 층은 도구를 모른다). 태블릿에는 커서가 없으므로 이것이 유일한 신호가 아니다 —
+      // 레일 버튼의 붉은 활성 표시가 같은 말을 한다(ToolRail 의 DANGER_TONE).
+      eraseCursor={tool === 'eraser'}
       zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
-      ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, teamStyles: drill.teams, defense: drill.defense, ballRings } : undefined}
+      ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, teamStyles: drill.teams, defense: drill.defense, ballRings, ballOwners } : undefined}
       arrowHandles={{ arrow: selectedArrow }}
+      // 자유 그리기 획(2026-09-03) — 화살표와 나란한 세 줄이다. `strokeDraft` 는 손을 떼기
+      // 전까지의 **단순화 전** 표본이라 확정 획과 아주 조금 다른 모양인데, 그것이 맞다
+      // (useEditorPointer 의 그 필드 주석: 매 프레임 RDP 를 돌리면 이미 그은 선이 살아 움직인다).
+      strokes={step.strokes}
+      strokeDraft={pointer.strokeDraft}
+      strokeHandles={{ stroke: selectedStroke }}
       keyboardCursor={cursorWorld ? { visible: true, x: cursorWorld.x, y: cursorWorld.y, label: cursorLabel } : undefined}
     />
     {/* 개체 메뉴 — 잠김 · 무시 · 빼기/삭제. 무대 **밖**(포털)이라 코트의 overflow·회전에 안 잘린다. */}
     <ObjectMenu
       target={menu}
       onClose={() => setMenu(null)}
+      // [미세 조정](2026-09-02) — 메뉴는 닫고 **그 자리에** 반투명 패드를 연다. 메뉴가 닫히면
+      // `menu` 가 null 이 되므로 좌표를 **여기서 미리 떠서** 넘긴다(패드가 0,0 에 뜨지 않게).
+      onFineTune={(ids) => setNudgePad({ ids, x: menu?.x ?? 0, y: menu?.y ?? 0 })}
       onToggleLock={(ids, on) => dispatch({ type: 'FLAG_SET', flag: 'locked', ids, on })}
       onToggleIgnore={(ids, on) => dispatch({ type: 'FLAG_SET', flag: 'ignored', ids, on })}
       // 치우는 길은 **한 곳뿐**이다(§6.10b). 개편 전에는 메뉴가 종류별로 직접 액션을 쐈고
@@ -693,6 +831,25 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 이미 판에 있는 메모라 `fresh` 는 false 다 — 취소해도 쪽지는 그대로 남는다.
       onEdit={(id) => onEditNote(id as NoteId, false)}
       onDuplicate={onDuplicateIds}
+    />
+    {/* 미세 조정 패드 — 키보드 `obj.move`/`obj.rotate` 와 **같은 통로**다.
+        ★ 이동이 **화면 기준**인 것도 그대로다: 스테이지가 90° 돌아 있으면 ▲가 월드 축과
+          어긋나 개체가 옆으로 간다(키 처리부의 그 ★ 주석과 같은 사고). */}
+    <NudgePad
+      target={nudgePad}
+      onClose={() => setNudgePad(null)}
+      onNudge={(ids, ux, uy, ut) => {
+        const id = ids[0];
+        if (!id) return;
+        if (ut !== 0) {
+          nudge(id, 0, 0, ut * FINE_STEP_DEG * RAD);
+          return;
+        }
+        const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+        const w = screenDeltaToWorld({ rot }, ux * FINE_STEP_PX, uy * FINE_STEP_PX);
+        // 여럿이면 `nudge` 안의 무리 갈래가 받는다(ids 는 곧 선택이다 — NudgePadTarget.ids).
+        nudge(id, w.x, w.y, 0);
+      }}
     />
     </>
   );

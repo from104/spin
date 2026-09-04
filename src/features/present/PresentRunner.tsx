@@ -45,14 +45,11 @@ import { useT, translate } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import type { Locale } from '../../i18n/locale.ts';
 import { SCREEN_TITLES } from '../../app/screens.ts';
-
-/** store/editor/EditorProvider.tsx 의 동명 함수와 같은 판정(§7.8) — 그 파일은 store 소유라
- *  가져다 쓸 수 없어(§8) 이 작은 순수 함수만 그대로 복제한다. */
-function effectiveReduceMotion(setting: 'system' | 'always'): boolean {
-  if (setting === 'always') return true;
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
+// reduce-motion 실효 판정의 단일 출처(§7.8). 2026-08-31 까지 이 파일에 같은 함수를 복제해
+// 두고 *"store 소유 파일이라 가져다 쓸 수 없다(§8)"* 고 적어 두었는데, §8 은 **한 파일을 두
+// 모듈이 동시에 고치지 말라**는 소유권 규칙이지 import 금지가 아니다(그 정정 각주). 같은
+// features 계층의 EditorWorkspace 도 이미 여기서 가져다 쓴다 — 복제를 지우고 합쳤다.
+import { effectiveReduceMotion } from '../../store/editor/tween.ts';
 
 // ── 로딩 상태 ────────────────────────────────────────────────────────────────────────────────
 type PresentLoad =
@@ -205,7 +202,6 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
   useAppHeader({
     title: headerTitle,
     compact: true,
-    infoButton: { onAction: () => setInfoOpen(true), label: t('present.infoAriaLabel') },
     // 펜 아이콘은 [편집으로]에만 붙는다(2026-08-20, 기현님 지시) — "편집한다"는 뜻은
     // [세션으로](재생목록으로 돌아간다)에는 안 맞는다. 같은 자리(primary)를 상호배타로
     // 쓰는 두 상태라 한쪽만 아이콘이 있어도 자리가 흔들리지 않는다.
@@ -717,7 +713,7 @@ function PresentBody({
         </div>
       </div>
 
-      <PresentSideBar fullscreen={fullscreen} />
+      <PresentSideBar fullscreen={fullscreen} onDrillInfo={() => setInfoOpen(true)} />
 
       {interstitial && (
         <div

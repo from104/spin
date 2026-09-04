@@ -350,7 +350,7 @@ function cornerAt(def: CourtDef, goal: GoalInfo): { vertex: Vec2; ball: Vec2 } {
  *  못 찾으면 null — 호출자가 기존 자리를 지킨다(강제로 밀어 넣어 코트 밖에 세우지 않는다).
  *
  *  경기면 안을 요구하는 것으로 **viewBox 안**이 공짜로 따라온다: 마진 1.5 m(37.5 px)가
- *  차체 hull 반지름(32.5 px)보다 크기 때문이다. 그 부등식이 깨지면 setPiece.test.ts 의
+ *  차체 hull 반지름(27.86 px)보다 크기 때문이다. 그 부등식이 깨지면 setPiece.test.ts 의
  *  'hull 이 viewBox 안' 이 먼저 빨개진다. */
 function placeOnArc(
   ref: Vec2,

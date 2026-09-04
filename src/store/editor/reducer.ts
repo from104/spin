@@ -6,6 +6,7 @@ import { radToStoredDeg, storedDegToRad } from '../../core/angle.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { ballRingOf } from '../../model/drill.ts';
 import { nudgeArrow } from '../../model/arrow.ts';
+import { nudgeStroke } from '../../model/stroke.ts';
 import {
   addBall,
   cycleBallRing,
@@ -15,19 +16,21 @@ import {
   setPose,
   removeFromStepOnward,
   removeFromThisStepOnly,
-  addStepAfter,
   duplicateStep,
   deleteStep,
   moveStep,
   moveSteps,
   duplicateSteps,
   deleteSteps,
+  clearStep,
   setArrow,
   removeArrow,
   setNote,
   removeNote,
   removeShape,
+  removeStroke,
   setShape,
+  setStroke,
   setStepFlag,
 } from '../../model/edits.ts';
 import type { EditorAction } from './actions.ts';
@@ -120,6 +123,13 @@ export const LOCKABLE_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
   'shapeEllipse',
   'shapeTriangle',
   'shapeRect',
+  // 2026-09-03 — 자유 그리기. **고정의 뜻이 가장 또렷한 도구다**: 판에 손으로 덧그리는 일은
+  // 한 획으로 끝나는 법이 거의 없어서(동선 하나에 곡선 서넛), 고정이 없으면 획마다 도구를
+  // 다시 골라야 한다. `KEEPS_PLACE_LOCK` 의 `STROKE_SET` 이 그 고정을 캡처마다 살려 준다.
+  'freehand',
+  //
+  // ⚠️ `'eraser'` 는 **넣지 않는다**(PLAN 결정 8) — 연속 삭제는 도구의 성질이지 고정이 아니고,
+  //    고정에 넣으면 파괴 모드가 잠긴 채 남는다.
 ]);
 
 /** 어느 고정에서든 살아남는 액션 — **사용자가 낸 것이 아니기 때문에** 그렇다.
@@ -142,6 +152,9 @@ const KEEPS_PLACE_LOCK: ReadonlySet<EditorAction['type']> = new Set<EditorAction
   'NOTE_SET',
   'SHAPE_SET',
   'ARROW_SET',
+  // 획 캡처가 끝날 때마다 난다(2026-09-03). ⚠️ **없으면 획 하나를 그을 때마다 고정이 풀린다** —
+  // 자유 그리기는 연속으로 여러 획을 긋는 도구라 그러면 고정이 아무 뜻이 없다.
+  'STROKE_SET',
   // 콘 색을 바꿔 가며 까는 것은 한 가지 연속 동작이다.
   'CONE_SLOT_SET',
 ]);
@@ -213,8 +226,11 @@ function uiReducerInner(s: EditorState, a: EditorAction): EditorState {
     // ⚠️ 상태를 5 m 로 **남긴 채** 해제하고 싶으면 순환을 타지 않는 세 경로를 쓴다:
     // Esc · 빈 코트 탭 · 다른 개체 선택. Esc 가 어느 개체든 즉시 해제인 것은 그대로다.
     case 'BALL_RETAP': {
-      const def = s.present.cast.balls.find((b) => b.id === a.id);
-      if (!def || ballRingOf(def) !== '5m') return s;
+      // v9 — 링은 스텝 소유다. 지금 편집 중인 스텝에서 읽는다(`s.stepId`).
+      // 순환의 **마지막 칸**에서만 풀린다 — 2026-08-27 에 5 m 가 두 칸(우리 공/상대 공)으로
+      // 늘면서, 예전의 "5 m 면 해제" 는 소유를 넘기는 중간 탭에서 선택을 빼앗게 됐다.
+      const step = s.present.steps.find((st) => st.id === s.stepId);
+      if (!step || ballRingOf(step, a.id) !== '5m' || step.ballOwner?.[a.id] !== 'away') return s;
       return s.selection.size === 0 ? s : { ...s, selection: new Set<string>() };
     }
     case 'STEP_SELECT':
@@ -304,8 +320,6 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       }
       return next;
     }
-    case 'STEP_ADD':
-      return addStepAfter(d, a.afterIndex);
     case 'STEP_DUPLICATE': {
       const idx = d.steps.findIndex((st) => st.id === a.id);
       return idx < 0 ? d : duplicateStep(d, idx, a.toIndex);
@@ -326,6 +340,10 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return duplicateSteps(d, a.ids);
     case 'STEPS_DELETE':
       return deleteSteps(d, a.ids);
+    case 'STEP_CLEAR': {
+      const idx = d.steps.findIndex((st) => st.id === a.id);
+      return idx < 0 ? d : clearStep(d, idx);
+    }
     case 'STEP_META': {
       const idx = d.steps.findIndex((st) => st.id === a.id);
       if (idx < 0) return d;
@@ -363,9 +381,10 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return placeChair(d, i, a.id, a.pose);
     case 'CHAIR_DEF':
       return updateChairDef(d, a.id, a.patch);
-    // 5.2 — 순환 규칙 자체는 순수 함수(model/edits.cycleBallRing)에 있다. 그 공 하나만 바뀐다.
+    // 5.2 — 순환 규칙 자체는 순수 함수(model/edits.cycleBallRing)에 있다. v9 부터 **그 스텝의**
+    // 그 공 하나만 바뀐다(i = 지금 편집 중인 스텝 인덱스, 이 리듀서가 이미 받고 있다).
     case 'BALL_RETAP':
-      return cycleBallRing(d, a.id);
+      return cycleBallRing(d, i, a.id);
     case 'OBJECT_NUDGE':
       return applyNudge(d, i, a.id, a.d, a.dTheta);
     case 'GROUP_NUDGE':
@@ -394,6 +413,10 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return setShape(d, i, a.shape);
     case 'SHAPE_REMOVE':
       return removeShape(d, i, a.id);
+    case 'STROKE_SET':
+      return setStroke(d, i, a.stroke);
+    case 'STROKE_REMOVE':
+      return removeStroke(d, i, a.id);
     case 'FLAG_SET':
       // 여럿이면 접어 넣는다 — 히스토리에는 이 액션 한 칸만 남는다(actions.ts 주석).
       return a.ids.reduce((acc, id) => setStepFlag(acc, i, a.flag, id, a.on), d);
@@ -426,6 +449,11 @@ function applyGroupNudge(d: Drill, i: number, ids: readonly string[], delta: { x
     } else if (isId(id, 'sh')) {
       const sh = step.shapes?.find((x) => x.id === id);
       if (sh) out = setShape(out, i, { ...sh, x: sh.x + delta.x, y: sh.y + delta.y });
+    } else if (isId(id, 'fh')) {
+      const fh = step.strokes?.find((x) => x.id === id);
+      // 점 전부를 함께 민다 — 화살표의 'whole' 과 같은 뜻이고, 같은 함수를 포인터의 몸통
+      // 드래그도 쓴다(그래야 키보드와 마우스가 안 갈린다 — §7.5 의 요구).
+      if (fh) out = setStroke(out, i, nudgeStroke(fh, delta));
     }
   }
   return out;

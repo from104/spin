@@ -1,6 +1,6 @@
 // §10.6 transfer/files. 파일명 규칙, 봉투 파싱, sameDrill, 배치 가져오기/커밋, 세션 리맵.
 import { describe, it, expect } from 'vitest';
-import { slugify, ymdLocal, drillFileName, readTextFile } from './files.ts';
+import { slugify, ymdLocal, drillFileName, readTextFile, SPIN_EXT } from './files.ts';
 import {
   ENVELOPE_VERSION,
   parseSpinFile,
@@ -65,11 +65,18 @@ describe('ymdLocal / drillFileName', () => {
     const ms = new Date(2026, 7, 8, 3, 4, 5).getTime(); // 2026-08-08 (월=7 → 8월)
     expect(ymdLocal(ms)).toBe('20260808');
   });
-  it('drillFileName 은 .spin.json 이중 확장자를 쓴다', () => {
+  it('drillFileName 은 종류가 드러나는 .spin.drill.json 을 쓴다', () => {
     const d = createDrill({ courtMode: 'full', title: '측면-돌파-후-크로스' });
     const name = drillFileName(d);
     expect(name.startsWith('SPIN_측면-돌파-후-크로스_')).toBe(true);
-    expect(name.endsWith('.spin.json')).toBe(true);
+    expect(name.endsWith(SPIN_EXT.drill)).toBe(true);
+    // 여전히 .json 으로 끝난다 — 확장자를 늘려도 JSON 으로 열리는 성질을 잃으면 안 된다.
+    expect(name.endsWith('.json')).toBe(true);
+  });
+  it('종류마다 확장자가 다르다 — 파일 이름만 보고 갈 화면을 고를 수 있어야 한다', () => {
+    const exts = Object.values(SPIN_EXT);
+    expect(new Set(exts).size, '중복된 확장자가 있으면 구분이 안 된다').toBe(exts.length);
+    for (const ext of exts) expect(ext.startsWith('.spin.') && ext.endsWith('.json')).toBe(true);
   });
 });
 
@@ -321,7 +328,7 @@ describe('backup 봉투 — 라운드트립', () => {
     await addDrillToSession(session.id, drill.id);
     savePrefs({ ...makeDefaultPrefs(), theme: 'light', a11y: { ...makeDefaultPrefs().a11y, uiScale: 1.3, largeTargets: true }, tray: { draw: true, note: false } });
     const boardDrill = createDrill({ courtMode: 'full', title: '이사 전술판' });
-    saveBoard(boardDrill, false);
+    saveBoard(boardDrill);
 
     const blob = exportBackupFile(await collectBackup());
     const text = await blob.text();
@@ -358,7 +365,6 @@ describe('backup 봉투 — 라운드트립', () => {
 
     expect(report.board).toBe('restored');
     expect(loadBoard()?.drill.title).toBe('이사 전술판');
-    expect(loadBoard()?.pristine).toBe(false);
 
     await wipeAll();
   });
@@ -541,9 +547,11 @@ describe('backup 봉투 — prefs 복원 정책', () => {
 });
 
 describe('backup 봉투 — 자유 전술판 복원 정책', () => {
-  it("기본 'auto' 는 편집 중인 로컬 판(pristine:false)을 덮어쓰지 않는다", async () => {
-    saveBoard(createDrill({ courtMode: 'full', title: '작업 중인 판' }), false);
-    const fileBoard = { schemaVersion: 1, pristine: false, drill: createDrill({ courtMode: 'full', title: '백업 속 판' }) };
+  it("기본 'auto' 는 **개체가 놓인** 로컬 판을 덮어쓰지 않는다", async () => {
+    // 2026-08-28 — 판정이 `pristine:false` 에서 "판 위에 개체가 있는가" 로 바뀌었다.
+    // `createDrill` 은 기본 배치(8대+공)를 깔므로 그 자체가 '작업 중인 판' 이다.
+    saveBoard(createDrill({ courtMode: 'full', title: '작업 중인 판' }));
+    const fileBoard = { schemaVersion: 1, drill: createDrill({ courtMode: 'full', title: '백업 속 판' }) };
     const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: fileBoard }));
 
     const report = await restoreBackup(file);
@@ -552,8 +560,8 @@ describe('backup 봉투 — 자유 전술판 복원 정책', () => {
     expect(report.board).toBe('kept-local-edited');
     expect(loadBoard()?.drill.title).toBe('작업 중인 판');
 
-    // 대조군 — 손대지 않은 판(pristine:true)이면 같은 파일이 복원된다. "무엇을 넣어도 skip" 이 아니다.
-    saveBoard(createDrill({ courtMode: 'full', title: '기본 배치 그대로' }), true);
+    // 대조군 — **빈 판**이면 같은 파일이 복원된다. "무엇을 넣어도 skip" 이 아니다.
+    saveBoard(createDrill({ courtMode: 'full', title: '아직 안 그린 판', empty: true }));
     const report2 = await restoreBackup(file);
     expect(report2.board).toBe('restored');
     expect(loadBoard()?.drill.title).toBe('백업 속 판');
@@ -561,7 +569,7 @@ describe('backup 봉투 — 자유 전술판 복원 정책', () => {
   });
 
   it('파일에 판이 없으면(null) 로컬 판을 건드리지 않는다 — 사유는 none-in-file 로 구분된다', async () => {
-    saveBoard(createDrill({ courtMode: 'full', title: '남아 있어야 할 판' }), true);
+    saveBoard(createDrill({ courtMode: 'full', title: '남아 있어야 할 판' }));
     const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: null }));
     const report = await restoreBackup(file, { board: 'replace' });
     // 5.0 ②a — "파일에 판 없음"(할 일이 없다)을 "편집 중이라 안 덮음"(체크박스로 해소)과
@@ -572,8 +580,8 @@ describe('backup 봉투 — 자유 전술판 복원 정책', () => {
   });
 
   it("board:'replace' 는 편집 중인 로컬 판도 덮는다 — [전술판 교체] 체크박스가 여는 유일한 길(5.0 ②b)", async () => {
-    saveBoard(createDrill({ courtMode: 'full', title: '희생될 편집 중 판' }), false);
-    const fileBoard = { schemaVersion: 1, pristine: false, drill: createDrill({ courtMode: 'full', title: '백업에서 온 판' }) };
+    saveBoard(createDrill({ courtMode: 'full', title: '희생될 편집 중 판' }));
+    const fileBoard = { schemaVersion: 1, drill: createDrill({ courtMode: 'full', title: '백업에서 온 판' }) };
     const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: makeDefaultPrefs(), board: fileBoard }));
 
     const report = await restoreBackup(file, { board: 'replace' });
@@ -581,7 +589,7 @@ describe('backup 봉투 — 자유 전술판 복원 정책', () => {
     expect(loadBoard()?.drill.title).toBe('백업에서 온 판');
 
     // 대조군 — 같은 상황에서 'skip' 정책은 여전히 'skipped' 다(정책 스킵과 사유 스킵은 별개 값).
-    saveBoard(createDrill({ courtMode: 'full', title: '다시 편집 중' }), false);
+    saveBoard(createDrill({ courtMode: 'full', title: '다시 편집 중' }));
     const report2 = await restoreBackup(file, { board: 'skip' });
     expect(report2.board).toBe('skipped');
     expect(loadBoard()?.drill.title).toBe('다시 편집 중');

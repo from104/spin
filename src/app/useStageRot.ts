@@ -27,7 +27,7 @@
 // 회전 규칙이 한 줄도 없다 — 있는 것은 **어디서 재는가**뿐이다.
 import { useEffect, useState } from 'react';
 import type { CourtMode, CourtSize } from '../model/court.ts';
-import { SAFE_AREA_NONE, courtBoxPx, courtScale } from './chromeBudget.ts';
+import { SAFE_AREA_NONE, courtBoxPx, courtScale, functionBarExtraColsPx } from './chromeBudget.ts';
 import type { ChromeState, Size } from './chromeBudget.ts';
 import type { StageRot } from '../render/useStageMetrics.ts';
 
@@ -72,11 +72,19 @@ export function stageRotHoldBox(mode: CourtMode, size: CourtSize | undefined, st
   const court = courtBoxPx(viewport, state);
   let m = Math.max(1, Math.min(Math.floor(court.w) - 1, Math.floor(court.h) - 1));
   for (let i = 0; i < HOLD_HALVINGS && m > 1; i++) {
+    // ⚠️ 꼭짓점의 rot 만으로는 부족하다(2026-08-28). 코트 상자 폭에는 기능 바의 **열 수**가
+    //    들어 있고 그것은 창 높이의 **계단 함수**다 — 상자가 그 계단을 걸치면 상자 안에서
+    //    코트 상자가 아핀이 아니게 되어 위 머리말의 볼록성 논증이 깨진다. 실제로 2026-08-28 에
+    //    기능 바 칸이 하나 늘며 800×480 에서 그 섬이 생겼다(꼭짓점 넷은 0, 안쪽에 90).
+    //    계단을 상자 밖으로 밀어내면 논증이 다시 선다.
+    const cols = functionBarExtraColsPx(viewport, state);
     const same =
       stageRotFor(mode, size, state, { w: viewport.w - m, h: viewport.h - m }) === here &&
       stageRotFor(mode, size, state, { w: viewport.w - m, h: viewport.h + m }) === here &&
       stageRotFor(mode, size, state, { w: viewport.w + m, h: viewport.h - m }) === here &&
-      stageRotFor(mode, size, state, { w: viewport.w + m, h: viewport.h + m }) === here;
+      stageRotFor(mode, size, state, { w: viewport.w + m, h: viewport.h + m }) === here &&
+      functionBarExtraColsPx({ w: viewport.w, h: viewport.h - m }, state) === cols &&
+      functionBarExtraColsPx({ w: viewport.w, h: viewport.h + m }, state) === cols;
     if (same) break;
     m = Math.floor(m / 2);
   }

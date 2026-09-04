@@ -5,7 +5,7 @@
 // 여기서 재는 것은 **표 자체가 성립하는가**: 한 키가 한 층에서 두 뜻을 갖지 않는가,
 // 층 사이에서 서로를 삼키지 않는가, 도구 목록과 어긋나지 않는가.
 import { describe, it, expect } from 'vitest';
-import { KEYMAP, TOOL_KEY_PREFIX, lookupKey, matchesKey, helpRows, toolHelpRows, type KeyScope } from './keymap.ts';
+import { KEYMAP, TOOL_KEY_PREFIX, eventCode, lookupKey, matchesKey, helpRows, toolHelpRows, type KeyScope } from './keymap.ts';
 
 /** 표에 등장하는 모든 code × 수식키 8가지. 이 곱집합이 곧 키보드로 만들 수 있는 사건 전부다
  *  (표에 없는 code 는 어차피 아무 정의도 안 잡으므로 셀 필요가 없다). */
@@ -121,12 +121,76 @@ describe('키맵 — code 를 쓴다(key 가 아니다)', () => {
   });
 });
 
+// `code` 를 안 싣는 사건(일부 화면 키보드·매크로·보조 입력 장치 — eventCode 머리말)에서
+// **방향키만 살고 문자키는 죽던** 비대칭을 없앤 것이 2026-08-28 변경이다. 폴백을 두기로 한
+// 이유가 참이면 W A S D 에도 똑같이 참인데, 옛 폴백은 이름이 같은 키(ArrowRight)만 구제했다.
+//
+// ⚠️ 같은 날 *"wasd qe이 왜 안 먹나?"* 신고를 쫓다 짚은 자리지만 **그 원인은 아니었다**
+//    (실제 원인은 SPIN 밖 — 입력기). 이 describe 를 그 신고의 회귀 방어로 읽지 마라.
+describe('eventCode — code 가 없으면 key 로 물러선다', () => {
+  it('code 가 있으면 그대로 쓴다 — 폴백은 안 돈다', () => {
+    expect(eventCode({ code: 'KeyD', key: 'd' })).toBe('KeyD');
+    // 한글 모드의 진짜 키보드: key 는 'ㅇ' 이지만 code 가 있으므로 그것이 이긴다.
+    expect(eventCode({ code: 'KeyD', key: 'ㅇ' })).toBe('KeyD');
+  });
+
+  it('code 가 없으면 ASCII 한 글자를 물리 키 이름으로 올린다', () => {
+    for (const [key, code] of [
+      ['w', 'KeyW'],
+      ['a', 'KeyA'],
+      ['s', 'KeyS'],
+      ['d', 'KeyD'],
+      ['q', 'KeyQ'],
+      ['e', 'KeyE'],
+      ['D', 'KeyD'], // Shift 가 눌린 사건
+    ] as const) {
+      expect(eventCode({ key }), `${key} 가 ${code} 로 안 올라간다`).toBe(code);
+    }
+  });
+
+  it('이름이 같은 키는 표 없이도 통과한다 (옛 폴백이 지키던 것)', () => {
+    for (const k of ['ArrowRight', 'ArrowUp', 'Escape', 'Enter', 'PageUp', 'Delete']) {
+      expect(eventCode({ key: k })).toBe(k);
+    }
+  });
+
+  it('이름이 다른 비문자 키도 올린다 — [ ] / = - 0 · Space', () => {
+    expect(eventCode({ key: ' ' })).toBe('Space');
+    expect(eventCode({ key: '[' })).toBe('BracketLeft');
+    expect(eventCode({ key: ']' })).toBe('BracketRight');
+    expect(eventCode({ key: '/' })).toBe('Slash');
+    expect(eventCode({ key: '=' })).toBe('Equal');
+    expect(eventCode({ key: '-' })).toBe('Minus');
+    expect(eventCode({ key: '0' })).toBe('Digit0');
+  });
+
+  // ⚠️ 옛 주석이 지키려던 것 — 이것만은 그대로다.
+  it('한글은 구제하지 않는다 — 오발화 방어는 유지된다', () => {
+    for (const k of ['ㅈ', 'ㅁ', 'ㄴ', 'ㅇ', 'ㅍ']) {
+      expect(eventCode({ key: k })).toBe(k); // 어떤 code 로도 안 올라간다
+      expect(lookupKey('object', { code: '', key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false })).toBeUndefined();
+    }
+  });
+
+  it('★ 끝에서 끝 — code 없는 W A S D · Q E 가 개체 층에서 실제로 잡힌다', () => {
+    const ev = (key: string) => ({ code: '', key, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false });
+    for (const k of ['w', 'a', 's', 'd']) expect(lookupKey('object', ev(k)), k).toBe('obj.move');
+    for (const k of ['q', 'e']) expect(lookupKey('object', ev(k)), k).toBe('obj.rotate');
+    // 대조군 — 방향키는 전에도 살아 있었다(이 회귀가 그 둘을 갈랐다는 것이 요점이다).
+    expect(lookupKey('object', ev('ArrowRight'))).toBe('obj.move');
+  });
+});
+
 describe('키맵 — 도구', () => {
-  it('도구 9종이 전부 자기 키를 갖는다', () => {
+  // 2026-09-03 — 9종에서 **10종**이 됐다(지우기 합류), 같은 날 **11종**이 됐다(자유 그리기).
+  // 목록을 파생식으로 바꾸지 않고 새 값을 그대로 적는다: 이 단언이 잡아야 하는 사고가
+  // "표와 레일이 갈라짐" 이라, 표에서 계산해 만든 목록으로 표를 검사하면 무엇을 넣든 초록이다.
+  it('도구 11종이 전부 자기 키를 갖는다', () => {
     const tools = KEYMAP.filter((d) => d.id.startsWith(TOOL_KEY_PREFIX)).map((d) => d.id.slice(TOOL_KEY_PREFIX.length));
     expect(tools).toEqual([
       'select',
       'line',
+      'freehand',
       'shapeEllipse',
       'shapeTriangle',
       'shapeRect',
@@ -134,11 +198,20 @@ describe('키맵 — 도구', () => {
       'cone',
       'player',
       'note',
+      'eraser',
     ]);
   });
 
-  it('지우개에는 키가 없다 — Delete 로 일원화했다', () => {
+  // 🔁 여기 있던 것은 *'지우개에는 키가 없다 — Delete 로 일원화했다'* 였다(2026-08-16,
+  // `tool:erase` 가 없음을 단언). 2026-09-03 에 도구가 `tool:eraser` 로 돌아오면서 뒤집힌다.
+  // 그때의 참은 남는다: **`erase` 라는 id 는 지금도 없다.** 지우는 키 `Delete` 의 동작 id 가
+  // `erase.selection` 이라, 도구 접두어와 겹치는 이름을 다시 쓰면 두 개념이 한 글자 차이로
+  // 붙는다 — 도구는 `eraser`(물건), 동작은 `erase.*`(하는 일)로 갈라 둔다.
+  it('도구 지우기는 `eraser` 다 — 옛 `erase` id 는 되살리지 않았다(Delete 동작과 이름이 겹친다)', () => {
     expect(KEYMAP.some((d) => d.id === `${TOOL_KEY_PREFIX}erase`)).toBe(false);
+    expect(KEYMAP.some((d) => d.id === `${TOOL_KEY_PREFIX}eraser`)).toBe(true);
+    // 대조군: 삭제 **동작**은 그대로 Delete 다. 도구가 돌아왔다고 키보드 경로가 바뀌지 않았다.
+    expect(KEYMAP.some((d) => d.id === 'erase.selection')).toBe(true);
   });
 
   it('숫자키로 도구를 고르지 않는다', () => {
@@ -204,6 +277,9 @@ describe('도움말은 표에서 나온다', () => {
     expect(rows).toEqual([
       ['V', '선택 도구'],
       ['L', '선 도구'],
+      // 2026-09-03 — 자유 그리기. **머릿글자 규칙이 그대로 통한 자리**라 아래 X 와 성격이
+      // 정반대다(그쪽은 규칙을 놓은 예외). 두 줄이 나란히 있어야 규칙과 예외가 구별된다.
+      ['F', '자유 그리기 도구'],
       ['O', '원 도구'],
       ['T', '삼각 도구'],
       ['R', '사각 도구'],
@@ -211,6 +287,8 @@ describe('도움말은 표에서 나온다', () => {
       ['C', '콘 도구'],
       ['P', '선수 도구'],
       ['N', '메모 도구'],
+      // 2026-09-03 — 열째 줄. `X` 는 머릿글자가 아니라 **화면의 그림**에서 왔다(붉은 X 커서).
+      ['X', '지우기 도구'],
     ]);
     // 일반 단축키 표에는 여전히 안 섞인다 — 구역이 갈려 있다는 것이 이 단언이다.
     expect(helpRows('global', { steps: true }).some(([k]) => k === 'V')).toBe(false);

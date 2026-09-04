@@ -1,5 +1,5 @@
 // §3.1 ID. 접두사 기반 브랜드 문자열 타입 + 생성기.
-export type IdPrefix = 'dr' | 'se' | 'st' | 'ch' | 'bl' | 'cn' | 'ar' | 'nt' | 'sh' | 'it' | 'ph' | 'pl';
+export type IdPrefix = 'dr' | 'se' | 'st' | 'ch' | 'bl' | 'cn' | 'ar' | 'nt' | 'sh' | 'it' | 'ph' | 'pl' | 'fh';
 export type Id<P extends IdPrefix> = `${P}_${string}`;
 export type DrillId = Id<'dr'>;
 export type SessionId = Id<'se'>;
@@ -16,6 +16,10 @@ export type ItemId = Id<'it'>;
 export type PhaseId = Id<'ph'>;
 /** 로스터 선수 — 구조 개편 3차. */
 export type PlayerId = Id<'pl'>;
+/** 자유 그리기 획(freehand) — 2026-09-03. 접두가 'st'(스텝)·'sh'(도형)와 겹치지 않게 'fh' 다.
+ *  ⚠️ **`CastId` 에 넣지 않는다** — 획은 화살표·메모·도형과 같은 부류로 스텝이 통째로 소유하고,
+ *  cast(정의 + 스텝별 좌표)라는 두 겹 구조를 갖지 않는다. */
+export type StrokeId = Id<'fh'>;
 export type CastId = ChairId | BallId | ConeId;
 
 const base36 = (n: number, width: number): string => n.toString(36).padStart(width, '0');

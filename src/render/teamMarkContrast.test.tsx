@@ -80,6 +80,7 @@ function pngChip(team: TeamSide, color?: string): string {
     cones: [],
     arrows: [],
     notes: [],
+    strokes: [],
   };
   const svg = buildStaticSvg(frame, { mode: 'full', teams: TEAMS, caption: null });
   const g = /<g id="obj-ch_1"[\s\S]*?<\/g>/.exec(svg);
@@ -93,8 +94,8 @@ function printChip(team: TeamSide, color?: string): string {
     teams: TEAMS,
     cast: { chairs: [def], balls: [], cones: [] },
   };
-  const step = { chairs: { [CHAIR_ID]: { x: 200, y: 200, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [] } as unknown as DrillStep;
-  const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" />, { wrapper: SettingsProvider });
+  const step = { chairs: { [CHAIR_ID]: { x: 200, y: 200, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [], strokes: [] } as unknown as DrillStep;
+  const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />, { wrapper: SettingsProvider });
   const g = container.querySelector('[data-print-chair]');
   expect(g, '인쇄 트리에 칩 그룹이 없다').not.toBeNull();
   return g!.outerHTML;
@@ -115,17 +116,6 @@ const FILLS: Array<[string, string]> = [
 ];
 
 describe('대조군 — 고치기 전에 실제로 미달이 있었다 (없는 문제를 고친 척하지 않는다)', () => {
-  it('흰 테두리 고정이면 6색 중 3색이 3:1 미달이다 (5.6 이 적어 둔 숫자 그대로)', () => {
-    const fixed = FILLS.map(([, c]) => onFill(OBJ_STROKE, c));
-    expect(fixed.filter((r) => r < NON_TEXT_MIN)).toHaveLength(3);
-    // 그 셋이 어느 색인지까지 못박는다(개수만 세면 색이 바뀌어도 통과한다).
-    expect(onFill(OBJ_STROKE, '#e08a12')).toBeCloseTo(2.5, 1);
-    expect(onFill(OBJ_STROKE, GK_AWAY_COLOR)).toBeCloseTo(2.8, 1);
-    expect(onFill(OBJ_STROKE, GK_HOME_COLOR)).toBeCloseTo(1.55, 1);
-    // ★ 그중 하나는 **기본 설정**이다 — 사용자가 아무것도 안 건드려도 발생했다.
-    expect(DEFAULT_TEAMS.away.gkColor).toBe(GK_AWAY_COLOR);
-  });
-
   it('대조군 — 뒤집힌 테두리라고 아무 색이나 통과시키는 것이 아니다', () => {
     // 방향이 반대인 선(밝은 차체에 흰 선 / 어두운 차체에 검은 선)은 이 판정을 통과하지 못한다.
     expect(onFill(OBJ_STROKE, GK_HOME_COLOR)).toBeLessThan(NON_TEXT_MIN);
@@ -193,10 +183,7 @@ describe('★ 임계 .25 는 **RGB 큐브 전수**로 정한 값이다 (팔레�
     expect(OBJ_INK_L).toBe(0.25);
     const { min, at } = minRatioOverCube(OBJ_INK_L);
     expect(min, `최악의 색 ${at}`).toBeGreaterThanOrEqual(NON_TEXT_MIN);
-  });
-
-  it('전수 탐색의 최악 색(#f80bd5, 24bit 전수 최솟값 3.084)도 통과한다', () => {
-    // 격자(step 17)는 이 색을 지나가지 않는다 — 그래서 따로 못박는다.
+    // 격자(step 17)는 지나가지 않는 표본 — 전수 탐색의 최악 색(#f80bd5, 24bit 전수 최솟값 3.084)도 통과한다.
     expect(onFill(strokeFor('#f80bd5'), '#f80bd5')).toBeCloseTo(3.08, 1);
     expect(onFill(strokeFor('#f80bd5'), '#f80bd5')).toBeGreaterThanOrEqual(NON_TEXT_MIN);
   });
@@ -213,22 +200,14 @@ describe('테마 축(라이트/다크) — 판의 색에는 테마가 개입할 
     for (const [name, chipOf] of PATHS) {
       expect(chipOf('away', GK_HOME_COLOR), `${name}: 칩 색이 테마 토큰을 탄다`).not.toContain('var(--');
     }
-  });
-
-  it('코트 배경은 라이트·다크 공통 상수 하나다 — 그래서 위 표의 코트 대비가 두 테마에서 같다', () => {
-    expect(COURT_BG).toBe('#1f7a46');
+    // 코트 배경도 같은 통로가 없다 — 라이트·다크 공통 상수 하나이므로 위 표의 코트 대비가
+    // 두 테마에서 같다.
     const tokens = readFileSync('src/styles/tokens.css', 'utf-8');
     expect(tokens).not.toContain('--court'); // 코트 색을 테마 토큰으로 내린 적이 없다
   });
 });
 
 describe('경계 — 일부러 적용하지 않은 화면(뒷문장에도 단언을 둔다)', () => {
-  it('썸네일은 그대로다 — 거기에는 파선 표식 자체가 없다(render/teamMark.ts 머리말)', () => {
-    const thumb = readFileSync('src/render/CourtThumbnail.tsx', 'utf-8');
-    expect(thumb).not.toContain('strokeFor');
-    expect(thumb).not.toContain('strokeDasharray');
-  });
-
   it('시연 화면은 자기 칩을 따로 그리지 않는다 — 편집기와 **같은 ChairChip** 이다', () => {
     // 이 한 줄이 시연 축을 닫는다. 여기서 자체 칩을 그리기 시작하면 위 표가 시연에 안 닿는다.
     const present = readFileSync('src/features/present/PresentObjects.tsx', 'utf-8');

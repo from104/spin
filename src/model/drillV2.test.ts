@@ -63,8 +63,11 @@ describe('3.2/3.3 마이그레이션 — 구 버전 드릴 파일이 v2 로 올�
             ...st,
             arrows: ((st.arrows as Record<string, unknown>[] | undefined) ?? []).map(({ kind: _k, ...a }) => a),
           }));
-        const got = (doc[key] as Record<string, unknown>[]).map(({ shapes, ...rest }) => {
+        // ⚠️ 2026-09-03 — v9→v10 이 같은 모양으로 `strokes: []` 를 더한다(자유 그리기).
+        //    도형과 같은 근거·같은 처리다.
+        const got = (doc[key] as Record<string, unknown>[]).map(({ shapes, strokes, ...rest }) => {
           expect(shapes, '도형 단계가 스텝에 빈 배열을 안 찍었다').toEqual([]);
+          expect(strokes, '획 단계가 스텝에 빈 배열을 안 찍었다').toEqual([]);
           return rest;
         });
         expect(got, `v1 의 '${key}' 가 사라지거나 바뀌었다`).toEqual(stripKind(value));

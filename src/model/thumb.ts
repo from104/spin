@@ -1,9 +1,11 @@
 // §3.11 썸네일. 색 없는 기하 요약만 만들고 픽셀은 만들지 않는다 — 색을 굽지 않아야 테마·팀
 // 색을 바꿔도 썸네일이 즉시 따라온다. 첫 스텝에서 생성.
 import { ARROW_COLOR_CYCLE, arrowColor } from './arrow.ts';
+import { STROKE_WIDTH_DEFAULT, simplifyPoints, strokeColor, strokeWidthIndexOf } from './stroke.ts';
 import type { Drill } from './drill.ts';
 import type { CourtMode } from './court.ts';
 import type { Shape } from './shape.ts';
+import type { Vec2 } from '../core/units.ts';
 
 export interface ThumbSpec {
   mode: CourtMode;
@@ -32,10 +34,48 @@ export interface ThumbSpec {
    *  600자 메모 여덟 개를 실으면 성격이 바뀐다. 썸네일의 글자는 2~3 px 라 읽히는 것이 아니라
    *  '여기 쪽지가 있다' 는 질감이다(그래서 자른 것이 화면에서 손실로 보이지 않는다). */
   notes?: Array<{ x: number; y: number; t: string; s?: number; c?: string; a?: 'start' | 'middle' | 'end' }>;
+  /** 자유 그리기 획(2026-09-03). `p` 는 **평탄한 좌표 열**([x0,y0,x1,y1,…])이다 — 44px 칩
+   *  하나에 열두 점짜리 획 셋이면 `{x,y}` 객체 서른여섯 개가 IDB 에 앉는데, 요약은 목록을
+   *  그리기 위한 작은 레코드다(위 `notes` 주석과 같은 규율).
+   *
+   *  ⚠️ 색은 hex 가 아니라 `ARROW_COLORS` 의 **첨자**이고(화살표와 같은 규약), 굵기도 px 가
+   *  아니라 `STROKE_WIDTHS` 의 첨자다 — 이 파일 머리말의 "색을 굽지 않는다" 가 굵기에도 똑같이
+   *  걸린다(값을 손보면 옛 요약만 옛 굵기로 남는다).
+   *
+   *  ⚠️ 기본값(색 첨자 0 · 굵기 첨자 `STROKE_WIDTH_DEFAULT`)일 때는 키를 넣지 않는다 —
+   *  `arrows.c` 와 같은 이유다. 비어 있으면 `strokes` 키 자체를 안 만든다. */
+  strokes?: Array<{ p: number[]; c?: number; w?: number }>;
 }
 
-/** `noteChars` 만 개수가 아니라 **글자 수**다 — 위 `notes` 주석의 근거. */
-export const THUMB_CAPS = { chairs: 8, balls: 4, cones: 8, arrows: 3, shapes: 6, notes: 6, noteChars: 24 } as const;
+/** `noteChars` 만 개수가 아니라 **글자 수**다 — 위 `notes` 주석의 근거.
+ *  `strokePoints` 도 개수가 아니라 **한 획의 점 수**다(같은 형태의 예외). */
+export const THUMB_CAPS = {
+  chairs: 8,
+  balls: 4,
+  cones: 8,
+  arrows: 3,
+  shapes: 6,
+  notes: 6,
+  noteChars: 24,
+  strokes: 3,
+  strokePoints: 12,
+} as const;
+
+/** 썸네일용 단순화 허용 오차(px). 본문의 `STROKE_SIMPLIFY_EPSILON_PX`(1.5)보다 네 배 거칠다 —
+ *  44px 칩에서 획은 몇 픽셀짜리 흔적이라 굽이 하나하나가 아니라 **어디서 어디로 갔는가**만
+ *  읽힌다. 그래도 못 줄인 획은 아래 `thinTo` 가 균등하게 솎는다(RDP 는 점 수를 보장하지 않는다). */
+export const THUMB_STROKE_EPSILON_PX = 6;
+
+/** 양 끝을 지킨 채 균등 간격으로 `max` 점까지 솎는다. RDP 뒤에도 점이 남는 획(빽빽한 곡선)의
+ *  마지막 방어선이다 — 여기서 잘라 두어야 요약 하나의 크기에 상한이 선다. */
+function thinTo(pts: readonly Vec2[], max: number): Vec2[] {
+  if (pts.length <= max) return pts.slice();
+  const out: Vec2[] = [];
+  for (let i = 0; i < max; i += 1) {
+    out.push(pts[Math.round((i * (pts.length - 1)) / (max - 1))]!);
+  }
+  return out;
+}
 
 /** 드릴 요약(목록 카드)용 — 첫 스텝. */
 export function buildThumb(d: Drill): ThumbSpec {
@@ -52,6 +92,7 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
   const arrows: ThumbSpec['arrows'] = [];
   const shapes: Shape[] = [];
   const notes: NonNullable<ThumbSpec['notes']> = [];
+  const strokes: NonNullable<ThumbSpec['strokes']> = [];
 
   if (step) {
     for (const def of d.cast.chairs) {
@@ -95,6 +136,21 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
       if (n.align !== undefined) e.a = n.align;
       notes.push(e);
     }
+    // 획도 `?? []` — 필드가 optional 이라 v10 이전 스텝 객체에는 키가 없다(drill.ts 주석).
+    for (const s of step.strokes ?? []) {
+      if (strokes.length >= THUMB_CAPS.strokes) break;
+      const pts = thinTo(simplifyPoints(s.points, THUMB_STROKE_EPSILON_PX), THUMB_CAPS.strokePoints);
+      if (pts.length < 2) continue; // 두 점이 안 되면 칩에서 선이 아니다
+      const p: number[] = [];
+      for (const q of pts) p.push(q.x, q.y);
+      const e: NonNullable<ThumbSpec['strokes']>[number] = { p };
+      // 순환 밖의 색은 -1 이라 0(기본색)으로 접힌다 — arrows 의 `c` 와 같은 규약이다.
+      const c = ARROW_COLOR_CYCLE.indexOf(strokeColor(s));
+      if (c > 0) e.c = c;
+      const w = strokeWidthIndexOf(s);
+      if (w !== STROKE_WIDTH_DEFAULT) e.w = w;
+      strokes.push(e);
+    }
   }
 
   return {
@@ -105,5 +161,6 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
     arrows,
     ...(shapes.length > 0 ? { shapes } : {}),
     ...(notes.length > 0 ? { notes } : {}),
+    ...(strokes.length > 0 ? { strokes } : {}),
   };
 }

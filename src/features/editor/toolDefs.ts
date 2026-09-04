@@ -13,6 +13,8 @@ import {
   IconToolCone,
   IconToolPlayer,
   IconToolNote,
+  IconToolFreehand,
+  IconToolErase,
   IconShapeEllipse,
   IconShapeTriangle,
   IconShapeRect,
@@ -25,7 +27,7 @@ import type { DictKey } from '../../i18n/ko.ts';
 export interface ToolDef {
   id: ToolId;
   label: Record<Locale, string>;
-  /** 단축키 글자(`core/keymap.ts` 에서 파생). 지금은 9종 모두 키를 갖지만, 표에 없으면
+  /** 단축키 글자(`core/keymap.ts` 에서 파생). 지금은 10종 모두 키를 갖지만, 표에 없으면
    *  빈 문자열이 온다 — 그 경우 레일 버튼에 글자 배지가 안 붙는다(ToolRail 의 그 분기). */
   key: string;
   Icon: ComponentType<IconProps>;
@@ -48,6 +50,11 @@ const def = (id: ToolId, labelKey: DictKey, Icon: ComponentType<IconProps>): Too
 export const TOOLS: readonly ToolDef[] = [
   def('select', 'editor.toolDefs.select', IconToolSelect),
   def('line', 'editor.toolDefs.line', IconToolRoute),
+  // 2026-09-03 — 자유 그리기. 자리가 `line` **바로 옆**인 것이 결정이다(PLAN 결정 7): 둘 다
+  // "선을 긋는" 도구이고 갈리는 것은 모양이 정해져 있는가뿐이라, 서랍 안에서 이웃해야 고를 때
+  // 견줄 대상이 눈앞에 함께 온다. 서랍의 기본 도구(손잡이가 접힌 채 보여 주는 것)는 `line`
+  // 그대로다 — 자유 그리기는 손이 정밀해야 값이 나오는 도구라 첫 칸의 기본값으로는 무겁다.
+  def('freehand', 'editor.toolDefs.freehand', IconToolFreehand),
   def('shapeEllipse', 'editor.toolDefs.shapeEllipse', IconShapeEllipse),
   def('shapeTriangle', 'editor.toolDefs.shapeTriangle', IconShapeTriangle),
   def('shapeRect', 'editor.toolDefs.shapeRect', IconShapeRect),
@@ -65,6 +72,20 @@ export const TOOLS: readonly ToolDef[] = [
   //    길게 누르기 → 개체 메뉴 → 삭제**, 그리고 **코트에서 트레이로 끌기 = 복귀**
   //    (useEditorPointer 의 isOverTray — 칩·공·콘). 둘 다 그대로 살아 있으므로 지우개를
   //    걷어내도 마우스 경로는 한 톨도 줄지 않는다. 키보드 쪽은 선택 후 Delete 가 받는다.
+  //
+  // 🔁 **2026-09-03 되살림**(기현 지시: *"메모 옆에 (객체)지우기 버튼 추가… 연속 삭제 가능.
+  //    빈 곳을 클릭하거나 다시 지우기 버튼을 누르거나 esc를 누르면 선택으로 복귀"*).
+  //    위 두 근거를 지우지 않는 이유는 **둘 다 그때의 참**이었기 때문이고, 지금 뒤집히는
+  //    이유는 두 전제가 각각 죽었기 때문이다:
+  //      ① 글자가 없다 → 머릿글자 규칙을 이 도구에서만 놓았다. 화면이 붉은 `X` 로 말하므로
+  //         키도 `X` 다(keymap.ts 의 그 줄). 아무 자리도 뺏지 않는다.
+  //      ② 문이 너무 많다 → **그때 것과 다른 물건**이다. 옛 지우개는 선택과 겹치는 **드래그**
+  //         도구라 "지금 무슨 모드인가" 가 손짓만으로는 안 보였다. 지금 것은 클릭만 받고,
+  //         커서가 붉은 X 로 바뀌어 모드를 계속 말하고, 빈 곳을 한 번 찍으면 스스로 빠진다 —
+  //         들어가고 나오는 값이 싸서 상시로 켜 두는 모드가 아니다.
+  //    ⚠️ 고정(`toolLock`) 대상이 아니다 — `LOCKABLE_TOOLS` 는 허용 목록이라 자동으로 빠진다.
+  //       연속 삭제는 이 도구의 성질이지 고정이 아니고, 파괴 모드가 잠긴 채 남으면 안 된다.
+  def('eraser', 'editor.toolDefs.eraser', IconToolErase),
 ];
 
 /** 키맵 동작 id(`tool:ball`) → ToolId. 도구 동작이 아니면 undefined. */

@@ -4,6 +4,7 @@ import { newId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
 import { LIMITS } from '../../model/validate.ts';
 import type { Drill } from '../../model/drill.ts';
+import type { Stroke } from '../../model/stroke.ts';
 import { editorRootReducer, initEditorState, selectStepIndex } from './reducer.ts';
 import type { EditorState } from './reducer.ts';
 
@@ -34,7 +35,7 @@ describe('editorRootReducer — UI 액션', () => {
   it('STEP_SELECT 이 stepId 를 바꾼다', () => {
     const s0 = freshState();
     let d = s0.present;
-    const withStep2 = editorRootReducer(s0, { type: 'STEP_ADD', afterIndex: 0 });
+    const withStep2 = editorRootReducer(s0, { type: 'STEP_DUPLICATE', id: s0.present.steps[0]!.id });
     d = withStep2.present;
     const newStepId = d.steps[1]!.id;
     const s2 = editorRootReducer(withStep2, { type: 'STEP_SELECT', id: newStepId });
@@ -74,7 +75,7 @@ describe('selectStepIndex', () => {
   });
   it('존재하는 stepId 의 인덱스를 반환한다', () => {
     const s0 = freshState();
-    const withStep2 = editorRootReducer(s0, { type: 'STEP_ADD', afterIndex: 0 });
+    const withStep2 = editorRootReducer(s0, { type: 'STEP_DUPLICATE', id: s0.present.steps[0]!.id });
     const s1 = editorRootReducer(withStep2, { type: 'STEP_SELECT', id: withStep2.present.steps[1]!.id });
     expect(selectStepIndex(s1)).toBe(1);
   });
@@ -83,8 +84,8 @@ describe('selectStepIndex', () => {
 describe('STEP_DELETE — 불변식 4: stepId 재지정', () => {
   it('현재 선택 스텝을 지우면 steps[min(idx, len-1)] 로 재지정된다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // 2 steps
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // 3 steps
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id }); // 2 steps
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[1]!.id }); // 3 steps
     const ids = s.present.steps.map((st) => st.id);
     s = editorRootReducer(s, { type: 'STEP_SELECT', id: ids[2]! }); // 마지막(3번째) 선택
     const s2 = editorRootReducer(s, { type: 'STEP_DELETE', id: ids[2]! });
@@ -95,7 +96,7 @@ describe('STEP_DELETE — 불변식 4: stepId 재지정', () => {
 
   it('선택하지 않은 다른 스텝을 지우면 stepId 는 그대로다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // 2 steps
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id }); // 2 steps
     const firstId = s.present.steps[0]!.id;
     const secondId = s.present.steps[1]!.id;
     s = editorRootReducer(s, { type: 'STEP_SELECT', id: firstId });
@@ -118,7 +119,7 @@ describe('STEP_DELETE — 불변식 4: stepId 재지정', () => {
 describe('STEP_DUPLICATE — toIndex (§복제)', () => {
   it('카드 복제 버튼: toIndex 없이 부르면 바로 뒤(기본값)에 꽂힌다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // A, B
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id }); // A, B
     const [aId, bId] = s.present.steps.map((st) => st.id);
     const s2 = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: aId! });
     const ids = s2.present.steps.map((st) => st.id);
@@ -131,8 +132,8 @@ describe('STEP_DUPLICATE — toIndex (§복제)', () => {
 
   it('틈 g(g≥1) 의 +: 위 스텝(g-1)의 복제가 그 자리 g 에 꽂힌다 — 기본값이 이미 g 다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A, B, C
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[1]!.id }); // A, B, C
     const [aId, bId, cId] = s.present.steps.map((st) => st.id);
     // 틈 2(카드 1 과 2 사이) → 위 스텝은 index 1 = B
     const s2 = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: bId! });
@@ -173,7 +174,7 @@ describe('STEP_DUPLICATE — toIndex (§복제)', () => {
 describe('STEP_META — patch.cut (§사슬)', () => {
   it('cut:true 를 실으면 그 스텝에 cut:true 가 저장된다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // A, B
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id }); // A, B
     const bId = s.present.steps[1]!.id;
     const s2 = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
     expect(s2.present.steps[1]!.cut).toBe(true);
@@ -182,7 +183,7 @@ describe('STEP_META — patch.cut (§사슬)', () => {
 
   it('cut:false 는 값을 false 로 저장하지 않는다 — 키 자체가 사라진다(undefined, false 아님)', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
     const bId = s.present.steps[1]!.id;
     s = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
     expect(s.present.steps[1]!.cut).toBe(true);
@@ -195,7 +196,7 @@ describe('STEP_META — patch.cut (§사슬)', () => {
   // 아무 일도 안 일어나던 결함의 회귀 고정 — cut 만 바뀌어도 반드시 present 가 갱신돼야 한다.
   it('cut 만 바뀌어도(name/note/durationMs 는 그대로) present 참조가 바뀐다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
     const bId = s.present.steps[1]!.id;
     const before = s.present;
     const s2 = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
@@ -211,7 +212,7 @@ describe('STEP_META — patch.cut (§사슬)', () => {
 
   it('undo 한 번으로 cut 토글 전 상태(참조까지)로 돌아간다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
     const bId = s.present.steps[1]!.id;
     const before = s.present;
     const s1 = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
@@ -228,7 +229,7 @@ describe('STEP_META — patch.cut (§사슬)', () => {
   // 건너뛰고, 이 테스트는 그 잘못된 동작(중간 상태 유실)을 놓치게 된다.
   it('cut:false → true → undo 왕복도 정확히 되짚는다(별개 조작 — 사이에 COMMIT_BREAK)', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
     const bId = s.present.steps[1]!.id;
     s = editorRootReducer(s, { type: 'STEP_META', id: bId, patch: { cut: true } });
     const cutOn = s.present;
@@ -247,9 +248,9 @@ describe('STEP_META — patch.cut (§사슬)', () => {
 describe('STEPS_MOVE — 일괄 이동, 상대 순서 보존 (§다중 선택)', () => {
   it('흩어진 두 스텝(A·C)을 나머지 뒤(toIndex=나머지 길이)로 옮기면 한 덩어리로 뭉친다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 });
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 2 }); // A B C D
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[1]!.id });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[2]!.id }); // A B C D
     const [aId, bId, cId, dId] = s.present.steps.map((st) => st.id);
     const s2 = editorRootReducer(s, { type: 'STEPS_MOVE', ids: [aId!, cId!], toIndex: 2 });
     expect(s2.present.steps.map((st) => st.id)).toEqual([bId, dId, aId, cId]);
@@ -257,8 +258,8 @@ describe('STEPS_MOVE — 일괄 이동, 상대 순서 보존 (§다중 선택)',
 
   it('undo 한 번으로 이동 전 상태(참조까지)로 돌아간다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[1]!.id }); // A B C
     const before = s.present;
     const [aId, , cId] = s.present.steps.map((st) => st.id);
     const s1 = editorRootReducer(s, { type: 'STEPS_MOVE', ids: [aId!, cId!], toIndex: 1 });
@@ -275,7 +276,7 @@ describe('STEPS_MOVE — 일괄 이동, 상대 순서 보존 (§다중 선택)',
 
   it('이미 이웃해 있던 선택을 같은 자리에 도로 놓으면(무변경) undo 스택이 안 늘어난다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // A B
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id }); // A B
     const before = s;
     const [aId, bId] = s.present.steps.map((st) => st.id);
     // A,B 를 통째로 골라 toIndex 0(나머지 없음이라 유일한 자리)에 도로 놓는다 — 순서 불변.
@@ -288,8 +289,8 @@ describe('STEPS_MOVE — 일괄 이동, 상대 순서 보존 (§다중 선택)',
 describe('STEPS_DUPLICATE — 일괄 복제, 마지막 선택 뒤에 상대 순서대로 (§다중 선택)', () => {
   it('선택한 두 스텝(A·C)의 사본이 마지막 선택(C) 뒤에 상대 순서대로 꽂힌다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[1]!.id }); // A B C
     const [aId, bId, cId] = s.present.steps.map((st) => st.id);
     const s2 = editorRootReducer(s, { type: 'STEPS_DUPLICATE', ids: [aId!, cId!] });
     const ids = s2.present.steps.map((st) => st.id);
@@ -306,7 +307,7 @@ describe('STEPS_DUPLICATE — 일괄 복제, 마지막 선택 뒤에 상대 순�
   it('정원을 넘기면 원본 그대로(항등) 돌려준다', () => {
     let s = freshState();
     while (s.present.steps.length < LIMITS.maxSteps) {
-      s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: s.present.steps.length - 1 });
+      s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[s.present.steps.length - 1]!.id });
     }
     const before = s.present;
     const ids = s.present.steps.map((st) => st.id);
@@ -316,7 +317,7 @@ describe('STEPS_DUPLICATE — 일괄 복제, 마지막 선택 뒤에 상대 순�
 
   it('undo 한 번으로 복제 전 상태(참조까지)로 돌아간다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
     const before = s.present;
     const ids = s.present.steps.map((st) => st.id);
     const s1 = editorRootReducer(s, { type: 'STEPS_DUPLICATE', ids });
@@ -329,8 +330,8 @@ describe('STEPS_DUPLICATE — 일괄 복제, 마지막 선택 뒤에 상대 순�
 describe('STEPS_DELETE — 일괄 삭제, 최소 1장 가드 + stepId 이관 (§다중 선택)', () => {
   it('선택 묶음이 지워지고, 현재 스텝이 그 안에 있었으면 남는 스텝으로 옮긴다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[1]!.id }); // A B C
     const [aId, bId, cId] = s.present.steps.map((st) => st.id);
     s = editorRootReducer(s, { type: 'STEP_SELECT', id: bId! }); // 지금 스텝 = B(삭제 묶음에 포함)
     const s2 = editorRootReducer(s, { type: 'STEPS_DELETE', ids: [aId!, bId!] });
@@ -340,8 +341,8 @@ describe('STEPS_DELETE — 일괄 삭제, 최소 1장 가드 + stepId 이관 (§
 
   it('뒤쪽에 생존자가 없으면(맨 뒤까지 지워짐) 앞쪽 생존자로 옮긴다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[1]!.id }); // A B C
     const [aId, bId, cId] = s.present.steps.map((st) => st.id);
     s = editorRootReducer(s, { type: 'STEP_SELECT', id: cId! }); // 지금 스텝 = C(맨 뒤)
     const s2 = editorRootReducer(s, { type: 'STEPS_DELETE', ids: [bId!, cId!] });
@@ -351,8 +352,8 @@ describe('STEPS_DELETE — 일괄 삭제, 최소 1장 가드 + stepId 이관 (§
 
   it('현재 스텝이 삭제 묶음 밖이면 stepId 를 안 건드린다(불변식 4 그대로)', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[1]!.id }); // A B C
     const [aId, bId, cId] = s.present.steps.map((st) => st.id);
     s = editorRootReducer(s, { type: 'STEP_SELECT', id: cId! });
     const s2 = editorRootReducer(s, { type: 'STEPS_DELETE', ids: [aId!, bId!] });
@@ -361,7 +362,7 @@ describe('STEPS_DELETE — 일괄 삭제, 최소 1장 가드 + stepId 이관 (§
 
   it('전량 선택(최소 1장 가드)이면 항등 — present 도 stepId 도 안 바뀐다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 }); // A B
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id }); // A B
     const before = s;
     const ids = s.present.steps.map((st) => st.id);
     const s2 = editorRootReducer(s, { type: 'STEPS_DELETE', ids });
@@ -372,8 +373,8 @@ describe('STEPS_DELETE — 일괄 삭제, 최소 1장 가드 + stepId 이관 (§
 
   it('undo 한 번으로 삭제 전 상태(참조·stepId 까지)로 돌아간다', () => {
     let s = freshState();
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 0 });
-    s = editorRootReducer(s, { type: 'STEP_ADD', afterIndex: 1 }); // A B C
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[0]!.id });
+    s = editorRootReducer(s, { type: 'STEP_DUPLICATE', id: s.present.steps[1]!.id }); // A B C
     const before = s.present;
     const beforeStepId = s.stepId; // A
     const [, bId] = s.present.steps.map((st) => st.id);
@@ -402,30 +403,61 @@ describe('drillReducer 위임 — 대표 경로', () => {
     const s1 = editorRootReducer(s0, { type: 'META_SET', patch: { title: '새 이름' } });
     expect(s1.present.title).toBe('새 이름');
   });
+
+  it('STROKE_SET 이 현재 스텝에 획을 넣고 히스토리에 한 칸 쌓는다', () => {
+    const s0 = freshState();
+    const stroke: Stroke = { id: newId('fh'), points: [{ x: 10, y: 10 }, { x: 40, y: 30 }] };
+    const s1 = editorRootReducer(s0, { type: 'STROKE_SET', stroke });
+    expect(s1.present.steps[0]!.strokes).toEqual([stroke]);
+    // COMMIT_TYPES 에 없으면 present 가 바뀔 길이 아예 없다 — 그린 획이 화면에도 파일에도
+    // 남지 않는다(BALL_RETAP 주석이 같은 함정을 설명한다).
+    expect(s1.past).toHaveLength(s0.past.length + 1);
+    expect(s0.present.steps[0]!.strokes).toBeUndefined(); // 원본 불변
+  });
+
+  it('STROKE_REMOVE 가 그 획만 지운다', () => {
+    const keep: Stroke = { id: newId('fh'), points: [{ x: 0, y: 0 }, { x: 5, y: 5 }] };
+    const drop: Stroke = { id: newId('fh'), points: [{ x: 1, y: 1 }, { x: 6, y: 6 }] };
+    let s = editorRootReducer(freshState(), { type: 'STROKE_SET', stroke: keep });
+    s = editorRootReducer(s, { type: 'STROKE_SET', stroke: drop });
+    s = editorRootReducer(s, { type: 'STROKE_REMOVE', id: drop.id });
+    expect(s.present.steps[0]!.strokes).toEqual([keep]);
+  });
 });
 
 describe('BOARD_SET — 자유 전술판 갈아끼우기 (§6.8)', () => {
-  it('히스토리를 쌓지 않고 비운다 — 그래야 코트를 두 번 이상 바꿀 수 있다', () => {
-    // 회귀 방어: DRILL_LOAD 로 대신하면 past 에 한 칸 쌓여 "리셋 상태에서만 전환" 게이트가
-    // 첫 전환 직후 스스로 닫힌다. 여기서 past 가 비어 있는지가 그 게이트의 전제다.
+  // ⚠️ 2026-08-28 뒤집힘. 여기 있던 두 케이스는 *"히스토리를 쌓지 않고 **비운다** — 그래야
+  //    코트를 두 번 이상 바꿀 수 있다"* 와 *"연달아 세 번 바꿔도 매번 past 가 비어 있다"* 였고,
+  //    근거는 *"DRILL_LOAD 로 대신하면 past 에 한 칸 쌓여 '리셋 상태에서만 전환' 게이트가 첫
+  //    전환 직후 스스로 닫힌다"* 였다. 그 게이트가 히스토리 대신 **판 위 개체**를 세게 되면서
+  //    전제가 사라졌고, 기현님 지시로 코트 전환도 되돌릴 수 있는 편집이 됐다.
+  it('past 에 쌓는다 — 코트 전환도 되돌릴 수 있는 편집이다', () => {
     let s = freshState();
     s = editorRootReducer(s, { type: 'OBJECT_ADD', kind: 'ball', at: { x: 100, y: 100 }, id: newId('bl') });
-    expect(s.past.length).toBeGreaterThan(0); // 편집이 쌓였다
+    const before = s.present;
 
     const half = createDrill({ courtMode: 'half', formation: '1-2-1' });
     s = editorRootReducer(s, { type: 'BOARD_SET', drill: half });
 
-    expect(s.past).toHaveLength(0);
-    expect(s.future).toHaveLength(0);
     expect(s.present).toBe(half);
     expect(s.present.courtMode).toBe('half');
+    expect(s.future).toHaveLength(0); // 새 분기라 redo 는 끊긴다
+    // 되돌리면 **코트까지** 돌아온다 — courtMode 가 present(Drill) 안에 있어서다.
+    const undone = editorRootReducer(s, { type: 'UNDO' });
+    expect(undone.present).toBe(before);
+    expect(undone.present.courtMode).toBe('full');
   });
 
-  it('연달아 세 번 바꿔도 매번 past 가 비어 있다', () => {
+  it('연달아 세 번 바꾸면 세 칸이 쌓여 하나씩 거슬러 올라간다', () => {
     let s = freshState();
+    const base = s.past.length;
     for (const mode of ['half', 'flat', 'full'] as const) {
       s = editorRootReducer(s, { type: 'BOARD_SET', drill: createDrill({ courtMode: mode, formation: '1-2-1' }) });
-      expect(s.past).toHaveLength(0);
+      expect(s.present.courtMode).toBe(mode);
+    }
+    expect(s.past).toHaveLength(base + 3);
+    for (const mode of ['flat', 'half'] as const) {
+      s = editorRootReducer(s, { type: 'UNDO' });
       expect(s.present.courtMode).toBe(mode);
     }
   });
@@ -521,6 +553,9 @@ describe('§6.10a 도구 고정 — 연속 배치', () => {
     ['SAVED (자동저장)', { type: 'SAVED', at: 1 } as const],
     ['SETTLE_ARM (물리 정착)', { type: 'SETTLE_ARM', until: 1 } as const],
     ['COMMIT_BREAK (키 리피트 경계)', { type: 'COMMIT_BREAK' } as const],
+    // ⚠️ 획 하나를 그을 때마다 난다(2026-09-03). 허용 목록에 없으면 자유 그리기 도구가
+    //    **첫 획에서 풀려** 연속으로 긋는다는 말 자체가 성립하지 않는다.
+    ['STROKE_SET (획을 하나 그음)', { type: 'STROKE_SET', stroke: { id: 'fh_1' as never, points: [] } } as const],
   ])('연속 동작·뒷정리는 고정을 살려 둔다 — %s', (_name, action) => {
     expect(editorRootReducer(armed(), action).toolLock).toBe(true);
   });

@@ -9,12 +9,16 @@ function ev(x: number, y: number, id = 1): ReactPointerEvent {
 }
 
 describe('useSwipe', () => {
-  it('오른쪽에서 왼쪽으로 60px 넘게 움직이면 onNext', () => {
+  it('오른쪽에서 왼쪽으로 60px 넘게 움직이면 onNext', async () => {
     const onNext = vi.fn();
     const onPrev = vi.fn();
     const { result } = renderHook(() => useSwipe({ onPrev, onNext }));
     act(() => {
       result.current.onPointerDown(ev(500, 300));
+    });
+    // 시간 상한이 없다 — down 뒤에 느리게(5 ms) 떼도 같은 판정이 선다.
+    await new Promise((r) => setTimeout(r, 5));
+    act(() => {
       result.current.onPointerUp(ev(430, 300));
     });
     expect(onNext).toHaveBeenCalledTimes(1);
@@ -94,19 +98,5 @@ describe('useSwipe', () => {
     });
     expect(onNext).not.toHaveBeenCalled();
     expect(onPrev).not.toHaveBeenCalled();
-  });
-
-  it('시간 상한이 없다 — 아주 느린 제스처도 인정한다', async () => {
-    const onNext = vi.fn();
-    const onPrev = vi.fn();
-    const { result } = renderHook(() => useSwipe({ onPrev, onNext }));
-    act(() => {
-      result.current.onPointerDown(ev(500, 300));
-    });
-    await new Promise((r) => setTimeout(r, 5));
-    act(() => {
-      result.current.onPointerUp(ev(430, 300));
-    });
-    expect(onNext).toHaveBeenCalledTimes(1);
   });
 });

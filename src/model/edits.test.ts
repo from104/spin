@@ -7,7 +7,6 @@ import {
   addBall,
   addChair,
   addCone,
-  addStepAfter,
   deleteStep,
   duplicateStep,
   moveStep,
@@ -35,7 +34,7 @@ function freshDrill(): Drill {
 describe('addBall', () => {
   it('stepIndex 이후에만 pose 를 삽입한다', () => {
     let d = freshDrill();
-    d = addStepAfter(d, 0); // 이제 스텝 2개
+    d = duplicateStep(d, 0); // 이제 스텝 2개
     const before = structuredClone(d);
     const d2 = addBall(d, 1, { x: 10, y: 10 });
     const id = d2.cast.balls[d2.cast.balls.length - 1]!.id;
@@ -54,7 +53,7 @@ describe('deleteStep', () => {
 
   it('여러 스텝이면 지운다', () => {
     let d = freshDrill();
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     expect(d.steps).toHaveLength(2);
     const d2 = deleteStep(d, 1);
     expect(d2.steps).toHaveLength(1);
@@ -64,7 +63,7 @@ describe('deleteStep', () => {
 describe('placeChair', () => {
   it('cast 에 있는 휠체어를 stepIndex..끝 에 배치한다 (하프 코트 홈 GK — D7 실사용례)', () => {
     let d = createDrill({ courtMode: 'half', formation: '1-2-1' });
-    d = addStepAfter(d, 0); // 스텝 2개, 둘 다 홈 GK pose 없음(§3.9)
+    d = duplicateStep(d, 0); // 스텝 2개, 둘 다 홈 GK pose 없음(§3.9)
     const gk = d.cast.chairs.find((c) => c.team === 'home' && c.isGk)!;
     expect(d.steps[0]!.chairs[gk.id]).toBeUndefined();
     expect(d.steps[1]!.chairs[gk.id]).toBeUndefined();
@@ -160,7 +159,7 @@ describe('omitKey', () => {
 describe('removeFromStepOnward / removeFromThisStepOnly', () => {
   it('removeFromStepOnward 는 이 스텝부터 끝까지 제거한다', () => {
     let d = freshDrill();
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const id = d.cast.chairs[0]!.id;
     const d2 = removeFromStepOnward(d, 1, id);
     expect(d2.steps[0]!.chairs[id]).toBeDefined();
@@ -169,7 +168,7 @@ describe('removeFromStepOnward / removeFromThisStepOnly', () => {
 
   it('removeFromThisStepOnly 는 그 스텝만 제거한다', () => {
     let d = freshDrill();
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     const id = d.cast.chairs[0]!.id;
     const d2 = removeFromThisStepOnly(d, 0, id);
     expect(d2.steps[0]!.chairs[id]).toBeUndefined();
@@ -177,17 +176,11 @@ describe('removeFromStepOnward / removeFromThisStepOnly', () => {
   });
 });
 
-describe('duplicateStep vs addStepAfter — 화살표/메모 id 보존(D6 크로스페이드)', () => {
-  it('두 연산 모두 arrows/notes 의 id 를 그대로 유지한다', () => {
+describe('duplicateStep — 화살표/메모 id 보존(D6 크로스페이드)', () => {
+  it('arrows/notes 의 id 를 그대로 유지한다', () => {
     let d = freshDrill();
     const arrowId = newId('ar');
     d = setArrow(d, 0, { id: arrowId, from: { x: 0, y: 0 }, ctrl: { x: 1, y: 1 }, to: { x: 2, y: 2 } });
-
-    const viaAdd = addStepAfter(d, 0);
-    expect(viaAdd.steps[1]!.arrows[0]!.id).toBe(arrowId);
-    expect(viaAdd.steps[1]!.id).not.toBe(viaAdd.steps[0]!.id);
-    // 과제⑦(2026-08-17): 자동 생성 이름은 폐기됐다 — 새 스텝은 항상 name:'' (§스텝 카드).
-    expect(viaAdd.steps[1]!.name).toBe('');
 
     const viaDup = duplicateStep(d, 0);
     expect(viaDup.steps[1]!.arrows[0]!.id).toBe(arrowId);
@@ -199,15 +192,15 @@ describe('duplicateStep vs addStepAfter — 화살표/메모 id 보존(D6 크로
 describe('moveStep', () => {
   it('범위를 벗어나거나 from===to 면 동일 참조', () => {
     let d = freshDrill();
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     expect(moveStep(d, 0, 0)).toBe(d);
     expect(moveStep(d, 0, 5)).toBe(d);
   });
 
   it('정상 이동', () => {
     let d = freshDrill();
-    d = addStepAfter(d, 0);
-    d = addStepAfter(d, 1);
+    d = duplicateStep(d, 0);
+    d = duplicateStep(d, 1);
     const ids = d.steps.map((s) => s.id);
     const moved = moveStep(d, 0, 2);
     expect(moved.steps.map((s) => s.id)).toEqual([ids[1], ids[2], ids[0]]);
@@ -234,7 +227,7 @@ describe('유령 cast 정리 — 어디에도 없는 개체는 명단에서 사�
 
   it('다른 스텝에 pose 가 남아 있으면 cast 에 남는다', () => {
     let d = freshDrill();
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     d = addBall(d, 0, { x: 50, y: 50 });
     const id = d.cast.balls[d.cast.balls.length - 1]!.id;
 
@@ -255,7 +248,7 @@ describe('유령 cast 정리 — 어디에도 없는 개체는 명단에서 사�
 
   it('스텝 삭제로 유일한 pose 가 사라져도 유령이 남지 않는다', () => {
     let d = freshDrill();
-    d = addStepAfter(d, 0);
+    d = duplicateStep(d, 0);
     // 스텝 1 에만 공을 놓는다(addBall 은 i 이후에만 채운다).
     d = addBall(d, 1, { x: 70, y: 70 });
     const id = d.cast.balls[d.cast.balls.length - 1]!.id;
@@ -324,7 +317,7 @@ describe('제거하면 잠김·무시 플래그도 함께 지워진다', () => {
   });
 
   it('스텝마다 따로다 — 0번에서 빼도 1번 스텝의 플래그는 그 스텝의 것이다', () => {
-    let d = addStepAfter(freshDrill(), 0);
+    let d = duplicateStep(freshDrill(), 0);
     const id = d.cast.chairs[0]!.id;
     d = setStepFlag(d, 1, 'locked', id, true);
     // 0번만 제거하면(this step only) 1번 스텝은 손대지 않는다.
@@ -337,7 +330,7 @@ describe('제거하면 잠김·무시 플래그도 함께 지워진다', () => {
     // 적고 있었지만, 메뉴는 그 함수를 **한 번도 부른 적이 없다**(ObjectMenu → onEraseIds →
     // scope 'onward'). 지우개 도구를 걷어내며 확인해 보니 `removeEverywhere` 는 어디서도
     // 디스패치되지 않는 죽은 가지였고, 함께 제거했다. 이제 실제 경로로 잰다.
-    let d = addStepAfter(freshDrill(), 0);
+    let d = duplicateStep(freshDrill(), 0);
     const id = d.cast.chairs[0]!.id;
     d = setStepFlag(d, 0, 'locked', id, true);
     d = setStepFlag(d, 1, 'ignored', id, true);

@@ -106,10 +106,18 @@ export interface Preferences {
    *  머리말과 같은 이유는 아니다 — 이건 그냥 prefs 전체가 애초에 동기화 대상이 아니라서다).
    *  새 기기에서 다시 나오는 것은 사고가 아니라 의도다. */
   tutorialsSeen: Partial<Record<TutorialScreenKey, true>>;
+  /** 작은 화면 안내(docs/PLAN-0-6-3-LOADER-NOTICE.md 결정 24)를 닫아 본 적이 있는가. 최상위
+   *  옵셔널 불리언으로 넣는다 — `tutorialsSeen`(위)·`a11y.sound` 선례와 같이 옵셔널 키 추가는
+   *  `CURRENT_PREFS_SCHEMA` 를 올리지 않는다. 화면 폭은 기기마다 다른 물리적 속성이라 이 값도
+   *  기기별이 맞다 — 노트북에서 닫았다고 태블릿에서까지 숨을 이유가 없다. 되돌리는 손잡이는
+   *  설정 화면 [작은 화면 안내 다시 보기](결정 26)다. */
+  smallScreenNoticeDismissed?: boolean;
 }
 
-/** 튜토리얼이 있는 화면 6개. docs/PLAN-HELP-TUTORIAL.md §D 의 표와 순서를 맞춘다. */
-export const TUTORIAL_SCREEN_KEYS = ['library', 'sessions', 'editor', 'board', 'present', 'sessionEditor'] as const;
+/** 튜토리얼이 있는 화면 7개. docs/PLAN-HELP-TUTORIAL.md §D 의 표와 순서를 맞춘다.
+ *  'rules' 는 2026-08-21 규칙 화면 신설과 함께 합류했다 — 기존 옵셔널 맵(tutorialsSeen)의
+ *  새 키일 뿐이라 스키마 버전은 그대로다(부재 = 미시청으로 자연 해석). */
+export const TUTORIAL_SCREEN_KEYS = ['library', 'sessions', 'editor', 'board', 'present', 'sessionEditor', 'rules'] as const;
 export type TutorialScreenKey = (typeof TUTORIAL_SCREEN_KEYS)[number];
 
 /** 상수 대신 팩토리 — 공유 객체 유출 방지(호출자가 반환값을 변형해도 다음 호출엔 영향 없음). */
@@ -130,6 +138,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   language: 'auto',
   sync: { enabled: false },
   tutorialsSeen: {},
+  smallScreenNoticeDismissed: false,
 });
 
 /** linearKmh 에 연동되는 회전 속도 상한. 기본점(linear=10 → 30)을 지나는 선형식이며
@@ -225,6 +234,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     language,
     sync: { enabled: bool(syncRaw.enabled, d.sync.enabled) },
     tutorialsSeen,
+    smallScreenNoticeDismissed: bool(raw.smallScreenNoticeDismissed, d.smallScreenNoticeDismissed ?? false),
   };
   return { value, repairs };
 }
@@ -303,10 +313,9 @@ export function loadPrefs(): Preferences {
   return validatePrefs(input).value;
 }
 
-export function patchPrefs(patch: Partial<Preferences>): { prefs: Preferences; persisted: boolean } {
-  const merged: Preferences = { ...loadPrefs(), ...patch };
-  return { prefs: merged, persisted: savePrefs(merged) };
-}
+// `patchPrefs(patch)`(＝`savePrefs({ ...loadPrefs(), ...patch })` 한 줄에 저장 성공 여부를
+// 얹어 돌려주던 것)는 2026-08-31 위생 청소로 뺐다 — 호출자가 테스트뿐이었다. 설정 화면은
+// prefs 전체를 들고 있는 store 를 거쳐 savePrefs 를 직접 부르므로 부분 병합이 필요 없다.
 
 export function resetPrefs(): void {
   try {

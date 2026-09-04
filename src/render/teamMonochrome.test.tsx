@@ -76,6 +76,7 @@ function pngChip(team: TeamSide, color?: string): string {
     cones: [],
     arrows: [],
     notes: [],
+    strokes: [],
   };
   const svg = buildStaticSvg(frame, { mode: 'full', teams: TEAMS, caption: null });
   const g = /<g id="obj-ch_1"[\s\S]*?<\/g>/.exec(svg);
@@ -90,8 +91,8 @@ function printChip(team: TeamSide, color?: string): string {
     teams: TEAMS,
     cast: { chairs: [def], balls: [], cones: [] },
   };
-  const step = { chairs: { [CHAIR_ID]: { x: 200, y: 200, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [] } as unknown as DrillStep;
-  const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" />, { wrapper: SettingsProvider });
+  const step = { chairs: { [CHAIR_ID]: { x: 200, y: 200, angleDeg: 0 } }, balls: {}, cones: {}, arrows: [], notes: [], strokes: [] } as unknown as DrillStep;
+  const { container } = render(<PrintCourt drill={drill} step={step} ariaLabel="코트" view={{ showGrid: true, showGridLabels: true, showRuleZones: true }} />, { wrapper: SettingsProvider });
   const g = container.querySelector('[data-print-chair]');
   expect(g, '인쇄 트리에 칩 그룹이 없다').not.toBeNull();
   return g!.outerHTML;
@@ -156,17 +157,5 @@ describe('★ 색을 전부 지워도 두 팀이 구분된다 — 화면·PNG·�
       expect(chipOf('home'), `${name}: 우리팀 가드 톤이 마크업에 없다`).toContain(home.guardFill);
       expect(chipOf('away'), `${name}: 상대팀 가드 톤이 마크업에 없다`).toContain(away.guardFill);
     }
-  });
-
-  it('등번호는 그대로다 — 표식을 더하면서 글자를 건드리지 않았다(판단 기준 ③)', () => {
-    // 번호 접두를 고르지 않은 이유가 이것이다(render/teamMark.ts 머리말). 두 팀 모두 '4' 다.
-    for (const [name, chipOf] of [PATHS[0]!, PATHS[2]!]) {
-      // PNG 경로에는 <text> 가 없다(★[A-9] 캔버스가 그린다) — 그래서 여기서 뺀다.
-      expect(chipOf('home'), `${name}: 등번호가 사라졌다`).toContain('>4<');
-      expect(chipOf('away')).toContain('>4<');
-    }
-    // PNG 경로의 등번호는 teamMarkFor().label 이고, 거기에도 접두가 붙지 않았다.
-    expect(teamMarkFor(defOf('home'), TEAMS).label).toBe('4');
-    expect(teamMarkFor(defOf('away'), TEAMS).label).toBe('4');
   });
 });

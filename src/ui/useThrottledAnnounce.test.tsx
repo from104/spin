@@ -11,19 +11,14 @@ describe('useThrottledAnnounce', () => {
     vi.useRealTimers();
   });
 
-  it('첫 호출은 즉시 liveRegion.say 를 낭독한다(leading)', () => {
-    render(<LiveRegion />);
-    const { result } = renderHook(() => useThrottledAnnounce(400));
-    act(() => result.current('c3 칸'));
-    expect(liveRegion.el?.textContent?.startsWith('c3 칸')).toBe(true);
-  });
-
   it('스로틀 창(400ms) 안의 후속 호출은 즉시 반영되지 않고 마지막 문구만 트레일링에 낭독된다', () => {
     render(<LiveRegion />);
     const { result } = renderHook(() => useThrottledAnnounce(400));
 
     act(() => result.current('c3 칸'));
     const afterFirst = liveRegion.el?.textContent;
+    // 첫 호출은 즉시(leading) 낭독된다.
+    expect(afterFirst?.startsWith('c3 칸')).toBe(true);
 
     act(() => result.current('c4 칸'));
     // 창 안이므로 아직 c4 로 갱신되지 않았다.

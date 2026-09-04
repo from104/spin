@@ -1,0 +1,284 @@
+{
+  "spin": "drill",
+  "envelope": 1,
+  "app": "SPIN",
+  "exportedAt": 1788215754403,
+  "payload": {
+    "schemaVersion": 9,
+    "id": "dr_mthe9sm7001l9x",
+    "title": "골키퍼의 5m 예외",
+    "drillType": "game-scenario",
+    "situation": "open-play",
+    "level": "초급",
+    "durationMin": 10,
+    "tags": [],
+    "objective": "",
+    "coachingPoints": [],
+    "playersNeeded": 0,
+    "equipment": "",
+    "courtMode": "half",
+    "courtSize": "30x18",
+    "defense": "away",
+    "formation": "1-2-1",
+    "teams": {
+      "home": {
+        "label": "우리 팀",
+        "color": "#d93a3a",
+        "gkColor": "#f2c811"
+      },
+      "away": {
+        "label": "상대",
+        "color": "#1f6bb8",
+        "gkColor": "#22a95b"
+      }
+    },
+    "cast": {
+      "chairs": [
+        {
+          "id": "ch_mtdsdvr900uj4m",
+          "team": "home",
+          "number": "G",
+          "isGk": true
+        },
+        {
+          "id": "ch_mtdsdvr901ptqs",
+          "team": "home",
+          "number": "2",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr9025ey6",
+          "team": "home",
+          "number": "3",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr903k32b",
+          "team": "home",
+          "number": "4",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr904v2qy",
+          "team": "away",
+          "number": "G",
+          "isGk": true
+        },
+        {
+          "id": "ch_mtdsdvr905vlrh",
+          "team": "away",
+          "number": "2",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr906eggd",
+          "team": "away",
+          "number": "3",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr907po65",
+          "team": "away",
+          "number": "4",
+          "isGk": false
+        }
+      ],
+      "balls": [
+        {
+          "id": "bl_mthdoxxy00jld3"
+        }
+      ],
+      "cones": []
+    },
+    "steps": [
+      {
+        "id": "st_mtdsdvr9092s0i",
+        "name": "",
+        "note": "",
+        "chairs": {
+          "ch_mtdsdvr904v2qy": {
+            "x": 307.9,
+            "y": 427.8,
+            "angleDeg": 0.5
+          },
+          "ch_mtdsdvr906eggd": {
+            "x": 214.1,
+            "y": 238.1,
+            "angleDeg": -163.7
+          },
+          "ch_mtdsdvr905vlrh": {
+            "x": 262.5,
+            "y": 400.8,
+            "angleDeg": -98.8
+          },
+          "ch_mtdsdvr903k32b": {
+            "x": 413.9,
+            "y": 375.5,
+            "angleDeg": 95.7
+          },
+          "ch_mtdsdvr9025ey6": {
+            "x": 334.2,
+            "y": 275.3,
+            "angleDeg": 109.4
+          },
+          "ch_mtdsdvr901ptqs": {
+            "x": 193.8,
+            "y": 290.6,
+            "angleDeg": 90
+          }
+        },
+        "balls": {
+          "bl_mthdoxxy00jld3": {
+            "x": 389.7,
+            "y": 384.3
+          }
+        },
+        "ballRings": {
+          "bl_mthdoxxy00jld3": "5m"
+        },
+        "ballOwner": {
+          "bl_mthdoxxy00jld3": "home"
+        },
+        "cones": {},
+        "arrows": [],
+        "notes": [
+          {
+            "id": "nt_mthdq2dy00cbsw",
+            "x": 396.8,
+            "y": 244.3,
+            "text": "기본적으로 경기를 재개할 때 수비수는 5m 떨어져 있어야함. 파란 2번이 5m를 벗어나야함",
+            "size": 14,
+            "color": "#fde047"
+          }
+        ],
+        "shapes": []
+      },
+      {
+        "id": "st_mthek1zt01awcy",
+        "name": "",
+        "note": "",
+        "chairs": {
+          "ch_mtdsdvr904v2qy": {
+            "x": 307.9,
+            "y": 427.8,
+            "angleDeg": 0.5
+          },
+          "ch_mtdsdvr906eggd": {
+            "x": 214.1,
+            "y": 238.1,
+            "angleDeg": -163.7
+          },
+          "ch_mtdsdvr905vlrh": {
+            "x": 249.4,
+            "y": 384.3,
+            "angleDeg": 87.8
+          },
+          "ch_mtdsdvr903k32b": {
+            "x": 413.9,
+            "y": 375.5,
+            "angleDeg": 95.7
+          },
+          "ch_mtdsdvr9025ey6": {
+            "x": 334.2,
+            "y": 275.3,
+            "angleDeg": 109.4
+          },
+          "ch_mtdsdvr901ptqs": {
+            "x": 193.8,
+            "y": 290.6,
+            "angleDeg": 90
+          },
+          "ch_mtdsdvr907po65": {
+            "x": 384.3,
+            "y": 228.3,
+            "angleDeg": 97.4
+          }
+        },
+        "balls": {
+          "bl_mthdoxxy00jld3": {
+            "x": 389.7,
+            "y": 384.3
+          }
+        },
+        "ballRings": {
+          "bl_mthdoxxy00jld3": "5m"
+        },
+        "ballOwner": {
+          "bl_mthdoxxy00jld3": "home"
+        },
+        "cones": {},
+        "arrows": [
+          {
+            "id": "ar_mthsvxt800v6ug",
+            "from": {
+              "x": 118.34625609507978,
+              "y": 313.19551571529
+            },
+            "ctrl": {
+              "x": 173.78024622028386,
+              "y": 351.7301211933517
+            },
+            "to": {
+              "x": 232.56218984629862,
+              "y": 394.7802051320848
+            }
+          },
+          {
+            "id": "ar_mthsxb3m003lxj",
+            "from": {
+              "x": 263.9526050355326,
+              "y": 223.2130206756058
+            },
+            "ctrl": {
+              "x": 288.02538788070444,
+              "y": 315.5064153188934
+            },
+            "to": {
+              "x": 343.2960264053349,
+              "y": 374.8341956595881
+            }
+          },
+          {
+            "id": "ar_mthsxu4900927c",
+            "from": {
+              "x": 386.7058053749148,
+              "y": 382.2671015555463
+            },
+            "ctrl": {
+              "x": 335.55674660658997,
+              "y": 350.5676661923278
+            },
+            "to": {
+              "x": 323.69195474200257,
+              "y": 413.23455852025177
+            },
+            "color": "#ef4444",
+            "headFrom": "thin",
+            "headTo": "thin"
+          }
+        ],
+        "notes": [
+          {
+            "id": "nt_mthdq2dy00cbsw",
+            "x": 79.3,
+            "y": 273.9,
+            "text": "기본적으로 경기를 재개할 때 수비수는 5m 떨어져 있어야함. 파란 2번이 5m를 벗어나야함",
+            "size": 14,
+            "color": "#fde047"
+          },
+          {
+            "id": "nt_mthemohj00tk5q",
+            "x": 265.4,
+            "y": 176.9,
+            "text": "그러나 골리는 골대사이 골라인을 완전히 넘어간다는 전제 하에 5m 제약을 안 받는다.",
+            "size": 14,
+            "color": "#ef4444"
+          }
+        ],
+        "shapes": []
+      }
+    ],
+    "createdAt": 1788190194463,
+    "updatedAt": 1788215031961
+  }
+}

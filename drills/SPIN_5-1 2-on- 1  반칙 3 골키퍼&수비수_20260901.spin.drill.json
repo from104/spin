@@ -1,0 +1,303 @@
+{
+  "spin": "drill",
+  "envelope": 1,
+  "app": "SPIN",
+  "exportedAt": 1788215749404,
+  "payload": {
+    "schemaVersion": 9,
+    "id": "dr_mthe0dtw00htfj",
+    "title": "5-1 2-on- 1  반칙 3 골키퍼&수비수",
+    "drillType": "game-scenario",
+    "situation": "open-play",
+    "level": "초급",
+    "durationMin": 10,
+    "tags": [],
+    "objective": "",
+    "coachingPoints": [],
+    "playersNeeded": 0,
+    "equipment": "",
+    "courtMode": "half",
+    "courtSize": "30x18",
+    "defense": "away",
+    "formation": "1-2-1",
+    "teams": {
+      "home": {
+        "label": "우리 팀",
+        "color": "#d93a3a",
+        "gkColor": "#f2c811"
+      },
+      "away": {
+        "label": "상대",
+        "color": "#1f6bb8",
+        "gkColor": "#22a95b"
+      }
+    },
+    "cast": {
+      "chairs": [
+        {
+          "id": "ch_mtdsdvr900uj4m",
+          "team": "home",
+          "number": "G",
+          "isGk": true
+        },
+        {
+          "id": "ch_mtdsdvr901ptqs",
+          "team": "home",
+          "number": "2",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr9025ey6",
+          "team": "home",
+          "number": "3",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr903k32b",
+          "team": "home",
+          "number": "4",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr904v2qy",
+          "team": "away",
+          "number": "G",
+          "isGk": true
+        },
+        {
+          "id": "ch_mtdsdvr905vlrh",
+          "team": "away",
+          "number": "2",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr906eggd",
+          "team": "away",
+          "number": "3",
+          "isGk": false
+        },
+        {
+          "id": "ch_mtdsdvr907po65",
+          "team": "away",
+          "number": "4",
+          "isGk": false
+        }
+      ],
+      "balls": [
+        {
+          "id": "bl_mthdoxxy00jld3"
+        }
+      ],
+      "cones": []
+    },
+    "steps": [
+      {
+        "id": "st_mtdsdvr9092s0i",
+        "name": "",
+        "note": "",
+        "chairs": {
+          "ch_mtdsdvr904v2qy": {
+            "x": 205.3,
+            "y": 308.1,
+            "angleDeg": 0.5
+          },
+          "ch_mtdsdvr906eggd": {
+            "x": 214.1,
+            "y": 238.1,
+            "angleDeg": -163.7
+          },
+          "ch_mtdsdvr905vlrh": {
+            "x": 247.5,
+            "y": 407.6,
+            "angleDeg": -87
+          },
+          "ch_mtdsdvr903k32b": {
+            "x": 270.3,
+            "y": 227.7,
+            "angleDeg": 141.8
+          }
+        },
+        "balls": {
+          "bl_mthdoxxy00jld3": {
+            "x": 230.8,
+            "y": 259.1
+          }
+        },
+        "ballRings": {
+          "bl_mthdoxxy00jld3": "3m"
+        },
+        "cones": {},
+        "arrows": [],
+        "notes": [
+          {
+            "id": "nt_mthdq2dy00cbsw",
+            "x": 396.8,
+            "y": 244.3,
+            "text": "골리가 우리 수비 진영 골에리어에 있으면 2대1 반칙 면제",
+            "size": 14,
+            "color": "#fde047"
+          }
+        ],
+        "shapes": []
+      },
+      {
+        "id": "st_mthdstzo00pywz",
+        "name": "",
+        "note": "",
+        "chairs": {
+          "ch_mtdsdvr904v2qy": {
+            "x": 230.8,
+            "y": 297.3,
+            "angleDeg": -39.3
+          },
+          "ch_mtdsdvr906eggd": {
+            "x": 214.1,
+            "y": 238.1,
+            "angleDeg": -163.7
+          },
+          "ch_mtdsdvr905vlrh": {
+            "x": 247.5,
+            "y": 407.6,
+            "angleDeg": -87
+          },
+          "ch_mtdsdvr903k32b": {
+            "x": 270.3,
+            "y": 227.7,
+            "angleDeg": 141.8
+          }
+        },
+        "balls": {
+          "bl_mthdoxxy00jld3": {
+            "x": 230.8,
+            "y": 259.1
+          }
+        },
+        "ballRings": {
+          "bl_mthdoxxy00jld3": "3m"
+        },
+        "cones": {},
+        "arrows": [],
+        "notes": [
+          {
+            "id": "nt_mthdq2dy00cbsw",
+            "x": 396.8,
+            "y": 244.3,
+            "text": "골리가 우리 수비 진영 골에리어에 있으면 2대1 반칙 면제",
+            "size": 14,
+            "color": "#fde047"
+          },
+          {
+            "id": "nt_mthdtbj2003ev4",
+            "x": 399.3,
+            "y": 187.6,
+            "text": "골에리어 선상에 조금이라도 걸쳐있어도 면제",
+            "size": 14,
+            "color": "#fde047"
+          }
+        ],
+        "shapes": []
+      },
+      {
+        "id": "st_mthe2jah01oxz9",
+        "name": "",
+        "note": "",
+        "chairs": {
+          "ch_mtdsdvr904v2qy": {
+            "x": 238.1,
+            "y": 296,
+            "angleDeg": -39.3
+          },
+          "ch_mtdsdvr906eggd": {
+            "x": 214.1,
+            "y": 238.1,
+            "angleDeg": -163.7
+          },
+          "ch_mtdsdvr905vlrh": {
+            "x": 260.6,
+            "y": 343,
+            "angleDeg": -75.3
+          },
+          "ch_mtdsdvr903k32b": {
+            "x": 270.3,
+            "y": 227.7,
+            "angleDeg": 141.8
+          }
+        },
+        "balls": {
+          "bl_mthdoxxy00jld3": {
+            "x": 230.8,
+            "y": 259.1
+          }
+        },
+        "ballRings": {
+          "bl_mthdoxxy00jld3": "3m"
+        },
+        "cones": {},
+        "arrows": [
+          {
+            "id": "ar_mtht6uix00yz25",
+            "from": {
+              "x": 203.95763047765772,
+              "y": 252.82363731872218
+            },
+            "ctrl": {
+              "x": 173.71441094992397,
+              "y": 316.3996845578782
+            },
+            "to": {
+              "x": 250.173297788113,
+              "y": 328.05932857587084
+            },
+            "color": "#ef4444",
+            "headFrom": "thin"
+          },
+          {
+            "id": "ar_mtht80np00gitl",
+            "from": {
+              "x": 114.1979910432376,
+              "y": 336.03672331940345
+            },
+            "ctrl": {
+              "x": 149.03009214299823,
+              "y": 310.091196605914
+            },
+            "to": {
+              "x": 191.8496784409522,
+              "y": 304.0866094060844
+            },
+            "color": "#fde047"
+          }
+        ],
+        "notes": [
+          {
+            "id": "nt_mthdq2dy00cbsw",
+            "x": 396.8,
+            "y": 244.3,
+            "text": "골리가 우리 수비 진영 골에리어에 있으면 2대1 반칙 면제",
+            "size": 14,
+            "color": "#fde047"
+          },
+          {
+            "id": "nt_mthdtbj2003ev4",
+            "x": 399.3,
+            "y": 187.6,
+            "text": "골에리어 선상에 조금이라도 걸쳐있어도 면제",
+            "size": 14,
+            "color": "#fde047"
+          },
+          {
+            "id": "nt_mthe3eqb00g4cv",
+            "x": 98.1,
+            "y": 372.5,
+            "text": "골리는 면제지만 파란팀 선수 2,3번이 2대1 반칙 포지션!",
+            "size": 14,
+            "color": "#ef4444"
+          }
+        ],
+        "shapes": []
+      }
+    ],
+    "createdAt": 1788189755395,
+    "updatedAt": 1788215321327
+  }
+}

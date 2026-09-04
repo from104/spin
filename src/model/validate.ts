@@ -15,15 +15,16 @@ import {
   type TriPoints,
 } from './shape.ts';
 import type { ShapeId } from '../core/ids.ts';
-import type { ChairId, BallId, ConeId, StepId, ArrowId, NoteId, DrillId, SessionId, ItemId, PlayerId } from '../core/ids.ts';
+import type { ChairId, BallId, ConeId, StepId, ArrowId, NoteId, DrillId, SessionId, ItemId, PlayerId, StrokeId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
 import { COURT_MODES, COURT_SIZES, DEFAULT_COURT_SIZE, clampToViewBox, type CourtMode, type CourtSize } from './court.ts';
 import { FORMATIONS, defaultStep, DEFAULT_TEAMS } from './defaults.ts';
 import { defaultDefense } from './rules.ts';
 import { CURRENT_DRILL_SCHEMA, DRILL_LEVELS, DRILL_TYPES, DRILL_SITUATIONS } from './drill.ts';
-import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, DrillType, DrillSituation, PoseMap, NoteLabel } from './drill.ts';
+import type { Drill, DrillCast, ChairDef, BallDef, ConeDef, TeamStyle, TeamSide, DrillLevel, DrillType, DrillSituation, PoseMap, NoteLabel, StoredBallRing } from './drill.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { Arrow, ArrowHead } from './arrow.ts';
+import { STROKE_WIDTHS, type Stroke, type StrokeWidthIndex } from './stroke.ts';
 import { CURRENT_SESSION_SCHEMA, SESSION_PHASE_KINDS, flattenSessionItems } from './session.ts';
 import type { TrainingSession, SessionItem, SessionPhase, SessionPhaseKind } from './session.ts';
 import { refDrillIds } from './refs.ts';
@@ -43,9 +44,9 @@ export type ValidateResult<T> =
   | { ok: true; value: T; repairs: Repair[] }
   | { ok: false; issues: ValidationIssue[] };
 
-// 자동 생성 스텝 이름 패턴(과제⑦, 2026-08-17까지의 생성 규칙). addStepAfter(edits.ts)·
-// emptyStep·defaultStep(defaults.ts) 이 그 시점까지 정확히 이 모양('스텝' + 공백 + 숫자)의
-// 이름을 붙였다 — 사용자가 타이핑한 적 없는 자리표시자다. 세 함수는 이제 ''를 쓰지만, 그
+// 자동 생성 스텝 이름 패턴(과제⑦, 2026-08-17까지의 생성 규칙). addStepAfter(edits.ts, 지금은
+// 폐기)·emptyStep·defaultStep(defaults.ts) 이 그 시점까지 정확히 이 모양('스텝' + 공백 +
+// 숫자)의 이름을 붙였다 — 사용자가 타이핑한 적 없는 자리표시자다. 남은 둘은 이제 ''를 쓰지만, 그
 // 전에 저장된 옛 드릴에는 이 패턴이 그대로 남아 있을 수 있어 정화기가 걸러낸다. 옛 생성
 // 규칙과 **정확히** 일치하는 것만 버려야 한다 — "스텝 3: 킥오프" 처럼 패턴을 접두어로만
 // 쓴 사용자 이름까지 버리면 진짜 유실이 된다. 그래서 전체 일치(`^…$`)다.
@@ -111,6 +112,14 @@ export const LIMITS = {
    *  이보다 많으면 반투명 겹침이 새하얘져 아래 코트가 안 보인다(면이 0.13 이라 40겹이면 1.0). */
   maxShapesPerStep: 40,
   maxNotesPerStep: 20,
+  /** 스텝당 자유 그리기 획 상한(2026-09-03). 화살표·도형과 같은 수다 — 셋 다 '판에 덧그리는
+   *  것' 이고, 한 스텝의 덧그림이 몇 개까지 읽히는가는 개체 종류가 아니라 판의 크기가 정한다. */
+  strokesPerStep: 40,
+  /** 획 하나의 점 상한. 단순화(`simplifyPoints`, RDP ε 1.5px)를 지난 획은 코트를 가로지르는
+   *  긴 곡선도 100점을 잘 안 넘는다 — 400 은 그 네 배로 잡은 **깨진 파일 방어선**이지 UI
+   *  상한이 아니다(위 `maxCones` 문단과 같은 성격). 넘으면 뒤에서 자른다: 앞부분을 남겨야
+   *  그린 방향이 보존되고, 획은 앞에서부터 그려진 것이라 앞이 곧 시작이다. */
+  pointsPerStroke: 400,
   maxSessionItems: 40, // 세션 전체(전 구획 합산) 항목 상한 — v2 에서도 합산 기준이다
   // ── Session v2 (2026-08-18 구조 개편) ─────────────────────────────────────────────
   sessionPhasesMax: 12, // 구획 수 상한. 표준 세션은 4~6 구획 — 12 는 깨진 파일 방어선
@@ -276,11 +285,9 @@ function parseBalls(raw: unknown, repairs: Repair[]): BallDef[] {
     }
     seen.add(id);
     // ★ 화이트리스트 — **여기 없는 필드는 IDB/파일 왕복에서 소리 없이 증발한다**(§3.8 규율).
-    // 5.2 거리 원: '3m'|'5m' 만 싣고 그 외(없음·'none'·쓰레기)는 **키를 만들지 않는다** =
-    // 'none'. 'none' 을 값으로 적으면 `{ring:'none'}` 과 `{}` 라는 같은 뜻의 두 문서가 생겨
-    // sameDrill(canonical 비교)이 둘을 다른 문서로 보고 백업 복원마다 (사본) 을 만든다.
-    const ring = item.ring === '3m' || item.ring === '5m' ? item.ring : undefined;
-    out.push(ring === undefined ? { id: id as BallId } : { id: id as BallId, ring });
+    // 거리 원(`ring`)은 2026-08-27(v9)에 **여기서 스텝으로 떠났다** — `parseStepBallRings`.
+    // 마이그레이션이 옮겨 적으므로 이 자리에 남은 옛 키는 그대로 증발시키는 것이 맞다.
+    out.push({ id: id as BallId });
   }
   if (out.length > LIMITS.maxBalls) {
     pushRepair(repairs, 'cast.balls', '공 개수 상한(10) 초과 — 뒤에서 절단', true);
@@ -360,6 +367,67 @@ function sanitizeArrows(raw: unknown, repairs: Repair[]): Arrow[] {
   if (out.length > LIMITS.maxArrowsPerStep) {
     pushRepair(repairs, 'steps.arrows', '스텝당 화살표 상한(40) 초과 — 뒤에서 절단', true);
     out = out.slice(0, LIMITS.maxArrowsPerStep);
+  }
+  return out;
+}
+
+// ---- 자유 그리기 획 (2026-09-03) --------------------------------------------------------
+
+/** 굵기는 값(px)이 아니라 **첨자**다(model/stroke.ts). 정의역 밖이면 키를 버린다 —
+ *  조용히 0 이나 1 로 접으면 "굵게 그린 획이 어느 날 가늘어졌다" 가 되고, 키를 버리면
+ *  기본 굵기로 열린다(= `width?` 의 뜻 그대로). */
+const isStrokeWidth = (v: unknown): v is StrokeWidthIndex =>
+  typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < STROKE_WIDTHS.length;
+
+/** 획 하나를 신뢰 가능한 값으로 접는다.
+ *
+ *  좌표는 **코트 안으로 클램프하지 않는다** — 화살표와 같은 취급이다(`sanitizeFreeVec`).
+ *  덧그림은 판 밖으로 조금 삐져나가도 뜻이 살아 있고, 클램프하면 코트 크기를 줄인 드릴의
+ *  획이 가장자리에 눌려 붙어 모양이 뭉개진다.
+ *
+ *  점이 **둘 미만이면 획을 통째로 버린다**: 점 하나는 화면에 아무것도 아니면서 앵커 셋을
+ *  달고 앉아, 보이지 않는데 잡히는 개체가 된다(도형 정화기가 0 폭을 막는 것과 같은 이유). */
+function sanitizeStroke(raw: unknown, repairs: Repair[]): Stroke | null {
+  if (!isRecord(raw)) return null;
+  const id = typeof raw.id === 'string' && raw.id.length > 0 ? (raw.id as StrokeId) : newId('fh');
+  if (!Array.isArray(raw.points)) return null;
+  let points: Vec2[] = [];
+  for (const p of raw.points) {
+    const v = sanitizeFreeVec(p);
+    if (v) points.push(v); // 유한수가 아닌 점만 조용히 빠진다 — 획 전체를 버리는 것보다 낫다
+  }
+  if (points.length > LIMITS.pointsPerStroke) {
+    pushRepair(repairs, 'steps.strokes.points', `획당 점 상한(${LIMITS.pointsPerStroke}) 초과 — 뒤에서 절단`, true);
+    points = points.slice(0, LIMITS.pointsPerStroke);
+  }
+  if (points.length < 2) return null;
+  const stroke: Stroke = { id, points };
+  if (typeof raw.color === 'string') stroke.color = raw.color;
+  if (isStrokeWidth(raw.width)) stroke.width = raw.width;
+  // 화살촉 — 값이 없으면 키를 안 만든다(모델 기본값 none/none 이 곧 "선").
+  if (isHead(raw.headFrom)) stroke.headFrom = raw.headFrom;
+  if (isHead(raw.headTo)) stroke.headTo = raw.headTo;
+  return stroke;
+}
+
+function sanitizeStrokes(raw: unknown, repairs: Repair[]): Stroke[] {
+  const arr = Array.isArray(raw) ? raw : [];
+  const seen = new Set<string>();
+  let out: Stroke[] = [];
+  for (const item of arr) {
+    const s = sanitizeStroke(item, repairs);
+    if (!s) continue;
+    let id = s.id;
+    if (seen.has(id)) {
+      id = newId('fh');
+      pushRepair(repairs, 'steps.strokes.id', '스텝 안 중복 획 id 재발급', false);
+    }
+    seen.add(id);
+    out.push(id === s.id ? s : { ...s, id });
+  }
+  if (out.length > LIMITS.strokesPerStep) {
+    pushRepair(repairs, 'steps.strokes', `스텝당 획 상한(${LIMITS.strokesPerStep}) 초과 — 뒤에서 절단`, true);
+    out = out.slice(0, LIMITS.strokesPerStep);
   }
   return out;
 }
@@ -714,6 +782,34 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       const p = sanitizeVec(val, courtMode, courtSize);
       if (p) ballsMap[key as BallId] = p;
     }
+    // 거리 원(v9) — `balls` 와 **별도 맵**이다. 값 화이트리스트는 옛 `parseBalls` 의 그것을
+    // 그대로 물려받는다: '3m'|'5m' 만 싣고 그 외(없음·'none'·쓰레기)는 **키를 만들지 않는다**
+    // = 'none'. 'none' 을 값으로 적으면 `{ring:'none'}` 과 `{}` 라는 같은 뜻의 두 문서가 생겨
+    // sameDrill(canonical 비교)이 둘을 다른 문서로 보고 백업 복원마다 (사본) 을 만든다.
+    // 빈 맵도 키를 만들지 않는다(`locked`/`ignored` 가 빈 배열을 지우는 것과 같은 절약).
+    const ringsMap: PoseMap<BallId, StoredBallRing> = {};
+    const ringsRaw = isRecord(rawStep.ballRings) ? rawStep.ballRings : {};
+    for (const [key, val] of Object.entries(ringsRaw)) {
+      // 그 스텝의 판에 없는 공의 링은 뜻이 없다 — 좌표와 같은 기준으로 떨군다.
+      if (!ballIds.has(key) || ballsMap[key as BallId] === undefined) {
+        orphanDropped = true;
+        continue;
+      }
+      if (val === '3m' || val === '5m') ringsMap[key as BallId] = val;
+    }
+    // 세트피스 소유(2026-08-27) — 링과 같은 규약이다. **5 m 가 아닌 공의 소유는 뜻이 없어
+    // 버린다**: 3 m(2-on-1)는 누가 차는가와 무관한 규칙이라, 남겨 두면 "보이지도 판정되지도
+    // 않는데 파일에는 있는" 값이 되어 sameDrill 비교만 흔든다.
+    const ownerMap: PoseMap<BallId, TeamSide> = {};
+    const ownerRaw = isRecord(rawStep.ballOwner) ? rawStep.ballOwner : {};
+    for (const [key, val] of Object.entries(ownerRaw)) {
+      if (!ballIds.has(key) || ballsMap[key as BallId] === undefined) {
+        orphanDropped = true;
+        continue;
+      }
+      if (ringsMap[key as BallId] !== '5m') continue;
+      if (val === 'home' || val === 'away') ownerMap[key as BallId] = val;
+    }
     const conesMap: PoseMap<ConeId, Vec2> = {};
     const conesRaw = isRecord(rawStep.cones) ? rawStep.cones : {};
     for (const [key, val] of Object.entries(conesRaw)) {
@@ -729,6 +825,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
     const arrows = sanitizeArrows(rawStep.arrows, repairs);
     const notes = sanitizeNotes(rawStep.notes, courtMode, courtSize, repairs);
     const shapes = sanitizeShapes(rawStep.shapes, courtMode, courtSize, repairs);
+    const strokes = sanitizeStrokes(rawStep.strokes, repairs);
     // 개체 상태 플래그(2026-08-14). **살아 있는 id 만 남긴다** — 지워진 개체의 id 가 목록에
     // 남으면 그 스텝은 영영 "무언가 잠겨 있는데 화면에는 없는" 상태가 되고, 사람이 풀 방법이 없다.
     const alive = new Set<string>([
@@ -738,6 +835,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       ...arrows.map((a) => a.id),
       ...notes.map((n) => n.id),
       ...shapes.map((sh) => sh.id),
+      ...strokes.map((s) => s.id),
     ]);
     const locked = sanitizeIdList(rawStep.locked, alive, 'steps.locked', repairs);
     // 무시는 **휠체어에만** 있다 — 공·콘 id 가 섞여 들어오면 물리가 그것만 조용히 빼먹는다.
@@ -759,10 +857,15 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       ...(durationMs !== undefined ? { durationMs } : {}),
       chairs: chairsMap,
       balls: ballsMap,
+      ...(Object.keys(ringsMap).length > 0 ? { ballRings: ringsMap } : {}),
+      ...(Object.keys(ownerMap).length > 0 ? { ballOwner: ownerMap } : {}),
       cones: conesMap,
       arrows,
       notes,
       shapes,
+      // ⚠️ 비어 있으면 **키를 안 만든다**(`shapes` 와 다르다 — drill.ts 의 `strokes?` 주석).
+      // 획이 없는 스텝의 모양이 v9 저장본과 같아야 왕복(내보내기→가져오기) diff 가 조용하다.
+      ...(strokes.length > 0 ? { strokes } : {}),
       ...(locked.length > 0 ? { locked } : {}),
       ...(ignored.length > 0 ? { ignored } : {}),
       ...(cut ? { cut } : {}),

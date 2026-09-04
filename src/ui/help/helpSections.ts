@@ -8,9 +8,9 @@
 import type { TutorialScreenKey } from '../../storage/prefs.ts';
 import type { DictKey } from '../../i18n/ko.ts';
 
-export type HelpSectionKey = 'start' | 'board' | 'library' | 'editor' | 'sessions' | 'present' | 'settings' | 'shortcuts';
+export type HelpSectionKey = 'start' | 'board' | 'library' | 'editor' | 'sessions' | 'present' | 'rules' | 'settings' | 'shortcuts';
 
-export const HELP_SECTION_ORDER: readonly HelpSectionKey[] = ['start', 'board', 'library', 'editor', 'sessions', 'present', 'settings', 'shortcuts'];
+export const HELP_SECTION_ORDER: readonly HelpSectionKey[] = ['start', 'board', 'library', 'editor', 'sessions', 'present', 'rules', 'settings', 'shortcuts'];
 
 export const HELP_SECTION_LABEL_KEY: Record<HelpSectionKey, DictKey> = {
   start: 'help.section.start',
@@ -19,6 +19,7 @@ export const HELP_SECTION_LABEL_KEY: Record<HelpSectionKey, DictKey> = {
   editor: 'help.section.editor',
   sessions: 'help.section.sessions',
   present: 'help.section.present',
+  rules: 'help.section.rules',
   settings: 'help.section.settings',
   shortcuts: 'help.section.shortcuts',
 };
@@ -54,6 +55,7 @@ export const HELP_NARRATIVE_SECTIONS: Record<Exclude<HelpSectionKey, 'shortcuts'
       { term: 'help.start.item2.term', desc: 'help.start.item2.desc' },
       { term: 'help.start.item3.term', desc: 'help.start.item3.desc' },
       { term: 'help.start.item4.term', desc: 'help.start.item4.desc' },
+      { term: 'help.start.item5.term', desc: 'help.start.item5.desc' },
     ],
   },
   board: {
@@ -85,6 +87,7 @@ export const HELP_NARRATIVE_SECTIONS: Record<Exclude<HelpSectionKey, 'shortcuts'
       { term: 'help.editor.item3.term', desc: 'help.editor.item3.desc' },
       { term: 'help.editor.item4.term', desc: 'help.editor.item4.desc' },
       { term: 'help.editor.item5.term', desc: 'help.editor.item5.desc' },
+      { term: 'help.editor.item6.term', desc: 'help.editor.item6.desc' },
     ],
   },
   sessions: {
@@ -109,6 +112,17 @@ export const HELP_NARRATIVE_SECTIONS: Record<Exclude<HelpSectionKey, 'shortcuts'
       { term: 'help.present.item2.term', desc: 'help.present.item2.desc' },
       { term: 'help.present.item3.term', desc: 'help.present.item3.desc' },
       { term: 'help.present.item4.term', desc: 'help.present.item4.desc' },
+      { term: 'help.present.item5.term', desc: 'help.present.item5.desc' },
+    ],
+  },
+  rules: {
+    key: 'rules',
+    restartTargets: [{ screen: 'rules', labelKey: 'help.rules.restartButton' }],
+    items: [
+      { term: 'help.rules.item1.term', desc: 'help.rules.item1.desc' },
+      { term: 'help.rules.item2.term', desc: 'help.rules.item2.desc' },
+      { term: 'help.rules.item3.term', desc: 'help.rules.item3.desc' },
+      { term: 'help.rules.item4.term', desc: 'help.rules.item4.desc' },
     ],
   },
   settings: {

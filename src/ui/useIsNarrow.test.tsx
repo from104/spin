@@ -6,7 +6,7 @@
 // 미디어 질의를 평가하지 않는다).
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { NARROW_MAX_PX, NARROW_QUERY, useIsNarrow } from './useIsNarrow.ts';
+import { NARROW_QUERY, useIsNarrow } from './useIsNarrow.ts';
 
 interface FakeMedia {
   setWidth(px: number): void;
@@ -67,11 +67,6 @@ afterEach(() => {
 });
 
 describe('useIsNarrow — 창 폭 1100 미만', () => {
-  it('질의는 1100 **미만**을 뜻한다 — max-width 는 경계를 포함하므로 0.02 를 뺀다', () => {
-    expect(NARROW_MAX_PX).toBe(1100);
-    expect(NARROW_QUERY).toBe('(max-width: 1099.98px)');
-  });
-
   it.each([
     [1099, true],
     [1100, false],

@@ -11,6 +11,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  fiveMeterRetreat,
   GOAL_AREA_MAX,
   RING_R_PX,
   RING_SAME_TEAM_MAX,
@@ -26,12 +27,14 @@ import {
   ruleForRing,
   teamsOfBits,
   zoneViolation,
+  isBallOutOfPlay,
   type DefendedZone,
   type RuleActor,
 } from './rules.ts';
-import { COURT_DEFS, COURT_MODES, COURT_SIZES, courtDefFor, GOAL_HALF_PX, goalMouths } from './court.ts';
+import type { TeamSide } from './drill.ts';
+import { attackDir, COURT_DEFS, COURT_MODES, COURT_SIZES, courtDefFor, GOAL_HALF_PX, goalMouths } from './court.ts';
 import { chairOverlapsRect } from './chairOverlap.ts';
-import { CHAIR } from '../core/constants.ts';
+import { BALL as BALL_CONST, CHAIR } from '../core/constants.ts';
 import { PX_PER_M } from '../core/units.ts';
 
 const BALL = { x: 400, y: 260 };
@@ -351,6 +354,48 @@ describe('rules — 골 지역 3인', () => {
     // ★ 대조군 — **같은 좌표, 같은 인원인데 진영만 뒤집으면** 걸린다. 이 한 줄이 진영이
     //   판정을 정한다는 것의 전부다.
     expect(zoneViolation(GZ_AWAY, attackers)).toBe(TEAM_BIT.away);
+  });
+
+  // 기현 지시 2026-08-27 — *"골키퍼가 자기 진영에서 골대 뒤에 완전히 있어도 골에어리어 반칙
+  // 대상에 카운트되어야 한다."* 허용치는 골키퍼 포함 2명이고 3명째부터 반칙인데, Laws 원문이
+  // "골에어리어 **안**" 이라고만 해서 그대로 두면 **골 지역 안 2대 + 골 뒤 골키퍼 = 3대인데
+  // 2대로 세어** 판이 깨끗하게 남았다. 그 자리는 2-on-1 예외 ①-b·세트피스 5m 예외 ④ 가 이미
+  // 쓰던 영역인데, **면제만 주고 인원에는 안 잡히는** 비대칭이었다.
+  describe('★ 골대 뒤로 완전히 나간 수비도 3인에 센다 (기현 지시 2026-08-27)', () => {
+    const GOAL_LINE = COURT_DEFS.full.surface.x; // GZ 는 ruleZones[0] = 왼쪽 골 지역이다
+    const MID_Y = COURT_DEFS.full.surface.y + COURT_DEFS.full.surface.h / 2;
+    /** 골라인을 등지고(θ=180°) 차체가 통째로 골라인 **밖**에 있는 피벗 x. 5 px 을 더 물린 것은
+     *  골 지역 사각형과의 접촉까지 떼어, 이 케이스가 오직 골대 뒤 판정으로만 세어지게 하려는
+     *  것이다(경계에 걸치면 옛 경로로도 잡혀 새 동작을 못 잰다). */
+    const behindPivotX = GOAL_LINE - BACK - 5;
+    const MOUTH = defendedMouths(goalMouths(COURT_DEFS.full), 'home')[0]!;
+    const gkBehind = () => actor('home', behindPivotX, MID_Y, true, Math.PI);
+    const twoInside = () => [actor('home', inZone(0), GZ.y + 10), actor('home', inZone(1), GZ.y + 10)];
+
+    it('골 지역 안 2명 + 골대 뒤 골키퍼 = 3명이라 걸린다', () => {
+      const three = [...twoInside(), gkBehind()];
+      // 골대 입구를 안 넘기면 옛 판정 그대로 — 골 뒤는 사각형 밖이라 안 보인다.
+      expect(zoneViolation(GZ_HOME, three), '이 자리가 새 동작이 사는 곳이다').toBe(0);
+      expect(zoneViolation(GZ_HOME, three, MOUTH)).toBe(TEAM_BIT.home);
+    });
+
+    it('골 뒤에 있어도 2명까지는 여전히 괜찮다 — 문턱을 낮추는 변경이 아니다', () => {
+      expect(zoneViolation(GZ_HOME, [actor('home', inZone(0), GZ.y + 10), gkBehind()], MOUTH)).toBe(0);
+      expect(GOAL_AREA_MAX).toBe(2);
+    });
+
+    it('상대 팀 골키퍼가 이 골대 뒤에 있어도 이 존의 인원이 아니다', () => {
+      const three = [...twoInside(), actor('away', behindPivotX, MID_Y, true, Math.PI)];
+      expect(zoneViolation(GZ_HOME, three, MOUTH)).toBe(0);
+    });
+
+    it('한 대를 두 번 세지 않는다 — 골라인에 걸쳐 양쪽을 다 만족해도 1명이다', () => {
+      // 뒷변이 골라인에 정확히 닿는 자리. 사각형에도 닿고 골대 뒤 판정에도 걸릴 수 있다.
+      const straddling = actor('home', GOAL_LINE - BACK, MID_Y, true, Math.PI);
+      expect(zoneViolation(GZ_HOME, [...twoInside(), straddling], MOUTH)).toBe(TEAM_BIT.home);
+      // 두 번 세었다면 2명짜리 판도 걸렸을 것이다.
+      expect(zoneViolation(GZ_HOME, [actor('home', inZone(0), GZ.y + 10), straddling], MOUTH)).toBe(0);
+    });
   });
 
   it('수비와 공격이 섞여 있어도 **수비만** 센다', () => {
@@ -711,6 +756,50 @@ describe('rules — [예외 ①-b] 골라인을 완전히 넘어간 골키퍼는
   });
 });
 
+// 기현 지시 2026-08-27 — 세트피스 **소유**를 진영에서 떼어냈다. 이 describe 가 지키는 것은
+// 그 분리 자체다: 진영 하나로는 골킥과 코너킥을 **동시에** 옳게 그릴 수 없었다.
+describe('fiveMeterRetreat — 물러날 팀은 진영이 아니라 소유가 정한다', () => {
+  it('소유가 없으면 진영을 그대로 쓴다 — 이 필드가 생기기 전의 동작이다', () => {
+    expect(fiveMeterRetreat(undefined, 'home')).toBe('home');
+    expect(fiveMeterRetreat(undefined, 'away')).toBe('away');
+  });
+
+  it('★ 소유가 있으면 그 **반대**가 물러난다 — 차는 쪽은 제한을 안 받는다', () => {
+    expect(fiveMeterRetreat('home', 'home')).toBe('away');
+    expect(fiveMeterRetreat('away', 'home')).toBe('home');
+  });
+
+  it('★ 같은 진영에서 두 재개가 서로 반대로 나온다 — 이것이 분리한 이유다', () => {
+    const defense: TeamSide = 'home'; // 홈이 골 지역을 지킨다(진영은 그대로 둔 채)
+    // 코너킥: 공격(어웨이)이 찬다 → 수비(홈)가 5 m 물러난다.
+    expect(fiveMeterRetreat('away', defense), '코너킥').toBe('home');
+    // 골킥: 수비(홈)가 찬다 → 공격(어웨이)이 5 m 물러난다.
+    expect(fiveMeterRetreat('home', defense), '골킥').toBe('away');
+    // ★ 진영을 한 톨도 안 바꾸고 둘 다 옳다. 소유가 없던 시절에는 골킥을 그리려면 진영을
+    //   뒤집어야 했고, 그러면 골 지역 3인 판정까지 함께 뒤집혀 못 쓸 판이 됐다.
+  });
+
+  it('플랫 코트(진영 null)는 소유가 있어도 판정하지 않는다 — 골대가 없다', () => {
+    expect(fiveMeterRetreat('home', null)).toBeNull();
+    expect(fiveMeterRetreat(undefined, null)).toBeNull();
+  });
+});
+
+describe('attackDir — 소유 화살표가 가리키는 방향', () => {
+  it('풀 코트: 왼쪽 골을 지키는 팀은 오른쪽(+x)으로 공격한다', () => {
+    expect(attackDir(COURT_DEFS.full, 0)).toEqual({ x: 1, y: 0 });
+    expect(attackDir(COURT_DEFS.full, 1), '오른쪽 골대는 반대').toEqual({ x: -1, y: 0 });
+  });
+
+  it('하프 코트: 아래 골을 지키는 팀은 위(-y)로 공격한다', () => {
+    expect(attackDir(COURT_DEFS.half, 0)).toEqual({ x: 0, y: -1 });
+  });
+
+  it('플랫 코트는 골대가 없어 방향이 없다 — 화살표를 그리지 않는다', () => {
+    expect(attackDir(COURT_DEFS.flat, 0)).toBeNull();
+  });
+});
+
 describe('ruleForRing — 어느 규칙으로 재는가', () => {
   it("5 m 원만 세트피스다. 없음·3 m 는 2-on-1 이다", () => {
     expect(ruleForRing('5m')).toBe('fiveMeter');
@@ -728,5 +817,59 @@ describe('ruleForRing — 어느 규칙으로 재는가', () => {
     expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'away')).toBe(TEAM_BIT.away);
     // 수비를 home 으로 두면 home 이 걸린다 — 어느 쪽이든 **2-on-1 비트가 아니라 5 m 비트**다.
     expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(TEAM_BIT.home);
+  });
+});
+
+describe('isBallOutOfPlay — Law 9 아웃오브플레이', () => {
+  const fullSurface = COURT_DEFS.full.surface;
+  const halfSurface = COURT_DEFS.half.surface;
+  // 시각 반지름(뷰포트에 그려지는 크기) — 물리 반지름(BALL.radiusPx 4.125)이 아니다.
+  // 원문("공 전체가 라인을 완전히 벗어나야 아웃")을 지키려면 화면에 보이는 그 크기가 기준이어야
+  // 한다 — 아니면 공 둘레가 아직 라인에 걸쳐 보이는데도 붉게 변하는 모순이 생긴다(기현님
+  // 지시 2026-08-22: "지금은 밖으로 1/3만 걸쳐도 붉게 변한다").
+  const R = BALL_CONST.viewRadiusPx;
+
+  it('경계 안이면 인플레이', () => {
+    const center = { x: fullSurface.x + fullSurface.w / 2, y: fullSurface.y + fullSurface.h / 2 };
+    expect(isBallOutOfPlay('full', fullSurface, center, R)).toBe(false);
+  });
+
+  it('라인 위(중심 기준)는 아직 안이다 — inRect 와 같은 원칙', () => {
+    expect(isBallOutOfPlay('full', fullSurface, { x: fullSurface.x, y: fullSurface.y }, R)).toBe(false);
+    expect(isBallOutOfPlay('full', fullSurface, { x: fullSurface.x + fullSurface.w, y: fullSurface.y + fullSurface.h }, R)).toBe(false);
+  });
+
+  it('★ 공이 라인에 일부만 걸쳐 있으면(반지름 안쪽) 아직 인플레이다 — 중심 하나만 보면 안 된다', () => {
+    const { x, y, h } = fullSurface;
+    // 중심이 라인 밖으로 R 의 절반만큼 나갔다 — 공 둘레는 절반 넘게 아직 안쪽에 걸쳐 있다.
+    expect(isBallOutOfPlay('full', fullSurface, { x: x - R / 2, y: y + h / 2 }, R)).toBe(false);
+    // 경계 값: 중심이 정확히 R 만큼만 나가면(둘레가 라인에 접함) 아직 "완전히"는 아니다.
+    expect(isBallOutOfPlay('full', fullSurface, { x: x - R, y: y + h / 2 }, R)).toBe(false);
+  });
+
+  it('풀 코트 — 네 변 전부 반지름까지 완전히 벗어나면 아웃(좌·우·상·하)', () => {
+    const { x, y, w, h } = fullSurface;
+    const d = R + 1; // 반지름 + 1px — 공 둘레 전체가 라인 밖으로 나간 최소 지점
+    expect(isBallOutOfPlay('full', fullSurface, { x: x - d, y: y + h / 2 }, R)).toBe(true);
+    expect(isBallOutOfPlay('full', fullSurface, { x: x + w + d, y: y + h / 2 }, R)).toBe(true);
+    expect(isBallOutOfPlay('full', fullSurface, { x: x + w / 2, y: y - d }, R)).toBe(true);
+    expect(isBallOutOfPlay('full', fullSurface, { x: x + w / 2, y: y + h + d }, R)).toBe(true);
+  });
+
+  it('★ 하프 코트 — 위쪽 변은 하프라인이지 실제 경계가 아니다(멀리 넘어도 인플레이)', () => {
+    const { x, y, w } = halfSurface;
+    expect(isBallOutOfPlay('half', halfSurface, { x: x + w / 2, y: y - 50 }, R)).toBe(false);
+  });
+
+  it('하프 코트 — 좌·우·하(골라인)는 여전히 실제 경계다(반지름 고려)', () => {
+    const { x, y, w, h } = halfSurface;
+    const d = R + 1;
+    expect(isBallOutOfPlay('half', halfSurface, { x: x - d, y: y + h / 2 }, R)).toBe(true);
+    expect(isBallOutOfPlay('half', halfSurface, { x: x + w + d, y: y + h / 2 }, R)).toBe(true);
+    expect(isBallOutOfPlay('half', halfSurface, { x: x + w / 2, y: y + h + d }, R)).toBe(true);
+  });
+
+  it('플랫 코트 — 경계 개념이 없어 언제나 인플레이', () => {
+    expect(isBallOutOfPlay('flat', fullSurface, { x: -9999, y: 9999 }, R)).toBe(false);
   });
 });

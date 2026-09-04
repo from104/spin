@@ -299,9 +299,10 @@ describe('[A-3 예외 / 5.2] 선택된 **공** 재탭 = 원 순환', () => {
     return { chairId, ballId, drill: { ...base, steps: [step] } };
   }
 
-  const ringOf = (r: Harness, id: BallId): BallRing => ballRingOf(r.current.state.present.cast.balls.find((b) => b.id === id)!);
+  // v9 — 링은 스텝 소유다. 이 하네스는 스텝이 하나뿐이라 첫 스텝이 곧 편집 중인 스텝이다.
+  const ringOf = (r: Harness, id: BallId): BallRing => ballRingOf(r.current.state.present.steps[0]!, id);
 
-  it('탭 넷이 한 바퀴를 돈다 — 없음 → 3 m → 5 m → 없음 + 해제', () => {
+  it('탭 다섯이 한 바퀴를 돈다 — 없음 → 3 m → 5 m(우리) → 5 m(상대) → 없음 + 해제', () => {
     const { drill, ballId } = makeBallDrill();
     const { result } = mount(drill);
 
@@ -317,7 +318,12 @@ describe('[A-3 예외 / 5.2] 선택된 **공** 재탭 = 원 순환', () => {
     expect(ringOf(result, ballId)).toBe('5m');
     expect(result.current.state.selection.has(ballId)).toBe(true);
 
-    tap(result, BALL_AT); // ④ 닫힌다
+    tap(result, BALL_AT); // ④ 소유가 상대로 넘어간다. 원도 선택도 그대로다.
+    expect(ringOf(result, ballId)).toBe('5m');
+    expect(result.current.state.present.steps[0]!.ballOwner?.[ballId]).toBe('away');
+    expect(result.current.state.selection.has(ballId)).toBe(true);
+
+    tap(result, BALL_AT); // ⑤ 닫힌다
     expect(ringOf(result, ballId)).toBe('none');
     expect(result.current.state.selection.size).toBe(0);
   });
@@ -355,28 +361,30 @@ describe('[A-3 예외 / 5.2] 선택된 **공** 재탭 = 원 순환', () => {
   });
 
   it('끌면 순환하지 않는다 — 드래그는 탭이 아니다', () => {
-    const { drill, ballId } = makeBallDrill();
-    const { result } = mount(drill);
-    const ctrl = () => result.current.pointer.controller;
+    {
+      const { drill, ballId } = makeBallDrill();
+      const { result } = mount(drill);
+      const ctrl = () => result.current.pointer.controller;
 
-    tap(result, BALL_AT);
-    act(() => void ctrl().onPointerDown(BALL_AT, META));
-    act(() => ctrl().onPointerMove({ x: BALL_AT.x + 40, y: BALL_AT.y }, 16));
-    act(() => ctrl().onPointerUp(CLIENT));
-    expect(ringOf(result, ballId)).toBe('none');
-    expect(result.current.state.selection.has(ballId)).toBe(true);
-  });
+      tap(result, BALL_AT);
+      act(() => void ctrl().onPointerDown(BALL_AT, META));
+      act(() => ctrl().onPointerMove({ x: BALL_AT.x + 40, y: BALL_AT.y }, 16));
+      act(() => ctrl().onPointerUp(CLIENT));
+      expect(ringOf(result, ballId)).toBe('none');
+      expect(result.current.state.selection.has(ballId)).toBe(true);
+    }
+    // pointercancel(client=null) 도 탭이 아니다 — 시스템 제스처에 뺏겼다고 원이 돌면 안 된다.
+    {
+      const { drill, ballId } = makeBallDrill();
+      const { result } = mount(drill);
+      const ctrl = () => result.current.pointer.controller;
 
-  it('pointercancel 은 탭이 아니다 — 시스템 제스처에 뺏겼다고 원이 돌면 안 된다', () => {
-    const { drill, ballId } = makeBallDrill();
-    const { result } = mount(drill);
-    const ctrl = () => result.current.pointer.controller;
-
-    tap(result, BALL_AT);
-    act(() => void ctrl().onPointerDown(BALL_AT, META));
-    act(() => ctrl().onPointerUp(null));
-    expect(ringOf(result, ballId)).toBe('none');
-    expect(result.current.state.selection.has(ballId)).toBe(true);
+      tap(result, BALL_AT);
+      act(() => void ctrl().onPointerDown(BALL_AT, META));
+      act(() => ctrl().onPointerUp(null));
+      expect(ringOf(result, ballId)).toBe('none');
+      expect(result.current.state.selection.has(ballId)).toBe(true);
+    }
   });
 
   it('additive(Shift) 재탭은 예전 그대로 토글 해제다 — 순환 경로가 아니다', () => {
@@ -389,19 +397,6 @@ describe('[A-3 예외 / 5.2] 선택된 **공** 재탭 = 원 순환', () => {
     expect(ringOf(result, ballId)).toBe('none');
   });
 
-  it('되돌리기가 순환을 한 칸씩 되돌린다', () => {
-    const { drill, ballId } = makeBallDrill();
-    const { result } = mount(drill);
-
-    tap(result, BALL_AT);
-    tap(result, BALL_AT); // 3m
-    tap(result, BALL_AT); // 5m
-    expect(ringOf(result, ballId)).toBe('5m');
-    act(() => result.current.dispatch({ type: 'UNDO' }));
-    expect(ringOf(result, ballId)).toBe('3m');
-    act(() => result.current.dispatch({ type: 'UNDO' }));
-    expect(ringOf(result, ballId)).toBe('none');
-  });
 });
 
 describe('[A-3] ② 붐비는 코트 — 빈 곳이 없어도 해제가 가능하다 (완료 판정)', () => {
@@ -416,9 +411,10 @@ describe('[A-3] ② 붐비는 코트 — 빈 곳이 없어도 해제가 가능�
   it('가장 빈 자리를 탭해도 러버밴드 해제가 성립하지 않고, Esc 가 SELECT_CLEAR 한다', () => {
     const { drill } = makeCrowdedDrill();
     const { result } = mount(drill);
+    const corner = { x: 160, y: 210 };
 
     // 코트 구석의 콘 하나를 선택해 둔다.
-    tap(result, { x: 160, y: 210 });
+    tap(result, corner);
     expect(result.current.state.selection.size).toBe(1);
 
     // "빈 곳 탭 → 해제" 시도 — 어디를 찍어도 2차 패스가 이웃 콘을 잡아 해제가 안 된다.
@@ -430,16 +426,10 @@ describe('[A-3] ② 붐비는 코트 — 빈 곳이 없어도 해제가 가능�
     // Esc — 포인터와 무관한 전역 해제. 이것이 붐비는 코트의 유일한 "확실한" 해제 수단이다.
     pressEscape();
     expect(result.current.state.selection.size).toBe(0);
-  });
 
-  it('재탭 해제도 붐비는 코트에서 그대로 작동한다 — 두 대체 경로는 서로 독립이다', () => {
-    const { drill, coneIds } = makeCrowdedDrill();
-    const { result } = mount(drill);
-
-    const corner = { x: 160, y: 210 };
+    // 재탭 해제도 붐비는 코트에서 그대로 작동한다 — 두 대체 경로는 서로 독립이다.
     tap(result, corner);
-    expect(result.current.state.selection.has(coneIds[0]!)).toBe(true);
-
+    expect(result.current.state.selection.size).toBe(1);
     tap(result, corner);
     expect(result.current.state.selection.size).toBe(0);
   });

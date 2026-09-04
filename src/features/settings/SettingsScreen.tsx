@@ -21,17 +21,17 @@ import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
 import { RosterSection } from './RosterSection.tsx';
 import { SyncSection } from './SyncSection.tsx';
+import { subscribeSyncEvents } from '../../storage/syncMeta.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
 import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
-import { downloadBlob } from '../../storage/files.ts';
+import { downloadBlob, ACCEPT_BACKUP } from '../../storage/files.ts';
 import { backupFileName } from '../export/exportNames.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
-import { LOCALE_NAMES, SUPPORTED_LOCALES } from '../../i18n/locale.ts';
 import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
 import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 
@@ -65,6 +65,17 @@ export function SettingsScreen() {
   // key 를 바꿔 강제 재마운트시키는 것이 가장 단순한 재적재다 — prefs 재적재(위 setPrefs
   // (loadPrefs()))와 같은 문제, 같은 해법이다.
   const [rosterReloadToken, setRosterReloadToken] = useState(0);
+  // ⚠️ 위 사고는 **복원 말고 동기화에서도 난다**(2026-08-29 점검). 드라이브 패스가 다른 기기의
+  //    명단을 당겨 오면(pulled > 0) IDB 는 새 명단인데 이 화면은 마운트 시 읽은 옛 명단을 그대로
+  //    들고 있고, 그 상태에서 선수 하나만 고치면 saveRoster(문서 통째 저장)가 **방금 당겨온
+  //    명단을 옛것으로 덮는다.** 복원 쪽만 막고 이쪽은 비어 있었다 — 같은 해법(재마운트)을 쓴다.
+  //
+  //    'pass' 만 본다. put/delete 는 이 화면 자신의 저장이 낸 에코라, 그걸로 재마운트하면
+  //    선수 이름을 고치는 중에 화면이 스스로 갈아엎힌다(useSyncEngine 이 에코를 거르는 것과
+  //    같은 이유·같은 판정).
+  useEffect(() => subscribeSyncEvents((e) => {
+    if (e.op === 'pass' && e.pulled > 0) setRosterReloadToken((n) => n + 1);
+  }), []);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const restoreBtnRef = useRef<HTMLButtonElement | null>(null);
   const restoreDialogId = useId();
@@ -147,19 +158,11 @@ export function SettingsScreen() {
   return (
     <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '26px 30px 46px', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Section title={t('settings.language.title')}>
-          <Row title={t('settings.language.rowTitle')} desc={t('settings.language.desc')}>
-            <Segmented
-              ariaLabel={t('settings.language.title')}
-              value={prefs.language}
-              onChange={(v) => setPrefs({ language: v })}
-              options={[
-                { value: 'auto', label: t('settings.language.auto') },
-                ...SUPPORTED_LOCALES.map((loc) => ({ value: loc, label: LOCALE_NAMES[loc] })),
-              ]}
-            />
-          </Row>
-        </Section>
+        {/* 🪦 [언어] 섹션은 2026-09-02 에 **왼쪽 레일의 지구본**으로 옮겼다(기현 지시).
+            근거는 LanguageModal 머리말: 언어는 다른 설정과 등급이 다르다 — "가끔 손보는 것"
+            이 아니라 **글자를 못 읽어서 찾아가야 하는 것**이라, 설정 화면까지 가는 길 전체가
+            읽지 못하는 글자면 그 길이 막힌 것과 같다. 레일 아이콘은 글자 없이 도달한다.
+            `settings.language.*` 사전 키는 그대로 산다 — 모달이 같은 키를 쓴다. */}
         <Section title={t('settings.screen.title')}>
           <Row title={t('settings.screen.themeTitle')} desc={t('settings.screen.themeDesc')}>
             <Segmented
@@ -341,8 +344,14 @@ export function SettingsScreen() {
                 desc={t('settings.physics.spinDesc')}
                 ariaLabel={t('settings.physics.spinTitle')}
                 value={physics.zones.sSpinMin}
+                // ⚠️ 상한은 **정리 함수(prefs.sanitize)가 허용하는 끝**과 같아야 한다(0.9).
+                //    2026-08-30 발견: 여기가 0.45 로 굳어 있었다 — 네 토막이던 시절(기본
+                //    0.32)의 범위다. 2026-08-11 에 기본이 0.5 가 되면서 이미 **기본값이 슬라이더
+                //    밖**이었고(엄지가 끝에 붙어 있고, 건드리는 순간 0.45 로 조용히 내려간다),
+                //    2026-08-30 에 2/3 가 되며 더 벌어졌다. 기본값을 못 담는 슬라이더는
+                //    조정기가 아니라 함정이다.
                 min={0.22}
-                max={0.45}
+                max={0.9}
                 step={0.01}
                 format={(v) => v.toFixed(2)}
                 onChange={(v) => patchZone('sSpinMin', v)}
@@ -417,7 +426,7 @@ export function SettingsScreen() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".json,application/json"
+              accept={ACCEPT_BACKUP}
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -446,7 +455,7 @@ export function SettingsScreen() {
             화면별로 하나씩 지우는 길은 HelpCenter 의 [이 화면 투어 다시 보기]가 이미 맡고
             있다 — 여기는 "전부 처음부터" 한 번에 끄는 자리다. */}
         <Section title={t('settings.tutorial.title')}>
-          <Row title={t('settings.tutorial.resetTitle')} desc={t('settings.tutorial.resetDesc')} borderBottom={false}>
+          <Row title={t('settings.tutorial.resetTitle')} desc={t('settings.tutorial.resetDesc')}>
             <Button
               variant="secondary"
               onClick={() => {
@@ -455,6 +464,21 @@ export function SettingsScreen() {
               }}
             >
               {t('settings.tutorial.resetButton')}
+            </Button>
+          </Row>
+          {/* PLAN-0-6-3-LOADER-NOTICE 결정 26 — 작은 화면 안내는 [다시 보지 않기] 를 한 번
+              누르면 이 기기에서 영영 못 본다. 2026-08-21 감사에서 "코드에만 있고 화면에서
+              닿을 수 없는 값"을 유령 설정으로 폐기한 그 규율을 어기지 않으려면 되돌릴
+              손잡이가 있어야 한다 — [튜토리얼 다시 보기] 바로 옆이 그 자리다. */}
+          <Row title={t('settings.smallScreen.resetTitle')} desc={t('settings.smallScreen.resetDesc')} borderBottom={false}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setPrefs({ smallScreenNoticeDismissed: false });
+                toast.show(t('settings.smallScreen.resetToast'));
+              }}
+            >
+              {t('settings.smallScreen.resetButton')}
             </Button>
           </Row>
         </Section>

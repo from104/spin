@@ -8,10 +8,11 @@ import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
 import { COURT_DEFS, courtDefFor, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
 import { BALL, CONE, INTERACT } from '../../core/constants.ts';
 import { inkFor } from '../../core/colors.ts';
-import { IconPlay } from '../../ui/icons.tsx';
+import { IconPlay, IconPlus } from '../../ui/icons.tsx';
 import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { defaultDefense } from '../../model/rules.ts';
 import { LIMITS } from '../../model/validate.ts';
+import { isStepEmpty } from '../../model/drill.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
 import { useAppHeader } from '../../app/AppHeader.tsx';
 import { useAppNav } from '../../app/useAppHistory.ts';
@@ -35,6 +36,7 @@ import { placeObject } from './placement.ts';
 import { removalToast, returnsToTray } from './removal.ts';
 import { canDuplicate } from './ObjectMenu.tsx';
 import { nudgeArrow } from '../../model/arrow.ts';
+import { nudgeStroke } from '../../model/stroke.ts';
 import { PX_PER_M } from '../../core/units.ts';
 import { TrayGhost } from './TrayGhost.tsx';
 import { EditorStage } from './EditorStage.tsx';
@@ -49,6 +51,7 @@ import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
 import { BOARD_TUTORIAL_STEPS, EDITOR_TUTORIAL_STEPS } from './tutorialSteps.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { SCREEN_SUBTITLES, SCREEN_TITLES } from '../../app/screens.ts';
 import { NoteEditModal } from './NoteEditModal.tsx';
 import { NOTE_DEFAULT_SIZE_PX } from '../../render/objects/noteChip.ts';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
@@ -58,14 +61,14 @@ import { usePhysicsRenderLoop } from './usePhysicsRenderLoop.ts';
 /** 자유 전술판일 때만 내려오는 조작부. 판을 갈아끼우는 일(코트 전환·초기화)과 정식 드릴로의
  *  승격은 저장소를 만지므로 화면(screen-board) 책임이고, 여기서는 호출만 한다. */
 export interface BoardControls {
-  /** 저장본이 리셋 상태였는가. 런타임의 `past.length === 0` 와 **AND** 로 코트 전환 게이트를
-   *  만든다 — 저장본까지 봐야 하는 이유는 storage/board.ts 의 pristine 주석 참고. */
-  pristine: boolean;
+  // ⚠️ `pristine` 은 은퇴했다(2026-08-28). 게이트가 저장본 기준선 대신 **판 자체**를 보게 되면서
+  //    저장·재로딩을 건너 다닐 값이 없어졌다 — 아래 boardPristine 주석 참고.
   onCourtChange(mode: CourtMode): void;
-  /** §6.4 코트 크기 3단. 코트 형태 전환과 **같은 문**(pristine)을 지난다 — 그래야 판 위에
+  /** §6.4 코트 크기 3단. 코트 형태 전환과 **같은 문**(판이 비었는가)을 지난다 — 그래야 판 위에
    *  개체가 하나도 없을 때만 규격이 바뀌어 "코트를 줄였더니 선수가 밖에 서 있다" 가 없다. */
   onCourtSizeChange(size: CourtSize): void;
-  onReset(): void;
+  // ⚠️ `onReset` 은 여기 없다(2026-08-28). [비우기]가 드릴 편집에도 생기면서 두 모드가 같은
+  //    액션(STEP_CLEAR)을 쓰게 됐고, 구현이 이 파일 안(clearStep)으로 올라왔다.
   onSaveAsDrill(): void;
   /** Ctrl/⌘+S — 디바운스를 건너뛰고 스냅샷을 지금 저장한다(2026-08-15 보드 단축키 정리).
    *  드릴의 `autosave.flush()` 자리를 전술판에서 대신 채우는 것이다. */
@@ -77,9 +80,13 @@ export interface EditorWorkspaceProps {
    *  'drill' = 정식 드릴 편집(스텝·자동저장 있음·코트 불변). 판을 그리는 부분은 완전히 같다. */
   mode?: 'board' | 'drill';
   board?: BoardControls;
-  /** C11(2026-08-19 기현님) — [드릴 정보] 모달 열기. 드릴 모드 전용이고, 버튼은 하단 노트
-   *  패널 **왼쪽**에 선다(옛 스테이지 우상단 오버레이는 판 조작과 겹쳐 은퇴). 콜백만 받고
-   *  모달 자체는 EditorScreen 소유다 — 워크스페이스는 메타 편집을 모른다. */
+  /** C11(2026-08-19 기현님) — [드릴 정보] 모달 열기. 드릴 모드 전용이다. 콜백만 받고 모달
+   *  자체는 EditorScreen 소유다 — 워크스페이스는 메타 편집을 모른다.
+   *
+   *  버튼 자리는 세 번 옮겼다: 스테이지 우상단 오버레이(판 조작과 겹쳐 은퇴) → 하단 노트 패널
+   *  왼쪽 → 헤더 제목 옆 ⓘ(2026-08-20) → **오른쪽 기능 바**(2026-08-28 기현 지시). 마지막
+   *  이사의 이유는 자리가 아니라 **아이콘**이다 — 헤더에서는 편집과 시연이 같은 ⓘ 하나를
+   *  나눠 써서 눌러 보기 전에는 고칠 수 있는지 알 수 없었다. */
   onDrillInfo?(): void;
 }
 
@@ -103,6 +110,9 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
 
   const drill = state.present;
   const stepIndex = selectStepIndex(state);
+  // 사이드바에서 체크한 스텝의 **사본**. 원본은 StepSidebar 로컬이고(그 파일 머리말: 리듀서·
+  // undo 에 넣지 않는다) 여기는 내보내기 시트에 넘겨 주기 위한 미러다 — 단방향이라 안전하다.
+  const [checkedSteps, setCheckedSteps] = useState<ReadonlySet<StepId>>(new Set());
   const step = drill.steps[stepIndex] ?? drill.steps[0]!;
 
   const stageRef = useRef<CourtStageHandle | null>(null);
@@ -192,15 +202,22 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   usePhysicsRenderLoop(worldRef, writer, rules);
   useStepPlayback(drill, state.stepId, dispatch);
 
-  // ★ 코트 자유 전환 게이트(§6.8 재편, 기현 결정) — **판이 리셋 상태일 때만** 연다.
+  // ★ 코트 자유 전환 게이트(§6.8 재편, 기현 결정) — **판 위에 잃을 것이 없을 때만** 연다.
   //
   // D12 는 full↔half 전환이 배치를 보존할 수 없다고 못박았다(30×18m 와 18×15m 는 어떤 아핀
   // 변환으로도 같은 전술이 안 된다). 경고를 띄우고 날리는 대신, 잃을 배치가 없을 때로 전환을
   // 한정해 손실 자체를 만들지 않는다.
   //
-  // 두 조건을 **모두** 봐야 한다. past.length 만 보면 편집된 판을 저장하고 다시 열었을 때
-  // 그 판이 새 기준선이 되어 past 가 비므로 dirty 인데도 열린다(storage/board.ts pristine 주석).
-  const boardPristine = isBoard && (board?.pristine ?? false) && state.past.length === 0;
+  // ⚠️ **2026-08-28 — 묻는 질문을 바꿨다.** 옛 게이트는 `board.pristine && past.length === 0`,
+  // 즉 *"되돌릴 편집이 없는가"* 였다. 그 대용(proxy)이 값을 두 개 치르고 있었다:
+  //   ① [비우기]가 **되돌리기를 죽였다.** 비우기가 히스토리에 쌓이면 past.length > 0 이 되어
+  //      게이트가 스스로 닫히므로, 비우기는 히스토리를 **비우는** BOARD_SET 으로 갈 수밖에
+  //      없었다. 기술적 제약이 아니라 대용을 지키려던 대가였다(기현님 지적).
+  //   ② 저장본을 다시 열면 past 가 비어 dirty 한 판이 clean 으로 보였고, 그 거짓말을 막으려고
+  //      `pristine` 을 스냅샷·세션 캐시까지 끌고 다녀야 했다(storage/board.ts 옛 주석).
+  // 판을 직접 보면 둘 다 사라진다 — 개체가 0이면 잃을 것이 없다는 것이 **저장·재로딩·되돌리기와
+  // 무관하게** 참이기 때문이다. 그래서 `pristine` 배선은 통째로 은퇴했다.
+  const boardPristine = isBoard && state.present.steps.every(isStepEmpty);
 
   // 되돌리기·다시하기. **2026-08-14 기현님 지시로 헤더에서 트레이(줌 바로 아래)로 옮겼다** —
   // 아래 ToolRail 의 `history` 로 간다. useAppHeader 에는 더 이상 안 넘긴다.
@@ -214,17 +231,16 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   useAppHeader(
     isBoard
       ? {
-          // ⚠️ **자유 전술판의 헤더는 비어 있다**(기현 지시 2026-08-14: *"레이블, 문구 삭제하고
-          // 드릴로 저장 버튼 오른쪽 도구모음으로 옮기고 상단 헤더 삭제. 공간 확보"*).
-          //  · 코트 전환 세그먼트 → 기능 바 [코트]
-          //  · 되돌리기·다시하기 → 기능 바
-          //  · [드릴로 저장]    → 기능 바 맨 끝(주 액션)
-          //  · 제목 '자유 전술판' · 부제 → **삭제**. 판이 화면을 다 쓰는데 그 위에 "지금
-          //    전술판을 보고 있습니다" 를 적어 두는 것은 자리만 먹는다.
-          // 넓은 창에서는 AppShell 이 헤더 자체를 **안 세운다**(레일이 이동을 진다).
-          // 좁은 창에서는 남는다 — 거기서는 헤더의 3칸 세그먼트가 유일한 이동 수단이다
-          // (기현님 확인: *"좁은창 이동에서의 헤더는 유지"*). 그때도 내용은 세그먼트뿐이다.
-          title: '',
+          // 🔁 2026-09-03 기현 지시(*"보드에도 다른 화면들처럼 헤더 넣고 가운데 정렬로 제목 크게, 짧은
+          // 설명 부제목으로. 맨 오른쪽에 [+ 드릴로 편집] 버튼 추가. 오른쪽 기능바의 [저장] 버튼 삭제"*)
+          // 로 **헤더가 다시 내용을 진다.** 2026-08-14 의 "헤더 삭제, 공간 확보" 는 헤더가 빈 줄뿐일 때의
+          // 결정이었다(그때 코트 전환·되돌리기는 기능 바로 갔고 그건 그대로다). [드릴로 저장]만 기능 바
+          // 맨 끝에서 여기 주 액션으로 돌아왔다 — 뜻은 같고(이름을 물어 드릴로 남기고 그 편집 화면을
+          // 연다) 이름만 "편집"이다. 같은 이름의 표적이 둘이 되지 않게 기능 바 칸은 지웠다.
+          title: SCREEN_TITLES[locale].board,
+          subtitle: SCREEN_SUBTITLES[locale].board,
+          align: 'center',
+          primary: { label: t('board.editAsDrill'), icon: <IconPlus size={15} />, onAction: () => board?.onSaveAsDrill() },
         }
       : {
           // ⚠️ 2026-08-15 (재설계 ②) — 헤더에서 **[저장]과 코트 세그먼트가 빠졌다.**
@@ -250,7 +266,11 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           },
           badge: t('editor.workspace.editingBadge'),
           compact: true,
-          infoButton: onDrillInfo ? { onAction: onDrillInfo, label: t('editor.workspace.drillInfoAriaLabel') } : null,
+          // ⚠️ 2026-08-28 (기현 지시) — ⓘ 가 **오른쪽 기능 바로** 갔다. 헤더에 있던 동안 편집과
+          //    시연이 **같은 글리프 하나**를 나눠 써서, 눌러 보기 전에는 고칠 수 있는지 볼 수만
+          //    있는지 알 수 없었다. 기능 바에서는 아이콘이 갈린다(IconDrillInfoEdit /
+          //    IconDrillInfoRead). `HeaderConfig.infoButton` 자체가 이번에 폐기됐다 —
+          //    편집·시연이 유일한 사용처였다(§A 의 presentButton 이 간 길과 같다).
           primary: {
             label: t('editor.workspace.presentLabel'),
             icon: <IconPlay size={15} />,
@@ -258,6 +278,21 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           },
         },
   );
+
+  /** [비우기] — **지금 스텝을 비운다.** 2026-08-28 기현 지시로 드릴 편집에도 생기면서 화면 쪽
+   *  구현(BoardScreen.onReset)에서 여기로 올라왔다: 하는 일이 리듀서 액션 하나뿐이라
+   *  저장소를 아는 화면이 쥘 이유가 없고, 두 모드가 같은 코드를 쓰는 것이 "뜻이 하나다" 를
+   *  코드로도 지키는 길이다.
+   *
+   *  ⚠️ 개체를 하나씩 지우는 `eraseIds` 로 대신하지 않는다 — 되돌리기가 개체 수만큼 조각난다
+   *     (STEP_CLEAR 는 한 칸, actions.ts 그 주석). */
+  const clearStep = useCallback(() => {
+    dispatch({ type: 'STEP_CLEAR', id: state.stepId });
+    // 알리는 내용이 모드마다 다르다. 전술판은 **비우기가 코트 전환을 여는 열쇠**라 그 사실이
+    // 다음 행동이고, 드릴은 코트가 언제나 잠겨 있으므로(courtLocked) 같은 말을 하면 거짓말이다
+    // — 대신 "다른 스텝은 그대로" 가 그 자리에서 궁금한 것이다.
+    toast.show(isBoard ? t('board.clearedToast') : t('editor.workspace.clearedStepToast'));
+  }, [dispatch, state.stepId, toast, t, isBoard]);
 
   const eraseIds = useCallback(
     (ids: string[], scope: 'onward' | 'thisStep') => {
@@ -279,6 +314,13 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           // 누르면 아무 일도 안 나고 토스트도 안 떴다(count===0 으로 조용히 return) — 키가
           // 고장난 것처럼 보였다. 지우는 길이 여기 하나로 모이면서 그 구멍이 닫힌다.
           dispatch({ type: 'SHAPE_REMOVE', id });
+          done.push(id);
+        } else if (isId(id, 'fh')) {
+          // 2026-09-03 획. 위 'sh' 갈래가 2026-08-16 에 없어서 겪은 그 고장(누르면 조용히
+          // 아무 일도 안 남)이 여기 없으면 그대로 재현된다 — 이 함수가 **지우는 유일한 문**이라
+          // ([지우기] 도구 · Delete · 개체 메뉴 · 트레이 드롭이 전부 여기로 온다) 갈래 하나가
+          // 비면 그 개체는 어느 문으로도 안 지워진다.
+          dispatch({ type: 'STROKE_REMOVE', id });
           done.push(id);
         }
       }
@@ -356,9 +398,11 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       let nShapes = step.shapes.length;
       let nNotes = step.notes.length;
       let nArrows = step.arrows.length;
+      let nStrokes = step.strokes?.length ?? 0;
       let shapeCap = false;
       let noteCap = false;
       let arrowCap = false;
+      let strokeCap = false;
       for (const id of ids) {
         if (isId(id, 'sh')) {
           const sh = step.shapes.find((x) => x.id === id);
@@ -395,15 +439,37 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           dispatch({ type: 'ARROW_SET', arrow: { ...nudgeArrow(ar, 'whole', { x: dx, y: dy }), id: nid } });
           made.push(nid);
           nArrows++;
+        } else if (isId(id, 'fh')) {
+          const fh = step.strokes?.find((x) => x.id === id);
+          if (!fh) continue;
+          if (nStrokes >= LIMITS.strokesPerStep) {
+            strokeCap = true;
+            continue;
+          }
+          const nid = newId('fh');
+          // 화살표와 **같은 방식**으로 자른다: 점마다 클램프하면 사본의 모양이 원본과 달라진다
+          // (손으로 그은 곡선이 판 가장자리에서 납작해진다). 이동량 자체를 줄여 강체로 옮긴다.
+          let maxX = -Infinity;
+          let maxY = -Infinity;
+          for (const p of fh.points) {
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+          }
+          const dx = Math.max(0, Math.min(off, court.vbW - maxX));
+          const dy = Math.max(0, Math.min(off, court.vbH - maxY));
+          dispatch({ type: 'STROKE_SET', stroke: { ...nudgeStroke(fh, { x: dx, y: dy }), id: nid } });
+          made.push(nid);
+          nStrokes++;
         }
       }
       // 토스트는 종류당 한 번이다 — 정원에서 여럿을 복제하면 같은 문장이 개수만큼 쌓인다.
       if (shapeCap) toast.show(t('editor.workspace.shapeCapToast', { max: LIMITS.maxShapesPerStep }));
       if (noteCap) toast.show(t('editor.workspace.noteCapToast', { max: LIMITS.maxNotesPerStep }));
       if (arrowCap) toast.show(t('editor.workspace.arrowCapToast', { max: LIMITS.maxArrowsPerStep }));
+      if (strokeCap) toast.show(t('editor.workspace.strokeCapToast', { max: LIMITS.strokesPerStep }));
       if (made.length > 0) dispatch({ type: 'SELECT_SET', ids: made });
     },
-    [drill.courtMode, drill.courtSize, step.shapes, step.notes, step.arrows, dispatch, toast, t],
+    [drill.courtMode, drill.courtSize, step.shapes, step.notes, step.arrows, step.strokes, dispatch, toast, t],
   );
 
   const gotoStep = useCallback(
@@ -428,23 +494,18 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
     playbackActions.toggle();
   }, [playing, stepIndex, drill.steps, dispatch, playbackActions]);
 
-  // [한 장 더 찍기](§4.4 P2-3)는 **한 번**의 조작이어야 한다 — 찍고 나면 방금 찍은 장이
-  // 손에 들려 있어야지, 옛 장을 든 채 새 장이 옆에 쌓이면 다음 동작이 엉뚱한 판에 들어간다.
-  // STEP_ADD 는 새 스텝의 id 를 돌려주지 않으므로(리듀서는 순수하다) 커밋된 뒤 **바로 뒤**
-  // 스텝을 고른다 — addStepAfter 가 i+1 에 꽂는 것이 그 함수의 계약이다(edits.ts).
-  // 인스펙터의 [스텝 추가]는 이 경로를 타지 않는다(거기서는 목록이 통째로 보인다).
-  const [addedAfter, setAddedAfter] = useState<number | null>(null);
-  const addStepHere = useCallback(() => {
-    const i = selectStepIndex(state);
-    setAddedAfter(i);
-    dispatch({ type: 'STEP_ADD', afterIndex: i });
-  }, [dispatch, state]);
-  useEffect(() => {
-    if (addedAfter === null) return;
-    setAddedAfter(null);
-    const added = drill.steps[addedAfter + 1];
-    if (added) dispatch({ type: 'STEP_SELECT', id: added.id });
-  }, [addedAfter, drill.steps, dispatch]);
+  // ⚠️ **[한 장 더 찍기] 가 없어졌다**(기현 지시 2026-08-30: *"그 버튼 지워"*). 여기 있던
+  //    `addStepHere`(+ 커밋 뒤 새 스텝을 고르는 `addedAfter` 이펙트)도 함께 사라졌다.
+  //    옛 근거를 기록으로 남긴다: *"찍기는 한 번의 조작이어야 한다 — 찍고 나면 방금 찍은
+  //    장이 손에 들려 있어야지, 옛 장을 든 채 새 장이 옆에 쌓이면 다음 동작이 엉뚱한 판에
+  //    들어간다."* **그 근거는 그대로 살아 있다** — 스텝을 늘리는 길이 이제 틈의 [+]
+  //    (STEP_DUPLICATE) 뿐인데, 바로 아래 `duplicateStepAt` 이 같은 뒷정리를 이미 하고 있다
+  //    (삽입 자리를 미리 계산해 두고 다음 렌더에서 그 스텝을 고른다). 즉 없어진 것은 버튼
+  //    하나이고, "찍으면 그 장이 손에 들린다" 는 계약은 한 곳으로 합쳐졌다.
+  //    ⚠️ 그래서 호출자를 잃은 `STEP_ADD` 액션과 `edits.addStepAfter` 는 2026-08-31 에 지웠다
+  //       (기현 지시). 한동안 "STEP_DUPLICATE 와 의미가 다르니 되살릴 자리로 남긴다" 고 두었으나,
+  //       그 차이(새 스텝의 이름을 비운다)는 과제⑦ 이후 이름을 가진 스텝 자체가 없어 이미
+  //       사라진 뒤였다 — 자세한 것은 `edits.ts duplicateStep` 주석의 🪦 문단.
 
   // [스텝 복제](§복제, 기현님 확정 2026-08-17) — 위 [한 장 더 찍기] 와 같은 이유로 같은
   // 패턴이다: 복제한 장이 손에 들려야 다음 조작(도형 그리기 등)이 그 장에 들어간다.
@@ -635,8 +696,8 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   // 다른 점은 둘이다(2026-08-20, 옛 기록: 셋이었다 — [저장]이 여기 있었다): [비우기]가 없고
   // (FUNCTION_BAR_ITEMS_DRILL), [코트]가 언제나 잠겨 있다(드릴의 코트는 불변이다 — 옛 헤더
   // 세그먼트의 계약을 그대로 물려받는다). [저장]은 자동저장이 이미 도는 마당에 "지금 밀어넣기"
-  // 뿐인 칸이 뜻이 없어 드릴 편집에서는 아예 안 그린다(FunctionBar.tsx 의 `isBoard` 게이트) —
-  // `onSaveAsDrill` prop 은 여전히 넘기지만 board 일 때만 실제로 불린다.
+  // 뿐인 칸이 뜻이 없어 드릴 편집에서는 아예 안 그렸다. 2026-09-03 부터는 보드의 [드릴로 저장]도
+  // 기능 바에 없다 — 헤더 주 액션 [+ 드릴로 편집](위 useAppHeader 의 board 분기)이 그 일을 한다.
   const functionBar = (
     <FunctionBar
       mode={board ? 'board' : 'drill'}
@@ -661,15 +722,17 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       defense={drill.defense ?? defaultDefense(drill.courtMode)}
       teams={drill.teams}
       onToggleDefense={toggleDefense}
-      onReset={() => board?.onReset()}
+      onReset={clearStep}
+      stepEmpty={isStepEmpty(step)}
+      onDrillInfo={onDrillInfo}
       drill={drill}
+      stepIndex={stepIndex}
+      checkedStepIds={checkedSteps}
       showGrid={showGrid}
+      showGridLabels={prefs.showGridLabels}
       onToggleGrid={toggleGrid}
       showRuleZones={showRuleZones}
       onToggleRuleZones={toggleRuleZones}
-      // 드릴 편집에서는 FunctionBar 가 [저장] 칸 자체를 안 그리므로 이 콜백이 안 불린다 —
-      // board 일 때만 실제로 쓰인다(위 머리말).
-      onSaveAsDrill={() => board?.onSaveAsDrill()}
     />
   );
 
@@ -705,10 +768,10 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       {isBoard ? null : (
         <StepSidebar
           drill={drill}
+          onCheckedStepsChange={setCheckedSteps}
           stepId={state.stepId}
           onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
           onReorderStep={(id, toIndex) => dispatch({ type: 'STEP_REORDER', id, toIndex })}
-          onAddStep={addStepHere}
           onDuplicateStep={duplicateStepAt}
           // ④ 사슬 토글(기현님 확정 2026-08-17) — cut:false 는 STEP_META 리듀서가 키 삭제로
           // 해석한다(reducer.ts STEP_META 주석). 복제와 달리 선택 이동이 없어 여기서는
@@ -854,6 +917,9 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 onEraseIds={eraseIds}
                 onDuplicateIds={duplicateObjIds}
                 onEditNote={(id, fresh) => setEditingNote({ id, fresh })}
+                // 밀린 골대를 눌렀을 때(2026-08-29) — [보드 설정] 안 [골대 원위치]와 **같은
+                // 함수**다. 두 손잡이가 다른 함수를 타면 언젠가 규칙이 갈린다(막힘 토스트 등).
+                onResetGoals={resetGoals}
                 epoch={state.epoch}
                 // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와
                 // 위치 이동이 한 시계로 끝난다. immediate(시점 점프)는 EditorStage 가 epoch 로
