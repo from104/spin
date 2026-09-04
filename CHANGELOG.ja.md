@@ -4,7 +4,7 @@
 
 フォーマットは [Keep a Changelog] に基づいており、このプロジェクトは [Semantic Versioning] に従います。
 
-## [Unreleased]
+## [0.6.3] 2026-09-05
 
 ### 追加
 
