@@ -27,7 +27,11 @@ coverage
 # 작업용 스크래치
 .scratch/
 
-client_secret_*.apps.googleusercontent.com.json
+# 구글 OAuth 클라이언트 원문(웹·데스크톱 client_secret). 디렉터리째 막는다.
+# ⚠️ 2026-09-05 감사: 옛 패턴 `client_secret_*.apps.googleusercontent.com.json` 은 파일명
+# 중간의 공백(`… .com web.json`) 때문에 두 파일을 놓쳐 75f89ab 부터 추적되고 있었다.
+secrets/
+client_secret_*
 
 # 앱이 내보낸 백업 파일 — 기현님의 실제 드릴·세션·명단 데이터다.
 # 저장소 루트에 놓고 작업하는 일이 잦아서, `git add -A` 한 번에 개인 데이터가
