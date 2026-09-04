@@ -9,6 +9,10 @@
 #
 # 서명은 아직 없다. 맥은 Gatekeeper, 윈도우는 SmartScreen 경고가 뜬다 —
 # 서명·공증은 스토어 계정과 함께 0.7 에서 다룬다.
+#
+# 구글 로그인용 저장소 secret 2종을 GitHub 저장소 설정(Settings → Secrets and
+# variables → Actions)에 등록해야 한다 — SPIN_DESKTOP_GOOGLE_CLIENT_ID,
+# SPIN_DESKTOP_GOOGLE_CLIENT_SECRET (값은 .env.local 참고, 여기 적지 않는다).
 name: desktop-release
 
 on:
@@ -35,6 +39,19 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+
+      - name: 리눅스 시스템 의존성 (cargo check 용)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - run: cargo check --manifest-path src-tauri/Cargo.toml
 
   build:
     needs: gate
@@ -86,9 +103,14 @@ jobs:
         id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPIN_DESKTOP_GOOGLE_CLIENT_ID: ${{ secrets.SPIN_DESKTOP_GOOGLE_CLIENT_ID }}
+          SPIN_DESKTOP_GOOGLE_CLIENT_SECRET: ${{ secrets.SPIN_DESKTOP_GOOGLE_CLIENT_SECRET }}
         with:
-          # 태그 푸시일 때만 릴리스를 만든다. 수동 실행은 아티팩트로만 받는다.
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          # 태그 푸시이고 dry_run 이 아닐 때만 릴리스를 만든다(수동 실행을 태그
+          # ref 에 대고 돌려도 dry_run=true 기본값이면 릴리스를 만들지 않는다).
+          # push 이벤트에는 inputs 컨텍스트가 없다 — `!inputs.dry_run` 이 참이 되리라는 전제에
+          # 기대지 않고 event_name 으로 가른다(이 워크플로는 아직 한 번도 돈 적이 없다).
+          tagName: ${{ (startsWith(github.ref, 'refs/tags/') && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)) && github.ref_name || '' }}
           releaseName: 'SPIN __VERSION__'
           releaseBody: '설치 패키지는 아래 자산에 있습니다. 서명이 없어 맥·윈도우는 첫 실행 시 경고가 뜹니다.'
           releaseDraft: true
@@ -96,7 +118,7 @@ jobs:
           args: ${{ matrix.args }}
 
       - name: 아티팩트 업로드
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         uses: actions/upload-artifact@v4
         with:
           name: spin-${{ matrix.platform }}
