@@ -8,12 +8,12 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
-- **A desktop app (Tauri)** — a native app you install on Linux, Windows, or macOS. It opens in its own window without a browser, and your data stays on the device exactly as before. Linux ships as deb, rpm, and AppImage; Windows and macOS packages come with each release. Google Drive sync works on the desktop too — sign-in opens in your **default browser** rather than inside the app (close that tab and return to SPIN when it's done). There is no code signing yet, so macOS and Windows show an "unidentified developer" warning on first launch.
+- Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
 
 ### Fixed
 
-- Fixed the court being cut off at the bottom behind the tool row on wide windows. The court now always fits to the available height, and any leftover width becomes side margin.
-- Fixed the side flags behind the goals tipping over with the court when a narrow screen rotates the board 90°. The board turns, but each flag keeps its on-screen shape (pole upright, point to the right).
+- Fixed the court getting cut off at the bottom behind the tool row on wide windows (now always sized by height)
+- Fixed side flags tipping over with the court when a narrow screen rotates the board 90 degrees
 
 ## [0.6.3] 2026-09-05
 
