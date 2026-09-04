@@ -95,3 +95,22 @@
 - **커밋 메시지의 원인 서술을 믿지 말 것.** 8건 중 3건(`63e46eb` 원인, `85c20e2` 전제, `9401ca5` 의 "createHashRouter 라 그대로 돈다"·"src/ 는 한 줄도 안 바뀌었다")이 실측에서 무너졌다. `29936be` 이후 데스크톱은 `createBrowserRouter` 로 돈다 — Tauri 2 는 `file:` 로 서빙하지 않는다.
 - **테스트를 목으로 감싸면 배송 경로가 사각지대가 된다.** `29936be` 는 16/16 초록인데 배포본에서 브라우저가 안 열린다. `src-tauri/src` 에는 Rust 테스트가 **0개**라 루프백 바인딩 주소·8KB 상한·0600 권한이 회귀해도 초록이다.
 - **인라인 style 단언은 초록이 지킨다는 뜻이 아닌 전형이다.** `63e46eb` 의 단언 4개는 크로미움 기준 화면에 아무 차이도 없는 변경에 빨간불을 켜고, 진짜 버그(코트 밖 배치)는 우연히만 지킨다.
+
+---
+
+## ⑥ 처리 결과 (2026-09-05, 같은 날)
+
+기현 지시 *"제안대로 수정해"*. 수정 6갈래(sonnet 4·opus 2, 파일 소유 분리, 같은 트리) → 검증 3갈래(전체 스위트 sonnet · 실증 Fable · 적대적 리뷰 opus). 워크플로우 wf_9d258ac3-e1f. 검증이 잡은 4건(아래 ★)은 손으로 고쳤다.
+
+| § | 처리 | 실증 |
+|---|---|---|
+| 치명 1 | `capabilities/default.json` 의 opener 를 객체형 scope `https://accounts.google.com/*` 로 | `cargo check` 가 capabilities 를 받아들임 · 플러그인 `scope.rs` 의 glob 이 AUTH_ENDPOINT 를 덮음. **브라우저가 실제로 뜨는지는 실기(④-3)** |
+| 치명 2 | 동적 import 가 아니라 **env 게이팅** — `vite.config.ts` envPrefix 가 `TAURI_ENV_PLATFORM` 있을 때만 `SPIN_DESKTOP_` 을 연다. 키를 `SPIN_DESKTOP_GOOGLE_CLIENT_ID/SECRET` 로 개명. `deploy-aws.sh` 에 누출 가드(★ 따옴표 벗김 · 건너뜀을 화면에 구별) | 웹 빌드 ABSENT / `TAURI_ENV_PLATFORM=linux` 빌드 PRESENT / CI 식 셸 주입 PRESENT · `tauri:build` 뒤 실제 dist 에 PRESENT(Tauri CLI 가 변수를 진짜 넣는다). 별도 청크는 공개 서버에 똑같이 오르므로 동적 import 는 누출을 못 막았을 것 |
+| 치명 3 | CSP script-src 의 accounts.google.com · frame-src 절 제거, `secret_store.rs` 머리말 정정 | GIS 주입은 `auth.ts:84` 한 곳이고 데스크톱은 그 앞에서 갈라진다 |
+| 중 4 | `plan()` 순수 함수로 판정 분리. 웨일랜드 경로 불변, `WAYLAND_DISPLAY` 없는 맥락은 `GTK_IM_MODULE` 을 떼어 쌍을 끊음, `SPIN_FORCE_X11=1` 탈출구(★ x11 강제가 실제로 있을 때만 IM 을 뗌 — 첫 판은 deb·dev 에서 한글 입력만 죽였다) | 수정본 AppImage: 기본·`env -u WAYLAND_DISPLAY`·`SPIN_FORCE_X11=1` 모두 exit 124. 대조군(HEAD 바이너리 바꿔 끼움): `env -u WAYLAND_DISPLAY` exit 139 재현 |
+| 중 5 | `sideFlags.ts` 옛 문단 위에 ⚠️ 뒤집힘 표식(되돌림은 `SideMarks.tsx` 의 `uprightAt`) · `rot === 90` → `rot !== 0` 2곳 | 625 테스트 초록 |
+| 중 6 | `dry_run` 을 tagName·아티팩트 조건에 배선(★ push 이벤트엔 `inputs` 가 없어 `event_name` 으로 가름) · gate 에 apt 의존성+rust-toolchain+rust-cache+`cargo check` · build env 에 `SPIN_DESKTOP_GOOGLE_CLIENT_ID/SECRET`(GitHub 저장소 secret 등록 필요, 값은 `.env.local`) · ROADMAP 15-17행 | YAML 구문만(actionlint 없음). **워크플로는 여전히 한 번도 안 돌았다** — 푸시와 새 태그가 있어야 처음 돈다 |
+| 하 7 | `EditorWorkspace.tsx` 근거를 "히트면이 코트 밖으로 새면 안 된다" 로, 옛 서사는 ⚠️ 미재현 표식. 단언 4개 → 행동 테스트 1개(넓은 판에서 히트면 끝을 눌러도 공이 viewBox 안). ★ CHANGELOG 3언어의 "아래쪽 잘림" 문장도 실증된 버그로 교체 | 돌연변이: 두 줄 되돌리면 `x=-430.3` 로 빨간불. 모형 `courtCellRect` 는 선언(alignSelf)을 되읽으므로 같은 계약을 다른 CSS 로 구현하면 오탐할 수 있다 — 값은 실기 ④-2 |
+| 하 8 | `.gitignore` 를 `secrets/`·`client_secret_*` 로, 두 파일 `git rm --cached`(디스크·`~/backup` 에 남김) | `git ls-files secrets` 0. **히스토리(75f89ab 이후)는 그대로** — 되돌릴 수 없는 작업이라 기현님 결정 |
+
+안 한 것: `tauri.conf.json` 의 `maximized:true` 는 이미 63e46eb 에 묻혀 커밋돼 있어 가를 수 없다(문서로만 남김). CHANGELOG `[Unreleased]` 의 "로그인은 기본 브라우저에서 진행" 은 실기 ④-3 통과 전까지 미릴리스 상태로 둔다.
