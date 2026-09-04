@@ -11,11 +11,16 @@
 // 돌려받는다. 구글 콘솔의 '데스크톱 앱' 클라이언트는 그 리다이렉트를 별도 등록 없이 허용한다.
 //
 // ── 클라이언트가 웹과 **다르다** ─────────────────────────────────────────────────────
-// 웹용 클라이언트로는 이 흐름을 못 쓴다(유형이 다르다). `VITE_GOOGLE_DESKTOP_CLIENT_ID` ·
-// `VITE_GOOGLE_DESKTOP_CLIENT_SECRET` 을 따로 주입한다. 그 '시크릿' 은 이름과 달리 **비밀이
+// 웹용 클라이언트로는 이 흐름을 못 쓴다(유형이 다르다). `SPIN_DESKTOP_GOOGLE_CLIENT_ID` ·
+// `SPIN_DESKTOP_GOOGLE_CLIENT_SECRET` 을 따로 주입한다. 그 '시크릿' 은 이름과 달리 **비밀이
 // 아니다** — 설치형 앱은 배포본을 뜯으면 누구나 읽을 수 있고, 구글도 그 전제로 설계했다
 // (그래서 PKCE 가 있다: 코드를 가로채도 verifier 없이는 토큰으로 못 바꾼다). 그래도 저장소에는
 // 안 넣는다 — `.env.local` 은 gitignore 다.
+//
+// ⚠️ 접두어를 `VITE_` 가 아니라 `SPIN_DESKTOP_` 으로 쓰는 이유(2026-09-05 감사, [치명 2]) —
+// Vite 는 `VITE_*` 를 웹이든 데스크톱이든 구분 없이 번들에 인라인한다. `vite.config.ts` 의
+// `envPrefix` 가 `SPIN_DESKTOP_` 을 **Tauri 빌드일 때만** 허용하므로, 이 이름을 쓰면 웹 빌드의
+// `import.meta.env` 에는 이 값이 아예 존재하지 않는다(빈 문자열도 아니라 `undefined`).
 //
 // ── 웹과 다른 물건이 하나 생긴다: 갱신 토큰 ──────────────────────────────────────────
 // 웹은 접근 토큰만 받고 구글 쪽 동의로 무음 갱신을 한다. 설치형은 **갱신 토큰**을 받는다 —
@@ -32,19 +37,26 @@ const REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke';
 const EXPIRY_MARGIN_MS = 60_000;
 
 /** 이 앱이 Tauri 웹뷰 안에서 도는가. 웹 배포본에서는 언제나 false 이고, 그래서 아래 코드는
- *  한 줄도 실행되지 않는다(모듈 자체가 동적 import 라 번들도 따로 떨어진다). */
+ *  한 줄도 실행되지 않는다.
+ *
+ *  ⚠️ 옛 주석(2026-08-27 작성, 2026-09-05 감사에서 오류로 확인)은 여기서 "모듈 자체가 동적
+ *  import 라 번들도 따로 떨어진다" 고 적었지만 틀렸다 — `auth.ts` 의 `import * as desktop from
+ *  './authDesktop.ts'` 는 **정적** import 라 이 모듈은 웹 번들에도 통째로 들어간다. 안전한
+ *  것은 이 파일이 아니라 `desktopClientSecret()` 이 읽는 값이다: `SPIN_DESKTOP_*` 는
+ *  `vite.config.ts` 의 `envPrefix` 가 Tauri 빌드가 아니면 주입을 막으므로, 웹 번들에서는 이
+ *  함수가 항상 빈 문자열을 돌려준다(코드는 실려도 시크릿 값은 안 실린다). */
 export function isDesktop(): boolean {
   return typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 }
 
 export function desktopClientId(): string | undefined {
-  const raw = (import.meta.env as Record<string, unknown>).VITE_GOOGLE_DESKTOP_CLIENT_ID;
+  const raw = (import.meta.env as Record<string, unknown>).SPIN_DESKTOP_GOOGLE_CLIENT_ID;
   const id = typeof raw === 'string' ? raw.trim() : '';
   return id.length > 0 ? id : undefined;
 }
 
 function desktopClientSecret(): string {
-  const raw = (import.meta.env as Record<string, unknown>).VITE_GOOGLE_DESKTOP_CLIENT_SECRET;
+  const raw = (import.meta.env as Record<string, unknown>).SPIN_DESKTOP_GOOGLE_CLIENT_SECRET;
   return typeof raw === 'string' ? raw.trim() : '';
 }
 
