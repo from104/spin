@@ -106,6 +106,12 @@ export interface Preferences {
    *  머리말과 같은 이유는 아니다 — 이건 그냥 prefs 전체가 애초에 동기화 대상이 아니라서다).
    *  새 기기에서 다시 나오는 것은 사고가 아니라 의도다. */
   tutorialsSeen: Partial<Record<TutorialScreenKey, true>>;
+  /** 작은 화면 안내(docs/PLAN-0-6-3-LOADER-NOTICE.md 결정 24)를 닫아 본 적이 있는가. 최상위
+   *  옵셔널 불리언으로 넣는다 — `tutorialsSeen`(위)·`a11y.sound` 선례와 같이 옵셔널 키 추가는
+   *  `CURRENT_PREFS_SCHEMA` 를 올리지 않는다. 화면 폭은 기기마다 다른 물리적 속성이라 이 값도
+   *  기기별이 맞다 — 노트북에서 닫았다고 태블릿에서까지 숨을 이유가 없다. 되돌리는 손잡이는
+   *  설정 화면 [작은 화면 안내 다시 보기](결정 26)다. */
+  smallScreenNoticeDismissed?: boolean;
 }
 
 /** 튜토리얼이 있는 화면 7개. docs/PLAN-HELP-TUTORIAL.md §D 의 표와 순서를 맞춘다.
@@ -132,6 +138,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   language: 'auto',
   sync: { enabled: false },
   tutorialsSeen: {},
+  smallScreenNoticeDismissed: false,
 });
 
 /** linearKmh 에 연동되는 회전 속도 상한. 기본점(linear=10 → 30)을 지나는 선형식이며
@@ -227,6 +234,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     language,
     sync: { enabled: bool(syncRaw.enabled, d.sync.enabled) },
     tutorialsSeen,
+    smallScreenNoticeDismissed: bool(raw.smallScreenNoticeDismissed, d.smallScreenNoticeDismissed ?? false),
   };
   return { value, repairs };
 }

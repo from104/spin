@@ -455,7 +455,7 @@ export function SettingsScreen() {
             화면별로 하나씩 지우는 길은 HelpCenter 의 [이 화면 투어 다시 보기]가 이미 맡고
             있다 — 여기는 "전부 처음부터" 한 번에 끄는 자리다. */}
         <Section title={t('settings.tutorial.title')}>
-          <Row title={t('settings.tutorial.resetTitle')} desc={t('settings.tutorial.resetDesc')} borderBottom={false}>
+          <Row title={t('settings.tutorial.resetTitle')} desc={t('settings.tutorial.resetDesc')}>
             <Button
               variant="secondary"
               onClick={() => {
@@ -464,6 +464,21 @@ export function SettingsScreen() {
               }}
             >
               {t('settings.tutorial.resetButton')}
+            </Button>
+          </Row>
+          {/* PLAN-0-6-3-LOADER-NOTICE 결정 26 — 작은 화면 안내는 [다시 보지 않기] 를 한 번
+              누르면 이 기기에서 영영 못 본다. 2026-08-21 감사에서 "코드에만 있고 화면에서
+              닿을 수 없는 값"을 유령 설정으로 폐기한 그 규율을 어기지 않으려면 되돌릴
+              손잡이가 있어야 한다 — [튜토리얼 다시 보기] 바로 옆이 그 자리다. */}
+          <Row title={t('settings.smallScreen.resetTitle')} desc={t('settings.smallScreen.resetDesc')} borderBottom={false}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setPrefs({ smallScreenNoticeDismissed: false });
+                toast.show(t('settings.smallScreen.resetToast'));
+              }}
+            >
+              {t('settings.smallScreen.resetButton')}
             </Button>
           </Row>
         </Section>

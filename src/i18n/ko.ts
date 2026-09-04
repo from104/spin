@@ -998,6 +998,17 @@ export const ko = {
   'settings.tutorial.resetDesc': '각 화면의 첫 방문 안내를 처음부터 다시 봅니다. 화면을 열면 자동으로 뜹니다.',
   'settings.tutorial.resetButton': '모두 다시 보기',
   'settings.tutorial.resetToast': '튜토리얼을 다시 봅니다 — 화면을 열면 안내가 뜹니다.',
+
+  // ── 작은 화면 안내(SmallScreenNotice) — PLAN-0-6-3-LOADER-NOTICE §6, 결정 22·26 ──────
+  'app.smallScreen.title': '작은 화면에서는 쓰기 불편할 수 있습니다',
+  'app.smallScreen.body':
+    'SPIN 은 코트 전체를 보면서 개체를 끌어 옮기는 앱입니다. 화면의 짧은 쪽이 좁으면 코트가 많이 줄어들고 도구가 서로 붙습니다. 7인치 이상 태블릿이나 컴퓨터에서 여시면 훨씬 편합니다. 이 기기에서 그대로 계속 쓰셔도 됩니다.',
+  'app.smallScreen.dismiss': '이 기기에서 다시 보지 않기',
+  'app.smallScreen.continue': '계속하기',
+  'settings.smallScreen.resetTitle': '작은 화면 안내 다시 보기',
+  'settings.smallScreen.resetDesc': '[다시 보지 않기] 를 껐던 것을 되돌립니다.',
+  'settings.smallScreen.resetButton': '다시 보기',
+  'settings.smallScreen.resetToast': '다음에 앱을 열면 작은 화면 안내가 다시 뜹니다.',
 } as const;
 
 export type DictKey = keyof typeof ko;

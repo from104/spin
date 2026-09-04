@@ -9,6 +9,14 @@ export interface ModalProps {
   /** 제목 요소의 id — `aria-labelledby` 로 연결한다. */
   titleId: string;
   title: ReactNode;
+  /** 본문 요소의 id — 주면 패널에 `aria-describedby` 로 건다. 생략하면 속성을 붙이지 않는다(기존
+   *  사용처 무영향인 가산적 확장, 2026-09 계획서 결정 28).
+   *
+   *  `aria-labelledby` 만으로는 스크린리더가 다이얼로그에 들어올 때 **제목**만 읽는다. 포커스가
+   *  트리거 버튼(대개 [계속하기])에 서면 그 뒤로는 제목과 버튼 이름뿐이라, 본문이 곧 전부인
+   *  모달(안내문·경고문 한 단락으로 끝나는 것들)에서는 사람이 본문을 한 번도 못 듣고 닫을 수
+   *  있다. 여는 쪽이 본문 컨테이너에 id 를 달아 여기로 넘긴다. */
+  descriptionId?: string;
   closeLabel?: string;
   /** 닫힐 때 포커스를 되돌릴 대상(연 트리거 버튼). */
   returnFocusRef?: RefObject<HTMLElement | null>;
@@ -32,7 +40,7 @@ const FOCUSABLE_SELECTOR =
 
 /** §7.5f "Shift+? 도움말 오버레이 (role="dialog", 포커스 트랩, Esc)" 의 일반형.
  * `role="dialog" aria-modal="true"` + Tab 순환 트랩 + Esc 닫기 + 트리거로 포커스 복귀. */
-export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', returnFocusRef, initialFocusRef, panelStyle: panelStyleOverride, children }: ModalProps) {
+export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel = '닫기', returnFocusRef, initialFocusRef, panelStyle: panelStyleOverride, children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openedByRef = useRef<HTMLElement | null>(null);
 
@@ -143,7 +151,7 @@ export function Modal({ open, onClose, titleId, title, closeLabel = '닫기', re
 
   return createPortal(
     <div style={backdropStyle} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} style={panelStyle}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} style={panelStyle}>
         <button
           type="button"
           aria-label={closeLabel}
