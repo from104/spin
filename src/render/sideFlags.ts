@@ -52,6 +52,10 @@ import type { StageRot } from './useStageMetrics.ts';
 //    화면에서는 깃대가 눕는다 — 칩·골대와 같은 세계에 사는 것이 옳다(글자가 없으니 되돌려
 //    세울 것도 없다).
 //
+// ⚠️ 2026-09-05 뒤집힘 — 63d7b82 이후 깃발은 화면에서 깃대 세로를 유지한다(되돌림 코드는
+//    `SideMarks.tsx` 의 `uprightAt(rot, f.cx, f.cy)` 호출, transform 으로 되돌려 세운다).
+//    위 문단은 되돌림이 없던 시절의 기록으로 남긴다 — 옛 근거를 지우지 않는다.
+//
 // ── 여백 예산 ───────────────────────────────────────────────────────────────────────
 // 골라인 바깥 여백은 `MARGIN_PX` = 1.5 m = **37.5 월드 px** 이고 viewBox 는 딱 거기서 끝난다
 // (넘으면 그냥 잘린다). 골라인에서 0.5 m(12.5) 띄우고 나면 **25 px** 이 남는다. 깃발이 그
@@ -184,8 +188,11 @@ export function sideFlagGroups({ mode, size, teams, defense, rot = 0 }: SideFlag
       // 방향으로 뻗는 길이가 페넌트 높이(12.1)에서 깃대 길이(19)로 바뀐다. 여기서 안 바꾸면
       // 중심이 그대로라 깃발이 골라인 쪽으로 3.45 파고들어 0.5 m 규칙이 깨진다.
       // 여백은 견딘다: 12.5 + 19 = 31.5 ≤ 37.5(하프 코트가 원래 쓰던 그 조합이다).
-      const across = rot === 90 ? SIDE_FLAG_POLE_PX : SIDE_FLAG_H_PX;
-      const along = rot === 90 ? SIDE_FLAG_H_PX : SIDE_FLAG_POLE_PX;
+      // `StageRot` 은 `0 | 90` 뿐이라 `rot !== 0` 은 `rot === 90` 과 같은 값을 고른다 — 다만
+      // 도메인을 "90도" 가 아니라 "회전이 있는가" 로 넓혀, 되돌림 쪽(위 ⚠️ 2026-09-05)과
+      // 같은 질문을 묻게 한다.
+      const across = rot !== 0 ? SIDE_FLAG_POLE_PX : SIDE_FLAG_H_PX;
+      const along = rot !== 0 ? SIDE_FLAG_H_PX : SIDE_FLAG_POLE_PX;
       const reach = (Math.abs(p.ox) * across + Math.abs(p.oy) * along) / 2;
       const cx = p.cx + p.ox * (SIDE_FLAG_GAP_PX + reach) + p.ax * t;
       const cy = p.cy + p.oy * (SIDE_FLAG_GAP_PX + reach) + p.ay * t;
