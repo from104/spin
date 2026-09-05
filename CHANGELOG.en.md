@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 - Fixed clicks on the empty bands beside the court placing the ball outside the court on very wide windows (the court is now always sized by height)
 - Fixed side flags tipping over with the court when a narrow screen rotates the board 90 degrees
 - Fixed the first-visit loading screen (0.6.3) never appearing on the deployed site (it is now skipped only when you land directly on a rules article from search)
+- Removed the brief flash of the search-engine intro text (prerender) before the loading screen — the web hides it from the first paint (and reveals it again if the app fails to start within 4 s), the desktop app no longer bakes it in at all. The HTML served to search engines is unchanged
 
 ## [0.6.3] 2026-09-05
 

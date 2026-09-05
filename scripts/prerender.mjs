@@ -27,6 +27,15 @@ import { fileURLToPath } from 'node:url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const DIST = join(ROOT, 'dist');
 
+// 2026-09-06: 데스크톱(Tauri) 빌드는 프리렌더를 굽지 않는다. 검색엔진이 볼 일이 없고, 품은
+// index.html 의 프리렌더 글이 앱 로더 앞에 잠깐 비치는 부작용만 남기 때문이다. Tauri CLI 가
+// beforeBuildCommand 에 TAURI_ENV_PLATFORM 을 심는다(vite.config.ts 의 envPrefix 와 같은 신호).
+// 이 덕에 데스크톱 dist 에는 .seo-prerender 가 아예 없어 첫 부팅은 항상 배경색 → 로더다.
+if (process.env.TAURI_ENV_PLATFORM !== undefined) {
+  console.log('프리렌더 건너뜀 — 데스크톱 빌드(TAURI_ENV_PLATFORM)');
+  process.exit(0);
+}
+
 const { prerenderPages, SITE_ORIGIN } = await import(join(ROOT, '.seo-build', 'prerenderData.js'));
 
 const template = await readFile(join(DIST, 'index.html'), 'utf-8');
