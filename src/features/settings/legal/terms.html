@@ -1,67 +1,11 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<title>SPIN — 서비스 약관</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0b0f14">
-<style>
-  :root { color-scheme: dark; }
-  html { background: #0b0f14; }
-  body {
-    margin: 0;
-    background: #0b0f14;
-    color: #e6edf3;
-    font: 16px/1.7 system-ui, -apple-system, 'Noto Sans KR', sans-serif;
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-  .wrap { max-width: 42rem; margin: 0 auto; padding: 2rem 1.15rem 5rem; }
-  a { color: #6cf; }
-  a:hover { color: #9df; }
-  nav.langs {
-    position: sticky; top: 0; z-index: 2;
-    margin: 0 -1.15rem 2rem;
-    padding: .7rem 1.15rem;
-    background: rgba(11, 15, 20, .92);
-    border-bottom: 1px solid #1c2732;
-    font-size: .95rem;
-  }
-  nav.langs a { text-decoration: none; }
-  nav.langs a:hover { text-decoration: underline; }
-  nav.langs .sep { color: #566; padding: 0 .45rem; }
-  section { padding-top: 1rem; }
-  section + section { margin-top: 4rem; border-top: 1px solid #1c2732; padding-top: 3rem; }
-  h1 { font-size: 1.6rem; line-height: 1.35; margin: 0 0 1rem; }
-  h2 { font-size: 1.08rem; margin: 2.2rem 0 .6rem; color: #cfe3f2; }
-  p { margin: .7rem 0; }
-  ol.clause { margin: .5rem 0; padding-left: 1.5rem; }
-  ol.clause > li { margin: .45rem 0; }
-  .meta {
-    margin: 0 0 1.2rem;
-    padding: .85rem 1rem;
-    background: #111823;
-    border: 1px solid #1c2732;
-    border-radius: .5rem;
-    font-size: .92rem;
-    color: #b9c7d4;
-  }
-  .meta div { margin: .18rem 0; }
-  .meta b { color: #e6edf3; font-weight: 600; }
-  .links { font-size: .92rem; color: #b9c7d4; }
-  .top { display: inline-block; margin-top: 2.5rem; font-size: .9rem; }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; color: #cfe3f2; }
-</style>
-</head>
-<body>
-
-<div class="wrap">
-
-<nav class="langs" aria-label="Language">
-  <a href="#ko">한국어</a><span class="sep">·</span><a href="#en">English</a><span class="sep">·</span><a href="#ja">日本語</a>
-</nav>
-
-<!-- ===================== 한국어 (정본) ===================== -->
+<!-- SPIN terms — 원문 한 벌. <html>/<head>/<style>/<nav> 껍데기는 2026-09-06 에
+     걷어냈다(docs/PLAN-LEGAL-PAGES.md 결정 3): 이 파일은 이제 앱(legalContent.ts 가 ?raw 로 읽어
+     언어 절을 잘라 쓴다)과 프리렌더가 함께 쓰는 조각이지 그 자체로 열리는 페이지가 아니다.
+     ⚠️ 지키기: 세 절은 <section id="ko|en|ja" lang=…> 로만 시작·끝나야 하고(정규식이 그것만 본다),
+     각 절의 첫 <h1> 은 남긴다(프리렌더 제목·legalTitle 이 읽는다). 절 안 /privacy/·/terms/ 상대
+     링크는 그대로 둔다 — 앱은 화면 전환으로, 정적 페이지는 진짜 링크로 각각 해석한다.
+     <script>·<style>·이벤트 속성(onclick 등)은 넣지 않는다 — 앱은 dangerouslySetInnerHTML 로,
+     프리렌더는 이스케이프 없이 그대로 심으므로 본문에 든 코드가 그대로 실행된다. -->
 <section id="ko" lang="ko">
   <h1>SPIN 서비스 약관</h1>
 
@@ -192,7 +136,6 @@
   <p><a class="top" href="#ko">↑ 맨 위로</a></p>
 </section>
 
-<!-- ===================== English ===================== -->
 <section id="en" lang="en">
   <h1>SPIN Terms of Service</h1>
 
@@ -323,7 +266,6 @@
   <p><a class="top" href="#en">↑ Back to top</a></p>
 </section>
 
-<!-- ===================== 日本語 ===================== -->
 <section id="ja" lang="ja">
   <h1>SPIN 利用規約</h1>
 
@@ -453,7 +395,3 @@
 
   <p><a class="top" href="#ja">↑ ページ先頭へ</a></p>
 </section>
-
-</div>
-</body>
-</html>

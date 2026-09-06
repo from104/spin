@@ -49,6 +49,7 @@ import { useToast } from '../store/toast/ToastProvider.tsx';
 import { useLibrary } from '../store/library/LibraryProvider.tsx';
 import type { DrillId, SessionId } from '../core/ids.ts';
 import type { HomeNav } from '../features/home/nav.ts';
+import type { LegalDoc } from '../features/settings/legalContent.ts';
 import { AppRail } from './AppRail.tsx';
 import { AppHeader, HeaderProvider } from './AppHeader.tsx';
 import type { HeaderConfig } from './AppHeader.tsx';
@@ -130,6 +131,14 @@ function ruleTopicFromNav(screen: Screen, target: NavTarget | undefined): string
   return target.topic;
 }
 
+/** 설정 화면 안에 뜰 법적 고지 문서(PLAN-LEGAL-PAGES 결정 1) — `/settings/privacy` 에서
+ *  파생한다. 위 셋과 같은 자리·같은 규율이다: 화면 키가 대상의 해석을 정하고, 아니면 undefined
+ *  (= 설정 본문). 값 검증은 routes.ts 가 이미 했다 — 거기서 아는 두 낱말만 legal 대상이 된다. */
+function legalDocFromNav(screen: Screen, target: NavTarget | undefined): LegalDoc | undefined {
+  if (screen !== 'settings' || target?.kind !== 'legal') return undefined;
+  return target.doc;
+}
+
 /** board 자리의 화면들(BoardScreen/EditorScreen)이 자기가 무엇을 그릴지 알아내는 통로 —
  *  둘 다 app-shell 에 의존해도 되는 화면이라(§8 "전부") 이 훅을 직접 부를 수 있다. */
 export function useStageTarget(): StageTarget {
@@ -165,6 +174,7 @@ function useHomeNavAdapter(nav: AppHistoryApi, openNewDrill: () => void): HomeNa
       presentDrill: (id) => nav.go('present', { kind: 'drill', id }),
       presentSession: (id) => nav.go('present', { kind: 'session', id }),
       openRuleTopic: (key) => nav.go('rules', key ? { kind: 'rule', topic: key } : undefined),
+      openLegal: (doc) => nav.go('settings', doc ? { kind: 'legal', doc } : undefined),
     }),
     [nav, openNewDrill],
   );
@@ -175,7 +185,7 @@ function useHomeNavAdapter(nav: AppHistoryApi, openNewDrill: () => void): HomeNa
  *  courtMode·저장 상태처럼 화면 내부 Provider 안의 값이 필요해서 대신 스스로 useAppHeader 로
  *  선언한다 — 이 함수는 그 둘에서 undefined 를 반환해 AppHeader 가 Context 값을 쓰게 비켜준다
  *  (정적 계산과 Context 선언이 같은 프레임에 동시에 밀어넣으면 서로 경합한다). */
-function useStaticHeaderConfig(screen: Screen, nav: HomeNav, ruleTopic: string | undefined): HeaderConfig | undefined {
+function useStaticHeaderConfig(screen: Screen, nav: HomeNav, ruleTopic: string | undefined, legalDoc: LegalDoc | undefined): HeaderConfig | undefined {
   const { search, setSearch } = useLibrary();
   const { createSession } = useLibrary();
   const locale = useLocale();
@@ -232,13 +242,31 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav, ruleTopic: string |
       };
     }
     case 'settings':
+      // 법적 고지 문서가 떠 있으면 헤더가 그 문서의 것이 된다(결정 2) — 규칙 카드 상세와
+      // 같은 꼴: 가운데 제목 + 왼쪽 끝 되접기 버튼. 부제는 두지 않는다 — 규칙은 주제마다
+      // 한 줄 요약(tagline)을 갖고 있어서 부제가 있었지, 약관에는 그런 줄이 없다. 설정의
+      // 부제를 그대로 두면 "개인정보처리방침" 아래에 설정 화면 설명이 붙는다.
+      if (legalDoc) {
+        return {
+          title: t(legalDoc === 'privacy' ? 'settings.legal.privacy' : 'settings.legal.terms'),
+          align: 'center',
+          leading: { label: t('settings.legal.back'), icon: <IconArrowLeft size={16} />, onAction: () => nav.openLegal() },
+        };
+      }
       return { title: SCREEN_TITLES[locale].settings, subtitle: SCREEN_SUBTITLES[locale].settings, align: 'center' };
     default:
       return undefined;
   }
 }
 
-function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionEditId: SessionId | undefined, ruleTopic: string | undefined) {
+function renderScreen(
+  screen: Screen,
+  stage: StageTarget,
+  nav: HomeNav,
+  sessionEditId: SessionId | undefined,
+  ruleTopic: string | undefined,
+  legalDoc: LegalDoc | undefined,
+) {
   switch (screen) {
     case 'board':
       // 같은 자리, 같은 EditorWorkspace — board 냐 drill 이냐만 다르다(§6.8 재편).
@@ -253,7 +281,8 @@ function renderScreen(screen: Screen, stage: StageTarget, nav: HomeNav, sessionE
     case 'rules':
       return <RulesScreen topic={ruleTopic} nav={nav} />;
     case 'settings':
-      return <SettingsScreen />;
+      // 대상이 있으면 설정 본문 대신 그 문서를 그린다 — 규칙 화면의 `topic` 과 같은 계약이다.
+      return <SettingsScreen nav={nav} legalDoc={legalDoc} />;
   }
 }
 
@@ -292,6 +321,7 @@ export function AppShell() {
   const presentTarget = useMemo(() => presentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const sessionEditId = sessionEditFromNav(nav.screen, nav.target);
   const ruleTopic = ruleTopicFromNav(nav.screen, nav.target);
+  const legalDoc = legalDocFromNav(nav.screen, nav.target);
   // [새 드릴] 다이얼로그는 **화면이 아니라 앱 껍데기**가 세운다 — 진입점이 목록 화면의 빈 상태
   // CTA 와 헤더 주 액션 둘이라, 화면 안에 두면 헤더에서 누른 경우를 못 받는다.
   // URL 로 안 올리는 이유: 이 모달은 되돌아올 자리가 없다(취소하면 있던 화면 그대로, 만들면
@@ -400,7 +430,7 @@ export function AppShell() {
   //   액션을 진다(위 62px 이득은 다시 치른다). 옛 판정식은 이랬다:
   //   `narrow || nav.screen !== 'board' || stageTarget.kind === 'drill'`.
   const showHeader = true;
-  const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav, ruleTopic);
+  const staticHeaderConfig = useStaticHeaderConfig(nav.screen, homeNav, ruleTopic, legalDoc);
 
   // §7.6: 화면 전환(go·back·popstate 전부) 시 <main id="main"> 에 포커스 + 라이브 리전 발표.
   // 최초 마운트(직접 진입)는 제외한다 — 브라우저가 이미 페이지 로드 시점의 포커스를 다뤘다.
@@ -420,8 +450,8 @@ export function AppShell() {
   // body 로 떨어지기 때문이다(그러면 Tab 이 문서 처음부터 다시 시작한다).
   const announceScreenChange = useCallback(() => {
     document.getElementById('main')?.focus({ preventScroll: true });
-    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, locale, { titleOf }));
-  }, [nav.screen, stageTarget, presentTarget, locale, titleOf]);
+    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, locale, { titleOf }, legalDoc));
+  }, [nav.screen, stageTarget, presentTarget, locale, titleOf, legalDoc]);
 
   const [announcePending, setAnnouncePending] = useState(false);
 
@@ -452,8 +482,12 @@ export function AppShell() {
     // titleOf 는 발표문의 재료일 뿐 전환 신호가 아니다 — 목록이 뒤늦게 읽혔다고 같은 화면을
     // 다시 발표하면 안 된다(포커스도 함께 튄다). announceScreenChange·loader.visible 도 같은
     // 이유로 방아쇠가 아니다(전자는 재료가 바뀌면 새 참조, 후자는 걷힐 때 아래 effect 가 받는다).
+    //
+    // `legalDoc` 이 방아쇠에 함께 있는 이유: 설정 본문 ↔ 약관 전문은 같은 화면 키 안에서
+    // **본문이 통째로 바뀌는** 전환이라 stageKey(board↔drill)와 같은 급이다. 화면 키만 보면
+    // 링크를 눌러도 아무것도 안 읽히고 초점은 설정 본문에 남는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nav.screen, stageKey, presentKey]);
+  }, [nav.screen, stageKey, presentKey, legalDoc]);
 
   useEffect(() => {
     if (!announcePending || loader.visible) return;
@@ -514,7 +548,7 @@ export function AppShell() {
                     inert={loader.visible || undefined}
                   >
                     {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
-                    {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, ruleTopic)}
+                    {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, ruleTopic, legalDoc)}
                     {/* 조건부로 감싸지 않는다(`{visible && <…/>}` 금지) — 이 컴포넌트가 퇴장
                         transition 을 스스로 지고 끝난 뒤에야 null 이 된다(결정 16). 한 번도
                         visible 이 아니었으면 처음부터 null 이라 0ms 환경에서 DOM 이 안 생긴다.

@@ -9,7 +9,7 @@
 // ⚠️ **읽는 시점이 계약이다.** `createRoot().render()` 가 `#root` 의 자식을 통째로 지우므로,
 // 이 모듈은 `main.tsx` 가 `createRoot` 를 부르기 **전에** 평가돼야 한다(모듈 최상위 1회 판정 =
 // import 시점 평가). 이 상수를 함수로 바꾸거나 지연 평가로 옮기면 판정이 항상 false 가 되고,
-// 그 실패는 조용하다 — 프리렌더 33장이 스플래시에 덮이는데 에러는 안 난다.
+// 그 실패는 조용하다 — 프리렌더 글이 통째로 스플래시에 덮이는데 에러는 안 난다.
 //
 // SSR·테스트처럼 `document` 가 없는 환경에서는 false 다(면제 없음 = 평소 경로).
 
@@ -20,7 +20,13 @@
 // 로더처럼 빌드 산출물에 달린 것은 `dist/` 를 띄워 본다. 홈의 프리렌더 텍스트는 "읽을 것" 이
 // 아니라 검색엔진용 한 줄이라 덮어도 후퇴가 아니다. 종류 표식은 프리렌더 스크립트가 박는다.
 
-/** 프리렌더 **규칙 글** 본문이 깔린 채로 이번 로드가 시작됐는가. 모듈 최상위 1회 판정. */
+// 2026-09-06: 여기에 `legal`(개인정보처리방침·서비스 약관)을 더했다 — PLAN-LEGAL-PAGES 결정 5.
+// 사유는 규칙 글과 같다: 구글 동의 화면이나 검색에서 `/privacy/` 로 온 사람은 읽으러 온 것이고,
+// 그 글은 이미 그려져 있다. 홈처럼 "한 줄 + 링크" 가 아니라 문서 전문이므로 스플래시로 덮으면
+// 읽던 글이 사라진다. 종류가 늘어도 판정 시점 계약(위 ⚠️)은 그대로다.
+
+/** 프리렌더 **읽을 글**(규칙·법적 문서) 본문이 깔린 채로 이번 로드가 시작됐는가.
+ *  모듈 최상위 1회 판정. */
 export const LANDED_ON_PRERENDER: boolean =
   typeof document !== 'undefined' &&
-  document.querySelector('.seo-prerender[data-seo-page="rules"]') !== null;
+  document.querySelector('.seo-prerender[data-seo-page="rules"], .seo-prerender[data-seo-page="legal"]') !== null;

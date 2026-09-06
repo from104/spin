@@ -65,7 +65,7 @@ afterEach(() => {
 describe('미구성 배포', () => {
   it('안내 한 줄만 — 연결 버튼이 없다(켤 방법이 없는 게 사실이므로 숨기지 않고 말한다)', () => {
     vi.mocked(isSyncConfigured).mockReturnValueOnce(false);
-    render(<SyncSection />, { wrapper: Wrapper });
+    render(<SyncSection onOpenLegal={() => {}} />, { wrapper: Wrapper });
     expect(screen.getByText('이 배포에는 동기화가 구성되어 있지 않습니다.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Google 계정 연결' })).toBeNull();
   });
@@ -74,7 +74,7 @@ describe('미구성 배포', () => {
 describe('켜기 — 동의가 OAuth 보다 먼저다', () => {
   it('[연결] 은 모달만 열고, OAuth 는 [연결하고 켜기]에서만 시작한다. 성공하면 enabled 켜지고 이메일은 IDB meta 로 간다', async () => {
     const user = userEvent.setup();
-    render(<SyncSection />, { wrapper: Wrapper });
+    render(<SyncSection onOpenLegal={() => {}} />, { wrapper: Wrapper });
     await user.click(screen.getByRole('button', { name: 'Google 계정 연결' }));
     expect(connectInteractive).not.toHaveBeenCalled(); // 모달이 먼저다
     expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -93,7 +93,7 @@ describe('켜기 — 동의가 OAuth 보다 먼저다', () => {
 
   it('취소하면 아무 일도 없다', async () => {
     const user = userEvent.setup();
-    render(<SyncSection />, { wrapper: Wrapper });
+    render(<SyncSection onOpenLegal={() => {}} />, { wrapper: Wrapper });
     await user.click(screen.getByRole('button', { name: 'Google 계정 연결' }));
     await user.click(screen.getByRole('button', { name: '취소' }));
     expect(connectInteractive).not.toHaveBeenCalled();
@@ -110,7 +110,7 @@ describe('켜기 — 동의가 OAuth 보다 먼저다', () => {
     await tx.done;
 
     const user = userEvent.setup();
-    render(<SyncSection />, { wrapper: Wrapper });
+    render(<SyncSection onOpenLegal={() => {}} />, { wrapper: Wrapper });
     await user.click(screen.getByRole('button', { name: 'Google 계정 연결' }));
     await user.click(screen.getByRole('button', { name: '연결하고 켜기' })); // coach@ ≠ old@
     await waitFor(async () => expect((await getSyncDeviceMeta())?.accountEmail).toBe('coach@example.com'));
@@ -129,7 +129,7 @@ describe('켬 상태', () => {
 
   it('해제 — revoke + 이메일 힌트 삭제 + enabled=false. 문서행·톰스톤·writerId 는 비접촉', async () => {
     const user = userEvent.setup();
-    render(<SyncSection />, { wrapper: Wrapper });
+    render(<SyncSection onOpenLegal={() => {}} />, { wrapper: Wrapper });
     await user.click(await screen.findByRole('button', { name: '연결 해제' }));
     await waitFor(() => expect(loadPrefs().sync.enabled).toBe(false));
     expect(revokeAccess).toHaveBeenCalledTimes(1);
@@ -148,7 +148,7 @@ describe('켬 상태', () => {
     await tx.done;
 
     const user = userEvent.setup();
-    render(<SyncSection />, { wrapper: Wrapper });
+    render(<SyncSection onOpenLegal={() => {}} />, { wrapper: Wrapper });
     await user.click(await screen.findByRole('button', { name: 'Drive 데이터 삭제' }));
     expect(driveWipeAll).not.toHaveBeenCalled(); // 모달이 먼저다
     await user.click(screen.getByRole('button', { name: '지우고 동기화 끄기' }));

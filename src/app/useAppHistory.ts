@@ -28,6 +28,7 @@ import { createContext, createElement, useCallback, useContext, useMemo } from '
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate, useNavigationType } from 'react-router';
 import type { Screen } from './screens.ts';
+import type { LegalDoc } from '../features/settings/legalContent.ts';
 import { parsePath, pathFor } from './routes.ts';
 
 /** 화면 안에서 **무엇을 열고 있는지**. 전부 평문이다 — URL 경로가 이 값의 저장소이므로
@@ -38,7 +39,13 @@ export type NavTarget =
   | { kind: 'drill'; id: string }
   | { kind: 'session'; id: string }
   | { kind: 'tab'; tab: 'drills' | 'sessions' }
-  | { kind: 'rule'; topic: string };
+  | { kind: 'rule'; topic: string }
+  /** 설정 화면 안에 뜨는 법적 고지 문서(`/settings/privacy`·`/settings/terms`).
+   *  새 화면 키를 만들지 않는 이유는 PLAN-LEGAL-PAGES 결정 1 — 레일·헤더·도움말 등록을
+   *  settings 에서 그대로 물려받는다. `rule` 이 rules 화면 안의 주제를 싣는 것과 같은 자리다.
+   *  타입만 features 에서 가져온다(값 import 가 아니다) — 어느 문서가 있는지는 원문을 쥔
+   *  쪽이 정하고, 여기는 그 목록을 베끼지 않는다. */
+  | { kind: 'legal'; doc: LegalDoc };
 
 export interface AppHistoryApi {
   screen: Screen;

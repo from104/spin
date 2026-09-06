@@ -20,6 +20,7 @@ import { Modal } from '../../ui/Modal.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { LegalLinks } from './LegalLinks.tsx';
+import type { LegalDoc } from './legalContent.ts';
 import { BCP47 } from '../../i18n/locale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
 import { connectInteractive, getAccessToken, isSyncConfigured, revokeAccess } from '../../sync/auth.ts';
@@ -28,7 +29,7 @@ import { clearSyncDocRows, ensureWriterId, getSyncDeviceMeta, putSyncDeviceMeta 
 import { subscribeSyncStatus, syncNow, syncStatusSnapshot } from '../../sync/useSyncEngine.ts';
 import type { SyncEngineStatus } from '../../sync/engine.ts';
 
-export function SyncSection() {
+export function SyncSection({ onOpenLegal }: { onOpenLegal: (doc: LegalDoc) => void }) {
   const t = useT();
   const locale = useLocale();
   const { prefs, setPrefs } = useSettings();
@@ -172,7 +173,7 @@ export function SyncSection() {
             {t('settings.sync.connect')}
           </Button>
           {/* 구글 동의 화면으로 넘어가기 직전, "무엇이 어디로 가나"의 답은 방침이다(LegalLinks.tsx 머리말). */}
-          <LegalLinks only="privacy" prefix={t('settings.legal.syncHint')} />
+          <LegalLinks only="privacy" prefix={t('settings.legal.syncHint')} onOpen={onOpenLegal} />
         </div>
       )}
 

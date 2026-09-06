@@ -8,6 +8,7 @@
 // initialTab={...} initialOpenSessionId={...}/>` 로 내려준다 — 아래 시그니처가 그 실제 계약과
 // 일치함을 상호 확인했다.)
 import type { DrillId, SessionId } from '../../core/ids.ts';
+import type { LegalDoc } from '../settings/legalContent.ts';
 
 export type LibraryTab = 'drills' | 'sessions';
 
@@ -28,6 +29,12 @@ export interface HomeNav {
   /** 규칙 화면의 카드 홈↔주제 상세 이동(2026-08-22 주제별 재설계). 생략하면 카드 홈으로 —
    *  세션의 `goLibrary()`(대상 없으면 목록)와 같은 모양이다. */
   openRuleTopic(key?: string): void;
+  /** 설정 화면 안의 법적 고지 문서 열기(PLAN-LEGAL-PAGES 결정 1·2). 생략하면 설정으로 —
+   *  헤더의 [← 설정으로] 가 이 인자 없는 호출이다. 규칙의 `openRuleTopic()`(생략 시 카드 홈)과
+   *  같은 모양이라, 부르는 쪽은 여전히 화면 키도 주소 꼴도 모른다.
+   *  브라우저 back 이 아니라 **제자리로 되접기**인 이유: 문서에 직접 착지(`/privacy/`)했을 때
+   *  뒤로가기는 앱 밖으로 나간다(결정 4 — 그 주소가 공개 색인용이다). */
+  openLegal(doc?: LegalDoc): void;
 }
 
 export type LibraryNav = HomeNav;

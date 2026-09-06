@@ -7,6 +7,11 @@
 // useStaticHeaderConfig 가 정적으로 채운다(AppShell.tsx "settings 도... 마찬가지로 정적 헤더를
 // 받는다"). `<main id="main" tabIndex={-1}>` 는 §7.5a 대로 이 화면이 직접 렌더한다.
 //
+// 2026-09-06 — 이 화면은 **두 모드**다: `legalDoc` 이 없으면 설정 절들, 있으면 그 자리에
+// 개인정보처리방침·서비스 약관 본문 하나만(계획서 PLAN-LEGAL-PAGES 결정 1 — `/settings/privacy`
+// 는 새 화면 키가 아니라 이 화면의 다른 내용물이다. 새 키를 만들면 screens.ts 표 넷과
+// REQUIREMENTS 까지 번진다). 되돌아가기는 앱 헤더의 leading 이 진다 — 여기서는 안 그린다.
+//
 // 부트 스크립트(index.html)가 심어 둔 테마와 App.tsx 의 ThemeEffects 가 uiScale·큰 터치 타깃
 // 부작용을 이미 처리하므로(§4.6/§7.4), 이 화면은 prefs 를 쓰기만 하면 된다 — 별도로
 // document.documentElement 를 건드리지 않는다.
@@ -32,11 +37,14 @@ import { backupFileName } from '../export/exportNames.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { LegalLinks } from './LegalLinks.tsx';
+import { LegalDocView } from './LegalDocView.tsx';
+import type { LegalDoc } from './legalContent.ts';
+import type { HomeNav } from '../home/nav.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
 import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
 import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 
-export function SettingsScreen() {
+export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: LegalDoc }) {
   const { prefs, physics, persistFailed, setPrefs } = useSettings();
   const { refresh } = useLibrary();
   const toast = useToast();
@@ -156,8 +164,9 @@ export function SettingsScreen() {
     }
   };
 
-  return (
-    <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '26px 30px 46px', background: 'var(--bg)' }}>
+  // 설정 절들. 함수로 두는 이유 — `legalDoc` 이 있으면 **한 번도 만들지 않는다**(법 문서만 그린다).
+  const settingsBody = () => (
+    <>
       <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* 🪦 [언어] 섹션은 2026-09-02 에 **왼쪽 레일의 지구본**으로 옮겼다(기현 지시).
             근거는 LanguageModal 머리말: 언어는 다른 설정과 등급이 다르다 — "가끔 손보는 것"
@@ -445,13 +454,13 @@ export function SettingsScreen() {
             </Button>
           </Row>
           {/* 동기화를 안 켜는 이용자의 정착지 — 데이터 절 끝(LegalLinks.tsx 머리말). */}
-          <LegalLinks />
+          <LegalLinks onOpen={(d) => nav.openLegal(d)} />
         </Section>
 
         {/* 0.6 — 기기 이사 파일(위 [데이터]) 바로 아래가 자리다: 같은 "내 데이터를 밖으로" 축이되,
             저쪽은 손으로 한 번, 이쪽은 자동으로 계속. 자세한 상태·동의 흐름은 SyncSection 몫. */}
         <Section title={t('settings.sync.sectionTitle')} desc={t('settings.sync.sectionDesc')}>
-          <SyncSection />
+          <SyncSection onOpenLegal={(d) => nav.openLegal(d)} />
         </Section>
 
         {/* §0.5 Phase 6(계획서 §C) — [튜토리얼 다시 보기] = tutorialsSeen 플래그 전체 삭제.
@@ -557,6 +566,13 @@ export function SettingsScreen() {
         </div>
       </Modal>
 
+    </>
+  );
+
+  return (
+    <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '26px 30px 46px', background: 'var(--bg)' }}>
+      {legalDoc ? <LegalDocView doc={legalDoc} onSwitch={(d) => nav.openLegal(d)} /> : settingsBody()}
+      {/* 도움말은 두 모드가 함께 쓴다 — 법 문서를 보다 [도움말]을 눌러도 "설정·데이터" 절이 열린다. */}
       <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="settings" onRestartTutorial={() => {}} />
     </main>
   );

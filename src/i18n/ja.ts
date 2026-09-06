@@ -135,6 +135,8 @@ export const ja: Record<DictKey, string> = {
   'settings.legal.privacy': 'プライバシーポリシー',
   'settings.legal.terms': '利用規約',
   'settings.legal.syncHint': '接続するとどのデータがどこへ行くか:',
+  'settings.legal.back': '設定へ',
+  'settings.legal.loadError': 'この言語の文書が見つかりませんでした。他の言語に切り替えてください。',
   'settings.data.exportSaved': 'ドリル{{drills}}個・セッション{{sessions}}個と設定を1つのファイルにまとめました。',
   'settings.data.exportFailed': 'データの書き出しファイルを作成できませんでした。',
   'settings.data.persistFailedToast': '設定はこのタブでのみ保持されます。',

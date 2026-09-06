@@ -32,6 +32,9 @@
 //   /rules/law-:N          (관용) 옛 조항 딥링크          위와 동일, topic:'rulebook' 으로 흡수
 //   /rules/contested       (관용) 폐기된 옛 주제           위와 동일, topic:'restarts' 로 흡수
 //   /settings              설정
+//   /settings/privacy      개인정보처리방침              screen 'settings' + {kind:'legal', doc}
+//   /settings/terms        서비스 약관                   위와 동일
+//   /privacy · /terms      (관용) 공개·색인용 주소         위로 흡수 — 한 방향(아래 주석)
 //
 // ⚠️ '/drills/:id' 의 화면 키가 'drills' 가 아니라 'board' 인 것은 2026-08-09 재편 그대로다:
 // 자유 전술판과 드릴 편집은 같은 자리(board)에 뜨고, 무엇이 떠 있는지는 StageTarget 이 정한다.
@@ -65,7 +68,10 @@ export function pathFor(screen: Screen, target?: NavTarget): string {
     case 'rules':
       return target?.kind === 'rule' ? `/rules/${target.topic}` : '/rules';
     case 'settings':
-      return '/settings';
+      // 법적 고지 문서는 설정의 하위 주소다(결정 1) — 앱 안에서 만들어지는 주소는 이 꼴
+      // **하나뿐**이다. 공개 주소 `/privacy` 는 parsePath 가 받기만 하고 여기서 만들지
+      // 않는다(그래야 헤더의 [← 설정으로] 가 어디로 되접을지가 한 가지로 정해진다).
+      return target?.kind === 'legal' ? `/settings/${target.doc}` : '/settings';
   }
 }
 
@@ -105,8 +111,23 @@ export function parsePath(pathname: string, search: string = ''): ParsedRoute {
       if (seg[1] === 'contested') return { screen: 'rules', target: { kind: 'rule', topic: 'restarts' } };
       return { screen: 'rules', target: { kind: 'rule', topic: seg[1] } };
     }
-    case 'settings':
+    case 'settings': {
+      // 결정 1 — 법적 고지는 설정 화면 안의 대상이다(새 화면 키를 만들지 않는다).
+      const doc = seg[1];
+      if (doc === 'privacy' || doc === 'terms') return { screen: 'settings', target: { kind: 'legal', doc } };
+      // 모르는 하위 조각(`/settings/xyz`)은 그냥 설정이다 — 화면 단위로 축소한 "404 없음"
+      // 교리(RulesScreen 이 모르는 주제에서 카드 홈으로 떨어지는 것과 같은 꼴).
       return { screen: 'settings' };
+    }
+    // 관용(**한 방향**): 검색엔진·구글 콘솔에 이미 나가 있는 공개 주소. 결정 4 — `robots.txt`
+    // 가 `/settings` 를 통째로 막으므로 색인용 URL 은 `/privacy/`·`/terms/` 로 남기고, 사람이
+    // 거기 착지하면 앱이 같은 문서를 앱 틀 안(설정 하위)에서 이어 보여 준다. 반대 방향은
+    // 만들지 않는다(pathFor 는 `/settings/privacy` 만 낳는다) — 옛 `/rules/law-N` 흡수와 같은
+    // 이유다: 주소를 되살리는 게 아니라 이미 나간 링크가 안 죽게 하는 것뿐.
+    case 'privacy':
+      return { screen: 'settings', target: { kind: 'legal', doc: 'privacy' } };
+    case 'terms':
+      return { screen: 'settings', target: { kind: 'legal', doc: 'terms' } };
     default:
       return { screen: 'board', target: { kind: 'board' } };
   }

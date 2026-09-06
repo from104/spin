@@ -1,76 +1,11 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0b0f14">
-<title>SPIN — 개인정보처리방침</title>
-<style>
-  :root { color-scheme: dark; }
-  html { background: #0b0f14; }
-  body {
-    margin: 0;
-    background: #0b0f14;
-    color: #e6edf3;
-    font: 16px/1.7 system-ui, -apple-system, 'Noto Sans KR', sans-serif;
-  }
-  .wrap { max-width: 42rem; margin: 0 auto; padding: 1.5rem 1.25rem 6rem; }
-  a { color: #6cf; }
-  a:hover { text-decoration: none; }
-  nav.lang {
-    position: sticky; top: 0;
-    background: #0b0f14;
-    border-bottom: 1px solid #223;
-    padding: .75rem 0;
-    margin-bottom: 1.5rem;
-    font-size: .95rem;
-  }
-  nav.lang a { margin-right: .25rem; }
-  nav.lang span { color: #5a6673; margin: 0 .35rem; }
-  h1 { font-size: 1.6rem; line-height: 1.35; margin: 2.5rem 0 .5rem; }
-  h2 { font-size: 1.1rem; line-height: 1.45; margin: 2.2rem 0 .4rem; }
-  h3 { font-size: 1rem; margin: 1.4rem 0 .3rem; color: #cfe3f5; }
-  p, li { margin: .5rem 0; }
-  ul, ol { padding-left: 1.4rem; }
-  ul ul, ol ul, ul ol { margin: .2rem 0; }
-  .meta {
-    border: 1px solid #223;
-    border-radius: .5rem;
-    padding: .85rem 1rem;
-    margin: 1rem 0 2rem;
-    font-size: .93rem;
-    color: #b8c4d0;
-  }
-  .meta div { margin: .15rem 0; }
-  .quote {
-    border-left: 3px solid #6cf;
-    padding: .5rem 0 .5rem .9rem;
-    margin: .8rem 0;
-    color: #dbe7f2;
-    font-style: normal;
-  }
-  code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: .9em;
-    background: #141b23;
-    border: 1px solid #223;
-    border-radius: .25rem;
-    padding: .05rem .3rem;
-    word-break: break-all;
-  }
-  hr { border: 0; border-top: 1px solid #223; margin: 3.5rem 0 0; }
-  footer { margin-top: 3rem; font-size: .9rem; color: #8b98a5; }
-  .top { font-size: .9rem; }
-</style>
-</head>
-<body>
-<div class="wrap">
-
-<nav class="lang">
-  <a href="#ko">한국어</a><span>·</span><a href="#en">English</a><span>·</span><a href="#ja">日本語</a>
-</nav>
-
-<!-- ============================ 한국어 ============================ -->
+<!-- SPIN privacy — 원문 한 벌. <html>/<head>/<style>/<nav> 껍데기는 2026-09-06 에
+     걷어냈다(docs/PLAN-LEGAL-PAGES.md 결정 3): 이 파일은 이제 앱(legalContent.ts 가 ?raw 로 읽어
+     언어 절을 잘라 쓴다)과 프리렌더가 함께 쓰는 조각이지 그 자체로 열리는 페이지가 아니다.
+     ⚠️ 지키기: 세 절은 <section id="ko|en|ja" lang=…> 로만 시작·끝나야 하고(정규식이 그것만 본다),
+     각 절의 첫 <h1> 은 남긴다(프리렌더 제목·legalTitle 이 읽는다). 절 안 /privacy/·/terms/ 상대
+     링크는 그대로 둔다 — 앱은 화면 전환으로, 정적 페이지는 진짜 링크로 각각 해석한다.
+     <script>·<style>·이벤트 속성(onclick 등)은 넣지 않는다 — 앱은 dangerouslySetInnerHTML 로,
+     프리렌더는 이스케이프 없이 그대로 심으므로 본문에 든 코드가 그대로 실행된다. -->
 <section id="ko" lang="ko">
 
 <h1>SPIN 개인정보처리방침</h1>
@@ -253,9 +188,6 @@
 
 </section>
 
-<hr>
-
-<!-- ============================ English ============================ -->
 <section id="en" lang="en">
 
 <h1>SPIN Privacy Policy</h1>
@@ -437,9 +369,6 @@
 
 </section>
 
-<hr>
-
-<!-- ============================ 日本語 ============================ -->
 <section id="ja" lang="ja">
 
 <h1>SPIN プライバシーポリシー</h1>
@@ -621,11 +550,3 @@
 <p class="top"><a href="#ja">先頭へ</a> · <a href="/terms/">利用規約</a> · <a href="https://spin.atit.app">spin.atit.app</a></p>
 
 </section>
-
-<footer>
-  SPIN — 서기현 (개인 개발자) · <a href="mailto:from104@gmail.com">from104@gmail.com</a> · <a href="https://spin.atit.app">spin.atit.app</a>
-</footer>
-
-</div>
-</body>
-</html>

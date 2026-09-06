@@ -135,6 +135,8 @@ export const en: Record<DictKey, string> = {
   'settings.legal.privacy': 'Privacy Policy',
   'settings.legal.terms': 'Terms of Service',
   'settings.legal.syncHint': 'What data goes where when you connect:',
+  'settings.legal.back': 'Settings',
+  'settings.legal.loadError': 'This document is not available in this language. Try another language.',
   'settings.data.exportSaved': 'Bundled {{drills}} drills, {{sessions}} sessions, and settings into one file.',
   'settings.data.exportFailed': 'Could not create the data export file.',
   'settings.data.persistFailedToast': 'Settings will only persist for this tab.',

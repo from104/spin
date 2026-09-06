@@ -3,8 +3,8 @@
 // SEO C2 — **정적 HTML 굽기 + robots.txt · sitemap.xml** (2026-09-02)
 //
 // ── 무엇을 하는가 ────────────────────────────────────────────────────────────────────
-// `vite build` 가 만든 `dist/index.html` 을 틀로 삼아, 언어 × 규칙 주제마다 페이지를 하나씩
-// 굽는다(3 × 11 = 33장). 각 페이지에는
+// `vite build` 가 만든 `dist/index.html` 을 틀로 삼아, 언어 × 페이지마다 하나씩 굽는다
+// (3 × 13 = 39장 — 홈 + 규칙 카드 홈 + 주제 9 + 방침·약관 2). 각 페이지에는
 //   · 그 페이지의 `<title>` · `<meta description>` · canonical · hreflang · OG
 //   · 크롤러가 읽을 **본문 텍스트**(`#root` 안)
 //   · JSON-LD 구조화 데이터
@@ -80,7 +80,10 @@ function render(page) {
   // `.seo-prerender` 만 봤고 홈도 프리렌더라 **배포본의 모든 첫 방문이 면제**됐다 — 0.6.3 로더가
   // spin.atit.app 에서 한 번도 안 뜬 이유. 개발 서버는 프리렌더를 안 돌려 거기서만 보였다.
   // 종류는 이 스크립트의 주소 규칙(pageUrl)에서 나온다: `/rules/` 아래가 규칙 글이다.
-  const seoPage = /\/rules\//.test(page.url) ? 'rules' : 'home';
+  // 2026-09-06: 방침·약관도 "이미 읽을 것을 보고 있는" 글이다(PLAN-LEGAL-PAGES 결정 5).
+  // 주소는 항상 슬래시로 끝나므로(pageUrl) `/privacy/`·`/ja/terms/` 가 모두 걸리고, 홈
+  // (`/`·`/en/`)은 안 걸린다.
+  const seoPage = /\/rules\//.test(page.url) ? 'rules' : /\/(privacy|terms)\//.test(page.url) ? 'legal' : 'home';
   html = html.replace(
     '<div id="root"></div>',
     `<div id="root"><div class="seo-prerender" data-seo-page="${seoPage}">\n${page.body}\n</div></div>`,

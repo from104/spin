@@ -9,6 +9,7 @@
 // 알아채지 못한다. 여기서 문자열 단위로 단언한다.
 import type { PresentTarget, StageTarget } from './AppShell.tsx';
 import type { Screen } from './screens.ts';
+import type { LegalDoc } from '../features/settings/legalContent.ts';
 import type { Locale } from '../i18n/locale.ts';
 import { translate } from '../i18n/useT.ts';
 
@@ -22,7 +23,17 @@ export interface AnnounceLookup {
 /** i18n C2 — locale 은 필수 인자다(기본값을 두지 않는다: 호출부가 잊으면 조용히 엉뚱한 언어로
  *  읽히는 대신 타입 에러로 바로 드러나야 한다). lookup 만 여전히 선택이다 — "조회기를 안 넘겨도
  *  죽지 않는다" 계약(announce.test.ts)은 그대로 유지된다. */
-export function announceFor(screen: Screen, stage: StageTarget, present: PresentTarget | null, locale: Locale, lookup: AnnounceLookup = {}): string {
+/** `legalDoc` 은 **맨 뒤의 선택 인자**다(PLAN-LEGAL-PAGES). 앞에 끼워 넣으면 이 함수를 부르는
+ *  모든 자리와 announce.test.ts 의 케이스 표가 통째로 흔들린다 — lastNavFromHistory 를 옵셔널로
+ *  더했던 것과 같은 규율이다: **더하는 것이지 바꾸는 것이 아니다.** */
+export function announceFor(
+  screen: Screen,
+  stage: StageTarget,
+  present: PresentTarget | null,
+  locale: Locale,
+  lookup: AnnounceLookup = {},
+  legalDoc?: LegalDoc,
+): string {
   const title = (t: StageTarget | PresentTarget) => lookup.titleOf?.(t);
   const t = (key: Parameters<typeof translate>[1], params?: Record<string, string>) => translate(locale, key, params);
   switch (screen) {
@@ -44,6 +55,11 @@ export function announceFor(screen: Screen, stage: StageTarget, present: Present
     case 'rules':
       return t('app.announce.rules');
     case 'settings':
+      // 법적 고지 문서가 떠 있으면 화면 이름("설정")이 아니라 **그 문서 이름**을 읽는다 —
+      // 자유 판이든 드릴이든 늘 "전술판" 이라 고쳤던 그 이유 그대로다(이 파일 머리말).
+      // 문장을 새로 만들지 않고 링크 라벨 키(3언어 이미 있음)를 그대로 쓴다: 같은 이름을
+      // 발표용으로 한 벌 더 두면 문서 이름을 고칠 때 둘이 갈라진다.
+      if (legalDoc) return t(legalDoc === 'privacy' ? 'settings.legal.privacy' : 'settings.legal.terms');
       return t('app.announce.settings');
   }
 }
