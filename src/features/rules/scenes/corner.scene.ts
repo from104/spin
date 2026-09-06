@@ -1,6 +1,6 @@
 // ⚠️ 손으로 고치지 마라 — scripts/import-rule-scene.mjs 가 찍는 파일이다.
 //
-// 출처: 드릴 "2-3 코너킥"(schemaVersion 10(2026-09-03 v10 도장; 원본은 9), 5스텝,
+// 출처: 드릴 "2-3 코너킥"(schemaVersion 11(2026-09-06 v11 도장; 원본은 9), 5스텝,
 // half/30x18). 봉투의 `teams` 는 만든 기기의 설정이라 버리고
 // `DEFAULT_TEAMS` 참조로 바꿔 찍는다(규칙 도해는 앱 기본 팀색으로 떠야 한다).
 //
@@ -10,7 +10,7 @@ import { DEFAULT_TEAMS } from '../../../model/defaults.ts';
 import type { Drill } from '../../../model/drill.ts';
 
 export const drill = {
-  "schemaVersion": 10,
+  "schemaVersion": 11,
   "id": "dr_mt7b6hq000e3pk",
   "title": "2-3 코너킥",
   "drillType": "game-scenario",

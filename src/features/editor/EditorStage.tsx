@@ -7,6 +7,8 @@ import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
 import { NudgePad, type NudgePadTarget } from './NudgePad.tsx';
 import { useLongPressMenu } from './useLongPressMenu.ts';
 import { sameKindGroup } from './selectSame.ts';
+import { sceneOrder, zMoves } from '../../model/zOrder.ts';
+import { overlappingIds } from '../../physics/bounds.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
@@ -676,6 +678,31 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   );
   const longPress = useLongPressMenu(openMenu);
 
+  /** [표시순서] 항목이 낼 네 명령의 가능 여부(2026-09-06, PLAN-Z-ORDER 결정 5·7·10).
+   *  `null` 이면 메뉴가 그 항목을 아예 안 낸다 — **여럿을 골랐거나 잠긴** 개체일 때다.
+   *
+   *  · 여럿에 안 내는 이유: 흩어진 여럿의 "한 단계" 는 답이 하나가 아니다(결정 10).
+   *  · 잠긴 것에 안 내는 이유: 잠김은 "손대지 않기로 표시해 둔 것" 이고, 메뉴의 다른 조작
+   *    ([미세 조정])도 같은 자리에서 빠진다. 잠금을 푸는 문은 바로 아래 칸에 있다.
+   *
+   *  ★ **메뉴가 열려 있을 때만** 계산한다. `overlappingIds` 는 스텝 전체를 훑으므로(개체 수의
+   *    제곱) 프레임마다 돌릴 것이 아니다 — 메뉴를 여는 것은 사람의 손이라 렌더당 한 번으로 족하다.
+   *  ★ 그러면서도 **렌더마다 다시** 계산한다: 한 단계씩 연타하면 두 번째 클릭의 가능 여부는
+   *    첫 클릭이 바꾼 순서에서 나와야 한다(메뉴 열 때 한 번 떠서 쥐면 이미 맨 앞인 개체의
+   *    [맨 앞으로]가 살아 있는 채로 남는다 — ObjectMenu 의 `zMoves` 주석). */
+  const menuZMoves = useMemo(() => {
+    if (!menu || menu.ids.length !== 1) return null;
+    const id = menu.ids[0]!;
+    if (lockedSet.has(id)) return null;
+    return zMoves(step, drill.cast, id, overlappingIds(step, drill.cast, id));
+  }, [menu, step, drill.cast, lockedSet]);
+
+  /** 판이 그릴 순서(아래→위) — 시연·인쇄·PNG 와 **같은 함수**다(PLAN-Z-ORDER 결정 2·12).
+   *  ⚠️ 이 한 줄이 빠지면 `Z_ORDER` 가 모델을 바꿔도 판은 기본층으로 접혀 **화면이 안 따라간다**
+   *    — 2026-09-06 검수에서 실제로 그 상태였다(CourtStage 가 `order` 를 안 받으면 기본층이다).
+   *    포인터 쪽(`useEditorPointer.buildScene`)도 같은 함수를 따로 부른다: 손과 눈이 같은 순서다. */
+  const zRefs = useMemo(() => sceneOrder(step, drill.cast), [step, drill.cast]);
+
 
   const cursorWorld = cursor && PLACEMENT_TOOLS.has(tool) ? gridCellCenter(drill.courtMode, cursor.col, cursor.row, drill.courtSize) : null;
   const cursorLabel = cursorWorld ? cellLabelAt(drill.courtMode, cursorWorld, drill.courtSize) : null;
@@ -733,6 +760,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       onGoalReturn={onResetGoals}
       notes={notes}
       arrows={arrows}
+      order={zRefs}
       shapes={step.shapes}
       // 도형을 잡으면 **선택만** 바꾼다. 지우기는 선택 후 Delete 가 맡는다 — 2026-08-16 에
       // 지우개 도구가 사라지면서 도형만의 예외 분기도 함께 없어졌다.
@@ -831,6 +859,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 이미 판에 있는 메모라 `fresh` 는 false 다 — 취소해도 쪽지는 그대로 남는다.
       onEdit={(id) => onEditNote(id as NoteId, false)}
       onDuplicate={onDuplicateIds}
+      zMoves={menuZMoves}
+      // 순서를 어떻게 바꿀지는 리듀서가 순수 함수(model/zOrder.moveZ)에 통째로 맡긴다 —
+      // 여기서 계산하는 것이 없다. 불가능한 명령이면 그 함수가 같은 스텝 참조를 돌려주고
+      // 되돌리기에 칸이 안 쌓인다(reducer 의 Z_ORDER 갈래 주석).
+      onZOrder={(id, op) => dispatch({ type: 'Z_ORDER', id, op })}
     />
     {/* 미세 조정 패드 — 키보드 `obj.move`/`obj.rotate` 와 **같은 통로**다.
         ★ 이동이 **화면 기준**인 것도 그대로다: 스테이지가 90° 돌아 있으면 ▲가 월드 축과

@@ -438,3 +438,50 @@ describe('validateSession — 메모·휴식 시간 상한', () => {
     expect('restAfterMin' in r.value.phases[0]!.items[1]!).toBe(false);
   });
 });
+
+// ── 표시 순서 목록(v11, 2026-09-06 · docs/PLAN-Z-ORDER.md 결정 13) ────────────────────────
+describe('validateDrill — zOrder 정화', () => {
+  const raw = (zOrder: unknown) => ({
+    id: 'dr_z',
+    courtMode: 'flat',
+    cast: { chairs: [], balls: [{ id: 'bl_a' }], cones: [] },
+    steps: [
+      {
+        id: 'st_1',
+        name: '',
+        note: '',
+        chairs: {},
+        balls: { bl_a: { x: 1, y: 1 } },
+        cones: {},
+        arrows: [],
+        notes: [],
+        shapes: [{ id: 'sh_a', kind: 'rect', x: 5, y: 5, w: 20, h: 20, rotDeg: 0 }],
+        zOrder,
+      },
+    ],
+  });
+
+  it('스텝에 있는 id 만 남기고 순서는 보존한다', () => {
+    // 지우면 새는 버그: 지워진 개체의 id 가 목록에 눌러앉아 저장본이 편집마다 부푼다
+    // (이 저장소의 반복 사고). 순서까지 흔들면 저장·복원마다 그림이 바뀐다.
+    const r = validateDrill(raw(['bl_a', 'ch_ghost', 'sh_a']));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.steps[0]!.zOrder).toEqual(['bl_a', 'sh_a']);
+    expect(r.repairs.some((x) => x.path === 'steps.zOrder' && x.destructive)).toBe(true);
+  });
+
+  it('중복은 접고, 남는 것이 없으면 키 자체를 만들지 않는다', () => {
+    // 지우면 새는 버그: 빈 배열과 키 없음이라는 같은 뜻의 두 문서가 생겨 sameDrill(canonical
+    // 비교)이 백업 복원마다 (사본)을 만든다. 중복이 남으면 렌더가 같은 개체를 두 번 그린다.
+    const dup = validateDrill(raw(['sh_a', 'sh_a']));
+    expect(dup.ok).toBe(true);
+    if (!dup.ok) return;
+    expect(dup.value.steps[0]!.zOrder).toEqual(['sh_a']);
+
+    const dead = validateDrill(raw(['ch_ghost']));
+    expect(dead.ok).toBe(true);
+    if (!dead.ok) return;
+    expect('zOrder' in dead.value.steps[0]!).toBe(false);
+  });
+});

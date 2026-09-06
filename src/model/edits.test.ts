@@ -338,6 +338,26 @@ describe('제거하면 잠김·무시 플래그도 함께 지워진다', () => {
     expect(after.steps[0]!.locked).toBeUndefined();
     expect(after.steps[1]!.ignored).toBeUndefined();
   });
+
+  it('★ 표시 순서(zOrder, v11)의 자리도 함께 사라진다', () => {
+    // ⚠️ 2026-09-06 합류(PLAN-Z-ORDER 결정 13). 지우면 새는 버그: 순서 목록의 고아는 화면에는
+    // 안 보이는데(sceneOrder 가 무시한다) 저장본에 계속 쌓이고, 같은 id 가 다시 나타나면
+    // (트레이 반환 → 재배치) **사용자가 정한 적 없는 자리**로 되살아난다.
+    let d = freshDrill();
+    const a = d.cast.chairs[0]!.id;
+    const b = d.cast.chairs[1]!.id;
+    d = { ...d, steps: d.steps.map((s, i) => (i === 0 ? { ...s, zOrder: [a, b] } : s)) };
+    const after = removeFromStepOnward(d, 0, a);
+    expect(after.steps[0]!.zOrder, '지운 칩의 자리가 순서 목록에 남았다').toEqual([b]);
+  });
+
+  it('★ 순서 목록도 비면 키 자체가 없다', () => {
+    let d = freshDrill();
+    const a = d.cast.chairs[0]!.id;
+    d = { ...d, steps: d.steps.map((s, i) => (i === 0 ? { ...s, zOrder: [a] } : s)) };
+    const after = removeFromStepOnward(d, 0, a);
+    expect(after.steps[0]!.zOrder, '빈 배열이 저장본에 눌러앉는다').toBeUndefined();
+  });
 });
 
 describe('setShape — 무변경 판정', () => {

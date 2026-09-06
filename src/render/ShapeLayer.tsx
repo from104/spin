@@ -1,9 +1,23 @@
 // 작도 도형 층 — 코트 **위**, 칩·화살표 **아래**(기현 지시 2026-08-14).
 //
+// ── ⚠️ 2026-09-06: 위 한 줄은 **기본값**으로 내려앉았다 ─────────────────────────────────
+// 개체 표시 순서(z-order, `docs/PLAN-Z-ORDER.md` 결정 4)가 생기면서 도형도 사용자가 스텝마다
+// 올리고 내릴 수 있는 7종 개체의 하나가 됐다. 2026-08-14 지시가 뒤집힌 것이 아니라 **아무도
+// 순서를 손대지 않았을 때의 자리**로 산다(`model/zOrder.ts` 의 `DEFAULT_TIERS` 첫 칸이 곧
+// 그 지시다 — 도형은 여전히 맨 아래에서 시작한다).
+//
+// 그래서 판(`ObjectLayer`)·시연·인쇄는 이 층 컴포넌트를 더 이상 쓰지 않는다: 도형이 콘과
+// 화살표 사이에 한 장만 낄 수 있게 된 이상 "도형 층" 이라는 덩어리가 성립하지 않기 때문이다.
+// 그 세 곳은 `objects/ShapeMark.tsx`(도형 한 장)를 순서 목록 안에서 부른다. 이 컴포넌트가
+// 남아 있는 곳은 **썸네일**뿐이다 — 요약(`ThumbSpec`)에는 개체 id 가 없어 순서를 표현할 자리가
+// 없고(그 한계는 `CourtThumbnail.tsx` 의 ⚠️ 참고), 거기서는 도형이 언제나 한 덩어리다.
+//
 // ── 이 파일이 하나인 이유 ────────────────────────────────────────────────────────────
 // 도형은 네 곳에서 그려진다: 편집기(CourtStage) · 시연(PresentStage) · 인쇄(PrintCourt) ·
 // 썸네일(CourtThumbnail). 네 곳이 각자 그리면 반투명 값이 어긋나는 날 **인쇄물만 진한** 판이
-// 나오고, 그것은 코트에서야 알게 된다. 그래서 그리는 코드는 여기 하나뿐이다.
+// 나오고, 그것은 코트에서야 알게 된다. 그래서 그리는 코드는 한 곳뿐이다 —
+// ⚠️ 2026-09-06 부터 그 한 곳은 이 파일이 아니라 `objects/ShapeMark.tsx` 다(위 절 참고).
+// 이 파일은 그것을 여러 번 부르는 껍데기이지 두 번째 그리기 코드가 아니다.
 //
 // ── "겹치면 진해진다" 를 지키는 것은 **없는 코드**다 ──────────────────────────────────
 // 요구는 *"면은 연하게 반투명해야 하며 서로 겹치면 진해져야 함"* 이다. 알파 합성은 원래
@@ -13,29 +27,23 @@
 //   ③ 도형들을 하나의 `<path>` 로 합치기 — 겹친 부분이 fill-rule 로 **뚫린다.**
 // 셋 다 "정리" 처럼 보이는 변경이라 나중에 누가 손댈 자리다. ShapeLayer.test 가 ①을 직접 막고,
 // 나머지 둘은 이 문단이 근거를 쥔다.
-import { SHAPE_COLOR, SHAPE_FILL_OPACITY, SHAPE_STROKE_OPACITY, SHAPE_STROKE_PX, pointsAttr, shapeSize, triPointsOf } from '../model/shape.ts';
+import { ShapeMark } from './objects/ShapeMark.tsx';
 import type { Shape } from '../model/shape.ts';
-import { LOCK_TINT_COLOR, LOCK_TINT_OPACITY } from '../core/colors.ts';
 
 export interface ShapeLayerProps {
   shapes?: readonly Shape[];
   /** 선택된 도형 id — 테두리를 액센트로 바꿔 "지금 이것" 을 말한다. 편집기만 넘긴다
    *  (시연·인쇄·썸네일에는 선택이라는 개념이 없다). */
   selected?: ReadonlySet<string>;
-  /** 잠긴 도형 id — 보라 반투명 덮개를 얹는다(2026-08-14). 다른 개체와 **같은 표시**라야
-   *  "이건 왜 안 움직이지" 를 매번 다시 배우지 않는다. */
+  /** 잠긴 도형 id — 보라 반투명 덮개를 얹는다(2026-08-14). */
   locked?: ReadonlySet<string>;
-  /** 개체 포인터 배선. 편집기만 넘긴다 — 없으면 도형은 그림일 뿐이라 클릭도 안 받는다. */
+  /** 개체 포인터 배선. 없으면 도형은 그림일 뿐이라 클릭도 안 받는다. */
   onPointerDown?: (id: string, e: React.PointerEvent<SVGGElement>) => void;
-  /** 테두리 굵기 배수. 기본 1(판·시연·인쇄). **썸네일만 키운다** — 축소해 그리는 곳에서
-   *  `SHAPE_STROKE_PX` 2 는 카드에서 0.7 px 가 되어 테두리가 사실상 사라진다.
-   *  ⚠️ 굵기만이다. 도형의 **크기는 사용자가 그린 구역 그 자체**라 배수를 곱하면 안 된다 —
-   *  키운 구역은 없는 구역이고, 판은 없는 것을 가르치지 않는다. */
+  /** 테두리 굵기 배수 — 썸네일만 키운다. 근거는 `ShapeMark` 의 같은 prop 주석. */
   strokeScale?: number;
 }
 
 export function ShapeLayer({ shapes = [], selected, locked, onPointerDown, strokeScale = 1 }: ShapeLayerProps) {
-  const sw = SHAPE_STROKE_PX * strokeScale;
   // ⚠️ 기본값이 필요하다. 도형 필드는 2026-08-14 에 생겼고, 그 전에 만들어진 스텝 객체(옛
   // 저장본·테스트 픽스처)에는 키가 아예 없다 — `shapes.length` 로 바로 읽으면 판이 통째로
   // 안 그려진다. 정화기(validate)가 언제나 배열을 만들어 주지만, 그 길을 안 지나는 객체가
@@ -44,73 +52,16 @@ export function ShapeLayer({ shapes = [], selected, locked, onPointerDown, strok
   return (
     // ⚠️ 이 <g> 에 `opacity` 를 걸지 마라(머리말 ①). 겹침이 통째로 사라진다.
     <g aria-hidden="true" data-shape-layer="">
-      {shapes.map((s) => {
-        const { w, h } = shapeSize(s);
-        // 삼각형의 모양은 w/h 가 아니라 꼭짓점이 진다(2026-08-15 자유 삼각형). w/h 는 타원·
-        // 사각형 전용이고, 삼각형에서는 크기 표시용 경계상자일 뿐이다.
-        const tri = s.kind === 'triangle' ? pointsAttr(triPointsOf(s)) : '';
-        const on = selected?.has(s.id) ?? false;
-        const isLocked = locked?.has(s.id) ?? false;
-        const stroke = on ? 'var(--accent)' : SHAPE_COLOR;
-        const strokeOpacity = on ? 1 : SHAPE_STROKE_OPACITY;
-        return (
-          <g
-            key={s.id}
-            className="court-shape"
-            data-shape-id={s.id}
-            transform={`translate(${s.x} ${s.y}) rotate(${s.rot})`}
-            onPointerDown={onPointerDown ? (e) => onPointerDown(s.id, e) : undefined}
-            style={onPointerDown ? { cursor: 'move' } : undefined}
-          >
-            {s.kind === 'ellipse' && (
-              <ellipse
-                rx={w / 2}
-                ry={h / 2}
-                fill={SHAPE_COLOR}
-                fillOpacity={SHAPE_FILL_OPACITY}
-                stroke={stroke}
-                strokeOpacity={strokeOpacity}
-                strokeWidth={sw}
-              />
-            )}
-            {s.kind === 'rect' && (
-              <rect
-                x={-w / 2}
-                y={-h / 2}
-                width={w}
-                height={h}
-                fill={SHAPE_COLOR}
-                fillOpacity={SHAPE_FILL_OPACITY}
-                stroke={stroke}
-                strokeOpacity={strokeOpacity}
-                strokeWidth={sw}
-              />
-            )}
-            {/* 잠김 덮개 — 도형의 **모양 그대로** 덮는다. 상자로 덮으면 타원·삼각형 밖까지
-                칠해져 "무엇이 잠겼는지" 가 흐려진다. 면 위에 얹으므로 도형 뒤에 온다. */}
-            {s.kind === 'triangle' && (
-              <polygon
-                points={tri}
-                fill={SHAPE_COLOR}
-                fillOpacity={SHAPE_FILL_OPACITY}
-                stroke={stroke}
-                strokeOpacity={strokeOpacity}
-                strokeWidth={sw}
-                strokeLinejoin="round"
-              />
-            )}
-            {isLocked && s.kind === 'ellipse' && (
-              <ellipse rx={w / 2} ry={h / 2} fill={LOCK_TINT_COLOR} fillOpacity={LOCK_TINT_OPACITY} pointerEvents="none" />
-            )}
-            {isLocked && s.kind === 'rect' && (
-              <rect x={-w / 2} y={-h / 2} width={w} height={h} fill={LOCK_TINT_COLOR} fillOpacity={LOCK_TINT_OPACITY} pointerEvents="none" />
-            )}
-            {isLocked && s.kind === 'triangle' && (
-              <polygon points={tri} fill={LOCK_TINT_COLOR} fillOpacity={LOCK_TINT_OPACITY} pointerEvents="none" />
-            )}
-          </g>
-        );
-      })}
+      {shapes.map((s) => (
+        <ShapeMark
+          key={s.id}
+          shape={s}
+          selected={selected?.has(s.id) ?? false}
+          locked={locked?.has(s.id) ?? false}
+          onPointerDown={onPointerDown}
+          strokeScale={strokeScale}
+        />
+      ))}
     </g>
   );
 }

@@ -111,6 +111,8 @@ describe('개체 메뉴 — 고른 것 전부에 걸린다', () => {
         onRemove={spies.onRemove ?? noop}
         onSelect={spies.onSelect ?? noop}
         onDuplicate={noop}
+        onZOrder={noop}
+        zMoves={null}
         onEdit={noop}
       />,
       { wrapper: SettingsProvider },

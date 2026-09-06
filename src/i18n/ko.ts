@@ -785,6 +785,16 @@ export const ko = {
   // ── C7 — 개체 메뉴 ──────────────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': '개체 메뉴',
   'editor.objectMenu.fineTune': '미세 조정',
+  // [표시순서] 하위 화면(2026-09-06, PLAN-Z-ORDER 결정 7). 같은 패널이 하위 화면으로 바뀌므로
+  // `zOrder` 는 여는 항목의 이름이자 그 화면의 제목(aria-label)이다.
+  'editor.objectMenu.zOrder': '표시순서',
+  'editor.objectMenu.zOrder.front': '맨 앞으로',
+  'editor.objectMenu.zOrder.forward': '한 단계 앞으로',
+  'editor.objectMenu.zOrder.backward': '한 단계 뒤로',
+  'editor.objectMenu.zOrder.back': '맨 뒤로',
+  'editor.objectMenu.zOrder.backToMenu': '돌아가기',
+  // 넷 다 불가능할 때의 이유. 순서를 바꿔도 화면이 안 변하는 상황이라 항목이 죽어 있다.
+  'editor.objectMenu.zOrder.noOverlap': '겹친 개체 없음',
   'editor.nudgePad.ariaLabel': '미세 조정 패드',
   'editor.objectMenu.nudgeUp': '위로 조금',
   'editor.objectMenu.nudgeDown': '아래로 조금',

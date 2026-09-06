@@ -11,6 +11,7 @@ import type { StoredChairPose } from '../../model/chair.ts';
 import type { Arrow } from '../../model/arrow.ts';
 import type { Stroke } from '../../model/stroke.ts';
 import type { ToolId } from '../../physics/index.ts';
+import type { ZOp } from '../../model/zOrder.ts';
 
 export type EditorAction =
   // UI (히스토리 제외)
@@ -209,6 +210,18 @@ export type EditorAction =
    *  잠그는 것은 사용자에게 한 번의 조작이므로 되돌리기도 한 칸이어야 한다. id 하나씩
    *  네 번 보내면 Ctrl+Z 를 네 번 눌러야 원래대로 돌아온다. */
   | { type: 'FLAG_SET'; flag: 'locked' | 'ignored'; ids: string[]; on: boolean }
+  /** 표시 순서 한 칸(2026-09-06, `docs/PLAN-Z-ORDER.md` 결정 8). `FLAG_SET` 과 같은 부류의
+   *  **이산 클릭**이라 COMMIT_TYPES 에만 넣고 COALESCE_TYPES 에는 넣지 않는다 — 700ms 안의
+   *  두 번을 한 칸으로 묶으면 "두 단계 올렸다가 한 단계만 되돌리기" 가 손 빠르기에 따라
+   *  갈린다(`BALL_RETAP` 을 병합에서 뺀 그 증상). EPOCH_BUMP_TYPES 에도 넣지 않는다: 개체는
+   *  한 픽셀도 안 움직이므로 물리 월드를 다시 세울 이유가 없다.
+   *
+   *  ⚠️ **여럿을 받지 않는다**(FLAG_SET 과 갈리는 점). 흩어진 여럿의 "한 단계" 는 답이 하나가
+   *  아니라 메뉴 자체가 단일 선택 전용이다(계획서 결정 10) — id 를 배열로 열어 두면 부르는
+   *  쪽이 언젠가 그 답 없는 조작을 시도한다.
+   *  겹침 판정(어느 것을 건너뛰는가)은 리듀서가 `physics/bounds.overlappingIds` 로 그 자리에서
+   *  다시 뜬다 — 액션에 실어 보내면 메뉴를 연 시점의 낡은 겹침으로 판이 바뀔 수 있다. */
+  | { type: 'Z_ORDER'; id: string; op: ZOp }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
@@ -250,6 +263,7 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'STROKE_SET',
   'STROKE_REMOVE',
   'FLAG_SET',
+  'Z_ORDER',
 ]);
 
 /** COALESCE_TYPES(§6.7) — 연속 입력을 700ms/5s 창 안에서 병합한다. */

@@ -116,13 +116,24 @@ export const PresentConeMark = memo(function PresentConeMark({ def, writer, opac
 
 /** 화살표 — 매 프레임 React 로 다시 그린다(위 헤더 주석 근거). `id` 는 부모(PresentStage)가
  *  `ConeId` 등과 겹치지 않게 이미 보장한 값이 아니라 ArrowId 그대로라 React key 로 충분하다. */
+export function PresentArrowMark({ arrow, markerUid }: { arrow: RenderFrame['arrows'][number]; markerUid: string }) {
+  return (
+    <g opacity={arrow.opacity}>
+      <ArrowPath arrow={arrow} markerUid={markerUid} selected={false} active={false} />
+    </g>
+  );
+}
+
+/** 여러 개를 한 번에. ⚠️ 2026-09-06 부터 **시연 화면은 이것을 쓰지 않는다** — 개체 표시
+ *  순서(z-order)가 화살표 사이에 도형·콘을 끼울 수 있게 되면서 "화살표 층" 이라는 덩어리가
+ *  성립하지 않기 때문이다(`PresentStage` 는 `PresentArrowMark` 를 순서 목록 안에서 부른다).
+ *  남겨 둔 것은 층 단위로 재는 테스트(`render/strokeRender.paths.test.tsx` 의 획 판)와, 순서와
+ *  무관하게 화살표 뭉치만 그리면 되는 자리를 위해서다. */
 export function PresentArrowLayer({ arrows, markerUid }: { arrows: RenderFrame['arrows']; markerUid: string }) {
   return (
     <>
       {arrows.map((a) => (
-        <g key={a.id} opacity={a.opacity}>
-          <ArrowPath arrow={a} markerUid={markerUid} selected={false} active={false} />
-        </g>
+        <PresentArrowMark key={a.id} arrow={a} markerUid={markerUid} />
       ))}
     </>
   );
@@ -136,13 +147,21 @@ export function PresentArrowLayer({ arrows, markerUid }: { arrows: RenderFrame['
  *  ⚠️ 읽기 전용이다 — `onPointerDown` 을 안 넘기므로 `StrokePath` 가 커서도 안 걸고 손도 안
  *  받는다. `aria-hidden` 을 씌우는 것은 시연 화면이 개체 하나하나를 읽히는 자리가 아니기
  *  때문이다(관객용 재생이고, 내용은 스텝 메모가 말한다). */
+export function PresentStrokeMark({ stroke, markerUid }: { stroke: RenderFrame['strokes'][number]; markerUid: string }) {
+  return (
+    <g opacity={stroke.opacity}>
+      <StrokePath stroke={stroke} markerUid={markerUid} selected={false} active={false} />
+    </g>
+  );
+}
+
+/** 여러 개를 한 번에 — 위 `PresentArrowLayer` 와 같은 사정이다(2026-09-06 이후 시연 본편은
+ *  `PresentStrokeMark` 를 순서 목록 안에서 부른다). */
 export function PresentStrokeLayer({ strokes, markerUid }: { strokes: RenderFrame['strokes']; markerUid: string }) {
   return (
     <g aria-hidden="true">
       {strokes.map((s) => (
-        <g key={s.id} opacity={s.opacity}>
-          <StrokePath stroke={s} markerUid={markerUid} selected={false} active={false} />
-        </g>
+        <PresentStrokeMark key={s.id} stroke={s} markerUid={markerUid} />
       ))}
     </g>
   );
@@ -152,45 +171,50 @@ const FONT = "'Pretendard',sans-serif";
 
 /** 메모 — 화살표와 같은 이유로 React 재렌더 경로. NoteLabel(render-stage)은 writer 기반
  *  포지셔닝을 강제해 여기 용도(매 프레임 x/y 갱신)와 맞지 않아 최소 구현을 직접 그린다. */
+export function PresentNoteMark({ note: n }: { note: RenderFrame['notes'][number] }) {
+    const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
+    const lines = noteLines(n.text, size);
+    const align = n.align ?? 'middle';
+    const halfW = noteChipWidthPx(n.text, size) / 2;
+    const halfH = noteChipHeightPx(n.text, size) / 2;
+    // NoteLabel/PrintCourt 와 같은 규약 — align 은 글 정렬이자 칩 안에서의 글 위치다.
+    const textX = align === 'start' ? -halfW + NOTE.chipPadXPx : align === 'end' ? halfW - NOTE.chipPadXPx : 0;
+    return (
+      <g opacity={n.opacity} transform={`translate(${n.x.toFixed(2)} ${n.y.toFixed(2)})`}>
+        {/* C11(2026-08-19 기현님) — **쪽지 칩 배경**. 여기만 글자만 떠 있어서, 어두운 코트
+            위에서 메모가 판의 일부처럼 안 읽혔다. 기하·색은 편집기(NoteLabel)·인쇄
+            (PrintCourt)와 같은 함수·같은 토큰이다 — 세 화면이 같은 쪽지를 그린다. */}
+        <path d={noteChipPathD(halfW, halfH)} fill={NOTE_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
+        <path d={noteFoldPathD(halfW, halfH)} fill={NOTE_FOLD_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
+        <text
+          x={textX}
+          y={0}
+          fontFamily={FONT}
+          fontSize={size}
+          fontWeight={600}
+          fill={n.color ?? '#ffffff'}
+          textAnchor={align}
+          dominantBaseline="central"
+        >
+          {/* 줄 나눔은 편집 화면과 **같은 함수**가 정한다(noteChip.ts). 시연에서만 한 줄로
+              이어 붙으면 코치가 판에서 본 것과 관객이 보는 것이 달라진다. */}
+          {lines.map((line, i) => (
+            <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length, size) : noteLineHeightPx(size)}>
+              {line}
+            </tspan>
+          ))}
+        </text>
+      </g>
+    );
+}
+
+/** 여러 개를 한 번에 — 위 `PresentArrowLayer` 와 같은 사정이다. */
 export function PresentNoteLayer({ notes }: { notes: RenderFrame['notes'] }) {
   return (
     <>
-      {notes.map((n) => {
-        const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
-        const lines = noteLines(n.text, size);
-        const align = n.align ?? 'middle';
-        const halfW = noteChipWidthPx(n.text, size) / 2;
-        const halfH = noteChipHeightPx(n.text, size) / 2;
-        // NoteLabel/PrintCourt 와 같은 규약 — align 은 글 정렬이자 칩 안에서의 글 위치다.
-        const textX = align === 'start' ? -halfW + NOTE.chipPadXPx : align === 'end' ? halfW - NOTE.chipPadXPx : 0;
-        return (
-          <g key={n.id} opacity={n.opacity} transform={`translate(${n.x.toFixed(2)} ${n.y.toFixed(2)})`}>
-            {/* C11(2026-08-19 기현님) — **쪽지 칩 배경**. 여기만 글자만 떠 있어서, 어두운 코트
-                위에서 메모가 판의 일부처럼 안 읽혔다. 기하·색은 편집기(NoteLabel)·인쇄
-                (PrintCourt)와 같은 함수·같은 토큰이다 — 세 화면이 같은 쪽지를 그린다. */}
-            <path d={noteChipPathD(halfW, halfH)} fill={NOTE_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
-            <path d={noteFoldPathD(halfW, halfH)} fill={NOTE_FOLD_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
-            <text
-              x={textX}
-              y={0}
-              fontFamily={FONT}
-              fontSize={size}
-              fontWeight={600}
-              fill={n.color ?? '#ffffff'}
-              textAnchor={align}
-              dominantBaseline="central"
-            >
-              {/* 줄 나눔은 편집 화면과 **같은 함수**가 정한다(noteChip.ts). 시연에서만 한 줄로
-                  이어 붙으면 코치가 판에서 본 것과 관객이 보는 것이 달라진다. */}
-              {lines.map((line, i) => (
-                <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length, size) : noteLineHeightPx(size)}>
-                  {line}
-                </tspan>
-              ))}
-            </text>
-          </g>
-        );
-      })}
+      {notes.map((n) => (
+        <PresentNoteMark key={n.id} note={n} />
+      ))}
     </>
   );
 }

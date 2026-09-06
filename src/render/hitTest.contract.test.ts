@@ -45,6 +45,12 @@ describe('hitTest 우선순위(§5.12) — render-stage 소비 관점', () => {
     expect(hit).toEqual({ kind: 'chair', id: chairA, s: expect.any(Number) });
   });
 
+  // 2026-09-06 — 표시 순서(z-order)가 들어오면서 이 자리가 한 번 뒤집힐 뻔했다. 계획서 결정 9 의
+  // *"선택된 개체의 핸들 먼저"* 를 존 핸들까지 글자 그대로 적용하면 여기가 'zoneHandle' 이 된다.
+  // 실측으로 되돌렸다: 존 핸들의 레버는 -22.5·0·22.5·45 px 이라 셋이 **차체 안**에 앉고
+  // (translate 는 피벗 정확히 위), 반경 22 CSS px 이면 선택된 휠체어의 몸이 통째로 핸들 원에
+  // 덮인다 — 올리는 순간 재탭 해제(useEditorPointer.tapDeselect.test.tsx)가 4건 빨개졌다.
+  // 그래서 존 핸들만 몸통 **뒤**에 남았고(hitTest.ts 의 (다) 주석), 이 단언은 그대로 산다.
   it('선택된 휠체어의 존 핸들이 다른 휠체어 본체 탭을 가로채지 않는다(§5.12)', () => {
     const chairA = chairId(1);
     const chairB = chairId(2);
@@ -81,6 +87,8 @@ describe('hitTest 우선순위(§5.12) — render-stage 소비 관점', () => {
 // 2026-09-03 — 자유 그리기 획이 히트 표에 합류했다. 화살표와 **같은 두 자리**를 쓴다:
 // 앵커는 우선순위 3(선택된 하나만), 몸통은 우선순위 6(선 몸통). 여기서 재는 것은 그 두 자리와,
 // 6번 칸이 두 개체를 **거리로** 가른다는 새 규칙이다.
+// ⚠️ 2026-09-06 — 마지막 문장("거리로 가른다")은 죽었다. 지금은 표시 순서가 가른다(아래 ★ 참고).
+// 앞의 두 문장(앵커는 몸통보다 앞, 몸통은 선택과 무관)은 3단 표에서도 그대로 참이다.
 describe('획(자유 그리기) 히트 — 화살표와 같은 자리, 같은 규칙', () => {
   const strokeId = (n: number) => `fh_t${n}` as StrokeId;
   /** 수평 3점 획. 앵커는 (300,350)·(400,350)·(448,350)(회전은 끝 접선 +x 로 GAP 만큼 바깥). */
@@ -122,7 +130,15 @@ describe('획(자유 그리기) 히트 — 화살표와 같은 자리, 같은 �
     expect(hitTest({ x: 448, y: 350 }, scene, baseCtx)).toBeNull();
   });
 
-  it('★ 화살표와 획이 겹치면 **가까운 쪽**이 이긴다 — 개체 종류가 우선순위가 아니다', () => {
+  // ── ⚠️ 2026-09-06: 이 단언의 뜻이 뒤집혔다(PLAN-Z-ORDER 결정 9) ────────────────
+  // 옛 제목·근거: *"★ 화살표와 획이 겹치면 **가까운 쪽**이 이긴다 — 개체 종류가 우선순위가
+  // 아니다"*(2026-09-03). 그 전제는 *"겹친 자리에서 무엇이 이길지 정할 근거가 없다"* 였는데
+  // 그 전제가 죽었다 — 이제 근거가 있다. 사용자가 [표시순서]로 정한 순서가 그것이고, 그 답은
+  // 화면에 이미 그려져 있다. 거리로 가르면 **위에 그린 선을 짚어도 밑의 선이 잡혀** 순서
+  // 기능이 통째로 거짓말이 된다.
+  // 옛 근거의 뜻("개체 종류는 서열이 아니다")은 그대로 산다 — 아래는 같은 장면에서 순서만
+  // 뒤집어 답이 따라 뒤집히는 것을 보인다. 종류가 정하는 것이라면 그럴 수 없다.
+  it('★ 겹친 화살표·획은 **위에 있는 쪽**이 잡힌다 — 거리가 아니라 표시 순서다(⚠️ 2026-09-06 뒤집힘)', () => {
     const arrow = { id: 'ar_t1' as ArrowId, from: { x: 100, y: 100 }, ctrl: { x: 250, y: 100 }, to: { x: 400, y: 100 } };
     const id = strokeId(5);
     // 획을 화살표에서 4px 아래에 나란히 놓는다. 둘 다 허용 오차(1.7 + 6 = 7.7) 안이다.
@@ -131,9 +147,14 @@ describe('획(자유 그리기) 히트 — 화살표와 같은 자리, 같은 �
       arrows: [arrow],
       strokes: [{ id, points: [{ x: 100, y: 104 }, { x: 400, y: 104 }] }],
     };
-    // 획 쪽으로 1px 치우친 자리 → 획. 화살표 쪽으로 치우치면 화살표.
-    expect(hitTest({ x: 250, y: 103 }, scene, { ...baseCtx, tool: 'eraser' })?.kind).toBe('stroke');
-    expect(hitTest({ x: 250, y: 101 }, scene, { ...baseCtx, tool: 'eraser' })?.kind).toBe('arrow');
+    // 2차(관대) 패스가 답을 대신 내지 못하도록 지우기 도구로 잰다.
+    const eraser: HitContext = { ...baseCtx, tool: 'eraser' };
+    // 기본층은 획(아래) → 화살표(위). 획 쪽으로 1px 치우쳐 짚어도 위에 있는 화살표가 잡힌다.
+    expect(hitTest({ x: 250, y: 103 }, scene, eraser)?.kind).toBe('arrow');
+    // 획을 화살표 위로 올리면 **같은 두 자리의 답이 둘 다** 획이 된다.
+    const raised: SceneSnapshot = { ...scene, order: [{ kind: 'arrow', id: arrow.id }, { kind: 'stroke', id }] };
+    expect(hitTest({ x: 250, y: 101 }, raised, eraser)?.kind).toBe('stroke');
+    expect(hitTest({ x: 250, y: 103 }, raised, eraser)?.kind).toBe('stroke');
   });
 
   it('허용 오차 밖은 여전히 빈 코트다 — 몸통 판정이 반경 없는 자석이 아니다', () => {
@@ -144,6 +165,56 @@ describe('획(자유 그리기) 히트 — 화살표와 같은 자리, 같은 �
     const eraser: HitContext = { ...baseCtx, tool: 'eraser' };
     expect(hitTest({ x: 325, y: 350 + 7 }, scene, eraser)).not.toBeNull();
     expect(hitTest({ x: 325, y: 350 + 9 }, scene, eraser)).toBeNull();
+  });
+});
+
+// 2026-09-06 — 표시 순서(z-order)가 몸통 판정을 정한다(PLAN-Z-ORDER 결정 9). 여기서 재는 것은
+// **판과 손이 같은 답을 내는가** 하나다: 화면에서 위에 그려진 것이 손에도 먼저 잡혀야 한다.
+// 지우면 새는 실기 버그: 사용자가 [표시순서]로 개체를 앞으로 보냈는데 클릭은 뒤의 것을 잡는
+// 상태 — 기능이 있는 채로 거짓말을 한다(옛 표는 종류 서열이 상수였으므로 이게 기본값이었다).
+describe('표시 순서가 몸통 판정을 정한다(PLAN-Z-ORDER 결정 9)', () => {
+  const chair = chairId(9);
+  const ball = ballId(9);
+  /** 공을 차체 안(피벗에서 앞으로 5px)에 놓는다 — 한 점이 둘 다에 걸린다. */
+  const overlapping = (order?: SceneSnapshot['order']): SceneSnapshot => ({
+    ...emptyScene(),
+    chairs: [{ id: chair, pose: { x: 0, y: 0, theta: 0 } }],
+    balls: [{ id: ball, p: { x: 5, y: 0 } }],
+    order,
+  });
+  const tap = { x: 5, y: 0 };
+
+  it('order 를 안 실은 스냅샷은 기본층으로 판정한다 — 공이 휠체어 위다(옛 드릴이 안 변한다)', () => {
+    expect(hitTest(tap, overlapping(), baseCtx)).toEqual({ kind: 'ball', id: ball });
+  });
+
+  it('공을 휠체어 아래로 보내면 같은 자리를 눌러 휠체어가 잡힌다', () => {
+    // 아래→위: 공, 휠체어.
+    const order: SceneSnapshot['order'] = [
+      { kind: 'ball', id: ball },
+      { kind: 'chair', id: chair },
+    ];
+    expect(hitTest(tap, overlapping(order), baseCtx)).toEqual({ kind: 'chair', id: chair, s: expect.any(Number) });
+  });
+
+  it('order 에 안 적힌 개체도 잡힌다 — 목록과 판이 어긋나도 조용히 안 잡히는 것이 없다', () => {
+    // 공만 적힌 목록. 휠체어는 목록에서 빠져 있다(캐스트가 지워졌는데 자세만 남은 고아 —
+    // `fillPreset` 이 남기는 그것이 이 저장소의 반복 사고다, 계획서 결정 13).
+    // 빠진 것은 **맨 위**로 친다(`sceneOrder` 규칙 ③). 목록을 곧이곧대로 따르면 휠체어가
+    // 순서에 없다는 이유로 영영 안 잡혀 지울 수조차 없게 된다.
+    const order: SceneSnapshot['order'] = [{ kind: 'ball', id: ball }];
+    expect(hitTest(tap, overlapping(order), baseCtx)).toEqual({ kind: 'chair', id: chair, s: expect.any(Number) });
+  });
+
+  it('선택된 화살표의 앵커는 **위에 공이 놓여 있어도** 잡힌다 — 핸들은 몸통보다 앞이다', () => {
+    const arrow = { id: 'ar_t9' as ArrowId, from: { x: 100, y: 100 }, ctrl: { x: 250, y: 100 }, to: { x: 400, y: 100 } };
+    // 공을 from 앵커 **정확히 위**에 올린다. 기본층에서 공은 화살표보다 위라, 순서만 보면 공이다.
+    const scene: SceneSnapshot = { ...emptyScene(), arrows: [arrow], balls: [{ id: ball, p: arrow.from }] };
+    const picked: HitContext = { ...baseCtx, selectedArrowId: arrow.id };
+    expect(hitTest(arrow.from, scene, picked)).toEqual({ kind: 'arrowHandle', id: arrow.id, which: 'from' });
+    // 대조군 — 화살표를 안 고르면 앵커가 안 그려지므로 그 자리의 답은 공이다. 이게 없으면 위
+    // 단언은 "공이 애초에 안 잡히는 자리였다" 와 구분되지 않는다.
+    expect(hitTest(arrow.from, scene, baseCtx)).toEqual({ kind: 'ball', id: ball });
   });
 });
 

@@ -45,6 +45,7 @@ import {
   translateStroke,
 } from '../../model/stroke.ts';
 import { LIMITS } from '../../model/validate.ts';
+import { sceneOrder } from '../../model/zOrder.ts';
 import { translate } from '../../i18n/useT.ts';
 import { arrowLabel } from '../../render/objects/ArrowPath.tsx';
 import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipWidthPx, noteRingRadiusPx } from '../../render/objects/noteChip.ts';
@@ -340,6 +341,13 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 획은 스텝이 통째로 소유한다(물리 바디가 없다) — 도형과 같은 부류라 물리 스냅샷이
       // 아니라 `ctx.step` 에서 읽는다. v9 이하로 저장됐던 스텝에는 필드가 아예 없다.
       strokes: ctx.step.strokes ?? [],
+      // ★ 표시 순서(아래→위) — 2026-09-06, PLAN-Z-ORDER 결정 9. **히트테스트가 화면과 같은
+      //   답을 내는 유일한 배선**이다: 이 한 줄이 없으면 판은 사용자가 정한 순서로 그리는데
+      //   손은 옛 종류 서열로 잡아, "앞으로 보냈는데 클릭은 뒤의 것이 잡힌다" 가 된다.
+      //   여기서 순서를 다시 짜지 않고 `sceneOrder` 를 부르는 이유는 렌더 다섯 경로가 쓰는
+      //   함수와 **같은 것이어야** 하기 때문이다(경로별 드리프트).
+      //   캐스트는 `ctx.drill.cast` 다 — 스텝의 PoseMap 키 순서는 저장·복원에서 안 정해진다.
+      order: sceneOrder(ctx.step, ctx.drill.cast),
     };
   }, []);
 

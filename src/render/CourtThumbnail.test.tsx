@@ -156,9 +156,12 @@ describe('도형·메모 — 썸네일에도 잡힌다', () => {
     const { container } = render(
       <CourtThumbnail mode="full" thumb={spec({ shapes: [SHAPE], chairs: [{ x: 100, y: 100, a: 0, t: 0, g: 0 }] })} />,
     );
-    const gs = [...container.querySelectorAll('svg > g')];
-    const shapeAt = gs.findIndex((el) => el.hasAttribute('data-shape-layer'));
-    const objAt = gs.findIndex((el) => el.querySelector('circle') !== null);
+    // ⚠️ 2026-09-06 — 도형은 이제 개체 층 **안**에서 순서 목록의 한 칸이다(PLAN-Z-ORDER 결정 4·12,
+    //    `thumb.z` 가 없으면 기본층). 그래서 "svg 직계 g" 가 아니라 문서 순서로 앞뒤를 본다.
+    //    이 단언이 지키는 것(기본값은 도형이 개체 아래)은 그대로다.
+    const els = [...container.querySelectorAll('[data-shape-layer], circle')];
+    const shapeAt = els.findIndex((el) => el.hasAttribute('data-shape-layer'));
+    const objAt = els.findIndex((el) => el.tagName === 'circle');
     expect(shapeAt).toBeGreaterThanOrEqual(0);
     expect(shapeAt).toBeLessThan(objAt); // 개체보다 먼저 = 아래
   });

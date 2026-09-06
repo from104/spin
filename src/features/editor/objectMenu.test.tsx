@@ -25,6 +25,8 @@ import { cues } from '../../ui/cues.ts';
 import { LONG_PRESS_MS, MOVE_CANCEL_PX, useLongPressMenu } from './useLongPressMenu.ts';
 import { setStepFlag } from '../../model/edits.ts';
 import { createDrill } from '../../model/defaults.ts';
+import { saveBoard } from '../../storage/board.ts';
+import type { NoteId } from '../../core/ids.ts';
 
 // ── ① 손짓 ──────────────────────────────────────────────────────────────────────────
 
@@ -262,6 +264,8 @@ describe('메뉴 — 화면 끝', () => {
           onRemove={noop}
           onSelect={noop}
           onDuplicate={noop}
+          onZOrder={noop}
+          zMoves={null}
           onEdit={noop}
         />,
         { wrapper: SettingsProvider },
@@ -304,6 +308,8 @@ describe('[복제] — 항목은 도형·메모에만 뜬다', () => {
         onRemove={noop}
         onSelect={noop}
         onDuplicate={onDuplicate}
+        onZOrder={noop}
+        zMoves={null}
         onEdit={noop}
       />,
       { wrapper: SettingsProvider },
@@ -550,6 +556,8 @@ describe('[미세 조정] 칸', () => {
         onRemove={noop}
         onSelect={noop}
         onDuplicate={noop}
+        onZOrder={noop}
+        zMoves={null}
         onEdit={noop}
       />,
       { wrapper: SettingsProvider },
@@ -571,5 +579,128 @@ describe('[미세 조정] 칸', () => {
     cleanup();
     open(['sh_1']);
     expect(screen.queryByRole('menuitem', { name: '미세 조정' })).toBeNull();
+  });
+});
+
+// ── [표시순서] 하위 화면 (2026-09-06, docs/PLAN-Z-ORDER.md 결정 5·7·10) ──────────────────
+// 메뉴가 지는 몫은 셋뿐이다: **칸을 낼지**(`zMoves === null`), **죽일지**(넷 다 false),
+// 그리고 **누른 것을 그대로 넘기되 메뉴를 안 닫는지**. 어느 것이 어디로 가는지(순서 규칙)는
+// model/zOrder.test.ts 소관이고, 여기서 다시 돌면 같은 시나리오가 두 벌이 된다.
+describe('[표시순서] 하위 화면', () => {
+  const base = { x: 10, y: 10, locked: false, ignored: false, canIgnore: false, editable: null, selectSame: null };
+  const noop = () => {};
+  const ALL_OFF = { front: false, forward: false, backward: false, back: false };
+
+  const open = (zMoves: Record<'back' | 'backward' | 'forward' | 'front', boolean> | null, ids = ['sh_1']) => {
+    const onZOrder = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ObjectMenu
+        target={{ ...base, ids }}
+        onClose={onClose}
+        onFineTune={noop}
+        onToggleLock={noop}
+        onToggleIgnore={noop}
+        onRemove={noop}
+        onSelect={noop}
+        onDuplicate={noop}
+        onEdit={noop}
+        onZOrder={onZOrder}
+        zMoves={zMoves}
+      />,
+      { wrapper: SettingsProvider },
+    );
+    return { onZOrder, onClose };
+  };
+
+  it('zMoves 가 null 이면 칸 자체가 없다 — 여럿을 골랐거나 잠긴 개체다', () => {
+    // 여럿의 "한 단계" 는 답이 하나가 아니다(결정 10). 칸이 뜨면 누를 수 있고, 누르면
+    // 무대는 ids[0] 하나만 옮긴다 — 고른 다섯 중 하나만 움직이는 결과가 된다.
+    open(null);
+    expect(screen.queryByRole('menuitem', { name: '표시순서' })).toBeNull();
+  });
+
+  it('넷 다 불가능하면 죽은 칸으로 뜨고, 눌러도 하위 화면이 안 열린다', () => {
+    // 칸을 **없애지 않는** 것이 값이다: 없애면 "이 개체에는 표시순서가 없다" 로 읽히지만
+    // 사실은 지금 겹친 것이 없을 뿐이다. 그 이유는 title 이 말한다.
+    open(ALL_OFF);
+    const item = screen.getByRole('menuitem', { name: '표시순서' });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    expect(item).toHaveAttribute('title', '겹친 개체 없음');
+    fireEvent.click(item);
+    expect(screen.queryByRole('menuitem', { name: '한 단계 앞으로' }), '죽은 칸이 화면을 바꿨다').toBeNull();
+  });
+
+  it('열면 첫 활성 항목에 포커스가 서고, 누르면 op 를 넘기되 메뉴는 그대로 있다', () => {
+    // ★ 메뉴가 닫히면 [한 단계 앞으로] 를 두 번 누르려면 매번 다시 열어야 한다 — 그 사이
+    //   개체는 손·메뉴 밑에 가려진다. 연타가 이 화면의 기본 사용법이다(계획서 결정 7).
+    const { onZOrder, onClose } = open({ front: false, forward: true, backward: true, back: true });
+    fireEvent.click(screen.getByRole('menuitem', { name: '표시순서' }));
+    // [맨 앞으로]가 죽어 있으므로 첫 활성 항목은 [한 단계 앞으로] 다 — 죽은 칸에 세우면
+    // 키보드로 온 사람의 첫 입력이 아무 일도 안 한다.
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: '한 단계 앞으로' }));
+
+    fireEvent.click(screen.getByRole('menuitem', { name: '한 단계 앞으로' }));
+    expect(onZOrder).toHaveBeenCalledWith('sh_1', 'forward');
+    expect(onClose, '하위 항목은 메뉴를 닫지 않는다').not.toHaveBeenCalled();
+
+    // 불가능한 항목은 화면만 흐린 것이 아니라 **동작도 없다** — 게이트가 style 에만 있으면
+    // 이미 맨 앞인 개체를 또 맨 앞으로 보내는 빈 되돌리기 칸이 쌓인다.
+    fireEvent.click(screen.getByRole('menuitem', { name: '맨 앞으로' }));
+    expect(onZOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it('[돌아가기]는 첫 화면으로 되돌리고 포커스를 [표시순서] 로 돌려준다', () => {
+    // 나온 자리로 돌려주지 않으면 키보드·스크린리더 사용자는 방금 어디에 있었는지를 잃는다
+    // (모달의 returnFocusRef 와 같은 계약 — AGENTS.md §1.7).
+    open({ front: true, forward: true, backward: true, back: true });
+    fireEvent.click(screen.getByRole('menuitem', { name: '표시순서' }));
+    expect(screen.queryByRole('menuitem', { name: '삭제' }), '하위 화면이 첫 화면을 덮는다').toBeNull();
+    fireEvent.click(screen.getByRole('menuitem', { name: '돌아가기' }));
+    expect(screen.getByRole('menuitem', { name: '삭제' })).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: '표시순서' }));
+  });
+});
+
+// ── [표시순서] — 무대 끝까지 (2026-09-06 검수) ──────────────────────────────────────────
+// 위 describe 는 메뉴 **부품**만 잰다. 여기서는 판 위에 겹친 메모 둘을 놓고 오른쪽 클릭 →
+// [표시순서] → [맨 뒤로] 가 **DOM 순서를 실제로 바꾸는지**를 본다 — 모델(moveZ)·리듀서(Z_ORDER)·
+// 무대(EditorStage 가 `order` 를 CourtStage 로 내리는 한 줄)·판(ObjectLayer) 네 층의 배선이다.
+// 2026-09-06 검수 시점에 그 한 줄이 빠져 있었다: 모델·메뉴·렌더 테스트가 전부 초록인 채로
+// 앱에서는 [맨 뒤로]를 눌러도 화면이 그대로였다("계산은 되는데 아무도 안 읽는 배선").
+// ⚠️ 개체는 **저장본으로 심는다**(`saveBoard` → BoardScreen 부팅 ②). jsdom 에서는 포인터로 놓은
+//    개체의 좌표가 전부 Infinity 라(무대 rect 가 0) 겹침 문지기가 영영 안 열린다.
+describe('[표시순서] — 무대 끝까지', () => {
+  const noteIds = (): string[] => [...document.querySelectorAll('.court-obj[id^="obj-nt_"]')].map((el) => el.id.replace(/^obj-/, ''));
+
+  it('★ 겹친 메모 둘 — 위의 것을 [맨 뒤로] 보내면 판의 DOM 순서가 뒤집힌다', async () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs() }));
+    const base = createDrill({ courtMode: 'full', empty: true });
+    const below = 'nt_below' as NoteId;
+    const above = 'nt_above' as NoteId;
+    // 같은 자리에 메모 둘 — 메모는 서로 밀어내지 않으므로 겹친 채로 남는다(휠체어는 자가 분리한다).
+    saveBoard({
+      ...base,
+      steps: [
+        {
+          ...base.steps[0]!,
+          notes: [
+            { id: below, x: 300, y: 250, text: '아래' },
+            { id: above, x: 300, y: 250, text: '위' },
+          ],
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    render(<BoardScreen />, { wrapper: Wrapper });
+    await waitFor(() => expect(noteIds()).toEqual([below, above]));
+
+    // 위의 것의 몸통에 오른쪽 클릭 — 이 파일의 다른 시나리오와 같은 손짓이다.
+    fireEvent.contextMenu(document.getElementById(`obj-${above}`)!, { clientX: 40, clientY: 40 });
+    await user.click(await screen.findByRole('menuitem', { name: '표시순서' }));
+    await user.click(await screen.findByRole('menuitem', { name: '맨 뒤로' }));
+    await waitFor(() => expect(noteIds()).toEqual([above, below]));
+    // 메뉴는 그대로 남는다(연타용) — 그리고 이제 맨 뒤이므로 [맨 뒤로]는 죽는다.
+    expect(screen.getByRole('menuitem', { name: '맨 뒤로' })).toHaveAttribute('aria-disabled', 'true');
   });
 });

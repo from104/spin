@@ -17,7 +17,7 @@ import {
   strokeWidthIndexOf,
   type Stroke,
 } from './stroke.ts';
-import { buildStepThumb, THUMB_CAPS } from './thumb.ts';
+import { buildStepThumb, THUMB_CAPS, thumbSequence } from './thumb.ts';
 
 const line = (color?: string): Arrow => {
   const a: Arrow = { id: newId('ar'), from: { x: 0, y: 0 }, ctrl: { x: 50, y: 10 }, to: { x: 100, y: 0 } };
@@ -155,5 +155,43 @@ describe('buildStepThumb — 자유 그리기 획', () => {
     const many = Array.from({ length: THUMB_CAPS.strokes + 2 }, () => zigzag(4));
     expect(buildStepThumb(withStrokes(many), 0).strokes).toHaveLength(THUMB_CAPS.strokes);
     expect(buildStepThumb(withStrokes([]), 0).strokes).toBeUndefined();
+  });
+});
+
+// 개체 표시 순서(2026-09-06, PLAN-Z-ORDER 결정 12). 요약은 id 를 안 담으므로 순서를 **평탄 목록의
+// 첨자 순열**로 나른다 — 그 부호화와 복호화가 서로 맞는지, 목록 없는 스텝은 키가 없는지를 잰다.
+describe('buildStepThumb — 표시 순서(z)', () => {
+  const rect: Shape = { id: newId('sh'), kind: 'rect', x: 300, y: 250, w: 100, h: 60, rot: 0 };
+  const withOrder = (): { drill: Drill; chairId: string } => {
+    const base = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    const chair = base.cast.chairs[0]!;
+    const step = {
+      ...base.steps[0]!,
+      chairs: { [chair.id]: { x: 300, y: 250, angleDeg: 0 } },
+      balls: {},
+      cones: {},
+      arrows: [],
+      notes: [],
+      shapes: [rect],
+    };
+    return { drill: { ...base, steps: [step] }, chairId: chair.id };
+  };
+
+  it('★ 도형을 휠체어 위로 올리면 요약이 그 차례를 싣고, 목록이 없으면 키 자체가 없다', () => {
+    // 지우면 새는 버그: 카드만 판과 다른 순서로 그려진다(순서를 바꾼 스텝에서만, 겹친 둘의 앞뒤가
+    // 뒤집혀서). 키 없음 쪽을 지우면 옛 요약과 모양이 갈려 재구축 없이도 되쓰기가 는다.
+    const { drill, chairId } = withOrder();
+    expect(Object.hasOwn(buildStepThumb(drill, 0), 'z')).toBe(false);
+    // 평탄 목록은 기본층 순서 [도형, 휠체어] = [0, 1]. 도형을 위로 올렸으니 [1, 0].
+    const t = buildStepThumb({ ...drill, steps: [{ ...drill.steps[0]!, zOrder: [chairId, rect.id] }] }, 0);
+    expect(t.z).toEqual([1, 0]);
+    expect(thumbSequence(t.z, 2)).toEqual([1, 0]);
+  });
+
+  it('순열이 배열과 어긋나도 개체가 사라지지 않는다 — 범위 밖·중복은 버리고 빠진 것은 맨 위', () => {
+    // 지우면 새는 버그: 캡을 바꾼 뒤 옛 요약의 순열이 새 배열 길이와 어긋나면 카드에서 개체가
+    // 조용히 빠지거나(첨자 누락) 같은 것이 두 번 그려진다(중복).
+    expect(thumbSequence([2, 9, -1, 2], 4)).toEqual([2, 0, 1, 3]);
+    expect(thumbSequence(undefined, 3)).toEqual([0, 1, 2]);
   });
 });

@@ -103,9 +103,30 @@ describe('drill v9→v10 — 자유 그리기 획', () => {
     ]);
   });
 
-  it('v10 을 아는 앱만 v10 파일을 연다 — 옛 앱은 too-new 로 정직하게 거절한다', () => {
-    // 도장을 올린 목적 그 자체다(drill.ts CURRENT_DRILL_SCHEMA v10 주석): v9 앱이 새 파일을
-    // 열면 손으로 그은 선을 통째로 빠뜨린 채 "멀쩡한" 드릴을 보여 준다.
+});
+
+describe('drill v10→v11 — 개체 표시 순서(zOrder)', () => {
+  const v10 = (): Record<string, unknown> => ({
+    schemaVersion: 10,
+    steps: [{ id: 'st_1', shapes: [{ id: 'sh_1' }] }],
+  });
+
+  it('도장만 올린다 — 옛 스텝에 zOrder 를 찍지 않는다', () => {
+    // ⚠️ 찍으면 **거짓말이 된다**: 목록이 있다는 것은 "사용자가 순서를 정했다" 는 뜻이고,
+    // 그 위에 sceneOrder 규칙 ③(목록에 없는 새 개체는 맨 위)이 선다. 옛 드릴에서 새로 놓은
+    // 콘이 기본층 자리가 아니라 칩 위로 튀어 오르는 것이 그 거짓말의 값이다.
+    const r = migrateDoc(v10(), DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.doc.schemaVersion).toBe(CURRENT_DRILL_SCHEMA);
+    const step = (r.doc.steps as Array<Record<string, unknown>>)[0]!;
+    expect('zOrder' in step).toBe(false);
+    expect(step.shapes, '마이그레이션이 내용을 건드렸다').toEqual([{ id: 'sh_1' }]);
+  });
+
+  it('지금 도장을 아는 앱만 지금 파일을 연다 — 한 단계 옛 앱은 too-new 로 정직하게 거절한다', () => {
+    // 도장을 올린 목적 그 자체다(drill.ts CURRENT_DRILL_SCHEMA v11 주석): v10 앱은 zOrder 를
+    // 몰라 사용자가 정한 순서를 통째로 무시하고 고정 순서로 "멀쩡한" 드릴을 보여 준다.
     const r = migrateDoc({ schemaVersion: CURRENT_DRILL_SCHEMA }, DRILL_MIGRATIONS, CURRENT_DRILL_SCHEMA - 1);
     expect(r).toEqual({ ok: false, reason: 'too-new', found: CURRENT_DRILL_SCHEMA, supported: CURRENT_DRILL_SCHEMA - 1 });
   });

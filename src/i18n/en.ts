@@ -786,6 +786,13 @@ export const en: Record<DictKey, string> = {
   // ── C7 — Object menu ────────────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': 'Object Menu',
   'editor.objectMenu.fineTune': 'Fine-tune',
+  'editor.objectMenu.zOrder': 'Display order',
+  'editor.objectMenu.zOrder.front': 'Bring to front',
+  'editor.objectMenu.zOrder.forward': 'Bring forward',
+  'editor.objectMenu.zOrder.backward': 'Send backward',
+  'editor.objectMenu.zOrder.back': 'Send to back',
+  'editor.objectMenu.zOrder.backToMenu': 'Back',
+  'editor.objectMenu.zOrder.noOverlap': 'Nothing overlaps this object',
   'editor.nudgePad.ariaLabel': 'Fine-tune pad',
   'editor.objectMenu.nudgeUp': 'Nudge up',
   'editor.objectMenu.nudgeDown': 'Nudge down',

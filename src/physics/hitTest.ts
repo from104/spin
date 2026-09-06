@@ -1,4 +1,9 @@
 // 포인터 → 대상/존 판정, 존 핸들 배치. §5.12.
+//
+// ⚠️ 2026-09-06 — **몸통 판정의 서열이 종류에서 표시 순서로 옮겨졌다**(`docs/PLAN-Z-ORDER.md`
+// 결정 9). 아래 `scanPass` 머리말이 그 근거의 정본이고, 이 파일이 순서를 **직접 계산하는 일은
+// 없다**: `SceneSnapshot.order` 로 받아 쓰기만 한다(정본은 `model/zOrder.ts` 의 `sceneOrder`
+// 하나 — 경로마다 정렬을 다시 짜는 것이 이 저장소에서 네 번 터진 드리프트의 발원지다).
 import type { Vec2 } from '../core/units.ts';
 import { CHAIR, BALL, CONE, NOTE, INTERACT } from '../core/constants.ts';
 import type { ChairId, BallId, ConeId, NoteId, ArrowId, StrokeId } from '../core/ids.ts';
@@ -8,6 +13,8 @@ import { ARROW_STYLE, arrowRotateHandlePoint } from '../model/arrow.ts';
 import type { ArrowGrip } from '../model/arrow.ts';
 import { strokeHandlePoints } from '../model/stroke.ts';
 import type { StrokeGrip } from '../model/stroke.ts';
+import { DEFAULT_TIERS } from '../model/zOrder.ts';
+import type { SceneRef } from '../model/zOrder.ts';
 
 /** §6.10 편집기 도구 8종의 key. 원 소유자는 store/screen-editor(Wave 3/4)지만, hitTest 의
  *  `HitContext` 시그니처가 §5.12 계약에 `tool: ToolId` 로 이미 못박혀 있고 physics-world 는
@@ -114,6 +121,21 @@ export interface SceneSnapshot {
    *  "판에 획이 없다" 라고 **거짓말**을 하게 되고 그 결과는 조용한 미스히트다(손으로 그은
    *  선만 안 잡힌다). 컴파일러가 모든 장면 조립부에 한 번씩 물어보게 두는 편이 싸다. */
   strokes: ReadonlyArray<{ id: StrokeId; points: readonly Vec2[] }>;
+  /** 이 스텝의 **표시 순서(아래→위)** — `model/zOrder.ts` 의 `sceneOrder(step, cast)` 결과를
+   *  그대로 싣는다(2026-09-06, PLAN-Z-ORDER 결정 9). 몸통 판정이 이 목록을 **위에서부터**
+   *  훑어 처음 맞는 것을 준다: 화면에서 위에 그려진 것이 손에도 먼저 잡힌다.
+   *
+   *  ⚠️ **선택 사항이고, 없으면 스냅샷 내용에서 `DEFAULT_TIERS` 순서로 만든다.** 필수로 두지
+   *  않는 이유는 `strokes` 를 필수로 둔 이유(위)와 정반대다: 빠뜨렸을 때의 뜻이 **거짓말이
+   *  아니라 참말**이기 때문이다 — "이 스텝은 순서를 정한 적이 없다" 는 옛 드릴 전부의 상태이고,
+   *  그때의 답은 기본층 순서로 판정하는 것이 맞다. 덕분에 개체 한 종류만 재는 단위 테스트들이
+   *  순서를 몰라도 예전과 같은 답을 받는다.
+   *
+   *  목록에 있어도 이 스냅샷에 없는 id(도형·지운 개체)는 조용히 건너뛴다 — 도형은 히트테스트의
+   *  대상이 아니고(SVG 이벤트가 직접 받는다, 위 `ToolId` 주석), 나머지는 정화가 지운다.
+   *  반대로 스냅샷에 있는데 목록에 없는 개체는 **맨 위로** 친다(`sceneOrder` 규칙 ③ 과 같다).
+   *  그래야 모델과 물리 스냅샷이 한 프레임 어긋나도 개체가 조용히 안 잡히는 일이 없다. */
+  order?: readonly SceneRef[];
 }
 
 export function zoneHandles(
@@ -287,38 +309,88 @@ export function forgivingRadius(ctx: HitContext): number | null {
   return (ctx.hitCssPx ?? INTERACT.hitTargetCssPx) / 2 / ctx.pxPerUnit;
 }
 
-/** §5.12 우선순위 표. 반경만 주입받는다(위 PickRadii 주석 참고). */
+/** 스냅샷 내용만으로 만든 **기본층 순서(아래→위)** — `scene.order` 를 안 준 호출부(순서를
+ *  정한 적 없는 옛 드릴, 개체 한 종류만 재는 단위 테스트)가 예전과 같은 답을 받게 하는 자리다.
+ *  층 목록은 `model/zOrder.ts` 의 `DEFAULT_TIERS` 를 **그대로 읽는다** — 여기에 배열을 하나 더
+ *  적어 두면 그 순간 기본층의 정본이 둘이 된다(PLAN-Z-ORDER §0 이 막으려는 바로 그것).
+ *
+ *  도형 칸이 비어 있는 것은 빠뜨린 것이 아니다: 도형은 이 스냅샷에 아예 없고, 도형의 히트
+ *  판정은 SVG 이벤트가 직접 한다(위 `ToolId` 주석). */
+function tierOrder(scene: SceneSnapshot): SceneRef[] {
+  const out: SceneRef[] = [];
+  for (const kind of DEFAULT_TIERS) {
+    switch (kind) {
+      case 'shape':
+        break; // 히트 대상이 아니다(위 주석)
+      case 'cone':
+        for (const c of scene.cones) out.push({ kind, id: c.id });
+        break;
+      case 'stroke':
+        for (const s of scene.strokes) out.push({ kind, id: s.id });
+        break;
+      case 'arrow':
+        for (const a of scene.arrows) out.push({ kind, id: a.id });
+        break;
+      case 'chair':
+        for (const c of scene.chairs) out.push({ kind, id: c.id });
+        break;
+      case 'ball':
+        for (const b of scene.balls) out.push({ kind, id: b.id });
+        break;
+      case 'note':
+        for (const n of scene.notes) out.push({ kind, id: n.id });
+        break;
+    }
+  }
+  return out;
+}
+
+/** 이번 판정이 쓸 순서(아래→위). `scene.order` 가 정본이고, 거기 안 적힌 개체는 **맨 위**에
+ *  붙인다 — `sceneOrder` 규칙 ③("목록이 생긴 뒤 놓은 것은 맨 위")과 같은 규칙이라 판과 손이
+ *  갈리지 않고, 모델과 물리 스냅샷이 한 프레임 어긋나도 개체가 **조용히 안 잡히는** 일이 없다. */
+function effectiveOrder(scene: SceneSnapshot): readonly SceneRef[] {
+  const tiers = tierOrder(scene);
+  const given = scene.order;
+  if (!given || given.length === 0) return tiers;
+  const named = new Set(given.map((ref) => ref.id));
+  const extra = tiers.filter((ref) => !named.has(ref.id));
+  return extra.length === 0 ? given : [...given, ...extra];
+}
+
+/** §5.12 우선순위 표. 반경만 주입받는다(위 PickRadii 주석 참고).
+ *
+ *  ── ⚠️ 2026-09-06: 표가 4단으로 다시 짜였다(`docs/PLAN-Z-ORDER.md` 결정 9) ─────────────
+ *  옛 표는 **개체 종류가 곧 서열**이었다: ①공·콘·메모(가장 가까운 것) → ②휠체어 OBB →
+ *  ③화살표 앵커 → ③b 획 앵커 → ④존 핸들 → ⑤휠체어 패드 → ⑥선 몸통(가장 가까운 것).
+ *  그 서열은 "겹치면 어느 것이 잡히나" 를 사용자가 못 바꾸는 상수로 못박는데, 이제 사용자가
+ *  표시 순서를 정한다 — *"앞으로 보냈는데 클릭은 뒤의 것이 잡힌다"* 가 되면 그 기능의 뜻이
+ *  통째로 죽는다. 그래서 몸통은 종류를 안 보고 `scene.order` 를 **위에서부터** 훑어 처음 맞는
+ *  것을 준다. 종류 서열과 "가까운 쪽이 이긴다" 는 이 지점에서 폐기됐다.
+ *
+ *  지금의 4단:
+ *   (가) **선택된 화살표·획의 앵커**(옛 ③·③b). 순서 목록에 없는 것이 맞다: 개체가 아니라
+ *        **조작점**이고, 선 **밖**(끝점·회전 앵커는 48px 바깥)에 그려진다. 그려진 자리를
+ *        짚었는데 밑의 개체가 잡히면 앵커를 못 쓰므로 몸통보다 앞이다 — 그래서 앵커 위에
+ *        공이 놓여 있어도 앵커가 이긴다.
+ *   (나) **엄격 몸통** — 공·콘·메모 반경, 휠체어 OBB, 화살표·획 몸통 거리. 위→아래 첫 히트.
+ *   (다) **존 핸들**(옛 ④) — 몸통 **뒤**. 이유는 그 자리 주석에 있다(핸들이 차체 안에 앉는다).
+ *   (라) **휠체어 hull + 패드**(옛 ⑤) — 그대로 맨 뒤. 순서에 안 넣는 이유는 이것이 휠체어의
+ *        몸이 아니라 **잡기 여유**이기 때문이다((나)의 OBB 가 진짜 몸이다). 여유가 남의 몸을
+ *        이기면 "빈 곳을 짚었는데 옆 휠체어가 잡힌다" 가 된다.
+ *
+ *  대가를 숫자로(§2 규율 3) — 두 칸의 앞뒤가 뒤집혔다.
+ *   ⓐ 옛 ③·③b(화살표·획 앵커)가 옛 ①②(공·콘·메모, 휠체어 OBB)보다 **앞**으로 왔다. 선택된
+ *     화살표의 끝이 공·칩 위에 얹혀 있으면(선 도구가 개체 중심 15px 안에서 시작점을 빨아들이므로
+ *     흔한 배치다) 이제 앵커가 이긴다. 그 화살표를 고른 동안만이다.
+ *   ⓑ 옛 ⑥(선 몸통)이 옛 ④⑤(존 핸들, 휠체어 패드)보다 **앞**으로 왔다. 존 핸들 원이나 차체 밖
+ *     패드 구역(hull + 10px, 관대 패스에서는 그 자리가 55px)에 걸친 화살표·획은 이제 선이 이긴다.
+ *  둘 다 "화면에서 위에 그려진 것이 손에도 먼저 잡힌다" 쪽으로 기운 것이다. 2단(엄격→관대)
+ *  구조와 "두 패스가 같은 표를 쓴다" 는 계약은 그대로다. */
 function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii): HitResult | null {
   const { pxPerUnit } = ctx;
 
-  // 1) 공 / 콘 / 메모 — 자기 픽 반지름. 여러 후보 중 가장 가까운 것을 고른다.
-  let best: { kind: 'ball' | 'cone' | 'note'; id: string; d: number } | null = null;
-  for (const b of scene.balls) {
-    const d = dist(p, b.p);
-    if (d <= r.ball && (!best || d < best.d)) best = { kind: 'ball', id: b.id, d };
-  }
-  for (const c of scene.cones) {
-    const d = dist(p, c.p);
-    if (d <= r.cone && (!best || d < best.d)) best = { kind: 'cone', id: c.id, d };
-  }
-  // 메모만 판정이 둘이다: **픽 원 ∪ 칩 상자**. 원은 작은 칩에 주던 관대함이고(빈 쪽지의
-  // 외접원 20 + 패드), 상자는 큰 칩이 자기 몸만큼 잡히게 하는 것이다. 합집합이라 어느 쪽도
-  // 상대를 줄이지 않는다 — 빈 메모의 판정은 2026-08-17 이전과 정확히 같다(칩 32×24 ⊂ 원 20).
-  // 가까움 비교는 **중심 거리**로 한다: 상자 안이라도 다른 개체가 더 가까우면 그쪽이 이긴다.
-  for (const n of scene.notes) {
-    const d = dist(p, n.p);
-    const inChip = Math.abs(p.x - n.p.x) <= n.halfW && Math.abs(p.y - n.p.y) <= n.halfH;
-    if ((inChip || d <= r.note) && (!best || d < best.d)) best = { kind: 'note', id: n.id, d };
-  }
-  if (best) return { kind: best.kind, id: best.id };
-
-  // 2) 어떤 휠체어든 정확한 OBB 본체(pad 없음). 반경과 무관하므로 2차 패스에서는 절대
-  //    새로 걸리지 않는다 — 그래도 표를 통째로 유지해야 "같은 우선순위" 가 참이 된다.
-  for (const c of scene.chairs) {
-    if (pointInConvexQuad(p, chairCorners(c.pose))) return { kind: 'chair', id: c.id, s: projectGrab(c.pose, p).s };
-  }
-
-  // 3) 선택된 화살표의 핸들(from/ctrl/to).
+  // ── (가) 선택된 화살표·획의 앵커 ────────────────────────────────────────────
+  // 화살표의 핸들(from/ctrl/to).
   if (ctx.selectedArrowId) {
     const a = scene.arrows.find((x) => x.id === ctx.selectedArrowId);
     if (a) {
@@ -339,11 +411,11 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
     }
   }
 
-  // 3b) 선택된 획의 앵커(from/to/rotate) — 2026-09-03. 화살표 앵커와 **같은 우선순위·같은
-  //     반경**이고, 자리는 `strokeHandlePoints` 가 정한다(StrokeHandles 가 그리는 것과 같은
-  //     순수 함수 — 보이는 자리와 잡히는 자리가 갈리지 않는 유일한 방법이다).
-  //     화살표 뒤인 것은 순서일 뿐 경쟁이 아니다: 선택은 한 번에 하나라 두 필드가 동시에
-  //     차는 일이 없다(useEditorPointer.buildHitContext 가 selection 에서 종류별로 하나씩 뽑는다).
+  // 획의 앵커(from/to/rotate) — 2026-09-03. 화살표 앵커와 **같은 우선순위·같은 반경**이고,
+  // 자리는 `strokeHandlePoints` 가 정한다(StrokeHandles 가 그리는 것과 같은 순수 함수 —
+  // 보이는 자리와 잡히는 자리가 갈리지 않는 유일한 방법이다).
+  // 화살표 뒤인 것은 순서일 뿐 경쟁이 아니다: 선택은 한 번에 하나라 두 필드가 동시에 차는
+  // 일이 없다(useEditorPointer.buildHitContext 가 selection 에서 종류별로 하나씩 뽑는다).
   if (ctx.selectedStrokeId) {
     const s = scene.strokes.find((x) => x.id === ctx.selectedStrokeId);
     if (s) {
@@ -362,7 +434,81 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
     }
   }
 
-  // 4) 선택된 휠체어의 존 핸들(표시 중일 때만, 최근접 1개).
+  // ── (나) 엄격 몸통 — 표시 순서의 **위→아래**, 처음 맞는 것이 답 ──────────────
+  //
+  // ⚠️ 허용 오차(`tol`)는 **획의 굵기를 안 본다.** 굵기 3단(2.4/3.4/5.2)의 반두께 차이는 최대
+  // 1.4 px 인데 픽 패드(`arrowPad` = 6 CSS px)가 그보다 네 배 넘게 크다 — 굵기별로 나누면 손이
+  // 못 느끼는 차이를 위해 판정이 개체마다 달라진다. 화살표와 같은 값이라 "화살표 옆에 그은 획이
+  // 같은 선으로 보인다"(STROKE_DEFAULT_WIDTH_PX)가 잡는 손에도 참이 된다.
+  //
+  // ── ⚠️ 2026-09-06: 아래 옛 근거는 뒤집혔다(PLAN-Z-ORDER 결정 9) ─────────────────
+  //   *"선 몸통 — 화살표와 획이 같은 칸에서 겨룬다(2026-09-03). 한쪽을 먼저 훑고 return 하면
+  //    겹친 자리에서 개체 종류가 곧 우선순위가 되는데, 그 서열에는 아무 근거가 없다(둘 다 판에
+  //    덧그린 선이다). 1)의 공·콘·메모가 이미 쓰는 '가장 가까운 것이 이긴다' 를 여기서도 쓴다."*
+  //  전제("겹친 자리에서 무엇이 이길지 정할 근거가 없다")가 죽었다 — 이제 근거가 있다.
+  //  사용자가 [표시순서]로 정한 순서가 그것이고, 그 답은 화면에 이미 그려져 있다. 거리로
+  //  가르면 위에 그린 선을 짚어도 밑의 선이 잡혀 순서 기능이 거짓말이 된다. 종류 서열이
+  //  아니라 **사용자가 정한 순서**로 가른다는 점에서 옛 근거의 뜻(종류는 서열이 아니다)은
+  //  살아 있다.
+  const tol = ARROW_STYLE.width / 2 + r.arrowPad;
+  const order = effectiveOrder(scene);
+  for (let i = order.length - 1; i >= 0; i -= 1) {
+    const ref = order[i]!;
+    switch (ref.kind) {
+      case 'ball': {
+        const b = scene.balls.find((x) => x.id === ref.id);
+        if (b && dist(p, b.p) <= r.ball) return { kind: 'ball', id: b.id };
+        break;
+      }
+      case 'cone': {
+        const c = scene.cones.find((x) => x.id === ref.id);
+        if (c && dist(p, c.p) <= r.cone) return { kind: 'cone', id: c.id };
+        break;
+      }
+      case 'note': {
+        // 메모만 판정이 둘이다: **픽 원 ∪ 칩 상자**. 원은 작은 칩에 주던 관대함이고(빈 쪽지의
+        // 외접원 20 + 패드), 상자는 큰 칩이 자기 몸만큼 잡히게 하는 것이다. 합집합이라 어느
+        // 쪽도 상대를 줄이지 않는다 — 빈 메모의 판정은 2026-08-17 이전과 정확히 같다
+        // (칩 32×24 ⊂ 원 20).
+        // ⚠️ 2026-09-06 — 옛 주석의 *"가까움 비교는 중심 거리로 한다: 상자 안이라도 다른
+        //   개체가 더 가까우면 그쪽이 이긴다"* 는 죽었다. 이제 비교가 없다(순서가 가른다).
+        const n = scene.notes.find((x) => x.id === ref.id);
+        if (!n) break;
+        const inChip = Math.abs(p.x - n.p.x) <= n.halfW && Math.abs(p.y - n.p.y) <= n.halfH;
+        if (inChip || dist(p, n.p) <= r.note) return { kind: 'note', id: n.id };
+        break;
+      }
+      case 'chair': {
+        // 정확한 OBB 본체(pad 없음). 반경과 무관하므로 2차 패스에서는 절대 새로 걸리지
+        // 않는다 — 그래도 표를 통째로 유지해야 "같은 우선순위" 가 참이 된다.
+        const c = scene.chairs.find((x) => x.id === ref.id);
+        if (c && pointInConvexQuad(p, chairCorners(c.pose)))
+          return { kind: 'chair', id: c.id, s: projectGrab(c.pose, p).s };
+        break;
+      }
+      case 'arrow': {
+        const a = scene.arrows.find((x) => x.id === ref.id);
+        if (a && distPointToQuadBezier(p, a.from, a.ctrl, a.to) <= tol) return { kind: 'arrow', id: a.id };
+        break;
+      }
+      case 'stroke': {
+        const s = scene.strokes.find((x) => x.id === ref.id);
+        if (s && distPointToPolyline(p, s.points) <= tol) return { kind: 'stroke', id: s.id };
+        break;
+      }
+      case 'shape':
+        break; // 이 스냅샷에 도형은 없다 — SVG 이벤트가 직접 받는다(위 `ToolId` 주석)
+    }
+  }
+
+  // ── (다) 선택된 휠체어의 존 핸들 — 표시 중일 때만, 최근접 1개 ────────────────
+  // ⚠️ **몸통보다 뒤인 것이 계약이다.** 네 핸들의 레버는 -22.5·0·22.5·45 px 이라 앞의 셋이
+  // 차체 **안**에 앉고(translate 는 피벗 정확히 위), 반경이 22 CSS px 이라 선택된 휠체어의
+  // 차체는 거의 통째로 핸들 원에 덮인다. 이걸 (가)로 올리면 **선택된 휠체어의 몸을 짚는 길이
+  // 사라진다** — 재탭 해제도, 옆 휠체어 고르기도 전부 핸들에 먹힌다(2026-09-06 실측:
+  // useEditorPointer.tapDeselect.test.tsx 4건이 그 자리에서 빨개졌다). 화살표·획 앵커를 (가)에
+  // 두는 근거("조작점은 몸통 위에 그려진다")가 여기엔 안 통한다: 저쪽 앵커는 선 **밖**에
+  // 앉지만 이쪽 핸들은 몸 **안**에 앉기 때문이다.
   if (ctx.handlesVisible && ctx.selectedChairId) {
     const c = scene.chairs.find((x) => x.id === ctx.selectedChairId);
     if (c) {
@@ -376,7 +522,7 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
     }
   }
 
-  // 5) 휠체어 hull + 패드 — 후보가 여럿이면 |lat| 최소.
+  // ── (라) 휠체어 hull + 패드 — 후보가 여럿이면 |lat| 최소 ────────────────────
   let padBest: { id: string; s: number; lat: number } | null = null;
   for (const c of scene.chairs) {
     const g = chairPadHit(c.pose, p, r.chairPad);
@@ -384,33 +530,17 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
   }
   if (padBest) return { kind: 'chair', id: padBest.id, s: padBest.s };
 
-  // 6) 선 몸통 — 화살표와 획이 **같은 칸에서 겨룬다**(2026-09-03).
-  //    한쪽을 먼저 훑고 return 하면 겹친 자리에서 개체 종류가 곧 우선순위가 되는데, 그
-  //    서열에는 아무 근거가 없다(둘 다 판에 덧그린 선이다). 1)의 공·콘·메모가 이미 쓰는
-  //    "가장 가까운 것이 이긴다" 를 여기서도 쓴다 — 화살표만 있는 판에서는 답이 예전과 같다.
-  //
-  //    ⚠️ 허용 오차는 **획의 굵기를 안 본다.** 굵기 3단(2.4/3.4/5.2)의 반두께 차이는 최대
-  //    1.4 px 인데 픽 패드(`arrowPad` = 6 CSS px)가 그보다 네 배 넘게 크다 — 굵기별로 나누면
-  //    손이 못 느끼는 차이를 위해 판정이 개체마다 달라진다. 화살표와 같은 값이라 "화살표 옆에
-  //    그은 획이 같은 선으로 보인다"(STROKE_DEFAULT_WIDTH_PX)가 잡는 손에도 참이 된다.
-  const tol = ARROW_STYLE.width / 2 + r.arrowPad;
-  let lineBest: { kind: 'arrow' | 'stroke'; id: string; d: number } | null = null;
-  for (const a of scene.arrows) {
-    const d = distPointToQuadBezier(p, a.from, a.ctrl, a.to);
-    if (d <= tol && (!lineBest || d < lineBest.d)) lineBest = { kind: 'arrow', id: a.id, d };
-  }
-  for (const s of scene.strokes) {
-    const d = distPointToPolyline(p, s.points);
-    if (d <= tol && (!lineBest || d < lineBest.d)) lineBest = { kind: 'stroke', id: s.id, d };
-  }
-  if (lineBest) return { kind: lineBest.kind, id: lineBest.id };
-
   return null;
 }
 
 /** §5.12 히트테스트 — **2단(엄격 → 관대)**, §4.3 P1-2.
  *
- *  1차는 예전 그대로다. 1차가 **아무것도 반환하지 않았을 때만** 같은 표를 화면 기준
+ *  ⚠️ 2026-09-06 — *"1차는 예전 그대로다"* 는 **더 이상 참이 아니다**(PLAN-Z-ORDER 결정 9).
+ *  표 자체가 4단으로 다시 짜였고 두 패스가 그 새 표를 같이 쓴다(scanPass 머리말). 이 문단이
+ *  지키려던 계약은 *"1차 패스의 반경은 한 픽셀도 안 변한다"* 이고 **그건 그대로다** —
+ *  변한 것은 같은 반경으로 잰 후보들 중 무엇이 이기느냐(종류 서열 → 표시 순서)뿐이다.
+ *
+ *  1차가 **아무것도 반환하지 않았을 때만** 같은 표를 화면 기준
  *  히트 타깃(기본 44 CSS px = 반경 22/s 월드)으로 한 번 더 훑는다. "빗나감 → 선택 해제" 가
  *  (select 도구에서) "빗나감 → 44 CSS px 안의 가장 앞선 후보" 로 바뀌는 것이 이 변화의 전부다.
  *

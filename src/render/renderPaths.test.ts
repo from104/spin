@@ -41,13 +41,13 @@ const EVIDENCE: Record<SceneElementId, readonly string[]> = {
   ballRings: ['RuleOverlay', 'ruleMarkup'],
   ownerArrow: ['RuleOverlay', 'ruleMarkup', 'ownerArrow'],
   sideFlags: ['SideMarks', 'sideMarksMarkup', 'sideFlagGroups'],
-  chairs: ['ChairChip', 'chairsMarkup', 'data-print-chair', 'ThumbSpec', 'chairs'],
-  balls: ['BallDot', 'ballsMarkup', 'balls'],
-  cones: ['ConeMark', 'conesMarkup', 'cones'],
-  shapes: ['ShapeLayer', 'shapesMarkup'],
-  arrows: ['ArrowPath', 'arrowsMarkup', 'arrowPath', 'PresentArrowLayer'],
-  strokes: ['StrokePath', 'strokesMarkup', 'strokePath', 'PresentStrokeLayer'],
-  notes: ['NoteLabel', 'notesMarkup', 'noteChip', 'PresentNoteLayer'],
+  chairs: ['ChairChip', 'chairMarkup', 'data-print-chair', 'ThumbSpec', 'chairs'],
+  balls: ['BallDot', 'ballMarkup', 'balls'],
+  cones: ['ConeMark', 'coneMarkup', 'cones'],
+  shapes: ['ShapeLayer', 'ShapeMark', 'shapesMarkup'], // 2026-09-06 — 층(ShapeLayer)은 썸네일만, 나머지 넷은 한 장씩(ShapeMark)
+  arrows: ['ArrowPath', 'arrowMarkup', 'arrowPath', 'PresentArrowMark'],
+  strokes: ['StrokePath', 'strokeMarkup', 'strokePath', 'PresentStrokeMark'],
+  notes: ['NoteLabel', 'noteMarkup', 'noteChip', 'PresentNoteMark'],
 };
 
 const sourceOf = (path: RenderPathId): string =>

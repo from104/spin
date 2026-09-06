@@ -435,9 +435,19 @@ function sanitizeStrokes(raw: unknown, repairs: Repair[]): Stroke[] {
 /** 도형 하나를 신뢰 가능한 값으로 접는다. 좌표는 코트 안으로 클램프하고(다른 개체와 같은
  *  규율), 크기·각도는 모델의 상·하한으로 가둔다 — 손편집·옛 파일·버그가 만든 0 폭이나
  *  NaN 각도가 들어오면 화면에서 **집을 수 없는 도형**이 되어 지울 방법이 사라진다. */
-/** id 목록을 살아 있는 것만 남기고 중복을 접는다. 순서는 보존한다 — 순서가 뜻을 갖지는
- *  않지만, 왕복(내보내기→가져오기)에서 배열이 흔들리면 diff 가 매번 시끄러워진다. */
-function sanitizeIdList(raw: unknown, alive: ReadonlySet<string>, where: string, repairs: Repair[]): string[] {
+/** id 목록을 살아 있는 것만 남기고 중복을 접는다. 순서는 보존한다 — `locked`/`ignored` 에서는
+ *  순서가 뜻을 갖지 않지만 왕복(내보내기→가져오기)에서 배열이 흔들리면 diff 가 매번
+ *  시끄러워지고, `zOrder` 에서는 **순서가 곧 내용**이다(2026-09-06 v11).
+ *
+ *  `dropMsg` 를 인자로 받는 이유: 세 목록의 뜻이 달라 같은 문구로 뭉뚱그리면 사용자가 보는
+ *  보정 사유가 거짓이 된다(순서 목록은 "상태 플래그" 가 아니다). */
+function sanitizeIdList(
+  raw: unknown,
+  alive: ReadonlySet<string>,
+  where: string,
+  repairs: Repair[],
+  dropMsg = '없는 개체를 가리키는 상태 플래그 제거',
+): string[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
   const out: string[] = [];
@@ -451,8 +461,21 @@ function sanitizeIdList(raw: unknown, alive: ReadonlySet<string>, where: string,
     seen.add(v);
     out.push(v);
   }
-  if (dropped) pushRepair(repairs, where, '없는 개체를 가리키는 상태 플래그 제거', true);
+  if (dropped) pushRepair(repairs, where, dropMsg, true);
   return out;
+}
+
+/** 표시 순서 목록(v11, 2026-09-06). `locked`/`ignored` 와 **같은 정화 규칙**을 쓴다 — 그
+ *  스텝에 실제로 있는 id 만, 중복 제거, 순서 보존.
+ *
+ *  ⚠️ 고아 id 를 안 걷으면 저장본에 쌓인다(이 저장소의 반복 사고 — 계획서 결정 13).
+ *  `sceneOrder` 가 읽을 때 무시하므로 화면은 멀쩡한데, 파일만 매 편집마다 부푼다.
+ *
+ *  상한을 따로 두지 않는 이유: `alive` 가 곧 상한이다(그 스텝의 개체 총수). 개체 수 자체는
+ *  이미 `maxArrowsPerStep`·`maxShapesPerStep`·`strokesPerStep`·`maxNotesPerStep`·`maxCones` 가
+ *  가둔다 — 여기에 숫자를 하나 더 두면 그 숫자가 다음 드리프트의 발원지가 된다. */
+function sanitizeZOrder(raw: unknown, alive: ReadonlySet<string>, repairs: Repair[]): string[] {
+  return sanitizeIdList(raw, alive, 'steps.zOrder', repairs, '없는 개체를 가리키는 표시 순서 항목 제거');
 }
 
 function sanitizeShape(raw: unknown, mode: CourtMode, size: CourtSize, repairs: Repair[]): Shape | null {
@@ -849,6 +872,10 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       pushRepair(repairs, 'steps.cut', 'cut 값이 true 가 아니어서 폐기(키 없음 = 연결)', true);
     }
     const cut = cutRaw === true;
+    // 표시 순서(v11) — `locked` 와 같은 `alive` 기준이다. 비면 키를 안 만든다: 빈 목록은
+    // "순서를 안 정했다" 이고 그건 키 없음과 같은 뜻이라, 표현이 둘이면 sameDrill(canonical
+    // 비교)이 같은 문서를 다르게 본다(`strokes`·`ballRings` 와 같은 절약).
+    const zOrder = sanitizeZOrder(rawStep.zOrder, alive, repairs);
 
     stepsOut.push({
       id,
@@ -869,6 +896,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       ...(locked.length > 0 ? { locked } : {}),
       ...(ignored.length > 0 ? { ignored } : {}),
       ...(cut ? { cut } : {}),
+      ...(zOrder.length > 0 ? { zOrder } : {}),
     });
   }
   if (stepsOut.length > LIMITS.maxSteps) {
