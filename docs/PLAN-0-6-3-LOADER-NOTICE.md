@@ -627,3 +627,25 @@ U1~U11 이 병렬로 랜딩했다(신규 12파일 · 수정 9파일). 아래는 
   그래서 데스크톱 dist 에는 `.seo-prerender` 가 없고 첫 부팅은 항상 배경색 → 로더다.
 
 **안 한 것.** 프리렌더 제거. JS 를 안 돌리는 크롤러·미리보기 봇이 홈 본문을 잃는다.
+
+### 10.11 데스크톱(WebKitGTK)에서 회전축이 머리가 아니었다 (2026-09-06, 기현님 실기 보고)
+
+**증상.** 크롬은 맞는데 Tauri 앱(WebKitGTK 2.52)은 차체가 머리 아닌 곳을 축으로 돈다.
+
+**원인.** `.spin-chair`·`.spin-ball` 의 `transform-origin` 을 **px** 로 적었다(`275.38px 186.62px`,
+`305px 345px`). 크롬은 `transform-box: view-box` 아래 px 를 viewBox 사용자 단위로 풀지만 WebKitGTK 는
+그러지 않는다 — 정적 transform 이든 애니메이션이든 같다. 스크래치 `pivot-test.html` 을 WebKit(python gi
+`WebKit2` 4.1 오프스크린 스냅샷)과 크롬에서 나란히 찍어 봤다:
+
+| 방식 | 크롬 | WebKitGTK |
+|---|---|---|
+| view-box + px (당시) | ○ | ✗ |
+| view-box + 백분율 | ○ | ○ |
+| 중첩 translate + 원점 0 0 | ○ | ○ |
+| SVG `transform-origin` 속성 | ○ | ✗ |
+| px, transform-box 없음 | ○ | ✗ |
+
+**수정.** 백분율(좌표/512). DOM 은 안 건드린다(중첩 translate 도 맞지만 마크 구조 계약 2 를 흔든다).
+
+**남기는 관행.** SVG 자식에 CSS 변환 원점을 줄 때는 **px 를 쓰지 않는다** — 백분율이나 중첩 translate.
+데스크톱 웹뷰 확인은 실기 전에 스크래치 `wk-shot.py`(WebKit2 오프스크린 스냅샷)로 먼저 찍는다.

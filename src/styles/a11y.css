@@ -330,15 +330,23 @@
  *     규율 — 사용자가 고른 팔레트와 싸우지 않는다).
  *
  * `transform-box: view-box` 는 Chrome 64+ / Safari 15.4+ / Firefox 55+ 다. 그 아래 구형
- * 웹뷰에서는 회전축이 요소 박스 기준으로 읽혀 차체가 엉뚱하게 돈다(계획서 §8-3, 눈으로 잡는다). */
+ * 웹뷰에서는 회전축이 요소 박스 기준으로 읽혀 차체가 엉뚱하게 돈다(계획서 §8-3, 눈으로 잡는다).
+ *
+ * ⚠️ 2026-09-06: 원점을 **px 가 아니라 viewBox 백분율**로 적는다. WebKitGTK 2.52(데스크톱 앱의
+ * 웹뷰)는 SVG 자식의 `transform-origin` px 값을 view-box 기준으로 안 풀어서 차체가 머리가 아닌
+ * 데를 돌고 공 눌림도 공 밖에서 일어났다(기현님 실기 보고). 크롬은 px 도 맞다. 백분율은 두 엔진
+ * 모두 viewBox(512) 기준으로 푼다 — 정적·애니메이션 경로 모두 스크래치 `pivot-test*.html` 로
+ * WebKit/크롬 나란히 찍어 확인(계획서 §10.11). 값 = 좌표/512. 머리·공 좌표를 옮기면 여기도. */
 .spin-chair {
   transform-box: view-box;
-  transform-origin: 275.38px 186.62px; /* 머리(흰 원) 중심 — 위 주석. 차체 중심도, 선회 피벗도 아니다 */
+  /* 머리(흰 원) 중심 (275.38, 186.62)/512 — 차체 중심도, 선회 피벗도 아니다 */
+  transform-origin: 53.7852% 36.4492%;
   animation: spin-chair 1200ms linear infinite;
 }
 .spin-ball {
   transform-box: view-box;
-  transform-origin: 305px 345px; /* 공 중심(logo.svg) — 눌림 배율이 공 자리에서 일어나야 한다 */
+  /* 공 중심 (305, 345)/512 (logo.svg) — 눌림 배율이 공 자리에서 일어나야 한다 */
+  transform-origin: 59.5703% 67.3828%;
   animation: spin-ball 1200ms linear infinite;
 }
 .spin-mark {
