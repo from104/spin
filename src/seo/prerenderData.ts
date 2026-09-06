@@ -9,10 +9,16 @@
 //
 // 이 모듈은 **React 를 안 쓴다**(순수 데이터 → 문자열). scripts/prerender.mjs 가 SSR 빌드로
 // 한 번 굽고 노드에서 부른다.
+//
+// 2026-09-06: 개인정보처리방침·서비스 약관 6장을 여기에 더했다(PLAN-LEGAL-PAGES 결정 4).
+// 그 본문의 출처도 화면이 읽는 바로 그 원문 파일 하나다 — `legalContent.ts` 의 순수 함수를
+// 앱과 이 모듈이 같이 쓴다. `?raw` import 는 `vite build --ssr` 에서도 문자열로 들어온다.
 import { SUPPORTED_LOCALES } from '../i18n/locale.ts';
 import type { Locale } from '../i18n/locale.ts';
 import { misconductCardsFor, ruleTopicsFor } from '../features/rules/ruleTopics.ts';
 import { ruleContentFor } from '../features/rules/ruleContent.ts';
+import { LEGAL_DOCS, extractLegalSection, legalHtml, legalTitle } from '../features/settings/legalContent.ts';
+import type { LegalDoc } from '../features/settings/legalContent.ts';
 
 export const SITE_ORIGIN = 'https://spin.atit.app';
 
@@ -68,6 +74,22 @@ const SITE: Record<Locale, SiteText> = {
       'パワーチェアーサッカーの競技規則を9つのテーマに分け、図解とアニメーションで説明します。コートと用具、ゲームの目的、2対1、ゴールエリア3人、反則と再開、18条の付録まで。',
     openApp: '作戦盤を開く',
     rulesHome: 'ルールカードを全部見る',
+  },
+};
+
+/** 법적 문서 두 벌의 **설명 한 줄**만 여기 둔다. 제목은 없다 — 문서 제목의 출처는 원문 HTML 의
+ *  `<h1>` 하나뿐이다(`legalTitle`). 설명은 원문에 대응하는 문장이 없어서(원문은 본문부터
+ *  시작한다) 여기서 새로 쓴다. 검색 결과·공유 카드에만 쓰이므로 i18n 사전에 넣지 않는다. */
+const LEGAL: Record<LegalDoc, Record<Locale, string>> = {
+  privacy: {
+    ko: 'SPIN 개인정보처리방침. 이용자의 데이터는 기기 안에 저장되고 이를 받는 서버가 없습니다. 동기화를 켰을 때만 이용자 자신의 Google 드라이브로 나갑니다.',
+    en: 'SPIN Privacy Policy. Your data stays on your device and no server receives it. It leaves only for your own Google Drive, and only when you turn sync on.',
+    ja: 'SPIN プライバシーポリシー。利用者のデータは端末内に保存され、受け取るサーバーはありません。同期を有効にしたときだけ、利用者自身の Google ドライブへ送られます。',
+  },
+  terms: {
+    ko: 'SPIN 서비스 약관. 개인이 만들어 무료로 있는 그대로 제공하는 앱의 이용 조건, 이용자가 만든 내용의 권리, 책임의 한계를 적었습니다.',
+    en: 'SPIN Terms of Service. The conditions for using this free, as-is app built by an individual developer: your rights to what you create, and the limits of liability.',
+    ja: 'SPIN 利用規約。個人が作り無償・現状のまま提供するアプリの利用条件、利用者が作った内容の権利、責任の範囲を定めています。',
   },
 };
 
@@ -171,7 +193,7 @@ function alternatesFor(pathAfterPrefix: string): PrerenderPage['alternates'] {
   return [...list, { hreflang: 'x-default', url: `${SITE_ORIGIN}${pageUrl('', pathAfterPrefix)}` }];
 }
 
-/** 구울 페이지 전부. 3언어 × (홈 + 규칙 카드 홈 + 주제 9개). */
+/** 구울 페이지 전부. 3언어 × (홈 + 규칙 카드 홈 + 주제 9개 + 법적 문서 2개) = 39장. */
 export function prerenderPages(): PrerenderPage[] {
   const out: PrerenderPage[] = [];
 
@@ -268,6 +290,47 @@ export function prerenderPages(): PrerenderPage[] {
           url: `${SITE_ORIGIN}${pageUrl(prefix, path)}`,
           inLanguage: site.htmlLang,
           isPartOf: { '@type': 'CollectionPage', name: site.rulesTitle, url: `${SITE_ORIGIN}${pageUrl(prefix, '/rules')}` },
+        },
+        alternates: alternatesFor(path),
+      });
+    }
+
+    // ── 개인정보처리방침·서비스 약관 ────────────────────────────────────────
+    // 앱 안에서 이 문서를 보는 주소는 `/settings/privacy` 지만(결정 1), 검색엔진과 구글 동의
+    // 화면에 이미 준 공개 주소는 `/privacy/`·`/terms/` 그대로다(결정 4). robots.txt 가
+    // `/settings` 를 통째로 막으므로 공개 주소를 그 아래로 옮기면 색인이 사라진다.
+    // 여기 구운 주소에 착지하면 `parsePath` 가 앱 안 화면으로 흡수한다 — 같은 문서가
+    // 이어서 앱 틀 안에 뜬다.
+    for (const doc of LEGAL_DOCS) {
+      const path = `/${doc}`;
+      // `stripH1: false` — 화면은 헤더가 제목을 들고 있어 h1 을 떼지만, 프리렌더 본문은 그
+      // 자체가 문서라 h1 이 있어야 크롤러가 글의 머리를 안다.
+      const section = extractLegalSection(legalHtml(doc), locale, { stripH1: false });
+      if (section === null) throw new Error(`법적 문서에 ${locale} 절이 없습니다: ${doc}`);
+      // 제목의 출처도 원문 하나다 — 화면 헤더가 쓰는 바로 그 함수를 부른다(두 벌을 만들면
+      // 원문을 고친 날 검색 결과에만 옛 제목이 남는다). 규칙 페이지와 달리 `· SPIN` 꼬리를
+      // 안 붙인다: h1 이 이미 "SPIN 개인정보처리방침" 처럼 제품 이름을 품고 있다.
+      const title = legalTitle(doc, locale);
+      if (title === null) throw new Error(`법적 문서 ${doc}#${locale} 절에 <h1> 이 없습니다.`);
+      const description = LEGAL[doc][locale];
+      out.push({
+        url: pageUrl(prefix, path),
+        locale,
+        htmlLang: site.htmlLang,
+        ogLocale: site.ogLocale,
+        title,
+        description,
+        // 본문을 다시 이스케이프하지 않는다 — 원문 자체가 우리가 쓴 HTML 이다(규칙 페이지는
+        // 데이터에서 태그를 **만들어** 붙이므로 esc 가 필요했다).
+        body: section,
+        jsonLd: {
+          '@context': 'https://schema.org',
+          '@type': 'WebPage',
+          name: title,
+          description,
+          url: `${SITE_ORIGIN}${pageUrl(prefix, path)}`,
+          inLanguage: site.htmlLang,
+          isPartOf: { '@type': 'WebSite', name: 'SPIN', url: `${SITE_ORIGIN}${pageUrl('', '')}` },
         },
         alternates: alternatesFor(path),
       });

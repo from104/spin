@@ -14,6 +14,7 @@ vi.mock('../../storage/files.ts', async (importOriginal) => {
 });
 
 import { SettingsScreen } from './SettingsScreen.tsx';
+import type { HomeNav } from '../home/nav.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
@@ -24,6 +25,22 @@ import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { collectBackup, exportBackupFile } from '../../storage/transfer.ts';
 import { downloadBlob } from '../../storage/files.ts';
 import { createDrill } from '../../model/defaults.ts';
+
+/** HomeNav 목 — 이 화면은 2026-09-06 부터 `nav` 를 받는다(법 문서 링크가 앱 화면 전환이 되면서).
+ *  설정 절들 자체는 nav 를 안 쓰므로 전부 no-op 이면 된다. */
+function makeNav(): HomeNav {
+  return {
+    newDrill: vi.fn(),
+    openDrill: vi.fn(),
+    goLibrary: vi.fn(),
+    openSession: vi.fn(),
+    presentDrill: vi.fn(),
+    presentSession: vi.fn(),
+    openRuleTopic: vi.fn(),
+    openLegal: vi.fn(),
+  };
+}
+
 
 const downloadMock = vi.mocked(downloadBlob);
 
@@ -49,7 +66,7 @@ beforeEach(() => {
 
 describe('SettingsScreen — 화면', () => {
   it('테마를 라이트로 바꾸면 즉시 반영되고 localStorage 에 저장된다', async () => {
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('radio', { name: '라이트' }));
@@ -98,7 +115,7 @@ describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
   }
 
   it('서랍은 닫힌 채로 태어난다 — 슬라이더가 DOM 에 없고, 열면 6종이 나온다', async () => {
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     const disclosure = screen.getByRole('button', { name: '세부 조정' });
     expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryAllByRole('slider')).toHaveLength(0);
@@ -115,7 +132,7 @@ describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
     const d = makeDefaultPrefs();
     savePrefs({ ...d, physics: { zones: { sTowRearMax: 0.18 }, linearKmh: 6 } });
 
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     expect(screen.queryAllByRole('slider')).toHaveLength(0); // 서랍은 닫혀 있다
 
     // 닫힌 채로 **다른 설정을 저장**해 본다 — setPrefs 병합이 physics 를 흘리면 여기서 죽는다.
@@ -134,7 +151,7 @@ describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
   });
 
   it('기본값으로 복원하면(서랍을 열면 나온다) physics 오버라이드가 비워진다', async () => {
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     await openPhysicsDrawer();
     const slider = screen.getByRole('slider', { name: '후방 견인 경계' });
     fireEvent.change(slider, { target: { value: '0.18' } });
@@ -150,7 +167,7 @@ describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
   // 편집 중 속도 제한을 꺼둔 코치가 여기서 슬라이더만 되돌려도 제한이 말없이 다시 켜진다.
   it('기본값으로 복원해도 speedLimit(편집 화면의 속도 제한 해제)은 건드리지 않는다', async () => {
     savePrefs({ ...makeDefaultPrefs(), physics: { zones: { sTowRearMax: 0.18 }, speedLimit: false } });
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     await openPhysicsDrawer();
 
     await userEvent.setup().click(screen.getByRole('button', { name: '기본값으로 복원' }));
@@ -165,7 +182,7 @@ describe('SettingsScreen — 물리 설명문 (minor 회귀)', () => {
   // 계약(prefs.ts §5.11 주석)에 맞으므로 설명문 쪽을 고쳤다 — "자동 재생에만" 문구가 다시
   // 나타나지 않는지 확인한다. 6.1 이후 이 문장은 서랍을 열어야 나온다.
   it('"편집 속도 배수" 설명이 드래그에도 적용됨을 밝힌다("자동 재생에만"이라고 말하지 않는다)', async () => {
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     await userEvent.setup().click(screen.getByRole('button', { name: '세부 조정' }));
     expect(screen.getByText('드래그와 놓은 뒤 이어가기, 둘 다의 속도 상한에 곱해집니다')).toBeInTheDocument();
     expect(screen.queryByText(/자동 재생에만 적용/)).toBeNull();
@@ -184,7 +201,7 @@ describe('SettingsScreen — 물리 설명문 (minor 회귀)', () => {
 describe('SettingsScreen — 데이터 내보내기(2026-08-20)', () => {
   it('내보내기 버튼이 있고, 누르면 backup 봉투가 파일로 떨어진다', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '측면 돌파', drillType: 'tactical' });
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     expect(downloadMock).toHaveBeenCalledTimes(0); // 대조군
 
     await userEvent.setup().click(screen.getByRole('button', { name: '내보내기' }));
@@ -215,7 +232,7 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
   }
 
   it('파일을 고르면 곧바로 복원하지 않고 먼저 묻는다 — 설정 체크박스는 꺼진 채로 나온다', async () => {
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     expect(screen.queryByRole('dialog')).toBeNull(); // 대조군: 처음엔 없다
     await pick(await backupFile());
     const dialog = await screen.findByRole('dialog');
@@ -231,7 +248,7 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
   it('[읽기]를 누르면 드릴이 들어오고 세 숫자를 보고한다', async () => {
     await idbDrillRepo.createDrill({ courtMode: 'full', title: '백업용 드릴' });
     const file = await backupFile();
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     await pick(file);
     await userEvent.setup().click(await screen.findByRole('button', { name: '읽기' }));
     expect(await screen.findByText(/드릴 \d+개 가져옴 · \d+개 실패 · \d+개 건너뜀/)).toBeInTheDocument();
@@ -246,7 +263,7 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
     const file = await backupFile(); // 이 파일의 테마는 라이트
     localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadPrefs(), theme: 'dark' }));
 
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     // 대조군 — 시작은 다크다(파일과 다른 값에서 출발해야 변화가 의미를 갖는다).
     expect(screen.getByRole('radio', { name: '다크' })).toHaveAttribute('aria-checked', 'true');
 
@@ -269,7 +286,7 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
     const file = await backupFile(); // 이 파일에는 판이 들어 있다
     saveBoard(createDrill({ courtMode: 'full', title: '이 기기의 편집 중 판' }));
 
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     await pick(file);
     await userEvent.setup().click(await screen.findByRole('button', { name: '읽기' }));
 
@@ -284,7 +301,7 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
     const file = await backupFile();
     saveBoard(createDrill({ courtMode: 'full', title: '희생될 편집 중 판' }));
 
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     await pick(file);
     const user = userEvent.setup();
     await user.click(await screen.findByRole('checkbox', { name: /전술판 교체/ }));
@@ -295,7 +312,7 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
   });
 
   it('백업이 아닌 파일은 사유를 말한다 — 조용히 아무 일도 안 일어나면 안 된다', async () => {
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     await pick(new File(['그냥 글자'], 'x.json', { type: 'application/json' }));
     await userEvent.setup().click(await screen.findByRole('button', { name: '읽기' }));
     expect(await screen.findByRole('status')).toBeInTheDocument();
@@ -306,7 +323,7 @@ describe('SettingsScreen — 데이터 가져오기 (§6.1b, 옛 이름 "기기 
 describe('SettingsScreen — 도움말·튜토리얼 (§0.5 Phase 6)', () => {
   it('[모두 다시 보기] 를 누르면 tutorialsSeen 이 통째로 비고 토스트가 뜬다', async () => {
     savePrefs({ ...makeDefaultPrefs(), tutorialsSeen: { editor: true, board: true, present: true } });
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     await userEvent.setup().click(screen.getByRole('button', { name: '모두 다시 보기' }));
 
     expect(loadPrefs().tutorialsSeen).toEqual({});
@@ -318,7 +335,7 @@ describe('SettingsScreen — 도움말·튜토리얼 (§0.5 Phase 6)', () => {
   // 그대로 true 로 남아, [다시 보지 않기] 를 한 번 누른 사람이 영영 안내를 못 본다.
   it('[작은 화면 안내 다시 보기] 를 누르면 smallScreenNoticeDismissed 가 꺼지고 토스트가 뜬다', async () => {
     savePrefs({ ...makeDefaultPrefs(), smallScreenNoticeDismissed: true });
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     // Row 제목("작은 화면 안내 다시 보기")과 버튼 라벨("다시 보기")이 전용 키로 갈라졌다
     // (PLAN-0-6-3-LOADER-NOTICE §10.2 남는 빚 처리) — 버튼은 role 로 좁혀서 잡는다.
     await userEvent.setup().click(screen.getByRole('button', { name: '다시 보기' }));

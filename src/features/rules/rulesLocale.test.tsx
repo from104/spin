@@ -33,6 +33,7 @@ function nav(onOpen: (k?: string) => void): HomeNav {
     presentDrill: vi.fn(),
     presentSession: vi.fn(),
     openRuleTopic: onOpen,
+    openLegal: vi.fn(),
   };
 }
 

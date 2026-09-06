@@ -27,6 +27,7 @@ function makeNav(): HomeNav {
     presentDrill: vi.fn(),
     presentSession: vi.fn(),
     openRuleTopic: vi.fn(),
+    openLegal: vi.fn(),
   };
 }
 

@@ -92,6 +92,13 @@
       .seo-prerender h3 { font-size: 1rem; margin: 1.5rem 0 0.25rem; }
       .seo-prerender p { margin: 0 0 0.75rem; }
       .seo-prerender ul { margin: 0 0 1rem; padding-left: 1.25rem; }
+      /* 2026-09-06: 방침·약관 프리렌더(data-seo-page="legal")가 쓰는 것들. 원문 HTML 이 조문을
+         <ol> 로, 시행일·문의를 .meta 로 적는다(PLAN-LEGAL-PAGES 결정 6 — 원문 안쪽 요소는
+         인라인 스타일을 못 받는다). 번호는 글머리표보다 자리를 더 먹어 padding 이 크다.
+         .meta 는 색 대신 크기·불투명도로 낮춘다 — 이 블록의 hex 는 늘리지 않는다. */
+      .seo-prerender ol { margin: 0 0 1rem; padding-left: 1.5rem; }
+      .seo-prerender li { margin: 0 0 0.35rem; }
+      .seo-prerender .meta { font-size: 0.9rem; opacity: 0.75; margin: 0 0 1.5rem; }
       .seo-prerender a { color: #6cf; }
       :root[data-theme='light'] .seo-prerender { color: #1a2029; }
       /* 2026-09-06: JS 가 도는 브라우저에서는 **홈** 프리렌더 글을 첫 페인트부터 감춘다(아래 부트

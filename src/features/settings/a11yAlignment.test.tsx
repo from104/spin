@@ -15,6 +15,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 
 import { SettingsScreen } from './SettingsScreen.tsx';
+import type { HomeNav } from '../home/nav.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
@@ -27,6 +28,22 @@ import type { CueKind } from '../../ui/cueSpec.ts';
 import { createCuePlayer } from '../../ui/cues.ts';
 import { effectiveReduceMotion, stepTransitionMs } from '../../store/editor/tween.ts';
 import { createDrill } from '../../model/defaults.ts';
+
+/** HomeNav 목 — 이 화면은 2026-09-06 부터 `nav` 를 받는다(법 문서 링크가 앱 화면 전환이 되면서).
+ *  설정 절들 자체는 nav 를 안 쓰므로 전부 no-op 이면 된다. */
+function makeNav(): HomeNav {
+  return {
+    newDrill: vi.fn(),
+    openDrill: vi.fn(),
+    goLibrary: vi.fn(),
+    openSession: vi.fn(),
+    presentDrill: vi.fn(),
+    presentSession: vi.fn(),
+    openRuleTopic: vi.fn(),
+    openLegal: vi.fn(),
+  };
+}
+
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <SettingsProvider>
@@ -47,7 +64,7 @@ afterEach(() => {
 
 describe('6.2 ② 설명문 ↔ 실제 동작', () => {
   it('큰 터치 타깃 — 설명문의 숫자는 INTERACT 상수에서 오고, tokens.css 의 --hit 도 같은 값이다', async () => {
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     // 설명문이 상수를 그대로 읽으므로 상수가 바뀌면 문장도 따라온다 — 리터럴 드리프트가 불가능하다.
     expect(
       screen.getByText(new RegExp(`집기 반경이 ${INTERACT.hitTargetCssPx} → ${INTERACT.hitTargetLargeCssPx}px`)),
@@ -62,7 +79,7 @@ describe('6.2 ② 설명문 ↔ 실제 동작', () => {
   });
 
   it('2존 모드 — "차체 아무 곳을 잡아도 통째로": 토글 값이 실제 판정(applyTwoZone)을 뒤집는다', async () => {
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     expect(screen.getByText(/차체 아무 곳을 잡아도 통째로 움직입니다/)).toBeInTheDocument();
 
     // hitTest 가 만드는 것과 같은 모양의 차체 히트(존은 아직 없다 — 잡은 s 로 나중에 갈린다).
@@ -86,7 +103,7 @@ describe('6.2 ② 설명문 ↔ 실제 동작', () => {
   });
 
   it('놓임 소리·진동 — 설명문의 세 사건이 신호 목록의 전부이고, 끄면 소리도 진동도 없다', async () => {
-    render(<SettingsScreen />, { wrapper });
+    render(<SettingsScreen nav={makeNav()} />, { wrapper });
     // "놓거나(drop) 막히거나(blocked) 트레이로 되돌릴 때(trayReturn)" — CueKind 3종과 1:1.
     // 셋 다 소리(gain>0)와 진동(vibrateMs>0)을 **둘 다** 낸다 — "소리와 진동" 이 과장이 아니다.
     for (const kind of ['drop', 'blocked', 'trayReturn'] as CueKind[]) {
@@ -119,7 +136,7 @@ describe('6.2 ② 설명문 ↔ 실제 동작', () => {
     const orig = window.matchMedia;
     window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as unknown as typeof window.matchMedia;
     try {
-      render(<SettingsScreen />, { wrapper });
+      render(<SettingsScreen nav={makeNav()} />, { wrapper });
       expect(screen.getByText(/전환 애니메이션을 끕니다/)).toBeInTheDocument();
 
       const step = createDrill({ courtMode: 'full' }).steps[0]!;

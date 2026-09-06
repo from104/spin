@@ -40,6 +40,8 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
     ['rules', undefined],
     ['rules', { kind: 'rule', topic: 'two-on-one' }],
     ['settings', undefined],
+    ['settings', { kind: 'legal', doc: 'privacy' }],
+    ['settings', { kind: 'legal', doc: 'terms' }],
   ];
   it.each(cases)('%s + %j 가 경로 왕복에서 살아남는다', (scr, target) => {
     const path = pathFor(scr, target);
@@ -73,6 +75,19 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
   it('폐기된 /rules/contested 딥링크는 경기 재개(restarts)로 흡수된다', () => {
     expect(parsePath('/rules/contested')).toEqual({ screen: 'rules', target: { kind: 'rule', topic: 'restarts' } });
     expect(pathFor('rules', { kind: 'rule', topic: 'restarts' })).toBe('/rules/restarts');
+  });
+
+  // PLAN-LEGAL-PAGES 결정 4 — 색인용 공개 주소는 `/privacy/`·`/terms/` 로 남고(robots 가
+  // `/settings` 를 막는다) 앱은 그 착지를 설정 하위 문서로 흡수한다. law-N 과 같은 이유로
+  // **단방향**이다: pathFor 는 앱 안 주소 한 꼴만 낳는다.
+  it('공개 주소 /privacy·/terms 는 설정 하위 문서로 흡수되고, 반대 방향으로는 되돌아가지 않는다', () => {
+    expect(parsePath('/privacy/')).toEqual({ screen: 'settings', target: { kind: 'legal', doc: 'privacy' } });
+    expect(parsePath('/terms')).toEqual({ screen: 'settings', target: { kind: 'legal', doc: 'terms' } });
+    expect(pathFor('settings', { kind: 'legal', doc: 'privacy' })).toBe('/settings/privacy');
+  });
+
+  it('모르는 설정 하위 조각은 그냥 설정이다 — 문서 대상을 지어내지 않는다', () => {
+    expect(parsePath('/settings/xyz')).toEqual({ screen: 'settings' });
   });
 
   it('화면 키 전수에 pathFor 가 경로를 준다 (SCREEN_ORDER 대조군)', () => {

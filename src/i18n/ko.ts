@@ -134,6 +134,8 @@ export const ko = {
   'settings.legal.privacy': '개인정보처리방침',
   'settings.legal.terms': '서비스 약관',
   'settings.legal.syncHint': '연결하면 어떤 데이터가 어디로 가는지:',
+  'settings.legal.back': '설정으로',
+  'settings.legal.loadError': '이 언어로 된 문서를 찾지 못했습니다. 다른 언어로 바꿔 보세요.',
   'settings.data.exportSaved': '드릴 {{drills}}개 · 세션 {{sessions}}개와 설정을 파일 하나에 담았습니다.',
   'settings.data.exportFailed': '데이터 내보내기 파일을 만들지 못했습니다.',
   'settings.data.persistFailedToast': '설정이 이 탭에서만 유지됩니다.',
