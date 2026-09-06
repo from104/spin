@@ -3968,9 +3968,17 @@ FIPFA Laws of the Game(2025년판, `docs/RULES-FIPFA-2025.md` 가 정본)을 익
 **§6.9 시연 재생 경로를 그대로 재사용한다.** `PresentStage`(§6.9)는 저장소를 몰라도 되는
 컴포넌트다 — `drill: Drill` prop 하나만 받아 `sampleDrill`(§3.6) 순수 보간으로 그린다.
 규칙 화면은 `model/seedDrills.ts`(§3.9 언저리, 씨앗 드릴 스펙→`Drill` 변환기)의 패턴을 빌려
-`ruleScenes.ts`(**21개** 장면 데이터, `courtMode:'full'` + `courtSize:'28x15'` 고정 — 재설계로
+`ruleScenes.ts`(**21개** 장면 데이터 — 2026-09-06 현재 **22개**, 정본은 `RULE_SCENE_IDS` 와 그 개수를 못 박는
+`ruleScenes.test.ts` 한 줄이다 — `courtMode:'full'` + `courtSize:'28x15'` 고정 — 재설계로
 2-on-1 변형 4·세트볼·회전킥·경합 판정 7개가 늘었다)로 인메모리 `Drill` 을 만들고 그걸 그대로
 `PresentStage` 에 먹인다 — 드릴 리포지토리(§4.3)·IDB 를 전혀 거치지 않는다.
+
+> ⚠️ **2026-09-06: 빌리는 방향이 뒤집혔다.** 위 문단은 규칙 화면이 씨앗 드릴의 패턴을 빌린다고
+> 적었는데, 지금은 **씨앗 드릴이 규칙 장면을 쓴다** — 첫 실행에 심는 드릴의 정본이
+> `RULE_SCENE_IDS` 하나가 됐다(2026-09-06 기현 지시, `docs/PLAN-SEED-FROM-RULES.md`,
+> `AGENTS.md` §5). 규칙 화면이 인메모리 `Drill` 을 만들어 `PresentStage` 에 먹이는 위 경로는
+> **한 줄도 바뀌지 않는다**(시드는 같은 `Drill` 을 리포지토리에 저장할 뿐이다).
+> 옛 손코딩 시드 본문(`src/model/seedDrillContent.ts` 3벌)은 폐기, 변환기는 존치.
 
 **§5 물리(matter-js)는 쓰지 않는다.** §5.10 이 이미 못박아 둔 구분 그대로다: 편집은 물리
 드래그, **재생은 물리가 아니라 결정론적 보간**이다. 시연이 그렇듯 규칙 화면도 재생만 하므로

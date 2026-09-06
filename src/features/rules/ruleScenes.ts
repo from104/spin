@@ -100,6 +100,11 @@ import { drill as spinKickScene } from './scenes/spin-kick.scene.ts';
 import { sceneTextFor } from './sceneText.ts';
 import { translate } from '../../i18n/useT.ts';
 import type { Locale } from '../../i18n/locale.ts';
+// 아래 둘은 **첫 실행 시드의 순서**를 파생시키는 데만 쓴다(파일 끝 `seedRuleDrills` 절).
+// 값 순환은 없다 — 두 모듈이 이 파일에서 가져가는 것은 `RuleSceneId` **타입뿐**이다(erase 된다).
+import { RESTART_COLUMNS } from './restartTable.ts';
+import { ruleTopicsFor } from './ruleTopics.ts';
+import type { DrillId } from '../../core/ids.ts';
 
 export type RuleSceneId =
   | 'field-tour'
@@ -150,7 +155,11 @@ const GEO = {
 } as const;
 
 /** 장면은 저장되지 않으므로(인메모리 전용) 값 자체는 무의미하다 — `buildSeedDrill` 이 요구하는
- *  고정 타임스탬프 하나만 있으면 된다. (1) 갈래 전용: raw `Drill` 은 자기 것을 들고 온다. */
+ *  고정 타임스탬프 하나만 있으면 된다. (1) 갈래 전용: raw `Drill` 은 자기 것을 들고 온다.
+ *
+ *  ⚠️ 2026-09-06 — *"장면은 저장되지 않는다"* 는 전제가 죽었다(`seedRuleDrills`, 파일 끝).
+ *  그래도 이 상수는 그대로다: 시드로 나가는 값은 이 시각이 아니라 `SEED_EPOCH − i·1분` 으로
+ *  **덮어씌워지기 때문**이다. 여기 값은 여전히 화면에만 쓰이는 자리표시자다. */
 const RULE_SCENE_CREATED_AT = 1755000000000;
 
 interface RuleSceneMeta {
@@ -571,6 +580,13 @@ function applySceneLocale(drill: Drill, id: RuleSceneId, locale: Locale): Drill 
  *    `PresentStage` 로 내려가 그려지기만 한다. 규칙 화면에 쓰기 경로가 없다(features/rules 전체에
  *    storage/repo 호출 0건). 접두사를 붙이면 원본과 대조가 끊기므로 붙이지 않는다. 언젠가 이
  *    드릴을 저장하는 경로가 생기면 **그때** 접두사가 필요해진다.
+ *
+ *    ── ⚠️ 2026-09-06: *"저장소에 닿지 않는다"* 가 죽었다(그 "언젠가" 가 왔다) ──────────────
+ *    `seedRuleDrills`(파일 끝)가 이 봉투 id 를 **그대로 첫 실행 시드의 드릴 id 로 심는다.**
+ *    그래도 접두사는 여전히 붙이지 않는다 — 이유가 뒤집힌 게 아니라 **더 세졌다**: 기기마다
+ *    다른 id 를 발급하면 동기화 뒤 사본이 생기므로 id 는 소스에 박힌 값이어야 하고, 봉투 id 가
+ *    바로 그 값이다. 대가는 라이브러리 원본 드릴과 시드가 같은 id 를 갖는 것인데, 원본은
+ *    기현님 기기의 문서라 남의 기기와 만나지 않는다.
  *  - 타임스탬프: `RULE_SCENE_CREATED_AT` 이 지키려던 것은 "빌드할 때마다 값이 달라지지 않는 것"
  *    이다. 봉투 값도 소스에 박힌 리터럴이라 그 재현성은 그대로다(기계 시계를 읽지 않는다). */
 function fromRawDrill(src: Drill): Drill {
@@ -651,3 +667,95 @@ export const RULE_SCENE_IDS: readonly RuleSceneId[] = [
 // **약속을 더 적지 마라** — 다음 사람이 이 표에 뭔가 더 해야 한다고 생각되면, 적는 대신 붙여라.
 // 손코딩 장면이 0개가 되는 날에는 표와 단언을 함께 지운다.
 export { GEO as RULE_SCENE_GEO };
+
+// ── 첫 실행 시드 (2026-09-06) — docs/PLAN-SEED-FROM-RULES.md 가 정본 ──────────────────────
+//
+// 기현 지시(2026-09-06): *"첫 실행시 기본 저장되어있는 드릴을 규칙에 있는 드릴로 교체 (앞으로 쭉
+// 그 정책 유지"*
+//
+// **첫 실행에 심는 드릴의 정본은 위 `RULE_SCENE_IDS` 하나다.** 규칙에 장면을 넣으면 시드에도
+// 들어가고, 빼면 시드에서도 빠진다 — 시드 전용 목록도, 시드 전용 손코딩도 앞으로 없다(AGENTS.md
+// §5 의 연장이다: 코트 위 콘텐츠는 편집기로 만든다).
+//
+// 폐기된 것: 손코딩 시드 3벌(`model/seedDrillContent.ts`). 그 파일이 지키던 **온보딩 내레이션**
+// (스텝 메모로 앱 조작법을 읽어 주던 장치)은 이 정책과 함께 잃는다 — 규칙 장면은 메모가 거의
+// 비어 있고 코트 위 쪽지로 말한다. 그 장치가 다시 필요해지면 장면 메모를 **편집기에서** 채워
+// 재임포트한다(손코딩 금지는 그대로). 옛 근거의 전문은 `model/seedDrills.ts` 머리말에 남겼다.
+
+/** 시드 드릴의 기준 시각 — 2026-09-06T00:00:00Z. **기계 시계를 읽지 않는 것이 요점이다.**
+ *
+ *  동기화는 LWW 다(`sync/plan.ts`). 심을 때 `Date.now()` 를 쓰면 나중에 첫 실행한 기기의
+ *  **손 안 댄 시드**가 다른 기기에서 고친 같은 문서를 이긴다 — 편집이 조용히 사라진다. 과거의
+ *  고정 시각이면 사용자가 손댄 쪽이 항상 새롭고, 지운 것(톰스톤)도 시드보다 새로워 되살아나지
+ *  않는다. 값이 미래로 가면 안 되는 이유도 같다(그러면 시드가 편집을 이긴다). */
+export const SEED_EPOCH = Date.UTC(2026, 8, 6);
+
+/** 카드 순서 i 마다 시각을 1분씩 **뒤로** 민다 — 목록 기본 정렬(updatedAt 내림차순)이 그대로
+ *  규칙 카드 순서가 된다. 1분은 사람이 못 느끼면서 정렬은 확실히 가르는 폭이고, 22벌을 다 밀어도
+ *  21분이라 `SEED_EPOCH` 당일을 벗어나지 않는다. */
+export const SEED_STEP_BACK_MS = 60_000;
+
+/** (1) 갈래 3벌의 **고정 드릴 id**. (2) 갈래 19벌은 `.scene.ts` 봉투의 리터럴 id 를 그대로 쓴다
+ *  (`fromRawDrill` 이 id 를 안 건드린다) — 여기 적을 것이 없다.
+ *
+ *  ⚠️ **기기마다 `newId('dr')` 를 발급하면 안 된다.** 그러면 동기화 뒤 기기 수만큼 사본이 생긴다
+ *  (옛 시드의 알려진 결함). 같은 id 면 어디서 심어도 한 벌이고, 한쪽에서 고친 것이 LWW 로 이긴다.
+ *  형식: 접두 `dr_` + 소문자·숫자·밑줄 → `isId(id, 'dr')` 를 통과한다(`core/ids.ts`).
+ *  **이 값은 바꾸지 마라** — 바꾸는 순간 이미 심은 기기에서 사본이 하나 더 생긴다. */
+const SEED_DRILL_ID: Partial<Record<RuleSceneId, DrillId>> = {
+  'field-tour': 'dr_rule_field_tour',
+  lineup: 'dr_rule_lineup',
+  'two-on-one-open': 'dr_rule_two_on_one_open',
+};
+
+/** 시드 순서 = **규칙 화면이 장면을 내놓는 순서** 그대로: 카드(`ruleTopicsFor` 배열) 순 → 카드 안
+ *  블록 순 → 재개 비교표 자리에서는 그 표의 열 순서(`RESTART_COLUMNS`)로 7벌.
+ *
+ *  ⚠️ **순서 목록을 여기 손으로 적지 않는다.** 적는 순간 카드를 재배열하는 사람이 두 곳을 고쳐야
+ *  하고, 한쪽을 잊으면 목록만 옛 순서로 남는다(§3 정본 하나). 카드 배치의 정본은 `ruleTopics.ts`
+ *  배열이므로 거기서 파생한다 — `ruleTopics.test.ts` 의 '고아 장면 없음' 불변식이 도는 것과 같은
+ *  순회이고, 재개 7종을 표에서 집어 오는 것도 그 불변식과 같은 이유다(카드 5 는 그 7벌을 scene
+ *  블록이 아니라 표 블록으로 연다).
+ *
+ *  로케일을 보지 않는 이유: `TOPICS_EN`/`TOPICS_JA` 는 같은 구조의 번역본이라 어느 쪽으로 걸어도
+ *  같은 순서가 나온다. ko 하나로 고정해 두면 언어를 바꿔도 목록 순서가 흔들리지 않는다.
+ *
+ *  어느 카드에도 안 실린 장면은 **끝에** 붙인다. 지금은 없지만(고아 0), 생기더라도 시드에서
+ *  조용히 사라지는 것보다 목록 맨 아래에 있는 편이 낫다. */
+export function ruleSceneCardOrder(): readonly RuleSceneId[] {
+  const seen = new Set<RuleSceneId>();
+  const out: RuleSceneId[] = [];
+  const push = (id: RuleSceneId): void => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    out.push(id);
+  };
+  for (const topic of ruleTopicsFor('ko')) {
+    for (const block of topic.blocks) {
+      if (block.kind === 'scene') push(block.sceneId);
+      else if (block.kind === 'restart-table') for (const col of RESTART_COLUMNS) push(col.sceneId);
+    }
+  }
+  for (const id of RULE_SCENE_IDS) push(id);
+  return out;
+}
+
+/** 첫 실행에 심을 드릴 전량(22벌). `storage/seed.ts` 가 유일한 제품 호출자다.
+ *
+ *  장면과 다른 점은 셋뿐이고, 셋 다 **저장되기 때문에** 생긴다(장면은 인메모리라 상관없었다).
+ *  - `id`: (1) 갈래는 위 고정 표, (2) 갈래는 봉투 id. 기기 간 동일성이 사본을 막는다.
+ *  - `createdAt`/`updatedAt`: `SEED_EPOCH − i·1분`. 기계 시계를 안 읽는다(위 상수 근거).
+ *  - 그 외에는 `buildRuleScene` 결과 그대로다 — **두 번째 변환 경로를 만들지 않는다.**
+ *
+ *  **제목은 손대지 않는다**(결정 7). 규칙 화면이 장면에 붙이는 캡션 표가 코드에 없어서다 —
+ *  화면에 뜨는 제목은 카드/조항 제목(`ruleTopics`·`ruleContent`)이지 드릴 제목이 아니라
+ *  장면별 캡션이라는 것이 애초에 존재하지 않는다. 없는 표를 시드를 위해 새로 만들면 그것이
+ *  다음 드리프트의 발원지가 되므로(§3), 편집기 원본 제목('2-1 킥오프' 꼴)을 그대로 쓴다.
+ *  그 제목은 `--check` 드리프트 검사의 `--title` 키이기도 해서 살아 있을 값이다. */
+export function seedRuleDrills(locale: Locale = 'ko'): Drill[] {
+  return ruleSceneCardOrder().map((sceneId, i) => {
+    const scene = buildRuleScene(sceneId, locale);
+    const at = SEED_EPOCH - i * SEED_STEP_BACK_MS;
+    return { ...scene, id: SEED_DRILL_ID[sceneId] ?? scene.id, createdAt: at, updatedAt: at };
+  });
+}

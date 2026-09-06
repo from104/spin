@@ -12,6 +12,11 @@ import { LibraryProvider, useLibraryState } from '../store/library/LibraryProvid
 import { idbDrillRepo, type DrillRepo } from '../storage/drillRepo.ts';
 import { BOARD_KEY } from '../storage/board.ts';
 import { PREFS_KEY, loadPrefs, makeDefaultPrefs, savePrefs } from '../storage/prefs.ts';
+import { seedRuleDrills } from '../features/rules/ruleScenes.ts';
+
+/** 심는 수를 하드코딩하지 않는다 — 개수를 못 박는 것은 `ruleScenes.test.ts` 한 줄이다.
+ *  ⚠️ 2026-09-06 — 3벌(손코딩)에서 규칙 장면 전량으로 바뀌었다(docs/PLAN-SEED-FROM-RULES.md). */
+const SEED_COUNT = String(seedRuleDrills().length);
 
 async function wipe(repo: DrillRepo): Promise<void> {
   for (const s of await repo.listDrillSummaries()) await repo.deleteDrill(s.id);
@@ -24,7 +29,6 @@ function Probe() {
     <div>
       <span data-testid="count">{drills.length}</span>
       <span data-testid="status">{status}</span>
-      <span data-testid="levels">{drills.map((d) => d.level).join(',')}</span>
     </div>
   );
 }
@@ -47,10 +51,9 @@ afterEach(() => {
 });
 
 describe('SeedDrills — 첫 실행', () => {
-  it('세 개를 심고 목록이 그것을 읽는다', async () => {
+  it('규칙 장면 전량을 심고 목록이 그것을 읽는다', async () => {
     render(tree(<Probe />));
-    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'));
-    expect(screen.getByTestId('levels')).toHaveTextContent('초급,중급,고급');
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent(SEED_COUNT));
   });
 
   it('도장이 localStorage 에 남는다 — 다음 실행이 이걸 보고 안 심는다', async () => {
@@ -65,7 +68,7 @@ describe('SeedDrills — 첫 실행', () => {
   it('**판을 건드리지 않는다** — 전술판은 빈 코트로 시작한다(2026-08-10 기현 지시)', async () => {
     localStorage.setItem(BOARD_KEY, 'SENTINEL');
     render(tree(<Probe />));
-    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'));
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent(SEED_COUNT));
     expect(localStorage.getItem(BOARD_KEY)).toBe('SENTINEL');
   });
 });
@@ -81,10 +84,10 @@ describe('SeedDrills — 두 번째 실행', () => {
 
   it('사용자가 지운 뒤 다시 열어도 되살아나지 않는다', async () => {
     const first = render(tree(<Probe />));
-    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'));
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent(SEED_COUNT));
     first.unmount();
 
-    await wipe(idbDrillRepo); // 사용자가 셋 다 지웠다
+    await wipe(idbDrillRepo); // 사용자가 전부 지웠다
     render(tree(<Probe />));
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ready'));
     expect(screen.getByTestId('count')).toHaveTextContent('0');
@@ -92,16 +95,17 @@ describe('SeedDrills — 두 번째 실행', () => {
 });
 
 describe('SeedDrills — 두 번 도는 것을 막는다', () => {
-  it('StrictMode 이중 마운트에서도 세 개다 (여섯 개가 아니다)', async () => {
+  it('StrictMode 이중 마운트에서도 한 벌만 쓴다 (두 벌이 아니다)', async () => {
     // 쓰기 횟수를 직접 센다 — 저장소 개수만 보면 "두 번 썼는데 같은 자리에 덮어썼다" 와
-    // "한 번만 썼다" 가 구분되지 않는다(seed 드릴은 부를 때마다 새 id 라 실제로는 6개가 되지만,
-    // 그 구분을 우연에 맡기지 않는다).
+    // "한 번만 썼다" 가 구분되지 않는다. ⚠️ 2026-09-06 부터 시드 id 가 **고정**이라 개수만으로는
+    // 정말 구분이 안 된다(옛 시드는 매번 새 id 라 두 번 돌면 개수가 배로 늘어 우연히 티가 났다).
+    // 도장이 없는 기기에서 매 실행 덮어쓰기가 일어나면 동기화가 그 시각을 물고 나간다.
     const spy = vi.spyOn(idbDrillRepo, 'putDrill');
     render(<StrictMode>{tree(<Probe />)}</StrictMode>);
-    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('3'));
+    await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent(SEED_COUNT));
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ready'));
-    expect(spy).toHaveBeenCalledTimes(3);
-    expect(await idbDrillRepo.countDrills()).toBe(3);
+    expect(spy).toHaveBeenCalledTimes(Number(SEED_COUNT));
+    expect(await idbDrillRepo.countDrills()).toBe(Number(SEED_COUNT));
   });
 });
 

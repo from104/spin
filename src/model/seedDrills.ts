@@ -6,6 +6,23 @@
 // 적으면 **오탈자가 조용한 데이터 유실이 된다**(cast 에 없는 pose 는 validate 가 말없이 버린다).
 // 스펙은 좌표와 문장만 담고 id·cast 연결은 이 파일이 기계적으로 만든다. 좌표는 `[x, y, 각도°]`
 // 세 숫자라 표로 읽히고, 슬롯은 `'home-2'` 처럼 사람이 부르는 이름이다.
+//
+// ── ⚠️ 2026-09-06: 위 문단의 "심는 장치" 지위가 뒤집혔다 ────────────────────────────────
+// 기현 지시(2026-09-06): *"첫 실행시 기본 저장되어있는 드릴을 규칙에 있는 드릴로 교체 (앞으로 쭉
+// 그 정책 유지"* → 정본 계획서 `docs/PLAN-SEED-FROM-RULES.md`.
+//
+// **이 파일은 더 이상 시드의 출처가 아니다.** 첫 실행에 심는 드릴은 규칙 화면 장면 22벌이고
+// (`features/rules/ruleScenes.ts` 의 `seedRuleDrills`), 손코딩 시드 3벌을 담던
+// `seedDrillContent.ts` 와 그 목록 생성기 `buildSeedDrills`·`SEED_STAGGER_MS` 는 함께 폐기됐다.
+// 남는 것은 **변환기 `buildSeedDrill` 하나**다 — 규칙 장면 (1) 갈래 3벌이 여전히 이것으로
+// 만들어진다(AGENTS.md §9: 호출자가 있는 것은 지우지 않는다). 위 두 문단의 "왜 리터럴을 안
+// 적는가" 근거는 그 갈래에서 그대로 살아 있다.
+//
+// **잃은 것 — 온보딩 내레이션.** 폐기된 시드 3벌은 스텝 메모를 *"① 훈련 내용 ⏎ ② 조작: …"* 두
+// 도막으로 적어, 첫 실행에서 시연을 재생하면 앱 조작법이 함께 읽히게 만든 장치였다(그 형식을
+// 강제하던 단언이 `seedDrills.test.ts` 에 있었다). 규칙 장면은 설명을 코트 위 쪽지로 하고 스텝
+// 메모가 거의 비어 있어 그 장치가 성립하지 않는다. 되살리려면 장면 메모를 **드릴 편집기에서**
+// 채워 재임포트한다 — 손코딩 금지(AGENTS.md §5)는 그대로다.
 import { newId } from '../core/ids.ts';
 import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
@@ -16,7 +33,6 @@ import type { Arrow, ArrowHead } from './arrow.ts';
 import type { CourtMode, CourtSize } from './court.ts';
 import type { StoredChairPose } from './chair.ts';
 import type { ChairDef, Drill, DrillCast, DrillLevel, DrillSituation, DrillStep, DrillType, NoteLabel, PoseMap, TeamSide } from './drill.ts';
-import { SEED_DRILL_SPECS } from './seedDrillContent.ts';
 
 /** `defaultCast()` 가 만드는 8명의 자리 이름. 팀 + 등번호 — 코치가 부르는 말 그대로다. */
 export type SeedTeamSlot = `${TeamSide}-${'G' | '2' | '3' | '4'}`;
@@ -39,7 +55,9 @@ export interface SeedNoteSpec {
 
 export interface SeedStepSpec {
   name: string;
-  /** ① 훈련 내용 → 줄바꿈 → ② `조작: ` 조작 설명. 형식은 seedDrillContent.ts 머리말 참고. */
+  /** 스텝 메모. ⚠️ 2026-09-06 — 옛 주석은 *"① 훈련 내용 ⏎ ② `조작: ` 조작 설명. 형식은
+   *  seedDrillContent.ts 머리말 참고"* 였다. 그 파일과 형식이 함께 폐기됐다(머리말) — 지금
+   *  유일한 (1) 갈래 사용자인 규칙 장면은 그냥 한 문단을 적는다. */
   note: string;
   /** 이 스텝만의 재생 간격(ms). 없으면 드릴 기본값을 따른다. */
   durationMs?: number;
@@ -124,8 +142,9 @@ function buildStep(
 
   // 과제⑦(기현님 확정 2026-08-17): 스텝 이름 필드는 UI 에서 폐기됐다 — 저장되는 DrillStep 은
   // 항상 name:''이어야 한다(§스텝 카드). 씨앗 스펙은 여전히 name/note 를 따로 적는다(제목 한
-  // 줄 + 본문이 대본을 쓰기 편해서, seedDrillContent.ts 는 아직 기현님 콘텐츠 영역이라 그
-  // 저작 형식은 건드리지 않는다) — 여기서 validate.ts 와 **동일한 규칙**(migrateStepName)으로
+  // 줄 + 본문이 대본을 쓰기 편해서 — ⚠️ 2026-09-06 그 저작 형식의 주인이던 seedDrillContent.ts
+  // 는 폐기됐고, 지금은 ruleScenes.ts 의 (1) 갈래 3벌만 이 필드를 쓴다)
+  // — 여기서 validate.ts 와 **동일한 규칙**(migrateStepName)으로
   // 미리 병합한다. 정화기가 나중에 또 훑어도(로드 시 validateDrill) 이미 이관된 모양이라
   // 아무것도 바뀌지 않는다 — seedDrills.test.ts 의 "저장 왕복에서 한 글자도 안 바뀐다"
   // 불변식이 이 사전 이관 덕에 성립한다(그 반대로, 여기서 s.name 을 그대로 실었다면 seed
@@ -192,12 +211,12 @@ export function buildSeedDrill(spec: SeedDrillSpec, createdAt: number): Drill {
   };
 }
 
-/** 목록 기본 정렬이 `updatedAt` 내림차순이라, 뒤 드릴일수록 시각을 한 칸씩 **뒤로** 민다.
- *  그래야 초급이 맨 위에 온다. 1초는 사람이 못 느끼면서 정렬은 확실히 가르는 폭이다. */
-export const SEED_STAGGER_MS = 1000;
-
-/** 스펙 전량 → 드릴 전량. 부를 때마다 **새 id** 다(newId) — 같은 드릴을 두 번 심으면 두 개가
- *  된다는 뜻이고, 그것을 막는 것은 이 함수가 아니라 `storage/seed.ts` 의 도장이다. */
-export function buildSeedDrills(specs: readonly SeedDrillSpec[] = SEED_DRILL_SPECS, now: number = Date.now()): Drill[] {
-  return specs.map((spec, i) => buildSeedDrill(spec, now - i * SEED_STAGGER_MS));
-}
+// 🪦 `SEED_STAGGER_MS`(1000) · `buildSeedDrills(specs, now)` 폐기 — 2026-09-06, 위 머리말의
+// 정책 전환. 둘은 "스펙 목록 전량을 지금 시각부터 1초씩 밀어 심는다" 는 **시드 목록**의 규칙이라
+// 시드가 규칙 화면으로 옮겨 가면서 갈 곳이 없다. 두 값이 지키려던 것은 각각 이렇게 이어졌다:
+//   - 시각을 밀어 목록 정렬을 만든다 → `ruleScenes.ts` 의 `SEED_EPOCH − i·SEED_STEP_BACK_MS`.
+//     간격이 1초에서 1분으로 늘고, 기준이 `Date.now()` 에서 **고정 과거 시각**으로 바뀌었다
+//     (동기화 LWW 에서 시드가 편집을 이기지 않게 하려면 기계 시계를 읽으면 안 된다).
+//   - 부를 때마다 새 id → **뒤집혔다.** 이제 id 는 고정이다(같은 이유: 기기마다 새 id 면
+//     동기화 뒤 기기 수만큼 사본이 생긴다). 두 번 심는 것을 막는 책임은 그대로
+//     `storage/seed.ts` 의 자물쇠에 있고, 그 자물쇠도 제목 대신 id 를 본다.
