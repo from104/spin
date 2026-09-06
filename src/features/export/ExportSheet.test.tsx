@@ -16,6 +16,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Shape } from '../../model/shape.ts';
+import type { NoteId } from '../../core/ids.ts';
 
 vi.mock('./rasterize.ts', () => ({
   rasterizeFrameToPng: vi.fn(async () => ({ blob: new Blob(['png'], { type: 'image/png' }), widthPx: 2048, heightPx: 1400 })),
@@ -167,6 +168,23 @@ describe('[그림] → 4.4 의 래스터 어댑터를 부른다', () => {
     expect(rasterMock.mock.calls[0]![1].shapes).toEqual([shape]);
     // 대조군 — 도형이 없는 판은 빈 목록이다(위 단언이 "무엇이든 통과" 가 아니다).
     expect(drill.steps[0]!.shapes).toEqual([]);
+  });
+
+  it('그 스텝의 표시 순서가 4번째 인자로 실린다 — 판에서 올린 도형이 PNG 에서만 칩 뒤로 숨는 사고(2026-09-06)', async () => {
+    // 순서도 도형처럼 `RenderFrame` 에 없다(스텝이 갖는다). 기본층은 도형→메모인데 여기서는
+    // 메모→도형으로 뒤집어 두었으므로, 인자가 빠지거나 기본층으로 접히면 답이 갈린다.
+    const shape: Shape = { id: 'sh_1', kind: 'rect', x: 120, y: 90, w: 80, h: 60, rot: 0 };
+    const step = { ...drill.steps[0]!, shapes: [shape], notes: [{ id: 'nt_1' as NoteId, x: 120, y: 90, text: '메모' }], zOrder: ['nt_1', 'sh_1'] };
+    render(
+      <SettingsProvider>
+        <ToastProvider>
+          <ExportSheet open onClose={() => {}} drill={{ ...drill, steps: [step] }} stepIndex={0} showGrid={false} showGridLabels showRuleZones />
+        </ToastProvider>
+      </SettingsProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^그림 \(PNG\)/ }));
+    await waitFor(() => expect(rasterMock).toHaveBeenCalledTimes(1));
+    expect(rasterMock.mock.calls[0]![3]?.map((r) => r.id)).toEqual(['nt_1', 'sh_1']);
   });
 
   it('캡션 stepName 은 note 첫 줄에서 온다 — name 필드는 항상 비므로 note 가 유일한 통로다(검증 결함 수정, 2026-08-17)', async () => {

@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
 
+- Added [Display order] to the object menu — restack overlapping objects with [Bring to front], [Bring forward], [Send backward] and [Send to back]; board, presentation, print, PNG and previews all share the order (drill file format v11, not openable by older app versions)
+
 ### Fixed
 
 - Fixed clicks on the empty bands beside the court placing the ball outside the court on very wide windows (the court is now always sized by height)

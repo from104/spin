@@ -781,6 +781,13 @@ export const ja: Record<DictKey, string> = {
   // ── C7 — オブジェクトメニュー ────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': 'オブジェクトメニュー',
   'editor.objectMenu.fineTune': '微調整',
+  'editor.objectMenu.zOrder': '表示順序',
+  'editor.objectMenu.zOrder.front': '最前面へ',
+  'editor.objectMenu.zOrder.forward': '一つ前へ',
+  'editor.objectMenu.zOrder.backward': '一つ後ろへ',
+  'editor.objectMenu.zOrder.back': '最背面へ',
+  'editor.objectMenu.zOrder.backToMenu': '戻る',
+  'editor.objectMenu.zOrder.noOverlap': '重なる個体なし',
   'editor.nudgePad.ariaLabel': '微調整パッド',
   'editor.objectMenu.nudgeUp': '少し上へ',
   'editor.objectMenu.nudgeDown': '少し下へ',

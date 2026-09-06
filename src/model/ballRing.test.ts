@@ -239,9 +239,9 @@ describe('5.2 스키마 관문 ② — 도장을 올렸고, 옮겨 적기가 무
   it('체인의 끝이 곧 현재 버전이다', () => {
     const last = DRILL_MIGRATIONS[DRILL_MIGRATIONS.length - 1]!;
     expect(last.to).toBe(CURRENT_DRILL_SCHEMA);
-    // 2026-09-03 — v10(자유 그리기 획). 이 리터럴은 도장이 오를 때마다 손으로 올린다:
+    // 2026-09-06 — v11(개체 표시 순서 zOrder). 이 리터럴은 도장이 오를 때마다 손으로 올린다:
     // 값을 상수에서 끌어오면 "도장이 올랐는지" 를 아무도 안 보는 항등식이 된다.
-    expect(CURRENT_DRILL_SCHEMA).toBe(10);
+    expect(CURRENT_DRILL_SCHEMA).toBe(11);
   });
 
   it('★ 옛 문서(v1)의 cast 링이 전 스텝으로 옮겨 적히고, cast 에서는 사라진다', () => {
@@ -293,7 +293,8 @@ describe('5.2 스키마 관문 ② — 도장을 올렸고, 옮겨 적기가 무
     // 2026-08-15 — v4→v5·v5→v6, 2026-08-16 — v6→v7, 2026-08-18 — v7→v8 이 붙어 다섯이 됐다.
     // 2026-08-27 — v8→v9 가 붙어 여섯. **이번엔 원과 무관하지 않다** — 이 단계가 원을 옮긴다.
     // 2026-09-03 — v9→v10(자유 그리기 획)이 붙어 일곱. 다시 원과 무관한 단계다.
-    expect(mig.applied).toHaveLength(7);
+    // 2026-09-06 — v10→v11(개체 표시 순서)이 붙어 여덟. 역시 원과 무관한 도장만의 단계다.
+    expect(mig.applied).toHaveLength(8);
     const migrated = mig.doc as { cast: { balls: { ring?: string }[] }; steps: { ballRings?: Record<string, string> }[] };
     // 옮겼으므로 cast 에는 안 남고, 스텝에 있어야 한다. 둘 중 하나만 참이면 손실이다.
     expect(migrated.cast.balls.every((b) => b.ring === undefined), 'cast 에 원이 남았다').toBe(true);
@@ -319,7 +320,8 @@ describe('5.2 스키마 관문 ② — 도장을 올렸고, 옮겨 적기가 무
     // 2026-08-14 — 체인이 셋이 됐다(v3→v4 작도 도형).
     // 2026-08-15 — 다섯. 2026-08-16 — 여섯(v6→v7 선 통일). 2026-08-18 — 일곱(v7→v8 분류 개편).
     // 2026-08-27 — 여덟(v8→v9 공 링 이관). 2026-09-03 — 아홉(v9→v10 자유 그리기 획).
-    expect(mig.applied).toHaveLength(9); // v1→v2→v3 은 그대로 돈다(대조군)
+    // 2026-09-06 — 열(v10→v11 개체 표시 순서).
+    expect(mig.applied).toHaveLength(10); // v1→v2→v3 은 그대로 돈다(대조군)
     const v = validateDrill(mig.doc);
     expect(v.ok).toBe(true);
     if (!v.ok) return;

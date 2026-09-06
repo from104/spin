@@ -9,6 +9,7 @@
 // TeamStyle(model/drill.ts)이 아니라 평범한 문자열 색 4개를 받는다.
 import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 import type { ThumbSpec } from '../model/thumb.ts';
+import type { ReactNode } from 'react';
 import {
   COURT_BG,
   OBJ_STROKE,
@@ -25,7 +26,9 @@ import { NOTE_FILL, NOTE_FOLD_FILL } from '../core/colors.ts';
 import { STROKE_DEFAULT_WIDTH_PX, STROKE_WIDTHS, STROKE_WIDTH_DEFAULT, strokePath } from '../model/stroke.ts';
 import type { Vec2 } from '../core/units.ts';
 import { CourtSurface } from './CourtSurface.tsx';
-import { ShapeLayer } from './ShapeLayer.tsx';
+import { ShapeMark } from './objects/ShapeMark.tsx';
+import { DEFAULT_TIERS } from '../model/zOrder.ts';
+import { thumbSequence } from '../model/thumb.ts';
 import { useT } from '../i18n/useT.ts';
 import { useLocale } from '../i18n/useLocale.ts';
 import {
@@ -167,60 +170,58 @@ export function CourtThumbnail({
   const t = useT();
   const locale = useLocale();
 
-  return (
-    <svg
-      viewBox={`0 0 ${def.vbW} ${def.vbH}`}
-      preserveAspectRatio="xMidYMid meet"
-      className={className}
-      style={fill ? { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' } : undefined}
-      role="img"
-      aria-label={t('courtThumbnail.previewAriaLabel', { label: def.label[locale] })}
-    >
-      <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
-      <CourtSurface mode={mode} size={size} variant="thumb" />
-      {/* 도형은 **코트 위·개체 아래**다(기현 지시 2026-08-14, `ShapeLayer.tsx` 머리말).
-          그리는 코드를 여기 옮겨 적지 않고 그 컴포넌트를 그대로 쓴다 — 반투명 값이 어긋난 날
-          '카드만 진한' 판이 나오고, 그건 코트에서야 알게 된다. */}
-      {thumb?.shapes && <ShapeLayer shapes={thumb.shapes} strokeScale={THUMB_GLYPH.shapeStroke * g} />}
-      {thumb && (
-        // §3.5 렌더 레이어 순서: 코트면 → 격자 → 규칙존 → 콘 → 획 → 화살표 → 휠체어 → 공 → 메모.
-        // 썸네일은 격자·규칙존을 그리지 않으므로 콘 → 획 → 화살표 → 휠체어 → 공 → 메모 순서다.
-        // (획이 화살표 아래인 근거는 render/ObjectLayer.tsx 머리말 — 판과 같은 단일 순서다.)
-        <g>
-          {thumb.cones.map(([x, y, c], i) => (
-            <path
-              key={i}
-              d={coneTriangle(x, y, THUMB_GLYPH.coneHalf * g)}
-              fill={CONE_COLORS[c]}
-              stroke={OBJ_STROKE}
-              strokeWidth={THUMB_GLYPH.coneStroke * g}
-            />
-          ))}
-          {/* 자유 그리기 획(2026-09-03). 요약이 담은 것은 **평탄한 좌표 열**이고 색·굵기는
-              값이 아니라 첨자다(model/thumb.ts) — 그 두 첨자를 여기서 펼친다. 없거나 범위
-              밖이면 기본값으로 접는다(옛 요약이 정확히 그 경우다).
-              점열을 `strokePath` 에 그대로 태워 판과 **같은 곡선**을 얻는다: 여기서 `L` 로
-              이으면 칩에서만 획이 각져 보이고, 그건 코트에서야 알게 된다. */}
-          {thumb.strokes?.map((s, i) => {
+  // 개체 한 장 = 노드 하나. 종류별 그리는 법은 예전 그대로이고(아래 각 case), 바뀐 것은 "어느
+  // 차례로 놓느냐" 뿐이다. 키는 종류 접두 + 첨자 — 한 배열에 섞이므로 첨자만으로는 겹친다.
+  const nodes: ReactNode[] = [];
+  if (thumb) {
+    for (const kind of DEFAULT_TIERS) {
+      switch (kind) {
+        case 'shape':
+          (thumb.shapes ?? []).forEach((sh, i) => {
+            nodes.push(
+              <g key={`sh${i}`} aria-hidden="true" data-shape-layer="">
+                <ShapeMark shape={sh} strokeScale={THUMB_GLYPH.shapeStroke * g} />
+              </g>,
+            );
+          });
+          break;
+        case 'cone':
+          thumb.cones.forEach(([x, y, c], i) => {
+            nodes.push(
+              <g key={`cn${i}`}>
+                <path d={coneTriangle(x, y, THUMB_GLYPH.coneHalf * g)} fill={CONE_COLORS[c]} stroke={OBJ_STROKE} strokeWidth={THUMB_GLYPH.coneStroke * g} />
+              </g>,
+            );
+          });
+          break;
+        case 'stroke':
+          // 자유 그리기 획(2026-09-03). 요약이 담은 것은 **평탄한 좌표 열**이고 색·굵기는
+          // 값이 아니라 첨자다(model/thumb.ts) — 그 두 첨자를 여기서 펼친다. 없거나 범위
+          // 밖이면 기본값으로 접는다(옛 요약이 정확히 그 경우다).
+          // 점열을 `strokePath` 에 그대로 태워 판과 **같은 곡선**을 얻는다: 여기서 `L` 로
+          // 이으면 칩에서만 획이 각져 보이고, 그건 코트에서야 알게 된다.
+          (thumb.strokes ?? []).forEach((s, i) => {
             const pts: Vec2[] = [];
             for (let k = 0; k + 1 < s.p.length; k += 2) pts.push({ x: s.p[k]!, y: s.p[k + 1]! });
-            if (pts.length < 2) return null;
+            if (pts.length < 2) return;
             const d = strokePath({ points: pts });
             const w = (STROKE_WIDTHS[s.w ?? STROKE_WIDTH_DEFAULT] ?? STROKE_DEFAULT_WIDTH_PX) * THUMB_GLYPH.strokeScale * g;
-            return (
-              <g key={i}>
+            nodes.push(
+              <g key={`fh${i}`}>
                 <path d={d} fill="none" stroke={ARROW_CASING} strokeWidth={w + THUMB_GLYPH.strokeCasingPad * g} strokeLinecap="round" strokeLinejoin="round" />
                 <path d={d} fill="none" stroke={ARROW_COLORS[s.c ?? 0] ?? ARROW_COLOR} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" />
-              </g>
+              </g>,
             );
-          })}
-          {thumb.arrows.map((a, i) => {
+          });
+          break;
+        case 'arrow':
+          thumb.arrows.forEach((a, i) => {
             const d = `M${a.p[0]},${a.p[1]} Q${a.p[2]},${a.p[3]} ${a.p[4]},${a.p[5]}`;
-            return (
-              // 케이싱(검정 밑선) 먼저, 색선 나중 — 판·인쇄·PNG 와 같은 순서(위 arrowCasingPad
-              // 주석). 화살표 A 의 색선이 화살표 B 의 케이싱에 덮이는 것은 판에도 있는 규약
-              // 그대로다(쌍으로 묶어 그리면 그 순서가 자동으로 지켜진다).
-              <g key={i}>
+            // 케이싱(검정 밑선) 먼저, 색선 나중 — 판·인쇄·PNG 와 같은 순서(위 arrowCasingPad
+            // 주석). 화살표 A 의 색선이 화살표 B 의 케이싱에 덮이는 것은 판에도 있는 규약
+            // 그대로다(쌍으로 묶어 그리면 그 순서가 자동으로 지켜진다).
+            nodes.push(
+              <g key={`ar${i}`}>
                 <path d={d} fill="none" stroke={ARROW_CASING} strokeWidth={(THUMB_GLYPH.arrowW + THUMB_GLYPH.arrowCasingPad) * g} strokeLinecap="round" />
                 <path
                   d={d}
@@ -231,36 +232,49 @@ export function CourtThumbnail({
                   strokeWidth={THUMB_GLYPH.arrowW * g}
                   strokeLinecap="round"
                 />
-              </g>
+              </g>,
             );
-          })}
-          {thumb.chairs.map((c, i) => (
-            <circle
-              key={i}
-              cx={c.x}
-              cy={c.y}
-              r={THUMB_GLYPH.chairR * g}
-              fill={c.g === 1 ? (c.t === 0 ? teamColors.homeGk : teamColors.awayGk) : c.t === 0 ? teamColors.home : teamColors.away}
-              stroke={OBJ_STROKE}
-              strokeWidth={THUMB_GLYPH.chairStroke * g}
-            />
-          ))}
-          {thumb.balls.map(([x, y], i) => (
-            <circle key={i} cx={x} cy={y} r={THUMB_GLYPH.ballR * g} fill={BALL_FILL} />
-          ))}
-          {/* 메모 = 종이 쪽지. 쪽지의 모양·줄바꿈은 `noteChip.ts` 가 판·인쇄·PNG 와 **같은
-              함수**로 만든다 — 여기서 상자를 손으로 그리면 글자와 쪽지가 따로 자란다.
-              빈 메모도 쪽지를 그린다: "여기 쪽지를 놓았다" 는 판의 사실이다(buildStaticSvg 와
-              같은 근거). */}
-          {thumb.notes?.map((n, i) => {
+          });
+          break;
+        case 'chair':
+          thumb.chairs.forEach((c, i) => {
+            nodes.push(
+              <g key={`ch${i}`}>
+                <circle
+                  cx={c.x}
+                  cy={c.y}
+                  r={THUMB_GLYPH.chairR * g}
+                  fill={c.g === 1 ? (c.t === 0 ? teamColors.homeGk : teamColors.awayGk) : c.t === 0 ? teamColors.home : teamColors.away}
+                  stroke={OBJ_STROKE}
+                  strokeWidth={THUMB_GLYPH.chairStroke * g}
+                />
+              </g>,
+            );
+          });
+          break;
+        case 'ball':
+          thumb.balls.forEach(([x, y], i) => {
+            nodes.push(
+              <g key={`bl${i}`}>
+                <circle cx={x} cy={y} r={THUMB_GLYPH.ballR * g} fill={BALL_FILL} />
+              </g>,
+            );
+          });
+          break;
+        case 'note':
+          // 메모 = 종이 쪽지. 쪽지의 모양·줄바꿈은 `noteChip.ts` 가 판·인쇄·PNG 와 **같은
+          // 함수**로 만든다 — 여기서 상자를 손으로 그리면 글자와 쪽지가 따로 자란다.
+          // 빈 메모도 쪽지를 그린다: "여기 쪽지를 놓았다" 는 판의 사실이다(buildStaticSvg 와
+          // 같은 근거).
+          (thumb.notes ?? []).forEach((n, i) => {
             const size = (n.s ?? NOTE_DEFAULT_SIZE_PX) * THUMB_GLYPH.noteFontScale * g;
             const halfW = noteChipWidthPx(n.t, size) / 2;
             const halfH = noteChipHeightPx(n.t, size) / 2;
             const lines = noteLines(n.t, size);
             const align = n.a ?? 'middle';
             const textX = align === 'start' ? -halfW + size * 0.4 : align === 'end' ? halfW - size * 0.4 : 0;
-            return (
-              <g key={i} transform={`translate(${n.x} ${n.y})`}>
+            nodes.push(
+              <g key={`nt${i}`} transform={`translate(${n.x} ${n.y})`}>
                 <path d={noteChipPathD(halfW, halfH)} fill={NOTE_FILL} stroke={OBJ_STROKE} strokeWidth={THUMB_GLYPH.coneStroke * g} strokeLinejoin="round" />
                 <path d={noteFoldPathD(halfW, halfH)} fill={NOTE_FOLD_FILL} stroke={OBJ_STROKE} strokeWidth={THUMB_GLYPH.coneStroke * g} strokeLinejoin="round" />
                 {lines.map((line, li) => (
@@ -280,11 +294,39 @@ export function CourtThumbnail({
                     {line}
                   </text>
                 ))}
-              </g>
+              </g>,
             );
-          })}
-        </g>
-      )}
+          });
+          break;
+      }
+    }
+  }
+  const seq = thumbSequence(thumb?.z, nodes.length);
+
+  return (
+    <svg
+      viewBox={`0 0 ${def.vbW} ${def.vbH}`}
+      preserveAspectRatio="xMidYMid meet"
+      className={className}
+      style={fill ? { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' } : undefined}
+      role="img"
+      aria-label={t('courtThumbnail.previewAriaLabel', { label: def.label[locale] })}
+    >
+      <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
+      <CourtSurface mode={mode} size={size} variant="thumb" />
+      {/* ── 개체 — 표시 순서대로 한 장씩(2026-09-06, PLAN-Z-ORDER 결정 12) ────────────────
+          `nodes` 는 §3.5 **기본층** 순서(`DEFAULT_TIERS`: 도형 → 콘 → 획 → 화살표 → 휠체어 → 공
+          → 메모)로 만들어 두고, 요약이 순열(`thumb.z`)을 실었으면 `thumbSequence` 가 준 차례로
+          놓는다 — 판·시연·인쇄·PNG 와 같은 `sceneOrder` 의 결과가 요약을 거쳐 여기 닿는다
+          (`model/thumb.ts` 의 `z` 주석). 썸네일은 격자·규칙존을 그리지 않는다.
+          ⚠️ 여기서 종류별로 다시 늘어놓지 마라 — 카드만 판과 다른 순서가 되는 자리다.
+          도형은 **코트 위·개체 아래**가 기본값이다(기현 지시 2026-08-14, `ShapeLayer.tsx` 머리말).
+          그리는 코드를 여기 옮겨 적지 않고 `ShapeMark` 를 그대로 쓴다 — 반투명 값이 어긋난 날
+          '카드만 진한' 판이 나오고, 그건 코트에서야 알게 된다. `data-shape-layer` 는 도형 한 장의
+          칸이다(ObjectLayer 와 같은 뜻 — 옛 층 선택자가 그대로 산다).
+          바깥 `<g>` 하나로 묶는 것은 판(`ObjectLayer`)과 같은 꼴이고, 테스트가 "마지막 g = 개체
+          층" 으로 집는 자리이기도 하다. */}
+      {thumb && <g>{seq.map((i) => nodes[i])}</g>}
     </svg>
   );
 }

@@ -33,6 +33,8 @@ import {
   setStroke,
   setStepFlag,
 } from '../../model/edits.ts';
+import { moveZ } from '../../model/zOrder.ts';
+import { overlappingIds } from '../../physics/bounds.ts';
 import type { EditorAction } from './actions.ts';
 import type { HistoryState } from './history.ts';
 import { withHistory } from './history.ts';
@@ -420,6 +422,24 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
     case 'FLAG_SET':
       // 여럿이면 접어 넣는다 — 히스토리에는 이 액션 한 칸만 남는다(actions.ts 주석).
       return a.ids.reduce((acc, id) => setStepFlag(acc, i, a.flag, id, a.on), d);
+    // 표시 순서(2026-09-06, PLAN-Z-ORDER 결정 5·8). 규칙은 전부 순수 함수 두 개에 있다 —
+    // 여기서 계산하는 것은 **아무것도 없다**(겹침 문지기도 `moveZ` 가 스스로 다시 본다).
+    //
+    // ★ 겹침 집합을 **이 자리에서** 뜬다: 메뉴를 연 시점의 겹침을 액션에 실어 보내면, 메뉴가
+    //   열린 채 다른 창(되돌리기·자동 정착)이 판을 바꿨을 때 낡은 문지기로 순서가 바뀐다.
+    // ★ 불가능하면 `moveZ` 가 **같은 step 참조**를 돌려주고, 그때 d 를 그대로 돌려준다 —
+    //   `history.ts` 의 `next === s.present` 가 그것을 보고 undo 스택에 안 쌓는다(PLACE_COMMIT
+    //   의 동일 참조 no-op 과 같은 규약). 새 배열을 만들어 돌려주면 disabled 항목을 눌러도
+    //   되돌리기 칸이 늘어난다.
+    case 'Z_ORDER': {
+      const step = d.steps[i];
+      if (!step) return d;
+      const next = moveZ(step, d.cast, a.id, a.op, overlappingIds(step, d.cast, a.id));
+      if (next === step) return d;
+      const steps = d.steps.slice();
+      steps[i] = next;
+      return { ...d, steps };
+    }
     default:
       return d;
   }

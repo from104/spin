@@ -44,6 +44,7 @@ import { strokePath, strokeWidthOf } from '../../model/stroke.ts';
 import { ARROW_HEAD_KINDS, STROKE_CASING_PAD, arrowHeadGeom, arrowMarkerColorKey, arrowMarkerId, type ArrowHeadKind } from '../../render/arrowHeadGeom.ts';
 import { gridGeom } from '../../model/grid.ts';
 import type { RenderFrame } from '../../model/playback.ts';
+import { DEFAULT_TIERS, type SceneRef } from '../../model/zOrder.ts';
 import type { TeamSide } from '../../model/drill.ts';
 import type { Shape } from '../../model/shape.ts';
 import { ballRingViolation, defaultDefense, defendedMouths, defendedZones, fiveMeterRetreat, otherSide, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
@@ -332,22 +333,26 @@ export function sideMarksMarkup(opts: StaticSceneOpts): string {
 export function shapesMarkup(shapes: readonly Shape[]): string {
   if (shapes.length === 0) return '';
   let out = '';
-  for (const s of shapes) {
-    const { w, h } = shapeSize(s);
-    const paint =
-      `fill="${SHAPE_COLOR}" fill-opacity="${SHAPE_FILL_OPACITY}"` +
-      ` stroke="${SHAPE_COLOR}" stroke-opacity="${SHAPE_STROKE_OPACITY}" stroke-width="${SHAPE_STROKE_PX}"`;
-    // 삼각형의 모양은 w/h 가 아니라 꼭짓점이 진다(2026-08-15 자유 삼각형) — 그래서
-    // `triPointsOf`/`pointsAttr` 을 화면과 **같이** 지난다. w/h 는 경계상자일 뿐이다.
-    const body =
-      s.kind === 'ellipse'
-        ? `<ellipse rx="${w / 2}" ry="${h / 2}" ${paint}/>`
-        : s.kind === 'rect'
-          ? `<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" ${paint}/>`
-          : `<polygon points="${pointsAttr(triPointsOf(s))}" ${paint} stroke-linejoin="round"/>`;
-    out += `<g id="obj-${safeId(s.id)}" transform="translate(${s.x} ${s.y}) rotate(${s.rot})">${body}</g>`;
-  }
+  for (const s of shapes) out += shapeMarkup(s);
   return out;
+}
+
+/** 도형 **한 장**. z-order 가 도형을 다른 개체 사이에 끼울 수 있게 되면서(2026-09-06) 한 장씩
+ *  굽는 자리가 필요해졌다 — 위 `shapesMarkup` 은 이것을 여러 번 부르는 껍데기다. */
+function shapeMarkup(s: Shape): string {
+  const { w, h } = shapeSize(s);
+  const paint =
+    `fill="${SHAPE_COLOR}" fill-opacity="${SHAPE_FILL_OPACITY}"` +
+    ` stroke="${SHAPE_COLOR}" stroke-opacity="${SHAPE_STROKE_OPACITY}" stroke-width="${SHAPE_STROKE_PX}"`;
+  // 삼각형의 모양은 w/h 가 아니라 꼭짓점이 진다(2026-08-15 자유 삼각형) — 그래서
+  // `triPointsOf`/`pointsAttr` 을 화면과 **같이** 지난다. w/h 는 경계상자일 뿐이다.
+  const body =
+    s.kind === 'ellipse'
+      ? `<ellipse rx="${w / 2}" ry="${h / 2}" ${paint}/>`
+      : s.kind === 'rect'
+        ? `<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" ${paint}/>`
+        : `<polygon points="${pointsAttr(triPointsOf(s))}" ${paint} stroke-linejoin="round"/>`;
+  return `<g id="obj-${safeId(s.id)}" transform="translate(${s.x} ${s.y}) rotate(${s.rot})">${body}</g>`;
 }
 
 /** 격자 — **선만** 그린다. 칸 라벨은 §6.2 표가 '안 담긴다' 로 못박았고, 글자라 어차피 못 넣는다.
@@ -459,60 +464,51 @@ export function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
 }
 
 /** 콘 — 슬롯 0 은 삼각형, 슬롯 1 은 삼각형 + 밑변 베이스(색이 아니라 실루엣으로 구분). */
-function conesMarkup(frame: RenderFrame): string {
-  let out = '';
-  for (const c of frame.cones) {
-    if (c.opacity <= 0) continue;
-    const fill = CONE_COLORS[c.colorIndex];
-    out +=
-      `<g id="obj-${safeId(c.id)}" transform="${poseTransform(c.x, c.y)}"${attrOpacity(c.opacity)}>` +
-      `<path d="${CONE_TRI_D}" fill="${fill}" stroke="${OBJ_STROKE}" stroke-width="${CONE_STROKE_W}"/>` +
-      (c.colorIndex === 1 ? `<path d="${CONE_BASE_D}" fill="${fill}" stroke="${OBJ_STROKE}" stroke-width="${CONE_STROKE_W}"/>` : '') +
-      `</g>`;
-  }
-  return out;
+function coneMarkup(c: RenderFrame['cones'][number]): string {
+  if (c.opacity <= 0) return '';
+  const fill = CONE_COLORS[c.colorIndex];
+  return (
+    `<g id="obj-${safeId(c.id)}" transform="${poseTransform(c.x, c.y)}"${attrOpacity(c.opacity)}>` +
+    `<path d="${CONE_TRI_D}" fill="${fill}" stroke="${OBJ_STROKE}" stroke-width="${CONE_STROKE_W}"/>` +
+    (c.colorIndex === 1 ? `<path d="${CONE_BASE_D}" fill="${fill}" stroke="${OBJ_STROKE}" stroke-width="${CONE_STROKE_W}"/>` : '') +
+    `</g>`
+  );
 }
 
 /** 자유 그리기 획 — 화살표와 **같은 층 구조**(케이싱 먼저, 본선 뒤에)이고, 굵기만 상수가
  *  아니라 획마다 다르다. 케이싱 여유는 굵기와 무관한 상수다(`STROKE_CASING_PAD`
  *  — 근거는 render/arrowHeadGeom.ts, 화살촉의 검은 테와 짝이 맞아야 한다).
  *
- *  ⚠️ 호출 순서가 곧 z-order 다: `strokesMarkup` 은 `arrowsMarkup` **앞**에 온다(획이 아래).
- *     근거는 render/ObjectLayer.tsx 머리말 — 판·시연·종이가 같은 순서여야 한다. */
-function strokesMarkup(frame: RenderFrame): string {
-  let out = '';
-  for (const s of frame.strokes) {
-    if (s.opacity <= 0) continue;
-    const d = strokePath(s);
-    if (d === '') continue; // 점이 없는 획은 그릴 것이 없다(validate 가 걸러도 방어)
-    const w = strokeWidthOf(s);
-    const color = safeColor(s.color, ARROW_STYLE.color);
-    out +=
-      `<g id="obj-${safeId(s.id)}"${attrOpacity(s.opacity)}>` +
-      `<path d="${d}" fill="none" stroke="${ARROW_CASING}" stroke-width="${num(w + STROKE_CASING_PAD)}" stroke-linecap="round" stroke-linejoin="round"/>` +
-      `<path d="${d}" fill="none" stroke="${color}" stroke-width="${num(w)}" stroke-linecap="round" stroke-linejoin="round"${headAttr(s, color, w, 'none')}/>` +
-      `</g>`;
-  }
-  return out;
+ *  ⚠️ 호출 순서가 곧 z-order 다 — 획은 기본층에서 화살표 **아래**다(근거는
+ *     render/ObjectLayer.tsx 머리말). ⚠️ 2026-09-06: 그 순서는 이제 이 파일이 정하지 않고
+ *     `sceneMarkup` 이 받은 `order`(= `model/zOrder.ts` 의 `sceneOrder`)가 정한다. */
+function strokeMarkup(s: RenderFrame['strokes'][number]): string {
+  if (s.opacity <= 0) return '';
+  const d = strokePath(s);
+  if (d === '') return ''; // 점이 없는 획은 그릴 것이 없다(validate 가 걸러도 방어)
+  const w = strokeWidthOf(s);
+  const color = safeColor(s.color, ARROW_STYLE.color);
+  return (
+    `<g id="obj-${safeId(s.id)}"${attrOpacity(s.opacity)}>` +
+    `<path d="${d}" fill="none" stroke="${ARROW_CASING}" stroke-width="${num(w + STROKE_CASING_PAD)}" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `<path d="${d}" fill="none" stroke="${color}" stroke-width="${num(w)}" stroke-linecap="round" stroke-linejoin="round"${headAttr(s, color, w, 'none')}/>` +
+    `</g>`
+  );
 }
 
 /** 화살표 — 케이싱(검정 halo)을 먼저, 본선을 뒤에. `#38bdf8` 는 코트 대비 2.49:1 로 WCAG
  *  1.4.11 미달이라 케이싱이 없으면 시각 대비 요건을 못 채운다(ArrowPath.tsx 와 같은 근거). */
-function arrowsMarkup(frame: RenderFrame): string {
-  let out = '';
-  for (const a of frame.arrows) {
-    if (a.opacity <= 0) continue;
-    const d = arrowPath(a);
-    const style = ARROW_STYLE;
-    const color = safeColor(a.color, ARROW_STYLE.color);
-
-    out +=
-      `<g id="obj-${safeId(a.id)}"${attrOpacity(a.opacity)}>` +
-      `<path d="${d}" fill="none" stroke="${ARROW_CASING}" stroke-width="${num(style.width + 2.4)}" stroke-linecap="round"/>` +
-      `<path d="${d}" fill="none" stroke="${color}" stroke-width="${num(style.width)}" stroke-linecap="round"${headAttr(a, color)}/>` +
-      `</g>`;
-  }
-  return out;
+function arrowMarkup(a: RenderFrame['arrows'][number]): string {
+  if (a.opacity <= 0) return '';
+  const d = arrowPath(a);
+  const style = ARROW_STYLE;
+  const color = safeColor(a.color, ARROW_STYLE.color);
+  return (
+    `<g id="obj-${safeId(a.id)}"${attrOpacity(a.opacity)}>` +
+    `<path d="${d}" fill="none" stroke="${ARROW_CASING}" stroke-width="${num(style.width + 2.4)}" stroke-linecap="round"/>` +
+    `<path d="${d}" fill="none" stroke="${color}" stroke-width="${num(style.width)}" stroke-linecap="round"${headAttr(a, color)}/>` +
+    `</g>`
+  );
 }
 
 /** ArrowMarkers 가 만드는 id 규약(`${uid}-${color.slice(1)}`) 그대로. 색이 `#` 로 시작하지
@@ -526,53 +522,131 @@ function markerKey(color: string): string {
  *  팀을 구분하는 값은 전부 `teamMarkFor` 하나에서 온다(4.6 이 파선·가드 톤까지 거기 모았다).
  *  ⚠️ `stroke-dasharray` 와 볼가드 `fill` 을 여기서 리터럴로 되돌리면 흑백 인쇄에서 두 팀이
  *  다시 같아진다 — src/render/teamMark.ts 머리말의 근거 참고. */
-function chairsMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
+function chairMarkup(c: RenderFrame['chairs'][number], opts: StaticSceneOpts): string {
+  if (c.opacity <= 0) return '';
   const halfW = CHAIR.widthPx / 2;
-  let out = '';
-  for (const c of frame.chairs) {
-    if (c.opacity <= 0) continue;
-    const m = teamMarkFor(c.def, opts.teams);
-    const dash = m.strokeDash ? ` stroke-dasharray="${m.strokeDash}"` : '';
-    out +=
-      `<g id="obj-${safeId(c.id)}" transform="${poseTransform(c.x, c.y, c.theta)}"${attrOpacity(c.opacity)}>` +
-      `<rect x="${num(-CHAIR.pivotToRearPx)}" y="${num(-halfW)}" width="${num(CHAIR.lengthPx)}" height="${num(CHAIR.widthPx)}" rx="5"` +
-      ` fill="${safeColor(m.fill, '#888888')}" stroke="${m.stroke}" stroke-width="${num(m.strokeWidth)}"${dash}/>` +
-      `<rect x="${num(CHAIR.pivotToFrontPx - CHAIR.guardPx)}" y="${num(-halfW)}" width="${num(CHAIR.guardPx)}" height="${num(CHAIR.widthPx)}" rx="2"` +
-      // ⚠️ 6.5 — 가드 테두리·머리 점도 차체 테두리와 **같은 선 색**이다(m.stroke). 여기만
-      // OBJ_STROKE 로 되돌리면 밝은 차체에서 한 칩 안에 보이는 선과 안 보이는 선이 섞인다.
-      ` fill="${m.guardFill}" stroke="${m.stroke}" stroke-width="1.4"/>` +
-      `<circle cx="0" cy="0" r="4.2" fill="${m.stroke}"/>` +
-      `</g>`;
-  }
-  return out;
+  const m = teamMarkFor(c.def, opts.teams);
+  const dash = m.strokeDash ? ` stroke-dasharray="${m.strokeDash}"` : '';
+  return (
+    `<g id="obj-${safeId(c.id)}" transform="${poseTransform(c.x, c.y, c.theta)}"${attrOpacity(c.opacity)}>` +
+    `<rect x="${num(-CHAIR.pivotToRearPx)}" y="${num(-halfW)}" width="${num(CHAIR.lengthPx)}" height="${num(CHAIR.widthPx)}" rx="5"` +
+    ` fill="${safeColor(m.fill, '#888888')}" stroke="${m.stroke}" stroke-width="${num(m.strokeWidth)}"${dash}/>` +
+    `<rect x="${num(CHAIR.pivotToFrontPx - CHAIR.guardPx)}" y="${num(-halfW)}" width="${num(CHAIR.guardPx)}" height="${num(CHAIR.widthPx)}" rx="2"` +
+    // ⚠️ 6.5 — 가드 테두리·머리 점도 차체 테두리와 **같은 선 색**이다(m.stroke). 여기만
+    // OBJ_STROKE 로 되돌리면 밝은 차체에서 한 칩 안에 보이는 선과 안 보이는 선이 섞인다.
+    ` fill="${m.guardFill}" stroke="${m.stroke}" stroke-width="1.4"/>` +
+    `<circle cx="0" cy="0" r="4.2" fill="${m.stroke}"/>` +
+    `</g>`
+  );
 }
 
-function ballsMarkup(frame: RenderFrame): string {
-  let out = '';
-  for (const b of frame.balls) {
-    if (b.opacity <= 0) continue;
-    out +=
-      `<g id="obj-${safeId(b.id)}" transform="${poseTransform(b.x, b.y)}"${attrOpacity(b.opacity)}>` +
-      `<circle cx="0" cy="0" r="${num(BALL.viewRadiusPx)}" fill="${BALL_FILL}" stroke="#ffffff" stroke-width="2.4"/>` +
-      `</g>`;
-  }
-  return out;
+function ballMarkup(b: RenderFrame['balls'][number]): string {
+  if (b.opacity <= 0) return '';
+  return (
+    `<g id="obj-${safeId(b.id)}" transform="${poseTransform(b.x, b.y)}"${attrOpacity(b.opacity)}>` +
+    `<circle cx="0" cy="0" r="${num(BALL.viewRadiusPx)}" fill="${BALL_FILL}" stroke="#ffffff" stroke-width="2.4"/>` +
+    `</g>`
+  );
 }
 
 /** 메모 = 종이 쪽지(§4.3 P1-5, 1.9 에서 4겹으로 고쳤다). 글자는 캔버스가 얹지만 **쪽지 자체는
  *  그림에 남는다** — 빈 메모라도 "여기 쪽지를 놓았다" 는 판의 사실이기 때문이다. */
-function notesMarkup(frame: RenderFrame): string {
+function noteMarkup(n: RenderFrame['notes'][number]): string {
+  if (n.opacity <= 0) return '';
+  const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
+  const halfW = noteHalfWidth(n.text, size);
+  const halfH = noteChipHeightPx(n.text, size) / 2;
+  return (
+    `<g id="obj-${safeId(n.id)}" transform="${poseTransform(n.x, n.y)}"${attrOpacity(n.opacity)}>` +
+    `<path d="${noteChipPathD(halfW, halfH)}" fill="${NOTE_FILL}" stroke="${OBJ_STROKE}" stroke-width="1.4" stroke-linejoin="round"/>` +
+    `<path d="${noteFoldPathD(halfW, halfH)}" fill="${NOTE_FOLD_FILL}" stroke="${OBJ_STROKE}" stroke-width="1.4" stroke-linejoin="round"/>` +
+    `</g>`
+  );
+}
+
+/** ★ 개체 7종을 **한 목록**으로 굽는다(아래→위). 판·시연·인쇄와 **같은 함수**(`sceneOrder`)가
+ *  만든 순서를 그대로 받는다 — 여기서 정렬을 다시 짜면 그림만 다른 판이 된다.
+ *
+ *  ⚠️ `order` 를 안 넘기는 호출부(옛 배선·테스트)는 `DEFAULT_TIERS` 기본층으로 접힌다.
+ *  ⚠️ 순서가 모르는 개체(스텝 전환 프레임이 실어 보낸 이전 스텝의 화살표·메모 등)는 버리지
+ *     않고 기본층 순서대로 맨 위에 붙인다 — 떨어뜨리면 그림에서 통째로 사라진다. */
+function sceneMarkup(frame: RenderFrame, opts: StaticSceneOpts, order?: readonly SceneRef[]): string {
+  const shapes = opts.shapes ?? [];
+  const shapeById = new Map(shapes.map((sh) => [sh.id as string, sh]));
+  const coneById = new Map(frame.cones.map((c) => [c.id as string, c]));
+  const strokeById = new Map(frame.strokes.map((st) => [st.id as string, st]));
+  const arrowById = new Map(frame.arrows.map((a) => [a.id as string, a]));
+  const chairById = new Map(frame.chairs.map((c) => [c.id as string, c]));
+  const ballById = new Map(frame.balls.map((b) => [b.id as string, b]));
+  const noteById = new Map(frame.notes.map((n) => [n.id as string, n]));
+
+  const one = (r: SceneRef): string | null => {
+    switch (r.kind) {
+      case 'shape': {
+        const sh = shapeById.get(r.id);
+        return sh ? shapeMarkup(sh) : null;
+      }
+      case 'cone': {
+        const c = coneById.get(r.id);
+        return c ? coneMarkup(c) : null;
+      }
+      case 'stroke': {
+        const st = strokeById.get(r.id);
+        return st ? strokeMarkup(st) : null;
+      }
+      case 'arrow': {
+        const a = arrowById.get(r.id);
+        return a ? arrowMarkup(a) : null;
+      }
+      case 'chair': {
+        const c = chairById.get(r.id);
+        return c ? chairMarkup(c, opts) : null;
+      }
+      case 'ball': {
+        const b = ballById.get(r.id);
+        return b ? ballMarkup(b) : null;
+      }
+      case 'note': {
+        const n = noteById.get(r.id);
+        return n ? noteMarkup(n) : null;
+      }
+    }
+  };
+
+  const placed = new Set<string>();
   let out = '';
-  for (const n of frame.notes) {
-    if (n.opacity <= 0) continue;
-    const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
-    const halfW = noteHalfWidth(n.text, size);
-    const halfH = noteChipHeightPx(n.text, size) / 2;
-    out +=
-      `<g id="obj-${safeId(n.id)}" transform="${poseTransform(n.x, n.y)}"${attrOpacity(n.opacity)}>` +
-      `<path d="${noteChipPathD(halfW, halfH)}" fill="${NOTE_FILL}" stroke="${OBJ_STROKE}" stroke-width="1.4" stroke-linejoin="round"/>` +
-      `<path d="${noteFoldPathD(halfW, halfH)}" fill="${NOTE_FOLD_FILL}" stroke="${OBJ_STROKE}" stroke-width="1.4" stroke-linejoin="round"/>` +
-      `</g>`;
+  const push = (r: SceneRef): void => {
+    if (placed.has(r.id)) return;
+    const m = one(r);
+    if (m === null) return;
+    placed.add(r.id);
+    out += m;
+  };
+  for (const r of order ?? []) push(r);
+  for (const kind of DEFAULT_TIERS) {
+    switch (kind) {
+      case 'shape':
+        for (const sh of shapes) push({ kind, id: sh.id });
+        break;
+      case 'cone':
+        for (const c of frame.cones) push({ kind, id: c.id });
+        break;
+      case 'stroke':
+        for (const st of frame.strokes) push({ kind, id: st.id });
+        break;
+      case 'arrow':
+        for (const a of frame.arrows) push({ kind, id: a.id });
+        break;
+      case 'chair':
+        for (const c of frame.chairs) push({ kind, id: c.id });
+        break;
+      case 'ball':
+        for (const b of frame.balls) push({ kind, id: b.id });
+        break;
+      case 'note':
+        for (const n of frame.notes) push({ kind, id: n.id });
+        break;
+    }
   }
   return out;
 }
@@ -616,7 +690,7 @@ function usedStrokeWidths(frame: RenderFrame): number[] {
  *
  *  자립(self-contained)의 뜻: 외부 CSS·폰트·이미지를 **하나도** 참조하지 않는다. 그래서
  *  파일로 따로 열어도, `<img>` 에 물려 캔버스에 그려도 화면과 같은 그림이 나온다. */
-export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): string {
+export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts, order?: readonly SceneRef[]): string {
   const m = staticSceneMetrics(opts);
   const bg = opts.background ?? 'black';
   const markers = arrowMarkersMarkup(usedArrowColors(frame), usedStrokeWidths(frame));
@@ -631,23 +705,21 @@ export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts): strin
     // 것도 같은 지시다(staticSceneLayout 의 CAPTION_INK).
     (bg === 'black' ? `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.totalH)}" fill="#000000"/>` : '') +
     `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.vbH)}" rx="${EXPORT_LAYOUT.courtRx}" fill="${COURT_BG}"/>` +
-    // §3.5 표준 z-order: 코트면 → 격자 → 진영 → 규칙존·링 → 도형 → 콘 → 화살표 → 휠체어 → 공 → 메모.
+    // §3.5 표준 z-order: 코트면 → 격자 → 진영 → 규칙존·링 → **개체 목록**.
     //
     // 진영 깃발이 규칙 표시 **아래**인 것은 화면(CourtStage: RuleZones → SideMarks → RuleOverlay)
     // 을 따른 것이다. 존은 코트 안, 깃발은 골라인 밖이라 둘은 애초에 안 겹치고, 실제로 겹칠 수
     // 있는 것은 공의 3 m 링뿐인데 화면에서도 링이 깃발을 덮는다.
-    // 도형은 **코트 위·개체 아래**다(기현 지시 2026-08-14, ShapeLayer.tsx 머리말).
+    //
+    // ⚠️ 2026-09-06 — 개체 7종(도형 포함)의 순서는 더 이상 이 호출 순서가 아니라 `order`
+    //    (= `model/zOrder.ts` 의 `sceneOrder(step, cast)`)가 정한다. 안 넘기면 기본층이고,
+    //    기본층은 도형 → 콘 → 획 → 화살표 → 휠체어 → 공 → 메모다(2026-08-14 지시의 "도형은
+    //    코트 위·개체 아래" 가 그 첫 칸으로 살아 있다).
     courtLinesMarkup(opts.mode, opts.size) +
     gridMarkup(opts) +
     sideMarksMarkup(opts) +
     ruleMarkup(frame, opts) +
-    shapesMarkup(opts.shapes ?? []) +
-    conesMarkup(frame) +
-    strokesMarkup(frame) +
-    arrowsMarkup(frame) +
-    chairsMarkup(frame, opts) +
-    ballsMarkup(frame) +
-    notesMarkup(frame) +
+    sceneMarkup(frame, opts, order) +
     captionMarkup(opts, m) +
     `</svg>`
   );
@@ -661,9 +733,9 @@ export interface StaticScene {
   metrics: SceneMetrics;
 }
 
-export function buildStaticScene(frame: RenderFrame, opts: StaticSceneOpts): StaticScene {
+export function buildStaticScene(frame: RenderFrame, opts: StaticSceneOpts, order?: readonly SceneRef[]): StaticScene {
   return {
-    svg: buildStaticSvg(frame, opts),
+    svg: buildStaticSvg(frame, opts, order),
     texts: buildTextPlacements(frame, opts),
     metrics: staticSceneMetrics(opts),
   };

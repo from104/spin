@@ -192,8 +192,13 @@ export function setPose(d: Drill, i: number, id: ChairId | BallId | ConeId, p: S
   return replaceStep(d, i, { ...step, cones: withMap(step.cones, id, pose) });
 }
 
-/** 스텝에서 사라지는 개체의 **상태 플래그(잠김·무시)도 함께 지운다** (기현 지시 2026-08-15:
- *  *"칩이 트레이에 들어가면 잠긴 상태, 무시 상태가 꺼져야 한다"*).
+/** 스텝에서 사라지는 개체의 **상태 플래그(잠김·무시)와 표시 순서 자리도 함께 지운다**
+ *  (기현 지시 2026-08-15: *"칩이 트레이에 들어가면 잠긴 상태, 무시 상태가 꺼져야 한다"*).
+ *
+ *  ⚠️ 2026-09-06(v11)에 `zOrder` 가 합류했다 — 세 목록 다 "스텝이 쥔 id 목록" 이라 개체가
+ *  사라질 때 같이 걷어야 하는 이유도 같다. 순서 목록의 고아는 화면에는 안 보이지만(`sceneOrder`
+ *  가 무시한다) 저장본에 계속 쌓이고, 같은 id 가 다시 나타나면(트레이 반환 → 재배치) **사용자가
+ *  정한 적 없는 자리**로 되살아난다.
  *
  *  ⚠️ 안 지우면 플래그가 **id 로 살아남는다**. 잠긴 칩을 트레이로 뺐다가 다시 놓으면 잠긴 채로
  *  나오고(사용자는 그 사이에 아무것도 잠근 적이 없다), 무시된 칩은 되돌릴 문인 메뉴조차
@@ -204,14 +209,16 @@ export function setPose(d: Drill, i: number, id: ChairId | BallId | ConeId, p: S
  *  언젠가 한 곳이 빠진다. */
 function stripStepFlags(s: DrillStep, id: string): DrillStep {
   let next = s;
-  for (const flag of ['locked', 'ignored'] as const) {
+  for (const flag of ['locked', 'ignored', 'zOrder'] as const) {
     const cur = next[flag] as readonly string[] | undefined;
     if (!cur?.includes(id)) continue;
     const rest = cur.filter((x) => x !== id);
     const patched: DrillStep = { ...next };
-    // 빈 목록이면 키를 지운다 — `setStepFlag` 와 **같은 규칙**이라야 저장본에 표현이 하나다.
+    // 빈 목록이면 키를 지운다 — `setStepFlag`·`sanitizeZOrder` 와 **같은 규칙**이라야
+    // 저장본에 표현이 하나다.
     if (rest.length === 0) delete patched[flag];
     else if (flag === 'locked') patched.locked = rest;
+    else if (flag === 'zOrder') patched.zOrder = rest;
     else patched.ignored = rest as ChairId[];
     next = patched;
   }

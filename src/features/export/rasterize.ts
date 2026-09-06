@@ -19,6 +19,7 @@
 // 근거는 `buildStaticSvg.ts` · `staticSceneLayout.ts` 머리말에 있다.
 import type { RenderFrame } from '../../model/playback.ts';
 import { buildStaticScene, type StaticSceneOpts } from './buildStaticSvg.ts';
+import type { SceneRef } from '../../model/zOrder.ts';
 import { canvasAlignFor, fontCssFor, textToOutputPx, type SceneMetrics, type TextPlacement } from './staticSceneLayout.ts';
 import { translate } from '../../i18n/useT.ts';
 import type { Locale } from '../../i18n/locale.ts';
@@ -71,8 +72,15 @@ export interface RasterResult {
 }
 
 /** 한 장면 → PNG Blob. 실패는 예외로 던진다(호출부가 토스트로 옮긴다). */
-export async function rasterizeFrameToPng(frame: RenderFrame, opts: StaticSceneOpts, locale: Locale): Promise<RasterResult> {
-  const scene = buildStaticScene(frame, opts);
+export async function rasterizeFrameToPng(
+  frame: RenderFrame,
+  opts: StaticSceneOpts,
+  locale: Locale,
+  // 개체 표시 순서(2026-09-06, PLAN-Z-ORDER 결정 12) — `buildStaticScene` 의 3번째 인자로 그대로
+  // 나른다. 여기서 안 나르면 판에서 도형을 맨 앞으로 올린 스텝이 PNG 에서만 옛 순서로 구워진다.
+  order?: readonly SceneRef[],
+): Promise<RasterResult> {
+  const scene = buildStaticScene(frame, opts, order);
   const { metrics } = scene;
 
   const canvas = document.createElement('canvas');

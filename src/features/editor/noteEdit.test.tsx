@@ -146,6 +146,8 @@ describe('문 ② 개체 메뉴 [수정]', () => {
         onRemove={noop}
         onSelect={noop}
         onDuplicate={noop}
+        onZOrder={noop}
+        zMoves={null}
         onEdit={onEdit}
       />,
       { wrapper: SettingsProvider },

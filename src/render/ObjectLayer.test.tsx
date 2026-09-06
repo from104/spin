@@ -8,6 +8,8 @@ import { ObjectLayer } from './ObjectLayer.tsx';
 import type { ChairId, BallId, ConeId, NoteId, ArrowId } from '../core/ids.ts';
 import type { NoteLabel as NoteLabelData } from '../model/drill.ts';
 import type { Arrow } from '../model/arrow.ts';
+import type { Shape } from '../model/shape.ts';
+import type { SceneRef } from '../model/zOrder.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: SettingsProvider });
@@ -17,8 +19,15 @@ const ballId = 'bl_1' as BallId;
 const coneId = 'cn_1' as ConeId;
 const noteId = 'nt_1' as NoteId;
 const arrowId = 'ar_1' as ArrowId;
+const shapeId = 'sh_1' as Shape['id'];
+const shape: Shape = { id: shapeId, kind: 'rect', x: 100, y: 100, w: 80, h: 50, rot: 0 };
 
-function renderLayer(initialFrame?: Record<string, { x: number; y: number; theta: number }>) {
+/** 판 위 개체를 **DOM 순서 그대로** 나열한다. 개체는 `id="obj-…"`, 도형은 `data-shape-id` 를
+ *  달고 있어(둘은 서로 다른 표식이다) 한 번의 querySelectorAll 로 함께 센다. */
+const domOrder = (container: HTMLElement): string[] =>
+  Array.from(container.querySelectorAll('[id^="obj-"], [data-shape-id]')).map((el) => el.id || `obj-${el.getAttribute('data-shape-id')}`);
+
+function renderLayer(initialFrame?: Record<string, { x: number; y: number; theta: number }>, order?: readonly SceneRef[]) {
   const writer = createTransformWriter();
   const notes: NoteLabelData[] = [{ id: noteId, x: 0, y: 0, text: '메모' }];
   const arrows: Arrow[] = [{ id: arrowId, from: { x: 0, y: 0 }, ctrl: { x: 5, y: 5 }, to: { x: 10, y: 10 } }];
@@ -31,6 +40,8 @@ function renderLayer(initialFrame?: Record<string, { x: number; y: number; theta
         cones={[{ id: coneId, colorIndex: 0 }]}
         notes={notes}
         arrows={arrows}
+        shapes={[shape]}
+        order={order}
         markerUid="uid"
         selection={new Set()}
         activeId={null}
@@ -42,10 +53,35 @@ function renderLayer(initialFrame?: Record<string, { x: number; y: number; theta
 }
 
 describe('ObjectLayer — 레이어 순서(§3.5)', () => {
-  it('콘 → 화살표 → 휠체어 → 공 → 메모 순으로 DOM 에 나타난다', () => {
+  it('`order` 가 없으면 기본층(도형 → 콘 → 화살표 → 휠체어 → 공 → 메모) 그대로다', () => {
+    // 지우면 새는 버그: 순서를 못 정한 스텝(= 지금까지의 모든 드릴)의 그림이 바뀐다.
+    // z-order 기능의 계약은 "아무것도 안 하면 판은 한 픽셀도 안 변한다" 이고, 그것을 재는
+    // 단언이 이것뿐이다.
     const { container } = renderLayer();
-    const ids = Array.from(container.querySelectorAll('[id^="obj-"]')).map((el) => el.id);
-    expect(ids).toEqual([`obj-${coneId}`, `obj-${arrowId}`, `obj-${chairId}`, `obj-${ballId}`, `obj-${noteId}`]);
+    expect(domOrder(container)).toEqual([`obj-${shapeId}`, `obj-${coneId}`, `obj-${arrowId}`, `obj-${chairId}`, `obj-${ballId}`, `obj-${noteId}`]);
+  });
+
+  it('★ `order` 가 있으면 DOM 순서가 그것을 따른다 — 도형이 메모·칩 **위**로 갈 수 있다', () => {
+    // 지우면 새는 버그: [표시순서 ▸ 맨 앞으로] 를 눌러도 화면이 그대로다(모델만 바뀌고 판이
+    // 안 따라간다). 도형을 맨 위에 두는 것을 고른 이유는 그 자리가 **옛 구조로는 표현
+    // 불가능**했기 때문이다 — 도형은 ObjectLayer 밖의 층에 있어서 칩보다 위에 올 수 없었다.
+    const order: SceneRef[] = [
+      { kind: 'note', id: noteId },
+      { kind: 'ball', id: ballId },
+      { kind: 'chair', id: chairId },
+      { kind: 'arrow', id: arrowId },
+      { kind: 'cone', id: coneId },
+      { kind: 'shape', id: shapeId },
+    ];
+    const { container } = renderLayer(undefined, order);
+    expect(domOrder(container)).toEqual([`obj-${noteId}`, `obj-${ballId}`, `obj-${chairId}`, `obj-${arrowId}`, `obj-${coneId}`, `obj-${shapeId}`]);
+  });
+
+  it('★ `order` 가 모르는 개체는 버리지 않고 기본층 순서로 맨 위에 붙인다', () => {
+    // 지우면 새는 버그: 스텝 전환 중 **퇴장하는** 화살표·메모는 이전 스텝의 것이라 이번 스텝의
+    // `sceneOrder` 에 없다. 목록에 없다고 떨어뜨리면 퇴장 페이드가 화면에서 통째로 사라진다.
+    const { container } = renderLayer(undefined, [{ kind: 'chair', id: chairId }]);
+    expect(domOrder(container)).toEqual([`obj-${chairId}`, `obj-${shapeId}`, `obj-${coneId}`, `obj-${arrowId}`, `obj-${ballId}`, `obj-${noteId}`]);
   });
 });
 

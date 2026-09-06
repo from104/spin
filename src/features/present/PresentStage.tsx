@@ -8,19 +8,22 @@
 // TransformWriter(위치)+OpacityWriter(§8 위반 없는 이유는 PresentObjects.tsx 헤더 참고)로
 // DOM 을 직접 갱신한다. 화살표·메모만 React state 로 다시 그린다(그 파일 헤더 주석 근거).
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { COURT_BG } from '../../core/colors.ts';
 import { courtDefFor, type CourtMode } from '../../model/court.ts';
 import type { BallRing, Drill, DrillStep, TeamSide } from '../../model/drill.ts';
+import type { BallId } from '../../core/ids.ts';
 
 import { arrowColor } from '../../model/arrow.ts';
 import { strokeColor, strokeWidthOf } from '../../model/stroke.ts';
 import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playback.ts';
+import { DEFAULT_TIERS, sceneOrder, type SceneRef } from '../../model/zOrder.ts';
 import { PLAYBACK } from '../../core/constants.ts';
 import { CourtSurface } from '../../render/CourtSurface.tsx';
 import { GridOverlay } from '../../render/GridOverlay.tsx';
 import { RuleZones } from '../../render/RuleZones.tsx';
 import { SideMarks } from '../../render/SideMarks.tsx';
-import { ShapeLayer } from '../../render/ShapeLayer.tsx';
+import { ShapeMark } from '../../render/objects/ShapeMark.tsx';
 import { RuleOverlay } from '../../render/RuleOverlay.tsx';
 import { createRuleOverlay, type RuleRosterEntry } from '../../render/ruleOverlay.ts';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
@@ -28,7 +31,7 @@ import { createTransformWriter } from '../../render/transformWriter.ts';
 import { raf } from '../../render/rafLoop.ts';
 import { usePlaybackState, usePlaybackActions } from '../../store/playback/PlaybackProvider.tsx';
 import { createOpacityWriter } from './opacityWriter.ts';
-import { PresentChairMark, PresentBallMark, PresentConeMark, PresentArrowLayer, PresentNoteLayer, PresentStrokeLayer } from './PresentObjects.tsx';
+import { PresentChairMark, PresentBallMark, PresentConeMark, PresentArrowMark, PresentNoteMark, PresentStrokeMark } from './PresentObjects.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
@@ -211,6 +214,101 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
     return unsub;
   }, [playback.playing, playback.speed, playback.loop, drill, sampleNow, applyFrame, playbackActions, onEnded]);
 
+  // ── 개체 표시 순서(z-order, 2026-09-06 · PLAN-Z-ORDER 결정 12) ────────────────────────
+  // 판·시연·인쇄·PNG 가 **같은 함수**(`sceneOrder`)를 읽는다. 여기서 정렬을 다시 짜면 그것이
+  // 곧 "코치가 판에서 본 그림과 관객이 보는 그림이 다르다" 가 된다.
+  //
+  // ⚠️ 트윈 중에는 **목표 스텝**의 순서를 쓴다 — `sampleDrill` 의 `stepIndex` 가 이미 to-스텝
+  //    이라(그 함수의 `return { ...frame, stepIndex: i }`) `stepIdx` 를 그대로 쓰면 된다.
+  //    보간 중 순서가 두 스텝 사이에서 흔들리는 것보다, 도착할 그림의 순서로 미리 서는 편이
+  //    깜빡임이 없다.
+  const curStep = drill.steps[stepIdx];
+  // (키 없는 옛 스텝 객체의 방어는 `sceneOrder` 자신이 한다 — 2026-09-06 검수에서 모델로 옮겼다.)
+  const order = useMemo<readonly SceneRef[]>(() => (curStep ? sceneOrder(curStep, drill.cast) : []), [curStep, drill.cast]);
+  const shapes = curStep?.shapes ?? [];
+
+  const chairDefById = useMemo(() => new Map(drill.cast.chairs.map((c) => [c.id as string, c])), [drill.cast.chairs]);
+  const ballIds = useMemo(() => new Set(drill.cast.balls.map((b) => b.id as string)), [drill.cast.balls]);
+  const coneDefById = useMemo(() => new Map(drill.cast.cones.map((c) => [c.id as string, c])), [drill.cast.cones]);
+  const shapeById = new Map(shapes.map((sh) => [sh.id as string, sh]));
+  const arrowById = new Map(arrows.map((a) => [a.id as string, a]));
+  const strokeById = new Map(strokes.map((st) => [st.id as string, st]));
+  const noteById = new Map(notes.map((n) => [n.id as string, n]));
+
+  const nodeFor = (r: SceneRef): ReactNode => {
+    switch (r.kind) {
+      case 'shape': {
+        const sh = shapeById.get(r.id);
+        // 도형은 움직이는 개체가 아니라 **표시**라 보간이 없다 — 지금 스텝의 것을 그대로 그린다.
+        return sh ? <ShapeMark key={sh.id} shape={sh} /> : null;
+      }
+      case 'cone': {
+        const c = coneDefById.get(r.id);
+        return c ? <PresentConeMark key={c.id} def={c} writer={writer} opacityWriter={opacityWriter} /> : null;
+      }
+      case 'stroke': {
+        const st = strokeById.get(r.id);
+        return st ? <PresentStrokeMark key={st.id} stroke={st} markerUid={markerUid} /> : null;
+      }
+      case 'arrow': {
+        const a = arrowById.get(r.id);
+        return a ? <PresentArrowMark key={a.id} arrow={a} markerUid={markerUid} /> : null;
+      }
+      case 'chair': {
+        const c = chairDefById.get(r.id);
+        return c ? <PresentChairMark key={c.id} def={c} teams={drill.teams} writer={writer} opacityWriter={opacityWriter} /> : null;
+      }
+      case 'ball':
+        return ballIds.has(r.id) ? <PresentBallMark key={r.id} id={r.id as BallId} writer={writer} opacityWriter={opacityWriter} rules={rules} /> : null;
+      case 'note': {
+        const n = noteById.get(r.id);
+        return n ? <PresentNoteMark key={n.id} note={n} /> : null;
+      }
+    }
+  };
+
+  // ⚠️ **캐스트 전량이 마운트된 채로 남아야 한다**(파일 머리말): 휠체어·공·콘은 스텝마다
+  //    지웠다 다시 만드는 것이 아니라 `opacityWriter` 가 0 을 써서 숨긴다. 그래서 이 스텝의
+  //    순서에 없는 캐스트 개체도 목록 끝에 붙인다 — 안 붙이면 스텝을 넘길 때마다 재마운트가
+  //    일어나 writer 등록이 흔들리고, 다시 등장할 때 한 프레임 동안 원점에 찍힌다.
+  //    전환 중 **이전 스텝의** 화살표·획·메모도 같은 이유로 여기서 건진다(프레임이 실어 보낸
+  //    것을 순서가 모른다고 떨어뜨리면 퇴장 페이드가 통째로 사라진다).
+  const placed = new Set<string>();
+  const nodes: ReactNode[] = [];
+  const push = (r: SceneRef): void => {
+    if (placed.has(r.id)) return;
+    const node = nodeFor(r);
+    if (node === null) return;
+    placed.add(r.id);
+    nodes.push(node);
+  };
+  for (const r of order) push(r);
+  for (const kind of DEFAULT_TIERS) {
+    switch (kind) {
+      case 'shape':
+        for (const sh of shapes) push({ kind, id: sh.id });
+        break;
+      case 'cone':
+        for (const c of drill.cast.cones) push({ kind, id: c.id });
+        break;
+      case 'stroke':
+        for (const st of strokes) push({ kind, id: st.id });
+        break;
+      case 'arrow':
+        for (const a of arrows) push({ kind, id: a.id });
+        break;
+      case 'chair':
+        for (const c of drill.cast.chairs) push({ kind, id: c.id });
+        break;
+      case 'ball':
+        for (const b of drill.cast.balls) push({ kind, id: b.id });
+        break;
+      case 'note':
+        for (const n of notes) push({ kind, id: n.id });
+        break;
+    }
+  }
+
   return (
     <svg
       viewBox={`0 0 ${def.vbW} ${def.vbH}`}
@@ -238,31 +336,15 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
       {/* 진영 표시 — 편집 화면과 **같은 컴포넌트**다. 시연에서 빠지면 코치가 팀에 보여 주는
           화면만 진영을 안 알려 주게 된다(골 지역 붉은 표시는 진영을 따라 나오는데도). */}
       <SideMarks mode={mode} size={drill.courtSize} teams={drill.teams} defense={drill.defense} />
-      {/* 작도 도형 — 편집기와 **같은 층**(코트 위·개체 아래)이고 같은 컴포넌트다.
-          시연에는 선택이 없으므로 `selected`·`onPointerDown` 을 안 넘긴다: 그림일 뿐이다.
-          ⚠️ 도형은 스텝을 따라간다(화살표·메모와 같다). 시연은 프레임 보간을 쓰지만 도형은
-          움직이는 개체가 아니라 **표시**라, 보간 없이 지금 스텝의 것을 그대로 그린다. */}
-      <ShapeLayer shapes={drill.steps[stepIdx]?.shapes ?? []} />
       <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} ballRings={ballRings} ballOwners={ballOwners} roster={ruleRoster} teams={drill.teams} defense={drill.defense} />
       {/* 개체 자체는 접근성 트리에서 뺀다 — 실제 서술은 아래 스텝 이름·메모(텍스트)와
           §7.5e 라이브 리전(스텝 전환 발표)이 맡는다. render-stage 리프가 강제하는
           role="button" 은 시연에서 실제로 클릭 가능하지 않아 노출하면 오히려 오도한다. */}
-      <g aria-hidden="true">
-        {drill.cast.cones.map((c) => (
-          <PresentConeMark key={c.id} def={c} writer={writer} opacityWriter={opacityWriter} />
-        ))}
-        {/* 획은 화살표 **바로 아래** — 편집기(ObjectLayer 머리말)와 같은 순서다. 두 화면의
-            z-order 가 갈리면 코치가 판에서 본 그림과 관객이 보는 그림이 달라진다. */}
-        <PresentStrokeLayer strokes={strokes} markerUid={markerUid} />
-        <PresentArrowLayer arrows={arrows} markerUid={markerUid} />
-        {drill.cast.chairs.map((c) => (
-          <PresentChairMark key={c.id} def={c} teams={drill.teams} writer={writer} opacityWriter={opacityWriter} />
-        ))}
-        {drill.cast.balls.map((b) => (
-          <PresentBallMark key={b.id} id={b.id} writer={writer} opacityWriter={opacityWriter} rules={rules} />
-        ))}
-        <PresentNoteLayer notes={notes} />
-      </g>
+      {/* ★ 7종을 **한 목록**으로 그린다(아래→위). 도형도 여기 있다 — 편집기와 같은 층이고
+          같은 컴포넌트다. 시연에는 선택이 없으므로 `selected`·`onPointerDown` 을 안 넘긴다.
+          ⚠️ 순서는 `sceneOrder` 가 정한다(위 블록). 여기서 다시 짜지 마라 — 그것이 판과
+             관객 화면이 갈리는 자리다. */}
+      <g aria-hidden="true">{nodes}</g>
     </svg>
   );
 }

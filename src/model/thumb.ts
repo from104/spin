@@ -6,6 +6,8 @@ import type { Drill } from './drill.ts';
 import type { CourtMode } from './court.ts';
 import type { Shape } from './shape.ts';
 import type { Vec2 } from '../core/units.ts';
+import { DEFAULT_TIERS, sceneOrder } from './zOrder.ts';
+import type { SceneKind } from './zOrder.ts';
 
 export interface ThumbSpec {
   mode: CourtMode;
@@ -45,6 +47,34 @@ export interface ThumbSpec {
    *  ⚠️ 기본값(색 첨자 0 · 굵기 첨자 `STROKE_WIDTH_DEFAULT`)일 때는 키를 넣지 않는다 —
    *  `arrows.c` 와 같은 이유다. 비어 있으면 `strokes` 키 자체를 안 만든다. */
   strokes?: Array<{ p: number[]; c?: number; w?: number }>;
+  /** 개체 표시 순서(2026-09-06, `docs/PLAN-Z-ORDER.md` 결정 12 — 썸네일도 판과 같은 순서다).
+   *  위 배열들을 **기본층 순서**(`DEFAULT_TIERS`: 도형→콘→획→화살표→휠체어→공→메모)로 이어 붙인
+   *  평탄 목록의 **첨자 순열**(아래→위)이다. 요약은 개체 id 를 안 담으므로(작은 레코드 규율)
+   *  id 목록 대신 자리로 순서를 나른다 — 종류 코드를 따로 두지 않는 이유는 평탄 목록의 자리가
+   *  이미 종류를 말하기 때문이다. 푸는 쪽은 `thumbSequence` 하나다.
+   *
+   *  ⚠️ 기본층과 같으면 키를 넣지 않는다 — `arrows.c` 와 같은 논증이라 `SUMMARY_BUILD` 를 안
+   *  올린다: 이 필드가 생기기 전의 요약은 전부 순서를 정한 적 없는 드릴(v10 이하)의 것이라
+   *  '없음' 은 정보 부족이 아니라 **참인 기본값**이다. 캡에 잘린 개체는 순열에서도 빠진다. */
+  z?: number[];
+}
+
+/** 요약의 개체를 그릴 차례(평탄 목록 첨자, 아래→위). `z` 가 없으면 항등(= 기본층).
+ *  범위 밖·중복·정수 아닌 첨자는 버리고, 순열에 없는 첨자는 **맨 위**에 붙인다(`sceneOrder`
+ *  규칙 ③과 같은 처리) — 요약 레코드는 오래 살아서, 캡을 바꾼 뒤 옛 순열이 새 배열 길이와
+ *  어긋나도 개체가 조용히 사라지면 안 된다. */
+export function thumbSequence(z: readonly number[] | undefined, n: number): number[] {
+  const identity = Array.from({ length: n }, (_, i) => i);
+  if (!z || z.length === 0) return identity;
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const i of z) {
+    if (!Number.isInteger(i) || i < 0 || i >= n || seen.has(i)) continue;
+    seen.add(i);
+    out.push(i);
+  }
+  for (const i of identity) if (!seen.has(i)) out.push(i);
+  return out;
 }
 
 /** `noteChars` 만 개수가 아니라 **글자 수**다 — 위 `notes` 주석의 근거.
@@ -93,6 +123,9 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
   const shapes: Shape[] = [];
   const notes: NonNullable<ThumbSpec['notes']> = [];
   const strokes: NonNullable<ThumbSpec['strokes']> = [];
+  // 요약에 **실린** 개체의 id 를 종류별로 같은 차례로 적어 둔다 — 아래 `z` 순열을 만들 때만 쓰고
+  // 요약에는 안 실린다(캡에 잘린 것은 여기에도 없다).
+  const idsByKind: Record<SceneKind, string[]> = { shape: [], cone: [], stroke: [], arrow: [], chair: [], ball: [], note: [] };
 
   if (step) {
     for (const def of d.cast.chairs) {
@@ -100,18 +133,21 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
       const pose = step.chairs[def.id];
       if (!pose) continue;
       chairs.push({ x: pose.x, y: pose.y, a: pose.angleDeg, t: def.team === 'home' ? 0 : 1, g: def.isGk ? 1 : 0 });
+      idsByKind.chair.push(def.id);
     }
     for (const def of d.cast.balls) {
       if (balls.length >= THUMB_CAPS.balls) break;
       const p = step.balls[def.id];
       if (!p) continue;
       balls.push([p.x, p.y]);
+      idsByKind.ball.push(def.id);
     }
     for (const def of d.cast.cones) {
       if (cones.length >= THUMB_CAPS.cones) break;
       const p = step.cones[def.id];
       if (!p) continue;
       cones.push([p.x, p.y, def.colorIndex]);
+      idsByKind.cone.push(def.id);
     }
     for (const a of step.arrows) {
       if (arrows.length >= THUMB_CAPS.arrows) break;
@@ -119,6 +155,7 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
       // 순환 밖의 색은 -1 이라 0(기본색)으로 접힌다 — `cycleArrowColor` 가 같은 규약이다.
       const c = ARROW_COLOR_CYCLE.indexOf(arrowColor(a));
       arrows.push(c > 0 ? { p, c } : { p });
+      idsByKind.arrow.push(a.id);
     }
     // ⚠️ `?? []` — 도형·메모 필드는 2026-08-14/그 이전에 생겼고 그 길을 안 지난 스텝 객체(옛
     // 저장본·테스트 픽스처)에는 키가 없다(`ShapeLayer.tsx` 가 같은 방어를 한다).
@@ -127,6 +164,7 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
       // 깊은 복사다. 얕게 담으면 삼각형의 꼭짓점 배열을 드릴 본문과 **공유**해서, 판에서 도형을
       // 끌 때 이미 저장된 요약의 썸네일까지 같이 움직인다(그리고 그건 저장 없이 일어난다).
       shapes.push(structuredClone(s));
+      idsByKind.shape.push(s.id);
     }
     for (const n of step.notes ?? []) {
       if (notes.length >= THUMB_CAPS.notes) break;
@@ -135,6 +173,7 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
       if (n.color !== undefined) e.c = n.color;
       if (n.align !== undefined) e.a = n.align;
       notes.push(e);
+      idsByKind.note.push(n.id);
     }
     // 획도 `?? []` — 필드가 optional 이라 v10 이전 스텝 객체에는 키가 없다(drill.ts 주석).
     for (const s of step.strokes ?? []) {
@@ -150,7 +189,23 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
       const w = strokeWidthIndexOf(s);
       if (w !== STROKE_WIDTH_DEFAULT) e.w = w;
       strokes.push(e);
+      idsByKind.stroke.push(s.id);
     }
+  }
+
+  // 표시 순서 → 평탄 목록 첨자 순열. 목록이 없는 스텝은 아예 안 만든다(기본층 = 항등이라 키가
+  // 없어야 옛 요약과 모양이 같다). 목록이 있어도 결과가 항등이면 역시 안 싣는다.
+  let z: number[] | undefined;
+  if (step?.zOrder && step.zOrder.length > 0) {
+    const flat: string[] = [];
+    for (const kind of DEFAULT_TIERS) flat.push(...idsByKind[kind]);
+    const at = new Map(flat.map((id, i) => [id, i]));
+    const seq: number[] = [];
+    for (const ref of sceneOrder(step, d.cast)) {
+      const i = at.get(ref.id);
+      if (i !== undefined) seq.push(i);
+    }
+    if (seq.length !== flat.length || seq.some((v, i) => v !== i)) z = seq;
   }
 
   return {
@@ -162,5 +217,6 @@ export function buildStepThumb(d: Drill, i: number): ThumbSpec {
     ...(shapes.length > 0 ? { shapes } : {}),
     ...(notes.length > 0 ? { notes } : {}),
     ...(strokes.length > 0 ? { strokes } : {}),
+    ...(z ? { z } : {}),
   };
 }

@@ -133,7 +133,7 @@ describe('놓기 — 도구를 고르고 코트를 찍으면 도형이 선다', 
 });
 
 describe('★ 층 — 코트보다 높고 칩·화살표보다 낮다 (기현 지시의 본문)', () => {
-  it('도형 층이 코트 라인 **뒤**, 개체 층 **앞**에 있다', async () => {
+  it('도형 층이 코트 라인 **뒤**에 있고, 골대(판의 부속)보다는 **위**다', async () => {
     const { user, stage } = await openBoard();
     await pickShapeTool(user, '사각');
     await tapCourt(user, stage);
@@ -142,12 +142,20 @@ describe('★ 층 — 코트보다 높고 칩·화살표보다 낮다 (기현 �
     const svg = stage.closest('svg') ?? stage;
     const nodes = [...svg.querySelectorAll('*')];
     const shapeLayer = svg.querySelector('[data-shape-layer]')!;
-    // 개체 하나(골대 포스트)를 기준으로 삼는다 — 빈 판에도 반드시 있다.
-    const anObject = svg.querySelector('.goal-post')!;
+    // 골대 포스트를 기준으로 삼는다 — 빈 판(전술판은 비어 시작한다)에도 반드시 있다.
+    const goalPost = svg.querySelector('.goal-post')!;
     const courtSurface = svg.querySelector('.court-line, .court-surface, rect')!;
 
     expect(nodes.indexOf(courtSurface), '도형이 코트보다 아래다').toBeLessThan(nodes.indexOf(shapeLayer));
-    expect(nodes.indexOf(shapeLayer), '도형이 개체보다 위다').toBeLessThan(nodes.indexOf(anObject));
+    // ── ⚠️ 2026-09-06: 아래 단언은 뒤집혔다(PLAN-Z-ORDER 결정 4) ──────────────────────────
+    //   옛 단언: `expect(nodes.indexOf(shapeLayer), '도형이 개체보다 위다').toBeLessThan(nodes.indexOf(goalPost))`
+    //   — 골대 포스트를 "개체 하나" 로 삼아 도형이 그 **아래**임을 쟀다. 골대는 **개체가 아니라
+    //   판의 부속**이라 z-order 대상이 아니고, `ObjectLayer` 가 그것을 순서 목록보다 **아래**에
+    //   그린다. 도형은 이제 그 목록 **안**의 한 칸이므로 골대보다 **위**다 — 이 한 칸이 뒤집힌
+    //   대가이고(도형이 골대 기둥을 덮을 수 있다), 기현 지시의 본문("칩·화살표보다 낮게")은
+    //   기본층(`DEFAULT_TIERS` 의 첫 칸)으로 그대로 산다. 칩·화살표와의 앞뒤는 빈 판에서 잴 수
+    //   없으므로 `render/ObjectLayer.test.tsx`(기본층)·`model/zOrder.test.ts` 가 잰다.
+    expect(nodes.indexOf(goalPost), '골대는 판의 부속이라 개체 목록(도형 포함) 아래다').toBeLessThan(nodes.indexOf(shapeLayer));
   });
 });
 

@@ -614,3 +614,38 @@ describe('§6.10b 모아 고르기 — 선택 도구의 고정', () => {
     // 같은 액션이 모아 고르기에서는 살려 둔다(위 it.each) — 그것이 갈래를 나눈 값이다.
   });
 });
+
+// ── Z_ORDER — 표시 순서 (2026-09-06, PLAN-Z-ORDER 결정 5·8) ─────────────────────────────
+// 규칙 자체(어디로 끼우나·무엇을 건너뛰나)는 `model/zOrder.test.ts` 가 지킨다. 여기서 재는 것은
+// **배선 세 가닥**이다: ① COMMIT_TYPES 에 들어 있는가(없으면 present 가 바뀔 길이 아예 없어
+// 순서가 화면에도 파일에도 안 남는다 — STROKE_SET 주석이 설명하는 그 함정), ② 되돌리기가
+// 클릭 하나에 한 칸인가, ③ 불가능한 명령이 상태를 그대로 두는가(같은 참조).
+describe('Z_ORDER — 표시 순서 (PLAN-Z-ORDER 결정 5·8)', () => {
+  // 코트 구석 — 포메이션이 세운 휠체어에서 멀다. 여기 둘을 겹쳐 놓으면 겹침 문지기가 열린다.
+  const CORNER = { x: 10, y: 10 };
+
+  it('겹친 것이 있으면 순서를 물질화하고, 되돌리기 한 칸으로 통째로 돌아온다', () => {
+    const cone = newId('cn');
+    const ball = newId('bl');
+    let s = editorRootReducer(freshState(), { type: 'OBJECT_ADD', kind: 'cone', at: CORNER, id: cone });
+    s = editorRootReducer(s, { type: 'OBJECT_ADD', kind: 'ball', at: CORNER, id: ball });
+
+    const s1 = editorRootReducer(s, { type: 'Z_ORDER', id: cone, op: 'front' });
+    const order = s1.present.steps[0]!.zOrder!;
+    // 기본층에서 콘은 공보다 아래다(DEFAULT_TIERS) — [맨 앞으로] 뒤에는 목록의 **끝**(=맨 위)이다.
+    expect(order[order.length - 1]).toBe(cone);
+    expect(order).toContain(ball);
+    expect(s.present.steps[0]!.zOrder, '원본은 안 건드린다').toBeUndefined();
+    // 클릭 1 = undo 1(COALESCE_TYPES 에 없다). 되돌리면 목록 자체가 사라져 옛 그림으로 돌아간다.
+    expect(s1.past).toHaveLength(s.past.length + 1);
+    expect(editorRootReducer(s1, { type: 'UNDO' }).present.steps[0]!.zOrder).toBeUndefined();
+  });
+
+  it('겹친 것이 없으면 상태가 통째로 그대로다 — 되돌리기 칸도 안 쌓인다', () => {
+    // 죽은 칸을 눌렀거나, 메뉴를 연 뒤 겹침이 사라진 경우다. 새 배열을 만들어 돌려주면
+    // 아무것도 안 변한 판이 undo 스택에 쌓여 Ctrl+Z 가 헛돈다.
+    const cone = newId('cn');
+    const s = editorRootReducer(freshState(), { type: 'OBJECT_ADD', kind: 'cone', at: CORNER, id: cone });
+    expect(editorRootReducer(s, { type: 'Z_ORDER', id: cone, op: 'front' })).toBe(s);
+  });
+});

@@ -54,6 +54,7 @@ import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { PrintRoot, printWhenReady } from '../print/index.ts';
 import type { PrintDoc } from '../print/index.ts';
 import { rasterizeFrameToPng } from './rasterize.ts';
+import { sceneOrder } from '../../model/zOrder.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
@@ -175,7 +176,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
         // 고정 폭이라 줄바꿈이 없어(staticSceneLayout) 여기서 미리 자른다.
         roster: rosterCaptionText(drill),
       },
-    }, locale);
+      // 개체 표시 순서(2026-09-06, PLAN-Z-ORDER 결정 12) — 판·시연·인쇄와 **같은 함수**다. 이 인자가
+      // 빠지면 판에서 도형을 맨 앞으로 올린 스텝이 카톡으로 보낸 그림에서만 옛 순서가 된다.
+    }, locale, sceneOrder(step, drill.cast));
     return { blob, name: sceneFileName(drill.title, i) };
   };
 

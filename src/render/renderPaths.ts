@@ -65,9 +65,13 @@ export const SCENE_ELEMENT_IDS = [
   'chairs',
   'balls',
   'cones',
+  // ⚠️ 2026-09-06 — 여기 아래 다섯 줄의 순서는 **기본층**(`model/zOrder.ts` 의
+  // `DEFAULT_TIERS`)이지 고정 z-order 가 아니다. 사용자가 스텝마다 뒤집을 수 있고
+  // (`docs/PLAN-Z-ORDER.md`), 이 표는 애초에 *"그 화면이 그것을 그리는가"* 만 말한다 —
+  // **순서를 말하는 표가 아니다.** 목록을 기본층 순서로 적어 두는 것은 읽는 사람이 두 벌을
+  // 외우지 않게 하려는 것뿐이다(이 배열의 순서를 바꿔도 그리는 순서는 안 바뀐다).
   'shapes',
-  // 획은 화살표 **바로 아래** 층이다 — 목록 순서를 z-order 와 같이 두어 읽는 사람이 두 벌을
-  // 외우지 않게 한다(층 결정의 근거는 ObjectLayer.tsx 머리말).
+  // 획은 화살표 **바로 아래** 층이다(그 결정의 근거는 ObjectLayer.tsx 머리말).
   'strokes',
   'arrows',
   'notes',

@@ -28,7 +28,7 @@ import { RuleOverlay } from './RuleOverlay.tsx';
 import type { RuleOverlayApi, RuleRosterEntry } from './ruleOverlay.ts';
 import { ArrowMarkers } from './ArrowMarkers.tsx';
 import { ObjectLayer, type ObjectLayerChair, type ObjectLayerCone } from './ObjectLayer.tsx';
-import { ShapeLayer } from './ShapeLayer.tsx';
+import type { SceneRef } from '../model/zOrder.ts';
 import { ShapeHandles } from './ShapeHandles.tsx';
 import { dragShapeHandle } from '../model/shape.ts';
 import type { Shape, ShapeHandle } from '../model/shape.ts';
@@ -146,9 +146,18 @@ export interface CourtStageProps {
   goalBaseDirs?: readonly ({ x: number; y: number } | null)[];
   onGoalReturn?(): void;
   notes: readonly NoteLabelData[];
-  /** 작도 도형(2026-08-14). **코트 위·칩 아래** 층이라 렌더 순서가 곧 계약이다 —
-   *  아래 JSX 에서 RuleOverlay 와 ObjectLayer **사이**에 있다. */
+  /** 작도 도형(2026-08-14). **코트 위·칩 아래** 층이라 렌더 순서가 곧 계약이다.
+   *
+   *  ── ⚠️ 2026-09-06 ──────────────────────────────────────────────────────────────
+   *  위 한 줄은 **기본값**이 됐다(`docs/PLAN-Z-ORDER.md` 결정 4). 도형은 이제 `ObjectLayer`
+   *  안에서 나머지 6종과 **한 목록**으로 그려지고, 아무도 순서를 손대지 않은 스텝에서만
+   *  맨 아래에 온다. 그래서 이 파일에는 더 이상 별도의 도형 층 삽입이 없다. */
   shapes?: readonly Shape[];
+  /** 이 스텝의 표시 순서(아래→위) — `model/zOrder.ts` 의 `sceneOrder(step, cast)` 결과.
+   *  ⚠️ 여기서 만들지 않는다. 스텝·캐스트를 쥔 화면(EditorStage)이 계산해 내려보낸다 —
+   *  판·시연·인쇄·PNG 가 **같은 함수 하나**만 읽어야 경로별 드리프트가 안 생긴다.
+   *  안 넘기면 `ObjectLayer` 가 기본층으로 접는다(옛 호출부는 그대로 동작한다). */
+  order?: readonly SceneRef[];
   /** 도형을 잡았다 — 선택만 바꾼다. 끌기는 아래 `onShapeChange` 가 진다. */
   onShapeSelect?: (id: string) => void;
   /** 끌고 있는 동안 매 프레임 불린다. **월드 좌표 산수는 이 파일이 진다** — metrics(회전·배율·
@@ -309,6 +318,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     ariaDescribedBy = 'court-help',
     selectionOverlayRef,
     shapes = [],
+    order,
     onShapeSelect,
     onShapeChange,
     zoneHandles: zoneHandlesProps,
@@ -916,11 +926,15 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             teams={ruleOverlay.teams}
           />
         )}
-        {/* ★ 작도 도형 — **여기가 자리다**(기현 지시 2026-08-14: *"레이어는 코트보다는 높고
-            칩, 화살표들보다는 낮게"*). 위로는 RuleOverlay, 아래로는 ObjectLayer 다.
-            이 두 줄 사이를 벗어나면 요구가 깨진다: 위로 올리면 도형이 칩을 덮고, 아래로
-            내리면 격자·골 지역 가이드에 묻힌다. */}
-        <ShapeLayer shapes={shapes} selected={selection} locked={locked} onPointerDown={onShapeSelect ? onShapeBodyDown : undefined} />
+        {/* ★ 작도 도형은 **ObjectLayer 안**에 있다(2026-08-14 지시: *"레이어는 코트보다는 높고
+            칩, 화살표들보다는 낮게"*).
+            ── ⚠️ 2026-09-06 ────────────────────────────────────────────────────────────
+            그 지시는 뒤집힌 것이 아니라 **기본값**이 됐다(PLAN-Z-ORDER 결정 4): 사용자가
+            스텝마다 순서를 정할 수 있게 되면서 도형이 나머지 6종과 한 목록에 들어갔고,
+            아무도 손대지 않으면 여전히 맨 아래(RuleOverlay 바로 위)에 온다.
+            여기 있던 `<ShapeLayer>` 한 줄이 사라진 대가는 도형이 **골대 포스트보다 위**로
+            한 칸 올라간 것이다 — 골대는 개체가 아니라 판의 부속이라 순서 대상이 아니고,
+            `ObjectLayer` 는 그것을 목록보다 아래에 그린다. */}
         <ObjectLayer
           writer={writer}
           chairs={chairs}
@@ -934,6 +948,9 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           notes={notes}
           arrows={arrows}
           strokes={strokes}
+          shapes={shapes}
+          onShapePointerDown={onShapeSelect ? onShapeBodyDown : undefined}
+          order={order}
           markerUid={markerUid}
           selection={selection}
           zoneCursors={zoneCursors}
