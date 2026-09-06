@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ## [Unreleased]
 
 ### Added
-- Added the Privacy Policy (/privacy/) and Terms of Service (/terms/) pages in Korean, English and Japanese
+- Added the Privacy Policy (/privacy/) and Terms of Service (/terms/) pages in Korean, English and Japanese, opened from the [Data] and [Google Drive Sync] sections of [Settings]
 
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
 
