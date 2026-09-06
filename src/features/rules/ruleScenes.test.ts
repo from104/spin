@@ -26,12 +26,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildRuleScene,
+  ruleSceneCardOrder,
   RULE_SCENE_EXPECT,
   RULE_SCENE_GEO,
   RULE_SCENE_IDS,
   RULE_SCENE_KICKER_BY_LAW,
+  seedRuleDrills,
+  SEED_EPOCH,
+  SEED_STEP_BACK_MS,
 } from './ruleScenes.ts';
 import type { RuleSceneId } from './ruleScenes.ts';
+import { RESTART_COLUMNS } from './restartTable.ts';
+import { isId } from '../../core/ids.ts';
 import { ruleContentFor } from './ruleContent.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { validateDrill } from '../../model/validate.ts';
@@ -269,5 +275,87 @@ describe('ruleContent ↔ ruleScenes 연결', () => {
     // 머리말 참조). 개수를 하드코딩해 두는 이유는 장면이 **조용히 늘거나 줄지 않게** 하기
     // 위해서다 — 늘리거나 줄이는 커밋은 반드시 이 줄을 함께 고치며 "왜 바뀌었나" 를 적게 된다.
     expect(RULE_SCENE_IDS).toHaveLength(22);
+  });
+});
+
+// ── 첫 실행 시드 (2026-09-06, docs/PLAN-SEED-FROM-RULES.md) ─────────────────────────────────
+//
+// 여기 단언들이 지키는 것은 **저장되기 때문에 생긴 성질**뿐이다(장면 자체의 성질은 위 describe 들이
+// 이미 본다). 지우면 새는 실기 버그가 각각 이렇다:
+//  - id 가 흔들리면 → 동기화 뒤 기기 수만큼 사본이 생긴다.
+//  - 시각이 기계 시계를 읽으면 → 나중에 첫 실행한 기기의 미편집 시드가 다른 기기의 편집을 덮는다.
+//  - 순서가 카드 순이 아니면 → 목록 최신순이 규칙 화면과 다른 차례로 뜬다.
+//  - 봉투(id·시각)를 갈아 끼우다 문서가 깨지면 → 심는 즉시 validate 가 말없이 보정한다.
+describe('seedRuleDrills — 첫 실행에 심는 22벌', () => {
+  const seeds = seedRuleDrills();
+
+  it('규칙 장면 전량이고 순서가 카드 순서다', () => {
+    // 장면 하나가 시드에서 조용히 빠지는 것을 막는다 — 개수는 `RULE_SCENE_IDS` 에서 파생시켜
+    // 여기 하드넘버를 두지 않는다(장면 수 22 자체는 위 describe 가 못 박는다).
+    expect(seeds).toHaveLength(RULE_SCENE_IDS.length);
+    // 카드 1 의 첫 장면이 맨 위다. `ruleTopics.ts` 의 카드 배열 첫머리가 정본이고, 목록은
+    // updatedAt 내림차순이라 이 벌이 첫 화면 맨 위에 온다.
+    expect(seeds[0]!.title).toBe(buildRuleScene('field-tour').title);
+    // 재개 7종은 카드 5 의 **표 자리에서 표의 열 순서로** 들어온다 — 표를 재배열하면 목록도
+    // 따라 바뀌어야 한다(둘이 어긋나면 표에서 고른 것과 목록의 차례가 다르게 보인다).
+    const order = seeds.map((d) => d.id);
+    const restartAt = RESTART_COLUMNS.map((c) => order.indexOf(buildRuleScene(c.sceneId).id));
+    expect(restartAt).toEqual([...restartAt].sort((a, b) => a - b));
+    expect(restartAt[restartAt.length - 1]! - restartAt[0]!).toBe(RESTART_COLUMNS.length - 1);
+  });
+
+  it('id 가 고정이고 서로 다르며 isId 형식을 통과한다', () => {
+    const twice = seedRuleDrills().map((d) => d.id);
+    // ⚠️ **부를 때마다 같아야 한다.** (1) 갈래는 `buildSeedDrill` 이 `newId('dr')` 를 발급하므로,
+    // 고정 id 표에서 한 칸이라도 빠지면 이 단언이 그 자리에서 빨개진다.
+    expect(twice).toEqual(seeds.map((d) => d.id));
+    expect(new Set(twice).size).toBe(seeds.length);
+    for (const id of twice) expect(isId(id, 'dr'), id).toBe(true);
+  });
+
+  it('고정 id 3개는 이 값 그대로여야 한다 — 바꾸면 이미 심은 기기에 사본이 하나 더 생긴다', () => {
+    // 리터럴로 못 박는 이유는 `RULE_SCENE_IDS 는 정확히 22개다` 와 같다: 바꾸는 커밋이 이 줄을
+    // 함께 고치며 "왜 바꿨나" 를 적게 하려는 것이다. (2) 갈래 19벌의 id 는 `.scene.ts` 봉투에
+    // 박혀 있어(스크립트가 찍는다) 여기 적지 않는다.
+    const order = ruleSceneCardOrder();
+    const idOf = (sceneId: RuleSceneId) => seeds[order.indexOf(sceneId)]!.id;
+    expect(idOf('field-tour')).toBe('dr_rule_field_tour');
+    expect(idOf('lineup')).toBe('dr_rule_lineup');
+    expect(idOf('two-on-one-open')).toBe('dr_rule_two_on_one_open');
+  });
+
+  it('시각이 SEED_EPOCH 에서 카드 순서대로 1분씩 뒤로 밀리고 createdAt = updatedAt 이다', () => {
+    // ⚠️ 리터럴 핀(검수 실측 2026-09-06): 상수 자체를 `Date.now()` 로 바꾼 돌연변이가 아래 파생
+    // 단언을 **전부 통과했다** — 테스트가 모듈의 SEED_EPOCH 를 가져다 비교하면 그 값이 기계
+    // 시계여도 자기와 같다(자기증명). 계획서(결정 4)가 못 박은 날짜를 모듈과 무관하게 적어야
+    // "기계 시계를 읽지 않는다" 가 실제로 잡힌다. 고정 id 핀과 같은 이유로 바꾸는 커밋이 이
+    // 줄을 함께 고치며 사유를 적게 한다(옮기면 이미 심은 기기의 시드와 시각이 어긋난다).
+    expect(SEED_EPOCH).toBe(Date.UTC(2026, 8, 6));
+    // 기계 시계를 읽으면 첫 벌의 시각이 SEED_EPOCH 가 아니게 된다 — 그 순간 동기화 LWW 에서
+    // 미편집 시드가 다른 기기의 편집을 이길 수 있다.
+    seeds.forEach((d, i) => {
+      expect(d.updatedAt, d.title).toBe(SEED_EPOCH - i * SEED_STEP_BACK_MS);
+      expect(d.createdAt, d.title).toBe(d.updatedAt);
+    });
+  });
+
+  it.each(RULE_SCENE_IDS.map((_, i) => i))('%i번째 벌 — 봉투를 갈아 끼워도 validateDrill 이 보정 없이 통과한다', (i) => {
+    // 형식 반증선(계획 결정 9). 장면 자체는 위에서 이미 재지만, 시드는 id·시각을 덮어쓴 **다른
+    // 문서**이고 이쪽만 저장소에 들어간다 — 좌표 클램프·문자열 절단·고아 id 삭제는 전부 조용한
+    // 보정이다.
+    const d = seeds[i]!;
+    const result = validateDrill(JSON.parse(JSON.stringify(d)));
+    if (!result.ok) throw new Error(`${d.title} — validateDrill 실패: ${JSON.stringify(result.issues)}`);
+    expect(result.repairs, `${d.title} — 보정이 일어났다`).toEqual([]);
+    // ⚠️ **`toEqual(d)` 로는 못 잰다**(2026-09-06 실측): 편집기가 찍은 좌표는 소수점이 길고
+    // (`x: 259.9099425790758`) `validateDrill` 이 0.1 단위로 반올림한다. 그 반올림은 비파괴라
+    // `repairs` 에도 안 잡히므로 22벌 중 3벌에서 문서가 **말없이 달라진다**. 왕복 동일성은 그
+    // 3벌에 대해 애초에 성립한 적이 없다 — 대신 우리가 갈아 끼운 **봉투**가 그대로인지를 잰다.
+    // (id 는 `validateDrill` 이 형식을 보지 않는다 — 실측. 형식은 위 `isId` 케이스가 잰다.)
+    expect(result.value.id, `${d.title} — 심은 id 가 왕복에서 바뀌었다`).toBe(d.id);
+    expect(result.value.createdAt).toBe(d.createdAt);
+    expect(result.value.updatedAt).toBe(d.updatedAt);
+    expect(result.value.title).toBe(d.title);
+    expect(result.value.steps).toHaveLength(d.steps.length);
   });
 });

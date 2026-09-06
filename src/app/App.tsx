@@ -75,17 +75,27 @@ export function LocaleEffects() {
  *  `SessionsScreen.test.tsx`), 그 중 둘은 목록 화면 소유다. app-shell 은 의존이 전부
  *  열려 있는 유일한 모듈이라(§8) 두 Provider 를 함께 보는 조립은 원래 이쪽 몫이다.
  *
- *  **순서가 계약이다**: 심기 → 도장. 도장을 먼저 찍으면 심기가 실패한 기기에서 온보딩이 영영
+ *  **순서가 계약이다**: 심기 → 도장. 도장을 먼저 찍으면 심기가 실패한 기기에서 기본 드릴이 영영
  *  사라진다. 반대 순서의 위험(도장을 못 찍어 다음 실행에 또 심기)은 `storage/seed.ts` 의
- *  자물쇠 ②(같은 제목이 이미 있으면 안 심는다)가 받는다.
+ *  자물쇠 ②(같은 id 가 이미 있으면 안 심는다 — ⚠️ 2026-09-06 제목에서 id 로 바뀌었다)가 받는다.
  *
  *  **ref 가드는 StrictMode 때문이다**(main.tsx). 이중 마운트에서 effect 가 두 번 도는데 ref 는
  *  remount 를 건너 살아남는다. 대신 **취소 플래그는 두지 않는다** — 첫 회를 취소하면 심기는
- *  이미 나갔는데 도장과 목록 갱신만 빠지는, 가장 나쁜 절반 상태가 된다. */
+ *  이미 나갔는데 도장과 목록 갱신만 빠지는, 가장 나쁜 절반 상태가 된다.
+ *
+ *  **로케일을 ref 로 읽는 이유**(2026-09-06, 시드가 규칙 장면이 되면서 생긴 자리): 심는 드릴의
+ *  팀 라벨이 로케일을 탄다. 그런데 `/en/…` 으로 들어온 첫 방문에서는 `LocaleFromUrl` 이 같은
+ *  커밋의 effect 에서 언어를 바꾸므로, 이 effect 가 **그 반영 전의 값**을 잡는다. 심기는
+ *  `resolveDrillRepo()` 를 기다렸다가 진행하니, 그 사이에 온 최신 값을 ref 에서 읽으면
+ *  영어로 들어온 사람이 한국어 팀 라벨을 받는 일이 없다. 의존성에 locale 을 넣는 것으로는
+ *  안 된다 — `startedRef` 가 재진입을 막아 두 번째 실행이 아예 없다. */
 export function SeedDrills() {
   const { prefs } = useSettingsState();
   const { setPrefs } = useSettingsActions();
   const { refresh } = useLibraryActions();
+  const locale = useLocale();
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   const startedRef = useRef(false);
 
   useEffect(() => {
@@ -94,12 +104,12 @@ export function SeedDrills() {
     void (async () => {
       try {
         const { repo } = await resolveDrillRepo();
-        const outcome = await seedDrillsOnce(repo, { seeded: false });
+        const outcome = await seedDrillsOnce(repo, { seeded: false, locale: localeRef.current });
         setPrefs({ seeded: true });
         if (outcome.seeded) await refresh();
       } catch {
-        // IDB 열화·쿼터 초과. 도장을 안 찍었으니 다음 실행에서 다시 시도한다 — 온보딩 드릴
-        // 셋이 없다고 앱이 못 뜰 이유는 없으므로 조용히 넘긴다(§4.5 "드릴 목록은 살아있어야").
+        // IDB 열화·쿼터 초과. 도장을 안 찍었으니 다음 실행에서 다시 시도한다 — 시드 드릴이
+        // 없다고 앱이 못 뜰 이유는 없으므로 조용히 넘긴다(§4.5 "드릴 목록은 살아있어야").
         startedRef.current = false;
       }
     })();
