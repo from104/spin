@@ -67,6 +67,26 @@ export const RULE_ZONE_FILL_OPACITY = 0.22;
 export const RULE_ZONE_ALERT_FILL = '#d42020';
 export const RULE_ZONE_ALERT_FILL_OPACITY = 0.5;
 
+/* ── 규칙 표시의 **굵기와 케이싱** (2026-09-06 에 여기로 모았다) ────────────────────────
+ * 그 전에는 같은 이름·같은 값 여섯 개가 `RuleOverlay.tsx`(화면)와
+ * `features/export/buildStaticSvg.ts`(PNG·인쇄)에 **두 벌**로 적혀 있었고, 동기화를 약속하는
+ * 것은 *"RuleOverlay.tsx 와 같은 값이다"* 라는 주석 한 줄뿐이었다(대조 테스트 없음).
+ * 색·대시가 이미 이 파일 것이므로 굵기도 여기 둔다 — AGENTS §3 *"두 벌 두지 않는다"*. */
+/** 케이싱 색. 근거는 colors.ts 의 `ARROW_CASING` 과 같다 — 불투명 검정만이 코트 위 3.93:1 로
+ *  모양을 남긴다(알파를 섞으면 합성 결과가 주석의 숫자와 달라진다). */
+export const RULE_CASING = '#000000';
+/** ⚠️ 2026-08-13(②) — 이 값은 **0.55 였다.** 바로 위 주석이 *"알파를 섞으면 합성 결과가
+ *  달라진다"* 고 적어 둔 그 함정을 같은 파일이 저지르고 있었다: 검정 α.55 를 코트(#1f7a46)
+ *  위에 합성하면 #0e371f 라 코트 대비가 **2.48:1** — §7.1 의 비텍스트 하한 3:1 **아래**다.
+ *  즉 "모양을 언제나 남긴다" 던 케이싱이 기준 미달이었고, 위반 표시의 세 채널(케이싱·실선·색)
+ *  중 첫 번째가 절반만 작동했다. 불투명으로 되돌리면 3.93:1 이다(colors.ts 의 ARROW_CASING 이
+ *  같은 이유로 알파를 버린 전례). 되돌리면 render/ruleZoneFill.test.tsx 의 케이싱 단언이 빨개진다. */
+export const RULE_CASING_OPACITY = 1;
+export const RING_MARK_W = 2.6;
+export const RING_CASING_W = 5.4;
+export const ZONE_MARK_W = 3;
+export const ZONE_CASING_W = 6.4;
+
 /** 규칙은 파선으로 말한다 — RuleZones 의 존 테두리와 같은 눈금이다. 코트 실선(하프라인·
  *  골 지역)과 구별되는 시각 언어다. 5.3 이 규정에 없는 센터 서클을 지운 뒤로는 겹쳐 보이는
  *  원 자체가 없지만, 이 구분은 원 때문이 아니라 **규칙과 코트를 가르기 위한 것**이라 남는다. */

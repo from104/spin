@@ -71,8 +71,10 @@ export interface ExportSheetProps {
    *  고를 수 없는 것을 보여 주지 않는다. 상태의 원본은 StepSidebar 로컬이고 여기는 사본이다. */
   checkedStepIds?: ReadonlySet<StepId>;
   showGrid: boolean;
-  /** 격자 **번호**(prefs.showGridLabels). PNG 는 `<text>` 0개 규약이라 안 쓰지만 **인쇄는
-   *  쓴다** — 종이에서 "b4 로 가라" 가 통하려면 칸 이름이 찍혀야 한다(2026-08-27). */
+  /** 격자 **번호**(prefs.showGridLabels). 인쇄와 PNG 가 **둘 다** 쓴다 — 종이에서든 그림에서든
+   *  "b4 로 가라" 가 통하려면 칸 이름이 찍혀야 한다(2026-08-27 인쇄 · 2026-09-06 PNG).
+   *  ⚠️ 옛 문장은 *"PNG 는 <text> 0개 규약이라 안 쓴다"* 였다. 규약은 그대로지만 번호는
+   *  SVG 가 아니라 캔버스 어댑터가 그리므로 그 규약의 대상이 아니다. */
   showGridLabels: boolean;
   showRuleZones: boolean;
   /** 닫을 때 포커스를 되돌릴 트리거(하단 바의 [내보내기]) — §7.6. */
@@ -161,6 +163,11 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
       // 없으면 그림에만 도형이 통째로 빠진다(2026-08-17 기현님 신고).
       shapes: step.shapes,
       showGrid,
+      // 격자 **번호**(2026-09-06). 그 전에는 이 한 줄이 없었고 사유가 *"PNG 는 <text> 0개
+      // 규약이라 안 쓴다"* 였는데, 번호는 이제 SVG 가 아니라 캔버스 어댑터가 그린다
+      // (staticSceneLayout ★[A-9] 아래 ⚠️) — 기현 지시: *"png 에 격자는 나오는데 격자 번호는
+      // 안 나옴"*. 안 넘기면 화면·종이에는 있는 칸 이름이 그림에만 없다.
+      showGridLabels,
       showRuleZones,
       // step.name 은 과제⑦ 이후 로드된 드릴에서 항상 '' 다(validate.ts 정화기가 이름을
       // note 로 이관하며 비운다) — 그대로 두면 PNG 캡션은 번호만 찍는 죽은 기능이 된다.

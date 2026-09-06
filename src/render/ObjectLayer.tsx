@@ -36,6 +36,7 @@
 // 골대 유령·`GoalPost` 는 개체가 아니라 판의 부속이라 순서 대상이 아니고, 지금처럼 **목록보다
 // 아래**에 그대로 남는다.
 import { useLayoutEffect, useRef } from 'react';
+import { IGNORED_OPACITY } from '../core/constants.ts';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 import type { Arrow } from '../model/arrow.ts';
@@ -177,7 +178,10 @@ export function ObjectLayer({
    *  '상호작용 안 함' 은 **물리**의 이야기다(공이 통과한다). 그것은 physics/index.ts 의 load 가
    *  body 를 안 만드는 것으로 이미 지켜지고, 화면에서 손까지 막을 이유는 없었다. */
   const ghostProps = (id: string): { style?: { opacity: number } } =>
-    ignored?.has(id) ? { style: { opacity: 0.32 } } : {};
+    // ⚠️ 2026-09-06 — 값이 리터럴 0.32 에서 `core/constants.ts` 의 `IGNORED_OPACITY` 로 옮겼다.
+    //    시연·PNG·인쇄가 같은 흐림을 써야 해서다(그쪽은 프레임 opacity 에 곱해 온다 —
+    //    model/playback.ts). 여기만 고치면 네 경로가 다시 갈린다.
+    ignored?.has(id) ? { style: { opacity: IGNORED_OPACITY } } : {};
 
   const fadeProps = (id: string): { className?: string; style?: { animationDuration: string } } => {
     const dir = fades?.[id];

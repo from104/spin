@@ -18,8 +18,9 @@ import { arrowColor } from '../../model/arrow.ts';
 import { strokeColor, strokeWidthOf } from '../../model/stroke.ts';
 import { sampleDrill, drillTotalMs, type RenderFrame } from '../../model/playback.ts';
 import { DEFAULT_TIERS, sceneOrder, type SceneRef } from '../../model/zOrder.ts';
-import { PLAYBACK } from '../../core/constants.ts';
-import { CourtSurface } from '../../render/CourtSurface.tsx';
+import { COURT_SURFACE_RX, PLAYBACK } from '../../core/constants.ts';
+import { COURT_LINE_WEIGHTS, CourtSurface } from '../../render/CourtSurface.tsx';
+import { GoalPostMarks } from '../../render/courtLines/GoalPostMarks.tsx';
 import { GridOverlay } from '../../render/GridOverlay.tsx';
 import { RuleZones } from '../../render/RuleZones.tsx';
 import { SideMarks } from '../../render/SideMarks.tsx';
@@ -34,6 +35,9 @@ import { createOpacityWriter } from './opacityWriter.ts';
 import { PresentChairMark, PresentBallMark, PresentConeMark, PresentArrowMark, PresentNoteMark, PresentStrokeMark } from './PresentObjects.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+
+/** 골대 기둥의 굵기·크기. 코트 라인과 **같은 행**을 읽는다(§6.6 굵기표의 present). */
+const GOAL_W = COURT_LINE_WEIGHTS.present;
 
 export interface PresentStageProps {
   drill: Drill;
@@ -328,7 +332,7 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
       <defs>
         <ArrowMarkers uid={markerUid} colors={usedColors} widths={usedWidths} />
       </defs>
-      <rect width={def.vbW} height={def.vbH} rx={16} fill={COURT_BG} />
+      <rect width={def.vbW} height={def.vbH} rx={COURT_SURFACE_RX} fill={COURT_BG} />
       <CourtSurface mode={mode} size={drill.courtSize} variant="present" />
       {/* C11 — 격자는 편집기(CourtStage)와 같은 층·같은 컴포넌트다: 코트면 위, 존 아래. */}
       {showGrid && <GridOverlay mode={mode} size={drill.courtSize} showLabels={showGridLabels} />}
@@ -337,6 +341,12 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
           화면만 진영을 안 알려 주게 된다(골 지역 붉은 표시는 진영을 따라 나오는데도). */}
       <SideMarks mode={mode} size={drill.courtSize} teams={drill.teams} defense={drill.defense} />
       <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} ballRings={ballRings} ballOwners={ballOwners} roster={ruleRoster} teams={drill.teams} defense={drill.defense} />
+      {/* 골대(받침판+기둥) — 규칙 표시 **뒤**, 개체 **앞**. 편집 화면이 골대를 `ObjectLayer`
+          맨 아래에서 그리는 그 자리다(2026-09-06 기현 지시: *"골대 밑판 위에 코트 라인이
+          보임"*). 그 전에는 `CourtSurface` 안(코트 라인 그룹의 끝)이라 격자·존·깃발보다
+          아래였고, 규칙 존의 흰 파선이 받침판 위를 가로질렀다.
+          굵기는 §6.6 표의 present 행 — `CourtSurface` 에 넘긴 variant 와 같은 행이다. */}
+      <GoalPostMarks def={def} spotR={GOAL_W.spotR!} spotSw={GOAL_W.spotSw} />
       {/* 개체 자체는 접근성 트리에서 뺀다 — 실제 서술은 아래 스텝 이름·메모(텍스트)와
           §7.5e 라이브 리전(스텝 전환 발표)이 맡는다. render-stage 리프가 강제하는
           role="button" 은 시연에서 실제로 클릭 가능하지 않아 노출하면 오히려 오도한다. */}

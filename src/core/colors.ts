@@ -89,6 +89,12 @@ export const NOTE_PLACEHOLDER_FILL = 'rgba(255,255,255,.62)';
  *  값을 여기 두는 이유: 쓰는 곳이 셋이다(편집기 `GoalPost` · 정적 `GoalPostMarks` ·
  *  PNG `buildStaticSvg`). 리터럴 세 벌이면 다음에 한 곳만 고쳐진다. */
 export const GOAL_BASE_FILL = '#5c2310';
+/** 골대 **기둥**의 두 색(채움·테두리). 받침판과 같은 이유로 여기 둔다 — 쓰는 곳이 셋이고
+ *  (편집기 `GoalPost` · 정적 `GoalPostMarks` · PNG `buildStaticSvg`) 리터럴 세 벌이면 다음에
+ *  한 곳만 고쳐진다. 2026-09-06 이전에는 실제로 세 자리에 `'#f5f5f5'`/`'#c2410c'` 가 흩어져
+ *  있었다. 밀린 골대의 강조 링·제자리 유령도 같은 색을 쓴다(다른 색은 "다른 것" 으로 읽힌다). */
+export const GOAL_POST_FILL = '#f5f5f5';
+export const GOAL_POST_EDGE = '#c2410c';
 /** 훈련 콘 2색(기현 지시 2026-08-11: 주황·파랑). 슬롯 0, 1.
  *  파랑은 원정팀(#1f6bb8)·이동 화살표(#38bdf8)와 겹치지 않게 고른 값이다.
  *  주황과의 이색각 분리도 확인했다(적색맹 0.84 · 녹색맹 0.95 — 콘 구분 임계 0.25). */

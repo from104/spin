@@ -25,7 +25,10 @@ import type { RenderPathId, SceneElementId } from './renderPaths.ts';
 const PATH_FILES: Record<RenderPathId, { entry: string; alsoRead?: string[] }> = {
   editor: { entry: 'src/render/CourtStage.tsx', alsoRead: ['src/render/ObjectLayer.tsx', 'src/features/editor/EditorStage.tsx'] },
   present: { entry: 'src/features/present/PresentStage.tsx', alsoRead: ['src/features/present/PresentObjects.tsx'] },
-  png: { entry: 'src/features/export/buildStaticSvg.ts' },
+  // PNG 는 파일 셋이 한 경로다: 도형은 `buildStaticSvg`, **글자는 `staticSceneLayout`** 이
+  // 배치하고 어댑터(rasterize.ts)가 캔버스에 굽는다(★[A-9]). 격자 번호가 그쪽에 있으므로
+  // 여기 안 적으면 증거를 못 찾는다 — 2026-09-06.
+  png: { entry: 'src/features/export/buildStaticSvg.ts', alsoRead: ['src/features/export/staticSceneLayout.ts'] },
   print: { entry: 'src/features/print/PrintCourt.tsx' },
   thumbnail: { entry: 'src/render/CourtThumbnail.tsx' },
 };
@@ -48,6 +51,11 @@ const EVIDENCE: Record<SceneElementId, readonly string[]> = {
   arrows: ['ArrowPath', 'arrowMarkup', 'arrowPath', 'PresentArrowMark'],
   strokes: ['StrokePath', 'strokeMarkup', 'strokePath', 'PresentStrokeMark'],
   notes: ['NoteLabel', 'noteMarkup', 'noteChip', 'PresentNoteMark'],
+  // 상태 표시 둘(2026-09-06). 무시는 프레임 opacity 로 오므로 정적 경로에는 `IGNORED_OPACITY`
+  // 를 부르는 줄이 없다 — 대신 그 값을 실어 오는 `staticFrameOf`/`interpolateSteps` 를 흔적으로
+  // 본다(인쇄는 `chairOpacity`, 시연·PNG 는 프레임의 opacity 를 그대로 쓴다).
+  ignoredDim: ['IGNORED_OPACITY', 'chairOpacity', 'opacityWriter', 'attrOpacity'],
+  lockTint: ['LockTint', 'locked'],
 };
 
 const sourceOf = (path: RenderPathId): string =>
@@ -125,7 +133,9 @@ describe('③ 이번 사고가 다시 나는지 — 인쇄가 여섯 가지를 �
   it('썸네일은 허용 목록대로 다섯 + 코트만 그린다 (2026-08-27 지시 + 2026-09-03 획)', () => {
     // 목록이 거부가 아니라 **허용**이라는 것이 이 줄의 요점이다 — 새 요소는 여기를 고치지
     // 않는 한 썸네일에 자동으로 실리지 않는다(그 자동 승선이 44 px 칩을 뭉갠다).
+    // ⚠️ 2026-09-06 — 목록에서 `goalPosts` 가 빠졌다. 표가 그린다고 적고 있었을 뿐 실제로는
+    //    한 번도 안 그렸다(COURT_LINE_WEIGHTS.thumb 에 spotR 이 없다) — 표를 사실로 고쳤다.
     const drawn = SCENE_ELEMENT_IDS.filter((el) => pathDraws('thumbnail', el));
-    expect(drawn).toEqual(['courtLines', 'goalPosts', 'chairs', 'balls', 'shapes', 'strokes', 'arrows']);
+    expect(drawn).toEqual(['courtLines', 'chairs', 'balls', 'shapes', 'strokes', 'arrows']);
   });
 });

@@ -9,13 +9,24 @@
 //   있다)에서 그린다. 이 파일은 그때 필요한 것 — 문자열·중심좌표·크기·색·정렬 — 을
 //   `TextPlacement[]` 로 돌려주고, 어댑터(rasterize.ts)는 그걸 그대로 `fillText` 한다.
 //
+//   ⚠️ 2026-09-06 — **격자 칸 번호도 이 어댑터로 그린다**(기현 지시: *"png 에 격자는 나오는데
+//   격자 번호는 안 나옴"*). 위 ★[A-9]("SVG 에 <text> 0개")는 그대로 살아 있는 계약이고,
+//   바뀐 것은 격자 번호가 그 계약의 **예외가 아니라 통로를 탄다**는 것뿐이다 — 등번호·메모가
+//   이미 지나던 길이다. 라벨 문자열은 전부 라틴(a1… / a~t / 1~17)이라 저장소의 Space Grotesk
+//   서브셋(U+0000-00FF) 안이고, 값은 화면(`render/gridInk.ts`)에서 그대로 읽는다.
+//   ⚠️ 남는 차이 하나: 캔버스 글자는 `drawImage` **뒤에** 찍히므로(rasterize.ts) 격자 번호가
+//   개체 위로 온다(편집 화면은 개체 아래다). 불투명도 0.2 라 판독을 해치지 않아 두 장으로
+//   갈라 굽는 대가(img 로드 2회)를 치르지 않는다.
+//
 // ★ [A-10] `width`/`height` 를 반드시 명시한다. viewBox 만 있는 SVG 는 `<img>` 에서 내재
 //   크기가 불확정이라 브라우저 기본 300×150 으로 그려져 **PNG 가 뭉개진다.**
 import { courtDefFor, type CourtMode, type CourtSize } from '../../model/court.ts';
+import { gridGeom } from '../../model/grid.ts';
+import { GRID_INK, GRID_LABEL_FILL, GRID_LABEL_SIZE_PX, GRID_LABEL_WEIGHT } from '../../render/gridInk.ts';
 import type { TeamSide, TeamStyle } from '../../model/drill.ts';
 import type { RenderFrame } from '../../model/playback.ts';
 import type { Shape } from '../../model/shape.ts';
-import { CHAIR, NOTE } from '../../core/constants.ts';
+import { CHAIR, COURT_SURFACE_RX, NOTE } from '../../core/constants.ts';
 import { pointAtLever } from '../../model/chair.ts';
 // 쪽지 칩 폭의 유일한 출처. 칩을 그리는 쪽(buildStaticSvg)과 글자를 얹는 쪽(이 파일)이
 // 같은 폭을 봐야 글이 칩 밖으로 새지 않는다 — render 쪽 순수 함수를 **읽기만** 한다.
@@ -61,8 +72,16 @@ export interface StaticSceneOpts {
    *  그대로 읽는다 — 그 판단을 그림 쪽에서 뒤집으면 두 그림이 갈라진다.
    *  안 넘기면 그림에만 도형이 통째로 빠진다(2026-08-17 기현님 신고). */
   shapes?: readonly Shape[];
-  /** 격자 **선**만 그린다. 칸 라벨은 §6.2 표가 '안 담긴다' 로 못박았다(글자이기도 하다). */
+  /** 격자 **선**. 화면의 `prefs.showGrid` 와 같은 스위치다. */
   showGrid?: boolean;
+  /** 격자 **칸 번호**(a1… / 축 헤더). 화면의 `prefs.showGridLabels` 와 같은 스위치다.
+   *
+   *  ⚠️ 2026-09-06 — 그 전에는 이 옵션 자체가 없었고 *"칸 라벨은 §6.2 표가 '안 담긴다' 로
+   *  못박았다"* 가 근거로 적혀 있었다. 그 근거는 죽었다(기현 지시: *"png 에 격자는 나오는데
+   *  격자 번호는 안 나옴"*) — 옛 문장을 기록으로 남기고 뒤집는다. `showGrid` 와 마찬가지로
+   *  **선택 필드**다: 격자 자체가 꺼져 있으면 번호도 안 나오므로 두 스위치는 짝이고,
+   *  안 넘긴 경로는 화면의 "격자만 켠" 상태와 같다. */
+  showGridLabels?: boolean;
   /** 규칙 존 + 3 m 링. 화면의 `prefs.showRuleZones` 와 **같은 스위치**를 넘긴다. */
   showRuleZones?: boolean;
   caption?: SceneCaption | null;
@@ -88,8 +107,11 @@ export const EXPORT_LAYOUT = {
   /** 실명 줄의 세로 중심 — captionSubCy(34) 다음 줄. captionRosterExtraPx 와 같은 계열의
    *  값이라 밴드가 안 늘어나면(roster 없음) 이 좌표 자체가 안 쓰인다. */
   captionRosterCy: 50,
-  /** 코트 배경 사각형의 둥근 모서리 — PresentStage 와 같은 값(썸네일 14 가 아니다). */
-  courtRx: 16,
+  /** 코트 배경 사각형의 둥근 모서리.
+   *  ⚠️ 2026-09-06 — 여기 있던 리터럴 16 과 그 근거(*"PresentStage 와 같은 값(썸네일 14 가
+   *  아니다)"*)를 뒤집는다. 그 문장은 시연만 기준으로 삼았고 **편집 화면(14)은 아예 보지
+   *  않았다.** 정본은 편집 화면이므로 네 경로가 `COURT_SURFACE_RX` 하나를 읽는다. */
+  courtRx: COURT_SURFACE_RX,
   /** 칩에 찍는 글자 크기. ChairChip.tsx 의 `LABEL_FONT_PX` 와 같은 유도식이다
    *  (원래 20, 2026-08-11 기현 지시로 2/3). 다르면 내보낸 그림의 등번호만 화면과 크기가 다르다. */
   chipLabelSizePx: (20 * 2) / 3,
@@ -184,6 +206,32 @@ export function textToOutputPx(p: TextPlacement, scale: number): { x: number; y:
  *  쪽지 자체는 그려지므로 "메모를 놓은 자리" 는 그림에 남는다. */
 export function buildTextPlacements(frame: RenderFrame, opts: StaticSceneOpts): TextPlacement[] {
   const out: TextPlacement[] = [];
+
+  // 격자 칸 번호·축 헤더 — **맨 먼저** 담는다. 어댑터가 배열 순서대로 칠하므로 이것이 곧
+  // "가장 아래 글자" 다(등번호·메모가 그 위에 온다). 조건·크기·색·불투명도는 화면
+  // (`render/GridOverlay.tsx` + `render/gridInk.ts`)과 **같은 출처**를 읽는다 — 여기 숫자를
+  // 다시 적으면 격자를 손본 날 PNG 만 옛 값으로 남는다.
+  if (opts.showGrid && opts.showGridLabels) {
+    const g = gridGeom(opts.mode, opts.size);
+    const label = (text: string, x: number, y: number, sizePx: number, opacity: number): TextPlacement => ({
+      text,
+      x,
+      y,
+      sizePx,
+      weight: GRID_LABEL_WEIGHT,
+      color: GRID_LABEL_FILL,
+      align: 'middle',
+      // 'number' = Space Grotesk. 화면의 격자 글꼴과 같은 스택이다(gridInk.GRID_FONT).
+      font: 'number',
+      opacity,
+    });
+    // 칸 번호는 full·half 만(flat 은 1 m 격자라 340칸 — GridOverlay 의 같은 조건).
+    if (opts.mode !== 'flat') {
+      for (const c of g.cells) out.push(label(c.text, c.x, c.y, GRID_LABEL_SIZE_PX.cell, GRID_INK.screen.cell));
+    }
+    // 축 헤더는 flat 에만 있다(gridGeom 이 그렇게 준다) — 조건도 화면과 같이 `g.axis` 유무다.
+    for (const a of g.axis ?? []) out.push(label(a.text, a.x, a.y, GRID_LABEL_SIZE_PX.axis, GRID_INK.screen.axis));
+  }
 
   // 등번호·골키퍼 'G'. 위치는 ChairChip 과 같은 식이어야 한다 — 피벗에서 centroidOffsetPx
   // 만큼 앞(§3.4 피벗 원점 규약). `pointAtLever` 가 그 식의 유일한 출처다(model/chair.ts).

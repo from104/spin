@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { render as rtlRender } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { CourtSurface } from './CourtSurface.tsx';
+import { COURT_LINE_WEIGHTS, CourtSurface } from './CourtSurface.tsx';
+import { GoalPostMarks } from './courtLines/GoalPostMarks.tsx';
 import { CourtThumbnail } from './CourtThumbnail.tsx';
 import { COURT_DEFS, COURT_SIZES, courtDefFor, SPOT_CROSS_HALF_PX } from '../model/court.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
@@ -62,9 +63,17 @@ describe('courtLines — COURT_DEFS 가 단일 진실 공급원이다(minor #7)'
     const original = COURT_DEFS.full.goalPosts;
     COURT_DEFS.full.goalPosts = [{ x: 999, y: 888 }, ...original.slice(1)];
     try {
-      // editor 는 이제 정적 원을 안 그리므로 present 로 본다(§5.4).
-      const c = renderCourt('full', 'present');
-      expect(c.querySelector('g[fill="#f5f5f5"] > circle[cx="999"][cy="888"]')).not.toBeNull();
+      // ⚠️ 2026-09-06 — 골대는 이제 `CourtSurface` **안**이 아니라 규칙 표시 뒤에서 따로
+      //    그려진다(GoalPostMarks.tsx 머리말: 코트 라인 그룹에 있으면 규칙 존 파선이 받침판
+      //    위를 가로지른다). 그래서 이 단언도 그 컴포넌트를 직접 세워서 잰다 — 재는 대상은
+      //    그대로다("좌표를 COURT_DEFS 에서 읽는가").
+      const w = COURT_LINE_WEIGHTS.present;
+      const c = render(
+        <svg>
+          <GoalPostMarks def={courtDefFor('full')} spotR={w.spotR!} spotSw={w.spotSw} />
+        </svg>,
+      ).container;
+      expect(c.querySelector('circle[cx="999"][cy="888"]')).not.toBeNull();
     } finally {
       COURT_DEFS.full.goalPosts = original;
     }

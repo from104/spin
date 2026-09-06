@@ -23,6 +23,7 @@ import {
   GK_AWAY_COLOR,
 } from '../core/colors.ts';
 import { NOTE_FILL, NOTE_FOLD_FILL } from '../core/colors.ts';
+import { COURT_SURFACE_RX } from '../core/constants.ts';
 import { STROKE_DEFAULT_WIDTH_PX, STROKE_WIDTHS, STROKE_WIDTH_DEFAULT, strokePath } from '../model/stroke.ts';
 import type { Vec2 } from '../core/units.ts';
 import { CourtSurface } from './CourtSurface.tsx';
@@ -312,7 +313,7 @@ export function CourtThumbnail({
       role="img"
       aria-label={t('courtThumbnail.previewAriaLabel', { label: def.label[locale] })}
     >
-      <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
+      <rect width={def.vbW} height={def.vbH} rx={COURT_SURFACE_RX} fill={COURT_BG} />
       <CourtSurface mode={mode} size={size} variant="thumb" />
       {/* ── 개체 — 표시 순서대로 한 장씩(2026-09-06, PLAN-Z-ORDER 결정 12) ────────────────
           `nodes` 는 §3.5 **기본층** 순서(`DEFAULT_TIERS`: 도형 → 콘 → 획 → 화살표 → 휠체어 → 공

@@ -10,15 +10,17 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { COURT_DEFS, COURT_MODES, type CourtMode } from '../../model/court.ts';
+import { COURT_DEFS, COURT_MODES, courtDefFor, goalBaseRect, type CourtMode } from '../../model/court.ts';
+import { GOAL_BASE_FILL, GOAL_POST_EDGE } from '../../core/colors.ts';
 import type { TeamSide } from '../../model/drill.ts';
 import type { Shape } from '../../model/shape.ts';
-import { CourtSurface } from '../../render/CourtSurface.tsx';
+import { COURT_LINE_WEIGHTS, CourtSurface } from '../../render/CourtSurface.tsx';
+import { GoalPostMarks } from '../../render/courtLines/GoalPostMarks.tsx';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
 import { RuleZones } from '../../render/RuleZones.tsx';
 import { ShapeLayer } from '../../render/ShapeLayer.tsx';
 import { SideMarks } from '../../render/SideMarks.tsx';
-import { arrowMarkersMarkup, courtLinesMarkup, MARKER_UID, ruleZonesMarkup, shapesMarkup, sideMarksMarkup } from './buildStaticSvg.ts';
+import { arrowMarkersMarkup, courtLinesMarkup, goalPostsMarkup, MARKER_UID, ruleZonesMarkup, shapesMarkup, sideMarksMarkup } from './buildStaticSvg.ts';
 import { TEAMS } from './sceneFixture.ts';
 
 /** 상속되는 표현 속성. `<g>` 로 묶었는지 개별 요소에 적었는지는 **그림에 영향이 없으므로**
@@ -127,6 +129,47 @@ describe('화살촉 마커 — id 규약과 모양이 ArrowMarkers 와 같다', 
     // 같은 날 사라졌으므로(대비는 화살촉 stroke 가 맡는다) **색이 없으면 마커도 없다**.
     expect(shapesOf(arrowMarkersMarkup([])).length).toBe(0);
     expect(shapesOf(arrowMarkersMarkup(['#38bdf8', '#fbbf24'])).length).toBe(8); // 2색 × 2종 × (marker + path)
+  });
+});
+
+// ── 2026-09-06 — 골대가 코트 라인에서 **떨어져 나왔다** ────────────────────────────────
+// 그 전에는 `courtLinesMarkup` 안에 골대가 있어서 위 '코트 라인' 대조가 골대까지 함께 쟀다.
+// 이제 골대는 규칙 표시 뒤에서 따로 그려지므로(GoalPostMarks.tsx 머리말: 코트 라인 그룹에
+// 있으면 규칙 존 파선이 받침판 위를 가로지른다) 대조도 여기로 따라 옮긴다 —
+// **옮기면서 재는 것을 잃지 않는다**(이 파일 아래쪽 2026-08-17 주석이 말하는 그 실패다).
+describe('골대 표시 — GoalPostMarks 와 같은 도형을 그린다', () => {
+  const W = COURT_LINE_WEIGHTS.present;
+  const component = (mode: CourtMode): string =>
+    renderToStaticMarkup(createElement(GoalPostMarks, { def: courtDefFor(mode), spotR: W.spotR!, spotSw: W.spotSw }));
+
+  it.each(COURT_MODES)('%s', (mode) => {
+    expect(shapesOf(goalPostsMarkup(courtDefFor(mode)))).toEqual(shapesOf(component(mode)));
+  });
+
+  it('대조군 — 기둥마다 셋(받침판·기둥 원·흰 덧테)이고 flat 은 0개', () => {
+    // 개수를 손으로 적지 않는다 — 코트 정의에서 센다(풀은 골대 2대 × 포스트 2 = 4).
+    for (const mode of ['full', 'half'] as const) {
+      const def = courtDefFor(mode);
+      const posts = def.goalPosts.length;
+      const bases = def.goalPosts.filter((_p, i) => goalBaseRect(def, i) !== null).length;
+      expect(posts, mode).toBeGreaterThan(0);
+      expect(shapesOf(goalPostsMarkup(def)), mode).toHaveLength(bases + posts * 2);
+    }
+    expect(goalPostsMarkup(courtDefFor('flat'))).toBe('');
+  });
+
+  it('⚠️ 받침판에는 테두리가 없다 — 그룹의 주황 stroke 는 기둥 것이다', () => {
+    // 2026-09-06 기현 신고(*"골대 밑판 위에 코트 라인이 보임"*)의 두 번째 원인이었다:
+    // 판이 기둥과 같은 `<g stroke="#c2410c">` 안에 있어 상속으로 테를 두르고 있었고,
+    // 그 테가 골라인과 겹쳐 보였다. 편집 화면의 판(GoalPost.tsx BasePlate)은 처음부터
+    // stroke 가 없다 — 정본이 그쪽이므로 정적 경로가 따라간다.
+    const def = courtDefFor('full');
+    const base = shapesOf(goalPostsMarkup(def)).filter((sh) => sh.includes(`fill=${GOAL_BASE_FILL}`));
+    expect(base).toHaveLength(def.goalPosts.filter((_p, i) => goalBaseRect(def, i) !== null).length);
+    expect(base.length).toBeGreaterThan(0); // 대조군 — 빈 목록이라 통과한 것이 아니다
+    for (const sh of base) expect(sh).toContain('stroke=none');
+    // 대조군 — 기둥 원은 여전히 그 주황 테를 갖는다(전부 지운 것이 아니다).
+    expect(shapesOf(goalPostsMarkup(def)).some((sh) => sh.includes(`stroke=${GOAL_POST_EDGE}`))).toBe(true);
   });
 });
 

@@ -35,8 +35,9 @@
 // (staticSceneLayout.ts)가 따로 돌려주고 래스터 어댑터가 캔버스에서 그린다. 근거는 그 파일
 // 머리말에 있다. 부수 이득: 사용자 문자열이 SVG 에 실리지 않아 이스케이프 사고가 원천 봉쇄된다.
 import { DEG } from '../../core/angle.ts';
-import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, GOAL_BASE_FILL, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
-import { BALL, CHAIR, CONE } from '../../core/constants.ts';
+import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, GOAL_BASE_FILL, GOAL_POST_EDGE, GOAL_POST_FILL, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
+import { BALL, CHAIR } from '../../core/constants.ts';
+import { CONE_BASE_D, CONE_STROKE_W, CONE_TRIANGLE_D } from '../../render/objects/coneGeom.ts';
 import { attackDir, courtDefFor, goalBaseRect, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import type { CourtDef } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
@@ -47,21 +48,29 @@ import type { RenderFrame } from '../../model/playback.ts';
 import { DEFAULT_TIERS, type SceneRef } from '../../model/zOrder.ts';
 import type { TeamSide } from '../../model/drill.ts';
 import type { Shape } from '../../model/shape.ts';
-import { ballRingViolation, defaultDefense, defendedMouths, defendedZones, fiveMeterRetreat, otherSide, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
+import { ballRingViolation, defaultDefense, defendedMouths, defendedZones, fiveMeterRetreat, isBallOutOfPlay, otherSide, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
 import { COURT_LINE_WEIGHTS } from '../../render/CourtSurface.tsx';
+import { GRID_INK } from '../../render/gridInk.ts';
 import {
   ownerArrowPath,
+  BALL_OUT_FILL,
   OWNER_ARROW_HEAD_PX,
   OWNER_ARROW_LEN_PX,
   OWNER_ARROW_OPACITY,
   OWNER_ARROW_W,
+  RING_CASING_W,
+  RING_MARK_W,
   RULE_ALERT_STROKE,
+  RULE_CASING,
+  RULE_CASING_OPACITY,
   RULE_DASH,
   RULE_OK_STROKE,
   RULE_ZONE_ALERT_FILL,
   RULE_ZONE_ALERT_FILL_OPACITY,
   RULE_ZONE_FILL,
   RULE_ZONE_FILL_OPACITY,
+  ZONE_CASING_W,
+  ZONE_MARK_W,
 } from '../../render/ruleOverlay.ts';
 import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteFoldPathD } from '../../render/objects/noteChip.ts';
 // 진영 깃발의 좌표는 **저쪽 함수 하나**에서 온다(render/sideFlags.ts 의 sideFlagGroups 머리말).
@@ -87,23 +96,14 @@ export type { SceneCaption, StaticSceneOpts, SceneMetrics, TextPlacement } from 
  *  한 파일에 SVG 하나뿐이므로 §6.6 이 경계하는 '다중 인스턴스 url(#id) 충돌' 이 성립하지 않는다. */
 export const MARKER_UID = 'spin-ah';
 
-/** 콘 삼각형. ConeMark.tsx 의 `'M0,-5 L5,4 L-5,4 Z'` 와 **한 픽셀도 다르면 안 된다** —
- *  10×9(§6.6)를 정수 좌표에 앉힌 모양이라 밑변이 원점보다 0.5 아래다. 그 유도식 그대로 쓴다. */
-const CONE_HALF_W = CONE.viewWidthPx / 2; // 5
-const CONE_TRI_D = `M0,${-CONE_HALF_W} L${CONE_HALF_W},${CONE.viewHeightPx - CONE_HALF_W} L${-CONE_HALF_W},${CONE.viewHeightPx - CONE_HALF_W} Z`;
-/** 슬롯 1 전용 밑변 사각 베이스(ConeMark.tsx 와 동일). 색이 아니라 실루엣으로 구분한다. */
-const CONE_BASE_D = 'M-6,4.5 H6 V6.5 H-6 Z';
-const CONE_STROKE_W = 1.6;
+/** 콘 삼각형·베이스·굵기 — 화면(ConeMark)·인쇄(PrintCourt)와 **같은 파일 하나**에서 온다
+ *  (`render/objects/coneGeom.ts`, 2026-09-06). 그 전에는 여기만 CONE 상수 파생이고 저 둘은
+ *  리터럴이라, 콘 크기를 고치면 그림만 새 모양이 됐다. */
+const CONE_TRI_D = CONE_TRIANGLE_D;
 
-/** 규칙 오버레이 굵기·케이싱. RuleOverlay.tsx 와 같은 값이다. */
-const RULE_CASING = '#000000';
-/** ⚠️ 2026-08-13(②) 0.55 → 1. 알파 .55 검정은 코트 위 합성이 #0e371f 라 대비 2.48:1 로
- *  §7.1 하한(3:1) 미달이었다 — 화면(RuleOverlay.tsx)과 **같은 이유로 같이** 올린다. */
-const RULE_CASING_OPACITY = 1;
-const RING_MARK_W = 2.6;
-const RING_CASING_W = 5.4;
-const ZONE_MARK_W = 3;
-const ZONE_CASING_W = 6.4;
+// ⚠️ 2026-09-06 — 규칙 표시의 굵기·케이싱 여섯 값이 여기 리터럴로 **두 번째** 적혀 있었다
+// (*"RuleOverlay.tsx 와 같은 값이다"* 라는 주석이 동기화의 전부였다). 이제 `ruleOverlay.ts`
+// 하나에서 import 한다 — 색·대시가 이미 거기 있었고, 굵기만 두 벌이던 것이 드리프트 자리였다.
 
 const attrOpacity = (o: number): string => (o >= 1 ? '' : ` opacity="${num(o)}"`);
 
@@ -152,19 +152,28 @@ function goalCrossD(marks: readonly { x: number; y: number }[]): string {
 /** 골대 받침판 + 기둥. 편집기와 달리 여기는 물리 바디가 없으므로 `present` 처럼 정적으로
  *  그린다. 받침판 기하는 `model/court.ts` 의 `goalBaseRect` 하나에서 온다 — 화면(GoalPostMarks)·
  *  편집기(GoalPost)와 같은 자를 쓰므로 내보낸 그림이 화면과 어긋날 자리가 없다.
- *  판이 **먼저**(아래 층), 기둥이 그 위다. */
-function goalPostsMarkup(def: CourtDef): string {
+ *  판이 **먼저**(아래 층), 기둥이 그 위, 흰 덧테가 맨 위다 — `GoalPostMarks` 와 같은 순서.
+ *
+ *  ⚠️ 2026-09-06 — 이 함수는 `courtLinesMarkup` **밖**에 있다. 코트 라인 안에 두면 골대가
+ *  격자·규칙 존·깃발보다 아래로 깔려, 규칙 존의 흰 파선이 받침판 위를 가로지른다(기현 지시:
+ *  *"골대 밑판 위에 코트 라인이 보임"*). 편집 화면은 골대를 개체 층에서 그려 규칙 표시보다
+ *  위에 두므로, 조립도 그 자리(ruleMarkup 뒤)로 맞췄다 — `buildStaticSvg` 아래쪽 참고.
+ *  ⚠️ 받침판에 `stroke="none"` 을 명시하는 이유도 같은 신고다: 그룹의 주황 stroke 는 기둥
+ *  원의 것인데 상속으로 판까지 두르고 있었다(편집기의 판은 처음부터 테가 없다). */
+export function goalPostsMarkup(def: CourtDef): string {
   const posts = def.goalPosts;
   if (posts.length === 0) return '';
   const bases = posts
     .map((_p, i) => goalBaseRect(def, i))
     .filter((b): b is NonNullable<typeof b> => b !== null)
-    .map((b) => `<rect x="${num(b.x)}" y="${num(b.y)}" width="${num(b.w)}" height="${num(b.h)}" fill="${GOAL_BASE_FILL}"/>`)
+    .map((b) => `<rect x="${num(b.x)}" y="${num(b.y)}" width="${num(b.w)}" height="${num(b.h)}" fill="${GOAL_BASE_FILL}" stroke="none"/>`)
     .join('');
   return (
-    `<g fill="#f5f5f5" stroke="#c2410c" stroke-width="${num(W.spotSw!)}">` +
+    `<g fill="${GOAL_POST_FILL}" stroke="${GOAL_POST_EDGE}" stroke-width="${num(W.spotSw!)}">` +
     bases +
     posts.map((p) => `<circle cx="${num(p.x)}" cy="${num(p.y)}" r="${num(W.spotR!)}"/>`).join('') +
+    // 흰 덧테 — 편집 화면의 골대가 달고 있던 후광(GoalPost.tsx). 정적 경로에만 짝이 없었다.
+    posts.map((p) => `<circle cx="${num(p.x)}" cy="${num(p.y)}" r="${num(W.spotR!)}" fill="none" stroke="${OBJ_STROKE}" stroke-width="0.4"/>`).join('') +
     `</g>`
   );
 }
@@ -216,8 +225,10 @@ export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSce
       `</g>` +
       // 하프에는 센터 흰 점이 없다 — HalfCourtLines.tsx 머리말이 "추가하지 않는다" 로 못박았다.
       // (그 문장에서 살아남은 것은 **점**뿐이다. X 는 위에서 그린다 — 2026-08-13.)
-      `<g fill="none" stroke="#ffffff" stroke-width="${num(W.goalCross!)}" stroke-linecap="round">${goalCrossD(def.spotMarks)}</g>` +
-      goalPostsMarkup(def)
+      // ⚠️ 2026-09-06 — 여기 있던 `goalPostsMarkup(def)` 를 뺐다. 화면 컴포넌트
+      // (Half/FullCourtLines)도 같은 커밋에서 뺐으므로 이 손 이식본은 여전히 그쪽과 같다 —
+      // 골대는 규칙 표시 뒤(개체 앞)에서 그린다(goalPostsMarkup 머리말).
+      `<g fill="none" stroke="#ffffff" stroke-width="${num(W.goalCross!)}" stroke-linecap="round">${goalCrossD(def.spotMarks)}</g>`
     );
   }
 
@@ -232,8 +243,7 @@ export function courtLinesMarkup(mode: StaticSceneOpts['mode'], size?: StaticSce
     `<path d="M${num(S.x + S.w)},${num(gzR!.y)} L${num(gzR!.x)},${num(gzR!.y)} L${num(gzR!.x)},${num(gzR!.y + gzR!.h)} L${num(S.x + S.w)},${num(gzR!.y + gzR!.h)}" stroke-width="${num(W.goalArea)}"/>` +
     centerMarkMarkup(def.centerMark) +
     `</g>` +
-    `<g fill="none" stroke="#ffffff" stroke-width="${num(W.goalCross!)}" stroke-linecap="round">${goalCrossD(def.spotMarks)}</g>` +
-    goalPostsMarkup(def)
+    `<g fill="none" stroke="#ffffff" stroke-width="${num(W.goalCross!)}" stroke-linecap="round">${goalCrossD(def.spotMarks)}</g>`
   );
 }
 
@@ -355,7 +365,8 @@ function shapeMarkup(s: Shape): string {
   return `<g id="obj-${safeId(s.id)}" transform="translate(${s.x} ${s.y}) rotate(${s.rot})">${body}</g>`;
 }
 
-/** 격자 — **선만** 그린다. 칸 라벨은 §6.2 표가 '안 담긴다' 로 못박았고, 글자라 어차피 못 넣는다.
+/** 격자 — 이 함수는 **선만** 굽는다. 칸 번호는 글자라 SVG 에 넣지 않고(★[A-9]) 래스터
+ *  어댑터가 캔버스에 그린다(`staticSceneLayout.ts` 의 `buildTextPlacements`, 2026-09-06).
  *  좌표는 `gridGeom` 하나에서 온다(GridOverlay 와 같은 출처). */
 /** 격자 선. ⚠️ 인쇄는 이 함수를 쓰지 않는다 — 종이에서는 잉크(대비)가 달라야 해서 화면
  *  컴포넌트(`GridOverlay`)를 인쇄 variant 로 쓴다. 좌표는 양쪽 다 `gridGeom` 파생이다. */
@@ -369,8 +380,12 @@ function gridMarkup(opts: StaticSceneOpts): string {
   const lines = (vx: number[], hy: number[]): string =>
     vx.map((x) => `<line x1="${num(x)}" y1="${num(yMin)}" x2="${num(x)}" y2="${num(yMax)}"/>`).join('') +
     hy.map((y) => `<line x1="${num(xMin)}" y1="${num(y)}" x2="${num(xMax)}" y2="${num(y)}"/>`).join('');
-  let out = `<g stroke="#ffffff" stroke-width="1" opacity="0.22" shape-rendering="crispEdges">${lines(g.inner.vx, g.inner.hy)}</g>`;
-  if (g.major) out += `<g stroke="#ffffff" stroke-width="1" opacity="0.34" shape-rendering="crispEdges">${lines(g.major.vx, g.major.hy)}</g>`;
+  // ⚠️ 2026-09-06 — 불투명도가 여기 리터럴(0.22/0.34)로 **두 번째** 적혀 있었다. 값은
+  // `render/gridInk.ts` 하나에서 온다(화면 GridOverlay 와 같은 출처). PNG 는 종이가 아니라
+  // 화면의 대체물이므로 `screen` 쪽을 읽는다 — 인쇄만 진한 잉크를 쓴다.
+  let out = `<g stroke="#ffffff" stroke-width="1" opacity="${num(GRID_INK.screen.line)}" shape-rendering="crispEdges">${lines(g.inner.vx, g.inner.hy)}</g>`;
+  if (g.major)
+    out += `<g stroke="#ffffff" stroke-width="1" opacity="${num(GRID_INK.screen.major)}" shape-rendering="crispEdges">${lines(g.major.vx, g.major.hy)}</g>`;
   return out;
 }
 
@@ -418,8 +433,15 @@ export function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   })();
   // §7 5.2(2026-08-13) — **조기 반환을 여기서 뺐다.** 개별 공의 원은 사용자가 그 공을 눌러
   // 명시적으로 켠 것이라 규칙 존 스위치와 다른 축이다(화면 RuleOverlay.tsx 와 같은 판단) —
-  // `showRuleZones` 가 꺼져 있어도 PNG 에 실린다. 존·존 위반 표시만 스위치에 매인다.
-  let out = opts.showRuleZones ? ruleZonesMarkup(opts.mode, opts.size) : '';
+  // `showRuleZones` 가 꺼져 있어도 PNG 에 실린다. 존 위반 표시만 스위치에 매인다.
+  //
+  // ⚠️ 2026-09-06 — 이 함수는 **연한 존 자체(`ruleZonesMarkup`)를 더 이상 굽지 않는다.**
+  //    그 전에는 여기서도 굽고 인쇄(PrintCourt)가 `<RuleZones>` 로도 그려 **종이에만 두 겹**
+  //    이었다(fill-opacity .22 두 겹 ≈ .39 — 화면보다 확연히 진했다). 게다가 존이 이 함수
+  //    안에 있으면 존이 **규칙 표시와 같은 층**이 되어, 화면의 순서(격자 → 존 → 깃발 → 규칙
+  //    표시)를 정적 경로가 흉내낼 수 없었다. 이제 존은 호출부가 깃발 **앞**에서 한 번 그린다:
+  //    PNG 는 `buildStaticSvg` 의 조립, 인쇄는 `<RuleZones>` 컴포넌트다.
+  let out = '';
 
   for (const [zi, dz] of (opts.showRuleZones ? zones : []).entries()) {
     // 화면(render/ruleOverlay.ts)과 **같은 인자**로 잰다 — 골 뒤로 완전히 나간 수비를 인원에
@@ -540,11 +562,25 @@ function chairMarkup(c: RenderFrame['chairs'][number], opts: StaticSceneOpts): s
   );
 }
 
-function ballMarkup(b: RenderFrame['balls'][number]): string {
+/** 공의 **채움색**. 아웃오브플레이(Law 9)면 붉다 — 화면(render/ruleOverlay.ts 의 `judge`)과
+ *  **같은 판정 함수·같은 두 색**을 지난다.
+ *
+ *  ⚠️ 2026-09-06 — 그 전에는 PNG·인쇄가 언제나 `BALL_FILL` 이었다. 판에서 붉게 나간 공이
+ *  종이·그림에서는 평범한 공이었다는 뜻이다(기현 지시로 시작한 경로 대조에서 나온 것).
+ *  스위치(`showRuleZones`)에 매다는 것도 화면과 같다: 화면 writer 는 `ctx.enabled` 가 거짓이면
+ *  판정을 아예 세우지 않으므로, 규칙 표시를 끈 판에서는 공이 노란색 그대로다.
+ *  **인쇄도 이 함수를 부른다**(PrintCourt) — 두 정적 경로가 같은 한 줄을 지나야 한다. */
+export function staticBallFill(opts: Pick<StaticSceneOpts, 'mode' | 'size' | 'showRuleZones'>, ball: { x: number; y: number }): string {
+  if (opts.showRuleZones !== true) return BALL_FILL;
+  const def = courtDefFor(opts.mode, opts.size);
+  return isBallOutOfPlay(opts.mode, def.surface, ball, BALL.viewRadiusPx) ? BALL_OUT_FILL : BALL_FILL;
+}
+
+function ballMarkup(b: RenderFrame['balls'][number], opts: StaticSceneOpts): string {
   if (b.opacity <= 0) return '';
   return (
     `<g id="obj-${safeId(b.id)}" transform="${poseTransform(b.x, b.y)}"${attrOpacity(b.opacity)}>` +
-    `<circle cx="0" cy="0" r="${num(BALL.viewRadiusPx)}" fill="${BALL_FILL}" stroke="#ffffff" stroke-width="2.4"/>` +
+    `<circle cx="0" cy="0" r="${num(BALL.viewRadiusPx)}" fill="${staticBallFill(opts, b)}" stroke="#ffffff" stroke-width="2.4"/>` +
     `</g>`
   );
 }
@@ -604,7 +640,7 @@ function sceneMarkup(frame: RenderFrame, opts: StaticSceneOpts, order?: readonly
       }
       case 'ball': {
         const b = ballById.get(r.id);
-        return b ? ballMarkup(b) : null;
+        return b ? ballMarkup(b, opts) : null;
       }
       case 'note': {
         const n = noteById.get(r.id);
@@ -705,11 +741,16 @@ export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts, order?
     // 것도 같은 지시다(staticSceneLayout 의 CAPTION_INK).
     (bg === 'black' ? `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.totalH)}" fill="#000000"/>` : '') +
     `<rect x="0" y="0" width="${num(m.vbW)}" height="${num(m.vbH)}" rx="${EXPORT_LAYOUT.courtRx}" fill="${COURT_BG}"/>` +
-    // §3.5 표준 z-order: 코트면 → 격자 → 진영 → 규칙존·링 → **개체 목록**.
+    // §3.5 표준 z-order: 코트면 → 격자 → **규칙 존** → 진영 깃발 → 규칙 표시 → **골대** →
+    // 개체 목록. 편집 화면(CourtStage: CourtSurface → GridOverlay → RuleZones → SideMarks →
+    // RuleOverlay → ObjectLayer[골대 → 개체])과 **한 칸도 다르지 않다.**
     //
-    // 진영 깃발이 규칙 표시 **아래**인 것은 화면(CourtStage: RuleZones → SideMarks → RuleOverlay)
-    // 을 따른 것이다. 존은 코트 안, 깃발은 골라인 밖이라 둘은 애초에 안 겹치고, 실제로 겹칠 수
-    // 있는 것은 공의 3 m 링뿐인데 화면에서도 링이 깃발을 덮는다.
+    // ⚠️ 2026-09-06 — 그 전 주석은 *"진영 깃발이 규칙 표시 아래인 것은 화면을 따른 것"* 이라고
+    //    적었지만 **코드는 그렇지 않았다**: 깃발이 `ruleMarkup`(존을 함께 굽던) 앞이라 화면의
+    //    `RuleZones → SideMarks` 가 뒤집혀 있었다. 존을 `ruleMarkup` 에서 떼어 여기로 올리면서
+    //    그 문장이 비로소 참이 된다. 골대도 같은 날 `courtLinesMarkup` 에서 떼어 규칙 표시
+    //    뒤로 옮겼다(기현 지시: *"골대 밑판 위에 코트 라인이 보임"*).
+    //    이 순서를 네 경로에서 함께 재는 것은 `render/courtFurniture.order.test.tsx` 다.
     //
     // ⚠️ 2026-09-06 — 개체 7종(도형 포함)의 순서는 더 이상 이 호출 순서가 아니라 `order`
     //    (= `model/zOrder.ts` 의 `sceneOrder(step, cast)`)가 정한다. 안 넘기면 기본층이고,
@@ -717,8 +758,10 @@ export function buildStaticSvg(frame: RenderFrame, opts: StaticSceneOpts, order?
     //    코트 위·개체 아래" 가 그 첫 칸으로 살아 있다).
     courtLinesMarkup(opts.mode, opts.size) +
     gridMarkup(opts) +
+    (opts.showRuleZones ? ruleZonesMarkup(opts.mode, opts.size) : '') +
     sideMarksMarkup(opts) +
     ruleMarkup(frame, opts) +
+    goalPostsMarkup(courtDefFor(opts.mode, opts.size)) +
     sceneMarkup(frame, opts, order) +
     captionMarkup(opts, m) +
     `</svg>`

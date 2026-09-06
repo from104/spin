@@ -9,7 +9,7 @@ import type { ChairId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import type { TeamSide } from '../../model/drill.ts';
-import { teamPatternFor } from '../teamMark.ts';
+import { CHAIR_STROKE_W, teamPatternFor } from '../teamMark.ts';
 import { ZONE_CURSOR } from '../zoneCursors.ts';
 import { useUprightTransform } from '../stageRot.tsx';
 
@@ -154,7 +154,10 @@ export const ChairChip = memo(function ChairChip({
         rx={5}
         fill={color}
         stroke={stroke}
-        strokeWidth={2.2}
+        // ⚠️ 2026-09-06 — 리터럴 2.2 였다. `teamMark.ts` 의 `CHAIR_STROKE_W` 가 그 값의
+        //    정본이라고 스스로 적고 있었는데(그 주석이 이 줄을 가리킨다) 정작 이 줄은
+        //    리터럴이었다. PNG·인쇄는 그 상수를 읽는다 — 셋을 한 출처로 모은다.
+        strokeWidth={CHAIR_STROKE_W}
         strokeDasharray={pattern.strokeDash}
       />
       {/* 볼가드 s∈[0.85,1.00] — 전방 견인 존의 시각적 힌트 */}
