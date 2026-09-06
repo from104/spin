@@ -30,27 +30,24 @@ import {
   OWNER_ARROW_W,
   RULE_DASH,
   RULE_OK_STROKE,
+  RING_CASING_W,
+  RING_MARK_W,
+  RULE_CASING,
+  RULE_CASING_OPACITY,
   RULE_ZONE_ALERT_FILL,
   RULE_ZONE_ALERT_FILL_OPACITY,
+  ZONE_CASING_W,
+  ZONE_MARK_W,
   type RuleOverlayApi,
   type RuleRosterEntry,
 } from './ruleOverlay.ts';
 import { useLocale } from '../i18n/useLocale.ts';
 
-/** 케이싱 색. 근거는 colors.ts 의 `ARROW_CASING` 과 같다 — 불투명 검정만이 코트 위 3.93:1 로
- *  모양을 남긴다(알파를 섞으면 합성 결과가 주석의 숫자와 달라진다). */
-const CASING = '#000000';
-/** ⚠️ 2026-08-13(②) — 이 값은 **0.55 였다.** 바로 위 주석이 *"알파를 섞으면 합성 결과가
- *  달라진다"* 고 적어 둔 그 함정을 같은 파일이 저지르고 있었다: 검정 α.55 를 코트(#1f7a46)
- *  위에 합성하면 #0e371f 라 코트 대비가 **2.48:1** — §7.1 의 비텍스트 하한 3:1 **아래**다.
- *  즉 "모양을 언제나 남긴다" 던 케이싱이 기준 미달이었고, 위반 표시의 세 채널(케이싱·실선·색)
- *  중 첫 번째가 절반만 작동했다. 불투명으로 되돌리면 3.93:1 이다(colors.ts 의 ARROW_CASING 이
- *  같은 이유로 알파를 버린 전례). 되돌리면 render/ruleZoneFill.test.tsx 의 케이싱 단언이 빨개진다. */
-const CASING_OPACITY = 1;
-const RING_MARK_W = 2.6;
-const RING_CASING_W = 5.4;
-const ZONE_MARK_W = 3;
-const ZONE_CASING_W = 6.4;
+// ⚠️ 2026-09-06 — 케이싱 색·불투명도와 굵기 넷은 이 파일의 리터럴이 아니라 `ruleOverlay.ts`
+// 하나에서 온다. PNG·인쇄를 굽는 `buildStaticSvg.ts` 가 **같은 이름·같은 값**을 두 번째로
+// 적어 두고 있었고(대조 테스트 없이 주석으로만 약속), 그 두 벌이 곧 다음 드리프트다.
+const CASING = RULE_CASING;
+const CASING_OPACITY = RULE_CASING_OPACITY;
 
 interface RingProps {
   id: string;

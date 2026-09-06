@@ -9,6 +9,7 @@ import type { Drill, DrillStep, ChairDef, NoteLabel, StoredBallRing, TeamSide } 
 import type { Arrow } from './arrow.ts';
 import type { Stroke } from './stroke.ts';
 import { poseFromStored, type ChairPose } from './chair.ts';
+import { IGNORED_OPACITY } from '../core/constants.ts';
 
 export { easeStandard };
 
@@ -132,6 +133,12 @@ function interpList<T extends { id: string }>(
  *  갈라지는 자리다(renderPaths.ts 머리말의 네 번째 사고). */
 export function interpolateSteps(d: Pick<Drill, 'cast'>, from: DrillStep, to: DrillStep, e: number): RenderFrame {
   const chairs: RenderChair[] = [];
+  // **무시된 휠체어는 흐리게** (2026-09-06). 링·소유와 같은 규약으로 `to`(지금 향하는 스텝)의
+  // 값을 쓴다 — 보간할 중간값이 없는 이산 상태이고, `cut` 이 정한 "다음 스텝이 이긴다" 와
+  // 방향이 같다. 이 한 줄이 없으면 물리에서 빠진 선수가 시연·PNG·인쇄에서만 멀쩡한 선수로
+  // 나온다(판은 ObjectLayer 가 같은 상수로 흐리게 그린다).
+  const ignored = new Set<string>(to.ignored ?? []);
+  const dim = (id: string, o: number): number => (ignored.has(id) ? o * IGNORED_OPACITY : o);
   for (const def of d.cast.chairs) {
     const a = from.chairs[def.id];
     const b = to.chairs[def.id];
@@ -139,13 +146,13 @@ export function interpolateSteps(d: Pick<Drill, 'cast'>, from: DrillStep, to: Dr
     if (presence === 'absent') continue;
     if (presence === 'both') {
       const p = interpChair(poseFromStored(a!), poseFromStored(b!), e);
-      chairs.push({ id: def.id, def, x: p.x, y: p.y, theta: p.theta, opacity: 1 });
+      chairs.push({ id: def.id, def, x: p.x, y: p.y, theta: p.theta, opacity: dim(def.id, 1) });
     } else if (presence === 'exit') {
       const p = poseFromStored(a!);
-      chairs.push({ id: def.id, def, x: p.x, y: p.y, theta: p.theta, opacity: 1 - e });
+      chairs.push({ id: def.id, def, x: p.x, y: p.y, theta: p.theta, opacity: dim(def.id, 1 - e) });
     } else {
       const p = poseFromStored(b!);
-      chairs.push({ id: def.id, def, x: p.x, y: p.y, theta: p.theta, opacity: e });
+      chairs.push({ id: def.id, def, x: p.x, y: p.y, theta: p.theta, opacity: dim(def.id, e) });
     }
   }
 

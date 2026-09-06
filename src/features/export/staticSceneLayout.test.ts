@@ -20,9 +20,69 @@ import {
   type TextPlacement,
 } from './staticSceneLayout.ts';
 import { makeFrame, TEAMS } from './sceneFixture.ts';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { GridOverlay } from '../../render/GridOverlay.tsx';
 
 const OPTS = { mode: 'full' as const, teams: TEAMS };
 const numbersOf = (ts: TextPlacement[]): TextPlacement[] => ts.filter((t) => t.font === 'number');
+
+// ── 격자 칸 번호 (2026-09-06 기현 지시: *"png 에 격자는 나오는데 격자 번호는 안 나옴"*) ──
+// **화면이 그린 것과 대조한다.** 값을 이 파일에 손으로 적으면(18 px, 0.2 …) 그것이 세 번째
+// 사본이 되고, 격자를 손본 날 PNG 만 옛 값으로 남는 그 사고를 검사표가 되풀이한다.
+// 그래서 진짜 `GridOverlay` 를 구워 `<text>` 의 자리·크기·농도를 읽고, 배치 목록과 맞춘다.
+describe('buildTextPlacements — 격자 칸 번호가 화면과 같은 자리·같은 값으로 나간다', () => {
+  /** 화면이 그린 칸 라벨: 글자 → { x, y, sizePx, opacity }. 그룹에 상속된 값도 함께 읽는다. */
+  function labelsFromScreen(mode: 'full' | 'flat'): Map<string, { x: number; y: number; sizePx: number; opacity: number }> {
+    const markup = renderToStaticMarkup(createElement(GridOverlay, { mode, showLabels: true }));
+    const doc = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>`, 'image/svg+xml');
+    const out = new Map<string, { x: number; y: number; sizePx: number; opacity: number }>();
+    for (const t of [...doc.querySelectorAll('text')]) {
+      const g = t.parentElement!;
+      out.set(t.textContent!, {
+        x: Number(t.getAttribute('x')),
+        y: Number(t.getAttribute('y')),
+        sizePx: Number(g.getAttribute('font-size')),
+        opacity: Number(g.getAttribute('opacity')),
+      });
+    }
+    return out;
+  }
+
+  const gridOpts = { mode: 'full' as const, teams: TEAMS, showGrid: true, showGridLabels: true };
+  const gridTexts = (opts: Parameters<typeof buildTextPlacements>[1]): TextPlacement[] =>
+    buildTextPlacements(makeFrame({ chairs: [], notes: [] }), opts);
+
+  it('full — 칸 이름·좌표·크기·농도가 화면과 같다', () => {
+    const screen = labelsFromScreen('full');
+    const png = gridTexts(gridOpts);
+    expect(screen.size).toBeGreaterThan(0); // 대조군: 화면이 실제로 라벨을 그렸다
+    expect(png).toHaveLength(screen.size);
+    for (const p of png) {
+      const s = screen.get(p.text);
+      expect(s, `화면에 없는 칸 이름: ${p.text}`).toBeDefined();
+      expect([p.x, p.y, p.sizePx, p.opacity]).toEqual([s!.x, s!.y, s!.sizePx, s!.opacity]);
+      // 라틴 글자라 Space Grotesk 서브셋 안이다(★A-9 의 tofu 함정이 안 걸리는 이유).
+      expect(p.font).toBe('number');
+      expect(p.align).toBe('middle');
+    }
+  });
+
+  it('flat — 축 헤더(a…/1…)도 같은 규약으로 나간다', () => {
+    const screen = labelsFromScreen('flat');
+    const png = gridTexts({ ...gridOpts, mode: 'flat' });
+    expect(screen.size).toBeGreaterThan(0);
+    expect(png).toHaveLength(screen.size);
+    for (const p of png) expect([p.x, p.y, p.sizePx, p.opacity]).toEqual([screen.get(p.text)!.x, screen.get(p.text)!.y, screen.get(p.text)!.sizePx, screen.get(p.text)!.opacity]);
+  });
+
+  it('두 스위치를 따른다 — 격자를 끄거나 번호만 꺼도 한 글자도 안 나간다', () => {
+    expect(gridTexts({ ...gridOpts, showGridLabels: false })).toHaveLength(0);
+    expect(gridTexts({ ...gridOpts, showGrid: false })).toHaveLength(0);
+    // 대조군 — 켰을 때는 실제로 나간다(전량 0 이라 통과한 것이 아니다).
+    expect(gridTexts(gridOpts).length).toBeGreaterThan(0);
+  });
+});
 
 describe('buildTextPlacements — 등번호', () => {
   it('칩마다 하나씩, 글자는 def.number 그대로다 (골키퍼는 G)', () => {

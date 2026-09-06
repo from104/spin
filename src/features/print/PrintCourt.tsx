@@ -18,21 +18,23 @@
 // 가 그대로 먹는다. 여기서 색을 토큰(`var(--…)`)이 아니라 리터럴로 쓰는 이유도 그것과는
 // 별개다 — 다크 테마 사용자가 인쇄해도 **종이는 언제나 같아야** 하기 때문이다.
 import { useId, useMemo } from 'react';
-import { CHAIR, BALL, NOTE } from '../../core/constants.ts';
-import { COURT_BG, OBJ_STROKE, BALL_FILL, CONE_COLORS, ARROW_CASING, NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL } from '../../core/colors.ts';
+import { CHAIR, BALL, COURT_SURFACE_RX, NOTE } from '../../core/constants.ts';
+import { COURT_BG, OBJ_STROKE, CONE_COLORS, ARROW_CASING, NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL } from '../../core/colors.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { ARROW_STYLE, arrowColor, arrowPath, headFromOf, headToOf } from '../../model/arrow.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
-import { CourtSurface } from '../../render/CourtSurface.tsx';
+import { COURT_LINE_WEIGHTS, CourtSurface } from '../../render/CourtSurface.tsx';
+import { GoalPostMarks } from '../../render/courtLines/GoalPostMarks.tsx';
 import { GridOverlay } from '../../render/GridOverlay.tsx';
 import { RuleZones } from '../../render/RuleZones.tsx';
 import { staticFrameOf } from '../../model/playback.ts';
 import { sceneOrder, type SceneRef } from '../../model/zOrder.ts';
-import { ruleMarkup } from '../../features/export/buildStaticSvg.ts';
+import { ruleMarkup, staticBallFill } from '../../features/export/buildStaticSvg.ts';
 import { ArrowMarkers } from '../../render/ArrowMarkers.tsx';
 import { STROKE_CASING_PAD, arrowMarkerId } from '../../render/arrowHeadGeom.ts';
 import { strokeColor, strokeHeadFrom, strokeHeadTo, strokePath, strokeWidthOf } from '../../model/stroke.ts';
 import { ShapeMark } from '../../render/objects/ShapeMark.tsx';
+import { CONE_BASE_D, CONE_STROKE_W, CONE_TRIANGLE_D } from '../../render/objects/coneGeom.ts';
 import { SideMarks } from '../../render/SideMarks.tsx';
 import {
   NOTE_DEFAULT_SIZE_PX,
@@ -50,6 +52,8 @@ import { PRINT_COURT_CLASS } from './printDom.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
 const HALF_W = CHAIR.widthPx / 2;
+/** 골대 기둥의 굵기·크기. `CourtSurface` 에 넘기는 variant 와 **같은 행**이다(§6.6 굵기표). */
+const GOAL_W = COURT_LINE_WEIGHTS.present;
 /** ChairChip 과 같은 유도식(원래 20, 2026-08-11 기현 지시로 2/3). 값만 옮기면 근거가 사라진다. */
 const LABEL_FONT_PX = (20 * 2) / 3;
 const NUM_FONT = "'Space Grotesk',sans-serif";
@@ -79,8 +83,11 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
   // 규칙 오버레이는 **판정을 거쳐야** 그려진다(위반이면 붉은 실선, 아니면 흰 파선). 그 판정
   // 함수들은 프레임(좌표 + 차체 각도)을 요구하므로 스텝을 정적 프레임으로 한 번 편다 —
   // `staticFrameOf` 가 그 어댑터이고, PNG 도 같은 자료형을 쓴다.
+  const frame = useMemo(() => staticFrameOf(drill, step), [drill, step]);
+  // 무시된 휠체어의 흐림(2026-09-06). 프레임이 이미 그 값을 싣고 오므로(model/playback.ts)
+  // 여기서 `step.ignored` 를 다시 읽지 않는다 — 두 번째로 읽는 자리가 곧 드리프트다.
+  const chairOpacity = new Map(frame.chairs.map((c) => [c.id as string, c.opacity] as const));
   const ruleSvg = useMemo(() => {
-    const frame = staticFrameOf(drill, step);
     // `teams` 는 `StaticSceneOpts` 의 필수 필드지만 ruleMarkup 은 안 읽는다(규칙 표시는 팀
     // 색이 아니라 판정 색으로 말한다) — 그래도 타입을 우회하지 않고 진짜 값을 넘긴다.
     return ruleMarkup(frame, {
@@ -90,7 +97,7 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
       defense: drill.defense,
       showRuleZones: view.showRuleZones,
     });
-  }, [drill, step, view.showRuleZones]);
+  }, [drill, frame, view.showRuleZones]);
   // 마커는 (색 × 굵기)마다 하나다 — 색은 화살표·획을 합쳐서, 굵기 축은 획만 갖는다
   // (render/arrowHeadGeom.ts). 여기서 획의 색을 빠뜨리면 촉을 켠 획만 종이에서 촉을 잃는다.
   const usedColors = Array.from(new Set([...step.arrows.map((a) => arrowColor(a)), ...(step.strokes ?? []).map((s) => strokeColor(s))]));
@@ -120,22 +127,29 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
       <defs>
         <ArrowMarkers uid={uid} colors={usedColors} widths={usedWidths} />
       </defs>
-      <rect width={def.vbW} height={def.vbH} rx={10} fill={COURT_BG} />
+      <rect width={def.vbW} height={def.vbH} rx={COURT_SURFACE_RX} fill={COURT_BG} />
       <CourtSurface mode={drill.courtMode} size={drill.courtSize} variant="present" />
-
-      {/* 진영 표시 — 어느 골을 어느 팀이 지키는지. 종이에 이게 없으면 **코트를 어느 쪽으로 놓고
-          읽어야 하는지**가 사라져, 화면에서 정한 공수 방향이 체육관에서 뒤집힌다.
-          (2026-08-17 기현님 신고 — 그림 내보내기에서 빠져 있던 것과 같은 층이다.)
-          화면·PNG 와 **같은 함수**(render/sideFlags.ts)가 좌표를 준다. */}
-      <SideMarks mode={drill.courtMode} size={drill.courtSize} teams={drill.teams} defense={drill.defense} />
 
       {/* 격자·규칙 존 — 화면과 **같은 컴포넌트**다(둘 다 순수 memo 라 writer 없이 선다).
           2026-08-27 이전에는 여기 없었고, 그 근거로 적힌 것이 *"§6.2 의 PNG 포함 목록과 같은
           판단"* 이었다. **그 근거가 그 뒤 뒤집혔다** — PNG 는 지금 넷을 전부 굽는다. 근거가
           딴 파일에 있으면 근거가 바뀐 것을 아무도 모른다. 그래서 이제 판단은
-          `render/renderPaths.ts` 한 곳에 있고, 테스트가 표와 코드를 대조한다. */}
+          `render/renderPaths.ts` 한 곳에 있고, 테스트가 표와 코드를 대조한다.
+
+          ⚠️ 2026-09-06 — 이 `<RuleZones>` 가 **연한 존을 그리는 유일한 자리**다. 그 전에는
+             아래 `ruleSvg`(ruleMarkup)도 같은 사각형을 구워 **종이에만 두 겹**이었다
+             (fill-opacity .22 두 겹 ≈ .39 — 화면보다 확연히 진했다). 존을 ruleMarkup 에서
+             떼면서 PNG 도 같은 순서(격자 → 존 → 깃발 → 규칙 표시)로 맞췄다. */}
       {view.showGrid && <GridOverlay mode={drill.courtMode} size={drill.courtSize} showLabels={view.showGridLabels} forPrint />}
       <RuleZones mode={drill.courtMode} size={drill.courtSize} visible={view.showRuleZones} />
+
+      {/* 진영 표시 — 어느 골을 어느 팀이 지키는지. 종이에 이게 없으면 **코트를 어느 쪽으로 놓고
+          읽어야 하는지**가 사라져, 화면에서 정한 공수 방향이 체육관에서 뒤집힌다.
+          (2026-08-17 기현님 신고 — 그림 내보내기에서 빠져 있던 것과 같은 층이다.)
+          화면·PNG 와 **같은 함수**(render/sideFlags.ts)가 좌표를 준다.
+          ⚠️ 2026-09-06 — 자리를 격자·규칙 존 **뒤**로 한 칸 내렸다. 화면(CourtStage)이
+             `RuleZones → SideMarks` 순서인데 종이만 깃발을 격자보다도 앞에 두고 있었다. */}
+      <SideMarks mode={drill.courtMode} size={drill.courtSize} teams={drill.teams} defense={drill.defense} />
 
       {/* 공 거리 링 · 세트피스 소유 화살표 · 존 위반 표시 — **PNG 와 같은 함수**(ruleMarkup)가
           굽는다. 화면의 `RuleOverlay` 를 쓸 수 없는 이유는 이 파일 머리말 ①과 같다: 좌표를
@@ -149,13 +163,26 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
              맞춘 것이고, 이 한 줄이 그 옛 드리프트를 함께 지운다. */}
       {ruleSvg !== '' && <g dangerouslySetInnerHTML={{ __html: ruleSvg }} />}
 
+      {/* 골대(받침판+기둥) — 규칙 표시 **뒤**, 개체 **앞**. 화면이 골대를 `ObjectLayer` 맨
+          아래에서 그리는 그 자리다. ⚠️ 2026-09-06 — 그 전에는 위 `<CourtSurface>` 안에서
+          그려져 격자·존·깃발보다 아래였고, 규칙 존의 흰 파선이 받침판 위를 가로질렀다
+          (기현 지시: *"골대 밑판 위에 코트 라인이 보임"*). 굵기는 CourtSurface 에 넘긴
+          variant 와 **같은 행**을 읽는다(§6.6 표의 present). */}
+      <GoalPostMarks def={def} spotR={GOAL_W.spotR!} spotSw={GOAL_W.spotSw} />
+
       {/* §3.5 렌더 레이어 순서: 코트면 → 진영 → 격자·규칙존 → 규칙 표시 → **개체 목록**.
           ── ⚠️ 2026-09-06 ────────────────────────────────────────────────────────────────
           개체 7종의 순서는 이제 고정이 아니라 `sceneOrder(step, cast)` 가 정한다(위 `order`).
           아무도 손대지 않은 스텝에서는 여전히 도형 → 콘 → 획 → 화살표 → 휠체어 → 공 → 메모다
           (획이 화살표 아래인 근거는 render/ObjectLayer.tsx 머리말 — 케이싱이 남의 선을
           지우므로 누가 끊겨도 되는지를 정해야 한다).
-          (선택 링·핸들은 편집 도구라 종이에 없다 — 장면의 내용이 아니다.) */}
+          (선택 링·핸들은 편집 도구라 종이에 없다 — 장면의 내용이 아니다.)
+          ⚠️ 2026-09-06 — **잠김(보라 덮개)도 같은 부류라 종이에 없다**: 잠김은 "이 개체는 지금
+             옮길 수 없다" 는 편집 중의 상태이고, 종이에는 옮길 손이 없다. 반면 **무시(흐리게)
+             는 그린다** — 그것은 도구 상태가 아니라 "이 선수는 이 장면의 물리에서 빠져 있다"
+             는 판의 사실이라(model/drill.ts) 코치가 종이에서도 알아야 한다. 무시는 프레임의
+             opacity 로 실려 오므로 이 파일에 분기가 없다(model/playback.ts).
+             판단의 기록은 `render/renderPaths.ts` 의 `lockTint`·`ignoredDim` 행이다. */}
       {order.map((r) => {
         switch (r.kind) {
           case 'shape': {
@@ -169,9 +196,11 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
             const p = c ? step.cones[c.id] : undefined;
             if (!c || !p) return null;
             return (
+              // ⚠️ 2026-09-06 — 여기 리터럴이던 두 path·굵기는 `render/objects/coneGeom.ts`
+              //    하나에서 온다(화면·PNG 와 같은 출처). 종이만 옛 모양으로 남던 자리다.
               <g key={c.id} data-print-cone={c.id} transform={`translate(${p.x} ${p.y})`}>
-                <path d="M0,-5 L5,4 L-5,4 Z" fill={CONE_COLORS[c.colorIndex]} stroke={OBJ_STROKE} strokeWidth={1.6} />
-                {c.colorIndex === 1 && <path d="M-6,4.5 H6 V6.5 H-6 Z" fill={CONE_COLORS[c.colorIndex]} stroke={OBJ_STROKE} strokeWidth={1.6} />}
+                <path d={CONE_TRIANGLE_D} fill={CONE_COLORS[c.colorIndex]} stroke={OBJ_STROKE} strokeWidth={CONE_STROKE_W} />
+                {c.colorIndex === 1 && <path d={CONE_BASE_D} fill={CONE_COLORS[c.colorIndex]} stroke={OBJ_STROKE} strokeWidth={CONE_STROKE_W} />}
               </g>
             );
           }
@@ -237,7 +266,14 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
             // 두 팀이 확정적으로 같아진다(근거·크기 검산은 src/render/teamMark.ts 머리말).
             const mark = teamMarkFor(c, drill.teams);
             return (
-              <g key={c.id} data-print-chair={c.id} transform={`translate(${pose.x} ${pose.y}) rotate(${pose.angleDeg})`}>
+              <g
+                key={c.id}
+                data-print-chair={c.id}
+                transform={`translate(${pose.x} ${pose.y}) rotate(${pose.angleDeg})`}
+                // 1 이면 속성 자체를 안 붙인다 — PNG 의 `attrOpacity` 와 같은 규약이라
+                // 두 정적 경로의 마크업이 쓸데없이 갈리지 않는다.
+                opacity={(chairOpacity.get(c.id) ?? 1) < 1 ? chairOpacity.get(c.id) : undefined}
+              >
                 <rect
                   x={-CHAIR.pivotToRearPx}
                   y={-HALF_W}
@@ -248,7 +284,9 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
                   // ⚠️ 6.5 — 여기가 OBJ_STROKE 리터럴이면 **종이만** 밝은 차체에서 파선을 잃는다
                   // (PNG 는 이미 m.stroke 를 쓰고 있었다 — 실제로 갈라져 있던 자리다).
                   stroke={mark.stroke}
-                  strokeWidth={2.2}
+                  // ⚠️ 2026-09-06 — 리터럴 2.2 였다. 값의 정본은 `teamMark.ts` 의
+                  //    `CHAIR_STROKE_W` 이고 PNG 는 이미 `m.strokeWidth` 를 쓰고 있었다.
+                  strokeWidth={mark.strokeWidth}
                   strokeDasharray={mark.strokeDash}
                 />
                 <rect
@@ -286,7 +324,10 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
           case 'ball': {
             const p = ballPosById.get(r.id);
             if (!p) return null;
-            return <circle key={r.id} data-print-ball={r.id} cx={p.x} cy={p.y} r={BALL.viewRadiusPx} fill={BALL_FILL} stroke="#fff" strokeWidth={2.4} />;
+            // 아웃오브플레이(Law 9)면 붉다 — 화면·PNG 와 **같은 함수 한 줄**을 지난다
+            // (2026-09-06: 그 전에는 종이·그림만 언제나 노란 공이었다).
+            const fill = staticBallFill({ mode: drill.courtMode, size: drill.courtSize, showRuleZones: view.showRuleZones }, p);
+            return <circle key={r.id} data-print-ball={r.id} cx={p.x} cy={p.y} r={BALL.viewRadiusPx} fill={fill} stroke="#ffffff" strokeWidth={2.4} />;
           }
           case 'note': {
             const n = noteById.get(r.id);

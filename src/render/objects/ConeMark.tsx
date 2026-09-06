@@ -4,6 +4,7 @@ import { memo, useEffect, useRef } from 'react';
 import { LockTint } from './LockTint.tsx';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { CONE_COLORS, OBJ_STROKE } from '../../core/colors.ts';
+import { CONE_BASE_D, CONE_TRIANGLE_D } from './coneGeom.ts';
 import type { ConeId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 
@@ -20,10 +21,10 @@ export interface ConeMarkProps {
   onKeyDown?: (id: ConeId, e: ReactKeyboardEvent<SVGGElement>) => void;
 }
 
-// 10×9px 삼각형(§6.6). 로컬 원점 기준.
-const TRIANGLE_D = 'M0,-5 L5,4 L-5,4 Z';
-// 밑변 사각 베이스(슬롯 1 전용).
-const BASE_D = 'M-6,4.5 H6 V6.5 H-6 Z';
+// ⚠️ 2026-09-06 — 여기 리터럴이던 두 path 는 `coneGeom.ts` 하나에서 온다(인쇄·PNG 가 같은
+// 모양을 따로 적고 있었다). 이름만 지역 별칭으로 남긴다.
+const TRIANGLE_D = CONE_TRIANGLE_D;
+const BASE_D = CONE_BASE_D;
 
 export const ConeMark = memo(function ConeMark({
   id,

@@ -24,6 +24,12 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 - Fixed the first-visit loading screen (0.6.3) never appearing on the deployed site (it is now skipped only when you land directly on a rules article from search)
 - Removed the brief flash of the search-engine intro text (prerender) before the loading screen — the web hides it from the first paint (and reveals it again if the app fails to start within 4 s), the desktop app no longer bakes it in at all. The HTML served to search engines is unchanged
 - Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
+- Fixed missing grid cell numbers in exported images (PNG)
+- Fixed court lines crossing over the goal base plate in presentation, image and print — goals now sit on the same layer as on the board
+- Fixed the goal-area highlight printing darker than it looks on screen
+- Fixed ignored wheelchairs not being dimmed in presentation, image and print
+- Fixed a ball outside the court not turning red in image and print
+- Fixed empty note chips showing no text in presentation
 
 ## [0.6.3] 2026-09-05
 

@@ -2,8 +2,11 @@
 // 밀리도록 만들어져 있고(안 밀리면 안전 사고가 난다), 이 앱도 그대로 따른다.
 //
 // 그래서 코트 라인(CourtSurface)의 정적 원이 아니라 **writer 가 구동하는 개체**다. 편집기
-// 변형에서만 이렇게 그리고, 시연·썸네일은 여전히 코트 라인 쪽 정적 표시를 쓴다(그쪽은 물리가
-// 돌지 않아 움직일 일이 없다).
+// 변형에서만 이렇게 그리고, 시연·인쇄·PNG 는 정적 표시(`courtLines/GoalPostMarks.tsx`)를 쓴다
+// (그쪽은 물리가 돌지 않아 움직일 일이 없다). ⚠️ 2026-09-06 — 그 정적 표시는 이제 코트 라인
+// 그룹이 아니라 **규칙 표시 뒤·개체 앞**, 즉 이 파일이 편집 화면에서 차지하는 자리와 같은
+// 층에서 그려진다(근거는 GoalPostMarks.tsx 머리말). 썸네일은 애초에 기둥을 안 그린다
+// (COURT_LINE_WEIGHTS.thumb 에 spotR 이 없다).
 //
 // 사용자가 직접 **끌 수는** 없다: 드래그 대상이 아니고 포커스도 받지 않는다(§7.5b 순회
 // 순서에도 들어가지 않는다). 오직 휠체어에 밀려서 움직인다.
@@ -34,8 +37,9 @@
 //    끼어든다 — 얻는 것 없이 잃기만 한다.
 import { memo, useEffect, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { GOAL_BASE_FILL, OBJ_STROKE } from '../../core/colors.ts';
+import { GOAL_BASE_FILL, GOAL_POST_EDGE, GOAL_POST_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { goalBaseLocalRect } from '../../model/court.ts';
+import { COURT_LINE_WEIGHTS } from '../CourtSurface.tsx';
 import type { Vec2 } from '../../core/units.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 
@@ -51,9 +55,18 @@ export interface GoalPostProps {
   onReturn?: () => void;
 }
 
-/** 코트 라인의 spot 표시와 같은 색·크기다(FullCourtLines 의 goalPosts 원과 동일) — 물리 바디로
- *  바뀌었다고 생김새까지 달라지면 "골대가 다른 것으로 교체됐다" 로 읽힌다. */
-const R = 4;
+/** 기둥 원의 반지름·테 굵기. 물리 바디로 바뀌었다고 생김새까지 달라지면 "골대가 다른 것으로
+ *  교체됐다" 로 읽히므로, 코트 라인의 spot 표시와 **같은 표**에서 파생한다(§6.6 굵기표).
+ *
+ *  ⚠️ 2026-09-06 — 그 전에는 `const R = 4` 와 `strokeWidth={1.6}` 이 **리터럴**이었고 주석은
+ *  *"FullCourtLines 의 goalPosts 원과 동일"* 이라고 적었다. 그 문장은 참이 아니었다: 정적
+ *  경로가 읽는 것은 `present` 행(r 4.4 · sw 1.6)이고 편집기 행은 r 4 · sw **1.5** 다 — 즉
+ *  반지름은 편집기 행과 같고 굵기만 present 행과 같은, 어느 표에도 없는 짝이었다.
+ *  값을 표에서 파생시켜 그 어긋남을 지운다(AGENTS §3 *"치수를 리터럴로 적지 않는다"*).
+ *  변형별로 굵기가 갈리는 것 자체는 §6.6 이 정한 설계라 그대로 둔다. */
+const W = COURT_LINE_WEIGHTS.editor;
+const R = W.spotR!;
+const EDGE_W = W.spotSw!;
 
 /** 보이지 않는 손잡이 반지름. 보이는 원(R=4)은 화면에서 4 px 안팎이라 그대로는 못 겨눈다.
  *  §7.3 의 44 px 을 그대로 쓰지는 않는다 — 코트 좌표에서 22 는 휠체어 한 대(32.5×20)보다 큰
@@ -65,9 +78,11 @@ const HIT_R = 12;
  *  안이고, 보이는 원(4)보다 바깥이라 골대 자체를 가리지 않는다. */
 const RING_R = 8.5;
 
-/** 골대의 두 색. 링·유령도 같은 색을 쓴다 — 다른 색을 쓰면 "다른 것"으로 읽힌다. */
-const GOAL_FILL = '#f5f5f5';
-const GOAL_EDGE = '#c2410c';
+/** 골대의 두 색. 링·유령도 같은 색을 쓴다 — 다른 색을 쓰면 "다른 것"으로 읽힌다.
+ *  ⚠️ 2026-09-06 — 리터럴이던 두 값을 `core/colors.ts` 로 올렸다(정적 경로·PNG 가 같은 값을
+ *  따로 적고 있었다). 여기 별칭만 남긴다. */
+const GOAL_FILL = GOAL_POST_FILL;
+const GOAL_EDGE = GOAL_POST_EDGE;
 
 /** 밝고 어두운 코트를 모두 견디게 하는 밑깔이 두께(흰 후광). 커서 아이콘과 같은 수법이다. */
 const HALO_W = 2.4;
@@ -138,7 +153,7 @@ export const GoalPost = memo(function GoalPost({ id, writer, baseDir, displaced 
           <circle cx={0} cy={0} r={RING_R} fill="none" stroke={GOAL_EDGE} strokeWidth={1.2} />
         </>
       )}
-      <circle cx={0} cy={0} r={R} fill={GOAL_FILL} stroke={GOAL_EDGE} strokeWidth={1.6} />
+      <circle cx={0} cy={0} r={R} fill={GOAL_FILL} stroke={GOAL_EDGE} strokeWidth={EDGE_W} />
       <circle cx={0} cy={0} r={R} fill="none" stroke={OBJ_STROKE} strokeWidth={0.4} />
     </g>
   );

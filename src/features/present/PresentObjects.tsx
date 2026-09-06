@@ -20,9 +20,10 @@ import { ConeMark } from '../../render/objects/ConeMark.tsx';
 import { ArrowPath } from '../../render/objects/ArrowPath.tsx';
 import { StrokePath } from '../../render/objects/StrokePath.tsx';
 import { useT } from '../../i18n/useT.ts';
-import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteChipWidthPx, noteFoldPathD, noteLineDy, noteLineHeightPx, noteLines } from '../../render/objects/noteChip.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
+import { NOTE_DEFAULT_SIZE_PX, NOTE_PLACEHOLDER, noteChipHeightPx, noteChipPathD, noteChipWidthPx, noteFoldPathD, noteLineDy, noteLineHeightPx, noteLines } from '../../render/objects/noteChip.ts';
 import { NOTE } from '../../core/constants.ts';
-import { NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
+import { NOTE_FILL, NOTE_FOLD_FILL, NOTE_PLACEHOLDER_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import type { RuleOverlayApi } from '../../render/ruleOverlay.ts';
@@ -172,6 +173,7 @@ const FONT = "'Pretendard',sans-serif";
 /** 메모 — 화살표와 같은 이유로 React 재렌더 경로. NoteLabel(render-stage)은 writer 기반
  *  포지셔닝을 강제해 여기 용도(매 프레임 x/y 갱신)와 맞지 않아 최소 구현을 직접 그린다. */
 export function PresentNoteMark({ note: n }: { note: RenderFrame['notes'][number] }) {
+    const locale = useLocale();
     const size = n.size ?? NOTE_DEFAULT_SIZE_PX;
     const lines = noteLines(n.text, size);
     const align = n.align ?? 'middle';
@@ -179,6 +181,11 @@ export function PresentNoteMark({ note: n }: { note: RenderFrame['notes'][number
     const halfH = noteChipHeightPx(n.text, size) / 2;
     // NoteLabel/PrintCourt 와 같은 규약 — align 은 글 정렬이자 칩 안에서의 글 위치다.
     const textX = align === 'start' ? -halfW + NOTE.chipPadXPx : align === 'end' ? halfW - NOTE.chipPadXPx : 0;
+    // 빈 메모의 안내 글자(2026-09-06). 편집 화면(NoteLabel)·인쇄(PrintCourt)가 이미 그리는데
+    // **시연만** 빈 쪽지를 내놓고 있었다 — 관객은 "왜 빈 종이가 붙어 있지" 로 읽는다.
+    // ⚠️ PNG 는 일부러 안 그린다(staticSceneLayout: *"앱의 안내문이 찍히면 그게 곧 오독"*) —
+    //    거기는 코치가 남에게 보내는 **파일**이고, 시연은 코치가 옆에서 설명하는 화면이다.
+    const empty = n.text.length === 0;
     return (
       <g opacity={n.opacity} transform={`translate(${n.x.toFixed(2)} ${n.y.toFixed(2)})`}>
         {/* C11(2026-08-19 기현님) — **쪽지 칩 배경**. 여기만 글자만 떠 있어서, 어두운 코트
@@ -187,22 +194,25 @@ export function PresentNoteMark({ note: n }: { note: RenderFrame['notes'][number
         <path d={noteChipPathD(halfW, halfH)} fill={NOTE_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
         <path d={noteFoldPathD(halfW, halfH)} fill={NOTE_FOLD_FILL} stroke={OBJ_STROKE} strokeWidth={1.4} strokeLinejoin="round" />
         <text
-          x={textX}
+          className={empty ? 'note-placeholder' : undefined}
+          x={empty ? 0 : textX}
           y={0}
           fontFamily={FONT}
-          fontSize={size}
+          fontSize={empty ? NOTE.placeholderSizePx : size}
           fontWeight={600}
-          fill={n.color ?? '#ffffff'}
-          textAnchor={align}
+          fill={empty ? NOTE_PLACEHOLDER_FILL : (n.color ?? '#ffffff')}
+          textAnchor={empty ? 'middle' : align}
           dominantBaseline="central"
         >
           {/* 줄 나눔은 편집 화면과 **같은 함수**가 정한다(noteChip.ts). 시연에서만 한 줄로
               이어 붙으면 코치가 판에서 본 것과 관객이 보는 것이 달라진다. */}
-          {lines.map((line, i) => (
-            <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length, size) : noteLineHeightPx(size)}>
-              {line}
-            </tspan>
-          ))}
+          {empty
+            ? NOTE_PLACEHOLDER[locale]
+            : lines.map((line, i) => (
+                <tspan key={i} x={textX} dy={i === 0 ? noteLineDy(0, lines.length, size) : noteLineHeightPx(size)}>
+                  {line}
+                </tspan>
+              ))}
         </text>
       </g>
     );

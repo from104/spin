@@ -19,7 +19,6 @@
 // 좌표 출처는 COURT_DEFS.half 하나뿐이다(진실 공급원 통일 — 감사 2026-08-08 minor).
 import { COURT_DEFS, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import { COURT_LINE_WEIGHTS, type CourtLineVariant } from '../CourtSurface.tsx';
-import { GoalPostMarks } from './GoalPostMarks.tsx';
 
 export interface HalfCourtLinesProps {
   variant: CourtLineVariant;
@@ -81,10 +80,13 @@ export function HalfCourtLines({ variant }: HalfCourtLinesProps) {
           ))}
         </g>
       )}
-      {w.spotR !== undefined && (
-        // 받침판 + 기둥. 편집기 갈래(물리 바디가 그린다)도 그 컴포넌트가 안다.
-        <GoalPostMarks def={DEF} variant={variant} spotR={w.spotR} spotSw={w.spotSw} />
-      )}
+      {/* ── ⚠️ 2026-09-06: 골대(받침판+기둥)를 여기서 그리지 않는다 ─────────────────────
+          그 전에는 이 자리에 `<GoalPostMarks>` 가 있었다. 코트 라인 그룹 안이라는 것은 곧
+          격자·규칙 존·진영 깃발·규칙 표시보다 **아래** 층이라는 뜻인데, 편집 화면은 골대를
+          `ObjectLayer` 가 그려 그 넷보다 **위**에 둔다 — 정적 경로에서만 규칙 존의 흰 파선이
+          받침판 위를 가로지르던 원인이다(기현 지시 2026-09-06: *"골대 밑판 위에 코트 라인이
+          보임"*). 이제 골대는 시연·인쇄·PNG 가 규칙 표시 **뒤**에서 직접 그린다.
+          근거·자리는 `render/courtLines/GoalPostMarks.tsx` 머리말. */}
     </>
   );
 }

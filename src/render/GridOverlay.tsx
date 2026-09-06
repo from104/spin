@@ -4,6 +4,7 @@
 import { memo } from 'react';
 import type { CourtMode, CourtSize } from '../model/court.ts';
 import { gridGeom } from '../model/grid.ts';
+import { GRID_FONT, GRID_INK, GRID_LABEL_FILL, GRID_LABEL_SIZE_PX, GRID_LABEL_WEIGHT } from './gridInk.ts';
 import { uprightAt, useStageRot } from './stageRot.tsx';
 
 export interface GridOverlayProps {
@@ -19,16 +20,12 @@ export interface GridOverlayProps {
   forPrint?: boolean;
 }
 
-const FONT = "'Space Grotesk',sans-serif";
-
-/** 화면 / 종이 두 벌. 짝을 한자리에 두는 이유는 한쪽만 고치는 것을 막기 위해서다. */
-const INK = {
-  screen: { line: 0.22, major: 0.34, cell: 0.2, axis: 0.28 },
-  print: { line: 0.55, major: 0.75, cell: 0.55, axis: 0.65 },
-} as const;
+// ⚠️ 2026-09-06 — 글꼴·잉크·글자 크기는 이 파일에 있던 리터럴이 아니라 `render/gridInk.ts`
+// 하나에서 온다. PNG 가 같은 격자를 **다른 두 자리**(선은 buildStaticSvg, 번호는
+// staticSceneLayout)에서 굽기 때문이다 — 값이 셋으로 흩어져 있으면 한쪽만 고치게 된다.
 
 export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels, forPrint = false }: GridOverlayProps) {
-  const ink = forPrint ? INK.print : INK.screen;
+  const ink = forPrint ? GRID_INK.print : GRID_INK.screen;
   // 판이 돌아도 칸 이름은 바로 서 있어야 읽힌다(§6.4).
   const rot = useStageRot();
   const g = gridGeom(mode, size);
@@ -65,11 +62,11 @@ export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels, f
       {showLabels && mode !== 'flat' && (
         <g
           className="grid-cell-labels"
-          fill="#ffffff"
+          fill={GRID_LABEL_FILL}
           opacity={ink.cell}
-          fontFamily={FONT}
-          fontSize={18}
-          fontWeight={600}
+          fontFamily={GRID_FONT}
+          fontSize={GRID_LABEL_SIZE_PX.cell}
+          fontWeight={GRID_LABEL_WEIGHT}
           textAnchor="middle"
           dominantBaseline="central"
         >
@@ -83,11 +80,11 @@ export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels, f
       {showLabels && g.axis && (
         <g
           className="grid-axis-labels"
-          fill="#ffffff"
+          fill={GRID_LABEL_FILL}
           opacity={ink.axis}
-          fontFamily={FONT}
-          fontSize={11}
-          fontWeight={600}
+          fontFamily={GRID_FONT}
+          fontSize={GRID_LABEL_SIZE_PX.axis}
+          fontWeight={GRID_LABEL_WEIGHT}
           textAnchor="middle"
           dominantBaseline="central"
         >

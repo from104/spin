@@ -72,7 +72,10 @@ const forcedBlock = blockOf(contrastCss, FORCED);
 const alwaysOn = contrastCss.slice(0, contrastCss.indexOf('@media'));
 /** 규칙 존 갈고리 — RuleZones.tsx 에 클래스를 붙이면 판 DOM 스냅샷 계약이 깨져서(contrast.css ②
  *  주석) 존의 파선 패턴 자체를 셀렉터로 쓴다. */
-const ZONE_SEL = '.stage-svg rect[stroke-dasharray="8 6"]';
+// ⚠️ 2026-09-06 — `.spin-print-court` 가 함께 붙었다. 같은 파일 ①·④(강제색) 블록은 두
+// 클래스를 짝으로 적어 두었는데 이 대비 갈래만 화면 하나여서, **인쇄 미리보기의 규칙 존만**
+// 대비 설정을 안 따르고 있었다. 아래 '두 클래스를 짝으로 잡는다' 가 그 회귀를 붙잡는다.
+const ZONE_SEL = '.stage-svg rect[stroke-dasharray="8 6"], .spin-print-court rect[stroke-dasharray="8 6"]';
 
 describe('구조 — 세 미디어쿼리가 존재하고 순서가 계약이다', () => {
   it('⚠️ forced-colors 가 prefers-contrast 뒤에 온다 — 둘은 동시에 켜지고 그때 시스템 팔레트가 이겨야 한다', () => {
@@ -205,6 +208,14 @@ describe('② prefers-contrast — more 와 less 는 **반대 방향**이다 (�
 
   // 2026-08-13(②) 기준값이 흰 .14 → 붉은 .22 로, 갈고리가 `opacity` → `fill-opacity` 로 옮겼다.
   // 옮긴 이유는 contrast.css ② 블록의 ⚠️ 에 있다(요소 opacity 는 파선까지 함께 지운다).
+  it('⚠️ 규칙 존 갈고리는 화면·인쇄 **두 클래스를 짝으로** 잡는다 (2026-09-06)', () => {
+    // 한쪽만 적으면 종이(인쇄 미리보기)에서만 대비 설정이 먹지 않는다 — 강제색 블록이 이미
+    // 두 클래스를 짝으로 적고 있었으므로, 이 갈래만 빠져 있던 것이 실수였다.
+    for (const block of [lessBlock, moreBlock]) {
+      expect(blockOf(block ?? '', ZONE_SEL), '규칙 존 갈고리가 두 클래스를 다 잡지 않는다').not.toBeNull();
+    }
+  });
+
   it('규칙 존: less < 기준(2 / fill-opacity .22) < more', () => {
     expect(Object.keys(zoneLess), 'less 블록에 규칙 존 규칙이 없다').not.toHaveLength(0);
     expect(Object.keys(zoneMore), 'more 블록에 규칙 존 규칙이 없다').not.toHaveLength(0);

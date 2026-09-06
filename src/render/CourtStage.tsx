@@ -12,7 +12,7 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, Ref } from 'react';
 import type { Vec2 } from '../core/units.ts';
-import { INTERACT } from '../core/constants.ts';
+import { COURT_SURFACE_RX, INTERACT } from '../core/constants.ts';
 import { COURT_BG } from '../core/colors.ts';
 import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 import type { DragZone } from '../model/chair.ts';
@@ -902,7 +902,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           상자 원점이라 view 오프셋을 여기서 함께 상쇄한다. */}
       <StageRotProvider rot={rot}>
       <g transform={rot === 90 ? `translate(${view.y + view.h} ${-view.x}) rotate(90)` : undefined}>
-        <rect width={def.vbW} height={def.vbH} rx={14} fill={COURT_BG} />
+        <rect width={def.vbW} height={def.vbH} rx={COURT_SURFACE_RX} fill={COURT_BG} />
         <CourtSurface mode={mode} size={size} variant={variant} />
         {showGrid && <GridOverlay mode={mode} size={size} showLabels={showGridLabels} />}
         <RuleZones mode={mode} size={size} visible={showRuleZones} />
