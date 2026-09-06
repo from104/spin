@@ -31,6 +31,7 @@ import { downloadBlob, ACCEPT_BACKUP } from '../../storage/files.ts';
 import { backupFileName } from '../export/exportNames.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { LegalLinks } from './LegalLinks.tsx';
 import { storageErrorText } from '../../i18n/storageError.ts';
 import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
 import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
@@ -443,6 +444,8 @@ export function SettingsScreen() {
               {t('settings.data.exportButton')}
             </Button>
           </Row>
+          {/* 동기화를 안 켜는 이용자의 정착지 — 데이터 절 끝(LegalLinks.tsx 머리말). */}
+          <LegalLinks />
         </Section>
 
         {/* 0.6 — 기기 이사 파일(위 [데이터]) 바로 아래가 자리다: 같은 "내 데이터를 밖으로" 축이되,

@@ -19,6 +19,7 @@ import { Button } from '../../ui/Button.tsx';
 import { Modal } from '../../ui/Modal.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { LegalLinks } from './LegalLinks.tsx';
 import { BCP47 } from '../../i18n/locale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
 import { connectInteractive, getAccessToken, isSyncConfigured, revokeAccess } from '../../sync/auth.ts';
@@ -170,6 +171,8 @@ export function SyncSection() {
           <Button ref={connectBtnRef} variant="primary" aria-disabled={busy} onClick={() => setConsentOpen(true)}>
             {t('settings.sync.connect')}
           </Button>
+          {/* 구글 동의 화면으로 넘어가기 직전, "무엇이 어디로 가나"의 답은 방침이다(LegalLinks.tsx 머리말). */}
+          <LegalLinks only="privacy" prefix={t('settings.legal.syncHint')} />
         </div>
       )}
 
