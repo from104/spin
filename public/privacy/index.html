@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0f14">
+<title>SPIN — 개인정보처리방침</title>
+<style>
+  :root { color-scheme: dark; }
+  html { background: #0b0f14; }
+  body {
+    margin: 0;
+    background: #0b0f14;
+    color: #e6edf3;
+    font: 16px/1.7 system-ui, -apple-system, 'Noto Sans KR', sans-serif;
+  }
+  .wrap { max-width: 42rem; margin: 0 auto; padding: 1.5rem 1.25rem 6rem; }
+  a { color: #6cf; }
+  a:hover { text-decoration: none; }
+  nav.lang {
+    position: sticky; top: 0;
+    background: #0b0f14;
+    border-bottom: 1px solid #223;
+    padding: .75rem 0;
+    margin-bottom: 1.5rem;
+    font-size: .95rem;
+  }
+  nav.lang a { margin-right: .25rem; }
+  nav.lang span { color: #5a6673; margin: 0 .35rem; }
+  h1 { font-size: 1.6rem; line-height: 1.35; margin: 2.5rem 0 .5rem; }
+  h2 { font-size: 1.1rem; line-height: 1.45; margin: 2.2rem 0 .4rem; }
+  h3 { font-size: 1rem; margin: 1.4rem 0 .3rem; color: #cfe3f5; }
+  p, li { margin: .5rem 0; }
+  ul, ol { padding-left: 1.4rem; }
+  ul ul, ol ul, ul ol { margin: .2rem 0; }
+  .meta {
+    border: 1px solid #223;
+    border-radius: .5rem;
+    padding: .85rem 1rem;
+    margin: 1rem 0 2rem;
+    font-size: .93rem;
+    color: #b8c4d0;
+  }
+  .meta div { margin: .15rem 0; }
+  .quote {
+    border-left: 3px solid #6cf;
+    padding: .5rem 0 .5rem .9rem;
+    margin: .8rem 0;
+    color: #dbe7f2;
+    font-style: normal;
+  }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .9em;
+    background: #141b23;
+    border: 1px solid #223;
+    border-radius: .25rem;
+    padding: .05rem .3rem;
+    word-break: break-all;
+  }
+  hr { border: 0; border-top: 1px solid #223; margin: 3.5rem 0 0; }
+  footer { margin-top: 3rem; font-size: .9rem; color: #8b98a5; }
+  .top { font-size: .9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="lang">
+  <a href="#ko">한국어</a><span>·</span><a href="#en">English</a><span>·</span><a href="#ja">日本語</a>
+</nav>
+
+<!-- ============================ 한국어 ============================ -->
+<section id="ko" lang="ko">
+
+<h1>SPIN 개인정보처리방침</h1>
+
+<div class="meta">
+  <div>시행일: 2026년 9월 6일</div>
+  <div>운영자: 서기현 (개인 개발자)</div>
+  <div>문의: <a href="mailto:from104@gmail.com">from104@gmail.com</a></div>
+  <div>홈: <a href="https://spin.atit.app">https://spin.atit.app</a> · 서비스 약관: <a href="/terms/">/terms/</a></div>
+  <div>이 문서(한국어)가 정본이며, 영어·일본어는 같은 조 구성의 번역입니다.</div>
+</div>
+
+<h2>제1조 (목적과 적용 범위)</h2>
+<ol>
+  <li>이 방침은 개인 개발자 서기현(이하 "운영자")이 만든 파워체어풋볼 전술판·훈련 관리 앱 SPIN(웹 <a href="https://spin.atit.app">spin.atit.app</a> 및 데스크톱 앱, 이하 "앱")에 적용됩니다.</li>
+  <li>SPIN은 이용자의 데이터를 이용자의 기기 안에 저장합니다. 운영자는 이용자 데이터를 받는 서버를 운영하지 않습니다. 웹은 정적 파일만 올려 제공하며, 저장소에 백엔드 서버 코드가 없습니다.</li>
+  <li>이 방침에 적지 않은 수집·전송은 하지 않습니다.</li>
+</ol>
+
+<h2>제2조 (한눈에 보기)</h2>
+<ul>
+  <li>계정을 만들지 않습니다. 회원가입이 없습니다.</li>
+  <li>광고·분석·추적 도구를 넣지 않았습니다.</li>
+  <li>결제 기능이 없습니다. 나이를 묻지 않습니다.</li>
+  <li>드릴·훈련 세션·팀 명단은 이용자 기기 안에 저장됩니다.</li>
+  <li>구글 드라이브 동기화는 기본 꺼짐입니다. 켜기 전에는 구글에 한 번도 접속하지 않습니다.</li>
+  <li>켜면 이용자 본인 구글 드라이브의 앱 전용 숨김 폴더에만 올라갑니다. 운영자는 그 파일을 볼 수 없습니다.</li>
+</ul>
+
+<h2>제3조 (처리하는 개인정보 항목과 수집 방법)</h2>
+<ol>
+  <li><strong>운영자가 수집하는 항목: 없음.</strong> 회원가입, 문의 양식, 연락처 수집이 없고, 운영자에게 전송되는 기기 식별자도 없습니다. (동기화를 켠 경우 기기 식별자 writerId 가 이용자 본인 드라이브의 파일 속성에 기록됩니다 — 제8조.)</li>
+  <li><strong>이용자가 입력해 자기 기기에 저장하는 정보(이용자 콘텐츠)</strong>
+    <ul>
+      <li>드릴: 전술판 배치·경로·자유 메모 텍스트(600자 이내)</li>
+      <li>훈련 세션: 메모 텍스트, 참가자(팀 명단의 선수를 참조)</li>
+      <li>팀 명단(로스터): 선수 이름(40자 이내), 선택 입력인 PF 클래스(PF1/PF2). PF 클래스는 파워체어풋볼 경기규정상 신체장애 등급에 해당하므로 민감정보입니다. 운영자는 이 정보를 수집하지 않으며, 이용자가 자기 기기에 기록하는 것입니다.</li>
+    </ul>
+  </li>
+  <li><strong>앱이 기기에 저장하는 기술 정보</strong>
+    <ul>
+      <li>localStorage <code>spin.prefs</code> — 테마, 재생 속도, 접근성, 언어, 튜토리얼 열람 여부, 동기화 켬/끔 등 앱 설정 전체</li>
+      <li>localStorage <code>spin.board</code> — 전술판의 마지막 작업 스냅샷(대문 화면용)</li>
+      <li>IndexedDB <code>spin</code> — 스토어 drills·drillSummaries·sessions·meta (드릴, 드릴 요약, 세션, 팀 명단)</li>
+      <li>IndexedDB meta 스토어의 <code>sync/*</code> 동기화 부기 — 문서별 마지막 동기화 시각과 원격 파일 ID, 삭제 표시(톰스톤), 연결된 구글 계정 이메일, 기기 식별자(writerId). 백업 파일에는 포함되지 않습니다.</li>
+    </ul>
+  </li>
+  <li><strong>수집 방법:</strong> 모두 이용자가 앱 화면에서 직접 입력하거나 앱이 기기에 기록하는 방식입니다. 운영자에게 전송되지 않습니다.</li>
+  <li>구글 계정 이메일 주소는 이용자가 동기화를 켠 경우에만, 위 3-4의 기기 내부 부기에 기록됩니다.</li>
+</ol>
+
+<h2>제4조 (개인정보의 처리 목적)</h2>
+<ol>
+  <li>이용자 콘텐츠: 드릴 작성·재생, 훈련 세션 기록, 팀 명단 관리 — 앱 기능을 제공하기 위해 기기 안에서만 사용합니다.</li>
+  <li>설정과 판 스냅샷: 다음 실행 때 화면 상태를 복원하기 위해 사용합니다.</li>
+  <li>동기화 부기와 구글 계정 이메일: 여러 기기 사이에서 같은 데이터를 맞추고, 지금 어떤 계정에 연결되어 있는지 설정 화면에 보여주기 위해 사용합니다.</li>
+  <li>목적 외 이용은 하지 않습니다. 프로파일링, 자동화된 의사결정, 맞춤 광고를 하지 않습니다.</li>
+</ol>
+
+<h2>제5조 (개인정보의 처리·보유 기간)</h2>
+<ol>
+  <li>기기 안 데이터: 이용자가 지울 때까지 남습니다. 앱에서 삭제하거나, 브라우저의 사이트 데이터를 지우거나, 데스크톱 앱을 삭제하면 없어집니다.</li>
+  <li>구글 드라이브에 올린 데이터: 이용자가 앱에서 지우거나 [연결 해제]를 누를 때까지 이용자 본인 드라이브에 남습니다.</li>
+  <li>웹의 접근 토큰: 메모리에만 있으며 탭을 닫으면 사라집니다. 데스크톱의 갱신 토큰: 연결을 해제할 때까지 기기 안 파일로 남습니다.</li>
+  <li>운영자가 보관하는 개인정보는 없으므로 운영자 측 보유 기간이 존재하지 않습니다. 웹서버 접속 로그는 제13조에 따릅니다.</li>
+</ol>
+
+<h2>제6조 (개인정보의 제3자 제공)</h2>
+<p>운영자는 개인정보를 제3자에게 제공·판매·공유하지 않습니다. 광고 네트워크나 데이터 브로커에 넘기지 않습니다. 운영자는 이용자 데이터를 보유하지 않으므로 제공할 대상 자체가 없습니다. 이용자가 스스로 켠 구글 드라이브 동기화는 제3자 제공이 아니라, 이용자 본인 계정 저장 공간에 이용자의 파일을 두는 것입니다(제7조·제8조).</p>
+
+<h2>제7조 (개인정보 처리의 위탁)</h2>
+<ol>
+  <li>평상시 위탁하는 업무가 없습니다.</li>
+  <li>이용자가 직접 구글 드라이브 동기화를 켠 경우에 한해 다음이 발생합니다.
+    <ul>
+      <li>수탁자: Google LLC</li>
+      <li>위탁 업무: 이용자 본인 구글 계정 드라이브의 앱 전용 숨김 폴더(appDataFolder)에 이용자 콘텐츠 파일 저장</li>
+      <li>보관 위치: 구글이 운영하는 국외 서버 (제8조)</li>
+      <li>성격: 운영자의 저장소가 아니라 이용자 본인 계정의 저장 공간이며, 운영자는 그 파일에 접근할 수 없습니다.</li>
+    </ul>
+  </li>
+  <li>그 밖의 위탁은 없습니다. 앱은 글꼴을 자체 호스팅하며 CDN을 쓰지 않습니다. 외부에서 불러오는 코드는 <strong>동기화를 켠 이용자에게만</strong> 그 순간 주입되는 구글 로그인 스크립트(<code>accounts.google.com/gsi/client</code>) 하나뿐이며, 켜지 않으면 외부 스크립트를 전혀 불러오지 않습니다.</li>
+</ol>
+
+<h2>제8조 (개인정보의 국외 이전)</h2>
+<p>동기화를 켠 경우에만 다음의 국외 이전이 일어납니다.</p>
+<ul>
+  <li>이전받는 자: Google LLC</li>
+  <li>이전되는 국가: 미국을 포함해 구글이 데이터센터를 운영하는 국가</li>
+  <li>이전 일시와 방법: 동기화가 일어날 때마다 HTTPS로 <code>www.googleapis.com</code> 에 전송</li>
+  <li>앱이 접속하는 외부 호스트(동기화를 켠 경우에 한함): <code>accounts.google.com</code>(로그인 스크립트와 동의 화면), <code>oauth2.googleapis.com</code>(토큰 교환·갱신), <code>www.googleapis.com</code>(드라이브 API). 이 셋 말고 앱이 접속하는 외부 호스트는 없습니다.</li>
+  <li>이전 항목: 드릴·훈련 세션·팀 명단 문서(JSON) 파일, 그리고 파일 속성으로 기록되는 타입·문서 id·수정 시각·삭제 시각·기기 식별자(writerId)</li>
+  <li>이용 목적과 보유 기간: 이용자 기기 사이 동기화를 위한 보관이며, 이용자가 지울 때까지</li>
+  <li>거부 방법: 동기화를 켜지 않으면 국외 이전이 일어나지 않습니다. 켠 뒤에도 설정 화면의 [연결 해제]로 중단하고 올라간 파일을 삭제할 수 있습니다.</li>
+</ul>
+
+<h2>제9조 (구글 사용자 데이터 — Google API Services User Data Policy)</h2>
+<ol>
+  <li><strong>요청하는 권한 범위:</strong> <code>https://www.googleapis.com/auth/drive.appdata</code> 하나뿐입니다. 이 범위는 SPIN 전용 숨김 폴더만 다룰 수 있고, 이용자의 일반 드라이브 파일·사진·문서에는 접근할 수 없습니다.</li>
+  <li><strong>사용 용도 제한:</strong> 이용자 기기 사이의 동기화(파일 업로드·내려받기·삭제) 외의 용도로 사용하지 않습니다.</li>
+  <li><strong>광고·판매 없음:</strong> 구글에서 받은 데이터를 광고에 쓰거나 판매하거나 다른 사업자에게 넘기지 않습니다.</li>
+  <li><strong>사람이 읽지 않음:</strong> 운영자를 포함해 어떤 사람도 이 데이터를 읽지 않습니다. 파일이 이용자 계정 안에만 있으므로 기술적으로도 열람할 수 없습니다.</li>
+  <li><strong>보관 범위:</strong> SPIN은 구글에서 받은 데이터를 자체 서버에 보관하지 않으며 다른 앱으로 전달하지 않습니다.</li>
+  <li><strong>Limited Use 준수:</strong>
+    <div class="quote">SPIN's use and transfer to any other app of information received from Google APIs will adhere to <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</div>
+    (한국어 설명: SPIN이 구글 API로부터 받은 정보를 사용하거나 다른 앱으로 전달할 때에는 Limited Use 요건을 포함한 Google API Services User Data Policy를 따릅니다.)
+  </li>
+  <li><strong>권한 철회:</strong> 앱 설정의 [연결 해제] 또는 구글 계정의 <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a> 에서 언제든지 회수할 수 있습니다.</li>
+</ol>
+
+<h2>제10조 (정보주체의 권리와 행사 방법)</h2>
+<ol>
+  <li><strong>열람·정정·삭제:</strong> 데이터가 이용자 기기 안에 있으므로 앱 화면에서 직접 보고 고치고 지울 수 있습니다.</li>
+  <li><strong>처리 정지:</strong> 설정 화면에서 동기화를 끄면 구글로의 전송이 즉시 멈춥니다.</li>
+  <li><strong>동의 철회와 삭제:</strong> 설정 화면의 [연결 해제]를 누르면 (가) 구글 쪽 동의 회수를 시도하고, (나) 앱 전용 폴더 안의 모든 파일을 인식하지 못하는 형식까지 포함해 실제로 삭제하며, (다) 데스크톱에서는 기기에 저장된 갱신 토큰 파일도 삭제합니다. 이때 <strong>이 기기의 데이터는 그대로 남습니다.</strong></li>
+  <li>구글 계정 쪽 앱 권한은 <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a> 에서도 회수할 수 있습니다.</li>
+  <li>운영자가 보관하는 개인정보가 없으므로, 운영자가 대신 열람·삭제해 드릴 대상이 없습니다. 방침과 앱에 관한 문의는 <a href="mailto:from104@gmail.com">from104@gmail.com</a> 으로 보내주십시오.</li>
+  <li><strong>다른 사람의 정보를 입력할 때:</strong> 팀 명단에 다른 사람의 이름이나 PF 클래스를 넣는 경우, 그 사람에게 알리고 동의를 받을 책임은 이용자에게 있습니다.</li>
+</ol>
+
+<h2>제11조 (개인정보의 파기 절차와 방법)</h2>
+<ol>
+  <li>앱에서 드릴·세션·선수를 삭제하면 기기의 IndexedDB 레코드가 지워집니다. 동기화를 켠 상태라면 삭제 표시(톰스톤)를 통해 다른 기기와 드라이브의 파일도 삭제됩니다.</li>
+  <li>[연결 해제]는 앱 전용 폴더 안의 파일 전부를 실제로 삭제합니다.</li>
+  <li>브라우저의 사이트 데이터를 지우거나 데스크톱 앱의 데이터 폴더를 삭제하면 기기에 남은 정보가 남김없이 제거됩니다.</li>
+  <li>운영자에게는 별도로 파기할 보관본이 없습니다.</li>
+</ol>
+
+<h2>제12조 (개인정보의 안전성 확보 조치)</h2>
+<ol>
+  <li><strong>최소 수집:</strong> 운영자에게 전송되는 개인정보가 없습니다.</li>
+  <li><strong>최소 권한:</strong> 구글 권한은 앱 전용 폴더 하나(<code>drive.appdata</code>)만 요청합니다.</li>
+  <li><strong>전송 구간 암호화:</strong> 구글과의 통신은 모두 HTTPS입니다.</li>
+  <li><strong>웹 토큰:</strong> 접근 토큰을 메모리에만 두고 localStorage나 IndexedDB에 저장하지 않습니다. 탭을 닫으면 사라집니다.</li>
+  <li><strong>데스크톱 토큰(한계 고지):</strong> 데스크톱 앱은 갱신 토큰을 앱 데이터 폴더의 <code>google-refresh-token</code> 파일에 저장합니다. 파일 권한을 0600으로 제한하지만 <strong>암호화하지는 않습니다</strong>. 같은 사용자 계정으로 실행되는 다른 프로그램은 이 파일을 읽을 수 있습니다. 기기 계정에 잠금·디스크 암호화를 적용하시고, 공용 기기에서는 사용 후 [연결 해제]를 권합니다.</li>
+  <li><strong>데스크톱 통신 제한:</strong> 앱이 접속할 수 있는 주소를 앱 자신·내부 통신과 구글 3개 도메인(<code>www.googleapis.com</code>, <code>accounts.google.com</code>, <code>oauth2.googleapis.com</code>)으로 제한합니다.</li>
+  <li><strong>외부 코드 최소화:</strong> 분석 도구·광고 코드·CDN 글꼴이 없고 글꼴을 자체 호스팅합니다. 외부에서 불러오는 코드는 동기화를 켠 경우의 구글 로그인 스크립트 하나뿐입니다(제7조 3항).</li>
+  <li><strong>자동 업데이트 없음:</strong> 데스크톱 앱에는 자동 업데이트 기능이 없습니다. 보안 수정본은 이용자가 새 설치 파일을 직접 받아 설치해야 합니다.</li>
+</ol>
+
+<h2>제13조 (자동 수집 장치와 접속 로그)</h2>
+<ol>
+  <li>SPIN은 쿠키를 사용하지 않습니다. 분석 도구, 광고 추적기, 오류 보고 도구를 넣지 않았습니다. 다만 동기화를 켤 때 열리는 구글 로그인·동의 화면은 구글 자신의 쿠키를 쓸 수 있으며, 이는 구글의 정책에 따릅니다.</li>
+  <li>localStorage와 IndexedDB는 앱 동작을 위한 기기 내부 저장이며 외부로 나가지 않습니다.</li>
+  <li>서비스워커가 없습니다. 앱을 홈 화면에 추가하는 기능은 manifest 파일만 사용하며, 요청을 가로채는 코드가 없습니다.</li>
+  <li>웹 페이지에는 검색엔진 소유 확인용 메타 태그와 정적 구조화 데이터(JSON-LD)만 들어 있고, 외부 스크립트 태그가 없습니다.</li>
+  <li><strong>웹서버 접속 로그:</strong> 웹은 AWS Lightsail의 Apache 웹서버에서 정적 파일로 제공됩니다. 웹서버가 표준 접속 로그(IP 주소, 접속 시각, 요청 경로, User-Agent 등)를 남길 수 있습니다. 이 로그는 서비스 제공과 장애·침해 대응 범위에서만 쓰이며, 분석·프로파일링·광고에 사용하지 않고 제3자에게 제공하지 않습니다.</li>
+</ol>
+
+<h2>제14조 (아동의 개인정보)</h2>
+<ol>
+  <li>앱은 나이를 묻지 않으며 아동을 대상으로 하는 서비스가 아닙니다.</li>
+  <li>운영자가 수집하는 개인정보가 없으므로 아동으로부터 개인정보를 수집하지 않습니다.</li>
+  <li>만 14세 미만 아동이 사용할 때에는 법정대리인의 지도 아래 사용하시기 바랍니다. 팀 명단에 아동 선수의 이름이나 PF 클래스를 입력하는 경우, 법정대리인의 동의를 받을 책임은 이용자에게 있습니다.</li>
+</ol>
+
+<h2>제15조 (개인정보 보호책임자)</h2>
+<ul>
+  <li>개인정보 보호책임자: 서기현 (개인 개발자, 운영자 본인)</li>
+  <li>연락처: <a href="mailto:from104@gmail.com">from104@gmail.com</a></li>
+  <li>운영자는 1인 개발자이므로 별도의 부서를 두지 않으며, 문의·불만·피해 구제 요청을 위 주소에서 직접 접수해 처리합니다.</li>
+</ul>
+
+<h2>제16조 (권익침해 구제 방법)</h2>
+<p>개인정보와 관련한 분쟁이나 신고는 아래 기관에 문의할 수 있습니다.</p>
+<ul>
+  <li>개인정보분쟁조정위원회: 1833-6972 · <a href="https://www.kopico.go.kr">www.kopico.go.kr</a></li>
+  <li>개인정보침해신고센터: (국번 없이) 118 · <a href="https://privacy.kisa.or.kr">privacy.kisa.or.kr</a></li>
+  <li>대검찰청 사이버수사과: 1301 · 경찰청 사이버수사국: 182</li>
+</ul>
+
+<h2>제17조 (방침의 변경과 고지)</h2>
+<ol>
+  <li>이 방침은 2026년 9월 6일부터 시행합니다.</li>
+  <li>방침을 바꿀 때에는 바뀐 내용과 시행일을 이 페이지에 적어 알립니다. 이용자에게 불리하거나 중요한 변경은 시행 최소 7일 전에 이 페이지에 알립니다.</li>
+  <li>이전 방침이 필요하면 <a href="mailto:from104@gmail.com">from104@gmail.com</a> 으로 요청하십시오.</li>
+</ol>
+
+<p class="top"><a href="#ko">맨 위로</a> · <a href="/terms/">서비스 약관</a> · <a href="https://spin.atit.app">spin.atit.app</a></p>
+
+</section>
+
+<hr>
+
+<!-- ============================ English ============================ -->
+<section id="en" lang="en">
+
+<h1>SPIN Privacy Policy</h1>
+
+<div class="meta">
+  <div>Effective date: 6 September 2026</div>
+  <div>Operator: Seo Kihyun (independent developer)</div>
+  <div>Contact: <a href="mailto:from104@gmail.com">from104@gmail.com</a></div>
+  <div>Home: <a href="https://spin.atit.app">https://spin.atit.app</a> · Terms of Service: <a href="/terms/">/terms/</a></div>
+  <div>The Korean text is the authoritative version; this English text is a translation with the same article structure.</div>
+</div>
+
+<h2>Article 1 (Purpose and Scope)</h2>
+<ol>
+  <li>This policy applies to SPIN, a powerchair football tactics-board and training app made by Seo Kihyun ("the operator"), covering the web app at <a href="https://spin.atit.app">spin.atit.app</a> and the desktop app ("the app").</li>
+  <li>SPIN stores your data on your own device. The operator runs no server that receives user data. The web app is published as static files only, and the repository contains no backend server code.</li>
+  <li>Nothing is collected or transmitted beyond what this policy states.</li>
+</ol>
+
+<h2>Article 2 (At a Glance)</h2>
+<ul>
+  <li>No accounts. There is no sign-up.</li>
+  <li>No advertising, analytics, or tracking tools are included.</li>
+  <li>No payments. No age gate.</li>
+  <li>Drills, training sessions, and rosters are stored on your device.</li>
+  <li>Google Drive sync is off by default. Until you turn it on, the app never contacts Google.</li>
+  <li>When on, files go only to the hidden app-specific folder of your own Google Drive. The operator cannot see them.</li>
+</ul>
+
+<h2>Article 3 (Data Processed and How It Is Collected)</h2>
+<ol>
+  <li><strong>Collected by the operator: none.</strong> There is no sign-up, no contact form, no contact-details collection, and no device identifier is sent to the operator. (With sync on, a device identifier — writerId — is recorded in the file properties inside your own Drive; see Article 8.)</li>
+  <li><strong>Content you enter and keep on your own device</strong>
+    <ul>
+      <li>Drills: tactics-board placements, paths, and free-text notes (up to 600 characters).</li>
+      <li>Training sessions: note text and participants (references to players in your roster).</li>
+      <li>Roster: player names (up to 40 characters) and an optional PF class (PF1/PF2). A PF class corresponds to a physical-impairment classification under powerchair football competition rules and is therefore sensitive data. The operator does not collect it; you record it on your own device.</li>
+    </ul>
+  </li>
+  <li><strong>Technical data the app stores on your device</strong>
+    <ul>
+      <li>localStorage <code>spin.prefs</code> — all app settings: theme, playback speed, accessibility, language, whether you have seen the tutorial, sync on/off.</li>
+      <li>localStorage <code>spin.board</code> — the last tactics-board snapshot, used for the home screen.</li>
+      <li>IndexedDB <code>spin</code> — stores drills, drillSummaries, sessions, meta (drills, drill summaries, sessions, roster).</li>
+      <li><code>sync/*</code> records inside the IndexedDB meta store — sync bookkeeping: last sync time and remote file ID per document, deletion tombstones, the connected Google account email, and a device identifier (writerId). These are not included in backup files.</li>
+    </ul>
+  </li>
+  <li><strong>How it is collected:</strong> entirely by you typing it into the app, or by the app writing it to your device. None of it is sent to the operator.</li>
+  <li>Your Google account email is recorded in the on-device bookkeeping described in 3-4 only if you turn sync on.</li>
+</ol>
+
+<h2>Article 4 (Purposes of Processing)</h2>
+<ol>
+  <li>Your content: creating and playing back drills, recording training sessions, managing a roster — used only on your device to provide app features.</li>
+  <li>Settings and board snapshot: restoring your screen state the next time you open the app.</li>
+  <li>Sync bookkeeping and Google account email: keeping the same data consistent across your devices and showing which account is connected on the settings screen.</li>
+  <li>No other use. No profiling, no automated decision-making, no targeted advertising.</li>
+</ol>
+
+<h2>Article 5 (Retention Period)</h2>
+<ol>
+  <li>On-device data: kept until you delete it — in the app, by clearing site data in your browser, or by uninstalling the desktop app.</li>
+  <li>Data uploaded to Google Drive: kept in your own Drive until you delete it in the app or press [Disconnect].</li>
+  <li>Web access token: held in memory only and gone when you close the tab. Desktop refresh token: kept in a file on your device until you disconnect.</li>
+  <li>The operator holds no personal data, so there is no operator-side retention period. Web server access logs are covered by Article 13.</li>
+</ol>
+
+<h2>Article 6 (Provision to Third Parties)</h2>
+<p>The operator does not provide, sell, or share personal data with third parties, including ad networks and data brokers. Because the operator holds no user data, there is nothing to provide. Google Drive sync, when you enable it yourself, is not a provision to a third party: it places your files in your own account's storage (Articles 7 and 8).</p>
+
+<h2>Article 7 (Outsourcing of Processing)</h2>
+<ol>
+  <li>No processing is outsourced under normal use.</li>
+  <li>Only when you turn Google Drive sync on:
+    <ul>
+      <li>Processor: Google LLC</li>
+      <li>Task: storing your content files in the hidden app-specific folder (appDataFolder) of your own Google Drive.</li>
+      <li>Location: servers operated by Google outside Korea (Article 8).</li>
+      <li>Nature: this is your own account's storage, not the operator's. The operator cannot access those files.</li>
+    </ul>
+  </li>
+  <li>There is no other outsourcing. The app self-hosts its fonts and uses no CDN. The only externally loaded code is Google’s sign-in script (<code>accounts.google.com/gsi/client</code>), injected at that moment <strong>only for users who have turned sync on</strong>; with sync off, no external script is loaded at all.</li>
+</ol>
+
+<h2>Article 8 (Cross-Border Transfer)</h2>
+<p>A cross-border transfer occurs only if you turn sync on.</p>
+<ul>
+  <li>Recipient: Google LLC</li>
+  <li>Countries: the United States and other countries where Google operates data centres.</li>
+  <li>When and how: each time a sync runs, over HTTPS to <code>www.googleapis.com</code>.</li>
+  <li>External hosts the app contacts (only with sync on): <code>accounts.google.com</code> (sign-in script and consent screen), <code>oauth2.googleapis.com</code> (token exchange and refresh), <code>www.googleapis.com</code> (Drive API). The app contacts no external host other than these three.</li>
+  <li>Items transferred: drill, training session, and roster documents (JSON files), plus file properties recording type, document id, modified time, deleted time, and device identifier (writerId).</li>
+  <li>Purpose and retention: storage for syncing between your devices, kept until you delete it.</li>
+  <li>How to refuse: leave sync off and no transfer happens. After enabling it, [Disconnect] in settings stops it and deletes the uploaded files.</li>
+</ul>
+
+<h2>Article 9 (Google User Data — Google API Services User Data Policy)</h2>
+<ol>
+  <li><strong>Scope requested:</strong> only <code>https://www.googleapis.com/auth/drive.appdata</code>. This scope reaches SPIN's own hidden folder and cannot access your regular Drive files, photos, or documents.</li>
+  <li><strong>Limited purpose:</strong> used solely to sync between your devices (uploading, downloading, and deleting files).</li>
+  <li><strong>No ads, no sale:</strong> data received from Google is never used for advertising, sold, or transferred to any other party.</li>
+  <li><strong>Not read by humans:</strong> no person, including the operator, reads this data. The files live only in your account, so it is technically impossible for the operator to open them.</li>
+  <li><strong>No server storage:</strong> SPIN does not store data received from Google on any server of its own and does not pass it to other apps.</li>
+  <li><strong>Limited Use commitment:</strong>
+    <div class="quote">SPIN's use and transfer to any other app of information received from Google APIs will adhere to <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</div>
+  </li>
+  <li><strong>Revoking access:</strong> use [Disconnect] in the app's settings, or revoke it at any time at <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a>.</li>
+</ol>
+
+<h2>Article 10 (Your Rights and How to Exercise Them)</h2>
+<ol>
+  <li><strong>Access, correction, deletion:</strong> your data is on your device, so you can view, edit, and delete it directly in the app.</li>
+  <li><strong>Stopping processing:</strong> turning sync off in settings immediately stops any transfer to Google.</li>
+  <li><strong>Withdrawing consent and deleting:</strong> [Disconnect] in settings (a) attempts to revoke consent on Google's side, (b) actually deletes every file in the app-specific folder, including files it cannot recognise, and (c) on desktop, also deletes the stored refresh token file. <strong>Data on this device stays as it is.</strong></li>
+  <li>You can also revoke the app's access from your Google account at <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a>.</li>
+  <li>The operator holds no personal data, so there is nothing for the operator to disclose or delete on your behalf. Questions about this policy or the app: <a href="mailto:from104@gmail.com">from104@gmail.com</a>.</li>
+  <li><strong>Entering other people's data:</strong> if you record another person's name or PF class in a roster, it is your responsibility to inform them and obtain their consent.</li>
+</ol>
+
+<h2>Article 11 (Destruction Procedure and Method)</h2>
+<ol>
+  <li>Deleting a drill, session, or player in the app removes the IndexedDB record on your device. With sync on, a deletion tombstone also removes the file on your other devices and in Drive.</li>
+  <li>[Disconnect] actually deletes every file in the app-specific folder.</li>
+  <li>Clearing site data in your browser, or deleting the desktop app's data folder, removes everything left on the device.</li>
+  <li>The operator keeps no copies that would need to be destroyed.</li>
+</ol>
+
+<h2>Article 12 (Security Measures)</h2>
+<ol>
+  <li><strong>Minimal collection:</strong> no personal data is transmitted to the operator.</li>
+  <li><strong>Minimal permission:</strong> the app requests one Google scope, limited to its own folder (<code>drive.appdata</code>).</li>
+  <li><strong>Encryption in transit:</strong> all communication with Google uses HTTPS.</li>
+  <li><strong>Web token:</strong> the access token is held in memory only and is never written to localStorage or IndexedDB; closing the tab discards it.</li>
+  <li><strong>Desktop token (known limitation):</strong> the desktop app stores the refresh token in a file named <code>google-refresh-token</code> in its app data folder. File permissions are restricted to 0600, but <strong>the file is not encrypted</strong>. Another program running as the same user account can read it. Keep your device account locked and encrypted, and use [Disconnect] after using a shared machine.</li>
+  <li><strong>Desktop network restriction:</strong> the app may connect only to itself, its internal channel, and three Google domains (<code>www.googleapis.com</code>, <code>accounts.google.com</code>, <code>oauth2.googleapis.com</code>).</li>
+  <li><strong>Third-party code kept to a minimum:</strong> no analytics, no ad code, no CDN fonts; fonts are self-hosted. The only externally loaded code is Google’s sign-in script, and only when sync is on (Article 7-3).</li>
+  <li><strong>No auto-update:</strong> the desktop app has no updater. Security fixes require you to download and install a new package yourself.</li>
+</ol>
+
+<h2>Article 13 (Automatic Collection Devices and Access Logs)</h2>
+<ol>
+  <li>SPIN sets no cookies. No analytics, ad trackers, or error-reporting tools are included. Google’s own sign-in and consent screens, shown when you turn sync on, may use Google’s cookies under Google’s policies.</li>
+  <li>localStorage and IndexedDB are on-device storage for app functionality; their contents do not leave the device.</li>
+  <li>There is no service worker. "Add to home screen" relies on a manifest file only, and no code intercepts network requests.</li>
+  <li>The web page contains only a search-engine ownership-verification meta tag and static structured data (JSON-LD); there are no external script tags.</li>
+  <li><strong>Web server access logs:</strong> the site is served as static files by an Apache web server on AWS Lightsail. The web server may record standard access logs (IP address, timestamp, requested path, user agent). Such logs are used only to operate the service and respond to faults and abuse; they are not used for analytics, profiling, or advertising, and are not given to third parties.</li>
+</ol>
+
+<h2>Article 14 (Children's Data)</h2>
+<ol>
+  <li>The app does not ask for your age and is not directed at children.</li>
+  <li>Since the operator collects no personal data, no personal data is collected from children either.</li>
+  <li>Children under 14 should use the app under the guidance of a legal guardian. If you enter a child player's name or PF class in a roster, obtaining the guardian's consent is your responsibility.</li>
+</ol>
+
+<h2>Article 15 (Data Protection Officer)</h2>
+<ul>
+  <li>Data protection officer: Seo Kihyun (independent developer; the operator himself)</li>
+  <li>Contact: <a href="mailto:from104@gmail.com">from104@gmail.com</a></li>
+  <li>As a one-person project there is no separate department; enquiries, complaints, and remedy requests are received and handled directly at the address above.</li>
+</ul>
+
+<h2>Article 16 (Remedies for Infringement)</h2>
+<p>For disputes or reports concerning personal data, you may contact the following Korean bodies.</p>
+<ul>
+  <li>Personal Information Dispute Mediation Committee: +82-1833-6972 · <a href="https://www.kopico.go.kr">www.kopico.go.kr</a></li>
+  <li>Privacy Infringement Report Centre: 118 (within Korea) · <a href="https://privacy.kisa.or.kr">privacy.kisa.or.kr</a></li>
+  <li>Supreme Prosecutors' Office Cybercrime Division: 1301 · National Police Agency Cyber Bureau: 182</li>
+</ul>
+
+<h2>Article 17 (Changes to This Policy)</h2>
+<ol>
+  <li>This policy takes effect on 6 September 2026.</li>
+  <li>Changes will be announced on this page together with their effective date. Changes that are significant or disadvantageous to users will be posted here at least 7 days before they take effect.</li>
+  <li>To request a previous version, write to <a href="mailto:from104@gmail.com">from104@gmail.com</a>.</li>
+</ol>
+
+<p class="top"><a href="#en">Back to top</a> · <a href="/terms/">Terms of Service</a> · <a href="https://spin.atit.app">spin.atit.app</a></p>
+
+</section>
+
+<hr>
+
+<!-- ============================ 日本語 ============================ -->
+<section id="ja" lang="ja">
+
+<h1>SPIN プライバシーポリシー</h1>
+
+<div class="meta">
+  <div>施行日: 2026年9月6日</div>
+  <div>運営者: ソ・ギヒョン（Seo Kihyun／個人開発者）</div>
+  <div>お問い合わせ: <a href="mailto:from104@gmail.com">from104@gmail.com</a></div>
+  <div>ホーム: <a href="https://spin.atit.app">https://spin.atit.app</a> · 利用規約: <a href="/terms/">/terms/</a></div>
+  <div>韓国語版が正本であり、日本語版は同じ条構成の翻訳です。</div>
+</div>
+
+<h2>第1条（目的と適用範囲）</h2>
+<ol>
+  <li>本ポリシーは、個人開発者であるソ・ギヒョン（Seo Kihyun）（以下「運営者」）が制作したパワーチェアフットボール用の戦術ボード・練習管理アプリ SPIN（ウェブ版 <a href="https://spin.atit.app">spin.atit.app</a> およびデスクトップ版、以下「本アプリ」）に適用されます。</li>
+  <li>SPIN は利用者のデータを利用者の端末内に保存します。運営者は利用者データを受け取るサーバーを運用していません。ウェブ版は静的ファイルのみを配信しており、リポジトリにバックエンドのサーバーコードはありません。</li>
+  <li>本ポリシーに記載のない収集・送信は行いません。</li>
+</ol>
+
+<h2>第2条（概要）</h2>
+<ul>
+  <li>アカウントを作成しません。会員登録はありません。</li>
+  <li>広告・分析・追跡ツールを一切組み込んでいません。</li>
+  <li>決済機能はありません。年齢を尋ねません。</li>
+  <li>ドリル・練習セッション・選手名簿は端末内に保存されます。</li>
+  <li>Google ドライブ同期は初期状態でオフです。オンにするまで Google に一度も接続しません。</li>
+  <li>オンにすると、利用者ご自身の Google ドライブのアプリ専用非表示フォルダにのみ保存されます。運営者はそのファイルを見ることができません。</li>
+</ul>
+
+<h2>第3条（取り扱う情報の項目と取得方法）</h2>
+<ol>
+  <li><strong>運営者が収集する項目: なし。</strong>会員登録、問い合わせフォーム、連絡先の収集はなく、運営者に送信される端末識別子もありません。（同期をオンにした場合、端末識別子 writerId が利用者ご自身のドライブ内のファイル属性に記録されます — 第8条。）</li>
+  <li><strong>利用者が入力し自分の端末に保存する情報（利用者コンテンツ）</strong>
+    <ul>
+      <li>ドリル: 戦術ボードの配置・経路・自由メモのテキスト（600文字以内）</li>
+      <li>練習セッション: メモのテキスト、参加者（名簿の選手への参照）</li>
+      <li>選手名簿: 選手の氏名（40文字以内）、任意入力の PF クラス（PF1／PF2）。PF クラスはパワーチェアフットボールの競技規則上の身体障害区分に当たるため、要配慮情報にあたります。運営者はこれを収集せず、利用者がご自分の端末に記録するものです。</li>
+    </ul>
+  </li>
+  <li><strong>本アプリが端末に保存する技術的情報</strong>
+    <ul>
+      <li>localStorage <code>spin.prefs</code> — テーマ、再生速度、アクセシビリティ、言語、チュートリアル閲覧の有無、同期のオン／オフなどアプリ設定全体</li>
+      <li>localStorage <code>spin.board</code> — 戦術ボードの最後の作業スナップショット（トップ画面用）</li>
+      <li>IndexedDB <code>spin</code> — ストア drills・drillSummaries・sessions・meta（ドリル、ドリル要約、セッション、名簿）</li>
+      <li>IndexedDB の meta ストア内の <code>sync/*</code> レコード — 同期の記録: 文書ごとの最終同期時刻とリモートファイルID、削除マーク（トゥームストーン）、接続中の Google アカウントのメールアドレス、端末識別子（writerId）。バックアップファイルには含まれません。</li>
+    </ul>
+  </li>
+  <li><strong>取得方法:</strong> すべて利用者が画面から直接入力するか、本アプリが端末に書き込むものであり、運営者には送信されません。</li>
+  <li>Google アカウントのメールアドレスは、利用者が同期をオンにした場合に限り、上記3-4の端末内記録に保存されます。</li>
+</ol>
+
+<h2>第4条（利用目的）</h2>
+<ol>
+  <li>利用者コンテンツ: ドリルの作成・再生、練習セッションの記録、名簿の管理という機能提供のため、端末内でのみ利用します。</li>
+  <li>設定とボードのスナップショット: 次回起動時に画面の状態を復元するために利用します。</li>
+  <li>同期の記録と Google アカウントのメールアドレス: 複数端末間でデータを一致させ、現在どのアカウントに接続しているかを設定画面に表示するために利用します。</li>
+  <li>目的外の利用は行いません。プロファイリング、自動化された意思決定、ターゲティング広告は行いません。</li>
+</ol>
+
+<h2>第5条（保有期間）</h2>
+<ol>
+  <li>端末内のデータ: 利用者が削除するまで保持されます。アプリ内で削除する、ブラウザのサイトデータを消去する、デスクトップ版をアンインストールすることで消えます。</li>
+  <li>Google ドライブにアップロードしたデータ: 利用者がアプリ内で削除するか［接続解除］を押すまで、ご自身のドライブに残ります。</li>
+  <li>ウェブ版のアクセストークン: メモリ上のみに保持し、タブを閉じると消えます。デスクトップ版の更新トークン: 接続を解除するまで端末内のファイルとして残ります。</li>
+  <li>運営者が保管する個人情報はないため、運営者側の保有期間は存在しません。ウェブサーバーのアクセスログについては第13条によります。</li>
+</ol>
+
+<h2>第6条（第三者提供）</h2>
+<p>運営者は個人情報を第三者に提供・販売・共有しません。広告ネットワークやデータブローカーに渡すこともありません。運営者は利用者データを保有していないため、提供する対象そのものが存在しません。利用者ご自身が有効にする Google ドライブ同期は第三者提供ではなく、利用者ご自身のアカウントの保存領域にご自身のファイルを置くものです（第7条・第8条）。</p>
+
+<h2>第7条（処理の委託）</h2>
+<ol>
+  <li>通常の利用において委託する業務はありません。</li>
+  <li>利用者が自ら Google ドライブ同期をオンにした場合に限り、次のことが生じます。
+    <ul>
+      <li>委託先: Google LLC</li>
+      <li>委託業務: 利用者ご自身の Google アカウントのドライブにあるアプリ専用非表示フォルダ（appDataFolder）への利用者コンテンツの保存</li>
+      <li>保管場所: Google が運営する国外のサーバー（第8条）</li>
+      <li>性質: 運営者の保管庫ではなく利用者ご自身のアカウントの保存領域であり、運営者はそのファイルにアクセスできません。</li>
+    </ul>
+  </li>
+  <li>その他の委託はありません。本アプリはフォントを自前で配信し、CDN は使用しません。外部から読み込むコードは、<strong>同期をオンにした利用者に限り</strong>その時点で挿入される Google ログイン用スクリプト（<code>accounts.google.com/gsi/client</code>）の1つだけであり、オンにしなければ外部スクリプトを一切読み込みません。</li>
+</ol>
+
+<h2>第8条（国外移転）</h2>
+<p>同期をオンにした場合に限り、次の国外移転が発生します。</p>
+<ul>
+  <li>移転先: Google LLC</li>
+  <li>移転先の国: 米国を含む、Google がデータセンターを運営する国</li>
+  <li>移転の時期・方法: 同期が実行されるたびに HTTPS で <code>www.googleapis.com</code> に送信</li>
+  <li>本アプリが接続する外部ホスト（同期をオンにした場合に限る）: <code>accounts.google.com</code>（ログイン用スクリプトと同意画面）、<code>oauth2.googleapis.com</code>（トークンの交換・更新）、<code>www.googleapis.com</code>（ドライブ API）。この3つ以外に本アプリが接続する外部ホストはありません。</li>
+  <li>移転する項目: ドリル・練習セッション・名簿の文書（JSON）ファイル、およびファイル属性として記録される種別・文書ID・更新時刻・削除時刻・端末識別子（writerId）</li>
+  <li>利用目的と保有期間: 端末間の同期のための保管であり、利用者が削除するまで</li>
+  <li>拒否する方法: 同期をオンにしなければ移転は発生しません。オンにした後も、設定画面の［接続解除］で停止し、アップロード済みのファイルを削除できます。</li>
+</ul>
+
+<h2>第9条（Google ユーザーデータ — Google API Services User Data Policy）</h2>
+<ol>
+  <li><strong>要求するスコープ:</strong> <code>https://www.googleapis.com/auth/drive.appdata</code> の1つのみです。このスコープは SPIN 専用の非表示フォルダのみを扱え、利用者の通常のドライブのファイル・写真・文書にはアクセスできません。</li>
+  <li><strong>用途の限定:</strong> 利用者の端末間の同期（ファイルのアップロード・ダウンロード・削除）以外の用途には使用しません。</li>
+  <li><strong>広告・販売なし:</strong> Google から受け取ったデータを広告に用いたり、販売したり、他の事業者へ移転したりしません。</li>
+  <li><strong>人間が読むことはありません:</strong> 運営者を含め、いかなる人間もこのデータを読みません。ファイルは利用者のアカウント内にのみ存在するため、技術的にも閲覧できません。</li>
+  <li><strong>サーバー保管なし:</strong> SPIN は Google から受け取ったデータを自前のサーバーに保管せず、他のアプリへ引き渡しません。</li>
+  <li><strong>Limited Use の遵守:</strong>
+    <div class="quote">SPIN's use and transfer to any other app of information received from Google APIs will adhere to <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</div>
+    （日本語による説明: SPIN が Google API から受け取った情報を利用し、または他のアプリへ移転する際には、Limited Use 要件を含む Google API Services User Data Policy に従います。）
+  </li>
+  <li><strong>権限の取り消し:</strong> アプリ設定の［接続解除］、または Google アカウントの <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a> からいつでも取り消せます。</li>
+</ol>
+
+<h2>第10条（利用者の権利と行使方法）</h2>
+<ol>
+  <li><strong>閲覧・訂正・削除:</strong> データは端末内にあるため、アプリ画面から直接確認・修正・削除できます。</li>
+  <li><strong>処理の停止:</strong> 設定画面で同期をオフにすると、Google への送信は直ちに停止します。</li>
+  <li><strong>同意の撤回と削除:</strong> 設定画面の［接続解除］を押すと、(ア) Google 側の同意の取り消しを試み、(イ) アプリ専用フォルダ内のすべてのファイルを、認識できない形式のものも含めて実際に削除し、(ウ) デスクトップ版では端末内の更新トークンファイルも削除します。このとき<strong>この端末のデータはそのまま残ります。</strong></li>
+  <li>Google アカウント側のアプリ権限は <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a> からも取り消せます。</li>
+  <li>運営者が保管する個人情報はないため、運営者が代わりに開示・削除する対象はありません。本ポリシーや本アプリに関するお問い合わせは <a href="mailto:from104@gmail.com">from104@gmail.com</a> までお願いします。</li>
+  <li><strong>他人の情報を入力する場合:</strong> 名簿に他人の氏名や PF クラスを入力する場合、本人に知らせて同意を得る責任は利用者にあります。</li>
+</ol>
+
+<h2>第11条（廃棄の手順と方法）</h2>
+<ol>
+  <li>アプリでドリル・セッション・選手を削除すると、端末の IndexedDB のレコードが消えます。同期がオンの場合は削除マーク（トゥームストーン）により、他の端末とドライブ上のファイルも削除されます。</li>
+  <li>［接続解除］はアプリ専用フォルダ内のファイルをすべて実際に削除します。</li>
+  <li>ブラウザのサイトデータの消去、またはデスクトップ版のデータフォルダの削除により、端末に残る情報は残らず取り除かれます。</li>
+  <li>運営者には別途廃棄すべき保管分がありません。</li>
+</ol>
+
+<h2>第12条（安全管理措置）</h2>
+<ol>
+  <li><strong>最小限の収集:</strong> 運営者に送信される個人情報がありません。</li>
+  <li><strong>最小限の権限:</strong> Google の権限はアプリ専用フォルダのみの1つ（<code>drive.appdata</code>）だけを要求します。</li>
+  <li><strong>通信の暗号化:</strong> Google との通信はすべて HTTPS です。</li>
+  <li><strong>ウェブ版のトークン:</strong> アクセストークンはメモリ上のみに保持し、localStorage や IndexedDB には保存しません。タブを閉じると消えます。</li>
+  <li><strong>デスクトップ版のトークン（限界の告知）:</strong> デスクトップ版は更新トークンをアプリデータフォルダ内の <code>google-refresh-token</code> ファイルに保存します。ファイル権限は 0600 に制限しますが、<strong>暗号化はしていません</strong>。同じユーザーアカウントで動作する他のプログラムはこのファイルを読むことができます。端末のアカウントに画面ロックとディスク暗号化を設定し、共用端末では使用後に［接続解除］を行うことをお勧めします。</li>
+  <li><strong>デスクトップ版の通信制限:</strong> 接続先をアプリ自身・内部通信と Google の3ドメイン（<code>www.googleapis.com</code>、<code>accounts.google.com</code>、<code>oauth2.googleapis.com</code>）に限定しています。</li>
+  <li><strong>外部コードの最小化:</strong> 分析ツール・広告コード・CDN フォントはなく、フォントは自前で配信します。外部から読み込むコードは、同期をオンにした場合の Google ログイン用スクリプト1つだけです（第7条3項）。</li>
+  <li><strong>自動更新なし:</strong> デスクトップ版に自動更新機能はありません。セキュリティ修正版は利用者が新しいインストーラーを入手して手動でインストールする必要があります。</li>
+</ol>
+
+<h2>第13条（自動収集装置とアクセスログ）</h2>
+<ol>
+  <li>SPIN は Cookie を使用しません。分析ツール、広告トラッカー、エラー報告ツールも組み込んでいません。ただし、同期をオンにするときに開く Google のログイン・同意画面は Google 自身の Cookie を使用することがあり、これは Google の方針に従います。</li>
+  <li>localStorage と IndexedDB はアプリ動作のための端末内保存であり、その内容が外部に出ることはありません。</li>
+  <li>Service Worker はありません。「ホーム画面に追加」は manifest ファイルのみを用いており、通信を横取りするコードは存在しません。</li>
+  <li>ウェブページには検索エンジンの所有確認用メタタグと静的な構造化データ（JSON-LD）のみが含まれ、外部スクリプトタグはありません。</li>
+  <li><strong>ウェブサーバーのアクセスログ:</strong> 本サイトは AWS Lightsail 上の Apache ウェブサーバーから静的ファイルとして配信されます。ウェブサーバーが標準的なアクセスログ（IPアドレス、アクセス時刻、リクエストパス、ユーザーエージェント等）を記録する場合があります。これらはサービスの提供と障害・不正への対応の範囲でのみ用い、分析・プロファイリング・広告には使用せず、第三者にも提供しません。</li>
+</ol>
+
+<h2>第14条（子どもの個人情報）</h2>
+<ol>
+  <li>本アプリは年齢を尋ねず、子どもを対象としたサービスではありません。</li>
+  <li>運営者が収集する個人情報がないため、子どもから個人情報を収集することもありません。</li>
+  <li>14歳未満の子どもが利用する場合は、法定代理人の指導のもとでご利用ください。名簿に子どもの選手の氏名や PF クラスを入力する場合、法定代理人の同意を得る責任は利用者にあります。</li>
+</ol>
+
+<h2>第15条（個人情報保護責任者）</h2>
+<ul>
+  <li>個人情報保護責任者: ソ・ギヒョン（Seo Kihyun）（個人開発者・運営者本人）</li>
+  <li>連絡先: <a href="mailto:from104@gmail.com">from104@gmail.com</a></li>
+  <li>一人での開発のため専門部署はなく、問い合わせ・苦情・救済の申し出は上記の連絡先で直接受け付け、対応します。</li>
+</ul>
+
+<h2>第16条（権利侵害の救済方法）</h2>
+<p>個人情報に関する紛争や申告は、次の韓国の機関にご相談いただけます。</p>
+<ul>
+  <li>個人情報紛争調停委員会: +82-1833-6972 · <a href="https://www.kopico.go.kr">www.kopico.go.kr</a></li>
+  <li>個人情報侵害申告センター: 118（韓国国内） · <a href="https://privacy.kisa.or.kr">privacy.kisa.or.kr</a></li>
+  <li>大検察庁サイバー捜査課: 1301 · 警察庁サイバー捜査局: 182</li>
+</ul>
+
+<h2>第17条（本ポリシーの変更と告知）</h2>
+<ol>
+  <li>本ポリシーは2026年9月6日から施行します。</li>
+  <li>変更する場合は、変更内容と施行日を本ページに記載してお知らせします。利用者に不利または重要な変更については、施行の少なくとも7日前に本ページで告知します。</li>
+  <li>以前の版が必要な場合は <a href="mailto:from104@gmail.com">from104@gmail.com</a> までご請求ください。</li>
+</ol>
+
+<p class="top"><a href="#ja">先頭へ</a> · <a href="/terms/">利用規約</a> · <a href="https://spin.atit.app">spin.atit.app</a></p>
+
+</section>
+
+<footer>
+  SPIN — 서기현 (개인 개발자) · <a href="mailto:from104@gmail.com">from104@gmail.com</a> · <a href="https://spin.atit.app">spin.atit.app</a>
+</footer>
+
+</div>
+</body>
+</html>
