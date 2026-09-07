@@ -10,11 +10,17 @@ import { effectiveStepMs } from '../../model/playback.ts';
 import type { Drill } from '../../model/drill.ts';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import { usePlaybackActions, usePlaybackState } from '../../store/playback/PlaybackProvider.tsx';
+import { useEditorTweenHint } from '../../store/editor/tweenHint.ts';
 import { raf } from '../../render/rafLoop.ts';
 
 export function useStepPlayback(drill: Drill, stepId: string, dispatch: Dispatch<EditorAction>): void {
   const { playing, speed, loop } = usePlaybackState();
   const { pause, advanceMs, resetMs } = usePlaybackActions();
+  // 트윈이 배속의 스텝 간격·루프를 알아야 딜레이 없는 연결이 간격과 같은 길이로 흐른다(tween.ts 주석).
+  const tweenHint = useEditorTweenHint();
+  useEffect(() => {
+    if (tweenHint) tweenHint.current = { baseMs: PLAYBACK.stepIntervalMs[speed], loop };
+  }, [tweenHint, speed, loop]);
 
   const drillRef = useRef(drill);
   drillRef.current = drill;

@@ -84,9 +84,17 @@ export function effectiveReduceMotion(setting: 'system' | 'always'): boolean {
 /** §6.7 전환 시간의 단일 출처 — EditorProvider(위치·화살표 트윈)와 EditorStage(등장/퇴장
  *  페이드)가 **같은 시계**를 써야 한다. 이 식을 다른 곳에서 재조립하지 마라: 한쪽만 숫자가
  *  바뀌면 페이드가 끝났는데 위치는 아직 가는 중(또는 그 반대)이 된다. */
-export function stepTransitionMs(to: DrillStep, opts: { immediate: boolean; reduceMotion: boolean }): number {
+export function stepTransitionMs(to: DrillStep, opts: { immediate: boolean; reduceMotion: boolean; baseMs?: number }): number {
   if (opts.immediate || opts.reduceMotion) return 0;
-  return PLAYBACK.transitionMsFor(effectiveStepMs(to, PLAYBACK.stepIntervalMs[1]));
+  // 연결 방식(PLAN-STEP-LINK, 2026-09-08 기현 실기: *"편집 화면에서는 멈칫이 있는데?"*) — 편집기 트윈은
+  // 시연의 sampleDrill 과 다른 경로라 `cut`·`seamless` 를 몰랐다. 규칙을 같게 맞춘다:
+  //   끊김(cut) → 0(팝) · 딜레이 없는 연결(seamless) → 구간 **전체**(정지 0) · 딜레이 연결 → 옛 식.
+  // baseMs 는 재생 배속의 스텝 간격(useStepPlayback 이 알려 준다) — 1x 로 고정하면 2x 재생에서
+  // 트윈(1500ms)이 간격(800ms)보다 길어 다음 전환이 앞 트윈을 중간에 끊는다.
+  if (to.cut === true) return 0;
+  const base = opts.baseMs ?? PLAYBACK.stepIntervalMs[1];
+  if (to.seamless === true) return effectiveStepMs(to, base);
+  return PLAYBACK.transitionMsFor(effectiveStepMs(to, base));
 }
 
 function lerp(a: number, b: number, e: number): number {

@@ -20,6 +20,7 @@ import { useAppNav } from '../../app/useAppHistory.ts';
 import { useEditorDispatch, useEditorState, useEditorWorld, useEditorWriter } from '../../store/editor/EditorProvider.tsx';
 import { selectStepIndex } from '../../store/editor/reducer.ts';
 import { effectiveReduceMotion, stepTransitionMs } from '../../store/editor/tween.ts';
+import { PLAYBACK } from '../../core/constants.ts';
 import { usePlaybackActions, usePlaybackState } from '../../store/playback/PlaybackProvider.tsx';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
@@ -940,7 +941,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 // 3.10 — 트윈(frameSync)과 같은 식(stepTransitionMs)으로 계산해야 페이드와
                 // 위치 이동이 한 시계로 끝난다. immediate(시점 점프)는 EditorStage 가 epoch 로
                 // 스스로 가려낸다.
-                transitionMs={stepTransitionMs(step, { immediate: false, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion) })}
+                transitionMs={stepTransitionMs(step, { immediate: false, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion), baseMs: PLAYBACK.stepIntervalMs[speed] })}
               />
             </div>
             {/* 2026-08-14: 여기 있던 StageControls(코트 위 position:absolute 7개 묶음)를 해체했다.

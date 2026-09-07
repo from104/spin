@@ -102,6 +102,20 @@ describe('stepTransitionMs — 트윈·페이드의 단일 시계(3.10)', () => 
     expect(stepTransitionMs(step, { immediate: false, reduceMotion: true })).toBe(0);
   });
 
+  // 2026-09-08 기현 실기 "편집 화면에서는 멈칫이 있는데?" — 편집기 트윈이 연결 방식을 몰랐다.
+  // 지우면 새는 버그: 딜레이 없는 연결이 편집기에서만 600ms 트윈 뒤 정지(멈칫), 끊김이 편집기에서만 스르륵.
+  it('연결 방식을 따른다 — 끊김은 0, 딜레이 없는 연결은 구간 전체(배속 간격 기준)', () => {
+    const cut = { ...emptyStep(), cut: true as const };
+    expect(stepTransitionMs(cut, { immediate: false, reduceMotion: false })).toBe(0);
+    const seamless = { ...emptyStep(), seamless: true as const };
+    expect(stepTransitionMs(seamless, { immediate: false, reduceMotion: false })).toBe(PLAYBACK.stepIntervalMs[1]);
+    expect(stepTransitionMs(seamless, { immediate: false, reduceMotion: false, baseMs: 800 })).toBe(800);
+    const seamlessLong = { ...seamless, durationMs: 2000 };
+    expect(stepTransitionMs(seamlessLong, { immediate: false, reduceMotion: false, baseMs: 800 })).toBe(2000);
+    // 딜레이 연결도 배속 간격을 따른다(2x 에서 1x 트윈이 간격보다 길어지지 않게)
+    expect(stepTransitionMs(emptyStep(), { immediate: false, reduceMotion: false, baseMs: 800 })).toBe(PLAYBACK.transitionMsFor(800));
+  });
+
   it('스텝 durationMs 를 존중한다 — 짧은 스텝은 전환도 짧다', () => {
     const step = { ...emptyStep(), durationMs: 500 };
     expect(stepTransitionMs(step, { immediate: false, reduceMotion: false })).toBe(PLAYBACK.transitionMsFor(500));

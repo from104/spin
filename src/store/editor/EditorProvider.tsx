@@ -14,8 +14,10 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 import type { Dispatch, MutableRefObject, ReactNode } from 'react';
 import { kmhToPxPerS } from '../../core/units.ts';
-import { CHAIR } from '../../core/constants.ts';
+import { CHAIR, PLAYBACK } from '../../core/constants.ts';
 import { easeStandard } from '../../core/geom.ts';
+import { seamlessEase } from '../../model/playback.ts';
+import { EditorTweenHintContext, type TweenHint } from './tweenHint.ts';
 import type { Drill } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { createPhysicsWorld } from '../../physics/index.ts';
@@ -38,7 +40,6 @@ const EditorStateContext = createContext<EditorState | null>(null);
 const EditorDispatchContext = createContext<Dispatch<EditorAction> | null>(null);
 const EditorWorldContext = createContext<EditorWorldRef | null>(null);
 const EditorWriterContext = createContext<TransformWriter | null>(null);
-
 /** 설정값 → 물리 속도 상한.
  *
  *  speedLimit 을 끄면 상한을 사실상 없앤다. Infinity 를 쓰지 않는 이유: clampMag 가
@@ -69,6 +70,7 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
   const writerRef = useRef<TransformWriter | null>(null);
   if (!writerRef.current) writerRef.current = createTransformWriter();
   const tweenRef = useRef<TweenHandle | null>(null);
+  const tweenHintRef = useRef<TweenHint>({ baseMs: PLAYBACK.stepIntervalMs[1], loop: prefs.loop });
   // null = 아직 한 번도 frameSync 를 돌지 않았다(마운트). §6.7 이 명시한 immediate 목록에
   // "드릴 로드·코트 재마운트"가 들어 있다 — 마운트를 트윈(0.6s)으로 돌리면 그 동안 트윈이
   // 마운트 시점 프레임을 매 tick 다시 써서, 마운트 직후 0.6초 안의 화살표·메모 편집을
@@ -146,8 +148,11 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
     tweenRef.current?.cancel();
     const from = writer.snapshot();
     const to = poseFrame(currentStep);
-    const ms = stepTransitionMs(currentStep, { immediate, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion) });
-    tweenRef.current = startTween(from, to, ms, easeStandard, raf.add, writer);
+    const hint = tweenHintRef.current;
+    const ms = stepTransitionMs(currentStep, { immediate, reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion), baseMs: hint.baseMs });
+    // 딜레이 없는 연결은 연속 구간 양끝만 가감속(PLAN-STEP-LINK 결정 3) — 시연의 sampleDrill 과 같은 함수.
+    const ease = currentStep.seamless === true ? seamlessEase(state.present.steps, idx, hint.loop) : easeStandard;
+    tweenRef.current = startTween(from, to, ms, ease, raf.add, writer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.stepId, state.epoch]);
 
@@ -162,9 +167,11 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
   return (
     <EditorWorldContext.Provider value={worldRef}>
       <EditorWriterContext.Provider value={writerRef.current}>
-        <EditorDispatchContext.Provider value={dispatch}>
-          <EditorStateContext.Provider value={state}>{children}</EditorStateContext.Provider>
-        </EditorDispatchContext.Provider>
+        <EditorTweenHintContext.Provider value={tweenHintRef}>
+          <EditorDispatchContext.Provider value={dispatch}>
+            <EditorStateContext.Provider value={state}>{children}</EditorStateContext.Provider>
+          </EditorDispatchContext.Provider>
+        </EditorTweenHintContext.Provider>
       </EditorWriterContext.Provider>
     </EditorWorldContext.Provider>
   );

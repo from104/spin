@@ -258,7 +258,7 @@ const isSeamlessStep = (s: DrillStep | undefined): boolean => s !== undefined &&
  *  경계 판정은 재생의 `fromStep` 이 그러듯 루프면 배열 끝을 감는다 — 루프 재생에서 마지막↔첫
  *  스텝은 실제로 이어져 흐르는 자리라, 안 감으면 전부 이어 놓은 드릴이 매 바퀴 그 지점에서만
  *  감속·가속한다. (스텝이 하나뿐이면 감지 않는다 — 자기 자신을 이웃으로 볼 수는 없다.) */
-function seamlessEase(steps: readonly DrillStep[], i: number, loop: boolean): (t: number) => number {
+export function seamlessEase(steps: readonly DrillStep[], i: number, loop: boolean): (t: number) => number {
   const n = steps.length;
   const prev = i > 0 ? steps[i - 1] : loop && n > 1 ? steps[n - 1] : undefined;
   const next = i < n - 1 ? steps[i + 1] : loop && n > 1 ? steps[0] : undefined;
