@@ -39,6 +39,19 @@
 // ⚠️ 그래서 `<PrintRoot>` 는 시트가 **닫혀 있어도 마운트된 채**여야 한다 — 인쇄를 고르는
 //    순간 시트는 닫히기 때문이다. PrintRoot 는 doc 이 null 이면 null 을 렌더하므로(표적 0개)
 //    상주시켜도 예산에 한 개도 안 든다.
+//
+// ── 영상(MP4) 항목만 시트 안에 상태를 갖는다 (2026-09-08, PLAN-VIDEO-EXPORT) ───────────
+// 다른 세 항목은 "누르면 끝나는" 갈림길이지만 영상은 수 초~수십 초 걸린다. 그래서 이 항목만
+// 시트 안에 3단 상태(진행 → 완료 → 오류)를 그린다(결정 9). 지켜야 할 것 넷:
+//   ① 엔진은 **동적 import 로만** 부른다(결정 3) — `import('./video/encodeDrillVideo.ts')`.
+//      최상단에 값(value) import 를 두면 mediabunny 가 메인 청크로 딸려 들어와, 영상을 한 번도
+//      안 만드는 사람까지 인코더를 내려받는다. 타입은 `import type` 이라 지워진다.
+//   ② **저장은 완료 뒤 [저장] 클릭에서** 한다 — iOS `navigator.share`(storage/files.ts) 는
+//      사용자 제스처 안에서만 열리는데, 인코딩이 끝나는 시점엔 그 제스처가 이미 만료돼 있다.
+//   ③ **시트를 닫으면 인코딩을 끊는다.** 보이지 않는 곳에서 계속 돌면 배터리·메모리를 말없이
+//      먹고, 끝나도 [저장]을 누를 화면이 없다(= 만든 파일이 증발한다).
+//   ④ 미지원 브라우저에서는 `disabled` 가 아니라 **`aria-disabled` + 사유 문구**다(결정 2).
+//      `disabled` 버튼은 초점을 못 받아 화면리더가 "왜 못 누르는지"를 영영 못 읽는다.
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import type { Drill } from '../../model/drill.ts';
@@ -49,11 +62,16 @@ import { namedRosterOf } from '../../model/chairLabel.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { downloadBlob } from '../../storage/files.ts';
 import { buildZip } from '../../storage/zip.ts';
-import { sceneFileName, sceneZipName } from './exportNames.ts';
+import { sceneFileName, sceneZipName, videoFileName } from './exportNames.ts';
+// ⚠️ 값이 아니라 **타입만** 가져온다(결정 3) — verbatimModuleSyntax 라 이 줄은 컴파일에서
+//    통째로 지워지고, 엔진 모듈은 아래 `import(...)` 로만 실린다.
+import type { VideoSize } from './video/encodeDrillVideo.ts';
+import { Button } from '../../ui/Button.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { PrintRoot, printWhenReady } from '../print/index.ts';
 import type { PrintDoc } from '../print/index.ts';
 import { rasterizeFrameToPng } from './rasterize.ts';
+import type { StaticSceneOpts } from './staticSceneLayout.ts';
 import { sceneOrder } from '../../model/zOrder.ts';
 import { ShareLinkModal } from '../library/ShareLinkModal.tsx';
 import { useT } from '../../i18n/useT.ts';
@@ -85,6 +103,31 @@ export interface ExportSheetProps {
 /** 무엇을 내보낼 것인가. **보드에는 이 개념이 없다**(스텝이 한 장뿐이라 셋이 같은 답을 낸다) —
  *  그래서 스텝이 2장 이상일 때만 컨트롤이 뜬다. */
 export type ExportScope = 'this' | 'selected' | 'all';
+
+/** 영상 항목의 3단 상태(결정 9). `cancelled` 는 오류가 아니라 **idle 로 돌아온 자리**다 —
+ *  머리 버튼이 다시 눌리고, 무슨 일이 있었는지만 한 줄 남는다(말없이 사라지면 취소가 먹혔는지
+ *  모른다). 오류는 사유를 나누지 않는다 — 인코더가 못 하는 이유는 코치가 고칠 수 있는 것이
+ *  아니라서(코덱·메모리·기기) 처방이 언제나 [다시] 하나다. */
+type VideoState =
+  | { phase: 'idle' }
+  | { phase: 'cancelled' }
+  | { phase: 'running'; done: number; total: number }
+  | { phase: 'done'; blob: Blob; name: string; bytes: number }
+  | { phase: 'error' };
+
+/** 완료 줄에 찍는 파일 크기. 단위(KB·MB)는 세 언어가 같은 글자라 사전 키를 두지 않는다.
+ *  1 MB 미만을 `0.4 MB` 로 적으면 "0" 이 먼저 읽혀 파일이 비어 보인다 — 그 구간만 KB 로 쓴다. */
+function formatBytes(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return mb < 1 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${mb.toFixed(1)} MB`;
+}
+
+/** 취소인가 — 결정 10 이 취소를 `DOMException('AbortError')` 로 못박았다. `instanceof
+ *  DOMException` 으로 좁히지 않는 이유는 엔진이 어느 층에서 던지든(fetch·WebCodecs·자체 루프)
+ *  이름이 같기 때문이다. */
+function isAbortError(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && (e as { name?: unknown }).name === 'AbortError';
+}
 
 export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, showGrid, showGridLabels, showRuleZones, returnFocusRef }: ExportSheetProps) {
   const titleId = useId();
@@ -136,6 +179,55 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
     return [stepIndex];
   }, [scope, drill.steps, checkedStepIds, stepIndex]);
 
+  // ── 영상(MP4) 상태 ───────────────────────────────────────────────────────────────────
+  const videoTitleId = useId();
+  const videoDescId = useId();
+  const sizeGroupName = useId();
+  /** null = 아직 안 물어봤다. 물어보는 데 await 이 필요해(canEncode) 첫 렌더에는 답이 없다 —
+   *  그동안 항목을 비활성으로 그리면 열자마자 깜빡인다. 모르는 동안은 **누를 수 있게** 두고,
+   *  못 하는 기기라면 그 사실이 몇 ms 뒤 문구로 도착한다. */
+  const [videoSupported, setVideoSupported] = useState<boolean | null>(null);
+  const [videoSize, setVideoSize] = useState<VideoSize>(720);
+  const [video, setVideo] = useState<VideoState>({ phase: 'idle' });
+  const videoAbortRef = useRef<AbortController | null>(null);
+  /** 마지막으로 화면에 올린 퍼센트. 프레임마다(30fps × 수십 초) setState 하면 리렌더도 리렌더지만
+   *  `role="status"` 가 그 횟수만큼 낭독한다 — 5% 눈금으로만 올린다. */
+  const videoPctRef = useRef(-1);
+
+  // 지원 여부는 **시트를 열 때** 묻는다(결정 2). 앱 시작 때 묻지 않는 이유는 그 물음이 곧
+  // 엔진 청크를 내려받는 일이라서다(결정 3: 안 쓰는 사람은 1바이트도 안 받는다).
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const { isVideoExportSupported } = await import('./video/encodeDrillVideo.ts');
+        const ok = await isVideoExportSupported();
+        if (alive) setVideoSupported(ok);
+      } catch {
+        // 청크를 못 받았거나(오프라인·차단) 물음 자체가 던졌다 = 이 기기에서는 못 만든다.
+        if (alive) setVideoSupported(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+
+  // 열 때마다 720p 로 시작한다(결정 5 — 옵션을 저장하지 않는다: prefs 스키마 불변).
+  // ⚠️ 정리(cleanup)가 **인코딩을 끊는 자리**다 — 시트를 닫아도, 화면이 통째로 언마운트돼도
+  //    여기를 지난다(머리말 ③).
+  useEffect(() => {
+    if (!open) return;
+    setVideoSize(720);
+    setVideo({ phase: 'idle' });
+    videoPctRef.current = -1;
+    return () => {
+      videoAbortRef.current?.abort();
+      videoAbortRef.current = null;
+    };
+  }, [open]);
+
   const onPrintReady = useCallback(() => {
     // 0장이면 print() 를 부르지 않고 false 를 준다 — 그때 조용히 끝내면 코치는 인쇄 대화상자가
     // 안 뜬 이유를 영영 모른다.
@@ -150,6 +242,33 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
     return joined.length > 0 ? joined.slice(0, LIMITS.captionRosterLen) : undefined;
   };
 
+  /** 장면 옵션의 공통분모 — 코트·팀·진영·보기 스위치.
+   *
+   *  ⚠️ **PNG 와 영상이 한 칸도 다르면 안 된다.** 2026-09-08 까지는 이 값들을 아래 bakeOne 이
+   *  혼자 조립했는데, 영상 경로가 생기면서 같은 목록을 두 벌 적을 뻔했다 — 그러면 다음에 한
+   *  칸이 늘 때 한쪽만 늘고, 카톡으로 보낸 **영상만** 코트가 다른 사고가 난다(아래 각 줄의
+   *  주석은 전부 "그 한 줄이 빠져서" 실제로 났던 사고 기록이다). 영상 엔진이 옵션을 통째로
+   *  받는 것(`VideoExportOpts.scene`)도 같은 이유다 — PLAN-VIDEO-EXPORT 결정 10.
+   *
+   *  여기 없는 셋(`shapes`·`caption`·`resolution`)은 **장면마다 달라지는 것**이라 부르는 쪽이 채운다. */
+  const sceneBase: Omit<StaticSceneOpts, 'shapes' | 'caption' | 'resolution'> = {
+    mode: drill.courtMode,
+    // §6.4 — 그림도 판과 **같은 코트**여야 한다. 이 한 줄이 없으면 28×15 로 그린 판이
+    // 30×18 캔버스에 구워져, 카톡으로 보낸 그림만 코트가 다르다.
+    size: drill.courtSize,
+    teams: drill.teams,
+    // 진영 — 골 지역 3인 반칙이 **수비 팀만** 세므로(2026-08-15) 이 한 줄이 없으면
+    // 카톡으로 보낸 그림만 다른 팀을 붉게 칠한다(위 courtSize 와 같은 부류의 사고다).
+    defense: drill.defense,
+    showGrid,
+    // 격자 **번호**(2026-09-06). 그 전에는 이 한 줄이 없었고 사유가 *"PNG 는 <text> 0개
+    // 규약이라 안 쓴다"* 였는데, 번호는 이제 SVG 가 아니라 캔버스 어댑터가 그린다
+    // (staticSceneLayout ★[A-9] 아래 ⚠️) — 기현 지시: *"png 에 격자는 나오는데 격자 번호는
+    // 안 나옴"*. 안 넘기면 화면·종이에는 있는 칸 이름이 그림에만 없다.
+    showGridLabels,
+    showRuleZones,
+  };
+
   /** 스텝 하나 → PNG 한 장. 옵션 조립이 길어 따로 뺀다 — 루프 안에 두면 "무엇이 스텝마다
    *  달라지는가" 가 안 보인다(달라지는 것은 step·stepIndex 둘뿐이다). */
   const bakeOne = async (i: number): Promise<{ blob: Blob; name: string }> => {
@@ -158,24 +277,10 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
     // 한 스텝을 그대로 굽는다 — from=to, e=1 이면 보간이 항등이다(트윈 중간을 굽지 않는다).
     const frame = { ...interpolateSteps(drill, step, step, 1), stepIndex: i };
     const { blob } = await rasterizeFrameToPng(frame, {
-      mode: drill.courtMode,
-      // §6.4 — 그림도 판과 **같은 코트**여야 한다. 이 한 줄이 없으면 28×15 로 그린 판이
-      // 30×18 캔버스에 구워져, 카톡으로 보낸 그림만 코트가 다르다.
-      size: drill.courtSize,
-      teams: drill.teams,
-      // 진영 — 골 지역 3인 반칙이 **수비 팀만** 세므로(2026-08-15) 이 한 줄이 없으면
-      // 카톡으로 보낸 그림만 다른 팀을 붉게 칠한다(위 courtSize 와 같은 부류의 사고다).
-      defense: drill.defense,
+      ...sceneBase,
       // 작도 도형 — 프레임에는 없다(보간하지 않는 **표시**라 스텝이 갖는다). 이 한 줄이
       // 없으면 그림에만 도형이 통째로 빠진다(2026-08-17 기현님 신고).
       shapes: step.shapes,
-      showGrid,
-      // 격자 **번호**(2026-09-06). 그 전에는 이 한 줄이 없었고 사유가 *"PNG 는 <text> 0개
-      // 규약이라 안 쓴다"* 였는데, 번호는 이제 SVG 가 아니라 캔버스 어댑터가 그린다
-      // (staticSceneLayout ★[A-9] 아래 ⚠️) — 기현 지시: *"png 에 격자는 나오는데 격자 번호는
-      // 안 나옴"*. 안 넘기면 화면·종이에는 있는 칸 이름이 그림에만 없다.
-      showGridLabels,
-      showRuleZones,
       // step.name 은 과제⑦ 이후 로드된 드릴에서 항상 '' 다(validate.ts 정화기가 이름을
       // note 로 이관하며 비운다) — 그대로 두면 PNG 캡션은 번호만 찍는 죽은 기능이 된다.
       // PNG 는 note 본문을 어디에도 그리지 않아(코트 위 자유 메모(NOTE)와는 다른 필드다)
@@ -219,6 +324,61 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
       onClose();
     }, t('export.pngFailed'));
 
+  /** 영상 인코딩 시작(그리고 [다시]). `run()` 을 쓰지 않는 이유는 저 헬퍼가 **끝날 때까지
+   *  기다렸다가 토스트를 띄우는** 짧은 동작용이라서다 — 영상은 수 초~수십 초라 진행·취소를
+   *  시트 안에 그려야 한다(결정 9). 대신 `busyRef` 는 공유한다: 인코딩 중에 PNG 60장을
+   *  같이 굽기 시작하면 모바일에서 메모리로 죽는다. */
+  const startVideo = () => {
+    if (busyRef.current || video.phase === 'running') return;
+    const controller = new AbortController();
+    videoAbortRef.current = controller;
+    videoPctRef.current = -1;
+    busyRef.current = true;
+    setVideo({ phase: 'running', done: 0, total: 0 });
+    // ★ 이 컨트롤러가 아직 "지금 것" 인가. 시트가 닫히면(cleanup) ref 가 비워지므로, 늦게
+    //   도착한 진행·완료·오류가 사라진 화면을 되살리지 않는다.
+    const mine = () => videoAbortRef.current === controller;
+    void (async () => {
+      try {
+        // ⚠️ 동적 import — 머리말 ①.
+        const { encodeDrillVideo } = await import('./video/encodeDrillVideo.ts');
+        const result = await encodeDrillVideo(
+          drill,
+          {
+            size: videoSize,
+            locale,
+            // 캡션 **형태**만 준다(결정 7): 제목과 실명 줄의 유무가 띠 높이를 정하고, 띠 높이가
+            // 곧 해상도라 프레임마다 흔들리면 안 된다. n/N·스텝 이름은 엔진이 도착 스텝에서
+            // 프레임마다 채우므로 여기 값(0·'')은 자리를 채우는 껍데기다.
+            caption: { title: drill.title, stepIndex: 0, stepCount: drill.steps.length, stepName: '', roster: rosterCaptionText(drill) },
+            scene: sceneBase,
+          },
+          {
+            signal: controller.signal,
+            onProgress: (done, total) => {
+              if (!mine()) return;
+              const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
+              // 첫 보고는 언제나 올린다 — 그때 처음으로 **총 프레임 수**를 알기 때문이다
+              // (그 전 화면은 `0/…`). 그 뒤로는 5% 눈금과 마지막 프레임만.
+              if (videoPctRef.current >= 0 && done < total && pct - videoPctRef.current < 5) return;
+              videoPctRef.current = pct;
+              setVideo({ phase: 'running', done, total });
+            },
+          },
+        );
+        if (!mine()) return;
+        videoAbortRef.current = null;
+        setVideo({ phase: 'done', blob: result.blob, bytes: result.bytes, name: videoFileName(drill) });
+      } catch (e) {
+        if (!mine()) return;
+        videoAbortRef.current = null;
+        setVideo(isAbortError(e) ? { phase: 'cancelled' } : { phase: 'error' });
+      } finally {
+        busyRef.current = false;
+      }
+    })();
+  };
+
   const startPrint = () => {
     // 시트를 먼저 닫는다: 인쇄 대화상자 뒤에 열린 시트가 남아 있으면 돌아왔을 때 판이 가려져
     // 있다. PrintRoot 는 시트 밖에 상주하므로(머리말 ⚠️) 닫아도 인쇄는 진행된다.
@@ -227,6 +387,14 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
     // 전체일 때는 필터를 안 실어 옛 동작(전 스텝) 그대로 간다.
     setPrintDoc({ kind: 'drill', drill, ...(scope === 'all' ? {} : { stepIndexes: targetIndexes }) });
   };
+
+  /** 머리 버튼을 누를 수 있는 단계 — 여기서만 인코딩이 **시작**된다. 진행 중에는 두 번 시작할 수
+   *  없고, 완료·오류 단계에서는 그 아래 [저장]·[다시] 가 다음 행동을 쥔다(표적이 뜻마다 하나다). */
+  const videoIdle = video.phase === 'idle' || video.phase === 'cancelled';
+  const videoBlocked = videoSupported === false || !videoIdle;
+  /** 크기는 **다음 인코딩**의 입력이다 — 오류 뒤에도 보인다(1080p 가 무거워 실패했다면 720p 로
+   *  낮춰서 [다시] 를 눌러야 한다). 도는 중·끝난 뒤에만 감춘다: 그때 바꿔도 지금 파일은 안 바뀐다. */
+  const videoCanPickSize = video.phase !== 'running' && video.phase !== 'done';
 
   return (
     <>
@@ -254,14 +422,110 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
             onClick={() => void exportPng()}
           />
           <SheetItem title={t('export.print.title')} desc={t('export.print.desc')} onClick={startPrint} />
-          {/* 세 번째 칸 — 링크(2026-09-07, PLAN-SHARE-LINK 결정 11).
+          {/* 영상 (MP4) — 2026-09-08, PLAN-VIDEO-EXPORT. **이 시트에서 상태를 갖는 유일한 항목**이라
+              SheetItem 한 줄로 접히지 않는다(머리말 「영상(MP4) 항목만…」). 자리가 [인쇄] 다음인
+              이유: 코치가 가장 자주 하는 일 순서다(그림 › 종이 › 영상). 영상은 만드는 데 수 초~수십
+              초가 들어 "지금 이 판을 빨리 꺼내는" 행위가 아니다. */}
+          <div style={VIDEO_BOX}>
+            <button
+              type="button"
+              // ⚠️ `disabled` 가 아니라 `aria-disabled` 다(머리말 ④) — 초점을 받아야 아래 사유
+              //    문구(aria-describedby)가 화면리더에 읽힌다. 그래서 클릭 차단은 손으로 한다.
+              aria-disabled={videoBlocked}
+              aria-describedby={videoDescId}
+              onClick={() => {
+                if (!videoBlocked) startVideo();
+              }}
+              style={{ ...VIDEO_HEAD, opacity: videoBlocked ? 0.5 : 1, cursor: videoBlocked ? 'not-allowed' : 'pointer' }}
+            >
+              <span id={videoTitleId} style={ITEM_TITLE}>
+                {t('export.video.title')}
+              </span>
+              <span id={videoDescId} style={ITEM_DESC}>
+                {videoSupported === false ? t('export.video.unsupported') : t('export.video.desc')}
+              </span>
+            </button>
+            {videoSupported !== false && (
+              <>
+                {videoCanPickSize && (
+                  // 크기 — 720p 기본, 저장하지 않는다(결정 5). 라디오 그룹의 이름은 항목 제목을
+                  // 그대로 빌린다(aria-labelledby): "영상 (MP4)" 안의 720p/1080p 라는 말이
+                  // legend 를 새로 지어 붙이는 것보다 정확하고, 시트에 글자 한 줄을 덜 얹는다.
+                  <fieldset style={SIZE_FIELDSET} aria-labelledby={videoTitleId}>
+                    {VIDEO_SIZES.map((s) => (
+                      <label key={s} style={SIZE_LABEL}>
+                        <input
+                          type="radio"
+                          name={sizeGroupName}
+                          checked={videoSize === s}
+                          onChange={() => setVideoSize(s)}
+                          style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+                        />
+                        {t(s === 720 ? 'export.video.size720' : 'export.video.size1080')}
+                      </label>
+                    ))}
+                  </fieldset>
+                )}
+                {/* 결정 8 — 범위 칩은 영상에 안 걸린다. 칩이 떠 있을 때(스텝 2장 이상)만 말한다:
+                    고를 것이 없는 판에서 "적용되지 않습니다" 는 없는 기능을 설명하는 소음이다. */}
+                {drill.steps.length > 1 && <p style={VIDEO_NOTE}>{t('export.video.wholeDrill')}</p>}
+                {video.phase === 'running' && (
+                  <div style={VIDEO_STATUS_ROW}>
+                    <p role="status" style={VIDEO_STATUS_TEXT}>
+                      {/* 첫 onProgress 전에는 프레임 수를 모른다 — `0/0` 은 고장 난 것처럼 보이므로
+                          모르는 칸만 '…' 로 둔다(재지 않는 숫자를 지어내지 않는다). */}
+                      {t('export.video.progress', {
+                        done: video.done,
+                        total: video.total > 0 ? video.total : '…',
+                        pct: video.total > 0 ? Math.floor((video.done / video.total) * 100) : 0,
+                      })}
+                    </p>
+                    {/* 취소 표시는 엔진이 **실제로 멈춘 뒤**에 뜬다(catch → cancelled). 누르자마자
+                        "취소됨" 을 그려 놓고 인코더가 계속 돌면 그 화면은 거짓말이다. */}
+                    <Button onClick={() => videoAbortRef.current?.abort()}>{t('export.video.cancel')}</Button>
+                  </div>
+                )}
+                {video.phase === 'done' && (
+                  <div style={VIDEO_STATUS_ROW}>
+                    <p role="status" style={VIDEO_STATUS_TEXT}>
+                      {t('export.video.done', { name: video.name, size: formatBytes(video.bytes) })}
+                    </p>
+                    {/* ⚠️ 저장은 **여기 클릭에서만** 한다(머리말 ②). 인코딩 직후 자동 저장으로
+                        옮기면 iOS 공유 시트가 제스처 만료로 안 열린다. 시트는 닫지 않는다 —
+                        공유 시트를 취소한 사람이 다시 누를 자리가 있어야 한다. */}
+                    <Button variant="primary" onClick={() => downloadBlob(video.blob, video.name)}>
+                      {t('export.video.save')}
+                    </Button>
+                  </div>
+                )}
+                {video.phase === 'error' && (
+                  <div style={VIDEO_STATUS_ROW}>
+                    <p role="alert" style={VIDEO_STATUS_TEXT}>
+                      {t('export.video.failed')}
+                    </p>
+                    <Button onClick={startVideo}>{t('export.video.retry')}</Button>
+                  </div>
+                )}
+                {video.phase === 'cancelled' && (
+                  <p role="status" style={VIDEO_STATUS_TEXT}>
+                    {t('export.video.cancelled')}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+          {/* 마지막 칸 — 링크(2026-09-07, PLAN-SHARE-LINK 결정 11).
               ⚠️ 계획서는 이 항목을 "시트 4번째" 라고 적었지만 이 시트의 항목은 지금 **둘**이라
               실제로는 세 번째다. 4번이었던 시절(그림·인쇄·기기 이사 파일)의 [기기 이사 파일]은
               2026-08-20 에 설정 화면으로 옮겨 갔다(이 파일 머리말 ⚠️). 자리는 맨 끝이 맞다 —
               **범위(scope) 컨트롤이 안 걸리는 유일한 항목**이라(링크는 드릴 통째로 간다)
               위 두 칸과 성격이 다르고, 서버·인터넷을 요구하는 쪽이기도 하다.
               범위를 안 보는 것이 왜 결함이 아닌가: 링크로 받는 쪽이 여는 것은 그림이 아니라
-              **드릴**이라 스텝 한 장만 잘라 보내면 그건 다른 드릴이다. */}
+              **드릴**이라 스텝 한 장만 잘라 보내면 그건 다른 드릴이다.
+              ── ⚠️ 2026-09-08: 위 문단의 *"범위 컨트롤이 안 걸리는 **유일한** 항목"* 은 더 이상
+              참이 아니다 — [영상] 도 언제나 드릴 전체다(PLAN-VIDEO-EXPORT 결정 8). 자리 근거는
+              뒤 문장 하나로 좁혀졌다: **서버·인터넷을 요구하는 유일한 항목**이라 맨 끝이다
+              (영상은 기기 안에서 끝난다). ── */}
           <SheetItem
             title={t('export.link')}
             desc={t('export.link.desc')}
@@ -319,11 +583,55 @@ const ITEM_STYLE: CSSProperties = {
   color: 'var(--text)',
 };
 
+/** 항목 제목·설명 — [영상] 머리 버튼도 같은 글자를 쓴다(항목 넷이 한 눈에 같은 줄로 읽혀야 한다). */
+const ITEM_TITLE: CSSProperties = { display: 'block', fontSize: '0.875rem', fontWeight: 700 };
+const ITEM_DESC: CSSProperties = { display: 'block', fontSize: '0.71875rem', color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 };
+
 function SheetItem({ title, desc, onClick }: { title: string; desc: ReactNode; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} style={ITEM_STYLE}>
-      <span style={{ display: 'block', fontSize: '0.875rem', fontWeight: 700 }}>{title}</span>
-      <span style={{ display: 'block', fontSize: '0.71875rem', color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>{desc}</span>
+      <span style={ITEM_TITLE}>{title}</span>
+      <span style={ITEM_DESC}>{desc}</span>
     </button>
   );
 }
+
+// ── 영상 항목의 껍데기 ────────────────────────────────────────────────────────────────
+// 다른 셋과 **같은 상자**(ITEM_STYLE)를 쓰되 상자 자신은 버튼이 아니다 — 안에 [취소]·[저장]
+// 같은 버튼이 들어오는데 버튼 안에 버튼은 못 넣는다(HTML 이 금지하고, 화면리더도 못 읽는다).
+const VIDEO_BOX: CSSProperties = { ...ITEM_STYLE, cursor: 'default' };
+/** 상자 안의 머리 버튼 — 테두리·바탕은 상자가 이미 그렸으므로 여기서는 지운다. */
+const VIDEO_HEAD: CSSProperties = {
+  display: 'block',
+  width: '100%',
+  textAlign: 'left',
+  minHeight: 'var(--hit)',
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--text)',
+};
+const VIDEO_SIZES = [720, 1080] as const satisfies readonly VideoSize[];
+const SIZE_FIELDSET: CSSProperties = { display: 'flex', gap: 14, flexWrap: 'wrap', border: 'none', padding: 0, margin: '10px 0 0' };
+/** 라디오 한 칸 — 글자까지가 표적이라 `--hit` 하한은 라벨이 진다(§5.4). */
+const SIZE_LABEL: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  minHeight: 'var(--hit)',
+  fontSize: '0.8125rem',
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+const VIDEO_NOTE: CSSProperties = { margin: '6px 0 0', fontSize: '0.6875rem', color: 'var(--faint-text)', lineHeight: 1.5 };
+const VIDEO_STATUS_ROW: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 10 };
+/** 진행·완료 줄. 파일 이름이 길어도 상자를 밀어내지 않게 줄바꿈을 허용한다(`minWidth: 0`). */
+const VIDEO_STATUS_TEXT: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  margin: 0,
+  fontSize: '0.75rem',
+  color: 'var(--text)',
+  lineHeight: 1.5,
+  overflowWrap: 'anywhere',
+};

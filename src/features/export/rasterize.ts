@@ -18,7 +18,7 @@
 // 왜 `XMLSerializer`(살아 있는 DOM 직렬화)가 아닌가 · 왜 `<text>` 를 안 쓰는가 —
 // 근거는 `buildStaticSvg.ts` · `staticSceneLayout.ts` 머리말에 있다.
 import type { RenderFrame } from '../../model/playback.ts';
-import { buildStaticScene, type StaticSceneOpts } from './buildStaticSvg.ts';
+import { buildStaticScene, type StaticScene, type StaticSceneOpts } from './buildStaticSvg.ts';
 import type { SceneRef } from '../../model/zOrder.ts';
 import { canvasAlignFor, fontCssFor, textToOutputPx, type SceneMetrics, type TextPlacement } from './staticSceneLayout.ts';
 import { translate } from '../../i18n/useT.ts';
@@ -45,7 +45,9 @@ function loadImage(src: string, locale: Locale): Promise<HTMLImageElement> {
   });
 }
 
-async function waitForFonts(): Promise<void> {
+/** ⚠️ 영상(MP4) 경로는 이것을 **루프 앞에서 한 번만** 부른다(PLAN-VIDEO-EXPORT 결정 12).
+ *  프레임마다 부르면 300장이면 300번 기다리는 척을 한다 — 폰트는 한 번 오면 끝이다. */
+export async function waitForFonts(): Promise<void> {
   const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
   if (!fonts) return;
   await Promise.race([fonts.ready, new Promise<void>((r) => setTimeout(r, FONT_WAIT_MS))]);
@@ -63,6 +65,23 @@ export function paintTexts(ctx: CanvasRenderingContext2D, texts: readonly TextPl
     ctx.fillText(t.text, p.x, p.y);
   }
   ctx.globalAlpha = 1;
+}
+
+/** 장면 하나를 **이미 준비된 캔버스**에 옮겨 붓는다 — SVG 로드 → `drawImage` → 글자.
+ *  PNG 왕복이 없어 영상 루프가 프레임마다 이것만 부른다(PLAN-VIDEO-EXPORT 결정 12).
+ *
+ *  하지 않는 것 둘, 둘 다 호출부 몫이다:
+ *   ① **캔버스 크기를 건드리지 않는다.** 영상 캔버스는 짝수로 올린 크기라 metrics 와 다르고
+ *      (`videoCanvasSize`), 프레임마다 `width` 를 다시 넣으면 그 자체로 상태가 초기화된다.
+ *   ② **폰트를 기다리지 않는다.** 영상은 루프 앞에서 한 번만 기다린다(`waitForFonts`).
+ *  그리는 순서는 PNG 와 같다 — 도형을 먼저 그려야 글자가 칩 위에 얹힌다. */
+export async function paintSceneToCanvas(scene: StaticScene, canvas: HTMLCanvasElement, locale: Locale): Promise<void> {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error(translate(locale, 'export.canvasUnsupported'));
+  const { metrics } = scene;
+  const img = await loadImage(svgDataUri(scene.svg), locale);
+  ctx.drawImage(img, 0, 0, metrics.widthPx, metrics.heightPx);
+  paintTexts(ctx, scene.texts, metrics);
 }
 
 export interface RasterResult {
@@ -86,14 +105,10 @@ export async function rasterizeFrameToPng(
   const canvas = document.createElement('canvas');
   canvas.width = metrics.widthPx;
   canvas.height = metrics.heightPx;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error(translate(locale, 'export.canvasUnsupported'));
 
-  // 순서가 중요하다: 폰트 대기 → 도형 → 글자. 도형을 먼저 그려야 글자가 칩 위에 얹힌다.
+  // 순서가 중요하다: 폰트 대기 → (도형 → 글자). 도형을 먼저 그려야 글자가 칩 위에 얹힌다.
   await waitForFonts();
-  const img = await loadImage(svgDataUri(scene.svg), locale);
-  ctx.drawImage(img, 0, 0, metrics.widthPx, metrics.heightPx);
-  paintTexts(ctx, scene.texts, metrics);
+  await paintSceneToCanvas(scene, canvas, locale);
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error(translate(locale, 'export.blobFailed'));

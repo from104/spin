@@ -21,13 +21,22 @@ import type { NoteId } from '../../core/ids.ts';
 vi.mock('./rasterize.ts', () => ({
   rasterizeFrameToPng: vi.fn(async () => ({ blob: new Blob(['png'], { type: 'image/png' }), widthPx: 2048, heightPx: 1400 })),
 }));
+// 영상 엔진도 jsdom 에서 못 돈다(VideoEncoder·캔버스 없음 — 그 파일 머리말). 모킹해서 **시트가
+// 지는 계약**만 본다: 미지원 표시 · 엔진에 무엇을 넘기는가 · 저장은 클릭에서 · 끊기는가.
+// 실제 인코딩(치수·길이·프레임 수)은 헤드리스 크롬 검수와 실기 항목이다(PLAN-VIDEO-EXPORT §4).
+const { supportMock, encodeMock } = vi.hoisted(() => ({ supportMock: vi.fn(), encodeMock: vi.fn() }));
+vi.mock('./video/encodeDrillVideo.ts', () => ({
+  isVideoExportSupported: supportMock,
+  encodeDrillVideo: encodeMock,
+}));
 vi.mock('../../storage/files.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../storage/files.ts')>();
   return { ...actual, downloadBlob: vi.fn() };
 });
 
 import { ExportSheet } from './ExportSheet.tsx';
-import { backupFileName, sceneFileName } from './exportNames.ts';
+import { backupFileName, sceneFileName, videoFileName } from './exportNames.ts';
+import type { VideoExportHooks, VideoExportOpts, VideoExportResult } from './video/encodeDrillVideo.ts';
 import { rasterizeFrameToPng } from './rasterize.ts';
 import { downloadBlob } from '../../storage/files.ts';
 import { createDrill } from '../../model/defaults.ts';
@@ -111,15 +120,18 @@ describe('닫힌 시트는 예산에 0을 더한다', () => {
     renderSheet(true);
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/, /^링크로 공유/]) {
+    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/, /^영상 \(MP4\)/, /^링크로 공유/]) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     // 2026-08-20 — [기기 이사 파일 (JSON)] 항목은 설정 화면으로 옮겼다(SettingsScreen.test.tsx).
     expect(screen.queryByRole('button', { name: /기기 이사 파일/ })).toBeNull();
-    // 항목 3 + 닫기 1 = 4. 항목이 늘면 여기가 먼저 운다(§6.4 "큰 표적").
+    // 항목 4 + 닫기 1 = 5. 항목이 늘면 여기가 먼저 운다(§6.4 "큰 표적").
     // ⚠️ 2026-09-07: 2 → 3 (PLAN-SHARE-LINK 결정 11 의 [링크로 공유]). 옛 숫자를 지우지 않고
     //    적어 두는 이유는 이 단언의 뜻이 "항목이 몇 개냐" 가 아니라 **"몰래 늘지 않는다"** 라서다.
-    expect(screen.getAllByRole('button')).toHaveLength(4);
+    // ⚠️ 2026-09-08: 3 → 4 ([영상 (MP4)], PLAN-VIDEO-EXPORT). 영상은 상태를 갖는 항목이지만
+    //    **머리 버튼은 하나**다 — [취소]·[저장]·[다시] 는 그 단계에 들어가야 생긴다(여기는 idle).
+    //    크기 라디오는 role=radio 라 이 수에 안 든다.
+    expect(screen.getAllByRole('button')).toHaveLength(5);
   });
 });
 
@@ -307,7 +319,9 @@ describe('내보내기 범위', () => {
     // 대조군 — 스텝이 1장이면 범위 컨트롤이 아예 없다(보드에는 고를 것이 없다).
     cleanup();
     sheetOf(drillOf(1));
-    expect(screen.queryByRole('button', { name: /전체/ })).toBeNull();
+    // ⚠️ 2026-09-08: 패턴을 `/전체/` 에서 칩 문구 전체(`전체 N장`)로 좁혔다 — [영상] 항목의
+    //    설명("드릴 전체를 30fps…")이 느슨한 패턴에 걸려 이 단언이 거짓 실패를 냈다.
+    expect(screen.queryByRole('button', { name: /전체 \d+장/ })).toBeNull();
   });
 
   it('★ 사이드바 체크가 있으면 그것이 기본값이다', () => {
@@ -365,5 +379,125 @@ describe('내보내기 범위', () => {
     } finally {
       window.print = original;
     }
+  });
+});
+
+// ── 영상 (MP4) — 2026-09-08, PLAN-VIDEO-EXPORT 결정 2·5·7·9·10 ─────────────────────────
+// 시트가 지는 계약 넷만 본다(엔진은 위에서 모킹했다). 이 절을 지우면 새는 것: 미지원 기기에서
+// 사유를 못 듣고 누르는 헛수고, 영상만 다른 코트로 구워지는 사고(장면 옵션 드리프트), 인코딩이
+// 끝나자마자 저장해 iOS 공유 시트가 안 열리는 회귀, 시트를 닫아도 계속 도는 인코더.
+describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
+  const RESULT: VideoExportResult = {
+    blob: new Blob(['mp4'], { type: 'video/mp4' }),
+    bytes: 1234567,
+    frames: 90,
+    durationMs: 3000,
+    width: 1280,
+    height: 720,
+  };
+
+  beforeEach(() => {
+    supportMock.mockResolvedValue(true);
+    encodeMock.mockResolvedValue(RESULT);
+  });
+
+  /** 머리 버튼 — **미지원일 때도 DOM 에 남는다**(disabled 가 아니라 aria-disabled 라서). */
+  const head = () => screen.getByRole('button', { name: /^영상 \(MP4\)/ });
+  const describedText = () => document.getElementById(head().getAttribute('aria-describedby') ?? '')?.textContent ?? '';
+
+  it('미지원 브라우저: aria-disabled 이고 사유가 설명으로 걸리며, 눌러도 인코딩이 시작되지 않는다', async () => {
+    supportMock.mockResolvedValue(false);
+    render(<Harness />);
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('true'));
+    const reason = describedText();
+    await userEvent.click(head());
+    expect(encodeMock, '못 하는 기기에서 누르면 아무 일도 안 일어나야 한다').toHaveBeenCalledTimes(0);
+
+    // ★ 대조군 — 지원되는 기기에서는 같은 자리의 **설명이 달라진다.** 이 짝이 없으면 위 단언은
+    //   "설명이 늘 같은 글자" 여도 통과한다(사유를 안 갈아 끼우는 회귀를 못 잡는다).
+    cleanup();
+    supportMock.mockResolvedValue(true);
+    render(<Harness />);
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
+    expect(describedText()).not.toBe(reason);
+  });
+
+  it('720p 기본 · PNG 와 같은 장면 옵션 · 캡션 틀이 엔진으로 가고, 저장은 [저장] 클릭에서만 한다', async () => {
+    render(<Harness />);
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
+    expect(encodeMock).toHaveBeenCalledTimes(0); // 대조군 — 렌더만으로는 안 부른다
+
+    await userEvent.click(head());
+    await waitFor(() => expect(encodeMock).toHaveBeenCalledTimes(1));
+    const opts = encodeMock.mock.calls[0]![1] as VideoExportOpts;
+    expect(encodeMock.mock.calls[0]![0], '지금 판 그대로 간다').toBe(drill);
+    expect(opts.size, '열 때마다 720p 로 시작한다(결정 5 — 저장하지 않는다)').toBe(720);
+    // ★ 장면 옵션은 PNG 가 넘기는 것과 **같은 값**이어야 한다(결정 10). 한 칸이 갈리면 카톡으로
+    //   보낸 영상만 코트·진영이 다르다 — PNG 쪽에서 실제로 났던 사고들이다(bakeOne 주석).
+    expect(opts.scene).toMatchObject({
+      mode: 'full',
+      size: drill.courtSize,
+      defense: drill.defense,
+      showGrid: false,
+      showGridLabels: true,
+      showRuleZones: true,
+    });
+    expect(opts.caption?.title).toBe('자유 전술판');
+
+    // ★ 인코딩이 끝난 것만으로는 파일이 떨어지지 않는다 — iOS 공유 시트는 사용자 제스처
+    //   안에서만 열린다(결정 9).
+    const save = await screen.findByRole('button', { name: '저장' });
+    expect(downloadMock).toHaveBeenCalledTimes(0);
+    expect(screen.getByRole('status').textContent, '완료 줄은 파일 크기를 사람 단위로 읽어 준다').toMatch(/1\.2 MB/);
+
+    await userEvent.click(save);
+    expect(downloadMock).toHaveBeenCalledTimes(1);
+    const [blob, name] = downloadMock.mock.calls[0]!;
+    expect(blob.type).toBe('video/mp4');
+    expect(name).toBe(videoFileName(drill));
+    expect(name).toMatch(/\.mp4$/);
+  });
+
+  /** 끝나지 않는 인코딩 — signal 을 붙잡아 두고 abort 될 때만 취소로 끝난다. */
+  const hangingEncode = () => {
+    const box: { signal?: AbortSignal } = {};
+    encodeMock.mockImplementation(
+      (_d: unknown, _o: unknown, hooks: VideoExportHooks) =>
+        new Promise((_resolve, reject) => {
+          box.signal = hooks.signal;
+          hooks.onProgress?.(3, 90);
+          hooks.signal?.addEventListener('abort', () => reject(new DOMException('취소', 'AbortError')));
+        }),
+    );
+    return box;
+  };
+
+  it('[취소] 는 엔진에 준 signal 을 실제로 끊고, 화면은 다시 시작할 수 있는 자리로 돌아온다', async () => {
+    const box = hangingEncode();
+    render(<Harness />);
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
+    await userEvent.click(head());
+
+    const cancel = await screen.findByRole('button', { name: '취소' });
+    // 진행 줄은 엔진이 보고한 n/N 을 그대로 읽는다(결정 9) — 지어낸 숫자가 아니다.
+    expect(screen.getByRole('status').textContent).toMatch(/3\/90/);
+    expect(box.signal!.aborted, '대조군 — 누르기 전에는 안 끊겨 있다').toBe(false);
+
+    await userEvent.click(cancel);
+    expect(box.signal!.aborted).toBe(true);
+    // 취소는 오류가 아니다 — 머리 버튼이 다시 눌린다.
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
+  });
+
+  it('시트를 닫으면 인코딩을 끊는다 — 화면 없는 곳에서 계속 도는 인코더는 배터리·메모리만 먹는다', async () => {
+    const box = hangingEncode();
+    render(<Harness />);
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
+    await userEvent.click(head());
+    await waitFor(() => expect(box.signal).toBeTruthy());
+    expect(box.signal!.aborted).toBe(false); // 대조군
+
+    await userEvent.click(screen.getByRole('button', { name: '내보내기 닫기' }));
+    await waitFor(() => expect(box.signal!.aborted).toBe(true));
   });
 });

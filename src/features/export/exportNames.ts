@@ -5,6 +5,7 @@
 // 4.1 이 "파일 이름은 여기서 만들지 않았다(files.ts 는 4.3 소유). 4.7 이 조립해 downloadBlob 에
 // 넘겨라" 고 남긴 자리가 여기다.
 import { slugify, ymdLocal, SPIN_EXT } from '../../storage/files.ts';
+import type { Drill } from '../../model/drill.ts';
 
 /** 기기 이사 파일. 확장자 규약은 files.ts 의 `SPIN_EXT` 를 그대로 따른다.
  *
@@ -34,4 +35,16 @@ export function sceneZipName(title: string): string {
  *  캡션의 'n/N' 과는 여전히 짝이 맞는다 — 앞의 0 은 읽는 사람이 같은 숫자로 읽는다. */
 export function sceneFileName(title: string, stepIndex: number): string {
   return `SPIN_${slugify(title)}_${String(stepIndex + 1).padStart(2, '0')}.png`;
+}
+
+/** 드릴 한 편의 영상(2026-09-08, PLAN-VIDEO-EXPORT 결정 10). 스텝 번호가 없는 이유는 영상이
+ *  **언제나 드릴 전체**이기 때문이다(결정 8) — 낱장 PNG 와 달리 고를 범위가 없다.
+ *
+ *  확장자는 `.mp4` 로 못 박는다. 컨테이너가 MP4 고 코덱이 H.264 뿐이라(결정 2) 확장자가
+ *  어긋나면 카톡·사진첩이 파일을 영상으로 알아보지 못하고 그냥 첨부로 떨어진다.
+ *
+ *  드릴을 통째로 받는다(제목만 받지 않는다) — 부르는 쪽이 `drill.title` 을 꺼내다 다른 제목을
+ *  넘기는 사고를 막는다. 날짜는 기기 지역시(`ymdLocal`)라 PNG·백업 파일과 같은 날짜가 찍힌다. */
+export function videoFileName(drill: Pick<Drill, 'title'>, nowMs: number = Date.now()): string {
+  return `SPIN_${slugify(drill.title)}_${ymdLocal(nowMs)}.mp4`;
 }

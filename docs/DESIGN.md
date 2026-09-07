@@ -1874,6 +1874,17 @@ export const sameDrill = (a: Drill, b: Drill): boolean => {
 빈 칸을 요구하고, `renderPaths.test.ts` 가 표와 실제 소스를 대조한다(안 그리는 칸은 사유 필수).
 같은 누락 사고가 네 번 반복된 뒤에 세운 장치다 — 자세한 경위는 그 파일 머리말.
 
+**영상(MP4) 내보내기**(2026-09-08, `docs/PLAN-VIDEO-EXPORT.md`) — png 행을 그대로 쓴다. 새
+렌더 경로가 아니다. 파이프라인: `sampleDrill(drill, t, {baseMs, transitionMs, loop:false})` 로
+트윈 중간 프레임을 30fps 로 샘플링 → `buildStaticScene(frame, opts, order)` → SVG 데이터
+URI → `Image` → 캔버스 하나(재사용)에 `drawImage` + `paintTexts` → `CanvasSource` 에 순서대로
+넘겨 브라우저 내장 WebCodecs(H.264, `mediabunny` 로 MP4 컨테이너에 묶는다)가 인코딩한다. 도형·
+표시순서·캡션 글은 트윈 프레임에 없으므로 **도착 스텝**(`frame.stepIndex`) 기준으로 따로
+가져온다 — 시연 화면(PresentStage)이 정확히 같은 방식으로 채운다. 캡션 유무(제목·실명 roster)는
+인코딩 시작 전에 한 번 확정해 모든 프레임에 같은 높이(`captionH`)로 고정한다 — H.264 는 프레임마다
+치수가 바뀔 수 없다. 크기는 긴 변 기준 720p/1080p, 캔버스 치수는 짝수로 올림(H.264 yuv420p
+제약)하고 남는 1px 줄은 배경색으로 채운다.
+
 **파일명** — `.spin.<종류>.json` 삼중 확장자 (`storage/files.ts` 의 `SPIN_EXT`). 여전히 JSON 으로
 열리고, 목록에서 SPIN 파일임과 **그 종류**가 함께 보이며, 화면별 `accept`(`ACCEPT_LIBRARY` /
 `ACCEPT_BACKUP`)로 좁힐 수 있다:

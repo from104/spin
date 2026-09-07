@@ -59,9 +59,14 @@ export interface StaticSceneOpts {
    *  세므로(2026-08-15), 이 값을 안 넘기면 PNG 만 다른 팀을 붉게 칠한다. 생략하면
    *  `defaultDefense(mode)` 다 — 화면과 같은 폴백이라야 두 그림이 갈라지지 않는다. */
   defense?: TeamSide;
-  /** 1x = 긴 변 1024, 2x = 2048(계획서 §6.2 [A-10] 목표 해상도). 기본 2x —
-   *  인쇄물로 옮기는 것이 목적이라 화면 devicePixelRatio 가 아니라 출력 해상도를 기준으로 잡는다. */
-  resolution?: 1 | 2;
+  /** **긴 변 = 1024 × resolution**(px). 1x = 1024, 2x = 2048(계획서 §6.2 [A-10] 목표 해상도).
+   *  기본 2x — 인쇄물로 옮기는 것이 목적이라 화면 devicePixelRatio 가 아니라 출력 해상도를 기준으로 잡는다.
+   *
+   *  ⚠️ 2026-09-08 — 타입이 `1 | 2` 였다(PNG 는 1x·2x 두 배율만 골랐다). 영상(MP4)이 긴 변을
+   *  **1280(720p)·1920(1080p)** 으로 요구하면서 정수배가 아닌 배율이 필요해져 `number` 로 넓힌다
+   *  (PLAN-VIDEO-EXPORT 결정 5). PNG 쪽 두 배율은 그대로 살아 있다 — 넓힌 것뿐 뒤집은 것이 아니다.
+   *  값은 `videoResolution()`(video/videoMetrics.ts)이 긴 변에서 되계산한다. */
+  resolution?: number;
   /** 'black' = 카톡·밴드에 붙였을 때 둥근 모서리 바깥과 캡션 띠가 검정(기현 지시 2026-08-17,
    *  그 전에는 흰색이었다). 'transparent' = 문서에 겹치기용. 어느 쪽이든 캡션 글자는 흰색이다. */
   background?: 'black' | 'transparent';
@@ -128,6 +133,17 @@ const CAPTION_INK = { title: '#ffffff', sub: 'rgba(255,255,255,.72)' } as const;
 /** 투명 배경에서 캡션 띠에 까는 색. 메모 쪽지와 같은 먹색(colors.ts `NOTE_FILL` 근거 공유).
  *  검정 배경에서는 전면 검정 사각형이 이미 깔려 있어 띠를 따로 칠하지 않는다(buildStaticSvg). */
 export const CAPTION_BAND_FILL = '#0f1a14';
+
+/** 장면 **뒤에 깔리는 색**. 영상(MP4)은 알파가 없어 캔버스를 먼저 이 색으로 칠하고 그 위에 장면을
+ *  그린다 — 짝수 올림으로 남는 1px 줄도 이 색이다(PLAN-VIDEO-EXPORT 결정 5, `videoCanvasSize`).
+ *
+ *  'black' 은 buildStaticSvg 가 전면에 까는 검정과 같은 값이고, 'transparent' 는 영상에서
+ *  투명이 될 수 없으므로 캡션 띠와 같은 먹색으로 접는다 — 그래야 흰 캡션 글자가 읽힌다.
+ *  ⚠️ 검정 리터럴은 `buildStaticSvg.ts` 의 배경 사각형에도 있다(그 파일 소유). 둘이 갈라지면
+ *  1px 여백만 다른 색으로 남으므로, 그 값을 바꾸는 사람은 여기도 같이 바꾼다. */
+export function sceneBackdropFill(background: StaticSceneOpts['background']): string {
+  return (background ?? 'black') === 'black' ? '#000000' : CAPTION_BAND_FILL;
+}
 
 export interface SceneMetrics {
   /** 코트 viewBox. */

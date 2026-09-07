@@ -43,6 +43,8 @@
 //   · **굵기·크기** — 정본은 `render/CourtSurface.tsx` 의 `COURT_LINE_WEIGHTS`(§6.6 굵기표)다.
 //     편집 화면만 가는 선을 쓰는 것은 그 표가 정한 **설계**이지 드리프트가 아니다.
 //     (같은 이유로 인쇄만 진한 격자 잉크도 설계다 — `render/gridInk.ts`.)
+//
+// 영상(MP4)은 png 행을 그대로 쓴다 — buildStaticScene 재사용, 새 행 없음(2026-09-08, docs/PLAN-VIDEO-EXPORT.md)
 
 /** 코트를 그리는 화면. 새 경로가 생기면 여기에 더하고 아래 표의 행을 채운다. */
 export type RenderPathId = 'editor' | 'present' | 'png' | 'print' | 'thumbnail';

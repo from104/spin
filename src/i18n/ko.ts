@@ -981,6 +981,22 @@ export const ko = {
   'export.imageLoadFailed': '내보낼 그림을 만들지 못했습니다.',
   'export.canvasUnsupported': '이 브라우저에서는 그림으로 내보낼 수 없습니다.',
   'export.blobFailed': '그림 파일을 만들지 못했습니다.',
+  // 영상(MP4) — PLAN-VIDEO-EXPORT §2.1. `size720`·`size1080` 은 세 언어가 같은 글자다(숫자+p
+  // 는 번역하지 않는다) — 그래도 키를 두는 이유는 사전이 화면 문자열의 단일 출처라서다.
+  // 문구가 "언제나 드릴 전체" 라고 못박는 것은 결정 8 이다 — 위 범위 칩이 영상에는 안 걸린다.
+  'export.video.title': '영상 (MP4)',
+  'export.video.desc': '드릴 전체를 30fps 영상 한 편으로. 대화방에 그대로 올라갑니다.',
+  'export.video.size720': '720p',
+  'export.video.size1080': '1080p',
+  'export.video.wholeDrill': '영상은 언제나 드릴 전체입니다 — 위 범위 선택은 적용되지 않습니다.',
+  'export.video.progress': '{{done}}/{{total}} 프레임 · {{pct}}%',
+  'export.video.cancel': '취소',
+  'export.video.done': '{{name}} · {{size}}',
+  'export.video.save': '저장',
+  'export.video.retry': '다시',
+  'export.video.failed': '영상으로 내보내지 못했습니다.',
+  'export.video.unsupported': '이 브라우저는 영상 인코딩(H.264)을 지원하지 않습니다 — Chrome·Safari 에서 내보내세요.',
+  'export.video.cancelled': '영상 내보내기를 취소했습니다.',
 
   // ── C8b — 화살표 접근성 이름 ────────────────────────────────────────────────────────
   'arrow.label.wideName': '넓은 화살표',
