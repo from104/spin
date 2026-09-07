@@ -146,7 +146,11 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
   // 카드가 들고 있는 것은 요약(DrillSummary)뿐이라 **본문을 읽어 와야** 링크를 만들 수 있다
   // (요약에는 스텝·개체가 없다). 저장소 접근은 화면 몫이라 카드가 아니라 여기서 한다 —
   // DrillCard 의 onShareLink 가 옵셔널인 이유가 이것이다.
-  const [shareDrill, setShareDrill] = useState<Drill | null>(null);
+  // ⚠️ 모달에 넘기는 문서는 **state 에 든 그 객체**다(ShareLinkModal props 주석) — 렌더마다
+  //    `{ kind: 'drill', drill }` 을 새로 지어 넘기면 모달의 effect 가 링크를 무한히 새로 만든다.
+  //    종류 리터럴을 여기서 박는 이유: 이 화면이 만드는 링크는 드릴뿐이고(세션은 SessionsScreen),
+  //    `src/share` 의 유니온을 import 하지 않아도 그 한 갈래에는 대입된다(머리말 §8 의존 표).
+  const [shareDoc, setShareDoc] = useState<{ kind: 'drill'; drill: Drill } | null>(null);
   const requestShareLink = async (d: DrillSummary) => {
     const { repo } = await resolveDrillRepo();
     const full = await repo.getDrill(d.id);
@@ -154,7 +158,7 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
       toast.show(t('library.transfer.drillNotFoundError'));
       return;
     }
-    setShareDrill(full);
+    setShareDoc({ kind: 'drill', drill: full });
   };
 
   // 시트를 닫으면 주소를 라이브러리로 되돌린다. `history.replaceState` 를 직접 부르지 않는 이유:
@@ -332,7 +336,7 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
         />
       )}
 
-      <ShareLinkModal open={shareDrill !== null} drill={shareDrill} onClose={() => setShareDrill(null)} />
+      <ShareLinkModal open={shareDoc !== null} doc={shareDoc} onClose={() => setShareDoc(null)} />
 
       {/* `/s/:id` 착지(결정 9) — 새 화면 없이 이 화면 위에 시트가 뜬다. 저장은 파일 가져오기와
           같은 관문을 타므로 여기서는 목록 갱신과 보고만 한다. */}
@@ -345,6 +349,16 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
             await refresh();
             toast.show(t('library.import.saved', { title: drill.title }));
             closeShareImport();
+          }}
+          // S4·S5(2026-09-08) — 세션 링크는 "드릴 N개 + 세션 1개" 를 보고하고 **세션 화면**으로 간다.
+          // 드릴 목록(refresh)도 갱신한다: 세션이 데려온 드릴은 드릴 탭에도 들어왔다. 이동은 드릴
+          // 갈래와 같은 `goLibrary` 통로다 — 착지(`/s/:id`) 위에서 이 호출은 push 가 아니라 교체다
+          // (AppShell 의 goLibrary 어댑터, 2026-09-07 검수 ⑥의 세션판).
+          onSavedSession={async ({ drills }) => {
+            await refresh();
+            toast.show(t('library.import.session.saved', { drills }));
+            nav.goLibrary({ tab: 'sessions' });
+            mainRef.current?.focus();
           }}
           returnFocusRef={mainRef}
         />

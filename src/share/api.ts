@@ -10,7 +10,7 @@
 // crypto.ts 의 일이고, 여기는 바이트 뭉치를 나르기만 한다.
 //
 // ── 서버 계약 (PLAN-SHARE-LINK 결정 4) ─────────────────────────────────
-//   POST   <base>        content-type: application/octet-stream, 본문 = 암호문 (≤ 64 KiB)
+//   POST   <base>        content-type: application/octet-stream, 본문 = 암호문 (≤ 256 KiB)
 //                        → 201 { id, deleteToken, expiresAt }
 //   GET    <base>/:id    → 200 application/octet-stream (암호문), no-store
 //   DELETE <base>/:id    Authorization: Bearer <deleteToken> → 204
@@ -21,7 +21,7 @@
 //   'bad-key'      복호 실패(AES-GCM 태그 불일치 = 링크의 `#` 뒤가 잘렸거나 다른 키) · DELETE 403.
 //   'too-new'      봉투/문서 스키마가 이 앱보다 새롭다(E_SCHEMA_TOO_NEW · migrate 'too-new').
 //   'network'      fetch 자체가 실패했거나 서버가 알 수 없는 상태를 냈다.
-//   'too-large'    413(올리기) · 펴는 중 1 MiB 초과(압축 폭탄, 결정 5).
+//   'too-large'    413(올리기) · 펴는 중 4 MiB 초과(압축 폭탄, 결정 5).
 //   'rate-limited' 429. 잠시 뒤 다시.
 //   'invalid'      링크 꼴이 아니거나, 펴 보니 SPIN 드릴 봉투가 아니거나, 검증에서 떨어졌다.
 // 화면에 보일 문구 4종으로의 사상은 `index.ts` 의 `SHARE_NOTICE_BY_KIND` 가 쥔다(결정 10).
@@ -60,8 +60,14 @@ export function isShareError(e: unknown): e is ShareError {
   return e instanceof ShareError;
 }
 
-/** 서버 본문 상한(결정 4·6). 클라이언트가 먼저 걸러 413 왕복을 아낀다. */
-export const SHARE_MAX_CIPHERTEXT_BYTES = 64 * 1024;
+/** 서버 본문 상한(결정 4·6). 클라이언트가 먼저 걸러 413 왕복을 아낀다.
+ *
+ *  ⚠️ **서버의 `SHARE_MAX_BYTES` 와 같은 값이어야 한다**(server/share/README.md 표 · Apache 조각의
+ *  `LimitRequestBody`). 여기가 더 크면 사용자는 다 만들고 나서 413 을 보고, 여기가 더 작으면
+ *  서버가 받아 줄 문서를 앱이 미리 거절한다.
+ *  ── ⚠️ 2026-09-08: 64 KiB → 256 KiB (PLAN-SHARE-LINK 결정 S3) — 세션 링크는 드릴 N개를 싣는다.
+ *     10드릴 세션이 20~30 KB 라 64 KiB 는 20드릴을 못 넘겼다. */
+export const SHARE_MAX_CIPHERTEXT_BYTES = 256 * 1024;
 
 /** 기준 주소. 기본은 **같은 출처 상대 경로**라 앱이 어느 도메인에 올라가도 자기 서버를 부른다
  *  (결정 3 도메인 독립). 뒤 슬래시는 붙어 있어도 지운다 — `${base}/${id}` 가 `//` 를 만들면
@@ -100,7 +106,7 @@ function errorForStatus(status: number): ShareError {
 }
 
 export async function uploadCiphertext(bytes: ShareBytes): Promise<ShareUploadResult> {
-  // 서버가 413 을 내기 전에 여기서 끊는다 — 64 KiB 를 넘는 드릴은 링크로 나갈 수 없다는
+  // 서버가 413 을 내기 전에 여기서 끊는다 — 상한을 넘는 문서는 링크로 나갈 수 없다는
   // 사실을 왕복 없이 즉시 알려야 공유 시트가 다른 길(파일 내보내기)을 권할 수 있다.
   if (bytes.byteLength > SHARE_MAX_CIPHERTEXT_BYTES) throw new ShareError('too-large');
   const res = await call(shareApiBase(), {
@@ -137,9 +143,9 @@ export async function fetchCiphertext(id: string): Promise<ShareBytes> {
     cache: 'no-store',
   });
   if (!res.ok) throw errorForStatus(res.status);
-  // ⚠️ 받는 쪽도 상한을 건다(2026-09-07 검수). 우리 서버는 64 KiB 넘는 항목을 만들지 않지만, 이
+  // ⚠️ 받는 쪽도 상한을 건다(2026-09-07 검수). 우리 서버는 상한 넘는 항목을 만들지 않지만, 이
   //    200 응답이 우리 서버의 것이라는 보장이 없다(캡티브 포털·잘못 붙은 프록시가 HTML 을 얹는다).
-  //    복호·펴기 **전에** 세어 넘으면 끊는다 — codec 의 펴기 상한(1 MiB)은 그 뒤의 일이라 여기를
+  //    복호·펴기 **전에** 세어 넘으면 끊는다 — codec 의 펴기 상한(4 MiB)은 그 뒤의 일이라 여기를
   //    못 지킨다. 선언된 길이가 있으면 읽기 전에, 없으면 청크마다 센다.
   const declared = Number(res.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > SHARE_MAX_CIPHERTEXT_BYTES) throw new ShareError('too-large', { status: res.status });

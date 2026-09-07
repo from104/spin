@@ -222,8 +222,11 @@ function useHomeNavAdapter(nav: AppHistoryApi, openNewDrill: () => void): HomeNa
         // push 면 브라우저 뒤로가기가 열쇠 없는 `/s/:id` 로 되돌아가 정상 링크였는데도 "열쇠가
         // 맞지 않음" 을 띄운다(useShareLanding 이 열쇠를 주소에서 지웠으므로). back() 은 in-app
         // 이력이 없으면(메신저에서 바로 착지) 교체라, 뒤로가기가 앱 밖 원래 자리로 간다.
-        if (nav.target?.kind === 'share' && !target) {
-          nav.back('drills');
+        // 2026-09-08(PLAN-SHARE-LINK §6 S5): 세션 링크를 저장한 뒤의 목적지는 세션 화면이다 —
+        // 그 이동도 착지 위에서는 같은 이유로 **교체**다. 탭 목적지를 이 분기 밖으로 흘리면
+        // `goLibrary({ tab: 'sessions' })` 가 push 가 되어 위 버그가 세션 경로로 되살아난다.
+        if (nav.target?.kind === 'share') {
+          nav.back(target?.kind === 'tab' && target.tab === 'sessions' ? 'sessions' : 'drills');
           return;
         }
         nav.go('drills', target);

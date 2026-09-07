@@ -21,7 +21,7 @@
 <h2>제1조 (목적과 적용 범위)</h2>
 <ol>
   <li>이 방침은 개인 개발자 서기현(이하 "운영자")이 만든 파워체어풋볼 전술판·훈련 관리 앱 SPIN(웹 <a href="https://spin.atit.app">spin.atit.app</a> 및 데스크톱 앱, 이하 "앱")에 적용됩니다.</li>
-  <li>SPIN은 이용자의 데이터를 이용자의 기기 안에 저장합니다. 운영자는 이용자 데이터를 모아 두는 서버를 운영하지 않습니다. 유일한 예외는 이용자가 직접 만드는 공유 링크로, 이때에도 서버에 올라가는 것은 <strong>브라우저에서 이미 암호로 잠긴 드릴</strong>뿐이며 운영자는 그 내용을 볼 수 없습니다(제10조).</li>
+  <li>SPIN은 이용자의 데이터를 이용자의 기기 안에 저장합니다. 운영자는 이용자 데이터를 모아 두는 서버를 운영하지 않습니다. 유일한 예외는 이용자가 직접 만드는 공유 링크로, 이때에도 서버에 올라가는 것은 <strong>브라우저에서 이미 암호로 잠긴 드릴 또는 훈련 세션</strong>뿐이며 운영자는 그 내용을 볼 수 없습니다(제10조).</li>
   <li>이 방침에 적지 않은 수집·전송은 하지 않습니다.</li>
 </ol>
 
@@ -33,7 +33,7 @@
   <li>드릴·훈련 세션·팀 명단은 이용자 기기 안에 저장됩니다.</li>
   <li>구글 드라이브 동기화는 기본 꺼짐입니다. 켜기 전에는 구글에 한 번도 접속하지 않습니다.</li>
   <li>켜면 이용자 본인 구글 드라이브의 앱 전용 숨김 폴더에만 올라갑니다. 운영자는 그 파일을 볼 수 없습니다.</li>
-  <li>공유 링크를 만들면 드릴이 기기에서 잠긴 뒤 암호문만 서버에 올라갑니다. 열쇠는 링크에만 있고, 180일 뒤 지워집니다.</li>
+  <li>공유 링크를 만들면 드릴 또는 훈련 세션이 기기에서 잠긴 뒤 암호문만 서버에 올라갑니다. 열쇠는 링크에만 있고, 180일 뒤 지워집니다.</li>
 </ul>
 
 <h2>제3조 (처리하는 개인정보 항목과 수집 방법)</h2>
@@ -120,13 +120,13 @@
 
 <h2>제10조 (공유 링크)</h2>
 <ol>
-  <li><strong>어떤 기능인가:</strong> 드릴 하나를 링크 한 줄로 다른 사람에게 보내는 기능입니다. 이용자가 [링크로 공유]를 누른 그 드릴에 대해서만 동작하며, 누르지 않으면 아무것도 올라가지 않습니다.</li>
-  <li><strong>올라가는 것:</strong> 이용자의 브라우저가 그 드릴을 <strong>먼저 암호로 잠그고, 잠긴 결과(암호문)만</strong> 운영자 서버로 올립니다. 여는 열쇠는 링크의 <code>#</code> 뒤에만 있으며, 주소의 이 부분은 웹 표준상 서버로 전송되지 않습니다. 공유할 때 선수 이름과 팀 이름은 빼고 보냅니다(등번호·역할·GK 여부는 남습니다).</li>
+  <li><strong>어떤 기능인가:</strong> 드릴 하나, 또는 훈련 세션 하나(그 세션이 쓰는 드릴들과 함께)를 링크 한 줄로 다른 사람에게 보내는 기능입니다. 이용자가 [링크로 공유]를 누른 그 드릴·세션에 대해서만 동작하며, 누르지 않으면 아무것도 올라가지 않습니다.</li>
+  <li><strong>올라가는 것:</strong> 이용자의 브라우저가 그 드릴·세션을 <strong>먼저 암호로 잠그고, 잠긴 결과(암호문)만</strong> 운영자 서버로 올립니다. 여는 열쇠는 링크의 <code>#</code> 뒤에만 있으며, 주소의 이 부분은 웹 표준상 서버로 전송되지 않습니다. 공유할 때 선수 이름과 팀 이름은 빼고 보냅니다(등번호·역할·GK 여부는 남습니다). 훈련 세션을 공유할 때는 <strong>참가자 명단도 빼고</strong> 보내며, 세션의 장소와 메모는 함께 올라갑니다.</li>
   <li><strong>서버가 보관하는 것:</strong> 암호문, 그 크기, 링크 id, 만든 시각과 마지막 열람 시각, 그리고 삭제용 열쇠의 확인값(해시 — 열쇠 원문은 링크를 만든 기기에만 있습니다)입니다. 남용을 막는 속도 제한을 위해 접속 IP 주소를 잠시 <strong>메모리에만</strong> 두며, 디스크에 기록하지 않고 서버를 다시 시작하면 사라집니다.</li>
-  <li><strong>운영자도 내용을 볼 수 없습니다.</strong> 열쇠가 서버에 없으므로 운영자는 올라온 드릴의 제목·배치·메모를 열어 볼 수 없습니다. 계정이 없으므로 누가 만들었는지도 알지 못합니다.</li>
+  <li><strong>운영자도 내용을 볼 수 없습니다.</strong> 열쇠가 서버에 없으므로 운영자는 올라온 드릴·세션의 제목·배치·메모를 열어 볼 수 없습니다. 계정이 없으므로 누가 만들었는지도 알지 못합니다.</li>
   <li><strong>보관 기간:</strong> 마지막으로 열린 때부터 180일이 지나면 자동으로 삭제됩니다. 그 뒤에는 링크가 열리지 않습니다.</li>
   <li><strong>삭제 요청:</strong> 링크를 만든 기기에는 그 링크의 삭제용 열쇠가 함께 저장됩니다(제3조 3-5). 링크의 id(주소에서 <code>/s/</code> 뒤 부분)를 적어 <a href="mailto:from104@gmail.com">from104@gmail.com</a> 으로 요청하시면 확인 뒤 지웁니다.</li>
-  <li><strong>링크를 받은 사람은 누구나 열 수 있습니다.</strong> 열쇠가 링크 안에 들어 있으므로, 링크가 다른 사람에게 전달되면 그 사람도 드릴을 볼 수 있습니다. 공개된 곳에 붙이지 마시고, 필요 없어지면 삭제를 요청하십시오.</li>
+  <li><strong>링크를 받은 사람은 누구나 열 수 있습니다.</strong> 열쇠가 링크 안에 들어 있으므로, 링크가 다른 사람에게 전달되면 그 사람도 그 드릴·세션을 볼 수 있습니다. 공개된 곳에 붙이지 마시고, 필요 없어지면 삭제를 요청하십시오.</li>
 </ol>
 
 <h2>제11조 (정보주체의 권리와 행사 방법)</h2>
@@ -216,7 +216,7 @@
 <h2>Article 1 (Purpose and Scope)</h2>
 <ol>
   <li>This policy applies to SPIN, a powerchair football tactics-board and training app made by Seo Kihyun ("the operator"), covering the web app at <a href="https://spin.atit.app">spin.atit.app</a> and the desktop app ("the app").</li>
-  <li>SPIN stores your data on your own device. The operator runs no server that collects user data. The single exception is a share link you create yourself: even then, all that reaches the server is <strong>a drill already encrypted in your browser</strong>, whose contents the operator cannot see (Article 10).</li>
+  <li>SPIN stores your data on your own device. The operator runs no server that collects user data. The single exception is a share link you create yourself: even then, all that reaches the server is <strong>a drill or training session already encrypted in your browser</strong>, whose contents the operator cannot see (Article 10).</li>
   <li>Nothing is collected or transmitted beyond what this policy states.</li>
 </ol>
 
@@ -228,7 +228,7 @@
   <li>Drills, training sessions, and rosters are stored on your device.</li>
   <li>Google Drive sync is off by default. Until you turn it on, the app never contacts Google.</li>
   <li>When on, files go only to the hidden app-specific folder of your own Google Drive. The operator cannot see them.</li>
-  <li>Creating a share link encrypts the drill on your device and uploads only the ciphertext. The key lives in the link alone, and the upload is deleted after 180 days.</li>
+  <li>Creating a share link encrypts the drill or training session on your device and uploads only the ciphertext. The key lives in the link alone, and the upload is deleted after 180 days.</li>
 </ul>
 
 <h2>Article 3 (Data Processed and How It Is Collected)</h2>
@@ -313,13 +313,13 @@
 
 <h2>Article 10 (Share Links)</h2>
 <ol>
-  <li><strong>What it does:</strong> sends a single drill to someone else as one link. It runs only for the drill you press [Share link] on; if you never press it, nothing is uploaded.</li>
-  <li><strong>What is uploaded:</strong> your browser <strong>encrypts the drill first and uploads only the encrypted result</strong> to the operator's server. The key that opens it lives only after the <code>#</code> in the link, and by web standards that part of an address is never sent to a server. Player names and team names are stripped before sharing (numbers, roles, and goalkeeper status remain).</li>
+  <li><strong>What it does:</strong> sends a single drill — or a single training session, together with the drills it uses — to someone else as one link. It runs only for the drill or session you press [Share link] on; if you never press it, nothing is uploaded.</li>
+  <li><strong>What is uploaded:</strong> your browser <strong>encrypts the drill or session first and uploads only the encrypted result</strong> to the operator's server. The key that opens it lives only after the <code>#</code> in the link, and by web standards that part of an address is never sent to a server. Player names and team names are stripped before sharing (numbers, roles, and goalkeeper status remain). When a training session is shared its <strong>participant list is stripped as well</strong>; the session’s venue and notes are uploaded with it.</li>
   <li><strong>What the server keeps:</strong> the ciphertext, its size, the link id, the times it was created and last opened, and a hash of the deletion key (the key itself stays only on the device that created the link). To rate-limit abuse the requesting IP address is held <strong>in memory only</strong> for a short while; it is never written to disk and disappears when the server restarts.</li>
-  <li><strong>The operator cannot see the contents either.</strong> The server has no key, so the operator cannot open the title, layout, or notes of an uploaded drill. There are no accounts, so who created a link is not known either.</li>
+  <li><strong>The operator cannot see the contents either.</strong> The server has no key, so the operator cannot open the title, layout, or notes of an uploaded drill or session. There are no accounts, so who created a link is not known either.</li>
   <li><strong>Retention:</strong> a link is deleted automatically 180 days after it was last opened, and stops working from then on.</li>
   <li><strong>Deletion requests:</strong> the device that created the link also stores that link's deletion key (Article 3, item 3-5). Write to <a href="mailto:from104@gmail.com">from104@gmail.com</a> with the link id (the part after <code>/s/</code> in the address) and it will be deleted after verification.</li>
-  <li><strong>Anyone holding the link can open it.</strong> The key is inside the link, so whoever it is forwarded to can also see the drill. Do not post it publicly, and ask for deletion once you no longer need it.</li>
+  <li><strong>Anyone holding the link can open it.</strong> The key is inside the link, so whoever it is forwarded to can also see that drill or session. Do not post it publicly, and ask for deletion once you no longer need it.</li>
 </ol>
 
 <h2>Article 11 (Your Rights and How to Exercise Them)</h2>
@@ -409,7 +409,7 @@
 <h2>第1条（目的と適用範囲）</h2>
 <ol>
   <li>本ポリシーは、個人開発者であるソ・ギヒョン（Seo Kihyun）（以下「運営者」）が制作したパワーチェアフットボール用の戦術ボード・練習管理アプリ SPIN（ウェブ版 <a href="https://spin.atit.app">spin.atit.app</a> およびデスクトップ版、以下「本アプリ」）に適用されます。</li>
-  <li>SPIN は利用者のデータを利用者の端末内に保存します。運営者は利用者データを集めるサーバーを運用していません。唯一の例外は利用者ご自身が作成する共有リンクで、その場合もサーバーへ渡るのは<strong>ブラウザで既に暗号化されたドリル</strong>のみであり、運営者はその内容を見ることができません（第10条）。</li>
+  <li>SPIN は利用者のデータを利用者の端末内に保存します。運営者は利用者データを集めるサーバーを運用していません。唯一の例外は利用者ご自身が作成する共有リンクで、その場合もサーバーへ渡るのは<strong>ブラウザで既に暗号化されたドリルまたは練習セッション</strong>のみであり、運営者はその内容を見ることができません（第10条）。</li>
   <li>本ポリシーに記載のない収集・送信は行いません。</li>
 </ol>
 
@@ -421,7 +421,7 @@
   <li>ドリル・練習セッション・選手名簿は端末内に保存されます。</li>
   <li>Google ドライブ同期は初期状態でオフです。オンにするまで Google に一度も接続しません。</li>
   <li>オンにすると、利用者ご自身の Google ドライブのアプリ専用非表示フォルダにのみ保存されます。運営者はそのファイルを見ることができません。</li>
-  <li>共有リンクを作成すると、ドリルは端末内で暗号化され、暗号文のみがサーバーへ上がります。鍵はリンクの中だけにあり、180日後に削除されます。</li>
+  <li>共有リンクを作成すると、ドリルまたは練習セッションは端末内で暗号化され、暗号文のみがサーバーへ上がります。鍵はリンクの中だけにあり、180日後に削除されます。</li>
 </ul>
 
 <h2>第3条（取り扱う情報の項目と取得方法）</h2>
@@ -507,13 +507,13 @@
 
 <h2>第10条（共有リンク）</h2>
 <ol>
-  <li><strong>どのような機能か:</strong> ドリル1件をリンク1行で他の人に送る機能です。利用者が［リンクで共有］を押したドリルについてのみ動作し、押さなければ何もアップロードされません。</li>
-  <li><strong>アップロードされるもの:</strong> 利用者のブラウザが<strong>先にドリルを暗号化し、暗号化された結果のみ</strong>を運営者のサーバーへアップロードします。開くための鍵はリンクの <code>#</code> 以降にのみ存在し、アドレスのこの部分はウェブ標準上サーバーへ送信されません。共有時には選手名とチーム名を除いて送ります（背番号・役割・GK かどうかは残ります）。</li>
+  <li><strong>どのような機能か:</strong> ドリル1件、または練習セッション1件（そのセッションが使うドリルと一緒に）をリンク1行で他の人に送る機能です。利用者が［リンクで共有］を押したドリル・セッションについてのみ動作し、押さなければ何もアップロードされません。</li>
+  <li><strong>アップロードされるもの:</strong> 利用者のブラウザが<strong>先にそのドリル・セッションを暗号化し、暗号化された結果のみ</strong>を運営者のサーバーへアップロードします。開くための鍵はリンクの <code>#</code> 以降にのみ存在し、アドレスのこの部分はウェブ標準上サーバーへ送信されません。共有時には選手名とチーム名を除いて送ります（背番号・役割・GK かどうかは残ります）。練習セッションを共有する際は<strong>参加者名簿も除いて</strong>送ります。セッションの場所とメモは一緒にアップロードされます。</li>
   <li><strong>サーバーが保管するもの:</strong> 暗号文、その大きさ、リンク id、作成時刻と最終閲覧時刻、および削除用の鍵の検証値（ハッシュ — 鍵そのものはリンクを作成した端末にのみあります）です。濫用を防ぐ速度制限のため、接続元の IP アドレスを短時間<strong>メモリ上にのみ</strong>保持します。ディスクには記録せず、サーバーを再起動すると消えます。</li>
-  <li><strong>運営者も内容を見ることができません。</strong> サーバーに鍵がないため、運営者はアップロードされたドリルのタイトル・配置・メモを開けません。アカウントがないため、誰が作成したかも分かりません。</li>
+  <li><strong>運営者も内容を見ることができません。</strong> サーバーに鍵がないため、運営者はアップロードされたドリル・セッションのタイトル・配置・メモを開けません。アカウントがないため、誰が作成したかも分かりません。</li>
   <li><strong>保管期間:</strong> 最後に開かれた時から180日が過ぎると自動的に削除され、それ以降はリンクが開けなくなります。</li>
   <li><strong>削除の請求:</strong> リンクを作成した端末には、そのリンクの削除用の鍵が併せて保存されます（第3条 3-5）。リンクの id（アドレスの <code>/s/</code> 以降）を添えて <a href="mailto:from104@gmail.com">from104@gmail.com</a> までご請求いただければ、確認のうえ削除します。</li>
-  <li><strong>リンクを受け取った人は誰でも開けます。</strong> 鍵がリンクの中にあるため、リンクが転送されればその相手もドリルを見られます。公開の場に貼らず、不要になったら削除をご請求ください。</li>
+  <li><strong>リンクを受け取った人は誰でも開けます。</strong> 鍵がリンクの中にあるため、リンクが転送されればその相手もそのドリル・セッションを見られます。公開の場に貼らず、不要になったら削除をご請求ください。</li>
 </ol>
 
 <h2>第11条（利用者の権利と行使方法）</h2>

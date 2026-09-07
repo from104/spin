@@ -13,7 +13,7 @@
 //   ③ 이 표는 지울 수 있는 캐시다. 날아가도 앱은 멀쩡하고, 잃는 것은 "일찍 지울 권리" 뿐이다.
 //
 // ⚠️ 값은 **비밀**이다. 로그·토스트·오류 문구에 토큰을 싣지 마라(모달도 링크만 보여 준다).
-import type { DrillId } from '../core/ids.ts';
+import type { DrillId, SessionId } from '../core/ids.ts';
 
 /** localStorage 키. 이 앱이 localStorage 에 쓰는 세 번째 키다(spin.prefs · spin.board 다음). */
 export const SHARE_LINKS_KEY = 'spin.shareLinks';
@@ -29,8 +29,15 @@ export interface ShareLinkRecord {
   deleteToken: string;
   createdAt: number;
   /** 어느 드릴로 만든 링크인가 — 회수 UI 가 "무슨 링크였지" 를 말해 줄 유일한 실마리다.
-   *  드릴이 지워져도 이 줄은 남는다(서버의 암호문은 드릴 삭제와 무관하게 살아 있으므로). */
-  drillId: DrillId;
+   *  드릴이 지워져도 이 줄은 남는다(서버의 암호문은 드릴 삭제와 무관하게 살아 있으므로).
+   *
+   *  ── ⚠️ 2026-09-08: 필수 → 옵셔널, 옆에 `sessionId` (PLAN-SHARE-LINK §6 세션 공유 검수) ──
+   *  세션 링크가 생기면서 «무슨 링크였지» 의 답이 둘이 됐다. 세션 id 를 이 칸에 밀어 넣지
+   *  않는 이유: 회수 UI 가 그 값으로 드릴을 찾으면 없는 드릴을 답한다. 그렇다고 세션 링크의
+   *  토큰을 **안 남기면** 장소·메모가 실린 쪽(세션)만 만료 전에 못 지운다 — 지울 권리가 가장
+   *  필요한 쪽이다. 둘 중 정확히 하나가 있다(둘 다 없는 줄은 loadShareLinks 가 버린다). */
+  drillId?: DrillId;
+  sessionId?: SessionId;
 }
 
 /** id → 기록. id 는 `[0-9A-Za-z]{10}`(share/link.ts 의 SHARE_ID_RE)이다. */
@@ -39,7 +46,9 @@ export type ShareLinkMap = Record<string, ShareLinkRecord>;
 function isRecord(v: unknown): v is ShareLinkRecord {
   if (typeof v !== 'object' || v === null) return false;
   const r = v as Partial<ShareLinkRecord>;
-  return typeof r.deleteToken === 'string' && r.deleteToken.length > 0 && typeof r.createdAt === 'number' && typeof r.drillId === 'string';
+  if (typeof r.deleteToken !== 'string' || r.deleteToken.length === 0 || typeof r.createdAt !== 'number') return false;
+  // 정확히 하나 — 둘 다 있으면 어느 쪽으로 만든 링크인지 알 수 없고, 둘 다 없으면 실마리가 없다.
+  return (typeof r.drillId === 'string') !== (typeof r.sessionId === 'string');
 }
 
 /** 절대 throw 하지 않는다 — prefs.loadPrefs 와 같은 규율이다. 프라이빗 모드·손상된 JSON·
@@ -55,7 +64,14 @@ export function loadShareLinks(): ShareLinkMap {
   if (typeof raw !== 'object' || raw === null) return {};
   const out: ShareLinkMap = {};
   for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (isRecord(v)) out[id] = { deleteToken: v.deleteToken, createdAt: v.createdAt, drillId: v.drillId };
+    if (isRecord(v)) {
+      out[id] = {
+        deleteToken: v.deleteToken,
+        createdAt: v.createdAt,
+        ...(v.drillId !== undefined ? { drillId: v.drillId } : {}),
+        ...(v.sessionId !== undefined ? { sessionId: v.sessionId } : {}),
+      };
+    }
   }
   return out;
 }

@@ -22,6 +22,10 @@ import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { createDrill } from '../../model/defaults.ts';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import type { Drill } from '../../model/drill.ts';
+import { CURRENT_SESSION_SCHEMA, flattenSessionItems } from '../../model/session.ts';
+import type { TrainingSession } from '../../model/session.ts';
+import { deleteSession, getSession, listSessions, putSession } from '../../storage/sessionRepo.ts';
+import type { SharedDoc } from '../../share/index.ts';
 
 /** 서버 대신 쓰는 메모리 한 칸. `createShareLink` 가 올린 바이트를 그대로 `fetchCiphertext` 가
  *  돌려준다 — 이 앱이 서버에 요구하는 계약(올린 것을 바이트 그대로)의 최소 모형이다. */
@@ -48,18 +52,41 @@ vi.mock('../../share/api.ts', async (importOriginal) => {
 
 const wrapper = ({ children }: { children: ReactNode }) => <SettingsProvider>{children}</SettingsProvider>;
 
-/** 진짜 만들기 경로로 링크를 하나 만든다(목은 서버 왕복뿐이다). */
-async function publish(drill: Drill): Promise<{ id: string; keyB64: string }> {
+/** 진짜 만들기 경로로 링크를 하나 만든다(목은 서버 왕복뿐이다). 드릴이든 세션이든 같은 문이다
+ *  (S5 — 링크 꼴은 하나이고 종류는 봉투가 말한다). */
+async function publish(doc: SharedDoc): Promise<{ id: string; keyB64: string }> {
   const { createShareLink } = await import('../../share/index.ts');
-  const made = await createShareLink(drill, 'https://spin.example');
+  const made = await createShareLink(doc, 'https://spin.example');
   const [, keyB64] = made.link.split('#');
   return { id: made.id, keyB64: keyB64! };
+}
+
+const asDrill = (drill: Drill): SharedDoc => ({ kind: 'drill', drill });
+
+/** 구획 2개에 드릴을 나눠 담은 세션. **구간 수와 드릴 수를 일부러 다르게** 둔다(2 vs 3) —
+ *  같으면 미리보기가 둘을 맞바꿔 세도 초록이다. */
+function sessionOf(drills: Drill[]): TrainingSession {
+  const item = (d: Drill, i: number) => ({ id: `it_${i}` as never, drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType });
+  return {
+    schemaVersion: CURRENT_SESSION_SCHEMA,
+    id: 'se_shared_x' as TrainingSession['id'],
+    title: '금요 훈련',
+    location: '시립체육관',
+    phases: [
+      { id: 'ph_1' as TrainingSession['phases'][number]['id'], kind: 'warm-up', items: drills.slice(0, 1).map(item) },
+      { id: 'ph_2' as TrainingSession['phases'][number]['id'], kind: 'technical', items: drills.slice(1).map((d, i) => item(d, i + 1)) },
+    ],
+    drillIds: drills.map((d) => d.id),
+    createdAt: 0,
+    updatedAt: 0,
+  };
 }
 
 beforeEach(async () => {
   store.clear();
   fetchSpy.mockClear();
   for (const d of await idbDrillRepo.listDrillSummaries()) await idbDrillRepo.deleteDrill(d.id);
+  for (const s of await listSessions()) await deleteSession(s.session.id);
 });
 
 describe('ShareImportSheet', () => {
@@ -84,7 +111,7 @@ describe('ShareImportSheet', () => {
 
   it('미리보기 뒤 저장하면 drillRepo 에 문서가 생긴다', async () => {
     const src = createDrill({ courtMode: 'full', title: '받은 드릴' });
-    const { id, keyB64 } = await publish(src);
+    const { id, keyB64 } = await publish(asDrill(src));
     const onSaved = vi.fn();
     render(<ShareImportSheet id={id} keyB64={keyB64} onClose={() => {}} onSaved={onSaved} />, { wrapper });
 
@@ -99,7 +126,7 @@ describe('ShareImportSheet', () => {
 
   it('같은 id 가 이미 있으면 원본을 덮지 않고 새 id 사본으로 들어간다', async () => {
     const src = createDrill({ courtMode: 'full', title: '원본' });
-    const { id, keyB64 } = await publish(src);
+    const { id, keyB64 } = await publish(asDrill(src));
     // 링크로 온 것과 **같은 id** 를, 내용이 다른 채로 먼저 저장해 둔다.
     await idbDrillRepo.putDrill({ ...src, title: '내가 고친 것' });
 
@@ -118,7 +145,7 @@ describe('ShareImportSheet', () => {
 
   it('내용이 똑같아도 [저장]은 실제로 저장한다 — 건너뛰기로 삼키지 않는다', async () => {
     const src = createDrill({ courtMode: 'full', title: '똑같은 것' });
-    const { id, keyB64 } = await publish(src);
+    const { id, keyB64 } = await publish(asDrill(src));
     render(<ShareImportSheet id={id} keyB64={keyB64} onClose={() => {}} onSaved={() => {}} />, { wrapper });
     await screen.findByText('똑같은 것');
     const user = userEvent.setup();
@@ -129,5 +156,101 @@ describe('ShareImportSheet', () => {
     await user.click(screen.getByRole('button', { name: '내 목록에 저장' }));
     // ③ 'skip' 으로 접히면 여기가 1 에 머문다.
     await waitFor(async () => expect(await idbDrillRepo.listDrillSummaries()).toHaveLength(2));
+  });
+});
+
+
+// PLAN-SHARE-LINK §6 S1·S4(2026-09-08) — 세션 갈래.
+//
+// 지우면 새는 것 둘:
+//  ④ 미리보기가 세션을 드릴로 착각하면(또는 숫자를 맞바꾸면) 받는 사람은 **무엇이 몇 개**
+//     들어오는지 모른 채 [저장]을 누른다. 드릴 20개짜리 세션이 조용히 들어오는 자리다.
+//  ⑤ 드릴을 먼저 심고 세션 참조를 그 결과(idMap)로 잇지 않으면, 같은 id 드릴을 이미 가진
+//     사람의 세션은 **남의 드릴을 가리킨다**(사본이 아니라 내가 고쳐 둔 내 드릴을) — 편성이
+//     조용히 딴 내용으로 채워지는, 이 기능에서 가장 비싼 사고다.
+describe('ShareImportSheet — 세션 링크', () => {
+  const drills = () => [
+    createDrill({ courtMode: 'full', title: '슛 연습' }),
+    createDrill({ courtMode: 'full', title: '패스 연습' }),
+    createDrill({ courtMode: 'full', title: '수비 연습' }),
+  ];
+
+  it('④ 세션 미리보기는 제목·구간 수·드릴 수와 드릴 제목 목록을 보여준다', async () => {
+    const ds = drills();
+    const { id, keyB64 } = await publish({ kind: 'session', session: sessionOf(ds), drills: ds });
+    render(<ShareImportSheet id={id} keyB64={keyB64} onClose={() => {}} onSaved={() => {}} onSavedSession={() => {}} />, { wrapper });
+
+    expect(await screen.findByText('금요 훈련')).toBeInTheDocument();
+    // 구간 2 · 드릴 3 — 숫자가 서로 달라야 맞바꿈이 잡힌다(sessionOf 주석).
+    expect(screen.getByText('2구간 · 드릴 3개')).toBeInTheDocument();
+    for (const d of ds) expect(screen.getByText(d.title)).toBeInTheDocument();
+    // 세션인데 드릴 시트의 제목·문구가 뜨면 사람은 드릴 하나를 받는 줄 안다.
+    expect(screen.getByRole('dialog', { name: '공유받은 세션' })).toBeInTheDocument();
+  });
+
+  it('⑤ [저장]은 드릴 N개 + 세션 1개를 심고, 같은 id 드릴이 있으면 세션 참조가 사본으로 이어진다', async () => {
+    const ds = drills();
+    const { id, keyB64 } = await publish({ kind: 'session', session: sessionOf(ds), drills: ds });
+    // 링크가 데려오는 첫 드릴과 **같은 id** 를, 내용이 다른 채로 이미 갖고 있다.
+    await idbDrillRepo.putDrill({ ...ds[0]!, title: '내가 고친 것' });
+
+    const onSavedSession = vi.fn();
+    render(<ShareImportSheet id={id} keyB64={keyB64} onClose={() => {}} onSaved={() => {}} onSavedSession={onSavedSession} />, { wrapper });
+    await screen.findByText('금요 훈련');
+    await userEvent.setup().click(screen.getByRole('button', { name: '내 목록에 저장' }));
+    await waitFor(() => expect(onSavedSession).toHaveBeenCalledTimes(1));
+
+    // 보고 = "드릴 3개 + 세션 1개". 봉투에 든 수가 아니라 **실제로 심은 수**다.
+    expect(onSavedSession.mock.calls[0]![0]).toMatchObject({ drills: 3 });
+    const savedSessions = await listSessions();
+    expect(savedSessions).toHaveLength(1);
+    const saved = savedSessions[0]!.session;
+    expect(saved.title).toBe('금요 훈련');
+    expect(saved.location).toBe('시립체육관'); // S2 — 장소·메모는 남는다(그래서 모달이 고지한다)
+
+    // 내 드릴은 안 덮였다.
+    const { repo } = await import('../../storage/drillRepo.ts').then((m) => m.resolveDrillRepo());
+    expect((await repo.getDrill(ds[0]!.id))?.title).toBe('내가 고친 것');
+    // 세션의 첫 항목은 내 드릴이 아니라 **사본**을 가리킨다.
+    const items = flattenSessionItems(saved);
+    expect(items).toHaveLength(3);
+    expect(items[0]!.drillId).not.toBe(ds[0]!.id);
+    expect((await repo.getDrill(items[0]!.drillId))?.title).toMatch(/^슛 연습 \(사본/);
+    // 충돌이 없던 나머지 둘은 봉투의 id 를 그대로 물려받고, 그 참조도 그대로다.
+    expect(items.slice(1).map((it) => it.drillId)).toEqual([ds[1]!.id, ds[2]!.id]);
+  });
+
+  it('⑥ 같은 세션 링크를 두 번 저장하면 첫 저장 뒤 내가 손본 세션을 덮지 않고 두 번째 세션이 생긴다', async () => {
+    // 2026-09-08 검수. 지우면 새는 것: 보낸 쪽이 고쳐서 다시 보낸 링크(같은 세션 id)를 저장하는
+    // 순간, 받은 뒤 내가 넣은 참가자·메모가 말없이 사라진다 — 드릴 갈래가 allCopy 로 막은 것과
+    // 같은 종류의 사고다(남이 준 링크가 내 것을 지운다).
+    const ds = drills();
+    const { id, keyB64 } = await publish({ kind: 'session', session: sessionOf(ds), drills: ds });
+    const user = userEvent.setup();
+
+    const first = vi.fn();
+    const v1 = render(<ShareImportSheet id={id} keyB64={keyB64} onClose={() => {}} onSaved={() => {}} onSavedSession={first} />, { wrapper });
+    await screen.findByText('금요 훈련');
+    await user.click(screen.getByRole('button', { name: '내 목록에 저장' }));
+    await waitFor(() => expect(first).toHaveBeenCalledTimes(1));
+    v1.unmount();
+    // 처음 받는 세션은 보낸 쪽 id 그대로다(파일 가져오기와 같은 결과) — 그 위에 내가 손본다.
+    const mine = (await getSession('se_shared_x' as TrainingSession['id']))!.session;
+    await putSession({ ...mine, note: '내가 적은 메모' });
+
+    const second = vi.fn();
+    render(<ShareImportSheet id={id} keyB64={keyB64} onClose={() => {}} onSaved={() => {}} onSavedSession={second} />, { wrapper });
+    await screen.findByText('금요 훈련');
+    await user.click(screen.getByRole('button', { name: '내 목록에 저장' }));
+    await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
+
+    const all = await listSessions();
+    expect(all).toHaveLength(2);
+    expect((await getSession('se_shared_x' as TrainingSession['id']))!.session.note).toBe('내가 적은 메모');
+    const copy = all.find((s) => s.session.id !== 'se_shared_x')!.session;
+    expect(copy.note).toBeUndefined();
+    // 두 번째 세션의 편성도 이번에 심긴 드릴(사본)을 가리켜 하나도 '삭제됨' 이 아니다.
+    const { repo } = await import('../../storage/drillRepo.ts').then((m) => m.resolveDrillRepo());
+    for (const it of flattenSessionItems(copy)) expect(await repo.getDrill(it.drillId)).toBeDefined();
   });
 });

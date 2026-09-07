@@ -34,7 +34,7 @@ npm run share:test     # vitest run server/share
 
 | 메서드 | 경로 | 요청 | 성공 | 성공 본문 |
 |---|---|---|---|---|
-| `POST` | `/api/share` | `Content-Type: application/octet-stream`, 본문 = `iv(12) ‖ 암호문`, **1 ~ 65536 바이트** | `201` | `{"id":"<10자>","deleteToken":"<43자 base64url>","expiresAt":<epoch ms 숫자>}` |
+| `POST` | `/api/share` | `Content-Type: application/octet-stream`, 본문 = `iv(12) ‖ 암호문`, **1 ~ 262144 바이트** | `201` | `{"id":"<10자>","deleteToken":"<43자 base64url>","expiresAt":<epoch ms 숫자>}` |
 | `GET` | `/api/share/:id` | 없음 | `200` | 올린 바이트 그대로 (`Content-Type: application/octet-stream`) |
 | `DELETE` | `/api/share/:id` | `Authorization: Bearer <deleteToken>` | `204` | 없음 |
 | `GET` | `/api/share/healthz` | 없음 | `200` | `{"ok":true,"count":<정수>}` |
@@ -50,7 +50,7 @@ npm run share:test     # vitest run server/share
 | `403` | `forbidden` | DELETE 의 `Authorization` 이 없거나 토큰이 안 맞음 | "이 링크를 지울 권한이 없습니다" |
 | `404` | `not-found` | 없는 id · **만료된 id** · id 형식 밖 경로 · 모르는 경로 | "링크가 없거나 만료됐습니다"(결정 10 의 오류 문구 ①) |
 | `405` | `method-not-allowed` | 아는 경로에 안 맞는 메서드 | 버그다 |
-| `413` | `too-large` | POST 본문 > `SHARE_MAX_BYTES`(64 KiB) | "드릴이 너무 큽니다 — 파일로 내보내십시오" |
+| `413` | `too-large` | POST 본문 > `SHARE_MAX_BYTES`(256 KiB) | "링크로 보내기엔 큽니다 — 파일로 내보내십시오" |
 | `429` | `rate-limited` | 속도 제한. **`Retry-After: <초>`** 가 함께 온다 | 그 초만큼 기다린 뒤 재시도 |
 | `500` | `server-error` | 예기치 못한 오류 | "서버에 못 닿음"과 같이 다룬다 |
 
@@ -100,7 +100,7 @@ curl -sS -X DELETE http://127.0.0.1:8787/api/share/Ab3xY9kQ2p -H "Authorization:
 | `SHARE_PORT` | `8787` | 듣는 포트 |
 | `SHARE_HOST` | `127.0.0.1` | 바인딩 주소. ⚠️ 운영에서 이걸 열면 `SHARE_TRUST_PROXY` 가 거짓말이 된다 |
 | `SHARE_DATA_DIR` | `./data/share` | 항목 파일 자리 (`.gitignore` 됨) |
-| `SHARE_MAX_BYTES` | `65536` | 본문 상한. 넘으면 `413` |
+| `SHARE_MAX_BYTES` | `262144` | 본문 상한(256 KiB). 넘으면 `413`. ⚠️ 앱의 `SHARE_MAX_CIPHERTEXT_BYTES`·Apache `LimitRequestBody` 와 **같이** 움직인다 |
 | `SHARE_TTL_DAYS` | `180` | 마지막 열람 뒤 이만큼 지나면 만료. `0` 이하 = 만료 없음 |
 | `SHARE_ALLOWED_ORIGINS` | `*` | 쉼표로 나눈 출처 목록으로 좁힐 수 있다 |
 | `SHARE_TRUST_PROXY` | `0` | `1` 이면 `X-Forwarded-For` 의 **마지막** IP 를 속도 제한 키로 쓴다(Apache 가 진짜 주소를 맨 뒤에 덧붙이므로 — `app.ts` `clientIpOf`) |
@@ -158,8 +158,8 @@ bash scripts/deploy-share.sh             # 전송 → 유닛 설치 → 재시�
 
 `app.test.ts` 는 `handle()` 을 직접 부른다 — 아래는 그 아래층이라 실기에서만 보인다.
 
-- **스트림 상한**: 64 KiB 를 넘는 본문을 실제 소켓으로 보냈을 때 `413` 이 오고, 메모리가
-  상한+1 로 묶이는지. Apache 앞단은 `LimitRequestBody 70000` 에서 먼저 끊는다.
+- **스트림 상한**: 256 KiB 를 넘는 본문을 실제 소켓으로 보냈을 때 `413` 이 오고, 메모리가
+  상한+1 로 묶이는지. Apache 앞단은 `LimitRequestBody 266240` 에서 먼저 끊는다.
 - **IP 판별**: `SHARE_TRUST_PROXY=1` 로 Apache 뒤에 놓았을 때 속도 제한이 **진짜 클라이언트**
   IP 로 세는지(전부 `127.0.0.1` 로 뭉치면 한 사람이 다른 사람을 막는다).
 - **재시작 견딤**: `sudo /opt/bitnami/ctlscript.sh restart apache` 뒤에도 프록시가 살아 있는지.

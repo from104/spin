@@ -10,10 +10,22 @@ import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider, useToast } from '../../store/toast/ToastProvider.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
-import { createSession, deleteSession, listSessions } from '../../storage/sessionRepo.ts';
+import { createSession, deleteSession, listSessions, putSession } from '../../storage/sessionRepo.ts';
+import { addSessionItem } from '../../model/session.ts';
+import { createDrill } from '../../model/defaults.ts';
+import type { Drill } from '../../model/drill.ts';
 import { formatSessionWhen } from '../../model/session.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
+
+// 세션 [링크로 공유](S4)의 목은 **접기·잠그기·올리기 전체**다. 이 파일이 재는 것은 그 사슬이
+// 아니라 **케밥이 무엇을 넘기는가** 하나뿐이라서다 — 사슬 자체는 share/*(코덱·암호)와
+// ShareLinkModal.test 가 진짜로 돌려 잰다. 여기서까지 진짜로 돌리면 같은 시나리오가 두 번 돈다.
+const createShareLinkSpy = vi.fn();
+vi.mock('../../share/index.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../share/index.ts')>();
+  return { ...actual, createShareLink: (...args: unknown[]) => createShareLinkSpy(...args) };
+});
 
 function makeNav(): HomeNav {
   return {
@@ -52,6 +64,8 @@ beforeEach(async () => {
   // 세션 목록 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트 다이얼로그가
   // 떠서 "다이얼로그 없음" 을 잰 아래 테스트들이 깨진다 — "이미 봤다" 상태로 시작한다.
   localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { sessions: true } }));
+  createShareLinkSpy.mockReset();
+  createShareLinkSpy.mockResolvedValue({ link: `https://spin.example/s/Ab3dEf9hIj#${'k'.repeat(43)}`, id: 'Ab3dEf9hIj', deleteToken: 'tok', expiresAt: 0 });
 });
 
 describe('SessionsScreen', () => {
@@ -155,5 +169,47 @@ describe('세션 목록 튜토리얼(§0.5)', () => {
 
     await userEvent.setup().click(screen.getByRole('button', { name: '완료' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '화면 안내' })).toBeNull());
+  });
+});
+
+
+// PLAN-SHARE-LINK §6 S4(2026-09-08) — 세션 케밥의 [링크로 공유].
+//
+// 지우면 새는 것: 세션 봉투는 세션 **혼자 오지 않는다**(S1 — 드릴 본문을 데리고 간다). 목록이
+// 들고 있는 ResolvedSession 은 제목·시간 캐시뿐이라, 화면이 저장소를 읽어 본문을 채우는 이 한
+// 걸음을 빠뜨리면 링크는 만들어지되 **드릴 0개짜리 세션**이 건너간다 — 받는 쪽 화면에는 편성이
+// 통째로 '삭제됨' 으로 뜨고, 보낸 사람은 그것을 볼 길이 없다.
+describe('SessionsScreen — 링크로 공유(S4)', () => {
+  it('케밥 [링크로 공유]가 세션과 편성된 드릴 본문을 함께 넘긴다', async () => {
+    const d1 = createDrill({ courtMode: 'full', title: '슛 연습' });
+    const d2 = createDrill({ courtMode: 'full', title: '패스 연습' });
+    for (const d of [d1, d2] as Drill[]) await idbDrillRepo.putDrill(d, { touch: false });
+    const base = await createSession({ title: '공유할 세션' });
+    const withItems = [d1, d2].reduce(
+      (acc, d) => addSessionItem(acc, { id: `it_${d.title}` as never, drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType }),
+      base,
+    );
+    const saved = await putSession(withItems);
+
+    render(<SessionsScreen nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('공유할 세션')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '공유할 세션 더보기' }));
+    await user.click(screen.getByRole('menuitem', { name: '링크로 공유' }));
+
+    await waitFor(() => expect(createShareLinkSpy).toHaveBeenCalledTimes(1));
+    const [doc, origin] = createShareLinkSpy.mock.calls[0] as [{ kind: string; session: { id: string }; drills: Drill[] }, string];
+    expect(doc.kind).toBe('session');
+    expect(doc.session.id).toBe(saved.id);
+    // 편성 순서 그대로의 **본문**이다(id 만이 아니라 문서 자체) — 제목까지 재는 이유는, 요약을
+    // 넘기면 여기서는 id 가 맞아도 받는 쪽 봉투에 스텝이 하나도 안 실리기 때문이다.
+    expect(doc.drills.map((d) => d.id)).toEqual([d1.id, d2.id]);
+    expect(doc.drills.map((d) => d.title)).toEqual(['슛 연습', '패스 연습']);
+    // 링크는 **이 앱이 서 있는 출처**로 만든다(결정 3 도메인 독립).
+    expect(origin).toBe(window.location.origin);
+
+    // 만들어진 링크가 사람 앞에 뜬다 — 모달까지 안 뜨면 사용자는 아무것도 복사할 수 없다.
+    expect(await screen.findByRole('textbox', { name: '공유 링크' })).toBeInTheDocument();
   });
 });

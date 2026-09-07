@@ -72,16 +72,26 @@ describe('api — 올리기', () => {
     expect(await kindOf(uploadCiphertext(new Uint8Array([1])))).toBe('network');
   });
 
-  it('64 KiB 를 넘으면 서버를 부르지도 않는다 — 413 왕복을 아낀다', async () => {
+  it('상한(256 KiB)을 넘으면 서버를 부르지도 않는다 — 413 왕복을 아낀다. 경계는 통과한다', async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
-    expect(await kindOf(uploadCiphertext(new Uint8Array(SHARE_MAX_CIPHERTEXT_BYTES + 1)))).toBe('too-large');
+    // ⚠️ 경계는 상수에서 파생하지 않고 **결정값(S3, 256 KiB)** 을 적는다 — 상수에서 파생하면
+    //    상한을 64 KiB 로 되돌려도 초록이다(2026-09-08 검수 돌연변이 ③이 잡은 자기증명). 서버
+    //    쪽 app.test 도 같은 이유로 262144/262145 리터럴이다.
+    const LIMIT = 256 * 1024;
+    expect(await kindOf(uploadCiphertext(new Uint8Array(LIMIT + 1)))).toBe('too-large');
     expect(fetchSpy).not.toHaveBeenCalled();
+
+    // 정확히 상한인 본문은 **서버에 간다**(2026-09-08, 세션 링크로 상한이 256 KiB 가 되며 더한 단언).
+    // 부등호를 하나 어긋나게 잡으면 서버가 받아 줄 문서를 앱이 미리 거절한다 — 그 쪽 실수는
+    // 사용자에게 "링크로 보내기엔 큽니다" 로만 보여 영영 원인을 모른다.
+    stubFetch(() => new Response(JSON.stringify({ id: 'AbC0123xyZ', deleteToken: 'tok', expiresAt: 1 }), { status: 201 }));
+    expect((await uploadCiphertext(new Uint8Array(LIMIT))).id).toBe('AbC0123xyZ');
   });
 });
 
 describe('api — 받기 상한', () => {
-  it('200 이라도 64 KiB 를 넘는 몸통은 복호 전에 too-large 로 끊는다 — 우리 서버가 아닌 200 일 수 있다', async () => {
+  it('200 이라도 상한을 넘는 몸통은 복호 전에 too-large 로 끊는다 — 우리 서버가 아닌 200 일 수 있다', async () => {
     // 선언된 길이로 먼저, 없으면 청크를 세며. 어느 쪽이든 복호·펴기에 닿기 전이다.
     stubFetch(() => new Response(new Uint8Array(SHARE_MAX_CIPHERTEXT_BYTES + 1), { status: 200 }));
     expect(await kindOf(fetchCiphertext('AbC0123xyZ'))).toBe('too-large');

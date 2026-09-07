@@ -15,6 +15,10 @@ import type { TrainingSession } from '../../model/session.ts';
 import type { SessionId } from '../../core/ids.ts';
 import type { TutorialScreenKey } from '../../storage/prefs.ts';
 import { SessionTab } from '../library/SessionTab.tsx';
+import { ShareLinkModal } from '../library/ShareLinkModal.tsx';
+import type { SharedDoc } from '../../share/index.ts';
+import { resolveDrillRepo } from '../../storage/drillRepo.ts';
+import type { Drill } from '../../model/drill.ts';
 import { exportOneSession } from '../library/transfer.ts';
 import type { HomeNav } from '../home/nav.ts';
 import { useT } from '../../i18n/useT.ts';
@@ -92,6 +96,24 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
       },
     });
   };
+  // ── 링크로 공유 (PLAN-SHARE-LINK §6 S4) ───────────────────────────────────────────────
+  // 세션 봉투는 세션 **혼자 오지 않는다** — 편성된 드릴 본문을 데리고 간다(S1). 목록이 들고 있는
+  // ResolvedSession 은 제목·시간 캐시뿐이라, 여기서 저장소를 한 번 읽어 본문을 채운다.
+  // 링크를 만드는 순서(접기·잠그기·올리기)는 이 화면이 알지 않는다 — ShareLinkModal 이 `doc`
+  // 하나를 받아 `createShareLink` 에 넘긴다(그 파일 머리말).
+  const [shareDoc, setShareDoc] = useState<SharedDoc | null>(null);
+  const requestShareLink = async (id: SessionId) => {
+    const resolved = await getSession(id);
+    if (!resolved) return;
+    const { repo } = await resolveDrillRepo();
+    const map = await repo.getDrills(resolved.session.drillIds);
+    // ⚠️ 없는 드릴은 **조용히 빠진다**(exportOneSession 과 같은 규칙). 편성이 가리키는 드릴이
+    //    지워졌어도 세션은 보낼 수 있어야 하고, 받는 쪽에서 그 항목은 '삭제됨' 으로 뜬다 —
+    //    보내는 사람을 여기서 막으면 세션 하나가 통째로 공유 불가가 된다.
+    const drills = resolved.session.drillIds.map((d) => map.get(d)).filter((d): d is Drill => d !== undefined);
+    setShareDoc({ kind: 'session', session: resolved.session, drills });
+  };
+
   const handleExportSession = async (id: SessionId) => {
     const resolved = await getSession(id);
     if (!resolved) return;
@@ -108,9 +130,12 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
           onPresent={(id) => nav.presentSession(id)}
           onDelete={requestDeleteSession}
           onExport={(id) => void handleExportSession(id)}
+          onShareLink={(id) => void requestShareLink(id)}
           onCreate={() => void handleCreateSession()}
         />
       </div>
+
+      <ShareLinkModal open={shareDoc !== null} doc={shareDoc} onClose={() => setShareDoc(null)} />
 
       {tutorial.step && (
         <TutorialOverlay

@@ -5,17 +5,20 @@
 // 만들기: 접기 → 키 생성 → 잠그기 → 올리기 → 링크
 // 열기:   링크 파싱 → 받기 → 키 복원 → 풀기 → 펴기·검증
 //
-// ⚠️ 저장은 여기서 하지 않는다(PLAN-URL-SHARE §1.5 · 기각한 길 ⑤). `openShareLink` 는 Drill 을
+// ⚠️ 저장은 여기서 하지 않는다(PLAN-URL-SHARE §1.5 · 기각한 길 ⑤). `openShareLink` 는 문서를
 // **돌려주기만** 한다 — 남이 준 링크가 내 라이브러리를 말없이 늘리는 일이 없어야 하고, 저장은
-// 기존 관문(`prepareDrillImport` → 3택 → `commitDrillImports`)이 한다.
-import type { Drill } from '../model/drill.ts';
-import { encodeDrillPayload, decodeDrillPayload } from './codec.ts';
+// 기존 관문(드릴: `prepareDrillImport` → 3택 → `commitDrillImports`, 세션: `prepareSessionImport`
+// → 드릴을 먼저 심고 `commitSessionImport` 로 참조를 잇는다 — S1)이 한다.
+//
+// 2026-09-08(S1·S5): 여는 문은 여전히 **한 개**다. 종류는 링크가 아니라 봉투가 말하므로
+// `openShareLink` 의 반환은 `SharedDoc` 유니온이고, 화면은 `kind` 로 갈라 저장 관문을 고른다.
+import { encodeSharePayload, decodeSharePayload, type SharedDoc } from './codec.ts';
 import { generateKey, importKey, encrypt, decrypt } from './crypto.ts';
 import { buildShareLink, parseShareLink } from './link.ts';
 import { uploadCiphertext, fetchCiphertext, ShareError, type ShareErrorKind } from './api.ts';
 
-export { encodeDrillPayload, decodeDrillPayload, SHARE_CODEC_DEFLATE_RAW, SHARE_MAX_INFLATED_BYTES } from './codec.ts';
-export type { EncodeDrillOptions } from './codec.ts';
+export { encodeSharePayload, decodeSharePayload, SHARE_CODEC_DEFLATE_RAW, SHARE_MAX_INFLATED_BYTES } from './codec.ts';
+export type { SharedDoc, EncodeShareOptions } from './codec.ts';
 export { generateKey, importKey, encrypt, decrypt, SHARE_KEY_B64_LEN } from './crypto.ts';
 export { buildShareLink, parseShareLink, SHARE_ID_RE, SHARE_KEY_RE } from './link.ts';
 export type { ShareLinkParts } from './link.ts';
@@ -47,8 +50,8 @@ export const SHARE_NOTICE_BY_KIND: Record<ShareErrorKind, ShareNotice> = {
   // 'bad-key' 와 같다(링크를 다시 받는다). 잘린 링크와 훼손된 암호문을 사용자 눈에 가르지 않는다.
   invalid: 'bad-key',
   // ⚠️ 가져오기 경로에서 'too-large' 는 **압축 폭탄**이다(정상 드릴은 1 MiB 근처도 못 간다) —
-  //    믿을 수 없는 링크라는 뜻이라 'bad-key' 로 접는다. 만들기 경로의 413(드릴이 64 KiB 초과)은
-  //    이 표를 타지 않는다 — 공유 시트가 "이 드릴은 링크로 보내기엔 큽니다" 를 직접 말한다.
+  //    믿을 수 없는 링크라는 뜻이라 'bad-key' 로 접는다. 만들기 경로의 413(문서가 256 KiB 초과)은
+  //    이 표를 타지 않는다 — 공유 시트가 "이것은 링크로 보내기엔 큽니다" 를 직접 말한다.
   'too-large': 'bad-key',
   // 처방이 'network' 와 같다: 잠시 뒤 다시. 만들기 경로에서 이 값을 잡아 "잠시 뒤" 를 구체적으로
   // 말하고 싶으면 kind 를 직접 보면 된다(이 표는 마지막 폴백이다).
@@ -70,27 +73,32 @@ export interface CreatedShareLink {
   expiresAt: number;
 }
 
-/** 결정 8 — 기본은 **이름을 빼고** 만든다. 공유되는 것은 패턴이지 우리 팀 명단이 아니다.
- *  ("이름 포함" 스위치가 생기면 이 옵션이 그 자리다 — 뒤집기가 한 줄이다.) */
+/** 결정 8 · S2 — 기본은 **개인 식별 정보를 빼고** 만든다(실명·팀 이름·참가자 명단). 공유되는
+ *  것은 패턴이지 우리 팀 명단이 아니다. ("이름 포함" 스위치가 생기면 이 옵션이 그 자리다 —
+ *  뒤집기가 한 줄이다.)
+ *
+ *  드릴이든 세션이든 부르는 자리는 하나다 — 화면이 `{ kind: 'drill', drill }` 이나
+ *  `{ kind: 'session', session, drills }` 를 주면 된다(S1). */
 export async function createShareLink(
-  drill: Drill,
+  doc: SharedDoc,
   origin: string,
-  options: { stripNames?: boolean } = {},
+  options: { strip?: boolean } = {},
 ): Promise<CreatedShareLink> {
-  const plain = await encodeDrillPayload(drill, { stripNames: options.stripNames ?? true });
+  const plain = await encodeSharePayload(doc, { strip: options.strip ?? true });
   const { key, keyB64 } = await generateKey();
   const sealed = await encrypt(key, plain);
   const { id, deleteToken, expiresAt } = await uploadCiphertext(sealed);
   return { link: buildShareLink(origin, id, keyB64), id, deleteToken, expiresAt };
 }
 
-/** 링크(또는 경로, 또는 `id#key`) 하나로 드릴을 연다. 저장하지 않는다. */
-export async function openShareLink(input: string): Promise<Drill> {
+/** 링크(또는 경로, 또는 `id#key`) 하나로 문서를 연다. 저장하지 않는다.
+ *  드릴인지 세션인지는 **연 뒤에** 알 수 있다(`kind`) — 링크 꼴이 같기 때문이다(S5). */
+export async function openShareLink(input: string): Promise<SharedDoc> {
   const parts = parseShareLink(input);
   if (!parts) throw new ShareError('invalid');
   // 키 복원을 먼저 한다 — 잘린 열쇠라면 서버를 부를 이유가 없다(남의 서버에 헛짐을 안 지운다).
   const key = await importKey(parts.keyB64);
   const sealed = await fetchCiphertext(parts.id);
   const plain = await decrypt(key, sealed);
-  return decodeDrillPayload(plain);
+  return decodeSharePayload(plain);
 }

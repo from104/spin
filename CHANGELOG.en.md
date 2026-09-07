@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Added
 
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
-- Added drill sharing by link — only someone holding the link can open it, the server keeps ciphertext only, expiring after 180 days
+- Added drill sharing by link — a whole training session can be sent too (with the drills it uses, minus the participant list). Only someone holding the link can open it, the server keeps ciphertext only, expiring after 180 days
 
 ### Fixed
 

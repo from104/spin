@@ -65,6 +65,9 @@ vi.mock('../features/library/LibraryScreen.tsx', async () => {
         <button type="button" onClick={() => nav.goLibrary()}>
           목록으로
         </button>
+        <button type="button" onClick={() => nav.goLibrary({ tab: 'sessions' })}>
+          세션 목록으로
+        </button>
         <button type="button" onClick={() => nav.presentDrill(FIXTURE.drillId as DrillId)}>
           드릴 시연
         </button>
@@ -918,6 +921,18 @@ describe('/s/:id 착지', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/drills'));
     expect(router.state.historyAction).toBe('REPLACE');
     expect(screen.getByTestId('screen-library').getAttribute('data-share-id')).toBe('');
+  });
+
+  it('세션 링크를 저장한 뒤 세션 화면으로 갈 때도 교체다 — 탭 목적지가 push 로 새면 같은 버그가 되살아난다', async () => {
+    // 2026-09-08(S5): 세션 저장 뒤 `goLibrary({ tab: 'sessions' })`. 착지 분기가 «대상 없음» 에만
+    // 걸리면 이 호출은 push 라, 뒤로가기가 열쇠 없는 `/s/:id` 로 돌아간다.
+    window.history.replaceState(null, '', `/s/ShareIdAb1#${KEY}`);
+    initialPath = '/s/ShareIdAb1';
+    await renderShell();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '세션 목록으로' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/sessions'));
+    expect(router.state.historyAction).toBe('REPLACE');
   });
 
   it('열쇠가 잘린 링크는 화면에 빈 열쇠로 닿는다 — 라이브러리 화면은 그대로 뜬다', async () => {

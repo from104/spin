@@ -219,6 +219,7 @@ export const en: Record<DictKey, string> = {
   'library.share.copied': 'Link copied.',
   'library.share.copyFailed': 'Couldn’t copy. Select the link and copy it yourself.',
   'library.share.note': 'Only people with the link can open it. The server keeps ciphertext only, and it expires after 180 days.',
+  'library.share.noteSession': 'The location and notes are included. The participant roster is not.',
   'library.share.error.notFound': 'That link is gone or has expired. Ask the sender for a new one.',
   'library.share.error.badKey': 'The key doesn’t match. The link may have been cut — ask for the whole link.',
   'library.share.error.tooNew': 'This app is too old. Reload it and try the link again.',
@@ -232,6 +233,11 @@ export const en: Record<DictKey, string> = {
   'library.import.saved': 'Saved “{{title}}” to your library.',
   'library.import.close': 'Close',
   'library.import.closeLabel': 'Close shared drill',
+  'library.import.session.title': 'Shared session',
+  'library.import.session.closeLabel': 'Close shared session',
+  'library.import.session.phases': '{{count}} block(s)',
+  'library.import.session.drills': '{{count}} drill(s)',
+  'library.import.session.saved': 'Saved {{drills}} drill(s) and 1 session.',
 
   'drillCard.kebabMoreAriaLabel': 'More for {{title}}',
   'drillCard.kebabMenuAriaLabel': 'Actions for {{title}}',
@@ -251,6 +257,7 @@ export const en: Record<DictKey, string> = {
   'sessionTab.missingDrillSuffix': '{{title}} (deleted)',
   'sessionTab.moreCount': '+{{count}} more',
   'sessionTab.exportMenuItem': 'Export',
+  'sessions.share.link': 'Share link',
 
   'importDialog.title': 'Import — drill already exists',
   'importDialog.description': 'A matching drill is already saved. Choose how to handle each item.',

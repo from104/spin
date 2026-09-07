@@ -222,6 +222,9 @@ export const ko = {
   'library.share.copied': '링크를 복사했습니다.',
   'library.share.copyFailed': '복사하지 못했습니다. 링크를 직접 선택해 복사하세요.',
   'library.share.note': '링크를 가진 사람만 열 수 있습니다. 서버에는 암호문만 남고 180일 뒤 만료됩니다.',
+  // S2(2026-09-08) — 세션 링크에만 붙는 한 줄. 세션은 드릴과 달리 **코치가 쓴 글**(장소·메모)을
+  // 데리고 간다. 참가자 명단은 봉투에서 빠지므로(codec 의 stripSessionPayload) 두 사실을 같이 말한다.
+  'library.share.noteSession': '장소·메모가 포함됩니다. 참가자 명단은 빠집니다.',
   'library.share.error.notFound': '링크가 없거나 만료됐습니다. 보낸 사람에게 다시 받으세요.',
   'library.share.error.badKey': '열쇠가 맞지 않습니다. 링크가 잘렸을 수 있으니 전체를 다시 받으세요.',
   'library.share.error.tooNew': '이 앱이 너무 오래됐습니다. 새로고침한 뒤 다시 열어 보세요.',
@@ -236,6 +239,13 @@ export const ko = {
   'library.import.close': '닫기',
   // ✕ 와 하단 [닫기] 가 같은 이름이면 보조기술에 표적 두 개가 똑같이 읽힌다 — ✕ 만 길게 쓴다.
   'library.import.closeLabel': '공유받은 드릴 닫기',
+  // 세션 링크(S4) — 받는 쪽이 저장 전에 알아야 할 것은 "무엇이 몇 개 들어오는가" 다. 드릴 갈래의
+  // 썸네일 자리를 세션에서는 **드릴 제목 목록**이 대신한다(세션에는 그릴 판이 없다).
+  'library.import.session.title': '공유받은 세션',
+  'library.import.session.closeLabel': '공유받은 세션 닫기',
+  'library.import.session.phases': '{{count}}구간',
+  'library.import.session.drills': '드릴 {{count}}개',
+  'library.import.session.saved': '드릴 {{drills}}개와 세션 1개를 저장했습니다.',
 
   'drillCard.kebabMoreAriaLabel': '{{title}} 더보기',
   'drillCard.kebabMenuAriaLabel': '{{title}} 작업',
@@ -255,6 +265,9 @@ export const ko = {
   'sessionTab.missingDrillSuffix': '{{title}} (삭제됨)',
   'sessionTab.moreCount': '+{{count}}개 더',
   'sessionTab.exportMenuItem': '내보내기',
+  // S4(2026-09-08) — 세션 케밥의 [링크로 공유]. 드릴의 `library.share.link` 와 **같은 말**이지만
+  // 키를 나눠 둔다: 한 화면의 메뉴 라벨은 그 화면의 어휘이고, 언어에 따라 세션 쪽만 길어질 수 있다.
+  'sessions.share.link': '링크로 공유',
 
   'importDialog.title': '가져오기 — 이미 있는 드릴',
   'importDialog.description': '같은 드릴이 이미 저장되어 있습니다. 항목마다 처리 방법을 고르세요.',

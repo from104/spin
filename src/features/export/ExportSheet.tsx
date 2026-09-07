@@ -124,6 +124,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
   }, [open, hasChecked]);
 
   /** 범위 → 실제로 구울 스텝 인덱스들(문서 순서 그대로). */
+  // 공유 모달에 넘기는 문서(S1 — 종류는 부르는 쪽이 말한다). ⚠️ 렌더마다 새 객체를 지으면 모달의
+  // effect 가 링크를 무한히 새로 만든다(ShareLinkModal props 주석) — drill 이 바뀔 때만 새로 짓는다.
+  const shareDoc = useMemo(() => ({ kind: 'drill' as const, drill }), [drill]);
   const targetIndexes = useMemo((): number[] => {
     if (scope === 'all') return drill.steps.map((_, i) => i);
     if (scope === 'selected' && checkedStepIds) {
@@ -270,7 +273,7 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
         </div>
       </Modal>
       <PrintRoot doc={printDoc} onReady={onPrintReady} view={{ showGrid, showGridLabels, showRuleZones }} />
-      <ShareLinkModal open={shareOpen} drill={drill} onClose={() => setShareOpen(false)} returnFocusRef={returnFocusRef} />
+      <ShareLinkModal open={shareOpen} doc={shareDoc} onClose={() => setShareOpen(false)} returnFocusRef={returnFocusRef} />
     </>
   );
 }

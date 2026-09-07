@@ -23,10 +23,14 @@ export interface SessionTabProps {
   onPresent(id: ResolvedSession['session']['id']): void;
   onDelete(id: ResolvedSession['session']['id']): void;
   onExport(id: ResolvedSession['session']['id']): void;
+  /** 케밥 [링크로 공유](PLAN-SHARE-LINK §6 S4). **옵셔널이다** — 링크를 만들 수 있는 화면에서만
+   *  항목이 뜬다(세션 본문과 편성된 드릴 본문을 읽어 오는 일은 목록 화면 몫이라, 이 컴포넌트를
+   *  쓰는 다른 자리가 이 변경에 안 걸린다). 드릴 카드 케밥의 `onShareLink` 와 같은 꼴이다. */
+  onShareLink?(id: ResolvedSession['session']['id']): void;
   onCreate(): void;
 }
 
-export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, onCreate }: SessionTabProps) {
+export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, onShareLink, onCreate }: SessionTabProps) {
   const t = useT();
   if (sessions.length === 0) {
     return (
@@ -59,7 +63,15 @@ export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, on
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {next && <NextSessionStrip resolved={next} onOpen={() => onOpen(next.session.id)} />}
       {sessions.map((s) => (
-        <SessionRow key={s.session.id} resolved={s} onOpen={() => onOpen(s.session.id)} onPresent={() => onPresent(s.session.id)} onDelete={() => onDelete(s.session.id)} onExport={() => onExport(s.session.id)} />
+        <SessionRow
+          key={s.session.id}
+          resolved={s}
+          onOpen={() => onOpen(s.session.id)}
+          onPresent={() => onPresent(s.session.id)}
+          onDelete={() => onDelete(s.session.id)}
+          onExport={() => onExport(s.session.id)}
+          onShareLink={onShareLink ? () => onShareLink(s.session.id) : undefined}
+        />
       ))}
     </div>
   );
@@ -118,7 +130,21 @@ function NextSessionStrip({ resolved, onOpen }: { resolved: ResolvedSession; onO
   );
 }
 
-function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resolved: ResolvedSession; onOpen(): void; onPresent(): void; onDelete(): void; onExport(): void }) {
+function SessionRow({
+  resolved,
+  onOpen,
+  onPresent,
+  onDelete,
+  onExport,
+  onShareLink,
+}: {
+  resolved: ResolvedSession;
+  onOpen(): void;
+  onPresent(): void;
+  onDelete(): void;
+  onExport(): void;
+  onShareLink?: () => void;
+}) {
   const { session, items, totalMin } = resolved;
   const categories = Array.from(new Set(items.map((it) => it.categoryCache))).slice(0, MAX_DOTS);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -231,6 +257,22 @@ function SessionRow({ resolved, onOpen, onPresent, onDelete, onExport }: { resol
             >
               {t('sessionTab.exportMenuItem')}
             </button>
+            {/* [내보내기] 바로 아래 — 둘 다 "이 세션을 남에게 준다" 이고, 파일이 먼저인 것은
+                링크가 서버·인터넷을 요구하는 쪽이기 때문이다(닿지 않는 곳에서도 파일은 된다).
+                드릴 카드 케밥이 [파일로 내보내기] 아래 [링크로 공유]를 둔 것과 같은 순서다. */}
+            {onShareLink && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onShareLink();
+                }}
+                style={{ minHeight: 36, padding: '0 10px', borderRadius: 6, fontSize: '0.8125rem', fontWeight: 600, textAlign: 'left' }}
+              >
+                {t('sessions.share.link')}
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

@@ -14,6 +14,8 @@ import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { SUMMARY_BUILD } from '../../model/summary.ts';
 import { addDrillToSession, createSession, deleteSession, listSessions } from '../../storage/sessionRepo.ts';
 import { createDrill } from '../../model/defaults.ts';
+import { CURRENT_SESSION_SCHEMA } from '../../model/session.ts';
+import type { TrainingSession } from '../../model/session.ts';
 import { exportLibraryFile } from '../../storage/transfer.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
@@ -347,13 +349,21 @@ describe('드릴 목록 튜토리얼(§0.5)', () => {
 //     "링크로 공유" 가 빈 드릴을 보낸다. 이 화면이 그 읽기를 하는 유일한 자리다.
 //  ② `/s/:id` 착지 시트를 닫을 때 주소를 되돌리지 않으면, 라이브러리로 돌아온 뒤에도 주소가
 //     `/s/…` 라 새로고침이 시트를 다시 연다(닫히지 않는 화면).
+/** 서버 대신 쓰는 메모리 한 칸(ShareImportSheet.test 와 같은 모형) — 올린 바이트를 그대로 돌려준다.
+ *  id 는 하나로 고정한다: 위 첫 케이스가 링크 문자열에서 그 id 를 읽기 때문이다. */
+const shareStore = new Map<string, Uint8Array>();
 vi.mock('../../share/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../share/api.ts')>();
   return {
     ...actual,
-    uploadCiphertext: async () => ({ id: 'ShareIdAb1', deleteToken: 'tok', expiresAt: 0 }),
-    fetchCiphertext: async () => {
-      throw new actual.ShareError('not-found', { status: 404 });
+    uploadCiphertext: async (bytes: Uint8Array) => {
+      shareStore.set('ShareIdAb1', bytes);
+      return { id: 'ShareIdAb1', deleteToken: 'tok', expiresAt: 0 };
+    },
+    fetchCiphertext: async (id: string) => {
+      const found = shareStore.get(id);
+      if (!found) throw new actual.ShareError('not-found', { status: 404 });
+      return found;
     },
   };
 });
@@ -381,5 +391,39 @@ describe('공유 링크', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '닫기' }));
     // ② 라우터 API 로 되돌린다 — history.replaceState 를 직접 부르면 화면 상태와 어긋난다.
     expect(nav.goLibrary).toHaveBeenCalledTimes(1);
+  });
+
+  it('세션 링크를 저장하면 "드릴 N개와 세션 1개" 를 보고하고 세션 화면으로 간다(S4·S5)', async () => {
+    // 2026-09-08 검수. 지우면 새는 것: 이 화면이 `onSavedSession` 을 안 넘기면 세션 링크는 저장은
+    // 되는데 시트가 닫히지도, 보고가 뜨지도 않는다 — 사람은 [저장]이 안 먹은 줄 알고 다시 누른다
+    // (사본이 하나 더 생긴다). 목적지가 드릴 탭이면 방금 받은 세션이 어디 갔는지 보이지 않는다.
+    const ds = [createDrill({ courtMode: 'full', title: '슛 연습' }), createDrill({ courtMode: 'full', title: '패스 연습' })];
+    const session: TrainingSession = {
+      schemaVersion: CURRENT_SESSION_SCHEMA,
+      id: 'se_shared_lib' as TrainingSession['id'],
+      title: '금요 훈련',
+      phases: [
+        {
+          id: 'ph_1' as TrainingSession['phases'][number]['id'],
+          kind: 'custom',
+          items: ds.map((d, i) => ({ id: `it_${i}` as never, drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType })),
+        },
+      ],
+      drillIds: ds.map((d) => d.id),
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const { createShareLink } = await import('../../share/index.ts');
+    const made = await createShareLink({ kind: 'session', session, drills: ds }, 'https://spin.example');
+    const keyB64 = made.link.split('#')[1]!;
+
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} shareLanding={{ id: made.id, keyB64 }} />, { wrapper });
+    await screen.findByRole('dialog', { name: '공유받은 세션' });
+    await userEvent.setup().click(screen.getByRole('button', { name: '내 목록에 저장' }));
+
+    await waitFor(() => expect(nav.goLibrary).toHaveBeenCalledWith({ tab: 'sessions' }));
+    expect(screen.getByText('드릴 2개와 세션 1개를 저장했습니다.')).toBeInTheDocument();
+    expect((await listSessions()).map((s) => s.session.title)).toEqual(['금요 훈련']);
   });
 });

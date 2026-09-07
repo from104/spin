@@ -39,7 +39,10 @@ function envNum(name: string, fallback: number): number {
 const PORT = envNum('SHARE_PORT', 8787)
 const HOST = process.env.SHARE_HOST ?? '127.0.0.1'
 const DATA_DIR = process.env.SHARE_DATA_DIR ?? './data/share'
-const MAX_BYTES = envNum('SHARE_MAX_BYTES', 65536)
+// 본문 상한 — 결정 S3(2026-09-08): 64 KiB(65536) → 256 KiB(262144). 세션 링크가 드릴 N개를
+// 실으면서 20드릴이 64 KiB 를 넘겼다. ⚠️ 앞단 Apache 의 `LimitRequestBody`(deploy/share/
+// apache-share.conf)와 앱의 `SHARE_MAX_CIPHERTEXT_BYTES` 를 같이 올려야 값이 실제로 산다.
+const MAX_BYTES = envNum('SHARE_MAX_BYTES', 262144)
 const TTL_DAYS = envNum('SHARE_TTL_DAYS', 180)
 const ALLOWED_ORIGINS = process.env.SHARE_ALLOWED_ORIGINS ?? '*'
 const TRUST_PROXY = (process.env.SHARE_TRUST_PROXY ?? '0') === '1'

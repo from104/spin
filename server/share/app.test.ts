@@ -30,7 +30,7 @@ let app: ShareApp
 function makeApp(over: Partial<Parameters<typeof createApp>[0]> = {}): ShareApp {
   return createApp({
     dataDir: dir,
-    maxBytes: 65536,
+    maxBytes: 262144,
     ttlDays: 180,
     allowedOrigins: '*',
     ratePostPerHour: 30,
@@ -121,14 +121,14 @@ describe('POST → GET 왕복', () => {
 })
 
 describe('상한과 만료', () => {
-  it('64 KiB 를 넘으면 413 이고 아무것도 저장하지 않는다', async () => {
-    const res = await post(Buffer.alloc(65537, 7))
+  it('256 KiB 를 넘으면 413 이고 아무것도 저장하지 않는다', async () => {
+    const res = await post(Buffer.alloc(262145, 7))
     expect(res.status).toBe(413)
     expect(bodyJson(res).error).toBe('too-large')
     expect(await app.store.count()).toBe(0)
 
     // 경계는 통과해야 한다 — 상한을 한 바이트 어긋나게 잡는 실수를 잡는다.
-    expect((await post(Buffer.alloc(65536, 7))).status).toBe(201)
+    expect((await post(Buffer.alloc(262144, 7))).status).toBe(201)
   })
 
   it('모르는 id 는 404 not-found', async () => {

@@ -219,6 +219,7 @@ export const ja: Record<DictKey, string> = {
   'library.share.copied': 'リンクをコピーしました。',
   'library.share.copyFailed': 'コピーできませんでした。リンクを選択して手動でコピーしてください。',
   'library.share.note': 'リンクを持つ人だけが開けます。サーバーには暗号文のみが残り、180日後に期限切れになります。',
+  'library.share.noteSession': '場所・メモが含まれます。参加者名簿は含まれません。',
   'library.share.error.notFound': 'リンクが存在しないか期限切れです。送った人にもう一度もらってください。',
   'library.share.error.badKey': '鍵が合いません。リンクが切れている可能性があるので、全体をもう一度もらってください。',
   'library.share.error.tooNew': 'このアプリが古すぎます。再読み込みしてからもう一度開いてください。',
@@ -232,6 +233,11 @@ export const ja: Record<DictKey, string> = {
   'library.import.saved': '「{{title}}」をリストに保存しました。',
   'library.import.close': '閉じる',
   'library.import.closeLabel': '共有されたドリルを閉じる',
+  'library.import.session.title': '共有されたセッション',
+  'library.import.session.closeLabel': '共有されたセッションを閉じる',
+  'library.import.session.phases': '{{count}}ブロック',
+  'library.import.session.drills': 'ドリル{{count}}件',
+  'library.import.session.saved': 'ドリル{{drills}}件とセッション1件を保存しました。',
 
   'drillCard.kebabMoreAriaLabel': '{{title}}のその他の操作',
   'drillCard.kebabMenuAriaLabel': '{{title}}の操作',
@@ -251,6 +257,7 @@ export const ja: Record<DictKey, string> = {
   'sessionTab.missingDrillSuffix': '{{title}}(削除済み)',
   'sessionTab.moreCount': '他{{count}}件',
   'sessionTab.exportMenuItem': 'エクスポート',
+  'sessions.share.link': 'リンクで共有',
 
   'importDialog.title': 'インポート — 既存のドリル',
   'importDialog.description': '同じドリルが既に保存されています。項目ごとに処理方法を選んでください。',

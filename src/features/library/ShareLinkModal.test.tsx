@@ -17,6 +17,9 @@ import type { ReactNode } from 'react';
 import { ShareLinkModal } from './ShareLinkModal.tsx';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { createDrill } from '../../model/defaults.ts';
+import { CURRENT_SESSION_SCHEMA } from '../../model/session.ts';
+import type { TrainingSession } from '../../model/session.ts';
+import type { Drill } from '../../model/drill.ts';
 import { loadShareLinks, SHARE_LINKS_KEY } from '../../storage/shareLinks.ts';
 import { SHARE_ID_RE, SHARE_KEY_RE } from '../../share/link.ts';
 
@@ -31,6 +34,28 @@ const wrapper = ({ children }: { children: ReactNode }) => <SettingsProvider>{ch
 
 const drill = () => createDrill({ courtMode: 'full', title: '공유할 드릴' });
 
+/** 장소·메모를 **실제로 가진** 세션. 이 둘이 봉투에 실려 나간다는 것이 S2 의 고지 대상이다. */
+function session(drills: Drill[]): TrainingSession {
+  return {
+    schemaVersion: CURRENT_SESSION_SCHEMA,
+    id: 'se_share_x' as TrainingSession['id'],
+    title: '금요 훈련',
+    location: '시립체육관',
+    note: '골키퍼 없이 시작',
+    phases: [
+      {
+        id: 'ph_1' as TrainingSession['phases'][number]['id'],
+        kind: 'custom',
+        title: '훈련',
+        items: drills.map((d, i) => ({ id: `it_${i}` as never, drillId: d.id, titleCache: d.title, durationMinCache: d.durationMin, categoryCache: d.drillType })),
+      },
+    ],
+    drillIds: drills.map((d) => d.id),
+    createdAt: 0,
+    updatedAt: 0,
+  };
+}
+
 beforeEach(() => {
   localStorage.removeItem(SHARE_LINKS_KEY);
   upload.mockReset();
@@ -40,7 +65,7 @@ beforeEach(() => {
 describe('ShareLinkModal — 만들기', () => {
   it('링크를 만들어 보여주고 삭제 토큰을 spin.shareLinks 에 남긴다', async () => {
     const d = drill();
-    render(<ShareLinkModal open drill={d} onClose={() => {}} />, { wrapper });
+    render(<ShareLinkModal open doc={{ kind: 'drill', drill: d }} onClose={() => {}} />, { wrapper });
 
     const input = await screen.findByRole('textbox', { name: '공유 링크' });
     const link = (input as HTMLInputElement).value;
@@ -65,7 +90,7 @@ describe('ShareLinkModal — 만들기', () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    render(<ShareLinkModal open drill={drill()} onClose={() => {}} />, { wrapper });
+    render(<ShareLinkModal open doc={{ kind: 'drill', drill: drill() }} onClose={() => {}} />, { wrapper });
     const input = (await screen.findByRole('textbox', { name: '공유 링크' })) as HTMLInputElement;
 
     await user.click(screen.getByRole('button', { name: '복사' }));
@@ -92,7 +117,7 @@ describe('ShareLinkModal — 오류 문구는 kind 로 갈린다', () => {
     it(`${kind} → 그 종류의 문구만 뜬다`, async () => {
       const { ShareError } = await import('../../share/api.ts');
       upload.mockRejectedValue(new ShareError(kind as 'network'));
-      render(<ShareLinkModal open drill={drill()} onClose={() => {}} />, { wrapper });
+      render(<ShareLinkModal open doc={{ kind: 'drill', drill: drill() }} onClose={() => {}} />, { wrapper });
       const alert = await screen.findByRole('alert');
       expect(alert.textContent ?? '').toMatch(text);
     });
@@ -101,8 +126,45 @@ describe('ShareLinkModal — 오류 문구는 kind 로 갈린다', () => {
   it('오류일 때는 복사할 링크 칸을 아예 안 그린다', async () => {
     const { ShareError } = await import('../../share/api.ts');
     upload.mockRejectedValue(new ShareError('network'));
-    render(<ShareLinkModal open drill={drill()} onClose={() => {}} />, { wrapper });
+    render(<ShareLinkModal open doc={{ kind: 'drill', drill: drill() }} onClose={() => {}} />, { wrapper });
     await screen.findByRole('alert');
     expect(screen.queryByRole('textbox', { name: '공유 링크' })).toBeNull();
+  });
+});
+
+
+// PLAN-SHARE-LINK §6 S2(2026-09-08) — 세션 링크에만 붙는 고지 한 줄.
+//
+// 지우면 새는 것: 세션 봉투는 드릴과 달리 **코치가 쓴 글**(장소·메모)을 그대로 싣고 나간다.
+// 그 사실을 보내기 전에 말하지 않으면, 사람은 "패턴만 간다" 고 믿고 체육관 이름과 팀 사정이
+// 적힌 메모를 남에게 넘긴다 — 회수가 불가능한 링크다. 반대편(드릴 링크에 이 줄이 뜨는 것)도
+// 잘못이다: 드릴 봉투에는 장소도 메모도 없어 없는 사실을 알리는 것이 된다.
+describe('ShareLinkModal — 세션 링크의 고지(S2)', () => {
+  it('세션이면 "장소·메모가 포함됩니다" 가 붙고, 드릴이면 안 붙는다', async () => {
+    const d = drill();
+    const view = render(<ShareLinkModal open doc={{ kind: 'session', session: session([d]), drills: [d] }} onClose={() => {}} />, { wrapper });
+    await screen.findByRole('textbox', { name: '공유 링크' });
+    expect(screen.getByText(/장소·메모가 포함됩니다/)).toBeInTheDocument();
+    // 링크 자체에 대한 고지(서버·만료)는 두 갈래 공통이다 — 세션 줄이 그것을 밀어내지 않았다.
+    expect(screen.getByText(/180일 뒤 만료/)).toBeInTheDocument();
+    view.unmount();
+
+    render(<ShareLinkModal open doc={{ kind: 'drill', drill: d }} onClose={() => {}} />, { wrapper });
+    await screen.findByRole('textbox', { name: '공유 링크' });
+    expect(screen.queryByText(/장소·메모가 포함됩니다/)).toBeNull();
+  });
+
+  it('세션 링크의 삭제 토큰은 sessionId 칸에 남는다 — 드릴 칸에 밀어 넣지 않는다', async () => {
+    // 2026-09-08 검수: U 가 «칸이 없어 못 남긴다» 로 못박았던 자리다. 칸(`ShareLinkRecord.sessionId`)을
+    // 넓혀 뒤집었다 — 장소·메모가 실리는 쪽(세션)이야말로 만료 전에 지울 권리가 필요하다.
+    // 지우면 새는 것: 세션 id 가 drillId 칸에 들어가면 회수 UI 가 없는 드릴을 답하고, 아무 칸에도
+    // 안 남으면 그 링크는 180일 동안 아무도 못 지운다.
+    const d = drill();
+    const s = session([d]);
+    render(<ShareLinkModal open doc={{ kind: 'session', session: s, drills: [d] }} onClose={() => {}} />, { wrapper });
+    await screen.findByRole('textbox', { name: '공유 링크' });
+    const rec = loadShareLinks()['Ab3dEf9hIj'];
+    expect(rec).toMatchObject({ deleteToken: 'tok-43', sessionId: s.id });
+    expect(rec?.drillId).toBeUndefined();
   });
 });
