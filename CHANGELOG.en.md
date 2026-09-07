@@ -9,13 +9,18 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Added
 
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
-- Added drill sharing by link — a whole training session can be sent too (with the drills it uses, minus the participant list). Only someone holding the link can open it, the server keeps ciphertext only, expiring after 180 days
-- Added three link modes between steps — linked with pause, linked without pause, cut; chaining pause-free links makes the steps flow as one motion
-- Added drill video (MP4) export — choose resolution (720p/1080p) and whether captions show real names from the [Export] sheet (requires a recent Chrome, Safari, etc.)
 
 ### Fixed
 
 - Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
+
+## [0.6.5] 2026-09-08
+
+### Added
+
+- Added drill sharing by link — a whole training session can be sent too (with the drills it uses, minus the participant list). Only someone holding the link can open it, the server keeps ciphertext only, expiring after 180 days
+- Added three link modes between steps — linked with pause, linked without pause, cut; chaining pause-free links makes the steps flow as one motion
+- Added drill video (MP4) export — choose resolution (720p/1080p) and whether captions show real names from the [Export] sheet (requires a recent Chrome, Safari, etc.)
 
 ## [0.6.4] 2026-09-07
 
