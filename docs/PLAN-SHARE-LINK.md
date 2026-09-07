@@ -205,3 +205,10 @@ LibraryScreen·AppShell.wiring 착지 케이스)가 전부 초록이고, 헤드�
   조용히 빼고 보낸다(`exportOneSession` 과 같은 규칙, 받는 쪽 '삭제됨').
 - 검수 환경 메모: 8787 을 물고 있던 외부 `node server/share/index.ts`(검수의 프로세스가 아님)는 건드리지 않았다. 검수가 띄운
   서버·Vite·헤드리스 크롬은 전부 pid 로 종료했다.
+
+## 7. 운영 배포 (2026-09-08, 기현님 승인 "진행해")
+
+- 앱은 0.6.5(`526392f`) 로 먼저 나갔고(04:58 KST), 서버는 그 뒤 `scripts/deploy-share.sh` → `spin-vhost.conf` 443 블록에 `Include "…/spin-share.conf"` 삽입(백업 `spin-vhost.conf.bak-20260908`) → `apachectl -t` → 재시작. 순서가 계획(서버→앱)과 뒤집혔던 약 10분간 운영 [링크로 공유] 는 404 였다.
+- 운영 통과 확인: healthz 200 json · 200 KiB POST→GET 왕복 동일 · 300 KiB 는 Apache 413 · DELETE 204 → GET 404 · mocil vhost 200.
+- 유닛 경고 수정: `StartLimitIntervalSec`·`StartLimitBurst` 가 [Service] 절에 있어 systemd 가 무시했다 → [Unit] 절로 이동, 재설치. 저널 경고 0.
+- 되돌리기: `sudo systemctl disable --now spin-share`, vhost 는 `.bak-20260908` 로 복원 후 Apache 재시작.
