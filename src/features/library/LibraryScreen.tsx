@@ -21,6 +21,16 @@
 // 옛 주석의 "드릴 카드에는 애초에 시연 개념이 없다" 는 문장은 이 시점부터 무효다. 같은 이유로
 // 헤더 주 액션도 세션 탭에서 "새 세션"으로 바뀌지 않는다(app-shell 의 정적 헤더 계산은 탭
 // 상태를 모른다) — 대신 세션 탭 본문에 자체 "새 세션" 진입점(빈 상태 CTA)을 둔다.
+//
+// ── 공유 링크 (2026-09-07, PLAN-SHARE-LINK 결정 9·11) ──────────────────────────────────
+// 이 화면이 공유의 **양쪽 문**을 다 연다: 카드 ⋯ [링크로 공유](ShareLinkModal)와 `/s/:id` 로
+// 착지했을 때의 가져오기 시트(ShareImportSheet). 새 화면 키를 만들지 않는 이유는 결정 9 —
+// `/privacy` 가 설정 안으로 접히는 것과 같은 수법이다.
+// ⚠️ 링크의 **열쇠는 이 화면이 읽지 않는다.** app-shell 이 `location.hash` 에서 한 번 읽어
+//    주소에서 지운 뒤 `shareLanding` prop 으로 내려준다 — 여기서 다시 읽으면 늘 빈손이다.
+// ⚠️ §8 의존 표에 `src/share` 는 없다. 이 화면은 그것을 직접 import 하지 않고, 같은 폴더의 두
+//    시트만이 부른다 — src/share 는 storage 와 같은 층(순수 함수 + fetch, app-shell 무의존)이라
+//    표의 정신을 깨지 않는다. 다만 화면이 그 층을 직접 부르기 시작하면 그때는 표를 고쳐야 한다.
 import { useCallback, useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
@@ -36,6 +46,9 @@ import { DRILL_LEVELS } from '../../model/drill.ts';
 import type { DrillSummary } from '../../model/summary.ts';
 import { DrillCard, DrillRow } from './DrillCard.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
+import { ShareLinkModal } from './ShareLinkModal.tsx';
+import { ShareImportSheet } from './ShareImportSheet.tsx';
+import type { Drill } from '../../model/drill.ts';
 import type { HomeNav } from '../home/nav.ts';
 import { buildImportReport, commitDrills, commitSession, exportOneDrill, importReportLine, readImportFile } from './transfer.ts';
 import type { ImportPreview } from './transfer.ts';
@@ -51,11 +64,21 @@ import { LIBRARY_TUTORIAL_STEPS } from './tutorialSteps.ts';
 import { HelpCenter } from '../../ui/help/HelpCenter.tsx';
 import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 
-export interface LibraryScreenProps {
-  nav: HomeNav;
+/** `/s/:id` 로 착지했을 때 app-shell 이 실어 주는 것(PLAN-SHARE-LINK 결정 9).
+ *  ⚠️ **열쇠는 여기까지만 온다** — 주소에서는 이미 지워져 있다(AppShell 의 useShareLanding).
+ *  이 화면도, 이 화면이 여는 시트도 `location.hash` 를 다시 읽지 않는다. */
+export interface ShareLanding {
+  id: string;
+  /** `#` 뒤 43자. 메신저가 프래그먼트를 잘라 먹었으면 null 이고, 그때는 서버를 안 부른다. */
+  keyB64: string | null;
 }
 
-export function LibraryScreen({ nav }: LibraryScreenProps) {
+export interface LibraryScreenProps {
+  nav: HomeNav;
+  shareLanding?: ShareLanding | null;
+}
+
+export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
   const { status, drills, drillType, situation, sort, view, search, setDrillType, setSituation, setSort, setView, duplicateDrill, deleteDrill, refresh } = useLibrary();
   const toast = useToast();
   const t = useT();
@@ -119,6 +142,32 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
     toast.show(t('library.exportToast', { title: d.title }));
   };
 
+  // ── 공유 링크 (PLAN-SHARE-LINK 결정 9·11) ───────────────────────────────────────────────
+  // 카드가 들고 있는 것은 요약(DrillSummary)뿐이라 **본문을 읽어 와야** 링크를 만들 수 있다
+  // (요약에는 스텝·개체가 없다). 저장소 접근은 화면 몫이라 카드가 아니라 여기서 한다 —
+  // DrillCard 의 onShareLink 가 옵셔널인 이유가 이것이다.
+  const [shareDrill, setShareDrill] = useState<Drill | null>(null);
+  const requestShareLink = async (d: DrillSummary) => {
+    const { repo } = await resolveDrillRepo();
+    const full = await repo.getDrill(d.id);
+    if (!full) {
+      toast.show(t('library.transfer.drillNotFoundError'));
+      return;
+    }
+    setShareDrill(full);
+  };
+
+  // 시트를 닫으면 주소를 라이브러리로 되돌린다. `history.replaceState` 를 직접 부르지 않는 이유:
+  // 라우터가 진실의 저장소라(routes.ts) 주소만 바꾸면 화면 상태와 어긋난다. 이 화면이 아는
+  // 이동 통로는 `nav` 하나뿐이라는 계약(머리말)도 그대로 지킨다.
+  const mainRef = useRef<HTMLElement>(null);
+  const closeShareImport = () => {
+    nav.goLibrary();
+    // 시트가 사라지면 포커스가 <body> 로 떨어진다 — 키보드·스위치 사용자는 그 순간 위치를
+    // 잃는다. 화면 본문(§7.5a 의 tabIndex={-1} <main>)으로 돌려준다.
+    mainRef.current?.focus();
+  };
+
   // ── 가져오기 ────────────────────────────────────────────────────────────────────────────
   const commitPreview = async (preview: Exclude<ImportPreview, { kind: 'unsupported' }>, resolutions: Map<number, ImportResolution>) => {
     const outcome = await commitDrills(preview.drills, resolutions);
@@ -151,7 +200,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
   };
 
   return (
-    <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '22px 30px 46px', background: 'var(--bg)' }}>
+    <main ref={mainRef} id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '22px 30px 46px', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         {/* 2026-08-12(계획서 2.8): 여기 얹혀 있던 HomeDashboard 를 **지웠다**. 히어로·통계 4칸이
             목록 맨 위 한 화면을 통째로 먹어 정작 드릴 그리드가 늘 접힘 아래에 있었다. 살아남은
@@ -262,6 +311,7 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
                             onDuplicate={() => void handleDuplicate(d)}
                             onDelete={() => void requestDelete(d)}
                             onExport={() => void handleExport(d)}
+                            onShareLink={() => void requestShareLink(d)}
                           />
                         );
                       })}
@@ -279,6 +329,24 @@ export function LibraryScreen({ nav }: LibraryScreenProps) {
           drills={importPreview.drills}
           onCancel={() => setImportPreview(null)}
           onConfirm={(resolutions) => void commitPreview(importPreview, resolutions)}
+        />
+      )}
+
+      <ShareLinkModal open={shareDrill !== null} drill={shareDrill} onClose={() => setShareDrill(null)} />
+
+      {/* `/s/:id` 착지(결정 9) — 새 화면 없이 이 화면 위에 시트가 뜬다. 저장은 파일 가져오기와
+          같은 관문을 타므로 여기서는 목록 갱신과 보고만 한다. */}
+      {shareLanding && (
+        <ShareImportSheet
+          id={shareLanding.id}
+          keyB64={shareLanding.keyB64}
+          onClose={closeShareImport}
+          onSaved={async (drill) => {
+            await refresh();
+            toast.show(t('library.import.saved', { title: drill.title }));
+            closeShareImport();
+          }}
+          returnFocusRef={mainRef}
         />
       )}
 

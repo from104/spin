@@ -45,7 +45,13 @@ export type NavTarget =
    *  settings 에서 그대로 물려받는다. `rule` 이 rules 화면 안의 주제를 싣는 것과 같은 자리다.
    *  타입만 features 에서 가져온다(값 import 가 아니다) — 어느 문서가 있는지는 원문을 쥔
    *  쪽이 정하고, 여기는 그 목록을 베끼지 않는다. */
-  | { kind: 'legal'; doc: LegalDoc };
+  | { kind: 'legal'; doc: LegalDoc }
+  /** 공유 링크 착지(`/s/:id` — PLAN-SHARE-LINK 결정 9). 라이브러리 화면('drills') 안의
+   *  대상이다 — `legal` 이 설정 안의 문서인 것과 같은 자리이고, 새 화면 키를 만들지 않는다.
+   *  ⚠️ **열쇠는 여기 없다.** 링크의 `#` 뒤(43자 키)는 경로가 아니라 프래그먼트이고, 이 타입은
+   *  "URL 경로로 접을 수 있는 것만 싣는다" 는 위 규약을 지킨다 — 열쇠는 UI 가 `location.hash`
+   *  에서 읽는다. 여기 실으면 history state 와 prerender 에 열쇠가 복사된다. */
+  | { kind: 'share'; id: string };
 
 export interface AppHistoryApi {
   screen: Screen;

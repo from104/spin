@@ -78,6 +78,7 @@ import { useLocale } from '../i18n/useLocale.ts';
 // Wave 4 는 이 다섯 모듈이 병렬로 진행되므로, 형제 모듈의 산출물이 아직 없는 동안은 이 import
 // 가 타입체크를 막는다(정상 — 통합 시점에 다시 확인한다). 최종 보고서에 명시.
 import { LibraryScreen } from '../features/library/LibraryScreen.tsx';
+import type { ShareLanding } from '../features/library/LibraryScreen.tsx';
 import { NewDrillDialog } from '../features/library/NewDrillDialog.tsx';
 import { SessionsScreen } from '../features/sessions/SessionsScreen.tsx';
 import { SessionEditorScreen } from '../features/sessions/SessionEditorScreen.tsx';
@@ -139,6 +140,52 @@ function legalDocFromNav(screen: Screen, target: NavTarget | undefined): LegalDo
   return target.doc;
 }
 
+/** 라이브러리 화면 위에 뜰 공유 가져오기 시트의 대상(PLAN-SHARE-LINK 결정 9) — `/s/:id` 에서
+ *  파생한다. 위 넷과 같은 자리·같은 규율이고, id 꼴 검증은 여기서도 안 한다(routes.ts 의
+ *  `case 's'` ⚠️ — 오타 한 글자짜리 링크가 대문으로 조용히 떨어지면 알맞은 문구를 볼 기회조차
+ *  없어진다. 판정은 서버 404 가 한다). */
+function shareIdFromNav(screen: Screen, target: NavTarget | undefined): string | undefined {
+  if (screen !== 'drills' || target?.kind !== 'share') return undefined;
+  return target.id;
+}
+
+/** 링크의 **열쇠**를 `location.hash` 에서 한 번 읽고, 읽자마자 주소에서 지운다.
+ *
+ *  ⚠️ 이 훅이 앱 전체에서 열쇠를 만지는 **유일한 자리**다(routes.ts·useAppHistory.ts 가 "열쇠는
+ *  라우터에 없다" 고 못박은 그 반대편). 지우는 이유는 미관이 아니다:
+ *    ① 주소창·공유 시트·브라우저 방문 기록에 열쇠가 남으면, 링크를 지나가며 본 사람이 나중에
+ *       그 드릴을 열 수 있다(열쇠가 곧 권한인 모델이다).
+ *    ② react-router 의 location.state 는 `history.state.usr` 에 실려 저장되고 새로고침을 살아
+ *       남는다 — 열쇠가 그 안에 복사되면 지울 곳이 하나 더 늘어난다.
+ *  `history.state` 를 **그대로 넘겨** replaceState 한다: 그 안에 라우터의 depth 가 들어 있어
+ *  날리면 back(fallback) 의 "in-app 이력이 있으면 진짜 뒤로" 판정이 어긋난다.
+ *
+ *  ⚠️ 착지 정보는 열쇠를 읽기 **전에는 null** 이다. 시트가 한 프레임 먼저 뜨면 "열쇠가 맞지
+ *  않음"(= 잘린 링크) 문구를 정상 링크에 대고 번쩍이게 된다 — 그래서 id 가 아니라 이 값이
+ *  시트의 마운트 조건이다. */
+function useShareLanding(shareId: string | undefined): ShareLanding | null {
+  const [landing, setLanding] = useState<ShareLanding | null>(null);
+  // ⚠️ "이미 읽었다" 를 state 가 아니라 **ref** 로 센다. StrictMode 는 effect 를 두 번 돌리고,
+  //    두 번째에는 주소에서 열쇠가 이미 지워져 있다 — state 로 판정하면 그 두 번째 회차가
+  //    정상 링크를 "열쇠 없음" 으로 덮어쓴다(개발 모드에서만 나는, 가장 찾기 싫은 종류의 버그).
+  const consumedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!shareId) {
+      consumedRef.current = null;
+      setLanding(null);
+      return;
+    }
+    if (consumedRef.current === shareId) return;
+    consumedRef.current = shareId;
+    const raw = window.location.hash.slice(1);
+    if (raw.length > 0) {
+      window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+    }
+    setLanding({ id: shareId, keyB64: raw.length > 0 ? raw : null });
+  }, [shareId]);
+  return landing;
+}
+
 /** board 자리의 화면들(BoardScreen/EditorScreen)이 자기가 무엇을 그릴지 알아내는 통로 —
  *  둘 다 app-shell 에 의존해도 되는 화면이라(§8 "전부") 이 훅을 직접 부를 수 있다. */
 export function useStageTarget(): StageTarget {
@@ -169,7 +216,18 @@ function useHomeNavAdapter(nav: AppHistoryApi, openNewDrill: () => void): HomeNa
       // 진실이 되면서 한 곳으로 접혔다(한 프레임 헛 마운트의 원인이던 이중 장부가 사라졌다).
       newDrill: openNewDrill,
       openDrill: (id) => nav.go('board', { kind: 'drill', id }),
-      goLibrary: (opts) => nav.go('drills', opts?.tab ? { kind: 'tab', tab: opts.tab } : undefined),
+      goLibrary: (opts) => {
+        const target: NavTarget | undefined = opts?.tab ? { kind: 'tab', tab: opts.tab } : undefined;
+        // 공유 착지(`/s/:id`)에서 목록으로 "닫기" 는 push 가 아니라 **되돌리기**다(2026-09-07 검수).
+        // push 면 브라우저 뒤로가기가 열쇠 없는 `/s/:id` 로 되돌아가 정상 링크였는데도 "열쇠가
+        // 맞지 않음" 을 띄운다(useShareLanding 이 열쇠를 주소에서 지웠으므로). back() 은 in-app
+        // 이력이 없으면(메신저에서 바로 착지) 교체라, 뒤로가기가 앱 밖 원래 자리로 간다.
+        if (nav.target?.kind === 'share' && !target) {
+          nav.back('drills');
+          return;
+        }
+        nav.go('drills', target);
+      },
       openSession: (id) => nav.go('drills', { kind: 'session', id }),
       presentDrill: (id) => nav.go('present', { kind: 'drill', id }),
       presentSession: (id) => nav.go('present', { kind: 'session', id }),
@@ -266,13 +324,14 @@ function renderScreen(
   sessionEditId: SessionId | undefined,
   ruleTopic: string | undefined,
   legalDoc: LegalDoc | undefined,
+  shareLanding: ShareLanding | null,
 ) {
   switch (screen) {
     case 'board':
       // 같은 자리, 같은 EditorWorkspace — board 냐 drill 이냐만 다르다(§6.8 재편).
       return stage.kind === 'board' ? <BoardScreen /> : <EditorScreen />;
     case 'drills':
-      return <LibraryScreen nav={nav} />;
+      return <LibraryScreen nav={nav} shareLanding={shareLanding} />;
     case 'sessions':
       // C6 — 드릴 자리와 같은 꼴: 대상이 있으면 전용 편집 화면, 없으면 목록.
       return sessionEditId ? <SessionEditorScreen nav={nav} sessionId={sessionEditId} /> : <SessionsScreen nav={nav} />;
@@ -322,6 +381,8 @@ export function AppShell() {
   const sessionEditId = sessionEditFromNav(nav.screen, nav.target);
   const ruleTopic = ruleTopicFromNav(nav.screen, nav.target);
   const legalDoc = legalDocFromNav(nav.screen, nav.target);
+  // 결정 9 — `/s/:id` 착지. 열쇠는 이 훅이 주소에서 걷어 낸 뒤에야 값이 선다(위 ⚠️).
+  const shareLanding = useShareLanding(shareIdFromNav(nav.screen, nav.target));
   // [새 드릴] 다이얼로그는 **화면이 아니라 앱 껍데기**가 세운다 — 진입점이 목록 화면의 빈 상태
   // CTA 와 헤더 주 액션 둘이라, 화면 안에 두면 헤더에서 누른 경우를 못 받는다.
   // URL 로 안 올리는 이유: 이 모달은 되돌아올 자리가 없다(취소하면 있던 화면 그대로, 만들면
@@ -548,7 +609,7 @@ export function AppShell() {
                     inert={loader.visible || undefined}
                   >
                     {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
-                    {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, ruleTopic, legalDoc)}
+                    {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, ruleTopic, legalDoc, shareLanding)}
                     {/* 조건부로 감싸지 않는다(`{visible && <…/>}` 금지) — 이 컴포넌트가 퇴장
                         transition 을 스스로 지고 끝난 뒤에야 null 이 된다(결정 16). 한 번도
                         visible 이 아니었으면 처음부터 null 이라 0ms 환경에서 DOM 이 안 생긴다.

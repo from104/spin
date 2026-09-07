@@ -83,6 +83,14 @@ export default defineConfig({
     //    tailscale0 인입을 전부 통과시켜 방화벽을 안 열어도 됐지만, **gofu 는 다르다** —
     //    ufw 에 `100.64.0.0/10 ALLOW IN` 규칙이 따로 있어야 한다(2026-08-14 확인).
     allowedHosts: ['cube', 'cube.local', 'gofu', 'gofu.local', '.ts.net'],
+    // 공유 링크 백엔드(server/share, `npm run share:dev`)를 같은 출처로 붙인다.
+    // ⚠️ 앱이 API 주소를 아는 방식은 **상대 경로 하나**여야 한다(PLAN-SHARE-LINK 결정 3 —
+    //    도메인 독립). 개발에서 `http://localhost:8787` 을 직접 부르면 출처가 갈려 CORS·쿠키·
+    //    링크 origin 이 운영과 다른 길을 타고, 운영에서만 나는 버그가 생긴다. 그래서 개발도
+    //    운영(Apache ProxyPass)과 **같은 모양**으로 `/api` 를 그대로 넘긴다.
+    proxy: {
+      '/api': { target: 'http://localhost:8787', changeOrigin: false },
+    },
   },
   preview: {
     host: true,
@@ -97,6 +105,9 @@ export default defineConfig({
     // src/ 아래 *.test.ts(x) 만 수집한다 — 안 그러면 .scratch/ 의 에이전트 작업용 프로브
     // 테스트까지 `npm test` 가 주워 실패로 잡고, 로컬 게이트가 흐려진다(.scratch 는
     // gitignore 되므로 CI 는 원래도 안전했다).
-    include: ['src/**/*.test.{ts,tsx}'],
+    // server/ 는 앱 번들이 아니라 공유 링크 백엔드(의존성 0, Node 가 .ts 를 바로 돈다)다.
+    // 여기 include 에 없으면 `npm test` 가 그 계약을 **한 번도 안 본다** — 서버가 조용히
+    // 깨져도 앱 테스트는 전부 초록이다.
+    include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts'],
   },
 })

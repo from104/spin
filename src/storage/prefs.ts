@@ -15,6 +15,8 @@ export const PREFS_KEY = 'spin.prefs';
 // — rg 로 문자열 'spin.ui' 까지 확인, 남은 곳은 docs/DESIGN.md 의 옛 스냅숏뿐 — 남겨 두면
 // 다음 사람이 "이 키는 왜 백업(backup 봉투)에 안 들어가지" 를 다시 조사하게 된다.
 // 이 앱이 localStorage 에 쓰는 키는 PREFS_KEY 와 board.ts 의 BOARD_KEY 둘뿐이다.
+//   ⚠️ 2026-09-07: 셋이 됐다 — 공유 링크의 삭제 토큰 `spin.shareLinks`(src/storage/shareLinks.ts).
+//   prefs 에 안 넣은 이유는 그 파일 머리말에(비밀이라 기기 이사 파일에 실리면 안 된다).
 /** 3.0 에서 1 → 2. 트레이 서랍·seed 도장·2존 모드를 **한 번에** 태운 상승이다(§7 E-6) —
  *  네 필드를 따로 올렸으면 여기까지 오는 동안 백업 파일의 스키마가 네 갈래로 갈라졌다.
  *  i18n C1 에서 2 → 3. 언어 설정(language) 한 필드만 추가한다. */

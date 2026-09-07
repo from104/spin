@@ -8,6 +8,10 @@
 //   계획서의 "상시 노출 [열기]" 는 별도 버튼이 아니라 **카드면 전체 버튼**이 담당한다(어차피
 //   44px 를 훌쩍 넘는 상시 노출 표적이고, 같은 이름의 버튼을 둘 두면 보조기술에 중복 표적이 된다).
 // · 케밥 3항목 유지, '내보내기' 라벨은 계획서 표기대로 '파일로 내보내기'.
+//   ⚠️ 2026-09-07: "3항목" 은 이제 최대 4항목이다 — PLAN-SHARE-LINK 결정 11 의 [링크로 공유]가
+//   붙었다. 옛 문장을 지우지 않는 이유는 **왜 3이었나**가 아직 유효해서다(케밥은 자주 안 쓰는
+//   것만 담는 서랍이고, 자주 쓰는 것은 카드면·[시연] 처럼 상시 노출 표적이다). 새 항목은
+//   `onShareLink` 를 넘긴 자리에서만 뜨므로 이 서랍의 기본 크기는 그대로 3이다.
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { CourtThumbnail } from '../../render/CourtThumbnail.tsx';
@@ -28,6 +32,10 @@ export interface DrillCardProps {
   onDuplicate(): void;
   onDelete(): void;
   onExport(): void;
+  /** 케밥 [링크로 공유](PLAN-SHARE-LINK 결정 11). **옵셔널이다** — 이 화면이 링크를 만들
+   *  수 있을 때만 항목이 뜬다(카드는 요약만 들고 있어 본문을 읽어 오는 일은 목록 화면 몫이다).
+   *  넘기지 않으면 메뉴는 옛 3항목 그대로라, 카드를 쓰는 다른 자리가 이 변경에 안 걸린다. */
+  onShareLink?: () => void;
 }
 
 /** 카드 우상단 "⋯" 메뉴 — icons.tsx(ui-kit 소유)에 없는 아이콘이라 카드 로컬로 그린다. */
@@ -48,12 +56,14 @@ export function DrillKebabMenu({
   onDuplicate,
   onDelete,
   onExport,
+  onShareLink,
   buttonStyle,
 }: {
   title: string;
   onDuplicate(): void;
   onDelete(): void;
   onExport(): void;
+  onShareLink?: () => void;
   buttonStyle?: CSSProperties;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -146,6 +156,18 @@ export function DrillKebabMenu({
           >
             {t('drillCard.exportMenuItem')}
           </MenuItem>
+          {/* [파일로 내보내기] 바로 아래 — 둘 다 "이 드릴을 남에게 준다" 이고, 파일이 먼저인
+              것은 링크가 서버·인터넷을 요구하는 쪽이기 때문이다(닿지 않는 곳에서도 파일은 된다). */}
+          {onShareLink && (
+            <MenuItem
+              onClick={() => {
+                closeMenu();
+                onShareLink();
+              }}
+            >
+              {t('library.share.link')}
+            </MenuItem>
+          )}
           <MenuItem
             tone="danger"
             onClick={() => {
@@ -161,7 +183,7 @@ export function DrillKebabMenu({
   );
 }
 
-export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport }: DrillCardProps) {
+export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport, onShareLink }: DrillCardProps) {
   // §6.4 — 카드 상자의 비율은 그 드릴의 **크기까지** 따라간다. 크기를 빼면 25×14 드릴만
   // 30×18 비율 상자 안에 그려져 위아래에 검은 띠가 남는다(썸네일은 xMidYMid meet 이다).
   const courtDef = courtDefFor(drill.courtMode, drill.courtSize);
@@ -270,7 +292,7 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
       </div>
 
       <div style={{ position: 'absolute', top: 8, right: 8 }}>
-        <DrillKebabMenu title={drill.title} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} />
+        <DrillKebabMenu title={drill.title} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} onShareLink={onShareLink} />
       </div>
     </div>
   );
@@ -278,7 +300,7 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
 
 /** C11 목록 보기(썸네일 없음) 행 — 2026-08-19 기현님 지시. 카드와 **같은 행동 집합**
  *  (행 전체 = 열기 · [시연] · 케밥 메뉴)에 그림만 뺐다. 한 줄 44px+ 로 훑어 내리기용. */
-export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport }: DrillCardProps) {
+export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport, onShareLink }: DrillCardProps) {
   const t = useT();
   const locale = useLocale();
   return (
@@ -348,7 +370,7 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
         <IconPlay size={13} />
         {t('drillCard.presentButton')}
       </button>
-      <DrillKebabMenu title={drill.title} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} buttonStyle={{ width: 44, height: 44 }} />
+      <DrillKebabMenu title={drill.title} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} onShareLink={onShareLink} buttonStyle={{ width: 44, height: 44 }} />
     </div>
   );
 }

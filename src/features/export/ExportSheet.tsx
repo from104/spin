@@ -55,6 +55,7 @@ import { PrintRoot, printWhenReady } from '../print/index.ts';
 import type { PrintDoc } from '../print/index.ts';
 import { rasterizeFrameToPng } from './rasterize.ts';
 import { sceneOrder } from '../../model/zOrder.ts';
+import { ShareLinkModal } from '../library/ShareLinkModal.tsx';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
@@ -91,6 +92,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
   const t = useT();
   const locale = useLocale();
   const [printDoc, setPrintDoc] = useState<PrintDoc | null>(null);
+  // 공유 링크 모달(PLAN-SHARE-LINK 결정 11). PrintRoot 와 **같은 이유**로 시트 밖에 산다:
+  // 링크를 고르는 순간 시트는 닫히기 때문이다(모달 둘을 겹쳐 세우면 포커스 트랩이 둘이 된다).
+  const [shareOpen, setShareOpen] = useState(false);
   // 같은 동작을 연타하면 파일이 두 벌 떨어진다(래스터는 수백 ms 걸린다). 화면에서 버튼을
   // 지우지는 않는다 — 표적이 사용 중에 사라지면 그게 더 나쁘다(§3 불변식 1 의 정신).
   const busyRef = useRef(false);
@@ -247,9 +251,26 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
             onClick={() => void exportPng()}
           />
           <SheetItem title={t('export.print.title')} desc={t('export.print.desc')} onClick={startPrint} />
+          {/* 세 번째 칸 — 링크(2026-09-07, PLAN-SHARE-LINK 결정 11).
+              ⚠️ 계획서는 이 항목을 "시트 4번째" 라고 적었지만 이 시트의 항목은 지금 **둘**이라
+              실제로는 세 번째다. 4번이었던 시절(그림·인쇄·기기 이사 파일)의 [기기 이사 파일]은
+              2026-08-20 에 설정 화면으로 옮겨 갔다(이 파일 머리말 ⚠️). 자리는 맨 끝이 맞다 —
+              **범위(scope) 컨트롤이 안 걸리는 유일한 항목**이라(링크는 드릴 통째로 간다)
+              위 두 칸과 성격이 다르고, 서버·인터넷을 요구하는 쪽이기도 하다.
+              범위를 안 보는 것이 왜 결함이 아닌가: 링크로 받는 쪽이 여는 것은 그림이 아니라
+              **드릴**이라 스텝 한 장만 잘라 보내면 그건 다른 드릴이다. */}
+          <SheetItem
+            title={t('export.link')}
+            desc={t('export.link.desc')}
+            onClick={() => {
+              onClose();
+              setShareOpen(true);
+            }}
+          />
         </div>
       </Modal>
       <PrintRoot doc={printDoc} onReady={onPrintReady} view={{ showGrid, showGridLabels, showRuleZones }} />
+      <ShareLinkModal open={shareOpen} drill={drill} onClose={() => setShareOpen(false)} returnFocusRef={returnFocusRef} />
     </>
   );
 }

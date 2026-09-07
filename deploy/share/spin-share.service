@@ -1,0 +1,63 @@
+# SPIN 공유 링크 백엔드 — systemd 유닛
+#
+# 정본: docs/PLAN-SHARE-LINK.md 결정 12. 설치는 scripts/deploy-share.sh 가 한다.
+# 설치 위치: /etc/systemd/system/spin-share.service
+#
+# ⚠️ ExecStart 가 .ts 를 **그대로** 가리킨다 — Node ≥22.18 이 타입만 지우고 돌리므로 빌드
+#    산출물이 없다. 노드가 그보다 낮으면 여기서 곧바로 죽는다(로그에 SyntaxError). 배포
+#    스크립트가 먼저 원격 노드 버전을 확인하는 이유가 그것이다.
+#
+# 왜 mocil(3000)과 같은 서버에 얹는가: 이 서비스는 암호문을 나르기만 해서 상주 메모리가
+# 수십 MB 다. 인스턴스를 하나 더 사는 값이 얻는 것보다 크다. 대신 MemoryMax 로 상한을 걸어
+# 이쪽이 새더라도 945 MB 짜리 호스트에서 mocil 을 밀어내지 못하게 한다.
+
+[Unit]
+Description=SPIN share link backend (encrypted drill blobs)
+Documentation=https://github.com/from104/spin
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bitnami
+Group=bitnami
+WorkingDirectory=/opt/spin-share
+ExecStart=/opt/bitnami/node/bin/node /opt/spin-share/index.ts
+
+# ── 환경 ────────────────────────────────────────────────────────────────────────────
+# 기본값과 다르게 두는 둘만 적는다(나머지는 server/share/README.md 의 표가 정본이다):
+#  · 데이터는 코드 옆이 아니라 고정 경로 — rsync 가 코드를 덮어써도 항목이 안 날아간다.
+#  · Apache 뒤에 있으므로 X-Forwarded-For 를 믿는다. ⚠️ 이 서비스가 0.0.0.0 에 열리면
+#    그 순간 이 값이 거짓말이 된다(누구나 헤더를 위조한다) — SHARE_HOST 는 127.0.0.1 로 둔다.
+Environment=SHARE_DATA_DIR=/opt/spin-share/data
+Environment=SHARE_TRUST_PROXY=1
+Environment=NODE_ENV=production
+
+Restart=always
+RestartSec=2
+# 죽고 되살아나기를 반복하면(예: 노드 버전이 낮아 파싱부터 실패) 로그만 채우므로 멈춘다.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# ── 울타리 ──────────────────────────────────────────────────────────────────────────
+# 이 프로세스가 하는 일은 «자기 데이터 디렉터리에 파일을 쓰고 127.0.0.1 포트를 여는 것» 뿐이다.
+# 그 밖의 권한은 전부 뺀다 — 남의 코드가 들어와도 갈 데가 없게.
+MemoryMax=128M
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/spin-share/data
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=spin-share
+
+[Install]
+WantedBy=multi-user.target

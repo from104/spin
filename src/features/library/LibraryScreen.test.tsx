@@ -340,3 +340,46 @@ describe('드릴 목록 튜토리얼(§0.5)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '화면 안내' })).toBeNull());
   });
 });
+
+// ── 공유 링크 배선 (PLAN-SHARE-LINK 결정 9·11) ───────────────────────────────────────────
+// 서버 왕복만 목이다 — 접기·잠그기·풀기는 진짜로 돈다. 지우면 새는 것 둘:
+//  ① 카드가 들고 있는 것은 요약(스텝·개체 없음)이라, 본문을 저장소에서 읽어 오지 않으면
+//     "링크로 공유" 가 빈 드릴을 보낸다. 이 화면이 그 읽기를 하는 유일한 자리다.
+//  ② `/s/:id` 착지 시트를 닫을 때 주소를 되돌리지 않으면, 라이브러리로 돌아온 뒤에도 주소가
+//     `/s/…` 라 새로고침이 시트를 다시 연다(닫히지 않는 화면).
+vi.mock('../../share/api.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../share/api.ts')>();
+  return {
+    ...actual,
+    uploadCiphertext: async () => ({ id: 'ShareIdAb1', deleteToken: 'tok', expiresAt: 0 }),
+    fetchCiphertext: async () => {
+      throw new actual.ShareError('not-found', { status: 404 });
+    },
+  };
+});
+
+describe('공유 링크', () => {
+  it('카드 ⋯ [링크로 공유] 가 본문을 읽어 링크 모달을 연다', async () => {
+    await idbDrillRepo.createDrill({ courtMode: 'full', title: '공유 대상' });
+    render(<LibraryScreen nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(within(panel()).getByText('공유 대상')).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '공유 대상 더보기' }));
+    await user.click(screen.getByRole('menuitem', { name: '링크로 공유' }));
+
+    const input = (await screen.findByRole('textbox', { name: '공유 링크' })) as HTMLInputElement;
+    // ① 요약만으로는 만들 수 없는 링크다(본문 → 봉투 → 압축 → 암호화가 실제로 돌았다).
+    expect(input.value).toContain('/s/ShareIdAb1#');
+  });
+
+  it('/s 착지 시트를 닫으면 주소를 라이브러리로 되돌린다', async () => {
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} shareLanding={{ id: 'ShareIdAb1', keyB64: null }} />, { wrapper });
+    // 열쇠가 잘린 링크라 서버를 안 부르고 곧장 문구가 뜬다.
+    expect((await screen.findByRole('alert')).textContent ?? '').toMatch(/열쇠가 맞지 않습니다/);
+    await userEvent.setup().click(screen.getByRole('button', { name: '닫기' }));
+    // ② 라우터 API 로 되돌린다 — history.replaceState 를 직접 부르면 화면 상태와 어긋난다.
+    expect(nav.goLibrary).toHaveBeenCalledTimes(1);
+  });
+});

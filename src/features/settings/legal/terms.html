@@ -38,7 +38,7 @@
     <li>계정을 만들지 않는다. 회원 가입, 아이디, 비밀번호가 없다. 로그인은 동기화를 켤 때의 구글 인가 하나뿐이며, 그것도 SPIN 계정이 아니라 이용자의 구글 계정과 앱 사이의 접근 허용일 뿐이다.</li>
     <li>웹(<a href="https://spin.atit.app">https://spin.atit.app</a>)과 데스크톱 앱으로 쓸 수 있다. 데스크톱은 리눅스용 deb·rpm·AppImage를 제공하고, 윈도우·macOS는 해당 운영체제에서 직접 빌드해야 한다.</li>
     <li>데스크톱 앱에는 자동 업데이트가 없다. 새 판을 쓰려면 이용자가 설치 파일을 내려받아 직접 설치한다.</li>
-    <li>이용자 데이터는 기기 안에 저장된다(웹은 브라우저 저장소, 데스크톱은 앱 데이터). 운영자는 서비스용 백엔드 서버를 두지 않고, 웹은 정적 파일만 올리는 배포다.</li>
+    <li>이용자 데이터는 기기 안에 저장된다(웹은 브라우저 저장소, 데스크톱은 앱 데이터). 운영자는 이용자 데이터를 모아 두는 백엔드 서버를 두지 않는다 — 공유 링크만이 예외이고, 그때에도 서버에 올라가는 것은 기기에서 잠근 암호문뿐이라 운영자는 내용을 볼 수 없다(<a href="/privacy/">개인정보처리방침</a> 제10조).</li>
     <li>동기화는 선택 기능이다. 켜지 않으면 서비스는 구글에 한 번도 접속하지 않는다.</li>
   </ol>
 
@@ -168,7 +168,7 @@
     <li>There is no account to create — no sign-up, no user ID, no password. The only sign-in is the Google authorization used when you turn on sync, and even that is not a SPIN account: it is permission between your own Google account and the app.</li>
     <li>The Service runs on the web (<a href="https://spin.atit.app">https://spin.atit.app</a>) and as a desktop app. Desktop builds are provided for Linux as deb, rpm, and AppImage; Windows and macOS must be built on those operating systems.</li>
     <li>The desktop app has no auto-update. To move to a newer version, you download and install it yourself.</li>
-    <li>Your data is stored on your device (browser storage on the web, app data on desktop). The Operator runs no backend server for the Service; the web deployment serves static files only.</li>
+    <li>Your data is stored on your device (browser storage on the web, app data on desktop). The Operator runs no backend server that collects user data — share links are the only exception, and even then the server receives only ciphertext sealed on your device, whose contents the Operator cannot see (<a href="/privacy/">Privacy Policy</a>, Article 10).</li>
     <li>Sync is optional. If you never turn it on, the Service never contacts Google.</li>
   </ol>
 
@@ -298,7 +298,7 @@
     <li>アカウントを作りません。会員登録・ID・パスワードはありません。ログインは同期をオンにするときの Google 認可だけで、それも SPIN のアカウントではなく、利用者の Google アカウントとアプリの間の許可にすぎません。</li>
     <li>ウェブ(<a href="https://spin.atit.app">https://spin.atit.app</a>)とデスクトップアプリで使えます。デスクトップは Linux 向けに deb・rpm・AppImage を提供し、Windows・macOS はそれぞれの OS でビルドする必要があります。</li>
     <li>デスクトップアプリに自動更新はありません。新しい版を使うには、利用者がインストーラを入手して自分で入れ替えます。</li>
-    <li>利用者のデータは端末の中に保存されます(ウェブはブラウザの保存領域、デスクトップはアプリデータ)。運営者は本サービス用のバックエンドサーバーを持たず、ウェブは静的ファイルを置くだけの配信です。</li>
+    <li>利用者のデータは端末の中に保存されます(ウェブはブラウザの保存領域、デスクトップはアプリデータ)。運営者は利用者データを集めるバックエンドサーバーを持ちません — 共有リンクのみが例外で、その場合もサーバーへ上がるのは端末で暗号化された暗号文だけであり、運営者は内容を見ることができません(<a href="/privacy/">プライバシーポリシー</a>第10条)。</li>
     <li>同期は任意の機能です。オンにしなければ、本サービスが Google に接続することは一度もありません。</li>
   </ol>
 

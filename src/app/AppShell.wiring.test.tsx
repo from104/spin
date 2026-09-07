@@ -47,13 +47,23 @@ vi.mock('../features/library/LibraryScreen.tsx', async () => {
   // 라이브 리전 발표문의 제목은 이 목록 데이터에서 나온다(AppShell.titleOf) — 아직 안 읽힌
   // 동안 눌러 버리면 제목 없는 문장이 나가므로, 로드 완료를 셀 수 있게 개수를 노출한다.
   const { useLibraryState } = await import('../store/library/LibraryProvider.tsx');
-  function LibraryScreen({ nav }: { nav: HomeNav }) {
+  function LibraryScreen({ nav, shareLanding }: { nav: HomeNav; shareLanding?: { id: string; keyB64: string | null } | null }) {
     useAppHeader({ title: '목록이 선언한 헤더(무시돼야 한다)' });
     const { drills } = useLibraryState();
     return (
-      <div data-testid="screen-library" data-drill-count={drills.length}>
+      <div
+        data-testid="screen-library"
+        data-drill-count={drills.length}
+        // 공유 착지(PLAN-SHARE-LINK 결정 9) — 진짜 화면은 이 값으로 가져오기 시트를 세운다.
+        // 여기서는 **값이 화면까지 닿았는가**만 본다(시트 자체는 ShareImportSheet.test.tsx).
+        data-share-id={shareLanding?.id ?? ''}
+        data-share-key={shareLanding?.keyB64 ?? ''}
+      >
         <button type="button" onClick={() => nav.openDrill(FIXTURE.drillId as DrillId)}>
           드릴 열기
+        </button>
+        <button type="button" onClick={() => nav.goLibrary()}>
+          목록으로
         </button>
         <button type="button" onClick={() => nav.presentDrill(FIXTURE.drillId as DrillId)}>
           드릴 시연
@@ -871,5 +881,53 @@ describe('AppShell 배선 — 좁은 창에서 레일이 헤더 좌측으로 접
     expect(nav.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // 헤더 안에서도 좌측 첫 칸이다 — 제목·되돌리기보다 앞.
     expect(header().firstElementChild!.contains(nav)).toBe(true);
+  });
+});
+
+// ── 공유 링크 착지 (PLAN-SHARE-LINK 결정 9) ──────────────────────────────────────────────
+// 지우면 새는 것 둘:
+//  ① 열쇠(`#` 뒤 43자)가 주소에 남으면, 화면을 지나가며 본 사람·브라우저 방문 기록·공유 시트가
+//     그 드릴을 여는 권한을 그대로 갖는다(열쇠가 곧 권한인 모델이다).
+//  ② 그 열쇠가 화면까지 안 닿으면 정상 링크가 "열쇠가 맞지 않음" 으로 떨어진다.
+describe('/s/:id 착지', () => {
+  const KEY = 'A'.repeat(43);
+
+  afterEach(() => {
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('열쇠를 화면에 넘기고 주소에서는 지운다', async () => {
+    window.history.replaceState(null, '', `/s/ShareIdAb1#${KEY}`);
+    initialPath = '/s/ShareIdAb1';
+    await renderShell();
+
+    const lib = screen.getByTestId('screen-library');
+    expect(lib.getAttribute('data-share-id')).toBe('ShareIdAb1');
+    expect(lib.getAttribute('data-share-key')).toBe(KEY); // ②
+    expect(window.location.hash).toBe(''); // ①
+  });
+
+  it('착지에서 목록으로 닫을 때는 push 가 아니라 교체다 — 뒤로가기가 열쇠 없는 /s/:id 로 되돌아가면 안 된다', async () => {
+    // 2026-09-07 검수: goLibrary 가 push 였을 때 [닫기] 뒤 브라우저 뒤로가기가 `/s/:id`(열쇠는
+    // 이미 주소에서 지워졌다)로 되돌아가 정상 링크였는데도 "열쇠가 맞지 않음" 을 띄웠다.
+    window.history.replaceState(null, '', `/s/ShareIdAb1#${KEY}`);
+    initialPath = '/s/ShareIdAb1';
+    await renderShell();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '목록으로' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/drills'));
+    expect(router.state.historyAction).toBe('REPLACE');
+    expect(screen.getByTestId('screen-library').getAttribute('data-share-id')).toBe('');
+  });
+
+  it('열쇠가 잘린 링크는 화면에 빈 열쇠로 닿는다 — 라이브러리 화면은 그대로 뜬다', async () => {
+    window.history.replaceState(null, '', '/s/ShareIdAb1');
+    initialPath = '/s/ShareIdAb1';
+    await renderShell();
+
+    expectOnlyScreen('screen-library');
+    const lib = screen.getByTestId('screen-library');
+    expect(lib.getAttribute('data-share-id')).toBe('ShareIdAb1');
+    expect(lib.getAttribute('data-share-key')).toBe('');
   });
 });

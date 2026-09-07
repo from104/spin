@@ -11,7 +11,7 @@
 <h1>SPIN 개인정보처리방침</h1>
 
 <div class="meta">
-  <div>시행일: 2026년 9월 6일</div>
+  <div>시행일: 2026년 9월 7일</div>
   <div>운영자: 서기현 (개인 개발자)</div>
   <div>문의: <a href="mailto:from104@gmail.com">from104@gmail.com</a></div>
   <div>홈: <a href="https://spin.atit.app">https://spin.atit.app</a> · 서비스 약관: <a href="/terms/">/terms/</a></div>
@@ -21,7 +21,7 @@
 <h2>제1조 (목적과 적용 범위)</h2>
 <ol>
   <li>이 방침은 개인 개발자 서기현(이하 "운영자")이 만든 파워체어풋볼 전술판·훈련 관리 앱 SPIN(웹 <a href="https://spin.atit.app">spin.atit.app</a> 및 데스크톱 앱, 이하 "앱")에 적용됩니다.</li>
-  <li>SPIN은 이용자의 데이터를 이용자의 기기 안에 저장합니다. 운영자는 이용자 데이터를 받는 서버를 운영하지 않습니다. 웹은 정적 파일만 올려 제공하며, 저장소에 백엔드 서버 코드가 없습니다.</li>
+  <li>SPIN은 이용자의 데이터를 이용자의 기기 안에 저장합니다. 운영자는 이용자 데이터를 모아 두는 서버를 운영하지 않습니다. 유일한 예외는 이용자가 직접 만드는 공유 링크로, 이때에도 서버에 올라가는 것은 <strong>브라우저에서 이미 암호로 잠긴 드릴</strong>뿐이며 운영자는 그 내용을 볼 수 없습니다(제10조).</li>
   <li>이 방침에 적지 않은 수집·전송은 하지 않습니다.</li>
 </ol>
 
@@ -33,6 +33,7 @@
   <li>드릴·훈련 세션·팀 명단은 이용자 기기 안에 저장됩니다.</li>
   <li>구글 드라이브 동기화는 기본 꺼짐입니다. 켜기 전에는 구글에 한 번도 접속하지 않습니다.</li>
   <li>켜면 이용자 본인 구글 드라이브의 앱 전용 숨김 폴더에만 올라갑니다. 운영자는 그 파일을 볼 수 없습니다.</li>
+  <li>공유 링크를 만들면 드릴이 기기에서 잠긴 뒤 암호문만 서버에 올라갑니다. 열쇠는 링크에만 있고, 180일 뒤 지워집니다.</li>
 </ul>
 
 <h2>제3조 (처리하는 개인정보 항목과 수집 방법)</h2>
@@ -50,6 +51,7 @@
       <li>localStorage <code>spin.prefs</code> — 테마, 재생 속도, 접근성, 언어, 튜토리얼 열람 여부, 동기화 켬/끔 등 앱 설정 전체</li>
       <li>localStorage <code>spin.board</code> — 전술판의 마지막 작업 스냅샷(대문 화면용)</li>
       <li>IndexedDB <code>spin</code> — 스토어 drills·drillSummaries·sessions·meta (드릴, 드릴 요약, 세션, 팀 명단)</li>
+      <li>localStorage <code>spin.shareLinks</code> — 이 기기에서 만든 공유 링크의 id·삭제용 열쇠·만든 시각(제10조). 공유 링크를 한 번도 만들지 않으면 생기지 않습니다</li>
       <li>IndexedDB meta 스토어의 <code>sync/*</code> 동기화 부기 — 문서별 마지막 동기화 시각과 원격 파일 ID, 삭제 표시(톰스톤), 연결된 구글 계정 이메일, 기기 식별자(writerId). 백업 파일에는 포함되지 않습니다.</li>
     </ul>
   </li>
@@ -70,11 +72,11 @@
   <li>기기 안 데이터: 이용자가 지울 때까지 남습니다. 앱에서 삭제하거나, 브라우저의 사이트 데이터를 지우거나, 데스크톱 앱을 삭제하면 없어집니다.</li>
   <li>구글 드라이브에 올린 데이터: 이용자가 앱에서 지우거나 [연결 해제]를 누를 때까지 이용자 본인 드라이브에 남습니다.</li>
   <li>웹의 접근 토큰: 메모리에만 있으며 탭을 닫으면 사라집니다. 데스크톱의 갱신 토큰: 연결을 해제할 때까지 기기 안 파일로 남습니다.</li>
-  <li>운영자가 보관하는 개인정보는 없으므로 운영자 측 보유 기간이 존재하지 않습니다. 웹서버 접속 로그는 제13조에 따릅니다.</li>
+  <li>운영자가 보관하는 개인정보는 없습니다 — 공유 링크의 암호문은 운영자가 내용을 알 수 없는 형태로만 보관되며, 마지막 열람 뒤 180일에 삭제됩니다(제10조). 웹서버 접속 로그는 제14조에 따릅니다.</li>
 </ol>
 
 <h2>제6조 (개인정보의 제3자 제공)</h2>
-<p>운영자는 개인정보를 제3자에게 제공·판매·공유하지 않습니다. 광고 네트워크나 데이터 브로커에 넘기지 않습니다. 운영자는 이용자 데이터를 보유하지 않으므로 제공할 대상 자체가 없습니다. 이용자가 스스로 켠 구글 드라이브 동기화는 제3자 제공이 아니라, 이용자 본인 계정 저장 공간에 이용자의 파일을 두는 것입니다(제7조·제8조).</p>
+<p>운영자는 개인정보를 제3자에게 제공·판매·공유하지 않습니다. 광고 네트워크나 데이터 브로커에 넘기지 않습니다. 운영자는 읽을 수 있는 이용자 데이터를 보유하지 않으므로 제공할 대상 자체가 없습니다(공유 링크의 암호문도 운영자가 열 수 없습니다 — 제10조). 이용자가 스스로 켠 구글 드라이브 동기화는 제3자 제공이 아니라, 이용자 본인 계정 저장 공간에 이용자의 파일을 두는 것입니다(제7조·제8조).</p>
 
 <h2>제7조 (개인정보 처리의 위탁)</h2>
 <ol>
@@ -116,7 +118,18 @@
   <li><strong>권한 철회:</strong> 앱 설정의 [연결 해제] 또는 구글 계정의 <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a> 에서 언제든지 회수할 수 있습니다.</li>
 </ol>
 
-<h2>제10조 (정보주체의 권리와 행사 방법)</h2>
+<h2>제10조 (공유 링크)</h2>
+<ol>
+  <li><strong>어떤 기능인가:</strong> 드릴 하나를 링크 한 줄로 다른 사람에게 보내는 기능입니다. 이용자가 [링크로 공유]를 누른 그 드릴에 대해서만 동작하며, 누르지 않으면 아무것도 올라가지 않습니다.</li>
+  <li><strong>올라가는 것:</strong> 이용자의 브라우저가 그 드릴을 <strong>먼저 암호로 잠그고, 잠긴 결과(암호문)만</strong> 운영자 서버로 올립니다. 여는 열쇠는 링크의 <code>#</code> 뒤에만 있으며, 주소의 이 부분은 웹 표준상 서버로 전송되지 않습니다. 공유할 때 선수 이름과 팀 이름은 빼고 보냅니다(등번호·역할·GK 여부는 남습니다).</li>
+  <li><strong>서버가 보관하는 것:</strong> 암호문, 그 크기, 링크 id, 만든 시각과 마지막 열람 시각, 그리고 삭제용 열쇠의 확인값(해시 — 열쇠 원문은 링크를 만든 기기에만 있습니다)입니다. 남용을 막는 속도 제한을 위해 접속 IP 주소를 잠시 <strong>메모리에만</strong> 두며, 디스크에 기록하지 않고 서버를 다시 시작하면 사라집니다.</li>
+  <li><strong>운영자도 내용을 볼 수 없습니다.</strong> 열쇠가 서버에 없으므로 운영자는 올라온 드릴의 제목·배치·메모를 열어 볼 수 없습니다. 계정이 없으므로 누가 만들었는지도 알지 못합니다.</li>
+  <li><strong>보관 기간:</strong> 마지막으로 열린 때부터 180일이 지나면 자동으로 삭제됩니다. 그 뒤에는 링크가 열리지 않습니다.</li>
+  <li><strong>삭제 요청:</strong> 링크를 만든 기기에는 그 링크의 삭제용 열쇠가 함께 저장됩니다(제3조 3-5). 링크의 id(주소에서 <code>/s/</code> 뒤 부분)를 적어 <a href="mailto:from104@gmail.com">from104@gmail.com</a> 으로 요청하시면 확인 뒤 지웁니다.</li>
+  <li><strong>링크를 받은 사람은 누구나 열 수 있습니다.</strong> 열쇠가 링크 안에 들어 있으므로, 링크가 다른 사람에게 전달되면 그 사람도 드릴을 볼 수 있습니다. 공개된 곳에 붙이지 마시고, 필요 없어지면 삭제를 요청하십시오.</li>
+</ol>
+
+<h2>제11조 (정보주체의 권리와 행사 방법)</h2>
 <ol>
   <li><strong>열람·정정·삭제:</strong> 데이터가 이용자 기기 안에 있으므로 앱 화면에서 직접 보고 고치고 지울 수 있습니다.</li>
   <li><strong>처리 정지:</strong> 설정 화면에서 동기화를 끄면 구글로의 전송이 즉시 멈춥니다.</li>
@@ -126,7 +139,7 @@
   <li><strong>다른 사람의 정보를 입력할 때:</strong> 팀 명단에 다른 사람의 이름이나 PF 클래스를 넣는 경우, 그 사람에게 알리고 동의를 받을 책임은 이용자에게 있습니다.</li>
 </ol>
 
-<h2>제11조 (개인정보의 파기 절차와 방법)</h2>
+<h2>제12조 (개인정보의 파기 절차와 방법)</h2>
 <ol>
   <li>앱에서 드릴·세션·선수를 삭제하면 기기의 IndexedDB 레코드가 지워집니다. 동기화를 켠 상태라면 삭제 표시(톰스톤)를 통해 다른 기기와 드라이브의 파일도 삭제됩니다.</li>
   <li>[연결 해제]는 앱 전용 폴더 안의 파일 전부를 실제로 삭제합니다.</li>
@@ -134,9 +147,9 @@
   <li>운영자에게는 별도로 파기할 보관본이 없습니다.</li>
 </ol>
 
-<h2>제12조 (개인정보의 안전성 확보 조치)</h2>
+<h2>제13조 (개인정보의 안전성 확보 조치)</h2>
 <ol>
-  <li><strong>최소 수집:</strong> 운영자에게 전송되는 개인정보가 없습니다.</li>
+  <li><strong>최소 수집:</strong> 운영자에게 전송되는 개인정보가 없습니다. 공유 링크만이 운영자 서버로 무언가를 보내는데, 그것은 기기에서 이미 잠근 암호문이고 여는 열쇠는 서버에 없습니다(제10조).</li>
   <li><strong>최소 권한:</strong> 구글 권한은 앱 전용 폴더 하나(<code>drive.appdata</code>)만 요청합니다.</li>
   <li><strong>전송 구간 암호화:</strong> 구글과의 통신은 모두 HTTPS입니다.</li>
   <li><strong>웹 토큰:</strong> 접근 토큰을 메모리에만 두고 localStorage나 IndexedDB에 저장하지 않습니다. 탭을 닫으면 사라집니다.</li>
@@ -146,7 +159,7 @@
   <li><strong>자동 업데이트 없음:</strong> 데스크톱 앱에는 자동 업데이트 기능이 없습니다. 보안 수정본은 이용자가 새 설치 파일을 직접 받아 설치해야 합니다.</li>
 </ol>
 
-<h2>제13조 (자동 수집 장치와 접속 로그)</h2>
+<h2>제14조 (자동 수집 장치와 접속 로그)</h2>
 <ol>
   <li>SPIN은 쿠키를 사용하지 않습니다. 분석 도구, 광고 추적기, 오류 보고 도구를 넣지 않았습니다. 다만 동기화를 켤 때 열리는 구글 로그인·동의 화면은 구글 자신의 쿠키를 쓸 수 있으며, 이는 구글의 정책에 따릅니다.</li>
   <li>localStorage와 IndexedDB는 앱 동작을 위한 기기 내부 저장이며 외부로 나가지 않습니다.</li>
@@ -155,21 +168,21 @@
   <li><strong>웹서버 접속 로그:</strong> 웹은 AWS Lightsail의 Apache 웹서버에서 정적 파일로 제공됩니다. 웹서버가 표준 접속 로그(IP 주소, 접속 시각, 요청 경로, User-Agent 등)를 남길 수 있습니다. 이 로그는 서비스 제공과 장애·침해 대응 범위에서만 쓰이며, 분석·프로파일링·광고에 사용하지 않고 제3자에게 제공하지 않습니다.</li>
 </ol>
 
-<h2>제14조 (아동의 개인정보)</h2>
+<h2>제15조 (아동의 개인정보)</h2>
 <ol>
   <li>앱은 나이를 묻지 않으며 아동을 대상으로 하는 서비스가 아닙니다.</li>
   <li>운영자가 수집하는 개인정보가 없으므로 아동으로부터 개인정보를 수집하지 않습니다.</li>
   <li>만 14세 미만 아동이 사용할 때에는 법정대리인의 지도 아래 사용하시기 바랍니다. 팀 명단에 아동 선수의 이름이나 PF 클래스를 입력하는 경우, 법정대리인의 동의를 받을 책임은 이용자에게 있습니다.</li>
 </ol>
 
-<h2>제15조 (개인정보 보호책임자)</h2>
+<h2>제16조 (개인정보 보호책임자)</h2>
 <ul>
   <li>개인정보 보호책임자: 서기현 (개인 개발자, 운영자 본인)</li>
   <li>연락처: <a href="mailto:from104@gmail.com">from104@gmail.com</a></li>
   <li>운영자는 1인 개발자이므로 별도의 부서를 두지 않으며, 문의·불만·피해 구제 요청을 위 주소에서 직접 접수해 처리합니다.</li>
 </ul>
 
-<h2>제16조 (권익침해 구제 방법)</h2>
+<h2>제17조 (권익침해 구제 방법)</h2>
 <p>개인정보와 관련한 분쟁이나 신고는 아래 기관에 문의할 수 있습니다.</p>
 <ul>
   <li>개인정보분쟁조정위원회: 1833-6972 · <a href="https://www.kopico.go.kr">www.kopico.go.kr</a></li>
@@ -177,9 +190,9 @@
   <li>대검찰청 사이버수사과: 1301 · 경찰청 사이버수사국: 182</li>
 </ul>
 
-<h2>제17조 (방침의 변경과 고지)</h2>
+<h2>제18조 (방침의 변경과 고지)</h2>
 <ol>
-  <li>이 방침은 2026년 9월 6일부터 시행합니다.</li>
+  <li>이 방침은 2026년 9월 7일부터 시행합니다(2026년 9월 6일 최초 시행 · 제10조 공유 링크 신설).</li>
   <li>방침을 바꿀 때에는 바뀐 내용과 시행일을 이 페이지에 적어 알립니다. 이용자에게 불리하거나 중요한 변경은 시행 최소 7일 전에 이 페이지에 알립니다.</li>
   <li>이전 방침이 필요하면 <a href="mailto:from104@gmail.com">from104@gmail.com</a> 으로 요청하십시오.</li>
 </ol>
@@ -193,7 +206,7 @@
 <h1>SPIN Privacy Policy</h1>
 
 <div class="meta">
-  <div>Effective date: 6 September 2026</div>
+  <div>Effective date: 7 September 2026</div>
   <div>Operator: Seo Kihyun (independent developer)</div>
   <div>Contact: <a href="mailto:from104@gmail.com">from104@gmail.com</a></div>
   <div>Home: <a href="https://spin.atit.app">https://spin.atit.app</a> · Terms of Service: <a href="/terms/">/terms/</a></div>
@@ -203,7 +216,7 @@
 <h2>Article 1 (Purpose and Scope)</h2>
 <ol>
   <li>This policy applies to SPIN, a powerchair football tactics-board and training app made by Seo Kihyun ("the operator"), covering the web app at <a href="https://spin.atit.app">spin.atit.app</a> and the desktop app ("the app").</li>
-  <li>SPIN stores your data on your own device. The operator runs no server that receives user data. The web app is published as static files only, and the repository contains no backend server code.</li>
+  <li>SPIN stores your data on your own device. The operator runs no server that collects user data. The single exception is a share link you create yourself: even then, all that reaches the server is <strong>a drill already encrypted in your browser</strong>, whose contents the operator cannot see (Article 10).</li>
   <li>Nothing is collected or transmitted beyond what this policy states.</li>
 </ol>
 
@@ -215,6 +228,7 @@
   <li>Drills, training sessions, and rosters are stored on your device.</li>
   <li>Google Drive sync is off by default. Until you turn it on, the app never contacts Google.</li>
   <li>When on, files go only to the hidden app-specific folder of your own Google Drive. The operator cannot see them.</li>
+  <li>Creating a share link encrypts the drill on your device and uploads only the ciphertext. The key lives in the link alone, and the upload is deleted after 180 days.</li>
 </ul>
 
 <h2>Article 3 (Data Processed and How It Is Collected)</h2>
@@ -252,11 +266,11 @@
   <li>On-device data: kept until you delete it — in the app, by clearing site data in your browser, or by uninstalling the desktop app.</li>
   <li>Data uploaded to Google Drive: kept in your own Drive until you delete it in the app or press [Disconnect].</li>
   <li>Web access token: held in memory only and gone when you close the tab. Desktop refresh token: kept in a file on your device until you disconnect.</li>
-  <li>The operator holds no personal data, so there is no operator-side retention period. Web server access logs are covered by Article 13.</li>
+  <li>The operator holds no personal data: a share link's ciphertext is held in a form whose contents the operator cannot read, and it is deleted 180 days after it was last opened (Article 10). Web server access logs are covered by Article 14.</li>
 </ol>
 
 <h2>Article 6 (Provision to Third Parties)</h2>
-<p>The operator does not provide, sell, or share personal data with third parties, including ad networks and data brokers. Because the operator holds no user data, there is nothing to provide. Google Drive sync, when you enable it yourself, is not a provision to a third party: it places your files in your own account's storage (Articles 7 and 8).</p>
+<p>The operator does not provide, sell, or share personal data with third parties, including ad networks and data brokers. Because the operator holds no readable user data, there is nothing to provide — a share link's ciphertext cannot be opened by the operator either (Article 10). Google Drive sync, when you enable it yourself, is not a provision to a third party: it places your files in your own account's storage (Articles 7 and 8).</p>
 
 <h2>Article 7 (Outsourcing of Processing)</h2>
 <ol>
@@ -297,7 +311,18 @@
   <li><strong>Revoking access:</strong> use [Disconnect] in the app's settings, or revoke it at any time at <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a>.</li>
 </ol>
 
-<h2>Article 10 (Your Rights and How to Exercise Them)</h2>
+<h2>Article 10 (Share Links)</h2>
+<ol>
+  <li><strong>What it does:</strong> sends a single drill to someone else as one link. It runs only for the drill you press [Share link] on; if you never press it, nothing is uploaded.</li>
+  <li><strong>What is uploaded:</strong> your browser <strong>encrypts the drill first and uploads only the encrypted result</strong> to the operator's server. The key that opens it lives only after the <code>#</code> in the link, and by web standards that part of an address is never sent to a server. Player names and team names are stripped before sharing (numbers, roles, and goalkeeper status remain).</li>
+  <li><strong>What the server keeps:</strong> the ciphertext, its size, the link id, the times it was created and last opened, and a hash of the deletion key (the key itself stays only on the device that created the link). To rate-limit abuse the requesting IP address is held <strong>in memory only</strong> for a short while; it is never written to disk and disappears when the server restarts.</li>
+  <li><strong>The operator cannot see the contents either.</strong> The server has no key, so the operator cannot open the title, layout, or notes of an uploaded drill. There are no accounts, so who created a link is not known either.</li>
+  <li><strong>Retention:</strong> a link is deleted automatically 180 days after it was last opened, and stops working from then on.</li>
+  <li><strong>Deletion requests:</strong> the device that created the link also stores that link's deletion key (Article 3, item 3-5). Write to <a href="mailto:from104@gmail.com">from104@gmail.com</a> with the link id (the part after <code>/s/</code> in the address) and it will be deleted after verification.</li>
+  <li><strong>Anyone holding the link can open it.</strong> The key is inside the link, so whoever it is forwarded to can also see the drill. Do not post it publicly, and ask for deletion once you no longer need it.</li>
+</ol>
+
+<h2>Article 11 (Your Rights and How to Exercise Them)</h2>
 <ol>
   <li><strong>Access, correction, deletion:</strong> your data is on your device, so you can view, edit, and delete it directly in the app.</li>
   <li><strong>Stopping processing:</strong> turning sync off in settings immediately stops any transfer to Google.</li>
@@ -307,7 +332,7 @@
   <li><strong>Entering other people's data:</strong> if you record another person's name or PF class in a roster, it is your responsibility to inform them and obtain their consent.</li>
 </ol>
 
-<h2>Article 11 (Destruction Procedure and Method)</h2>
+<h2>Article 12 (Destruction Procedure and Method)</h2>
 <ol>
   <li>Deleting a drill, session, or player in the app removes the IndexedDB record on your device. With sync on, a deletion tombstone also removes the file on your other devices and in Drive.</li>
   <li>[Disconnect] actually deletes every file in the app-specific folder.</li>
@@ -315,9 +340,9 @@
   <li>The operator keeps no copies that would need to be destroyed.</li>
 </ol>
 
-<h2>Article 12 (Security Measures)</h2>
+<h2>Article 13 (Security Measures)</h2>
 <ol>
-  <li><strong>Minimal collection:</strong> no personal data is transmitted to the operator.</li>
+  <li><strong>Minimal collection:</strong> no personal data is transmitted to the operator. Share links are the only thing sent to the operator’s server, and what is sent is ciphertext already sealed on your device — the server holds no key (Article 10).</li>
   <li><strong>Minimal permission:</strong> the app requests one Google scope, limited to its own folder (<code>drive.appdata</code>).</li>
   <li><strong>Encryption in transit:</strong> all communication with Google uses HTTPS.</li>
   <li><strong>Web token:</strong> the access token is held in memory only and is never written to localStorage or IndexedDB; closing the tab discards it.</li>
@@ -327,7 +352,7 @@
   <li><strong>No auto-update:</strong> the desktop app has no updater. Security fixes require you to download and install a new package yourself.</li>
 </ol>
 
-<h2>Article 13 (Automatic Collection Devices and Access Logs)</h2>
+<h2>Article 14 (Automatic Collection Devices and Access Logs)</h2>
 <ol>
   <li>SPIN sets no cookies. No analytics, ad trackers, or error-reporting tools are included. Google’s own sign-in and consent screens, shown when you turn sync on, may use Google’s cookies under Google’s policies.</li>
   <li>localStorage and IndexedDB are on-device storage for app functionality; their contents do not leave the device.</li>
@@ -336,21 +361,21 @@
   <li><strong>Web server access logs:</strong> the site is served as static files by an Apache web server on AWS Lightsail. The web server may record standard access logs (IP address, timestamp, requested path, user agent). Such logs are used only to operate the service and respond to faults and abuse; they are not used for analytics, profiling, or advertising, and are not given to third parties.</li>
 </ol>
 
-<h2>Article 14 (Children's Data)</h2>
+<h2>Article 15 (Children's Data)</h2>
 <ol>
   <li>The app does not ask for your age and is not directed at children.</li>
   <li>Since the operator collects no personal data, no personal data is collected from children either.</li>
   <li>Children under 14 should use the app under the guidance of a legal guardian. If you enter a child player's name or PF class in a roster, obtaining the guardian's consent is your responsibility.</li>
 </ol>
 
-<h2>Article 15 (Data Protection Officer)</h2>
+<h2>Article 16 (Data Protection Officer)</h2>
 <ul>
   <li>Data protection officer: Seo Kihyun (independent developer; the operator himself)</li>
   <li>Contact: <a href="mailto:from104@gmail.com">from104@gmail.com</a></li>
   <li>As a one-person project there is no separate department; enquiries, complaints, and remedy requests are received and handled directly at the address above.</li>
 </ul>
 
-<h2>Article 16 (Remedies for Infringement)</h2>
+<h2>Article 17 (Remedies for Infringement)</h2>
 <p>For disputes or reports concerning personal data, you may contact the following Korean bodies.</p>
 <ul>
   <li>Personal Information Dispute Mediation Committee: +82-1833-6972 · <a href="https://www.kopico.go.kr">www.kopico.go.kr</a></li>
@@ -358,9 +383,9 @@
   <li>Supreme Prosecutors' Office Cybercrime Division: 1301 · National Police Agency Cyber Bureau: 182</li>
 </ul>
 
-<h2>Article 17 (Changes to This Policy)</h2>
+<h2>Article 18 (Changes to This Policy)</h2>
 <ol>
-  <li>This policy takes effect on 6 September 2026.</li>
+  <li>This policy takes effect on 7 September 2026 (first effective 6 September 2026; Article 10 on share links added).</li>
   <li>Changes will be announced on this page together with their effective date. Changes that are significant or disadvantageous to users will be posted here at least 7 days before they take effect.</li>
   <li>To request a previous version, write to <a href="mailto:from104@gmail.com">from104@gmail.com</a>.</li>
 </ol>
@@ -374,7 +399,7 @@
 <h1>SPIN プライバシーポリシー</h1>
 
 <div class="meta">
-  <div>施行日: 2026年9月6日</div>
+  <div>施行日: 2026年9月7日</div>
   <div>運営者: ソ・ギヒョン（Seo Kihyun／個人開発者）</div>
   <div>お問い合わせ: <a href="mailto:from104@gmail.com">from104@gmail.com</a></div>
   <div>ホーム: <a href="https://spin.atit.app">https://spin.atit.app</a> · 利用規約: <a href="/terms/">/terms/</a></div>
@@ -384,7 +409,7 @@
 <h2>第1条（目的と適用範囲）</h2>
 <ol>
   <li>本ポリシーは、個人開発者であるソ・ギヒョン（Seo Kihyun）（以下「運営者」）が制作したパワーチェアフットボール用の戦術ボード・練習管理アプリ SPIN（ウェブ版 <a href="https://spin.atit.app">spin.atit.app</a> およびデスクトップ版、以下「本アプリ」）に適用されます。</li>
-  <li>SPIN は利用者のデータを利用者の端末内に保存します。運営者は利用者データを受け取るサーバーを運用していません。ウェブ版は静的ファイルのみを配信しており、リポジトリにバックエンドのサーバーコードはありません。</li>
+  <li>SPIN は利用者のデータを利用者の端末内に保存します。運営者は利用者データを集めるサーバーを運用していません。唯一の例外は利用者ご自身が作成する共有リンクで、その場合もサーバーへ渡るのは<strong>ブラウザで既に暗号化されたドリル</strong>のみであり、運営者はその内容を見ることができません（第10条）。</li>
   <li>本ポリシーに記載のない収集・送信は行いません。</li>
 </ol>
 
@@ -396,6 +421,7 @@
   <li>ドリル・練習セッション・選手名簿は端末内に保存されます。</li>
   <li>Google ドライブ同期は初期状態でオフです。オンにするまで Google に一度も接続しません。</li>
   <li>オンにすると、利用者ご自身の Google ドライブのアプリ専用非表示フォルダにのみ保存されます。運営者はそのファイルを見ることができません。</li>
+  <li>共有リンクを作成すると、ドリルは端末内で暗号化され、暗号文のみがサーバーへ上がります。鍵はリンクの中だけにあり、180日後に削除されます。</li>
 </ul>
 
 <h2>第3条（取り扱う情報の項目と取得方法）</h2>
@@ -433,11 +459,11 @@
   <li>端末内のデータ: 利用者が削除するまで保持されます。アプリ内で削除する、ブラウザのサイトデータを消去する、デスクトップ版をアンインストールすることで消えます。</li>
   <li>Google ドライブにアップロードしたデータ: 利用者がアプリ内で削除するか［接続解除］を押すまで、ご自身のドライブに残ります。</li>
   <li>ウェブ版のアクセストークン: メモリ上のみに保持し、タブを閉じると消えます。デスクトップ版の更新トークン: 接続を解除するまで端末内のファイルとして残ります。</li>
-  <li>運営者が保管する個人情報はないため、運営者側の保有期間は存在しません。ウェブサーバーのアクセスログについては第13条によります。</li>
+  <li>運営者が保管する個人情報はありません。共有リンクの暗号文は運営者が内容を知り得ない形でのみ保管され、最終閲覧から180日で削除されます（第10条）。ウェブサーバーのアクセスログについては第14条によります。</li>
 </ol>
 
 <h2>第6条（第三者提供）</h2>
-<p>運営者は個人情報を第三者に提供・販売・共有しません。広告ネットワークやデータブローカーに渡すこともありません。運営者は利用者データを保有していないため、提供する対象そのものが存在しません。利用者ご自身が有効にする Google ドライブ同期は第三者提供ではなく、利用者ご自身のアカウントの保存領域にご自身のファイルを置くものです（第7条・第8条）。</p>
+<p>運営者は個人情報を第三者に提供・販売・共有しません。広告ネットワークやデータブローカーに渡すこともありません。運営者は読み取れる利用者データを保有していないため、提供する対象そのものが存在しません（共有リンクの暗号文も運営者には開けません — 第10条）。利用者ご自身が有効にする Google ドライブ同期は第三者提供ではなく、利用者ご自身のアカウントの保存領域にご自身のファイルを置くものです（第7条・第8条）。</p>
 
 <h2>第7条（処理の委託）</h2>
 <ol>
@@ -479,7 +505,18 @@
   <li><strong>権限の取り消し:</strong> アプリ設定の［接続解除］、または Google アカウントの <a href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a> からいつでも取り消せます。</li>
 </ol>
 
-<h2>第10条（利用者の権利と行使方法）</h2>
+<h2>第10条（共有リンク）</h2>
+<ol>
+  <li><strong>どのような機能か:</strong> ドリル1件をリンク1行で他の人に送る機能です。利用者が［リンクで共有］を押したドリルについてのみ動作し、押さなければ何もアップロードされません。</li>
+  <li><strong>アップロードされるもの:</strong> 利用者のブラウザが<strong>先にドリルを暗号化し、暗号化された結果のみ</strong>を運営者のサーバーへアップロードします。開くための鍵はリンクの <code>#</code> 以降にのみ存在し、アドレスのこの部分はウェブ標準上サーバーへ送信されません。共有時には選手名とチーム名を除いて送ります（背番号・役割・GK かどうかは残ります）。</li>
+  <li><strong>サーバーが保管するもの:</strong> 暗号文、その大きさ、リンク id、作成時刻と最終閲覧時刻、および削除用の鍵の検証値（ハッシュ — 鍵そのものはリンクを作成した端末にのみあります）です。濫用を防ぐ速度制限のため、接続元の IP アドレスを短時間<strong>メモリ上にのみ</strong>保持します。ディスクには記録せず、サーバーを再起動すると消えます。</li>
+  <li><strong>運営者も内容を見ることができません。</strong> サーバーに鍵がないため、運営者はアップロードされたドリルのタイトル・配置・メモを開けません。アカウントがないため、誰が作成したかも分かりません。</li>
+  <li><strong>保管期間:</strong> 最後に開かれた時から180日が過ぎると自動的に削除され、それ以降はリンクが開けなくなります。</li>
+  <li><strong>削除の請求:</strong> リンクを作成した端末には、そのリンクの削除用の鍵が併せて保存されます（第3条 3-5）。リンクの id（アドレスの <code>/s/</code> 以降）を添えて <a href="mailto:from104@gmail.com">from104@gmail.com</a> までご請求いただければ、確認のうえ削除します。</li>
+  <li><strong>リンクを受け取った人は誰でも開けます。</strong> 鍵がリンクの中にあるため、リンクが転送されればその相手もドリルを見られます。公開の場に貼らず、不要になったら削除をご請求ください。</li>
+</ol>
+
+<h2>第11条（利用者の権利と行使方法）</h2>
 <ol>
   <li><strong>閲覧・訂正・削除:</strong> データは端末内にあるため、アプリ画面から直接確認・修正・削除できます。</li>
   <li><strong>処理の停止:</strong> 設定画面で同期をオフにすると、Google への送信は直ちに停止します。</li>
@@ -489,7 +526,7 @@
   <li><strong>他人の情報を入力する場合:</strong> 名簿に他人の氏名や PF クラスを入力する場合、本人に知らせて同意を得る責任は利用者にあります。</li>
 </ol>
 
-<h2>第11条（廃棄の手順と方法）</h2>
+<h2>第12条（廃棄の手順と方法）</h2>
 <ol>
   <li>アプリでドリル・セッション・選手を削除すると、端末の IndexedDB のレコードが消えます。同期がオンの場合は削除マーク（トゥームストーン）により、他の端末とドライブ上のファイルも削除されます。</li>
   <li>［接続解除］はアプリ専用フォルダ内のファイルをすべて実際に削除します。</li>
@@ -497,9 +534,9 @@
   <li>運営者には別途廃棄すべき保管分がありません。</li>
 </ol>
 
-<h2>第12条（安全管理措置）</h2>
+<h2>第13条（安全管理措置）</h2>
 <ol>
-  <li><strong>最小限の収集:</strong> 運営者に送信される個人情報がありません。</li>
+  <li><strong>最小限の収集:</strong> 運営者に送信される個人情報がありません。運営者のサーバーへ送られるのは共有リンクだけで、その中身は端末で既に暗号化された暗号文であり、開く鍵はサーバーにありません（第10条）。</li>
   <li><strong>最小限の権限:</strong> Google の権限はアプリ専用フォルダのみの1つ（<code>drive.appdata</code>）だけを要求します。</li>
   <li><strong>通信の暗号化:</strong> Google との通信はすべて HTTPS です。</li>
   <li><strong>ウェブ版のトークン:</strong> アクセストークンはメモリ上のみに保持し、localStorage や IndexedDB には保存しません。タブを閉じると消えます。</li>
@@ -509,7 +546,7 @@
   <li><strong>自動更新なし:</strong> デスクトップ版に自動更新機能はありません。セキュリティ修正版は利用者が新しいインストーラーを入手して手動でインストールする必要があります。</li>
 </ol>
 
-<h2>第13条（自動収集装置とアクセスログ）</h2>
+<h2>第14条（自動収集装置とアクセスログ）</h2>
 <ol>
   <li>SPIN は Cookie を使用しません。分析ツール、広告トラッカー、エラー報告ツールも組み込んでいません。ただし、同期をオンにするときに開く Google のログイン・同意画面は Google 自身の Cookie を使用することがあり、これは Google の方針に従います。</li>
   <li>localStorage と IndexedDB はアプリ動作のための端末内保存であり、その内容が外部に出ることはありません。</li>
@@ -518,21 +555,21 @@
   <li><strong>ウェブサーバーのアクセスログ:</strong> 本サイトは AWS Lightsail 上の Apache ウェブサーバーから静的ファイルとして配信されます。ウェブサーバーが標準的なアクセスログ（IPアドレス、アクセス時刻、リクエストパス、ユーザーエージェント等）を記録する場合があります。これらはサービスの提供と障害・不正への対応の範囲でのみ用い、分析・プロファイリング・広告には使用せず、第三者にも提供しません。</li>
 </ol>
 
-<h2>第14条（子どもの個人情報）</h2>
+<h2>第15条（子どもの個人情報）</h2>
 <ol>
   <li>本アプリは年齢を尋ねず、子どもを対象としたサービスではありません。</li>
   <li>運営者が収集する個人情報がないため、子どもから個人情報を収集することもありません。</li>
   <li>14歳未満の子どもが利用する場合は、法定代理人の指導のもとでご利用ください。名簿に子どもの選手の氏名や PF クラスを入力する場合、法定代理人の同意を得る責任は利用者にあります。</li>
 </ol>
 
-<h2>第15条（個人情報保護責任者）</h2>
+<h2>第16条（個人情報保護責任者）</h2>
 <ul>
   <li>個人情報保護責任者: ソ・ギヒョン（Seo Kihyun）（個人開発者・運営者本人）</li>
   <li>連絡先: <a href="mailto:from104@gmail.com">from104@gmail.com</a></li>
   <li>一人での開発のため専門部署はなく、問い合わせ・苦情・救済の申し出は上記の連絡先で直接受け付け、対応します。</li>
 </ul>
 
-<h2>第16条（権利侵害の救済方法）</h2>
+<h2>第17条（権利侵害の救済方法）</h2>
 <p>個人情報に関する紛争や申告は、次の韓国の機関にご相談いただけます。</p>
 <ul>
   <li>個人情報紛争調停委員会: +82-1833-6972 · <a href="https://www.kopico.go.kr">www.kopico.go.kr</a></li>
@@ -540,9 +577,9 @@
   <li>大検察庁サイバー捜査課: 1301 · 警察庁サイバー捜査局: 182</li>
 </ul>
 
-<h2>第17条（本ポリシーの変更と告知）</h2>
+<h2>第18条（本ポリシーの変更と告知）</h2>
 <ol>
-  <li>本ポリシーは2026年9月6日から施行します。</li>
+  <li>本ポリシーは2026年9月7日から施行します（2026年9月6日初回施行・第10条「共有リンク」を新設）。</li>
   <li>変更する場合は、変更内容と施行日を本ページに記載してお知らせします。利用者に不利または重要な変更については、施行の少なくとも7日前に本ページで告知します。</li>
   <li>以前の版が必要な場合は <a href="mailto:from104@gmail.com">from104@gmail.com</a> までご請求ください。</li>
 </ol>

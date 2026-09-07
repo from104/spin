@@ -35,6 +35,7 @@
 //   /settings/privacy      개인정보처리방침              screen 'settings' + {kind:'legal', doc}
 //   /settings/terms        서비스 약관                   위와 동일
 //   /privacy · /terms      (관용) 공개·색인용 주소         위로 흡수 — 한 방향(아래 주석)
+//   /s/:id                 공유 링크 착지                 screen 'drills' + {kind:'share', id}
 //
 // ⚠️ '/drills/:id' 의 화면 키가 'drills' 가 아니라 'board' 인 것은 2026-08-09 재편 그대로다:
 // 자유 전술판과 드릴 편집은 같은 자리(board)에 뜨고, 무엇이 떠 있는지는 StageTarget 이 정한다.
@@ -57,6 +58,13 @@ export function pathFor(screen: Screen, target?: NavTarget): string {
       // C5 — 세션은 1급 화면이 됐다. 옛 "드릴 화면의 세션 탭/드로어" 대상은 세션 화면으로 접는다.
       if (target?.kind === 'session') return `/sessions/${target.id}`;
       if (target?.kind === 'tab' && target.tab === 'sessions') return '/sessions';
+      // 공유 링크 착지(PLAN-SHARE-LINK 결정 9) — 새 화면을 만들지 않고 라이브러리 화면 위에
+      // 가져오기 시트를 얹는다(`/privacy` 가 설정으로 접히는 것과 같은 수법).
+      // ⚠️ **열쇠(`#` 뒤)는 여기 없다.** 프래그먼트는 라우터의 관할이 아니라(react-router 의
+      //    location.hash 는 라우팅에 안 쓰인다) UI 가 `location.hash` 에서 직접 읽는다 —
+      //    그래야 열쇠가 history state·prerender·SEO 어디에도 새지 않는다. 이 함수가 만드는
+      //    주소에 열쇠가 없는 것은 누락이 아니라 계약이다(링크 전체는 share/link.ts 가 만든다).
+      if (target?.kind === 'share') return `/s/${target.id}`;
       return '/drills';
     case 'sessions':
       // C6 — 세션 대상 = 전용 편집 화면(드릴의 /drills/:id 와 같은 꼴. 드로어 시절의 ?open= 은퇴)
@@ -124,6 +132,15 @@ export function parsePath(pathname: string, search: string = ''): ParsedRoute {
     // 거기 착지하면 앱이 같은 문서를 앱 틀 안(설정 하위)에서 이어 보여 준다. 반대 방향은
     // 만들지 않는다(pathFor 는 `/settings/privacy` 만 낳는다) — 옛 `/rules/law-N` 흡수와 같은
     // 이유다: 주소를 되살리는 게 아니라 이미 나간 링크가 안 죽게 하는 것뿐.
+    // 공유 링크 착지(PLAN-SHARE-LINK 결정 9). 화면은 라이브러리('drills')이고, 위에 뜨는
+    // 가져오기 시트가 `location.hash` 의 열쇠로 내용을 연다.
+    // ⚠️ id 꼴을 **여기서는 안 본다**(share/link.ts 는 본다). 오타 한 글자짜리 링크를 여기서
+    //    떨구면 대문으로 조용히 떨어져 "링크가 없거나 만료됐습니다" 라는 알맞은 문구를 볼
+    //    기회조차 없어진다 — 판정은 서버가 404 로 한다.
+    case 's': {
+      if (seg.length >= 2 && seg[1]!.length > 0) return { screen: 'drills', target: { kind: 'share', id: seg[1]! } };
+      return { screen: 'drills' };
+    }
     case 'privacy':
       return { screen: 'settings', target: { kind: 'legal', doc: 'privacy' } };
     case 'terms':

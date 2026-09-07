@@ -1,0 +1,33 @@
+{
+  /* 공유 링크 백엔드(server/share) — 앱과 규칙이 다른 유일한 소스 트리다.
+   *
+   * 왜 tsconfig.app.json 에 안 넣는가: app 은 `lib: ["ES2023","DOM"]` 에 `types: ["vite/client"]`
+   * 라, 서버 코드가 `document` 를 만져도 컴파일이 통과한다. 서버에 DOM 은 존재하지 않으므로
+   * 그 통과는 거짓말이다. 여기서는 DOM 을 빼고 node 타입만 준다.
+   *
+   * ⚠️ `erasableSyntaxOnly` 는 여기서 **취향이 아니라 실행 조건**이다 — Node 는 .ts 를
+   *    타입만 지워서 돌리므로 enum·namespace·생성자 파라미터 프로퍼티가 들어가면 런타임에서
+   *    죽는다. `npm run typecheck` 가 그것을 커밋 전에 잡는 유일한 자리다. */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.server.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "types": ["node", "vitest/globals"],
+    "skipLibCheck": true,
+
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["server"]
+}

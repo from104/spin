@@ -107,17 +107,19 @@ describe('닫힌 시트는 예산에 0을 더한다', () => {
     expect(document.querySelectorAll(PRINT_PAGE_SELECTOR)).toHaveLength(0);
   });
 
-  it('대조군: 열면 두 항목이 실제로 생긴다 — 위 it 이 "아무것도 못 찾는 선택자" 로 통과한 것이 아니다', () => {
+  it('대조군: 열면 세 항목이 실제로 생긴다 — 위 it 이 "아무것도 못 찾는 선택자" 로 통과한 것이 아니다', () => {
     renderSheet(true);
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/]) {
+    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/, /^링크로 공유/]) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     // 2026-08-20 — [기기 이사 파일 (JSON)] 항목은 설정 화면으로 옮겼다(SettingsScreen.test.tsx).
     expect(screen.queryByRole('button', { name: /기기 이사 파일/ })).toBeNull();
-    // 항목 2 + 닫기 1 = 3. 항목이 늘면 여기가 먼저 운다(§6.4 "큰 표적").
-    expect(screen.getAllByRole('button')).toHaveLength(3);
+    // 항목 3 + 닫기 1 = 4. 항목이 늘면 여기가 먼저 운다(§6.4 "큰 표적").
+    // ⚠️ 2026-09-07: 2 → 3 (PLAN-SHARE-LINK 결정 11 의 [링크로 공유]). 옛 숫자를 지우지 않고
+    //    적어 두는 이유는 이 단언의 뜻이 "항목이 몇 개냐" 가 아니라 **"몰래 늘지 않는다"** 라서다.
+    expect(screen.getAllByRole('button')).toHaveLength(4);
   });
 });
 

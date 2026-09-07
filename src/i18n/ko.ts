@@ -213,6 +213,30 @@ export const ko = {
   'library.undoAction': '되돌리기',
   'library.importErrorFallback': '가져오기에 실패했습니다.',
 
+  // 공유 링크(PLAN-SHARE-LINK 결정 10·11). 오류 문구 넷은 **사용자가 할 일이 서로 다르다** —
+  // 다시 받기 / 링크 전체 받기 / 앱 새로고침 / 잠시 뒤 다시. 하나로 뭉치지 마라.
+  'library.share.link': '링크로 공유',
+  'library.share.creating': '링크를 만드는 중…',
+  'library.share.linkAriaLabel': '공유 링크',
+  'library.share.copy': '복사',
+  'library.share.copied': '링크를 복사했습니다.',
+  'library.share.copyFailed': '복사하지 못했습니다. 링크를 직접 선택해 복사하세요.',
+  'library.share.note': '링크를 가진 사람만 열 수 있습니다. 서버에는 암호문만 남고 180일 뒤 만료됩니다.',
+  'library.share.error.notFound': '링크가 없거나 만료됐습니다. 보낸 사람에게 다시 받으세요.',
+  'library.share.error.badKey': '열쇠가 맞지 않습니다. 링크가 잘렸을 수 있으니 전체를 다시 받으세요.',
+  'library.share.error.tooNew': '이 앱이 너무 오래됐습니다. 새로고침한 뒤 다시 열어 보세요.',
+  'library.share.error.network': '서버에 닿지 못했습니다. 잠시 뒤 다시 시도하세요.',
+  'library.share.error.tooLarge': '이 드릴은 링크로 보내기엔 큽니다. [파일로 내보내기]를 쓰세요.',
+  'library.share.error.rateLimited': '요청이 너무 잦습니다. 잠시 뒤 다시 시도하세요.',
+  'library.import.title': '공유받은 드릴',
+  'library.import.loading': '링크를 여는 중…',
+  'library.import.steps': '{{count}}스텝',
+  'library.import.save': '내 목록에 저장',
+  'library.import.saved': '"{{title}}" 을(를) 목록에 저장했습니다.',
+  'library.import.close': '닫기',
+  // ✕ 와 하단 [닫기] 가 같은 이름이면 보조기술에 표적 두 개가 똑같이 읽힌다 — ✕ 만 길게 쓴다.
+  'library.import.closeLabel': '공유받은 드릴 닫기',
+
   'drillCard.kebabMoreAriaLabel': '{{title}} 더보기',
   'drillCard.kebabMenuAriaLabel': '{{title}} 작업',
   'drillCard.duplicateMenuItem': '복제',
@@ -930,6 +954,11 @@ export const ko = {
   'export.scope.this': '이 스텝 ({{n}}번)',
   'export.scope.selected': '선택한 {{n}}장',
   'export.scope.all': '전체 {{n}}장',
+  // 공유 링크(PLAN-SHARE-LINK 결정 11) — 내보내기 시트의 마지막 칸. 문구는 라이브러리 카드
+  // ⋯ 메뉴의 [링크로 공유] 와 **같은 행위**를 가리키지만, 시트 항목은 설명 줄을 함께 쓰므로
+  // 키를 나눈다(같은 문자열을 두 벌 번역해 두는 것과는 다르다).
+  'export.link': '링크로 공유',
+  'export.link.desc': '짧은 주소 한 줄. 링크를 가진 사람만 열 수 있습니다.',
   'export.print.title': '인쇄 · PDF',
   'export.print.desc': "브라우저 인쇄 대화상자에서 '대상: PDF로 저장'을 고르면 PDF가 됩니다. 스텝마다 한 장.",
   'export.noPrintContent': '인쇄할 내용이 없습니다.',

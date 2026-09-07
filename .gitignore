@@ -42,3 +42,8 @@ client_secret_*
 
 # SEO C2 — 프리렌더가 쓰는 중간 SSR 산출물(scripts/prerender.mjs 가 읽고 버린다).
 .seo-build/
+
+# 공유 링크 백엔드가 쌓는 암호문(server/share, 기본 SHARE_DATA_DIR=./data/share).
+# ⚠️ 이용자가 올린 드릴이다 — 열쇠가 없어 우리도 못 읽지만, 못 읽는다고 커밋해도 되는 것은
+# 아니다. 디렉터리째 막는다.
+/data/

@@ -42,6 +42,7 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
     ['settings', undefined],
     ['settings', { kind: 'legal', doc: 'privacy' }],
     ['settings', { kind: 'legal', doc: 'terms' }],
+    ['drills', { kind: 'share', id: 'AbC0123xyZ' }],
   ];
   it.each(cases)('%s + %j 가 경로 왕복에서 살아남는다', (scr, target) => {
     const path = pathFor(scr, target);
@@ -88,6 +89,22 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
 
   it('모르는 설정 하위 조각은 그냥 설정이다 — 문서 대상을 지어내지 않는다', () => {
     expect(parsePath('/settings/xyz')).toEqual({ screen: 'settings' });
+  });
+
+  // PLAN-SHARE-LINK 결정 9 — 공유 링크는 새 화면을 만들지 않고 라이브러리 화면에 착지한다.
+  // 지우면 새는 것: 착지 경로가 대문(board)으로 떨어지면 링크를 받은 사람이 드릴을 못 본다.
+  it('/s/:id 는 라이브러리 화면의 공유 대상이다 — 새 화면 키를 만들지 않는다', () => {
+    expect(parsePath('/s/AbC0123xyZ')).toEqual({ screen: 'drills', target: { kind: 'share', id: 'AbC0123xyZ' } });
+    // ⚠️ id 꼴은 여기서 안 본다(share/link.ts 가 본다) — 오타 한 글자짜리 링크도 라이브러리에
+    //    착지해야 "링크가 없거나 만료됐습니다" 라는 알맞은 문구를 볼 수 있다.
+    expect(parsePath('/s/oops')).toEqual({ screen: 'drills', target: { kind: 'share', id: 'oops' } });
+    expect(parsePath('/s')).toEqual({ screen: 'drills' });
+  });
+
+  it('공유 링크의 열쇠는 경로에 실리지 않는다 — pathFor 는 `#` 를 만들지 않는다', () => {
+    // 프래그먼트는 라우터의 관할이 아니다(UI 가 location.hash 에서 읽는다). 여기에 실리면
+    // 열쇠가 history state·prerender 로 복사된다.
+    expect(pathFor('drills', { kind: 'share', id: 'AbC0123xyZ' })).toBe('/s/AbC0123xyZ');
   });
 
   it('화면 키 전수에 pathFor 가 경로를 준다 (SCREEN_ORDER 대조군)', () => {

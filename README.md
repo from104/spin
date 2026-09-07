@@ -246,9 +246,14 @@ npm run build        # tsc -b && vite build (타입체크 포함)
 npm run lint         # oxlint
 npm run test         # 전체 (커밋 직전 한 번)
 npm run test:rel src/render/CourtStage.tsx   # 그 파일을 쓰는 테스트만
+npm run share:dev    # 공유 링크 서버(localhost:8787)
 ```
 
 현재 **260개 파일 3,573개 테스트**가 돌고 있습니다.
+
+공유 링크를 개발 중에 만들고 열려면 `npm run share:dev` 로 공유 서버를 함께 띄웁니다 —
+Vite 개발 서버가 `/api` 요청을 그쪽으로 프록시하므로 앱 코드는 운영과 똑같이 같은 출처의
+`/api/share` 만 부릅니다(정본 `docs/PLAN-SHARE-LINK.md` 결정 3·4).
 
 ### 배포
 
