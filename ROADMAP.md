@@ -177,6 +177,15 @@ CHANGELOG [Unreleased] 가 사용자 관점 설명을 갖고 있습니다. 릴�
 - [ ] 파일 열기/저장을 **네이티브 대화상자**로 — 브라우저 다운로드 폴더를 거치지 않습니다
 - [ ] 자동 업데이트
 - [ ] 창 크기·전체화면 상태 기억
+- [ ] **공유 링크를 데스크톱에서**(2026-09-08 기현님 결정 "데탑앱 만들 때 구현") — ① 만들기: 앱 출처가
+  `tauri://localhost` 라 링크는 빌드 env 로 공개 주소를 박는다(`VITE_SHARE_ORIGIN=https://spin.atit.app`,
+  `VITE_SHARE_API_BASE=https://spin.atit.app/api/share`; 웹 빌드는 비워 두면 지금처럼 상대 경로 = 도메인 독립).
+  Tauri CSP `connect-src` 에 그 호스트. ② 받기: https 링크는 어디서 눌러도 브라우저의 웹앱이 여니, 앱 안에
+  **[링크로 가져오기] 붙여넣기 칸**(PLAN-URL-SHARE 결정 6 의 입력 칸)을 둔다 — OS 연동 없이 어디서나 되고
+  젓가락 입력에 맞는다. 웹 착지 화면에 "앱을 쓰신다면 링크를 복사해 [가져오기]에 붙이세요" 한 줄. 둘째 길은
+  드라이브 동기화(웹에서 저장 → 앱에 뜸; 데스크톱 로그인은 구글 콘솔 공개가 먼저). ③ `spin://` 사용자 정의 스킴은
+  후순위 — 윈도·맥에서만 뜻이 있고 리눅스는 약하며, 검증이 없어 열쇠가 실린 링크를 다른 앱이 가로챌 수 있다.
+  정본 [docs/PLAN-SHARE-LINK.md](docs/PLAN-SHARE-LINK.md)
 - [x] **구글 드라이브 동기화를 데스크톱에서 되게 하기** — 2026-08-27. 웹뷰는 팝업을
       못 띄우고(`Failed to open popup window`) 출처가 `tauri://localhost` 라 구글 콘솔에
       등록할 수도 없어서, **설치형 앱 흐름**(외부 브라우저 + `127.0.0.1` 루프백 + PKCE)을
@@ -219,6 +228,12 @@ CHANGELOG [Unreleased] 가 사용자 관점 설명을 갖고 있습니다. 릴�
 - 태블릿 가로/세로 재검증 — 안드로이드는 실기, 아이패드는 시뮬레이터(실기는 기기 확보 시 추가)
 - 화면 꺼짐 방지·전체화면이 네이티브에서도 되는지 확인
 - 파일 공유(Android 인텐트를 먼저, iOS 공유 시트는 아이패드 단계에서)
+- **공유 링크를 모바일에서**(2026-09-08) — 만들기는 [복사] 대신 OS 공유 시트(`navigator.share`, 카톡·문자로
+  바로). 받기는 **App Links(안드로이드)·Universal Links(iOS)** 로 `https://spin.atit.app/s/*` 를 앱이 받게 한다 —
+  `spin.atit.app/.well-known/assetlinks.json`·`apple-app-site-association` 두 파일(vhost 가 점 파일을 막되
+  `.well-known` 만 예외로 둔 것이 이 자리). 둘 다 `#` 뒤 열쇠까지 앱에 전달되고, 앱이 없으면 그냥 웹이 열려
+  착지 화면을 그대로 쓴다. 사용자 정의 스킴은 검증이 없어 열쇠가 실린 링크에는 쓰지 않는다. 데스크톱 쪽 방침은
+  0.6 절, 정본 [docs/PLAN-SHARE-LINK.md](docs/PLAN-SHARE-LINK.md)
 
 ## 1.0 — 전 플랫폼 배송
 
