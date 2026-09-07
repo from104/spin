@@ -22,6 +22,7 @@ import { Modal } from '../../ui/Modal.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { IconCheck } from '../../ui/icons.tsx';
+import { isImeKeyEvent } from '../../ui/keyboard.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { NOTE_COLOR_CHOICES } from '../../core/colors.ts';
 import { inkFor } from '../../core/colors.ts';
@@ -114,7 +115,10 @@ export function NoteEditModal({ open, initialText, initialSize, initialColor, fr
           // Enter 는 **줄바꿈**이다 — 이 모달이 생긴 이유의 절반이 줄바꿈이라 그 키를 저장에
           // 뺏길 수 없다. 저장 단축키는 Ctrl/⌘+Enter 로 둔다(조합 중에는 먹지 않는다: 한글
           // 조합을 끝내는 Enter 가 저장으로 새면 첫 낱말마다 모달이 닫힌다).
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) {
+          // 조합 판정은 `isImeKeyEvent` 한 자리에 모여 있다(2026-09-08) — 여기서만 보던
+          // `isComposing` 은 조합 첫 keydown(keyCode 229)·`key === 'Process'` 를 못 잡았다.
+          // React 합성 이벤트에는 `isComposing` 이 없으므로 nativeEvent 를 넘긴다.
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !isImeKeyEvent(e.nativeEvent)) {
             e.preventDefault();
             onSave(text, size, color);
           }

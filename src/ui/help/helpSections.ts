@@ -1,16 +1,49 @@
-// 문서형 도움말(HelpCenter) 섹션 정의 — docs/PLAN-HELP-TUTORIAL.md §B.
+// 문서형 도움말(HelpCenter) 섹션 정의 — docs/PLAN-HELP-TUTORIAL.md §B, PLAN-HELP-OVERHAUL §2.1.
 //
-// 섹션은 화면(TutorialScreenKey)과 대개 1:1 이지만 '세션'은 예외다: 세션 목록과 세션 편집은
-// 튜토리얼 화면 키가 둘(sessions·sessionEditor)인데 도움말에서는 "세션을 어떻게 다루는가"
-// 라는 한 이야기라 한 섹션으로 묶고, [투어 다시 보기] 버튼만 둘을 낸다(§B "각 섹션 끝에
-// [이 화면 투어 다시 보기]"). '시작하기'·'설정·데이터'·'단축키'는 특정 화면 하나에 매이지
-// 않아 튜토리얼 재시작 버튼이 없다.
+// 이 파일은 **섹션의 뼈대만** 쥔다: 순서 · 이름(i18n 키) · [투어 다시 보기] 대상 · 화면→섹션
+// 매핑. 본문은 여기 없다 — `helpContent.ko/en/ja.ts` 가 섹션 안의 주제(topic)와 블록을 쥔다.
+//
+// ── ⚠️ 2026-09-08: `HelpItem`·`NarrativeSection`·`HELP_NARRATIVE_SECTIONS` 폐기 ──────
+// 원래 이 파일에는 섹션마다 `{term, desc}` i18n 키 쌍 목록이 있었다(그 근거는 "한 줄 항목이면
+// 사전에 두는 편이 로케일 셋을 한자리에서 본다" 였다). 그 전제가 죽었다 — 항목이 한 줄이 아니라
+// 문단·순서·표를 담아야 하는 설명서가 되면서 평면 사전에 담을 수 없게 됐고(PLAN-HELP-OVERHAUL
+// F5), 로케일 셋이 사전 안에서 갈라져도 아무도 모르는 사고가 이미 났다([보드 설정] 개편이 ko
+// 에만 반영). 대가: i18n `help.*` 본문 키 76개가 사라지고, 그만큼이 로케일별 콘텐츠 파일로
+// 옮겨 갔다. 남은 `help.*` 키는 섹션 이름·투어 버튼·찾기 같은 **UI 문구**뿐이다.
+//
+// 섹션은 화면(TutorialScreenKey)과 대개 1:1 이지만 둘이 예외다: '세션' 은 튜토리얼 화면 키가
+// 둘(sessions·sessionEditor)인데 도움말에서는 "세션을 어떻게 다루는가" 라는 한 이야기라 한
+// 섹션으로 묶고 [투어 다시 보기] 버튼만 둘을 낸다(§B). '내보내기'(export)는 반대로 대응하는
+// 화면이 아예 없다 — 편집·시연·세션 어디서나 나가는 길이라 한 섹션으로 승격했다
+// (PLAN-HELP-OVERHAUL §2.1). '시작하기'·'설정·데이터'·'단축키'·'내보내기'는 특정 화면 하나에
+// 매이지 않아 튜토리얼 재시작 버튼이 없다.
 import type { TutorialScreenKey } from '../../storage/prefs.ts';
 import type { DictKey } from '../../i18n/ko.ts';
 
-export type HelpSectionKey = 'start' | 'board' | 'library' | 'editor' | 'sessions' | 'present' | 'rules' | 'settings' | 'shortcuts';
+export type HelpSectionKey =
+  | 'start'
+  | 'board'
+  | 'library'
+  | 'editor'
+  | 'sessions'
+  | 'present'
+  | 'export'
+  | 'rules'
+  | 'settings'
+  | 'shortcuts';
 
-export const HELP_SECTION_ORDER: readonly HelpSectionKey[] = ['start', 'board', 'library', 'editor', 'sessions', 'present', 'rules', 'settings', 'shortcuts'];
+export const HELP_SECTION_ORDER: readonly HelpSectionKey[] = [
+  'start',
+  'board',
+  'library',
+  'editor',
+  'sessions',
+  'present',
+  'export',
+  'rules',
+  'settings',
+  'shortcuts',
+];
 
 export const HELP_SECTION_LABEL_KEY: Record<HelpSectionKey, DictKey> = {
   start: 'help.section.start',
@@ -19,119 +52,37 @@ export const HELP_SECTION_LABEL_KEY: Record<HelpSectionKey, DictKey> = {
   editor: 'help.section.editor',
   sessions: 'help.section.sessions',
   present: 'help.section.present',
+  export: 'help.section.export',
   rules: 'help.section.rules',
   settings: 'help.section.settings',
   shortcuts: 'help.section.shortcuts',
 };
-
-/** 지금 있는 화면(TutorialScreenKey) → 그에 맞는 도움말 섹션. HelpCenter 를 여는 쪽(Phase 5
- *  레일 배선)이 "현재 화면에 맞는 섹션이 열린 채로 뜬다"(§B)를 구현할 때 쓴다. */
-export function helpSectionForScreen(screen: TutorialScreenKey): HelpSectionKey {
-  return screen === 'sessionEditor' ? 'sessions' : screen;
-}
-
-export interface HelpItem {
-  term: DictKey;
-  desc: DictKey;
-}
 
 export interface HelpRestartTarget {
   screen: TutorialScreenKey;
   labelKey: DictKey;
 }
 
-export interface NarrativeSection {
-  key: Exclude<HelpSectionKey, 'shortcuts'>;
-  items: readonly HelpItem[];
-  restartTargets: readonly HelpRestartTarget[];
-}
-
-export const HELP_NARRATIVE_SECTIONS: Record<Exclude<HelpSectionKey, 'shortcuts'>, NarrativeSection> = {
-  start: {
-    key: 'start',
-    restartTargets: [],
-    items: [
-      { term: 'help.start.item1.term', desc: 'help.start.item1.desc' },
-      { term: 'help.start.item2.term', desc: 'help.start.item2.desc' },
-      { term: 'help.start.item3.term', desc: 'help.start.item3.desc' },
-      { term: 'help.start.item4.term', desc: 'help.start.item4.desc' },
-      { term: 'help.start.item5.term', desc: 'help.start.item5.desc' },
-    ],
-  },
-  board: {
-    key: 'board',
-    restartTargets: [{ screen: 'board', labelKey: 'help.board.restartButton' }],
-    items: [
-      { term: 'help.board.item1.term', desc: 'help.board.item1.desc' },
-      { term: 'help.board.item2.term', desc: 'help.board.item2.desc' },
-      { term: 'help.board.item3.term', desc: 'help.board.item3.desc' },
-      { term: 'help.board.item4.term', desc: 'help.board.item4.desc' },
-    ],
-  },
-  library: {
-    key: 'library',
-    restartTargets: [{ screen: 'library', labelKey: 'help.library.restartButton' }],
-    items: [
-      { term: 'help.library.item1.term', desc: 'help.library.item1.desc' },
-      { term: 'help.library.item2.term', desc: 'help.library.item2.desc' },
-      { term: 'help.library.item3.term', desc: 'help.library.item3.desc' },
-      { term: 'help.library.item4.term', desc: 'help.library.item4.desc' },
-    ],
-  },
-  editor: {
-    key: 'editor',
-    restartTargets: [{ screen: 'editor', labelKey: 'help.editor.restartButton' }],
-    items: [
-      { term: 'help.editor.item1.term', desc: 'help.editor.item1.desc' },
-      { term: 'help.editor.item2.term', desc: 'help.editor.item2.desc' },
-      { term: 'help.editor.item3.term', desc: 'help.editor.item3.desc' },
-      { term: 'help.editor.item4.term', desc: 'help.editor.item4.desc' },
-      { term: 'help.editor.item5.term', desc: 'help.editor.item5.desc' },
-      { term: 'help.editor.item6.term', desc: 'help.editor.item6.desc' },
-    ],
-  },
-  sessions: {
-    key: 'sessions',
-    restartTargets: [
-      { screen: 'sessions', labelKey: 'help.sessions.restartListButton' },
-      { screen: 'sessionEditor', labelKey: 'help.sessions.restartEditorButton' },
-    ],
-    items: [
-      { term: 'help.sessions.item1.term', desc: 'help.sessions.item1.desc' },
-      { term: 'help.sessions.item2.term', desc: 'help.sessions.item2.desc' },
-      { term: 'help.sessions.item3.term', desc: 'help.sessions.item3.desc' },
-      { term: 'help.sessions.item4.term', desc: 'help.sessions.item4.desc' },
-      { term: 'help.sessions.item5.term', desc: 'help.sessions.item5.desc' },
-    ],
-  },
-  present: {
-    key: 'present',
-    restartTargets: [{ screen: 'present', labelKey: 'help.present.restartButton' }],
-    items: [
-      { term: 'help.present.item1.term', desc: 'help.present.item1.desc' },
-      { term: 'help.present.item2.term', desc: 'help.present.item2.desc' },
-      { term: 'help.present.item3.term', desc: 'help.present.item3.desc' },
-      { term: 'help.present.item4.term', desc: 'help.present.item4.desc' },
-      { term: 'help.present.item5.term', desc: 'help.present.item5.desc' },
-    ],
-  },
-  rules: {
-    key: 'rules',
-    restartTargets: [{ screen: 'rules', labelKey: 'help.rules.restartButton' }],
-    items: [
-      { term: 'help.rules.item1.term', desc: 'help.rules.item1.desc' },
-      { term: 'help.rules.item2.term', desc: 'help.rules.item2.desc' },
-      { term: 'help.rules.item3.term', desc: 'help.rules.item3.desc' },
-      { term: 'help.rules.item4.term', desc: 'help.rules.item4.desc' },
-    ],
-  },
-  settings: {
-    key: 'settings',
-    restartTargets: [],
-    items: [
-      { term: 'help.settings.item1.term', desc: 'help.settings.item1.desc' },
-      { term: 'help.settings.item2.term', desc: 'help.settings.item2.desc' },
-      { term: 'help.settings.item3.term', desc: 'help.settings.item3.desc' },
-    ],
-  },
+/** 섹션 끝의 [이 화면 투어 다시 보기] 버튼들. 대응 화면이 없는 섹션은 빈 배열이다 — 버튼이
+ *  아예 안 나온다(0개면 묶음 자체를 그리지 않는다). */
+export const HELP_RESTART_TARGETS: Record<HelpSectionKey, readonly HelpRestartTarget[]> = {
+  start: [],
+  board: [{ screen: 'board', labelKey: 'help.board.restartButton' }],
+  library: [{ screen: 'library', labelKey: 'help.library.restartButton' }],
+  editor: [{ screen: 'editor', labelKey: 'help.editor.restartButton' }],
+  sessions: [
+    { screen: 'sessions', labelKey: 'help.sessions.restartListButton' },
+    { screen: 'sessionEditor', labelKey: 'help.sessions.restartEditorButton' },
+  ],
+  present: [{ screen: 'present', labelKey: 'help.present.restartButton' }],
+  export: [],
+  rules: [{ screen: 'rules', labelKey: 'help.rules.restartButton' }],
+  settings: [],
+  shortcuts: [],
 };
+
+/** 지금 있는 화면(TutorialScreenKey) → 그에 맞는 도움말 섹션. HelpCenter 를 여는 쪽이
+ *  "현재 화면에 맞는 섹션이 열린 채로 뜬다"(§B)를 구현할 때 쓴다. */
+export function helpSectionForScreen(screen: TutorialScreenKey): HelpSectionKey {
+  return screen === 'sessionEditor' ? 'sessions' : screen;
+}

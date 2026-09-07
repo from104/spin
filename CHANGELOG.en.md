@@ -10,9 +10,15 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
 
+### Changed
+
+- Overhauled [Help] with an in-depth guide for every feature, plus search and a shortcut diagnostic
+- Expanded the screen tour with hands-on steps you try yourself and a [Full help] button at the end
+
 ### Fixed
 
 - Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
+- Fixed keyboard shortcuts behaving differently while Korean input is active or mid-composition
 
 ## [0.6.5] 2026-09-08
 

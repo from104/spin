@@ -358,7 +358,14 @@ export function FunctionBar({
     <nav
       aria-label={t('editor.functionBar.nav')}
       data-function-bar=""
-      data-tut="board-functionbar"
+      // 튜토리얼 앵커가 **화면마다 다른 이름**이다. 같은 컴포넌트가 두 화면에 서지만 투어는
+      // 둘이라, 한 이름을 공유하면 드릴 편집 투어가 "전술판 기능바" 를 가리키게 된다.
+      // 옛 이름(`board-functionbar`)은 전술판 쪽에 **그대로 둔다** — 그 투어의 단계가 이미
+      // 그 이름을 물고 있고, 이름을 바꾸면 가리키는 것이 같은데 계약만 흔들린다.
+      // 새 이름을 붙이는 대신 묶음 컨테이너를 따로 만들지 않은 이유: 이 nav 는 flexWrap 으로
+      // 칸이 둘째 열로 흐르는 구조라(위 ⚠️ 주석) 중간에 래퍼를 끼우면 칸 수와 줄나눔 문턱이
+      // 통째로 달라진다. 가리킬 대상은 결국 이 기둥 전체다.
+      data-tut={isBoard ? 'board-functionbar' : 'editor-functionbar'}
       style={{
         flex: 'none',
         height: '100%',
@@ -483,6 +490,7 @@ export function FunctionBar({
         title={t('editor.functionBar.export.title')}
         buttonRef={exportBtnRef}
         aria-haspopup="dialog"
+        data-tut="editor-export"
         onClick={() => setExportOpen(true)}
       >
         <IconExport />

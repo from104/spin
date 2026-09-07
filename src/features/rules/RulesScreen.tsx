@@ -44,7 +44,7 @@ export function RulesScreen({ topic, nav }: { topic?: string; nav: HomeNav }) {
 
   // 3앵커(rules-home/rules-card/rules-appendix) 전부 홈 뷰에 있다 — 이 화면은 딥링크가 없는 한
   // 항상 홈으로 마운트되므로 autoStart 는 고정 true 로 충분하다(tutorialSteps.ts 머리말).
-  const tutorial = useTutorial('rules', RULES_TUTORIAL_STEPS, true);
+  const tutorial = useTutorial('rules', RULES_TUTORIAL_STEPS, true, { onOpenHelp: showHelp });
   const restartTutorial = useCallback(() => {
     nav.openRuleTopic(); // 홈으로 — URL 이 바뀌어야 카드 그리드(앵커 3개)가 다시 선다.
     let frame = 0;
@@ -87,6 +87,7 @@ export function RulesScreen({ topic, nav }: { topic?: string; nav: HomeNav }) {
           onNext={tutorial.next}
           onPrev={tutorial.prev}
           onSkip={tutorial.skip}
+          onOpenHelp={tutorial.openHelp}
         />
       )}
     </main>

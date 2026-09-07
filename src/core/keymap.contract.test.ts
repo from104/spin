@@ -165,11 +165,41 @@ describe('eventCode — code 가 없으면 key 로 물러선다', () => {
   });
 
   // ⚠️ 옛 주석이 지키려던 것 — 이것만은 그대로다.
-  it('한글은 구제하지 않는다 — 오발화 방어는 유지된다', () => {
-    for (const k of ['ㅈ', 'ㅁ', 'ㄴ', 'ㅇ', 'ㅍ']) {
-      expect(eventCode({ key: k })).toBe(k); // 어떤 code 로도 안 올라간다
-      expect(lookupKey('object', { code: '', key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false })).toBeUndefined();
-    }
+  //
+  // ── ⚠️ 2026-09-08: 이 케이스는 뒤집혔다 (PLAN-HELP-OVERHAUL 결정 8) ───────────────
+  // 옛 케이스의 이름은 *"한글은 구제하지 않는다 — 오발화 방어는 유지된다"* 였고, 'ㅈ ㅁ ㄴ ㅇ ㅍ'
+  // 가 **어떤 code 로도 안 올라간다**는 것을 잰다. 그 전제(한글을 올리면 오발화한다)가 좁았다:
+  // 이 폴백은 `code` 가 빌 때만 도는데, 그 환경에서 사용자가 한글 상태이면 `key` 로는 자모밖에
+  // 안 오므로 문자 단축키가 **한글 상태에서만 통째로 죽는다**. 오발화 위험이 있는 자리(글자
+  // 입력 칸)는 디스패처의 `isEditableTarget` 관문이 이미 막는다. 그래서 두벌식 자모를 올린다.
+  it('두벌식 자모를 물리 키로 올린다 — code 가 비는 환경의 한글 상태를 구제한다', () => {
+    // 자판 세 줄에서 하나씩 + 쌍자음. 'ㅍ' 는 V(선택 도구)라 끝에서 끝 케이스와 이어진다.
+    expect(eventCode({ key: 'ㅍ' })).toBe('KeyV');
+    expect(eventCode({ key: 'ㅈ' })).toBe('KeyW');
+    expect(eventCode({ key: 'ㅎ' })).toBe('KeyG');
+    expect(eventCode({ key: 'ㅃ' })).toBe('KeyQ'); // Shift 를 쥔 자리도 같은 물리 키다
+    expect(eventCode({ key: 'ㅒ' })).toBe('KeyO');
+    // 대조군 — 자판에 자기 키가 **없는** 글자는 그대로 통과한다(합성된 음절·복합 모음).
+    for (const k of ['가', '한', 'ㅘ', 'ㅢ']) expect(eventCode({ key: k }), k).toBe(k);
+  });
+
+  it('★ 끝에서 끝 — code 없는 자모가 실제로 정의를 문다', () => {
+    const ev = (key: string, mods: { altKey?: boolean; shiftKey?: boolean } = {}) => ({
+      code: '',
+      key,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: mods.altKey ?? false,
+      shiftKey: mods.shiftKey ?? false,
+    });
+    expect(lookupKey('global', ev('ㅍ'))).toBe('tool:select'); // V
+    expect(lookupKey('global', ev('ㅠ'))).toBe('tool:ball'); // B
+    expect(lookupKey('object', ev('ㅁ'))).toBe('obj.move'); // A
+    expect(lookupKey('object', ev('ㅂ'))).toBe('obj.rotate'); // Q
+    // 쌍자음은 Shift 를 쥔 채 온다 — 사건의 shiftKey 는 그대로이므로 Shift 가 뜻인 정의가 문다.
+    expect(lookupKey('global', ev('ㅊ', { shiftKey: true }))).toBe('tool.coneColor'); // Shift+C
+    // 수식키 조합도 같다 — Alt+G(격자)가 한글 상태에서 'ㅎ' 로 온다.
+    expect(lookupKey('global', ev('ㅎ', { altKey: true }))).toBe('view.grid');
   });
 
   it('★ 끝에서 끝 — code 없는 W A S D · Q E 가 개체 층에서 실제로 잡힌다', () => {

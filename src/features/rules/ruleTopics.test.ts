@@ -90,9 +90,13 @@ describe('ruleTopicsFor', () => {
     // (tutorialSteps.ts). 앵커가 0개면 그 단계가 조용히 대상을 못 찾고, 2개 이상이면 어느
     // 카드를 가리킬지가 카드 배열 순서에 좌우된다 — 어느 쪽도 CI 가 못 잡던 침묵이었다.
     // 앵커는 카드에 붙는 데이터(RuleTopic.tutorialAnchor)이므로 여기서 지킨다.
-    const anchored = (anchor: string) => TOPICS.filter((t) => t.tutorialAnchor === anchor).map((t) => t.key);
-    expect(anchored('rules-card')).toEqual(['basics']);
-    expect(anchored('rules-appendix')).toEqual(['rulebook']);
+    // 2026-09-08: 세 로케일 전부 — ja 에만 앵커가 없어 일본어에서 카드·부록 단계가 조용히 빠져 있었다.
+    for (const locale of ['ko', 'en', 'ja'] as const) {
+      const topics = ruleTopicsFor(locale);
+      const anchored = (anchor: string) => topics.filter((t) => t.tutorialAnchor === anchor).map((t) => t.key);
+      expect(anchored('rules-card'), locale).toEqual(['basics']);
+      expect(anchored('rules-appendix'), locale).toEqual(['rulebook']);
+    }
   });
 
   it('scene-slot 은 intro·purpose 에만 있고 각각 1개다', () => {

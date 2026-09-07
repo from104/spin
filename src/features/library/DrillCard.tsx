@@ -103,6 +103,9 @@ export function DrillKebabMenu({
         aria-expanded={menuOpen}
         aria-controls={menuId}
         aria-label={t('drillCard.kebabMoreAriaLabel', { title })}
+        // 튜토리얼 앵커 — 카드마다 하나씩 있어 문서에 여럿이 뜬다. 투어는 querySelector 로
+        // **첫 번째**를 집으므로 첫 카드의 ⋮ 가 가리켜진다(`library-card` 와 같은 관례).
+        data-tut="library-card-menu"
         onClick={() => setMenuOpen((v) => !v)}
         style={{
           width: 32,

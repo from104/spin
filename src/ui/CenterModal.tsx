@@ -8,6 +8,7 @@
 // "바깥" 이라 닫힘을 기대하는 것이 관용이다.
 import { useEffect, useId, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
+import { isImeKeyEvent } from './keyboard.ts';
 
 export interface CenterModalProps {
   open: boolean;
@@ -29,6 +30,10 @@ export function CenterModal({ open, onClose, title, closeLabel = '닫기', retur
     openedByRef.current = (document.activeElement as HTMLElement) ?? null;
     titleRef.current?.focus({ preventScroll: true });
     const onKeyDown = (e: KeyboardEvent) => {
+      // 조합 중의 Esc 는 **조합 취소**다 — Modal.tsx 와 같은 규율(`isImeKeyEvent` 머리말).
+      // 이 모달 안에는 텍스트 칸이 산다(드릴 정보 시트의 준비물·코칭포인트) — 가드가 없으면
+      // 한글 낱말을 물리려고 누른 Esc 가 시트를 통째로 닫아 쓰던 글이 사라진다.
+      if (isImeKeyEvent(e)) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
         onClose();

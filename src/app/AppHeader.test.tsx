@@ -208,6 +208,65 @@ describe('AppHeader / useAppHeader', () => {
     expect(screen.getByRole('button', { name: '원래 설명' })).toBeInTheDocument();
   });
 
+  // 2026-09-08 (PLAN-HELP-OVERHAUL F3·결정 9). 한글 조합을 끝내는 Enter 는 **입력기의 것**이다 —
+  // 그 Enter 로 blur 를 걸면 사용자는 첫 낱말을 확정하는 순간 편집이 닫힌다. NoteEditModal 이
+  // 이미 관측해 둔 패턴이고(그 파일 주석), 여기 이름·설명 두 칸에는 가드가 없었다.
+  it('IME 조합 중의 Enter 는 이름 편집을 닫지도 커밋하지도 않는다', () => {
+    const onChange = vi.fn();
+    function TitlePublisher() {
+      useAppHeader({ title: '측면 돌파', titleField: { value: '측면 돌파', maxLength: 60, onChange } });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <TitlePublisher />
+      </HeaderProvider>,
+      { wrapper: SettingsProvider },
+    );
+    fireEvent.click(screen.getByRole('button', { name: '드릴 이름: 측면 돌파. 눌러서 수정' }));
+    const input = screen.getByRole('textbox', { name: '드릴 이름' });
+    fireEvent.change(input, { target: { value: '측면 돌파 변형' } });
+
+    // 조합 중 Enter — 표준 신호와 구형 IME 경로(keyCode 229) 둘 다.
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+    expect(screen.getByRole('textbox', { name: '드릴 이름' })).toBeInTheDocument(); // 아직 편집 중
+    expect(onChange).not.toHaveBeenCalled();
+
+    // 대조군 — 조합이 끝난 Enter 는 blur 로 커밋한다(가드가 과하게 막지 않는다).
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith('측면 돌파 변형');
+    expect(screen.queryByRole('textbox', { name: '드릴 이름' })).toBeNull();
+  });
+
+  it('IME 조합 중의 Esc 는 설명 편집을 되돌리지 않는다 — 조합 취소를 빼앗지 않는다', () => {
+    function DescPublisher() {
+      useAppHeader({
+        title: '측면 돌파',
+        description: { value: '원래 설명', placeholder: '설명 추가', maxLength: 400, onChange: vi.fn() },
+      });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <DescPublisher />
+      </HeaderProvider>,
+      { wrapper: SettingsProvider },
+    );
+    fireEvent.click(screen.getByRole('button', { name: '원래 설명' }));
+    const input = screen.getByRole('textbox', { name: '드릴 설명' });
+    fireEvent.change(input, { target: { value: '쓰던 글' } });
+
+    fireEvent.keyDown(input, { key: 'Escape', isComposing: true });
+    expect(screen.getByRole('textbox', { name: '드릴 설명' })).toHaveValue('쓰던 글'); // 그대로 편집 중
+
+    // 대조군 — 조합 밖 Esc 는 표시 모드로 되돌린다.
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.getByRole('button', { name: '원래 설명' })).toBeInTheDocument();
+  });
+
   it('prefs.language 를 English 로 두면 잠긴 코트 스위치 알약이 실제로 영어로 바뀐다(i18n C2)', () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), language: 'en' }));
     function LockedPublisher() {

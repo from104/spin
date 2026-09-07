@@ -4409,6 +4409,21 @@ export const isInteractiveTarget = (t: EventTarget | null): boolean =>
 이중 발화해 **아무 일도 일어나지 않고**, 시연에서는 스텝이 2칸 건너뛴다.
 우선순위: **개체 포커스 > 인터랙티브 요소 포커스(네이티브 위임) > 전역**.
 
+**IME 가드 계약 (2026-09-08, `docs/PLAN-HELP-OVERHAUL.md` 결정 7·9).** 입력기 조합 중 발생하는
+가짜 keydown(조합을 끝내는 Enter 등)을 걸러내는 판정은 `src/ui/keyboard.ts` 의 `isImeKeyEvent(e)`
+**하나**로 통일한다(`isComposing || e.keyCode === 229 || e.key === 'Process'`) — Modal·CenterModal·
+Drawer·TutorialOverlay·AppHeader·NoteEditModal 전부 이 함수를 쓴다. 같은 가드를 여섯 벌 따로
+두면 일곱째 사용처가 반드시 빠진다(2026-09-08 조사로 실제 빠진 곳 발견 — F3). 어디에 거는지는
+**키 종류로 가른다**: 가드는 `key` 로 판정하는 **확정·취소 키(Enter·Esc)에 건다** — 조합을 끝내는
+Enter/Esc 가 새면 "첫 낱말마다 편집이 닫힌다"는 실사용 버그가 난다(저장소 자신이 `NoteEditModal`
+에서 관측해 둔 패턴). 문자키와 `Space` 는 `KeyboardEvent.code` 로 판정하므로 IME 조합이 판정에
+영향을 주지 않아 **가드가 필요 없다**(위 문단). 결정 9 의 "`eventCode` 로 바꾼다" 는 **문자·Space
+뿐**이고 Enter·Esc·방향키의 `key` 비교는 그대로 둔다 — 그 결정은 매칭 방식 얘기이지 가드 배치가
+아니다. 요소 활성화(role=radio·role=button 에 Enter/Space 를 손으로 되돌려주는 자리)도 대상 밖이다.
+두벌식 자모(`ㅂㅈㄷ…`) → `code` 폴백 표는
+`code` 가 **비어 있을 때만** 타는 방어선이다 — 정상 키보드는 항상 `code` 를 채우므로 이 표는
+일부 WebView·외장 키보드 같은 예외 경로에만 관여하고, 정상 경로의 문자 판정을 바꾸지 않는다.
+
 ### 7.6 포커스 관리 (SPA 필수)
 
 | 시점 | 동작 |

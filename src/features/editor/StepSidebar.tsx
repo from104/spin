@@ -77,6 +77,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
+import { eventCode } from '../../core/keymap.ts';
 import { nextStepLink, stepLink } from '../../model/stepLink.ts';
 import type { StepLink } from '../../model/stepLink.ts';
 import { courtDefFor } from '../../model/court.ts';
@@ -226,7 +227,13 @@ function GapSlot({
   /** undefined = 맨 앞·맨 뒤 틈(경계 없음) — 사슬 버튼 자체를 안 그린다. */
   chain?: GapChain;
   /** 튜토리얼 앵커(`data-tut`). **맨 뒤 틈에만** 준다(2026-08-30) — [한 장 더 찍기] 버튼이
-   *  없어지며 그 앵커가 갈 곳이 필요했고, 스텝을 늘리는 길이 이제 이 [+] 뿐이다. */
+   *  없어지며 그 앵커가 갈 곳이 필요했고, 스텝을 늘리는 길이 이제 이 [+] 뿐이다.
+   *
+   *  ⚠️ 2026-09-08: **"맨 뒤 틈에만" 이 아니게 됐다**(docs/PLAN-HELP-OVERHAUL.md §2.2 —
+   *  스텝 연결 방식을 설명하는 단계가 새로 생겼다). 맨 뒤 틈은 여전히 `editor-add-step` 이고,
+   *  거기에 **첫 내부 틈**이 `editor-gap` 으로 더해졌다: 사슬(연결 방식) 버튼은 내부 틈에만
+   *  있어서 맨 뒤 틈으로는 그것을 가리킬 수가 없다. 값이 이 prop 으로 들어오는 구조는 그대로라
+   *  바뀐 것은 "누가 받느냐" 뿐이다. */
   tut?: string;
 }) {
   const t = useT();
@@ -516,7 +523,10 @@ export function StepSidebar({
   }, [stepId]);
 
   const onCardKeyDown = (e: ReactKeyboardEvent<HTMLButtonElement>, s: { id: StepId }, i: number) => {
-    if (e.key === ' ') {
+    // 물리 키로 본다 — 한글 입력 상태에서 `key` 는 입력기가 해석한 값이 오므로 문자·Space 를
+    // 글자로 비교하면 그 상태에서만 안 먹는다(keymap.ts 머리말의 ⚠️ 문단이 근거). 아래
+    // Arrow·Escape·Enter 는 입력기가 건드리지 않는 이름이라 그대로 둔다.
+    if (eventCode(e) === 'Space') {
       // 네이티브 click(Space 로 발화)과 전역 재생 토글을 **둘 다** 막는다. 여기서 막지 않으면
       // 집으려던 순간 스텝이 선택되고 재생이 켜진다.
       e.preventDefault();
@@ -760,6 +770,11 @@ export function StepSidebar({
               label={gap.label}
               onDuplicate={() => fireDuplicate(gap)}
               chain={chain}
+              // 투어가 "스텝 사이 연결" 을 가리키는 자리. **첫 내부 틈 하나에만** 준다 —
+              // 사슬 버튼이 사는 틈이 여기부터이고(i>=1 조건), 모든 틈에 주면 같은 앵커가
+              // 스텝 수만큼 생겨 무엇을 가리킨 것인지 코드에서 읽히지 않는다.
+              // 스텝이 하나뿐인 드릴에는 내부 틈이 없어 이 단계는 빈 화면 가드로 빠진다.
+              tut={i === 1 ? 'editor-gap' : undefined}
             />,
             <div key={s.id} style={{ position: 'relative', flex: 'none', width: '100%', aspectRatio: cardAspectCss }}>
               <button

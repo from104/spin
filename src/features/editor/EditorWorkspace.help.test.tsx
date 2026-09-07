@@ -82,9 +82,13 @@ describe('도움말 — 레일 일원화 (§0.5 Phase 5)', () => {
     await userEvent.click(screen.getByRole('button', { name: '레일 도움말' }));
     const dialog = await screen.findByRole('dialog', { name: '도움말' });
     expect(dialog).toBeInTheDocument();
-    // initialSection='board' — "자유 전술판" 섹션 내용이 바로 보여야 한다. ⚠️ "작도" 는
-    // ToolRail 의 서랍 손잡이 라벨과도 겹친다 — dialog 안으로 좁힌다.
-    expect(within(dialog).getByText('작도')).toBeInTheDocument();
+    // initialSection='board' — "자유 전술판" 섹션이 열린 채 떠야 한다.
+    // ⚠️ 도움말 **본문 문장**을 셀렉터로 쓰지 않는다. 옛 단언은 폐기된 `help.board.item*`
+    // 값("작도")을 물고 있어 콘텐츠 모델 교체(2026-09-08, PLAN-HELP-OVERHAUL 결정 1)로
+    // 죽었다 — 이 테스트가 재려는 것은 "레일 [도움말] → 지금 화면 섹션이 선다" 는 배선이지
+    // 본문 문장이 아니다. 섹션 제목은 i18n `help.section.*` 라벨이라 본문이 어떻게 바뀌어도
+    // 안 흔들린다. 목차에 같은 이름의 버튼이 있으므로 heading 역할로 좁힌다.
+    expect(within(dialog).getByRole('heading', { name: '자유 전술판' })).toBeInTheDocument();
   });
 
   it('Shift+? 로 열고 Esc 로 닫으면 열기 전 포커스로 돌아간다', async () => {

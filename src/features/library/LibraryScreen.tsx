@@ -89,12 +89,13 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   // status가 'ready'가 되기 전에 자동 시작을 걸면 드릴이 아직 안 실려 있어(§10.7 로딩 4상태)
   // library-card 대상이 없는 채로 시작한다 — 목록이 실제로 그려진 뒤로 미룬다.
-  const tutorial = useTutorial('library', LIBRARY_TUTORIAL_STEPS, status === 'ready');
   // §0.5 Phase 5 — 이 화면은 원래 도움말이 없었다(§8 이라 app-shell 의 헤더·기능바에 못 얹혔다).
   // 레일 일원화로 처음 생긴 진입점이다 — 다른 화면과 같은 helpOpen state + HelpCenter 패턴.
+  // ★ 투어보다 **먼저** 선다 — 투어의 마지막 말풍선이 [자세한 도움말] 로 이 문을 쓴다.
   const [helpOpen, setHelpOpen] = useState(false);
   const showHelp = useCallback(() => setHelpOpen(true), []);
   usePublishHelpShow(showHelp);
+  const tutorial = useTutorial('library', LIBRARY_TUTORIAL_STEPS, status === 'ready', { onOpenHelp: showHelp });
 
   const openDrill = (id: DrillSummary['id']) => nav.openDrill(id);
   const goNewDrill = () => nav.newDrill();
@@ -401,6 +402,7 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
           onNext={tutorial.next}
           onPrev={tutorial.prev}
           onSkip={tutorial.skip}
+          onOpenHelp={tutorial.openHelp}
         />
       )}
 

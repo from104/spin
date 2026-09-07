@@ -331,13 +331,17 @@ describe('드릴 목록 튜토리얼(§0.5)', () => {
     render(<LibraryScreen nav={nav} />, { wrapper });
     const dialog = await screen.findByRole('dialog', { name: '화면 안내' });
     expect(dialog).toBeInTheDocument();
-    expect(screen.getByText('1/2 단계')).toBeInTheDocument();
+    // 이 하네스에는 헤더가 없어 `header-primary`·`library-search` 가 빠지고, 카드에 딸린
+    // 셋만 남는다 — 카드 → 카드 ⋮ 메뉴 → 필터.
+    expect(screen.getByText('1/3 단계')).toBeInTheDocument();
     expect(screen.getByText('드릴 카드')).toBeInTheDocument();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '다음' }));
-    await waitFor(() => expect(screen.getByText('2/2 단계')).toBeInTheDocument());
-    expect(screen.getByText('필터·보기')).toBeInTheDocument();
+    for (const [i, title] of ['카드 ⋮ 메뉴', '필터·보기'].entries()) {
+      await user.click(screen.getByRole('button', { name: '다음' }));
+      await waitFor(() => expect(screen.getByText(`${i + 2}/3 단계`)).toBeInTheDocument());
+      expect(screen.getByText(title)).toBeInTheDocument();
+    }
     await user.click(screen.getByRole('button', { name: '완료' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '화면 안내' })).toBeNull());
   });

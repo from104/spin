@@ -164,10 +164,16 @@ describe('세션 목록 튜토리얼(§0.5)', () => {
     render(<SessionsScreen nav={nav} />, { wrapper });
     const dialog = await screen.findByRole('dialog', { name: '화면 안내' });
     expect(dialog).toBeInTheDocument();
-    expect(screen.getByText('1/1 단계')).toBeInTheDocument();
+    // 헤더가 없는 하네스라 `header-primary` 는 빠지고 카드에 딸린 둘이 남는다.
+    expect(screen.getByText('1/2 단계')).toBeInTheDocument();
     expect(screen.getByText('세션 카드')).toBeInTheDocument();
 
-    await userEvent.setup().click(screen.getByRole('button', { name: '완료' }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await waitFor(() => expect(screen.getByText('2/2 단계')).toBeInTheDocument());
+    expect(screen.getByText('카드 ⋮ 메뉴')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '완료' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '화면 안내' })).toBeNull());
   });
 });

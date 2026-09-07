@@ -182,7 +182,11 @@ describe('PresentRunner — 단일 드릴 시연', () => {
 
     await userEvent.keyboard('{Shift>}?{/Shift}');
     const dialog = await screen.findByRole('dialog', { name: '도움말' });
-    expect(within(dialog).getByText('스텝 진행바')).toBeInTheDocument();
+    // ⚠️ 본문 문장이 아니라 섹션 제목(i18n `help.section.present`)으로 잰다. 옛 단언은
+    // 폐기된 `help.present.item*.term` 값("스텝 진행바")을 물고 있어 도움말 콘텐츠 모델
+    // 교체(2026-09-08, PLAN-HELP-OVERHAUL 결정 1)로 죽었다 — 재려는 것은 "Shift+? 가 시연
+    // 섹션을 열어 준다" 는 배선이다. 목차 버튼과 겹치므로 heading 역할로 좁힌다.
+    expect(within(dialog).getByRole('heading', { name: '시연' })).toBeInTheDocument();
 
     await userEvent.click(within(dialog).getByRole('button', { name: '단축키' }));
     // "다음 스텝" 은 드릴·전술판 표에도 나온다(같은 전역 키맵에서 파생) — 시연에만 있는
@@ -407,13 +411,13 @@ describe('시연 튜토리얼(§0.5)', () => {
 
     const dialog = await screen.findByRole('dialog', { name: '화면 안내' });
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText('1/4 단계')).toBeInTheDocument();
+    expect(within(dialog).getByText('1/6 단계')).toBeInTheDocument();
     expect(within(dialog).getByText('재생')).toBeInTheDocument();
 
     const user = userEvent.setup();
-    for (const [i, title] of ['스텝 진행바', '전체화면', '편집으로'].entries()) {
+    for (const [i, title] of ['스텝 진행바', '세로바', '드릴 정보', '전체화면', '편집으로'].entries()) {
       await user.click(within(dialog).getByRole('button', { name: '다음' }));
-      await waitFor(() => expect(within(dialog).getByText(`${i + 2}/4 단계`)).toBeInTheDocument());
+      await waitFor(() => expect(within(dialog).getByText(`${i + 2}/6 단계`)).toBeInTheDocument());
       expect(within(dialog).getByText(title)).toBeInTheDocument();
     }
     await user.click(within(dialog).getByRole('button', { name: '완료' }));

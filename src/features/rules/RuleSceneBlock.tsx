@@ -161,6 +161,11 @@ function RuleSceneInner({
           <button
             type="button"
             onClick={handlePosterPlay}
+            // 튜토리얼·도움말이 "장면을 재생하는 자리" 로 가리키는 앵커. ⚠️ 이 버튼은 **주제
+            // 상세**에만 있다 — 규칙 투어는 카드 홈에서 시작하므로 이 앵커를 무는 단계는
+            // 지금 없다(tutorialSteps.ts 의 근거 참고). 앵커를 미리 두는 것은 상세에서 무언가를
+            // 가리키게 될 때 자리를 찾아 헤매지 않기 위해서다.
+            data-tut="rules-play"
             aria-label={t('rules.playScene')}
             aria-hidden={!showPoster}
             tabIndex={showPoster ? 0 : -1}

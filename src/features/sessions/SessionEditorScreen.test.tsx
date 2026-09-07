@@ -362,7 +362,7 @@ describe('SessionEditorScreen', () => {
 });
 
 describe('세션 편집 튜토리얼(§0.5)', () => {
-  it('처음 여는 화면에서 자동으로 뜨고, 5단계가 계획서 순서대로 나온다', async () => {
+  it('처음 여는 화면에서 자동으로 뜨고, 6단계가 계획서 순서대로 나온다', async () => {
     // 이 파일의 공용 beforeEach 가 seen=true 로 채워 둔 것을 되돌려 "처음 방문" 을 재현한다.
     localStorage.setItem(PREFS_KEY, JSON.stringify(makeDefaultPrefs()));
     const d = await idbDrillRepo.createDrill({ courtMode: 'full', title: '튜토리얼용 드릴' });
@@ -373,13 +373,13 @@ describe('세션 편집 튜토리얼(§0.5)', () => {
     await waitFor(() => expect(screen.getByLabelText('세션명')).toBeInTheDocument());
 
     const dialog = await screen.findByRole('dialog', { name: '화면 안내' });
-    expect(within(dialog).getByText('1/5 단계')).toBeInTheDocument();
+    expect(within(dialog).getByText('1/6 단계')).toBeInTheDocument();
     expect(within(dialog).getByText('세션 정보')).toBeInTheDocument();
 
     const user = userEvent.setup();
-    for (const [i, title] of ['구획 추가', '드릴 편성', '배분 게이지', '참가자 체크'].entries()) {
+    for (const [i, title] of ['구획 추가', '드릴 편성', '배분 게이지', '참가자 체크', '세션 시연'].entries()) {
       await user.click(within(dialog).getByRole('button', { name: '다음' }));
-      await waitFor(() => expect(within(dialog).getByText(`${i + 2}/5 단계`)).toBeInTheDocument());
+      await waitFor(() => expect(within(dialog).getByText(`${i + 2}/6 단계`)).toBeInTheDocument());
       expect(within(dialog).getByText(title)).toBeInTheDocument();
     }
     await user.click(within(dialog).getByRole('button', { name: '완료' }));

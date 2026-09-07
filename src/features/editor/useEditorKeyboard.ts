@@ -62,8 +62,13 @@ const PAN_DIR: Record<string, readonly [number, number]> = {
 };
 
 /** WCAG 2.1.4 게이트를 통과한 정의. 설정이 `modifier` 면 전역 문자키는 Alt 를 요구하고,
- *  `off` 면 아예 안 잡힌다. 문자키가 **아닌** 정의는 설정과 무관하다. */
-function gatedLookup(
+ *  `off` 면 아예 안 잡힌다. 문자키가 **아닌** 정의는 설정과 무관하다.
+ *
+ *  export 인 이유: [키 진단](`ui/help/KeyDiagnostics.tsx`)이 **이 판정 그대로** 보여야 한다.
+ *  진단이 `lookupDef` 원본을 보여 주면 설정이 막아 둔 키를 "정의 있음" 으로 그려, 안 먹는
+ *  원인을 찾으러 온 사람에게 정반대 답을 준다. 게이트 판정이 두 벌이 되면 그 거짓말은 다음
+ *  모드 추가 때 되살아나므로 판정은 여기 하나만 둔다. */
+export function gatedLookup(
   e: KeyboardEvent,
   mode: SingleKeyMode,
 ): KeyDef | undefined {
@@ -74,6 +79,10 @@ function gatedLookup(
   if (mode === 'modifier' && e.altKey) {
     const bare = lookupDef('global', {
       code: e.code,
+      // `key` 도 함께 넘긴다 — 안 넘기면 `code` 가 비는 사건에서 이 재조회만 폴백을 못 타
+      // (`eventCode` 가 볼 것이 없다) 직접 조회는 되는 키가 `수식키 필요` 모드에서만 죽는다.
+      // 모드에 따라 되는 키가 달라지면 사용자는 그것을 "가끔 안 먹는다" 로 겪는다.
+      key: e.key,
       ctrlKey: e.ctrlKey,
       metaKey: e.metaKey,
       altKey: false,

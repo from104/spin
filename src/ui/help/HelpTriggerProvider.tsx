@@ -1,5 +1,6 @@
-// 레일 [도움말] 일원화(§0.5 Phase 5, docs/PLAN-HELP-TUTORIAL.md §A) — 왼쪽 레일(AppRail)·
-// 좁은 창 헤더(AppNavAside)의 [도움말] 버튼은 화면 트리 밖(AppShell)에 있어서 "지금 열려
+// 레일 [도움말] 일원화(§0.5 Phase 5, docs/PLAN-HELP-TUTORIAL.md §A) — 왼쪽 레일(`AppRail`)·
+// 좁은 창 헤더(`AppNavAside` — 파일은 `src/app/AppNavSegment.tsx` 다, 이름과 파일이 어긋나
+// 있어 찾을 때 헤맨다)의 [도움말] 버튼은 화면 트리 밖(AppShell)에 있어서 "지금 열려
 // 있는 화면"의 도움말을 직접 못 연다. 각 화면이 자기 `HelpCenter` 의 `open` 을 여는 함수를
 // 여기 등록해 두면, 레일 버튼은 그 등록된 함수를 부르기만 한다 — 화면이 바뀌면(마운트·
 // 언마운트) 등록도 함께 갈린다.

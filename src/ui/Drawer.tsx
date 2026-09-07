@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { IconClose } from './icons.tsx';
+import { isImeKeyEvent } from './keyboard.ts';
 
 export interface DrawerProps {
   open: boolean;
@@ -31,6 +32,9 @@ export function Drawer({ open, onClose, title, closeLabel = '닫기', returnFocu
     titleRef.current?.focus({ preventScroll: true });
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // 조합 중의 Esc 는 **조합 취소**다 — Modal.tsx 와 같은 규율(`isImeKeyEvent` 머리말).
+      // 서랍은 비모달이라 배경 입력칸이 살아 있고, 그 칸에서 조합 중일 수 있다.
+      if (isImeKeyEvent(e)) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
         onClose();

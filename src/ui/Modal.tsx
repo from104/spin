@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { IconClose } from './icons.tsx';
+import { isImeKeyEvent } from './keyboard.ts';
 
 export interface ModalProps {
   open: boolean;
@@ -87,7 +88,13 @@ export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel
       // keyCode 229 는 isComposing 이 아직 서지 않은 조합 keydown 의 레거시 신호(구형 IME 경로).
       // 2026-08-14 확인: 지금 Modal 6개 사용처에 텍스트 입력은 0개라 **잠재** 결함이다 — 모달에
       // 텍스트 편집기가 들어가는 라운드에서 이 가드가 없으면 한글 조합 취소가 모달을 통째로 닫는다.
-      if (e.isComposing || e.keyCode === 229) return;
+      //
+      // ── ⚠️ 2026-09-08: 위 문단의 "잠재" 는 끝났다 (PLAN-HELP-OVERHAUL F3·결정 7) ──────
+      // 사용처는 13개 파일 15곳이고 **텍스트 입력이 있다** — NoteEditModal 의 메모 textarea 가 이 Modal
+      // 안에서 산다. 즉 이 가드는 이제 잠재 방어가 아니라 상시로 발화하는 경로다. 같은 날
+      // 판정을 `isImeKeyEvent` 한 자리로 모았다: 손으로 벌여 둔 가드는 새로 생기는 자리에서
+      // 빠지고, 실제로 CenterModal·Drawer·AppHeader 가 빠진 채 있었다.
+      if (isImeKeyEvent(e)) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
         onClose();

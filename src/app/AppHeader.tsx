@@ -11,6 +11,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Button } from '../ui/Button.tsx';
 import { Segmented } from '../ui/Segmented.tsx';
 import { IconLock, IconSearch } from '../ui/icons.tsx';
+import { isImeKeyEvent } from '../ui/keyboard.ts';
 import type { CourtMode } from '../model/court.ts';
 import { COURT_MODES, COURT_MODE_SHORT_LABELS } from '../model/court.ts';
 import { AppNavAside, AppNavSegment } from './AppNavSegment.tsx';
@@ -413,6 +414,10 @@ export function AppHeader({
 
         {config.search && (
           <label
+            // 튜토리얼 앵커 — 드릴 목록 투어가 "이름으로 찾는 길"을 가리킨다. 검색칸은 헤더
+            // (AppShell 소유)에 살고 목록 화면에는 없으므로, 앵커도 그 칸이 실제로 그려지는
+            // 여기에 붙는다. 이름이 `library-` 인 것은 지금 이 칸을 쓰는 화면이 거기뿐이어서다.
+            data-tut="library-search"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -490,6 +495,9 @@ function HeaderTitleEditor({ cfg, centered = false }: { cfg: HeaderTitleField; c
           setEditing(false);
         }}
         onKeyDown={(e) => {
+          // 조합 중의 Enter 는 **낱말 확정**, Esc 는 **조합 취소**다 — 둘 다 IME 의 것이라
+          // 여기서 가로채면 한글로는 첫 낱말마다 편집이 끝난다(`isImeKeyEvent` 머리말).
+          if (isImeKeyEvent(e.nativeEvent)) return;
           if (e.key === 'Enter') {
             e.preventDefault();
             e.currentTarget.blur(); // onBlur 가 커밋한다 — 경로를 둘로 안 만든다.
@@ -567,6 +575,8 @@ function HeaderDescriptionEditor({ cfg }: { cfg: HeaderDescriptionField }) {
           setEditing(false);
         }}
         onKeyDown={(e) => {
+          // 이름 칸과 같은 IME 가드 — 조합 중의 Enter/Esc 는 입력기의 것이다.
+          if (isImeKeyEvent(e.nativeEvent)) return;
           if (e.key === 'Enter') {
             e.preventDefault();
             e.currentTarget.blur(); // 위 onBlur 가 커밋한다 — 경로를 둘로 안 만든다.
@@ -660,6 +670,10 @@ function CourtSwitchControl({ cfg }: { cfg: HeaderCourtSwitch }) {
             tabIndex={0}
             onClick={() => cfg.onLockedAttempt?.()}
             onKeyDown={(e) => {
+              // ★ `eventCode` 가 아니라 `key` 로 본다 — 이것은 단축키가 아니라 **요소 활성화**
+              // 관용구다(role=radio 가 브라우저에게서 못 받는 Enter/Space 를 손으로 되돌려준다).
+              // 활성화 키의 `key` 는 입력기가 바꾸지 않고, 여기는 텍스트를 받는 자리도 아니다.
+              // 계획서 결정 9 의 "문자·Space 는 code 로" 는 단축키 매칭 얘기다(그 옆 각주 참고).
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 cfg.onLockedAttempt?.();

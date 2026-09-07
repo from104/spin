@@ -5,6 +5,11 @@
 // `start()` 는 그와 별개로 설정 화면의 [다시 보기]·HelpCenter 의 재시작 버튼이 부르는
 // 수동 진입점이다.
 //
+// 2026-09-08(docs/PLAN-HELP-OVERHAUL.md 결정 11) — "보기만 하는" 투어로는 초보자가 익히지
+// 못한다는 판정으로 둘이 붙었다: **실습형 단계**(`advanceOnClick` — 대상을 실제로 누르면 다음)
+// 와 **[자세한 도움말]**(`options.onOpenHelp` — 마지막 말풍선에서 도움말로 갈아탄다). 둘 다
+// 기존 계약을 안 건드린다: 단계 필터·플래그 형식(결정 13)·자동 시작 게이트 그대로다.
+//
 // ⚠️ **빈 화면 가드**(계획서 §E 위험) — steps 에 적힌 target 이 그 순간 DOM 에 없으면
 // (드릴이 0개라 안내할 카드가 없는 등) 그 단계는 걸러진다. 걸러진 뒤 하나도 안 남으면
 // 아예 시작하지 않고, 자동 시작이었다면 **플래그도 안 찍는다** — 다음에 데이터가 생겼을 때
@@ -28,6 +33,17 @@ import type { TutorialStep } from './types.ts';
 /** 자동 시작 전 "전부 찾았는가" 를 재시도할 상한 프레임 수 — 위 useEffect 주석 참고. */
 const AUTOSTART_MAX_FRAMES = 20;
 
+/** 훅의 선택 인자. **객체 하나로 받는다** — 위치 인자 넷째 자리를 boolean·함수로 계속 늘리면
+ *  호출부에서 무엇이 무엇인지 못 읽는다. 기존 3인자 호출은 그대로 산다. */
+export interface UseTutorialOptions {
+  /** 마지막 말풍선의 [자세한 도움말] — 있으면 버튼이 그려지고, 없으면 안 그려진다
+   *  (docs/PLAN-HELP-OVERHAUL.md 결정 11c). 화면이 자기 HelpCenter 를 여는 함수를 준다.
+   *  ⚠️ **렌더마다 새로 만든 인라인 함수를 넘기지 마라** — 아래 `openHelp` 의 정체성이
+   *  매 렌더 바뀌어 오버레이 props 가 쓸데없이 흔들린다. 화면들이 이미 쥐고 있는
+   *  `showHelp`(useCallback) 를 그대로 넘기는 것이 정석이다. */
+  onOpenHelp?: () => void;
+}
+
 export interface UseTutorialResult {
   active: boolean;
   stepIndex: number;
@@ -39,10 +55,21 @@ export interface UseTutorialResult {
   prev(): void;
   /** Esc·[건너뛰기]·마지막 단계 [완료] 전부 이 하나로 — 셋 다 "이제 봤다" 는 같은 사실이다. */
   skip(): void;
+  /** [자세한 도움말] — `options.onOpenHelp` 를 준 화면에서만 정의된다(안 준 화면은 undefined
+   *  라 오버레이가 버튼 자체를 안 그린다). 투어를 **끝낸 것으로 치고**(skip 과 같은 플래그)
+   *  닫은 뒤 도움말을 연다: 도움말로 갈아탄 사람에게 다음 방문에 같은 투어를 또 세우면
+   *  "봤다" 는 사실을 앱이 두 번 묻는 것이 된다. */
+  openHelp?: () => void;
 }
 
-export function useTutorial(screen: TutorialScreenKey, steps: readonly TutorialStep[], autoStart: boolean): UseTutorialResult {
+export function useTutorial(
+  screen: TutorialScreenKey,
+  steps: readonly TutorialStep[],
+  autoStart: boolean,
+  options?: UseTutorialOptions,
+): UseTutorialResult {
   const { prefs, setPrefs } = useSettings();
+  const onOpenHelp = options?.onOpenHelp;
   const gateReady = useTutorialGate(); // Provider 밖에서는 true — 게이트가 없던 때와 같다
   const [active, setActive] = useState(false);
   const [visibleSteps, setVisibleSteps] = useState<TutorialStep[]>([]);
@@ -121,14 +148,53 @@ export function useTutorial(screen: TutorialScreenKey, steps: readonly TutorialS
     setStepIndex((i) => Math.max(0, i - 1));
   }, []);
 
+  const step = active ? (visibleSteps[stepIndex] ?? null) : null;
+
+  // ── 실습형 단계(advanceOnClick) ────────────────────────────────────────────────
+  // 대상을 진짜 누르면 그 자체가 [다음]이다. 구현에서 조심할 것 셋:
+  //  ① **요소를 붙잡아 두지 않는다.** 효과가 도는 순간의 노드를 ref 에 넣어 두면 그 사이의
+  //     리렌더로 노드가 갈리는 순간 리스너가 유령 노드에 남는다. 그래서 document 에서 듣고
+  //     `closest()` 로 "이 사건이 그 앵커 **안에서** 났나" 를 판정한다 — 앵커가 컨테이너든
+  //     버튼이든 같은 코드로 맞는다.
+  //  ② **capture 로 듣는다.** 대상이 자기 핸들러에서 stopPropagation 을 하더라도(메뉴 버튼이
+  //     흔히 그런다) 캡처 단계는 그보다 먼저 지나간다.
+  //  ③ **pointerup 과 click 을 둘 다 듣고, 한 단계에 한 번만 넘긴다.** 누르는 순간 대상이
+  //     사라지는 버튼(다이얼로그를 여는 [새 드릴] 같은)에서는 뒤이을 click 이 아예 안 날 수
+  //     있고, 반대로 둘 다 나면 두 칸이 넘어간다. `fired` 플래그가 그 둘을 하나로 접는다.
+  const advanceTarget = step?.advanceOnClick === true ? step.target : null;
+  useEffect(() => {
+    if (advanceTarget === null) return;
+    let fired = false;
+    const onHit = (e: Event) => {
+      if (fired) return;
+      const el = e.target;
+      if (!(el instanceof Element) || el.closest(`[data-tut="${advanceTarget}"]`) === null) return;
+      fired = true;
+      next();
+    };
+    document.addEventListener('pointerup', onHit, true);
+    document.addEventListener('click', onHit, true);
+    return () => {
+      document.removeEventListener('pointerup', onHit, true);
+      document.removeEventListener('click', onHit, true);
+    };
+  }, [advanceTarget, next]);
+
+  const openHelp = useCallback(() => {
+    setActive(false);
+    markSeen();
+    onOpenHelp?.();
+  }, [markSeen, onOpenHelp]);
+
   return {
     active,
     stepIndex,
     totalSteps: visibleSteps.length,
-    step: active ? (visibleSteps[stepIndex] ?? null) : null,
+    step,
     start,
     next,
     prev,
     skip,
+    openHelp: onOpenHelp ? openHelp : undefined,
   };
 }

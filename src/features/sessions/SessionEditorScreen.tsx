@@ -85,11 +85,14 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
   const resolved = useMemo(() => (session ? resolveSession(session, existing) : null), [session, existing]);
   // session 은 getSession 이 비동기로 채운다(위 useEffect) — 로딩 중엔 sessionEditor-* 대상이
   // 하나도 없다. 실제로 그려진 뒤로 자동 시작을 미룬다.
-  const tutorial = useTutorial('sessionEditor', SESSION_EDITOR_TUTORIAL_STEPS, session !== null && resolved !== null);
   // §0.5 Phase 5 — SessionsScreen 과 같은 이유(§8 이라 옛 도움말 진입점이 없던 화면).
+  // ★ 투어보다 **먼저** 선다 — 투어의 마지막 말풍선이 [자세한 도움말] 로 이 문을 쓴다.
   const [helpOpen, setHelpOpen] = useState(false);
   const showHelp = useCallback(() => setHelpOpen(true), []);
   usePublishHelpShow(showHelp);
+  const tutorial = useTutorial('sessionEditor', SESSION_EDITOR_TUTORIAL_STEPS, session !== null && resolved !== null, {
+    onOpenHelp: showHelp,
+  });
   // 도움말 "세션" 섹션은 세션 목록·세션 편집 둘 다를 위한 [투어 다시 보기]를 낸다. 세션
   // 목록은 지금 마운트돼 있지 않으므로 그 투어는 직접 못 열고 "안 봤음" 으로 되돌린다.
   const onRestartTutorial = (screen: TutorialScreenKey) => {
@@ -281,7 +284,12 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
           <Button variant="secondary" onClick={() => void exportOneSession(session).then(() => toast.show(t('sessionsScreen.exportToast', { title: session.title })))}>
             {t('sessionTab.exportMenuItem')}
           </Button>
-          <Button variant="primary" fullWidth onClick={() => nav.presentSession(session.id)} style={{ height: 48 }}>
+          {/* 튜토리얼 앵커 — 계획서 §2.2 는 이 단계의 대상을 `header-primary` 로 적었지만,
+              세션 편집은 `screen === 'sessions'` 아래에서 그려져 헤더 주 액션이 **[새 세션]**
+              이다(AppShell.useStaticHeaderConfig). 거기를 가리키면 "세션을 시연한다"는 설명이
+              세션을 하나 더 만드는 버튼에 붙는다 — 그래서 실제 [세션 시연] 인 이 버튼에 앵커를
+              둔다. */}
+          <Button variant="primary" fullWidth data-tut="sessionEditor-present" onClick={() => nav.presentSession(session.id)} style={{ height: 48 }}>
             {t('sessionEditor.presentButton')}
           </Button>
         </div>
@@ -295,6 +303,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
           onNext={tutorial.next}
           onPrev={tutorial.prev}
           onSkip={tutorial.skip}
+          onOpenHelp={tutorial.openHelp}
         />
       )}
 

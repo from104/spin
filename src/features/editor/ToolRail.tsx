@@ -516,11 +516,15 @@ function ToolButton({
   active,
   locked = false,
   onSelect,
+  tut,
 }: {
   def: ToolDef;
   active: boolean;
   locked?: boolean;
   onSelect(): void;
+  /** 튜토리얼 앵커(`data-tut`). 부르는 쪽이 정한다 — 여기서 `def.id` 로 계산하면 서랍 안에
+   *  같은 도구가 한 번 더 그려지는 날 앵커가 둘이 된다(RulesHome 이 겪은 사고와 같은 결). */
+  tut?: string;
 }) {
   const t = useT();
   const locale = useLocale();
@@ -531,6 +535,7 @@ function ToolButton({
   return (
     <button
       type="button"
+      data-tut={tut}
       title={toolTitle(def.id, label, def.key, active, locked, t)}
       // 이름에 '고정' 이 붙는 것은 **켜져 있을 때뿐**이다 — 안 켜졌을 때까지 붙이면 버튼
       // 이름이 늘 길어져서, 정작 켜졌을 때의 차이가 안 들린다. WCAG 2.5.3: 보이는 글자
@@ -913,6 +918,9 @@ export function ToolRail({
             active={t.id === tool}
             locked={t.id === tool && toolLock}
             onSelect={() => onSelectTool(t.id)}
+            // 투어가 "도구를 고르는 자리" 로 가리키는 칸. ALWAYS_TOOLS 는 [선택] 하나뿐이고
+            // (§ ALWAYS_TOOLS 주석) 서랍 안에는 안 나오므로 문서에 하나만 뜬다.
+            tut="editor-tool-select"
           />
         ))}
 

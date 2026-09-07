@@ -123,6 +123,21 @@ describe('useEditorKeyboard — WCAG 2.1.4 게이트는 전역 문자키에만 �
     expect(deps.onSelectTool).toHaveBeenCalledWith('select');
   });
 
+  // 2026-09-08 (PLAN-HELP-OVERHAUL F2·결정 8). `modifier` 모드의 Alt 재조회는 사건을 손으로
+  // 다시 지어 `lookupDef` 에 넘긴다 — 거기에 `key` 를 안 실으면 **code 가 비는 사건에서 이
+  // 경로만** 폴백을 못 탄다(`eventCode` 가 볼 것이 없다). 증상은 "모드를 바꿨더니 키가 안
+  // 먹는다" 이고, 직접 조회(mode='on')는 멀쩡하므로 원인이 안 보인다.
+  it('수식키 필요 모드에서 code 없는 Alt+자모도 도구를 연다 — 재조회가 key 를 잃지 않는다', () => {
+    const deps = baseDeps({ singleKeyMode: 'modifier' as SingleKeyMode });
+    renderHook(() => useEditorKeyboard(deps));
+    // code 를 안 싣는 장치 + 한글 상태: Alt+V 가 { code: '', key: 'ㅍ' } 로 온다.
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: '', key: 'ㅍ', altKey: true, bubbles: true, cancelable: true }));
+    expect(deps.onSelectTool).toHaveBeenCalledWith('select');
+    // 대조군 — Alt 를 벗기면 그 모드에서는 여전히 안 열린다(게이트가 헐거워지지 않았다).
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: '', key: 'ㅠ', bubbles: true, cancelable: true }));
+    expect(deps.onSelectTool).toHaveBeenCalledTimes(1);
+  });
+
   it('보기 토글(Alt+G·Alt+Z)은 설정과 무관하다 — 이미 수식키 조합이다', () => {
     // 개편 전에는 G·Z 가 단일 문자키라 게이트를 타야 했다. Alt 계열로 옮기면서 대상에서
     // 빠졌다 — 2.1.4 는 "문자·숫자·구두점 **단독**" 만 규제한다.

@@ -82,7 +82,7 @@ export function PresentSideBar({ fullscreen, onDrillInfo }: PresentSideBarProps)
              실재하지만 한 번뿐이고, **편집 화면의 같은 칸과 같은 자리**가 되는 것이 그보다
              크다: 두 화면을 오가는 코치가 [정보]를 같은 높이에서 찾는다. */}
       {onDrillInfo && (
-        <button type="button" aria-haspopup="dialog" data-tut="drill-info" aria-label={t('present.infoAriaLabel')} onClick={onDrillInfo} style={ITEM}>
+        <button type="button" aria-haspopup="dialog" data-tut="present-info" aria-label={t('present.infoAriaLabel')} onClick={onDrillInfo} style={ITEM}>
           <IconDrillInfoRead size={18} />
           <span aria-hidden style={ITEM_LABEL}>
             {t('present.infoLabel')}
@@ -90,11 +90,18 @@ export function PresentSideBar({ fullscreen, onDrillInfo }: PresentSideBarProps)
         </button>
       )}
 
+      {/* ⚠️ 2026-09-08: 위 [정보] 칸의 튜토리얼 앵커가 `drill-info` → `present-info` 로 바뀌었다
+          (docs/PLAN-HELP-OVERHAUL.md §2.2 — 시연 투어가 이 칸을 처음으로 가리킨다).
+          옛 이름을 그대로 둘 수 없었던 이유: `drill-info` 는 편집 화면 FunctionBar 의 **고칠 수
+          있는** 같은 칸이 이미 쓰는 이름이고(드릴 편집 투어 7단계가 그것을 문다), 한 이름이 두
+          화면에서 서로 다른 것(고치기 ↔ 보기 전용)을 뜻하면 어느 투어가 무엇을 가리키는지 코드가
+          말해 주지 못한다. 이 앵커를 물고 있던 단계는 **0개**였으므로 깨진 계약은 없다. */}
       {/* 이름 규칙(WCAG 2.5.3 Label in Name) — 화면 라벨은 항상 "전체화면"(FunctionBar 의
           [100%]·[속도] 칸과 같은 관례: 라벨은 고정, aria-label 만 상태로 바뀐다). "전체화면"은
           "전체화면 종료"의 부분 문자열이라 종료 상태에서도 규칙이 깨지지 않는다. */}
       <button
         type="button"
+        data-tut="present-fullscreen"
         aria-label={fullscreen.state === 'off' ? t('present.fullscreenEnter') : t('present.fullscreenExit')}
         onClick={() => (fullscreen.state === 'off' ? fullscreen.enter({ userGesture: true }) : fullscreen.exit())}
         style={ITEM}

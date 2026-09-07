@@ -130,7 +130,10 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   // 드릴 편집·자유 전술판 튜토리얼(Phase 2·3) — 화면 키가 다르므로(§0.5, 'editor'/'board')
   // tutorialsSeen 도 따로 찍힌다. 데이터는 이 컴포넌트가 그려질 때 이미 `state.present` 로
   // 와 있으므로(로딩 state 없음) 첫 렌더가 곧 "화면이 실제로 그려진 시점"이다.
-  const tutorial = useTutorial(isBoard ? 'board' : 'editor', isBoard ? BOARD_TUTORIAL_STEPS : EDITOR_TUTORIAL_STEPS, true);
+  const tutorial = useTutorial(isBoard ? 'board' : 'editor', isBoard ? BOARD_TUTORIAL_STEPS : EDITOR_TUTORIAL_STEPS, true, {
+    // 마지막 말풍선의 [자세한 도움말] — 위 showHelp 와 **같은 문**이다(레일 [도움말]·Shift+? 도 이 문).
+    onOpenHelp: showHelp,
+  });
   /** 글을 고치는 중인 메모(기현 지시 2026-08-17). `fresh` 는 "방금 놓은 쪽지" 라는 뜻이고,
    *  그때만 취소가 쪽지를 도로 치운다 — 자세한 근거는 `NoteEditModal` 의 같은 이름 prop.
    *  무대(EditorStage)가 아니라 여기 있는 이유: 트레이 드래그 배치가 이 파일에 있어서,
@@ -1022,6 +1025,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           onNext={tutorial.next}
           onPrev={tutorial.prev}
           onSkip={tutorial.skip}
+          onOpenHelp={tutorial.openHelp}
         />
       )}
 

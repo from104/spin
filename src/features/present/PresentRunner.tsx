@@ -305,11 +305,12 @@ function PresentBody({
   const playback = usePlaybackState();
   const playbackActions = usePlaybackActions();
   const t = useT();
-  const tutorial = useTutorial('present', PRESENT_TUTORIAL_STEPS, true);
   // §0.5 Phase 5 — 레일 [도움말] 이 "지금 이 화면" 을 열 수 있게 등록한다(EditorWorkspace 와
   // 같은 이유). PresentSideBar 자기 [도움말] 칸은 이제 없다.
+  // ★ 투어보다 **먼저** 선다 — 투어의 마지막 말풍선이 [자세한 도움말] 로 이 문을 쓴다.
   const showHelp = useCallback(() => setHelpOpen(true), [setHelpOpen]);
   usePublishHelpShow(showHelp);
+  const tutorial = useTutorial('present', PRESENT_TUTORIAL_STEPS, true, { onOpenHelp: showHelp });
 
   const drills = load.kind === 'session' ? load.drills : [load.drill];
   const phaseInfo = load.kind === 'session' ? load.phases : null;
@@ -753,6 +754,7 @@ function PresentBody({
           onNext={tutorial.next}
           onPrev={tutorial.prev}
           onSkip={tutorial.skip}
+          onOpenHelp={tutorial.openHelp}
         />
       )}
     </main>

@@ -175,6 +175,8 @@ export const TOPICS_JA: readonly RuleTopic[] = [
     key: 'basics',
     title: '選手・コート・ボール・用具',
     tagline: 'コート28×15m、1チーム4人',
+    // ko 와 같은 카드에 튜토리얼 앵커를 건다 — 2026-09-08 검수: ja 만 빠져 있어 일본어에서 규칙 투어의 카드 단계가 안 떴다.
+    tutorialAnchor: 'rules-card',
     blocks: [
       {
         kind: 'prose',
@@ -423,6 +425,7 @@ export const TOPICS_JA: readonly RuleTopic[] = [
     key: 'rulebook',
     title: '公式ルールブック',
     tagline: 'FIPFA 18条の要約',
+    tutorialAnchor: 'rules-appendix',
     blocks: [
       {
         kind: 'prose',

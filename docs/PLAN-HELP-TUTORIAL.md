@@ -10,6 +10,8 @@
 > 다르게 판단한 지점 하나: §C 의 스포트라이트 기법은 "SVG `<path fill-rule="evenodd">`"
 > 대신 **4분할 어두운 div**로 갔다(TutorialOverlay.tsx 머리말 — 브라우저마다 SVG mask 의
 > alpha:0 영역 pointer-events 통과가 신뢰할 수 없어서). 그 밖은 설계 그대로다.
+>
+> **2026-09-08 후속 개편은 `docs/PLAN-HELP-OVERHAUL.md`** — 이 문서를 뒤집지 않고 위에 쌓는다.
 
 ## 확정 결정 (10문답)
 

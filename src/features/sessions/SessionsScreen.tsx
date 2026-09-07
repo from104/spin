@@ -43,11 +43,12 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
   const { setPrefs } = useSettingsActions();
   // status가 'ready'가 되기 전에는 세션 카드가 아직 안 실려 있다(§10.7) — 목록이 실제로
   // 그려진 뒤로 자동 시작을 미룬다.
-  const tutorial = useTutorial('sessions', SESSIONS_TUTORIAL_STEPS, status === 'ready');
   // §0.5 Phase 5 — LibraryScreen 과 같은 이유(§8 이라 옛 도움말 진입점이 없던 화면).
+  // ★ 투어보다 **먼저** 선다 — 투어의 마지막 말풍선이 [자세한 도움말] 로 이 문을 쓴다.
   const [helpOpen, setHelpOpen] = useState(false);
   const showHelp = useCallback(() => setHelpOpen(true), []);
   usePublishHelpShow(showHelp);
+  const tutorial = useTutorial('sessions', SESSIONS_TUTORIAL_STEPS, status === 'ready', { onOpenHelp: showHelp });
   // 도움말 "세션" 섹션은 이 화면과 세션 편집 둘 다를 위한 [투어 다시 보기]를 낸다(helpSections.ts).
   // 세션 편집은 지금 마운트돼 있지 않으므로 그 투어는 직접 못 열고, 다음에 그 화면을 열 때
   // 자동으로 뜨도록 "안 봤음" 으로 되돌린다.
@@ -145,6 +146,7 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
           onNext={tutorial.next}
           onPrev={tutorial.prev}
           onSkip={tutorial.skip}
+          onOpenHelp={tutorial.openHelp}
         />
       )}
 

@@ -216,6 +216,8 @@ function SessionRow({
           aria-expanded={menuOpen}
           aria-controls={menuId}
           aria-label={t('drillCard.kebabMoreAriaLabel', { title: session.title })}
+          // 튜토리얼 앵커 — 세션 카드마다 하나씩이라 첫 카드의 ⋮ 가 가리켜진다(`sessions-card` 관례).
+          data-tut="sessions-card-menu"
           onClick={() => setMenuOpen((v) => !v)}
           style={{ width: 36, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint-text)' }}
         >
