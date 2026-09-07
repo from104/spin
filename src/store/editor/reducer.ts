@@ -354,7 +354,9 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       // 섞으면 `cut: false` 가 그대로 저장돼 버린다(DrillStep.cut 은 리터럴 true 만 정의역,
       // actions.ts STEP_META 주석). `false` 는 **키 삭제 명령**으로 따로 해석한다
       // (model/edits.ts stripStepFlags 의 `delete patched[flag]` 와 같은 관례).
-      const { cut: cutCmd, ...rest } = a.patch;
+      // `seamless`(2026-09-08 딜레이 없는 연결)도 정확히 같은 부류다 — 리터럴 `true` 만
+      // 정의역이고 `false` 는 키 삭제 명령이다(model/stepLink.ts stepLinkPatch).
+      const { cut: cutCmd, seamless: seamlessCmd, ...rest } = a.patch;
       let next: DrillStep = { ...step, ...rest };
       if (cutCmd !== undefined) {
         if (cutCmd) {
@@ -364,9 +366,24 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
           delete next.cut;
         }
       }
-      // ⚠️ cut 도 비교에 넣어야 한다 — 안 넣으면 "cut 만 바뀌고 name/note/durationMs 는 그대로"
-      // 인 흔한 경우(사슬 토글 그 자체)가 매번 항등 판정에 걸려 아무 일도 안 일어난다.
-      if (next.name === step.name && next.note === step.note && next.durationMs === step.durationMs && next.cut === step.cut) {
+      if (seamlessCmd !== undefined) {
+        if (seamlessCmd) {
+          next = { ...next, seamless: true };
+        } else if ('seamless' in next) {
+          next = { ...next };
+          delete next.seamless;
+        }
+      }
+      // ⚠️ cut·seamless 도 비교에 넣어야 한다 — 안 넣으면 "연결 방식만 바뀌고 name/note/
+      // durationMs 는 그대로" 인 흔한 경우(틈 버튼 그 자체)가 매번 항등 판정에 걸려 아무 일도
+      // 안 일어난다.
+      if (
+        next.name === step.name &&
+        next.note === step.note &&
+        next.durationMs === step.durationMs &&
+        next.cut === step.cut &&
+        next.seamless === step.seamless
+      ) {
         return d;
       }
       const steps = d.steps.slice();

@@ -793,6 +793,10 @@ export interface DrillStep {
   // 그대로 성립해 마이그레이션이 필요 없다(SUMMARY 교리와 같은 논법). `cut: false` 는
   // 애초에 저장하지 않는다(§3.11 courtSize 와 같은 절약).
   cut?: true;
+  // 딜레이 없는 연결(2026-09-08, PLAN-STEP-LINK): 이 스텝의 트윈이 구간 전체를 차지해 정지가
+  // 0 이 된다 — 이으면 키프레임 애니메이션이다. `cut` 과 배타(둘 다면 cut 이 이긴다),
+  // 저장은 같은 관행(예외만·`true` 만), 스키마 도장은 안 올린다(옛 앱은 딜레이 연결로 읽는다).
+  seamless?: true;
   chairs: PoseMap<ChairId, StoredChairPose>;
   balls:  PoseMap<BallId, Vec2>;
   // v9(2026-08-27 기현 지시) — 공의 거리 원(3 m/5 m)이 cast(`BallDef.ring`)에서 여기로 왔다.
@@ -932,6 +936,9 @@ export interface RenderFrame {
   notes: Array<NoteLabel & { opacity: number }>;
 }
 export function easeStandard(t: number): number;   // cubic-bezier(.4,0,.2,1)
+export function easeIn(t: number): number;         // cubic-bezier(.4,0,1,1) — 연속 구간의 들머리
+export function easeOut(t: number): number;        // easeIn 의 거울상 = cubic-bezier(0,0,.6,1)
+export function easeLinear(t: number): number;     // 연속 구간 안쪽(가감속 없음)
 export function interpolateSteps(d: Drill, from: DrillStep, to: DrillStep, e: number): RenderFrame;
 export function effectiveStepMs(s: DrillStep, baseMs: number): number;   // s.durationMs ?? baseMs
 export function drillTotalMs(d: Drill, baseMs: number): number;
@@ -953,6 +960,19 @@ from     = (i > 0) ? steps[i-1] : (loop ? steps[last] : steps[0])
 frame    = interpolateSteps(drill, from, steps[i], easeStandard(t))
 ```
 `transitionMs = min(600, baseMs × 0.6)` → 0.5×(2400) 600 · 1×(1500) 600 · 2×(800) 480.
+
+**연결 방식 셋**(2026-09-08, `docs/PLAN-STEP-LINK.md` · `model/stepLink.ts`) — 경계는 교리대로
+**다음 스텝**이 진다. 타임라인(구간 시작·`effectiveStepMs`·총 길이)은 셋 다 같고, 갈리는 것은
+그 구간 안에서 트윈을 어떻게 쓰느냐뿐이다.
+
+| 저장 | 뜻 | 트윈 구간 | 이징 |
+|---|---|---|---|
+| 키 없음 | 딜레이 연결 | 구간 앞 `transitionMs`, 나머지는 정지 | `easeStandard` |
+| `seamless: true` | 딜레이 없는 연결 | **구간 전체**(정지 0) | 연속 구간 단위 — 첫 `easeIn` · 가운데 `easeLinear` · 마지막 `easeOut` · 혼자면 `easeStandard` |
+| `cut: true` | 끊김 | 없음(경계에서 즉시 점프) | — (`e = 1` 고정) |
+
+둘 다 실리면 `cut` 이 이긴다(`validate.ts` 가 `seamless` 를 버린다). 연속 구간 판정은 루프면
+배열 끝을 감는다 — `from` 스텝 선택과 같은 규약이다.
 
 **휠체어 = Hermite + 최단호 각도**
 ```

@@ -872,6 +872,19 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       pushRepair(repairs, 'steps.cut', 'cut 값이 true 가 아니어서 폐기(키 없음 = 연결)', true);
     }
     const cut = cutRaw === true;
+    // 딜레이 없는 연결(2026-09-08). `cut` 과 **완전히 같은 정의역 규칙**이다 — `true` 만
+    // 살리고 나머지는 버린다(키 없음 = 딜레이 연결).
+    const seamlessRaw = rawStep.seamless;
+    if (seamlessRaw !== undefined && seamlessRaw !== true) {
+      pushRepair(repairs, 'steps.seamless', 'seamless 값이 true 가 아니어서 폐기(키 없음 = 딜레이 연결)', true);
+    }
+    // 배타(drill.ts `seamless` 교리 주석): 둘 다 있으면 **cut 이 이긴다**. 끊긴 경계에는 트윈이
+    // 없으므로 트윈 길이를 정하는 키가 함께 실릴 뜻이 없다 — 남겨 두면 "끊겼는데 이어진다" 는
+    // 두 뜻의 문서가 저장 가능해지고, 재생·UI 가 매번 우선순위를 따로 정하게 된다.
+    if (seamlessRaw === true && cut) {
+      pushRepair(repairs, 'steps.seamless', 'cut 과 seamless 가 함께 있어 seamless 를 폐기(끊김이 이긴다)', true);
+    }
+    const seamless = seamlessRaw === true && !cut;
     // 표시 순서(v11) — `locked` 와 같은 `alive` 기준이다. 비면 키를 안 만든다: 빈 목록은
     // "순서를 안 정했다" 이고 그건 키 없음과 같은 뜻이라, 표현이 둘이면 sameDrill(canonical
     // 비교)이 같은 문서를 다르게 본다(`strokes`·`ballRings` 와 같은 절약).
@@ -896,6 +909,7 @@ export function validateDrill(doc: unknown): ValidateResult<Drill> {
       ...(locked.length > 0 ? { locked } : {}),
       ...(ignored.length > 0 ? { ignored } : {}),
       ...(cut ? { cut } : {}),
+      ...(seamless ? { seamless } : {}),
       ...(zOrder.length > 0 ? { zOrder } : {}),
     });
   }

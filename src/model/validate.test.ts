@@ -128,6 +128,34 @@ describe('validateDrill — 보정', () => {
     expect(second.repairs.some((x) => x.path === 'steps.cut')).toBe(false);
   });
 
+  it('seamless: cut 과 함께 실리면 seamless 를 버리고(끊김이 이긴다), true 아닌 값도 버린다', () => {
+    const base = { id: 'st_1', name: 's', note: '', chairs: {}, balls: {}, cones: {}, arrows: [], notes: [] };
+    const raw = {
+      id: 'dr_x',
+      courtMode: 'flat',
+      cast: { chairs: [], balls: [], cones: [] },
+      steps: [
+        { ...base, id: 'st_1', seamless: true },
+        { ...base, id: 'st_2', seamless: true, cut: true }, // 배타 — cut 이 이긴다
+        { ...base, id: 'st_3', seamless: false },
+      ],
+    };
+    const r = validateDrill(raw);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.steps[0]!.seamless).toBe(true);
+    expect(r.value.steps[1]!.cut).toBe(true);
+    // 이 한 줄이 없으면 "끊겼는데 이어진다" 는 두 뜻의 스텝이 저장·재생으로 흘러간다.
+    expect('seamless' in r.value.steps[1]!).toBe(false);
+    expect('seamless' in r.value.steps[2]!).toBe(false); // false 는 저장하지 않는다(키 없음 = 딜레이 연결)
+    expect(r.repairs.some((x) => x.path === 'steps.seamless')).toBe(true);
+    // 멱등성: 정화된 값을 다시 넣으면 같은 repair 가 재발하지 않는다.
+    const second = validateDrill(r.value);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.repairs.some((x) => x.path === 'steps.seamless')).toBe(false);
+  });
+
   it("formation:'4-4-2' 이고 steps:[] 인 파일이 throw 없이 통과한다", () => {
     const raw = {
       id: 'dr_x',

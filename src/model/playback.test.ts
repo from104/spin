@@ -276,6 +276,66 @@ describe('sampleDrill — cut (사슬 끊긴 경계, 2026-08-17)', () => {
   });
 });
 
+// 딜레이 없는 연결(2026-09-08, PLAN-STEP-LINK 결정 3) — 트윈이 구간 전체를 차지하고, 이징은
+// 연이은 구간 단위로 갈린다.
+//
+// 공으로 재는 이유: 공은 `lerpVec`(선형)이라 이징 결과가 좌표에 **그대로** 비친다. 휠체어는
+// Hermite 호라 같은 e 라도 좌표가 직선 중점이 아니어서 "50% 지점이 중점" 같은 단언을 못 쓴다.
+function ballDrill(xs: number[], seamlessAt: number[]) {
+  let d = createDrill({ courtMode: 'full', formation: '1-2-1' });
+  for (let i = 1; i < xs.length; i++) d = duplicateStep(d, i - 1);
+  const ballId = d.cast.balls[0]!.id;
+  const steps = d.steps.map((s, i) => ({
+    ...s,
+    balls: { ...s.balls, [ballId]: { x: xs[i]!, y: 0 } },
+    ...(seamlessAt.includes(i) ? { seamless: true as const } : {}),
+  }));
+  return { d: { ...d, steps }, ballId };
+}
+const ballX = (frame: ReturnType<typeof sampleDrill>, id: string) => frame.balls.find((b) => b.id === id)!.x;
+
+describe('sampleDrill — seamless (딜레이 없는 연결, 2026-09-08)', () => {
+  const opts = { baseMs: 1000, transitionMs: 600, loop: false };
+
+  it('혼자 선 seamless: 구간 90% 에서도 아직 움직이는 중이고(정지 없음) 구간 끝에서 toStep 에 닿는다', () => {
+    const { d, ballId } = ballDrill([0, 100, 100], [1]);
+    // 90% (t=1900) — 딜레이 연결이었다면 transitionMs(600ms)가 1600 에 끝나 이미 100 에 서 있다.
+    const late = ballX(sampleDrill(d, 1900, opts), ballId);
+    expect(late).toBeGreaterThan(0);
+    expect(late).toBeLessThan(99.9);
+    // 구간 끝(다음 구간으로 넘어가기 직전)에는 사실상 toStep 포즈다 — 트윈이 구간을 다 쓴다.
+    expect(ballX(sampleDrill(d, 1999, opts), ballId)).toBeCloseTo(100, 1);
+  });
+
+  it('혼자 선 seamless 의 이징은 지금의 in-out 그대로다(50% 는 중점보다 앞, 25% 는 선형보다 뒤)', () => {
+    const { d, ballId } = ballDrill([0, 100, 100], [1]);
+    expect(ballX(sampleDrill(d, 1500, opts), ballId)).toBeCloseTo(77.56, 1); // easeStandard(0.5)
+    expect(ballX(sampleDrill(d, 1250, opts), ballId)).toBeLessThan(25); // in 구간이라 선형보다 뒤
+  });
+
+  it('연이은 seamless 구간: 첫 스텝만 가속, 가운데는 등속, 마지막만 감속', () => {
+    // 스텝 1·2·3 이 한 구간이다. 가운데(2)가 in-out 이면 키프레임마다 멈칫한다 — 그것을 막는 단언.
+    const { d, ballId } = ballDrill([0, 100, 200, 300, 300], [1, 2, 3]);
+    expect(ballX(sampleDrill(d, 1500, opts), ballId)).toBeCloseTo(32.48, 1); // easeIn(0.5)
+    expect(ballX(sampleDrill(d, 2500, opts), ballId)).toBeCloseTo(150, 6); // 선형 — 정확히 중점
+    expect(ballX(sampleDrill(d, 3500, opts), ballId)).toBeCloseTo(267.52, 1); // 200 + easeOut(0.5)·100 — 가속의 거울상
+  });
+
+  it('cut 과 함께 실린 seamless 는 무시된다 — 끊김이 이긴다(stepLink 의 읽기 규칙과 같다)', () => {
+    const { d, ballId } = ballDrill([0, 100, 100], [1]);
+    const steps = d.steps.slice();
+    steps[1] = { ...steps[1]!, cut: true };
+    const withCut = { ...d, steps };
+    // 구간 안 어디서든 toStep 그대로(점프) — seamless 가 이겼다면 여기서 아직 움직이는 중이다.
+    expect(ballX(sampleDrill(withCut, 1500, opts), ballId)).toBe(100);
+  });
+
+  it('딜레이 연결(키 없음)은 그대로다: transitionMs 뒤에는 정지한다(회귀 가드)', () => {
+    const { d, ballId } = ballDrill([0, 100, 100], []);
+    expect(ballX(sampleDrill(d, 1700, opts), ballId)).toBe(100); // 600ms 트윈이 이미 끝났다
+  });
+});
+
 describe('effectiveStepMs / drillTotalMs', () => {
   it('durationMs override 가 있으면 그 값을, 없으면 baseMs 를 쓴다', () => {
     let d = createDrill({ courtMode: 'full', formation: '1-2-1' });

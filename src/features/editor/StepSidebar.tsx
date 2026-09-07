@@ -34,9 +34,11 @@
 // 그 자체다(같은 값을 gapDuplicateSpec 이 "위 스텝"을 가리키는 것과 방향이 반대이니 헷갈리지
 // 말 것: 복제는 "무엇을 복제해 여기 넣나" 이고 사슬은 "이 경계가 누구 소관이나" 라 기준이 다르다).
 //
-// ── 끊김 해제는 키 삭제다 ─────────────────────────────────────────────────────────────
-// `onToggleCut(id, false)` 는 `STEP_META` 의 `patch.cut: false` 로 가고, 리듀서가 그것을
-// "cut 필드를 지워라" 로 해석한다(store/editor/reducer.ts STEP_META 케이스) — `cut: false` 를
+// ── 연결 방식은 셋이고, 해제는 키 삭제다 (2026-09-08, docs/PLAN-STEP-LINK.md) ─────────────
+// 틈 버튼은 이제 **3상태 순환**이다: 딜레이 연결(키 없음) → 딜레이 없는 연결(`seamless`) →
+// 끊김(`cut`) → …. 이 컴포넌트는 `onSetLink(id, link)` 로 셋 중 하나라는 뜻만 위로 보내고,
+// 저장형(예외 키 두 개)으로 옮기는 것은 `model/stepLink.ts` 의 `stepLinkPatch` 다.
+// `false` 로 실린 키는 `STEP_META` 리듀서가 "그 필드를 지워라" 로 해석한다 — `cut: false` 를
 // 그대로 저장하면 validate.ts 정화기가 다음 로드 때 버리므로(교리: true 만 정의역) 애초에
 // 메모리에도 안 남기는 편이 맞다.
 //
@@ -75,12 +77,15 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Drill } from '../../model/drill.ts';
 import type { StepId } from '../../core/ids.ts';
+import { nextStepLink, stepLink } from '../../model/stepLink.ts';
+import type { StepLink } from '../../model/stepLink.ts';
 import { courtDefFor } from '../../model/court.ts';
 import {
   IconListSteps,
   IconPlus,
   IconCopy,
   IconChainLinked,
+  IconChainSeamless,
   IconChainCut,
   IconCheck,
   IconClose,
@@ -118,11 +123,12 @@ export interface StepSidebarProps {
    *  g>0 의 + 버튼이 이 경로다. **맨 앞 틈(g=0)** 만 `toIndex: 0` 을 실어 보내
    *  "첫 스텝의 복제를 맨 앞에" 규칙을 만든다(actions.ts STEP_DUPLICATE 주석 참고). */
   onDuplicateStep(id: StepId, toIndex?: number): void;
-  /** 사슬 토글(④, 기현님 확정 2026-08-17). **내부 틈에만** 존재한다 — 카드 i-1 과 i 사이
-   *  경계는 "다음 스텝"(교리대로 카드 i, 곧 `id`) 이 진다. `cut: true` 는 끊고, `cut: false`
-   *  는 **키를 지운다**(actions.ts STEP_META `patch.cut` 주석 — `false` 를 그대로 저장하지
-   *  않는다). 맨 앞·맨 뒤 틈은 경계가 없어 이 콜백 자체가 안 불린다(GapSlot 에 버튼이 없다). */
-  onToggleCut(id: StepId, cut: boolean): void;
+  /** 연결 방식 설정(④ 사슬 토글, 기현님 확정 2026-08-17 → 2026-09-08 3상태). **내부 틈에만**
+   *  존재한다 — 카드 i-1 과 i 사이 경계는 "다음 스텝"(교리대로 카드 i, 곧 `id`) 이 진다.
+   *  저장형(두 개의 예외 키)으로 옮기는 것은 호출자가 아니라 `model/stepLink.ts` 의
+   *  `stepLinkPatch` 다 — 이 컴포넌트는 셋 중 하나라는 뜻만 위로 보낸다.
+   *  맨 앞·맨 뒤 틈은 경계가 없어 이 콜백 자체가 안 불린다(GapSlot 에 버튼이 없다). */
+  onSetLink(id: StepId, link: StepLink): void;
   /** 좁은 창·세로 화면이면 true(EditorWorkspace 의 `narrow || portrait`). */
   collapsed: boolean;
   /** ⑤ 다중 선택 — 일괄 이동(기현님 확정 2026-08-17). `ids` 는 순서가 뜻이 없다(체크한 순서가
@@ -181,12 +187,27 @@ const cardNumberBadge = (selected: boolean) =>
  *  마우스 진입/이탈마다 상태를 들고 있어야 하는데, 그 상태가 틈마다 하나씩 늘어나는 비용이
  *  터치·키보드에서는 애초에 의미도 없다(호버가 없다). 항상 보이는 작은 버튼 하나가 더 싸고
  *  더 접근성 있다. */
-/** 내부 틈에만 실리는 사슬 토글(④). `cut === true` 면 이 경계가 끊겨 있다는 뜻 —
- *  `DrillStep.cut` 값 그대로다(교리대로 "다음 스텝"의 필드, 이 틈 바로 다음 카드). */
+/** 내부 틈에만 실리는 연결 방식 순환 버튼(④ → 2026-09-08 3상태). `link` 는 이 틈 바로 다음
+ *  카드의 연결 방식이다(교리대로 "다음 스텝"이 경계를 진다 — model/stepLink.ts). */
 interface GapChain {
-  cut: boolean;
-  onToggle: () => void;
+  link: StepLink;
+  onCycle: () => void;
 }
+
+/** 세 상태의 아이콘·색·이름표. **색은 보조 신호일 뿐** 모양이 먼저 갈린다(강제색 모드에서
+ *  색이 전부 날아가도 고리가 붙었는지·화살이 있는지·벌어졌는지로 읽힌다).
+ *  `#ff6b6b` 는 ObjectMenu.tsx 의 삭제 항목과 같은 경고색 — 이 파일에 danger 토큰이 없어
+ *  기존 관행을 그대로 물려받는다(옛 사슬 버튼 주석). */
+const LINK_UI = {
+  delay: { key: 'editor.stepSidebar.gap.link.delay', Icon: IconChainLinked, color: 'var(--muted)', border: 'var(--border-strong)' },
+  seamless: {
+    key: 'editor.stepSidebar.gap.link.seamless',
+    Icon: IconChainSeamless,
+    color: 'var(--accent-text)',
+    border: 'var(--accent-text)',
+  },
+  cut: { key: 'editor.stepSidebar.gap.link.cut', Icon: IconChainCut, color: '#ff6b6b', border: '#ff6b6b' },
+} as const;
 
 function GapSlot({
   index,
@@ -274,34 +295,45 @@ function GapSlot({
         >
           <IconPlus size={16} />
         </button>
-        {chain && (
-          // 연결(기본) = 조용한 사슬, 끊김 = 눈에 띄는 끊긴 사슬 — 색뿐 아니라 **아이콘 모양
-          // 자체**가 갈리고(icons.tsx IconChainLinked/IconChainCut 머리말), aria-pressed 로
-          // 상태를 왕복한다(§7.7 토글 버튼 관례 — StageControls 격자/구역 토글과 같은 패턴).
-          // 색은 `#ff6b6b`(ObjectMenu.tsx 의 삭제 항목과 같은 경고색) — 이 파일에 아직 danger
-          // 토큰이 없어 기존 경고색 관행을 그대로 물려받는다.
-          <button
-            type="button"
-            aria-label={t('editor.stepSidebar.gap.chainAriaLabel', { a: index, b: index + 1 })}
-            aria-pressed={chain.cut}
-            title={chain.cut ? t('editor.stepSidebar.gap.chainCutTitle') : t('editor.stepSidebar.gap.chainLinkedTitle')}
-            onClick={chain.onToggle}
-            style={{
-              width: 32,
-              height: 32,
-              padding: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '50%',
-              border: `1px solid ${chain.cut ? '#ff6b6b' : 'var(--border-strong)'}`,
-              background: 'var(--panel)',
-              color: chain.cut ? '#ff6b6b' : 'var(--muted)',
-            }}
-          >
-            {chain.cut ? <IconChainCut size={20} /> : <IconChainLinked size={20} />}
-          </button>
-        )}
+        {chain &&
+          (() => {
+            // 3상태 **순환** 버튼이다(PLAN-STEP-LINK 결정 6): 클릭 하나로 딜레이 연결 → 딜레이
+            // 없는 연결 → 끊김 → … 을 돈다. 하위메뉴를 열지 않는 이유는 셋뿐이라 메뉴가 과하고,
+            // 정밀 조작이 어려운 입력(터치·보조기기)에서 "버튼 하나를 여러 번" 이 가장 싸기
+            // 때문이다.
+            //
+            // ⚠️ `aria-pressed` 를 **안 쓴다** — 셋 중 하나는 눌림/안 눌림의 이진이 아니라서,
+            // 붙이면 보조기술이 "delay 는 안 눌림, cut 은 눌림" 이라는 없는 뜻을 읽어 준다.
+            // 대신 이름표가 현재와 **다음** 상태를 함께 말한다(누르면 무엇이 되는지가 순환
+            // 버튼에서는 이름의 일부다).
+            const cur = LINK_UI[chain.link];
+            const nxt = LINK_UI[nextStepLink(chain.link)];
+            // 반복되는 컨트롤이라 이름에 **어느 경계인지**(스텝 a·b)가 있어야 보조기술 목록에서 갈린다
+            // (2026-09-08 검수 — 검수 전에는 셋이 다 같은 이름이었다).
+            const label = t('editor.stepSidebar.gap.link.aria', { a: index, b: index + 1, current: t(cur.key), next: t(nxt.key) });
+            return (
+              <button
+                type="button"
+                aria-label={label}
+                title={label}
+                onClick={chain.onCycle}
+                style={{
+                  width: 32,
+                  height: 32,
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '50%',
+                  border: `1px solid ${cur.border}`,
+                  background: 'var(--panel)',
+                  color: cur.color,
+                }}
+              >
+                <cur.Icon size={20} />
+              </button>
+            );
+          })()}
       </div>
     </div>
   );
@@ -328,7 +360,7 @@ export function StepSidebar({
   onSelectStep,
   onReorderStep,
   onDuplicateStep,
-  onToggleCut,
+  onSetLink,
   collapsed,
   onMoveSteps,
   onDuplicateSteps,
@@ -718,7 +750,7 @@ export function StepSidebar({
           // 걸러지고, 맨 뒤 틈은 루프 밖에서 따로 그리는 GapSlot(chain 을 안 넘김)이라 애초에
           // 이 분기를 안 탄다. "다음 스텝"(교리)은 바로 이 반복의 `s` = order[i] 다.
           const chain: GapChain | undefined =
-            i >= 1 ? { cut: s.cut === true, onToggle: () => onToggleCut(s.id, s.cut !== true) } : undefined;
+            i >= 1 ? { link: stepLink(s), onCycle: () => onSetLink(s.id, nextStepLink(stepLink(s))) } : undefined;
           return [
             <GapSlot
               key={`gap-${s.id}`}

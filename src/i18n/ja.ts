@@ -690,9 +690,10 @@ export const ja: Record<DictKey, string> = {
 
   // ── C7 — ステップサイドバー ──────────────────────────────────────────────────────────
   'editor.stepSidebar.maxStepsNotice': 'ステップは{{max}}枚までです。',
-  'editor.stepSidebar.gap.chainAriaLabel': 'ステップ{{a}}とステップ{{b}}の間の鎖',
-  'editor.stepSidebar.gap.chainCutTitle': '切れた境界です。押すとつなぎ直します。',
-  'editor.stepSidebar.gap.chainLinkedTitle': 'つながった境界です。押すと切ります。',
+  'editor.stepSidebar.gap.link.delay': 'ポーズありでつなぐ',
+  'editor.stepSidebar.gap.link.seamless': 'ポーズなしでつなぐ',
+  'editor.stepSidebar.gap.link.cut': 'カット',
+  'editor.stepSidebar.gap.link.aria': 'ステップ{{a}}・{{b}}のつなぎ方: {{current}} — 押すと{{next}}',
   'editor.stepSidebar.gap.duplicateFirstLabel': 'ステップ1を複製して先頭に入れる',
   'editor.stepSidebar.gap.duplicateAfterLabel': 'ステップ{{g}}を複製してすぐ後ろに入れる',
   'editor.stepSidebar.announce.movedTo': '{{pos}}番目に移動しました。',

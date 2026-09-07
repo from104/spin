@@ -111,7 +111,15 @@ export type EditorAction =
    *  이라 저장하면 validate.ts 정화기가 버린다, drill.ts 교리 주석 참고). name/note/durationMs
    *  와 같은 통로를 타는 이유: 스텝 하나의 속성 patch 라는 점이 같고, 되돌리기·coalesce·
    *  history 등록을 새로 만들 이유가 없다. */
-  | { type: 'STEP_META'; id: StepId; patch: { name?: string; note?: string; durationMs?: number; cut?: boolean } }
+  /** `patch.seamless`(2026-09-08 딜레이 없는 연결, PLAN-STEP-LINK 결정 1)도 `patch.cut` 과
+   *  같은 명령이다 — `true` 는 이 스텝의 트윈을 구간 전체로 늘리고, `false` 는 키를 지운다.
+   *  둘을 함께 싣는 것은 `model/stepLink.ts` 의 `stepLinkPatch` 뿐이다(셋 중 하나로 덮어쓰는
+   *  조작이라 안 실은 키가 옛 값으로 남으면 배타가 깨진다). */
+  | {
+      type: 'STEP_META';
+      id: StepId;
+      patch: { name?: string; note?: string; durationMs?: number; cut?: boolean; seamless?: boolean };
+    }
   // ── ⑤ 다중 선택(기현님 확정 2026-08-17, PLAN-STEP-EDITING.md §다중 선택) ─────────────────
   // 선택 상태(어떤 카드가 체크됐나) 자체는 **컴포넌트 로컬(ephemeral)** 이라 여기 실리지
   // 않는다 — 화면 상태지 문서 상태가 아니라서 리듀서·undo 가 몰라야 한다(StepSidebar.tsx

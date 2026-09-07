@@ -13,6 +13,7 @@ import { PlaybackControls } from '../../ui/PlaybackControls.tsx';
 import { defaultDefense } from '../../model/rules.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { isStepEmpty } from '../../model/drill.ts';
+import { stepLinkPatch } from '../../model/stepLink.ts';
 import { useAutosave } from '../../app/useAutosave.ts';
 import { useAppHeader } from '../../app/AppHeader.tsx';
 import { useAppNav } from '../../app/useAppHistory.ts';
@@ -773,10 +774,11 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           onSelectStep={(id) => dispatch({ type: 'STEP_SELECT', id })}
           onReorderStep={(id, toIndex) => dispatch({ type: 'STEP_REORDER', id, toIndex })}
           onDuplicateStep={duplicateStepAt}
-          // ④ 사슬 토글(기현님 확정 2026-08-17) — cut:false 는 STEP_META 리듀서가 키 삭제로
-          // 해석한다(reducer.ts STEP_META 주석). 복제와 달리 선택 이동이 없어 여기서는
-          // dispatch 만 얇게 감싼다(addStepHere/duplicateStepAt 같은 뒷정리가 필요 없다).
-          onToggleCut={(id, cut) => dispatch({ type: 'STEP_META', id, patch: { cut } })}
+          // ④ 연결 방식 3상태(2026-08-17 사슬 → 2026-09-08 딜레이 없는 연결 추가) — 셋을 두
+          // 예외 키로 옮기는 것은 `stepLinkPatch` 한 곳이고, 거기서 나온 `false` 는 STEP_META
+          // 리듀서가 키 삭제로 해석한다(reducer.ts STEP_META 주석). 복제와 달리 선택 이동이
+          // 없어 여기서는 dispatch 만 얇게 감싼다(addStepHere 같은 뒷정리가 필요 없다).
+          onSetLink={(id, link) => dispatch({ type: 'STEP_META', id, patch: stepLinkPatch(link) })}
           collapsed={narrow || portrait}
           // ⑤ 다중 선택(기현님 확정 2026-08-17) — 선택 상태 자체(어떤 카드가 체크됐나)는
           // StepSidebar 로컬(ephemeral)이라 여기서는 "결과" 셋만 받아 그대로 dispatch 한다.

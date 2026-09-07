@@ -59,7 +59,7 @@ describe('§6.4 ④-b 스텝 사이드바 카드가 그 드릴의 코트 크기�
         onSelectStep={() => {}}
         onReorderStep={() => {}}
         onDuplicateStep={() => {}}
-        onToggleCut={() => {}}
+        onSetLink={() => {}}
         collapsed={false}
         onMoveSteps={() => {}}
         onDuplicateSteps={() => {}}

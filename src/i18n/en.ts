@@ -691,9 +691,10 @@ export const en: Record<DictKey, string> = {
 
   // ── C7 — Step sidebar ────────────────────────────────────────────────────────────────
   'editor.stepSidebar.maxStepsNotice': 'Steps are limited to {{max}}.',
-  'editor.stepSidebar.gap.chainAriaLabel': 'Link between step {{a}} and step {{b}}',
-  'editor.stepSidebar.gap.chainCutTitle': 'This boundary is cut. Press to relink it.',
-  'editor.stepSidebar.gap.chainLinkedTitle': 'This boundary is linked. Press to cut it.',
+  'editor.stepSidebar.gap.link.delay': 'Linked with pause',
+  'editor.stepSidebar.gap.link.seamless': 'Linked, no pause',
+  'editor.stepSidebar.gap.link.cut': 'Cut',
+  'editor.stepSidebar.gap.link.aria': 'Link between steps {{a}} and {{b}}: {{current}} — press for {{next}}',
   'editor.stepSidebar.gap.duplicateFirstLabel': 'Duplicate step 1 to the front',
   'editor.stepSidebar.gap.duplicateAfterLabel': 'Duplicate step {{g}} right after it',
   'editor.stepSidebar.announce.movedTo': 'Moved to position {{pos}}.',

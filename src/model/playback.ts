@@ -3,7 +3,7 @@
 // 자동 재생은 미끄러지고 스크럽은 순간이동하는 불일치가 생긴다).
 import type { Vec2 } from '../core/units.ts';
 import { lerpAngle, shortestDelta, arcTangentK } from '../core/angle.ts';
-import { easeStandard } from '../core/geom.ts';
+import { easeStandard, easeIn, easeOut, easeLinear } from '../core/geom.ts';
 import type { ChairId, BallId, ConeId } from '../core/ids.ts';
 import type { Drill, DrillStep, ChairDef, NoteLabel, StoredBallRing, TeamSide } from './drill.ts';
 import type { Arrow } from './arrow.ts';
@@ -246,8 +246,33 @@ export function drillTotalMs(d: Drill, baseMs: number): number {
   return total;
 }
 
+const isSeamlessStep = (s: DrillStep | undefined): boolean => s !== undefined && s.cut !== true && s.seamless === true;
+
+/** 딜레이 없는 연결의 이징은 **스텝 단위가 아니라 연속 구간 단위**다(PLAN-STEP-LINK 결정 3):
+ *  이어진 스텝 k…m 에서 k 는 가속, 가운데는 등속, m 은 감속, 혼자면 지금의 in-out.
+ *
+ *  ⚠️ 스텝마다 in-out 을 걸면 **키프레임마다 멈칫한다** — 구간 끝에서 0 으로 감속했다가 다음
+ *  구간에서 다시 0 에서 가속하므로, 이으라고 만든 기능이 오히려 스텝 경계를 도드라지게 한다.
+ *  애니메이션 도구가 하는 대로 구간 **양끝만** 가감속한다.
+ *
+ *  경계 판정은 재생의 `fromStep` 이 그러듯 루프면 배열 끝을 감는다 — 루프 재생에서 마지막↔첫
+ *  스텝은 실제로 이어져 흐르는 자리라, 안 감으면 전부 이어 놓은 드릴이 매 바퀴 그 지점에서만
+ *  감속·가속한다. (스텝이 하나뿐이면 감지 않는다 — 자기 자신을 이웃으로 볼 수는 없다.) */
+function seamlessEase(steps: readonly DrillStep[], i: number, loop: boolean): (t: number) => number {
+  const n = steps.length;
+  const prev = i > 0 ? steps[i - 1] : loop && n > 1 ? steps[n - 1] : undefined;
+  const next = i < n - 1 ? steps[i + 1] : loop && n > 1 ? steps[0] : undefined;
+  const first = !isSeamlessStep(prev);
+  const last = !isSeamlessStep(next);
+  if (first && last) return easeStandard;
+  if (first) return easeIn;
+  if (last) return easeOut;
+  return easeLinear;
+}
+
 /** 타임라인(leading transition, §3.6): 각 스텝 i 는 자신의 durationMs 구간을 소유하고,
- *  그 구간의 첫 transitionMs 동안 이전 스텝(from)→자신(to) 으로 트윈한 뒤 나머지는 고정 표시한다. */
+ *  그 구간의 첫 transitionMs 동안 이전 스텝(from)→자신(to) 으로 트윈한 뒤 나머지는 고정 표시한다.
+ *  `seamless` 스텝만 예외로 트윈이 구간 전체를 차지한다(2026-09-08, 아래 주석). */
 export function sampleDrill(
   d: Drill,
   timeMs: number,
@@ -270,9 +295,16 @@ export function sampleDrill(
   while (i < n - 1 && raw >= starts[i + 1]!) i++;
 
   const localT = raw - starts[i]!;
-  const t = o.transitionMs > 0 ? Math.min(Math.max(localT / o.transitionMs, 0), 1) : 1;
   const fromStep = i > 0 ? d.steps[i - 1]! : o.loop ? d.steps[n - 1]! : d.steps[0]!;
   const toStep = d.steps[i]!;
+  // 딜레이 없는 연결(2026-09-08, PLAN-STEP-LINK 결정 3): 이 스텝의 트윈이 **구간 전체**를
+  // 차지한다 — 트윈이 구간 끝에 가서야 끝나므로 정지 구간이 0 이고, 다음 스텝의 트윈이 그
+  // 자리에서 곧바로 이어받는다(그래서 여러 스텝을 이으면 한 동작으로 흐른다).
+  // 타임라인 자체(`effectiveStepMs`·구간 시작·총 길이)는 **안 바뀐다** — 바뀌는 것은 이
+  // 구간 안에서 트윈을 어디까지 늘리느냐뿐이다(결정 5).
+  const isSeamless = toStep.cut !== true && toStep.seamless === true;
+  const spanMs = isSeamless ? effectiveStepMs(toStep, o.baseMs) : o.transitionMs;
+  const t = spanMs > 0 ? Math.min(Math.max(localT / spanMs, 0), 1) : 1;
   // 사슬 끊긴 경계(§3.5 DrillStep.cut, 2026-08-17 기현 지시): 이 구간으로 "향하는" 스텝
   // (toStep = d.steps[i], 교리대로 다음 스텝이 진다)에 `cut` 이 있으면 **보간하지 않는다**.
   //
@@ -293,7 +325,7 @@ export function sampleDrill(
   // presence(enter/exit) 페이드도 같은 e 를 쓰므로 컷 구간에서는 자동으로 함께 계단이 된다
   // (opacity 도 항상 1 = "개체는 팝 한다").
   const isCut = toStep.cut === true;
-  const eased = isCut ? 1 : easeStandard(t);
+  const eased = isCut ? 1 : isSeamless ? seamlessEase(d.steps, i, o.loop)(t) : easeStandard(t);
   const frame = interpolateSteps(d, fromStep, toStep, eased);
   return { ...frame, stepIndex: i, t };
 }

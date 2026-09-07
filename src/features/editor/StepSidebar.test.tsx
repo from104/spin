@@ -35,7 +35,7 @@ function renderSidebar(d: Drill, over: Partial<Parameters<typeof StepSidebar>[0]
     onSelectStep: noop,
     onReorderStep: noop,
     onDuplicateStep: noop,
-    onToggleCut: noop,
+    onSetLink: noop,
     collapsed: false,
     onMoveSteps: noop,
     onDuplicateSteps: noop,
@@ -168,91 +168,69 @@ describe('틈(gap)의 + 버튼', () => {
   });
 });
 
-// ④ 사슬 토글(기현님 확정 2026-08-17) — 내부 틈에만 존재한다. 저장 방향(cut:true 설정 ·
-// false 로 키 삭제)은 store/editor/reducer.test.ts 가 본다 — 여기서는 사이드바가 **어느 틈에
-// 버튼을 놓는지, 무엇을 onToggleCut 에 싣는지, aria 상태가 props(모델)를 그대로 따라가는지**
-// 만 본다.
+// ④ 연결 방식 3상태 순환(2026-08-17 사슬 → 2026-09-08 딜레이 없는 연결, PLAN-STEP-LINK 결정 6)
+// — 내부 틈에만 존재한다. 저장 방향(두 예외 키로의 번역·키 삭제)은 model/stepLink.test.ts 와
+// store/editor/reducer.test.ts 가 본다. 여기서는 사이드바가 **어느 틈에 버튼을 놓는지, 어느
+// 스텝 id 로 무엇을 요청하는지, 이름표가 현재·다음 상태를 말하는지**만 본다.
 const chainBtn = (container: HTMLElement, g: number) =>
-  within(container.querySelector(`[data-gap-index="${g}"]`) as HTMLElement).getByRole('button', { name: /사슬/ });
+  within(container.querySelector(`[data-gap-index="${g}"]`) as HTMLElement).getByRole('button', { name: /연결 방식/ });
 
-describe('틈(gap)의 사슬 토글', () => {
-  it('내부 틈(1..N-1)에만 사슬 버튼이 있다 — 맨 앞·맨 뒤 틈은 경계가 없어 없다', () => {
+describe('틈(gap)의 연결 방식 순환 버튼', () => {
+  it('내부 틈(1..N-1)에만 연결 버튼이 있다 — 맨 앞·맨 뒤 틈은 경계가 없어 없다', () => {
     const d = makeDrill(3); // 틈 0,1,2,3 — 내부는 1,2 뿐
     const { container } = renderSidebar(d);
-    expect(within(container.querySelector('[data-gap-index="0"]') as HTMLElement).queryByRole('button', { name: /사슬/ })).toBeNull();
-    expect(within(container.querySelector('[data-gap-index="3"]') as HTMLElement).queryByRole('button', { name: /사슬/ })).toBeNull();
+    const q = (g: number) =>
+      within(container.querySelector(`[data-gap-index="${g}"]`) as HTMLElement).queryByRole('button', { name: /연결 방식/ });
+    expect(q(0)).toBeNull();
+    expect(q(3)).toBeNull();
     expect(chainBtn(container, 1)).toBeInTheDocument();
     expect(chainBtn(container, 2)).toBeInTheDocument();
   });
 
-  it('기본(연결)은 aria-pressed=false — 눌러도 onDuplicateStep 은 안 딸려온다', async () => {
-    const onToggleCut = vi.fn();
+  it('기본(딜레이 연결)에서 누르면 그 틈의 "다음 스텝"에 seamless 를 요청한다 — 복제는 안 딸려온다', async () => {
+    const onSetLink = vi.fn();
     const onDuplicateStep = vi.fn();
     const d = makeDrill(3);
-    const { container } = renderSidebar(d, { onToggleCut, onDuplicateStep });
-    const btn = chainBtn(container, 1);
-    expect(btn).toHaveAttribute('aria-pressed', 'false');
-    await userEvent.click(btn);
+    const { container } = renderSidebar(d, { onSetLink, onDuplicateStep });
+    await userEvent.click(chainBtn(container, 1));
     // 틈 1 의 "다음 스텝" = 교리대로 order[1] = d.steps[1]
-    expect(onToggleCut).toHaveBeenCalledWith(d.steps[1]!.id, true);
+    expect(onSetLink).toHaveBeenCalledWith(d.steps[1]!.id, 'seamless');
     expect(onDuplicateStep).not.toHaveBeenCalled();
   });
 
-  it('끊긴 경계(cut:true)는 aria-pressed=true 이고, 누르면 false(=키 삭제 명령)를 싣는다', async () => {
-    const onToggleCut = vi.fn();
-    let d = makeDrill(3);
-    d = { ...d, steps: d.steps.map((s, i) => (i === 1 ? { ...s, cut: true } : s)) };
-    const { container } = renderSidebar(d, { onToggleCut });
-    const btn = chainBtn(container, 1);
-    expect(btn).toHaveAttribute('aria-pressed', 'true');
-    await userEvent.click(btn);
-    expect(onToggleCut).toHaveBeenCalledWith(d.steps[1]!.id, false);
+  it('순환은 딜레이 연결 → 딜레이 없는 연결 → 끊김 → 딜레이 연결 로 돈다', async () => {
+    const onSetLink = vi.fn();
+    const base = makeDrill(3);
+    // 명시적 `: Drill` 주석이 필요하다 — 없으면 `cut: true`·`seamless: true` 리터럴이 문맥 없이
+    // boolean 으로 넓혀져 리터럴 true 만 정의역인 필드와 갈린다.
+    const withSeamless: Drill = { ...base, steps: base.steps.map((s, i) => (i === 1 ? { ...s, seamless: true } : s)) };
+    const withCut: Drill = { ...base, steps: base.steps.map((s, i) => (i === 1 ? { ...s, cut: true } : s)) };
+
+    const a = renderSidebar(withSeamless, { onSetLink });
+    await userEvent.click(chainBtn(a.container, 1));
+    expect(onSetLink).toHaveBeenLastCalledWith(base.steps[1]!.id, 'cut');
+    a.unmount();
+
+    const b = renderSidebar(withCut, { onSetLink });
+    await userEvent.click(chainBtn(b.container, 1));
+    expect(onSetLink).toHaveBeenLastCalledWith(base.steps[1]!.id, 'delay');
   });
 
-  it('aria-pressed 는 모델(props)을 그대로 따라 왕복한다', () => {
-    const d = makeDrill(3);
-    const { container, rerender } = renderSidebar(d);
-    expect(chainBtn(container, 1)).toHaveAttribute('aria-pressed', 'false');
+  it('이름표가 현재 상태와 누르면 될 상태를 함께 말한다(3상태라 aria-pressed 로는 못 말한다)', () => {
+    const base = makeDrill(3);
+    const withSeamless: Drill = { ...base, steps: base.steps.map((s, i) => (i === 1 ? { ...s, seamless: true } : s)) };
 
-    // 명시적 `: Drill` 주석이 필요하다 — 없으면 삼항의 `cut: true` 리터럴이 문맥 없이 위젯되어
-    // (best common type 이 `boolean` 으로 넓힌다) DrillStep.cut(리터럴 true 만 정의역)과 갈린다.
-    const cutOn: Drill = { ...d, steps: d.steps.map((s, i) => (i === 1 ? { ...s, cut: true } : s)) };
-    rerender(
-      <StepSidebar
-        drill={cutOn}
-        stepId={d.steps[0]!.id}
-        onSelectStep={noop}
-        onReorderStep={noop}
-        onDuplicateStep={noop}
-        onToggleCut={noop}
-        collapsed={false}
-        onMoveSteps={noop}
-        onDuplicateSteps={noop}
-        onDeleteSteps={noop}
-        onDeleteStep={noop}
-      />,
-    );
-    expect(chainBtn(container, 1)).toHaveAttribute('aria-pressed', 'true');
+    const a = renderSidebar(base);
+    expect(chainBtn(a.container, 1)).toHaveAccessibleName('스텝 1·2 사이 연결 방식: 딜레이 연결 — 누르면 딜레이 없는 연결');
+    // 이진 토글이 아니므로 aria-pressed 가 붙으면 안 된다(보조기술이 없는 뜻을 읽어 준다).
+    expect(chainBtn(a.container, 1)).not.toHaveAttribute('aria-pressed');
+    a.unmount();
 
-    rerender(
-      <StepSidebar
-        drill={d}
-        stepId={d.steps[0]!.id}
-        onSelectStep={noop}
-        onReorderStep={noop}
-        onDuplicateStep={noop}
-        onToggleCut={noop}
-        collapsed={false}
-        onMoveSteps={noop}
-        onDuplicateSteps={noop}
-        onDeleteSteps={noop}
-        onDeleteStep={noop}
-      />,
-    );
-    expect(chainBtn(container, 1)).toHaveAttribute('aria-pressed', 'false');
+    const b = renderSidebar(withSeamless);
+    expect(chainBtn(b.container, 1)).toHaveAccessibleName('스텝 1·2 사이 연결 방식: 딜레이 없는 연결 — 누르면 끊김');
   });
 
-  it('정원(60장)에서도 사슬은 안 잠긴다 — [+]와 달리 스텝을 늘리지 않는다', () => {
+  it('정원(60장)에서도 연결 버튼은 안 잠긴다 — [+]와 달리 스텝을 늘리지 않는다', () => {
     const d = makeDrill(LIMITS.maxSteps);
     const { container } = renderSidebar(d);
     expect(chainBtn(container, 1)).toBeEnabled();

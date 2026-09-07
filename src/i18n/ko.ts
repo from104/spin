@@ -701,9 +701,10 @@ export const ko = {
 
   // ── C7 — 스텝 사이드바 ──────────────────────────────────────────────────────────────
   'editor.stepSidebar.maxStepsNotice': '스텝은 {{max}}장까지입니다.',
-  'editor.stepSidebar.gap.chainAriaLabel': '스텝 {{a}} 과 스텝 {{b}} 사이 사슬',
-  'editor.stepSidebar.gap.chainCutTitle': '끊긴 경계입니다. 눌러서 다시 잇습니다.',
-  'editor.stepSidebar.gap.chainLinkedTitle': '연결된 경계입니다. 눌러서 끊습니다.',
+  'editor.stepSidebar.gap.link.delay': '딜레이 연결',
+  'editor.stepSidebar.gap.link.seamless': '딜레이 없는 연결',
+  'editor.stepSidebar.gap.link.cut': '끊김',
+  'editor.stepSidebar.gap.link.aria': '스텝 {{a}}·{{b}} 사이 연결 방식: {{current}} — 누르면 {{next}}',
   'editor.stepSidebar.gap.duplicateFirstLabel': '스텝 1 을 복제해 맨 앞에 넣기',
   'editor.stepSidebar.gap.duplicateAfterLabel': '스텝 {{g}} 을 복제해 바로 뒤에 넣기',
   'editor.stepSidebar.announce.movedTo': '{{pos}}번째로 옮겼습니다.',

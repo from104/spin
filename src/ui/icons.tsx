@@ -401,6 +401,20 @@ export function IconChainLinked({ size = 12, ...rest }: IconProps) {
   );
 }
 
+/** 딜레이 없는 연결(2026-09-08, PLAN-STEP-LINK 결정 6). 세 상태를 **모양으로** 가른다:
+ *  IconChainLinked 와 같은 크기·선 굵기의 두 고리를 왼쪽으로 1.5 밀고, 비운 오른쪽에 진행
+ *  화살을 둔다 — "이어져서 흐른다" 가 형태에서 나온다(끊김은 반대로 고리를 벌린다).
+ *  색(accent)만으로 구별하면 강제색 모드에서 세 상태가 한 그림이 된다. */
+export function IconChainSeamless({ size = 12, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="1" y="8" width="10" height="8" rx="4" />
+      <rect x="10" y="8" width="10" height="8" rx="4" />
+      <path d="M20.5 9.5 23 12l-2.5 2.5" />
+    </svg>
+  );
+}
+
 /** 끊김. 색만으로 구별하지 않는다(계획서 §사슬 "색만이 아니라 모양·aria 로도 구분") — 두 고리를
  *  벌리고 그 틈을 대각선으로 가른다. IconChainLinked 와 같은 고리 크기·자리를 양옆으로 밀어냈을
  *  뿐이라 "끊어졌다" 는 것이 형태 자체에서 나온다(테두리 색만 accent 로 바꾸는 흔한 실수를 피함). */
