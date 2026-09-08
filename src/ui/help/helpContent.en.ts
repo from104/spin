@@ -62,8 +62,8 @@ export const HELP_EN: HelpContent = {
             kind: 'steps',
             items: [
               'On the [Drills] screen, tap [New Drill], pick a name and a court, then [Create].',
-              'Drag player chips from the left tray onto the court. Pull balls from the ball box and cones from the cone box.',
-              'In the step list on the right, tap [+] to add a step — it duplicates the previous one.',
+              'Drag player chips from the tray (at the bottom or on the left) onto the court. Pull balls from the ball box and cones from the cone box.',
+              'In the step list on the left, tap [+] to add a step — it duplicates the previous one.',
               'In the new step, move the players and ball to their next positions. That change is the whole scene.',
               'Tap play to check the flow.',
               'Tap [To Present] in the header to switch to the screen you show the team.',
