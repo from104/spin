@@ -234,6 +234,12 @@ function SlotButton({ label, short, active, onClick }: { label: string; short: s
       style={{
         minWidth: 'var(--hit)',
         minHeight: 'var(--hit)',
+        // 글리프(↑↓✕·GK)를 표적 한가운데에 — 전역 button 패딩·기본 정렬에 맡기면 글자가 위·왼쪽으로 쏠린다(2026-09-09 기현님 지적).
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        lineHeight: 1,
         borderRadius: 8,
         border: '1px solid var(--border)',
         background: active ? 'var(--accent)' : 'var(--elev)',
