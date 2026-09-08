@@ -36,6 +36,10 @@ interface SiteText {
   /** 프리렌더 본문 아래에 붙는 "앱으로" 링크 글. */
   readonly openApp: string;
   readonly rulesHome: string;
+  /** 홈 발치의 법적 문서 링크 글자. 설정 화면의 `settings.legal.*` 과 같은 말이어야 한다 —
+   *  구글 OAuth 검증은 "홈페이지에서 개인정보처리방침으로 가는 링크" 를 요구한다(2026-09-08 반려). */
+  readonly privacyPolicy: string;
+  readonly termsOfService: string;
 }
 
 const SITE: Record<Locale, SiteText> = {
@@ -50,6 +54,8 @@ const SITE: Record<Locale, SiteText> = {
       '파워체어 풋볼 경기 규칙을 아홉 개 주제로 나눠 그림과 시연 장면으로 설명합니다. 코트와 장비, 게임의 목적, 2대1, 골 에어리어 3인, 반칙과 재개, 18개조 규칙 부록까지.',
     openApp: '전술판 열기',
     rulesHome: '규칙 카드 전체 보기',
+    privacyPolicy: '개인정보처리방침',
+    termsOfService: '서비스 약관',
   },
   en: {
     htmlLang: 'en',
@@ -62,6 +68,8 @@ const SITE: Record<Locale, SiteText> = {
       'The Laws of powerchair football explained in nine topics, with diagrams and animated scenes: the court and equipment, the object of the game, 2-on-1, three in the goal area, fouls and restarts, plus the full 18-Law appendix.',
     openApp: 'Open the tactic board',
     rulesHome: 'See all rule cards',
+    privacyPolicy: 'Privacy Policy',
+    termsOfService: 'Terms of Service',
   },
   ja: {
     htmlLang: 'ja',
@@ -74,6 +82,8 @@ const SITE: Record<Locale, SiteText> = {
       'パワーチェアーサッカーの競技規則を9つのテーマに分け、図解とアニメーションで説明します。コートと用具、ゲームの目的、2対1、ゴールエリア3人、反則と再開、18条の付録まで。',
     openApp: '作戦盤を開く',
     rulesHome: 'ルールカードを全部見る',
+    privacyPolicy: 'プライバシーポリシー',
+    termsOfService: '利用規約',
   },
 };
 
@@ -127,6 +137,11 @@ export interface PrerenderPage {
   readonly jsonLd: unknown;
   /** 같은 내용의 다른 언어판 — `hreflang` 을 만든다. */
   readonly alternates: readonly { readonly hreflang: string; readonly url: string }[];
+  /** 이 주소가 **다른 주소의 사본**일 때 그 정본 주소. canonical 이 그쪽을 가리키고 sitemap 에서
+   *  빠진다. 2026-09-08: 구글 OAuth 동의 화면에 적힌 `/settings/privacy` 가 SPA 껍데기(본문 0)
+   *  로 응답해 "개인정보처리방침 내용 부족" 으로 반려됐다 — 앱 안 주소로도 같은 본문을 굽되
+   *  색인 정본은 결정 4 대로 `/privacy/` 하나로 둔다. */
+  readonly canonicalUrl?: string;
 }
 
 function esc(s: string): string {
@@ -214,6 +229,9 @@ export function prerenderPages(): PrerenderPage[] {
         `<h1>${esc(site.siteTitle)}</h1>`,
         `<p>${esc(site.siteDescription)}</p>`,
         `<p><a href="${pageUrl(prefix, '/rules')}">${esc(site.rulesHome)}</a></p>`,
+        // 구글 OAuth 검증 요건 "홈페이지에 방침 링크" (2026-09-08 반려 뒤 추가). 앱 안에서는 설정
+        // [법적 고지] 가 같은 문서를 연다.
+        `<p><a href="${pageUrl(prefix, '/privacy')}">${esc(site.privacyPolicy)}</a> · <a href="${pageUrl(prefix, '/terms')}">${esc(site.termsOfService)}</a></p>`,
       ].join('\n'),
       jsonLd: {
         '@context': 'https://schema.org',
@@ -313,6 +331,29 @@ export function prerenderPages(): PrerenderPage[] {
       const title = legalTitle(doc, locale);
       if (title === null) throw new Error(`법적 문서 ${doc}#${locale} 절에 <h1> 이 없습니다.`);
       const description = LEGAL[doc][locale];
+      const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: title,
+        description,
+        url: `${SITE_ORIGIN}${pageUrl(prefix, path)}`,
+        inLanguage: site.htmlLang,
+        isPartOf: { '@type': 'WebSite', name: 'SPIN', url: `${SITE_ORIGIN}${pageUrl('', '')}` },
+      };
+      // 앱 안 주소 `/settings/<doc>` 에도 같은 본문을 굽는다(canonicalUrl 주석). 크롤러가 어느
+      // 주소로 오든 본문을 본다 — robots.txt 는 이 둘만 `/settings` 차단에서 예외로 연다.
+      out.push({
+        url: pageUrl(prefix, `/settings${path}`),
+        locale,
+        htmlLang: site.htmlLang,
+        ogLocale: site.ogLocale,
+        title,
+        description,
+        body: section,
+        jsonLd,
+        alternates: alternatesFor(path),
+        canonicalUrl: pageUrl(prefix, path),
+      });
       out.push({
         url: pageUrl(prefix, path),
         locale,

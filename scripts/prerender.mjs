@@ -52,7 +52,8 @@ if (!SEO_BLOCK.test(template)) {
  *  정규식으로 HTML 을 만지는 것이 일반적으로는 나쁜 생각이지만, 여기서 다루는 것은 우리가
  *  직접 쓴 `index.html` 하나이고 그 모양은 이 저장소가 통제한다 — 임의의 HTML 이 아니다. */
 function render(page) {
-  const canonical = `${SITE_ORIGIN}${page.url}`;
+  // 사본 페이지(`canonicalUrl`, prerenderData 주석)는 정본 주소를 canonical 로 단다.
+  const canonical = `${SITE_ORIGIN}${page.canonicalUrl ?? page.url}`;
   const head = [
     `<meta name="description" content="${attr(page.description)}" />`,
     `<link rel="canonical" href="${canonical}" />`,
@@ -117,6 +118,8 @@ for (const page of pages) {
 // 언어판을 서로 `xhtml:link` 로 묶어 준다 — 이게 있어야 구글이 셋을 **중복이 아니라 번역**으로
 // 읽는다. 없으면 셋 중 하나만 남기고 나머지를 버린다.
 const urlset = pages
+  // 사본 주소(canonicalUrl 있음)는 sitemap 에 안 싣는다 — 정본이 이미 실려 있다.
+  .filter((p) => p.canonicalUrl === undefined)
   .map((p) => {
     const alts = p.alternates
       .map((a) => `    <xhtml:link rel="alternate" hreflang="${a.hreflang}" href="${a.url}" />`)

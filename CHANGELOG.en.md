@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Added
 
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
+- Privacy Policy and Terms of Service are now linked from the homepage and served in full at the in-app address (/settings/privacy) too (Google sign-in verification requirement)
 
 ### Fixed
 

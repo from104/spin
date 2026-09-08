@@ -6,6 +6,14 @@
 
 User-agent: *
 Allow: /
+# 2026-09-08: 앱 안 법적 문서 주소는 /settings 차단의 예외다 — 구글 OAuth 검증 크롤러가 동의
+# 화면에 적힌 /settings/privacy 로 온다(색인 정본은 여전히 /privacy/·/terms/, canonical 이 가리킨다).
+Allow: /settings/privacy
+Allow: /settings/terms
+Allow: /en/settings/privacy
+Allow: /en/settings/terms
+Allow: /ja/settings/privacy
+Allow: /ja/settings/terms
 Disallow: /drills
 Disallow: /sessions
 Disallow: /present
