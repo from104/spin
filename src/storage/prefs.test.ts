@@ -453,8 +453,9 @@ describe('3.0 저장 왕복 — 화이트리스트 조립부에 안 적힌 필�
   // 작은 화면 안내(결정 24). 화이트리스트 누락이 정확히 여기서 잡힌다 — 옵셔널 키라 타입은
   // 통과하는데 저장만 안 되는 실수는 컴파일러가 못 잡는다.
   it('smallScreenNoticeDismissed 도 저장 왕복을 견딘다', () => {
-    savePrefs({ ...makeDefaultPrefs(), smallScreenNoticeDismissed: true });
+    savePrefs({ ...makeDefaultPrefs(), smallScreenNoticeDismissed: true, helpWelcomeSeen: true });
     expect(loadPrefs().smallScreenNoticeDismissed).toBe(true);
+    expect(loadPrefs().helpWelcomeSeen).toBe(true); // 2026-09-08 첫 방문 도움말 도장, 같은 결
   });
   it('a11y.twoZone 은 저장 왕복을 견딘다', () => {
     const d = makeDefaultPrefs();

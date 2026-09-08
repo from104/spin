@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Added
 
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
+- On first visit, [Help] opens at [Getting started] once loading finishes; closing it leads into the screen tour (replay both from Settings › [Replay tutorials])
 
 ### Changed
 

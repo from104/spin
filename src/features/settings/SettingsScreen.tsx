@@ -471,7 +471,9 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
             <Button
               variant="secondary"
               onClick={() => {
-                setPrefs({ tutorialsSeen: {} });
+                // 2026-09-08: 첫 방문 도움말 [시작하기]도 같은 "처음부터" 에 든다 — 투어만 되살리면
+                // 첫 방문 순서(도움말 → 투어)의 앞 칸이 빠진 채 재생된다.
+                setPrefs({ tutorialsSeen: {}, helpWelcomeSeen: false });
                 toast.show(t('settings.tutorial.resetToast'));
               }}
             >

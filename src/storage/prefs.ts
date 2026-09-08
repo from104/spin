@@ -117,6 +117,11 @@ export interface Preferences {
    *  기기별이 맞다 — 노트북에서 닫았다고 태블릿에서까지 숨을 이유가 없다. 되돌리는 손잡이는
    *  설정 화면 [작은 화면 안내 다시 보기](결정 26)다. */
   smallScreenNoticeDismissed?: boolean;
+  /** 첫 방문에 자동으로 뜨는 도움말 [시작하기]를 닫아 본 적이 있는가(2026-09-08 기현 지시
+   *  "첫 접속 시 로딩이 끝나고 도움말 시작하기 보여줘"). `tutorialsSeen` 과 같은 결 — 기기별,
+   *  동기화 제외, 옵셔널 키라 스키마 도장 안 올림. 되돌리는 손잡이는 설정 [튜토리얼 다시 보기]
+   *  (투어와 함께 처음부터). */
+  helpWelcomeSeen?: boolean;
 }
 
 /** 튜토리얼이 있는 화면 7개. docs/PLAN-HELP-TUTORIAL.md §D 의 표와 순서를 맞춘다.
@@ -144,6 +149,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   sync: { enabled: false },
   tutorialsSeen: {},
   smallScreenNoticeDismissed: false,
+  helpWelcomeSeen: false,
 });
 
 /** linearKmh 에 연동되는 회전 속도 상한. 기본점(linear=10 → 30)을 지나는 선형식이며
@@ -240,6 +246,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     sync: { enabled: bool(syncRaw.enabled, d.sync.enabled) },
     tutorialsSeen,
     smallScreenNoticeDismissed: bool(raw.smallScreenNoticeDismissed, d.smallScreenNoticeDismissed ?? false),
+    helpWelcomeSeen: bool(raw.helpWelcomeSeen, d.helpWelcomeSeen ?? false),
   };
   return { value, repairs };
 }

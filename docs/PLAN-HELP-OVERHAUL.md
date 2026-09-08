@@ -50,6 +50,7 @@
 | 13 | 대상 없는 단계가 **하나라도 빠진 채** 끝나면 플래그를 찍되 `tutorialsSeen` 값 형식은 그대로(`true`) — 시연 자동 전체화면이 이 플래그를 읽는다(`PresentRunner.tsx:177-184`) | 형식을 바꾸면 그쪽이 깨진다. 빠진 단계는 [투어 다시 보기] 로 본다 |
 | 14 | 옛 `help.*.item*.term/desc` 키와 `HelpItem`/`NarrativeSection` 타입은 **같은 커밋에서 지운다**(AGENTS §9 — 호출자 0 을 rg 로 교차 확인). `editorHelpRows.ts`/`presentHelpRows.ts` 는 `keys` 블록의 파생원으로 **남긴다** | 두 벌 두지 않는다(§3) |
 | 15 | 낡은 주석 넷을 이 기회에 고친다: `HelpCenter.tsx:8-11`(레일 미배선), `HelpTriggerProvider.tsx` 머리말의 `AppNavAside`, `Modal.tsx:88-89`, `ruleTopics.ts:17-18`(ko 전용) | 조사가 주석을 코드로 착각한 사례가 둘. 다음 조사도 그런다 |
+| 17 | **첫 방문 순서에 도움말 [시작하기]를 끼운다**(2026-09-08 기현 지시 *"첫 접속 시 로딩이 끝나고 도움말 시작하기 보여줘"*): 로더 걷힘 → 작은 화면 안내 → 도움말 [시작하기](AppShell 의 별도 HelpCenter 인스턴스) → 화면 투어(게이트에 `!welcomeOpen`). 도장 `prefs.helpWelcomeSeen`(기기별·옵셔널), 닫을 때 한 곳에서 찍고, 설정 [튜토리얼 다시 보기]가 투어와 함께 되돌린다. 테스트 환경은 로더와 같은 스위치(`firstVisitPromptsEnabled`)로 끈다 | 안내 모달의 결정 25·30 과 같은 규율. 게이트에 안 넣으면 스포트라이트가 모달 위에 선다(appLoader.test 의 돌연변이로 증명) |
 | 16 | 스키마·prefs 도장 **안 올린다.** `tutorialsSeen` 화이트리스트 파서가 새 화면 키 없이도 산다 | `prefs.ts:199-203` |
 
 ## 2. 손대는 곳 (구현자별 소유 — 겹치지 않는다)

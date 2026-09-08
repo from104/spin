@@ -1036,7 +1036,7 @@ export const ko = {
   // ── 도움말·튜토리얼 리셋 — §0.5 Phase 6 ──────
   'settings.tutorial.title': '도움말·튜토리얼',
   'settings.tutorial.resetTitle': '튜토리얼 다시 보기',
-  'settings.tutorial.resetDesc': '각 화면의 첫 방문 안내를 처음부터 다시 봅니다. 화면을 열면 자동으로 뜹니다.',
+  'settings.tutorial.resetDesc': '첫 방문 도움말 [시작하기]와 각 화면의 첫 방문 안내를 처음부터 다시 봅니다. 앱을 다시 열거나 화면을 열면 자동으로 뜹니다.',
   'settings.tutorial.resetButton': '모두 다시 보기',
   'settings.tutorial.resetToast': '튜토리얼을 다시 봅니다 — 화면을 열면 안내가 뜹니다.',
 

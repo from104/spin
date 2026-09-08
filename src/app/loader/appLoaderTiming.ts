@@ -63,6 +63,14 @@ export function markSizePx(kind: AppLoaderKind, viewportMinPx: number): number {
  *     한 줄도 고치지 않기 위한 스위치다(§7). 이 스위치는 테스트가 배송 경로와 **다른 경로**를
  *     돈다는 뜻이라 사각지대를 만든다. 그 사각지대는 `appLoader.test.tsx` 가 `MODE` 를
  *     'production' 으로 덮어써서 산다 — 그 파일을 지우면 이 분기가 곧 미검증 코드가 된다. */
+/** 첫 방문에 자동으로 뜨는 안내(도움말 [시작하기])를 이 환경에서 띄우는가. 위 2 와 같은
+ *  스위치다 — 테스트 환경에서는 AppShell 을 그리는 렌더 테스트 20여 개가 첫 방문 상태로 돌아
+ *  모달이 그 위에 서면 초점·게이트 단언이 전부 흔들린다. 같은 사각지대·같은 처방:
+ *  `appLoader.test.tsx` 가 MODE 를 덮어써 이 경로를 산다(2026-09-08). */
+export function firstVisitPromptsEnabled(): boolean {
+  return import.meta.env?.MODE !== 'test';
+}
+
 export function loaderMinMs(kind: AppLoaderKind, reduced: boolean): number {
   if (reduced) return 0;
   if (import.meta.env?.MODE === 'test') return 0;

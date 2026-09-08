@@ -56,6 +56,9 @@ import type { HeaderConfig } from './AppHeader.tsx';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import type { AppHistoryApi, NavTarget } from './useAppHistory.ts';
 import { HelpTriggerProvider } from '../ui/help/HelpTriggerProvider.tsx';
+import { HelpCenter } from '../ui/help/HelpCenter.tsx';
+import { withTutorialUnseen } from '../ui/tutorial/resetTutorialSeen.ts';
+import { firstVisitPromptsEnabled } from './loader/appLoaderTiming.ts';
 import { TutorialGateProvider } from '../ui/tutorial/tutorialGate.tsx';
 import { useSettingsActions, useSettingsState } from '../store/settings/SettingsProvider.tsx';
 import { effectiveReduceMotion } from '../store/editor/tween.ts';
@@ -460,6 +463,19 @@ export function AppShell() {
     if (isSmallScreen && !prefs.smallScreenNoticeDismissed) setNoticeOpen(true);
   }, [coverSettled, isSmallScreen, prefs.smallScreenNoticeDismissed]);
 
+  /** 첫 방문 도움말 [시작하기](2026-09-08 기현 지시). 순서는 로더 걷힘 → 작은 화면 안내 → **이것**
+   *  → 화면 투어(게이트). 안내와 같은 자리에서 같은 이유로 판정한다 — 로더 위로는 모달이 못 올라오고,
+   *  안내가 떠 있는 동안 열면 `aria-modal` 이 둘 선다. 도장은 닫을 때 한 곳에서만 찍는다(안내의
+   *  결정 25 와 같은 규율). 이번 실행 1회 판정(ref)인 이유도 안내와 같다 — 레일 전환마다 로더가
+   *  걷힐 때 되살아나면 안 된다. */
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const welcomeSettledRef = useRef(false);
+  useEffect(() => {
+    if (welcomeSettledRef.current || !coverSettled || !noticeDecided || noticeOpen) return;
+    welcomeSettledRef.current = true;
+    if (firstVisitPromptsEnabled() && !prefs.helpWelcomeSeen) setWelcomeOpen(true);
+  }, [coverSettled, noticeDecided, noticeOpen, prefs.helpWelcomeSeen]);
+
   // ★ 자유 전술판은 **넓은 창에서 헤더를 안 세운다**(기현 지시 2026-08-14: *"상단 헤더 삭제.
   //   공간 확보"*). 헤더가 지고 있던 것이 전부 딴 데로 갔기 때문이다 — 코트 전환·되돌리기·
   //   [드릴로 저장]은 오른쪽 기능 바로, 제목과 부제는 삭제. 남은 것은 62px 빈 줄뿐이었다.
@@ -594,7 +610,7 @@ export function AppShell() {
                   대가: 0ms 환경(감축 모션·테스트)에서도 noticeDecided 가 첫 effect 에서 서므로
                   자동 시작이 **한 커밋 늦다**(사람 눈에는 같은 프레임, `useTutorial` 은 gateReady
                   를 effect 의존성에 두어 이어받는다). */}
-              <TutorialGateProvider ready={coverSettled && noticeDecided && !noticeOpen}>
+              <TutorialGateProvider ready={coverSettled && noticeDecided && !noticeOpen && !welcomeOpen}>
                 <SkipLink label={t('a11y.skipToContent')} />
                 <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
                   {!narrow && <AppRail active={activeRail} />}
@@ -643,6 +659,19 @@ export function AppShell() {
                     // 상태가 생긴다. 되돌리는 손잡이는 [설정] → [도움말] 절에 있다(결정 26).
                     if (dismissed) setPrefs({ smallScreenNoticeDismissed: true });
                   }}
+                />
+                {/* 첫 방문 도움말 — 화면마다 있는 HelpCenter 와 별개의 인스턴스다. 화면 것은 "지금
+                    화면의 섹션" 으로 열리지만 이것은 언제나 [시작하기] 다. [투어 다시 보기]는 그 화면이
+                    지금 떠 있지 않을 수 있으므로 플래그를 지워 다음에 그 화면을 열 때 뜨게 한다
+                    (resetTutorialSeen 머리말). */}
+                <HelpCenter
+                  open={welcomeOpen}
+                  initialSection="start"
+                  onClose={() => {
+                    setWelcomeOpen(false);
+                    setPrefs({ helpWelcomeSeen: true });
+                  }}
+                  onRestartTutorial={(screen) => setPrefs({ tutorialsSeen: withTutorialUnseen(prefs.tutorialsSeen, screen) })}
                 />
                 <ToastHost toasts={toasts} onDismiss={dismiss} />
                 <LiveRegion />

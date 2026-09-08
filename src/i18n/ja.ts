@@ -1012,7 +1012,7 @@ export const ja: Record<DictKey, string> = {
   // ── ヘルプ・チュートリアルのリセット — §0.5 Phase 6 ──────
   'settings.tutorial.title': 'ヘルプ・チュートリアル',
   'settings.tutorial.resetTitle': 'チュートリアルをもう一度見る',
-  'settings.tutorial.resetDesc': '各画面の初回案内を最初からもう一度見ます。画面を開くと自動的に表示されます。',
+  'settings.tutorial.resetDesc': '初回のヘルプ［はじめに］と各画面の初回案内を最初からもう一度見ます。アプリを開き直すか画面を開くと自動的に表示されます。',
   'settings.tutorial.resetButton': 'すべてもう一度見る',
   'settings.tutorial.resetToast': 'チュートリアルをもう一度表示します — 画面を開くと案内が出ます。',
 

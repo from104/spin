@@ -1017,7 +1017,7 @@ export const en: Record<DictKey, string> = {
   // ── Help & tutorial reset — §0.5 Phase 6 ──────
   'settings.tutorial.title': 'Help & tutorial',
   'settings.tutorial.resetTitle': 'Replay tutorials',
-  'settings.tutorial.resetDesc': "Replay every screen's first-visit tour from scratch. It starts automatically when you open each screen.",
+  'settings.tutorial.resetDesc': "Replay the first-visit [Getting started] help and every screen's tour from scratch. They start automatically when you reopen the app or open each screen.",
   'settings.tutorial.resetButton': 'Replay all',
   'settings.tutorial.resetToast': "Tutorials will replay — they'll show when you open each screen.",
 

@@ -23,7 +23,7 @@
 // 돌리는 데만** 쓴다) · 키프레임 백분율·이징·인라인 스타일 값 · z-index · SVG 도형 개수 ·
 // 레일 5개 반복(하나면 배선이 증명된다). 회전이 킥으로 읽히는지는 jsdom 이 못 잰다 — §4 다.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 // ── 화면 목 8개 ────────────────────────────────────────────────────────────
 // 진짜 화면을 끌면 EditorScreen → matter-js 와 storage/IDB 가 통째로 딸려와 워커가 힙을 다 쓴다
@@ -110,7 +110,7 @@ const { SettingsProvider } = await import('../../store/settings/SettingsProvider
 const { LibraryProvider } = await import('../../store/library/LibraryProvider.tsx');
 const { ToastProvider } = await import('../../store/toast/ToastProvider.tsx');
 const { liveRegion } = await import('../../ui/LiveRegion.tsx');
-const { makeDefaultPrefs, savePrefs } = await import('../../storage/prefs.ts');
+const { loadPrefs, makeDefaultPrefs, savePrefs } = await import('../../storage/prefs.ts');
 const { APP_LOADER_MS, EXIT_MS, loaderMinMs } = await import('./appLoaderTiming.ts');
 const { createMemoryRouter, RouterProvider } = await import('react-router');
 
@@ -181,6 +181,9 @@ let say: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   window.localStorage.clear();
+  // 첫 방문 도움말 [시작하기](2026-09-08)는 이 파일의 배송 경로(MODE=production)에서 실제로 뜬다.
+  // 로더 케이스들은 "이미 본 기기" 전제로 돌고, 첫 방문 순서는 아래 전용 케이스 하나가 잰다.
+  savePrefs({ ...makeDefaultPrefs(), helpWelcomeSeen: true });
   commitProbe.length = 0;
   vi.useFakeTimers();
   // 발표는 **횟수**가 계약이다(결정 7: 걷힌 시점에 한 번). 문장 자체는 announce.test.ts 소관이라
@@ -247,7 +250,7 @@ describe('화면 로더 계약 (PLAN-0-6-3 §7)', () => {
     // 접근성 계약(결정 8). 판정은 effectiveReduceMotion 이 지므로 matchMedia 스텁이 필요 없다 —
     // 'always' 는 OS 채널을 보지 않는다. 전역 matchMedia 스텁은 §7 이 금지한다.
     const d = makeDefaultPrefs();
-    savePrefs({ ...d, a11y: { ...d.a11y, reduceMotion: 'always' } });
+    savePrefs({ ...d, helpWelcomeSeen: true, a11y: { ...d.a11y, reduceMotion: 'always' } });
 
     await renderShell();
     expect(overlayEl()).toBeNull();
@@ -312,13 +315,40 @@ describe('화면 로더 계약 (PLAN-0-6-3 §7)', () => {
     // 돌연변이(`useState(false)`)로 실증했다: 기존 365 케이스가 전부 초록인 채로 그 고장이 지나간다.
     // 지우면: 초기값을 false 로 바꿔도 아무 테스트도 빨개지지 않는다.
     const d = makeDefaultPrefs();
-    savePrefs({ ...d, a11y: { ...d.a11y, reduceMotion: 'always' } });
+    savePrefs({ ...d, helpWelcomeSeen: true, a11y: { ...d.a11y, reduceMotion: 'always' } });
 
     await renderShell();
     fireEvent.click(rail('세션'));
     expect(overlayEl()).toBeNull(); // 판은 한 번도 안 선다
     await advance(0); // 안내 판정 effect(noticeDecided) 가 도는 한 틱
     expect(gate()).toBe('open');
+  });
+
+  it('첫 방문에는 로더가 걷힌 뒤 도움말 [시작하기]가 뜨고, 닫아야 투어 게이트가 열린다 — 도장은 닫을 때 찍힌다', async () => {
+    // 2026-09-08 기현 지시. 순서는 로더 → 도움말 → 투어이고, 도움말이 떠 있는 동안 게이트가 열리면
+    // 스포트라이트(z 300)가 모달 위에 선다. 지우면: 게이트 식에서 `!welcomeOpen` 을 빼도 초록이다.
+    savePrefs({ ...makeDefaultPrefs(), helpWelcomeSeen: false });
+    await renderShell();
+    expect(screen.queryByRole('dialog', { name: '도움말' })).toBeNull(); // 로더가 덮은 동안은 안 뜬다
+    await advance(APP_LOADER_MS.boot);
+    await advance(EXIT_MS.boot);
+    const dlg = screen.getByRole('dialog', { name: '도움말' });
+    expect(within(dlg).getByRole('heading', { name: '시작하기' })).toBeTruthy();
+
+    // 도움말 목차에도 [세션] 버튼이 있다 — 레일 것은 대화상자 밖의 것.
+    const railSessions = screen.getAllByRole('button', { name: '세션' }).find((b) => !dlg.contains(b));
+    if (!railSessions) throw new Error('레일 [세션] 버튼이 없다');
+    fireEvent.click(railSessions);
+    await advance(APP_LOADER_MS.rail);
+    await advance(EXIT_MS.rail);
+    expect(overlayEl()).toBeNull();
+    expect(gate()).toBe('closed'); // 도움말이 떠 있는 동안은 투어가 못 나온다
+
+    fireEvent.click(within(dlg).getByRole('button', { name: '닫기' }));
+    await advance(0);
+    expect(screen.queryByRole('dialog', { name: '도움말' })).toBeNull();
+    expect(gate()).toBe('open');
+    expect(loadPrefs().helpWelcomeSeen).toBe(true);
   });
 
   it('아무 입력(keydown)에 최소 표시 시간을 안 기다리고 즉시 걷힌다', async () => {
