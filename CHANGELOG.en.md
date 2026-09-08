@@ -9,6 +9,15 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Added
 
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
+
+### Fixed
+
+- Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
+
+## [0.6.6] 2026-09-08
+
+### Added
+
 - On first visit, [Help] opens at [Getting started] once loading finishes; closing it leads into the screen tour (replay both from Settings › [Replay tutorials])
 
 ### Changed
@@ -18,7 +27,6 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Fixed
 
-- Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
 - Fixed keyboard shortcuts behaving differently while Korean input is active or mid-composition
 
 ## [0.6.5] 2026-09-08
