@@ -29,6 +29,7 @@ import { useT } from '../../i18n/useT.ts';
 import { PlayerTable } from './PlayerTable.tsx';
 import { StaffList } from './StaffList.tsx';
 import { LineupBoard } from './LineupBoard.tsx';
+import { useIsNarrow } from '../../ui/useIsNarrow.ts';
 
 export interface TeamDetailProps {
   teamId: TeamId;
@@ -43,6 +44,10 @@ export function TeamDetail({ teamId, onSaved, onExport, onPrint }: TeamDetailPro
   const t = useT();
   const toast = useToast();
   const { sessions } = useLibrary();
+  // 넓은 창(≥ NARROW_MAX_PX)에서는 네 절을 2열로 — 왼쪽 선수·스태프, 오른쪽 라인업·정보(2026-09-09 기현님 지시).
+  // 좁은 창은 한 열 그대로. 문턱은 레일·헤더와 같은 useIsNarrow 하나를 쓴다(문턱이 두 벌이면 어긋난다).
+  // 조기 반환(없음·로딩)보다 앞에 두어야 훅 순서가 렌더마다 같다.
+  const twoCol = !useIsNarrow();
   const [team, setTeam] = useState<Team | null>(null);
   const [missing, setMissing] = useState(false);
   // 삭제 undo 토스트는 다른 저장이 끼어들면 **반드시 거둔다** — 안 거두면 그 토스트가 쥔 옛
@@ -122,6 +127,7 @@ export function TeamDetail({ teamId, onSaved, onExport, onPrint }: TeamDetailPro
   };
 
   const counts = playerSessionCounts(current, sessions.map((r) => r.session));
+  const colStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -203,67 +209,73 @@ export function TeamDetail({ teamId, onSaved, onExport, onPrint }: TeamDetailPro
         <p style={{ ...hintStyle, flexBasis: '100%' }}>{t('team.detail.gkColorHint')}</p>
       </div>
 
-      <Section title={t('team.detail.sectionPlayers')}>
-        <PlayerTable team={current} sessionCounts={counts} onChange={save} onRemove={removePlayerWithUndo} />
-      </Section>
+      <div style={{ display: 'grid', gridTemplateColumns: twoCol ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+        <div style={colStyle}>
+          <Section title={t('team.detail.sectionPlayers')}>
+            <PlayerTable team={current} sessionCounts={counts} onChange={save} onRemove={removePlayerWithUndo} />
+          </Section>
 
-      <Section title={t('team.detail.sectionStaff')}>
-        <StaffList team={current} onChange={save} onRemove={removeStaffWithUndo} />
-      </Section>
-
-      <Section title={t('team.detail.sectionLineup')}>
-        <LineupBoard team={current} onChange={save} />
-      </Section>
-
-      <Section title={t('team.detail.sectionInfo')}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-          <Field label={t('team.detail.leagueLabel')}>
-            <input
-              type="text"
-              defaultValue={current.league ?? ''}
-              maxLength={LIMITS.teamLeagueLen}
-              onBlur={(e) => {
-                const v = e.target.value.trim();
-                if (v === (current.league ?? '')) return;
-                const { league: _drop, ...rest } = current;
-                save(v.length > 0 ? { ...current, league: v } : rest);
-              }}
-              style={inputStyle}
-            />
-          </Field>
-          <Field label={t('team.detail.seasonLabel')}>
-            <input
-              type="text"
-              defaultValue={current.season ?? ''}
-              maxLength={LIMITS.teamSeasonLen}
-              onBlur={(e) => {
-                const v = e.target.value.trim();
-                if (v === (current.season ?? '')) return;
-                const { season: _drop, ...rest } = current;
-                save(v.length > 0 ? { ...current, season: v } : rest);
-              }}
-              style={inputStyle}
-            />
-          </Field>
+          <Section title={t('team.detail.sectionStaff')}>
+            <StaffList team={current} onChange={save} onRemove={removeStaffWithUndo} />
+          </Section>
         </div>
-        <p style={hintStyle}>{t('team.detail.seasonHint')}</p>
-        <Field label={t('team.detail.noteLabel')}>
-          <textarea
-            rows={3}
-            defaultValue={current.note ?? ''}
-            maxLength={LIMITS.teamNoteLen}
-            onBlur={(e) => {
-              const v = e.target.value.trim();
-              if (v === (current.note ?? '')) return;
-              const { note: _drop, ...rest } = current;
-              save(v.length > 0 ? { ...current, note: v } : rest);
-            }}
-            style={{ ...inputStyle, minHeight: 72, padding: '0.5rem 0.75rem', resize: 'vertical' }}
-          />
-        </Field>
-        {/* 팀 메모도 자유 입력이다 — 선수 메모와 같은 울타리(결정 6). */}
-        <p style={hintStyle}>{t('team.players.notePrivacyHint')}</p>
-      </Section>
+
+        <div style={colStyle}>
+          <Section title={t('team.detail.sectionLineup')}>
+            <LineupBoard team={current} onChange={save} />
+          </Section>
+
+          <Section title={t('team.detail.sectionInfo')}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+              <Field label={t('team.detail.leagueLabel')}>
+                <input
+                  type="text"
+                  defaultValue={current.league ?? ''}
+                  maxLength={LIMITS.teamLeagueLen}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (v === (current.league ?? '')) return;
+                    const { league: _drop, ...rest } = current;
+                    save(v.length > 0 ? { ...current, league: v } : rest);
+                  }}
+                  style={inputStyle}
+                />
+              </Field>
+              <Field label={t('team.detail.seasonLabel')}>
+                <input
+                  type="text"
+                  defaultValue={current.season ?? ''}
+                  maxLength={LIMITS.teamSeasonLen}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (v === (current.season ?? '')) return;
+                    const { season: _drop, ...rest } = current;
+                    save(v.length > 0 ? { ...current, season: v } : rest);
+                  }}
+                  style={inputStyle}
+                />
+              </Field>
+            </div>
+            <p style={hintStyle}>{t('team.detail.seasonHint')}</p>
+            <Field label={t('team.detail.noteLabel')}>
+              <textarea
+                rows={3}
+                defaultValue={current.note ?? ''}
+                maxLength={LIMITS.teamNoteLen}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v === (current.note ?? '')) return;
+                  const { note: _drop, ...rest } = current;
+                  save(v.length > 0 ? { ...current, note: v } : rest);
+                }}
+                style={{ ...inputStyle, minHeight: 72, padding: '0.5rem 0.75rem', resize: 'vertical' }}
+              />
+            </Field>
+            {/* 팀 메모도 자유 입력이다 — 선수 메모와 같은 울타리(결정 6). */}
+            <p style={hintStyle}>{t('team.players.notePrivacyHint')}</p>
+          </Section>
+        </div>
+      </div>
     </div>
   );
 }
