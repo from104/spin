@@ -15,8 +15,13 @@ import {
   collectBackup,
   exportBackupFile,
   restoreBackup,
+  exportTeamFile,
+  prepareTeamImport,
+  commitTeamImports,
   type SpinFile,
 } from './transfer.ts';
+import { createTeam, getTeam, listTeams, putTeam } from './teamRepo.ts';
+import { addPlayer as addTeamPlayer, type Team } from '../model/team.ts';
 import { StorageError } from './errors.ts';
 import { idbDrillRepo } from './drillRepo.ts';
 import { createSession, addDrillToSession } from './sessionRepo.ts';
@@ -311,6 +316,7 @@ async function wipeAll(): Promise<void> {
   await db.clear('drills');
   await db.clear('drillSummaries');
   await db.clear('sessions');
+  await db.clear('teams'); // ★ 백업이 덮는 저장처가 늘면 여기도 는다 — 안 지우면 «지웠는데도 남아 통과» 가 된다
   localStorage.removeItem(PREFS_KEY);
   localStorage.removeItem(BOARD_KEY);
 }
@@ -664,6 +670,109 @@ describe('backup 봉투 — 복원한 시각 보존 (5.0 ①)', () => {
     expect(sessionCopy?.title).toBe('파일 쪽 다른 세션 (사본)');
     expect(sessionCopy?.createdAt).toBeGreaterThanOrEqual(before);
     expect(sessionCopy?.updatedAt).toBeGreaterThanOrEqual(before);
+    await wipeAll();
+  });
+});
+
+// ── team 봉투 ([팀] 메뉴, 2026-09-09 · PLAN-TEAM.md 결정 13) ──────────────────────────────────
+// 지우면 새는 실기 버그: ① 팀 파일이 왕복에서 선수를 잃는다 ② [등급 정보 제외] 를 켰는데
+// 파일에 등급이 그대로 남는다(개인정보 — 파일은 회수가 안 된다) ③ 기기 이사 파일에 팀이
+// 안 실려 "백업했다" 고 믿은 채로 명단을 잃는다 ④ 복원 충돌이 선수 id 를 갈아 세션 참가자가
+// 통째로 «지워진 선수» 가 된다.
+
+/** 선수 둘(등급 있는 한 명 + 미분류 한 명)이 든 팀 하나를 저장한다. */
+async function teamWithPlayers(name: string): Promise<Team> {
+  const base = await createTeam({ name });
+  const withPlayers = addTeamPlayer(addTeamPlayer(base, '홍길동', 'PF2'), '김미분');
+  return putTeam(withPlayers);
+}
+
+describe('team 봉투 — 왕복·등급 제외', () => {
+  it('내보내고 → 지우고 → 가져오면 팀과 선수가 그대로 돌아온다', async () => {
+    await wipeAll();
+    const t = await teamWithPlayers('동대문 클럽');
+    const text = await exportTeamFile(t).text();
+
+    await wipeAll();
+    expect(await getTeam(t.id)).toBeUndefined(); // 대조군 — 정말 지워졌는지 먼저 본다
+
+    const file = parseSpinFile(text);
+    expect(file.spin).toBe('team');
+    const outcome = await commitTeamImports((await prepareTeamImport(file)).map((candidate) => ({ candidate, resolution: 'copy' as const })));
+    expect(outcome.written).toEqual([t.id]); // 충돌이 없으므로 id 가 그대로 돌아온다
+    const back = await getTeam(t.id);
+    expect(back?.name).toBe('동대문 클럽');
+    expect(back?.players.map((p) => [p.id, p.name, p.klass])).toEqual(t.players.map((p) => [p.id, p.name, p.klass]));
+    expect(back?.updatedAt).toBe(t.updatedAt); // touch:false — 이사는 "옮겨간 것" 이지 새로 만든 것이 아니다
+    await wipeAll();
+  });
+
+  it('[등급 정보 제외] 는 klass 를 **키째** 뺀다 — 대조군: 끄면 그대로 실린다', async () => {
+    await wipeAll();
+    const t = await teamWithPlayers('등급 확인');
+    const type = (blob: Blob) => blob.text().then((s) => JSON.parse(s) as { payload: { players: Array<Record<string, unknown>> } });
+
+    const off = await type(exportTeamFile(t));
+    expect(off.payload.players[0]!.klass).toBe('PF2'); // 대조군 — 기본은 꺼짐(결정 13)
+
+    const on = await type(exportTeamFile(t, { stripClass: true }));
+    expect('klass' in on.payload.players[0]!).toBe(false); // undefined 가 아니라 키가 없다
+    expect(on.payload.players[0]!.name).toBe('홍길동'); // 등급만 빠진다 — 나머지는 그대로
+    expect(t.players[0]!.klass).toBe('PF2'); // 보내는 쪽 원본을 건드리지 않는다
+    await wipeAll();
+  });
+
+  it('더 새 스키마의 팀 파일은 후보에서 빠진다 — 다운그레이드해 저장하지 않는다', async () => {
+    await wipeAll();
+    const t = await teamWithPlayers('too-new');
+    const raw = JSON.parse(await exportTeamFile(t).text()) as { payload: Record<string, unknown> };
+    raw.payload.schemaVersion = 99;
+    await wipeAll();
+
+    const file = parseSpinFile(JSON.stringify(raw));
+    expect(await prepareTeamImport(file)).toEqual([]); // 개수 차가 곧 실패 보고의 재료다
+    expect(await getTeam(t.id)).toBeUndefined(); // 후보가 없으니 저장도 없다
+    // 대조군 — 같은 파일을 스키마 그대로 주면 들어온다(위 빈손이 «원래 안 되는 것» 이 아님을 못박는다).
+    raw.payload.schemaVersion = 1;
+    expect(await prepareTeamImport(parseSpinFile(JSON.stringify(raw)))).toHaveLength(1);
+    await wipeAll();
+  });
+});
+
+describe('backup 봉투 — 팀', () => {
+  it('기기 이사 파일에 팀이 실리고 복원된다 (대조군: 팀이 0개면 키 자체를 안 만든다)', async () => {
+    await wipeAll();
+    const empty = JSON.parse(await exportBackupFile(await collectBackup()).text()) as { payload: Record<string, unknown> };
+    expect('teams' in empty.payload).toBe(false); // 빈 것과 없는 것이 같은 뜻이라 키를 생략한다
+
+    const t = await teamWithPlayers('이사 팀');
+    const text = await exportBackupFile(await collectBackup()).text();
+
+    await wipeAll();
+    expect(await getTeam(t.id)).toBeUndefined();
+
+    const report = await restoreBackup(parseSpinFile(text));
+    expect(report.teamsInFile).toBe(1);
+    expect(report.teams.written).toEqual([t.id]);
+    expect((await getTeam(t.id))?.players.map((p) => p.name)).toEqual(['홍길동', '김미분']);
+    await wipeAll();
+  });
+
+  it("충돌 복원('copy')은 팀 id 만 새로 발급하고 **선수 id 는 보존한다** — 세션 참가자가 끊기면 안 된다", async () => {
+    await wipeAll();
+    const t = await teamWithPlayers('충돌 팀');
+    const text = await exportBackupFile(await collectBackup()).text();
+    await putTeam({ ...t, name: '이 기기에서 고친 이름' }); // 같은 id, 다른 내용 = 'exists'
+
+    const report = await restoreBackup(parseSpinFile(text));
+    expect(report.teams.written).toHaveLength(1);
+    const newId = report.teams.written[0]!;
+    expect(newId).not.toBe(t.id); // 로컬 편집을 말없이 덮지 않는다
+
+    const copy = await getTeam(newId);
+    expect(copy?.players.map((p) => p.id)).toEqual(t.players.map((p) => p.id)); // ★ pl_ 는 그대로
+    expect((await getTeam(t.id))?.name).toBe('이 기기에서 고친 이름'); // 로컬본은 살아 있다
+    expect(await listTeams()).toHaveLength(2);
     await wipeAll();
   });
 });

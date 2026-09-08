@@ -189,6 +189,25 @@ describe('v2 신필드 화이트리스트 왕복', () => {
     expect(v.value.participantIds).toEqual(['pl_1', 'pl_2']);
   });
 
+  // PLAN-TEAM 결정 4·11 — teamId 는 세션 스키마를 안 올리고 들어온 선택 필드다. 화이트리스트
+  // 방식이라 **명시로 넣지 않으면 조용히 증발한다**: 이 왕복이 그 증발을 잡는다.
+  it('teamId 가 JSON 왕복에서 살아남고, 팀 id 꼴이 아니면 키를 버린다', () => {
+    const s: TrainingSession = { ...mkSession([]), teamId: 'tm_abc' as never };
+    const v = validateSession(JSON.parse(JSON.stringify(s)));
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.value.teamId).toBe('tm_abc');
+
+    // 남의 접두(세션 id 를 잘못 넣은 사고)·빈 문자열은 «미지정» 으로 접힌다 — 죽은 참조를
+    // 만들지 않으려는 게 아니라(팀은 지워질 수 있다) 임의 문자열이 눌러앉는 것을 막으려는 것.
+    for (const bad of ['se_abc', '', 42, null]) {
+      const r = validateSession({ id: 'se_x', title: '', phases: [], teamId: bad });
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect('teamId' in r.value).toBe(false);
+    }
+  });
+
   it('음수·비유한 목표 시간은 키를 버린다(미지정)', () => {
     const v = validateSession({ id: 'se_x', title: '', phases: [], goalTotalMin: -5 });
     expect(v.ok).toBe(true);

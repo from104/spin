@@ -372,6 +372,15 @@ export const PREFS_MIGRATIONS: DocMigration[] = [
  *  관문을 새로 뚫는 것이 아니라 체인에 단계 하나를 더하면 된다(prefs 가 걸었던 길). */
 export const ROSTER_MIGRATIONS: DocMigration[] = [];
 
+/** 팀([팀] 메뉴, 2026-09-09)도 v1 부터 시작한다 — **빈 체인도 등록한다**. 근거는 바로 위
+ *  ROSTER_MIGRATIONS 와 같다: 읽기 경로(`storage/teamRepo.ts`)가 처음부터 migrateDoc 관문을
+ *  지나야, 나중에 필드가 생길 때 관문을 새로 뚫는 것이 아니라 단계 하나를 더하면 된다.
+ *
+ *  ⚠️ 이 체인은 **세 축 가운데 하나일 뿐이다**(이 파일 1행). 팀이 들어오며 함께 오른 것은
+ *  `DB_VERSION`(1→2, teams 스토어 신설)이고, 그것은 IndexedDB 구조라 여기와 아무 관계가 없다.
+ *  봉투 `ENVELOPE_VERSION` 도 1 그대로다 — 그릇이 아니라 새 내용이 하나 생긴 것이다. */
+export const TEAM_MIGRATIONS: DocMigration[] = [];
+
 export type MigrateResult =
   | { ok: true; doc: Record<string, unknown>; changed: boolean; applied: string[] }
   | { ok: false; reason: 'too-new'; found: number; supported: number }

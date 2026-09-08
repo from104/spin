@@ -23,6 +23,8 @@
 //   /drills                드릴 목록                    screen 'drills'
 //   /sessions              세션 목록                    screen 'sessions'
 //   /sessions/:sessionId   세션 편집 (C6)               screen 'sessions' + {kind:'session'}
+//   /team                  팀 목록                      screen 'team'
+//   /team/:teamId          팀 상세                      screen 'team' + {kind:'team'}
 //   /drills/:drillId       드릴 편집                    screen 'board' + {kind:'drill'}
 //   /present/drill/:id     드릴 시연                    screen 'present'
 //   /present/session/:id   세션 시연                    screen 'present'
@@ -69,6 +71,10 @@ export function pathFor(screen: Screen, target?: NavTarget): string {
     case 'sessions':
       // C6 — 세션 대상 = 전용 편집 화면(드릴의 /drills/:id 와 같은 꼴. 드로어 시절의 ?open= 은퇴)
       return target?.kind === 'session' ? `/sessions/${target.id}` : '/sessions';
+    case 'team':
+      // 세션의 목록↔상세와 같은 꼴(위 'sessions'). 단수 `/team` 인 것은 의도다 — 이 화면은
+      // "팀들" 이 아니라 **[팀] 메뉴**이고, 레일 라벨(한국어 '팀')과 주소가 같은 말을 한다.
+      return target?.kind === 'team' ? `/team/${target.id}` : '/team';
     case 'present':
       if (target?.kind === 'drill') return `/present/drill/${target.id}`;
       if (target?.kind === 'session') return `/present/session/${target.id}`;
@@ -103,6 +109,10 @@ export function parsePath(pathname: string, search: string = ''): ParsedRoute {
       const open = params.get('open'); // C5 한 커밋 동안의 드로어 주소 꼴 관용
       if (open) return { screen: 'sessions', target: { kind: 'session', id: open } };
       return { screen: 'sessions' };
+    }
+    case 'team': {
+      if (seg.length >= 2 && seg[1]!.length > 0) return { screen: 'team', target: { kind: 'team', id: seg[1]! } };
+      return { screen: 'team' };
     }
     case 'present': {
       if (seg[1] === 'drill' && seg[2]) return { screen: 'present', target: { kind: 'drill', id: seg[2] } };

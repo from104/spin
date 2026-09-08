@@ -43,6 +43,10 @@ describe('routes — pathFor/parsePath 왕복 항등', () => {
     ['settings', { kind: 'legal', doc: 'privacy' }],
     ['settings', { kind: 'legal', doc: 'terms' }],
     ['drills', { kind: 'share', id: 'AbC0123xyZ' }],
+    // PLAN-TEAM 결정 16 — parsePath 는 컴파일러가 안 잡는다(문자열 → 문자열). 팀 상세 주소가
+    // 왕복에서 죽으면 새로고침이 목록으로 떨어지고, 그것을 잡는 것은 이 표뿐이다.
+    ['team', undefined],
+    ['team', { kind: 'team', id: 'tm_x1' }],
   ];
   it.each(cases)('%s + %j 가 경로 왕복에서 살아남는다', (scr, target) => {
     const path = pathFor(scr, target);

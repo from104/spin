@@ -7,7 +7,7 @@
 //
 // ⚠️ **flatten 이 파생의 단일 출처다.** drillIds 재계산(putSession)·시연 순회·인쇄가 전부
 // `flattenSessionItems` 하나를 거친다 — 각자 phases 를 직접 돌면 순회 순서가 갈라질 수 있다.
-import type { DrillId, PhaseId, PlayerId, SessionId } from '../core/ids.ts';
+import type { DrillId, PhaseId, PlayerId, SessionId, TeamId } from '../core/ids.ts';
 import type { Locale } from '../i18n/locale.ts';
 import { newId } from '../core/ids.ts';
 import type { DrillRef } from './refs.ts';
@@ -59,6 +59,14 @@ export interface TrainingSession {
   phases: SessionPhase[]; // v2 — v1 의 items 를 대체
   /** 로스터 참가자(구조 개편 3차에서 UI 합류). 없음 = 미지정. */
   participantIds?: PlayerId[];
+  /** 이 세션을 치르는 팀(PLAN-TEAM 결정 11). 없음 = 미지정 — 참가자 체크가 팀 드롭다운을 낸다.
+   *  실존은 보장하지 않는다: 팀이 지워져도 이 값은 남고 화면이 «지워진 팀» 으로 읽는다
+   *  (participantIds 에 유령 id 가 남는 것과 같은 교리).
+   *  ⚠️ **이 필드가 늘어도 CURRENT_SESSION_SCHEMA 는 2 그대로다**(결정 4). 옛 앱이 teamId 를
+   *  모르고 저장하면 그 값만 사라지는데, 그것은 "팀 미지정" 이라는 정상 상태로의 복귀지
+   *  데이터 손실이 아니다(드릴 v9→v10 의 «획 소실» 과 다른 부류). 반대로 스키마를 올리면
+   *  옛 기기가 세션을 **통째로 거절**한다 — 대가가 훨씬 크다. */
+  teamId?: TeamId;
   drillIds: DrillId[]; // phases 에서 파생. putSession 이 무조건 재계산
   createdAt: number;
   updatedAt: number;

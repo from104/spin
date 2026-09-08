@@ -9,6 +9,7 @@
 // 알아채지 못한다. 여기서 문자열 단위로 단언한다.
 import type { PresentTarget, StageTarget } from './AppShell.tsx';
 import type { Screen } from './screens.ts';
+import type { TeamId } from '../core/ids.ts';
 import type { LegalDoc } from '../features/settings/legalContent.ts';
 import type { Locale } from '../i18n/locale.ts';
 import { translate } from '../i18n/useT.ts';
@@ -26,6 +27,9 @@ export interface AnnounceLookup {
 /** `legalDoc` 은 **맨 뒤의 선택 인자**다(PLAN-LEGAL-PAGES). 앞에 끼워 넣으면 이 함수를 부르는
  *  모든 자리와 announce.test.ts 의 케이스 표가 통째로 흔들린다 — lastNavFromHistory 를 옵셔널로
  *  더했던 것과 같은 규율이다: **더하는 것이지 바꾸는 것이 아니다.** */
+/** `teamDetail` 도 **맨 뒤에 더한** 선택 인자다(2026-09-09, legalDoc 과 같은 규율). 값이 있으면
+ *  «팀 상세», 없으면 «팀» — 팀 **id** 를 받는 이유는 호출부(AppShell)가 이미 그 값을 파생해
+ *  들고 있기 때문이지 여기서 그것을 조회하기 때문이 아니다. */
 export function announceFor(
   screen: Screen,
   stage: StageTarget,
@@ -33,6 +37,7 @@ export function announceFor(
   locale: Locale,
   lookup: AnnounceLookup = {},
   legalDoc?: LegalDoc,
+  teamDetail?: TeamId,
 ): string {
   const title = (t: StageTarget | PresentTarget) => lookup.titleOf?.(t);
   const t = (key: Parameters<typeof translate>[1], params?: Record<string, string>) => translate(locale, key, params);
@@ -54,6 +59,18 @@ export function announceFor(
     }
     case 'rules':
       return t('app.announce.rules');
+    case 'team':
+      // 옛 근거(지우지 않는다): *"상세(`/team/:id`)여도 같은 문장이다 — 팀 이름은 IDB 를 읽어야
+      // 알 수 있고, 이 함수는 저장소를 모른다(머리말: 발표가 비동기가 되면 화면이 바뀐 뒤에
+      // 읽힌다). `lookup.titleOf` 는 StageTarget/PresentTarget 만 받는 계약이라 팀은 그 문에도
+      // 못 들어간다."*
+      // ── ⚠️ 2026-09-09: «같은 문장이다» 만 뒤집는다(검수) ────────────────────────────
+      // 목록↔상세는 같은 화면 키 안에서 **본문이 통째로 바뀌는** 전환이라 legalDoc 과 같은 급
+      // 이다. 같은 문자열을 돌려주면 AppShell 의 전환 발표가 «바뀐 게 없다» 로 읽혀 아무것도
+      // 안 읽히고 초점도 안 옮겨 간다(실측: [열기] 를 누르면 초점이 <body> 로 떨어졌다).
+      // 이름을 안 읽는다는 부분은 그대로다 — 위 옛 근거가 여전히 맞다.
+      if (teamDetail) return t('app.announce.teamDetail');
+      return t('app.announce.team');
     case 'settings':
       // 법적 고지 문서가 떠 있으면 화면 이름("설정")이 아니라 **그 문서 이름**을 읽는다 —
       // 자유 판이든 드릴이든 늘 "전술판" 이라 고쳤던 그 이유 그대로다(이 파일 머리말).

@@ -15,21 +15,28 @@
 
 // C5(2026-08-18 구조 개편) — 'sessions' 가 1급 화면으로 합류했다(질문 20문 ①: 세션·드릴·
 // 전술판 동급). 세션은 더 이상 드릴 목록의 2번째 탭이 아니다.
+//
+// 2026-09-09 — 'team' 이 **세션과 규칙 사이**에 합류했다(기현 지시: *"세션 다음에 «팀» 메뉴
+// 신설"*, docs/PLAN-TEAM.md 결정 16). 팀은 드릴·세션과 같은 급의 독립 문서이고, `present` 와
+// 달리 대상 없이도 온전한 목적지(팀 목록)라 레일에 선다 — `rules` 가 합류한 것과 같은 자격이다.
 import type { Locale } from '../i18n/locale.ts';
 
-export type Screen = 'board' | 'drills' | 'sessions' | 'present' | 'rules' | 'settings';
+export type Screen = 'board' | 'drills' | 'sessions' | 'team' | 'present' | 'rules' | 'settings';
 
-export const SCREEN_ORDER: readonly Screen[] = ['board', 'drills', 'sessions', 'present', 'rules', 'settings'];
+export const SCREEN_ORDER: readonly Screen[] = ['board', 'drills', 'sessions', 'team', 'present', 'rules', 'settings'];
 
 /** 레일에 실제로 서는 항목. 화면 키의 **부분집합**이다 — `present` 는 레일에 없다.
  *  시연은 목록/카드에서 들어가는 것이지 "빈 시연 화면으로 이동" 은 목적지가 아니었다
  *  (레일로 들어오면 대상이 없어 *"시연할 드릴을 목록에서 선택하세요"* 만 뜬다).
  *
  *  2026-08-21 — `rules`(규칙) 가 세션과 설정 사이에 합류했다(기현님 지시). 규칙 화면은
- *  present 와 달리 대상 없이도 온전한 목적지(조항 목록)라 레일에 선다. */
-export type RailKey = 'board' | 'drills' | 'sessions' | 'rules' | 'settings';
+ *  present 와 달리 대상 없이도 온전한 목적지(조항 목록)라 레일에 선다.
+ *
+ *  2026-09-09 — `team`(팀) 이 **세션과 규칙 사이**에 들어왔다(PLAN-TEAM 결정 16). 레일이 6칸이
+ *  되면서 좁은 창 헤더 세그먼트의 가로 예산이 한 칸 더 든다 — 실기에서 볼 항목이다. */
+export type RailKey = 'board' | 'drills' | 'sessions' | 'team' | 'rules' | 'settings';
 
-export const RAIL_ITEMS: readonly RailKey[] = ['board', 'drills', 'sessions', 'rules', 'settings'];
+export const RAIL_ITEMS: readonly RailKey[] = ['board', 'drills', 'sessions', 'team', 'rules', 'settings'];
 
 /** 화면 키 → 레일 항목. 시연 중 활성은 [드릴]이다.
  *
@@ -39,6 +46,7 @@ export const SCREEN_TO_RAIL: Record<Screen, RailKey> = {
   board: 'board',
   drills: 'drills',
   sessions: 'sessions',
+  team: 'team',
   present: 'drills', // 대상이 세션인 시연은 railFor 가 [세션]으로 덮는다(아래)
   rules: 'rules',
   settings: 'settings',
@@ -77,9 +85,9 @@ export function railFor(screen: Screen, stageKind: 'board' | 'drill' = 'board', 
  *  로 쓴다(예전 `[key]` 한 겹에서 한 겹 늘었다). `docsMatchCode.test.ts` 는 REQUIREMENTS.md 가
  *  한국어라 `.ko` 를 고정으로 대조한다. */
 export const SCREEN_NAV_LABELS: Record<Locale, Record<Screen, string>> = {
-  ko: { board: '보드', drills: '드릴', sessions: '세션', present: '시연', rules: '규칙', settings: '설정' },
-  en: { board: 'Board', drills: 'Drills', sessions: 'Sessions', present: 'Present', rules: 'Rules', settings: 'Settings' },
-  ja: { board: 'ボード', drills: 'ドリル', sessions: 'セッション', present: 'プレゼン', rules: 'ルール', settings: '設定' },
+  ko: { board: '보드', drills: '드릴', sessions: '세션', team: '팀', present: '시연', rules: '규칙', settings: '설정' },
+  en: { board: 'Board', drills: 'Drills', sessions: 'Sessions', team: 'Teams', present: 'Present', rules: 'Rules', settings: 'Settings' },
+  ja: { board: 'ボード', drills: 'ドリル', sessions: 'セッション', team: 'チーム', present: 'プレゼン', rules: 'ルール', settings: '設定' },
 };
 
 /** 헤더 기본 타이틀·부제. 드릴이나 전술판이 로드되면 화면이 §7.6 이하 헤더 컨텍스트로 실제
@@ -87,9 +95,9 @@ export const SCREEN_NAV_LABELS: Record<Locale, Record<Screen, string>> = {
  *  §7.6 라이브 리전 발표문은 이 표가 아니라 announce.ts 의 announceFor 가 만든다 —
  *  "무엇이 열렸는가" 는 화면 키만으로는 말할 수 없기 때문이다(계획서 2.4). */
 export const SCREEN_TITLES: Record<Locale, Record<Screen, string>> = {
-  ko: { board: '전술판', drills: '드릴 라이브러리', sessions: '훈련 세션', present: '시연 모드', rules: '경기 규칙', settings: '설정' },
-  en: { board: 'Tactics Board', drills: 'Drill Library', sessions: 'Training Sessions', present: 'Presentation', rules: 'Game Rules', settings: 'Settings' },
-  ja: { board: '戦術ボード', drills: 'ドリルライブラリ', sessions: 'トレーニングセッション', present: 'プレゼンモード', rules: '競技規則', settings: '設定' },
+  ko: { board: '전술판', drills: '드릴 라이브러리', sessions: '훈련 세션', team: '팀', present: '시연 모드', rules: '경기 규칙', settings: '설정' },
+  en: { board: 'Tactics Board', drills: 'Drill Library', sessions: 'Training Sessions', team: 'Teams', present: 'Presentation', rules: 'Game Rules', settings: 'Settings' },
+  ja: { board: '戦術ボード', drills: 'ドリルライブラリ', sessions: 'トレーニングセッション', team: 'チーム', present: 'プレゼンモード', rules: '競技規則', settings: '設定' },
 };
 
 export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
@@ -97,6 +105,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     board: '저장 없이 바로 그려 보는 판 — 마음에 들면 드릴로 편집하세요',
     drills: '저장된 드릴을 열어 편집하거나 시연하세요',
     sessions: '드릴을 묶어 훈련 한 회를 계획하세요',
+    team: '선수 명단·스태프·라인업을 팀별로 관리하세요',
     present: '팀 앞에서 드릴을 단계별로 보여주세요',
     rules: '주제별로 표·보드 애니메이션과 함께 규칙을 익히세요',
     settings: '언어·화면·데이터 등 이 기기의 설정',
@@ -105,6 +114,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     board: 'Sketch freely, nothing saved — edit it as a drill when you like it',
     drills: 'Open a saved drill to edit or present it',
     sessions: 'Group drills into a single training plan',
+    team: 'Manage rosters, staff, and lineups team by team',
     present: 'Walk your team through the drill step by step',
     rules: 'Learn the rules by topic, with tables and board animations',
     settings: 'Language, screen, data, and other settings for this device',
@@ -113,6 +123,7 @@ export const SCREEN_SUBTITLES: Record<Locale, Record<Screen, string>> = {
     board: '保存せずにすぐ描ける板 — 気に入ったらドリルとして編集',
     drills: '保存したドリルを開いて編集・プレゼンできます',
     sessions: 'ドリルをまとめて1回分の練習を計画します',
+    team: '選手名簿・スタッフ・ラインアップをチームごとに管理します',
     present: 'チームの前でドリルを段階ごとに見せます',
     rules: 'トピック別に、表とボードアニメーションでルールを学べます',
     settings: '言語・画面・データなど、この端末の設定',

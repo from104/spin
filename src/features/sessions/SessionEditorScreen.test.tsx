@@ -12,8 +12,9 @@ import { ToastHost } from '../../ui/ToastHost.tsx';
 import { idbDrillRepo } from '../../storage/drillRepo.ts';
 import { createSession, deleteSession, getSession, listSessions, addDrillToSession, putSession } from '../../storage/sessionRepo.ts';
 import { flattenSessionItems } from '../../model/session.ts';
-import type { SessionId } from '../../core/ids.ts';
-import type { Player } from '../../model/roster.ts';
+import type { SessionId, TeamId } from '../../core/ids.ts';
+import type { Player, PFClass } from '../../model/roster.ts';
+import type { Team } from '../../model/team.ts';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
 
@@ -27,7 +28,18 @@ function makeNav(): HomeNav {
     presentSession: vi.fn(),
     openRuleTopic: vi.fn(),
     openLegal: vi.fn(),
+    openTeam: vi.fn(),
   };
+}
+
+/** 팀 하나를 실제 IDB 에 심는다(PLAN-TEAM 결정 11). 명단의 주인이 전역 roster 에서 팀 문서로
+ *  옮겨 갔으므로(결정 3·21) 참가자 체크 테스트의 전제도 여기로 옮겼다. */
+async function seedTeam(name: string, players: readonly (readonly [string, PFClass?])[]): Promise<Team> {
+  const { createTeam, putTeam } = await import('../../storage/teamRepo.ts');
+  const { addPlayer } = await import('../../model/team.ts');
+  let team = await createTeam({ name });
+  for (const [playerName, klass] of players) team = addPlayer(team, playerName, klass);
+  return putTeam(team);
 }
 
 function ToastHostBridge() {
@@ -53,6 +65,7 @@ beforeEach(async () => {
   for (const s of await listSessions()) await deleteSession(s.session.id);
   const { getDB } = await import('../../storage/db.ts');
   await (await getDB()).clear('meta'); // 로스터 위생 — 앞 테스트의 명단이 새어 들지 않게
+  await (await getDB()).clear('teams'); // 팀 위생(2026-09-09) — 팀 수가 «자동 선택» 분기를 가른다
   // 세션 편집 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트가 떠서 아래
   // 배선 테스트들과 섞일 여지가 있다 — "이미 봤다" 상태로 시작한다.
   localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { sessionEditor: true } }));
@@ -312,9 +325,7 @@ describe('SessionEditorScreen', () => {
   });
 
   it('참가자 체크가 participantIds 로 저장되고, 전부 풀면 키가 지워진다 (C8)', async () => {
-    const { saveRoster } = await import('../../storage/rosterRepo.ts');
-    const { addPlayer, emptyRoster } = await import('../../model/roster.ts');
-    const roster = await saveRoster(addPlayer(addPlayer(emptyRoster(), '참가 선수', 'PF2'), '벤치 선수'));
+    const team = await seedTeam('참가자 팀', [['참가 선수', 'PF2'], ['벤치 선수']]);
     const s = await createSession({ title: '참가자 세션' });
     await renderEditor(s.id);
     const user = userEvent.setup();
@@ -323,7 +334,7 @@ describe('SessionEditorScreen', () => {
     await user.click(screen.getByRole('checkbox', { name: /참가 선수/ }));
     await waitFor(async () => {
       const saved = await getSession(s.id);
-      expect(saved?.session.participantIds).toEqual([roster.players[0]!.id]);
+      expect(saved?.session.participantIds).toEqual([team.players[0]!.id]);
     });
     // PF2 셈이 표시된다(참가 제한은 없다 — 셈만).
     expect(screen.getByText(/PF2 1명/)).toBeInTheDocument();
@@ -336,16 +347,78 @@ describe('SessionEditorScreen', () => {
   });
 
   it('명단에서 지워진 참가자 id 는 인원수에서 빠진다 — 분자가 분모를 넘지 않는다(설정 화면 감사 회귀)', async () => {
-    const { saveRoster } = await import('../../storage/rosterRepo.ts');
-    const { addPlayer, emptyRoster } = await import('../../model/roster.ts');
-    const roster = await saveRoster(addPlayer(emptyRoster(), '생존 선수'));
+    const team = await seedTeam('생존 팀', [['생존 선수']]);
     const s = await createSession({ title: '참가자 세션' });
     // 과거에 체크됐다가 이후 명단에서 지워진 선수를 흉내낸다 — participantIds 에는 남지만
-    // 현재 명단(roster.players)에는 없는 id.
-    await putSession({ ...s, participantIds: [roster.players[0]!.id, 'pl_ghost' as Player['id']] });
+    // 현재 팀 명단(team.players)에는 없는 id.
+    await putSession({ ...s, teamId: team.id, participantIds: [team.players[0]!.id, 'pl_ghost' as Player['id']] });
 
     await renderEditor(s.id);
     expect(await screen.findByText('1/1명')).toBeInTheDocument();
+  });
+
+  // ── 팀 배선 (PLAN-TEAM 결정 11) ──────────────────────────────────────────────────────────
+  it('팀이 하나면 자동으로 골라 저장하고, 그 팀의 명단을 읽는다', async () => {
+    const team = await seedTeam('유일 팀', [['혼자 선수']]);
+    const s = await createSession({ title: '자동 선택 세션' });
+    expect(s.teamId).toBeUndefined();
+    await renderEditor(s.id);
+
+    // ★ 화면 표시가 아니라 **저장본**을 본다 — "자동 선택" 은 고르기가 아니라 저장 행위다.
+    await waitFor(async () => {
+      const saved = await getSession(s.id);
+      expect(saved?.session.teamId).toBe(team.id);
+    });
+    expect(await screen.findByRole('checkbox', { name: /혼자 선수/ })).toBeInTheDocument();
+  });
+
+  it('팀이 여럿이면 자동 선택하지 않고, 고른 팀의 명단만 체크리스트에 뜬다', async () => {
+    const a = await seedTeam('가 팀', [['가팀 선수']]);
+    const b = await seedTeam('나 팀', [['나팀 선수']]);
+    const s = await createSession({ title: '팀 선택 세션' });
+    await renderEditor(s.id);
+    const user = userEvent.setup();
+
+    const select = await screen.findByLabelText('팀');
+    expect((select as HTMLSelectElement).value).toBe(''); // 둘이면 자동 선택 없음
+    expect(screen.queryByRole('checkbox', { name: /가팀 선수/ })).toBeNull();
+    expect(await getSession(s.id).then((r) => r?.session.teamId)).toBeUndefined();
+
+    await user.selectOptions(select, a.id);
+    expect(await screen.findByRole('checkbox', { name: /가팀 선수/ })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /나팀 선수/ })).toBeNull();
+
+    await user.selectOptions(select, b.id);
+    expect(await screen.findByRole('checkbox', { name: /나팀 선수/ })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /가팀 선수/ })).toBeNull();
+    await waitFor(async () => {
+      const saved = await getSession(s.id);
+      expect(saved?.session.teamId).toBe(b.id);
+    });
+  });
+
+  it('팀이 0개면 체크리스트 대신 [팀 열기] 로 가는 문을 낸다', async () => {
+    const s = await createSession({ title: '팀 없는 세션' });
+    const nav = await renderEditor(s.id);
+    expect(await screen.findByText(/\[팀\] 에서 먼저 명단을 만드세요/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('팀')).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: '팀 열기' }));
+    expect(nav.openTeam).toHaveBeenCalled();
+  });
+
+  it('지목한 팀이 지워져도 세션은 열리고, 드롭다운에 «지워진 팀» 자리가 남는다', async () => {
+    const s = await createSession({ title: '고아 세션' });
+    // 팀 하나는 살아 있어야 «팀이 0개» 분기가 아니라 «지목한 팀만 없음» 분기가 된다.
+    await seedTeam('살아있는 팀', [['남은 선수']]);
+    await putSession({ ...s, teamId: 'tm_ghost' as TeamId });
+
+    await renderEditor(s.id);
+    const select = (await screen.findByLabelText('팀')) as HTMLSelectElement;
+    expect(select.value).toBe('tm_ghost'); // «팀 미지정» 으로 미끄러지지 않는다
+    expect(within(select).getByRole('option', { name: '지워진 팀' })).toBeInTheDocument();
+    expect(screen.getByText(/이 세션이 가리키던 팀이 없습니다/)).toBeInTheDocument();
+    // 자동 선택이 끼어들어 저장본을 갈아치우지 않는다(팀이 1개여도 teamId 가 이미 있으므로).
+    expect(await getSession(s.id).then((r) => r?.session.teamId)).toBe('tm_ghost');
   });
 
   it('[세션 시연 시작]이 nav.presentSession 으로 나가고, 없는 세션 주소는 빈 상태를 그린다', async () => {

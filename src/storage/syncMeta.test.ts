@@ -48,6 +48,15 @@ describe('syncMeta — 문서행·톰스톤·기기행 CRUD', () => {
     expect(await getSyncDocRow('drill', id)).toBeUndefined();
   });
 
+  it('팀 행도 키 파싱을 되돌아온다 — parseKey 의 종류 목록에서 빠지면 목록에서 조용히 사라진다', async () => {
+    // ⚠️ 이 행이 목록에서 빠지면 엔진은 «한 번도 맞춘 적 없는 팀» 으로 보고 매 패스 다시 올린다
+    //    (getSyncDocRow 는 키로 직접 읽으니 멀쩡해서, 이 사실은 list 로만 드러난다).
+    const id = newId('tm');
+    await putSyncDocRow('team', id, { lastSyncedAt: 222 });
+    expect((await listSyncDocRows()).find((r) => r.id === id)).toEqual({ type: 'team', id, row: { lastSyncedAt: 222 } });
+    await deleteSyncDocRow('team', id);
+  });
+
   it('clearSyncDocRows 는 문서행만 지운다 — 톰스톤은 남는다(계정 교체 시 삭제 사실은 여전히 참)', async () => {
     const dr = newId('dr');
     const se = newId('se');

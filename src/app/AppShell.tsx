@@ -47,7 +47,7 @@ import { ToastHost } from '../ui/ToastHost.tsx';
 import { IconPlus, IconArrowLeft } from '../ui/icons.tsx';
 import { useToast } from '../store/toast/ToastProvider.tsx';
 import { useLibrary } from '../store/library/LibraryProvider.tsx';
-import type { DrillId, SessionId } from '../core/ids.ts';
+import type { DrillId, SessionId, TeamId } from '../core/ids.ts';
 import type { HomeNav } from '../features/home/nav.ts';
 import type { LegalDoc } from '../features/settings/legalContent.ts';
 import { AppRail } from './AppRail.tsx';
@@ -91,6 +91,7 @@ import { PresentScreen } from '../features/present/PresentScreen.tsx';
 import { RulesScreen } from '../features/rules/RulesScreen.tsx';
 import { RULE_TOPIC_KEYS, ruleTopicsFor } from '../features/rules/ruleTopics.ts';
 import { SettingsScreen } from '../features/settings/SettingsScreen.tsx';
+import { TeamScreen } from '../features/team/TeamScreen.tsx';
 
 // ── 화면 간 라우팅 대상 (계약 밖 확장 — DESIGN.md 가 안 정한 부분을 메운다) ──────────────────
 /** `board` 자리에 무엇이 떠 있는지. 2026-08-09 재편으로 `editor` 화면 키가 없어지면서,
@@ -124,6 +125,15 @@ function presentFromNav(screen: Screen, target: NavTarget | undefined): PresentT
 function sessionEditFromNav(screen: Screen, target: NavTarget | undefined): SessionId | undefined {
   if (screen !== 'sessions' || target?.kind !== 'session') return undefined;
   return target.id as SessionId;
+}
+
+/** 팀 화면의 상세 대상(PLAN-TEAM 결정 16) — `/team/:id` 에서 파생한다. 세션의 그것과 같은 꼴
+ *  이지만 **화면을 갈지 않는다**: 목록과 상세를 `TeamScreen` 한 컴포넌트가 안는다(투어가 둘을
+ *  가로지르기 때문 — features/team/tutorialSteps.ts 머리말). 그래서 이 값은 화면 선택이 아니라
+ *  그 컴포넌트에 내려보내는 prop 이다. */
+function teamDetailFromNav(screen: Screen, target: NavTarget | undefined): TeamId | undefined {
+  if (screen !== 'team' || target?.kind !== 'team') return undefined;
+  return target.id as TeamId;
 }
 
 /** 규칙 화면의 주제 상세 대상(2026-08-22 주제별 재설계) — `/rules/:topic` 에서 파생한다.
@@ -239,6 +249,8 @@ function useHomeNavAdapter(nav: AppHistoryApi, openNewDrill: () => void): HomeNa
       presentSession: (id) => nav.go('present', { kind: 'session', id }),
       openRuleTopic: (key) => nav.go('rules', key ? { kind: 'rule', topic: key } : undefined),
       openLegal: (doc) => nav.go('settings', doc ? { kind: 'legal', doc } : undefined),
+      // 결정 12 — 팀에는 '보낸다' 계열 콜백이 없다. 여기 있는 것은 이동 하나뿐이다.
+      openTeam: (id) => nav.go('team', id ? { kind: 'team', id } : undefined),
     }),
     [nav, openNewDrill],
   );
@@ -289,6 +301,17 @@ function useStaticHeaderConfig(screen: Screen, nav: HomeNav, ruleTopic: string |
           },
         },
       };
+    case 'team':
+      // 목록·상세가 같은 화면 키다(위 teamDetailFromNav). 상세일 때 팀 **이름**을 제목으로
+      // 쓰지 않는 이유: 그 값은 IDB 를 읽어야 알 수 있고, 헤더가 비동기가 되면 화면 전환마다
+      // 한 프레임 빈 제목이 지나간다(useStaticHeaderConfig 머리말의 그 사고와 같은 부류).
+      // 되접기 버튼도 여기 두지 않는다 — 상세 본문 위에 [← 팀 목록] 이 서고, 그 자리는 팀이
+      // 로드됐는지 아는 쪽이다.
+      return {
+        title: SCREEN_TITLES[locale].team,
+        subtitle: SCREEN_SUBTITLES[locale].team,
+        align: 'center',
+      };
     case 'rules': {
       // 2026-09-03 기현 지시 — 목록은 화면 제목·부제를 **가운데**, 카드 안은 카드 주제목·부제목을
       // 가운데 + 왼쪽 끝 [← 목록으로]. 규칙 화면은 §8 표대로 app-shell 미의존이라 여기서 계산한다
@@ -328,6 +351,7 @@ function renderScreen(
   stage: StageTarget,
   nav: HomeNav,
   sessionEditId: SessionId | undefined,
+  teamDetailId: TeamId | undefined,
   ruleTopic: string | undefined,
   legalDoc: LegalDoc | undefined,
   shareLanding: ShareLanding | null,
@@ -341,6 +365,10 @@ function renderScreen(
     case 'sessions':
       // C6 — 드릴 자리와 같은 꼴: 대상이 있으면 전용 편집 화면, 없으면 목록.
       return sessionEditId ? <SessionEditorScreen nav={nav} sessionId={sessionEditId} /> : <SessionsScreen nav={nav} />;
+    case 'team':
+      // ⚠️ 세션과 달리 목록/상세로 컴포넌트를 가르지 않는다 — 한 컨테이너가 둘을 안는다
+      //    (TeamScreen.tsx 머리말: 투어가 목록에서 상세로 가로지른다).
+      return <TeamScreen nav={nav} teamId={teamDetailId} />;
     case 'present':
       return <PresentScreen />;
     case 'rules':
@@ -385,6 +413,7 @@ export function AppShell() {
   const stageTarget = useMemo(() => stageFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const presentTarget = useMemo(() => presentFromNav(nav.screen, nav.target), [nav.screen, nav.target]);
   const sessionEditId = sessionEditFromNav(nav.screen, nav.target);
+  const teamDetailId = teamDetailFromNav(nav.screen, nav.target);
   const ruleTopic = ruleTopicFromNav(nav.screen, nav.target);
   const legalDoc = legalDocFromNav(nav.screen, nav.target);
   // 결정 9 — `/s/:id` 착지. 열쇠는 이 훅이 주소에서 걷어 낸 뒤에야 값이 선다(위 ⚠️).
@@ -524,14 +553,19 @@ export function AppShell() {
   // 객체를 deps 에 두면 같은 화면 재방문에도 발표가 반복된다. 열쇠 문자열이 그 함정을 막는다.
   const stageKey = stageTarget.kind === 'drill' ? `drill:${stageTarget.drillId}` : 'board';
   const presentKey = presentTarget ? `${presentTarget.kind}:${presentTarget.kind === 'drill' ? presentTarget.drillId : presentTarget.sessionId}` : '';
+  // ⚠️ 2026-09-09(검수) — 팀 목록↔상세도 `legalDoc` 과 같은 자격으로 방아쇠에 든다. 둘은 같은
+  // 화면 키(`team`)의 같은 컴포넌트가 그리는데(TeamScreen 머리말) 본문이 통째로 갈리므로,
+  // 화면 키만 보면 카드 [열기] 를 눌러도 아무것도 안 읽히고 초점은 `<body>` 로 떨어진다
+  // (실측: 레일 [세션] 은 MAIN#main 에 초점이 갔는데 팀 [열기] 는 BODY 였다).
+  const teamKey = teamDetailId ?? '';
   //
   // ⚠️ 2026-09-04 (결정 7) — 발화 **시점**이 로더 뒤로 밀렸다. 위 계약(무엇을·언제 한 번)은
   // 그대로이고, 덮개가 걷힌 뒤로 미루는 이유는 `inert` 로 덮인 동안 `focus()` 가 무효라 초점이
   // body 로 떨어지기 때문이다(그러면 Tab 이 문서 처음부터 다시 시작한다).
   const announceScreenChange = useCallback(() => {
     document.getElementById('main')?.focus({ preventScroll: true });
-    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, locale, { titleOf }, legalDoc));
-  }, [nav.screen, stageTarget, presentTarget, locale, titleOf, legalDoc]);
+    liveRegion.say(announceFor(nav.screen, stageTarget, presentTarget, locale, { titleOf }, legalDoc, teamDetailId));
+  }, [nav.screen, stageTarget, presentTarget, locale, titleOf, legalDoc, teamDetailId]);
 
   const [announcePending, setAnnouncePending] = useState(false);
 
@@ -567,7 +601,7 @@ export function AppShell() {
     // **본문이 통째로 바뀌는** 전환이라 stageKey(board↔drill)와 같은 급이다. 화면 키만 보면
     // 링크를 눌러도 아무것도 안 읽히고 초점은 설정 본문에 남는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nav.screen, stageKey, presentKey, legalDoc]);
+  }, [nav.screen, stageKey, presentKey, legalDoc, teamKey]);
 
   useEffect(() => {
     if (!announcePending || loader.visible) return;
@@ -628,7 +662,7 @@ export function AppShell() {
                     inert={loader.visible || undefined}
                   >
                     {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
-                    {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, ruleTopic, legalDoc, shareLanding)}
+                    {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, teamDetailId, ruleTopic, legalDoc, shareLanding)}
                     {/* 조건부로 감싸지 않는다(`{visible && <…/>}` 금지) — 이 컴포넌트가 퇴장
                         transition 을 스스로 지고 끝난 뒤에야 null 이 된다(결정 16). 한 번도
                         visible 이 아니었으면 처음부터 null 이라 0ms 환경에서 DOM 이 안 생긴다.

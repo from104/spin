@@ -23,6 +23,7 @@ function makeNav(onOpenRuleTopic: (key?: string) => void): HomeNav {
     presentSession: vi.fn(),
     openRuleTopic: onOpenRuleTopic,
     openLegal: vi.fn(),
+    openTeam: vi.fn(),
   };
 }
 

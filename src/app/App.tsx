@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { cues } from '../ui/cues.ts';
 import { resolveDrillRepo } from '../storage/drillRepo.ts';
 import { seedDrillsOnce } from '../storage/seed.ts';
+import { migrateRosterToTeamOnce } from '../storage/rosterMigration.ts';
 import { createBrowserRouter, createHashRouter, RouterProvider } from 'react-router';
 import { legacyHashPath, splitLocalePrefix } from './localePrefix.ts';
 import { SettingsProvider, useSettingsActions, useSettingsState } from '../store/settings/SettingsProvider.tsx';
@@ -118,6 +119,41 @@ export function SeedDrills() {
   return null;
 }
 
+/** 옛 단일 명단 → 팀 하나 이주([팀] 메뉴, 2026-09-09 · PLAN-TEAM.md 결정 3). `SeedDrills` 와
+ *  같은 자리·같은 모양이다 — 아무것도 안 그리고 부팅 부작용 하나를 배선하는 조각.
+ *
+ *  **시드 다음이다.** 둘 다 IDB 를 여는 첫 쓰기인데, 시드가 먼저 서야 첫 방문자가 «드릴이
+ *  하나도 없는 화면»을 스치지 않는다. 이주는 옛 사용자에게만 일이 있고(새 기기는 roster 가
+ *  비어 있어 즉시 'empty-roster' 로 끝난다) 화면에 나오는 것도 [팀] 화면뿐이라 급하지 않다.
+ *  두 효과는 서로를 기다리지 않는다 — 만지는 스토어가 다르다(drills / teams·meta).
+ *
+ *  **ref 가드는 StrictMode 때문이다**(SeedDrills 와 같은 이유). 실패하면 가드를 되돌려 다음
+ *  기동이 다시 시도한다 — 도장은 성공한 뒤에만 찍히므로(rosterMigration) 재시도가 안전하다.
+ *  로케일을 ref 로 읽는 이유도 같다: `/en/…` 첫 방문에서 `LocaleFromUrl` 이 같은 커밋의
+ *  effect 로 언어를 바꾸므로, 만드는 팀의 기본 이름이 «내 팀» 으로 굳으면 안 된다. */
+export function MigrateRosterToTeam() {
+  const locale = useLocale();
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    void (async () => {
+      try {
+        await migrateRosterToTeamOnce({ locale: localeRef.current });
+      } catch {
+        // IDB 열화·쿼터 초과. 도장을 안 찍었으니 다음 실행에서 다시 시도한다 — 명단 이주가
+        // 늦는다고 앱이 못 뜰 이유는 없다(SeedDrills 의 catch 와 같은 판단).
+        startedRef.current = false;
+      }
+    })();
+  }, []);
+
+  return null;
+}
+
 /** C4(react-router 도입) — **스플랫 단일 라우트**다. 경로 매칭은 routes.ts 의 parsePath 가
  *  하고(AppShell 의 화면 스위치가 그 결과를 읽는다), 라우터는 히스토리·URL·location.state 를
  *  진다. 중첩 라우트가 0 인 앱이라(레일+헤더는 화면이 아니라 크롬이다) Outlet 계층을 세우면
@@ -186,6 +222,7 @@ export default function App() {
       <LocaleEffects />
       <LibraryProvider>
         <SeedDrills />
+        <MigrateRosterToTeam />
         <SyncEffects />
         <ToastProvider>
           <RouterProvider router={router} />

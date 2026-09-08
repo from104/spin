@@ -1,6 +1,30 @@
-// 3.-2 §5.2 — 좁은 창(`useIsNarrow`)에서 84px 앱 레일이 접혀 들어가는 자리. **헤더 좌측 3칸
-// 세그먼트**다. 폭 예산 117 중 84 가 이 한 행이라, 이걸 안 걷으면 §5.4 의 '남는 폭'이 172 →
+// 3.-2 §5.2 — 좁은 창(`useIsNarrow`)에서 84px 앱 레일이 접혀 들어가는 자리. **헤더 좌측
+// 세그먼트**다.
+//
+// ── ⚠️ 2026-09-09: 이 머리말이 «3칸» 이라 적고 있던 것을 고친다 ─────────────────────────
+// 칸 수는 3(원설계) → 5(세션·규칙 합류) → **6**(팀 합류, PLAN-TEAM 결정 16)으로 늘었고, 앞으로도
+// 는다. 개수를 여기 적어 두는 것이 드리프트의 원인이었으므로 이 파일은 더 이상 세지 않는다 —
+// 정본은 `RAIL_ITEMS`(screens.ts) 하나이고 이 컴포넌트는 그것을 그대로 훑는다. 아래 본문 주석에
+// 남은 "3항목" 표현도 같은 성격의 사고 기록이다.
+// ⚠️ 칸이 늘 때마다 **좁은 창 헤더의 가로 예산**이 `--hit`(44 · 큰 터치 56) 만큼 더 든다 —
+//    jsdom 이 못 재는 값이라 실기에서 본다. 폭 예산 117 중 84 가 이 한 행이라, 이걸 안 걷으면 §5.4 의 '남는 폭'이 172 →
 // 88 로 줄어 `--hit` 56 을 켤 때 트레이가 요구하는 117 을 못 댄다.
+//
+// ── ⚠️ 2026-09-09: 위 «실기에서 본다» 로는 부족했다 — 6칸째에서 실제로 넘쳤다 ──────────────
+// 헤드리스 실측(검수): ko/360 에서 [설정]이, en/412 에서 [Rules]·[Settings]가, ja/360 에서 세
+// 칸이 화면 밖으로 밀려났는데 `document.body.scrollWidth === innerWidth` 라 **가로 스크롤도
+// 없었다** — 밀려난 칸은 손으로 닿을 수 없었다(elementFromPoint 로 확인). [설정]이 닿지 않으면
+// 그 기기에서 동기화·백업·언어로 가는 유일한 문이 닫힌다(AGENTS §1.7 «좁은 창에서 기능이
+// 사라지면 안 된다»).
+// 고친 방법은 «칸을 줄이기» 가 아니라 «넘침을 안전하게 만들기» 다: 아래 nav 가 **가로 스크롤
+// 컨테이너**이고(스크롤바는 숨긴다 — styles/appShell.css 의 `.spin-nav-seg`), 바깥 div 는
+// `flex:'none'` 대신 줄어들 수 있게 뒀다. 칸 자체는 `--hit` 를 그대로 지킨다 — 표적을 줄여
+// 맞추면 접근성이 대가를 치른다.
+// 라벨을 접어 아이콘만 남기는 안은 **채택하지 않았다**: ko/360 기준 라벨을 다 지워도 아이콘
+// 6칸(274px)이 남는 예산(300px)에 겨우 들 뿐이고 `--hit` 56(큰 터치)에서는 346 > 300 으로
+// 어차피 넘친다(navChrome.ts 의 `navSegmentMinWidthPx`·`navSegmentWidthBudgetPx` — 그 산술을
+// AppNavSegment.test.tsx 가 지킨다). 어느 쪽이든 스크롤이 있어야 하므로, 라벨을 지워 이름을
+// 잃는 대가를 치를 이유가 없다.
 //
 // ⚠️ **판 위에 오버레이로 얹지 않는다.** 좌측에 뜨는 오버레이는 `edgePanBandPx = 56` 및 2.6 의
 // 마진 띠 팬과 같은 픽셀을 두고 다툰다 — 판 가장자리를 잡아 밀려던 손이 내비를 누른다.
@@ -32,7 +56,9 @@ export function AppNavSegment({ active }: { active?: RailKey } = {}) {
   const t = useT();
 
   return (
-    <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+    // ★ `flex:'none'` 이 아니다(위 머리말) — 줄어들 수 있어야 nav 의 가로 스크롤이 실제로 걸린다.
+    //   `minWidth:0` 이 없으면 flex 항목은 내용의 min-content 밑으로 안 줄어 헤더를 그대로 민다.
+    <div style={{ flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
       {/* 세로 여백도 테두리도 두지 않는다 — 칸 높이(--hit)가 그대로 세그먼트 높이여야
           헤더 52 안에 선다(navChrome.ts 의 headerContentMaxPx). */}
       {/* 앱 아이콘 — **헤더 맨 왼쪽**이다(기현 지시 2026-08-14: *"좁은 창 헤더에서도 왼쪽 상단에
@@ -50,7 +76,14 @@ export function AppNavSegment({ active }: { active?: RailKey } = {}) {
         height={28}
         style={{ display: 'block', flex: 'none', marginRight: '0.125rem' }}
       />
-      <nav aria-label={t('app.nav.mainMenu')} style={{ display: 'flex', alignItems: 'center', gap: '0.125rem' }}>
+      <nav
+        aria-label={t('app.nav.mainMenu')}
+        className="spin-nav-seg"
+        // 넘치면 **스크롤로 닿는다**(머리말 2026-09-09). `scrollbarWidth:'none'` 은 파이어폭스,
+        // 웹킷은 클래스 쪽 `::-webkit-scrollbar` 가 받는다 — 헤더 48 안에 스크롤바가 서면
+        // 세로 예산이 깨진다.
+        style={{ display: 'flex', alignItems: 'center', gap: '0.125rem', minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none' }}
+      >
         {RAIL_ITEMS.map((key) => {
           const Icon = RAIL_ICONS[key];
           const active = activeKey === key;

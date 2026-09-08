@@ -38,8 +38,10 @@ import {
 } from '../../model/session.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { newId } from '../../core/ids.ts';
-import { loadRoster } from '../../storage/rosterRepo.ts';
-import type { Player, Roster } from '../../model/roster.ts';
+import { listTeams } from '../../storage/teamRepo.ts';
+import type { Team } from '../../model/team.ts';
+import type { TeamId } from '../../core/ids.ts';
+import type { Player } from '../../model/roster.ts';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
 import type { HomeNav } from '../home/nav.ts';
@@ -248,8 +250,8 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
 
         <div style={{ height: 1, background: 'var(--border)' }} />
 
-        {/* ── ①b 참가자 (C8 — 로스터 체크. 명단의 주인은 설정 > 선수 명단) ────────── */}
-        <ParticipantChecklist session={session} onSave={(next) => void save(next)} />
+        {/* ── ①b 참가자 (C8 — 명단의 주인은 [팀] 문서. 2026-09-09 PLAN-TEAM 결정 11) ── */}
+        <ParticipantChecklist session={session} onSave={(next) => void save(next)} onOpenTeam={() => nav.openTeam()} />
 
         <div style={{ height: 1, background: 'var(--border)' }} />
 
@@ -312,21 +314,55 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
   );
 }
 
-// ── 참가자 체크리스트 (C8) ──────────────────────────────────────────────────────────────────
-// 명단은 설정 > 선수 명단이 주인이고, 여기는 **읽고 체크만** 한다. participantIds 는 세션 v2
-// 의 선택 필드 — 아무도 체크 안 하면 키를 지운다(미지정 = 키 없음 교리).
-function ParticipantChecklist({ session, onSave }: { session: TrainingSession; onSave(next: TrainingSession): void }) {
-  const [roster, setRoster] = useState<Roster | null>(null);
+// ── 참가자 체크리스트 (C8 · PLAN-TEAM 결정 11) ───────────────────────────────────────────────
+// 옛 머리말: *"명단은 설정 > 선수 명단이 주인이고, 여기는 읽고 체크만 한다."*
+// ── ⚠️ 2026-09-09: 위 문단의 **전제(전역 명단 한 벌)가 죽었다** ──────────────────────────────
+// 명단은 팀 문서 안으로 들어갔고(PLAN-TEAM 결정 1·3) 설정의 [선수 명단] 섹션은 철거됐다(결정 21).
+// 그래서 이 위젯은 «어느 팀의 명단인가» 를 먼저 물어야 한다: `session.teamId` 가 있으면 그 팀,
+// 없으면 팀 드롭다운(팀이 **1개면 자동으로 골라 저장**한다 — 팀 하나뿐인 사람에게 고르라고
+// 묻는 것은 선택이 아니라 통행세다). 팀이 0개면 [팀] 으로 가는 문만 낸다.
+// 바뀌지 않은 것 둘: ① 여기서 선수를 만들지 않는다(읽고 체크만) ② `participantIds` 는 아무도
+// 안 체크하면 **키째** 지운다(미지정 = 키 없음 교리).
+function ParticipantChecklist({
+  session,
+  onSave,
+  onOpenTeam,
+}: {
+  session: TrainingSession;
+  onSave(next: TrainingSession): void;
+  onOpenTeam(): void;
+}) {
+  const [teams, setTeams] = useState<Team[] | null>(null);
   const t = useT();
   useEffect(() => {
     let cancelled = false;
-    void loadRoster().then((r) => {
-      if (!cancelled) setRoster(r);
+    void listTeams().then((list) => {
+      if (!cancelled) setTeams(list);
     });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // 팀이 하나뿐이면 자동 선택하고 **저장까지** 한다(결정 11). ref 로 한 번만 쏘는 이유:
+  // onSave 는 비동기 저장이라 다음 렌더까지 session.teamId 가 아직 없고, 그 사이 다른 이유로
+  // 리렌더가 나면 같은 저장이 두 번 날아간다.
+  const autoPickedRef = useRef(false);
+  useEffect(() => {
+    if (autoPickedRef.current) return;
+    if (!teams || teams.length !== 1) return;
+    if (session.teamId !== undefined) return;
+    autoPickedRef.current = true;
+    onSave({ ...session, teamId: teams[0]!.id });
+  }, [teams, session, onSave]);
+
+  const team = teams?.find((tm) => tm.id === session.teamId);
+  // 지목한 팀이 사라진 경우 — participantIds 의 유령 id 와 같은 교리로 **조용히 살린다**:
+  // 세션을 고장난 것으로 만들지 않고, 드롭다운에 «지워진 팀» 자리를 남겨 다시 고르게 한다.
+  const teamMissing = session.teamId !== undefined && teams !== null && team === undefined;
+  // active === false 는 «명단에서 감춤» 이다(결정 6). 감춘 선수가 과거에 체크돼 있었다면 그 id 는
+  // participantIds 에 남지만 여기 안 뜬다 — 지워진 선수와 같은 취급이다.
+  const players: Player[] = team ? team.players.filter((p) => p.active !== false) : [];
 
   const checked = new Set(session.participantIds ?? []);
   const toggle = (id: Player['id']) => {
@@ -336,32 +372,68 @@ function ParticipantChecklist({ session, onSave }: { session: TrainingSession; o
     const ids = [...next];
     onSave(ids.length > 0 ? { ...session, participantIds: ids } : omit(session, 'participantIds'));
   };
+  const pickTeam = (v: string) => {
+    if (v === session.teamId) return;
+    // ⚠️ 팀을 바꿔도 participantIds 는 **건드리지 않는다.** 체크는 «누가 왔었나» 라는 과거
+    // 기록이고, 팀 지목을 고쳤다고 그 기록을 지울 권한은 이 위젯에 없다. 다른 팀의 id 는
+    // 그냥 안 보일 뿐이다(지워진 선수와 같은 취급).
+    onSave(v === '' ? omit(session, 'teamId') : { ...session, teamId: v as TeamId });
+  };
 
   return (
     <section data-tut="sessionEditor-participants" aria-label={t('participantChecklist.sectionLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <h3 style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--faint-text)' }}>{t('participantChecklist.sectionLabel')}</h3>
-        {roster && roster.players.length > 0 && (
+        {players.length > 0 && (
           <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text)' }}>
             {/* checked.size 가 아니라 현재 명단에 실재하는 인원만 센다 — 체크된 뒤 명단에서
                 지워진 선수의 id 는 participantIds 에 남을 수 있고(정상, 과거 기록이다), 그걸
                 그대로 세면 "3/2명" 처럼 분모보다 큰 분자가 나온다. */}
-            {t('participantChecklist.countSuffix', { checked: roster.players.filter((p) => checked.has(p.id)).length, total: roster.players.length })}
-            {/* PF2 는 경기에서 동시 출전 최대 2명(FIPFA) — 참가는 제한하지 않고 셈만 보여준다. */}
+            {t('participantChecklist.countSuffix', { checked: players.filter((p) => checked.has(p.id)).length, total: players.length })}
+            {/* PF2 는 한 경기에 2명을 넘길 수 없다(FIPFA R7) — 참가는 제한하지 않고 셈만 보여준다. */}
             {(() => {
-              const pf2 = roster.players.filter((p) => checked.has(p.id) && p.klass === 'PF2').length;
+              const pf2 = players.filter((p) => checked.has(p.id) && p.klass === 'PF2').length;
               return pf2 > 0 ? t('participantChecklist.pf2Suffix', { count: pf2 }) : '';
             })()}
           </span>
         )}
       </div>
-      {!roster ? (
+
+      {teams !== null && teams.length > 0 && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8125rem', color: 'var(--faint-text)', fontWeight: 600 }}>
+          <span style={{ flex: 'none' }}>{t('sessionEditor.team.label')}</span>
+          <select value={session.teamId ?? ''} onChange={(e) => pickTeam(e.target.value)} style={{ ...inputStyle, width: 'auto', minWidth: 160, fontWeight: 600 }}>
+            <option value="">{t('sessionEditor.team.unset')}</option>
+            {/* 사라진 팀 자리를 남긴다 — 이 항목이 없으면 select 가 «팀 미지정» 을 가리켜
+                실제 저장값과 화면이 어긋난다. */}
+            {teamMissing && <option value={session.teamId}>{t('sessionEditor.team.deleted')}</option>}
+            {teams.map((tm) => (
+              <option key={tm.id} value={tm.id}>
+                {tm.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {teams === null ? (
         <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('common.loading')}</p>
-      ) : roster.players.length === 0 ? (
+      ) : teams.length === 0 ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('sessionEditor.team.noTeams')}</p>
+          <Button variant="secondary" onClick={onOpenTeam}>
+            {t('sessionEditor.team.openButton')}
+          </Button>
+        </div>
+      ) : teamMissing ? (
+        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('sessionEditor.team.deletedNote')}</p>
+      ) : team === undefined ? (
+        <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('sessionEditor.team.pickPrompt')}</p>
+      ) : players.length === 0 ? (
         <p style={{ fontSize: '0.8125rem', color: 'var(--faint-text)' }}>{t('participantChecklist.empty')}</p>
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {roster.players.map((p) => (
+          {players.map((p) => (
             <label
               key={p.id}
               style={{

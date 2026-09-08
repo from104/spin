@@ -16,8 +16,14 @@
 import { getDB, beginWrite, endWrite, toStorageError, type MetaRecord } from './db.ts';
 
 /** 동기화 대상 문서 종류. prefs·board 는 v1 범위 밖이다(수정시각이 없어 최신 승 판정 불가 —
- *  계획서 결정 6). roster 는 단일 문서라 id 를 'roster' 하나로 고정해 쓴다. */
-export type SyncDocType = 'drill' | 'session' | 'roster';
+ *  계획서 결정 6). roster 는 단일 문서라 id 를 'roster' 하나로 고정해 쓴다.
+ *
+ *  ── ⚠️ 2026-09-09: 위 «명단은 단일 문서» 전제는 [팀] 메뉴(PLAN-TEAM.md 결정 1·2·14)로
+ *  뒤집혔다. 명단은 이제 팀 문서 안에 살고, 'team' 은 드릴·세션과 같은 **문서당 id** 종류다
+ *  (파일명 `<tm_id>.json`). 'roster' 는 지우지 않고 읽기 전용으로 남긴다 — 옛 버전 기기와 옛
+ *  백업이 아직 그 문서를 쓰고 있어서, 여기서 종류를 빼면 그쪽 동기화가 조용히 끊긴다
+ *  (결정 3). 위 문장은 그 잔류분에 대해서만 아직 참이다. ── */
+export type SyncDocType = 'drill' | 'session' | 'roster' | 'team';
 
 export interface SyncDocRow {
   /** 이 문서를 마지막으로 원격과 맞춘 시각(= 그 시점의 updatedAt). */
@@ -65,7 +71,7 @@ function parseKey(prefix: string, key: string): { type: SyncDocType; id: string 
   const cut = rest.indexOf('/');
   if (cut <= 0 || cut === rest.length - 1) return null;
   const type = rest.slice(0, cut);
-  if (type !== 'drill' && type !== 'session' && type !== 'roster') return null;
+  if (type !== 'drill' && type !== 'session' && type !== 'roster' && type !== 'team') return null;
   return { type, id: rest.slice(cut + 1) };
 }
 

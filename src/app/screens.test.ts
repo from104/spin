@@ -12,10 +12,10 @@ import {
 import type { Screen } from './screens.ts';
 import { SUPPORTED_LOCALES } from '../i18n/locale.ts';
 
-const EXPECTED: readonly Screen[] = ['board', 'drills', 'sessions', 'present', 'rules', 'settings'];
+const EXPECTED: readonly Screen[] = ['board', 'drills', 'sessions', 'team', 'present', 'rules', 'settings'];
 
 describe('screens', () => {
-  it('SCREEN_ORDER 는 재편 후 6화면(§6.8, C5 세션 합류 + 2026-08-21 규칙 합류)과 순서까지 정확히 같다', () => {
+  it('SCREEN_ORDER 는 재편 후 7화면(§6.8, C5 세션 · 2026-08-21 규칙 · 2026-09-09 팀 합류)과 순서까지 정확히 같다', () => {
     expect(SCREEN_ORDER).toEqual(EXPECTED);
   });
 
@@ -26,13 +26,13 @@ describe('screens', () => {
     expect(SCREEN_ORDER).not.toContain('editor');
   });
 
-  it('화면 키는 6개다 — C5 에서 sessions 가, 2026-08-21 에 rules 가 합류했다', () => {
+  it('화면 키는 7개다 — sessions(C5) · rules(2026-08-21) · team(2026-09-09) 이 차례로 합류했다', () => {
     // 옛 "키 4개 그대로" 단언의 후계. '화면 분리안'(board/edit 쪼개기) 금지는 위 'editor'
-    // 단언이 계속 지킨다 — 이번 증가는 분리가 아니라 승격이다(세션 탭 → 1급 화면, 신규 규칙 화면).
-    expect(SCREEN_ORDER).toHaveLength(6);
+    // 단언이 계속 지킨다 — 이번 증가도 분리가 아니라 합류다(팀은 드릴·세션과 같은 급의 독립 문서).
+    expect(SCREEN_ORDER).toHaveLength(7);
   });
 
-  it('SCREEN_TITLES/SCREEN_NAV_LABELS 는 세 언어 × 6화면 전부에 빈 문자열이 아닌 값을 갖는다(i18n C2)', () => {
+  it('SCREEN_TITLES/SCREEN_NAV_LABELS 는 세 언어 × 7화면 전부에 빈 문자열이 아닌 값을 갖는다(i18n C2)', () => {
     for (const locale of SUPPORTED_LOCALES) {
       for (const s of EXPECTED) {
         expect(SCREEN_TITLES[locale][s]).toBeTruthy();
@@ -44,9 +44,11 @@ describe('screens', () => {
   });
 });
 
-describe('레일 5단 (계획서 2.1 → C5 세션 합류 → 2026-08-21 규칙 합류)', () => {
-  it('RAIL_ITEMS 는 5개다 — present 는 화면 키로 남되 레일에서 빠진다', () => {
-    expect(RAIL_ITEMS).toEqual(['board', 'drills', 'sessions', 'rules', 'settings']);
+describe('레일 6단 (계획서 2.1 → C5 세션 → 2026-08-21 규칙 → 2026-09-09 팀)', () => {
+  it('RAIL_ITEMS 는 6개다 — present 는 화면 키로 남되 레일에서 빠진다', () => {
+    // ★ **순서까지** 잰다 — 팀은 세션과 규칙 **사이**다(기현 지시: *"세션 다음에"*). 집합만
+    //   재면 레일 끝에 붙어도 초록이고, 그러면 지시와 다른 자리에 서게 된다.
+    expect(RAIL_ITEMS).toEqual(['board', 'drills', 'sessions', 'team', 'rules', 'settings']);
     expect(RAIL_ITEMS).not.toContain('present');
     // 그러나 화면 키로는 살아 있다 — 레일에서 뺐다고 화면을 없앤 것이 아니다(§6.8 전체화면 계약).
     expect(SCREEN_ORDER).toContain('present');
@@ -59,7 +61,7 @@ describe('레일 5단 (계획서 2.1 → C5 세션 합류 → 2026-08-21 규칙 
     expect(railFor('present', 'board', null)).toBe('drills');
   });
 
-  it('SCREEN_TO_RAIL 은 6화면 전부를 RAIL_ITEMS 안의 항목으로 접는다', () => {
+  it('SCREEN_TO_RAIL 은 7화면 전부를 RAIL_ITEMS 안의 항목으로 접는다', () => {
     // 빠진 화면이 있으면 그 화면에서 레일이 통째로 비활성이 되고(aria-current 없음),
     // RAIL_ITEMS 밖 값을 가리키면 어느 버튼에도 안 붙어 같은 증상이 된다.
     for (const s of SCREEN_ORDER) {
@@ -86,7 +88,7 @@ describe('railFor — 화면 키만으로는 못 정하는 자리 (2026-08-14 �
   });
 
   it('나머지 화면은 stageKind 와 무관하다 — board 자리를 안 쓰기 때문', () => {
-    for (const s of ['drills', 'present', 'rules', 'settings'] as const) {
+    for (const s of ['drills', 'team', 'present', 'rules', 'settings'] as const) {
       expect(railFor(s, 'drill')).toBe(SCREEN_TO_RAIL[s]);
       expect(railFor(s, 'board')).toBe(SCREEN_TO_RAIL[s]);
     }

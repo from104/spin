@@ -15,6 +15,18 @@
 // 아예 시작하지 않고, 자동 시작이었다면 **플래그도 안 찍는다** — 다음에 데이터가 생겼을 때
 // 다시 시도할 기회를 남긴다.
 //
+// ── ⚠️ 2026-09-09: 위 필터는 «시작 때 한 번» 이 아니게 됐다(docs/PLAN-TEAM.md 결정 23) ──
+// 팀 투어는 **목록과 상세를 가로지른다**: step1·2 의 앵커는 목록에, step3~5 의 앵커는 상세에
+// 있고 상세는 step2([새 팀])를 눌러야 열린다. 필터가 시작 때 한 번뿐이면 그 세 단계는 영원히
+// 걸러진 채로 남아 투어가 «2/2» 로 끝난다 — 계획서가 ★실습으로 지목한 «선수 추가» 에 도달조차
+// 못 한다(2026-09-09 헤드리스 관문에서 실측: 말풍선이 실제로 «1/2 단계» 로 떴다).
+// 그래서 **실습형 단계를 떠날 때만** 뒤 단계의 앵커가 생기는지 몇 프레임 지켜보고, 실제로
+// 생긴 것만 뒤에 붙인다(`stepsAfter` + `LATE_STEP_MAX_FRAMES`). 빈 화면 가드 자체는 그대로다 —
+// 앵커가 끝내 안 나타나면 예전처럼 그 단계들 없이 끝난다.
+// ⚠️ 2026-09-09(검수 뒤 보탬): 꼬리는 **나눠서 도착할 수 있다.** 그래서 «앞에서부터 이어지는
+// 만큼만» 붙이고 남은 것이 있으면 계속 기다린다 — 뒤엣것 하나가 먼저 섰다고 대기를 끝내면 그
+// 사이의 단계가 영영 안 붙는다(아래 tick 의 §부분 도착).
+//
 // ── 자동 시작 게이트 (docs/PLAN-0-6-3-LOADER-NOTICE.md 결정 30·31) ──────────
 // 2026-09-04 에 화면 로더(오버레이)와 작은 화면 안내 모달이 들어오면서 첫 실행에 셋이 같은
 // 1~2초를 놓고 겹치게 됐다. 겹치면 두 가지가 실제로 깨진다: ① `TutorialOverlay` 는 z-index
@@ -32,6 +44,26 @@ import type { TutorialStep } from './types.ts';
 
 /** 자동 시작 전 "전부 찾았는가" 를 재시도할 상한 프레임 수 — 위 useEffect 주석 참고. */
 const AUTOSTART_MAX_FRAMES = 20;
+
+/** 실습형 단계를 떠난 뒤 «아직 안 나타난 앵커» 를 기다릴 상한 프레임 수(§뒤늦게 오는 단계).
+ *  AUTOSTART_MAX_FRAMES 보다 넉넉한 이유: 저 위의 재시도는 **같은 화면**이 한두 틱 늦게
+ *  그려지는 것을 기다리지만, 여기서 기다리는 것은 저장(IDB 쓰기)과 화면 전환이 끝나는 시간이다. */
+const LATE_STEP_MAX_FRAMES = 60;
+
+/** 그 순간 DOM 에 앵커가 있는가. `start()` 의 필터와 아래 «뒤늦게 오는 단계» 가 같은 판정을
+ *  써야 한다 — 두 곳이 갈라지면 시작 때 걸러진 단계가 다른 규칙으로 되살아난다. */
+function anchorPresent(s: TutorialStep): boolean {
+  return document.querySelector(`[data-tut="${s.target}"]`) !== null;
+}
+
+/** `visible` 의 마지막 단계보다 **뒤에** 있는 원본 단계들. 시작 시점에 앵커가 없어 걸러진
+ *  꼬리다(원본 배열의 객체를 그대로 담으므로 `indexOf` 로 자리를 찾는다). */
+function stepsAfter(all: readonly TutorialStep[], visible: readonly TutorialStep[]): TutorialStep[] {
+  const last = visible[visible.length - 1];
+  if (last === undefined) return [];
+  const at = all.indexOf(last);
+  return at < 0 ? [] : all.slice(at + 1);
+}
 
 /** 훅의 선택 인자. **객체 하나로 받는다** — 위치 인자 넷째 자리를 boolean·함수로 계속 늘리면
  *  호출부에서 무엇이 무엇인지 못 읽는다. 기존 3인자 호출은 그대로 산다. */
@@ -74,13 +106,20 @@ export function useTutorial(
   const [active, setActive] = useState(false);
   const [visibleSteps, setVisibleSteps] = useState<TutorialStep[]>([]);
   const [stepIndex, setStepIndex] = useState(0);
+  // 실습형 단계를 떠난 직후, 뒤 단계의 앵커가 나타나기를 기다리는 중인가(아래 §뒤늦게 오는 단계).
+  const [waitingLate, setWaitingLate] = useState(false);
+  /** 이번 대기에서 «다음 칸으로» 를 이미 밀었는가. 꼬리가 **여러 번 나눠 도착**할 수 있으므로
+   *  (아래 §부분 도착) 붙일 때마다 index 를 올리면 사용자가 안 누른 칸을 건너뛴다. */
+  const lateAdvancedRef = useRef(false);
   const startedAutoRef = useRef(false);
 
   const start = useCallback(() => {
-    const found = steps.filter((s) => document.querySelector(`[data-tut="${s.target}"]`) !== null);
+    const found = steps.filter(anchorPresent);
     if (found.length === 0) return;
     setVisibleSteps(found);
     setStepIndex(0);
+    setWaitingLate(false);
+    lateAdvancedRef.current = false;
     setActive(true);
   }, [steps]);
 
@@ -130,19 +169,76 @@ export function useTutorial(
 
   const skip = useCallback(() => {
     setActive(false);
+    setWaitingLate(false);
     markSeen();
   }, [markSeen]);
 
   const next = useCallback(() => {
-    setStepIndex((i) => {
-      if (i + 1 >= visibleSteps.length) {
+    if (stepIndex + 1 < visibleSteps.length) {
+      setStepIndex(stepIndex + 1);
+      return;
+    }
+    // ── 뒤늦게 오는 단계 (2026-09-09, docs/PLAN-TEAM.md 결정 23) ──────────────────────
+    // 여기는 «보이는» 마지막 단계다. 방금 떠나는 단계가 실습형(advanceOnClick)이면 그 조작이
+    // **다른 화면을 열었을 수 있고**, 시작 시점에 앵커가 없어 걸러졌던 뒤 단계가 그제야
+    // 생긴다 — 팀 투어가 정확히 그 모양이다(목록에서 [새 팀] 을 누르면 상세가 열리고 거기에
+    // 선수 추가·라인업·내보내기 앵커가 있다). 필터가 시작 때 한 번뿐이면 그 세 단계는
+    // 영원히 안 보이고 투어가 «2/2» 로 끝난다(2026-09-09 헤드리스 관문에서 실측).
+    // ⚠️ **없던 단계를 지어내지 않는다.** 아래 이펙트는 앵커가 실제로 나타난 단계만 붙인다 —
+    // 빈 서랍(드릴 0개)의 투어는 여전히 그 단계들 없이 끝난다(§E 빈 화면 가드 그대로).
+    const leaving = visibleSteps[stepIndex];
+    if (leaving?.advanceOnClick === true && stepsAfter(steps, visibleSteps).length > 0) {
+      // ★ 기다리는 동안에도 플래그는 **지금** 찍는다. 실습형 조작이 화면을 갈아 치우면 이 훅이
+      // 통째로 언마운트돼 «끝났다» 를 적을 자리가 사라진다(드릴 목록 [새 드릴] → 편집기).
+      // 그러면 다음 방문에 같은 투어가 또 서는데, 사용자 입장에서는 이미 끝까지 누른 투어다.
+      markSeen();
+      lateAdvancedRef.current = false;
+      setWaitingLate(true);
+      return;
+    }
+    setActive(false);
+    markSeen();
+  }, [stepIndex, visibleSteps, steps, markSeen]);
+
+  useEffect(() => {
+    if (!waitingLate || !active) return;
+    let frame = 0;
+    let id: number;
+    const tick = () => {
+      frame += 1;
+      const remaining = stepsAfter(steps, visibleSteps);
+      // ── 부분 도착 (⚠️ 2026-09-09 검수) ────────────────────────────────────────────
+      // 옛 코드는 `remaining.filter(anchorPresent)` 로 «보이는 것 전부» 를 한 번에 붙이고 즉시
+      // 대기를 끝냈다. 그러면 꼬리가 한 프레임에 다 서지 않는 기기에서 **뒤엣것이 먼저 서는**
+      // 순간 그 사이의 단계가 영영 안 붙는다(팀 투어의 꼬리는 셋이다 — 선수 추가·라인업·
+      // 내보내기). 그래서 **앞에서부터 끊기지 않고 이어지는 만큼만** 붙이고, 남은 것이 있으면
+      // 대기를 유지한다. 이 이펙트는 visibleSteps 가 바뀌며 다시 돌므로 다음 조각을 이어받는다.
+      let n = 0;
+      while (n < remaining.length && anchorPresent(remaining[n]!)) n += 1;
+      if (n > 0) {
+        setVisibleSteps((v) => [...v, ...remaining.slice(0, n)]);
+        if (!lateAdvancedRef.current) {
+          lateAdvancedRef.current = true;
+          setStepIndex((i) => i + 1);
+        }
+        if (n === remaining.length) setWaitingLate(false);
+        return;
+      }
+      if (frame >= LATE_STEP_MAX_FRAMES) {
+        // 안 나타났다 = 그 조작이 화면을 열지 않았다(또는 열 것이 없었다).
+        setWaitingLate(false);
+        // ★ 이미 몇 개를 붙였다면 투어를 **죽이지 않는다** — 사용자는 지금 그 단계를 보고 있다.
+        //   붙인 것이 하나도 없을 때만 원래대로 끝낸다(빈 화면 가드 그대로).
+        if (lateAdvancedRef.current) return;
         setActive(false);
         markSeen();
-        return i;
+        return;
       }
-      return i + 1;
-    });
-  }, [visibleSteps.length, markSeen]);
+      id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, [waitingLate, active, steps, visibleSteps, markSeen]);
 
   const prev = useCallback(() => {
     setStepIndex((i) => Math.max(0, i - 1));
@@ -182,6 +278,7 @@ export function useTutorial(
 
   const openHelp = useCallback(() => {
     setActive(false);
+    setWaitingLate(false);
     markSeen();
     onOpenHelp?.();
   }, [markSeen, onOpenHelp]);

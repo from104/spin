@@ -19,7 +19,7 @@ vi.mock('./helpContent.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./helpContent.ts')>();
   const empty = (key: HelpSectionKey) => ({ key, topics: [] });
   const content = {
-    ...(Object.fromEntries((['start', 'library', 'present', 'export', 'rules', 'settings'] as const).map((k) => [k, empty(k)])) as Record<HelpSectionKey, { key: HelpSectionKey; topics: [] }>),
+    ...(Object.fromEntries((['start', 'library', 'team', 'present', 'export', 'rules', 'settings'] as const).map((k) => [k, empty(k)])) as Record<HelpSectionKey, { key: HelpSectionKey; topics: [] }>),
     board: { key: 'board' as const, topics: [{ id: 'board.court', title: '코트 형태', blocks: [{ kind: 'p' as const, text: '전술판의 코트를 고르는 이야기.' }] }] },
     editor: { key: 'editor' as const, topics: [{ id: 'editor.tools', title: '도구 고르기', blocks: [{ kind: 'p' as const, text: '도구는 `V` 로 고르고 **연속 배치**도 된다.' }] }] },
     sessions: { key: 'sessions' as const, topics: [{ id: 'sessions.what', title: '세션이란', blocks: [{ kind: 'p' as const, text: '구획으로 나눠 편성한다.' }] }] },

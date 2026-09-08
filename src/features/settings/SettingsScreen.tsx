@@ -24,9 +24,7 @@ import { Modal } from '../../ui/Modal.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
-import { RosterSection } from './RosterSection.tsx';
 import { SyncSection } from './SyncSection.tsx';
-import { subscribeSyncEvents } from '../../storage/syncMeta.ts';
 import { Segmented } from '../../ui/Segmented.tsx';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
@@ -68,23 +66,18 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
   // 아는 사람만 복원할 수 있었다. 파괴적 동작이라 기본값은 반드시 꺼짐 — withPrefs 와 같은 규율.
   const [withBoard, setWithBoard] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  // 복원이 명단을 되살려도(report.roster === 'restored') RosterSection 은 마운트 시 1회만
-  // loadRoster 를 한다 — 그대로 두면 화면은 복원 전 명단을 계속 보여주고, 그 상태에서 선수
-  // 하나만 고쳐도 saveRoster(문서 통째 저장)가 stale 명단으로 방금 복원한 명단을 덮는다.
-  // key 를 바꿔 강제 재마운트시키는 것이 가장 단순한 재적재다 — prefs 재적재(위 setPrefs
-  // (loadPrefs()))와 같은 문제, 같은 해법이다.
-  const [rosterReloadToken, setRosterReloadToken] = useState(0);
-  // ⚠️ 위 사고는 **복원 말고 동기화에서도 난다**(2026-08-29 점검). 드라이브 패스가 다른 기기의
-  //    명단을 당겨 오면(pulled > 0) IDB 는 새 명단인데 이 화면은 마운트 시 읽은 옛 명단을 그대로
-  //    들고 있고, 그 상태에서 선수 하나만 고치면 saveRoster(문서 통째 저장)가 **방금 당겨온
-  //    명단을 옛것으로 덮는다.** 복원 쪽만 막고 이쪽은 비어 있었다 — 같은 해법(재마운트)을 쓴다.
+  // ── ⚠️ 2026-09-09: [선수 명단] 섹션이 이 화면에서 **철거됐다**(PLAN-TEAM 결정 21) ──────
+  // 아래에 있던 `rosterReloadToken` 은 그 섹션(RosterSection)이 마운트 시 1회만 loadRoster 하는
+  // 컴포넌트라서 필요했던 장치다. 복원(report.roster === 'restored')이나 드라이브 패스(pulled>0)로
+  // IDB 의 명단이 바뀌면 화면은 옛 명단을 들고 있었고, 그 상태에서 선수 하나만 고치면
+  // saveRoster(문서 통째 저장)가 방금 당겨온 명단을 옛것으로 덮었다(2026-08-29 점검). key 를
+  // 바꿔 강제 재마운트시키는 것이 그 해법이었다.
   //
-  //    'pass' 만 본다. put/delete 는 이 화면 자신의 저장이 낸 에코라, 그걸로 재마운트하면
-  //    선수 이름을 고치는 중에 화면이 스스로 갈아엎힌다(useSyncEngine 이 에코를 거르는 것과
-  //    같은 이유·같은 판정).
-  useEffect(() => subscribeSyncEvents((e) => {
-    if (e.op === 'pass' && e.pulled > 0) setRosterReloadToken((n) => n + 1);
-  }), []);
+  // **그 사고 자체가 사라졌다** — 명단은 이제 팀 문서 안에 살고, 팀 상세는 열 때마다
+  // `getTeam` 으로 읽으며 저장은 `putTeam` 한 곳이다. 이 화면은 더 이상 명단을 쓰지 않는다.
+  // 근거를 지우지 않고 남기는 이유는 AGENTS §2 — 다음 사람이 "왜 여기 재마운트 토큰이
+  // 있었지" 를 다시 파헤치지 않게 하기 위해서다. 옛 `roster` 문서는 읽기 전용으로 잔류한다
+  // (결정 3) — 새 UI 는 거기에 **쓰지 않는다**.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const restoreBtnRef = useRef<HTMLButtonElement | null>(null);
   const restoreDialogId = useId();
@@ -133,7 +126,6 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
       //   보여주고, 그 상태에서 스위치 하나만 건드려도 **방금 복원한 설정이 통째로 되돌아간다**
       //   (setPrefs 가 화면의 옛 prefs 위에 패치를 얹어 저장하기 때문).
       if (report.prefs === 'restored') setPrefs(loadPrefs());
-      if (report.roster === 'restored') setRosterReloadToken((n) => n + 1);
       toast.show(backupReportLine(report, locale));
     } catch (e) {
       toast.show(storageErrorText(e, locale, t('settings.data.readErrorFallback')));
@@ -236,8 +228,15 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
             새 판의 팀은 로케일 기본값으로 태어나고, 팀 **이름**은 드릴 편집 ⓘ [드릴 정보]
             시트에서 판마다 고친다(§0.5). 재발 가드는 settingsDescTruth.test.tsx. */}
 
-        <Section title={t('settings.roster.sectionTitle')} desc={t('settings.roster.sectionDesc')}>
-          <RosterSection key={rosterReloadToken} />
+        {/* 결정 21 — 섹션을 통째로 지우지 않고 **안내 한 줄로 바꾼다**. 두 곳에서 같은 명단을
+            고치면 이주(결정 3) 규칙이 깨지므로 편집 자리는 [팀] 하나여야 하지만, 익숙한 자리가
+            아무 말 없이 없어지면 사람은 "기능이 사라졌다" 로 읽는다(설정 화면 감사 2026-08-21
+            에서 유령 설정을 지울 때와 반대 방향의 판단이다 — 그때는 아무도 안 쓰던 것이었고,
+            이번 것은 매주 쓰던 것이다). */}
+        <Section title={t('settings.roster.sectionTitle')} desc={t('settings.roster.movedDesc')}>
+          <Button variant="secondary" onClick={() => nav.openTeam()}>
+            {t('settings.roster.openTeamButton')}
+          </Button>
         </Section>
 
         <Section title={t('settings.present.title')}>

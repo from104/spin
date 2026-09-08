@@ -124,10 +124,13 @@ export interface Preferences {
   helpWelcomeSeen?: boolean;
 }
 
-/** 튜토리얼이 있는 화면 7개. docs/PLAN-HELP-TUTORIAL.md §D 의 표와 순서를 맞춘다.
- *  'rules' 는 2026-08-21 규칙 화면 신설과 함께 합류했다 — 기존 옵셔널 맵(tutorialsSeen)의
- *  새 키일 뿐이라 스키마 버전은 그대로다(부재 = 미시청으로 자연 해석). */
-export const TUTORIAL_SCREEN_KEYS = ['library', 'sessions', 'editor', 'board', 'present', 'sessionEditor', 'rules'] as const;
+/** 튜토리얼이 있는 화면들. docs/PLAN-HELP-TUTORIAL.md §D 의 표와 순서를 맞춘다.
+ *  'rules' 는 2026-08-21 규칙 화면 신설과, 'team' 은 2026-09-09 [팀] 메뉴와 함께 합류했다 —
+ *  기존 옵셔널 맵(tutorialsSeen)의 새 키일 뿐이라 스키마 버전은 그대로다(부재 = 미시청으로
+ *  자연 해석).
+ *  ⚠️ 2026-09-09 — 여기 «7개» 라 적혀 있던 개수를 지운다. 같은 커밋의 navChrome.ts·
+ *  AppNavSegment.tsx 가 «3칸» 으로 낡아 있던 것과 같은 종류의 드리프트다: 정본은 이 배열이다. */
+export const TUTORIAL_SCREEN_KEYS = ['library', 'sessions', 'editor', 'board', 'present', 'sessionEditor', 'rules', 'team'] as const;
 export type TutorialScreenKey = (typeof TUTORIAL_SCREEN_KEYS)[number];
 
 /** 상수 대신 팩토리 — 공유 객체 유출 방지(호출자가 반환값을 변형해도 다음 호출엔 영향 없음). */

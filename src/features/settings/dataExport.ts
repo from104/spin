@@ -21,7 +21,7 @@ import { readTextFile } from '../../storage/files.ts';
 import type { Locale } from '../../i18n/locale.ts';
 import { translate } from '../../i18n/useT.ts';
 
-/** 이 화면이 아니라 **드릴 목록 화면**에서 여는 봉투들 → 각자의 안내 문구.
+/** 이 화면이 아니라 **다른 화면**에서 여는 봉투들 → 각자의 안내 문구.
  *
  *  반대 방향(목록 화면에 기기 이사 파일·설정 파일을 넣는 경우)은 `features/library/transfer.ts`
  *  가 이미 같은 방식으로 받아 준다 — 두 화면이 서로를 가리켜야 어느 쪽으로 잘못 들어와도
@@ -30,11 +30,17 @@ import { translate } from '../../i18n/useT.ts';
  *  ⚠️ 여기 빠진 종류는 restoreBackup 의 일반 거절('이 버전에서 지원하지 않는 파일 종류입니다')
  *  로 흘러간다. 그 문구는 **진짜 모르는 종류**(drillSet 등)에만 맞다 — 앱이 스스로 만들어 준
  *  파일에 그 말을 하면 사용자는 파일이 깨졌다고 믿는다(2026-08-26 실제 사고: 드릴 파일을 이
- *  화면에 넣었더니 '지원하지 않는 종류' 가 떴다. 파일은 멀쩡했고 열 자리만 달랐다). */
-const OPENS_ON_LIBRARY_SCREEN: Partial<Record<SpinFileKind, DictKey>> = {
+ *  화면에 넣었더니 '지원하지 않는 종류' 가 떴다. 파일은 멀쩡했고 열 자리만 달랐다).
+ *
+ *  ── ⚠️ 2026-09-09: 이름이 `OPENS_ON_LIBRARY_SCREEN` 에서 바뀌었다([팀] 메뉴, PLAN-TEAM.md
+ *  결정 13). 착지점이 [드릴 목록] 하나가 아니게 됐는데 이름이 «LIBRARY» 로 남으면, 다음 사람이
+ *  새 kind 를 여기 안 넣고 지나간다 — 그게 정확히 2026-08-26 사고의 모양이다(표가 있는데 항목이
+ *  빠져서 앱이 자기 파일에 «모른다» 고 말한 것). 이름이 표의 범위를 좁혀 말하지 않게 고친다. ── */
+const OPENS_ON_ANOTHER_SCREEN: Partial<Record<SpinFileKind, DictKey>> = {
   drill: 'settings.data.drillKindError',
   session: 'settings.data.sessionKindError',
   library: 'settings.data.libraryKindError',
+  team: 'settings.data.teamKindError', // → [팀] 화면의 [가져오기]
 };
 
 /** 파일 하나 → 복원 보고. 파싱 실패·kind 불일치는 StorageError 로 그대로 던진다(화면이 문구를
@@ -48,7 +54,7 @@ export async function restoreBackupFromFile(file: File, opts: RestoreBackupOptio
   //    자기 백업이 죽었다고 믿는다. a509d76 과 같은 수법이다: 공용 메시지
   //    (STORAGE_ERROR_MESSAGES.E_UNSUPPORTED_KIND)는 건드리지 않고 **이 화면에서만** kind 를
   //    특별대우한다. 진짜 모르는 kind(drillSet 등)는 그대로 restoreBackup 의 일반 문구를 받는다.
-  const elsewhere = OPENS_ON_LIBRARY_SCREEN[parsed.spin];
+  const elsewhere = OPENS_ON_ANOTHER_SCREEN[parsed.spin];
   if (elsewhere) {
     throw new StorageError('E_UNSUPPORTED_KIND', translate(locale, elsewhere), { localized: true });
   }
@@ -94,5 +100,17 @@ export function backupReportLine(r: BackupRestoreReport, locale: Locale = 'ko'):
           : r.roster === 'skipped'
             ? t('data.report.rosterKept')
             : '';
-  return `${t('data.report.drills', { written: r.drills.written.length, failed, skipped: r.drills.skipped.length })} · ${sessions} · ${prefs}${board}${roster}`;
+  // 팀([팀] 메뉴, 2026-09-09) — 드릴과 **같은 산식**이다: 손상 항목은 따로 세지 않고
+  // `파일에 있던 수 − (기록 + 건너뜀 + 실패)` 로 구한다(이 파일 머리말 §8 소유권). 파일에 팀이
+  // 0개면(구 백업·팀을 안 쓰는 사람) 줄을 통째로 뺀다 — roster 의 none-in-file 과 같은 판단이다.
+  const teamsBroken = r.teamsInFile - (r.teams.written.length + r.teams.skipped.length + r.teams.failed.length);
+  const teams =
+    r.teamsInFile > 0
+      ? t('data.report.teams', {
+          written: r.teams.written.length,
+          failed: teamsBroken + r.teams.failed.length,
+          skipped: r.teams.skipped.length,
+        })
+      : '';
+  return `${t('data.report.drills', { written: r.drills.written.length, failed, skipped: r.drills.skipped.length })} · ${sessions} · ${prefs}${board}${roster}${teams}`;
 }

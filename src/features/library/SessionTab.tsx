@@ -8,6 +8,7 @@
 import { useId, useRef, useState } from 'react';
 import { formatSessionWhen, pickNextSession } from '../../model/session.ts';
 import type { ResolvedSession } from '../../model/session.ts';
+import type { TeamId } from '../../core/ids.ts';
 import { drillTypeColor } from '../../core/colors.ts';
 import { IconPlay, IconPlus } from '../../ui/icons.tsx';
 import { Button } from '../../ui/Button.tsx';
@@ -33,9 +34,14 @@ export interface SessionTabProps {
    *  들어오는 자리다). */
   onImportLink?(): void;
   onCreate(): void;
+  /** 팀 약칭 칩(PLAN-TEAM 결정 11). id → 화면에 낼 짧은 이름(약칭이 있으면 약칭, 없으면 팀 이름).
+   *  **옵셔널이고, 지도에 없는 id 는 칩을 안 그린다** — 지워진 팀을 가리키는 세션도 목록에서는
+   *  아무 일 없이 그대로 뜬다(참가자 유령 id 와 같은 교리). 이 컴포넌트가 teamRepo 를 직접 읽지
+   *  않는 이유는 `onShareLink` 와 같다: 저장소를 읽는 일은 목록 **화면** 몫이다. */
+  teamLabels?: ReadonlyMap<TeamId, string>;
 }
 
-export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, onShareLink, onImportLink, onCreate }: SessionTabProps) {
+export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, onShareLink, onImportLink, onCreate, teamLabels }: SessionTabProps) {
   const t = useT();
   if (sessions.length === 0) {
     return (
@@ -83,6 +89,7 @@ export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, on
           onDelete={() => onDelete(s.session.id)}
           onExport={() => onExport(s.session.id)}
           onShareLink={onShareLink ? () => onShareLink(s.session.id) : undefined}
+          teamLabel={s.session.teamId !== undefined ? teamLabels?.get(s.session.teamId) : undefined}
         />
       ))}
     </div>
@@ -149,6 +156,7 @@ function SessionRow({
   onDelete,
   onExport,
   onShareLink,
+  teamLabel,
 }: {
   resolved: ResolvedSession;
   onOpen(): void;
@@ -156,6 +164,7 @@ function SessionRow({
   onDelete(): void;
   onExport(): void;
   onShareLink?: () => void;
+  teamLabel?: string;
 }) {
   const { session, items, totalMin } = resolved;
   const categories = Array.from(new Set(items.map((it) => it.categoryCache))).slice(0, MAX_DOTS);
@@ -194,6 +203,35 @@ function SessionRow({
                 <span key={c} style={{ width: 7, height: 7, borderRadius: '50%', background: drillTypeColor(c) }} />
               ))}
             </span>
+            {/* 팀 칩 — 회색 정보 칩이다(경고색 금지, PLAN-TEAM 결정 9 와 같은 결). 이름만으로는
+                "무엇의 이름인지" 를 모르므로 보조기술에는 «팀 …» 으로 읽어 준다.
+                ⚠️ 2026-09-09(검수) — 그 문장을 `aria-label` 로 걸었더니 **role 이 generic 인
+                `<span>`** 이라 브라우저·리더 조합에 따라 이름이 무시됐다(ARIA 에서 generic 은
+                author 가 이름을 붙일 수 있는 role 이 아니다). 그러면 «GVP» 만 홀로 읽혀 의도가
+                사라진다. 그래서 role 을 지어내지 않고 **sr-only 한 줄**로 읽어 준다 — 보이는
+                약칭은 aria-hidden 으로 덮어 같은 말이 두 번 읽히지 않게 한다. */}
+            {teamLabel !== undefined && (
+              <span
+                title={t('sessionTab.teamChipAriaLabel', { name: teamLabel })}
+                style={{
+                  flex: 'none',
+                  padding: '1px 7px',
+                  borderRadius: 999,
+                  border: '1px solid var(--border)',
+                  background: 'var(--elev)',
+                  color: 'var(--muted)',
+                  fontSize: '0.6875rem',
+                  fontWeight: 700,
+                  maxWidth: 120,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span className="sr-only">{t('sessionTab.teamChipAriaLabel', { name: teamLabel })}</span>
+                <span aria-hidden>{teamLabel}</span>
+              </span>
+            )}
           </div>
         </div>
         <div style={{ flex: 'none', fontSize: '0.78125rem', color: 'var(--muted)', fontWeight: 600 }}>

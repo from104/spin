@@ -1,6 +1,13 @@
 // 3.-2 §5.2 — 내비게이션 크롬의 치수와 항목 아이콘. **레일(넓은 창)과 헤더 좌측 세그먼트(좁은
-// 창)가 같은 3항목을 그린다**는 사실의 유일한 출처이자, 헤더가 세로 예산에서 쓰는 52px 을
+// 창)가 같은 항목을 그린다**는 사실의 유일한 출처이자, 헤더가 세로 예산에서 쓰는 52px 을
 // 계산으로 확인할 수 있게 하는 자리다.
+//
+// ── ⚠️ 2026-09-09: 위 문단과 아래 주석들이 말하던 «3항목» 은 오래전에 거짓이 됐다 ──────────
+// 3 → 5(2026-08-18 세션, 2026-08-21 규칙) → **6**(2026-09-09 팀, PLAN-TEAM 결정 16). 숫자를
+// 주석에 적어 둔 것이 드리프트의 원인이었으므로 여기서는 세지 않는다 — **항목의 정본은
+// `RAIL_ITEMS`(screens.ts) 하나**이고 이 파일의 표들은 그 키 전수를 `Record<RailKey, …>` 로
+// 받는다(빠뜨리면 컴파일 에러다). 아래 주석에 남은 "3항목/3칸" 표현은 그 시절 사고 기록으로
+// 남긴 것이지 현재 개수가 아니다.
 //
 // 왜 컴포넌트 파일 밖인가: trayMetrics.ts·bottomBarMetrics.ts 와 같은 이유다. (a) 컴포넌트
 // 파일에서 함수·상수를 내보내면 react-refresh 경고가 는다(AppHeader.tsx 가 이미 한 건 쓰고
@@ -10,22 +17,23 @@
 // court)까지 끌고 오는 모듈이라, AppHeader 가 그것을 통째로 지고 다니게 된다. 예산 행과의
 // 대조는 **테스트가** 양쪽을 각각 import 해서 한다(trayMetrics 가 간 길과 같다).
 import type { ComponentType } from 'react';
-import { IconBoard, IconLibrary, IconRules, IconSessions, IconSettings } from '../ui/icons.tsx';
+import { IconBoard, IconLibrary, IconRules, IconSessions, IconSettings, IconTeam } from '../ui/icons.tsx';
 import type { IconProps } from '../ui/icons.tsx';
 import type { NavTarget } from './useAppHistory.ts';
 import type { RailKey } from './screens.ts';
 
-/** 레일 3항목의 아이콘. 레일과 헤더 세그먼트가 **같은 그림**을 써야 좁은 창으로 넘어간 사용자가
+/** 레일 항목의 아이콘. 레일과 헤더 세그먼트가 **같은 그림**을 써야 좁은 창으로 넘어간 사용자가
  *  같은 것을 보고 있다고 알아본다 — 각자 고르면 조용히 갈라진다. */
 export const RAIL_ICONS: Record<RailKey, ComponentType<IconProps>> = {
   board: IconBoard,
   drills: IconLibrary,
   sessions: IconSessions,
+  team: IconTeam,
   rules: IconRules,
   settings: IconSettings,
 };
 
-/** 레일 3항목이 history 엔트리에 싣고 가는 대상. 아이콘과 같은 이유로 여기 한 곳에 둔다 —
+/** 레일 항목이 history 엔트리에 싣고 가는 대상. 아이콘과 같은 이유로 여기 한 곳에 둔다 —
  *  레일과 헤더 세그먼트가 각자 정하면 **좁은 창에서만 다르게 동작하는** 내비가 된다.
  *
  *  ⚠️ **[보드]는 `{ kind: 'board' }` 를 반드시 싣는다.** 2026-08-14 기현님 지시:
@@ -46,6 +54,9 @@ export const RAIL_NAV_TARGETS: Record<RailKey, NavTarget | undefined> = {
   board: { kind: 'board' },
   drills: undefined,
   sessions: undefined,
+  // 팀도 대상 없이 간다 — 레일에서 들어오면 **목록**이다(세션·규칙과 같다). 상세(`/team/<id>`)
+  // 는 카드를 눌러야 열린다.
+  team: undefined,
   rules: undefined,
   settings: undefined,
 };
@@ -81,3 +92,26 @@ export const navSegmentHeightPx = (hitPx: number): number => hitPx;
  *  (`CHROME_ROWS` 의 appHeader — wide 62 · narrow 52)이고, 테스트가 그 값을 먹여 준다. */
 export const headerContentMaxPx = (rowPx: number, narrow: boolean): number =>
   rowPx - (narrow ? HEADER_PAD_PX.narrow.y : HEADER_PAD_PX.wide.y) * 2;
+
+// ── 가로 예산 (2026-09-09 검수) ──────────────────────────────────────────────────────
+// 여기까지 이 파일에는 **세로 예산만** 있었다. 그 사이 칸은 3 → 6 으로 늘었고, 6칸째가 들어온
+// 커밋에서 좁은 창(360·412) 헤더의 마지막 칸들이 화면 밖으로 밀려났다 — 그런데 body 에 가로
+// 스크롤이 없어 **손이 닿지 않았다**(ja/360 에서는 [設定]이, en/412 에서는 [Rules]·[Settings]가).
+// [설정]이 닿지 않으면 그 기기에서 동기화·백업으로 가는 유일한 문이 닫힌다(AGENTS §1.7
+// «좁은 창에서 기능이 사라지면 안 된다»).
+//
+// 그래서 둘을 같이 둔다. (a) `AppNavSegment` 의 nav 를 가로 스크롤 컨테이너로 만들어 **넘쳐도
+// 닿게** 한다 — 라벨 폭은 언어마다 다르고 jsdom 이 못 재므로, «넘치는가» 를 계산으로 맞히려
+// 들지 않고 넘침 자체를 안전하게 만든다. (b) 아래 함수로 **라벨을 다 지웠을 때의 하한**을
+// 세어, 칸이 늘 때 그 하한이 가장 좁은 지원 폭을 넘는지 테스트가 알게 한다.
+
+/** 라벨을 전부 지우고 아이콘만 남겼을 때 세그먼트의 nav 가 요구하는 최소 폭.
+ *  칸은 곧 표적이라 `--hit` 밑으로 못 줄인다(기본 44 · 큰 터치 56) — 그것이 이 하한의 정체다.
+ *  `gapPx` 는 컴포넌트의 칸 사이 간격(0.125rem = 2px)이다. */
+export const navSegmentMinWidthPx = (hitPx: number, itemCount: number, gapPx = 2): number =>
+  itemCount * hitPx + Math.max(0, itemCount - 1) * gapPx;
+
+/** 가장 좁은 지원 폭(px)에서 헤더 좌측 세그먼트의 nav 에게 남는 가로 예산.
+ *  헤더 좌우 여백(narrow 12×2)과 앱 아이콘 한 벌(28 + marginRight 2 + 바깥 gap 6)을 뺀 값이다. */
+export const navSegmentWidthBudgetPx = (viewportPx: number): number =>
+  viewportPx - HEADER_PAD_PX.narrow.x * 2 - (28 + 2 + 6);

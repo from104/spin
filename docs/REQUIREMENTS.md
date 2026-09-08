@@ -226,15 +226,15 @@ viewBox 가 사방 12.5 px 씩 커졌다 — 마진은 코트를 줄이는 것�
 - **고대비 · 강제색(Windows 고대비) 대응** — `prefers-contrast` · `forced-colors`.
   팀 구분은 색 밖에도 있다(파선 테두리 · 등번호 잉크 뒤집기)
 
-### 7.1 화면 구조 — **5개 화면이 아니라 6개 화면 키 + 5단 레일이다**
+### 7.1 화면 구조 — **5개 화면이 아니라 7개 화면 키 + 6단 레일이다**
 
 옛 문장 *"5개 화면: 대문 / 목록 / 편집기 / 시연 / 설정"* 은 세 번의 재편으로 무효가 됐다.
 사실은 `src/app/screens.ts` 가 갖고 있다:
 
 | | 값 |
 |---|---|
-| 화면 키 (`Screen`) | `board` · `drills` · `sessions` · `present` · `rules` · `settings` — **6개** |
-| 레일 항목 (`RailKey`) | `board`(보드) · `drills`(드릴) · `sessions`(세션) · `rules`(규칙) · `settings`(설정) — **5개** |
+| 화면 키 (`Screen`) | `board` · `drills` · `sessions` · `team` · `present` · `rules` · `settings` — **7개** |
+| 레일 항목 (`RailKey`) | `board`(보드) · `drills`(드릴) · `sessions`(세션) · `team`(팀) · `rules`(규칙) · `settings`(설정) — **6개** |
 
 - **2026-08-09**: `editor` 를 화면 키에서 **없앴다**. 자유 전술판과 드릴 편집은 같은
   컴포넌트(`EditorWorkspace`)이고 둘 다 `board` 자리에 뜬다 — 무엇이 떠 있는지는 화면 키가
@@ -263,6 +263,13 @@ viewBox 가 사방 12.5 px 씩 커졌다 — 마진은 코트를 줄이는 것�
   `contested`(경합)는 `restarts` 로 흡수돼 폐기됐다 — 옛 딥링크 `/rules/contested` 는
   `routes.ts` 의 단방향 흡수 분기가 `restarts` 로 받는다. **콘텐츠 정본은
   `docs/PLAN-RULES-9CARDS.md`** 다.
+- **2026-09-09 (팀 메뉴 신설)**: `team` 이 **세션과 규칙 사이**에 합류했다(기현 지시: *"세션
+  다음에 «팀» 메뉴 신설"*). 화면 키 7개·레일 6칸이 됐다. 팀은 드릴·세션과 같은 급의 독립
+  문서(선수 명단·스태프·라인업)이고, `present` 와 달리 대상 없이도 온전한 목적지라 레일에
+  선다 — `rules` 가 합류할 때와 같은 자격이다. **세션과 다른 점 하나**: 목록(`/team`)과
+  상세(`/team/:id`)를 두 화면 컴포넌트로 가르지 않고 `TeamScreen` 하나가 안는다(투어가 목록에서
+  상세로 가로지른다 — `src/features/team/tutorialSteps.ts`). 정본은 `docs/PLAN-TEAM.md`.
+  팀은 **공유 링크로 나가지 않는다**(같은 문서 결정 12) — `robots.txt` 가 `/team` 을 막는다.
 - 옛 키(`home`/`library`) 관용 표(`LEGACY_SCREEN_KEYS`)는 라우터 도입으로 은퇴했다 — 진실이
   `history.state` 에서 URL 로 옮겨 갔다.
 - 좁은 창에서는 세로 레일이 **헤더 좌측 세그먼트**로 접힌다. 같은 항목·같은 아이콘이다.

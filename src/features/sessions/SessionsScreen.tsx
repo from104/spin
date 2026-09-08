@@ -6,13 +6,14 @@
 // 내비게이션·헤더 계약은 LibraryScreen 과 같다(§8): app-shell 을 import 하지 않고 이동은
 // HomeNav prop 하나로, 헤더는 app-shell 이 정적으로 꽂는다. `<main id="main" tabIndex={-1}>`
 // 도 §7.5a 대로 이 화면이 직접 렌더한다.
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { deleteSession as repoDeleteSession, restoreSession, getSession } from '../../storage/sessionRepo.ts';
 import type { TrainingSession } from '../../model/session.ts';
-import type { SessionId } from '../../core/ids.ts';
+import type { SessionId, TeamId } from '../../core/ids.ts';
+import { listTeams } from '../../storage/teamRepo.ts';
 import type { TutorialScreenKey } from '../../storage/prefs.ts';
 import { SessionTab } from '../library/SessionTab.tsx';
 import { ShareLinkModal } from '../library/ShareLinkModal.tsx';
@@ -62,6 +63,24 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
     }
     setPrefs({ tutorialsSeen: withTutorialUnseen(prefs.tutorialsSeen, screen) });
   };
+
+  // ── 팀 약칭 칩(PLAN-TEAM 결정 11) ───────────────────────────────────────────────────────
+  // 목록 **화면**이 저장소를 한 번 읽어 id → 짧은 이름 지도를 만들고, 표시 컴포넌트(SessionTab)
+  // 는 지도만 받는다(`onShareLink` 와 같은 결: 저장소를 읽는 일은 화면 몫).
+  // 팀을 `useLibrary` 에 얹지 않은 이유: 팀은 이 목록의 **본문이 아니라 곁다리 라벨**이라,
+  // 라이브러리 상태에 넣으면 팀 한 명 고칠 때마다 세션 목록 전체가 다시 그려진다.
+  // 지도에 없는 id(= 지워진 팀)는 칩이 안 뜰 뿐 세션은 멀쩡히 뜬다.
+  const [teamLabels, setTeamLabels] = useState<ReadonlyMap<TeamId, string>>(() => new Map());
+  useEffect(() => {
+    let cancelled = false;
+    void listTeams().then((list) => {
+      if (cancelled) return;
+      setTeamLabels(new Map(list.map((tm) => [tm.id, tm.shortName !== undefined && tm.shortName.trim().length > 0 ? tm.shortName : tm.name])));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const openSession = (id: SessionId) => nav.openSession(id);
 
@@ -163,6 +182,7 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
           onExport={(id) => void handleExportSession(id)}
           onShareLink={(id) => void requestShareLink(id)}
           onCreate={() => void handleCreateSession()}
+          teamLabels={teamLabels}
         />
       </div>
 

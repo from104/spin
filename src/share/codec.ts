@@ -46,14 +46,21 @@ export const SHARE_MAX_INFLATED_BYTES = 4 * 1024 * 1024;
 
 /** 링크가 싣는 문서. **접는 쪽과 펴는 쪽이 같은 모양을 쓴다** — 넣은 것과 나오는 것이 다른
  *  이름이면 호출자가 둘 사이를 옮겨 적는 코드를 쓰게 되고, 그 자리가 종류를 잃어버리는 자리다.
- *  세션은 드릴을 **데리고** 다닌다(S1: `exportSessionFile(session, drills)` 봉투 그대로). */
+ *  세션은 드릴을 **데리고** 다닌다(S1: `exportSessionFile(session, drills)` 봉투 그대로).
+ *
+ *  ⚠️ **팀([팀] 메뉴)은 이 유니온에 없다 — 넣지 마라**(PLAN-TEAM.md 결정 12, 기현 지시
+ *  2026-09-09: *"기기 저장, 구글 드라이브 동기화, 파일 내보내기만 허용, 공유 링크 없음"*).
+ *  팀 문서는 선수 실명·등급·메모가 모인 곳이고 링크는 한 번 나가면 회수가 안 된다. 닫힌
+ *  유니온이 그 울타리의 **컴파일 타임 방어**다: 팀을 링크로 보내려면 여기 한 줄을 더해야
+ *  하고, 그 한 줄이 곧 이 결정을 뒤집는 자리다. */
 export type SharedDoc =
   | { kind: 'drill'; drill: Drill }
   | { kind: 'session'; session: TrainingSession; drills: Drill[] };
 
 export interface EncodeShareOptions {
   /** 결정 8 · S2 — 개인 식별 정보를 빼고 접는다: 선수 실명(`ChairDef.name`) · 팀 이름
-   *  (`teams.*.label`) · 세션 참가자 명단(`participantIds`). 받는 코치의 선수는 다른 사람이라
+   *  (`teams.*.label`) · 세션 참가자 명단(`participantIds`) · 세션의 팀 지목(`teamId`, 2026-09-09).
+   *  받는 코치의 선수는 다른 사람이라
    *  뜻이 없고, 링크는 회수가 안 된다. 장소·메모는 **남긴다**(S2) — 그건 코치가 쓴 내용이다.
    *
    *  ⚠️ 2026-09-08: 이름이 `stripNames` 에서 `strip` 으로 바뀌었다. 지우는 것이 이름만이 아니게
@@ -98,6 +105,11 @@ function stripSessionPayload(payload: unknown): void {
   const doc = payload as { session?: unknown; drills?: unknown };
   if (doc.session && typeof doc.session === 'object') {
     delete (doc.session as Record<string, unknown>).participantIds;
+    // 2026-09-09 — 팀 지목도 지운다(PLAN-TEAM.md 결정 12). **팀은 링크로 나가지 않는다**:
+    // `SharedDoc` 유니온에 team 종류가 없으므로 받는 쪽에는 그 팀이 아예 존재하지 않고, 남은
+    // `teamId` 는 «없는 문서를 가리키는 죽은 참조» 이면서 동시에 보내는 팀이 팀 기능을 쓴다는
+    // 사실을 남긴다. participantIds 와 정확히 같은 이유로 **키째** 지운다.
+    delete (doc.session as Record<string, unknown>).teamId;
   }
   if (Array.isArray(doc.drills)) for (const drill of doc.drills) stripNamesFromDrillPayload(drill);
 }

@@ -12,6 +12,9 @@ import { useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PrintDrillSheet } from './PrintDrillSheet.tsx';
 import { PrintSessionPlan } from './PrintSessionPlan.tsx';
+// 팀시트만 features/print 밖(features/team)에 산다 — 팀 화면이 소유하는 문서이고, 여기 두면
+// 인쇄 트리가 팀 모델까지 지고 다니게 된다. 뿌리(포털·onReady·print.css 계약)만 공유한다.
+import { TeamPrintSheet } from '../team/TeamPrintSheet.tsx';
 import { PRINT_ROOT_CLASS } from './printDom.ts';
 import type { PrintDoc } from './printDoc.ts';
 
@@ -55,7 +58,14 @@ export function PrintRoot({ doc, onReady, container, view }: PrintRootProps) {
 
   return createPortal(
     <div className={PRINT_ROOT_CLASS} data-print-root="" aria-hidden="true">
-      {doc.kind === 'drill' ? <PrintDrillSheet drill={doc.drill} stepIndexes={doc.stepIndexes} view={view} /> : <PrintSessionPlan plan={doc.plan} view={view} />}
+      {doc.kind === 'drill' ? (
+        <PrintDrillSheet drill={doc.drill} stepIndexes={doc.stepIndexes} view={view} />
+      ) : doc.kind === 'session' ? (
+        <PrintSessionPlan plan={doc.plan} view={view} />
+      ) : (
+        // ⚠️ 팀시트는 `view`(격자·규칙 존) 스위치를 **안 받는다** — 코트를 안 그리므로 켤 것이 없다.
+        <TeamPrintSheet team={doc.team} stripClass={doc.stripClass} />
+      )}
     </div>,
     container ?? document.body,
   );

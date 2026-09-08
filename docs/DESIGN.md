@@ -1381,6 +1381,117 @@ export interface Roster { schemaVersion: number; players: Player[]; updatedAt: n
 를 체크한다 — 전부 풀면 키를 지운다(미지정 = 키 없음). PF2 수는 **표시만** 한다:
 동시 출전 2명 제한(FIPFA)은 경기 라인업의 규칙이지 세션 참가의 규칙이 아니다.
 
+── ⚠️ 2026-09-09: 이 절의 **단일 팀 단일 문서** 전제는 [팀] 메뉴 신설로 죽었다 ──────
+기현 지시(2026-09-09)로 선수 명단은 **팀 문서 안으로** 들어갔다(§3.12c, `docs/PLAN-TEAM.md`
+결정 1·3). 위 근거("문서 하나에 새 스토어는 과하다")는 문서가 **하나였을 때** 참이었고, 팀이
+여럿이 되면서 전제가 소멸했다 — `teams` 스토어를 파고 `DB_VERSION` 을 2로 올렸다. 대가는
+그때 미룬 것 그대로다: 멀티탭 강제 새로고침(§4.2 `blocking()`)이 이번에 실제로 따라왔다.
+**위 문단들은 여전히 참이다** — `roster` meta 레코드·`rosterRepo`·`validateRoster`·동기화 타입
+`'roster'`·`BackupPayload.roster` 는 지우지 않고 **읽기 전용으로 남는다**(옛 버전 기기·옛 백업이
+명단을 잃지 않게). 새 UI 는 여기에 **쓰지 않는다.** 철거 시점은 `ROADMAP.md` 의 후보 항목.
+⚠️ **UI (C8) 문단은 죽었다**: 설정 [선수 명단] 섹션(`RosterSection.tsx`)은 철거되고 그 자리에
+«명단은 [팀] 메뉴로 옮겼습니다 → [팀 열기]» 한 줄만 남는다(결정 21 — 두 곳에서 같은 명단을
+고치면 이주 규칙이 깨진다). 참가자 체크리스트는 살아 있되 읽는 곳이 팀 명단으로 바뀐다(결정 11).
+
+---
+
+### 3.12c 팀 — `src/model/team.ts`, `src/storage/teamRepo.ts` (2026-09-09 신설, 계획서 `docs/PLAN-TEAM.md`)
+
+기현 지시(2026-09-09): *"세션 다음에 '팀' 메뉴 신설 / 기본적으로 1개 팀 이상 관리 가능 /
+드릴,세션에 종속되지 않음 / 기기 저장, 구글 드라이브 동기화, 파일 내보내기만 허용, 공유 링크
+없음"*. **팀은 드릴·세션과 같은 급의 독립 문서다** — 명단이 팀 안으로 들어오고(§3.12b 는 얼었다),
+링크로는 나가지 않는다.
+
+```ts
+export const CURRENT_TEAM_SCHEMA = 1;                       // TEAM_MIGRATIONS = [] (빈 체인도 등록)
+export const STAFF_ROLES = ['coach','assistantCoach','manager','doctor','carer','mechanic'] as const;
+export interface Staff  { id: StaffId; name: string; roles: StaffRole[]; isSeniorCoach?: boolean;
+                          playerId?: PlayerId; note?: string; createdAt; updatedAt }
+export interface Lineup { court: PlayerId[]; gk?: PlayerId; bench: PlayerId[] }   // court ≤4, gk ∈ court
+export interface Team   { schemaVersion; id: TeamId; name; shortName?; color; gkColor;
+                          league?; season?; note?; players: Player[]; staff: Staff[];
+                          lineup?: Lineup; createdAt; updatedAt }
+// 순수 헬퍼: addPlayer/updatePlayer/removePlayer · addStaff/updateStaff/removeStaff · setLineup
+//            duplicateTeam(선수·스태프 id 재발급) · countByClass · rosterCounts · playerSessionCounts
+```
+
+**id 접두는 `tm`(팀)·`sf`(스태프)** 다. 계획서 결정 7 은 스태프를 `st` 로 적었지만 `st` 는 이미
+`StepId` 가 쓴다 — 같은 접두를 주면 `Id<'st'>` 두 별칭이 **구조적으로 같은 타입**이 되어 스텝
+id 를 스태프 자리에 넣어도 컴파일러가 못 잡고 `isId(v,'st')` 도 둘을 못 가른다(`fh`(획)가
+`st`·`sh` 를 피한 것과 같은 판단). 선수 id 는 `pl_` 그대로다 — 세션의 `participantIds` 가 그
+값을 가리키고 있기 때문에 바꾸면 지난 세션의 참가 기록이 전부 끊긴다.
+
+**상한 (`LIMITS`)**: `teamMax 20` · `rosterMax 30`(**이제 팀당**) · `staffMax 15` ·
+`teamNameLen 40` · `shortNameLen 6` · `playerNameLen 40`(스태프 이름도 재사용) ·
+`playerNoteLen 200`(스태프 메모도 재사용) · `chairModelLen 40` · `teamLeagueLen 40` ·
+`teamSeasonLen 24` · `teamNoteLen 400`. 상한 없는 문자열은 붙여넣기 한 번으로 IDB 에 수십 KB 를
+넣는다 — 계획서가 길이를 안 정한 `league`/`season`/`note` 에도 상한을 둔 이유다.
+
+**`validateTeam()` 은 화이트리스트 repair 다** (`validate.ts`). 중복 id 재발급 · 길이 절단 ·
+미지 `role`/`klass` 폐기 · 상한 절단 · 라인업의 명단 부분집합 강제 · `gk ∈ court` · `court ∩ bench = ∅` ·
+주장 1명 · 선임 코치 1명 · 색은 `/^#[0-9a-f]{6}$/i`. **화이트리스트라서 이 표에 없는 키는
+살아남지 못한다** — 남이 만든 파일에 연락처·진단명 같은 필드가 들어 있어도 저장 전에 사라진다.
+
+**「만들지 않는 필드」가 계약이다**(계획서 결정 6·10). 선수는 `number`·`isCaptain`·`preferredGk`·
+`active`·`birthYear`(연도만)·`chairModel`·`note` 까지고, **성별·정확한 생년월일·사진·연락처·
+진단명·보호자·등급 상태(N/R/C)·장비 속도검사·경기 기록·출결 시스템은 없다.** 담지 않는 것이
+가장 강한 보호다. 「참가 세션 n회」는 세션의 `participantIds` 에서 **매번 계산**하고 저장하지
+않는다(`playerSessionCounts`) — 저장하면 두 벌이 되고, 세션을 지웠을 때 누가 카운터를 내리는가가
+새 문제가 된다.
+
+**라인업 규칙 — 셈과 경고만, 차단 없음**(결정 8. 선례는 `SessionEditorScreen` 의 참가자 경고).
+`lineupWarnings(team)` 이 돌려주는 세 가지가 전부다:
+
+| 경고 | 판정 | 근거 |
+|---|---|---|
+| `pf2-over` | **코트 + 벤치**의 PF2 > `MAX_PF2_PER_MATCH`(2) | 한 경기 단위 제한이라 교체로 들어오는 3번째도 위반(Laws 18) |
+| `under-min` | 코트 위 명단에 있는 선수 < `MIN_COURT_PLAYERS`(2) | ⚠️ *"4명 미만이면 경기 불가"* 는 틀린 문구다 — 하한은 2 |
+| `no-gk` | `gk` 가 없거나 `court` 밖 | 코트 4칸 중 1명은 반드시 GK |
+
+**여기 없는 경고**: 「코트 위 PF1 최소 2명」은 규정 근거가 없어 만들지 않는다. 명단(스쿼드)
+전체의 PF2 수도 경고가 아니다 — **스쿼드 편성에는 등급 조합 제한이 전혀 없다.** 그래서 명단
+헤더의 PF 칩은 **회색 정보 칩**이고 경고색을 쓰지 않는다(결정 9). 미분류 선수는 PF1 로도 PF2
+로도 세지 않는다 — 미분류를 PF2 로 치면 아직 심사를 못 받은 팀이 영구히 노란 경고를 달고 산다.
+
+**저장**: 새 IDB 스토어 `teams`(+`by_updatedAt`), **`DB_VERSION 1 → 2`**. 요약 스토어는 없다
+(`sessions` 패턴 — 한 팀 손상 = 한 팀만 손실). 읽기는 처음부터 `migrateDoc(TEAM_MIGRATIONS)` +
+`validateTeam` 관문을 지난다. 손상 레코드는 **건너뛰되 지우지 않는다.** `teamRepo` 는
+`listTeams/getTeam/putTeam(CAS)/createTeam/deleteTeam(톰스톤과 같은 트랜잭션)/restoreTeam/
+duplicateTeam` 이고 전부 `postSyncEvent` 를 낸다. `restoreTeam` 이 있는 이유: 8초 undo(결정 15)는
+톰스톤을 걷는 복구 경로가 있어야 성립하고, 그것을 화면 쪽에서 재구현하면 리포 밖에 두 번째
+쓰기 경로가 생긴다.
+
+**이주(결정 3)**: 앱 기동 시 `teams` 가 비어 있고 meta `roster` 에 선수가 1명 이상이면 로케일
+기본 이름(`defaultTeamName`: ko «내 팀» / en «My Team» / ja «マイチーム»)의 팀 하나를 만들고
+meta `rosterMigratedAt` 도장을 찍는다(`storage/rosterMigration.ts`, `App.tsx` 가 `<SeedDrills />`
+다음에 마운트). **이주해도 `roster` 는 지우지 않는다** — 옛 버전 기기·옛 백업이 명단을 잃지
+않게 하기 위해서다. 새 UI 는 roster 에 **쓰지 않는다**(철거 후보는 `ROADMAP.md`). 빈 명단이면
+팀도 도장도 만들지 않는다.
+
+**세션과의 관계**: `Session.teamId?: TeamId` 는 **선택 필드이고 세션 스키마는 올리지 않는다**
+(§4.1 의 세 축 분리). 옛 앱이 `teamId` 를 모르고 저장하면 그 값만 사라지는데, 이는 "팀 미지정"
+으로의 자연 복귀라 데이터 손실이 아니다. 지시의 *"드릴,세션에 종속되지 않음"* 은 팀→세션 방향의
+독립이지 세션→선수 참조를 없애라는 뜻이 아니다 — 전역 «현재 팀» 상태는 만들지 않는다.
+
+**나가는 길은 셋뿐 — 공유 울타리(결정 12)**:
+
+| 길 | 실린다 | 비고 |
+|---|---|---|
+| 파일 `.spin.team.json` | 팀 하나 | 내보내기 시트의 [등급 정보 제외](기본 꺼짐)가 `klass` 를 뺀다 |
+| 백업 봉투 `BackupPayload.teams?` | 팀 전량 | `ENVELOPE_VERSION` 은 1 그대로, 복원은 드릴식 개별 충돌 처리 |
+| 구글 드라이브 동기화 `SyncDocType 'team'` | 팀 전량 | 파일명 `<tm_id>.json`, CAS·톰스톤·삭제 전파는 드릴과 동일 |
+
+⚠️ **`share/codec.ts` 의 `SharedDoc` 유니온에 team 을 넣지 않는다.** 닫힌 유니온이 컴파일 타임
+방어선이고, 팀 화면·카드 메뉴에는 공유 콜백을 만들지 않는다. 세션을 링크로 공유할 때는
+`teamId` 도 strip 한다 — 팀 문서에는 본인이 아닌 사람의 실명·등번호·등급이 들어 있고, 링크는
+한 번 나가면 회수 경로가 없다. 반증선은 `docs/FALSIFICATION-BASELINE.md` §4.1.
+
+**드릴 안의 `TeamStyle`/`TeamSide`(`drill.teams`)와 헷갈리지 말 것.** 그쪽은 **코트 진영**(홈/원정
+색)이고 `structuredClone` 스냅샷이라 소급되지 않는다 — 이번에 손대지 않았다(결정 22).
+⚠️ 위 §4.6 `validatePrefs` 표의 `teams:` 줄(각 색을 `/^#[0-9a-f]{6}$/i` 로 검사)은 **그 진영 색**
+이야기인데 실제 코드는 `sanitizeTeamStyle` 이라 문서가 앞서 있다(2026-09-09 확인). hex 를 실제로
+재는 것은 이 절의 `validateTeam` 쪽이다.
+
 ---
 
 ## 4. 저장 계층 — `src/storage/`
@@ -1431,7 +1542,7 @@ if (!Number.isInteger(v0) || (v0 as number) < 1) return { ok:false, reason:'no-p
 ```ts
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 export const DB_NAME = 'spin';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;   // ⚠️ 2026-09-09: 1 → 2, `teams` 스토어 신설(§3.12c)
 export interface MetaRecord { key: string; value: unknown }
 
 export interface SpinDB extends DBSchema {
@@ -1439,6 +1550,7 @@ export interface SpinDB extends DBSchema {
   drillSummaries: { key: DrillId;   value: DrillSummary;  indexes: { by_updatedAt: number } };
   sessions:       { key: SessionId; value: TrainingSession;
                     indexes: { by_updatedAt: number; by_drillId: DrillId } };
+  teams:          { key: TeamId;    value: Team;          indexes: { by_updatedAt: number } };
   meta:           { key: string;    value: MetaRecord };
 }
 export function getDB(): Promise<IDBPDatabase<SpinDB>>;
@@ -1462,7 +1574,10 @@ upgrade(db, oldVersion) {
     s.createIndex('by_drillId', 'drillIds', { multiEntry: true });
     db.createObjectStore('meta', { keyPath: 'key' });
   }
-  // if (oldVersion < 2) { /* 예: drillSets 스토어 */ }
+  // ⚠️ 2026-09-09: 이 자리에 실제로 채워졌다 — 예시가 아니라 배송된 코드다(§3.12c).
+  if (oldVersion < 2) {
+    db.createObjectStore('teams', { keyPath: 'id' }).createIndex('by_updatedAt', 'updatedAt');
+  }
 }
 ```
 
@@ -1804,6 +1919,19 @@ export function readTextFile(f: File): Promise<string>;
 export function downloadBlob(blob: Blob, filename: string): void;
 ```
 
+> **※ 정정 각주 (2026-09-09, [팀] 메뉴). 위 블록은 지우지 않는다 — 위가 옛 사실이고 여기가 지금이다.**
+>
+> `SpinFileKind` 에 **`'team'` 이 늘었다**(`'backup'` 은 아래 2026-08-13 각주 ① 이 이미 더한
+> 것이다). 봉투는 `(SpinEnvelopeBase & { spin: 'team'; payload: Team })`, 확장자는
+> `SPIN_EXT.team = '.spin.team.json'`, 파일 선택 필터는 `ACCEPT_TEAM`. 파일명 규약은
+> `SPIN_team_{slug(name)}_{YYYYMMDD}.spin.team.json`.
+> 팀 봉투에는 **선수 실명·등번호·PF 등급**이 실리므로 내보내기 시트가 [등급 정보 제외]로
+> `klass` 를 뺄 수 있다(`exportTeamFile(team, { stripClass })`). 복원 쪽은 드릴식 개별 충돌
+> (`prepareTeamImport`/`commitTeamImports`) 이고, 충돌 해소 `'copy'` 는 **팀 id 만** 새로 발급하고
+> 선수·스태프 id 는 그대로 둔다 — 같은 파일에 실려 온 세션의 `participantIds` 가 통째로
+> «지워진 선수» 가 되지 않게 하기 위해서다(사용자가 «또 하나의 팀» 을 의도하는 `duplicateTeam`
+> 과 일부러 비대칭이다). 계약 전문은 §3.12c.
+
 > **※ 정정 각주 (2026-08-13, 6.3). 4차(내보내기)가 §4.7 에 더한 것과 뺀 것.**
 >
 > **① 여섯 번째 kind `'backup'` 이 생겼다** (4.7 · §6.1b — 기기 이사 파일).
@@ -1814,6 +1942,15 @@ export function downloadBlob(blob: Blob, filename: string): void;
 > 내보내면 복원이 남의 기기 판을 기본값으로 **덮어쓰는 길**이 열린다.
 > ⚠️ **봉투 버전도 payload 스키마 버전도 올리지 않았다** — `ENVELOPE_VERSION` 은 1 그대로다.
 > 담는 그릇이 하나 늘었다고 문서 버전을 올리면 기존 파일이 전부 `E_SCHEMA_TOO_NEW` 가 된다.
+>
+> ── ⚠️ 2026-09-09: 위 «네 곳» 은 [팀] 메뉴로 **다섯 곳**이 됐다 ──────
+> `BackupPayload = { drills, sessions, teams?, prefs, board }` — IDB `teams` 가 늘었다
+> (`docs/PLAN-TEAM.md` 결정 13, §3.12c). `teams` 만 옵셔널인 이유는 **옛 백업 파일에 그 키가
+> 없기 때문**이다 — 필수로 만들면 0.6.6 이 뽑은 파일이 전부 거절된다. 복원 보고
+> `BackupRestoreReport` 도 팀에 대해서는 상태 문자열 하나가 아니라 **개수**를 싣는다
+> (`teamsInFile` + `teams: { written, skipped, failed }`): 팀은 여러 문서라 «복원함/안 함» 이
+> 한 마디로 참이 되는 대상이 아니고, 드릴과 같은 산식을 써야 두 화면의 숫자가 갈라지지 않는다.
+> ⚠️ 봉투 버전은 **여전히 1 이다** — 위 문단이 `'backup'` 을 더할 때 쓴 논리가 그대로 적용된다.
 >
 > **② `exportLibraryFile` 은 프로덕션 호출자가 0 이다** (4.7 §6.1b — 목록의 [전체 내보내기]
 > 제거). `parseSpinFile` 은 `'library'` 를 **여전히 읽는다** — 옛 파일을 가진 사용자를 버리지
@@ -1892,6 +2029,7 @@ URI → `Image` → 캔버스 하나(재사용)에 `drawImage` + `paintTexts` �
 SPIN_{slug(title)}_{YYYYMMDD}.spin.drill.json           예: SPIN_측면-돌파-후-크로스_20260807.spin.drill.json
 SPIN_session_{slug(title)}_{YYYYMMDD}.spin.session.json
 SPIN_backup_{YYYYMMDD}.spin.backup.json
+SPIN_team_{slug(name)}_{YYYYMMDD}.spin.team.json        ⚠️ 2026-09-09 추가 — 필터는 ACCEPT_TEAM
 ```
 2026-08-26 이전에는 전 종류가 `.spin.json` 하나였다. 종류를 이름에 실은 이유는 **어느 화면에
 넣어야 하는 파일인지가 이름에 없었기 때문**이다 — 드릴 파일을 설정 화면의 기기 이사 복원에
@@ -1901,6 +2039,10 @@ SPIN_backup_{YYYYMMDD}.spin.backup.json
 옛 `.spin.json` 파일도 그대로 열리고, 이름만 바꾼 파일이 통과하는 것도 정상이다. 이름이 아니라
 봉투를 읽고 **갈 화면을 알려주는** 안내가 진짜 방어다(`dataExport.ts` 의
 `OPENS_ON_LIBRARY_SCREEN` ↔ `library/transfer.ts` 의 backup·prefs 분기가 서로를 가리킨다).
+⚠️ 2026-09-09: 그 표는 `OPENS_ON_ANOTHER_SCREEN` 으로 **개명**됐다(`dataExport.ts`). [팀] 메뉴가
+들어오면서 착지처가 [드릴 목록] 하나가 아니게 됐고, 이름이 범위를 좁혀 말하면 다음 사람이 새
+kind 를 «여긴 라이브러리 것만» 이라 읽고 빠뜨린다 — 그것이 정확히 2026-08-26 사고의 모양이다.
+`team` kind 는 [팀] 화면으로 안내한다. 파일명·확장자는 이 절 위의 목록에 `.spin.team.json` 이 늘었다.
 파일명 세그먼트는 언어 중립이다(i18n C4) — `백업` 을 `backup` 으로 고친 것이 그 규약이다.
 `slugify`: NFC 정규화 → 금지문자 `[\x00-\x1f<>:"/\\|?*]` 를 `-` 로 → 연속 `-` 축약 →
 앞뒤 `-` 제거 → `[...s].slice(0,max)`(서로게이트 페어 보호). 빈 문자열이면 `'drill'`. 한글 유지.

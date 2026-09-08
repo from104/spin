@@ -114,12 +114,17 @@ body {
   --faint-text: #8794a3; /* /panel 5.78:1  /panel-2 5.99:1 */
   --accent-text: var(--accent); /* /panel 14.21:1 */
   --accent-ink-strong: #0b0f14; /* /accent 15.29:1 */
+  /* 2026-09-09 — 규정 경고(라인업 PF2 초과 등, PLAN-TEAM 결정 8). 표면 넷 중 최악(--elev)에서도
+   * 8.30:1 로 AAA 를 넘는다. 색만으로 말하지 않는다는 규율은 그대로다 — 이 색을 쓰는 자리는
+   * role="status" 로 문장을 함께 읽힌다(LineupBoard.tsx). */
+  --warn-text: #e8b23a;
   --hit: 44px;
 }
 [data-theme="light"] {
   --faint-text: #626c78; /* /panel 5.34  /panel-2 4.96  /bg 4.58 */
   --accent-text: #446f00; /* /panel 5.97  /panel-2 5.55  /bg 5.12 */
   --accent-ink-strong: #14200a; /* /accent 5.83 */
+  --warn-text: #6b4400; /* /panel 8.56  /bg 7.35 — 라이트에서 같은 노랑을 쓰면 1.8:1 로 안 읽힌다 */
 }
 body[data-touch="large"] {
   --hit: 56px;

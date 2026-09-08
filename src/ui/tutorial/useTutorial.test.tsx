@@ -196,3 +196,64 @@ describe('useTutorial — [자세한 도움말]', () => {
     expect(result.current.openHelp).toBeUndefined();
   });
 });
+
+// 화면을 가로지르는 투어(2026-09-09, docs/PLAN-TEAM.md 결정 23). 팀 투어는 목록에서 [새 팀] 을
+// 누르면 상세가 열리고 거기서 세 단계가 더 이어진다 — 시작 시점엔 그 앵커들이 DOM 에 없다.
+// 이 계약이 깨지면 투어가 «2/2» 로 끝나 ★실습(선수 추가)에 **도달조차 못 한다**(그 증상을
+// 2026-09-09 헤드리스 관문에서 실제로 봤다).
+describe('useTutorial — 뒤늦게 오는 단계', () => {
+  const CROSS: TutorialStep[] = [
+    { target: 'a', titleKey: 'common.close', bodyKey: 'common.close', advanceOnClick: true },
+    { target: 'b', titleKey: 'common.close', bodyKey: 'common.close' },
+    { target: 'c', titleKey: 'common.close', bodyKey: 'common.close' },
+  ];
+
+  it('실습형을 누른 뒤 나타난 앵커만 뒤 단계로 붙는다 — 끝내 없는 앵커는 안 붙는다', async () => {
+    document.body.innerHTML = '<div data-tut="a"><button type="button">새 팀</button></div>';
+    const { result } = renderHook(() => useTutorial('team', CROSS, false), { wrapper });
+    act(() => result.current.start());
+    expect(result.current.totalSteps).toBe(1); // b·c 는 아직 다른 화면에 있다
+
+    act(() => {
+      fireEvent.click(document.querySelector('[data-tut="a"] button')!);
+    });
+    // 실제 화면에서는 이 사이에 저장(IDB)과 화면 전환이 끼어 앵커가 몇 프레임 뒤에 생긴다.
+    // c 는 **끝까지 안 만든다** — 없는 단계를 지어내지 않는다는 것이 빈 화면 가드다.
+    act(() => {
+      document.body.insertAdjacentHTML('beforeend', '<div data-tut="b"></div>');
+    });
+
+    await waitFor(() => expect(result.current.step?.target).toBe('b'));
+    expect(result.current.active).toBe(true);
+    expect(result.current.totalSteps).toBe(2);
+  });
+
+  // 2026-09-09(검수) — 위 케이스는 «끝내 없는 c» 만 잰다. 실기의 다른 절반은 **부분 도착**이다:
+  // 팀 상세의 꼬리 셋(선수 추가·라인업·내보내기)이 한 프레임에 다 서지 않는 기기에서 뒤엣것이
+  // 먼저 서면, «보이는 것 전부를 붙이고 즉시 대기 종료» 하던 옛 코드는 그 사이 단계를 영영
+  // 못 붙였다. 이 케이스를 지우면 느린 기기에서 투어가 3/3 으로 조용히 잘린다.
+  it('b 는 즉시, c 는 몇 프레임 뒤에 와도 둘 다 붙는다 — 부분 도착', async () => {
+    document.body.innerHTML = '<div data-tut="a"><button type="button">새 팀</button></div>';
+    const { result } = renderHook(() => useTutorial('team', CROSS, false), { wrapper });
+    act(() => result.current.start());
+
+    act(() => {
+      fireEvent.click(document.querySelector('[data-tut="a"] button')!);
+    });
+    act(() => {
+      document.body.insertAdjacentHTML('beforeend', '<div data-tut="b"></div>');
+    });
+    await waitFor(() => expect(result.current.step?.target).toBe('b'));
+    expect(result.current.totalSteps).toBe(2);
+
+    // c 가 **뒤늦게** 도착한다 — 대기가 아직 살아 있어야 이것을 받는다.
+    act(() => {
+      document.body.insertAdjacentHTML('beforeend', '<div data-tut="c"></div>');
+    });
+    await waitFor(() => expect(result.current.totalSteps).toBe(3));
+    // ★ 사용자가 안 누른 칸을 건너뛰지 않는다 — 붙일 때마다 index 를 올리면 여기가 2 가 된다.
+    expect(result.current.stepIndex).toBe(1);
+    expect(result.current.step?.target).toBe('b');
+    expect(result.current.active).toBe(true);
+  });
+});

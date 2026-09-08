@@ -79,6 +79,22 @@ export function IconSessions({ size = 19, ...rest }: IconProps) {
   );
 }
 
+/** 팀 — 사람 둘. [팀] 화면이 담는 것은 명단·스태프·라인업, 즉 **사람의 모임**이다.
+ *  방패(엠블럼)나 유니폼을 안 쓰는 이유: 이 앱의 팀은 로고를 갖지 않고(PLAN-TEAM 결정 5 —
+ *  로고·지역·국가 필드를 만들지 않는다), 유니폼 그림은 드릴 안의 진영(TeamStyle)과 헷갈린다.
+ *  뒷사람을 획 1.6 으로 얇게 두는 것은 IconBoard 안쪽 선과 같은 이유 — 19px 로 줄면 두 머리가
+ *  같은 굵기일 때 한 덩어리로 뭉갠다. */
+export function IconTeam({ size = 19, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <circle cx="9.5" cy="8" r="3.3" />
+      <path d="M3.5 19.5c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2" />
+      <circle cx="17" cy="7.5" r="2.4" strokeWidth={1.6} />
+      <path d="M16 12.6c2.6.1 4.5 2 4.5 4.6" strokeWidth={1.6} />
+    </svg>
+  );
+}
+
 export function IconEditor({ size = 19, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>

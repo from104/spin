@@ -1,5 +1,5 @@
 // §3.1 ID. 접두사 기반 브랜드 문자열 타입 + 생성기.
-export type IdPrefix = 'dr' | 'se' | 'st' | 'ch' | 'bl' | 'cn' | 'ar' | 'nt' | 'sh' | 'it' | 'ph' | 'pl' | 'fh';
+export type IdPrefix = 'dr' | 'se' | 'st' | 'ch' | 'bl' | 'cn' | 'ar' | 'nt' | 'sh' | 'it' | 'ph' | 'pl' | 'fh' | 'tm' | 'sf';
 export type Id<P extends IdPrefix> = `${P}_${string}`;
 export type DrillId = Id<'dr'>;
 export type SessionId = Id<'se'>;
@@ -20,6 +20,14 @@ export type PlayerId = Id<'pl'>;
  *  ⚠️ **`CastId` 에 넣지 않는다** — 획은 화살표·메모·도형과 같은 부류로 스텝이 통째로 소유하고,
  *  cast(정의 + 스텝별 좌표)라는 두 겹 구조를 갖지 않는다. */
 export type StrokeId = Id<'fh'>;
+/** 팀 문서([팀] 메뉴, PLAN-TEAM.md 결정 1) — 드릴('dr')·세션('se') 과 같은 급의 최상위 문서다. */
+export type TeamId = Id<'tm'>;
+/** 스태프(PLAN-TEAM.md 결정 7).
+ *  ⚠️ **접두가 'st' 가 아니라 'sf' 다.** 계획서 결정 7 은 `st` 라 적었지만 그 자리는 이미
+ *  `StepId`(스텝)가 쓰고 있다 — 같은 접두를 두 종류에 주면 `Id<'st'>` 두 별칭이 **구조적으로
+ *  같은 타입**이 되어 컴파일러가 스텝 id 를 스태프 자리에 넣는 것을 못 잡고, `isId(v,'st')` 도
+ *  둘을 못 가른다. 'fh'(획)가 'st'·'sh' 를 피한 것과 같은 판단이다(위 StrokeId 주석). */
+export type StaffId = Id<'sf'>;
 export type CastId = ChairId | BallId | ConeId;
 
 const base36 = (n: number, width: number): string => n.toString(36).padStart(width, '0');

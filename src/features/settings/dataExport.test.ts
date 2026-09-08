@@ -105,6 +105,8 @@ describe('backupReportLine — 숫자를 숨기지 않는다', () => {
     prefs: 'skipped',
     board: 'skipped',
     roster: 'none-in-file',
+    teamsInFile: 0,
+    teams: { written: [], skipped: [], failed: [] },
   };
 
   it('0 이어도 세 숫자를 전부 말한다 (4.2 importReportLine 과 같은 규율)', () => {
@@ -135,6 +137,21 @@ describe('backupReportLine — 숫자를 숨기지 않는다', () => {
     expect(backupReportLine(base)).toContain('설정은 그대로 둠');
     expect(backupReportLine({ ...base, prefs: 'restored' })).toContain('설정 복원함');
     expect(backupReportLine({ ...base, prefs: 'unreadable' })).toContain('설정은 읽을 수 없어');
+  });
+
+  it('팀 줄도 드릴과 같은 산식이다 — 파일 3, 기록 1, 건너뜀 1 이면 실패 1', () => {
+    // 팀이 통째로 실리는 백업에서 이 산식이 무너지면, 사용자는 3팀짜리 파일에서 1팀만 들어온
+    // 것을 물을 곳이 없다(§6.1c 와 같은 이유). 대조군은 아래 «0개면 말하지 않는다».
+    const line = backupReportLine({
+      ...base,
+      teamsInFile: 3,
+      teams: { written: ['tm_1'] as never, skipped: ['tm_2'] as never, failed: [] },
+    });
+    expect(line).toContain('팀 1개 가져옴 · 1개 실패 · 1개 건너뜀');
+  });
+
+  it('파일에 팀이 없으면 팀 줄을 말하지 않는다 — 팀을 안 쓰는 사람에게 늘 0 을 보이지 않는다', () => {
+    expect(backupReportLine(base)).not.toContain('팀 ');
   });
 
   // 5.0 ②a(2026-08-13) — 옛 계약("skipped 는 두 가지를 뭉뚱그리므로 이유를 지어내지 않는다")은
@@ -194,6 +211,23 @@ describe('restoreBackupFromFile — 다른 화면 파일의 안내 (5.0 ③)', (
       const msg = (e as Error).message;
       expect(msg).toContain('[드릴 목록]');
       expect(msg).toContain('[가져오기]');
+      expect(msg).not.toContain('지원하지 않는');
+    }
+  });
+
+  // [팀] 메뉴(2026-09-09 · PLAN-TEAM.md 결정 13). 계획서가 «team kind 착지를 명시» 라고 못박은
+  // 이유가 위 2026-08-26 사고다 — 표는 있는데 새 종류를 안 넣으면 앱이 자기 파일에 «모른다» 고
+  // 말한다. 팀 파일이 가야 할 곳은 [드릴 목록]이 아니라 [팀]이다.
+  it('team 봉투는 [팀] 화면으로 보낸다 — [드릴 목록]이 아니다', async () => {
+    const env = JSON.stringify({ spin: 'team', envelope: 1, app: 'SPIN', exportedAt: Date.now(), payload: {} });
+    try {
+      await restoreBackupFromFile(fileOf(env, 'SPIN_team_동대문_20260909.spin.team.json'));
+      expect.unreachable();
+    } catch (e) {
+      const msg = (e as Error).message;
+      expect(msg).toContain('[팀]');
+      expect(msg).toContain('[가져오기]');
+      expect(msg).not.toContain('[드릴 목록]'); // 엉뚱한 화면으로 보내면 안내가 안내가 아니다
       expect(msg).not.toContain('지원하지 않는');
     }
   });

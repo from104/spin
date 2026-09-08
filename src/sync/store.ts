@@ -12,6 +12,7 @@ import { getDB, beginWrite, endWrite, toStorageError } from '../storage/db.ts';
 import { idbDrillRepo } from '../storage/drillRepo.ts';
 import { putSession } from '../storage/sessionRepo.ts';
 import { saveRoster } from '../storage/rosterRepo.ts';
+import { putTeam } from '../storage/teamRepo.ts';
 import {
   deleteSyncDocRow,
   deleteTombstone,
@@ -26,14 +27,15 @@ import {
   type SyncDocRow,
   type SyncDocType,
 } from '../storage/syncMeta.ts';
-import { migrateDoc, DRILL_MIGRATIONS, SESSION_MIGRATIONS, ROSTER_MIGRATIONS } from '../model/migrate.ts';
+import { migrateDoc, DRILL_MIGRATIONS, SESSION_MIGRATIONS, ROSTER_MIGRATIONS, TEAM_MIGRATIONS } from '../model/migrate.ts';
 import { CURRENT_DRILL_SCHEMA } from '../model/drill.ts';
 import { CURRENT_SESSION_SCHEMA } from '../model/session.ts';
 import { CURRENT_ROSTER_SCHEMA } from '../model/roster.ts';
-import { validateDrill, validateSession, validateRoster } from '../model/validate.ts';
+import { CURRENT_TEAM_SCHEMA } from '../model/team.ts';
+import { validateDrill, validateSession, validateRoster, validateTeam } from '../model/validate.ts';
 import { StorageError } from '../storage/errors.ts';
 import type { PlanLocalDoc, PlanLocalTomb, PlanSyncRow } from './plan.ts';
-import type { DrillId, SessionId } from '../core/ids.ts';
+import type { DrillId, SessionId, TeamId } from '../core/ids.ts';
 
 export type PullApplyResult = 'ok' | 'conflict' | 'invalid' | 'too-new';
 
@@ -67,6 +69,12 @@ export function createIdbSyncStore(): SyncStore {
       // 드릴은 요약(전량 메모리 로드가 이 앱의 기본 전략 — drillRepo 머리말)에서 시각만 뽑는다.
       for (const s of await db.getAll('drillSummaries')) out.push({ type: 'drill', id: s.id, updatedAt: s.updatedAt });
       for (const s of await db.getAll('sessions')) out.push({ type: 'session', id: s.id, updatedAt: s.updatedAt });
+      // 팀은 세션과 같다 — 문서당 레코드라 스토어를 그대로 훑는다(요약 스토어가 없다).
+      // ⚠️ 여기서 teamRepo.listTeams() 를 쓰지 않는 이유: 그 함수는 읽기 관문(validateTeam)을
+      //    태워 손상 레코드를 **빼고** 돌려준다. 목록에서 빠진 문서는 push 대상이 아니게 되고,
+      //    그러면 원격의 옛 판이 영영 살아남아 다음 pull 때 로컬을 되돌린다. 계획은 날것으로
+      //    세우고 관문은 받는 쪽(applyPull)에 둔다 — readDocForPush 머리말과 같은 규율이다.
+      for (const t of await db.getAll('teams')) out.push({ type: 'team', id: t.id, updatedAt: t.updatedAt });
       // 명단은 저장된 적이 있을 때만 목록에 넣는다 — emptyRoster() 폴백(updatedAt 0)을 문서로
       // 취급하면 "빈 명단" 이 원격의 진짜 명단과 겨루게 된다. 없으면 원격 것이 pullCreate 로 온다.
       const rosterRec = await db.get('meta', 'roster');
@@ -91,6 +99,7 @@ export function createIdbSyncStore(): SyncStore {
       const db = await getDB();
       if (type === 'drill') return db.get('drills', id as DrillId);
       if (type === 'session') return db.get('sessions', id as SessionId);
+      if (type === 'team') return db.get('teams', id as TeamId);
       return (await db.get('meta', 'roster'))?.value;
     },
     async applyPull(type, id, doc, opts) {
@@ -112,6 +121,18 @@ export function createIdbSyncStore(): SyncStore {
           if (!v.ok) return 'invalid';
           if (v.value.id !== id) return 'invalid';
           await putSession(v.value, { touch: false, ...cas });
+          return 'ok';
+        }
+        if (type === 'team') {
+          const mig = migrateDoc(doc, TEAM_MIGRATIONS, CURRENT_TEAM_SCHEMA);
+          if (!mig.ok) return mig.reason === 'too-new' ? 'too-new' : 'invalid';
+          const v = validateTeam(mig.doc);
+          if (!v.ok) return 'invalid';
+          if (v.value.id !== id) return 'invalid'; // 드릴·세션과 같은 규율 — 봉투 id 와 문서 id 가 어긋난 파일은 안 받는다
+          // ⚠️ 팀 문서에는 사용자가 적은 선수 이름·메모가 들어 있다. CAS 를 빼면 «패스 도중에
+          //    고친 선수 한 명» 이 원격의 옛 판으로 통째 되돌려진다 — 명단(saveRoster, 통짜
+          //    마지막 승)과 달리 팀은 문서당 저장이라 CAS 로 그 문서만 스킵할 수 있다.
+          await putTeam(v.value, { touch: false, ...cas });
           return 'ok';
         }
         const mig = migrateDoc(doc, ROSTER_MIGRATIONS, CURRENT_ROSTER_SCHEMA);
@@ -138,6 +159,15 @@ export function createIdbSyncStore(): SyncStore {
           tx.objectStore('drillSummaries').delete(id as DrillId);
           tx.objectStore('meta').put(tombstoneRecord('drill', id, deletedAt));
           tx.objectStore('meta').delete(docRowKey('drill', id));
+          await tx.done;
+        } else if (type === 'team') {
+          // 팀도 드릴·세션과 같은 계약 — 문서 삭제 + 원격 deletedAt 톰스톤 + 행 정리를 한
+          // 트랜잭션에. ⚠️ teamRepo.deleteTeam 을 부르지 않는다: 그쪽은 Date.now() 로 톰스톤을
+          // 찍어 «방금 받은 삭제» 가 «더 새 삭제» 가 되고, 에코 push 가 한 번 더 돈다.
+          const tx = db.transaction(['teams', 'meta'], 'readwrite');
+          tx.objectStore('teams').delete(id as TeamId);
+          tx.objectStore('meta').put(tombstoneRecord('team', id, deletedAt));
+          tx.objectStore('meta').delete(docRowKey('team', id));
           await tx.done;
         } else {
           const tx = db.transaction(['sessions', 'meta'], 'readwrite');

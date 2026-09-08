@@ -37,6 +37,7 @@ function makeNav(): HomeNav {
     presentSession: vi.fn(),
     openRuleTopic: vi.fn(),
     openLegal: vi.fn(),
+    openTeam: vi.fn(),
   };
 }
 
@@ -61,6 +62,8 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 beforeEach(async () => {
   for (const d of await idbDrillRepo.listDrillSummaries()) await idbDrillRepo.deleteDrill(d.id);
   for (const s of await listSessions()) await deleteSession(s.session.id);
+  const { getDB } = await import('../../storage/db.ts');
+  await (await getDB()).clear('teams'); // 팀 위생(2026-09-09) — 앞 테스트의 팀이 칩으로 새어 들지 않게
   // 세션 목록 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트 다이얼로그가
   // 떠서 "다이얼로그 없음" 을 잰 아래 테스트들이 깨진다 — "이미 봤다" 상태로 시작한다.
   localStorage.setItem(PREFS_KEY, JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { sessions: true } }));
@@ -99,6 +102,30 @@ describe('SessionsScreen', () => {
     await userEvent.setup().click(within(strip).getByRole('button', { name: '다음 세션 가까운 세션 편성 열기' }));
     expect(nav.openSession).toHaveBeenCalledWith(s.id);
     expect(s.id).not.toBe(later.id);
+  });
+
+  // PLAN-TEAM 결정 11 — 카드의 팀 칩. 약칭이 있으면 약칭(카드 한 줄에 팀 이름 전체는 안 들어간다).
+  it('팀을 지목한 세션 카드에만 팀 칩이 뜨고, 지워진 팀은 칩 없이 카드만 뜬다', async () => {
+    const { createTeam, putTeam } = await import('../../storage/teamRepo.ts');
+    const team = await putTeam({ ...(await createTeam({ name: '가치이룸 클럽' })), shortName: '가치' });
+    const withTeam = await createSession({ title: '소속 세션' });
+    await putSession({ ...withTeam, teamId: team.id });
+    const orphan = await createSession({ title: '고아 세션' });
+    await putSession({ ...orphan, teamId: 'tm_ghost' as never });
+    await createSession({ title: '무소속 세션' });
+
+    render(<SessionsScreen nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('무소속 세션')).toBeInTheDocument());
+    // 약칭이 뜬다 — 팀 이름 전체가 뜨면 이 단언이 깨진다.
+    // ⚠️ 2026-09-09(검수) — «무엇의 이름인지» 는 `aria-label` 이 아니라 **sr-only 한 줄**로 읽어
+    // 준다(SessionTab.tsx 의 그 주석: role 이 generic 인 span 에는 author 가 이름을 못 붙인다).
+    // 그래서 여기서도 label 이 아니라 **읽히는 글자**로 찾는다 — 보조기술이 실제로 받는 것이다.
+    expect(await screen.findByText('팀 가치')).toBeInTheDocument();
+    expect(screen.getByText('가치')).toBeInTheDocument(); // 눈에 보이는 칩은 약칭만
+    expect(screen.queryByText('가치이룸 클럽')).toBeNull();
+    // 지워진 팀·팀 미지정 세션은 칩 없이 그대로 뜬다(참가자 유령 id 와 같은 교리).
+    expect(screen.getByText('고아 세션')).toBeInTheDocument();
+    expect(screen.getAllByText(/^팀 /)).toHaveLength(1); // 칩은 하나뿐
   });
 
   it("예정 시각이 없는 세션뿐이면 '다음 세션' 스트립을 아예 안 그린다", async () => {

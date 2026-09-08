@@ -88,6 +88,27 @@ async function fold(text: string): Promise<ShareBytes> {
   return out;
 }
 
+/** 접힌 바이트를 도로 편 **원문 문자열**. 링크에 무엇이 실렸는지는 decode 뒤가 아니라 여기서
+ *  본다 — decode 는 validate 를 지나므로, 지워야 할 것이 안 지워졌어도 그 관문이 화면에서
+ *  가려 준다. 가려진 값은 **링크 바이트에 그대로 남아 있고 링크는 회수가 안 된다.** */
+async function unfold(bytes: ShareBytes): Promise<string> {
+  const src = new ReadableStream<ShareBytes>({
+    start(c) {
+      c.enqueue(bytes.subarray(1)); // [0] 은 코덱 표식
+      c.close();
+    },
+  });
+  const reader = src.pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  let out = '';
+  const dec = new TextDecoder();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) out += dec.decode(value, { stream: true });
+  }
+  return out + dec.decode();
+}
+
 async function kindOf(run: Promise<unknown>): Promise<string> {
   try {
     await run;
@@ -201,6 +222,20 @@ describe('codec — 세션 봉투', () => {
     const { participantIds, ...withoutParticipants } = session;
     void participantIds;
     expect(got.session).toEqual(withoutParticipants);
+  });
+
+  it('strip 은 세션의 팀 지목(teamId)도 **링크 바이트에서** 뺀다 — 팀은 링크로 나가지 않는다', async () => {
+    // PLAN-TEAM.md 결정 12(기현 지시 2026-09-09: *"공유 링크 없음"*). `SharedDoc` 유니온에
+    // team 종류가 없으므로 받는 쪽엔 그 팀이 아예 없다 — 남은 teamId 는 죽은 참조이면서
+    // 보내는 팀이 팀 기능을 쓴다는 사실을 링크에 새긴다. 받는 쪽 validate 가 어차피 떨구므로
+    // decode 결과를 보면 이 단언은 자기증명이 된다. 그래서 바이트를 직접 편다.
+    const drills = [named()];
+    const session = { ...sessionOf(drills), teamId: 'tm_secret01' } as unknown as TrainingSession;
+    const wire = await unfold(await encodeSharePayload({ kind: 'session', session, drills }, { strip: true }));
+    expect(wire).not.toContain('tm_secret01');
+    expect(wire).not.toContain('teamId');
+    // 대조군 — strip 없이 접으면 그대로 실린다(위 단언이 «원래 안 실리는 값» 을 보는 게 아니다).
+    expect(await unfold(await encodeSharePayload({ kind: 'session', session, drills }))).toContain('tm_secret01');
   });
 
   it('strip 이 보내는 쪽 세션·드릴 원본을 건드리지 않는다 — 공유했다고 내 명단이 사라지면 안 된다', async () => {

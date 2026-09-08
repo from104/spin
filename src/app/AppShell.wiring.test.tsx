@@ -175,6 +175,16 @@ vi.mock('../features/rules/RulesScreen.tsx', () => {
   return { RulesScreen };
 });
 
+vi.mock('../features/team/TeamScreen.tsx', () => {
+  // 2026-09-09 신설. ★ 다른 화면 목과 달리 **진짜 `<main id="main" tabIndex={-1}>`** 을 낸다 —
+  // 팀 목록↔상세 전환의 계약 절반이 «main 에 초점이 간다» 라서, div 로 대신하면 그 절반을 못 잰다
+  // (§7.5a 대로 실제 TeamScreen 도 자기 main 을 직접 렌더한다).
+  function TeamScreen({ teamId }: { teamId?: string }) {
+    return <main id="main" tabIndex={-1} data-testid="screen-team" data-team-id={teamId ?? ''} />;
+  }
+  return { TeamScreen };
+});
+
 const { AppShell } = await import('./AppShell.tsx');
 const { SettingsProvider } = await import('../store/settings/SettingsProvider.tsx');
 const { LibraryProvider } = await import('../store/library/LibraryProvider.tsx');
@@ -230,7 +240,7 @@ async function renderShell() {
   return utils;
 }
 
-const SCREEN_TESTIDS = ['screen-board', 'screen-editor', 'screen-library', 'screen-sessions', 'screen-session-editor', 'screen-present', 'screen-rules', 'screen-settings'] as const;
+const SCREEN_TESTIDS = ['screen-board', 'screen-editor', 'screen-library', 'screen-sessions', 'screen-session-editor', 'screen-present', 'screen-rules', 'screen-team', 'screen-settings'] as const;
 
 /** renderScreen 은 switch 라 한 번에 하나만 나와야 한다 — "A 가 떴다" 뿐 아니라 "나머지는 없다"
  *  까지 봐야 스위치가 정말 갈렸는지 알 수 있다. */
@@ -731,6 +741,29 @@ describe('AppShell 배선 — 라이브 리전 발표 (§7.6 / 계획서 2.4)', 
     expect(announced()).toBe('드릴 목록');
     await user.click(screen.getByRole('button', { name: '설정' }));
     expect(announced()).toBe('설정');
+  });
+
+  // 2026-09-09(검수) — 팀 목록↔상세는 **같은 화면 키 안에서 본문이 통째로 바뀌는** 전환이다.
+  // 이 케이스를 지우면 새는 것: 카드 [열기] 를 눌러도 아무것도 안 읽히고 초점이 <body> 로
+  // 떨어져 Tab 이 «본문으로 건너뛰기» 부터 다시 시작한다(실기에서 실제로 그랬다).
+  it('팀 목록 → 상세도 발표하고 main 에 초점을 준다 — 같은 화면 키 안의 전환', async () => {
+    initialPath = '/team';
+    await renderShell();
+    expect(announced()).toBe(''); // 최초 마운트는 여전히 조용하다
+
+    await act(async () => {
+      await router.navigate('/team/tm_wiring0001');
+    });
+    expect(screen.getByTestId('screen-team')).toHaveAttribute('data-team-id', 'tm_wiring0001');
+    expect(announced()).toBe('팀 상세');
+    expect(document.activeElement).toBe(screen.getByTestId('screen-team'));
+
+    // 되돌아오는 길도 같은 급이다 — [← 팀 목록] 이 조용하면 어디로 왔는지 알 수 없다.
+    await act(async () => {
+      await router.navigate('/team');
+    });
+    expect(announced()).toBe('팀');
+    expect(document.activeElement).toBe(screen.getByTestId('screen-team'));
   });
 });
 

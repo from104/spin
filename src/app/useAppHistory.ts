@@ -51,7 +51,12 @@ export type NavTarget =
    *  ⚠️ **열쇠는 여기 없다.** 링크의 `#` 뒤(43자 키)는 경로가 아니라 프래그먼트이고, 이 타입은
    *  "URL 경로로 접을 수 있는 것만 싣는다" 는 위 규약을 지킨다 — 열쇠는 UI 가 `location.hash`
    *  에서 읽는다. 여기 실으면 history state 와 prerender 에 열쇠가 복사된다. */
-  | { kind: 'share'; id: string };
+  | { kind: 'share'; id: string }
+  /** 팀 상세(`/team/<tm_id>` — PLAN-TEAM 결정 16). 세션의 `{kind:'session'}` 과 같은 자리다:
+   *  화면 키 'team' 안에서 목록/상세를 가르는 값이고, 그 진실은 URL 이 쥔다.
+   *  ⚠️ 팀은 **링크로 나가지 않는다**(결정 12) — 이 대상은 이 기기 안의 주소일 뿐이고,
+   *  `share/link.ts` 는 team 을 모른다. `robots.txt` 가 `/team` 을 통째로 막는다. */
+  | { kind: 'team'; id: string };
 
 export interface AppHistoryApi {
   screen: Screen;

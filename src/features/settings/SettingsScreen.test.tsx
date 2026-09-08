@@ -38,6 +38,7 @@ function makeNav(): HomeNav {
     presentSession: vi.fn(),
     openRuleTopic: vi.fn(),
     openLegal: vi.fn(),
+    openTeam: vi.fn(),
   };
 }
 

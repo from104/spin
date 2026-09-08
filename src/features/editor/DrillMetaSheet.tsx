@@ -165,6 +165,12 @@ export function DrillMetaSheet({ open, onClose }: DrillMetaSheetProps) {
             />
           </Field>
         </div>
+        {/* ⚠️ 2026-09-09(PLAN-TEAM 결정 22) — 이 두 칸은 **이 판의 진영 이름**이지 팀 문서가
+            아니다. `drill.teams` 는 드릴이 태어날 때 찍힌 스냅샷이라 소급되지 않고, 사람이 쓰는
+            팀(명단·스태프·라인업)은 [팀] 메뉴에 따로 산다. 두 개념이 같은 낱말을 쓰므로 한 줄로
+            그 경계를 말해 준다 — 안 말하면 여기서 이름을 고치고 "우리 팀 명단이 왜 안 바뀌지"
+            를 묻게 된다. */}
+        <p style={{ fontSize: '0.75rem', color: 'var(--faint-text)', margin: 0 }}>{t('editor.drillMetaSheet.teamLabelHint')}</p>
 
         <div style={{ height: 1, background: 'var(--border)' }} />
 

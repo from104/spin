@@ -40,13 +40,22 @@ describe('driveListAll', () => {
           { id: 'f-bad', appProperties: { t: 'mystery', id: 'x', m: '1' } },
         ],
       }),
-      json({ files: [{ id: 'f3', appProperties: { t: 'roster', id: 'roster', m: '9' } }, { id: 'f-noprops' }] }),
+      json({
+        files: [
+          { id: 'f3', appProperties: { t: 'roster', id: 'roster', m: '9' } },
+          // 팀([팀] 메뉴, 2026-09-09) — 아는 종류에서 빠지면 unrecognized 로 떨어지고,
+          // 그 파일은 계획에 안 들어가 **영영 안 받아진다**([Drive 데이터 삭제]에는 지워진다).
+          { id: 'f4', appProperties: { t: 'team', id: 'tm_alpha', m: '11' } },
+          { id: 'f-noprops' },
+        ],
+      }),
     ]);
     const { files, unrecognized } = await driveListAll('tok');
     expect(files).toEqual([
       { fileId: 'f1', type: 'drill', id: 'dr_a', modifiedAt: 100, writerId: 'w1' },
       { fileId: 'f2', type: 'session', id: 'se_b', modifiedAt: 50, deletedAt: 70 },
       { fileId: 'f3', type: 'roster', id: 'roster', modifiedAt: 9 },
+      { fileId: 'f4', type: 'team', id: 'tm_alpha', modifiedAt: 11 },
     ]);
     expect(unrecognized).toEqual(['f-bad', 'f-noprops']);
     expect(calls).toHaveLength(2);
@@ -140,6 +149,8 @@ describe('parseSyncContainer — 내려받은 본문의 관문', () => {
   it('정상 컨테이너는 통과, doc:null(톰스톤)도 유효하다', () => {
     expect(parseSyncContainer(good)).toEqual({ ok: true, container: good });
     expect(parseSyncContainer({ ...good, deletedAt: 9, doc: null }).ok).toBe(true);
+    // 팀도 아는 종류다 — 여기서 invalid 로 떨어지면 받는 기기가 남의 팀을 손상으로 오해한다.
+    expect(parseSyncContainer({ ...good, type: 'team', id: 'tm_alpha' }).ok).toBe(true);
   });
 
   it('sync 가 더 높으면 too-new — invalid 와 갈라 보고한다(앱 업데이트 안내 대상)', () => {

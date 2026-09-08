@@ -41,6 +41,7 @@ export const SPIN_EXT: Record<SpinFileKind, string> = {
   backup: '.spin.backup.json',
   prefs: '.spin.prefs.json',
   drillSet: '.spin.drillset.json',
+  team: '.spin.team.json',
 };
 
 /** 화면별 파일 선택 필터. 옛 `.spin.json` 과 맨 `.json` 을 **남긴다** — 필터는 힌트이지 검증이
@@ -48,6 +49,11 @@ export const SPIN_EXT: Record<SpinFileKind, string> = {
  *  그게 더 나쁘다. 진짜 방어는 봉투를 읽고 갈 곳을 알려주는 안내 쪽이다. */
 export const ACCEPT_LIBRARY = `${SPIN_EXT.drill},${SPIN_EXT.session},${SPIN_EXT.library},.spin.json,.json,application/json`;
 export const ACCEPT_BACKUP = `${SPIN_EXT.backup},.spin.json,.json,application/json`;
+/** [팀] 툴바 [가져오기]. 옛 `.spin.json` 을 같이 남기는 것은 위 규율 그대로 — 필터는 힌트다.
+ *  ⚠️ 여기에 `.spin.backup.json` 을 넣지 않는다: 기기 이사 파일을 팀 화면에서 열어도 팀만
+ *  들어오지 않고 통째 복원이 돌아야 하는데, 그 결정(설정 복원·전술판 정책)은 설정 화면 몫이다.
+ *  잘못 들어오면 문구가 갈 곳을 말해 준다(`features/team/transfer.ts`). */
+export const ACCEPT_TEAM = `${SPIN_EXT.team},.spin.json,.json,application/json`;
 
 /** 예: SPIN_측면-돌파-후-크로스_20260807.spin.drill.json */
 export function drillFileName(d: Drill): string {

@@ -1,6 +1,6 @@
 // §3.8 검증·보정. zod 등 런타임 스키마 라이브러리 미사용(의존성 0). 절대 throw 하지 않는다 —
 // 파일에서 온 임의 JSON 을 먹어도 된다. 11단계 고정 순서 파이프라인, 멱등.
-import { newId } from '../core/ids.ts';
+import { isId, newId } from '../core/ids.ts';
 import {
   SHAPE_DEFAULT_PX,
   SHAPE_KINDS,
@@ -15,7 +15,7 @@ import {
   type TriPoints,
 } from './shape.ts';
 import type { ShapeId } from '../core/ids.ts';
-import type { ChairId, BallId, ConeId, StepId, ArrowId, NoteId, DrillId, SessionId, ItemId, PlayerId, StrokeId } from '../core/ids.ts';
+import type { ChairId, BallId, ConeId, StepId, ArrowId, NoteId, DrillId, SessionId, ItemId, PlayerId, StrokeId, TeamId, StaffId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
 import { COURT_MODES, COURT_SIZES, DEFAULT_COURT_SIZE, clampToViewBox, type CourtMode, type CourtSize } from './court.ts';
 import { FORMATIONS, defaultStep, DEFAULT_TEAMS } from './defaults.ts';
@@ -30,6 +30,8 @@ import type { TrainingSession, SessionItem, SessionPhase, SessionPhaseKind } fro
 import { refDrillIds } from './refs.ts';
 import { CURRENT_ROSTER_SCHEMA, PF_CLASSES } from './roster.ts';
 import type { Roster, Player, PFClass } from './roster.ts';
+import { CURRENT_TEAM_SCHEMA, STAFF_ROLES, defaultTeamName } from './team.ts';
+import type { Team, Staff, StaffRole, Lineup } from './team.ts';
 
 export interface ValidationIssue {
   path: string;
@@ -137,8 +139,32 @@ export const LIMITS = {
   captionRosterLen: 80,
   // ── 로스터 (구조 개편 C3) ─────────────────────────────────────────────────────────
   rosterMax: 30, // playersNeededMax 와 같은 근거 — 코트 8 + 교체·피더까지
+  // ⚠️ 2026-09-09: rosterMax 는 이제 **팀당** 상한이다([팀] 메뉴, PLAN-TEAM.md 결정 19).
+  // 명단이 팀 문서 안으로 들어가며 "앱 전체에 선수 30명" 이 "팀마다 30명" 이 됐다 — 숫자는
+  // 그대로지만 세는 단위가 바뀌었다. validateRoster(옛 단일 명단)와 validateTeam 이 같은 값을
+  // 쓰는 것은 의도다: 이주(rosterMigration)가 옛 명단을 그대로 한 팀에 담을 수 있어야 한다.
   playerNameLen: 40, // chairNameLen(24)보다 넉넉한 이유: 여기는 트레이 손잡이로 안 흘러간다
+  // ── 팀 ([팀] 메뉴, 2026-09-09 · PLAN-TEAM.md 결정 19) ──────────────────────────────
+  /** 팀 문서 수 상한. 클럽·연령대·연도별 복제(결정 20)를 감안한 값이다 — 시즌을 별도 계층
+   *  대신 [복제]로 푸는 이상 팀 수는 해마다 는다. 동기화 파일 20개는 Drive 왕복에 무리가 없다. */
+  teamMax: 20,
+  staffMax: 15, // 벤치 인원(코치·매니저·의무·활동지원·정비)과 예비까지. 깨진 파일 방어선이다
+  teamNameLen: 40, // playerNameLen 과 같은 규모 — 목록 카드 한 줄 라벨이다
+  /** 약칭. 등번호 칩 옆·세션 카드 칩에 들어가는 2~4글자용 자리라 짧다. */
+  shortNameLen: 6,
+  /** 선수 메모(결정 6). itemNoteLen 과 같은 규모 — 화면 한 줄 곁다리다.
+   *  ⚠️ 이 칸은 개인정보를 **안 적게 하는 안내**가 함께 가야 한다(model/roster.ts Player 주석). */
+  playerNoteLen: 200,
+  chairModelLen: 40, // 축구용 파워체어 기종명("Strike Force 3", "Quickie Q300 M Mini")
+  teamLeagueLen: 40, // 리그·소속 라벨. 팀 이름과 같은 규모
+  teamSeasonLen: 24, // '2026', '2026 U19' 같은 라벨 — 이름보다 짧다
+  teamNoteLen: 400, // 팀 전체 메모. sessionNoteLen·descriptionLen 과 같은 규모
 } as const;
+
+/** 등번호 상한(결정 6). 0 도 유효한 등번호다 — '미지정' 은 키가 없는 것으로 표현한다. */
+const PLAYER_NUMBER_MAX = 99;
+/** 출생 연도의 하한. 이보다 이른 값은 오타이거나 깨진 파일이다(연도만 받는다 — 결정 6). */
+const BIRTH_YEAR_MIN = 1900;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -1015,6 +1041,11 @@ export function validateSession(doc: unknown): ValidateResult<TrainingSession> {
     }
     if (out.length > 0) participantIds = out;
   }
+  // 팀 지목(PLAN-TEAM 결정 4·11). **실존은 확인하지 않는다** — 팀이 지워져도 세션은 남고
+  // 화면이 «지워진 팀» 으로 읽는다(참가자 유령 id 와 같은 교리). 접두만 보는 이유는
+  // 화이트리스트라서다: 이 검사가 없으면 임의 문자열이 teamId 자리에 눌러앉는다.
+  const teamId = isId(doc.teamId, 'tm') ? doc.teamId : undefined;
+  if (doc.teamId !== undefined && teamId === undefined) pushRepair(repairs, 'teamId', '팀 id 꼴이 아니어서 폐기(미지정)', false);
 
   // ── 구획 파싱. 항목 상한(maxSessionItems)은 **전 구획 합산**으로 센다 ──────────────────
   const itemSeen = new Set<string>();
@@ -1112,6 +1143,7 @@ export function validateSession(doc: unknown): ValidateResult<TrainingSession> {
     ...(goalTotalMin !== undefined ? { goalTotalMin } : {}),
     phases,
     ...(participantIds !== undefined ? { participantIds } : {}),
+    ...(teamId !== undefined ? { teamId } : {}),
     drillIds,
     createdAt,
     updatedAt,
@@ -1162,4 +1194,276 @@ export function validateRoster(doc: unknown): ValidateResult<Roster> {
   }
   const updatedAt = typeof doc.updatedAt === 'number' && Number.isFinite(doc.updatedAt) ? doc.updatedAt : Date.now();
   return { ok: true, value: { schemaVersion: CURRENT_ROSTER_SCHEMA, players, updatedAt }, repairs };
+}
+
+// ---- validateTeam ([팀] 메뉴, 2026-09-09 · PLAN-TEAM.md 결정 4·5·6·7·19) --------------------
+//
+// 다른 validate 들과 같은 계약이다: **절대 throw 하지 않고**, 파일에서 온 임의 JSON 을 먹어도
+// 되며, 멱등이다(같은 값을 두 번 태워도 결과가 같다). 못 고칠 것만 issues 로 거절한다.
+//
+// ⚠️ **여기서 만들지 않는 필드**(결정 6·10): 성별·생년월일·사진·연락처·진단명·보호자·등급
+// 상태(N/R/C)·속도검사. 화이트리스트 정화기라, 파일에 그런 키가 들어 있어도 **조용히 사라진다**
+// — 그것이 이 함수가 개인정보 보호선의 일부인 이유다.
+
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
+
+/** 색은 인라인 style 과 인쇄물로 그대로 흘러가므로 형식을 실제로 잰다 —
+ *  `typeof === 'string'` 만 보면 `"red; background:url(...)"` 같은 값이 통과한다. */
+function sanitizeHexColor(raw: unknown, fallback: string, path: string, repairs: Repair[]): string {
+  if (typeof raw === 'string' && HEX_COLOR_RE.test(raw)) return raw;
+  if (raw !== undefined) pushRepair(repairs, path, `색 형식(#rrggbb)이 아님 — 기본값 ${fallback} 으로 대체`, true);
+  return fallback;
+}
+
+/** 0..max 정수. 값이 없으면 **키를 만들지 않는다**(sanitizeText 와 같은 규율 — undefined 키가
+ *  IDB 왕복에서는 살고 JSON 왕복에서는 죽어 같은 문서가 두 모양이 된다). */
+function sanitizeIntField(raw: unknown, min: number, max: number, path: string, label: string, repairs: Repair[]): number | undefined {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+    if (raw !== undefined) pushRepair(repairs, path, `${label} 이 숫자가 아님 — 폐기`, false);
+    return undefined;
+  }
+  const v = Math.min(max, Math.max(min, Math.round(raw)));
+  if (v !== raw) pushRepair(repairs, path, `${label} 을 ${min}~${max} 정수로 보정`, true);
+  return v;
+}
+
+const sanitizeBool = (raw: unknown): boolean | undefined => (raw === true ? true : raw === false ? false : undefined);
+
+function sanitizeTeamPlayer(raw: unknown, seen: Set<string>, repairs: Repair[]): Player | null {
+  if (!isRecord(raw)) return null;
+  let id = typeof raw.id === 'string' && raw.id.length > 0 ? (raw.id as PlayerId) : newId('pl');
+  if (seen.has(id)) {
+    id = newId('pl');
+    pushRepair(repairs, 'players.id', '중복 선수 id 재발급', false);
+  }
+  seen.add(id);
+  // 이름 없는 선수는 버린다 — validateRoster 와 같은 규칙이다(명단의 존재 이유가 이름이다).
+  const nameRaw = typeof raw.name === 'string' ? raw.name.trim() : '';
+  if (nameRaw.length === 0) return null;
+  const name = nameRaw.length <= LIMITS.playerNameLen ? nameRaw : nameRaw.slice(0, LIMITS.playerNameLen);
+  if (name !== nameRaw) pushRepair(repairs, 'players.name', `선수 이름 길이 상한(${LIMITS.playerNameLen}) 초과 — 절단`, true);
+
+  let klass: PFClass | undefined;
+  if (typeof raw.klass === 'string' && (PF_CLASSES as readonly string[]).includes(raw.klass)) {
+    klass = raw.klass as PFClass;
+  } else if (raw.klass !== undefined) {
+    pushRepair(repairs, 'players.klass', `알 수 없는 클래스 '${String(raw.klass)}' 폐기(미분류)`, false);
+  }
+
+  const number = sanitizeIntField(raw.number, 0, PLAYER_NUMBER_MAX, 'players.number', '등번호', repairs);
+  // 상한은 **고정 리터럴이 아니라 지금 연도**다 — 리터럴로 박으면 그 해가 지나는 순간
+  // 갓 태어난 선수의 연도가 조용히 깎인다.
+  const birthYear = sanitizeIntField(raw.birthYear, BIRTH_YEAR_MIN, new Date().getFullYear(), 'players.birthYear', '출생 연도', repairs);
+  const isCaptain = sanitizeBool(raw.isCaptain);
+  const preferredGk = sanitizeBool(raw.preferredGk);
+  const active = sanitizeBool(raw.active);
+  const chairModel = sanitizeText(raw.chairModel, LIMITS.chairModelLen, 'players.chairModel', '체어 기종', repairs);
+  const note = sanitizeText(raw.note, LIMITS.playerNoteLen, 'players.note', '선수 메모', repairs);
+  const createdAt = typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now();
+  const updatedAt = typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt) ? raw.updatedAt : Date.now();
+
+  return {
+    id,
+    name,
+    ...(klass !== undefined ? { klass } : {}),
+    ...(number !== undefined ? { number } : {}),
+    ...(isCaptain === true ? { isCaptain } : {}), // false 는 키를 만들지 않는다 = 기본값
+    ...(preferredGk === true ? { preferredGk } : {}),
+    ...(active === false ? { active } : {}), // 기본이 활성이라 false 만 기록한다
+    ...(birthYear !== undefined ? { birthYear } : {}),
+    ...(chairModel !== undefined ? { chairModel } : {}),
+    ...(note !== undefined ? { note } : {}),
+    createdAt,
+    updatedAt,
+  };
+}
+
+function sanitizeStaff(raw: unknown, seen: Set<string>, playerIds: Set<string>, repairs: Repair[]): Staff | null {
+  if (!isRecord(raw)) return null;
+  let id = typeof raw.id === 'string' && raw.id.length > 0 ? (raw.id as StaffId) : newId('sf');
+  if (seen.has(id)) {
+    id = newId('sf');
+    pushRepair(repairs, 'staff.id', '중복 스태프 id 재발급', false);
+  }
+  seen.add(id);
+  const nameRaw = typeof raw.name === 'string' ? raw.name.trim() : '';
+  if (nameRaw.length === 0) return null;
+  const name = nameRaw.length <= LIMITS.playerNameLen ? nameRaw : nameRaw.slice(0, LIMITS.playerNameLen);
+  if (name !== nameRaw) pushRepair(repairs, 'staff.name', `스태프 이름 길이 상한(${LIMITS.playerNameLen}) 초과 — 절단`, true);
+
+  const roles: StaffRole[] = [];
+  const rawRoles = Array.isArray(raw.roles) ? raw.roles : [];
+  for (const r of rawRoles) {
+    if (typeof r === 'string' && (STAFF_ROLES as readonly string[]).includes(r)) {
+      if (!roles.includes(r as StaffRole)) roles.push(r as StaffRole);
+    } else {
+      pushRepair(repairs, 'staff.roles', `알 수 없는 역할 '${String(r)}' 폐기`, false);
+    }
+  }
+  // 겸직은 **같은 팀 선수만** 가리킬 수 있다 — 다른 팀 id 를 남기면 복제(id 재발급) 뒤에
+  // 아무도 아닌 사람을 가리키는 유령 겸직이 된다.
+  let playerId: PlayerId | undefined;
+  if (typeof raw.playerId === 'string' && playerIds.has(raw.playerId)) playerId = raw.playerId as PlayerId;
+  else if (raw.playerId !== undefined) pushRepair(repairs, 'staff.playerId', '명단에 없는 선수 겸직 참조 폐기', false);
+
+  const note = sanitizeText(raw.note, LIMITS.playerNoteLen, 'staff.note', '스태프 메모', repairs);
+  const createdAt = typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now();
+  const updatedAt = typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt) ? raw.updatedAt : Date.now();
+
+  return {
+    id,
+    name,
+    roles,
+    ...(raw.isSeniorCoach === true ? { isSeniorCoach: true as const } : {}),
+    ...(playerId !== undefined ? { playerId } : {}),
+    ...(note !== undefined ? { note } : {}),
+    createdAt,
+    updatedAt,
+  };
+}
+
+/** 라인업은 **명단의 부분집합**이어야 한다(조사 §4.2 R4 — 팀시트에 없는 선수는 출전 불가).
+ *  화면은 입력을 막지 않지만(결정 8), 저장본이 명단에 없는 id 를 들고 있으면 그건 규정 위반이
+ *  아니라 **깨진 문서**다 — 그 칸은 이름이 없어 그릴 수조차 없다. */
+function sanitizeLineup(raw: unknown, playerIds: Set<string>, repairs: Repair[]): Lineup | undefined {
+  if (!isRecord(raw)) return undefined;
+  const pick = (v: unknown, path: string, budget: number): PlayerId[] => {
+    const out: PlayerId[] = [];
+    const arr = Array.isArray(v) ? v : [];
+    for (const id of arr) {
+      if (typeof id !== 'string' || !playerIds.has(id)) {
+        pushRepair(repairs, path, '명단에 없는 선수 id 폐기', false);
+        continue;
+      }
+      if (out.includes(id as PlayerId)) {
+        pushRepair(repairs, path, '중복 선수 id 폐기', false);
+        continue;
+      }
+      if (out.length >= budget) {
+        pushRepair(repairs, path, `상한(${budget}) 초과 — 뒤에서 절단`, true);
+        break;
+      }
+      out.push(id as PlayerId);
+    }
+    return out;
+  };
+  // 코트는 4칸(R1). 벤치는 잠그지 않는다(R3 — 교체는 합의로 늘릴 수 있다)지만 깨진 파일
+  // 방어선으로 팀 명단 상한을 쓴다.
+  const court = pick(raw.court, 'lineup.court', 4);
+  const benchAll = pick(raw.bench, 'lineup.bench', LIMITS.rosterMax);
+  const bench = benchAll.filter((id) => {
+    if (!court.includes(id)) return true;
+    pushRepair(repairs, 'lineup.bench', '코트와 벤치에 동시에 있는 선수 — 벤치에서 제거', true);
+    return false;
+  });
+  // GK 는 **코트 안의 한 명**이어야 한다(R1). 벤치 선수를 GK 로 적은 문서는 값을 버린다 —
+  // 코트로 옮겨 주면 사용자가 세운 적 없는 라인업을 앱이 지어내는 셈이 된다.
+  let gk: PlayerId | undefined;
+  if (typeof raw.gk === 'string' && court.includes(raw.gk as PlayerId)) gk = raw.gk as PlayerId;
+  else if (raw.gk !== undefined) pushRepair(repairs, 'lineup.gk', '코트에 없는 선수의 GK 지정 폐기', false);
+
+  if (court.length === 0 && bench.length === 0 && gk === undefined) return undefined;
+  return { court, ...(gk !== undefined ? { gk } : {}), bench };
+}
+
+export function validateTeam(doc: unknown): ValidateResult<Team> {
+  if (!isRecord(doc)) {
+    return { ok: false, issues: [{ path: '', message: '문서가 객체가 아님' }] };
+  }
+  const schemaVersionRaw = doc.schemaVersion;
+  if (typeof schemaVersionRaw === 'number' && schemaVersionRaw > CURRENT_TEAM_SCHEMA) {
+    return { ok: false, issues: [{ path: 'schemaVersion', message: `schemaVersion(${schemaVersionRaw}) 이 지원 버전(${CURRENT_TEAM_SCHEMA})보다 큼` }] };
+  }
+  const repairs: Repair[] = [];
+  const id = typeof doc.id === 'string' && doc.id.length > 0 ? (doc.id as TeamId) : newId('tm');
+
+  const nameRaw = typeof doc.name === 'string' ? doc.name.trim() : '';
+  let name = nameRaw.slice(0, LIMITS.teamNameLen);
+  if (name.length !== nameRaw.length) pushRepair(repairs, 'name', `팀 이름 길이 상한(${LIMITS.teamNameLen}) 초과 — 절단`, true);
+  // 이름 없는 팀은 **거절하지 않고** 기본 이름을 준다 — 드릴 제목이 ''를 허용하는 것과 달리
+  // 팀은 목록 카드·세션 드롭다운에서 이름으로만 식별되므로 빈 이름은 고를 수 없는 항목이 된다.
+  if (name.length === 0) {
+    name = defaultTeamName();
+    if (doc.name !== undefined) pushRepair(repairs, 'name', '빈 팀 이름 — 기본 이름으로 대체', true);
+  }
+
+  const shortName = sanitizeText(typeof doc.shortName === 'string' ? doc.shortName.trim() : doc.shortName, LIMITS.shortNameLen, 'shortName', '약칭', repairs);
+  const color = sanitizeHexColor(doc.color, DEFAULT_TEAMS.home.color, 'color', repairs);
+  const gkColor = sanitizeHexColor(doc.gkColor, DEFAULT_TEAMS.home.gkColor, 'gkColor', repairs);
+  const league = sanitizeText(doc.league, LIMITS.teamLeagueLen, 'league', '리그', repairs);
+  const season = sanitizeText(doc.season, LIMITS.teamSeasonLen, 'season', '시즌', repairs);
+  const note = sanitizeText(doc.note, LIMITS.teamNoteLen, 'note', '팀 메모', repairs);
+
+  const seenPlayers = new Set<string>();
+  let players: Player[] = [];
+  for (const raw of Array.isArray(doc.players) ? doc.players : []) {
+    const p = sanitizeTeamPlayer(raw, seenPlayers, repairs);
+    if (p) players.push(p);
+  }
+  if (players.length > LIMITS.rosterMax) {
+    pushRepair(repairs, 'players', `선수 상한(${LIMITS.rosterMax}) 초과 — 뒤에서 절단`, true);
+    players = players.slice(0, LIMITS.rosterMax);
+  }
+  // 주장은 **팀당 1명**(결정 6). 둘째부터 키를 지운다 — 인쇄된 팀시트에 완장이 둘이면
+  // 그 문서는 규정 문서로서 못 쓴다(Laws L329-330 상 팀시트는 실재하는 서류다).
+  let captainSeen = false;
+  players = players.map((p) => {
+    if (p.isCaptain !== true) return p;
+    if (!captainSeen) {
+      captainSeen = true;
+      return p;
+    }
+    pushRepair(repairs, 'players.isCaptain', '주장은 팀당 1명 — 두 번째부터 해제', true);
+    const { isCaptain: _drop, ...rest } = p;
+    return rest;
+  });
+
+  const playerIds = new Set<string>(players.map((p) => p.id));
+  const seenStaff = new Set<string>();
+  let staff: Staff[] = [];
+  for (const raw of Array.isArray(doc.staff) ? doc.staff : []) {
+    const s = sanitizeStaff(raw, seenStaff, playerIds, repairs);
+    if (s) staff.push(s);
+  }
+  if (staff.length > LIMITS.staffMax) {
+    pushRepair(repairs, 'staff', `스태프 상한(${LIMITS.staffMax}) 초과 — 뒤에서 절단`, true);
+    staff = staff.slice(0, LIMITS.staffMax);
+  }
+  // 선임 코치도 1명 — 벤치 제재를 승계하는 사람이라 둘이면 누가 받는지가 정해지지 않는다.
+  let seniorSeen = false;
+  staff = staff.map((s) => {
+    if (s.isSeniorCoach !== true) return s;
+    if (!seniorSeen) {
+      seniorSeen = true;
+      return s;
+    }
+    pushRepair(repairs, 'staff.isSeniorCoach', '선임 코치는 팀당 1명 — 두 번째부터 해제', true);
+    const { isSeniorCoach: _drop, ...rest } = s;
+    return rest;
+  });
+
+  const lineup = sanitizeLineup(doc.lineup, playerIds, repairs);
+  const createdAt = typeof doc.createdAt === 'number' && Number.isFinite(doc.createdAt) ? doc.createdAt : Date.now();
+  const updatedAt = typeof doc.updatedAt === 'number' && Number.isFinite(doc.updatedAt) ? doc.updatedAt : Date.now();
+
+  return {
+    ok: true,
+    value: {
+      schemaVersion: CURRENT_TEAM_SCHEMA,
+      id,
+      name,
+      ...(shortName !== undefined && shortName.length > 0 ? { shortName } : {}),
+      color,
+      gkColor,
+      ...(league !== undefined ? { league } : {}),
+      ...(season !== undefined ? { season } : {}),
+      ...(note !== undefined ? { note } : {}),
+      players,
+      staff,
+      ...(lineup !== undefined ? { lineup } : {}),
+      createdAt,
+      updatedAt,
+    },
+    repairs,
+  };
 }

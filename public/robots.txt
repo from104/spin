@@ -1,8 +1,11 @@
 # SPIN — https://spin.atit.app
 #
-# 색인할 것은 대문과 규칙 해설이다. 나머지 화면(드릴 목록·세션·시연·설정)은 이 기기의
+# 색인할 것은 대문과 규칙 해설이다. 나머지 화면(드릴 목록·세션·팀·시연·설정)은 이 기기의
 # IndexedDB 를 읽어서 그리므로 크롤러에게는 **언제나 빈 화면**이다 — 색인되면 내용 없는
 # 페이지가 사이트 평가를 깎는다. 그래서 막는다. 사람에게는 그대로 열려 있다.
+#
+# 2026-09-09 — /team 은 빈 화면이라서만이 아니라 **개인정보라서** 막는다(PLAN-TEAM 결정 12).
+# 팀 문서는 선수 실명을 담고 링크로 나가는 길이 아예 없다 — 색인 대상이 될 수도 없어야 한다.
 
 User-agent: *
 Allow: /
@@ -16,14 +19,17 @@ Allow: /ja/settings/privacy
 Allow: /ja/settings/terms
 Disallow: /drills
 Disallow: /sessions
+Disallow: /team
 Disallow: /present
 Disallow: /settings
 Disallow: /en/drills
 Disallow: /en/sessions
+Disallow: /en/team
 Disallow: /en/present
 Disallow: /en/settings
 Disallow: /ja/drills
 Disallow: /ja/sessions
+Disallow: /ja/team
 Disallow: /ja/present
 Disallow: /ja/settings
 

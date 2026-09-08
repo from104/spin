@@ -12,10 +12,11 @@ import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { AppNavAside, AppNavSegment } from './AppNavSegment.tsx';
+import { RAIL_ITEMS } from './screens.ts';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import { SettingsProvider } from '../store/settings/SettingsProvider.tsx';
 import { CHROME_ROWS } from './chromeBudget.ts';
-import { HEADER_PAD_PX, headerContentMaxPx, navSegmentHeightPx } from './navChrome.ts';
+import { HEADER_PAD_PX, headerContentMaxPx, navSegmentHeightPx, navSegmentMinWidthPx, navSegmentWidthBudgetPx } from './navChrome.ts';
 import { HelpTriggerProvider, usePublishHelpShow } from '../ui/help/HelpTriggerProvider.tsx';
 
 /** 실제 화면이 usePublishHelpShow 로 등록하는 것을 흉내낸다 — 여기서는 관측만 한다. */
@@ -108,5 +109,33 @@ describe('AppNavSegment — 세로 예산 (헤더 48 을 넘지 않는다)', () 
     expect(navSegmentHeightPx(44)).toBe(44);
     expect(navSegmentHeightPx(44) + HEADER_PAD_PX.narrow.y * 2).toBe(headerRow.narrow);
     expect(navSegmentHeightPx(44)).toBeLessThanOrEqual(headerContentMaxPx(headerRow.narrow, true));
+  });
+});
+
+// ── 가로 예산 (2026-09-09 검수) ──────────────────────────────────────────────────────
+// 이 파일을 지우면 새는 것: 레일에 칸이 하나 더 붙었을 때 **좁은 창에서 마지막 칸에 손이 닿지
+// 않는다**. 실제로 6칸째(팀)에서 그 일이 났다 — 밀려난 칸으로 갈 가로 스크롤이 없어 ja/360 의
+// [設定]을 누를 방법이 아예 없었다. 라벨 폭은 언어마다 다르고 jsdom 이 못 재므로 «넘치는가» 는
+// 여기서 못 잰다. 대신 두 가지를 잰다: 스크롤 컨테이너가 실제로 서 있는가(넘쳐도 닿는가), 그리고
+// 라벨을 다 지운 **하한**이 가장 좁은 지원 폭에 드는가.
+describe('AppNavSegment — 가로 예산 (좁은 창에서 칸에 손이 닿는다)', () => {
+  const NARROWEST_PX = 360; // 지원하는 가장 좁은 폭(태블릿·폰 세로)
+
+  it('nav 이 가로 스크롤 컨테이너다 — 칸이 넘쳐도 닿는다', () => {
+    render(<AppNavSegment />, { wrapper: Harness });
+    const nav = screen.getByRole('navigation');
+    // 넘침을 «없다» 로 가정하지 않고 «닿는다» 로 만든 것이 이 계약이다. 셋 다 있어야 한다:
+    // 스크롤(overflow-x), 줄어들 수 있음(min-width:0), 그리고 그 부모도 줄어들 수 있음.
+    expect(nav.style.overflowX).toBe('auto');
+    expect(nav.style.minWidth).toBe('0px');
+    expect((nav.parentElement as HTMLElement).style.flex).not.toBe('none');
+  });
+
+  it('라벨을 다 지운 하한이 --hit 44 에서는 360px 에 들고, 56 에서는 안 든다', () => {
+    const budget = navSegmentWidthBudgetPx(NARROWEST_PX);
+    expect(navSegmentMinWidthPx(44, RAIL_ITEMS.length)).toBeLessThanOrEqual(budget);
+    // ★ 큰 터치(56)에서는 아이콘만 남겨도 안 든다 — 그래서 «라벨 접기» 가 아니라 스크롤이
+    //   답이었다(AppNavSegment.tsx 머리말). 이 단언이 뒤집히는 날은 칸이 줄었다는 뜻이다.
+    expect(navSegmentMinWidthPx(56, RAIL_ITEMS.length)).toBeGreaterThan(budget);
   });
 });

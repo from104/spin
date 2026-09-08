@@ -6,11 +6,15 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Drill } from '../model/drill.ts';
 import type { DrillSummary } from '../model/summary.ts';
 import type { TrainingSession } from '../model/session.ts';
-import type { DrillId, SessionId } from '../core/ids.ts';
+import type { Team } from '../model/team.ts';
+import type { DrillId, SessionId, TeamId } from '../core/ids.ts';
 import { StorageError, STORAGE_ERROR_MESSAGES, type StorageErrorCode } from './errors.ts';
 
 export const DB_NAME = 'spin';
-export const DB_VERSION = 1;
+/** ⚠️ 2 = [팀] 메뉴(2026-09-09, PLAN-TEAM.md 결정 2) — `teams` 스토어가 생겼다.
+ *  **올리는 대가가 있다**: 다른 탭이 열려 있으면 아래 `blocking()` 이 3초 뒤 그 탭을 못 쓰게
+ *  만들고 새로고침 모달을 띄운다. 그래서 스토어 신설은 기능 하나에 한 번만 묶어서 한다. */
+export const DB_VERSION = 2;
 
 export interface MetaRecord {
   key: string;
@@ -25,6 +29,10 @@ export interface SpinDB extends DBSchema {
     value: TrainingSession;
     indexes: { by_updatedAt: number; by_drillId: DrillId };
   };
+  /** 팀 문서([팀] 메뉴). **요약 스토어를 두지 않는다** — `sessions` 와 같은 패턴이다:
+   *  팀은 최대 20개(LIMITS.teamMax)라 전량을 읽어 메모리에서 거르는 편이 싸고, 요약을 두면
+   *  put 마다 두 스토어를 맞춰야 하는 불변식이 하나 는다(drillRepo 가 지고 있는 그 비용). */
+  teams: { key: TeamId; value: Team; indexes: { by_updatedAt: number } };
   meta: { key: string; value: MetaRecord };
 }
 
@@ -61,7 +69,11 @@ function openSpinDB(): Promise<IDBPDatabase<SpinDB>> {
         s.createIndex('by_drillId', 'drillIds', { multiEntry: true });
         db.createObjectStore('meta', { keyPath: 'key' });
       }
-      // if (oldVersion < 2) { /* 예: drillSets 스토어 */ }
+      if (oldVersion < 2) {
+        // [팀] 메뉴(2026-09-09). 인덱스는 `by_updatedAt` 하나 — 목록 정렬의 유일한 축이고,
+        // 이름·리그로 거르는 것은 20개 전량을 읽어 메모리에서 한다(§4.3 전략, 위 스키마 주석).
+        db.createObjectStore('teams', { keyPath: 'id' }).createIndex('by_updatedAt', 'updatedAt');
+      }
     },
     // DB 를 닫고 재연결을 시도하지 않는다 — 닫은 뒤 다시 openDB('spin',1) 을 부르면 디스크
     // 버전(신규) > 요청 버전(1) 이라 VersionError 로 영구 실패한다. needsReload 를 세워

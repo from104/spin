@@ -6,7 +6,7 @@
 // 하나" 만 안다. 그래서 fetch 스텁만으로 전부 테스트된다.
 //
 // 원격 레이아웃(계획서 §원격 레이아웃): appDataFolder 에 문서별 파일 `<id>.json`(id 가 이미
-// dr_/se_ 접두를 갖고 있고 roster 는 'roster'). 파일 목록의 appProperties 만으로 계획을
+// dr_/se_/tm_ 접두를 갖고 있고 roster 는 'roster'). 파일 목록의 appProperties 만으로 계획을
 // 세우고(planSync), 본문은 pull 로 확정된 문서만 내려받는다.
 //   appProperties: { t: type, id, m: 수정 ms, d?: 삭제 ms, w?: writerId }  — 값은 전부 문자열(Drive 제약)
 //   본문(자기서술 컨테이너): { sync: 1, type, id, modifiedAt, deletedAt?, writerId?, doc | null }
@@ -44,7 +44,11 @@ export function parseSyncContainer(v: unknown): ContainerParse {
   const r = v as Record<string, unknown>;
   if (typeof r.sync !== 'number') return { ok: false, reason: 'invalid' };
   if (r.sync > SYNC_CONTAINER_VERSION) return { ok: false, reason: 'too-new' };
-  if (r.type !== 'drill' && r.type !== 'session' && r.type !== 'roster') return { ok: false, reason: 'invalid' };
+  // ⚠️ 이 목록이 곧 «이 앱이 아는 종류» 다. 새 종류(2026-09-09 'team')를 여기 빠뜨리면 그 파일이
+  //    invalid 로 떨어져, 받는 기기는 손상으로 오해하고 영원히 안 받는다. 반대로 **옛 기기**가
+  //    team 파일을 여기서 invalid 로 떨구는 것은 의도된 안전이다 — 모르는 것을 지우거나
+  //    덮어쓰지 않고 그냥 지나간다(결정 14).
+  if (r.type !== 'drill' && r.type !== 'session' && r.type !== 'roster' && r.type !== 'team') return { ok: false, reason: 'invalid' };
   if (typeof r.id !== 'string' || r.id.length === 0) return { ok: false, reason: 'invalid' };
   if (typeof r.modifiedAt !== 'number') return { ok: false, reason: 'invalid' };
   if (r.deletedAt !== undefined && typeof r.deletedAt !== 'number') return { ok: false, reason: 'invalid' };
@@ -110,7 +114,7 @@ function parseListed(f: ListedFile): PlanRemoteFile | null {
   const p = f.appProperties;
   if (!f.id || !p) return null;
   const t = p.t;
-  if (t !== 'drill' && t !== 'session' && t !== 'roster') return null;
+  if (t !== 'drill' && t !== 'session' && t !== 'roster' && t !== 'team') return null; // ★ parseSyncContainer 와 같은 목록이어야 한다
   if (!p.id) return null;
   const m = Number(p.m);
   if (!Number.isFinite(m)) return null;

@@ -17,6 +17,11 @@
 // 화면이 아예 없다 — 편집·시연·세션 어디서나 나가는 길이라 한 섹션으로 승격했다
 // (PLAN-HELP-OVERHAUL §2.1). '시작하기'·'설정·데이터'·'단축키'·'내보내기'는 특정 화면 하나에
 // 매이지 않아 튜토리얼 재시작 버튼이 없다.
+//
+// 2026-09-09: '팀'(team) 섹션이 '세션' 다음에 들어왔다(docs/PLAN-TEAM.md 결정 23·16). 화면
+// 하나(TutorialScreenKey 'team')와 1:1 이라 예외가 아니다 — 순서만 레일(`RAIL_ITEMS`)과 같게
+// 맞춘다. 도움말 목차와 레일 순서가 어긋나면 "세 번째 칸" 같은 말이 두 화면에서 다른 것을
+// 가리킨다.
 import type { TutorialScreenKey } from '../../storage/prefs.ts';
 import type { DictKey } from '../../i18n/ko.ts';
 
@@ -26,6 +31,7 @@ export type HelpSectionKey =
   | 'library'
   | 'editor'
   | 'sessions'
+  | 'team'
   | 'present'
   | 'export'
   | 'rules'
@@ -38,6 +44,7 @@ export const HELP_SECTION_ORDER: readonly HelpSectionKey[] = [
   'library',
   'editor',
   'sessions',
+  'team',
   'present',
   'export',
   'rules',
@@ -51,6 +58,7 @@ export const HELP_SECTION_LABEL_KEY: Record<HelpSectionKey, DictKey> = {
   library: 'help.section.library',
   editor: 'help.section.editor',
   sessions: 'help.section.sessions',
+  team: 'help.section.team',
   present: 'help.section.present',
   export: 'help.section.export',
   rules: 'help.section.rules',
@@ -74,6 +82,7 @@ export const HELP_RESTART_TARGETS: Record<HelpSectionKey, readonly HelpRestartTa
     { screen: 'sessions', labelKey: 'help.sessions.restartListButton' },
     { screen: 'sessionEditor', labelKey: 'help.sessions.restartEditorButton' },
   ],
+  team: [{ screen: 'team', labelKey: 'help.team.restartButton' }],
   present: [{ screen: 'present', labelKey: 'help.present.restartButton' }],
   export: [],
   rules: [{ screen: 'rules', labelKey: 'help.rules.restartButton' }],

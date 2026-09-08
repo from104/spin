@@ -101,7 +101,7 @@ export const HELP_EN: HelpContent = {
             items: [
               '**Auto-save** — drills and sessions save to this device the instant you change them. The free tactics board keeps its latest single board on this device, but it **never enters the drill list** — to keep it, use [Edit as drill].',
               '**Backup (file)** — [Export data] in [Settings] bundles drills, sessions, settings, and the tactics board into one file. Open it on another device with [Import data].',
-              '**Sync** — turning on [Google Drive Sync] shares drills, sessions, and the roster across devices through your own Drive’s app-only space. Settings and the tactics board never go up.',
+              '**Sync** — turning on [Google Drive Sync] shares drills, sessions, and teams across devices through your own Drive’s app-only space. Settings and the tactics board never go up.',
             ],
           },
           { kind: 'tip', tone: 'warn', text: 'Clearing this browser’s site data wipes this device’s drills along with it. Keep a backup file of anything important.' },
@@ -726,7 +726,7 @@ export const HELP_EN: HelpContent = {
         title: 'Checking off participants',
         blocks: [
           { kind: 'p', text: 'Check off which players are coming in the [Participants] section. The number checked, and how many of those are PF2, both show up here and on the printout.' },
-          { kind: 'tip', tone: 'warn', text: 'Nothing to check if the roster is empty — register names and PF classes first, in [Settings] → [Roster].' },
+          { kind: 'tip', tone: 'warn', text: 'Nothing to check if the roster is empty — make a team on the [Teams] screen and register names and PF classes in its [Players] section first.' },
         ],
       },
       {
@@ -742,6 +742,144 @@ export const HELP_EN: HelpContent = {
             ],
           },
           { kind: 'tip', tone: 'tip', text: 'A session share link carries its location and notes, but not the participant roster.' },
+        ],
+      },
+    ],
+  },
+
+  // ── Teams ─────────────────────────────────────────────────────────────────────────
+  team: {
+    key: 'team',
+    intro: 'Keep several teams, each with its own roster, staff, and lineup.',
+    topics: [
+      {
+        id: 'team.new',
+        title: 'Creating a team',
+        blocks: [
+          { kind: 'p', text: 'The [Teams] screen lays out the teams you have made as cards. A card shows the team colour swatch, name, short name, player count, PF chips, and staff count.' },
+          {
+            kind: 'steps',
+            items: [
+              'Press [New team].',
+              'Type the team name (up to 40 characters).',
+              'Type a short name (up to 6 characters) — narrow screens and printouts use it instead of the full name.',
+              'Pick a [Team colour] and a [Goalkeeper colour].',
+              'Fill in [League], [Season], and [Note] only if you need them.',
+            ],
+          },
+          { kind: 'p', text: 'Everything saves as you type — there is no confirm button, and that is normal. You can keep up to 20 teams.' },
+          { kind: 'tip', tone: 'tip', text: 'The Laws require the goalkeeper to wear a colour that **stands apart from both teams and the officials.** That is why the team colour and the goalkeeper colour are two separate settings.' },
+          { kind: 'tip', tone: 'tip', text: 'For age groups or a new season, use [Duplicate] in the card ⋮ menu and change [Season]. Players in the copy are **registered as new people**, so participation already recorded in past sessions stays with the original team.' },
+        ],
+      },
+      {
+        id: 'team.players',
+        title: 'The roster',
+        blocks: [
+          { kind: 'p', text: 'Open a team and the [Players] section holds the roster. A team takes up to 30 players.' },
+          {
+            kind: 'steps',
+            items: [
+              'Type a name in the add row at the bottom and press Enter — the player is in.',
+              'Press a row to expand it and fill in the rest.',
+              'Once the list is long, use the search box and the sort (number, name, class) at the top.',
+            ],
+          },
+          {
+            kind: 'list',
+            items: [
+              '[Number] — 0 to 99.',
+              '[PF class] — PF1, PF2, or unclassified.',
+              '[Captain] — only one per team.',
+              '[Prefers goalkeeper] — the lineup offers this player first when you pick a keeper. The keeper on the day can change, so this is **a preference, not a fixed role**.',
+              '[Chair model], [Birth year], [Note] — only if you need them.',
+              '[Active] — turn it off and the player is hidden from the roster. That is how you tidy up a player who has left **without deleting them**.',
+            ],
+          },
+          { kind: 'p', text: 'Each row also shows how many sessions that player attended — it is counted from the [Participants] checks on your sessions, so there is nothing to keep up to date.' },
+          { kind: 'tip', tone: 'warn', text: 'Do **not** put medical details, diagnoses, phone numbers, or carer contacts in [Note]. This app deliberately has no field for any of that — not holding it is the strongest protection there is.' },
+          { kind: 'tip', tone: 'tip', text: 'Delete a player and you have 8 seconds to press [Undo] in the toast. In sessions already recorded, the player stays as [Deleted player].' },
+        ],
+      },
+      {
+        id: 'team.staff',
+        title: 'Staff',
+        blocks: [
+          { kind: 'p', text: 'The [Staff] section is for the people around the team — coaches, managers, and so on. Up to 15 per team.' },
+          {
+            kind: 'steps',
+            items: [
+              'Type a name in [Add staff].',
+              'Pick the roles — coach, assistant coach, manager, doctor, carer, mechanic. **One person can hold several.**',
+              'Turn on [Senior coach] for the one person who answers for the team (one per team).',
+              'If a staff member also plays, pick their name from the roster in [Also a player].',
+            ],
+          },
+          { kind: 'p', text: 'The Laws make the senior coach responsible for the team bench — a bench sanction that cannot be pinned on anyone in particular goes to that person.' },
+          { kind: 'tip', tone: 'tip', text: 'There are no licence-number or expiry fields. Tournament paperwork is handled outside this app.' },
+        ],
+      },
+      {
+        id: 'team.lineup',
+        title: 'Lineup and the PF2 rule',
+        blocks: [
+          { kind: 'p', text: 'The [Lineup] section is where you set out the four court places (one of them the goalkeeper) and the bench. One lineup is saved per team.' },
+          {
+            kind: 'steps',
+            items: [
+              'Press an active player to put them on court.',
+              'Mark one of the players on court as the goalkeeper.',
+              'Leave the rest on the bench.',
+            ],
+          },
+          { kind: 'h', text: 'Two PF2 players per match, no more' },
+          { kind: 'p', text: 'In FIPFA-sanctioned competition a team **may not field more than two PF2 players in a match.** By contrast there is **no limit on the class mix inside the squad** — a roster of 30 PF2 players breaks no rule.' },
+          { kind: 'p', text: 'If it happens, the referee stops play as soon as it is noticed, sends the extra player off, gives **a yellow card to the player and to the coach**, and restarts with an **indirect free kick** to the opponents where the ball was. A team that cannot fix it plays a player short.' },
+          {
+            kind: 'list',
+            items: [
+              '**Three or more PF2 in the lineup** — court and bench are counted **together**, because a third PF2 coming on as a substitute breaks the rule just the same.',
+              '**Fewer than two players on court** — the lineup is not filled in yet.',
+              '**No goalkeeper** — mark one of the players on court.',
+            ],
+          },
+          { kind: 'tip', tone: 'warn', text: 'The warnings **tell you, they do not block you.** You have to be able to write down what actually happened at training.' },
+          { kind: 'tip', tone: 'tip', text: 'Unclassified players count as neither PF1 nor PF2. Set the class in the [Players] section once it is known.' },
+        ],
+      },
+      {
+        id: 'team.export',
+        title: 'Export, sync, and printing',
+        blocks: [
+          {
+            kind: 'list',
+            items: [
+              '[Export] in the card ⋮ menu — saves one team as a file.',
+              '[Import] above the list — opens a team file you received.',
+              '[Settings] → [Sync] turns on Google Drive, and teams travel between your devices too.',
+              '[Print] in the card ⋮ menu — prints a team sheet (names, numbers, captain, keeper preference, staff roles, and the court/bench if a lineup exists).',
+              'The backup file in [Settings] carries every team with it.',
+            ],
+          },
+          { kind: 'p', text: 'Both export and print offer **[Exclude class information]**. Turn it on and the file — or the printout — comes out without PF classes.' },
+          { kind: 'tip', tone: 'warn', text: 'A sport class comes out of a medical classification assessment. Before you hand a file to anyone outside the team, or pin a printout to a wall, think about [Exclude class information] first.' },
+          { kind: 'tip', tone: 'tip', text: 'Edit the same team on two devices and the later edit wins. Delete it on one device and it goes from the synced devices too.' },
+        ],
+      },
+      {
+        id: 'team.noShare',
+        title: 'Why there is no share link',
+        blocks: [
+          { kind: 'p', text: 'Drill and session cards have [Share as a link]. Team cards do not. That is **deliberate, not an omission.**' },
+          { kind: 'p', text: 'A team document holds real names, numbers, and classes — **information about people other than you.** Once a link exists you cannot trace who received it or where they passed it on.' },
+          {
+            kind: 'list',
+            items: [
+              'Teams travel two ways only: **as a file** and **through Google Drive sync** — with both, the person handing it over knows who is receiving it.',
+              'Share a session as a link and **neither the team it belongs to nor the participants** go with it.',
+            ],
+          },
+          { kind: 'tip', tone: 'tip', text: 'To hand a team to another coach, [Export] it and pass the file over yourself.' },
         ],
       },
     ],
@@ -1015,18 +1153,11 @@ export const HELP_EN: HelpContent = {
       },
       {
         id: 'settings.roster',
-        title: 'Roster',
+        title: 'The roster moved to [Teams]',
         blocks: [
-          { kind: 'p', text: 'Your team’s roster of names and PF class (PF1 severe, PF2 mild). The participant checklist in session editing reads this list.' },
-          {
-            kind: 'steps',
-            items: [
-              'Type a [Player name], pick a class, then [Add].',
-              'Change a name or class right in the list.',
-              'Right after deleting one, [Undo] on the toast brings it back.',
-            ],
-          },
-          { kind: 'tip', tone: 'tip', text: 'The roster ships with full backups, and it syncs across devices too once Drive sync is turned on.' },
+          { kind: 'p', text: '[Roster] used to live here in the settings. It moved to the [Teams] screen, because a roster that assumed a single team now belongs to each team separately.' },
+          { kind: 'p', text: 'The [Open teams] row left behind in the settings takes you there. The roster you already had was moved into one team on first launch — there is nothing to retype.' },
+          { kind: 'tip', tone: 'tip', text: 'Teams ship with full backups, and they sync across devices too once Drive sync is turned on.' },
         ],
       },
       {
@@ -1097,7 +1228,7 @@ export const HELP_EN: HelpContent = {
         id: 'settings.sync',
         title: 'Google Drive Sync',
         blocks: [
-          { kind: 'p', text: 'Keeps drills, sessions, and the roster in **your own Google Drive’s app-only space**, shared across devices. There is no SPIN server.' },
+          { kind: 'p', text: 'Keeps drills, sessions, and teams in **your own Google Drive’s app-only space**, shared across devices. There is no SPIN server.' },
           {
             kind: 'steps',
             items: [

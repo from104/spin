@@ -7,7 +7,7 @@
 // 그대로 가져다 어댑터를 구현하고 `<HomeScreen nav={...}/>` `<LibraryScreen nav={...}
 // initialTab={...} initialOpenSessionId={...}/>` 로 내려준다 — 아래 시그니처가 그 실제 계약과
 // 일치함을 상호 확인했다.)
-import type { DrillId, SessionId } from '../../core/ids.ts';
+import type { DrillId, SessionId, TeamId } from '../../core/ids.ts';
 import type { LegalDoc } from '../settings/legalContent.ts';
 
 export type LibraryTab = 'drills' | 'sessions';
@@ -35,6 +35,11 @@ export interface HomeNav {
    *  브라우저 back 이 아니라 **제자리로 되접기**인 이유: 문서에 직접 착지(`/privacy/`)했을 때
    *  뒤로가기는 앱 밖으로 나간다(결정 4 — 그 주소가 공개 색인용이다). */
   openLegal(doc?: LegalDoc): void;
+  /** [팀] 화면의 목록↔상세 이동(PLAN-TEAM 결정 16·17). 생략하면 목록으로 — `openRuleTopic()`·
+   *  `openLegal()` 과 같은 모양이라, 부르는 쪽은 화면 키도 주소 꼴도 모른다.
+   *  ⚠️ 공유 콜백은 **여기 없다**(결정 12). 팀은 링크로 나가지 않으므로 `presentDrill` 같은
+   *  '남에게 보낸다' 계열 콜백을 팀에 대해 만들지 않는 것이 이 계약의 방어선이다. */
+  openTeam(id?: TeamId): void;
 }
 
 export type LibraryNav = HomeNav;
