@@ -295,6 +295,7 @@ export const HELP_EN: HelpContent = {
         blocks: [
           { kind: 'p', text: 'Opening a received link shows a [Shared drill] window where you can preview it before saving. Nothing lands on this device until you tap [Save to my library].' },
           { kind: 'p', text: 'A session link opens as [Shared session]. There’s no board to show for a whole session, so it previews as a **list of drill titles** instead. Saving brings in the session and every drill inside it together.' },
+          { kind: 'p', text: 'If you can’t tap the link to open it, use [Import from link] on the [Drills] or [Sessions] list and paste the address — the same window opens.' },
           { kind: 'tip', tone: 'tip', text: 'A session link carries its location and notes, but **the participant roster is never included** — names never travel through a link.' },
         ],
       },
@@ -649,6 +650,7 @@ export const HELP_EN: HelpContent = {
               '**⋮ menu** — present, [Export], [Share link], [Delete].',
               '[Delete] asks for confirmation once, and the toast that follows offers [Undo] to bring the session back.',
               '[New Session] creates a new one.',
+              '[Import from link] above the list takes a session link you received — paste it in.',
             ],
           },
           { kind: 'tip', tone: 'tip', text: 'Unlike a drill card, a session card **has no Duplicate.** Need something similar? Make a new one and schedule the drills again.' },

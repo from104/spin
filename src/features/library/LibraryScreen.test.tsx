@@ -397,6 +397,25 @@ describe('공유 링크', () => {
     expect(nav.goLibrary).toHaveBeenCalledTimes(1);
   });
 
+  it('붙여넣기로 띄운 시트를 닫으면 주소는 건드리지 않는다(§8, 2026-09-09 검수)', async () => {
+    // 지우면 새는 것: 착지 시트와 붙여넣기 시트가 닫기를 한 벌로 쓰면(둘 다 `goLibrary`)
+    // AppShell 어댑터가 착지가 아닌 경우 `nav.go('drills')` **push** 로 떨어져(주소는 그대로인데
+    // 이력만 한 칸 는다) [링크로 가져오기]를 열고 닫을 때마다 브라우저 뒤로가기에 죽은 칸이
+    // 쌓인다. 위 착지 케이스가 `goLibrary` 를 **부르는** 것과 짝이다.
+    const nav = makeNav();
+    render(<LibraryScreen nav={nav} />, { wrapper });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: '링크로 가져오기' }));
+    // 서버에 없는 id — 시트는 오류 문구로 뜬다. 여기서 재는 것은 받아 오기가 아니라 **닫기**다.
+    await user.type(screen.getByRole('textbox', { name: '공유 링크' }), `https://spin.atit.app/s/MissingAb1#${'A'.repeat(43)}`);
+    await user.click(screen.getByRole('button', { name: '열기' }));
+
+    await user.click(await screen.findByRole('button', { name: '닫기' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(nav.goLibrary).not.toHaveBeenCalled();
+  });
+
   it('세션 링크를 저장하면 "드릴 N개와 세션 1개" 를 보고하고 세션 화면으로 간다(S4·S5)', async () => {
     // 2026-09-08 검수. 지우면 새는 것: 이 화면이 `onSavedSession` 을 안 넘기면 세션 링크는 저장은
     // 되는데 시트가 닫히지도, 보고가 뜨지도 않는다 — 사람은 [저장]이 안 먹은 줄 알고 다시 누른다

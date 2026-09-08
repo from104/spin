@@ -212,3 +212,44 @@ LibraryScreen·AppShell.wiring 착지 케이스)가 전부 초록이고, 헤드�
 - 운영 통과 확인: healthz 200 json · 200 KiB POST→GET 왕복 동일 · 300 KiB 는 Apache 413 · DELETE 204 → GET 404 · mocil vhost 200.
 - 유닛 경고 수정: `StartLimitIntervalSec`·`StartLimitBurst` 가 [Service] 절에 있어 systemd 가 무시했다 → [Unit] 절로 이동, 재설치. 저널 경고 0.
 - 되돌리기: `sudo systemctl disable --now spin-share`, vhost 는 `.bak-20260908` 로 복원 후 Apache 재시작.
+
+## 8. 목록 화면의 [링크로 가져오기] (2026-09-09 기현님 지시: "드릴, 세션 목록에 '링크로 가져오기' 버튼과 그에 따른 모달 추가 — 그래야 일관된 UX")
+
+지금 링크 **받기**는 `/s/:id#key` 착지 한 길뿐이다(결정 9). 링크를 메신저에서 눌러 열 수 없는 자리(다른 기기에서 복사해 온
+링크, 데스크톱 앱, 카톡 인앱 브라우저에서 "다른 브라우저로 열기" 뒤)에서는 받을 방법이 없고, [링크로 공유]는 카드마다 있는데
+받는 버튼은 없어 짝이 안 맞는다.
+
+### 8.1 결정
+
+| # | 결정 | 근거 |
+|---|---|---|
+| L1 | 새 모달 `src/features/library/ShareLinkImportModal.tsx` — 링크 입력칸 하나(`textarea` 1줄 꼴, 붙여넣기 우선), [붙여넣기](`navigator.clipboard.readText` 가 되면 채우고 안 되면 조용히 입력칸에 포커스), [열기]. 판정은 **`parseShareLink` 하나**(share/link.ts) — 열쇠 없는 링크·오타는 여기서 `library.importLink.invalid` 로 막고 서버를 부르지 않는다 | 링크 문법의 정본은 이미 있다. 두 벌 만들지 않는다(AGENTS §3) |
+| L2 | 열기에 성공하면 모달을 닫고 **기존 `ShareImportSheet`** 를 `{id, keyB64}` 로 띄운다 — 착지와 같은 시트, 같은 저장 관문. 라우터로 `/s/:id` 를 밀지 않는다(열쇠는 라우터에 없다 — routes.ts) | 시트가 드릴·세션 갈래를 봉투로 가른다(S5). 새 화면·새 저장 경로 0 |
+| L3 | 드릴 목록: 툴바의 [가져오기] 옆에 [링크로 가져오기](secondary). 시트 마운트는 `shareLanding ?? pasted` 로 하나 — 두 벌 그리지 않는다 | 파일 가져오기와 나란히 = "가져오는 방법 둘" |
+| L4 | 세션 목록: `SessionsScreen` 에 목록 위 오른쪽 정렬 툴바 한 줄을 만들어 [링크로 가져오기] 하나를 둔다(드릴 목록 툴바와 같은 높이·간격). 빈 상태(`SessionTab` 의 [새 세션] 옆)에도 같은 버튼 — `onImportLink?` 옵셔널 prop. **세션이 0개면 툴바 줄을 안 그린다** — 그때는 빈 상태 버튼 하나만 남는다(같은 이름의 버튼 둘이 나란히 서면 보조기술에 똑같이 읽히는 표적이 둘, AGENTS §1.7; 2026-09-09 검수에서 코드에 맞춰 결정을 적음) | 세션 화면엔 툴바가 없었다. 버튼 하나 때문에 헤더 primary 를 갈지 않는다 |
+| L5 | 세션 화면의 시트는 `onSaved`(드릴 링크: 저장 토스트 + 드릴 탭으로 이동 `nav.goLibrary({tab:'drills'})`)와 `onSavedSession`(세션: refresh + `library.import.session.saved` 토스트, 그 자리) **둘 다** 넘긴다 | `ShareImportSheetProps.onSavedSession` 주석의 경고 — 안 넘기면 저장은 되고 보고가 사라진다 |
+| L6 | i18n `library.importLink.{button,title,label,placeholder,hint,paste,open,invalid,closeLabel}` 3로케일. 라벨은 "링크로 가져오기 / Import from link / リンクから取り込む" | 파일 쪽 `library.importButton` 과 짝 |
+| L7 | 도움말: `library` 섹션의 공유받기 주제와 `sessions` 목록 주제에 이 버튼 한 문장씩(3로케일). CHANGELOG 3벌 [Unreleased] 추가됨 한 줄 | 기능 하나 = 도움말 한 항목(PLAN-HELP-OVERHAUL 원칙) |
+| L8 | 테스트: 모달 2케이스(올바른 링크 → `onOpen({id,keyB64})` · 열쇠 없는 링크 → invalid 문구, onOpen 안 불림) — 돌연변이로 증명. 두 화면의 시트 마운트가 `onSavedSession` 을 넘기는지는 `rg` 로 확인해 §8.3 에 적는다(단언 안 만든다) | 테스트 절제 |
+
+### 8.2 손대는 곳
+
+`ShareLinkImportModal.tsx`(신규, Modal 기반) → `LibraryScreen.tsx`(버튼·state·시트 마운트 합치기) → `SessionsScreen.tsx`(툴바·state·시트) →
+`SessionTab.tsx`(`onImportLink?`) → `i18n/{ko,en,ja}.ts` → `helpContent.{ko,en,ja}.ts` → CHANGELOG ×3 → `ShareLinkImportModal.test.tsx`.
+
+### 8.3 실기 확인
+
+- 카톡에서 링크 복사 → 앱 [링크로 가져오기] → [붙여넣기] 가 iOS Safari(권한 프롬프트)·Android Chrome·데스크톱에서 각각 어떻게 되는지.
+- 세션 링크를 세션 화면에서 붙여넣어 저장 → 토스트와 목록 갱신, 드릴 탭에도 드릴이 들어왔는지.
+- L8 후반(단언 대신 `rg` 로 확인): `rg -n "ShareImportSheet|onSavedSession" src/features/library/LibraryScreen.tsx src/features/sessions/SessionsScreen.tsx`
+  → 두 마운트 모두 `onSavedSession` 을 넘긴다(LibraryScreen.tsx:382·395, SessionsScreen.tsx:182·191; 2026-09-09 확인).
+
+### 8.4 검수 결과 (2026-09-09)
+
+| # | 등급 | 발견 | 처리 |
+|---|---|---|---|
+| ① | should | 붙여넣기로 띄운 시트를 닫으면 `closeShareSheet` → `closeShareImport` → `nav.goLibrary()` 가 착지가 아닌 갈래에서 `nav.go('drills')` **push** 로 떨어져(AppShell.tsx 어댑터는 착지일 때만 되돌리기) 여닫을 때마다 브라우저 뒤로가기에 죽은 칸이 쌓였다 | **고침**. `closeShareSheet` 를 갈래로 — 착지면 `closeShareImport()`, 붙여넣기면 `setPastedShare(null)` + 본문 포커스(주소를 안 건드린다). `onSavedSession` 의 `goLibrary({tab:'sessions'})` 는 실제 이동이라 그대로. 회귀 케이스 1개 추가(LibraryScreen.test.tsx, 돌연변이로 실패 확인) |
+| ② | should | L8 후반의 `rg` 확인 결과가 §8.3 에 안 적혔다 | **고침**. §8.3 에 명령과 결과 한 줄 추가 |
+| ③ | nit | 입력칸 비우기가 `open` 상승에 걸려 있어 지난 입력과 그 `role="alert"` 이 첫 프레임에 한 번 그려졌다 | **고침**. 비우는 시점을 **닫힐 때**로(`if (open) return;`) — 닫힌 뒤의 비우기는 아무도 못 본다 |
+| ④ | nit | `invalid` 가 첫 글자부터 참이라 손으로 타이핑하면 첫 키에서 오류 문구가 뜬다 | **보류**. 붙여넣기 우선(L1)이라 실기 영향이 작고, blur·제출 뒤로 미루면 상태 하나와 분기가 늘면서 L8 ②케이스의 전제("문구로 막는다")까지 바뀐다. 실기에서 거슬리면 그때 승격 |
+| ⑤ | nit | L4 원안(툴바 항상 노출)과 코드(`sessions.length > 0` 가드)가 어긋남 | **고침**(문서 쪽). §8.1 L4 에 "세션 0개면 툴바 대신 빈 상태 버튼 하나" 근거를 덧붙여 결정을 코드에 맞췄다 — 코드가 옳다 |

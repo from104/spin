@@ -246,6 +246,18 @@ export const ko = {
   'library.import.session.phases': '{{count}}구간',
   'library.import.session.drills': '드릴 {{count}}개',
   'library.import.session.saved': '드릴 {{drills}}개와 세션 1개를 저장했습니다.',
+  // §8(2026-09-09) — 링크를 **손으로 붙여넣어** 받는 문. `library.importButton`(파일)과 짝이라
+  // 라벨도 같은 꼴로 짧게 둔다. 오류 문구는 하나뿐이다: 문법이 틀렸는지 열쇠가 잘렸는지는
+  // parseShareLink 가 가르지 않고, 사람이 할 일도 "링크 전체를 다시 받는다" 하나로 같다.
+  'library.importLink.button': '링크로 가져오기',
+  'library.importLink.title': '링크로 가져오기',
+  'library.importLink.label': '공유 링크',
+  'library.importLink.placeholder': 'https://spin.atit.app/s/…#…',
+  'library.importLink.hint': '받은 링크를 그대로 붙여넣으세요. 주소 전체여도, 뒷부분만이어도 됩니다.',
+  'library.importLink.paste': '붙여넣기',
+  'library.importLink.open': '열기',
+  'library.importLink.invalid': '링크 꼴이 아닙니다. 잘리지 않은 링크 전체를 다시 받아 붙여넣으세요.',
+  'library.importLink.closeLabel': '링크로 가져오기 닫기',
 
   'drillCard.kebabMoreAriaLabel': '{{title}} 더보기',
   'drillCard.kebabMenuAriaLabel': '{{title}} 작업',

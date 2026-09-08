@@ -27,10 +27,15 @@ export interface SessionTabProps {
    *  항목이 뜬다(세션 본문과 편성된 드릴 본문을 읽어 오는 일은 목록 화면 몫이라, 이 컴포넌트를
    *  쓰는 다른 자리가 이 변경에 안 걸린다). 드릴 카드 케밥의 `onShareLink` 와 같은 꼴이다. */
   onShareLink?(id: ResolvedSession['session']['id']): void;
+  /** 빈 상태의 [링크로 가져오기](PLAN-SHARE-LINK §8 L4). **옵셔널이다** — 위 `onShareLink` 와 같은
+   *  이유로, 링크 모달을 세울 수 있는 화면에서만 버튼이 뜬다. 세션이 하나도 없는 사람에게는
+   *  "만들기" 와 "받기" 가 같은 무게의 출발점이라 빈 상태에도 둔다(툴바는 목록이 있을 때만 눈에
+   *  들어오는 자리다). */
+  onImportLink?(): void;
   onCreate(): void;
 }
 
-export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, onShareLink, onCreate }: SessionTabProps) {
+export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, onShareLink, onImportLink, onCreate }: SessionTabProps) {
   const t = useT();
   if (sessions.length === 0) {
     return (
@@ -47,9 +52,16 @@ export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, on
         }}
       >
         <p style={{ fontSize: '0.875rem', color: 'var(--faint-text)' }}>{t('sessionTab.emptyNoSessions')}</p>
-        <Button variant="primary" icon={<IconPlus size={14} />} onClick={onCreate}>
-          {t('sessionTab.newSessionButton')}
-        </Button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Button variant="primary" icon={<IconPlus size={14} />} onClick={onCreate}>
+            {t('sessionTab.newSessionButton')}
+          </Button>
+          {onImportLink && (
+            <Button variant="secondary" onClick={onImportLink}>
+              {t('library.importLink.button')}
+            </Button>
+          )}
+        </div>
       </div>
     );
   }

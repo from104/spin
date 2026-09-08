@@ -6,7 +6,7 @@
 // 내비게이션·헤더 계약은 LibraryScreen 과 같다(§8): app-shell 을 import 하지 않고 이동은
 // HomeNav prop 하나로, 헤더는 app-shell 이 정적으로 꽂는다. `<main id="main" tabIndex={-1}>`
 // 도 §7.5a 대로 이 화면이 직접 렌더한다.
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
@@ -16,6 +16,9 @@ import type { SessionId } from '../../core/ids.ts';
 import type { TutorialScreenKey } from '../../storage/prefs.ts';
 import { SessionTab } from '../library/SessionTab.tsx';
 import { ShareLinkModal } from '../library/ShareLinkModal.tsx';
+import { ShareLinkImportModal } from '../library/ShareLinkImportModal.tsx';
+import { ShareImportSheet } from '../library/ShareImportSheet.tsx';
+import { Button } from '../../ui/Button.tsx';
 import type { SharedDoc } from '../../share/index.ts';
 import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import type { Drill } from '../../model/drill.ts';
@@ -115,6 +118,19 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
     setShareDoc({ kind: 'session', session: resolved.session, drills });
   };
 
+  // ── [링크로 가져오기] (PLAN-SHARE-LINK §8 L4·L5) ──────────────────────────────────────
+  // 세션 화면에도 받는 문을 둔다 — 보내는 [링크로 공유]는 행마다 있는데 받는 자리가 드릴 목록
+  // 뿐이면, 세션 링크를 받은 사람이 세션 화면에서 할 수 있는 일이 없다.
+  // ⚠️ **`onSavedSession` 을 반드시 넘긴다**(ShareImportSheetProps 그 주석의 경고). 안 넘기면
+  //    세션은 저장되는데 토스트도 목록 갱신도 없어, 사람 눈에는 아무 일도 안 일어난 화면이 된다.
+  // ⚠️ 드릴 링크가 여기로 들어올 수 있다 — 링크 꼴은 하나이고 종류는 봉투가 말한다(S5). 그래서
+  //    드릴 갈래(`onSaved`)도 함께 넘기고, 저장한 드릴이 **보이는 곳**(드릴 목록)으로 데려간다.
+  //    여기서 refresh 를 부르지 않는 이유: 드릴은 이 화면의 목록에 안 뜬다.
+  const mainRef = useRef<HTMLElement>(null);
+  const [pastedShare, setPastedShare] = useState<{ id: string; keyB64: string } | null>(null);
+  const [linkImportOpen, setLinkImportOpen] = useState(false);
+  const linkImportBtnRef = useRef<HTMLButtonElement>(null);
+
   const handleExportSession = async (id: SessionId) => {
     const resolved = await getSession(id);
     if (!resolved) return;
@@ -123,10 +139,24 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
   };
 
   return (
-    <main id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '22px 30px 46px', background: 'var(--bg)' }}>
+    <main ref={mainRef} id="main" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none', padding: '22px 30px 46px', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+        {/* 이 화면엔 툴바가 없었다(§8 L4). 버튼 하나 때문에 헤더 주 액션([새 세션])을 갈지 않고,
+            드릴 목록 툴바와 같은 높이·간격의 한 줄을 목록 위에 세운다.
+            ⚠️ 세션이 0개면 이 줄을 **안 그린다** — 그때는 바로 아래 빈 상태가 같은 이름의 버튼을
+            내고(SessionTab 의 onImportLink), 둘이 같이 서면 보조기술에 똑같이 읽히는 표적이 두
+            개가 된다(SessionTab 의 NextSessionStrip 이 [시연]을 두 번 두지 않는 그 판단과 같다).
+            버튼이 사라지는 것이 아니라 **자리를 옮기는** 것이다. */}
+        {sessions.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 20 }}>
+            <Button ref={linkImportBtnRef} variant="secondary" onClick={() => setLinkImportOpen(true)}>
+              {t('library.importLink.button')}
+            </Button>
+          </div>
+        )}
         <SessionTab
           sessions={sessions}
+          onImportLink={() => setLinkImportOpen(true)}
           onOpen={openSession}
           onPresent={(id) => nav.presentSession(id)}
           onDelete={requestDeleteSession}
@@ -137,6 +167,35 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
       </div>
 
       <ShareLinkModal open={shareDoc !== null} doc={shareDoc} onClose={() => setShareDoc(null)} />
+
+      <ShareLinkImportModal
+        open={linkImportOpen}
+        onClose={() => setLinkImportOpen(false)}
+        onOpen={(parts) => {
+          setLinkImportOpen(false);
+          setPastedShare({ id: parts.id, keyB64: parts.keyB64 });
+        }}
+        returnFocusRef={linkImportBtnRef}
+      />
+
+      {pastedShare && (
+        <ShareImportSheet
+          id={pastedShare.id}
+          keyB64={pastedShare.keyB64}
+          onClose={() => setPastedShare(null)}
+          onSaved={(drill) => {
+            setPastedShare(null);
+            toast.show(t('library.import.saved', { title: drill.title }));
+            nav.goLibrary({ tab: 'drills' });
+          }}
+          onSavedSession={async ({ drills }) => {
+            setPastedShare(null);
+            await refresh();
+            toast.show(t('library.import.session.saved', { drills }));
+          }}
+          returnFocusRef={mainRef}
+        />
+      )}
 
       {tutorial.step && (
         <TutorialOverlay

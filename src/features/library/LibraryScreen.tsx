@@ -48,6 +48,7 @@ import { DrillCard, DrillRow } from './DrillCard.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
 import { ShareLinkModal } from './ShareLinkModal.tsx';
 import { ShareImportSheet } from './ShareImportSheet.tsx';
+import { ShareLinkImportModal } from './ShareLinkImportModal.tsx';
 import type { Drill } from '../../model/drill.ts';
 import type { HomeNav } from '../home/nav.ts';
 import { buildImportReport, commitDrills, commitSession, exportOneDrill, importReportLine, readImportFile } from './transfer.ts';
@@ -173,6 +174,27 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
     mainRef.current?.focus();
   };
 
+  // ── [링크로 가져오기] (§8 L1~L3, 2026-09-09) ──────────────────────────────────────────
+  // 링크를 손으로 붙여넣어 받는 길. 착지(`/s/:id`)와 **같은 시트**로 이어진다 — 시트를 두 벌
+  // 그리지 않고 `shareLanding ?? pastedShare` 하나로 마운트한다(L3). 그래야 저장 관문도, 세션
+  // 갈래 분기도, 오류 문구도 한 벌로 남는다.
+  // ⚠️ 닫기는 시트를 **띄운 쪽만** 닫는다. 착지(`/s/:id`)로 뜬 시트는 주소를 되돌려야 닫히지만,
+  //    붙여넣기로 뜬 시트는 이미 이 화면 주소 위에 떠 있어 주소를 건드릴 일이 없다. 둘 다 부르면
+  //    `goLibrary` 가 `nav.go('drills')` push 로 떨어져(AppShell 어댑터는 착지일 때만 되돌리기)
+  //    시트를 여닫을 때마다 브라우저 뒤로가기에 죽은 칸이 하나씩 쌓인다(2026-09-09 검수).
+  const [pastedShare, setPastedShare] = useState<ShareLanding | null>(null);
+  const [linkImportOpen, setLinkImportOpen] = useState(false);
+  const linkImportBtnRef = useRef<HTMLButtonElement>(null);
+  const closeShareSheet = () => {
+    if (shareLanding) {
+      closeShareImport();
+      return;
+    }
+    setPastedShare(null);
+    mainRef.current?.focus();
+  };
+  const sheet = shareLanding ?? pastedShare;
+
   // ── 가져오기 ────────────────────────────────────────────────────────────────────────────
   const commitPreview = async (preview: Exclude<ImportPreview, { kind: 'unsupported' }>, resolutions: Map<number, ImportResolution>) => {
     const outcome = await commitDrills(preview.drills, resolutions);
@@ -262,6 +284,11 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
             <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
               {t('library.importButton')}
             </Button>
+            {/* §8 L3 — 파일 가져오기 바로 옆이다. 두 버튼이 나란히 서서 "가져오는 방법이 둘"
+                이라고 말한다(하나는 파일, 하나는 링크). */}
+            <Button ref={linkImportBtnRef} variant="secondary" onClick={() => setLinkImportOpen(true)}>
+              {t('library.importLink.button')}
+            </Button>
             {/* §6.1b — 2026-08-12(4.7) 에 [전체 내보내기]가 여기서 사라졌다. 설정 화면에도 **같은
                 버튼**이 있던 중복이었고(계획서 §6.1b "둘 다 제거"), 담기는 것이 드릴뿐이라
                 세션·설정·자유 전술판이 어떤 파일에도 안 들어갔다 — 백업했다고 믿게 만드는
@@ -339,17 +366,27 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
 
       <ShareLinkModal open={shareDoc !== null} doc={shareDoc} onClose={() => setShareDoc(null)} />
 
-      {/* `/s/:id` 착지(결정 9) — 새 화면 없이 이 화면 위에 시트가 뜬다. 저장은 파일 가져오기와
-          같은 관문을 타므로 여기서는 목록 갱신과 보고만 한다. */}
-      {shareLanding && (
+      <ShareLinkImportModal
+        open={linkImportOpen}
+        onClose={() => setLinkImportOpen(false)}
+        onOpen={(parts) => {
+          setLinkImportOpen(false);
+          setPastedShare({ id: parts.id, keyB64: parts.keyB64 });
+        }}
+        returnFocusRef={linkImportBtnRef}
+      />
+
+      {/* `/s/:id` 착지(결정 9)와 [링크로 가져오기](§8 L2·L3) — 새 화면 없이 이 화면 위에 시트가
+          뜬다. 저장은 파일 가져오기와 같은 관문을 타므로 여기서는 목록 갱신과 보고만 한다. */}
+      {sheet && (
         <ShareImportSheet
-          id={shareLanding.id}
-          keyB64={shareLanding.keyB64}
-          onClose={closeShareImport}
+          id={sheet.id}
+          keyB64={sheet.keyB64}
+          onClose={closeShareSheet}
           onSaved={async (drill) => {
             await refresh();
             toast.show(t('library.import.saved', { title: drill.title }));
-            closeShareImport();
+            closeShareSheet();
           }}
           // S4·S5(2026-09-08) — 세션 링크는 "드릴 N개 + 세션 1개" 를 보고하고 **세션 화면**으로 간다.
           // 드릴 목록(refresh)도 갱신한다: 세션이 데려온 드릴은 드릴 탭에도 들어왔다. 이동은 드릴
@@ -358,6 +395,7 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
           onSavedSession={async ({ drills }) => {
             await refresh();
             toast.show(t('library.import.session.saved', { drills }));
+            setPastedShare(null); // 붙여넣기로 띄운 시트면 이것을 지워야 닫힌다(착지는 goLibrary 가 닫는다)
             nav.goLibrary({ tab: 'sessions' });
             mainRef.current?.focus();
           }}
