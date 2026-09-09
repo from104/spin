@@ -46,7 +46,7 @@ export const HELP_EN: HelpContent = {
               '[Board] — the free tactics board. Draw on it right away, with nothing saved.',
               '[Drills] — the list of drills you have made. Open one to edit it, or present it right away.',
               '[Sessions] — a training plan that groups drills into phases.',
-              '[Teams] — rosters, staff, and lineups per team. Independent of drills and sessions, and never shared by link.',
+              '[Teams] — rosters, staff, and lineups per team.',
               '[Rules] — read the powerchair football rules by topic and see them play out as scenes.',
               '[Settings] — display, accessibility, data, and sync.',
             ],
