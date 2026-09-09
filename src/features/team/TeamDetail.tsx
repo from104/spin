@@ -131,55 +131,65 @@ export function TeamDetail({ teamId, onSaved, onExport, onPrint }: TeamDetailPro
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--panel)', padding: 16 }}>
-        <Field label={t('team.detail.nameLabel')} style={{ flex: '2 1 200px' }}>
-          <input
-            type="text"
-            defaultValue={current.name}
-            maxLength={LIMITS.teamNameLen}
-            onBlur={(e) => {
-              const v = e.target.value.trim();
-              // 이름 없는 팀을 만들지 않는다 — 빈 값이면 화면을 저장값으로 되돌린다.
-              if (v.length > 0 && v !== current.name) save({ ...current, name: v });
-              else e.target.value = current.name;
-            }}
-            style={inputStyle}
-          />
-        </Field>
-        <Field label={t('team.detail.shortNameLabel')} style={{ flex: '1 1 90px', maxWidth: 130 }}>
-          <input
-            type="text"
-            placeholder={t('team.detail.shortNamePlaceholder')}
-            defaultValue={current.shortName ?? ''}
-            maxLength={LIMITS.shortNameLen}
-            onBlur={(e) => {
-              const v = e.target.value.trim();
-              if (v === (current.shortName ?? '')) return;
-              // 빈 값이면 **키를 지운다** — `{shortName: ''}` 는 "약칭이 빈 문자열" 이라는 별개의 상태다.
-              const { shortName: _drop, ...rest } = current;
-              save(v.length > 0 ? { ...current, shortName: v } : rest);
-            }}
-            style={inputStyle}
-          />
-        </Field>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <Button data-tut="team-export" variant="secondary" onClick={() => onExport(current)}>
-            {t('team.detail.exportButton')}
-          </Button>
-          <Button data-tut="team-print" variant="secondary" onClick={() => onPrint(current)}>
-            {t('team.detail.printButton')}
-          </Button>
-        </div>
-        {/* ── ⚠️ 2026-09-09: 색 두 칸(팀 색·골키퍼 색)이 여기 있었다 ─────────────────────
+      {/* ⚠️ 헤더 카드 둘이 아래 절들과 **같은 그리드** 안에 산다(2026-09-09 기현 지시:
+          *"색 선택이 포함된 카드가 넓은 폭에서 절반 폭이 돼야하고"*). 별도 그리드를 하나 더
+          만들지 않는 이유: 열 너비가 두 곳에서 계산되면 넓은 창에서 위·아래 카드의 세로선이
+          어긋난다. 좁은 창에서는 한 열이라 기본 정보 → 팀 색 → 선수·스태프 → 라인업·정보 순이다.
+          ── ⚠️ 2026-09-09: 이전에는 이름·약칭·색·[내보내기]·[인쇄]가 **한 장의 전폭 카드**였다.
+          색이 팔레트 + 킷 3줄로 자라면서 그 카드가 화면 절반을 먹어, 지시대로 둘로 갈랐다. */}
+      <div style={{ display: 'grid', gridTemplateColumns: twoCol ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+        <Section title={t('team.detail.sectionBasics')}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+            <Field label={t('team.detail.nameLabel')} style={{ flex: '2 1 160px' }}>
+              <input
+                type="text"
+                defaultValue={current.name}
+                maxLength={LIMITS.teamNameLen}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  // 이름 없는 팀을 만들지 않는다 — 빈 값이면 화면을 저장값으로 되돌린다.
+                  if (v.length > 0 && v !== current.name) save({ ...current, name: v });
+                  else e.target.value = current.name;
+                }}
+                style={inputStyle}
+              />
+            </Field>
+            <Field label={t('team.detail.shortNameLabel')} style={{ flex: '1 1 90px', maxWidth: 130 }}>
+              <input
+                type="text"
+                placeholder={t('team.detail.shortNamePlaceholder')}
+                defaultValue={current.shortName ?? ''}
+                maxLength={LIMITS.shortNameLen}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v === (current.shortName ?? '')) return;
+                  // 빈 값이면 **키를 지운다** — `{shortName: ''}` 는 "약칭이 빈 문자열" 이라는 별개의 상태다.
+                  const { shortName: _drop, ...rest } = current;
+                  save(v.length > 0 ? { ...current, shortName: v } : rest);
+                }}
+                style={inputStyle}
+              />
+            </Field>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <Button data-tut="team-export" variant="secondary" onClick={() => onExport(current)}>
+                {t('team.detail.exportButton')}
+              </Button>
+              <Button data-tut="team-print" variant="secondary" onClick={() => onPrint(current)}>
+                {t('team.detail.printButton')}
+              </Button>
+            </div>
+          </div>
+        </Section>
+
+        {/* ── ⚠️ 2026-09-09: 색 두 칸(팀 색·골키퍼 색)이 헤더에 있었다 ───────────────────
             *"팀 색은 홈, 어웨이, 중립 세트 정할 수 있고. 색 4개를 미리 선택하고 배치하는식으로"*
             지시로 팔레트 + 킷 배치(`KitPicker`)가 그 자리를 받았다. 그 두 칸이 지키던 규율
             — 색 선택기를 드래그하는 동안에는 저장하지 않는다(실측: 한 번 고르는 데 IDB 쓰기
-            20건) — 은 사라지지 않고 `KitPicker` 머리말로 옮겨 갔다. 대가: 헤더 한 줄이던 색이
-            줄 넷(팔레트 + 킷 3)이 됐다. */}
-        <KitPicker team={current} onChange={save} />
-      </div>
+            20건) — 은 사라지지 않고 `KitPicker` 머리말로 옮겨 갔다. */}
+        <Section title={t('team.kits.sectionTitle')}>
+          <KitPicker team={current} onChange={save} />
+        </Section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: twoCol ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
         <div style={colStyle}>
           <Section title={t('team.detail.sectionPlayers')}>
             <PlayerTable team={current} sessionCounts={counts} onChange={save} onRemove={removePlayerWithUndo} />

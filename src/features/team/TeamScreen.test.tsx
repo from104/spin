@@ -256,11 +256,12 @@ describe('TeamDetail — 색은 blur 에 한 번만 저장한다', () => {
   });
 });
 
-// 킷 배치(2026-09-09 기현 지시: *"팀 색은 홈, 어웨이, 중립 세트 정할 수 있고"*). 여기서 재는 것은
-// 라벨이 아니라 **저장본**이다 — 화면의 라디오가 켜졌는데 IDB 의 `kits.away` 가 안 바뀌면, 새로고침
-// 한 번에 배치가 사라진다(이 화면에서 가장 조용한 종류의 사고다).
+// 킷 배치(2026-09-09 기현 지시: *"팀 색은 홈, 어웨이, 중립 세트 정할 수 있고"* + *"색 선택을 가로로
+// 늘어놓는 대신 세로 팝업으로"*). 여기서 재는 것은 라벨이 아니라 **저장본과 초점**이다 — 목록에서
+// 골랐는데 IDB 의 `kits.away` 가 안 바뀌면 새로고침 한 번에 배치가 사라지고(이 화면에서 가장 조용한
+// 종류의 사고다), Esc 가 초점을 안 돌려주면 키보드로는 목록을 닫는 순간 자리를 잃는다.
 describe('TeamDetail — 킷 배치', () => {
-  it('[사용]을 켜고 라디오를 고르면 저장본의 어웨이 킷이 그 색 번호를 가리킨다', async () => {
+  it('[사용]을 켜고 팝업에서 색을 고르면 저장본의 어웨이 킷이 그 번호를 가리킨다', async () => {
     const user = userEvent.setup();
     render(<Harness />, { wrapper });
     await screen.findByText('아직 팀이 없습니다');
@@ -273,9 +274,25 @@ describe('TeamDetail — 킷 배치', () => {
     await user.click(screen.getByLabelText('어웨이 킷 사용'));
     await waitFor(async () => expect((await getTeam(team!.id))!.kits.away).toEqual({ field: 0, gk: 1 }));
 
-    await user.click(screen.getByLabelText('어웨이 필드 색: 2번 색'));
+    // 팔레트를 가로로 펼치지 않는다 — 슬롯마다 «현재 색» 버튼 하나가 서고 목록은 눌러야 열린다.
+    const trigger = screen.getByLabelText('어웨이 필드 색: 1번 색');
+    expect(screen.queryByRole('listbox')).toBeNull();
+    await user.click(trigger);
+    const list = screen.getByRole('listbox', { name: '어웨이 필드 색' });
+    await user.click(within(list).getByRole('option', { name: '2번 색' }));
     await waitFor(async () => expect((await getTeam(team!.id))!.kits.away).toEqual({ field: 1, gk: 1 }));
+    expect(screen.queryByRole('listbox')).toBeNull(); // 고르면 닫힌다
     // 홈은 건드리지 않았다 — 한 벌을 고치는 조작이 다른 벌을 따라 움직이면 배치가 뜻을 잃는다.
     expect((await getTeam(team!.id))!.kits.home).toEqual({ field: 0, gk: 1 });
+
+    // Esc 는 고르지 않고 닫고, 초점을 **연 버튼으로** 돌려준다 — 안 돌려주면 키보드 사용자는
+    // 목록을 닫는 순간 문서 처음으로 떨어진다.
+    const reopened = screen.getByLabelText('어웨이 필드 색: 2번 색');
+    await user.click(reopened);
+    await screen.findByRole('listbox', { name: '어웨이 필드 색' });
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(document.activeElement).toBe(reopened);
+    expect((await getTeam(team!.id))!.kits.away).toEqual({ field: 1, gk: 1 });
   });
 });
