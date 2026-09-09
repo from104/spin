@@ -9,6 +9,15 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Added
 
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
+
+### Fixed
+
+- Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
+
+## [0.6.7] 2026-09-09
+
+### Added
+
 - Privacy Policy and Terms of Service are now linked from the homepage and served in full at the in-app address (/settings/privacy) too (Google sign-in verification requirement)
 - Added [Import from link] to the [Drills] and [Sessions] lists — paste a share link you received, even where tapping the link can't open the app
 - Added a [Teams] menu — rosters, staff, and lineups for as many teams as you keep, with team colours as a palette (up to four) assigned to home, away, and neutral kits
@@ -18,10 +27,6 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 - The roster moved from [Settings] to [Teams] — the roster you already had moves into one team on first launch
 - Sessions can name a team, and the participant checklist reads that team's roster
-
-### Fixed
-
-- Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
 
 ## [0.6.6] 2026-09-08
 
