@@ -49,7 +49,8 @@ the board.**
 - **Google Drive sync** — through the user's own account, in an app-private folder.
 - **Share links** — hand a drill or session to someone as a link. **End-to-end encrypted**:
   the key lives only in the URL fragment (`#`) and never reaches the server, which stores
-  ciphertext it cannot open.
+  ciphertext it cannot open. When self-hosting, this is the only feature that needs the
+  `server/share` backend.
 - **In development** — desktop apps (Windows, Linux, macOS via Tauri) and mobile apps (iOS,
   Android, Chrome web app) are still being built. Today the finished product is the web app.
 - **Korean, English, Japanese**, and **fully operable by keyboard alone**.
@@ -58,9 +59,12 @@ the board.**
 
 [spin.atit.app](https://spin.atit.app) is run by one person, at their own expense, as a
 contribution. **It may go offline at any time without notice.** That is why the code is
-public — if your team or federation depends on it, **host it yourself.** The app builds to
-static files that any web server can serve; see the deployment section of
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Your data lives only on your device and in your
+public — if your team or federation depends on it, **host it yourself.** The app itself builds
+to static files that any web server can serve. **Share links are the one feature that needs a
+backend**: deploy `server/share` on the same domain at `/api/share` (Node 22.18+, no
+dependencies, stores only end-to-end encrypted blobs). Everything else works without it. See the
+deployment section of [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and the API in
+[server/share/README.md](server/share/README.md). Your data lives only on your device and in your
 own Google Drive, so a change of address is a backup file away.
 
 ### Who it is for

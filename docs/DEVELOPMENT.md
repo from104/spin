@@ -80,6 +80,13 @@ SSH+rsync 하는 것이 전부입니다. 근거와 안전장치는
 가 같은 환경변수로 올립니다. 원격 systemd 유닛을 설치·재시작하므로 먼저 `--dry-run` 을
 보십시오.
 
+**백엔드 없이 올리면**: 앱은 다 돌지만 [링크로 공유]·[링크로 가져오기]만 «서버에 닿지
+못했습니다» 토스트로 실패합니다(`src/share/index.ts` 가 모르는 오류를 전부 `network` 로
+분류). 공유 링크가 필요 없다면 백엔드를 생략해도 됩니다. 필요하면 Apache/nginx 가
+같은 도메인의 `/api/share` 를 백엔드 포트로 프록시하게 하십시오 — 조각은
+[`deploy/share/apache-share.conf`](../deploy/share/apache-share.conf), 유닛은
+[`deploy/share/spin-share.service`](../deploy/share/spin-share.service).
+
 cube 로 올리는 [`scripts/deploy.sh`](../scripts/deploy.sh)(`npm run deploy`)도 저장소에는
 남아 있지만, spin.atit.dev 가 리다이렉션 전용이 된 지금은 그리로 올려도 사용자 눈에는
 보이지 않습니다 — 일상적인 배포 명령이 아닙니다.
