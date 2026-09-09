@@ -1,4 +1,5 @@
-// 팀 상세 — 헤더(이름·약칭·색 2종) + 네 절(선수 / 스태프 / 라인업 / 정보). PLAN-TEAM 결정 17.
+// 팀 상세 — 헤더(이름·약칭·팀 색) + 네 절(선수 / 스태프 / 라인업 / 정보). PLAN-TEAM 결정 17.
+// 팀 색은 팔레트 + 킷 배치라 위젯 하나가 통째로 맡는다(`KitPicker.tsx`, 2026-09-09).
 //
 // **저장은 이 파일 한 곳이다.** 아래 절 컴포넌트들은 `model/team.ts` 의 순수 헬퍼로 다음 팀
 // 객체를 만들어 `onChange(next)` 로 올려보내고, IDB 쓰기(`putTeam`)는 여기서만 한다 — 쓰기 경로가
@@ -29,6 +30,7 @@ import { useT } from '../../i18n/useT.ts';
 import { PlayerTable } from './PlayerTable.tsx';
 import { StaffList } from './StaffList.tsx';
 import { LineupBoard } from './LineupBoard.tsx';
+import { KitPicker } from './KitPicker.tsx';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
 
 export interface TeamDetailProps {
@@ -55,8 +57,6 @@ export function TeamDetail({ teamId, onSaved, onExport, onPrint }: TeamDetailPro
   const undoToastIdRef = useRef<string | null>(null);
   /** 저장 요청 순번 — 늦게 도착한 응답이 최신 화면을 덮는 것을 막는다(아래 `save`). */
   const saveSeqRef = useRef(0);
-  /** 색 두 칸의 **화면용 초안**(2026-09-09 검수). 아래 색 입력 주석이 근거다. */
-  const [colorDraft, setColorDraft] = useState<{ color?: string; gkColor?: string }>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -162,41 +162,6 @@ export function TeamDetail({ teamId, onSaved, onExport, onPrint }: TeamDetailPro
             style={inputStyle}
           />
         </Field>
-        {/* ⚠️ 색 두 칸은 **화면 반영과 저장을 가른다**(2026-09-09 검수). React 의 onChange 는
-            네이티브 `input` 이라 색 선택기를 드래그하는 동안 매 프레임 떨어진다 — 예전에는 그
-            자리에서 곧장 `save()` 를 불러 한 번 고르는 데 IDB 쓰기 + `postSyncEvent` 가 수십~수백
-            건 나갔고(실측 20 이벤트 = teams 스토어 쓰기 20건), 그때마다 `updatedAt` 이 새로 찍혀
-            드라이브 푸시 큐가 부풀고 다른 기기의 LWW 비교가 흔들렸다. 지금은 드래그 중에는 로컬
-            초안만 갱신하고 저장은 `onBlur` 에 한 번 — 이 파일의 다른 칸(이름·리그·메모)이 처음부터
-            지키던 규율과 같아졌다. */}
-        <Field label={t('team.detail.colorLabel')} style={{ flex: 'none' }}>
-          <input
-            type="color"
-            aria-label={t('team.detail.colorLabel')}
-            value={colorDraft.color ?? current.color}
-            onChange={(e) => setColorDraft((d) => ({ ...d, color: e.target.value }))}
-            onBlur={() => {
-              const v = colorDraft.color;
-              setColorDraft((d) => ({ ...d, color: undefined }));
-              if (v !== undefined && v !== current.color) save({ ...current, color: v });
-            }}
-            style={colorInputStyle}
-          />
-        </Field>
-        <Field label={t('team.detail.gkColorLabel')} style={{ flex: 'none' }}>
-          <input
-            type="color"
-            aria-label={t('team.detail.gkColorLabel')}
-            value={colorDraft.gkColor ?? current.gkColor}
-            onChange={(e) => setColorDraft((d) => ({ ...d, gkColor: e.target.value }))}
-            onBlur={() => {
-              const v = colorDraft.gkColor;
-              setColorDraft((d) => ({ ...d, gkColor: undefined }));
-              if (v !== undefined && v !== current.gkColor) save({ ...current, gkColor: v });
-            }}
-            style={colorInputStyle}
-          />
-        </Field>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <Button data-tut="team-export" variant="secondary" onClick={() => onExport(current)}>
             {t('team.detail.exportButton')}
@@ -205,8 +170,13 @@ export function TeamDetail({ teamId, onSaved, onExport, onPrint }: TeamDetailPro
             {t('team.detail.printButton')}
           </Button>
         </div>
-        {/* 규정상 GK 는 다른 색이어야 한다(Laws) — 지금까지 이 값을 만드는 UI 가 0곳이었다. */}
-        <p style={{ ...hintStyle, flexBasis: '100%' }}>{t('team.detail.gkColorHint')}</p>
+        {/* ── ⚠️ 2026-09-09: 색 두 칸(팀 색·골키퍼 색)이 여기 있었다 ─────────────────────
+            *"팀 색은 홈, 어웨이, 중립 세트 정할 수 있고. 색 4개를 미리 선택하고 배치하는식으로"*
+            지시로 팔레트 + 킷 배치(`KitPicker`)가 그 자리를 받았다. 그 두 칸이 지키던 규율
+            — 색 선택기를 드래그하는 동안에는 저장하지 않는다(실측: 한 번 고르는 데 IDB 쓰기
+            20건) — 은 사라지지 않고 `KitPicker` 머리말로 옮겨 갔다. 대가: 헤더 한 줄이던 색이
+            줄 넷(팔레트 + 킷 3)이 됐다. */}
+        <KitPicker team={current} onChange={save} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: twoCol ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
@@ -307,18 +277,6 @@ const inputStyle: CSSProperties = {
   color: 'var(--text)',
   fontSize: '0.8125rem',
   width: '100%',
-};
-
-/** 색 입력도 표적이라 `--hit` 을 지킨다 — 네이티브 `<input type="color">` 의 기본 크기는 23px 이다. */
-const colorInputStyle: CSSProperties = {
-  width: 'var(--hit)',
-  height: 'var(--hit)',
-  minWidth: 44,
-  minHeight: 44,
-  padding: 2,
-  borderRadius: '0.6rem',
-  border: '1px solid var(--border)',
-  background: 'var(--elev)',
 };
 
 const hintStyle: CSSProperties = { fontSize: '0.75rem', color: 'var(--faint-text)', margin: 0 };

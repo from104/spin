@@ -12,7 +12,8 @@
 // [등급 정보 제외]는 이 컴포넌트의 `stripClass` prop 이다. 화면에서 토글한 값이 **종이에 그대로**
 // 가야 한다 — 종이만 다른 규칙을 두지 않는다(PrintRoot 의 `view` 스위치가 간 길과 같다).
 import type { Player } from '../../model/roster.ts';
-import type { Team } from '../../model/team.ts';
+import type { Team, TeamKitKind } from '../../model/team.ts';
+import { TEAM_KIT_KINDS, kitColors } from '../../model/team.ts';
 import { PRINT_PAGE_CLASS } from '../print/printDom.ts';
 import { useT } from '../../i18n/useT.ts';
 import type { DictKey } from '../../i18n/ko.ts';
@@ -26,6 +27,22 @@ const ROLE_KEY: Record<StaffRole, DictKey> = {
   carer: 'team.staff.role.carer',
   mechanic: 'team.staff.role.mechanic',
 };
+
+const KIND_KEY: Record<TeamKitKind, DictKey> = {
+  home: 'team.kits.kindHome',
+  away: 'team.kits.kindAway',
+  neutral: 'team.kits.kindNeutral',
+};
+
+/** 색 칸 하나 — 견본 + hex 글자(위 킷 표 주석). 견본은 글자와 같은 줄에 서는 작은 사각형이다. */
+function swatchCell(color: string) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <span aria-hidden style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: color, border: '1px solid #000' }} />
+      {color}
+    </span>
+  );
+}
 
 export interface TeamPrintSheetProps {
   team: Team;
@@ -50,8 +67,34 @@ export function TeamPrintSheet({ team, stripClass }: TeamPrintSheetProps) {
       <p className="spin-print-meta">
         {[t('team.print.title'), team.league, team.season].filter(Boolean).join(' · ')}
       </p>
-      <p className="spin-print-meta">{t('team.print.colorLine', { color: team.color, gkColor: team.gkColor })}</p>
       {team.note && <p className="spin-print-note">{team.note}</p>}
+
+      {/* 킷 표(2026-09-09). 색 견본과 **hex 글자를 함께** 찍는다 — 팀시트는 흑백 복사기를 타는
+          문서라, 견본만 있으면 복사본에서 세 벌이 전부 같은 회색이 된다. 배경색이 실제로 인쇄되는
+          것은 `styles/print.css` 의 `print-color-adjust: exact` 가 보장한다(그 파일 주석). */}
+      <h2 className="spin-print-steptitle">{t('team.print.kitsHeading')}</h2>
+      <table className="spin-print-table">
+        <thead>
+          <tr>
+            <th scope="col">{t('team.print.colKit')}</th>
+            <th scope="col">{t('team.kits.slotField')}</th>
+            <th scope="col">{t('team.kits.slotGk')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {TEAM_KIT_KINDS.map((kind) => {
+            const c = kitColors(team, kind);
+            if (!c) return null; // 안 만든 킷은 빈 줄로 남기지 않는다 — 종이에서 «없음» 과 «비었음» 이 갈린다
+            return (
+              <tr key={kind} data-kit-row={kind}>
+                <td>{t(KIND_KEY[kind])}</td>
+                <td>{swatchCell(c.field)}</td>
+                <td>{swatchCell(c.gk)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
 
       <h2 className="spin-print-steptitle">{t('team.print.playersHeading')}</h2>
       {players.length === 0 ? (

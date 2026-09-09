@@ -372,14 +372,41 @@ export const PREFS_MIGRATIONS: DocMigration[] = [
  *  관문을 새로 뚫는 것이 아니라 체인에 단계 하나를 더하면 된다(prefs 가 걸었던 길). */
 export const ROSTER_MIGRATIONS: DocMigration[] = [];
 
-/** 팀([팀] 메뉴, 2026-09-09)도 v1 부터 시작한다 — **빈 체인도 등록한다**. 근거는 바로 위
+/** 팀([팀] 메뉴, 2026-09-09)은 v1 부터 시작했다 — 빈 체인이어도 등록해 두었던 이유는 바로 위
  *  ROSTER_MIGRATIONS 와 같다: 읽기 경로(`storage/teamRepo.ts`)가 처음부터 migrateDoc 관문을
  *  지나야, 나중에 필드가 생길 때 관문을 새로 뚫는 것이 아니라 단계 하나를 더하면 된다.
+ *  ⚠️ 그 «나중» 이 같은 날 왔다 — 아래 v1→v2 가 그 첫 단계다. 관문을 미리 뚫어 둔 값을 여기서 찾았다.
  *
  *  ⚠️ 이 체인은 **세 축 가운데 하나일 뿐이다**(이 파일 1행). 팀이 들어오며 함께 오른 것은
  *  `DB_VERSION`(1→2, teams 스토어 신설)이고, 그것은 IndexedDB 구조라 여기와 아무 관계가 없다.
- *  봉투 `ENVELOPE_VERSION` 도 1 그대로다 — 그릇이 아니라 새 내용이 하나 생긴 것이다. */
-export const TEAM_MIGRATIONS: DocMigration[] = [];
+ *  봉투 `ENVELOPE_VERSION` 도 1 그대로다 — 그릇이 아니라 새 내용이 하나 생긴 것이다.
+ *
+ *  v1→v2 는 **손실 없는 재배치**다: 색 두 칸이 팔레트 두 색이 되고, 홈 킷이 그 둘을 가리킨다.
+ *  옛 두 키를 **지우는 것**이 다른 체인(«알 수 없는 필드는 통과시킨다»)과 다른 점인데, 여기서는
+ *  그 둘이 변환의 **출처**라서다 — 남겨 두면 v2 문서 안에 같은 사실이 두 벌 살고, 다음에 읽는
+ *  사람이 어느 쪽이 진짜인지 물어야 한다. 기본값은 리터럴로 박는다(PREFS_MIGRATIONS 규칙 (b)) —
+ *  마이그레이션은 *그때의* 기본값을 적어 둔 역사다. */
+export const TEAM_MIGRATIONS: DocMigration[] = [
+  {
+    from: 1,
+    to: 2,
+    describe: 'team v1→v2: 색 두 칸(color·gkColor) → 팔레트(최대 4색) + 홈·어웨이·중립 킷 세트',
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      const hex = (v: unknown, fallback: string): string => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : fallback);
+      const field = hex(out.color, '#d93a3a'); // 그때의 DEFAULT_TEAMS.home.color
+      const gk = hex(out.gkColor, '#f2c811'); //  그때의 DEFAULT_TEAMS.home.gkColor
+      // 형상이 어긋난 자리만 채운다 — 이미 팔레트를 든 문서는 건드리지 않는다.
+      if (!Array.isArray(out.palette)) out.palette = [field, gk];
+      if (out.kits === null || typeof out.kits !== 'object' || Array.isArray(out.kits)) {
+        out.kits = { home: { field: 0, gk: 1 } };
+      }
+      delete out.color;
+      delete out.gkColor;
+      return out;
+    },
+  },
+];
 
 export type MigrateResult =
   | { ok: true; doc: Record<string, unknown>; changed: boolean; applied: string[] }

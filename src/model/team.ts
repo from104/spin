@@ -21,8 +21,38 @@ import type { PFClass, Player } from './roster.ts';
 import { DEFAULT_TEAMS } from './defaults.ts';
 
 /** 팀 문서 스키마. 드릴·세션·로스터와 **다른 축**이다(migrate.ts 머리말) — 봉투
- *  `ENVELOPE_VERSION` 도, `DB_VERSION` 도 이 값과 무관하게 움직인다. */
-export const CURRENT_TEAM_SCHEMA = 1;
+ *  `ENVELOPE_VERSION` 도, `DB_VERSION` 도 이 값과 무관하게 움직인다.
+ *  v2(2026-09-09): 색 두 칸(`color`·`gkColor`) → 팔레트 + 킷 세트. */
+export const CURRENT_TEAM_SCHEMA = 2;
+
+/** 팔레트에 미리 고를 수 있는 색의 상한(2026-09-09 기현 지시: *"색 4개를 미리 선택하고
+ *  배치하는식으로 (색 고른 갯수만큼 배치 가능 최대 4개)"*). 상한을 두는 이유: 팔레트가
+ *  무한하면 «미리 고르고 배치한다» 가 그냥 «그때그때 색 고르기» 와 같아진다 — 고른 색이
+ *  적어야 배치가 선택이 된다. */
+export const TEAM_PALETTE_MAX = 4;
+
+/** 킷 세트 종류. 홈·어웨이(색 충돌 시 갈아입는 벌)·중립(양 팀 모두와 겹칠 때 쓰는 제3의 벌).
+ *  ⚠️ 드릴 안의 `TeamSide`('home'|'away' — 판 위의 진영)와 **글자만 같고 뜻이 다르다**(결정 22).
+ *  저쪽은 코트의 두 진영이고 이쪽은 한 팀이 갈아입는 옷이다. */
+export const TEAM_KIT_KINDS = ['home', 'away', 'neutral'] as const;
+export type TeamKitKind = (typeof TEAM_KIT_KINDS)[number];
+
+/** 킷 한 벌 = 필드 플레이어 색 + 골키퍼 색. 담는 값은 hex 가 아니라 **팔레트 인덱스**다.
+ *  ★ 인덱스인 이유: 팔레트의 색 하나를 고치면 그 색을 쓰는 킷이 전부 따라와야 «미리 고르고
+ *  배치한다» 가 성립한다. hex 사본을 담으면 색 한 번 바꾸는 데 세 세트를 각각 고쳐야 하고,
+ *  그 순간 팔레트는 이름만 팔레트인 장식이 된다. */
+export interface TeamKit {
+  field: number;
+  gk: number;
+}
+
+/** ⚠️ **홈은 지울 수 없다**(`setKit(t,'home',undefined)` 은 아무 일도 하지 않는다) — 킷이 하나도
+ *  없으면 카드 견본·팀시트 킷 표가 그릴 것을 잃는다. 어웨이·중립은 있으면 쓰고 없으면 없는 것이다. */
+export interface TeamKits {
+  home: TeamKit;
+  away?: TeamKit;
+  neutral?: TeamKit;
+}
 
 /** 스태프 역할(FIPFA Technical Supplement 의 벤치 인원 목록). **복수 선택**이다 — 국내 팀은
  *  한 사람이 코치 겸 정비를 겸하는 일이 흔하다. 자격증 번호·유효기간은 만들지 않는다(결정 7). */
@@ -64,9 +94,19 @@ export interface Team {
   /** 필드 플레이어 색 · 골키퍼 색. 규정상 GK 는 다른 색이어야 한다(Laws). 지금까지 이 값을
    *  만드는 UI 가 0곳이었다(감사 B6 의 빚) — 팀 문서가 그 자리를 갖는다.
    *  ⚠️ 기본값의 출처는 **새 드릴이 태어나는 곳과 같아야 한다**(`DEFAULT_TEAMS.home`).
-   *  여기에 hex 를 새로 적으면 "판 위의 우리 팀" 과 "팀 메뉴의 우리 팀" 이 다른 색이 된다. */
-  color: string;
-  gkColor: string;
+   *  여기에 hex 를 새로 적으면 "판 위의 우리 팀" 과 "팀 메뉴의 우리 팀" 이 다른 색이 된다.
+   *
+   *  ── ⚠️ 2026-09-09: 위 두 칸(`color`·`gkColor`)은 지시로 뒤집혔다 ─────────────────
+   *  *"팀 색은 홈, 어웨이, 중립 세트 정할 수 있고. 색 4개를 미리 선택하고 배치하는식으로"* —
+   *  한 벌뿐이던 색이 세 벌(홈·어웨이·중립)이 되면서 «색을 고르는 일»과 «색을 배치하는 일»이
+   *  갈렸다. 그래서 두 필드는 아래 `palette` + `kits` 로 대체됐고(스키마 v1→v2), 위 문단이
+   *  말하던 **기본값 출처 규칙은 그대로 산다** — `emptyTeam` 의 팔레트가 여전히
+   *  `DEFAULT_TEAMS.home` 에서 온다. 대가: 색 한 벌을 읽던 자리가 `kitColors(team,'home')`
+   *  한 번을 더 거친다(카드·팀시트·상세 세 곳). */
+  /** 미리 고른 색 목록(#rrggbb, 1~`TEAM_PALETTE_MAX` 개). 킷은 이 배열의 **인덱스**를 가리킨다. */
+  palette: string[];
+  /** 배치. 배치할 수 있는 색은 팔레트에 고른 개수만큼이다(지시: *"색 고른 갯수만큼 배치 가능"*). */
+  kits: TeamKits;
   league?: string;
   /** 시즌·연령대 라벨. 별도 계층을 만들지 않고 이 라벨 + [복제] 로 푼다(결정 20). */
   season?: string;
@@ -90,20 +130,90 @@ export function defaultTeamName(locale: Locale = 'ko'): string {
   return DEFAULT_TEAM_NAME[locale];
 }
 
-/** 빈 팀 하나. 색은 새 드릴의 `teams.home` 과 같은 출처를 재사용한다(위 Team.color 주석). */
+/** 빈 팀 하나. 색은 새 드릴의 `teams.home` 과 같은 출처를 재사용한다(위 Team.palette 주석).
+ *  팔레트 두 색으로 시작하는 이유: 규정상 GK 는 다른 색이어야 하므로(Laws) 처음부터 배치할
+ *  색이 둘은 있어야 홈 킷이 «필드 0번 · GK 1번» 이라는 뜻을 가진다. */
 export function emptyTeam(locale: Locale = 'ko'): Team {
   const now = Date.now();
   return {
     schemaVersion: CURRENT_TEAM_SCHEMA,
     id: newId('tm'),
     name: defaultTeamName(locale),
-    color: DEFAULT_TEAMS.home.color,
-    gkColor: DEFAULT_TEAMS.home.gkColor,
+    palette: [DEFAULT_TEAMS.home.color, DEFAULT_TEAMS.home.gkColor],
+    kits: { home: { field: 0, gk: 1 } },
     players: [],
     staff: [],
     createdAt: now,
     updatedAt: now,
   };
+}
+
+// ── 팔레트 · 킷 ──────────────────────────────────────────────────────────────────
+
+/** 팔레트 인덱스 → 실제 색. 범위 밖이면 0번으로 접는다 — `validateTeam` 이 저장 경로에서 같은
+ *  보정을 하지만 화면은 **저장되기 전 값도 그린다**(낙관적 반영). 두 곳이 다르게 접으면 저장
+ *  전후로 색이 튄다. */
+function paletteAt(palette: readonly string[], i: number): string {
+  return palette[i] ?? palette[0] ?? DEFAULT_TEAMS.home.color;
+}
+
+/** 킷 한 벌의 실제 두 색. **없는 킷은 `undefined`** — 빈 킷을 기본색으로 채워 돌려주면 부르는
+ *  쪽이 "어웨이를 안 만든 팀" 과 "어웨이가 홈과 같은 팀" 을 구분하지 못한다. */
+export function kitColors(team: Team, kind: TeamKitKind): { field: string; gk: string } | undefined {
+  const kit = team.kits[kind];
+  if (!kit) return undefined;
+  return { field: paletteAt(team.palette, kit.field), gk: paletteAt(team.palette, kit.gk) };
+}
+
+/** 팔레트에 색 하나를 더한다. 상한에서는 **아무 일도 하지 않는다**(예외를 던지지 않는다 — UI 가
+ *  4개에서 [+ 색 추가] 를 감추므로 여기 도달하는 건 파일·테스트뿐이다). */
+export function addPaletteColor(t: Team, color: string = DEFAULT_TEAMS.away.color): Team {
+  if (t.palette.length >= TEAM_PALETTE_MAX) return t;
+  return { ...t, palette: [...t.palette, color], updatedAt: Date.now() };
+}
+
+/** 팔레트의 색 하나를 갈아 끼운다 — 그 색을 쓰던 킷은 인덱스로 가리키므로 **전부 따라온다**. */
+export function setPaletteColor(t: Team, index: number, color: string): Team {
+  if (index < 0 || index >= t.palette.length) return t;
+  return { ...t, palette: t.palette.map((c, i) => (i === index ? color : c)), updatedAt: Date.now() };
+}
+
+/** 팔레트에서 색 하나를 뺀다. **마지막 한 색은 못 뺀다** — 팔레트가 비면 킷이 가리킬 것이 없다.
+ *
+ *  ⚠️ 뺀 뒤 킷 슬롯을 다시 매기는 규칙 둘: (a) 지운 색을 쓰던 슬롯은 **0번**으로 돌린다
+ *  (b) 지운 색 **뒤에** 있던 색을 쓰던 슬롯은 한 칸 당긴다. (b)를 빼먹으면 남은 킷들이 조용히
+ *  옆 색을 입는다 — 지운 것은 하나인데 바뀐 것은 여럿인, 눈으로만 잡히는 종류의 사고다. */
+export function removePaletteColor(t: Team, index: number): Team {
+  if (index < 0 || index >= t.palette.length || t.palette.length <= 1) return t;
+  const palette = t.palette.filter((_, i) => i !== index);
+  const slot = (v: number): number => {
+    if (v === index || v < 0 || v >= t.palette.length) return 0;
+    return v > index ? v - 1 : v;
+  };
+  const remap = (k: TeamKit): TeamKit => ({ field: slot(k.field), gk: slot(k.gk) });
+  const kits: TeamKits = { home: remap(t.kits.home) };
+  for (const kind of TEAM_KIT_KINDS) {
+    if (kind === 'home') continue;
+    const k = t.kits[kind];
+    if (k) kits[kind] = remap(k);
+  }
+  return { ...t, palette, kits, updatedAt: Date.now() };
+}
+
+/** 킷 한 벌을 놓거나 치운다. ⚠️ `kind==='home'` 에 `undefined` 를 주면 **무시한다**(TeamKits 주석). */
+export function setKit(t: Team, kind: TeamKitKind, kit: TeamKit | undefined): Team {
+  const now = Date.now();
+  if (kit !== undefined) {
+    return { ...t, kits: { ...t.kits, [kind]: { field: kit.field, gk: kit.gk } }, updatedAt: now };
+  }
+  if (kind === 'home') return t;
+  const kits: TeamKits = { home: t.kits.home };
+  for (const k of TEAM_KIT_KINDS) {
+    if (k === 'home' || k === kind) continue;
+    const v = t.kits[k];
+    if (v) kits[k] = v;
+  }
+  return { ...t, kits, updatedAt: now };
 }
 
 // ── 순수 편집 헬퍼 ────────────────────────────────────────────────────────────────

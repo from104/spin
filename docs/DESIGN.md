@@ -1403,16 +1403,20 @@ export interface Roster { schemaVersion: number; players: Player[]; updatedAt: n
 링크로는 나가지 않는다.
 
 ```ts
-export const CURRENT_TEAM_SCHEMA = 1;                       // TEAM_MIGRATIONS = [] (빈 체인도 등록)
+export const CURRENT_TEAM_SCHEMA = 2;                       // v1→v2(2026-09-09): color·gkColor → palette·kits
+export const TEAM_PALETTE_MAX = 4;  export const TEAM_KIT_KINDS = ['home','away','neutral'] as const;
+export interface TeamKit  { field: number; gk: number }          // ★ hex 가 아니라 palette 인덱스
+export interface TeamKits { home: TeamKit; away?: TeamKit; neutral?: TeamKit }   // home 은 지울 수 없다
 export const STAFF_ROLES = ['coach','assistantCoach','manager','doctor','carer','mechanic'] as const;
 export interface Staff  { id: StaffId; name: string; roles: StaffRole[]; isSeniorCoach?: boolean;
                           playerId?: PlayerId; note?: string; createdAt; updatedAt }
 export interface Lineup { court: PlayerId[]; gk?: PlayerId; bench: PlayerId[] }   // court ≤4, gk ∈ court
-export interface Team   { schemaVersion; id: TeamId; name; shortName?; color; gkColor;
+export interface Team   { schemaVersion; id: TeamId; name; shortName?; palette: string[]; kits: TeamKits;
                           league?; season?; note?; players: Player[]; staff: Staff[];
                           lineup?: Lineup; createdAt; updatedAt }
 // 순수 헬퍼: addPlayer/updatePlayer/removePlayer · addStaff/updateStaff/removeStaff · setLineup
 //            duplicateTeam(선수·스태프 id 재발급) · countByClass · rosterCounts · playerSessionCounts
+//            kitColors(team,kind) · addPaletteColor · setPaletteColor · removePaletteColor · setKit
 ```
 
 **id 접두는 `tm`(팀)·`sf`(스태프)** 다. 계획서 결정 7 은 스태프를 `st` 로 적었지만 `st` 는 이미

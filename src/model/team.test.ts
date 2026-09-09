@@ -9,20 +9,27 @@
 // 라벨 문자열·항목 수는 재지 않는다(테스트 작성 규칙) — 여기서 보는 것은 전부 판정 결과다.
 import { describe, expect, it } from 'vitest';
 import {
+  addPaletteColor,
   addPlayer,
   addStaff,
   duplicateTeam,
   emptyTeam,
+  kitColors,
   lineupWarnings,
   playerSessionCounts,
+  removePaletteColor,
   removePlayer,
   rosterCounts,
+  setKit,
+  TEAM_PALETTE_MAX,
+  CURRENT_TEAM_SCHEMA,
   setLineup,
   updateStaff,
   type Team,
 } from './team.ts';
 import type { PFClass } from './roster.ts';
 import { validateTeam, LIMITS } from './validate.ts';
+import { migrateDoc, TEAM_MIGRATIONS } from './migrate.ts';
 import { DEFAULT_TEAMS } from './defaults.ts';
 import type { PlayerId } from '../core/ids.ts';
 
@@ -187,11 +194,10 @@ describe('validateTeam — 파일에서 온 문서 보정', () => {
     expect(v.value.staff[0]!.roles).toEqual(['coach']);
   });
 
-  it('개인정보 필드는 정화기를 통과하지 못한다(결정 6) · 색은 #rrggbb 만 받는다', () => {
+  it('개인정보 필드는 정화기를 통과하지 못한다(결정 6) · 팔레트는 #rrggbb 만 받는다', () => {
     const v = validateTeam({
       name: '팀',
-      color: 'red; background:url(x)',
-      gkColor: '#00ff00',
+      palette: ['red; background:url(x)', '#00ff00'],
       players: [{ id: 'pl_1', name: '가', phone: '010-0000-0000', guardian: '보호자', diagnosis: '진단명', birthYear: 2001 }],
     });
     expect(v.ok).toBe(true);
@@ -199,8 +205,7 @@ describe('validateTeam — 파일에서 온 문서 보정', () => {
     const p = v.value.players[0]!;
     for (const key of ['phone', 'guardian', 'diagnosis']) expect(key in p).toBe(false);
     expect(p.birthYear).toBe(2001); // 연도만은 남는다
-    expect(v.value.color).toBe(DEFAULT_TEAMS.home.color); // 형식 위반 → 새 드릴과 같은 기본색
-    expect(v.value.gkColor).toBe('#00ff00');
+    expect(v.value.palette).toEqual(['#00ff00']); // 형식 위반은 폐기, 성한 색만 남는다
   });
 
   it('선수·스태프 상한을 넘으면 뒤에서 자른다', () => {
@@ -214,5 +219,64 @@ describe('validateTeam — 파일에서 온 문서 보정', () => {
 
   it('미래 스키마는 거절한다 — 조용히 열어 필드를 잃지 않는다', () => {
     expect(validateTeam({ schemaVersion: 99, name: '팀' }).ok).toBe(false);
+  });
+});
+
+// ── 팔레트 · 킷 (2026-09-09) ────────────────────────────────────────────────────
+// **이 절을 지우면 새는 실기 버그**: ① 0.6.6 에서 만든 팀을 열면 색이 기본값으로 초기화되는 것
+// (v1→v2 가 색 두 칸을 못 옮기면 정화기가 «팔레트 없음» 을 기본 팔레트로 채워 사용자 색이 증발한다)
+// ② 팔레트에서 색 하나를 지웠을 뿐인데 남은 킷들이 조용히 옆 색을 입는 것
+// ③ 파일이 가리키는 색 번호가 팔레트 밖일 때 화면이 색 없는 칸을 그리는 것.
+describe('팔레트 · 킷', () => {
+  it('v1(color·gkColor) 문서는 팔레트 두 색 + 홈 킷으로 올라오고, 옛 키는 남지 않는다', () => {
+    const mig = migrateDoc({ schemaVersion: 1, id: 'tm_1', name: '옛 팀', color: '#112233', gkColor: '#445566', players: [], staff: [] }, TEAM_MIGRATIONS, CURRENT_TEAM_SCHEMA);
+    expect(mig.ok).toBe(true);
+    if (!mig.ok) return;
+    expect(mig.doc.palette).toEqual(['#112233', '#445566']);
+    expect(mig.doc.kits).toEqual({ home: { field: 0, gk: 1 } });
+    expect('color' in mig.doc).toBe(false);
+    expect('gkColor' in mig.doc).toBe(false);
+    // 정화기까지 지나야 실제 저장본이다 — 옮긴 색이 여기서 기본값으로 되돌아가면 이주가 무의미하다.
+    const v = validateTeam(mig.doc);
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(kitColors(v.value, 'home')).toEqual({ field: '#112233', gk: '#445566' });
+  });
+
+  it('팔레트 색을 지우면 그 색을 쓰던 킷은 0번으로, 뒤에 있던 색을 쓰던 킷은 한 칸 당겨진다', () => {
+    let team = emptyTeam('ko'); // 팔레트 2색
+    team = addPaletteColor(team, '#333333');
+    team = addPaletteColor(team, '#444444');
+    team = setKit(team, 'home', { field: 1, gk: 3 });
+    team = setKit(team, 'away', { field: 2, gk: 0 });
+    const after = removePaletteColor(team, 1);
+    expect(after.palette).toHaveLength(3);
+    // 홈 필드는 지운 색을 쓰고 있었다 → 0번. 홈 GK 는 3번이었으니 한 칸 당겨 2번.
+    expect(after.kits.home).toEqual({ field: 0, gk: 2 });
+    // 어웨이 필드는 2번이었으니 1번(= 지금의 '#333333'). 색이 바뀌지 않아야 한다.
+    expect(kitColors(after, 'away')!.field).toBe('#333333');
+    // 마지막 한 색은 못 뺀다 — 팔레트가 비면 킷이 가리킬 색이 없다.
+    const one = removePaletteColor({ ...after, palette: ['#111111'] }, 0);
+    expect(one.palette).toEqual(['#111111']);
+  });
+
+  it('팔레트는 4색에서 멈춘다', () => {
+    let team = emptyTeam('ko');
+    for (let i = 0; i < 5; i++) team = addPaletteColor(team, '#0000ff');
+    expect(team.palette).toHaveLength(TEAM_PALETTE_MAX);
+  });
+
+  it('validate — 범위 밖 색 번호는 접고, 빈 팔레트는 기본 팔레트로 되살린다', () => {
+    const v = validateTeam({ name: '팀', palette: ['#111111', '#222222'], kits: { home: { field: 7, gk: 9 }, ghost: { field: 0, gk: 0 } } });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    // field 는 0번, gk 는 «다른 색» 이 있으므로 1번으로 접는다(GK 는 규정상 달라야 한다).
+    expect(v.value.kits.home).toEqual({ field: 0, gk: 1 });
+    expect('ghost' in v.value.kits).toBe(false); // 모르는 킷 종류는 화이트리스트가 버린다
+
+    const empty = validateTeam({ name: '팀', palette: [] });
+    expect(empty.ok).toBe(true);
+    if (!empty.ok) return;
+    expect(empty.value.palette).toEqual([DEFAULT_TEAMS.home.color, DEFAULT_TEAMS.home.gkColor]);
   });
 });

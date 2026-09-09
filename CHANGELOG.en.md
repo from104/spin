@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
 - Privacy Policy and Terms of Service are now linked from the homepage and served in full at the in-app address (/settings/privacy) too (Google sign-in verification requirement)
 - Added [Import from link] to the [Drills] and [Sessions] lists — paste a share link you received, even where tapping the link can't open the app
-- Added a [Teams] menu — rosters, staff, and lineups for as many teams as you keep
+- Added a [Teams] menu — rosters, staff, and lineups for as many teams as you keep, with team colours as a palette (up to four) assigned to home, away, and neutral kits
 - Added team file export and import, team-sheet printing, and Google Drive sync for teams (export and print can leave class information out)
 
 ### Changed

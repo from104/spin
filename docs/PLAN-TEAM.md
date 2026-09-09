@@ -28,7 +28,7 @@
 | 2 | 저장은 **팀별 문서** — 새 IDB 스토어 `teams`(`DB_VERSION 1→2`, 인덱스 `updatedAt`). 요약 스토어 없음(`sessions` 패턴) | 조사 Q12. 한 팀 손상 = 한 팀만 손실. ⚠️ 멀티탭 강제 새로고침(`db.ts:69-78`) 이 따라온다 — §4 실기 |
 | 3 | **기존 단일 명단 이주**: 앱 기동 시 `teams` 가 비어 있고 meta `roster` 에 선수가 1명 이상이면 로케일 기본 이름(ko «내 팀»/en «My Team»/ja «マイチーム»)의 팀 하나를 만들고 meta `rosterMigratedAt` 도장을 찍는다(한 번만). 이주한 `roster` 는 **지우지 않는다**(읽기 전용 잔류, 동기화 타입 `'roster'` 도 그대로) | 조사 Q1. 옛 버전 기기·옛 백업이 명단을 잃지 않게. 새 UI 는 roster 에 **쓰지 않는다** — 다음 릴리스에서 철거 후보(ROADMAP 에 적는다) |
 | 4 | 스키마 도장: `CURRENT_TEAM_SCHEMA = 1`, `TEAM_MIGRATIONS = []`(빈 체인도 등록), 봉투 `ENVELOPE_VERSION` 은 1 그대로, `Session` 에 `teamId?: TeamId` 를 **선택 필드로 추가하되 세션 스키마는 올리지 않는다** | 세 축 분리(`migrate.ts:1-2`). 옛 앱이 `teamId` 를 모르고 저장하면 그 값만 사라지는데, 이는 "팀 미지정" 상태로 자연 복귀라 데이터 손실이 아니다(드릴 v9→v10 때의 «획 소실»과 다른 부류) |
-| 5 | **팀 필드**: `name`(≤40) · `shortName?`(≤6) · `color` · `gkColor` · `league?` · `season?` · `note?` · `players` · `staff` · `lineup?` · `createdAt/updatedAt/schemaVersion`. **로고·지역·국가는 넣지 않는다** | 조사 §3.1. `gkColor` 는 규정 필수(Laws L490-491)인데 지금 값을 만드는 UI 가 0곳 — 감사 B6(`PLAN-2026-08.md:636`) 빚을 여기서 갚는다 |
+| 5 | **팀 필드**: `name`(≤40) · `shortName?`(≤6) · `color` · `gkColor` · `league?` · `season?` · `note?` · `players` · `staff` · `lineup?` · `createdAt/updatedAt/schemaVersion`. **로고·지역·국가는 넣지 않는다** | 조사 §3.1. `gkColor` 는 규정 필수(Laws L490-491)인데 지금 값을 만드는 UI 가 0곳 — 감사 B6(`PLAN-2026-08.md:636`) 빚을 여기서 갚는다. ⚠️ 2026-09-09 뒤집힘: 색 두 칸(`color`·`gkColor`)이 **팔레트 + 킷 세트**가 됐다(기현 지시: *"팀 색은 홈, 어웨이, 중립 세트 정할 수 있고. 색 4개를 미리 선택하고 배치하는식으로"*) — `palette: string[]`(≤4, #rrggbb) + `kits: {home; away?; neutral?}`(팔레트 **인덱스**). 스키마 v1→v2. 위 근거(규정 필수·UI 0곳)는 그대로 살아 있고, 갚는 방식만 한 벌에서 세 벌이 됐다 |
 | 6 | **선수 필드**(기존 `Player` 확장, 전부 선택): `number?`(0~99) · `isCaptain?` · `preferredGk?` · `active?`(기본 true, false = 명단에서 감춤) · `birthYear?`(연도만) · `chairModel?`(≤40) · `note?`(≤200). **성별·정확한 생년월일·사진·연락처·진단명·보호자는 만들지 않는다** | 조사 §3.2·Q10. GK 는 경기 중 바뀌는 지정이라 `preferredGk` 는 **선호**일 뿐(Laws L358). `note` 입력칸 아래에 «의료·연락처 등 개인정보는 적지 마세요» 안내 |
 | 7 | **스태프**(`Staff`, id 접두 `st`): `name` · `roles: StaffRole[]`(복수: `coach`·`assistantCoach`·`manager`·`doctor`·`carer`·`mechanic`) · `isSeniorCoach?`(팀당 1명) · `playerId?`(선수 겸직) · `note?`. 자격증·유효기간은 안 넣는다 | 조사 Q13·§3.3. Tech Supp `:252-258` 역할 목록, Laws L987(선임 코치 제재 승계)·L1554(코치 겸 선수). ⚠️ 2026-09-09 정정: 접두는 `st` 가 아니라 **`sf`** — `st` 는 `StepId` 가 이미 쓴다(근거 `src/core/ids.ts:26`, `DESIGN.md §3.12c`) |
 | 8 | **라인업 위젯**(팀 상세의 한 절, 팀당 하나 저장 `lineup?: { court: PlayerId[]; gk?: PlayerId; bench: PlayerId[] }`): 코트 4칸(그중 GK 1) + 벤치, 활성 선수를 탭/드래그로 넣고 뺀다. PF2 가 3명째 들어오면 **노란 경고 + R7 툴팁**, 하한 경고는 **2명 미만**, 벤치 상한은 잠그지 않는다. **미분류는 PF1 로도 PF2 로도 세지 않는다** | 조사 §4.2 R1~R8·Q6. 셈+경고만, 차단 없음 — `SessionEditorScreen.tsx:350-355` 선례. 「코트 위 PF1 최소 2명」 경고는 **만들지 않는다**(규정 근거 없음) |
@@ -40,8 +40,8 @@
 | 14 | **드라이브 동기화**: `SyncDocType` 에 `'team'`, 파일명 `<tm_id>.json`, CAS(`expectedUpdatedAt`)·톰스톤·삭제 전파 전부 드릴과 동일. `plan.ts`/`engine.ts` 는 손대지 않는다 | 조사 §5.2. 옛 기기는 team 파일을 `unrecognized` 로 무시(삭제·덮어쓰기 없음) — 안전 |
 | 15 | **삭제 안전망**: 팀 삭제 = 확인 모달(선수 n명·스태프 m명이 함께 지워짐 명시) + `DELETE_UNDO_TOAST_MS` 8초 undo + 톰스톤. 선수·스태프 삭제 = undo 토스트(같은 8초 상수) | 조사 Q11. `RosterSection` 의 기본값 토스트보다 짧게 사라지던 것을 이 기회에 통일 |
 | 16 | **내비**: `Screen`/`RailKey` 에 `'team'`, `RAIL_ITEMS` 는 `sessions` 와 `rules` **사이**, 경로 `/team`(목록)·`/team/<tm_id>`(상세), `pathFor`/`parsePath` 왕복 테스트, `TUTORIAL_SCREEN_KEYS` 에 `'team'`, `robots.txt` Disallow 3줄, 아이콘 `IconTeam` 신규 | 지시 «세션 다음에». 조사 §5.3 — `parsePath` 는 컴파일러가 안 잡으니 테스트가 유일한 방어선. `prefs.ts:206-208` sanitize 가 미등록 키를 버려 투어가 매번 뜨는 함정 |
-| 17 | **화면 구조**: 목록(카드: 색 견본·이름·약칭·선수 수·PF 칩·스태프 수, 메뉴 열기/복제/내보내기/인쇄/삭제, 빈 상태 [새 팀]·[가져오기]) → 상세(헤더 인라인 이름·약칭·색 2종, 절: 선수 / 스태프 / 라인업 / 정보). 선수 절은 **인라인 추가 행 + 행 클릭 편집 + 검색 + 정렬(등번호/이름/등급) + 비활성 보기 토글**. 전역 «현재 팀» 상태는 만들지 않는다 | 지시 «다루기 쉽고 인터랙티브». 조사 Q4·§2.5(SquadGod 드래그·TeamSnap 필드) |
-| 18 | **팀시트 인쇄**: 상세 [인쇄] → 인쇄 전용 뷰(팀명·색·등번호·이름·주장·GK 선호·등급 칩, 스태프 역할, 라인업 있으면 코트/벤치). 인쇄 대화상자 전에 [등급 정보 제외] 토글. `PrintDrillSheet` 과 **다른 채널** — `chairNameChannels.test.ts` 를 건드리지 않는다 | 조사 Q8. 팀시트는 Laws L329-330 상 실재하는 문서 |
+| 17 | **화면 구조**: 목록(카드: 색 견본·이름·약칭·선수 수·PF 칩·스태프 수, 메뉴 열기/복제/내보내기/인쇄/삭제, 빈 상태 [새 팀]·[가져오기]) → 상세(헤더 인라인 이름·약칭·색 2종 ⟶ ⚠️ 2026-09-09: **팀 색 블록**(팔레트 행 + 홈·어웨이·중립 킷 행 3개, `KitPicker.tsx`), 절: 선수 / 스태프 / 라인업 / 정보). 선수 절은 **인라인 추가 행 + 행 클릭 편집 + 검색 + 정렬(등번호/이름/등급) + 비활성 보기 토글**. 전역 «현재 팀» 상태는 만들지 않는다 | 지시 «다루기 쉽고 인터랙티브». 조사 Q4·§2.5(SquadGod 드래그·TeamSnap 필드) |
+| 18 | **팀시트 인쇄**: 상세 [인쇄] → 인쇄 전용 뷰(팀명·색 ⟶ ⚠️ 2026-09-09: 색 한 줄이 **킷 표**(홈·어웨이·중립 × 필드·GK, 견본 + hex 글자 — 흑백 복사 대비)가 됐다·등번호·이름·주장·GK 선호·등급 칩, 스태프 역할, 라인업 있으면 코트/벤치). 인쇄 대화상자 전에 [등급 정보 제외] 토글. `PrintDrillSheet` 과 **다른 채널** — `chairNameChannels.test.ts` 를 건드리지 않는다 | 조사 Q8. 팀시트는 Laws L329-330 상 실재하는 문서 |
 | 19 | 상한 `LIMITS`: `rosterMax 30` 은 **팀당**, `teamMax 20`, `staffMax 15`, `teamNameLen 40`, `shortNameLen 6`, `playerNoteLen 200` | 조사 Q5(10 제안 → 20: 클럽·연령대·연도별 복제를 감안, 동기화 파일 수 20은 무리 없음). ⚠️ 2026-09-09 보탬: 구현이 넷을 더했다 — `chairModelLen 40`·`teamLeagueLen 40`·`teamSeasonLen 24`·`teamNoteLen 400`(근거 `src/model/validate.ts:158`) |
 | 20 | 시즌·연령대는 **`season` 라벨 + [복제]** 로 푼다(별도 계층 없음). 복제는 선수·스태프 id 를 **새로 발급**한다 | 조사 Q9. 같은 `pl_` id 가 두 팀에 있으면 `participantIds` 가 어느 팀인지 모호해진다. ⚠️ 2026-09-09 좁힘: **[복제] 만** 재발급한다 — 백업 복원·파일 가져오기의 'copy' 는 `pl_` 를 **보존**한다(근거 `src/storage/transfer.ts:420`: 같은 파일 안의 세션 `participantIds` 가 끊긴다) |
 | 21 | 설정 화면의 [선수 명단] 섹션은 **철거**하고 그 자리에 «명단은 [팀] 메뉴로 옮겼습니다 → [팀 열기]» 한 줄을 남긴다. `RosterSection.tsx` 는 삭제(참조 0 확인 후) | 정본 한 벌(AGENTS §3). 두 곳에서 같은 명단을 고치면 이주(결정 3) 규칙이 깨진다 |
@@ -104,7 +104,8 @@ export interface Staff { id: StaffId; name: string; roles: StaffRole[]; isSenior
 export interface Lineup { court: PlayerId[]; gk?: PlayerId; bench: PlayerId[]; }   // court ≤ 4, gk ∈ court
 export interface Team {
   schemaVersion: number; id: TeamId; name: string; shortName?: string;
-  color: string; gkColor: string;            // hex, 기본은 drill teams.home 의 로케일 기본값과 같은 출처
+  // ⚠️ 2026-09-09 뒤집힘(결정 5 각주): color·gkColor → palette·kits.
+  palette: string[]; kits: { home: TeamKit; away?: TeamKit; neutral?: TeamKit };  // 색은 #rrggbb ≤4개, 킷은 그 인덱스
   league?: string; season?: string; note?: string;
   players: Player[]; staff: Staff[]; lineup?: Lineup;
   createdAt: number; updatedAt: number;
@@ -130,6 +131,7 @@ export function lineupWarnings(team: Team): LineupWarning[];
 - **이주**: 0.6.6 에서 만든 명단이 첫 기동 때 «내 팀» 으로 보이는가, 두 번째 기동 때 중복되지 않는가, 설정에 [선수 명단] 이 없고 안내 행이 있는가.
 - **동기화**: 기기 A 에서 팀 만들기 → 기기 B 에 도착, B 에서 삭제 → A 에서 사라짐(톰스톤). **0.6.6 기기**가 같은 Drive 를 볼 때 오류 없이 무시하는가. [Drive 데이터 삭제] 가 팀 파일도 지우는가.
 - **파일**: `.spin.team.json` 저장·열기(브라우저·Android·iOS·Tauri — Tauri 의 `<a download>` 는 조사 Q14 미확인), [등급 정보 제외] 가 실제로 `klass` 를 뺐는가(파일 열어 확인), 백업 → 복원에 팀이 실리는가.
+- **팀 색**(2026-09-09): 팔레트 색 선택기를 **드래그하는 동안** 저장이 안 나가는가(색이 눈앞에서 튀지 않는가), 팔레트 색을 고치면 그 색을 쓰는 킷 셋이 함께 바뀌는가, 좁은 창에서 킷 3줄이 접히고도 표적 44px 을 지키는가, 라디오가 **키보드 화살표**로 옮겨 가는가, 팀시트 킷 표가 흑백 복사에서 읽히는가.
 - **터치**: 라인업 드래그(폰), 선수 행 인라인 편집의 IME(한글 이름 조합 중 Enter), 등번호 숫자 키패드.
 - **인쇄**: 팀시트가 A4 한 장에 들어가는가, 등급 제외 토글이 인쇄물에 반영되는가, 다크 테마에서 흰 배경인가.
 - **접근성**: 레일 6칸의 스크린리더 순서·`aria-current`, 라인업 경고가 `role=status` 로 읽히는가, 좁은 창 헤더 세그먼트 6칸 가로 예산.

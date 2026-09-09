@@ -238,7 +238,7 @@ describe('TeamDetail — 색은 blur 에 한 번만 저장한다', () => {
     const [team] = await listTeams();
     const before = (await getTeam(team!.id))!;
 
-    const input = screen.getByLabelText('팀 색') as HTMLInputElement;
+    const input = screen.getByLabelText('1번 색') as HTMLInputElement;
     for (const v of ['#111111', '#222222', '#333333']) fireEvent.change(input, { target: { value: v } });
     // 화면은 즉시 따라간다(초안) — 그래야 색을 고르는 손이 멈추지 않는다.
     expect(input.value).toBe('#333333');
@@ -248,10 +248,34 @@ describe('TeamDetail — 색은 blur 에 한 번만 저장한다', () => {
     });
     // 저장은 아직 한 건도 없다. updatedAt 까지 보는 이유: 같은 색을 다시 써도 도장은 새로 찍힌다.
     const mid = (await getTeam(team!.id))!;
-    expect(mid.color).toBe(before.color);
+    expect(mid.palette[0]).toBe(before.palette[0]);
     expect(mid.updatedAt).toBe(before.updatedAt);
 
     fireEvent.blur(input);
-    await waitFor(async () => expect((await getTeam(team!.id))!.color).toBe('#333333'));
+    await waitFor(async () => expect((await getTeam(team!.id))!.palette[0]).toBe('#333333'));
+  });
+});
+
+// 킷 배치(2026-09-09 기현 지시: *"팀 색은 홈, 어웨이, 중립 세트 정할 수 있고"*). 여기서 재는 것은
+// 라벨이 아니라 **저장본**이다 — 화면의 라디오가 켜졌는데 IDB 의 `kits.away` 가 안 바뀌면, 새로고침
+// 한 번에 배치가 사라진다(이 화면에서 가장 조용한 종류의 사고다).
+describe('TeamDetail — 킷 배치', () => {
+  it('[사용]을 켜고 라디오를 고르면 저장본의 어웨이 킷이 그 색 번호를 가리킨다', async () => {
+    const user = userEvent.setup();
+    render(<Harness />, { wrapper });
+    await screen.findByText('아직 팀이 없습니다');
+    await user.click(screen.getByRole('button', { name: '새 팀' }));
+    await screen.findByLabelText('새 선수 이름');
+    const [team] = await listTeams();
+
+    // 켜기 전에는 어웨이 킷 자체가 없다 — «안 만든 벌» 과 «홈과 같은 벌» 은 다른 상태다.
+    expect((await getTeam(team!.id))!.kits.away).toBeUndefined();
+    await user.click(screen.getByLabelText('어웨이 킷 사용'));
+    await waitFor(async () => expect((await getTeam(team!.id))!.kits.away).toEqual({ field: 0, gk: 1 }));
+
+    await user.click(screen.getByLabelText('어웨이 필드 색: 2번 색'));
+    await waitFor(async () => expect((await getTeam(team!.id))!.kits.away).toEqual({ field: 1, gk: 1 }));
+    // 홈은 건드리지 않았다 — 한 벌을 고치는 조작이 다른 벌을 따라 움직이면 배치가 뜻을 잃는다.
+    expect((await getTeam(team!.id))!.kits.home).toEqual({ field: 0, gk: 1 });
   });
 });

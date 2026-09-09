@@ -9,9 +9,13 @@
 // 등급 조합 제한이 전혀 없다(R6). 규정이 걸리는 것은 라인업뿐이고 그 경고는 LineupBoard 가 낸다.
 import { useId, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { Team } from '../../model/team.ts';
-import { rosterCounts } from '../../model/team.ts';
+import type { Team, TeamKitKind } from '../../model/team.ts';
+import { kitColors, rosterCounts } from '../../model/team.ts';
 import { useT } from '../../i18n/useT.ts';
+
+/** 홈 말고 카드에 덧붙는 킷. `TEAM_KIT_KINDS` 에서 'home' 을 빼 쓰지 않고 따로 적는 이유:
+ *  홈은 **크기가 다른 자리**를 차지하므로 같은 순회에 섞으면 크기 분기를 하나 더 만들어야 한다. */
+const KIT_EXTRAS: readonly TeamKitKind[] = ['away', 'neutral'];
 
 export interface TeamCardProps {
   team: Team;
@@ -60,11 +64,19 @@ export function TeamCard({ team, first, onOpen, onDuplicate, onExport, onPrint, 
       }}
     >
       <button type="button" onClick={onOpen} aria-label={t('team.card.openAriaLabel', { name: team.name })} style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0, textAlign: 'left' }}>
-        {/* 색 견본 둘 — 필드 색 위에 골키퍼 색을 작게 겹친다. 규정상 GK 는 다른 색이어야 하므로
-            (Laws) 두 색을 **한 자리에서 나란히** 보여야 "같은 색으로 둔 것"이 눈에 띈다. */}
-        <span aria-hidden style={{ flex: 'none', position: 'relative', width: 34, height: 34 }}>
-          <span style={{ position: 'absolute', inset: 0, borderRadius: 9, background: team.color, border: '1px solid var(--border-strong)' }} />
-          <span style={{ position: 'absolute', right: -3, bottom: -3, width: 16, height: 16, borderRadius: 6, background: team.gkColor, border: '1px solid var(--panel)' }} />
+        {/* 색 견본 — 필드 색 위에 골키퍼 색을 작게 겹친다. 규정상 GK 는 다른 색이어야 하므로
+            (Laws) 두 색을 **한 자리에서 나란히** 보여야 "같은 색으로 둔 것"이 눈에 띈다.
+            2026-09-09: 큰 것이 홈 킷이고, 어웨이·중립을 만들어 둔 팀은 그 벌이 뒤에 작게 붙는다
+            — 카드에서 "이 팀은 갈아입을 벌이 있다" 를 세는 것이 목록의 값이다.
+            ⚠️ 이 무리는 `aria-hidden` 이다: 카드를 여는 버튼의 이름은 `aria-label`(«{name} 열기»)
+            하나이고, 그 안의 텍스트·라벨은 어차피 읽히지 않는다(선수 수·PF 칩도 같은 처지). 색을
+            말로 읽어야 하는 자리는 상세의 `KitPicker` 와 팀시트 킷 표다. */}
+        <span aria-hidden style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <KitSwatch colors={kitColors(team, 'home')} size={34} />
+          {KIT_EXTRAS.map((kind) => {
+            const c = kitColors(team, kind);
+            return c ? <KitSwatch key={kind} colors={c} size={20} /> : null;
+          })}
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
@@ -130,6 +142,19 @@ export function TeamCard({ team, first, onOpen, onDuplicate, onExport, onPrint, 
         )}
       </div>
     </div>
+  );
+}
+
+/** 킷 한 벌의 견본 — 필드 색 바탕에 GK 색이 오른쪽 아래로 물린다. 없는 킷(`undefined`)은 부르는
+ *  쪽이 걸러내므로 여기서는 항상 그린다. */
+function KitSwatch({ colors, size }: { colors: { field: string; gk: string } | undefined; size: number }) {
+  if (!colors) return null;
+  const gk = Math.max(8, Math.round(size * 0.47));
+  return (
+    <span style={{ position: 'relative', display: 'inline-block', width: size, height: size }}>
+      <span style={{ position: 'absolute', inset: 0, borderRadius: size * 0.26, background: colors.field, border: '1px solid var(--border-strong)' }} />
+      <span style={{ position: 'absolute', right: -3, bottom: -3, width: gk, height: gk, borderRadius: gk * 0.36, background: colors.gk, border: '1px solid var(--panel)' }} />
+    </span>
   );
 }
 

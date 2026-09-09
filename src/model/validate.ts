@@ -30,8 +30,8 @@ import type { TrainingSession, SessionItem, SessionPhase, SessionPhaseKind } fro
 import { refDrillIds } from './refs.ts';
 import { CURRENT_ROSTER_SCHEMA, PF_CLASSES } from './roster.ts';
 import type { Roster, Player, PFClass } from './roster.ts';
-import { CURRENT_TEAM_SCHEMA, STAFF_ROLES, defaultTeamName } from './team.ts';
-import type { Team, Staff, StaffRole, Lineup } from './team.ts';
+import { CURRENT_TEAM_SCHEMA, STAFF_ROLES, TEAM_KIT_KINDS, TEAM_PALETTE_MAX, defaultTeamName } from './team.ts';
+import type { Team, Staff, StaffRole, Lineup, TeamKit, TeamKits } from './team.ts';
 
 export interface ValidationIssue {
   path: string;
@@ -1205,15 +1205,14 @@ export function validateRoster(doc: unknown): ValidateResult<Roster> {
 // 상태(N/R/C)·속도검사. 화이트리스트 정화기라, 파일에 그런 키가 들어 있어도 **조용히 사라진다**
 // — 그것이 이 함수가 개인정보 보호선의 일부인 이유다.
 
-const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
-
 /** 색은 인라인 style 과 인쇄물로 그대로 흘러가므로 형식을 실제로 잰다 —
- *  `typeof === 'string'` 만 보면 `"red; background:url(...)"` 같은 값이 통과한다. */
-function sanitizeHexColor(raw: unknown, fallback: string, path: string, repairs: Repair[]): string {
-  if (typeof raw === 'string' && HEX_COLOR_RE.test(raw)) return raw;
-  if (raw !== undefined) pushRepair(repairs, path, `색 형식(#rrggbb)이 아님 — 기본값 ${fallback} 으로 대체`, true);
-  return fallback;
-}
+ *  `typeof === 'string'` 만 보면 `"red; background:url(...)"` 같은 값이 통과한다.
+ *
+ *  ⚠️ 2026-09-09: 이 정규식을 감싸던 `sanitizeHexColor(raw, fallback, …)`(값 하나 → 기본값으로
+ *  대체)는 팀 색이 팔레트(v2)가 되며 부르는 곳이 0 이 되어 지웠다. 팔레트는 «틀린 색 하나를
+ *  기본값으로 갈아 끼우는» 것이 아니라 **그 항목을 버리는** 쪽이라(sanitizePalette) 폴백 인자가
+ *  뜻을 잃었다. 잰다는 규율 자체는 그대로 살아 sanitizePalette 안으로 옮겨 갔다. */
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
 /** 0..max 정수. 값이 없으면 **키를 만들지 않는다**(sanitizeText 와 같은 규율 — undefined 키가
  *  IDB 왕복에서는 살고 JSON 왕복에서는 죽어 같은 문서가 두 모양이 된다). */
@@ -1366,6 +1365,63 @@ function sanitizeLineup(raw: unknown, playerIds: Set<string>, repairs: Repair[])
   return { court, ...(gk !== undefined ? { gk } : {}), bench };
 }
 
+/** 팔레트 정화 — `#rrggbb` 만 남기고 1~`TEAM_PALETTE_MAX` 개로 맞춘다.
+ *  ⚠️ **빈 팔레트를 통과시키지 않는다**: 킷은 인덱스로 색을 가리키므로 팔레트가 비면 모든 킷이
+ *  가리킬 곳을 잃는다. 빈 배열·배열 아님 둘 다 `emptyTeam` 과 같은 두 색으로 되살린다(같은
+ *  출처를 써야 "파일에서 복구된 팀" 과 "새로 만든 팀" 이 다른 색으로 갈라지지 않는다). */
+function sanitizePalette(raw: unknown, repairs: Repair[]): string[] {
+  const src = Array.isArray(raw) ? raw : [];
+  if (!Array.isArray(raw) && raw !== undefined) pushRepair(repairs, 'palette', '팔레트가 배열이 아님 — 기본 팔레트로 대체', true);
+  const out: string[] = [];
+  for (const c of src) {
+    if (typeof c === 'string' && HEX_COLOR_RE.test(c)) out.push(c);
+    else pushRepair(repairs, 'palette', '색 형식(#rrggbb)이 아님 — 폐기', true);
+  }
+  if (out.length > TEAM_PALETTE_MAX) {
+    pushRepair(repairs, 'palette', `팔레트 상한(${TEAM_PALETTE_MAX}) 초과 — 뒤에서 절단`, true);
+    out.length = TEAM_PALETTE_MAX;
+  }
+  if (out.length === 0) {
+    if (raw !== undefined) pushRepair(repairs, 'palette', '빈 팔레트 — 기본 팔레트로 대체', true);
+    return [DEFAULT_TEAMS.home.color, DEFAULT_TEAMS.home.gkColor];
+  }
+  return out;
+}
+
+/** 킷 정화. 인덱스가 팔레트 범위 밖이면 **버리지 않고 접는다** — 파일이 가리키던 색이 사라졌다고
+ *  킷 자체를 지우면, 사용자가 만들어 둔 «어웨이가 있다» 는 사실까지 함께 없어진다.
+ *  - `field` → 0번
+ *  - `gk` → 팔레트가 둘 이상이면 1번, 하나뿐이면 0번. GK 는 규정상 다른 색이어야 하므로(Laws)
+ *    고를 수 있는 다른 색이 있을 때는 그쪽으로 접는 편이 사용자의 뜻에 가깝다.
+ *  홈이 없으면 만든다. 모르는 킷 종류는 화이트리스트가 버린다(옛 `color`/`gkColor` 키도 같은 손에
+ *  걸린다 — 이 함수를 지나지 못한 키는 결과 객체에 실리지 않는다). */
+function sanitizeKits(raw: unknown, paletteLen: number, repairs: Repair[]): TeamKits {
+  const gkFallback = paletteLen >= 2 ? 1 : 0;
+  const src = isRecord(raw) ? raw : {};
+  if (!isRecord(raw) && raw !== undefined) pushRepair(repairs, 'kits', '킷이 객체가 아님 — 홈 킷만 만든다', true);
+  const slot = (v: unknown, path: string, fallback: number): number => {
+    if (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < paletteLen) return v;
+    pushRepair(repairs, path, `팔레트에 없는 색 번호 — ${fallback}번으로 대체`, true);
+    return fallback;
+  };
+  const one = (v: unknown, kind: string): TeamKit => {
+    const r = isRecord(v) ? v : {};
+    return { field: slot(r.field, `kits.${kind}.field`, 0), gk: slot(r.gk, `kits.${kind}.gk`, gkFallback) };
+  };
+  const home = isRecord(src.home) ? one(src.home, 'home') : { field: 0, gk: gkFallback };
+  if (!isRecord(src.home)) pushRepair(repairs, 'kits.home', '홈 킷 없음 — 기본 홈 킷을 만든다', true);
+  const kits: TeamKits = { home };
+  for (const kind of TEAM_KIT_KINDS) {
+    if (kind === 'home') continue;
+    if (isRecord(src[kind])) kits[kind] = one(src[kind], kind);
+    else if (src[kind] !== undefined) pushRepair(repairs, `kits.${kind}`, '킷이 객체가 아님 — 폐기', false);
+  }
+  for (const key of Object.keys(src)) {
+    if (!(TEAM_KIT_KINDS as readonly string[]).includes(key)) pushRepair(repairs, `kits.${key}`, '알 수 없는 킷 종류 — 폐기', false);
+  }
+  return kits;
+}
+
 export function validateTeam(doc: unknown): ValidateResult<Team> {
   if (!isRecord(doc)) {
     return { ok: false, issues: [{ path: '', message: '문서가 객체가 아님' }] };
@@ -1388,8 +1444,8 @@ export function validateTeam(doc: unknown): ValidateResult<Team> {
   }
 
   const shortName = sanitizeText(typeof doc.shortName === 'string' ? doc.shortName.trim() : doc.shortName, LIMITS.shortNameLen, 'shortName', '약칭', repairs);
-  const color = sanitizeHexColor(doc.color, DEFAULT_TEAMS.home.color, 'color', repairs);
-  const gkColor = sanitizeHexColor(doc.gkColor, DEFAULT_TEAMS.home.gkColor, 'gkColor', repairs);
+  const palette = sanitizePalette(doc.palette, repairs);
+  const kits = sanitizeKits(doc.kits, palette.length, repairs);
   const league = sanitizeText(doc.league, LIMITS.teamLeagueLen, 'league', '리그', repairs);
   const season = sanitizeText(doc.season, LIMITS.teamSeasonLen, 'season', '시즌', repairs);
   const note = sanitizeText(doc.note, LIMITS.teamNoteLen, 'note', '팀 메모', repairs);
@@ -1453,8 +1509,8 @@ export function validateTeam(doc: unknown): ValidateResult<Team> {
       id,
       name,
       ...(shortName !== undefined && shortName.length > 0 ? { shortName } : {}),
-      color,
-      gkColor,
+      palette,
+      kits,
       ...(league !== undefined ? { league } : {}),
       ...(season !== undefined ? { season } : {}),
       ...(note !== undefined ? { note } : {}),
