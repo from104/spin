@@ -39,13 +39,14 @@ export const HELP_EN: HelpContent = {
         title: 'What SPIN is',
         blocks: [
           { kind: 'p', text: 'SPIN is an app for powerchair football coaches to **draw training scenes, chain them together, and show them to the team.** Unlike a paper tactics board, a scene can span several frames (steps) that play back as motion.' },
-          { kind: 'h', text: 'Five screens' },
+          { kind: 'h', text: 'Six screens' },
           {
             kind: 'list',
             items: [
               '[Board] — the free tactics board. Draw on it right away, with nothing saved.',
               '[Drills] — the list of drills you have made. Open one to edit it, or present it right away.',
               '[Sessions] — a training plan that groups drills into phases.',
+              '[Teams] — rosters, staff, and lineups per team. Independent of drills and sessions, and never shared by link.',
               '[Rules] — read the powerchair football rules by topic and see them play out as scenes.',
               '[Settings] — display, accessibility, data, and sync.',
             ],
@@ -100,7 +101,7 @@ export const HELP_EN: HelpContent = {
             kind: 'list',
             items: [
               '**Auto-save** — drills and sessions save to this device the instant you change them. The free tactics board keeps its latest single board on this device, but it **never enters the drill list** — to keep it, use [Edit as drill].',
-              '**Backup (file)** — [Export data] in [Settings] bundles drills, sessions, settings, and the tactics board into one file. Open it on another device with [Import data].',
+              '**Backup (file)** — [Export data] in [Settings] bundles drills, sessions, teams, settings, and the tactics board into one file. Open it on another device with [Import data].',
               '**Sync** — turning on [Google Drive Sync] shares drills, sessions, and teams across devices through your own Drive’s app-only space. Settings and the tactics board never go up.',
             ],
           },
@@ -1056,7 +1057,7 @@ export const HELP_EN: HelpContent = {
           {
             kind: 'list',
             items: [
-              '[Settings] → [Export data] — bundles drills, sessions, settings, and the tactics board into one file.',
+              '[Settings] → [Export data] — bundles drills, sessions, teams, settings, and the tactics board into one file.',
               '[Settings] → [Import data] — opens that file on another device.',
             ],
           },
@@ -1216,7 +1217,7 @@ export const HELP_EN: HelpContent = {
           {
             kind: 'steps',
             items: [
-              'To export, go to [Export data] → [Export]. Drills, sessions, settings, and the tactics board all go into one file.',
+              'To export, go to [Export data] → [Export]. Drills, sessions, teams, settings, and the tactics board all go into one file.',
               'To import, go to [Import data] → [Choose file].',
               'In the confirmation dialog, decide [Also restore settings] and [Replace tactics board], then tap [Read].',
             ],
