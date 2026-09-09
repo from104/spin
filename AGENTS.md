@@ -22,7 +22,9 @@ AGENTS.md 에 기록하여 일관된 결과물 나오게"* — 아래 §1~§9 �
 | 기능 하나의 설계·결정·착수 순서 | `docs/PLAN-<주제>.md` |
 | 규칙 조문 | `docs/RULES-FIPFA-2025.md` (+ `.en.md`) |
 | 단위·각도·색·id·단축키 | `src/core/*` |
-| 저장소 규율 3개(주석은 테스트가 확인 / 좁혀 돌리기 / 뒤집은 결정은 근거를 남긴다) | `README.md` §5 |
+| 저장소 규율 3개(주석은 테스트가 확인 / 좁혀 돌리기 / 뒤집은 결정은 근거를 남긴다) | `docs/DEVELOPMENT.md` §1 |
+| 프로젝트 개요·설계 서사 | `docs/OVERVIEW.md` (공개 독자용 요약은 `README.md`) |
+| 외부 기여자 절차 | `CONTRIBUTING.md` (이 문서가 그 정본이고 CONTRIBUTING 은 요약이다) |
 
 읽는 순서를 하나만 고른다면 `src/core/constants.ts` → `src/model/court.ts` → `src/render/CourtStage.tsx`.
 
@@ -106,7 +108,7 @@ AGENTS.md 에 기록하여 일관된 결과물 나오게"* — 아래 §1~§9 �
 - 모달은 `returnFocusRef` 로 여는 버튼에 초점을 돌려준다. 좁은 창에서 기능이 사라지면 안 된다
   (레일이 접혀도 언어·도움말·테마·버전은 헤더에 남는다).
 
-## 2. 결정을 뒤집을 때 (README §5 규율 3)
+## 2. 결정을 뒤집을 때 (docs/DEVELOPMENT.md §1 규율 3)
 
 이 저장소는 결정의 근거를 코드 주석과 `DESIGN.md` 의 D-번호·R-번호 표에 쥐고 있다. 지시는 그
 결정을 자주 뒤집는다. 뒤집을 때 세 가지를 한다.

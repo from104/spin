@@ -147,7 +147,7 @@ bash scripts/deploy-share.sh             # 전송 → 유닛 설치 → 재시�
 2. `deploy/share/spin-share.service` → `/etc/systemd/system/`, `daemon-reload` → `restart`.
 3. `deploy/share/apache-share.conf` → `/opt/bitnami/apache2/conf/vhosts/spin-share.conf`.
    ⚠️ **vhost 는 자동으로 안 고친다** — `spin-vhost.conf` 의 `<VirtualHost *:443>` 안에
-   `Include "…/spin-share.conf"` 한 줄을 사람이 넣는다. 그 파일은 mocil 과 한 Apache 를
+   `Include "…/spin-share.conf"` 한 줄을 사람이 넣는다. 그 파일은 옆 서비스와 한 Apache 를
    나눠 쓰므로 스크립트가 손대면 실수의 범위가 이 기능 밖으로 나간다.
 4. 루프백과 공개 주소 양쪽으로 `healthz`.
 

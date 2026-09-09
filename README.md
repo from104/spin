@@ -1,194 +1,97 @@
-# SPIN
+<p align="center">
+  <img src="public/logo.svg" alt="" width="96" height="96">
+</p>
 
-**Strategy Planner for INclusive football** — 파워체어 풋볼(전동휠체어 축구) 4v4 전술 보드·드릴 플래너.
+<h1 align="center">SPIN</h1>
 
-**▶ [지금 열기 — spin.atit.app](https://spin.atit.app)** (`spin.atit.dev` 는 새 주소로 자동 이동합니다)
+<p align="center">
+  <strong>파워체어 풋볼 훈련 도구</strong> — 전술판 · 드릴 편집기 · 훈련 세션 · 규칙 학습<br>
+  <a href="https://spin.atit.app"><strong>spin.atit.app</strong></a> 에서 설치 없이 바로 씁니다.
+</p>
 
-> **상태: 개발 중 (미완성, 0.6.x)** — 실제 코트에서 써 보며 고치는 중입니다. 기능은 동작하지만
-> 판단이 뒤집히는 일이 잦습니다. 뒤집힌 결정은 지우지 않고 **왜 그렇게 정했었는지까지** 코드
-> 주석과 [CHANGELOG.md](CHANGELOG.md) 에 남깁니다.
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="version 0.6.7" src="https://img.shields.io/badge/version-0.6.7-informational">
+  <img alt="한국어 · English · 日本語" src="https://img.shields.io/badge/i18n-ko%20%C2%B7%20en%20%C2%B7%20ja-success">
+  <a href="CONTRIBUTING.md"><img alt="contributions welcome" src="https://img.shields.io/badge/contributions-welcome-brightgreen"></a>
+</p>
 
----
-
-## 이 문서를 읽는 사람에게
-
-이 README 는 **나중의 나와 AI 에이전트**를 첫 독자로 두고 씁니다. 세션이 끊기고 몇 주 뒤에
-돌아왔을 때, 혹은 이 저장소를 처음 여는 에이전트가 **코드를 읽기 전에** 알아야 할 것들을
-한 파일에 모읍니다: 무엇을 만들고 있는가, 왜 이런 모양인가, 어디를 봐야 하는가, 그리고
-이 저장소가 스스로에게 건 규율은 무엇인가.
-
-세부는 전부 `docs/` 에 있고 이 문서는 그리로 가는 지도입니다. 다만 **지도만 있고 설명이 없으면
-매번 8,500줄을 다시 읽어야 하므로**, 판단의 뼈대는 여기 옮겨 적습니다.
+<p align="center"><a href="README.en.md">English</a></p>
 
 ---
 
-## 1. 파워체어 풋볼이란
+## 파워체어 풋볼이란
 
-전동휠체어를 탄 선수 4명이 한 팀을 이뤄 실내 코트(농구장 규격)에서 하는 축구입니다.
+전동휠체어를 탄 선수 4명이 한 팀을 이뤄 농구장 규격의 실내 코트에서 하는 축구입니다.
 휠체어 앞에 붙인 **가드(풋가드)** 로 지름 33 cm 공을 밀고 칩니다. 국제 경기 규칙은
-**FIPFA**(Fédération Internationale de Powerchair Football Association)의 *Laws of the Game* 이고,
-이 앱은 **2025년판**을 기준으로 삼습니다.
+**FIPFA**(Fédération Internationale de Powerchair Football Association)의 *Laws of the Game*
+이고, 이 앱은 2025년판을 기준으로 삼습니다.
 
-전술판을 만드는 데 중요한 규칙은 넷입니다. 앱의 기능 절반이 여기서 나옵니다.
+이 종목의 전술은 **공 반경 3 m 안에 같은 팀이 둘 이상 들어가면 반칙**(2-on-1)이라는 규칙
+위에 서 있습니다. 그래서 여기서 "좋은 자리" 는 축구의 그것과 다르고, 종이와 화이트보드로는
+그 거리를 눈으로 확인할 수가 없습니다. **SPIN 은 그 거리를 판 위에 그려 줍니다.**
 
-| 규칙 | 내용 | 앱에서의 모습 |
-|---|---|---|
-| **2-on-1** | 공 **반경 3 m** 안에 **같은 팀 선수가 둘 이상** 들어가면 반칙 (상대 선수가 그 안에 있을 때). 골키퍼는 **자기 골 지역 안**이거나 **자기 골라인을 완전히 넘어가** 있으면 이 인원에서 빠집니다 | 공을 따라다니는 **판정 링** — 깨끗하면 흰 파선, 위반이면 붉은 실선 + 음성 안내 |
-| **골 지역 2인** | 골 지역 안에 수비 팀이 **둘까지** 설 수 있습니다. **셋째부터 반칙**(골키퍼 포함) | 골 지역 안쪽 채움이 연한 붉은색 → 위반 시 진한 붉은색 (진영별로 각각) |
-| **세트피스 5 m** | 골킥·킥인·킥오프·프리킥·코너킥·페널티킥에서 **수비는 공에서 5 m 밖**에 있어야 합니다 | 공의 원을 **5 m 로 켜면** 그 공이 세트피스라는 뜻이고, 수비가 들어오면 링이 붉어집니다 |
-| **코트 3단** | 최대 30×18 m · 표준 28×15 m(농구 코트) · 최소 25×14 m | 드릴마다 코트 크기를 들고 다닙니다 |
+## 무엇을 하는가
 
-> **판은 경기 상황을 모릅니다.** 지금이 코너킥인지 인플레이인지 그림만 보고는 알 수 없어서,
-> **공의 5 m 원을 켠 것**을 "이 공은 세트피스" 라는 약속으로 씁니다. 그래서 5 m 원인 공에는
-> 2-on-1 을 걸지 않습니다 — 세트피스는 아직 인플레이가 아니니까요.
-> 누가 수비인지도 약속입니다: **풀 코트는 왼쪽 진영, 하프 코트는 깃발 색 진영**.
-> 그 수비 팀 골키퍼는 **자기 골라인을 완전히 넘어가** 있으면 5 m 제한을 받지 않습니다 —
-> 골라인 위 **6 m**(코트 크기와 무관하게 고정) 안이어야 하고, 차체가 한 뼘이라도 경기면에
-> 남아 있으면 면제가 아닙니다.
+- **전술판** — 코트 위에 휠체어와 공을 놓고 밀어 보는 판. 2-on-1 판정 링, 골 지역 인원,
+  세트피스 5 m 제한이 실시간으로 판정되어 색으로 나옵니다.
+- **드릴 편집기** — 스텝(장면) 단위로 움직임을 짜는 편집기. 화살표·자유 그리기·메모·표시
+  순서까지 다룹니다.
+- **훈련 세션** — 드릴을 순서대로 엮어 그날의 훈련을 만들고, 시간 배분과 메모를 붙입니다.
+- **팀 · 명단** — 선수와 등번호를 관리하고 드릴의 자리에 배정합니다.
+- **시연 모드** — 큰 화면에서 드릴을 재생합니다. 훈련장에서 선수에게 보여 주기 위한 화면입니다.
+- **규칙** — FIPFA Laws 를 조항 순서가 아니라 **주제별 9개 카드**로 익힙니다. 산문·도해·
+  움직이는 보드 장면·비교표가 한 카드 안에 들어 있습니다.
+- **내보내기** — PNG · PDF(인쇄용 훈련 계획서) · MP4 영상 · 백업 파일.
+- **구글 드라이브 동기화** — 이용자 본인 계정의 앱 전용 폴더로 기기 사이를 오갑니다.
+- **공유 링크** — 드릴과 세션을 링크로 넘깁니다. **종단 암호화**라 열쇠는 URL 조각(`#`)에만
+  있고 서버로 가지 않습니다 — 서버는 열지 못하는 암호문만 보관합니다.
+- **데스크톱 앱** — 같은 코드로 리눅스 · 윈도우 · 맥 네이티브 앱을 냅니다(Tauri).
+- **한국어 · English · 日本語**, 그리고 **키보드만으로 전부 조작 가능**합니다.
 
-> **골키퍼 면제는 두 규칙에서 자리가 다릅니다.** 2-on-1 은 **골 지역 안**(차체가 조금만
-> 걸쳐도 됩니다) **또는** 골라인 뒤 6 m 이고, 세트피스 5 m 는 **골라인 뒤 6 m 뿐**입니다.
-> 원문도 조항이 갈라져 있습니다 — 2-on-1 은 *"a goalkeeper in his own goal area"*, 5 m 는
-> *"unless goalkeepers are behind their own goal line between the goal posts"*.
-> 2-on-1 의 '골라인 뒤' 는 원문의 면제 조항이 아니라, **경기장을 벗어나 2-on-1 을 회피**하는
-> 것을 허용하는 조항과 **골키퍼만 자기 골라인을 넘을 수 있다**(다른 선수는 그 자체가 간접
-> 프리킥)는 조항에서 나옵니다. 재개 상황의 골키퍼는 골문 안으로 물러나 있어야 하므로,
-> 5 m 쪽에는 골 지역 면제가 없습니다.
+### 누구를 위한 앱인가
 
-> ⚠️ **센터 서클은 없습니다.** Laws 2025 전문에 *"circle"* 이 한 번도 안 나옵니다 —
-> 축구 감각으로 그려 넣기 쉬운데, 파워체어 풋볼에는 없는 선입니다.
+파워체어 풋볼 팀의 **감독과 코치**가 첫 사용자입니다. 훈련 계획을 짜고, 선수에게 보여 주고,
+인쇄해 나눠 주는 데 필요한 것을 한 곳에 둡니다. **선수와 심판**에게는 규칙 화면이 따로
+쓸모가 있습니다 — 조항을 읽는 대신 움직이는 장면으로 2-on-1 과 골 지역 반칙을 봅니다.
+서버에 계정을 만들지 않아도 되고, 설치 없이 브라우저에서 바로 씁니다.
 
-색 하나에 기대지 않습니다. 위반 표시는 **① 파선→실선 ② 음성 안내 ③ 색**의 세 채널로 갑니다.
-체육관 조명과 화면 각도에서 붉은색만으로는 안 읽히기 때문입니다.
+## 시작하기
 
----
+**Node 22.18 이상**이 필요합니다(`package.json` 의 `engines`, CI 는 22 로 돕니다). 공유 링크 서버가 빌드 없이 `.ts` 를 바로 돌리기 때문입니다.
 
-## 2. 무엇을 하는 앱인가
+```bash
+git clone https://github.com/from104/spin.git
+cd spin
+npm ci
+npm run dev          # 개발 서버 (http://localhost:5173)
+```
 
-화면은 여섯입니다.
-
-### 전술판 (`board`)
-스텝이 없는 **한 장짜리 판**. 지금 당장 그려서 보여 주는 용도입니다. 여기서 그린 판은
-자동 저장되고, 드릴로 옮기지 않아도 그대로 남습니다.
-
-### 드릴 라이브러리 (`drills`) · 편집기
-**스텝(장면)의 연속**으로 훈련 하나를 만듭니다. 드릴당 최대 60 스텝. 각 스텝은 이전 스텝을
-복제해서 조금씩 옮기는 식으로 만들고, 시연 모드가 그 사이를 **보간해서 움직임으로** 보여 줍니다.
-라이브러리는 카드 썸네일을 자동 생성하고 카테고리·검색으로 거릅니다.
-
-### 훈련 세션 (`sessions`)
-드릴 여러 개를 순서대로 묶어 **한 회 훈련 계획**을 만듭니다. 구획으로 나눠 정리하고, 세션
-전체 메모와 드릴별 메모·휴식 시간을 적습니다. 참가자는 설정의 선수 명단에서 체크하고,
-인쇄하면 빈칸 없는 훈련 계획서가 나옵니다.
-
-코트에 놓을 수 있는 것:
-
-| 개체 | 수량 | 비고 |
-|---|---|---|
-| 휠체어(선수) | 양팀 각 4 (GK 포함) | 4존 운동학 — §3 참조 |
-| 공 | 최대 8 | 트레이에 남은 개수가 보입니다 |
-| 훈련 콘 | 색상별 8 (2색 = 최대 16) | |
-| 화살표 | 스텝당 40 | 경로 / 패스 두 종류 |
-| 메모(쪽지) | 스텝당 20 | 탭한 자리에 놓이고 글 칸이 바로 열립니다 |
-| 도형 | | 구역 표시용 |
-
-### 시연 모드 (`present`)
-팀 앞에서 보여 주는 화면. 전체화면, 큰 버튼, **화면 꺼짐 방지(Wake Lock)**, 스와이프로 스텝 이동.
-드릴 여러 개를 순서대로 묶은 **훈련 세션** 단위로도 돌릴 수 있습니다.
-
-### 규칙 (`rules`, 2026-08-21 신설, 2026-08-22 주제별 재설계, 2026-08-31 9카드 개편)
-FIPFA Laws of the Game(2025년판)을 **주제별로** 익히는 화면입니다. 조항 순서 사전이 아니라
-9개 주제 카드([파워체어풋볼이란]·[게임의 목적]·[선수·코트·공·장비]·[인·아웃과 득점]·
-[경기 재개]·[골에어리어 반칙]·[2-on-1 반칙]·[그 외의 반칙]·[공식 룰 북])로 들어가고,
-카드 하나가 산문·도해·
-**보드 애니메이션**·비교표를 순서대로 담습니다 — 시연 화면과 같은 재생 엔진(`sampleDrill`
-보간, 물리 엔진 불사용)을 재사용하고, 공 주위 3 m/5 m 링은 위 §1 의 판정 링과 같은
-컴포넌트입니다. 장면은 재생 버튼을 누르기 전까지 정지 이미지이고 한 번에 하나만 재생됩니다.
-조항 번호로 찾고 싶으면 [공식 룰 북] 카드에 18개조 압축 요약이 있습니다. `/rules/<주제>` 로
-딥링크됩니다. 규칙 팩트 정본은 [docs/RULES-FIPFA-2025.md](docs/RULES-FIPFA-2025.md), 콘텐츠
-정본은 [docs/PLAN-RULES-9CARDS.md](docs/PLAN-RULES-9CARDS.md)입니다(옛 설계는
-[docs/PLAN-RULES-REDESIGN.md](docs/PLAN-RULES-REDESIGN.md)·[docs/PLAN-RULES-SCREEN.md](docs/PLAN-RULES-SCREEN.md)
-에 히스토리로 남습니다). 카드 [파워체어풋볼이란]·[게임의 목적]의 일부 문장은 정본 밖
-연구자료에서 나오므로, 그 출처·자료 등급은
-[docs/research/powerchair-football/README.md](docs/research/powerchair-football/README.md)
-의 채택 문안 목록에 적혀 있습니다.
-
-### 설정 (`settings`)
-언어·테마·UI 배율, 선수 명단(세션 참가자 체크의 원본), 물리(드래그 4존 경계·속도 상한),
-데이터 가져오기/내보내기(기기 이사 파일), 선택적 Google Drive 동기화, 튜토리얼 다시 보기.
-팀 색상·기본 포메이션처럼 "앱이 코치 대신 정해주는" 값은 재량 침범이라 보고 만들지
-않습니다(2026-08-21 결정, [ROADMAP.md](ROADMAP.md) §0.5).
-
-### 내보내기 — 큰 항목 넷
-| | 무엇 | 어디서 |
-|---|---|---|
-| **그림 (PNG)** | 지금 이 장면 한 장. 대화방에 그대로 붙습니다 | 드릴 편집 [내보내기] |
-| **영상 (MP4)** | 드릴 전체를 720p·1080p 영상 파일로. 스텝 전환까지 담깁니다(최신 Chrome·Safari 등 필요) | 드릴 편집 [내보내기] |
-| **인쇄 · PDF** | 드릴은 스텝마다 한 장, 세션은 계획서 한 장. 브라우저 인쇄에서 '대상: PDF로 저장' | 드릴·세션 편집 [내보내기] |
-| **기기 이사 파일 (JSON)** | 드릴·세션·선수 명단·설정·전술판을 통째로. 새 기기에서 다시 엽니다 | 설정 > [데이터] |
-
----
-
-## 3. 설계의 뼈대
-
-### 기술 결정
-
-| 항목 | 결정 | 이유 |
-|---|---|---|
-| 스택 | React 19 + Vite + TypeScript | |
-| 물리 | **matter.js** (headless) | 그리기는 안 맡깁니다. 충돌·관성만 |
-| 렌더 | **SVG** | 확대해도 안 뭉개지고, 인쇄·PNG·화면이 **같은 그림**에서 나옵니다 |
-| 저장 | **로컬이 원본, 앱 서버 없음** | IndexedDB(`idb`) + JSON 파일. 선택적 구글 드라이브 동기화(opt-in, 기본 꺼짐) |
-| 배포 | 정적 빌드 | **체육관에 인터넷이 없다고 가정** — 폰트·에셋 전부 번들 내장 |
-
-앱 서버가 없다는 것이 제약이 아니라 요구입니다. 코치의 드릴은 코치 기기가 원본이고, 기기를
-옮길 때는 파일 하나로 옮기거나 — 원하면 — **본인 구글 계정**의 앱 전용 공간을 통해
-동기화합니다(브라우저가 직접 씁니다. SPIN 서버는 없고, 남의 드릴을 우리가 보관하지 않습니다).
-인터넷이 없어도 전부 그대로 동작합니다 — 동기화는 덤입니다.
-
-> ⚠️ **'서버 없음'은 단계적으로 풀립니다.** 구글 드라이브 동기화(사용자 **자기** 계정 — 앱
-> 서버는 여전히 없습니다)는 2026-08-20 에 들어왔고, 2.0 포털에서 진짜 서버로 갑니다. 순서와
-> 근거는 [ROADMAP.md](ROADMAP.md) 에 있습니다.
-
-### 좌표계
-
-**월드 단위 = 미터, 렌더 스케일 25 px/m.** 코트 좌표의 **유일한 출처는
-`src/model/court.ts` 의 `COURT_DEFS`** 입니다 — 문서의 표는 그 값을 옮겨 적은 것이지 별개의
-권위가 아닙니다.
-
-| 모드 | 실제 규격 | viewBox |
-|---|---|---|
-| 풀 (최대) | 30 × 18 m | `0 0 825 525` |
-| 풀 (표준) | 28 × 15 m | `0 0 775 450` |
-| 풀 (최소) | 25 × 14 m | `0 0 700 425` |
-| 하프 | 18 × 15 m, 90° 회전 | `0 0 525 450` |
-| 플랫 | 선 없는 자유판 | `0 0 525 450` |
-
-코트 마진은 **1.5 m**. 라인 밖 배치(킥인·코너)에 길이 1.5 m 짜리 휠체어가 온전히 서야 해서
-1.0 m 로는 모자랐습니다. 마진은 코트를 줄이는 게 아니라 **판을 넓히는 것**입니다.
-
-### 휠체어는 잡는 곳이 곧 동작이다
-
-전동휠체어의 회전축은 차체 한가운데가 아니라 **뒤에서 전체 길이의 1/5 지점**(탑승자 머리
-위치)입니다. 그래서 차체를 잡는 위치마다 결과가 달라야 실제 움직임과 맞습니다.
-
-| 잡는 곳 | 동작 |
+| 명령 | 하는 일 |
 |---|---|
-| 뒤 절반 | 그대로 이동 |
-| 앞 절반 | 제자리 회전 |
-| 차체 밖 앞·뒤 손잡이 | 줄로 끄는 견인 — 진행 방향을 따라 자연스럽게 방향 전환 |
+| `npm run dev` | 개발 서버 |
+| `npm run build` | 타입체크 + 프로덕션 빌드 + 규칙 글 정적 프리렌더 |
+| `npm run typecheck` | 타입 오류만 확인 |
+| `npm run lint` | oxlint |
+| `npx vitest run` | 전체 테스트 |
+| `npm run test:rel <파일>` | 그 파일을 쓰는 테스트만 |
+| `npm run tauri:dev` | 데스크톱 셸 + 개발 서버 |
+| `npm run tauri:build` | 데스크톱 설치 패키지 |
 
-조작 설명이 필요 없는 것이 목표입니다. 잡아 보면 알게 되는 쪽이 옳습니다.
+### 환경변수
 
-### 접근성은 출시 조건이다
+**아무것도 넣지 않아도 앱은 돕니다.** 값이 없으면 구글 드라이브 동기화만 꺼집니다.
 
-[docs/DESIGN.md §7](docs/DESIGN.md) 이 **계약**으로 못 박고 있고, 테스트가 지킵니다:
-대비 실측, 포커스 표시, 터치 타깃 최소 크기, 화면 확대 배율, **전 기능 키보드 조작**,
-SPA 포커스 관리, ARIA 마크업. 코트 위 개체도 방향키로 고르고 옮길 수 있습니다.
+키 이름은 [`.env.example`](.env.example) 에 있습니다 — `.env.local` 로 복사해 채우십시오.
+**구글 OAuth 클라이언트는 각자 [Google Cloud Console](https://console.cloud.google.com/) 에서
+직접 발급해야 합니다.** 이 저장소는 클라이언트를 제공하지 않습니다. 웹과 데스크톱은 유형이
+달라 클라이언트도 따로 만들어야 합니다(웹 애플리케이션 / 데스크톱 앱). 배경은
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) 에 있습니다.
 
----
+배포 대상(호스트·계정·SSH 키)도 저장소에 없습니다 — [`.env.deploy.example`](.env.deploy.example)
+참조.
 
-## 4. 코드 지도
+## 프로젝트 구조
 
 ```
 src/
@@ -196,170 +99,53 @@ src/
 ├─ physics/    matter.js 래퍼·4존 운동학·히트테스트
 ├─ render/     SVG 렌더 (CourtStage.tsx 가 무대, objects/ 가 개체별 그리기)
 ├─ store/      에디터 상태 (reducer)
-├─ storage/    IndexedDB·파일 입출력 (drillRepo·sessionRepo·prefs·transfer)
-├─ features/   화면별 기능 (board · editor · library · sessions · present · rules · print · export · settings · home)
-├─ ui/         공용 UI 부품 (Modal · Button · Drawer · LiveRegion …)
+├─ storage/    IndexedDB·파일 입출력
+├─ features/   화면별 기능 (board · editor · library · sessions · present · rules · print · export · settings)
+├─ ui/         공용 UI 부품
 ├─ core/       상수·키맵·id
 ├─ app/        셸·라우팅
 └─ test/       교차 검증 테스트 (문서↔코드 대조 포함)
+
+server/share/  공유 링크 백엔드 (종단 암호화된 덩어리만 보관)
+src-tauri/     데스크톱 셸 (Rust)
 ```
 
-읽는 순서를 하나만 고른다면 **`src/core/constants.ts` → `src/model/court.ts` → `src/render/CourtStage.tsx`** 입니다.
-숫자가 어디서 오고, 좌표가 어떻게 정의되고, 그 둘이 화면에서 어떻게 만나는지가 그 셋에 있습니다.
+읽는 순서를 하나만 고른다면 **`src/core/constants.ts` → `src/model/court.ts` →
+`src/render/CourtStage.tsx`** 입니다. 숫자가 어디서 오고, 좌표가 어떻게 정의되고, 그 둘이
+화면에서 어떻게 만나는지가 그 셋에 있습니다.
 
----
+## 문서
 
-## 5. 이 저장소에서 일하는 법
-
-규율이 셋 있습니다. 셋 다 **사고를 겪고 생긴 것**이라, 지키지 않으면 같은 사고가 다시 납니다.
-
-1. **주석이 사실인지 테스트가 확인한다.** `src/test/docsMatchCode.test.ts` 가 `docs/REQUIREMENTS.md`
-   의 표를 **텍스트로 읽어** 코드 상수와 대조합니다. 코드를 바꾸고 문서를 안 고치면(그 반대도)
-   그 테스트가 먼저 빨개집니다. *"확인하는 테스트가 없으면 주석은 언젠가 거짓이 된다"* 를
-   이미 겪었습니다(2026-08-11, 좌표 리터럴 사고).
-2. **좁혀서 돌리고, 커밋 직전에 한 번 전부 돌린다.** `npm run test:rel <파일>` 은 그 파일을
-   import 하는 테스트만 돌립니다(2~5초). 전체는 55초이고 **커밋 직전 한 번**입니다.
-3. **뒤집은 결정은 근거를 남긴다.** 왜 그렇게 정했었는지를 지우면, 몇 달 뒤에 같은 이유로
-   같은 결정을 다시 하게 됩니다.
-
-에이전트용 세부 규약(코드·커밋·문서·테스트·i18n 관행)은 [AGENTS.md](AGENTS.md) 에, 구현 계약은 [docs/DESIGN.md](docs/DESIGN.md) §0(문서 지위·읽는 법)에 있습니다.
-
-### 문서 지도
-
-| 파일 | 내용 |
+| 문서 | 무엇이 있나 |
 |---|---|
-| [ROADMAP.md](ROADMAP.md) | **앞으로 할 일의 정본** — 버전별 계획과 결정 대기 항목 |
-| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 요구사항 확정본. 숫자는 테스트가 지킵니다 |
-| [docs/DESIGN.md](docs/DESIGN.md) | 구현 계약서 — 좌표·상수·시그니처·파일 소유권·접근성 계약 |
-| [docs/FALSIFICATION-BASELINE.md](docs/FALSIFICATION-BASELINE.md) | "이 주장이 틀렸다면 무엇이 보일 것인가" 기준선 |
-| [docs/FIELD-TEST.md](docs/FIELD-TEST.md) | 실기 검증 항목과 결과 |
-| [docs/PLAN-2026-08.md](docs/PLAN-2026-08.md) | ❄️ **동결** — 2026-08 재편의 설계 근거와 §8 「하지 않을 것」 |
-| [CHANGELOG.md](CHANGELOG.md) | 변경 이력 (Keep a Changelog) |
+| [docs/OVERVIEW.md](docs/OVERVIEW.md) | **왜 이런 모양인가** — 종목 설명, 화면별 기능, 설계의 뼈대(좌표계·휠체어 운동학·접근성), 코드 지도 |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | **어떻게 돌리고 올리나** — 개발 명령, 검증 규율, 배포, 데스크톱(Tauri) 상세 |
+| [AGENTS.md](AGENTS.md) | **기여 관행의 정본** — 코드·커밋·문서·테스트·i18n 규약 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 기여 절차 요약 (한국어 + English) |
+| [docs/DESIGN.md](docs/DESIGN.md) | 구현 계약 — 좌표·판정·렌더의 세부 |
+| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | 요구사항 정본 |
+| [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) | 계획과 변경 이력 (`.en` · `.ja` 판 있음) |
+| [docs/RULES-FIPFA-2025.md](docs/RULES-FIPFA-2025.md) | 앱이 판정에 쓰는 **규칙 팩트 정본** — FIPFA *Laws of the Game* 2025년판의 요약이며, 원문은 [FIPFA](https://www.fipfa.org/) 가 펴냅니다 |
 
----
+## 기여
 
-## 6. 개발 실행
+**기여자는 언제든 환영합니다.** 코드, 번역, 규칙 고증, 버그 제보, 접근성 지적, 무엇이든
+좋습니다. 이슈와 PR 은 **한국어 · English · 日本語** 아무 언어로나 여셔도 됩니다.
 
-```bash
-npm install
-npm run dev          # 개발 서버
-npm run build        # tsc -b && vite build (타입체크 포함)
-npm run lint         # oxlint
-npm run test         # 전체 (커밋 직전 한 번)
-npm run test:rel src/render/CourtStage.tsx   # 그 파일을 쓰는 테스트만
-npm run share:dev    # 공유 링크 서버(localhost:8787)
-```
+시작하기 전에 [CONTRIBUTING.md](CONTRIBUTING.md) 를 읽어 주십시오 — 브랜치 기준(`devel`),
+커밋 관례, PR 전에 통과시켜야 하는 관문(`npm run typecheck` · `npm run lint` ·
+`npx vitest run`)이 거기 있습니다. 작은 오타가 아니라면 **PR 보다 이슈가 먼저**입니다.
 
-현재 **260개 파일 3,573개 테스트**가 돌고 있습니다.
-
-공유 링크를 개발 중에 만들고 열려면 `npm run share:dev` 로 공유 서버를 함께 띄웁니다 —
-Vite 개발 서버가 `/api` 요청을 그쪽으로 프록시하므로 앱 코드는 운영과 똑같이 같은 출처의
-`/api/share` 만 부릅니다(정본 `docs/PLAN-SHARE-LINK.md` 결정 3·4).
-
-### 배포
-
-실제로 뜨는 곳은 **spin.atit.app**(AWS Lightsail) 하나입니다. `spin.atit.dev` 는
-콘텐츠를 서빙하지 않습니다 — **리다이렉션 전용**입니다(옛 링크·즐겨찾기가 spin.atit.app 으로
-자동 이동하게 하는 것이 그 역할 전부).
-
-```bash
-npm run deploy:aws -- --dry-run   # 무엇이 바뀌는지만 본다 (아무것도 안 쓴다)
-npm run deploy:aws                # 테스트 → 빌드 → 배포
-```
-
-`dist/` 를 AWS Lightsail 의 Apache 가상호스트(`/opt/bitnami/apache2/spin-htdocs`)로
-SSH+rsync 하는 것이 전부입니다. 근거와 안전장치는
-[`scripts/deploy-aws.sh`](scripts/deploy-aws.sh) 머리말에 있습니다.
-
-cube 로 올리는 [`scripts/deploy.sh`](scripts/deploy.sh)(`npm run deploy`)도 저장소에는
-남아 있지만, spin.atit.dev 가 리다이렉션 전용이 된 지금은 그리로 올려도 사용자 눈에는
-보이지 않습니다 — 일상적인 배포 명령이 아닙니다.
-
-### 데스크톱 (Tauri)
-
-같은 코드 한 벌로 리눅스·윈도우·맥 네이티브 앱을 냅니다. 웹앱 쪽 분기는 없습니다 —
-Tauri 는 `dist/` 를 그대로 감싸는 셸이라 `src/` 는 손대지 않았습니다.
-
-```bash
-npm run tauri:dev      # vite dev 서버 + 네이티브 창 (HMR 그대로)
-npm run tauri:build    # dist 빌드 → 설치 패키지
-```
-
-산출물은 `src-tauri/target/release/bundle/` 아래에 나옵니다. gofu(리눅스)에서는
-deb·rpm·AppImage 3종이 나오고, **윈도우·맥 패키지는 그 OS 에서만 만들어집니다** —
-그쪽은 [`.github/workflows/desktop-release.yml`](.github/workflows/desktop-release.yml)
-가 3-OS 매트릭스로 굽습니다(태그 `v*` 를 밀면 릴리스 초안, Actions 수동 실행이면
-아티팩트만). 서명·공증은 아직 없어 맥·윈도우 첫 실행에는 경고가 뜹니다.
-
-리눅스에서 처음 빌드하려면 시스템 헤더가 필요합니다:
-
-```bash
-sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
-```
-
-알아 둘 것:
-
-- 라우터가 이미 `createHashRouter` 라 네이티브 셸에서 그대로 돕니다(§4 참조).
-- 창 CSP 는 `src-tauri/tauri.conf.json` 에 있습니다. `index.html` 의 FOUC 방지 부트
-  스크립트가 인라인이라 `script-src` 에 `'unsafe-inline'` 이 들어 있습니다 — 앱은 원격
-  문서를 열지 않고 렌더는 전부 React 라 유입 경로가 없지만, 부트 스크립트를 외부 파일로
-  빼면 이 예외도 없앨 수 있습니다.
-- **AppImage 는 웨일랜드에서 함정이 하나 있습니다.** linuxdeploy 가 만드는 AppRun 이
-  `GDK_BACKEND=x11` 을 강제하는데 웨일랜드 세션은 `GTK_IM_MODULE=wayland` 를 내보내
-  둡니다 — X11 디스플레이 위에서 웨일랜드 입력기 모듈이 로드돼 창이 뜨기도 전에
-  SIGSEGV 로 죽습니다. `src-tauri/src/main.rs` 의 `fix_appimage_display_backend()` 가
-  AppImage + 웨일랜드 세션일 때만 그 강제를 걷어내, deb·rpm 과 `npm run tauri:dev` 가
-  이미 멀쩡히 돌고 있는 조건(웨일랜드 백엔드 + 웨일랜드 입력기)으로 되돌립니다.
-  입력기 쪽을 X11 에 맞추는 방향(`GTK_IM_MODULE=xim`)도 해 봤지만 **창이 통째로
-  얼어붙습니다** — xim 은 동기 프로토콜이라 웹뷰가 있는 구성에서 물립니다. 고치지
-  마세요.
-- **그 가드에는 탈출구가 있습니다.** `WAYLAND_DISPLAY` 가 없는 실행 맥락(systemd 유저
-  유닛·일부 런처, `env -u WAYLAND_DISPLAY` 로 재현)에서도 같은 쌍이 성립하므로, 그때는
-  `GTK_IM_MODULE` 쪽을 지워 쌍을 끊습니다(앱은 x11 로 뜨고 입력기는 GTK 기본으로
-  떨어질 수 있습니다). 반대로 AppImage 를 일부러 X11 로 돌리고 싶으면 `SPIN_FORCE_X11=1` 을
-  주고 띄우세요 — 이 가드를 끄고 `GDK_BACKEND=x11` 을 그대로 두되, 크래시 쌍이 성립하면
-  `GTK_IM_MODULE` 만 뗍니다(웨일랜드 백엔드가 다시 말썽일 때의 회피로). AppImage 밖(deb·rpm)
-  에서는 이 변수가 아무것도 바꾸지 않습니다 — 거기서 X11 을 원하면 `GDK_BACKEND=x11` 을 직접
-  주면 되고, 그때도 `GTK_IM_MODULE=wayland` 는 앱이 알아서 뗍니다.
-- **드라이브 동기화는 데스크톱에서 로그인 흐름이 다릅니다.** 웹은 GIS 팝업이지만
-  데스크톱 웹뷰는 팝업을 못 띄우고(`Failed to open popup window`), 띄웠어도 출처가
-  `tauri://localhost` 라 구글 콘솔에 등록할 수 없습니다. 그래서 데스크톱은 **설치형 앱
-  흐름**(외부 브라우저 + `127.0.0.1` 루프백 + PKCE)으로 갑니다 — `src/sync/authDesktop.ts`
-  와 `src-tauri/src/oauth.rs`. 갈라지는 곳은 `src/sync/auth.ts` **한 군데**뿐이라
-  소비자(설정 화면·동기화 엔진)는 플랫폼을 모릅니다.
-
-  쓰려면 **구글 콘솔에서 "데스크톱 앱" 유형 클라이언트를 따로** 만들어야 합니다(웹용
-  클라이언트로는 이 흐름이 안 됩니다). 만든 값은 `.env.local` 에 넣습니다:
-
-  ```
-  SPIN_DESKTOP_GOOGLE_CLIENT_ID=…
-  SPIN_DESKTOP_GOOGLE_CLIENT_SECRET=…
-  ```
-
-  `VITE_` 가 아니라 `SPIN_DESKTOP_` 접두어인 것이 중요합니다 — `vite.config.ts` 의
-  `envPrefix` 가 이 접두어를 **Tauri 빌드에서만** 주입하므로, `npm run build`(웹)에는 이
-  값이 아예 실리지 않습니다.
-
-  그 '시크릿' 은 이름과 달리 **비밀이 아닙니다** — 설치형 앱은 배포본을 뜯으면 누구나
-  읽을 수 있고 구글도 그 전제로 설계했습니다(그래서 PKCE 가 있습니다). 그래도 저장소에는
-  안 넣습니다. 리다이렉트 URI 는 등록할 필요가 없습니다 — 데스크톱 유형은 `127.0.0.1` 의
-  아무 포트나 허용하고, 앱은 매번 OS 가 고른 빈 포트를 씁니다.
-
-  설치형은 웹에 없는 물건을 하나 받습니다 — **갱신 토큰**. 만료가 없는 열쇠라
-  `localStorage` 가 아니라 앱 데이터 폴더에 0600 파일로 둡니다(`secret_store.rs`).
-  prefs 에 넣지 않는 것이 핵심입니다: 백업 파일이 prefs 를 통째로 실어서, 넣는 순간
-  남의 기기로 새어 나갑니다.
-
----
-
-## 7. 아직 아닌 것
-
-- 온라인 공유·협업 (서버가 없는 것이 설계입니다 — 파일로 옮깁니다)
-- 실시간 경기 기록·통계
-- 모바일 네이티브 앱 (안드로이드 → 아이패드 순으로 0.7 에서 갑니다. 지금은 웹앱을 홈 화면에 추가해 씁니다)
-
----
+이 프로젝트는 [Contributor Covenant](CODE_OF_CONDUCT.md) 를 따릅니다.
+취약점은 이슈가 아니라 [SECURITY.md](SECURITY.md) 의 절차로 알려 주십시오.
 
 ## 라이선스
 
-**비공개.** 이 저장소는 private 이며 사용 조건을 따로 두지 않습니다.
+[MIT](LICENSE) — Copyright (c) 2026 Seo Kihyun (from104).
+
+`package.json` 의 `"private": true` 는 npm 에 게시하지 않는다는 뜻일 뿐입니다. 이 앱은
+라이브러리가 아니라 웹앱이고, 코드는 위 MIT 조건으로 자유롭게 쓰실 수 있습니다.
+
+규칙 문서([docs/RULES-FIPFA-2025.md](docs/RULES-FIPFA-2025.md) 와 앱의 규칙 화면)는 FIPFA
+*Laws of the Game* 의 **요약이며 저작권은 FIPFA 에 있습니다.** 코드 라이선스와는 별개이니
+그 부분을 다시 쓰실 때는 원 저작물의 조건을 확인하십시오.

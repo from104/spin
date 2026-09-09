@@ -10,9 +10,9 @@
 #  ③ deploy/share/apache-share.conf 를 vhost 폴더에 놓고, vhost 에 Include 줄이 있는지 **본다**
 #  ④ healthz 를 쳐서 실제로 살아 있는지 확인
 #
-# ⚠️ ③에서 **vhost 를 자동으로 고치지 않는다.** spin-vhost.conf 는 mocil 과 한 Apache 를
-#    나눠 쓰는 파일이라, 스크립트가 sed 로 손대면 실수의 범위가 이 기능 밖으로 나간다.
-#    줄이 없으면 무엇을 어디에 넣어야 하는지 화면에 적고 끝낸다.
+# ⚠️ ③에서 **vhost 를 자동으로 고치지 않는다.** spin-vhost.conf 는 같은 인스턴스의 다른
+#    사이트와 한 Apache 를 나눠 쓰는 파일이라, 스크립트가 sed 로 손대면 실수의 범위가 이
+#    기능 밖으로 나간다. 줄이 없으면 무엇을 어디에 넣어야 하는지 화면에 적고 끝낸다.
 #
 # ⚠️ 이 스크립트는 **원격 시스템 설정을 바꾼다**(systemd 유닛 설치·서비스 재시작).
 #    기현님 승인 뒤에만 실행한다. 먼저 `--dry-run` 으로 무엇이 바뀌는지 보라.
@@ -23,15 +23,25 @@
 #   bash scripts/deploy-share.sh             # 실제 배포
 #   bash scripts/deploy-share.sh --no-test   # 서버 테스트를 건너뛴다
 #
-# 환경변수로 대상을 바꿀 수 있다 (deploy-aws.sh 와 같은 이름·기본값):
-#   SPIN_AWS_HOST(=<AWS_HOST>) · SPIN_AWS_USER(=bitnami) ·
-#   SPIN_AWS_PEM(=~/.ssh/<AWS_PEM>)
+# ── 대상은 저장소에 적지 않는다 (deploy-aws.sh 와 같은 규칙·같은 변수 이름) ──────────
+# 호스트·계정·SSH 키는 공개 저장소에 둘 것이 아니다. 전부 환경변수로 받고, 없으면 여기서
+# 멈춘다. 저장소 루트의 `.env.deploy`(gitignore 대상)에 넣어 두면 아래에서 읽는다 —
+# 키 이름은 `.env.deploy.example` 에 있다.
+#   SPIN_AWS_HOST · SPIN_AWS_USER · SPIN_AWS_PEM (필수)
 #   SPIN_SHARE_PATH(=/opt/spin-share) · SPIN_SHARE_URL(=https://spin.atit.app/api/share/healthz)
 set -euo pipefail
 
-HOST="${SPIN_AWS_HOST:-<AWS_HOST>}"
-USER="${SPIN_AWS_USER:-bitnami}"
-PEM="${SPIN_AWS_PEM:-$HOME/.ssh/<AWS_PEM>}"
+# .env.deploy 가 있으면 읽는다. 이미 환경에 있는 값이 이긴다(export 된 쪽을 존중).
+if [ -f "$(dirname "$0")/../.env.deploy" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$(dirname "$0")/../.env.deploy"
+  set +a
+fi
+
+HOST="${SPIN_AWS_HOST:-}"
+USER="${SPIN_AWS_USER:-}"
+PEM="${SPIN_AWS_PEM:-}"
 DEST="${SPIN_SHARE_PATH:-/opt/spin-share}"
 HEALTH_URL="${SPIN_SHARE_URL:-https://spin.atit.app/api/share/healthz}"
 VHOST_DIR="${SPIN_AWS_VHOST_DIR:-/opt/bitnami/apache2/conf/vhosts}"
@@ -47,7 +57,7 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY=1 ;;
     --no-test) RUN_TEST=0 ;;
-    -h|--help) sed -n '1,32p' "$0"; exit 0 ;;
+    -h|--help) sed -n '1,31p' "$0"; exit 0 ;;
     *) echo "모르는 인자: $arg" >&2; exit 2 ;;
   esac
 done
@@ -56,6 +66,17 @@ cd "$(dirname "$0")/.."
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 warn() { printf '\033[33m%s\033[0m\n' "$*"; }
+
+# ── 대상이 주어졌나 ──────────────────────────────────────────────────────────────────
+missing=""
+[ -n "$HOST" ] || missing="$missing SPIN_AWS_HOST"
+[ -n "$USER" ] || missing="$missing SPIN_AWS_USER"
+[ -n "$PEM" ]  || missing="$missing SPIN_AWS_PEM"
+if [ -n "$missing" ]; then
+  echo "❌ 배포 대상이 없습니다 —$missing 을 .env.deploy 또는 환경에 넣으세요." >&2
+  echo '   .env.deploy.example 을 .env.deploy 로 복사해 값을 채우면 됩니다.' >&2
+  exit 1
+fi
 
 SSH=(ssh -i "$PEM" -o StrictHostKeyChecking=no -o ConnectTimeout=10)
 

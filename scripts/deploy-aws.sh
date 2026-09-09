@@ -6,13 +6,13 @@
 #   "배포" 라고만 하면 이 스크립트다. scripts/deploy.sh(cube)는 사본을 놓는 용도로만 남아 있다.
 #
 # ── 배포가 무엇인가 ──────────────────────────────────────────────────────────────────
-# spin.atit.dev(scripts/deploy.sh, cube)와 별개의 두 번째 배포처다. AWS Lightsail
-# (<AWS_HOST>, mocil 과 같은 서버)에 Apache 이름기반 가상호스트를 하나 추가해 뒀다
-# (conf/vhosts/spin-vhost.conf, ServerName spin.atit.app) — 그 vhost 의 DocumentRoot 가
+# spin.atit.dev(scripts/deploy.sh, cube)와 별개의 두 번째 배포처다. Lightsail 인스턴스에
+# Apache 이름기반 가상호스트를 하나 추가해 뒀다(conf/vhosts/spin-vhost.conf,
+# ServerName spin.atit.app) — 그 vhost 의 DocumentRoot 가
 #   /opt/bitnami/apache2/spin-htdocs
-# 다. mocil 은 _default_ catch-all vhost(/opt/bitnami/apache2/htdocs)라 이 경로는 건드리지
-# 않는다. 이 스크립트는 그 디렉터리에 dist/ 를 올리는 것이 전부다 — vhost·DNS(Cloudflare
-# spin.atit.app A → <AWS_HOST>)는 이미 구성되어 있고 다시 만들 일은 없다.
+# 다. 같은 인스턴스의 _default_ catch-all vhost(/opt/bitnami/apache2/htdocs)는 건드리지
+# 않는다. 이 스크립트는 그 디렉터리에 dist/ 를 올리는 것이 전부다 — vhost·DNS 는 이미
+# 구성되어 있고 다시 만들 일은 없다.
 #
 # 사용법:
 #   npm run deploy:aws              # 테스트 → 빌드 → 배포
@@ -20,14 +20,25 @@
 #   npm run deploy:aws -- --no-test # 테스트를 건너뛴다 (빌드는 건너뛰지 않는다)
 #   npm run deploy:aws -- --first   # 대상이 비어 있는 첫 배포 (아래 안전장치 참조)
 #
-# 환경변수로 대상을 바꿀 수 있다:
-#   SPIN_AWS_HOST(=<AWS_HOST>) · SPIN_AWS_USER(=bitnami) ·
-#   SPIN_AWS_PEM(=~/.ssh/<AWS_PEM>) · SPIN_AWS_PATH(=/opt/bitnami/apache2/spin-htdocs)
+# ── 대상은 저장소에 적지 않는다 ──────────────────────────────────────────────────────
+# 호스트·계정·SSH 키는 공개 저장소에 둘 것이 아니다. 전부 환경변수로 받고, 없으면 여기서
+# 멈춘다. 저장소 루트의 `.env.deploy`(gitignore 대상)에 넣어 두면 아래에서 읽는다 —
+# 키 이름은 `.env.deploy.example` 에 있다.
+#   SPIN_AWS_HOST · SPIN_AWS_USER · SPIN_AWS_PEM (필수)
+#   SPIN_AWS_PATH(=/opt/bitnami/apache2/spin-htdocs) · SPIN_AWS_URL(=https://spin.atit.app)
 set -euo pipefail
 
-HOST="${SPIN_AWS_HOST:-<AWS_HOST>}"
-USER="${SPIN_AWS_USER:-bitnami}"
-PEM="${SPIN_AWS_PEM:-$HOME/.ssh/<AWS_PEM>}"
+# .env.deploy 가 있으면 읽는다. 이미 환경에 있는 값이 이긴다(export 된 쪽을 존중).
+if [ -f "$(dirname "$0")/../.env.deploy" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$(dirname "$0")/../.env.deploy"
+  set +a
+fi
+
+HOST="${SPIN_AWS_HOST:-}"
+USER="${SPIN_AWS_USER:-}"
+PEM="${SPIN_AWS_PEM:-}"
 DEST="${SPIN_AWS_PATH:-/opt/bitnami/apache2/spin-htdocs}"
 URL="${SPIN_AWS_URL:-https://spin.atit.app}"
 
@@ -39,7 +50,7 @@ for arg in "$@"; do
     --dry-run) DRY=1 ;;
     --no-test) RUN_TEST=0 ;;
     --first)   FIRST=1 ;;
-    -h|--help) sed -n '1,25p' "$0"; exit 0 ;;
+    -h|--help) sed -n '1,28p' "$0"; exit 0 ;;
     *) echo "모르는 인자: $arg" >&2; exit 2 ;;
   esac
 done
@@ -48,7 +59,18 @@ cd "$(dirname "$0")/.."
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
-say "SPIN 배포 → $USER@$HOST:$DEST (AWS Lightsail)"
+# ── 대상이 주어졌나 ──────────────────────────────────────────────────────────────────
+missing=""
+[ -n "$HOST" ] || missing="$missing SPIN_AWS_HOST"
+[ -n "$USER" ] || missing="$missing SPIN_AWS_USER"
+[ -n "$PEM" ]  || missing="$missing SPIN_AWS_PEM"
+if [ -n "$missing" ]; then
+  echo "❌ 배포 대상이 없습니다 —$missing 을 .env.deploy 또는 환경에 넣으세요." >&2
+  echo '   .env.deploy.example 을 .env.deploy 로 복사해 값을 채우면 됩니다.' >&2
+  exit 1
+fi
+
+say "SPIN 배포 → $USER@$HOST:$DEST (Lightsail)"
 printf '  커밋 %s (%s)\n' "$(git rev-parse --short HEAD)" "$(git rev-parse --abbrev-ref HEAD)"
 printf '  버전 %s\n' "$(node -p "require('./package.json').version")"
 if [ -n "$(git status --porcelain)" ]; then

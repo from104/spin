@@ -47,3 +47,8 @@ client_secret_*
 # ⚠️ 이용자가 올린 드릴이다 — 열쇠가 없어 우리도 못 읽지만, 못 읽는다고 커밋해도 되는 것은
 # 아니다. 디렉터리째 막는다.
 /data/
+
+# 배포 대상(호스트·계정·SSH 키 경로). 공개 저장소에 둘 것이 아니라 각자 환경에 둔다 —
+# scripts/deploy-aws.sh · scripts/deploy-share.sh 가 있으면 읽는다.
+# 키 이름만 담은 견본은 .env.deploy.example 로 추적한다.
+.env.deploy
