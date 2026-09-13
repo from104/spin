@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
+- Shape fills are slightly more opaque (0.13 → 0.156)
 - **Delete several drills or sessions at once** — press [Select] and a checkbox appears on each item, with [All shown] to take everything currently listed. Before deleting it asks what will go (up to five titles plus “and N more”) and warns when sessions use the drills you picked. [Undo] brings **all** of them back
 - **Shapes now have a color** — white, sky, yellow and orange. Tap the rotation handle without dragging and the color cycles (the same rule arrows and strokes already use). They stay translucent, so overlaps deepen and different colors mix
 - Shape outlines now sit on a **black casing** — the edge reads at 3.93:1 against the court green (the old white outline was 2.74:1, and orange would have been 1.26:1)
