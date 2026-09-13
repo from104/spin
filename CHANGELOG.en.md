@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Fixed
 
+- Fixed tapping a shape's rotation handle not changing its color — the reducer's “nothing changed” guard did not look at the color, so a color-only edit was dropped entirely
 - Fixed [Undo] on a delete being reversed on another device — the restored document kept its old timestamp, so the remote “deleted” record won. Sync runs every 3 seconds and the undo toast lasts 8, so that window was really open
 - Fixed a failing [Undo] saying nothing — the reason is now shown
 - Fixed [Select all] leaving out **freehand strokes** — drawn strokes were silently skipped
