@@ -116,11 +116,18 @@ describe('idbDrillRepo.restoreDrill (§E, PLAN-DELETE-SAFETY.md)', () => {
 
     const restored = await idbDrillRepo.restoreDrill(d);
     expect(restored.title).toBe(d.title);
-    expect(restored.updatedAt).toBe(d.updatedAt); // 복원은 수정이 아니다 — 시각을 안 민다
+    // ⚠️ 2026-09-14 — 옛 단언은 `expect(restored.updatedAt).toBe(d.updatedAt)` 이었고 근거는
+    //    *"복원은 수정이 아니다 — 시각을 안 민다"* 였다. 그 말은 **로컬만 보면** 맞지만, 삭제가
+    //    이미 드라이브로 올라간 뒤에는 원격 톰스톤의 `deletedAt` 이 옛 `updatedAt` 보다 커서
+    //    다음 동기화가 되살린 드릴을 **다시 지운다**(plan.ts 의 `localWins = L > R`).
+    //    그래서 시각을 민다 — 되살리기는 «지금 이 문서가 최신» 이라는 선언이기도 하다.
+    expect(restored.updatedAt).toBeGreaterThan(d.updatedAt);
 
     const db = await getDB();
     const summary = await db.get('drillSummaries', d.id);
     expect(summary?.title).toBe(d.title);
+    // 요약도 되살린 시각을 쓴다 — 목록 정렬(최근 수정순)이 본문과 어긋나면 안 된다.
+    expect(summary?.updatedAt).toBe(restored.updatedAt);
   });
 });
 

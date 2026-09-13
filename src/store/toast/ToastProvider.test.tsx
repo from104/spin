@@ -33,7 +33,7 @@ describe('ToastProvider', () => {
   it('action 을 그대로 보존한다(삭제 토스트의 [되돌리기])', () => {
     const { result } = renderHook(() => useToast(), { wrapper });
     let called = false;
-    act(() => result.current.show('삭제됨', { action: { label: '되돌리기', onAction: () => (called = true) } }));
+    act(() => result.current.show('삭제됨', { action: { label: '되돌리기', onAction: () => { called = true; } } }));
     result.current.toasts[0]!.action!.onAction();
     expect(called).toBe(true);
   });

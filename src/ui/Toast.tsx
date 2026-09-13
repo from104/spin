@@ -3,7 +3,8 @@ import type { CSSProperties } from 'react';
 
 export interface ToastAction {
   label: string;
-  onAction: () => void;
+  /** 비동기여도 된다 — 누른 뒤의 실패는 **부르는 쪽**이 말한다(아래 onClick 주석). */
+  onAction: () => void | Promise<void>;
 }
 
 export interface ToastItem {
@@ -55,7 +56,11 @@ export function Toast({ toast, onDismiss }: ToastProps) {
         <button
           type="button"
           onClick={() => {
-            toast.action!.onAction();
+            // ⚠️ 2026-09-14 — `onAction()` 이 **비동기**일 수 있다(되돌리기는 저장소를 부른다).
+            //    예전에는 그 약속을 붙들지도 잡지도 않고 바로 닫았다 — 되살리기가 실패하면
+            //    콘솔에 처리되지 않은 거부만 남고 화면은 «되돌렸다» 로 보였다. 여기서 삼키고,
+            //    **실패를 사람에게 말하는 일은 부르는 쪽**이 한다(토스트는 무엇이 실패인지 모른다).
+            void Promise.resolve(toast.action!.onAction()).catch(() => {});
             onDismiss(toast.id);
           }}
           style={{

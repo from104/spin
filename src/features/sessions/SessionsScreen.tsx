@@ -6,11 +6,12 @@
 // 내비게이션·헤더 계약은 LibraryScreen 과 같다(§8): app-shell 을 import 하지 않고 이동은
 // HomeNav prop 하나로, 헤더는 app-shell 이 정적으로 꽂는다. `<main id="main" tabIndex={-1}>`
 // 도 §7.5a 대로 이 화면이 직접 렌더한다.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
+import { useSelectMode } from '../library/useSelectMode.ts';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
-import { deleteSession as repoDeleteSession, restoreSession, getSession } from '../../storage/sessionRepo.ts';
+import { deleteSession as repoDeleteSession, deleteSessions, restoreSession, restoreSessions, getSession } from '../../storage/sessionRepo.ts';
 import type { TrainingSession } from '../../model/session.ts';
 import type { SessionId, TeamId } from '../../core/ids.ts';
 import { listTeams } from '../../storage/teamRepo.ts';
@@ -96,6 +97,47 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
   // §C-4(2026-08-20, PLAN-DELETE-SAFETY.md) — 세션엔 앱 되돌리기 스택이 없고 여러 구획·편성을
   // 통째로 가져간다. 드릴(§C-2)과 같은 급이라 무조건 확인 + 8초 undo 토스트로 대칭을 맞춘다.
   // 세션은 참조 대상이 없어(아무도 세션을 가리키지 않는다) 드릴처럼 문구를 가를 필요가 없다.
+  // ── 선택 모드(2026-09-14) — 드릴 목록과 **같은 훅·같은 규약**이다. ─────────────────────
+  const select = useSelectMode<SessionId>();
+  const [pendingBatch, setPendingBatch] = useState<TrainingSession[] | null>(null);
+  const visibleIds = useMemo(() => sessions.map((r) => r.session.id), [sessions]);
+  const selectedSessions = useMemo(
+    () => sessions.filter((r) => select.checked.has(r.session.id)).map((r) => r.session),
+    [sessions, select.checked],
+  );
+
+  const doBatchDeleteSessions = async (targets: TrainingSession[]) => {
+    const ids = targets.map((s) => s.id);
+    try {
+      await deleteSessions(ids);
+      select.remove(ids);
+      select.exit();
+      await refresh();
+      const first = targets[0]!.title;
+      toast.show(
+        targets.length === 1
+          ? t('sessionsScreen.deleteToast', { title: first })
+          : t('select.deletedToast', { first, rest: targets.length - 1 }),
+        {
+          durationMs: DELETE_UNDO_TOAST_MS,
+          action: {
+            label: t('sessionsScreen.undoAction'),
+            onAction: async () => {
+              try {
+                await restoreSessions(targets);
+                await refresh();
+              } catch (e) {
+                toast.show(storageErrorText(e, locale, t('select.restoreFailed')));
+              }
+            },
+          },
+        },
+      );
+    } catch (e) {
+      toast.show(storageErrorText(e, locale, t('select.deleteFailed')));
+    }
+  };
+
   const [pendingDeleteSession, setPendingDeleteSession] = useState<TrainingSession | null>(null);
   const requestDeleteSession = (id: SessionId) => {
     // sessions(useLibrary)가 이미 원본 TrainingSession 을 들고 있다(드릴과 달리 요약/본문
@@ -178,8 +220,42 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
             버튼이 사라지는 것이 아니라 **자리를 옮기는** 것이다. */}
         {sessions.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 20 }}>
+            {!select.mode && (
+              <Button variant="secondary" onClick={() => select.enter()}>
+                {t('select.enter')}
+              </Button>
+            )}
             <Button ref={linkImportBtnRef} variant="secondary" onClick={() => setLinkImportOpen(true)}>
               {t('library.importLink.button')}
+            </Button>
+          </div>
+        )}
+        {/* 선택 줄 — 드릴 목록과 같은 모양·같은 순서다(개수 · 모두 · 삭제 · 끝내기). */}
+        {select.mode && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              minHeight: 'var(--hit)',
+              marginBottom: 16,
+              padding: '0 4px',
+              borderRadius: 11,
+              background: 'var(--elev)',
+            }}
+          >
+            <span role="status" style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '0 8px' }}>
+              {t('select.count', { n: select.count })}
+            </span>
+            <Button variant="secondary" onClick={() => select.toggleAll(visibleIds)}>
+              {t('select.all')}
+            </Button>
+            <Button variant="primary" disabled={select.count === 0} onClick={() => setPendingBatch(selectedSessions)}>
+              {t('select.delete')}
+            </Button>
+            <Button variant="secondary" onClick={select.exit} style={{ marginLeft: 'auto' }}>
+              {t('select.exit')}
             </Button>
           </div>
         )}
@@ -193,6 +269,7 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
           onShareLink={(id) => void requestShareLink(id)}
           onCreate={() => void handleCreateSession()}
           teamLabels={teamLabels}
+          selection={{ mode: select.mode, checked: select.checked, onToggle: select.toggle, onEnterFrom: select.enter }}
         />
       </div>
 
@@ -240,6 +317,29 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
       )}
 
       <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} initialSection="sessions" onRestartTutorial={onRestartTutorial} />
+
+      {pendingBatch && (
+        <ConfirmDialog
+          open
+          onCancel={() => setPendingBatch(null)}
+          onConfirm={() => {
+            const targets = pendingBatch;
+            setPendingBatch(null);
+            void doBatchDeleteSessions(targets);
+          }}
+          title={t('select.confirmTitle', { n: pendingBatch.length })}
+          body={
+            <ul style={{ margin: '8px 0', paddingLeft: 20, color: 'var(--text)' }}>
+              {pendingBatch.slice(0, 5).map((s) => (
+                <li key={s.id}>{s.title}</li>
+              ))}
+              {pendingBatch.length > 5 && <li>{t('select.confirmMore', { n: pendingBatch.length - 5 })}</li>}
+            </ul>
+          }
+          confirmLabel={t('sessionsScreen.deleteConfirm.confirm')}
+          cancelLabel={t('sessionsScreen.deleteConfirm.cancel')}
+        />
+      )}
 
       {pendingDeleteSession && (
         <ConfirmDialog

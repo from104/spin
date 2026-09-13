@@ -40,8 +40,23 @@ export interface DrillRepo {
   putDrill(d: Drill, opts?: { touch?: boolean; expectedUpdatedAt?: number }): Promise<Drill>;
   /** 삭제 [실행 취소] 전용(§E, PLAN-DELETE-SAFETY.md) — put 과 톰스톤 삭제를 한 트랜잭션에
    *  묶는다. putDrill({touch:false}) 로는 안 된다: 톰스톤이 남으면 되살린 드릴도 다음 동기화가
-   *  다시 지운다(sync/plan.ts 의 localDeleted 판정이 deletedAt > updatedAt 을 그대로 참으로 읽는다). */
+   *  다시 지운다(sync/plan.ts 의 localDeleted 판정이 deletedAt > updatedAt 을 그대로 참으로 읽는다).
+   *
+   *  ⚠️ 2026-09-14 — 위 근거는 그대로 참이고, **부족했다.** 로컬 톰스톤을 지우는 것만으로는
+   *  **원격** 톰스톤을 못 이긴다: 삭제가 이미 드라이브로 올라갔으면 원격에 `deletedAt` 이 있고,
+   *  되살린 드릴의 `updatedAt` 은 삭제 **이전** 값이라 `localWins = L > R` 이 거짓이 된다
+   *  (plan.ts) → 다음 동기화가 `deleteLocal` 로 다시 지운다. 동기화 디바운스는 3초,
+   *  되돌리기 토스트는 8초라 그 창은 실제로 열린다. 그래서 **`updatedAt` 을 새로 찍는다** —
+   *  되살리기는 «되돌리기» 이자 «지금 이 문서가 최신» 이라는 선언이다. */
   restoreDrill(d: Drill): Promise<Drill>;
+  /** 여럿을 **한 트랜잭션**에 지운다(2026-09-14, 목록 다중 삭제). 하나씩 N번 부르면 중간에서
+   *  실패했을 때 «절반만 지워진» 상태가 남고, 그 상태를 사람에게 설명할 길이 없다 — 원자성이
+   *  곧 설명 가능성이다. 톰스톤의 `deletedAt` 은 **묶음이 공유**한다: 되살릴 때도 한 덩어리로
+   *  판단되게 하려는 것이다. 빈 배열은 아무 일도 안 한다. */
+  deleteDrills(ids: readonly DrillId[]): Promise<void>;
+  /** `deleteDrills` 의 짝. 되살리기도 한 트랜잭션이라 «일부만 돌아왔다» 가 없다.
+   *  `restoreDrill` 과 같이 `updatedAt` 을 새로 찍는다(그쪽 ⚠️ 참조). */
+  restoreDrills(ds: readonly Drill[]): Promise<Drill[]>;
   createDrill(init: CreateDrillInit): Promise<Drill>;
   duplicateDrill(id: DrillId, opts?: { title?: string }): Promise<Drill>;
   deleteDrill(id: DrillId): Promise<void>;
@@ -234,7 +249,9 @@ export const idbDrillRepo: DrillRepo = {
   putDrill: idbPutDrill,
   async restoreDrill(d) {
     assertWritable(d);
-    const summary = buildSummary(d);
+    // 되살린 순간이 이 문서의 최신 시각이다(계약 주석의 ⚠️ 2026-09-14 참조).
+    const next: Drill = { ...d, updatedAt: Date.now() };
+    const summary = buildSummary(next);
     const db = await getDB().catch((e) => {
       throw toStorageError(e, 'E_DB_UNAVAILABLE');
     });
@@ -242,17 +259,17 @@ export const idbDrillRepo: DrillRepo = {
     try {
       // deleteDrill 과 대칭 — put 두 스토어 + 톰스톤 삭제를 같은 tx 에 원자적으로 묶는다.
       const tx = db.transaction(['drills', 'drillSummaries', 'meta'], 'readwrite');
-      tx.objectStore('drills').put(d);
+      tx.objectStore('drills').put(next);
       tx.objectStore('drillSummaries').put(summary);
-      tx.objectStore('meta').delete(tombstoneKey('drill', d.id));
+      tx.objectStore('meta').delete(tombstoneKey('drill', next.id));
       await tx.done;
     } catch (e) {
       throw toStorageError(e, 'E_DB_UNAVAILABLE');
     } finally {
       endWrite();
     }
-    postSyncEvent({ type: 'drill', id: d.id, op: 'put', updatedAt: d.updatedAt });
-    return d;
+    postSyncEvent({ type: 'drill', id: next.id, op: 'put', updatedAt: next.updatedAt });
+    return next;
   },
   async createDrill(init) {
     const d = modelCreateDrill(init);
@@ -294,6 +311,52 @@ export const idbDrillRepo: DrillRepo = {
       endWrite();
     }
     postSyncEvent({ type: 'drill', id, op: 'delete', deletedAt });
+  },
+  async deleteDrills(ids) {
+    if (ids.length === 0) return;
+    const db = await getDB();
+    const deletedAt = Date.now(); // 묶음이 공유한다(인터페이스 주석)
+    beginWrite();
+    try {
+      const tx = db.transaction(['drills', 'drillSummaries', 'meta'], 'readwrite');
+      for (const id of ids) {
+        tx.objectStore('drills').delete(id);
+        tx.objectStore('drillSummaries').delete(id);
+        tx.objectStore('meta').put(tombstoneRecord('drill', id, deletedAt));
+      }
+      await tx.done;
+    } catch (e) {
+      throw toStorageError(e, 'E_DB_UNAVAILABLE');
+    } finally {
+      endWrite();
+    }
+    // 동기화 사건은 **개체마다** 쏜다 — 받는 쪽(엔진·목록)이 id 단위로 일하기 때문이다.
+    for (const id of ids) postSyncEvent({ type: 'drill', id, op: 'delete', deletedAt });
+  },
+  async restoreDrills(ds) {
+    if (ds.length === 0) return [];
+    for (const d of ds) assertWritable(d);
+    const updatedAt = Date.now();
+    const next = ds.map((d) => ({ ...d, updatedAt }));
+    const db = await getDB().catch((e) => {
+      throw toStorageError(e, 'E_DB_UNAVAILABLE');
+    });
+    beginWrite();
+    try {
+      const tx = db.transaction(['drills', 'drillSummaries', 'meta'], 'readwrite');
+      for (const d of next) {
+        tx.objectStore('drills').put(d);
+        tx.objectStore('drillSummaries').put(buildSummary(d));
+        tx.objectStore('meta').delete(tombstoneKey('drill', d.id));
+      }
+      await tx.done;
+    } catch (e) {
+      throw toStorageError(e, 'E_DB_UNAVAILABLE');
+    } finally {
+      endWrite();
+    }
+    for (const d of next) postSyncEvent({ type: 'drill', id: d.id, op: 'put', updatedAt: d.updatedAt });
+    return next;
   },
   async rebuildAllSummaries() {
     // 요약 지연 재생성: build 가 SUMMARY_BUILD 보다 낮은 레코드만 드릴을 로드해 재생성한다.
@@ -378,10 +441,21 @@ function createMemoryDrillRepo(): DrillRepo {
       assertWritable(next);
       return write(next);
     },
+    async deleteDrills(ids) {
+      for (const id of ids) drills.delete(id);
+    },
+    async restoreDrills(ds) {
+      const updatedAt = Date.now();
+      return ds.map((d) => {
+        assertWritable(d);
+        return write({ ...d, updatedAt });
+      });
+    },
     async restoreDrill(d) {
-      // 메모리 폴백에는 톰스톤이 없다(sync 미지원 환경) — put 과 동치.
+      // 메모리 폴백에는 톰스톤이 없다(sync 미지원 환경) — put 과 동치. 그래도 시각은 찍는다:
+      // 부르는 쪽이 두 구현에서 **같은 값**을 받아야 «되살린 것의 updatedAt» 을 믿을 수 있다.
       assertWritable(d);
-      return write(d);
+      return write({ ...d, updatedAt: Date.now() });
     },
     async createDrill(init) {
       return write(modelCreateDrill(init));

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
+- **Delete several drills or sessions at once** — press [Select] and a checkbox appears on each item, with [All shown] to take everything currently listed. Before deleting it asks what will go (up to five titles plus “and N more”) and warns when sessions use the drills you picked. [Undo] brings **all** of them back
 - **Shapes now have a color** — white, sky, yellow and orange. Tap the rotation handle without dragging and the color cycles (the same rule arrows and strokes already use). They stay translucent, so overlaps deepen and different colors mix
 - Shape outlines now sit on a **black casing** — the edge reads at 3.93:1 against the court green (the old white outline was 2.74:1, and orange would have been 1.26:1)
 - **Shapes can now be used from the keyboard** — until now a shape could not take focus, so it was the only object you could not move with the arrow keys or WASD, nor reach with `[` and `]`
@@ -17,6 +18,8 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Fixed
 
+- Fixed [Undo] on a delete being reversed on another device — the restored document kept its old timestamp, so the remote “deleted” record won. Sync runs every 3 seconds and the undo toast lasts 8, so that window was really open
+- Fixed a failing [Undo] saying nothing — the reason is now shown
 - Fixed [Select all] leaving out **freehand strokes** — drawn strokes were silently skipped
 - Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
 - The free tactics board's export sheet no longer offers [Video] or [Share link] — the board is a single position, so a video would be one still frame, and a link would plant an unsaved board in the recipient's library as a drill. Turn it into a drill first
