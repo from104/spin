@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Fixed
 
 - Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
+- The free tactics board's export sheet no longer offers [Video] or [Share link] — the board is a single position, so a video would be one still frame, and a link would plant an unsaved board in the recipient's library as a drill. Turn it into a drill first
 - The web app now opens a **save dialog** too (Chrome, Edge and the like) — you pick the location, and a toast confirms when the write finishes. Browsers without it (Firefox, Safari) download as before
 - The desktop app's save dialog now starts in your **home folder**
 - Saving a file now shows a “Saved” toast — video, images, ZIP, backup, drills, sessions and teams all follow the same rule

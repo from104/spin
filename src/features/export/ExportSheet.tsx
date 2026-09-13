@@ -82,6 +82,12 @@ import { storageErrorText } from '../../i18n/storageError.ts';
 export interface ExportSheetProps {
   open: boolean;
   onClose(): void;
+  /** 어느 화면의 시트인가. `board`(자유 전술판)에서는 **[영상]·[링크로 공유]가 아예 없다**
+   *  (2026-09-13 기현님 지시). 근거는 전술판이 **1스텝짜리 판**이라는 데 있다(storage/board.ts
+   *  머리말): 영상은 정지 화면 한 장이 30fps 로 흐르는 파일이 되고, 링크는 저장도 되지 않은
+   *  판을 받는 쪽 라이브러리에 **드릴로** 앉힌다. 둘 다 기능이 아니라 함정이다.
+   *  기본값이 `drill` 인 이유: 빠뜨렸을 때 **덜 감추는** 쪽이 안전하다. */
+  mode?: 'board' | 'drill';
   /** 지금 판(자유 전술판 또는 드릴 편집본). 그림·인쇄 둘 다 이 한 벌에서 굽는다. */
   drill: Drill;
   /** 그림으로 구울 스텝(0-based). 자유 전술판은 언제나 0 이다. */
@@ -130,7 +136,7 @@ function isAbortError(e: unknown): boolean {
   return typeof e === 'object' && e !== null && (e as { name?: unknown }).name === 'AbortError';
 }
 
-export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, showGrid, showGridLabels, showRuleZones, returnFocusRef }: ExportSheetProps) {
+export function ExportSheet({ open, onClose, mode = 'drill', drill, stepIndex, checkedStepIds, showGrid, showGridLabels, showRuleZones, returnFocusRef }: ExportSheetProps) {
   const titleId = useId();
   const toast = useToast();
   const t = useT();
@@ -420,6 +426,8 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
 
   /** 머리 버튼을 누를 수 있는 단계 — 여기서만 인코딩이 **시작**된다. 진행 중에는 두 번 시작할 수
    *  없고, 완료·오류 단계에서는 그 아래 [저장]·[다시] 가 다음 행동을 쥔다(표적이 뜻마다 하나다). */
+  // 자유 전술판인가. 여기서만 [영상]·[링크로 공유] 두 칸이 사라진다(prop 주석 참조).
+  const isBoard = mode === 'board';
   const videoIdle = video.phase === 'idle' || video.phase === 'cancelled';
   const videoBlocked = videoSupported === false || !videoIdle;
   /** 크기는 **다음 인코딩**의 입력이다 — 오류 뒤에도 보인다(1080p 가 무거워 실패했다면 720p 로
@@ -456,6 +464,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
               SheetItem 한 줄로 접히지 않는다(머리말 「영상(MP4) 항목만…」). 자리가 [인쇄] 다음인
               이유: 코치가 가장 자주 하는 일 순서다(그림 › 종이 › 영상). 영상은 만드는 데 수 초~수십
               초가 들어 "지금 이 판을 빨리 꺼내는" 행위가 아니다. */}
+          {/* 자유 전술판에는 영상이 없다(2026-09-13) — 1스텝짜리 판이라 정지 화면 한 장짜리
+              파일이 나온다. 만들 수 있다는 것과 만들 뜻이 있다는 것은 다르다. */}
+          {!isBoard && (
           <div style={VIDEO_BOX}>
             {/* 머리는 **글**이다(2026-09-13). 예전에는 이 줄 전체가 시작 버튼이었는데, 기현님
                 실기에서 "생성 시작 버튼이 명확했으면" 으로 물렸다 — 제목처럼 생긴 것을 눌러야
@@ -566,6 +577,7 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
               </>
             )}
           </div>
+          )}
           {/* 마지막 칸 — 링크(2026-09-07, PLAN-SHARE-LINK 결정 11).
               ⚠️ 계획서는 이 항목을 "시트 4번째" 라고 적었지만 이 시트의 항목은 지금 **둘**이라
               실제로는 세 번째다. 4번이었던 시절(그림·인쇄·기기 이사 파일)의 [기기 이사 파일]은
@@ -578,14 +590,16 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
               참이 아니다 — [영상] 도 언제나 드릴 전체다(PLAN-VIDEO-EXPORT 결정 8). 자리 근거는
               뒤 문장 하나로 좁혀졌다: **서버·인터넷을 요구하는 유일한 항목**이라 맨 끝이다
               (영상은 기기 안에서 끝난다). ── */}
-          <SheetItem
-            title={t('export.link')}
-            desc={t('export.link.desc')}
-            onClick={() => {
-              onClose();
-              setShareOpen(true);
-            }}
-          />
+          {!isBoard && (
+            <SheetItem
+              title={t('export.link')}
+              desc={t('export.link.desc')}
+              onClick={() => {
+                onClose();
+                setShareOpen(true);
+              }}
+            />
+          )}
         </div>
       </Modal>
       <PrintRoot doc={printDoc} onReady={onPrintReady} view={{ showGrid, showGridLabels, showRuleZones }} />

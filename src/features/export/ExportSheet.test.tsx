@@ -77,12 +77,13 @@ function ToastProbe() {
 /** ⚠️ open 을 **진짜 state 로** 든다. 상수 true 로 두면 항목이 onClose 를 불러도 시트가 닫히지
  *  않아, "닫힌 뒤에도 인쇄가 끝까지 간다"(PrintRoot 상주) 같은 계약이 통째로 검증되지 않는다 —
  *  실제로 그렇게 두었더니 PrintRoot 를 시트 안으로 되돌려도 이 파일이 전건 초록이었다. */
-function Harness({ onClose }: { onClose?: () => void }) {
+function Harness({ onClose, mode }: { onClose?: () => void; mode?: 'board' | 'drill' }) {
   const [open, setOpen] = useState(true);
   return (
     <SettingsProvider>
       <ToastProvider>
         <ExportSheet
+          mode={mode}
           open={open}
           onClose={() => {
             setOpen(false);
@@ -134,6 +135,23 @@ describe('닫힌 시트는 예산에 0을 더한다', () => {
     // ⚠️ 2026-09-13: 영상의 그 버튼은 이제 **머리가 아니라 [영상 만들기]** 다(기현님 지시 —
     //    제목처럼 생긴 것을 눌러야 시작되는 것이 안 보였다). 수는 그대로 5 다.
     expect(screen.getAllByRole('button')).toHaveLength(5);
+  });
+});
+
+// 2026-09-13 기현님 지시 — 자유 전술판에는 [영상]·[링크로 공유] 가 **아예 없다**. 근거는
+// 전술판이 1스텝짜리 판이라는 것이다(storage/board.ts): 영상은 정지 화면 한 장, 링크는 저장도
+// 안 된 판을 받는 쪽 라이브러리에 드릴로 앉힌다. 대조군(드릴 쪽 5개)은 위 "세 항목" it 이 진다.
+describe('[보드] 시트에서 빠지는 두 칸', () => {
+  it('자유 전술판에는 [영상]·[링크로 공유] 가 없고, 그림·인쇄는 그대로다', async () => {
+    engineMock.mockResolvedValue('webcodecs');
+    render(<Harness mode="board" />);
+    expect(screen.getByRole('button', { name: /^그림 \(PNG\)/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^인쇄 · PDF/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^영상 만들기$/ }), '정지 화면 한 장짜리 영상을 권하지 않는다').toBeNull();
+    expect(screen.queryByText(/^영상 \(MP4\)/), '항목 제목도 남으면 안 된다').toBeNull();
+    expect(screen.queryByRole('button', { name: /^링크로 공유/ }), '저장도 안 된 판을 드릴로 넘기지 않는다').toBeNull();
+    // 항목 2 + 닫기 1 = 3. 드릴 쪽 5와 짝을 이룬다.
+    expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 });
 

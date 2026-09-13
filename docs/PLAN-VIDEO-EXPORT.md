@@ -37,6 +37,9 @@
 | 1 | **파이프라인**: `sampleDrill(t)` → `buildStaticScene(frame, opts, order)` → `svgDataUri` → `Image` → 캔버스 하나에 `drawImage` + `paintTexts` → `CanvasSource.add(t, 1/fps)`. 캔버스 1장 재사용, 순차(await), 워커 없음 | SVG 디코드는 DOM `Image` 가 필요해 워커에서 못 한다. PNG 경로의 "순차로 굽는다" 원칙(ExportSheet.tsx:201) 그대로 |
 | 2 | **인코딩**: WebCodecs + `mediabunny`(`Output` + `BufferTarget` + `Mp4OutputFormat({fastStart:'in-memory'})` + `CanvasSource(canvas, {codec:'avc', quality: new Quality({bitrate})})`). 코덱은 `avc` 하나. `canEncode('avc')` 가 false 이거나 `VideoEncoder` 가 없으면 항목을 **비활성 + 사유 문구**(i18n `export.video.unsupported`) | H.264 가 카톡·iOS·인스타의 공통분모. VP9-in-MP4 는 iOS 가 못 열어 대안이 못 된다. `fastStart` 는 모바일 스트리밍 재생용(moov 앞) |
 
+⚠️ **2026-09-13 — [영상] 은 자유 전술판 시트에 뜨지 않는다(기현님 지시).** 전술판은 1스텝짜리
+판이라(storage/board.ts) 굽는다 해도 정지 화면 한 장짜리 파일이 된다. 드릴 편집 시트에서만 뜬다.
+
 ⚠️ **2026-09-13 — 결정 2 를 넓혔다(근거는 지우지 않는다).** "`canEncode('avc')` 가 false 면 비활성" 이라는 전제는
 *코덱이 없는 브라우저는 어차피 못 굽는다* 였는데, 실기에서 그 전제가 죽었다. WebKitGTK(리눅스 데스크톱 앱)는
 H.264 인코딩을 **시스템 GStreamer 플러그인**에 기댄다 — gofu 의 2.52.6 은 세 프레임을 정상으로 구웠지만(실측),
