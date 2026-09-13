@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Fixed
 
 - Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
+- Saving a file now shows a “Saved” toast — video, images, ZIP, backup, drills, sessions and teams all follow the same rule
+- Cancelling the save dialog no longer shows a toast — drill, session and team exports used to claim “Exported” even when cancelled
 - Video export now has a [Create video] button — the item's title row used to be the button, so there was no sign of where to start
 - In the desktop app, saving a file opens a **native save dialog** (video, images, ZIP, backup, drill/session/team files) — pressing save used to do nothing
 - Saving a video closes the export sheet. Cancelling the save leaves it open

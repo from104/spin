@@ -147,7 +147,9 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
     exportingRef.current = true;
     try {
       const payload = await collectBackup();
-      downloadBlob(exportBackupFile(payload), backupFileName(Date.now()));
+      // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않는다.
+      const outcome = await downloadBlob(exportBackupFile(payload), backupFileName(Date.now()));
+      if (outcome === 'cancelled') return;
       toast.show(t('settings.data.exportSaved', { drills: payload.drills.length, sessions: payload.sessions.length }));
     } catch (e) {
       toast.show(storageErrorText(e, locale, t('settings.data.exportFailed')));

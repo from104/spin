@@ -140,7 +140,8 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
     setPendingDelete({ drill: d, referrers });
   };
   const handleExport = async (d: DrillSummary) => {
-    await exportOneDrill(d.id, locale);
+    // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않는다.
+    if ((await exportOneDrill(d.id, locale)) === 'cancelled') return;
     toast.show(t('library.exportToast', { title: d.title }));
   };
 

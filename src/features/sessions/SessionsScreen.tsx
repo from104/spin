@@ -153,7 +153,8 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
   const handleExportSession = async (id: SessionId) => {
     const resolved = await getSession(id);
     if (!resolved) return;
-    await exportOneSession(resolved.session);
+    // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않는다.
+    if ((await exportOneSession(resolved.session)) === 'cancelled') return;
     toast.show(t('sessionsScreen.exportToast', { title: resolved.session.title }));
   };
 

@@ -23,14 +23,15 @@ import { translate } from '../../i18n/useT.ts';
 // ★ 타입만 가져온다 — 보고의 **모양**은 한 벌이어야 하고(AGENTS §3), 값 의존(다른 feature 의
 //   함수 호출)은 만들지 않는다. 산식은 아래에 팀의 것으로 따로 쓴다.
 import type { ImportReport } from '../library/transfer.ts';
+import type { SaveOutcome } from '../../storage/files.ts';
 
 /** 팀 하나 → `.spin.team.json`. i18n C4 — 파일명 세그먼트는 번역하지 않는다(세션 쪽
  *  `SPIN_session_…` 과 같은 규율): 다운로드 파일명은 UI 문구가 아니라 파일 시스템 호환성이
  *  우선이다. 팀 **이름**은 사용자 데이터라 그대로 slugify 되어 들어간다. */
-export async function exportOneTeam(id: TeamId, opts: ExportTeamOptions = {}, locale: Locale = 'ko'): Promise<void> {
+export async function exportOneTeam(id: TeamId, opts: ExportTeamOptions = {}, locale: Locale = 'ko'): Promise<SaveOutcome> {
   const t = await getTeam(id);
   if (!t) throw new Error(translate(locale, 'team.transfer.notFoundError'));
-  downloadBlob(exportTeamFile(t, opts), `SPIN_team_${slugify(t.name)}_${ymdLocal(Date.now())}${SPIN_EXT.team}`);
+  return downloadBlob(exportTeamFile(t, opts), `SPIN_team_${slugify(t.name)}_${ymdLocal(Date.now())}${SPIN_EXT.team}`);
 }
 
 /** 이 화면이 아니라 **다른 화면**에서 여는 봉투들 → 각자의 안내 문구.

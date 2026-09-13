@@ -473,6 +473,7 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
     await userEvent.click(head());
     await userEvent.click(await screen.findByRole('button', { name: '저장' }));
     await waitFor(() => expect(onClose, '저장했으면 닫는다').toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/저장했습니다/), '저장했다고 말해 준다').toBeTruthy();
 
     cleanup();
     downloadMock.mockResolvedValue('cancelled');
@@ -485,6 +486,7 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
     await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(2));
     expect(onClose2, '물렸으면 다시 누를 자리를 남긴다').toHaveBeenCalledTimes(0);
     expect(save.isConnected, '[저장] 버튼이 그대로 있어야 다시 누른다').toBe(true);
+    expect(screen.queryByText(/저장했습니다/), '물렸는데 저장했다고 말하면 거짓말이다').toBeNull();
   });
 
   /** 끝나지 않는 인코딩 — signal 을 붙잡아 두고 abort 될 때만 취소로 끝난다. */

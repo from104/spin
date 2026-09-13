@@ -283,7 +283,12 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
 
         {/* ── ③ 시연·내보내기 ─────────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="secondary" onClick={() => void exportOneSession(session).then(() => toast.show(t('sessionsScreen.exportToast', { title: session.title })))}>
+          <Button variant="secondary" onClick={() =>
+              void exportOneSession(session).then((outcome) => {
+                // 취소는 성공이 아니다(2026-09-13).
+                if (outcome !== 'cancelled') toast.show(t('sessionsScreen.exportToast', { title: session.title }));
+              })
+            }>
             {t('sessionTab.exportMenuItem')}
           </Button>
           {/* 튜토리얼 앵커 — 계획서 §2.2 는 이 단계의 대상을 `header-primary` 로 적었지만,

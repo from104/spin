@@ -318,14 +318,22 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
       // 여러개면 zip으로 가자 한개면 png고"*). 낱개 순차 다운로드는 브라우저마다 막는 방식이
       // 다르고(iOS 는 share 제스처가 await 를 못 넘긴다 — storage/files.ts 머리말), ZIP 은
       // 어디서나 한 번에 끝난다. 압축은 하지 않는다 — PNG 는 이미 압축된 포맷이다(storage/zip.ts).
-      if (baked.length === 1) {
-        downloadBlob(baked[0]!.blob, baked[0]!.name);
-      } else {
-        const entries = await Promise.all(
-          baked.map(async (b) => ({ name: b.name, bytes: new Uint8Array(await b.blob.arrayBuffer()) })),
-        );
-        downloadBlob(buildZip(entries), sceneZipName(drill.title));
-      }
+      const name = baked.length === 1 ? baked[0]!.name : sceneZipName(drill.title);
+      const outcome =
+        baked.length === 1
+          ? await downloadBlob(baked[0]!.blob, name)
+          : await downloadBlob(
+              buildZip(
+                await Promise.all(
+                  baked.map(async (b) => ({ name: b.name, bytes: new Uint8Array(await b.blob.arrayBuffer()) })),
+                ),
+              ),
+              name,
+            );
+      // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않고, 다시 누를
+      // 자리를 남긴다(시트를 닫지 않는다).
+      if (outcome === 'cancelled') return;
+      toast.show(t('export.savedToast', { name }));
       onClose();
     }, t('export.pngFailed'));
 
@@ -335,7 +343,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
   const saveVideo = async () => {
     if (video.phase !== 'done') return;
     const outcome = await downloadBlob(video.blob, video.name);
-    if (outcome !== 'cancelled') onClose();
+    if (outcome === 'cancelled') return;
+    toast.show(t('export.savedToast', { name: video.name }));
+    onClose();
   };
 
   /** 영상 인코딩 시작(그리고 [다시]). `run()` 을 쓰지 않는 이유는 저 헬퍼가 **끝날 때까지

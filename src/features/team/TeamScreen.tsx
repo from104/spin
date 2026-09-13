@@ -119,7 +119,10 @@ export function TeamScreen({ nav, teamId }: TeamScreenProps) {
   const [sheetTarget, setSheetTarget] = useState<{ team: Team; mode: 'export' | 'print' } | null>(null);
   const runExport = (team: Team, stripClass: boolean) => {
     void exportOneTeam(team.id, { stripClass }, locale)
-      .then(() => toast.show(t('team.exportToast', { name: team.name })))
+      // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않는다.
+      .then((outcome) => {
+        if (outcome !== 'cancelled') toast.show(t('team.exportToast', { name: team.name }));
+      })
       .catch((e: unknown) => toast.show(storageErrorText(e, locale, t('team.detail.saveFailToast'))));
   };
 

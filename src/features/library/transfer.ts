@@ -19,13 +19,16 @@ import type { Drill } from '../../model/drill.ts';
 import type { TrainingSession } from '../../model/session.ts';
 import type { DrillId } from '../../core/ids.ts';
 import type { Locale } from '../../i18n/locale.ts';
+import type { SaveOutcome } from '../../storage/files.ts';
 import { translate } from '../../i18n/useT.ts';
 
-export async function exportOneDrill(id: DrillId, locale: Locale = 'ko'): Promise<void> {
+/** 돌려주는 값은 **저장의 끝**이다(2026-09-13) — 부르는 쪽이 "저장했습니다" 토스트를 띄울지
+ *  가른다. 취소를 성공으로 읽으면 물린 사람에게 저장했다고 거짓말을 하게 된다. */
+export async function exportOneDrill(id: DrillId, locale: Locale = 'ko'): Promise<SaveOutcome> {
   const { repo } = await resolveDrillRepo();
   const d = await repo.getDrill(id);
   if (!d) throw new Error(translate(locale, 'library.transfer.drillNotFoundError'));
-  downloadBlob(exportDrillFile(d), drillFileName(d));
+  return downloadBlob(exportDrillFile(d), drillFileName(d));
 }
 
 // ⚠️ `exportAllDrills`(= 목록의 [전체 내보내기])는 2026-08-12(4.7)에 **삭제됐다. 되살리지 마라.**
@@ -35,13 +38,13 @@ export async function exportOneDrill(id: DrillId, locale: Locale = 'ko'): Promis
 //    통째로 담는 파일이 필요하면 `storage/transfer.ts` 의 collectBackup/exportBackupFile 이고,
 //    그 진입점은 [보드] 하단 [내보내기] → [기기 이사 파일] 하나뿐이다(§6.4).
 
-export async function exportOneSession(session: TrainingSession): Promise<void> {
+export async function exportOneSession(session: TrainingSession): Promise<SaveOutcome> {
   const { repo } = await resolveDrillRepo();
   const map = await repo.getDrills(session.drillIds);
   const drills = session.drillIds.map((id) => map.get(id)).filter((d): d is Drill => d !== undefined);
   // i18n C4 — 파일명 세그먼트는 번역하지 않는다(드릴 쪽 drillFileName 도 언어 중립이다) — 다운로드
   // 파일명은 UI 문구가 아니라 파일 시스템 호환성이 우선이라, '세션'을 영문 'session' 으로 고쳤다.
-  downloadBlob(exportSessionFile(session, drills), `SPIN_session_${slugify(session.title)}_${ymdLocal(Date.now())}${SPIN_EXT.session}`);
+  return downloadBlob(exportSessionFile(session, drills), `SPIN_session_${slugify(session.title)}_${ymdLocal(Date.now())}${SPIN_EXT.session}`);
 }
 
 /** 가져오기 1단계: 파일을 읽고 파싱해 후보 목록을 만든다. UI 는 이 결과로 conflict:'exists' 만
