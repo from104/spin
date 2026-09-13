@@ -853,7 +853,7 @@ export const en: Record<DictKey, string> = {
   'editor.workspace.presentAriaLabel': 'Start Presentation',
   'editor.workspace.presentTitle': 'Present — walk your team through it step by step',
   'editor.workspace.presentLabel': 'To Present',
-  'editor.workspace.courtHelp': 'Arrow keys to move the cursor, Enter to place, [ / ] to cycle objects',
+  'editor.workspace.courtHelp': 'Arrow keys or WASD to move, Q · E to rotate, Enter to place, [ / ] to cycle objects (Shift for bigger steps)',
 
   // ── C7 — "Select same kind" ─────────────────────────────────────────────────────────
   'editor.selectSame.sameTeam': 'Select all on this team',
@@ -964,6 +964,7 @@ export const en: Record<DictKey, string> = {
   'export.video.title': 'Video (MP4)',
   'export.video.desc': 'The whole drill as one 30fps video. Posts straight into a chat.',
   'export.saveFailed': 'Could not save the file.',
+  'editor.announce.rotateMulti': 'Rotation is off while several objects are selected. Select just one.',
   'export.savedToast': 'Saved “{{name}}.”',
   'export.video.start': 'Create video',
   'export.video.size720': '720p',
@@ -987,6 +988,7 @@ export const en: Record<DictKey, string> = {
   'arrow.label.oneTemplate': 'Line, {{name}} end',
 
   // ── C8b — Editor object layer (cone/ball/note) ──────────────────────────────────────
+  'objectLayer.shapeAriaLabel': 'Shape: {{kind}}',
   'objectLayer.noteAriaLabel': 'Note: {{text}}',
   'noteChip.placeholder': 'Note',
 

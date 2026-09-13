@@ -848,7 +848,7 @@ export const ja: Record<DictKey, string> = {
   'editor.workspace.presentAriaLabel': 'プレゼンを開始',
   'editor.workspace.presentTitle': 'プレゼン — チームの前でステップごとに見せる',
   'editor.workspace.presentLabel': 'プレゼンへ',
-  'editor.workspace.courtHelp': '矢印キーでカーソル移動、Enterで配置、[ / ]でオブジェクト巡回',
+  'editor.workspace.courtHelp': '矢印キー・WASDで移動、Q・Eで回転、Enterで配置、[ / ]でオブジェクト巡回（Shiftで大きく）',
 
   // ── C7 — 「同じ種類を全部選択」 ──────────────────────────────────────────────────────
   'editor.selectSame.sameTeam': '同じチーム全部選択',
@@ -959,6 +959,7 @@ export const ja: Record<DictKey, string> = {
   'export.video.title': '動画（MP4）',
   'export.video.desc': 'ドリル全体を30fpsの動画1本に。トーク画面にそのまま投稿できます。',
   'export.saveFailed': '保存できませんでした。',
+  'editor.announce.rotateMulti': '複数選択中は回転しません。一つだけ選んでください。',
   'export.savedToast': '「{{name}}」を保存しました。',
   'export.video.start': '動画を作る',
   'export.video.size720': '720p',
@@ -982,6 +983,7 @@ export const ja: Record<DictKey, string> = {
   'arrow.label.oneTemplate': '{{name}}の線',
 
   // ── C8b — エディターのオブジェクトレイヤー（コーン・ボール・メモ） ──────────────────────
+  'objectLayer.shapeAriaLabel': '図形: {{kind}}',
   'objectLayer.noteAriaLabel': 'メモ: {{text}}',
   'noteChip.placeholder': 'メモ',
 

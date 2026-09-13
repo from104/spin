@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
+- **Shapes can now be used from the keyboard** — until now a shape could not take focus, so it was the only object you could not move with the arrow keys or WASD, nor reach with `[` and `]`
+- **Q and E now rotate more than wheelchairs** — shapes, lines and freehand strokes turn with the same keys (Shift for 15°). Notes, balls and cones have no angle, and nothing rotates while several objects are selected
 - Selecting a shape, note, line or freehand stroke, or several objects, now shows a **move anchor** above them — when objects overlap and the body is hard to grab, drag the anchor and everything selected follows. It sits below when there is no room above, and steps aside when it would land on another handle. With several objects, or a single line or stroke, a **dashed rectangle** shows what the anchor holds. Dragging the body still works
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
 

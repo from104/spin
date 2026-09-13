@@ -29,6 +29,10 @@ export interface ShapeMarkProps {
   locked?: boolean;
   /** 개체 포인터 배선. 편집기만 넘긴다 — 없으면 도형은 그림일 뿐이라 클릭도 안 받는다. */
   onPointerDown?: (id: string, e: React.PointerEvent<SVGGElement>) => void;
+  /** 키보드 초점이 여기 있는가(2026-09-14). 편집기만 켠다 — **시연·인쇄·썸네일·내보내기는
+   *  이 prop 을 안 넘기므로 출력이 한 픽셀도 안 바뀐다**(골든 대조가 그것을 지킨다).
+   *  다른 개체(휠체어·공·콘·메모)가 쓰는 초점 표시와 같은 2겹 규약이다. */
+  active?: boolean;
   /** 테두리 굵기 배수. 기본 1(판·시연·인쇄). **썸네일만 키운다** — 축소해 그리는 곳에서
    *  `SHAPE_STROKE_PX` 2 는 카드에서 0.7 px 가 되어 테두리가 사실상 사라진다.
    *  ⚠️ 굵기만이다. 도형의 **크기는 사용자가 그린 구역 그 자체**라 배수를 곱하면 안 된다 —
@@ -36,7 +40,7 @@ export interface ShapeMarkProps {
   strokeScale?: number;
 }
 
-export function ShapeMark({ shape: s, selected = false, locked = false, onPointerDown, strokeScale = 1 }: ShapeMarkProps) {
+export function ShapeMark({ shape: s, selected = false, locked = false, active = false, onPointerDown, strokeScale = 1 }: ShapeMarkProps) {
   const sw = SHAPE_STROKE_PX * strokeScale;
   const { w, h } = shapeSize(s);
   // 삼각형의 모양은 w/h 가 아니라 꼭짓점이 진다(2026-08-15 자유 삼각형). w/h 는 타원·
@@ -75,6 +79,17 @@ export function ShapeMark({ shape: s, selected = false, locked = false, onPointe
           strokeOpacity={strokeOpacity}
           strokeWidth={sw}
         />
+      )}
+
+      {/* 키보드 초점 표시(2026-09-14) — 다른 개체와 **같은 2겹 규약**이다. `active` 를 안 주는
+          곳(시연·인쇄·썸네일·PNG)에서는 요소 자체가 안 나가므로 출력이 한 픽셀도 안 바뀐다.
+          도형 경계에 맞춰 그리므로 회전 변환 **안쪽**에 있다 — 밖에 두면 돌린 도형에서 테두리가
+          어긋난다. `court-obj:focus-visible` 이 색을 켠다(styles/contrast.css). */}
+      {active && (
+        <>
+          <rect className="focus-ind-outer" x={-w / 2} y={-h / 2} width={w} height={h} fill="none" />
+          <rect className="focus-ind-inner" x={-w / 2} y={-h / 2} width={w} height={h} fill="none" />
+        </>
       )}
       {/* 잠김 덮개 — 도형의 **모양 그대로** 덮는다. 상자로 덮으면 타원·삼각형 밖까지
           칠해져 "무엇이 잠겼는지" 가 흐려진다. 면 위에 얹으므로 도형 뒤에 온다. */}

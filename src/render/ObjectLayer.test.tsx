@@ -22,10 +22,13 @@ const arrowId = 'ar_1' as ArrowId;
 const shapeId = 'sh_1' as Shape['id'];
 const shape: Shape = { id: shapeId, kind: 'rect', x: 100, y: 100, w: 80, h: 50, rot: 0 };
 
-/** 판 위 개체를 **DOM 순서 그대로** 나열한다. 개체는 `id="obj-…"`, 도형은 `data-shape-id` 를
- *  달고 있어(둘은 서로 다른 표식이다) 한 번의 querySelectorAll 로 함께 센다. */
+/** 판 위 개체를 **DOM 순서 그대로** 나열한다. 전부 `id="obj-…"` 를 갖는다.
+ *
+ *  ⚠️ 2026-09-14 — 옛 주석은 *"개체는 `id=\"obj-…\"`, 도형은 `data-shape-id` 를"* 로 갈라 적었고
+ *  선택자도 둘이었다. 도형이 키보드로 열리면서 껍데기 `<g>` 가 `id` 를 갖게 돼, 두 선택자가
+ *  같은 도형을 **두 번** 집었다. 이제 하나로 족하다. */
 const domOrder = (container: HTMLElement): string[] =>
-  Array.from(container.querySelectorAll('[id^="obj-"], [data-shape-id]')).map((el) => el.id || `obj-${el.getAttribute('data-shape-id')}`);
+  Array.from(container.querySelectorAll('[id^="obj-"]')).map((el) => el.id);
 
 function renderLayer(initialFrame?: Record<string, { x: number; y: number; theta: number }>, order?: readonly SceneRef[]) {
   const writer = createTransformWriter();

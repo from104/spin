@@ -575,10 +575,13 @@ describe('[미세 조정] 칸', () => {
   it('잠긴 개체에는 안 난다 — 눌러도 안 움직이는 칸을 내지 않는다', () => {
     open(['ch_1'], true);
     expect(screen.queryByRole('menuitem', { name: '미세 조정' })).toBeNull();
-    // 미세 조정이 안 먹는 개체(도형)도 마찬가지다 — 잠김과 다른 입력, 같은 결과.
+    // ⚠️ 2026-09-14 — 옛 단언은 *"미세 조정이 안 먹는 개체(도형)도 마찬가지다"* 로 도형에도
+    //    칸이 안 나는 것을 못박고 있었다. 그 전제가 기현님 지시로 뒤집혔다(*"모든 객체가
+    //    wasd,qe 키에 의해 위치 및 회전이 되어야한다"*) — 도형은 이제 옮길 수 있으므로 칸이
+    //    **나야** 한다. 잠김 쪽 단언(위)은 그대로다.
     cleanup();
     open(['sh_1']);
-    expect(screen.queryByRole('menuitem', { name: '미세 조정' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: '미세 조정' })).not.toBeNull();
   });
 });
 

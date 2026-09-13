@@ -396,6 +396,7 @@ export const HELP_EN: HelpContent = {
             ],
           },
           { kind: 'p', text: 'With several selected, drag any one of them and **all of them move together.** Tap without dragging and only that one stays selected.' },
+          { kind: 'p', text: 'Move the selection with the **arrow keys or W A S D**, and rotate it with **Q and E** (hold Shift for bigger steps). Rotation applies to wheelchairs, shapes, lines and strokes only — notes, balls and cones have no angle, and nothing rotates while several objects are selected (a group has no single axis).' },
           { kind: 'p', text: 'Select one shape, note, line or freehand stroke, or several objects, and a **move anchor** (a circle with a four-way arrow) appears above them. When objects overlap and the body is hard to grab, drag the anchor and everything selected follows. It sits below when there is no room above, and steps aside when it would land on another handle. With several objects selected, or a single line or stroke, a **dashed rectangle** appears too, showing what the anchor holds. Dragging the body still works as before.' },
         ],
       },

@@ -11,8 +11,11 @@ import { sceneOrder, zMoves } from '../../model/zOrder.ts';
 import { overlappingIds, selectionBounds } from '../../physics/bounds.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
+import type { Vec2 } from '../../core/units.ts';
 import { isId } from '../../core/ids.ts';
 import { moveAnchorGuide, moveAnchorIds } from './moveAnchorIds.ts';
+import { canRotateKind } from './nudgeCaps.ts';
+import { COALESCE_MS } from '../../store/editor/history.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
 import type { CastId, ChairId, NoteId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
@@ -22,7 +25,8 @@ import type { EditorAction } from '../../store/editor/actions.ts';
 import type { BallRing, Drill, DrillStep, NoteLabel, TeamSide } from '../../model/drill.ts';
 
 import type { ZoneConfig } from '../../model/chair.ts';
-import { nudgeArrow } from '../../model/arrow.ts';
+import { arrowMid, nudgeArrow, rotateArrowAbout } from '../../model/arrow.ts';
+import { rotateShapeBy } from '../../model/shape.ts';
 import type { Arrow, ArrowPart } from '../../model/arrow.ts';
 import { nudgeStroke, rotateStrokeAbout, strokeCenter } from '../../model/stroke.ts';
 import { courtDefFor, goalBaseDir, gridCellCenter, cellLabelAt, type CourtMode, type CourtSize } from '../../model/court.ts';
@@ -37,6 +41,7 @@ import type { RuleOverlayApi, RuleRosterEntry } from '../../render/ruleOverlay.t
 import { liveRegion } from '../../ui/LiveRegion.tsx';
 import { ZONE_CURSOR_DRAGGING } from '../../render/zoneCursors.ts';
 import { useEditorPointer } from './useEditorPointer.ts';
+import { translate } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
 export interface EditorStageProps {
@@ -346,14 +351,31 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     });
   }, [goalHomes, worldRef]);
 
-  // §7.5b 순회 순서: 팀A 선수 → 팀B 선수 → 공 → 콘 → 메모 → 화살표.
+  // §7.5b 순회 순서: 팀A 선수 → 팀B 선수 → 공 → 콘 → 메모 → 화살표 → 획 → 도형.
+  //
+  // ⚠️ 2026-09-14 — 꼬리에 획(`fh`)·도형(`sh`)이 더해졌다. 그전에는 둘 다 목록에 없어 `[`·`]`
+  //    로 **닿을 수가 없었고**, 도형은 아예 초점을 못 받았다(ObjectLayer 의 `aria-hidden`).
+  //    꼬리에 붙이는 이유: `order[0]` 이 안 바뀌어야 기본 초점과 손버릇이 그대로다.
   const order = useMemo(() => {
     const homeIds = chairs.filter((c) => drill.cast.chairs.find((d) => d.id === c.id)?.team === 'home').map((c) => c.id as string);
     const awayIds = chairs.filter((c) => drill.cast.chairs.find((d) => d.id === c.id)?.team === 'away').map((c) => c.id as string);
-    return [...homeIds, ...awayIds, ...balls, ...cones.map((c) => c.id as string), ...step.notes.map((n) => n.id as string), ...step.arrows.map((a) => a.id as string)];
-  }, [chairs, drill.cast.chairs, balls, cones, step.notes, step.arrows]);
+    return [
+      ...homeIds,
+      ...awayIds,
+      ...balls,
+      ...cones.map((c) => c.id as string),
+      ...step.notes.map((n) => n.id as string),
+      ...step.arrows.map((a) => a.id as string),
+      ...(step.strokes ?? []).map((s) => s.id as string),
+      ...step.shapes.map((s) => s.id as string),
+    ];
+  }, [chairs, drill.cast.chairs, balls, cones, step.notes, step.arrows, step.strokes, step.shapes]);
 
   const activeId = selection.size > 0 ? (Array.from(selection)[0] ?? null) : (rovingId ?? order[0] ?? null);
+
+  /** 획 회전의 **축 래치**. `strokeCenter` 가 돌리면 함께 움직이는 값이라 매번 다시 재면
+   *  획이 흘러간다 — 되돌리기 병합 창(COALESCE_MS) 안에서는 처음 잡은 축을 그대로 쓴다. */
+  const rotAxisRef = useRef<{ id: string; c: Vec2; at: number } | null>(null);
 
   const nudge = useCallback(
     (id: string, dx: number, dy: number, dThetaRad: number, arrowPart: ArrowPart = 'whole') => {
@@ -392,13 +414,36 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         if (note) dispatch({ type: 'NOTE_SET', note: { ...note, x: note.x + dx, y: note.y + dy } });
         return;
       }
+      if (isId(id, 'sh')) {
+        // 도형(2026-09-14 기현님 지시로 개통). 물리 바디가 없다. 회전축은 `x,y` 자신이라
+        // (삼각형은 무게중심) 래치가 필요 없다 — 돌려도 축이 제자리다.
+        const shape = step.shapes.find((x) => x.id === id);
+        if (!shape) return;
+        if (dThetaRad !== 0) {
+          // 환산(라디안→도)과 0~360 접기는 **모델이 한다**(`rotateShapeBy`) — `rot` 의 단위와
+          // 규약을 아는 곳이 둘이 되면 같은 도형이 −5° 와 355° 두 값으로 저장된다.
+          dispatch({ type: 'SHAPE_SET', shape: rotateShapeBy(shape, dThetaRad) });
+          return;
+        }
+        dispatch({ type: 'SHAPE_SET', shape: { ...shape, x: shape.x + dx, y: shape.y + dy } });
+        return;
+      }
       if (isId(id, 'ar')) {
         // 화살표 개체(§4.3 1.11). 메모와 같이 물리 바디가 없다. 여기가 비어 있던 탓에
         // 화살표는 **키보드로 전혀 움직이지 않았다** — 유일한 조작 경로가 12px 드래그와
         // 반경 22 CSS px 핸들 3개의 정밀 드래그뿐이었다 — 정밀 포인팅을 전제하는 조작은
         // 그것이 어려운 입력에는 사실상 없는 기능과 같다.
         const arrow = step.arrows.find((a) => a.id === id);
-        if (arrow) dispatch({ type: 'ARROW_SET', arrow: nudgeArrow(arrow, arrowPart, { x: dx, y: dy }) });
+        if (!arrow) return;
+        if (dThetaRad !== 0) {
+          // 축은 `arrowMid`(곡선의 t=0.5 점) — 포인터의 회전 앵커와 **같은 축**이라 손과
+          // 키보드가 안 갈린다. 래치가 필요 없는 이유: 회전은 아핀 변환이고 `arrowMid` 는
+          // 세 점의 아핀 결합((f+2c+t)/4)이라, 세 점을 그 점 둘레로 돌리면 그 점 자신은
+          // **고정점**이다. 즉 매 프레임 다시 재도 같은 자리다(획은 그렇지 않다 — 아래).
+          dispatch({ type: 'ARROW_SET', arrow: rotateArrowAbout(arrow, arrowMid(arrow), dThetaRad) });
+          return;
+        }
+        dispatch({ type: 'ARROW_SET', arrow: nudgeArrow(arrow, arrowPart, { x: dx, y: dy }) });
         return;
       }
       if (isId(id, 'fh')) {
@@ -408,13 +453,23 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         const stroke = step.strokes?.find((s) => s.id === id);
         if (!stroke) return;
         if (dThetaRad !== 0) {
-          dispatch({ type: 'STROKE_SET', stroke: rotateStrokeAbout(stroke, strokeCenter(stroke), dThetaRad) });
+          // ⚠️ 축을 **래치한다**(2026-09-14). `strokeCenter` 는 경계상자의 중심이고, 획을 돌리면
+          // 그 상자가 바뀌므로 중심도 함께 움직인다 — 매번 다시 재면 5°씩 72번 돌렸을 때 획이
+          // 제자리로 안 돌아오고 슬금슬금 흘러간다(화살표의 `arrowMid` 와 다른 점이 이것이다).
+          // 창은 되돌리기 병합 창과 **같은 값**이다: 「축 한 벌 = 되돌리기 한 칸」이라야 사람이
+          // 되돌렸을 때 축과 상태가 같은 경계에서 끊긴다.
+          const now = performance.now();
+          const latch = rotAxisRef.current;
+          const center =
+            latch && latch.id === id && now - latch.at <= COALESCE_MS ? latch.c : strokeCenter(stroke);
+          rotAxisRef.current = { id, c: center, at: now };
+          dispatch({ type: 'STROKE_SET', stroke: rotateStrokeAbout(stroke, center, dThetaRad) });
           return;
         }
         dispatch({ type: 'STROKE_SET', stroke: nudgeStroke(stroke, { x: dx, y: dy }) });
       }
     },
-    [dispatch, step.arrows, step.notes, step.strokes, worldRef, selection, lockedSet, ignoredSet],
+    [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet],
   );
 
   const handleObjectKeyDown = useCallback(
@@ -456,11 +511,22 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           return;
         }
         case 'obj.rotate': {
-          // 회전이 없는 개체(공·콘·메모·화살표·도형)에서는 조용히 아무 일도 안 한다 —
-          // 휠체어만 방향을 가진다.
-          if (!isId(id, 'ch')) return;
+          // ⚠️ 2026-09-14 — 옛 줄은 `if (!isId(id, 'ch')) return;` 였고 주석은 *"회전이 없는
+          // 개체(공·콘·메모·화살표·도형)에서는 조용히 아무 일도 안 한다 — 휠체어만 방향을
+          // 가진다"* 였다. 그 말은 **그때도 사실이 아니었다**: 획은 `nudge()` 안에 회전 갈래가
+          // 이미 있었고 [미세 조정] 패드는 그것을 썼는데, 이 한 줄이 키보드만 막고 있었다.
+          // 기현님 지시(*"모든 객체가 wasd,qe 키에 의해 위치 및 회전이 되어야한다"*)로 게이트를
+          // 종류 판정 하나(`canRotateKind`)로 바꾼다 — 패드·메뉴와 **같은 함수**다.
           e.preventDefault();
           e.stopPropagation();
+          // 다중 선택에서는 회전이 없다(기현님이 명시한 예외). 여태는 **막힌 것이 아니라**
+          // 포커스가 앉은 하나만 조용히 돌았다 — 여럿을 골라 놓고 E 를 눌렀는데 하나만 도는
+          // 것은 «무리»라는 말과 어긋난다. 이제 아무것도 안 돌리고, 왜 안 도는지 읽어 준다.
+          if (selection.size > 1 && selection.has(id)) {
+            liveRegion.say(translate(locale, 'editor.announce.rotateMulti'));
+            return;
+          }
+          if (!canRotateKind(id)) return;
           nudge(id, 0, 0, (eventCode(e) === 'KeyQ' ? -1 : 1) * deg * RAD);
           return;
         }

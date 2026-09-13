@@ -367,6 +367,19 @@ export function shapeContains(s: Shape, p: Vec2): boolean {
  *  이 되면서(2026-08-15) 뒤집혔다: 짚은 점 말고 **나머지가 제자리에 남아야** 그린 자리와 결과가
  *  같다. 회전축이 흔들리는 문제는 중심을 **다시 잡아**(모서리 한가운데 / 무게중심) 해결한다 —
  *  옛 규칙이 막으려던 것은 그대로 막히고, 조작만 직접적인 것으로 바뀐 셈이다. */
+/** 도형을 **라디안만큼** 돌린다. 축은 `x,y` 자신이라(삼각형은 무게중심) 축이 흐를 일이 없다.
+ *
+ *  여기 있는 이유: `rot` 이 **도(度)** 라는 사실과 «0~360 으로 접는다» 는 규약이 이 파일의 것이고,
+ *  그 둘을 아는 곳이 둘이 되면 한쪽이 −5° 로, 다른 쪽이 355° 로 저장한다. 포인터의 회전 손잡이
+ *  (`dragShapeHandle`)가 같은 식으로 접는다 — 손과 키보드가 같은 값을 남겨야 한다.
+ *
+ *  입력이 라디안인 것은 부르는 쪽(키보드 Q·E)의 단위가 라디안이라서다. 환산을 이 한 줄에 가둬
+ *  두면 «도에 라디안을 더해 286° 가 되는» 사고가 한 자리에서만 가능해진다. */
+export function rotateShapeBy(s: Shape, dThetaRad: number): Shape {
+  const deg = s.rot + (dThetaRad * 180) / Math.PI;
+  return { ...s, rot: ((deg % 360) + 360) % 360 };
+}
+
 export function dragShapeHandle(s: Shape, which: ShapeHandle, p: Vec2): Shape {
   if (which === 'rotate') {
     // 회전 손잡이가 앉은 **방향**을 기준으로 각을 잰다. 상자 도형은 그 방향이 위(-90°)라
