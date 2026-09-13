@@ -433,10 +433,10 @@ export const HELP_EN: HelpContent = {
             items: [
               '**Tap an end handle** — its arrowhead cycles none → thin → wide.',
               '**Tap the bend handle** — the line’s color cycles. Dragging it bends the line.',
-              '**The rotation anchor** — drag only. There’s no cycled value from a tap.',
+              '**The rotation anchor** — drag only for arrows and strokes. There’s no cycled value from a tap (shapes are the exception — see below).',
             ],
           },
-          { kind: 'p', text: 'Shapes ([Circle], [Triangle], [Square]) size themselves as you drag; [Freehand] draws wherever your hand goes.' },
+          { kind: 'p', text: 'Shapes ([Circle], [Triangle], [Square]) size themselves as you drag; [Freehand] draws wherever your hand goes. **Tapping a shape’s rotation anchor cycles its color** — white, sky, yellow and orange, all translucent so overlaps deepen.' },
           { kind: 'tip', tone: 'tip', text: 'Once picked, [Erase] wipes out whatever you tap, one after another. Tap empty space, tap the tool again, or press `Esc` to return to [Select].' },
         ],
       },

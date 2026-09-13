@@ -245,9 +245,22 @@ describe('작도 도형 — ShapeLayer 와 같은 도형을 그린다', () => {
   });
 
   it('대조군 — 세 종류가 실제로 세어지고, 빈 목록은 아무것도 안 낸다', () => {
-    expect(shapesOf(shapesMarkup(SHAPES))).toHaveLength(3);
+    // ⚠️ 2026-09-14 — 도형 한 장이 **두 요소**가 됐다(검정 케이싱 + 본체). 색이 생기면서
+    //    테두리 반투명으로는 경계가 안 보이는 색이 나왔기 때문이다(주황 1.26:1). 그래서
+    //    도형 셋이 요소 여섯이다. `transformsOf` 는 껍데기 <g> 를 세므로 여전히 셋이고,
+    //    그 둘이 갈리는 것이 «한 장이 두 겹» 이라는 사실의 유일한 표시다.
+    expect(shapesOf(shapesMarkup(SHAPES))).toHaveLength(6);
     expect(shapesMarkup([])).toBe('');
     expect(transformsOf(shapesMarkup(SHAPES))).toHaveLength(3);
+  });
+
+  // 2026-09-14 — 색이 **두 벌 모두**에 실리는가. 이 파일의 픽스처는 색 없는 도형뿐이었고,
+  // 그러면 «PNG·영상만 흰색» 이 초록인 채로 성립한다(renderPaths 레지스트리는 색을 안 본다).
+  it('색이 PNG 쪽에도 실린다 — 판과 같은 hex 가 나온다', () => {
+    const colored = SHAPES.map((s, i) => ({ ...s, color: ['#38bdf8', '#fde047', '#f97316'][i]! }));
+    const markup = shapesMarkup(colored);
+    for (const hex of ['#38bdf8', '#fde047', '#f97316']) expect(markup, hex).toContain(hex);
+    expect(shapesOf(markup)).toEqual(shapesOf(renderToStaticMarkup(createElement(ShapeLayer, { shapes: colored }))));
   });
 
   it('⚠️ 그룹에 opacity 를 걸지 않는다 — 겹치면 진해지는 성질이 납작해진다', () => {

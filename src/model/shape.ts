@@ -23,6 +23,7 @@
 // 때마다 x,y 를 함께 고쳐야 하고, 그 두 번의 갱신 사이에 반올림이 끼어 도형이 조금씩 흐른다.
 // `w,h` 는 **회전 전** 전체 폭·높이. `rot` 은 도(度) 단위 시계방향(화면 y축이 아래라 SVG
 // `rotate()` 와 부호가 같다).
+import { SHAPE_COLOR_CHOICES } from '../core/colors.ts';
 import type { ShapeId } from '../core/ids.ts';
 import type { Vec2 } from '../core/units.ts';
 
@@ -51,6 +52,9 @@ export interface Shape {
   h: number;
   /** 도(度), 시계방향. */
   rot: number;
+  /** 테두리·면의 색(hex). 없으면 `SHAPE_COLOR`(흰색) — 옛 저장본이 그 모양이다.
+   *  값은 `SHAPE_COLOR_CHOICES` 넷 중 하나이고, 회전 손잡이를 탭하면 한 칸 돈다. */
+  color?: string;
   /** **삼각형 전용.** 없으면 `w` 를 한 변으로 하는 정삼각형으로 읽는다(옛 저장본).
    *  타원·사각형에는 없다 — 있어도 무시된다. */
   pts?: TriPoints;
@@ -69,15 +73,48 @@ export const SHAPE_MAX_PX = 1000;
  *  0.13 이면 코트(#1f7a46) 위에서 한 겹 1.19:1 · 두 겹 1.41:1 · 세 겹 1.68:1 로 벌어진다. */
 export const SHAPE_FILL_OPACITY = 0.13;
 /** 테두리는 면보다 훨씬 진하다. 면만으로는 경계가 안 보여서 "어디까지가 이 도형인가" 를
- *  눈으로 못 재고, 그러면 손잡이를 찾을 수도 없다. */
-export const SHAPE_STROKE_OPACITY = 0.55;
-export const SHAPE_STROKE_PX = 2;
-/** 색은 **흰색 하나로 고정**이다(기현 결정 2026-08-14).
+ *  눈으로 못 재고, 그러면 손잡이를 찾을 수도 없다.
  *
- *  팀 색(빨강·파랑)으로 가르는 안을 검토했다가 접었다: 칩과 같은 색을 쓰면 "빨강 지역 = 빨강
- *  팀" 으로 읽히는 이득이 있지만, 겹침이 요구사항이라 **빨강+파랑이 겹친 자리의 색**을 사람이
- *  해석할 수 없다(보라색 구역은 아무 뜻도 없다). 한 색이면 겹침이 곧 농도라 단계가 깨끗하다. */
-export const SHAPE_COLOR = '#ffffff';
+ *  ⚠️ 2026-09-14 — **더 이상 쓰지 않는다.** 색이 생기면서 이 값으로는 경계가 안 보이는 색이
+ *  나왔다(실측, 코트 #1f7a46 위 α 0.55 합성 대비: 흰 2.74 · 노랑 2.24 · 하늘 1.69 · **주황
+ *  1.26**). 테두리를 **불투명**으로 두고 그 밑에 검정 케이싱을 깐다 — 케이싱↔코트가 3.93:1 이라
+ *  비텍스트 하한 3:1 을 처음으로 넘고, 옛 흰 테두리(2.74)보다도 경계가 잘 보인다. 화살표가
+ *  같은 문제를 같은 방법으로 이미 풀어 놓았다(`ARROW_CASING`). 상수는 **지우지 않는다** —
+ *  옛 값을 아는 것이 이 판단의 근거이기 때문이다. */
+export const SHAPE_STROKE_OPACITY = 0.55;
+/** 테두리 밑에 까는 검정 케이싱의 **추가** 폭(월드 px, 양쪽 합). 화살표 케이싱과 같은 뜻이다. */
+export const SHAPE_CASING_PX = 1.5;
+export const SHAPE_STROKE_PX = 2;
+/** **기본** 색. 옛 저장본·규칙 장면·썸네일은 `color` 키가 없고 전부 이 색으로 읽힌다.
+ *
+ *  ⚠️ 2026-09-14 — 옛 제목은 *"색은 **흰색 하나로 고정**이다(기현 결정 2026-08-14)"* 였고, 그
+ *  아래 근거는 **지우지 않는다**: 팀 색(빨강·파랑)으로 가르는 안을 접은 이유가 *"겹침이
+ *  요구사항이라 빨강+파랑이 겹친 자리의 색을 사람이 해석할 수 없다"* 였고 그 말은 지금도 참이다.
+ *  이번에 들어온 것은 **팀 색이 아니라 중립 4색**(흰·하늘·노랑·주황)이고, 기현님이 *"색이
+ *  섞이는 것은 허용하고 사용자의 선택으로"* 라고 그 대가를 명시적으로 받았다 — 즉 옛 근거가
+ *  틀린 것이 아니라, 그 근거가 막으려던 것(뜻이 있는 색끼리 섞여 **다른 뜻**이 되는 것)이 이번
+ *  팔레트에는 없다. 한 색일 때의 «겹침이 곧 농도» 는 같은 색끼리에서는 그대로 남는다. */
+export const SHAPE_COLOR: string = SHAPE_COLOR_CHOICES[0];
+
+/** 이 도형의 색. 키가 없으면 기본색이다 — 읽는 자리가 둘이 되지 않게 전부 이 함수를 지난다. */
+export function shapeColor(s: Pick<Shape, 'color'>): string {
+  return s.color ?? SHAPE_COLOR;
+}
+
+/** 색을 한 칸 돌린다(회전 손잡이를 **끌지 않고 떼면**). 기본색으로 돌아오면 **키를 지운다** —
+ *  화살표·획과 같은 규약이고, 이유도 같다: 키가 남으면 나중에 기본색을 옮겼을 때 되돌려 둔
+ *  것만 옛 색으로 남는다(`model/stroke.ts` 의 같은 주석). */
+export function cycleShapeColor(s: Shape): Shape {
+  const i = SHAPE_COLOR_CHOICES.indexOf(shapeColor(s) as (typeof SHAPE_COLOR_CHOICES)[number]);
+  // 순환 밖 색(남이 보낸 파일)은 **한 칸 뒤가 아니라 두 번째 색**으로 간다 — 어디에 있는지
+  // 모르는 값에서 «다음» 을 셀 수 없기 때문이다. 기본색으로 보내면 사람이 색을 잃은 줄 안다.
+  const next = SHAPE_COLOR_CHOICES[i < 0 ? 1 : (i + 1) % SHAPE_COLOR_CHOICES.length]!;
+  if (next === SHAPE_COLOR) {
+    const { color: _drop, ...rest } = s;
+    return rest;
+  }
+  return { ...s, color: next };
+}
 
 /** 정삼각형의 꼭짓점(중심 기준, 회전 전). `side` 는 한 변.
  *

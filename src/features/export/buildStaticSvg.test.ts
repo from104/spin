@@ -160,7 +160,11 @@ describe('buildStaticSvg — 화면에 있는 층이 그림에도 있다', () =>
 
   it('작도 도형이 실린다 — 넘긴 것만, 넘긴 만큼', () => {
     // 센터 서클을 5.3 이 지운 뒤로 코트 라인에는 ellipse 가 없다. 그래서 이 수는 도형만 센다.
-    expect(parse(buildStaticSvg(bare(), { ...OPTS, shapes: [SHAPE] })).querySelectorAll('ellipse')).toHaveLength(1);
+    // ⚠️ 2026-09-14 — 도형 한 장이 **두 요소**가 됐다(검정 케이싱 + 면). «몇 장인가» 를 물을
+    //    때는 면 표식(`data-shape-face`)을 센다 — 요소 수를 세면 겹 수까지 함께 세게 된다.
+    const svg1 = parse(buildStaticSvg(bare(), { ...OPTS, shapes: [SHAPE] }));
+    expect(svg1.querySelectorAll('[data-shape-face]')).toHaveLength(1);
+    expect(svg1.querySelectorAll('ellipse')).toHaveLength(2);
     expect(parse(buildStaticSvg(bare(), OPTS)).querySelectorAll('ellipse')).toHaveLength(0);
   });
 

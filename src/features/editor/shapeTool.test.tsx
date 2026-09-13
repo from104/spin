@@ -175,7 +175,8 @@ describe('★ 겹치면 진해진다 — 알파 합성을 깨뜨리지 않는다
     expect(layer.style.mixBlendMode).toBe('');
 
     for (const g of shapeNodes()) {
-      const face = g.querySelector('rect, ellipse, polygon')!;
+      // ⚠️ 2026-09-14 — 첫 요소는 검정 케이싱(fill=none)이다. 면을 보려면 **마지막** 것을 집는다.
+      const face = g.querySelector('[data-shape-face]')!;
       expect(Number(face.getAttribute('fill-opacity'))).toBeCloseTo(SHAPE_FILL_OPACITY, 6);
     }
   });

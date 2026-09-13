@@ -30,7 +30,7 @@ import { ArrowMarkers } from './ArrowMarkers.tsx';
 import { ObjectLayer, type ObjectLayerChair, type ObjectLayerCone } from './ObjectLayer.tsx';
 import { MoveAnchor } from './MoveAnchor.tsx';
 import { SelectionGuide } from './SelectionGuide.tsx';
-import { shapeHandlePoints, shapeHandlesFor } from '../model/shape.ts';
+import { cycleShapeColor, shapeHandlePoints, shapeHandlesFor } from '../model/shape.ts';
 import { strokeHandlePoints } from '../model/stroke.ts';
 import { moveAnchorAvoidX } from './moveAnchorAvoid.ts';
 import { moveAnchorPlacement } from './moveAnchorPlacement.ts';
@@ -786,7 +786,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   // 개체(칩·공·콘)와 달리 컨트롤러를 안 지난다: 도형은 물리 바디가 아니라 **표시**라
   // hitTest 에 분기를 더할 이유가 없고, SVG 이벤트가 이미 정확한 히트를 준다.
   // 규칙 계산은 전부 `dragShapeHandle`(순수)이 지고, 여기는 좌표 변환과 캡처만 한다.
-  const shapeDragRef = useRef<{ id: string; which: ShapeHandle | 'body'; grab: Vec2; start: Shape } | null>(null);
+  const shapeDragRef = useRef<{ id: string; which: ShapeHandle | 'body'; grab: Vec2; start: Shape; moved: boolean } | null>(null);
 
   const worldOf = useCallback(
     (e: { clientX: number; clientY: number }): Vec2 | null => {
@@ -812,7 +812,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       if (shapeDragRef.current) return;
       e.stopPropagation();
       (e.currentTarget as unknown as { setPointerCapture(id: number): void }).setPointerCapture?.(e.pointerId);
-      shapeDragRef.current = { id, which: 'body', grab: w, start: shape };
+      shapeDragRef.current = { id, which: 'body', grab: w, start: shape, moved: false };
     },
     [onShapeSelect, shapes, worldOf, locked],
   );
@@ -833,7 +833,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
 
       e.stopPropagation();
       (e.currentTarget as unknown as { setPointerCapture(id: number): void }).setPointerCapture?.(e.pointerId);
-      shapeDragRef.current = { id: shape.id, which, grab: w, start: shape };
+      shapeDragRef.current = { id: shape.id, which, grab: w, start: shape, moved: false };
     },
     [shapeHandlesProps, worldOf, locked],
   );
@@ -847,14 +847,26 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       if (!d) return;
       const w = worldOf(ev);
       if (!w) return;
+      // 탭 임계를 넘는 순간 이 세션은 드래그다 — 한 번 넘었으면 되돌아와도 드래그다
+      // (화살표·획 손잡이의 `moved` 판정과 **같은 규칙·같은 임계**다).
+      if (!d.moved) {
+        const px = INTERACT.tapMaxMoveCssPx / (metricsRef.current?.pxPerUnit ?? 1);
+        if (Math.hypot(w.x - d.grab.x, w.y - d.grab.y) > px) d.moved = true;
+      }
       if (d.which === 'body') {
         onShapeChange({ ...d.start, x: d.start.x + (w.x - d.grab.x), y: d.start.y + (w.y - d.grab.y) });
       } else {
         onShapeChange(dragShapeHandle(d.start, d.which, w));
       }
     };
-    const up = (): void => {
+    const up = (ev: PointerEvent): void => {
+      const d = shapeDragRef.current;
       shapeDragRef.current = null;
+      // **회전 손잡이를 끌지 않고 떼면 색이 한 칸 돈다**(2026-09-14 기현님 지시). 화살표·획의
+      // 회전 앵커가 이미 쓰는 규칙과 같다 — 같은 모양의 손잡이가 같은 뜻을 가져야 한다.
+      // `pointercancel` 은 탭이 아니다(손이 창 밖으로 끌려 나간 것) — 그래서 종류를 본다.
+      if (!d || d.moved || d.which !== 'rotate' || ev.type !== 'pointerup') return;
+      onShapeChange(cycleShapeColor(d.start));
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);

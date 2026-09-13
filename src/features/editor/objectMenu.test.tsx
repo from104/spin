@@ -395,7 +395,9 @@ describe('[복제] — 무대 끝까지', () => {
     expect(b.y - a.y).toBe(12.5);
     // 선택이 사본으로 갔다 — 다음 조작(끌어 자리 잡기)이 향하는 곳이 방금 만든 쪽이라야 한다.
     // ShapeLayer 는 선택된 도형의 테두리를 accent 로 갈아 끼운다.
-    expect(nodes[1]!.querySelector('rect')?.getAttribute('stroke')).toBe('var(--accent)');
+    // ⚠️ 2026-09-14 — 도형 한 장이 **두 요소**다(검정 케이싱 + 본체). 첫 rect 는 케이싱이므로
+    //    색을 보려면 **마지막** 것을 집는다.
+    expect(nodes[1]!.querySelector('[data-shape-face]')?.getAttribute('stroke')).toBe('var(--accent)');
     expect(nodes[0]!.querySelector('rect')?.getAttribute('stroke')).not.toBe('var(--accent)');
   });
 
