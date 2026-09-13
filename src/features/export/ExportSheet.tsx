@@ -66,6 +66,7 @@ import { sceneFileName, sceneZipName, videoFileName } from './exportNames.ts';
 // ⚠️ 값이 아니라 **타입만** 가져온다(결정 3) — verbatimModuleSyntax 라 이 줄은 컴파일에서
 //    통째로 지워지고, 엔진 모듈은 아래 `import(...)` 로만 실린다.
 import type { VideoSize } from './video/encodeDrillVideo.ts';
+import type { VideoEngine } from './video/videoEngine.ts';
 import { Button } from '../../ui/Button.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { PrintRoot, printWhenReady } from '../print/index.ts';
@@ -186,7 +187,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
   /** null = 아직 안 물어봤다. 물어보는 데 await 이 필요해(canEncode) 첫 렌더에는 답이 없다 —
    *  그동안 항목을 비활성으로 그리면 열자마자 깜빡인다. 모르는 동안은 **누를 수 있게** 두고,
    *  못 하는 기기라면 그 사실이 몇 ms 뒤 문구로 도착한다. */
-  const [videoSupported, setVideoSupported] = useState<boolean | null>(null);
+  // null = 못 굽는다, undefined = 아직 안 물어봤다, 그 밖 = 그 엔진으로 굽는다.
+  const [videoEngine, setVideoEngine] = useState<VideoEngine | null | undefined>(undefined);
+  const videoSupported = videoEngine === undefined ? null : videoEngine !== null;
   const [videoSize, setVideoSize] = useState<VideoSize>(720);
   const [video, setVideo] = useState<VideoState>({ phase: 'idle' });
   const videoAbortRef = useRef<AbortController | null>(null);
@@ -201,12 +204,14 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
     let alive = true;
     void (async () => {
       try {
-        const { isVideoExportSupported } = await import('./video/encodeDrillVideo.ts');
-        const ok = await isVideoExportSupported();
-        if (alive) setVideoSupported(ok);
+        const { videoExportEngine } = await import('./video/encodeDrillVideo.ts');
+        // 되나/안 되나가 아니라 **무엇으로 되나** 를 묻는다(2026-09-13) — 소프트웨어 길이면
+        // 눌러 놓고 한참 기다리게 되므로 미리 말해 준다.
+        const picked = await videoExportEngine();
+        if (alive) setVideoEngine(picked);
       } catch {
         // 청크를 못 받았거나(오프라인·차단) 물음 자체가 던졌다 = 이 기기에서는 못 만든다.
-        if (alive) setVideoSupported(false);
+        if (alive) setVideoEngine(null);
       }
     })();
     return () => {
@@ -442,7 +447,11 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
                 {t('export.video.title')}
               </span>
               <span id={videoDescId} style={ITEM_DESC}>
-                {videoSupported === false ? t('export.video.unsupported') : t('export.video.desc')}
+                {videoSupported === false
+                  ? t('export.video.unsupported')
+                  : videoEngine === 'wasm'
+                    ? t('export.video.software')
+                    : t('export.video.desc')}
               </span>
             </button>
             {videoSupported !== false && (

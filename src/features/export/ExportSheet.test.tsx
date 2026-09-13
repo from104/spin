@@ -24,9 +24,9 @@ vi.mock('./rasterize.ts', () => ({
 // 영상 엔진도 jsdom 에서 못 돈다(VideoEncoder·캔버스 없음 — 그 파일 머리말). 모킹해서 **시트가
 // 지는 계약**만 본다: 미지원 표시 · 엔진에 무엇을 넘기는가 · 저장은 클릭에서 · 끊기는가.
 // 실제 인코딩(치수·길이·프레임 수)은 헤드리스 크롬 검수와 실기 항목이다(PLAN-VIDEO-EXPORT §4).
-const { supportMock, encodeMock } = vi.hoisted(() => ({ supportMock: vi.fn(), encodeMock: vi.fn() }));
+const { engineMock, encodeMock } = vi.hoisted(() => ({ engineMock: vi.fn(), encodeMock: vi.fn() }));
 vi.mock('./video/encodeDrillVideo.ts', () => ({
-  isVideoExportSupported: supportMock,
+  videoExportEngine: engineMock,
   encodeDrillVideo: encodeMock,
 }));
 vi.mock('../../storage/files.ts', async (importOriginal) => {
@@ -388,6 +388,7 @@ describe('내보내기 범위', () => {
 // 끝나자마자 저장해 iOS 공유 시트가 안 열리는 회귀, 시트를 닫아도 계속 도는 인코더.
 describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
   const RESULT: VideoExportResult = {
+    engine: 'webcodecs',
     blob: new Blob(['mp4'], { type: 'video/mp4' }),
     bytes: 1234567,
     frames: 90,
@@ -397,7 +398,7 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
   };
 
   beforeEach(() => {
-    supportMock.mockResolvedValue(true);
+    engineMock.mockResolvedValue('webcodecs');
     encodeMock.mockResolvedValue(RESULT);
   });
 
@@ -406,7 +407,7 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
   const describedText = () => document.getElementById(head().getAttribute('aria-describedby') ?? '')?.textContent ?? '';
 
   it('미지원 브라우저: aria-disabled 이고 사유가 설명으로 걸리며, 눌러도 인코딩이 시작되지 않는다', async () => {
-    supportMock.mockResolvedValue(false);
+    engineMock.mockResolvedValue(null);
     render(<Harness />);
     await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('true'));
     const reason = describedText();
@@ -416,7 +417,7 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
     // ★ 대조군 — 지원되는 기기에서는 같은 자리의 **설명이 달라진다.** 이 짝이 없으면 위 단언은
     //   "설명이 늘 같은 글자" 여도 통과한다(사유를 안 갈아 끼우는 회귀를 못 잡는다).
     cleanup();
-    supportMock.mockResolvedValue(true);
+    engineMock.mockResolvedValue('webcodecs');
     render(<Harness />);
     await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
     expect(describedText()).not.toBe(reason);

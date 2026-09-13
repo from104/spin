@@ -24,6 +24,7 @@ import { Button } from '../../ui/Button.tsx';
 import { createShareLink, isShareError, shareNoticeFor } from '../../share/index.ts';
 import type { SharedDoc } from '../../share/index.ts';
 import { rememberShareLink } from '../../storage/shareLinks.ts';
+import { shareLinkOrigin } from '../../share/api.ts';
 import { useT } from '../../i18n/useT.ts';
 import type { DictKey } from '../../i18n/ko.ts';
 
@@ -83,7 +84,7 @@ export function ShareLinkModal({ open, doc, onClose, returnFocusRef }: ShareLink
     let alive = true;
     void (async () => {
       try {
-        const made = await createShareLink(target, window.location.origin);
+        const made = await createShareLink(target, shareLinkOrigin());
         // ⚠️ 화면보다 토큰이 먼저다(머리말). alive 여부와 무관하게 남긴다 — 모달이 닫혀도
         //    링크는 이미 서버에 만들어져 있고, 토큰이 없으면 그것을 영영 못 지운다.
         rememberShareLink(made.id, {

@@ -36,6 +36,17 @@
 |---|---|---|
 | 1 | **파이프라인**: `sampleDrill(t)` → `buildStaticScene(frame, opts, order)` → `svgDataUri` → `Image` → 캔버스 하나에 `drawImage` + `paintTexts` → `CanvasSource.add(t, 1/fps)`. 캔버스 1장 재사용, 순차(await), 워커 없음 | SVG 디코드는 DOM `Image` 가 필요해 워커에서 못 한다. PNG 경로의 "순차로 굽는다" 원칙(ExportSheet.tsx:201) 그대로 |
 | 2 | **인코딩**: WebCodecs + `mediabunny`(`Output` + `BufferTarget` + `Mp4OutputFormat({fastStart:'in-memory'})` + `CanvasSource(canvas, {codec:'avc', quality: new Quality({bitrate})})`). 코덱은 `avc` 하나. `canEncode('avc')` 가 false 이거나 `VideoEncoder` 가 없으면 항목을 **비활성 + 사유 문구**(i18n `export.video.unsupported`) | H.264 가 카톡·iOS·인스타의 공통분모. VP9-in-MP4 는 iOS 가 못 열어 대안이 못 된다. `fastStart` 는 모바일 스트리밍 재생용(moov 앞) |
+
+⚠️ **2026-09-13 — 결정 2 를 넓혔다(근거는 지우지 않는다).** "`canEncode('avc')` 가 false 면 비활성" 이라는 전제는
+*코덱이 없는 브라우저는 어차피 못 굽는다* 였는데, 실기에서 그 전제가 죽었다. WebKitGTK(리눅스 데스크톱 앱)는
+H.264 인코딩을 **시스템 GStreamer 플러그인**에 기댄다 — gofu 의 2.52.6 은 세 프레임을 정상으로 구웠지만(실측),
+그 플러그인이 없는 기계에서는 같은 앱이 통째로 못 굽는다. 그래서 이제 엔진이 **둘**이다: 내장 코덱이 있으면
+WebCodecs(그대로), 없으면 wasm 소프트웨어 인코더(`h264-mp4-encoder` = minih264 + minimp4)로 내려간다.
+고르는 규칙은 `videoEngine.ts` 의 `chooseVideoEngine` 하나이고, 비활성은 **둘 다 없을 때만**이다.
+대가 셋: ①자산 1.7MB(쓰는 기기만 받는다 — 동적 import + `?url`), ②720p 25.7ms/프레임·1080p 55.6ms/프레임(실측,
+내장 코덱보다 수십 배 느리다 — 시트가 `export.video.software` 로 미리 말한다), ③**CSP 에 `'unsafe-eval'` 이
+필요하다**(embind 가 바인딩마다 `new Function` 을 쓴다 — `'wasm-unsafe-eval'` 로는 안 되는 것을 실측했다).
+③ 때문에 `src-tauri/tauri.conf.json` 의 `script-src` 가 넓어졌다. 웹은 CSP 헤더가 없어 그대로다.
 | 3 | `mediabunny` 는 **동적 `import()`** 로만 불러 별도 청크에 둔다. 정적 import 금지. 메인 청크 크기 변화 0 을 검수가 증명 | §0 둘째 뒤집기의 전제. 내보내기 안 하는 사용자는 1바이트도 안 받는다 |
 | 4 | **타이밍**: fps 30 고정. `baseMs = PLAYBACK.stepIntervalMs[1]`(1500), `transitionMs = PLAYBACK.transitionMsFor(baseMs)`(600), `loop:false`, `reduceMotion` 무시. 총 길이 `drillTotalMs`. 프레임 i 의 시각 `t_i = i·1000/fps`, 프레임 수 `N = ceil(total·fps/1000) + 1`(마지막 프레임 = t=total 의 정지 포즈), 각 프레임 길이 `1/fps` 초 | 배속·루프는 파일에 의미 없다. 마지막 스텝의 정지가 이미 `durationMs` 에 들어 있어 별도 꼬리 유지 안 둔다. 30fps 는 seamless 체인이 매끄러운 최저선 |
 | 5 | **크기**: 시트에서 `720p`(기본)·`1080p` 둘 중 하나. 정의는 **긴 변** 1280 / 1920. `StaticSceneOpts.resolution` 타입을 `1 \| 2` → `number`(긴 변 = 1024×resolution 배수, 주석 갱신) 로 넓혀 `1280/1024`·`1920/1024` 를 넣는다. 캔버스는 `metrics.widthPx/heightPx` 를 **짝수로 올림**, `drawImage` 는 metrics 크기 그대로, 남는 1px 줄은 배경색(캡션 띠/여백 색, `staticSceneLayout` 의 것)으로 채운다 | 코트가 가로형이라 긴 변 기준이 자연스럽다. 축척을 흔들어 짝수를 만드는 것보다 1px 여백이 정직하다. 옵션은 저장 안 한다(prefs 스키마 불변) — 매번 720p 로 시작 |

@@ -9,6 +9,10 @@ interface ImportMetaEnv {
    *  필요한 곳은 출처가 앱과 다른 데스크톱(tauri://) 빌드뿐이다. 읽는 자리는
    *  `src/share/api.ts` 의 `shareApiBase()` 하나. */
   readonly VITE_SHARE_API_BASE?: string;
+  /** 데스크톱(Tauri) 빌드에만 주입되는 웹앱 공개 출처(예 `https://spin.atit.app`). 데스크톱은
+   *  출처가 `tauri://localhost` 라 공유 링크의 API 주소와 링크 앞부분을 여기서 얻는다. 웹 빌드에는
+   *  envPrefix 게이팅으로 존재하지 않는다. 읽는 자리는 `src/share/api.ts` 의 `desktopWebOrigin()`. */
+  readonly SPIN_DESKTOP_WEB_ORIGIN?: string;
 }
 
 /** vite.config.ts 의 define 이 빌드 시점에 package.json 의 version 으로 치환한다.

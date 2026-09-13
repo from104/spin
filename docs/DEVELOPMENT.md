@@ -116,6 +116,15 @@ sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev l
 알아 둘 것:
 
 - 라우터가 이미 `createHashRouter` 라 네이티브 셸에서 그대로 돕니다([OVERVIEW.md §4 코드 지도](OVERVIEW.md) 참조).
+- 공유 링크는 데스크톱에서 `SPIN_DESKTOP_WEB_ORIGIN`(예 `https://spin.atit.app`)이 있어야 됩니다. 앱 출처가
+  `tauri://localhost` 라 상대 경로 `/api/share` 는 아무 데도 닿지 않고 `location.origin` 으로 만든 링크는 받는
+  쪽이 열 수 없기 때문입니다(2026-09-13 실기). 읽는 자리는 `src/share/api.ts` 의 `desktopWebOrigin()` 하나이고,
+  같은 이유로 창 CSP 의 `connect-src` 에 `https:` 가 열려 있습니다(직접 호스팅하는 쪽은 자기 도메인을 넣으면 됩니다).
+- 창 CSP 의 `script-src` 에 `'unsafe-eval'` 이 들어 있는 이유는 **영상 내보내기의 소프트웨어 인코더**입니다.
+  내장 코덱(WebCodecs)이 없는 기계에서 쓰는 `h264-mp4-encoder` 는 emscripten embind 로 만들어져 바인딩마다
+  `new Function` 을 부릅니다 — `'wasm-unsafe-eval'` 만으로는 스크립트가 평가 중에 터집니다(2026-09-13 실측).
+  이 값을 지우면 그 기계에서 MP4 내보내기가 «영상을 만들지 못했습니다» 로 끝납니다. 웹 배포는 CSP 헤더를
+  두지 않아 해당 없습니다.
 - 창 CSP 는 `src-tauri/tauri.conf.json` 에 있습니다. `index.html` 의 FOUC 방지 부트
   스크립트가 인라인이라 `script-src` 에 `'unsafe-inline'` 이 들어 있습니다 — 앱은 원격
   문서를 열지 않고 렌더는 전부 React 라 유입 경로가 없지만, 부트 스크립트를 외부 파일로

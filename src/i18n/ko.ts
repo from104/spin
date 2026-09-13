@@ -999,6 +999,7 @@ export const ko = {
   'export.video.retry': '다시',
   'export.video.failed': '영상으로 내보내지 못했습니다.',
   'export.video.unsupported': '이 브라우저는 영상 인코딩(H.264)을 지원하지 않습니다 — Chrome·Safari 에서 내보내세요.',
+  'export.video.software': '이 기기에는 내장 코덱이 없어 소프트웨어로 굽습니다 — 되지만 몇 배 느립니다.',
   'export.video.cancelled': '영상 내보내기를 취소했습니다.',
 
   // ── C8b — 화살표 접근성 이름 ────────────────────────────────────────────────────────

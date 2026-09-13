@@ -968,6 +968,7 @@ export const ja: Record<DictKey, string> = {
   'export.video.retry': 'やり直す',
   'export.video.failed': '動画として書き出せませんでした。',
   'export.video.unsupported': 'このブラウザは動画エンコード（H.264）に対応していません — Chrome・Safariで書き出してください。',
+  'export.video.software': 'この端末には内蔵コーデックがないためソフトウェアで書き出します — 可能ですが数倍遅くなります。',
   'export.video.cancelled': '動画の書き出しをキャンセルしました。',
 
   // ── C8b — 矢印のアクセシブルネーム ───────────────────────────────────────────────────

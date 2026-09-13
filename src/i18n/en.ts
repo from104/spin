@@ -973,6 +973,7 @@ export const en: Record<DictKey, string> = {
   'export.video.retry': 'Try again',
   'export.video.failed': 'Could not export as a video.',
   'export.video.unsupported': 'This browser cannot encode video (H.264) — export from Chrome or Safari.',
+  'export.video.software': 'This device has no built-in codec, so encoding runs in software — it works, but several times slower.',
   'export.video.cancelled': 'Video export cancelled.',
 
   // ── C8b — Arrow accessible name ─────────────────────────────────────────────────────
