@@ -33,11 +33,12 @@ import { BALL, CONE } from '../core/constants.ts';
 import type { Vec2 } from '../core/units.ts';
 import { chairCorners, poseFromStored } from '../model/chair.ts';
 import type { ChairPose } from '../model/chair.ts';
-import { ARROW_STYLE } from '../model/arrow.ts';
+import { ARROW_STYLE, headFromOf, headToOf } from '../model/arrow.ts';
+import { arrowHeadExtentPx } from '../render/arrowHeadGeom.ts';
 import type { Arrow } from '../model/arrow.ts';
 import { strokeWidthOf } from '../model/stroke.ts';
 import type { Stroke } from '../model/stroke.ts';
-import { SHAPE_STROKE_PX, shapeSize } from '../model/shape.ts';
+import { SHAPE_STROKE_PX, shapeSize, triPointsOf } from '../model/shape.ts';
 import type { Shape } from '../model/shape.ts';
 import type { DrillCast, DrillStep, NoteLabel } from '../model/drill.ts';
 import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipWidthPx } from '../render/objects/noteChip.ts';
@@ -128,7 +129,13 @@ export function objectBounds<K extends BoundsKind>(kind: K, obj: BoundsInput[K])
       const a = obj as Arrow;
       // ctrl 을 넣는 것이 핵심이다 — 굽은 화살표는 from·to 를 잇는 상자 **밖으로** 부푼다.
       // 세 점의 AABB 는 2차 베지에의 볼록껍질을 덮으므로 곡선을 놓치지 않는다.
-      return boxOfPoints([a.from, a.ctrl, a.to], ARROW_STYLE.width / 2);
+      //
+      // ⚠️ 2026-09-14 — 패드가 선 굵기의 반뿐이던 것을 **화살촉까지** 넓힌다. SVG 마커는
+      // `markerUnits` 기본값이 `strokeWidth` 라 선 굵기에 비례해 커지므로(arrowHeadGeom 머리말),
+      // 촉은 끝점 너머·옆으로 선 굵기의 여러 배를 뻗는다. 옛 상자는 그만큼 짧아서, 이 상자를
+      // 그대로 그리는 **선택 가이드 사각형**(§6.10e)이 촉을 자르고 지나간다. 겹침 판정 쪽으로는
+      // 상자가 커지는 방향이라 «오탐 쪽에 선다» 는 머리말 계약과 같은 방향이다.
+      return boxOfPoints([a.from, a.ctrl, a.to], arrowPadPx(a));
     }
     case 'stroke': {
       const s = obj as Stroke;
@@ -136,6 +143,17 @@ export function objectBounds<K extends BoundsKind>(kind: K, obj: BoundsInput[K])
     }
     case 'shape': {
       const s = obj as Shape;
+      // ⚠️ 2026-09-14 — 삼각형은 **꼭짓점에서 직접** 잰다. 옛 코드는 종류를 안 가리고
+      // `(s.x, s.y)` 를 상자 중심으로 놓았는데, 삼각형의 그 점은 중심이 아니라 **무게중심**이다
+      // (`recenterTri` 가 그렇게 유지한다). 정삼각형에서 위를 h/6 만큼 놓치고 아래로 그만큼 더
+      // 덮었다 — 앵커가 꼭짓점 위에 얹히고, 가이드 사각형이 꼭짓점을 자른다.
+      if (s.kind === 'triangle') {
+        const rad = (s.rot * Math.PI) / 180;
+        const co = Math.cos(rad);
+        const si = Math.sin(rad);
+        const pts = triPointsOf(s).map((p) => ({ x: s.x + p.x * co - p.y * si, y: s.y + p.x * si + p.y * co }));
+        return boxOfPoints(pts, SHAPE_STROKE_PX / 2);
+      }
       // 회전 전 경계상자(삼각형은 `shapeSize` 가 꼭짓점에서 뽑는다)의 네 꼭짓점을 `rot` 만큼
       // 돌린 뒤 감싼다. rot 은 **도(度)·시계방향**이고 SVG `rotate()` 와 부호가 같다
       // (`model/shape.ts` 좌표 규약). 그려지는 외곽선 두께의 반만큼 부풀린다.
@@ -158,6 +176,16 @@ export function objectBounds<K extends BoundsKind>(kind: K, obj: BoundsInput[K])
     default:
       return null;
   }
+}
+
+/** 화살표 상자의 패드 — 선 굵기의 반과 **촉의 뻗음** 중 큰 쪽. 촉이 없으면(`none`) 선 굵기뿐이다. */
+function arrowPadPx(a: Arrow): number {
+  let pad = ARROW_STYLE.width / 2;
+  for (const head of [headFromOf(a), headToOf(a)]) {
+    if (head === 'none') continue;
+    pad = Math.max(pad, arrowHeadExtentPx(head));
+  }
+  return pad;
 }
 
 /** `overlappingIds` 가 한 스텝을 훑어 만드는 목록의 원소. */

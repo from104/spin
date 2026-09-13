@@ -8,11 +8,12 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
-- Selecting a shape or note, or several objects, now shows a **move anchor** above them — when objects overlap and the body is hard to grab, drag the anchor and everything selected follows. It sits below when there is no room above, and dragging the body still works
+- Selecting a shape, note, line or freehand stroke, or several objects, now shows a **move anchor** above them — when objects overlap and the body is hard to grab, drag the anchor and everything selected follows. It sits below when there is no room above, and steps aside when it would land on another handle. With several objects, or a single line or stroke, a **dashed rectangle** shows what the anchor holds. Dragging the body still works
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
 
 ### Fixed
 
+- Fixed [Select all] leaving out **freehand strokes** — drawn strokes were silently skipped
 - Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
 - The free tactics board's export sheet no longer offers [Video] or [Share link] — the board is a single position, so a video would be one still frame, and a link would plant an unsaved board in the recipient's library as a drill. Turn it into a drill first
 - The web app now opens a **save dialog** too (Chrome, Edge and the like) — you pick the location, and a toast confirms when the write finishes. Browsers without it (Firefox, Safari) download as before

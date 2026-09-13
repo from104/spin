@@ -12,9 +12,9 @@ import { overlappingIds, selectionBounds } from '../../physics/bounds.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
-import { moveAnchorIds } from './moveAnchorIds.ts';
+import { moveAnchorGuide, moveAnchorIds } from './moveAnchorIds.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
-import type { ArrowId, CastId, ChairId, NoteId } from '../../core/ids.ts';
+import type { CastId, ChairId, NoteId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { poseFrame } from '../../store/editor/tween.ts';
@@ -603,11 +603,23 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     [selection],
   );
 
-  const selectedArrow = useMemo(() => {
+  /** 손잡이를 낼 수 있는 단일 선택인가. 셋(도형·화살표·획)이 **같은 판정**을 쓰게 묶는다.
+   *
+   *  ⚠️ 2026-09-14 — 전에는 셋이 조금씩 달랐다: 도형·획은 `lockedSet` 만 보고 화살표는 아무것도
+   *  안 봤다(`lockedSet` 을 deps 에만 적어 두고 본문에서 안 읽었다). 잠긴 화살표에 손잡이가
+   *  그려지면 끌어도 안 바뀌는 손잡이가 되고, 이동 앵커가 «그려진 손잡이» 를 피해 다니는 지금은
+   *  **안 그려진 손잡이를 피해 비키는** 앵커까지 생긴다. 판정이 하나여야 둘 다 안 생긴다. */
+  const handleTargetId = useMemo(() => {
     if (selection.size !== 1) return null;
-    const id = Array.from(selection).find((x) => isId(x, 'ar')) as ArrowId | undefined;
-    return id ? (step.arrows.find((a) => a.id === id) ?? null) : null;
-  }, [selection, step.arrows, lockedSet]);
+    const id = [...selection][0]!;
+    if (lockedSet.has(id) || ignoredSet.has(id)) return null;
+    return id;
+  }, [selection, lockedSet, ignoredSet]);
+
+  const selectedArrow = useMemo(() => {
+    const id = handleTargetId;
+    return id && isId(id, 'ar') ? (step.arrows.find((a) => a.id === id) ?? null) : null;
+  }, [handleTargetId, step.arrows]);
 
   /** 이동 앵커가 감쌀 상자(§6.10d, 2026-09-13 기현님 지시). 뜨는 자리는 셋이다:
    *  **도형 하나 · 메모 하나 · 여럿**. 셋을 고른 이유는 지시 그대로 — 겹쳐 놓았을 때 몸통을
@@ -616,31 +628,28 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
    *
    *  잠긴 것·무시된 것은 상자에서도 빠진다 — 옮길 수 없는 것을 감싼 앵커는 눌러도 안 움직인다.
    *  전부 빠지면 null 이라 앵커 자체가 안 뜬다. */
-  const moveAnchorBounds = useMemo(() => {
+  const moveAnchor = useMemo(() => {
     const ids = moveAnchorIds(selection, lockedSet, ignoredSet);
-    return ids.length === 0 ? null : selectionBounds(step, drill.cast, new Set(ids));
+    if (ids.length === 0) return { bounds: null, guide: false };
+    return { bounds: selectionBounds(step, drill.cast, new Set(ids)), guide: moveAnchorGuide(ids) };
   }, [selection, lockedSet, ignoredSet, step, drill.cast]);
 
   /** 선택이 정확히 하나이고 그것이 도형일 때만 손잡이를 띄운다 — 여럿을 고른 채로 손잡이를
    *  내면 "무엇의 가로인가" 가 사라진다(화살표 핸들이 간 길과 같다). */
   const selectedShape = useMemo(() => {
-    if (selection.size !== 1) return null;
-    const id = [...selection][0]!;
     // 잠긴 도형에는 손잡이를 안 낸다 — 끌어도 안 바뀌는 손잡이는 화면이 거짓말하는 것이다.
-    // 덮개(보라)가 "이건 잠겼다" 를 이미 말하고, 푸는 문은 메뉴다.
-    if (lockedSet.has(id)) return null;
-    return step.shapes.find((sh) => sh.id === id) ?? null;
-  }, [selection, step.shapes, lockedSet]);
+    // 덮개(보라)가 "이건 잠겼다" 를 이미 말하고, 푸는 문은 메뉴다. 판정은 handleTargetId 하나.
+    const id = handleTargetId;
+    return id ? (step.shapes.find((sh) => sh.id === id) ?? null) : null;
+  }, [handleTargetId, step.shapes]);
 
   /** 앵커를 띄울 획 — 도형·화살표와 **같은 세 조건**이다: 선택이 정확히 하나, 그것이 획,
    *  잠기지 않음. 잠긴 것에 손잡이를 내면 끌어도 안 바뀌는 손잡이라 화면이 거짓말을 한다.
    *  hitTest 쪽 게이트(`selectedStrokeId`)와 같은 판정이라야 **보이는 앵커만 잡힌다**. */
   const selectedStroke = useMemo(() => {
-    if (selection.size !== 1) return null;
-    const id = [...selection][0]!;
-    if (lockedSet.has(id)) return null;
-    return step.strokes?.find((s) => s.id === id) ?? null;
-  }, [selection, step.strokes, lockedSet]);
+    const id = handleTargetId;
+    return id ? (step.strokes?.find((s) => s.id === id) ?? null) : null;
+  }, [handleTargetId, step.strokes]);
 
   // ── 개체 메뉴 (2026-08-14 기현 지시) ────────────────────────────────────────────────
   const [menu, setMenu] = useState<ObjectMenuTarget | null>(null);
@@ -795,7 +804,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       }}
       onShapeChange={(next) => dispatch({ type: 'SHAPE_SET', shape: next })}
       shapeHandles={{ shape: selectedShape }}
-      moveAnchor={{ bounds: moveAnchorBounds }}
+      moveAnchor={moveAnchor}
       locked={lockedSet}
       ignored={ignoredSet}
       onStageContextMenu={(id, e) => {

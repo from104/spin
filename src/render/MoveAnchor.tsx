@@ -16,24 +16,43 @@ export interface MoveAnchorProps {
   x: number;
   y: number;
   pxPerUnit: number;
-  /** 상자 아래로 뒤집혔는가 — 꼭지가 가리키는 쪽이 바뀐다. */
+  /** 상자 아래로 뒤집혔는가 — 꼭지의 **기본** 방향이 바뀐다. */
   below: boolean;
+  /** 꼭지가 가리킬 월드 점(보통 상자에서 앵커에 가장 가까운 점). 2026-09-14 추가 —
+   *  앵커가 다른 손잡이를 피해 **옆으로 비키면** 곧게 내린 꼭지가 허공을 가리켜, 이 앵커가
+   *  무엇의 것인지가 사라진다. 안 주면(또는 앵커와 같은 점이면) 예전처럼 수직이다. */
+  toward?: { x: number; y: number };
   onPointerDown?(e: ReactPointerEvent<SVGCircleElement>): void;
 }
 
-export function MoveAnchor({ x, y, pxPerUnit, below, onPointerDown }: MoveAnchorProps) {
+export function MoveAnchor({ x, y, pxPerUnit, below, toward, onPointerDown }: MoveAnchorProps) {
   // 손잡이 셋(도형·화살표·획)과 **같은 상수**를 쓴다. 여기만 다른 크기를 쓰면 같은 판 위에서
   // 표적 크기가 손잡이마다 달라진다.
   const viewR = INTERACT.handleViewRadiusCssPx / pxPerUnit;
   const hitR = INTERACT.handleHitRadiusCssPx / pxPerUnit;
   // 개체 쪽으로 내린 짧은 꼭지 — 이 앵커가 **무엇의** 것인지 잇는 실이다. 없으면 판 위에 점이
   // 하나 떠 있는 것으로만 보인다(도형 손잡이가 같은 이유로 같은 파선을 그린다).
-  const stem = (below ? -1 : 1) * (viewR * 1.6);
+  //
+  // 길이는 화면 고정(viewR 의 1.6배)이고 **방향만** `toward` 가 정한다. 비키지 않은 앵커에서는
+  // 그 방향이 정확히 수직이라 예전 그림과 픽셀이 같다 — 회귀가 없다는 뜻이다.
+  const stemLen = viewR * 1.6;
+  const dx = (toward?.x ?? x) - x;
+  const dy = (toward?.y ?? y) - y;
+  const len = Math.hypot(dx, dy);
+  const dir = len > 1e-6 ? { x: dx / len, y: dy / len } : { x: 0, y: below ? -1 : 1 };
   const g = viewR * 0.52; // 십자 화살표 반지름
 
   return (
     <g aria-hidden="true" data-move-anchor="" transform={`translate(${x.toFixed(2)} ${y.toFixed(2)})`}>
-      <line x1={0} y1={0} x2={0} y2={stem} stroke="rgba(255,255,255,.5)" strokeDasharray="3 3" pointerEvents="none" />
+      <line
+        x1={0}
+        y1={0}
+        x2={(dir.x * stemLen).toFixed(2)}
+        y2={(dir.y * stemLen).toFixed(2)}
+        stroke="rgba(255,255,255,.5)"
+        strokeDasharray="3 3"
+        pointerEvents="none"
+      />
       {/* 잡는 원은 **보이는 원보다 두 배**다(22 대 11) — 도형 손잡이 주석과 같은 근거다.
           투명하지만 손은 먹는다. 이 원이 겹친 개체들보다 위에 있는 것이 이 기능의 전부다. */}
       <circle r={hitR} fill="transparent" onPointerDown={onPointerDown} style={{ cursor: 'move' }} />

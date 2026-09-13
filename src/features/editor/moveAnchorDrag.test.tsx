@@ -15,7 +15,7 @@ import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import { BALL, DEFAULT_ZONES } from '../../core/constants.ts';
 import { newId } from '../../core/ids.ts';
-import type { NoteId, ShapeId } from '../../core/ids.ts';
+import type { ArrowId, NoteId, ShapeId, StrokeId } from '../../core/ids.ts';
 import { createDrill } from '../../model/defaults.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import type { CourtStageHandle, PointerMeta } from '../../render/CourtStage.tsx';
@@ -33,11 +33,13 @@ const ANCHOR_AT = { x: 300, y: 160 };
 const SHAPE_AT = { x: 300, y: 220 };
 const NOTE_AT = { x: 320, y: 240 };
 
-function makeDrill(): { drill: Drill; shapeId: ShapeId; underId: ShapeId; noteId: NoteId } {
+function makeDrill(): { drill: Drill; shapeId: ShapeId; underId: ShapeId; noteId: NoteId; arrowId: ArrowId; strokeId: StrokeId } {
   const base = createDrill({ courtMode: 'full', formation: '1-2-1', empty: true });
   const shapeId = newId('sh');
   const underId = newId('sh');
   const noteId = newId('nt');
+  const arrowId = newId('ar');
+  const strokeId = newId('fh');
   const step0 = base.steps[0]!;
   const step: DrillStep = {
     ...step0,
@@ -47,8 +49,10 @@ function makeDrill(): { drill: Drill; shapeId: ShapeId; underId: ShapeId; noteId
       { id: shapeId, kind: 'rect', x: SHAPE_AT.x, y: SHAPE_AT.y, w: 80, h: 60, rot: 0 },
     ],
     notes: [{ id: noteId, x: NOTE_AT.x, y: NOTE_AT.y, text: '메모' }],
+    arrows: [{ id: arrowId, from: { x: 100, y: 400 }, ctrl: { x: 150, y: 380 }, to: { x: 200, y: 420 } }],
+    strokes: [{ id: strokeId, points: [{ x: 400, y: 100 }, { x: 430, y: 130 }, { x: 460, y: 110 }] }],
   };
-  return { drill: { ...base, steps: [step] }, shapeId, underId, noteId };
+  return { drill: { ...base, steps: [step] }, shapeId, underId, noteId, arrowId, strokeId };
 }
 
 const noop = () => {};
@@ -141,6 +145,34 @@ describe('이동 앵커 — 누르면 고른 것이 따라온다', () => {
 
     expect(shapeOf(result, shapeId).x).toBe(SHAPE_AT.x + 25);
     expect(noteOf(result, noteId).x).toBe(NOTE_AT.x + 25);
+  });
+
+  // 2026-09-14 기현님 지시: *"일단 선, 자유선에도 적용하고"*. 선은 세 점, 획은 점 N개라
+  // **전부 같은 거리만큼** 가야 한다 — 한 점만 밀면 모양이 바뀐다(그건 이동이 아니라 편집이다).
+  it('선(화살표)은 세 점이 함께 간다 — 한 점만 밀면 모양이 바뀐다', () => {
+    const { drill, arrowId } = makeDrill();
+    const { result } = mount(drill);
+    act(() => void result.current.dispatch({ type: 'SELECT_SET', ids: [arrowId] }));
+
+    dragAnchor(result, 35);
+
+    const a = result.current.state.present.steps[0]!.arrows.find((x) => x.id === arrowId)!;
+    expect(a.from.x).toBe(100 + 35);
+    expect(a.ctrl.x).toBe(150 + 35);
+    expect(a.to.x).toBe(200 + 35);
+    expect(a.from.y, '가로로만 끌었으니 세로는 그대로다').toBe(400);
+  });
+
+  it('자유선(획)은 점 전부가 함께 간다', () => {
+    const { drill, strokeId } = makeDrill();
+    const { result } = mount(drill);
+    act(() => void result.current.dispatch({ type: 'SELECT_SET', ids: [strokeId] }));
+
+    dragAnchor(result, 0, -20);
+
+    const st = result.current.state.present.steps[0]!.strokes!.find((x) => x.id === strokeId)!;
+    expect(st.points.map((p) => p.y)).toEqual([80, 110, 90]);
+    expect(st.points.map((p) => p.x), '세로로만 끌었으니 가로는 그대로다').toEqual([400, 430, 460]);
   });
 
   it('탭 임계(6) 안의 떨림으로는 한 톨도 안 움직인다 — 누르기만 한 손이 판을 흔들면 안 된다', () => {

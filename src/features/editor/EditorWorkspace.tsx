@@ -620,6 +620,11 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
         ...step.notes.map((n) => n.id as string),
         ...step.arrows.map((a) => a.id as string),
         ...(step.shapes ?? []).map((s) => s.id as string),
+        // ⚠️ 2026-09-14 — 획(자유선)이 빠져 있었다. 이 목록은 2026-08 에 쓰였고 획은 2026-09-03
+        //    에 생겼는데 그때 여기를 안 들렀다. 위 주석이 «판 위에 있는 것만» 이라고 말하는 한
+        //    획이 빠진 것은 규칙이 아니라 누락이다 — 그려 놓은 자유선만 [전체 선택]에서 조용히
+        //    남았다(이동 앵커 실기 중 발견).
+        ...(step.strokes ?? []).map((s) => s.id as string),
       ].filter((id) => !locked.has(id));
       dispatch({ type: 'SELECT_SET', ids });
     },

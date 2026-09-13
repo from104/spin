@@ -17,7 +17,7 @@ import { COURT_BG } from '../core/colors.ts';
 import { courtDefFor, type CourtMode, type CourtSize } from '../model/court.ts';
 import type { DragZone } from '../model/chair.ts';
 import type { Arrow, ArrowGrip } from '../model/arrow.ts';
-import { arrowColor } from '../model/arrow.ts';
+import { arrowColor, arrowRotateHandlePoint } from '../model/arrow.ts';
 import type { BallRing, NoteLabel as NoteLabelData, TeamSide, TeamStyle } from '../model/drill.ts';
 import type { BallId, ChairId } from '../core/ids.ts';
 import { CourtSurface, type CourtLineVariant } from './CourtSurface.tsx';
@@ -29,6 +29,10 @@ import type { RuleOverlayApi, RuleRosterEntry } from './ruleOverlay.ts';
 import { ArrowMarkers } from './ArrowMarkers.tsx';
 import { ObjectLayer, type ObjectLayerChair, type ObjectLayerCone } from './ObjectLayer.tsx';
 import { MoveAnchor } from './MoveAnchor.tsx';
+import { SelectionGuide } from './SelectionGuide.tsx';
+import { shapeHandlePoints, shapeHandlesFor } from '../model/shape.ts';
+import { strokeHandlePoints } from '../model/stroke.ts';
+import { moveAnchorAvoidX } from './moveAnchorAvoid.ts';
 import { moveAnchorPlacement } from './moveAnchorPlacement.ts';
 import type { AABB } from '../physics/bounds.ts';
 import type { SceneRef } from '../model/zOrder.ts';
@@ -224,7 +228,7 @@ export interface CourtStageProps {
   /** 이동 앵커(§6.10d, 2026-09-13). `bounds` 는 고른 것을 통째로 감싼 **월드** 상자이고,
    *  화면 기준으로 재어 위/아래를 정하는 일은 이 컴포넌트가 한다(metrics 를 여기가 쥐고 있다).
    *  null 이면 그리지 않는다 — 언제 뜨는지는 부모(EditorStage)가 정한다. */
-  moveAnchor?: { bounds: AABB | null };
+  moveAnchor?: { bounds: AABB | null; guide: boolean };
   /** 선택된 획의 손잡이 셋(양끝·회전). 화살표 핸들과 같은 모양의 prop 이다. */
   strokeHandles?: {
     stroke: Stroke | null;
@@ -1011,8 +1015,18 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             onPointerDown={arrowHandlesProps.onPointerDown}
           />
         )}
-        {/* 이동 앵커는 손잡이들보다 **위**다(2026-09-13) — 겹친 것들 위에 떠 있는 것이 이
-            기능의 전부이므로, 다른 손잡이에 가리면 있으나 마나다. */}
+        {strokeHandlesProps && (
+          <StrokeHandles
+            stroke={strokeHandlesProps.stroke}
+            pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
+            onPointerDown={strokeHandlesProps.onPointerDown}
+          />
+        )}
+        {/* ── 이동 앵커·선택 가이드(§6.10d·e) ───────────────────────────────────────
+            **손잡이 넷 뒤에 그린다 = 손잡이 넷 위에 뜬다.** 겹친 것들 위에 있는 것이 이 기능의
+            전부다. ⚠️ 2026-09-14 까지는 앵커가 StrokeHandles **앞**에 있어서 획 손잡이만 앵커를
+            덮었다 — 도형·화살표에는 참이던 주석이 획에서만 거짓이었다. 새로 들어온 쪽(앵커)을
+            내리는 대신 옮긴 이유: 손잡이들 사이의 기존 우선순위를 한 칸도 안 건드린다. */}
         {(() => {
           const box = moveAnchorProps?.bounds;
           const m = metricsRef.current;
@@ -1021,40 +1035,71 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           // minY 가 곧 화면의 위가 아니다 — 지시의 "화면 기준" 이 여기서 지켜진다.
           const a = worldToClient(m, box.minX, box.minY);
           const b = worldToClient(m, box.maxX, box.maxY);
-          const place = moveAnchorPlacement(
-            {
-              left: Math.min(a.clientX, b.clientX),
-              right: Math.max(a.clientX, b.clientX),
-              top: Math.min(a.clientY, b.clientY),
-              bottom: Math.max(a.clientY, b.clientY),
-            },
-            { left: m.rect.left, right: m.rect.right, top: m.rect.top, bottom: m.rect.bottom },
-            {
-              gapPx: INTERACT.moveAnchorGapCssPx,
-              viewRadiusPx: INTERACT.handleViewRadiusCssPx,
-              hitRadiusPx: INTERACT.handleHitRadiusCssPx,
-            },
-          );
-          const w = clientToWorld(m, place.clientX, place.clientY);
+          const screenBox = {
+            left: Math.min(a.clientX, b.clientX),
+            right: Math.max(a.clientX, b.clientX),
+            top: Math.min(a.clientY, b.clientY),
+            bottom: Math.max(a.clientY, b.clientY),
+          };
+          const stage = { left: m.rect.left, right: m.rect.right, top: m.rect.top, bottom: m.rect.bottom };
+          const place = moveAnchorPlacement(screenBox, stage, {
+            gapPx: INTERACT.moveAnchorGapCssPx,
+            viewRadiusPx: INTERACT.handleViewRadiusCssPx,
+            hitRadiusPx: INTERACT.handleHitRadiusCssPx,
+          });
+          // 비켜야 할 대상 = **지금 실제로 그려지는** 손잡이들. 안 그려진 것을 피하면 앵커가
+          // 이유 없이 옆에 가 있고, 그려진 것을 안 피하면 그 손잡이가 통째로 안 눌린다.
+          const rivals: { x: number; y: number }[] = [];
+          const pushWorld = (p: Vec2) => {
+            const c = worldToClient(m, p.x, p.y);
+            rivals.push({ x: c.clientX, y: c.clientY });
+          };
+          if (shapeHandlesProps?.shape) {
+            const pts = shapeHandlePoints(shapeHandlesProps.shape);
+            for (const which of shapeHandlesFor(shapeHandlesProps.shape.kind)) pushWorld(pts[which]!);
+          }
+          if (arrowHandlesProps?.arrow) {
+            const ar = arrowHandlesProps.arrow;
+            pushWorld(ar.from);
+            pushWorld(ar.ctrl);
+            pushWorld(ar.to);
+            pushWorld(arrowRotateHandlePoint(ar));
+          }
+          if (strokeHandlesProps?.stroke) {
+            const hp = strokeHandlePoints(strokeHandlesProps.stroke);
+            pushWorld(hp.from);
+            pushWorld(hp.to);
+            pushWorld(hp.rotate);
+          }
+          const clientX = moveAnchorAvoidX(place.clientX, place.clientY, rivals, stage, {
+            // 잡는 원 둘(각 22)이 안 겹치는 하한. 리터럴이 아니라 파생이라야 표적 크기를
+            // 바꿀 때 이 값이 저절로 따라온다.
+            clearPx: 2 * INTERACT.handleHitRadiusCssPx,
+            hitRadiusPx: INTERACT.handleHitRadiusCssPx,
+          });
+          const w = clientToWorld(m, clientX, place.clientY);
+          // 꼭지가 가리킬 곳 = 상자에서 앵커에 **가장 가까운 점**. 비키지 않았으면 바로 아래라
+          // 예전 그림과 픽셀이 같다.
+          const toward = {
+            x: Math.min(box.maxX, Math.max(box.minX, w.x)),
+            y: Math.min(box.maxY, Math.max(box.minY, w.y)),
+          };
           return (
-            <MoveAnchor
-              x={w.x}
-              y={w.y}
-              pxPerUnit={m.pxPerUnit}
-              below={place.below}
-              onPointerDown={() => {
-                moveAnchorArmedRef.current = true;
-              }}
-            />
+            <>
+              {moveAnchorProps.guide && <SelectionGuide box={box} pxPerUnit={m.pxPerUnit} />}
+              <MoveAnchor
+                x={w.x}
+                y={w.y}
+                pxPerUnit={m.pxPerUnit}
+                below={place.below}
+                toward={toward}
+                onPointerDown={() => {
+                  moveAnchorArmedRef.current = true;
+                }}
+              />
+            </>
           );
         })()}
-        {strokeHandlesProps && (
-          <StrokeHandles
-            stroke={strokeHandlesProps.stroke}
-            pxPerUnit={metricsRef.current?.pxPerUnit ?? 1}
-            onPointerDown={strokeHandlesProps.onPointerDown}
-          />
-        )}
         {/* 그리는 중인 획 — 아직 개체가 아니다. 맨 위에 그리되 손을 **통과**시킨다
             (pointer-events 를 먹으면 그리는 중인 선 자신이 다음 표본의 히트 대상이 된다).
             색·굵기는 손을 떼면 생길 획의 기본값 그대로 — 파선인 것만이 "아직 아니다" 를

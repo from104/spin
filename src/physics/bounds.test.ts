@@ -13,6 +13,7 @@ import { aabbIntersects, objectBounds, overlappingIds } from './bounds.ts';
 import type { AABB } from './bounds.ts';
 import type { ArrowId, BallId, ChairId, ConeId, NoteId, ShapeId, StepId, StrokeId } from '../core/ids.ts';
 import type { DrillCast, DrillStep } from '../model/drill.ts';
+import type { Vec2 } from '../core/units.ts';
 
 const w = (b: AABB | null): number => (b ? b.maxX - b.minX : NaN);
 const h = (b: AABB | null): number => (b ? b.maxY - b.minY : NaN);
@@ -121,6 +122,52 @@ describe('objectBounds — 도형은 회전을 포함한다', () => {
     const tilted = objectBounds('shape', { ...base, rot: 45 });
     expect(h(tilted)).toBeGreaterThan(h(flat));
     expect(w(tilted)).toBeLessThan(w(flat));
+  });
+});
+
+// 2026-09-14 — 이 상자를 그대로 **그리는** 자리가 생겼다(선택 가이드 사각형, §6.10e).
+// 그전까지는 겹침 판정에만 쓰여 오차가 «메뉴 항목이 한 칸 더 켜진다» 로 끝났지만, 이제는
+// 그림이 개체를 자르고 지나간다. 아래 둘은 그 자름을 막는 단언이다.
+describe('objectBounds — 그려도 되는 상자인가(2026-09-14)', () => {
+  it('삼각형은 꼭짓점을 담는다 — `x,y` 는 상자 중심이 아니라 **무게중심**이라 옛 식은 위를 놓쳤다', () => {
+    // 한 변 100 인 정삼각형. 무게중심에서 위 꼭짓점까지가 아래 변까지보다 **두 배** 멀다.
+    const pts = [
+      { x: 0, y: -57.735 },
+      { x: 50, y: 28.868 },
+      { x: -50, y: 28.868 },
+    ] as const;
+    const b = objectBounds('shape', {
+      id: 'sh_t' as ShapeId,
+      kind: 'triangle',
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 86.6,
+      rot: 0,
+      pts: pts as unknown as [Vec2, Vec2, Vec2],
+    })!;
+    // 꼭짓점이 상자 안에 있어야 한다(테두리 반만큼 여유는 더 바깥이다).
+    for (const p of pts) {
+      expect(p.y, `꼭짓점 ${p.x},${p.y} 가 상자 위로 새면 앵커가 그 위에 얹힌다`).toBeGreaterThanOrEqual(b.minY);
+      expect(p.y).toBeLessThanOrEqual(b.maxY);
+      expect(p.x).toBeGreaterThanOrEqual(b.minX);
+      expect(p.x).toBeLessThanOrEqual(b.maxX);
+    }
+    // 대조군 — 옛 식(무게중심 ± h/2)이었다면 minY 는 −43.3 이라 꼭짓점(−57.7)을 놓쳤다.
+    expect(b.minY).toBeLessThan(-57.7);
+  });
+
+  it('화살촉이 있으면 상자가 그만큼 넓어진다 — 촉은 선 굵기 배율로 그려져 끝점 너머로 뻗는다', () => {
+    const base = { id: 'ar_h' as ArrowId, from: { x: 0, y: 0 }, ctrl: { x: 50, y: 0 }, to: { x: 100, y: 0 } };
+    // ⚠️ `headTo` 의 기본값은 'none' 이 아니라 'thin' 이다(model/arrow.ts) — 여기서 명시하지
+    //    않으면 «촉 없음» 대조군이 사실은 가는 촉이라 단언이 자기 자신과 비교된다.
+    const none = objectBounds('arrow', { ...base, headTo: 'none' })!;
+    const thin = objectBounds('arrow', { ...base, headTo: 'thin' })!;
+    const wide = objectBounds('arrow', { ...base, headTo: 'wide' })!;
+    expect(h(thin), '가는 촉이 선 굵기보다 넓다').toBeGreaterThan(h(none));
+    expect(h(wide), '굵은 촉이 가는 촉보다 넓다').toBeGreaterThan(h(thin));
+    // 촉이 없으면 옛 값 그대로 — 선 굵기의 반뿐이다(회귀 대조군).
+    expect(h(none)).toBeCloseTo(3.4, 5);
   });
 });
 
