@@ -45,8 +45,9 @@ import type { Player } from '../../model/roster.ts';
 import { Button } from '../../ui/Button.tsx';
 import { IconPlus } from '../../ui/icons.tsx';
 import type { HomeNav } from '../home/nav.ts';
-import { useT } from '../../i18n/useT.ts';
+import { storageErrorText } from '../../i18n/storageError.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import { useT } from '../../i18n/useT.ts';
 import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
 import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
 import { withTutorialUnseen } from '../../ui/tutorial/resetTutorialSeen.ts';
@@ -68,6 +69,7 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [missing, setMissing] = useState(false);
   const t = useT();
+  const locale = useLocale();
 
   useEffect(() => {
     let cancelled = false;
@@ -284,10 +286,13 @@ export function SessionEditorScreen({ nav, sessionId }: SessionEditorScreenProps
         {/* ── ③ 시연·내보내기 ─────────────────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 8 }}>
           <Button variant="secondary" onClick={() =>
-              void exportOneSession(session).then((outcome) => {
-                // 취소는 성공이 아니다(2026-09-13).
-                if (outcome !== 'cancelled') toast.show(t('sessionsScreen.exportToast', { title: session.title }));
-              })
+              void exportOneSession(session)
+                .then((outcome) => {
+                  // 취소는 성공이 아니다(2026-09-13).
+                  if (outcome !== 'cancelled') toast.show(t('sessionsScreen.exportToast', { title: session.title }));
+                })
+                // 고른 자리에 쓰다 실패했을 수 있다 — 조용히 삼키면 저장된 줄 안다.
+                .catch((e: unknown) => toast.show(storageErrorText(e, locale, t('export.saveFailed'))))
             }>
             {t('sessionTab.exportMenuItem')}
           </Button>

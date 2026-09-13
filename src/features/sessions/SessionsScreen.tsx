@@ -25,6 +25,8 @@ import { resolveDrillRepo } from '../../storage/drillRepo.ts';
 import type { Drill } from '../../model/drill.ts';
 import { exportOneSession } from '../library/transfer.ts';
 import type { HomeNav } from '../home/nav.ts';
+import { storageErrorText } from '../../i18n/storageError.ts';
+import { useLocale } from '../../i18n/useLocale.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
 import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
@@ -43,6 +45,7 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
   const { status, sessions, createSession, refresh } = useLibrary();
   const toast = useToast();
   const t = useT();
+  const locale = useLocale();
   const { prefs } = useSettingsState();
   const { setPrefs } = useSettingsActions();
   // status가 'ready'가 되기 전에는 세션 카드가 아직 안 실려 있다(§10.7) — 목록이 실제로
@@ -153,9 +156,15 @@ export function SessionsScreen({ nav }: SessionsScreenProps) {
   const handleExportSession = async (id: SessionId) => {
     const resolved = await getSession(id);
     if (!resolved) return;
-    // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않는다.
-    if ((await exportOneSession(resolved.session)) === 'cancelled') return;
-    toast.show(t('sessionsScreen.exportToast', { title: resolved.session.title }));
+    try {
+      // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않는다.
+      if ((await exportOneSession(resolved.session)) === 'cancelled') return;
+      toast.show(t('sessionsScreen.exportToast', { title: resolved.session.title }));
+    } catch (e) {
+      // 대화상자에서 자리를 고른 뒤 쓰다가 실패하면 여기로 온다(2026-09-13) — 조용히 삼키면
+      // 사람은 저장된 줄 안다.
+      toast.show(storageErrorText(e, locale, t('export.saveFailed')));
+    }
   };
 
   return (

@@ -125,6 +125,8 @@ sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev l
   없어 눌러도 아무 일도 일어나지 않았습니다(2026-09-13 실기). 고르는 일과 쓰는 일을 러스트 안에서
   붙여 두어 **웹뷰에는 파일 권한이 0** 입니다 — `tauri-plugin-fs` 를 쓰지 않는 이유가 그것입니다.
   바이트는 `invoke` 의 날바디로, 파일명은 `x-spin-filename` 헤더(퍼센트 인코딩)로 갑니다.
+  대화상자는 **홈 폴더**에서 시작합니다(기현님 지시 2026-09-13) — 정해 주지 않으면 GTK 가 앱이 뜬
+  자리에서 시작해 제 폴더를 찾아 올라가야 합니다.
 - 창 CSP 의 `script-src` 에 `'unsafe-eval'` 이 들어 있는 이유는 **영상 내보내기의 소프트웨어 인코더**입니다.
   내장 코덱(WebCodecs)이 없는 기계에서 쓰는 `h264-mp4-encoder` 는 emscripten embind 로 만들어져 바인딩마다
   `new Function` 을 부릅니다 — `'wasm-unsafe-eval'` 만으로는 스크립트가 평가 중에 터집니다(2026-09-13 실측).

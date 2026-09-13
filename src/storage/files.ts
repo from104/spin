@@ -99,7 +99,13 @@ function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { name?: unknown }).name === 'AbortError';
 }
 
-/** 앵커 다운로드 폴백. File System Access API 는 쓰지 않는다 — 앵커로 충분하다. */
+/** 앵커 다운로드 **폴백**.
+ *
+ *  ⚠️ 2026-09-13 — 옛 주석은 *"File System Access API 는 쓰지 않는다 — 앵커로 충분하다"* 였다.
+ *  그 전제가 죽었다: 앵커는 **어디에 저장됐는지도, 저장이 됐는지도 알려 주지 않는다.** 저장 뒤
+ *  «저장했습니다» 를 말하기로 한 이상(기현님 지시) 끝을 아는 길이 필요하고, 저장 대화상자를
+ *  띄우는 길도 필요하다. 그래서 대화상자를 띄울 수 있으면 그쪽이 먼저고, 앵커는 못 띄우는
+ *  브라우저(파이어폭스·사파리)와 제스처가 만료된 때의 폴백으로 남는다 — 지우지는 않는다. */
 function anchorDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -111,6 +117,50 @@ function anchorDownload(blob: Blob, filename: string): void {
   // ⚠️ 같은 틱 revoke 로 되돌리면 안 된다 (§6.1d): 다운로드 fetch 가 시작되기 전에 대상이
   // 사라져 Safari 계열에서 0 바이트 파일이 조용히 저장된다. 유예값 근거는 REVOKE_DELAY_MS 주석.
   setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
+}
+
+/** `window.showSaveFilePicker` — 아직 TS 표준 라이브러리에 없어 **쓰는 것만** 적는다.
+ *  크로미움 계열 데스크톱에만 있다(파이어폭스·사파리·안드로이드에는 없다). */
+interface FileSystemWritable {
+  write(data: Blob): Promise<void>;
+  close(): Promise<void>;
+}
+interface SaveFileHandle {
+  createWritable(): Promise<FileSystemWritable>;
+}
+type SaveFilePicker = (opts: {
+  suggestedName?: string;
+  types?: { description?: string; accept: Record<string, string[]> }[];
+}) => Promise<SaveFileHandle>;
+
+/** 이 브라우저에 저장 대화상자가 있는가. 안전한 출처(https·localhost)에서만 존재한다. */
+function saveFilePicker(): SaveFilePicker | undefined {
+  const fn = (globalThis as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  return typeof fn === 'function' ? (fn as SaveFilePicker) : undefined;
+}
+
+/** 브라우저 저장 대화상자. 사람이 자리를 고르고, 다 쓰면 **저장됐음을 안다** — 앵커가 못 주는
+ *  두 가지다. 실패는 셋으로 가른다:
+ *  ① 사람이 물렸다(AbortError) → `cancelled`. 앵커로 흘리면 **취소했는데 파일이 떨어진다.**
+ *  ② 대화상자를 못 열었다(제스처 만료·보안·정책) → 앵커 폴백. 못 열었다고 못 내보낼 이유는 없다.
+ *  ③ 고른 자리에 쓰다 실패했다 → **던진다.** 자리를 고른 사람에게는 실패를 말해야 한다. */
+async function saveViaFilePicker(picker: SaveFilePicker, blob: Blob, filename: string): Promise<SaveOutcome> {
+  let handle: SaveFileHandle;
+  try {
+    const ext = filename.includes('.') ? `.${filename.split('.').pop()!}` : '';
+    handle = await picker({
+      suggestedName: filename,
+      types: ext ? [{ accept: { [blob.type || 'application/octet-stream']: [ext] } }] : undefined,
+    });
+  } catch (err: unknown) {
+    if (isAbortError(err)) return 'cancelled';
+    anchorDownload(blob, filename);
+    return 'started';
+  }
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+  return 'saved';
 }
 
 /** 내보내기 출구 (4.3). iPad Safari(특히 standalone)에서는 a[download] 가 사실상 동작하지
@@ -134,6 +184,12 @@ export function downloadBlob(blob: Blob, filename: string): Promise<SaveOutcome>
   // 데스크톱이 **먼저**다. 여기서 돌아가는 웹뷰에는 빌릴 브라우저가 없어 앵커 다운로드가
   // 아무 일도 하지 않는다(2026-09-13 기현님 실기) — 네이티브 저장 대화상자로 보낸다.
   if (isTauriWebview()) return saveViaNativeDialog(blob, filename);
+
+  // 브라우저 저장 대화상자가 있으면 그것이 다음이다 — 공유 시트보다 **먼저** 보는 이유는,
+  // 이 둘이 겹치는 기계가 크로미움 데스크톱뿐이고 거기서는 파일 저장이 공유보다 맞는 행동이라서다.
+  // iOS·안드로이드에는 이 API 가 아예 없어 공유 시트 길은 그대로 남는다.
+  const picker = saveFilePicker();
+  if (picker) return saveViaFilePicker(picker, blob, filename);
 
   const file = new File([blob], filename, { type: blob.type });
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {

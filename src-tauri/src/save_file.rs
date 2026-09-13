@@ -8,6 +8,7 @@
 //! 열린다. 여기서 필요한 것은 "사람이 대화상자에서 고른 그 파일 한 개" 뿐이므로, 고르는 일과
 //! 쓰는 일을 **러스트 안에서 붙여** 둔다. 웹뷰가 받는 권한은 0 이다.
 
+use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 /// 헤더로 온 파일명을 되돌린다. HTTP 헤더 값은 ASCII 만 담을 수 있는데 드릴 제목에는 한글이
@@ -81,6 +82,12 @@ pub async fn save_bytes_dialog(
   let handle = tauri::async_runtime::spawn_blocking(move || {
     let (label, ext) = filter_for(&filename);
     let mut builder = app.dialog().file().set_file_name(&filename);
+    // 시작 자리는 **홈 폴더**다(기현님 지시 2026-09-13). 이것을 정해 주지 않으면 GTK 는 앱이
+    // 뜬 자리(리눅스에서는 `/` 이거나 AppImage 를 띄운 자리)에서 시작해, 저장하려던 사람이
+    // 제 폴더를 찾아 올라가야 한다. 홈을 못 찾는 기계에서는 그냥 대화상자에 맡긴다.
+    if let Ok(home) = app.path().home_dir() {
+      builder = builder.set_directory(home);
+    }
     // 확장자가 없으면 거르개를 걸지 않는다 — 빈 확장자 거르개는 대화상자가 아무 파일도 못 보게 만든다.
     if !ext.is_empty() {
       builder = builder.add_filter(label, &[ext.as_str()]);

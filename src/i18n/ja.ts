@@ -958,6 +958,7 @@ export const ja: Record<DictKey, string> = {
   'export.blobFailed': '画像ファイルを作成できませんでした。',
   'export.video.title': '動画（MP4）',
   'export.video.desc': 'ドリル全体を30fpsの動画1本に。トーク画面にそのまま投稿できます。',
+  'export.saveFailed': '保存できませんでした。',
   'export.savedToast': '「{{name}}」を保存しました。',
   'export.video.start': '動画を作る',
   'export.video.size720': '720p',

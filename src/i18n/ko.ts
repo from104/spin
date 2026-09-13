@@ -989,6 +989,7 @@ export const ko = {
   // 문구가 "언제나 드릴 전체" 라고 못박는 것은 결정 8 이다 — 위 범위 칩이 영상에는 안 걸린다.
   'export.video.title': '영상 (MP4)',
   'export.video.desc': '드릴 전체를 30fps 영상 한 편으로. 대화방에 그대로 올라갑니다.',
+  'export.saveFailed': '저장하지 못했습니다.',
   'export.savedToast': '"{{name}}" 을(를) 저장했습니다.',
   'export.video.start': '영상 만들기',
   'export.video.size720': '720p',

@@ -140,9 +140,15 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
     setPendingDelete({ drill: d, referrers });
   };
   const handleExport = async (d: DrillSummary) => {
-    // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않는다.
-    if ((await exportOneDrill(d.id, locale)) === 'cancelled') return;
-    toast.show(t('library.exportToast', { title: d.title }));
+    try {
+      // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않는다.
+      if ((await exportOneDrill(d.id, locale)) === 'cancelled') return;
+      toast.show(t('library.exportToast', { title: d.title }));
+    } catch (e) {
+      // 대화상자에서 자리를 고른 뒤 쓰다가 실패하면 여기로 온다(2026-09-13) — 조용히 삼키면
+      // 사람은 저장된 줄 안다.
+      toast.show(storageErrorText(e, locale, t('export.saveFailed')));
+    }
   };
 
   // ── 공유 링크 (PLAN-SHARE-LINK 결정 9·11) ───────────────────────────────────────────────

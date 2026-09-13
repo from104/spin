@@ -342,10 +342,16 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
    *  동기로 돌므로 그 호출이 먼저다. 닫기는 저장이 **끝난 뒤**이고, 사람이 물렸으면 닫지 않는다. */
   const saveVideo = async () => {
     if (video.phase !== 'done') return;
-    const outcome = await downloadBlob(video.blob, video.name);
-    if (outcome === 'cancelled') return;
-    toast.show(t('export.savedToast', { name: video.name }));
-    onClose();
+    try {
+      const outcome = await downloadBlob(video.blob, video.name);
+      if (outcome === 'cancelled') return;
+      toast.show(t('export.savedToast', { name: video.name }));
+      onClose();
+    } catch (e) {
+      // 대화상자에서 자리를 고른 뒤 쓰다가 실패하면 여기로 온다(2026-09-13). 시트는 닫지
+      // 않는다 — 다시 누를 자리가 있어야 한다.
+      toast.show(storageErrorText(e, locale, t('export.saveFailed')));
+    }
   };
 
   /** 영상 인코딩 시작(그리고 [다시]). `run()` 을 쓰지 않는 이유는 저 헬퍼가 **끝날 때까지
