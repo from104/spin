@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Fixed
 
 - Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
+- Video export now has a [Create video] button — the item's title row used to be the button, so there was no sign of where to start
+- In the desktop app, saving a file opens a **native save dialog** (video, images, ZIP, backup, drill/session/team files) — pressing save used to do nothing
+- Saving a video closes the export sheet. Cancelling the save leaves it open
 - MP4 export now works on devices without a built-in codec (WebCodecs) — it falls back to a software encoder (wasm). Only those devices download it, and the sheet says up front that it is several times slower
 - Fixed [Export as link] in the desktop app failing with «could not reach the server» — the app origin is `tauri://localhost`, so the relative `/api/share` path reached nothing. Desktop builds now take the API address and link origin from `SPIN_DESKTOP_WEB_ORIGIN`
 - Fixed select boxes in the desktop app's dark theme rendering light text on a white background — the root now declares `color-scheme` so native form controls follow the theme

@@ -120,6 +120,11 @@ sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev l
   `tauri://localhost` 라 상대 경로 `/api/share` 는 아무 데도 닿지 않고 `location.origin` 으로 만든 링크는 받는
   쪽이 열 수 없기 때문입니다(2026-09-13 실기). 읽는 자리는 `src/share/api.ts` 의 `desktopWebOrigin()` 하나이고,
   같은 이유로 창 CSP 의 `connect-src` 에 `https:` 가 열려 있습니다(직접 호스팅하는 쪽은 자기 도메인을 넣으면 됩니다).
+- **파일 저장은 네이티브 대화상자**를 씁니다(`src-tauri/src/save_file.rs` 의 `save_bytes_dialog`).
+  웹은 `<a download>` 로 브라우저의 다운로드 기능을 빌리지만 데스크톱 웹뷰에는 빌릴 브라우저가
+  없어 눌러도 아무 일도 일어나지 않았습니다(2026-09-13 실기). 고르는 일과 쓰는 일을 러스트 안에서
+  붙여 두어 **웹뷰에는 파일 권한이 0** 입니다 — `tauri-plugin-fs` 를 쓰지 않는 이유가 그것입니다.
+  바이트는 `invoke` 의 날바디로, 파일명은 `x-spin-filename` 헤더(퍼센트 인코딩)로 갑니다.
 - 창 CSP 의 `script-src` 에 `'unsafe-eval'` 이 들어 있는 이유는 **영상 내보내기의 소프트웨어 인코더**입니다.
   내장 코덱(WebCodecs)이 없는 기계에서 쓰는 `h264-mp4-encoder` 는 emscripten embind 로 만들어져 바인딩마다
   `new Function` 을 부릅니다 — `'wasm-unsafe-eval'` 만으로는 스크립트가 평가 중에 터집니다(2026-09-13 실측).

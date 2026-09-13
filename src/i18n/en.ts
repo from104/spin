@@ -963,6 +963,7 @@ export const en: Record<DictKey, string> = {
   'export.blobFailed': 'Could not create the image file.',
   'export.video.title': 'Video (MP4)',
   'export.video.desc': 'The whole drill as one 30fps video. Posts straight into a chat.',
+  'export.video.start': 'Create video',
   'export.video.size720': '720p',
   'export.video.size1080': '1080p',
   'export.video.wholeDrill': 'A video always covers the whole drill — the range above does not apply.',

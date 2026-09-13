@@ -54,6 +54,18 @@ WebCodecs(그대로), 없으면 wasm 소프트웨어 인코더(`h264-mp4-encoder
 | 7 | **캡션**: PNG 와 같은 옵션(제목·실명 roster 여부)을 시트의 기존 캡션 설정에서 그대로 읽되, **인코딩 시작 전에 한 번 확정**해 모든 프레임에 같은 `caption` 형태(→ 같은 `captionH`)를 넘긴다. 글은 도착 스텝 기준 "제목 · n/N · 스텝 이름" 으로 프레임마다 바뀐다 | 높이 고정이 곧 해상도 고정. 실명은 PNG §6 규칙과 동일(파일에 실린다는 안내 재사용) |
 | 8 | **범위**: 영상은 항상 **드릴 전체**. 시트의 범위 fieldset 은 영상 항목에 적용되지 않음을 문구로 밝힌다 | 스텝 일부만의 영상은 트윈 시작점이 애매하다. 필요해지면 그때 |
 | 9 | **진행·취소**: 시트 안 인라인 상태 3단 — 진행 중(`n/N` + 퍼센트 + [취소]) → 완료(`SPIN_{slug}_{YYYYMMDD}.mp4 · 12.3 MB` + [저장]) → 오류(문구 + [다시]). **저장은 완료 뒤 버튼 클릭에서** `downloadBlob` 호출 | iOS `navigator.share` 는 사용자 제스처 안에서만 되고, 인코딩 수 초 뒤엔 활성화가 끝나 있다. 클릭 → 저장이 유일하게 안전한 순서. 취소는 `AbortSignal` → 루프 중단 + `output.cancel()` |
+
+⚠️ **2026-09-13 — 결정 9 의 UI 를 셋 고쳤다(기현님 실기, 근거는 지우지 않는다).**
+①**시작이 보이지 않았다.** 항목 머리(제목 줄) 자체가 버튼이라 "눌러야 시작된다" 는 것이 어디에도
+없었다. 머리는 글이 되고, 시작은 [영상 만들기] 한 개가 진다 — `aria-disabled` + 사유 문구를 지는
+자리도 그 버튼으로 옮겼다(못 하는 기기에서도 이 버튼만은 남는다).
+②**[저장] 이 데스크톱에서 아무 일도 하지 않았다.** `downloadBlob` 은 `<a download>` 인데 Tauri
+웹뷰에는 빌릴 브라우저가 없다. 이제 데스크톱이면 네이티브 저장 대화상자로 간다
+(`src-tauri/src/save_file.rs`, 자바스크립트에는 파일 권한을 주지 않는다).
+③**저장 뒤 시트가 남았다.** *"시트는 닫지 않는다 — 공유 시트를 취소한 사람이 다시 누를 자리가
+있어야 한다"* 는 근거를 **좁힌다**: 그 걱정은 «취소» 에만 참이고, 그때는 지금도 열어 둔다.
+저장이 끝났을 때만 닫는다(PNG·ZIP 이 이미 그렇게 한다). `downloadBlob` 이 `saved | cancelled |
+started` 를 돌려주는 것이 이 판단의 유일한 근거다.
 | 10 | **API**(UI·엔진 병렬 구현의 계약): `src/features/export/video/encodeDrillVideo.ts` 가 `export async function encodeDrillVideo(drill: Drill, opts: VideoExportOpts, hooks: { onProgress?: (done: number, total: number) => void; signal?: AbortSignal }): Promise<VideoExportResult>`; `VideoExportOpts = { size: 720 \| 1080; locale: Locale; caption: StaticSceneOpts['caption'] \| undefined /* roster 포함, 글은 엔진이 프레임마다 채움 */ }`; `VideoExportResult = { blob: Blob; bytes: number; frames: number; durationMs: number; width: number; height: number }`; `export async function isVideoExportSupported(): Promise<boolean>`(VideoEncoder 존재 + `canEncode('avc')`); 취소 시 `DOMException('AbortError')` 로 reject. 파일명 `exportNames.ts` 의 `videoFileName(drill, date) → SPIN_{slug}_{YYYYMMDD}.mp4` | 두 구현자가 이 시그니처만 보고 각자 간다 |
 | 11 | **순수 로직 분리**(테스트 가능한 것): `video/videoTiming.ts` — `videoFrameTimes(totalMs, fps): number[]`, `videoBitrate(w,h,fps)`; `video/videoMetrics.ts` — `videoCanvasSize(metrics) → {w,h 짝수, padColor}`, `videoResolution(size) → number`. 인코더·캔버스는 테스트 안 붙인다(rasterize.ts 와 같은 선언) | AGENTS 테스트 규칙: jsdom 이 못 재는 것은 실기로. 단언은 돌연변이로 실효 확인 |
 | 12 | `rasterize.ts` 에 새 출구 `paintSceneToCanvas(scene: StaticScene, canvas, locale): Promise<void>`(Image 로드 + drawImage + paintTexts, PNG 왕복 없음)를 만들고 `rasterizeFrameToPng` 가 그것을 쓰도록 접는다. 폰트 대기는 영상 루프 **앞에서 한 번** | 프레임마다 PNG 인코딩·폰트 대기를 하면 순수 낭비 |

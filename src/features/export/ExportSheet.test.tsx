@@ -120,7 +120,7 @@ describe('닫힌 시트는 예산에 0을 더한다', () => {
     renderSheet(true);
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/, /^영상 \(MP4\)/, /^링크로 공유/]) {
+    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/, /^영상 만들기$/, /^링크로 공유/]) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     // 2026-08-20 — [기기 이사 파일 (JSON)] 항목은 설정 화면으로 옮겼다(SettingsScreen.test.tsx).
@@ -131,6 +131,8 @@ describe('닫힌 시트는 예산에 0을 더한다', () => {
     // ⚠️ 2026-09-08: 3 → 4 ([영상 (MP4)], PLAN-VIDEO-EXPORT). 영상은 상태를 갖는 항목이지만
     //    **머리 버튼은 하나**다 — [취소]·[저장]·[다시] 는 그 단계에 들어가야 생긴다(여기는 idle).
     //    크기 라디오는 role=radio 라 이 수에 안 든다.
+    // ⚠️ 2026-09-13: 영상의 그 버튼은 이제 **머리가 아니라 [영상 만들기]** 다(기현님 지시 —
+    //    제목처럼 생긴 것을 눌러야 시작되는 것이 안 보였다). 수는 그대로 5 다.
     expect(screen.getAllByRole('button')).toHaveLength(5);
   });
 });
@@ -402,8 +404,9 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
     encodeMock.mockResolvedValue(RESULT);
   });
 
-  /** 머리 버튼 — **미지원일 때도 DOM 에 남는다**(disabled 가 아니라 aria-disabled 라서). */
-  const head = () => screen.getByRole('button', { name: /^영상 \(MP4\)/ });
+  /** 시작 버튼 — **미지원일 때도 DOM 에 남는다**(disabled 가 아니라 aria-disabled 라서).
+   *  2026-09-13 이전에는 항목 머리(제목 줄) 자체가 이 버튼이었다. */
+  const head = () => screen.getByRole('button', { name: /^영상 만들기$/ });
   const describedText = () => document.getElementById(head().getAttribute('aria-describedby') ?? '')?.textContent ?? '';
 
   it('미지원 브라우저: aria-disabled 이고 사유가 설명으로 걸리며, 눌러도 인코딩이 시작되지 않는다', async () => {
@@ -457,6 +460,31 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
     expect(blob.type).toBe('video/mp4');
     expect(name).toBe(videoFileName(drill));
     expect(name).toMatch(/\.mp4$/);
+  });
+
+  // 2026-09-13 기현님 지시: 저장하면 시트를 닫는다. 그런데 **취소했을 때는 닫지 않는다** —
+  // 옛 주석이 지키던 것이 그것이고(공유 시트를 물린 사람이 다시 누를 자리), 그 걱정은 아직 참이다.
+  // 둘을 한 it 에서 보는 이유: 한쪽만 있으면 "늘 닫는다"·"늘 안 닫는다" 가 통과한다.
+  it('저장이 끝나면 시트가 닫히고, 사람이 물리면 열린 채로 남는다', async () => {
+    downloadMock.mockResolvedValue('saved');
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
+    await userEvent.click(head());
+    await userEvent.click(await screen.findByRole('button', { name: '저장' }));
+    await waitFor(() => expect(onClose, '저장했으면 닫는다').toHaveBeenCalledTimes(1));
+
+    cleanup();
+    downloadMock.mockResolvedValue('cancelled');
+    const onClose2 = vi.fn();
+    render(<Harness onClose={onClose2} />);
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
+    await userEvent.click(head());
+    const save = await screen.findByRole('button', { name: '저장' });
+    await userEvent.click(save);
+    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(2));
+    expect(onClose2, '물렸으면 다시 누를 자리를 남긴다').toHaveBeenCalledTimes(0);
+    expect(save.isConnected, '[저장] 버튼이 그대로 있어야 다시 누른다').toBe(true);
   });
 
   /** 끝나지 않는 인코딩 — signal 을 붙잡아 두고 abort 될 때만 취소로 끝난다. */

@@ -72,6 +72,28 @@ export function readTextFile(f: File): Promise<string> {
  *  않는 상한이면서, 저장 대화상자를 열어 두는 통상 시간을 덮는다. 실기 대조는 FIELD-TEST E-9. */
 export const REVOKE_DELAY_MS = 40_000;
 
+/** 저장의 끝. `started` 가 따로 있는 이유는 **브라우저 다운로드는 끝을 알려 주지 않기**
+ *  때문이다 — 성공으로도 취소로도 읽으면 안 된다. */
+export type SaveOutcome = 'saved' | 'cancelled' | 'started';
+
+/** 데스크톱(Tauri) 웹뷰인가. `authDesktop.ts` 의 `isDesktop()` 과 같은 판별자를 쓰지만 그쪽을
+ *  import 하지는 않는다 — 저장 경로가 구글 로그인 모듈에 매이면 안 된다. */
+function isTauriWebview(): boolean {
+  return typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
+}
+
+/** 네이티브 저장 대화상자(러스트 `save_bytes_dialog`). 바이트는 **날바디**로, 파일명은 헤더로
+ *  간다 — `invoke` 의 인자 묶음에 바이트열을 넣으면 2MB 영상이 200만 개짜리 JSON 숫자 배열이
+ *  된다(근거는 `src-tauri/src/save_file.rs` 머리말). 헤더는 ASCII 만 담으므로 이름을 싼다. */
+async function saveViaNativeDialog(blob: Blob, filename: string): Promise<SaveOutcome> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const saved = await invoke<boolean>('save_bytes_dialog', bytes, {
+    headers: { 'x-spin-filename': encodeURIComponent(filename) },
+  });
+  return saved ? 'saved' : 'cancelled';
+}
+
 /** DOMException 은 구현에 따라 Error 를 상속하지 않는다 — instanceof 대신 name 으로 가른다. */
 function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { name?: unknown }).name === 'AbortError';
@@ -99,18 +121,31 @@ function anchorDownload(blob: Blob, filename: string): void {
  *  한 번이라도 끼우면 제스처가 만료돼 iOS 에서 NotAllowedError 로 조용히 실패한다.
  *  그래서 이 함수는 async 가 아니고, share 를 클릭 핸들러와 같은 틱에서 동기 호출한다.
  *
+ *  돌려주는 값(2026-09-13 추가): `saved` = 저장이 **끝났다**, `cancelled` = 사람이 대화상자·
+ *  공유 시트를 물렸다, `started` = 브라우저 다운로드에 넘겼다(끝났는지는 알 길이 없다).
+ *  부르는 쪽은 이 값으로 "저장했으니 창을 닫을지" 를 가른다 — `cancelled` 에 닫으면 물린
+ *  사람이 다시 누를 자리를 잃는다.
+ *
  *  ⚠️ share 의 거부 중 AbortError 는 "사용자가 공유 시트를 취소"다 — 실패로 취급해 앵커
  *  폴백으로 흘리면 **취소했는데 다운로드가 시작된다**. 그 외 거부(NotAllowedError 등)만
  *  폴백한다. 폴백은 제스처 밖(마이크로태스크)에서 돌지만, a[download] 클릭은 제스처를
  *  요구하지 않으므로 최선의 차선이다. */
-export function downloadBlob(blob: Blob, filename: string): void {
+export function downloadBlob(blob: Blob, filename: string): Promise<SaveOutcome> {
+  // 데스크톱이 **먼저**다. 여기서 돌아가는 웹뷰에는 빌릴 브라우저가 없어 앵커 다운로드가
+  // 아무 일도 하지 않는다(2026-09-13 기현님 실기) — 네이티브 저장 대화상자로 보낸다.
+  if (isTauriWebview()) return saveViaNativeDialog(blob, filename);
+
   const file = new File([blob], filename, { type: blob.type });
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file] }).catch((err: unknown) => {
-      if (isAbortError(err)) return; // 사용자 취소 — 아무것도 하지 않는다
-      anchorDownload(blob, filename);
-    });
-    return;
+    return navigator.share({ files: [file] }).then(
+      () => 'saved' as const,
+      (err: unknown) => {
+        if (isAbortError(err)) return 'cancelled' as const; // 사용자 취소 — 아무것도 하지 않는다
+        anchorDownload(blob, filename);
+        return 'started' as const;
+      },
+    );
   }
   anchorDownload(blob, filename);
+  return Promise.resolve('started');
 }

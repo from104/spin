@@ -329,6 +329,15 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
       onClose();
     }, t('export.pngFailed'));
 
+  /** 영상 저장. **동기 구간이 계약이다**(storage/files.ts 머리말): `downloadBlob` 을 클릭과
+   *  같은 틱에서 불러야 iOS 공유 시트가 열린다 — 이 함수가 `async` 여도 첫 `await` 전까지는
+   *  동기로 돌므로 그 호출이 먼저다. 닫기는 저장이 **끝난 뒤**이고, 사람이 물렸으면 닫지 않는다. */
+  const saveVideo = async () => {
+    if (video.phase !== 'done') return;
+    const outcome = await downloadBlob(video.blob, video.name);
+    if (outcome !== 'cancelled') onClose();
+  };
+
   /** 영상 인코딩 시작(그리고 [다시]). `run()` 을 쓰지 않는 이유는 저 헬퍼가 **끝날 때까지
    *  기다렸다가 토스트를 띄우는** 짧은 동작용이라서다 — 영상은 수 초~수십 초라 진행·취소를
    *  시트 안에 그려야 한다(결정 9). 대신 `busyRef` 는 공유한다: 인코딩 중에 PNG 60장을
@@ -432,17 +441,10 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
               이유: 코치가 가장 자주 하는 일 순서다(그림 › 종이 › 영상). 영상은 만드는 데 수 초~수십
               초가 들어 "지금 이 판을 빨리 꺼내는" 행위가 아니다. */}
           <div style={VIDEO_BOX}>
-            <button
-              type="button"
-              // ⚠️ `disabled` 가 아니라 `aria-disabled` 다(머리말 ④) — 초점을 받아야 아래 사유
-              //    문구(aria-describedby)가 화면리더에 읽힌다. 그래서 클릭 차단은 손으로 한다.
-              aria-disabled={videoBlocked}
-              aria-describedby={videoDescId}
-              onClick={() => {
-                if (!videoBlocked) startVideo();
-              }}
-              style={{ ...VIDEO_HEAD, opacity: videoBlocked ? 0.5 : 1, cursor: videoBlocked ? 'not-allowed' : 'pointer' }}
-            >
+            {/* 머리는 **글**이다(2026-09-13). 예전에는 이 줄 전체가 시작 버튼이었는데, 기현님
+                실기에서 "생성 시작 버튼이 명확했으면" 으로 물렸다 — 제목처럼 생긴 것을 눌러야
+                시작된다는 것은 아무 데도 적혀 있지 않았다. 시작은 아래 버튼 하나가 진다. */}
+            <div style={VIDEO_HEAD}>
               <span id={videoTitleId} style={ITEM_TITLE}>
                 {t('export.video.title')}
               </span>
@@ -453,7 +455,7 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
                     ? t('export.video.software')
                     : t('export.video.desc')}
               </span>
-            </button>
+            </div>
             {videoSupported !== false && (
               <>
                 {videoCanPickSize && (
@@ -478,6 +480,28 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
                 {/* 결정 8 — 범위 칩은 영상에 안 걸린다. 칩이 떠 있을 때(스텝 2장 이상)만 말한다:
                     고를 것이 없는 판에서 "적용되지 않습니다" 는 없는 기능을 설명하는 소음이다. */}
                 {drill.steps.length > 1 && <p style={VIDEO_NOTE}>{t('export.video.wholeDrill')}</p>}
+              </>
+            )}
+            {/* 시작 버튼 — **지원 분기 밖**이다. 못 하는 기기에서도 이 버튼만은 남아야
+                위 사유 문구(aria-describedby)를 읽어 줄 초점 자리가 있다.
+                ⚠️ `disabled` 가 아니라 `aria-disabled` 인 이유가 그것이다(머리말 ④) — 그래서
+                클릭 차단은 손으로 한다. 굽는 중·끝난 뒤에는 감춘다: 그 자리는 [취소]·[저장] 이 진다. */}
+            {(videoIdle || videoSupported === false) && (
+              <div style={VIDEO_STATUS_ROW}>
+                <Button
+                  variant="primary"
+                  aria-disabled={videoBlocked}
+                  aria-describedby={videoDescId}
+                  onClick={() => {
+                    if (!videoBlocked) startVideo();
+                  }}
+                >
+                  {t('export.video.start')}
+                </Button>
+              </div>
+            )}
+            {videoSupported !== false && (
+              <>
                 {video.phase === 'running' && (
                   <div style={VIDEO_STATUS_ROW}>
                     <p role="status" style={VIDEO_STATUS_TEXT}>
@@ -500,9 +524,12 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
                       {t('export.video.done', { name: video.name, size: formatBytes(video.bytes) })}
                     </p>
                     {/* ⚠️ 저장은 **여기 클릭에서만** 한다(머리말 ②). 인코딩 직후 자동 저장으로
-                        옮기면 iOS 공유 시트가 제스처 만료로 안 열린다. 시트는 닫지 않는다 —
-                        공유 시트를 취소한 사람이 다시 누를 자리가 있어야 한다. */}
-                    <Button variant="primary" onClick={() => downloadBlob(video.blob, video.name)}>
+                        옮기면 iOS 공유 시트가 제스처 만료로 안 열린다.
+                        ── ⚠️ 2026-09-13: *"시트는 닫지 않는다 — 공유 시트를 취소한 사람이 다시
+                        누를 자리가 있어야 한다"* 를 뒤집는다(기현님 지시). 근거는 지우지 않고
+                        **좁힌다**: 그 걱정은 «취소» 에만 해당하는데, 그때는 지금도 열어 둔다.
+                        저장이 실제로 끝났을 때만 닫으며, 이는 PNG·ZIP 이 하던 것과 같다. */}
+                    <Button variant="primary" onClick={() => void saveVideo()}>
                       {t('export.video.save')}
                     </Button>
                   </div>
