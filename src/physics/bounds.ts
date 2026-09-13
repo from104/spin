@@ -204,6 +204,31 @@ function stepEntries(step: DrillStep, cast: DrillCast): Entry[] {
  *    것*인데, 나를 가리고 있는 것이 하필 잠긴 개체라고 해서 [한 단계 앞으로]가 죽으면 그
  *    상황이야말로 못 빠져나온다. 잠금은 **이동**을 막는 것이지 표시순서를 막는 것이 아니다.
  *  · 자기 자신은 결과에 없다. */
+/** 고른 것들을 **통째로** 감싼 상자. 없는 id·상자를 못 내는 개체는 조용히 빠진다(전부 빠지면 null).
+ *
+ *  쓰는 곳은 이동 앵커(§6.10d, 2026-09-13) 하나다 — 겹쳐 놓인 도형·메모를 몸통으로 집기
+ *  어렵다는 실기 지적에서 나왔다. 앵커는 이 상자의 **화면 기준** 위/아래 중앙에 뜬다.
+ *
+ *  ⚠️ 여기서 상자를 새로 재지 않고 `stepEntries` 를 그대로 쓰는 것이 계약이다. 겹침 판정과
+ *  앵커가 다른 상자를 쓰면 "앵커는 저기 떠 있는데 개체는 여기 있다" 가 된다 — 머리말이 말하는
+ *  두 벌 문제와 같은 사고다. */
+export function selectionBounds(step: DrillStep, cast: DrillCast, ids: ReadonlySet<string>): AABB | null {
+  if (ids.size === 0) return null;
+  let out: AABB | null = null;
+  for (const e of stepEntries(step, cast)) {
+    if (!ids.has(e.id)) continue;
+    out = out
+      ? {
+          minX: Math.min(out.minX, e.box.minX),
+          minY: Math.min(out.minY, e.box.minY),
+          maxX: Math.max(out.maxX, e.box.maxX),
+          maxY: Math.max(out.maxY, e.box.maxY),
+        }
+      : e.box;
+  }
+  return out;
+}
+
 export function overlappingIds(step: DrillStep, cast: DrillCast, id: string): Set<string> {
   const entries = stepEntries(step, cast);
   const me = entries.find((e) => e.id === id);

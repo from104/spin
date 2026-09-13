@@ -28,6 +28,9 @@ import { RuleOverlay } from './RuleOverlay.tsx';
 import type { RuleOverlayApi, RuleRosterEntry } from './ruleOverlay.ts';
 import { ArrowMarkers } from './ArrowMarkers.tsx';
 import { ObjectLayer, type ObjectLayerChair, type ObjectLayerCone } from './ObjectLayer.tsx';
+import { MoveAnchor } from './MoveAnchor.tsx';
+import { moveAnchorPlacement } from './moveAnchorPlacement.ts';
+import type { AABB } from '../physics/bounds.ts';
 import type { SceneRef } from '../model/zOrder.ts';
 import { ShapeHandles } from './ShapeHandles.tsx';
 import { dragShapeHandle } from '../model/shape.ts';
@@ -41,7 +44,7 @@ import { STROKE_DEFAULT_WIDTH_PX, strokeColor, strokePath, strokeWidthOf, type S
 import { KeyboardCursor } from './KeyboardCursor.tsx';
 import type { TransformWriter } from './transformWriter.ts';
 import { StageRotProvider } from './stageRot.tsx';
-import { computeMetrics, clientToWorld, zoomAt, wheelZoomFactor, panView, panViewByScreen, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
+import { computeMetrics, clientToWorld, worldToClient, zoomAt, wheelZoomFactor, panView, panViewByScreen, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
 import { raf } from './rafLoop.ts';
 
 /** 더블클릭 판정. OS 기본값(대개 500ms)보다 짧게 잡는다 — 판 위에서는 같은 자리를 두 번
@@ -59,6 +62,10 @@ export function isSecondaryButton(e: { pointerType: string; button: number }): b
 }
 
 export interface PointerMeta {
+  /** 이 누름이 **이동 앵커** 위에서 시작됐는가(2026-09-13). 컨트롤러는 이 한 칸만 보고
+   *  히트테스트를 건너뛰고 «고른 것 통째로 옮기기» 세션을 연다 — 앵커가 겹친 개체들 위에
+   *  떠 있어도, 그 밑에 무엇이 있는지는 이 손짓과 아무 상관이 없기 때문이다. */
+  moveAnchor?: boolean;
   pointerType: string;
   button: number;
   shiftKey: boolean;
@@ -214,6 +221,10 @@ export interface CourtStageProps {
   };
   /** 선택된 도형의 손잡이 셋(가로·세로·회전). 화살표 핸들과 같은 모양의 prop 이다. */
   shapeHandles?: { shape: Shape | null };
+  /** 이동 앵커(§6.10d, 2026-09-13). `bounds` 는 고른 것을 통째로 감싼 **월드** 상자이고,
+   *  화면 기준으로 재어 위/아래를 정하는 일은 이 컴포넌트가 한다(metrics 를 여기가 쥐고 있다).
+   *  null 이면 그리지 않는다 — 언제 뜨는지는 부모(EditorStage)가 정한다. */
+  moveAnchor?: { bounds: AABB | null };
   /** 선택된 획의 손잡이 셋(양끝·회전). 화살표 핸들과 같은 모양의 prop 이다. */
   strokeHandles?: {
     stroke: Stroke | null;
@@ -323,6 +334,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     onShapeChange,
     zoneHandles: zoneHandlesProps,
     shapeHandles: shapeHandlesProps,
+    moveAnchor: moveAnchorProps,
     arrowHandles: arrowHandlesProps,
     strokeHandles: strokeHandlesProps,
     keyboardCursor,
@@ -567,6 +579,10 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   };
 
   const handlePointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
+    // ⚠️ **가장 먼저** 읽고 비운다. 아래 조기 반환(오른쪽 버튼·핀치·엣지 스와이프) 중 하나라도
+    // 이 줄보다 앞서면 표시가 남아 **다음 누름**이 앵커 누름으로 둔갑한다.
+    const fromMoveAnchor = moveAnchorArmedRef.current;
+    moveAnchorArmedRef.current = false;
     // ★ 오른쪽·가운데 버튼은 판을 **건드리지 않는다** (기현 신고 2026-08-15:
     // *"칩들에게는 왼쪽, 오른쪽 마우스 버튼 동작이 똑같다"*).
     //
@@ -649,6 +665,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
 
     dragClientRef.current = { x: e.clientX, y: e.clientY };
     const res = controller.onPointerDown(world, {
+      moveAnchor: fromMoveAnchor,
       pointerType: e.pointerType,
       button: e.button,
       shiftKey: e.shiftKey,
@@ -795,6 +812,12 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     },
     [onShapeSelect, shapes, worldOf, locked],
   );
+
+  // 이 누름이 이동 앵커에서 시작됐는가. **stopPropagation 을 쓰지 않는 이유**가 여기 있다:
+  // 무대의 pointerdown 이 그대로 돌아야 포인터 캡처·metrics 갱신·핀치 전환이 전부 공짜로 따라온다.
+  // 앵커는 "이 손짓은 내 것" 이라고 표시만 남기고 길은 비켜 준다. React 합성 이벤트는 표적 →
+  // 조상 순서라 무대가 읽을 때는 이미 세워져 있다.
+  const moveAnchorArmedRef = useRef(false);
 
   const onShapeHandleDown = useCallback(
     (which: ShapeHandle, e: ReactPointerEvent<SVGGElement>) => {
@@ -988,6 +1011,43 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             onPointerDown={arrowHandlesProps.onPointerDown}
           />
         )}
+        {/* 이동 앵커는 손잡이들보다 **위**다(2026-09-13) — 겹친 것들 위에 떠 있는 것이 이
+            기능의 전부이므로, 다른 손잡이에 가리면 있으나 마나다. */}
+        {(() => {
+          const box = moveAnchorProps?.bounds;
+          const m = metricsRef.current;
+          if (!box || !m) return null;
+          // 월드 상자를 **화면 상자로 다시 잰다.** 판이 90° 돌면 위/아래가 뒤바뀌므로
+          // minY 가 곧 화면의 위가 아니다 — 지시의 "화면 기준" 이 여기서 지켜진다.
+          const a = worldToClient(m, box.minX, box.minY);
+          const b = worldToClient(m, box.maxX, box.maxY);
+          const place = moveAnchorPlacement(
+            {
+              left: Math.min(a.clientX, b.clientX),
+              right: Math.max(a.clientX, b.clientX),
+              top: Math.min(a.clientY, b.clientY),
+              bottom: Math.max(a.clientY, b.clientY),
+            },
+            { left: m.rect.left, right: m.rect.right, top: m.rect.top, bottom: m.rect.bottom },
+            {
+              gapPx: INTERACT.moveAnchorGapCssPx,
+              viewRadiusPx: INTERACT.handleViewRadiusCssPx,
+              hitRadiusPx: INTERACT.handleHitRadiusCssPx,
+            },
+          );
+          const w = clientToWorld(m, place.clientX, place.clientY);
+          return (
+            <MoveAnchor
+              x={w.x}
+              y={w.y}
+              pxPerUnit={m.pxPerUnit}
+              below={place.below}
+              onPointerDown={() => {
+                moveAnchorArmedRef.current = true;
+              }}
+            />
+          );
+        })()}
         {strokeHandlesProps && (
           <StrokeHandles
             stroke={strokeHandlesProps.stroke}

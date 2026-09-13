@@ -8,10 +8,11 @@ import { NudgePad, type NudgePadTarget } from './NudgePad.tsx';
 import { useLongPressMenu } from './useLongPressMenu.ts';
 import { sameKindGroup } from './selectSame.ts';
 import { sceneOrder, zMoves } from '../../model/zOrder.ts';
-import { overlappingIds } from '../../physics/bounds.ts';
+import { overlappingIds, selectionBounds } from '../../physics/bounds.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { RAD } from '../../core/angle.ts';
 import { isId } from '../../core/ids.ts';
+import { moveAnchorIds } from './moveAnchorIds.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
 import type { ArrowId, CastId, ChairId, NoteId } from '../../core/ids.ts';
 import type { ToolId } from '../../physics/index.ts';
@@ -608,6 +609,18 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     return id ? (step.arrows.find((a) => a.id === id) ?? null) : null;
   }, [selection, step.arrows, lockedSet]);
 
+  /** 이동 앵커가 감쌀 상자(§6.10d, 2026-09-13 기현님 지시). 뜨는 자리는 셋이다:
+   *  **도형 하나 · 메모 하나 · 여럿**. 셋을 고른 이유는 지시 그대로 — 겹쳐 놓았을 때 몸통을
+   *  집기 어려운 것들이다. 휠체어·공·콘 하나는 빠진다: 몸통이 크고 물리 드래그(견인·회전)가
+   *  붙어 있어, 앵커로 옮기면 그 회로를 건너뛰어 **다른 이동**이 된다.
+   *
+   *  잠긴 것·무시된 것은 상자에서도 빠진다 — 옮길 수 없는 것을 감싼 앵커는 눌러도 안 움직인다.
+   *  전부 빠지면 null 이라 앵커 자체가 안 뜬다. */
+  const moveAnchorBounds = useMemo(() => {
+    const ids = moveAnchorIds(selection, lockedSet, ignoredSet);
+    return ids.length === 0 ? null : selectionBounds(step, drill.cast, new Set(ids));
+  }, [selection, lockedSet, ignoredSet, step, drill.cast]);
+
   /** 선택이 정확히 하나이고 그것이 도형일 때만 손잡이를 띄운다 — 여럿을 고른 채로 손잡이를
    *  내면 "무엇의 가로인가" 가 사라진다(화살표 핸들이 간 길과 같다). */
   const selectedShape = useMemo(() => {
@@ -782,6 +795,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       }}
       onShapeChange={(next) => dispatch({ type: 'SHAPE_SET', shape: next })}
       shapeHandles={{ shape: selectedShape }}
+      moveAnchor={{ bounds: moveAnchorBounds }}
       locked={lockedSet}
       ignored={ignoredSet}
       onStageContextMenu={(id, e) => {

@@ -330,6 +330,9 @@ export const INTERACT = {
   zoneDirectMinPxPerUnit: 2.2154,
   handleHitRadiusCssPx: 22,
   handleViewRadiusCssPx: 11,
+  /** 이동 앵커와 개체 상자 사이 틈(2026-09-13). 손잡이와 한 덩어리로 보이지 않을 만큼만 띄운다 —
+   *  더 멀면 "무엇의 앵커인가" 가 흐려지고, 더 가까우면 도형 손잡이와 구분이 안 된다. */
+  moveAnchorGapCssPx: 10,
   /** 핸들의 월드 고정 레버(px). 렌더 위치와 래치 레버가 같은 함수에서 나와야 스냅이 없다.
    *
    *  앞뒤 두 핸들(towRear·towFront)은 "줄을 매달아 끌고 간다"는 컨셉이므로 차체에서 떼어 놓는다.

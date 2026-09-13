@@ -26,6 +26,7 @@ import { formationSlots } from '../../model/defaults.ts';
 import { poseToStored } from '../../model/chair.ts';
 import { isOnSurface } from '../../model/court.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
+import { moveAnchorIds } from './moveAnchorIds.ts';
 import type { Arrow, ArrowGrip } from '../../model/arrow.ts';
 import { arrowColorName, arrowMid, cycleArrowColor, cycleHead, defaultCtrl, headFromOf, headToOf, nudgeArrow, rotateArrowAbout } from '../../model/arrow.ts';
 import type { Stroke, StrokeGrip } from '../../model/stroke.ts';
@@ -589,6 +590,35 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 그때 컨텍스트를 처음 열면 자동재생 정책상 'suspended' 로 태어나 첫 '탁' 이 통째로
       // 삼켜진다. 소리가 꺼져 있으면 이 호출은 아무것도 열지 않는다(cues.ts 계약 ①).
       cues.arm();
+
+      // ── 이동 앵커(§6.10d, 2026-09-13 기현님 지시) ─────────────────────────────
+      // *"도형·메모·다중 선택에서 객체가 겹쳐 있으면 집어 드래그로 옮기기가 쉽지 않더라."*
+      // 겹치면 위에 있는 것이 손을 먼저 먹는다 — 밑에 깔린 것을 옮기려면 위엣것을 잠그거나
+      // 치우거나 표시순서를 바꿔야 했다. 앵커는 그 겹침 **바깥**에 떠서 언제나 집힌다.
+      //
+      // 히트테스트를 **부르지 않는다.** 앵커 밑에 무엇이 깔려 있든 이 손짓과 상관이 없기
+      // 때문이고, 그것이 겹침을 피하려고 앵커를 만든 이유 자체다.
+      //
+      // 도구보다 먼저 본다: 배치 도구나 지우개를 쥔 채 앵커를 눌러도 **옮긴다**. 앵커는 고른
+      // 것 위에만 뜨므로 그 누름의 뜻은 하나뿐이고, 여기서 도구에 양보하면 "옮기려다 지웠다"
+      // 가 된다. 기존 이동 방법(몸통 드래그·키보드)은 하나도 줄지 않는다.
+      if (meta.moveAnchor) {
+        // 명단은 앵커를 **그리는 쪽과 같은 함수**에서 온다(moveAnchorIds) — 두 곳이 각자
+        // 거르면 언젠가 갈라지고, 그러면 앵커가 감싼 것과 옮겨지는 것이 달라진다.
+        const ids = moveAnchorIds(ctx.selection, ctx.locked, ctx.ignored);
+        if (ids.length === 0) return;
+        const grp = { id: ids[0]!, ids, last: world, start: world, moved: false };
+        groupDragRef.current = grp;
+        // 트레이·되돌리기 규약도 그대로 물려받는다(위 §6.10b 블록의 주석이 정본이다).
+        trayCargoRef.current = {
+          ids,
+          revert: () => {
+            const d = { x: grp.start.x - grp.last.x, y: grp.start.y - grp.last.y };
+            if (d.x !== 0 || d.y !== 0) ctxRef.current.dispatch({ type: 'GROUP_NUDGE', ids, d });
+          },
+        };
+        return {};
+      }
 
       if (TOOL_TO_PLACE[ctx.tool]) {
         placeAt(world);

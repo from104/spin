@@ -396,6 +396,7 @@ export const HELP_EN: HelpContent = {
             ],
           },
           { kind: 'p', text: 'With several selected, drag any one of them and **all of them move together.** Tap without dragging and only that one stays selected.' },
+          { kind: 'p', text: 'Select one shape or note, or several objects, and a **move anchor** (a circle with a four-way arrow) appears above them. When objects overlap and the body is hard to grab, drag the anchor and everything selected follows. It sits below instead when there is no room above. Dragging the body still works as before.' },
         ],
       },
       {

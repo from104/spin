@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
+- Selecting a shape or note, or several objects, now shows a **move anchor** above them — when objects overlap and the body is hard to grab, drag the anchor and everything selected follows. It sits below when there is no room above, and dragging the body still works
 - Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
 
 ### Fixed
