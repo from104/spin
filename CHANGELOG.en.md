@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Changed
 
+- Faster first start — no more waiting on a blank screen, and less stutter while loading
 - Denser shape fill and a black casing under the outline — clearer edges on the court
 - Desktop save dialog starts in the home folder
 - Saving a video closes the export sheet (cancelling leaves it open)

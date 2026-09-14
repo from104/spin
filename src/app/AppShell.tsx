@@ -39,7 +39,7 @@
 //     발행한다.** "걷힘" 은 `loader.visible === false` 가 **아니라 퇴장 transition 까지 끝난
 //     시점**이다(2026-09-04 실측: 페이드 도중 프레임에 말풍선이 이미 떠 있었다). 그 시점은
 //     오버레이가 `onExited` 로 알려 준다 — 아래 coverSettled 주석.
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SkipLink } from '../ui/SkipLink.tsx';
 import { useIsNarrow } from '../ui/useIsNarrow.ts';
 import { LiveRegion, liveRegion } from '../ui/LiveRegion.tsx';
@@ -388,6 +388,20 @@ export function AppShell() {
   const isFirstRender = useRef(true);
   const locale = useLocale();
   const t = useT();
+
+  // 부트 마크 넘겨받기 (2026-09-15) — `index.html` 이 그려 둔 정지 마크를 걷는다.
+  //
+  // ⚠️ **`useLayoutEffect` 여야 한다.** 이 훅은 커밋 뒤 **페인트 전**에 돈다 — 그래서 부트
+  // 마크가 사라지는 프레임과 앱이 처음 그려지는 프레임이 **같은 프레임**이다. `useEffect` 로
+  // 내리면 그 사이에 한 프레임이 열리고, 그 프레임에서는 둘 다 화면에 있거나(겹침) 둘 다
+  // 없다(깜빡임). 어느 쪽이든 사람 눈에는 "한 번 튄다" 로 읽힌다.
+  //
+  // 왜 로더(`AppLoaderOverlay`)가 아니라 여기인가: 감축 모션·테스트에서는 로더가 **한 번도
+  // 안 뜬다**(loaderMinMs 0ms 경로). 거기에 걸어 두면 그 환경에서 부트 마크가 영영 안 걷힌다.
+  // AppShell 은 어느 환경에서도 반드시 한 번 커밋된다.
+  useLayoutEffect(() => {
+    document.getElementById('spin-boot')?.remove();
+  }, []);
   // 3.-2 §5.2 — 좁으면 84px 레일을 걷고 같은 3항목을 헤더 좌측 세그먼트로 세운다. **판정은
   // 여기 한 번뿐이다**: 레일과 세그먼트가 같은 boolean 을 나눠 써야 "둘 다 서 있다/둘 다
   // 없다" 는 프레임이 열리지 않는다. 판 위에 오버레이로 얹지 않는 이유는 AppNavSegment.tsx

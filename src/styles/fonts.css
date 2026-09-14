@@ -1,17 +1,36 @@
-/* Pretendard */
+/* Pretendard
+ *
+ * ⚠️ 2026-09-15 — **Medium(500)·ExtraBold(800) 두 벌을 뺐다.** 기현님 실기 보고
+ * (*"데탑앱에서 첫 로딩 애니가 툭툭 끊긴다"*)를 데스크톱과 같은 엔진(WebKitGTK 4.1)에
+ * 실측해 고른 자리다.
+ *
+ * 한 벌이 750~775 KB 이고 다섯 벌이면 3.8 MB 다. 한글 전 음절(11,172자)을 담아야 하는 폰트라
+ * 서브셋으로는 못 줄인다 — 사용자가 드릴 이름에 무엇을 적을지 우리가 정하지 않기 때문이다.
+ * 그래서 줄일 수 있는 것은 **벌 수**뿐이다.
+ *
+ * 왜 하필 이 둘인가: 다섯 벌이 한꺼번에 오지 않는다. 폰트는 그 굵기를 쓰는 글자가 실제로
+ * 그려질 때 받아온다. 실측(첫 로딩, 로컬 서버)에서 Regular·SemiBold·Bold 는 320ms 에 —
+ * 첫 페인트 **전**이라 사람 눈에 안 걸리는 구간에 — 도착했고, **ExtraBold 는 868ms, Medium 은
+ * 1007ms** 에 도착했다. 그 둘이 도착하는 자리가 하필 로더가 화면에 떠 있는 구간이고, 도착할
+ * 때마다 swap 이 글자를 다시 앉혀 레이아웃·페인트가 한 번씩 돈다.
+ *
+ * 실측 A/B(같은 빌드에서 @font-face 만 들어낸 사본과 대조):
+ *   · 1.0~1.3초의 끊김 **세 번(141ms · 151ms · 97ms)이 통째로 사라졌다**
+ *   · 첫 페인트 앞의 정지도 684ms → 514ms 로 줄었다(디코드 몫)
+ *
+ * 쓰던 자리는 CSS 폰트 매칭이 받는다 — 500 은 400(Regular)으로, 800 은 700(Bold)으로 그려진다.
+ * `font-weight: 500`·`800` 선언을 코드에서 지우지 **않는** 이유는 그것이 디자인 의도이기
+ * 때문이다: 두 벌을 되살리면 의도한 굵기가 그대로 돌아온다. 파일도 `src/assets/fonts/` 에
+ * 그대로 둔다(되돌리는 값은 이 블록 두 개다).
+ *
+ * 되돌릴 때 알아야 할 것: 다섯 벌을 **전부 미리 받게** 하는 것은 답이 아니다. 그러면 3.8 MB
+ * 디코드가 첫 페인트 앞으로 옮겨 가 백지 구간이 길어질 뿐이다. */
 
 @font-face {
   font-family: 'Pretendard';
   font-weight: 400;
   font-display: swap;
   src: local('Pretendard Regular'), url('../assets/fonts/Pretendard-Regular.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Pretendard';
-  font-weight: 500;
-  font-display: swap;
-  src: local('Pretendard Medium'), url('../assets/fonts/Pretendard-Medium.woff2') format('woff2');
 }
 
 @font-face {
@@ -26,13 +45,6 @@
   font-weight: 700;
   font-display: swap;
   src: local('Pretendard Bold'), url('../assets/fonts/Pretendard-Bold.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Pretendard';
-  font-weight: 800;
-  font-display: swap;
-  src: local('Pretendard ExtraBold'), url('../assets/fonts/Pretendard-ExtraBold.woff2') format('woff2');
 }
 
 /* Space Grotesk */
