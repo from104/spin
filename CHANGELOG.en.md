@@ -8,33 +8,36 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
-- Shape fills are more opaque (0.13 → 0.30) — overlapping shapes read more clearly
-- **Delete several drills or sessions at once** — press [Select] and a checkbox appears on each item, with [All shown] to take everything currently listed. Before deleting it asks what will go (up to five titles plus “and N more”) and warns when sessions use the drills you picked. [Undo] brings **all** of them back
-- **Shapes now have a color** — white, sky, yellow and orange. Tap the rotation handle without dragging and the color cycles (the same rule arrows and strokes already use). They stay translucent, so overlaps deepen and different colors mix
-- Shape outlines now sit on a **black casing** — the edge reads at 3.93:1 against the court green (the old white outline was 2.74:1, and orange would have been 1.26:1)
-- **Shapes can now be used from the keyboard** — until now a shape could not take focus, so it was the only object you could not move with the arrow keys or WASD, nor reach with `[` and `]`
-- **Q and E now rotate more than wheelchairs** — shapes, lines and freehand strokes turn with the same keys (Shift for 15°). Notes, balls and cones have no angle, and nothing rotates while several objects are selected
-- Selecting a shape, note, line or freehand stroke, or several objects, now shows a **move anchor** above them — when objects overlap and the body is hard to grab, drag the anchor and everything selected follows. It sits below when there is no room above, and steps aside when it would land on another handle. With several objects, or a single line or stroke, a **dashed rectangle** shows what the anchor holds. Dragging the body still works
-- Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
+- Desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
+- Four shape colors (white, sky, yellow, orange) — tap the rotation handle to cycle; translucent, so overlaps mix
+- Keyboard control for shapes, lines and freehand strokes — WASD and arrow keys to move, Q and E to rotate (Shift for 15°)
+- Move anchor above a selected shape, note, line, stroke or group — drag it to move objects that overlap (dashed rectangle marks the extent of a group or a single line or stroke)
+- Multi-delete in the drill and session lists — [Select] to pick several at once, [Undo] restores all of them
+- Save dialog for choosing where a file goes, plus a toast when the write finishes
+- MP4 export on devices without a built-in codec (software encoder fallback)
+- [Create video] button in video export
+
+### Changed
+
+- Denser shape fill and a black casing under the outline — clearer edges on the court
+- Desktop save dialog starts in the home folder
+- Saving a video closes the export sheet (cancelling leaves it open)
+
+### Removed
+
+- [Video] and [Share as link] from the free tactics board's export sheet — use [Edit as drill] first
 
 ### Fixed
 
-- Fixed tapping a shape's rotation handle not changing its color — the reducer's “nothing changed” guard did not look at the color, so a color-only edit was dropped entirely
-- Fixed [Undo] on a delete being reversed on another device — the restored document kept its old timestamp, so the remote “deleted” record won. Sync runs every 3 seconds and the undo toast lasts 8, so that window was really open
-- Fixed a failing [Undo] saying nothing — the reason is now shown
-- Fixed [Select all] leaving out **freehand strokes** — drawn strokes were silently skipped
-- Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
-- The free tactics board's export sheet no longer offers [Video] or [Share link] — the board is a single position, so a video would be one still frame, and a link would plant an unsaved board in the recipient's library as a drill. Turn it into a drill first
-- The web app now opens a **save dialog** too (Chrome, Edge and the like) — you pick the location, and a toast confirms when the write finishes. Browsers without it (Firefox, Safari) download as before
-- The desktop app's save dialog now starts in your **home folder**
-- Saving a file now shows a “Saved” toast — video, images, ZIP, backup, drills, sessions and teams all follow the same rule
-- Cancelling the save dialog no longer shows a toast — drill, session and team exports used to claim “Exported” even when cancelled
-- Video export now has a [Create video] button — the item's title row used to be the button, so there was no sign of where to start
-- In the desktop app, saving a file opens a **native save dialog** (video, images, ZIP, backup, drill/session/team files) — pressing save used to do nothing
-- Saving a video closes the export sheet. Cancelling the save leaves it open
-- MP4 export now works on devices without a built-in codec (WebCodecs) — it falls back to a software encoder (wasm). Only those devices download it, and the sheet says up front that it is several times slower
-- Fixed [Export as link] in the desktop app failing with «could not reach the server» — the app origin is `tauri://localhost`, so the relative `/api/share` path reached nothing. Desktop builds now take the API address and link origin from `SPIN_DESKTOP_WEB_ORIGIN`
-- Fixed select boxes in the desktop app's dark theme rendering light text on a white background — the root now declares `color-scheme` so native form controls follow the theme
+- Tapping a shape's rotation handle not changing its color
+- [Undo] on a delete being reversed again on another device
+- A failed [Undo] giving no message
+- Select all (Ctrl+A) leaving out freehand strokes
+- Cancelled saves still reported as done
+- Desktop app not saving files at all
+- Desktop app failing on [Share as link]
+- Select boxes on a white background in the desktop app's dark theme
+- Loading-screen spin kick rotating around the wrong point in the desktop app
 
 ## [0.6.7] 2026-09-09
 
