@@ -44,7 +44,7 @@
 // 판 자신 말고는 아무도 그 시점을 알 수 없다 — 퇴장 길이는 `kind` 마다 다르고, 퇴장 중에 다음
 // 전환이 들어오면 되조준되어 아예 오지 않는다.
 import { useEffect, useRef, useState } from 'react';
-import { CYCLE_MS, EXIT_MS, markSizePx } from './appLoaderTiming.ts';
+import { BOOT_SETTLE_CAP_MS, BOOT_SETTLE_FRAMES, BOOT_SETTLE_FRAME_MS, CYCLE_MS, EXIT_MS, markSizePx } from './appLoaderTiming.ts';
 import type { AppLoaderKind } from './appLoaderTiming.ts';
 import { SpinLoaderMark } from './SpinLoaderMark.tsx';
 
@@ -76,6 +76,67 @@ export function AppLoaderOverlay({ visible, kind, reduceMotion = false, onExited
   // 재렌더하는 것은 흔하다 — 발표 예약 state 하나만으로도 그렇게 된다).
   const onExitedRef = useRef(onExited);
   onExitedRef.current = onExited;
+
+  // ── 부트 마크 넘겨받기 · 회전 시작 시점 (2026-09-15) ──────────────────────────────────
+  //
+  // `index.html` 이 첫 픽셀(실측 211ms)에 그려 둔 **정지** 마크를 이 판이 이어받는다. 두 일이
+  // **한 순간**이라야 한다: 부트 마크를 지우는 것과 이 판의 회전을 시작하는 것.
+  //  · 먼저 지우면 그 사이 프레임에 정지 마크가 두 겹으로 보이거나 한 겹이 사라진다.
+  //  · 먼저 돌리면 부트 마크 **뒤에서** 사이클이 흘러가다가, 마크를 지우는 순간 이미 중간
+  //    자세(실측 53%)라 그림이 튄다.
+  // 정지 자세 = 사이클 0% 이므로(SpinLoaderMark 머리말), 같은 순간에 하면 이음매가 없다.
+  //
+  // **언제가 그 순간인가: 메인 스레드가 조용해졌을 때.** 근거·실측은 `appLoaderTiming.ts` 의
+  // 「부트 진정」 절에 있다 — 첫 마운트 직후 400ms 넘게 커밋·이펙트·첫 페인트가 스레드를 잡고,
+  // SVG 변환 애니메이션은 합성 스레드로 안 내려가 그 구간에서 **반드시 선다.**
+  //
+  // ⚠️ 판정이 **이 컴포넌트 안**에 있는 것이 중요하다. 처음에는 AppShell 의 state 로 뒀는데,
+  //    진정 순간에 트리 전체가 다시 렌더되어 121ms·102ms 짜리 끊김이 거기 새로 생겼다(실측).
+  //    고치려던 바로 그 자리였다. 여기서는 다시 그리는 것이 마크 하나뿐이다.
+  const [spun, setSpun] = useState(() => typeof document === 'undefined' || document.getElementById('spin-boot') === null);
+  useEffect(() => {
+    if (spun) return undefined;
+    const boot = document.getElementById('spin-boot');
+    if (boot === null) {
+      setSpun(true);
+      return undefined;
+    }
+    let raf = 0;
+    let good = 0;
+    let removed = false;
+    let last = performance.now();
+    const deadline = last + BOOT_SETTLE_CAP_MS;
+    const tick = (t: number): void => {
+      good = t - last <= BOOT_SETTLE_FRAME_MS ? good + 1 : 0;
+      last = t;
+      const settled = good >= BOOT_SETTLE_FRAMES || t >= deadline;
+      // ⚠️ 두 걸음으로 나눈다. 부트 마크를 걷는 그 프레임은 **비싸다** — 그때까지 화면을 덮고
+      // 있던 불투명한 판이 사라지면서 그 아래 앱이 **처음으로 래스터화**되기 때문이다(실측
+      // 75ms). 그 한 프레임을 회전 시작과 같은 프레임에 두면 첫 발길질이 통째로 떨어진다.
+      // 그래서 먼저 걷고, 프레임이 다시 제때 오는 것을 보고 나서 돌린다. 그 사이 화면은 이
+      // 판의 정지 마크라 그림이 안 바뀐다 — 사람 눈에는 아무 일도 일어나지 않는다.
+      if (!removed && settled) {
+        removed = true;
+        boot.remove();
+        good = 0;
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      if (removed && settled) {
+        setSpun(true);
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      // 판이 사라지는데 마크가 남으면 화면에 정지 마크만 남는다.
+      if (!removed) boot.remove();
+    };
+    // 마운트 1회. `spun` 이 참이 되면 위에서 곧장 빠져나온다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 등장은 **렌더 중**에 정한다(effect 가 아니라) — `useAppLoader` 가 열쇠 변화를 렌더 중에
   // 보는 것과 같은 규율이다(그 파일 머리말). 판이 같은 커밋에 서는 것 자체는 아래 null 조건이
@@ -148,7 +209,7 @@ export function AppLoaderOverlay({ visible, kind, reduceMotion = false, onExited
         }}
       >
         <SpinLoaderMark
-          animated={!reduceMotion}
+          animated={!reduceMotion && spun}
           sizePx={markSizePx(kind, viewportMinPx)}
           cycleMs={CYCLE_MS[kind]}
         />
