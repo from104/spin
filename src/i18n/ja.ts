@@ -1085,6 +1085,13 @@ export const ja: Record<DictKey, string> = {
   'onboarding.step3.title': 'チームに見せる',
   'onboarding.step3.body':
     'ステップを足して次の場面を作ると、その間が動きになります。ヘッダーの［実演へ］でチームに見せる画面が開きます。',
+  // デスクトップ版のダウンロード（2026-09-16）。案内は二行だけ — 何を得るか、署名がないこと。
+  'download.railLabel': 'デスクトップ版を入手',
+  'download.title': 'デスクトップ版を入手',
+  'download.body': '{{platform}} 用のインストーラーをダウンロードします。ブラウザーで作ったドリルはこの端末に保存されており、そのままでは移りません — ［設定］の［データ書き出し］で移すか、Google ドライブ同期を入れると両方が揃います。',
+  'download.unsigned': '署名がないため初回起動時に警告が出ます。Windows は［詳細情報］→［実行］、macOS は右クリック →［開く］で進めます。',
+  'download.start': 'ダウンロード',
+  'download.allFiles': '他の形式',
   'onboarding.drill.title': 'やってみる — 最初のドリル',
   'onboarding.helpHint': '詳しい説明はいつでも「？」（ヘルプ）から見られます。',
   'onboarding.next': '次へ',

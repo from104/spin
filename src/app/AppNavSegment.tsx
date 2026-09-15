@@ -34,8 +34,10 @@
 // 화면 키만 보고 `SCREEN_TO_RAIL` 로 접는 것도 레일과 같다 — 이 컴포넌트도 StageTarget 을
 // 모른다(내비가 편집기 상태에 결합되는 것을 막는 2.1 원칙 3).
 import { useRef, useState } from 'react';
-import { IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
+import { IconDownload, IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
 import { LanguageModal } from './LanguageModal.tsx';
+import { DownloadModal } from './download/DownloadModal.tsx';
+import { currentDesktopPlatform, showDesktopDownload } from './download/desktopDownload.ts';
 import { ChangelogModal } from './ChangelogModal.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
@@ -146,6 +148,12 @@ export function AppNavAside() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const versionBtnRef = useRef<HTMLButtonElement | null>(null);
 
+  // 데스크톱 앱 받기 — 레일이 지던 것을 좁은 창에서도 같이 낸다(AppRail.tsx 의 같은 주석).
+  // 좁다고 조용히 없애면 «내 노트북에서는 있었는데» 가 된다. 판정·순서는 레일과 같다.
+  const [dl] = useState(() => (showDesktopDownload() ? currentDesktopPlatform() : null));
+  const [dlOpen, setDlOpen] = useState(false);
+  const dlBtnRef = useRef<HTMLButtonElement | null>(null);
+
   return (
     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
       {/* [언어] — 넓은 레일에서 [도움말] **위**인 것이 여기서는 **앞**이다(이 줄은 가로다).
@@ -218,6 +226,29 @@ export function AppNavAside() {
         {isDark ? <IconSun /> : <IconMoon />}
       </button>
 
+      {dl !== null && (
+        <button
+          type="button"
+          ref={dlBtnRef}
+          aria-label={t('download.railLabel')}
+          title={t('download.railLabel')}
+          aria-haspopup="dialog"
+          onClick={() => setDlOpen(true)}
+          style={{
+            flex: 'none',
+            width: 'var(--hit)',
+            height: 'var(--hit)',
+            border: '1px solid var(--border)',
+            borderRadius: '0.625rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--muted)',
+          }}
+        >
+          <IconDownload />
+        </button>
+      )}
       {/* 버전 — 레일이 지고 있던 것을 함께 옮긴다. 좁은 창이라고 조용히 없애면 제보에 붙일
           숫자가 그 기기에서만 사라진다(AppRail.tsx 의 같은 주석). 표적은 아니라 예산에
           들어가지 않고, 폭도 30px 남짓이다.
@@ -246,6 +277,9 @@ export function AppNavAside() {
       >
         v{__APP_VERSION__}
       </button>
+      {dl !== null && (
+        <DownloadModal open={dlOpen} onClose={() => setDlOpen(false)} platform={dl} version={__APP_VERSION__} returnFocusRef={dlBtnRef} />
+      )}
       <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} returnFocusRef={versionBtnRef} />
     </div>
   );

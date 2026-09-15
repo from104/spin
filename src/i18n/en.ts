@@ -1090,6 +1090,13 @@ export const en: Record<DictKey, string> = {
   'onboarding.step3.title': 'Show it to the team',
   'onboarding.step3.body':
     'Add a step and move things to the next position; the gap between steps becomes the motion. [Present] in the header opens the screen you show the team.',
+  // Desktop download (2026-09-16). Two lines only — what you get, and that it is unsigned.
+  'download.railLabel': 'Get the desktop app',
+  'download.title': 'Get the desktop app',
+  'download.body': 'Downloads the installer for {{platform}}. Drills you made in the browser live on this device and do not come along on their own — move them with [Export data] in [Settings], or turn on Google Drive sync so both sides match.',
+  'download.unsigned': 'It is not code-signed, so the first launch shows a warning. On Windows choose [More info] → [Run anyway]; on macOS right-click → [Open].',
+  'download.start': 'Download',
+  'download.allFiles': 'Other formats',
   'onboarding.drill.title': 'Follow along — your first drill',
   'onboarding.helpHint': 'The full guide is always behind the question mark.',
   'onboarding.next': 'Next',

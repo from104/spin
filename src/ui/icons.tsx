@@ -237,6 +237,18 @@ export function IconToolErase({ size = 18, ...rest }: IconProps) {
 }
 
 // ── 헤더 · 공용 (template.html 인라인) ──────────────────────────────
+/** 아래를 가리키는 화살표 + 받침. 「받기」의 관례적 그림이라 글자 없이도 읽힌다
+ *  (2026-09-16 데스크톱 앱 받기 버튼). */
+export function IconDownload({ size = 17, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...rest}>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M4 20h16" />
+    </svg>
+  );
+}
+
 export function IconSun({ size = 17, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
