@@ -46,10 +46,16 @@
     "linux": {
       "deb": {
         "depends": []
+      },
+      "appimage": {
+        "files": {
+          "usr/share/metainfo/app.atit.spin.metainfo.xml": "metainfo/app.atit.spin.metainfo.xml"
+        }
       }
     },
     "android": {
       "debugApplicationIdSuffix": ".debug"
-    }
+    },
+    "license": "MIT"
   }
 }

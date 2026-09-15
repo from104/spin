@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AppStream 메타데이터 (2026-09-16) — AppImageHub·소프트웨어 센터가 읽는 카탈로그 정보.
+
+  ⚠️ 문안을 여기서 새로 짓지 않는다. 아래 글은 전부 이미 정본이 있는 것을 옮긴 것이다:
+    · 한국어 요약 = tauri.conf.json 의 bundle.shortDescription
+    · 한국어 본문 = index.html 의 <meta name="description">
+    · 영어 본문   = src/seo/prerenderData.ts 가 /en/ 에 굽는 같은 자리
+  둘이 갈리면 스토어에서 읽는 소개와 웹에서 읽는 소개가 다른 말을 한다.
+
+  ⚠️ <screenshots> 는 **일부러 비워 두었다.** AppStream 은 스크린샷을 URL 로만 받는데,
+  아직 그 그림을 올려 둔 자리가 없다. 없는 주소를 적으면 카탈로그가 깨진 이미지를 보여 준다 —
+  빈 것보다 나쁘다. 그림이 생기면 이 주석을 지우고 절을 채운다.
+
+  ⚠️ <releases> 도 비워 두었다. 버전은 `package.json` 하나가 정본이고(tauri.conf.json 이
+  "../package.json" 으로 읽는다), 여기 손으로 적으면 릴리스마다 두 곳을 고쳐야 하며 한쪽을
+  잊으면 카탈로그만 옛 버전을 말한다. AppStream 은 releases 없이도 유효하다.
+
+  id 는 `bundle.identifier`(app.atit.spin)와 **반드시 같아야** 한다 — 데스크톱 파일·아이콘과
+  묶이는 열쇠다.
+-->
+<component type="desktop-application">
+  <id>app.atit.spin</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>SPIN</name>
+  <summary>Tactic board and drill planner for powerchair football</summary>
+  <summary xml:lang="ko">파워체어풋볼 전술판</summary>
+
+  <description>
+    <p>
+      A tactic board built for powerchair football. Draw drills, present them to your team,
+      and learn the Laws of the Game through diagrams and animated scenes.
+    </p>
+    <p xml:lang="ko">
+      파워체어 풋볼(전동휠체어 축구) 전용 전술판. 드릴을 만들어 팀 앞에서 시연하고,
+      경기 규칙을 그림과 시연 장면으로 배웁니다.
+    </p>
+    <p>Drills are stored on your own device. There is no account and no server collecting them.</p>
+    <p xml:lang="ko">드릴은 이 기기에 저장됩니다. 계정도, 그것을 모아 가는 서버도 없습니다.</p>
+  </description>
+
+  <launchable type="desktop-id">SPIN.desktop</launchable>
+  <categories>
+    <category>Education</category>
+    <category>Sports</category>
+  </categories>
+
+  <url type="homepage">https://spin.atit.app</url>
+  <url type="bugtracker">https://github.com/from104/spin/issues</url>
+
+  <developer id="app.atit">
+    <name>Seo Kihyun</name>
+  </developer>
+
+  <content_rating type="oars-1.1" />
+</component>
