@@ -9,6 +9,22 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Added
 
 - Desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
+
+### Changed
+
+- Desktop save dialog starts in the home folder
+
+### Fixed
+
+- Desktop app not saving files at all
+- Desktop app failing on [Share as link]
+- Select boxes on a white background in the desktop app's dark theme
+- Loading-screen spin kick rotating around the wrong point in the desktop app
+
+## [0.6.8] 2026-09-15
+
+### Added
+
 - Four shape colors (white, sky, yellow, orange) — tap the rotation handle to cycle; translucent, so overlaps mix
 - Keyboard control for shapes, lines and freehand strokes — WASD and arrow keys to move, Q and E to rotate (Shift for 15°)
 - Move anchor above a selected shape, note, line, stroke or group — drag it to move objects that overlap (dashed rectangle marks the extent of a group or a single line or stroke)
@@ -21,7 +37,6 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 - Faster first start — no more waiting on a blank screen, and less stutter while loading
 - Denser shape fill and a black casing under the outline — clearer edges on the court
-- Desktop save dialog starts in the home folder
 - Saving a video closes the export sheet (cancelling leaves it open)
 
 ### Removed
@@ -35,10 +50,6 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 - A failed [Undo] giving no message
 - Select all (Ctrl+A) leaving out freehand strokes
 - Cancelled saves still reported as done
-- Desktop app not saving files at all
-- Desktop app failing on [Share as link]
-- Select boxes on a white background in the desktop app's dark theme
-- Loading-screen spin kick rotating around the wrong point in the desktop app
 
 ## [0.6.7] 2026-09-09
 
