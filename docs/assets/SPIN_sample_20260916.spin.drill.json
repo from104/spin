@@ -1,0 +1,232 @@
+{
+  "spin": "drill",
+  "envelope": 1,
+  "app": "SPIN",
+  "exportedAt": 1789486292341,
+  "payload": {
+    "schemaVersion": 11,
+    "id": "dr_mu2ttts500zg6n",
+    "title": "sample",
+    "drillType": "technical",
+    "level": "초급",
+    "durationMin": 10,
+    "tags": [],
+    "objective": "",
+    "coachingPoints": [],
+    "playersNeeded": 0,
+    "equipment": "",
+    "courtMode": "half",
+    "courtSize": "30x18",
+    "defense": "away",
+    "formation": "1-2-1",
+    "teams": {
+      "home": {
+        "label": "우리 팀",
+        "color": "#d93a3a",
+        "gkColor": "#f2c811"
+      },
+      "away": {
+        "label": "상대",
+        "color": "#1f6bb8",
+        "gkColor": "#22a95b"
+      }
+    },
+    "cast": {
+      "chairs": [
+        {
+          "id": "ch_mu2tr5y400s0gw",
+          "team": "home",
+          "number": "G",
+          "isGk": true
+        },
+        {
+          "id": "ch_mu2tr5y401zan0",
+          "team": "home",
+          "number": "2",
+          "isGk": false
+        },
+        {
+          "id": "ch_mu2tr5y4029s1o",
+          "team": "home",
+          "number": "3",
+          "isGk": false
+        },
+        {
+          "id": "ch_mu2tr5y403pmmz",
+          "team": "home",
+          "number": "4",
+          "isGk": false
+        },
+        {
+          "id": "ch_mu2tr5y404g9ll",
+          "team": "away",
+          "number": "G",
+          "isGk": true
+        },
+        {
+          "id": "ch_mu2tr5y405l74h",
+          "team": "away",
+          "number": "2",
+          "isGk": false
+        },
+        {
+          "id": "ch_mu2tr5y4061170",
+          "team": "away",
+          "number": "3",
+          "isGk": false
+        },
+        {
+          "id": "ch_mu2tr5y407rgbl",
+          "team": "away",
+          "number": "4",
+          "isGk": false
+        }
+      ],
+      "balls": [
+        {
+          "id": "bl_mu2ts13t002cta"
+        }
+      ],
+      "cones": []
+    },
+    "steps": [
+      {
+        "id": "st_mu2tr5y409gxrd",
+        "name": "",
+        "note": "",
+        "chairs": {
+          "ch_mu2tr5y404g9ll": {
+            "x": 293.3,
+            "y": 287.5,
+            "angleDeg": -72.1
+          },
+          "ch_mu2tr5y405l74h": {
+            "x": 246.4,
+            "y": 256,
+            "angleDeg": -90
+          },
+          "ch_mu2tr5y407rgbl": {
+            "x": 404.5,
+            "y": 219.1,
+            "angleDeg": -90
+          },
+          "ch_mu2tr5y4061170": {
+            "x": 305.3,
+            "y": 391.5,
+            "angleDeg": -90
+          },
+          "ch_mu2tr5y401zan0": {
+            "x": 303.2,
+            "y": 206.8,
+            "angleDeg": 90
+          }
+        },
+        "balls": {
+          "bl_mu2ts13t002cta": {
+            "x": 273.6,
+            "y": 261.1
+          }
+        },
+        "ballRings": {
+          "bl_mu2ts13t002cta": "3m"
+        },
+        "cones": {},
+        "arrows": [],
+        "notes": [],
+        "shapes": []
+      },
+      {
+        "id": "st_mu2tu2z001nr7i",
+        "name": "",
+        "note": "",
+        "chairs": {
+          "ch_mu2tr5y404g9ll": {
+            "x": 298,
+            "y": 270.8,
+            "angleDeg": -72.1
+          },
+          "ch_mu2tr5y405l74h": {
+            "x": 245.1,
+            "y": 231.8,
+            "angleDeg": -90
+          },
+          "ch_mu2tr5y407rgbl": {
+            "x": 404.5,
+            "y": 219.1,
+            "angleDeg": -90
+          },
+          "ch_mu2tr5y4061170": {
+            "x": 305.3,
+            "y": 391.5,
+            "angleDeg": -90
+          },
+          "ch_mu2tr5y401zan0": {
+            "x": 305.3,
+            "y": 178.8,
+            "angleDeg": 90
+          }
+        },
+        "balls": {
+          "bl_mu2ts13t002cta": {
+            "x": 278.7,
+            "y": 231.8
+          }
+        },
+        "ballRings": {
+          "bl_mu2ts13t002cta": "3m"
+        },
+        "cones": {},
+        "arrows": [],
+        "notes": [],
+        "shapes": []
+      },
+      {
+        "id": "st_mu2tvojz01kkr3",
+        "name": "",
+        "note": "",
+        "chairs": {
+          "ch_mu2tr5y404g9ll": {
+            "x": 294.2,
+            "y": 287.5,
+            "angleDeg": -72.1
+          },
+          "ch_mu2tr5y405l74h": {
+            "x": 249.8,
+            "y": 202.3,
+            "angleDeg": -90
+          },
+          "ch_mu2tr5y407rgbl": {
+            "x": 404.5,
+            "y": 219.1,
+            "angleDeg": -90
+          },
+          "ch_mu2tr5y4061170": {
+            "x": 305.3,
+            "y": 391.5,
+            "angleDeg": -90
+          },
+          "ch_mu2tr5y401zan0": {
+            "x": 305.3,
+            "y": 150.5,
+            "angleDeg": 90
+          }
+        },
+        "balls": {
+          "bl_mu2ts13t002cta": {
+            "x": 276.1,
+            "y": 202.3
+          }
+        },
+        "ballRings": {
+          "bl_mu2ts13t002cta": "3m"
+        },
+        "cones": {},
+        "arrows": [],
+        "notes": [],
+        "shapes": []
+      }
+    ],
+    "createdAt": 1789486113029,
+    "updatedAt": 1789486222931
+  }
+}

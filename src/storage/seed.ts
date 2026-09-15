@@ -32,8 +32,9 @@
 // `spin.board`)에 따로 살고, seed 는 오직 drillRepo 에만 쓴다 — *"전술판은 빈 코트로
 // 시작한다"*(2026-08-10 기현 지시)를 어기지 않기 위해서다.
 import type { Drill } from '../model/drill.ts';
+import { tutorialDrill } from '../model/tutorialDrill.ts';
 import type { Locale } from '../i18n/locale.ts';
-import { seedRuleDrills } from '../features/rules/ruleScenes.ts';
+import { SEED_EPOCH, SEED_STEP_BACK_MS, seedRuleDrills } from '../features/rules/ruleScenes.ts';
 import type { DrillRepo } from './drillRepo.ts';
 
 export type SeedReason =
@@ -58,13 +59,26 @@ export interface SeedOutcome {
  *  `locale` 은 장면의 팀 라벨(과 로케일판이 있는 장면의 글자)에만 쓰인다 — 좌표·순서·id·시각은
  *  로케일과 무관하다. 생략하면 ko: 이 함수를 로케일 없이 부르는 자리는 테스트뿐이고, 제품
  *  호출부(App.tsx)는 `useLocale()` 값을 넘긴다. */
+/** 첫 실행에 심는 것 전부 — **따라하기 드릴 한 벌 + 규칙 장면 22벌**.
+ *
+ *  ⚠️ 따라하기가 **맨 앞**이다. 목록은 최근 순이라 시각이 가장 늦은 것이 위에 선다. 처음 앱을
+ *  연 사람이 가장 먼저 마주치는 카드가 «규칙 장면» 이면 «내 훈련을 이렇게 만든다» 를 보여 줄
+ *  기회를 놓친다 — 그래서 `SEED_EPOCH` 보다 1분 뒤를 준다(규칙 22벌은 거기서 1분씩 **뒤로**
+ *  물러나므로 겹치지 않는다).
+ *
+ *  합성이 `model/` 이 아니라 여기 있는 이유: 따라하기 드릴은 `model/` 것이고 규칙 장면은
+ *  `features/rules/` 것이라, 둘을 아는 자리는 이미 양쪽을 import 하는 이 파일뿐이다. */
+export function defaultSeedDrills(locale: Locale): Drill[] {
+  return [tutorialDrill(locale, SEED_EPOCH + SEED_STEP_BACK_MS), ...seedRuleDrills(locale)];
+}
+
 export async function seedDrillsOnce(
   repo: DrillRepo,
   opts: { seeded: boolean; locale?: Locale; drills?: readonly Drill[] },
 ): Promise<SeedOutcome> {
   if (opts.seeded) return { seeded: false, count: 0, reason: 'stamped' };
 
-  const drills = opts.drills ?? seedRuleDrills(opts.locale ?? 'ko');
+  const drills = opts.drills ?? defaultSeedDrills(opts.locale ?? 'ko');
   if (drills.length === 0) return { seeded: false, count: 0, reason: 'planted' };
 
   const ids = new Set<string>(drills.map((d) => d.id));

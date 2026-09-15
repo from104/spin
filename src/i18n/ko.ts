@@ -1116,6 +1116,7 @@ export const ko = {
   'onboarding.step3.title': '팀 앞에서 보여주기',
   'onboarding.step3.body':
     '스텝을 더해 다음 장면을 만들면 그 사이가 움직임이 됩니다. 헤더의 [시연으로] 를 누르면 팀 앞에서 재생할 화면이 열립니다.',
+  'onboarding.drill.title': '따라하기 — 첫 드릴',
   'onboarding.helpHint': '더 자세한 설명은 언제든 물음표(도움말)에서 볼 수 있습니다.',
   'onboarding.next': '다음',
   'onboarding.skip': '건너뛰기',

@@ -12,15 +12,19 @@
 // 안 그러면 자물쇠 ②(같은 id 가 이미 있으면 안 심는다)가 앞 테스트의 잔여물을 보고
 // 뒤 테스트를 통째로 헛통과시킨다.
 import { describe, it, expect, beforeEach } from 'vitest';
-import { seedDrillsOnce } from './seed.ts';
+import { defaultSeedDrills, seedDrillsOnce } from './seed.ts';
 import { idbDrillRepo, memoryDrillRepo, type DrillRepo } from './drillRepo.ts';
 import { BOARD_KEY, loadBoard } from './board.ts';
 import { seedRuleDrills, SEED_EPOCH } from '../features/rules/ruleScenes.ts';
+import { TUTORIAL_DRILL_ID } from '../model/tutorialDrill.ts';
 import { CURRENT_DRILL_SCHEMA } from '../model/drill.ts';
 
 /** 심는 수를 하드코딩하지 않는다 — 장면이 늘거나 줄면 여기가 따라간다(개수 자체를 못 박는 것은
- *  `ruleScenes.test.ts` 의 *"RULE_SCENE_IDS 는 정확히 22개다"* 한 줄이다). */
-const SEED_COUNT = seedRuleDrills().length;
+ *  `ruleScenes.test.ts` 의 *"RULE_SCENE_IDS 는 정확히 22개다"* 한 줄이다).
+ *
+ *  첫 실행에 심는 전량 = 따라하기 1 + 규칙 장면 22.
+ *  ⚠️ 2026-09-16(T7) — 전에는 `seedRuleDrills().length` 였다. */
+const SEED_COUNT = defaultSeedDrills('ko').length;
 
 async function wipe(repo: DrillRepo): Promise<void> {
   for (const s of await repo.listDrillSummaries()) await repo.deleteDrill(s.id);
@@ -95,16 +99,32 @@ describe('seedDrillsOnce — 심은 것이 온전한가', () => {
   it('심은 시각이 고정 시각 그대로다 — putDrill 이 기계 시계로 덮으면 동기화가 편집을 잃는다', async () => {
     // touch:false 계약. 덮이면 목록 정렬이 무너지는 것은 눈에 보이지만, 더 나쁜 것은 안 보이는
     // 쪽이다 — 나중에 첫 실행한 기기의 **손 안 댄 시드**가 LWW 로 다른 기기의 편집을 이긴다.
+    // ⚠️ 2026-09-16(T7) — 옛 단언은 `max(updatedAt) === SEED_EPOCH` 였다. 따라하기 드릴이
+    // 그보다 1분 뒤에 앉으면서 그 최대값이 바뀐 것이고, **계약은 그대로다**: 심는 시각은 전부
+    // 코드가 정한 고정값이고 기계 시계가 아니다. 그래서 최대값 하나가 아니라 **집합 전체**를
+    // 기대값과 맞춘다 — 그래야 어느 한 벌만 기계 시계로 덮여도 잡힌다.
     await seedDrillsOnce(idbDrillRepo, { seeded: false });
     const list = await idbDrillRepo.listDrillSummaries();
     expect(list).toHaveLength(SEED_COUNT);
-    expect(Math.max(...list.map((s) => s.updatedAt))).toBe(SEED_EPOCH);
+    const expected = defaultSeedDrills('ko').map((d) => d.updatedAt).sort((a, b) => a - b);
+    expect(list.map((s) => s.updatedAt).sort((a, b) => a - b)).toEqual(expected);
+    expect(Math.max(...list.map((s) => s.updatedAt)), '맨 위는 따라하기(에폭 + 1분)다').toBe(
+      SEED_EPOCH + 60_000,
+    );
   });
 
-  it('목록 기본 정렬(updatedAt 내림차순)이 카드 순서다 — 맨 위가 카드 1 의 첫 장면이다', async () => {
+  it('목록 기본 정렬(updatedAt 내림차순) — 맨 위가 따라하기 드릴이고 그 아래가 카드 순서다', async () => {
+    // ⚠️ 2026-09-16(T7) — 옛 제목은 *"맨 위가 카드 1 의 첫 장면이다"* 였다. 그 근거(2026-09-06
+    // 기현 지시로 시드를 규칙 장면으로 교체, PLAN-SEED-FROM-RULES)는 **지금도 살아 있다** —
+    // 규칙 22벌의 **자기들끼리의 순서**는 카드 순 그대로다. 바뀐 것은 그 위에 한 벌이 더 올라온
+    // 것뿐이다: 처음 앱을 연 사람이 가장 먼저 마주치는 카드가 규칙 장면이면 «내 훈련을 이렇게
+    // 만든다» 를 보여 줄 기회를 놓친다(storage/seed.ts 의 `defaultSeedDrills` 머리말).
     await seedDrillsOnce(idbDrillRepo, { seeded: false });
     const list = await idbDrillRepo.listDrillSummaries();
-    expect(list.map((s) => s.id)).toEqual(seedRuleDrills().map((d) => d.id));
+    expect(list[0]?.id, '따라하기가 맨 위가 아니다').toBe(TUTORIAL_DRILL_ID);
+    expect(list.slice(1).map((s) => s.id), '규칙 장면끼리의 순서는 카드 순 그대로다').toEqual(
+      seedRuleDrills().map((d) => d.id),
+    );
   });
 
   it('IDB 왕복에서 4상태 로더가 ok 이고 파괴적 보정이 0건이다', async () => {

@@ -12,11 +12,11 @@ import { LibraryProvider, useLibraryState } from '../store/library/LibraryProvid
 import { idbDrillRepo, type DrillRepo } from '../storage/drillRepo.ts';
 import { BOARD_KEY } from '../storage/board.ts';
 import { PREFS_KEY, loadPrefs, makeDefaultPrefs, savePrefs } from '../storage/prefs.ts';
-import { seedRuleDrills } from '../features/rules/ruleScenes.ts';
+import { defaultSeedDrills } from '../storage/seed.ts';
 
 /** 심는 수를 하드코딩하지 않는다 — 개수를 못 박는 것은 `ruleScenes.test.ts` 한 줄이다.
  *  ⚠️ 2026-09-06 — 3벌(손코딩)에서 규칙 장면 전량으로 바뀌었다(docs/PLAN-SEED-FROM-RULES.md). */
-const SEED_COUNT = String(seedRuleDrills().length);
+const SEED_COUNT = String(defaultSeedDrills('ko').length);
 
 async function wipe(repo: DrillRepo): Promise<void> {
   for (const s of await repo.listDrillSummaries()) await repo.deleteDrill(s.id);

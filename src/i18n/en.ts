@@ -1090,6 +1090,7 @@ export const en: Record<DictKey, string> = {
   'onboarding.step3.title': 'Show it to the team',
   'onboarding.step3.body':
     'Add a step and move things to the next position; the gap between steps becomes the motion. [Present] in the header opens the screen you show the team.',
+  'onboarding.drill.title': 'Follow along — your first drill',
   'onboarding.helpHint': 'The full guide is always behind the question mark.',
   'onboarding.next': 'Next',
   'onboarding.skip': 'Skip',

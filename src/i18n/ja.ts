@@ -1085,6 +1085,7 @@ export const ja: Record<DictKey, string> = {
   'onboarding.step3.title': 'チームに見せる',
   'onboarding.step3.body':
     'ステップを足して次の場面を作ると、その間が動きになります。ヘッダーの［実演へ］でチームに見せる画面が開きます。',
+  'onboarding.drill.title': 'やってみる — 最初のドリル',
   'onboarding.helpHint': '詳しい説明はいつでも「？」（ヘルプ）から見られます。',
   'onboarding.next': '次へ',
   'onboarding.skip': 'スキップ',

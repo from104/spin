@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
+- A [Follow along — your first drill] sample at the top of the drill list on first run
 - Desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
 
 ### Changed
