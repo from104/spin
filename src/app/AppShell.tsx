@@ -56,8 +56,7 @@ import type { HeaderConfig } from './AppHeader.tsx';
 import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import type { AppHistoryApi, NavTarget } from './useAppHistory.ts';
 import { HelpTriggerProvider } from '../ui/help/HelpTriggerProvider.tsx';
-import { HelpCenter } from '../ui/help/HelpCenter.tsx';
-import { withTutorialUnseen } from '../ui/tutorial/resetTutorialSeen.ts';
+import { FirstRunOnboarding } from '../ui/onboarding/FirstRunOnboarding.tsx';
 import { firstVisitPromptsEnabled } from './loader/appLoaderTiming.ts';
 import { TutorialGateProvider } from '../ui/tutorial/tutorialGate.tsx';
 import { useSettingsActions, useSettingsState } from '../store/settings/SettingsProvider.tsx';
@@ -518,9 +517,23 @@ export function AppShell() {
    *  걷힐 때 되살아나면 안 된다. */
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const welcomeSettledRef = useRef(false);
+  /** 위 판정이 끝났는가(온보딩을 열었든 안 열었든). **`noticeDecided` 와 같은 이유로 있어야 한다.**
+   *
+   *  ⚠️ 2026-09-16(T7) — 이것이 없어서 실기에서 **안내와 투어가 한 화면에 같이 떴다.** 게이트가
+   *  보던 것은 `!welcomeOpen` 뿐인데, `coverSettled`·`noticeDecided` 가 참이 되는 그 커밋에는
+   *  `welcomeOpen` 이 아직 false 다(그 값은 **다음** effect 에서 선다). 그 한 커밋 동안 게이트가
+   *  열리고 투어가 start() 를 부르며, 투어는 게이트가 도로 닫혀도 **안 멈춘다.**
+   *  헤드리스 프레임으로 확인했다: 온보딩 «선수를 코트에 놓기» 위에 투어 말풍선 «1/7 트레이» 가
+   *  같이 떠 있고, [다음] 을 누르면 그쪽이 먹는다. 바로 위 `noticeDecided` 주석이 *"판정 전에
+   *  게이트를 열면 안내와 투어가 같은 프레임에서 aria-modal 을 둘 세울 수 있다"* 고 경고한 그
+   *  그림이 옆 칸에서 그대로 일어나고 있었다 — 안내에만 빗장이 있고 환영에는 없었다.
+   *  ⚠️ 테스트는 이걸 못 잡았다: 가짜 시계로 몰면 두 effect 가 **같은 flush 에서** 연달아 돌아
+   *  중간 커밋이 화면에 안 나온다. 그래서 아래 게이트 식이 이 값을 보는 것 자체를 못박는다. */
+  const [welcomeDecided, setWelcomeDecided] = useState(false);
   useEffect(() => {
     if (welcomeSettledRef.current || !coverSettled || !noticeDecided || noticeOpen) return;
     welcomeSettledRef.current = true;
+    setWelcomeDecided(true);
     if (firstVisitPromptsEnabled() && !prefs.helpWelcomeSeen) setWelcomeOpen(true);
   }, [coverSettled, noticeDecided, noticeOpen, prefs.helpWelcomeSeen]);
 
@@ -663,7 +676,7 @@ export function AppShell() {
                   대가: 0ms 환경(감축 모션·테스트)에서도 noticeDecided 가 첫 effect 에서 서므로
                   자동 시작이 **한 커밋 늦다**(사람 눈에는 같은 프레임, `useTutorial` 은 gateReady
                   를 effect 의존성에 두어 이어받는다). */}
-              <TutorialGateProvider ready={coverSettled && noticeDecided && !noticeOpen && !welcomeOpen}>
+              <TutorialGateProvider ready={coverSettled && noticeDecided && !noticeOpen && welcomeDecided && !welcomeOpen}>
                 <SkipLink label={t('a11y.skipToContent')} />
                 <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
                   {!narrow && <AppRail active={activeRail} />}
@@ -713,18 +726,22 @@ export function AppShell() {
                     if (dismissed) setPrefs({ smallScreenNoticeDismissed: true });
                   }}
                 />
-                {/* 첫 방문 도움말 — 화면마다 있는 HelpCenter 와 별개의 인스턴스다. 화면 것은 "지금
-                    화면의 섹션" 으로 열리지만 이것은 언제나 [시작하기] 다. [투어 다시 보기]는 그 화면이
-                    지금 떠 있지 않을 수 있으므로 플래그를 지워 다음에 그 화면을 열 때 뜨게 한다
-                    (resetTutorialSeen 머리말). */}
-                <HelpCenter
+                {/* 첫 방문 온보딩 석 장 — 화면마다 있는 HelpCenter 와 별개의 자리다.
+                    ⚠️ 2026-09-16(T7) — 여기 있던 것은 `<HelpCenter initialSection="start">` 였다.
+                    옛 근거는 지우지 않는다: *"화면 것은 「지금 화면의 섹션」 으로 열리지만 이것은
+                    언제나 [시작하기] 다"* — 그 뜻(첫 방문에는 언제나 같은 것이 뜬다)은 지금도 참이고,
+                    바뀐 것은 **무엇이 뜨는가** 다. 첫 실행에 열리던 [시작하기] 절은 "SPIN 은 어떤
+                    앱인가 → 화면 여섯 → 10분 따라하기 → 저장·백업·동기화" 로 이어지는 **읽는 문서**
+                    였는데, 2026-08-10 코치 제보의 판정이 바로 *"도움말로 해결할 문제가 아니라 조작
+                    자체의 문제"* 였다. 문서는 물음표에 그대로 있고 마지막 장이 그 자리를 알린다.
+                    [투어 다시 보기]를 여기서 뗀 것은 그 손잡이가 **화면별 HelpCenter 와 [설정]**
+                    두 곳에 이미 있기 때문이다(LibraryScreen 등이 각자 렌더한다). */}
+                <FirstRunOnboarding
                   open={welcomeOpen}
-                  initialSection="start"
                   onClose={() => {
                     setWelcomeOpen(false);
                     setPrefs({ helpWelcomeSeen: true });
                   }}
-                  onRestartTutorial={(screen) => setPrefs({ tutorialsSeen: withTutorialUnseen(prefs.tutorialsSeen, screen) })}
                 />
                 <ToastHost toasts={toasts} onDismiss={dismiss} />
                 <LiveRegion />

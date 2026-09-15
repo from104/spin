@@ -1072,6 +1072,23 @@ export const ja: Record<DictKey, string> = {
     'SPIN はコート全体を見ながら駒をドラッグして使うアプリです。画面の短い辺が狭いとコートが大きく縮み、道具どうしが近づきます。7インチ以上のタブレットやパソコンで開くと、ずっと扱いやすくなります。この端末のまま続けることもできます。',
   'app.smallScreen.dismiss': 'この端末では次から表示しない',
   'app.smallScreen.continue': '続ける',
+
+  // 初回オンボーディング三枚（2026-09-16, T7）。根拠は `ui/onboarding/FirstRunOnboarding.tsx`
+  // の冒頭 — 2026-08-10 のコーチの声がこの文面の出所。
+  // ⚠️ 一枚に二文を超えないこと。三枚がまた文書になれば直した意味がない。
+  'onboarding.step1.title': '選手をコートに置く',
+  'onboarding.step1.body':
+    '下のトレイから選手・ボール・コーンをコートへドラッグします。トレイで一つ選んでからコートを軽く押してもかまいません。',
+  'onboarding.step2.title': 'ドリルとして残す',
+  'onboarding.step2.body':
+    'この戦術板は保存されません。残すには［ドリルとして編集］を押してください — ドリルは直した瞬間に自動保存されるので、保存ボタンはありません。',
+  'onboarding.step3.title': 'チームに見せる',
+  'onboarding.step3.body':
+    'ステップを足して次の場面を作ると、その間が動きになります。ヘッダーの［実演へ］でチームに見せる画面が開きます。',
+  'onboarding.helpHint': '詳しい説明はいつでも「？」（ヘルプ）から見られます。',
+  'onboarding.next': '次へ',
+  'onboarding.skip': 'スキップ',
+  'onboarding.done': 'はじめる',
   'settings.smallScreen.resetTitle': '小さい画面の案内を再表示',
   'settings.smallScreen.resetDesc': '「次から表示しない」を解除します。',
   'settings.smallScreen.resetButton': '再表示',

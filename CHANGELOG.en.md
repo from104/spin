@@ -12,10 +12,12 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Changed
 
+- First run now opens a three-panel walkthrough instead of the help document — place, keep as a drill, present
 - Desktop save dialog starts in the home folder
 
 ### Fixed
 
+- The first-run notice and the screen tour appearing at the same time
 - Desktop app not saving files at all
 - Desktop app failing on [Share as link]
 - Select boxes on a white background in the desktop app's dark theme

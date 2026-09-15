@@ -1077,6 +1077,23 @@ export const en: Record<DictKey, string> = {
     'SPIN is built around seeing the whole court while you drag pieces across it. When the short side of the display is narrow, the court shrinks a long way and the tools crowd together. A 7-inch or larger tablet, or a computer, is much easier to work on. You can keep going on this device.',
   'app.smallScreen.dismiss': "Don't show this again on this device",
   'app.smallScreen.continue': 'Continue',
+
+  // First-run onboarding, three panels (2026-09-16, T7). Rationale lives in the header of
+  // `ui/onboarding/FirstRunOnboarding.tsx` — coach feedback from 2026-08-10 is the source.
+  // ⚠️ Never more than two sentences per panel, or it becomes the document it replaced.
+  'onboarding.step1.title': 'Put players on the court',
+  'onboarding.step1.body':
+    'Drag players, balls and cones from the tray onto the court. You can also pick one in the tray and then tap the court.',
+  'onboarding.step2.title': 'Keep it as a drill',
+  'onboarding.step2.body':
+    'This board is not saved. Press [Edit as drill] to keep it — a drill saves itself the moment you change it, so there is no save button.',
+  'onboarding.step3.title': 'Show it to the team',
+  'onboarding.step3.body':
+    'Add a step and move things to the next position; the gap between steps becomes the motion. [Present] in the header opens the screen you show the team.',
+  'onboarding.helpHint': 'The full guide is always behind the question mark.',
+  'onboarding.next': 'Next',
+  'onboarding.skip': 'Skip',
+  'onboarding.done': 'Start',
   'settings.smallScreen.resetTitle': 'Show the small-screen notice again',
   'settings.smallScreen.resetDesc': 'Undoes "Don\'t show this again" for this device.',
   'settings.smallScreen.resetButton': 'Show again',

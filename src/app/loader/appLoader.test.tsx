@@ -324,29 +324,32 @@ describe('화면 로더 계약 (PLAN-0-6-3 §7)', () => {
     expect(gate()).toBe('open');
   });
 
-  it('첫 방문에는 로더가 걷힌 뒤 도움말 [시작하기]가 뜨고, 닫아야 투어 게이트가 열린다 — 도장은 닫을 때 찍힌다', async () => {
-    // 2026-09-08 기현 지시. 순서는 로더 → 도움말 → 투어이고, 도움말이 떠 있는 동안 게이트가 열리면
-    // 스포트라이트(z 300)가 모달 위에 선다. 지우면: 게이트 식에서 `!welcomeOpen` 을 빼도 초록이다.
+  it('첫 방문에는 로더가 걷힌 뒤 온보딩 첫 장이 뜨고, 닫아야 투어 게이트가 열린다 — 도장은 닫을 때 찍힌다', async () => {
+    // 2026-09-08 기현 지시. 순서는 로더 → 첫 방문 안내 → 투어이고, 그 안내가 떠 있는 동안 게이트가
+    // 열리면 스포트라이트(z 300)가 모달 위에 선다. 지우면: 게이트 식에서 `!welcomeOpen` 을 빼도 초록이다.
+    //
+    // ⚠️ 2026-09-16(T7) — 여기서 보던 것이 `도움말` 대화상자의 [시작하기] 절이었다. 옛 단언을
+    // 지우지 않고 뜻만 옮긴다: **무엇이 뜨는가는 바뀌었지만 순서 계약은 그대로다.** 첫 방문에
+    // 열리던 문서를 석 장짜리 온보딩으로 바꿨다(ui/onboarding/FirstRunOnboarding.tsx 머리말).
     savePrefs({ ...makeDefaultPrefs(), helpWelcomeSeen: false });
     await renderShell();
-    expect(screen.queryByRole('dialog', { name: '도움말' })).toBeNull(); // 로더가 덮은 동안은 안 뜬다
+    expect(screen.queryByRole('dialog', { name: '선수를 코트에 놓기' })).toBeNull(); // 로더가 덮은 동안은 안 뜬다
     await advance(APP_LOADER_MS.boot);
     await advance(EXIT_MS.boot);
-    const dlg = screen.getByRole('dialog', { name: '도움말' });
-    expect(within(dlg).getByRole('heading', { name: '시작하기' })).toBeTruthy();
+    // 첫 장이 «놓기» 인 것이 계약이다 — 제보가 걸린 자리가 맨 앞에 와야 한다(그 파일 머리말).
+    const dlg = screen.getByRole('dialog', { name: '선수를 코트에 놓기' });
 
-    // 도움말 목차에도 [세션] 버튼이 있다 — 레일 것은 대화상자 밖의 것.
     const railSessions = screen.getAllByRole('button', { name: '세션' }).find((b) => !dlg.contains(b));
     if (!railSessions) throw new Error('레일 [세션] 버튼이 없다');
     fireEvent.click(railSessions);
     await advance(APP_LOADER_MS.rail);
     await advance(EXIT_MS.rail);
     expect(overlayEl()).toBeNull();
-    expect(gate()).toBe('closed'); // 도움말이 떠 있는 동안은 투어가 못 나온다
+    expect(gate()).toBe('closed'); // 안내가 떠 있는 동안은 투어가 못 나온다
 
     fireEvent.click(within(dlg).getByRole('button', { name: '닫기' }));
     await advance(0);
-    expect(screen.queryByRole('dialog', { name: '도움말' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '선수를 코트에 놓기' })).toBeNull();
     expect(gate()).toBe('open');
     expect(loadPrefs().helpWelcomeSeen).toBe(true);
   });

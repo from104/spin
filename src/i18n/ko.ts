@@ -1103,6 +1103,23 @@ export const ko = {
     'SPIN 은 코트 전체를 보면서 개체를 끌어 옮기는 앱입니다. 화면의 짧은 쪽이 좁으면 코트가 많이 줄어들고 도구가 서로 붙습니다. 7인치 이상 태블릿이나 컴퓨터에서 여시면 훨씬 편합니다. 이 기기에서 그대로 계속 쓰셔도 됩니다.',
   'app.smallScreen.dismiss': '이 기기에서 다시 보지 않기',
   'app.smallScreen.continue': '계속하기',
+
+  // 첫 실행 온보딩 석 장(2026-09-16, T7). 정본 근거는 `ui/onboarding/FirstRunOnboarding.tsx`
+  // 머리말 — 2026-08-10 코치 제보("선수를 코트에 어떻게 배치하나요")가 이 문안의 출처다.
+  // ⚠️ 한 장에 문장 둘을 넘기지 마라. 석 장이 다시 문서가 되면 고친 것이 없다.
+  'onboarding.step1.title': '선수를 코트에 놓기',
+  'onboarding.step1.body':
+    '아래 트레이에서 선수·공·콘을 코트로 끌어다 놓습니다. 트레이에서 하나를 고른 뒤 코트를 톡 눌러도 됩니다.',
+  'onboarding.step2.title': '드릴로 남기기',
+  'onboarding.step2.body':
+    '지금 이 전술판은 저장되지 않습니다. 남기려면 [드릴로 편집] 을 누르세요 — 드릴이 되면 고치는 즉시 자동으로 저장돼 저장 단추가 따로 없습니다.',
+  'onboarding.step3.title': '팀 앞에서 보여주기',
+  'onboarding.step3.body':
+    '스텝을 더해 다음 장면을 만들면 그 사이가 움직임이 됩니다. 헤더의 [시연으로] 를 누르면 팀 앞에서 재생할 화면이 열립니다.',
+  'onboarding.helpHint': '더 자세한 설명은 언제든 물음표(도움말)에서 볼 수 있습니다.',
+  'onboarding.next': '다음',
+  'onboarding.skip': '건너뛰기',
+  'onboarding.done': '시작하기',
   'settings.smallScreen.resetTitle': '작은 화면 안내 다시 보기',
   'settings.smallScreen.resetDesc': '[다시 보지 않기] 를 껐던 것을 되돌립니다.',
   'settings.smallScreen.resetButton': '다시 보기',
