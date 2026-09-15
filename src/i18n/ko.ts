@@ -1116,6 +1116,14 @@ export const ko = {
   'onboarding.step3.title': '팀 앞에서 보여주기',
   'onboarding.step3.body':
     '스텝을 더해 다음 장면을 만들면 그 사이가 움직임이 됩니다. 헤더의 [시연으로] 를 누르면 팀 앞에서 재생할 화면이 열립니다.',
+  // 데스크톱 앱 받기(2026-09-16). 안내는 **두 줄**이다 — 무엇을 받는지, 서명이 없다는 것.
+  // 설치 방법은 여기 안 적는다(받은 뒤의 일이고, 받기 전에 읽히면 지친다).
+  'download.railLabel': '데스크톱 앱 받기',
+  'download.title': '데스크톱 앱 받기',
+  'download.body': '{{platform}} 용 설치 파일을 받습니다. 브라우저에서 쓰던 드릴은 기기에 저장돼 있어 그대로 옮겨지지 않습니다 — [설정] 의 [데이터 내보내기] 로 옮기거나, 구글 드라이브 동기화를 켜면 양쪽이 같아집니다.',
+  'download.unsigned': '서명이 없어 첫 실행에 경고가 뜹니다. 윈도우는 [추가 정보] → [실행], 맥은 우클릭 → [열기] 로 넘어갑니다.',
+  'download.start': '받기',
+  'download.allFiles': '다른 형식 보기',
   'onboarding.drill.title': '따라하기 — 첫 드릴',
   'onboarding.helpHint': '더 자세한 설명은 언제든 물음표(도움말)에서 볼 수 있습니다.',
   'onboarding.next': '다음',

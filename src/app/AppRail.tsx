@@ -9,8 +9,10 @@
 // AppNavSegment(헤더 좌측 3칸)를 대신 세운다. 여기 84 는 크롬 예산의 appRail 행 `wide` 값이고,
 // 그래서 이 폭을 바꾸면 chromeBudget.test.ts 의 소스 대조가 빨간불이 된다.
 import { useRef, useState } from 'react';
-import { IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
+import { IconDownload, IconHelp, IconLanguage, IconMoon, IconSun } from '../ui/icons.tsx';
 import { LanguageModal } from './LanguageModal.tsx';
+import { DownloadModal } from './download/DownloadModal.tsx';
+import { currentDesktopPlatform, showDesktopDownload } from './download/desktopDownload.ts';
 import { ChangelogModal } from './ChangelogModal.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
@@ -41,6 +43,12 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
   // 2026-09-03 기현 지시 — 버전 번호를 누르면 이번 버전의 변경 내역이 뜬다.
   const [changelogOpen, setChangelogOpen] = useState(false);
   const versionBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  // 데스크톱 앱 받기 — **한 번만 판정한다**(마운트 시점 `useState` 초기화). 매 렌더마다
+  // `navigator` 를 다시 읽을 이유가 없고, 렌더 도중 값이 바뀌면 버튼이 깜빡인다.
+  const [dl] = useState(() => (showDesktopDownload() ? currentDesktopPlatform() : null));
+  const [dlOpen, setDlOpen] = useState(false);
+  const dlBtnRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <nav
@@ -194,6 +202,32 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         {isDark ? <IconSun /> : <IconMoon />}
       </button>
 
+      {/* 데스크톱 앱 받기 — **웹앱에서만** 뜬다(2026-09-16 기현 지시). 자리는 테마 토글 밑,
+          버전 위. 데스크톱 앱 안에서는 자기 자신을 받으라는 말이 되므로 `showDesktopDownload()`
+          가 거기서 거짓이고, 폰·미상 운영체제에서도 거짓이다 — 안드로이드에 `.msi` 를 권하는
+          것은 안내가 아니라 함정이라(그 파일 머리말) 버튼 자체를 안 낸다. */}
+      {dl !== null && (
+        <button
+          type="button"
+          ref={dlBtnRef}
+          aria-label={t('download.railLabel')}
+          title={t('download.railLabel')}
+          aria-haspopup="dialog"
+          onClick={() => setDlOpen(true)}
+          style={{
+            width: 44,
+            height: 44,
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--muted)',
+          }}
+        >
+          <IconDownload />
+        </button>
+      )}
       {/* 버전 — 값은 package.json 하나에서만 나온다(vite define). 화면에 박아 두면
           릴리스 때 반드시 어긋난다. 사용자가 "지금 뭘 보고 있는지" 를 말할 수 있어야
           제보를 커밋에 붙일 수 있어서 눈에 띄지 않게, 그러나 항상 보이게 둔다.
@@ -223,6 +257,15 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
       >
         v{__APP_VERSION__}
       </button>
+      {dl !== null && (
+        <DownloadModal
+          open={dlOpen}
+          onClose={() => setDlOpen(false)}
+          platform={dl}
+          version={__APP_VERSION__}
+          returnFocusRef={dlBtnRef}
+        />
+      )}
       <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} returnFocusRef={versionBtnRef} />
     </nav>
   );
