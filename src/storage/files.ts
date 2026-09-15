@@ -78,7 +78,11 @@ export type SaveOutcome = 'saved' | 'cancelled' | 'started';
 
 /** 데스크톱(Tauri) 웹뷰인가. `authDesktop.ts` 의 `isDesktop()` 과 같은 판별자를 쓰지만 그쪽을
  *  import 하지는 않는다 — 저장 경로가 구글 로그인 모듈에 매이면 안 된다. */
-function isTauriWebview(): boolean {
+/** 데스크톱 앱(Tauri 웹뷰) 안에서 도는가.
+ *
+ *  ⚠️ 2026-09-16 — `export` 를 붙였다. 저장 경로 말고 **다운로드 버튼**(`app/download/`)도 같은
+ *  것을 물어야 하는데, 판정을 한 벌 더 적으면 언젠가 한쪽만 고쳐진다. 판정은 여기 하나다. */
+export function isTauriWebview(): boolean {
   return typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
 }
 
