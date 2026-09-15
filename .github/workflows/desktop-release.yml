@@ -117,6 +117,43 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
+      # AppImageHub 가 읽는 파일명 규약으로 고친다 (2026-09-16).
+      #
+      # 카탈로그(appimage.github.io)는 저장소 링크 하나만 받고 **파일명으로** 버전을 잡는다.
+      # 규약은 `앱-버전-아키.AppImage` 인데(하이픈·`x86_64`) Tauri 는 `SPIN_0.6.9_amd64.AppImage`
+      # 로 굽는다. 안 고치면 첫 등록은 되어도 **다음 릴리스부터 카탈로그가 옛 버전에 멈춘다.**
+      # 0.6.9 는 손으로 고쳤고, 이 단계가 그 손질을 없앤다.
+      #
+      # ⚠️ 릴리스를 **태그로 못 찾는다.** `releaseDraft: true` 라 갓 만들어진 릴리스는 초안이고,
+      #    `GET /releases/tags/{tag}` 는 초안에 404 를 준다(실측). 목록을 받아 tag_name 으로 고른다.
+      # ⚠️ 리눅스 레그에서만 돈다 — AppImage 가 거기서만 나온다.
+      # ⚠️ AppImage 가 **한 개**라는 전제다(지금 리눅스 매트릭스는 x86_64 하나뿐). ARM 을
+      #    더하는 날 자산이 둘이 되므로 `head -1` 이 아무거나 집는다 — 그때 아키별로 돌려야 한다.
+      #    변환식이 `_amd64` 만 보므로 다른 아키 이름은 조용히 그대로 지나간다(로그에 남는다).
+      - name: AppImage 이름을 카탈로그 규약으로
+        if: ${{ matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/') && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          rid=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.tag_name==\"$TAG\") | .id" | head -1)
+          if [ -z "$rid" ]; then echo "릴리스를 못 찾았다: $TAG"; exit 1; fi
+          old=$(gh api "repos/$GITHUB_REPOSITORY/releases/$rid" \
+            --jq '.assets[] | select(.name|endswith(".AppImage")) | .name' | head -1)
+          if [ -z "$old" ]; then echo "AppImage 자산이 없다"; exit 1; fi
+          # SPIN_0.6.9_amd64.AppImage → SPIN-0.6.9-x86_64.AppImage
+          new=$(printf '%s' "$old" | sed -E 's/_([0-9][^_]*)_amd64\.AppImage$/-\1-x86_64.AppImage/')
+          if [ "$new" = "$old" ]; then
+            echo "이미 규약에 맞거나 이름 꼴이 바뀌었다 — 그대로 둔다: $old"
+            exit 0
+          fi
+          aid=$(gh api "repos/$GITHUB_REPOSITORY/releases/$rid" \
+            --jq ".assets[] | select(.name==\"$old\") | .id")
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/assets/$aid" -f name="$new" --jq .name
+          echo "$old → $new"
+
       - name: 아티팩트 업로드
         if: ${{ !startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         uses: actions/upload-artifact@v4
