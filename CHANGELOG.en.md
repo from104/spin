@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [Unreleased]
 
+## [0.6.10] 2026-09-16
+
 ### Added
 
+- A Linux snap package, alongside the AppImage, deb and rpm on the release page
 - A [Get the desktop app] button in the web app — downloads the installer for the OS you are on
 
 ## [0.6.9] 2026-09-16
