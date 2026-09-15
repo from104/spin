@@ -71,6 +71,12 @@ parts:
       # ⚠️ 버전은 `package.json` 하나가 정본이다(tauri.conf.json 도 "../package.json" 으로
       # 읽는다). snapcraft.yaml 에 `version:` 을 손으로 적으면 릴리스마다 고칠 자리가 하나
       # 더 생기고, 잊으면 스토어만 옛 버전을 말한다. 그래서 `adopt-info` 로 여기서 읽는다.
+      # 🪤 **버전이 올라간 뒤에는 `snapcraft clean build-app` 을 먼저 돌려라.** 그냥 다시 굽면
+      # 이 줄은 새 버전으로 **실제로 돌면서도**(로그에 `craftctl set version=0.6.10` 이 찍힌다)
+      # 팩된 `meta/snap.yaml` 에는 **옛 버전이 남는다** — 부분 캐시가 앞 회차의 메타데이터를
+      # 들고 있기 때문이다(2026-09-16 실측: 0.6.10 소스로 굽고 `spin_0.6.9_amd64.snap` 이 나왔다).
+      # 에러도 경고도 없다. 그래서 붙이기 전에 **파일 이름이 아니라 `meta/snap.yaml` 을 본다**:
+      #   unsquashfs -cat spin_*.snap meta/snap.yaml | grep ^version
       craftctl set version="$(node -p "require('./package.json').version")"
       # ⚠️ **rustup 을 스냅으로 깔지 않는다.** Tauri 공식 snapcraft 예제는
       # `build-snaps: [rustup/latest/stable]` 를 쓰는데, core24 빌드 환경에서 그 스냅이
