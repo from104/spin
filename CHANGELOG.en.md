@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [Unreleased]
 
+## [0.6.9] 2026-09-16
+
 ### Added
 
 - A [Follow along — your first drill] sample at the top of the drill list on first run
