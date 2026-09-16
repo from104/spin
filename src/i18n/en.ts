@@ -1091,6 +1091,12 @@ export const en: Record<DictKey, string> = {
   'onboarding.step3.body':
     'Add a step and move things to the next position; the gap between steps becomes the motion. [Present] in the header opens the screen you show the team.',
   // Desktop download (2026-09-16). Two lines only — what you get, and that it is unsigned.
+  // Desktop auto-update (2026-09-16). One toast; the person presses install.
+  'update.available': 'Version {{version}} is available',
+  'update.install': 'Install now',
+  'update.later': 'Later',
+  'update.downloading': 'Downloading…',
+  'update.failed': 'Could not download. Try again later, or get it from the releases page.',
   'download.railLabel': 'Get the desktop app',
   'download.title': 'Get the desktop app',
   'download.body': 'Downloads the installer for {{platform}}. Drills you made in the browser live on this device and do not come along on their own — move them with [Export data] in [Settings], or turn on Google Drive sync so both sides match.',

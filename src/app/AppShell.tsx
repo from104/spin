@@ -57,6 +57,8 @@ import { AppNavProvider, useAppHistory } from './useAppHistory.ts';
 import type { AppHistoryApi, NavTarget } from './useAppHistory.ts';
 import { HelpTriggerProvider } from '../ui/help/HelpTriggerProvider.tsx';
 import { FirstRunOnboarding } from '../ui/onboarding/FirstRunOnboarding.tsx';
+import { UpdateToast } from './update/UpdateToast.tsx';
+import { useDesktopUpdate } from './update/useDesktopUpdate.ts';
 import { firstVisitPromptsEnabled } from './loader/appLoaderTiming.ts';
 import { TutorialGateProvider } from '../ui/tutorial/tutorialGate.tsx';
 import { useSettingsActions, useSettingsState } from '../store/settings/SettingsProvider.tsx';
@@ -451,6 +453,9 @@ export function AppShell() {
     fromHistory: nav.lastNavFromHistory ?? false,
   });
 
+  // 데스크톱 자동 업데이트 — 웹앱에서는 훅 안에서 즉시 빠져나온다(`isTauriWebview`).
+  const update = useDesktopUpdate();
+
   /** 첫 커밋에 덮개가 서는 환경인가. 아래 부트 마크 뒷문이 이 값 하나만 본다. */
   const loaderShowsRef = useRef(loader.visible);
 
@@ -743,6 +748,7 @@ export function AppShell() {
                     setPrefs({ helpWelcomeSeen: true });
                   }}
                 />
+                <UpdateToast api={update} />
                 <ToastHost toasts={toasts} onDismiss={dismiss} />
                 <LiveRegion />
               </TutorialGateProvider>
