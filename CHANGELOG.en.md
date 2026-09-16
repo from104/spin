@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [Unreleased]
 
+## [0.6.11] 2026-09-16
+
+### Added
+
+- Added auto-update for the desktop app — notification on a new version, download on demand
+
 ### Fixed
 
 - Fixed [Google Drive sync] being unavailable in the desktop app
