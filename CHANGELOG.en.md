@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- Android app (tablets and unfolded foldables) with Google Drive sync and share-sheet export
+
 ## [0.6.11] 2026-09-16
 
 ### Added

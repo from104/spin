@@ -20,6 +20,7 @@ AGENTS.md 에 기록하여 일관된 결과물 나오게"* — 아래 §1~§9 �
 | 깨져도 되는 테스트 · 절대 안 되는 단언 | `docs/FALSIFICATION-BASELINE.md` §1·§3·§4 |
 | 실기에서 볼 것 | `docs/FIELD-TEST.md`, 각 계획서의 「실기 확인」 절 |
 | 기능 하나의 설계·결정·착수 순서 | `docs/PLAN-<주제>.md` |
+| 안드로이드 셸·빌드·서명·플랫폼 분기 | `docs/PLAN-ANDROID.md` (상위 정본은 `ROADMAP.md` §0.7) |
 | 규칙 조문 | `docs/RULES-FIPFA-2025.md` (+ `.en.md`) |
 | 단위·각도·색·id·단축키 | `src/core/*` |
 | 저장소 규율 3개(주석은 테스트가 확인 / 좁혀 돌리기 / 뒤집은 결정은 근거를 남긴다) | `docs/DEVELOPMENT.md` §1 |
@@ -222,9 +223,15 @@ AGENTS.md 에 기록하여 일관된 결과물 나오게"* — 아래 §1~§9 �
   문자열로 넘기고, Vite 는 그 빈 값을 그대로 굽고, 앱은 그 기능을 조용히 비활성으로 그린다 —
   빌드도 테스트도 초록이다. 0.6.9·0.6.10 의 설치본 전부가 구글 동기화 없이 나간 사고가 그것이다
   (`SPIN_DESKTOP_GOOGLE_CLIENT_ID` 가 저장소에 등록조차 안 돼 있었다 — 2026-09-16 기현님 MSI 실기
-  제보로 발각). 새 `SPIN_DESKTOP_*`·`VITE_*` 를 빌드에 붙일 때는 `desktop-release.yml` 의
-  「주입할 환경변수 확인」 단계에 그 이름을 **같이 넣는다**. 비밀이 아닌 값(공개 도메인 등)은
-  시크릿으로 두지 않고 워크플로에 그대로 적는다 — 빠졌을 때 눈에 보인다.
+  제보로 발각). 새 `SPIN_DESKTOP_*`·`SPIN_ANDROID_*`·`VITE_*` 를 빌드에 붙일 때는
+  `desktop-release.yml` 의 「주입할 환경변수 확인」 단계에 그 이름을 **같이 넣는다** — 데스크톱
+  잡은 `SPIN_DESKTOP_GOOGLE_CLIENT_ID`·`_CLIENT_SECRET`, 안드로이드 잡은
+  `SPIN_ANDROID_GOOGLE_CLIENT_ID`·`SPIN_ANDROID_WEB_ORIGIN` 과 서명 시크릿 넷
+  (`SPIN_ANDROID_KEYSTORE_BASE64`·`_KEYSTORE_PASSWORD`·`SPIN_ANDROID_KEY_ALIAS`·`_KEY_PASSWORD`).
+  비밀이 아닌 값(공개 도메인·안드로이드 클라이언트 ID 등)은 시크릿으로 두지 않고 워크플로에
+  그대로 적는다 — 빠졌을 때 눈에 보인다. **다만 리터럴은 「등록을 깜빡한다」가 아니라
+  「자리표시자인 채로 지나간다」로 실패한다** — 값이 아직 없으면 빈 문자열이 아니라 `TODO-` 로
+  시작하는 자리표시자를 적고, 확인 단계가 그것도 실패로 본다(2026-09-17 안드로이드 클라이언트 ID).
 
 ## 8. 계획 문서
 

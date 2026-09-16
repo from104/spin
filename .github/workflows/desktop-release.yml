@@ -1,7 +1,13 @@
-# 데스크톱(Tauri) 3-OS 빌드 — 리눅스·윈도우·맥.
+# 데스크톱(Tauri) 3-OS 빌드 — 리눅스·윈도우·맥. **그리고 안드로이드(Capacitor).**
 #
 # 왜 CI 인가: 각 OS 의 설치 패키지는 그 OS 에서만 나온다(맥 .dmg 는 macOS,
 # 윈도우 .msi/.exe 는 Windows). gofu 는 리눅스뿐이라 나머지 둘은 여기서 만든다.
+#
+# ⚠️ **이름은 desktop-release 지만 안드로이드도 여기서 나간다.** 파일을 따로 두는 쪽이
+# 이름으로는 깔끔하지만, 그러면 태그 하나에 릴리스 초안이 둘 생기거나(각자 만든다) 한쪽이
+# 아직 없는 초안에 올리려다 «release not found» 로 죽는다. **릴리스 초안 하나에 전부 붙이려면
+# 한 워크플로여야 한다** — 초안을 만드는 것은 build 잡의 tauri-action 이고, android 잡은
+# `needs: build` 로 그 뒤에 선다. 안드로이드 쪽 정본은 docs/PLAN-ANDROID.md §1 결정 17·18.
 #
 # 언제 도는가
 #   · 태그 `v*` 를 밀면        → 산출물을 GitHub Release(초안) 에 올린다
@@ -13,6 +19,10 @@
 # 구글 로그인용 저장소 secret 2종을 GitHub 저장소 설정(Settings → Secrets and
 # variables → Actions)에 등록해야 한다 — SPIN_DESKTOP_GOOGLE_CLIENT_ID,
 # SPIN_DESKTOP_GOOGLE_CLIENT_SECRET (값은 .env.local 참고, 여기 적지 않는다).
+# 안드로이드 서명용으로 4종이 더 필요하다 — SPIN_ANDROID_KEYSTORE_BASE64,
+# SPIN_ANDROID_KEYSTORE_PASSWORD, SPIN_ANDROID_KEY_ALIAS, SPIN_ANDROID_KEY_PASSWORD
+# (만드는 법은 docs/PLAN-ANDROID.md §5 1·2번). 안드로이드 클라이언트 ID·웹 출처는 **공개값이라
+# 시크릿이 아니다** — android 잡의 `env:` 에 리터럴로 적혀 있다.
 name: desktop-release
 
 on:
@@ -173,11 +183,13 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          # ⚠️ `| head -1` 이 아니라 `sed -n 1p` — head 는 첫 줄에서 파이프를 닫아 gh 가 SIGPIPE(141)
+          # 로 죽고 pipefail 이 그것을 실패로 센다(2026-09-17 android 잡에서 실측한 함정과 같은 모양).
           rid=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
-            --jq ".[] | select(.tag_name==\"$TAG\") | .id" | head -1)
+            --jq ".[] | select(.tag_name==\"$TAG\") | .id" | sed -n '1p')
           if [ -z "$rid" ]; then echo "릴리스를 못 찾았다: $TAG"; exit 1; fi
           old=$(gh api "repos/$GITHUB_REPOSITORY/releases/$rid" \
-            --jq '.assets[] | select(.name|endswith(".AppImage")) | .name' | head -1)
+            --jq '.assets[] | select(.name|endswith(".AppImage")) | .name' | sed -n '1p')
           if [ -z "$old" ]; then echo "AppImage 자산이 없다"; exit 1; fi
           # SPIN_0.6.9_amd64.AppImage → SPIN-0.6.9-x86_64.AppImage
           new=$(printf '%s' "$old" | sed -E 's/_([0-9][^_]*)_amd64\.AppImage$/-\1-x86_64.AppImage/')
@@ -224,3 +236,197 @@ jobs:
             src-tauri/target/release/bundle/**/*.msi
             src-tauri/target/release/bundle/**/*.exe
           if-no-files-found: warn
+
+  android:
+    # 왜 `needs: build` 인가: 릴리스 초안을 만드는 것은 build 잡의 tauri-action 하나뿐이다.
+    # 그래서 여기서 `gh release upload` 로 APK 를 붙이려면 그 잡이 끝난 뒤여야 한다.
+    # 병렬로 돌리면 가벼운 안드로이드 쪽이 먼저 도착해 «release not found» 로 죽는다 —
+    # qcalc 0.13.1 에서 실제로 그랬고, 거기서는 30분짜리 대기 루프로 때웠다. `needs` 한 줄이면
+    # 그 루프가 통째로 필요 없다. 대가는 APK 가 데스크톱 3종을 기다리는 것뿐이다(PLAN-ANDROID 결정 18).
+    needs: build
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+
+    # 공개값 둘은 시크릿이 아니라 여기 리터럴로 둔다 — AGENTS.md §7: "비밀이 아닌 값은
+    # 워크플로에. 시크릿으로 두면 이번처럼 빠졌을 때 알아채기만 더 어렵다."
+    env:
+      # 공유 링크가 가리킬 웹앱의 공개 출처. 없으면 앱이 `https://localhost/api/share` 를
+      # 불러 아무 데도 닿지 않는다 — 데스크톱의 SPIN_DESKTOP_WEB_ORIGIN 과 같은 문제다.
+      SPIN_ANDROID_WEB_ORIGIN: https://spin.atit.app
+      # ⚠️ **아직 발급 전이다.** 구글 클라우드 콘솔에 Android 유형 클라이언트를 만들고 업로드
+      # 키·디버그 키의 SHA-1 둘을 등록해야 값이 나온다(PLAN-ANDROID §5 3번). 여기를 빈
+      # 문자열로 두면 «없다» 가 «있다» 처럼 조용히 통과하므로 자리표시자를 박아 둔다 —
+      # 아래 확인 단계가 이 값을 보면 멈춘다. 발급되면 이 줄만 실제 ID 로 바꾼다.
+      SPIN_ANDROID_GOOGLE_CLIENT_ID: TODO-구글-클라우드-콘솔-Android-클라이언트-미발급
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `src-android/app/capacitor.build.gradle` 이 sourceCompatibility 21 을 요구한다.
+      # 러너 기본 JDK 를 그대로 쓰면 AGP 8.13 이 터진다(PLAN-ANDROID 결정 15).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # 패키지 목록은 `src-android/variables.gradle` 의 compileSdk/targetSdk **36** 에 맞춘다.
+      # 여기가 낮으면 Gradle 이 빌드 도중에 플랫폼을 스스로 받으려 들고, 라이선스를 수락하지
+      # 않은 러너에서는 거기서 죽는다(gofu 에서는 이미 수락돼 있어 조용히 넘어갔다 — 러너는 아니다).
+      # build-tools 는 아래 검산 단계의 aapt2·apksigner 가 쓴다.
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # 데스크톱 쪽 「주입할 환경변수 확인」과 같은 이유다(위 build 잡의 긴 주석 참고) —
+      # 빈 값은 그대로 구워지고 앱은 그 기능을 조용히 비활성으로 그린다.
+      # 안드로이드에는 함정이 하나 더 있다: 공개값 둘은 시크릿이 아니라 위 `env:` 의 리터럴이라
+      # **«등록을 깜빡한다» 가 아니라 «자리표시자인 채로 지나간다» 로 실패한다.** 그래서 비었는지
+      # 뿐 아니라 아직 TODO- 로 시작하는지도 같이 본다. 값은 찍지 않고 있는지만 본다.
+      - name: 주입할 환경변수 확인 (값은 찍지 않는다)
+        shell: bash
+        env:
+          SPIN_ANDROID_KEYSTORE_BASE64: ${{ secrets.SPIN_ANDROID_KEYSTORE_BASE64 }}
+          SPIN_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SPIN_ANDROID_KEYSTORE_PASSWORD }}
+          SPIN_ANDROID_KEY_ALIAS: ${{ secrets.SPIN_ANDROID_KEY_ALIAS }}
+          SPIN_ANDROID_KEY_PASSWORD: ${{ secrets.SPIN_ANDROID_KEY_PASSWORD }}
+        run: |
+          fail=0
+          for k in SPIN_ANDROID_GOOGLE_CLIENT_ID SPIN_ANDROID_WEB_ORIGIN \
+                   SPIN_ANDROID_KEYSTORE_BASE64 SPIN_ANDROID_KEYSTORE_PASSWORD \
+                   SPIN_ANDROID_KEY_ALIAS SPIN_ANDROID_KEY_PASSWORD; do
+            if [ -z "${!k}" ]; then
+              echo "::error::$k 가 비어 있습니다 — 시크릿 넷은 Settings → Secrets and variables → Actions 에, 공개값 둘은 이 워크플로 android 잡의 env 에 적습니다"
+              fail=1
+            else
+              echo "$k: 있음"
+            fi
+          done
+          case "$SPIN_ANDROID_GOOGLE_CLIENT_ID" in
+            TODO-*)
+              echo "::error::SPIN_ANDROID_GOOGLE_CLIENT_ID 가 아직 자리표시자입니다 — docs/PLAN-ANDROID.md §5 3번대로 발급한 뒤 이 워크플로의 android 잡 env 를 실제 ID 로 바꾸세요"
+              fail=1
+              ;;
+          esac
+          exit $fail
+
+      # 워크스페이스 **밖**($RUNNER_TEMP)에 푼다 — 워크스페이스에 두면 아티팩트·산출물에
+      # 딸려 들어갈 여지가 생긴다. 어떤 경로로 끝나든 마지막 단계에서 지운다.
+      - name: 서명 키스토어 풀기
+        shell: bash
+        env:
+          SPIN_ANDROID_KEYSTORE_BASE64: ${{ secrets.SPIN_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$SPIN_ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/spin-upload.jks"
+          # base64 가 깨져도 `base64 -d` 는 빈 파일을 남기고 0 으로 끝나는 경우가 있다.
+          # 빈 키스토어로 Gradle 에 들어가면 에러가 «비밀번호가 틀렸다» 로 나와 원인을 가린다.
+          test -s "$RUNNER_TEMP/spin-upload.jks"
+
+      - run: npm ci
+
+      # `./gradlew` 를 여기서 직접 부르지 않는 이유(AGENTS §3 두 벌 두지 않는다): JDK 고르기와
+      # 「서명 env 넷이 다 있으면 릴리스, 아니면 디버그」 갈림이 `scripts/android-build.sh` 한
+      # 곳에 있다. CI 가 gradlew 를 따로 부르면 그 갈림이 두 벌이 되고, 둘이 어긋나는 날
+      # **CI 에서만** 다른 물건이 나온다. 기현님이 gofu 에서 치는 것과 같은 명령을 여기서도 친다.
+      #
+      # `npm run android:build` = `SPIN_ANDROID_BUILD=1 npm run build` → `npx cap sync android`
+      # → `scripts/android-build.sh`(= `./gradlew assembleRelease bundleRelease`).
+      # ⚠️ 순수 `vite build` 가 아니다 — `npm run build` 끝에 SEO 프리렌더가 붙어 있고,
+      #    `SPIN_ANDROID_BUILD=1` 이 vite 의 envPrefix 에 `SPIN_ANDROID_` 를 켠다. 이 신호가
+      #    없으면 위 두 값이 번들에 **안 들어간 채로** 초록이 난다(결정 18·19).
+      - name: 안드로이드 릴리스 빌드 (APK + AAB)
+        env:
+          SPIN_ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/spin-upload.jks
+          SPIN_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SPIN_ANDROID_KEYSTORE_PASSWORD }}
+          SPIN_ANDROID_KEY_ALIAS: ${{ secrets.SPIN_ANDROID_KEY_ALIAS }}
+          SPIN_ANDROID_KEY_PASSWORD: ${{ secrets.SPIN_ANDROID_KEY_PASSWORD }}
+        run: npm run android:build
+
+      - name: 산출물 이름 짓고 검산
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER=$(node -p "require('./package.json').version")
+          APK_SRC=src-android/app/build/outputs/apk/release/app-release.apk
+          AAB_SRC=src-android/app/build/outputs/bundle/release/app-release.aab
+
+          # ⚠️ **「릴리스인데 디버그가 나왔다」 가드.** `scripts/android-build.sh` 는 서명 env 가
+          # 하나라도 비면 `assembleDebug` 로 조용히 떨어진다 — 손으로 돌릴 때는 그게 맞지만
+          # 여기서는 디버그 APK 가 릴리스 자산으로 올라가는 길이 된다(AGENTS §7 의 0.6.9 사고와
+          # 같은 모양: 빌드는 초록인데 나간 물건이 다르다). 위 확인 단계를 통과했는데도 릴리스
+          # 산출물이 없으면 그 갈림이 어긋난 것이므로 여기서 끊는다.
+          for f in "$APK_SRC" "$AAB_SRC"; do
+            test -f "$f" || { echo "::error::$f 가 없습니다 — 서명 env 가 비어 디버그로 떨어진 회차입니다"; exit 1; }
+          done
+
+          APK="SPIN_${VER}_android.apk"
+          AAB="SPIN_${VER}_android.aab"
+          cp "$APK_SRC" "$APK"
+          cp "$AAB_SRC" "$AAB"
+
+          # versionName·versionCode 는 `app/build.gradle` 이 package.json 에서 끌어온다.
+          # 그 배선이 끊기면 낡은 버전이 박힌 APK 가 조용히 나가므로(qcalc 전례) 구워진
+          # 물건에서 되읽어 대조한다. versionCode 는 결정 14 의 식으로 따로 계산해 맞춘다 —
+          # 둘 중 하나만 틀리는 경우가 있다(같은 곳에서 나오지만 식이 다르다).
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          # ⚠️ `| head -1` 을 쓰지 않는다. head 가 첫 줄에서 파이프를 닫으면 aapt2 가 SIGPIPE 로
+          # 죽고, `set -o pipefail` 이 그 141 을 살려 **이 단계 전체가 실패한다**(gofu 실측:
+          # 출력이 4KB 뿐인데도 재현된다). sed 는 스트림을 끝까지 읽으므로 그 일이 없다.
+          BADGING=$("$BT/aapt2" dump badging "$APK" | sed -n '1p')
+          echo "$BADGING"
+          case "$BADGING" in
+            *"versionName='${VER}'"*) ;;
+            *) echo "::error::APK 버전이 package.json(${VER})과 다릅니다: $BADGING"; exit 1 ;;
+          esac
+          WANT_CODE=$(node -p "const[a,b,c]=require('./package.json').version.split('.').map(Number);a*1000000+b*1000+c")
+          case "$BADGING" in
+            *"versionCode='${WANT_CODE}'"*) ;;
+            *) echo "::error::versionCode 가 결정 14 의 식(${WANT_CODE})과 다릅니다: $BADGING"; exit 1 ;;
+          esac
+
+          # 서명이 실제로 붙었는지 본다 — 서명 없는 APK 는 설치도 안 되고 Play 도 안 받는데
+          # 파일 자체는 멀쩡히 나온다.
+          "$BT/apksigner" verify "$APK"
+
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          echo "aab=$AAB" >> "$GITHUB_OUTPUT"
+
+      # AAB 도 릴리스에 올린다. Play 업로드는 사람이 콘솔에서 하므로(PLAN-ANDROID §5 5번)
+      # 받을 자리가 있어야 하는데, 아티팩트는 90일 뒤 사라지고 릴리스 자산은 남는다.
+      # `gh release upload` 는 **초안 릴리스에도 붙는다**. 404 나는 것은 위 AppImage 단계
+      # 주석대로 `GET /releases/tags/{tag}` 를 **직접** 칠 때이고, gh 는 그 404 를 받으면
+      # 릴리스 목록을 훑어 초안을 찾는 우회를 자기 안에 갖고 있다. 이 워크플로의 latest.json
+      # 업로드가 이미 같은 길이다 — 거기가 깨지면 여기도 같이 깨지므로 둘이 갈라지지 않는다.
+      - name: 릴리스에 올리기 (APK · AAB)
+        if: ${{ startsWith(github.ref, 'refs/tags/') && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "$GITHUB_REF_NAME" \
+            "${{ steps.pack.outputs.apk }}" "${{ steps.pack.outputs.aab }}" --clobber
+
+      - name: 아티팩트 업로드
+        if: ${{ !startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: spin-android
+          path: |
+            ${{ steps.pack.outputs.apk }}
+            ${{ steps.pack.outputs.aab }}
+          if-no-files-found: warn
+
+      # 어떤 경로로 끝나든 지운다. 러너는 회차마다 새로 뜨므로 지금은 의례에 가깝지만,
+      # self-hosted 러너로 옮기는 날 이 한 줄이 없으면 업로드 키가 디스크에 남는다.
+      - name: 키스토어 지우기
+        if: always()
+        run: rm -f "$RUNNER_TEMP/spin-upload.jks"

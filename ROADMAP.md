@@ -233,17 +233,27 @@ CHANGELOG [Unreleased] 가 사용자 관점 설명을 갖고 있습니다. 릴�
 > 아이패드 행은 **시뮬레이터 검증**과 **실기 검증**을 구분해 적는다 — 실기 기기가 생기기
 > 전까지는 시뮬레이터 통과를 실기 통과로 착각하지 않기 위해서다.
 
-- 모바일 셸(Tauri Mobile 또는 대안 — 0.6 결과를 보고 정합니다)
-- 스토어 계정·서명·심사 대응 — **안드로이드(Play Console) 먼저**, 아이패드(App Store) 는 뒤
-- 태블릿 가로/세로 재검증 — 안드로이드는 실기, 아이패드는 시뮬레이터(실기는 기기 확보 시 추가)
-- 화면 꺼짐 방지·전체화면이 네이티브에서도 되는지 확인
-- 파일 공유(Android 인텐트를 먼저, iOS 공유 시트는 아이패드 단계에서)
-- **공유 링크를 모바일에서**(2026-09-08) — 만들기는 [복사] 대신 OS 공유 시트(`navigator.share`, 카톡·문자로
+- [x] 모바일 셸(Tauri Mobile 또는 대안 — 0.6 결과를 보고 정합니다) → **대안 쪽으로 정했습니다:
+  Capacitor 8**(2026-09-17). 0.6 이 알려 준 것은 "데스크톱 러스트 쪽(루프백 OAuth·저장
+  대화상자·갱신 토큰 파일)은 모바일에서 한 줄도 못 쓴다" 였습니다 — 어느 셸을 고르든 어댑터를
+  새로 써야 하니, 이미 굴러가는 CI·서명·버전코드 파이프라인과 플러그인(Browser·Share·
+  Filesystem·App)이 있는 쪽이 쌉니다. 정본 [docs/PLAN-ANDROID.md](docs/PLAN-ANDROID.md) 결정 1
+- [ ] 스토어 계정·서명·심사 대응 — **안드로이드(Play Console) 먼저**, 아이패드(App Store) 는 뒤.
+  업로드 키스토어·Play Console 등록·OAuth 클라이언트는 손으로 하는 단계입니다(PLAN-ANDROID §5)
+- [ ] 태블릿 가로/세로 재검증 — 안드로이드는 실기, 아이패드는 시뮬레이터(실기는 기기 확보 시 추가)
+- [x] 화면 꺼짐 방지·전체화면이 네이티브에서도 되는지 확인 — 시연에서 시스템 바가 숨고 화면이
+  꺼지지 않습니다. **실기 대기**(PLAN-ANDROID §4 A-3)
+- [x] 파일 공유(Android 인텐트를 먼저, iOS 공유 시트는 아이패드 단계에서) — 드릴·영상 내보내기가
+  OS 공유 시트로 나갑니다. **실기 대기**(A-4·A-5)
+- [x] **공유 링크를 모바일에서**(2026-09-08) — 만들기는 [복사] 대신 OS 공유 시트(`navigator.share`, 카톡·문자로
   바로). 받기는 **App Links(안드로이드)·Universal Links(iOS)** 로 `https://spin.atit.app/s/*` 를 앱이 받게 한다 —
   `spin.atit.app/.well-known/assetlinks.json`·`apple-app-site-association` 두 파일(vhost 가 점 파일을 막되
   `.well-known` 만 예외로 둔 것이 이 자리). 둘 다 `#` 뒤 열쇠까지 앱에 전달되고, 앱이 없으면 그냥 웹이 열려
   착지 화면을 그대로 쓴다. 사용자 정의 스킴은 검증이 없어 열쇠가 실린 링크에는 쓰지 않는다. 데스크톱 쪽 방침은
-  0.6 절, 정본 [docs/PLAN-SHARE-LINK.md](docs/PLAN-SHARE-LINK.md)
+  0.6 절, 정본 [docs/PLAN-SHARE-LINK.md](docs/PLAN-SHARE-LINK.md).
+  안드로이드는 만들기(공유 시트)·받기(App Links) 둘 다 붙였습니다. **다만 `assetlinks.json` 은 아직
+  없습니다** — 서명 키 지문이 있어야 찍히고, 그 파일이 배포되기 전까지 링크는 앱이 아니라 브라우저로
+  열립니다(경고 없이). 찍는 명령은 `npm run android:assetlinks`, 절차는 PLAN-ANDROID §5 4번
 
 ## 1.0 — 전 플랫폼 배송
 
