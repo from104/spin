@@ -94,7 +94,14 @@ parts:
       # *"--extract takes at most two arguments"* 로 죽는다(2026-09-16 실측: 0.6.3·0.6.7·새 판
       # 셋이 잡혔다). 치우면 글롭이 하나로 줄지만, 그것에 기대지 않고 아래에서 **이름을 지어** 집는다.
       rm -rf src-tauri/target/release/bundle/deb
-      npm run tauri build -- --bundles deb
+      # ⚠️ **업데이터 산출물을 끈다.** `tauri.conf.json` 의 `createUpdaterArtifacts: true` 는
+      # 굽는 것마다 서명을 요구하고, 개인키가 없으면 deb 을 다 만들어 놓고 마지막에 죽는다
+      # (*"A public key has been found, but no private key"*, 2026-09-16 실측 — 0.6.11 을 굽다
+      # 실제로 여기서 멈췄다). 그런데 **snap 은 자동 업데이트 대상이 아니다** — 갱신은 스토어가
+      # 지고, confinement 가 앱의 자기 교체를 아예 막는다. 즉 여기서 서명은 쓸 데가 없다.
+      # 그러니 키를 컨테이너에 들이지 말고(그럴 이유가 없다) 산출물 쪽을 끈다.
+      npm run tauri build -- --bundles deb \
+        --config '{"bundle":{"createUpdaterArtifacts":false}}'
       deb="src-tauri/target/release/bundle/deb/SPIN_$(craftctl get version)_amd64.deb"
       test -f "$deb" || { echo "구운 deb 을 못 찾았다: $deb"; ls -la src-tauri/target/release/bundle/deb/ || true; exit 1; }
       dpkg -x "$deb" "$CRAFT_PART_INSTALL/"
