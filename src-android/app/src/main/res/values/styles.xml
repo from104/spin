@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 테마 — 결정 20(docs/PLAN-ANDROID.md §1). 템플릿에서 바뀐 것은 `AppTheme.NoActionBarLaunch`
+     하나다: 템플릿은 `Theme.SplashScreen` 을 상속만 하고 옛 방식(`android:background` 에
+     Capacitor 로고 PNG)으로 그렸는데, 안드로이드 12+ 는 그 드로어블을 보지 않아서 **로고를
+     넣어 둔 쪽이 아무 효과도 없었다**(PLAN §6 교훈). 시스템 스플래시는 테마 항목으로만
+     커스터마이즈된다. -->
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+    </style>
+
+    <!-- 액티비티가 뜰 때 걸리는 테마. `BridgeActivity.onCreate` 가 곧바로
+         `AppTheme.NoActionBar` 로 갈아 끼우므로, 이 테마가 보이는 구간은 "앱 아이콘을 누른
+         순간부터 웹뷰 첫 프레임까지" 다.
+         · windowSplashScreenBackground / …AnimatedIcon 은 androidx core-splashscreen 의
+           항목이고, 그 라이브러리가 API 31+ 에서 플랫폼 속성으로 넘겨준다(별도 코드 없음).
+         · android:windowBackground 을 같은 색으로 함께 둔다 — API 31 미만에서는 위 두 항목이
+           `installSplashScreen()` 호출 없이는 발화하지 않아서, 그 구간을 이 한 줄이 받는다.
+           (minSdk 24 라 그 구간이 실제로 있다.) -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/spin_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowBackground">@color/spin_splash_background</item>
+    </style>
+</resources>

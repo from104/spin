@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 결정 20 — 원형 런처(픽셀 계열 등)가 쓰는 적응형 아이콘. `tauri icon` 산출물
+     (src-tauri/icons/android/)에는 `ic_launcher.xml` 만 있어서 이 한 장을 손으로 더한다.
+     내용이 `ic_launcher.xml` 과 같은 이유: 적응형 아이콘은 런처가 마스크(원·둥근사각)를
+     씌우므로 모양별로 그림을 따로 둘 필요가 없다. 없으면 매니페스트의
+     `android:roundIcon="@mipmap/ic_launcher_round"` 가 PNG 쪽(각 밀도의 ic_launcher_round.png)
+     으로만 풀려서 고밀도 런처에서 뭉개진다. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+  <background android:drawable="@color/ic_launcher_background"/>
+</adaptive-icon>

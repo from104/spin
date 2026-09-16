@@ -1,0 +1,124 @@
+// 안드로이드 앱 모듈 빌드 설정 — 정본은 docs/PLAN-ANDROID.md §1 결정 14·15·17.
+// Capacitor 템플릿에 두 가지를 얹었다: ① 버전을 루트 package.json 에서 읽는 배선,
+// ② 환경변수로만 사는 릴리스 서명. 나머지(SDK 판·의존성)는 템플릿 기본 그대로다(결정 15).
+apply plugin: 'com.android.application'
+
+import groovy.json.JsonSlurper
+
+// ── 버전 (결정 14) ────────────────────────────────────────────────────────────
+// 앱 버전의 정본은 루트 `package.json` 하나다. Capacitor 는 웹 자산만 옮기고 build.gradle 의
+// 버전은 건드리지 않으므로, 여기 손으로 적어 두면 릴리스를 거듭해도 APK 버전만 과거에 굳는다
+// (qcalc 가 실제로 0.11.3 에 멈춰 있었다 — 그 사고를 가져오지 않으려고 배선을 먼저 깐다).
+ext.spinVersionName = { ->
+    def pkg = file("$rootDir/../package.json")
+    if (!pkg.exists()) {
+        throw new GradleException("package.json 을 찾을 수 없습니다: ${pkg.absolutePath}")
+    }
+    def version = new JsonSlurper().parse(pkg).version
+    // 형식 검사는 남긴다 — 여기서 걸리지 않으면 아래 tokenize 가 엉뚱한 숫자를 만들어 내고,
+    // 그 결과는 "설치는 되는데 업그레이드가 안 되는 APK" 라 실기에서야 발각된다.
+    if (!(version ==~ /\d+\.\d+\.\d+/)) {
+        throw new GradleException("package.json 의 version 이 major.minor.patch 형식이 아닙니다: ${version}")
+    }
+    return version
+}()
+
+// versionCode = major*1_000_000 + minor*1_000 + patch  (0.6.11 → 6011)
+// 폭을 minor·patch 각 1000 으로 넓게 잡았으므로 qcalc 식 `>= 100` 가드가 필요 없다 — 자릿수가
+// 겹치려면 minor 나 patch 가 1000 을 넘어야 하는데 그 전에 major 가 오른다.
+// 상한 검사만 남긴다: 안드로이드가 받는 versionCode 최대값이 2_100_000_000 이고, 넘으면
+// Play 업로드가 아니라 **설치 시점**에 터져서 원인을 찾기 어렵다.
+ext.spinVersionCode = { ->
+    def (major, minor, patch) = spinVersionName.tokenize('.').collect { it.toInteger() }
+    def code = major * 1000000 + minor * 1000 + patch
+    if (code > 2100000000) {
+        throw new GradleException("versionCode 가 안드로이드 상한(2,100,000,000)을 넘었습니다: ${code} (${spinVersionName})")
+    }
+    return code
+}()
+
+// ── 릴리스 서명 (결정 17·18) ──────────────────────────────────────────────────
+// 키스토어 경로·비밀번호는 **저장소에 없다.** 환경변수 넷이 모두 채워졌을 때만 서명 설정을
+// 만들고, 하나라도 비면 아예 만들지 않는다.
+//
+// ⚠️ 왜 "빈 값으로 설정만 만들어 두기" 를 하지 않는가: `signingConfig` 가 걸려 있으면 Gradle 이
+//    설정 단계에서 키스토어 파일을 열려 들고, 없으면 `assembleDebug` 까지 함께 죽는다. 서명
+//    없이도 디버그 APK 는 구워져야 한다(개발자·실기 시험용, scripts/android-build.sh).
+//    CI 에서 시크릿이 비면 빌드가 조용히 **서명 없는 릴리스**를 내놓는 것도 막아야 하므로,
+//    그쪽 판정은 스크립트가 따로 한다 — 여기서는 "있으면 건다" 만 맡는다.
+def spinKeystoreFile = System.getenv("SPIN_ANDROID_KEYSTORE_FILE")
+def spinStorePassword = System.getenv("SPIN_ANDROID_KEYSTORE_PASSWORD")
+def spinKeyAlias = System.getenv("SPIN_ANDROID_KEY_ALIAS")
+def spinKeyPassword = System.getenv("SPIN_ANDROID_KEY_PASSWORD")
+def spinHasReleaseSigning = [spinKeystoreFile, spinStorePassword, spinKeyAlias, spinKeyPassword]
+        .every { it != null && !it.trim().isEmpty() }
+
+android {
+    namespace = "app.atit.spin"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "app.atit.spin"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode project.ext.spinVersionCode
+        versionName project.ext.spinVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+
+    if (spinHasReleaseSigning) {
+        signingConfigs {
+            release {
+                // 경로는 절대경로로 준다 — 상대경로는 이 모듈(app/) 기준으로 풀려서,
+                // 저장소 루트에서 부른 사람이 기대하는 자리와 어긋난다.
+                storeFile file(spinKeystoreFile)
+                storePassword spinStorePassword
+                keyAlias spinKeyAlias
+                keyPassword spinKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (spinHasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

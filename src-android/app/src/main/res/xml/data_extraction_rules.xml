@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 결정 7 (docs/PLAN-ANDROID.md §1) — 구글 갱신 토큰이 앉는 SharedPreferences 를 백업·이전에서
+     뺀다. `AndroidManifest.xml` 의 `android:dataExtractionRules` 가 이 파일을 가리킨다.
+
+     왜 `allowBackup="false"` 만으로 부족한가: 안드로이드 12(API 31) 부터 「클라우드 백업」과
+     「새 기기로 이전(D2D)」이 갈라졌고, `allowBackup` 은 앞쪽만 끈다. 뒤쪽은 여기서 따로 막지
+     않으면 기기를 바꿀 때 토큰 파일이 그대로 따라간다.
+
+     `path="."` 은 그 도메인의 뿌리 디렉터리를 뜻하고 하위가 전부 함께 빠진다 — 파일 이름
+     (`CapacitorStorage.xml`)을 적지 않는 이유는 그 이름이 플러그인 구현의 것이지 우리 계약이
+     아니어서다. 이름이 바뀌어도 이 규칙은 계속 맞는다.
+
+     ⚠️ 내보낸 드릴·백업 파일은 사용자가 스스로 공유 시트로 내보내는 것이라 여기 대상이 아니다.
+        막는 것은 **우리가 저장한 비밀**뿐이다. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>

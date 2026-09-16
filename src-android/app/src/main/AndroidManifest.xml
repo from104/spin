@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 안드로이드 셸 매니페스트 — 정본은 docs/PLAN-ANDROID.md §1.
+     Capacitor 템플릿이 만든 파일을 손으로 고친 것이다. `npx cap sync android` 는 이 파일을
+     덮어쓰지 않으므로(assets/public 과 capacitor.config.json 만 갈아 끼운다) 여기 적은 결정은
+     동기화를 넘겨도 살아남는다. 다만 `cap add` 를 다시 돌리면 통째로 새로 나므로, 프로젝트를
+     갈아엎을 때는 이 파일을 먼저 빼 두어야 한다. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 결정 16 — 폰 제외. 짧은 변 600dp 미만 기기는 Play 설치 목록에서 빠진다.
+         600dp 는 7인치 태블릿과 **펼친 책형 폴드폰**은 통과시키고 플립형·일반 폰(360~410dp)만
+         걸러낸다. 사이드로드한 APK 는 이 선언을 우회하므로 앱 안 `SmallScreenNotice` 가 마지막
+         방어로 남는다(ROADMAP §0.7). Play Console 기기 카탈로그의 폼팩터 제외는 수동(§5). -->
+    <supports-screens
+        android:requiresSmallestWidthDp="600"
+        android:smallScreens="false"
+        android:normalScreens="true"
+        android:largeScreens="true"
+        android:xlargeScreens="true" />
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <!-- 결정 7 — 구글 갱신 토큰이 `@capacitor/preferences`(SharedPreferences) 에 평문으로
+             앉는다. 데스크톱의 0600 파일과 같은 눈높이(암호화가 아니라 프로세스 격리)인데,
+             템플릿 기본값 `allowBackup="true"` 를 그대로 두면 그 파일이 구글 클라우드 백업으로
+             복제되어 격리가 무의미해진다. 안드로이드 12+ 는 클라우드 백업과 **기기 이전(D2D)**
+             이 갈라져서 `allowBackup="false"` 만으로는 이전 쪽이 막히지 않는다 — 둘을 함께
+             건다(`@xml/data_extraction_rules`). -->
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+            <!-- launchMode="singleTask" 는 템플릿 기본값이고 **그대로 두어야 한다**: 아래 두
+                 intent-filter 로 돌아오는 인텐트가 새 액티비티를 쌓지 않고 이미 떠 있는
+                 인스턴스의 `onNewIntent` 로 들어와야 `@capacitor/app` 의 `appUrlOpen` 이
+                 발화한다(결정 5·9). standard/singleTop 으로 바꾸면 로그인 복귀가 앱을 두 벌
+                 띄우고 인증 상태가 갈린다. -->
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- 결정 5 — 구글 로그인(RFC 8252) 복귀용 커스텀 스킴 `app.atit.spin:/oauth2redirect`.
+                 WebView 안에서 구글 로그인을 열면 `disallowed_useragent` 로 차단되므로 Custom Tab
+                 (`@capacitor/browser`)으로 내보내고, 인증이 끝나면 이 필터로 되돌아온다.
+                 스킴 문자열의 정본은 `@string/custom_url_scheme`(= appId, Capacitor 가
+                 `capacitor.config.ts` 에서 생성) 하나다 — 여기 리터럴로 적으면 둘이 갈린다.
+                 ⚠️ 구글 콘솔의 안드로이드 클라이언트에서 Advanced Settings → Custom URI scheme
+                 을 켜야 이 흐름이 산다(2023-10 이후 새 클라이언트는 기본 꺼짐, 결정 6). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="@string/custom_url_scheme" />
+            </intent-filter>
+
+            <!-- 결정 9 — 공유 링크 App Links. `https://spin.atit.app/s/<id>#<열쇠>` 를 누르면
+                 브라우저가 아니라 앱이 열린다. `autoVerify="true"` 는 설치 시 시스템이
+                 `https://spin.atit.app/.well-known/assetlinks.json` 을 받아 서명 지문을 대조하게
+                 한다 — 그 파일이 없거나 지문이 빠지면 **조용히** 브라우저로 떨어진다(경고 없음).
+                 지문은 설치분을 서명한 키 전부(업로드 키·Play 앱 서명 키·디버그 키)라야 한다
+                 (결정 21, `scripts/android-assetlinks.mjs`).
+                 pathPrefix 를 `/s/` 로 좁히는 이유: 앱이 웹사이트 전체(규칙 해설·대문)를 가로채면
+                 검색 결과에서 온 방문자가 앱으로 끌려가고 뒤로가기가 이상해진다. 앱이 실제로
+                 처리할 줄 아는 것은 공유 링크 착지뿐이다. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="spin.atit.app"
+                    android:pathPrefix="/s/" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

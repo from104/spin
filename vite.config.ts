@@ -59,9 +59,24 @@ function restartOnVersionChange(): Plugin {
 // 요구한다. 그래서 값 자체를 웹 빌드에 아예 주입하지 않는 이 방식으로 막는다.
 const isTauriBuild = process.env.TAURI_ENV_PLATFORM !== undefined;
 
+// 안드로이드(Capacitor) 빌드도 같은 갈림이 필요하다 — 결정 19(docs/PLAN-ANDROID.md §1).
+// 안드로이드가 읽을 값은 클라이언트 ID·웹 출처처럼 **공개해도 되는 것뿐**이라(안드로이드 OAuth
+// 클라이언트에는 시크릿 칸이 아예 없다, 결정 5) 시크릿 유출을 막으려는 것이 아니다. 접두어를
+// 가르는 이유는 **웹 번들에 안 쓰는 값이 실리지 않게** 하려는 것이고, 더 중요하게는 데스크톱
+// 쪽과 대칭을 유지해 "이 빌드가 어느 셸을 위한 것인가" 를 설정 한 줄로 읽히게 하려는 것이다.
+//
+// 판별자가 `TAURI_ENV_PLATFORM` 같은 툴체인 변수가 아니라 우리가 세우는 `SPIN_ANDROID_BUILD`
+// 인 이유: Capacitor CLI 는 웹 빌드를 부르지 않는다(`cap sync` 는 이미 구워진 dist 를 복사만
+// 한다). 그래서 신호를 세울 자리가 npm 스크립트밖에 없다 — `android:build` 가 세운다(결정 22).
+const isAndroidBuild = process.env.SPIN_ANDROID_BUILD !== undefined;
+
 // https://vite.dev/config/
 export default defineConfig({
-  envPrefix: isTauriBuild ? ['VITE_', 'SPIN_DESKTOP_'] : ['VITE_'],
+  envPrefix: [
+    'VITE_',
+    ...(isTauriBuild ? ['SPIN_DESKTOP_'] : []),
+    ...(isAndroidBuild ? ['SPIN_ANDROID_'] : []),
+  ],
   plugins: [react(), restartOnVersionChange()],
   define: { __APP_VERSION__: JSON.stringify(pkgVersion) },
   server: {

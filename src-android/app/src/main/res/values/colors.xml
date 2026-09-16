@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 결정 20 — 시스템 스플래시 배경. 값은 웹앱의 `theme-color`(index.html) 와 같은 #0b0f14 다:
+     앱이 뜨는 순간부터 웹뷰가 첫 프레임을 그릴 때까지 화면이 한 색으로 이어져야 "번쩍" 이
+     없다. 색을 바꿀 일이 생기면 index.html 의 theme-color 와 함께 바꾼다.
+     ⚠️ 여기에 앱 UI 색을 더 담지 않는다 — 앱 색 토큰의 정본은 `src/styles/tokens.css` 하나다
+     (AGENTS §1.4). 이 파일은 웹뷰가 아직 없는 구간만 맡는다. -->
+<resources>
+    <color name="spin_splash_background">#0b0f14</color>
+</resources>

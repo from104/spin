@@ -16,7 +16,7 @@
 // ⚠️ 버전은 웹 앱 자신의 `__APP_VERSION__` 을 쓴다. 릴리스 태그가 곧 그 버전이라 «지금 쓰는
 // 웹과 같은 판» 을 받게 되는 것이 장점이고, 대가는 **데스크톱 릴리스 없이 웹만 배포한 회차에서
 // 링크가 404** 라는 것이다. 그래서 모달이 릴리스 페이지로 가는 길을 함께 준다(그쪽은 항상 산다).
-import { isTauriWebview } from '../../storage/files.ts';
+import { isTauriWebview } from '../../platform/shell.ts';
 
 export type DesktopPlatform = 'windows' | 'macos' | 'linux';
 

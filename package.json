@@ -28,6 +28,12 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
+    "_comment:android": "안드로이드(Capacitor 8) 셸. 설정은 루트 capacitor.config.ts 이고 네이티브 프로젝트는 src-android/ 다(src-tauri/ 와 짝). android:build 는 `npm run build` 로 dist 를 만들고(SPIN_ANDROID_BUILD=1 이 vite 의 envPrefix 에 SPIN_ANDROID_ 를 켠다 — 이 신호가 없으면 클라이언트 ID·웹 출처가 번들에 안 들어간 채 초록으로 나간다) `cap sync` 로 그 dist 와 플러그인 목록을 네이티브에 옮긴 뒤 scripts/android-build.sh 가 gradle 을 돈다(서명 env 4개가 다 있으면 릴리스 APK+AAB, 없으면 디버그 APK). android:dev 는 빌드 없이 기기에 붙여 vite 개발 서버를 그대로 띄운다 — 주소는 커밋하지 않고 SPIN_CAP_SERVER_URL 로 준다(예: SPIN_CAP_SERVER_URL=http://100.75.15.13:5173 npm run android:dev). cap run 이 먼저 sync 를 돌리므로 capacitor.config.ts 의 server.url 과 cleartext 가 그대로 실린다(평문 차단도 그때 풀린다). ⚠️ 라이브 리로드 플래그 `-l` 을 붙이지 않는다: CLI 가 server.url 을 제 값(LAN IP + 포트 3000)으로 덮어써 SPIN_CAP_SERVER_URL 이 무시되고, 앱이 vite 가 없는 :3000 을 본다. `--external` 은 cap run 에 아예 없는 옵션이라 곧장 죽는다(Capacitor CLI 8.2.0, 2026-09-17 검수). 굳이 -l 을 쓰려면 `-l --port 5173`. android:open 은 Android Studio 로 프로젝트를 연다(SDK 설치·AVD·로그 보기용).",
+    "android:build": "SPIN_ANDROID_BUILD=1 npm run build && npx cap sync android && bash scripts/android-build.sh",
+    "android:dev": "npx cap run android",
+    "android:open": "npx cap open android",
+    "_comment:android-assetlinks": "App Links 검증 파일(public/.well-known/assetlinks.json)을 찍는다 — 이 파일이 있어야 https://spin.atit.app/s/… 링크가 브라우저가 아니라 앱으로 열린다. 인자는 설치분을 서명한 모든 키의 SHA-256 지문이다(업로드 키·Play 앱 서명 키·디버그 키). 지문이 아직 없어 파일 자체는 저장소에 없다 — 키스토어가 생긴 뒤 찍어서 커밋하고 `npm run deploy:aws` 로 내보낸다. 파일을 손으로 고치지 말고 인자를 늘려 다시 찍는다. 예: npm run android:assetlinks -- AB:CD:…:EF",
+    "android:assetlinks": "node scripts/android-assetlinks.mjs",
     "_comment:share:dev": "공유 링크 백엔드(server/share)를 개발용으로 띄운다. Node ≥22.18 이 .ts 를 타입만 지우고 바로 돌리므로 빌드도 의존성도 없다. 기본 127.0.0.1:8787 이고 데이터는 ./data/share (gitignore). `npm run dev` 의 Vite 프록시가 /api 를 이쪽으로 넘기므로, 앱은 개발에서도 운영과 똑같이 상대 경로 /api/share 만 부른다. 환경변수 표는 server/share/README.md.",
     "share:dev": "node server/share/index.ts",
     "_comment:share:test": "공유 링크 백엔드만 좁혀서 돈다(server/share/app.test.ts). 전체 `npm test` 도 같은 파일을 돌지만(vite.config.ts 의 test.include), 서버만 고쳤을 때 55초를 기다릴 이유가 없다.",
@@ -43,6 +49,14 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@capacitor-community/keep-awake": "8.0.1",
+    "@capacitor/android": "8.2.0",
+    "@capacitor/app": "8.1.1",
+    "@capacitor/browser": "8.0.4",
+    "@capacitor/core": "8.2.0",
+    "@capacitor/filesystem": "8.1.3",
+    "@capacitor/preferences": "8.0.1",
+    "@capacitor/share": "8.0.2",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-opener": "^2.5.4",
     "@tauri-apps/plugin-process": "^2.3.1",
@@ -56,6 +70,7 @@
     "react-router": "^8.3.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.2.0",
     "@tauri-apps/cli": "^2.11.4",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",

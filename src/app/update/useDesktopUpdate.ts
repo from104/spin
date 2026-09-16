@@ -18,7 +18,7 @@
 // 자동으로 **설치하지 않는다.** 찾기까지만 자동이고 받는 것은 사람이 누른다 — 코치가 체육관에서
 // 시연 직전에 앱이 제멋대로 재시작하면 그날 훈련이 끝난다.
 import { useCallback, useEffect, useState } from 'react';
-import { isTauriWebview } from '../../storage/files.ts';
+import { isTauriWebview } from '../../platform/shell.ts';
 
 /** 찾은 새 판. 화면(모달)이 읽는 값만 담는다 — 플러그인 타입을 UI 까지 끌고 가지 않는다. */
 export interface FoundUpdate {
