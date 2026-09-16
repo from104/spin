@@ -10,6 +10,12 @@ pub fn run() {
     .plugin(tauri_plugin_opener::init())
     // 저장 대화상자. 웹뷰에는 권한을 열지 않고 러스트 명령 하나(save_bytes_dialog)로만 쓴다.
     .plugin(tauri_plugin_dialog::init())
+    // 자동 업데이트(2026-09-16). 덮는 것은 **AppImage · MSI · macOS 앱 묶음** 셋이다 —
+    // deb·rpm·snap 은 패키지 관리자와 스토어가 지는 영역이라 앱이 자기를 바꾸면 안 된다
+    // (snap 은 confinement 가 아예 막는다). 무엇을 받을지는 `latest.json` 이 정한다.
+    .plugin(tauri_plugin_updater::Builder::new().build())
+    // 업데이트를 설치한 뒤 앱을 다시 여는 데만 쓴다(`relaunch`).
+    .plugin(tauri_plugin_process::init())
     // 로그인 한 번의 수명만 사는 루프백 수신기의 자리.
     .manage(oauth::OauthState::default())
     .invoke_handler(tauri::generate_handler![
