@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed [Google Drive sync] being unavailable in the desktop app
+- Fixed share link creation failing in the desktop app
+- Fixed changelog entries missing under their headings on Windows
+
 ## [0.6.10] 2026-09-16
 
 ### Added

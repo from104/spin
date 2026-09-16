@@ -39,7 +39,18 @@ export function parseAllChangelogVersions(raw: string): ChangelogVersion[] {
   // 이어지는 줄로 붙어 버린다(모든 버전 절이 "다음 헤딩 앞까지" 를 자기 몸통으로 보는데, 파일의
   // 진짜 끝은 마지막 헤딩의 몸통이 아니라 각주이기 때문 — 2026-09-03 좌우 넘기기를 넣으며 가장
   // 오래된 버전까지 실제로 넘겨 보다가 발견했다).
-  const allLines = raw.split('\n');
+  // ⚠️ **`\r\n` 으로 쪼갠다** — 줄 끝의 `\r` 하나가 이 파일 전체를 조용히 비운다(2026-09-16
+  // 기현님 MSI 실기 제보: *"버전 체인지로그 구분만 있고 내용이 없다"*). 원인은 윈도우 체크아웃이
+  // 준 CRLF 다. 갈리는 자리가 고약하다:
+  //   · `## [0.6.10]` — `\s*$` 의 `\s` 가 `\r` 를 먹어 **통과한다**
+  //   · `### 추가됨`  — `startsWith` 라 `\r` 와 무관하게 **통과한다**
+  //   · `- 글머리`    — 자바스크립트의 `.` 은 `\r` 를 **안 먹고**, `m` 없는 `$` 는 `\r` 앞에서
+  //     끝나지 않는다. 그래서 **글머리만 전부 떨어진다.**
+  // 실측(CHANGELOG.md 전문): LF 는 버전 19·소제목 47·글머리 277, CRLF 는 19·47·**0**.
+  // 곧 «칸은 다 있는데 안이 비어 있는» 화면이 되고, 오류는 한 줄도 안 난다.
+  // `.gitattributes` 로 체크아웃을 LF 로 고정했지만 그것만 믿지 않는다 — 사본이 어떤 경로로
+  // 들어오든(압축 해제·복사·편집기) 파서 쪽에서 한 번 더 막는다.
+  const allLines = raw.split(/\r?\n/);
   const footerAt = allLines.findIndex((l) => l.trimStart().startsWith('<!--'));
   const lines = footerAt === -1 ? allLines : allLines.slice(0, footerAt);
   const headings: { index: number; version: string; date: string | null }[] = [];
