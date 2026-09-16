@@ -11,8 +11,21 @@ interface ImportMetaEnv {
   readonly VITE_SHARE_API_BASE?: string;
   /** 데스크톱(Tauri) 빌드에만 주입되는 웹앱 공개 출처(예 `https://spin.atit.app`). 데스크톱은
    *  출처가 `tauri://localhost` 라 공유 링크의 API 주소와 링크 앞부분을 여기서 얻는다. 웹 빌드에는
-   *  envPrefix 게이팅으로 존재하지 않는다. 읽는 자리는 `src/share/api.ts` 의 `desktopWebOrigin()`. */
+   *  envPrefix 게이팅으로 존재하지 않는다. 읽는 자리는 `src/share/api.ts` 의 `nativeWebOrigin()`. */
   readonly SPIN_DESKTOP_WEB_ORIGIN?: string;
+  /** 안드로이드(Capacitor) 빌드에만 주입되는 웹앱 공개 출처(예 `https://spin.atit.app`).
+   *  데스크톱 것과 뜻이 같고 읽는 자리도 같다(`nativeWebOrigin()`) — 앱 출처가
+   *  `https://localhost` 라 상대 경로 `/api/share` 가 웹뷰 자신에게 물어보는 꼴이 되고, 그
+   *  출처로 지은 공유 링크는 받는 기기에서 열리지 않기 때문이다(PLAN-ANDROID 결정 19).
+   *  `SPIN_ANDROID_BUILD=1` 이 선 빌드에서만 envPrefix 가 열린다(`vite.config.ts`). */
+  readonly SPIN_ANDROID_WEB_ORIGIN?: string;
+  /** 안드로이드 앱 빌드에만 주입되는 구글 OAuth 클라이언트 ID(유형 '안드로이드'). **없으면
+   *  동기화 섹션이 비활성**으로 그려진다 — 빈 값이 조용히 구워지는 사고(AGENTS §7, 0.6.9)가
+   *  여기서도 그대로 재현될 수 있으니 CI 의 「주입할 환경변수 확인」 단계에 이름을 같이 넣는다.
+   *  공개값이라 시크릿이 아니다(PLAN-ANDROID 결정 6). 웹·데스크톱 빌드에는 `envPrefix` 게이팅
+   *  (`SPIN_ANDROID_BUILD`)으로 존재하지 않는다. 읽는 자리는 `src/sync/authAndroid.ts` 의
+   *  `androidClientId()` 하나. */
+  readonly SPIN_ANDROID_GOOGLE_CLIENT_ID?: string;
 }
 
 /** vite.config.ts 의 define 이 빌드 시점에 package.json 의 version 으로 치환한다.

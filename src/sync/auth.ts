@@ -17,10 +17,20 @@
 // 등록할 수 없다. 그래서 아래 공개 함수 넷은 **플랫폼을 보고 authDesktop.ts 로 넘긴다** —
 // 외부 브라우저 + 루프백 + PKCE(설치형 앱 흐름). 갈라지는 곳을 이 파일 한 군데로 모은 것은
 // 소비자(SyncSection·엔진)가 플랫폼을 몰라도 되게 하려는 것이다: 그쪽은 한 줄도 안 바뀐다.
+//
+// ⚠️ 2026-09-17 — 셸이 **셋**이 됐다(웹 · Tauri · Capacitor/안드로이드). 안드로이드도 웹뷰 안
+// 구글 로그인이 막혀 있어(`disallowed_useragent`) 설치형 앱 흐름을 쓴다 — `authAndroid.ts`.
+// 갈라지는 곳은 여전히 이 파일 하나이고, 어느 모듈로 갈지는 `platform/shell.ts` 의
+// `nativeShell()` 한 벌이 정한다(PLAN-ANDROID 결정 4·5). 여기에 판정을 다시 적지 않는다.
+import { nativeShell } from '../platform/shell.ts';
 import { StorageError, STORAGE_ERROR_MESSAGES } from '../storage/errors.ts';
+import * as android from './authAndroid.ts';
 import * as desktop from './authDesktop.ts';
+import { DRIVE_SCOPE } from './authInstalled.ts';
 
-export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+/** 요청하는 구글 권한 범위. 값의 정본은 `authInstalled.ts`(웹과 설치형이 **같은 범위**를
+ *  요구해야 한 계정이 두 번 동의하지 않는다). 이름은 여기 남긴다 — 옛 소비자가 이 경로로 읽는다. */
+export { DRIVE_SCOPE };
 
 /** 무음 갱신 대기 상한. GIS 는 실패 시 콜백을 안 부르는 경우가 있어(iframe 침묵) 상한이 없으면
  *  엔진이 영영 멈춘다. */
@@ -63,9 +73,34 @@ export function syncClientId(): string | undefined {
   return id.length > 0 ? id : undefined;
 }
 
+/** 설치형 셸(데스크톱·안드로이드)의 로그인 모듈이 **공통으로** 가져야 하는 모양. 이름을 붙인
+ *  이유는 컴파일러에게 시키기 위해서다 — 한쪽에 함수를 더하거나 시그니처를 바꾸고 다른 쪽을
+ *  잊으면 여기서 빨간불이 난다(아래 `installedAuth()` 의 반환에 둘 다 대입된다). */
+interface InstalledAuth {
+  isConfigured(): boolean;
+  connectInteractive(): Promise<{ token: string; email?: string }>;
+  getAccessToken(): Promise<string>;
+  invalidateToken(): void;
+  revokeAccess(): Promise<void>;
+}
+
+/** 지금 실행이 쓸 설치형 로그인 모듈. 웹(브라우저 배포본·개발 서버)에서는 `null` 이고, 그때만
+ *  아래 GIS 경로가 돈다. 셸이 늘면 `nativeShell()` 과 이 스위치 둘만 넓힌다. */
+function installedAuth(): InstalledAuth | null {
+  switch (nativeShell()) {
+    case 'tauri':
+      return desktop;
+    case 'android':
+      return android;
+    default:
+      return null;
+  }
+}
+
 /** 이 배포에 동기화가 구성돼 있는가 — 설정 화면이 섹션 활성/비활성을 가르는 기준. */
 export function isSyncConfigured(): boolean {
-  return desktop.isDesktop() ? desktop.isConfigured() : syncClientId() !== undefined;
+  const installed = installedAuth();
+  return installed ? installed.isConfigured() : syncClientId() !== undefined;
 }
 
 // ── GIS 로드 ─────────────────────────────────────────────────────────────────────────
@@ -153,8 +188,9 @@ function requestToken(prompt: '' | 'consent', loginHint?: string): Promise<strin
 /** 엔진의 유일한 입구. 캐시가 살아 있으면 그대로, 아니면 무음 갱신 — 실패는 E_SYNC_AUTH 로
  *  올라가 엔진이 멈추고 설정에 '재연결' 칩이 뜬다(대화형 재시도는 사용자 제스처에서만). */
 export function getAccessToken(loginHint?: string): Promise<string> {
-  // 데스크톱은 갱신 토큰으로 조용히 새로 받는다 — 힌트가 필요 없다(계정이 토큰에 박혀 있다).
-  if (desktop.isDesktop()) return desktop.getAccessToken();
+  // 설치형은 갱신 토큰으로 조용히 새로 받는다 — 힌트가 필요 없다(계정이 토큰에 박혀 있다).
+  const installed = installedAuth();
+  if (installed) return installed.getAccessToken();
   if (cached && cached.expiresAt - EXPIRY_MARGIN_MS > Date.now()) return Promise.resolve(cached.token);
   return requestToken('', loginHint);
 }
@@ -163,7 +199,8 @@ export function getAccessToken(loginHint?: string): Promise<string> {
  *  이메일 힌트는 부가 정보다: about 호출이 실패해도 연결 자체는 성공으로 친다(힌트가 없으면
  *  무음 갱신에서 계정 선택이 뜰 수 있을 뿐, 데이터에는 아무 영향이 없다). */
 export async function connectInteractive(): Promise<{ token: string; email?: string }> {
-  if (desktop.isDesktop()) return desktop.connectInteractive();
+  const installed = installedAuth();
+  if (installed) return installed.connectInteractive();
   const token = await requestToken('consent');
   let email: string | undefined;
   try {
@@ -182,9 +219,10 @@ export async function connectInteractive(): Promise<{ token: string; email?: str
 
 /** 401 을 받은 호출자가 부른다 — 캐시를 버려 다음 getAccessToken 이 무음 갱신을 시도하게. */
 export function invalidateToken(): void {
-  // 양쪽 캐시를 다 버린다 — 한 프로세스에 둘 중 하나만 사는데, 어느 쪽인지 여기서 따질
-  // 이유가 없다(둘 다 버리는 것이 안전하고 싸다).
+  // 모든 캐시를 다 버린다 — 한 프로세스에 셋 중 하나만 사는데, 어느 쪽인지 여기서 따질
+  // 이유가 없다(다 버리는 것이 안전하고 싸다). 그래서 이 함수만 스위치를 타지 않는다.
   desktop.invalidateToken();
+  android.invalidateToken();
   cached = null;
 }
 
@@ -192,7 +230,8 @@ export function invalidateToken(): void {
  *  확실히 버린다. 로컬 데이터·동기화 행·톰스톤은 **여기서 건드리지 않는다**(ROADMAP "연결
  *  끊어도 로컬 유지" — 해제는 prefs.sync.enabled 를 끄는 호출자의 몫과 합쳐 완성된다). */
 export async function revokeAccess(): Promise<void> {
-  if (desktop.isDesktop()) return desktop.revokeAccess();
+  const installed = installedAuth();
+  if (installed) return installed.revokeAccess();
   const token = cached?.token;
   cached = null;
   if (!token) return;
@@ -210,7 +249,10 @@ export async function revokeAccess(): Promise<void> {
 
 /** 테스트 전용 — 모듈 상태 초기화. */
 export function resetAuthForTest(): void {
+  // invalidateToken 과 같은 이유로 셋을 다 비운다 — 테스트가 플랫폼을 흔들어 가며 돌기 때문에
+  // «지금 어느 셸인가» 를 보고 비우면 직전 케이스가 남긴 캐시가 살아남는다.
   desktop.resetDesktopAuthForTest();
+  android.resetAndroidAuthForTest();
   cached = null;
   gisLoading = null;
 }

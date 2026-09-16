@@ -27,14 +27,23 @@
 // 만료가 없는 열쇠라 두는 자리를 따로 정했다(src-tauri/src/secret_store.rs 머리말).
 // prefs 에 넣지 않는 것이 핵심이다: 백업 파일이 prefs 를 통째로 싣기 때문에(transfer.ts),
 // 넣는 순간 남의 기기로 새어 나간다. auth.ts 가 "토큰은 메모리만" 을 지킨 것과 같은 이유다.
-import { StorageError, STORAGE_ERROR_MESSAGES } from '../storage/errors.ts';
-
-const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
-const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-const REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke';
-
-/** 만료 이만큼 전이면 미리 갱신한다 — auth.ts 와 같은 값이어야 두 경로의 체감이 같다. */
-const EXPIRY_MARGIN_MS = 60_000;
+//
+// ⚠️ 2026-09-17(PLAN-ANDROID §3 2단계) — 안드로이드가 **같은 흐름**을 쓰게 되면서 PKCE·state·
+// 토큰 종점·캐시·회수는 `authInstalled.ts` 로 나갔다. 여기 남은 것은 **데스크톱만의 것**이다:
+// 루프백 포트를 여는 Tauri 커맨드, 기본 브라우저 열기, 시크릿이 있는 클라이언트, 갱신 토큰을
+// 두는 자리(러스트 secret_store). 위 서사는 그대로 이 파일의 것이라 지우지 않는다.
+import { isTauriWebview } from '../platform/shell.ts';
+import { StorageError } from '../storage/errors.ts';
+import {
+  authError,
+  authorizeUrl,
+  codeFromRedirect,
+  createTokenCache,
+  emailHint,
+  postToken,
+  randomToken,
+  revokeRemote,
+} from './authInstalled.ts';
 
 /** 이 앱이 Tauri 웹뷰 안에서 도는가. 웹 배포본에서는 언제나 false 이고, 그래서 아래 코드는
  *  한 줄도 실행되지 않는다.
@@ -44,9 +53,15 @@ const EXPIRY_MARGIN_MS = 60_000;
  *  './authDesktop.ts'` 는 **정적** import 라 이 모듈은 웹 번들에도 통째로 들어간다. 안전한
  *  것은 이 파일이 아니라 `desktopClientSecret()` 이 읽는 값이다: `SPIN_DESKTOP_*` 는
  *  `vite.config.ts` 의 `envPrefix` 가 Tauri 빌드가 아니면 주입을 막으므로, 웹 번들에서는 이
- *  함수가 항상 빈 문자열을 돌려준다(코드는 실려도 시크릿 값은 안 실린다). */
+ *  함수가 항상 빈 문자열을 돌려준다(코드는 실려도 시크릿 값은 안 실린다).
+ *
+ *  ⚠️ 2026-09-17 — 판정 자체는 `platform/shell.ts` 로 나갔고 여기 남은 것은 **이름**뿐이다.
+ *  같은 날 검수 뒤 정정: `auth.ts` 는 이제 `nativeShell()` 만 보고 이 함수를 부르지 않는다 — 남은
+ *  호출자는 `authDesktop.test.ts` 뿐이다. 그 테스트의 계약(전역 유무로 판정)은 shell.ts 의 것이니
+ *  케이스를 그쪽으로 옮기면 이 함수는 지워도 된다(AGENTS §9). 셸이 둘이 되면서 판정을 한 벌 더
+ *  두면 안 되는 이유는 그쪽 머리말에 있다(결정 4). */
 export function isDesktop(): boolean {
-  return typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
+  return isTauriWebview();
 }
 
 export function desktopClientId(): string | undefined {
@@ -72,61 +87,10 @@ async function openInBrowser(url: string): Promise<void> {
   await openUrl(url);
 }
 
-// ── PKCE ─────────────────────────────────────────────────────────────────────────────
-
-const b64url = (bytes: Uint8Array): string =>
-  btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-/** 32 바이트면 base64url 로 43 자 — RFC 7636 이 정한 하한이 그것이다. */
-function randomToken(): string {
-  return b64url(crypto.getRandomValues(new Uint8Array(32)));
-}
-
-async function challengeOf(verifier: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-  return b64url(new Uint8Array(digest));
-}
-
 // ── 토큰 ─────────────────────────────────────────────────────────────────────────────
 
-let cached: { token: string; expiresAt: number } | null = null;
-
-const authError = (detail: string): StorageError =>
-  new StorageError('E_SYNC_AUTH', STORAGE_ERROR_MESSAGES.E_SYNC_AUTH(), { detail });
-
-interface TokenBody {
-  access_token?: string;
-  expires_in?: number;
-  refresh_token?: string;
-  error?: string;
-  error_description?: string;
-}
-
-/** 토큰 종점 호출. **본문을 그대로 오류에 싣지 않는다** — 실패 응답에도 토큰이 섞일 수 있다.
- *  구글이 주는 짧은 `error` 코드만 남긴다(invalid_grant 등). */
-async function postToken(params: Record<string, string>): Promise<TokenBody> {
-  let res: Response;
-  try {
-    res = await fetch(TOKEN_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(params).toString(),
-    });
-  } catch (e) {
-    throw new StorageError('E_SYNC_NETWORK', STORAGE_ERROR_MESSAGES.E_SYNC_NETWORK(), {
-      detail: `토큰 종점에 닿지 못함: ${e instanceof Error ? e.message : '알 수 없음'}`,
-    });
-  }
-  const body = (await res.json().catch(() => ({}))) as TokenBody;
-  if (!res.ok || body.error) throw authError(body.error ?? `HTTP ${res.status}`);
-  return body;
-}
-
-function remember(body: TokenBody): string {
-  if (!body.access_token) throw authError('접근 토큰이 없습니다');
-  cached = { token: body.access_token, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 };
-  return body.access_token;
-}
+/** 이 셸 몫의 접근 토큰 캐시(안드로이드는 자기 것을 따로 만든다 — authInstalled.ts 머리말). */
+const cache = createTokenCache();
 
 // ── 공개 API — auth.ts 가 플랫폼을 보고 이쪽으로 넘긴다 ───────────────────────────────
 
@@ -149,20 +113,7 @@ export async function connectInteractive(): Promise<{ token: string; email?: str
   });
   const redirectUri = `http://127.0.0.1:${port}`;
 
-  const url = `${AUTH_ENDPOINT}?${new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    scope: 'https://www.googleapis.com/auth/drive.appdata',
-    code_challenge: await challengeOf(verifier),
-    code_challenge_method: 'S256',
-    state,
-    // 설치형 앱은 갱신 토큰을 받아야 다음 실행에서 다시 로그인시키지 않는다. 구글은
-    // offline + consent 를 함께 줘야 갱신 토큰을 **다시** 내준다(두 번째 연결부터 빠뜨리면
-    // access_token 만 오고, 앱은 재시작할 때마다 브라우저를 연다).
-    access_type: 'offline',
-    prompt: 'consent',
-  }).toString()}`;
+  const url = await authorizeUrl({ clientId, redirectUri, verifier, state });
 
   try {
     await openInBrowser(url);
@@ -174,14 +125,7 @@ export async function connectInteractive(): Promise<{ token: string; email?: str
   const query = await invoke<string>('oauth_wait').catch((e) => {
     throw authError(String(e));
   });
-  const params = new URLSearchParams(query);
-  // 구글이 오류를 리다이렉트로 돌려주는 경우(사용자가 [취소]를 누른 것이 대표적이다).
-  const err = params.get('error');
-  if (err) throw authError(err);
-  // 로그인 CSRF 방어 — 내가 시작하지 않은 리다이렉트는 받지 않는다.
-  if (params.get('state') !== state) throw authError('state 불일치');
-  const code = params.get('code');
-  if (!code) throw authError('코드가 없습니다');
+  const code = codeFromRedirect(new URLSearchParams(query), state);
 
   const body = await postToken({
     code,
@@ -191,26 +135,19 @@ export async function connectInteractive(): Promise<{ token: string; email?: str
     grant_type: 'authorization_code',
     redirect_uri: redirectUri,
   });
-  const token = remember(body);
+  const token = cache.remember(body);
   // 갱신 토큰은 **있을 때만** 덮어쓴다. 구글이 안 줄 때가 있는데(이미 동의가 살아 있는 계정),
   // 그때 빈 값으로 덮으면 멀쩡히 쓰던 연결이 다음 실행에서 끊긴다.
   if (body.refresh_token) await invoke('secret_save', { value: body.refresh_token }).catch(() => {});
 
-  let email: string | undefined;
-  try {
-    const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) email = ((await res.json()) as { user?: { emailAddress?: string } }).user?.emailAddress;
-  } catch {
-    /* 힌트일 뿐 — 웹 경로와 같은 규칙으로 삼킨다 */
-  }
+  const email = await emailHint(token);
   return { token, ...(email ? { email } : {}) };
 }
 
 /** 엔진의 입구. 캐시가 살아 있으면 그대로, 아니면 갱신 토큰으로 조용히 새로 받는다. */
 export async function getAccessToken(): Promise<string> {
-  if (cached && cached.expiresAt - EXPIRY_MARGIN_MS > Date.now()) return cached.token;
+  const live = cache.live();
+  if (live) return live;
 
   const clientId = desktopClientId();
   if (!clientId) throw authError('데스크톱 client id 미설정');
@@ -218,7 +155,7 @@ export async function getAccessToken(): Promise<string> {
   if (!refresh) throw authError('갱신 토큰 없음 — 다시 연결해야 합니다');
 
   try {
-    return remember(
+    return cache.remember(
       await postToken({
         refresh_token: refresh,
         client_id: clientId,
@@ -235,28 +172,20 @@ export async function getAccessToken(): Promise<string> {
 }
 
 export function invalidateToken(): void {
-  cached = null;
+  cache.clear();
 }
 
 /** [연결 해제]. 구글 쪽 회수는 best-effort 지만 **로컬 갱신 토큰은 반드시 지운다** —
  *  회수가 실패했는데 열쇠까지 남으면 '해제했다' 는 말이 거짓이 된다. */
 export async function revokeAccess(): Promise<void> {
-  const token = cached?.token ?? (await invoke<string | null>('secret_load').catch(() => null));
-  cached = null;
+  const token = cache.held() ?? (await invoke<string | null>('secret_load').catch(() => null));
+  cache.clear();
   await invoke('secret_clear').catch(() => {});
   if (!token) return;
-  try {
-    await fetch(REVOKE_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ token }).toString(),
-    });
-  } catch {
-    /* best-effort — 오프라인이면 구글 쪽 동의는 남는다 */
-  }
+  await revokeRemote(token);
 }
 
 /** 테스트 전용. */
 export function resetDesktopAuthForTest(): void {
-  cached = null;
+  cache.clear();
 }

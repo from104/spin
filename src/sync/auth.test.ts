@@ -1,7 +1,9 @@
 // 0.6 커밋 4 — auth.ts. GIS 는 window.google 스텁으로 통째 대체한다. 여기서 못박는 것:
 // ① 캐시 수명(만료 60s 전 갱신·유효하면 재요청 없음) ② 무음 갱신 8s 타임아웃(콜백이 영영
 // 안 오는 실패 모드) ③ consent/silent 의 prompt 구분과 login_hint 전달 ④ revoke 가 캐시를
-// 버려 다음 호출이 재요청하게 됨 ⑤ client id 미설정의 명시적 실패.
+// 버려 다음 호출이 재요청하게 됨 ⑤ client id 미설정의 명시적 실패 ⑥ 설치형 셸 갈림
+// (`installedAuth()`) — 어느 모듈로 넘기는지는 `platform/shell.ts` 의 전역 판정 하나에 달려 있고,
+// 잘못 넘어가도 화면에는 «비활성» 만 보인다(2026-09-17 검수, PLAN-ANDROID 결정 4·5).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectInteractive, getAccessToken, invalidateToken, isSyncConfigured, resetAuthForTest, revokeAccess } from './auth.ts';
 
@@ -60,6 +62,25 @@ describe('구성', () => {
     expect(isSyncConfigured()).toBe(false);
     stubGis();
     await expect(getAccessToken()).rejects.toMatchObject({ code: 'E_SYNC_AUTH', detail: 'client id 미설정' });
+  });
+
+  // ★ 셸 갈림(`installedAuth()`)의 안드로이드 가지. 이것이 없으면 `case 'android': return android`
+  //   를 `return desktop` 으로 바꿔도 세 로그인 테스트 파일이 전부 초록이었다(2026-09-17 검수).
+  //   실기에서 깨지는 모양은 조용하다: 안드로이드가 데스크톱 판정(id+secret)을 타서
+  //   `isSyncConfigured()` 가 거짓 → 설정의 동기화 섹션이 **오류 하나 없이** 비활성으로 그려지고,
+  //   "설정 안 됨" 안내조차 뜰 자리가 없다(구성됐다고 판정되지도 않으므로).
+  //   `isSyncConfigured` 만 보면 플러그인 mock 이 필요 없다 — `@capacitor/*` 는 동적 import 라
+  //   이 경로에서 한 번도 열리지 않는다.
+  it('★ 안드로이드 셸에서는 안드로이드 client id 하나로 구성 판정한다 — 데스크톱 판정을 타면 섹션이 조용히 비활성이 된다', () => {
+    vi.stubGlobal('Capacitor', { isNativePlatform: () => true });
+    vi.stubEnv('SPIN_ANDROID_GOOGLE_CLIENT_ID', 'android-id');
+    expect(isSyncConfigured()).toBe(true);
+
+    // 데스크톱 값이 다 있어도 안드로이드 id 가 비면 거짓이다 — 셸이 섞이면 여기가 참이 된다.
+    vi.stubEnv('SPIN_ANDROID_GOOGLE_CLIENT_ID', '  ');
+    vi.stubEnv('SPIN_DESKTOP_GOOGLE_CLIENT_ID', 'desktop-id');
+    vi.stubEnv('SPIN_DESKTOP_GOOGLE_CLIENT_SECRET', 'desktop-secret');
+    expect(isSyncConfigured()).toBe(false);
   });
 });
 
