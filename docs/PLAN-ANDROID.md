@@ -36,7 +36,7 @@
 | 9 | 공유 링크 **만들기**: `ShareLinkModal` 의 [복사] 옆에 안드로이드에서만 [공유] 단추(`@capacitor/share` 로 url+title). 받기: App Links(`https://spin.atit.app/s/*`, `autoVerify`) → `appUrlOpen` → `navigate(pathname + hash)` 하면 기존 `useShareLanding` 이 `location.hash` 에서 열쇠를 읽는다. 찬 시작(앱이 꺼진 채 링크를 누름)도 `appUrlOpen` 으로 온다 — `BridgeActivity.load()` 가 런치 인텐트를 `onNewIntent` 로 되돌려 넣고 플러그인이 retained 이벤트로 붙잡는다(`getLaunchUrl()` 을 겹쳐 부르면 두 번 이동한다, 검수 정정). 로케일 접두(`/ja/s/…`)는 `splitLocalePrefix` 로 떼고 넘긴다 — 앱의 basename 은 늘 `/` 다 | ROADMAP §0.7 공유 링크 방침. `useShareLanding`(AppShell.tsx:186-199) 이 라우터 모드와 무관하게 hash 를 한 번 읽고 지운다 [조사 spin 2] |
 | 10 | 시연 **전체화면**: 네이티브에서는 Fullscreen API 를 부르지 않고 `useFullscreen` 의 pseudo(CSS) 경로 + 시스템 바 숨김(몰입형 — `@capacitor/core` 의 코어 플러그인 `SystemBars`, 따로 깔 것 없음; 훅이 **언마운트에서 되돌린다** — 뒤로가기·[나가기]는 `exit()` 를 안 거친다, 검수 정정). **화면 유지**: `navigator.wakeLock` 이 있으면 그대로, 네이티브에서는 `@capacitor-community/keep-awake`(FLAG_KEEP_SCREEN_ON) 를 먼저 쓴다 | `BridgeWebChromeClient.onShowCustomView` 가 즉시 `onCustomViewHidden()` 을 불러 전체화면이 곧장 취소된다 [조사 webview c2]. WebView 의 Wake Lock 은 BCD 가 "mirror"(추정) 이고 Permissions API 가 없어 부분 지원 [정정] — 플래그가 확실하다 |
 | 11 | safe-area: `appShell.css` 의 `env(safe-area-inset-*)` 를 `var(--safe-area-inset-*, env(safe-area-inset-*, 0px))` 로 — **var 가 앞** | Capacitor 8 SystemBars 가 Android 15+ 에서 `--safe-area-inset-*` 커스텀 프로퍼티를 주입한다(`viewport-fit=cover` 필요 — index.html 에 이미 있다). `env()` 의 fallback 은 미정의일 때만 발화하는데 Chromium 은 늘 0px 로 정의하므로 뒤에 두면 절대 안 읽힌다 [반박 정정]. WebView 140 미만 우회다 |
-| 12 | 뒤로가기: `@capacitor/app` `backButton` 리스너 — `canGoBack` 이면 `history.back()`, 아니면 `App.minimizeApp()`(종료 아님) | 리스너가 없으면 히스토리가 비었을 때 아무 일도 안 일어난다 [조사 webview c9]. qcalc `boot/android.ts` 선례 |
+| 12 | 뒤로가기: `@capacitor/app` `backButton` 리스너 — 순서는 **대화상자 → 화면 → 앱**: 열린 `[role="dialog"]` 가 있으면 그 요소에 Escape 를 쏘고 끝, 아니면 라우터 히스토리(`history.state.idx > 0`)가 있을 때 `history.back()`, 아니면 `App.minimizeApp()`(종료 아님) | 리스너가 없으면 히스토리가 비었을 때 아무 일도 안 일어난다 [조사 webview c9]. qcalc `boot/android.ts` 선례. **2026-09-17 에뮬레이터 정정**: 플러그인의 `canGoBack`(=`WebView.canGoBack()`)은 pushState 이동을 세지 않아 딥링크 착지 뒤에도 false — 원안대로면 뒤로가기 한 번에 앱이 홈으로 내려갔다. 진실은 react-router 가 `history.state.idx` 에 적는 엔트리 번호다 |
 | 13 | 외부 링크는 손대지 않는다 — 다른 출처 내비게이션은 `Bridge.launchIntent` 가 시스템 브라우저로 넘긴다 | [조사 webview c5]. `target=_blank` 는 DownloadModal 하나이고 안드로이드에서는 렌더되지 않는다 |
 | 14 | `versionCode = major*1_000_000 + minor*1_000 + patch`(0.6.11 → 6011), `versionName` 은 `package.json` 에서 Gradle 이 읽는다. 형식·상한(2_100_000_000) 검사만 두고 qcalc 식 `>=100` 가드는 두지 않는다 | qcalc `build.gradle:9-31` 의 배선을 가져오되 폭을 넓힌다 [반박 정정 — SPIN 은 minor 가 자주 올라 patch 100 은 오지 않지만, 폭이 넓으면 가드가 필요 없다] |
 | 15 | 대상 SDK: 템플릿 기본(compile/target **36**, minSdk 24, AGP 8.13.0, Gradle 8.14.3 — 2026-09-17 `cap add` 실측) 그대로. JDK 21 | Play 신규 앱은 2026-08-31 부터 targetSdk 36 필수 [조사 build c6]. gofu 에 JDK 21(`/usr/lib/jvm/java-21-openjdk-amd64`, Android Studio JBR 21) 이 있다 — 기본 `java` 는 25 라 `JAVA_HOME` 을 세운다 |
@@ -113,7 +113,9 @@
 3. **구글 클라우드 콘솔**: 같은 프로젝트에 OAuth 클라이언트 **Android** 유형 신설 — 패키지 `app.atit.spin`, SHA-1 은
    업로드 키(`keytool -list -v -keystore secrets/android-upload.jks`) 와 디버그 키(`~/.android/debug.keystore`,
    비밀번호 `android`) **둘 다** 등록. **Advanced Settings → Custom URI scheme 켜기.** 클라이언트 ID 를
-   `desktop-release.yml` 의 `SPIN_ANDROID_GOOGLE_CLIENT_ID` 와 `.env.local` 에 적는다(공개값).
+   `desktop-release.yml` 의 `SPIN_ANDROID_GOOGLE_CLIENT_ID` 와 `.env.local` 에 적는다(공개값). `.env.local` 에는
+   **지금 바로** `SPIN_ANDROID_WEB_ORIGIN=https://spin.atit.app` 도 한 줄 — 없으면 로컬 빌드의 공유 링크가
+   `https://localhost` 자기 자신에게 API 를 물어 «열쇠가 맞지 않음» 으로 떨어진다(에뮬레이터 실측, §6).
 4. **assetlinks**: `node scripts/android-assetlinks.mjs <SHA256…>` 로 `public/.well-known/assetlinks.json` 을 만들어
    커밋·배포. Play 게시 뒤 콘솔 「앱 서명」의 앱 서명 키 SHA-256 을 추가.
 5. **Play Console**: 앱 등록(패키지 `app.atit.spin`, 카테고리 교육) → 기기 카탈로그에서 폰 폼팩터 제외 → 내부 테스트에
@@ -132,6 +134,12 @@
   ③ `installedAuth()` 의 `case 'android'` 가 어느 테스트에도 안 잡히던 것(desktop 으로 바꿔도 초록 = 「조용히 빈 화면」의 정확히
   그 모양) ④ 찬 시작 딥링크 두 번 이동(`getLaunchUrl` + retained `appUrlOpen`) ⑤ 시연을 pseudo 상태로 떠나면 시스템 바가 영영
   숨던 것(훅 언마운트 undo) ⑥ `cap run android -l --external` 이 8.2 CLI 에 없는 옵션으로 즉사하던 것.
+- **에뮬레이터(Pixel Tablet AVD, API 35) 스모크 2026-09-17**: 설치·첫 화면·딥링크 착지(appUrlOpen → 라이브러리 + 착지 시트)까지
+  돌았고 JS 오류 0. 🪤 **잡은 것 — `WebView.canGoBack()` 은 SPA 이동을 못 본다**: 딥링크로 화면이 바뀐 뒤에도 false 라 뒤로가기
+  한 번에 앱이 홈으로 내려갔다(결정 12 정정: 라우터의 `history.state.idx` 로 판정, 열린 대화상자는 먼저 닫는다). 검수 3명과
+  테스트 68케이스가 못 잡은 것을 에뮬레이터 한 번이 잡았다 — jsdom 은 플러그인이 주는 값이 거짓말인지 모른다. 함정 하나 — 로컬 빌드에 `SPIN_ANDROID_WEB_ORIGIN` 이 없으면
+  `shareApiBase()` 가 상대 경로로 물러나 `https://localhost/api/share/…` 를 부르고, 로컬 서버의 점-없는-경로 폴백이
+  index.html 을 200 으로 돌려줘 복호가 «열쇠가 맞지 않음» 으로 실패한다 — 결정 3 의 함정과 결정 19 가 만나는 자리다.
 - 🪤 **`set -euo pipefail` + `… | head -1` 은 exit 141 로 단계를 죽인다**(aapt2 badging 4KB 에서도 재현). qcalc 의 같은 줄이 멀쩡한
   이유는 그쪽 run 블록에 `set -e` 가 없어서다 — `sed -n '1p'` 로. 데스크톱 잡의 같은 자리 둘도 같이 고쳤다.
 - **테스트 스텁은 실물의 실패 모양을 가져야 한다** — 등록부를 이벤트명 키 Map 으로 만들면 누수된 리스너를 다음 등록이 덮어써

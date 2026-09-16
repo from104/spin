@@ -11,7 +11,7 @@
 //     더 끼어, 착지 화면의 뒤로가기가 헛돌고 지운 열쇠가 주소에 되살아난다. 2026-09-17 검수
 //     전까지 이 파일은 정반대(«찬 시작은 getLaunchUrl 로만 온다»)를 고정하고 있었다.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { deepLinkPath, mountNativeBridge } from './nativeBridge.ts';
+import { canGoBackInApp, deepLinkPath, mountNativeBridge } from './nativeBridge.ts';
 
 type Listener = (ev: never) => void;
 
@@ -110,6 +110,55 @@ describe('mountNativeBridge', () => {
     expect(back).toHaveBeenCalledTimes(1); // 늘지 않았다 = 히스토리를 건드리지 않았다
     expect(minimizeApp).toHaveBeenCalledTimes(1);
 
+    dispose();
+  });
+
+  it('★ 뒤로가기 판정은 WebView 가 아니라 라우터 히스토리(history.state.idx)다 — 에뮬레이터 실측: SPA 이동 뒤에도 canGoBack 은 false', async () => {
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const dispose = mountNativeBridge(() => {});
+    await settle();
+
+    window.history.replaceState({ idx: 2 }, '');
+    fire('backButton', { canGoBack: false }); // 네이티브는 거짓말을 한다
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(minimizeApp).not.toHaveBeenCalled();
+
+    window.history.replaceState({ idx: 0 }, '');
+    fire('backButton', { canGoBack: false });
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(minimizeApp).toHaveBeenCalledTimes(1);
+
+    // idx 가 없는 자리(라우터 밖)에서만 네이티브 값으로 물러난다.
+    window.history.replaceState(null, '');
+    expect(canGoBackInApp(true)).toBe(true);
+    expect(canGoBackInApp(false)).toBe(false);
+    dispose();
+  });
+
+  it('열린 대화상자가 있으면 뒤로가기는 그것을 닫는다(Escape) — 화면도 앱도 건드리지 않는다', async () => {
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    document.body.appendChild(dialog);
+    const seenOnDocument: string[] = [];
+    const seenOnRoot: string[] = [];
+    const onDoc = (e: KeyboardEvent): void => void seenOnDocument.push(e.key);
+    const onRoot = (e: KeyboardEvent): void => void seenOnRoot.push(e.key);
+    document.addEventListener('keydown', onDoc, true); // Modal·TutorialOverlay 의 자리
+    dialog.addEventListener('keydown', onRoot); // Drawer 의 자리
+    const dispose = mountNativeBridge(() => {});
+    await settle();
+
+    window.history.replaceState({ idx: 3 }, '');
+    fire('backButton', { canGoBack: true });
+    expect(seenOnDocument).toEqual(['Escape']);
+    expect(seenOnRoot).toEqual(['Escape']);
+    expect(back).not.toHaveBeenCalled();
+    expect(minimizeApp).not.toHaveBeenCalled();
+
+    document.removeEventListener('keydown', onDoc, true);
+    dialog.remove();
+    window.history.replaceState(null, '');
     dispose();
   });
 

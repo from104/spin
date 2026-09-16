@@ -55,6 +55,33 @@ export function deepLinkPath(url: string): string | null {
  *  아니라 값이라 이 파일이 React 를 몰라도 된다. */
 export type NavigateFn = (path: string) => void;
 
+/** 앱이 되돌아갈 곳이 있는가.
+ *
+ *  ⚠️ 2026-09-17 에뮬레이터 실측(Pixel Tablet AVD, API 35): 플러그인이 주는 `canGoBack`(=
+ *  `WebView.canGoBack()`)은 라우터의 pushState 이동을 **세지 않는다** — 딥링크로 라이브러리에
+ *  착지한 뒤에도 false 라, 결정 12 그대로면 뒤로가기 한 번에 앱이 홈으로 내려갔다. 진실은
+ *  라우터가 쥐고 있다: react-router 의 브라우저 히스토리는 자기 엔트리 번호를
+ *  `history.state.idx` 에 적는다(첫 엔트리 0, `createBrowserHistory` 의 `getIndex`). 그 값이
+ *  없는 자리(라우터 밖 상태)에서만 네이티브 판정으로 물러난다. */
+export function canGoBackInApp(nativeCanGoBack: boolean): boolean {
+  const state = window.history.state as { idx?: unknown } | null;
+  const idx = state?.idx;
+  return typeof idx === 'number' ? idx > 0 : nativeCanGoBack;
+}
+
+/** 열린 대화상자가 있으면 뒤로가기는 **그것을 닫는 것**이다 — 화면을 떠나거나 앱을 내리면
+ *  안 된다. Modal·CenterModal·TutorialOverlay 는 document 의 keydown(캡처)을, Drawer 는 자기
+ *  루트의 keydown 을 듣고 Escape 에 닫히므로, 맨 위 대화상자 **요소에** Escape 를 쏘면 캡처 단계의
+ *  document 리스너와 버블 단계의 루트 리스너가 둘 다 받는다(document 에 쏘면 Drawer 가 못 받는다).
+ *  보냈으면 true — 닫혔는지는 확인하지 않는다(닫기를 거부하는 대화상자는 그럴 이유가 있다). */
+export function closeTopDialog(): boolean {
+  const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
+  const top = dialogs[dialogs.length - 1];
+  if (!top) return false;
+  top.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  return true;
+}
+
 /** 브리지를 건다. 돌려주는 함수를 부르면 리스너가 전부 떨어진다.
  *
  *  **동기로 돌려주는 이유**: React effect 의 정리 함수는 동기여야 한다. 플러그인을 여는 것은
@@ -84,8 +111,10 @@ export function mountNativeBridge(navigate: NavigateFn): () => void {
       App.addListener('backButton', ({ canGoBack }) => {
         // ⚠️ 리스너가 **하나라도 있으면** 플러그인은 자기 기본 동작을 하지 않는다
         //    (@capacitor/app 8.1.1 `AppPlugin.java:49` — `hasListeners(EVENT_BACK_BUTTON)`).
-        //    즉 이 두 줄이 안드로이드 뒤로가기의 전부다.
-        if (canGoBack) window.history.back();
+        //    즉 아래 세 줄이 안드로이드 뒤로가기의 전부다. 순서가 계약이다: 대화상자 → 화면 → 앱.
+        if (closeTopDialog()) return;
+        // `canGoBack` 을 그대로 믿지 않는 이유는 `canGoBackInApp` 머리말(에뮬레이터 실측).
+        if (canGoBackInApp(canGoBack)) window.history.back();
         // 첫 화면에서는 **홈으로 내린다**. `exitApp()` 은 프로세스를 죽여서, 되돌아온 사람이
         // 편집 중이던 화면 대신 첫 화면을 본다(결정 12).
         else void App.minimizeApp().catch(() => {});
