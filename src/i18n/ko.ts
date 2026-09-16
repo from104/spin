@@ -222,6 +222,11 @@ export const ko = {
   'library.share.copy': '복사',
   'library.share.copied': '링크를 복사했습니다.',
   'library.share.copyFailed': '복사하지 못했습니다. 링크를 직접 선택해 복사하세요.',
+  // 안드로이드에만 뜨는 둘(PLAN-ANDROID 결정 9). [복사] 는 클립보드, [공유] 는 시스템 공유
+  // 시트다 — 태블릿에서 링크를 카카오톡·메일로 보내는 실제 길은 시트뿐이라 나란히 둔다.
+  // `shareSheetTitle` 은 안드로이드 선택창의 제목 줄이다(단추 이름과 자리가 다르다).
+  'library.share.shareSheet': '공유',
+  'library.share.shareSheetTitle': '링크 보내기',
   'library.share.note': '링크를 가진 사람만 열 수 있습니다. 서버에는 암호문만 남고 180일 뒤 만료됩니다.',
   // S2(2026-09-08) — 세션 링크에만 붙는 한 줄. 세션은 드릴과 달리 **코치가 쓴 글**(장소·메모)을
   // 데리고 간다. 참가자 명단은 봉투에서 빠지므로(codec 의 stripSessionPayload) 두 사실을 같이 말한다.

@@ -17,7 +17,9 @@ export interface ToastHostProps {
 const HOST_STYLE: CSSProperties = {
   position: 'fixed',
   left: '50%',
-  top: 'calc(env(safe-area-inset-top, 0px) + 1rem)',
+  // var() 가 앞이다 — 안드로이드 15+ 의 옛 WebView(<140)는 Capacitor 가 심는 `--safe-area-inset-*` 만
+  // 참값이고, env() 의 폴백은 크로미움이 늘 0px 로 정의해 절대 안 읽힌다(appShell.css · PLAN-ANDROID 결정 11).
+  top: 'calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 1rem)',
   transform: 'translateX(-50%)',
   display: 'flex',
   flexDirection: 'column',

@@ -51,9 +51,22 @@ select,
 
 /* viewport-fit=cover 로 화면 끝까지 그리는 대신, 실제 UI 는 안전 영역 안쪽에 둔다.
  * 이게 없으면 세로 iPad 의 홈 인디케이터가 하단 바 위에 겹치고, 가로에서는 좌측 앱 레일이
- * 노치에 먹힌다. 여백은 body 배경색으로 채워진다. */
+ * 노치에 먹힌다. 여백은 body 배경색으로 채워진다.
+ *
+ * ⚠️ `var()` 가 **앞**이다 (PLAN-ANDROID 결정 11). 처음 쓴 순서는
+ * `env(safe-area-inset-top, var(--safe-area-inset-top, 0px))` — "env 의 둘째 인자가 폴백이니
+ * 없을 때 var 로 물러나겠지" 였는데, **그 폴백은 env() 가 미정의일 때만 발화한다.** 크로미움은
+ * 안전 영역이 없어도 `env(safe-area-inset-*)` 를 늘 0px 로 정의하므로, 뒤에 둔 var 는 영원히
+ * 안 읽힌다. Capacitor 8 의 SystemBars 가 Android 15+ 에서 `--safe-area-inset-*` 를
+ * documentElement 에 인라인으로 심는데(px 를 density 로 나눈 dp 값), 그 값이 env 보다 정확하다.
+ * 그래서 커스텀 프로퍼티가 있으면 그것을 쓰고, 없을 때만 env 로 물러난다 — iOS·데스크톱 웹에서는
+ * var 가 정의되지 않아 예전과 똑같이 env 가 읽힌다. */
 #root {
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding:
+    var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+    var(--safe-area-inset-right, env(safe-area-inset-right, 0px))
+    var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))
+    var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

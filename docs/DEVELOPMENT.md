@@ -118,7 +118,7 @@ sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev l
 - 라우터가 이미 `createHashRouter` 라 네이티브 셸에서 그대로 돕니다([OVERVIEW.md §4 코드 지도](OVERVIEW.md) 참조).
 - 공유 링크는 데스크톱에서 `SPIN_DESKTOP_WEB_ORIGIN`(예 `https://spin.atit.app`)이 있어야 됩니다. 앱 출처가
   `tauri://localhost` 라 상대 경로 `/api/share` 는 아무 데도 닿지 않고 `location.origin` 으로 만든 링크는 받는
-  쪽이 열 수 없기 때문입니다(2026-09-13 실기). 읽는 자리는 `src/share/api.ts` 의 `desktopWebOrigin()` 하나이고,
+  쪽이 열 수 없기 때문입니다(2026-09-13 실기). 읽는 자리는 `src/share/api.ts` 의 `nativeWebOrigin()`(옛 `desktopWebOrigin()` — 2026-09-17 안드로이드가 같은 칸을 읽으며 이름이 넓어졌다) 하나이고,
   같은 이유로 창 CSP 의 `connect-src` 에 `https:` 가 열려 있습니다(직접 호스팅하는 쪽은 자기 도메인을 넣으면 됩니다).
 - **파일 저장은 네이티브 대화상자**를 씁니다(`src-tauri/src/save_file.rs` 의 `save_bytes_dialog`).
   웹은 `<a download>` 로 브라우저의 다운로드 기능을 빌리지만 데스크톱 웹뷰에는 빌릴 브라우저가

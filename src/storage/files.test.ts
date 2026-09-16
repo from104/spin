@@ -9,6 +9,18 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { downloadBlob, REVOKE_DELAY_MS } from './files.ts';
 
+// 안드로이드 분기가 동적으로 여는 플러그인 둘. 파일 맨 아래 묶음에서만 쓴다 — 위 묶음은
+// 네이티브 판정(`globalThis.Capacitor`)이 거짓이라 여기까지 오지 않는다.
+const writeFile = vi.fn<(o: unknown) => Promise<{ uri: string }>>();
+const deleteFile = vi.fn<(o: unknown) => Promise<void>>();
+const share = vi.fn<(o: unknown) => Promise<unknown>>();
+vi.mock('@capacitor/filesystem', () => ({
+  // 플러그인의 `Directory` 는 enum 이고 Cache 의 값은 'CACHE' 다 — 아래 단언이 그 문자열을 본다.
+  Directory: { Cache: 'CACHE' },
+  Filesystem: { writeFile: (o: unknown) => writeFile(o), deleteFile: (o: unknown) => deleteFile(o) },
+}));
+vi.mock('@capacitor/share', () => ({ Share: { share: (o: unknown) => share(o) } }));
+
 type ShareFn = (data: { files: File[] }) => Promise<void>;
 type CanShareFn = (data: { files: File[] }) => boolean;
 // navigator 에 스텁을 얹고 걷기 위한 시야 — jsdom 원본에는 둘 다 없다(아래 대조군이 그 전제를 단언).
@@ -207,5 +219,66 @@ describe('downloadBlob (4.3)', () => {
     expect(clickSpy).toHaveBeenCalledTimes(1);
     const a = clickSpy.mock.instances[0] as unknown as HTMLAnchorElement;
     expect(a.download).toBe('SPIN_공유실패.spin.json');
+  });
+});
+
+// ── 안드로이드(Capacitor) 분기 — PLAN-ANDROID 결정 8·23 ───────────────────────────────────
+//
+// 지우면 새는 것 셋:
+//  ① 웹뷰에는 다운로드 관리자가 없어 앵커가 **예외도 없이** 아무 일도 하지 않는다. 이 분기가
+//     빠지면 내보내기가 초록으로 통과하면서 파일은 어디에도 안 생긴다(데스크톱에서 겪은 그것).
+//  ② 시트를 물린 것을 성공으로 읽으면 «저장했습니다» 가 거짓말을 한다(실기 A-4 의 판정 문장).
+//  ③ base64 를 한 방에 만들면 2MB 영상(A-5)에서 스택이 터진다 — 32 KiB 짜리 파일로는 절대
+//     안 드러나므로 여기서는 **상한을 넘는 크기**로 민다.
+describe('downloadBlob — 안드로이드 공유 시트 (결정 8)', () => {
+  let clickSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    // 앵커 click 은 jsdom 에서 "Not implemented: navigation" 경고를 뿜는다 — 위 묶음과 같은 처방.
+    clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    writeFile.mockReset().mockResolvedValue({ uri: 'file:///cache/SPIN.json' });
+    deleteFile.mockReset().mockResolvedValue(undefined);
+    share.mockReset().mockResolvedValue({});
+    // 네이티브 판정은 브리지가 심는 전역 하나다(platform/shell.ts) — 웹 번들이 Capacitor 를
+    // 끌고 들어오지 않게 그 전역만 본다.
+    (globalThis as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (globalThis as { Capacitor?: unknown }).Capacitor;
+  });
+
+  it('캐시에 쓴 파일을 시트로 넘기고 saved 를 돌려준다 — 바이트는 그대로 간다', async () => {
+    // 32 KiB 청크 상한을 넘기는 크기. 한 방 base64(`fromCharCode(...bytes)`)면 여기서 터진다.
+    const bytes = new Uint8Array(200_000);
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = i % 256;
+    const blob = new Blob([bytes], { type: 'video/mp4' });
+
+    const outcome = await downloadBlob(blob, 'SPIN_영상.mp4');
+
+    expect(outcome).toBe('saved');
+    const wrote = writeFile.mock.calls[0]![0] as { path: string; data: string; directory: string };
+    expect(wrote.path).toBe('SPIN_영상.mp4');
+    expect(wrote.directory).toBe('CACHE');
+    // 검사표가 구현을 베끼지 않도록 **되돌려서** 본다: base64 를 풀면 원본 바이트여야 한다.
+    const back = atob(wrote.data);
+    expect(back.length).toBe(bytes.length);
+    expect([back.charCodeAt(0), back.charCodeAt(99_999), back.charCodeAt(199_999)]).toEqual([0, 99_999 % 256, 199_999 % 256]);
+    // 시트에 넘어간 것은 쓰기가 돌려준 uri 다(우리가 지어낸 경로가 아니다).
+    expect(share).toHaveBeenCalledWith(expect.objectContaining({ files: ['file:///cache/SPIN.json'] }));
+    // 앵커·저장 대화상자 어느 쪽도 타지 않았다 — 네이티브 분기가 그 앞이라는 계약.
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  it('시트를 물리면 cancelled 다 — 취소에 «저장했습니다» 가 뜨면 안 된다', async () => {
+    // @capacitor/share 8.0.2 SharePlugin.java:79 가 RESULT_CANCELED 에 내는 바로 그 문자열.
+    share.mockRejectedValue(new Error('Share canceled'));
+    await expect(downloadBlob(jsonBlob('{}'), 'SPIN_취소.spin.json')).resolves.toBe('cancelled');
+  });
+
+  it('취소가 아닌 거절은 던진다 — 조용히 삼키면 사람이 없는 파일을 찾는다', async () => {
+    share.mockRejectedValue(new Error("Can't share while sharing is in progress"));
+    await expect(downloadBlob(jsonBlob('{}'), 'SPIN_실패.spin.json')).rejects.toThrow(/sharing is in progress/);
   });
 });

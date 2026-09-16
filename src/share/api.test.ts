@@ -44,7 +44,24 @@ describe('api — 기준 주소', () => {
     expect(shareLinkOrigin()).toBe('https://spin.atit.app');
   });
 
-  it('VITE_SHARE_API_BASE 는 데스크톱 출처보다 우선한다', () => {
+  // 안드로이드도 같은 문제를 같은 모양으로 푼다(PLAN-ANDROID 결정 19): 출처가
+  // `https://localhost` 라 상대 경로 `/api/share` 는 웹뷰 자신에게 물어보는 꼴이 되고,
+  // 그 출처로 지은 링크는 받는 사람 기기에서 열리지 않는다.
+  it('SPIN_ANDROID_WEB_ORIGIN 도 같은 자리에서 읽는다 — 안드로이드도 상대 경로가 안 닿는다', () => {
+    vi.stubEnv('SPIN_ANDROID_WEB_ORIGIN', 'https://spin.atit.app/');
+    expect(shareApiBase()).toBe('https://spin.atit.app/api/share');
+    expect(shareLinkOrigin()).toBe('https://spin.atit.app');
+  });
+
+  // 한 빌드에 둘이 같이 들어오는 일은 envPrefix 게이팅 때문에 없다. 그래도 순서를 못박아
+  // 두는 이유는 그 게이팅이 틀렸을 때 **조용히** 엇갈리지 않게 하기 위해서다(AGENTS §7).
+  it('둘 다 있으면 데스크톱 쪽이 이긴다', () => {
+    vi.stubEnv('SPIN_DESKTOP_WEB_ORIGIN', 'https://desktop.example');
+    vi.stubEnv('SPIN_ANDROID_WEB_ORIGIN', 'https://android.example');
+    expect(shareLinkOrigin()).toBe('https://desktop.example');
+  });
+
+  it('VITE_SHARE_API_BASE 는 네이티브 출처보다 우선한다', () => {
     vi.stubEnv('SPIN_DESKTOP_WEB_ORIGIN', 'https://spin.atit.app');
     vi.stubEnv('VITE_SHARE_API_BASE', 'https://other.example/share');
     expect(shareApiBase()).toBe('https://other.example/share');

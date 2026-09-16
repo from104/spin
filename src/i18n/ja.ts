@@ -210,6 +210,8 @@ export const ja: Record<DictKey, string> = {
   'library.share.copy': 'コピー',
   'library.share.copied': 'リンクをコピーしました。',
   'library.share.copyFailed': 'コピーできませんでした。リンクを選択して手動でコピーしてください。',
+  'library.share.shareSheet': '共有',
+  'library.share.shareSheetTitle': 'リンクを送る',
   'library.share.note': 'リンクを持つ人だけが開けます。サーバーには暗号文のみが残り、180日後に期限切れになります。',
   'library.share.noteSession': '場所・メモが含まれます。参加者名簿は含まれません。',
   'library.share.error.notFound': 'リンクが存在しないか期限切れです。送った人にもう一度もらってください。',

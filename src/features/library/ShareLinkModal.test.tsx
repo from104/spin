@@ -10,7 +10,7 @@
 //  ② 만들기 경로의 `too-large` 를 가져오기용 접기표(SHARE_NOTICE_BY_KIND)로 흘리면 "드릴이 너무
 //     큽니다" 대신 "열쇠가 맞지 않습니다" 가 뜬다 — 사용자가 할 일이 정반대로 안내된다.
 //  ③ 클립보드가 거절해도 성공처럼 보이면(문구 없음) 사람은 붙여넣기가 왜 안 되는지 모른 채 다시 누른다.
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -24,6 +24,9 @@ import { loadShareLinks, SHARE_LINKS_KEY } from '../../storage/shareLinks.ts';
 import { SHARE_ID_RE, SHARE_KEY_RE } from '../../share/link.ts';
 
 const upload = vi.fn();
+// 안드로이드 [공유] 가 동적으로 여는 플러그인(PLAN-ANDROID 결정 9).
+const shareSheet = vi.fn<(o: unknown) => Promise<unknown>>();
+vi.mock('@capacitor/share', () => ({ Share: { share: (o: unknown) => shareSheet(o) } }));
 
 vi.mock('../../share/api.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../share/api.ts')>();
@@ -166,5 +169,39 @@ describe('ShareLinkModal — 세션 링크의 고지(S2)', () => {
     const rec = loadShareLinks()['Ab3dEf9hIj'];
     expect(rec).toMatchObject({ deleteToken: 'tok-43', sessionId: s.id });
     expect(rec?.drillId).toBeUndefined();
+  });
+});
+
+// PLAN-ANDROID 결정 9 — 안드로이드에서만 [복사] 옆에 뜨는 [공유].
+//
+// 지우면 새는 것 둘:
+//  ① 웹·데스크톱에 이 단추가 새면 «눌러도 아무 일도 안 나는 단추»가 된다 — `navigator.share`
+//     가 없는 브라우저에서 플러그인이 던지고, 화면은 아무 말도 하지 않기로 했기 때문이다.
+//  ② 시트에 **링크가 아닌 것**(제목만, 또는 빈 url)이 넘어가면 받는 사람이 열 것이 없다.
+describe('ShareLinkModal — 공유 시트 단추 (결정 9)', () => {
+  afterEach(() => {
+    delete (globalThis as { Capacitor?: unknown }).Capacitor;
+  });
+
+  it('웹·데스크톱에서는 그리지 않는다 — [복사] 만 남는다', async () => {
+    render(<ShareLinkModal open doc={{ kind: 'drill', drill: drill() }} onClose={() => {}} />, { wrapper });
+    await screen.findByRole('textbox', { name: '공유 링크' });
+
+    expect(screen.getByRole('button', { name: '복사' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '공유' })).toBeNull();
+  });
+
+  it('네이티브에서는 링크와 드릴 제목을 시트로 넘긴다', async () => {
+    (globalThis as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true };
+    shareSheet.mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<ShareLinkModal open doc={{ kind: 'drill', drill: drill() }} onClose={() => {}} />, { wrapper });
+    const input = (await screen.findByRole('textbox', { name: '공유 링크' })) as HTMLInputElement;
+
+    await user.click(screen.getByRole('button', { name: '공유' }));
+
+    await waitFor(() => expect(shareSheet).toHaveBeenCalledTimes(1));
+    // url 은 화면에 보이는 그 링크여야 한다(열쇠가 든 `#` 뒤까지 통째로).
+    expect(shareSheet).toHaveBeenCalledWith(expect.objectContaining({ url: input.value, title: '공유할 드릴' }));
   });
 });

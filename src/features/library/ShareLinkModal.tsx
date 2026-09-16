@@ -25,6 +25,7 @@ import { createShareLink, isShareError, shareNoticeFor } from '../../share/index
 import type { SharedDoc } from '../../share/index.ts';
 import { rememberShareLink } from '../../storage/shareLinks.ts';
 import { shareLinkOrigin } from '../../share/api.ts';
+import { isCapacitorNative } from '../../platform/shell.ts';
 import { useT } from '../../i18n/useT.ts';
 import type { DictKey } from '../../i18n/ko.ts';
 
@@ -104,6 +105,24 @@ export function ShareLinkModal({ open, doc, onClose, returnFocusRef }: ShareLink
 
   if (!open || !target) return null;
 
+  /** 안드로이드 시스템 공유 시트(결정 9). 클립보드와 **다른 일**이다: 복사는 붙여넣을 자리를
+   *  사람이 따로 찾아야 하지만, 시트는 카카오톡·메일 같은 실제 보낼 자리를 시스템이 준다.
+   *  태블릿에서 링크를 남에게 보내는 길은 사실상 이쪽뿐이라 [복사] 옆에 나란히 둔다.
+   *
+   *  ⚠️ 취소도 여기 catch 로 온다("Share canceled"). **아무 말도 하지 않는다** — 사람이 스스로
+   *  물린 것이라 알릴 것이 없고, 링크는 화면에 그대로 남아 있어 다시 누르면 된다. 내보내기
+   *  경로(`storage/files.ts`)가 취소를 문자열로 가려내야 했던 것과 달리 여기서는 성공·취소·실패
+   *  셋이 화면에 서로 다른 일을 시키지 않으므로 가르지 않는다. */
+  const shareSheet = async (link: string, title: string) => {
+    try {
+      // 동적 import — 정적으로 부르면 웹 번들에 플러그인이 실린다(platform/shell.ts 머리말).
+      const { Share } = await import('@capacitor/share');
+      await Share.share({ url: link, title, dialogTitle: t('library.share.shareSheetTitle') });
+    } catch {
+      // 취소·거절 모두 여기. 위 주석 참조.
+    }
+  };
+
   const copy = async (link: string) => {
     try {
       await navigator.clipboard.writeText(link);
@@ -163,6 +182,14 @@ export function ShareLinkModal({ open, doc, onClose, returnFocusRef }: ShareLink
             <Button variant="primary" onClick={() => void copy(state.link)}>
               {t('library.share.copy')}
             </Button>
+            {/* 네이티브에서만 그린다. 웹 구현은 `navigator.share` 에 기대는데(그쪽 web.js) 데스크톱
+                브라우저·Tauri 웹뷰에는 그것이 없어 "Share API not available" 로 던진다 — 눌러도
+                아무 일도 안 나는(정확히는 조용히 실패하는) 단추가 하나 느는 것이 전부다. */}
+            {isCapacitorNative() && (
+              <Button onClick={() => void shareSheet(state.link, target.kind === 'drill' ? target.drill.title : target.session.title)}>
+                {t('library.share.shareSheet')}
+              </Button>
+            )}
           </div>
           {/* 복사 결과는 토스트가 아니라 모달 안에 남긴다 — 토스트는 모달 뒤로 깔리고, 여기가
               사람이 지금 보고 있는 자리다. 라이브 리전으로 읽어 준다. */}

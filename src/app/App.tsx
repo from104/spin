@@ -14,6 +14,7 @@ import { LibraryProvider, useLibraryActions } from '../store/library/LibraryProv
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
 import { useLocale } from '../i18n/useLocale.ts';
 import { useSyncEngine } from '../sync/useSyncEngine.ts';
+import { isCapacitorNative } from '../platform/shell.ts';
 import { AppShell } from './AppShell.tsx';
 
 /** §4.6 FOUC 방지 부트 스크립트가 첫 페인트 전 data-theme 을 심어 두지만, 그 이후(테마 토글·
@@ -214,6 +215,35 @@ export function SyncEffects() {
   return null;
 }
 
+/** 안드로이드 네이티브 브리지(PLAN-ANDROID 결정 9·12) — 뒤로가기와 딥링크. `SeedDrills` 와
+ *  같은 자리·같은 모양이다(아무것도 안 그리고 부작용 하나를 배선하는 조각).
+ *
+ *  **동적 import 인 이유**: 그쪽 모듈이 `@capacitor/app` 을 여는데, 정적으로 부르면 웹 번들에
+ *  플러그인이 통째로 실린다 — 웹에서는 한 줄도 안 쓰인다. 판정(`isCapacitorNative()`)이 import
+ *  **앞**에 있어야 그 절약이 실제로 일어난다.
+ *
+ *  **`router.navigate` 를 그대로 넘기는 이유**: 딥링크는 RouterProvider 트리 **밖**에서
+ *  도착한다(플러그인 리스너). `useNavigate` 는 라우터 컨텍스트 안에서만 쓸 수 있으니, 모듈
+ *  수준에 이미 하나뿐인 라우터의 메서드를 넘기는 쪽이 배관을 늘리지 않는다. */
+export function NativeBridge() {
+  useEffect(() => {
+    if (!isCapacitorNative()) return;
+    let dispose: (() => void) | null = null;
+    let cancelled = false;
+    void import('../platform/android/nativeBridge.ts').then(({ mountNativeBridge }) => {
+      // StrictMode 의 이중 마운트에서 첫 회차가 이미 정리된 뒤 도착할 수 있다.
+      if (cancelled) return;
+      dispose = mountNativeBridge((path) => void router.navigate(path));
+    });
+    return () => {
+      cancelled = true;
+      dispose?.();
+    };
+  }, []);
+
+  return null;
+}
+
 export default function App() {
   return (
     <SettingsProvider>
@@ -225,6 +255,7 @@ export default function App() {
         <MigrateRosterToTeam />
         <SyncEffects />
         <ToastProvider>
+          <NativeBridge />
           <RouterProvider router={router} />
         </ToastProvider>
       </LibraryProvider>

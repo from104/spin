@@ -1,4 +1,16 @@
 // §4.7 파일 I/O 저수준 유틸 — 파일명 생성·읽기·다운로드. 봉투·가져오기 비즈니스 로직은 transfer.ts.
+//
+// ⚠️ 2026-09-17 — 셸 판정(`isTauriWebview`)이 여기서 `platform/shell.ts` 로 **나갔다**. 옛
+// 자리에 있던 이유("저장 경로가 구글 로그인 모듈에 매이면 안 된다")는 아무에게도 안 딸린
+// 중립 모듈이 생기면서 사라진다 — 근거는 그쪽 머리말에 옮겨 적었다(PLAN-ANDROID 결정 4).
+// 여기서 다시 정의하지 말고 import 해서 쓴다.
+//
+// ── 내보내기 출구는 넷이고 **순서가 계약이다** (`downloadBlob`) ─────────────────────────
+//   ① 데스크톱(Tauri)  → 러스트 저장 대화상자    ② 안드로이드(Capacitor) → 캐시 파일 + 공유 시트
+//   ③ 크로미움 데스크톱 → showSaveFilePicker      ④ 그 밖         → navigator.share 또는 앵커
+// 네이티브 둘이 **먼저**인 이유는 같다: 웹뷰에는 다운로드 관리자가 없어 ③④ 가 예외도 없이
+// 조용히 아무 일도 하지 않는다(2026-09-13 데스크톱 실기 · PLAN-ANDROID 결정 8).
+import { isCapacitorNative, isTauriWebview } from '../platform/shell.ts';
 import type { Drill } from '../model/drill.ts';
 import type { SpinFileKind } from './transfer.ts';
 
@@ -73,18 +85,13 @@ export function readTextFile(f: File): Promise<string> {
 export const REVOKE_DELAY_MS = 40_000;
 
 /** 저장의 끝. `started` 가 따로 있는 이유는 **브라우저 다운로드는 끝을 알려 주지 않기**
- *  때문이다 — 성공으로도 취소로도 읽으면 안 된다. */
-export type SaveOutcome = 'saved' | 'cancelled' | 'started';
-
-/** 데스크톱(Tauri) 웹뷰인가. `authDesktop.ts` 의 `isDesktop()` 과 같은 판별자를 쓰지만 그쪽을
- *  import 하지는 않는다 — 저장 경로가 구글 로그인 모듈에 매이면 안 된다. */
-/** 데스크톱 앱(Tauri 웹뷰) 안에서 도는가.
+ *  때문이다 — 성공으로도 취소로도 읽으면 안 된다.
  *
- *  ⚠️ 2026-09-16 — `export` 를 붙였다. 저장 경로 말고 **다운로드 버튼**(`app/download/`)도 같은
- *  것을 물어야 하는데, 판정을 한 벌 더 적으면 언젠가 한쪽만 고쳐진다. 판정은 여기 하나다. */
-export function isTauriWebview(): boolean {
-  return typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
-}
+ *  ⚠️ 2026-09-17 안드로이드(결정 8)에서 `saved` 의 뜻이 한 뼘 넓어졌다: 거기서는 «파일이 어느
+ *  자리에 쓰였다» 가 아니라 **«공유 시트가 받아 갔다»** 다. 시트에서 [파일에 저장] 을 고르든
+ *  카카오톡으로 보내든 앱이 아는 것은 "시트가 취소되지 않았다" 뿐이라 그 이상을 말할 수 없다.
+ *  `cancelled` 의 뜻(사람이 물렸다)은 그대로이므로 부르는 쪽 분기는 바뀌지 않는다. */
+export type SaveOutcome = 'saved' | 'cancelled' | 'started';
 
 /** 네이티브 저장 대화상자(러스트 `save_bytes_dialog`). 바이트는 **날바디**로, 파일명은 헤더로
  *  간다 — `invoke` 의 인자 묶음에 바이트열을 넣으면 2MB 영상이 200만 개짜리 JSON 숫자 배열이
@@ -96,6 +103,69 @@ async function saveViaNativeDialog(blob: Blob, filename: string): Promise<SaveOu
     headers: { 'x-spin-filename': encodeURIComponent(filename) },
   });
   return saved ? 'saved' : 'cancelled';
+}
+
+/** 청크 크기. `String.fromCharCode(...bytes)` 한 방은 **인자 개수 상한**(엔진마다 6만~12만)에
+ *  걸려 스택이 터진다 — 2MB 영상이 실제로 그 상한을 한참 넘는다. 32 KiB 는 그 아래로 넉넉하다. */
+const BASE64_CHUNK = 0x8000;
+
+/** Blob → base64 **본문만**(`data:` 접두 없음). `@capacitor/filesystem` 은 `encoding` 을 주지
+ *  않으면 데이터를 base64 로 보고 바이너리로 풀어 쓴다(그쪽 `WriteFileOptions.encoding` 문서).
+ *  FileReader 의 `readAsDataURL` 을 쓰면 접두를 다시 잘라내야 하고 한 번 더 복사가 생긴다. */
+async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  for (let at = 0; at < bytes.length; at += BASE64_CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(at, at + BASE64_CHUNK));
+  }
+  return btoa(binary);
+}
+
+/** 공유 시트를 **사람이 물렸는가**. 안드로이드 플러그인은 `RESULT_CANCELED` 를 정확히
+ *  `"Share canceled"` 문자열로 거절한다(@capacitor/share 8.0.2 `SharePlugin.java:79`).
+ *
+ *  ⚠️ 문자열 비교가 무른 계약임을 알면서 쓰는 이유: **플러그인이 코드를 주지 않는다.** 그래서
+ *  대소문자를 접고 미국·영국 철자를 둘 다 받는다. 이 판정이 어긋나면 «저장했습니다» 가 취소에도
+ *  뜨고(거짓 성공), 반대로 성공을 취소로 읽으면 사람이 같은 내보내기를 한 번 더 돈다.
+ *  같은 플러그인의 다른 거절("Can't share while sharing is in progress" 등)은 여기 안 걸린다. */
+function isShareSheetCancelled(err: unknown): boolean {
+  const message = typeof err === 'object' && err !== null ? (err as { message?: unknown }).message : undefined;
+  return typeof message === 'string' && /\bcancell?ed\b/i.test(message);
+}
+
+/** 캐시 파일을 지우기까지 두는 유예. **시트가 끝났다고 받는 쪽이 다 읽은 것은 아니다** —
+ *  플러그인은 chooser 가 닫힐 때 결과를 받고(`startActivityForResult`), 고른 앱은 그 뒤에 떠서
+ *  `content://` 를 읽는다. 곧바로 지우면 상대가 0바이트를 받는다. `REVOKE_DELAY_MS` 가 blob URL
+ *  에 유예를 두는 것과 **같은 모양의 문제**다. 못 지워도 대참사는 아니다 — Cache 디렉터리라
+ *  시스템이 공간이 필요할 때 회수한다. */
+const SHARE_CACHE_CLEANUP_MS = 60_000;
+
+/** 안드로이드 내보내기 출구(결정 8). **Filesystem(Cache) → Share 시트** 두 걸음이다.
+ *
+ *  왜 이 길뿐인가: 웹뷰에는 Web Share API 가 없고(crbug 40540400) `showSaveFilePicker` 도 없다.
+ *  a[download] 는 살아 있지만 다운로드 관리자가 없어 아무 일도 하지 않는다 — 데스크톱 웹뷰에서
+ *  겪은 것과 같은 자리다. 파일을 앱 캐시에 한 번 쓰고 그 `file://` 를 시트에 넘기면, 사용자가
+ *  [파일에 저장]·[드라이브]·메신저 중 무엇을 고르든 시스템이 나른다(실기 A-4·A-5).
+ *
+ *  ⚠️ `@capacitor/*` 를 **동적으로** 연다. 정적 import 면 웹 번들에 플러그인이 실린다. */
+async function saveViaShareSheet(blob: Blob, filename: string): Promise<SaveOutcome> {
+  const [{ Filesystem, Directory }, { Share }] = await Promise.all([import('@capacitor/filesystem'), import('@capacitor/share')]);
+  const written = await Filesystem.writeFile({ path: filename, data: await blobToBase64(blob), directory: Directory.Cache });
+  // 지우기는 성공·취소 어느 쪽이든 한 번만, 늦게. (본문에서 던지는 예외는 그대로 위로 보낸다 —
+  // 캐시 청소가 실패 원인을 덮으면 안 된다.)
+  const sweep = (): void => {
+    setTimeout(() => void Filesystem.deleteFile({ path: filename, directory: Directory.Cache }).catch(() => {}), SHARE_CACHE_CLEANUP_MS);
+  };
+  try {
+    // 파일 공유라 `title` 은 메일 제목 등으로만 쓰이지만, 받는 쪽 미리보기에 이름이 뜬다.
+    await Share.share({ files: [written.uri], title: filename });
+  } catch (err: unknown) {
+    sweep();
+    if (isShareSheetCancelled(err)) return 'cancelled';
+    throw err; // 시트를 아예 못 띄운 것 — 조용히 성공으로 접으면 사람이 파일을 못 찾는다
+  }
+  sweep();
+  return 'saved';
 }
 
 /** DOMException 은 구현에 따라 Error 를 상속하지 않는다 — instanceof 대신 name 으로 가른다. */
@@ -188,6 +258,10 @@ export function downloadBlob(blob: Blob, filename: string): Promise<SaveOutcome>
   // 데스크톱이 **먼저**다. 여기서 돌아가는 웹뷰에는 빌릴 브라우저가 없어 앵커 다운로드가
   // 아무 일도 하지 않는다(2026-09-13 기현님 실기) — 네이티브 저장 대화상자로 보낸다.
   if (isTauriWebview()) return saveViaNativeDialog(blob, filename);
+
+  // 안드로이드도 **저장 대화상자·앵커보다 먼저**다(결정 8). 순서가 계약인 이유는 데스크톱과
+  // 같다: 웹뷰에는 다운로드 관리자가 없어 아래 두 길이 조용히 아무 일도 하지 않는다.
+  if (isCapacitorNative()) return saveViaShareSheet(blob, filename);
 
   // 브라우저 저장 대화상자가 있으면 그것이 다음이다 — 공유 시트보다 **먼저** 보는 이유는,
   // 이 둘이 겹치는 기계가 크로미움 데스크톱뿐이고 거기서는 파일 저장이 공유보다 맞는 행동이라서다.

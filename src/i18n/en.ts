@@ -210,6 +210,8 @@ export const en: Record<DictKey, string> = {
   'library.share.copy': 'Copy',
   'library.share.copied': 'Link copied.',
   'library.share.copyFailed': 'Couldn’t copy. Select the link and copy it yourself.',
+  'library.share.shareSheet': 'Share',
+  'library.share.shareSheetTitle': 'Send link',
   'library.share.note': 'Only people with the link can open it. The server keeps ciphertext only, and it expires after 180 days.',
   'library.share.noteSession': 'The location and notes are included. The participant roster is not.',
   'library.share.error.notFound': 'That link is gone or has expired. Ask the sender for a new one.',
