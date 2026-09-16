@@ -99,12 +99,40 @@ jobs:
 
       - run: npm ci
 
+      # ⚠️ **빈 시크릿은 조용히 통과한다.** 없는 시크릿을 GitHub 은 빈 문자열로 넘기고, Vite 는
+      # 빈 값을 그대로 인라인하고, 앱은 [Google 계정 연결] 을 비활성으로 그릴 뿐 오류를 내지
+      # 않는다 — 어디에도 표시가 안 나서 **설치본을 켜 보기 전에는 아무도 모른다.**
+      # 실제로 0.6.9·0.6.10 의 설치본 전부가 구글 동기화 없이 나갔다: 저장소에
+      # `SPIN_DESKTOP_GOOGLE_CLIENT_ID` 가 **등록조차 안 돼 있었다**(2026-09-16 기현님 MSI 실기
+      # 제보로 발각, 같은 날 등록). 그래서 굽기 전에 여기서 끊는다. 값은 찍지 않고 **있는지만** 본다.
+      - name: 주입할 환경변수 확인 (값은 찍지 않는다)
+        shell: bash
+        env:
+          SPIN_DESKTOP_GOOGLE_CLIENT_ID: ${{ secrets.SPIN_DESKTOP_GOOGLE_CLIENT_ID }}
+          SPIN_DESKTOP_GOOGLE_CLIENT_SECRET: ${{ secrets.SPIN_DESKTOP_GOOGLE_CLIENT_SECRET }}
+        run: |
+          fail=0
+          for k in SPIN_DESKTOP_GOOGLE_CLIENT_ID SPIN_DESKTOP_GOOGLE_CLIENT_SECRET; do
+            if [ -z "${!k}" ]; then
+              echo "::error::$k 가 비어 있습니다 — Settings → Secrets and variables → Actions 에 등록하세요"
+              fail=1
+            else
+              echo "$k: 있음"
+            fi
+          done
+          exit $fail
+
       - uses: tauri-apps/tauri-action@v0
         id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SPIN_DESKTOP_GOOGLE_CLIENT_ID: ${{ secrets.SPIN_DESKTOP_GOOGLE_CLIENT_ID }}
           SPIN_DESKTOP_GOOGLE_CLIENT_SECRET: ${{ secrets.SPIN_DESKTOP_GOOGLE_CLIENT_SECRET }}
+          # 공유 링크가 가리킬 **웹앱의 공개 출처**. 비밀이 아니라 공개 도메인이므로 시크릿이
+          # 아니라 여기 그대로 적는다(시크릿으로 두면 이번처럼 빠졌을 때 알아채기만 더 어렵다).
+          # 없으면 데스크톱 앱이 `tauri://localhost/api/share` 를 부른다 — 2026-09-13 기현님
+          # 실기의 "서버에 닿지 못했습니다" 가 바로 그것이다(src/share/api.ts 머리말).
+          SPIN_DESKTOP_WEB_ORIGIN: https://spin.atit.app
           # 업데이트 서명(2026-09-16). ⚠️ 이 둘이 없으면 `createUpdaterArtifacts: true` 라도
           # `.sig` 가 안 나오고, 서명 없는 업데이트는 플러그인이 **거부한다**(끌 수 없다).
           # 값은 `~/.tauri/spin.key`(개인키, 이 기계의 600) 에서 왔고 저장소 시크릿에만 있다.

@@ -163,3 +163,32 @@ describe('CHANGELOG.md · .en.md · .ja.md — 세 언어 구조 동기화', () 
     }
   });
 });
+
+// ⚠️ 윈도우 체크아웃(CRLF) — 2026-09-16 기현님 MSI 실기 제보로 들어온 테스트.
+//
+// 이 테스트가 없으면 **설치본을 켜 보기 전에는 아무도 모르는** 고장이 다시 나간다: 줄 끝의
+// `\r` 하나에 소제목은 다 살아남고 글머리만 전부 사라져, 모달이 «칸은 있는데 안이 빈» 꼴이 된다.
+// 오류도, 빈 배열 경고도 없다. 실제로 0.6.9·0.6.10 의 MSI 가 그렇게 나갔다.
+describe('CRLF 로 체크아웃돼도 같게 읽는다', () => {
+  const crlf = (s: string) => s.replace(/\n/g, '\r\n');
+
+  it('픽스처를 CRLF 로 바꿔도 결과가 **완전히 같다**', () => {
+    expect(parseAllChangelogVersions(crlf(FIXTURE))).toEqual(parseAllChangelogVersions(FIXTURE));
+  });
+
+  it('⚠️ 글머리가 살아 있다 — 이 단언이 CRLF 고장의 핵심이다(소제목만 남고 0개가 됐었다)', () => {
+    const v = parseChangelogVersion(crlf(FIXTURE), '0.6.1');
+    expect(v).not.toBeNull();
+    const items = v!.groups.flatMap((g) => g.items);
+    expect(items.length, '소제목만 남고 글머리가 비었다 — CRLF 고장 그대로다').toBeGreaterThan(0);
+    // 줄 끝 `\r` 가 본문에 섞여 들어오지도 않아야 한다(화면에 보이지 않는 글자가 섞인다).
+    for (const it of items) expect(it.text).not.toContain('\r');
+  });
+
+  it('실제 CHANGELOG 세 벌도 CRLF 에서 글머리 수가 그대로다', () => {
+    for (const [label, raw] of [['ko', changelogKo] as const, ['en', changelogEn] as const, ['ja', changelogJa] as const]) {
+      const n = (s: string) => parseAllChangelogVersions(s).flatMap((v) => v.groups.flatMap((g) => g.items)).length;
+      expect(n(crlf(raw)), `${label}: CRLF 에서 글머리가 줄었다`).toBe(n(raw));
+    }
+  });
+});
