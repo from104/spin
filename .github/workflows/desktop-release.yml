@@ -190,6 +190,27 @@ jobs:
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/assets/$aid" -f name="$new" --jq .name
           echo "$old → $new"
 
+          # ⚠️ **`latest.json` 도 같이 고쳐야 한다.** 그 파일은 tauri-action 이 **이름을 고치기
+          # 전에** 썼으므로 리눅스 항목이 옛 이름(`SPIN_x.y.z_amd64.AppImage`)을 가리킨 채로
+          # 남는다 — 방금 그 이름의 자산은 사라졌다. 그대로 두면 **리눅스 자동 업데이트가 404**
+          # 로 죽는데, 릴리스 화면에는 파일이 멀쩡히 다 있어서 아무 표시도 안 난다
+          # (2026-09-16 v0.6.11 에서 실제로 그 상태로 나갈 뻔했다 — 손으로 고쳐 올렸다).
+          jid=$(gh api "repos/$GITHUB_REPOSITORY/releases/$rid" \
+            --jq '.assets[] | select(.name=="latest.json") | .id')
+          if [ -z "$jid" ]; then echo "latest.json 이 없다 — 업데이터 자산을 안 만든 회차인가"; exit 1; fi
+          gh api -H 'Accept: application/octet-stream' \
+            "repos/$GITHUB_REPOSITORY/releases/assets/$jid" > latest.json
+          # 파이썬 대신 jq 를 쓴다 — `run: |` 블록 안에서는 모든 줄이 들여쓰여 있어야 하는데,
+          # 파이썬 소스는 들여쓰기가 곧 문법이라 둘이 싸운다(heredoc 으로 피하려 해도 종료자를
+          # 들여쓰면 heredoc 이 안 끝난다). jq 는 여러 줄이어도 들여쓰기가 자유롭다.
+          jq --arg old "$old" --arg new "$new" \
+            '.platforms |= with_entries(.value.url |= (if endswith($old) then .[:-($old|length)] + $new else . end))' \
+            latest.json > latest.json.new
+          mv latest.json.new latest.json
+          grep -q "$new" latest.json || { echo "latest.json 을 못 고쳤다 — 이름 규칙이 바뀌었나"; exit 1; }
+          echo "latest.json 의 리눅스 주소를 $new 로 고쳤다"
+          gh release upload "$TAG" latest.json --clobber
+
       - name: 아티팩트 업로드
         if: ${{ !startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         uses: actions/upload-artifact@v4
