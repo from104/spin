@@ -49,70 +49,72 @@
 #[cfg(target_os = "linux")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Plan {
-  /// 손대지 않는다.
-  LeaveAsIs,
-  /// GDK_BACKEND 를 지운다 — 백엔드를 세션(웨일랜드)에 맞춘다. 검증된 경로.
-  ClearGdkBackend,
-  /// GTK_IM_MODULE 을 지운다 — x11 위에 얹힌 웨일랜드 입력기를 떼어 낸다.
-  ClearGtkImModule,
+    /// 손대지 않는다.
+    LeaveAsIs,
+    /// GDK_BACKEND 를 지운다 — 백엔드를 세션(웨일랜드)에 맞춘다. 검증된 경로.
+    ClearGdkBackend,
+    /// GTK_IM_MODULE 을 지운다 — x11 위에 얹힌 웨일랜드 입력기를 떼어 낸다.
+    ClearGtkImModule,
 }
 
 #[cfg(target_os = "linux")]
 fn plan(appdir: bool, wayland: bool, backend_x11: bool, im_wayland: bool, force_x11: bool) -> Plan {
-  // 탈출구가 먼저다. 사용자가 x11 을 원한다고 말했으면 백엔드는 그의 것이다.
-  if force_x11 {
-    // 쌍이 실제로 있을 때만 끊는다. x11 강제가 없는 판에서 IM 만 떼면 한글 입력만 죽는다.
-    return if backend_x11 && im_wayland { Plan::ClearGtkImModule } else { Plan::LeaveAsIs };
-  }
-  if appdir && backend_x11 {
-    if wayland {
-      return Plan::ClearGdkBackend; // ★ 검증된 경로 — 바꾸지 마라
+    // 탈출구가 먼저다. 사용자가 x11 을 원한다고 말했으면 백엔드는 그의 것이다.
+    if force_x11 {
+        // 쌍이 실제로 있을 때만 끊는다. x11 강제가 없는 판에서 IM 만 떼면 한글 입력만 죽는다.
+        return if backend_x11 && im_wayland {
+            Plan::ClearGtkImModule
+        } else {
+            Plan::LeaveAsIs
+        };
     }
-    if im_wayland {
-      return Plan::ClearGtkImModule; // 쌍을 반대편에서 끊는다
+    if appdir && backend_x11 {
+        if wayland {
+            return Plan::ClearGdkBackend; // ★ 검증된 경로 — 바꾸지 마라
+        }
+        if im_wayland {
+            return Plan::ClearGtkImModule; // 쌍을 반대편에서 끊는다
+        }
+        return Plan::LeaveAsIs;
     }
-    return Plan::LeaveAsIs;
-  }
-  // AppImage 밖: x11 이면 사용자가 직접 고른 것이다. 그 선택은 두고 쌍이 성립할 때 IM 만 뗀다.
-  if backend_x11 && im_wayland {
-    return Plan::ClearGtkImModule;
-  }
-  Plan::LeaveAsIs
+    // AppImage 밖: x11 이면 사용자가 직접 고른 것이다. 그 선택은 두고 쌍이 성립할 때 IM 만 뗀다.
+    if backend_x11 && im_wayland {
+        return Plan::ClearGtkImModule;
+    }
+    Plan::LeaveAsIs
 }
 
 #[cfg(target_os = "linux")]
 fn fix_appimage_display_backend() {
-  // AppRun 이 export 하는 변수. AppImage 로 띄웠을 때만 있다.
-  let in_appimage = std::env::var_os("APPDIR").is_some();
-  let wayland_session = std::env::var_os("WAYLAND_DISPLAY").is_some();
-  let backend_forced_x11 = std::env::var("GDK_BACKEND")
-    .map(|v| v.eq_ignore_ascii_case("x11"))
-    .unwrap_or(false);
-  let im_module_wayland = std::env::var("GTK_IM_MODULE")
-    .map(|v| v.eq_ignore_ascii_case("wayland"))
-    .unwrap_or(false);
-  // 값을 "1" 로 좁게 본다 — 빈 문자열이나 켜 둔 흔적으로 백엔드가 바뀌면 안 된다.
-  let force_x11 = std::env::var("SPIN_FORCE_X11")
-    .map(|v| v == "1")
-    .unwrap_or(false);
+    // AppRun 이 export 하는 변수. AppImage 로 띄웠을 때만 있다.
+    let in_appimage = std::env::var_os("APPDIR").is_some();
+    let wayland_session = std::env::var_os("WAYLAND_DISPLAY").is_some();
+    let backend_forced_x11 = std::env::var("GDK_BACKEND")
+        .map(|v| v.eq_ignore_ascii_case("x11"))
+        .unwrap_or(false);
+    let im_module_wayland = std::env::var("GTK_IM_MODULE")
+        .map(|v| v.eq_ignore_ascii_case("wayland"))
+        .unwrap_or(false);
+    // 값을 "1" 로 좁게 본다 — 빈 문자열이나 켜 둔 흔적으로 백엔드가 바뀌면 안 된다.
+    let force_x11 = std::env::var("SPIN_FORCE_X11").map(|v| v == "1").unwrap_or(false);
 
-  match plan(
-    in_appimage,
-    wayland_session,
-    backend_forced_x11,
-    im_module_wayland,
-    force_x11,
-  ) {
-    // 지우기만 하면 GDK 가 WAYLAND_DISPLAY 를 보고 알아서 웨일랜드를 고른다.
-    Plan::ClearGdkBackend => std::env::remove_var("GDK_BACKEND"),
-    Plan::ClearGtkImModule => std::env::remove_var("GTK_IM_MODULE"),
-    Plan::LeaveAsIs => {}
-  }
+    match plan(
+        in_appimage,
+        wayland_session,
+        backend_forced_x11,
+        im_module_wayland,
+        force_x11,
+    ) {
+        // 지우기만 하면 GDK 가 WAYLAND_DISPLAY 를 보고 알아서 웨일랜드를 고른다.
+        Plan::ClearGdkBackend => std::env::remove_var("GDK_BACKEND"),
+        Plan::ClearGtkImModule => std::env::remove_var("GTK_IM_MODULE"),
+        Plan::LeaveAsIs => {}
+    }
 }
 
 fn main() {
-  #[cfg(target_os = "linux")]
-  fix_appimage_display_backend();
+    #[cfg(target_os = "linux")]
+    fix_appimage_display_backend();
 
-  spin_lib::run();
+    spin_lib::run();
 }
