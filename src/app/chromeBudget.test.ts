@@ -28,6 +28,7 @@ import type { ChromeAxis, ChromeState, Size } from './chromeBudget.ts';
 import { INSPECTOR_PIN_MIN_PX, canPinInspector } from '../features/editor/inspectorLayout.ts';
 import { trayRailWidthPx } from '../features/editor/trayMetrics.ts';
 import { NARROW_MAX_PX } from '../ui/useIsNarrow.ts';
+import { HEADER_PAD_PX, navSegmentHeightPx } from './navChrome.ts';
 import { COURT_DEFS } from '../model/court.ts';
 import { computeMetrics, rotForFit } from '../render/useStageMetrics.ts';
 
@@ -321,10 +322,19 @@ describe('예산표가 실제 소스와 어긋나지 않는다', () => {
     expect(read('src/app/AppRail.tsx'), '레일 폭을 바꿨다면 appRail 행도 함께 고쳐라').toContain(`width: ${row('appRail').now}`);
   });
 
-  it('앱 헤더 높이 62', () => {
-    expect(read('src/app/AppHeader.tsx'), '헤더 높이를 바꿨다면 appHeader 행도 함께 고쳐라').toContain(
-      `minHeight: ${row('appHeader').now}`,
+  // 2026-09-18 — 결합을 `now` 에서 **`wide`** 로 옮긴다. 헤더가 62 였을 때는 두 값이 우연히 같아
+  // 어느 쪽에 묶든 통과했는데, 지시로 48 이 되면서 갈라졌다: `now` 는 재편 **이전** 실측값이라
+  // 역사(§5.3 '현재' 열·CHROME_HEIGHT_NOW_PX)를 재현하는 재료이므로 소스를 따라 움직이면 안
+  // 되고, 소스와 같이 가야 하는 것은 현재값인 `wide` 다. 옛 결합은 `now` 를 '현재 소스값'으로
+  // 오해하게 만들어, 헤더를 고칠 때 역사를 고치라고 요구했을 것이다.
+  it('앱 헤더 높이 48', () => {
+    expect(read('src/app/AppHeader.tsx'), '헤더 높이를 바꿨다면 appHeader 행의 wide 도 함께 고쳐라').toContain(
+      `minHeight: ${row('appHeader').wide}`,
     );
+    // 표준 헤더가 컴팩트와 같아졌다 — 두 값이 갈라지면 어느 한쪽만 고친 것이다.
+    expect(row('appHeader').wide).toBe(row('appHeader').narrow);
+    // 그리고 그 48 은 취향이 아니라 산술이다: `--hit`(44) 표적 + 상하 여백 2씩.
+    expect(navSegmentHeightPx(44) + HEADER_PAD_PX.wide.y * 2).toBe(row('appHeader').wide);
   });
 
   it('트레이 폭은 --hit 파생이고, hit=44 값이 예산의 wide/narrow 다 (2.4)', () => {

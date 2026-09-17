@@ -252,9 +252,14 @@ export function useAppHeader(config: HeaderConfig): void {
 const HEADER_STYLE: CSSProperties = {
   flex: 'none',
   // ⚠️ 높이를 고정하지 않는다. 태블릿 세로처럼 폭이 좁으면 우측 조작부(되돌리기·코트 전환·
-  //    주 액션)가 62px 한 줄에 다 안 들어가 화면 밖으로 잘려 나간다(실기에서 '드릴로 저장'
+  //    주 액션)가 48px 한 줄에 다 안 들어가 화면 밖으로 잘려 나간다(실기에서 '드릴로 저장'
   //    이 반 잘린 채 겹쳐 보였다). 잘라 없애느니 두 줄로 흐르게 둔다.
-  minHeight: 62,
+  //
+  // ⚠️ 2026-09-18 기현님 지시(*"공통 헤더의 높이를 2/3로 줄이자"*)로 62 → **48**. 이제 모든
+  //    화면이 코트 화면(드릴 편집·시연)과 같은 높이를 쓴다 — `config.compact` 가 높이를
+  //    따로 덮어쓸 이유가 사라졌다(아래 <header> 참고). 2/3 인 41 이 아닌 이유는
+  //    HEADER_PAD_PX 주석에 있다: 안에 서는 표적이 `--hit`(44)이라 48 이 바닥이다.
+  minHeight: 48,
   display: 'flex',
   alignItems: 'center',
   flexWrap: 'wrap',
@@ -321,12 +326,13 @@ export function AppHeader({
   );
 
   return (
-    // ⚠️ 2026-08-20 — `config.compact` 는 `minHeight` 를 62 → **48** 로 덮어쓴다(드릴 편집·시연
-    // 공용 헤더). HEADER_STYLE 의 `minHeight: 62` 리터럴은 그대로 둔다 — chromeBudget.test.ts
-    // 가 소스에서 그 글자를 찾아 예산 표(row.wide)와 대조한다. 패딩도 좁은 창 값(HEADER_PAD_PX
-    // .narrow)으로 맞춘다 — `narrow` prop(레일↔세그먼트 판정)과는 독립이다: 넓은 창에서도
-    // compact 면 48px 여야 하고, 그때 좌측 세그먼트는 안 선다(아래 `{narrow && …}` 그대로).
-    <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow || !!config.compact), ...(config.compact ? { minHeight: 48 } : null) }}>
+    // ⚠️ 2026-08-20 — `config.compact` 가 `minHeight` 를 62 → 48 로 덮어쓰던 자리다. 2026-09-18
+    // (헤더 48 통일)로 **덮어쓸 것이 없어졌다** — HEADER_STYLE 이 이미 48 이다. 분기를 지운 것은
+    // 죽은 코드라서가 아니라, 남겨 두면 "compact 만 48" 이라는 거짓을 다음 사람이 읽기 때문이다.
+    // `compact` 는 이제 **좌우 여백(24 → 12)과 부제 숨김**만 맡는다. 그 여백 판정이 `narrow`
+    // prop(레일↔세그먼트)과 독립인 것은 그대로다: 넓은 창에서도 compact 면 좌우를 좁히고,
+    // 그때 좌측 세그먼트는 안 선다(아래 `{narrow && …}` 그대로).
+    <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow || !!config.compact) }}>
       {narrow && <AppNavSegment active={activeRail} />}
       {/* align:'center' 면 왼쪽 칸은 오른쪽 액션 칸과 같은 flex(1 1 0)로 서서 제목을 한가운데 민다.
           leading 버튼이 없어도 칸은 선다 — 그래야 목록(버튼 없음)과 카드(버튼 있음)에서 제목 자리가
