@@ -97,6 +97,17 @@ export const headerPadCss = (narrow: boolean): string => {
  *  테두리도 갖지 않는다 — 한 픽셀이라도 더하면 아래 `headerContentMaxPx` 를 넘는다. */
 export const navSegmentHeightPx = (hitPx: number): number => hitPx;
 
+/** 헤더 **오른쪽 묶음**(코트 전환·검색칸·주 액션·좁은 창의 테마/언어/도움말)의 높이.
+ *  2026-09-18 기현님 지시(*"헤더의 오른쪽 각 버튼들 높이도 2/3로 줄여"*).
+ *
+ *  ⚠️ 터치 표적 최소선을 의도적으로 내린다 — 44 → **29**(큰 표적 모드는 56 → 37). 근거와 경고는
+ *  `--hit-slim`(tokens.css) 주석에 있고, 이 함수는 그 CSS 식의 **JS 쪽 쌍둥이**다: 크롬 예산이
+ *  헤더 행을 계산할 때 같은 수를 써야 표와 화면이 갈라지지 않는다. 식을 고치면 둘 다 고쳐라.
+ *
+ *  ⚠️ **왼쪽 세그먼트는 그대로 44 다**(navSegmentHeightPx). 지시가 오른쪽이었고, 좁은 창에서는
+ *  그 세그먼트가 헤더 높이를 지배하므로 — 좁은 창 헤더는 이 변경으로 줄지 않는다(48 그대로). */
+export const headerActionHeightPx = (hitPx: number): number => Math.round((hitPx * 2) / 3);
+
 /** 그 모드의 헤더 한 줄이 담을 수 있는 **내용 높이**. `rowPx` 는 크롬 예산의 헤더 행
  *  (`CHROME_ROWS` 의 appHeader — wide 62 · narrow 52)이고, 테스트가 그 값을 먹여 준다. */
 export const headerContentMaxPx = (rowPx: number, narrow: boolean): number =>

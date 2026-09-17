@@ -257,9 +257,16 @@ const HEADER_STYLE: CSSProperties = {
   //
   // ⚠️ 2026-09-18 기현님 지시(*"공통 헤더의 높이를 2/3로 줄이자"*)로 62 → **48**. 이제 모든
   //    화면이 코트 화면(드릴 편집·시연)과 같은 높이를 쓴다 — `config.compact` 가 높이를
-  //    따로 덮어쓸 이유가 사라졌다(아래 <header> 참고). 2/3 인 41 이 아닌 이유는
-  //    HEADER_PAD_PX 주석에 있다: 안에 서는 표적이 `--hit`(44)이라 48 이 바닥이다.
-  minHeight: 48,
+  //    따로 덮어쓸 이유가 사라졌다(아래 <header> 참고). 그때 2/3(41)을 못 낸 이유는 안에 서는
+  //    표적이 `--hit`(44) 이라 48 이 바닥이었기 때문이다.
+  //
+  // ⚠️ 2026-09-18 (같은 날, 후속 지시 *"헤더의 오른쪽 각 버튼들 높이도 2/3로 줄여"*) — 그 바닥이
+  //    내려갔다. 오른쪽 묶음이 `--hit-slim`(29)을 쓰므로 헤더의 새 바닥은 29 + 여백 2·2 = **33**
+  //    이다(navChrome 의 headerActionHeightPx 가 같은 수를 낸다).
+  //    **다만 33 은 바닥일 뿐 실제 높이가 아니다.** ① 제목+부제 묶음이 37.5 라 부제가 있는 화면은
+  //    ≈42 로 선다(공교롭게 첫 지시의 2/3 = 41 근처다). ② 좁은 창은 왼쪽 세그먼트가 44 이므로
+  //    48 그대로다 — 지시가 '오른쪽'이었고 그 세그먼트는 손대지 않았다.
+  minHeight: 33,
   display: 'flex',
   alignItems: 'center',
   flexWrap: 'wrap',
@@ -415,7 +422,15 @@ export function AppHeader({
         {!config.compact && config.description && <HeaderDescriptionEditor cfg={config.description} />}
       </div>
 
-      <div style={{ marginLeft: 'auto', flex: symmetric ? '1 1 0' : 'none', justifyContent: 'flex-end', display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
+      {/* ⚠️ 2026-09-18 기현님 지시(*"헤더의 오른쪽 각 버튼들 높이도 2/3로 줄여"*) — 이 묶음 **안에서만**
+          `--hit` 을 `--hit-slim`(= --hit × 2/3) 으로 덮는다. 개별 컨트롤에 높이를 하나씩 박지 않는
+          이유는 Button 이 `minHeight: var(--hit)` 를 **인라인**으로 들고 있어 바깥 CSS 로는 못 이기기
+          때문이다 — 토큰을 갈아끼우는 것이 여기서는 유일한 경로이고, 덕분에 코트 전환·검색칸·주
+          액션·좁은 창의 테마/언어가 한 번에 따라온다.
+          대가는 분명하다: **이 묶음에 새로 들어오는 것은 무엇이든 조용히 29px 이 된다.** 44 를
+          지켜야 하는 컨트롤이 생기면 그 자리에서 `var(--hit-slim)` 이 아니라 값을 되돌려 적어라.
+          모달은 안전하다 — Modal 이 createPortal 로 body 에 그려서 이 덮개를 물려받지 않는다. */}
+      <div style={{ marginLeft: 'auto', flex: symmetric ? '1 1 0' : 'none', justifyContent: 'flex-end', display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', ['--hit' as string]: 'var(--hit-slim)' } as CSSProperties}>
         {config.courtSwitch && <CourtSwitchControl cfg={config.courtSwitch} />}
 
         {config.search && (
@@ -429,7 +444,10 @@ export function AppHeader({
               alignItems: 'center',
               gap: '0.5625rem',
               padding: '0 0.8125rem',
-              minHeight: 44,
+              // 2026-09-18 — 리터럴 44 를 토큰으로 되돌린다. 이 칸은 오른쪽 묶음 안에 있으므로
+              // 위 `--hit` 덮개(= --hit-slim)를 타고 29 가 된다 — 리터럴로 두면 검색칸만 홀로
+              // 44 로 남아 줄이 두 높이로 어긋난다.
+              minHeight: 'var(--hit)',
               border: '1px solid var(--border)',
               borderRadius: '0.625rem',
               color: 'var(--faint-text)',

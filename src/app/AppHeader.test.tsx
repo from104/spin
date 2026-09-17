@@ -68,7 +68,12 @@ describe('AppHeader / useAppHeader', () => {
   //    눌러 보기 전에는 고칠 수 있는지 알 수 없었다(기현 지시). 지금 그 버튼은 각 화면의
   //    오른쪽 세로 바에 아이콘을 달리해 서고, 계약은 그쪽 테스트가 본다 —
   //    EditorWorkspace.viewControls(편집) · PresentRunner(시연).
-  it('compact 는 높이를 48 로 줄이고 subtitle·description 을 안 그린다', () => {
+  // ⚠️ 2026-09-18 — 이 테스트가 보던 계약이 **반으로 줄었다.** 헤더 48 통일로 compact 의 높이
+  //    덮어쓰기가 사라졌고(모든 화면이 같은 minHeight 를 쓴다), 이어서 오른쪽 조작부 2/3 지시로
+  //    그 값이 33 이 됐다. 그래서 높이는 더 이상 compact 의 몫이 아니다 — 남은 몫은 **부제·설명을
+  //    안 그리는 것**과 **좌우 여백을 12 로 좁히는 것** 둘이고, 아래가 그 둘을 본다.
+  //    높이 자체는 chromeBudget.test 가 예산 표와 묶어 지킨다(소스 리터럴 대조).
+  it('compact 는 subtitle·description 을 안 그리고 좌우 여백을 좁힌다', () => {
     function CompactPublisher() {
       useAppHeader({
         title: '측면 돌파',
@@ -86,7 +91,8 @@ describe('AppHeader / useAppHeader', () => {
     );
     expect(screen.getByText('측면 돌파')).toBeInTheDocument();
     expect(screen.queryByText('이 문구는 compact 에서 안 보인다')).not.toBeInTheDocument();
-    expect(document.querySelector('header')).toHaveStyle({ minHeight: '48px' });
+    // 넓은 창인데도 좁은 창 여백(12)을 쓴다 — compact 가 지금 실제로 하는 일.
+    expect(document.querySelector('header')).toHaveStyle({ padding: '2px 12px' });
   });
 
   it('잠긴 코트 스위치는 비활성 알약 클릭 시 값을 바꾸지 않고 onLockedAttempt 만 부른다', async () => {
