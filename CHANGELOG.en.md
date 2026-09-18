@@ -10,8 +10,8 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 - Android app (tablets and unfolded foldables) with Google Drive sync and share-sheet export
 - **UI size** — Auto, or eight steps from 50% to 200%. The smaller it is, the bigger the board.
-  Auto picks the smallest scale that keeps buttons big enough to tap on your device, and shows
-  you which one it picked
+  Auto picks the largest scale where the left menu and the tool row both fit on the tactics
+  board without scrolling, and shows you which one it picked
 
 ### Changed
 

@@ -58,7 +58,7 @@ export const en: Record<DictKey, string> = {
   'settings.screen.uiScaleTitle': 'UI scale',
   'settings.screen.uiScaleDesc': 'Scale the whole screen — the smaller it is, the bigger the board',
   'settings.screen.uiScaleAuto': 'Auto',
-  'settings.screen.uiScaleAutoNow': 'Auto currently picks {{percent}}% — the smallest scale that keeps buttons big enough to tap on this device',
+  'settings.screen.uiScaleAutoNow': 'Auto currently picks {{percent}}% — the largest scale where the left menu and the tool row both fit on the tactics board without scrolling',
 
   'settings.playback.title': 'Playback',
   'settings.playback.speedTitle': 'Step transition speed',

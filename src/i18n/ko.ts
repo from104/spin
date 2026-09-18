@@ -62,7 +62,7 @@ export const ko = {
   'settings.screen.uiScaleTitle': 'UI 배율',
   'settings.screen.uiScaleDesc': '화면 전체를 키우거나 줄입니다 — 작게 할수록 판이 커집니다',
   'settings.screen.uiScaleAuto': '자동',
-  'settings.screen.uiScaleAutoNow': '지금 자동이 고른 값: {{percent}}% (이 기기에서 버튼이 손끝에 충분한 가장 작은 배율)',
+  'settings.screen.uiScaleAutoNow': '지금 자동이 고른 값: {{percent}}% — 전술판에서 왼쪽 메뉴와 아래 도구줄이 스크롤 없이 다 들어가는 가장 큰 배율입니다',
 
   'settings.playback.title': '재생',
   'settings.playback.speedTitle': '스텝 전환 속도',

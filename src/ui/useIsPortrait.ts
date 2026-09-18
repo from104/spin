@@ -29,8 +29,12 @@ export function useIsPortrait(): boolean {
       mq.addEventListener('change', onChange);
       return () => mq.removeEventListener('change', onChange);
     }
+    // ⚠️ addEventListener 도 addListener 도 없는 matchMedia 가 있다(폴리필·테스트 스텁).
+    //    옛 Safari 폴백을 무조건 부르면 그런 환경에서 **앱이 마운트 중에 죽는다** — 구독을
+    //    포기할지언정 화면은 떠야 한다(useStageRot 이 이미 같은 가드를 들고 있다).
+    if (typeof mq.addListener !== 'function') return;
     mq.addListener(onChange);
-    return () => mq.removeListener(onChange);
+    return () => mq.removeListener?.(onChange);
   }, []);
 
   return portrait;

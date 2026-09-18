@@ -20,45 +20,15 @@ export function isUiScaleSetting(v: unknown): v is UiScaleSetting {
   return v === 'auto' || (typeof v === 'number' && (UI_SCALE_STEPS as readonly number[]).includes(v));
 }
 
-/** 손끝 표적의 기준선(mm). ISO 9241-9 의 손끝 권고에서 왔고 Material 의 48dp(≈7.6mm)보다 보수적이다.
- *  **여기를 낮추면 자동이 더 작은 배율을 고른다** — 보드는 커지고 버튼은 누르기 어려워진다. */
-export const TARGET_MIN_MM = 9;
-
-/** 자동이 기준 삼는 표적의 CSS px 크기. `--hit` 의 기본값과 같은 수다(tokens.css).
- *
- *  토큰을 읽지 않고 리터럴로 두는 이유: 이 값은 «사람 손가락이 닿아야 하는 것» 의 눈금이지
- *  «지금 --hit 이 얼마인가» 가 아니다. 큰 표적 모드(56)를 켠 사람에게 자동이 더 작은 배율을 주면
- *  두 설정이 서로를 상쇄해 아무 일도 일어나지 않는다. 마찬가지로 2026-09-18 에 헤더 오른쪽
- *  조작부를 29 로 내린 것(`--hit-slim`)도 여기에 반영하지 않는다 — 그건 그 자리의 예외다. */
-export const AUTO_TARGET_CSS_PX = 44;
-
-const MM_PER_INCH = 25.4;
-
-/** 그 배율에서 44px 표적이 몇 mm 인가. 자동의 판정식 전부가 이 한 줄이다.
- *  `pxPerInch` 는 «CSS px 한 개가 1인치에 몇 개 들어가는가» — 안드로이드 160(1dp=1/160in),
- *  데스크톱 96(CSS 규격). 감지는 `platform/shell.ts` 의 `cssPxPerInch()` 가 한다. */
-export function targetMmAt(scale: number, pxPerInch: number): number {
-  return (AUTO_TARGET_CSS_PX * scale * MM_PER_INCH) / pxPerInch;
-}
-
-/** 「자동」의 답 — 표적이 기준선 이상이 되는 **가장 작은** 눈금.
- *
- *  가장 작은 쪽인 이유: 크롬(레일·헤더·바)은 CSS px 로 고정이라 배율이 작을수록 화면에서
- *  차지하는 물리 비중이 줄고 그만큼 보드가 커진다("보드가 최대로 커지는 쪽" — 기현 지시).
- *  즉 이 함수는 **누를 수 있는 한 가장 작게** 를 고른다.
- *
- *  어느 눈금도 기준선을 못 넘으면 가장 큰 눈금을 준다 — 못 누르는 화면을 주느니 큰 쪽이 낫다. */
-export function autoUiScale(pxPerInch: number): UiScaleStep {
-  for (const s of UI_SCALE_STEPS) {
-    if (targetMmAt(s, pxPerInch) >= TARGET_MIN_MM) return s;
-  }
-  return UI_SCALE_STEPS[UI_SCALE_STEPS.length - 1]!;
-}
-
-/** 설정값 → 실제로 화면에 거는 배율. 화면·이펙트는 **이 함수만** 부른다. */
-export function resolveUiScale(setting: UiScaleSetting, pxPerInch: number): UiScaleStep {
-  return setting === 'auto' ? autoUiScale(pxPerInch) : setting;
-}
+// ⚠️ 2026-09-19 — 옛 「자동」 기준(표적 44px 의 물리 크기 9mm, `targetMmAt`/`autoUiScale`/
+// `resolveUiScale`)이 **여기서 통째로 빠졌다.** 기현님이 기준을 «보드 화면에서 레일·트레이가
+// 최대 크기이면서 둘 다 스크롤 안 됨» 으로 재정의했고, 그 계산은 레일·트레이의 치수를 알아야
+// 하므로 core 가 답할 수 있는 질문이 아니다 → `app/autoUiScale.ts` 로 옮겼다.
+//
+// 근거를 지우지 않고 남긴다(AGENTS §2): 옛 기준은 «누를 수 있는 가장 작은 배율» 을 골랐는데,
+// 안드로이드에서 44 CSS px = 7.0mm 라 어떤 가이드라인에도 미달이어서 자동이 100% 아래로 내려갈
+// 수 없었다 — 지시문의 «보드가 최대로 커지는 쪽» 과 늘 반대로 움직였다. 기준이 틀린 것이 아니라
+// **이 앱에 맞지 않았다.**
 
 /** 옛 3단(100/115/130%, 루트 font-size 시절)을 새 눈금으로 옮긴다 — PLAN-UI-SCALE 결정 2.
  *

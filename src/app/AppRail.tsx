@@ -17,6 +17,17 @@ import { ChangelogModal } from './ChangelogModal.tsx';
 import { useSettingsState, useSettingsActions } from '../store/settings/SettingsProvider.tsx';
 import { useAppNav } from './useAppHistory.ts';
 import { RAIL_ITEMS, SCREEN_NAV_LABELS, railFor } from './screens.ts';
+import {
+  RAIL_GAP,
+  RAIL_ICON_BTN_H,
+  RAIL_ITEM_H,
+  RAIL_LOGO_H,
+  RAIL_LOGO_MB,
+  RAIL_PAD_BOTTOM,
+  RAIL_PAD_TOP,
+  RAIL_VERSION_MT,
+  RAIL_W,
+} from './railMetrics.ts';
 import type { RailKey } from './screens.ts';
 import { RAIL_ICONS, RAIL_NAV_TARGETS } from './navChrome.ts';
 import { useT } from '../i18n/useT.ts';
@@ -63,14 +74,16 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
       className="spin-nav-seg"
       style={{
         flex: 'none',
-        width: 84,
+        // ⚠️ 치수는 전부 `railMetrics.ts` 에서 온다 — 「자동」 배율이 그 합(railContentHeightPx)에
+        //    걸려 있어서, 여기 리터럴을 다시 적으면 화면과 자동값이 조용히 갈라진다.
+        width: RAIL_W,
         background: 'var(--panel)',
         borderRight: '1px solid var(--border)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '1rem 0 0.875rem',
-        gap: '0.3125rem',
+        padding: `${RAIL_PAD_TOP}px 0 ${RAIL_PAD_BOTTOM}px`,
+        gap: RAIL_GAP,
         minHeight: 0,
         overflowY: 'auto',
         scrollbarWidth: 'none',
@@ -84,7 +97,14 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
           필요했다). 여기에 라운드를 걸면 원의 상하좌우가 미세하게 깎인다.
           `aria-hidden` 은 그대로다 — 바로 아래 'SPIN' 워드마크가 같은 것을 한 번 더 말하므로,
           둘 다 읽히면 스크린리더가 "SP SPIN" 을 읽는다(alt 를 비워 두는 것과 같은 이유). */}
-      <img src="/logo.svg" alt="" aria-hidden width={42} height={42} style={{ display: 'block', marginBottom: '0.375rem' }} />
+      <img
+        src="/logo.svg"
+        alt=""
+        aria-hidden
+        width={RAIL_LOGO_H}
+        height={RAIL_LOGO_H}
+        style={{ display: 'block', marginBottom: RAIL_LOGO_MB, flexShrink: 0 }}
+      />
       <div
         aria-hidden
         style={{
@@ -94,6 +114,7 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
           letterSpacing: '0.1rem',
           color: 'var(--faint-text)',
           marginBottom: '0.875rem',
+          flexShrink: 0,
         }}
       >
         SPIN
@@ -111,7 +132,11 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
             style={{
               position: 'relative',
               width: 64,
-              height: 58,
+              height: RAIL_ITEM_H,
+              // ⚠️ 2026-09-19 — **줄어들지 않는다.** 이게 없으면 레일은 넘치기 전에 먼저
+              //    찌그러져, 200% 에서 44px 표적이 20px 로 눌렸다(에뮬레이터 실측). 스크롤
+              //    대신 축소가 일어나면 「자동」의 기준(최대 크기 + 스크롤 없음)이 무너진다.
+              flexShrink: 0,
               borderRadius: 13,
               display: 'flex',
               flexDirection: 'column',
@@ -161,8 +186,9 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         // 글자 없는 44px 아이콘 하나와 혼동되지 않는다.
         style={{
           marginTop: 'auto',
-          width: 44,
-          height: 44,
+          width: RAIL_ICON_BTN_H,
+          height: RAIL_ICON_BTN_H,
+          flexShrink: 0,
           border: '1px solid var(--border-strong)',
           borderRadius: 12,
           display: 'flex',
@@ -182,8 +208,9 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         title={t('help.center.title')}
         onClick={showHelp}
         style={{
-          width: 44,
-          height: 44,
+          width: RAIL_ICON_BTN_H,
+          height: RAIL_ICON_BTN_H,
+          flexShrink: 0,
           border: '1px solid var(--border)',
           borderRadius: 12,
           display: 'flex',
@@ -200,8 +227,9 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         title={t('app.theme.toggleTitle')}
         onClick={() => setPrefs({ theme: isDark ? 'light' : 'dark' })}
         style={{
-          width: 44,
-          height: 44,
+          width: RAIL_ICON_BTN_H,
+          height: RAIL_ICON_BTN_H,
+          flexShrink: 0,
           border: '1px solid var(--border)',
           borderRadius: 12,
           display: 'flex',
@@ -226,8 +254,9 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
           aria-haspopup="dialog"
           onClick={() => setDlOpen(true)}
           style={{
-            width: 44,
-            height: 44,
+            width: RAIL_ICON_BTN_H,
+            height: RAIL_ICON_BTN_H,
+            flexShrink: 0,
             border: '1px solid var(--border)',
             borderRadius: 12,
             display: 'flex',
@@ -254,7 +283,8 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         aria-haspopup="dialog"
         onClick={() => setChangelogOpen(true)}
         style={{
-          marginTop: 8,
+          marginTop: RAIL_VERSION_MT,
+          flexShrink: 0,
           background: 'none',
           border: 'none',
           padding: 0,

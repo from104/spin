@@ -203,3 +203,38 @@ export function trayBenchHeightPx(hitPx: number, cols: number, chips: number): n
   const chipBlock = chipRows * chip.h + (chipRows - 1) * CHIP_ROW_GAP;
   return chipBlock + TRAY_GAP + stack(3, perRow(w, boxW), boxH);
 }
+
+/** 가로 띠(보드·드릴 편집의 아래 트레이)의 **내용 폭** — 스크롤이 시작되는 지점.
+ *
+ *  PLAN-UI-SCALE 결정 3(2026-09-19 재정의)이 이 값을 읽어 «띠가 스크롤되지 않는 가장 큰 배율» 을
+ *  고른다. 띠 높이(`trayBandHeightPx`)가 상수인 것과 달리 폭은 담긴 것의 수에 따라 달라지므로
+ *  인자로 받는다.
+ *
+ *  구성(에뮬레이터 실측 2026-09-19, hit 44 · 칩 8 · 카운터 3 · 도구 4 · 구분선 1 → **831px**):
+ *    좌우 패딩 26 + [칩 8×44 + 카운터 3×54 + 안쪽 간격 10×5 = 564] + 구분선 1 + [도구 4×52 +
+ *    간격 3×5 = 223] + 바깥 간격 3×6 = 18  →  832
+ *  1px 차이는 카운터 테두리의 반올림이다. 자동 배율은 계단식이라 이 오차가 답을 바꾸지 않는다.
+ *
+ *  ⚠️ **카운터·도구는 글자 폭에 안 늘어난다.** `BTN_STYLE.width = TOOL_BTN_W` 가 하드 폭이고
+ *  라벨은 그 안에서 잘린다 — 그래서 이 식이 **언어와 무관**하다. 만약 누가 그 폭을 `auto` 로
+ *  바꾸면 띠 폭이 «Ball/공/ボール» 마다 달라지고, 그때부터 **자동 배율이 언어를 탄다**. */
+export const TRAY_COUNTER_BORDER = 1;
+
+export function trayBandContentWidthPx(
+  hitPx: number,
+  parts: { chips: number; counters: number; tools: number; dividers: number },
+): number {
+  const chipBox = trayChipBoxPx(hitPx).w;
+  const toolW = Math.max(TOOL_BTN_W, hitPx);
+  const counterW = toolW + TRAY_COUNTER_BORDER * 2;
+  const objGroup =
+    parts.chips * chipBox + parts.counters * counterW + Math.max(0, parts.chips + parts.counters - 1) * TRAY_ITEM_GAP;
+  const toolGroup = parts.tools * toolW + Math.max(0, parts.tools - 1) * TRAY_ITEM_GAP;
+  // 띠의 직계 자식: 개체 묶음 · 구분선 · 도구 묶음(그리고 숨은 접근성 칸). 그 사이 간격이 TRAY_GAP 이다.
+  const outerGaps = (1 + parts.dividers + 1) * TRAY_GAP;
+  return TRAY_BAND_PAD_X * 2 + objGroup + parts.dividers * TRAY_DIVIDER_H + toolGroup + outerGaps;
+}
+
+/** 자유 전술판의 기본 구성 — 선수 8 · 공/주황콘/파랑콘 3 · 도구 4([선택]·[그리기]·[메모]·[지우개]) ·
+ *  구분선 1. 「자동」이 기준 삼는 화면이 보드이므로 이 조합이 기본값이다. */
+export const TRAY_BAND_BOARD_PARTS = { chips: 8, counters: 3, tools: 4, dividers: 1 } as const;

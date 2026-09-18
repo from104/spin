@@ -26,9 +26,9 @@ import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
 import { SyncSection } from './SyncSection.tsx';
 import { Segmented } from '../../ui/Segmented.tsx';
-import { UI_SCALE_STEPS, autoUiScale } from '../../core/uiScale.ts';
+import { UI_SCALE_STEPS } from '../../core/uiScale.ts';
 import type { UiScaleStep } from '../../core/uiScale.ts';
-import { cssPxPerInch } from '../../platform/shell.ts';
+import { useUiScale } from '../../app/useUiScale.ts';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
@@ -47,9 +47,11 @@ import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 
 export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: LegalDoc }) {
   const { prefs, physics, persistFailed, setPrefs } = useSettings();
-  // 「자동」이 이 기기에서 무엇을 고르는지 — 부제에 그대로 보여 준다(PLAN-UI-SCALE 결정 3).
-  // 기기 감지는 렌더마다 같은 답을 내는 동기 함수라 메모이제이션이 필요 없다.
-  const autoScale = autoUiScale(cssPxPerInch());
+  // 「자동」이 이 화면에서 무엇을 고르는지 — 부제에 그대로 보여 준다(PLAN-UI-SCALE 결정 3).
+  // ⚠️ 설정이 고정값이면 useUiScale 은 그 고정값을 돌려주므로, 자동이 고를 값을 보여 주려면
+  //    설정과 무관하게 **자동으로 풀어** 봐야 한다. 그래서 훅이 아니라 같은 입력으로 다시 센다.
+  const resolved = useUiScale();
+  const autoScale = prefs.a11y.uiScale === 'auto' ? resolved : null;
   const { refresh } = useLibrary();
   const toast = useToast();
   const t = useT();
@@ -201,7 +203,11 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
                  곧바로 고정값으로 덮을 수 있다. */}
           <Row
             title={t('settings.screen.uiScaleTitle')}
-            desc={`${t('settings.screen.uiScaleDesc')}\n${t('settings.screen.uiScaleAutoNow', { percent: Math.round(autoScale * 100) })}`}
+            desc={
+              autoScale === null
+                ? t('settings.screen.uiScaleDesc')
+                : `${t('settings.screen.uiScaleDesc')}\n${t('settings.screen.uiScaleAutoNow', { percent: Math.round(autoScale * 100) })}`
+            }
             borderBottom={false}
           >
             <Segmented

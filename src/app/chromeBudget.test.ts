@@ -29,6 +29,7 @@ import { INSPECTOR_PIN_MIN_PX, canPinInspector } from '../features/editor/inspec
 import { trayRailWidthPx } from '../features/editor/trayMetrics.ts';
 import { NARROW_MAX_PX } from '../ui/useIsNarrow.ts';
 import { HEADER_PAD_PX, headerActionHeightPx, navSegmentHeightPx } from './navChrome.ts';
+import { RAIL_W } from './railMetrics.ts';
 import { COURT_DEFS } from '../model/court.ts';
 import { computeMetrics, rotForFit } from '../render/useStageMetrics.ts';
 
@@ -341,8 +342,13 @@ describe('courtScale 이 화면과 같은 식을 쓴다', () => {
 describe('예산표가 실제 소스와 어긋나지 않는다', () => {
   const row = (id: string) => CHROME_ROWS.find((r) => r.id === id)!;
 
-  it('앱 레일 폭 84', () => {
-    expect(read('src/app/AppRail.tsx'), '레일 폭을 바꿨다면 appRail 행도 함께 고쳐라').toContain(`width: ${row('appRail').now}`);
+  // 2026-09-19 — 결합을 **리터럴에서 모듈로** 올렸다. 레일 치수가 `railMetrics.ts` 로 이사하면서
+  // AppRail.tsx 에는 `width: 84` 라는 글자가 더 이상 없다. 소스 문자열 대신 두 모듈의 수를 직접
+  // 맞대는 쪽이 강하다 — 예산표와 레일이 한 수를 나눠 쓴다는 것이 이 항목의 본래 주제였다.
+  it('앱 레일 폭 84 — 예산표와 railMetrics 가 같은 수를 말한다', () => {
+    expect(RAIL_W, '레일 폭을 바꿨다면 appRail 행도 함께 고쳐라').toBe(row('appRail').wide);
+    expect(RAIL_W).toBe(84);
+    expect(read('src/app/AppRail.tsx'), 'AppRail 이 그 상수를 실제로 써야 한다').toContain('width: RAIL_W');
   });
 
   // 2026-09-18 — 결합을 `now` 에서 **`wide`** 로 옮긴다. 헤더가 62 였을 때는 두 값이 우연히 같아

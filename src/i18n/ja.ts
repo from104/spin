@@ -58,7 +58,7 @@ export const ja: Record<DictKey, string> = {
   'settings.screen.uiScaleTitle': 'UIスケール',
   'settings.screen.uiScaleDesc': '画面全体を拡大・縮小します — 小さくするほどボードが大きくなります',
   'settings.screen.uiScaleAuto': '自動',
-  'settings.screen.uiScaleAutoNow': '現在の自動値: {{percent}}%（この端末でボタンが指に十分な最小の倍率）',
+  'settings.screen.uiScaleAutoNow': '現在の自動値: {{percent}}% — 作戦ボードで左メニューと下のツール列がスクロールなしで収まる最大の倍率です',
 
   'settings.playback.title': '再生',
   'settings.playback.speedTitle': 'ステップ切り替え速度',

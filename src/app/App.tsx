@@ -14,8 +14,8 @@ import { LibraryProvider, useLibraryActions } from '../store/library/LibraryProv
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
 import { useLocale } from '../i18n/useLocale.ts';
 import { useSyncEngine } from '../sync/useSyncEngine.ts';
-import { cssPxPerInch, isCapacitorNative } from '../platform/shell.ts';
-import { resolveUiScale } from '../core/uiScale.ts';
+import { isCapacitorNative } from '../platform/shell.ts';
+import { useUiScale } from './useUiScale.ts';
 import { AppShell } from './AppShell.tsx';
 
 /** §4.6 FOUC 방지 부트 스크립트가 첫 페인트 전 data-theme 을 심어 두지만, 그 이후(테마 토글·
@@ -25,6 +25,8 @@ import { AppShell } from './AppShell.tsx';
  *  (export 는 테스트용이다 — 이 조각만 떼어 마운트해야 AppShell 트리 전체를 세우지 않는다.) */
 export function ThemeEffects() {
   const { prefs } = useSettingsState();
+  // 「자동」은 화면을 재서 푼다(PLAN-UI-SCALE 결정 3) — 그 계산은 useUiScale 한 곳뿐이다.
+  const uiScale = useUiScale();
 
   useEffect(() => {
     document.documentElement.dataset.theme = prefs.theme;
@@ -39,8 +41,8 @@ export function ThemeEffects() {
     // ⚠️ 옛 `style.fontSize` 를 **지운다**. 남겨 두면 두 기구가 곱해져 200% 에서 글자만 두 배 더
     //    커진다. 이 한 줄은 옛 판에서 올라온 사용자의 documentElement 에 실제로 남아 있다.
     document.documentElement.style.removeProperty('font-size');
-    document.documentElement.style.setProperty('--ui-scale', String(resolveUiScale(prefs.a11y.uiScale, cssPxPerInch())));
-  }, [prefs.a11y.uiScale]);
+    document.documentElement.style.setProperty('--ui-scale', String(uiScale));
+  }, [uiScale]);
 
   useEffect(() => {
     // §7.3 큰 터치 타깃 — tokens.css 의 body[data-touch="large"] 가 --hit 을 56px 로 올린다.
