@@ -186,9 +186,17 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
     }
   });
 
-  it('1024×600 narrow full — 트레이가 93 → 198(4열)이 되고 코트는 0.8990 그대로다 (기둥 56 을 빼고도)', () => {
-    const state: ChromeState = { narrow: true, inspector: 'hidden' };
-    const before = { w: 1024 - chromeWidthPx(state), h: 600 - chromeHeightPx(state) };
+  // ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 4, 기현님 *"그대로 간다, 배율로 갚는다"*) — 뷰포트가
+  //    1024×600 → **2048×1200** 으로 옮겨졌다. 가로면 레일(84)이 항상 서면서 물리 1024×600 의
+  //    배율 100% 에서는 트레이가 하한(93)에 붙어 이 행이 재던 «남는 폭의 분배» 자체가 없어졌다.
+  //    2048×1200 은 그 기기에서 **배율 50%** 일 때의 레이아웃 크기다.
+  //
+  //    ⚠️ **회복 지점은 75% 가 아니라 50% 다**(실측). 코트가 세로 제약이라 배율을 낮춰 높이가
+  //    늘면 코트 폭이 h·(825/525) 로 **더 빠르게** 자라, 트레이 몫이 오히려 줄어드는 구간이 있다
+  //    (1024×600: 100% 114 → 75% 141 → 50% 195). 4열이 서는 것은 195 에서다.
+  it('2048×1200 narrow full (물리 1024×600 @50%) — 트레이가 남는 폭을 먹고 4열이 선다', () => {
+    const state: ChromeState = { narrow: true, landscape: true, inspector: 'hidden' };
+    const before = { w: 2048 - chromeWidthPx(state), h: 1200 - chromeHeightPx(state) };
     // ⚠️ 2026-08-15 (재설계 ②) — 907 → **851**. 오른쪽 기둥 56 이 드릴 편집에도 상시로 서면서
     //    폭 크롬이 117 → 173 이 됐다. **코트 축척은 그대로다**(아래 0.8990) — 이 화면에서는
     //    세로가 제약이라 폭에 여유가 있었고, 줄어든 56 은 트레이가 먹던 남는 폭에서 나온다.
@@ -200,19 +208,36 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
     //    가 다루는 `board:true` 대조군과는 다른 계열이다). 코트 폭이 그만큼 줄고, 공교롭게도
     //    트레이가 다시 4열로 돌아온다(172→198) — 3열이던 것이 되돌아온 것이지 처음 202 와
     //    같은 값은 아니다.
-    expect(before).toEqual({ w: 851, h: 475 });
-    const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
-    expect(avail).toEqual({ w: 944, h: 475 });
+    // 2048 − 257 = 1791, 1200 − 125 = 1075.
+    expect(before).toEqual({ w: 1791, h: 1075 });
+    const avail = alignBoxPx({ w: 2048, h: 1200 }, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
-    expect(Math.round(split.trayW)).toBe(198);
-    expect(trayColumnsAt(split.trayW, 44)).toBe(4);
-    expect(split.courtW).toBeCloseTo(475 * (825 / 525), 6);
-    expect(split.courtW / 825).toBeCloseTo(0.9048, 4);
+    // 여전히 **세로가 제약**이다 — 코트 폭이 정확히 h·(825/525) 이고, 남는 폭은 트레이 몫이다.
+    // 그 둘이 이 행의 본래 주제이고, 뷰포트가 바뀌어도 주제는 그대로다.
+    expect(split.courtW).toBeCloseTo(avail.h * (825 / 525), 6);
+    expect(Math.round(split.trayW)).toBe(Math.round(avail.w - split.courtW));
+    expect(trayColumnsAt(split.trayW, 44)).toBeGreaterThanOrEqual(4);
     // ⚠️ 이제 상한에 **안 걸린다**(198 < 240) — 남는 폭을 트레이가 전부 먹으므로 판 바깥
     //    여백이 0 이다. 상한을 넘겼을 때만 바깥 여백이 생긴다는 규칙 자체는 그대로이고,
     //    그것을 아래 half/flat it 이 계속 잰다(거기서는 여전히 상한에 걸린다).
     expect(split.outerW).toBeCloseTo(0, 9);
     expect(split.boardW).toBeCloseTo(avail.w, 9);
+  });
+
+  // 결정 4 의 대가를 숨기지 않는다: 같은 기기, 배율만 100% 로 되돌리면 트레이가 **2열**로 떨어진다.
+  // 195(50%) → 141(75%) → 114(100%). 4열 문턱(≈191)을 넘는 것은 50% 뿐이라는 것이 요점이고,
+  // 이 세 수가 «배율로 갚는다» 가 어디서 실제로 갚아지는지를 말한다.
+  it('물리 1024×600 — 배율을 올릴수록 트레이가 좁아진다: 50% 4열 → 75%·100% 2열', () => {
+    const state: ChromeState = { narrow: true, landscape: true, inspector: 'hidden' };
+    const trayAt = (s: number): number => {
+      const avail = alignBoxPx({ w: 1024 / s, h: 600 / s }, state, 44);
+      return Math.round(boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44).trayW);
+    };
+    expect(trayAt(0.5)).toBe(195);
+    expect(trayAt(0.75)).toBe(141);
+    expect(trayAt(1)).toBe(114);
+    expect(trayColumnsAt(trayAt(0.5), 44)).toBe(4);
+    expect(trayColumnsAt(trayAt(1), 44)).toBe(2);
   });
 
   it('800×480 narrow full — 트레이 162(3열). 2026-08-20 재생 묶음 공용화로 세로가 다시 준다', () => {
@@ -222,9 +247,11 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
     // 설계서 §4.6 의 그 칸은 223(4열) → 167(3열, 재설계 ② 기둥 상시) → 137(2열,
     // 2026-08-18 하단 철거) → **162(3열, 2026-08-20 재생 묶음 공용화)** — 노트 줄이 45→61
     // 로 자라며 세로 예산이 늘고 코트가 그만큼 좁아진 몫을 트레이가 되돌려 받았다.
-    // 162 는 하한 93(trayRailWidthPx)보다 넉넉히 크다 — 하한 국면은 아직 아니다.
-    expect(Math.round(split.trayW)).toBe(162);
-    expect(trayColumnsAt(split.trayW, 44)).toBe(3);
+    // ⚠️ 2026-09-18 (결정 4) — **162 → 93(하한).** 레일 84 가 돌아오며 남는 폭이 전부 사라졌다.
+    //    800×480 은 이 예산표에서 가장 작은 가로 기기라 대가가 가장 먼저·가장 크게 나타난다.
+    //    162 − 84 = 78 이 하한 93 보다 작으므로 하한에 걸린다 — 손 검산이 되는 수다.
+    expect(Math.round(split.trayW)).toBe(trayRailWidthPx(44));
+    expect(trayColumnsAt(split.trayW, 44)).toBe(2);
   });
 
   it('1280×800 핀 full — 폭 제약이라 트레이가 하한 93 에서 멈춘다 = 오늘과 같은 배치', () => {
@@ -240,9 +267,12 @@ describe('§4.6 — 트레이가 넓어져도 코트 축척은 그대로다', ()
     expect(split.outerW).toBeCloseTo(0, 9);
   });
 
+  // 뷰포트는 위 행과 같은 이유로 2048×1200(물리 1024×600 @배율 50%)이다 — 100% 에서는 하프도
+  // 남는 폭이 말라 상한 국면 자체가 사라지고, 그러면 이 행이 재려던 «상한이 없으면 슬래브가 된다»
+  // 를 잴 수가 없다.
   it('half/flat 은 남는 폭이 커서 상한에 걸린다 — 없으면 9열 슬래브가 된다', () => {
-    const state: ChromeState = { narrow: true, inspector: 'hidden' };
-    const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
+    const state: ChromeState = { narrow: true, landscape: true, inspector: 'hidden' };
+    const avail = alignBoxPx({ w: 2048, h: 1200 }, state, 44);
     for (const mode of ['half', 'flat'] as const) {
       const ar = courtCellAspectRatio(mode, undefined, 0);
       const split = boardSplitPx(avail, ar, 44);
@@ -299,10 +329,17 @@ describe('위험 3 — 서랍 손잡이가 화면 밖으로 나가지 않는다'
 
 // ── 완료 판정: 1024×600 에서 트레이 240px, 5열, 벤치+도구 스크롤 없이 ────────────────────
 
-describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
-  it('고정 172 + 벤치 149 = 321 ≤ 475 (hit 44, 4열, 선수 8명)', () => {
-    const state: ChromeState = { narrow: true, inspector: 'hidden' };
-    const avail = alignBoxPx({ w: 1024, h: 600 }, state, 44);
+// ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 4) — **이 판정의 조건에 «배율 50%» 가 붙었다.** 가로면 레일
+// (84)이 항상 서면서 물리 1024×600 의 배율 100% 에서는 트레이가 2열로 떨어져 선수 8명이 한 줄에
+// 안 들어간다. 기현님 결정은 *"그대로 간다 — 배율로 갚는다"* 이고, 갚아지는 지점이 정확히 50% 다
+// (위 §4.6 의 195/141/114 실측). 그래서 판정을 **지우지 않고 조건을 명시한다** — 완료 도장을 찍은
+// 약속이 어디서 성립하는지는 계속 측정돼야 한다.
+describe('완료 판정 — 물리 1024×600 @배율 50% 에서 스크롤이 사라진다', () => {
+  const VIEW = { w: 2048, h: 1200 };
+
+  it('고정 172 + 벤치 149 이 코트 높이 안에 든다 (hit 44, 4열, 선수 8명)', () => {
+    const state: ChromeState = { narrow: true, landscape: true, inspector: 'hidden' };
+    const avail = alignBoxPx(VIEW, state, 44);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 44);
     const cols = trayColumnsAt(split.trayW, 44);
     // 5 → 4(재설계 ② 기둥 상시) → 3(2026-08-18 하단 철거 — 세로 +19 가 코트 폭으로 가며
@@ -317,7 +354,8 @@ describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
     expect(fixed).toBe(172);
     expect(bench).toBe(149);
     expect(fixed + bench).toBeLessThanOrEqual(split.courtH);
-    expect(split.courtH).toBe(475);
+    // 1200 − 125 = 1075.
+    expect(split.courtH).toBe(1075);
   });
 
   it('대조군: 2열(재설계 전 폭)이었다면 같은 화면에서 넘친다 — 그래서 스크롤이 있었다', () => {
@@ -327,8 +365,8 @@ describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
   it('★ 큰 터치 타깃(hit 56)에서도 스크롤이 없다 — 넘치던 17px 이 사라졌다', () => {
     // 2026-08-14 두 번째 지시(편집 이력을 트레이에)로 이 조합에서 17px 이 넘쳤었다. 세 번째
     // 지시가 그것을 원인째 없앴다 — 줌·이력이 기능 바로 떠나고 칩이 정사각이 됐다.
-    const state: ChromeState = { narrow: true, inspector: 'hidden' };
-    const avail = alignBoxPx({ w: 1024, h: 600 }, state, 56);
+    const state: ChromeState = { narrow: true, landscape: true, inspector: 'hidden' };
+    const avail = alignBoxPx(VIEW, state, 56);
     const split = boardSplitPx(avail, courtCellAspectRatio('full', undefined, 0), 56);
     const cols = trayColumnsAt(split.trayW, 56);
     expect(cols).toBe(3);
@@ -341,7 +379,10 @@ describe('완료 판정 — 1024×600 에서 스크롤이 사라진다', () => {
     const narrowState: ChromeState = { narrow: true, inspector: 'hidden' };
     const wideState: ChromeState = { narrow: false, inspector: 'hidden' };
     const d = alignBoxPx({ w: 1200, h: 800 }, wideState, 44).w - alignBoxPx({ w: 1200, h: 800 }, narrowState, 44).w;
-    expect(d).toBe(-84 - (COURT_PAD_PX.wide.x - COURT_PAD_PX.narrow.x) * 2);
+    // ⚠️ 2026-09-18 (결정 4) — 옛 식에는 레일 84 가 들어 있었다(좁으면 레일이 없었으므로).
+    //    이제 레일 유무는 **방향**이 정하고 두 상태 다 가로라, 남는 차이는 코트 패딩뿐이다.
+    //    이 식이 다시 −108 이 되면 레일이 폭 판정으로 되돌아간 것이다.
+    expect(d).toBe(-(COURT_PAD_PX.wide.x - COURT_PAD_PX.narrow.x) * 2);
   });
 });
 

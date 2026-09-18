@@ -48,3 +48,24 @@ export function nativeShell(): NativeShell | null {
   if (isCapacitorNative()) return 'android';
   return null;
 }
+
+/** CSS px 한 개가 1인치에 몇 개 들어가는가 — 「UI 크기: 자동」의 유일한 입력
+ *  (PLAN-UI-SCALE 결정 3). 순수 산술은 `core/uiScale.ts` 가 하고, **감지는 여기 하나다.**
+ *
+ *  웹은 실제 ppi 를 알려주지 않으므로 플랫폼 규약을 쓴다:
+ *  · 안드로이드 — 1 CSS px = 1 dp, dp 의 정의가 **1/160 in**. 밀도가 얼마든 이 관계는 같다.
+ *    그래서 «dpi 가 낮아져도» 자동의 답이 흔들리지 않는다(기현님 지시문의 그 걱정이 여기서 풀린다).
+ *  · 그 밖(데스크톱·웹) — CSS 규격의 기준 해상도 **1/96 in**.
+ *
+ *  UA 를 보는 이유: 안드로이드 **브라우저**로 연 웹 배포본도 dp 를 쓰므로 160 이 맞다. 네이티브
+ *  판정만으로는 그 경우를 96 으로 잘못 본다. UA 스니핑을 꺼리는 것이 관례지만, 여기서 묻는 것이
+ *  «어느 OS 가 CSS px 의 물리 크기를 정하는가» 라는 **바로 그 질문**이라 대체 수단이 없다
+ *  (`devicePixelRatio` 는 배율만 알려줄 뿐 물리 크기를 모른다).
+ *
+ *  ⚠️ 근사다. dp 는 실측 ppi 가 아니라 버킷이고, 데스크톱의 96 은 OS 배율에 따라 흔들린다.
+ *  그래서 자동이 고른 값을 설정 화면에 **보여 준다** — 숨은 자동은 재현할 수 없는 자동이다. */
+export function cssPxPerInch(): number {
+  if (isCapacitorNative()) return 160;
+  if (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) return 160;
+  return 96;
+}

@@ -38,7 +38,7 @@ export function ImportDialog({ open, drills, onCancel, onConfirm }: ImportDialog
   return (
     <Modal open={open} onClose={onCancel} titleId={titleId} title={t('importDialog.title')} closeLabel={t('common.close')}>
       <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: 12 }}>{t('importDialog.description')}</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '50vh', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 'calc(50 * var(--vh, 1vh))', overflowY: 'auto' }}>
         {conflicting.map(({ c, i }) => (
           <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
             <div style={{ fontSize: '0.8125rem', fontWeight: 700 }}>{c.doc.title}</div>

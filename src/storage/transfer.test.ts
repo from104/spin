@@ -332,7 +332,7 @@ describe('backup 봉투 — 라운드트립', () => {
     const drill = await idbDrillRepo.createDrill({ courtMode: 'full', title: '이사 드릴' });
     const session = await createSession({ title: '이사 세션', location: '체육관 B' });
     await addDrillToSession(session.id, drill.id);
-    savePrefs({ ...makeDefaultPrefs(), theme: 'light', a11y: { ...makeDefaultPrefs().a11y, uiScale: 1.3, largeTargets: true }, tray: { draw: true, note: false } });
+    savePrefs({ ...makeDefaultPrefs(), theme: 'light', a11y: { ...makeDefaultPrefs().a11y, uiScale: 1.5, largeTargets: true }, tray: { draw: true, note: false } });
     const boardDrill = createDrill({ courtMode: 'full', title: '이사 전술판' });
     saveBoard(boardDrill);
 
@@ -365,7 +365,7 @@ describe('backup 봉투 — 라운드트립', () => {
     expect(report.prefs).toBe('restored');
     const prefs = loadPrefs();
     expect(prefs.theme).toBe('light');
-    expect(prefs.a11y.uiScale).toBe(1.3);
+    expect(prefs.a11y.uiScale).toBe(1.5);
     expect(prefs.a11y.largeTargets).toBe(true);
     expect(prefs.tray.draw).toBe(true); // validate.ts 화이트리스트가 신형 필드를 통과시킨다
 
@@ -523,7 +523,7 @@ describe('backup 봉투 — prefs 복원 정책', () => {
 
   it("prefs:'replace' 면 복원하고, spin.prefs 의 theme 은 **최상위 문자열**로 남는다", async () => {
     savePrefs({ ...makeDefaultPrefs(), theme: 'dark' });
-    const filePrefs = { ...makeDefaultPrefs(), theme: 'light' as const, a11y: { ...makeDefaultPrefs().a11y, uiScale: 1.15 as const } };
+    const filePrefs = { ...makeDefaultPrefs(), theme: 'light' as const, a11y: { ...makeDefaultPrefs().a11y, uiScale: 1.25 as const } };
     const file = parseSpinFile(backupEnvelope({ drills: [], sessions: [], prefs: filePrefs, board: null }));
 
     const report = await restoreBackup(file, { prefs: 'replace' });
@@ -536,7 +536,10 @@ describe('backup 봉투 — prefs 복원 정책', () => {
     expect(rawJson.theme).toBe('light');
     // 대조군 — 중첩되지 않았다는 부재 단언. theme 이 a11y 나 다른 가지 밑으로 들어가면 깜빡인다.
     expect((rawJson.a11y as Record<string, unknown>).theme).toBeUndefined();
-    expect(loadPrefs().a11y.uiScale).toBe(1.15);
+    // 파일 쪽 값으로 **덮였는가** — 로컬은 기본값('auto')이었다. 눈금이 8단이 된 뒤의 값을 쓴다
+    // (옛 1.15 는 이제 유효한 설정값이 아니라 validatePrefs 가 'auto' 로 되돌려, 이 단언이
+    //  '덮었다' 가 아니라 '되돌렸다' 를 보게 된다 — 그러면 테스트가 자기 이름을 못 지킨다).
+    expect(loadPrefs().a11y.uiScale).toBe(1.25);
     localStorage.removeItem(PREFS_KEY);
   });
 

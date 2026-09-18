@@ -53,6 +53,14 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
   return (
     <nav
       aria-label={t('app.nav.mainMenu')}
+      // ⚠️ 2026-09-18 기현 지시(PLAN-UI-SCALE 결정 5) — *"레일이 넘치면 스크롤 되게"*.
+      //    촉발 조건은 **배율**이다: 가로 화면이면 폭이 얼마든 레일이 서는데(결정 4), 200% 에서는
+      //    레이아웃 높이가 절반이라 6칸 + 하단 묶음이 들어가지 않는다. 지금까지는 넘침 대비가
+      //    없어 그대로 잘렸다 — [설정]에 손이 닿지 않는다는 뜻이고, 그건 AppNavSegment 가
+      //    2026-09-09 에 가로 넘침으로 이미 겪은 바로 그 결함이다(그 파일 머리말).
+      //    스크롤바 숨김은 그때 만든 `.spin-nav-seg` 를 **그대로 재사용**한다(두 벌 두지 않는다).
+      //    `minHeight: 0` 이 없으면 flex 자식이 내용 높이만큼 부풀어 overflow 가 발화하지 않는다.
+      className="spin-nav-seg"
       style={{
         flex: 'none',
         width: 84,
@@ -63,6 +71,9 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
         alignItems: 'center',
         padding: '1rem 0 0.875rem',
         gap: '0.3125rem',
+        minHeight: 0,
+        overflowY: 'auto',
+        scrollbarWidth: 'none',
       }}
     >
       {/* 2026-08-14 기현님이 주신 앱 아이콘 — 옛 자리는 액센트색 타일에 'SP' 두 글자였다.

@@ -17,6 +17,7 @@ import type { RestartCells } from './restartTable.ts';
 import { RuleSceneBlock } from './RuleSceneBlock.tsx';
 import type { RuleSceneId } from './ruleScenes.ts';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
+import { useUiScale } from '../../app/useUiScale.ts';
 import { IconCheck } from '../../ui/icons.tsx';
 import { useT } from '../../i18n/useT.ts';
 
@@ -57,7 +58,7 @@ function cellText(col: RestartColumn, key: keyof RestartCells) {
 }
 
 export function RestartTableBlock({ activeSceneId, onActivateScene }: RestartTableBlockProps) {
-  const narrow = useIsNarrow();
+  const narrow = useIsNarrow(useUiScale());
   const locale = useLocale();
   const t = useT();
   const columns = restartColumnsFor(locale);

@@ -41,7 +41,7 @@
 //     오버레이가 `onExited` 로 알려 준다 — 아래 coverSettled 주석.
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SkipLink } from '../ui/SkipLink.tsx';
-import { useIsNarrow } from '../ui/useIsNarrow.ts';
+import { useIsPortrait } from '../ui/useIsPortrait.ts';
 import { LiveRegion, liveRegion } from '../ui/LiveRegion.tsx';
 import { ToastHost } from '../ui/ToastHost.tsx';
 import { IconPlus, IconArrowLeft } from '../ui/icons.tsx';
@@ -390,11 +390,19 @@ export function AppShell() {
   const locale = useLocale();
   const t = useT();
 
-  // 3.-2 §5.2 — 좁으면 84px 레일을 걷고 같은 3항목을 헤더 좌측 세그먼트로 세운다. **판정은
-  // 여기 한 번뿐이다**: 레일과 세그먼트가 같은 boolean 을 나눠 써야 "둘 다 서 있다/둘 다
-  // 없다" 는 프레임이 열리지 않는다. 판 위에 오버레이로 얹지 않는 이유는 AppNavSegment.tsx
-  // 머리말(edgePanBandPx=56 충돌)에 있다.
-  const narrow = useIsNarrow();
+  // 3.-2 §5.2 — 레일을 세울지 헤더 좌측 세그먼트로 접을지. **판정은 여기 한 번뿐이다**: 레일과
+  // 세그먼트가 같은 boolean 을 나눠 써야 "둘 다 서 있다/둘 다 없다" 는 프레임이 열리지 않는다.
+  // 판 위에 오버레이로 얹지 않는 이유는 AppNavSegment.tsx 머리말(edgePanBandPx=56 충돌)에 있다.
+  //
+  // ⚠️ 2026-09-18 기현 지시(PLAN-UI-SCALE 결정 4) — 판정이 **폭에서 방향으로** 바뀌었다.
+  //    *"가로화면은 무조건 레일이 왼쪽, 세로는 기존대로 위(아이콘만)으로 고정"*.
+  //    폭(`useIsNarrow`)은 «가로인가 세로인가» 의 **대리 변수**였고, UI 배율이 생기면서 그
+  //    대리가 거짓말을 하기 시작했다: 배율 200% 나 낮은 dpi 에서 CSS 폭이 1100 아래로 떨어지면
+  //    **가로 화면인데 레일이 헤더로 접혔다.** 가로에서는 세로 공간이 귀하고 가로 공간이 남으니
+  //    레일이 옳고, 세로에서는 반대다 — 그 사실은 폭이 아니라 방향이 말해 준다.
+  //    `useIsNarrow` 는 **지우지 않는다**: 인스펙터 핀·팀 상세 2열 등 «폭이 넉넉한가» 를 묻는
+  //    다른 계약이 계속 쓴다. 한 boolean 에 두 뜻을 담지 않는 것이 규율이다(useIsNarrow 머리말).
+  const portrait = useIsPortrait();
 
   /** 라이브 리전 발표문이 쓸 제목 조회. 목록 요약·세션은 앱 최상단에서 이미 한 번 읽혀 있으므로
    *  (LibraryProvider) 여기서 저장소를 새로 열지 않는다 — 발표가 비동기가 되면 화면이 바뀐
@@ -684,7 +692,7 @@ export function AppShell() {
               <TutorialGateProvider ready={coverSettled && noticeDecided && !noticeOpen && welcomeDecided && !welcomeOpen}>
                 <SkipLink label={t('a11y.skipToContent')} />
                 <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
-                  {!narrow && <AppRail active={activeRail} />}
+                  {!portrait && <AppRail active={activeRail} />}
                   {/* ⚠️ 결정 2·3 — 로더가 덮는 것은 **이 열**(헤더 + 본문)이고 레일은 덮지 않는다.
                       새 래퍼를 끼우는 대신 이 노드에 position:'relative' 만 더한다(파일 머리말의
                       두 ⚠️ 항목이 이유이고, 코트 축척 여유는 1px 이다).
@@ -698,7 +706,7 @@ export function AppShell() {
                     aria-busy={loader.visible || undefined}
                     inert={loader.visible || undefined}
                   >
-                    {showHeader && <AppHeader config={staticHeaderConfig} narrow={narrow} activeRail={activeRail} />}
+                    {showHeader && <AppHeader config={staticHeaderConfig} navInHeader={portrait} activeRail={activeRail} />}
                     {renderScreen(nav.screen, stageTarget, homeNav, sessionEditId, teamDetailId, ruleTopic, legalDoc, shareLanding)}
                     {/* 조건부로 감싸지 않는다(`{visible && <…/>}` 금지) — 이 컴포넌트가 퇴장
                         transition 을 스스로 지고 끝난 뒤에야 null 이 된다(결정 16). 한 번도

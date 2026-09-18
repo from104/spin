@@ -94,6 +94,8 @@ export function AppNavSegment({ active }: { active?: RailKey } = {}) {
               key={key}
               type="button"
               aria-current={active ? 'page' : undefined}
+              aria-label={SCREEN_NAV_LABELS[locale][key]}
+              title={SCREEN_NAV_LABELS[locale][key]}
               onClick={() => go(key, RAIL_NAV_TARGETS[key])}
               style={{
                 display: 'inline-flex',
@@ -117,7 +119,13 @@ export function AppNavSegment({ active }: { active?: RailKey } = {}) {
               <span style={{ display: 'flex', color: active ? 'var(--accent)' : 'currentColor' }}>
                 <Icon size={17} />
               </span>
-              {SCREEN_NAV_LABELS[locale][key]}
+              {/* ⚠️ 2026-09-18 기현 지시(PLAN-UI-SCALE 결정 4) — *"세로는 기존대로 위(아이콘만)"*.
+                  글자를 지우는 것이지 이름을 지우는 것이 아니다: 이름은 `aria-label`·`title` 로
+                  남아 스크린 리더와 길게 누름에 그대로 읽힌다. 이 세그먼트가 서는 자리는 이제
+                  **세로 화면의 헤더 한 줄**뿐이고(가로는 왼쪽 레일이 라벨째 진다), 세로에서는
+                  가로 폭이 귀해 6칸이 라벨을 달면 곧바로 넘쳐 스크롤이 된다 — 스크롤로 닿을 수
+                  있어도 「보이는 것이 전부」 인 편이 낫다. */}
+              <span className="sr-only">{SCREEN_NAV_LABELS[locale][key]}</span>
             </button>
           );
         })}

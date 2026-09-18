@@ -56,7 +56,9 @@ export const en: Record<DictKey, string> = {
   'settings.screen.ruleZonesTitle': 'Show goal-area guide',
   'settings.screen.ruleZonesDesc': 'Highlight the max-2-players rule zone on the court',
   'settings.screen.uiScaleTitle': 'UI scale',
-  'settings.screen.uiScaleDesc': 'Make screen elements bigger on gym tablets and the like',
+  'settings.screen.uiScaleDesc': 'Scale the whole screen — the smaller it is, the bigger the board',
+  'settings.screen.uiScaleAuto': 'Auto',
+  'settings.screen.uiScaleAutoNow': 'Auto currently picks {{percent}}% — the smallest scale that keeps buttons big enough to tap on this device',
 
   'settings.playback.title': 'Playback',
   'settings.playback.speedTitle': 'Step transition speed',
@@ -77,7 +79,7 @@ export const en: Record<DictKey, string> = {
 
   'settings.a11y.title': 'Accessibility',
   'settings.a11y.largeTargetsTitle': 'Large touch targets',
-  'settings.a11y.largeTargetsDesc': 'Buttons, tray chips, and the on-court grab radius grow from {{small}} → {{large}}px (text size is handled by UI scale)',
+  'settings.a11y.largeTargetsDesc': 'Buttons, tray chips, and the on-court grab radius grow from {{small}} → {{large}}px (overall screen size is handled by UI scale)',
   'settings.a11y.twoZoneTitle': 'Two-zone mode',
   'settings.a11y.twoZoneDesc': 'Grabbing anywhere on the chair moves it as a whole. Spinning in place and towing only happen through guides outside the chair.',
   'settings.a11y.soundTitle': 'Drop sound & vibration',

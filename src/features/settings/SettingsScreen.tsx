@@ -26,6 +26,9 @@ import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
 import { SyncSection } from './SyncSection.tsx';
 import { Segmented } from '../../ui/Segmented.tsx';
+import { UI_SCALE_STEPS, autoUiScale } from '../../core/uiScale.ts';
+import type { UiScaleStep } from '../../core/uiScale.ts';
+import { cssPxPerInch } from '../../platform/shell.ts';
 import { Toggle } from '../../ui/Toggle.tsx';
 import { Button } from '../../ui/Button.tsx';
 import { backupReportLine, restoreBackupFromFile } from './dataExport.ts';
@@ -44,6 +47,9 @@ import { usePublishHelpShow } from '../../ui/help/HelpTriggerProvider.tsx';
 
 export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: LegalDoc }) {
   const { prefs, physics, persistFailed, setPrefs } = useSettings();
+  // 「자동」이 이 기기에서 무엇을 고르는지 — 부제에 그대로 보여 준다(PLAN-UI-SCALE 결정 3).
+  // 기기 감지는 렌더마다 같은 답을 내는 동기 함수라 메모이제이션이 필요 없다.
+  const autoScale = autoUiScale(cssPxPerInch());
   const { refresh } = useLibrary();
   const toast = useToast();
   const t = useT();
@@ -188,15 +194,23 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
           <Row title={t('settings.screen.ruleZonesTitle')} desc={t('settings.screen.ruleZonesDesc')}>
             <Toggle checked={prefs.showRuleZones} onChange={(v) => setPrefs({ showRuleZones: v })} ariaLabel={t('settings.screen.ruleZonesTitle')} />
           </Row>
-          <Row title={t('settings.screen.uiScaleTitle')} desc={t('settings.screen.uiScaleDesc')} borderBottom={false}>
+          {/* PLAN-UI-SCALE 결정 2·3 — 8단 + 자동.
+              ⚠️ 자동이 고른 값을 **부제에 그대로 보여 준다.** 이 계산은 기기마다 다른 답을 내는데
+                 (dp 는 실측 ppi 가 아니라 버킷이고 데스크톱의 96 은 OS 배율에 흔들린다), 숨겨 두면
+                 «왜 이 태블릿만 이렇게 보이나» 를 아무도 재현하지 못한다. 보이면 틀렸을 때 사람이
+                 곧바로 고정값으로 덮을 수 있다. */}
+          <Row
+            title={t('settings.screen.uiScaleTitle')}
+            desc={`${t('settings.screen.uiScaleDesc')}\n${t('settings.screen.uiScaleAutoNow', { percent: Math.round(autoScale * 100) })}`}
+            borderBottom={false}
+          >
             <Segmented
               ariaLabel={t('settings.screen.uiScaleTitle')}
-              value={String(prefs.a11y.uiScale) as '1' | '1.15' | '1.3'}
-              onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, uiScale: Number(v) as 1 | 1.15 | 1.3 } })}
+              value={String(prefs.a11y.uiScale)}
+              onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, uiScale: v === 'auto' ? 'auto' : (Number(v) as UiScaleStep) } })}
               options={[
-                { value: '1', label: '100%' },
-                { value: '1.15', label: '115%' },
-                { value: '1.3', label: '130%' },
+                { value: 'auto', label: t('settings.screen.uiScaleAuto') },
+                ...UI_SCALE_STEPS.map((s) => ({ value: String(s), label: `${Math.round(s * 100)}%` })),
               ]}
             />
           </Row>

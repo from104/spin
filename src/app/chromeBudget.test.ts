@@ -41,7 +41,10 @@ const sumNow = (axis: ChromeAxis): number =>
 const NOW: Size = { w: CHROME_WIDTH_NOW_PX, h: CHROME_HEIGHT_NOW_PX };
 const nowBox = (viewport: Size): Size => ({ w: viewport.w - NOW.w, h: viewport.h - NOW.h });
 
-const narrowState: ChromeState = { narrow: true, inspector: 'hidden' };
+// ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 4) — `narrow` 만으로는 이제 레일 유무가 안 정해진다.
+// 좁은 **가로** 창은 레일이 남고(84), 좁은 **세로** 창만 레일이 없다. 그래서 상태를 둘로 가른다.
+const narrowState: ChromeState = { narrow: true, landscape: true, inspector: 'hidden' };
+const narrowPortrait: ChromeState = { narrow: true, landscape: false, inspector: 'hidden' };
 const pcOverlay: ChromeState = { narrow: false, inspector: 'overlay' };
 const pcPinned: ChromeState = { narrow: false, inspector: 'pinned' };
 
@@ -50,7 +53,10 @@ describe('예산 합계 — 못박은 값', () => {
     expect(sumNow('width')).toBe(CHROME_WIDTH_NOW_PX);
     expect(CHROME_WIDTH_NOW_PX).toBe(523);
     expect(chromeWidthPx(narrowState)).toBe(CHROME_WIDTH_NARROW_PX);
-    expect(CHROME_WIDTH_NARROW_PX).toBe(173);
+    // 173 → **257**(2026-09-18): 좁아도 가로면 레일 84 가 남는다. 손 검산 — 173 + 84 = 257.
+    expect(CHROME_WIDTH_NARROW_PX).toBe(257);
+    // 대조군 — 좁은 **세로** 창은 레일이 없어 옛 값 그대로다. 두 값이 같아지면 방향 분기가 죽은 것이다.
+    expect(chromeWidthPx(narrowPortrait)).toBe(CHROME_WIDTH_NARROW_PX - 84);
   });
 
   it('세로 합계는 196 → 125 이다', () => {
@@ -133,7 +139,10 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
     // w 807 → **851**(2026-08-20 [저장] 칸·구분선이 드릴 편집에서 빠지며 기능 바가 599px →
     // 544px 요구로 줄어, 552px 가용 높이에서 2열 → 1열이 됐다 — 44px 를 코트가 돌려받는다).
     // 세로가 병목이라(h 는 그대로) 축척·변화율·1m 열은 **전혀 안 바뀐다** — 실측으로 확인함.
-    expect(after).toEqual({ w: 851, h: 475 });
+    // w 851 → **767**(2026-09-18 결정 4: 좁은 가로 창도 레일 84 를 진다. 851 − 84 = 767).
+    // 이 화면은 **여전히 세로가 제약**이라(767/825 = 0.9297 > 475/525 = 0.9048) 축척은 그대로다 —
+    // 레일이 돌아왔는데도 코트가 안 작아지는 이유이고, 아래 0.9048 이 그 증거다.
+    expect(after).toEqual({ w: 767, h: 475 });
     expect(px(before)).toBeCloseTo(0.6073, 4);
     expect(px(after)).toBeCloseTo(0.9048, 4);
     expect((px(after) / px(before) - 1) * 100).toBeCloseTo(49.0, 1);
@@ -148,14 +157,21 @@ describe('§5.3 실측표를 계산으로 재현한다 — 풀 코트', () => {
     // h 371(2026-08-18 하단 철거로 균형점에 섰던 값) → **355**(2026-08-20 노트 행 45 → 61).
     // w 583 → **627**(2026-08-27): 기능 바 칸이 12 → 9 가 되며 2열이 1열로 접혔다. 800×480 도
     // 좁은 창이라 바에 남는 높이가 12칸을 못 담았던 것이고, 셋이 모달로 들어가며 담기게 됐다.
-    expect(after).toEqual({ w: 627, h: 355 });
+    // w 627 → **543**(2026-09-18 결정 4: 627 − 84 = 543).
+    expect(after).toEqual({ w: 543, h: 355 });
     expect(px(before)).toBeCloseTo(0.3358, 4);
-    expect(px(after)).toBeCloseTo(0.6762, 4);
-    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(101.4, 1);
+    // ⚠️ **이 화면은 실제로 작아진다.** 543/825 = 0.6582 가 355/525 = 0.6762 보다 작아지면서
+    // 제약이 세로에서 **폭으로 넘어갔다** — 1024×600 과 달리 폭 여유가 없었기 때문이다.
+    // 0.6762 → 0.6582(−2.7%), 재편 대비 이득도 +101.4% → +96.0%. 지시로 치른 대가이고,
+    // 같은 날 들어온 UI 배율이 그 대가를 갚는 수단이다(50% 면 크롬이 물리적으로 절반이 된다).
+    expect(px(after)).toBeCloseTo(0.6582, 4);
+    expect((px(after) / px(before) - 1) * 100).toBeCloseTo(96.0, 1);
     // ⚠️ 2026-08-20 — 노트 행이 다시 자라며(45→61) **균형점이 깨졌다.** 2026-08-18 은 이
     // 기기를 폭·세로 양쪽이 동시에 제약인 유리수 균형(583·525 = 371·825)에 세웠는데, 세로
     // 크롬이 다시 16 늘면서 세로가 홀로 제약으로 돌아갔다(355/525 = 0.6762 < 583/825 = 0.7067).
-    expect(after.h / 525).toBeLessThan(after.w / 825);
+    // 부등호가 **뒤집혔다**(2026-09-18): 레일 84 가 돌아오며 폭이 제약이 됐다. 위 0.6582 와
+    // 같은 사실의 다른 표현이고, 둘 중 하나만 고치면 표가 자기모순에 빠진다.
+    expect(after.w / 825).toBeLessThan(after.h / 525);
   });
 
   // [2.10 정정] 계획서 §5.3 의 PC 두 행은 하단 바가 넓은 창에서 94 로 남는다는 전제로
@@ -237,7 +253,9 @@ describe('§5.3 half/flat 행 [A-13]', () => {
   it('세로로 긴 창에서는 코트가 돌고, 축척도 돌린 값으로 잰다', () => {
     // iPad 세로 834×1194. 여기서 rotForFit 이 개입하지 않으면 예산표가 화면과 다른 숫자를
     // 말하게 된다 — 판이 돌면 상자에 맞는 변이 바뀌기 때문이다.
-    const box = courtBoxPx({ w: 834, h: 1194 }, narrowState);
+    // 834×1194 는 **세로** 창이다 — 2026-09-18 부터 세로에는 레일이 없으므로(결정 4) 이 행의
+    // 숫자는 한 자리도 안 바뀐다. 상태만 명시로 바꾼다.
+    const box = courtBoxPx({ w: 834, h: 1194 }, narrowPortrait);
     // h 1085 → **1069**(2026-08-20 노트 행 +16). 이 케이스는 여전히 **폭**이 제약이라
     // (rot 90 에서 661/525 < 1069/825) 축척(pxPerUnit)은 그대로다.
     expect(box).toEqual({ w: 661, h: 1069 });
@@ -257,7 +275,7 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     const explicit = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_NONE });
     expect(explicit).toEqual(bare);
     // 807 → 851(2026-08-20, 위 §5.3 1024×600 케이스와 같은 이유).
-    expect(explicit).toEqual({ w: 851, h: 475 });
+    expect(explicit).toEqual({ w: 767, h: 475 });
   });
 
   it('아이패드 홈 인디케이터 20px 이 세로 예산에서 더 빠진다 — 0.9048 이 아니라 0.8667', () => {
@@ -267,7 +285,7 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     const box = courtBoxPx({ w: 1024, h: 600 }, { ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR });
     // 807 → 851(2026-08-20 §0.5 Phase 5, 위 §5.3 1024×600 케이스와 같은 이유 — [도움말] 칸이
     // 기능 바에서 빠져 1열 요구가 줄었다).
-    expect(box).toEqual({ w: 851, h: 455 });
+    expect(box).toEqual({ w: 767, h: 455 });
     expect(chromeHeightPx({ ...narrowState, safeArea: SAFE_AREA_HOME_INDICATOR })).toBe(CHROME_HEIGHT_NARROW_PX + 20);
     expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8667, 4);
   });
@@ -277,11 +295,16 @@ describe('safe-area 를 예산에 포함한다 [A-12]', () => {
     expect(chromeWidthPx(state)).toBe(CHROME_WIDTH_NARROW_PX + 88);
     const box = courtBoxPx({ w: 1024, h: 600 }, state);
     // 719 → 763(2026-08-20 §0.5 Phase 5, 위와 같은 이유).
-    expect(box).toEqual({ w: 763, h: 454 });
+    expect(box).toEqual({ w: 679, h: 454 });
     // 2026-08-18 하단 철거 뒤에는 이 상자가 **폭 제약**으로 넘어갔었다(719/825 < 470/525).
-    // 2026-08-20 재생 묶음 공용화로 세로가 다시 줄며(470→454) **도로 세로 제약**이 된다
+    // 2026-08-20 재생 묶음 공용화로 세로가 다시 줄며(470→454) **도로 세로 제약**이 됐었다
     // (454/525 < 719/825) — 노치의 폭 88 은 더 이상 유일한 대가가 아니다.
-    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.8648, 4);
+    //
+    // ⚠️ 2026-09-18 (결정 4) — **다시 폭 제약으로 넘어갔다.** 레일 84 가 돌아오며 폭이 763 → 679 가
+    // 되어 679/825 = 0.8230 이 454/525 = 0.8648 아래로 내려갔다. 노치(88) + 레일(84) = 172 를
+    // 폭에서 잃은 화면이라, 세 대가가 겹치는 이 조합이 예산표에서 가장 좁은 코트다.
+    expect(box.w / 825).toBeLessThan(box.h / 525);
+    expect(courtScale('full', box).pxPerUnit).toBeCloseTo(0.823, 4);
   });
 
   it('창보다 크롬이 크면 상자는 0 이다 — 음수 상자로 축척을 계산하지 않는다', () => {

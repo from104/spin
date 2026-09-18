@@ -57,12 +57,18 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
     label: '앱 레일',
     now: 84,
     wide: 84,
-    // 좁으면 통째로 없앤다. **판 위에 오버레이로 얹지 않는다** — 그러면 좌측 오버레이가
+    // 레일이 없을 때는 통째로 0 이다. **판 위에 오버레이로 얹지 않는다** — 그러면 좌측 오버레이가
     // `edgePanBandPx=56` 띠와 겹쳐 가장자리 자동 밀기가 레일에 먹힌다(§5.2 [치명] 2번을
     // 원인째 제거). 갈 곳은 헤더 좌측 3칸 세그먼트다.
+    //
+    // ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 4·9) — **이 0 을 부르는 조건이 바뀌었다.** 옛 조건은
+    // `narrow`(폭 < 1100)였고 그래서 행 이름도 narrow 다. 지금 레일을 걷는 것은 **세로 화면**뿐이다
+    // (아래 chromeRowPx 의 appRail 분기). 행 이름을 안 바꾸는 이유: 이 표의 wide/narrow 는 «넓은
+    // 쪽 값 / 좁은 쪽 값» 이라는 **자리**의 이름이지 판정식의 이름이 아니다 — 다른 행 열두 개가
+    // 같은 자리를 쓰고 있고, 이 행 하나 때문에 열두 개를 개명하면 표가 읽히지 않는다.
     narrow: 0,
-    // AppShell 이 `useIsNarrow()` 로 갈라 좁으면 <AppRail> 을 아예 렌더하지 않는다 — 이 0 은
-    // 이제 예고가 아니라 실측이다(AppShell.wiring.test.tsx 가 DOM 의 레일 폭을 이 행과 대조한다).
+    // AppShell 이 갈라 <AppRail> 을 아예 렌더하지 않는다 — 이 0 은 예고가 아니라 실측이다
+    // (AppShell.wiring.test.tsx 가 DOM 의 레일 폭을 이 행과 대조한다).
     owner: '3.-2 (완료) — 레일을 헤더 좌측 3칸 세그먼트(AppNavSegment)로 접는다',
   },
   {
@@ -242,8 +248,16 @@ export const CHROME_ROWS: readonly ChromeRow[] = [
  *  따라 움직여 예산이 예산 노릇을 못 한다. 테스트가 "행 합 === 이 상수" 를 매번 대조한다. */
 /** ⚠️ 2026-08-15 (재설계 ②) — **117 → 173.** 오른쪽 기능 바(56)가 드릴 편집에도 서면서
  *  폭 크롬에 상시로 더해졌다. 작은 화면(1024×600·800×480)의 코트는 **한 눈금도 안 작아진다** —
- *  거기서는 세로가 제약이라 폭에 여유가 있었기 때문이다(§5.3 표의 그 두 행이 그대로인 이유). */
-export const CHROME_WIDTH_NARROW_PX = 173;
+ *  거기서는 세로가 제약이라 폭에 여유가 있었기 때문이다(§5.3 표의 그 두 행이 그대로인 이유).
+ *
+ *  ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 4) — **173 → 257.** 좁아도 **가로면 레일(84)이 남는다.**
+ *  이 상수의 이름은 그대로 두지만 뜻이 «좁은 창» 에서 «좁은 **가로** 창» 으로 좁아졌다 — 좁은
+ *  세로 창은 레일이 없어 173 이고, 그 경우는 `chromeWidthPx({ landscape: false, … })` 가 답한다.
+ *  이번에는 §5.3 의 두 작은 화면이 **실제로 작아진다**: 800×480 은 폭이 제약으로 넘어가며
+ *  축척이 0.6762 → 0.6582 로 떨어진다(1024×600 은 여전히 세로가 제약이라 그대로). 대가를 알고
+ *  치른 것이고, 그 대가를 갚으라고 같은 날 UI 배율이 들어왔다 — 50% 로 내리면 크롬이 물리적으로
+ *  절반이 된다. */
+export const CHROME_WIDTH_NARROW_PX = 257;
 /** ⚠️ 2026-08-18 (하단 철거) — **128 → 109.** 하단 바 64 가 사라지고 노트 패널 접힘 줄 45 가
  *  들어왔다(−64 + 45 = −19). 좁은 화면의 코트가 세로로 19px 더 커진다.
  *
@@ -273,8 +287,17 @@ export const SAFE_AREA_HOME_INDICATOR: SafeAreaInsets = { top: 0, right: 0, bott
 export const SAFE_AREA_NOTCH_LANDSCAPE: SafeAreaInsets = { top: 0, right: 44, bottom: 21, left: 44 };
 
 export interface ChromeState {
-  /** `useIsNarrow()` — 창 폭 < 1100. */
+  /** `useIsNarrow()` — 창 폭 < 1100. **레일 유무는 더 이상 이 값이 정하지 않는다**(아래 landscape). */
   narrow: boolean;
+  /** 창이 가로인가 — `!useIsPortrait()`. 2026-09-18 지시(PLAN-UI-SCALE 결정 4)로 **레일 유무를
+   *  정하는 것이 폭에서 이 값으로 바뀌었다**: 가로면 왼쪽 레일, 세로면 헤더 상단 세그먼트다.
+   *
+   *  ⚠️ **분기 boolean 을 늘리는 것이 아니다**(§5.1 은 `useIsPortrait`·`useIsNarrow` 둘로 못박혀
+   *  있다) — 그 둘 중 하나를 **그대로** 실은 것이다. `trayBand` 가 유도값인 것과 같은 성격이다.
+   *
+   *  생략하면 가로로 본다(true). 옛 호출부·테스트가 이 필드를 모르기 때문인데, 그 기본값이
+   *  맞다: 이 앱의 주 대상은 눕힌 태블릿이고 예산표의 실측 행들도 전부 가로에서 잰 것이다. */
+  landscape?: boolean;
   /** 인스펙터가 지금 **가로 흐름에서** 폭을 먹는가(2.2 inspectorLayout). 오버레이·닫힘은 0 이다. */
   inspector: InspectorMode;
   /** 트레이가 판 **오른쪽 기둥**이 아니라 **아래 띠**인가.
@@ -336,6 +359,10 @@ export function chromeRowPx(row: ChromeRow, state: ChromeState): number {
   //   (컴팩트 = narrow 행의 값을 그대로 쓴다. `row.wide` 는 이제 이 분기에서 안 읽는다 —
   //   위 appHeader 행 주석 참고). 대가(코트 축소)는 계획서 "치러야 하는 대가" 절에 정직하게
   //   적혀 있다.
+  // PLAN-UI-SCALE 결정 9 — 레일은 **가로면 항상 서고 세로면 없다.** 폭은 더 이상 안 본다:
+  // 배율 200% 나 낮은 dpi 에서 CSS 폭이 1100 아래로 떨어져도 가로 화면이면 레일이 남는다
+  // (기현 지시 *"가로화면은 무조건 레일이 왼쪽"*). `landscape` 를 안 주면 가로로 본다.
+  if (row.id === 'appRail') return state.landscape === false ? row.narrow : row.wide;
   if (row.id === 'appHeader') return state.board && !state.narrow ? 0 : row.narrow;
   return here;
 }

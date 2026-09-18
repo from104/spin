@@ -9,6 +9,16 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Added
 
 - Android app (tablets and unfolded foldables) with Google Drive sync and share-sheet export
+- **UI size** — Auto, or eight steps from 50% to 200%. The smaller it is, the bigger the board.
+  Auto picks the smallest scale that keeps buttons big enough to tap on your device, and shows
+  you which one it picked
+
+### Changed
+
+- **In landscape the left menu bar is always there** — however narrow the window, however large
+  the UI size. Portrait always uses the icon row at the top. The menu scrolls if it overflows
+- The old "UI scale" (100/115/130%) only changed text size; the new UI size changes the **whole
+  screen**. 115% moves to 125%, and 130% moves to 150%
 
 ## [0.6.11] 2026-09-16
 

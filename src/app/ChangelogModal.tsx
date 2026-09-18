@@ -124,7 +124,7 @@ export function ChangelogModal({ open, onClose, returnFocusRef }: ChangelogModal
       // `display:flex; flexDirection:column` 을 얹어 패널을 세로 기둥으로 만든다 — Modal 이
       // 그리는 `<h2>` 제목 하나, 그리고 children(아래 nav-row + 스크롤 상자) 둘이 그 기둥의
       // flex item 이 된다. 닫기 ✕ 는 `position:absolute` 라 이 흐름과 무관하게 항상 고정이다.
-      panelStyle={{ height: '60vh', maxHeight: '60vh', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}
+      panelStyle={{ height: 'calc(60 * var(--vh, 1vh))', maxHeight: 'calc(60 * var(--vh, 1vh))', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}
     >
       {current ? (
         // `minHeight: 0` 이 없으면 flex item 은 내용만큼 늘어나려 해서 아래 스크롤 상자가

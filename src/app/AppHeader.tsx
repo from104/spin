@@ -282,18 +282,22 @@ const HEADER_STYLE: CSSProperties = {
  *  그 두 화면은 courtMode·저장 상태처럼 화면 전용 Provider 안의 값이 필요해서 useAppHeader 로
  *  스스로 선언해야 한다.
  *
- *  `narrow` (3.-2): 좁은 창이면 84px 레일 대신 **헤더 좌측 3칸 세그먼트**가 내비를 진다.
+ *  `navInHeader` (3.-2): 레일 대신 **헤더 좌측 3칸 세그먼트**가 내비를 지는가. 2026-09-18 까지
+ *  이름이 `narrow` 였고 뜻도 «창이 좁은가» 였는데, 지시(PLAN-UI-SCALE 결정 4)로 판정이 방향으로
+ *  바뀌며 **이름이 뜻을 배신하게 됐다** — 세로 화면이면 창이 넓어도 세그먼트가 선다. 여기서 이
+ *  boolean 이 하는 일 넷(대칭 해제·좌우 여백·세그먼트·우측 묶음)은 전부 «세그먼트가 서 있는가» 의
+ *  결과라, 새 이름이 그 넷 모두에 정확하다.
  *  이 boolean 을 헤더가 스스로 `useIsNarrow()` 로 구하지 않고 **AppShell 에게서 받는** 이유는,
  *  레일과 세그먼트가 같은 판정을 나눠 갖게 하기 위해서다 — 훅을 두 곳에서 부르면 두 state 가
  *  각자 갱신되는 프레임에 둘 다 서거나 둘 다 없는 순간이 열린다. */
 export function AppHeader({
   config: override,
-  narrow = false,
+  navInHeader = false,
   activeRail,
 }: {
   config?: HeaderConfig;
-  narrow?: boolean;
-  /** 좁은 창 세그먼트의 활성 항목. `narrow` 와 **같은 이유로** AppShell 에게서 받는다(위 주석) —
+  navInHeader?: boolean;
+  /** 세그먼트의 활성 항목. `navInHeader` 와 **같은 이유로** AppShell 에게서 받는다(위 주석) —
    *  레일과 세그먼트가 같은 판정을 나눠 갖지 않으면 창 폭에 따라 다른 항목에 불이 들어온다. */
   activeRail?: RailKey;
 }) {
@@ -308,7 +312,7 @@ export function AppHeader({
    *  먹어 세 칸을 같은 폭으로 세우면 제목이 50px 로 잘린다(1000px 실측 "What is powerchair…").
    *  거기서는 양옆 칸을 내용 폭으로 두고 제목이 남는 폭을 다 쓴다 — 제목을 읽는 것이 가운데 두는
    *  것보다 중요하다(compact 주석의 같은 원칙). */
-  const symmetric = absolute && !narrow;
+  const symmetric = absolute && !navInHeader;
   const leading = config.leading && (
     <button
       type="button"
@@ -338,9 +342,9 @@ export function AppHeader({
     // 죽은 코드라서가 아니라, 남겨 두면 "compact 만 48" 이라는 거짓을 다음 사람이 읽기 때문이다.
     // `compact` 는 이제 **좌우 여백(24 → 12)과 부제 숨김**만 맡는다. 그 여백 판정이 `narrow`
     // prop(레일↔세그먼트)과 독립인 것은 그대로다: 넓은 창에서도 compact 면 좌우를 좁히고,
-    // 그때 좌측 세그먼트는 안 선다(아래 `{narrow && …}` 그대로).
-    <header style={{ ...HEADER_STYLE, padding: headerPadCss(narrow || !!config.compact) }}>
-      {narrow && <AppNavSegment active={activeRail} />}
+    // 그때 좌측 세그먼트는 안 선다(아래 `{navInHeader && …}` 그대로).
+    <header style={{ ...HEADER_STYLE, padding: headerPadCss(navInHeader || !!config.compact) }}>
+      {navInHeader && <AppNavSegment active={activeRail} />}
       {/* align:'center' 면 왼쪽 칸은 오른쪽 액션 칸과 같은 flex(1 1 0)로 서서 제목을 한가운데 민다.
           leading 버튼이 없어도 칸은 선다 — 그래야 목록(버튼 없음)과 카드(버튼 있음)에서 제목 자리가
           같다. */}
@@ -487,7 +491,7 @@ export function AppHeader({
             창 폭에 따라 두 물건의 관계가 달라진다 — 접는 것이지 재배치가 아니어야 한다.
             코트 전환·검색·주 액션보다 뒤인 이유: 자주 쓰는 것일수록 앞이고 테마는 한 번
             정하면 끝, 버전은 표적도 아니다. */}
-        {narrow && <AppNavAside />}
+        {navInHeader && <AppNavAside />}
       </div>
     </header>
   );

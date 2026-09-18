@@ -60,7 +60,9 @@ export const ko = {
   'settings.screen.ruleZonesTitle': '골 지역 가이드 표시',
   'settings.screen.ruleZonesDesc': '최대 2인 규칙 영역을 코트에 강조',
   'settings.screen.uiScaleTitle': 'UI 배율',
-  'settings.screen.uiScaleDesc': '체육관 태블릿 등에서 화면 요소를 더 크게 봅니다',
+  'settings.screen.uiScaleDesc': '화면 전체를 키우거나 줄입니다 — 작게 할수록 판이 커집니다',
+  'settings.screen.uiScaleAuto': '자동',
+  'settings.screen.uiScaleAutoNow': '지금 자동이 고른 값: {{percent}}% (이 기기에서 버튼이 손끝에 충분한 가장 작은 배율)',
 
   'settings.playback.title': '재생',
   'settings.playback.speedTitle': '스텝 전환 속도',
@@ -85,7 +87,7 @@ export const ko = {
 
   'settings.a11y.title': '접근성',
   'settings.a11y.largeTargetsTitle': '큰 터치 타깃',
-  'settings.a11y.largeTargetsDesc': '버튼·트레이 칩·코트 위 집기 반경이 {{small}} → {{large}}px 로 커집니다(글자 크기는 UI 배율이 담당)',
+  'settings.a11y.largeTargetsDesc': '버튼·트레이 칩·코트 위 집기 반경이 {{small}} → {{large}}px 로 커집니다(화면 전체 크기는 UI 배율이 담당)',
   'settings.a11y.twoZoneTitle': '2존 모드',
   'settings.a11y.twoZoneDesc': '차체 아무 곳을 잡아도 통째로 움직입니다. 제자리 회전·견인은 차체 밖 앞뒤 가이드로만 합니다',
   'settings.a11y.soundTitle': '놓임 소리·진동',

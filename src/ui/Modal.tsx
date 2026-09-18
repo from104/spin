@@ -41,6 +41,17 @@ const FOCUSABLE_SELECTOR =
 
 /** §7.5f "Shift+? 도움말 오버레이 (role="dialog", 포커스 트랩, Esc)" 의 일반형.
  * `role="dialog" aria-modal="true"` + Tab 순환 트랩 + Esc 닫기 + 트리거로 포커스 복귀. */
+/** 모달이 그려지는 자리 — **배율 래퍼 안**이다(PLAN-UI-SCALE 결정 7).
+ *
+ *  `document.body` 였다면 `.spin-scale` **밖**이라 앱은 150% 인데 모달만 100% 로 뜬다. 배경
+ *  덮개가 `position: fixed; inset: 0` 인 것은 그대로 맞다 — 래퍼가 transform 을 걸고 있어 그
+ *  안의 fixed 는 래퍼 상자를 기준으로 잡히는데, 래퍼는 배율을 먹은 뒤 화면을 정확히 덮는다.
+ *
+ *  래퍼가 아직 없으면(테스트의 얕은 렌더 등) body 로 물러난다 — 모달이 안 뜨는 것보다 낫다. */
+function portalRoot(): HTMLElement {
+  return document.getElementById('spin-scale') ?? document.body;
+}
+
 export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel = '닫기', returnFocusRef, initialFocusRef, panelStyle: panelStyleOverride, children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openedByRef = useRef<HTMLElement | null>(null);
@@ -145,7 +156,7 @@ export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel
   };
   const panelStyle: CSSProperties = {
     width: 'min(560px, 100%)',
-    maxHeight: '85vh',
+    maxHeight: 'calc(85 * var(--vh, 1vh))',
     overflowY: 'auto',
     borderRadius: '1rem',
     border: '1px solid var(--border-strong)',
@@ -184,6 +195,6 @@ export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel
         {children}
       </div>
     </div>,
-    document.body,
+    portalRoot(),
   );
 }

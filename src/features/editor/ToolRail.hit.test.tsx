@@ -89,8 +89,15 @@ describe('트레이 DOM — 칩·폭이 --hit 파생 calc 로 걸려 있다', ()
 
 // ── ③ 축척 불변 — 완료 판정 "1024×600 에서 --hit 44↔56 전환에 pxPerUnit 변화 0" ──
 
-describe('1024×600 — --hit 전환이 코트 축척을 건드리지 않는다', () => {
-  const narrowState: ChromeState = { narrow: true, inspector: 'hidden' };
+// ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 4) — **뷰포트가 1024×600 에서 1365×800 으로 올라갔다.**
+// 가로면 레일(84)이 항상 서게 되면서 1024×600 @100% 는 트레이가 하한(93)에 붙어 «남는 폭 172px»
+// 이라는 이 불변식의 전제가 사라졌다. 전제가 사라진 자리에서 불변식을 우기는 대신, 그 전제가
+// 성립하는 자리로 옮긴다: 1365×800 은 **물리 1024×600 기기에서 UI 배율 75%** 일 때의 레이아웃
+// 크기다(1024/0.75 = 1365, 600/0.75 = 800). 기현님 결정 — *"그대로 간다, 배율로 갚는다"*.
+// 아래 마지막 it 이 «100% 에서는 깨진다» 는 사실 자체를 못박는다 — 잃은 것을 숨기지 않는다.
+describe('1365×800 (물리 1024×600 @배율 75%) — --hit 전환이 코트 축척을 건드리지 않는다', () => {
+  const narrowState: ChromeState = { narrow: true, landscape: true, inspector: 'hidden' };
+  const VIEW = { w: 1365, h: 800 };
   // 예산표의 narrow 93 이 hit=44 의 트레이다. 56 이면 그 차이(24px)만큼 폭이 더 빠진다 —
   // 직접 min 을 적지 않는다(2.3 F7: 표 13 it 이 그 한 줄에 걸려 있었다).
   const extra = trayRailWidthPx(56) - trayRailWidthPx(44);
@@ -102,7 +109,7 @@ describe('1024×600 — --hit 전환이 코트 축척을 건드리지 않는다'
   });
 
   it.each(['full', 'half', 'flat'] as const)('%s 코트: pxPerUnit 변화가 정확히 0 이다', (mode) => {
-    const at44 = courtBoxPx({ w: 1024, h: 600 }, narrowState);
+    const at44 = courtBoxPx(VIEW, narrowState);
     const at56 = { w: at44.w - extra, h: at44.h };
     const s44 = courtScale(mode, at44);
     const s56 = courtScale(mode, at56);
@@ -120,5 +127,21 @@ describe('1024×600 — --hit 전환이 코트 축척을 건드리지 않는다'
     const tight = { w: 600, h: 468 };
     const tighter = { w: 600 - extra, h: 468 };
     expect(courtScale('full', tighter).pxPerUnit).toBeLessThan(courtScale('full', tight).pxPerUnit);
+  });
+});
+
+// PLAN-UI-SCALE 결정 4 의 **대가를 못박는다.** 위 불변식이 물리 1024×600 의 배율 100% 에서는
+// 깨진다 — 레일 84 가 돌아오며 트레이가 하한(93)에 붙어, --hit 을 56 으로 올리면 그 24px 이
+// 트레이가 아니라 **코트**에서 나온다. 이 테스트가 초록인 동안은 "배율 75% 로 갚는다" 가 빈말이
+// 아니라 측정된 사실이고, 언젠가 이 두 값이 같아지면(= 깨짐이 사라지면) 위 describe 의 뷰포트를
+// 1024×600 으로 되돌려도 된다는 신호다.
+describe('물리 1024×600 @배율 100% — 잃은 것', () => {
+  const narrowState: ChromeState = { narrow: true, landscape: true, inspector: 'hidden' };
+  const extra = trayRailWidthPx(56) - trayRailWidthPx(44);
+
+  it('--hit 56 이 코트 축척을 실제로 깎는다 — 트레이가 하한이라 흡수하지 못한다', () => {
+    const at44 = courtBoxPx({ w: 1024, h: 600 }, narrowState);
+    const at56 = { w: at44.w - extra, h: at44.h };
+    expect(courtScale('full', at56).pxPerUnit).toBeLessThan(courtScale('full', at44).pxPerUnit);
   });
 });

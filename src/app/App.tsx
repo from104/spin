@@ -14,7 +14,8 @@ import { LibraryProvider, useLibraryActions } from '../store/library/LibraryProv
 import { ToastProvider } from '../store/toast/ToastProvider.tsx';
 import { useLocale } from '../i18n/useLocale.ts';
 import { useSyncEngine } from '../sync/useSyncEngine.ts';
-import { isCapacitorNative } from '../platform/shell.ts';
+import { cssPxPerInch, isCapacitorNative } from '../platform/shell.ts';
+import { resolveUiScale } from '../core/uiScale.ts';
 import { AppShell } from './AppShell.tsx';
 
 /** §4.6 FOUC 방지 부트 스크립트가 첫 페인트 전 data-theme 을 심어 두지만, 그 이후(테마 토글·
@@ -30,8 +31,15 @@ export function ThemeEffects() {
   }, [prefs.theme]);
 
   useEffect(() => {
-    // §7.4 uiScale — 텍스트가 있는 컴포넌트만 rem 을 쓰므로 루트 폰트 크기 하나로 전부 스케일된다.
-    document.documentElement.style.fontSize = `${16 * prefs.a11y.uiScale}px`;
+    // PLAN-UI-SCALE 결정 1 — 「UI 크기」. 2026-09-18 에 기구가 **루트 font-size 에서 transform 으로**
+    // 바뀌었다. 옛 방식은 rem 만 스케일해서 레일 84px·--hit·크롬 예산 같은 px 리터럴이 안 따라왔고,
+    // 그래서 배율을 내려도 보드가 거의 안 커졌다 — 지시("보드가 최대로 커지는 쪽")가 성립 안 했다.
+    // 여기서는 값만 심고, 실제 변환은 `.spin-scale`(appShell.css)이 건다.
+    //
+    // ⚠️ 옛 `style.fontSize` 를 **지운다**. 남겨 두면 두 기구가 곱해져 200% 에서 글자만 두 배 더
+    //    커진다. 이 한 줄은 옛 판에서 올라온 사용자의 documentElement 에 실제로 남아 있다.
+    document.documentElement.style.removeProperty('font-size');
+    document.documentElement.style.setProperty('--ui-scale', String(resolveUiScale(prefs.a11y.uiScale, cssPxPerInch())));
   }, [prefs.a11y.uiScale]);
 
   useEffect(() => {
@@ -246,7 +254,10 @@ export function NativeBridge() {
 
 export default function App() {
   return (
-    <SettingsProvider>
+    // PLAN-UI-SCALE 결정 1 — 「UI 크기」 배율 래퍼. 앱 전체가 이 안에 있어야 한다: 밖에 남는 것은
+    // 배율을 안 먹어 혼자 100% 로 뜬다(모달·토스트가 그렇게 어긋나기 쉽다 — 결정 7).
+    <div id="spin-scale" className="spin-scale">
+      <SettingsProvider>
       <ThemeEffects />
       <LocaleFromUrl />
       <LocaleEffects />
@@ -259,6 +270,7 @@ export default function App() {
           <RouterProvider router={router} />
         </ToastProvider>
       </LibraryProvider>
-    </SettingsProvider>
+      </SettingsProvider>
+    </div>
   );
 }

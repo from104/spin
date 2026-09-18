@@ -69,7 +69,9 @@ describe('배선이 빠지면 예산이 틀린 상자를 답한다', () => {
 
 describe('상자에서 행이 실제로 빠진다', () => {
   it('가로 창(띠 배치): 높이 = 창 − (헤더 + 띠 + 패딩), 폭에서는 트레이를 안 뺀다', () => {
-    const band: ChromeState = { narrow: true, inspector: 'hidden', trayBand: true, board: true };
+    // 가로 창이므로 레일이 선다(2026-09-18 결정 4). 명시로 적는다 — 기본값에 기대면 이 테스트가
+    // 무엇을 재는지 읽는 사람이 알 수 없다.
+    const band: ChromeState = { narrow: true, landscape: true, inspector: 'hidden', trayBand: true, board: true };
     const box = courtBoxPx({ w: 1024, h: 600 }, band);
     // 헤더 52 + 띠 66 + 상하 패딩 16 = 134 → 600 − 134 = 466.
     // 헤더 48(2026-08-14 에 52 → 48) + 띠 66 + 상하 패딩 16 = 130 → 600 − 130 = 470.
@@ -79,11 +81,13 @@ describe('상자에서 행이 실제로 빠진다', () => {
     //    헤더(52)가 남고, 바에 남는 높이 548 에 12칸(599)이 안 들어갔다. [골대]·[속도]·[보기]가
     //    [보드 설정] 모달로 들어가 **9칸**이 되면서 같은 548 안에 1열로 들어간다 — 추가 열이
     //    사라져 폭이 44 만큼 돌아왔다. 예산이 그 열 수를 직접 센다(functionBarExtraColsPx).
-    expect(box.w).toBe(1024 - (56 + 24));
+    // ⚠️ 2026-09-18 (결정 4) — 여기에 **레일 84 가 더해졌다.** 좁아도 가로면 레일이 남는다.
+    expect(box.w).toBe(1024 - (84 + 56 + 24));
   });
 
   it('세로 창(기둥 배치): 폭에서 트레이가 빠지고 높이에서는 띠가 안 빠진다 — 두 축이 배타적이다', () => {
-    const col: ChromeState = { narrow: true, inspector: 'hidden', trayBand: false, board: true };
+    // **세로** 창이라 레일이 없다(결정 4) — 그래서 아래 307 이 한 자리도 안 바뀐다.
+    const col: ChromeState = { narrow: true, landscape: false, inspector: 'hidden', trayBand: false, board: true };
     const box = courtBoxPx({ w: 480, h: 800 }, col);
     // 480 − (트레이 93 + 기능 바 56 + 패딩 24) = 307.
     expect(box.w).toBe(307);
@@ -105,14 +109,17 @@ describe('소스 계약 — 배선 두 줄이 제자리에 있다', () => {
     // 2026-08-18 인스펙터 폐기 — 패널이 아예 없으므로 inspector 는 상수 'hidden' 이다.
     // (있지도 않은 패널 폭을 빼고 세면 안 된다 — EditorWorkspace 의 그 주석이 근거다.)
     expect(src).toContain(
-      "useStageRot(drill.courtMode, drill.courtSize, { narrow, trayBand, board: isBoard, inspector: 'hidden' })",
+      "useStageRot(drill.courtMode, drill.courtSize, { narrow, landscape: !portrait, trayBand, board: isBoard, inspector: 'hidden' }, uiScale)",
     );
   });
 
   it('useStageRot 의 이펙트 사본(here)과 deps 가 둘 다 그것을 안다', () => {
     const src = read('src/app/useStageRot.ts');
-    expect(src).toContain('const { narrow, trayBand, board, inspector } = state;');
-    expect(src).toContain('const here: ChromeState = { narrow, trayBand, board, inspector,');
-    expect(src).toContain('}, [mode, size, narrow, trayBand, board, inspector, saTop, saRight, saBottom, saLeft]);');
+    // ⚠️ `landscape`(결정 4)와 `uiScale`(결정 6)이 셋 다에 있어야 한다. 하나라도 빠지면 이펙트
+    // 사본이 최신 상태를 모른 채 계산해, **창을 건드리지도 않았는데 판이 도는** 증상이 된다
+    // (파일 머리말의 그 경고 — 실제로 2026-09-18 에 landscape 를 여기 안 실어 한 번 겪었다).
+    expect(src).toContain('const { narrow, landscape, trayBand, board, inspector } = state;');
+    expect(src).toContain('const here: ChromeState = { narrow, landscape, trayBand, board, inspector,');
+    expect(src).toContain('}, [mode, size, narrow, landscape, trayBand, board, inspector, saTop, saRight, saBottom, saLeft, uiScale]);');
   });
 });

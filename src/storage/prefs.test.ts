@@ -281,7 +281,7 @@ function bootScriptTheme(): string {
 
 describe('3.0 스키마 상승 자체', () => {
   it('현재 스키마 — 이 숫자가 바뀔 때마다 아래 체인 정합성 테스트가 새 단계를 요구한다', () => {
-    expect(CURRENT_PREFS_SCHEMA).toBe(3);
+    expect(CURRENT_PREFS_SCHEMA).toBe(4);
   });
 
   it('체인은 버전마다 한 단계씩만 이어지고 끊긴 곳이 없다 — 같은 단계에서 두 번 올리면 중간 버전 파일이 세상에 남는다', () => {
@@ -340,16 +340,18 @@ describe('i18n C1 — prefs v2→v3(language)', () => {
     const r = migrateDoc(makeV2Doc(), PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.applied).toHaveLength(1);
-    expect(r.doc.schemaVersion).toBe(3);
+    // v2 → v3(언어) → v4(UI 배율 8단). 2026-09-18 에 한 단계가 더 붙었다 — 이 테스트가 보는
+    // 것은 «language 가 채워지는가» 이고, 단계 수는 체인이 끊기지 않았다는 부수 증거다.
+    expect(r.applied).toHaveLength(2);
+    expect(r.doc.schemaVersion).toBe(4);
     expect(r.doc.language).toBe('auto');
   });
 
-  it('v1 문서는 두 단계(1→2→3)를 통째로 지나 v3 로 온다', () => {
+  it('v1 문서는 세 단계(1→2→3→4)를 통째로 지나 v4 로 온다', () => {
     const r = migrateDoc(makeV1Doc(), PREFS_MIGRATIONS, CURRENT_PREFS_SCHEMA);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.applied).toHaveLength(2);
+    expect(r.applied).toHaveLength(3);
     expect(r.doc.language).toBe('auto');
   });
 
@@ -418,7 +420,9 @@ describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 �
   it('a11y 의 이웃 필드가 살아 돌아온다 — twoZone 을 끼워 넣으면서 형제를 지우지 않는다', () => {
     const p = loadPrefs();
     expect(p.a11y.largeTargets).toBe(true);
-    expect(p.a11y.uiScale).toBe(1.3);
+    // 1.3 으로 저장했던 문서가 v4 에서 1.5 로 옮겨진다(PLAN-UI-SCALE 결정 2). 이 테스트가 보는
+    // 것은 «형제 필드가 안 지워지는가» 이므로 값은 옮겨진 뒤의 것으로 적는다.
+    expect(p.a11y.uiScale).toBe(1.5);
     expect(p.a11y.reduceMotion).toBe('always');
     expect(p.a11y.singleKeyShortcuts).toBe('off');
     expect(p.a11y.sound).toBe(false);

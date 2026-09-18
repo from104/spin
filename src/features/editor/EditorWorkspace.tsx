@@ -27,6 +27,7 @@ import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { cues } from '../../ui/cues.ts';
 import { useIsPortrait } from '../../ui/useIsPortrait.ts';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
+import { useUiScale } from '../../app/useUiScale.ts';
 import { courtPadCss } from '../../app/chromeBudget.ts';
 import { useStageRot } from '../../app/useStageRot.ts';
 import type { CourtStageHandle } from '../../render/CourtStage.tsx';
@@ -143,7 +144,10 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   const portrait = useIsPortrait();
   // 좁은 창(§5.1): 크롬 예산을 줄인다. 여기서 걷어내는 것은 코트 래퍼 패딩 한 행이고,
   // 나머지 행(레일·헤더·하단 바·트레이)은 각자 담당 항목이 같은 boolean 으로 줄인다.
-  const narrow = useIsNarrow();
+  // 문턱은 UI 배율을 탄다(PLAN-UI-SCALE 결정 6) — 배율 래퍼 때문에 matchMedia 가 보는 px 와
+  // 앱이 쓰는 레이아웃 px 가 다르다.
+  const uiScale = useUiScale();
+  const narrow = useIsNarrow(uiScale);
   // ★ 트레이(칩·작도·메모)를 판의 어느 변에 붙일지 — **코트의 긴 변**이다(기현 지시 2026-08-14:
   //   *"코트 길이 긴쪽(세로가 길면 오른쪽, 가로가 길면 아래쪽) 사이드에 부착"*).
   //   실제 경기의 사이드라인 = 벤치가 서는 자리와 같은 은유다.
@@ -188,7 +192,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   // 76 → 132 로 커지면서 뒤집는 창이 생겼다 — 실측: **768×1024 세로(아이패드)에서 올바른 답은
   // 0 인데 안 넘기면 90 이 나온다**(현실 세로 창 22191칸 중 35%가 갈린다. 전수 대조는
   // useStageRot.portrait.test.ts). 새 boolean 이 아니라 §5.1 이 이미 못박은 둘 중 하나다.
-  const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, trayBand, board: isBoard, inspector: 'hidden' });
+  const stageRot = useStageRot(drill.courtMode, drill.courtSize, { narrow, landscape: !portrait, trayBand, board: isBoard, inspector: 'hidden' }, uiScale);
   // ★ 코트 칸의 종횡비(§4.1, 2026-08-14 P3) — 판 덩어리 안에서 코트가 **자기 비율만큼만**
   // 차지하게 하는 한 줄이다. 남는 폭은 트레이가 먹는다 = 옛 레터박스 86px 이 그대로 벤치가 된다.
   // 입력은 `def`(courtMode·courtSize)와 `rot` 뿐이다 — 줌도 측정값도 안 들어간다(그 이유는

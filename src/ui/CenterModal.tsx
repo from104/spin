@@ -73,9 +73,9 @@ export function CenterModal({ open, onClose, title, closeLabel = '닫기', retur
         aria-labelledby={titleId}
         style={{
           // "화면의 2/3 정도" — 폭·높이 모두 66% 언저리, 작은 화면에서는 여백만 남기고 채운다.
-          width: 'min(66vw, 760px)',
-          minWidth: 'min(92vw, 480px)',
-          maxHeight: '80vh',
+          width: 'min(calc(66 * var(--vw, 1vw)), 760px)',
+          minWidth: 'min(calc(92 * var(--vw, 1vw)), 480px)',
+          maxHeight: 'calc(80 * var(--vh, 1vh))',
           display: 'flex',
           flexDirection: 'column',
           border: '1px solid var(--border-strong)',

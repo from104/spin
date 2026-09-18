@@ -18,20 +18,32 @@ import { useEffect, useState } from 'react';
 export const NARROW_MAX_PX = 1100;
 
 /** CSS `max-width` 는 경계값을 **포함**하므로 1100 을 그대로 쓰면 1100px 창까지 좁은 것이 된다.
- *  0.02 를 빼서 "1100 미만" 을 만든다(0.5 배율 화면에서도 안전한 관례적 간격이다). */
-export const NARROW_QUERY = `(max-width: ${NARROW_MAX_PX - 0.02}px)`;
+ *  0.02 를 빼서 "1100 미만" 을 만든다(0.5 배율 화면에서도 안전한 관례적 간격이다).
+ *
+ *  ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 6) — **문턱이 배율을 탄다.** 배율 래퍼가 `transform: scale(s)`
+ *  라 앱이 실제로 쓰는 레이아웃 폭은 `innerWidth / s` 인데, `matchMedia` 는 배율을 모르는 진짜
+ *  뷰포트로 답한다(실측: scale 1.5 에서도 질의가 그대로였다). 「레이아웃 폭 < 1100」 은
+ *  「innerWidth < 1100 × s」 와 같으므로 질의 쪽에 배율을 곱한다.
+ *
+ *  matchMedia 를 버리고 resize 로 가지 **않는** 이유는 그대로다(머리말) — 문턱에서만 발화해야
+ *  코트 렌더 루프가 프레임을 빼앗기지 않는다. 배율은 자주 바뀌는 값이 아니라 질의를 다시 거는
+ *  비용이 문제되지 않는다. */
+export const narrowQuery = (uiScale = 1): string => `(max-width: ${NARROW_MAX_PX * uiScale - 0.02}px)`;
 
-function read(): boolean {
+/** 배율 1 의 질의. 옛 이름을 남겨 둔다 — 배율을 모르는 호출부(테스트·스토리)가 그대로 쓴다. */
+export const NARROW_QUERY = narrowQuery(1);
+
+function read(uiScale: number): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-  return window.matchMedia(NARROW_QUERY).matches;
+  return window.matchMedia(narrowQuery(uiScale)).matches;
 }
 
-export function useIsNarrow(): boolean {
-  const [narrow, setNarrow] = useState(read);
+export function useIsNarrow(uiScale = 1): boolean {
+  const [narrow, setNarrow] = useState(() => read(uiScale));
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-    const mq = window.matchMedia(NARROW_QUERY);
+    const mq = window.matchMedia(narrowQuery(uiScale));
     const onChange = (): void => setNarrow(mq.matches);
     onChange(); // 마운트 시점의 실제 값으로 맞춘다(SSR·초기 state 와 어긋날 수 있다)
     // Safari 16 이전은 addEventListener 를 지원하지 않는다 — addListener 로 물러난다.
@@ -41,7 +53,8 @@ export function useIsNarrow(): boolean {
     }
     mq.addListener(onChange);
     return () => mq.removeListener(onChange);
-  }, []);
+    // 배율이 바뀌면 문턱이 옮겨진다 — 다시 걸어야 한다(결정 6).
+  }, [uiScale]);
 
   return narrow;
 }

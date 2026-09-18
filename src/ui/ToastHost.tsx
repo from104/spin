@@ -24,7 +24,7 @@ const HOST_STYLE: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '0.5rem',
-  width: 'min(420px, calc(100vw - 2rem))',
+  width: 'min(420px, calc(100 * var(--vw, 1vw) - 2rem))',
   zIndex: 150,
   pointerEvents: 'none',
 };

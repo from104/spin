@@ -56,7 +56,9 @@ export const ja: Record<DictKey, string> = {
   'settings.screen.ruleZonesTitle': 'ゴールエリアガイド表示',
   'settings.screen.ruleZonesDesc': '最大2人ルールのエリアをコート上に強調表示します',
   'settings.screen.uiScaleTitle': 'UIスケール',
-  'settings.screen.uiScaleDesc': '体育館のタブレットなどで画面要素を大きく表示します',
+  'settings.screen.uiScaleDesc': '画面全体を拡大・縮小します — 小さくするほどボードが大きくなります',
+  'settings.screen.uiScaleAuto': '自動',
+  'settings.screen.uiScaleAutoNow': '現在の自動値: {{percent}}%（この端末でボタンが指に十分な最小の倍率）',
 
   'settings.playback.title': '再生',
   'settings.playback.speedTitle': 'ステップ切り替え速度',

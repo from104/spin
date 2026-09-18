@@ -57,7 +57,7 @@ export function Drawer({ open, onClose, title, closeLabel = '닫기', returnFocu
     right: 0,
     bottom: 0,
     zIndex: 190,
-    width: `min(${widthPx}px, 100vw)`,
+    width: `min(${widthPx}px, calc(100 * var(--vw, 1vw)))`,
     background: 'var(--panel)',
     borderLeft: '1px solid var(--border-strong)',
     boxShadow: '-16px 0 32px rgba(0,0,0,.35)',

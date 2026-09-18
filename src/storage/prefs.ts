@@ -9,6 +9,8 @@ import type { Repair } from '../model/validate.ts';
 import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
 import type { Locale } from '../i18n/locale.ts';
 import { SUPPORTED_LOCALES } from '../i18n/locale.ts';
+import type { UiScaleSetting } from '../core/uiScale.ts';
+import { isUiScaleSetting } from '../core/uiScale.ts';
 
 export const PREFS_KEY = 'spin.prefs';
 // `UI_KEY = 'spin.ui'` 는 여기 없다(5.0 ④ 로 삭제, 2026-08-13). 호출자 0곳인 죽은 export 였고
@@ -20,7 +22,7 @@ export const PREFS_KEY = 'spin.prefs';
 /** 3.0 에서 1 → 2. 트레이 서랍·seed 도장·2존 모드를 **한 번에** 태운 상승이다(§7 E-6) —
  *  네 필드를 따로 올렸으면 여기까지 오는 동안 백업 파일의 스키마가 네 갈래로 갈라졌다.
  *  i18n C1 에서 2 → 3. 언어 설정(language) 한 필드만 추가한다. */
-export const CURRENT_PREFS_SCHEMA = 3;
+export const CURRENT_PREFS_SCHEMA = 4;
 
 export interface PhysicsParams {
   zones: ZoneConfig;
@@ -59,7 +61,10 @@ export interface Preferences {
   present: { autoFullscreen: boolean; wakeLock: boolean };
   a11y: {
     largeTargets: boolean;
-    uiScale: 1 | 1.15 | 1.3;
+    /** PLAN-UI-SCALE 결정 2 — 8단 + 자동. 기구는 `transform: scale()`(결정 1)이고, 옛 3단
+     *  (100/115/130%, 루트 font-size)은 스키마 v4 에서 이리로 옮겨졌다. 값 집합·자동 산술의
+     *  정본은 `core/uiScale.ts` 다. */
+    uiScale: UiScaleSetting;
     reduceMotion: 'system' | 'always';
     singleKeyShortcuts: 'on' | 'modifier' | 'off';
     /** §4.3 P1-4 놓임·막힘·상자 빔의 소리와 진동(한 스위치다 — ui/cues.ts 머리말 ③).
@@ -144,7 +149,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   showRuleZones: true,
   inspectorPinned: false,
   present: { autoFullscreen: false, wakeLock: true },
-  a11y: { largeTargets: false, uiScale: 1, reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true, twoZone: false },
+  a11y: { largeTargets: false, uiScale: 'auto', reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true, twoZone: false },
   tray: { draw: false, note: false },
   seeded: false,
   physics: {},
@@ -211,7 +216,10 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     if (tutorialsSeenRaw[k] === true) tutorialsSeen[k] = true;
   }
 
-  const uiScale: 1 | 1.15 | 1.3 = a11yRaw.uiScale === 1.15 || a11yRaw.uiScale === 1.3 ? a11yRaw.uiScale : 1;
+  // 화이트리스트는 `core/uiScale.ts` 한 곳이다 — 여기 눈금을 다시 적으면 언젠가 한쪽만 늘어난다.
+  // 기본값이 1 이 아니라 'auto' 인 것에 주의: 알 수 없는 값을 100% 로 굳히면 새 기기에서 자동이
+  // 한 번도 안 도는 사용자가 생긴다.
+  const uiScale: UiScaleSetting = isUiScaleSetting(a11yRaw.uiScale) ? a11yRaw.uiScale : 'auto';
   const reduceMotion: 'system' | 'always' = a11yRaw.reduceMotion === 'always' ? 'always' : 'system';
   const singleKeyShortcuts: 'on' | 'modifier' | 'off' =
     a11yRaw.singleKeyShortcuts === 'modifier' || a11yRaw.singleKeyShortcuts === 'off' ? a11yRaw.singleKeyShortcuts : 'on';

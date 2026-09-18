@@ -40,9 +40,14 @@ export function stageRotFor(mode: CourtMode, size: CourtSize | undefined, state:
   return courtScale(mode, courtBoxPx(viewport, state), size).rot;
 }
 
-export function viewportSizePx(): Size {
+/** 앱이 쓸 수 있는 **레이아웃** 크기. 크롬 예산의 모든 px 가 이 좌표계에 있다.
+ *
+ *  ⚠️ `uiScale` 로 나누는 이유(PLAN-UI-SCALE 결정 6): 배율 래퍼는 `transform: scale(s)` 라
+ *  레이아웃 폭이 `innerWidth / s` 다. `innerWidth` 를 그대로 쓰면 150% 에서 앱이 실제로 가진
+ *  것보다 1.5배 넓다고 믿고 코트를 키워, 판이 화면 밖으로 밀려난다. */
+export function viewportSizePx(uiScale = 1): Size {
   if (typeof window === 'undefined') return { w: 0, h: 0 };
-  return { w: window.innerWidth, h: window.innerHeight };
+  return { w: window.innerWidth / uiScale, h: window.innerHeight / uiScale };
 }
 
 /** `rot` 이 바뀌지 않는 창 크기 상자. 이 안에 머무는 동안은 다시 계산할 필요가 없다. */
@@ -101,8 +106,12 @@ export function stageRotHoldBox(mode: CourtMode, size: CourtSize | undefined, st
   };
 }
 
-export function stageRotHoldQuery(box: StageRotHoldBox): string {
-  return `(min-width: ${box.minW}px) and (max-width: ${box.maxW}px) and (min-height: ${box.minH}px) and (max-height: ${box.maxH}px)`;
+/** ⚠️ 상자는 **레이아웃** px 인데 `matchMedia` 는 **진짜 뷰포트** px 로 답한다(결정 6 — transform 은
+ *  미디어쿼리를 안 바꾼다). 그래서 질의로 적을 때 배율을 도로 곱한다. 안 곱하면 150% 에서 방아쇠가
+ *  1.5배 이른 자리에 걸려, 창을 건드리지도 않았는데 판이 돌거나 영영 안 돈다. */
+export function stageRotHoldQuery(box: StageRotHoldBox, uiScale = 1): string {
+  const s = (v: number): number => Math.round(v * uiScale);
+  return `(min-width: ${s(box.minW)}px) and (max-width: ${s(box.maxW)}px) and (min-height: ${s(box.minH)}px) and (max-height: ${s(box.maxH)}px)`;
 }
 
 /** 창 크기에서 파생된 표시 회전.
@@ -127,19 +136,19 @@ export function stageRotHoldQuery(box: StageRotHoldBox): string {
  *  matchMedia 가 없으면(jsdom 등) 마운트 시점 한 번만 계산하고 구독하지 않는다 — 테스트는
  *  창 크기를 고정해 두고 렌더하므로 그것으로 충분하고, 없는 API 를 흉내내다 조용히 틀린 답을
  *  주는 것보다 낫다. */
-export function useStageRot(mode: CourtMode, size: CourtSize | undefined, state: ChromeState): StageRot {
+export function useStageRot(mode: CourtMode, size: CourtSize | undefined, state: ChromeState, uiScale = 1): StageRot {
   // ⚠️ 2026-08-14 P5 — 배치 축(`trayBand`)·화면(`board`)을 여기서 **빠뜨리면 안 된다.** 아래 `here` 는 이펙트가 다시
   // 쓰는 상태 사본인데, 초기 useState 는 `state` 통째로 쓰고 이펙트는 `here` 를 쓴다. 한쪽만
   // 그 둘을 알면 **첫 렌더와 그 다음이 다른 답**을 내고, 그것은 곧 창을 건드리지도 않았는데
   // 판이 도는 것이다(P1 이 없앤 쌍안정과 증상이 같아 원인 추적이 특히 어렵다).
-  const { narrow, trayBand, board, inspector } = state;
+  const { narrow, landscape, trayBand, board, inspector } = state;
   // safe-area 도 **원시값 넷으로 풀어** 둔다 — 객체째로 들고 있으면 호출부가 매 렌더 새로 만든
   // 리터럴에 이펙트가 매번 다시 걸린다(그리고 exhaustive-deps 가 정확히 그걸 지적한다).
   const { top: saTop, right: saRight, bottom: saBottom, left: saLeft } = state.safeArea ?? SAFE_AREA_NONE;
-  const [rot, setRot] = useState<StageRot>(() => stageRotFor(mode, size, state, viewportSizePx()));
+  const [rot, setRot] = useState<StageRot>(() => stageRotFor(mode, size, state, viewportSizePx(uiScale)));
 
   useEffect(() => {
-    const here: ChromeState = { narrow, trayBand, board, inspector, safeArea: { top: saTop, right: saRight, bottom: saBottom, left: saLeft } };
+    const here: ChromeState = { narrow, landscape, trayBand, board, inspector, safeArea: { top: saTop, right: saRight, bottom: saBottom, left: saLeft } };
     let disposed = false;
     let off: (() => void) | null = null;
 
@@ -147,14 +156,14 @@ export function useStageRot(mode: CourtMode, size: CourtSize | undefined, state:
       off?.();
       off = null;
       if (disposed) return;
-      const viewport = viewportSizePx();
+      const viewport = viewportSizePx(uiScale);
       // 값이 정말 뒤집힐 때만 상태를 건드린다 — 출력이 2값 이산량이라 리렌더는 그때뿐이다.
       setRot((prev) => {
         const next = stageRotFor(mode, size, here, viewport);
         return prev === next ? prev : next;
       });
       if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-      const mq = window.matchMedia(stageRotHoldQuery(stageRotHoldBox(mode, size, here, viewport)));
+      const mq = window.matchMedia(stageRotHoldQuery(stageRotHoldBox(mode, size, here, viewport), uiScale));
       const onChange = (): void => arm();
       // Safari 16 이전은 addEventListener 를 지원하지 않는다 — addListener 로 물러난다.
       if (typeof mq.addEventListener === 'function') {
@@ -172,7 +181,8 @@ export function useStageRot(mode: CourtMode, size: CourtSize | undefined, state:
       off?.();
     };
     // state 객체는 호출부에서 매 렌더 새로 만들어지므로 **원시값으로 풀어** 건다.
-  }, [mode, size, narrow, trayBand, board, inspector, saTop, saRight, saBottom, saLeft]);
+    // uiScale 이 바뀌면 문턱 자체가 옮겨지므로 **다시 걸어야 한다**(결정 6).
+  }, [mode, size, narrow, landscape, trayBand, board, inspector, saTop, saRight, saBottom, saLeft, uiScale]);
 
   return rot;
 }

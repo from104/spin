@@ -32,6 +32,7 @@ import { StaffList } from './StaffList.tsx';
 import { LineupBoard } from './LineupBoard.tsx';
 import { KitPicker } from './KitPicker.tsx';
 import { useIsNarrow } from '../../ui/useIsNarrow.ts';
+import { useUiScale } from '../../app/useUiScale.ts';
 
 export interface TeamDetailProps {
   teamId: TeamId;
@@ -49,7 +50,7 @@ export function TeamDetail({ teamId, onSaved, onExport, onPrint }: TeamDetailPro
   // 넓은 창(≥ NARROW_MAX_PX)에서는 네 절을 2열로 — 왼쪽 선수·스태프, 오른쪽 라인업·정보(2026-09-09 기현님 지시).
   // 좁은 창은 한 열 그대로. 문턱은 레일·헤더와 같은 useIsNarrow 하나를 쓴다(문턱이 두 벌이면 어긋난다).
   // 조기 반환(없음·로딩)보다 앞에 두어야 훅 순서가 렌더마다 같다.
-  const twoCol = !useIsNarrow();
+  const twoCol = !useIsNarrow(useUiScale());
   const [team, setTeam] = useState<Team | null>(null);
   const [missing, setMissing] = useState(false);
   // 삭제 undo 토스트는 다른 저장이 끼어들면 **반드시 거둔다** — 안 거두면 그 토스트가 쥔 옛

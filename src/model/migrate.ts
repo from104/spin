@@ -352,6 +352,25 @@ export const PREFS_MIGRATIONS: DocMigration[] = [
     },
   },
   {
+    from: 3,
+    to: 4,
+    describe: 'prefs v3→v4: UI 크기 8단 + 자동 — 옛 3단(font-size 배율)을 새 눈금으로',
+    migrate: (doc) => {
+      const out: Record<string, unknown> = { ...doc };
+      const a11y =
+        out.a11y !== null && typeof out.a11y === 'object' && !Array.isArray(out.a11y)
+          ? { ...(out.a11y as Record<string, unknown>) }
+          : {};
+      // 그때(PLAN-UI-SCALE) 의 매핑을 **리터럴로** 박는다 — core/uiScale 의 migrateLegacyUiScale 을
+      // 부르면 나중에 눈금이 바뀔 때 이 마이그레이션의 '역사' 해석이 조용히 따라 바뀐다
+      // (이 배열 머리말의 같은 규율). 옛 값은 1 | 1.15 | 1.3 뿐이었다.
+      const prev = a11y.uiScale;
+      a11y.uiScale = prev === 1 ? 1 : prev === 1.15 ? 1.25 : prev === 1.3 ? 1.5 : 'auto';
+      out.a11y = a11y;
+      return out;
+    },
+  },
+  {
     from: 2,
     to: 3,
     describe: 'prefs v2→v3: 언어 설정(language) — 자동감지 기본값',

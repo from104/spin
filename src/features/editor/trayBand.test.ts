@@ -37,7 +37,7 @@ const HIT_LARGE = INTERACT.hitTargetLargeCssPx;
 /** 띠가 뜨는 대표 기기 — 작은 가로 창. 이 앱이 잡은 **최악의 작은 창**이다. */
 const SMALL_LANDSCAPE: Size = { w: 1024, h: 600 };
 /** 가로 화면 = 코트가 눕는다 = 트레이가 아래 띠다. */
-const bandState: ChromeState = { narrow: true, inspector: 'hidden', trayBand: true, board: true };
+const bandState: ChromeState = { narrow: true, landscape: true, inspector: 'hidden', trayBand: true, board: true };
 
 /** 띠 높이를 `band` 로 **가정했을 때**의 코트 상자. 예산의 세로 행이 띠 하나만 다른 것으로
  *  바뀌는 것과 같으므로, 실제 행 값을 빼고 가정값을 더해 만든다 — 절벽 실험이 예산표 함수를
@@ -96,7 +96,11 @@ describe('③ 크롬 예산이 배치 축과 화면을 안다', () => {
     // 같은 548 안에 **1열로** 들어간다. 기둥이 도로 좁아지고 코트가 944 로 돌아왔다.
     // ★ 이것이 "칸 수는 장식이 아니라 레이아웃 입력값" 이라는 말의 실측이다
     //   (functionBarMetrics.ts FUNCTION_BAR_ITEMS 머리말).
-    expect(courtBoxPx(SMALL_LANDSCAPE, bandState)).toEqual({ w: 944, h: 470 });
+    // ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 4) — 944 → **860.** 가로면 레일 84 가 항상 선다.
+    //    세로는 그대로라(470) **축척도 그대로다** — 이 화면은 여전히 세로가 제약이기 때문이고
+    //    (860/825 = 1.042 > 470/525 = 0.895), 그래서 아래 0.8952 가 한 자리도 안 바뀐다.
+    //    레일을 되찾은 대가가 이 화면에서는 «코트 폭의 여유» 였지 «코트 크기» 가 아니었다.
+    expect(courtBoxPx(SMALL_LANDSCAPE, bandState)).toEqual({ w: 860, h: 470 });
     const s = courtScale('full', courtBoxPx(SMALL_LANDSCAPE, bandState));
     expect(s.rot).toBe(0);
     // 재설계 전 0.8914 → 0.8952. **+0.4%** 다(헤더 4px 축소가 손해를 뒤집었다) — 1행 띠가 가로 화면의 손해를 거의 다 지웠다.
@@ -108,7 +112,8 @@ describe('③ 크롬 예산이 배치 축과 화면을 안다', () => {
     // 과 기능 바 56, 좌우 패딩 24가 빠진다. 아이패드 세로(768×1024)는 반대로 **+13.2%** 다 —
     // 폭이 넉넉하면 하단 바가 사라진 이득이 더 크기 때문이다. 좁은 세로 기기에서 이 손해가
     // 견딜 만한지가 이번 배포의 실기 확인 항목이다.
-    const portrait: ChromeState = { narrow: true, inspector: 'hidden', trayBand: false, board: true };
+    // **세로** 창이라 레일이 없다(2026-09-18 결정 4) — 그래서 아래 숫자가 한 자리도 안 바뀐다.
+    const portrait: ChromeState = { narrow: true, landscape: false, inspector: 'hidden', trayBand: false, board: true };
     expect(courtBoxPx({ w: 480, h: 800 }, portrait)).toEqual({ w: 307, h: 736 });
     expect(courtScale('full', courtBoxPx({ w: 480, h: 800 }, portrait)).pxPerUnit).toBeCloseTo(0.5848, 4);
     expect(courtScale('full', courtBoxPx({ w: 768, h: 1024 }, portrait)).pxPerUnit).toBeCloseTo(1.1333, 4);

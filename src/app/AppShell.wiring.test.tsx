@@ -816,12 +816,16 @@ describe('AppShell 배선 — 정적 헤더 대 Context 헤더', () => {
 
 /** jsdom 에는 matchMedia 가 없다. 안 깔면 `useIsNarrow` 가 넓은 쪽으로 굳어(2.3 폴백) 좁은
  *  경로가 한 줄도 실행되지 않은 채 이 describe 가 통째로 초록불이 된다. */
-function stubMedia(narrow: boolean) {
+/** ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 4) — 인자의 뜻이 «좁은가» 에서 «**세로인가**» 로 바뀌었다.
+ *  레일↔헤더 세그먼트를 가르는 것이 이제 폭이 아니라 방향이기 때문이다. `max-width` 질의도 함께
+ *  참으로 돌려 두는 이유: 세로 화면은 대체로 좁기도 해서, 둘을 갈라 두면 이 스텁이 실기에 없는
+ *  조합(세로인데 넓다)을 만들어 낸다. */
+function stubMedia(portrait: boolean) {
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     writable: true,
     value: (q: string) => ({
-      matches: q.includes('max-width') ? narrow : false,
+      matches: q.includes('orientation: portrait') || q.includes('max-width') ? portrait : false,
       media: q,
       addEventListener: () => {},
       removeEventListener: () => {},

@@ -77,8 +77,13 @@ describe('SettingsScreen — 화면', () => {
     await user.click(screen.getByRole('switch', { name: '격자 표시' }));
     expect(loadPrefs().showGrid).toBe(false);
 
-    await user.click(screen.getByRole('radio', { name: '130%' }));
-    expect(loadPrefs().a11y.uiScale).toBe(1.3);
+    // ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 2) — 눈금이 100/115/130 3단에서 자동 + 50~200% 8단으로
+    //    바뀌었다. 기본값도 1 이 아니라 'auto' 다.
+    await user.click(screen.getByRole('radio', { name: '150%' }));
+    expect(loadPrefs().a11y.uiScale).toBe(1.5);
+    // 자동으로 되돌릴 수 있어야 한다 — 고정값에 한 번 들어가면 못 나오는 설정이 되면 안 된다.
+    await user.click(screen.getByRole('radio', { name: '자동' }));
+    expect(loadPrefs().a11y.uiScale).toBe('auto');
 
     // §4.3 P1-4 — 이 화면은 값만 쓴다. 실제로 소리를 끄는 배선은 app-shell 이 진다
     // (src/app/themeEffects.cues.test.tsx). 여기서는 "끌 수 있는가" 를 aria 쌍으로 본다.

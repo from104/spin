@@ -124,18 +124,34 @@ describe('창 크기가 판을 돌린다 — rot 이 위에서 내려온다', ()
     // "트레이는 아래에 있는데 판은 서 있는" 모순된 화면이 난다. 그래서 전수로 못박는다.
     for (let w = 320; w <= 2000; w += 40) {
       for (let h = w + 40; h <= 2400; h += 40) {
-        const rot = stageRotFor('full', undefined, { narrow: w < 1100, inspector: 'hidden', trayBand: false, board: true }, { w, h });
+        // 세로 창이므로 레일이 없다(2026-09-18 결정 4) — 이 스윕의 답은 한 칸도 안 바뀐다.
+        const rot = stageRotFor('full', undefined, { narrow: w < 1100, landscape: false, inspector: 'hidden', trayBand: false, board: true }, { w, h });
         expect(rot, `${w}×${h} 세로 창인데 판이 안 섰다`).toBe(90);
       }
     }
   });
 
+  // ⚠️ 2026-09-18 (PLAN-UI-SCALE 결정 4) — 하한이 320 → **480** 이 됐다. 가로면 레일 84 가 무조건
+  //    서면서, 거의 정사각인 **초소형** 가로 창 셋(360×320 · 400×360 · 440×400)에서는 남은 상자가
+  //    세로로 길어져 판이 선다. 스윕에서 조용히 빼지 않고 아래 it 이 그 셋을 직접 못박는다 —
+  //    "예외가 셋뿐" 과 "예외를 안 셌다" 는 다른 말이다.
+  //    이 크기는 앱의 최소 지원선(sw600dp) 한참 아래라 실기에 존재하지 않는 조합이다.
   it('대조군 — 가로 창에서는 언제나 눕는다. 두 방향이 뭉뚱그려진 것이 아니다', async () => {
-    for (let h = 320; h <= 1400; h += 40) {
+    for (let h = 480; h <= 1400; h += 40) {
       for (let w = h + 40; w <= 2400; w += 40) {
-        const rot = stageRotFor('full', undefined, { narrow: w < 1100, inspector: 'hidden', trayBand: true, board: true }, { w, h });
+        const rot = stageRotFor('full', undefined, { narrow: w < 1100, landscape: true, inspector: 'hidden', trayBand: true, board: true }, { w, h });
         expect(rot, `${w}×${h} 가로 창인데 판이 섰다`).toBe(0);
       }
     }
+  });
+
+  it('초소형 가로 창 셋만 예외다 — 레일이 무조건 서는 대가의 전부', () => {
+    const rotAt = (w: number, h: number): number =>
+      stageRotFor('full', undefined, { narrow: true, landscape: true, inspector: 'hidden', trayBand: true, board: true }, { w, h });
+    for (const [w, h] of [[360, 320], [400, 360], [440, 400]] as const) {
+      expect(rotAt(w, h), `${w}×${h}`).toBe(90);
+    }
+    // 바로 위 눈금부터는 도로 눕는다 — 예외가 아래로만 번진다는 것을 못박는다.
+    expect(rotAt(480, 440)).toBe(0);
   });
 });
