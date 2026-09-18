@@ -87,3 +87,25 @@ describe('DrillCard', () => {
     expect(screen.getByText('카드 부제 문구')).toBeInTheDocument();
   });
 });
+
+// 2026-09-19 기현님 제보: *"안드로이드에서 드릴 목록 썸네일 안 나옴"*.
+//
+// 원인은 안드로이드가 아니라 **크로미움**이었다. UA 스타일시트의
+// `input, textarea, select, button { align-items: flex-start }` 때문에 `display:flex` 를 건
+// 버튼의 자식이 stretch 되지 않고 내용 폭으로 쪼그라들고, 썸네일 상자는 `width: 50%` 라
+// 폭이 불확정인 부모 안에서 **0 으로 풀린다**(에뮬레이터 실측: 상자 0×0 → stretch 를 넣으면
+// 86×74). WebKit·파이어폭스에는 그 규칙이 없어 개발 중에는 멀쩡히 보였다.
+//
+// jsdom 은 레이아웃이 없어 폭을 잴 수 없다 — 그래서 **인라인 선언**을 본다. 이 선언이 사라지면
+// 화면에서만 보이는 결함으로 돌아가고, 그 결함은 «아무것도 안 그려진다» 라 조용하다.
+describe('썸네일이 폭을 갖는다 — 크로미움 UA 의 button align-items 대비', () => {
+  it('카드 버튼이 alignItems: stretch 를 명시한다', () => {
+    render(<DrillCard drill={makeSummary('썸네일 폭 드릴')} {...noopHandlers()} />, { wrapper: SettingsProvider });
+    // 썸네일 상자(width:50%)를 품은 열 = 카드 본문 버튼. 그 조상 버튼이 stretch 여야 폭이 산다.
+    const box = screen.getByRole('img', { name: '풀 코트 미리보기' }).parentElement as HTMLElement;
+    const btn = box.closest('button') as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    expect(btn.style.display).toBe('flex');
+    expect(btn.style.alignItems).toBe('stretch');
+  });
+});

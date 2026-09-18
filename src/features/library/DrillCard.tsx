@@ -232,7 +232,14 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
         type="button"
         onClick={selection?.mode ? selection.onToggle : onOpen}
         aria-label={selection?.mode ? t('drillCard.selectAriaLabel', { title: drill.title }) : t('drillCard.openAriaLabel', { title: drill.title })}
-        style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', flex: 1 }}
+        // ⚠️ `alignItems: 'stretch'` 를 **명시**한다(2026-09-19). 크로미움의 UA 스타일시트에는
+        //    `input, textarea, select, button { align-items: flex-start }` 가 있어서, `display:flex`
+        //    를 걸어도 버튼의 자식이 stretch 되지 않고 **내용 폭으로 쪼그라든다.** 아래 썸네일
+        //    상자는 `width: 50%` 인데, 폭이 불확정인 부모 안의 백분율은 0 으로 풀린다 — 그래서
+        //    크로미움 계열(안드로이드 WebView·데스크톱 크롬·WebView2)에서만 **썸네일이 통째로
+        //    사라졌다**(에뮬레이터 실측: 상자 0×0, stretch 를 넣으면 곧바로 86×74).
+        //    WebKit·파이어폭스에는 그 UA 규칙이 없어 멀쩡히 보였고, 그래서 오래 안 들켰다.
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', width: '100%', textAlign: 'left', flex: 1 }}
       >
         {/* 썸네일 — 2026-08-19 기현님 지시 2차: *"가로도 1/2"*. 코트 상자 자체가 카드 폭의
             **절반**이다(비율은 코트 그대로 — 상자 안에 여백 없음). 처음(1차)에는 세로만 반으로

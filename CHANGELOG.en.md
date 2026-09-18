@@ -20,6 +20,11 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 - The old "UI scale" (100/115/130%) only changed text size; the new UI size changes the **whole
   screen**. 115% moves to 125%, and 130% moves to 150%
 
+### Fixed
+
+- Drill thumbnails were **missing entirely** in the library — a Chromium-only defect (Android app,
+  Chrome, Edge). The same fix also stops the category badge from overlapping the drill name
+
 ## [0.6.11] 2026-09-16
 
 ### Added
