@@ -83,13 +83,23 @@ export const SHARE_MAX_CIPHERTEXT_BYTES = 256 * 1024;
  *  하기 위해서다(AGENTS §7: 번들에 인라인되는 값이 비면 아무 표시도 안 난다).
  *  접두어를 `SPIN_` 으로 쓰는 이유는 `authDesktop.ts` 머리말과 같다 — 웹 빌드에는 어느 쪽도
  *  주입되지 않아 웹은 여전히 도메인 독립(상대 경로)이다. */
+import { nativeShell } from '../platform/shell.ts';
+import { CANONICAL_WEB_ORIGIN } from './origin.ts';
+
 export function nativeWebOrigin(): string | undefined {
   const env = import.meta.env as Record<string, unknown>;
   const raw = env.SPIN_DESKTOP_WEB_ORIGIN ?? env.SPIN_ANDROID_WEB_ORIGIN;
   // 뒤 슬래시를 여기서 지운다 — 붙은 채로 `${base}/api/share` 를 만들면 `//` 가 생기고,
   // Apache 프록시는 그 경로를 다른 것으로 셈한다.
   const v = typeof raw === 'string' ? raw.trim().replace(/\/+$/, '') : '';
-  return v.length > 0 ? v : undefined;
+  if (v.length > 0) return v;
+  // ⚠️ 2026-09-19 기현님 제보(*"링크 공유도 [안 된다]"*) — env 가 없으면 **배포처로 물러난다.**
+  //    네이티브 셸에는 '같은 출처' 가 없다: Capacitor 의 출처는 `https://localhost` 이고 거기
+  //    우리 서버가 없어서, 상대 경로는 자기 자신에게 물어 **조용히** 실패했다. 빌드 env 하나에
+  //    기대는 방어는 «앱에서만, 실행 중에만» 깨지는 가장 나쁜 실패 모양이다.
+  //    안드로이드 빌드는 이미 이 도메인에 묶여 있다(App Links · assetlinks) — 근거는 origin.ts.
+  //    웹에서는 여기까지 오지 않는다(`nativeShell()` 이 null 이라 호출부가 상대 경로를 쓴다).
+  return nativeShell() === null ? undefined : CANONICAL_WEB_ORIGIN;
 }
 
 /** 기준 주소. 기본은 **같은 출처 상대 경로**라 앱이 어느 도메인에 올라가도 자기 서버를 부른다

@@ -244,8 +244,11 @@ R-1~R-3·R-7·R-9·R-10 은 2026-08-21 사전식 화면 시절 확인분(당시 
 기록은 §5 양식에 그 ID 그대로(A-1 …) 적는다.
 
 - **빌드**: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 npm run android:build` 가 구운 디버그 APK
-  — 굽기 전에 `.env.local` 에 `SPIN_ANDROID_WEB_ORIGIN=https://spin.atit.app`(공개값, 발급 뒤에는
-  `SPIN_ANDROID_GOOGLE_CLIENT_ID` 도)을 둔다. 없으면 공유 API 가 상대 경로로 물러나 `https://localhost`
+  — ⚠️ 2026-09-19: `SPIN_ANDROID_WEB_ORIGIN` 은 **더 이상 필요 없다**(PLAN-ANDROID §6 — 네이티브 셸은
+    env 가 없으면 배포처로 물러난다). 스테이징을 가리킬 때만 쓰는 덮어쓰기다.
+  — ⚠️ 에뮬레이터에서 검증할 때는 **DNS 를 명시해 띄운다**: `emulator -avd <name> -dns-server 8.8.8.8,1.1.1.1`.
+    호스트 `/etc/resolv.conf` 가 `127.0.0.53`(systemd-resolved)이면 에뮬레이터가 그것을 물려받아 네트워크가
+    통째로 죽고(`Network is unreachable`), 그 상태를 앱 결함으로 오진하게 된다(PLAN-ANDROID §7).
   **자기 자신**에게 묻고, 로컬 서버가 index.html 을 200 으로 돌려줘 착지가 «열쇠가 맞지 않음» 으로
   떨어진다(2026-09-17 에뮬레이터 실측 — 빌드도 테스트도 초록인 채로). CI 는 워크플로에 리터럴로 있다.
   (`src-android/app/build/outputs/apk/debug/app-debug.apk`) 를 Taildrop 으로 태블릿에 보내 설치한다.

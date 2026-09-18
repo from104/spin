@@ -11,12 +11,13 @@
 //    그것은 열쇠를 나르는 경로를 하나 더 만드는 일이다. 여기서는 **https 링크만** 본다.
 import { splitLocalePrefix } from '../../app/localePrefix.ts';
 import type { PluginListenerHandle } from '@capacitor/core';
+import { CANONICAL_WEB_HOST } from '../../share/origin.ts';
 
 /** App Links 로 잡는 호스트. `src-android/app/src/main/AndroidManifest.xml` 의 intent-filter
  *  (`autoVerify="true"` · `android:host="spin.atit.app"` · `pathPrefix="/s/"`)와 **같은 값이어야
  *  한다** — 한쪽만 고치면 안드로이드는 링크를 앱에 넘기는데 앱이 조용히 무시하거나(대문이 뜬다),
  *  그 반대로 앱이 기다리는 링크가 브라우저로 샌다. */
-const APP_LINK_HOST = 'spin.atit.app';
+const APP_LINK_HOST = CANONICAL_WEB_HOST;
 
 /** 공유 링크 착지 경로. `/s/<id>` 뿐이고 id 꼴은 **보지 않는다** — `app/routes.ts` 의 같은
  *  자리 주석 그대로다(오타 한 글자짜리 링크를 여기서 떨구면 "링크가 없거나 만료됐습니다" 라는

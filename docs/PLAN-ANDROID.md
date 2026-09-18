@@ -43,7 +43,7 @@
 | 16 | 폰 제외: manifest `<supports-screens android:requiresSmallestWidthDp="600" …/>` + Play Console 기기 카탈로그에서 폰 폼팩터 제외(수동). 앱 안 `SmallScreenNotice`(짧은 변 < 600) 는 그대로 — 사이드로드 APK 의 마지막 방어 | 600dp 는 책형 폴드폰의 펼친 화면(Fold5~8 ≥ 600dp)을 걸러내지 않고 플립형(360~410dp)만 걸러낸다 [반박 정정]. ROADMAP §0.7 "7인치 이상·펼친 폴드폰" |
 | 17 | 배포물 둘: **APK**(GitHub 릴리스, `SPIN_{v}_android.apk`, 업로드 키로 서명) + **AAB**(`SPIN_{v}_android.aab`, **릴리스 자산으로도** 올린다). `./gradlew assembleRelease bundleRelease` 한 번 — CI 는 `npm run android:build` 로 부른다(JDK 고르기·서명 갈림을 두 벌 두지 않으려고) | [조사 build c7, c8]. qcalc 는 APK 만. 처음 결정은 「AAB 는 아티팩트」였다 — 2026-09-17 검수에서 뒤집음: 아티팩트는 90일에 만료되고 Play 수동 업로드는 릴리스 페이지에서 받는 쪽이 맞다 |
 | 18 | CI 는 `desktop-release.yml` 에 `android` 잡 추가(`needs: build` — 릴리스 초안이 만들어진 뒤 `gh release upload`). 시크릿 4개 `SPIN_ANDROID_KEYSTORE_BASE64 / _KEYSTORE_PASSWORD / _KEY_ALIAS / _KEY_PASSWORD`, 「주입할 환경변수 확인」 단계에 `SPIN_ANDROID_GOOGLE_CLIENT_ID`·`SPIN_ANDROID_WEB_ORIGIN` 을 **같이 넣는다**. 키스토어는 `$RUNNER_TEMP` 에 풀고 빌드 뒤 지운다 | AGENTS §7 빈 시크릿 사고(0.6.9). qcalc `release.yml:333-` 의 구조를 Quasar 없이 다시 짠다: `npm ci → npm run build(SPIN_ANDROID_BUILD=1) → npx cap sync android → gradlew` [반박 정정 — `vite build` 만 부르면 SEO 프리렌더가 빠진다] |
-| 19 | 웹 출처는 `SPIN_ANDROID_WEB_ORIGIN`(=`https://spin.atit.app`, 공개값). `share/api.ts` 의 `desktopWebOrigin()` 을 `nativeWebOrigin()` 으로 일반화해 `SPIN_DESKTOP_WEB_ORIGIN ?? SPIN_ANDROID_WEB_ORIGIN` 을 읽는다. `vite.config.ts` 는 `SPIN_ANDROID_BUILD` 가 있을 때만 `SPIN_ANDROID_` 접두를 허용 | `https://localhost` 에서 상대 경로 `/api/share` 는 아무 데도 닿지 않는다 — 데스크톱과 같은 문제 [조사 spin 10]. Capacitor CLI 훅(`capacitor:sync:before`, `CAPACITOR_PLATFORM_NAME`) 도 있지만 웹 빌드를 훅 안에 숨기면 `cap run -l` 이 매번 빌드한다 — npm 스크립트가 신호를 세우는 쪽이 눈에 보인다 |
+| 19 | ⚠️ **2026-09-19 뒤집힘 — §6 참고.** 웹 출처는 `SPIN_ANDROID_WEB_ORIGIN`(=`https://spin.atit.app`, 공개값). `share/api.ts` 의 `desktopWebOrigin()` 을 `nativeWebOrigin()` 으로 일반화해 `SPIN_DESKTOP_WEB_ORIGIN ?? SPIN_ANDROID_WEB_ORIGIN` 을 읽는다. `vite.config.ts` 는 `SPIN_ANDROID_BUILD` 가 있을 때만 `SPIN_ANDROID_` 접두를 허용 | `https://localhost` 에서 상대 경로 `/api/share` 는 아무 데도 닿지 않는다 — 데스크톱과 같은 문제 [조사 spin 10]. Capacitor CLI 훅(`capacitor:sync:before`, `CAPACITOR_PLATFORM_NAME`) 도 있지만 웹 빌드를 훅 안에 숨기면 `cap run -l` 이 매번 빌드한다 — npm 스크립트가 신호를 세우는 쪽이 눈에 보인다 |
 | 20 | 아이콘은 `src-tauri/icons/android/` 의 mipmap(적응형 xml 포함)을 `src-android/app/src/main/res/` 로 복사, `ic_launcher_round.xml` 을 하나 더 만든다. 스플래시는 Android 12+ 시스템 스플래시(`Theme.SplashScreen`, 배경 `#0b0f14`) — 플러그인 없음 | `tauri icon` 산출물이 표준 구조 [조사 build c15-16]. 시스템 스플래시는 테마를 걸어야 커스터마이즈된다 [c18 정정] |
 | 21 | `public/.well-known/assetlinks.json` 에는 **설치되는 APK 를 서명한 모든 키**의 SHA-256: 업로드 키(GitHub APK) + Play 앱 서명 키(첫 Play 게시 뒤 콘솔에서) + 디버그 키(실기 시험용). 지문이 아직 없어 이번 회차에는 **생성 스크립트**(`scripts/android-assetlinks.mjs`) 만 두고 파일은 키스토어가 생긴 뒤 커밋 | [반박 정정 — "둘 다"가 아니라 "설치분을 서명한 전부"]. 배포는 `dist/` rsync 라 `public/` 에 두면 함께 나간다(vhost 는 점 파일 403, `.well-known` 만 예외 — `scripts/deploy-aws.sh:163-165`) |
 | 22 | 개발: `npm run android:dev`(= `cap run android` — CLI 의 `-l`/`--external` 은 쓰지 않는다: 8.2 에 `--external` 이 없어 즉사하고, `-l` 은 주소를 제 값으로 덮어쓴다, 검수 정정) 는 `SPIN_CAP_SERVER_URL=http://100.75.15.13:5173` 가 있을 때만 `server.url`+`cleartext` 를 켠다(커밋되는 값 아님). 개발 서버에는 `SPIN_ANDROID_` 접두가 열리지 않으므로 동기화·공유 출처까지 보려면 `SPIN_ANDROID_BUILD=1 npm run dev`. `android:build`·`android:open` 과 짝 `_comment:android` | [조사 build c23]. AGENTS §6 스크립트 짝 규칙 |
@@ -114,8 +114,8 @@
    업로드 키(`keytool -list -v -keystore secrets/android-upload.jks`) 와 디버그 키(`~/.android/debug.keystore`,
    비밀번호 `android`) **둘 다** 등록. **Advanced Settings → Custom URI scheme 켜기.** 클라이언트 ID 를
    `desktop-release.yml` 의 `SPIN_ANDROID_GOOGLE_CLIENT_ID` 와 `.env.local` 에 적는다(공개값). `.env.local` 에는
-   **지금 바로** `SPIN_ANDROID_WEB_ORIGIN=https://spin.atit.app` 도 한 줄 — 없으면 로컬 빌드의 공유 링크가
-   `https://localhost` 자기 자신에게 API 를 물어 «열쇠가 맞지 않음» 으로 떨어진다(에뮬레이터 실측, §6).
+   ⚠️ **2026-09-19 — `SPIN_ANDROID_WEB_ORIGIN` 은 더 이상 필요 없다**(아래 §6). 없으면 네이티브 셸이
+   배포처(`share/origin.ts`)로 물러난다. 스테이징을 가리킬 때만 쓰는 **덮어쓰기**로 남는다.
 4. **assetlinks**: `node scripts/android-assetlinks.mjs <SHA256…>` 로 `public/.well-known/assetlinks.json` 을 만들어
    커밋·배포. Play 게시 뒤 콘솔 「앱 서명」의 앱 서명 키 SHA-256 을 추가.
 5. **Play Console**: 앱 등록(패키지 `app.atit.spin`, 카테고리 교육) → 기기 카탈로그에서 폰 폼팩터 제외 → 내부 테스트에
@@ -148,3 +148,45 @@
   되돌리게 됐으니 지우는 쪽이 맞다) · `authDesktop.ts` 의 `isDesktop()` 은 테스트만 부른다(케이스를 shell 쪽으로 옮기고 삭제) ·
   `SystemBars.hide()` 는 `BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE` 를 걸지 않아 가장자리 스와이프에 바가 돌아올 수 있다(실기 A-3
   에서 본다) · 템플릿 잔재(`ExampleUnitTest`·`ExampleInstrumentedTest`·`layout/activity_main.xml`) 청소.
+
+
+---
+
+## §6 2026-09-19 — 공유 출처 결정 19 를 뒤집는다
+
+기현님 제보: *"구글 동기화 안드로이드에서 자동안함 링크 공유도"*.
+
+**무엇이 깨져 있었나.** 안드로이드 빌드는 `SPIN_DESKTOP_*` 를 일부러 안 읽는다(시크릿 유출 방지,
+`vite.config.ts` envPrefix). 그래서 `.env.local` 에 `SPIN_ANDROID_WEB_ORIGIN` 이 없으면
+`nativeWebOrigin()` 이 undefined 를 내고, 공유 API 가 **상대 경로**로 떨어진다. Capacitor 의 출처는
+`https://localhost` 이고 거기엔 우리 서버가 없다 — 그런데 **Capacitor 로컬 서버가 SPA 폴백으로
+`/api/share` 에도 200 + index.html 을 돌려준다**(에뮬레이터 실측). 즉 실패가 404 조차 아니라
+«200 인데 HTML» 이라 더 헷갈렸다.
+
+**왜 env 로 막는 방어가 틀렸나.** 그 방어는 **앱에서만, 실행 중에만** 깨진다 — 타입도 테스트도 CI 도
+못 잡는 실패 모양 중 가장 나쁜 것이다. 그리고 애초에 안드로이드 빌드는 이 도메인에 **이미 묶여
+있다**: AndroidManifest 의 App Links intent-filter 와 `.well-known/assetlinks.json` 이 호스트를
+하드코딩한다. «도메인 독립» 은 웹 빌드의 성질이지 안드로이드 빌드의 성질이 아니었다.
+
+**고친 모양** — `src/share/origin.ts` 가 `CANONICAL_WEB_HOST`/`CANONICAL_WEB_ORIGIN` 을 한 벌로 갖고,
+`nativeWebOrigin()` 은 env 가 없으면 **네이티브 셸에 한해** 그 값으로 물러난다. 웹은 그대로 상대
+경로(도메인 독립 유지). env 는 스테이징·자체 호스팅을 위한 **덮어쓰기**로 남는다.
+`nativeBridge.ts` 의 App Links 호스트 리터럴도 같은 상수로 바꿔 두 곳이 갈라질 수 없게 했다
+(`share/origin.test.ts` 가 매니페스트를 읽어 대조한다).
+
+**실기 왕복 확인**(에뮬레이터, 2026-09-19): 앱에서 [링크로 공유] → 요청이
+`https://spin.atit.app/api/share` 로 나가고 링크 `https://spin.atit.app/s/VBJ6qKM7Ox#…` 가 생성됐다.
+(이 공유는 운영 서버에 실제로 남는다 — 암호문이고 180일 뒤 만료된다.)
+
+## §7 에뮬레이터 함정 — 네트워크가 죽는다
+
+`ping: Network is unreachable` 로 **아무 데도 못 닿는 에뮬레이터**가 나온다. 원인은 호스트의
+`/etc/resolv.conf` 가 `127.0.0.53`(systemd-resolved 루프백)이라는 것 — 에뮬레이터가 그것을 물려받아
+자기 안의 루프백을 DNS 로 쓴다. 고치는 법은 **띄울 때 DNS 를 명시**하는 것뿐이다:
+
+```
+emulator -avd <name> -dns-server 8.8.8.8,1.1.1.1
+```
+
+`adb root` 로 경로를 넣는 우회는 `google_apis_playstore` 이미지에서 막힌다. 네트워크가 죽은 채로
+검증하면 «공유가 안 된다» 를 앱 탓으로 오진하게 된다 — 2026-09-19 에 실제로 한 번 그랬다.
