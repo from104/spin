@@ -254,11 +254,12 @@ jobs:
       # 공유 링크가 가리킬 웹앱의 공개 출처. 없으면 앱이 `https://localhost/api/share` 를
       # 불러 아무 데도 닿지 않는다 — 데스크톱의 SPIN_DESKTOP_WEB_ORIGIN 과 같은 문제다.
       SPIN_ANDROID_WEB_ORIGIN: https://spin.atit.app
-      # ⚠️ **아직 발급 전이다.** 구글 클라우드 콘솔에 Android 유형 클라이언트를 만들고 업로드
-      # 키·디버그 키의 SHA-1 둘을 등록해야 값이 나온다(PLAN-ANDROID §5 3번). 여기를 빈
-      # 문자열로 두면 «없다» 가 «있다» 처럼 조용히 통과하므로 자리표시자를 박아 둔다 —
-      # 아래 확인 단계가 이 값을 보면 멈춘다. 발급되면 이 줄만 실제 ID 로 바꾼다.
-      SPIN_ANDROID_GOOGLE_CLIENT_ID: TODO-구글-클라우드-콘솔-Android-클라이언트-미발급
+      # 안드로이드 OAuth 클라이언트 ID. **시크릿이 아니다** — 안드로이드 유형 클라이언트에는
+      # client_secret 자체가 없고(내려받은 JSON 에도 없다), 앱 번들에 그대로 인라인된다.
+      # 신원은 이 값이 아니라 **패키지 이름 + 서명 인증서 지문**이 증명한다(그래서 콘솔에
+      # 디버그·업로드·Play 앱 서명 SHA-1 을 등록해야 한다 — PLAN-ANDROID §5 3번).
+      # 2026-09-19 발급됨. 자리표시자가 있던 자리다 — 아래 확인 단계가 TODO- 를 보면 멈춘다.
+      SPIN_ANDROID_GOOGLE_CLIENT_ID: 518614043634-sffno9hd11ers5pq1lgi547sl6vssfea.apps.googleusercontent.com
 
     steps:
       - uses: actions/checkout@v4
