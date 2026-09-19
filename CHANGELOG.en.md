@@ -22,6 +22,9 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Fixed
 
+- The board did not use the full height in presentation — space was reserved for step notes even in
+  drills that have none. Those drills now get a 15% taller board
+- On narrow screens the header subtitle was clipped and the drill library header wrapped to two rows
 - Link sharing did not work in the Android app — the app was calling itself instead of the server
 - Drill thumbnails were **missing entirely** in the library — a Chromium-only defect (Android app,
   Chrome, Edge). The same fix also stops the category badge from overlapping the drill name

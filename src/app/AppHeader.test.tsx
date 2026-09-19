@@ -5,6 +5,8 @@
 // 없이는 못 선다. 전부 `{ wrapper: SettingsProvider }` 로 감싼다(테스트 로케일은 test/setup.ts
 // 가 'ko' 로 고정하므로 기존 한글 단언은 그대로 유효하다).
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AppHeader, HeaderProvider, useAppHeader } from './AppHeader.tsx';
@@ -306,5 +308,53 @@ describe('AppHeader / useAppHeader', () => {
     expect(screen.getByText('편집기')).toBeInTheDocument();
     rerender(<Wrapper show={false} />);
     expect(screen.queryByText('편집기')).not.toBeInTheDocument();
+  });
+});
+
+// 2026-09-19 — 헤더 세 칸의 **폭 배분**. 옛 모양은 셋 다 `1 1 0` 이라 정확히 1/3 씩이었고,
+// 그것이 실기에서 두 결함의 한 원인이었다(실측, 헤더 폭 1049 → 칸마다 324):
+//   · 자유 전술판 — **빈 왼쪽 칸이 324 를 붙들어** 부제가 359 를 못 받아 말줄임됐다.
+//   · 드릴 목록 — 오른쪽 칸도 324 라 검색칸+[새 드릴]이 안 들어가 헤더가 **두 줄**(74)이 됐다.
+// 이제 제목 칸만 내용 크기(`0 1 auto`)이고 양옆은 `1 1 0` 이다. **가운데 정렬은 그대로다** —
+// 양옆이 같은 flex 라 남는 폭을 똑같이 나눠 제목의 중심이 언제나 헤더의 중심이다.
+//
+// jsdom 은 레이아웃이 없어 «324 였다» 를 잴 수 없다 — 그래서 **배분 규칙 자체**를 본다.
+// 세 칸이 다시 균등해지면 실기에서만 보이는 그 두 결함이 조용히 돌아온다.
+describe('헤더 세 칸의 폭 배분 (2026-09-19)', () => {
+  // ⚠️ 이 규칙만 **소스 대조**다. jsdom 의 cssstyle 은 `flex: '1 1 0'`(단위 없는 basis)을 충실히
+  //    직렬화하지 못한다 — 실측에서 한 칸은 통째로 사라지고 다른 칸은 `0 0 auto` 로 뭉개졌다.
+  //    그 값에 단언하면 **거짓 신호**가 나므로, 배분 규칙은 소스에서 읽어 못박는다
+  //    (chromeBudget.test 가 예산표를 소스와 대조하는 것과 같은 이유).
+  const src = readFileSync(resolve(process.cwd(), 'src/app/AppHeader.tsx'), 'utf-8');
+
+  it('제목 칸은 내용 크기, 양옆은 균등 — 그래야 제목이 중앙이면서 부제가 안 잘린다', () => {
+    // 제목: symmetric 이면 내용 크기. `1 1 0` 으로 되돌아가면 칸이 다시 1/3 로 고정된다.
+    expect(src).toContain("flex: absolute ? (symmetric ? '0 1 auto' : '1 1 6rem') : '1 1 12rem'");
+    // 양옆은 **같은 값**이어야 가운데 정렬이 성립한다(한쪽만 바꾸면 제목이 옆으로 밀린다).
+    expect(src).toContain("<div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>{leading}</div>");
+    expect(src).toContain("flex: symmetric ? '1 1 0' : 'none'");
+    // 끝까지 밀리면 칸 안에서 말줄임된다 — 칸을 늘려 헤더를 접지 않는다.
+    expect(src).toContain('minWidth: 0, flex: absolute');
+  });
+
+  it('검색칸은 줄어들 수 있다 — 하한만 있고 상한이 없으면 헤더가 두 줄로 접힌다', () => {
+    function SearchPublisher() {
+      useAppHeader({ title: '목록', search: { value: '', onChange: () => {} } });
+      return null;
+    }
+    render(
+      <HeaderProvider>
+        <AppHeader />
+        <SearchPublisher />
+      </HeaderProvider>,
+      { wrapper: SettingsProvider },
+    );
+    const input = document.getElementById('drill-search') as HTMLInputElement;
+    const box = input.closest('label') as HTMLElement;
+    // 210 은 **기준이자 하한**이지 고정폭이 아니다.
+    expect(box.style.flex).toBe('1 1 210px');
+    expect(box.style.minWidth).toBe('210px');
+    // 안쪽 input 의 자동 최소 크기(브라우저 기본 size)가 칸을 301px 까지 밀어 올렸던 자리다.
+    expect(input.style.minWidth).toBe('0px');
   });
 });

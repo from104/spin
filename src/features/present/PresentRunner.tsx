@@ -330,6 +330,16 @@ function PresentBody({
     [drill],
   );
 
+  /** 이 드릴이 노트 띠를 **쓰기는 하는가.** 드릴 단위 판정인 것이 핵심이다 — 스텝 단위로 재면
+   *  노트가 있는 스텝과 없는 스텝 사이에서 코트가 출렁인다(PRESENT_NOTE_BAND_MIN_PX 주석). */
+  const noteBandPx = useMemo(
+    () =>
+      namedRoster.length > 0 || drill.steps.some((st) => (st.note ?? '').trim().length > 0)
+        ? PRESENT_NOTE_BAND_PX
+        : PRESENT_NOTE_BAND_MIN_PX,
+    [drill, namedRoster],
+  );
+
   const baseMs = PLAYBACK.stepIntervalMs[playback.speed];
   const starts = useMemo(() => stepStartsMs(drill.steps, baseMs), [drill, baseMs]);
 
@@ -627,7 +637,7 @@ function PresentBody({
               줄**(여기서는 진행바가 있는 줄)에 있어야 한다 — 노트 줄에 있으면 그 아래 진행바
               줄 하나가 더 있어 화면상 자리가 어긋난다. 진행바는 그만큼 전폭을 안 쓰고 옆에
               재생 묶음 자리를 낸다(아래 flex:1). */}
-          <div style={{ minHeight: PRESENT_NOTE_BAND_PX, maxHeight: PRESENT_NOTE_BAND_PX, overflowY: 'auto' }}>
+          <div style={{ minHeight: noteBandPx, maxHeight: noteBandPx, overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 5 }}>
               <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 12, fontWeight: 700, color: 'var(--accent-text)', letterSpacing: 1 }}>
                 STEP {stepIndex + 1}/{drill.steps.length}
@@ -798,6 +808,17 @@ function VisuallyHiddenNotice() {
  *  ≈ 43) + 이름 줄(≈24, marginTop 포함)의 대략치다. min=max 로 걸어 노트 유무와 무관하게
  *  이 띠의 키를 고정한다 — 스텝을 넘길 때 코트가 위아래로 안 밀리는 것이 이 상수의 전부다. */
 const PRESENT_NOTE_BAND_PX = 86;
+
+/** 노트도 실명도 **하나도 없는 드릴**의 띠 높이 — STEP 줄만 남는다(16 + marginBottom 5).
+ *
+ *  ⚠️ 2026-09-19 기현님 제보(*"시연 전체화면 코트가 세로를 다 안 쓴다"*) — 실측에서 띠 86 중
+ *  **실제 내용이 16** 이었다. 70px 이 빈 채로 예약돼 코트가 그만큼 작았다.
+ *
+ *  위 상수의 근거(스텝을 넘길 때 코트가 안 밀린다)는 **그대로 지킨다**: 예약할지 말지를
+ *  **드릴 단위로** 정하기 때문이다. 한 드릴 안에서는 어느 스텝에서도 같은 높이이므로 출렁임이
+ *  없고, 노트를 한 줄도 안 쓴 드릴만 70px 을 코트에 돌려준다. 스텝 단위로 재면(= `currentStep.note`
+ *  로 갈랐으면) 바로 그 출렁임이 돌아온다 — 그래서 `drill.steps.some(...)` 이다. */
+const PRESENT_NOTE_BAND_MIN_PX = 21;
 
 export type { PresentLoad };
 export { stepStartsMs };

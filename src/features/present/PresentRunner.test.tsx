@@ -424,3 +424,44 @@ describe('시연 튜토리얼(§0.5)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '화면 안내' })).toBeNull());
   });
 });
+
+// 2026-09-19 기현님 제보(*"시연 전체화면 코트가 세로를 다 안 쓴다"*) — 코트 아래 노트 띠가
+// 노트 유무와 무관하게 86px 을 예약하고 있었다. 에뮬레이터 실측에서 띠 86 중 **실제 내용이
+// 16** 이라, 노트를 한 줄도 안 쓴 드릴에서 70px 이 빈 채로 코트를 눌렀다(코트 428 → 493 회복).
+//
+// 예약 자체는 지운 것이 아니다 — 스텝을 넘길 때 코트가 위아래로 밀리지 않으려면 띠의 키가
+// 고정이어야 한다(PRESENT_NOTE_BAND_PX 주석). 바뀐 것은 **판정의 단위**다: 스텝이 아니라
+// **드릴**을 본다. 그래서 아래 두 단언이 쌍으로 있어야 뜻이 산다 — 하나는 «줄었다», 다른
+// 하나는 «그래도 스텝 사이에서는 안 흔들린다».
+describe('PresentRunner — 노트 띠는 드릴 단위로 예약한다', () => {
+  /** 띠는 STEP 줄을 감싼 상자다 — 인라인 minHeight 가 그 예약값이다(jsdom 은 레이아웃이 없다). */
+  const bandOf = (): HTMLElement => {
+    const step = screen.getByText(/^STEP \d+\/\d+$/);
+    return step.parentElement!.parentElement as HTMLElement;
+  };
+
+  it('노트가 있는 드릴은 넉넉히 예약하고, 스텝을 넘겨도 그 값이 안 변한다', async () => {
+    const drill = await makeTwoStepDrill();
+    render(<PresentRunner target={{ kind: 'drill', drillId: drill.id }} nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(STEP1_NOTE)).toBeInTheDocument());
+    const before = bandOf().style.minHeight;
+    expect(before).toBe('86px');
+
+    await userEvent.click(screen.getByRole('button', { name: '다음 스텝' }));
+    await waitFor(() => expect(screen.getByText(STEP2_NOTE)).toBeInTheDocument());
+    // ★ 출렁임 방지의 본체 — 스텝이 바뀌어도 같은 값이어야 한다.
+    expect(bandOf().style.minHeight).toBe(before);
+    expect(bandOf().style.maxHeight).toBe(before);
+  });
+
+  it('노트도 실명도 없는 드릴은 STEP 줄만큼만 예약한다 — 그 차이가 코트로 간다', async () => {
+    const base = await idbDrillRepo.createDrill({ courtMode: 'full', title: `노트 없는 드릴 #${++seq}` });
+    const bare = await idbDrillRepo.putDrill(
+      { ...base, steps: [{ ...base.steps[0]!, id: newId('st'), note: '' }] },
+      { touch: false },
+    );
+    render(<PresentRunner target={{ kind: 'drill', drillId: bare.id }} nav={makeNav()} />, { wrapper });
+    await waitFor(() => expect(screen.getByText('STEP 1/1')).toBeInTheDocument());
+    expect(bandOf().style.minHeight).toBe('21px');
+  });
+});
