@@ -52,3 +52,14 @@ client_secret_*
 # scripts/deploy-aws.sh · scripts/deploy-share.sh 가 있으면 읽는다.
 # 키 이름만 담은 견본은 .env.deploy.example 로 추적한다.
 .env.deploy
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# 데스크톱 패키지 산출물 — 저장소 뿌리에 구워서 스토어로 올린다. 릴리스 자산이지
+# 소스가 아니다. ⚠️ snap 두 벌(0.6.9·0.6.10)이 이미 이력에 들어가 .git 을 192MB 로
+# 불려놨다 — 같은 일을 되풀이하지 않으려고 네 형식을 다 막는다.
+/*.snap
+/*.AppImage
+/*.deb
+/*.rpm
