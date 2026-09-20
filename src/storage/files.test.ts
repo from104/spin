@@ -54,6 +54,50 @@ describe('downloadBlob (4.3)', () => {
     delete (URL as { revokeObjectURL?: unknown }).revokeObjectURL;
   });
 
+  // ── 브라우저 저장 대화상자(2026-09-13) ─────────────────────────────────────────────
+  // 이 셋을 지우면 새는 것: ①취소했는데 파일이 떨어지는 사고, ②대화상자를 못 여는 브라우저
+  // (파이어폭스·사파리)에서 내보내기가 통째로 죽는 것, ③제스처가 만료됐을 때 같은 죽음.
+  const withPicker = (fn: unknown) => {
+    (globalThis as { showSaveFilePicker?: unknown }).showSaveFilePicker = fn;
+    return () => {
+      delete (globalThis as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    };
+  };
+
+  it('저장 대화상자가 있으면 거기에 쓰고 saved 를 돌려준다 — 앵커도 공유도 안 쓴다', async () => {
+    const writes: Blob[] = [];
+    const close = vi.fn(() => Promise.resolve());
+    const picker = vi.fn((_opts: { suggestedName?: string }) => Promise.resolve({
+      createWritable: () => Promise.resolve({ write: (b: Blob) => { writes.push(b); return Promise.resolve(); }, close }),
+    }));
+    const undo = withPicker(picker);
+    // 공유도 가능한 기계로 둔다 — 그래도 대화상자가 이긴다는 것이 이 단언의 뜻이다.
+    nav.canShare = vi.fn<CanShareFn>(() => true);
+    nav.share = vi.fn<ShareFn>(() => Promise.resolve());
+
+    await expect(downloadBlob(jsonBlob('{"a":1}'), 'SPIN_대화상자.spin.json')).resolves.toBe('saved');
+    expect(picker.mock.calls[0]![0]).toMatchObject({ suggestedName: 'SPIN_대화상자.spin.json' });
+    expect(writes).toHaveLength(1);
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(clickSpy, '대화상자로 갔으면 앵커는 0회다').toHaveBeenCalledTimes(0);
+    expect(nav.share, '대화상자가 공유 시트보다 먼저다').not.toHaveBeenCalled();
+    undo();
+  });
+
+  it('대화상자를 물리면 cancelled 이고 파일은 떨어지지 않는다', async () => {
+    const undo = withPicker(() => Promise.reject(new DOMException('취소', 'AbortError')));
+    await expect(downloadBlob(jsonBlob('x'), 'SPIN_물림.spin.json')).resolves.toBe('cancelled');
+    expect(clickSpy, '취소했는데 다운로드가 시작되면 안 된다').toHaveBeenCalledTimes(0);
+    undo();
+  });
+
+  it('대화상자를 못 열면(제스처 만료 등) 앵커로 흘러 started 가 된다 — 내보내기가 죽지는 않는다', async () => {
+    const undo = withPicker(() => Promise.reject(new DOMException('제스처 없음', 'SecurityError')));
+    await expect(downloadBlob(jsonBlob('x'), 'SPIN_폴백2.spin.json')).resolves.toBe('started');
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    undo();
+  });
+
   it('canShare 가 참이면 share 로 보낸다 — 같은 틱 동기 호출, 앵커 경로 0회', async () => {
     const share = vi.fn<ShareFn>(() => Promise.resolve());
     const canShare = vi.fn<CanShareFn>(() => true);

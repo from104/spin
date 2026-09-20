@@ -31,7 +31,7 @@
 // ⚠️ §8 의존 표에 `src/share` 는 없다. 이 화면은 그것을 직접 import 하지 않고, 같은 폴더의 두
 //    시트만이 부른다 — src/share 는 storage 와 같은 층(순수 함수 + fetch, app-shell 무의존)이라
 //    표의 정신을 깨지 않는다. 다만 화면이 그 층을 직접 부르기 시작하면 그때는 표를 고쳐야 한다.
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { DRILL_TYPES, DRILL_TYPE_LABELS, DRILL_SITUATIONS, SITUATION_LABELS } from '../../model/drill.ts';
@@ -57,7 +57,9 @@ import type { ImportResolution } from '../../storage/transfer.ts';
 import { ACCEPT_LIBRARY } from '../../storage/files.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
+import type { DrillId } from '../../core/ids.ts';
 import { storageErrorText } from '../../i18n/storageError.ts';
+import { useSelectMode } from './useSelectMode.ts';
 import { DRILL_LEVEL_LABELS } from '../../model/drill.ts';
 import { useTutorial } from '../../ui/tutorial/useTutorial.ts';
 import { TutorialOverlay } from '../../ui/tutorial/TutorialOverlay.tsx';
@@ -134,14 +136,86 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
   // 순간의 판단 미스로 몇 시간을 날릴 수 있음." 드릴 하나가 몇 시간짜리 작업물일 수 있어
   // §6.10 의 "안 쓰이면 확인 없이 즉시 삭제" 관례를 여기서는 깬다 — 무조건 묻는다.
   // findReferrers 는 버려지지 않는다 — 이제 본문 문구(경고 세기)만 가른다(§C-2 판단 2).
+  // ── 선택 모드(2026-09-14 기현님 지시 *"드릴, 세션 목록에서 선택해서 지우는 동작"*) ──────
+  // 편집기 사이드바(§C-1)의 규약을 그대로 쓴다: 명시적 진입, 모드를 끄면 전부 해제, 상태는
+  // 화면 로컬. 다른 점 하나 — 목록에는 **진짜 체크박스**를 쓴다(사이드바는 폭 134px 이라 형제를
+  // 낼 자리가 없어 `aria-pressed` 였다). 낭독기가 «확인란, 선택됨» 으로 읽고 Space 가 공짜다.
+  const select = useSelectMode<DrillId>();
+  const [pendingBatch, setPendingBatch] = useState<{ drills: DrillSummary[]; refDrills: number; refSessions: number } | null>(null);
+
+  /** 지금 화면에 **보이는** 드릴 id. [보이는 것 모두]의 범위이자 «필터 밖은 안 건드린다» 의 근거다. */
+  const visibleIds = useMemo(() => drills.map((d) => d.id), [drills]);
+  const selectedDrills = useMemo(() => drills.filter((d) => select.checked.has(d.id)), [drills, select.checked]);
+
+  const requestBatchDelete = async () => {
+    if (selectedDrills.length === 0) return;
+    // 참조는 **합집합 개수 둘**로만 말한다(세션 이름을 다 늘어놓으면 스무 개에서 읽히지 않는다).
+    const lists: Referrer[][] = await Promise.all(selectedDrills.map((d: DrillSummary) => findReferrers(d.id)));
+    const sessions = new Set<string>();
+    let refDrills = 0;
+    for (const rs of lists) {
+      if (rs.length === 0) continue;
+      refDrills += 1;
+      for (const r of rs) sessions.add(r.id);
+    }
+    setPendingBatch({ drills: selectedDrills, refDrills, refSessions: sessions.size });
+  };
+
+  const doBatchDelete = async (targets: DrillSummary[]) => {
+    const ids = targets.map((d) => d.id);
+    try {
+      const { repo } = await resolveDrillRepo();
+      // 되돌리기용 원본을 **먼저** 확보한다 — 지운 뒤에는 읽을 수 없다.
+      const fulls = (await Promise.all(ids.map((id) => repo.getDrill(id)))).filter((d): d is NonNullable<typeof d> => d !== undefined && d !== null);
+      await repo.deleteDrills(ids);
+      select.remove(ids);
+      select.exit();
+      await refresh();
+      const first = targets[0]!.title;
+      toast.show(
+        targets.length === 1
+          ? t('library.deleteToast', { title: first })
+          : t('select.deletedToast', { first, rest: targets.length - 1 }),
+        {
+          durationMs: DELETE_UNDO_TOAST_MS,
+          action:
+            fulls.length === ids.length
+              ? {
+                  label: t('library.undoAction'),
+                  onAction: async () => {
+                    try {
+                      const { repo: r2 } = await resolveDrillRepo();
+                      await r2.restoreDrills(fulls);
+                      await refresh();
+                    } catch (e) {
+                      // 토스트는 무엇이 실패인지 모른다 — 말하는 것은 부르는 쪽 몫이다(Toast.tsx).
+                      toast.show(storageErrorText(e, locale, t('select.restoreFailed')));
+                    }
+                  },
+                }
+              : undefined,
+        },
+      );
+    } catch (e) {
+      toast.show(storageErrorText(e, locale, t('select.deleteFailed')));
+    }
+  };
+
   const [pendingDelete, setPendingDelete] = useState<{ drill: DrillSummary; referrers: Referrer[] } | null>(null);
   const requestDelete = async (d: DrillSummary) => {
     const referrers = await findReferrers(d.id);
     setPendingDelete({ drill: d, referrers });
   };
   const handleExport = async (d: DrillSummary) => {
-    await exportOneDrill(d.id, locale);
-    toast.show(t('library.exportToast', { title: d.title }));
+    try {
+      // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않는다.
+      if ((await exportOneDrill(d.id, locale)) === 'cancelled') return;
+      toast.show(t('library.exportToast', { title: d.title }));
+    } catch (e) {
+      // 대화상자에서 자리를 고른 뒤 쓰다가 실패하면 여기로 온다(2026-09-13) — 조용히 삼키면
+      // 사람은 저장된 줄 안다.
+      toast.show(storageErrorText(e, locale, t('export.saveFailed')));
+    }
   };
 
   // ── 공유 링크 (PLAN-SHARE-LINK 결정 9·11) ───────────────────────────────────────────────
@@ -289,6 +363,12 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
             <Button ref={linkImportBtnRef} variant="secondary" onClick={() => setLinkImportOpen(true)}>
               {t('library.importLink.button')}
             </Button>
+            {/* [선택](2026-09-14) — 가져오기 둘 옆이다. 목록에 **하는 일**이 여기 모인다. */}
+            {drills.length > 0 && !select.mode && (
+              <Button variant="secondary" onClick={() => select.enter()}>
+                {t('select.enter')}
+              </Button>
+            )}
             {/* §6.1b — 2026-08-12(4.7) 에 [전체 내보내기]가 여기서 사라졌다. 설정 화면에도 **같은
                 버튼**이 있던 중복이었고(계획서 §6.1b "둘 다 제거"), 담기는 것이 드릴뿐이라
                 세션·설정·자유 전술판이 어떤 파일에도 안 들어갔다 — 백업했다고 믿게 만드는
@@ -296,6 +376,37 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
                 여기 카드마다 있는 [파일로 내보내기](드릴 1개)는 공유용으로 그대로 남는다. */}
           </div>
         </div>
+
+        {/* 선택 줄 — 모드일 때만 뜬다. 위 필터 줄은 **감추지 않는다**: 감추면 [보이는 것 모두]의
+            범위를 확인할 수단이 사라지고, 줄이 사라졌다 나타나며 목록이 출렁인다. */}
+        {select.mode && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              minHeight: 'var(--hit)',
+              marginBottom: 16,
+              padding: '0 4px',
+              borderRadius: 11,
+              background: 'var(--elev)',
+            }}
+          >
+            <span role="status" style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '0 8px' }}>
+              {t('select.count', { n: select.count })}
+            </span>
+            <Button variant="secondary" onClick={() => select.toggleAll(visibleIds)}>
+              {t('select.all')}
+            </Button>
+            <Button variant="primary" disabled={select.count === 0} onClick={() => void requestBatchDelete()}>
+              {t('select.delete')}
+            </Button>
+            <Button variant="secondary" onClick={select.exit} style={{ marginLeft: 'auto' }}>
+              {t('select.exit')}
+            </Button>
+          </div>
+        )}
 
         <div>
             {drills.length === 0 ? (
@@ -344,6 +455,8 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
                             onDelete={() => void requestDelete(d)}
                             onExport={() => void handleExport(d)}
                             onShareLink={() => void requestShareLink(d)}
+                            selection={select.mode ? { mode: true, checked: select.checked.has(d.id), onToggle: () => select.toggle(d.id) } : undefined}
+                            onSelectFrom={() => select.enter(d.id)}
                           />
                         );
                       })}
@@ -400,6 +513,34 @@ export function LibraryScreen({ nav, shareLanding }: LibraryScreenProps) {
             mainRef.current?.focus();
           }}
           returnFocusRef={mainRef}
+        />
+      )}
+
+      {pendingBatch && (
+        <ConfirmDialog
+          open
+          onCancel={() => setPendingBatch(null)}
+          onConfirm={() => {
+            const targets = pendingBatch.drills;
+            setPendingBatch(null);
+            void doBatchDelete(targets);
+          }}
+          title={t('select.confirmTitle', { n: pendingBatch.drills.length })}
+          body={
+            <>
+              {/* 제목을 **다섯까지** 보인다. 스무 개를 지우려는 사람의 마지막 검문이 «20개» 라는
+                  숫자뿐이면 그건 검문이 아니고, 스무 줄이면 아무도 안 읽는다. */}
+              <ul style={{ margin: '8px 0', paddingLeft: 20, color: 'var(--text)' }}>
+                {pendingBatch.drills.slice(0, 5).map((d) => (
+                  <li key={d.id}>{d.title}</li>
+                ))}
+                {pendingBatch.drills.length > 5 && <li>{t('select.confirmMore', { n: pendingBatch.drills.length - 5 })}</li>}
+              </ul>
+              {pendingBatch.refDrills > 0 && <p>{t('select.confirmRefs', { drills: pendingBatch.refDrills, sessions: pendingBatch.refSessions })}</p>}
+            </>
+          }
+          confirmLabel={t('library.deleteConfirm.confirm')}
+          cancelLabel={t('library.deleteConfirm.cancel')}
         />
       )}
 

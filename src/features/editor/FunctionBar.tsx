@@ -793,6 +793,8 @@ export function FunctionBar({
       <ExportSheet
         open={exportOpen}
         onClose={() => setExportOpen(false)}
+        // 전술판이면 시트에서 [영상]·[링크로 공유] 가 사라진다(ExportSheetProps.mode 주석).
+        mode={mode}
         drill={drill}
         stepIndex={stepIndex}
         checkedStepIds={checkedStepIds}

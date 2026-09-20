@@ -45,7 +45,10 @@ export function ShapeHandles({ shape, pxPerUnit, onPointerDown }: ShapeHandlesPr
         />
       ))}
       {handles.map((which) => (
-        <g key={which} transform={`translate(${at(which).x} ${at(which).y})`}>
+        // `data-shape-handle` 은 **검증용 표지**다(2026-09-14). 이동 앵커가 손잡이를 덮는지는
+        // 순수 함수로 못 잰다 — SVG 페인터 순서라서다. 헤드리스 크롬에서 이 표지의 중심에
+        // `elementFromPoint` 를 쏘면 «그 점을 누가 소유하는가» 가 눈이 아니라 값으로 나온다.
+        <g key={which} data-shape-handle={which} transform={`translate(${at(which).x} ${at(which).y})`}>
           {/* 잡는 원은 **보이는 원보다 두 배**다(22 대 11). 발 마우스·입 젓가락이 이 앱의
               기준이라, 눈에 보이는 크기로 조준하게 두면 매번 빗나간다. */}
           <circle r={hitR} fill="transparent" onPointerDown={(e) => onPointerDown?.(which, e)} style={{ cursor: 'pointer' }} />

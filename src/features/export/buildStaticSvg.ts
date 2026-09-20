@@ -76,7 +76,7 @@ import { NOTE_DEFAULT_SIZE_PX, noteChipHeightPx, noteChipPathD, noteFoldPathD } 
 // 진영 깃발의 좌표는 **저쪽 함수 하나**에서 온다(render/sideFlags.ts 의 sideFlagGroups 머리말).
 // 색·굵기도 같이 읽는다 — 여기 리터럴로 적으면 그림에서만 깃발이 어긋난다.
 import { FLAG_STROKE, FLAG_STROKE_W, POLE_W, sideFlagGroups } from '../../render/sideFlags.ts';
-import { pointsAttr, shapeSize, triPointsOf, SHAPE_COLOR, SHAPE_FILL_OPACITY, SHAPE_STROKE_OPACITY, SHAPE_STROKE_PX } from '../../model/shape.ts';
+import { pointsAttr, shapeColor, shapeSize, triPointsOf, SHAPE_CASING_PX, SHAPE_COLOR, SHAPE_FILL_OPACITY, SHAPE_STROKE_PX } from '../../model/shape.ts';
 import { num, safeColor, safeId } from './svgSafe.ts';
 import { teamMarkFor } from './teamMark.ts';
 import {
@@ -351,17 +351,32 @@ export function shapesMarkup(shapes: readonly Shape[]): string {
  *  굽는 자리가 필요해졌다 — 위 `shapesMarkup` 은 이것을 여러 번 부르는 껍데기다. */
 function shapeMarkup(s: Shape): string {
   const { w, h } = shapeSize(s);
-  const paint =
-    `fill="${SHAPE_COLOR}" fill-opacity="${SHAPE_FILL_OPACITY}"` +
-    ` stroke="${SHAPE_COLOR}" stroke-opacity="${SHAPE_STROKE_OPACITY}" stroke-width="${SHAPE_STROKE_PX}"`;
+  // ⚠️ `safeColor` 를 **반드시** 지난다. 여기는 문자열을 손으로 잇는 자리라, 남이 보낸 드릴의
+  //    색이 `#fff" onload=…` 이면 SVG 가 통째로 다른 문서가 된다(화살표·획·깃발이 같은 길이다).
+  const color = safeColor(shapeColor(s), SHAPE_COLOR);
+  const casing = SHAPE_STROKE_PX + SHAPE_CASING_PX;
+  // 케이싱 → 본체 두 겹(ShapeMark 와 **같은 순서·같은 값**). 케이싱은 면을 칠하지 않는다 —
+  // 칠하면 α 0.13 의 «겹칠수록 진해진다» 가 검정으로 덮여 죽는다.
+  const casingPaint = `fill="none" stroke="#000000" stroke-width="${casing}"`;
+  const paint = `fill="${color}" fill-opacity="${SHAPE_FILL_OPACITY}" stroke="${color}" stroke-width="${SHAPE_STROKE_PX}"`;
   // 삼각형의 모양은 w/h 가 아니라 꼭짓점이 진다(2026-08-15 자유 삼각형) — 그래서
   // `triPointsOf`/`pointsAttr` 을 화면과 **같이** 지난다. w/h 는 경계상자일 뿐이다.
+  const two = (attrs: string, extra = ''): string => {
+    const tag = attrs.split(' ')[0]!;
+    const rest = attrs.split(' ').slice(1).join(' ');
+    return (
+      `<${tag} ${rest} ${casingPaint}${extra}/>` +
+      // `data-shape-face` 는 «이 요소가 색을 진다» 는 표식이다 — 화면 쪽과 같은 이름이라야
+      // 두 벌 대조(courtLines.contract)가 속성까지 맞는다.
+      `<${tag} data-shape-face="" ${rest} ${paint}${extra}/>`
+    );
+  };
   const body =
     s.kind === 'ellipse'
-      ? `<ellipse rx="${w / 2}" ry="${h / 2}" ${paint}/>`
+      ? two(`ellipse rx="${w / 2}" ry="${h / 2}"`)
       : s.kind === 'rect'
-        ? `<rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" ${paint}/>`
-        : `<polygon points="${pointsAttr(triPointsOf(s))}" ${paint} stroke-linejoin="round"/>`;
+        ? two(`rect x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}"`)
+        : two(`polygon points="${pointsAttr(triPointsOf(s))}"`, ' stroke-linejoin="round"');
   return `<g id="obj-${safeId(s.id)}" transform="translate(${s.x} ${s.y}) rotate(${s.rot})">${body}</g>`;
 }
 

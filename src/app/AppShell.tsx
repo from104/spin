@@ -39,7 +39,7 @@
 //     발행한다.** "걷힘" 은 `loader.visible === false` 가 **아니라 퇴장 transition 까지 끝난
 //     시점**이다(2026-09-04 실측: 페이드 도중 프레임에 말풍선이 이미 떠 있었다). 그 시점은
 //     오버레이가 `onExited` 로 알려 준다 — 아래 coverSettled 주석.
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SkipLink } from '../ui/SkipLink.tsx';
 import { useIsNarrow } from '../ui/useIsNarrow.ts';
 import { LiveRegion, liveRegion } from '../ui/LiveRegion.tsx';
@@ -388,6 +388,7 @@ export function AppShell() {
   const isFirstRender = useRef(true);
   const locale = useLocale();
   const t = useT();
+
   // 3.-2 §5.2 — 좁으면 84px 레일을 걷고 같은 3항목을 헤더 좌측 세그먼트로 세운다. **판정은
   // 여기 한 번뿐이다**: 레일과 세그먼트가 같은 boolean 을 나눠 써야 "둘 다 서 있다/둘 다
   // 없다" 는 프레임이 열리지 않는다. 판 위에 오버레이로 얹지 않는 이유는 AppNavSegment.tsx
@@ -450,6 +451,24 @@ export function AppShell() {
     // (useAppHistory.ts 머리말이 옵셔널로 둔 이유).
     fromHistory: nav.lastNavFromHistory ?? false,
   });
+
+  /** 첫 커밋에 덮개가 서는 환경인가. 아래 부트 마크 뒷문이 이 값 하나만 본다. */
+  const loaderShowsRef = useRef(loader.visible);
+
+  // ── 부트 마크 (2026-09-15) — 0ms 환경의 뒷문 ───────────────────────────────────────
+  //
+  // `index.html` 이 첫 픽셀에 그려 둔 정지 마크를 **평소에는 `AppLoaderOverlay` 가** 걷는다
+  // (자기 회전이 시작되는 바로 그 순간에 걷어야 그림이 안 튀기 때문이다 — 그쪽 머리말).
+  // 여기는 **로더가 한 번도 안 뜨는 환경**만 맡는다: 감축 모션·테스트의 0ms 경로에서는
+  // 오버레이 DOM 이 아예 안 생겨(`useAppLoader` 머리말) 아무도 그 마크를 못 걷는다.
+  //
+  // ⚠️ 여기에 state 를 두지 마라. 한때 `bootSettled` 를 이 컴포넌트의 state 로 두었다가
+  //    진정 순간에 **트리 전체가 다시 렌더**되어 그 자리에 121ms·102ms 짜리 끊김이 새로
+  //    생겼다(실측). 하필 회전이 시작되는 순간이라 고치려던 바로 그 증상이었다.
+  useLayoutEffect(() => {
+    if (loaderShowsRef.current) return;
+    document.getElementById('spin-boot')?.remove();
+  }, []);
 
   // ── 결정 30 의 "걷힘" 은 `visible === false` 가 아니라 **퇴장 완료**다 ────────────────────
   // 오버레이는 `visible` 이 꺼진 뒤에도 EXIT_MS(160~200ms) 동안 살아 opacity 를 녹인다(결정 16).

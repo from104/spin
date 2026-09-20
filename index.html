@@ -108,6 +108,27 @@
          규칙 글은 감추지 않는다: 거기선 로더가 안 뜨고(prerenderLanding.ts) 이 글이 곧 내용이라
          감추면 빈 화면 → 글이 된다. */
       :root[data-js] .seo-prerender[data-seo-page='home'] { visibility: hidden; }
+
+      /* 부트 마크 (2026-09-15) — 첫 픽셀까지의 백지를 없앤다.
+         ⚠️ 이 블록은 **레이아웃만** 진다. 움직임은 하나도 없다 — 아래 마크는 정지 자세이고,
+         움직이는 로더는 React 의 `AppLoaderOverlay` 가 마운트되면서 이어받는다.
+         `--bg` 는 같은 순간에 오는 번들 스타일시트(tokens.css)가 준다. 그게 오기 전 몇 ms 를
+         위해 var() 안에 기본값을 둔다 — 두 값을 따로 선언하면 안 된다(var 가 무효일 때
+         앞 선언으로 안 돌아가고 transparent 가 된다). */
+      #spin-boot {
+        position: fixed;
+        inset: 0;
+        /* AppLoaderOverlay 의 LOADER_Z 와 같은 값 */
+        z-index: 220;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg, #0b0f14);
+      }
+      :root[data-theme='light'] #spin-boot { background: var(--bg, #ffffff); }
+      /* 크기는 appLoaderTiming.ts 의 MARK_SIZE.boot(min 96 · 20vmin · max 144)와 같은 식이다.
+         값이 갈리면 React 로더가 이어받는 순간 마크가 한 번 커지거나 작아진다. */
+      #spin-boot img { display: block; width: clamp(96px, 20vmin, 144px); height: auto; }
     </style>
     <!-- §4.6 FOUC 방지 부트 스크립트 — 스타일시트보다 먼저 실행돼야 한다. localStorage 를
          React 마운트 전에 동기로 읽어 data-theme 을 심는다(IDB 는 비동기라 여기 못 쓴다).
@@ -128,6 +149,49 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- 부트 마크 (2026-09-15, 기현님 실기: *"데탑앱에서 첫 로딩 애니가 툭툭 끊긴다"*).
+         데스크톱과 같은 엔진(WebKitGTK 4.1)에 빌드본을 올려 재 보니 **첫 픽셀이 865ms** 였다.
+         내역: 번들 컴파일·평가 175ms · 프로바이더 70ms · **AppShell 첫 렌더 530ms**(부팅 화면이
+         board = EditorWorkspace 라 가장 무거운 마운트가 첫 화면이다). 그동안 화면은 백지다 —
+         데스크톱은 프리렌더도 안 굽기 때문에 정말 아무것도 없다.
+         이 한 장이 그 구간을 메운다. 실측으로 첫 픽셀이 230ms 로 내려온다.
+
+         ⚠️ **움직이지 않는다. 그것이 이 요소의 계약이다.**
+         ① 그 530ms 는 메인 스레드가 통째로 막힌 구간이라 여기서 무엇을 돌려도 어차피 선다.
+         ② React 로더가 뜨는 순간 이 요소는 사라지는데, 그때 새로 생긴 요소의 CSS 애니메이션은
+            **0% 부터 다시 시작한다.** 이쪽이 사이클 중간(실측 53%)이었다면 마크가 발길질하다가
+            제자리로 튄다. 정지 자세로 두면 그 이음매가 **없다** — 사이클 0% 가 곧 정지 자세이기
+            때문이다(SpinLoaderMark.tsx 머리말·styles/a11y.css §5).
+         그래서 마크를 인라인으로 옮겨 적지 않고 **정본 `logo.svg` 를 그대로 쓴다**(3KB).
+         좌표가 세 벌이 되는 것을 막는 유일한 방법이기도 하다.
+
+         ⚠️ `#root` **밖**이어야 한다 — scripts/prerender.mjs 가 `<div id="root"></div>` 라는
+         **문자열 그대로**를 찾아 본문으로 갈아 끼운다. 안에 넣으면 그 치환이 조용히 빗나가
+         프리렌더 33장이 본문 없이 나간다(그 실패는 에러를 안 낸다). -->
+    <div id="spin-boot" aria-hidden="true"><img src="/logo.svg" alt="" /></div>
+    <script>
+      (function () {
+        var el = document.getElementById('spin-boot');
+        if (!el) return;
+        // 프리렌더로 **읽을 글**이 이미 깔린 페이지는 덮지 않는다 — 판정도 사유도
+        // `app/loader/prerenderLanding.ts` 와 같다(결정 13). 두 곳이 갈리면 검색으로 규칙
+        // 해설에 들어온 사람이 본문 대신 마크를 본다.
+        if (document.querySelector('.seo-prerender[data-seo-page="rules"], .seo-prerender[data-seo-page="legal"]')) {
+          el.remove();
+          return;
+        }
+        // 감축 모션이면 로더 자체가 안 뜬다(결정 8) — 부트 마크도 같이 없다.
+        try {
+          var p = JSON.parse(localStorage.getItem('spin.prefs') || '{}');
+          var always = p.a11y && p.a11y.reduceMotion === 'always';
+          var os = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (always || os) el.remove();
+        } catch (e) {}
+        // 번들이 끝내 안 오면 걷는다 — 위 프리렌더 글 되살리기와 같은 4초, 같은 사유다.
+        // 평소에는 AppShell 이 첫 커밋에서 먼저 지우므로 이 타이머는 도달하지 않는다.
+        setTimeout(function () { el.remove(); }, 4000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

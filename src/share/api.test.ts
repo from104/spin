@@ -5,7 +5,7 @@
 //
 // fetch 는 목이다 — 이 파일이 보는 것은 서버가 아니라 **상태 코드 → kind 의 사상**이다.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { uploadCiphertext, fetchCiphertext, deleteShared, shareApiBase, ShareError, SHARE_MAX_CIPHERTEXT_BYTES } from './api.ts';
+import { uploadCiphertext, fetchCiphertext, deleteShared, shareApiBase, shareLinkOrigin, ShareError, SHARE_MAX_CIPHERTEXT_BYTES } from './api.ts';
 import { shareNoticeFor } from './index.ts';
 
 afterEach(() => {
@@ -34,6 +34,20 @@ describe('api — 기준 주소', () => {
   it('VITE_SHARE_API_BASE 가 있으면 그것을 쓰고 뒤 슬래시는 지운다', () => {
     vi.stubEnv('VITE_SHARE_API_BASE', 'https://spin.atit.app/api/share/');
     expect(shareApiBase()).toBe('https://spin.atit.app/api/share');
+  });
+
+  // 데스크톱(tauri://localhost)은 상대 경로가 아무 데도 닿지 않는다(2026-09-13 실기). 뒤 슬래시가
+  // 붙어 와도 `//api` 를 만들지 않아야 Apache 프록시가 경로를 제대로 센다.
+  it('SPIN_DESKTOP_WEB_ORIGIN 이 있으면 그 아래 /api/share 를 부르고 링크도 그 출처로 만든다', () => {
+    vi.stubEnv('SPIN_DESKTOP_WEB_ORIGIN', 'https://spin.atit.app/');
+    expect(shareApiBase()).toBe('https://spin.atit.app/api/share');
+    expect(shareLinkOrigin()).toBe('https://spin.atit.app');
+  });
+
+  it('VITE_SHARE_API_BASE 는 데스크톱 출처보다 우선한다', () => {
+    vi.stubEnv('SPIN_DESKTOP_WEB_ORIGIN', 'https://spin.atit.app');
+    vi.stubEnv('VITE_SHARE_API_BASE', 'https://other.example/share');
+    expect(shareApiBase()).toBe('https://other.example/share');
   });
 });
 

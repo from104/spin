@@ -848,7 +848,7 @@ export const ja: Record<DictKey, string> = {
   'editor.workspace.presentAriaLabel': 'プレゼンを開始',
   'editor.workspace.presentTitle': 'プレゼン — チームの前でステップごとに見せる',
   'editor.workspace.presentLabel': 'プレゼンへ',
-  'editor.workspace.courtHelp': '矢印キーでカーソル移動、Enterで配置、[ / ]でオブジェクト巡回',
+  'editor.workspace.courtHelp': '矢印キー・WASDで移動、Q・Eで回転、Enterで配置、[ / ]でオブジェクト巡回（Shiftで大きく）',
 
   // ── C7 — 「同じ種類を全部選択」 ──────────────────────────────────────────────────────
   'editor.selectSame.sameTeam': '同じチーム全部選択',
@@ -958,6 +958,10 @@ export const ja: Record<DictKey, string> = {
   'export.blobFailed': '画像ファイルを作成できませんでした。',
   'export.video.title': '動画（MP4）',
   'export.video.desc': 'ドリル全体を30fpsの動画1本に。トーク画面にそのまま投稿できます。',
+  'export.saveFailed': '保存できませんでした。',
+  'editor.announce.rotateMulti': '複数選択中は回転しません。一つだけ選んでください。',
+  'export.savedToast': '「{{name}}」を保存しました。',
+  'export.video.start': '動画を作る',
   'export.video.size720': '720p',
   'export.video.size1080': '1080p',
   'export.video.wholeDrill': '動画は常にドリル全体です — 上の範囲選択は適用されません。',
@@ -968,6 +972,7 @@ export const ja: Record<DictKey, string> = {
   'export.video.retry': 'やり直す',
   'export.video.failed': '動画として書き出せませんでした。',
   'export.video.unsupported': 'このブラウザは動画エンコード（H.264）に対応していません — Chrome・Safariで書き出してください。',
+  'export.video.software': 'この端末には内蔵コーデックがないためソフトウェアで書き出します — 可能ですが数倍遅くなります。',
   'export.video.cancelled': '動画の書き出しをキャンセルしました。',
 
   // ── C8b — 矢印のアクセシブルネーム ───────────────────────────────────────────────────
@@ -978,6 +983,22 @@ export const ja: Record<DictKey, string> = {
   'arrow.label.oneTemplate': '{{name}}の線',
 
   // ── C8b — エディターのオブジェクトレイヤー（コーン・ボール・メモ） ──────────────────────
+  'select.enter': '選択',
+  'select.fromHere': 'ここから選択',
+  'select.count': '{{n}}件選択',
+  'select.all': '表示中すべて',
+  'select.exit': '選択を終える',
+  'select.delete': '選んだものを削除',
+  'select.confirmTitle': '{{n}}件を削除しますか？',
+  'select.confirmList': '{{titles}}',
+  'select.confirmMore': 'ほか{{n}}件',
+  'select.confirmRefs': 'このうち{{drills}}件が{{sessions}}件のセッションで使われています。削除するとそのセッションから外れます。',
+  'select.deletedToast': '「{{first}}」ほか{{rest}}件を削除しました。',
+  'select.deleteFailed': '削除できませんでした。',
+  'select.restoreFailed': '元に戻せませんでした。',
+  'drillCard.selectAriaLabel': '{{title}}を選択',
+  'sessionRow.selectAriaLabel': '{{title}}を選択',
+  'objectLayer.shapeAriaLabel': '図形: {{kind}}',
   'objectLayer.noteAriaLabel': 'メモ: {{text}}',
   'noteChip.placeholder': 'メモ',
 

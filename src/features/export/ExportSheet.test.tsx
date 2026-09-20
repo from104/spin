@@ -24,9 +24,9 @@ vi.mock('./rasterize.ts', () => ({
 // 영상 엔진도 jsdom 에서 못 돈다(VideoEncoder·캔버스 없음 — 그 파일 머리말). 모킹해서 **시트가
 // 지는 계약**만 본다: 미지원 표시 · 엔진에 무엇을 넘기는가 · 저장은 클릭에서 · 끊기는가.
 // 실제 인코딩(치수·길이·프레임 수)은 헤드리스 크롬 검수와 실기 항목이다(PLAN-VIDEO-EXPORT §4).
-const { supportMock, encodeMock } = vi.hoisted(() => ({ supportMock: vi.fn(), encodeMock: vi.fn() }));
+const { engineMock, encodeMock } = vi.hoisted(() => ({ engineMock: vi.fn(), encodeMock: vi.fn() }));
 vi.mock('./video/encodeDrillVideo.ts', () => ({
-  isVideoExportSupported: supportMock,
+  videoExportEngine: engineMock,
   encodeDrillVideo: encodeMock,
 }));
 vi.mock('../../storage/files.ts', async (importOriginal) => {
@@ -77,12 +77,13 @@ function ToastProbe() {
 /** ⚠️ open 을 **진짜 state 로** 든다. 상수 true 로 두면 항목이 onClose 를 불러도 시트가 닫히지
  *  않아, "닫힌 뒤에도 인쇄가 끝까지 간다"(PrintRoot 상주) 같은 계약이 통째로 검증되지 않는다 —
  *  실제로 그렇게 두었더니 PrintRoot 를 시트 안으로 되돌려도 이 파일이 전건 초록이었다. */
-function Harness({ onClose }: { onClose?: () => void }) {
+function Harness({ onClose, mode }: { onClose?: () => void; mode?: 'board' | 'drill' }) {
   const [open, setOpen] = useState(true);
   return (
     <SettingsProvider>
       <ToastProvider>
         <ExportSheet
+          mode={mode}
           open={open}
           onClose={() => {
             setOpen(false);
@@ -120,7 +121,7 @@ describe('닫힌 시트는 예산에 0을 더한다', () => {
     renderSheet(true);
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/, /^영상 \(MP4\)/, /^링크로 공유/]) {
+    for (const name of [/^그림 \(PNG\)/, /^인쇄 · PDF/, /^영상 만들기$/, /^링크로 공유/]) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
     // 2026-08-20 — [기기 이사 파일 (JSON)] 항목은 설정 화면으로 옮겼다(SettingsScreen.test.tsx).
@@ -131,7 +132,26 @@ describe('닫힌 시트는 예산에 0을 더한다', () => {
     // ⚠️ 2026-09-08: 3 → 4 ([영상 (MP4)], PLAN-VIDEO-EXPORT). 영상은 상태를 갖는 항목이지만
     //    **머리 버튼은 하나**다 — [취소]·[저장]·[다시] 는 그 단계에 들어가야 생긴다(여기는 idle).
     //    크기 라디오는 role=radio 라 이 수에 안 든다.
+    // ⚠️ 2026-09-13: 영상의 그 버튼은 이제 **머리가 아니라 [영상 만들기]** 다(기현님 지시 —
+    //    제목처럼 생긴 것을 눌러야 시작되는 것이 안 보였다). 수는 그대로 5 다.
     expect(screen.getAllByRole('button')).toHaveLength(5);
+  });
+});
+
+// 2026-09-13 기현님 지시 — 자유 전술판에는 [영상]·[링크로 공유] 가 **아예 없다**. 근거는
+// 전술판이 1스텝짜리 판이라는 것이다(storage/board.ts): 영상은 정지 화면 한 장, 링크는 저장도
+// 안 된 판을 받는 쪽 라이브러리에 드릴로 앉힌다. 대조군(드릴 쪽 5개)은 위 "세 항목" it 이 진다.
+describe('[보드] 시트에서 빠지는 두 칸', () => {
+  it('자유 전술판에는 [영상]·[링크로 공유] 가 없고, 그림·인쇄는 그대로다', async () => {
+    engineMock.mockResolvedValue('webcodecs');
+    render(<Harness mode="board" />);
+    expect(screen.getByRole('button', { name: /^그림 \(PNG\)/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^인쇄 · PDF/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^영상 만들기$/ }), '정지 화면 한 장짜리 영상을 권하지 않는다').toBeNull();
+    expect(screen.queryByText(/^영상 \(MP4\)/), '항목 제목도 남으면 안 된다').toBeNull();
+    expect(screen.queryByRole('button', { name: /^링크로 공유/ }), '저장도 안 된 판을 드릴로 넘기지 않는다').toBeNull();
+    // 항목 2 + 닫기 1 = 3. 드릴 쪽 5와 짝을 이룬다.
+    expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 });
 
@@ -388,6 +408,7 @@ describe('내보내기 범위', () => {
 // 끝나자마자 저장해 iOS 공유 시트가 안 열리는 회귀, 시트를 닫아도 계속 도는 인코더.
 describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
   const RESULT: VideoExportResult = {
+    engine: 'webcodecs',
     blob: new Blob(['mp4'], { type: 'video/mp4' }),
     bytes: 1234567,
     frames: 90,
@@ -397,16 +418,17 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
   };
 
   beforeEach(() => {
-    supportMock.mockResolvedValue(true);
+    engineMock.mockResolvedValue('webcodecs');
     encodeMock.mockResolvedValue(RESULT);
   });
 
-  /** 머리 버튼 — **미지원일 때도 DOM 에 남는다**(disabled 가 아니라 aria-disabled 라서). */
-  const head = () => screen.getByRole('button', { name: /^영상 \(MP4\)/ });
+  /** 시작 버튼 — **미지원일 때도 DOM 에 남는다**(disabled 가 아니라 aria-disabled 라서).
+   *  2026-09-13 이전에는 항목 머리(제목 줄) 자체가 이 버튼이었다. */
+  const head = () => screen.getByRole('button', { name: /^영상 만들기$/ });
   const describedText = () => document.getElementById(head().getAttribute('aria-describedby') ?? '')?.textContent ?? '';
 
   it('미지원 브라우저: aria-disabled 이고 사유가 설명으로 걸리며, 눌러도 인코딩이 시작되지 않는다', async () => {
-    supportMock.mockResolvedValue(false);
+    engineMock.mockResolvedValue(null);
     render(<Harness />);
     await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('true'));
     const reason = describedText();
@@ -416,7 +438,7 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
     // ★ 대조군 — 지원되는 기기에서는 같은 자리의 **설명이 달라진다.** 이 짝이 없으면 위 단언은
     //   "설명이 늘 같은 글자" 여도 통과한다(사유를 안 갈아 끼우는 회귀를 못 잡는다).
     cleanup();
-    supportMock.mockResolvedValue(true);
+    engineMock.mockResolvedValue('webcodecs');
     render(<Harness />);
     await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
     expect(describedText()).not.toBe(reason);
@@ -456,6 +478,33 @@ describe('[영상] 미지원 · 인코딩 · 저장 · 끊기', () => {
     expect(blob.type).toBe('video/mp4');
     expect(name).toBe(videoFileName(drill));
     expect(name).toMatch(/\.mp4$/);
+  });
+
+  // 2026-09-13 기현님 지시: 저장하면 시트를 닫는다. 그런데 **취소했을 때는 닫지 않는다** —
+  // 옛 주석이 지키던 것이 그것이고(공유 시트를 물린 사람이 다시 누를 자리), 그 걱정은 아직 참이다.
+  // 둘을 한 it 에서 보는 이유: 한쪽만 있으면 "늘 닫는다"·"늘 안 닫는다" 가 통과한다.
+  it('저장이 끝나면 시트가 닫히고, 사람이 물리면 열린 채로 남는다', async () => {
+    downloadMock.mockResolvedValue('saved');
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
+    await userEvent.click(head());
+    await userEvent.click(await screen.findByRole('button', { name: '저장' }));
+    await waitFor(() => expect(onClose, '저장했으면 닫는다').toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/저장했습니다/), '저장했다고 말해 준다').toBeTruthy();
+
+    cleanup();
+    downloadMock.mockResolvedValue('cancelled');
+    const onClose2 = vi.fn();
+    render(<Harness onClose={onClose2} />);
+    await waitFor(() => expect(head().getAttribute('aria-disabled')).toBe('false'));
+    await userEvent.click(head());
+    const save = await screen.findByRole('button', { name: '저장' });
+    await userEvent.click(save);
+    await waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(2));
+    expect(onClose2, '물렸으면 다시 누를 자리를 남긴다').toHaveBeenCalledTimes(0);
+    expect(save.isConnected, '[저장] 버튼이 그대로 있어야 다시 누른다').toBe(true);
+    expect(screen.queryByText(/저장했습니다/), '물렸는데 저장했다고 말하면 거짓말이다').toBeNull();
   });
 
   /** 끝나지 않는 인코딩 — signal 을 붙잡아 두고 abort 될 때만 취소로 끝난다. */

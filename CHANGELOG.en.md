@@ -8,11 +8,48 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
-- Added a desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
+- Desktop app (Linux, Windows, macOS) with Google Drive sync (sign-in opens in the default browser)
+
+### Changed
+
+- Desktop save dialog starts in the home folder
 
 ### Fixed
 
-- Fixed the loading-screen spin kick in the desktop app rotating around the wrong point instead of the head (the WebKit webview reads SVG pivot px values differently from Chrome)
+- Desktop app not saving files at all
+- Desktop app failing on [Share as link]
+- Select boxes on a white background in the desktop app's dark theme
+- Loading-screen spin kick rotating around the wrong point in the desktop app
+
+## [0.6.8] 2026-09-15
+
+### Added
+
+- Four shape colors (white, sky, yellow, orange) — tap the rotation handle to cycle; translucent, so overlaps mix
+- Keyboard control for shapes, lines and freehand strokes — WASD and arrow keys to move, Q and E to rotate (Shift for 15°)
+- Move anchor above a selected shape, note, line, stroke or group — drag it to move objects that overlap (dashed rectangle marks the extent of a group or a single line or stroke)
+- Multi-delete in the drill and session lists — [Select] to pick several at once, [Undo] restores all of them
+- Save dialog for choosing where a file goes, plus a toast when the write finishes
+- MP4 export on devices without a built-in codec (software encoder fallback)
+- [Create video] button in video export
+
+### Changed
+
+- Faster first start — no more waiting on a blank screen, and less stutter while loading
+- Denser shape fill and a black casing under the outline — clearer edges on the court
+- Saving a video closes the export sheet (cancelling leaves it open)
+
+### Removed
+
+- [Video] and [Share as link] from the free tactics board's export sheet — use [Edit as drill] first
+
+### Fixed
+
+- Tapping a shape's rotation handle not changing its color
+- [Undo] on a delete being reversed again on another device
+- A failed [Undo] giving no message
+- Select all (Ctrl+A) leaving out freehand strokes
+- Cancelled saves still reported as done
 
 ## [0.6.7] 2026-09-09
 

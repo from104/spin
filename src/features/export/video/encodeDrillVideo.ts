@@ -18,6 +18,7 @@ import { PLAYBACK } from '../../../core/constants.ts';
 import { translate } from '../../../i18n/useT.ts';
 import { VIDEO_FPS, videoBitrate, videoFrameTimes } from './videoTiming.ts';
 import { videoCanvasSize, videoResolution } from './videoMetrics.ts';
+import { chooseVideoEngine, type VideoCaps, type VideoEngine, type VideoFrameSink } from './videoEngine.ts';
 
 export type VideoSize = 720 | 1080;
 
@@ -37,6 +38,8 @@ export interface VideoExportOpts {
 }
 
 export interface VideoExportResult {
+  /** 실제로 구운 엔진. 실기 보고에서 "느린데요" 가 어느 길이었는지 가르는 유일한 표다. */
+  engine: VideoEngine;
   blob: Blob;
   bytes: number;
   frames: number;
@@ -50,19 +53,68 @@ export interface VideoExportHooks {
   signal?: AbortSignal;
 }
 
-/** VideoEncoder 가 있고 H.264(avc) 를 인코딩할 수 있는가. 아니면 시트가 항목을 비활성으로 보인다(결정 2).
- *
- *  둘을 다 묻는 이유: `VideoEncoder` 존재는 WebCodecs 자체의 유무이고(안드로이드 파이어폭스는 없다),
- *  `canEncode('avc')` 는 그 브라우저·기기가 H.264 **인코딩** 을 실제로 하느냐다(디코딩만 되는 조합이 있다). */
-export async function isVideoExportSupported(): Promise<boolean> {
-  if (typeof VideoEncoder === 'undefined') return false;
+/** 이 기기의 능력. `webcodecsAvc` 는 존재 여부가 아니라 **실제로 구워 본** 결과다 —
+ *  mediabunny `canEncode('avc')` 가 작은 프레임을 한 장 인코딩해 보고 답한다(디코딩만 되는
+ *  조합과, WebKitGTK 처럼 시스템 플러그인이 빠져 실패하는 조합을 여기서 가른다). */
+async function detectVideoCaps(): Promise<VideoCaps> {
+  const wasm = typeof WebAssembly !== 'undefined';
+  if (typeof VideoEncoder === 'undefined') return { webcodecsAvc: false, wasm };
   try {
     const { canEncode } = await import('mediabunny');
-    return await canEncode('avc');
+    return { webcodecsAvc: await canEncode('avc'), wasm };
   } catch {
-    // 청크 로드 실패(오프라인·차단)도 "못 한다" 다 — 여기서 던지면 시트가 통째로 안 열린다.
-    return false;
+    // 청크 로드 실패(오프라인·차단)는 "내장 코덱을 못 쓴다" 일 뿐이다 — 소프트웨어 길은 남는다.
+    return { webcodecsAvc: false, wasm };
   }
+}
+
+/** 무엇으로 구울지. null 이면 못 굽는다 — 그때만 시트가 항목을 비활성으로 보인다(결정 2). */
+export async function videoExportEngine(): Promise<VideoEngine | null> {
+  return chooseVideoEngine(await detectVideoCaps());
+}
+
+/** 영상 내보내기가 되는가. 내장 코덱이 없어도 wasm 이 있으면 **된다**(2026-09-13). */
+export async function isVideoExportSupported(): Promise<boolean> {
+  return (await videoExportEngine()) !== null;
+}
+
+/** 내장 코덱(WebCodecs) 싱크 — mediabunny 가 인코딩과 MP4 먹싱을 다 한다.
+ *  ⚠️ 정적 import 금지(결정 3) — 이 함수 안의 한 줄이 mediabunny 를 내보내기 청크에 가둔다. */
+async function createWebCodecsSink(
+  canvas: HTMLCanvasElement,
+  bitrateBps: number,
+): Promise<VideoFrameSink> {
+  const { Output, BufferTarget, Mp4OutputFormat, CanvasSource, Quality } = await import('mediabunny');
+  const output = new Output({
+    // fastStart: moov 를 앞에 둔다 — 모바일 메신저가 다 받기 전에도 재생을 시작한다.
+    format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+    target: new BufferTarget(),
+  });
+  const source = new CanvasSource(canvas, {
+    codec: 'avc',
+    quality: new Quality({ bitrate: bitrateBps, bitrateMode: 'variable' }),
+  });
+  output.addVideoTrack(source);
+  await output.start();
+
+  return {
+    async add(tSec: number) {
+      // add 가 돌려주는 약속을 기다리는 것이 인코더 배압(backpressure) 처리이자, 브라우저에
+      // 숨 쉴 틈을 주는 양보이기도 하다 — 안 기다리면 긴 드릴에서 탭이 굳는다.
+      await source.add(tSec, 1 / VIDEO_FPS);
+    },
+    async finish() {
+      await output.finalize();
+      const buffer = output.target.buffer;
+      // 여기 오면 finalize 가 성공했다는 뜻이라 buffer 는 있어야 한다. i18n 키를 쓰지 않는 이유는
+      // 이용자에게 보일 문구가 아니기 때문이다 — 시트가 export.video.failed 로 갈아 보여준다(결정 9).
+      if (!buffer) throw new Error('mediabunny: BufferTarget produced no buffer');
+      return new Blob([buffer], { type: 'video/mp4' });
+    },
+    async dispose() {
+      await output.cancel().catch(() => {});
+    },
+  };
 }
 
 /** 취소되면 DOMException('AbortError') 로 reject 한다(결정 9). */
@@ -107,21 +159,22 @@ export async function encodeDrillVideo(
   await waitForFonts();
   throwIfAborted(signal);
 
-  // ⚠️ 정적 import 금지(결정 3) — 이 한 줄이 mediabunny 를 내보내기 청크에 가둔다.
-  const { Output, BufferTarget, Mp4OutputFormat, CanvasSource, Quality } = await import('mediabunny');
-  const output = new Output({
-    // fastStart: moov 를 앞에 둔다 — 모바일 메신저가 다 받기 전에도 재생을 시작한다.
-    format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
-    target: new BufferTarget(),
-  });
-  const source = new CanvasSource(canvas, {
-    codec: 'avc',
-    quality: new Quality({ bitrate: videoBitrate(w, h, VIDEO_FPS), bitrateMode: 'variable' }),
-  });
-  output.addVideoTrack(source);
+  let blob: Blob;
+
+  // 엔진은 **굽기 직전**에 고른다(결정 2 확장, 2026-09-13). 시트가 열릴 때 잰 값을 들고
+  // 있지 않는 이유: 시트를 열어 둔 채 기기가 바뀌는 일은 없어도, 두 번 재는 값이 다르면 그때
+  // 어느 쪽이 참인지 가릴 길이 없다 — 굽는 쪽이 참이다.
+  const engine = await videoExportEngine();
+  if (!engine) throw new Error(translate(opts.locale, 'export.video.unsupported'));
+  const bitrateBps = videoBitrate(w, h, VIDEO_FPS);
+  const sink: VideoFrameSink =
+    engine === 'webcodecs'
+      ? await createWebCodecsSink(canvas, bitrateBps)
+      // 소프트웨어 인코더는 쓰는 기기에서만 받는다(1.7MB) — 동적 import 가 그 약속이다.
+      : await (await import('./wasmH264.ts')).createWasmH264Sink({ ctx, w, h, fps: VIDEO_FPS, bitrateBps });
+  throwIfAborted(signal);
 
   try {
-    await output.start();
     for (let i = 0; i < times.length; i++) {
       throwIfAborted(signal);
       const t = times[i]!;
@@ -138,25 +191,19 @@ export async function encodeDrillVideo(
       ctx.fillStyle = padColor;
       ctx.fillRect(0, 0, w, h);
       await paintSceneToCanvas(scene, canvas, opts.locale);
-      // add 가 돌려주는 약속을 기다리는 것이 인코더 배압(backpressure) 처리이자, 브라우저에
-      // 숨 쉴 틈을 주는 양보이기도 하다 — 안 기다리면 긴 드릴에서 탭이 굳는다.
-      await source.add(t / 1000, 1 / VIDEO_FPS);
+      await sink.add(t / 1000);
       onProgress?.(i + 1, times.length);
     }
     throwIfAborted(signal);
-    await output.finalize();
+    blob = await sink.finish();
   } catch (e) {
-    // 취소든 실패든 인코더·워커를 놓아준다. cancel 자체의 실패는 삼킨다 — 원래 오류가 더 중요하다.
-    await output.cancel().catch(() => {});
+    // 취소든 실패든 인코더·워커를 놓아준다. dispose 자체의 실패는 삼킨다 — 원래 오류가 더 중요하다.
+    await sink.dispose();
     throw e;
   }
 
-  const buffer = output.target.buffer;
-  // 여기 오면 finalize 가 성공했다는 뜻이라 buffer 는 있어야 한다. i18n 키를 쓰지 않는 이유는
-  // 이용자에게 보일 문구가 아니기 때문이다 — 시트가 export.video.failed 로 갈아 보여준다(결정 9).
-  if (!buffer) throw new Error('mediabunny: BufferTarget produced no buffer');
-  const blob = new Blob([buffer], { type: 'video/mp4' });
   return {
+    engine,
     blob,
     bytes: blob.size,
     frames: times.length,

@@ -72,12 +72,40 @@ export function readTextFile(f: File): Promise<string> {
  *  않는 상한이면서, 저장 대화상자를 열어 두는 통상 시간을 덮는다. 실기 대조는 FIELD-TEST E-9. */
 export const REVOKE_DELAY_MS = 40_000;
 
+/** 저장의 끝. `started` 가 따로 있는 이유는 **브라우저 다운로드는 끝을 알려 주지 않기**
+ *  때문이다 — 성공으로도 취소로도 읽으면 안 된다. */
+export type SaveOutcome = 'saved' | 'cancelled' | 'started';
+
+/** 데스크톱(Tauri) 웹뷰인가. `authDesktop.ts` 의 `isDesktop()` 과 같은 판별자를 쓰지만 그쪽을
+ *  import 하지는 않는다 — 저장 경로가 구글 로그인 모듈에 매이면 안 된다. */
+function isTauriWebview(): boolean {
+  return typeof globalThis !== 'undefined' && '__TAURI_INTERNALS__' in globalThis;
+}
+
+/** 네이티브 저장 대화상자(러스트 `save_bytes_dialog`). 바이트는 **날바디**로, 파일명은 헤더로
+ *  간다 — `invoke` 의 인자 묶음에 바이트열을 넣으면 2MB 영상이 200만 개짜리 JSON 숫자 배열이
+ *  된다(근거는 `src-tauri/src/save_file.rs` 머리말). 헤더는 ASCII 만 담으므로 이름을 싼다. */
+async function saveViaNativeDialog(blob: Blob, filename: string): Promise<SaveOutcome> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const saved = await invoke<boolean>('save_bytes_dialog', bytes, {
+    headers: { 'x-spin-filename': encodeURIComponent(filename) },
+  });
+  return saved ? 'saved' : 'cancelled';
+}
+
 /** DOMException 은 구현에 따라 Error 를 상속하지 않는다 — instanceof 대신 name 으로 가른다. */
 function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { name?: unknown }).name === 'AbortError';
 }
 
-/** 앵커 다운로드 폴백. File System Access API 는 쓰지 않는다 — 앵커로 충분하다. */
+/** 앵커 다운로드 **폴백**.
+ *
+ *  ⚠️ 2026-09-13 — 옛 주석은 *"File System Access API 는 쓰지 않는다 — 앵커로 충분하다"* 였다.
+ *  그 전제가 죽었다: 앵커는 **어디에 저장됐는지도, 저장이 됐는지도 알려 주지 않는다.** 저장 뒤
+ *  «저장했습니다» 를 말하기로 한 이상(기현님 지시) 끝을 아는 길이 필요하고, 저장 대화상자를
+ *  띄우는 길도 필요하다. 그래서 대화상자를 띄울 수 있으면 그쪽이 먼저고, 앵커는 못 띄우는
+ *  브라우저(파이어폭스·사파리)와 제스처가 만료된 때의 폴백으로 남는다 — 지우지는 않는다. */
 function anchorDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -91,6 +119,50 @@ function anchorDownload(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
 }
 
+/** `window.showSaveFilePicker` — 아직 TS 표준 라이브러리에 없어 **쓰는 것만** 적는다.
+ *  크로미움 계열 데스크톱에만 있다(파이어폭스·사파리·안드로이드에는 없다). */
+interface FileSystemWritable {
+  write(data: Blob): Promise<void>;
+  close(): Promise<void>;
+}
+interface SaveFileHandle {
+  createWritable(): Promise<FileSystemWritable>;
+}
+type SaveFilePicker = (opts: {
+  suggestedName?: string;
+  types?: { description?: string; accept: Record<string, string[]> }[];
+}) => Promise<SaveFileHandle>;
+
+/** 이 브라우저에 저장 대화상자가 있는가. 안전한 출처(https·localhost)에서만 존재한다. */
+function saveFilePicker(): SaveFilePicker | undefined {
+  const fn = (globalThis as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  return typeof fn === 'function' ? (fn as SaveFilePicker) : undefined;
+}
+
+/** 브라우저 저장 대화상자. 사람이 자리를 고르고, 다 쓰면 **저장됐음을 안다** — 앵커가 못 주는
+ *  두 가지다. 실패는 셋으로 가른다:
+ *  ① 사람이 물렸다(AbortError) → `cancelled`. 앵커로 흘리면 **취소했는데 파일이 떨어진다.**
+ *  ② 대화상자를 못 열었다(제스처 만료·보안·정책) → 앵커 폴백. 못 열었다고 못 내보낼 이유는 없다.
+ *  ③ 고른 자리에 쓰다 실패했다 → **던진다.** 자리를 고른 사람에게는 실패를 말해야 한다. */
+async function saveViaFilePicker(picker: SaveFilePicker, blob: Blob, filename: string): Promise<SaveOutcome> {
+  let handle: SaveFileHandle;
+  try {
+    const ext = filename.includes('.') ? `.${filename.split('.').pop()!}` : '';
+    handle = await picker({
+      suggestedName: filename,
+      types: ext ? [{ accept: { [blob.type || 'application/octet-stream']: [ext] } }] : undefined,
+    });
+  } catch (err: unknown) {
+    if (isAbortError(err)) return 'cancelled';
+    anchorDownload(blob, filename);
+    return 'started';
+  }
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+  return 'saved';
+}
+
 /** 내보내기 출구 (4.3). iPad Safari(특히 standalone)에서는 a[download] 가 사실상 동작하지
  *  않으므로, 파일 공유가 가능하면(canShare) iOS 공유 시트로 보내고 아니면 앵커 다운로드다.
  *
@@ -99,18 +171,37 @@ function anchorDownload(blob: Blob, filename: string): void {
  *  한 번이라도 끼우면 제스처가 만료돼 iOS 에서 NotAllowedError 로 조용히 실패한다.
  *  그래서 이 함수는 async 가 아니고, share 를 클릭 핸들러와 같은 틱에서 동기 호출한다.
  *
+ *  돌려주는 값(2026-09-13 추가): `saved` = 저장이 **끝났다**, `cancelled` = 사람이 대화상자·
+ *  공유 시트를 물렸다, `started` = 브라우저 다운로드에 넘겼다(끝났는지는 알 길이 없다).
+ *  부르는 쪽은 이 값으로 "저장했으니 창을 닫을지" 를 가른다 — `cancelled` 에 닫으면 물린
+ *  사람이 다시 누를 자리를 잃는다.
+ *
  *  ⚠️ share 의 거부 중 AbortError 는 "사용자가 공유 시트를 취소"다 — 실패로 취급해 앵커
  *  폴백으로 흘리면 **취소했는데 다운로드가 시작된다**. 그 외 거부(NotAllowedError 등)만
  *  폴백한다. 폴백은 제스처 밖(마이크로태스크)에서 돌지만, a[download] 클릭은 제스처를
  *  요구하지 않으므로 최선의 차선이다. */
-export function downloadBlob(blob: Blob, filename: string): void {
+export function downloadBlob(blob: Blob, filename: string): Promise<SaveOutcome> {
+  // 데스크톱이 **먼저**다. 여기서 돌아가는 웹뷰에는 빌릴 브라우저가 없어 앵커 다운로드가
+  // 아무 일도 하지 않는다(2026-09-13 기현님 실기) — 네이티브 저장 대화상자로 보낸다.
+  if (isTauriWebview()) return saveViaNativeDialog(blob, filename);
+
+  // 브라우저 저장 대화상자가 있으면 그것이 다음이다 — 공유 시트보다 **먼저** 보는 이유는,
+  // 이 둘이 겹치는 기계가 크로미움 데스크톱뿐이고 거기서는 파일 저장이 공유보다 맞는 행동이라서다.
+  // iOS·안드로이드에는 이 API 가 아예 없어 공유 시트 길은 그대로 남는다.
+  const picker = saveFilePicker();
+  if (picker) return saveViaFilePicker(picker, blob, filename);
+
   const file = new File([blob], filename, { type: blob.type });
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file] }).catch((err: unknown) => {
-      if (isAbortError(err)) return; // 사용자 취소 — 아무것도 하지 않는다
-      anchorDownload(blob, filename);
-    });
-    return;
+    return navigator.share({ files: [file] }).then(
+      () => 'saved' as const,
+      (err: unknown) => {
+        if (isAbortError(err)) return 'cancelled' as const; // 사용자 취소 — 아무것도 하지 않는다
+        anchorDownload(blob, filename);
+        return 'started' as const;
+      },
+    );
   }
   anchorDownload(blob, filename);
+  return Promise.resolve('started');
 }

@@ -151,12 +151,62 @@ export async function deleteSession(id: SessionId): Promise<void> {
   postSyncEvent({ type: 'session', id, op: 'delete', deletedAt });
 }
 
+/** 여럿을 **한 트랜잭션**에 지운다(2026-09-14, 목록 다중 삭제) — `drillRepo.deleteDrills` 와
+ *  대칭이고 근거도 같다: 원자성이 곧 설명 가능성이다. 톰스톤의 `deletedAt` 은 묶음이 공유한다. */
+export async function deleteSessions(ids: readonly SessionId[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await getDB();
+  const deletedAt = Date.now();
+  beginWrite();
+  try {
+    const tx = db.transaction(['sessions', 'meta'], 'readwrite');
+    for (const id of ids) {
+      tx.objectStore('sessions').delete(id);
+      tx.objectStore('meta').put(tombstoneRecord('session', id, deletedAt));
+    }
+    await tx.done;
+  } catch (e) {
+    throw toStorageError(e, 'E_DB_UNAVAILABLE');
+  } finally {
+    endWrite();
+  }
+  for (const id of ids) postSyncEvent({ type: 'session', id, op: 'delete', deletedAt });
+}
+
+/** `deleteSessions` 의 짝. `restoreSession` 과 같이 `updatedAt` 을 새로 찍는다(그쪽 ⚠️ 참조). */
+export async function restoreSessions(list: readonly TrainingSession[]): Promise<TrainingSession[]> {
+  if (list.length === 0) return [];
+  const updatedAt = Date.now();
+  const next = list.map((s) => ({ ...s, drillIds: refDrillIds(flattenSessionItems(s)), updatedAt }));
+  const db = await getDB().catch((e) => {
+    throw toStorageError(e, 'E_DB_UNAVAILABLE');
+  });
+  beginWrite();
+  try {
+    const tx = db.transaction(['sessions', 'meta'], 'readwrite');
+    for (const s of next) {
+      tx.objectStore('sessions').put(s);
+      tx.objectStore('meta').delete(tombstoneKey('session', s.id));
+    }
+    await tx.done;
+  } catch (e) {
+    throw toStorageError(e, 'E_DB_UNAVAILABLE');
+  } finally {
+    endWrite();
+  }
+  for (const s of next) postSyncEvent({ type: 'session', id: s.id, op: 'put', updatedAt: s.updatedAt });
+  return next;
+}
+
 /** 삭제 [실행 취소] 전용(§E, PLAN-DELETE-SAFETY.md) — drillRepo.restoreDrill 과 대칭. put 과
  *  톰스톤 삭제를 한 트랜잭션에 묶는다 — 안 묶으면 되살린 세션도 다음 동기화가 다시 지운다.
  *  ⚠️ putSession 을 그대로 못 부른다(메타 스토어를 같은 트랜잭션에 못 낀다) — 대신
- *  drillIds 재계산(위 머리말 불변식)만 putSession 과 동일하게 인라인한다. */
+ *  drillIds 재계산(위 머리말 불변식)만 putSession 과 동일하게 인라인한다.
+ *
+ *  ⚠️ 2026-09-14 — `updatedAt` 을 **새로 찍는다**. 로컬 톰스톤을 지우는 것만으로는 **원격**
+ *  톰스톤을 못 이기기 때문이다(drillRepo.restoreDrill 의 같은 날짜 주석에 근거 전문). */
 export async function restoreSession(s: TrainingSession): Promise<TrainingSession> {
-  const next: TrainingSession = { ...s, drillIds: refDrillIds(flattenSessionItems(s)) };
+  const next: TrainingSession = { ...s, drillIds: refDrillIds(flattenSessionItems(s)), updatedAt: Date.now() };
   const db = await getDB().catch((e) => {
     throw toStorageError(e, 'E_DB_UNAVAILABLE');
   });

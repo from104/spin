@@ -118,6 +118,23 @@ export const ARROW_COLOR: string = ARROW_COLORS[0];
  *  위 "색을 굽지 않는다" 원칙(첨자 저장)은 화살표 전용이라 여기는 적용되지 않는다. */
 export const NOTE_COLOR_CHOICES = ['#ffffff', ...ARROW_COLORS] as const;
 
+/** 도형 색 선택지(2026-09-14 기현님 지시 — *"반투명한 흰, 하늘, 노랑, 주황 4개의 색으로"*).
+ *
+ *  메모처럼 **hex 를 그대로 저장**한다(첨자가 아니다) — 도형은 썸네일이 모델을 통째로 복제해
+ *  담으므로(`model/thumb.ts`) 첨자로 구울 이유가 없다.
+ *
+ *  ⚠️ 네 번째가 **주황(#f97316)이고 빨강이 아니다.** 화살표·메모 팔레트(`NOTE_COLOR_CHOICES`)를
+ *  그대로 쓰지 않는 이유가 그것이라, 재사용하려다 빨강이 섞이지 않게 배열을 따로 둔다.
+ *  판 위에서 빨강은 이미 다른 뜻(반칙 판정·잠김)을 지고 있다.
+ *
+ *  이색각 분리 실측(Viénot–Brettel–Mollon, 임계 0.25 — `colors.test.ts` 와 같은 식):
+ *  네 색 여섯 쌍의 최솟값이 적색맹 0.728 · 녹색맹 0.592 다(가장 약한 쌍은 노랑↔주황).
+ *  빨강판(0.772 / 0.737)보다 낮지만 임계의 두 배를 넘는다.
+ *
+ *  ⚠️ **첫 값은 기본색이다**(흰색). 순환이 한 바퀴 돌아 여기로 오면 `color` 키를 지운다 —
+ *  화살표·획과 같은 규약이고, 그래야 옛 저장본과 새 저장본의 모양이 같다. */
+export const SHAPE_COLOR_CHOICES = ['#ffffff', '#38bdf8', '#fde047', '#f97316'] as const;
+
 const srgb = (v: number): number => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
 export function relLuminance(hex: string): number {
   const [r, g, b] = (hex.replace('#', '').match(/../g) ?? []).map((x) => srgb(parseInt(x, 16) / 255));

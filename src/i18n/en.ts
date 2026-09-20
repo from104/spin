@@ -853,7 +853,7 @@ export const en: Record<DictKey, string> = {
   'editor.workspace.presentAriaLabel': 'Start Presentation',
   'editor.workspace.presentTitle': 'Present — walk your team through it step by step',
   'editor.workspace.presentLabel': 'To Present',
-  'editor.workspace.courtHelp': 'Arrow keys to move the cursor, Enter to place, [ / ] to cycle objects',
+  'editor.workspace.courtHelp': 'Arrow keys or WASD to move, Q · E to rotate, Enter to place, [ / ] to cycle objects (Shift for bigger steps)',
 
   // ── C7 — "Select same kind" ─────────────────────────────────────────────────────────
   'editor.selectSame.sameTeam': 'Select all on this team',
@@ -963,6 +963,10 @@ export const en: Record<DictKey, string> = {
   'export.blobFailed': 'Could not create the image file.',
   'export.video.title': 'Video (MP4)',
   'export.video.desc': 'The whole drill as one 30fps video. Posts straight into a chat.',
+  'export.saveFailed': 'Could not save the file.',
+  'editor.announce.rotateMulti': 'Rotation is off while several objects are selected. Select just one.',
+  'export.savedToast': 'Saved “{{name}}.”',
+  'export.video.start': 'Create video',
   'export.video.size720': '720p',
   'export.video.size1080': '1080p',
   'export.video.wholeDrill': 'A video always covers the whole drill — the range above does not apply.',
@@ -973,6 +977,7 @@ export const en: Record<DictKey, string> = {
   'export.video.retry': 'Try again',
   'export.video.failed': 'Could not export as a video.',
   'export.video.unsupported': 'This browser cannot encode video (H.264) — export from Chrome or Safari.',
+  'export.video.software': 'This device has no built-in codec, so encoding runs in software — it works, but several times slower.',
   'export.video.cancelled': 'Video export cancelled.',
 
   // ── C8b — Arrow accessible name ─────────────────────────────────────────────────────
@@ -983,6 +988,22 @@ export const en: Record<DictKey, string> = {
   'arrow.label.oneTemplate': 'Line, {{name}} end',
 
   // ── C8b — Editor object layer (cone/ball/note) ──────────────────────────────────────
+  'select.enter': 'Select',
+  'select.fromHere': 'Start selecting here',
+  'select.count': '{{n}} selected',
+  'select.all': 'All shown',
+  'select.exit': 'Done selecting',
+  'select.delete': 'Delete selected',
+  'select.confirmTitle': 'Delete {{n}} items?',
+  'select.confirmList': '{{titles}}',
+  'select.confirmMore': 'and {{n}} more',
+  'select.confirmRefs': '{{drills}} of these are used by {{sessions}} sessions. Deleting them removes them from those sessions.',
+  'select.deletedToast': 'Deleted “{{first}}” and {{rest}} more.',
+  'select.deleteFailed': 'Could not delete.',
+  'select.restoreFailed': 'Could not undo.',
+  'drillCard.selectAriaLabel': 'Select {{title}}',
+  'sessionRow.selectAriaLabel': 'Select {{title}}',
+  'objectLayer.shapeAriaLabel': 'Shape: {{kind}}',
   'objectLayer.noteAriaLabel': 'Note: {{text}}',
   'noteChip.placeholder': 'Note',
 

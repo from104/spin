@@ -54,6 +54,14 @@ import { StrokePath } from './objects/StrokePath.tsx';
 import type { Stroke } from '../model/stroke.ts';
 import type { Shape } from '../model/shape.ts';
 import { ShapeMark } from './objects/ShapeMark.tsx';
+
+/** 도형 종류 → 이미 있는 도구 이름(원·삼각·사각). 화면 낭독기가 «도형: 원» 으로 읽는다.
+ *  새 문구를 만들지 않는 이유: 같은 것을 두 이름으로 부르면 도구에서 배운 말이 판에서 안 통한다. */
+const SHAPE_KIND_KEY = {
+  ellipse: 'editor.toolDefs.shapeEllipse',
+  triangle: 'editor.toolDefs.shapeTriangle',
+  rect: 'editor.toolDefs.shapeRect',
+} as const;
 import { DEFAULT_TIERS, type SceneRef } from '../model/zOrder.ts';
 import { useT } from '../i18n/useT.ts';
 
@@ -284,14 +292,30 @@ export function ObjectLayer({
           // ⚠️ 도형 **하나마다** 껍데기 <g> 를 둔다. 층 하나로 묶을 수 없기 때문이다 — 순서가
           //    바뀌면 도형이 목록 안에서 흩어진다(콘과 화살표 사이에 한 장만 낄 수 있다).
           //    `data-shape-layer` 는 그대로 남긴다: 이 이름을 읽는 선택자가 여럿이고, 뜻은
-          //    이제 "도형 층 한 칸" 이다. `aria-hidden` 도 옛 층과 같다 — 도형은 접근성
-          //    트리에 낼 것이 없다(자리·크기가 전부다).
+          //    이제 "도형 층 한 칸" 이다.
           //    ⚠️ 이 <g> 에 `opacity` 를 걸지 마라(ShapeLayer.tsx 머리말 ①).
-          <g key={sh.id} aria-hidden="true" data-shape-layer="">
+          //
+          //    ⚠️ 2026-09-14 — 옛 주석은 *"`aria-hidden` 도 옛 층과 같다 — 도형은 접근성 트리에
+          //    낼 것이 없다(자리·크기가 전부다)"* 였다. 그 말은 «읽어 줄 글이 없다» 는 뜻이었는데,
+          //    `aria-hidden` 은 **조작까지** 트리에서 지운다. 그래서 도형은 키보드로 고를 수도
+          //    옮길 수도 없는 유일한 개체였다(기현님 지시로 뒤집힘: *"모든 객체가 wasd,qe 키에
+          //    의해 위치 및 회전이 되어야한다"*). 이제 다른 여섯 종류와 **같은 배선**이다.
+          <g
+            key={sh.id}
+            id={`obj-${sh.id}`}
+            className="court-obj"
+            role="button"
+            aria-label={t('objectLayer.shapeAriaLabel', { kind: t(SHAPE_KIND_KEY[sh.kind]) })}
+            aria-pressed={selection.has(sh.id)}
+            tabIndex={activeId === sh.id ? 0 : -1}
+            data-shape-layer=""
+            onKeyDown={(e) => onObjectKeyDown?.(sh.id, e)}
+          >
             <ShapeMark
               shape={sh}
               selected={selection.has(sh.id)}
               locked={locked?.has(sh.id) ?? false}
+              active={activeId === sh.id}
               onPointerDown={onShapePointerDown}
             />
           </g>

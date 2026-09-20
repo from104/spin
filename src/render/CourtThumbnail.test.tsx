@@ -146,8 +146,15 @@ describe('도형·메모 — 썸네일에도 잡힌다', () => {
 
   it('★ 도형 테두리만 굵어진다 — 크기는 사용자가 그린 구역 그 자체다', () => {
     const { container } = render(<CourtThumbnail mode="full" thumb={spec({ shapes: [SHAPE] })} />);
-    const r = container.querySelector('[data-shape-layer] rect')!;
+    // ⚠️ 2026-09-14 — 도형 한 장이 **두 요소**다(검정 케이싱 + 본체). 첫 rect 는 케이싱이라
+    //    굵기가 다르다 — 본체는 **마지막** 것이다. 셋 다 굵기 배수를 타야 케이싱이 본체보다
+    //    가늘어지는 역전이 없다.
+    const rects = container.querySelectorAll('[data-shape-layer] rect');
+    const r = container.querySelector('[data-shape-layer] [data-shape-face]')!;
     expect(Number(r.getAttribute('stroke-width'))).toBe(SHAPE_STROKE_PX * THUMB_GLYPH.shapeStroke);
+    expect(Number(rects[0]!.getAttribute('stroke-width')), '케이싱이 본체보다 굵다').toBeGreaterThan(
+      Number(r.getAttribute('stroke-width')),
+    );
     expect(r.getAttribute('width')).toBe('100'); // 배수가 크기에 새지 않았다
     expect(r.getAttribute('height')).toBe('60');
   });

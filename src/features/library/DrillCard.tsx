@@ -36,6 +36,12 @@ export interface DrillCardProps {
    *  수 있을 때만 항목이 뜬다(카드는 요약만 들고 있어 본문을 읽어 오는 일은 목록 화면 몫이다).
    *  넘기지 않으면 메뉴는 옛 3항목 그대로라, 카드를 쓰는 다른 자리가 이 변경에 안 걸린다. */
   onShareLink?: () => void;
+  /** 선택 모드(2026-09-14). **객체 하나로 넘긴다** — `mode`·`checked`·`onToggle` 을 각각
+   *  옵셔널 boolean 으로 흘리면 새 자리를 만들 때 하나를 빠뜨려도 컴파일러가 안 잡는다.
+   *  안 넘긴 호출자(시연 화면·테스트)는 모드 자체가 없는 것이라 예전 그대로 그려진다. */
+  selection?: { mode: boolean; checked: boolean; onToggle(): void };
+  /** 케밥 [여기부터 선택] — 모드 밖에서 이 항목 하나를 체크한 채로 모드에 들어간다. */
+  onSelectFrom?: () => void;
 }
 
 /** 카드 우상단 "⋯" 메뉴 — icons.tsx(ui-kit 소유)에 없는 아이콘이라 카드 로컬로 그린다. */
@@ -57,6 +63,7 @@ export function DrillKebabMenu({
   onDelete,
   onExport,
   onShareLink,
+  onSelectFrom,
   buttonStyle,
 }: {
   title: string;
@@ -64,6 +71,9 @@ export function DrillKebabMenu({
   onDelete(): void;
   onExport(): void;
   onShareLink?: () => void;
+  /** 있으면 [여기부터 선택] 항목이 뜬다(2026-09-14). 옵셔널인 이유는 `onShareLink` 와 같다 —
+   *  이 메뉴를 쓰는 다른 자리가 이 변경에 안 걸린다. */
+  onSelectFrom?: () => void;
   buttonStyle?: CSSProperties;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -171,6 +181,18 @@ export function DrillKebabMenu({
               {t('library.share.link')}
             </MenuItem>
           )}
+          {/* [여기부터 선택](2026-09-14) — 삭제 **바로 위**다. 여럿을 지우려는 사람이 케밥을
+              열었을 때 «하나만 지우기» 옆에 «여럿 고르기» 가 나란히 서는 자리다. */}
+          {onSelectFrom && (
+            <MenuItem
+              onClick={() => {
+                closeMenu();
+                onSelectFrom();
+              }}
+            >
+              {t('select.fromHere')}
+            </MenuItem>
+          )}
           <MenuItem
             tone="danger"
             onClick={() => {
@@ -186,7 +208,7 @@ export function DrillKebabMenu({
   );
 }
 
-export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport, onShareLink }: DrillCardProps) {
+export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport, onShareLink, selection, onSelectFrom }: DrillCardProps) {
   // §6.4 — 카드 상자의 비율은 그 드릴의 **크기까지** 따라간다. 크기를 빼면 25×14 드릴만
   // 30×18 비율 상자 안에 그려져 위아래에 검은 띠가 남는다(썸네일은 xMidYMid meet 이다).
   const courtDef = courtDefFor(drill.courtMode, drill.courtSize);
@@ -208,8 +230,8 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
     >
       <button
         type="button"
-        onClick={onOpen}
-        aria-label={t('drillCard.openAriaLabel', { title: drill.title })}
+        onClick={selection?.mode ? selection.onToggle : onOpen}
+        aria-label={selection?.mode ? t('drillCard.selectAriaLabel', { title: drill.title }) : t('drillCard.openAriaLabel', { title: drill.title })}
         style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', flex: 1 }}
       >
         {/* 썸네일 — 2026-08-19 기현님 지시 2차: *"가로도 1/2"*. 코트 상자 자체가 카드 폭의
@@ -269,9 +291,22 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
 
       {/* 상시 노출 [시연] 44px — 세션 행(SessionTab.tsx)과 같은 라벨 관용구(`… 시연 시작`).
           카드면 버튼 안에 넣으면 버튼 중첩이라 형제로 둔다. */}
-      <div style={{ padding: '0 11px 11px', display: 'flex' }}>
+      <div style={{ padding: '0 11px 11px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* 진짜 `<input type="checkbox">` 다(2026-09-14). 낭독기가 «확인란, 선택됨» 으로 읽고,
+            Space 토글을 브라우저에서 공짜로 얻는다. 카드 버튼 **안**에 넣을 수 없어(버튼 중첩)
+            형제로 두는데, [시연] 이 이미 같은 이유로 형제라 자리가 이미 있다. */}
+        {selection?.mode && (
+          <input
+            type="checkbox"
+            checked={selection.checked}
+            onChange={selection.onToggle}
+            aria-label={t('drillCard.selectAriaLabel', { title: drill.title })}
+            style={{ width: 22, height: 22, minWidth: 22, accentColor: 'var(--accent)', cursor: 'pointer' }}
+          />
+        )}
         <button
           type="button"
+          disabled={selection?.mode}
           onClick={onPresent}
           aria-label={t('drillCard.presentAriaLabel', { title: drill.title })}
           className="on-accent"
@@ -287,6 +322,10 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
             gap: 7,
             fontSize: '0.8125rem',
             fontWeight: 700,
+            // 모드 중에는 **다른 길을 전부 잠근다** — «열려고 눌렀는데 체크됐다» 의 반대,
+            // «체크하려고 눌렀는데 시연이 시작됐다» 를 막는 쪽이다.
+            opacity: selection?.mode ? 0.45 : 1,
+            cursor: selection?.mode ? 'not-allowed' : 'pointer',
           }}
         >
           <IconPlay size={14} />
@@ -294,16 +333,25 @@ export function DrillCard({ drill, onOpen, onPresent, onDuplicate, onDelete, onE
         </button>
       </div>
 
-      <div style={{ position: 'absolute', top: 8, right: 8 }}>
-        <DrillKebabMenu title={drill.title} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} onShareLink={onShareLink} />
-      </div>
+      {!selection?.mode && (
+        <div style={{ position: 'absolute', top: 8, right: 8 }}>
+          <DrillKebabMenu
+            title={drill.title}
+            onDuplicate={onDuplicate}
+            onDelete={onDelete}
+            onExport={onExport}
+            onShareLink={onShareLink}
+            onSelectFrom={onSelectFrom}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 /** C11 목록 보기(썸네일 없음) 행 — 2026-08-19 기현님 지시. 카드와 **같은 행동 집합**
  *  (행 전체 = 열기 · [시연] · 케밥 메뉴)에 그림만 뺐다. 한 줄 44px+ 로 훑어 내리기용. */
-export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport, onShareLink }: DrillCardProps) {
+export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onExport, onShareLink, selection, onSelectFrom }: DrillCardProps) {
   const t = useT();
   const locale = useLocale();
   return (
@@ -319,10 +367,20 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
         padding: '4px 8px 4px 4px',
       }}
     >
+      {/* 행의 맨 왼쪽 — 패딩이 이미 그만큼 비어 있다(위 `padding` 의 왼쪽 4). */}
+      {selection?.mode && (
+        <input
+          type="checkbox"
+          checked={selection.checked}
+          onChange={selection.onToggle}
+          aria-label={t('drillCard.selectAriaLabel', { title: drill.title })}
+          style={{ width: 22, height: 22, minWidth: 22, marginLeft: 6, accentColor: 'var(--accent)', cursor: 'pointer' }}
+        />
+      )}
       <button
         type="button"
-        onClick={onOpen}
-        aria-label={t('drillCard.openAriaLabel', { title: drill.title })}
+        onClick={selection?.mode ? selection.onToggle : onOpen}
+        aria-label={selection?.mode ? t('drillCard.selectAriaLabel', { title: drill.title }) : t('drillCard.openAriaLabel', { title: drill.title })}
         style={{ flex: 1, minWidth: 0, minHeight: 44, display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', padding: '0 6px' }}
       >
         <Pill tone="category" color={drillTypeColor(drill.drillType)}>
@@ -353,6 +411,7 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
       </button>
       <button
         type="button"
+        disabled={selection?.mode}
         onClick={onPresent}
         aria-label={t('drillCard.presentAriaLabel', { title: drill.title })}
         className="on-accent"
@@ -361,6 +420,7 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
           minHeight: 44,
           padding: '0 14px',
           borderRadius: 9,
+          opacity: selection?.mode ? 0.45 : 1,
           background: 'var(--accent)',
           color: 'var(--accent-ink-strong)',
           display: 'flex',
@@ -373,7 +433,17 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
         <IconPlay size={13} />
         {t('drillCard.presentButton')}
       </button>
-      <DrillKebabMenu title={drill.title} onDuplicate={onDuplicate} onDelete={onDelete} onExport={onExport} onShareLink={onShareLink} buttonStyle={{ width: 44, height: 44 }} />
+      {!selection?.mode && (
+        <DrillKebabMenu
+          title={drill.title}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          onExport={onExport}
+          onShareLink={onShareLink}
+          onSelectFrom={onSelectFrom}
+          buttonStyle={{ width: 44, height: 44 }}
+        />
+      )}
     </div>
   );
 }

@@ -519,7 +519,13 @@ function sanitizeShape(raw: unknown, mode: CourtMode, size: CourtSize, repairs: 
   let h = dim(raw.h);
   const rotRaw = typeof raw.rot === 'number' && Number.isFinite(raw.rot) ? raw.rot : 0;
   const rot = ((rotRaw % 360) + 360) % 360;
-  if (kind !== 'triangle') return { id, kind, x: p.x, y: p.y, w, h, rot };
+  // 색(2026-09-14). **키가 없으면 만들지 않는다** — 옛 저장본과 모양이 같아야 왕복이 조용하다
+  // (획의 `strokes` 키가 같은 규약이다: validate.test «v9 저장본과 모양이 같아야»).
+  // 값은 메모(`NoteLabel.color`)와 같이 느슨하게 받는다: 순환 밖 hex 도 버리지 않는다 —
+  // 남이 보낸 파일에서 색을 조용히 잃는 것이 잘못된 색보다 나쁘고, 규칙 장면 19벌이
+  // «보정 0건» 을 단언하므로 보정으로 기록할 수도 없다(ruleScenes.test).
+  const color = typeof raw.color === 'string' && raw.color.length > 0 ? { color: raw.color } : {};
+  if (kind !== 'triangle') return { id, kind, x: p.x, y: p.y, w, h, rot, ...color };
 
   // ── 삼각형(2026-08-15 자유 삼각형) ──────────────────────────────────────────────────
   // 모양의 출처는 `pts` 하나다. w/h 는 **받아 적는 값**이라 여기서 계산해 덮는다 — 저장본의
@@ -550,7 +556,7 @@ function sanitizeShape(raw: unknown, mode: CourtMode, size: CourtSize, repairs: 
   const bbox = triBBox(centered.pts);
   w = bbox.w;
   h = bbox.h;
-  return { id, kind, x: p.x, y: p.y, w, h, rot, pts: centered.pts };
+  return { id, kind, x: p.x, y: p.y, w, h, rot, ...color, pts: centered.pts };
 }
 
 /** 꼭짓점 셋. 하나라도 어긋나면 통째로 버린다(부분 복구는 "반쯤 맞는 삼각형" 을 만든다). */

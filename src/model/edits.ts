@@ -512,7 +512,21 @@ export function setShape(d: Drill, i: number, sh: Shape): Drill {
     (cur?.pts != null &&
       sh.pts != null &&
       cur.pts.every((p, i) => p.x === sh.pts![i]!.x && p.y === sh.pts![i]!.y));
-  if (cur && cur.kind === sh.kind && cur.x === sh.x && cur.y === sh.y && cur.w === sh.w && cur.h === sh.h && cur.rot === sh.rot && samePts) {
+  // ⚠️ 2026-09-14 — `color` 를 빠뜨렸었다. 위 문단이 경고한 바로 그 함정을 한 칸 뒤에서 다시
+  //    밟은 것이다: 색만 바뀐 편집(회전 손잡이 탭 = 색 순환)이 «변한 것 없음» 으로 통째로
+  //    버려져, 눌러도 색이 안 바뀌었다(기현님 실기 2026-09-14). 새 필드를 더할 때 **이 줄을
+  //    같이 고치는 것이 계약**이다 — 아래 테스트가 그 계약을 못박는다.
+  if (
+    cur &&
+    cur.kind === sh.kind &&
+    cur.x === sh.x &&
+    cur.y === sh.y &&
+    cur.w === sh.w &&
+    cur.h === sh.h &&
+    cur.rot === sh.rot &&
+    cur.color === sh.color &&
+    samePts
+  ) {
     return d;
   }
   const shapes = step.shapes.slice();

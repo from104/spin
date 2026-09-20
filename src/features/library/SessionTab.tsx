@@ -12,6 +12,7 @@ import type { TeamId } from '../../core/ids.ts';
 import { drillTypeColor } from '../../core/colors.ts';
 import { IconPlay, IconPlus } from '../../ui/icons.tsx';
 import { Button } from '../../ui/Button.tsx';
+import type { SessionId } from '../../core/ids.ts';
 import { useT } from '../../i18n/useT.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
@@ -39,9 +40,17 @@ export interface SessionTabProps {
    *  아무 일 없이 그대로 뜬다(참가자 유령 id 와 같은 교리). 이 컴포넌트가 teamRepo 를 직접 읽지
    *  않는 이유는 `onShareLink` 와 같다: 저장소를 읽는 일은 목록 **화면** 몫이다. */
   teamLabels?: ReadonlyMap<TeamId, string>;
+  /** 선택 모드(2026-09-14). 화면(SessionsScreen)이 상태를 쥐고 여기는 그리기만 한다 —
+   *  «다음 세션» 스트립에는 체크를 안 붙인다(같은 세션에 표적 둘을 두지 않는다는 기존 판단). */
+  selection?: {
+    mode: boolean;
+    checked: ReadonlySet<SessionId>;
+    onToggle(id: SessionId): void;
+    onEnterFrom(id: SessionId): void;
+  };
 }
 
-export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, onShareLink, onImportLink, onCreate, teamLabels }: SessionTabProps) {
+export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, onShareLink, onImportLink, onCreate, teamLabels, selection }: SessionTabProps) {
   const t = useT();
   if (sessions.length === 0) {
     return (
@@ -90,6 +99,10 @@ export function SessionTab({ sessions, onOpen, onPresent, onDelete, onExport, on
           onExport={() => onExport(s.session.id)}
           onShareLink={onShareLink ? () => onShareLink(s.session.id) : undefined}
           teamLabel={s.session.teamId !== undefined ? teamLabels?.get(s.session.teamId) : undefined}
+          selection={
+            selection?.mode ? { mode: true, checked: selection.checked.has(s.session.id), onToggle: () => selection.onToggle(s.session.id) } : undefined
+          }
+          onSelectFrom={selection ? () => selection.onEnterFrom(s.session.id) : undefined}
         />
       ))}
     </div>
@@ -157,6 +170,8 @@ function SessionRow({
   onExport,
   onShareLink,
   teamLabel,
+  selection,
+  onSelectFrom,
 }: {
   resolved: ResolvedSession;
   onOpen(): void;
@@ -165,6 +180,9 @@ function SessionRow({
   onExport(): void;
   onShareLink?: () => void;
   teamLabel?: string;
+  /** 선택 모드(2026-09-14) — 드릴 카드와 **같은 모양의 prop** 이다(DrillCardProps 주석 참조). */
+  selection?: { mode: boolean; checked: boolean; onToggle(): void };
+  onSelectFrom?: () => void;
 }) {
   const { session, items, totalMin } = resolved;
   const categories = Array.from(new Set(items.map((it) => it.categoryCache))).slice(0, MAX_DOTS);
@@ -188,7 +206,21 @@ function SessionRow({
         padding: '14px 16px',
       }}
     >
-      <button type="button" onClick={onOpen} style={{ display: 'flex', alignItems: 'center', gap: 18, flex: 1, minWidth: 0, textAlign: 'left' }}>
+      {selection?.mode && (
+        <input
+          type="checkbox"
+          checked={selection.checked}
+          onChange={selection.onToggle}
+          aria-label={t('sessionRow.selectAriaLabel', { title: session.title })}
+          style={{ width: 22, height: 22, minWidth: 22, accentColor: 'var(--accent)', cursor: 'pointer' }}
+        />
+      )}
+      <button
+        type="button"
+        onClick={selection?.mode ? selection.onToggle : onOpen}
+        aria-label={selection?.mode ? t('sessionRow.selectAriaLabel', { title: session.title }) : undefined}
+        style={{ display: 'flex', alignItems: 'center', gap: 18, flex: 1, minWidth: 0, textAlign: 'left' }}
+      >
         <div style={{ flex: 'none', minWidth: 96 }}>
           <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '1.0625rem', fontWeight: 700 }}>
             {session.scheduledAt !== undefined ? formatSessionWhen(session.scheduledAt, locale) : t('sessionTab.unscheduled')}
@@ -241,10 +273,12 @@ function SessionRow({
 
       <button
         type="button"
+        disabled={selection?.mode}
         onClick={onPresent}
         aria-label={t('drillCard.presentAriaLabel', { title: session.title })}
         style={{
           flex: 'none',
+          opacity: selection?.mode ? 0.45 : 1,
           width: 44,
           height: 44,
           borderRadius: 11,
@@ -259,7 +293,7 @@ function SessionRow({
         <IconPlay />
       </button>
 
-      <div ref={menuRef} style={{ position: 'relative' }}>
+      <div ref={menuRef} style={{ position: 'relative', display: selection?.mode ? 'none' : undefined }}>
         <button
           type="button"
           aria-haspopup="menu"
@@ -323,6 +357,20 @@ function SessionRow({
                 style={{ minHeight: 36, padding: '0 10px', borderRadius: 6, fontSize: '0.8125rem', fontWeight: 600, textAlign: 'left' }}
               >
                 {t('sessions.share.link')}
+              </button>
+            )}
+            {/* [여기부터 선택](2026-09-14) — 삭제 바로 위. 드릴 케밥과 같은 자리다. */}
+            {onSelectFrom && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onSelectFrom();
+                }}
+                style={{ minHeight: 36, padding: '0 10px', borderRadius: 6, fontSize: '0.8125rem', fontWeight: 600, textAlign: 'left' }}
+              >
+                {t('select.fromHere')}
               </button>
             )}
             <button

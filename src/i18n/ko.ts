@@ -873,7 +873,7 @@ export const ko = {
   'editor.workspace.presentTitle': '시연 — 팀 앞에서 단계별로 보여주기',
   // ⚠️ presentAriaLabel 의 리터럴 부분집합이어야 한다(WCAG Label-in-Name) — 로케일마다 따로 확인.
   'editor.workspace.presentLabel': '시연으로',
-  'editor.workspace.courtHelp': '방향키로 커서 이동, Enter로 배치, [ / ]로 개체 순회',
+  'editor.workspace.courtHelp': '방향키·WASD로 이동, Q·E로 회전, Enter로 배치, [ / ]로 개체 순회 (Shift는 큰 걸음)',
 
   // ── C7 — "같은 것 전부 고르기" ──────────────────────────────────────────────────────
   'editor.selectSame.sameTeam': '같은 팀 전부 고르기',
@@ -989,6 +989,10 @@ export const ko = {
   // 문구가 "언제나 드릴 전체" 라고 못박는 것은 결정 8 이다 — 위 범위 칩이 영상에는 안 걸린다.
   'export.video.title': '영상 (MP4)',
   'export.video.desc': '드릴 전체를 30fps 영상 한 편으로. 대화방에 그대로 올라갑니다.',
+  'export.saveFailed': '저장하지 못했습니다.',
+  'editor.announce.rotateMulti': '여럿을 고른 상태에서는 회전하지 않습니다. 하나만 고르세요.',
+  'export.savedToast': '"{{name}}" 을(를) 저장했습니다.',
+  'export.video.start': '영상 만들기',
   'export.video.size720': '720p',
   'export.video.size1080': '1080p',
   'export.video.wholeDrill': '영상은 언제나 드릴 전체입니다 — 위 범위 선택은 적용되지 않습니다.',
@@ -999,6 +1003,7 @@ export const ko = {
   'export.video.retry': '다시',
   'export.video.failed': '영상으로 내보내지 못했습니다.',
   'export.video.unsupported': '이 브라우저는 영상 인코딩(H.264)을 지원하지 않습니다 — Chrome·Safari 에서 내보내세요.',
+  'export.video.software': '이 기기에는 내장 코덱이 없어 소프트웨어로 굽습니다 — 되지만 몇 배 느립니다.',
   'export.video.cancelled': '영상 내보내기를 취소했습니다.',
 
   // ── C8b — 화살표 접근성 이름 ────────────────────────────────────────────────────────
@@ -1009,6 +1014,22 @@ export const ko = {
   'arrow.label.oneTemplate': '{{name}} 선',
 
   // ── C8b — 편집기 개체 레이어(콘·공·메모) ────────────────────────────────────────────
+  'select.enter': '선택',
+  'select.fromHere': '여기부터 선택',
+  'select.count': '{{n}}개 선택',
+  'select.all': '보이는 것 모두',
+  'select.exit': '선택 끝내기',
+  'select.delete': '선택한 것 지우기',
+  'select.confirmTitle': '{{n}}개를 지울까요?',
+  'select.confirmList': '{{titles}}',
+  'select.confirmMore': '외 {{n}}개',
+  'select.confirmRefs': '이 가운데 {{drills}}개가 세션 {{sessions}}개에 쓰이고 있습니다. 지우면 그 세션에서 빠집니다.',
+  'select.deletedToast': '"{{first}}" 외 {{rest}}개를 지웠습니다.',
+  'select.deleteFailed': '지우지 못했습니다.',
+  'select.restoreFailed': '되돌리지 못했습니다.',
+  'drillCard.selectAriaLabel': '{{title}} 선택',
+  'sessionRow.selectAriaLabel': '{{title}} 선택',
+  'objectLayer.shapeAriaLabel': '도형: {{kind}}',
   'objectLayer.noteAriaLabel': '메모: {{text}}',
   'noteChip.placeholder': '메모',
 

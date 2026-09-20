@@ -69,6 +69,16 @@ export interface ArrowHeadGeom {
   casingWidth: number;
 }
 
+/** 촉이 선 끝 **너머·옆으로** 뻗는 최대 거리(월드 px). 상자를 재는 쪽(physics/bounds.ts)이
+ *  쓴다 — 숫자를 그쪽에 복제하면 «화면에는 촉이 있는데 상자는 없다» 가 된다(머리말 규율).
+ *
+ *  마커는 `markerUnits` 기본값이 `strokeWidth` 라 통째로 `lineWidth` 배로 커진다. 옆으로는
+ *  `HALF_H` + 케이싱 절반, 앞으로는 `NOSE_X − REF_X` + 케이싱 절반이 각각 그 배율을 탄다.
+ *  옆이 언제나 더 크므로 상자 패드로는 옆을 쓴다(모든 변에 같은 값을 더하는 자리라 큰 쪽이 안전). */
+export function arrowHeadExtentPx(kind: ArrowHeadKind, lineWidth: number = ARROW_STYLE.width): number {
+  return HALF_H[kind] * lineWidth + ARROW_HEAD_CASING_PX;
+}
+
 /** 굵기 `lineWidth` 인 선에 붙일 화살촉의 기하.
  *
  *  좌표가 전부 `pad`(= 케이싱 절반) 만큼 밀려 있는 것이 요점이다: `stroke` 는 경로 **바깥으로도**

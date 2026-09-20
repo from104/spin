@@ -396,6 +396,8 @@ export const HELP_EN: HelpContent = {
             ],
           },
           { kind: 'p', text: 'With several selected, drag any one of them and **all of them move together.** Tap without dragging and only that one stays selected.' },
+          { kind: 'p', text: 'Move the selection with the **arrow keys or W A S D**, and rotate it with **Q and E** (hold Shift for bigger steps). Rotation applies to wheelchairs, shapes, lines and strokes only — notes, balls and cones have no angle, and nothing rotates while several objects are selected (a group has no single axis).' },
+          { kind: 'p', text: 'Select one shape, note, line or freehand stroke, or several objects, and a **move anchor** (a circle with a four-way arrow) appears above them. When objects overlap and the body is hard to grab, drag the anchor and everything selected follows. It sits below when there is no room above, and steps aside when it would land on another handle. With several objects selected, or a single line or stroke, a **dashed rectangle** appears too, showing what the anchor holds. Dragging the body still works as before.' },
         ],
       },
       {
@@ -431,10 +433,10 @@ export const HELP_EN: HelpContent = {
             items: [
               '**Tap an end handle** — its arrowhead cycles none → thin → wide.',
               '**Tap the bend handle** — the line’s color cycles. Dragging it bends the line.',
-              '**The rotation anchor** — drag only. There’s no cycled value from a tap.',
+              '**The rotation anchor** — drag only for arrows and strokes. There’s no cycled value from a tap (shapes are the exception — see below).',
             ],
           },
-          { kind: 'p', text: 'Shapes ([Circle], [Triangle], [Square]) size themselves as you drag; [Freehand] draws wherever your hand goes.' },
+          { kind: 'p', text: 'Shapes ([Circle], [Triangle], [Square]) size themselves as you drag; [Freehand] draws wherever your hand goes. **Tapping a shape’s rotation anchor cycles its color** — white, sky, yellow and orange, all translucent so overlaps deepen.' },
           { kind: 'tip', tone: 'tip', text: 'Once picked, [Erase] wipes out whatever you tap, one after another. Tap empty space, tap the tool again, or press `Esc` to return to [Select].' },
         ],
       },

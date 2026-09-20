@@ -66,6 +66,7 @@ import { sceneFileName, sceneZipName, videoFileName } from './exportNames.ts';
 // ⚠️ 값이 아니라 **타입만** 가져온다(결정 3) — verbatimModuleSyntax 라 이 줄은 컴파일에서
 //    통째로 지워지고, 엔진 모듈은 아래 `import(...)` 로만 실린다.
 import type { VideoSize } from './video/encodeDrillVideo.ts';
+import type { VideoEngine } from './video/videoEngine.ts';
 import { Button } from '../../ui/Button.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
 import { PrintRoot, printWhenReady } from '../print/index.ts';
@@ -81,6 +82,12 @@ import { storageErrorText } from '../../i18n/storageError.ts';
 export interface ExportSheetProps {
   open: boolean;
   onClose(): void;
+  /** 어느 화면의 시트인가. `board`(자유 전술판)에서는 **[영상]·[링크로 공유]가 아예 없다**
+   *  (2026-09-13 기현님 지시). 근거는 전술판이 **1스텝짜리 판**이라는 데 있다(storage/board.ts
+   *  머리말): 영상은 정지 화면 한 장이 30fps 로 흐르는 파일이 되고, 링크는 저장도 되지 않은
+   *  판을 받는 쪽 라이브러리에 **드릴로** 앉힌다. 둘 다 기능이 아니라 함정이다.
+   *  기본값이 `drill` 인 이유: 빠뜨렸을 때 **덜 감추는** 쪽이 안전하다. */
+  mode?: 'board' | 'drill';
   /** 지금 판(자유 전술판 또는 드릴 편집본). 그림·인쇄 둘 다 이 한 벌에서 굽는다. */
   drill: Drill;
   /** 그림으로 구울 스텝(0-based). 자유 전술판은 언제나 0 이다. */
@@ -129,7 +136,7 @@ function isAbortError(e: unknown): boolean {
   return typeof e === 'object' && e !== null && (e as { name?: unknown }).name === 'AbortError';
 }
 
-export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, showGrid, showGridLabels, showRuleZones, returnFocusRef }: ExportSheetProps) {
+export function ExportSheet({ open, onClose, mode = 'drill', drill, stepIndex, checkedStepIds, showGrid, showGridLabels, showRuleZones, returnFocusRef }: ExportSheetProps) {
   const titleId = useId();
   const toast = useToast();
   const t = useT();
@@ -186,7 +193,9 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
   /** null = 아직 안 물어봤다. 물어보는 데 await 이 필요해(canEncode) 첫 렌더에는 답이 없다 —
    *  그동안 항목을 비활성으로 그리면 열자마자 깜빡인다. 모르는 동안은 **누를 수 있게** 두고,
    *  못 하는 기기라면 그 사실이 몇 ms 뒤 문구로 도착한다. */
-  const [videoSupported, setVideoSupported] = useState<boolean | null>(null);
+  // null = 못 굽는다, undefined = 아직 안 물어봤다, 그 밖 = 그 엔진으로 굽는다.
+  const [videoEngine, setVideoEngine] = useState<VideoEngine | null | undefined>(undefined);
+  const videoSupported = videoEngine === undefined ? null : videoEngine !== null;
   const [videoSize, setVideoSize] = useState<VideoSize>(720);
   const [video, setVideo] = useState<VideoState>({ phase: 'idle' });
   const videoAbortRef = useRef<AbortController | null>(null);
@@ -201,12 +210,14 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
     let alive = true;
     void (async () => {
       try {
-        const { isVideoExportSupported } = await import('./video/encodeDrillVideo.ts');
-        const ok = await isVideoExportSupported();
-        if (alive) setVideoSupported(ok);
+        const { videoExportEngine } = await import('./video/encodeDrillVideo.ts');
+        // 되나/안 되나가 아니라 **무엇으로 되나** 를 묻는다(2026-09-13) — 소프트웨어 길이면
+        // 눌러 놓고 한참 기다리게 되므로 미리 말해 준다.
+        const picked = await videoExportEngine();
+        if (alive) setVideoEngine(picked);
       } catch {
         // 청크를 못 받았거나(오프라인·차단) 물음 자체가 던졌다 = 이 기기에서는 못 만든다.
-        if (alive) setVideoSupported(false);
+        if (alive) setVideoEngine(null);
       }
     })();
     return () => {
@@ -313,16 +324,41 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
       // 여러개면 zip으로 가자 한개면 png고"*). 낱개 순차 다운로드는 브라우저마다 막는 방식이
       // 다르고(iOS 는 share 제스처가 await 를 못 넘긴다 — storage/files.ts 머리말), ZIP 은
       // 어디서나 한 번에 끝난다. 압축은 하지 않는다 — PNG 는 이미 압축된 포맷이다(storage/zip.ts).
-      if (baked.length === 1) {
-        downloadBlob(baked[0]!.blob, baked[0]!.name);
-      } else {
-        const entries = await Promise.all(
-          baked.map(async (b) => ({ name: b.name, bytes: new Uint8Array(await b.blob.arrayBuffer()) })),
-        );
-        downloadBlob(buildZip(entries), sceneZipName(drill.title));
-      }
+      const name = baked.length === 1 ? baked[0]!.name : sceneZipName(drill.title);
+      const outcome =
+        baked.length === 1
+          ? await downloadBlob(baked[0]!.blob, name)
+          : await downloadBlob(
+              buildZip(
+                await Promise.all(
+                  baked.map(async (b) => ({ name: b.name, bytes: new Uint8Array(await b.blob.arrayBuffer()) })),
+                ),
+              ),
+              name,
+            );
+      // 취소는 성공이 아니다(2026-09-13) — 물린 사람에게 저장했다고 말하지 않고, 다시 누를
+      // 자리를 남긴다(시트를 닫지 않는다).
+      if (outcome === 'cancelled') return;
+      toast.show(t('export.savedToast', { name }));
       onClose();
     }, t('export.pngFailed'));
+
+  /** 영상 저장. **동기 구간이 계약이다**(storage/files.ts 머리말): `downloadBlob` 을 클릭과
+   *  같은 틱에서 불러야 iOS 공유 시트가 열린다 — 이 함수가 `async` 여도 첫 `await` 전까지는
+   *  동기로 돌므로 그 호출이 먼저다. 닫기는 저장이 **끝난 뒤**이고, 사람이 물렸으면 닫지 않는다. */
+  const saveVideo = async () => {
+    if (video.phase !== 'done') return;
+    try {
+      const outcome = await downloadBlob(video.blob, video.name);
+      if (outcome === 'cancelled') return;
+      toast.show(t('export.savedToast', { name: video.name }));
+      onClose();
+    } catch (e) {
+      // 대화상자에서 자리를 고른 뒤 쓰다가 실패하면 여기로 온다(2026-09-13). 시트는 닫지
+      // 않는다 — 다시 누를 자리가 있어야 한다.
+      toast.show(storageErrorText(e, locale, t('export.saveFailed')));
+    }
+  };
 
   /** 영상 인코딩 시작(그리고 [다시]). `run()` 을 쓰지 않는 이유는 저 헬퍼가 **끝날 때까지
    *  기다렸다가 토스트를 띄우는** 짧은 동작용이라서다 — 영상은 수 초~수십 초라 진행·취소를
@@ -390,6 +426,8 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
 
   /** 머리 버튼을 누를 수 있는 단계 — 여기서만 인코딩이 **시작**된다. 진행 중에는 두 번 시작할 수
    *  없고, 완료·오류 단계에서는 그 아래 [저장]·[다시] 가 다음 행동을 쥔다(표적이 뜻마다 하나다). */
+  // 자유 전술판인가. 여기서만 [영상]·[링크로 공유] 두 칸이 사라진다(prop 주석 참조).
+  const isBoard = mode === 'board';
   const videoIdle = video.phase === 'idle' || video.phase === 'cancelled';
   const videoBlocked = videoSupported === false || !videoIdle;
   /** 크기는 **다음 인코딩**의 입력이다 — 오류 뒤에도 보인다(1080p 가 무거워 실패했다면 720p 로
@@ -426,25 +464,25 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
               SheetItem 한 줄로 접히지 않는다(머리말 「영상(MP4) 항목만…」). 자리가 [인쇄] 다음인
               이유: 코치가 가장 자주 하는 일 순서다(그림 › 종이 › 영상). 영상은 만드는 데 수 초~수십
               초가 들어 "지금 이 판을 빨리 꺼내는" 행위가 아니다. */}
+          {/* 자유 전술판에는 영상이 없다(2026-09-13) — 1스텝짜리 판이라 정지 화면 한 장짜리
+              파일이 나온다. 만들 수 있다는 것과 만들 뜻이 있다는 것은 다르다. */}
+          {!isBoard && (
           <div style={VIDEO_BOX}>
-            <button
-              type="button"
-              // ⚠️ `disabled` 가 아니라 `aria-disabled` 다(머리말 ④) — 초점을 받아야 아래 사유
-              //    문구(aria-describedby)가 화면리더에 읽힌다. 그래서 클릭 차단은 손으로 한다.
-              aria-disabled={videoBlocked}
-              aria-describedby={videoDescId}
-              onClick={() => {
-                if (!videoBlocked) startVideo();
-              }}
-              style={{ ...VIDEO_HEAD, opacity: videoBlocked ? 0.5 : 1, cursor: videoBlocked ? 'not-allowed' : 'pointer' }}
-            >
+            {/* 머리는 **글**이다(2026-09-13). 예전에는 이 줄 전체가 시작 버튼이었는데, 기현님
+                실기에서 "생성 시작 버튼이 명확했으면" 으로 물렸다 — 제목처럼 생긴 것을 눌러야
+                시작된다는 것은 아무 데도 적혀 있지 않았다. 시작은 아래 버튼 하나가 진다. */}
+            <div style={VIDEO_HEAD}>
               <span id={videoTitleId} style={ITEM_TITLE}>
                 {t('export.video.title')}
               </span>
               <span id={videoDescId} style={ITEM_DESC}>
-                {videoSupported === false ? t('export.video.unsupported') : t('export.video.desc')}
+                {videoSupported === false
+                  ? t('export.video.unsupported')
+                  : videoEngine === 'wasm'
+                    ? t('export.video.software')
+                    : t('export.video.desc')}
               </span>
-            </button>
+            </div>
             {videoSupported !== false && (
               <>
                 {videoCanPickSize && (
@@ -469,6 +507,28 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
                 {/* 결정 8 — 범위 칩은 영상에 안 걸린다. 칩이 떠 있을 때(스텝 2장 이상)만 말한다:
                     고를 것이 없는 판에서 "적용되지 않습니다" 는 없는 기능을 설명하는 소음이다. */}
                 {drill.steps.length > 1 && <p style={VIDEO_NOTE}>{t('export.video.wholeDrill')}</p>}
+              </>
+            )}
+            {/* 시작 버튼 — **지원 분기 밖**이다. 못 하는 기기에서도 이 버튼만은 남아야
+                위 사유 문구(aria-describedby)를 읽어 줄 초점 자리가 있다.
+                ⚠️ `disabled` 가 아니라 `aria-disabled` 인 이유가 그것이다(머리말 ④) — 그래서
+                클릭 차단은 손으로 한다. 굽는 중·끝난 뒤에는 감춘다: 그 자리는 [취소]·[저장] 이 진다. */}
+            {(videoIdle || videoSupported === false) && (
+              <div style={VIDEO_STATUS_ROW}>
+                <Button
+                  variant="primary"
+                  aria-disabled={videoBlocked}
+                  aria-describedby={videoDescId}
+                  onClick={() => {
+                    if (!videoBlocked) startVideo();
+                  }}
+                >
+                  {t('export.video.start')}
+                </Button>
+              </div>
+            )}
+            {videoSupported !== false && (
+              <>
                 {video.phase === 'running' && (
                   <div style={VIDEO_STATUS_ROW}>
                     <p role="status" style={VIDEO_STATUS_TEXT}>
@@ -491,9 +551,12 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
                       {t('export.video.done', { name: video.name, size: formatBytes(video.bytes) })}
                     </p>
                     {/* ⚠️ 저장은 **여기 클릭에서만** 한다(머리말 ②). 인코딩 직후 자동 저장으로
-                        옮기면 iOS 공유 시트가 제스처 만료로 안 열린다. 시트는 닫지 않는다 —
-                        공유 시트를 취소한 사람이 다시 누를 자리가 있어야 한다. */}
-                    <Button variant="primary" onClick={() => downloadBlob(video.blob, video.name)}>
+                        옮기면 iOS 공유 시트가 제스처 만료로 안 열린다.
+                        ── ⚠️ 2026-09-13: *"시트는 닫지 않는다 — 공유 시트를 취소한 사람이 다시
+                        누를 자리가 있어야 한다"* 를 뒤집는다(기현님 지시). 근거는 지우지 않고
+                        **좁힌다**: 그 걱정은 «취소» 에만 해당하는데, 그때는 지금도 열어 둔다.
+                        저장이 실제로 끝났을 때만 닫으며, 이는 PNG·ZIP 이 하던 것과 같다. */}
+                    <Button variant="primary" onClick={() => void saveVideo()}>
                       {t('export.video.save')}
                     </Button>
                   </div>
@@ -514,6 +577,7 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
               </>
             )}
           </div>
+          )}
           {/* 마지막 칸 — 링크(2026-09-07, PLAN-SHARE-LINK 결정 11).
               ⚠️ 계획서는 이 항목을 "시트 4번째" 라고 적었지만 이 시트의 항목은 지금 **둘**이라
               실제로는 세 번째다. 4번이었던 시절(그림·인쇄·기기 이사 파일)의 [기기 이사 파일]은
@@ -526,14 +590,16 @@ export function ExportSheet({ open, onClose, drill, stepIndex, checkedStepIds, s
               참이 아니다 — [영상] 도 언제나 드릴 전체다(PLAN-VIDEO-EXPORT 결정 8). 자리 근거는
               뒤 문장 하나로 좁혀졌다: **서버·인터넷을 요구하는 유일한 항목**이라 맨 끝이다
               (영상은 기기 안에서 끝난다). ── */}
-          <SheetItem
-            title={t('export.link')}
-            desc={t('export.link.desc')}
-            onClick={() => {
-              onClose();
-              setShareOpen(true);
-            }}
-          />
+          {!isBoard && (
+            <SheetItem
+              title={t('export.link')}
+              desc={t('export.link.desc')}
+              onClick={() => {
+                onClose();
+                setShareOpen(true);
+              }}
+            />
+          )}
         </div>
       </Modal>
       <PrintRoot doc={printDoc} onReady={onPrintReady} view={{ showGrid, showGridLabels, showRuleZones }} />

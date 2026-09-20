@@ -69,13 +69,34 @@ export function isShareError(e: unknown): e is ShareError {
  *     10드릴 세션이 20~30 KB 라 64 KiB 는 20드릴을 못 넘겼다. */
 export const SHARE_MAX_CIPHERTEXT_BYTES = 256 * 1024;
 
+/** 데스크톱(Tauri) 빌드에만 주입되는 **웹앱의 공개 출처**(`SPIN_DESKTOP_WEB_ORIGIN`, 예 `https://spin.atit.app`).
+ *  데스크톱 앱의 출처는 `tauri://localhost` 라 상대 경로 `/api/share` 가 아무 데도 닿지 않고,
+ *  `location.origin` 으로 만든 링크는 받는 쪽이 열 수 없다(2026-09-13 기현님 실기 — "서버에 닿지
+ *  못했습니다"). 그래서 데스크톱은 API 주소와 링크 출처를 둘 다 이 값에서 얻는다. 접두어를
+ *  `SPIN_DESKTOP_` 으로 쓰는 이유는 `authDesktop.ts` 머리말과 같다 — 웹 빌드에는 주입되지 않아
+ *  웹은 여전히 도메인 독립(상대 경로)이다. 없으면 undefined. */
+export function desktopWebOrigin(): string | undefined {
+  const raw = (import.meta.env as Record<string, unknown>).SPIN_DESKTOP_WEB_ORIGIN;
+  const v = typeof raw === 'string' ? raw.trim().replace(/\/+$/, '') : '';
+  return v.length > 0 ? v : undefined;
+}
+
 /** 기준 주소. 기본은 **같은 출처 상대 경로**라 앱이 어느 도메인에 올라가도 자기 서버를 부른다
- *  (결정 3 도메인 독립). 뒤 슬래시는 붙어 있어도 지운다 — `${base}/${id}` 가 `//` 를 만들면
- *  Apache 프록시가 경로를 다르게 셈한다. */
+ *  (결정 3 도메인 독립). `VITE_SHARE_API_BASE` 가 있으면 그것이 이기고, 없으면 데스크톱 출처
+ *  (`desktopWebOrigin()`) 아래 `/api/share`, 그것도 없으면 상대 경로다. 뒤 슬래시는 붙어 있어도
+ *  지운다 — `${base}/${id}` 가 `//` 를 만들면 Apache 프록시가 경로를 다르게 셈한다. */
 export function shareApiBase(): string {
   const raw = import.meta.env.VITE_SHARE_API_BASE;
-  const base = typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : '/api/share';
+  const explicit = typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : undefined;
+  const desktop = desktopWebOrigin();
+  const base = explicit ?? (desktop ? `${desktop}/api/share` : '/api/share');
   return base.replace(/\/+$/, '');
+}
+
+/** 링크 앞에 붙는 출처. 웹은 `location.origin`(앱이 있는 바로 그 도메인), 데스크톱은
+ *  `desktopWebOrigin()` — `tauri://localhost/s/…` 는 아무도 못 연다. */
+export function shareLinkOrigin(): string {
+  return desktopWebOrigin() ?? window.location.origin;
 }
 
 export interface ShareUploadResult {

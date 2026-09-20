@@ -81,6 +81,9 @@ body {
 
 /* Design Tokens - Dark (default) */
 :root {
+  /* 2026-09-13 — 네이티브 폼 컨트롤(select·date 등)의 바탕은 이 값으로 그려진다. 없으면 WebKit(데스크톱
+   * 앱·사파리)이 다크 테마에서도 select 를 흰 바탕으로 그려 글자만 밝은색이 된다(기현님 실기). */
+  color-scheme: dark;
   --bg: #0b0f14;
   --panel: #12181f;
   --panel-2: #0e141b;
@@ -96,6 +99,7 @@ body {
 
 /* Design Tokens - Light */
 [data-theme="light"] {
+  color-scheme: light;
   --bg: #eaeef3;
   --panel: #ffffff;
   --panel-2: #f4f7fa;

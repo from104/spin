@@ -85,8 +85,17 @@ function render(page) {
   // 주소는 항상 슬래시로 끝나므로(pageUrl) `/privacy/`·`/ja/terms/` 가 모두 걸리고, 홈
   // (`/`·`/en/`)은 안 걸린다.
   const seoPage = /\/rules\//.test(page.url) ? 'rules' : /\/(privacy|terms)\//.test(page.url) ? 'legal' : 'home';
+  // ⚠️ 2026-09-15 — 못 찾으면 **터뜨린다.** 이 치환은 문자열 그대로를 찾는데, `index.html` 의
+  // `#root` 줄을 누가 조금만 건드리면(안에 무엇을 넣거나 속성을 더하거나) `replace` 는 조용히
+  // 아무 일도 안 하고 33장이 **본문 없이** 나간다 — 빌드는 초록이고 에러도 안 난다.
+  // 같은 날 `#root` 바로 뒤에 부트 마크(`#spin-boot`)를 더하면서, 다음에 그것을 `#root` **안**
+  // 으로 옮기고 싶어지는 사람이 생겼다. 그때 빌드가 멈추는 것이 이 세 줄의 값이다.
+  const ROOT = '<div id="root"></div>';
+  if (!html.includes(ROOT)) {
+    throw new Error(`prerender: index.html 에서 ${ROOT} 를 못 찾았다 — 본문을 넣을 자리가 없다(${page.url}).`);
+  }
   html = html.replace(
-    '<div id="root"></div>',
+    ROOT,
     `<div id="root"><div class="seo-prerender" data-seo-page="${seoPage}">\n${page.body}\n</div></div>`,
   );
   return html;

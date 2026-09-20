@@ -36,6 +36,20 @@
 |---|---|---|
 | 1 | **파이프라인**: `sampleDrill(t)` → `buildStaticScene(frame, opts, order)` → `svgDataUri` → `Image` → 캔버스 하나에 `drawImage` + `paintTexts` → `CanvasSource.add(t, 1/fps)`. 캔버스 1장 재사용, 순차(await), 워커 없음 | SVG 디코드는 DOM `Image` 가 필요해 워커에서 못 한다. PNG 경로의 "순차로 굽는다" 원칙(ExportSheet.tsx:201) 그대로 |
 | 2 | **인코딩**: WebCodecs + `mediabunny`(`Output` + `BufferTarget` + `Mp4OutputFormat({fastStart:'in-memory'})` + `CanvasSource(canvas, {codec:'avc', quality: new Quality({bitrate})})`). 코덱은 `avc` 하나. `canEncode('avc')` 가 false 이거나 `VideoEncoder` 가 없으면 항목을 **비활성 + 사유 문구**(i18n `export.video.unsupported`) | H.264 가 카톡·iOS·인스타의 공통분모. VP9-in-MP4 는 iOS 가 못 열어 대안이 못 된다. `fastStart` 는 모바일 스트리밍 재생용(moov 앞) |
+
+⚠️ **2026-09-13 — [영상] 은 자유 전술판 시트에 뜨지 않는다(기현님 지시).** 전술판은 1스텝짜리
+판이라(storage/board.ts) 굽는다 해도 정지 화면 한 장짜리 파일이 된다. 드릴 편집 시트에서만 뜬다.
+
+⚠️ **2026-09-13 — 결정 2 를 넓혔다(근거는 지우지 않는다).** "`canEncode('avc')` 가 false 면 비활성" 이라는 전제는
+*코덱이 없는 브라우저는 어차피 못 굽는다* 였는데, 실기에서 그 전제가 죽었다. WebKitGTK(리눅스 데스크톱 앱)는
+H.264 인코딩을 **시스템 GStreamer 플러그인**에 기댄다 — gofu 의 2.52.6 은 세 프레임을 정상으로 구웠지만(실측),
+그 플러그인이 없는 기계에서는 같은 앱이 통째로 못 굽는다. 그래서 이제 엔진이 **둘**이다: 내장 코덱이 있으면
+WebCodecs(그대로), 없으면 wasm 소프트웨어 인코더(`h264-mp4-encoder` = minih264 + minimp4)로 내려간다.
+고르는 규칙은 `videoEngine.ts` 의 `chooseVideoEngine` 하나이고, 비활성은 **둘 다 없을 때만**이다.
+대가 셋: ①자산 1.7MB(쓰는 기기만 받는다 — 동적 import + `?url`), ②720p 25.7ms/프레임·1080p 55.6ms/프레임(실측,
+내장 코덱보다 수십 배 느리다 — 시트가 `export.video.software` 로 미리 말한다), ③**CSP 에 `'unsafe-eval'` 이
+필요하다**(embind 가 바인딩마다 `new Function` 을 쓴다 — `'wasm-unsafe-eval'` 로는 안 되는 것을 실측했다).
+③ 때문에 `src-tauri/tauri.conf.json` 의 `script-src` 가 넓어졌다. 웹은 CSP 헤더가 없어 그대로다.
 | 3 | `mediabunny` 는 **동적 `import()`** 로만 불러 별도 청크에 둔다. 정적 import 금지. 메인 청크 크기 변화 0 을 검수가 증명 | §0 둘째 뒤집기의 전제. 내보내기 안 하는 사용자는 1바이트도 안 받는다 |
 | 4 | **타이밍**: fps 30 고정. `baseMs = PLAYBACK.stepIntervalMs[1]`(1500), `transitionMs = PLAYBACK.transitionMsFor(baseMs)`(600), `loop:false`, `reduceMotion` 무시. 총 길이 `drillTotalMs`. 프레임 i 의 시각 `t_i = i·1000/fps`, 프레임 수 `N = ceil(total·fps/1000) + 1`(마지막 프레임 = t=total 의 정지 포즈), 각 프레임 길이 `1/fps` 초 | 배속·루프는 파일에 의미 없다. 마지막 스텝의 정지가 이미 `durationMs` 에 들어 있어 별도 꼬리 유지 안 둔다. 30fps 는 seamless 체인이 매끄러운 최저선 |
 | 5 | **크기**: 시트에서 `720p`(기본)·`1080p` 둘 중 하나. 정의는 **긴 변** 1280 / 1920. `StaticSceneOpts.resolution` 타입을 `1 \| 2` → `number`(긴 변 = 1024×resolution 배수, 주석 갱신) 로 넓혀 `1280/1024`·`1920/1024` 를 넣는다. 캔버스는 `metrics.widthPx/heightPx` 를 **짝수로 올림**, `drawImage` 는 metrics 크기 그대로, 남는 1px 줄은 배경색(캡션 띠/여백 색, `staticSceneLayout` 의 것)으로 채운다 | 코트가 가로형이라 긴 변 기준이 자연스럽다. 축척을 흔들어 짝수를 만드는 것보다 1px 여백이 정직하다. 옵션은 저장 안 한다(prefs 스키마 불변) — 매번 720p 로 시작 |
@@ -43,6 +57,18 @@
 | 7 | **캡션**: PNG 와 같은 옵션(제목·실명 roster 여부)을 시트의 기존 캡션 설정에서 그대로 읽되, **인코딩 시작 전에 한 번 확정**해 모든 프레임에 같은 `caption` 형태(→ 같은 `captionH`)를 넘긴다. 글은 도착 스텝 기준 "제목 · n/N · 스텝 이름" 으로 프레임마다 바뀐다 | 높이 고정이 곧 해상도 고정. 실명은 PNG §6 규칙과 동일(파일에 실린다는 안내 재사용) |
 | 8 | **범위**: 영상은 항상 **드릴 전체**. 시트의 범위 fieldset 은 영상 항목에 적용되지 않음을 문구로 밝힌다 | 스텝 일부만의 영상은 트윈 시작점이 애매하다. 필요해지면 그때 |
 | 9 | **진행·취소**: 시트 안 인라인 상태 3단 — 진행 중(`n/N` + 퍼센트 + [취소]) → 완료(`SPIN_{slug}_{YYYYMMDD}.mp4 · 12.3 MB` + [저장]) → 오류(문구 + [다시]). **저장은 완료 뒤 버튼 클릭에서** `downloadBlob` 호출 | iOS `navigator.share` 는 사용자 제스처 안에서만 되고, 인코딩 수 초 뒤엔 활성화가 끝나 있다. 클릭 → 저장이 유일하게 안전한 순서. 취소는 `AbortSignal` → 루프 중단 + `output.cancel()` |
+
+⚠️ **2026-09-13 — 결정 9 의 UI 를 셋 고쳤다(기현님 실기, 근거는 지우지 않는다).**
+①**시작이 보이지 않았다.** 항목 머리(제목 줄) 자체가 버튼이라 "눌러야 시작된다" 는 것이 어디에도
+없었다. 머리는 글이 되고, 시작은 [영상 만들기] 한 개가 진다 — `aria-disabled` + 사유 문구를 지는
+자리도 그 버튼으로 옮겼다(못 하는 기기에서도 이 버튼만은 남는다).
+②**[저장] 이 데스크톱에서 아무 일도 하지 않았다.** `downloadBlob` 은 `<a download>` 인데 Tauri
+웹뷰에는 빌릴 브라우저가 없다. 이제 데스크톱이면 네이티브 저장 대화상자로 간다
+(`src-tauri/src/save_file.rs`, 자바스크립트에는 파일 권한을 주지 않는다).
+③**저장 뒤 시트가 남았다.** *"시트는 닫지 않는다 — 공유 시트를 취소한 사람이 다시 누를 자리가
+있어야 한다"* 는 근거를 **좁힌다**: 그 걱정은 «취소» 에만 참이고, 그때는 지금도 열어 둔다.
+저장이 끝났을 때만 닫는다(PNG·ZIP 이 이미 그렇게 한다). `downloadBlob` 이 `saved | cancelled |
+started` 를 돌려주는 것이 이 판단의 유일한 근거다.
 | 10 | **API**(UI·엔진 병렬 구현의 계약): `src/features/export/video/encodeDrillVideo.ts` 가 `export async function encodeDrillVideo(drill: Drill, opts: VideoExportOpts, hooks: { onProgress?: (done: number, total: number) => void; signal?: AbortSignal }): Promise<VideoExportResult>`; `VideoExportOpts = { size: 720 \| 1080; locale: Locale; caption: StaticSceneOpts['caption'] \| undefined /* roster 포함, 글은 엔진이 프레임마다 채움 */ }`; `VideoExportResult = { blob: Blob; bytes: number; frames: number; durationMs: number; width: number; height: number }`; `export async function isVideoExportSupported(): Promise<boolean>`(VideoEncoder 존재 + `canEncode('avc')`); 취소 시 `DOMException('AbortError')` 로 reject. 파일명 `exportNames.ts` 의 `videoFileName(drill, date) → SPIN_{slug}_{YYYYMMDD}.mp4` | 두 구현자가 이 시그니처만 보고 각자 간다 |
 | 11 | **순수 로직 분리**(테스트 가능한 것): `video/videoTiming.ts` — `videoFrameTimes(totalMs, fps): number[]`, `videoBitrate(w,h,fps)`; `video/videoMetrics.ts` — `videoCanvasSize(metrics) → {w,h 짝수, padColor}`, `videoResolution(size) → number`. 인코더·캔버스는 테스트 안 붙인다(rasterize.ts 와 같은 선언) | AGENTS 테스트 규칙: jsdom 이 못 재는 것은 실기로. 단언은 돌연변이로 실효 확인 |
 | 12 | `rasterize.ts` 에 새 출구 `paintSceneToCanvas(scene: StaticScene, canvas, locale): Promise<void>`(Image 로드 + drawImage + paintTexts, PNG 왕복 없음)를 만들고 `rasterizeFrameToPng` 가 그것을 쓰도록 접는다. 폰트 대기는 영상 루프 **앞에서 한 번** | 프레임마다 PNG 인코딩·폰트 대기를 하면 순수 낭비 |
