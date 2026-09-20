@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.atit.spin",
+      "sha256_cert_fingerprints": [
+        "B6:C6:44:87:C0:AB:11:EC:5E:90:44:A2:D8:33:86:7A:FA:89:7E:F7:3F:12:94:C8:E4:07:9F:1F:B4:5C:26:A0"
+      ]
+    }
+  }
+]
