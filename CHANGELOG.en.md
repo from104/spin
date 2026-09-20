@@ -8,30 +8,22 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
-- Android app (tablets and unfolded foldables) with Google Drive sync and share-sheet export
-- **UI size** — Auto, or eight steps from 50% to 200%. The smaller it is, the bigger the board.
-  Auto picks the largest scale where the left menu and the tool row both fit on the tactics
-  board without scrolling, and shows you which one it picked
+- Android app for tablets and unfolded foldables, with Google Drive sync and share-sheet export
+- UI size in [Settings] — Auto or eight steps from 50% to 200%, smaller size for a bigger board
 
 ### Changed
 
-- **In landscape the left menu bar is always there** — however narrow the window, however large
-  the UI size. Portrait always uses the icon row at the top. The menu scrolls if it overflows
-- The old "UI scale" (100/115/130%) only changed text size; the new UI size changes the **whole
-  screen**. 115% moves to 125%, and 130% moves to 150%
+- Left menu bar always shown in landscape, portrait fixed to the icon row at the top
+- Old UI scale (100/115/130%) replaced by UI size, which scales the whole screen — 115% becomes 125%, 130% becomes 150%
 
 ### Fixed
 
-- The board did not use the full height in presentation — space was reserved for step notes even in
-  drills that have none. Those drills now get a 15% taller board
-- On narrow screens the header subtitle was clipped and the drill library header wrapped to two rows
-- Link sharing did not work in the Android app — the app was calling itself instead of the server
-- Drill thumbnails were **missing entirely** in the library — a Chromium-only defect (Android app,
-  Chrome, Edge). The same fix also stops the category badge from overlapping the drill name
-- **Auto UI size picked too large a step in portrait** — at the chosen size the tool column
-  scrolled, breaking the "everything fits without scrolling" promise
-- **Player chips in the vertical tool column stacked in a single row** — the scrollbar ate one
-  column's worth of width, doubling the chip stack and keeping the scroll from ever clearing
+- Note space reserved in [Presentation] even for drills without notes — 15% taller board
+- Header subtitle clipped and drill library header wrapping to two rows on narrow screens
+- Link sharing not working in the Android app
+- Drill thumbnails missing and category badge overlapping the drill name in the library
+- Auto UI size picking a step that scrolls in portrait
+- Player chips stacking in a single row in the vertical tool column
 
 ## [0.6.11] 2026-09-16
 
