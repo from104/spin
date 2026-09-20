@@ -7,6 +7,8 @@
 //   ③ **축척 불변** — 1024×600 에서 --hit 44↔56 전환이 pxPerUnit 을 한 눈금도 못 움직인다.
 //      세로가 제약이라 트레이 24px 는 폭 여유(§5.4 '남는 폭')에서 나오기 때문이다.
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render as rtlRender, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
@@ -143,5 +145,30 @@ describe('물리 1024×600 @배율 100% — 잃은 것', () => {
     const at44 = courtBoxPx({ w: 1024, h: 600 }, narrowState);
     const at56 = { w: at44.w - extra, h: at44.h };
     expect(courtScale('full', at56).pxPerUnit).toBeLessThan(courtScale('full', at44).pxPerUnit);
+  });
+});
+
+// 2026-09-20 iPad mini 세로 실기(에뮬레이터) — 자동이 정한 배율에서 개체 벤치가 237px 넘쳤다.
+// 원인은 배율이 아니라 **스크롤바 9px** 이었다: 기둥은 자기 최소폭 93(= 칩 2열)에 서 있는데
+// 클래식 스크롤바가 9를 먹어 내용 폭이 84 로 떨어지고, 84 에는 칩이 **1열**만 들어간다.
+// 1열이면 칩 8개가 4줄 → 8줄이 되어 내용이 357 → 555 로 커지고, 커졌으니 스크롤바가 계속
+// 선다 — 배율을 올려도 안 풀리는 **자기 유지 고리**였다(실측: 2·1.75·1.5·1.25 전부 84).
+//
+// jsdom 은 스크롤바도 레이아웃도 없어 이 고리를 재현하지 못한다. 그래서 «내용 폭을 도로
+// 넓히는 선언이 붙어 있는가» 를 본다 — 그 선언이 사라지면 화면에서만 도지고, 도진 모습은
+// «칩이 한 줄로 길게 늘어선다» 라 결함으로 안 보인다.
+describe('개체 벤치 — 스크롤바가 칩 열을 먹지 않는다', () => {
+  const src = readFileSync(resolve(__dirname, 'ToolRail.tsx'), 'utf8');
+
+  it('벤치가 스크롤바를 지운다 — 인라인 scrollbarWidth 와 웹킷용 클래스 둘 다', () => {
+    expect(src).toContain("scrollbarWidth: 'none' as const");
+    // 인라인 style 로는 ::-webkit-scrollbar 를 못 쓴다 — 크로미움(= 안드로이드 WebView)이
+    // 받는 것은 이쪽이라, 한 쪽만 있으면 정작 터지는 곳에서 안 듣는다.
+    expect(src).toContain('className="spin-nav-seg"');
+  });
+
+  it('그 클래스의 CSS 규칙이 실제로 있다', () => {
+    const css = readFileSync(resolve(__dirname, '../../styles/appShell.css'), 'utf8');
+    expect(css).toMatch(/\.spin-nav-seg::-webkit-scrollbar\s*\{\s*display:\s*none;?\s*\}/);
   });
 });

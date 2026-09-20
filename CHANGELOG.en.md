@@ -28,6 +28,10 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 - Link sharing did not work in the Android app — the app was calling itself instead of the server
 - Drill thumbnails were **missing entirely** in the library — a Chromium-only defect (Android app,
   Chrome, Edge). The same fix also stops the category badge from overlapping the drill name
+- **Auto UI size picked too large a step in portrait** — at the chosen size the tool column
+  scrolled, breaking the "everything fits without scrolling" promise
+- **Player chips in the vertical tool column stacked in a single row** — the scrollbar ate one
+  column's worth of width, doubling the chip stack and keeping the scroll from ever clearing
 
 ## [0.6.11] 2026-09-16
 

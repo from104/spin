@@ -722,7 +722,15 @@ export function ToolRail({
           minHeight: 0,
           // 선수가 8명 다 미배치면 세로로 길다 — 트레이 안에서만 스크롤한다.
           ...(horiz ? { overflowX: 'auto' as const } : { overflowY: 'auto' as const, width: '100%' }),
+          // ⚠️ 스크롤바를 **숨기는 것이 여기서는 레이아웃 문제**다(AppNavSegment·AppRail 과 같은
+          //    이유의 세로판). 2026-09-20 iPad mini 세로 실측: 기둥은 자기 최소폭 93(= 칩 2열)에
+          //    서 있는데 클래식 스크롤바가 9px 을 먹어 **내용 폭이 84 로 떨어지고 칩이 1열이 된다.**
+          //    1열이 되면 칩 8개가 4줄에서 8줄로 늘어 내용이 357 → 555 로 커지고, 커졌으니
+          //    스크롤바가 계속 선다 — **스스로를 먹여 살리는 고리**라 배율을 올려도 안 풀렸다.
+          //    `TRAY_MIN_COLS = 2` 는 테두리 상자가 아니라 **내용 상자**의 최소여야 한다.
+          scrollbarWidth: 'none' as const,
         }}
+        className="spin-nav-seg"
       >
         <div
           style={{

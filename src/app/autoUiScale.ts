@@ -61,8 +61,23 @@ export function maxFittingScale(input: AutoUiScaleInput): number {
   // (6 × --hit ≈ 264). 대신 트레이가 **오른쪽 기둥**이 되어 세로로 스크롤할 수 있다 —
   // 그쪽이 유일한 문턱이다. 기둥의 안 스크롤되는 세로 합은 trayMetrics 가 답한다.
   const column = trayFixedHeightPx(hitPx, TRAY_MIN_COLS) + trayBenchHeightPx(hitPx, TRAY_MIN_COLS, TRAY_BAND_BOARD_PARTS.chips);
-  return availH / column;
+  return availH / (column + PORTRAIT_TRAY_CHROME_PX);
 }
+
+/** 세로 보드에서 트레이 기둥의 **위아래**가 먹는 세로 — 헤더 줄들과 코트 래퍼 패딩.
+ *
+ *  ⚠️ 이 항이 통째로 빠져 있었다. 기둥이 `availH` 를 전부 받는다고 본 것인데, 실제로는 헤더
+ *  아래에서 시작해 패딩 위에서 끝난다. 그래서 자동이 **두 눈금 낙관적**이었다 — 2026-09-20
+ *  iPad mini 세로(744×1133, availH 1065) 실측에서 자동이 1.5 를 골랐고, 1.5 에서 기둥이
+ *  237px 넘쳐 기현님이 준 「둘 다 스크롤이 안 되는 상태」 정의를 정면으로 어겼다.
+ *
+ *  값이 하나인 이유: 실측은 배율마다 달랐다(2·1.75·1.5·1.25·1·0.75·0.5 → 162·119·110·110·
+ *  67·67·67). 변하는 것은 **헤더 줄 수**다 — 레이아웃이 좁아지면 헤더가 한 줄(67)에서 두
+ *  줄(110), 세 줄(162)로 늘어난다. 자동이 실제로 고르는 구간은 두 줄 쪽이라 그 값을 쓴다.
+ *  한 줄 값(67)을 쓰면 낙관해서 **계약이 깨지고**, 세 줄 값(162)을 쓰면 넓은 화면에서 한 눈금
+ *  손해만 본다 — 그래서 틀릴 때 싼 쪽으로 기울인다. 줄 수를 배율에서 되풀어 계산하는 것은
+ *  되먹임 고리라(배율 → 폭 → 줄 수 → 배율) 여기서 하지 않는다. */
+const PORTRAIT_TRAY_CHROME_PX = 110;
 
 /** 「자동」의 답 — `maxFittingScale` 을 **넘지 않는 가장 큰 눈금**.
  *
