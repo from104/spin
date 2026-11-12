@@ -12,6 +12,7 @@
 // 어긋나면 "링은 붉은데 아무도 안 들어와 있다" 가 된다).
 import {
   ballRingViolation,
+  cornerKickIndex,
   fiveMeterRetreat,
   GOAL_AREA_MAX,
   isBallOutOfPlay,
@@ -23,7 +24,7 @@ import {
   type DefendedZone,
   type RuleActor,
 } from '../model/rules.ts';
-import type { CourtMode, Rect } from '../model/court.ts';
+import type { CornerKickZone, CourtMode, Rect } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
 import { BALL_FILL } from '../core/colors.ts';
 import { mToPx } from '../core/units.ts';
@@ -141,6 +142,9 @@ export interface RuleOverlayContext {
   /** 세트피스 5 m 제한을 받는 팀 = 수비 진영(`Drill.defense`). **플랫 코트는 null** —
    *  골대도 진영도 없어 "누가 수비인가" 라는 약속 자체가 성립하지 않는다(model/rules.ts). */
   fiveMeterDefense: TeamSide | null;
+  /** 코너 삼각형마다의 코너킥 기하(`model/court.ts` 의 `cornerKickZones`). 5 m 공이 여기 걸치면
+   *  코너킥 판정(골 지역 안 수비는 1 m 마크 뒤)으로 바뀐다 — `model/rules.ts` 의 `cornerKickIndex`. */
+  cornerKicks: readonly CornerKickZone[];
   teamLabels: Record<TeamSide, string>;
   locale: Locale;
   /** 아웃오브플레이(Law 9) 판정 대상 코트 — `isBallOutOfPlay` 가 mode 로 half 의 하프라인을
@@ -192,6 +196,7 @@ const DEFAULT_CONTEXT: RuleOverlayContext = {
   goalAreas: [],
   goalMouths: [],
   fiveMeterDefense: null,
+  cornerKicks: [],
   teamLabels: { home: '홈', away: '원정' },
   // 실사용 호출부(RuleOverlay.tsx)가 항상 setContext 로 진짜 locale 을 곧바로 심는다 —
   // 이 값은 그 전(마운트 첫 틱)에만 잠깐 쓰이는 자리표시일 뿐이라 defaultPhase() 와 같은
@@ -298,12 +303,14 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       .join('·');
   }
 
-  function message(ringBits: number, zoneBits: number, fiveBits: number, ballOut: boolean): string {
+  function message(ringBits: number, zoneBits: number, fiveBits: number, cornerBits: number, ballOut: boolean): string {
     const parts: string[] = [];
     // 문구가 문턱 상수에서 파생된다 — 규칙 수치를 고치면 발화도 따라온다.
     if (ringBits) parts.push(translate(ctx.locale, 'ruleOverlay.ringWarning', { names: names(ringBits), n: RING_SAME_TEAM_MAX + 1 }));
     // 5 m 는 인원수 문턱이 없다 — **한 대라도** 들어가면 걸린다(수비만). 그래서 문구도 다르다.
     if (fiveBits) parts.push(translate(ctx.locale, 'ruleOverlay.fiveMeterWarning', { names: names(fiveBits) }));
+    // 코너킥은 "공 5 m 안" 이 아닐 수 있다(1 m 마크 앞 띠는 원 밖이다) — 5 m 문구를 쓰면 거짓이 된다.
+    if (cornerBits) parts.push(translate(ctx.locale, 'ruleOverlay.cornerKickWarning', { names: names(cornerBits) }));
     if (zoneBits) parts.push(translate(ctx.locale, 'ruleOverlay.zoneWarning', { names: names(zoneBits), n: GOAL_AREA_MAX + 1 }));
     // 아웃오브플레이는 팀 위반이 아니다(공 자체의 상태) — 이름·문턱 보간이 없다.
     if (ballOut) parts.push(translate(ctx.locale, 'ruleOverlay.ballOutWarning'));
@@ -316,10 +323,10 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
    *  - 조합이 바뀌면(링만 → 링+존) 곧바로 다시 말한다.
    *  - 해소는 말하지 않는다 — 코치가 알아야 하는 것은 "지금 반칙이다" 이고, 해소까지 읽으면
    *    드래그 한 번에 두 번 말하게 된다(2.11 [D-7] 이 잠근 이중 통보와 같은 문제다). */
-  function announce(ringBits: number, zoneBits: number, fiveBits: number, ballOut: boolean): void {
+  function announce(ringBits: number, zoneBits: number, fiveBits: number, cornerBits: number, ballOut: boolean): void {
     // ringBits/zoneBits/fiveBits 는 TEAM_BIT 조합(0~3, 2비트)이라 <<2 씩 벌린다. ballOut 은
-    // 팀 비트가 아니라 단일 불리언이라 그 위(<<6)에 한 비트만 얹는다.
-    const key = ringBits | (zoneBits << 2) | (fiveBits << 4) | (ballOut ? 1 << 6 : 0);
+    // 팀 비트가 아니라 단일 불리언이라 그 위(<<6)에 한 비트만 얹는다. cornerBits 는 그 위(<<7).
+    const key = ringBits | (zoneBits << 2) | (fiveBits << 4) | (ballOut ? 1 << 6 : 0) | (cornerBits << 7);
     if (key === 0) {
       if (spokenKey === 0) return;
       const t = now();
@@ -333,7 +340,7 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     cleanSinceMs = null;
     if (key === spokenKey) return;
     spokenKey = key;
-    say(message(ringBits, zoneBits, fiveBits, ballOut));
+    say(message(ringBits, zoneBits, fiveBits, cornerBits, ballOut));
   }
 
   function resetAnnounce(): void {
@@ -345,18 +352,20 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     fillActors(poses);
     let ringBits = 0;
     let fiveBits = 0;
+    let cornerBits = 0;
     for (const [id, el] of rings) {
       const p = poses[id];
       const ring = ringKind.get(id) ?? 'none';
       // 5 m 를 물러날 팀은 **공마다** 다르다 — 그 공을 차는 팀의 반대다(골킥과 코너킥이
       // 서로 반대인 이유). 소유가 없으면 진영을 그대로 써서 옛 동작이 보존된다.
       const retreat = fiveMeterRetreat(ringOwner.get(id), ctx.fiveMeterDefense);
-      const bits = p ? ballRingViolation(ring, p, live, ctx.goalAreas, ctx.goalMouths, retreat) : 0;
+      const bits = p ? ballRingViolation(ring, p, live, ctx.goalAreas, ctx.goalMouths, retreat, ctx.cornerKicks) : 0;
       // 이 프레임에 좌표가 없는 공은 판에 없는 공이다(시연의 퇴장 페이드·다른 스텝) — 숨긴다.
       writeRing(id, el, (p ? VISIBLE : 0) | (bits ? VIOLATED : 0));
       // 링 그림은 어느 규칙이든 같지만 **발화 문구는 다르다** — 그래서 여기서 갈라 담는다.
-      if (ruleForRing(ring) === 'fiveMeter') fiveBits |= bits;
-      else ringBits |= bits;
+      if (ruleForRing(ring) !== 'fiveMeter') ringBits |= bits;
+      else if (bits && p && cornerKickIndex(p, ctx.cornerKicks, ctx.goalAreas, retreat) >= 0) cornerBits |= bits;
+      else fiveBits |= bits;
     }
     let zoneBits = 0;
     for (const [index, el] of zones) {
@@ -378,7 +387,7 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       writeBallFill(id, el, out);
       ballOut = ballOut || out;
     }
-    announce(ringBits, zoneBits, fiveBits, ballOut);
+    announce(ringBits, zoneBits, fiveBits, cornerBits, ballOut);
   }
 
   return {

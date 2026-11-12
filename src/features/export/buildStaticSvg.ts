@@ -38,7 +38,7 @@ import { DEG } from '../../core/angle.ts';
 import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, GOAL_BASE_FILL, GOAL_POST_EDGE, GOAL_POST_FILL, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR } from '../../core/constants.ts';
 import { CONE_BASE_D, CONE_STROKE_W, CONE_TRIANGLE_D } from '../../render/objects/coneGeom.ts';
-import { attackDir, courtDefFor, goalBaseRect, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
+import { attackDir, cornerKickZones, courtDefFor, goalBaseRect, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import type { CourtDef } from '../../model/court.ts';
 import { arrowPath, ARROW_STYLE, arrowColor } from '../../model/arrow.ts';
 import { strokePath, strokeWidthOf } from '../../model/stroke.ts';
@@ -438,6 +438,7 @@ export function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   // 세트피스 5 m 제한(2026-08-17) — 골키퍼 면제 자리와 제한받는 팀. 화면(RuleOverlay.tsx)이
   // 만드는 것과 **같은 두 값**이다. 플랫 코트는 골대가 없어 규칙 자체가 꺼진다.
   const mouths = defendedMouths(goalMouths(def), side);
+  const corners = cornerKickZones(def); // 코너킥 1 m 마크 판정(Law 17) — 화면 경로와 같은 기하
   const fiveDefense = def.goalPosts.length === 0 ? null : side;
   // 소유 화살표 방향 — 코트당 한 번. `attackDir(def,0)` 은 진영 팀의 공격 방향이라 상대는 반대다.
   const ownerDegOf = ((): Record<TeamSide, number> | null => {
@@ -485,7 +486,7 @@ export function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
     // 5 m 를 물러날 팀은 **공마다** 다르다 — 그 공을 차는 팀의 반대다. 화면
     // (render/ruleOverlay.ts)과 같은 함수를 지나므로 PNG 만 반대 팀을 붉히는 일이 없다.
     const retreat = fiveMeterRetreat(b.owner, fiveDefense);
-    const bad = (opts.showRuleZones ?? false) && ballRingViolation(b.ring ?? 'none', b, actors, zones, mouths, retreat) !== 0;
+    const bad = (opts.showRuleZones ?? false) && ballRingViolation(b.ring ?? 'none', b, actors, zones, mouths, retreat, corners) !== 0;
     const stroke = bad ? RULE_ALERT_STROKE : RULE_OK_STROKE;
     const dash = bad ? '' : ` stroke-dasharray="${RULE_DASH}"`;
     out +=

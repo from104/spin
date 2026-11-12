@@ -140,6 +140,7 @@ describe('② 위반 층 — 같은 붉은 계열의 **진한 쪽**', () => {
       goalAreas: [{ rect: zone, defender: 'home' }],
       goalMouths: [],
       fiveMeterDefense: null,
+      cornerKicks: [],
       teamLabels: { home: '홈', away: '원정' },
       locale: 'ko',
       court: { mode: 'full', surface: courtDefFor('full').surface },

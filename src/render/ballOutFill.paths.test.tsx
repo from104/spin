@@ -71,6 +71,7 @@ function screenFill(p: { x: number; y: number }): string {
     roster: [],
     goalAreas: [],
     goalMouths: [],
+    cornerKicks: [],
     fiveMeterDefense: null,
     teamLabels: { home: '레드', away: '블루' },
     locale: 'ko',

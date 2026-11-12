@@ -1014,6 +1014,7 @@ export const en: Record<DictKey, string> = {
   // ── C8b — Rule violation announcements ──────────────────────────────────────────────
   'ruleOverlay.ringWarning': '{{n}} or more {{names}} players within 3m of the ball — 2-on-1 warning',
   'ruleOverlay.fiveMeterWarning': '{{names}} within 5m of the ball — set-piece 5m limit',
+  'ruleOverlay.cornerKickWarning': 'Corner kick limit — {{names}}: 5m away outside the goal area, behind the 1m mark inside it',
   'ruleOverlay.zoneWarning': '{{n}} or more {{names}} players in the goal area — 3-player foul',
   'ruleOverlay.ballOutWarning': 'The ball has fully crossed the boundary — out of play',
 

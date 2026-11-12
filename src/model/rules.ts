@@ -64,9 +64,10 @@
 // 그리고 이 판정은 **경고이지 판결이 아니다.** 원문은 "위치 자체는 반칙이 아니고 두 번째
 // 선수가 능동적 플레이에 관여할 때 성립" 이라고 못박는다 — 정지한 판에서 '관여'는 알 수 없다.
 // 그래서 발화 문구도 '주의' 다(ruleOverlay.ts).
+import { BALL } from '../core/constants.ts';
 import { mToPx, type Vec2 } from '../core/units.ts';
 import { chairInsideBounds, chairOverlapsCircle, chairOverlapsRect } from './chairOverlap.ts';
-import type { CourtMode, GoalMouth, Rect } from './court.ts';
+import type { CornerKickZone, CourtMode, GoalMouth, Rect } from './court.ts';
 import type { BallRing, TeamSide } from './drill.ts';
 
 /** 3 m. 25 px/m 이므로 75 월드px — 옛 센터 서클과 우연히 반지름이 같았다. 그 원은 규정에
@@ -349,21 +350,79 @@ export function ruleForRing(ring: BallRing): 'twoOnOne' | 'fiveMeter' {
  *  재개 상황의 골키퍼는 골문 안으로 물러나 있어야 한다는 뜻이라, 골 지역에 나와 서 있으면
  *  그도 5 m 밖으로 빠져야 한다(원문도 조항이 갈라져 있다 — 5 m 쪽은 *"unless goalkeepers are
  *  behind their own goal line between the goal posts"*, 2-on-1 쪽은 *"in his own goal area"*).
- *  같은 '골키퍼 면제' 라는 이름에 끌려 두 자리를 맞추지 마라. */
+ *  같은 '골키퍼 면제' 라는 이름에 끌려 두 자리를 맞추지 마라.
+ *
+ *  ── 코너킥(`corner` 가 있을 때, 기현 지시 2026-11-13) ─────────────────────────────────────
+ *  Law 17 은 물러나는 수비를 둘로 가른다: 골 지역 **밖**은 5 m, 골 지역 **안**은 **1 m 마크 뒤**.
+ *  그래서 판정이 셋으로 갈린다 —
+ *    ① 마크 앞 띠(`corner.strip`)에 걸치면 **5 m 원 밖이라도** 위반(원 하나로는 안 잡히던 구멍).
+ *    ② 띠에는 안 걸치고 골 지역에 걸치면 = 골 지역 안 · 마크 뒤 → **5 m 면제**(위치 우선권).
+ *    ③ 그 밖은 지금까지와 같은 5 m 원 판정.
+ *  골키퍼가 골라인 뒤에 있으면(예외 ④) ①도 면제다 — 원문 *"unless the goalkeeper is behind
+ *  the goal line between the goal posts"* 가 코너킥 조항에도 있다. */
 export function fiveMeterViolation(
   ball: Vec2,
   actors: readonly RuleActor[],
   defense: TeamSide | null,
   mouths: readonly DefendedMouth[],
+  corner: CornerKickZone | null = null,
 ): number {
   if (defense === null) return 0;
   for (const a of actors) {
     if (a.team !== defense) continue; // 공격(= 공을 차는 쪽)은 제한 없다
-    if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_5M_R_PX)) continue;
     if (a.isGk && chairBehindOwnGoalLine(mouths, a)) continue; // 예외 ④
+    if (corner !== null) {
+      const { strip, area } = corner;
+      if (chairOverlapsRect(a.x, a.y, a.theta, strip.x, strip.y, strip.w, strip.h)) return TEAM_BIT[defense]; // ①
+      if (chairOverlapsRect(a.x, a.y, a.theta, area.x, area.y, area.w, area.h)) continue; // ②
+    }
+    if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_5M_R_PX)) continue;
     return TEAM_BIT[defense];
   }
   return 0;
+}
+
+/** 원(중심 c, 반지름 r)이 삼각형에 닿는가 — 안에 있거나 변까지 거리가 r 이하. */
+function circleTouchesTriangle(c: Vec2, r: number, t: readonly [Vec2, Vec2, Vec2]): boolean {
+  const cross = (p: Vec2, q: Vec2): number => (q.x - p.x) * (c.y - p.y) - (q.y - p.y) * (c.x - p.x);
+  const d0 = cross(t[0], t[1]);
+  const d1 = cross(t[1], t[2]);
+  const d2 = cross(t[2], t[0]);
+  if ((d0 >= 0 && d1 >= 0 && d2 >= 0) || (d0 <= 0 && d1 <= 0 && d2 <= 0)) return true;
+  for (let i = 0; i < 3; i++) {
+    const p = t[i]!;
+    const q = t[(i + 1) % 3]!;
+    const vx = q.x - p.x;
+    const vy = q.y - p.y;
+    const k = Math.max(0, Math.min(1, ((c.x - p.x) * vx + (c.y - p.y) * vy) / (vx * vx + vy * vy)));
+    if (Math.hypot(p.x + vx * k - c.x, p.y + vy * k - c.y) <= r) return true;
+  }
+  return false;
+}
+
+/** 이 5 m 공이 **코너킥**인가 — 맞으면 그 코너의 `corners` 인덱스, 아니면 -1.
+ *
+ *  판은 경기 상황을 모르므로 약속으로 정한다(기현 지시 2026-11-13): **5 m 원이 켜진 공이 코너
+ *  삼각형에 걸쳐 있고, 물러날 팀(`retreat`, 소유 화살표의 반대)이 그 코너 쪽 골대를 지키는
+ *  팀**이면 코너킥이다. 화살표가 그 골대 쪽을 가리킨다는 뜻이다. 그 골대 주인이 차는 공(수비
+ *  프리킥 등)은 코너가 아니라 일반 5 m 판정으로 둔다.
+ *
+ *  "걸쳐 있다" 는 공의 **시각 반지름**(`BALL.viewRadiusPx`)으로 잰다 — 아웃오브플레이와 같은
+ *  기준이다(isBallOutOfPlay 머리말: 화면에 보이는 공 둘레가 판정 경계다). 배열·객체를 만들지
+ *  않으려고 인덱스를 돌려준다(매 프레임 판정). */
+export function cornerKickIndex(
+  ball: Vec2,
+  corners: readonly CornerKickZone[],
+  goalAreas: readonly DefendedZone[],
+  retreat: TeamSide | null,
+): number {
+  if (retreat === null) return -1;
+  for (let i = 0; i < corners.length; i++) {
+    const c = corners[i]!;
+    if (goalAreas[c.goal]?.defender !== retreat) continue;
+    if (circleTouchesTriangle(ball, BALL.viewRadiusPx, c.tri)) return i;
+  }
+  return -1;
 }
 
 export const otherSide = (s: TeamSide): TeamSide => (s === 'home' ? 'away' : 'home');
@@ -383,7 +442,10 @@ export function fiveMeterRetreat(owner: TeamSide | undefined, defense: TeamSide 
 }
 
 /** 공 하나의 링 판정 — **어느 규칙인지는 원이 정한다**(`ruleForRing`). 소비자 둘이 이 함수
- *  하나를 지나므로 화면과 PNG 가 갈라질 자리가 없다. 반환은 위반한 팀의 비트합이다. */
+ *  하나를 지나므로 화면과 PNG 가 갈라질 자리가 없다. 반환은 위반한 팀의 비트합이다.
+ *
+ *  ⚠️ `corners` 는 **필수 인자**다(`cornerKickZones(def)`). 선택으로 두면 한 경로가 빠뜨린 날
+ *  그 화면에서만 코너킥 1 m 마크 규칙이 조용히 꺼진다. */
 export function ballRingViolation(
   ring: BallRing,
   ball: Vec2,
@@ -391,10 +453,11 @@ export function ballRingViolation(
   goalAreas: readonly DefendedZone[],
   mouths: readonly DefendedMouth[],
   defense: TeamSide | null,
+  corners: readonly CornerKickZone[],
 ): number {
-  return ruleForRing(ring) === 'fiveMeter'
-    ? fiveMeterViolation(ball, actors, defense, mouths)
-    : ringViolation(ball, actors, goalAreas, mouths); // `mouths` = 예외 ①-b(골라인 뒤 골키퍼)
+  if (ruleForRing(ring) !== 'fiveMeter') return ringViolation(ball, actors, goalAreas, mouths); // `mouths` = 예외 ①-b
+  const ci = cornerKickIndex(ball, corners, goalAreas, defense);
+  return fiveMeterViolation(ball, actors, defense, mouths, ci >= 0 ? corners[ci]! : null);
 }
 
 /** 비트합 → 팀 목록. **문구를 만들 때만** 부른다(위반 상태가 바뀐 순간뿐이라 배열을 만들어도 된다). */

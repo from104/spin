@@ -1009,6 +1009,7 @@ export const ja: Record<DictKey, string> = {
   // ── C8b — 反則発話 ──────────────────────────────────────────────────────────────────
   'ruleOverlay.ringWarning': 'ボールの3m以内に{{names}}が{{n}}人以上 — 2対1注意',
   'ruleOverlay.fiveMeterWarning': 'ボールの5m以内に{{names}} — セットプレー5m制限',
+  'ruleOverlay.cornerKickWarning': 'コーナーキック制限 — {{names}}：ゴールエリア外は5m、エリア内は1mマークの後ろへ',
   'ruleOverlay.zoneWarning': 'ゴールエリアに{{names}}が{{n}}人以上 — 3人反則',
   'ruleOverlay.ballOutWarning': 'ボールが境界線を完全に出ました — アウトオブプレー',
 

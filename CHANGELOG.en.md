@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog], and this project follows [Semantic Versioning].
 
+## [Unreleased]
+
+### Fixed
+
+- Corner kicks now warn when a defender inside the goal area is in front of the 1m mark, and allow defenders behind it even within 5m
+
 ## [0.6.13] 2026-11-13
 
 ### Fixed

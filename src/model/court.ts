@@ -538,3 +538,68 @@ export function goalMouths(def: CourtDef): GoalMouth[] {
   }
   return out;
 }
+
+/** 코너킥 한 자리의 판정 기하(Law 17). 코너 삼각형 하나마다 하나다 — 풀 4 · 하프 2 · 플랫 0.
+ *
+ *  Law 17 은 수비를 **두 무리로 갈라** 제한한다: 골 지역 **밖**은 코너 삼각형에서 5 m,
+ *  골 지역 **안**은 1 m 코너 인크로치먼트 마크 **뒤**(코너에서 먼 쪽). `strip` 이 그 "마크 앞"
+ *  — 골 지역 중 마크보다 코너 쪽 띠(골 지역 가장자리 1 m + 포스트 안쪽 1 m = 2 m 폭)다.
+ *  5 m 원은 이 띠에 대부분 닿지 않는다(30×18 에서 코너→마크 7 m) — 원 하나로는 이 규칙이 안 잡힌다. */
+export interface CornerKickZone {
+  /** 코너 삼각형 세 꼭짓점 — 경기면 모서리 + `cornerCuts` 의 두 끝점. */
+  tri: readonly [Vec2, Vec2, Vec2];
+  /** 이 코너가 놓인 골라인의 골대 번호. `ruleZones`·`goalMouths` 와 **같은 순서**다. */
+  goal: number;
+  /** 그 골대의 골 지역(= `ruleZones[goal]`). */
+  area: Rect;
+  /** 골 지역 중 1 m 마크보다 코너 쪽 띠 — 코너킥 때 골 지역 안 수비가 걸치면 안 되는 자리. */
+  strip: Rect;
+}
+
+/** 코너 삼각형마다 코너킥 판정 기하를 만든다. 좌표는 전부 `cornerCuts`·`goalPosts`·`ruleZones`·
+ *  `surface` 에서 파생한다(규칙 10) — 마크 위치는 `goalEncroachMarks` 와 같은 식(포스트 + 1 m)이다. */
+export function cornerKickZones(def: CourtDef): CornerKickZone[] {
+  const s = def.surface;
+  const corners: Vec2[] = [
+    { x: s.x, y: s.y },
+    { x: s.x + s.w, y: s.y },
+    { x: s.x + s.w, y: s.y + s.h },
+    { x: s.x, y: s.y + s.h },
+  ];
+  const out: CornerKickZone[] = [];
+  for (const d of def.cornerCuts) {
+    const n = d.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+    if (n.length < 4) continue;
+    const p: Vec2 = { x: n[0]!, y: n[1]! };
+    const q: Vec2 = { x: n[2]!, y: n[3]! };
+    const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+    const vertex = corners.reduce((a, b) => (Math.hypot(b.x - mid.x, b.y - mid.y) < Math.hypot(a.x - mid.x, a.y - mid.y) ? b : a));
+    for (let i = 0; i + 1 < def.goalPosts.length; i += 2) {
+      const a = def.goalPosts[i]!;
+      const b = def.goalPosts[i + 1]!;
+      const vertical = a.x === b.x; // 골라인이 세로(풀 코트) / 가로(하프 코트)
+      if (vertical ? a.x !== vertex.x : a.y !== vertex.y) continue;
+      const area = def.ruleZones[i / 2];
+      if (!area) continue;
+      const da = Math.hypot(a.x - vertex.x, a.y - vertex.y);
+      const db = Math.hypot(b.x - vertex.x, b.y - vertex.y);
+      const near = da <= db ? a : b;
+      const far = da <= db ? b : a;
+      if (vertical) {
+        const toward = Math.sign(far.y - near.y); // 마크는 포스트에서 골 안쪽으로 1 m
+        const markY = near.y + toward * ENCROACH_INSET_PX;
+        const y0 = toward > 0 ? area.y : markY;
+        const y1 = toward > 0 ? markY : area.y + area.h;
+        out.push({ tri: [vertex, p, q], goal: i / 2, area, strip: { x: area.x, y: y0, w: area.w, h: y1 - y0 } });
+      } else {
+        const toward = Math.sign(far.x - near.x);
+        const markX = near.x + toward * ENCROACH_INSET_PX;
+        const x0 = toward > 0 ? area.x : markX;
+        const x1 = toward > 0 ? markX : area.x + area.w;
+        out.push({ tri: [vertex, p, q], goal: i / 2, area, strip: { x: x0, y: area.y, w: x1 - x0, h: area.h } });
+      }
+      break;
+    }
+  }
+  return out;
+}

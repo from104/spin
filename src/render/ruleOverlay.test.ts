@@ -35,6 +35,7 @@ function ctx(over: Partial<RuleOverlayContext> = {}): RuleOverlayContext {
     // 원을 바꾼 적도 없는데 규칙이 갈려 흔들린다.
     goalMouths: [],
     fiveMeterDefense: null,
+    cornerKicks: [],
     teamLabels: { home: '레드', away: '블루' },
     // 아웃오브플레이 전용 describe 만 override 한다 — 그 외 테스트는 공을 registerBall 로
     // 등록한 적이 없어 이 값과 무관하게 ballOut 판정 루프 자체를 타지 않는다.

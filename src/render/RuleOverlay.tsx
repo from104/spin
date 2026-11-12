@@ -18,7 +18,7 @@
 // 규율은 하나도 바뀌지 않았다. 바뀐 것은 **몇 개를 그리는가** 뿐이다. 그리고 **판정은 표시와
 // 무관하다**: 원이 '없음' 인 공도 링 그룹은 등록되어 2-on-1 판정과 발화를 그대로 탄다.
 import { useEffect, useMemo, useRef } from 'react';
-import { attackDir, courtDefFor, goalMouths, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
+import { attackDir, cornerKickZones, courtDefFor, goalMouths, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
 import { defaultDefense, defendedMouths, defendedZones, otherSide, ringRadiusPx } from '../model/rules.ts';
 import type { TransformWriter } from './transformWriter.ts';
@@ -183,6 +183,8 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
   const mouths = useMemo(() => defendedMouths(goalMouths(def), side), [def, side]);
   // 플랫 코트는 골대도 진영도 없어 "누가 수비인가" 라는 약속이 성립하지 않는다 → 규칙 끔.
   const fiveMeterDefense = def.goalPosts.length === 0 ? null : side;
+  // 코너킥(Law 17) — 5 m 공이 코너 삼각형에 걸치면 골 지역 안 수비는 1 m 마크 뒤로 잰다.
+  const cornerKicks = useMemo(() => cornerKickZones(def), [def]);
 
   useEffect(() => {
     rules.setContext({
@@ -191,11 +193,12 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
       goalAreas,
       goalMouths: mouths,
       fiveMeterDefense,
+      cornerKicks,
       teamLabels: { home: teams.home.label, away: teams.away.label },
       locale,
       court: { mode, surface: def.surface },
     });
-  }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, teams, locale, mode, def]);
+  }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, cornerKicks, teams, locale, mode, def]);
 
   const ringOf = (id: string): BallRing => ballRings?.[id] ?? 'none';
   // 소유 화살표의 방향 — **코트당 한 번만** 계산한다(공마다 코트 정의를 다시 읽지 않는다).

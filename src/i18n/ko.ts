@@ -1043,6 +1043,7 @@ export const ko = {
   // ── C8b — 규칙 위반 발화 ────────────────────────────────────────────────────────────
   'ruleOverlay.ringWarning': '공 3 m 안에 {{names}} {{n}}명 이상 — 2-on-1 주의',
   'ruleOverlay.fiveMeterWarning': '공 5 m 안에 {{names}} — 세트피스 5 m 제한',
+  'ruleOverlay.cornerKickWarning': '코너킥 제한 — {{names}}: 골 지역 밖은 5 m, 골 지역 안은 1 m 마크 뒤로',
   'ruleOverlay.zoneWarning': '골 지역에 {{names}} {{n}}명 이상 — 3인 반칙',
   'ruleOverlay.ballOutWarning': '공이 경계를 완전히 벗어났습니다 — 아웃 오브 플레이',
 

@@ -21,6 +21,7 @@ import {
   defendedZones,
   RING_5M_R_PX,
   ballRingViolation,
+  cornerKickIndex,
   fiveMeterViolation,
   inRect,
   ringViolation,
@@ -32,8 +33,8 @@ import {
   type RuleActor,
 } from './rules.ts';
 import type { TeamSide } from './drill.ts';
-import { attackDir, COURT_DEFS, COURT_MODES, COURT_SIZES, courtDefFor, GOAL_HALF_PX, goalMouths } from './court.ts';
-import { chairOverlapsRect } from './chairOverlap.ts';
+import { attackDir, cornerKickZones, COURT_DEFS, COURT_MODES, COURT_SIZES, courtDefFor, GOAL_HALF_PX, goalMouths } from './court.ts';
+import { chairOverlapsCircle, chairOverlapsRect } from './chairOverlap.ts';
 import { BALL as BALL_CONST, CHAIR } from '../core/constants.ts';
 import { PX_PER_M } from '../core/units.ts';
 
@@ -749,10 +750,10 @@ describe('rules — [예외 ①-b] 골라인을 완전히 넘어간 골키퍼는
     // 이 함수가 `mouths` 를 `ringViolation` 에 넘기지 않으면 **모델은 맞고 판만 틀리게** 된다.
     const ball = { x: GOAL_LINE + 20, y: MID_Y };
     const crowd = [actor('home', behindPivotX, MID_Y, true, PI), actor('home', ball.x + 20, MID_Y), actor('away', ball.x + 10, MID_Y)];
-    expect(ballRingViolation('3m', ball, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(0);
-    expect(ballRingViolation('none', ball, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(0);
+    expect(ballRingViolation('3m', ball, crowd, [GZ_HOME], MOUTHS, 'home', [])).toBe(0);
+    expect(ballRingViolation('none', ball, crowd, [GZ_HOME], MOUTHS, 'home', [])).toBe(0);
     // 대조군: 골대 목록이 비면(플랫 코트) 그 면제는 없다.
-    expect(ballRingViolation('3m', ball, crowd, [GZ_HOME], [], 'home')).toBe(TEAM_BIT.home);
+    expect(ballRingViolation('3m', ball, crowd, [GZ_HOME], [], 'home', [])).toBe(TEAM_BIT.home);
   });
 });
 
@@ -811,12 +812,12 @@ describe('ruleForRing — 어느 규칙으로 재는가', () => {
     // 같은 팀 둘 + 상대 하나가 3 m 안에 몰린, 전형적인 2-on-1 배치.
     const crowd = [actor('home', at(10), BALL.y), actor('home', at(-10), BALL.y), actor('away', BALL.x, BALL.y + 10)];
     const MOUTHS = defendedMouths(goalMouths(COURT_DEFS.full), 'home');
-    expect(ballRingViolation('3m', BALL, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(TEAM_BIT.home);
-    expect(ballRingViolation('none', BALL, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(TEAM_BIT.home);
+    expect(ballRingViolation('3m', BALL, crowd, [GZ_HOME], MOUTHS, 'home', [])).toBe(TEAM_BIT.home);
+    expect(ballRingViolation('none', BALL, crowd, [GZ_HOME], MOUTHS, 'home', [])).toBe(TEAM_BIT.home);
     // 5 m 로 바꾸면 2-on-1 은 사라지고, 대신 수비(away)가 5 m 안이라 그쪽이 걸린다.
-    expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'away')).toBe(TEAM_BIT.away);
+    expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'away', [])).toBe(TEAM_BIT.away);
     // 수비를 home 으로 두면 home 이 걸린다 — 어느 쪽이든 **2-on-1 비트가 아니라 5 m 비트**다.
-    expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'home')).toBe(TEAM_BIT.home);
+    expect(ballRingViolation('5m', BALL, crowd, [GZ_HOME], MOUTHS, 'home', [])).toBe(TEAM_BIT.home);
   });
 });
 
@@ -871,5 +872,88 @@ describe('isBallOutOfPlay — Law 9 아웃오브플레이', () => {
 
   it('플랫 코트 — 경계 개념이 없어 언제나 인플레이', () => {
     expect(isBallOutOfPlay('flat', fullSurface, { x: -9999, y: 9999 }, R)).toBe(false);
+  });
+});
+
+// ── 코너킥 1 m 마크 (Law 17, 기현 지시 2026-11-13) ─────────────────────────────────────────
+// 5 m 공이 코너 삼각형에 걸치고 물러날 팀이 그 골대 주인이면 코너킥이다. 골 지역 **안** 수비는
+// 5 m 원 대신 1 m 마크 뒤를 지켜야 한다 — 원 하나로는 마크 앞 띠가 대부분 원 밖이라 안 잡혔다.
+describe('rules — 코너킥: 골 지역 안 수비는 1 m 마크 뒤', () => {
+  const centroid = (t: readonly { x: number; y: number }[]) => ({ x: t.reduce((a, p) => a + p.x, 0) / 3, y: t.reduce((a, p) => a + p.y, 0) / 3 });
+
+  it('마크 앞 띠는 골 지역 가장자리에서 마크까지 2 m 폭이다 — 모든 코트·크기', () => {
+    for (const mode of COURT_MODES) {
+      for (const size of COURT_SIZES) {
+        const def = courtDefFor(mode, size);
+        const zones = cornerKickZones(def);
+        expect(zones.length).toBe(def.cornerCuts.length);
+        for (const z of zones) {
+          const along = def.goalPosts[2 * z.goal]!.x === def.goalPosts[2 * z.goal + 1]!.x ? z.strip.h : z.strip.w;
+          // 골 지역 폭 8 m 와 골대 폭 6 m 의 차의 반(1 m) + 포스트 안쪽 1 m(Laws 2025 Law 1·17)
+          expect(along).toBeCloseTo(2 * PX_PER_M, 6);
+          expect(z.strip.x).toBeGreaterThanOrEqual(z.area.x);
+          expect(z.strip.y).toBeGreaterThanOrEqual(z.area.y);
+          expect(z.strip.x + z.strip.w).toBeLessThanOrEqual(z.area.x + z.area.w);
+          expect(z.strip.y + z.strip.h).toBeLessThanOrEqual(z.area.y + z.area.h);
+        }
+      }
+    }
+  });
+
+  /** 풀 코트 좌상 코너(왼쪽 골대 = zone 0, 홈이 지킨다). */
+  function setup(size: (typeof COURT_SIZES)[number]) {
+    const def = courtDefFor('full', size);
+    const corners = cornerKickZones(def);
+    const ci = corners.findIndex((c) => c.goal === 0 && c.tri[0].y === def.surface.y);
+    const corner = corners[ci]!;
+    return { def, corners, ci, corner, ball: centroid(corner.tri), zones: defendedZones(def.ruleZones, 'home'), mouths: defendedMouths(goalMouths(def), 'home') };
+  }
+  // 30×18 은 코너→마크 7 m 라 띠가 5 m 원 밖에 있다 — 옛 판정이 놓치던 자리.
+  const big = setup('30x18');
+  const inStrip = actor('home', big.corner.strip.x + big.corner.strip.w / 2, big.corner.strip.y + big.corner.strip.h / 2);
+  // 25×14 는 코너→마크 5 m 라 "골 지역 안·마크 뒤인데 5 m 원 안" 이 실재한다.
+  const small = setup('25x14');
+  const behindMark = actor('home', small.corner.area.x + BACK + 1, small.corner.strip.y + small.corner.strip.h + HALF_W + 1);
+
+  it('전제 — 띠 안 수비는 5 m 원 밖, 마크 뒤 수비는 골 지역 안·띠 밖·5 m 원 안', () => {
+    expect(chairOverlapsCircle(inStrip.x, inStrip.y, 0, big.ball.x, big.ball.y, RING_5M_R_PX)).toBe(false);
+    const { area, strip } = small.corner;
+    expect(chairOverlapsRect(behindMark.x, behindMark.y, 0, area.x, area.y, area.w, area.h)).toBe(true);
+    expect(chairOverlapsRect(behindMark.x, behindMark.y, 0, strip.x, strip.y, strip.w, strip.h)).toBe(false);
+    expect(chairOverlapsCircle(behindMark.x, behindMark.y, 0, small.ball.x, small.ball.y, RING_5M_R_PX)).toBe(true);
+  });
+
+  it('코너 삼각형의 5 m 공 + 물러날 팀이 그 골대 주인 → 코너킥', () => {
+    const { ball, corners, zones, ci, def } = big;
+    expect(cornerKickIndex(ball, corners, zones, 'home')).toBe(ci);
+    // 그 골대 주인이 차는 공(물러날 팀이 상대)은 코너킥이 아니다.
+    expect(cornerKickIndex(ball, corners, zones, 'away')).toBe(-1);
+    // 터치라인 가운데의 공은 코너킥이 아니다.
+    expect(cornerKickIndex({ x: def.surface.x + def.surface.w / 2, y: def.surface.y }, corners, zones, 'home')).toBe(-1);
+  });
+
+  it('마크 앞 띠에 걸치면 5 m 원 밖이라도 붉다', () => {
+    const { ball, corners, zones, mouths } = big;
+    expect(ballRingViolation('5m', ball, [inStrip], zones, mouths, 'home', corners)).toBe(TEAM_BIT.home);
+    // 대조군: 코너 기하가 없으면(옛 판정) 놓친다 — 이 띠가 고친 구멍이다.
+    expect(ballRingViolation('5m', ball, [inStrip], zones, mouths, 'home', [])).toBe(0);
+  });
+
+  it('골 지역 안·마크 뒤면 5 m 원 안이라도 면제(위치 우선권)', () => {
+    const { ball, corners, zones, mouths } = small;
+    expect(ballRingViolation('5m', ball, [behindMark], zones, mouths, 'home', corners)).toBe(0);
+    expect(ballRingViolation('5m', ball, [behindMark], zones, mouths, 'home', [])).toBe(TEAM_BIT.home);
+  });
+
+  it('골 지역 밖 수비는 코너킥에서도 5 m 원으로 잰다', () => {
+    const { ball, corners, zones, mouths } = big;
+    const outside = actor('home', ball.x + RING_R_PX, ball.y);
+    expect(ballRingViolation('5m', ball, [outside], zones, mouths, 'home', corners)).toBe(TEAM_BIT.home);
+  });
+
+  it('골대 주인이 차는 공이면 띠 규칙은 없다 — 일반 5 m 판정', () => {
+    const { ball, corners, zones, mouths } = big;
+    // 물러날 팀 away → home 수비는 대상이 아니고, 띠도 켜지지 않는다.
+    expect(ballRingViolation('5m', ball, [inStrip], zones, mouths, 'away', corners)).toBe(0);
   });
 });
