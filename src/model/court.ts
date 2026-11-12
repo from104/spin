@@ -554,6 +554,8 @@ export interface CornerKickZone {
   area: Rect;
   /** 골 지역 중 1 m 마크보다 코너 쪽 띠 — 코너킥 때 골 지역 안 수비가 걸치면 안 되는 자리. */
   strip: Rect;
+  /** 침범 금지선 — 마크에서 골라인에 수직으로 골 지역 깊이(5 m)만큼. `strip` 의 마크 쪽 변이다. */
+  mark: readonly [Vec2, Vec2];
 }
 
 /** 코너 삼각형마다 코너킥 판정 기하를 만든다. 좌표는 전부 `cornerCuts`·`goalPosts`·`ruleZones`·
@@ -590,13 +592,15 @@ export function cornerKickZones(def: CourtDef): CornerKickZone[] {
         const markY = near.y + toward * ENCROACH_INSET_PX;
         const y0 = toward > 0 ? area.y : markY;
         const y1 = toward > 0 ? markY : area.y + area.h;
-        out.push({ tri: [vertex, p, q], goal: i / 2, area, strip: { x: area.x, y: y0, w: area.w, h: y1 - y0 } });
+        const mark: [Vec2, Vec2] = [{ x: area.x, y: markY }, { x: area.x + area.w, y: markY }];
+        out.push({ tri: [vertex, p, q], goal: i / 2, area, strip: { x: area.x, y: y0, w: area.w, h: y1 - y0 }, mark });
       } else {
         const toward = Math.sign(far.x - near.x);
         const markX = near.x + toward * ENCROACH_INSET_PX;
         const x0 = toward > 0 ? area.x : markX;
         const x1 = toward > 0 ? markX : area.x + area.w;
-        out.push({ tri: [vertex, p, q], goal: i / 2, area, strip: { x: x0, y: area.y, w: x1 - x0, h: area.h } });
+        const mark: [Vec2, Vec2] = [{ x: markX, y: area.y }, { x: markX, y: area.y + area.h }];
+        out.push({ tri: [vertex, p, q], goal: i / 2, area, strip: { x: x0, y: area.y, w: x1 - x0, h: area.h }, mark });
       }
       break;
     }

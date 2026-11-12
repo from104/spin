@@ -368,16 +368,35 @@ export function fiveMeterViolation(
   corner: CornerKickZone | null = null,
 ): number {
   if (defense === null) return 0;
+  if (corner !== null && cornerMarkViolation(actors, defense, mouths, corner) !== 0) return TEAM_BIT[defense]; // ①
   for (const a of actors) {
     if (a.team !== defense) continue; // 공격(= 공을 차는 쪽)은 제한 없다
     if (a.isGk && chairBehindOwnGoalLine(mouths, a)) continue; // 예외 ④
     if (corner !== null) {
-      const { strip, area } = corner;
-      if (chairOverlapsRect(a.x, a.y, a.theta, strip.x, strip.y, strip.w, strip.h)) return TEAM_BIT[defense]; // ①
+      const { area } = corner;
       if (chairOverlapsRect(a.x, a.y, a.theta, area.x, area.y, area.w, area.h)) continue; // ②
     }
     if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_5M_R_PX)) continue;
     return TEAM_BIT[defense];
+  }
+  return 0;
+}
+
+/** 코너킥 ① 만 — 물러날 팀이 **마크 앞 띠**에 걸쳤는가(골라인 뒤 골키퍼 제외). 반환은 팀 비트.
+ *  `fiveMeterViolation` 이 이걸 지나고, 화면·PNG 가 띠를 붉힐지도 이걸로 정한다(5 m 원 위반과
+ *  띠 위반은 그림이 다르다 — 원은 원대로, 띠는 띠대로 붉어진다). */
+export function cornerMarkViolation(
+  actors: readonly RuleActor[],
+  defense: TeamSide | null,
+  mouths: readonly DefendedMouth[],
+  corner: CornerKickZone,
+): number {
+  if (defense === null) return 0;
+  const { strip } = corner;
+  for (const a of actors) {
+    if (a.team !== defense) continue;
+    if (a.isGk && chairBehindOwnGoalLine(mouths, a)) continue; // 예외 ④
+    if (chairOverlapsRect(a.x, a.y, a.theta, strip.x, strip.y, strip.w, strip.h)) return TEAM_BIT[defense];
   }
   return 0;
 }

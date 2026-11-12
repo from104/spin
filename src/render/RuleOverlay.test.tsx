@@ -61,7 +61,7 @@ describe('RuleOverlay — 공마다 따로 켜는 원', () => {
     const { container } = setup({ balls: ['bl_1', 'bl_2'], rings: {} });
     expect(container.querySelectorAll('circle')).toHaveLength(0);
     // 대조군: 존은 그대로 있다(원이 없는 것이지 오버레이가 없는 것이 아니다).
-    expect(container.querySelectorAll('rect').length).toBe(COURT_DEFS.full.ruleZones.length * 2);
+    expect(container.querySelectorAll('rect:not([data-corner-strip])').length).toBe(COURT_DEFS.full.ruleZones.length * 2);
   });
 
   it('**공 두 개가 서로 다른 원을 갖는다** — 하나는 3 m, 하나는 5 m', () => {
@@ -94,9 +94,9 @@ describe('RuleOverlay — 공마다 따로 켜는 원', () => {
 
 describe('RuleOverlay — 그림(이어서)', () => {
   it('골 지역 표시는 코트의 존 개수만큼 — flat 은 0개', () => {
-    expect(setup({ mode: 'full' }).container.querySelectorAll('rect')).toHaveLength(COURT_DEFS.full.ruleZones.length * 2);
-    expect(setup({ mode: 'half' }).container.querySelectorAll('rect')).toHaveLength(COURT_DEFS.half.ruleZones.length * 2);
-    expect(setup({ mode: 'flat' }).container.querySelectorAll('rect')).toHaveLength(0);
+    expect(setup({ mode: 'full' }).container.querySelectorAll('rect:not([data-corner-strip])')).toHaveLength(COURT_DEFS.full.ruleZones.length * 2);
+    expect(setup({ mode: 'half' }).container.querySelectorAll('rect:not([data-corner-strip])')).toHaveLength(COURT_DEFS.half.ruleZones.length * 2);
+    expect(setup({ mode: 'flat' }).container.querySelectorAll('rect:not([data-corner-strip])')).toHaveLength(0);
   });
 
   it('접근성 트리에서 빠지고 포인터를 가로채지 않는다', () => {

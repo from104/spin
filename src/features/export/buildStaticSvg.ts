@@ -48,7 +48,7 @@ import type { RenderFrame } from '../../model/playback.ts';
 import { DEFAULT_TIERS, type SceneRef } from '../../model/zOrder.ts';
 import type { TeamSide } from '../../model/drill.ts';
 import type { Shape } from '../../model/shape.ts';
-import { ballRingViolation, defaultDefense, defendedMouths, defendedZones, fiveMeterRetreat, isBallOutOfPlay, otherSide, ringRadiusPx, zoneViolation, type RuleActor } from '../../model/rules.ts';
+import { ballRingViolation, cornerKickIndex, cornerMarkViolation, defaultDefense, defendedMouths, defendedZones, fiveMeterRetreat, isBallOutOfPlay, otherSide, ringRadiusPx, ruleForRing, zoneViolation, type RuleActor } from '../../model/rules.ts';
 import { COURT_LINE_WEIGHTS } from '../../render/CourtSurface.tsx';
 import { GRID_INK } from '../../render/gridInk.ts';
 import {
@@ -470,6 +470,32 @@ export function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
       `<rect ${box} fill="none" stroke="${RULE_CASING}" stroke-width="${ZONE_CASING_W}" opacity="${RULE_CASING_OPACITY}"/>` +
       `<rect ${box} fill="${RULE_ZONE_ALERT_FILL}" fill-opacity="${RULE_ZONE_ALERT_FILL_OPACITY}" stroke-width="${ZONE_MARK_W}"/>` +
       `</g>`;
+  }
+
+  // 코너킥 침범 금지선(2026-11-13) — 화면(RuleOverlay `RuleCornerMark`)과 같은 조건·모양.
+  // 코너마다 한 번만 긋는다(같은 코너의 5 m 공이 둘이어도 선은 하나). 물러날 팀은 그 골대
+  // 주인으로 고정이라(cornerKickIndex 조건) 침범 여부는 공과 무관하다.
+  if (opts.showRuleZones) {
+    let drawn = 0;
+    for (const b of frame.balls) {
+      if (b.opacity <= 0 || ruleForRing(b.ring ?? 'none') !== 'fiveMeter') continue;
+      const retreat = fiveMeterRetreat(b.owner, fiveDefense);
+      const ci = cornerKickIndex(b, corners, zones, retreat);
+      if (ci < 0 || (drawn >> ci) & 1) continue;
+      drawn |= 1 << ci;
+      const c = corners[ci]!;
+      const hit = cornerMarkViolation(actors, retreat, mouths, c) !== 0;
+      const [m0, m1] = c.mark;
+      const seg = `x1="${num(m0.x)}" y1="${num(m0.y)}" x2="${num(m1.x)}" y2="${num(m1.y)}"`;
+      out +=
+        '<g>' +
+        (hit
+          ? `<rect x="${num(c.strip.x)}" y="${num(c.strip.y)}" width="${num(c.strip.w)}" height="${num(c.strip.h)}" fill="${RULE_ZONE_ALERT_FILL}" fill-opacity="${RULE_ZONE_ALERT_FILL_OPACITY}"/>`
+          : '') +
+        `<line ${seg} stroke="${RULE_CASING}" stroke-width="${ZONE_CASING_W}" opacity="${RULE_CASING_OPACITY}"/>` +
+        `<line ${seg} stroke="${hit ? RULE_ALERT_STROKE : RULE_OK_STROKE}" stroke-width="${ZONE_MARK_W}"${hit ? '' : ` stroke-dasharray="${RULE_DASH}"`}/>` +
+        '</g>';
+    }
   }
 
   for (const b of frame.balls) {

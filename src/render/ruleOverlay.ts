@@ -13,6 +13,7 @@
 import {
   ballRingViolation,
   cornerKickIndex,
+  cornerMarkViolation,
   fiveMeterRetreat,
   GOAL_AREA_MAX,
   isBallOutOfPlay,
@@ -167,6 +168,9 @@ export interface RuleOverlayApi {
   registerRing(ballId: string, el: SVGGElement | null, ring?: BallRing, owner?: TeamSide): void;
   /** 골 지역 위반 표시 그룹(존 index 별). 깨끗하면 opacity 0 으로 숨는다. */
   registerZone(index: number, el: SVGGElement | null): void;
+  /** 코너킥 침범 금지선 그룹(`cornerKicks` index 별). 그 코너가 코너킥일 때만 보이고(흰 파선),
+   *  마크 앞 띠를 침범하면 선은 붉은 실선, 띠는 붉은 면(`fill-opacity`)이 된다. 기본은 숨김. */
+  registerCorner(index: number, el: SVGGElement | null): void;
   /** 한 프레임. 키는 개체 id, 값은 그 프레임의 실제 좌표다.
    *
    *  ⚠️ `theta` 가 **옵셔널인 이유는 공·콘 때문**이다(방향이 없다 — `RenderBall` 에 필드 자체가
@@ -225,6 +229,8 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
   const zones = new Map<number, SVGGElement>();
   const ringState = new Map<string, number>();
   const zoneState = new Map<number, number>();
+  const cornerEls = new Map<number, SVGGElement>();
+  const cornerState = new Map<number, number>();
   /** 아웃오브플레이 표시 대상 공(circle 자체 — 오버레이 그룹이 아니다). */
   const ballFillEls = new Map<string, SVGCircleElement>();
   const ballOutState = new Map<string, boolean>();
@@ -291,6 +297,14 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     applyState(el, state);
   }
 
+  /** 코너 표시는 존과 같은 세 속성에 **띠의 채움**(`fill-opacity`, 띠 rect 가 상속)이 더해진다. */
+  function writeCorner(index: number, el: SVGGElement, state: number): void {
+    if (cornerState.get(index) === state) return;
+    cornerState.set(index, state);
+    applyState(el, state);
+    el.setAttribute('fill-opacity', state & VIOLATED ? String(RULE_ZONE_ALERT_FILL_OPACITY) : '0');
+  }
+
   function writeBallFill(id: string, el: SVGCircleElement, out: boolean): void {
     if (ballOutState.get(id) === out) return; // 안 바뀌면 DOM 을 건드리지 않는다(다른 writer 와 같은 규율)
     ballOutState.set(id, out);
@@ -353,6 +367,9 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
     let ringBits = 0;
     let fiveBits = 0;
     let cornerBits = 0;
+    // 코너 index 별 비트마스크(코너는 최대 4개) — 배열을 만들지 않는다(매 프레임 판정).
+    let cornerOn = 0;
+    let cornerHit = 0;
     for (const [id, el] of rings) {
       const p = poses[id];
       const ring = ringKind.get(id) ?? 'none';
@@ -362,10 +379,19 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       const bits = p ? ballRingViolation(ring, p, live, ctx.goalAreas, ctx.goalMouths, retreat, ctx.cornerKicks) : 0;
       // 이 프레임에 좌표가 없는 공은 판에 없는 공이다(시연의 퇴장 페이드·다른 스텝) — 숨긴다.
       writeRing(id, el, (p ? VISIBLE : 0) | (bits ? VIOLATED : 0));
+      const five = ruleForRing(ring) === 'fiveMeter';
+      const ci = five && p ? cornerKickIndex(p, ctx.cornerKicks, ctx.goalAreas, retreat) : -1;
+      if (ci >= 0) {
+        cornerOn |= 1 << ci;
+        if (cornerMarkViolation(live, retreat, ctx.goalMouths, ctx.cornerKicks[ci]!) !== 0) cornerHit |= 1 << ci;
+      }
       // 링 그림은 어느 규칙이든 같지만 **발화 문구는 다르다** — 그래서 여기서 갈라 담는다.
-      if (ruleForRing(ring) !== 'fiveMeter') ringBits |= bits;
-      else if (bits && p && cornerKickIndex(p, ctx.cornerKicks, ctx.goalAreas, retreat) >= 0) cornerBits |= bits;
+      if (!five) ringBits |= bits;
+      else if (ci >= 0) cornerBits |= bits;
       else fiveBits |= bits;
+    }
+    for (const [index, el] of cornerEls) {
+      writeCorner(index, el, ((cornerOn >> index) & 1 ? VISIBLE : 0) | ((cornerHit >> index) & 1 ? VIOLATED : 0));
     }
     let zoneBits = 0;
     for (const [index, el] of zones) {
@@ -404,6 +430,7 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
         // '스위치를 끄면 얼어붙은 위반 표시가 풀린다' 가 빨개진다.
         for (const [id, el] of rings) writeRing(id, el, VISIBLE);
         for (const [index, el] of zones) writeZone(index, el, 0);
+        for (const [index, el] of cornerEls) writeCorner(index, el, 0);
         for (const [id, el] of ballFillEls) writeBallFill(id, el, false);
         return;
       }
@@ -444,6 +471,18 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       zoneState.set(index, s);
       applyState(el, s);
     },
+    registerCorner(index, el) {
+      if (!el) {
+        cornerEls.delete(index);
+        cornerState.delete(index);
+        return;
+      }
+      cornerEls.set(index, el);
+      // 존과 같이 기본은 **숨김** — 코너킥으로 판정된 프레임에서만 나타난다.
+      const s = cornerState.get(index) ?? 0;
+      cornerState.delete(index); // writeCorner 의 같은-상태 생략을 우회해 새 노드에 곧바로 적용
+      writeCorner(index, el, s);
+    },
     registerBall(ballId, el) {
       if (!el) {
         ballFillEls.delete(ballId);
@@ -472,6 +511,8 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       zones.clear();
       ringState.clear();
       zoneState.clear();
+      cornerEls.clear();
+      cornerState.clear();
       ballFillEls.clear();
       ballOutState.clear();
       pool.length = 0;

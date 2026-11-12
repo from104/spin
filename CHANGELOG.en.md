@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- Dashed goal-area encroachment line (1m mark) during corner kicks — the line and the area in front of it turn red when a defender crosses it
+
 ### Fixed
 
 - Corner kicks now warn when a defender inside the goal area is in front of the 1m mark, and allow defenders behind it even within 5m

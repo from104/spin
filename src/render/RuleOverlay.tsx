@@ -18,7 +18,7 @@
 // 규율은 하나도 바뀌지 않았다. 바뀐 것은 **몇 개를 그리는가** 뿐이다. 그리고 **판정은 표시와
 // 무관하다**: 원이 '없음' 인 공도 링 그룹은 등록되어 2-on-1 판정과 발화를 그대로 탄다.
 import { useEffect, useMemo, useRef } from 'react';
-import { attackDir, cornerKickZones, courtDefFor, goalMouths, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
+import { attackDir, cornerKickZones, courtDefFor, goalMouths, type CornerKickZone, type CourtMode, type CourtSize, type Rect } from '../model/court.ts';
 import type { BallRing, TeamSide } from '../model/drill.ts';
 import { defaultDefense, defendedMouths, defendedZones, otherSide, ringRadiusPx } from '../model/rules.ts';
 import type { TransformWriter } from './transformWriter.ts';
@@ -141,6 +141,34 @@ function RuleZoneMark({ index, zone, rules }: ZoneMarkProps) {
   );
 }
 
+interface CornerMarkProps {
+  index: number;
+  corner: CornerKickZone;
+  rules: RuleOverlayApi;
+}
+
+/** 코너킥 침범 금지선(기현 지시 2026-11-13). 그 코너가 코너킥일 때만 나타나 **흰 파선**으로
+ *  마크 선을 긋고, 골 지역 안 수비가 마크 앞 띠를 침범하면 선은 **붉은 실선**, 띠는 **붉은 면**이
+ *  된다. 존 표시와 같은 세 채널(케이싱·파선→실선·색)이다. 띠 rect 의 채움 농도는 그룹의
+ *  `fill-opacity` 를 상속한다 — writer 가 그룹 하나만 건드린다(ruleOverlay.ts `writeCorner`). */
+function RuleCornerMark({ index, corner, rules }: CornerMarkProps) {
+  const ref = useRef<SVGGElement | null>(null);
+
+  useEffect(() => {
+    rules.registerCorner(index, ref.current);
+    return () => rules.registerCorner(index, null);
+  }, [rules, index]);
+
+  const { strip: s, mark: [a, b] } = corner;
+  return (
+    <g ref={ref} opacity={0} stroke={RULE_OK_STROKE} strokeDasharray={RULE_DASH} fillOpacity={0}>
+      <rect data-corner-strip="" x={s.x} y={s.y} width={s.w} height={s.h} fill={RULE_ZONE_ALERT_FILL} stroke="none" />
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={CASING} strokeDasharray="none" strokeWidth={ZONE_CASING_W} opacity={CASING_OPACITY} />
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth={ZONE_MARK_W} />
+    </g>
+  );
+}
+
 export interface RuleOverlayProps {
   mode: CourtMode;
   /** §6.4 코트 크기 3단 — 골 지역 사각형의 자리가 크기마다 다르다. 빼먹으면 판정(2인 규칙)이
@@ -227,6 +255,7 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
         goalAreas.map((z, i) => (
           <RuleZoneMark key={`${z.rect.x},${z.rect.y}`} index={i} zone={z.rect} rules={rules} />
         ))}
+      {visible && cornerKicks.map((c, i) => <RuleCornerMark key={`${c.tri[0].x},${c.tri[0].y}`} index={i} corner={c} rules={rules} />)}
       {shown.map((id) => {
         const owner = ballOwners?.[id];
         return (

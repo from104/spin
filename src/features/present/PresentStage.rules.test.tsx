@@ -11,7 +11,7 @@ import { PlaybackProvider } from '../../store/playback/PlaybackProvider.tsx';
 import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
 import { LiveRegion, liveRegion } from '../../ui/LiveRegion.tsx';
 import { RING_5M_R_PX, RING_R_PX } from '../../model/rules.ts';
-import { COURT_DEFS } from '../../model/court.ts';
+import { COURT_DEFS, cornerKickZones } from '../../model/court.ts';
 import { RULE_ALERT_STROKE, RULE_OK_STROKE } from '../../render/ruleOverlay.ts';
 import { CURRENT_DRILL_SCHEMA, type BallRing, type Drill, type TeamSide } from '../../model/drill.ts';
 import type { BallId, ChairId, DrillId, StepId } from '../../core/ids.ts';
@@ -209,5 +209,38 @@ describe('PresentStage — 골 지역 3인도 같은 배선을 탄다', () => {
     // 원정 셋은 공격이라 제한이 없다.
     mount(makeDrill(crew, '3m', 'home'));
     expect(announced()).toBe('');
+  });
+});
+
+// 코너킥 침범 금지선(2026-11-13) — 5 m 공이 코너 삼각형에 있고 화살표가 그 골대 쪽이면 마크 선이
+// 흰 파선으로 나타나고, 골 지역 안 수비가 마크 앞 띠를 침범하면 선은 붉은 실선·띠는 붉은 면이 된다.
+describe('PresentStage — 코너킥 침범 금지선', () => {
+  const corner = cornerKickZones(COURT_DEFS.full).find((c) => c.goal === 0 && c.tri[0].y === COURT_DEFS.full.surface.y)!;
+  const ball = { x: (corner.tri[0].x + corner.tri[1].x + corner.tri[2].x) / 3, y: (corner.tri[0].y + corner.tri[1].y + corner.tri[2].y) / 3 };
+  function cornerDrill(chairY: number): Drill {
+    const d = makeDrill([{ id: 'ch_d', team: 'home', x: corner.strip.x + corner.strip.w / 2, y: chairY }], '5m');
+    // 원정이 찬다 → 물러날 팀 = 홈 = 왼쪽 골대(zone 0) 주인 → 코너킥
+    d.steps[0] = { ...d.steps[0]!, balls: { bl_1: ball }, ballOwner: { ['bl_1' as BallId]: 'away' } };
+    return d;
+  }
+  const mark = (c: HTMLElement) => c.querySelector('rect[data-corner-strip]')?.parentElement ?? null;
+
+  it('띠 침범 → 선이 붉은 실선, 띠가 붉은 면', () => {
+    const { container } = mount(cornerDrill(corner.strip.y + corner.strip.h / 2));
+    const g = mark(container)!;
+    expect(g.getAttribute('opacity')).toBe('1');
+    expect(g.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+    expect(g.getAttribute('stroke-dasharray')).toBe('none');
+    expect(Number(g.getAttribute('fill-opacity'))).toBeGreaterThan(0);
+    expect(announced()).toContain('코너킥');
+  });
+
+  it('마크 뒤(골 지역 안) → 흰 파선만, 띠는 비어 있다', () => {
+    const { container } = mount(cornerDrill(corner.area.y + corner.area.h / 2));
+    const g = mark(container)!;
+    expect(g.getAttribute('opacity')).toBe('1');
+    expect(g.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+    expect(g.getAttribute('stroke-dasharray')).not.toBe('none');
+    expect(g.getAttribute('fill-opacity')).toBe('0');
   });
 });
