@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog], and this project follows [Semantic Versioning].
 
+## [Unreleased]
+
+### Fixed
+
+- Security flaw in the Android app that could let outside web content run with the app's permissions
+
 ## [0.6.12] 2026-09-21
 
 ### Added

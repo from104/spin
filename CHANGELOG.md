@@ -4,6 +4,12 @@
 
 형식은 [Keep a Changelog (korean)]를 기반으로 하며 이 프로젝트는 [Semantic Versioning (korean)]을 따릅니다.
 
+## [Unreleased]
+
+### 고쳐짐
+
+- 안드로이드 앱에서 외부 웹 콘텐츠가 앱 권한으로 실행될 수 있던 보안 취약점 수정
+
 ## [0.6.12] 2026-09-21
 
 ### 추가됨
