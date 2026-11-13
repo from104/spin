@@ -376,7 +376,7 @@ export const HELP_EN: HelpContent = {
               'With [Physics & interaction] on, wheelchairs push and bump balls, cones and other wheelchairs.',
             ],
           },
-          { kind: 'p', text: 'For the last few pixels, use the keyboard. On a tablet with no keyboard, long-press the object and choose [Fine-tune] — a translucent pad appears in place with six cells: four to nudge up, down, left and right, and two to rotate left and right.' },
+          { kind: 'p', text: 'For the last few pixels, use the keyboard. On a tablet with no keyboard, double-tap the object (except notes), or long-press it and choose [Fine-tune] — a translucent pad appears in place with six cells: four to nudge up, down, left and right, and two to rotate left and right.' },
           { kind: 'tip', tone: 'tip', text: 'Turn on [Speed] in the function bar and objects only move at real powerchair speed (10 km/h); turn it off and they follow the pointer instantly.' },
         ],
       },

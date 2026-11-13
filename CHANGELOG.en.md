@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- Double-click or double-tap any object except notes to open the [Fine-tune] pad
+
 ## [0.6.13] 2026-11-13
 
 ### Added

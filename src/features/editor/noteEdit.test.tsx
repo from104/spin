@@ -114,6 +114,17 @@ describe('문 ① 더블클릭', () => {
     expect(onEditNote).not.toHaveBeenCalled();
   });
 
+  // 기현 지시 2026-11-14 — 메모 밖 개체의 두 번 누름은 [미세 조정] 패드다(EditorStage 의 그 주석).
+  it('메모가 아닌 개체를 두 번 누르면 [미세 조정] 패드가 뜬다 — 글 칸은 안 열린다', () => {
+    const drill = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    const chairId = Object.keys(drill.steps[0]!.chairs)[0]!;
+    const { container, onEditNote } = mountStage(drill);
+    expect(screen.queryByRole('group', { name: '미세 조정 패드' })).toBeNull();
+    doubleTap(container.querySelector(`#obj-${chairId}`)!);
+    expect(screen.getByRole('group', { name: '미세 조정 패드' })).toBeTruthy();
+    expect(onEditNote).not.toHaveBeenCalled();
+  });
+
   it('배치 도구에서는 안 연다 — 거기서 빠른 두 번은 개체 둘이다', () => {
     const id = newId('nt');
     const { container, onEditNote } = mountStage(makeDrill(id, '앞선 압박'), 'cone');

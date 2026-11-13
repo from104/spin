@@ -14,7 +14,7 @@ import { RAD } from '../../core/angle.ts';
 import type { Vec2 } from '../../core/units.ts';
 import { isId } from '../../core/ids.ts';
 import { moveAnchorGuide, moveAnchorIds } from './moveAnchorIds.ts';
-import { canRotateKind } from './nudgeCaps.ts';
+import { canNudge, canRotateKind } from './nudgeCaps.ts';
 import { COALESCE_MS } from '../../store/editor/history.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
 import type { CastId, ChairId, NoteId } from '../../core/ids.ts';
@@ -743,6 +743,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     [chairs, balls, cones, step.notes, step.arrows, step.shapes, step.strokes, lockedSet],
   );
 
+  /** 짚은 개체로 **무엇을 손댈지**(§6.10b) — 개체 메뉴와 더블클릭 [미세 조정] 이 같이 쓴다.
+   *  둘이 따로 세면 "메뉴로는 셋이 움직이는데 더블클릭으로는 하나만" 이 생긴다. */
+  const targetIds = useCallback(
+    (id: string): string[] => (selection.size > 1 && selection.has(id) ? Array.from(selection) : [id]),
+    [selection],
+  );
+
   const openMenu = useCallback(
     (id: string, x: number, y: number) => {
       // ⚠️ 무시된 칩도 **연다**(기현 신고 2026-08-14). 여기서 막았더니 무시를 푸는 유일한
@@ -751,7 +758,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // **짚은 것이 이미 고른 여럿 중 하나면 메뉴는 그 여럿을 손댄다**(§6.10b). 고른 것 밖을
       // 짚었으면 짚은 것 하나다 — 화면에 파랗게 표시된 것과 메뉴가 손댈 것이 언제나 같다는
       // 뜻이라, 무엇에 걸리는지 되묻지 않아도 된다.
-      const ids = selection.size > 1 && selection.has(id) ? Array.from(selection) : [id];
+      const ids = targetIds(id);
       setMenu({
         ids,
         x,
@@ -766,7 +773,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         selectSame: ids.length === 1 ? sameKindGroup(id, sameScene, locale) : null,
       });
     },
-    [lockedSet, ignoredSet, selection, sameScene, locale],
+    [lockedSet, ignoredSet, targetIds, sameScene, locale],
   );
   const longPress = useLongPressMenu(openMenu);
 
@@ -887,15 +894,22 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         if (id) longPress.onPointerDown(id, e);
         else longPress.cancel();
       }}
-      // 더블클릭/더블탭 = **메모 글 열기**(기현 지시 2026-08-17). 지금 뜻이 붙은 개체는 메모뿐이라
-      // 다른 id 는 그냥 흘려보낸다 — 뜻이 없는 곳에서 아무 일도 안 일어나는 것이 정직하다.
+      // 더블클릭/더블탭 — 메모는 **글 열기**(기현 지시 2026-08-17), 그 밖의 개체는 **[미세 조정]
+      // 패드**(기현 지시 2026-11-14 *"메모를 제외한 오브젝트를 더블 클릭 시 미세 조정 기능 켜기"*).
+      // 패드는 개체 메뉴의 [미세 조정] 과 같은 것이고 같은 대상·같은 조건으로 연다 — 메뉴에 칸이
+      // 안 뜨는 경우(잠김, 패드가 못 먹는 종류)엔 여기서도 안 열고 흘려보낸다(→ 판 이동 무장).
       // 선택 도구에서만 연다: 배치 도구에서는 같은 자리 빠른 두 번이 곧 개체 둘이고(CourtStage
-      // 의 allowPan 주석과 같은 사정), 그 두 번째 개체 위로 모달이 뜨면 판이 거짓말을 한다.
-      onStageDoubleClick={(id) => {
-        // 배치 도구에서 빠른 두 번은 **개체 둘**이다 — 거기서 글 칸을 열면 두 번째 개체가
-        // 모달 뒤에 숨는다. `true` 를 돌려줄 때만 그 손짓이 무대에서 끝난다.
-        if (tool !== 'select' || !isId(id, 'nt')) return false;
-        onEditNote(id, false);
+      // 의 allowPan 주석과 같은 사정), 그 두 번째 개체 위로 무엇이 뜨면 판이 거짓말을 한다.
+      onStageDoubleClick={(id, e) => {
+        // `true` 를 돌려줄 때만 그 손짓이 무대에서 끝난다(선택·드래그·판 이동 무장 없음).
+        if (tool !== 'select') return false;
+        if (isId(id, 'nt')) {
+          onEditNote(id, false);
+          return true;
+        }
+        const ids = targetIds(id);
+        if (ids.every((i) => lockedSet.has(i)) || !canNudge(ids)) return false;
+        setNudgePad({ ids, x: e.clientX, y: e.clientY });
         return true;
       }}
       selection={selection}
