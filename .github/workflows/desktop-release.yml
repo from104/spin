@@ -39,6 +39,10 @@ jobs:
   gate:
     # 3 OS 빌드는 비싸다. 타입·테스트가 깨진 코드로 30분을 태우지 않도록 먼저 막는다.
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 아래 「초안 릴리스 준비」가 릴리스를 만든다
+    outputs:
+      release_id: ${{ steps.rel.outputs.id }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -62,6 +66,43 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      # 초안 릴리스는 **여기서 하나만** 만든다(2026-11-14).
+      #
+      # 전에는 build 매트릭스의 tauri-action 셋이 저마다 "없으면 만든다" 를 했다. 초안은
+      # `GET /releases/tags/{tag}` 로 안 잡히므로(아래 AppImage 단계 주석) 셋이 **같은 순간에**
+      # 목록을 보면 셋 다 "없다" 고 보고 각자 만든다 — v0.6.13 재태그 회차(run 43494926568)에서
+      # 같은 초(19:43:42)에 초안이 둘 생겼고, 리눅스 자산과 맥·윈도우 자산이 둘로 갈렸다. 그
+      # 뒤 AppImage 이름 단계가 첫 초안(맥·윈도우 쪽)을 집어 "AppImage 자산이 없다" 로 죽었고
+      # 안드로이드는 `needs: build` 라 건너뛰어졌다. 그 전 회차들이 멀쩡했던 것은 운이었다.
+      #
+      # 빌드보다 앞선 이 잡에서 만들고 id 를 넘기면(tauri-action 의 `releaseId`) 경쟁 자체가 없다.
+      # 같은 태그 릴리스가 이미 둘 이상이면 어느 쪽에 올릴지 정할 수 없으므로 멈춘다.
+      - name: 초안 릴리스 준비
+        id: rel
+        if: ${{ startsWith(github.ref, 'refs/tags/') && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ids=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.tag_name==\"$TAG\") | .id")
+          n=$(printf '%s\n' "$ids" | grep -c . || true)
+          if [ "$n" -gt 1 ]; then
+            echo "같은 태그($TAG) 릴리스가 ${n}개다 — 하나만 남기고 다시 돌린다: $ids"
+            exit 1
+          fi
+          if [ "$n" -eq 0 ]; then
+            ids=$(gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
+              -f tag_name="$TAG" -f name="SPIN ${TAG#v}" -F draft=true -F prerelease=false \
+              -f body='설치 패키지는 아래 자산에 있습니다. 서명이 없어 맥·윈도우는 첫 실행 시 경고가 뜹니다.' \
+              --jq .id)
+            echo "초안을 만들었다: $ids"
+          else
+            echo "이미 있는 릴리스를 쓴다: $ids"
+          fi
+          echo "id=$ids" >> "$GITHUB_OUTPUT"
 
   build:
     needs: gate
@@ -154,6 +195,9 @@ jobs:
           # push 이벤트에는 inputs 컨텍스트가 없다 — `!inputs.dry_run` 이 참이 되리라는 전제에
           # 기대지 않고 event_name 으로 가른다(이 워크플로는 아직 한 번도 돈 적이 없다).
           tagName: ${{ (startsWith(github.ref, 'refs/tags/') && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)) && github.ref_name || '' }}
+          # gate 의 「초안 릴리스 준비」가 만든 **그 하나**에 올린다 — 이게 없으면 매트릭스 셋이
+          # 초안을 저마다 만드는 경쟁이 돌아온다(그 단계 주석). 태그 푸시가 아니면 빈 값이다.
+          releaseId: ${{ needs.gate.outputs.release_id }}
           releaseName: 'SPIN __VERSION__'
           releaseBody: '설치 패키지는 아래 자산에 있습니다. 서명이 없어 맥·윈도우는 첫 실행 시 경고가 뜹니다.'
           releaseDraft: true
@@ -240,6 +284,8 @@ jobs:
   android:
     # 왜 `needs: build` 인가: 릴리스 초안을 만드는 것은 build 잡의 tauri-action 하나뿐이다.
     # 그래서 여기서 `gh release upload` 로 APK 를 붙이려면 그 잡이 끝난 뒤여야 한다.
+    # (2026-11-14 — 초안은 이제 gate 가 만든다. 그래도 `needs: build` 는 남긴다: 데스크톱이
+    #  깨진 회차에 APK 만 올라간 반쪽 릴리스가 생기지 않게 하는 문 노릇도 같이 하기 때문이다.)
     # 병렬로 돌리면 가벼운 안드로이드 쪽이 먼저 도착해 «release not found» 로 죽는다 —
     # qcalc 0.13.1 에서 실제로 그랬고, 거기서는 30분짜리 대기 루프로 때웠다. `needs` 한 줄이면
     # 그 루프가 통째로 필요 없다. 대가는 APK 가 데스크톱 3종을 기다리는 것뿐이다(PLAN-ANDROID 결정 18).
