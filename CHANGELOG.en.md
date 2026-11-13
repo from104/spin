@@ -6,16 +6,13 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [Unreleased]
 
-### Added
-
-- Double-click or double-tap any object except notes to open the [Fine-tune] pad
-
 ## [0.6.13] 2026-11-13
 
 ### Added
 
 - Dashed goal-area encroachment line (1m mark) during corner kicks — the line and the area in front of it turn red when a defender crosses it
 - Three object-movement switches in [Board settings] — physics & interaction, drag to rotate wheelchairs, show front/back anchors (all off by default)
+- Double-click or double-tap any object except notes to open the [Fine-tune] pad
 
 ### Changed
 
