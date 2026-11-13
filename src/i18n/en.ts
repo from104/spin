@@ -781,7 +781,7 @@ export const en: Record<DictKey, string> = {
     'Press the same tool again to lock it, so it keeps placing continuously. A pin badge lights up on the tool, and doing anything other than placing releases it right away.',
   'editor.helpModal.basics.fine.key': 'Fine-tune',
   'editor.helpModal.basics.fine.desc':
-    'Nudge the last few pixels with the arrow keys or WASD, and turn with Q/E — hold Shift for a bigger step. On a tablet with no keyboard, long-press an object and choose Fine-tune: a see-through pad appears in place and does the same thing, repeating while held. Any key, or a tap outside, closes it.',
+    'Nudge the last few pixels with the arrow keys or WASD, and turn with Q/E — hold Shift for a bigger step. On a tablet with no keyboard, double-tap an object (except notes), or long-press it and choose Fine-tune: a see-through pad appears in place and does the same thing, repeating while held. Any key, or a tap outside, closes it.',
   'editor.helpModal.basics.move.key': 'Move',
   'editor.helpModal.basics.move.desc':
     'By default a wheelchair moves as a whole wherever you grab it. Turn on [Drag to rotate wheelchairs] in [Board settings] to spin it in place by the front third, and [Show front/back anchors] to tow it by the anchors outside the body, turning first.',

@@ -803,7 +803,7 @@ export const ko = {
   'editor.helpModal.basics.placeMany.desc': '같은 도구를 한 번 더 누르면 고정되어 연속으로 놓입니다. 도구 칸에 핀 표시가 켜지고, 놓기가 아닌 다른 동작을 하면 바로 풀립니다.',
   'editor.helpModal.basics.fine.key': '미세 조정',
   'editor.helpModal.basics.fine.desc':
-    '마지막 몇 px 은 방향키·WASD 로, 방향은 Q·E 로 맞춥니다 — Shift 를 더하면 큰 걸음입니다. 키보드가 없는 태블릿에서는 개체를 길게 눌러 [미세 조정] 을 고르면 반투명 패드가 그 자리에 떠서 같은 일을 하고, 누르고 있으면 이어집니다. 아무 키나 누르거나 바깥을 누르면 닫힙니다.',
+    '마지막 몇 px 은 방향키·WASD 로, 방향은 Q·E 로 맞춥니다 — Shift 를 더하면 큰 걸음입니다. 키보드가 없는 태블릿에서는 개체를 빠르게 두 번 누르거나(메모 제외) 길게 눌러 [미세 조정] 을 고르면 반투명 패드가 그 자리에 떠서 같은 일을 하고, 누르고 있으면 이어집니다. 아무 키나 누르거나 바깥을 누르면 닫힙니다.',
   'editor.helpModal.basics.move.key': '옮기기',
   'editor.helpModal.basics.move.desc': '휠체어는 기본으로 어디를 잡아도 그대로 옮겨집니다. [보드 설정] 에서 [휠체어 끌어 회전하기] 를 켜면 앞 1/3 이 제자리 회전, [앞뒤 앵커 보이기] 를 켜면 차체 밖 앞뒤 앵커로 회전을 먼저 하는 견인을 합니다.',
   'editor.helpModal.basics.select.key': '선택·해제',
