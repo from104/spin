@@ -33,6 +33,23 @@ export interface PhysicsParams {
    *  실제 파워체어 속도(10 km/h)를 지키는 것과 판을 빨리 짜는 것은 다른 목적이라
    *  화면에서 바로 오갈 수 있어야 한다. */
   speedLimit: boolean;
+  /** [보드 설정] > 개체 이동의 세 스위치(2026-11-13 기현님 지시). **셋 다 기본 끔**이다.
+   *
+   *  `interact` — 개체 사이 물리·상호작용. 끄면 잡은 개체가 이웃을 밀지도 막히지도 않고
+   *    겹쳐 지나간다(PhysicsWorldApi.setInteract). 판을 짜는 손이 주인이고, 밀기·튕기기는
+   *    장면을 보여 줄 때 켜는 연출이다.
+   *  `dragRotate` — 휠체어 **차체**를 끌어 돌리기(마우스·터치). 끄면 차체 어디를 잡아도 통째로
+   *    평행 이동한다(physics/twoZone.ts applyTwoZone). 켜면 앞 절반이 제자리 회전이다.
+   *  `anchors` — 고른 휠체어 앞뒤의 **견인 앵커**(ZoneHandles)를 보이고 잡게 한다. 그림과 히트가
+   *    같은 스위치를 본다 — 안 보이는 앵커가 잡히면 판이 거짓말을 한다.
+   *
+   *  ⚠️ 옛 접근성 설정 '2존 모드'(a11y.twoZone)가 이 둘(`dragRotate` 끔 + `anchors` 켬)을 한
+   *     스위치로 묶고 있었다. 같은 동작을 두 자리에서 따로 켜고 끄면 서로를 덮으므로 그 설정은
+   *     폐기했다 — 켜 두었던 기기는 validatePrefs 가 `anchors` 켬으로 옮겨 준다(회전 끔은 이제
+   *     기본값이라 따로 옮길 것이 없다). */
+  interact: boolean;
+  dragRotate: boolean;
+  anchors: boolean;
 }
 /** 중첩을 타입에서 푼다. Partial<PhysicsParams> 는 zones 를 부분 저장할 수 없어 슬라이더 하나만
  *  만져도 나머지 기본값이 박제된다. */
@@ -77,12 +94,8 @@ export interface Preferences {
      *  *채널만* 독립시켰지 설정은 하나로 못박아 뒀다. 필드를 쪼개면 스피커 없는 기기에서
      *  '소리 끔 + 진동 켬' 이라는, 사용자가 구분할 수 없는 두 상태가 생긴다. */
     sound: boolean;
-    /** 2존 모드(결정 ④ · 5.5). ON 이면 차체 전체가 이동이고 회전·견인은 차체 밖 가이드로만 한다 —
-     *  `handlesVisible(pxPerUnit, pointerType, forced)` 의 `forced` 가 이 값을 받는다.
-     *  **기본 OFF**: 자동 배율 게이트로 켜면 줌이 조작 규칙을 바꾸는 사고가 된다(§9-④).
-     *  3.0 은 **값만** 심는다 — 소비처 배선은 5.5 다. 지금 넣어 두는 이유는 그때 스키마를
-     *  한 번 더 올리지 않기 위해서다. */
-    twoZone: boolean;
+    // 🪦 twoZone(2존 모드, 결정 ④ · 5.5)은 2026-11-13 폐기 — [보드 설정]의 '끌어 회전하기'·
+    //    '앞뒤 앵커 보이기' 두 스위치로 갈라졌다(PhysicsParams.dragRotate·anchors 주석).
   };
   // hints 브랜치는 통째로 폐기됐다: degradedStorage 는 2026-08-20(로드맵 §0.5 — 배너
   // 자체를 걷어냄), iosPwa 는 2026-08-21(설정 화면 감사 후속) — DESIGN.md §6.9 의 iOS 안내
@@ -149,7 +162,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   showRuleZones: true,
   inspectorPinned: false,
   present: { autoFullscreen: false, wakeLock: true },
-  a11y: { largeTargets: false, uiScale: 'auto', reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true, twoZone: false },
+  a11y: { largeTargets: false, uiScale: 'auto', reduceMotion: 'system', singleKeyShortcuts: 'on', sound: true },
   tray: { draw: false, note: false },
   seeded: false,
   physics: {},
@@ -187,7 +200,19 @@ function sanitizePhysicsOverride(raw: unknown): PhysicsOverride {
     out.editorSpeedMultiplier = raw.editorSpeedMultiplier;
   }
   if (typeof raw.speedLimit === 'boolean') out.speedLimit = raw.speedLimit;
+  for (const k of ['interact', 'dragRotate', 'anchors'] as const) {
+    if (typeof raw[k] === 'boolean') out[k] = raw[k];
+  }
   return out;
+}
+
+/** 폐기된 2존 모드(a11y.twoZone)를 켜 두었던 기기의 몫을 옮긴다. 그 모드에서 회전·견인의
+ *  **유일한** 수단이 앞뒤 앵커였으므로, 옮기지 않으면 그 사용자는 업데이트 한 번에 휠체어를
+ *  돌릴 길을 잃는다. 차체 회전 끔은 이제 기본값이라 옮길 것이 없다. 사용자가 [보드 설정]에서
+ *  앵커를 직접 정했으면(`anchors` 가 있으면) 그 값이 이긴다. */
+function carryTwoZone(physics: PhysicsOverride, twoZone: unknown): PhysicsOverride {
+  if (twoZone !== true || physics.anchors !== undefined) return physics;
+  return { ...physics, anchors: true };
 }
 
 export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repair[] } {
@@ -245,14 +270,13 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
       // 스키마를 올리지 않는다 — 옛 저장본에는 이 키가 없고, 없으면 기본값(켬)을 받는다.
       // `sound: 'yes'` 같은 쓰레기도 bool() 이 기본값으로 접는다.
       sound: bool(a11yRaw.sound, d.a11y.sound),
-      twoZone: bool(a11yRaw.twoZone, d.a11y.twoZone),
     },
     // 이 화이트리스트 조립부에 안 적힌 필드는 저장 왕복에서 **소리 없이 증발한다**.
     // 폐기(defaultFormation·defaultCourtMode·hints)가 정확히 그 증발을 의도한다.
     // 모델에 필드를 넣었으면 여기도 같은 커밋에서 넣고, 왕복 테스트로 못박아라.
     tray: { draw: bool(trayRaw.draw, d.tray.draw), note: bool(trayRaw.note, d.tray.note) },
     seeded: bool(raw.seeded, d.seeded),
-    physics: sanitizePhysicsOverride(raw.physics),
+    physics: carryTwoZone(sanitizePhysicsOverride(raw.physics), a11yRaw.twoZone),
     language,
     sync: { enabled: bool(syncRaw.enabled, d.sync.enabled) },
     tutorialsSeen,
@@ -283,6 +307,9 @@ export function resolvePhysics(p: Preferences): PhysicsParams {
   return {
     zones: { sTowRearMax, sSpinMin, sTowFrontMin, grabPadPx: z.grabPadPx },
     speedLimit,
+    interact: p.physics.interact ?? false,
+    dragRotate: p.physics.dragRotate ?? false,
+    anchors: p.physics.anchors ?? false,
     linearKmh,
     bumperKmh,
     editorSpeedMultiplier,
@@ -305,6 +332,10 @@ export function prunePhysics(v: PhysicsParams | PhysicsOverride): PhysicsOverrid
   if (v.editorSpeedMultiplier !== undefined && v.editorSpeedMultiplier !== 1) out.editorSpeedMultiplier = v.editorSpeedMultiplier;
   // 기본값이 true 이므로 false 일 때만 남긴다.
   if (v.speedLimit === false) out.speedLimit = false;
+  // 셋 다 기본값이 false 이므로 true 일 때만 남긴다.
+  if (v.interact === true) out.interact = true;
+  if (v.dragRotate === true) out.dragRotate = true;
+  if (v.anchors === true) out.anchors = true;
   return out;
 }
 

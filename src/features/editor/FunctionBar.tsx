@@ -36,7 +36,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react';
 import {
+  IconAnchors,
   IconClear,
+  IconCollide,
+  IconDragRotate,
   IconDrillInfoEdit,
   IconExport,
   IconBoard,
@@ -736,6 +739,33 @@ export function FunctionBar({
               text={t('editor.functionBar.courtModal.speedText')}
               hint={speedLimit ? t('editor.functionBar.speed.titleOn') : t('editor.functionBar.speed.titleOff')}
             />
+            {/* ── 2026-11-13 기현님 지시: 스위치 셋, **셋 다 기본 끔** ──────────────────────────
+                판을 짜는 손이 주인이 되게 한다 — 끄면 개체는 서로 겹쳐 지나가고(물리), 차체는
+                어디를 잡아도 그대로 옮겨지며(회전), 고른 휠체어 앞뒤에 손잡이가 안 뜬다(앵커).
+                값은 prefs.physics 에 살고(storage/prefs.ts PhysicsParams 주석) 판정·그림이 같은
+                값을 본다. 옛 접근성 [2존 모드]는 회전 끔 + 앵커 켬을 한 스위치로 묶던 것이라
+                이 둘로 갈라지며 폐기됐다. */}
+            <ModalToggle
+              on={physics.interact}
+              onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, interact: !physics.interact }) })}
+              icon={<IconCollide />}
+              text={t('editor.functionBar.courtModal.interactText')}
+              hint={physics.interact ? t('editor.functionBar.courtModal.interactOn') : t('editor.functionBar.courtModal.interactOff')}
+            />
+            <ModalToggle
+              on={physics.dragRotate}
+              onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, dragRotate: !physics.dragRotate }) })}
+              icon={<IconDragRotate />}
+              text={t('editor.functionBar.courtModal.dragRotateText')}
+              hint={physics.dragRotate ? t('editor.functionBar.courtModal.dragRotateOn') : t('editor.functionBar.courtModal.dragRotateOff')}
+            />
+            <ModalToggle
+              on={physics.anchors}
+              onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, anchors: !physics.anchors }) })}
+              icon={<IconAnchors />}
+              text={t('editor.functionBar.courtModal.anchorsText')}
+              hint={physics.anchors ? t('editor.functionBar.courtModal.anchorsOn') : t('editor.functionBar.courtModal.anchorsOff')}
+            />
           </div>
 
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
@@ -770,6 +800,11 @@ export function FunctionBar({
         onConfirm={() => {
           setConfirmOpen(false);
           onReset();
+          // 비운 뒤에는 [보드 설정]으로 **돌아온다**(2026-11-13 기현님 지시). 비우기는 대개 다음
+          // 손짓(코트 형태·크기 바꾸기)을 위한 것이고, 그 손잡이가 바로 이 모달에 있다.
+          // 포커스: 같은 커밋에서 확인창의 정리(복귀 → [보드 설정] 칸)가 먼저 돌고 모달의 셋업이
+          // 뒤에 돈다 — 그래서 모달은 그 칸을 '연 자리' 로 기억하고 안쪽 첫 칸에 포커스를 둔다.
+          setCourtOpen(true);
         }}
         title={t('editor.functionBar.clearConfirm.title')}
         body={

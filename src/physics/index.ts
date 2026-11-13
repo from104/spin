@@ -51,7 +51,7 @@ export {
   endDrag,
 } from './drag.ts';
 export type { DragSession } from './drag.ts';
-export { hitTest, forgivingRadius, zoneHandles, handlesVisible } from './hitTest.ts';
+export { hitTest, forgivingRadius, zoneHandles } from './hitTest.ts';
 export type { HitResult, HitContext, SceneSnapshot, ToolId } from './hitTest.ts';
 export { applyTwoZone, twoZoneViewConfig, TWO_ZONE_BODY } from './twoZone.ts';
 
@@ -110,6 +110,17 @@ export interface PhysicsWorldApi {
    *  곳을 잡으면 평행 이동이 되는** 상태였다(2존 모드와 정확히 같은 종류의 거짓말이다).
    *  되돌리면 physics/zonesWiring.test.ts 가 빨개진다. */
   setZones(next: ZoneConfig): void;
+  /** 개체 사이 **물리·상호작용**을 켜고 끈다([보드 설정], 2026-11-13 기현님 지시 — 앱 기본은 끔).
+   *
+   *  끄면 끄는 손이 만드는 것 말고는 판 위에서 아무것도 움직이지 않는다:
+   *   · 충돌 없음 — 잡은 칩이 이웃 칩·공·콘·골대를 밀지 않고 겹쳐 지나간다(world.setInteract)
+   *   · 잠긴 개체도 막지 않는다 — 막는 것 역시 상호작용이다(lockedBlockers)
+   *   · 겹침을 풀지 않는다 — 정착 술어의 겹침 감시·기하 분리 폴백이 쉰다(settleReady)
+   *   · 안전망은 경계만 지킨다 — 칩과 겹친 공을 빼내지 않는다(escapePinnedAll)
+   *  경계(코트 밖)와 속도 상한은 그대로다 — 그건 상호작용이 아니라 판의 규칙이다.
+   *  ⚠️ 이 월드 자신의 기본값은 **켬**이다. 물리 골든 테스트 전부가 켬을 전제로 쓰였고,
+   *     앱의 기본(끔)은 설정을 읽는 쪽(EditorProvider)이 생성 직후 밀어 넣는다. */
+  setInteract(on: boolean): void;
   beginDrag(hit: HitResult, grabWorld: Vec2): DragHandle | null;
   zoneAt(id: ChairId, worldPt: Vec2): DragZone | null;
   isSettled(): boolean;
@@ -184,6 +195,8 @@ export function createPhysicsWorld(
   // 존 경계도 같은 이유로 가변 홀더다 — setZones 로 살아 있는 월드의 판정 경계를 바꾼다.
   // ⚠️ 이 변수가 없으면 설정의 물리 슬라이더 3종이 화면(음영)만 바꾸고 판정은 못 바꾼다.
   let zones: ZoneConfig = initialZones;
+  /** setInteract 의 현재 값. 월드 기본은 켬이다(api.setInteract 주석). */
+  let interact = true;
   const bounds: Bounds = { w: courtW, h: courtH };
   const world: WorldHandles = createWorld(courtW, courtH);
   const kindOf = new Map<CastId, 'chair' | 'ball' | 'cone' | 'goal'>();
@@ -263,7 +276,7 @@ export function createPhysicsWorld(
    *  `useEditorPointer` 가 막는다, lockedDrag.test). 여기서 한 번 더 거르면 그 계약이 깨졌을 때
    *  조용히 덮이므로, 걸러지지 않은 채로 두어 드러나게 한다. */
   function lockedBlockers(): DragBlockers {
-    if (lockedIds.size === 0) return { chairs: [], circles: [] };
+    if (!interact || lockedIds.size === 0) return { chairs: [], circles: [] };
     const chairs: ChairPose[] = [];
     const circles: CircleObstacle[] = [];
     for (const id of lockedIds) {
@@ -292,7 +305,7 @@ export function createPhysicsWorld(
     // 칩을 건너뛰고, 정착 술어는 그 프레임에 루프를 끌 수 있기 때문이다. 판 밖에 있던 칩을
     // 잡았다 그 자리에 놓으면 판 밖에 그대로 굳는다(1.3 이 Engine.update 와 endDrag 사이에서
     // 겪은 것과 정확히 같은 종류의 프레임 경계 문제다).
-    escapePinnedAll(world, bounds);
+    escapePinnedAll(world, bounds, interact);
   }
 
   /** api.read() 의 알맹이. 정착 통지가 `api` 객체 리터럴보다 먼저 만들어지는 loop 안에서
@@ -430,6 +443,8 @@ export function createPhysicsWorld(
     //   `goalReturnUntilMs = 0` 으로 스스로 닫고, 그 값은 `PHYS.settleMaxMs`(8000ms)보다 한참
     //   짧아 루프의 데드라인이 먼저 걸릴 일도 없다.
     if (goalReturnUntilMs !== 0) return false;
+    // 상호작용이 꺼져 있으면 겹침은 사용자가 놓은 그대로다 — 풀 대상이 아니다.
+    if (!interact) return world.allAtRest();
     if (performance.now() < settleUntilMs) {
       // 정상 경로: 속도가 0 이고(기존 판정 그대로) 겹침도 없어야 판이 다 선 것이다.
       return world.allAtRest() && !anyOverlap(unheldChairs());
@@ -535,6 +550,15 @@ export function createPhysicsWorld(
 
     setZones(next) {
       zones = next;
+    },
+
+    setInteract(on) {
+      if (on === interact) return;
+      interact = on;
+      world.setInteract(on);
+      // 켜는 순간 이미 겹쳐 있던 것들을 물리가 풀게 한 번 깨운다 — 안 깨우면 다음 손짓까지
+      // 겹친 채로 서 있다가 엉뚱한 때에 튄다.
+      if (on && !session) openSettle();
     },
 
     setPose(id, pose) {

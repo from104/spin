@@ -5,7 +5,7 @@
 // 사고다(감사 2026-08-08: '자동 재생에만 적용' 설명문). 그래서 여기의 단언은 문자열 존재가 아니라
 // **설명문의 각 주장 ↔ 그 주장을 구현하는 실제 함수/상수/CSS** 의 짝이다:
 //   큰 터치 타깃  ↔ INTERACT.hitTargetCssPx/hitTargetLargeCssPx + tokens.css --hit
-//   2존 모드      ↔ handlesVisible·applyTwoZone (편집기가 실제로 부르는 판정 함수)
+//   (2존 모드 행은 2026-11-13 폐기 — [보드 설정]의 두 스위치로 갈라졌다, storage/prefs.ts)
 //   놓임 소리·진동 ↔ cueSpec 3종 + createCuePlayer 의 enabled 게이트
 //   모션 줄이기    ↔ effectiveReduceMotion·stepTransitionMs (트윈 시간의 단일 출처)
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -21,8 +21,6 @@ import { LibraryProvider } from '../../store/library/LibraryProvider.tsx';
 import { ToastProvider } from '../../store/toast/ToastProvider.tsx';
 import { loadPrefs } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
-import { applyTwoZone, handlesVisible } from '../../physics/index.ts';
-import type { HitResult } from '../../physics/hitTest.ts';
 import { cueSpec } from '../../ui/cueSpec.ts';
 import type { CueKind } from '../../ui/cueSpec.ts';
 import { createCuePlayer } from '../../ui/cues.ts';
@@ -77,30 +75,6 @@ describe('6.2 ② 설명문 ↔ 실제 동작', () => {
     // 토글 → prefs (body[data-touch] 배선 자체는 app-shell 소유 — App.tsx).
     await userEvent.setup().click(screen.getByRole('switch', { name: '큰 터치 타깃' }));
     expect(loadPrefs().a11y.largeTargets).toBe(true);
-  });
-
-  it('2존 모드 — "차체 아무 곳을 잡아도 통째로": 토글 값이 실제 판정(applyTwoZone)을 뒤집는다', async () => {
-    render(<SettingsScreen nav={makeNav()} />, { wrapper });
-    expect(screen.getByText(/차체 아무 곳을 잡아도 통째로 움직입니다/)).toBeInTheDocument();
-
-    // hitTest 가 만드는 것과 같은 모양의 차체 히트(존은 아직 없다 — 잡은 s 로 나중에 갈린다).
-    const bodyHit: HitResult = { kind: 'chair', id: 'c1', s: 0.5 };
-
-    // 대조군(기본 꺼짐): 히트가 손대지지 않고 그대로 나온다 = 4존 판정으로 간다.
-    expect(handlesVisible(0.66, 'touch', loadPrefs().a11y.twoZone)).toBe(false);
-    expect(applyTwoZone(bodyHit, handlesVisible(0.66, 'touch', loadPrefs().a11y.twoZone))).toBe(bodyHit);
-
-    await userEvent.setup().click(screen.getByRole('switch', { name: '2존 모드' }));
-    expect(loadPrefs().a11y.twoZone).toBe(true);
-    // 켠 값이 편집기의 실제 호출 경로(useEditorPointer: handlesVisible → applyTwoZone)를 지나면
-    // 차체 히트가 통째 이동(translate)이 된다 — 배율·포인터 종류는 답을 바꾸지 못한다(§9-④).
-    expect(applyTwoZone(bodyHit, handlesVisible(0.66, 'touch', loadPrefs().a11y.twoZone)).zone).toBe('translate');
-    expect(applyTwoZone(bodyHit, handlesVisible(2.0, 'mouse', loadPrefs().a11y.twoZone)).zone).toBe('translate');
-
-    // 뒷문장 "회전·견인은 차체 밖 앞뒤 가이드로만" — 가이드(zoneHandle) 히트는 덮지 않는다.
-    // 여기까지 translate 로 덮으면 회전 수단이 통째로 사라진다(twoZone.ts 머리말의 사고).
-    const handleHit: HitResult = { kind: 'zoneHandle', id: 'c1', zone: 'towFront' };
-    expect(applyTwoZone(handleHit, true)).toEqual(handleHit);
   });
 
   it('놓임 소리·진동 — 설명문의 세 사건이 신호 목록의 전부이고, 끄면 소리도 진동도 없다', async () => {

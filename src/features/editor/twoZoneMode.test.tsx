@@ -53,7 +53,7 @@ function makeDrill(mode: CourtMode): { drill: Drill; chairId: ChairId; at: { x: 
   return { chairId, at, drill: { ...base, steps: [step] } };
 }
 
-function useHarness(twoZone: boolean, largeTargets: boolean, pxPerUnit: number | null) {
+function useHarness(twoZone: boolean, largeTargets: boolean, pxPerUnit: number | null, anchors = true) {
   const state = useEditorState();
   const dispatch = useEditorDispatch();
   const worldRef = useEditorWorld();
@@ -84,20 +84,22 @@ function useHarness(twoZone: boolean, largeTargets: boolean, pxPerUnit: number |
     pendingPlayerId: null,
     onPlayerPlaced: noop,
     showToast: noop,
-    // ★ 여기가 배선이다 — EditorStage 는 `forceHandlesVisible={twoZone}` 로 같은 값을 넘긴다.
-    forceHandlesVisible: twoZone,
+    // ★ 여기가 배선이다 — EditorStage 는 `dragRotate={physics.dragRotate}` 를 넘긴다. 2존(ON) =
+    //   '끌어 회전하기' 끔이다(2026-11-13 폐기된 a11y.twoZone 의 뜻 그대로).
+    dragRotate: !twoZone,
+    anchors,
     largeTargets,
   });
   return { state, pointer };
 }
 
-function mount(drill: Drill, twoZone: boolean, largeTargets = false, pxPerUnit: number | null = null) {
+function mount(drill: Drill, twoZone: boolean, largeTargets = false, pxPerUnit: number | null = null, anchors = true) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <SettingsProvider>
       <EditorProvider drill={drill}>{children}</EditorProvider>
     </SettingsProvider>
   );
-  return renderHook(() => useHarness(twoZone, largeTargets, pxPerUnit), { wrapper });
+  return renderHook(() => useHarness(twoZone, largeTargets, pxPerUnit, anchors), { wrapper });
 }
 
 afterEach(() => {
@@ -129,6 +131,34 @@ describe('2존 모드에서도 회전·견인이 남아 있다 — 차체 밖 �
   });
 });
 
+describe('[보드 설정] 앞뒤 앵커 · 끌어 회전하기 (2026-11-13)', () => {
+  /** 칩을 눌러 고른 뒤 그 칩의 월드 오프셋 dx 를 누른다 — 존 핸들은 선택된 칩에만 붙는다. */
+  function pressAfterSelect(r: ReturnType<typeof mount>, at: { x: number; y: number }, dx: number, dy = 0) {
+    const ctrl = () => r.result.current.pointer.controller;
+    act(() => void ctrl().onPointerDown({ x: at.x, y: at.y }, meta('touch')));
+    act(() => ctrl().onPointerUp(CLIENT));
+    act(() => void ctrl().onPointerDown({ x: at.x + dx, y: at.y + dy }, meta('touch')));
+    const zone = r.result.current.pointer.activeZone;
+    act(() => ctrl().onPointerUp(CLIENT));
+    return zone;
+  }
+
+  it('앵커를 끄면 전방 가이드 자리를 눌러도 견인이 안 잡힌다 — 안 보이는 것은 잡히지 않는다', () => {
+    const { drill, at } = makeDrill('full');
+    expect(pressAfterSelect(mount(drill, true, false, null, false), at, INTERACT.handleLeverPx.towFront)).not.toBe('towFront');
+    // 대조군 — 켜면 같은 자리가 견인이다.
+    expect(pressAfterSelect(mount(drill, true, false, null, true), at, INTERACT.handleLeverPx.towFront)).toBe('towFront');
+  });
+
+  it('회전을 끄고 앵커를 켜도 고른 칩 앞쪽 옆구리에서 회전이 안 잡힌다 — 안 그려진 회전 핸들은 없다', () => {
+    // 차체 **안**은 몸통 히트가 먼저 가져가므로 문제의 자리는 차체 옆 바깥이다: 회전 핸들(레버
+    // 22.5)의 히트 원(22 CSS px)이 차체 폭(반폭 12.5)보다 넓어 옆구리 밖까지 덮는다.
+    const { drill, at } = makeDrill('full');
+    const side = CHAIR.widthPx / 2 + 6;
+    expect(pressAfterSelect(mount(drill, true, false, null, true), at, INTERACT.handleLeverPx.spin, side)).not.toBe('spin');
+  });
+});
+
 describe('설정 → 판 (전 구간 배선)', () => {
   // 위 describe 는 useEditorPointer 를 훅으로 직접 잰다 — 그러면 **EditorWorkspace 가
   // prefs 를 안 넘겨도** 전건 초록이다. 여기서만 그 마지막 한 줄이 하중을 받는다:
@@ -154,7 +184,8 @@ describe('설정 → 판 (전 구간 배선)', () => {
    *  포인터→월드 변환이 성립하지 않는다(BoardScreen.test.tsx 가 쓰는 것과 같은 경로). */
   async function openBoardWith(twoZone: boolean): Promise<Element[]> {
     const d = makeDefaultPrefs();
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...d, a11y: { ...d.a11y, twoZone } }));
+    // 2026-11-13 — 차체 회전은 [보드 설정] '끌어 회전하기'(prefs.physics.dragRotate, 기본 끔)다.
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...d, physics: twoZone ? {} : { dragRotate: true } }));
     saveBoard(createDrill({ courtMode: 'full', formation: '1-2-1' }));
     const user = userEvent.setup();
     render(<BoardScreen />, { wrapper: Wrapper });
@@ -169,14 +200,14 @@ describe('설정 → 판 (전 구간 배선)', () => {
     return Array.from(stage.querySelectorAll('.court-obj rect.zone-tint'));
   }
 
-  it('prefs.a11y.twoZone = true 만 심으면 판 위 음영이 한 장으로 합쳐진다', async () => {
+  it('기본(끌어 회전하기 끔)이면 판 위 음영이 한 장으로 합쳐진다', async () => {
     const rects = await openBoardWith(true);
     expect(rects).toHaveLength(1);
     expect(Number(rects[0]!.getAttribute('x'))).toBeCloseTo(-CHAIR.pivotToRearPx, 6);
     expect(Number(rects[0]!.getAttribute('width'))).toBeCloseTo(CHAIR.lengthPx, 6);
   });
 
-  it('대조군 — false 면 지금까지처럼 두 장이다', async () => {
+  it('대조군 — 끌어 회전하기를 켜면 두 장이다', async () => {
     const rects = await openBoardWith(false);
     expect(rects).toHaveLength(2);
     // 2026-08-30 기현 지시로 이동:회전 = 2:1(그 전에는 반반).

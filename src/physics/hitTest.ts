@@ -155,24 +155,15 @@ export function zoneHandles(
   });
 }
 
-/** 2존 모드(= 핸들 전용 조작)가 걸려 있는가. §5.12 계약의 그 함수이고, 5.5 이전까지
- *  **소비처가 0** 이던 죽은 배선이다(2026-08-13 rg 실측: 정의 1 + re-export 1 + 호출 1,
- *  그 호출의 결과를 읽는 곳 0).
- *
- *  ⚠️ 2026-08-13(5.5, 결정 ④) **자동 배율 문턱을 뗐다.** 예전 식은
- *  `forced || (pointerType === 'touch' && pxPerUnit < INTERACT.zoneDirectMinPxPerUnit)` 였고
- *  그 상수는 1.28 이다. 되살리면 안 되는 이유는 둘이다.
- *   ① 실측 배율 분포(7인치 0.663 · narrow 0.891 · PC 핀 0.899 · PC 오버레이 1.151 ·
- *      27인치 1.675)가 문턱 1.28 을 여러 번 넘나든다 — 그대로 두면 **줌이 조작 규칙을
- *      바꾸는 사고**가 된다(§9-④).
- *   ② 7인치 태블릿은 0.663 이라 문턱이 **늘** 참이다. 즉 자동 분기를 남기면 결정 ④ 의
- *      *"2존 기본 OFF"* 가 하필 이 앱의 1순위 기기에서만 거짓말이 된다.
- *
- *  두 인자를 지우지 않고 남긴 이유: 이 함수의 계약(§5.12)과 호출부를 그대로 두면서,
- *  *"배율과 포인터 종류를 무엇으로 넣어도 답이 안 바뀐다"* 를 **단언 가능한 성질**로 만들기
- *  위해서다. `src/physics/twoZone.test.ts` 의 그 매트릭스가 자동 문턱의 부활을 막는 자물쇠다 —
- *  지우면 다음 사람이 ①②를 모른 채 한 줄로 되돌려 놓는다. */
-export const handlesVisible = (_pxPerUnit: number, _pointerType: string, forced: boolean): boolean => forced;
+// 🪦 `handlesVisible(pxPerUnit, pointerType, forced)` 는 2026-11-13 에 떠났다. 2존 모드 토글이
+//    [보드 설정]의 두 스위치('끌어 회전하기'·'앞뒤 앵커 보이기', prefs.physics.dragRotate·anchors)로
+//    갈라지면서 호출부(useEditorPointer)가 스위치 값을 직접 읽게 됐다.
+//    **남기는 판단**(2026-08-13, 5.5 결정 ④ — 되살리지 말 것): 배율·포인터 종류로 조작 규칙을 자동
+//    분기하지 않는다. 옛 식은 `forced || (touch && pxPerUnit < 1.28)` 였는데,
+//     ① 실측 배율 분포(7인치 0.663 · narrow 0.891 · PC 핀 0.899 · PC 오버레이 1.151 · 27인치 1.675)가
+//        문턱을 여러 번 넘나들어 **줌이 조작 규칙을 바꾸는 사고**가 되고,
+//     ② 7인치 태블릿은 늘 문턱 아래라 "기본값" 이 하필 1순위 기기에서만 거짓말이 된다.
+//    새 스위치 둘도 같은 규율을 따른다 — 값은 사용자가 고른 것 하나뿐이다.
 
 const dist = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -515,6 +506,10 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
       const handles = zoneHandles(c.pose, pxPerUnit);
       let nearest: { zone: DragZone; d: number } | null = null;
       for (const h of handles) {
+        // 잡히는 것은 **그려진 것뿐**이다 — 화면의 핸들은 차체 밖 앞뒤 앵커 둘이다(ZoneHandles
+        // ZONE_ORDER). 안쪽 둘(translate·spin)까지 잡히면 '끌어 회전하기' 를 꺼도 고른 칩의 앞
+        // 절반이 보이지 않는 spin 핸들에 먹혀 돌아간다(2026-11-13).
+        if (h.zone !== 'towRear' && h.zone !== 'towFront') continue;
         const d = dist(p, h.pos);
         if (d <= r.handle && (!nearest || d < nearest.d)) nearest = { zone: h.zone, d };
       }

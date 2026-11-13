@@ -116,7 +116,6 @@ function useHarness() {
     pendingPlayerId: null,
     onPlayerPlaced: noop,
     showToast: noop,
-    forceHandlesVisible: false,
     largeTargets: false,
   });
   // ② Esc = 해제 — EditorWorkspace 의 배선(onSelectionClear → SELECT_CLEAR)을 그대로 재현.

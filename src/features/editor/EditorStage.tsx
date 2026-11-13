@@ -75,10 +75,13 @@ export interface EditorStageProps {
   showRuleZones: boolean;
   /** §7.3 "큰 터치 타깃". 2단 히트(§4.3 P1-2)의 2차 패스 반경만 44 → 56 CSS px 로 키운다. */
   largeTargets: boolean;
-  /** §9 결정 ④ · 5.5 — **2존 모드**. 켜면 차체 전체가 하나의 '평행 이동' 존이 되고(드래그),
-   *  차체 위 존 음영·커서도 한 구간으로 접힌다(그리기). 회전·견인은 차체 밖 앞뒤 가이드 전용.
-   *  기본 false. */
-  twoZone?: boolean;
+  /** [보드 설정] '끌어 회전하기'(prefs.physics.dragRotate). 끄면 차체 전체가 하나의 '평행 이동'
+   *  존이 되고(드래그) 차체 위 존 음영·커서도 한 구간으로 접힌다(그리기). 안 주면 켬 — 앱의 기본
+   *  (끔)은 EditorWorkspace 가 prefs 에서 넘긴다(useEditorPointer 의 같은 이름 주석). */
+  dragRotate?: boolean;
+  /** [보드 설정] '앞뒤 앵커 보이기'(prefs.physics.anchors). 그림(ZoneHandles)과 히트가 이 한 값을
+   *  같이 본다. 안 주면 켬. */
+  anchors?: boolean;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
   /** [복제](2026-08-18) — 개체 메뉴가 부른다. 구현이 워크스페이스에 있는 이유는 `onEraseIds`
    *  와 같다: Ctrl/⌘+D(useEditorKeyboard)와 메뉴, 두 입구가 **같은 함수**로 들어와야
@@ -143,7 +146,7 @@ const OBJ_MOVE_DIR: Record<string, readonly [number, number]> = {
 // 포인터(손잡이 끌기)가 맡는다 — 남은 상태·타입 정리는 2단계다.
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, twoZone = false, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0, onResetGoals },
+  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, dragRotate = true, anchors = true, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0, onResetGoals },
   stageRef,
 ) {
   // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
@@ -177,8 +180,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     // §6.10c — 트레이에 끌어다 놓아 치우는 길. 개체 메뉴·Delete 와 **같은 함수**다.
     onEraseIds,
     showToast,
-    // 5.5 — 접근성 설정의 2존 토글이 `handlesVisible(…, forced)` 의 `forced` 로 들어가는 자리.
-    forceHandlesVisible: twoZone,
+    // [보드 설정] 개체 이동 스위치 둘 — 차체 회전과 앞뒤 앵커.
+    dragRotate,
+    anchors,
     largeTargets,
   });
 
@@ -895,10 +899,10 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         return true;
       }}
       selection={selection}
-      // 5.5 — 차체 음영·커서도 같은 진실을 말해야 한다. 2존인데 앞 2/3 에 '제자리 회전' 음영이
-      // 남아 있으면 판이 거짓말을 한다(잡으면 실제로는 통째로 밀린다). ⚠️ `zones` 를 그대로
-      // 넘기지 마라 — 이 값은 드래그 판정과 **같은 스위치**(useEditorPointer 안의
-      // handlesVisible 호출)에서 나온다. 되돌리면 그림과 판정이 갈라진다.
+      // 5.5 — 차체 음영·커서도 같은 진실을 말해야 한다. 회전을 껐는데 앞 절반에 '제자리 회전'
+      // 음영이 남아 있으면 판이 거짓말을 한다(잡으면 실제로는 통째로 밀린다). ⚠️ `zones` 를 그대로
+      // 넘기지 마라 — 이 값은 드래그 판정과 **같은 스위치**(useEditorPointer 의 dragRotate)에서
+      // 나온다. 되돌리면 그림과 판정이 갈라진다.
       zoneCursors={pointer.zoneCursors}
       activeId={activeId}
       initialFrame={initialFrame}
@@ -916,7 +920,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 주석: 그 층은 도구를 모른다). 태블릿에는 커서가 없으므로 이것이 유일한 신호가 아니다 —
       // 레일 버튼의 붉은 활성 표시가 같은 말을 한다(ToolRail 의 DANGER_TONE).
       eraseCursor={tool === 'eraser'}
-      zoneHandles={{ chairId: selectedChairId, activeZone: pointer.activeZone }}
+      // 앵커를 끄면 **그리지도 않는다** — 히트(useEditorPointer.buildHitContext)와 같은 스위치다.
+      zoneHandles={{ chairId: anchors ? selectedChairId : null, activeZone: pointer.activeZone }}
       ruleOverlay={rules ? { rules, roster: ruleRoster, teams: drill.teams, teamStyles: drill.teams, defense: drill.defense, ballRings, ballOwners } : undefined}
       arrowHandles={{ arrow: selectedArrow }}
       // 자유 그리기 획(2026-09-03) — 화살표와 나란한 세 줄이다. `strokeDraft` 는 손을 떼기

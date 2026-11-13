@@ -81,7 +81,6 @@ function useHarness() {
     pendingPlayerId: null,
     onPlayerPlaced: noop,
     showToast: noop,
-    forceHandlesVisible: false,
     largeTargets: false,
   });
   return { state, dispatch, pointer };

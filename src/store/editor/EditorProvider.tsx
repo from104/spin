@@ -91,6 +91,9 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
     // 직후 첫 드래그는 그 effect 보다 앞설 수 있다 — 그때 기본 존으로 갈리면 사용자는
     // "코트를 바꿨더니 슬라이더가 초기화됐다" 로 겪는다(setLimits 와 같은 이유·같은 모양).
     const world = createPhysicsWorld(vbW, vbH, limits, physicsRef.current.zones);
+    // 물리·상호작용 스위치도 생성 시점에 — 월드 자신의 기본은 켬이고 앱의 기본은 끔이다
+    // (PhysicsWorldApi.setInteract 주석). 아래 effect 를 기다리면 첫 드래그가 이웃을 밀 수 있다.
+    world.setInteract(physicsRef.current.interact);
     worldRef.current = world;
     return () => {
       world.dispose();
@@ -106,6 +109,7 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
     // 전혀 반영되지 않았다**. 음영·커서는 EditorWorkspace → EditorStage 로 따로 흘러 슬라이더를
     // 따라갔으므로, 판이 '제자리 회전' 이라 칠한 곳을 잡으면 평행 이동이 되는 상태였다.
     worldRef.current?.setZones(physics.zones);
+    worldRef.current?.setInteract(physics.interact);
   }, [physics]);
 
   // §6.7 물리 재동기화(blocker 수정): 로스터·코트가 바뀔 때 world.load 를 다시 부른다.

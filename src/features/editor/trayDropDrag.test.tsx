@@ -89,7 +89,6 @@ function useHarness() {
     // 일부러 모델을 안 건드린다: 그래야 "치우기 직전에 이동이 물려 있었는가" 를 잴 수 있다.
     onEraseIds: (ids) => erased.push(ids),
     showToast: () => {},
-    forceHandlesVisible: false,
     largeTargets: false,
   });
   return { state, dispatch, pointer };

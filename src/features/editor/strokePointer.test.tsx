@@ -105,7 +105,6 @@ function useHarness(tool: ToolId, onEraseIds: (ids: string[], scope: 'onward' | 
     onPlayerPlaced: noop,
     onEraseIds,
     showToast: noop,
-    forceHandlesVisible: false,
     largeTargets: false,
   });
   return { state, pointer, step };

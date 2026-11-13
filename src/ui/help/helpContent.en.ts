@@ -367,13 +367,13 @@ export const HELP_EN: HelpContent = {
         id: 'editor.place-move',
         title: 'Placing and moving',
         blocks: [
-          { kind: 'p', text: 'For a wheelchair, **where you grab it is the action** — unlike sliding a piece on paper, it moves the way a real powerchair does.' },
+          { kind: 'p', text: 'By default a wheelchair **moves as a whole wherever you grab it**, and it passes over other objects without pushing them. To make it move like a real powerchair, turn on the switches in [Board settings] > [Object movement].' },
           {
             kind: 'list',
             items: [
-              'Grab the **back two-thirds** of the chair and it moves as a whole.',
-              'Grab the **front third** of the chair and it spins in place.',
-              'Grab the **handles outside the chair, front or back,** and it tows like it’s being pulled by a rope — it turns first.',
+              'With [Drag to rotate wheelchairs] on, grabbing the **front third** of the chair spins it in place (the back two-thirds still moves it as a whole).',
+              'With [Show front/back anchors] on, **anchors appear in front of and behind** the selected chair. Grab one and it tows like it’s being pulled by a rope — it turns first.',
+              'With [Physics & interaction] on, wheelchairs push and bump balls, cones and other wheelchairs.',
             ],
           },
           { kind: 'p', text: 'For the last few pixels, use the keyboard. On a tablet with no keyboard, long-press the object and choose [Fine-tune] — a translucent pad appears in place with six cells: four to nudge up, down, left and right, and two to rotate left and right.' },
@@ -549,10 +549,10 @@ export const HELP_EN: HelpContent = {
             kind: 'list',
             items: [
               '[Display] — [Grid], [Goal Area].',
-              '[Object movement] — [Limit to real speed].',
+              '[Object movement] — [Limit to real speed], [Physics & interaction], [Drag to rotate wheelchairs], [Show front/back anchors]. The last three are off by default.',
               '[Goals] — [Reset Goal Position]. Moves only the goals pushed out of place by wheelchairs back to their spot, and touches nothing else on the board.',
               '[Court Shape], [Court Size], and which side you defend.',
-              '[Clear Court] — removes every player, ball, cone, arrow, and note in the current step.',
+              '[Clear Court] — removes every player, ball, cone, arrow, and note in the current step. [Board settings] opens again afterwards.',
             ],
           },
           { kind: 'tip', tone: 'warn', text: 'In a drill, **court shape and size are locked** (only the free tactics board can change them, and only after clearing it). If a wheelchair sits on a goal’s spot, [Reset Goal Position] is refused — move the chair first. Clearing only empties this step; other steps are untouched, and one undo brings everything back.' },
@@ -1185,7 +1185,6 @@ export const HELP_EN: HelpContent = {
             kind: 'list',
             items: [
               '[Large touch targets] — buttons, tray chips, and the on-court grab radius all grow (text size is handled separately by [UI scale]).',
-              '[Two-zone mode] — grabbing anywhere on the chair moves it as a whole. Spinning in place and towing only happen through guides outside the chair.',
               '[Drop sound & vibration] — a short cue when placing, blocking, or returning something to the tray.',
               '[High contrast · forced colors] — there’s no switch. Turn on your device’s setting and the app follows automatically.',
               '[Reduce motion] — turns off transition animation. Advancing a step jumps objects straight to their next position.',

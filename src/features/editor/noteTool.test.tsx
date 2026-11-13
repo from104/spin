@@ -70,7 +70,6 @@ function useHarness(tool: ToolId, onNotePlaced?: (id: NoteId) => void) {
     onPlayerPlaced: () => {},
     onNotePlaced,
     showToast: () => {},
-    forceHandlesVisible: false,
     largeTargets: false,
   });
   return { state, pointer };

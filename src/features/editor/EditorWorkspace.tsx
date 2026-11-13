@@ -942,7 +942,8 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 showGridLabels={prefs.showGridLabels}
                 showRuleZones={showRuleZones}
                 largeTargets={prefs.a11y.largeTargets}
-                twoZone={prefs.a11y.twoZone}
+                dragRotate={physics.dragRotate}
+                anchors={physics.anchors}
                 onEraseIds={eraseIds}
                 onDuplicateIds={duplicateObjIds}
                 onEditNote={(id, fresh) => setEditingNote({ id, fresh })}

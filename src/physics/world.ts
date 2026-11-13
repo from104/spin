@@ -105,11 +105,25 @@ export interface WorldHandles {
    *  제공한다. WorldHandles 는 physics-world 내부 전용 타입(다른 모듈은 PhysicsWorldApi 만
    *  본다)이라 여기서 넓혀도 §8 조립 계약을 깨지 않는다. */
   pointOf(id: CastId): Vec2;
+  /** 개체끼리의 충돌을 켜고 끈다([보드 설정] > '물리·상호작용', 2026-11-13 기현님 지시).
+   *  끄면 모든 바디의 충돌 마스크를 0 으로 접는다 — 잡은 개체가 이웃을 밀지도, 이웃에 막히지도
+   *  않고 그냥 겹쳐 지나간다. 경계는 드래그 운동학(resolveMotion·clampPointToBounds)이 따로
+   *  막으므로 벽과의 충돌이 없어도 판 밖으로 나가지 않는다. 새로 들어오는 바디도 지금 값을 받는다. */
+  setInteract(on: boolean): void;
 }
 
 export function createWorld(courtW: number, courtH: number): WorldHandles {
   const engine = Engine.create(ENGINE_OPTS);
   const bodies = new Map<CastId, Matter.Body>();
+  /** 바디가 태어날 때의 충돌 마스크. setInteract(false) 가 0 으로 접었다가 되돌릴 원본이다. */
+  const ownMask = new Map<Matter.Body, number>();
+  let interact = true;
+  const track = (id: CastId, b: Matter.Body): void => {
+    ownMask.set(b, b.collisionFilter.mask ?? 0);
+    if (!interact) b.collisionFilter.mask = 0;
+    bodies.set(id, b);
+    Composite.add(engine.world, b);
+  };
   const walls = createWalls(courtW, courtH);
   Composite.add(engine.world, walls);
 
@@ -141,30 +155,23 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
   const handles: WorldHandles = {
     engine,
     addChair(id, pose) {
-      const b = createChairBody(pose);
-      bodies.set(id, b);
-      Composite.add(engine.world, b);
+      track(id, createChairBody(pose));
     },
     addBall(id, p) {
-      const b = createBallBody(p);
-      bodies.set(id, b);
-      Composite.add(engine.world, b);
+      track(id, createBallBody(p));
     },
     addCone(id, p) {
-      const b = createConeBody(p);
-      bodies.set(id, b);
-      Composite.add(engine.world, b);
+      track(id, createConeBody(p));
     },
     addGoalPost(id, p) {
-      const b = createGoalPostBody(p);
-      bodies.set(id as CastId, b);
-      Composite.add(engine.world, b);
+      track(id as CastId, createGoalPostBody(p));
     },
     remove(id) {
       const b = bodies.get(id);
       if (!b) return;
       Composite.remove(engine.world, b);
       bodies.delete(id);
+      ownMask.delete(b);
     },
     setBodyStatic(id, on) {
       const b = bodies.get(id);
@@ -258,6 +265,10 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
       if (!b) throw new Error(`unknown body id: ${id}`);
       return { x: b.position.x, y: b.position.y };
     },
+    setInteract(on) {
+      interact = on;
+      for (const b of bodies.values()) b.collisionFilter.mask = on ? (ownMask.get(b) ?? 0) : 0;
+    },
   };
 
   return handles;
@@ -272,7 +283,7 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
  *  움직이게 하지만 **밀려나는 쪽** 칩에는 그 보장이 없었다 — 잡은 칩(static)과 벽(static)
  *  사이에 끼면 Resolver 가 넘치는 만큼을 양쪽에 반씩 나눠 주고, 그 절반이 곧 벽 너머다
  *  (실측: 825×525 코트에서 밀린 칩이 피벗 x=-5, 차체 뒤끝 -12.5 로 나가 그대로 굳었다). */
-export function escapePinnedAll(w: WorldHandles, bounds: Bounds): void {
+export function escapePinnedAll(w: WorldHandles, bounds: Bounds, interact = true): void {
   const allChairs: ChairPose[] = [];
   for (const b of Composite.allBodies(w.engine.world)) {
     if (b.label !== 'chair') continue;
@@ -296,7 +307,9 @@ export function escapePinnedAll(w: WorldHandles, bounds: Bounds): void {
       b.label === 'ball' ? BALL.radiusPx : b.label === 'cone' ? CONE.radiusPx : b.label === 'goal' ? GOAL.radiusPx : undefined;
     if (radius === undefined) continue;
     const p = { x: b.position.x, y: b.position.y };
-    const out = escapePinned(p, radius, allChairs, bounds);
+    // 상호작용이 꺼져 있으면 휠체어와 겹친 공·콘은 **겹친 채로 둔다** — 여기서 빼내면 안전망이
+    // 꺼 둔 '밀기' 를 몰래 되살린다. 판 밖으로 나가지 않게 하는 경계만 남긴다.
+    const out = escapePinned(p, radius, interact ? allChairs : [], bounds);
     if (out.x !== p.x || out.y !== p.y) setPosition3(b, out, false);
   }
 }

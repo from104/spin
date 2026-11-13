@@ -292,12 +292,9 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
           >
             <Toggle checked={prefs.a11y.largeTargets} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, largeTargets: v } })} ariaLabel={t('settings.a11y.largeTargetsTitle')} />
           </Row>
-          {/* §9 결정 ④ · 5.5 — 기본 OFF. 자동(배율) 게이트를 쓰지 않는 이유는
-              physics/hitTest.ts 의 handlesVisible 머리말에 실측 배율 분포와 함께 적어 뒀다.
-              설명문의 두 문장 = applyTwoZone(차체→translate) + zoneHandle 은 안 덮음, 그대로다. */}
-          <Row title={t('settings.a11y.twoZoneTitle')} desc={t('settings.a11y.twoZoneDesc')}>
-            <Toggle checked={prefs.a11y.twoZone} onChange={(v) => setPrefs({ a11y: { ...prefs.a11y, twoZone: v } })} ariaLabel={t('settings.a11y.twoZoneTitle')} />
-          </Row>
+          {/* 🪦 [2존 모드] 행은 2026-11-13 에 떠났다 — [보드 설정]의 '끌어 회전하기'·'앞뒤 앵커 보이기'
+              두 스위치로 갈라졌다(storage/prefs.ts PhysicsParams 주석). 같은 동작을 두 자리에서
+              켜고 끄면 서로를 덮는다. */}
           {/* 세 사건(놓기·막힘·트레이 복귀)은 cueSpec 의 CueKind 전부와 1:1 이다 — 사건을
               더하거나 빼면 이 문장도 같은 커밋에서 고쳐라(a11yAlignment.test.tsx 가 잰다). */}
           <Row title={t('settings.a11y.soundTitle')} desc={t('settings.a11y.soundDesc')}>

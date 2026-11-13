@@ -378,8 +378,9 @@ describe('3.0 새 필드의 기본값', () => {
   it('seeded 는 false 로 시작한다 — 아직 아무것도 심지 않았다', () => {
     expect(makeDefaultPrefs().seeded).toBe(false);
   });
-  it('2존 모드는 기본 OFF 다 (결정 ④)', () => {
-    expect(makeDefaultPrefs().a11y.twoZone).toBe(false);
+  it('[보드 설정] 개체 이동 스위치 셋은 기본 끔이다 (2026-11-13)', () => {
+    const p = resolvePhysics(makeDefaultPrefs());
+    expect([p.interact, p.dragRotate, p.anchors]).toEqual([false, false, false]);
   });
 });
 
@@ -392,7 +393,9 @@ describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 �
     const p = loadPrefs();
     expect(p.tray).toEqual({ draw: false, note: false });
     expect(p.seeded).toBe(false);
-    expect(p.a11y.twoZone).toBe(false);
+    // 세 번째였던 a11y.twoZone 은 2026-11-13 폐기 — 마이그레이션이 false 로 채운 값은 앵커로
+    // 옮겨지지 않는다(켜 둔 기기만 옮긴다, carryTwoZone).
+    expect(p.physics.anchors).toBeUndefined();
   });
 
   it('schemaVersion 도장이 최신 스키마로 갱신된다', () => {
@@ -461,11 +464,18 @@ describe('3.0 저장 왕복 — 화이트리스트 조립부에 안 적힌 필�
     expect(loadPrefs().smallScreenNoticeDismissed).toBe(true);
     expect(loadPrefs().helpWelcomeSeen).toBe(true); // 2026-09-08 첫 방문 도움말 도장, 같은 결
   });
-  it('a11y.twoZone 은 저장 왕복을 견딘다', () => {
+  it('개체 이동 스위치 셋은 저장 왕복을 견딘다', () => {
+    savePrefs({ ...makeDefaultPrefs(), physics: prunePhysics({ interact: true, dragRotate: true, anchors: true }) });
+    const p = resolvePhysics(loadPrefs());
+    expect([p.interact, p.dragRotate, p.anchors]).toEqual([true, true, true]);
+  });
+  it('폐기된 2존 모드를 켜 둔 기기는 앞뒤 앵커 켬으로 옮겨진다 — 회전 수단을 잃지 않는다', () => {
     const d = makeDefaultPrefs();
-    savePrefs({ ...d, a11y: { ...d.a11y, twoZone: true } });
-    expect(loadPrefs().a11y.twoZone).toBe(true);
-    expect(loadPrefs().a11y.sound).toBe(true); // 대조군 — a11y 가 통째로 갈린 것이 아니다
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...d, a11y: { ...d.a11y, twoZone: true } }));
+    expect(resolvePhysics(loadPrefs()).anchors).toBe(true);
+    // 사용자가 이미 정한 값이 이긴다.
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...d, a11y: { ...d.a11y, twoZone: true }, physics: { anchors: false } }));
+    expect(resolvePhysics(loadPrefs()).anchors).toBe(false);
   });
   it('서랍만 만져도 나머지 prefs 는 그대로다', () => {
     savePrefs({ ...makeDefaultPrefs(), theme: 'light', seeded: true });
@@ -480,11 +490,11 @@ describe('3.0 저장 왕복 — 화이트리스트 조립부에 안 적힌 필�
     expect(validatePrefs({ tray: { draw: 'open', note: 1 } }).value.tray).toEqual({ draw: false, note: false });
     expect(validatePrefs({ tray: 'open' }).value.tray).toEqual({ draw: false, note: false });
     expect(validatePrefs({ seeded: 'yes' }).value.seeded).toBe(false);
-    expect(validatePrefs({ a11y: { twoZone: 'on' } }).value.a11y.twoZone).toBe(false);
+    expect(validatePrefs({ physics: { interact: 'on' } }).value.physics.interact).toBeUndefined();
     // 대조군 — 진짜 true 는 통과한다(무엇을 넣어도 false 가 나오는 것이 아니다).
     expect(validatePrefs({ tray: { draw: true, note: true } }).value.tray).toEqual({ draw: true, note: true });
     expect(validatePrefs({ seeded: true }).value.seeded).toBe(true);
-    expect(validatePrefs({ a11y: { twoZone: true } }).value.a11y.twoZone).toBe(true);
+    expect(validatePrefs({ physics: { interact: true } }).value.physics.interact).toBe(true);
   });
 });
 

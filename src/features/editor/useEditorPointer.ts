@@ -17,7 +17,7 @@ import { isId, newId } from '../../core/ids.ts';
 import type { ArrowId, BallId, CastId, ChairId, ConeId, NoteId, StrokeId } from '../../core/ids.ts';
 import { INTERACT, PHYS } from '../../core/constants.ts';
 import { isApplePlatform } from '../../core/platform.ts';
-import { hitTest, handlesVisible as computeHandlesVisible, applyTwoZone, twoZoneViewConfig } from '../../physics/index.ts';
+import { hitTest, applyTwoZone, twoZoneViewConfig } from '../../physics/index.ts';
 import type { HitContext, HitResult, PhysicsSnapshot, SceneSnapshot, ToolId, DragHandle } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import type { EditorAction } from '../../store/editor/actions.ts';
@@ -126,10 +126,15 @@ export interface UseEditorPointerOptions {
    *  안 주면 트레이 드롭이 **아무 일도 안 한다** — 예고도 그때는 뜨지 않는다(짐이 없으므로). */
   onEraseIds?(ids: string[], scope: 'onward' | 'thisStep'): void;
   showToast(message: string, action?: { label: string; onAction(): void }): void;
-  /** §9 결정 ④ · 5.5 — 접근성 설정의 **2존 모드** 토글. `handlesVisible(…, forced)` 의
-   *  `forced` 로 그대로 들어가고, 그 반환값이 차체 히트를 하나의 '평행 이동' 존으로 접는다
-   *  (physics/twoZone.ts). 기본 false. */
-  forceHandlesVisible: boolean;
+  /** [보드 설정] '끌어 회전하기'(prefs.physics.dragRotate, 2026-11-13). **끄면** 차체 히트를
+   *  하나의 '평행 이동' 존으로 접는다(physics/twoZone.ts applyTwoZone) — 차체 어디를 잡아도
+   *  통째로 밀리고, 존 음영·커서도 한 구간으로 접힌다(zoneCursors).
+   *  안 주면 **켬**이다: 이 훅의 기본은 옛 4존 조작 그대로이고, 앱의 기본(끔)은 EditorStage 가
+   *  prefs 에서 읽어 넘긴다. 물리 월드의 setInteract 기본이 켬인 것과 같은 결이다. */
+  dragRotate?: boolean;
+  /** [보드 설정] '앞뒤 앵커 보이기'(prefs.physics.anchors). 끄면 존 핸들 **히트**가 꺼진다 —
+   *  그림(ZoneHandles)은 EditorStage 가 같은 값으로 끈다. 안 주면 켬(위와 같은 이유). */
+  anchors?: boolean;
   /** §7.3 "큰 터치 타깃" 설정. 2단 히트(§4.3 P1-2)의 **2차 패스 반경**만 44 → 56 CSS px 로
    *  키운다 — 그 설정 설명문이 버튼에서만 참이고 코트 위에서는 거짓이던 것을 닫는 배선이다. */
   largeTargets: boolean;
@@ -139,10 +144,9 @@ export interface UseEditorPointerResult {
   controller: CourtStagePointerController;
   selectionOverlayRef: RefObject<SelectionOverlayHandle | null>;
   activeZone: DragZone | null;
-  /** 이번 포인터 세션에 2존 모드가 걸렸는가 = `handlesVisible()` 의 반환값 그대로.
-   *  5.5 이전에는 이 값을 **아무도 읽지 않았다**(반환값 소비처 0). 지금은 이 값이
-   *  `applyTwoZone` 을 통해 실제 드래그 존을 정하고, 여기 노출된 값은 그 사실을 화면 쪽에서
-   *  다시 볼 수 있게 남긴다. */
+  /** 이번 포인터 세션에 차체가 '평행 이동' 한 존으로 접혔는가 = `!dragRotate` 그대로.
+   *  이 값이 `applyTwoZone` 을 통해 실제 드래그 존을 정하고, 여기 노출된 값은 그 사실을
+   *  화면 쪽에서 다시 볼 수 있게 남긴다. */
   twoZoneEngaged: boolean;
   /** 차체 위 존 음영·마우스 커서(ChairChip)가 쓸 경계표. **드래그 판정과 같은 스위치에서
    *  나온다** — 두 갈래로 두면 판이 "여기는 회전" 이라고 그려 놓고 잡으면 통째로 밀리는,
@@ -296,13 +300,10 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
    *  지난 드래그의 마지막 표본이 남아 있으면 다음 드래그 첫 프레임이 유령 '툭' 을 낸다. */
   const blockCueRef = useRef<BlockCueState>(initialBlockCue);
 
-  /** §9 결정 ④ · 5.5 — 그림 쪽 소비처. `handlesVisible()` 은 배율·포인터 종류를 보지 않으므로
-   *  (hitTest.ts 머리말) 포인터가 아직 판에 닿기 전인 렌더 시점에도 답이 확정된다 —
-   *  그래서 음영과 판정이 어긋날 틈이 없다. */
-  const zoneCursors = useMemo(
-    () => twoZoneViewConfig(opts.zones, computeHandlesVisible(metricsRef.current.pxPerUnit, metricsRef.current.pointerType, opts.forceHandlesVisible)),
-    [opts.zones, opts.forceHandlesVisible],
-  );
+  /** 그림 쪽 소비처. 스위치는 배율·포인터 종류를 보지 않으므로 포인터가 아직 판에 닿기 전인
+   *  렌더 시점에도 답이 확정된다 — 그래서 음영과 판정이 어긋날 틈이 없다. */
+  const bodyTranslateOnly = opts.dragRotate === false;
+  const zoneCursors = useMemo(() => twoZoneViewConfig(opts.zones, bodyTranslateOnly), [opts.zones, bodyTranslateOnly]);
 
   const buildScene = useCallback((): SceneSnapshot => {
     const ctx = ctxRef.current;
@@ -369,7 +370,9 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 있는데도 hitTest 가 zoneHandle 을 절대 돌려주지 않았다 — 특히 차체 밖 앞뒤 핸들은
       // 눌러도 빈 코트로 떨어져 선택만 해제됐다. 렌더가 "선택된 칩이면 표시" 이므로
       // 히트도 같은 조건을 쓴다.
-      handlesVisible: selectedChairId !== null,
+      // 2026-11-13 — 여기에 [보드 설정] '앞뒤 앵커 보이기' 가 겹친다. 그림(EditorStage →
+      // ZoneHandles)도 같은 스위치로 꺼지므로 "보이는 것만 잡힌다" 는 그대로다.
+      handlesVisible: selectedChairId !== null && ctx.anchors !== false,
       tool,
       // [D-4] 2차 패스 반경만 이 값을 쓴다. 1차 패스는 이 값과 무관하다.
       hitCssPx: ctx.largeTargets ? INTERACT.hitTargetLargeCssPx : INTERACT.hitTargetCssPx,
@@ -706,11 +709,11 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
 
       // select
       const additive = isAdditive(meta, ctx.gathering ?? false);
-      // §9 결정 ④ · 5.5 — **`handlesVisible()` 반환값의 첫 소비처**다. 켜져 있으면 차체 히트에
-      // zone:'translate' 를 입혀(applyTwoZone) 차체 전체가 한 덩어리로 움직이게 한다.
-      // ⚠️ 이 두 줄을 지우면 토글이 화면에만 남고 판 위에서는 아무 일도 일어나지 않는다 —
-      // 5.5 이전이 정확히 그 상태였다(계산만 되고 버려지던 죽은 배선).
-      const twoZone = computeHandlesVisible(metricsRef.current.pxPerUnit, meta.pointerType, ctx.forceHandlesVisible);
+      // [보드 설정] '끌어 회전하기' 가 꺼져 있으면 차체 히트에 zone:'translate' 를 입혀
+      // (applyTwoZone) 차체 전체가 한 덩어리로 움직이게 한다.
+      // ⚠️ 이 두 줄을 지우면 스위치가 화면(음영)에만 남고 판 위에서는 아무 일도 일어나지 않는다 —
+      // 5.5 이전의 2존 토글이 정확히 그 상태였다(계산만 되고 버려지던 죽은 배선).
+      const twoZone = ctx.dragRotate === false;
       setTwoZoneEngaged(twoZone);
       const raw = hitTest(world, buildScene(), buildHitContext('select'));
       const hit = raw === null ? null : applyTwoZone(raw, twoZone);

@@ -22,7 +22,7 @@ import { AppHeader, HeaderProvider } from '../../app/AppHeader.tsx';
 import { LiveRegion } from '../../ui/LiveRegion.tsx';
 import { ToastHost } from '../../ui/ToastHost.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
-import { makeDefaultPrefs, PREFS_KEY } from '../../storage/prefs.ts';
+import { makeDefaultPrefs, PREFS_KEY, type Preferences } from '../../storage/prefs.ts';
 import { BOARD_KEY, saveBoard } from '../../storage/board.ts';
 import { clearBoardSession } from './boardSession.ts';
 import { createDrill } from '../../model/defaults.ts';
@@ -81,14 +81,20 @@ function Wrapper({ children }: { children: ReactNode }) {
  *  (§6.1 규칙 1)를 화면 끝에서 세는 유일한 방법이다. */
 async function openBoard(
   court: 'full' | 'half' | 'flat' = 'full',
-  opts: { placed?: boolean; onRender?: ProfilerOnRenderCallback; onGo?: (...args: Parameters<AppHistoryApi['go']>) => void } = {},
+  opts: {
+    placed?: boolean;
+    onRender?: ProfilerOnRenderCallback;
+    onGo?: (...args: Parameters<AppHistoryApi['go']>) => void;
+    /** [보드 설정] 개체 이동 스위치(prefs.physics). 안 주면 앱 기본(셋 다 끔). */
+    physics?: Preferences['physics'];
+  } = {},
 ) {
   navGo = opts.onGo ?? (() => {});
   // 자유 전술판 튜토리얼이 자동 시작하면(§0.5, tutorialsSeen 미지정) 스포트라이트가 Esc·
   // 화살표·liveRegion 발표문을 가로채 아래 배선 테스트가 깨진다 — "이미 봤다" 로 시작한다.
   localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true } }),
+    JSON.stringify({ ...makeDefaultPrefs(), tutorialsSeen: { board: true }, physics: opts.physics ?? {} }),
   );
   // 코트는 스냅샷(부팅 ②)으로 심는다 — prefs.defaultCourtMode 는 2026-08-21 폐기됐고,
   // 새 판(부팅 ③)은 'full' 고정이라 half/flat 은 저장본으로만 전달할 수 있다.
@@ -288,10 +294,13 @@ describe('§4.3 P1-1 잡히면 칩이 판에서 뜬다', () => {
 });
 
 describe('선택 표시와 4개 드래그 존', () => {
+  // 차체가 두 구역으로 갈리는 것은 [보드 설정] '끌어 회전하기' 를 켰을 때다(2026-11-13 부터 기본 끔 —
+  // 끄면 한 구역, twoZoneMode.test.tsx 가 잰다).
+  const ROTATE = { dragRotate: true };
   it('휠체어를 고르면 선택 링 1개와 차체 두 구역이 그 칩에만 생긴다', async () => {
     // 코트에 9대가 있으므로 "선택된 것에만" 이 지켜지는지가 핵심이다 —
     // 전부에 붙으면 어느 칩이 조작 대상인지 흐려진다.
-    const { user, stage } = await openBoard('full', { placed: true });
+    const { user, stage } = await openBoard('full', { placed: true, physics: ROTATE });
     // 선택 전에는 선택 링·존 커서·핸들이 하나도 없다.
     expect(stage.querySelectorAll('.sel-ring')).toHaveLength(0);
     expect(stage.querySelectorAll('.court-obj rect.zone-cursor')).toHaveLength(0);
@@ -323,11 +332,26 @@ describe('선택 표시와 4개 드래그 존', () => {
     expect(alphaOf(rear!), '그대로 이동 구역이 더 진해야 한다').toBeGreaterThan(alphaOf(front!));
   });
 
+  // [보드 설정] '앞뒤 앵커 보이기'(2026-11-13, 기본 끔). 그림과 히트가 같은 스위치다 — 히트 쪽은
+  // twoZoneMode.test.tsx 가 잰다. 견인 이름(<title>)은 앵커에만 있다(차체 위 음영에는 견인 구역이 없다).
+  it.each([
+    ['끔(기본)', {}, 0],
+    ['켬', { anchors: true }, 2],
+  ] as const)('앞뒤 앵커 %s — 고른 칩에 그 수만큼 뜬다', async (_label, physics, n) => {
+    const { user, stage } = await openBoard('full', { placed: true, physics });
+    const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
+    chair.focus();
+    await user.keyboard('{Enter}');
+    expect(stage.querySelectorAll('.sel-ring')).toHaveLength(1);
+    const tows = Array.from(stage.querySelectorAll('title')).filter((el) => /견인/.test(el.textContent ?? ''));
+    expect(tows).toHaveLength(n);
+  });
+
   it('존 커서 레이어가 차체의 마지막 자식이라 등번호·머리 위에서도 커서가 바뀐다', async () => {
     // 회귀: 예전에는 음영 사각형이 커서까지 맡았는데 그 위에 등번호·머리·포커스 링이 얹혀,
     // 정작 눈이 가는 한가운데에서 커서가 기본 화살표로 돌아갔다. SVG 는 뒤에 온 형제가
     // 위에 그려지므로 커서 레이어는 마지막이어야 한다.
-    const { user, stage } = await openBoard('full', { placed: true });
+    const { user, stage } = await openBoard('full', { placed: true, physics: ROTATE });
     const chair = stage.querySelectorAll('.court-obj')[0] as SVGGElement;
     chair.focus();
     await user.keyboard('{Enter}');
@@ -718,11 +742,13 @@ describe('코트 비우기 — 덩어리가 크므로 확인을 받고, 되돌�
     await waitFor(() => expect(screen.getAllByRole('button', { name: /선수 배치$/ }).length).toBe(8));
   });
 
-  it('비우면 코트 전환 잠금이 풀린다', async () => {
+  // 2026-11-13 기현님 지시 — 비운 뒤 [보드 설정]이 **다시 뜬다**. 비우기는 대개 코트 형태·크기를
+  // 바꾸려는 것이고 그 손잡이가 이 모달에 있다. 다시 누르지 않고 곧장 잠금이 풀린 형태 고르기를 본다.
+  it('비우면 [보드 설정]이 다시 뜨고 코트 전환 잠금이 풀려 있다', async () => {
     const { user } = await openAndClickClear();
     await user.click(screen.getByRole('button', { name: '비우기' }));
-    await user.click(screen.getByRole('button', { name: '보드 설정' }));
-    expect(await screen.findByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument();
+    const court = await screen.findByRole('dialog', { name: '보드 설정' });
+    expect(within(court).getByRole('radiogroup', { name: '코트 형태' })).toBeInTheDocument();
   });
 
   // ★ 2026-08-28 기현님 지적: *"비우기가 왜 되돌리기를 안 되게 했어? 기술적으로 안 되는 거야?"*

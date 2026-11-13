@@ -96,7 +96,6 @@ function useHarness(tool: ToolId, toasts: string[], erased: string[], locked?: R
     // 2026-09-03 — 지우기 도구가 잠긴 개체를 만났을 때를 재려고 열었다. 기본은 undefined 라
     // 기존 it 들의 문맥은 한 글자도 안 바뀐다(잠금은 꺼짐이 기본이다).
     locked,
-    forceHandlesVisible: false,
     largeTargets: false,
   });
   // `dispatch` 를 함께 내보낸다(2026-09-03). 이 하네스는 도구를 **인자로** 받아 훅에 꽂으므로

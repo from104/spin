@@ -70,7 +70,6 @@ function useHarness() {
     pendingPlayerId: null,
     onPlayerPlaced: () => {},
     showToast: () => {},
-    forceHandlesVisible: false,
     largeTargets: false,
   });
   return { state, pointer, worldRef };

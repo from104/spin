@@ -9,6 +9,16 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Added
 
 - Dashed goal-area encroachment line (1m mark) during corner kicks — the line and the area in front of it turn red when a defender crosses it
+- Three object-movement switches in [Board settings] — physics & interaction, drag to rotate wheelchairs, show front/back anchors (all off by default)
+
+### Changed
+
+- Wheelchairs now move as a whole wherever you grab them and no longer push other objects by default — turn on rotating, towing and pushing in [Board settings]
+- [Board settings] opens again after clearing the court
+
+### Removed
+
+- [Two-zone mode] under Settings > [Accessibility] — split into the two switches in [Board settings] (devices that had it on keep the front/back anchors turned on)
 
 ### Fixed
 

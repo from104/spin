@@ -74,7 +74,6 @@ function useHarness(tool: ToolId, largeTargets: boolean) {
     pendingPlayerId: null,
     onPlayerPlaced: () => {},
     showToast: () => {},
-    forceHandlesVisible: false,
     largeTargets,
   });
   return { state, pointer };

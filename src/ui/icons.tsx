@@ -580,6 +580,40 @@ export function IconSpeed({ size = 18, ...rest }: IconProps) {
   );
 }
 
+/** [보드 설정] 물리·상호작용 — 맞닿은 두 원과 부딪힘 표시. 개체끼리 밀고 튕기는가. */
+export function IconCollide({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <circle cx="7.5" cy="14" r="4.5" />
+      <circle cx="16.5" cy="14" r="4.5" />
+      <path d="M12 3.5v3M8.5 5l1.2 2M15.5 5l-1.2 2" />
+    </svg>
+  );
+}
+
+/** [보드 설정] 끌어 회전하기 — 차체(사각형) 둘레를 도는 화살표. */
+export function IconDragRotate({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="9" y="9.5" width="6" height="5" rx="1" />
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+      <path d="M17.6 3v3.9h-3.9" />
+    </svg>
+  );
+}
+
+/** [보드 설정] 앞뒤 앵커 — 차체 앞뒤로 뻗은 손잡이 둘(ZoneHandles 의 견인 가이드 모양). */
+export function IconAnchors({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <rect x="8" y="9.5" width="8" height="5" rx="1" />
+      <path d="M8 12H5.5M16 12h2.5" />
+      <circle cx="3.5" cy="12" r="2" />
+      <circle cx="20.5" cy="12" r="2" />
+    </svg>
+  );
+}
+
 /** 보기(격자·골 지역 가이드·도움말) — 눈. 판을 **바꾸지 않고 보는 방식만** 바꾸는 것들이다. */
 export function IconEye({ size = 18, ...rest }: IconProps) {
   return (
