@@ -24,12 +24,15 @@
 // 마우스(`pointer` 능력)는 page.mouse. 터치(`touch` 능력)는 CDP `Input.dispatchTouchEvent` 로 보낸다 —
 // 그래야 앱이 받는 포인터가 `pointerType: 'touch'` 다(page.mouse 는 터치 기기 에뮬레이션에서도 마우스다).
 // WebKit 에는 CDP 가 없어 touch 능력은 chromium-mobile 만 갖는다.
+import { readFile } from 'node:fs/promises';
+
 import { test, type BrowserContext, type CDPSession, type Locator, type Page } from '@playwright/test';
 
 import type {
   Capability,
   CourtObject,
   CourtPoint,
+  DownloadedFile,
   ModalLog,
   AnchorProbe,
   PrerenderedPage,
@@ -636,6 +639,49 @@ export class PlaywrightApp implements SpinApp {
 
   async checkNoticeOptOut(): Promise<void> {
     await this.activate(this.page.locator('[data-testid="small-screen-notice"] input[type="checkbox"]'));
+  }
+
+  async download(trigger: () => Promise<void>): Promise<DownloadedFile> {
+    // Chromium 에는 저장 대화 상자(File System Access `showSaveFilePicker`)가 있고 앱은 그 길을 먼저 탄다
+    // (src/storage/files.ts `downloadBlob`). 헤드리스에는 그 대화 상자를 띄울 OS 창이 없어 호출이 영영 안 돌아온다.
+    // 그래서 **대화 상자 함수 하나만** 바꿔 끼워 "사람이 자리를 고르고 [저장] 을 눌렀다" 를 흉내 낸다 — 앱의 저장 코드
+    // (createWritable → write → close)는 그대로 돌고, 쓰인 바이트를 그 자리에서 거둔다. 대화 상자가 없는 엔진
+    // (WebKit)은 앱이 앵커 내려받기로 가므로 브라우저의 download 사건을 받는다.
+    const viaPicker = await this.page.evaluate(() => {
+      const w = window as unknown as { showSaveFilePicker?: unknown; __e2eSaved?: { name: string; b64: string } };
+      if (typeof w.showSaveFilePicker !== 'function') return false;
+      w.__e2eSaved = undefined;
+      w.showSaveFilePicker = async (opts?: { suggestedName?: string }) => ({
+        createWritable: async () => {
+          const parts: BlobPart[] = [];
+          return {
+            write: async (data: BlobPart) => void parts.push(data),
+            close: async () => {
+              const bytes = new Uint8Array(await new Blob(parts).arrayBuffer());
+              let bin = '';
+              for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+              w.__e2eSaved = { name: opts?.suggestedName ?? '', b64: btoa(bin) };
+            },
+          };
+        },
+      });
+      return true;
+    });
+    if (viaPicker) {
+      await trigger();
+      const saved = await this.page.waitForFunction(
+        () => (window as unknown as { __e2eSaved?: { name: string; b64: string } }).__e2eSaved,
+        null,
+        { timeout: 15_000 },
+      );
+      const { name, b64 } = (await saved.jsonValue()) as { name: string; b64: string };
+      return { name, bytes: new Uint8Array(Buffer.from(b64, 'base64')) };
+    }
+    // 기다림을 먼저 건다 — 누른 뒤에 걸면 빨리 끝난 내려받기를 놓친다. 상한은 굽기(2048px 캔버스)를 넉넉히 덮는다
+    const [file] = await Promise.all([this.page.waitForEvent('download', { timeout: 15_000 }), trigger()]);
+    const failure = await file.failure();
+    if (failure) throw new Error(`내려받기 실패: ${failure}`);
+    return { name: file.suggestedFilename(), bytes: new Uint8Array(await readFile(await file.path())) };
   }
 
   step<T>(title: string, body: () => Promise<T>): Promise<T> {

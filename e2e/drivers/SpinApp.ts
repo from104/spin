@@ -81,6 +81,12 @@ export interface PrerenderedPage {
   textChars: number;
 }
 
+/** 앱이 내려보낸 파일(S12) — 브라우저가 붙인 이름과 내용 */
+export interface DownloadedFile {
+  name: string;
+  bytes: Uint8Array;
+}
+
 /** `data-tut` 닻 하나의 화면 상태(S9) — 번역되지 않는, 기존 투어 닻이다 */
 export interface AnchorProbe {
   /** 그 닻을 가진 요소 수 */
@@ -215,6 +221,8 @@ export interface SpinApp {
   press(testId: string): Promise<void>;
   /** 작은 화면 안내에서 [다시 보지 않기] 를 켠다 */
   checkNoticeOptOut(): Promise<void>;
+  /** trigger(앱 조작)가 내려보낸 파일 하나를 받아 이름과 바이트를 돌려준다 — 안 내려오면 오류 (needs: download) */
+  download(trigger: () => Promise<void>): Promise<DownloadedFile>;
 
   /** 보고서에 단계로 남긴다 — Playwright 는 test.step, 다른 드라이버는 그냥 실행 */
   step<T>(title: string, body: () => Promise<T>): Promise<T>;

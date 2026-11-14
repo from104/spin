@@ -68,7 +68,7 @@ scripts/test-suite.sh         층 실행기,  scripts/test-summary.mjs  요약 �
 | S9 | layout | 좁은 창 900×600·1099/1100·800×1280 — 닻이 뷰포트 안·가려지지 않음·가로 스크롤 없음 | 전부 |
 | S10 | library | 시드 서랍과 지운 시드가 되살아나지 않음 | 전부 |
 | S11 | nudge | 더블탭 미세 조정 패드·한 번 = 한 칸·메모는 글 열기 | 전부 |
-| S12 | — | PNG 내보내기 — **아직 없음**(다른 담당) | — |
+| S12 | export | PNG 내보내기 — 내려온 파일을 Node 에서 직접 풀어(`e2e/support/png.ts`) 서명·긴 변 2048·불투명·한 색 아님, 휠체어 놓기 전후 차이가 놓은 쪽에 한 덩이 | CD WK |
 | S13 | language | en·ja 화면에 한글이 없다(S13c 전술판은 known-bug), `/en/` 이 저장 언어를 이김 | CD WK (S13b 는 전부) |
 | S14 | zoom | 휠 줌이 커서 밑 점을 붙들고 줌·팬 뒤 놓기가 손끝 아래 | CD WK |
 | S15 | court.modal | [진영 바꾸기] 가 놓는 방향을 따른다 | CD WK |
