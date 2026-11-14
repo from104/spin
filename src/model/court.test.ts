@@ -49,9 +49,9 @@ describe('COURT_DEFS', () => {
       { x: 700, y: 262.5 },
     ]);
     expect(d.grid).toEqual({ cols: 6, rows: 5, cellW: 125, cellH: 90, origin: { x: 37.5, y: 37.5 } });
-    // 골대는 좌우에 있지만 처음 놓을 때는 세로로 세운다(기현 지시 2026-08-11).
-    expect(d.homeHeadingDeg).toBe(90);
-    expect(d.awayHeadingDeg).toBe(270);
+    // 골대가 좌우에 있으니 처음 놓을 때 진영을 따라 가로로 본다(기현 지시 2026-11-15).
+    expect(d.homeHeadingDeg).toBe(0);
+    expect(d.awayHeadingDeg).toBe(180);
     // 검증: 750/30 = 450/18 = 25 px/m, 골 폭 150 px = 6 m, 골 지역 125×200 px = 5×8 m
     expect(d.surface.w / 30).toBe(25);
     expect(d.surface.h / 18).toBe(25);
@@ -60,14 +60,26 @@ describe('COURT_DEFS', () => {
     expect(d.ruleZones[0].h).toBe(200);
   });
 
-  it('세 코트 모두 처음에는 세로로 세운다 — 코트를 바꿔도 서 있는 모습이 같다', () => {
-    // 풀 코트만 공격 축(좌우)을 따라 0°/180° 였는데, 판을 짤 때 필요한 것은 "지금 어디를
-    // 보고 있는가" 가 아니라 "누가 어디에 있는가" 다(기현 지시 2026-08-11). 방향은 그
-    // 다음에 돌려 잡는다. 하나만 다르면 코트를 바꿀 때마다 말이 통째로 눕는다.
-    for (const d of Object.values(COURT_DEFS)) {
-      expect(d.homeHeadingDeg, d.mode).toBe(90);
-      expect(d.awayHeadingDeg, d.mode).toBe(270);
-      // 두 팀은 여전히 마주 본다 — 같으면 어느 쪽이 우리 편인지 한눈에 안 보인다.
+  // ⚠️ 2026-11-15 — 옛 계약은 *"세 코트 모두 처음에는 세로로 세운다(90°/270°) — 코트를 바꿔도
+  //   서 있는 모습이 같다"* 였다(기현 지시 2026-08-11). 풀 코트에서 아래는 상대 골대가 아니라
+  //   측면 라인이라, 같은 숫자가 다른 뜻이 됐다 — 놓을 때마다 말을 돌려야 했다. 이제 지킬 것은
+  //   **골대가 있는 코트에서 홈이 상대 골대를 본다**는 것이다.
+  it('처음 놓을 때 홈은 상대 골대를, 원정은 홈 골대를 본다 — 진영을 따라 앞뒤로', () => {
+    // 0° = 오른쪽, 90° = 아래(seedDrills.ts 머리말). 방향 벡터를 골대 중점 쪽과 맞대 본다.
+    const facing = (deg: number) => ({ x: Math.cos((deg * Math.PI) / 180), y: Math.sin((deg * Math.PI) / 180) });
+    for (const d of [COURT_DEFS.full, COURT_DEFS.half]) {
+      // 홈의 상대 골대: 풀은 오른쪽 골대(홈 GK 는 왼쪽 x=75 — FULL_POSITIONS), 하프는 하나뿐인
+      // 골대(원정 GK 가 지킨다 — HALF_POSITIONS).
+      const posts = d.mode === 'full' ? d.goalPosts.filter((p) => p.x > d.vbW / 2) : d.goalPosts;
+      expect(posts, d.mode).toHaveLength(2);
+      const goal = { x: (posts[0]!.x + posts[1]!.x) / 2, y: (posts[0]!.y + posts[1]!.y) / 2 };
+      const mid = { x: d.vbW / 2, y: d.vbH / 2 };
+      const toGoal = { x: goal.x - mid.x, y: goal.y - mid.y };
+      const home = facing(d.homeHeadingDeg);
+      expect(home.x * toGoal.x + home.y * toGoal.y, `${d.mode} 홈이 상대 골대를 안 본다`).toBeGreaterThan(0);
+      // 측면을 보는 것도 아니다 — 골대 쪽 성분이 전부다.
+      expect(Math.abs(home.x * toGoal.y - home.y * toGoal.x), d.mode).toBeLessThan(1e-9);
+      // 두 팀은 마주 본다 — 같으면 어느 쪽이 우리 편인지 한눈에 안 보인다.
       expect(Math.abs(d.homeHeadingDeg - d.awayHeadingDeg), d.mode).toBe(180);
     }
   });
@@ -334,10 +346,10 @@ describe('§5.1 코트 크기 3단', () => {
     expect(FULL_COURT_DEFS['30x18'].grid.cellW).not.toBe(FULL_COURT_DEFS['25x14'].grid.cellW);
   });
 
-  it('세 단 모두 헤딩은 90/270 — 크기를 바꿔도 서 있는 모습이 같다', () => {
+  it('세 단 모두 헤딩은 0/180 — 크기를 바꿔도 서 있는 모습이 같다', () => {
     for (const size of COURT_SIZES) {
-      expect(FULL_COURT_DEFS[size].homeHeadingDeg, size).toBe(90);
-      expect(FULL_COURT_DEFS[size].awayHeadingDeg, size).toBe(270);
+      expect(FULL_COURT_DEFS[size].homeHeadingDeg, size).toBe(0);
+      expect(FULL_COURT_DEFS[size].awayHeadingDeg, size).toBe(180);
       expect(FULL_COURT_DEFS[size].mode, size).toBe('full');
     }
   });
