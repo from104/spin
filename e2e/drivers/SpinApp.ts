@@ -64,6 +64,33 @@ export interface ModalLog {
   overlaps: string[];
   /** 로더가 덮고 있는 동안(aria-busy) 처음 선 대화 상자 */
   underLoader: string[];
+  /** 부팅·레일 로더 덮개(`.spin-loader`)가 한 순간이라도 DOM 에 섰는가 — 프리렌더 착지는 안 서야 한다(S2) */
+  loaderSeen: boolean;
+}
+
+/** JS 를 돌리기 전의 프리렌더 정적 HTML 에서 읽은 것(S2) */
+export interface PrerenderedPage {
+  status: number;
+  /** `<html lang>` */
+  lang: string;
+  /** `#root` 안 프리렌더 블록의 종류 표식(`data-seo-page`) — 블록이 없으면 null */
+  seoPage: string | null;
+  /** 프리렌더 블록의 첫 `<h1>` 글 */
+  h1: string;
+  /** 프리렌더 블록의 글자 수(태그 제외) */
+  textChars: number;
+}
+
+/** `data-tut` 닻 하나의 화면 상태(S9) — 번역되지 않는, 기존 투어 닻이다 */
+export interface AnchorProbe {
+  /** 그 닻을 가진 요소 수 */
+  count: number;
+  /** 첫 요소의 화면 상자 */
+  rect: { left: number; top: number; right: number; bottom: number; width: number; height: number };
+  /** 상자가 뷰포트 안에 통째로 있다 */
+  inViewport: boolean;
+  /** 상자 가운데에서 맨 위 요소가 이 요소(또는 그 자손)다 — 다른 것에 가려져 누를 수 없지 않다 */
+  onTop: boolean;
 }
 
 /**
@@ -159,6 +186,18 @@ export interface SpinApp {
   openStepList(): Promise<void>;
   /** data-testid 요소의 화면 중심(가려졌든 아니든). 없으면 null */
   centerOf(testId: string): Promise<ScreenPoint | null>;
+  /** `<html lang>` — 언어 접두 주소·설정이 문서 언어에 닿았는가 */
+  htmlLang(): Promise<string>;
+  /** `#root` 의 보이는 글(innerText) */
+  rootText(): Promise<string>;
+  /** 프리렌더 주소의 **JS 이전** 원문 — 페이지를 열지 않고 HTML 을 받아 읽는다 (needs: prerender) */
+  prerendered(route: string): Promise<PrerenderedPage>;
+  /** `data-tut` 닻의 화면 상태. 없으면 null */
+  anchor(name: string): Promise<AnchorProbe | null>;
+  /** `data-tut` 닻을 가진 요소(첫 것)를 누른다 */
+  pressAnchor(name: string): Promise<void>;
+  /** 가로로 넘치는 픽셀 — 문서가 뷰포트보다 얼마나 넓은가(0 이하면 가로 스크롤 없음) */
+  horizontalOverflow(): Promise<number>;
   /** 이 문서가 열린 뒤의 대화 상자 기록 */
   modalLog(): Promise<ModalLog>;
   /** 대화 상자 안의 data-testid 단추를 누른다 */

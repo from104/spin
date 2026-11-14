@@ -31,6 +31,8 @@ import type {
   CourtObject,
   CourtPoint,
   ModalLog,
+  AnchorProbe,
+  PrerenderedPage,
   PlaceOptions,
   PointerTarget,
   ScreenKey,
@@ -64,7 +66,7 @@ function withE2E(route: string): string {
  * 화면에 그려지지도 않으므로 "어느 순간에도" 의 뜻에 맞는다. 직렬화되어 들어가므로 바깥 변수를 쓰지 않는다.
  */
 export function installModalWatch(): void {
-  const log = { max: 0, order: [] as string[], overlaps: [] as string[], underLoader: [] as string[] };
+  const log = { max: 0, order: [] as string[], overlaps: [] as string[], underLoader: [] as string[], loaderSeen: false };
   (window as unknown as { __e2eModals: typeof log }).__e2eModals = log;
   const scan = () => {
     const dialogs = Array.from(document.querySelectorAll('[aria-modal="true"]'));
@@ -75,6 +77,7 @@ export function installModalWatch(): void {
       if (!log.overlaps.includes(key)) log.overlaps.push(key);
     }
     const busy = !!document.querySelector('[aria-busy="true"]');
+    if (document.querySelector('.spin-loader')) log.loaderSeen = true;
     for (const id of ids) {
       if (log.order.includes(id)) continue;
       log.order.push(id);
@@ -85,7 +88,7 @@ export function installModalWatch(): void {
     subtree: true,
     childList: true,
     attributes: true,
-    attributeFilter: ['aria-modal', 'aria-busy'],
+    attributeFilter: ['aria-modal', 'aria-busy', 'class'],
   });
 }
 
@@ -521,6 +524,49 @@ export class PlaywrightApp implements SpinApp {
 
   async present(testId: string): Promise<boolean> {
     return (await this.page.locator(`[data-testid="${testId}"]`).count()) > 0;
+  }
+
+  async htmlLang(): Promise<string> {
+    return this.page.evaluate(() => document.documentElement.lang);
+  }
+
+  async rootText(): Promise<string> {
+    return this.page.evaluate(() => document.getElementById('root')?.innerText ?? '');
+  }
+
+  async prerendered(route: string): Promise<PrerenderedPage> {
+    const res = await this.context.request.get(route);
+    const html = await res.text();
+    const lang = /<html[^>]*\blang="([^"]*)"/.exec(html)?.[1] ?? '';
+    const block = /<div class="seo-prerender"([^>]*)>([\s\S]*?)<\/div><\/div>/.exec(html);
+    const seoPage = block ? (/data-seo-page="([^"]*)"/.exec(block[1]!)?.[1] ?? null) : null;
+    const inner = block?.[2] ?? '';
+    const h1 = (/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(inner)?.[1] ?? '').replace(/<[^>]*>/g, '').trim();
+    return { status: res.status(), lang, seoPage, h1, textChars: inner.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().length };
+  }
+
+  async anchor(name: string): Promise<AnchorProbe | null> {
+    return this.page.evaluate((anchor) => {
+      const all = document.querySelectorAll(`[data-tut="${anchor}"]`);
+      const el = all[0];
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return {
+        count: all.length,
+        rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height },
+        inViewport: r.width > 0 && r.height > 0 && r.left >= 0 && r.top >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight,
+        onTop: !!top && el.contains(top),
+      };
+    }, name);
+  }
+
+  async pressAnchor(name: string): Promise<void> {
+    await this.activate(this.page.locator(`[data-tut="${name}"]`).first());
+  }
+
+  async horizontalOverflow(): Promise<number> {
+    return this.page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
   }
 
   async modalLog(): Promise<ModalLog> {
