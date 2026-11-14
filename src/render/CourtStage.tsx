@@ -906,6 +906,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   return (
     <svg
       ref={svgRef}
+      data-testid="court-stage"
+      data-rot={rot}
       viewBox={rot === 90 ? `0 0 ${view.h} ${view.w}` : `${view.x} ${view.y} ${view.w} ${view.h}`}
       preserveAspectRatio="xMidYMid meet"
       role="application"
@@ -940,8 +942,21 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           시계방향 90°: 월드 (x,y) → 상자 (view.y+view.h−y, x−view.x). viewBox 가 이미
           상자 원점이라 view 오프셋을 여기서 함께 상쇄한다. */}
       <StageRotProvider rot={rot}>
-      <g transform={rot === 90 ? `translate(${view.y + view.h} ${-view.x}) rotate(90)` : undefined}>
+      <g data-testid="court-world" transform={rot === 90 ? `translate(${view.y + view.h} ${-view.x}) rotate(90)` : undefined}>
         <rect width={def.vbW} height={def.vbH} rx={COURT_SURFACE_RX} fill={COURT_BG} />
+        {/* 시험 닻(docs/PLAN-TEST-SUITE.md §4) — 경기면 사각형. 그리지도 잡히지도 않는다(fill 없음·포인터
+            무시). 라인 컴포넌트는 코트 형태마다 도형이 달라(풀=rect, 하프=path, 플랫=선 없음) 거기에
+            달 수 없고, 내보내기 SVG 와 도형 집합을 맞대는 계약(courtLines.contract)도 건드리지 않는다.
+            시험은 이 상자의 0..1 비율로 코트 점을 말한다 — 앱 상수(PX_PER_M·여백)를 베끼지 않으려고. */}
+        <rect
+          data-testid="court-field"
+          x={def.surface.x}
+          y={def.surface.y}
+          width={def.surface.w}
+          height={def.surface.h}
+          fill="none"
+          pointerEvents="none"
+        />
         <CourtSurface mode={mode} size={size} variant={variant} />
         {showGrid && <GridOverlay mode={mode} size={size} showLabels={showGridLabels} />}
         <RuleZones mode={mode} size={size} visible={showRuleZones} />

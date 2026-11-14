@@ -74,6 +74,7 @@ export function FirstRunOnboarding({ open, onClose }: FirstRunOnboardingProps) {
       open={open}
       onClose={onClose}
       titleId={TITLE_ID}
+      testId="onboarding"
       title={t(STEPS[page]!.title)}
       descriptionId={BODY_ID}
       closeLabel={t('common.close')}
@@ -128,6 +129,7 @@ export function FirstRunOnboarding({ open, onClose }: FirstRunOnboardingProps) {
         )}
         <button
           type="button"
+          data-testid="onboarding-next"
           onClick={() => (last ? onClose() : setPage((p) => p + 1))}
           style={{
             minHeight: 'var(--hit)',

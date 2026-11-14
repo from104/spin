@@ -691,7 +691,8 @@ export function AppShell() {
                   를 effect 의존성에 두어 이어받는다). */}
               <TutorialGateProvider ready={coverSettled && noticeDecided && !noticeOpen && welcomeDecided && !welcomeOpen}>
                 <SkipLink label={t('a11y.skipToContent')} />
-                <div style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
+                {/* 시험 닻(docs/PLAN-TEST-SUITE.md §4) — 화면 키는 번역되지 않는 유일한 "지금 어느 화면인가" 다 */}
+                <div data-testid="app-shell" data-screen={nav.screen} style={{ height: '100%', display: 'flex', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
                   {!portrait && <AppRail active={activeRail} />}
                   {/* ⚠️ 결정 2·3 — 로더가 덮는 것은 **이 열**(헤더 + 본문)이고 레일은 덮지 않는다.
                       새 래퍼를 끼우는 대신 이 노드에 position:'relative' 만 더한다(파일 머리말의

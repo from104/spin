@@ -66,6 +66,7 @@ export function SmallScreenNotice({ open, onClose }: SmallScreenNoticeProps) {
       open={open}
       onClose={close}
       titleId={TITLE_ID}
+      testId="small-screen-notice"
       title={t('app.smallScreen.title')}
       descriptionId={BODY_ID}
       closeLabel={t('common.close')}

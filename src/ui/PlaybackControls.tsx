@@ -80,6 +80,7 @@ export function PlaybackControls({
       </button>
       <button
         type="button"
+        data-testid="play-toggle"
         aria-label={playing ? t('playback.pause') : t('playback.play')}
         disabled={!canPlay}
         onClick={onTogglePlay}

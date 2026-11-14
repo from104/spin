@@ -10,7 +10,14 @@
 // 그 이유를 보고서에 남긴다(e2e/web/run.ts).
 //
 // 구조(인터페이스 + Capability + `step`)는 QCalc `feature/e2e-suite` 의 CalcApp 에서 계승했다.
+import type { E2EObject } from '../../src/app/e2e/bridgeContract.ts';
 import type { SeedState } from '../fixtures/seed.ts';
+
+/** 다리가 내는 개체 하나(모델 자세) — 정의는 앱의 bridgeContract.ts 한 곳이다 */
+export type CourtObject = E2EObject;
+
+/** 화면 키 — app-shell 의 data-screen (src/app/screens.ts 의 Screen) */
+export type ScreenKey = 'board' | 'drills' | 'sessions' | 'team' | 'present' | 'rules' | 'settings';
 
 /**
  * 드라이버 능력
@@ -39,6 +46,10 @@ export interface SpinApp {
 
   /** 지금 주소의 경로(`location.pathname`) */
   path(): Promise<string>;
+  /** 지금 화면 키 — `app-shell[data-screen]`. 번역되지 않는 유일한 "어느 화면인가" */
+  screen(): Promise<ScreenKey>;
+  /** 판 위 휠체어·공·콘의 **모델** 자세(시험 다리 `window.__spinE2E`). 편집기가 안 떠 있으면 오류 */
+  objects(): Promise<CourtObject[]>;
   /** 문서가 열린 뒤 쌓인 콘솔 오류·잡히지 않은 예외(한 줄씩) */
   errors(): Promise<string[]>;
   /** 외부(127.0.0.1 밖)로 나가려다 끊긴 요청 주소 — 앱이 몰래 바깥을 부르면 여기 남는다 (needs: netMock) */

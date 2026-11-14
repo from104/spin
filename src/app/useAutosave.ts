@@ -21,12 +21,18 @@ export interface AutosaveApi {
   conflict: boolean;
   /** 디바운스를 건너뛰고 즉시 저장을 시도한다. 이미 conflict 면 아무것도 하지 않는다. */
   flush(): Promise<void>;
+  /** 커밋한 편집이 아직 저장소에 안 들어갔다(디바운스·정착 억제 대기, 저장 중, 실패 뒤 재시도 대기).
+   *  `status` 만으로는 모른다 — 'saved' 는 **직전** 저장의 결과라 그 뒤의 편집이 대기 중이어도 그대로다.
+   *  읽는 곳은 시험 다리(app/e2e/installE2EBridge.ts)다: 새로고침 전에 "저장됐다" 를 기다리는 근거. */
+  pending: boolean;
 }
 
 export function useAutosave(enabled: boolean = true): AutosaveApi {
   const state = useEditorState();
   const dispatch = useEditorDispatch();
   const [status, setStatus] = useState<AutosaveStatus>('idle');
+  // 마지막으로 **저장에 성공한** present — 처음에는 연 그대로(저장소에서 읽어 온 것)다. pending 판정용.
+  const [savedPresent, setSavedPresent] = useState(state.present);
 
   // flush 시점에 항상 최신 상태를 읽는다 — 디바운스 타이머가 걸린 뒤 여러 번 더 편집돼도
   // 마지막 상태 하나만 저장한다(중간 스냅샷을 저장할 이유가 없다).
@@ -60,6 +66,7 @@ export function useAutosave(enabled: boolean = true): AutosaveApi {
       const { repo } = await resolveDrillRepo();
       const saved = await repo.putDrill(s.present, { expectedUpdatedAt: s.baselineUpdatedAt });
       dispatch({ type: 'SAVED', at: saved.updatedAt });
+      setSavedPresent(s.present);
       setStatus('saved');
     } catch (e) {
       if (e instanceof StorageError && e.code === 'E_CONFLICT') {
@@ -132,5 +139,6 @@ export function useAutosave(enabled: boolean = true): AutosaveApi {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { status, conflict: status === 'conflict', flush };
+  const pending = enabled && (status === 'saving' || state.present !== savedPresent);
+  return { status, conflict: status === 'conflict', flush, pending };
 }

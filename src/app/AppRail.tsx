@@ -204,6 +204,7 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
       {/* [도움말] — §0.5 Phase 5(계획서 §A) "테마 토글 위에 [도움말] 버튼". */}
       <button
         type="button"
+        data-testid="help-open"
         aria-label={t('help.center.title')}
         title={t('help.center.title')}
         onClick={showHelp}

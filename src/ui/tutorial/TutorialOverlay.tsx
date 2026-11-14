@@ -212,7 +212,7 @@ export function TutorialOverlay({ step, stepIndex, totalSteps, onNext, onPrev, o
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={t('tutorial.dialogAriaLabel')} style={{ position: 'fixed', inset: 0, zIndex: 300 }}>
+    <div role="dialog" aria-modal="true" aria-label={t('tutorial.dialogAriaLabel')} data-testid="tutorial-overlay" style={{ position: 'fixed', inset: 0, zIndex: 300 }}>
       {/* 어두운 덮개 4조각. onPointerDown 은 카드 배경 클릭과 같은 뜻(Modal.tsx 관례) — skip. */}
       <div onPointerDown={onSkip} style={{ ...BACKDROP, left: 0, top: 0, width: vw, height: Math.max(0, rect.y) }} />
       <div onPointerDown={onSkip} style={{ ...BACKDROP, left: 0, top: holeBottom, width: vw, height: Math.max(0, vh - holeBottom) }} />

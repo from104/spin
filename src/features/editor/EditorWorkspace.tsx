@@ -60,6 +60,8 @@ import { NOTE_DEFAULT_SIZE_PX } from '../../render/objects/noteChip.ts';
 import { useEditorKeyboard } from './useEditorKeyboard.ts';
 import { useStepPlayback } from './useStepPlayback.ts';
 import { usePhysicsRenderLoop } from './usePhysicsRenderLoop.ts';
+import { E2E_MODE } from '../../core/e2eMode.ts';
+import { E2EBridge } from '../../app/e2e/E2EBridge.tsx';
 
 /** 자유 전술판일 때만 내려오는 조작부. 판을 갈아끼우는 일(코트 전환·초기화)과 정식 드릴로의
  *  승격은 저장소를 만지므로 화면(screen-board) 책임이고, 여기서는 호출만 한다. */
@@ -644,7 +646,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
   const chairSlots: ChairSlot[] = drill.cast.chairs.map((c) => {
     const teamStyle = drill.teams[c.team];
     const color = c.color ?? (c.isGk ? teamStyle.gkColor : teamStyle.color);
-    return { id: c.id, number: c.number, name: c.name, color, ink: inkFor(color), placed: step.chairs[c.id] !== undefined };
+    return { id: c.id, number: c.number, name: c.name, color, ink: inkFor(color), placed: step.chairs[c.id] !== undefined, team: c.team };
   });
 
   // ⚠️ 2026-08-14 — §3 불변식 2·3 의 배선(`drillUses` · `setTrayDrawers`)이 여기서 **사라졌다.**
@@ -1063,6 +1065,10 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
           }}
         />
       )}
+      {/* `?e2e=1` 시험 다리(docs/PLAN-TEST-SUITE.md §3). 판정은 **여기 한 곳**이다 — 플래그가 없으면
+          다리 컴포넌트도, 그것이 동적으로 부르는 설치 모듈도 없다(E2EBridge.test.tsx 가 못박는다).
+          전술판은 자동저장이 꺼져 있어(useAutosave(!isBoard)) 다리가 localStorage 스냅샷을 대신 본다. */}
+      {E2E_MODE && <E2EBridge autosave={isBoard ? null : autosave} playing={playing} />}
     </main>
   );
 }

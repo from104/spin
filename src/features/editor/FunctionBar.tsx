@@ -124,10 +124,11 @@ const MODAL_ROW: CSSProperties = {
 };
 const MODAL_ACTION: CSSProperties = { ...MODAL_ROW, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' };
 
-function ModalToggle({ on, onClick, icon, text, hint }: { on: boolean; onClick(): void; icon: ReactNode; text: string; hint: string }) {
+function ModalToggle({ on, onClick, icon, text, hint, testId }: { on: boolean; onClick(): void; icon: ReactNode; text: string; hint: string; testId?: string }) {
   return (
     <button
       type="button"
+      data-testid={testId}
       aria-pressed={on}
       onClick={onClick}
       title={hint}
@@ -444,6 +445,7 @@ export function FunctionBar({
 
       {/* 못 되돌릴 때도 **사라지지 않고** disabled 다 — 사라지면 아래 칸 좌표가 통째로 움직인다. */}
       <BarItem
+        data-testid="fn-undo"
         label={t('editor.functionBar.undo.label')}
         name={t('editor.functionBar.undo.name')}
         title={t('editor.functionBar.undo.title')}
@@ -453,6 +455,7 @@ export function FunctionBar({
         <IconUndo size={18} />
       </BarItem>
       <BarItem
+        data-testid="fn-redo"
         label={t('editor.functionBar.redo.label')}
         name={t('editor.functionBar.redo.name')}
         title={t('editor.functionBar.redo.title')}
@@ -465,6 +468,7 @@ export function FunctionBar({
       <div aria-hidden style={DIVIDER} />
 
       <BarItem
+        data-testid="fn-court"
         label={t('editor.functionBar.court.label')}
         name={t('editor.functionBar.court.name')}
         title={t('editor.functionBar.court.titleTemplate', { label: def.label[locale], desc: def.desc[locale] })}
@@ -541,6 +545,7 @@ export function FunctionBar({
                 <button
                   key={m}
                   type="button"
+                  data-testid={`court-mode-${m}`}
                   role="radio"
                   ref={i === 0 ? firstCourtRef : undefined}
                   aria-checked={on}
@@ -667,6 +672,7 @@ export function FunctionBar({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
                 type="button"
+                data-testid="court-defense"
                 aria-label={t('editor.functionBar.courtModal.defenseAriaLabelTemplate', {
                   team: teams[defense].label,
                   goal: courtMode === 'half' ? t('editor.functionBar.courtModal.goalWord') : t('editor.functionBar.courtModal.leftGoalWord'),
@@ -710,6 +716,7 @@ export function FunctionBar({
           <div role="group" aria-label={t('editor.functionBar.courtModal.viewGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.viewGroupLabel')}</p>
             <ModalToggle
+              testId="court-toggle-grid"
               on={showGrid}
               onClick={onToggleGrid}
               icon={<IconGrid />}
@@ -717,6 +724,7 @@ export function FunctionBar({
               hint={t('editor.functionBar.viewDrawer.grid.title', { key: keyLabel('view.grid') })}
             />
             <ModalToggle
+              testId="court-toggle-rulezones"
               on={showRuleZones}
               onClick={onToggleRuleZones}
               icon={<IconRuleZone />}

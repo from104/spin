@@ -123,6 +123,24 @@ aria-label·보이는 문구는 번역되므로 선택자로 쓰지 않는다. �
 `play-toggle`, `nudge-pad`, `nudge-<dir>`, `onboarding`, `onboarding-next`, `small-screen-notice`, `tutorial-overlay`,
 `help-open`, `help-modal`, `lang-<code>`, `export-png`.
 
+> ⚠️ 2단계 구현 때 실제로 단 이름(위 목록과 다른 곳만):
+> - `step-add` 는 **새로 달지 않았다** — 맨 뒤 틈에 이미 `data-tut="editor-add-step"` 이 있고(2026-08-30 부터
+>   스텝을 늘리는 유일한 길), 그 안의 첫 버튼이 [+]다. "이미 있는 것을 먼저 쓴다" 를 따랐다.
+> - 트레이: 휠체어 칩 `tray-item-chair-<home|away>`(같은 팀 칩이 여럿이면 같은 이름 — 드라이버가 첫 칩을
+>   쓴다. 팀은 칩에 안 그리는 `ChairSlot.team` 으로만 실린다), 공 `tray-item-ball`, 콘 `tray-item-cone-<0|1>`,
+>   도구 `tray-item-<도구 id>`(`select`·`note`·`eraser`·`line`·`freehand`·`shape*`).
+> - `court-field` 는 기존 도형에 달 수 없었다(풀=rect, 하프=path, 플랫=선 없음). `CourtStage` 에
+>   `def.surface` 를 그리는 **보이지 않는 rect**(fill 없음·포인터 무시)를 하나 더했다. 라인 컴포넌트는
+>   내보내기 SVG 와 도형 집합을 맞대는 계약(`courtLines.contract.test.ts`)이 있어 건드리지 않았다.
+> - `nudge-<dir>` 의 dir: `up`·`down`·`left`·`right`·`rotateLeft`·`rotateRight`.
+> - `lang-<code>` 의 code 에 `auto` 가 하나 더 있다(LanguageModal 의 행 그대로).
+> - 다리 `window.__spinE2E` 의 모양은 `src/app/e2e/bridgeContract.ts`(앱·시험이 함께 읽는 타입 전용 파일)에
+>   있고 `surface: 'board'|'drill'` 이 더해졌다. `busy` 는 ① 정착 억제 창(`settleHoldUntil`) ② **그려진 자세
+>   (TransformWriter 마지막 프레임) ≠ 모델 자세** 로 판정한다 — 드래그·물리 체이스·트윈이 전부 ②의 모양이라
+>   물리 루프·트윈 핸들을 밖으로 꺼내는 API 를 새로 만들지 않았다. `autosave` 는 드릴이면 `useAutosave` 의
+>   새 `pending`, 전술판이면 localStorage 문자열과 `serializeBoard(present)`(board.ts 로 뽑아낸 직렬화 단일
+>   출처)를 견준다.
+
 ## 5. 시나리오 17개
 
 프로젝트 약자: **CD** chromium-desktop · **WK** webkit-desktop · **CM** chromium-mobile. 우선순위 P0 > P1 > P2.

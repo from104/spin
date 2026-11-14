@@ -29,12 +29,18 @@ export interface BoardSnapshot {
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
+/** 저장 문자열의 단일 출처. saveBoard 가 쓰고, 시험 다리(app/e2e/installE2EBridge.ts)가 "지금 판이
+ *  저장소에 들어갔나" 를 같은 문자열과 견주어 본다 — 직렬화가 두 벌이면 그 판정이 조용히 낡는다. */
+export function serializeBoard(drill: Drill): string {
+  const snap: BoardSnapshot = { schemaVersion: CURRENT_BOARD_SCHEMA, drill };
+  return JSON.stringify(snap);
+}
+
 /** prefs 와 같은 이유로 절대 throw 하지 않는다 — Safari 프라이빗 모드의 QuotaExceededError 가
  *  드래그 정착 콜백 안에서 터지면 에러 바운더리까지 올라가 판이 통째로 날아간다. */
 export function saveBoard(drill: Drill): boolean {
   try {
-    const snap: BoardSnapshot = { schemaVersion: CURRENT_BOARD_SCHEMA, drill };
-    localStorage.setItem(BOARD_KEY, JSON.stringify(snap));
+    localStorage.setItem(BOARD_KEY, serializeBoard(drill));
     return true;
   } catch {
     return false;

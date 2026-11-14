@@ -455,6 +455,7 @@ export function ExportSheet({ open, onClose, mode = 'drill', drill, stepIndex, c
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <SheetItem
+            testId="export-png"
             title={t('export.png.title')}
             desc={targetIndexes.length > 1 ? t('export.png.descZip', { n: targetIndexes.length }) : t('export.png.desc')}
             onClick={() => void exportPng()}
@@ -653,9 +654,9 @@ const ITEM_STYLE: CSSProperties = {
 const ITEM_TITLE: CSSProperties = { display: 'block', fontSize: '0.875rem', fontWeight: 700 };
 const ITEM_DESC: CSSProperties = { display: 'block', fontSize: '0.71875rem', color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 };
 
-function SheetItem({ title, desc, onClick }: { title: string; desc: ReactNode; onClick: () => void }) {
+function SheetItem({ title, desc, onClick, testId }: { title: string; desc: ReactNode; onClick: () => void; testId?: string }) {
   return (
-    <button type="button" onClick={onClick} style={ITEM_STYLE}>
+    <button type="button" onClick={onClick} style={ITEM_STYLE} data-testid={testId}>
       <span style={ITEM_TITLE}>{title}</span>
       <span style={ITEM_DESC}>{desc}</span>
     </button>

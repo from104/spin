@@ -313,7 +313,7 @@ export function HelpCenter({ open, onClose, initialSection, initialTopic, onRest
   const section: HelpSectionContent = content[active];
 
   return (
-    <CenterModal open={open} onClose={onClose} title={t('help.center.title')} closeLabel={t('common.close')} returnFocusRef={returnFocusRef}>
+    <CenterModal open={open} onClose={onClose} title={t('help.center.title')} closeLabel={t('common.close')} returnFocusRef={returnFocusRef} testId="help-modal">
       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
         <nav aria-label={t('help.center.navAriaLabel')} style={{ flex: '0 0 168px', display: 'flex', flexDirection: 'column', gap: 2, position: 'sticky', top: 0 }}>
           <input

@@ -788,6 +788,7 @@ export function StepSidebar({
                 // `data-step-id` 는 카드가 없앤 이름표(name) 대신 테스트가 "화면 순서가 아니라
                 // 실제 어느 스텝인가" 를 식별하는 자리다 — aria-label 은 표시 위치(`i+1`)라
                 // 순서가 바뀌면 같은 값이 다른 스텝에서도 나온다.
+                data-testid="step-card"
                 data-index={i}
                 data-step-id={s.id}
                 aria-current={selected ? 'step' : undefined}

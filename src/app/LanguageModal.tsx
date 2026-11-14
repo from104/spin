@@ -105,6 +105,7 @@ export function LanguageModal({ open, onClose, returnFocusRef }: LanguageModalPr
             <button
               key={r.value}
               type="button"
+              data-testid={`lang-${r.value}`}
               aria-current={on ? 'true' : undefined}
               onClick={choose(r.value)}
               style={{

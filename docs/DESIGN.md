@@ -3406,6 +3406,13 @@ EditorScreen). 겉은 `ui/CenterModal`(화면 중앙 2/3, **헤더 고정** — 
 규칙이 깨진다. ('초기화' 라는 옛 글자를 버린 이유는 이 기둥에서 뜻이 겹쳤기 때문이다:
 [비우기]도 판을 초기화한다.)
 
+**시험 닻과 `?e2e=1` (2026-11-15, 계획서 `docs/PLAN-TEST-SUITE.md` §3·§4)** — `data-testid` 는 시험
+선택자 전용이고(목록은 그 계획서 §4), 화면에 아무 영향이 없다. `?e2e=1`
+(`src/core/e2eMode.ts`, sessionStorage 걸쇠)이 하는 일은 편집기 트리에 **읽기 전용** 다리
+`window.__spinE2E`(모양은 `src/app/e2e/bridgeContract.ts`)를 세우는 것 하나뿐이다 — 기능을 끄는 분기를
+붙이지 않는다. 판정은 `EditorWorkspace` 의 마운트 자리 한 곳이고, 플래그가 없으면 설치 모듈은
+내려받지도 않는다(`E2EBridge.test.tsx`).
+
 ### 6.8b 왼쪽 스텝 바 — 스텝 편집 재설계 (2026-08-17, 계획서 `docs/PLAN-STEP-EDITING.md`)
 
 전제(기현님 지시): **보드 설계는 바꾸지 않는다.** 스텝을 복제·수정·연결하는 과정만 편하게

@@ -17,10 +17,12 @@ export interface CenterModalProps {
   closeLabel?: string;
   /** 닫힐 때(Esc·[×]·배경) 포커스를 되돌릴 트리거 요소 — §7.6. */
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /** 시험 닻 — 대화 상자 요소에 `data-testid` 로 붙는다(docs/PLAN-TEST-SUITE.md §4 선택자 규칙). */
+  testId?: string;
   children: ReactNode;
 }
 
-export function CenterModal({ open, onClose, title, closeLabel = '닫기', returnFocusRef, children }: CenterModalProps) {
+export function CenterModal({ open, onClose, title, closeLabel = '닫기', returnFocusRef, testId, children }: CenterModalProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const openedByRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -71,6 +73,7 @@ export function CenterModal({ open, onClose, title, closeLabel = '닫기', retur
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        data-testid={testId}
         style={{
           // "화면의 2/3 정도" — 폭·높이 모두 66% 언저리, 작은 화면에서는 여백만 남기고 채운다.
           width: 'min(calc(66 * var(--vw, 1vw)), 760px)',

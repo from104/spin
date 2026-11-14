@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { FLYOUT_PICK_CLOSE_MS, flyoutPosition, useFlyout } from './useFlyout.ts';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ChairId } from '../../core/ids.ts';
+import type { TeamSide } from '../../model/drill.ts';
 import type { ToolId } from '../../physics/index.ts';
 import { LOCKABLE_TOOLS } from '../../store/editor/reducer.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
@@ -56,6 +57,8 @@ export interface ChairSlot {
   name?: string;
   /** 코트에 나가 있는가. 참이면 빈 슬롯(점선)으로 그리고 끌 수 없다. */
   placed: boolean;
+  /** 소속 팀 — 그리지 않는다. 시험 닻 `tray-item-chair-<team>` 에만 실린다(docs/PLAN-TEST-SUITE.md §4) */
+  team?: TeamSide;
 }
 
 export interface ToolRailProps {
@@ -536,6 +539,7 @@ function ToolButton({
     <button
       type="button"
       data-tut={tut}
+      data-testid={`tray-item-${def.id}`}
       title={toolTitle(def.id, label, def.key, active, locked, t)}
       // 이름에 '고정' 이 붙는 것은 **켜져 있을 때뿐**이다 — 안 켜졌을 때까지 붙이면 버튼
       // 이름이 늘 길어져서, 정작 켜졌을 때의 차이가 안 들린다. WCAG 2.5.3: 보이는 글자
@@ -772,6 +776,7 @@ export function ToolRail({
               <button
                 key={c.id}
                 type="button"
+                data-testid={c.team ? `tray-item-chair-${c.team}` : 'tray-item-chair'}
                 aria-pressed={armed}
                 aria-label={t('editor.toolRail.armPlayerAriaLabel', { who })}
                 title={t('editor.toolRail.armPlayerTitle', { who })}
@@ -794,6 +799,7 @@ export function ToolRail({
         {/* 공 상자 */}
         <button
           type="button"
+          data-testid="tray-item-ball"
           title={
             isBallCapped
               ? t('editor.toolRail.ballEmptyTitle', { label: BALL_TOOL.label[locale] })
@@ -850,6 +856,7 @@ export function ToolRail({
             <Fragment key={color}>
               <button
                 type="button"
+                data-testid={`tray-item-cone-${idx}`}
                 aria-label={active && toolLock ? t('editor.toolRail.coneAriaLabelLocked', { name }) : t('editor.toolRail.coneAriaLabel', { name })}
                 aria-pressed={active}
                 aria-disabled={empty || undefined}

@@ -56,7 +56,7 @@ const PAD_BTN: React.CSSProperties = {
   userSelect: 'none',
 };
 
-function NudgeButton({ label, glyph, onFire }: { label: string; glyph: string; onFire(): void }) {
+function NudgeButton({ label, glyph, onFire, testId }: { label: string; glyph: string; onFire(): void; testId: string }) {
   const fireRef = useRef(onFire);
   fireRef.current = onFire;
   const timers = useRef<{ delay?: number; rep?: number }>({});
@@ -70,6 +70,7 @@ function NudgeButton({ label, glyph, onFire }: { label: string; glyph: string; o
   return (
     <button
       type="button"
+      data-testid={testId}
       aria-label={label}
       onPointerDown={(e) => {
         if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -160,6 +161,7 @@ export function NudgePad({ target, onClose, onNudge }: NudgePadProps) {
       <div
         ref={panelRef}
         role="group"
+        data-testid="nudge-pad"
         aria-label={t('editor.nudgePad.ariaLabel')}
         style={{
           position: 'fixed',
@@ -187,19 +189,19 @@ export function NudgePad({ target, onClose, onNudge }: NudgePadProps) {
         }}
       >
         {rot ? (
-          <NudgeButton label={t('editor.objectMenu.rotateLeft')} glyph="↺" onFire={() => onNudge(target.ids, 0, 0, -1)} />
+          <NudgeButton testId="nudge-rotateLeft" label={t('editor.objectMenu.rotateLeft')} glyph="↺" onFire={() => onNudge(target.ids, 0, 0, -1)} />
         ) : (
           <span aria-hidden />
         )}
-        <NudgeButton label={t('editor.objectMenu.nudgeUp')} glyph="▲" onFire={() => onNudge(target.ids, 0, -1, 0)} />
+        <NudgeButton testId="nudge-up" label={t('editor.objectMenu.nudgeUp')} glyph="▲" onFire={() => onNudge(target.ids, 0, -1, 0)} />
         {rot ? (
-          <NudgeButton label={t('editor.objectMenu.rotateRight')} glyph="↻" onFire={() => onNudge(target.ids, 0, 0, 1)} />
+          <NudgeButton testId="nudge-rotateRight" label={t('editor.objectMenu.rotateRight')} glyph="↻" onFire={() => onNudge(target.ids, 0, 0, 1)} />
         ) : (
           <span aria-hidden />
         )}
-        <NudgeButton label={t('editor.objectMenu.nudgeLeft')} glyph="◀" onFire={() => onNudge(target.ids, -1, 0, 0)} />
-        <NudgeButton label={t('editor.objectMenu.nudgeDown')} glyph="▼" onFire={() => onNudge(target.ids, 0, 1, 0)} />
-        <NudgeButton label={t('editor.objectMenu.nudgeRight')} glyph="▶" onFire={() => onNudge(target.ids, 1, 0, 0)} />
+        <NudgeButton testId="nudge-left" label={t('editor.objectMenu.nudgeLeft')} glyph="◀" onFire={() => onNudge(target.ids, -1, 0, 0)} />
+        <NudgeButton testId="nudge-down" label={t('editor.objectMenu.nudgeDown')} glyph="▼" onFire={() => onNudge(target.ids, 0, 1, 0)} />
+        <NudgeButton testId="nudge-right" label={t('editor.objectMenu.nudgeRight')} glyph="▶" onFire={() => onNudge(target.ids, 1, 0, 0)} />
       </div>
     </>,
     document.body,

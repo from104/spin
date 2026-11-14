@@ -206,6 +206,7 @@ export function AppNavAside() {
           넓은 레일과 같은 순서(도움말 → 테마 → 버전)로 맨 앞에 둔다. */}
       <button
         type="button"
+        data-testid="help-open"
         aria-label={t('help.center.title')}
         title={t('help.center.title')}
         onClick={showHelp}

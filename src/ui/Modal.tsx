@@ -34,6 +34,8 @@ export interface ModalProps {
    *  안 되는** 경우에 고정 높이를 준다(2026-09-03 기현 지시). */
   panelStyle?: CSSProperties;
   children: ReactNode;
+  /** 시험 닻 — 대화 상자 요소에 `data-testid` 로 붙는다(docs/PLAN-TEST-SUITE.md §4 선택자 규칙). */
+  testId?: string;
 }
 
 const FOCUSABLE_SELECTOR =
@@ -52,7 +54,7 @@ function portalRoot(): HTMLElement {
   return document.getElementById('spin-scale') ?? document.body;
 }
 
-export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel = '닫기', returnFocusRef, initialFocusRef, panelStyle: panelStyleOverride, children }: ModalProps) {
+export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel = '닫기', returnFocusRef, initialFocusRef, panelStyle: panelStyleOverride, testId, children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openedByRef = useRef<HTMLElement | null>(null);
 
@@ -169,7 +171,7 @@ export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel
 
   return createPortal(
     <div style={backdropStyle} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} style={panelStyle}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} style={panelStyle} data-testid={testId}>
         <button
           type="button"
           aria-label={closeLabel}
