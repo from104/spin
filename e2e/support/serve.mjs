@@ -173,6 +173,11 @@ http
       .on('error', () => res.destroy())
       .pipe(res);
   })
+  // 포트가 이미 쓰이면 스택 대신 한 줄로 말하고 끝낸다 — 요약에는 "no tests ran" 만 남아서 로그가 원인을 바로 말해야 한다
+  .on('error', (error) => {
+    console.error(`[e2e] 서버를 띄우지 못함(포트 ${port}): ${error.code ?? error.message} — 다른 프로세스가 쓰는 중이면 E2E_PORT 를 바꾼다`);
+    process.exit(1);
+  })
   .listen(port, '127.0.0.1', () => {
     // Playwright 가 SIGKILL 로 죽으면 이 서버는 고아로 남는다 — test-suite.sh 가 다음 실행 전에 이 pid 파일로 정리한다
     mkdirSync(path.join(root, 'test-results'), { recursive: true });

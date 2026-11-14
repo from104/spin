@@ -5,7 +5,7 @@
 //   E2E_REBUILD=1 npm run test:e2e                # dist/ 강제 재빌드
 //
 // 대상이 dev 서버가 아니라 **운영 빌드**인 이유(결정 3): 프리렌더 페이지·청크 분할·`FallbackResource
-// /index.html` 셋은 빌드에만 있다. 빌드가 낡았는지는 serve.mjs 가 입력 mtime 으로 판정한다.
+// /index.html` 셋은 빌드에만 있다. 빌드가 낡았는지는 serve.mjs 가 입력 지문으로 판정한다.
 //
 // 프로젝트 셋(결정 2) — 셋 다 실제 셸의 근사다(실기 대체가 아니다, 계획 §9):
 //   chromium-desktop  1280×800(src-tauri/tauri.conf.json 기본 창) ≈ Windows WebView2

@@ -388,7 +388,11 @@ E2E 에도 그대로 적용되고, 아래는 E2E 에만 있는 것이다.
   gofu 의 ZFS 는 `normalization=formD` 라 한글 음절이 자모로 풀려(1자 = 6~9바이트) 이름 255바이트를 넘기 쉽고,
   넘으면 `mkdir` 이 ENOTSUP 로 죽는다(한글 29자 제목에서 실측). "무엇을 보는가" 는 제목이 아니라 머리말 주석에 쓴다.
 - 포트는 `E2E_PORT`(기본 4179). 서버는 Playwright `webServer` 가 띄우고 거두며, 낡은 `dist/` 는
-  `e2e/support/serve.mjs` 가 입력 mtime 으로 판정해 다시 빌드한다. 남은 서버는 pid 파일로만 정리한다.
+  `e2e/support/serve.mjs` 가 입력 지문(경로·mtime·크기 해시, `dist/.e2e-inputs`)으로 판정해 다시 빌드한다. 남은
+  서버는 pid 파일로만 정리한다.
+- **`knownBug` 는 벽시계 경주에 기대지 않는다** — 증상이 "두 입력 사이가 N ms 안" 일 때만 나면, 기계가 느린 날
+  증상이 사라져 "bug fixed" 로 거짓 빨강이 된다. 그런 버그는 간격을 재서 전제로 단언하거나(전제가 깨지면 증상과
+  다른 메시지로 실패) vitest 의 가짜 시계로 옮긴다. 지금 예외는 S5b 하나다(350ms 창, 실측 간격 30~120ms).
 
 <!-- graft:start -->
 ## Graft — repo context graph

@@ -235,7 +235,7 @@ push 는 지시가 있을 때만. 뒤 단계(자리표시): Tauri Linux(xvfb + t
 | **`getScreenCTM()` 이 조상의 CSS `transform`(UI 배율)을 엔진마다 다르게 반영** | 3단계 첫 작업으로 "눌러서 놓은 자리 == bbox 중심" 을 3프로젝트에서 실증. 어긋나는 엔진이 있으면 그 프로젝트만 시드 `a11y.uiScale` 을 100% 고정으로 내리고 사유를 README 에 적는다<br>**→ 3단계 실증(2026-11-15): 문제없음.** CD·WK·CM × UI 배율 100%·150% × rot 0·90 전부에서 CTM 으로 푼 경기면 외접 상자 == `court-field` 의 `getBoundingClientRect` (오차 0.0px), 공을 탭·끌어 놓은 자리 == bbox 중심(Chromium 0.0px, WebKit 은 포인터 좌표를 정수로 반올림해 ≤1px). 배율 고정 폴백은 쓰지 않는다. S4·S6 이 매 회차 같은 대조(`expectCtmMatchesLayout`)를 되풀이한다 |
 | **Matter.js·rAF 타이밍** — 정착 시점이 프레임에 달렸다 | `settled()`(다리 `busy` + 두 프레임 동일) 하나로만 기다린다. 자세 비교는 정확값이 아니라 허용 오차(화면 3px / 모델은 왕복 동일성). `retries: 0` 유지 |
 | 자동 저장 800ms 안에 새로고침 | S8 은 `autosave === 'saved'` 를 기다린 뒤 새로고침. "기다리지 않으면 잃는가" 는 발견되면 knownBug 로 따로 적는다 |
-| 빌드 낡음 — 낡은 `dist/` 로 초록 | `serve.mjs` 가 입력 mtime 을 비교(§2), `reuseExistingServer: false`. 프리렌더 포함 14초라 비용은 작다 |
+| 빌드 낡음 — 낡은 `dist/` 로 초록 | `serve.mjs` 가 입력 지문을 비교(§2·§10 — mtime 비교는 3단계에서 버렸다), `reuseExistingServer: false`. 프리렌더 포함 14초라 비용은 작다 |
 | 다리가 운영 번들에 실린다 | 동적 import + 플래그 판정 선행. 읽기 전용. vitest 1건이 미설치를 못박는다 |
 | 닻 20개가 번역·리팩터에 쓸려 나간다 | 닻 이름은 `e2e/README.md` 「선택자 규칙」이 정본, S1 이 핵심 닻 존재를 본다 |
 | 시나리오가 변경 감지기로 자란다 | 문구·개수·순서 단언 금지(AGENTS 「테스트 작성 규칙」). 추가 때 §0 질문 + 돌연변이 |
