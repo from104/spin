@@ -28,6 +28,15 @@ describe('TrayGhost — 휠체어는 놓일 각도 그대로 매달린다', () =
     });
   }
 
+  it('진영을 바꾼 판에서는 두 팀 각도가 맞바뀐다 — 놓일 각도(placeHeadingDeg)와 같은 출처', () => {
+    const drill: Drill = { ...createDrill({ courtMode: 'full', empty: true }), defense: 'away' };
+    const def = drill.cast.chairs.find((c) => c.team === 'home')!;
+    const { container } = render(
+      <TrayGhost item={{ kind: 'player', chairId: def.id }} pxPerUnit={1} drill={drill} coneSlot={0} />,
+    );
+    expect((container.firstElementChild as HTMLElement).style.transform).toBe(`rotate(${COURT_DEFS.full.awayHeadingDeg}deg)`);
+  });
+
   it('등번호는 되돌려 세운다 — 코트에서도 숫자는 절대 눕지 않는다(§3.4)', () => {
     const { el } = chairGhost('full', 'home');
     const label = el.querySelector('span') as HTMLElement;

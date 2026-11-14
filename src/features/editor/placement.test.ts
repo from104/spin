@@ -165,3 +165,27 @@ describe('§6.10a 배치 뒤끝 — 놓았으면 반드시 PLACED 를 낸다', (
     expect(placedId(dispatch)).toBeUndefined();
   });
 });
+
+// 기현 지시 2026-11-15 — "휠체어 놓을 때 경기장을 진영에 맞춰서 앞뒤로 보고 배치되도록".
+// 진영은 [보드 설정] 의 [진영 바꾸기](`Drill.defense`)가 정한다. 기본 진영만 재면 팀별로
+// 각도를 박아 둔 옛 코드도 통과하므로, **바꾼 진영**이 이 묶음의 본체다.
+describe('placeObject — 선수는 진영을 따라 상대 골대를 보고 놓인다', () => {
+  it.each([
+    // [코트, 진영(골 지역[0] 을 지키는 팀), 홈 각도, 원정 각도] — 0° = 오른쪽, 90° = 아래
+    ['full', 'home', 0, 180], // 홈이 왼쪽 골대를 지킨다 → 홈은 오른쪽을 본다
+    ['full', 'away', 180, 0],
+    ['half', 'away', 90, 270], // 골대는 아래 하나 — 원정이 지키면 홈은 아래(골대)를 본다
+    ['half', 'home', 270, 90],
+  ] as const)('%s 코트, 진영 %s → 홈 %i°, 원정 %i°', (mode, defense, homeDeg, awayDeg) => {
+    for (const [team, deg] of [['home', homeDeg], ['away', awayDeg]] as const) {
+      const { d, dispatch } = deps();
+      d.drill = { ...createDrill({ courtMode: mode, empty: true }), defense };
+      const chairId = newId('ch');
+      d.drill.cast.chairs = [{ id: chairId, team, number: '2', isGk: false }];
+      d.pendingPlayerId = chairId;
+      placeObject('player', AT, d);
+      const place = dispatch.mock.calls.map(([a]) => a).find((a) => a.type === 'CHAIR_PLACE');
+      expect(place?.pose.angleDeg, `${mode}·${defense}·${team}`).toBe(deg);
+    }
+  });
+});

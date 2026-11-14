@@ -67,7 +67,7 @@
 import { BALL } from '../core/constants.ts';
 import { mToPx, type Vec2 } from '../core/units.ts';
 import { chairInsideBounds, chairOverlapsCircle, chairOverlapsRect } from './chairOverlap.ts';
-import type { CornerKickZone, CourtMode, GoalMouth, Rect } from './court.ts';
+import type { CornerKickZone, CourtDef, CourtMode, GoalMouth, Rect } from './court.ts';
 import type { BallRing, TeamSide } from './drill.ts';
 
 /** 3 m. 25 px/m 이므로 75 월드px — 옛 센터 서클과 우연히 반지름이 같았다. 그 원은 규정에
@@ -115,6 +115,25 @@ export const TEAM_SIDES: readonly TeamSide[] = ['home', 'away'];
  *  실제로 보이던 모습" 이다 — 마이그레이션이 옛 드릴에 찍는 값도 같다. */
 export function defaultDefense(mode: CourtMode): TeamSide {
   return mode === 'half' ? 'away' : 'home';
+}
+
+/** 휠체어를 **처음 놓을 때** 보는 방향(°) — 진영을 따른다(기현 지시 2026-11-15, "경기장을
+ *  진영에 맞춰서 앞뒤로 보고"). 코트 정의의 `homeHeadingDeg`/`awayHeadingDeg` 는 **기본 진영**
+ *  (`defaultDefense`)일 때 각 팀이 상대 골대를 보는 값이다. [진영 바꾸기] 로 골대 주인이
+ *  뒤바뀐 판에서는 두 값을 맞바꾼다 — 그러지 않으면 새로 놓는 휠체어가 **자기** 골대를 보고
+ *  선다. 플랫은 골대가 없어 진영도 없으므로 팀 값 그대로다.
+ *
+ *  놓는 경로(placement.ts)와 트레이 고스트(TrayGhost.tsx)가 이 함수 하나를 지난다 — 둘이
+ *  어긋나면 손을 떼는 순간 칩이 홱 돈다. 기본 배치(`defaultStep`)는 지나지 않는다: 그 자리
+ *  자체(홈 GK 왼쪽)가 기본 진영 기준이라 방향만 진영을 따르면 자리와 방향이 서로 어긋난다. */
+export function placeHeadingDeg(
+  court: Pick<CourtDef, 'mode' | 'homeHeadingDeg' | 'awayHeadingDeg'>,
+  team: TeamSide,
+  defense: TeamSide | undefined,
+): number {
+  const swapped = court.mode !== 'flat' && defense !== undefined && defense !== defaultDefense(court.mode);
+  const facing = swapped ? otherSide(team) : team;
+  return facing === 'home' ? court.homeHeadingDeg : court.awayHeadingDeg;
 }
 
 /** 존 하나와 그 존을 **지키는 팀**. 판정 함수들이 이 쌍으로 받는다 — 사각형만 넘기던 옛

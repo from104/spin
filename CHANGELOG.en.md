@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 - Wheelchairs now move as a whole wherever you grab them and no longer push other objects by default — turn on rotating, towing and pushing in [Board settings]
 - [Board settings] opens again after clearing the court
-- On the full court, a newly placed wheelchair faces the opposing goal according to its side, as on the half court (it used to stand vertically)
+- A newly placed wheelchair faces the opposing goal according to its side, following [Swap Sides] too (it used to stand vertically on the full court and ignore swapped sides)
 
 ### Removed
 

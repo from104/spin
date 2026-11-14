@@ -13,6 +13,7 @@ import { newId } from '../../core/ids.ts';
 import type { ChairId, NoteId } from '../../core/ids.ts';
 import type { Drill } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
+import { placeHeadingDeg } from '../../model/rules.ts';
 import { BALL, CONE } from '../../core/constants.ts';
 import { LIMITS } from '../../model/validate.ts';
 import { makeShape, type ShapeKind } from '../../model/shape.ts';
@@ -129,7 +130,7 @@ function placeObjectInner(kind: PlaceKind, world: Vec2, d: PlaceDeps): string | 
   const def = d.drill.cast.chairs.find((c) => c.id === id);
   if (!def) return null;
   const court = courtDefFor(d.drill.courtMode, d.drill.courtSize);
-  const headingDeg = def.team === 'home' ? court.homeHeadingDeg : court.awayHeadingDeg;
+  const headingDeg = placeHeadingDeg(court, def.team, d.drill.defense);
   d.dispatch({ type: 'CHAIR_PLACE', id, pose: { x: world.x, y: world.y, angleDeg: headingDeg } });
   d.onPlayerPlaced();
   return id;
