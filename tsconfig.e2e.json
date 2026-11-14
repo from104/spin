@@ -1,0 +1,31 @@
+{
+  /* 웹 E2E(e2e/, playwright.config.ts) — docs/PLAN-TEST-SUITE.md §6.
+   *
+   * 왜 tsconfig.app.json 에 안 넣는가: 시나리오·드라이버는 **Node 에서** 도는 Playwright 코드다
+   * (`node:fs`·`@playwright/test`). 다만 `page.evaluate` 에 넘기는 함수는 브라우저에서 돌므로
+   * DOM 타입이 함께 필요하다 — 서버(tsconfig.server.json)처럼 DOM 을 뺄 수 없다.
+   * `vite/client` 는 시드가 앱의 prefs 기본값을 import 할 때 따라오는 `import.meta.env` 타입 때문이다.
+   * 루트 tsconfig.json references 에 들어 있어 `npm run typecheck` 가 이것도 본다. */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
+    "skipLibCheck": true,
+
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["e2e", "playwright.config.ts"]
+}

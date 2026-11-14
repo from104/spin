@@ -42,6 +42,10 @@
     "test:watch": "vitest",
     "_comment:test:rel": "고친 파일을 import 하는 테스트만 돈다(모듈 그래프 추적). 전체는 55초, 이쪽은 보통 2~5초다 — 커밋 직전 한 번만 `npm test` 를 돌리고 그 전까지는 이것을 쓴다. 예: npm run test:rel src/render/SideMarks.tsx",
     "test:rel": "vitest related --run",
+    "_comment:test:all": "한 명령 테스트 스위트(docs/PLAN-TEST-SUITE.md §6). 기본은 code 층(lint·typecheck·vitest·cargo test) + web 층(운영 빌드 위 Playwright 3프로젝트). 결과는 test-results/summary.md(30줄 이하)를 먼저 읽는다. 층만 고르기: `npm run test:all -- --layer web`, Playwright 인자 넘기기: `npm run test:all -- --layer web -- --project=webkit-desktop`, 브라우저 준비: `npm run test:all -- --setup`.",
+    "test:all": "bash scripts/test-suite.sh",
+    "_comment:test:e2e": "웹 E2E 만 돈다(playwright.config.ts). dist/ 가 빌드 입력보다 낡았으면 e2e/support/serve.mjs 가 `npm run build` 부터 한다(14초 남짓). 시나리오는 e2e/scenarios/, 규칙은 AGENTS.md 「E2E 시나리오 규칙」. 예: npm run test:e2e -- --project=chromium-mobile --repeat-each=5",
+    "test:e2e": "playwright test",
     "_comment:deploy": "spin.atit.dev 로 배포한다(정적 파일을 cube 의 /pool/vhost/sites/spin 에 놓는 것이 전부다). gofu·cube 어느 쪽에서 실행해도 된다 — 대상 경로가 로컬에 있으면 복사, 없으면 ssh 를 태운다. 먼저 `npm run deploy -- --dry-run` 으로 무엇이 바뀌는지 보라.",
     "deploy": "bash scripts/deploy.sh",
     "_comment:deploy:aws": "spin.atit.app 으로 배포한다(Lightsail 인스턴스의 별도 Apache vhost). PEM 키로 ssh+rsync. 먼저 `npm run deploy:aws -- --dry-run` 으로 확인하라.",
@@ -71,6 +75,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "8.6.0",
+    "@playwright/test": "1.65.1",
     "@tauri-apps/cli": "^2.12.4",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",

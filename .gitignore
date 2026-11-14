@@ -63,3 +63,8 @@ client_secret_*
 /*.AppImage
 /*.deb
 /*.rpm
+
+# 테스트 스위트 산출물(scripts/test-suite.sh · Playwright) — 실행마다 지우고 새로 쓴다.
+# docs/PLAN-TEST-SUITE.md §6.
+test-results/
+playwright-report/

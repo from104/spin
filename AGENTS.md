@@ -356,6 +356,37 @@ AGENTS.md 에 기록하여 일관된 결과물 나오게"* — 아래 §1~§9 �
 같은 render 설정에서 단언만 조금 다른 케이스는 하나로 합친다. 새 단언은 돌연변이(구현을 일부러
 망가뜨려 빨간불 확인)로 값을 증명한 뒤 남긴다.
 
+## E2E 시나리오 규칙 (2026-11-15 기현 지시)
+
+> *"qcalc 최신 세션의 테스트 슈트 파악하고 도입."*
+
+설계 정본은 `docs/PLAN-TEST-SUITE.md`. 한 명령은 `npm run test:all`(code 층 + web 층)이고 결과는
+`test-results/summary.md`(30줄 이하)부터 읽는다 — 실패한 시험만 trace 를 연다. 위 「테스트 작성 규칙」이
+E2E 에도 그대로 적용되고, 아래는 E2E 에만 있는 것이다.
+
+- **jsdom 이 못 재는 것만 E2E 로 간다** — 진짜 포인터·레이아웃·IndexedDB·라우팅·WebKit·운영 빌드
+  (프리렌더·청크·fallback). 시나리오마다 머리말에 "지우면 어떤 실기 버그가 새는가" 를 한 문단으로 적는다.
+  vitest 가 이미 보는 산술·리듀서를 E2E 로 다시 재지 않는다.
+- **시나리오는 드라이버 중립**이다. `e2e/scenarios/*.ts` 는 `SpinApp`(e2e/drivers/SpinApp.ts)만 알고
+  `@playwright/test` 를 import 하지 않는다 — 뒤 단계의 Tauri·Android 어댑터가 그대로 재사용한다. 필요한
+  능력은 `needs` 로 밝히고, 없는 프로젝트는 실행기가 이유를 남기고 건너뛴다. 스펙(`e2e/web/*.spec.ts`)은
+  `runGroup(group)` 3줄뿐이다.
+- **선택자**는 `data-testid`·기존 투어 닻(`data-tut`)·개체 id(`#obj-<id>`)만. aria-label·보이는 문구는
+  번역되므로 선택자로 쓰지 않는다. 앱 상수(`PX_PER_M`·여백 등)를 테스트에 베끼지 않는다.
+- **고정 sleep 금지.** 조건을 기다린다(`eventually`·드라이버의 준비/정착 판정). `retries` 는 0 이고
+  `test.fixme`·무조건 `skip` 은 쓰지 않는다 — 흔들림은 숨기지 않고 드러낸다.
+- **잡음은 기능을 끄지 않고 상태를 심어서** 없앤다(`e2e/fixtures/seed.ts` 의 prefs 프로필). 테스트만을 위한
+  "끄는 스위치" 를 앱에 새로 만들지 않는다 — 배송 경로가 사각지대가 된다(§6 `loaderMinMs` 의 교훈).
+- **앱 버그를 찾으면** 시험을 약하게 고치지 않는다. 옳은 동작을 단언하는 시나리오에 `knownBug`(버그 설명)
+  와 `symptom`(그 버그가 내는 오류 메시지의 정규식)을 붙여 둔다 — 증상이 다른 실패는 진짜 실패로 남고,
+  고쳐지면 "bug fixed — remove the known-bug mark" 로 빨개진다. 고치는 커밋이 그 표시를 지운다.
+- **새 단언은 돌연변이로 증명한다** — 앱 동작이나 닻을 일부러 망가뜨려(운영 재빌드 약 15초) 빨간불을 본
+  뒤 되돌린다. 커밋 끝줄에 `e2e N 통과(3프로젝트) · 돌연변이 N건으로 실효 확인`.
+- **시나리오를 추가하면** 3프로젝트에서 `--repeat-each=3`(좌표·타이밍을 다루면 5)으로 흔들림이 없는지 본다:
+  `npm run test:e2e -- --repeat-each=3`.
+- 포트는 `E2E_PORT`(기본 4179). 서버는 Playwright `webServer` 가 띄우고 거두며, 낡은 `dist/` 는
+  `e2e/support/serve.mjs` 가 입력 mtime 으로 판정해 다시 빌드한다. 남은 서버는 pid 파일로만 정리한다.
+
 <!-- graft:start -->
 ## Graft — repo context graph
 
