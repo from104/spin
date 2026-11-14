@@ -147,8 +147,14 @@ export interface SpinApp {
   worldToScreen(pt: WorldPoint): Promise<ScreenPoint>;
   /** 개체 `#obj-<id>` 의 실제 화면 bbox 중심. 없으면 null */
   objectCenter(id: string): Promise<ScreenPoint | null>;
+  /** 개체 `#obj-<id>` 의 실제 화면 bbox. 없으면 null */
+  objectBox(id: string): Promise<{ left: number; top: number; right: number; bottom: number } | null>;
   /** 누르기(포인터 능력이면 마우스, 터치 능력이면 터치) */
   tap(target: PointerTarget): Promise<void>;
+  /** 마우스 휠 한 칸 묶음 — 커서를 target 에 두고 deltaY 만큼 굴린다(음수 = 위로 = 확대) (needs: pointer) */
+  wheel(target: PointerTarget, deltaY: number): Promise<void>;
+  /** 같은 자리를 빠르게 두 번 누른다(더블탭·더블클릭) — 앱의 더블 판정은 350ms·12px 안 두 번의 pointerdown 이다 */
+  doubleTap(target: PointerTarget): Promise<void>;
   /** 끌기 — from 에서 눌러 to 까지 steps 번 나눠 옮기고 뗀다 */
   drag(from: PointerTarget, to: PointerTarget, options?: { steps?: number }): Promise<void>;
   /** 트레이에서 꺼내 코트에 놓고, 정착을 기다려 새로 생긴 개체의 id 를 돌려준다 */
@@ -188,10 +194,15 @@ export interface SpinApp {
   centerOf(testId: string): Promise<ScreenPoint | null>;
   /** `<html lang>` — 언어 접두 주소·설정이 문서 언어에 닿았는가 */
   htmlLang(): Promise<string>;
+  /** 화면에 보이는 글과 접근성 이름(aria-label·title·placeholder·alt) 전부 — 문서 전체(대화 상자 포함, 숨은 것 제외).
+   *  언어 누수 점검용이다: 번역 키·소스 grep 이 못 보는 "렌더 결과" 의 글이다 */
+  uiStrings(): Promise<{ text: string[]; names: string[] }>;
   /** `#root` 의 보이는 글(innerText) */
   rootText(): Promise<string>;
   /** 프리렌더 주소의 **JS 이전** 원문 — 페이지를 열지 않고 HTML 을 받아 읽는다 (needs: prerender) */
   prerendered(route: string): Promise<PrerenderedPage>;
+  /** 뷰포트(창) 크기 — CSS px */
+  viewportSize(): Promise<{ width: number; height: number }>;
   /** `data-tut` 닻의 화면 상태. 없으면 null */
   anchor(name: string): Promise<AnchorProbe | null>;
   /** `data-tut` 닻을 가진 요소(첫 것)를 누른다 */

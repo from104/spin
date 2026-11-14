@@ -23,13 +23,13 @@ export function ConfirmDialog({ open, onCancel, onConfirm, title, body, confirmL
   const t = useT();
   const titleId = useId();
   return (
-    <Modal open={open} onClose={onCancel} titleId={titleId} title={title} closeLabel={t('common.close')} returnFocusRef={returnFocusRef}>
+    <Modal open={open} onClose={onCancel} titleId={titleId} title={title} closeLabel={t('common.close')} returnFocusRef={returnFocusRef} testId="confirm-dialog">
       <div style={{ fontSize: '0.8125rem', color: 'var(--muted)', lineHeight: 1.6 }}>{body}</div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
         <Button variant="secondary" onClick={onCancel}>
           {cancelLabel}
         </Button>
-        <Button variant="primary" onClick={onConfirm}>
+        <Button variant="primary" onClick={onConfirm} data-testid="confirm-ok">
           {confirmLabel}
         </Button>
       </div>

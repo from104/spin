@@ -288,6 +288,15 @@ export class PlaywrightApp implements SpinApp {
     }, id);
   }
 
+  async objectBox(id: string): Promise<{ left: number; top: number; right: number; bottom: number } | null> {
+    return this.page.evaluate((objId) => {
+      const el = document.getElementById(`obj-${objId}`);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    }, id);
+  }
+
   private async toScreen(target: PointerTarget): Promise<ScreenPoint> {
     return isCourtPoint(target) ? this.courtToScreen(target) : target;
   }
@@ -313,6 +322,18 @@ export class PlaywrightApp implements SpinApp {
     } else {
       await this.page.mouse.click(at.x, at.y);
     }
+  }
+
+  async wheel(target: PointerTarget, deltaY: number): Promise<void> {
+    const at = await this.toScreen(target);
+    await this.page.mouse.move(at.x, at.y);
+    await this.page.mouse.wheel(0, deltaY);
+  }
+
+  async doubleTap(target: PointerTarget): Promise<void> {
+    const at = await this.toScreen(target);
+    await this.tap(at);
+    await this.tap(at);
   }
 
   async drag(from: PointerTarget, to: PointerTarget, { steps = 12 }: { steps?: number } = {}): Promise<void> {
@@ -530,6 +551,34 @@ export class PlaywrightApp implements SpinApp {
     return this.page.evaluate(() => document.documentElement.lang);
   }
 
+  async uiStrings(): Promise<{ text: string[]; names: string[] }> {
+    return this.page.evaluate(() => {
+      const visible = (el: Element): boolean => {
+        for (let n: Element | null = el; n; n = n.parentElement) {
+          const s = getComputedStyle(n);
+          if (s.display === 'none' || s.visibility === 'hidden') return false;
+        }
+        return true;
+      };
+      const text: string[] = [];
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const s = (n.textContent ?? '').replace(/\s+/g, ' ').trim();
+        const p = n.parentElement;
+        if (s && p && !['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(p.tagName) && visible(p)) text.push(s);
+      }
+      const names: string[] = [];
+      for (const el of Array.from(document.body.querySelectorAll('[aria-label], [title], [placeholder], [alt]'))) {
+        if (!visible(el)) continue;
+        for (const attr of ['aria-label', 'title', 'placeholder', 'alt']) {
+          const v = el.getAttribute(attr);
+          if (v) names.push(v);
+        }
+      }
+      return { text, names };
+    });
+  }
+
   async rootText(): Promise<string> {
     return this.page.evaluate(() => document.getElementById('root')?.innerText ?? '');
   }
@@ -543,6 +592,10 @@ export class PlaywrightApp implements SpinApp {
     const inner = block?.[2] ?? '';
     const h1 = (/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(inner)?.[1] ?? '').replace(/<[^>]*>/g, '').trim();
     return { status: res.status(), lang, seoPage, h1, textChars: inner.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().length };
+  }
+
+  async viewportSize(): Promise<{ width: number; height: number }> {
+    return this.page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
   }
 
   async anchor(name: string): Promise<AnchorProbe | null> {

@@ -194,6 +194,7 @@ export function DrillKebabMenu({
             </MenuItem>
           )}
           <MenuItem
+            testId="drill-delete"
             tone="danger"
             onClick={() => {
               closeMenu();
@@ -455,11 +456,12 @@ export function DrillRow({ drill, onOpen, onPresent, onDuplicate, onDelete, onEx
   );
 }
 
-function MenuItem({ children, onClick, tone }: { children: string; onClick(): void; tone?: 'danger' }) {
+function MenuItem({ children, onClick, tone, testId }: { children: string; onClick(): void; tone?: 'danger'; testId?: string }) {
   return (
     <button
       type="button"
       role="menuitem"
+      data-testid={testId}
       onClick={onClick}
       style={{
         minHeight: 36,

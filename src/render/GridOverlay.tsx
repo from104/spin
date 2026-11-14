@@ -35,7 +35,7 @@ export const GridOverlay = memo(function GridOverlay({ mode, size, showLabels, f
   const yMax = g.hy[g.hy.length - 1];
 
   return (
-    <g aria-hidden="true" pointerEvents="none">
+    <g aria-hidden="true" pointerEvents="none" data-testid="layer-grid">
       <g stroke="#ffffff" strokeWidth={1} opacity={ink.line} shapeRendering="crispEdges">
         {g.inner.vx.map((x) => (
           <line className="grid-line" key={`v${x}`} x1={x} y1={yMin} x2={x} y2={yMax} />

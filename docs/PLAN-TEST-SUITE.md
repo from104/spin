@@ -177,6 +177,21 @@ aria-label·보이는 문구는 번역되므로 선택자로 쓰지 않는다. �
 >   전술판에 공을 놓고 머리띠 [드릴로 편집] 으로 새 드릴을 만든다. S8 은 전술판(S8a)·드릴(S8b, `scenes` 시드의
 >   첫 카드)로 나눴다.
 
+> ⚠️ 4~6단계 구현 때 계획과 달라진 것
+> - **S2** 는 CD·WK 만 돈다(`prerender` 능력). 감축 모션을 풀어(`'system'`) 로더가 실제로 서는 조건에서 본다 — 시드의 `'always'` 는
+>   로더 길이를 0 으로 접어 "로더가 글을 덮는" 회귀가 안 보인다(돌연변이로 확인).
+> - **S10** 서랍은 22 가 아니라 **23장**(규칙 장면 22 + 따라하기 1)이라 `>= 22` 로 단언한다. 삭제는 케밥 → `drill-delete` → `confirm-ok`.
+> - **S11** 에서 방금 놓은(골라진) 메모를 마우스로 곧바로 더블클릭하면 첫 번이 안 먹는 관찰이 있다 — Chromium 에서 재현, WebKit 은 순서에
+>   따라 갈려 원인을 못 정해 knownBug 로 못박지 않았다(S11 은 고르기를 풀고 누른다). 앱 쪽 확인이 필요하다.
+> - **S13** 은 CD·WK(레일의 언어 단추가 CM 에는 없다). **앱 버그 하나를 `knownBug`(S13c)로 붙잡았다**: 영어·일본어에서도 전술판에
+>   한글이 남는다 — 트레이 휠체어 칩 이름(`Place 2번`·`2번を配置`, 번호 뒤 `번` 이 번역 밖)과 코트 무대의 접근성 이름 `코트 편집 영역`.
+>   서랍·세션·팀·규칙·설정·도움말은 깨끗하다. `/en/` 이 저장 언어를 이기는 것은 S13b.
+> - **S15·S17** 은 CD·WK, **S16** 은 전부. S17 은 [보드 설정]의 **물리·상호작용이 기본 꺼짐**(2026-11-13)이라 먼저 켠다. 계획의 "겹치지 않으며
+>   코트 밖으로 안 나간다" 는 단언하지 않는다 — 벽 생성·경계 되밀기를 둘 다 빼도 초록이라(드래그 쪽 안전망) 돌연변이로 실효를 못 증명했다.
+> - 새 닻: `court-modal` · `court-toggle-interact` · `layer-grid` · `layer-rulezones` · `lang-open` · `drill-delete` · `confirm-dialog` ·
+>   `confirm-ok` · `note-edit-modal` · `note-save` (정본 목록은 `e2e/README.md`).
+> - **S12(PNG 내보내기)는 이 단계에서 만들지 않았다**(다른 담당).
+
 안 넣는 것: 공유 링크(서버 필요) · Drive 동기화(OAuth) · MP4 내보내기(코덱 편차) · 시연 전체화면(헤드리스 불가) —
 실기 목록(`docs/FIELD-TEST.md`)에 남는다. 3프로젝트 합계 약 41 시험.
 
@@ -185,7 +200,8 @@ aria-label·보이는 문구는 번역되므로 선택자로 쓰지 않는다. �
 - **`scripts/test-suite.sh`** — `--layer code|web|app`(여러 번, 기본 code+web) · `--setup` · `--rebuild` ·
   `-- <playwright 인자>`. code 층 = `npm run lint` → `npm run typecheck` → `npm test -- --reporter=default
   --reporter=json --outputFile.json=test-results/vitest.json` → `cargo test --manifest-path src-tauri/Cargo.toml`
-  (cargo 없으면 skip 으로 기록). 린트는 종료 코드만 본다(경고 48건 기준선은 실패가 아니다).
+  (cargo 없으면 skip 으로 기록). 린트는 종료 코드와 함께 **경고 수가 기준선(`LINT_BASELINE`=48, 스크립트 한 곳)을 넘는지** 본다
+  (4~6단계 때 바꿈 — 종료 코드만 보던 것은 새 경고가 조용히 쌓였다). 같은 작업 트리의 동시 실행은 flock 잠금으로 거부한다(종료 코드 3).
   - ⚠️ 1단계 구현 때 더함: **`--no-cargo`**(skip 으로 기록). `target/` 이 없는 작업 트리(git worktree 등)
     에서는 cargo test 가 Tauri 크레이트 트리 전체를 처음부터 컴파일해 수 분이 든다 — 웹만 고친 회차가
     그 값을 치를 이유가 없다. 기본값은 그대로 cargo 를 돈다.

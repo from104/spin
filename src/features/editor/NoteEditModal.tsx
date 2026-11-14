@@ -104,6 +104,7 @@ export function NoteEditModal({ open, initialText, initialSize, initialColor, fr
       titleId="note-edit-title"
       title={fresh ? t('editor.noteEditModal.titleNew') : t('editor.noteEditModal.titleEdit')}
       closeLabel={t('common.close')}
+      testId="note-edit-modal"
     >
       <textarea
         ref={ref}
@@ -180,7 +181,7 @@ export function NoteEditModal({ open, initialText, initialSize, initialColor, fr
           <Button variant="ghost" onClick={onCancel}>
             {t('editor.noteEditModal.cancel')}
           </Button>
-          <Button variant="primary" onClick={() => onSave(text, size, color)}>
+          <Button variant="primary" onClick={() => onSave(text, size, color)} data-testid="note-save">
             {t('editor.noteEditModal.confirm')}
           </Button>
         </div>

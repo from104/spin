@@ -51,7 +51,7 @@ export const RuleZones = memo(function RuleZones({ mode, size, visible }: RuleZo
   if (zones.length === 0) return null;
 
   return (
-    <g>
+    <g data-testid="layer-rulezones">
       {zones.map((z) => (
         <rect
           key={`${z.x},${z.y}`}

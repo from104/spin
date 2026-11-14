@@ -755,6 +755,7 @@ export function FunctionBar({
                 값을 본다. 옛 접근성 [2존 모드]는 회전 끔 + 앵커 켬을 한 스위치로 묶던 것이라
                 이 둘로 갈라지며 폐기됐다. */}
             <ModalToggle
+              testId="court-toggle-interact"
               on={physics.interact}
               onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, interact: !physics.interact }) })}
               icon={<IconCollide />}

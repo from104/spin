@@ -166,6 +166,7 @@ export function AppRail({ active }: { active?: RailKey } = {}) {
       <button
         type="button"
         ref={langBtnRef}
+        data-testid="lang-open"
         aria-label={t('settings.language.title')}
         title={t('settings.language.title')}
         aria-haspopup="dialog"
