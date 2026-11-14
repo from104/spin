@@ -39,6 +39,8 @@ const vitest = read('vitest.json');
 for (const s of steps) {
   if (s.step === 'vitest' && vitest) {
     s.detail = `${vitest.numPassedTests} passed, ${vitest.numFailedTests} failed, ${vitest.numPendingTests + (vitest.numTodoTests ?? 0)} skipped / ${vitest.numTotalTests}`;
+    // 시험은 다 초록인데 종료 코드가 빨강 = 시험 밖 오류(Unhandled Rejection 등). 숫자만 보면 "왜 빨강인가" 가 안 보인다
+    if (s.status === 'fail' && vitest.numFailedTests === 0) s.detail += ' · 시험 밖 오류(Unhandled Errors) — 로그 끝을 보고, 부하 탓이면 그 파일만 다시 돈다';
     s.failures = (vitest.testResults ?? []).flatMap((f) =>
       (f.assertionResults ?? [])
         .filter((a) => a.status === 'failed')
