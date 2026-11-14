@@ -3407,7 +3407,7 @@ EditorScreen). 겉은 `ui/CenterModal`(화면 중앙 2/3, **헤더 고정** — 
 [비우기]도 판을 초기화한다.)
 
 **시험 닻과 `?e2e=1` (2026-11-15, 계획서 `docs/PLAN-TEST-SUITE.md` §3·§4)** — `data-testid` 는 시험
-선택자 전용이고(목록은 그 계획서 §4), 화면에 아무 영향이 없다. `?e2e=1`
+선택자 전용이고(닻 목록 정본은 `e2e/README.md` 「선택자 규칙」), 화면에 아무 영향이 없다. `?e2e=1`
 (`src/core/e2eMode.ts`, sessionStorage 걸쇠)이 하는 일은 편집기 트리에 **읽기 전용** 다리
 `window.__spinE2E`(모양은 `src/app/e2e/bridgeContract.ts`)를 세우는 것 하나뿐이다 — 기능을 끄는 분기를
 붙이지 않는다. 판정은 `EditorWorkspace` 의 마운트 자리 한 곳이고, 플래그가 없으면 설치 모듈은

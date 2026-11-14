@@ -37,6 +37,8 @@ npm run lint         # 새 경고 0 (기존 경고는 그대로 둡니다)
 npx vitest run       # 전체 초록
 ```
 
+화면·좌표·저장·라우팅을 건드렸다면 E2E 도 돌려 보십시오 — `npm run test:all`(안내는 [e2e/README.md](e2e/README.md)).
+
 린트는 오래된 경고가 남아 있습니다. **내가 새로 만든 경고가 없으면 통과**이고, 바꾼 파일만
 빠르게 보려면 `npm run lint:rel`, 관련 테스트만 돌리려면 `npm run test:rel <파일>` 을 쓰십시오.
 

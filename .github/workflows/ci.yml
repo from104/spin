@@ -1,0 +1,110 @@
+# PR 게이트 — code 층(린트·타입·vitest·cargo test) + web E2E(Playwright 3프로젝트). 안내: e2e/README.md
+#
+# desktop-release.yml(릴리스 빌드, 태그·수동)과는 **독립**이다: 트리거도 겹치지 않고(여긴 devel 푸시·PR, 저쪽은 `v*` 태그·수동)
+# 둘 다 시크릿을 쓰지 않으며(여긴 하나도 안 쓴다 — 포크 PR·Dependabot PR 에서도 그대로 돈다) 산출물도 안 올린다.
+# 실제 앱(Tauri/Android) 층은 아직 없다 — 뒤 단계(docs/PLAN-TEST-SUITE.md §7).
+name: CI
+
+on:
+  push:
+    branches: [devel]
+  pull_request:
+    branches: [devel, main]
+
+# 토큰은 읽기 전용 — 이 워크플로는 쓰기 권한이 필요 없다
+permissions:
+  contents: read
+
+# PR 은 새 푸시가 오면 이전 실행을 취소하지만, devel 푸시는 연속 머지에서도 결과를 남긴다
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # (a) lint(경고 기준선 판정) + typecheck + vitest + cargo test.
+  #     cargo test 를 건너뛰지 않는다(`--no-cargo` 는 로컬 전용) — Rust 쪽 회귀가 PR 에서 조용히 지나가면 안 된다.
+  code:
+    runs-on: ubuntu-22.04 # desktop-release.yml 의 gate 와 같은 glibc/WebKitGTK(4.1) 환경
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # desktop-release.yml gate 의 「리눅스 시스템 의존성」과 같은 목록 — 여기서 바꾸면 저쪽도 같이 본다
+      - name: 리눅스 시스템 의존성 (cargo test 용)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # tauri::generate_context! 는 tauri.conf.json 의 frontendDist(../dist)가 있어야 컴파일된다.
+      # 시험에는 실제 웹 빌드가 필요 없으니 빈 자리만 만든다.
+      - name: frontendDist 자리
+        run: |
+          mkdir -p dist
+          echo '<!doctype html><title>stub</title>' > dist/index.html
+
+      - name: code 층 (lint · typecheck · vitest · cargo test)
+        run: scripts/test-suite.sh --layer code
+
+      - name: 요약
+        if: always()
+        run: cat test-results/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: 실패 로그
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-test-results
+          path: test-results/
+          retention-days: 7
+
+  # (b) 운영 웹 빌드 위 Playwright — chromium-desktop · webkit-desktop · chromium-mobile
+  web-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # 브라우저 캐시 — 키는 잠금 파일(= Playwright 버전). 캐시가 맞아도 아래 install 이 시스템 라이브러리(--with-deps)를 깐다
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - run: npx playwright install --with-deps chromium webkit
+
+      - name: web 층 (운영 빌드 → Playwright 3프로젝트)
+        run: scripts/test-suite.sh --layer web
+
+      - name: 요약
+        if: always()
+        run: cat test-results/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: 실패 보고서 (trace·스크린샷)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
