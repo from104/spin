@@ -24,7 +24,7 @@ jobs:
   # (a) lint(경고 기준선 판정) + typecheck + vitest + cargo test.
   #     cargo test 를 건너뛰지 않는다(`--no-cargo` 는 로컬 전용) — Rust 쪽 회귀가 PR 에서 조용히 지나가면 안 된다.
   code:
-    runs-on: ubuntu-22.04 # desktop-release.yml 의 gate 와 같은 glibc/WebKitGTK(4.1) 환경
+    runs-on: ubuntu-22.04 # desktop-release.yml 의 리눅스 빌드(매트릭스 ubuntu-22.04)와 같은 glibc/WebKitGTK(4.1) 환경
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

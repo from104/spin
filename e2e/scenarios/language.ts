@@ -16,6 +16,9 @@ const HANGUL = /[가-힣]/;
 /** 한글이 있어도 되는 문자열 — 지금은 없다. 생기면 (문자열 정규식, 이유) 로 더한다 */
 const ALLOWED: readonly RegExp[] = [];
 
+/** S13c 가 붙잡은 알려진 전술판 누수 — 휠체어 칩 이름의 `번`(`Place 2번`·`G번 — drag…`)과 코트 무대의 접근성 이름 */
+const KNOWN_BOARD_LEAK = /(?:\d|G)번|코트 편집 영역/;
+
 /** 훑을 화면 — 레일의 목적지 + 규칙 주제 상세. 전술판('/')은 알려진 누수가 있어 S13c 가 따로 맡는다 */
 const ROUTES = ['/drills', '/sessions', '/team', '/rules', '/rules/two-on-one', '/settings'] as const;
 
@@ -40,7 +43,8 @@ async function chooseLanguage(app: SpinApp, code: 'ko' | 'en' | 'ja'): Promise<v
 export default defineGroup('language', [
   {
     title: 'S13 en·ja 화면에 한글이 없다',
-    needs: ['pointer', 'reload'], // 좁은 터치 배치에는 레일의 언어 단추가 없다(CM 은 건너뛴다)
+    // 언어 단추(`lang-open`)는 넓은 창은 레일, 좁은 창은 머리띠(AppNavSegment)에 있다 — 둘은 동시에 서지 않는다
+    needs: ['reload'],
     run: async (app) => {
       await app.open('/drills');
       await app.step('ko 기준선 — 검출기가 한글을 본다', async () => {
@@ -72,11 +76,12 @@ export default defineGroup('language', [
     },
   },
   {
+    // 알려진 누수(KNOWN_BOARD_LEAK) 밖의 한글은 symptom 과 다른 메시지로 먼저 실패한다 — 이 표시가 새 누수를 덮지 않는다.
     // 지우면 새는 실기 버그: 전술판(편집기) 화면에만 남은 한국어 — 트레이 휠체어 칩의 이름(`G번`·`2번` 의 `번` 이
     // 번역 템플릿 밖에 붙는다: "Place 2번"·"2번を配置")과 코트 무대의 접근성 이름 `코트 편집 영역`. 영어·일본어 화면의
     // 스크린리더 사용자가 한국어 조각을 듣는다. S13 이 다른 화면을 지키는 동안 이 화면은 알려진 누수로 붙잡아 둔다.
     title: 'S13c 전술판 한글 누수',
-    needs: ['pointer', 'reload'],
+    needs: ['reload'],
     knownBug:
       '영어·일본어에서도 전술판에 한글이 남는다 — 트레이 휠체어 칩 이름(`Place 2번`·`2번を配置`, 번호 뒤 `번` 이 번역 밖)과 코트 무대의 ' +
       '접근성 이름 `코트 편집 영역`(번역 키 없음). 서랍·세션·팀·규칙·설정·도움말은 깨끗하다',
@@ -86,6 +91,9 @@ export default defineGroup('language', [
       for (const code of ['en', 'ja'] as const) {
         await chooseLanguage(app, code);
         const found = await leaks(app);
+        // 알려진 누수 밖의 한글은 **증상이 다른** 메시지로 먼저 실패한다 — 이 표시 아래로 새 누수가 숨지 않게
+        const fresh = found.filter((s) => !KNOWN_BOARD_LEAK.test(s));
+        check(fresh.length === 0, `${code}: 전술판에 알려진 것 밖의 한글 누수(${fresh.length}건)`, [...new Set(fresh)].slice(0, 4));
         check(found.length === 0, `${code}: 전술판에 한글이 남았다(${found.length}건)`, [...new Set(found)].slice(0, 4));
       }
     },

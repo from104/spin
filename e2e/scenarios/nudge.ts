@@ -72,8 +72,10 @@ export default defineGroup('nudge', [
 
       await app.step('메모는 패드가 아니라 글 열기', async () => {
         const spot = await placeNote(app);
-        // 고르기를 풀고 누른다 — 방금 놓은(골라진) 메모를 곧바로 더블클릭하면 첫 번이 안 먹는 관찰이 있다(Chromium 에서
-        // 재현, WebKit 은 순서에 따라 갈려 원인 미확인 → knownBug 로 못박지 않고 보고만 한다, 2026-11-15)
+        // 고르기를 풀고 누른다 — 놓은 직후 350ms 안에 메모를 더블클릭하면 **첫 누름**이 메모를 놓던 탭과 합쳐져 더블로
+        // 판정되어 글 상자가 열리고, 두 번째 누름이 그 상자의 백드롭(pointerdown 에 닫힘)에 떨어져 곧바로 닫힌다 — S5b 와
+        // 같은 뿌리(CourtStage 의 lastDownRef 가 첫 누름의 대상을 안 본다). 벽시계 경주라 knownBug 로 못박지 않는다(검토 탐침
+        // 2026-11-15: 두 엔진 모두 간격 184ms 에서 재현, 400ms 에서 정상)
         await app.tap(at(0.85, 0.5));
         await app.doubleTap(spot);
         await eventually('메모 더블탭이 글을 연다', () => app.dialogs(), (d) => d.includes('note-edit-modal'));

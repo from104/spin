@@ -12,7 +12,7 @@ import { at, check, defineGroup, eventually, expectQuiet, objectById, shift } fr
 export default defineGroup('push', [
   {
     title: 'S17 휠체어로 휠체어 밀기',
-    needs: ['pointer'],
+    needs: ['pointer', 'keyboard'], // 보드 설정 모달을 Esc 로 닫는다
     run: async (app) => {
       // 물리·상호작용은 기본 꺼짐이다(2026-11-13 결정) — [보드 설정] 에서 켠다. 이 시나리오는 켠 쪽을 본다
       await app.press('fn-court');

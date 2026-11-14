@@ -69,8 +69,8 @@ scripts/test-suite.sh         층 실행기,  scripts/test-summary.mjs  요약 �
 | S10 | library | 시드 서랍과 지운 시드가 되살아나지 않음 | 전부 |
 | S11 | nudge | 더블탭 미세 조정 패드·한 번 = 한 칸·메모는 글 열기 | 전부 |
 | S12 | export | PNG 내보내기 — 내려온 파일을 Node 에서 직접 풀어(`e2e/support/png.ts`) 서명·긴 변 2048·불투명·한 색 아님, 휠체어 놓기 전후 차이가 놓은 쪽에 한 덩이 | CD WK |
-| S13 | language | en·ja 화면에 한글이 없다(S13c 전술판은 known-bug), `/en/` 이 저장 언어를 이김 | CD WK (S13b 는 전부) |
-| S14 | zoom | 휠 줌이 커서 밑 점을 붙들고 줌·팬 뒤 놓기가 손끝 아래 | CD WK |
+| S13 | language | en·ja 화면에 한글이 없다(S13c 전술판은 known-bug — 알려진 누수 밖의 한글은 진짜 실패), `/en/` 이 저장 언어를 이김 | 전부(좁은 창은 머리띠의 언어 단추) |
+| S14 | zoom | 휠 줌이 커서 밑 점을 붙들고, 빈 코트 더블클릭 뒤 끌기(팬)가 끈 만큼 판을 밀며, 줌·팬 뒤 놓기가 손끝 아래 | CD WK |
 | S15 | court.modal | [진영 바꾸기] 가 놓는 방향을 따른다 | CD WK |
 | S16 | court.modal | 격자·규칙 구역 스위치가 층을 지우고 새로고침 뒤에도 유지, 스위치가 화면 안 | 전부 |
 | S17 | push | 물리·상호작용을 켠 채 휠체어로 휠체어를 밀기 | CD WK |
