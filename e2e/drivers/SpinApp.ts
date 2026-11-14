@@ -19,6 +19,53 @@ export type CourtObject = E2EObject;
 /** 화면 키 — app-shell 의 data-screen (src/app/screens.ts 의 Screen) */
 export type ScreenKey = 'board' | 'drills' | 'sessions' | 'team' | 'present' | 'rules' | 'settings';
 
+/** 코트 위 점 — 경기면 사각형(`court-field`)의 0..1 비율. u 는 월드 x, v 는 월드 y 쪽이다(화면 회전과 무관).
+ *  시나리오는 이것으로만 코트 자리를 말한다 — 앱 상수(PX_PER_M·여백)를 베끼지 않으려고(계획 결정 6) */
+export interface CourtPoint {
+  u: number;
+  v: number;
+}
+/** 화면(클라이언트) px */
+export interface ScreenPoint {
+  x: number;
+  y: number;
+}
+/** 월드(viewBox) 좌표 — 모델 자세(objects())가 이 단위다 */
+export interface WorldPoint {
+  x: number;
+  y: number;
+}
+/** 누를 자리: 코트 점이거나 화면 점 */
+export type PointerTarget = CourtPoint | ScreenPoint;
+export const isCourtPoint = (p: PointerTarget): p is CourtPoint => 'u' in p;
+
+export type TrayKind = 'chair' | 'ball' | 'cone';
+export interface PlaceOptions {
+  /** 'tap' = 트레이 칩을 눌러 들고 코트를 누른다 · 'drag' = 칩을 코트까지 끌어다 놓는다 */
+  via: 'tap' | 'drag';
+  /** 휠체어 팀 (기본 'home') */
+  team?: 'home' | 'away';
+}
+
+/** 다리가 내는 스텝·재생 상태 */
+export interface StepState {
+  stepIndex: number;
+  stepCount: number;
+  playing: boolean;
+}
+
+/** 첫 방문 순서 기록(S3) — 문서가 열린 뒤 aria-modal 대화 상자들이 어떻게 섰는가. 드라이버가 문서마다 새로 잰다 */
+export interface ModalLog {
+  /** 한 순간에 함께 서 있던 aria-modal 의 최대 수 */
+  max: number;
+  /** 대화 상자가 처음 선 순서(data-testid, 없으면 'unnamed') */
+  order: string[];
+  /** 둘 이상이 함께 섰던 순간들('a+b') */
+  overlaps: string[];
+  /** 로더가 덮고 있는 동안(aria-busy) 처음 선 대화 상자 */
+  underLoader: string[];
+}
+
 /**
  * 드라이버 능력
  * - pointer   : 마우스 포인터(누르기·끌기·휠)를 보낸다
@@ -56,6 +103,68 @@ export interface SpinApp {
   blockedRequests(): Promise<string[]>;
   /** 코트 무대의 화면 크기(px). 무대가 없으면 null */
   courtSize(): Promise<{ width: number; height: number } | null>;
+  /** data-testid 요소의 화면 상자(브라우저 레이아웃). 없으면 null */
+  rectOf(testId: string): Promise<{ left: number; top: number; right: number; bottom: number } | null>;
+  /** [드릴] 목록의 index 번째 카드를 열고 편집기가 설 때까지 기다린다 — 서랍이 비어 있으면 카드가 생길 때까지 기다린다 */
+  openDrillCard(index: number): Promise<void>;
+  /** 전술판의 머리띠 주 단추 [드릴로 편집] → 이름 대화 상자를 기본 이름으로 확정 → 새 드릴 편집기가 설 때까지.
+   *  스텝·재생은 드릴에만 있다(전술판은 1스텝) — 새 드릴을 만드는 가장 짧은 사람의 길이다 (needs: keyboard) */
+  saveBoardAsDrill(): Promise<void>;
+
+  // ─── 코트 (3단계, 계획 §4) ─────────────────────────────────────────────
+  /** 코트 표시 회전 — `court-stage[data-rot]` */
+  courtRot(): Promise<0 | 90>;
+  /** 코트 점 → 화면 점. 브라우저의 `getScreenCTM()` 으로 푼다(앱의 clientToWorld 와 독립인 판정자) */
+  courtToScreen(pt: CourtPoint): Promise<ScreenPoint>;
+  /** 월드 점(모델 자세) → 화면 점. 같은 CTM */
+  worldToScreen(pt: WorldPoint): Promise<ScreenPoint>;
+  /** 개체 `#obj-<id>` 의 실제 화면 bbox 중심. 없으면 null */
+  objectCenter(id: string): Promise<ScreenPoint | null>;
+  /** 누르기(포인터 능력이면 마우스, 터치 능력이면 터치) */
+  tap(target: PointerTarget): Promise<void>;
+  /** 끌기 — from 에서 눌러 to 까지 steps 번 나눠 옮기고 뗀다 */
+  drag(from: PointerTarget, to: PointerTarget, options?: { steps?: number }): Promise<void>;
+  /** 트레이에서 꺼내 코트에 놓고, 정착을 기다려 새로 생긴 개체의 id 를 돌려준다 */
+  placeFromTray(kind: TrayKind, at: CourtPoint, options: PlaceOptions): Promise<string>;
+  /** 트레이 칩을 눌러 들기만 한다(다음 코트 탭이 그 자리에 놓는다). 기다리지 않는다 */
+  pickFromTray(kind: TrayKind, options?: Pick<PlaceOptions, 'team'>): Promise<void>;
+  /** 화면이 다 섰다 — 다리 busy 가 내려가고 objects() 가 연속 두 프레임 같다. 고정 sleep 대신 이것을 기다린다 */
+  settled(): Promise<void>;
+
+  // ─── 편집 ─────────────────────────────────────────────────────────────
+  undo(): Promise<void>;
+  redo(): Promise<void>;
+  /** 맨 뒤 틈의 [+] — 마지막 스텝을 복제해 뒤에 붙인다 */
+  addStep(): Promise<void>;
+  /** i 번째(0부터) 스텝 카드를 누른다 */
+  selectStep(index: number): Promise<void>;
+  /** 재생/일시정지 단추 */
+  togglePlay(): Promise<void>;
+  stepState(): Promise<StepState>;
+  /** 저장소가 지금 모델을 들고 있는가 — 다리의 autosave */
+  autosave(): Promise<string>;
+  /** 키 조합 하나 (needs: keyboard) — Playwright 표기: 'ArrowRight', 'Control+z' */
+  pressKey(chord: string): Promise<void>;
+  /** 창 크기를 바꾸고 레이아웃이 따라올 때까지 기다린다 (needs: resize) */
+  resize(width: number, height: number): Promise<void>;
+
+  // ─── 대화 상자 ────────────────────────────────────────────────────────
+  /** 지금 서 있는 aria-modal 대화 상자들의 data-testid */
+  dialogs(): Promise<string[]>;
+  /** data-testid 요소가 지금 문서에 있는가(대화 상자가 아닌 띄움 — 미세 조정 패드 등) */
+  present(testId: string): Promise<boolean>;
+  /** data-testid 요소가 자기 중심에서 맨 위에 있는가(다른 요소에 가려져 누를 수 없지 않은가) */
+  onTop(testId: string): Promise<boolean>;
+  /** 좁은 창의 접힌 스텝 목록을 연다(펼친 배치면 아무것도 안 한다). 열린 채로 둔다 */
+  openStepList(): Promise<void>;
+  /** data-testid 요소의 화면 중심(가려졌든 아니든). 없으면 null */
+  centerOf(testId: string): Promise<ScreenPoint | null>;
+  /** 이 문서가 열린 뒤의 대화 상자 기록 */
+  modalLog(): Promise<ModalLog>;
+  /** 대화 상자 안의 data-testid 단추를 누른다 */
+  press(testId: string): Promise<void>;
+  /** 작은 화면 안내에서 [다시 보지 않기] 를 켠다 */
+  checkNoticeOptOut(): Promise<void>;
 
   /** 보고서에 단계로 남긴다 — Playwright 는 test.step, 다른 드라이버는 그냥 실행 */
   step<T>(title: string, body: () => Promise<T>): Promise<T>;

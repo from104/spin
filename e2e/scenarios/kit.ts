@@ -13,7 +13,7 @@
 //
 // QCalc `feature/e2e-suite` 의 kit.ts 에서 Scenario·defineGroup·todo·missingCapabilities·eventually 를
 // 그대로 가져왔다. 키패드 표는 버렸다(SPIN 의 조작 대상은 코트다).
-import type { Capability, SpinApp } from '../drivers/SpinApp.ts';
+import type { Capability, CourtObject, CourtPoint, ScreenPoint, SpinApp } from '../drivers/SpinApp.ts';
 import type { SeedState } from '../fixtures/seed.ts';
 
 export interface Scenario {
@@ -106,4 +106,54 @@ export async function expectQuiet(app: SpinApp, where: string): Promise<void> {
   }
   const errors = await app.errors();
   check(errors.length === 0, `${where}: 콘솔 오류 ${errors.length}건`, errors.slice(0, 3));
+}
+
+// ─── 코트 ─────────────────────────────────────────────────────────────────
+
+/** 코트 점 — 경기면 사각형의 0..1 비율(SpinApp.CourtPoint). 앱 상수를 베끼지 않고 자리를 말하는 유일한 길 */
+export const at = (u: number, v: number): CourtPoint => ({ u, v });
+
+/** 화면 점 이동 */
+export const shift = (p: ScreenPoint, dx: number, dy: number): ScreenPoint => ({ x: p.x + dx, y: p.y + dy });
+
+/** 손끝 허용 오차(화면 px) — 계획 §8: 화면 판정은 정확값이 아니라 3px. WebKit 은 포인터 좌표를 정수로 반올림한다 */
+export const FINGER_PX = 3;
+
+/** 두 화면 점이 tol 안에 있어야 한다 */
+export function expectNear(label: string, actual: ScreenPoint | null, expected: ScreenPoint, tol = FINGER_PX): void {
+  check(actual !== null, `${label}: 화면에 없다`);
+  const dx = actual.x - expected.x;
+  const dy = actual.y - expected.y;
+  check(
+    Math.abs(dx) <= tol && Math.abs(dy) <= tol,
+    `${label}: 기대 (${expected.x.toFixed(1)}, ${expected.y.toFixed(1)}) ±${tol}px — 어긋남 (${dx.toFixed(1)}, ${dy.toFixed(1)})`,
+  );
+}
+
+/** 모델 자세에서 id 하나 */
+export async function objectById(app: SpinApp, id: string): Promise<CourtObject> {
+  const found = (await app.objects()).find((o) => o.id === id);
+  check(!!found, `개체 ${id} 가 모델에 없다`);
+  return found;
+}
+
+/** 자세 비교용 정규형 — id 순으로 정렬한 (id, x, y, 각도) */
+export const poseKey = (objects: readonly CourtObject[]): string =>
+  JSON.stringify([...objects].sort((a, b) => a.id.localeCompare(b.id)).map((o) => [o.id, o.x, o.y, o.angleDeg]));
+
+/** 판정자 자체 검증(계획 §8 위험 2): CTM 으로 푼 경기면 네 모서리의 외접 상자가 브라우저 레이아웃의
+ *  court-field 상자와 같아야 한다. 어긋나면 그 엔진·배율에서는 좌표 판정 전부를 믿을 수 없다 */
+export async function expectCtmMatchesLayout(app: SpinApp): Promise<void> {
+  const corners = await Promise.all([at(0, 0), at(1, 0), at(0, 1), at(1, 1)].map((p) => app.courtToScreen(p)));
+  const xs = corners.map((p) => p.x);
+  const ys = corners.map((p) => p.y);
+  const box = await app.rectOf('court-field');
+  check(!!box, 'court-field 가 화면에 없다');
+  const gap = Math.max(
+    Math.abs(Math.min(...xs) - box.left),
+    Math.abs(Math.min(...ys) - box.top),
+    Math.abs(Math.max(...xs) - box.right),
+    Math.abs(Math.max(...ys) - box.bottom),
+  );
+  check(gap <= 1, `CTM 으로 푼 경기면이 레이아웃 상자와 ${gap.toFixed(2)}px 어긋난다 — 좌표 판정자를 믿을 수 없다`);
 }

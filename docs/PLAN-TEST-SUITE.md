@@ -33,7 +33,7 @@
 | QCalc 파일 | 처리 | SPIN 에서 |
 |---|---|---|
 | `playwright.config.ts` | 각색 | 뷰포트 1280×800, `testDir: e2e/web`, 포트 `E2E_PORT`(기본 4179 — QCalc 4178 과 겹치지 않게), `retries: 0`, 실패만 trace·스크린샷, 능력 옵션에서 `clipboard` 빼고 `pointer`·`resize`·`download`·`prerender` 추가 |
-| `e2e/support/serve.mjs` | 각색 | 빌드 명령 `npm run build`, 출력 `dist/`. 낡음 판정 입력: `src/ public/ index.html vite.config.ts package.json scripts/prerender.mjs CHANGELOG*.md`(변경 이력 모달이 원문을 굽는다). 응답 순서는 운영 vhost 를 흉내: 파일 → `<경로>/index.html`(프리렌더) → `/index.html`(fallback) |
+| `e2e/support/serve.mjs` | 각색 | (⚠️ 3단계: 낡음 판정은 mtime 비교가 아니라 입력 지문 — §10) 빌드 명령 `npm run build`, 출력 `dist/`. 낡음 판정 입력: `src/ public/ index.html vite.config.ts package.json scripts/prerender.mjs CHANGELOG*.md`(변경 이력 모달이 원문을 굽는다). 응답 순서는 운영 vhost 를 흉내: 파일 → `<경로>/index.html`(프리렌더) → `/index.html`(fallback) |
 | `e2e/web/run.ts` | 그대로 | `runGroup` — needs 검사·skip 사유·knownBug/symptom 판정 |
 | `e2e/web/*.spec.ts` | 그대로(꼴) | 그룹당 3줄 |
 | `e2e/scenarios/kit.ts` | 각색 | `Scenario`·`defineGroup`·`todo`·`missingCapabilities`·`eventually` 는 그대로. 키패드 표(KEY/SHIFT·tapKeys)는 버리고 코트 도구(`at(u,v)`·`expectPose`·`settled`·`expectUnder`)로 바꾼다 |
@@ -165,6 +165,18 @@ aria-label·보이는 문구는 번역되므로 선택자로 쓰지 않는다. �
 | S16 | 2 | 판 설정 스위치 — 격자·규칙 구역을 끄면 층이 실제로 사라지고 새로고침 뒤에도 유지. CM 에서 스위치가 화면 안에 있다 | 실제 가시성·모달이 작은 화면에 들어가는가 | CD CM | `court-toggle-*` |
 | S17 | 2 | 끌어서 밀기 — 휠체어를 다른 휠체어로 밀면 밀려나고, 정착 뒤 겹치지 않으며 코트 밖으로 안 나간다 | 실제 이벤트 주기 위의 Matter.js 루프(수치 자체는 vitest) | CD WK | `settled` |
 
+> ⚠️ 3단계 구현 때 더한 것 — **앱 버그 셋을 `knownBug` 시나리오로** 붙잡았다(앱은 이 커밋들에서 고치지 않는다):
+> - **S5b** 탭으로 놓고 350ms·12px 안에 그 새 개체를 누르면 놓기 탭과 합쳐져 더블탭(미세 조정 패드)이 된다 —
+>   `CourtStage` 의 `lastDownRef` 가 첫 누름이 빈 코트였는지 보지 않는다. "놓자마자 자리를 고친다"(§6.10a)가
+>   손 빠른 사람에게만 막힌다. 전 프로젝트.
+> - **S7b** 좁은 창의 접힌 스텝 목록을 열면 [스텝 목록 닫기] 로 바뀐 그 단추(zIndex 20)가 목록(25)·덮개(24)
+>   아래에 깔린다 — "같은 버튼으로 닫기" 가 손에 안 닿는다. 데스크톱 엔진은 412×839 로 줄여 같은 배치를 받는다.
+> - **S7c** 그 덮개가 pointerdown 에서 닫혀, 터치를 뗀 뒤의 click 이 덮개 아래 단추에 떨어진다(실측: [보드 설정]이
+>   열렸다). `ui/Modal.tsx` 의 백드롭도 같은 판정이라 같은 뿌리일 수 있다. 터치(CM)만.
+> - S7(재생)은 계획과 달리 **드릴**에서 돈다 — 전술판에는 스텝·재생이 없다(`EditorWorkspace` 의 `isBoard ? null`).
+>   전술판에 공을 놓고 머리띠 [드릴로 편집] 으로 새 드릴을 만든다. S8 은 전술판(S8a)·드릴(S8b, `scenes` 시드의
+>   첫 카드)로 나눴다.
+
 안 넣는 것: 공유 링크(서버 필요) · Drive 동기화(OAuth) · MP4 내보내기(코덱 편차) · 시연 전체화면(헤드리스 불가) —
 실기 목록(`docs/FIELD-TEST.md`)에 남는다. 3프로젝트 합계 약 41 시험.
 
@@ -220,7 +232,7 @@ push 는 지시가 있을 때만. 뒤 단계(자리표시): Tauri Linux(xvfb + t
 | 위험 | 대응 |
 |---|---|
 | **WebKit 포인터** — `setPointerCapture`·`pointercancel` 순서가 Chromium 과 다르고 터치 에뮬레이션이 없다. Ubuntu 에선 `libmanette` 없으면 아예 안 뜬다 | WK 는 마우스 포인터만, 터치는 CM. 차이로 실패하면 시험을 약하게 고치지 않고 `knownBug` + `symptom`. `--setup` 이 라이브러리 우회 |
-| **`getScreenCTM()` 이 조상의 CSS `transform`(UI 배율)을 엔진마다 다르게 반영** | 3단계 첫 작업으로 "눌러서 놓은 자리 == bbox 중심" 을 3프로젝트에서 실증. 어긋나는 엔진이 있으면 그 프로젝트만 시드 `a11y.uiScale` 을 100% 고정으로 내리고 사유를 README 에 적는다 |
+| **`getScreenCTM()` 이 조상의 CSS `transform`(UI 배율)을 엔진마다 다르게 반영** | 3단계 첫 작업으로 "눌러서 놓은 자리 == bbox 중심" 을 3프로젝트에서 실증. 어긋나는 엔진이 있으면 그 프로젝트만 시드 `a11y.uiScale` 을 100% 고정으로 내리고 사유를 README 에 적는다<br>**→ 3단계 실증(2026-11-15): 문제없음.** CD·WK·CM × UI 배율 100%·150% × rot 0·90 전부에서 CTM 으로 푼 경기면 외접 상자 == `court-field` 의 `getBoundingClientRect` (오차 0.0px), 공을 탭·끌어 놓은 자리 == bbox 중심(Chromium 0.0px, WebKit 은 포인터 좌표를 정수로 반올림해 ≤1px). 배율 고정 폴백은 쓰지 않는다. S4·S6 이 매 회차 같은 대조(`expectCtmMatchesLayout`)를 되풀이한다 |
 | **Matter.js·rAF 타이밍** — 정착 시점이 프레임에 달렸다 | `settled()`(다리 `busy` + 두 프레임 동일) 하나로만 기다린다. 자세 비교는 정확값이 아니라 허용 오차(화면 3px / 모델은 왕복 동일성). `retries: 0` 유지 |
 | 자동 저장 800ms 안에 새로고침 | S8 은 `autosave === 'saved'` 를 기다린 뒤 새로고침. "기다리지 않으면 잃는가" 는 발견되면 knownBug 로 따로 적는다 |
 | 빌드 낡음 — 낡은 `dist/` 로 초록 | `serve.mjs` 가 입력 mtime 을 비교(§2), `reuseExistingServer: false`. 프리렌더 포함 14초라 비용은 작다 |
@@ -232,3 +244,20 @@ push 는 지시가 있을 때만. 뒤 단계(자리표시): Tauri Linux(xvfb + t
 
 실제 WebView2·WebKitGTK·Android WebView 의 차이, 태블릿 손가락 정확도, 소리·진동, 전체화면·화면 꺼짐 방지,
 OAuth. 이 스위트는 그것들의 **근사**다 — 화면에 보이는 것을 바꿨으면 여전히 `http://100.75.15.13:5173/` 에서 본다.
+
+## 10. 3단계 교훈 — 탐침이 잡은 것 (2026-11-15)
+
+초록이 나오기 전에 빨강의 원인이 **앱이 아니라 시험 쪽**이었던 것들. 다음 시나리오 작성자가 같은 데서 넘어지지 않게 남긴다.
+
+| 증상 | 원인 | 대처(드라이버) |
+|---|---|---|
+| CM 에서 놓은 휠체어가 손끝에서 4.5px 어긋남(가끔) | 부팅 직후 글꼴이 늦게 들어오며 머리띠 높이가 바뀌어 코트가 4~5px 밀린다 — 준비 판정 뒤 60ms 까지 움직였다. 화면 점을 계산한 뒤 누르기 전에 무대가 움직였다 | 준비 판정에 `document.fonts.ready` + 본문·무대 상자가 연속 두 프레임 같을 때까지(`layoutStable`) |
+| 방금 탭으로 놓은 개체가 끌리지 않음 | 앱 버그 S5b(더블탭 합침) | 끌기 시험의 개체는 트레이에서 **끌어다** 놓는다(무대에 누름이 안 남는다) |
+| CM 에서 트레이 끌기 직후 단추 탭이 무반응(click 없음) | 움직이던 속도 그대로 손을 떼면 제스처 인식기가 플링으로 읽고, 다음 탭은 플링 멈춤으로 먹힌다 | 터치 끌기 끝에서 8프레임 멈췄다가 뗀다(두 프레임으로는 모자랐다) |
+| CM 에서 화살표 키가 안 먹음 | 터치 **끌기**는 탭이 아니라 초점을 안 옮긴다(마우스는 누르는 순간 옮긴다) | S6 은 "눌러 고르고 → 키" — 터치·키보드를 함께 쓰는 사람의 흐름 그대로 |
+| CM 에서 스텝 추가 단추를 못 찾음 | 세로 창은 스텝 목록이 접혀 있다 | `step-list-toggle` 닻을 더해(3단계, 계획 §4 목록 밖) 열고, 일을 마치면 덮개의 **누를 것이 없는** 자리를 눌러 닫는다(앱 버그 S7b·S7c 를 피해) |
+| UI 배율 150% CM 에서 트레이 끌기가 엉뚱한 단추를 누름 | 트레이가 굴러 칩이 머리띠 아래 깔렸다 | 칩을 `scrollIntoViewIfNeeded` 하고, 누를 점이 정말 그 칩인지 `elementFromPoint` 로 확인 |
+| 로컬에서만 산출물 디렉터리 `mkdir` 이 ENOTSUP | gofu 의 ZFS 가 `normalization=formD` — 한글 음절이 자모로 풀려 1자가 6~9바이트가 되고, 이름 255바이트를 넘으면 ENOTSUP(한글 29자 제목, 원래 132바이트에서 실측) | 시나리오 제목을 짧게(AGENTS 「E2E 시나리오 규칙」) |
+| 돌연변이를 되돌린 뒤의 전체 회차에서 S8b 만 계속 빨강 | 되돌리기를 mtime 보존 복사(shutil.copy2)로 했더니 원본의 옛 시각이 살아나, "dist 보다 새 입력이 있나" 판정이 마지막 돌연변이 빌드를 그대로 내줬다(§8 「빌드 낡음」 위험이 실제로 났다) | `serve.mjs` 의 낡음 판정을 **입력 지문**(경로·mtime·크기 해시, `dist/.e2e-inputs`)으로 바꿨다 — 시각이 뒤로 가도·파일이 사라져도 바뀐다. 계획 §2 의 "입력 mtime 비교" 를 대신한다 |
+| 첫 방문 시나리오가 "새로고침 뒤 안 뜬다" 를 너무 일찍 통과(돌연변이로 발각) | `aria-busy` 가 내려간 뒤에도 덮개는 퇴장 페이드 동안 살아 있고, 대화 상자 게이트는 그 **걷힘** 뒤에 판정한다 | 준비 판정에 `.spin-loader` 가 DOM 에서 빠질 때까지를 더했다 |
+

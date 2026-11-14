@@ -20,7 +20,7 @@ const ROUTES: readonly (readonly [string, ScreenKey])[] = [
 
 export default defineGroup('boot', [
   {
-    title: 'S1 레일 여섯 주소로 직접 진입하고 새로고침해도 그 화면이 뜬다',
+    title: 'S1 여섯 주소 직접 진입·새로고침',
     needs: ['reload'],
     run: async (app) => {
       for (const [route, screen] of ROUTES) {

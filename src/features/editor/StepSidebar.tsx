@@ -978,6 +978,7 @@ export function StepSidebar({
     <>
       <button
         type="button"
+        data-testid="step-list-toggle"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={open ? t('editor.stepSidebar.overlay.closeAriaLabel') : t('editor.stepSidebar.overlay.openAriaLabel')}
