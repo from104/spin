@@ -17,14 +17,19 @@
 #   -- <args>               뒤의 인자는 그대로 playwright test 에 넘긴다
 #
 # 결과: test-results/summary.md(30줄 이하, 시작할 때 지우고 끝에 새로 씀) · summary.json · e2e-junit.xml · 단계별 *.log
-# 종료 코드: 실패한 층이 하나라도 있으면 1. 린트는 종료 코드만 본다(오랜 경고 48건 기준선은 실패가 아니다).
+# 종료 코드: 실패한 층이 하나라도 있으면 1. 린트는 종료 코드와 함께 **경고 수가 기준선(LINT_BASELINE)을 넘는지** 본다.
+#   기준선 = 고칠 계획이 없는 오랜 경고 수. 이 변수 하나가 유일한 출처다(CI 도 이 스크립트를 부른다) —
+#   경고를 실제로 줄였을 때만 낮추고, 늘리는 방향으로 고치지 않는다(새 경고는 그 자리에서 고친다).
+# 같은 작업 트리에서 두 번 동시에 돌지 않는다 — test-results/.run.lock(flock)을 쥔 실행이 있으면 거부하고 끝낸다.
 set -euo pipefail
+
+LINT_BASELINE=48
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 OUT=test-results
 
-usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; }
 
 LAYERS=()
 PLATFORM=web
@@ -110,13 +115,21 @@ fi
 
 # ─── 단계 실행·기록 ─────────────────────────────────────────────────────────
 mkdir -p "$OUT"
+# 동시 실행 거부 — 아래에서 결과 파일을 지우고 e2e 서버(고정 포트)를 정리하므로 두 실행이 겹치면 서로를 망친다.
+# flock 은 프로세스가 죽으면 커널이 풀어 주므로 낡은 잠금이 남지 않는다. 락 fd 는 하위 프로세스(서버)에 상속되지 않게 닫아 둔다.
+exec 9>"$OUT/.run.lock"
+if ! flock -n 9; then
+  echo "다른 test-suite 실행이 이 작업 트리에서 돌고 있다($OUT/.run.lock) — 끝난 뒤 다시 실행하라" >&2
+  exit 3
+fi
 STEPS="$OUT/.steps.jsonl"
 : >"$STEPS"
 touch "$OUT/.started"
 # 낡은 결과가 이번 실행의 요약으로 남지 않게 모두 지운다 (summary 는 맨 마지막에 새로 쓴다)
 rm -f "$OUT/vitest.json" "$OUT/e2e-report.json" "$OUT/e2e-junit.xml" "$OUT/summary.md" "$OUT/summary.json"
 
-# 이전 실행이 SIGKILL 로 죽어 남긴 e2e 서버(serve.mjs)만 정리한다 — pid 파일의 PID 이고 cmdline 이 serve.mjs 일 때만.
+# 이전 실행이 SIGKILL 로 죽어 남긴 e2e 서버(serve.mjs)만 정리한다 — 위 잠금을 쥔 지금은 다른 실행의 서버일 수 없다.
+# pid 파일의 PID 이고 cmdline 이 serve.mjs 일 때만.
 # 이름 패턴으로 죽이지 않는다(`pkill -f` 는 셸 자신과 남의 프로세스를 죽인다 — AGENTS §6)
 PIDFILE="$OUT/.e2e-server.pid"
 kill_stale_server() {
@@ -132,6 +145,18 @@ kill_stale_server() {
 }
 trap kill_stale_server EXIT
 
+# lint_check — oxlint 가 오류 없이 끝나고 경고가 기준선 이하일 때만 통과. 출력(JSON)은 로그에 남긴다
+lint_check() {
+  local json="$OUT/code-lint.json" count
+  npx oxlint --format=json >"$json" || { echo "oxlint 오류 종료"; return 1; }
+  count=$(node -e 'const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); console.log(d.diagnostics.length);' "$json")
+  echo "oxlint 경고 $count건 (기준선 $LINT_BASELINE)"
+  if [[ "$count" -gt "$LINT_BASELINE" ]]; then
+    echo "기준선을 넘었다 — 새 경고를 고쳐라: npm run lint"
+    return 1
+  fi
+}
+
 # record <layer> <step> <pass|fail|skip> <seconds> <detail> <log>
 record() {
   node -e 'const [layer, step, status, seconds, detail, log] = process.argv.slice(1);
@@ -144,7 +169,7 @@ run_step() {
   local layer="$1" step="$2" log="$OUT/$1-$2.log" start=$SECONDS status
   shift 2
   printf '[%s] %-10s … ' "$layer" "$step"
-  if "$@" >"$log" 2>&1; then status=pass; else status=fail; fi
+  if "$@" >"$log" 2>&1 9>&-; then status=pass; else status=fail; fi
   printf '%s (%ss)\n' "$status" "$((SECONDS - start))"
   record "$layer" "$step" "$status" "$((SECONDS - start))" "" "$log"
 }
@@ -152,7 +177,7 @@ run_step() {
 for layer in "${LAYERS[@]}"; do
   case "$layer" in
     code)
-      run_step code lint npm run lint
+      run_step code lint lint_check
       run_step code typecheck npm run typecheck
       run_step code vitest npm test -- --reporter=default --reporter=json --outputFile.json="$OUT/vitest.json"
       if [[ $CARGO -eq 0 ]]; then

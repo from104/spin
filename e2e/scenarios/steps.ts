@@ -89,7 +89,7 @@ export default defineGroup('steps', [
       check(!(await app.onTop('fn-court')), '스텝 목록 덮개가 [보드 설정] 단추를 덮지 않는다 — 이 시나리오의 전제가 깨졌다');
       await app.tap(under);
       await eventually('스텝 목록이 닫힘', () => app.present('step-card'), false);
-      check((await app.dialogs()).length === 0, '바깥을 눌러 닫았는데 아래의 [보드 설정]이 열렸다', await app.dialogs());
+      check(!(await app.dialogs()).includes('court-modal'), '바깥을 눌러 닫았는데 아래의 [보드 설정]이 열렸다', await app.dialogs());
     },
   },
 ]);

@@ -519,6 +519,7 @@ export function FunctionBar({
         onClose={() => setCourtOpen(false)}
         titleId={courtId}
         title={t('editor.functionBar.courtModal.title')}
+        testId="court-modal"
         closeLabel={t('common.close')}
         returnFocusRef={courtBtnRef}
       >
