@@ -581,6 +581,16 @@ export function IconCollide({ size = 18, ...rest }: IconProps) {
   );
 }
 
+/** [보드 설정] 심플 모드 — 방향 눈금이 붙은 원 하나(휠체어를 원으로 보이는 모드). */
+export function IconSimple({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <circle cx="11" cy="12" r="6.5" />
+      <path d="M18.5 9.8l3 2.2-3 2.2z" />
+    </svg>
+  );
+}
+
 /** [보드 설정] 끌어 회전하기 — 차체(사각형) 둘레를 도는 화살표. */
 export function IconDragRotate({ size = 18, ...rest }: IconProps) {
   return (

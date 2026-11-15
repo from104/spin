@@ -47,6 +47,7 @@ import {
   IconGrid,
   IconRedo,
   IconRuleZone,
+  IconSimple,
   IconSides,
   IconUndo,
   IconZoomIn,
@@ -123,12 +124,14 @@ const MODAL_ROW: CSSProperties = {
 };
 const MODAL_ACTION: CSSProperties = { ...MODAL_ROW, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' };
 
-function ModalToggle({ on, onClick, icon, text, hint, testId }: { on: boolean; onClick(): void; icon: ReactNode; text: string; hint: string; testId?: string }) {
+function ModalToggle({ on, onClick, icon, text, hint, testId, disabled = false }: { on: boolean; onClick(): void; icon: ReactNode; text: string; hint: string; testId?: string; disabled?: boolean }) {
   return (
     <button
       type="button"
       data-testid={testId}
       aria-pressed={on}
+      // 심플 모드가 강제로 끈 스위치 — 저장된 값은 건드리지 않으므로 누를 수 없게만 한다.
+      disabled={disabled}
       onClick={onClick}
       title={hint}
       style={{
@@ -136,6 +139,7 @@ function ModalToggle({ on, onClick, icon, text, hint, testId }: { on: boolean; o
         border: on ? '1.5px solid var(--accent)' : '1px solid var(--border)',
         background: on ? 'color-mix(in srgb, var(--accent) 12%, var(--panel))' : 'var(--panel)',
         color: on ? 'var(--accent-text)' : 'var(--text)',
+        opacity: disabled ? 0.5 : 1,
       }}
     >
       <span aria-hidden style={{ display: 'flex' }}>
@@ -335,6 +339,9 @@ export function FunctionBar({
   const { setPrefs } = useSettingsActions();
   const t = useT();
   const locale = useLocale();
+  // 심플 모드(휠체어 = 원). 켜 있으면 아래 물리 세 스위치는 **누를 수 없고 꺼진 채로** 보인다 —
+  // 저장값(prefs.physics)은 건드리지 않아 심플 모드를 끄면 원래대로 돌아온다(PLAN-SIMPLE-DRIVE A5).
+  const simple = prefs.board.simple;
 
   // 메뉴로 쓰는 Modal 은 열면 [닫기](DOM 순서상 앞)에 포커스가 간다 — 한 칸을 더 움직여야 하는
   // 것은 발 마우스 사용자에게 그냥 비용이다. 자식(Modal) 이펙트가 먼저, 부모(여기)가 나중에
@@ -715,6 +722,14 @@ export function FunctionBar({
           <div role="group" aria-label={t('editor.functionBar.courtModal.viewGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.viewGroupLabel')}</p>
             <ModalToggle
+              testId="court-toggle-simple"
+              on={simple}
+              onClick={() => setPrefs({ board: { simple: !simple } })}
+              icon={<IconSimple />}
+              text={t('editor.functionBar.courtModal.simpleText')}
+              hint={simple ? t('editor.functionBar.courtModal.simpleOn') : t('editor.functionBar.courtModal.simpleOff')}
+            />
+            <ModalToggle
               testId="court-toggle-grid"
               on={showGrid}
               onClick={onToggleGrid}
@@ -745,26 +760,35 @@ export function FunctionBar({
                 이 둘로 갈라지며 폐기됐다. */}
             <ModalToggle
               testId="court-toggle-interact"
-              on={physics.interact}
+              on={physics.interact && !simple}
+              disabled={simple}
               onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, interact: !physics.interact }) })}
               icon={<IconCollide />}
               text={t('editor.functionBar.courtModal.interactText')}
-              hint={physics.interact ? t('editor.functionBar.courtModal.interactOn') : t('editor.functionBar.courtModal.interactOff')}
+              hint={simple ? t('editor.functionBar.courtModal.simpleLockedReason') : physics.interact ? t('editor.functionBar.courtModal.interactOn') : t('editor.functionBar.courtModal.interactOff')}
             />
             <ModalToggle
-              on={physics.dragRotate}
+              on={physics.dragRotate && !simple}
+              disabled={simple}
               onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, dragRotate: !physics.dragRotate }) })}
               icon={<IconDragRotate />}
               text={t('editor.functionBar.courtModal.dragRotateText')}
-              hint={physics.dragRotate ? t('editor.functionBar.courtModal.dragRotateOn') : t('editor.functionBar.courtModal.dragRotateOff')}
+              hint={simple ? t('editor.functionBar.courtModal.simpleLockedReason') : physics.dragRotate ? t('editor.functionBar.courtModal.dragRotateOn') : t('editor.functionBar.courtModal.dragRotateOff')}
             />
             <ModalToggle
-              on={physics.anchors}
+              on={physics.anchors && !simple}
+              disabled={simple}
               onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, anchors: !physics.anchors }) })}
               icon={<IconAnchors />}
               text={t('editor.functionBar.courtModal.anchorsText')}
-              hint={physics.anchors ? t('editor.functionBar.courtModal.anchorsOn') : t('editor.functionBar.courtModal.anchorsOff')}
+              hint={simple ? t('editor.functionBar.courtModal.simpleLockedReason') : physics.anchors ? t('editor.functionBar.courtModal.anchorsOn') : t('editor.functionBar.courtModal.anchorsOff')}
             />
+            {/* 이유를 눈에 보이게 적는다 — title 은 터치에서 안 보이고, 꺼진 스위치가 왜 꺼졌는지는 이 줄이 말한다. */}
+            {simple && (
+              <p data-testid="court-simple-note" style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted)' }}>
+                {t('editor.functionBar.courtModal.simpleLockedReason')}
+              </p>
+            )}
           </div>
 
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />

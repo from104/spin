@@ -682,6 +682,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
       courtLabel={COURT_DEFS[drill.courtMode].label[locale]}
       orientation={trayBand ? 'horizontal' : 'vertical'}
       onItemPointerDown={tray.start}
+      simple={prefs.board.simple}
     />
   );
 
@@ -948,8 +949,10 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
                 showGridLabels={prefs.showGridLabels}
                 showRuleZones={showRuleZones}
                 largeTargets={prefs.a11y.largeTargets}
-                dragRotate={physics.dragRotate}
-                anchors={physics.anchors}
+                // 심플 모드(휠체어 = 원)에서는 원에 견인 존·앵커가 없다 — 저장값은 그대로 두고 여기서 접는다.
+                dragRotate={physics.dragRotate && !prefs.board.simple}
+                anchors={physics.anchors && !prefs.board.simple}
+                simple={prefs.board.simple}
                 onEraseIds={eraseIds}
                 onDuplicateIds={duplicateObjIds}
                 onEditNote={(id, fresh) => setEditingNote({ id, fresh })}
@@ -1029,7 +1032,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
             data-tray-ghost
             style={{ position: 'fixed', left: 0, top: 0, zIndex: 60, pointerEvents: 'none', willChange: 'transform', padding: GHOST_SHADOW_PAD }}
           >
-            <TrayGhost item={tray.dragging} pxPerUnit={tray.pxPerUnit} drill={drill} coneSlot={state.coneSlot} />
+            <TrayGhost item={tray.dragging} pxPerUnit={tray.pxPerUnit} drill={drill} coneSlot={state.coneSlot} simple={prefs.board.simple} />
           </div>,
           document.body,
         )}

@@ -1,7 +1,7 @@
 // §3.4 "피벗 원점 렌더 규약" 그대로 이식. `<g>` 에는 transform prop 을 절대 주지 않는다
 // (§6.1 규칙 1) — 위치는 TransformWriter 가 마운트된 ref 에 직접 쓴다.
 import { memo, useEffect, useRef } from 'react';
-import { LockTintRect } from './LockTint.tsx';
+import { LockTint, LockTintRect } from './LockTint.tsx';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { CHAIR } from '../../core/constants.ts';
 import { inkFor, strokeFor } from '../../core/colors.ts';
@@ -9,6 +9,7 @@ import type { ChairId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import type { TeamSide } from '../../model/drill.ts';
+import { DISC_FOCUS_PAD, DISC_LABEL_FONT_PX, DISC_RADIUS_PX, DISC_SEL_PAD, discTickPoints } from '../../model/chairDisc.ts';
 import { CHAIR_STROKE_W, teamPatternFor } from '../teamMark.ts';
 import { ZONE_CURSOR } from '../zoneCursors.ts';
 import { useUprightTransform } from '../stageRot.tsx';
@@ -31,6 +32,9 @@ export interface ChairChipProps {
   /** 넘기면 차체 위 4개 존에 각각 다른 마우스 커서를 얹는다(편집기 전용).
    *  시연 화면은 드래그가 없으므로 넘기지 않는다. */
   zoneCursors?: ZoneConfig | null;
+  /** 심플 모드 — 차체 대신 **원**으로 그린다(기하는 `model/chairDisc.ts` 한 곳, 결정 A3). 원에는
+   *  견인 존이 없으므로 `zoneCursors` 가 와도 존 음영·커서를 얹지 않는다. 기본 꺼짐(실물 차체). */
+  disc?: boolean;
   onPointerDown?: (id: ChairId, e: ReactPointerEvent<SVGGElement>) => void;
   onKeyDown?: (id: ChairId, e: ReactKeyboardEvent<SVGGElement>) => void;
 }
@@ -79,6 +83,7 @@ export const ChairChip = memo(function ChairChip({
   active,
   ariaLabel,
   zoneCursors,
+  disc = false,
   onPointerDown,
   onKeyDown,
 }: ChairChipProps) {
@@ -106,6 +111,44 @@ export const ChairChip = memo(function ChairChip({
   // src/render/teamMark.ts 머리말. ⚠️ 아래 두 값을 리터럴로 되돌리면 그 사용자에게 판이
   // 통째로 무의미해진다.
   const pattern = teamPatternFor(team);
+
+  if (disc) {
+    // 심플 모드 — 원 하나 + 방향 눈금 + 가운데 등번호. 원점(피벗)이 곧 원의 중심이라 writer 가 쓰는
+    // 위치·회전이 그대로 맞고, 번호는 같은 counter 경로(rotate(-θ) + upright)로 눕지 않는다.
+    return (
+      <g
+        ref={bodyRef}
+        id={`obj-${id}`}
+        className="court-obj"
+        data-shape="disc"
+        role="button"
+        aria-label={ariaLabel}
+        aria-pressed={selected}
+        tabIndex={active ? 0 : -1}
+        onPointerDown={(e) => onPointerDown?.(id, e)}
+        onKeyDown={(e) => onKeyDown?.(id, e)}
+      >
+        {selected && (
+          <g className="sel-ring" pointerEvents="none">
+            <circle r={DISC_RADIUS_PX + DISC_SEL_PAD} fill="none" stroke="rgba(0,0,0,.65)" strokeWidth={4.5} />
+            <circle r={DISC_RADIUS_PX + DISC_SEL_PAD} fill="none" stroke="var(--accent)" strokeWidth={2.2} strokeDasharray="6 4" />
+          </g>
+        )}
+        <circle r={DISC_RADIUS_PX} fill={color} stroke={stroke} strokeWidth={CHAIR_STROKE_W} strokeDasharray={pattern.strokeDash} />
+        <polygon points={discTickPoints()} fill={stroke} stroke={stroke} strokeWidth={1} strokeLinejoin="round" />
+        <g ref={counterRef}>
+          <g transform={upright}>
+            <text x={0} y={0} fontFamily={FONT} fontSize={DISC_LABEL_FONT_PX} fontWeight={700} fill={ink} textAnchor="middle" dominantBaseline="central">
+              {number}
+            </text>
+          </g>
+        </g>
+        <circle className="focus-ind-outer" r={DISC_RADIUS_PX + DISC_FOCUS_PAD} />
+        <circle className="focus-ind-inner" r={DISC_RADIUS_PX + DISC_FOCUS_PAD} />
+        {locked && <LockTint r={DISC_RADIUS_PX + DISC_SEL_PAD} />}
+      </g>
+    );
+  }
 
   return (
     <g

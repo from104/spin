@@ -109,6 +109,13 @@ export interface Preferences {
    *  이 도장은 **소급하지 않는다**: 이미 찍힌 기기는 옛 3벌을 그대로 갖고 재시드 장치는 없다. */
   seeded: boolean;
   physics: PhysicsOverride;
+  /** 보드(코트 위 표시) 취향. 지금은 `simple` 하나 — **심플 모드**(2026-11-16 기현 지시,
+   *  docs/PLAN-SIMPLE-DRIVE.md 결정 A2). 휠체어를 원으로 *보이기만* 한다: 드릴 데이터(자세)는 그대로
+   *  저장되고, 켜 있는 동안 물리 상호작용은 강제로 꺼진다(저장된 `physics.interact` 는 건드리지 않아
+   *  끄면 원래대로). 기기 설정인 이유는 `physics` 의 세 스위치와 같다 — 공유받은 드릴이 내 설정과
+   *  다르게 열리는 쪽이 "같은 드릴이 기기마다 다르게 저장돼 보이는" 쪽보다 낫다. 기본 끔.
+   *  스키마 도장은 올리지 않는다(옵셔널 키 추가 — `a11y.sound` 전례, 없으면 기본값). */
+  board: { simple: boolean };
   /** i18n C1. `'auto'` 는 브라우저 언어(navigator.languages)로 매 렌더 해석된다 — 값 자체는
    *  로케일이 아니라 "무엇을 볼지에 대한 취향"이라 기기를 옮겨도 따라오는 게 맞다(theme 과
    *  같은 결). 해석 로직은 i18n/locale.ts 가 단일 출처다. */
@@ -162,6 +169,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   tray: { draw: false, note: false },
   seeded: false,
   physics: {},
+  board: { simple: false },
   language: 'auto',
   sync: { enabled: false },
   tutorialsSeen: {},
@@ -217,6 +225,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
   const a11yRaw = isRecord(raw.a11y) ? raw.a11y : {};
   const trayRaw = isRecord(raw.tray) ? raw.tray : {};
   const syncRaw = isRecord(raw.sync) ? raw.sync : {};
+  const boardRaw = isRecord(raw.board) ? raw.board : {};
   const tutorialsSeenRaw = isRecord(raw.tutorialsSeen) ? raw.tutorialsSeen : {};
   const tutorialsSeen: Partial<Record<TutorialScreenKey, true>> = {};
   for (const k of TUTORIAL_SCREEN_KEYS) {
@@ -259,6 +268,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     tray: { draw: bool(trayRaw.draw, d.tray.draw), note: bool(trayRaw.note, d.tray.note) },
     seeded: bool(raw.seeded, d.seeded),
     physics: carryTwoZone(sanitizePhysicsOverride(raw.physics), a11yRaw.twoZone),
+    board: { simple: bool(boardRaw.simple, d.board.simple) },
     language,
     sync: { enabled: bool(syncRaw.enabled, d.sync.enabled) },
     tutorialsSeen,

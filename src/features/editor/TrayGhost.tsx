@@ -8,6 +8,8 @@ import { CONE_COLORS, inkFor } from '../../core/colors.ts';
 import type { Drill } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { placeHeadingDeg } from '../../model/rules.ts';
+import { DISC_RADIUS_PX, DISC_LABEL_FONT_PX, discTickPoints } from '../../model/chairDisc.ts';
+import { strokeFor } from '../../core/colors.ts';
 import type { TrayDragItem } from './useTrayDrag.ts';
 
 export interface TrayGhostProps {
@@ -15,9 +17,11 @@ export interface TrayGhostProps {
   pxPerUnit: number;
   drill: Drill;
   coneSlot: 0 | 1;
+  /** 심플 모드 — 휠체어 고스트도 원으로(놓이는 모양과 같아야 손을 뗄 때 안 튄다, model/chairDisc.ts). */
+  simple?: boolean;
 }
 
-export function TrayGhost({ item, pxPerUnit, drill, coneSlot }: TrayGhostProps) {
+export function TrayGhost({ item, pxPerUnit, drill, coneSlot, simple = false }: TrayGhostProps) {
   const k = pxPerUnit > 0 ? pxPerUnit : 1;
   const shadow = 'drop-shadow(0 6px 10px rgba(0,0,0,.5))';
 
@@ -55,6 +59,44 @@ export function TrayGhost({ item, pxPerUnit, drill, coneSlot }: TrayGhostProps) 
   // 같은 이유다. 각도를 여기 박아 두지 않는 이유이기도 하다: 코트 종류가 정한다.
   const court = courtDefFor(drill.courtMode, drill.courtSize);
   const headingDeg = placeHeadingDeg(court, def.team, drill.defense);
+  if (simple) {
+    const d = DISC_RADIUS_PX * 2 * k;
+    const stroke = strokeFor(color);
+    return (
+      <div
+        data-shape="disc"
+        style={{
+          position: 'relative',
+          width: d,
+          height: d,
+          filter: shadow,
+          opacity: 0.9,
+          transform: `rotate(${headingDeg}deg)`,
+        }}
+      >
+        <svg width={d} height={d} viewBox={`${-DISC_RADIUS_PX} ${-DISC_RADIUS_PX} ${DISC_RADIUS_PX * 2} ${DISC_RADIUS_PX * 2}`} style={{ position: 'absolute', inset: 0, overflow: 'visible' }} aria-hidden>
+          <circle r={DISC_RADIUS_PX} fill={color} stroke={stroke} strokeWidth={Math.max(1, 0.6 * k) / k} />
+          <polygon points={discTickPoints()} fill={stroke} stroke={stroke} strokeWidth={1} strokeLinejoin="round" />
+        </svg>
+        <span
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: inkFor(color),
+            fontFamily: "'Space Grotesk', sans-serif",
+            fontSize: Math.max(9, DISC_LABEL_FONT_PX * k),
+            fontWeight: 700,
+            transform: `rotate(${-headingDeg}deg)`,
+          }}
+        >
+          {def.number}
+        </span>
+      </div>
+    );
+  }
   return (
     <div
       style={{

@@ -61,11 +61,14 @@ export const PresentChairMark = memo(function PresentChairMark({
   teams,
   writer,
   opacityWriter,
+  disc = false,
 }: {
   def: ChairDef;
   teams: Record<TeamSide, TeamStyle>;
   writer: TransformWriter;
   opacityWriter: OpacityWriter;
+  /** 심플 모드 — 원으로 그린다. */
+  disc?: boolean;
 }) {
   const t = useT();
   const label = t('present.objects.chairAriaLabel', { team: teams[def.team].label, number: def.number, gkSuffix: def.isGk ? t('present.objects.goalkeeperSuffix') : '' });
@@ -80,6 +83,7 @@ export const PresentChairMark = memo(function PresentChairMark({
         selected={false}
         active={false}
         ariaLabel={label}
+        disc={disc}
       />
     </Fade>
   );

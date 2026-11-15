@@ -35,6 +35,9 @@ export interface KinInput {
 export interface Bounds {
   w: number;
   h: number;
+  /** 심플 모드(휠체어 = 원) — 벽 경계를 실물 차체가 아니라 **피벗 중심 원**(model/chairDisc.ts)으로 잰다.
+   *  원의 AABB 는 돌려도 같으므로 판 안에 머무는 조건이 회전과 무관하다. 저장 데이터는 건드리지 않는다. */
+  disc?: boolean;
 }
 
 export type BodyKind = 'chair' | 'ball' | 'cone' | 'wall';

@@ -121,6 +121,8 @@ export interface ObjectLayerProps {
   selection: ReadonlySet<string>;
   /** 편집기에서만 넘긴다 — 차체 위 4개 존에 존별 마우스 커서를 얹는다. */
   zoneCursors?: ZoneConfig | null;
+  /** 심플 모드 — 휠체어를 원으로 그린다(model/chairDisc.ts). 안 넘기면 실물 차체(규칙 화면 도해가 이쪽). */
+  chairDisc?: boolean;
   /** 로빙 tabindex 대상(§7.5b `aria-activedescendant`). */
   activeId: string | null;
   /** 마운트 첫 페인트에 즉시 확정할 프레임(§6.2 요건 2) — 드릴 재마운트·스텝 점프 직후에도 채운다. */
@@ -165,6 +167,7 @@ export function ObjectLayer({
   markerUid,
   selection,
   zoneCursors,
+  chairDisc,
   activeId,
   initialFrame,
   fades,
@@ -392,6 +395,7 @@ export function ObjectLayer({
               active={activeId === c.id}
               ariaLabel={c.ariaLabel}
               zoneCursors={zoneCursors}
+              disc={chairDisc}
               onPointerDown={onObjectPointerDown}
               onKeyDown={onObjectKeyDown}
             />

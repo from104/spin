@@ -16,6 +16,7 @@ import type { ToolId } from '../../physics/index.ts';
 import { LOCKABLE_TOOLS } from '../../store/editor/reducer.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
 import { CHAIR } from '../../core/constants.ts';
+import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX, discTickPoints } from '../../model/chairDisc.ts';
 import { numberedName } from '../../model/chairLabel.ts';
 import { IconPin, IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
@@ -103,6 +104,8 @@ export interface ToolRailProps {
   // 그 결과 이 컴포넌트에는 모드 분기가 하나도 없다 — 전술판과 드릴이 같은 트레이를 쓴다.
   /** 끌어다 놓기 연결(useTrayDrag.start). 없으면 탭만 동작한다 — 테스트·프리젠터용. */
   onItemPointerDown?(item: TrayDragItem, e: ReactPointerEvent, onTap: () => void): void;
+  /** 심플 모드 — 트레이의 휠체어 칩도 원으로 그린다(model/chairDisc.ts). 기본 꺼짐. */
+  simple?: boolean;
 }
 
 /** 트레이 칩의 화면 크기 — **전부 `--hit` 파생이다**(§5.4). 이전에는 33px 고정이라 칩 상자가
@@ -344,8 +347,32 @@ const BTN_STYLE = {
  *
  *  코트에서 휠체어는 가로로 놓인다(앞이 오른쪽). 트레이만 세로로 세워 두면 같은 말이
  *  두 모습으로 보인다 — 머리(피벗)와 볼가드가 어느 쪽인지도 사라진다. */
-function TrayChairArt({ color, ink, number, empty }: { color?: string; ink?: string; number: string; empty?: boolean }) {
+function TrayChairArt({ color, ink, number, empty, disc = false }: { color?: string; ink?: string; number: string; empty?: boolean; disc?: boolean }) {
   const half = CHAIR.widthPx / 2;
+  if (disc) {
+    // 심플 모드 — 트레이 칩도 원(model/chairDisc.ts). 뷰박스를 원에 맞춰 정사각으로 잡고(칩 상자 안에서
+    // 가운데 정렬), 앞(눈금)이 위를 보게 -90° 돌린다 — 차체 칩과 같은 약속이다.
+    const R = DISC_RADIUS_PX;
+    const lineColor = empty ? 'var(--border-strong)' : 'rgba(255,255,255,.92)';
+    return (
+      <svg
+        aria-hidden
+        data-shape="disc"
+        viewBox={`${-R * 1.4} ${-R * 1.4} ${R * 2.8} ${R * 2.8}`}
+        style={{ display: 'block', overflow: 'visible', width: CHIP_W_CSS, height: CHIP_H_CSS }}
+      >
+        <g transform="rotate(-90)">
+          <circle r={R} fill={empty ? 'none' : color} stroke={lineColor} strokeWidth={2.2} strokeDasharray={empty ? '5 4' : undefined} />
+          {!empty && <polygon points={discTickPoints()} fill={lineColor} stroke={lineColor} strokeWidth={1} strokeLinejoin="round" />}
+          <g transform="rotate(90)">
+            <text x={0} y={0} textAnchor="middle" dominantBaseline="central" fill={empty ? 'var(--faint-text)' : ink} style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: DISC_LABEL_FONT_PX }}>
+              {number}
+            </text>
+          </g>
+        </g>
+      </svg>
+    );
+  }
   return (
     <svg
       aria-hidden
@@ -595,6 +622,7 @@ export function ToolRail({
   courtLabel,
   orientation = 'vertical',
   onItemPointerDown,
+  simple = false,
 }: ToolRailProps) {
   const t = useT();
   const locale = useLocale();
@@ -768,7 +796,7 @@ export function ToolRail({
                   title={t('editor.toolRail.placedPlayerTitle', { who })}
                   style={{ ...TRAY_CHIP_BOX, opacity: 0.5 }}
                 >
-                  <TrayChairArt number={c.number} empty />
+                  <TrayChairArt number={c.number} empty disc={simple} />
                 </span>
               );
             }
@@ -790,7 +818,7 @@ export function ToolRail({
                   filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.45))',
                 }}
               >
-                <TrayChairArt color={c.color} ink={c.ink} number={c.number} />
+                <TrayChairArt color={c.color} ink={c.ink} number={c.number} disc={simple} />
               </button>
             );
           })}

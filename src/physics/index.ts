@@ -144,6 +144,8 @@ export interface PhysicsWorldApi {
    *  ⚠️ 이 월드 자신의 기본값은 **켬**이다. 물리 골든 테스트 전부가 켬을 전제로 쓰였고,
    *     앱의 기본(끔)은 설정을 읽는 쪽(EditorProvider)이 생성 직후 밀어 넣는다. */
   setInteract(on: boolean): void;
+  /** 심플 모드 — 벽 경계를 원(피벗 중심, 반지름 12.5 px)으로 잰다. 끄면 실물 차체 기준(기본). 판 데이터는 안 건드린다. */
+  setDiscBounds(on: boolean): void;
   beginDrag(hit: HitResult, grabWorld: Vec2): DragHandle | null;
   zoneAt(id: ChairId, worldPt: Vec2): DragZone | null;
   isSettled(): boolean;
@@ -584,6 +586,10 @@ export function createPhysicsWorld(
 
     setZones(next) {
       zones = next;
+    },
+
+    setDiscBounds(on) {
+      bounds.disc = on;
     },
 
     setInteract(on) {

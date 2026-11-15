@@ -87,6 +87,8 @@ export interface EditorStageProps {
   /** [보드 설정] '앞뒤 앵커 보이기'(prefs.physics.anchors). 그림(ZoneHandles)과 히트가 이 한 값을
    *  같이 본다. 안 주면 켬. */
   anchors?: boolean;
+  /** 심플 모드(prefs.board.simple) — 휠체어를 원으로 그리고, 히트도 원으로 잰다(model/chairDisc.ts). */
+  simple?: boolean;
   onEraseIds(ids: string[], scope: 'onward' | 'thisStep'): void;
   /** [복제](2026-08-18) — 개체 메뉴가 부른다. 구현이 워크스페이스에 있는 이유는 `onEraseIds`
    *  와 같다: Ctrl/⌘+D(useEditorKeyboard)와 메뉴, 두 입구가 **같은 함수**로 들어와야
@@ -168,7 +170,7 @@ const OBJ_MOVE_DIR: Record<string, readonly [number, number]> = {
 // 포인터(손잡이 끌기)가 맡는다 — 남은 상태·타입 정리는 2단계다.
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, dragRotate = true, anchors = true, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0, onResetGoals },
+  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, dragRotate = true, anchors = true, simple = false, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0, onResetGoals },
   stageRef,
 ) {
   // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
@@ -205,6 +207,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     // [보드 설정] 개체 이동 스위치 둘 — 차체 회전과 앞뒤 앵커.
     dragRotate,
     anchors,
+    chairDisc: simple,
     largeTargets,
   });
 
@@ -1086,6 +1089,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 넘기지 마라 — 이 값은 드래그 판정과 **같은 스위치**(useEditorPointer 의 dragRotate)에서
       // 나온다. 되돌리면 그림과 판정이 갈라진다.
       zoneCursors={pointer.zoneCursors}
+      chairDisc={simple}
       activeId={activeId}
       initialFrame={initialFrame}
       fades={fade?.fades}

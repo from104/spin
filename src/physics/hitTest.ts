@@ -9,6 +9,7 @@ import { CHAIR, BALL, CONE, NOTE, INTERACT } from '../core/constants.ts';
 import type { ChairId, BallId, ConeId, NoteId, ArrowId, StrokeId } from '../core/ids.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
 import { chairCorners, projectGrab, pointAtLever } from '../model/chair.ts';
+import { inDisc } from '../model/chairDisc.ts';
 import { ARROW_STYLE, arrowRotateHandlePoint } from '../model/arrow.ts';
 import type { ArrowGrip } from '../model/arrow.ts';
 import { strokeHandlePoints } from '../model/stroke.ts';
@@ -91,6 +92,9 @@ export interface HitContext {
    *  안 주면 획 앵커가 안 잡힐 뿐 몸통 히트는 그대로 산다. */
   selectedStrokeId?: StrokeId | null;
   handlesVisible: boolean;
+  /** 심플 모드 — 휠체어의 몸통·패드 히트가 차체 OBB 가 아니라 **피벗 중심의 원**(model/chairDisc.ts).
+   *  원은 앞뒤가 없으므로 `s` 는 0.5 로 접는다(`applyTwoZone`·끌어 회전은 이 모드에서 꺼져 있다). */
+  chairDisc?: boolean;
   tool: ToolId;
   /** §7.3 히트 타깃(CSS px). 기본 `INTERACT.hitTargetCssPx`(44), "큰 터치 타깃" 설정에서 56.
    *  **2차 패스 반경에만** 쓴다 — 1차 패스는 지금까지와 한 픽셀도 달라지지 않는다.
@@ -473,7 +477,8 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
         // 정확한 OBB 본체(pad 없음). 반경과 무관하므로 2차 패스에서는 절대 새로 걸리지
         // 않는다 — 그래도 표를 통째로 유지해야 "같은 우선순위" 가 참이 된다.
         const c = scene.chairs.find((x) => x.id === ref.id);
-        if (c && pointInConvexQuad(p, chairCorners(c.pose)))
+        if (c && ctx.chairDisc && inDisc(c.pose, p)) return { kind: 'chair', id: c.id, s: 0.5 };
+        if (c && !ctx.chairDisc && pointInConvexQuad(p, chairCorners(c.pose)))
           return { kind: 'chair', id: c.id, s: projectGrab(c.pose, p).s };
         break;
       }
@@ -520,6 +525,14 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
   // ── (라) 휠체어 hull + 패드 — 후보가 여럿이면 |lat| 최소 ────────────────────
   let padBest: { id: string; s: number; lat: number } | null = null;
   for (const c of scene.chairs) {
+    // 심플 모드 — 원 반지름 + 패드. 가장 가까운 중심이 이긴다(차체의 |lat| 최소와 같은 결).
+    if (ctx.chairDisc) {
+      if (inDisc(c.pose, p, r.chairPad)) {
+        const d = Math.hypot(p.x - c.pose.x, p.y - c.pose.y);
+        if (!padBest || d < padBest.lat) padBest = { id: c.id, s: 0.5, lat: d };
+      }
+      continue;
+    }
     const g = chairPadHit(c.pose, p, r.chairPad);
     if (g && (!padBest || Math.abs(g.lat) < Math.abs(padBest.lat))) padBest = { id: c.id, s: g.s, lat: g.lat };
   }

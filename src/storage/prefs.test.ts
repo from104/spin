@@ -448,6 +448,12 @@ describe('3.0 저장 왕복 — 화이트리스트 조립부에 안 적힌 필�
     expect(loadPrefs().smallScreenNoticeDismissed).toBe(true);
     expect(loadPrefs().helpWelcomeSeen).toBe(true); // 2026-09-08 첫 방문 도움말 도장, 같은 결
   });
+  // 화이트리스트 누락 가드 — board 는 필수 필드라 타입은 통과하는데 validatePrefs 조립부에서 빠지면 저장 왕복에서 증발한다.
+  it('심플 모드(board.simple)는 저장 왕복을 견딘다', () => {
+    savePrefs({ ...makeDefaultPrefs(), board: { simple: true } });
+    expect(loadPrefs().board.simple).toBe(true);
+    expect(validatePrefs({ board: { simple: 'yes' } }).value.board.simple).toBe(false);
+  });
   it('개체 이동 스위치 셋은 저장 왕복을 견딘다', () => {
     savePrefs({ ...makeDefaultPrefs(), physics: prunePhysics({ interact: true, dragRotate: true, anchors: true }) });
     const p = resolvePhysics(loadPrefs());

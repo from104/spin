@@ -46,6 +46,8 @@ export interface PresentStageProps {
    *  코치가 편집에서 격자를 켜 뒀으면 팀에게 보여 주는 화면에도 같은 격자가 선다. */
   showGrid?: boolean;
   showGridLabels?: boolean;
+  /** 심플 모드 — 휠체어를 원으로 그린다(model/chairDisc.ts). 규칙 화면의 장면은 안 넘긴다(늘 실물 차체). */
+  chairDisc?: boolean;
   reduceMotion: boolean;
   /** 값이 바뀔 때마다(참조가 아니라 값) 일시정지 중이어도 즉시 1프레임 다시 그린다 — 스텝
    *  점프·스크럽 직후 화면이 이전 위치에 멈춰 있는 것을 막는다. */
@@ -57,7 +59,7 @@ export interface PresentStageProps {
 
 const emptyFrame = (): RenderFrame => ({ stepIndex: 0, t: 0, chairs: [], balls: [], cones: [], arrows: [], notes: [], strokes: [] });
 
-export function PresentStage({ drill, showRuleZones, showGrid = false, showGridLabels = false, reduceMotion, seekToken, onStepChange, onEnded }: PresentStageProps) {
+export function PresentStage({ drill, showRuleZones, showGrid = false, showGridLabels = false, chairDisc = false, reduceMotion, seekToken, onStepChange, onEnded }: PresentStageProps) {
   const t = useT();
   const locale = useLocale();
   const mode: CourtMode = drill.courtMode;
@@ -260,7 +262,7 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
       }
       case 'chair': {
         const c = chairDefById.get(r.id);
-        return c ? <PresentChairMark key={c.id} def={c} teams={drill.teams} writer={writer} opacityWriter={opacityWriter} /> : null;
+        return c ? <PresentChairMark key={c.id} def={c} teams={drill.teams} writer={writer} opacityWriter={opacityWriter} disc={chairDisc} /> : null;
       }
       case 'ball':
         return ballIds.has(r.id) ? <PresentBallMark key={r.id} id={r.id as BallId} writer={writer} opacityWriter={opacityWriter} rules={rules} /> : null;

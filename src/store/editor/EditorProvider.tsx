@@ -58,6 +58,12 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
   const worldRef = useRef<PhysicsWorldApi | null>(null);
   const physicsRef = useRef(physics);
   physicsRef.current = physics;
+  // 심플 모드(휠체어 = 원)는 물리 상호작용을 **원천적으로** 끈다(PLAN-SIMPLE-DRIVE 결정 A5). 저장값
+  // (prefs.physics.interact)은 건드리지 않고 월드에 넘기는 값만 접는다 — 심플 모드를 끄면 원래대로다.
+  // ref 로도 쥔다: 월드 재생성 effect 가 deps 없이 최신 값을 읽어야 하기 때문이다(physicsRef 와 같은 이유).
+  const simple = prefs.board.simple;
+  const simpleRef = useRef(simple);
+  simpleRef.current = simple;
   const writerRef = useRef<TransformWriter | null>(null);
   if (!writerRef.current) writerRef.current = createTransformWriter();
   const tweenRef = useRef<TweenHandle | null>(null);
@@ -82,7 +88,8 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
     const world = createPhysicsWorld(vbW, vbH, EDITOR_LIMITS, physicsRef.current.zones);
     // 물리·상호작용 스위치도 생성 시점에 — 월드 자신의 기본은 켬이고 앱의 기본은 끔이다
     // (PhysicsWorldApi.setInteract 주석). 아래 effect 를 기다리면 첫 드래그가 이웃을 밀 수 있다.
-    world.setInteract(physicsRef.current.interact);
+    world.setInteract(physicsRef.current.interact && !simpleRef.current);
+    world.setDiscBounds(simpleRef.current);
     worldRef.current = world;
     return () => {
       world.dispose();
@@ -97,8 +104,9 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
     // 전혀 반영되지 않았다**. 음영·커서는 EditorWorkspace → EditorStage 로 따로 흘러 슬라이더를
     // 따라갔으므로, 판이 '제자리 회전' 이라 칠한 곳을 잡으면 평행 이동이 되는 상태였다.
     worldRef.current?.setZones(physics.zones);
-    worldRef.current?.setInteract(physics.interact);
-  }, [physics]);
+    worldRef.current?.setInteract(physics.interact && !simple);
+    worldRef.current?.setDiscBounds(simple);
+  }, [physics, simple]);
 
   // §6.7 물리 재동기화(blocker 수정): 로스터·코트가 바뀔 때 world.load 를 다시 부른다.
   // [state.present] 전체에 걸면 메모 6글자 타이핑에 25바디 월드가 6번 재생성되고, PLACE_COMMIT 이

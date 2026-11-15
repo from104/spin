@@ -547,7 +547,7 @@ export const HELP_EN: HelpContent = {
           {
             kind: 'list',
             items: [
-              '[Display] — [Grid], [Goal Area].',
+              '[Display] — [Simple mode], [Grid], [Goal Area]. With [Simple mode] on, wheelchairs appear as circles with a direction tick (in presenting, exports, and printing too); physics interaction is off and a circle moves straight wherever you drag it. The drill data is unchanged, so turning it off restores the usual look. The three [Object movement] switches are locked while it is on.',
               '[Object movement] — [Physics & interaction], [Drag to rotate wheelchairs], [Show front/back anchors]. All three are off by default.',
               '[Goals] — [Reset Goal Position]. Moves only the goals pushed out of place by wheelchairs back to their spot, and touches nothing else on the board.',
               '[Court Shape], [Court Size], and which side you defend.',

@@ -250,6 +250,7 @@ export function PresentRunner({ target, nav }: PresentRunnerProps) {
         showRuleZones={prefs.showRuleZones}
         showGrid={prefs.showGrid}
         showGridLabels={prefs.showGridLabels}
+        chairDisc={prefs.board.simple}
         fullscreen={fullscreen}
         wakeLock={wakeLock}
         helpOpen={helpOpen}
@@ -272,6 +273,8 @@ interface PresentBodyProps {
   /** C11 — 격자는 편집기와 같은 저장값(prefs.showGrid)을 따른다. */
   showGrid: boolean;
   showGridLabels: boolean;
+  /** 심플 모드(prefs.board.simple) — 휠체어를 원으로 그린다. */
+  chairDisc: boolean;
   fullscreen: ReturnType<typeof useFullscreen>;
   wakeLock: ReturnType<typeof useWakeLock>;
   helpOpen: boolean;
@@ -292,6 +295,7 @@ function PresentBody({
   showRuleZones,
   showGrid,
   showGridLabels,
+  chairDisc,
   fullscreen,
   wakeLock,
   helpOpen,
@@ -616,6 +620,7 @@ function PresentBody({
               showRuleZones={showRuleZones}
               showGrid={showGrid}
               showGridLabels={showGridLabels}
+              chairDisc={chairDisc}
               reduceMotion={reduceMotion}
               seekToken={seekToken}
               onStepChange={onStepChange}

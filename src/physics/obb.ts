@@ -2,6 +2,7 @@
 import type { Vec2 } from '../core/units.ts';
 import { CHAIR, CHAIR_SEP_PX, RESOLVE_ITERS } from '../core/constants.ts';
 import type { ChairPose } from '../model/chair.ts';
+import { DISC_RADIUS_PX } from '../model/chairDisc.ts';
 import type { Bounds } from './types.ts';
 import { unitFwd, lerpPose } from './kinematics.ts';
 
@@ -33,6 +34,18 @@ function chairHullCorners(p: ChairPose): [Vec2, Vec2, Vec2, Vec2] {
     x: p.x + c.x * u.x + c.y * v.x,
     y: p.y + c.x * u.y + c.y * v.y,
   })) as [Vec2, Vec2, Vec2, Vec2];
+}
+
+/** 판(경계)에 대해 쓰는 차체 외곽. 심플 모드(`b.disc`)에서는 피벗 중심 원의 AABB(반지름 R 정사각형)다. */
+function boundsHull(p: ChairPose, b: Bounds): Vec2[] {
+  if (!b.disc) return chairHullCorners(p);
+  const r = DISC_RADIUS_PX;
+  return [
+    { x: p.x - r, y: p.y - r },
+    { x: p.x + r, y: p.y - r },
+    { x: p.x + r, y: p.y + r },
+    { x: p.x - r, y: p.y + r },
+  ];
 }
 
 function projExtent(corners: readonly Vec2[], axis: Vec2): { min: number; max: number } {
@@ -106,7 +119,7 @@ export function chairsOverlap(a: ChairPose, b: ChairPose, marginPx: number): boo
 /** 컨테이너(bounds)는 축정렬 사각형이므로 hull 의 x/y 투영만으로 포함 여부가 결정된다
  *  (교차하는 반평면 두 쌍의 교집합이라는 성질). 회전축 SAT 은 불필요하다. */
 export function outOfBounds(p: ChairPose, b: Bounds): SatResult {
-  const corners = chairHullCorners(p);
+  const corners = boundsHull(p, b);
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -140,7 +153,7 @@ export function outOfBounds(p: ChairPose, b: Bounds): SatResult {
  *  '제자리 회전' 계약이 깨진다 — 여기는 substep 이 끝난 뒤 도는 최종 안전망(escapePinnedAll)
  *  이다. 잡은 칩은 이 경로에 들어오지 않는다(world.ts 가 static 을 건너뛴다). */
 export function pushChairIntoBounds(p: ChairPose, b: Bounds): Vec2 {
-  const corners = chairHullCorners(p);
+  const corners = boundsHull(p, b);
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -475,7 +488,7 @@ const SEPARATE_PASSES = 4;
 /** pose 를 dir(단위벡터) 방향으로 **판 안에 머무는 한** 최대 dist 만큼 옮기고 실제로 옮긴
  *  거리를 돌려준다. 이미 판 밖이면 0 을 돌려준다 — 그건 아래 되밀기 단계가 따로 처리한다. */
 function shiftWithin(p: ChairPose, dir: Vec2, dist: number, b: Bounds): number {
-  const corners = chairHullCorners(p);
+  const corners = boundsHull(p, b);
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
