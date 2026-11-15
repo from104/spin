@@ -21,9 +21,10 @@
 // 그 대가로 이 패드 안에서는 Tab·Enter 가 안 통한다. 접근성 손실이 아닌 이유가 위와 같다:
 // 키보드로 할 수 있는 일이 줄지 않는다(§7.5 의 요건은 "키보드로 같은 일을 할 수 있는가" 이고,
 // 그 답은 이 패드 없이도 참이다).
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useT } from '../../i18n/useT.ts';
+import { IconUTurn } from '../../ui/icons.tsx';
 
 // ⚠️ 2026-09-14 — `canNudge`·`canRotate` 는 **이 파일에서 나갔다**(`nudgeCaps.ts`). 판정이 화면
 // 부품 안에 살던 동안 키보드가 그것을 안 읽어, 패드는 획을 돌릴 수 있는데 Q·E 는 못 돌리는
@@ -63,12 +64,13 @@ export type HeadingCmd = { kind: 'face'; sx: number; sy: number } | { kind: 'fli
 /** 방향판의 아홉 칸, 3×3 읽는 순서. 화살표는 **화면** 방향이다 — 코트가 돌아가 있으면(세로 창) 받는 쪽이
  *  판 좌표로 바꾼다(EditorStage, 이동 칸과 같은 screenDeltaToWorld). */
 type HeadingKey = 'upLeft' | 'up' | 'upRight' | 'left' | 'flip' | 'right' | 'downLeft' | 'down' | 'downRight';
-const HEADING_CELLS: readonly { key: HeadingKey; glyph: string; cmd: HeadingCmd }[] = [
+const HEADING_CELLS: readonly { key: HeadingKey; glyph: ReactNode; cmd: HeadingCmd }[] = [
   { key: 'upLeft', glyph: '↖', cmd: { kind: 'face', sx: -1, sy: -1 } },
   { key: 'up', glyph: '↑', cmd: { kind: 'face', sx: 0, sy: -1 } },
   { key: 'upRight', glyph: '↗', cmd: { kind: 'face', sx: 1, sy: -1 } },
   { key: 'left', glyph: '←', cmd: { kind: 'face', sx: -1, sy: 0 } },
-  { key: 'flip', glyph: '180°', cmd: { kind: 'flip' } },
+  // 글자 "180°" 대신 U턴 그림(2026-11-16 기현님 지시 "직관적인 아이콘으로")
+  { key: 'flip', glyph: <IconUTurn size={20} />, cmd: { kind: 'flip' } },
   { key: 'right', glyph: '→', cmd: { kind: 'face', sx: 1, sy: 0 } },
   { key: 'downLeft', glyph: '↙', cmd: { kind: 'face', sx: -1, sy: 1 } },
   { key: 'down', glyph: '↓', cmd: { kind: 'face', sx: 0, sy: 1 } },
@@ -83,7 +85,7 @@ function NudgeButton({
   repeat = true,
 }: {
   label: string;
-  glyph: string;
+  glyph: ReactNode;
   onFire(): void;
   testId: string;
   /** 누르고 있으면 반복할지. 방향판은 **한 번**이다 — 180° 가 반복되면 누르는 동안 빙글빙글 돈다. */
@@ -124,7 +126,9 @@ function NudgeButton({
       onPointerLeave={stop}
       style={PAD_BTN}
     >
-      <span aria-hidden>{glyph}</span>
+      <span aria-hidden style={{ display: 'flex' }}>
+        {glyph}
+      </span>
     </button>
   );
 }

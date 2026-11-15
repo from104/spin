@@ -779,3 +779,14 @@ export function IconShapeRect({ size = 18, ...rest }: IconProps) {
     </svg>
   );
 }
+
+/** 뒤로 돌기(180°) — 위로 갔다 **오른쪽으로** 휘어 내려오는 U턴. 방향판의 [180°] 는 늘 시계 방향(화면 오른쪽으로)
+ *  돌기 때문에 휘는 쪽도 오른쪽이다 — 그림과 실제 회전이 반대면 누르기 전 예상이 틀린다. */
+export function IconUTurn({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
+      <path d="M7 20V10a5 5 0 0 1 10 0v7" />
+      <path d="m13.5 14 3.5 3.5 3.5-3.5" />
+    </svg>
+  );
+}
