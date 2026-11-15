@@ -4,7 +4,7 @@
 // 앱 프로필(설정·WebKit/WebView2 저장소·캐시)은 env-linux.ts 가 만든 임시 폴더에 있다(Windows: 러너의 진짜
 // %APPDATA%·%LOCALAPPDATA% 아래 앱 폴더, env-windows.ts). 한 워커의 모든 실행이 같은 프로필을 쓰므로 "다시 띄우기" 가
 // 정말로 보존을 시험한다. `wipeProfile()` 이 첫 설치 상태를 준다.
-import { readdirSync, readlinkSync, rmSync } from 'node:fs';
+import { readdirSync, readlinkSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -61,14 +61,22 @@ export class AppSession {
     );
     // 첫 문서(tauri-driver 가 연 앱 주소)가 다 적재될 때까지 — 적재 중에 다른 주소로 가면 늦게 끝난 첫 적재가 그 문서를 덮는다
     // (gofu 실측: 시드의 빈 문서가 스크립트 도중 'unload' 로 사라졌다)
+    // ⚠️ WebView2 는 앱 주소를 싣기 전에 빈 문서(about:blank, 이미 complete)를 먼저 보인다 — 그때 주소를 읽으면 출처가
+    //   'about://' 가 되어 시드가 불투명 출처 문서에서 localStorage 를 못 읽는다(2026-11-15 windows 잡 N1
+    //   "Access is denied for this document"). 앱 주소로 바뀌고 다 적재될 때까지 기다린다.
     const deadline = Date.now() + 30_000;
-    while ((await this.current.execute(() => document.readyState).catch(() => 'loading')) !== 'complete') {
-      if (Date.now() > deadline) throw new Error('앱의 첫 문서가 30초 안에 적재되지 않았다');
+    const firstDoc = () => this.current!.execute(() => [location.protocol, document.readyState] as const).catch(() => ['about:', 'loading'] as const);
+    for (let doc = await firstDoc(); doc[0] === 'about:' || doc[1] !== 'complete'; doc = await firstDoc()) {
+      if (Date.now() > deadline) throw new Error(`앱의 첫 문서가 30초 안에 적재되지 않았다(${doc.join(' ')})`);
       await pause(50);
     }
     const url = new URL(await this.current.url());
     // tauri: 같은 특수하지 않은 스킴에서는 URL.origin 이 'null' 이다
     this.origin = `${url.protocol}//${url.host}`;
+    if (isWindows) {
+      const keys = await this.current.execute(() => localStorage.length).catch((e: unknown) => `읽기 실패 ${String(e).slice(0, 80)}`);
+      console.log(`[e2e] 진단: ${this.origin} 첫 문서 localStorage 키 ${String(keys)}개`);
+    }
     this.launches++;
     this.cachedPid = null;
     if (isWindows) {
@@ -143,6 +151,7 @@ export class AppSession {
     const waitMs = isWindows ? 15_000 : 5000;
     const deadline = Date.now() + waitMs;
     while (helpers.some(isAlive) && Date.now() < deadline) await pause(50);
+    if (isWindows) logStorageFiles(path.join(this.options.profile.data, IDENTIFIER), '창을 닫은 뒤');
     const lingering = helpers.filter(isAlive);
     if (lingering.length > 0) console.warn(`[e2e] 창을 닫고 ${waitMs / 1000}s 가 지나도 하위 프로세스 ${lingering.length}개가 남아 강제로 끈다: ${lingering.join(',')}`);
     await this.close();
@@ -169,5 +178,24 @@ export class AppSession {
         rmSync(path.join(dir, entry), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       }
     }
+  }
+}
+
+/**
+ * 진단(Windows): 프로필 안 WebView2 저장소 파일(Local Storage·IndexedDB)을 크기와 함께 찍는다 — N4 "껐다 켜니 판이 없다" 가
+ * 디스크에 안 써진 것인지(실제 유실), 다른 자리를 읽은 것인지 가른다. 2026-11-15 windows 잡.
+ */
+function logStorageFiles(root: string, when: string): void {
+  try {
+    const hits = (readdirSync(root, { recursive: true }) as string[])
+      .filter((rel) => /Local Storage|IndexedDB/i.test(rel))
+      .map((rel) => {
+        const st = statSync(path.join(root, rel), { throwIfNoEntry: false });
+        return st?.isFile() ? `${rel} ${st.size}B` : null;
+      })
+      .filter((line): line is string => line !== null);
+    console.log(`[e2e] 진단: ${when} ${root} 저장소 파일 ${hits.length}개\n  ${hits.slice(0, 30).join('\n  ')}`);
+  } catch (error) {
+    console.log(`[e2e] 진단: ${when} ${root} 를 못 읽음 — ${String(error).slice(0, 120)}`);
   }
 }
