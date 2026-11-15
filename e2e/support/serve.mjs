@@ -102,9 +102,11 @@ if (reason) {
   const log = openSync(logPath, 'w');
   console.error(`[e2e] 운영 빌드 시작 (${reason}) — 로그: ${path.relative(root, logPath)}`);
   const started = Date.now();
-  const r = spawnSync('npm', ['run', 'build'], { cwd: root, stdio: ['ignore', log, log] });
+  // ⚠️ Windows 의 npm 은 `npm.cmd`(배치 파일)라 셸 없이는 아예 안 뜬다 — status null·로그 0바이트로 끝난다
+  //   (2026-11-15 e2e-app.yml windows 잡 첫 실행이 그렇게 1초 만에 죽었다). 인자는 고정 문자열뿐이라 셸이 안전하다.
+  const r = spawnSync('npm', ['run', 'build'], { cwd: root, stdio: ['ignore', log, log], shell: process.platform === 'win32' });
   if (r.status !== 0) {
-    console.error(`[e2e] 운영 빌드 실패 (exit ${r.status}) — ${logPath}`);
+    console.error(`[e2e] 운영 빌드 실패 (exit ${r.status}${r.error ? ` · ${r.error.message}` : ''}) — ${logPath}`);
     process.exit(1);
   }
   console.error(`[e2e] 운영 빌드 완료 ${((Date.now() - started) / 1000).toFixed(1)}s`);
