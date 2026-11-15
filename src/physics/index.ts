@@ -20,7 +20,7 @@ import { courtDefFor } from '../model/court.ts';
 
 import type { DragLimits, Bounds } from './types.ts';
 import { createWorld, escapePinnedAll } from './world.ts';
-import { escapePinned, satOverlap, separateOverlaps } from './obb.ts';
+import { escapePinned, pushChairIntoBounds, satOverlap, separateOverlaps } from './obb.ts';
 import type { CircleObstacle } from './obb.ts';
 import type { WorldHandles } from './world.ts';
 import { createLoop } from './loop.ts';
@@ -104,6 +104,10 @@ export interface PhysicsWorldApi {
    *  이걸 안 하면 상태와 물리가 어긋나 다음 드래그가 개체를 옛 자리로 되돌린다.
    *  순간이동이지 던지기가 아니므로 잔여 속도는 지운다. */
   setPose(id: CastId, pose: { x: number; y: number; theta?: number }): void;
+  /** 순간이동(setPose)으로 놓인 휠체어를 **끌기와 같은 벽 경계**(심플 모드면 원 ∪ 차체, 평소면 차체)로 판 안에 넣는다.
+   *  각도는 그대로, 피벗만 민다. 옮겼으면 true — 부르는 쪽이 그 자세를 상태에 덧쓴다. 휠체어가 아니면 false.
+   *  안전망(escapePinnedAll)과 달리 **사용자가 방금 옮긴 칩에만** 부른다 — 표시 설정이 손대지 않은 칩을 옮기면 안 된다. */
+  fitChairToBounds(id: CastId): boolean;
   /** 키보드·[미세 조정]의 이동·회전을 이웃과 **상호작용하며** 한다(2026-11-16 기현님 지시 *"물리 상호 작용이 켜졌을 때
    *  키보드나 미세조정 패드로 휠체어를 움직여도 상호작용하게 … 휠체어,공,콘 다. 물론 잠기거나 숨긴거 빼고"*).
    *
@@ -616,6 +620,16 @@ export function createPhysicsWorld(
       // driven=false 는 임펄스를 주입하지 않을 뿐 잔여 속도를 지우지 않는다(§5.11 실측).
       // 키보드 이동 뒤에 개체가 스스로 미끄러지면 안 되므로 확실히 멈춘다.
       world.freeze(id);
+    },
+
+    fitChairToBounds(id) {
+      if (kindOf.get(id) !== 'chair') return false;
+      const pose = world.chairPose(id as ChairId);
+      const out = pushChairIntoBounds(pose, bounds);
+      if (out.x === pose.x && out.y === pose.y) return false;
+      world.setChairPose(id as ChairId, { x: out.x, y: out.y, theta: pose.theta }, false);
+      world.freeze(id);
+      return true;
     },
 
     sweepTo(moves, durationS) {

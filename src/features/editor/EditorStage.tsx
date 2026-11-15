@@ -438,6 +438,26 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     nudgeSettleOffRef.current = off;
   }, [dispatch, worldRef]);
 
+  /** 순간이동(sweepTo → false: 상호작용 끔·심플 모드)으로 옮기거나 돌린 휠체어를 **끌기와 같은 벽 경계**로 판 안에 넣는다
+   *  (world.fitChairToBounds — 심플이면 원 ∪ 차체, 평소면 차체). 순간이동에는 엔진이 없어 아무도 벽을 지키지 않았다 —
+   *  벽 앞에서 180° 돌면 차체 앞이 판 밖인 채 저장됐고, 나중에 아무 칩이나 끌면 안전망이 그 칩을 밀어 커밋했다.
+   *  밀었으면 PLACE_SETTLE 로 덧쓴다 — past 를 안 건드리므로 방금 한 이동의 되돌리기 한 칸에 함께 돌아간다. */
+  const fitTeleported = useCallback(
+    (ids: readonly string[]) => {
+      const w = worldRef.current;
+      if (!w) return;
+      let moved = false;
+      for (const id of ids) if (w.fitChairToBounds(id as CastId)) moved = true;
+      if (!moved) return;
+      // stepRef 는 방금 보낸 이동이 아직 안 그려진 스텝일 수 있다 — 상관없다: 스냅샷이 캐스트 전부를 덮어 바디(= 이동 뒤 +
+      // 경계) 그대로를 쓴다. 상호작용이 꺼져 있으니 바디와 모델은 이 칩 말고는 같다.
+      const cur = stepRef.current;
+      const { chairs, balls, cones } = stepPosesFromSnapshot(w.read(), cur);
+      dispatch({ type: 'PLACE_SETTLE', stepId: cur.id, chairs, balls, cones });
+    },
+    [dispatch, worldRef],
+  );
+
   /** 키보드·패드 이동이 **실제로 걸린 시간**(초) — 같은 개체(무리)를 직전에 옮긴 뒤 흐른 시간이다(2026-11-16 기현님
    *  "실제 속도 계산 후 적용"). 키를 누르고 있으면 반복 간격(≈30 ms)이라 빠르게 미는 것이고, 한 번 누름은 NUDGE_IDLE_S 에
    *  걸친 이동으로 친다 — 키를 누르고 있을 때 반복이 시작되기까지의 보통 지연이다. 엔진은 거리/시간을 부딪는 속도로 쓴다. */
@@ -483,6 +503,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
             return p ? [{ id: x as CastId, pose: { x: p.x + dx, y: p.y + dy, theta: p.theta } }] : [];
           });
           if (moveBodies(moves, nudgeDurationS(ids.join(',')))) armNudgeCommit();
+          else fitTeleported(ids);
         }
         return;
       }
@@ -492,7 +513,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         // 키보드로 옮긴 개체를 다음에 마우스로 잡는 순간 beginDrag 가 낡은 자세를 읽어와
         // 옛 자리로 되돌린다. 키보드 조작은 §7.5 접근성 요건이라 이 경로가 특히 중요하다.
         const cur = worldRef.current?.read()[id];
-        if (cur && moveBodies([{ id: id as CastId, pose: { x: cur.x + dx, y: cur.y + dy, theta: cur.theta + dThetaRad } }], nudgeDurationS(id))) armNudgeCommit();
+        if (!cur) return;
+        if (moveBodies([{ id: id as CastId, pose: { x: cur.x + dx, y: cur.y + dy, theta: cur.theta + dThetaRad } }], nudgeDurationS(id))) armNudgeCommit();
+        else fitTeleported([id]);
         return;
       }
       if (isId(id, 'nt')) {
@@ -556,7 +579,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         dispatch({ type: 'STROKE_SET', stroke: nudgeStroke(stroke, { x: dx, y: dy }) });
       }
     },
-    [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet, moveBodies, armNudgeCommit, nudgeDurationS],
+    [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet, moveBodies, armNudgeCommit, fitTeleported, nudgeDurationS],
   );
 
   // ── 방향판 회전 애니메이션(2026-11-16 기현님 지시 "회전시 0.3초 동안 적당한 애니메이션") ──────────────
@@ -572,8 +595,10 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     headingAnimRef.current = null;
     a.stop();
     const p = worldRef.current?.read()[a.id];
-    if (p && moveBodies([{ id: a.id as CastId, pose: { x: p.x, y: p.y, theta: a.to } }], 1 / 60)) armNudgeCommit(); // 남은 각을 한 프레임에
-  }, [worldRef, moveBodies, armNudgeCommit]);
+    if (!p) return;
+    if (moveBodies([{ id: a.id as CastId, pose: { x: p.x, y: p.y, theta: a.to } }], 1 / 60)) armNudgeCommit(); // 남은 각을 한 프레임에
+    else fitTeleported([a.id]);
+  }, [worldRef, moveBodies, armNudgeCommit, fitTeleported]);
   useEffect(() => finishHeadingAnim, [finishHeadingAnim]);
 
   /** 휠체어를 화면 방향으로 보게 / 180° — 방향판(NudgePad)과 숫자키 1–9(`obj.face`)가 함께 쓰는 **한 길**이다. */
@@ -605,6 +630,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       if (reduceMotion) {
         // 화면은 바로 돌지만 부딪는 빠르기는 애니메이션과 같은 0.3초 회전으로 친다 — 감축 모션이 공을 더 세게 차면 안 된다
         if (moveBodies([{ id: id as CastId, pose: { x: cur.x, y: cur.y, theta: to } }], HEADING_TURN_MS / 1000)) armNudgeCommit();
+        else fitTeleported([id]);
         return;
       }
       const from = cur.theta;
@@ -625,11 +651,12 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           anim.stop();
           if (headingAnimRef.current === anim) headingAnimRef.current = null;
           if (swept) armNudgeCommit(); // 다 돈 뒤 정착 결과를 덧쓴다
+          else fitTeleported([id]); // 순간이동으로 돌았으면 끝 자세 기준으로 한 번만 벽 안에 넣는다
         }
       });
       headingAnimRef.current = anim;
     },
-    [dispatch, lockedSet, reduceMotion, stageRef, worldRef, moveBodies, armNudgeCommit],
+    [dispatch, lockedSet, reduceMotion, stageRef, worldRef, moveBodies, armNudgeCommit, fitTeleported],
   );
 
   const handleObjectKeyDown = useCallback(

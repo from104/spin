@@ -954,7 +954,8 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           상자 원점이라 view 오프셋을 여기서 함께 상쇄한다. */}
       <StageRotProvider rot={rot}>
       <g data-testid="court-world" transform={rot === 90 ? `translate(${view.y + view.h} ${-view.x}) rotate(90)` : undefined}>
-        <rect width={def.vbW} height={def.vbH} rx={COURT_SURFACE_RX} fill={COURT_BG} />
+        {/* 시험 닻 `court-surface` — 판 전체(= 물리 벽 경계 vbW×vbH). 휠체어가 벽 안에 있는지는 경기면(court-field, 라인)이 아니라 이 상자로 잰다. */}
+        <rect data-testid="court-surface" width={def.vbW} height={def.vbH} rx={COURT_SURFACE_RX} fill={COURT_BG} />
         {/* 시험 닻(docs/PLAN-TEST-SUITE.md §4) — 경기면 사각형. 그리지도 잡히지도 않는다(fill 없음·포인터
             무시). 라인 컴포넌트는 코트 형태마다 도형이 달라(풀=rect, 하프=path, 플랫=선 없음) 거기에
             달 수 없고, 내보내기 SVG 와 도형 집합을 맞대는 계약(courtLines.contract)도 건드리지 않는다.
