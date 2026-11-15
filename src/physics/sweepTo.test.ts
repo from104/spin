@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 describe('sweepTo — 키보드 이동도 이웃과 상호작용', () => {
-  it('켜져 있으면 길 위의 공을 **미는 방향으로** 밀고, 휠체어는 목표에 서며, 다 서면 한 번 알린다', () => {
+  it('켜져 있으면 길 위의 공을 **미는 방향으로 굴려 보내고**, 휠체어는 목표에 서며, 다 서면 한 번 알린다', () => {
     const probe = probeOf({ chairs: [{ id: chA, x: 300, y: Y }], balls: [{ id: bl, x: 360, y: Y }] });
     let seen = 0;
     probe.api.onSettled(() => {
@@ -33,8 +33,10 @@ describe('sweepTo — 키보드 이동도 이웃과 상호작용', () => {
     const s = probe.api.read();
     expect(seen).toBe(1);
     expect(s[chA]!.x).toBeCloseTo(420, 1); // 손의 권위 — 공에 밀려 되돌아가지 않는다
-    // 공은 앞범퍼 **앞**에 있다(뒤로 튕겨 휠체어가 지나가 버리지 않았다)
-    expect(s[bl]!.x).toBeGreaterThan(420 + CHAIR.lengthPx / 2);
+    // 공은 앞범퍼 **앞**으로, 부딪힌 방향(곧게)으로 **굴러갔다** — 비켜 세우기만 했다면 범퍼에 붙어 멈춘다(≈ +20 px 안쪽).
+    // 2026-11-16 기현님 "부딛힌 방향과 속도로 안 굴러간다" — 걸음이 driven 이라 10 km/h 로 맞은 만큼 간다(실측 ≈ +127 px)
+    expect(s[bl]!.x).toBeGreaterThan(420 + CHAIR.lengthPx / 2 + 40);
+    expect(s[bl]!.y).toBeCloseTo(Y, 0);
   });
 
   it('꺼져 있으면 false — 아무것도 안 옮긴다(부르는 쪽이 순간이동한다)', () => {

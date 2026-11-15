@@ -77,12 +77,15 @@ export interface PhysicsSnapshot {
 }
 /** 정착 완료 통지의 수신자. 인자는 **정착이 끝난 그 순간의** 스냅샷이다(§4.2 P0-2). */
 export type SettleListener = (snapshot: PhysicsSnapshot) => void;
-/** sweepTo 의 한 걸음 상한 — 가장 작은 바디(콘 반지름 3.1 px·공 4.1 px)를 건너뛰지 않는 크기. */
-const SWEEP_STEP_PX = 2;
-/** 회전 한 걸음 상한(3°) — 피벗에서 앞범퍼까지 30 px 이라 끝이 한 걸음에 1.6 px 남짓 간다. */
-const SWEEP_STEP_RAD = (3 * Math.PI) / 180;
-/** 한 번에 도는 걸음 상한 — 판 가로(825 px)를 넘는 이동은 키보드로 생기지 않지만, 혹시 와도 한 프레임을 붙잡지 않게. */
-const SWEEP_MAX_STEPS = 480;
+/** sweepTo 의 한 걸음 = **실제 파워체어 최고 속도(10 km/h)로 한 substep** 간 거리(≈0.69 px).
+ *  걸음은 driven 이라 그 변위가 곧 접촉 속도다 — 키보드에는 손의 빠르기가 없으므로 "실물 최고 속도로 부딪혔다" 로 친다
+ *  (2026-11-16 기현님 *"부딛힌 방향과 속도로 안 굴러간다"* — driven=false 던 첫 판은 공을 비켜 세우기만 했다).
+ *  가장 작은 바디(콘 반지름 3.1 px)보다 훨씬 작아 건너뛰지도 않는다. */
+const SWEEP_STEP_PX = kmhToPxPerS(DEFAULT_LIMITS.linearKmh) * PHYS.dtS;
+/** 회전 한 걸음 = 앞범퍼가 30 km/h 로 한 substep 도는 각(≈3.3°) — 끄는 회전(§5.5)의 상한과 같은 실물 값. */
+const SWEEP_STEP_RAD = (kmhToPxPerS(DEFAULT_LIMITS.bumperKmh) / CHAIR.pivotToFrontPx) * PHYS.dtS;
+/** 한 번에 도는 걸음 상한 — 키보드 한 번은 25 px(36 걸음)·180°(55 걸음) 안쪽이다. 혹시 큰 이동이 와도 한 프레임을 붙잡지 않게. */
+const SWEEP_MAX_STEPS = 600;
 
 export interface DragHandle {
   readonly zone: DragZone | null;
@@ -630,8 +633,9 @@ export function createPhysicsWorld(
         for (const p of plan) {
           const x = p.from.x + (p.to.x - p.from.x) * t;
           const y = p.from.y + (p.to.y - p.from.y) * t;
-          if (p.chair) world.setChairPose(p.id as ChairId, { x, y, theta: p.from.theta + (p.to.theta - p.from.theta) * t }, false);
-          else world.setPoint(p.id, { x, y }, false);
+          // driven — 걸음의 변위가 접촉 속도가 되어 밀린 쪽이 그 방향·빠르기로 굴러간다(끄는 칩과 같은 §5.4 경로)
+          if (p.chair) world.setChairPose(p.id as ChairId, { x, y, theta: p.from.theta + (p.to.theta - p.from.theta) * t }, true);
+          else world.setPoint(p.id, { x, y }, true);
         }
         substep(PHYS.dtS);
       }
