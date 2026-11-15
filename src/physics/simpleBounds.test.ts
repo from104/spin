@@ -66,4 +66,21 @@ describe('심플 모드 — 손대지 않은 칩의 저장 자세는 그대로',
   it('손이 옮기는 칩은 여전히 원 규칙(A4): 왼쪽 벽까지 끌면 피벗은 반지름에서 멈춘다', () => {
     expect(afterDrag(mover, { x: 400, y: 300 }, { x: -50, y: 300 }).moverX).toBeCloseTo(DISC_RADIUS_PX, 1);
   });
+  it('★ 스위치만 켜도(원 경계 켬 + 상호작용 끔) 그 뒤 루프가 몇 프레임 돌아도 벽에 붙은 칩은 그대로다', () => {
+    const api = createPhysicsWorld(825, 525);
+    api.setInteract(true); // 평소 모드에서 상호작용을 켜 둔 기기 — 켜기 쪽이 setInteract(false) 로 바뀌는 길까지 탄다
+    api.load(cast, {
+      id: 'st_x' as StepId, name: '', note: '',
+      chairs: { [mover]: { x: 400, y: 300, angleDeg: 0 }, [wall]: { x: REAR, y: 100, angleDeg: 0 } },
+      balls: {}, cones: {}, arrows: [], notes: [], shapes: [],
+    }, 'full');
+    for (let i = 0; i < 10; i++) api.step(PHYS.dtS);
+    api.setDiscBounds(true); // EditorProvider 의 심플 effect 와 같은 두 줄
+    api.setInteract(false);
+    for (let i = 0; i < 120; i++) api.step(PHYS.dtS); // 골대 복귀·다른 이유로 루프가 깨어난 셈
+    const snap = api.read();
+    api.dispose();
+    expect(snap[wall]!.x).toBe(REAR);
+    expect(snap[wall]!.y).toBe(100);
+  });
 });
