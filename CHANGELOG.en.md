@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Added
 
-- A direction grid on the wheelchair's [Fine-tune] pad — eight arrows turn it to face that way on screen, and the U-turn button in the middle turns it around (pressing again keeps turning the same way). The turn animates over 0.3 s
+- A direction grid on the wheelchair's [Fine-tune] pad — eight arrows turn it to face that way on screen, and the U-turn button in the middle turns it around (pressing again keeps turning the same way). The turn animates over 0.3 s. On a keyboard: number keys 1–8 (clockwise from 12 o'clock) and 9 (180°)
 
 ### Removed
 

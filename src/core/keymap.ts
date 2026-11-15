@@ -257,6 +257,15 @@ export const KEYMAP: readonly KeyDef[] = [
     label: 'Q E',
     desc: '개체 회전 — Shift 는 큰 걸음',
   },
+  // 휠체어 방향판(미세 조정 패드)과 같은 일 — 2026-11-16 기현님 지시 *"12시 방향부터 1~8, 9는 180도 회전"*.
+  // 숫자줄만 잡는다: 숫자패드는 8 이 위인 **자리 배치**라 시계 번호와 손이 어긋난다. 휠체어가 아니면 아무 일도 없다.
+  {
+    id: 'obj.face',
+    scope: 'object',
+    codes: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'],
+    label: '1 – 9',
+    desc: '휠체어 방향 — 1~8 은 12시부터 시계 방향, 9 는 180°',
+  },
   // `[` `]` 는 QE 가 회전을, PageUp/Dn 이 스텝을 가져가면서 통째로 비었다. 가로로 나란한 한
   // 쌍이라 "이전/다음" 연상이 맞고, Alt 를 토글 전용으로 비워둘 수 있다.
   {

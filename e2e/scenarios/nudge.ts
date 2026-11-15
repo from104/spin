@@ -107,6 +107,30 @@ export default defineGroup('nudge', [
         await closePad(app);
       });
 
+      await app.step('숫자키 1–9 — 12시부터 시계 방향, 9 는 180° (방향판과 같은 길)', async () => {
+        // 눌러 고른 뒤 키(S6 과 같은 흐름) — 숫자키는 개체에 초점이 있을 때만 산다(keymap obj.face, WCAG 2.1.4)
+        const c = await app.objectCenter(chair);
+        check(c !== null, '휠체어가 화면에 없다');
+        await app.tap(c);
+        await app.settled();
+        check(!(await app.present('nudge-pad')), '고르려고 눌렀는데 미세 조정 패드가 떴다');
+        const r = Math.SQRT1_2;
+        for (const [key, want] of [
+          ['3', { x: 1, y: 0 }],
+          ['9', { x: -1, y: 0 }],
+          ['8', { x: -r, y: -r }],
+          ['1', { x: 0, y: -1 }],
+        ] as const) {
+          await app.pressKey(key);
+          await app.settled();
+          const v = await screenFacing(app, chair);
+          check(
+            Math.hypot(v.x - want.x, v.y - want.y) < 0.06,
+            `[${key}] 키 뒤 휠체어가 화면 (${want.x.toFixed(2)}, ${want.y.toFixed(2)}) 쪽을 안 본다 — (${v.x.toFixed(2)}, ${v.y.toFixed(2)})`,
+          );
+        }
+      });
+
       await app.step('메모는 패드가 아니라 글 열기', async () => {
         const spot = await placeNote(app);
         // 고르기를 풀고 누른다 — 놓은 직후 350ms 안에 메모를 더블클릭하면 **첫 누름**이 메모를 놓던 탭과 합쳐져 더블로

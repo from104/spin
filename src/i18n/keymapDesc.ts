@@ -55,6 +55,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     // ── C7 — scope:'object' ──
     '개체 이동 — Shift 는 큰 걸음': 'Move object — hold Shift for large steps',
     '개체 회전 — Shift 는 큰 걸음': 'Rotate object — hold Shift for large steps',
+    '휠체어 방향 — 1~8 은 12시부터 시계 방향, 9 는 180°': 'Wheelchair facing — 1–8 go clockwise from 12 o\'clock, 9 turns 180°',
     '이전 개체로': 'To previous object',
     '다음 개체로': 'To next object',
     '이전 개체를 선택에 더하며 이동': 'Add previous object to selection and move',
@@ -106,6 +107,7 @@ const TRANSLATIONS: Record<'en' | 'ja', Record<string, string>> = {
     // ── C7 — scope:'object' ──
     '개체 이동 — Shift 는 큰 걸음': 'オブジェクト移動 — Shiftで大きく移動',
     '개체 회전 — Shift 는 큰 걸음': 'オブジェクト回転 — Shiftで大きく回転',
+    '휠체어 방향 — 1~8 은 12시부터 시계 방향, 9 는 180°': '車椅子の向き — 1〜8は12時から時計回り、9は180°',
     '이전 개체로': '前のオブジェクトへ',
     '다음 개체로': '次のオブジェクトへ',
     '이전 개체를 선택에 더하며 이동': '前のオブジェクトを選択に追加して移動',

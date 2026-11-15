@@ -4,7 +4,7 @@
 // 더한다.
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
-import { NudgePad, type NudgePadTarget } from './NudgePad.tsx';
+import { NudgePad, type HeadingCmd, type NudgePadTarget } from './NudgePad.tsx';
 import { useLongPressMenu } from './useLongPressMenu.ts';
 import { sameKindGroup } from './selectSame.ts';
 import { sceneOrder, zMoves } from '../../model/zOrder.ts';
@@ -127,6 +127,18 @@ const FINE_STEP_PX = 2.5;
 const FINE_STEP_DEG = 5;
 /** 방향판으로 돌 때 화면이 따라 도는 시간(2026-11-16 기현님 지시 0.3초) */
 const HEADING_TURN_MS = 300;
+/** 숫자줄 → 방향판 칸. 1 = 12시(화면 위)에서 시계 방향으로 8 = 10시 반, 9 = 180°. */
+const FACE_KEYS: Readonly<Record<string, HeadingCmd>> = {
+  Digit1: { kind: 'face', sx: 0, sy: -1 },
+  Digit2: { kind: 'face', sx: 1, sy: -1 },
+  Digit3: { kind: 'face', sx: 1, sy: 0 },
+  Digit4: { kind: 'face', sx: 1, sy: 1 },
+  Digit5: { kind: 'face', sx: 0, sy: 1 },
+  Digit6: { kind: 'face', sx: -1, sy: 1 },
+  Digit7: { kind: 'face', sx: -1, sy: 0 },
+  Digit8: { kind: 'face', sx: -1, sy: -1 },
+  Digit9: { kind: 'flip' },
+};
 const COARSE_STEP_PX = 25;
 const COARSE_STEP_DEG = 15;
 
@@ -481,6 +493,75 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet],
   );
 
+  // ── 방향판 회전 애니메이션(2026-11-16 기현님 지시 "회전시 0.3초 동안 적당한 애니메이션") ──────────────
+  // 상태(OBJECT_NUDGE)는 누르는 순간 **최종 각도로 한 번** 바뀐다 — 되돌리기 한 칸, 자동 저장도 한 번. 화면은 물리
+  // 자세를 매 프레임 그리므로(usePhysicsRenderLoop) 물리 θ 만 0.3초 동안 따라 돌린다. 패드가 닫히면(아무 키 =
+  // 되돌리기·방향키 포함) 그 자리에서 끝 각도로 맞춘다 — 남은 프레임이 되돌리기로 다시 세운 월드를 덮지 않게.
+  const { prefs } = useSettingsState();
+  const reduceMotion = effectiveReduceMotion(prefs.a11y.reduceMotion);
+  const headingAnimRef = useRef<{ id: string; to: number; stop(): void } | null>(null);
+  const finishHeadingAnim = useCallback(() => {
+    const a = headingAnimRef.current;
+    if (!a) return;
+    headingAnimRef.current = null;
+    a.stop();
+    const p = worldRef.current?.read()[a.id];
+    if (p) worldRef.current?.setPose(a.id as CastId, { x: p.x, y: p.y, theta: a.to });
+  }, [worldRef]);
+  useEffect(() => finishHeadingAnim, [finishHeadingAnim]);
+
+  /** 휠체어를 화면 방향으로 보게 / 180° — 방향판(NudgePad)과 숫자키 1–9(`obj.face`)가 함께 쓰는 **한 길**이다. */
+  const turnHeading = useCallback(
+    (id: string, cmd: HeadingCmd) => {
+      // 휠체어만. 잠금은 Q·E 와 같이 막는다(nudge 첫 줄과 같은 규칙).
+      if (!isId(id, 'ch') || lockedSet.has(id)) return;
+      const cur = worldRef.current?.read()[id];
+      if (!cur) return;
+      // 도는 중에 또 누르면 **논리 각도(앞 애니메이션의 끝)** 에서 잰다 — 화면에 보이는 중간 각도에서 재면
+      // 180° 를 연달아 눌렀을 때 한 번은 시계, 한 번은 반시계가 된다.
+      const running = headingAnimRef.current?.id === id ? headingAnimRef.current : null;
+      const base = running ? running.to : cur.theta;
+      let to: number;
+      if (cmd.kind === 'flip') {
+        // 늘 +π(화면 시계 방향) — 연달아 누르면 한 방향으로 계속 돈다(기현님 지시). 아이콘(IconUTurn)도 오른쪽으로 휜다.
+        to = base + Math.PI;
+      } else {
+        // 화살표는 화면 방향이다 — 코트가 돌아가 있으면(세로 창) 이동 칸과 같은 환산으로 판 방향이 된다.
+        const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+        const w = screenDeltaToWorld({ rot }, cmd.sx, cmd.sy);
+        to = base + shortestDelta(base, Math.atan2(w.y, w.x));
+      }
+      if (Math.abs(to - base) < 1e-9) return;
+      dispatch({ type: 'OBJECT_NUDGE', id, d: { x: 0, y: 0 }, dTheta: to - base });
+
+      running?.stop();
+      headingAnimRef.current = null;
+      if (reduceMotion) {
+        worldRef.current?.setPose(id as CastId, { x: cur.x, y: cur.y, theta: to });
+        return;
+      }
+      const from = cur.theta;
+      let t0: number | null = null;
+      const anim = {
+        id,
+        to,
+        stop: () => {},
+      };
+      anim.stop = raf.add((_dt, now) => {
+        t0 ??= now;
+        const t = Math.min(1, (now - t0) / HEADING_TURN_MS);
+        const p = worldRef.current?.read()[id];
+        if (p) worldRef.current?.setPose(id as CastId, { x: p.x, y: p.y, theta: from + (to - from) * easeStandard(t) });
+        if (t >= 1) {
+          anim.stop();
+          if (headingAnimRef.current === anim) headingAnimRef.current = null;
+        }
+      });
+      headingAnimRef.current = anim;
+    },
+    [dispatch, lockedSet, reduceMotion, stageRef, worldRef],
+  );
+
   const handleObjectKeyDown = useCallback(
     (id: string, e: ReactKeyboardEvent<SVGGElement>) => {
       // 개체 층의 키만 여기서 먹는다(`core/keymap.ts` 의 `scope: 'object'`). 표에 없는 키는
@@ -539,6 +620,20 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           nudge(id, 0, 0, (eventCode(e) === 'KeyQ' ? -1 : 1) * deg * RAD);
           return;
         }
+        case 'obj.face': {
+          // 숫자줄 1–8 = 12시부터 시계 방향, 9 = 180°(2026-11-16 기현님 지시). 방향판과 같은 길(turnHeading)이라
+          // 화면 기준·0.3초 회전·180° 연타 한 방향이 그대로다. 휠체어가 아니면 키를 그냥 흘려보낸다.
+          const cmd = FACE_KEYS[eventCode(e)];
+          if (!cmd || !isId(id, 'ch')) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (selection.size > 1 && selection.has(id)) {
+            liveRegion.say(translate(locale, 'editor.announce.rotateMulti'));
+            return;
+          }
+          turnHeading(id, cmd);
+          return;
+        }
         case 'obj.cyclePrev':
         case 'obj.cycleNext':
         case 'obj.cycleExtendPrev':
@@ -584,7 +679,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           return;
       }
     },
-    [dispatch, nudge, onEraseIds, order, stageRef, selection],
+    [dispatch, nudge, onEraseIds, order, stageRef, selection, turnHeading],
   );
 
   const handleContainerKeyDown = useCallback(
@@ -732,22 +827,6 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   // 메뉴는 항목을 누르면 닫히고 패드는 그 뒤에 혼자 남아야 한다(NudgePad 머리말).
   const [nudgePad, setNudgePad] = useState<NudgePadTarget | null>(null);
 
-  // ── 방향판 회전 애니메이션(2026-11-16 기현님 지시 "회전시 0.3초 동안 적당한 애니메이션") ──────────────
-  // 상태(OBJECT_NUDGE)는 누르는 순간 **최종 각도로 한 번** 바뀐다 — 되돌리기 한 칸, 자동 저장도 한 번. 화면은 물리
-  // 자세를 매 프레임 그리므로(usePhysicsRenderLoop) 물리 θ 만 0.3초 동안 따라 돌린다. 패드가 닫히면(아무 키 =
-  // 되돌리기·방향키 포함) 그 자리에서 끝 각도로 맞춘다 — 남은 프레임이 되돌리기로 다시 세운 월드를 덮지 않게.
-  const { prefs } = useSettingsState();
-  const reduceMotion = effectiveReduceMotion(prefs.a11y.reduceMotion);
-  const headingAnimRef = useRef<{ id: string; to: number; stop(): void } | null>(null);
-  const finishHeadingAnim = useCallback(() => {
-    const a = headingAnimRef.current;
-    if (!a) return;
-    headingAnimRef.current = null;
-    a.stop();
-    const p = worldRef.current?.read()[a.id];
-    if (p) worldRef.current?.setPose(a.id as CastId, { x: p.x, y: p.y, theta: a.to });
-  }, [worldRef]);
-  useEffect(() => finishHeadingAnim, [finishHeadingAnim]);
 
   /** "같은 것 전부 고르기" 가 훑을 명단. 무대가 이미 들고 있는 조각들을 한 자리에 모은 것뿐이라
    *  따로 계산하는 것이 없다 — 명단이 두 벌이 되면 "메뉴에는 넷인데 화면에는 셋" 이 생긴다. */
@@ -1017,52 +1096,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         nudge(id, w.x, w.y, 0);
       }}
       onHeading={(ids, cmd) => {
-        // 방향판(휠체어 하나). 잠금은 Q·E 와 같이 막는다(nudge 첫 줄과 같은 규칙).
         const id = ids[0];
-        if (!id || !isId(id, 'ch') || lockedSet.has(id)) return;
-        const cur = worldRef.current?.read()[id];
-        if (!cur) return;
-        // 도는 중에 또 누르면 **논리 각도(앞 애니메이션의 끝)** 에서 잰다 — 화면에 보이는 중간 각도에서 재면
-        // 180° 를 연달아 눌렀을 때 한 번은 시계, 한 번은 반시계가 된다.
-        const running = headingAnimRef.current?.id === id ? headingAnimRef.current : null;
-        const base = running ? running.to : cur.theta;
-        let to: number;
-        if (cmd.kind === 'flip') {
-          // 늘 +π(화면 시계 방향) — 연달아 누르면 한 방향으로 계속 돈다(기현님 지시). 아이콘(IconUTurn)도 오른쪽으로 휜다.
-          to = base + Math.PI;
-        } else {
-          // 화살표는 화면 방향이다 — 코트가 돌아가 있으면(세로 창) 이동 칸과 같은 환산으로 판 방향이 된다.
-          const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
-          const w = screenDeltaToWorld({ rot }, cmd.sx, cmd.sy);
-          to = base + shortestDelta(base, Math.atan2(w.y, w.x));
-        }
-        if (Math.abs(to - base) < 1e-9) return;
-        dispatch({ type: 'OBJECT_NUDGE', id, d: { x: 0, y: 0 }, dTheta: to - base });
-
-        running?.stop();
-        headingAnimRef.current = null;
-        if (reduceMotion) {
-          worldRef.current?.setPose(id as CastId, { x: cur.x, y: cur.y, theta: to });
-          return;
-        }
-        const from = cur.theta;
-        let t0: number | null = null;
-        const anim = {
-          id,
-          to,
-          stop: () => {},
-        };
-        anim.stop = raf.add((_dt, now) => {
-          t0 ??= now;
-          const t = Math.min(1, (now - t0) / HEADING_TURN_MS);
-          const p = worldRef.current?.read()[id];
-          if (p) worldRef.current?.setPose(id as CastId, { x: p.x, y: p.y, theta: from + (to - from) * easeStandard(t) });
-          if (t >= 1) {
-            anim.stop();
-            if (headingAnimRef.current === anim) headingAnimRef.current = null;
-          }
-        });
-        headingAnimRef.current = anim;
+        if (id) turnHeading(id, cmd);
       }}
     />
     </>

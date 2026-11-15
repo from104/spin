@@ -90,7 +90,8 @@ describe('키맵 — WCAG 2.1.4 층 가르기', () => {
     expect(missing, '게이트를 안 타는 전역 단일 문자키가 있다').toEqual([]);
   });
 
-  it('개체 조작은 W A S D · Q E · [ ] · Delete 뿐이다 — 이 목록이 곧 포커스 한정 면제 범위다', () => {
+  // 2026-11-16 숫자줄 1–9(휠체어 방향, `obj.face`)가 들어왔다 — 역시 개체에 포커스가 있을 때만 사는 키라 같은 면제다.
+  it('개체 조작은 W A S D · Q E · 1–9 · [ ] · Delete 뿐이다 — 이 목록이 곧 포커스 한정 면제 범위다', () => {
     const codes = [...new Set(KEYMAP.filter((d) => d.scope === 'object').flatMap((d) => d.codes))].sort();
     expect(codes).toEqual([
       'ArrowDown',
@@ -101,6 +102,15 @@ describe('키맵 — WCAG 2.1.4 층 가르기', () => {
       'BracketLeft',
       'BracketRight',
       'Delete',
+      'Digit1',
+      'Digit2',
+      'Digit3',
+      'Digit4',
+      'Digit5',
+      'Digit6',
+      'Digit7',
+      'Digit8',
+      'Digit9',
       'Enter',
       'KeyA',
       'KeyD',
