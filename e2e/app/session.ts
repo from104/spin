@@ -12,7 +12,7 @@ import { WebDriverSession } from '../drivers/webdriver.ts';
 import { recordPids, wipeAppData } from './env-windows.ts';
 import { IDENTIFIER, isWindows, PROFILE_PREFIX, type ProfileDirs } from './platform.ts';
 import { descendants, isAlive, terminate, waitExit } from './procs.ts';
-import { treeOf } from './procs-win.ts';
+import { closeMainWindow, treeOf } from './procs-win.ts';
 
 export interface SessionOptions {
   driverPort: number;
@@ -127,14 +127,24 @@ export class AppSession {
   async closeWindow(timeoutMs = 10_000): Promise<boolean> {
     const pid = this.appPid();
     const helpers = pid ? descendants(pid) : [];
-    await this.wd.closeWindow().catch((error: unknown) => {
-      // 창과 함께 세션이 먼저 사라지기도 한다
-      if (!/no such window|invalid session|ECONNREFUSED|socket|fetch failed|terminated/i.test(String(error))) throw error;
-    });
+    // ⚠️ Windows: WebDriver 의 창 닫기는 msedgedriver 가 DevTools 로 대상만 닫는 길이라 사람이 [X] 를 누른 길
+    //   (WM_CLOSE → Tauri 정상 종료 → WebView2 가 저장소를 디스크에 비우고 끝남)과 다르다 — 2026-11-15 e2e-app
+    //   windows 잡에서 N4 가 같은 저장 폴더로 다시 띄웠는데도 판이 비었다. 주 창에 WM_CLOSE 를 보낸다.
+    if (!(isWindows && pid !== null && closeMainWindow(pid))) {
+      if (isWindows) console.warn('[e2e] 주 창에 WM_CLOSE 를 못 보냈다 — WebDriver 창 닫기로 대신한다');
+      await this.wd.closeWindow().catch((error: unknown) => {
+        // 창과 함께 세션이 먼저 사라지기도 한다
+        if (!/no such window|invalid session|ECONNREFUSED|socket|fetch failed|terminated/i.test(String(error))) throw error;
+      });
+    }
     const exited = pid === null || (await waitExit(pid, timeoutMs));
-    // 앱이 끝난 뒤에야 WebKit 하위 프로세스가 저장소를 닫는다 — 그들이 끝날 때까지 기다린다(지우거나 다시 띄우기 전에)
-    const deadline = Date.now() + 5000;
+    // 앱이 끝난 뒤에야 하위 프로세스(WebKit 의 네트워크·웹 프로세스, WebView2 의 msedgewebview2)가 저장소를 닫는다 —
+    // 그들이 끝날 때까지 기다린다(지우거나 다시 띄우기 전에). 상한을 넘겨 강제로 끄면 그 사실을 남긴다(저장이 잘렸을 수 있다)
+    const waitMs = isWindows ? 15_000 : 5000;
+    const deadline = Date.now() + waitMs;
     while (helpers.some(isAlive) && Date.now() < deadline) await pause(50);
+    const lingering = helpers.filter(isAlive);
+    if (lingering.length > 0) console.warn(`[e2e] 창을 닫고 ${waitMs / 1000}s 가 지나도 하위 프로세스 ${lingering.length}개가 남아 강제로 끈다: ${lingering.join(',')}`);
     await this.close();
     return exited;
   }

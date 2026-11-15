@@ -62,3 +62,16 @@ export function isAliveWin(pid: number): boolean {
 export function killTree(pid: number): void {
   spawnSync('taskkill.exe', ['/T', '/F', '/PID', String(pid)], { stdio: 'ignore', timeout: 15_000, windowsHide: true });
 }
+
+/**
+ * 사람이 창의 [X] 를 누른 것과 같은 길 — 그 프로세스의 주 창에 WM_CLOSE(Process.CloseMainWindow). true = 보냈다.
+ * 주 창 핸들이 없으면(창이 아직 없거나 숨음) false.
+ */
+export function closeMainWindow(pid: number): boolean {
+  const r = spawnSync(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-Command', `$p = Get-Process -Id ${Number(pid)} -ErrorAction SilentlyContinue; if ($p) { $p.CloseMainWindow() } else { $false }`],
+    { encoding: 'utf8', timeout: 15_000, windowsHide: true },
+  );
+  return r.status === 0 && /True/i.test(r.stdout);
+}
