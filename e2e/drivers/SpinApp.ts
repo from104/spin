@@ -39,6 +39,15 @@ export interface WorldPoint {
 export type PointerTarget = CourtPoint | ScreenPoint;
 export const isCourtPoint = (p: PointerTarget): p is CourtPoint => 'u' in p;
 
+/** 앱 주소에 `e2e=1` 을 붙인다(이미 있으면 그대로). 해시는 뒤에 둔다 — `file:` 해시 라우터 꼴과 같다. 두 드라이버 공통 */
+export function withE2E(route: string): string {
+  const [beforeHash, hash = ''] = route.split('#');
+  const [pathname, query = ''] = beforeHash!.split('?');
+  const params = new URLSearchParams(query);
+  params.set('e2e', '1');
+  return `${pathname}?${params.toString()}${hash ? `#${hash}` : ''}`;
+}
+
 export type TrayKind = 'chair' | 'ball' | 'cone';
 export interface PlaceOptions {
   /** 'tap' = 트레이 칩을 눌러 들고 코트를 누른다 · 'drag' = 칩을 코트까지 끌어다 놓는다 */

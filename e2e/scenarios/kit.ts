@@ -16,7 +16,8 @@
 import type { Capability, CourtObject, CourtPoint, ScreenPoint, SpinApp } from '../drivers/SpinApp.ts';
 import type { SeedState } from '../fixtures/seed.ts';
 
-export interface Scenario {
+/** 시나리오 — A 는 그 시나리오가 다루는 드라이버(공유 시나리오는 SpinApp, 앱 전용은 TauriApp — e2e/app/native.ts) */
+export interface Scenario<A extends SpinApp = SpinApp> {
   /** 보고서에 나오는 이름 */
   title: string;
   /** 필요한 드라이버 능력 — 하나라도 없으면 건너뛰고 이유를 남긴다 */
@@ -33,18 +34,21 @@ export interface Scenario {
   symptom?: RegExp;
   /** 아직 안 만든 시나리오 — 무엇을 다룰지 적어 두면 실행기가 건너뛰고 보고한다 */
   todo?: string;
-  run(app: SpinApp): Promise<void>;
+  run(app: A): Promise<void>;
 }
 
-export interface ScenarioGroup {
+export interface ScenarioGroup<A extends SpinApp = SpinApp> {
   name: string;
-  scenarios: Scenario[];
+  scenarios: Scenario<A>[];
 }
 
-export const defineGroup = (name: string, scenarios: Scenario[]): ScenarioGroup => ({ name, scenarios });
+export const defineGroup = <A extends SpinApp = SpinApp>(name: string, scenarios: Scenario<A>[]): ScenarioGroup<A> => ({
+  name,
+  scenarios,
+});
 
 /** 아직 구현하지 않은 시나리오 자리 */
-export const todo = (title: string, what: string, needs: Capability[] = []): Scenario => ({
+export const todo = <A extends SpinApp = SpinApp>(title: string, what: string, needs: Capability[] = []): Scenario<A> => ({
   title,
   needs,
   todo: what,
@@ -52,8 +56,37 @@ export const todo = (title: string, what: string, needs: Capability[] = []): Sce
 });
 
 /** 시나리오 needs 중 드라이버에 없는 능력 */
-export const missingCapabilities = (scenario: Scenario, app: SpinApp): Capability[] =>
+export const missingCapabilities = <A extends SpinApp>(scenario: Scenario<A>, app: A): Capability[] =>
   (scenario.needs ?? []).filter((need) => !app.capabilities.has(need));
+
+/**
+ * 시나리오 하나를 돌리고 known-bug 판정까지 한다 — 두 실행기(e2e/web/run.ts·e2e/app/run.ts)가 함께 쓴다.
+ * 알려진 앱 버그는 실패해야 정상이다. 통과하면 버그가 고쳐진 것 → 표시를 지우라고 빨갛게 알린다(test.fail() 과 같은 뜻이지만
+ * 메시지를 우리가 정하고, 요약이 known-bug 를 따로 센다). annotate 는 보고서 주석을 다는 자리(Playwright test.info()).
+ */
+export async function executeScenario<A extends SpinApp>(
+  app: A,
+  scenario: Scenario<A>,
+  annotate: (type: string, description: string) => void,
+): Promise<void> {
+  if (!scenario.knownBug) return scenario.run(app);
+  annotate('known-bug', scenario.knownBug);
+  let failure: unknown;
+  try {
+    await scenario.run(app);
+  } catch (error) {
+    failure = error;
+  }
+  if (!scenario.symptom) throw new Error('knownBug 에는 symptom(기대하는 오류 모양)이 함께 있어야 한다');
+  if (failure === undefined) {
+    throw new Error(`bug fixed — remove the known-bug mark (scenario.knownBug): ${scenario.knownBug}`);
+  }
+  const message = String((failure as Error)?.message ?? failure);
+  if (!scenario.symptom.test(message)) {
+    throw new Error(`known-bug 의 증상이 아닌 실패 — 기대 ${scenario.symptom} / 실제: ${message.split('\n')[0]!.slice(0, 200)}`);
+  }
+  annotate('known-bug-error', String(failure).split('\n')[0]!.slice(0, 200));
+}
 
 // ─── 단언 ─────────────────────────────────────────────────────────────────
 

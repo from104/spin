@@ -45,7 +45,30 @@ import type {
   TrayKind,
   WorldPoint,
 } from './SpinApp.ts';
-import { isCourtPoint } from './SpinApp.ts';
+import { isCourtPoint, withE2E } from './SpinApp.ts';
+import {
+  anchorInPage,
+  appReadyInPage,
+  autosaveInPage,
+  courtSizeInPage,
+  courtToScreenInPage,
+  dialogsInPage,
+  focusInModalFormInPage,
+  horizontalOverflowInPage,
+  layoutStableInPage,
+  nextFrameInPage,
+  objectBoxInPage,
+  objectCenterInPage,
+  objectsInPage,
+  onTopInPage,
+  rectOfInPage,
+  settleProbeInPage,
+  stepListOutsideInPage,
+  stepStateInPage,
+  uiStringsInPage,
+  viewportSizeInPage,
+  worldToScreenInPage,
+} from './page-functions.ts';
 import { applySeed, seedPayload, type SeedState } from '../fixtures/seed.ts';
 
 /** 같은 출처의 빈 문서 — 앱을 띄우기 전에 저장소를 심는 자리 (e2e/support/serve.mjs 가 내준다) */
@@ -53,15 +76,6 @@ const BLANK_PATH = '/__e2e__/blank';
 
 /** 화면이 다 서기를 기다리는 상한 — 손을 뗀 뒤 체이스(최대 4초)와 정착 상한을 넉넉히 덮는다 */
 const SETTLE_TIMEOUT_MS = 10_000;
-
-/** 앱 주소에 `e2e=1` 을 붙인다(이미 있으면 그대로). 해시는 뒤에 둔다 — `file:` 해시 라우터 꼴과 같다 */
-function withE2E(route: string): string {
-  const [beforeHash, hash = ''] = route.split('#');
-  const [pathname, query = ''] = beforeHash!.split('?');
-  const params = new URLSearchParams(query);
-  params.set('e2e', '1');
-  return `${pathname}?${params.toString()}${hash ? `#${hash}` : ''}`;
-}
 
 /**
  * 문서마다 먼저 심는 감시자 — aria-modal 대화 상자가 서고 지는 것을 DOM 변이마다 센다(S3 첫 방문 순서).
@@ -129,15 +143,7 @@ export class PlaywrightApp implements SpinApp {
 
   private async waitReady(): Promise<void> {
     await this.page
-      .waitForFunction(
-        () =>
-          !document.getElementById('spin-boot') &&
-          !!document.querySelector('[data-testid="app-shell"]') &&
-          !document.querySelector('[aria-busy="true"]') &&
-          !document.querySelector('.spin-loader'),
-        undefined,
-        { timeout: 10_000 },
-      )
+      .waitForFunction(appReadyInPage, undefined, { timeout: 10_000 })
       .catch((error: unknown) => {
         throw new Error(
           `앱이 준비되지 않음(${this.page.url()}) — 부팅 마크·app-shell·로더 덮개 중 하나: ${String(error).split('\n')[0]}`,
@@ -153,24 +159,7 @@ export class PlaywrightApp implements SpinApp {
    */
   private async layoutStable(): Promise<void> {
     await this.page
-      .evaluate(async () => {
-        await document.fonts.ready;
-        const box = () =>
-          ['#main', '[data-testid="court-stage"]']
-            .map((sel) => document.querySelector(sel)?.getBoundingClientRect())
-            .map((r) => (r ? `${r.x},${r.y},${r.width},${r.height}` : '-'))
-            .join('|');
-        const frames = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-        const deadline = performance.now() + 5_000;
-        let prev = box();
-        for (;;) {
-          await frames();
-          const next = box();
-          if (next === prev) return;
-          if (performance.now() > deadline) throw new Error(`레이아웃이 5초 안에 멈추지 않음 — 마지막 ${next}`);
-          prev = next;
-        }
-      })
+      .evaluate(layoutStableInPage)
       .catch((error: unknown) => {
         throw new Error(`레이아웃 대기 실패(${this.page.url()}): ${String(error).split('\n')[0]}`);
       });
@@ -202,11 +191,7 @@ export class PlaywrightApp implements SpinApp {
   }
 
   async objects(): Promise<CourtObject[]> {
-    return this.page.evaluate(() => {
-      const bridge = window.__spinE2E;
-      if (!bridge) throw new Error('시험 다리(window.__spinE2E)가 없다 — 편집기가 안 떠 있거나 ?e2e=1 이 빠졌다');
-      return bridge.objects();
-    });
+    return this.page.evaluate(objectsInPage);
   }
 
   async errors(): Promise<string[]> {
@@ -219,21 +204,11 @@ export class PlaywrightApp implements SpinApp {
 
   async courtSize(): Promise<{ width: number; height: number } | null> {
     // 기다리지 않고 지금 값을 읽는다 — 기다림은 시나리오의 eventually 가 진다(없으면 30초 시험 제한까지 매달린다)
-    return this.page.evaluate(() => {
-      const el = document.querySelector('[data-testid="court-stage"]');
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { width: r.width, height: r.height };
-    });
+    return this.page.evaluate(courtSizeInPage);
   }
 
   async rectOf(testId: string): Promise<{ left: number; top: number; right: number; bottom: number } | null> {
-    return this.page.evaluate((id) => {
-      const el = document.querySelector(`[data-testid="${id}"]`);
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-    }, testId);
+    return this.page.evaluate(rectOfInPage, testId);
   }
 
   async openDrillCard(index: number): Promise<void> {
@@ -248,7 +223,7 @@ export class PlaywrightApp implements SpinApp {
   async saveBoardAsDrill(): Promise<void> {
     await this.activate(this.page.locator('[data-tut="header-primary"]'));
     // 이름 칸이 첫 초점이다(SaveAsDrillDialog 의 initialFocusRef) — Enter 가 기본 이름으로 확정한다
-    await this.page.waitForFunction(() => document.activeElement?.closest('[aria-modal="true"] form') != null);
+    await this.page.waitForFunction(focusInModalFormInPage);
     await this.page.keyboard.press('Enter');
     await this.page.waitForFunction(() => window.__spinE2E?.surface === 'drill', undefined, { timeout: 10_000 });
     await this.waitReady();
@@ -262,42 +237,19 @@ export class PlaywrightApp implements SpinApp {
   }
 
   async courtToScreen(pt: CourtPoint): Promise<ScreenPoint> {
-    return this.page.evaluate(({ u, v }) => {
-      const field = document.querySelector<SVGGraphicsElement>('[data-testid="court-field"]');
-      const world = document.querySelector<SVGGraphicsElement>('[data-testid="court-world"]');
-      const ctm = world?.getScreenCTM();
-      if (!field || !ctm) throw new Error('court-field/court-world 가 없다 — 편집기가 안 떠 있다');
-      const b = field.getBBox();
-      const p = new DOMPoint(b.x + u * b.width, b.y + v * b.height).matrixTransform(ctm);
-      return { x: p.x, y: p.y };
-    }, pt);
+    return this.page.evaluate(courtToScreenInPage, pt);
   }
 
   async worldToScreen(pt: WorldPoint): Promise<ScreenPoint> {
-    return this.page.evaluate(({ x, y }) => {
-      const ctm = document.querySelector<SVGGraphicsElement>('[data-testid="court-world"]')?.getScreenCTM();
-      if (!ctm) throw new Error('court-world 가 없다 — 편집기가 안 떠 있다');
-      const p = new DOMPoint(x, y).matrixTransform(ctm);
-      return { x: p.x, y: p.y };
-    }, pt);
+    return this.page.evaluate(worldToScreenInPage, pt);
   }
 
   async objectCenter(id: string): Promise<ScreenPoint | null> {
-    return this.page.evaluate((objId) => {
-      const el = document.getElementById(`obj-${objId}`);
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-    }, id);
+    return this.page.evaluate(objectCenterInPage, id);
   }
 
   async objectBox(id: string): Promise<{ left: number; top: number; right: number; bottom: number } | null> {
-    return this.page.evaluate((objId) => {
-      const el = document.getElementById(`obj-${objId}`);
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-    }, id);
+    return this.page.evaluate(objectBoxInPage, id);
   }
 
   private async toScreen(target: PointerTarget): Promise<ScreenPoint> {
@@ -345,7 +297,7 @@ export class PlaywrightApp implements SpinApp {
     const at = (k: number): ScreenPoint => ({ x: a.x + ((b.x - a.x) * k) / steps, y: a.y + ((b.y - a.y) * k) / steps });
     // 이동 사이에 한 프레임씩 쉰다 — 앱은 pointermove 를 rAF 로 흘려보내므로(§6.3) 한 프레임에 몰아 보내면
     // 실제 손과 다른 "순간이동" 이 된다. 프레임 대기는 시간이 아니라 브라우저의 다음 페인트라 고정 sleep 이 아니다.
-    const frame = () => this.page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    const frame = () => this.page.evaluate(nextFrameInPage);
     if (this.touch) {
       await this.touchEvent('touchStart', a);
       for (let k = 1; k <= steps; k++) {
@@ -408,15 +360,7 @@ export class PlaywrightApp implements SpinApp {
     const deadline = Date.now() + SETTLE_TIMEOUT_MS;
     let last = '';
     for (;;) {
-      const r = await this.page.evaluate(async () => {
-        const bridge = window.__spinE2E;
-        if (!bridge) return { ok: false, why: '다리 없음' };
-        if (bridge.busy) return { ok: false, why: 'busy' };
-        const a = JSON.stringify(bridge.objects());
-        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-        if (bridge.busy) return { ok: false, why: 'busy' };
-        return JSON.stringify(bridge.objects()) === a ? { ok: true, why: '' } : { ok: false, why: '자세가 바뀌는 중' };
-      });
+      const r = await this.page.evaluate(settleProbeInPage);
       if (r.ok) return;
       last = r.why;
       if (Date.now() > deadline) throw new Error(`화면이 ${SETTLE_TIMEOUT_MS}ms 안에 서지 않음 — 마지막 사유: ${last}`);
@@ -454,27 +398,8 @@ export class PlaywrightApp implements SpinApp {
     await this.openStepList();
     await body();
     if ((await toggle.getAttribute('aria-expanded')) === 'true') {
-      // 바깥 = 덮개(`data-sidebar-backdrop`, 기존 속성)가 맨 위이고 **그 아래에 누를 것이 없는** 점. 덮개는
-      // pointerdown 에서 닫히므로, 터치의 뒤늦은 click 이 덮개가 사라진 자리 아래 단추에 떨어진다(S7c 가 붙잡은
-      // 앱 버그 — 실측으로 [보드 설정]이 열렸다). 그래서 아래가 단추·입력이 아닌 점을 격자로 훑어 고른다.
-      const outside = await this.page.evaluate(() => {
-        const backdrop = document.querySelector<HTMLElement>('[data-sidebar-backdrop]');
-        if (!backdrop) return null;
-        const r = backdrop.getBoundingClientRect();
-        const interactive = 'button, a, input, select, textarea, [role="button"], [role="radio"], [role="switch"]';
-        for (let fy = 0.5; fy < 1; fy += 0.1) {
-          for (let fx = 0.9; fx > 0; fx -= 0.1) {
-            const x = r.x + r.width * fx;
-            const y = r.y + r.height * fy;
-            if (document.elementFromPoint(x, y) !== backdrop) continue;
-            backdrop.style.pointerEvents = 'none';
-            const beneath = document.elementFromPoint(x, y);
-            backdrop.style.pointerEvents = '';
-            if (!beneath?.closest(interactive)) return { x, y };
-          }
-        }
-        return null;
-      });
+      // 바깥 = 덮개가 맨 위이고 **그 아래에 누를 것이 없는** 점(실측으로 [보드 설정]이 열렸다 — page-functions.ts)
+      const outside = await this.page.evaluate(stepListOutsideInPage);
       if (!outside) throw new Error('스텝 목록 바깥(덮개)을 누를 자리가 없다');
       await this.tap(outside);
     }
@@ -495,19 +420,11 @@ export class PlaywrightApp implements SpinApp {
   }
 
   async stepState(): Promise<StepState> {
-    return this.page.evaluate(() => {
-      const bridge = window.__spinE2E;
-      if (!bridge) throw new Error('시험 다리(window.__spinE2E)가 없다');
-      return { stepIndex: bridge.stepIndex, stepCount: bridge.stepCount, playing: bridge.playing };
-    });
+    return this.page.evaluate(stepStateInPage);
   }
 
   async autosave(): Promise<string> {
-    return this.page.evaluate(() => {
-      const bridge = window.__spinE2E;
-      if (!bridge) throw new Error('시험 다리(window.__spinE2E)가 없다');
-      return bridge.autosave;
-    });
+    return this.page.evaluate(autosaveInPage);
   }
 
   async pressKey(chord: string): Promise<void> {
@@ -527,9 +444,7 @@ export class PlaywrightApp implements SpinApp {
   // ─── 대화 상자 ───────────────────────────────────────────────────────
 
   async dialogs(): Promise<string[]> {
-    return this.page.evaluate(() =>
-      Array.from(document.querySelectorAll('[aria-modal="true"]')).map((d) => d.getAttribute('data-testid') ?? 'unnamed'),
-    );
+    return this.page.evaluate(dialogsInPage);
   }
 
   async centerOf(testId: string): Promise<ScreenPoint | null> {
@@ -538,15 +453,7 @@ export class PlaywrightApp implements SpinApp {
   }
 
   async onTop(testId: string): Promise<boolean> {
-    return this.page.evaluate(async (id) => {
-      const el = document.querySelector(`[data-testid="${id}"]`);
-      if (!el) return false;
-      // 자리가 막 바뀐 요소는 transition 이 끝나야 그 자리에 선다 — 감축 모션에서도 0.01ms 짜리가 한 프레임은
-      // 돈다(tokens.css). 끝나기 전에 재면 옛 자리(예: 열리기 전 [스텝 목록] 단추)를 잰다(2026-11-15 S7b 실측).
-      await Promise.all(el.getAnimations().map((a) => a.finished.catch(() => undefined)));
-      const r = el.getBoundingClientRect();
-      return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
-    }, testId);
+    return this.page.evaluate(onTopInPage, testId);
   }
 
   async present(testId: string): Promise<boolean> {
@@ -558,31 +465,7 @@ export class PlaywrightApp implements SpinApp {
   }
 
   async uiStrings(): Promise<{ text: string[]; names: string[] }> {
-    return this.page.evaluate(() => {
-      const visible = (el: Element): boolean => {
-        for (let n: Element | null = el; n; n = n.parentElement) {
-          const s = getComputedStyle(n);
-          if (s.display === 'none' || s.visibility === 'hidden') return false;
-        }
-        return true;
-      };
-      const text: string[] = [];
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-        const s = (n.textContent ?? '').replace(/\s+/g, ' ').trim();
-        const p = n.parentElement;
-        if (s && p && !['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(p.tagName) && visible(p)) text.push(s);
-      }
-      const names: string[] = [];
-      for (const el of Array.from(document.body.querySelectorAll('[aria-label], [title], [placeholder], [alt]'))) {
-        if (!visible(el)) continue;
-        for (const attr of ['aria-label', 'title', 'placeholder', 'alt']) {
-          const v = el.getAttribute(attr);
-          if (v) names.push(v);
-        }
-      }
-      return { text, names };
-    });
+    return this.page.evaluate(uiStringsInPage);
   }
 
   async rootText(): Promise<string> {
@@ -601,23 +484,11 @@ export class PlaywrightApp implements SpinApp {
   }
 
   async viewportSize(): Promise<{ width: number; height: number }> {
-    return this.page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+    return this.page.evaluate(viewportSizeInPage);
   }
 
   async anchor(name: string): Promise<AnchorProbe | null> {
-    return this.page.evaluate((anchor) => {
-      const all = document.querySelectorAll(`[data-tut="${anchor}"]`);
-      const el = all[0];
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-      return {
-        count: all.length,
-        rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height },
-        inViewport: r.width > 0 && r.height > 0 && r.left >= 0 && r.top >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight,
-        onTop: !!top && el.contains(top),
-      };
-    }, name);
+    return this.page.evaluate(anchorInPage, name);
   }
 
   async pressAnchor(name: string): Promise<void> {
@@ -625,7 +496,7 @@ export class PlaywrightApp implements SpinApp {
   }
 
   async horizontalOverflow(): Promise<number> {
-    return this.page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+    return this.page.evaluate(horizontalOverflowInPage);
   }
 
   async modalLog(): Promise<ModalLog> {
