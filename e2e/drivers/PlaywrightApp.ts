@@ -62,6 +62,7 @@ import {
   objectsInPage,
   onTopInPage,
   rectOfInPage,
+  revealInPage,
   settleProbeInPage,
   stepListOutsideInPage,
   stepStateInPage,
@@ -209,6 +210,10 @@ export class PlaywrightApp implements SpinApp {
 
   async rectOf(testId: string): Promise<{ left: number; top: number; right: number; bottom: number } | null> {
     return this.page.evaluate(rectOfInPage, testId);
+  }
+
+  async reveal(testId: string): Promise<boolean> {
+    return this.page.evaluate(revealInPage, testId);
   }
 
   async openDrillCard(index: number): Promise<void> {

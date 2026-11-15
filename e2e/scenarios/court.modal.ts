@@ -52,7 +52,10 @@ export default defineGroup('court-modal', [
 
       await openCourtModal(app);
       const view = await app.viewportSize();
+      // 모달 패널은 85vh 에서 잘리고 세로로 굴러간다(ui/Modal.tsx) — 좁은 화면에서 아래 스위치는 **굴려서** 닿으면 된다.
+      // 지키는 것은 "굴린 뒤 화면 안·맨 위에 있다"(다른 요소 밑에 깔리거나 패널 밖으로 새지 않는다)이다.
       for (const id of ['court-toggle-grid', 'court-toggle-rulezones']) {
+        check(await app.reveal(id), `${id} 가 모달에 없다`);
         const r = await app.rectOf(id);
         check(r !== null, `${id} 가 모달에 없다`);
         check(r.left >= 0 && r.top >= 0 && r.right <= view.width && r.bottom <= view.height, `${id} 가 화면 밖에 있다`, { r, view });

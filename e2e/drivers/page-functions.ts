@@ -88,6 +88,14 @@ export const rectOfInPage = (testId: string): Box | null => {
   return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
 };
 
+/** 스크롤 상자(모달 본문 등) 안에서 잘린 요소를 보이게 굴린다 — 사람이 손가락으로 모달을 밀어 올리는 것. */
+export const revealInPage = (testId: string): boolean => {
+  const el = document.querySelector(`[data-testid="${testId}"]`);
+  if (!el) return false;
+  el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+  return true;
+};
+
 export const courtRotInPage = (): string | null =>
   document.querySelector('[data-testid="court-stage"]')?.getAttribute('data-rot') ?? null;
 

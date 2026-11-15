@@ -51,6 +51,7 @@ import {
   objectsInPage,
   onTopInPage,
   rectOfInPage,
+  revealInPage,
   screenKeyInPage,
   settleProbeInPage,
   stepListOutsideInPage,
@@ -244,6 +245,10 @@ export class WdioApp implements SpinApp {
 
   async rectOf(testId: string): Promise<{ left: number; top: number; right: number; bottom: number } | null> {
     return this.js(rectOfInPage, testId);
+  }
+
+  async reveal(testId: string): Promise<boolean> {
+    return this.js(revealInPage, testId);
   }
 
   async openDrillCard(index: number): Promise<void> {

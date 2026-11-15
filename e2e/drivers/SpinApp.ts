@@ -159,6 +159,8 @@ export interface SpinApp {
   courtSize(): Promise<{ width: number; height: number } | null>;
   /** data-testid 요소의 화면 상자(브라우저 레이아웃). 없으면 null */
   rectOf(testId: string): Promise<{ left: number; top: number; right: number; bottom: number } | null>;
+  /** data-testid 요소가 스크롤 상자 안에서 잘려 있으면 보이게 굴린다(사람이 모달을 밀어 올리듯). 없으면 false */
+  reveal(testId: string): Promise<boolean>;
   /** [드릴] 목록의 index 번째 카드를 열고 편집기가 설 때까지 기다린다 — 서랍이 비어 있으면 카드가 생길 때까지 기다린다 */
   openDrillCard(index: number): Promise<void>;
   /** 전술판의 머리띠 주 단추 [드릴로 편집] → 이름 대화 상자를 기본 이름으로 확정 → 새 드릴 편집기가 설 때까지.
