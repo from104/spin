@@ -3,7 +3,7 @@
 // 문자열 필드로, `'light'` 값을 영구 불변식으로 전제한다(§4.1 예외 1건) — 이 필드의 위치·타입을
 // 바꾸는 마이그레이션은 index.html 부트 스크립트도 같은 커밋에서 함께 고쳐야 한다.
 import { clamp } from '../core/geom.ts';
-import { DEFAULT_ZONES, DEFAULT_LIMITS } from '../core/constants.ts';
+import { DEFAULT_ZONES } from '../core/constants.ts';
 import type { ZoneConfig } from '../model/chair.ts';
 import type { Repair } from '../model/validate.ts';
 import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
@@ -26,13 +26,9 @@ export const CURRENT_PREFS_SCHEMA = 4;
 
 export interface PhysicsParams {
   zones: ZoneConfig;
-  linearKmh: number;
-  bumperKmh: number;
-  editorSpeedMultiplier: number; // 1.0 기본. 드래그/놓은 뒤 이어가기에만 적용(§5.11)
-  /** 개체 이동 속도 제한. 끄면 잡은 개체가 포인터를 즉시 따라온다 —
-   *  실제 파워체어 속도(10 km/h)를 지키는 것과 판을 빨리 짜는 것은 다른 목적이라
-   *  화면에서 바로 오갈 수 있어야 한다. */
-  speedLimit: boolean;
+  // ⚠️ 2026-11-16 기현님 지시로 폐기: speedLimit([실제 속도로 제한], 기본 켬)·linearKmh·bumperKmh·
+  //   editorSpeedMultiplier(속도 슬라이더 3종). 저장돼 있던 값은 sanitizePhysicsOverride 가 읽지 않아 조용히 사라진다.
+  //   편집기는 늘 상한 없음(store/editor/EditorProvider EDITOR_LIMITS).
   /** [보드 설정] > 개체 이동의 세 스위치(2026-11-13 기현님 지시). **셋 다 기본 끔**이다.
    *
    *  `interact` — 개체 사이 물리·상호작용. 끄면 잡은 개체가 이웃을 밀지도 막히지도 않고
@@ -173,14 +169,6 @@ export const makeDefaultPrefs = (): Preferences => ({
   helpWelcomeSeen: false,
 });
 
-/** linearKmh 에 연동되는 회전 속도 상한. 기본점(linear=10 → 30)을 지나는 선형식이며
- *  [10,36](DEFAULT_LIMITS.bumperKmhRange) 로 클램프한다. 계약서는 사용처만 규정하고 식은
- *  명시하지 않아 이 기본점을 통과하는 가장 단순한 관계로 채웠다(§DEVIATIONS 참고). */
-export function bumperKmhMax(linearKmh: number): number {
-  const [lo, hi] = DEFAULT_LIMITS.bumperKmhRange;
-  return clamp(linearKmh * 3, lo, hi);
-}
-
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 function sanitizePhysicsOverride(raw: unknown): PhysicsOverride {
@@ -194,12 +182,6 @@ function sanitizePhysicsOverride(raw: unknown): PhysicsOverride {
     }
     if (Object.keys(z).length > 0) out.zones = z;
   }
-  if (typeof raw.linearKmh === 'number' && Number.isFinite(raw.linearKmh)) out.linearKmh = raw.linearKmh;
-  if (typeof raw.bumperKmh === 'number' && Number.isFinite(raw.bumperKmh)) out.bumperKmh = raw.bumperKmh;
-  if (typeof raw.editorSpeedMultiplier === 'number' && Number.isFinite(raw.editorSpeedMultiplier)) {
-    out.editorSpeedMultiplier = raw.editorSpeedMultiplier;
-  }
-  if (typeof raw.speedLimit === 'boolean') out.speedLimit = raw.speedLimit;
   for (const k of ['interact', 'dragRotate', 'anchors'] as const) {
     if (typeof raw[k] === 'boolean') out[k] = raw[k];
   }
@@ -300,19 +282,11 @@ export function resolvePhysics(p: Preferences): PhysicsParams {
   // 아무도 손대지 않아도 설정이 기본값과 달라진다 — 아래 회귀 테스트로 못박았다.
   const sSpinMin = clamp(z.sSpinMin, sTowRearMax + 0.04, 0.9);
   const sTowFrontMin = clamp(z.sTowFrontMin, sSpinMin + 0.1, 1);
-  const linearKmh = clamp(p.physics.linearKmh ?? DEFAULT_LIMITS.linearKmh, 4, 16);
-  const bumperKmh = clamp(p.physics.bumperKmh ?? DEFAULT_LIMITS.bumperKmh, 10, bumperKmhMax(linearKmh));
-  const editorSpeedMultiplier = clamp(p.physics.editorSpeedMultiplier ?? 1, 1, 4);
-  const speedLimit = p.physics.speedLimit ?? true;
   return {
     zones: { sTowRearMax, sSpinMin, sTowFrontMin, grabPadPx: z.grabPadPx },
-    speedLimit,
     interact: p.physics.interact ?? false,
     dragRotate: p.physics.dragRotate ?? false,
     anchors: p.physics.anchors ?? false,
-    linearKmh,
-    bumperKmh,
-    editorSpeedMultiplier,
   };
 }
 
@@ -327,11 +301,6 @@ export function prunePhysics(v: PhysicsParams | PhysicsOverride): PhysicsOverrid
     }
     if (Object.keys(zones).length > 0) out.zones = zones;
   }
-  if (v.linearKmh !== undefined && v.linearKmh !== DEFAULT_LIMITS.linearKmh) out.linearKmh = v.linearKmh;
-  if (v.bumperKmh !== undefined && v.bumperKmh !== DEFAULT_LIMITS.bumperKmh) out.bumperKmh = v.bumperKmh;
-  if (v.editorSpeedMultiplier !== undefined && v.editorSpeedMultiplier !== 1) out.editorSpeedMultiplier = v.editorSpeedMultiplier;
-  // 기본값이 true 이므로 false 일 때만 남긴다.
-  if (v.speedLimit === false) out.speedLimit = false;
   // 셋 다 기본값이 false 이므로 true 일 때만 남긴다.
   if (v.interact === true) out.interact = true;
   if (v.dragRotate === true) out.dragRotate = true;

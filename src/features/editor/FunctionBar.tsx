@@ -48,7 +48,6 @@ import {
   IconRedo,
   IconRuleZone,
   IconSides,
-  IconSpeed,
   IconUndo,
   IconZoomIn,
   IconZoomOut,
@@ -334,7 +333,6 @@ export function FunctionBar({
 
   const { prefs, physics } = useSettingsState();
   const { setPrefs } = useSettingsActions();
-  const speedLimit = physics.speedLimit;
   const t = useT();
   const locale = useLocale();
 
@@ -738,16 +736,7 @@ export function FunctionBar({
 
           <div role="group" aria-label={t('editor.functionBar.courtModal.moveGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.moveGroupLabel')}</p>
-            {/* 속도 제한은 **켬이 기본이자 사실적인 상태**다(실제 파워체어 10 km/h). 그래서
-                토글의 '켜짐' 은 제한이 걸린 쪽이고, 끄면 아래 설명이 경고를 말한다 — 제한을
-                푼 채로 두고 왜 빠른지 모르는 상황이 더 나쁘다(옛 SpeedLimitSwitch 의 판단). */}
-            <ModalToggle
-              on={speedLimit}
-              onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, speedLimit: !speedLimit }) })}
-              icon={<IconSpeed />}
-              text={t('editor.functionBar.courtModal.speedText')}
-              hint={speedLimit ? t('editor.functionBar.speed.titleOn') : t('editor.functionBar.speed.titleOff')}
-            />
+            {/* (2026-11-16 기현님 지시로 [실제 속도로 제한] 스위치 폐기 — 편집기는 늘 상한 없음, EditorProvider EDITOR_LIMITS) */}
             {/* ── 2026-11-13 기현님 지시: 스위치 셋, **셋 다 기본 끔** ──────────────────────────
                 판을 짜는 손이 주인이 되게 한다 — 끄면 개체는 서로 겹쳐 지나가고(물리), 차체는
                 어디를 잡아도 그대로 옮겨지며(회전), 고른 휠체어 앞뒤에 손잡이가 안 뜬다(앵커).

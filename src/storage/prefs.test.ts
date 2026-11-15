@@ -1,6 +1,6 @@
 // §10.6 prefs. localStorage 는 jsdom 환경에서 기본 제공된다.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DEFAULT_LIMITS, DEFAULT_ZONES } from '../core/constants.ts';
+import { DEFAULT_ZONES } from '../core/constants.ts';
 import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
 import {
   PREFS_KEY,
@@ -12,7 +12,6 @@ import {
   resolvePhysics,
   prunePhysics,
   resetPrefs,
-  bumperKmhMax,
 } from './prefs.ts';
 
 beforeEach(() => {
@@ -110,18 +109,6 @@ describe('resolvePhysics', () => {
     expect(p.zones.sSpinMin).toBeGreaterThan(p.zones.sTowRearMax);
     expect(p.zones.sTowFrontMin).toBeGreaterThan(p.zones.sSpinMin);
   });
-  it('linearKmh: 0 은 하한 4 로 클램프된다', () => {
-    const prefs = makeDefaultPrefs();
-    prefs.physics = { linearKmh: 0 };
-    expect(resolvePhysics(prefs).linearKmh).toBe(4);
-  });
-  it('bumperKmh 는 linearKmh 에 연동된 상한을 넘지 않는다', () => {
-    const prefs = makeDefaultPrefs();
-    prefs.physics = { linearKmh: 4, bumperKmh: 999 };
-    const p = resolvePhysics(prefs);
-    expect(p.bumperKmh).toBeLessThanOrEqual(bumperKmhMax(4));
-    expect(p.bumperKmh).toBeLessThanOrEqual(36);
-  });
   it('한 항목만 override 해도 zones 의 나머지는 DEFAULT_ZONES 를 따라간다', () => {
     const prefs = makeDefaultPrefs();
     prefs.physics = { zones: { sTowRearMax: 0.15 } };
@@ -142,8 +129,6 @@ describe('resolvePhysics', () => {
     expect(p.zones.sSpinMin).toBe(DEFAULT_ZONES.sSpinMin);
     expect(p.zones.sTowFrontMin).toBe(DEFAULT_ZONES.sTowFrontMin);
     expect(p.zones.grabPadPx).toBe(DEFAULT_ZONES.grabPadPx);
-    expect(p.linearKmh).toBe(DEFAULT_LIMITS.linearKmh);
-    expect(p.bumperKmh).toBe(DEFAULT_LIMITS.bumperKmh);
   });
 });
 
@@ -151,20 +136,17 @@ describe('prunePhysics', () => {
   it('기본값과 같은 항목은 걷어낸다', () => {
     const pruned = prunePhysics({
       zones: { ...DEFAULT_ZONES },
-      linearKmh: 10,
-      bumperKmh: 30,
-      editorSpeedMultiplier: 1,
+      interact: false,
     });
     expect(pruned).toEqual({});
   });
   it('기본값과 다른 항목만 남긴다', () => {
     const pruned = prunePhysics({
       zones: { ...DEFAULT_ZONES, sTowRearMax: 0.16 },
-      linearKmh: 12,
-      bumperKmh: 30,
-      editorSpeedMultiplier: 1,
+      interact: true,
+      dragRotate: false,
     });
-    expect(pruned).toEqual({ zones: { sTowRearMax: 0.16 }, linearKmh: 12 });
+    expect(pruned).toEqual({ zones: { sTowRearMax: 0.16 }, interact: true });
   });
 });
 
@@ -437,8 +419,10 @@ describe('3.0 v1 → v2 마이그레이션: 새 필드는 채우고 옛 값은 �
     expect('defaultCourtMode' in p).toBe(false);
     expect('hints' in p).toBe(false);
   });
-  it('physics override 가 살아 돌아온다', () => {
-    expect(loadPrefs().physics).toEqual({ linearKmh: 12, zones: { sTowRearMax: 0.16 } });
+  it('physics override 가 살아 돌아온다 — 폐기된 속도 값(linearKmh)만 빠진다', () => {
+    // 2026-11-16 기현님 지시로 속도 제한·속도 슬라이더 폐기 — 옛 문서의 linearKmh 는 읽지 않아 조용히 사라지고,
+    // 같은 묶음의 존 경계는 그대로 산다.
+    expect(loadPrefs().physics).toEqual({ zones: { sTowRearMax: 0.16 } });
   });
 });
 

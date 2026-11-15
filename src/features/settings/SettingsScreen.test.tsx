@@ -130,13 +130,13 @@ describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
 
     await openPhysicsDrawer();
     expect(disclosure).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getAllByRole('slider')).toHaveLength(6); // 존 3 + 속도 2 + 배수 1
+    expect(screen.getAllByRole('slider')).toHaveLength(3); // 존 3 (속도 2·배수 1 은 2026-11-16 폐기)
   });
 
   it('⚠️ 서랍이 닫혀 있어도 저장값은 살아 있다 — 안 보인다고 기본값으로 돌아가면 재앙이다', async () => {
     // 다른 기기(또는 지난 세션)에서 조정해 둔 오버라이드가 이미 저장돼 있다.
     const d = makeDefaultPrefs();
-    savePrefs({ ...d, physics: { zones: { sTowRearMax: 0.18 }, linearKmh: 6 } });
+    savePrefs({ ...d, physics: { zones: { sTowRearMax: 0.18 }, interact: true } });
 
     render(<SettingsScreen nav={makeNav()} />, { wrapper });
     expect(screen.queryAllByRole('slider')).toHaveLength(0); // 서랍은 닫혀 있다
@@ -144,16 +144,15 @@ describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
     // 닫힌 채로 **다른 설정을 저장**해 본다 — setPrefs 병합이 physics 를 흘리면 여기서 죽는다.
     await userEvent.setup().click(screen.getByRole('switch', { name: '격자 표시' }));
     expect(loadPrefs().showGrid).toBe(false);
-    expect(loadPrefs().physics).toEqual({ zones: { sTowRearMax: 0.18 }, linearKmh: 6 });
+    expect(loadPrefs().physics).toEqual({ zones: { sTowRearMax: 0.18 }, interact: true });
     // 판정 경로(resolvePhysics)에도 여전히 닿는다 — 화면에 안 보이는 것과 적용은 별개다.
     const resolved = resolvePhysics(loadPrefs());
     expect(resolved.zones.sTowRearMax).toBe(0.18);
-    expect(resolved.linearKmh).toBe(6);
+    expect(resolved.interact).toBe(true);
 
     // 열면 저장값 그대로 그려진다 — 기본값으로 그려지면 다음 슬라이더 조작이 저장값을 덮는다.
     await userEvent.setup().click(screen.getByRole('button', { name: '세부 조정' }));
     expect(screen.getByRole('slider', { name: '후방 견인 경계' })).toHaveValue('0.18');
-    expect(screen.getByRole('slider', { name: '전후진 속도 상한' })).toHaveValue('6');
   });
 
   it('기본값으로 복원하면(서랍을 열면 나온다) physics 오버라이드가 비워진다', async () => {
@@ -168,30 +167,17 @@ describe('SettingsScreen — 물리 (6.1: 닫힌 서랍)', () => {
     expect(loadPrefs().physics).toEqual({});
   });
 
-  // §설정 화면 감사(2026-08-21) B-2 — speedLimit 은 이 서랍의 슬라이더 6종과 다른 층이다
-  // (편집 화면 FunctionBar 의 속도 제한 해제 토글). 이 서랍이 안 보여주는 값까지 되돌리면
-  // 편집 중 속도 제한을 꺼둔 코치가 여기서 슬라이더만 되돌려도 제한이 말없이 다시 켜진다.
-  it('기본값으로 복원해도 speedLimit(편집 화면의 속도 제한 해제)은 건드리지 않는다', async () => {
-    savePrefs({ ...makeDefaultPrefs(), physics: { zones: { sTowRearMax: 0.18 }, speedLimit: false } });
+  // §설정 화면 감사(2026-08-21) B-2 — [보드 설정]의 개체 이동 스위치는 이 서랍의 슬라이더와 다른 층이다.
+  // 이 서랍이 안 보여주는 값까지 되돌리면 [보드 설정]에서 켜 둔 스위치가 여기서 슬라이더만 되돌려도 말없이
+  // 꺼진다. (옛 speedLimit 을 지키던 시험 — 2026-11-16 속도 제한 폐기 때 스위치 셋으로 옮김)
+  it('기본값으로 복원해도 [보드 설정]의 개체 이동 스위치는 건드리지 않는다', async () => {
+    savePrefs({ ...makeDefaultPrefs(), physics: { zones: { sTowRearMax: 0.18 }, interact: true, dragRotate: true, anchors: true } });
     render(<SettingsScreen nav={makeNav()} />, { wrapper });
     await openPhysicsDrawer();
 
     await userEvent.setup().click(screen.getByRole('button', { name: '기본값으로 복원' }));
     await waitFor(() => expect(screen.getByRole('slider', { name: '후방 견인 경계' })).toHaveValue(String(DEFAULT_ZONES.sTowRearMax)));
-    expect(loadPrefs().physics).toEqual({ speedLimit: false });
-  });
-});
-
-describe('SettingsScreen — 물리 설명문 (minor 회귀)', () => {
-  // 감사 2026-08-08 minor — "놓은 뒤 자동 재생에만 적용"이라는 옛 설명은 실제 동작(드래그 중
-  // 속도 상한에도 곱해진다, EditorProvider.tsx vLinPxPerS/omegaRadPerS)과 달랐다. 동작이
-  // 계약(prefs.ts §5.11 주석)에 맞으므로 설명문 쪽을 고쳤다 — "자동 재생에만" 문구가 다시
-  // 나타나지 않는지 확인한다. 6.1 이후 이 문장은 서랍을 열어야 나온다.
-  it('"편집 속도 배수" 설명이 드래그에도 적용됨을 밝힌다("자동 재생에만"이라고 말하지 않는다)', async () => {
-    render(<SettingsScreen nav={makeNav()} />, { wrapper });
-    await userEvent.setup().click(screen.getByRole('button', { name: '세부 조정' }));
-    expect(screen.getByText('드래그와 놓은 뒤 이어가기, 둘 다의 속도 상한에 곱해집니다')).toBeInTheDocument();
-    expect(screen.queryByText(/자동 재생에만 적용/)).toBeNull();
+    expect(loadPrefs().physics).toEqual({ interact: true, dragRotate: true, anchors: true });
   });
 });
 

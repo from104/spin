@@ -318,7 +318,7 @@ export const HELP_EN: HelpContent = {
               '**Header** — the drill name (tap to edit right there), [Add description], the [Court Shape] switch (locked in a drill — tapping it tells you why), [To Present].',
               '**Tray (tool rail at the bottom or on the right)** — tools, the player/ball/cone boxes, and the drawing and notes drawers.',
               '**Court** — the space where you actually place and drag things.',
-              '**Function bar (right)** — zoom, undo, [Board settings], [Info], [Export], [Speed].',
+              '**Function bar (right)** — zoom, undo, [Board settings], [Info], [Export].',
               '**Step list** — step cards with a link button between each pair, plus the playback controls.',
               '**Note strip** — the [Notes] box below the court, for what the coach will say during this step.',
             ],
@@ -377,7 +377,6 @@ export const HELP_EN: HelpContent = {
             ],
           },
           { kind: 'p', text: 'For the last few pixels, use the keyboard. On a tablet with no keyboard, double-tap the object (except notes), or long-press it and choose [Fine-tune] — a translucent pad appears in place with six cells: four to nudge up, down, left and right, and two to rotate left and right.' },
-          { kind: 'tip', tone: 'tip', text: 'Turn on [Speed] in the function bar and objects only move at real powerchair speed (10 km/h); turn it off and they follow the pointer instantly.' },
         ],
       },
       {
@@ -549,7 +548,7 @@ export const HELP_EN: HelpContent = {
             kind: 'list',
             items: [
               '[Display] — [Grid], [Goal Area].',
-              '[Object movement] — [Limit to real speed], [Physics & interaction], [Drag to rotate wheelchairs], [Show front/back anchors]. The last three are off by default.',
+              '[Object movement] — [Physics & interaction], [Drag to rotate wheelchairs], [Show front/back anchors]. All three are off by default.',
               '[Goals] — [Reset Goal Position]. Moves only the goals pushed out of place by wheelchairs back to their spot, and touches nothing else on the board.',
               '[Court Shape], [Court Size], and which side you defend.',
               '[Clear Court] — removes every player, ball, cone, arrow, and note in the current step. [Board settings] opens again afterwards.',
@@ -1200,13 +1199,11 @@ export const HELP_EN: HelpContent = {
         id: 'settings.physics',
         title: 'Physics fine-tuning',
         blocks: [
-          { kind: 'p', text: 'The four-zone boundaries and speed limits for dragging a wheelchair. Tap [Advanced] to expand it. **The defaults are plenty for most teams.** These boundaries apply only when [Drag to rotate wheelchairs] or [Show front/back anchors] is on in [Board settings] — by default (both off) a wheelchair moves as a whole wherever you grab it.' },
+          { kind: 'p', text: 'The four-zone boundaries for dragging a wheelchair. Tap [Advanced] to expand it. **The defaults are plenty for most teams.** These boundaries apply only when [Drag to rotate wheelchairs] or [Show front/back anchors] is on in [Board settings] — by default (both off) a wheelchair moves as a whole wherever you grab it.' },
           {
             kind: 'list',
             items: [
               '[Rear-tow boundary] / [Spin-in-place start] / [Front-tow start] — the boundaries deciding which grip on the chair does which action.',
-              '[Forward/back speed limit] / [Spin (front bumper) speed limit].',
-              '[Editing speed multiplier] — multiplies the speed for both dragging and continuing after a drop.',
             ],
           },
           { kind: 'tip', tone: 'tip', text: 'Changing one value automatically pushes its neighbors to keep them in order. Tap [Restore defaults] if things get tangled. Values you set still apply even after you close this drawer.' },

@@ -570,16 +570,6 @@ export function IconExport({ size = 18, ...rest }: IconProps) {
   );
 }
 
-/** 속도 제한 — 계기판 바늘. 숫자가 아니라 **한계**를 말하는 그림이다. */
-export function IconSpeed({ size = 18, ...rest }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable={false} {...strokeBase} {...rest}>
-      <path d="M3.5 17a9 9 0 1 1 17 0" />
-      <path d="M12 17l4.5-5" />
-    </svg>
-  );
-}
-
 /** [보드 설정] 물리·상호작용 — 맞닿은 두 원과 부딪힘 표시. 개체끼리 밀고 튕기는가. */
 export function IconCollide({ size = 18, ...rest }: IconProps) {
   return (

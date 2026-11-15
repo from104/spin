@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [0.6.14] 2026-11-16
 
+### Removed
+
+- [Limit to real speed] in [Board settings] and the three speed sliders in [Settings] → [Advanced physics] (forward/back and spin speed limits, editing speed multiplier) — a grabbed object now always follows the pointer directly
+
 ### Fixed
 
 - When [UI scale] was not 100% (including Auto), the preview of a wheelchair, ball or cone dragged from the tray appeared in the wrong place and at the wrong size

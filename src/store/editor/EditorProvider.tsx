@@ -13,8 +13,7 @@
 // 보다 넓지만, "구조 변경엔 트윈하지 않는다"는 의도와 어긋나지 않는다).
 import { createContext, useContext, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 import type { Dispatch, MutableRefObject, ReactNode } from 'react';
-import { kmhToPxPerS } from '../../core/units.ts';
-import { CHAIR, PLAYBACK } from '../../core/constants.ts';
+import { PLAYBACK } from '../../core/constants.ts';
 import { easeStandard } from '../../core/geom.ts';
 import { seamlessEase } from '../../model/playback.ts';
 import { EditorTweenHintContext, type TweenHint } from './tweenHint.ts';
@@ -22,7 +21,6 @@ import type { Drill } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { createPhysicsWorld } from '../../physics/index.ts';
 import type { DragLimits } from '../../physics/types.ts';
-import type { PhysicsParams } from '../../storage/prefs.ts';
 import type { PhysicsWorldApi } from '../../physics/index.ts';
 import { createTransformWriter } from '../../render/transformWriter.ts';
 import type { TransformWriter } from '../../render/transformWriter.ts';
@@ -40,22 +38,15 @@ const EditorStateContext = createContext<EditorState | null>(null);
 const EditorDispatchContext = createContext<Dispatch<EditorAction> | null>(null);
 const EditorWorldContext = createContext<EditorWorldRef | null>(null);
 const EditorWriterContext = createContext<TransformWriter | null>(null);
-/** 설정값 → 물리 속도 상한.
+/** 편집기의 물리 속도 상한 — **없음**. 잡은 개체는 포인터를 즉시 따라온다.
  *
- *  speedLimit 을 끄면 상한을 사실상 없앤다. Infinity 를 쓰지 않는 이유: clampMag 가
- *  `len <= m` 비교라 Infinity 여도 동작하지만, 그 값이 clamp 이외의 산술
- *  (§5.5 tow 의 vGrab = vLin + ω·rho)에 들어가면 NaN 을 만든다. 한 프레임에 판을 가로지르고도
- *  남는 큰 유한값이면 목적은 같고 수치는 안전하다. */
-const NO_LIMIT_PX_PER_S = 1e6;
-const NO_LIMIT_RAD_PER_S = 1e4;
-
-function limitsFrom(p: PhysicsParams): DragLimits {
-  if (!p.speedLimit) return { vLinPxPerS: NO_LIMIT_PX_PER_S, omegaRadPerS: NO_LIMIT_RAD_PER_S };
-  return {
-    vLinPxPerS: kmhToPxPerS(p.linearKmh) * p.editorSpeedMultiplier,
-    omegaRadPerS: (kmhToPxPerS(p.bumperKmh) / CHAIR.pivotToFrontPx) * p.editorSpeedMultiplier,
-  };
-}
+ *  ⚠️ 2026-11-16 기현님 지시로 [실제 속도로 제한](실제 파워체어 10 km/h, 기본 켬)과 [설정] → [물리 세부 조정]의
+ *  속도 슬라이더 3종(전후진·회전 상한, 편집 속도 배수)을 폐기했다 — "필요없는 기능". 엔진(createPhysicsWorld)은
+ *  상한을 받는 채로 두고 앱이 늘 이 값을 넘긴다: 옛 [속도] 를 끈 상태와 같은 길이라 새 동작이 아니다.
+ *  Infinity 를 쓰지 않는 이유: clampMag 가 `len <= m` 비교라 Infinity 여도 동작하지만, 그 값이 clamp 이외의
+ *  산술(§5.5 tow 의 vGrab = vLin + ω·rho)에 들어가면 NaN 을 만든다. 한 프레임에 판을 가로지르고도 남는 큰
+ *  유한값이면 목적은 같고 수치는 안전하다. */
+const EDITOR_LIMITS: DragLimits = { vLinPxPerS: 1e6, omegaRadPerS: 1e4 };
 
 /** `init` 은 **이어 여는** 경우에만 준다 — 자유 전술판이 다른 화면에 들렀다 돌아올 때
  *  되돌리기 이력·선택·활성 도구까지 그대로 이어받는 통로다(features/board/boardSession.ts).
@@ -79,18 +70,16 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
   const prevEpochRef = useRef<number | null>(null);
 
   // 물리 엔진 인스턴스는 React state 로 들지 않는다(ref) — courtMode 는 드릴 레벨 불변(§3.2)이라
-  // DRILL_LOAD 로 코트가 다른 드릴을 불러올 때만 재생성한다. limits 는 생성 시점의 설정값으로
-  // 시작하고, 이후 변경은 아래 effect 가 setLimits 로 살아 있는 월드에 밀어 넣는다.
+  // DRILL_LOAD 로 코트가 다른 드릴을 불러올 때만 재생성한다. 속도 상한은 늘 EDITOR_LIMITS(없음)다.
   useEffect(() => {
     const mode = state.present.courtMode;
     // §6.4 — 물리 **벽**의 자리다. 크기를 빼면 25×14 판에서도 벽이 825×525 에 서서
     // 개체가 판 밖(경기면 밖 여백 너머)까지 굴러 나간다.
     const { vbW, vbH } = courtDefFor(mode, state.present.courtSize);
-    const limits = limitsFrom(physicsRef.current);
     // ⚠️ 존 경계도 **생성 시점에** 넘긴다. 아래 effect 가 setZones 로 따라붙지만, 코트 전환
     // 직후 첫 드래그는 그 effect 보다 앞설 수 있다 — 그때 기본 존으로 갈리면 사용자는
-    // "코트를 바꿨더니 슬라이더가 초기화됐다" 로 겪는다(setLimits 와 같은 이유·같은 모양).
-    const world = createPhysicsWorld(vbW, vbH, limits, physicsRef.current.zones);
+    // "코트를 바꿨더니 슬라이더가 초기화됐다" 로 겪는다.
+    const world = createPhysicsWorld(vbW, vbH, EDITOR_LIMITS, physicsRef.current.zones);
     // 물리·상호작용 스위치도 생성 시점에 — 월드 자신의 기본은 켬이고 앱의 기본은 끔이다
     // (PhysicsWorldApi.setInteract 주석). 아래 effect 를 기다리면 첫 드래그가 이웃을 밀 수 있다.
     world.setInteract(physicsRef.current.interact);
@@ -101,10 +90,9 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
     };
   }, [state.present.courtMode, state.present.courtSize]);
 
-  // 속도 상한을 살아 있는 월드에 즉시 반영한다. 하단 스위치로 껐다 켜는 값이라 다음 월드
-  // 재생성(= 코트 전환)까지 기다리게 하면 스위치가 고장 난 것처럼 보인다.
+  // 존 경계·상호작용 스위치를 살아 있는 월드에 즉시 반영한다 — 다음 월드 재생성(= 코트 전환)까지
+  // 기다리게 하면 슬라이더·스위치가 고장 난 것처럼 보인다.
   useEffect(() => {
-    worldRef.current?.setLimits(limitsFrom(physics));
     // ⚠️ 2026-08-13 5차 검증 — 이 한 줄이 없던 동안 설정의 물리 존 슬라이더 3종이 **판정에
     // 전혀 반영되지 않았다**. 음영·커서는 EditorWorkspace → EditorStage 로 따로 흘러 슬라이더를
     // 따라갔으므로, 판이 '제자리 회전' 이라 칠한 곳을 잡으면 평행 이동이 되는 상태였다.

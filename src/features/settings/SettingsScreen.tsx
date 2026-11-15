@@ -22,7 +22,7 @@ import { useLibrary } from '../../store/library/LibraryProvider.tsx';
 import { loadPrefs } from '../../storage/prefs.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { useToast } from '../../store/toast/ToastProvider.tsx';
-import { bumperKmhMax, prunePhysics } from '../../storage/prefs.ts';
+import { prunePhysics } from '../../storage/prefs.ts';
 import { INTERACT } from '../../core/constants.ts';
 import { SyncSection } from './SyncSection.tsx';
 import { Segmented } from '../../ui/Segmented.tsx';
@@ -113,13 +113,11 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
     const zones = { ...(prefs.physics.zones ?? {}), [key]: value };
     setPrefs({ physics: prunePhysics({ ...prefs.physics, zones }) });
   };
-  const patchSpeed = (key: 'linearKmh' | 'bumperKmh' | 'editorSpeedMultiplier', value: number) => {
-    setPrefs({ physics: prunePhysics({ ...prefs.physics, [key]: value }) });
-  };
-  // speedLimit 은 슬라이더 6종과 다른 층이다(편집 화면 FunctionBar 의 속도 제한 해제 토글) —
-  // 이 서랍이 안 보여 주는 값까지 되돌리면 편집 중 속도 제한을 꺼둔 코치가 여기서 슬라이더만
-  // 되돌려도 제한이 말없이 다시 켜진다. 현재값을 그대로 들고 가 prunePhysics 로 접는다.
-  const restorePhysicsDefaults = () => setPrefs({ physics: prunePhysics({ speedLimit: physics.speedLimit }) });
+  // [보드 설정]의 개체 이동 스위치 셋은 이 서랍의 슬라이더와 다른 층이다 — 이 서랍이 안 보여 주는 값까지
+  // 되돌리면 [보드 설정]에서 켜 둔 스위치가 여기서 슬라이더만 되돌려도 말없이 꺼진다. 현재값을 들고 가 접는다.
+  // (옛 speedLimit 이 같은 이유로 여기 남아 있었다 — 2026-11-16 속도 제한 폐기 때 스위치 셋으로 옮김)
+  const restorePhysicsDefaults = () =>
+    setPrefs({ physics: prunePhysics({ interact: physics.interact, dragRotate: physics.dragRotate, anchors: physics.anchors }) });
 
   const runRestore = async () => {
     const file = pendingFile;
@@ -394,39 +392,6 @@ export function SettingsScreen({ nav, legalDoc }: { nav: HomeNav; legalDoc?: Leg
                 step={0.01}
                 format={(v) => v.toFixed(2)}
                 onChange={(v) => patchZone('sTowFrontMin', v)}
-              />
-              <SliderRow
-                label={t('settings.physics.linearSpeedTitle')}
-                desc={t('settings.physics.linearSpeedDesc')}
-                ariaLabel={t('settings.physics.linearSpeedTitle')}
-                value={physics.linearKmh}
-                min={4}
-                max={16}
-                step={0.5}
-                format={(v) => `${v.toFixed(1)} km/h`}
-                onChange={(v) => patchSpeed('linearKmh', v)}
-              />
-              <SliderRow
-                label={t('settings.physics.bumperSpeedTitle')}
-                desc={t('settings.physics.bumperSpeedDesc')}
-                ariaLabel={t('settings.physics.bumperSpeedAria')}
-                value={physics.bumperKmh}
-                min={10}
-                max={bumperKmhMax(physics.linearKmh)}
-                step={1}
-                format={(v) => `${Math.round(v)} km/h`}
-                onChange={(v) => patchSpeed('bumperKmh', v)}
-              />
-              <SliderRow
-                label={t('settings.physics.editorSpeedTitle')}
-                desc={t('settings.physics.editorSpeedDesc')}
-                ariaLabel={t('settings.physics.editorSpeedTitle')}
-                value={physics.editorSpeedMultiplier}
-                min={1}
-                max={4}
-                step={0.5}
-                format={(v) => t('settings.physics.multiplierFormat', { v: v.toFixed(1) })}
-                onChange={(v) => patchSpeed('editorSpeedMultiplier', v)}
                 borderBottom={false}
               />
               <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, marginTop: 4, borderTop: '1px solid var(--border)' }}>

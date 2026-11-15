@@ -24,9 +24,9 @@ describe('SettingsProvider', () => {
   it('resolvePhysics 가 반영된 physics 를 노출한다(존 경계 클램프)', () => {
     const { result } = renderHook(() => useSettings(), { wrapper });
     act(() => {
-      result.current.setPrefs({ physics: { linearKmh: 999 } });
+      result.current.setPrefs({ physics: { zones: { sTowRearMax: 999 } } });
     });
-    expect(result.current.physics.linearKmh).toBe(16); // clamp(999,4,16)
+    expect(result.current.physics.zones.sTowRearMax).toBe(0.18); // clamp(999,0,0.18)
   });
 
   it('savePrefs 가 실패해도(예: quota) throw 하지 않고 persistFailed 를 세운다', () => {
