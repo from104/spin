@@ -12,7 +12,7 @@ import { WebDriverSession } from '../drivers/webdriver.ts';
 import { recordPids, wipeAppData } from './env-windows.ts';
 import { IDENTIFIER, isWindows, PROFILE_PREFIX, type ProfileDirs } from './platform.ts';
 import { descendants, isAlive, terminate, waitExit } from './procs.ts';
-import { closeMainWindow, treeOf } from './procs-win.ts';
+import { closeMainWindow, treeOf, webviewUserDataDirs } from './procs-win.ts';
 
 export interface SessionOptions {
   driverPort: number;
@@ -33,6 +33,8 @@ export class AppSession {
   launches = 0;
   /** Windows: 프로세스 목록 한 번이 약 1초라, 살아 있는 동안 앱 PID 를 기억한다 */
   private cachedPid: number | null = null;
+  /** 진단(Windows): 이번 실행의 WebView2 가 실제로 쓰는 프로필 폴더 */
+  private webviewDirs: string[] = [];
 
   constructor(options: SessionOptions) {
     this.options = options;
@@ -75,7 +77,8 @@ export class AppSession {
     this.origin = `${url.protocol}//${url.host}`;
     if (isWindows) {
       const keys = await this.current.execute(() => localStorage.length).catch((e: unknown) => `읽기 실패 ${String(e).slice(0, 80)}`);
-      console.log(`[e2e] 진단: ${this.origin} 첫 문서 localStorage 키 ${String(keys)}개`);
+      this.webviewDirs = webviewUserDataDirs();
+      console.log(`[e2e] 진단: ${this.origin} 첫 문서 localStorage 키 ${String(keys)}개 · WebView2 --user-data-dir ${JSON.stringify(this.webviewDirs)}`);
     }
     this.launches++;
     this.cachedPid = null;
@@ -151,7 +154,7 @@ export class AppSession {
     const waitMs = isWindows ? 15_000 : 5000;
     const deadline = Date.now() + waitMs;
     while (helpers.some(isAlive) && Date.now() < deadline) await pause(50);
-    if (isWindows) logStorageFiles(path.join(this.options.profile.data, IDENTIFIER), '창을 닫은 뒤');
+    if (isWindows) for (const dir of new Set([path.join(this.options.profile.data, IDENTIFIER), ...this.webviewDirs])) logStorageFiles(dir, '창을 닫은 뒤');
     const lingering = helpers.filter(isAlive);
     if (lingering.length > 0) console.warn(`[e2e] 창을 닫고 ${waitMs / 1000}s 가 지나도 하위 프로세스 ${lingering.length}개가 남아 강제로 끈다: ${lingering.join(',')}`);
     await this.close();
@@ -187,7 +190,9 @@ export class AppSession {
  */
 function logStorageFiles(root: string, when: string): void {
   try {
-    const hits = (readdirSync(root, { recursive: true }) as string[])
+    const all = readdirSync(root, { recursive: true }) as string[];
+    console.log(`[e2e] 진단: ${when} ${root} 전체 ${all.length}개, 맨 위 ${JSON.stringify(readdirSync(root))}`);
+    const hits = all
       .filter((rel) => /Local Storage|IndexedDB/i.test(rel))
       .map((rel) => {
         const st = statSync(path.join(root, rel), { throwIfNoEntry: false });

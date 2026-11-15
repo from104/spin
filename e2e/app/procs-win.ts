@@ -75,3 +75,20 @@ export function closeMainWindow(pid: number): boolean {
   );
   return r.status === 0 && /True/i.test(r.stdout);
 }
+
+/** 진단: 지금 도는 msedgewebview2.exe 들이 쓰는 --user-data-dir (중복 없이). WebView2 가 실제로 어느 프로필에 쓰는지 본다 */
+export function webviewUserDataDirs(): string[] {
+  const r = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      "Get-CimInstance Win32_Process -Filter \"Name='msedgewebview2.exe'\" | ForEach-Object { $_.CommandLine }",
+    ],
+    { encoding: 'utf8', timeout: 30_000, windowsHide: true },
+  );
+  const dirs = new Set<string>();
+  for (const m of (r.stdout ?? '').matchAll(/--user-data-dir=(?:"([^"]+)"|(\S+))/g)) dirs.add(m[1] ?? m[2] ?? '');
+  return [...dirs].filter(Boolean);
+}
