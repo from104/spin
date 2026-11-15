@@ -14,7 +14,7 @@ const pose = (x: number, y: number, theta = 0) => ({ x, y, theta });
 describe('벽 경계 — 원 ∪ 실물 차체', () => {
   const disc = { w: W, h: H, disc: true };
   it('★ 저장 유출 방지: 심플 모드 클램프를 통과한 자세는 심플을 꺼도(차체 기준) 판 안이다', () => {
-    for (const theta of [0, Math.PI / 2, Math.PI, 1.1]) {
+    for (const theta of [0, Math.PI / 4, Math.PI / 2, Math.PI, 1.1]) {
       for (const [x, y] of [[W, 200], [0, 200], [300, 0], [300, H], [W, H], [0, 0]] as const) {
         const pushed = pushChairIntoBounds(pose(x, y, theta), disc);
         const q = pose(pushed.x, pushed.y, theta);

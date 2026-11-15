@@ -336,7 +336,11 @@ export function createPhysicsWorld(
     // 칩을 건너뛰고, 정착 술어는 그 프레임에 루프를 끌 수 있기 때문이다. 판 밖에 있던 칩을
     // 잡았다 그 자리에 놓으면 판 밖에 그대로 굳는다(1.3 이 Engine.update 와 endDrag 사이에서
     // 겪은 것과 정확히 같은 종류의 프레임 경계 문제다).
-    escapePinnedAll(world, bounds, interact);
+    // ⚠️ 안전망은 **실물 차체** 경계만 본다(bounds.disc 를 빼고). 심플 모드의 원 규칙(A4)은 손이 옮기는 칩에만 걸린다
+    // (stepDrag → resolveMotion 이 bounds 그대로 받는다). 여기서 원 규칙을 쓰면 심플 모드에서 **다른** 개체를 끌기만 해도
+    // 평소 모드에서 뒤를 벽에 붙인 칩(피벗 6.5 < 반지름 12.5)이 밀리고, 정착 커밋이 그 자세를 드릴에 쓴다 —
+    // 표시 설정이 저장 데이터를 바꾼다(simpleBounds.test.ts).
+    escapePinnedAll(world, bounds.disc ? { w: bounds.w, h: bounds.h } : bounds, interact);
   }
 
   /** api.read() 의 알맹이. 정착 통지가 `api` 객체 리터럴보다 먼저 만들어지는 loop 안에서
