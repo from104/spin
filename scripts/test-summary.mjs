@@ -121,7 +121,7 @@ for (const [layer, report] of Object.entries(reportFor)) {
   for (const suite of report?.suites ?? []) walk(suite, []);
   for (const name of Object.keys(projects)) if (!before.has(name)) projectLayer[name] = layer;
 }
-const isTestStep = (s) => (s.layer === 'web' && s.step === 'playwright') || (s.layer === 'app' && !['build', 'cleanup'].includes(s.step));
+const isTestStep = (s) => (s.layer === 'web' && s.step === 'playwright') || (s.layer === 'app' && !['build', 'artifact', 'cleanup'].includes(s.step));
 const layerProjects = (layer) => Object.fromEntries(Object.entries(projects).filter(([name]) => projectLayer[name] === layer));
 
 for (const s of steps) {

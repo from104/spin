@@ -14,10 +14,10 @@
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import { decodePng } from '../support/png.ts';
+import { decodePng, type DecodedPng } from '../support/png.ts';
 import type { CourtObject } from '../drivers/SpinApp.ts';
 import { at, check, defineGroup, eventually, expectQuiet } from '../scenarios/kit.ts';
-import { isWindows } from './platform.ts';
+import { artifactManifest, isWindows } from './platform.ts';
 import type { TauriApp } from './tauri-app.ts';
 
 /** tauri.conf.json 의 첫 창 — 기대값은 설정에서 온다 */
@@ -27,6 +27,9 @@ const CONF = JSON.parse(readFileSync(path.resolve('src-tauri/tauri.conf.json'), 
 };
 const WINDOW = CONF.app.windows[0]!;
 const PKG_VERSION = (JSON.parse(readFileSync(path.resolve('package.json'), 'utf8')) as { version: string }).version;
+/** 앱이 말해야 하는 버전 — 산출물 모드(§12)는 릴리스 태그, 아니면 package.json */
+const EXPECTED_VERSION = artifactManifest()?.version ?? PKG_VERSION;
+const VERSION_SOURCE = artifactManifest()?.tag ? `태그 ${artifactManifest()!.tag}` : 'package.json';
 
 /** 저장 뒤 다시 읽은 자세가 같은가 — 저장 꼴이 좌표를 반올림하므로(전술판 262.678 → 262.7, 첫 실측) 월드 단위 0.5 안이면 같다.
  *  개체 수·id·종류는 정확히 같아야 한다 */
@@ -45,7 +48,7 @@ interface UpdateMetadata {
 }
 
 /** 화면 상자 안 화소 중 가장 흔한 색의 비율 — 1 에 가까우면 한 색으로 칠한 판(아무것도 안 그렸다) */
-function dominantRatio(png: ReturnType<typeof decodePng>, box: { left: number; top: number; right: number; bottom: number }): number {
+function dominantRatio(png: DecodedPng, box: { left: number; top: number; right: number; bottom: number }): number {
   const counts = new Map<number, number>();
   let total = 0;
   const x0 = Math.max(0, Math.floor(box.left));
@@ -78,11 +81,20 @@ export default defineGroup<TauriApp>('native', [
         const size = await app.courtSize();
         check(!!size && size.width > 200 && size.height > 200, '코트 무대가 없거나 너무 작다', size);
       });
-      await app.step('웹뷰가 코트를 실제로 그렸다(스크린샷 화소)', async () => {
-        const png = decodePng(new Uint8Array(await app.screenshotPng()));
+      await app.step('코트가 실제로 그려졌다(화면 화소)', async () => {
         const box = await app.rectOf('court-stage');
         check(!!box, 'court-stage 가 없다');
-        const ratio = dominantRatio(png, box);
+        // Linux 는 X 서버의 프레임버퍼(xwd — 디스플레이에 정말 나간 것), 그 밖은 WebDriver 스크린샷(웹뷰 스냅숏)
+        let image;
+        let at = box;
+        if (app.capabilities.has('xwindow')) {
+          const [win] = await eventually('X 창 하나', async () => app.nativeWindows(), (w) => w.length === 1);
+          image = app.xScreenshot();
+          at = { left: box.left + win!.x, top: box.top + win!.y, right: box.right + win!.x, bottom: box.bottom + win!.y };
+        } else {
+          image = decodePng(new Uint8Array(await app.screenshotPng()));
+        }
+        const ratio = dominantRatio(image, at);
         // 빈 웹뷰·흰 창이면 한 색이 거의 전부다. 코트(바닥·선·골대)는 여러 색이다
         check(ratio < 0.97, `코트 자리가 한 색으로 칠해져 있다(${(ratio * 100).toFixed(1)}%) — 웹뷰가 그리지 않았다`, ratio);
       });
@@ -90,10 +102,10 @@ export default defineGroup<TauriApp>('native', [
     },
   },
   {
-    title: 'N2 앱 버전 = package.json',
+    title: 'N2 앱이 제 버전을 말한다',
     run: async (app) => {
       const version = await app.invoke<string>('plugin:app|version');
-      check(version === PKG_VERSION, `plugin:app|version 이 package.json(${PKG_VERSION})과 다르다`, version);
+      check(version === EXPECTED_VERSION, `plugin:app|version 이 ${VERSION_SOURCE}(${EXPECTED_VERSION})과 다르다`, version);
       const name = await app.invoke<string>('plugin:app|name');
       check(name === CONF.productName, `plugin:app|name 이 productName(${CONF.productName})과 다르다`, name);
     },
@@ -104,8 +116,8 @@ export default defineGroup<TauriApp>('native', [
       // ⚠️ check 만. download·install·downloadAndInstall 은 부르지 않는다(머리말 N3)
       const update = await app.invoke<UpdateMetadata | null>('plugin:updater|check', {});
       if (update === null) return; // 지금 판이 최신이다(엔드포인트의 latest.json 이 같거나 옛 판)
-      check(update.currentVersion === PKG_VERSION, '업데이터가 보는 지금 판이 package.json 과 다르다', update.currentVersion);
-      check(typeof update.version === 'string' && update.version !== PKG_VERSION, '새 판이라는데 버전이 같다', update.version);
+      check(update.currentVersion === EXPECTED_VERSION, `업데이터가 보는 지금 판이 ${VERSION_SOURCE} 와 다르다`, update.currentVersion);
+      check(typeof update.version === 'string' && update.version !== EXPECTED_VERSION, '새 판이라는데 버전이 같다', update.version);
     },
   },
   {

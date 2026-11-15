@@ -51,13 +51,13 @@ jobs:
           key: ${{ runner.os }}-tauri-driver-2.1.0
 
       # ci.yml code 잡과 같은 빌드 의존성 + app 층 도구:
-      #   webkit2gtk-driver(WebKitWebDriver) · xvfb · x11-utils(xwininfo·xprop) · dbus(사설 세션 버스) · gnome-keyring(비밀 저장소 —
+      #   webkit2gtk-driver(WebKitWebDriver) · xvfb · x11-utils(xwininfo·xprop) · x11-apps(xwd — N1 화면 화소) · dbus(사설 세션 버스) · gnome-keyring(비밀 저장소 —
       #   없으면 버스가 깨운 포털이 120초 기다려 WebDriver 세션이 죽는다, env-linux.ts)
       - name: 리눅스 시스템 의존성 (빌드 + app 층)
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev \
-            webkit2gtk-driver xvfb x11-utils dbus gnome-keyring
+            webkit2gtk-driver xvfb x11-utils x11-apps dbus gnome-keyring
 
       - name: tauri-driver 설치
         run: command -v tauri-driver || cargo install tauri-driver --version 2.1.0 --locked

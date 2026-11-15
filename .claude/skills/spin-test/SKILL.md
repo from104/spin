@@ -22,6 +22,7 @@ description: SPIN 자동 테스트(code·web E2E·실제 Tauri 앱 app 층)를 �
 | trace 열기 | `npx playwright show-trace test-results/e2e-artifacts/<시험>/trace.zip` |
 | 실제 데스크톱 앱(Tauri) | `scripts/test-suite.sh --layer app` — 디버그 바이너리를 필요할 때만 굽고 Xvfb 안에서 돈다(사용자 세션·프로필 무관). 약 1분(첫 빌드 +1분 30초) |
 | app 층 한 시험 | `npm run test:e2e:app -- -g N4` (바이너리가 있어야 한다: `node e2e/app/build.mjs`) · 플레이키: `scripts/test-suite.sh --layer app -- --repeat-each=3` |
+| 배송된 AppImage·릴리스 | `scripts/test-suite.sh --layer app --artifact v0.6.13`(또는 `draft`·AppImage 경로) — latest.json·서명 R1–R3 + AppImage 부팅 N1–N3. 태그 푸시 때 `desktop-release.yml` 의 `artifact-check` 가 같은 것을 초안에 돈다 |
 | Windows 앱 | CI 전용 — `gh workflow run e2e-app.yml`(기본 브랜치에 올라간 뒤). 로컬은 skip |
 
 층: `code` = lint(경고가 기준선 `LINT_BASELINE` 을 넘으면 실패 — 값은 `scripts/test-suite.sh` 한 곳) · typecheck · vitest · cargo test /

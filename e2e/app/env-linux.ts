@@ -63,6 +63,7 @@ export function missingTools(): string[] {
   if (!which('gnome-keyring-daemon')) missing.push('gnome-keyring-daemon (apt: gnome-keyring)');
   if (!which('WebKitWebDriver')) missing.push('WebKitWebDriver (apt: webkit2gtk-driver)');
   if (!which('xprop') || !which('xwininfo')) missing.push('xprop·xwininfo (apt: x11-utils)');
+  if (!which('xwd')) missing.push('xwd (apt: x11-apps)');
   if (!tauriDriverPath()) missing.push('tauri-driver (cargo install tauri-driver --locked)');
   return missing;
 }

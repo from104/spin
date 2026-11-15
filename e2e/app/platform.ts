@@ -1,6 +1,7 @@
 // app 층이 호스트 OS 를 가로질러 함께 쓰는 것 — 프로필 모양, 환경 계약, 앱 식별자. docs/PLAN-TEST-SUITE.md §11.
 // Linux(env-linux.ts): Xvfb + 사설 D-Bus + 임시 프로필. Windows(env-windows.ts): 러너의 데스크톱과 진짜 사용자별
 // 앱 데이터 폴더(CI 전용). (QCalc `feature/e2e-suite` 의 e2e/app/platform.ts 각색)
+import { readFileSync } from 'node:fs';
 
 /** src-tauri/tauri.conf.json 의 identifier — 앱 폴더 이름이다 */
 export const IDENTIFIER = 'app.atit.spin';
@@ -36,4 +37,33 @@ export interface AppEnv {
   /** 로그 한 줄 */
   describe: string;
   stop(): Promise<{ orphans: string[] }>;
+}
+
+/** 산출물 모드의 명세(e2e/app/artifact.mjs 가 쓴다) — 지금 굽는 바이너리 대신 배송된 AppImage 를 띄울 때. docs/PLAN-TEST-SUITE.md §12 */
+export interface ArtifactManifest {
+  /** release = 릴리스(태그·초안)에서 받음 · file = 손에 든 AppImage 하나 */
+  mode: 'release' | 'file';
+  repo: string;
+  tag: string | null;
+  /** 이 산출물이 말해야 하는 버전 — 태그에서 v 를 뗀 것(file 이면 package.json) */
+  version: string;
+  draft: boolean;
+  appImage: string;
+  /** 풀린 squashfs-root */
+  appDir: string;
+  /** 앱 프로세스의 실제 실행 파일(squashfs-root/usr/bin/spin) — 떠 있는 앱 PID 를 찾는 열쇠 */
+  exe: string;
+  /** tauri-driver 에 앱으로 넘기는 껍데기(bwrap 으로 /dev/dri 를 가리거나 AppRun 을 그대로) */
+  launcher: string;
+  mask: boolean;
+  assets: Array<{ name: string; id: number; size: number }>;
+  /** 받은 자산 이름 → 로컬 경로 */
+  files: Record<string, string>;
+}
+
+/** E2E_APP_ARTIFACT 가 가리키는 명세, 산출물 모드가 아니면 null */
+export function artifactManifest(): ArtifactManifest | null {
+  const file = process.env.E2E_APP_ARTIFACT;
+  if (!file) return null;
+  return JSON.parse(readFileSync(file, 'utf8')) as ArtifactManifest;
 }

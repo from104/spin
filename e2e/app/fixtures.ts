@@ -47,6 +47,7 @@ export const test = base.extend<{ app: TauriApp }, Worker>({
         driverPort: Number(required('E2E_APP_DRIVER_PORT')),
         driverPid: Number(required('E2E_APP_DRIVER_PID')),
         binary: required('E2E_APP_BINARY'),
+        exe: required('E2E_APP_EXE'),
         profile,
       });
       await session.launch();

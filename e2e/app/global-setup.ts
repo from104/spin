@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { missingTools as missingLinux, startLinuxEnv } from './env-linux.ts';
 import { missingTools as missingWindows, startWindowsEnv } from './env-windows.ts';
-import { DEFAULT_BINARY, isWindows, type AppEnv } from './platform.ts';
+import { artifactManifest, DEFAULT_BINARY, isWindows, type AppEnv } from './platform.ts';
 import { AppSession } from './session.ts';
 
 /** test-results/ 의 로그 끝부분 — 오류 문구용 */
@@ -23,8 +23,8 @@ function tail(file: string, lines = 15): string {
  * 연기 시험: 시험 전에 WebDriver 세션을 한 번 연다(= 앱을 한 번 띄운다). 못 열면 모든 시험이 저마다의 시간 초과 뒤에
  * 같은 꼴로 실패한다(QCalc 첫 Windows CI: POST /session 65 × 30초, 34분) — 그 대신 층 전체를 지금 멈추고 드라이버 로그를 보인다.
  */
-async function smokeSession(env: AppEnv, binary: string, out: string): Promise<void> {
-  const session = new AppSession({ driverPort: env.driverPort, driverPid: env.driverPid, binary, profile: env.profile });
+async function smokeSession(env: AppEnv, binary: string, exe: string, out: string): Promise<void> {
+  const session = new AppSession({ driverPort: env.driverPort, driverPid: env.driverPid, binary, exe, profile: env.profile });
   const started = Date.now();
   try {
     await session.launch();
@@ -47,8 +47,14 @@ async function smokeSession(env: AppEnv, binary: string, out: string): Promise<v
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
   if (process.platform !== 'linux' && !isWindows) throw new Error(`app 층은 아직 Linux·Windows 만 돈다 (호스트: ${process.platform})`);
-  const binary = path.resolve(process.env.E2E_APP_BINARY ?? DEFAULT_BINARY);
-  if (!existsSync(binary)) throw new Error(`앱 바이너리가 없다: ${binary} — 먼저: node e2e/app/build.mjs`);
+  // 산출물 모드(§12): 배송된 AppImage 를 껍데기(launch.sh)로 띄우고, 떠 있는 앱은 풀린 usr/bin/spin 으로 찾는다
+  const artifact = artifactManifest();
+  const binary = path.resolve(artifact?.launcher ?? process.env.E2E_APP_BINARY ?? DEFAULT_BINARY);
+  const exe = path.resolve(artifact?.exe ?? binary);
+  if (!existsSync(binary)) {
+    throw new Error(`앱 바이너리가 없다: ${binary} — 먼저: ${artifact ? 'node e2e/app/artifact.mjs <태그>' : 'node e2e/app/build.mjs'}`);
+  }
+  if (artifact && isWindows) throw new Error('산출물 모드는 Linux AppImage 만 — Windows 묶음(MSI·NSIS)은 아직 없다');
   const missing = isWindows ? missingWindows() : missingLinux();
   if (missing.length) throw new Error(`app 층에 없는 것: ${missing.join(', ')}`);
 
@@ -56,13 +62,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   const env: AppEnv = isWindows ? await startWindowsEnv({ logDir: out }) : await startLinuxEnv({ logDir: out });
   Object.assign(process.env, {
     E2E_APP_BINARY: binary,
+    E2E_APP_EXE: exe,
     E2E_APP_DRIVER_PORT: String(env.driverPort),
     E2E_APP_DRIVER_PID: String(env.driverPid),
     E2E_APP_PROFILE: JSON.stringify(env.profile),
     E2E_APP_SESSION_ENV: JSON.stringify(env.env),
   });
-  console.log(`[app] ${env.describe}`);
-  await smokeSession(env, binary, out);
+  console.log(`[app] ${env.describe}${artifact ? ` · 산출물 ${artifact.tag ?? artifact.appImage}` : ''}`);
+  await smokeSession(env, binary, exe, out);
 
   return async () => {
     const { orphans } = await env.stop();

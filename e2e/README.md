@@ -14,6 +14,7 @@ npm run test:e2e -- -g "S9"                      # playwright 직접
 npx playwright show-trace test-results/e2e-artifacts/<시험>/trace.zip   # 실패 추적 열기
 scripts/test-suite.sh --layer app                # 실제 Tauri 앱 (이 기계의 OS — Linux: Xvfb 안, 사용자 세션·프로필 무관)
 npm run test:e2e:app -- -g "N4"                  # app 층 playwright 직접 (바이너리: node e2e/app/build.mjs)
+scripts/test-suite.sh --layer app --artifact v0.6.13   # 배송된 AppImage·latest.json·서명 (draft = 가장 새 초안)
 ```
 
 결과는 `test-results/summary.md`(30줄 이하, 실행 시작 때 지우고 끝에 새로 씀) · `summary.json` · `e2e-junit.xml` · 단계별 `*.log`,
@@ -69,6 +70,9 @@ e2e/
     shared.spec.ts            공유 시나리오 부분집합 S1·S4·S5·S5b·S7·S8a·S8b
     native.ts · native.spec.ts  앱 전용 시나리오 N1–N7
     sweep-windows.mjs         Windows 의 남은 PID 쓸기
+    artifact.mjs              산출물 모드 준비: 릴리스 자산 받기 · AppImage 풀기 · launch.sh(/dev/dri 가림)
+    artifact.spec.ts          산출물 모드 시험: R1–R3(latest.json·서명) + N1–N3
+    minisign.ts · xwd.ts      서명 검증(BLAKE2b-512 + Ed25519) · X 화면 화소(xwd -root)
 playwright.app.config.ts      app 층 설정 (workers 1, 프로젝트 tauri-linux / tauri-windows)
 scripts/test-suite.sh         층 실행기,  scripts/test-summary.mjs  요약 작성
 ```
@@ -178,6 +182,27 @@ scripts/test-suite.sh --layer app        # = --platform <이 기계의 OS>. wind
   `tauri-driver`(`cargo install tauri-driver --version 2.1.0 --locked`). 없으면 globalSetup 이 무엇이 없는지 말하고 실패한다.
 - **CI**: `.github/workflows/e2e-app.yml` — 야간(03:30 KST)·수동·`workflow_call`, linux(ubuntu-22.04)·windows 잡. PR 게이트에는 없다.
 
+### app 층 — 산출물 모드 (배송된 AppImage)
+
+`--artifact <태그 | draft | AppImage 경로>` 는 굽지 않고 **배송된 AppImage**(자동 업데이트가 내려보내는 파일 — 번들 WebKit·라이브러리째)를
+띄운다. `e2e/app/artifact.mjs` 가 릴리스를 목록에서 찾아(초안은 `GET /releases/tags/{tag}` 가 404 라서) latest.json·`*.sig`·AppImage·deb·rpm 을
+자산 id 로 받고(`gh` — 초안은 쓰기 권한 토큰), `--appimage-extract` 로 풀고, 껍데기 `launch.sh` 를 쓴다(캐시 `src-tauri/target/e2e-release/<태그>/`,
+명세 `test-results/.app-artifact.json`). 시험은 `e2e/app/artifact.spec.ts` 하나:
+
+| 시험 | 보는 것 |
+|---|---|
+| R1 | latest.json 의 version = 태그, 모든 플랫폼 주소가 `…/releases/download/<태그>/<자산>` 이고 그 자산이 릴리스에 있다 |
+| R2 | 리눅스 묶음(AppImage·deb·rpm)의 서명이 `tauri.conf.json` 의 `plugins.updater.pubkey` 로 풀린다(minisign: BLAKE2b-512 + Ed25519, 전역 서명까지 — `e2e/app/minisign.ts`). 판정자 자체 검증: AppImage 를 deb 의 서명으로 풀면 **떨어져야** 한다 |
+| R3 | 나머지 플랫폼(MSI·NSIS·macOS)의 latest.json 서명 = 올린 `<자산>.sig` |
+| N1–N3 | AppImage 가 판을 그리고(X 화면 화소), `plugin:app|version` = 태그, `plugin:updater|check` 가 던지지 않는다(받기·설치 절대 안 함) |
+
+- **NVIDIA 호스트**: 번들 Mesa 가 /dev/dri 의 NVIDIA 렌더 노드를 집어 아무것도 못 그린다 — `bwrap --dev-bind / / --tmpfs /dev/dri -- AppRun` 으로
+  가린다(gofu). /dev/dri 가 없거나(GitHub 러너) bwrap 이 안 돌면 안 가린다. 강제 `E2E_APP_DRI_MASK=1`, 끄기 `=0`.
+- **N1 은 X 서버 화소**(`xwd -root`, e2e/app/xwd.ts)로 본다 — 번들 WebKit 은 한 번 이동한 뒤 WebDriver 스크린샷이 영영 안 돌아온다(gofu 실측,
+  첫 문서에서는 0.5초). 구운 바이너리 회차도 Linux 에서는 같은 길이다.
+- **CI**: `desktop-release.yml` 의 `artifact-check` 잡(태그 푸시, build 뒤)이 초안에 같은 검사를 돌린다 — 빨가면 초안을 공개하지 않는다.
+  아무것도 올리지 않는다. 다음 태그 푸시에서 처음 진짜로 검증된다.
+
 ### app 층 — Windows (CI 전용)
 
 `e2e-app.yml` 의 `windows` 잡이 `scripts/test-suite.sh --layer app --platform windows` 를 Git Bash 에서 돈다(로컬 Linux 에서는 skip).
@@ -193,9 +218,13 @@ tauri-driver `--native-driver msedgedriver.exe`(WebView2 와 같은 판 — 워�
   성공도 `blocked` 도 없이 영영 기다린다(새 프로필로 막 뜬 앱에서 시드가 20초 스크립트 상한으로 죽었다). 드라이버가 떠나는 문서에 unload 듣개를
   달아 캐시에 못 들어가게 한다(WdioApp.harvestErrors).
 - (앱 동작) 전술판 저장 꼴은 좌표를 반올림한다(262.678 → 262.7) — 재실행 보존(N4)은 월드 단위 0.5 안을 같다고 본다.
+- (릴리스, 해롭지 않음) desktop-release.yml 이 AppImage 이름을 카탈로그 규약으로 고칠 때 `.sig` 는 옛 이름(`SPIN_0.6.13_amd64.AppImage.sig`)으로
+  남는다 — 내용은 latest.json 서명과 같고 업데이터는 latest.json 만 쓴다. R3 이 주석(note)으로 남긴다.
+- (드라이버) 배송 AppImage 의 번들 WebKit 은 이동 뒤 WebDriver 스크린샷이 안 돌아온다 → N1 은 xwd(위).
 
 ## 이 스위트가 대신하지 못하는 것
 
-실제 WebView2(Windows 는 CI 첫 실행 전까지)·Android WebView 의 차이, 배송 묶음(AppImage·deb·MSI)의 번들 라이브러리, 태블릿 손가락 정확도, 소리·진동, 전체화면·화면 꺼짐 방지, OAuth, 공유 링크(서버),
+실제 WebView2(Windows 는 CI 첫 실행 전까지)·Android WebView 의 차이, deb·rpm·MSI·NSIS·dmg 를 **설치해서** 띄우기(서명만 본다 — 띄우는
+것은 AppImage 뿐), 태블릿 손가락 정확도, 소리·진동, 전체화면·화면 꺼짐 방지, OAuth, 공유 링크(서버),
 Drive 동기화, MP4 내보내기(코덱 편차), 시연 전체화면 — 실기 목록(`docs/FIELD-TEST.md`)에 남는다. 화면에 보이는 것을 바꿨으면
 여전히 `http://100.75.15.13:5173/` 에서 본다.

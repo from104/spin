@@ -6,6 +6,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { WdioApp, type WdioAppOptions } from '../drivers/WdioApp.ts';
+import type { DecodedPng } from '../support/png.ts';
+import { captureRoot } from './xwd.ts';
 import { IDENTIFIER, isWindows, type ProfileDirs } from './platform.ts';
 import type { AppSession } from './session.ts';
 
@@ -16,6 +18,9 @@ export interface NativeWindow {
   title: string;
   width: number;
   height: number;
+  /** 루트 창 안의 자리(창 관리자가 없는 Xvfb 에서는 장식이 없다 — 웹뷰의 왼쪽 위) */
+  x: number;
+  y: number;
 }
 
 export interface TauriAppOptions extends Omit<WdioAppOptions, 'session' | 'origin'> {
@@ -80,10 +85,15 @@ export class TauriApp extends WdioApp {
    */
   nativeWindows(): NativeWindow[] {
     const tree = execFileSync('xwininfo', ['-root', '-tree'], { env: this.xEnv, encoding: 'utf8' });
-    // '     0x200004 "SPIN": ("spin" "Spin")  1280x800+0+0  +0+0' (이름이 이스케이프되거나 없을 수 있다)
-    return [...tree.matchAll(/^\s+(0x[0-9a-f]+) (?:"(.*?)"|\(has no name\)): \("([^"]*)" "([^"]*)"\)\s+(\d+)x(\d+)[+-]/gm)]
+    // '     0x200004 "SPIN": ("spin" "Spin")  1280x800+0+0  +0+0' (이름이 이스케이프되거나 없을 수 있다). 끝의 +x+y 가 루트 기준 자리
+    return [...tree.matchAll(/^\s+(0x[0-9a-f]+) (?:"(.*?)"|\(has no name\)): \("([^"]*)" "([^"]*)"\)\s+(\d+)x(\d+)[+-]-?\d+[+-]-?\d+\s+\+(-?\d+)\+(-?\d+)/gm)]
       .filter((m) => /^spin$/i.test(m[3]!) && Number(m[5]) > 50)
-      .map((m) => ({ id: m[1]!, title: m[2] ?? '', width: Number(m[5]), height: Number(m[6]) }));
+      .map((m) => ({ id: m[1]!, title: m[2] ?? '', width: Number(m[5]), height: Number(m[6]), x: Number(m[7]), y: Number(m[8]) }));
+  }
+
+  /** X 서버의 화면 전체(xwd) — 디스플레이에 정말 나간 화소(xwd.ts 머리말) */
+  xScreenshot(): DecodedPng {
+    return captureRoot(this.xEnv);
   }
 
   /** X 창 속성 하나의 xprop 출력(예: WM_NORMAL_HINTS, _NET_WM_NAME) */

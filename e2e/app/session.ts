@@ -18,6 +18,8 @@ export interface SessionOptions {
   driverPort: number;
   driverPid: number;
   binary: string;
+  /** 앱 프로세스의 실제 실행 파일 — binary 가 껍데기(산출물 모드의 launch.sh)일 때만 다르다 */
+  exe?: string;
   profile: ProfileDirs;
 }
 
@@ -68,7 +70,7 @@ export class AppSession {
 
   /** 앱 프로세스의 PID(우리 tauri-driver 아래 WebKitWebDriver 의 자식), 없으면 null */
   appPid(): number | null {
-    const binary = path.resolve(this.options.binary);
+    const binary = path.resolve(this.options.exe ?? this.options.binary);
     if (isWindows) {
       if (this.cachedPid !== null && isAlive(this.cachedPid)) return this.cachedPid;
       const wanted = binary.toLowerCase();

@@ -5,6 +5,7 @@
 #   scripts/test-suite.sh --layer web -- --repeat-each=3 --project=webkit-desktop
 #   scripts/test-suite.sh --setup              # Playwright 브라우저 설치(chromium, webkit)
 #   scripts/test-suite.sh --layer app          # 실제 Tauri 앱 (이 기계의 OS — Linux: Xvfb + tauri-driver)
+#   scripts/test-suite.sh --layer app --artifact v0.6.13   # 배송된 AppImage·latest.json·서명 (draft = 가장 새 초안)
 #
 # 옵션
 #   --layer code|web|app    여러 번 줄 수 있다 (기본: code + web)
@@ -14,6 +15,8 @@
 #                                  tauri-driver + WebKitWebDriver, Windows 는 tauri-driver + msedgedriver (playwright.app.config.ts)
 #   --platform linux|windows|android   app 층의 대상 (기본: 이 기계의 OS). windows 는 Windows 호스트(CI 의 windows-latest,
 #                           .github/workflows/e2e-app.yml)에서만 돌고 다른 호스트에서는 skip. android 는 아직 없음
+#   --artifact <태그|draft|AppImage 경로>   app 층을 구운 바이너리 대신 **배송된 AppImage** 로 — 릴리스의 latest.json·서명 검사 +
+#                           AppImage 부팅·버전·업데이터 확인(e2e/app/artifact.mjs, PLAN-TEST-SUITE §12). 받기는 gh(초안은 쓰기 권한 토큰)
 #   --no-cargo              cargo test 를 건너뛴다(skip 으로 기록) — src-tauri 를 처음 컴파일하는 수 분을 피할 때
 #   --setup                 브라우저 설치 후 끝낸다 (다른 층은 돌지 않음)
 #   --rebuild               dist/ 와 app 층 바이너리를 강제로 다시 빌드 (E2E_REBUILD=1)
@@ -32,12 +35,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 OUT=test-results
 
-usage() { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
 
 LAYERS=()
 PLATFORM=
 SETUP=0
 CARGO=1
+ARTIFACT=
 PW_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -49,6 +53,10 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || { echo "--platform 값이 없음" >&2; exit 2; }
       case "$2" in linux | windows | android) PLATFORM="$2" ;; *) echo "알 수 없는 플랫폼: $2 (linux|windows|android)" >&2; exit 2 ;; esac
       shift 2 ;;
+    --artifact)
+      [[ $# -ge 2 ]] || { echo "--artifact 값이 없음 (태그|draft|AppImage 경로)" >&2; exit 2; }
+      ARTIFACT="$2"
+      shift 2 ;;
     --no-cargo) CARGO=0; shift ;;
     --setup) SETUP=1; shift ;;
     --rebuild) export E2E_REBUILD=1; shift ;;
@@ -58,6 +66,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ ${#LAYERS[@]} -gt 0 ]] || LAYERS=(code web)
+if [[ -n "$ARTIFACT" && ! " ${LAYERS[*]} " =~ " app " ]]; then echo "--artifact 는 --layer app 과 함께" >&2; exit 2; fi
+# 산출물 모드는 이 스크립트가 켤 때만 — 밖에서 물려받은 값이 구운 바이너리 회차를 산출물 회차로 바꾸지 않게
+unset E2E_APP_ARTIFACT
 
 # ─── --setup ────────────────────────────────────────────────────────────────
 webkit_launches() {
@@ -131,7 +142,7 @@ STEPS="$OUT/.steps.jsonl"
 touch "$OUT/.started"
 # 낡은 결과가 이번 실행의 요약으로 남지 않게 모두 지운다 (summary 는 맨 마지막에 새로 쓴다)
 rm -f "$OUT/vitest.json" "$OUT/e2e-report.json" "$OUT/e2e-junit.xml" "$OUT/app-report.json" "$OUT/app-junit.xml" \
-  "$OUT/app-orphans.json" "$OUT/summary.md" "$OUT/summary.json"
+  "$OUT/app-orphans.json" "$OUT/.app-artifact.json" "$OUT/summary.md" "$OUT/summary.json"
 
 # 이전 실행이 SIGKILL 로 죽어 남긴 e2e 서버(serve.mjs)만 정리한다 — 위 잠금을 쥔 지금은 다른 실행의 서버일 수 없다.
 # pid 파일의 PID 이고 cmdline 이 serve.mjs 일 때만.
@@ -271,9 +282,17 @@ for layer in "${LAYERS[@]}"; do
       fi
       stale=$(sweep_app_leftovers)
       [[ "$stale" == 0 ]] || echo "[app] 이전 실행이 남긴 프로세스 ${stale}개를 정리했다"
-      run_step app build node e2e/app/build.mjs
-      if grep -q '"layer":"app","step":"build","status":"fail"' "$STEPS"; then
-        record app "$plat" skip 0 "app build failed — test-results/app-build.log" ""
+      if [[ -n "$ARTIFACT" ]]; then
+        # 배송된 AppImage 를 받고 풀어 둔다 — 굽지 않는다(§12). 명세는 test-results/.app-artifact.json
+        prep=artifact
+        run_step app artifact node e2e/app/artifact.mjs "$ARTIFACT"
+        export E2E_APP_ARTIFACT="$ROOT/$OUT/.app-artifact.json"
+      else
+        prep=build
+        run_step app build node e2e/app/build.mjs
+      fi
+      if grep -q "\"layer\":\"app\",\"step\":\"$prep\",\"status\":\"fail\"" "$STEPS"; then
+        record app "$plat" skip 0 "app $prep failed — test-results/app-$prep.log" ""
       else
         run_step app "$plat" npx playwright test -c playwright.app.config.ts ${PW_ARGS[@]+"${PW_ARGS[@]}"}
       fi

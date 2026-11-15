@@ -310,7 +310,7 @@ WebKitWebDriver → 앱. Windows 는 CI 전용(`.github/workflows/e2e-app.yml`, 
 xwininfo·xprop). `touch`·`resize`(앱 최소 900×600)·`netMock`·`download`·`prerender`·대화 상자 첫 방문 기록은 없다.
 
 **시나리오** — 공유 부분집합 S1·S4·S5·S5b·S7·S8a·S8b(`e2e/app/shared.spec.ts` 의 `only` — 뺀 S6·S7b 는 "resize 가 없으면 좁은 터치 기기" 를
-전제한다) + 앱 전용 N1–N7(`e2e/app/native.ts`, 머리말에 "지우면 새는 실기 버그"): N1 판이 그려진다(스크린샷 화소) · N2 `plugin:app|version`
+전제한다) + 앱 전용 N1–N7(`e2e/app/native.ts`, 머리말에 "지우면 새는 실기 버그"): N1 판이 그려진다(화면 화소 — §12 부터 Linux 는 xwd) · N2 `plugin:app|version`
 = package.json · N3 `plugin:updater|check` 가 던지지 않는다(**받기·설치는 절대 안 부른다**) · N4 창을 닫아 끝내고 같은 프로필로 다시 띄워도
 전술판(localStorage)·드릴(IndexedDB)이 남는다 · N5 첫 창 1280×800·제목·WM_NORMAL_HINTS 최소 900×600·그 아래로 안 줄어듦 · N6 갱신 토큰이
 app_data_dir 에 0600(쓰기 전에 격리 프로필인지 앱에게 묻는 둑) · N7 `save_bytes_dialog` 가 날바디 아닌 호출을 대화 상자 전에 거절.
@@ -334,3 +334,38 @@ app_data_dir 에 0600(쓰기 전에 격리 프로필인지 앱에게 묻는 둑)
 엔드포인트·최소 크기(lib.rs)·코트 투명·재실행을 새 프로필로·어댑터 누름 +8px·app_data_dir 어긋남) 전부 빨강. ⚠️ `minWidth` 를 설정에서
 바꾼 돌연변이는 **초록**이었다 — 기대값이 같은 설정에서 오기 때문이다. 그래서 그 단언의 돌연변이는 앱 코드(set_min_size)로 냈다.
 Windows 잡은 GitHub 러너에서만 검증된다.
+
+## 12. 산출물 모드 — 배송된 AppImage 와 릴리스 (2026-11-15)
+
+> 지시(§11 진행 중 추가): *"슈트에 넣어"* — 로컬에서 구운 바이너리(시스템 WebKit)만이 아니라 **자동 업데이트가 내려보내는 그 AppImage**
+> (번들 WebKit·라이브러리째)도 앱 층이 본다.
+
+**모양** — `scripts/test-suite.sh --layer app --platform linux --artifact <AppImage 경로 | v0.6.13 | draft>`. `build` 단계 대신 `artifact` 단계
+(`e2e/app/artifact.mjs`): 저장소는 업데이터 엔드포인트(`github.com/<owner>/<repo>`)에서 읽고, 릴리스는 **목록**에서 찾는다(초안은
+`GET /releases/tags/{tag}` 가 404 — desktop-release.yml 의 같은 함정), 자산은 id 로 받는다(`gh api -H 'Accept: application/octet-stream'`,
+초안은 쓰기 권한 토큰). 받는 것은 latest.json·`*.sig`·AppImage·deb·rpm, 캐시는 `src-tauri/target/e2e-release/<태그>/`(큰 파일은 id·크기·갱신
+시각이 같으면 다시 안 받는다). `--appimage-extract` → `squashfs-root`, 껍데기 `launch.sh` 가 tauri-driver 의 "앱" 이다. 떠 있는 앱 PID 는
+풀린 `usr/bin/spin` 으로 찾는다(`SessionOptions.exe`). `playwright.app.config.ts` 는 `E2E_APP_ARTIFACT` 가 있으면 `artifact.spec.ts` 만 돈다.
+
+**시험** — R1 latest.json 의 version = 태그 · 모든 플랫폼 주소가 이 릴리스의 실제 자산 · R2 리눅스 셋(AppImage·deb·rpm)을 **파일로** 서명 검증
+(`e2e/app/minisign.ts`: 공개 키 = base64 텍스트의 마지막 줄 `'Ed'+키 id 8+키 32`, 서명 = 2째 줄 `'ED'+키 id+서명 64` over BLAKE2b-512(파일),
+전역 서명 = Ed25519(서명 64 ‖ 신뢰 주석) — node:crypto 의 blake2b512·Ed25519) + 판정자 자체 검증(AppImage 를 deb 서명으로 풀면 떨어져야
+한다) · R3 나머지 플랫폼의 latest.json 서명 = 올린 `<자산>.sig` · N1–N3 을 AppImage 위에서(버전 기대 = 태그).
+
+**함정(gofu 실측)**
+- NVIDIA 호스트: 번들 Mesa 가 /dev/dri 의 NVIDIA 렌더 노드를 집어 못 그린다 → `bwrap --dev-bind / / --tmpfs /dev/dri -- AppRun`. /dev/dri 가
+  없거나 bwrap 이 안 돌면 가리지 않는다(GitHub 러너 — 해롭지 않음). `E2E_APP_DRI_MASK=1|0` 으로 강제.
+- 번들 WebKit 은 **한 번 이동한 뒤 WebDriver 스크린샷이 영영 안 돌아온다**(첫 문서에서는 0.5초, 시드 뒤 120초 시간 초과 — 스크립트 실행은
+  멀쩡). 그래서 N1 은 Linux 에서 X 서버 프레임버퍼(`xwd -root`, `e2e/app/xwd.ts` — Xvfb 의 깊이 24 루트는 DirectColor 라 색표로 한 번 더
+  푼다)를 본다. 웹뷰 스냅숏보다 "디스플레이에 정말 나갔는가" 에 가깝다. Windows 는 WebDriver 스크린샷 그대로.
+- 받은 파일은 남의 데이터로 다룬다: 받은 자리(`assets/`)와 푼 자리(`x/`)·우리가 쓴 껍데기(`launch.sh`)를 나눈다.
+
+**CI** — `desktop-release.yml` 의 `artifact-check` 잡(`needs: build`, 태그 푸시이고 dry-run 이 아닐 때, ubuntu-24.04): 초안의 자산을 받아
+같은 검사를 돈다. 아무것도 올리지 않고 공개하지 않는다 — 빨가면 사람이 초안을 공개하지 않는다. `contents: write` 는 초안을 **보기** 위해서다
+(읽기 전용 토큰에는 초안이 목록에도 안 나온다). 기존 gate·build·android 잡은 그대로다. ⚠️ 다음 태그 푸시에서 처음 진짜로 검증된다.
+
+**검증(gofu, 2026-11-15)** — `--artifact v0.6.13` 6 시험 통과(받기 포함 첫 회차 약 100초, 캐시 뒤 약 20초, 연속 3회 초록). AppImage 경로 모드는
+N1–N3 통과·R1–R3 skip. ⚠️ `--artifact draft` 는 지금 **v0.6.8 초안**(2026-09-15 생성, 공개 안 됨)을 집는다 — 저장소에 남은 옛 초안이다. 돌연변이 6건 전부 빨강: latest.json
+version 어긋남 · AppImage 서명을 deb 것으로 바꿈 · MSI 서명을 NSIS 것으로 바꿈 · rpm 주소를 없는 자산으로 · 검증기를 늘 통과로(판정자 자체
+검증이 잡음) · 기대 버전 0.6.12. 검증기 단독 탐침: 신뢰 주석을 고치면 전역 서명이, 파일 1바이트를 뒤집으면 파일 서명이 떨어진다.
+발견: AppImage 이름을 고치는 단계가 `.sig` 는 옛 이름으로 남긴다(내용은 같고 업데이터는 latest.json 만 쓴다 — 해롭지 않음, R3 주석).
