@@ -249,8 +249,10 @@ export const idbDrillRepo: DrillRepo = {
   putDrill: idbPutDrill,
   async restoreDrill(d) {
     assertWritable(d);
-    // 되살린 순간이 이 문서의 최신 시각이다(계약 주석의 ⚠️ 2026-09-14 참조).
-    const next: Drill = { ...d, updatedAt: Date.now() };
+    // 되살린 순간이 이 문서의 최신 시각이다(계약 주석의 ⚠️ 2026-09-14 참조). **엄격히 더 커야** 한다 —
+    // 동기화는 `L > R` 로 이긴다. 같은 밀리초 안에 만들고 지우고 되살리면 Date.now() 가 옛 값과 같아
+    // "되살렸는데 최신이 아니다" 가 된다(2026-11-16 v0.6.14 태그 CI gate 가 이 경주로 빨갛게 멈췄다).
+    const next: Drill = { ...d, updatedAt: Math.max(Date.now(), d.updatedAt + 1) };
     const summary = buildSummary(next);
     const db = await getDB().catch((e) => {
       throw toStorageError(e, 'E_DB_UNAVAILABLE');
