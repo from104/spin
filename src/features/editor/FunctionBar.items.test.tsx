@@ -147,4 +147,19 @@ describe('기능 바 — 화면과 예산 상수가 같은 수를 센다', () =>
     });
 
   });
+
+  // 2026-11-16 기현님 지시 *"심플모드 버튼은 오른쪽 바 맨 위"* — 두 화면 모두 **첫 칸**이고 누르면 켜짐이 aria-pressed 로 선다.
+  describe('[심플 모드] — 기둥 맨 위 토글', () => {
+    for (const mode of ['board', 'drill'] as const) {
+      it(`${mode}: 첫 칸이고 누르면 aria-pressed 가 켜진다`, async () => {
+        localStorage.clear(); // 앞 칸이 켠 기기 설정이 남지 않게
+        const { container } = mount('full', { mode });
+        const first = barItems(container)[0]!;
+        expect(first.getAttribute('data-testid')).toBe('fn-simple');
+        expect(first).toHaveAttribute('aria-pressed', 'false');
+        await userEvent.click(first);
+        expect(first).toHaveAttribute('aria-pressed', 'true');
+      });
+    }
+  });
 });

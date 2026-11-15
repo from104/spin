@@ -145,13 +145,14 @@ describe('창 크기가 판을 돌린다 — rot 이 위에서 내려온다', ()
     }
   });
 
-  it('초소형 가로 창 셋만 예외다 — 레일이 무조건 서는 대가의 전부', () => {
+  it('초소형 가로 창 넷만 예외다 — 레일이 무조건 서는 대가의 전부', () => {
     const rotAt = (w: number, h: number): number =>
       stageRotFor('full', undefined, { narrow: true, landscape: true, inspector: 'hidden', trayBand: true, board: true }, { w, h });
-    for (const [w, h] of [[360, 320], [400, 360], [440, 400]] as const) {
+    // 2026-11-16: [심플 모드] 칸이 기능 바 맨 위에 서며 480×440 도 예외로 들어왔다(바가 한 칸만큼 길어졌다).
+    for (const [w, h] of [[360, 320], [400, 360], [440, 400], [480, 440]] as const) {
       expect(rotAt(w, h), `${w}×${h}`).toBe(90);
     }
     // 바로 위 눈금부터는 도로 눕는다 — 예외가 아래로만 번진다는 것을 못박는다.
-    expect(rotAt(480, 440)).toBe(0);
+    expect(rotAt(520, 480)).toBe(0);
   });
 });

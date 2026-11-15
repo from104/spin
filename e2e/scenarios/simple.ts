@@ -43,7 +43,9 @@ export default defineGroup('simple', [
       // 물리·상호작용을 **먼저 켜 둔다** — 저장값이 켬이어도 심플 모드가 끄는지가 이 시나리오의 본론이다
       await openCourtModal(app);
       await app.press('court-toggle-interact');
-      await app.press('court-toggle-simple');
+      await closeCourtModal(app);
+      await app.press('fn-simple'); // 기능 바 맨 위 토글(2026-11-16 — 모달에서 이사)
+      await openCourtModal(app);
       await eventually('잠금 이유 문구', () => app.present('court-simple-note'), true);
       await closeCourtModal(app);
 
@@ -65,11 +67,9 @@ export default defineGroup('simple', [
   },
   {
     title: 'S18b 심플 모드 — 내보낸 그림도 원',
-    needs: ['download', 'keyboard'],
+    needs: ['download'],
     run: async (app) => {
-      await openCourtModal(app);
-      await app.press('court-toggle-simple');
-      await closeCourtModal(app);
+      await app.press('fn-simple');
 
       const empty = decoded(await exportPng(app), '빈 판');
       await app.placeFromTray('chair', at(0.2, 0.5), { via: 'drag', team: 'home' });

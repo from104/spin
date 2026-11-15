@@ -318,7 +318,7 @@ export const HELP_EN: HelpContent = {
               '**Header** — the drill name (tap to edit right there), [Add description], the [Court Shape] switch (locked in a drill — tapping it tells you why), [To Present].',
               '**Tray (tool rail at the bottom or on the right)** — tools, the player/ball/cone boxes, and the drawing and notes drawers.',
               '**Court** — the space where you actually place and drag things.',
-              '**Function bar (right)** — zoom, undo, [Board settings], [Info], [Export].',
+              '**Function bar (right)** — [Simple mode] at the top, zoom, undo, [Board settings], [Info], [Export].',
               '**Step list** — step cards with a link button between each pair, plus the playback controls.',
               '**Note strip** — the [Notes] box below the court, for what the coach will say during this step.',
             ],
@@ -547,7 +547,7 @@ export const HELP_EN: HelpContent = {
           {
             kind: 'list',
             items: [
-              '[Display] — [Simple mode], [Grid], [Goal Area]. With [Simple mode] on, wheelchairs appear as circles with a direction tick (in presenting, exports, and printing too); physics interaction is off and a circle moves straight wherever you drag it. The drill data is unchanged, so turning it off restores the usual look. The three [Object movement] switches are locked while it is on.',
+              '[Display] — [Grid], [Goal Area]. With [Simple mode] (top of the function bar) on, wheelchairs appear as circles with a direction tick (in presenting, exports, and printing too); physics interaction is off and a circle moves straight wherever you drag it. The drill data is unchanged, so turning it off restores the usual look. The three [Object movement] switches are locked while it is on.',
               '[Object movement] — [Physics & interaction], [Drag to rotate wheelchairs], [Show front/back anchors]. All three are off by default.',
               '[Goals] — [Reset Goal Position]. Moves only the goals pushed out of place by wheelchairs back to their spot, and touches nothing else on the board.',
               '[Court Shape], [Court Size], and which side you defend.',
@@ -570,7 +570,7 @@ export const HELP_EN: HelpContent = {
         id: 'editor.drill-info',
         title: 'The drill info sheet',
         blocks: [
-          { kind: 'p', text: 'Open [Info] (the pencil icon) at the top of the function bar to write up details about this drill. The print sheet and the presentation info panel both read these values.' },
+          { kind: 'p', text: 'Open [Info] (the pencil icon) near the top of the function bar, just below [Simple mode], to write up details about this drill. The print sheet and the presentation info panel both read these values.' },
           {
             kind: 'list',
             items: [

@@ -401,6 +401,23 @@ export function FunctionBar({
              칸이 없으므로 그쪽 배치는 한 픽셀도 안 움직인다.
           ⚠️ 칸·구분선 **개수는 그대로다**(8칸 / 구분선 4) — 자리만 옮겼다. functionBarMetrics
              의 예산이 그 수를 붙잡고 있고, 수가 바뀌면 판이 도는 문턱까지 움직인다. */}
+      {/* [심플 모드] — 기둥 **맨 위**(2026-11-16 기현님 지시 *"심플모드 버튼은 오른쪽 바 맨 위"*). 처음엔 [보드 설정] 모달의
+          [보기] 맨 위 스위치였는데, 자주 켜고 끄는 보기 전환을 모달 한 겹 안에 두면 매번 열어야 한다. 전술판·드릴 편집 공통,
+          칸이 둘째 열로 흐르는 좁은 창에서도 DOM 첫 칸이라 첫 자리다. 물리 세 스위치의 잠금·안내는 모달에 그대로 남는다.
+          ⚠️ 칸·구분선이 하나씩 늘었다 — functionBarMetrics 의 예산이 그 수를 붙잡고 있다. */}
+      <BarItem
+        data-testid="fn-simple"
+        label={t('editor.functionBar.simple.label')}
+        name={t('editor.functionBar.simple.name')}
+        title={simple ? t('editor.functionBar.simple.titleOn') : t('editor.functionBar.simple.titleOff')}
+        onClick={() => setPrefs({ board: { simple: !simple } })}
+        active={simple}
+        aria-pressed={simple}
+      >
+        <IconSimple />
+      </BarItem>
+      <div aria-hidden style={DIVIDER} />
+
       {!isBoard && onDrillInfo && (
         <>
           <BarItem
@@ -721,14 +738,6 @@ export function FunctionBar({
               **이 문단이 그때의 판단이다** — 지우지 말고 다시 뒤집어 적을 것. */}
           <div role="group" aria-label={t('editor.functionBar.courtModal.viewGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.viewGroupLabel')}</p>
-            <ModalToggle
-              testId="court-toggle-simple"
-              on={simple}
-              onClick={() => setPrefs({ board: { simple: !simple } })}
-              icon={<IconSimple />}
-              text={t('editor.functionBar.courtModal.simpleText')}
-              hint={simple ? t('editor.functionBar.courtModal.simpleOn') : t('editor.functionBar.courtModal.simpleOff')}
-            />
             <ModalToggle
               testId="court-toggle-grid"
               on={showGrid}
