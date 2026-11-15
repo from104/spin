@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ### Changed
 
-- With [Physics & interaction] on, moving or turning a wheelchair, ball or cone with the keyboard or the [Fine-tune] pad now pushes and bumps its neighbors too — except locked and ignored objects; one undo brings the pushed neighbors back as well
+- With [Physics & interaction] on, moving or turning a wheelchair, ball or cone with the keyboard or the [Fine-tune] pad now pushes and bumps its neighbors too — at the real speed of your key presses, so they roll off that way (a single press nudges, holding the key hits harder) — except locked and ignored objects; one undo brings the pushed neighbors back as well
 
 ### Removed
 

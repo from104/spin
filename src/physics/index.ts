@@ -77,14 +77,12 @@ export interface PhysicsSnapshot {
 }
 /** 정착 완료 통지의 수신자. 인자는 **정착이 끝난 그 순간의** 스냅샷이다(§4.2 P0-2). */
 export type SettleListener = (snapshot: PhysicsSnapshot) => void;
-/** sweepTo 의 한 걸음 = **실제 파워체어 최고 속도(10 km/h)로 한 substep** 간 거리(≈0.69 px).
- *  걸음은 driven 이라 그 변위가 곧 접촉 속도다 — 키보드에는 손의 빠르기가 없으므로 "실물 최고 속도로 부딪혔다" 로 친다
- *  (2026-11-16 기현님 *"부딛힌 방향과 속도로 안 굴러간다"* — driven=false 던 첫 판은 공을 비켜 세우기만 했다).
- *  가장 작은 바디(콘 반지름 3.1 px)보다 훨씬 작아 건너뛰지도 않는다. */
-const SWEEP_STEP_PX = kmhToPxPerS(DEFAULT_LIMITS.linearKmh) * PHYS.dtS;
-/** 회전 한 걸음 = 앞범퍼가 30 km/h 로 한 substep 도는 각(≈3.3°) — 끄는 회전(§5.5)의 상한과 같은 실물 값. */
-const SWEEP_STEP_RAD = (kmhToPxPerS(DEFAULT_LIMITS.bumperKmh) / CHAIR.pivotToFrontPx) * PHYS.dtS;
-/** 한 번에 도는 걸음 상한 — 키보드 한 번은 25 px(36 걸음)·180°(55 걸음) 안쪽이다. 혹시 큰 이동이 와도 한 프레임을 붙잡지 않게. */
+/** sweepTo 한 걸음의 **상한** — 가장 작은 바디(콘 반지름 3.1 px·공 4.1 px)를 건너뛰지 않는 크기. 걸음은 driven 이라
+ *  변위/substep 이 곧 접촉 속도이므로 이 상한은 속도 상한이기도 하다(2 px × 120 = 240 px/s ≈ 35 km/h). */
+const SWEEP_STEP_PX = 2;
+/** 회전 한 걸음의 상한(3°) — 피벗에서 앞범퍼까지 30 px 이라 끝이 한 걸음에 1.6 px 남짓 간다. */
+const SWEEP_STEP_RAD = (3 * Math.PI) / 180;
+/** 한 번에 도는 걸음 상한 — 한 번 누름은 0.5 초(60 걸음), 애니메이션 한 프레임은 몇 걸음이다. 큰 이동이 와도 한 프레임을 붙잡지 않게. */
 const SWEEP_MAX_STEPS = 600;
 
 export interface DragHandle {
@@ -116,8 +114,11 @@ export interface PhysicsWorldApi {
    *    걸음으로 나눠, 걸음마다 한 substep 씩 충돌을 푼다 — 미는 방향으로 민다.
    *  · 옮기는 휠체어는 정착이 끝날 때까지 **손의 권위**(static — 끄는 칩과 같다)라 밀려 되돌아오지 않는다. 다 서면
    *    풀어 준 뒤 onSettled 가 온다. 공·콘은 마지막에 목표 자리에 세운다.
-   *  · 잠긴 개체는 옮기지 않고(static 이라 밀리지도 않는다), 무시한 개체는 바디가 없어 끼지 않는다. */
-  sweepTo(moves: ReadonlyArray<{ id: CastId; pose: { x: number; y: number; theta?: number } }>): boolean;
+   *  · 잠긴 개체는 옮기지 않고(static 이라 밀리지도 않는다), 무시한 개체는 바디가 없어 끼지 않는다.
+   *  · `durationS` = 이 이동이 **실제로 걸린 시간**(부르는 쪽이 잰다 — 키 반복 간격, 애니메이션 프레임). 걸음이 driven 이라
+   *    거리/시간이 곧 부딪는 속도다(2026-11-16 기현님 "실제 속도 계산 후 적용"). 건너뛰기 상한(SWEEP_STEP_*)보다 빠르면
+   *    걸음을 더 잘게 나눠 그 상한 속도로 묶는다. */
+  sweepTo(moves: ReadonlyArray<{ id: CastId; pose: { x: number; y: number; theta?: number } }>, durationS: number): boolean;
   /** 속도 상한을 살아 있는 월드에 즉시 반영한다(설정 토글용).
    *  드래그 도중에 바꿔도 안전하다 — stepDrag 는 매 substep 이 값을 새로 읽고, 세션 상태에는
    *  vLin/ω 가 저장돼 있지 않다. 다만 §5.11 릴리스 체이스가 진행 중이면 남은 거리를 새 속도로
@@ -607,7 +608,7 @@ export function createPhysicsWorld(
       world.freeze(id);
     },
 
-    sweepTo(moves) {
+    sweepTo(moves, durationS) {
       if (!interact || session) return false;
       const plan: Array<{ id: CastId; chair: boolean; from: ChairPose; to: ChairPose }> = [];
       for (const m of moves) {
@@ -621,7 +622,8 @@ export function createPhysicsWorld(
           nudgeHeld.add(m.id as ChairId);
         }
       }
-      let n = 1;
+      // 실제 시간만큼 substep 을 나눈다 — 속도 = 거리/시간. 건너뛰기 상한보다 굵으면 걸음을 더 잘게(속도는 그 상한으로 묶인다)
+      let n = Math.max(1, Math.round(durationS / PHYS.dtS));
       for (const p of plan) {
         const lin = Math.hypot(p.to.x - p.from.x, p.to.y - p.from.y) / SWEEP_STEP_PX;
         const ang = Math.abs(p.to.theta - p.from.theta) / SWEEP_STEP_RAD;
@@ -633,7 +635,8 @@ export function createPhysicsWorld(
         for (const p of plan) {
           const x = p.from.x + (p.to.x - p.from.x) * t;
           const y = p.from.y + (p.to.y - p.from.y) * t;
-          // driven — 걸음의 변위가 접촉 속도가 되어 밀린 쪽이 그 방향·빠르기로 굴러간다(끄는 칩과 같은 §5.4 경로)
+          // driven — 걸음의 변위가 접촉 속도가 되어 밀린 쪽이 그 방향·빠르기로 굴러간다(끄는 칩과 같은 §5.4 경로).
+      // 첫 판(2026-11-16)은 driven=false 라 공을 비켜 세우기만 했다 — 기현님 "부딛힌 방향과 속도로 안 굴러간다".
           if (p.chair) world.setChairPose(p.id as ChairId, { x, y, theta: p.from.theta + (p.to.theta - p.from.theta) * t }, true);
           else world.setPoint(p.id, { x, y }, true);
         }

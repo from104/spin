@@ -2,7 +2,8 @@
 // 순간이동 뒤 겹침만 풀면 큰 걸음이 공을 건너뛰어 공이 **뒤로** 튕겼다(e2e S17b 실측) — 그래서 쓸고 간다.
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPhysicsProbe } from '../test/helpers/physicsProbe.ts';
-import { CHAIR } from '../core/constants.ts';
+import { BALL, CHAIR, DEFAULT_LIMITS } from '../core/constants.ts';
+import { kmhToPxPerS } from '../core/units.ts';
 import type { BallId, ChairId } from '../core/ids.ts';
 
 const chA = 'ch_a' as ChairId;
@@ -28,21 +29,42 @@ describe('sweepTo — 키보드 이동도 이웃과 상호작용', () => {
     probe.api.onSettled(() => {
       seen += 1;
     });
-    expect(probe.api.sweepTo([{ id: chA, pose: { x: 420, y: Y, theta: 0 } }])).toBe(true); // 120 px — 공을 지나는 큰 걸음
+    // 120 px 를 실물 최고 속도(10 km/h)로 — 공을 지나는 큰 이동
+    expect(probe.api.sweepTo([{ id: chA, pose: { x: 420, y: Y, theta: 0 } }], 120 / kmhToPxPerS(DEFAULT_LIMITS.linearKmh))).toBe(true);
     probe.runUntilLoopStops({ maxFrames: 900 });
     const s = probe.api.read();
     expect(seen).toBe(1);
     expect(s[chA]!.x).toBeCloseTo(420, 1); // 손의 권위 — 공에 밀려 되돌아가지 않는다
     // 공은 앞범퍼 **앞**으로, 부딪힌 방향(곧게)으로 **굴러갔다** — 비켜 세우기만 했다면 범퍼에 붙어 멈춘다(≈ +20 px 안쪽).
     // 2026-11-16 기현님 "부딛힌 방향과 속도로 안 굴러간다" — 걸음이 driven 이라 10 km/h 로 맞은 만큼 간다(실측 ≈ +127 px)
-    expect(s[bl]!.x).toBeGreaterThan(420 + CHAIR.lengthPx / 2 + 40);
+    expect(s[bl]!.x).toBeGreaterThan(420 + CHAIR.pivotToFrontPx + BALL.radiusPx + 40);
     expect(s[bl]!.y).toBeCloseTo(Y, 0);
+  });
+
+  it('부딪는 빠르기는 **실제 걸린 시간**으로 정해진다 — 같은 한 칸도 천천히면 살짝, 빠르게면 멀리 굴러간다', () => {
+    // 2026-11-16 기현님 "실제 속도 계산 후 적용" — 공은 앞범퍼 1 px 앞(자세 x 는 피벗, 범퍼는 그 앞 pivotToFrontPx)
+    const roll = (durationS: number): number => {
+      // 프로브는 한 번에 하나만 살아 있어야 한다(전역 시계를 갈아 끼운다) — 다음 것을 만들기 전에 치운다
+      const probe = createPhysicsProbe({ chairs: [{ id: chA, x: 300, y: Y }], balls: [{ id: bl, x: 300 + CHAIR.pivotToFrontPx + BALL.radiusPx + 1, y: Y }] });
+      try {
+        const b0 = probe.api.read()[bl]!.x;
+        probe.api.sweepTo([{ id: chA, pose: { x: 302.5, y: Y, theta: 0 } }], durationS);
+        probe.runUntilLoopStops({ maxFrames: 3000 });
+        return probe.api.read()[bl]!.x - b0;
+      } finally {
+        probe.dispose();
+      }
+    };
+    const slow = roll(0.5); // 한 번 누름 — 2.5 px / 0.5 s = 0.2 m/s (실측 ≈ 1.5 px)
+    const fast = roll(1 / 30); // 누르고 있기(키 반복 ≈30 Hz) — 3 m/s (실측 ≈ 115 px)
+    expect(slow).toBeLessThan(5);
+    expect(fast).toBeGreaterThan(40);
   });
 
   it('꺼져 있으면 false — 아무것도 안 옮긴다(부르는 쪽이 순간이동한다)', () => {
     const probe = probeOf({ chairs: [{ id: chA, x: 300, y: Y }], balls: [{ id: bl, x: 360, y: Y }] });
     probe.api.setInteract(false);
-    expect(probe.api.sweepTo([{ id: chA, pose: { x: 420, y: Y, theta: 0 } }])).toBe(false);
+    expect(probe.api.sweepTo([{ id: chA, pose: { x: 420, y: Y, theta: 0 } }], 0.5)).toBe(false);
     probe.stepFrames(60);
     const s = probe.api.read();
     expect(s[chA]!.x).toBeCloseTo(300, 3);
@@ -51,17 +73,17 @@ describe('sweepTo — 키보드 이동도 이웃과 상호작용', () => {
 
   it('잠긴 휠체어는 옮기지 않는다', () => {
     const probe = probeOf({ chairs: [{ id: chA, x: 300, y: Y }], locked: [chA] });
-    probe.api.sweepTo([{ id: chA, pose: { x: 420, y: Y, theta: 0 } }]);
+    probe.api.sweepTo([{ id: chA, pose: { x: 420, y: Y, theta: 0 } }], 0.5);
     probe.runUntilLoopStops({ maxFrames: 900 });
     expect(probe.api.read()[chA]!.x).toBeCloseTo(300, 3);
   });
 
   it('다 선 뒤에는 static 이 풀린다 — 다른 휠체어로 밀면 이번엔 그쪽이 밀린다', () => {
     const probe = probeOf({ chairs: [{ id: chA, x: 300, y: Y }, { id: chB, x: 500, y: Y }] });
-    expect(probe.api.sweepTo([{ id: chA, pose: { x: 320, y: Y, theta: 0 } }])).toBe(true);
+    expect(probe.api.sweepTo([{ id: chA, pose: { x: 320, y: Y, theta: 0 } }], 0.5)).toBe(true);
     probe.runUntilLoopStops({ maxFrames: 900 });
     // chB 를 chA 쪽으로 — chA 가 여전히 static 이면 chB 가 막히고 chA 는 꼼짝 않는다
-    expect(probe.api.sweepTo([{ id: chB, pose: { x: 340, y: Y, theta: 0 } }])).toBe(true);
+    expect(probe.api.sweepTo([{ id: chB, pose: { x: 340, y: Y, theta: 0 } }], 0.5)).toBe(true);
     probe.runUntilLoopStops({ maxFrames: 900 });
     const s = probe.api.read();
     expect(s[chB]!.x).toBeCloseTo(340, 1); // 이번 손의 권위

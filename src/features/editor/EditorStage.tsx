@@ -129,6 +129,9 @@ const FINE_STEP_PX = 2.5;
 const FINE_STEP_DEG = 5;
 /** 방향판으로 돌 때 화면이 따라 도는 시간(2026-11-16 기현님 지시 0.3초) */
 const HEADING_TURN_MS = 300;
+/** 키보드·패드 한 번 누름이 걸친 시간(초)으로 치는 값이자 키 사이 간격의 상한 — 키를 누르고 있을 때 반복이 시작되기까지의
+ *  보통 지연(≈0.5 s, 패드는 REPEAT_DELAY_MS 0.38 s)이다. 한 칸 2.5 px 를 한 번 누르면 5 px/s(≈0.7 km/h)로 살짝 민다. */
+const NUDGE_IDLE_S = 0.5;
 /** 숫자줄 → 방향판 칸. 1 = 12시(화면 위)에서 시계 방향으로 8 = 10시 반, 9 = 180°. */
 const FACE_KEYS: Readonly<Record<string, HeadingCmd>> = {
   Digit1: { kind: 'face', sx: 0, sy: -1 },
@@ -432,13 +435,25 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     nudgeSettleOffRef.current = off;
   }, [dispatch, worldRef]);
 
+  /** 키보드·패드 이동이 **실제로 걸린 시간**(초) — 같은 개체(무리)를 직전에 옮긴 뒤 흐른 시간이다(2026-11-16 기현님
+   *  "실제 속도 계산 후 적용"). 키를 누르고 있으면 반복 간격(≈30 ms)이라 빠르게 미는 것이고, 한 번 누름은 NUDGE_IDLE_S 에
+   *  걸친 이동으로 친다 — 키를 누르고 있을 때 반복이 시작되기까지의 보통 지연이다. 엔진은 거리/시간을 부딪는 속도로 쓴다. */
+  const lastNudgeRef = useRef<{ key: string; at: number } | null>(null);
+  const nudgeDurationS = useCallback((key: string): number => {
+    const now = performance.now();
+    const prev = lastNudgeRef.current;
+    lastNudgeRef.current = { key, at: now };
+    const dt = prev && prev.key === key ? (now - prev.at) / 1000 : NUDGE_IDLE_S;
+    return Math.min(NUDGE_IDLE_S, Math.max(PHYS.dtS, dt));
+  }, []);
+
   /** 물리 바디를 옮긴다. [물리·상호작용]이 켜져 있으면 엔진이 **쓸고 가며** 이웃을 민다(sweepTo → true),
    *  아니면 옛 순간이동(setPose → false). 상태(OBJECT_NUDGE 등)는 부르는 쪽이 따로 바꾼다. */
   const moveBodies = useCallback(
-    (moves: ReadonlyArray<{ id: CastId; pose: { x: number; y: number; theta: number } }>): boolean => {
+    (moves: ReadonlyArray<{ id: CastId; pose: { x: number; y: number; theta: number } }>, durationS: number): boolean => {
       const w = worldRef.current;
       if (!w || moves.length === 0) return false;
-      if (w.sweepTo(moves)) return true;
+      if (w.sweepTo(moves, durationS)) return true;
       for (const m of moves) w.setPose(m.id, m.pose);
       return false;
     },
@@ -464,7 +479,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
             const p = cur[x];
             return p ? [{ id: x as CastId, pose: { x: p.x + dx, y: p.y + dy, theta: p.theta } }] : [];
           });
-          if (moveBodies(moves)) armNudgeCommit();
+          if (moveBodies(moves, nudgeDurationS(ids.join(',')))) armNudgeCommit();
         }
         return;
       }
@@ -474,7 +489,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         // 키보드로 옮긴 개체를 다음에 마우스로 잡는 순간 beginDrag 가 낡은 자세를 읽어와
         // 옛 자리로 되돌린다. 키보드 조작은 §7.5 접근성 요건이라 이 경로가 특히 중요하다.
         const cur = worldRef.current?.read()[id];
-        if (cur && moveBodies([{ id: id as CastId, pose: { x: cur.x + dx, y: cur.y + dy, theta: cur.theta + dThetaRad } }])) armNudgeCommit();
+        if (cur && moveBodies([{ id: id as CastId, pose: { x: cur.x + dx, y: cur.y + dy, theta: cur.theta + dThetaRad } }], nudgeDurationS(id))) armNudgeCommit();
         return;
       }
       if (isId(id, 'nt')) {
@@ -538,7 +553,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         dispatch({ type: 'STROKE_SET', stroke: nudgeStroke(stroke, { x: dx, y: dy }) });
       }
     },
-    [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet, moveBodies, armNudgeCommit],
+    [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet, moveBodies, armNudgeCommit, nudgeDurationS],
   );
 
   // ── 방향판 회전 애니메이션(2026-11-16 기현님 지시 "회전시 0.3초 동안 적당한 애니메이션") ──────────────
@@ -554,7 +569,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     headingAnimRef.current = null;
     a.stop();
     const p = worldRef.current?.read()[a.id];
-    if (p && moveBodies([{ id: a.id as CastId, pose: { x: p.x, y: p.y, theta: a.to } }])) armNudgeCommit();
+    if (p && moveBodies([{ id: a.id as CastId, pose: { x: p.x, y: p.y, theta: a.to } }], 1 / 60)) armNudgeCommit(); // 남은 각을 한 프레임에
   }, [worldRef, moveBodies, armNudgeCommit]);
   useEffect(() => finishHeadingAnim, [finishHeadingAnim]);
 
@@ -585,7 +600,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       running?.stop();
       headingAnimRef.current = null;
       if (reduceMotion) {
-        if (moveBodies([{ id: id as CastId, pose: { x: cur.x, y: cur.y, theta: to } }])) armNudgeCommit();
+        // 화면은 바로 돌지만 부딪는 빠르기는 애니메이션과 같은 0.3초 회전으로 친다 — 감축 모션이 공을 더 세게 차면 안 된다
+        if (moveBodies([{ id: id as CastId, pose: { x: cur.x, y: cur.y, theta: to } }], HEADING_TURN_MS / 1000)) armNudgeCommit();
         return;
       }
       const from = cur.theta;
@@ -595,12 +611,13 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         to,
         stop: () => {},
       };
-      anim.stop = raf.add((_dt, now) => {
+      anim.stop = raf.add((dtMs, now) => {
         t0 ??= now;
         const t = Math.min(1, (now - t0) / HEADING_TURN_MS);
         const p = worldRef.current?.read()[id];
         // 상호작용이 켜져 있으면 프레임마다 쓸고 가며 돈다 — 도는 차체가 닿는 공·콘·휠체어를 그 자리에서 민다
-        const swept = p ? moveBodies([{ id: id as CastId, pose: { x: p.x, y: p.y, theta: from + (to - from) * easeStandard(t) } }]) : false;
+        // 그 프레임의 실제 시간 — 도는 빠르기가 그대로 부딪는 빠르기다
+        const swept = p ? moveBodies([{ id: id as CastId, pose: { x: p.x, y: p.y, theta: from + (to - from) * easeStandard(t) } }], dtMs / 1000) : false;
         if (t >= 1) {
           anim.stop();
           if (headingAnimRef.current === anim) headingAnimRef.current = null;
