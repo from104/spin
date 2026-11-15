@@ -893,8 +893,12 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         // 임계를 넘기 전에는 한 톨도 안 옮긴다 — 넘기 전에 옮기면 "하나만 남기려던 탭" 이
         // 무리를 1px 씩 흔들어 놓는다(화살표 손잡이가 간 길과 같다).
         if (!grp.moved) return;
-        const d = { x: world.x - grp.last.x, y: world.y - grp.last.y };
+        // 무리 전체가 벽에 선다(가장 먼저 닿는 개체 기준, world.groupDelta) — 키보드 무리 이동과 같은 규칙.
+        // 손이 벽 너머로 더 가도 무리는 거기 서 있고, 손이 돌아오면 곧바로 따라온다(last 는 손을 따른다).
+        const raw = { x: world.x - grp.last.x, y: world.y - grp.last.y };
         grp.last = world;
+        const d = ctx.worldRef.current?.groupDelta(grp.ids, raw) ?? raw;
+        if (d.x === 0 && d.y === 0) return;
         ctx.dispatch({ type: 'GROUP_NUDGE', ids: grp.ids, d });
         // 물리에도 같은 이동을 밀어 넣는다 — 모델만 옮기면 다음에 그 개체를 잡는 순간
         // beginDrag 가 낡은 자세를 읽어 옛 자리로 되돌린다(키보드 이동이 겪었던 그 회귀).

@@ -51,6 +51,40 @@ function boundsHull(p: ChairPose, b: Bounds): Vec2[] {
   ];
 }
 
+/** 판(경계)에 대해 쓰는 외곽의 축정렬 범위 — boundsHull 그대로(심플이면 원 ∪ 차체). 무리 이동의 벽 판정이 쓴다. */
+export function boundsExtent(p: ChairPose, b: Bounds): { minX: number; maxX: number; minY: number; maxY: number } {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const c of boundsHull(p, b)) {
+    if (c.x < minX) minX = c.x;
+    if (c.x > maxX) maxX = c.x;
+    if (c.y < minY) minY = c.y;
+    if (c.y > maxY) maxY = c.y;
+  }
+  return { minX, maxX, minY, maxY };
+}
+
+/** 무리를 **한 덩어리로** d 만큼 옮길 때 판 안에 머무는 최대 이동량(축별). 가장 먼저 벽에 닿는 개체가 무리 전체를
+ *  세운다 — 벽 쪽 칩만 멈추고 나머지가 겹쳐 들어오면 간격(포메이션)이 무너진다. 이미 벽 너머인 개체(옛 자리)는 무리를
+ *  **반대로 끌어오지 않는다** — 그 축에서 더 나가지 못하게만 막는다(0 에서 자른다). */
+export function groupDeltaWithin(
+  members: ReadonlyArray<{ minX: number; maxX: number; minY: number; maxY: number }>,
+  d: Vec2,
+  b: Bounds,
+): Vec2 {
+  let x = d.x;
+  let y = d.y;
+  for (const m of members) {
+    if (x < 0) x = Math.max(x, Math.min(0, -m.minX));
+    else if (x > 0) x = Math.min(x, Math.max(0, b.w - m.maxX));
+    if (y < 0) y = Math.max(y, Math.min(0, -m.minY));
+    else if (y > 0) y = Math.min(y, Math.max(0, b.h - m.maxY));
+  }
+  return { x, y };
+}
+
 function projExtent(corners: readonly Vec2[], axis: Vec2): { min: number; max: number } {
   let min = Infinity;
   let max = -Infinity;

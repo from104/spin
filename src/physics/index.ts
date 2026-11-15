@@ -20,7 +20,7 @@ import { courtDefFor } from '../model/court.ts';
 
 import type { DragLimits, Bounds } from './types.ts';
 import { createWorld, escapePinnedAll } from './world.ts';
-import { escapePinned, pushChairIntoBounds, satOverlap, separateOverlaps } from './obb.ts';
+import { boundsExtent, clampPointToBounds, escapePinned, groupDeltaWithin, pushChairIntoBounds, satOverlap, separateOverlaps } from './obb.ts';
 import type { CircleObstacle } from './obb.ts';
 import type { WorldHandles } from './world.ts';
 import { createLoop } from './loop.ts';
@@ -104,10 +104,13 @@ export interface PhysicsWorldApi {
    *  이걸 안 하면 상태와 물리가 어긋나 다음 드래그가 개체를 옛 자리로 되돌린다.
    *  순간이동이지 던지기가 아니므로 잔여 속도는 지운다. */
   setPose(id: CastId, pose: { x: number; y: number; theta?: number }): void;
-  /** 순간이동(setPose)으로 놓인 휠체어를 **끌기와 같은 벽 경계**(심플 모드면 원 ∪ 차체, 평소면 차체)로 판 안에 넣는다.
-   *  각도는 그대로, 피벗만 민다. 옮겼으면 true — 부르는 쪽이 그 자세를 상태에 덧쓴다. 휠체어가 아니면 false.
-   *  안전망(escapePinnedAll)과 달리 **사용자가 방금 옮긴 칩에만** 부른다 — 표시 설정이 손대지 않은 칩을 옮기면 안 된다. */
-  fitChairToBounds(id: CastId): boolean;
+  /** 순간이동(setPose)으로 놓인 개체를 **끌기와 같은 벽 경계**로 판 안에 넣는다 — 휠체어는 심플 모드면 원 ∪ 차체, 평소면
+   *  차체(각도는 그대로, 피벗만 민다), 공·콘은 반지름 원. 옮겼으면 true — 부르는 쪽이 그 자세를 상태에 덧쓴다. 골대는 false.
+   *  안전망(escapePinnedAll)과 달리 **사용자가 방금 옮긴 개체에만** 부른다 — 표시 설정이 손대지 않은 칩을 옮기면 안 된다. */
+  fitToBounds(id: CastId): boolean;
+  /** 무리(ids)를 한 덩어리로 d 만큼 옮길 때 판 안에 머무는 이동량 — 가장 먼저 벽에 닿는 개체가 무리 전체를 세운다
+   *  (obb `groupDeltaWithin`). 키보드 무리 이동과 덩어리 끌기가 같은 규칙을 쓴다. 골대·모르는 id 는 무시. */
+  groupDelta(ids: readonly string[], d: Vec2): Vec2;
   /** 키보드·[미세 조정]의 이동·회전을 이웃과 **상호작용하며** 한다(2026-11-16 기현님 지시 *"물리 상호 작용이 켜졌을 때
    *  키보드나 미세조정 패드로 휠체어를 움직여도 상호작용하게 … 휠체어,공,콘 다. 물론 잠기거나 숨긴거 빼고"*).
    *
@@ -622,14 +625,37 @@ export function createPhysicsWorld(
       world.freeze(id);
     },
 
-    fitChairToBounds(id) {
-      if (kindOf.get(id) !== 'chair') return false;
-      const pose = world.chairPose(id as ChairId);
-      const out = pushChairIntoBounds(pose, bounds);
-      if (out.x === pose.x && out.y === pose.y) return false;
-      world.setChairPose(id as ChairId, { x: out.x, y: out.y, theta: pose.theta }, false);
+    fitToBounds(id) {
+      const kind = kindOf.get(id);
+      if (kind === 'chair') {
+        const pose = world.chairPose(id as ChairId);
+        const out = pushChairIntoBounds(pose, bounds);
+        if (out.x === pose.x && out.y === pose.y) return false;
+        world.setChairPose(id as ChairId, { x: out.x, y: out.y, theta: pose.theta }, false);
+        world.freeze(id);
+        return true;
+      }
+      if (kind !== 'ball' && kind !== 'cone') return false;
+      const p = world.pointOf(id);
+      const out = clampPointToBounds(p, kind === 'ball' ? BALL.radiusPx : CONE.radiusPx, bounds);
+      if (out.x === p.x && out.y === p.y) return false;
+      world.setPoint(id, out, false);
       world.freeze(id);
       return true;
+    },
+
+    groupDelta(ids, d) {
+      const members: Array<{ minX: number; maxX: number; minY: number; maxY: number }> = [];
+      for (const id of ids) {
+        const kind = kindOf.get(id as CastId);
+        if (kind === 'chair') members.push(boundsExtent(world.chairPose(id as ChairId), bounds));
+        else if (kind === 'ball' || kind === 'cone') {
+          const p = world.pointOf(id as CastId);
+          const r = kind === 'ball' ? BALL.radiusPx : CONE.radiusPx;
+          members.push({ minX: p.x - r, maxX: p.x + r, minY: p.y - r, maxY: p.y + r });
+        }
+      }
+      return groupDeltaWithin(members, d, bounds);
     },
 
     sweepTo(moves, durationS) {

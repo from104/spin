@@ -439,7 +439,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   }, [dispatch, worldRef]);
 
   /** 순간이동(sweepTo → false: 상호작용 끔·심플 모드)으로 옮기거나 돌린 휠체어를 **끌기와 같은 벽 경계**로 판 안에 넣는다
-   *  (world.fitChairToBounds — 심플이면 원 ∪ 차체, 평소면 차체). 순간이동에는 엔진이 없어 아무도 벽을 지키지 않았다 —
+   *  (world.fitToBounds — 휠체어는 심플이면 원 ∪ 차체·평소면 차체, 공·콘은 반지름 원). 순간이동에는 엔진이 없어 아무도 벽을 지키지 않았다 —
    *  벽 앞에서 180° 돌면 차체 앞이 판 밖인 채 저장됐고, 나중에 아무 칩이나 끌면 안전망이 그 칩을 밀어 커밋했다.
    *  밀었으면 PLACE_SETTLE 로 덧쓴다 — past 를 안 건드리므로 방금 한 이동의 되돌리기 한 칸에 함께 돌아간다. */
   const fitTeleported = useCallback(
@@ -447,7 +447,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       const w = worldRef.current;
       if (!w) return;
       let moved = false;
-      for (const id of ids) if (w.fitChairToBounds(id as CastId)) moved = true;
+      for (const id of ids) if (w.fitToBounds(id as CastId)) moved = true;
       if (!moved) return;
       // stepRef 는 방금 보낸 이동이 아직 안 그려진 스텝일 수 있다 — 상관없다: 스냅샷이 캐스트 전부를 덮어 바디(= 이동 뒤 +
       // 경계) 그대로를 쓴다. 상호작용이 꺼져 있으니 바디와 모델은 이 칩 말고는 같다.
@@ -495,12 +495,16 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // (applyGroupNudge 주석). 그래서 회전 키는 언제나 포커스 하나에만 걸린다.
       if (dThetaRad === 0 && selection.size > 1 && selection.has(id)) {
         const ids = Array.from(selection).filter((x) => !lockedSet.has(x) && !ignoredSet.has(x));
-        dispatch({ type: 'GROUP_NUDGE', ids, d: { x: dx, y: dy } });
+        // 무리는 **한 덩어리로** 벽에 선다 — 가장 먼저 닿는 개체가 이동량을 정한다(world.groupDelta, 덩어리 끌기와 같은 규칙).
+        // 칩마다 따로 벽에 넣으면 벽 쪽 칩만 멈추고 나머지가 겹쳐 들어와 간격이 무너진다.
+        const d = worldRef.current?.groupDelta(ids, { x: dx, y: dy }) ?? { x: dx, y: dy };
+        if (d.x === 0 && d.y === 0) return;
+        dispatch({ type: 'GROUP_NUDGE', ids, d });
         const cur = worldRef.current?.read();
         if (cur) {
           const moves = ids.flatMap((x) => {
             const p = cur[x];
-            return p ? [{ id: x as CastId, pose: { x: p.x + dx, y: p.y + dy, theta: p.theta } }] : [];
+            return p ? [{ id: x as CastId, pose: { x: p.x + d.x, y: p.y + d.y, theta: p.theta } }] : [];
           });
           if (moveBodies(moves, nudgeDurationS(ids.join(',')))) armNudgeCommit();
           else fitTeleported(ids);
