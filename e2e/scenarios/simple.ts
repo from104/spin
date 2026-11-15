@@ -113,7 +113,22 @@ export default defineGroup('simple', [
       await app.settled();
       await app.pressKey(faceKey(away)); // 등을 벽으로
       for (let i = 0; i < 24; i++) await app.pressKey(`Shift+${toWall}`); // 큰 걸음으로 반 코트 넘게 — 벽에서 멈춰야 한다
-      await app.pressKey(faceKey(toWall)); // 벽 앞에서 벽 쪽으로 돈다
+      await app.settled();
+      // 같은 개체의 키 이동은 700 ms 안이면 한 칸으로 합쳐진다(history COALESCE_MS) — 회전을 따로 한 칸으로 떼어 잰다
+      await new Promise((r) => setTimeout(r, 900));
+      const beforeTurn = await objectById(app, a);
+      await app.pressKey(faceKey(toWall)); // 벽 앞에서 벽 쪽으로 돈다 — 차체 앞이 벽에 닿지 않게 피벗이 밀려 들어온다
+      await app.settled();
+      const turned = await objectById(app, a);
+      check(turned.angleDeg !== beforeTurn.angleDeg, '숫자키로 돌았는데 방향이 그대로다(전제 실패)', { beforeTurn, turned });
+      // 되돌리기 한 번에 방향·피벗이 **둘 다** 처음 값 — 벽 밀어넣기(PLACE_SETTLE)가 회전과 같은 칸이다
+      await app.undo();
+      await app.settled();
+      check(poseKey([await objectById(app, a)]) === poseKey([beforeTurn]), '되돌리기 한 번에 방향·피벗이 처음 값으로 안 돌아왔다', {
+        beforeTurn,
+        after: await objectById(app, a),
+      });
+      await app.redo();
       await app.settled();
       await app.pressKey('Escape'); // 선택 테두리를 걷는다 — 상자는 차체만
 
