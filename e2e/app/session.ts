@@ -10,7 +10,7 @@ import path from 'node:path';
 
 import { WebDriverSession } from '../drivers/webdriver.ts';
 import { recordPids, wipeAppData } from './env-windows.ts';
-import { isWindows, PROFILE_PREFIX, type ProfileDirs } from './platform.ts';
+import { IDENTIFIER, isWindows, PROFILE_PREFIX, type ProfileDirs } from './platform.ts';
 import { descendants, isAlive, terminate, waitExit } from './procs.ts';
 import { treeOf } from './procs-win.ts';
 
@@ -46,7 +46,16 @@ export class AppSession {
   async launch(): Promise<void> {
     this.current = await WebDriverSession.create(
       `http://127.0.0.1:${this.options.driverPort}`,
-      { 'tauri:options': { application: this.options.binary } },
+      {
+        'tauri:options': {
+          application: this.options.binary,
+          // ⚠️ Windows: msedgedriver 는 세션마다 새 임시 프로필(scoped_dir)을 만들어 WEBVIEW2_USER_DATA_FOLDER 로 준다 —
+          //   그러면 다시 띄울 때마다 WebView2 저장소(localStorage·IndexedDB)가 비어 N4 가 "껐다 켜니 판이 없다" 로 빨갛다
+          //   (2026-11-15 e2e-app windows 잡). 앱이 실제로 쓰는 자리(%LOCALAPPDATA%\<id>, Tauri 의 data_directory)를
+          //   --user-data-dir 로 고정한다 — 제가 만든 게 아니라 끝나도 지우지 않는다. 첫 설치 상태는 wipeAppData 가 준다.
+          ...(isWindows ? { args: [`--user-data-dir=${path.join(this.options.profile.data, IDENTIFIER)}`] } : {}),
+        },
+      },
       // msedgedriver 는 WebView2 가 뜨기를 60초 기다린 뒤에야 제 오류로 답한다 — 짧게 끊으면 "시간 초과" 만 남고 그 오류가 가려진다
       isWindows ? 120_000 : 60_000,
     );
