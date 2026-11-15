@@ -859,6 +859,7 @@ export function FunctionBar({
         showGrid={showGrid}
         showGridLabels={showGridLabels}
         showRuleZones={showRuleZones}
+        chairDisc={simple}
         returnFocusRef={exportBtnRef}
       />
     </nav>

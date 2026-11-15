@@ -272,7 +272,7 @@ export function TeamScreen({ nav, teamId }: TeamScreenProps) {
           printWhenReady();
           setPrintDoc(null);
         }}
-        view={{ showGrid: prefs.showGrid, showGridLabels: prefs.showGridLabels, showRuleZones: prefs.showRuleZones }}
+        view={{ showGrid: prefs.showGrid, showGridLabels: prefs.showGridLabels, showRuleZones: prefs.showRuleZones, chairDisc: prefs.board.simple }}
       />
 
       {pendingDelete && (

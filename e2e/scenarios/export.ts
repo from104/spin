@@ -16,7 +16,7 @@ import { at, check, defineGroup, eventually, expectQuiet } from './kit.ts';
 const CHAIR_U = 0.2;
 
 /** 내보내기 시트를 열고 [그림(PNG)] 을 눌러 내려온 파일을 받는다. 저장되면 시트는 스스로 닫힌다 */
-async function exportPng(app: SpinApp): Promise<DownloadedFile> {
+export async function exportPng(app: SpinApp): Promise<DownloadedFile> {
   await app.pressAnchor('editor-export');
   await eventually('내보내기 시트', () => app.present('export-png'), true);
   const file = await app.download(() => app.press('export-png'));
@@ -25,7 +25,7 @@ async function exportPng(app: SpinApp): Promise<DownloadedFile> {
 }
 
 /** 한 장을 풀고 PNG 로서의 꼴을 본다 */
-function decoded(file: DownloadedFile, label: string): DecodedPng {
+export function decoded(file: DownloadedFile, label: string): DecodedPng {
   check(/\.png$/i.test(file.name), `${label}: 파일 이름이 .png 가 아니다`, file.name);
   check(isPng(file.bytes), `${label}: 내려온 파일이 PNG 가 아니다(서명)`, Array.from(file.bytes.subarray(0, 8)));
   const img = decodePng(file.bytes);
@@ -52,7 +52,7 @@ function coverage(img: DecodedPng): { opaque: number; dominant: number } {
 }
 
 /** 두 그림에서 달라진 화소(채널 차 합 > 48)의 수·외접 상자·무게중심(0..1 비율) */
-function difference(a: DecodedPng, b: DecodedPng) {
+export function difference(a: DecodedPng, b: DecodedPng) {
   let count = 0;
   let sx = 0;
   let sy = 0;

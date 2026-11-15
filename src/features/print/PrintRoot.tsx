@@ -37,6 +37,8 @@ export interface PrintViewSwitches {
   showGrid: boolean;
   showGridLabels: boolean;
   showRuleZones: boolean;
+  /** 심플 모드(prefs.board.simple) — 휠체어를 원으로 인쇄한다. 화면·PNG 와 같은 스위치. */
+  chairDisc?: boolean;
 }
 
 export function PrintRoot({ doc, onReady, container, view }: PrintRootProps) {

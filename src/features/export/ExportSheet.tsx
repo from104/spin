@@ -103,6 +103,8 @@ export interface ExportSheetProps {
    *  SVG 가 아니라 캔버스 어댑터가 그리므로 그 규약의 대상이 아니다. */
   showGridLabels: boolean;
   showRuleZones: boolean;
+  /** 심플 모드(prefs.board.simple) — PNG·영상·인쇄도 휠체어를 원으로 굽는다("보이는 것 = 내보내지는 것"). */
+  chairDisc?: boolean;
   /** 닫을 때 포커스를 되돌릴 트리거(하단 바의 [내보내기]) — §7.6. */
   returnFocusRef?: RefObject<HTMLElement | null>;
 }
@@ -136,7 +138,7 @@ function isAbortError(e: unknown): boolean {
   return typeof e === 'object' && e !== null && (e as { name?: unknown }).name === 'AbortError';
 }
 
-export function ExportSheet({ open, onClose, mode = 'drill', drill, stepIndex, checkedStepIds, showGrid, showGridLabels, showRuleZones, returnFocusRef }: ExportSheetProps) {
+export function ExportSheet({ open, onClose, mode = 'drill', drill, stepIndex, checkedStepIds, showGrid, showGridLabels, showRuleZones, chairDisc = false, returnFocusRef }: ExportSheetProps) {
   const titleId = useId();
   const toast = useToast();
   const t = useT();
@@ -278,6 +280,8 @@ export function ExportSheet({ open, onClose, mode = 'drill', drill, stepIndex, c
     // 안 나옴"*. 안 넘기면 화면·종이에는 있는 칸 이름이 그림에만 없다.
     showGridLabels,
     showRuleZones,
+    // 심플 모드 — 이 한 줄이 빠지면 화면은 원인데 카톡으로 보낸 그림·영상만 차체다(위 목록과 같은 부류의 사고).
+    chairDisc,
   };
 
   /** 스텝 하나 → PNG 한 장. 옵션 조립이 길어 따로 뺀다 — 루프 안에 두면 "무엇이 스텝마다
@@ -603,7 +607,7 @@ export function ExportSheet({ open, onClose, mode = 'drill', drill, stepIndex, c
           )}
         </div>
       </Modal>
-      <PrintRoot doc={printDoc} onReady={onPrintReady} view={{ showGrid, showGridLabels, showRuleZones }} />
+      <PrintRoot doc={printDoc} onReady={onPrintReady} view={{ showGrid, showGridLabels, showRuleZones, chairDisc }} />
       <ShareLinkModal open={shareOpen} doc={shareDoc} onClose={() => setShareOpen(false)} returnFocusRef={returnFocusRef} />
     </>
   );

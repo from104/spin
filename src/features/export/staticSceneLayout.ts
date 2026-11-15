@@ -89,6 +89,9 @@ export interface StaticSceneOpts {
   showGridLabels?: boolean;
   /** 규칙 존 + 3 m 링. 화면의 `prefs.showRuleZones` 와 **같은 스위치**를 넘긴다. */
   showRuleZones?: boolean;
+  /** 심플 모드(prefs.board.simple) — 휠체어를 **원**으로 굽는다(model/chairDisc.ts). 화면과 같은 스위치다:
+   *  "보이는 것 = 내보내지는 것"(PLAN-SIMPLE-DRIVE 결정 A3). 안 넘기면 실물 차체. */
+  chairDisc?: boolean;
   caption?: SceneCaption | null;
 }
 
@@ -256,7 +259,8 @@ export function buildTextPlacements(frame: RenderFrame, opts: StaticSceneOpts): 
     if (c.opacity <= 0) continue;
     const mark = teamMarkFor(c.def, opts.teams);
     if (mark.label.length === 0) continue;
-    const p = pointAtLever({ x: c.x, y: c.y, theta: c.theta }, CHAIR.centroidOffsetPx);
+    // 원은 피벗이 곧 중심이라 번호도 피벗에 앉는다(차체는 centroid 만큼 앞).
+    const p = pointAtLever({ x: c.x, y: c.y, theta: c.theta }, opts.chairDisc ? 0 : CHAIR.centroidOffsetPx);
     out.push({
       text: mark.label,
       x: p.x,

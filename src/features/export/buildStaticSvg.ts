@@ -37,6 +37,7 @@
 import { DEG } from '../../core/angle.ts';
 import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, GOAL_BASE_FILL, GOAL_POST_EDGE, GOAL_POST_FILL, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR } from '../../core/constants.ts';
+import { DISC_RADIUS_PX, discTickPoints } from '../../model/chairDisc.ts';
 import { CONE_BASE_D, CONE_STROKE_W, CONE_TRIANGLE_D } from '../../render/objects/coneGeom.ts';
 import { attackDir, cornerKickZones, courtDefFor, goalBaseRect, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import type { CourtDef } from '../../model/court.ts';
@@ -591,6 +592,16 @@ function chairMarkup(c: RenderFrame['chairs'][number], opts: StaticSceneOpts): s
   const halfW = CHAIR.widthPx / 2;
   const m = teamMarkFor(c.def, opts.teams);
   const dash = m.strokeDash ? ` stroke-dasharray="${m.strokeDash}"` : '';
+  if (opts.chairDisc) {
+    // 심플 모드 — 원 + 방향 눈금. 기하는 model/chairDisc.ts 한 곳(화면 ChairChip 과 같은 출처). 번호는
+    // 차체와 같이 캔버스가 그린다(buildTextPlacements — 피벗에 앉는다).
+    return (
+      `<g id="obj-${safeId(c.id)}" transform="${poseTransform(c.x, c.y, c.theta)}"${attrOpacity(c.opacity)} data-shape="disc">` +
+      `<circle cx="0" cy="0" r="${num(DISC_RADIUS_PX)}" fill="${safeColor(m.fill, '#888888')}" stroke="${m.stroke}" stroke-width="${num(m.strokeWidth)}"${dash}/>` +
+      `<polygon points="${discTickPoints()}" fill="${m.stroke}" stroke="${m.stroke}" stroke-width="1" stroke-linejoin="round"/>` +
+      `</g>`
+    );
+  }
   return (
     `<g id="obj-${safeId(c.id)}" transform="${poseTransform(c.x, c.y, c.theta)}"${attrOpacity(c.opacity)}>` +
     `<rect x="${num(-CHAIR.pivotToRearPx)}" y="${num(-halfW)}" width="${num(CHAIR.lengthPx)}" height="${num(CHAIR.widthPx)}" rx="5"` +

@@ -48,6 +48,7 @@ import {
   noteLines,
 } from '../../render/objects/noteChip.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
+import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX, discTickPoints } from '../../model/chairDisc.ts';
 import { PRINT_COURT_CLASS } from './printDom.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
@@ -70,7 +71,7 @@ export interface PrintCourtProps {
    *  ⚠️ **기본값을 주지 않는다.** 옵셔널이면 배선을 빠뜨려도 조용히 컴파일되는데, 그것이
    *  2026-08-27 사고의 정확한 메커니즘이었다(인쇄만 6가지를 안 그리는데 아무도 몰랐다 —
    *  render/renderPaths.ts 머리말). 호출부가 반드시 값을 정하게 한다. */
-  view: { showGrid: boolean; showGridLabels: boolean; showRuleZones: boolean };
+  view: { showGrid: boolean; showGridLabels: boolean; showRuleZones: boolean; chairDisc?: boolean };
 }
 
 export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
@@ -274,6 +275,27 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
                 // 두 정적 경로의 마크업이 쓸데없이 갈리지 않는다.
                 opacity={(chairOpacity.get(c.id) ?? 1) < 1 ? chairOpacity.get(c.id) : undefined}
               >
+                {view.chairDisc ? (
+                  // 심플 모드 — 원 + 방향 눈금 + 가운데 번호(기하는 model/chairDisc.ts, 화면·PNG 와 같은 출처).
+                  <>
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={DISC_RADIUS_PX}
+                      fill={mark.fill}
+                      stroke={mark.stroke}
+                      strokeWidth={mark.strokeWidth}
+                      strokeDasharray={mark.strokeDash}
+                    />
+                    <polygon points={discTickPoints()} fill={mark.stroke} stroke={mark.stroke} strokeWidth={1} strokeLinejoin="round" />
+                    <g transform={`rotate(${-pose.angleDeg})`}>
+                      <text x={0} y={0} fontFamily={NUM_FONT} fontSize={DISC_LABEL_FONT_PX} fontWeight={700} fill={mark.ink} textAnchor="middle" dominantBaseline="central">
+                        {c.number}
+                      </text>
+                    </g>
+                  </>
+                ) : (
+                  <>
                 <rect
                   x={-CHAIR.pivotToRearPx}
                   y={-HALF_W}
@@ -318,6 +340,8 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
                     </text>
                   </g>
                 </g>
+                  </>
+                )}
               </g>
             );
           }
