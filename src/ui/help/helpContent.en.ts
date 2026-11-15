@@ -162,7 +162,7 @@ export const HELP_EN: HelpContent = {
               'Use [Swap Sides] to set which goal your team defends.',
             ],
           },
-          { kind: 'tip', tone: 'tip', text: 'Which side you defend decides **which team the goal-area 3-player foul applies to.** The flat court has no goal area, so there’s no side to defend either.' },
+          { kind: 'tip', tone: 'tip', text: 'Which side you defend decides **which team the goal-area 3-player foul applies to.** The flat court has no goal area, so there’s no side to defend either. Newly placed wheelchairs also **face the opposing goal** according to your side — swap sides and the wheelchairs you place afterwards face the other way.' },
         ],
       },
       {
@@ -323,7 +323,7 @@ export const HELP_EN: HelpContent = {
               '**Note strip** — the [Notes] box below the court, for what the coach will say during this step.',
             ],
           },
-          { kind: 'tip', tone: 'tip', text: 'In a narrow window the step list collapses — tap its handle to open and close it.' },
+          { kind: 'tip', tone: 'tip', text: 'In a narrow window the step list collapses. Tap its handle to open it; the button then moves to the right of the list and becomes [Close step list] — tapping outside the list closes it too.' },
         ],
       },
       {
@@ -367,7 +367,7 @@ export const HELP_EN: HelpContent = {
         id: 'editor.place-move',
         title: 'Placing and moving',
         blocks: [
-          { kind: 'p', text: 'By default a wheelchair **moves as a whole wherever you grab it**, and it passes over other objects without pushing them. To make it move like a real powerchair, turn on the switches in [Board settings] > [Object movement].' },
+          { kind: 'p', text: 'By default a wheelchair **moves as a whole wherever you grab it**, and it passes over other objects without pushing them. To make it move like a real powerchair, turn on the switches in [Board settings] > [Object movement]. On a court with goals, a newly placed wheelchair **faces the opposing goal** according to its side.' },
           {
             kind: 'list',
             items: [
@@ -1109,6 +1109,7 @@ export const HELP_EN: HelpContent = {
             items: [
               'Two or more from the same team within 3 m of the ball — a 2-on-1 warning.',
               'The opponent within 5 m of the ball at a set piece — the 5 m limit.',
+              'At a corner kick, a defender inside the goal area in front of the 1 m mark — corner-kick encroachment. A dashed line marks the spot, and it turns red along with the area in front of it when crossed. Behind the mark is fine, even inside the 5 m circle.',
               'Three or more defenders in the goal area — a 3-player foul.',
               'The ball fully crosses the boundary — out of play.',
             ],
@@ -1199,7 +1200,7 @@ export const HELP_EN: HelpContent = {
         id: 'settings.physics',
         title: 'Physics fine-tuning',
         blocks: [
-          { kind: 'p', text: 'The four-zone boundaries and speed limits for dragging a wheelchair. Tap [Advanced] to expand it. **The defaults are plenty for most teams.**' },
+          { kind: 'p', text: 'The four-zone boundaries and speed limits for dragging a wheelchair. Tap [Advanced] to expand it. **The defaults are plenty for most teams.** These boundaries apply only when [Drag to rotate wheelchairs] or [Show front/back anchors] is on in [Board settings] — by default (both off) a wheelchair moves as a whole wherever you grab it.' },
           {
             kind: 'list',
             items: [
