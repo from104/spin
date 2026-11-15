@@ -122,6 +122,7 @@ export default defineGroup<TauriApp>('native', [
   },
   {
     title: 'N4 껐다 켜도 판과 드릴이 남는다',
+    needs: ['relaunch'],
     run: async (app) => {
       const boardPose = await app.step('전술판에 공 하나 → 저장', async () => {
         await app.placeFromTray('ball', at(0.3, 0.4), { via: 'drag' });

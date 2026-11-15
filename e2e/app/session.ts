@@ -4,15 +4,15 @@
 // 앱 프로필(설정·WebKit/WebView2 저장소·캐시)은 env-linux.ts 가 만든 임시 폴더에 있다(Windows: 러너의 진짜
 // %APPDATA%·%LOCALAPPDATA% 아래 앱 폴더, env-windows.ts). 한 워커의 모든 실행이 같은 프로필을 쓰므로 "다시 띄우기" 가
 // 정말로 보존을 시험한다. `wipeProfile()` 이 첫 설치 상태를 준다.
-import { readdirSync, readlinkSync, rmSync, statSync } from 'node:fs';
+import { readdirSync, readlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { WebDriverSession } from '../drivers/webdriver.ts';
 import { recordPids, wipeAppData } from './env-windows.ts';
-import { IDENTIFIER, isWindows, PROFILE_PREFIX, type ProfileDirs } from './platform.ts';
+import { isWindows, PROFILE_PREFIX, type ProfileDirs } from './platform.ts';
 import { descendants, isAlive, terminate, waitExit } from './procs.ts';
-import { closeMainWindow, treeOf, webviewUserDataDirs } from './procs-win.ts';
+import { closeMainWindow, treeOf } from './procs-win.ts';
 
 export interface SessionOptions {
   driverPort: number;
@@ -33,8 +33,6 @@ export class AppSession {
   launches = 0;
   /** Windows: 프로세스 목록 한 번이 약 1초라, 살아 있는 동안 앱 PID 를 기억한다 */
   private cachedPid: number | null = null;
-  /** 진단(Windows): 이번 실행의 WebView2 가 실제로 쓰는 프로필 폴더 */
-  private webviewDirs: string[] = [];
 
   constructor(options: SessionOptions) {
     this.options = options;
@@ -51,11 +49,9 @@ export class AppSession {
       {
         'tauri:options': {
           application: this.options.binary,
-          // ⚠️ Windows: msedgedriver 는 세션마다 새 임시 프로필(scoped_dir)을 만들어 WEBVIEW2_USER_DATA_FOLDER 로 준다 —
-          //   그러면 다시 띄울 때마다 WebView2 저장소(localStorage·IndexedDB)가 비어 N4 가 "껐다 켜니 판이 없다" 로 빨갛다
-          //   (2026-11-15 e2e-app windows 잡). 앱이 실제로 쓰는 자리(%LOCALAPPDATA%\<id>, Tauri 의 data_directory)를
-          //   --user-data-dir 로 고정한다 — 제가 만든 게 아니라 끝나도 지우지 않는다. 첫 설치 상태는 wipeAppData 가 준다.
-          ...(isWindows ? { args: [`--user-data-dir=${path.join(this.options.profile.data, IDENTIFIER)}`] } : {}),
+          // ⚠️ Windows: msedgedriver 는 세션마다 WebView2 를 새 임시 프로필(%SystemTemp%\scoped_dir…\EBWebView)로 띄운다 —
+          //   `--user-data-dir` 를 줘도 그 자리를 쓰지 않았다(2026-11-15 CI 진단: 명령줄의 --user-data-dir 가 매번 새
+          //   scoped_dir, 앱 폴더엔 저장소 파일 0개, 임시 폴더엔 13개). 그래서 Windows 는 'relaunch' 능력이 없다(fixtures.ts).
         },
       },
       // msedgedriver 는 WebView2 가 뜨기를 60초 기다린 뒤에야 제 오류로 답한다 — 짧게 끊으면 "시간 초과" 만 남고 그 오류가 가려진다
@@ -75,11 +71,6 @@ export class AppSession {
     const url = new URL(await this.current.url());
     // tauri: 같은 특수하지 않은 스킴에서는 URL.origin 이 'null' 이다
     this.origin = `${url.protocol}//${url.host}`;
-    if (isWindows) {
-      const keys = await this.current.execute(() => localStorage.length).catch((e: unknown) => `읽기 실패 ${String(e).slice(0, 80)}`);
-      this.webviewDirs = webviewUserDataDirs();
-      console.log(`[e2e] 진단: ${this.origin} 첫 문서 localStorage 키 ${String(keys)}개 · WebView2 --user-data-dir ${JSON.stringify(this.webviewDirs)}`);
-    }
     this.launches++;
     this.cachedPid = null;
     if (isWindows) {
@@ -154,7 +145,6 @@ export class AppSession {
     const waitMs = isWindows ? 15_000 : 5000;
     const deadline = Date.now() + waitMs;
     while (helpers.some(isAlive) && Date.now() < deadline) await pause(50);
-    if (isWindows) for (const dir of new Set([path.join(this.options.profile.data, IDENTIFIER), ...this.webviewDirs])) logStorageFiles(dir, '창을 닫은 뒤');
     const lingering = helpers.filter(isAlive);
     if (lingering.length > 0) console.warn(`[e2e] 창을 닫고 ${waitMs / 1000}s 가 지나도 하위 프로세스 ${lingering.length}개가 남아 강제로 끈다: ${lingering.join(',')}`);
     await this.close();
@@ -181,26 +171,5 @@ export class AppSession {
         rmSync(path.join(dir, entry), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       }
     }
-  }
-}
-
-/**
- * 진단(Windows): 프로필 안 WebView2 저장소 파일(Local Storage·IndexedDB)을 크기와 함께 찍는다 — N4 "껐다 켜니 판이 없다" 가
- * 디스크에 안 써진 것인지(실제 유실), 다른 자리를 읽은 것인지 가른다. 2026-11-15 windows 잡.
- */
-function logStorageFiles(root: string, when: string): void {
-  try {
-    const all = readdirSync(root, { recursive: true }) as string[];
-    console.log(`[e2e] 진단: ${when} ${root} 전체 ${all.length}개, 맨 위 ${JSON.stringify(readdirSync(root))}`);
-    const hits = all
-      .filter((rel) => /Local Storage|IndexedDB/i.test(rel))
-      .map((rel) => {
-        const st = statSync(path.join(root, rel), { throwIfNoEntry: false });
-        return st?.isFile() ? `${rel} ${st.size}B` : null;
-      })
-      .filter((line): line is string => line !== null);
-    console.log(`[e2e] 진단: ${when} ${root} 저장소 파일 ${hits.length}개\n  ${hits.slice(0, 30).join('\n  ')}`);
-  } catch (error) {
-    console.log(`[e2e] 진단: ${when} ${root} 를 못 읽음 — ${String(error).slice(0, 120)}`);
   }
 }

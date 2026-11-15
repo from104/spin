@@ -309,7 +309,8 @@ WebKitWebDriver → 앱. Windows 는 CI 전용(`.github/workflows/e2e-app.yml`, 
 **드라이버** — `e2e/drivers/WdioApp.ts` 가 `SpinApp` 을 W3C WebDriver 위에 구현한다. 판정(준비·정착·좌표·가림·스텝 목록 바깥)은
 `e2e/drivers/page-functions.ts` 하나를 **두 드라이버가 같이** 쓴다(PlaywrightApp 도 이리로 옮겼다) — 웹과 앱이 갈리면 판정 차이가 아니라 앱
 차이다. 알려진 버그 판정도 `kit.ts executeScenario` 하나(두 실행기 공통). 능력은 `pointer keyboard reload` + Linux 의 `xwindow`(새 능력 —
-xwininfo·xprop). `touch`·`resize`(앱 최소 900×600)·`netMock`·`download`·`prerender`·대화 상자 첫 방문 기록은 없다.
+xwininfo·xprop)·`relaunch`(끄고 같은 저장소로 다시 띄우기 — Windows 는 msedgedriver 가 세션마다 WebView2 를 새 임시 프로필
+`scoped_dir…\EBWebView` 로 띄워 `--user-data-dir` 도 안 먹는다, 2026-11-15 CI 진단. 그래서 N4 는 Linux 만, 같은 세션 새로고침 보존 S8a·S8b 는 둘 다). `touch`·`resize`(앱 최소 900×600)·`netMock`·`download`·`prerender`·대화 상자 첫 방문 기록은 없다.
 
 **시나리오** — 공유 부분집합 S1·S4·S5·S5b·S7·S8a·S8b(`e2e/app/shared.spec.ts` 의 `only` — 뺀 S6·S7b 는 "resize 가 없으면 좁은 터치 기기" 를
 전제한다) + 앱 전용 N1–N7(`e2e/app/native.ts`, 머리말에 "지우면 새는 실기 버그"): N1 판이 그려진다(화면 화소 — §12 부터 Linux 는 xwd) · N2 `plugin:app|version`

@@ -15,7 +15,11 @@ import { TauriApp } from './tauri-app.ts';
  * 없는 것: touch(마우스뿐) · resize(앱 최소 900×600 아래로 못 줄인다 — 웹 시나리오의 휴대폰 크기를 정직하게 못 만든다) ·
  * netMock(요청 가로채기 없음) · download(저장은 네이티브 대화 상자) · prerender(웹 층의 몫)
  */
-export const TAURI_CAPABILITIES: Capability[] = isWindows ? ['pointer', 'keyboard', 'reload'] : ['pointer', 'keyboard', 'reload', 'xwindow'];
+// relaunch: 끄고 같은 저장소로 다시 띄우기 — Windows 는 msedgedriver 가 세션마다 WebView2 를 새 임시 프로필로 띄워 없다
+//   (2026-11-15 CI 진단, session.ts launch 의 주석). 같은 세션 안 새로고침 보존은 S8a·S8b 가 Windows 에서도 본다.
+export const TAURI_CAPABILITIES: Capability[] = isWindows
+  ? ['pointer', 'keyboard', 'reload']
+  : ['pointer', 'keyboard', 'reload', 'xwindow', 'relaunch'];
 
 /** 빌드의 정적 파일 — 앱과 같은 출처지만 앱 스크립트가 돌지 않는다(시드 자리). public/favicon-32.png */
 export const BLANK_PATH = '/favicon-32.png';

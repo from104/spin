@@ -119,6 +119,7 @@ export interface AnchorProbe {
  * - prerender : 프리렌더 정적 페이지를 JS 이전 원문으로 읽을 수 있다
  * - netMock   : HTTP 요청을 가로채 끊거나 기록할 수 있다
  * - xwindow   : 앱의 네이티브 X 창(xwininfo·xprop)을 밖에서 읽을 수 있다 — 실제 앱 층의 Linux(Xvfb)만(e2e/app/native.ts)
+ * - relaunch  : 앱을 끄고 **같은 저장소로** 다시 띄울 수 있다 — 실제 앱 층의 Linux 만(Windows 는 msedgedriver 가 세션마다 새 WebView2 프로필)
  */
 export type Capability =
   | 'pointer'
@@ -129,7 +130,8 @@ export type Capability =
   | 'download'
   | 'prerender'
   | 'netMock'
-  | 'xwindow';
+  | 'xwindow'
+  | 'relaunch';
 
 export interface SpinApp {
   /** 보고서용 이름 — 예: 'web-chromium', 'tauri-linux', 'android' */
