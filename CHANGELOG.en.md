@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- When [UI scale] was not 100% (including Auto), the preview of a wheelchair, ball or cone dragged from the tray appeared in the wrong place and at the wrong size
+- On the desktop app (AppImage), the first drag from the tray left a trail of the preview's shadow
+
 ## [0.6.13] 2026-11-13
 
 ### Added

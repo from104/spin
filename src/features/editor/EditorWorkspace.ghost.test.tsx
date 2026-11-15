@@ -94,7 +94,7 @@ async function dragChip(): Promise<HTMLElement> {
   fireEvent.pointerDown(chip, { pointerId: 7, clientX: 900, clientY: 300 });
   fireEvent.pointerMove(window, { pointerId: 7, clientX: 400, clientY: 260 });
   const ghost = await waitFor(() => {
-    const el = document.querySelector<HTMLElement>('div[aria-hidden][style*="fixed"]');
+    const el = document.querySelector<HTMLElement>('[data-tray-ghost]');
     expect(el, '고스트가 안 떴다 — 아래 단언이 전부 헛것이 된다(대조군)').not.toBeNull();
     return el!;
   });
@@ -115,7 +115,11 @@ describe('★ 끌고 있는 고스트는 판 덩어리 밖에 있다 (P4 overflo
 
     const ghost = await dragChip();
     expect(board.contains(ghost), '고스트가 판 덩어리 안이다 — overflow:hidden 에 잘린다').toBe(false);
-    expect(main.contains(ghost), '고스트가 <main> 밖이면 앱 셸 규율 밖이다').toBe(true);
+    // 2026-11-16 실기 — 옛 단언은 "<main> 안" 이었다. 실제 앱에서 <main> 은 UI 배율 래퍼(.spin-scale, transform: scale)
+    // 안이라 그 안의 fixed 는 래퍼 기준이 되어 배율 ≠ 100% 에서 고스트가 엉뚱한 곳에 떴다 — 이 테스트의 셸에는 래퍼가
+    // 없어 ② 도 그것을 못 봤다. 그래서 고스트는 body 직계로 포털한다(EditorWorkspace).
+    expect(main.contains(ghost), '고스트가 <main> 안이다 — 실제 앱에서는 배율 래퍼 안이라 자리가 틀어진다').toBe(false);
+    expect(ghost.parentElement, '고스트는 body 직계여야 배율 래퍼(.spin-scale)를 벗어난다').toBe(document.body);
   });
 
   it('고스트의 조상 중 누구도 fixed 기준 상자를 만들지 않는다 — filter 를 되돌리면 여기가 빨개진다', async () => {

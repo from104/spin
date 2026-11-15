@@ -3,6 +3,7 @@
 // `<aside aria-label="드릴 속성">` 세 영역과 하단 트랜스포트로 프로토타입 236–400행 레이아웃을
 // 그대로 이식한다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { isId, newId } from '../../core/ids.ts';
 import type { ChairId, NoteId, StepId } from '../../core/ids.ts';
 import { COURT_DEFS, courtDefFor, DEFAULT_COURT_SIZE, type CourtMode, type CourtSize } from '../../model/court.ts';
@@ -94,6 +95,9 @@ export interface EditorWorkspaceProps {
    *  나눠 써서 눌러 보기 전에는 고칠 수 있는지 알 수 없었다. */
   onDrillInfo?(): void;
 }
+
+/** 고스트 그림자(TrayGhost 의 drop-shadow 0 6px 10px)가 다 드는 여백 — 흐림 10px 의 번짐 + 아래 6px 를 덮는다 */
+const GHOST_SHADOW_PAD = 24;
 
 export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWorkspaceProps = {}) {
   const isBoard = mode === 'board';
@@ -1011,16 +1015,24 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
 
       {/* 끌고 있는 말의 고스트. 코트 축척(pxPerUnit)에 맞춰 **실제 놓일 크기**로 그린다 —
           고정 크기로 그리면 손을 뗀 순간 개체가 갑자기 커지거나 작아져 어긋나 보인다.
-          위치는 리렌더 없이 transform 으로 직접 쓴다(useTrayDrag). */}
-      {tray.dragging && (
-        <div
-          ref={tray.ghostRef}
-          aria-hidden
-          style={{ position: 'fixed', left: 0, top: 0, zIndex: 60, pointerEvents: 'none', willChange: 'transform' }}
-        >
-          <TrayGhost item={tray.dragging} pxPerUnit={tray.pxPerUnit} drill={drill} coneSlot={state.coneSlot} />
-        </div>
-      )}
+          위치는 리렌더 없이 transform 으로 직접 쓴다(useTrayDrag).
+          ⚠️ 2026-11-16 실기 — body 로 포털한다. UI 배율 래퍼는 `transform: scale(s)`(PLAN-UI-SCALE 결정 1)라 그 안의
+          position:fixed 는 화면이 아니라 래퍼 기준이 되고, 좌표·크기(pxPerUnit 은 이미 화면 px)에 s 가 한 번 더 곱해져
+          배율 100% 가 아니면 고스트가 엉뚱한 곳에 떴다.
+          여백(GHOST_SHADOW_PAD)은 drop-shadow 가 상자 안에 들게 한다 — 상자 밖으로 번진 그림자는 WebKitGTK(AppImage)가
+          옮길 때 다시 그리지 않아 첫 끌기에 잔상이 남았다. 여백이 대칭이라 translate(-50%,-50%) 의 중심은 그대로다. */}
+      {tray.dragging &&
+        createPortal(
+          <div
+            ref={tray.ghostRef}
+            aria-hidden
+            data-tray-ghost
+            style={{ position: 'fixed', left: 0, top: 0, zIndex: 60, pointerEvents: 'none', willChange: 'transform', padding: GHOST_SHADOW_PAD }}
+          >
+            <TrayGhost item={tray.dragging} pxPerUnit={tray.pxPerUnit} drill={drill} coneSlot={state.coneSlot} />
+          </div>,
+          document.body,
+        )}
 
       <HelpCenter
         open={helpOpen}
