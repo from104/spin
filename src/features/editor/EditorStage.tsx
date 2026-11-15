@@ -10,7 +10,7 @@ import { sameKindGroup } from './selectSame.ts';
 import { sceneOrder, zMoves } from '../../model/zOrder.ts';
 import { overlappingIds, selectionBounds } from '../../physics/bounds.ts';
 import type { Dispatch, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
-import { RAD } from '../../core/angle.ts';
+import { RAD, shortestDelta } from '../../core/angle.ts';
 import type { Vec2 } from '../../core/units.ts';
 import { isId } from '../../core/ids.ts';
 import { moveAnchorGuide, moveAnchorIds } from './moveAnchorIds.ts';
@@ -991,6 +991,23 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         const w = screenDeltaToWorld({ rot }, ux * FINE_STEP_PX, uy * FINE_STEP_PX);
         // 여럿이면 `nudge` 안의 무리 갈래가 받는다(ids 는 곧 선택이다 — NudgePadTarget.ids).
         nudge(id, w.x, w.y, 0);
+      }}
+      onHeading={(ids, cmd) => {
+        // 방향판(휠체어 하나). 절대 방향을 **회전량**으로 바꿔 Q·E 와 같은 길(nudge → OBJECT_NUDGE·물리 setPose)로
+        // 보낸다 — 잠금·되돌리기 병합·물리 동기화를 따로 짜지 않는다.
+        const id = ids[0];
+        if (!id) return;
+        const cur = worldRef.current?.read()[id];
+        if (!cur) return;
+        if (cmd.kind === 'flip') {
+          nudge(id, 0, 0, Math.PI);
+          return;
+        }
+        // 화살표는 화면 방향이다 — 코트가 돌아가 있으면(세로 창) 이동 칸과 같은 환산으로 판 방향이 된다.
+        const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+        const w = screenDeltaToWorld({ rot }, cmd.sx, cmd.sy);
+        const d = shortestDelta(cur.theta, Math.atan2(w.y, w.x));
+        if (Math.abs(d) > 1e-9) nudge(id, 0, 0, d);
       }}
     />
     </>

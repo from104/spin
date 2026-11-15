@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 ## [0.6.14] 2026-11-16
 
+### Added
+
+- A direction grid on the wheelchair's [Fine-tune] pad — eight arrows turn it to face that way on screen, and [180°] in the middle turns it around
+
 ### Removed
 
 - [Limit to real speed] in [Board settings] and the three speed sliders in [Settings] → [Advanced physics] (forward/back and spin speed limits, editing speed multiplier) — a grabbed object now always follows the pointer directly

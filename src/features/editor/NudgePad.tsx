@@ -29,6 +29,7 @@ import { useT } from '../../i18n/useT.ts';
 // 부품 안에 살던 동안 키보드가 그것을 안 읽어, 패드는 획을 돌릴 수 있는데 Q·E 는 못 돌리는
 // 비대칭이 살아 있었다. 이름을 그대로 재수출하는 것은 바깥 호출자(개체 메뉴)를 안 건드리려는
 // 것이고, **판정 자체는 이제 여기 없다**.
+import { isId } from '../../core/ids.ts';
 import { canRotate } from './nudgeCaps.ts';
 export { canNudge, canRotate } from './nudgeCaps.ts';
 
@@ -56,7 +57,38 @@ const PAD_BTN: React.CSSProperties = {
   userSelect: 'none',
 };
 
-function NudgeButton({ label, glyph, onFire, testId }: { label: string; glyph: string; onFire(): void; testId: string }) {
+/** 방향판 한 칸 — 화면 방향(단위 아님, 부호만 본다). 가운데 칸은 'flip'(180°). */
+export type HeadingCmd = { kind: 'face'; sx: number; sy: number } | { kind: 'flip' };
+
+/** 방향판의 아홉 칸, 3×3 읽는 순서. 화살표는 **화면** 방향이다 — 코트가 돌아가 있으면(세로 창) 받는 쪽이
+ *  판 좌표로 바꾼다(EditorStage, 이동 칸과 같은 screenDeltaToWorld). */
+type HeadingKey = 'upLeft' | 'up' | 'upRight' | 'left' | 'flip' | 'right' | 'downLeft' | 'down' | 'downRight';
+const HEADING_CELLS: readonly { key: HeadingKey; glyph: string; cmd: HeadingCmd }[] = [
+  { key: 'upLeft', glyph: '↖', cmd: { kind: 'face', sx: -1, sy: -1 } },
+  { key: 'up', glyph: '↑', cmd: { kind: 'face', sx: 0, sy: -1 } },
+  { key: 'upRight', glyph: '↗', cmd: { kind: 'face', sx: 1, sy: -1 } },
+  { key: 'left', glyph: '←', cmd: { kind: 'face', sx: -1, sy: 0 } },
+  { key: 'flip', glyph: '180°', cmd: { kind: 'flip' } },
+  { key: 'right', glyph: '→', cmd: { kind: 'face', sx: 1, sy: 0 } },
+  { key: 'downLeft', glyph: '↙', cmd: { kind: 'face', sx: -1, sy: 1 } },
+  { key: 'down', glyph: '↓', cmd: { kind: 'face', sx: 0, sy: 1 } },
+  { key: 'downRight', glyph: '↘', cmd: { kind: 'face', sx: 1, sy: 1 } },
+];
+
+function NudgeButton({
+  label,
+  glyph,
+  onFire,
+  testId,
+  repeat = true,
+}: {
+  label: string;
+  glyph: string;
+  onFire(): void;
+  testId: string;
+  /** 누르고 있으면 반복할지. 방향판은 **한 번**이다 — 180° 가 반복되면 누르는 동안 빙글빙글 돈다. */
+  repeat?: boolean;
+}) {
   const fireRef = useRef(onFire);
   fireRef.current = onFire;
   const timers = useRef<{ delay?: number; rep?: number }>({});
@@ -82,6 +114,7 @@ function NudgeButton({ label, glyph, onFire, testId }: { label: string; glyph: s
         e.stopPropagation();
         e.currentTarget.setPointerCapture?.(e.pointerId);
         fireRef.current();
+        if (!repeat) return;
         timers.current.delay = window.setTimeout(() => {
           timers.current.rep = window.setInterval(() => fireRef.current(), REPEAT_MS);
         }, REPEAT_DELAY_MS);
@@ -110,9 +143,11 @@ export interface NudgePadProps {
   /** 미세 이동 — **단위 벡터**를 보낸다(-1·0·1). 걸음 크기는 부르는 쪽(EditorStage)이 키보드와
    *  같은 상수로 곱한다. `dTheta` 는 회전 방향이고, `canRotate` 가 거짓이면 언제나 0 이다. */
   onNudge(ids: string[], dx: number, dy: number, dTheta: number): void;
+  /** 방향판(휠체어 하나일 때만 뜬다) — 화면 방향을 보게 돌리기 또는 180°. 없으면 방향판을 안 그린다. */
+  onHeading?(ids: string[], cmd: HeadingCmd): void;
 }
 
-export function NudgePad({ target, onClose, onNudge }: NudgePadProps) {
+export function NudgePad({ target, onClose, onNudge, onHeading }: NudgePadProps) {
   const t = useT();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -145,6 +180,9 @@ export function NudgePad({ target, onClose, onNudge }: NudgePadProps) {
   if (!target) return null;
 
   const rot = canRotate(target.ids);
+  // 방향판은 휠체어 하나일 때만(2026-11-16 기현님 지시 "휠체어의 미세 조종 패널 위에 8방향 설정과 중앙은 180도 회전").
+  // 방향이 뜻을 갖는 캐스트는 휠체어뿐이고(nudgeCaps), 여럿이면 회전 칸과 같은 이유로 축이 하나로 안 정해진다.
+  const heading = onHeading !== undefined && rot && isId(target.ids[0]!, 'ch');
 
   return createPortal(
     <>
@@ -169,7 +207,8 @@ export function NudgePad({ target, onClose, onNudge }: NudgePadProps) {
           top: pos?.top ?? target.y,
           zIndex: 61,
           display: 'grid',
-          // **3열 × 2행**(기현 지시 2026-09-02). 한 번 십자꼴(3×3)로 폈다가 되돌린 것이다:
+          // 휠체어 하나면 위에 방향판 3×3 + 구분선이 붙는다(2026-11-16 기현님 지시 — 방향은 칸 수를 줄일 수 없다).
+          // 이동판은 **3열 × 2행**(기현 지시 2026-09-02). 한 번 십자꼴(3×3)로 폈다가 되돌린 것이다:
           // 같은 여섯 칸을 담는데 빈 칸 셋 때문에 판이 한 줄만큼 커졌고, 이 팝업은 코트 위에
           // 뜨므로 큰 만큼 그대로 가림이다 — 반투명으로 벌어 놓은 것을 크기로 도로 까먹는다.
           gridTemplateColumns: 'repeat(3, 1fr)',
@@ -188,6 +227,22 @@ export function NudgePad({ target, onClose, onNudge }: NudgePadProps) {
           visibility: pos ? 'visible' : 'hidden',
         }}
       >
+        {heading && (
+          <>
+            {HEADING_CELLS.map((c) => (
+              <NudgeButton
+                key={c.key}
+                testId={`nudge-face-${c.key}`}
+                label={t(`editor.nudgePad.face.${c.key}`)}
+                glyph={c.glyph}
+                repeat={false}
+                onFire={() => onHeading(target.ids, c.cmd)}
+              />
+            ))}
+            {/* 방향판과 이동판 사이 한 줄 — 같은 생김의 칸이 3행 이어지면 어디까지가 "보게 하기" 인지 안 보인다 */}
+            <div aria-hidden style={{ gridColumn: '1 / -1', height: 1, background: 'var(--border)', margin: '2px 0' }} />
+          </>
+        )}
         {rot ? (
           <NudgeButton testId="nudge-rotateLeft" label={t('editor.objectMenu.rotateLeft')} glyph="↺" onFire={() => onNudge(target.ids, 0, 0, -1)} />
         ) : (

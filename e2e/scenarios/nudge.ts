@@ -11,6 +11,16 @@
 import type { SpinApp } from '../drivers/SpinApp.ts';
 import { at, check, defineGroup, eventually, expectQuiet, objectById } from './kit.ts';
 
+/** 휠체어가 **화면에서** 보는 방향(단위 벡터) — 저장 각도를 판 좌표의 짧은 선분으로 그려 화면으로 옮긴다(코트 회전 포함) */
+async function screenFacing(app: SpinApp, id: string): Promise<{ x: number; y: number }> {
+  const o = await objectById(app, id);
+  const a = (o.angleDeg * Math.PI) / 180;
+  const p0 = await app.worldToScreen({ x: o.x, y: o.y });
+  const p1 = await app.worldToScreen({ x: o.x + Math.cos(a) * 20, y: o.y + Math.sin(a) * 20 });
+  const n = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+  return { x: (p1.x - p0.x) / n, y: (p1.y - p0.y) / n };
+}
+
 /** 패드가 열려 있으면 닫는다(아무 키나 닫는다) */
 async function closePad(app: SpinApp): Promise<void> {
   await app.pressKey('Escape');
@@ -47,6 +57,9 @@ export default defineGroup('nudge', [
           check(c !== null, `${kind} 가 화면에 없다`);
           await app.doubleTap(c);
           await eventually(`${kind}: 패드가 뜸`, () => app.present('nudge-pad'), true);
+          // 방향판은 휠체어 하나일 때만(NudgePad) — 공·콘에 뜨면 돌릴 것이 없는 칸 아홉이 코트를 가린다
+          const heading = await app.present('nudge-face-flip');
+          check(heading === (kind === '휠체어'), `${kind}: 방향판이 ${heading ? '떴다' : '안 떴다'}`);
           await closePad(app);
         });
       }
@@ -67,6 +80,30 @@ export default defineGroup('nudge', [
         const d2 = p2.x - p1.x;
         check(d1 > 0.5 && Math.abs(p1.y - p0.y) < 0.5, `[→] 한 번이 화면 오른쪽 한 칸이 아니다 — (dx ${d1.toFixed(2)}, dy ${(p1.y - p0.y).toFixed(2)})`);
         check(Math.abs(d2 - d1) < 1, `[→] 두 번째가 첫 번째와 같은 한 칸이 아니다 — ${d1.toFixed(2)} vs ${d2.toFixed(2)}`);
+        await closePad(app);
+      });
+
+      await app.step('방향판 — 화살표는 화면 방향을 보게, 가운데는 180°', async () => {
+        // 화면 기준이다 — 세로 창(코트가 돌아간 휴대폰)에서도 [→] 는 화면 오른쪽을 보게 해야 한다
+        const c = await app.objectCenter(chair);
+        check(c !== null, '휠체어가 화면에 없다');
+        await app.doubleTap(c);
+        await eventually('패드가 뜸', () => app.present('nudge-pad'), true);
+        for (const [testId, want] of [
+          ['nudge-face-right', { x: 1, y: 0 }],
+          ['nudge-face-flip', { x: -1, y: 0 }],
+          ['nudge-face-upLeft', { x: -Math.SQRT1_2, y: -Math.SQRT1_2 }],
+          ['nudge-face-flip', { x: Math.SQRT1_2, y: Math.SQRT1_2 }],
+        ] as const) {
+          await app.press(testId);
+          await app.settled();
+          const v = await screenFacing(app, chair);
+          check(
+            Math.hypot(v.x - want.x, v.y - want.y) < 0.06,
+            `[${testId}] 뒤 휠체어가 화면 (${want.x.toFixed(2)}, ${want.y.toFixed(2)}) 쪽을 안 본다 — (${v.x.toFixed(2)}, ${v.y.toFixed(2)})`,
+          );
+        }
+        check(await app.present('nudge-pad'), '방향판을 눌렀더니 패드가 닫혔다 — 여러 번 맞추는 판이다');
         await closePad(app);
       });
 

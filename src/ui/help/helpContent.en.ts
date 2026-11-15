@@ -376,7 +376,7 @@ export const HELP_EN: HelpContent = {
               'With [Physics & interaction] on, wheelchairs push and bump balls, cones and other wheelchairs.',
             ],
           },
-          { kind: 'p', text: 'For the last few pixels, use the keyboard. On a tablet with no keyboard, double-tap the object (except notes), or long-press it and choose [Fine-tune] — a translucent pad appears in place with six cells: four to nudge up, down, left and right, and two to rotate left and right.' },
+          { kind: 'p', text: 'For the last few pixels, use the keyboard. On a tablet with no keyboard, double-tap the object (except notes), or long-press it and choose [Fine-tune] — a translucent pad appears in place with six cells: four to nudge up, down, left and right, and two to rotate left and right. With a single wheelchair selected, a direction grid sits above them — the eight arrows turn the wheelchair to face that way on screen, and [180°] in the middle turns it around.' },
         ],
       },
       {
