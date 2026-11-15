@@ -538,9 +538,12 @@ export class PlaywrightApp implements SpinApp {
   }
 
   async onTop(testId: string): Promise<boolean> {
-    return this.page.evaluate((id) => {
+    return this.page.evaluate(async (id) => {
       const el = document.querySelector(`[data-testid="${id}"]`);
       if (!el) return false;
+      // 자리가 막 바뀐 요소는 transition 이 끝나야 그 자리에 선다 — 감축 모션에서도 0.01ms 짜리가 한 프레임은
+      // 돈다(tokens.css). 끝나기 전에 재면 옛 자리(예: 열리기 전 [스텝 목록] 단추)를 잰다(2026-11-15 S7b 실측).
+      await Promise.all(el.getAnimations().map((a) => a.finished.catch(() => undefined)));
       const r = el.getBoundingClientRect();
       return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
     }, testId);

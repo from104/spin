@@ -104,6 +104,7 @@ import type { StepCardMenuTarget } from './StepCardMenu.tsx';
 import { ConfirmDialog } from '../../ui/ConfirmDialog.tsx';
 import { useLongPressMenu } from './useLongPressMenu.ts';
 import { useT } from '../../i18n/useT.ts';
+import { useBackdropDismiss } from '../../ui/useBackdropDismiss.ts';
 
 export interface StepSidebarProps {
   /** 카드마다 판을 그리므로 steps 만으로는 부족하다 — cast·팀 색·코트가 함께 필요하다. */
@@ -580,6 +581,7 @@ export function StepSidebar({
 
   const panelId = useId();
   const [open, setOpen] = useState(false);
+  const backdrop = useBackdropDismiss(() => setOpen(false));
 
   // 우클릭 메뉴(2026-08-18) — 화면 상태(ephemeral). 카드의 onContextMenu 가 연다. 메뉴의
   // [선택]은 toggleSelectMode 를 안 거친다 — 그 함수는 체크를 비우는데, 메뉴의 뜻은 "이
@@ -986,8 +988,10 @@ export function StepSidebar({
         style={{
           position: 'absolute',
           top: 12,
-          left: 12,
-          zIndex: 20,
+          // 열리면 [스텝 목록 닫기] 로 바뀌므로 목록(25)·덮개(24) **위**, 목록 **오른쪽 바깥**에 선다.
+          // 옛 자리(왼쪽 12px · zIndex 20)는 열린 목록 아래에 깔려 같은 버튼으로 닫을 수 없었다(E2E S7b).
+          left: open ? `calc(min(${SIDEBAR_WIDTH_PX}px, 88%) + 12px)` : 12,
+          zIndex: open ? 26 : 20,
           width: 'var(--hit)',
           height: 'var(--hit)',
           borderRadius: 10,
@@ -1003,12 +1007,12 @@ export function StepSidebar({
         <IconListSteps size={18} />
       </button>
       {open && (
-        // 바깥 탭 = 배경 자체를 눌렀을 때만(target===currentTarget) — ui/Modal.tsx 의 백드롭과
-        // 같은 판정이다. 자식(카드·버튼)을 눌렀을 때는 새지 않는다.
+        // 바깥 탭 = 배경 자체를 누르고 뗐을 때만, click 에서 — ui/Modal.tsx 의 백드롭과 같은
+        // 판정(ui/useBackdropDismiss). pointerdown 에서 닫던 때는 터치의 click 이 아래 단추로 샜다(E2E S7c).
         <div
           data-sidebar-backdrop=""
           aria-hidden="true"
-          onPointerDown={(e) => e.target === e.currentTarget && setOpen(false)}
+          {...backdrop}
           style={{ position: 'absolute', inset: 0, zIndex: 24, background: 'rgba(0,0,0,.25)' }}
         />
       )}

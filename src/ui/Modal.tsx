@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { IconClose } from './icons.tsx';
 import { isImeKeyEvent } from './keyboard.ts';
+import { useBackdropDismiss } from './useBackdropDismiss.ts';
 
 export interface ModalProps {
   open: boolean;
@@ -56,6 +57,8 @@ function portalRoot(): HTMLElement {
 
 export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel = '닫기', returnFocusRef, initialFocusRef, panelStyle: panelStyleOverride, testId, children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // 바깥 누름 닫기 — click 에서(터치가 아래 단추로 새지 않게). 근거는 useBackdropDismiss 머리말.
+  const backdrop = useBackdropDismiss(onClose);
   const openedByRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -170,7 +173,7 @@ export function Modal({ open, onClose, titleId, title, descriptionId, closeLabel
   };
 
   return createPortal(
-    <div style={backdropStyle} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div style={backdropStyle} {...backdrop}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} style={panelStyle} data-testid={testId}>
         <button
           type="button"

@@ -54,10 +54,7 @@ export default defineGroup('steps', [
     // 닫기" 로 바뀌는데 열린 목록(z 25)과 덮개(z 24)가 단추(z 20)를 덮는다. 사람은 바깥을 누르는 길밖에 없다.
     title: 'S7b 좁은 창의 스텝 목록을 연 단추로 닫는다',
     needs: ['keyboard'],
-    knownBug:
-      '접힌 스텝 목록(StepSidebar 접힘 모드)을 열면 [스텝 목록 닫기] 로 바뀐 그 단추(zIndex 20)가 목록 패널(25)·덮개(24) 아래에 ' +
-      '깔려 누를 수 없다 — 머리말은 "닫기 = 바깥 탭 또는 같은 버튼" 이라 적었지만 같은 버튼 쪽은 손이 안 닿는다',
-    symptom: /스텝 목록 닫기 단추가 다른 요소에 가려져 있다/,
+    // 2026-11-15 졸업: 열리면 단추가 목록 위(zIndex 26)·목록 오른쪽 바깥으로 옮겨 선다(StepSidebar).
     run: async (app) => {
       // 접힘 모드는 좁은 창에서 선다 — 데스크톱 엔진은 창을 Pixel 7 크기로 줄여 같은 배치를 받는다
       if (app.capabilities.has('resize')) await app.resize(412, 839);
@@ -75,10 +72,7 @@ export default defineGroup('steps', [
     // 이렇게 새지 않으므로 터치에서만 본다.
     title: 'S7c 스텝 목록 바깥 탭이 아래 단추를 누르지 않는다',
     needs: ['touch', 'keyboard'],
-    knownBug:
-      '접힌 스텝 목록의 덮개가 pointerdown 에서 닫혀, 터치를 뗀 뒤의 click 이 덮개 아래 단추(예: [보드 설정])에 떨어진다 — ' +
-      '덮개를 click 에서 닫거나 pointerdown 의 기본 동작을 막아야 한다(ui/Modal.tsx 의 백드롭도 같은 판정을 쓴다)',
-    symptom: /바깥을 눌러 닫았는데 아래의 \[보드 설정\]이 열렸다/,
+    // 2026-11-15 졸업: 덮개는 누르고 뗀 것이 둘 다 덮개일 때 click 에서 닫는다(ui/useBackdropDismiss — Modal 도 같은 판정).
     run: async (app) => {
       await app.placeFromTray('ball', at(0.35, 0.5), { via: 'drag' });
       await app.saveBoardAsDrill();
