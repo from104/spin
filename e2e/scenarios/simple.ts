@@ -157,4 +157,54 @@ export default defineGroup('simple', [
       await expectQuiet(app, 'S18c');
     },
   },
+  {
+    // 지우면 새는 실기 버그(113154c): 휠체어 여럿을 골라 벽 쪽으로 밀면 칩마다 따로 벽에 서서 **벽 쪽 칩만 멈추고 나머지가
+    // 겹쳐 들어온다**(키보드), 덩어리 끌기는 벽 검사가 없어 무리째 판 밖으로 나간다. 가장 먼저 닿는 칩이 무리 전체를 세워야
+    // 간격(포메이션)이 남는다. 평소 모드·상호작용 끔(앱 기본)에서 잰다 — 순간이동 경로다.
+    title: 'S18d 무리 이동 — 벽에서 무리 전체가 서고 간격이 남는다',
+    needs: ['keyboard'],
+    run: async (app) => {
+      const a = await app.placeFromTray('chair', at(0.3, 0.5), { via: 'drag', team: 'home' });
+      const b = await app.placeFromTray('chair', at(0.45, 0.5), { via: 'drag', team: 'home' });
+      const a0 = await objectById(app, a);
+      const b0 = await objectById(app, b);
+      // 화면에서 월드 −x 벽(a 쪽)이 어느 쪽인가 — 세로 창에서는 코트가 돌아 있다
+      const s0 = await app.worldToScreen(a0);
+      const s1 = await app.worldToScreen({ x: a0.x - 100, y: a0.y });
+      const dx = s1.x - s0.x;
+      const dy = s1.y - s0.y;
+      const toWall = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'ArrowRight' : 'ArrowLeft') : dy > 0 ? 'ArrowDown' : 'ArrowUp';
+
+      const c = await app.objectCenter(a);
+      check(c !== null, '휠체어가 화면에 없다');
+      await app.tap(c);
+      await app.settled();
+      await app.pressKey('ControlOrMeta+a'); // 둘 다 고른다 — 포커스는 a 에 남아 방향키가 무리 이동이 된다
+      await app.settled();
+      for (let i = 0; i < 24; i++) await app.pressKey(`Shift+${toWall}`); // 큰 걸음으로 반 코트 넘게
+      await app.settled();
+      const a1 = await objectById(app, a);
+      const b1 = await objectById(app, b);
+      check(a0.x - a1.x > 50, '무리가 벽 쪽으로 안 움직였다(전제 실패 — 무리 선택·포커스)', { a0, a1, b1 });
+      check(Math.abs(b1.x - a1.x - (b0.x - a0.x)) < 0.5 && Math.abs(b1.y - a1.y - (b0.y - a0.y)) < 0.5, '벽에서 무리 간격이 무너졌다(벽 쪽 칩만 멈췄다)', {
+        a0,
+        b0,
+        a1,
+        b1,
+      });
+
+      if (app.capabilities.has('pointer')) {
+        // 벽에 선 무리를 손으로 더 벽 쪽으로 끈다 — 무리 전체가 그 자리에 서 있어야 한다(판 밖으로 안 나간다)
+        const from = await app.objectCenter(b);
+        check(from !== null, '휠체어가 화면에 없다');
+        const len = Math.hypot(dx, dy);
+        await app.drag(from, shift(from, (dx / len) * 120, (dy / len) * 120), { steps: 12 });
+        await app.settled();
+        const a2 = await objectById(app, a);
+        const b2 = await objectById(app, b);
+        check(poseKey([a2, b2]) === poseKey([a1, b1]), '벽에 선 무리를 더 끌었더니 판 밖으로 나갔다', { a1, a2, b1, b2 });
+      }
+      await expectQuiet(app, 'S18d');
+    },
+  },
 ]);
