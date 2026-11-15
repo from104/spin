@@ -752,6 +752,7 @@ export const en: Record<DictKey, string> = {
   'editor.toolRail.selectActiveHint': ' — Press again to select multiple.',
   'editor.toolRail.placementLockedHint': ' — Placing continuously. Press again to turn it off.',
   'editor.toolRail.placementActiveHint': ' — Placing one returns to the select tool. Press again to place continuously.',
+  'editor.courtStage.ariaLabel': 'Court editing area',
   'editor.toolRail.placedPlayerTitle': '{{who}} — already on the court. Drag it back here to return it.',
   'editor.toolRail.armPlayerAriaLabel': 'Place {{who}}',
   'editor.toolRail.armPlayerTitle': '{{who}} — drag onto the court, or tap then tap the court',

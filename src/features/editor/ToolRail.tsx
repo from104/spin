@@ -758,7 +758,7 @@ export function ToolRail({
             const armed = pendingPlayerId === c.id;
             // §3.4 — 이름이 있으면 '2번 김민수', 없으면 예전 그대로 '2번'. 형식은 model/chairLabel
             // 이 쥔다(트레이·시연·계획서가 같은 말로 부르게).
-            const who = numberedName(c.number, c.name);
+            const who = numberedName(locale, c.number, c.name);
             // 나가 있는 선수는 **빈 자리**로 남긴다. 버튼이 아니라 표식이라 끌 수도, 누를 수도 없다.
             if (c.placed) {
               return (

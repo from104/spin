@@ -50,6 +50,7 @@ import type { TransformWriter } from './transformWriter.ts';
 import { StageRotProvider } from './stageRot.tsx';
 import { computeMetrics, clientToWorld, worldToClient, zoomAt, wheelZoomFactor, panView, panViewByScreen, edgePanVelocity, screenDeltaToWorld, type StageView, type StageMetrics, type StageRot } from './useStageMetrics.ts';
 import { raf } from './rafLoop.ts';
+import { useT } from '../i18n/useT.ts';
 
 /** 더블클릭 판정. OS 기본값(대개 500ms)보다 짧게 잡는다 — 판 위에서는 같은 자리를 두 번
  *  누르는 일이 흔해서, 길면 무심코 이동이 무장된다. */
@@ -348,6 +349,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
   },
   ref,
 ) {
+  const t = useT();
   const def = courtDefFor(mode, size);
   const markerUid = useId();
   // 마커는 (색 × 굵기)마다 하나다 — 획이 굵기 축을 들여왔기 때문이다(arrowHeadGeom.ts).
@@ -917,7 +919,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
       viewBox={rot === 90 ? `0 0 ${view.h} ${view.w}` : `${view.x} ${view.y} ${view.w} ${view.h}`}
       preserveAspectRatio="xMidYMid meet"
       role="application"
-      aria-label="코트 편집 영역"
+      aria-label={t('editor.courtStage.ariaLabel')}
       aria-describedby={ariaDescribedBy}
       tabIndex={0}
       className="stage-svg"

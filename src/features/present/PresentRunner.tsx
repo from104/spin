@@ -305,6 +305,7 @@ function PresentBody({
   const playback = usePlaybackState();
   const playbackActions = usePlaybackActions();
   const t = useT();
+  const locale = useLocale();
   // §0.5 Phase 5 — 레일 [도움말] 이 "지금 이 화면" 을 열 수 있게 등록한다(EditorWorkspace 와
   // 같은 이유). PresentSideBar 자기 [도움말] 칸은 이제 없다.
   // ★ 투어보다 **먼저** 선다 — 투어의 마지막 말풍선이 [자세한 도움말] 로 이 문을 쓴다.
@@ -326,8 +327,8 @@ function PresentBody({
   // §3.4 — 실명을 적어 둔 선수만, 드릴 단위로 한 번 만든다. 스텝마다 다시 만들면 60fps
   // 재생 중에 배열이 매 프레임 새로 생긴다(자막 아래 한 줄이 그럴 이유가 없다).
   const namedRoster = useMemo(
-    () => drill.cast.chairs.filter(hasChairName).map((c) => numberedName(c.number, c.name)),
-    [drill],
+    () => drill.cast.chairs.filter(hasChairName).map((c) => numberedName(locale, c.number, c.name)),
+    [drill, locale],
   );
 
   /** 이 드릴이 노트 띠를 **쓰기는 하는가.** 드릴 단위 판정인 것이 핵심이다 — 스텝 단위로 재면

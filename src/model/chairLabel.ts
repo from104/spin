@@ -5,6 +5,7 @@
 // 부르는 규칙을 각 화면이 따로 쓰면 같은 선수가 자리마다 다른 이름으로 불리므로 여기 모은다.
 // 4차 PDF 계획서가 다음 소비자다 — 그때 규칙을 또 쓰지 않도록 이 파일에서 가져다 쓴다.
 import type { ChairDef, TeamSide, TeamStyle } from './drill.ts';
+import type { Locale } from '../i18n/locale.ts';
 
 /** 이 두 함수가 필요로 하는 최소한. `Drill` 전체를 받게 하면 PDF·트레이처럼 요약만 들고 있는
  *  호출자가 못 쓴다. */
@@ -33,15 +34,24 @@ export function chairName(def: ChairNamed, teams: Record<TeamSide, TeamStyle>): 
  *  ⚠️ 이름 없는 경우의 결과가 `'2번'` 인 것은 **기존 트레이 손잡이 이름과 같아야 하기 때문**이다
  *  (`'2번 선수 배치'`). 여기서 형식을 바꾸면 이름을 한 번도 안 적은 사용자의 버튼 이름이
  *  통째로 달라진다. */
-export function numberedName(number: string, name?: string): string {
+export function numberedName(locale: Locale, number: string, name?: string): string {
   const n = (name ?? '').trim();
-  return n ? `${number}번 ${n}` : `${number}번`;
+  const num = NUMBERED[locale](number);
+  return n ? `${num} ${n}` : num;
 }
+
+/** 등번호 표기 — 언어마다 붙이는 말이 다르다(2026-11-15, E2E S13c 가 en·ja 화면의 `Place 2번` 을
+ *  잡았다). 한국어는 옛 표기 그대로라 이름 안 적은 사용자의 트레이 손잡이 이름이 안 바뀐다. */
+const NUMBERED: Record<Locale, (n: string) => string> = {
+  ko: (n) => `${n}번`,
+  en: (n) => `#${n}`,
+  ja: (n) => `${n}番`,
+};
 
 /** 실명을 **적은 선수만** "3번 홍길동" 형식으로 나열한다 — 시연 범례(PresentRunner)가
  *  세우고 인쇄·PNG(§0.5 미배송 빚, 2026-08-20)가 그대로 물려받는 단일 출처. 안 적었으면
  *  빈 배열, 절반만 적었으면 적은 절반만 — 번호뿐인 선수를 나열하면 코트에 이미 있는
  *  정보를 옮겨 적는 것뿐이다(PresentRunner 의 원래 근거 그대로). */
-export function namedRosterOf(chairs: readonly ChairNamed[]): string[] {
-  return chairs.filter(hasChairName).map((c) => numberedName(c.number, c.name));
+export function namedRosterOf(locale: Locale, chairs: readonly ChairNamed[]): string[] {
+  return chairs.filter(hasChairName).map((c) => numberedName(locale, c.number, c.name));
 }

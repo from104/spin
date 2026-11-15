@@ -38,14 +38,17 @@ describe('chairName — 명단 한 줄이 읽는 이름', () => {
 
 describe('numberedName — 등번호와 사람을 잇는 표기(트레이 · 시연 범례)', () => {
   it('이름이 있으면 번호 뒤에 붙인다', () => {
-    expect(numberedName('2', '김민수')).toBe('2번 김민수');
+    expect(numberedName('ko', '2', '김민수')).toBe('2번 김민수');
   });
 
   it('이름이 없으면 **번호만** 이다 — 기존 트레이 손잡이 이름과 한 글자도 달라지면 안 된다', () => {
     // '2번 선수 배치' 를 세는 ToolRail.test.tsx 가 이 계약 위에 서 있다.
-    expect(numberedName('2')).toBe('2번');
-    expect(numberedName('G', '')).toBe('G번');
-    expect(numberedName('4', '  ')).toBe('4번');
+    expect(numberedName('ko', '2')).toBe('2번');
+    expect(numberedName('ko', 'G', '')).toBe('G번');
+    expect(numberedName('ko', '4', '  ')).toBe('4번');
+    // en·ja 화면에 한국어 '번' 이 새지 않는다(2026-11-15, E2E S13c 가 잡은 누수).
+    expect(numberedName('en', '2')).toBe('#2');
+    expect(numberedName('ja', '2', '佐藤')).toBe('2番 佐藤');
   });
 });
 
@@ -70,10 +73,10 @@ describe('namedRosterOf — 인쇄·PNG 가 시연 범례와 공유하는 단일
       { team: 'away' as const, number: '4', isGk: false, name: '  ' }, // 공백뿐 — 빠진다
       { team: 'away' as const, number: 'G', isGk: true, name: '이수현' },
     ];
-    expect(namedRosterOf(chairs)).toEqual(['2번 김민수', 'G번 이수현']);
+    expect(namedRosterOf('ko', chairs)).toEqual(['2번 김민수', 'G번 이수현']);
   });
 
   it('아무도 이름을 안 적었으면 빈 배열', () => {
-    expect(namedRosterOf([{ team: 'home' as const, number: '2', isGk: false }])).toEqual([]);
+    expect(namedRosterOf('ko', [{ team: 'home' as const, number: '2', isGk: false }])).toEqual([]);
   });
 });

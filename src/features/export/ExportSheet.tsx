@@ -249,7 +249,7 @@ export function ExportSheet({ open, onClose, mode = 'drill', drill, stepIndex, c
   // §7 3.4 선수 실명(§0.5 미배송 빚, 2026-08-20) — 안 적었으면 undefined(캡션 띠 두 줄
   // 그대로), 적었으면 시연 범례와 같은 값을 한 줄로 이어 붙이고 captionRosterLen 에서 자른다.
   const rosterCaptionText = (d: Drill): string | undefined => {
-    const joined = namedRosterOf(d.cast.chairs).join(' · ');
+    const joined = namedRosterOf(locale, d.cast.chairs).join(' · ');
     return joined.length > 0 ? joined.slice(0, LIMITS.captionRosterLen) : undefined;
   };
 

@@ -41,7 +41,7 @@ export function PrintDrillSheet({ drill, stepIndexes, view }: PrintDrillSheetPro
   // §7 3.4 선수 실명(§0.5 미배송 빚, 2026-08-20) — 시연 화면(PresentRunner)의 범례와
   // 같은 값·같은 규칙(namedRosterOf). 첫 장에만(위 목적·코칭 포인트와 같은 이유 — 드릴
   // 전체 정보를 60장마다 반복하지 않는다).
-  const namedRoster = namedRosterOf(drill.cast.chairs);
+  const namedRoster = namedRosterOf(locale, drill.cast.chairs);
 
   return (
     <>

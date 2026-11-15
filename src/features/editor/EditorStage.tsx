@@ -15,6 +15,7 @@ import type { Vec2 } from '../../core/units.ts';
 import { isId } from '../../core/ids.ts';
 import { moveAnchorGuide, moveAnchorIds } from './moveAnchorIds.ts';
 import { canNudge, canRotateKind } from './nudgeCaps.ts';
+import { numberedName } from '../../model/chairLabel.ts';
 import { COALESCE_MS } from '../../store/editor/history.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
 import type { CastId, ChairId, NoteId } from '../../core/ids.ts';
@@ -201,11 +202,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         // 팀 소속을 그대로 실어 보낸다 — 색 밖의 팀 표식(4.6)의 입력이다.
         team: def.team,
         number: def.number,
-        ariaLabel: `${teamStyle.label} ${def.number}번${def.role ? ` · ${def.role}` : ''}`,
+        ariaLabel: `${teamStyle.label} ${numberedName(locale, def.number)}${def.role ? ` · ${def.role}` : ''}`,
       });
     }
     return out;
-  }, [drill.cast.chairs, drill.teams, step.chairs]);
+  }, [drill.cast.chairs, drill.teams, step.chairs, locale]);
 
   const balls = useMemo(() => drill.cast.balls.filter((b) => step.balls[b.id] !== undefined).map((b) => b.id), [drill.cast.balls, step.balls]);
 

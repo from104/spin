@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 - Security flaw in the Android app that could let outside web content run with the app's permissions
 - Security fixes in the desktop app — updated the Tauri dependencies to patch known flaws in the archive (zip) and TLS (rustls) libraries
 - Grabbing or double-clicking an object right after placing it opened the [Fine-tune] pad or note box instead of dragging, or opened nothing
+- Korean text (the "번" after wheelchair numbers and the court name) still showed on the English and Japanese board screen and was read by screen readers
 - Corner kicks now warn when a defender inside the goal area is in front of the 1m mark, and allow defenders behind it even within 5m
 
 ## [0.6.12] 2026-09-21

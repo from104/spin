@@ -775,6 +775,7 @@ export const ko = {
   'editor.toolRail.selectActiveHint': ' — 한 번 더 누르면 여러 개를 모아 고릅니다.',
   'editor.toolRail.placementLockedHint': ' — 연속으로 놓는 중입니다. 한 번 더 누르면 풀립니다.',
   'editor.toolRail.placementActiveHint': ' — 하나 놓으면 선택 도구로 돌아갑니다. 한 번 더 누르면 연속으로 놓습니다.',
+  'editor.courtStage.ariaLabel': '코트 편집 영역',
   'editor.toolRail.placedPlayerTitle': '{{who}} — 코트에 나가 있습니다. 코트에서 이리로 끌어다 놓으면 돌아옵니다.',
   'editor.toolRail.armPlayerAriaLabel': '{{who}} 선수 배치',
   'editor.toolRail.armPlayerTitle': '{{who}} — 끌어다 놓거나 탭한 뒤 코트를 누르세요',

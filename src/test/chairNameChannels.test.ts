@@ -38,8 +38,8 @@ function filesCallingNameHelpers(dir: string): string[] {
 
 describe('대조군 — 이름 규칙 자체는 살아 있다(구멍이 "기능이 없어서" 가 아니다)', () => {
   it('numberedName 이 이름을 실제로 붙인다', () => {
-    expect(numberedName('3', '김민수')).toContain('김민수');
-    expect(numberedName('3', undefined)).not.toContain('undefined');
+    expect(numberedName('ko', '3', '김민수')).toContain('김민수');
+    expect(numberedName('ko', '3', undefined)).not.toContain('undefined');
   });
   it('hasChairName / chairName 이 빈 이름을 걸러낸다', () => {
     const teams = {

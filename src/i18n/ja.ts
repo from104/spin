@@ -751,6 +751,7 @@ export const ja: Record<DictKey, string> = {
   'editor.toolRail.selectActiveHint': ' — もう一度押すと複数選択になります。',
   'editor.toolRail.placementLockedHint': ' — 連続配置中です。もう一度押すと解除します。',
   'editor.toolRail.placementActiveHint': ' — 1つ置くと選択ツールに戻ります。もう一度押すと連続配置になります。',
+  'editor.courtStage.ariaLabel': 'コート編集エリア',
   'editor.toolRail.placedPlayerTitle': '{{who}} — コートに出ています。ここへドラッグして戻します。',
   'editor.toolRail.armPlayerAriaLabel': '{{who}}を配置',
   'editor.toolRail.armPlayerTitle': '{{who}} — ドラッグするか、タップしてからコートを押してください',
