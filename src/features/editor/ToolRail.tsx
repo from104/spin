@@ -350,16 +350,20 @@ const BTN_STYLE = {
 function TrayChairArt({ color, ink, number, empty, disc = false }: { color?: string; ink?: string; number: string; empty?: boolean; disc?: boolean }) {
   const half = CHAIR.widthPx / 2;
   if (disc) {
-    // 심플 모드 — 트레이 칩도 원(model/chairDisc.ts). 뷰박스를 원에 맞춰 정사각으로 잡고(칩 상자 안에서
-    // 가운데 정렬), 앞(눈금)이 위를 보게 -90° 돌린다 — 차체 칩과 같은 약속이다.
+    // 심플 모드 — 트레이 칩도 원(model/chairDisc.ts). 앞(눈금)이 위를 보게 -90° 돌린다 — 차체 칩과 같은 약속이다.
+    // ⚠️ 크기는 코트 축척이 아니라 **아이콘 무게**로 잡는다(2026-11-16 기현님 *"심플모드 트레이 휠체어 칩이 작다."*).
+    //    처음엔 정사각 뷰박스(±1.4R)를 차체 칩의 **좁은 폭**(CHIP_W) 상자에 넣어 지름이 칩 폭의 0.71(44 기준 18 px)이었다.
+    //    이제 원 + 위 눈금(끝 1.3R)이 차체 칩의 **긴 변**(CHIP_H) 높이를 꽉 채운다 — 지름 = CHIP_H × 2/2.32(44 기준 33 px),
+    //    폭 33 은 상자(--hit 44, 테두리 2×2) 안이다. 끌어 나올 때 고스트(TrayGhost)는 코트 위 실제 크기 그대로다.
     const R = DISC_RADIUS_PX;
     const lineColor = empty ? 'var(--border-strong)' : 'rgba(255,255,255,.92)';
+    const top = R * 1.32; // 눈금 끝(1.3R) + 획 여유
     return (
       <svg
         aria-hidden
         data-shape="disc"
-        viewBox={`${-R * 1.4} ${-R * 1.4} ${R * 2.8} ${R * 2.8}`}
-        style={{ display: 'block', overflow: 'visible', width: CHIP_W_CSS, height: CHIP_H_CSS }}
+        viewBox={`${-R} ${-top} ${R * 2} ${top + R}`}
+        style={{ display: 'block', overflow: 'visible', width: `calc(${CHIP_H_CSS} * ${(2 / (2 + 0.32)).toFixed(4)})`, height: CHIP_H_CSS }}
       >
         <g transform="rotate(-90)">
           <circle r={R} fill={empty ? 'none' : color} stroke={lineColor} strokeWidth={2.2} strokeDasharray={empty ? '5 4' : undefined} />
