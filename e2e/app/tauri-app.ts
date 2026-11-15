@@ -5,6 +5,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { test } from '@playwright/test';
+
 import { WdioApp, type WdioAppOptions } from '../drivers/WdioApp.ts';
 import type { DecodedPng } from '../support/png.ts';
 import { captureRoot } from './xwd.ts';
@@ -131,6 +133,21 @@ export class TauriApp extends WdioApp {
   async closeWindow(): Promise<void> {
     await this.harvestErrors();
     if (!(await this.session.closeWindow())) throw new Error('창을 닫았는데 앱이 끝나지 않았다');
+  }
+
+  /**
+   * 시드의 지우기가 막혔다 — 앱을 같은 프로필로 다시 띄우면 연결을 쥔 프로세스째 사라진다. 숨기지 않는다:
+   * 시험 보고서에 `harness` 표식으로 남기고 로그에도 찍는다(retries 0 원칙 — 흔들림은 드러낸다, 결정 7).
+   */
+  protected override async recoverStuckSeed(reason: string): Promise<void> {
+    const note = `시드 지우기가 막혀 앱을 다시 띄움 — ${reason}`;
+    console.warn(`[e2e] ${note}`);
+    try {
+      test.info().annotations.push({ type: 'harness', description: note });
+    } catch {
+      // 시험 밖(전역 준비 등)에서 불렸다 — 로그만 남는다
+    }
+    await this.relaunch();
   }
 
   /** 같은 프로필로 다시 띄운다(fresh = 첫 설치 프로필). 문서는 아직 안 연다 — open/seed 가 연다 */

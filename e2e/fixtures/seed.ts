@@ -89,10 +89,17 @@ export async function applySeed({ entries, dbName }: SeedPayload): Promise<void>
   sessionStorage.clear();
   await new Promise<void>((resolve, reject) => {
     const req = indexedDB.deleteDatabase(dbName);
+    let blocked = false;
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error ?? new Error('indexedDB.deleteDatabase 실패'));
     // 열린 연결이 남아 막혀도 그 연결이 닫히면 onsuccess 가 온다 — 여기서 끝내지 않는다
-    req.onblocked = () => undefined;
+    req.onblocked = () => {
+      blocked = true;
+    };
+    // ⚠️ 2026-11-15 CI(e2e-app linux) — 앞 문서의 연결이 끝내 안 닫혀 지우기가 영영 기다린 적이 있다(스크립트 상한 20초로
+    //   "script timeout" 만 남았다). 상한 안에 이름 붙은 오류로 끊어, 드라이버가 알아보고 되살릴 수 있게 한다(WdioApp.seed).
+    //   직렬화되는 함수라 상한·표식은 바깥 상수가 아니라 여기 적는다.
+    setTimeout(() => reject(new Error(`SEED_DB_STUCK: deleteDatabase 가 8초 안에 끝나지 않음 (blocked ${blocked ? '옴' : '안 옴'})`)), 8_000);
   });
   for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value);
 }

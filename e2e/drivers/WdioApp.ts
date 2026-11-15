@@ -183,12 +183,28 @@ export class WdioApp implements SpinApp {
   }
 
   async seed(state?: SeedState): Promise<void> {
+    await this.seedOnBlank(state);
+    await this.open(state?.route ?? '/');
+  }
+
+  private async seedOnBlank(state: SeedState | undefined, recovered = false): Promise<void> {
     await this.navigate(this.options.blankPath);
     // 정적 파일이 아니라 앱(index.html fallback)이 떴다면 거기서 심으면 앱이 먼저 저장소를 건드린다 — 그 자리에서 멈춘다
     const isApp = await this.js(() => !!document.getElementById('root'));
     if (isApp) throw new Error(`seed: ${this.options.blankPath} 가 정적 파일이 아니라 앱을 내줬다 — blankPath 를 빌드에 있는 파일로`);
-    await this.js(applySeed, seedPayload(state));
-    await this.open(state?.route ?? '/');
+    try {
+      await this.js(applySeed, seedPayload(state));
+    } catch (error) {
+      // 지우기가 막힌 것은 앱이 아니라 시험 문서의 사정이다(앞 문서의 연결이 안 닫힘) — 한 번만 되살리고, 또 막히면 그대로 던진다
+      if (recovered || !String(error).includes('SEED_DB_STUCK')) throw error;
+      await this.recoverStuckSeed(String(error).split('\n')[0]);
+      await this.seedOnBlank(state, true);
+    }
+  }
+
+  /** 시드의 지우기가 막혔을 때 — 저장소를 쥔 프로세스를 끊어 줄 수 있는 드라이버만 되살린다. 기본은 그대로 던진다 */
+  protected async recoverStuckSeed(reason: string): Promise<void> {
+    throw new Error(reason);
   }
 
   async open(route: string): Promise<void> {
