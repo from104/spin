@@ -175,7 +175,8 @@ export async function startLinuxEnv({ logDir }: { logDir: string }): Promise<App
     env.DISPLAY = `:${await firstLine(xvfb.stdio[3] as NodeJS.ReadableStream, 'Xvfb')}`;
 
     // ── 사설 세션 버스 ──
-    const dbus = spawn('dbus-daemon', ['--session', '--nofork', '--nopidfile', '--print-address=1'], {
+    // 소켓은 임시 프로필 안에 — 기본 자리(/tmp/dbus-XXXX)는 데몬이 SIGKILL 로 죽으면 파일이 남는다. 프로필과 함께 지워지게 한다
+    const dbus = spawn('dbus-daemon', ['--session', '--nofork', '--nopidfile', '--print-address=1', `--address=unix:path=${path.join(profile.runtime, 'bus')}`], {
       env,
       stdio: ['ignore', 'pipe', log('dbus')],
     });

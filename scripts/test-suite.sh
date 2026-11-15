@@ -10,7 +10,7 @@
 # 옵션
 #   --layer code|web|app    여러 번 줄 수 있다 (기본: code + web)
 #                           code = npm run lint + npm run typecheck + vitest + cargo test(src-tauri)
-#                           web  = Playwright (운영 웹 빌드, 3개 프로젝트)
+#                           web  = Playwright (운영 웹 빌드, 4개 프로젝트)
 #                           app  = 실제 Tauri 앱 — 디버그 바이너리를 굽고(e2e/app/build.mjs, 필요할 때만) Linux 는 Xvfb +
 #                                  tauri-driver + WebKitWebDriver, Windows 는 tauri-driver + msedgedriver (playwright.app.config.ts)
 #   --platform linux|windows|android   app 층의 대상 (기본: 이 기계의 OS). windows 는 Windows 호스트(CI 의 windows-latest,

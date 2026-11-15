@@ -1,6 +1,6 @@
 // Playwright — 운영 웹 빌드(dist/)를 로컬 정적 서버로 띄워 시나리오를 돌린다. docs/PLAN-TEST-SUITE.md §1·§2.
 //
-//   npm run test:e2e                              # 3개 프로젝트 전부
+//   npm run test:e2e                              # 4개 프로젝트 전부
 //   npm run test:e2e -- --project=webkit-desktop
 //   E2E_REBUILD=1 npm run test:e2e                # dist/ 강제 재빌드
 //

@@ -17,7 +17,7 @@
 // 캐시: src-tauri/target/e2e-release/<태그|file-…>/ (git 이 무시하는 자리)
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -98,6 +98,15 @@ const extractStamp = path.join(extractDir, '.e2e-extracted');
 if (!existsSync(extractStamp) || readFileSync(extractStamp, 'utf8') !== extractKey) {
   rmSync(extractDir, { recursive: true, force: true });
   mkdirSync(extractDir, { recursive: true });
+  // 실행하기 전에 정말 AppImage(type 2: ELF + 8번째 바이트부터 'AI\x02')인지 본다 — 아니면 `--appimage-extract` 를 모르는 실행 파일
+  // (예: 구운 앱 바이너리 target/e2e-app/spin)이 **사용자의 진짜 환경·진짜 프로필**로 그대로 뜬다. 이 자리는 격리 세션 밖이다
+  const head = Buffer.alloc(11);
+  const fd = openSync(appImage, 'r');
+  readSync(fd, head, 0, 11, 0);
+  closeSync(fd);
+  if (head.subarray(0, 4).toString('latin1') !== '\x7fELF' || head.subarray(8, 11).toString('latin1') !== 'AI\x02') {
+    fail(`AppImage(type 2)가 아니다 — 실행하지 않는다: ${appImage}`);
+  }
   chmodSync(appImage, 0o755);
   const r = spawnSync(appImage, ['--appimage-extract'], { cwd: extractDir, stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8' });
   if (r.status !== 0 || !existsSync(path.join(appDir, 'AppRun'))) fail(`AppImage 를 못 풀었다(exit ${r.status}): ${String(r.stderr).trim().split('\n')[0]}`);
