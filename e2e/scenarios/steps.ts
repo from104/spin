@@ -74,6 +74,8 @@ export default defineGroup('steps', [
     needs: ['touch', 'keyboard'],
     // 2026-11-15 졸업: 덮개는 누르고 뗀 것이 둘 다 덮개일 때 click 에서 닫는다(ui/useBackdropDismiss — Modal 도 같은 판정).
     run: async (app) => {
+      // 스텝 목록은 세로·좁은 창에서만 접힌다 — 가로 태블릿은 세로로 돌려(800×1280) 같은 배치를 받는다
+      if (app.capabilities.has('resize')) await app.resize(800, 1280);
       await app.placeFromTray('ball', at(0.35, 0.5), { via: 'drag' });
       await app.saveBoardAsDrill();
       await app.openStepList();

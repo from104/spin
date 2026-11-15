@@ -26,7 +26,7 @@ HTML 보고서는 `playwright-report/`. 추적·스크린샷은 **실패한 시�
 | 층 | 내용 |
 |---|---|
 | `code` | `npm run lint`(기준선 판정) · `npm run typecheck` · vitest · `cargo test`(src-tauri, cargo 가 있고 `--no-cargo` 가 아닐 때) |
-| `web` | 운영 웹 빌드(`npm run build` → `dist/`, 프리렌더 포함)를 정적 서버로 띄워 Playwright 3프로젝트 |
+| `web` | 운영 웹 빌드(`npm run build` → `dist/`, 프리렌더 포함)를 정적 서버로 띄워 Playwright 4프로젝트 |
 | `app` | 실제 Tauri 앱 — 디버그 바이너리(`tauri build --debug --no-bundle`, 웹 층과 같은 `dist/` 를 품는다)를 Xvfb 안에서 tauri-driver + WebKitWebDriver 로 (아래 「app 층」). 기본 층이 아니다(`--layer app`) |
 
 웹 프로젝트(`playwright.config.ts`) — 실제 셸의 **근사**다(실기 대체가 아니다)
@@ -36,6 +36,7 @@ HTML 보고서는 `playwright-report/`. 추적·스크린샷은 **실패한 시�
 | `chromium-desktop` | Windows WebView2 (1280×800) | pointer keyboard reload resize download prerender netMock |
 | `webkit-desktop` | Linux WebKitGTK · Safari (1280×800) | 위와 같음(터치 에뮬레이션 없음) |
 | `chromium-mobile` | Android WebView (Pixel 7 세로, 터치) | touch keyboard reload netMock |
+| `chromium-tablet` | Android 태블릿 (갤럭시 탭 S4 가로, 터치 — 세로로 돌린 자리는 resize) | touch keyboard reload resize netMock |
 
 빌드 재사용: `e2e/support/serve.mjs` 가 빌드 입력의 지문(경로·mtime·크기 해시, `dist/.e2e-inputs`)이 바뀌었을 때만 다시 빌드한다
 (로그 `test-results/e2e-build.log`, 약 15초). 강제는 `--rebuild`/`E2E_REBUILD=1`, 포트는 `E2E_PORT`(기본 4179).

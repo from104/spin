@@ -1,4 +1,4 @@
-# PR 게이트 — code 층(린트·타입·vitest·cargo test) + web E2E(Playwright 3프로젝트). 안내: e2e/README.md
+# PR 게이트 — code 층(린트·타입·vitest·cargo test) + web E2E(Playwright 4프로젝트). 안내: e2e/README.md
 #
 # desktop-release.yml(릴리스 빌드, 태그·수동)과는 **독립**이다: 트리거도 겹치지 않고(여긴 devel 푸시·PR, 저쪽은 `v*` 태그·수동)
 # 둘 다 시크릿을 쓰지 않으며(여긴 하나도 안 쓴다 — 포크 PR·Dependabot PR 에서도 그대로 돈다) 산출물도 안 올린다.
@@ -70,7 +70,7 @@ jobs:
           path: test-results/
           retention-days: 7
 
-  # (b) 운영 웹 빌드 위 Playwright — chromium-desktop · webkit-desktop · chromium-mobile
+  # (b) 운영 웹 빌드 위 Playwright — chromium-desktop · webkit-desktop · chromium-mobile · chromium-tablet
   web-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -92,7 +92,7 @@ jobs:
 
       - run: npx playwright install --with-deps chromium webkit
 
-      - name: web 층 (운영 빌드 → Playwright 3프로젝트)
+      - name: web 층 (운영 빌드 → Playwright 4프로젝트)
         run: scripts/test-suite.sh --layer web
 
       - name: 요약

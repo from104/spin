@@ -79,5 +79,17 @@ export default defineConfig<E2EOptions>({
         capabilities: ['touch', 'keyboard', 'reload', 'netMock'],
       },
     },
+    {
+      // 2026-11-15 기현 지시 "태블릿 터치 환경을 하나 더 두자". 안드로이드 앱의 주 대상이 태블릿·펼친 폴드폰
+      // 이라(PLAN-ANDROID) **넓은 배치 + 터치** 조합이 따로 필요했다 — 데스크톱 둘은 넓지만 마우스, 휴대폰은
+      // 터치지만 좁은 세로다. 갤럭시 탭 S4 가로(1138×712, 배율 2.25). 터치는 휴대폰과 같은 CDP 길이다.
+      name: 'chromium-tablet',
+      use: {
+        ...devices['Galaxy Tab S4 landscape'],
+        // resize = 태블릿을 세로로 돌린 자리(800×1280 등)를 받는다 — 세로에서만 서는 판정(코트 90° 회전·스텝 목록
+        // 접힘)을 터치로 재는 유일한 프로젝트다. 휴대폰은 처음부터 세로라 resize 를 안 갖는다.
+        capabilities: ['touch', 'keyboard', 'reload', 'resize', 'netMock'],
+      },
+    },
   ],
 });
