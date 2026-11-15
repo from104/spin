@@ -41,7 +41,7 @@ export default defineGroup('layout', [
       await app.saveBoardAsDrill();
       await app.settled();
       if (!app.capabilities.has('resize')) {
-        // 터치 엔진은 창을 못 바꾼다 — 자기 크기(Pixel 7 세로 412×839)가 이미 가장 좁은 자리다
+        // 휴대폰 프로젝트는 창을 안 바꾼다 — 자기 크기(Pixel 7 세로 412×839)가 이미 가장 좁은 자리다(태블릿은 resize 로 아래를 돈다)
         await expectReachable(app, 'S9 기본 창');
       } else {
         for (const [w, h] of SIZES) {

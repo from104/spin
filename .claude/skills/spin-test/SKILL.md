@@ -22,7 +22,7 @@ description: SPIN 자동 테스트(code·web E2E 층)를 돌리고 결과를 읽
 | trace 열기 | `npx playwright show-trace test-results/e2e-artifacts/<시험>/trace.zip` |
 
 층: `code` = lint(경고가 기준선 `LINT_BASELINE` 을 넘으면 실패 — 값은 `scripts/test-suite.sh` 한 곳) · typecheck · vitest · cargo test /
-`web` = 운영 빌드(`dist/`) 위 Playwright 3프로젝트(chromium-desktop · webkit-desktop · chromium-mobile). `app` 층(Tauri·Android)은 아직 없다.
+`web` = 운영 빌드(`dist/`) 위 Playwright 4프로젝트(chromium-desktop · webkit-desktop · chromium-mobile · chromium-tablet). `app` 층(Tauri·Android)은 아직 없다.
 종료 코드: 실패 층이 있으면 1, **같은 작업 트리에서 이미 돌고 있으면 3**(`test-results/.run.lock` — 동시에 두 번 돌리지 않는다).
 
 ## 결과 읽는 순서
@@ -62,9 +62,9 @@ description: SPIN 자동 테스트(code·web E2E 층)를 돌리고 결과를 읽
    (망가뜨리기 전에 `cp` 해 둔 것을 덮어쓴다) — `git checkout -- <파일>` 은 그 파일의 커밋 안 된 수정까지 지운다(실제로 한 번 날렸다).
    `git stash` 금지. 한 빌드에 하나만 망가뜨린다 — prefs 파싱을 망가뜨리면 조용한 시드가 깨져 상관없는 시나리오가 빨개진다.
    `npm run build` 는 `tsc -b` 를 먼저 돈다 — 돌연변이가 import 를 안 쓰게 만들면 빌드가 죽어 "빨강" 이 시험이 아니라 서버 기동 실패다.
-3. 3프로젝트에서 `--repeat-each=3`(좌표·타이밍을 다루면 5)으로 안정 확인. 고정 sleep 금지, `retries` 0.
+3. 4프로젝트에서 `--repeat-each=3`(좌표·타이밍을 다루면 5)으로 안정 확인. 고정 sleep 금지, `retries` 0.
 4. 제목은 한글 20자 안팎(ZFS formD 산출물 경로 한계). 문구·개수·순서 단언 금지(번역·기획이 바뀐다).
-5. 커밋 끝줄: `typecheck 0 · lint 경고 48(기존) · vitest N 통과 · e2e N 통과(3프로젝트) · 돌연변이 N건으로 실효 확인`.
+5. 커밋 끝줄: `typecheck 0 · lint 경고 48(기존) · vitest N 통과 · e2e N 통과(4프로젝트) · 돌연변이 N건으로 실효 확인`.
 
 ## 모델 배분(AGENTS §10)
 

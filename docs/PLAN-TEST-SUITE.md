@@ -115,6 +115,8 @@ exportPng() → {width, height, blankRatio}    (download 능력)
 CDP `Input.dispatchTouchEvent` 로 보낸다(그래야 `pointerType: 'touch'` 가 된다) — WebKit 에는 없으므로
 `touch` 능력은 `chromium-mobile` 만 갖는다.
 
+> 2026-11-15 추가(기현 지시 "태블릿 터치 환경을 하나 더 두자"): `chromium-tablet`(갤럭시 탭 S4 가로, touch + resize). 안드로이드 앱의 주 대상인 **넓은 배치 + 터치**를 맡고, 세로로 돌린 자리(800×1280)는 resize 로 받아 S6(코트 90° 회전)·S7c(접힌 스텝 목록)를 터치로 잰다. 위 문장의 "`chromium-mobile` 만" 은 그 전의 사실이다.
+
 **선택자**: `data-testid` 를 최소로. 이미 있는 것을 먼저 쓴다 — `#obj-<id>`·`data-shape-id`(개체),
 `data-tut="editor-tray|editor-court|editor-playback|editor-step-sidebar|editor-export|library-card|…"`(투어 닻).
 aria-label·보이는 문구는 번역되므로 선택자로 쓰지 않는다. 새로 다는 것(약 20개): `app-shell[data-screen]`,
