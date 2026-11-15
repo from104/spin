@@ -487,7 +487,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     setPanArmed(v);
   }, []);
   /** 직전 pointerdown 의 시각·좌표. 더블클릭 판정용. */
-  const lastDownRef = useRef<{ t: number; x: number; y: number } | null>(null);
+  const lastDownRef = useRef<{ t: number; x: number; y: number; id: string | null } | null>(null);
   /** 이동 중인 포인터의 직전 화면 좌표. null 이면 이동 중이 아니다. */
   const panFromRef = useRef<Vec2 | null>(null);
   /** 이 이동 제스처에서 판이 실제로 밀렸는가 — 제자리 더블클릭은 무장만 하고 끝난다. */
@@ -618,11 +618,17 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     // 더블클릭이면 이동을 무장한다. 이미 무장돼 있으면 그대로 이동을 시작한다 —
     // "더블클릭하고 손을 뗀 뒤 끌기" 와 "더블클릭한 채로 끌기" 가 둘 다 통한다.
     const prev = lastDownRef.current;
+    // ⚠️ 두 누름이 **같은 대상**(같은 개체, 또는 둘 다 빈 코트)이어야 더블이다(2026-11-15).
+    //   시각·거리만 보던 때는 "탭으로 놓고 → 곧바로 그 새 개체를 잡기" 가 빈 코트 탭과 개체
+    //   누름으로 묶여, 끌기 대신 [미세 조정] 패드가(메모면 글 칸이) 떴다 — 손이 빠를수록 막혔다.
+    //   메모를 놓자마자 더블클릭하면 첫 누름이 더블로 잡혀 글 칸이 열리고, 둘째 누름이 그 덮개를
+    //   닫아 "아무것도 안 열린다" 로 보이던 것도 같은 뿌리다. E2E S5b 가 이 계약을 지킨다.
     const isDouble =
       !!prev &&
+      prev.id === idAt &&
       e.timeStamp - prev.t < DBL_CLICK_MS &&
       Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < DBL_CLICK_SLOP_PX;
-    lastDownRef.current = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+    lastDownRef.current = { t: e.timeStamp, x: e.clientX, y: e.clientY, id: idAt };
 
     // 개체 위 더블은 **여기서** 잰다 — DOM 의 `dblclick` 은 쓸 수 없다.
     //

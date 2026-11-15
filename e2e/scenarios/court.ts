@@ -75,11 +75,8 @@ export default defineGroup('court', [
   {
     // 지우면 새는 실기 버그: "놓자마자 자리를 고친다" 는 배치의 기본 흐름(§6.10a — 놓으면 그것이 선택된다)이
     // 손이 빠른 사람에게만 막히는 것. 놓기 탭과 다음 누름이 350ms·12px 안이면 더블탭으로 묶인다.
+    // 2026-11-15 고침: 더블 판정이 두 누름의 대상이 같은지 본다(CourtStage lastDownRef.id).
     title: 'S5b 놓자마자 끌기',
-    knownBug:
-      '탭으로 놓고 350ms 안에 그 자리의 새 개체를 누르면 놓기 탭과 합쳐져 더블탭이 된다 — 끌기 대신 미세 조정 패드가 뜬다. ' +
-      'CourtStage 의 더블클릭 판정(lastDownRef, DBL_CLICK_MS 350)이 첫 누름이 빈 코트(개체가 아직 없던 자리)였는지 보지 않는다',
-    symptom: /미세 조정 패드\(nudge-pad\)가 떴다/,
     run: async (app) => {
       const finger = await app.courtToScreen(at(0.45, 0.5));
       const to = shift(finger, 60, 30);
