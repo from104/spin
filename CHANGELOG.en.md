@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 
 - A direction grid on the wheelchair's [Fine-tune] pad — eight arrows turn it to face that way on screen, and the U-turn button in the middle turns it around (pressing again keeps turning the same way). The turn animates over 0.3 s. On a keyboard: number keys 1–8 (clockwise from 12 o'clock) and 9 (180°)
 
+### Changed
+
+- With [Physics & interaction] on, moving or turning a wheelchair, ball or cone with the keyboard or the [Fine-tune] pad now pushes and bumps its neighbors too — except locked and ignored objects; one undo brings the pushed neighbors back as well
+
 ### Removed
 
 - [Limit to real speed] in [Board settings] and the three speed sliders in [Settings] → [Advanced physics] (forward/back and spin speed limits, editing speed multiplier) — a grabbed object now always follows the pointer directly

@@ -373,7 +373,7 @@ export const HELP_EN: HelpContent = {
             items: [
               'With [Drag to rotate wheelchairs] on, grabbing the **front third** of the chair spins it in place (the back two-thirds still moves it as a whole).',
               'With [Show front/back anchors] on, **anchors appear in front of and behind** the selected chair. Grab one and it tows like it’s being pulled by a rope — it turns first.',
-              'With [Physics & interaction] on, wheelchairs push and bump balls, cones and other wheelchairs.',
+              'With [Physics & interaction] on, wheelchairs push and bump balls, cones and other wheelchairs. The same holds when you move or turn them with the keyboard or the [Fine-tune] pad (locked objects are not pushed).',
             ],
           },
           { kind: 'p', text: 'For the last few pixels, use the keyboard. On a tablet with no keyboard, double-tap the object (except notes), or long-press it and choose [Fine-tune] — a translucent pad appears in place with six cells: four to nudge up, down, left and right, and two to rotate left and right. With a single wheelchair selected, a direction grid sits above them — the eight arrows turn the wheelchair to face that way on screen, and the U-turn button in the middle turns it around (press it again and it keeps turning the same way). On a keyboard, with the wheelchair selected, the number keys `1`–`8` (clockwise from 12 o’clock) and `9` (180°) do the same.' },

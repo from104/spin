@@ -23,7 +23,7 @@ import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import type { Drill, DrillStep } from '../../model/drill.ts';
 import { formationSlots } from '../../model/defaults.ts';
-import { poseToStored } from '../../model/chair.ts';
+import { stepPosesFromSnapshot } from './stepPosesFromSnapshot.ts';
 import { isOnSurface } from '../../model/court.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../../model/chair.ts';
 import { moveAnchorIds } from './moveAnchorIds.ts';
@@ -64,7 +64,6 @@ import type { BlockCueState } from './blockCue.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 import { ZONE_LABEL } from '../../model/chair.ts';
 
-const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 /** 손을 뗀 화면 좌표가 트레이 위인가 = 코트에서 빼낼 것인가.
  *
@@ -446,45 +445,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       const cur = snap[snapId]!;
       ctx.worldRef.current?.setPose(snapId as CastId, { x: snapped.x, y: snapped.y, theta: cur.theta });
     }
-    const posOf = (id: string, p: { x: number; y: number }): { x: number; y: number } =>
-      id === snapId && snapped ? snapped : p;
-
-    let chairs = step.chairs;
-    let balls = step.balls;
-    let cones = step.cones;
-    let changed = false;
-    for (const [id, p] of Object.entries(snap)) {
-      if (isId(id, 'ch') && id in step.chairs) {
-        const q = posOf(id, p);
-        const stored = poseToStored({ x: q.x, y: q.y, theta: p.theta });
-        const cur = step.chairs[id as ChairId]!;
-        if (cur.x !== stored.x || cur.y !== stored.y || cur.angleDeg !== stored.angleDeg) {
-          if (chairs === step.chairs) chairs = { ...step.chairs };
-          chairs[id as ChairId] = stored;
-          changed = true;
-        }
-      } else if (isId(id, 'bl') && id in step.balls) {
-        const q = posOf(id, p);
-        const x = round1(q.x);
-        const y = round1(q.y);
-        const cur = step.balls[id as BallId]!;
-        if (cur.x !== x || cur.y !== y) {
-          if (balls === step.balls) balls = { ...step.balls };
-          balls[id as BallId] = { x, y };
-          changed = true;
-        }
-      } else if (isId(id, 'cn') && id in step.cones) {
-        const q = posOf(id, p);
-        const x = round1(q.x);
-        const y = round1(q.y);
-        const cur = step.cones[id as ConeId]!;
-        if (cur.x !== x || cur.y !== y) {
-          if (cones === step.cones) cones = { ...step.cones };
-          cones[id as ConeId] = { x, y };
-          changed = true;
-        }
-      }
-    }
+    const { chairs, balls, cones, changed } = stepPosesFromSnapshot(snap, step, snapId && snapped ? { id: snapId, ...snapped } : null);
     if (changed && !boundaryOpenRef.current) {
       // 히스토리 경계는 이 드래그에서 **한 번만** 연다(드래그 1회 = undo 1회, history.ts:72-80).
       // 손을 뗀 시점에 값이 하나도 안 바뀌었다면(체이스가 아직 갈 길이 남아 있다) 경계는

@@ -77,6 +77,13 @@ export interface PhysicsSnapshot {
 }
 /** 정착 완료 통지의 수신자. 인자는 **정착이 끝난 그 순간의** 스냅샷이다(§4.2 P0-2). */
 export type SettleListener = (snapshot: PhysicsSnapshot) => void;
+/** sweepTo 의 한 걸음 상한 — 가장 작은 바디(콘 반지름 3.1 px·공 4.1 px)를 건너뛰지 않는 크기. */
+const SWEEP_STEP_PX = 2;
+/** 회전 한 걸음 상한(3°) — 피벗에서 앞범퍼까지 30 px 이라 끝이 한 걸음에 1.6 px 남짓 간다. */
+const SWEEP_STEP_RAD = (3 * Math.PI) / 180;
+/** 한 번에 도는 걸음 상한 — 판 가로(825 px)를 넘는 이동은 키보드로 생기지 않지만, 혹시 와도 한 프레임을 붙잡지 않게. */
+const SWEEP_MAX_STEPS = 480;
+
 export interface DragHandle {
   readonly zone: DragZone | null;
   /** 지금 잡고 있는 지점(앵커)의 월드 좌표. 리시(연결선)는 피벗이 아니라 여기서 나가야 한다 —
@@ -96,6 +103,18 @@ export interface PhysicsWorldApi {
    *  이걸 안 하면 상태와 물리가 어긋나 다음 드래그가 개체를 옛 자리로 되돌린다.
    *  순간이동이지 던지기가 아니므로 잔여 속도는 지운다. */
   setPose(id: CastId, pose: { x: number; y: number; theta?: number }): void;
+  /** 키보드·[미세 조정]의 이동·회전을 이웃과 **상호작용하며** 한다(2026-11-16 기현님 지시 *"물리 상호 작용이 켜졌을 때
+   *  키보드나 미세조정 패드로 휠체어를 움직여도 상호작용하게 … 휠체어,공,콘 다. 물론 잠기거나 숨긴거 빼고"*).
+   *
+   *  상호작용이 꺼져 있거나 손이 판 위에 있으면(드래그·릴리스 체이스 중) **false** — 아무것도 안 옮긴다. 부르는 쪽이
+   *  지금처럼 setPose 로 순간이동한다. 켜져 있으면 목표 자세까지 **쓸고 가며** 옮기고(true) 정착 구간을 연다:
+   *  · 순간이동 뒤 겹침만 풀면 25 px 큰 걸음이 공(반지름 4 px)을 건너뛰어, 공이 "가까운 출구" — 흔히 **뒤쪽** — 으로
+   *    튕기고 휠체어는 그 너머로 지나갔다(2026-11-16 e2e S17b 실측). 그래서 SWEEP_STEP_PX·SWEEP_STEP_RAD 보다 작은
+   *    걸음으로 나눠, 걸음마다 한 substep 씩 충돌을 푼다 — 미는 방향으로 민다.
+   *  · 옮기는 휠체어는 정착이 끝날 때까지 **손의 권위**(static — 끄는 칩과 같다)라 밀려 되돌아오지 않는다. 다 서면
+   *    풀어 준 뒤 onSettled 가 온다. 공·콘은 마지막에 목표 자리에 세운다.
+   *  · 잠긴 개체는 옮기지 않고(static 이라 밀리지도 않는다), 무시한 개체는 바디가 없어 끼지 않는다. */
+  sweepTo(moves: ReadonlyArray<{ id: CastId; pose: { x: number; y: number; theta?: number } }>): boolean;
   /** 속도 상한을 살아 있는 월드에 즉시 반영한다(설정 토글용).
    *  드래그 도중에 바꿔도 안전하다 — stepDrag 는 매 substep 이 값을 새로 읽고, 세션 상태에는
    *  vLin/ω 가 저장돼 있지 않다. 다만 §5.11 릴리스 체이스가 진행 중이면 남은 거리를 새 속도로
@@ -217,6 +236,12 @@ export function createPhysicsWorld(
    *  settleDeadline 과 같은 값이지만 그쪽은 밖에서 읽을 수 없고, 겹침 감시가 "상한에 닿았나"
    *  를 스스로 알아야 기하 분리 폴백을 그 프레임에 끼워 넣을 수 있다. */
   let settleUntilMs = 0;
+  /** sweepTo 가 정착 동안 static 으로 쥐고 있는 휠체어. 정착 통지·새 드래그·재로드에서 풀린다. */
+  const nudgeHeld = new Set<ChairId>();
+  function releaseNudgeHeld(): void {
+    for (const id of nudgeHeld) if (!lockedIds.has(id)) world.setChairDragging(id, false);
+    nudgeHeld.clear();
+  }
   /** 정착 완료 통지 구독자(§4.2 P0-2). 통지 중에 해제해도 안전하도록 복사해서 순회한다. */
   const settleListeners = new Set<SettleListener>();
   // major 회귀(§5.8): 공개 step(dtS) 에 넘어온 가변 dt 를 Engine.update 에 그대로 넣지 않기
@@ -462,11 +487,16 @@ export function createPhysicsWorld(
     step: substep,
     render: () => {}, // 렌더 보간은 render-stage 소관 — read() 를 직접 호출해 읽어간다.
     atRest: settleReady,
-    onSettle: notifySettled,
+    // 쥐고 있던 휠체어를 **먼저** 풀고 알린다 — 듣는 쪽(편집기)이 읽는 순간엔 평소의 dynamic 이어야 한다.
+    onSettle: () => {
+      releaseNudgeHeld();
+      notifySettled();
+    },
   });
 
   const api: PhysicsWorldApi = {
     load(cast, step, mode, size) {
+      nudgeHeld.clear(); // 바디를 통째로 다시 세운다 — 쥐고 있던 것도 새 바디는 dynamic 으로 태어난다
       for (const id of kindOf.keys()) world.remove(id);
       kindOf.clear();
       session = null;
@@ -574,6 +604,47 @@ export function createPhysicsWorld(
       world.freeze(id);
     },
 
+    sweepTo(moves) {
+      if (!interact || session) return false;
+      const plan: Array<{ id: CastId; chair: boolean; from: ChairPose; to: ChairPose }> = [];
+      for (const m of moves) {
+        const kind = kindOf.get(m.id);
+        if (!kind || kind === 'goal' || lockedIds.has(m.id)) continue;
+        const chair = kind === 'chair';
+        const from: ChairPose = chair ? world.chairPose(m.id as ChairId) : { ...world.pointOf(m.id), theta: 0 };
+        plan.push({ id: m.id, chair, from, to: { x: m.pose.x, y: m.pose.y, theta: chair ? (m.pose.theta ?? from.theta) : 0 } });
+        if (chair && !nudgeHeld.has(m.id as ChairId)) {
+          world.setChairDragging(m.id as ChairId, true);
+          nudgeHeld.add(m.id as ChairId);
+        }
+      }
+      let n = 1;
+      for (const p of plan) {
+        const lin = Math.hypot(p.to.x - p.from.x, p.to.y - p.from.y) / SWEEP_STEP_PX;
+        const ang = Math.abs(p.to.theta - p.from.theta) / SWEEP_STEP_RAD;
+        n = Math.max(n, Math.ceil(lin), Math.ceil(ang));
+      }
+      n = Math.min(n, SWEEP_MAX_STEPS);
+      for (let i = 1; i <= n; i++) {
+        const t = i / n;
+        for (const p of plan) {
+          const x = p.from.x + (p.to.x - p.from.x) * t;
+          const y = p.from.y + (p.to.y - p.from.y) * t;
+          if (p.chair) world.setChairPose(p.id as ChairId, { x, y, theta: p.from.theta + (p.to.theta - p.from.theta) * t }, false);
+          else world.setPoint(p.id, { x, y }, false);
+        }
+        substep(PHYS.dtS);
+      }
+      // 공·콘은 dynamic 이라 걸음 사이에 되밀렸을 수 있다 — 손이 보낸 자리에 세운다(남은 겹침은 정착이 푼다)
+      for (const p of plan) {
+        if (p.chair) continue;
+        world.setPoint(p.id, { x: p.to.x, y: p.to.y }, false);
+        world.freeze(p.id);
+      }
+      openSettle();
+      return true;
+    },
+
     beginDrag(hit, grabWorld) {
       if (!DRAGGABLE_KINDS.has(hit.kind)) return null;
 
@@ -588,6 +659,8 @@ export function createPhysicsWorld(
       // blocker 회귀(§5.8): 이전 릴리스가 requestSettle 을 걸어 둔 채였다면 그 데드라인을
       // 지운다 — 안 하면 새 드래그 도중 공이 잠깐 멎는 순간 루프가 스스로 stop 되어 버린다.
       closeSettle();
+      // 키보드 이동으로 쥐고 있던 칩이 남아 있으면 손을 바꾸기 전에 놓는다 — static 으로 남으면 이번 드래그에 안 밀린다.
+      releaseNudgeHeld();
 
       const pose: ChairPose =
         hit.kind === 'ball' || hit.kind === 'cone'
@@ -660,6 +733,7 @@ export function createPhysicsWorld(
       world.destroy();
       kindOf.clear();
       settleListeners.clear();
+      nudgeHeld.clear();
       session = null;
       settleUntilMs = 0;
     },

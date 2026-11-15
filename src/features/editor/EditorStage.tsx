@@ -23,6 +23,8 @@ import type { ToolId } from '../../physics/index.ts';
 import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { effectiveReduceMotion, poseFrame } from '../../store/editor/tween.ts';
 import { easeStandard } from '../../core/geom.ts';
+import { PHYS } from '../../core/constants.ts';
+import { stepPosesFromSnapshot } from './stepPosesFromSnapshot.ts';
 import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import type { BallRing, Drill, DrillStep, NoteLabel, TeamSide } from '../../model/drill.ts';
@@ -398,6 +400,51 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
    *  획이 흘러간다 — 되돌리기 병합 창(COALESCE_MS) 안에서는 처음 잡은 축을 그대로 쓴다. */
   const rotAxisRef = useRef<{ id: string; c: Vec2; at: number } | null>(null);
 
+  // ── 키보드·[미세 조정] 이동도 이웃과 상호작용(2026-11-16 기현님 지시) ───────────────────────────────
+  // 옮기기(setPose)는 지금처럼 하고, [물리·상호작용]이 켜져 있으면 엔진에 정착을 맡긴다(settleAfterNudge — 옮긴
+  // 휠체어는 정착 동안 손의 권위). 다 서면 밀린 이웃까지 **PLACE_SETTLE 로 덧쓴다** — past 를 안 건드리므로 방금 한
+  // 이동(OBJECT_NUDGE·GROUP_NUDGE, 700ms 병합)의 되돌리기 한 칸에 이웃도 함께 돌아간다(history.ts PLACE_SETTLE).
+  // 꺼져 있으면 엔진이 false 를 돌려주고 아무 일도 없다 — 옛 순간이동 그대로.
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  const nudgeSettleOffRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => nudgeSettleOffRef.current?.(), []);
+  /** 정착이 끝나면 밀린 이웃까지 상태에 덧쓴다(PLACE_SETTLE — past 를 안 건드린다). 한 번만 듣는다. */
+  const armNudgeCommit = useCallback(() => {
+    const w = worldRef.current;
+    if (!w) return;
+    const stepId = stepRef.current.id;
+    // 드래그와 같은 자동저장 억제 창 — 정착 덧쓰기가 닫는다. 통지가 끝내 안 오면 스스로 풀린다.
+    dispatch({ type: 'SETTLE_ARM', until: Date.now() + PHYS.settleMaxMs });
+    nudgeSettleOffRef.current?.();
+    const off = w.onSettled((snap) => {
+      off();
+      if (nudgeSettleOffRef.current === off) nudgeSettleOffRef.current = null;
+      const cur = stepRef.current;
+      // 그새 스텝을 넘겼거나 지웠다면 이 스냅샷은 이번 이동의 결과가 아니다(useEditorPointer armSettleRecommit 과 같은 판단)
+      if (cur.id !== stepId) {
+        dispatch({ type: 'SETTLE_ARM', until: 0 });
+        return;
+      }
+      const { chairs, balls, cones } = stepPosesFromSnapshot(snap, cur);
+      dispatch({ type: 'PLACE_SETTLE', stepId: cur.id, chairs, balls, cones });
+    });
+    nudgeSettleOffRef.current = off;
+  }, [dispatch, worldRef]);
+
+  /** 물리 바디를 옮긴다. [물리·상호작용]이 켜져 있으면 엔진이 **쓸고 가며** 이웃을 민다(sweepTo → true),
+   *  아니면 옛 순간이동(setPose → false). 상태(OBJECT_NUDGE 등)는 부르는 쪽이 따로 바꾼다. */
+  const moveBodies = useCallback(
+    (moves: ReadonlyArray<{ id: CastId; pose: { x: number; y: number; theta: number } }>): boolean => {
+      const w = worldRef.current;
+      if (!w || moves.length === 0) return false;
+      if (w.sweepTo(moves)) return true;
+      for (const m of moves) w.setPose(m.id, m.pose);
+      return false;
+    },
+    [worldRef],
+  );
+
   const nudge = useCallback(
     (id: string, dx: number, dy: number, dThetaRad: number, arrowPart: ArrowPart = 'whole') => {
       // ★ 잠긴 개체는 키보드로도 안 움직인다(2026-08-14). 손으로만 막으면 반쪽이다 —
@@ -413,10 +460,11 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         dispatch({ type: 'GROUP_NUDGE', ids, d: { x: dx, y: dy } });
         const cur = worldRef.current?.read();
         if (cur) {
-          for (const x of ids) {
+          const moves = ids.flatMap((x) => {
             const p = cur[x];
-            if (p) worldRef.current?.setPose(x as CastId, { x: p.x + dx, y: p.y + dy, theta: p.theta });
-          }
+            return p ? [{ id: x as CastId, pose: { x: p.x + dx, y: p.y + dy, theta: p.theta } }] : [];
+          });
+          if (moveBodies(moves)) armNudgeCommit();
         }
         return;
       }
@@ -426,7 +474,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         // 키보드로 옮긴 개체를 다음에 마우스로 잡는 순간 beginDrag 가 낡은 자세를 읽어와
         // 옛 자리로 되돌린다. 키보드 조작은 §7.5 접근성 요건이라 이 경로가 특히 중요하다.
         const cur = worldRef.current?.read()[id];
-        if (cur) worldRef.current?.setPose(id as CastId, { x: cur.x + dx, y: cur.y + dy, theta: cur.theta + dThetaRad });
+        if (cur && moveBodies([{ id: id as CastId, pose: { x: cur.x + dx, y: cur.y + dy, theta: cur.theta + dThetaRad } }])) armNudgeCommit();
         return;
       }
       if (isId(id, 'nt')) {
@@ -490,7 +538,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         dispatch({ type: 'STROKE_SET', stroke: nudgeStroke(stroke, { x: dx, y: dy }) });
       }
     },
-    [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet],
+    [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet, moveBodies, armNudgeCommit],
   );
 
   // ── 방향판 회전 애니메이션(2026-11-16 기현님 지시 "회전시 0.3초 동안 적당한 애니메이션") ──────────────
@@ -506,8 +554,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     headingAnimRef.current = null;
     a.stop();
     const p = worldRef.current?.read()[a.id];
-    if (p) worldRef.current?.setPose(a.id as CastId, { x: p.x, y: p.y, theta: a.to });
-  }, [worldRef]);
+    if (p && moveBodies([{ id: a.id as CastId, pose: { x: p.x, y: p.y, theta: a.to } }])) armNudgeCommit();
+  }, [worldRef, moveBodies, armNudgeCommit]);
   useEffect(() => finishHeadingAnim, [finishHeadingAnim]);
 
   /** 휠체어를 화면 방향으로 보게 / 180° — 방향판(NudgePad)과 숫자키 1–9(`obj.face`)가 함께 쓰는 **한 길**이다. */
@@ -537,7 +585,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       running?.stop();
       headingAnimRef.current = null;
       if (reduceMotion) {
-        worldRef.current?.setPose(id as CastId, { x: cur.x, y: cur.y, theta: to });
+        if (moveBodies([{ id: id as CastId, pose: { x: cur.x, y: cur.y, theta: to } }])) armNudgeCommit();
         return;
       }
       const from = cur.theta;
@@ -551,15 +599,17 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         t0 ??= now;
         const t = Math.min(1, (now - t0) / HEADING_TURN_MS);
         const p = worldRef.current?.read()[id];
-        if (p) worldRef.current?.setPose(id as CastId, { x: p.x, y: p.y, theta: from + (to - from) * easeStandard(t) });
+        // 상호작용이 켜져 있으면 프레임마다 쓸고 가며 돈다 — 도는 차체가 닿는 공·콘·휠체어를 그 자리에서 민다
+        const swept = p ? moveBodies([{ id: id as CastId, pose: { x: p.x, y: p.y, theta: from + (to - from) * easeStandard(t) } }]) : false;
         if (t >= 1) {
           anim.stop();
           if (headingAnimRef.current === anim) headingAnimRef.current = null;
+          if (swept) armNudgeCommit(); // 다 돈 뒤 정착 결과를 덧쓴다
         }
       });
       headingAnimRef.current = anim;
     },
-    [dispatch, lockedSet, reduceMotion, stageRef, worldRef],
+    [dispatch, lockedSet, reduceMotion, stageRef, worldRef, moveBodies, armNudgeCommit],
   );
 
   const handleObjectKeyDown = useCallback(
