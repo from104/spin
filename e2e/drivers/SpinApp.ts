@@ -3,7 +3,7 @@
 // 시나리오(e2e/scenarios/*.ts)는 이 인터페이스만 안다 — Playwright 를 import 하지 않는다(결정 4).
 // 같은 시나리오를
 //   - 웹 빌드: PlaywrightApp (e2e/drivers/PlaywrightApp.ts)
-//   - Tauri 데스크톱: WebdriverIO/tauri-driver 어댑터 (뒤 단계)
+//   - Tauri 데스크톱: WdioApp (e2e/drivers/WdioApp.ts — tauri-driver 위 W3C WebDriver, 실제 앱 층 e2e/app)
 //   - Android: Playwright `_android` 어댑터 (뒤 단계)
 // 에서 그대로 돌리기 위해서다. 드라이버마다 할 수 있는 일이 달라서, 시나리오는 필요한 능력을
 // `needs` 로 밝히고 드라이버는 `capabilities` 로 가진 능력을 밝힌다. 모자라면 실행기가 건너뛰고
@@ -118,8 +118,18 @@ export interface AnchorProbe {
  * - download  : 앱이 내려보낸 파일을 받아 열어 볼 수 있다
  * - prerender : 프리렌더 정적 페이지를 JS 이전 원문으로 읽을 수 있다
  * - netMock   : HTTP 요청을 가로채 끊거나 기록할 수 있다
+ * - xwindow   : 앱의 네이티브 X 창(xwininfo·xprop)을 밖에서 읽을 수 있다 — 실제 앱 층의 Linux(Xvfb)만(e2e/app/native.ts)
  */
-export type Capability = 'pointer' | 'touch' | 'keyboard' | 'reload' | 'resize' | 'download' | 'prerender' | 'netMock';
+export type Capability =
+  | 'pointer'
+  | 'touch'
+  | 'keyboard'
+  | 'reload'
+  | 'resize'
+  | 'download'
+  | 'prerender'
+  | 'netMock'
+  | 'xwindow';
 
 export interface SpinApp {
   /** 보고서용 이름 — 예: 'web-chromium', 'tauri-linux', 'android' */

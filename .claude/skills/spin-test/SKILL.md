@@ -1,6 +1,6 @@
 ---
 name: spin-test
-description: SPIN 자동 테스트(code·web E2E 층)를 돌리고 결과를 읽고 실패를 분류한다. "테스트 돌려", "전체 테스트", "회귀 테스트", "E2E 돌려", "시나리오 추가", "플레이키 확인", "run the tests", "test suite", "playwright", "known-bug" 같은 요청에 사용.
+description: SPIN 자동 테스트(code·web E2E·실제 Tauri 앱 app 층)를 돌리고 결과를 읽고 실패를 분류한다. "테스트 돌려", "전체 테스트", "회귀 테스트", "E2E 돌려", "시나리오 추가", "플레이키 확인", "run the tests", "test suite", "playwright", "known-bug" 같은 요청에 사용.
 ---
 
 # SPIN 테스트 스위트
@@ -20,9 +20,13 @@ description: SPIN 자동 테스트(code·web E2E 층)를 돌리고 결과를 읽
 | 플레이키 확인 | `scripts/test-suite.sh --layer web -- --repeat-each=3` (`--` 뒤는 playwright 인자) |
 | 한 프로젝트·한 시험 | `scripts/test-suite.sh --layer web -- --project=webkit-desktop -g "S9"` 또는 `npm run test:e2e -- -g S9` |
 | trace 열기 | `npx playwright show-trace test-results/e2e-artifacts/<시험>/trace.zip` |
+| 실제 데스크톱 앱(Tauri) | `scripts/test-suite.sh --layer app` — 디버그 바이너리를 필요할 때만 굽고 Xvfb 안에서 돈다(사용자 세션·프로필 무관). 약 1분(첫 빌드 +1분 30초) |
+| app 층 한 시험 | `npm run test:e2e:app -- -g N4` (바이너리가 있어야 한다: `node e2e/app/build.mjs`) · 플레이키: `scripts/test-suite.sh --layer app -- --repeat-each=3` |
+| Windows 앱 | CI 전용 — `gh workflow run e2e-app.yml`(기본 브랜치에 올라간 뒤). 로컬은 skip |
 
 층: `code` = lint(경고가 기준선 `LINT_BASELINE` 을 넘으면 실패 — 값은 `scripts/test-suite.sh` 한 곳) · typecheck · vitest · cargo test /
-`web` = 운영 빌드(`dist/`) 위 Playwright 3프로젝트(chromium-desktop · webkit-desktop · chromium-mobile). `app` 층(Tauri·Android)은 아직 없다.
+`web` = 운영 빌드(`dist/`) 위 Playwright 3프로젝트(chromium-desktop · webkit-desktop · chromium-mobile) /
+`app` = 실제 Tauri 앱(프로젝트 `tauri-linux`, Windows 는 CI 의 `tauri-windows`) — 공유 시나리오 S1·S4·S5·S5b·S7·S8a·S8b + 앱 전용 N1–N7. 기본 층이 아니다.
 종료 코드: 실패 층이 있으면 1, **같은 작업 트리에서 이미 돌고 있으면 3**(`test-results/.run.lock` — 동시에 두 번 돌리지 않는다).
 
 ## 결과 읽는 순서
@@ -34,7 +38,8 @@ description: SPIN 자동 테스트(code·web E2E 층)를 돌리고 결과를 읽
 ## 실패 분류 순서
 
 1. **환경** — 브라우저 미설치(`--setup`), 포트 4179 점유(`E2E_PORT`), 빌드 실패(`test-results/e2e-build.log`), cargo 없음, 락(종료 코드 3).
-   시험 코드는 보지 않는다.
+   app 층: 「연기 시험: WebDriver 세션을 못 열었다」 → `test-results/app-driver-stderr.log`(앱 stderr)·`app-keyring.log`, 도구 없음 → globalSetup 이
+   이름을 댄다, 바이너리 빌드 실패 → `app-build-tauri.log`. 시험 코드는 보지 않는다.
 2. **플레이키** — `--repeat-each=3` 으로 재현이 갈리면. 고정 sleep 대신 `eventually`·`settled()` 로 기다리게 고친다(`retries` 로 덮지 않는다).
    vitest 전체가 부하에 약해 실패 집합이 회차마다 바뀌면 회귀가 아니라 경쟁이다 — 그 파일만 단독으로 다시 돌린다.
 3. **진짜 회귀** — 같은 시험이 3번 다 실패. 변경 diff 와 대조해 앱 버그면 앱을 고친다. **시험을 약하게 고치지 않는다.**
@@ -65,6 +70,9 @@ description: SPIN 자동 테스트(code·web E2E 층)를 돌리고 결과를 읽
 3. 3프로젝트에서 `--repeat-each=3`(좌표·타이밍을 다루면 5)으로 안정 확인. 고정 sleep 금지, `retries` 0.
 4. 제목은 한글 20자 안팎(ZFS formD 산출물 경로 한계). 문구·개수·순서 단언 금지(번역·기획이 바뀐다).
 5. 커밋 끝줄: `typecheck 0 · lint 경고 48(기존) · vitest N 통과 · e2e N 통과(3프로젝트) · 돌연변이 N건으로 실효 확인`.
+6. **app 층**: 공유 시나리오를 실제 앱에도 돌리려면 `e2e/app/shared.spec.ts` 의 `only` 에 S-번호를 더한다(기본 창 1280×800 이 시나리오의
+   전제와 맞을 때만 — 머리말의 뺀 것 목록). 앱 전용은 `e2e/app/native.ts`(`TauriApp` — invoke·X 창·프로필 파일). 기대값을 `tauri.conf.json`
+   에서 읽는 단언은 설정을 망가뜨리면 기대도 같이 바뀐다 — 돌연변이는 **앱 코드**(lib.rs 등)로 낸다. 업데이터는 `check` 만, 받기·설치 금지.
 
 ## 모델 배분(AGENTS §10)
 
@@ -74,5 +82,5 @@ description: SPIN 자동 테스트(code·web E2E 층)를 돌리고 결과를 읽
 
 ## 로드맵
 
-실제 앱 층 — Tauri Linux(xvfb + tauri-driver/WebdriverIO 로 `SpinApp` 구현) → Windows 러너 → Android 디버그 APK(Playwright `_android`).
-드라이버만 새로 쓰면 `e2e/scenarios/*` 는 그대로 재사용한다.
+실제 앱 층 — Tauri Linux 는 됐다(§11, tauri-driver 위 `WdioApp`). Windows 러너는 구현돼 있고 첫 CI 실행으로 다듬는다 → Android 디버그 APK
+(Playwright `_android`). 드라이버만 새로 쓰면 `e2e/scenarios/*` 는 그대로 재사용한다.

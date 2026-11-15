@@ -256,7 +256,7 @@ aria-label·보이는 문구는 번역되므로 선택자로 쓰지 않는다. �
 | 6 | `chore: spin-test 스킬과 PR CI (§6)` | 스킬, `ci.yml`, `e2e/README.md`, CONTRIBUTING 한 줄 | sonnet | opus |
 
 각 커밋 본문 끝줄: `typecheck 0 · lint 경고 48(기존) · vitest N 통과 · e2e N 통과(3프로젝트) · 돌연변이 N건으로 실효 확인`.
-push 는 지시가 있을 때만. 뒤 단계(자리표시): Tauri Linux(xvfb + tauri-driver/WebdriverIO 로 `SpinApp` 구현,
+push 는 지시가 있을 때만. 뒤 단계(자리표시 — Tauri Linux·Windows 는 §11 로 됐다): Tauri Linux(xvfb + tauri-driver/WebdriverIO 로 `SpinApp` 구현,
 `useDesktopUpdate.ts:56` 에 플래그) → Windows 러너 → Android 디버그 APK(Playwright `_android`).
 
 ## 8. 위험
@@ -293,3 +293,44 @@ OAuth. 이 스위트는 그것들의 **근사**다 — 화면에 보이는 것�
 | 돌연변이를 되돌린 뒤의 전체 회차에서 S8b 만 계속 빨강 | 되돌리기를 mtime 보존 복사(shutil.copy2)로 했더니 원본의 옛 시각이 살아나, "dist 보다 새 입력이 있나" 판정이 마지막 돌연변이 빌드를 그대로 내줬다(§8 「빌드 낡음」 위험이 실제로 났다) | `serve.mjs` 의 낡음 판정을 **입력 지문**(경로·mtime·크기 해시, `dist/.e2e-inputs`)으로 바꿨다 — 시각이 뒤로 가도·파일이 사라져도 바뀐다. 계획 §2 의 "입력 mtime 비교" 를 대신한다 |
 | 첫 방문 시나리오가 "새로고침 뒤 안 뜬다" 를 너무 일찍 통과(돌연변이로 발각) | `aria-busy` 가 내려간 뒤에도 덮개는 퇴장 페이드 동안 살아 있고, 대화 상자 게이트는 그 **걷힘** 뒤에 판정한다 | 준비 판정에 `.spin-loader` 가 DOM 에서 빠질 때까지를 더했다 |
 
+
+## 11. 실제 앱 층 — Tauri 데스크톱 (2026-11-15)
+
+> 지시: *"데스크톱 실앱 테스트를 슈트에 넣기"* — QCalc `feature/e2e-suite` 의 app 층(커밋된 것)을 옮겨 SPIN 에 맞췄다.
+> §7 의 "뒤 단계(자리표시): Tauri Linux" 가 이것이다. 사용법은 `e2e/README.md` 「app 층」.
+
+**모양** — `scripts/test-suite.sh --layer app [--platform linux|windows]`(기본 층 아님) = ① `e2e/app/build.mjs`(웹 층과 같은 `dist/` 를
+품은 `tauri build --debug --no-bundle`, 입력 지문이 바뀌었을 때만, 서명 없음) ② `playwright.app.config.ts`(workers 1, 프로젝트 `tauri-linux`)
+③ 실행 표지(`SPIN_E2E_RUN`)로 남은 프로세스 확인. Linux 는 Xvfb + 사설 D-Bus + gnome-keyring + 임시 HOME/XDG 안의 tauri-driver →
+WebKitWebDriver → 앱. Windows 는 CI 전용(`.github/workflows/e2e-app.yml`, 앱 폴더 격리 불가 → `CI=true` 에서만).
+
+**드라이버** — `e2e/drivers/WdioApp.ts` 가 `SpinApp` 을 W3C WebDriver 위에 구현한다. 판정(준비·정착·좌표·가림·스텝 목록 바깥)은
+`e2e/drivers/page-functions.ts` 하나를 **두 드라이버가 같이** 쓴다(PlaywrightApp 도 이리로 옮겼다) — 웹과 앱이 갈리면 판정 차이가 아니라 앱
+차이다. 알려진 버그 판정도 `kit.ts executeScenario` 하나(두 실행기 공통). 능력은 `pointer keyboard reload` + Linux 의 `xwindow`(새 능력 —
+xwininfo·xprop). `touch`·`resize`(앱 최소 900×600)·`netMock`·`download`·`prerender`·대화 상자 첫 방문 기록은 없다.
+
+**시나리오** — 공유 부분집합 S1·S4·S5·S5b·S7·S8a·S8b(`e2e/app/shared.spec.ts` 의 `only` — 뺀 S6·S7b 는 "resize 가 없으면 좁은 터치 기기" 를
+전제한다) + 앱 전용 N1–N7(`e2e/app/native.ts`, 머리말에 "지우면 새는 실기 버그"): N1 판이 그려진다(스크린샷 화소) · N2 `plugin:app|version`
+= package.json · N3 `plugin:updater|check` 가 던지지 않는다(**받기·설치는 절대 안 부른다**) · N4 창을 닫아 끝내고 같은 프로필로 다시 띄워도
+전술판(localStorage)·드릴(IndexedDB)이 남는다 · N5 첫 창 1280×800·제목·WM_NORMAL_HINTS 최소 900×600·그 아래로 안 줄어듦 · N6 갱신 토큰이
+app_data_dir 에 0600(쓰기 전에 격리 프로필인지 앱에게 묻는 둑) · N7 `save_bytes_dialog` 가 날바디 아닌 호출을 대화 상자 전에 거절.
+
+**QCalc 와 다른 점**
+- **WebdriverIO 를 안 쓴다.** 9.32 를 넣어 보니 의존 약 240개·잠금 파일 +2,800줄·`npm audit` 0 → 14건(높음 10, @puppeteer/browsers·
+  proxy-agent 줄기)이었다. 쓰는 명령이 열 개 남짓이라 노드 fetch 위 최소 클라이언트(`e2e/drivers/webdriver.ts`)로 갈음했다 — devDependency 0개 추가.
+  요소 참조 대신 페이지 안에서 잰 화면 점에 포인터 동작을 보낸다(`hitPointInPage` = Playwright click() 의 actionability 판정).
+- 클립보드·AT-SPI 도우미(`helpers.ts`·`support/*.py`·`clipboard-windows.ts`)는 SPIN 에 시나리오가 없어 옮기지 않았다.
+- gofu 실측으로 더한 것: 사설 버스 위 gnome-keyring(없으면 포털 120초 대기 → 세션 시간 초과), `GDK_BACKEND=x11`(없으면 GTK3 가 `wayland-0`
+  을 찾아 사용자 데스크톱에 창), NVIDIA 호스트의 소프트웨어 렌더 env(시험 전용), 진짜 프로필 보호(XDG 다섯 개 확인 + N6 둑).
+- 시드 자리는 빌드의 정적 파일 `/favicon-32.png`(QCalc 는 `/icons/favicon-16x16.png`). 정적 파일 대신 앱이 뜨면 시드가 멈춘다.
+- **WebKit bfcache 함정**: IndexedDB 연결을 쥔 문서가 뒤로/앞으로 캐시에 들어가면 다음 문서의 `deleteDatabase` 가 성공도 `blocked` 도 없이
+  영영 기다린다(새 프로필로 막 뜬 앱에서 재현). 드라이버가 떠나는 문서에 unload 듣개를 달아 캐시를 막는다. 첫 문서가 다 적재되기 전에 다른
+  주소로 가면 늦은 첫 적재가 덮는다 — `AppSession.launch` 가 `readyState === 'complete'` 를 기다린다.
+- 앱 종료: SPIN 에는 종료 명령이 없다 — N4 는 WebDriver 로 마지막 창을 닫아(사람의 [X]) 정상 종료시킨다.
+- §7 의 "`useDesktopUpdate.ts:56` 에 플래그" 는 **넣지 않았다**(AGENTS 「잡음은 기능을 끄지 않고」). 앱의 4초 뒤 자동 확인은 그대로 돈다 —
+  지금 판이 최신이면 아무것도 안 뜨고, 옛 판이면 안내 띠가 뜨지만 시험은 누르지 않는다.
+
+**검증(gofu, 2026-11-15)** — app 층 14 시험 약 55초(빌드 재사용 시) · `--repeat-each=3` 42/42 · 돌연변이 9건(버전·lock_down·저장 둑·
+엔드포인트·최소 크기(lib.rs)·코트 투명·재실행을 새 프로필로·어댑터 누름 +8px·app_data_dir 어긋남) 전부 빨강. ⚠️ `minWidth` 를 설정에서
+바꾼 돌연변이는 **초록**이었다 — 기대값이 같은 설정에서 오기 때문이다. 그래서 그 단언의 돌연변이는 앱 코드(set_min_size)로 냈다.
+Windows 잡은 GitHub 러너에서만 검증된다.

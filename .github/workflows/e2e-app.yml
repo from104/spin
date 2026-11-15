@@ -1,0 +1,153 @@
+name: E2E app
+
+# app 층 — 실제 Tauri 데스크톱 앱 E2E (scripts/test-suite.sh --layer app). 안내: e2e/README.md 「app 층」, 정본 docs/PLAN-TEST-SUITE.md §11.
+# 무겁고(Rust 디버그 빌드) 느려서 PR 게이트(ci.yml)에는 넣지 않는다: 야간·수동 실행, 다른 워크플로에서 호출.
+# ci.yml(devel 푸시·PR)·desktop-release.yml(v* 태그·수동)과 트리거가 겹치지 않고, 시크릿을 하나도 쓰지 않으며, 아무것도 올리지
+# 않는다(실패 보고서 아티팩트만). 두 잡은 서로 독립이다(needs 없음 — 한쪽이 실패해도 다른 쪽은 끝까지 돈다):
+#   linux   — Xvfb + 사설 D-Bus + tauri-driver + WebKitWebDriver
+#   windows — 러너의 실제 데스크톱 + tauri-driver + msedgedriver(WebView2 와 같은 판). 앱 데이터를 격리할 수 없어 CI 에서만 돈다
+#             ⚠️ gofu 에서 검증할 수 없다 — 첫 GitHub 실행이 기대값·known-bug 를 다듬는다
+
+on:
+  schedule:
+    - cron: '30 18 * * *' # 매일 03:30 KST (기본 브랜치)
+  workflow_dispatch:
+  workflow_call:
+
+# 토큰은 읽기 전용 — 이 워크플로는 쓰기 권한이 필요 없다
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-app-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    # desktop-release.yml 의 리눅스 빌드(ubuntu-22.04)와 같은 glibc/WebKitGTK(4.1) — 배송 판에 가장 가까운 시스템 WebKit
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # tauri-driver 바이너리만 따로 캐시한다(cargo install 은 1~2분)
+      - name: tauri-driver 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/tauri-driver
+          key: ${{ runner.os }}-tauri-driver-2.1.0
+
+      # ci.yml code 잡과 같은 빌드 의존성 + app 층 도구:
+      #   webkit2gtk-driver(WebKitWebDriver) · xvfb · x11-utils(xwininfo·xprop) · dbus(사설 세션 버스) · gnome-keyring(비밀 저장소 —
+      #   없으면 버스가 깨운 포털이 120초 기다려 WebDriver 세션이 죽는다, env-linux.ts)
+      - name: 리눅스 시스템 의존성 (빌드 + app 층)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev \
+            webkit2gtk-driver xvfb x11-utils dbus gnome-keyring
+
+      - name: tauri-driver 설치
+        run: command -v tauri-driver || cargo install tauri-driver --version 2.1.0 --locked
+
+      # 웹 빌드(dist/)와 디버그 바이너리는 e2e/app/build.mjs 가 필요할 때만 만든다
+      - name: app 층 (Linux)
+        run: scripts/test-suite.sh --layer app --platform linux
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f test-results/summary.md ]; then cat test-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else echo "test-results/summary.md 없음 — 실행기가 요약을 쓰기 전에 죽었다" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      # 통과 때는 올리지 않는다 — 실패한 시험의 스크린샷·앱 로그는 보고서(app-html-report)에, 환경 로그는 app-*.log 에
+      - name: 실패 보고서 올리기
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-e2e-linux-failure
+          path: test-results/
+          retention-days: 7
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40 # 빌드 + 시험. 매달린 드라이버가 한 시간을 태우지 않게(층도 연기 시험에서 스스로 멈춘다)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: tauri-driver · msedgedriver-tool 캐시
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/tauri-driver.exe
+            ~/.cargo/bin/msedgedriver-tool.exe
+          key: ${{ runner.os }}-tauri-driver-2.1.0-msedgedriver-tool
+
+      - name: tauri-driver 설치
+        shell: bash
+        run: command -v tauri-driver || cargo install tauri-driver --version 2.1.0 --locked
+
+      # tauri-driver 는 WebView2 와 같은 판의 msedgedriver 가 있어야 앱에 붙는다 — v2.tauri.app/develop/tests/webdriver/ci 의
+      # Windows 예시대로 msedgedriver-tool 이 설치된 WebView2/Edge 판에 맞는 드라이버를 받는다. 경로는 SPIN_E2E_NATIVE_DRIVER 로
+      - name: msedgedriver (WebView2 와 같은 판)
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'msedgedriver'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $tool = Join-Path $HOME '.cargo/bin/msedgedriver-tool.exe'
+          if (-not (Test-Path $tool)) { cargo install --git https://github.com/chippers/msedgedriver-tool }
+          Push-Location $dir
+          & $tool
+          Pop-Location
+          $driver = Join-Path $dir 'msedgedriver.exe'
+          if (-not (Test-Path $driver)) { throw "msedgedriver.exe 가 $dir 에 없다" }
+          "SPIN_E2E_NATIVE_DRIVER=$driver" >> $env:GITHUB_ENV
+          $wv = Get-ItemPropertyValue 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' pv -ErrorAction SilentlyContinue
+          Write-Host "WebView2 runtime: $wv"
+          & $driver --version
+
+      # 앱 데이터(%APPDATA%·%LOCALAPPDATA% 의 app.atit.spin)는 격리할 수 없어서 CI=true 일 때만 돈다 — 이 러너는 일회용이다
+      - name: app 층 (Windows)
+        shell: bash
+        run: scripts/test-suite.sh --layer app --platform windows
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f test-results/summary.md ]; then cat test-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else echo "test-results/summary.md 없음 — 실행기가 요약을 쓰기 전에 죽었다" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      # 첫 실행들은 환경 문제(드라이버·창)를 가려야 하므로 통과해도 올린다
+      - name: 보고서 올리기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-e2e-windows
+          path: test-results/
+          retention-days: 7

@@ -5,7 +5,8 @@
 // 입력 (있는 것만 읽는다)
 // - test-results/.steps.jsonl   : 단계별 {layer, step, status, seconds, detail, log}
 // - test-results/vitest.json    : vitest JSON 보고서
-// - test-results/e2e-report.json: Playwright JSON 보고서
+// - test-results/e2e-report.json: Playwright JSON 보고서 (web 층)
+// - test-results/app-report.json: Playwright JSON 보고서 (app 층 — 실제 Tauri 앱, playwright.app.config.ts)
 // - test-results/code-cargo.log : cargo test 출력('test result: ok. N passed; M failed' 줄을 합산)
 // 종료 코드: 실패한 단계가 하나라도 있으면 1
 //
@@ -60,11 +61,10 @@ for (const s of steps) {
   else if (s.status === 'fail') s.detail = 'did not run tests (build error?)';
 }
 
-// Playwright 보고서 → 프로젝트별 집계
+// Playwright 보고서 → 프로젝트별 집계 (web 층 e2e-report.json · app 층 app-report.json — 형식이 같다)
 const projects = {};
 const e2eFailures = [];
 const knownBugs = [];
-const report = read('e2e-report.json');
 const walk = (suite, trail) => {
   for (const spec of suite.specs ?? []) {
     for (const t of spec.tests ?? []) {
@@ -113,15 +113,25 @@ const walk = (suite, trail) => {
   }
   for (const child of suite.suites ?? []) walk(child, [...trail, child.title]);
 };
-for (const suite of report?.suites ?? []) walk(suite, []);
+// 층마다 따로 걸어 그 층의 단계에 붙인다 — 프로젝트 이름(chromium-desktop… / tauri-linux)으로 층이 갈린다
+const reportFor = { web: read('e2e-report.json'), app: read('app-report.json') };
+const projectLayer = {};
+for (const [layer, report] of Object.entries(reportFor)) {
+  const before = new Set(Object.keys(projects));
+  for (const suite of report?.suites ?? []) walk(suite, []);
+  for (const name of Object.keys(projects)) if (!before.has(name)) projectLayer[name] = layer;
+}
+const isTestStep = (s) => (s.layer === 'web' && s.step === 'playwright') || (s.layer === 'app' && !['build', 'cleanup'].includes(s.step));
+const layerProjects = (layer) => Object.fromEntries(Object.entries(projects).filter(([name]) => projectLayer[name] === layer));
 
 for (const s of steps) {
-  if (s.layer !== 'web' || s.step !== 'playwright') continue;
-  s.projects = projects;
-  s.failures = e2eFailures;
-  s.knownBugs = knownBugs;
-  const total = Object.values(projects).reduce((n, p) => n + p.passed + p.failed + p.flaky + p.skipped, 0);
-  if (report && total === 0) s.detail = 'no tests ran';
+  if (!isTestStep(s) || s.status === 'skip') continue;
+  const mine = layerProjects(s.layer);
+  s.projects = mine;
+  s.failures = e2eFailures.filter((f) => projectLayer[f.project] === s.layer);
+  s.knownBugs = knownBugs.filter((b) => projectLayer[b.project] === s.layer);
+  const total = Object.values(mine).reduce((n, p) => n + p.passed + p.failed + p.flaky + p.skipped, 0);
+  if (reportFor[s.layer] && total === 0) s.detail = 'no tests ran';
 }
 
 const producedThisRun = (file) => {
@@ -145,6 +155,7 @@ const summary = {
     junit: existsSync(path.join(out, 'e2e-junit.xml')) ? path.join(out, 'e2e-junit.xml') : null,
     // 이번 실행이 만든 보고서만 링크한다(Playwright 가 죽었으면 이전 실행의 것이 남아 있을 수 있다)
     html: producedThisRun('playwright-report/index.html') ? 'playwright-report/index.html' : null,
+    appHtml: producedThisRun(path.join(out, 'app-html-report/index.html')) ? path.join(out, 'app-html-report/index.html') : null,
   },
 };
 writeFileSync(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
@@ -154,12 +165,12 @@ const lines = [
   `# SPIN 테스트 요약 — ${summary.result} (${totalSeconds}s)`,
   `돌린 층: ${ranLayers.join(', ') || '(없음)'} · 안 돌린 층: ${summary.layersNotRun.join(', ') || '(없음)'}`,
   '',
-  '| layer | step | result | detail | time (web 프로젝트는 시험 시간 합 Σ) |',
+  '| layer | step | result | detail | time (web·app 프로젝트는 시험 시간 합 Σ) |',
   '|---|---|---|---|---|',
 ];
 for (const s of steps) {
-  if (s.layer === 'web' && s.step === 'playwright' && Object.keys(projects).length) {
-    for (const [name, p] of Object.entries(projects)) {
+  if (isTestStep(s) && Object.keys(s.projects ?? {}).length) {
+    for (const [name, p] of Object.entries(s.projects)) {
       const skip = p.skipped
         ? ` · ${p.skipped} skipped (${[p.todo && `${p.todo} todo`, p.capability && `${p.capability} capability`].filter(Boolean).join(', ')})`
         : '';
@@ -167,11 +178,11 @@ for (const s of steps) {
       const flaky = p.flaky ? ` · ${p.flaky} flaky` : '';
       const res = p.failed ? 'fail' : 'pass';
       lines.push(
-        `| web | ${name} | ${res} | ${p.passed} passed · ${p.failed} failed${flaky}${known}${skip} | Σ${Math.round(p.ms / 1000)}s |`,
+        `| ${s.layer} | ${name} | ${res} | ${p.passed} passed · ${p.failed} failed${flaky}${known}${skip} | Σ${Math.round(p.ms / 1000)}s |`,
       );
     }
-    if (s.status === 'fail' && !e2eFailures.length)
-      lines.push(`| web | playwright | fail | ${s.detail || 'see log'} — ${s.log} | ${s.seconds}s |`);
+    if (s.status === 'fail' && !s.failures.length)
+      lines.push(`| ${s.layer} | ${s.step} | fail | ${s.detail || 'see log'} — ${s.log} | ${s.seconds}s |`);
   } else {
     lines.push(
       `| ${s.layer} | ${s.step} | ${s.status} | ${s.detail || ''}${s.status === 'fail' && s.log ? ` — ${s.log}` : ''} | ${s.seconds}s |`,
@@ -182,7 +193,7 @@ const allFailures = [
   ...steps.filter((s) => s.step === 'vitest').flatMap((s) => (s.failures ?? []).map((f) => `- [vitest] ${f}`)),
   ...e2eFailures.map((f) => `- [${f.project}] ${f.title} — ${f.error}${f.trace ? ` — trace: ${f.trace}` : ''}`),
 ];
-const footer = `보고서: ${[summary.reports.junit, summary.reports.html, path.join(out, 'summary.json')].filter(Boolean).join(' · ')}`;
+const footer = `보고서: ${[summary.reports.junit, summary.reports.html, summary.reports.appHtml, path.join(out, 'summary.json')].filter(Boolean).join(' · ')}`;
 // 알려진 버그(기대된 실패): 증상 확인용으로 실제 오류 첫 줄을 보인다 — 시험별 한 줄(프로젝트 중복 제거)
 const bugLines = [...new Map(knownBugs.map((b) => [b.title, b])).values()].map(
   (b) => `- ${b.title.slice(0, 50)} — ${b.error.replace(/^Error: /, '').slice(0, 90)}`,

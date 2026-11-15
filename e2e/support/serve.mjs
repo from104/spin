@@ -11,6 +11,8 @@
 // 3. `/__e2e__/blank` 는 같은 출처의 빈 문서다 — 드라이버가 앱을 띄우기 전에 저장소를 심는 자리(seed).
 //    fallback 이 앱을 내주기 전에 이 주소만 따로 가로챈다(앱이 돌면 저장소를 먼저 건드린다).
 //
+// 4. `--build-only` 는 1 만 하고 끝난다(실제 앱 층 e2e/app/build.mjs 가 쓴다).
+//
 // 의존성 없이 node 내장 모듈만 쓴다. 빌드 로그는 test-results/e2e-build.log 로 남긴다.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -111,6 +113,9 @@ if (reason) {
 }
 // 이번에 내줄 dist 가 어떤 입력에서 왔는지 남긴다
 writeFileSync(STAMP, fingerprint(inputs));
+// `--build-only` — 빌드 판정까지만 하고 서버는 안 띄운다. 실제 앱 층(e2e/app/build.mjs)이 같은 dist/ 를 바이너리에
+// 구워 넣으려고 부른다 — 웹 층과 같은 운영 빌드여야 두 층의 결과가 같은 프런트를 말한다
+if (process.argv.includes('--build-only')) process.exit(0);
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
