@@ -217,6 +217,9 @@ AGENTS.md 에 기록하여 일관된 결과물 나오게"* — 아래 §1~§9 �
 - 릴리스 커밋은 한 꼴: `chore: 버전 a.b.c → a.b.d · CHANGELOG [Unreleased] 를 [a.b.d] 로 확정`.
   건드리는 파일은 `CHANGELOG.md`(+`.en`·`.ja`) · `ROADMAP.md` · `package.json` · `package-lock.json`
   뿐, 기능 변경을 섞지 않는다. 태그는 주석 태그(`v0.6.1 — 그 회차 요약`).
+- 태그 푸시의 `desktop-release.yml` 에는 `artifact-check` 잡이 있다 — 초안의 AppImage 를 실제로 띄우고 latest.json·서명을 공개 키로
+  확인한다(`scripts/test-suite.sh --layer app --artifact <태그>`, PLAN-TEST-SUITE §12). **빨가면 초안을 공개하지 않는다.** 손으로도 같은
+  것을 돈다: `--artifact draft`(가장 새 초안) 또는 `--artifact v0.6.13`.
 - 배포는 **`npm run deploy:aws` 하나**(spin.atit.app). `npm run deploy`(spin.atit.dev)는 돌리지
   않는다 — dev 는 app 으로 리다이렉트된다. 테스트를 방금 돌렸으면 `-- --no-test`.
 - **번들에 인라인되는 값이 CI 에서 비면 아무 표시도 안 난다.** 없는 시크릿을 GitHub 은 빈

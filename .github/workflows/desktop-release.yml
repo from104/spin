@@ -12,6 +12,7 @@
 # 언제 도는가
 #   · 태그 `v*` 를 밀면        → 산출물을 GitHub Release(초안) 에 올린다
 #   · Actions 에서 수동 실행    → 릴리스는 만들지 않고 아티팩트로만 받는다(빌드가 깨졌는지 보는 용도)
+#   · 태그일 때 artifact-check 잡이 초안의 AppImage 를 띄우고 latest.json·서명을 본다 — 빨가면 초안을 공개하지 않는다
 #
 # 서명은 아직 없다. 맥은 Gatekeeper, 윈도우는 SmartScreen 경고가 뜬다 —
 # 서명·공증은 스토어 계정과 함께 0.7 에서 다룬다.
@@ -280,6 +281,65 @@ jobs:
             src-tauri/target/release/bundle/**/*.msi
             src-tauri/target/release/bundle/**/*.exe
           if-no-files-found: warn
+
+  # 배송 전 확인 — 초안 릴리스에 올라간 **그 AppImage**(자동 업데이트가 내려보낼 파일, 번들 WebKit·라이브러리째)를 실제로 띄우고,
+  # latest.json 이 이 릴리스의 자산을 가리키는지·리눅스 묶음 서명이 tauri.conf.json 의 공개 키로 풀리는지·다른 묶음 서명이 .sig 와
+  # 같은지 본다(scripts/test-suite.sh --layer app --artifact <태그>, docs/PLAN-TEST-SUITE.md §12). 실패하면 이 실행이 빨갛다 →
+  # **초안을 공개하지 않는다.** 이 잡은 아무것도 올리지 않고 초안을 공개하지도 않는다(받기만 한다).
+  # ⚠️ 2026-11-15 에 넣었다 — 진짜로는 다음 태그 푸시에서 처음 검증된다(로컬에서는 공개된 v0.6.13 으로 같은 검사를 돌렸다).
+  artifact-check:
+    needs: build
+    if: ${{ startsWith(github.ref, 'refs/tags/') && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+    permissions:
+      # 초안 릴리스는 쓰기 권한 토큰에만 보인다(GitHub API — 읽기 전용 토큰에는 목록에도 안 나온다). 쓰는 명령은 하나도 없다
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: tauri-driver 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/tauri-driver
+          key: ${{ runner.os }}-tauri-driver-2.1.0
+
+      - name: tauri-driver 설치
+        run: command -v tauri-driver || cargo install tauri-driver --version 2.1.0 --locked
+
+      # AppImage 는 제 WebKit 을 품고 오므로 빌드 의존성은 없다 — app 층 도구만(e2e-app.yml 의 linux 잡과 같은 목록)
+      - name: app 층 도구
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y webkit2gtk-driver xvfb x11-utils x11-apps dbus gnome-keyring
+
+      - name: 초안 AppImage·latest.json·서명 확인
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/test-suite.sh --layer app --platform linux --artifact "$GITHUB_REF_NAME"
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f test-results/summary.md ]; then cat test-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else echo "test-results/summary.md 없음 — 실행기가 요약을 쓰기 전에 죽었다" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: 실패 보고서 올리기
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-check-failure
+          path: test-results/
+          retention-days: 7
 
   android:
     # 왜 `needs: build` 인가: 릴리스 초안을 만드는 것은 build 잡의 tauri-action 하나뿐이다.
