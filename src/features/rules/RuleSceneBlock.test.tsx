@@ -57,3 +57,18 @@ describe('RuleSceneBlock — 노트 띠 높이', () => {
     expect(fixedBands(single.container)).toHaveLength(0);
   });
 });
+
+describe('RuleSceneBlock — 심플 모드와 무관', () => {
+  it('심플 모드가 켜져 있어도 규칙 장면의 휠체어는 실물 차체다 — 규칙 설명이 차체 크기에 걸려 있다', async () => {
+    const { savePrefs, makeDefaultPrefs } = await import('../../storage/prefs.ts');
+    savePrefs({ ...makeDefaultPrefs(), board: { simple: true } });
+    const { container } = render(
+      <SettingsProvider>
+        <RuleSceneBlock sceneId="corner" active onActivate={() => {}} />
+      </SettingsProvider>,
+    );
+    expect(container.querySelectorAll('[id^="obj-ch_"]').length).toBeGreaterThan(0); // 전제: 휠체어가 그려졌다
+    expect(container.querySelector('[data-shape="disc"]')).toBeNull();
+    localStorage.clear();
+  });
+});

@@ -36,11 +36,14 @@ function chairHullCorners(p: ChairPose): [Vec2, Vec2, Vec2, Vec2] {
   })) as [Vec2, Vec2, Vec2, Vec2];
 }
 
-/** 판(경계)에 대해 쓰는 차체 외곽. 심플 모드(`b.disc`)에서는 피벗 중심 원의 AABB(반지름 R 정사각형)다. */
+/** 판(경계)에 대해 쓰는 차체 외곽. 심플 모드(`b.disc`)에서는 **원 ∪ 실물 차체**다 — 피벗 중심 원의 AABB(반지름 R
+ *  정사각형) 꼭짓점과 실물 hull 꼭짓점을 함께 돌려줘, 둘 다 판 안에 들어와야 통과한다.
+ *  ⚠️ 원만 쓰면 앞벽에 붙인 자세가 실물 차체로는 판 밖이고, 그 자세가 드릴에 저장된다(심플은 기기 표시 설정일 뿐). */
 function boundsHull(p: ChairPose, b: Bounds): Vec2[] {
   if (!b.disc) return chairHullCorners(p);
   const r = DISC_RADIUS_PX;
   return [
+    ...chairHullCorners(p),
     { x: p.x - r, y: p.y - r },
     { x: p.x + r, y: p.y - r },
     { x: p.x + r, y: p.y + r },

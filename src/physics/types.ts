@@ -35,8 +35,8 @@ export interface KinInput {
 export interface Bounds {
   w: number;
   h: number;
-  /** 심플 모드(휠체어 = 원) — 벽 경계를 실물 차체가 아니라 **피벗 중심 원**(model/chairDisc.ts)으로 잰다.
-   *  원의 AABB 는 돌려도 같으므로 판 안에 머무는 조건이 회전과 무관하다. 저장 데이터는 건드리지 않는다. */
+  /** 심플 모드(휠체어 = 원) — 벽 경계를 **원 ∪ 실물 차체** 둘 다 판 안으로 잰다(obb.ts boundsHull). 저장되는 자세는
+   *  늘 실물로도 유효해야 하기 때문이다(심플은 기기 표시 설정). 뒤·옆은 원이, 앞은 차체가 경계를 정한다. */
   disc?: boolean;
 }
 

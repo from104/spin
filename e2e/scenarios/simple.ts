@@ -33,10 +33,11 @@ async function aspectOf(app: SpinApp, id: string): Promise<number> {
 export default defineGroup('simple', [
   {
     title: 'S18 심플 모드 — 원이 되고 안 밀린다',
-    needs: ['pointer', 'keyboard'],
+    // 표시(스위치 → 원)는 터치·마우스 어디서나 같다 — 4 프로젝트에서 돈다. 끌기 부분만 마우스('pointer') 능력으로 가른다
+    needs: ['keyboard'], // 보드 설정 모달을 Esc 로 닫는다
     run: async (app) => {
-      const a = await app.placeFromTray('chair', at(0.5, 0.5), { via: 'drag', team: 'home' });
-      const b = await app.placeFromTray('chair', at(0.75, 0.5), { via: 'drag', team: 'away' });
+      const a = await app.placeFromTray('chair', at(0.5, 0.5), { via: 'tap', team: 'home' });
+      const b = await app.placeFromTray('chair', at(0.75, 0.5), { via: 'tap', team: 'away' });
       check((await aspectOf(app, a)) > DISC_MAX_ASPECT, '심플 모드 전인데 휠체어가 이미 원 모양이다(전제 실패)');
 
       // 물리·상호작용을 **먼저 켜 둔다** — 저장값이 켬이어도 심플 모드가 끄는지가 이 시나리오의 본론이다
@@ -48,6 +49,10 @@ export default defineGroup('simple', [
 
       check((await aspectOf(app, a)) < DISC_MAX_ASPECT, '심플 모드를 켰는데 휠체어가 원이 아니다', await app.objectBox(a));
 
+      if (!app.capabilities.has('pointer')) {
+        await expectQuiet(app, 'S18');
+        return;
+      }
       const before = await app.worldToScreen(await objectById(app, b));
       const from = await app.objectCenter(a);
       check(from !== null, '휠체어가 화면에 없다');
