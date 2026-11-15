@@ -22,7 +22,7 @@
 // 새 의존성을 안 들이려고 **이미 있는 vite** 를 쓴다.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const DIST = join(ROOT, 'dist');
@@ -36,7 +36,11 @@ if (process.env.TAURI_ENV_PLATFORM !== undefined) {
   process.exit(0);
 }
 
-const { prerenderPages, SITE_ORIGIN } = await import(join(ROOT, '.seo-build', 'prerenderData.js'));
+const { prerenderPages, SITE_ORIGIN } = await import(
+  // ⚠️ Windows 에서는 절대 경로(`D:\…`)를 그대로 import 하면 ERR_UNSUPPORTED_ESM_URL_SCHEME — file:// URL 로 바꾼다
+  //   (2026-11-15 e2e-app.yml windows 잡이 여기서 멈췄다).
+  pathToFileURL(join(ROOT, '.seo-build', 'prerenderData.js')).href
+);
 
 const template = await readFile(join(DIST, 'index.html'), 'utf-8');
 
