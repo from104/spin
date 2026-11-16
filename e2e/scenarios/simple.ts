@@ -30,6 +30,146 @@ async function aspectOf(app: SpinApp, id: string): Promise<number> {
   return Math.max(w / h, h / w);
 }
 
+/** [물리·상호작용] 을 켠다 — 켬이면 키보드·방향판 이동이 순간이동이 아니라 **쓸기**(sweepTo)다. 쥔 칩은 static 이라
+ *  Matter 벽도 안전망도 막지 않았다(2026-11-17 기현님 "객체들이 키보드로 이동하면 코트 가장자리를 넘어감"). */
+async function interactOn(app: SpinApp): Promise<void> {
+  await openCourtModal(app);
+  await app.press('court-toggle-interact');
+  await closeCourtModal(app);
+}
+
+type Sc = Parameters<typeof defineGroup>[1][number];
+
+const wallTurn = (interact: boolean): Sc => ({
+  // 지우면 새는 실기 버그: 상호작용이 꺼져 있으면(심플 모드는 늘 끔) 키보드·방향판 이동·회전이 **순간이동**이라 아무도 벽을
+  // 지키지 않았다. 방향키만 눌러도 차체가 판 밖으로 나가고, 벽 앞에서 벽 쪽으로 돌면 차체 앞이 판 밖인 채 **저장**된다 —
+  // 심플 모드에서는 차체를 안 그리니 보이지도 않는다. 그 칩은 나중에 다른 칩을 끌기만 해도 안전망이 밀어 커밋한다.
+  // 판정은 앱 상수 없이: 심플을 끈 뒤 **보이는 차체 상자**가 판(court-surface = 벽 경계, 라인 바깥 여백까지) 상자 안인가, 다른 칩을 끈 뒤 자세가 그대로인가.
+  title: interact
+    ? 'S18e 상호작용 켬 — 키로 벽까지 밀고 벽 쪽으로 돌아도 차체는 판 안'
+    : 'S18c 심플 모드 — 키로 벽까지 밀고 벽 쪽으로 돌아도 차체는 판 안',
+  needs: ['keyboard'],
+  run: async (app) => {
+    const a = await app.placeFromTray('chair', at(0.5, 0.5), { via: 'drag', team: 'home' });
+    const b = await app.placeFromTray('chair', at(0.5, 0.85), { via: 'drag', team: 'away' });
+    if (interact) await interactOn(app);
+    else await app.press('fn-simple');
+
+    // 화면에서 월드 −x 벽(왼쪽 골라인 쪽)이 어느 쪽인가 — 세로 창에서는 코트가 돌아 있다
+    const pa = await objectById(app, a);
+    const s0 = await app.worldToScreen(pa);
+    const s1 = await app.worldToScreen({ x: pa.x - 100, y: pa.y });
+    const dx = s1.x - s0.x;
+    const dy = s1.y - s0.y;
+    const horiz = Math.abs(dx) > Math.abs(dy);
+    const toWall = horiz ? (dx > 0 ? 'ArrowRight' : 'ArrowLeft') : dy > 0 ? 'ArrowDown' : 'ArrowUp';
+    // 숫자키 1·3·5·7 = 화면 위·오른쪽·아래·왼쪽을 본다
+    const faceKey = (arrow: string): string => ({ ArrowUp: '1', ArrowRight: '3', ArrowDown: '5', ArrowLeft: '7' })[arrow]!;
+    const away = horiz ? (dx > 0 ? 'ArrowLeft' : 'ArrowRight') : dy > 0 ? 'ArrowUp' : 'ArrowDown';
+
+    const c = await app.objectCenter(a);
+    check(c !== null, '휠체어가 화면에 없다');
+    await app.tap(c);
+    await app.settled();
+    await app.pressKey(faceKey(away)); // 등을 벽으로
+    for (let i = 0; i < 24; i++) await app.pressKey(`Shift+${toWall}`); // 큰 걸음으로 반 코트 넘게 — 벽에서 멈춰야 한다
+    await app.settled();
+    // 같은 개체의 키 이동은 700 ms 안이면 한 칸으로 합쳐진다(history COALESCE_MS) — 회전을 따로 한 칸으로 떼어 잰다
+    await new Promise((r) => setTimeout(r, 900));
+    const beforeTurn = await objectById(app, a);
+    await app.pressKey(faceKey(toWall)); // 벽 앞에서 벽 쪽으로 돈다 — 차체 앞이 벽에 닿지 않게 피벗이 밀려 들어온다
+    await app.settled();
+    const turned = await objectById(app, a);
+    check(turned.angleDeg !== beforeTurn.angleDeg, '숫자키로 돌았는데 방향이 그대로다(전제 실패)', { beforeTurn, turned });
+    // 되돌리기 한 번에 방향·피벗이 **둘 다** 처음 값 — 벽 밀어넣기(PLACE_SETTLE)가 회전과 같은 칸이다
+    await app.undo();
+    await app.settled();
+    check(poseKey([await objectById(app, a)]) === poseKey([beforeTurn]), '되돌리기 한 번에 방향·피벗이 처음 값으로 안 돌아왔다', {
+      beforeTurn,
+      after: await objectById(app, a),
+    });
+    await app.redo();
+    await app.settled();
+    await app.pressKey('Escape'); // 선택 테두리를 걷는다 — 상자는 차체만
+
+    if (!interact) await app.press('fn-simple'); // 심플을 끄고 실물 차체로 잰다
+    const field = await app.rectOf('court-surface');
+    const box = await app.objectBox(a);
+    check(field !== null && box !== null, '판·휠체어가 화면에 없다');
+    // 칩의 테두리 선은 차체 hull 바깥으로 반 굵기만큼 그려진다(실측 화면 1.3–3.7 px). 허용치는 칩 짧은 변의 15% —
+    // 고치기 전 실패는 hull 이 벽 너머 13.5 px(짧은 변 20 의 68%) 이상이라 넉넉히 갈린다.
+    const tol = 0.15 * Math.min(box.right - box.left, box.bottom - box.top);
+    check(
+      box.left >= field.left - tol && box.top >= field.top - tol && box.right <= field.right + tol && box.bottom <= field.bottom + tol,
+      '벽 앞에서 돈 휠체어의 차체가 판 밖이다',
+      { box, field, pose: await objectById(app, a) },
+    );
+
+    if (app.capabilities.has('pointer')) {
+      // 이어서 **다른** 칩을 끈다 — 손대지 않은 칩은 한 픽셀도 안 움직여야 한다(안전망이 밀어 커밋하면 빨강)
+      const before = poseKey([await objectById(app, a)]);
+      const from = await app.objectCenter(b);
+      check(from !== null, '상대 휠체어가 화면에 없다');
+      await app.drag(from, shift(from, 40, 0), { steps: 10 });
+      await app.settled();
+      check(poseKey([await objectById(app, a)]) === before, '다른 칩을 끌었는데 벽 앞의 칩이 움직였다', { before, after: await objectById(app, a) });
+    }
+    await expectQuiet(app, 'S18c');
+  },
+});
+
+const groupWall = (interact: boolean): Sc => ({
+  // 지우면 새는 실기 버그(113154c): 휠체어 여럿을 골라 벽 쪽으로 밀면 칩마다 따로 벽에 서서 **벽 쪽 칩만 멈추고 나머지가
+  // 겹쳐 들어온다**(키보드), 덩어리 끌기는 벽 검사가 없어 무리째 판 밖으로 나간다. 가장 먼저 닿는 칩이 무리 전체를 세워야
+  // 간격(포메이션)이 남는다. 평소 모드·상호작용 끔(앱 기본)에서 잰다 — 순간이동 경로다.
+  title: interact ? 'S18f 상호작용 켬 — 무리 이동이 벽에서 서고 간격이 남는다' : 'S18d 무리 이동 — 벽에서 무리 전체가 서고 간격이 남는다',
+  needs: ['keyboard'],
+  run: async (app) => {
+    const a = await app.placeFromTray('chair', at(0.3, 0.5), { via: 'drag', team: 'home' });
+    const b = await app.placeFromTray('chair', at(0.45, 0.5), { via: 'drag', team: 'home' });
+    if (interact) await interactOn(app);
+    const a0 = await objectById(app, a);
+    const b0 = await objectById(app, b);
+    // 화면에서 월드 −x 벽(a 쪽)이 어느 쪽인가 — 세로 창에서는 코트가 돌아 있다
+    const s0 = await app.worldToScreen(a0);
+    const s1 = await app.worldToScreen({ x: a0.x - 100, y: a0.y });
+    const dx = s1.x - s0.x;
+    const dy = s1.y - s0.y;
+    const toWall = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'ArrowRight' : 'ArrowLeft') : dy > 0 ? 'ArrowDown' : 'ArrowUp';
+
+    const c = await app.objectCenter(a);
+    check(c !== null, '휠체어가 화면에 없다');
+    await app.tap(c);
+    await app.settled();
+    await app.pressKey('ControlOrMeta+a'); // 둘 다 고른다 — 포커스는 a 에 남아 방향키가 무리 이동이 된다
+    await app.settled();
+    for (let i = 0; i < 24; i++) await app.pressKey(`Shift+${toWall}`); // 큰 걸음으로 반 코트 넘게
+    await app.settled();
+    const a1 = await objectById(app, a);
+    const b1 = await objectById(app, b);
+    check(a0.x - a1.x > 50, '무리가 벽 쪽으로 안 움직였다(전제 실패 — 무리 선택·포커스)', { a0, a1, b1 });
+    check(Math.abs(b1.x - a1.x - (b0.x - a0.x)) < 0.5 && Math.abs(b1.y - a1.y - (b0.y - a0.y)) < 0.5, '벽에서 무리 간격이 무너졌다(벽 쪽 칩만 멈췄다)', {
+      a0,
+      b0,
+      a1,
+      b1,
+    });
+
+    if (app.capabilities.has('pointer')) {
+      // 벽에 선 무리를 손으로 더 벽 쪽으로 끈다 — 무리 전체가 그 자리에 서 있어야 한다(판 밖으로 안 나간다)
+      const from = await app.objectCenter(b);
+      check(from !== null, '휠체어가 화면에 없다');
+      const len = Math.hypot(dx, dy);
+      await app.drag(from, shift(from, (dx / len) * 120, (dy / len) * 120), { steps: 12 });
+      await app.settled();
+      const a2 = await objectById(app, a);
+      const b2 = await objectById(app, b);
+      check(poseKey([a2, b2]) === poseKey([a1, b1]), '벽에 선 무리를 더 끌었더니 판 밖으로 나갔다', { a1, a2, b1, b2 });
+    }
+    await expectQuiet(app, 'S18d');
+  },
+});
+
 export default defineGroup('simple', [
   {
     title: 'S18 심플 모드 — 원이 되고 안 밀린다',
@@ -83,128 +223,8 @@ export default defineGroup('simple', [
       await expectQuiet(app, 'S18b');
     },
   },
-  {
-    // 지우면 새는 실기 버그: 상호작용이 꺼져 있으면(심플 모드는 늘 끔) 키보드·방향판 이동·회전이 **순간이동**이라 아무도 벽을
-    // 지키지 않았다. 방향키만 눌러도 차체가 판 밖으로 나가고, 벽 앞에서 벽 쪽으로 돌면 차체 앞이 판 밖인 채 **저장**된다 —
-    // 심플 모드에서는 차체를 안 그리니 보이지도 않는다. 그 칩은 나중에 다른 칩을 끌기만 해도 안전망이 밀어 커밋한다.
-    // 판정은 앱 상수 없이: 심플을 끈 뒤 **보이는 차체 상자**가 판(court-surface = 벽 경계, 라인 바깥 여백까지) 상자 안인가, 다른 칩을 끈 뒤 자세가 그대로인가.
-    title: 'S18c 심플 모드 — 키로 벽까지 밀고 벽 쪽으로 돌아도 차체는 판 안',
-    needs: ['keyboard'],
-    run: async (app) => {
-      const a = await app.placeFromTray('chair', at(0.5, 0.5), { via: 'drag', team: 'home' });
-      const b = await app.placeFromTray('chair', at(0.5, 0.85), { via: 'drag', team: 'away' });
-      await app.press('fn-simple');
-
-      // 화면에서 월드 −x 벽(왼쪽 골라인 쪽)이 어느 쪽인가 — 세로 창에서는 코트가 돌아 있다
-      const pa = await objectById(app, a);
-      const s0 = await app.worldToScreen(pa);
-      const s1 = await app.worldToScreen({ x: pa.x - 100, y: pa.y });
-      const dx = s1.x - s0.x;
-      const dy = s1.y - s0.y;
-      const horiz = Math.abs(dx) > Math.abs(dy);
-      const toWall = horiz ? (dx > 0 ? 'ArrowRight' : 'ArrowLeft') : dy > 0 ? 'ArrowDown' : 'ArrowUp';
-      // 숫자키 1·3·5·7 = 화면 위·오른쪽·아래·왼쪽을 본다
-      const faceKey = (arrow: string): string => ({ ArrowUp: '1', ArrowRight: '3', ArrowDown: '5', ArrowLeft: '7' })[arrow]!;
-      const away = horiz ? (dx > 0 ? 'ArrowLeft' : 'ArrowRight') : dy > 0 ? 'ArrowUp' : 'ArrowDown';
-
-      const c = await app.objectCenter(a);
-      check(c !== null, '휠체어가 화면에 없다');
-      await app.tap(c);
-      await app.settled();
-      await app.pressKey(faceKey(away)); // 등을 벽으로
-      for (let i = 0; i < 24; i++) await app.pressKey(`Shift+${toWall}`); // 큰 걸음으로 반 코트 넘게 — 벽에서 멈춰야 한다
-      await app.settled();
-      // 같은 개체의 키 이동은 700 ms 안이면 한 칸으로 합쳐진다(history COALESCE_MS) — 회전을 따로 한 칸으로 떼어 잰다
-      await new Promise((r) => setTimeout(r, 900));
-      const beforeTurn = await objectById(app, a);
-      await app.pressKey(faceKey(toWall)); // 벽 앞에서 벽 쪽으로 돈다 — 차체 앞이 벽에 닿지 않게 피벗이 밀려 들어온다
-      await app.settled();
-      const turned = await objectById(app, a);
-      check(turned.angleDeg !== beforeTurn.angleDeg, '숫자키로 돌았는데 방향이 그대로다(전제 실패)', { beforeTurn, turned });
-      // 되돌리기 한 번에 방향·피벗이 **둘 다** 처음 값 — 벽 밀어넣기(PLACE_SETTLE)가 회전과 같은 칸이다
-      await app.undo();
-      await app.settled();
-      check(poseKey([await objectById(app, a)]) === poseKey([beforeTurn]), '되돌리기 한 번에 방향·피벗이 처음 값으로 안 돌아왔다', {
-        beforeTurn,
-        after: await objectById(app, a),
-      });
-      await app.redo();
-      await app.settled();
-      await app.pressKey('Escape'); // 선택 테두리를 걷는다 — 상자는 차체만
-
-      await app.press('fn-simple');
-      const field = await app.rectOf('court-surface');
-      const box = await app.objectBox(a);
-      check(field !== null && box !== null, '판·휠체어가 화면에 없다');
-      // 칩의 테두리 선은 차체 hull 바깥으로 반 굵기만큼 그려진다(실측 화면 1.3–3.7 px). 허용치는 칩 짧은 변의 15% —
-      // 고치기 전 실패는 hull 이 벽 너머 13.5 px(짧은 변 20 의 68%) 이상이라 넉넉히 갈린다.
-      const tol = 0.15 * Math.min(box.right - box.left, box.bottom - box.top);
-      check(
-        box.left >= field.left - tol && box.top >= field.top - tol && box.right <= field.right + tol && box.bottom <= field.bottom + tol,
-        '벽 앞에서 돈 휠체어의 차체가 판 밖이다',
-        { box, field, pose: await objectById(app, a) },
-      );
-
-      if (app.capabilities.has('pointer')) {
-        // 이어서 **다른** 칩을 끈다 — 손대지 않은 칩은 한 픽셀도 안 움직여야 한다(안전망이 밀어 커밋하면 빨강)
-        const before = poseKey([await objectById(app, a)]);
-        const from = await app.objectCenter(b);
-        check(from !== null, '상대 휠체어가 화면에 없다');
-        await app.drag(from, shift(from, 40, 0), { steps: 10 });
-        await app.settled();
-        check(poseKey([await objectById(app, a)]) === before, '다른 칩을 끌었는데 벽 앞의 칩이 움직였다', { before, after: await objectById(app, a) });
-      }
-      await expectQuiet(app, 'S18c');
-    },
-  },
-  {
-    // 지우면 새는 실기 버그(113154c): 휠체어 여럿을 골라 벽 쪽으로 밀면 칩마다 따로 벽에 서서 **벽 쪽 칩만 멈추고 나머지가
-    // 겹쳐 들어온다**(키보드), 덩어리 끌기는 벽 검사가 없어 무리째 판 밖으로 나간다. 가장 먼저 닿는 칩이 무리 전체를 세워야
-    // 간격(포메이션)이 남는다. 평소 모드·상호작용 끔(앱 기본)에서 잰다 — 순간이동 경로다.
-    title: 'S18d 무리 이동 — 벽에서 무리 전체가 서고 간격이 남는다',
-    needs: ['keyboard'],
-    run: async (app) => {
-      const a = await app.placeFromTray('chair', at(0.3, 0.5), { via: 'drag', team: 'home' });
-      const b = await app.placeFromTray('chair', at(0.45, 0.5), { via: 'drag', team: 'home' });
-      const a0 = await objectById(app, a);
-      const b0 = await objectById(app, b);
-      // 화면에서 월드 −x 벽(a 쪽)이 어느 쪽인가 — 세로 창에서는 코트가 돌아 있다
-      const s0 = await app.worldToScreen(a0);
-      const s1 = await app.worldToScreen({ x: a0.x - 100, y: a0.y });
-      const dx = s1.x - s0.x;
-      const dy = s1.y - s0.y;
-      const toWall = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'ArrowRight' : 'ArrowLeft') : dy > 0 ? 'ArrowDown' : 'ArrowUp';
-
-      const c = await app.objectCenter(a);
-      check(c !== null, '휠체어가 화면에 없다');
-      await app.tap(c);
-      await app.settled();
-      await app.pressKey('ControlOrMeta+a'); // 둘 다 고른다 — 포커스는 a 에 남아 방향키가 무리 이동이 된다
-      await app.settled();
-      for (let i = 0; i < 24; i++) await app.pressKey(`Shift+${toWall}`); // 큰 걸음으로 반 코트 넘게
-      await app.settled();
-      const a1 = await objectById(app, a);
-      const b1 = await objectById(app, b);
-      check(a0.x - a1.x > 50, '무리가 벽 쪽으로 안 움직였다(전제 실패 — 무리 선택·포커스)', { a0, a1, b1 });
-      check(Math.abs(b1.x - a1.x - (b0.x - a0.x)) < 0.5 && Math.abs(b1.y - a1.y - (b0.y - a0.y)) < 0.5, '벽에서 무리 간격이 무너졌다(벽 쪽 칩만 멈췄다)', {
-        a0,
-        b0,
-        a1,
-        b1,
-      });
-
-      if (app.capabilities.has('pointer')) {
-        // 벽에 선 무리를 손으로 더 벽 쪽으로 끈다 — 무리 전체가 그 자리에 서 있어야 한다(판 밖으로 안 나간다)
-        const from = await app.objectCenter(b);
-        check(from !== null, '휠체어가 화면에 없다');
-        const len = Math.hypot(dx, dy);
-        await app.drag(from, shift(from, (dx / len) * 120, (dy / len) * 120), { steps: 12 });
-        await app.settled();
-        const a2 = await objectById(app, a);
-        const b2 = await objectById(app, b);
-        check(poseKey([a2, b2]) === poseKey([a1, b1]), '벽에 선 무리를 더 끌었더니 판 밖으로 나갔다', { a1, a2, b1, b2 });
-      }
-      await expectQuiet(app, 'S18d');
-    },
-  },
+  wallTurn(false),
+  wallTurn(true),
+  groupWall(false),
+  groupWall(true),
 ]);

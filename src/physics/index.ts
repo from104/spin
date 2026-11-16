@@ -660,13 +660,13 @@ export function createPhysicsWorld(
 
     sweepTo(moves, durationS) {
       if (!interact || session) return false;
-      const plan: Array<{ id: CastId; chair: boolean; from: ChairPose; to: ChairPose }> = [];
+      const plan: Array<{ id: CastId; chair: boolean; r: number; from: ChairPose; to: ChairPose }> = [];
       for (const m of moves) {
         const kind = kindOf.get(m.id);
         if (!kind || kind === 'goal' || lockedIds.has(m.id)) continue;
         const chair = kind === 'chair';
         const from: ChairPose = chair ? world.chairPose(m.id as ChairId) : { ...world.pointOf(m.id), theta: 0 };
-        plan.push({ id: m.id, chair, from, to: { x: m.pose.x, y: m.pose.y, theta: chair ? (m.pose.theta ?? from.theta) : 0 } });
+        plan.push({ id: m.id, chair, r: kind === 'ball' ? BALL.radiusPx : CONE.radiusPx, from, to: { x: m.pose.x, y: m.pose.y, theta: chair ? (m.pose.theta ?? from.theta) : 0 } });
         if (chair && !nudgeHeld.has(m.id as ChairId)) {
           world.setChairDragging(m.id as ChairId, true);
           nudgeHeld.add(m.id as ChairId);
@@ -687,15 +687,24 @@ export function createPhysicsWorld(
           const y = p.from.y + (p.to.y - p.from.y) * t;
           // driven — 걸음의 변위가 접촉 속도가 되어 밀린 쪽이 그 방향·빠르기로 굴러간다(끄는 칩과 같은 §5.4 경로).
       // 첫 판(2026-11-16)은 driven=false 라 공을 비켜 세우기만 했다 — 기현님 "부딛힌 방향과 속도로 안 굴러간다".
-          if (p.chair) world.setChairPose(p.id as ChairId, { x, y, theta: p.from.theta + (p.to.theta - p.from.theta) * t }, true);
-          else world.setPoint(p.id, { x, y }, true);
+          // ★ 걸음마다 벽 경계로 막는다(2026-11-17 기현님 "객체들이 키보드로 이동하면 코트 가장자리를 넘어감"). 쥔 칩은
+          //   static 이라 Matter 벽도 안전망(escapePinnedAll)도 막지 않았다 — 방향키를 누르는 만큼 판 밖으로 나갔다.
+          //   끌기(drag.ts resolveMotion)·순간이동(fitToBounds)과 같은 경계: 휠체어는 심플이면 원 ∪ 차체, 평소면 차체,
+          //   공·콘은 반지름 원. 벽에 선 뒤의 남은 걸음은 그 자리에서 미끄러질 뿐이라 접촉 속도도 0 으로 줄어든다.
+          if (p.chair) {
+            const theta = p.from.theta + (p.to.theta - p.from.theta) * t;
+            const c = pushChairIntoBounds({ x, y, theta }, bounds);
+            world.setChairPose(p.id as ChairId, { x: c.x, y: c.y, theta }, true);
+          } else {
+            world.setPoint(p.id, clampPointToBounds({ x, y }, p.r, bounds), true);
+          }
         }
         substep(PHYS.dtS);
       }
       // 공·콘은 dynamic 이라 걸음 사이에 되밀렸을 수 있다 — 손이 보낸 자리에 세운다(남은 겹침은 정착이 푼다)
       for (const p of plan) {
         if (p.chair) continue;
-        world.setPoint(p.id, { x: p.to.x, y: p.to.y }, false);
+        world.setPoint(p.id, clampPointToBounds(p.to, p.r, bounds), false);
         world.freeze(p.id);
       }
       openSettle();
