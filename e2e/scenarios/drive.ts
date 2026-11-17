@@ -185,7 +185,7 @@ export default defineGroup('drive', [
       const stick = await app.centerOf('drive-stick');
       check(stick !== null && (await app.onTop('drive-stick')), '조이스틱이 화면에 없거나 가려졌다');
 
-      // 손잡이를 위로 끝까지(받침 밖까지 끌어도 손잡이는 받침 안에 갇힌다) — 쥔 채로 휠체어가 보는 쪽으로 가기를 기다린다
+      // 손잡이를 위로 끝까지(받침 밖까지 끌어도 손잡이는 이동 반경에서 선다) — 쥔 채로 휠체어가 보는 쪽으로 가기를 기다린다
       await app.drag(stick, { x: stick.x, y: stick.y - 200 }, {
         whileHeld: () =>
           eventually(

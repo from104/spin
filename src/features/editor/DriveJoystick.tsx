@@ -165,10 +165,12 @@ export function DriveJoystick({
   const btn = large ? 56 : 44;
   // 판이 판넬보다 좁으면(좁은 세로 창 + 큰 표적 — 2026-11-17 실측 412×839 에서 판 컨테이너 폭 ≈ 90 px) 판 오른쪽 아래에 맞추면 화면 왼쪽
   // 밖으로 나간다. 화면 안에 붙잡아 둔다 — 그때는 트레이 일부를 덮지만 몰 수단이 사라지는 것보다 낫다.
+  // 손잡이는 받침 테두리 밖으로 overhang 만큼 나간다 — 오른쪽·아래 여백과 위쪽 높이에 그만큼 더해 판·화면 밖으로 나가지 않게.
+  const edge = GAP + overhang;
   const panelW = size + 8 + overhang + btn;
-  const panelH = Math.max(size, 3 * btn + 8);
-  const right = anchor ? Math.max(GAP, Math.min(anchor.right + GAP, anchor.vw - panelW - GAP)) : GAP;
-  const bottom = anchor ? Math.max(GAP, Math.min(anchor.bottom + GAP, anchor.vh - panelH - GAP)) : GAP;
+  const panelH = Math.max(size + overhang, 3 * btn + 8);
+  const right = anchor ? Math.max(edge, Math.min(anchor.right + edge, anchor.vw - panelW - edge)) : edge;
+  const bottom = anchor ? Math.max(edge, Math.min(anchor.bottom + edge, anchor.vh - panelH - GAP)) : edge;
   const speedBtn = {
     width: btn,
     height: btn,
@@ -202,8 +204,8 @@ export function DriveJoystick({
             data-testid="drive-joystick"
             style={{
               position: 'fixed',
-              right: `max(${right}px, calc(env(safe-area-inset-right, 0px) + ${GAP}px))`,
-              bottom: `max(${bottom}px, calc(env(safe-area-inset-bottom, 0px) + ${GAP}px))`,
+              right: `max(${right}px, calc(env(safe-area-inset-right, 0px) + ${edge}px))`,
+              bottom: `max(${bottom}px, calc(env(safe-area-inset-bottom, 0px) + ${edge}px))`,
               // 판·상단 띠(3) 위, 도구 레일 펼침(40)·메뉴(60)·모달(70~) 아래 — 조정 중에 떠도 그것들을 가리지 않는다.
               zIndex: 35,
               display: 'flex',
