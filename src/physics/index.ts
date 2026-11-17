@@ -752,6 +752,13 @@ export function createPhysicsWorld(
         closeSettle();
         loop.stop();
       }
+      // 이번 프레임에 안 모는 칩은 놓는다 — 갈아타기 전에 몰던 칩, 키보드 밀기가 쥐고 있던 칩(위에서 그 정착을 끊었다). static 으로 남으면
+      // static–static 이라 새로 모는 칩이 그것을 뚫는다(drive.test '갈아탄 휠체어는 놓인다').
+      for (const id of [...nudgeHeld]) {
+        if (moves.some((m) => m.id === id)) continue;
+        if (!lockedIds.has(id)) world.setChairDragging(id, false);
+        nudgeHeld.delete(id);
+      }
       const plan: Array<{ id: ChairId; from: ChairPose; to: ChairPose }> = [];
       for (const m of moves) {
         if (kindOf.get(m.id) !== 'chair' || lockedIds.has(m.id)) continue;

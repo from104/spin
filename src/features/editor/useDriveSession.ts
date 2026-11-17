@@ -301,6 +301,12 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
         return;
       }
       if (MODIFIER_CODES.has(code)) return;
+      // 들어가던 키(J·Alt+J·메뉴의 Enter)를 쥐고 있으면 자동 반복이 모드 안으로 들어온다 — '아무 키 = 나가기' 로 읽으면 들어가자마자 나간다.
+      if (e.repeat) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (DIGITS_SWALLOWED.has(code) && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         e.stopPropagation();

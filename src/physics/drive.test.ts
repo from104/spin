@@ -74,6 +74,17 @@ describe('잠긴 개체는 쓸고 가는 휠체어를 막는다', () => {
   });
 });
 
+describe('갈아탄 휠체어는 놓인다', () => {
+  // 쥔 칩은 static 이고 static–static 은 쌍이 안 생긴다 — 앞서 몰던(또는 키보드로 밀던) 칩을 안 놓으면 새로 모는 칩이 그것을 뚫는다.
+  it('A 를 몰다가 B 로 갈아타면 A 는 다시 밀린다', () => {
+    const probe = probeOf({ chairs: [{ id: chA, x: 360, y: Y }, { id: chB, x: 300, y: Y }] });
+    driveStraight(probe, chA, 0, 5); // A 를 잡았다가
+    const a0 = probe.api.read()[chA]!.x;
+    driveStraight(probe, chB, DRIVE.vMaxPxPerS, 90); // B 만 A 쪽으로
+    expect(probe.api.read()[chA]!.x).toBeGreaterThan(a0 + 5);
+  });
+});
+
 describe('driveStep 의 시간 — 한 프레임에 정확히 dt 만큼만 걷는다', () => {
   it('정착 루프가 돌고 있으면 세운다 — 루프와 조정 모드가 같은 프레임에 두 번 걷지 않게', () => {
     const probe = probeOf({ chairs: [{ id: chA, x: 300, y: Y }], balls: [{ id: bl, x: 400, y: Y }] });

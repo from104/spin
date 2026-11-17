@@ -146,7 +146,13 @@ export default defineGroup('drive', [
       check(!(await app.present('drive-strip')), '상호작용이 꺼져 있는데 조정 모드에 들어갔다');
 
       await interactOn(app);
-      await enterDrive(app, chair); // 대조군 — 같은 손짓이 이제는 들어간다
+      // 대조군 — 같은 손짓이 이제는 들어간다. J 를 **쥐고** 들어간다: 두 번째 down 은 자동 반복(repeat)이라 모드 안에서
+      // '조정 키가 아닌 아무 키 = 나가기' 로 읽히면 들어가자마자 나간다(첫 판의 실수).
+      await selectOnly(app, chair);
+      await app.keyDown('j');
+      await app.keyDown('j');
+      await app.keyUp('j');
+      await eventually('J 를 쥐고 들어가도 모드가 남는다', () => app.present('drive-strip'), true);
       await app.press('fn-simple');
       await eventually('심플 모드를 켜면 조정 모드가 끝난다', () => app.present('drive-strip'), false);
       await app.pressKey('j');

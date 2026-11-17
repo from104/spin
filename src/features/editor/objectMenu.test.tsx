@@ -709,3 +709,44 @@ describe('[표시순서] — 무대 끝까지', () => {
     expect(screen.getByRole('menuitem', { name: '맨 뒤로' })).toHaveAttribute('aria-disabled', 'true');
   });
 });
+
+// ── [휠체어 조정 모드](2026-11-17, docs/PLAN-SIMPLE-DRIVE.md 결정 B2) — 두 입구 중 하나다(다른 하나는 `J`).
+// 지우면 새는 것: 못 쓰는 상태(심플·상호작용 꺼짐·잠김)에서 칸이 살아 있어 눌러도 아무 일 없거나, 이유를 말하지 않는 죽은 칸.
+describe('[휠체어 조정 모드] 칸', () => {
+  const base = { x: 10, y: 10, ids: ['ch_1'], locked: false, ignored: false, canIgnore: true, editable: null, selectSame: null };
+  const noop = () => {};
+  const openWith = (reason: 'drive.unavailable.interact' | null, onDrive: (id: string) => void) =>
+    render(
+      <ObjectMenu
+        target={base}
+        onClose={noop}
+        onFineTune={noop}
+        onToggleLock={noop}
+        onToggleIgnore={noop}
+        onRemove={noop}
+        onSelect={noop}
+        onDuplicate={noop}
+        onZOrder={noop}
+        zMoves={null}
+        onEdit={noop}
+        drive={{ reason }}
+        onDrive={onDrive}
+      />,
+      { wrapper: SettingsProvider },
+    );
+
+  it('쓸 수 있으면 누를 때 그 휠체어로 들어가고, 못 쓰면 죽은 칸이 이유를 말하고 눌러도 안 들어간다', async () => {
+    const got: string[] = [];
+    openWith(null, (id) => got.push(id));
+    await userEvent.click(screen.getByRole('menuitem', { name: '휠체어 조정 모드' }));
+    expect(got).toEqual(['ch_1']);
+    cleanup();
+
+    openWith('drive.unavailable.interact', (id) => got.push(id));
+    const item = screen.getByRole('menuitem', { name: '휠체어 조정 모드' });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    expect(item).toHaveAccessibleDescription(/물리·상호작용/);
+    await userEvent.click(item);
+    expect(got).toEqual(['ch_1']);
+  });
+});

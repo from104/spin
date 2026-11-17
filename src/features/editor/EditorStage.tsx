@@ -1141,6 +1141,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 의 allowPan 주석과 같은 사정), 그 두 번째 개체 위로 무엇이 뜨면 판이 거짓말을 한다.
       onStageDoubleClick={(id, e) => {
         // `true` 를 돌려줄 때만 그 손짓이 무대에서 끝난다(선택·드래그·판 이동 무장 없음).
+        // 조정 모드 중에는 먹기만 한다 — 패드가 뜨면 sweepTo 가 시간의 주인을 하나 더 만들고 되돌리기 칸도 따로 쌓는다(drivePress 와 같은 이유).
+        if (drive.chairId) return true;
         if (tool !== 'select') return false;
         if (isId(id, 'nt')) {
           onEditNote(id, false);
