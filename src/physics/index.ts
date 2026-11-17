@@ -3,7 +3,7 @@
 import * as Matter from 'matter-js';
 import type { Vec2 } from '../core/units.ts';
 import { kmhToPxPerS } from '../core/units.ts';
-import { BALL, CHAIR, CONE, DEFAULT_LIMITS, DEFAULT_ZONES, GOAL, PHYS } from '../core/constants.ts';
+import { BALL, CHAIR, CHAIR_SEP_PX, CONE, DEFAULT_LIMITS, DEFAULT_ZONES, DRIVE, GOAL, PHYS, RESOLVE_ITERS } from '../core/constants.ts';
 import type { ChairId, CastId } from '../core/ids.ts';
 import { isId } from '../core/ids.ts';
 import type { ChairPose, DragZone, ZoneConfig } from '../model/chair.ts';
@@ -20,7 +20,7 @@ import { courtDefFor } from '../model/court.ts';
 
 import type { DragLimits, Bounds } from './types.ts';
 import { createWorld, escapePinnedAll } from './world.ts';
-import { boundsExtent, clampPointToBounds, escapePinned, groupDeltaWithin, pushChairIntoBounds, satOverlap, separateOverlaps } from './obb.ts';
+import { boundsExtent, clampPointToBounds, escapePinned, groupDeltaWithin, pushChairIntoBounds, resolveMotion, satOverlap, separateOverlaps } from './obb.ts';
 import type { CircleObstacle } from './obb.ts';
 import type { WorldHandles } from './world.ts';
 import { createLoop } from './loop.ts';
@@ -126,6 +126,19 @@ export interface PhysicsWorldApi {
    *    거리/시간이 곧 부딪는 속도다(2026-11-16 기현님 "실제 속도 계산 후 적용"). 건너뛰기 상한(SWEEP_STEP_*)보다 빠르면
    *    걸음을 더 잘게 나눠 그 상한 속도로 묶는다. */
   sweepTo(moves: ReadonlyArray<{ id: CastId; pose: { x: number; y: number; theta?: number } }>, durationS: number): boolean;
+  /** **휠체어 조정 모드 한 프레임**(docs/PLAN-SIMPLE-DRIVE.md 결정 B6·B9) — 휠체어들을 목표 자세까지 쓸고 가며, 월드를 **정확히 dtS 만큼**
+   *  걷게 한다. sweepTo 와 같은 걸음(벽 경계 → 잠긴 개체 막기 → driven 으로 놓기 → substep)이되 둘이 다르다:
+   *  · **시간의 주인이 이 함수 하나다.** 정착 루프가 돌고 있으면 세운다 — sweepTo 를 매 프레임 부르면 자기 substep 에 더해
+   *    정착 루프(rAF)가 같은 프레임에 또 걸어 밀린 공이 두 배 빨리 달아났다(구현 전 확인 1). 걸음 수는 고정 dt 누산기
+   *    (`step()` 과 같은 산수)로만 정한다 — 회전이 빨라도 걸음을 늘리지 않는다(늘리면 그만큼 시간이 빨리 간다). 최고 단계 회전
+   *    (≈ 430 °/s)에서도 앞 모서리가 한 substep 에 ≈ 1.7 px 라 콘(반지름 3.1)을 건너뛰지 않는다(drive.test).
+   *  · 누산이 한 걸음에 못 미친 프레임(주사율 > 120 Hz)에도 자세는 목표로 옮긴다(걷지 않고) — 부르는 쪽이 매 프레임 바디 자세를
+   *    되읽으므로, 여기서 버리면 그 프레임의 움직임이 사라진다.
+   *  · 정착 구간을 열지 않는다 — 끝은 `driveEnd`. 쥔 휠체어는 끝날 때까지 손의 권위(static)다.
+   *  상호작용이 꺼져 있거나 손이 판 위에 있으면(드래그·릴리스 체이스) false — 아무것도 안 한다. 잠긴 휠체어는 건너뛴다. */
+  driveStep(moves: ReadonlyArray<{ id: ChairId; pose: ChairPose }>, dtS: number): boolean;
+  /** 조정 모드를 끝낸다 — 쥔 휠체어를 놓고(dynamic) 정착 구간을 연다. 다 서면 onSettled 가 온다. */
+  driveEnd(): void;
   /** 속도 상한을 살아 있는 월드에 즉시 반영한다(설정 토글용).
    *  드래그 도중에 바꿔도 안전하다 — stepDrag 는 매 substep 이 값을 새로 읽고, 세션 상태에는
    *  vLin/ω 가 저장돼 있지 않다. 다만 §5.11 릴리스 체이스가 진행 중이면 남은 거리를 새 속도로
@@ -263,6 +276,8 @@ export function createPhysicsWorld(
   // 호출하지만, 공개 계약(§5.13 step(dtS))에는 그 보장이 없었다(50ms 를 넣으면 그 프레임에
   // 모든 속도가 3배가 되는 실측 버그).
   let stepAccMs = 0;
+  /** driveStep 의 고정-dt 누산기 — step() 의 stepAccMs 와 **따로** 둔다(둘이 같은 프레임에 섞이면 그 자체가 이중 걸음이다). */
+  let driveAccMs = 0;
 
   /** 원위치가 휠체어에 막혀 있는가. 휠체어는 static 이라 골대가 밀어낼 수 없으므로, 막혀
    *  있으면 아무리 밀어도 못 들어간다 — 강제로 스냅하면 리졸버가 즉시 도로 뱉어내고 골대는
@@ -324,6 +339,27 @@ export function createPhysicsWorld(
       else if (kind === 'cone') circles.push({ p: world.pointOf(id), r: CONE.radiusPx });
     }
     return { chairs, circles };
+  }
+
+  /** 쓸고 가는 휠체어 한 걸음(sweepTo·driveStep 공용). ★ 순서가 계약이다:
+   *  ① 벽 경계(`pushChairIntoBounds` — 8038332, 끌기·순간이동과 같은 경계. 벽 앞에서 돌면 피벗을 민다)
+   *  ② **잠긴 개체**(lockedBlockers) — 지금 자리에서 목표까지 `resolveMotion` 으로 막는다(닿기 직전에 서고 접선으로 미끄러진다).
+   *     쥔 칩도 잠긴 개체도 static 이라 matter 가 그 쌍을 아예 안 만든다(drag.ts DragBlockers 머리말) — 끌기는 이것으로 막았고
+   *     2026-11-17 까지 sweepTo(키보드 밀기)에는 없어 잠긴 휠체어·공·콘을 뚫고 지나갔다(drive.test 첫 묶음).
+   *  ③ driven 으로 놓는다 — 걸음의 변위가 접촉 속도가 되어 밀린 쪽이 그 방향·빠르기로 굴러간다.
+   *  ⚠️ 받는 것은 목표 자세가 아니라 **이 걸음의 증분**이다(지금 바디 자세 + d). 걸음마다 미리 나눠 둔 절대 자세를 쫓으면, 막혀 선
+   *     칩의 목표가 장애물 너머로 달아난 뒤 `resolveMotion` 이 끝점만 보고 "안 막혔다" 며 건너뛴다(첫 판 실측: 잠긴 휠체어 뒤 420 에 섰다). */
+  function placeSweptChair(id: ChairId, d: ChairPose): void {
+    const cur = world.chairPose(id);
+    const target: ChairPose = { x: cur.x + d.x, y: cur.y + d.y, theta: cur.theta + d.theta };
+    const c = pushChairIntoBounds(target, bounds);
+    const inBounds: ChairPose = { x: c.x, y: c.y, theta: target.theta };
+    const blk = lockedBlockers();
+    const fin =
+      blk.chairs.length > 0 || blk.circles.length > 0
+        ? resolveMotion(cur, inBounds, blk.chairs, bounds, CHAIR_SEP_PX, RESOLVE_ITERS, blk.circles)
+        : inBounds;
+    world.setChairPose(id, fin, true);
   }
 
   function substep(_dtS: number): void {
@@ -692,9 +728,7 @@ export function createPhysicsWorld(
           //   끌기(drag.ts resolveMotion)·순간이동(fitToBounds)과 같은 경계: 휠체어는 심플이면 원 ∪ 차체, 평소면 차체,
           //   공·콘은 반지름 원. 벽에 선 뒤의 남은 걸음은 그 자리에서 미끄러질 뿐이라 접촉 속도도 0 으로 줄어든다.
           if (p.chair) {
-            const theta = p.from.theta + (p.to.theta - p.from.theta) * t;
-            const c = pushChairIntoBounds({ x, y, theta }, bounds);
-            world.setChairPose(p.id as ChairId, { x: c.x, y: c.y, theta }, true);
+            placeSweptChair(p.id as ChairId, { x: (p.to.x - p.from.x) / n, y: (p.to.y - p.from.y) / n, theta: (p.to.theta - p.from.theta) / n });
           } else {
             world.setPoint(p.id, clampPointToBounds({ x, y }, p.r, bounds), true);
           }
@@ -709,6 +743,46 @@ export function createPhysicsWorld(
       }
       openSettle();
       return true;
+    },
+
+    driveStep(moves, dtS) {
+      if (!interact || session) return false;
+      // 시간의 주인은 하나 — 키보드 밀기·골대 원위치가 켜 둔 정착 루프를 세운다(구간도 닫는다: 이 프레임부터 걷는 것은 여기다)
+      if (loop.isRunning()) {
+        closeSettle();
+        loop.stop();
+      }
+      const plan: Array<{ id: ChairId; from: ChairPose; to: ChairPose }> = [];
+      for (const m of moves) {
+        if (kindOf.get(m.id) !== 'chair' || lockedIds.has(m.id)) continue;
+        plan.push({ id: m.id, from: world.chairPose(m.id), to: m.pose });
+        if (!nudgeHeld.has(m.id)) {
+          world.setChairDragging(m.id, true);
+          nudgeHeld.add(m.id);
+        }
+      }
+      // step() 과 같은 고정-dt 누산 — 부르는 쪽이 잘랐어도 한 번 더 자른다(몰아치기 금지)
+      driveAccMs += Math.min(Math.max(0, dtS), DRIVE.maxFrameS) * 1000;
+      let n = 0;
+      while (driveAccMs >= PHYS.dtMs && n < PHYS.maxSubsteps) {
+        driveAccMs -= PHYS.dtMs;
+        n++;
+      }
+      if (n === PHYS.maxSubsteps) driveAccMs = 0;
+      const steps = Math.max(1, n);
+      for (let i = 1; i <= steps; i++) {
+        for (const p of plan) {
+          placeSweptChair(p.id, { x: (p.to.x - p.from.x) / steps, y: (p.to.y - p.from.y) / steps, theta: (p.to.theta - p.from.theta) / steps });
+        }
+        if (n > 0) substep(PHYS.dtS);
+      }
+      return true;
+    },
+
+    driveEnd() {
+      driveAccMs = 0;
+      releaseNudgeHeld();
+      if (!session) openSettle();
     },
 
     beginDrag(hit, grabWorld) {

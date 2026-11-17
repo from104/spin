@@ -82,6 +82,8 @@ export interface ProbeSetup {
   /** 잠긴 개체(스텝의 `locked`). 잠김은 물리에서 **static** 이고 기하 분리에서도 안 옮겨진다 —
    *  둘 중 한쪽만 지켜지는 상태를 이 하네스로 재기 위해 뚫어 둔 구멍이다(lockedSeparate.test). */
   locked?: readonly string[];
+  /** 무시된 휠체어(스텝의 `ignored`) — 월드에 바디가 없다(조정 모드의 통과 규칙 시험, drive.test). */
+  ignored?: readonly string[];
   /** 매 프레임 깊이를 잴 쌍. 나중에 watch() 로 더 붙일 수 있다. */
   watch?: ReadonlyArray<readonly [string, string]>;
 }
@@ -302,6 +304,7 @@ export function createPhysicsProbe(setup: ProbeSetup = {}): PhysicsProbe {
     notes: [],
     shapes: [],
     ...(setup.locked ? { locked: [...setup.locked] as DrillStep['locked'] } : {}),
+    ...(setup.ignored ? { ignored: [...setup.ignored] as DrillStep['ignored'] } : {}),
   };
 
   const api = createPhysicsWorld(setup.court?.w ?? def.vbW, setup.court?.h ?? def.vbH, setup.limits);

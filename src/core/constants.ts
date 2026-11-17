@@ -2,6 +2,9 @@
 // 주의(계약서와 다른 점): 문서 코드블록은 `import { PX_PER_M, pxPerSToMatterV } from './units.ts'`
 // 를 포함하지만 블록 안 어디서도 쓰지 않아 noUnusedLocals(tsconfig.app.json) 에서 TS6133 로 실패한다.
 // 값은 전부 리터럴로 그대로 옮기고, 쓰이지 않는 이 import 만 제거했다.
+// 2026-11-17 — PX_PER_M 은 다시 들어왔다: 맨 아래 `DRIVE`(휠체어 조정 모드)만 유도값이다(그 머리말이 근거).
+
+import { PX_PER_M } from './units.ts';
 
 // ── 차체 치수: 실측 반영 (2026-08-29 기현님) ──────────────────────────────────────────
 // *"전동휠체어 실측 결과 크기 0.8m, 1.3m였다."* → **1.30 × 0.80 m = 32.5 × 20 px**.
@@ -417,4 +420,39 @@ export const PLAYBACK = {
   stepIntervalMs: { 0.5: 2400, 1: 1500, 2: 800 } as const, // 프로토타입 interval()
   transitionMsFor: (baseMs: number): number => Math.min(600, baseMs * 0.6),
   hermiteEnabled: true,
+} as const;
+
+// ── 휠체어 조정 모드(코드 이름 `drive`) — docs/PLAN-SIMPLE-DRIVE.md 결정 B3·B4·B9 ─────────────────────
+// 2026-11-17 기현님 지시: *"속도는 5 단계. 전후진 10km/s, 회전 30km/s, 최고속력까지 0.7초"* — 단위는 km/h 로 읽는다
+// (10 km/s 는 파워체어가 낼 수 없는 값이고, 같은 날 계획서 B4 가 km/h 로 확정했다).
+// 이 파일의 다른 상수와 달리 **리터럴이 아니라 유도값**이다(계획서 B4: "PX_PER_M 은 기존 값에서 유도, 숫자를 베끼지 않는다") —
+// 차체 치수(CHAIR)나 축척(PX_PER_M)이 바뀌면 각속도·가속도가 함께 따라와야 한다. 게임 모드의 규정 속도 상한도 여기서 읽는다.
+//
+// ⚠️ **회전 30 km/h 의 해석**(계획서 D6 ⚑): 각속도를 선속도로 받았으므로 **차체에서 피벗으로부터 가장 먼 점**(앞 모서리,
+//    hypot(pivotToFront, width/2) = CHAIR.hullRadiusPx ≈ 1.11 m)의 접선 속도로 읽는다 → 최고 단계 ≈ 7.48 rad/s ≈ 428 °/s.
+//    해석이 바뀌면 `omegaMaxRadPerS` 한 줄만 바뀐다.
+const DRIVE_V_MAX_PX_PER_S = (10 / 3.6) * PX_PER_M;
+const DRIVE_OMEGA_MAX_RAD_PER_S = ((30 / 3.6) * PX_PER_M) / CHAIR.hullRadiusPx;
+export const DRIVE = {
+  /** 속도 단계 수 — 단계 n 은 최고값의 n/levels(20·40·60·80·100 %). */
+  levels: 5,
+  /** 처음 들어갈 때의 단계(prefs.drive.speed 의 기본). */
+  defaultLevel: 3,
+  /** 최고 단계의 전후진 선속도 = 10 km/h ≈ 69.4 px/s. */
+  vMaxPxPerS: DRIVE_V_MAX_PX_PER_S,
+  /** 최고 단계의 제자리 회전 각속도 = 앞 모서리 접선 30 km/h ≈ 7.48 rad/s(위 ⚠️). */
+  omegaMaxRadPerS: DRIVE_OMEGA_MAX_RAD_PER_S,
+  /** 0 → **최고 단계의** 최고속까지 걸리는 시간. 가속도는 이것으로 고정이라 낮은 단계는 더 빨리 목표에 닿는다(계획서 B3). */
+  rampS: 0.7,
+  /** 감축 모션일 때의 램프(계획서 B8) — 움직임 자체는 사용자가 만드는 것이라 끄지 않고 출렁임만 줄인다. */
+  rampReducedS: 0.1,
+  /** 입력 데드존 — 스틱 반경의 12 %(계획서 B3). 키보드 값(0·±1·±0.707)은 걸리지 않는다. */
+  deadzone: 0.12,
+  /** 후진 중 좌우 입력은 **민 쪽으로 차 뒤가 돈다**(계획서 B3 ⚑ — 차를 후진할 때 핸들과 같은 감각). false 면 전진과 같은
+   *  회전 방향(차 앞이 민 쪽으로). 게임 모드에서 컨트롤러 관례가 갈리면 이 한 줄이다. */
+  reverseSteerFlip: true,
+  /** 한 프레임 dt 상한(초) — 탭 복귀·긴 GC 뒤 한 프레임에 판을 가로지르지 않게. 물리 루프의 accClampMs 와 같은 값. */
+  maxFrameS: 0.05,
+  /** 주행 중 상태 커밋 간격(계획서 B7) — 자동저장·새로고침이 0.5 s 넘게 늦은 자리를 저장하지 않게. */
+  commitEveryMs: 500,
 } as const;
