@@ -14,6 +14,8 @@
 //   통째로 한 칸이 물러난다). 되돌리기 단추처럼 키가 아닌 시점 점프(epoch)는 커밋 없이 끝낸다 — 상태가 이미 다른 시점이다.
 // · 키(B5): window **캡처** 단계에서 개체·전역 층보다 먼저 먹는다(keymap `drive.*`). 글 입력 칸·대화상자 안의 키는 안 건드린다.
 //   창이 초점을 잃거나 숨으면 입력을 0 으로 — 눌린 채 붙은 키로 휠체어가 혼자 달아나지 않게.
+// · 화면 조이스틱(B5): 입력원 `stick` 을 내보내고 DriveJoystick 이 값을 넣는다 — 키보드와 더해 한 입력원으로 컨트롤러에 간다.
+//   조이스틱은 판 밖(body 포털)이라 그 손짓은 drivePress·키 층 어느 '나오는 길' 도 타지 않는다.
 // · 세션 동안 매 프레임 tick 한다(입력이 없어도) — 이 동안 물리 시간은 driveStep 하나가 쥔다(controller.ts 머리말).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch } from 'react';
@@ -23,6 +25,7 @@ import type { ChairId } from '../../core/ids.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
 import type { DictKey } from '../../i18n/ko.ts';
 import { createDriveController, type DriveController } from '../../drive/controller.ts';
+import { combineDriveSources, createJoystickDriveSource, type JoystickDriveSource } from '../../drive/input/joystick.ts';
 import { createKeyboardDriveSource } from '../../drive/input/keyboard.ts';
 import { clampLevel } from '../../drive/model.ts';
 import type { DrillStep } from '../../model/drill.ts';
@@ -69,6 +72,10 @@ export interface DriveSession {
   exit(): void;
   /** 판을 눌렀다(useEditorPointer). 모드 안이면 **먹는다** — 휠체어면 갈아타고, 아니면 아무 일도 없다(끌기가 끼면 시간의 주인이 둘이 된다). */
   press(id: string | null): boolean;
+  /** 화면 조이스틱(DriveJoystick)이 손잡이 값을 넣는 입력원 — 키보드와 더해져 같은 휠체어를 몬다(B5·B9 ②). */
+  stick: JoystickDriveSource;
+  /** 속도 단계를 바꾼다(저장·발표 포함) — 숫자키가 없는 터치 손의 [−]·[+]. */
+  setLevel(level: number): void;
 }
 
 const MODIFIER_CODES = new Set(['ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight']);
@@ -85,7 +92,10 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
   const chairRef = useRef<ChairId | null>(null);
   const [level, setLevelState] = useState(() => clampLevel(deps.speed));
   const levelRef = useRef(level);
-  const sourceRef = useRef(createKeyboardDriveSource());
+  const keysRef = useRef(createKeyboardDriveSource());
+  const stickRef = useRef(createJoystickDriveSource());
+  /** 컨트롤러가 읽는 하나 — 키보드 + 화면 조이스틱(축마다 더해 자른다). reset 은 둘 다에게 간다(blur·숨김·끝·갈아타기). */
+  const sourceRef = useRef(combineDriveSources(keysRef.current, stickRef.current));
   const ctlRef = useRef<DriveController | null>(null);
   /** 이번 세션이 되돌리기 경계(PLACE_BEGIN)를 열었는가 — 한 세션 = 한 칸. */
   const beganRef = useRef(false);
@@ -297,13 +307,13 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
         e.stopPropagation();
         if (def.id === 'drive.exit') exit();
         else if (def.id === 'drive.speed') setLevel(Number(code.slice(-1)));
-        else sourceRef.current.press(code);
+        else keysRef.current.press(code);
         return;
       }
       if (MODIFIER_CODES.has(code)) {
         // macOS 는 ⌘ 를 쥔 동안 **다른 키의 keyup 을 보내지 않는다** — W 를 쥔 채 ⌘ 를 눌렀다가 W 를 떼면 W 가 눌린 채로 남아
         // 휠체어가 혼자 달아난다. ⌘ 가 닿는 순간 입력을 비운다(쥐고 있던 키는 다시 눌러야 간다 — 자동 반복은 아래에서 먹는다).
-        if (code === 'MetaLeft' || code === 'MetaRight') sourceRef.current.reset();
+        if (code === 'MetaLeft' || code === 'MetaRight') keysRef.current.reset();
         return;
       }
       // 들어가던 키(J·Alt+J·메뉴의 Enter)를 쥐고 있으면 자동 반복이 모드 안으로 들어온다 — '아무 키 = 나가기' 로 읽으면 들어가자마자 나간다.
@@ -325,8 +335,8 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
       const code = eventCode(e);
       // 어느 키인지 모르는 keyup(입력기가 code 를 비워 보낸 것 — 일부 조합기·화면 키보드)은 **전부 놓는다**. 누른 키와 뗀 키를
       // 물리 키로 짝짓는데(keyboard.ts 머리말) 짝을 못 찾으면 눌린 채 남는다 — 틀리게 놓는 쪽은 멈출 뿐이다.
-      if (code === '' || code === 'Unidentified' || code === 'Process') sourceRef.current.reset();
-      if (sourceRef.current.release(code)) {
+      if (code === '' || code === 'Unidentified' || code === 'Process') keysRef.current.reset();
+      if (keysRef.current.release(code)) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -371,5 +381,9 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     [enter, unavailable],
   );
 
-  return useMemo(() => ({ chairId, level, unavailable, enter, exit, press }), [chairId, level, unavailable, enter, exit, press]);
+  const stick = stickRef.current;
+  return useMemo(
+    () => ({ chairId, level, unavailable, enter, exit, press, stick, setLevel }),
+    [chairId, level, unavailable, enter, exit, press, stick, setLevel],
+  );
 }

@@ -5,6 +5,7 @@
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
 import { NudgePad, type HeadingCmd, type NudgePadTarget } from './NudgePad.tsx';
+import { DriveJoystick } from './DriveJoystick.tsx';
 import { DriveStrip } from './DriveStrip.tsx';
 import { useDriveSession } from './useDriveSession.ts';
 import { useLongPressMenu } from './useLongPressMenu.ts';
@@ -1012,6 +1013,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     [lockedSet, ignoredSet, targetIds, sameScene, locale, drive],
   );
   const longPress = useLongPressMenu(openMenu);
+  /** 화면 조이스틱을 손가락이 쥐고 있는가(DriveJoystick.onHeldChange) — 렌더와 무관한 판정이라 ref. */
+  const stickHeldRef = useRef(false);
 
   /** [표시순서] 항목이 낼 네 명령의 가능 여부(2026-09-06, PLAN-Z-ORDER 결정 5·7·10).
    *  `null` 이면 메뉴가 그 항목을 아예 안 낸다 — **여럿을 골랐거나 잠긴** 개체일 때다.
@@ -1074,6 +1077,17 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     {drive.chairId && (
       <DriveStrip chair={chairNamesRef.current.get(drive.chairId) ?? drive.chairId} level={drive.level} onEnd={drive.exit} />
     )}
+    {drive.chairId && (
+      <DriveJoystick
+        source={drive.stick}
+        level={drive.level}
+        onLevel={drive.setLevel}
+        large={prefs.a11y.largeTargets}
+        onHeldChange={(held) => {
+          stickHeldRef.current = held;
+        }}
+      />
+    )}
     <CourtStage
       // 선택 도구에서만 이동을 무장한다 — 배치 도구에서는 같은 자리에 콘 두 개를 빨리
       // 찍는 것이 더블클릭으로 읽혀 두 번째가 삼켜진다.
@@ -1124,12 +1138,19 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       locked={lockedSet}
       ignored={ignoredSet}
       onStageContextMenu={(id, e) => {
+        if (stickHeldRef.current) return; // 조이스틱을 쥔 채 판에 닿은 둘째 손가락 — 아래 onStagePointerDownRaw 와 같은 이유
         // 브라우저 메뉴는 CourtStage 가 **맞히든 안 맞히든** 이미 막았다(거기 머리말 참고).
         // 여기서는 열 것이 있을 때만 연다 — 빈 코트에는 아무 메뉴도 안 뜬다.
         if (!id) return;
         longPress.onContextMenu(id, { preventDefault: () => {}, clientX: e.clientX, clientY: e.clientY });
       }}
       onStagePointerDownRaw={(id, e) => {
+        // 조이스틱을 쥔 채 판에 닿은 둘째 손가락은 아무것도 시작하지 않는다(drivePress 가 끌기·선택을 먹는다) — 길게 누르기 메뉴가
+        // 뜨면 메뉴 열기가 조정 모드를 끝내 몰던 손이 허공을 쥔다.
+        if (stickHeldRef.current) {
+          longPress.cancel();
+          return;
+        }
         if (id) longPress.onPointerDown(id, e);
         else longPress.cancel();
       }}

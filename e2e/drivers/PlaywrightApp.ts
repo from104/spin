@@ -44,6 +44,7 @@ import type {
   StepState,
   TrayKind,
   WorldPoint,
+  DragOptions,
 } from './SpinApp.ts';
 import { isCourtPoint, withE2E } from './SpinApp.ts';
 import {
@@ -296,7 +297,7 @@ export class PlaywrightApp implements SpinApp {
     await this.tap(at);
   }
 
-  async drag(from: PointerTarget, to: PointerTarget, { steps = 12 }: { steps?: number } = {}): Promise<void> {
+  async drag(from: PointerTarget, to: PointerTarget, { steps = 12, whileHeld }: DragOptions = {}): Promise<void> {
     const a = await this.toScreen(from);
     const b = await this.toScreen(to);
     const at = (k: number): ScreenPoint => ({ x: a.x + ((b.x - a.x) * k) / steps, y: a.y + ((b.y - a.y) * k) / steps });
@@ -314,7 +315,11 @@ export class PlaywrightApp implements SpinApp {
       // 트레이 끌기 직후 [드릴로 편집] 탭이 무반응). 멈춘 채 몇 프레임 머문 뒤 뗀다 — 속도 추적기는 마지막
       // 움직임 뒤 일정 시간(수십 ms) 새 표본이 없으면 손이 멈춘 것으로 본다. 두 프레임으로는 모자랐다(실측).
       for (let k = 0; k < 8; k++) await frame();
-      await this.touchEvent('touchEnd');
+      try {
+        await whileHeld?.();
+      } finally {
+        await this.touchEvent('touchEnd');
+      }
     } else {
       await this.page.mouse.move(a.x, a.y);
       await this.page.mouse.down();
@@ -324,7 +329,11 @@ export class PlaywrightApp implements SpinApp {
         await this.page.mouse.move(p.x, p.y);
       }
       await frame();
-      await this.page.mouse.up();
+      try {
+        await whileHeld?.();
+      } finally {
+        await this.page.mouse.up();
+      }
     }
   }
 

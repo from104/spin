@@ -31,6 +31,7 @@ import type {
   StepState,
   TrayKind,
   WorldPoint,
+  DragOptions,
 } from './SpinApp.ts';
 import { isCourtPoint, withE2E } from './SpinApp.ts';
 import {
@@ -328,7 +329,7 @@ export class WdioApp implements SpinApp {
     await this.tap(at);
   }
 
-  async drag(from: PointerTarget, to: PointerTarget, { steps = 12 }: { steps?: number } = {}): Promise<void> {
+  async drag(from: PointerTarget, to: PointerTarget, { steps = 12, whileHeld }: DragOptions = {}): Promise<void> {
     const a = await this.toScreen(from);
     const b = await this.toScreen(to);
     const at = (k: number): ScreenPoint => ({ x: a.x + ((b.x - a.x) * k) / steps, y: a.y + ((b.y - a.y) * k) / steps });
@@ -342,7 +343,11 @@ export class WdioApp implements SpinApp {
         await this.wd.performActions([this.mouse([this.moveTo(at(k))])]);
       }
       await frame();
-      await this.wd.performActions([this.mouse([{ type: 'pointerUp', button: 0 }])]);
+      try {
+        await whileHeld?.();
+      } finally {
+        await this.wd.performActions([this.mouse([{ type: 'pointerUp', button: 0 }])]);
+      }
     } finally {
       await this.wd.releaseActions().catch(() => undefined);
     }

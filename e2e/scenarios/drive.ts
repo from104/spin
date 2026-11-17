@@ -1,10 +1,13 @@
-// S19 휠체어 조정 모드(키보드) — docs/PLAN-SIMPLE-DRIVE.md 결정 B·C2, 2026-11-17 기현님 지시.
+// S19 휠체어 조정 모드(키보드·화면 조이스틱) — docs/PLAN-SIMPLE-DRIVE.md 결정 B·C2, 2026-11-17 기현님 지시.
 //
 // 지우면 새는 실기 버그(jsdom 에 없는 것 — 진짜 키 누름이 이어지는 동안 rAF 루프·Matter 가 도는 것, 상태 커밋 주기):
 //  · 키를 누르고 있는데 휠체어가 **보는 쪽**이 아니라 화면 방향으로 가거나 안 가는 것(keymap drive 층·운동학 배선)
 //  · 밀린 공이 상태에 안 남거나, 되돌리기 한 번에 휠체어만 돌아오고 공은 남는 것(B7 한 칸·PLACE_SETTLE)
 //  · 키를 누른 채 벽까지 가면 판 밖으로 나가는 것(쥔 칩은 static 이라 Matter 벽이 안 막는다 — 걸음마다 경계, 8038332)
-//  · 심플 모드·상호작용 꺼짐에서 들어가지는 것, 심플을 켜도 모드가 남는 것(B1 게이트)
+//  · 심플 모드·상호작용 꺼짐에서 들어가지는 것, 심플을 켜도 모드가 남는 것(B1 게이트) — 터치 기기에서도(4프로젝트)
+//  · 조이스틱 손잡이를 위로 끌어도 안 가거나 화면 위로 가는 것(위 = **보는 쪽**, 세로 휴대폰은 코트가 90° 돈다), 놓아도 계속 가는 것,
+//    조이스틱을 만진 것이 '다른 입력 = 나가기' 로 읽혀 모드가 끝나는 것, 진짜 터치(CDP)로 끌 때 포인터 캡처·touch-action 이 안 먹는 것,
+//    조이스틱이 [끝] 단추를 가리는 것
 // 거리·속도의 정확한 값은 재지 않는다 — 스위트가 부하에 약하다(산수는 src/drive/model.test.ts·src/physics/drive.test.ts 가 본다).
 import type { SpinApp } from '../drivers/SpinApp.ts';
 import { at, check, defineGroup, eventually, expectQuiet, objectById } from './kit.ts';
@@ -137,7 +140,7 @@ export default defineGroup('drive', [
   {
     // B1 게이트 — 상호작용 꺼짐·심플 모드에서는 들어가지 않고, 모드 중 심플을 켜면 끝난다. 대조군: 상호작용을 켜면 같은 J 가 들어간다.
     title: 'S19c 쓸 수 있을 때만',
-    needs: ['pointer', 'keyboard'],
+    needs: ['keyboard'],
     run: async (app) => {
       const chair = await app.placeFromTray('chair', at(0.5, 0.5), { via: 'drag', team: 'home' });
       await selectOnly(app, chair);
@@ -160,6 +163,66 @@ export default defineGroup('drive', [
       check(!(await app.present('drive-strip')), '심플 모드에서 조정 모드에 들어갔다');
       await app.press('fn-simple');
       await expectQuiet(app, 'S19c');
+    },
+  },
+  {
+    // 들어가기는 J(터치 프로젝트도 키보드 능력이 있다), 몰기는 조이스틱, 나오기는 [끝] — 터치 손의 한 바퀴. 마우스 프로젝트는 같은 판을
+    // 마우스로 끈다(조이스틱은 터치 전용이 아니다).
+    title: 'S19d 조이스틱으로 몰기',
+    needs: ['keyboard'],
+    run: async (app) => {
+      await interactOn(app);
+      const chair = await app.placeFromTray('chair', at(0.5, 0.5), { via: 'drag', team: 'home' });
+      const c0 = await objectById(app, chair);
+      const h = heading(c0);
+      await enterDrive(app, chair);
+      check(await app.onTop('drive-end'), '조이스틱(또는 다른 것)이 [끝] 단추를 가린다');
+      // 속도 [+] — 터치에는 1–5 키가 없다. 누른 뒤에도 모드가 남아야 한다(단추 누름이 '다른 입력 = 나가기' 로 새지 않게).
+      check(!(await app.rootText()).includes('4/5'), '전제: 처음 속도가 4 가 아니어야 한다');
+      await app.press('drive-speed-up');
+      await eventually('[+] 로 속도가 한 단계 오른다', async () => (await app.rootText()).includes('4/5'), true);
+      check(await app.present('drive-strip'), '속도 단추를 누르자 조정 모드가 끝났다');
+      const stick = await app.centerOf('drive-stick');
+      check(stick !== null && (await app.onTop('drive-stick')), '조이스틱이 화면에 없거나 가려졌다');
+
+      // 손잡이를 위로 끝까지(받침 밖까지 끌어도 손잡이는 받침 안에 갇힌다) — 쥔 채로 휠체어가 보는 쪽으로 가기를 기다린다
+      await app.drag(stick, { x: stick.x, y: stick.y - 200 }, {
+        whileHeld: () =>
+          eventually(
+            '손잡이를 위로 쥐고 있으면 보는 쪽으로 간다',
+            () => objectById(app, chair),
+            (c) => (c.x - c0.x) * h.x + (c.y - c0.y) * h.y > 8,
+            { timeout: 8000 },
+          ),
+      });
+      // 놓으면 선다 — 1.2 s 동안 그대로면 섰다(커밋은 0.5 s 마다)
+      let last = await objectById(app, chair);
+      let since = Date.now();
+      await eventually(
+        '손을 떼면 선다',
+        () => objectById(app, chair),
+        (c) => {
+          if (Math.hypot(c.x - last.x, c.y - last.y) > 0.05) {
+            last = c;
+            since = Date.now();
+          }
+          return Date.now() - since > 1200;
+        },
+        { timeout: 6000 },
+      );
+      check(await app.present('drive-strip'), '조이스틱을 쓰자 조정 모드가 끝났다');
+      const c1 = await objectById(app, chair);
+      check((c1.x - c0.x) * h.x + (c1.y - c0.y) * h.y > 8, '휠체어가 보는 쪽으로 가지 않았다', { c0, c1 });
+
+      await app.press('drive-end');
+      await eventually('[끝] 으로 모드가 끝난다', () => app.present('drive-strip'), false);
+      check(!(await app.present('drive-joystick')), '모드가 끝났는데 조이스틱이 남았다');
+      await app.settled();
+      await app.undo();
+      await app.settled();
+      const c2 = await objectById(app, chair);
+      check(Math.hypot(c2.x - c0.x, c2.y - c0.y) < 0.5, '되돌리기 한 번에 휠체어가 제자리로 안 돌아왔다', { c0, c2 });
+      await expectQuiet(app, 'S19d');
     },
   },
 ]);

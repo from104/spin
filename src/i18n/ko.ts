@@ -846,6 +846,11 @@ export const ko = {
   'drive.unavailable.locked': '잠긴 휠체어는 몰 수 없습니다',
   'drive.unavailable.ignored': '무시한 휠체어는 몰 수 없습니다',
   'drive.unavailable.noChair': '휠체어 하나를 고른 뒤 J 를 누르세요',
+  'drive.stick.label': '조이스틱',
+  'drive.stick.aria': '조이스틱 — 가운데 손잡이를 끌면 그쪽으로 몹니다(위 = 앞으로, 좌우 = 회전), 놓으면 섭니다. 키보드는 W A S D',
+  'drive.speed.up': '속도 올리기',
+  'drive.speed.down': '속도 내리기',
+  'drive.speed.level': '속도 {{level}}/5',
   'editor.objectMenu.fineTune': '미세 조정',
   // [표시순서] 하위 화면(2026-09-06, PLAN-Z-ORDER 결정 7). 같은 패널이 하위 화면으로 바뀌므로
   // `zOrder` 는 여는 항목의 이름이자 그 화면의 제목(aria-label)이다.

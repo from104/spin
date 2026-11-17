@@ -133,6 +133,11 @@ export type Capability =
   | 'xwindow'
   | 'relaunch';
 
+export interface DragOptions {
+  steps?: number;
+  whileHeld?: () => Promise<unknown>;
+}
+
 export interface SpinApp {
   /** 보고서용 이름 — 예: 'web-chromium', 'tauri-linux', 'android' */
   readonly platform: string;
@@ -184,8 +189,9 @@ export interface SpinApp {
   wheel(target: PointerTarget, deltaY: number): Promise<void>;
   /** 같은 자리를 빠르게 두 번 누른다(더블탭·더블클릭) — 앱의 더블 판정은 350ms·12px 안 두 번의 pointerdown 이다 */
   doubleTap(target: PointerTarget): Promise<void>;
-  /** 끌기 — from 에서 눌러 to 까지 steps 번 나눠 옮기고 뗀다 */
-  drag(from: PointerTarget, to: PointerTarget, options?: { steps?: number }): Promise<void>;
+  /** 끌기 — from 에서 눌러 to 까지 steps 번 나눠 옮기고 뗀다. whileHeld 가 있으면 to 에서 **쥔 채** 그것이 끝나기를 기다린 뒤 뗀다
+   *  (조이스틱처럼 쥐고 있는 동안 일이 일어나는 손짓 — 고정 sleep 대신 조건을 기다린다) */
+  drag(from: PointerTarget, to: PointerTarget, options?: DragOptions): Promise<void>;
   /** 트레이에서 꺼내 코트에 놓고, 정착을 기다려 새로 생긴 개체의 id 를 돌려준다 */
   placeFromTray(kind: TrayKind, at: CourtPoint, options: PlaceOptions): Promise<string>;
   /** 트레이 칩을 눌러 들기만 한다(다음 코트 탭이 그 자리에 놓는다). 기다리지 않는다 */
