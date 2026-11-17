@@ -323,20 +323,29 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
       }
     };
     const clear = (): void => sourceRef.current.reset();
+    // 손이 어디든 누르는 순간 지금 자세를 커밋한다(모드는 그대로). 키로 나가면 위 keydown 이 먼저 커밋하지만, **단추**는 리듀서가
+    // 먼저 돌고 이 훅의 effect 가 뒤따른다 — 그 사이 모델은 주기 커밋만큼(≤ 0.5 s) 낡아 있다. 키를 쥔 채·공이 구르는 동안 누르면:
+    // 스텝 복제는 낡은 자세를 베끼고 시점 점프(epoch)로 읽혀 꼬리가 버려지며, 화면을 떠나거나 다른 드릴을 열면(언마운트) 뒤늦은
+    // dispatch 가 버려진 채 자동저장이 마지막으로 그려진 상태를 쓴다. pointerdown 은 click 보다 먼저 오는 별개 사건이라 그 전에 그려진다.
+    const onPointerDown = (): void => {
+      if (chairRef.current) commitNow();
+    };
     const onVisibility = (): void => {
       if (document.visibilityState === 'hidden') clear();
     };
     window.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('keyup', onKeyUp, true);
+    window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('blur', clear);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('keyup', onKeyUp, true);
+      window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('blur', clear);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [enter, exit, setLevel]);
+  }, [enter, exit, setLevel, commitNow]);
 
   const press = useCallback(
     (id: string | null): boolean => {
