@@ -336,6 +336,7 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     // 먼저 돌고 이 훅의 effect 가 뒤따른다 — 그 사이 모델은 주기 커밋만큼(≤ 0.5 s) 낡아 있다. 키를 쥔 채·공이 구르는 동안 누르면:
     // 스텝 복제는 낡은 자세를 베끼고 시점 점프(epoch)로 읽혀 꼬리가 버려지며, 화면을 떠나거나 다른 드릴을 열면(언마운트) 뒤늦은
     // dispatch 가 버려진 채 자동저장이 마지막으로 그려진 상태를 쓴다. pointerdown 은 click 보다 먼저 오는 별개 사건이라 그 전에 그려진다.
+    // pointerup 에서도 한다 — 누르고 있는 0.1 s 남짓도 키를 쥐고 있으면 간다. click 은 pointerup 바로 뒤라 그 사이에 프레임이 없다.
     const onPointerDown = (): void => {
       if (chairRef.current) commitNow();
     };
@@ -345,6 +346,7 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     window.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('keyup', onKeyUp, true);
     window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('pointerup', onPointerDown, true);
     window.addEventListener('blur', clear);
     // 브라우저의 오른쪽 단추 메뉴가 뜨면 그동안의 keyup 은 페이지에 안 온다(blur 도 안 난다).
     window.addEventListener('contextmenu', clear, true);
@@ -353,6 +355,7 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
       window.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('keyup', onKeyUp, true);
       window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('pointerup', onPointerDown, true);
       window.removeEventListener('blur', clear);
       window.removeEventListener('contextmenu', clear, true);
       document.removeEventListener('visibilitychange', onVisibility);

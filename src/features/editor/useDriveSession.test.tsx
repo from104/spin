@@ -223,13 +223,19 @@ describe('조정 모드 세션 — 키를 쥔 채 나가도 마지막 자세가 
     expect(stored(h, 0, a).x).toBeCloseTo(at, 1);
   });
 
-  // 단추는 리듀서가 먼저 돌고 세션의 effect 가 뒤따른다. pointerdown(click 보다 먼저 오는 별개 사건)에서 커밋해 두지 않으면 아래 둘이 샌다.
-  const pressOutside = (): void => act(() => void window.dispatchEvent(new Event('pointerdown')));
+  // 단추는 리듀서가 먼저 돌고 세션의 effect 가 뒤따른다. 누르고(pointerdown) 0.1 s 뒤 떼는(pointerup — click 은 그 바로 뒤다) 손짓의
+  // 두 사건에서 커밋해 두지 않으면 아래 둘이 샌다. 누르고 있는 동안에도 키는 쥐고 있다 — 그 꼬리까지 남아야 한다.
+  const pressOutside = (h: Harness, a: ChairId): number => {
+    act(() => void window.dispatchEvent(new Event('pointerdown')));
+    frames(6);
+    const at = poseOf(h, a).x;
+    act(() => void window.dispatchEvent(new Event('pointerup')));
+    return at;
+  };
 
   it('스텝 복제 단추 — 몰던 스텝도 새 스텝도 마지막 자세다(낡은 자세를 베끼지 않는다)', () => {
     const { h, a } = drivingMidCommit();
-    const at = poseOf(h, a).x;
-    pressOutside();
+    const at = pressOutside(h, a);
     act(() => h.result.current.dispatch({ type: 'STEP_DUPLICATE', id: h.result.current.state.stepId }));
     expect(stored(h, 0, a).x).toBeCloseTo(at, 1);
     expect(stored(h, 1, a).x).toBeCloseTo(at, 1);
@@ -237,9 +243,16 @@ describe('조정 모드 세션 — 키를 쥔 채 나가도 마지막 자세가 
 
   it('화면을 떠남·다른 드릴 열기(언마운트) — 마지막으로 그려진 상태가 마지막 자세다', () => {
     const { h, a } = drivingMidCommit();
-    const at = poseOf(h, a).x;
-    pressOutside();
+    const at = pressOutside(h, a);
     // 자동저장의 언마운트 플러시는 마지막으로 **그려진** present 를 쓴다(useAutosave stateRef) — 그 값이 여기 result.current 다.
+    h.unmount();
+    expect(stored(h, 0, a).x).toBeCloseTo(at, 1);
+  });
+
+  it('누르는 순간 듣는 것(pointerdown 에 움직이는 단추·끌기 시작) — 그때까지의 자세가 남는다', () => {
+    const { h, a } = drivingMidCommit();
+    const at = poseOf(h, a).x;
+    act(() => void window.dispatchEvent(new Event('pointerdown')));
     h.unmount();
     expect(stored(h, 0, a).x).toBeCloseTo(at, 1);
   });
