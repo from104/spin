@@ -74,6 +74,30 @@ describe('잠긴 개체는 쓸고 가는 휠체어를 막는다', () => {
   });
 });
 
+describe('무리는 잠긴 개체 앞에서 한 덩어리로 선다', () => {
+  // 키보드 무리 이동(sweepTo 에 여럿) — 칩마다 따로 막으면 막힌 칩만 서고 뒤따르던 칩이 그 속으로 겹쳐 들어온다(쥔 칩끼리는
+  // static–static 이라 서로 안 막는다). 벽에서 groupDelta 가 고친 것과 같은 고장이다.
+  const chL = 'ch_l' as ChairId;
+  const stopX = 350 - CHAIR.pivotToRearPx - CHAIR.pivotToFrontPx; // 잠긴 L(350) 의 뒤끝에 A 의 앞범퍼가 닿는 자리
+  /** 무리를 (dx, dy) 씩 `presses` 번 민다 — 방향키를 그만큼 누른 것. */
+  function pushGroup(probe: ReturnType<typeof createPhysicsProbe>, ids: readonly string[], dx: number, dy: number, presses: number): void {
+    for (let k = 0; k < presses; k++) {
+      const s = probe.api.read();
+      probe.api.sweepTo(ids.map((id) => ({ id: id as ChairId, pose: { x: s[id]!.x + dx, y: s[id]!.y + dy, theta: s[id]!.theta } })), 0.1);
+    }
+  }
+
+  it('앞 칩이 막히면 뒤 칩·공도 같이 서고 간격이 그대로다', () => {
+    const probe = probeOf({ chairs: [{ id: chA, x: 300, y: Y }, { id: chB, x: 255, y: Y }, { id: chL, x: 350, y: Y }], balls: [{ id: bl, x: 300, y: Y + 40 }], locked: [chL] });
+    pushGroup(probe, [chA, chB, bl], 10, 0, 6);
+    const s = probe.api.read();
+    expect(s[chA]!.x).toBeGreaterThan(stopX - 2); // 닿을 때까지는 갔다(대조군)
+    expect(s[chA]!.x).toBeLessThan(stopX + 1);
+    expect(s[chA]!.x - s[chB]!.x).toBeCloseTo(45, 6);
+    expect(s[bl]!.x - s[chA]!.x).toBeCloseTo(0, 1);
+  });
+});
+
 describe('갈아탄 휠체어는 놓인다', () => {
   // 쥔 칩은 static 이고 static–static 은 쌍이 안 생긴다 — 앞서 몰던(또는 키보드로 밀던) 칩을 안 놓으면 새로 모는 칩이 그것을 뚫는다.
   it('A 를 몰다가 B 로 갈아타면 A 는 다시 밀린다', () => {

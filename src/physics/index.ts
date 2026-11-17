@@ -362,6 +362,17 @@ export function createPhysicsWorld(
     world.setChairPose(id, fin, true, velScale);
   }
 
+  /** 쓸기 걸음 `d` 가운데 이 휠체어가 **잠긴 개체에 안 막히고 갈 수 있는 비율**(0…1, 가려던 방향으로 잰다). 무리 쓸기가 쓴다. */
+  function sweptProgress(id: ChairId, d: ChairPose, blk: ReturnType<typeof lockedBlockers>): number {
+    const len2 = d.x * d.x + d.y * d.y;
+    if (len2 === 0) return 1;
+    const cur = world.chairPose(id);
+    const c = pushChairIntoBounds({ x: cur.x + d.x, y: cur.y + d.y, theta: cur.theta + d.theta }, bounds);
+    const fin = resolveMotion(cur, { x: c.x, y: c.y, theta: cur.theta + d.theta }, blk.chairs, bounds, CHAIR_SEP_PX, RESOLVE_ITERS, blk.circles);
+    const r = ((fin.x - cur.x) * d.x + (fin.y - cur.y) * d.y) / len2;
+    return r > 1 - 1e-6 ? 1 : Math.max(0, r);
+  }
+
   function substep(_dtS: number): void {
     if (session) stepDrag(session, world, limits, bounds, PHYS.dtS, lockedBlockers());
     driveGoalsHome();
@@ -716,8 +727,23 @@ export function createPhysicsWorld(
         n = Math.max(n, Math.ceil(lin), Math.ceil(ang));
       }
       n = Math.min(n, SWEEP_MAX_STEPS);
+      // ★ 무리는 잠긴 개체 앞에서도 **한 덩어리로** 선다(벽의 groupDelta 와 같은 규칙) — 가장 먼저 막히는 휠체어가 그 걸음의 이동량을
+      //   정하고 모두가 그만큼만 간다. 칩마다 따로 막으면(placeSweptChair) 막힌 칩만 서고 나머지가 그 칩 속으로 겹쳐 들어와 간격이
+      //   무너진다(쥔 칩끼리는 static–static 이라 서로 안 막는다 — 실측: 간격 45 → 2 px). 미끄러짐은 무리에 없다: 접선으로 비키면
+      //   그 칩만 대형에서 빠진다. 혼자 가는 칩·잠긴 것이 없는 판은 아래 갈래를 안 탄다(전과 같은 길).
+      const blk = lockedBlockers();
+      const lump = plan.length > 1 && (blk.chairs.length > 0 || blk.circles.length > 0);
+      /** 무리가 실제로 간 비율 — 공·콘도 이만큼만 간다. */
+      let progress = 0;
       for (let i = 1; i <= n; i++) {
-        const t = i / n;
+        let r = 1;
+        if (lump) {
+          for (const p of plan) {
+            if (p.chair) r = Math.min(r, sweptProgress(p.id as ChairId, { x: (p.to.x - p.from.x) / n, y: (p.to.y - p.from.y) / n, theta: 0 }, blk));
+          }
+          progress += r / n;
+        }
+        const t = lump ? progress : i / n;
         for (const p of plan) {
           const x = p.from.x + (p.to.x - p.from.x) * t;
           const y = p.from.y + (p.to.y - p.from.y) * t;
@@ -727,7 +753,13 @@ export function createPhysicsWorld(
           //   static 이라 Matter 벽도 안전망(escapePinnedAll)도 막지 않았다 — 방향키를 누르는 만큼 판 밖으로 나갔다.
           //   끌기(drag.ts resolveMotion)·순간이동(fitToBounds)과 같은 경계: 휠체어는 심플이면 원 ∪ 차체, 평소면 차체,
           //   공·콘은 반지름 원. 벽에 선 뒤의 남은 걸음은 그 자리에서 미끄러질 뿐이라 접촉 속도도 0 으로 줄어든다.
-          if (p.chair) {
+          if (p.chair && r < 1) {
+            // 막힌 걸음 — 모두가 같은 비율만큼 **곧게** 간다(칩마다 다시 풀면 막힌 칩만 접선으로 비킨다)
+            const cur = world.chairPose(p.id as ChairId);
+            const theta = cur.theta + ((p.to.theta - p.from.theta) / n) * r;
+            const c = pushChairIntoBounds({ x: cur.x + ((p.to.x - p.from.x) / n) * r, y: cur.y + ((p.to.y - p.from.y) / n) * r, theta }, bounds);
+            world.setChairPose(p.id as ChairId, { x: c.x, y: c.y, theta }, true);
+          } else if (p.chair) {
             placeSweptChair(p.id as ChairId, { x: (p.to.x - p.from.x) / n, y: (p.to.y - p.from.y) / n, theta: (p.to.theta - p.from.theta) / n });
           } else {
             world.setPoint(p.id, clampPointToBounds({ x, y }, p.r, bounds), true);
@@ -738,7 +770,8 @@ export function createPhysicsWorld(
       // 공·콘은 dynamic 이라 걸음 사이에 되밀렸을 수 있다 — 손이 보낸 자리에 세운다(남은 겹침은 정착이 푼다)
       for (const p of plan) {
         if (p.chair) continue;
-        world.setPoint(p.id, clampPointToBounds(p.to, p.r, bounds), false);
+        const end = lump ? { x: p.from.x + (p.to.x - p.from.x) * progress, y: p.from.y + (p.to.y - p.from.y) * progress } : p.to;
+        world.setPoint(p.id, clampPointToBounds(end, p.r, bounds), false);
         world.freeze(p.id);
       }
       openSettle();
