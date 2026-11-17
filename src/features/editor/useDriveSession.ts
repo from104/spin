@@ -342,6 +342,7 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
       }
     };
     const clear = (): void => sourceRef.current.reset();
+    const clearKeys = (): void => keysRef.current.reset();
     // 손이 어디든 누르는 순간 지금 자세를 커밋한다(모드는 그대로). 키로 나가면 위 keydown 이 먼저 커밋하지만, **단추**는 리듀서가
     // 먼저 돌고 이 훅의 effect 가 뒤따른다 — 그 사이 모델은 주기 커밋만큼(≤ 0.5 s) 낡아 있다. 키를 쥔 채·공이 구르는 동안 누르면:
     // 스텝 복제는 낡은 자세를 베끼고 시점 점프(epoch)로 읽혀 꼬리가 버려지며, 화면을 떠나거나 다른 드릴을 열면(언마운트) 뒤늦은
@@ -358,8 +359,9 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('pointerup', onPointerDown, true);
     window.addEventListener('blur', clear);
-    // 브라우저의 오른쪽 단추 메뉴가 뜨면 그동안의 keyup 은 페이지에 안 온다(blur 도 안 난다).
-    window.addEventListener('contextmenu', clear, true);
+    // 브라우저의 오른쪽 단추 메뉴가 뜨면 그동안의 keyup 은 페이지에 안 온다(blur 도 안 난다). **키보드 입력만** 비운다 —
+    // 조이스틱을 쥔 손가락을 가만히 두면 안드로이드가 길게 누르기로 contextmenu 를 쏘는데, 그걸로 결합 입력을 비우면 휠체어가 선다.
+    window.addEventListener('contextmenu', clearKeys, true);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.removeEventListener('keydown', onKeyDown, true);
@@ -367,7 +369,7 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
       window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('pointerup', onPointerDown, true);
       window.removeEventListener('blur', clear);
-      window.removeEventListener('contextmenu', clear, true);
+      window.removeEventListener('contextmenu', clearKeys, true);
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [enter, exit, setLevel, commitNow]);

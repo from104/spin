@@ -296,4 +296,18 @@ describe('조정 모드 세션 — 떼는 사건을 못 받아도 휠체어가 �
     expect(creepAfter(() => key('keyup', 'KeyW', { key: 'ㅈ', shiftKey: true }))).toBe(0);
     expect(creepAfter(() => key('keyup', '', { key: 'ㅈ' }))).toBe(0);
   });
+
+  it('조이스틱을 쥔 채 길게 누르기(안드로이드 contextmenu)는 휠체어를 세우지 않는다 — 비우는 것은 키보드 입력뿐', () => {
+    const { drill, a } = makeDrill();
+    const h = mount(drill);
+    act(() => h.result.current.drive.enter(a));
+    act(() => h.result.current.drive.stick.set({ fwd: 1, turn: 0 }));
+    frames(20);
+    act(() => void window.dispatchEvent(new Event('contextmenu')));
+    frames(60);
+    const x1 = poseOf(h, a).x;
+    frames(30);
+    expect(poseOf(h, a).x - x1).toBeGreaterThan(10);
+    h.unmount();
+  });
 });
