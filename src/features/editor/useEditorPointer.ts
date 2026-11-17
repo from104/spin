@@ -139,6 +139,9 @@ export interface UseEditorPointerOptions {
   /** §7.3 "큰 터치 타깃" 설정. 2단 히트(§4.3 P1-2)의 **2차 패스 반경**만 44 → 56 CSS px 로
    *  키운다 — 그 설정 설명문이 버튼에서만 참이고 코트 위에서는 거짓이던 것을 닫는 배선이다. */
   largeTargets: boolean;
+  /** 휠체어 조정 모드 중에만 준다(useDriveSession.press). 판을 누르면 **무엇보다 먼저** 여기로 가고, true 면 그 손짓은 여기서 끝난다 —
+   *  끌기가 시작되면 물리 시간의 주인이 둘이 되고(driveStep 은 손이 판 위면 쉰다) 되돌리기 칸도 둘이 된다(계획서 B2·B7). */
+  drivePress?(id: string | null): boolean;
 }
 
 export interface UseEditorPointerResult {
@@ -557,6 +560,11 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       // 그때 컨텍스트를 처음 열면 자동재생 정책상 'suspended' 로 태어나 첫 '탁' 이 통째로
       // 삼켜진다. 소리가 꺼져 있으면 이 호출은 아무것도 열지 않는다(cues.ts 계약 ①).
       cues.arm();
+
+      if (ctx.drivePress) {
+        const hitNow = hitTest(world, buildScene(), buildHitContext('select'));
+        if (ctx.drivePress(hitNow?.id ?? null)) return {};
+      }
 
       // ── 이동 앵커(§6.10d, 2026-09-13 기현님 지시) ─────────────────────────────
       // *"도형·메모·다중 선택에서 객체가 겹쳐 있으면 집어 드래그로 옮기기가 쉽지 않더라."*

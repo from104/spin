@@ -32,7 +32,7 @@ const idsMatching = (scope: KeyScope, e: (typeof ALL_EVENTS)[number]): string[] 
 ];
 
 describe('키맵 — 한 층 안에서 한 키는 한 뜻이다', () => {
-  for (const scope of ['global', 'object', 'present'] as const) {
+  for (const scope of ['global', 'object', 'present', 'drive'] as const) {
     it(`${scope} 층에 겹치는 정의가 없다`, () => {
       const clashes = ALL_EVENTS.map((e) => ({ e, ids: idsMatching(scope, e) }))
         .filter((r) => r.ids.length > 1)
@@ -119,6 +119,21 @@ describe('키맵 — WCAG 2.1.4 층 가르기', () => {
       'KeyS',
       'KeyW',
     ]);
+  });
+});
+
+describe('키맵 — [단축키] 수식키 필요 모드에서도 문자키에 닿는다', () => {
+  // `modifier` 모드에서 전역 문자키의 자리는 Alt+글자다(useEditorKeyboard gatedLookup) — 그런데 그 조회는 Alt+글자를 **먼저 그대로**
+  // 찾는다. 같은 Alt+글자를 다른 전역 정의(보기 토글)가 쥐고 있으면 그 문자키는 이 설정에서 영영 안 먹는다.
+  // 2026-11-17 조정 모드 들어가기 키로 제안된 `G` 가 정확히 그랬다(Alt+G = 격자 표시) — 그래서 `J` 가 됐다(keymap.ts drive.enter).
+  it('전역 문자키의 Alt+글자를 다른 전역 정의가 쥐지 않는다', () => {
+    const blocked = KEYMAP.filter((d) => d.scope === 'global' && d.letterKey).flatMap((d) =>
+      d.codes
+        .map((code) => ({ id: d.id, code, by: idsMatching('global', { code, ctrlKey: false, metaKey: false, altKey: true, shiftKey: false }) }))
+        .filter((r) => r.by.length > 0)
+        .map((r) => `${r.id}: Alt+${r.code} → ${r.by.join(' · ')}`),
+    );
+    expect(blocked, '수식키 필요 모드에서 이 문자키는 닿을 길이 없다').toEqual([]);
   });
 });
 

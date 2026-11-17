@@ -436,6 +436,14 @@ export class PlaywrightApp implements SpinApp {
     await this.page.keyboard.press(chord);
   }
 
+  async keyDown(key: string): Promise<void> {
+    await this.page.keyboard.down(key);
+  }
+
+  async keyUp(key: string): Promise<void> {
+    await this.page.keyboard.up(key);
+  }
+
   async resize(width: number, height: number): Promise<void> {
     await this.page.setViewportSize({ width, height });
     // 레이아웃·회전 판정은 resize 이벤트 뒤 React 커밋으로 따라온다 — 무대 크기가 새 창에 맞을 때까지 기다린다

@@ -126,6 +126,11 @@ export interface ObjectMenuProps {
    *  내려보낸다. 열 때 한 번 떠서 여기 쥐고 있으면 이미 맨 앞인 개체의 [맨 앞으로]가 살아
    *  있는 채로 남는다(눌러도 아무 일 없는 칸 — 이 기능이 없애려던 바로 그 상태다). */
   zMoves: Record<ZOp, boolean> | null;
+  /** [휠체어 조정 모드](docs/PLAN-SIMPLE-DRIVE.md 결정 B2) — **휠체어 하나**일 때만 칸이 선다(null 이면 안 낸다). `reason` 이 있으면
+   *  칸을 죽이고 그 이유를 툴팁(= 접근 설명)으로 말한다 — 심플 모드·상호작용 꺼짐·잠김·무시. 칸을 숨기지 않는 이유: 기능이 있다는
+   *  것과 무엇을 하면 켜지는지를 같은 자리에서 알게 한다(표시순서 칸의 `noOverlap` 과 같은 규율). */
+  drive?: { reason: DictKey | null } | null;
+  onDrive?(id: string): void;
 }
 
 /** 하위 화면의 항목 순서 — **위에서 아래로 "앞 → 뒤"** 다. 화면의 위아래와 z 의 앞뒤가 같은
@@ -153,7 +158,7 @@ const ITEM: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit, onDuplicate, onFineTune, onZOrder, zMoves }: ObjectMenuProps) {
+export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRemove, onSelect, onEdit, onDuplicate, onFineTune, onZOrder, zMoves, drive = null, onDrive }: ObjectMenuProps) {
   const t = useT();
   const locale = useLocale();
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -343,6 +348,24 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
                 ✥
               </span>
               {t('editor.objectMenu.fineTune')}
+            </button>
+          )}
+
+          {/* [휠체어 조정 모드] — [미세 조정] 바로 아래, 같은 "움직이기" 뭉치(계획서 B2). 몰 수 없으면 죽여서 내고 이유를 말한다. */}
+          {drive && (
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="menu-drive"
+              aria-disabled={drive.reason ? true : undefined}
+              title={drive.reason ? t(drive.reason, { name: t('drive.name') }) : undefined}
+              onClick={drive.reason ? undefined : act(() => onDrive?.(target.ids[0]!))}
+              style={{ ...ITEM, opacity: drive.reason ? 0.4 : 1, cursor: drive.reason ? 'default' : 'pointer' }}
+            >
+              <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.7 }}>
+                ⦿
+              </span>
+              {t('drive.name')}
             </button>
           )}
 

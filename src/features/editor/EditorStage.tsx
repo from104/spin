@@ -5,6 +5,8 @@
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ObjectMenu, type ObjectMenuTarget } from './ObjectMenu.tsx';
 import { NudgePad, type HeadingCmd, type NudgePadTarget } from './NudgePad.tsx';
+import { DriveStrip } from './DriveStrip.tsx';
+import { useDriveSession } from './useDriveSession.ts';
 import { useLongPressMenu } from './useLongPressMenu.ts';
 import { sameKindGroup } from './selectSame.ts';
 import { sceneOrder, zMoves } from '../../model/zOrder.ts';
@@ -25,7 +27,7 @@ import { effectiveReduceMotion, poseFrame } from '../../store/editor/tween.ts';
 import { easeStandard } from '../../core/geom.ts';
 import { PHYS } from '../../core/constants.ts';
 import { stepPosesFromSnapshot } from './stepPosesFromSnapshot.ts';
-import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
+import { useSettingsActions, useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import type { EditorAction } from '../../store/editor/actions.ts';
 import type { BallRing, Drill, DrillStep, NoteLabel, TeamSide } from '../../model/drill.ts';
 
@@ -102,6 +104,8 @@ export interface EditorStageProps {
   /** 3.10 — 시점 점프 감지(§6.7 immediate 와 같은 규칙: undo/redo·스텝 추가삭제). 점프에는
    *  트윈과 마찬가지로 등장/퇴장 페이드도 걸지 않는다. */
   epoch?: number;
+  /** 재생 중인가 — 재생이 시작되면 휠체어 조정 모드를 끝낸다(docs/PLAN-SIMPLE-DRIVE.md 결정 B2). 안 주면 재생 없음(전술판·시험). */
+  playing?: boolean;
   /** 밀린 골대를 눌렀을 때 — **모든** 골대를 원위치로(2026-08-29). 손잡이가 [보드 설정] 안
    *  버튼과 같은 함수를 받아야 둘이 갈라지지 않는다(EditorWorkspace.resetGoals 하나다). */
   onResetGoals?(): void;
@@ -170,7 +174,7 @@ const OBJ_MOVE_DIR: Record<string, readonly [number, number]> = {
 // 포인터(손잡이 끌기)가 맡는다 — 남은 상태·타입 정리는 2단계다.
 
 export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(function EditorStage(
-  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, dragRotate = true, anchors = true, simple = false, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0, onResetGoals },
+  { drill, rot, step, stepIndex, tool, toolLock = false, coneSlot, selection, dispatch, worldRef, writer, rules, zones, ballMax, pendingPlayerId, onPlayerPlaced, showToast, showGrid, showGridLabels, showRuleZones, largeTargets, dragRotate = true, anchors = true, simple = false, onEraseIds, onDuplicateIds, onEditNote, epoch = 0, transitionMs = 0, onResetGoals, playing = false },
   stageRef,
 ) {
   // 스텝의 상태 플래그. 포인터(끌기 차단)·렌더(테두리·흐리게)·메뉴가 **같은 집합**을 본다 —
@@ -181,6 +185,32 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   // 볼 일이 없다 — 그래서 toolLock 을 그대로 쓰지 않고 도구까지 함께 본다.
   const gathering = tool === 'select' && toolLock;
   const ignoredSet = useMemo(() => new Set<string>(step.ignored ?? []), [step.ignored]);
+  const { prefs, physics } = useSettingsState();
+  const { setPrefs } = useSettingsActions();
+
+  // ── 휠체어 조정 모드(docs/PLAN-SIMPLE-DRIVE.md 결정 B) — 세션은 훅 하나가 쥔다(useDriveSession 머리말) ──────────────
+  // 이름표(팀 + 번호)는 아래 `chairs` 가 만든다 — 훅이 그보다 먼저 서야 하므로(포인터가 drivePress 를 받는다) ref 로 늦게 잇는다.
+  const chairNamesRef = useRef<ReadonlyMap<string, string>>(new Map());
+  const drive = useDriveSession({
+    worldRef,
+    dispatch,
+    step,
+    epoch,
+    tool,
+    playing,
+    simple,
+    interact: physics.interact,
+    locked: lockedSet,
+    ignored: ignoredSet,
+    selection,
+    singleKeyMode: prefs.a11y.singleKeyShortcuts,
+    reduceMotion: effectiveReduceMotion(prefs.a11y.reduceMotion),
+    speed: prefs.drive.speed,
+    onSpeedChange: (level) => setPrefs({ drive: { speed: level } }),
+    chairName: (id) => chairNamesRef.current.get(id) ?? id,
+    t: (key, vars) => translate(locale, key, vars),
+    showToast: (m) => showToast(m),
+  });
 
   const pointer = useEditorPointer({
     drill,
@@ -209,6 +239,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     anchors,
     chairDisc: simple,
     largeTargets,
+    drivePress: drive.chairId ? drive.press : undefined,
   });
 
   const [rovingId, setRovingId] = useState<string | null>(null);
@@ -231,6 +262,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     }
     return out;
   }, [drill.cast.chairs, drill.teams, step.chairs, locale]);
+  chairNamesRef.current = new Map(chairs.map((c) => [c.id as string, c.ariaLabel]));
 
   const balls = useMemo(() => drill.cast.balls.filter((b) => step.balls[b.id] !== undefined).map((b) => b.id), [drill.cast.balls, step.balls]);
 
@@ -590,7 +622,6 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   // 상태(OBJECT_NUDGE)는 누르는 순간 **최종 각도로 한 번** 바뀐다 — 되돌리기 한 칸, 자동 저장도 한 번. 화면은 물리
   // 자세를 매 프레임 그리므로(usePhysicsRenderLoop) 물리 θ 만 0.3초 동안 따라 돌린다. 패드가 닫히면(아무 키 =
   // 되돌리기·방향키 포함) 그 자리에서 끝 각도로 맞춘다 — 남은 프레임이 되돌리기로 다시 세운 월드를 덮지 않게.
-  const { prefs } = useSettingsState();
   const reduceMotion = effectiveReduceMotion(prefs.a11y.reduceMotion);
   const headingAnimRef = useRef<{ id: string; to: number; stop(): void } | null>(null);
   const finishHeadingAnim = useCallback(() => {
@@ -960,6 +991,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // **짚은 것이 이미 고른 여럿 중 하나면 메뉴는 그 여럿을 손댄다**(§6.10b). 고른 것 밖을
       // 짚었으면 짚은 것 하나다 — 화면에 파랗게 표시된 것과 메뉴가 손댈 것이 언제나 같다는
       // 뜻이라, 무엇에 걸리는지 되묻지 않아도 된다.
+      // 조정 모드 중이면 먼저 끝낸다(커밋) — 메뉴의 잠금·무시는 월드를 다시 세우는데(EditorProvider flagKey), 그때 바디가 0.5 s 늦은
+      // 모델 자세로 돌아가면 몰던 휠체어가 뒤로 튄다.
+      drive.exit();
       const ids = targetIds(id);
       setMenu({
         ids,
@@ -975,7 +1009,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         selectSame: ids.length === 1 ? sameKindGroup(id, sameScene, locale) : null,
       });
     },
-    [lockedSet, ignoredSet, targetIds, sameScene, locale],
+    [lockedSet, ignoredSet, targetIds, sameScene, locale, drive],
   );
   const longPress = useLongPressMenu(openMenu);
 
@@ -1036,6 +1070,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       >
         {selection.size}개 선택
       </div>
+    )}
+    {drive.chairId && (
+      <DriveStrip chair={chairNamesRef.current.get(drive.chairId) ?? drive.chairId} level={drive.level} onEnd={drive.exit} />
     )}
     <CourtStage
       // 선택 도구에서만 이동을 무장한다 — 배치 도구에서는 같은 자리에 콘 두 개를 빨리
@@ -1175,6 +1212,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 여기서 계산하는 것이 없다. 불가능한 명령이면 그 함수가 같은 스텝 참조를 돌려주고
       // 되돌리기에 칸이 안 쌓인다(reducer 의 Z_ORDER 갈래 주석).
       onZOrder={(id, op) => dispatch({ type: 'Z_ORDER', id, op })}
+      // [휠체어 조정 모드] — 휠체어 하나일 때만 칸이 서고, 못 쓰면 이유와 함께 죽어서 선다(ObjectMenuProps.drive).
+      drive={menu && menu.ids.length === 1 && isId(menu.ids[0]!, 'ch') ? { reason: drive.unavailable(menu.ids[0]!) } : null}
+      onDrive={drive.enter}
     />
     {/* 미세 조정 패드 — 키보드 `obj.move`/`obj.rotate` 와 **같은 통로**다.
         ★ 이동이 **화면 기준**인 것도 그대로다: 스테이지가 90° 돌아 있으면 ▲가 월드 축과

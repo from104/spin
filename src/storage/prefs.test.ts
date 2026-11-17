@@ -454,6 +454,11 @@ describe('3.0 저장 왕복 — 화이트리스트 조립부에 안 적힌 필�
     expect(loadPrefs().board.simple).toBe(true);
     expect(validatePrefs({ board: { simple: 'yes' } }).value.board.simple).toBe(false);
   });
+  it('조정 모드 속도 단계(drive.speed)는 저장 왕복을 견디고, 범위 밖은 기본 단계로', () => {
+    savePrefs({ ...makeDefaultPrefs(), drive: { speed: 5 } });
+    expect(loadPrefs().drive.speed).toBe(5);
+    expect(validatePrefs({ drive: { speed: 9 } }).value.drive.speed).toBe(makeDefaultPrefs().drive.speed);
+  });
   it('개체 이동 스위치 셋은 저장 왕복을 견딘다', () => {
     savePrefs({ ...makeDefaultPrefs(), physics: prunePhysics({ interact: true, dragRotate: true, anchors: true }) });
     const p = resolvePhysics(loadPrefs());

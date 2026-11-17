@@ -30,7 +30,7 @@ import { useSettingsState } from '../../store/settings/SettingsProvider.tsx';
 import { isImeKeyEvent } from '../keyboard.ts';
 import { useT } from '../../i18n/useT.ts';
 
-const SCOPES: readonly KeyScope[] = ['global', 'object', 'present'];
+const SCOPES: readonly KeyScope[] = ['global', 'object', 'present', 'drive'];
 
 interface KeySnapshot {
   code: string;
@@ -57,6 +57,8 @@ function snapshot(e: KeyboardEvent, mode: SingleKeyMode): KeySnapshot {
       global: gatedLookup(e, mode)?.id,
       object: lookupDef('object', e)?.id,
       present: lookupDef('present', e)?.id,
+      // 조정 모드 층(2026-11-17) — 모드 안에서만 산다. 진단은 '이 키가 그 모드에서 무엇인가' 를 보여 준다(지금 켜져 있는지와 무관).
+      drive: lookupDef('drive', e)?.id,
     },
   };
 }

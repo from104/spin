@@ -41,8 +41,11 @@
 /** 어느 층의 키인가.
  *  · `global`  — document 전역. 편집기·전술판에서 산다.
  *  · `object`  — 개체에 포커스가 있을 때만. WCAG 2.1.4 포커스 한정 예외의 근거다.
- *  · `present` — 시연 화면 전용. */
-export type KeyScope = 'global' | 'object' | 'present';
+ *  · `present` — 시연 화면 전용.
+ *  · `drive`   — 휠체어 조정 모드(docs/PLAN-SIMPLE-DRIVE.md 결정 B5) **안에서만**. 개체 층보다 먼저 키를 먹는다(window 캡처
+ *                단계, useDriveSession). 모드를 켠 동안만 사는 키라 WCAG 2.1.4 의 "켠 동안만 동작" 과 같은 결이고 — 들어가는 키
+ *                `drive.enter` 가 전역 문자키 게이트를 탄다 — 그래서 이 층의 문자키에는 letterKey 를 달지 않는다. */
+export type KeyScope = 'global' | 'object' | 'present' | 'drive';
 
 /** Shift 의 취급.
  *  · `'no'`  — 눌려 있으면 매칭 안 된다(기본값).
@@ -133,6 +136,14 @@ export const KEYMAP: readonly KeyDef[] = [
     label: 'Shift+C',
     desc: '콘 색 바꾸기(주황 ↔ 파랑)',
   },
+  // 휠체어 조정 모드 들어가기(docs/PLAN-SIMPLE-DRIVE.md 결정 B2). 설명에 모드 **이름**을 쓰지 않는다 — 이름은 i18n `drive.name` 한 곳이다
+  // (기현님 용어 '조정 모드' 가 [미세 조정]과 헷갈려 바뀔 수 있다). 여기 desc 는 keymapDesc 의 번역 대조표 키라 이름이 박히면 두 곳이 된다.
+  // 휠체어 하나가 골라져 있을 때. 기능 바 단추는 없다(기현님 2026-11-17).
+  // ⚠️ 기현님이 제안한 `G` 가 아니라 `J` 다: [단축키] 설정이 **수식키 필요**(`modifier`)면 문자키의 자리가 Alt+글자인데
+  //    Alt+G 는 이미 격자 표시(`view.grid`)라 G 로 두면 그 설정에서 이 키에 **닿을 길이 없다**(gatedLookup 이 view.grid 를 먼저 찾는다).
+  //    J 는 도구·개체·Alt 어느 자리에서도 비어 있고, 다음 단계의 가상 조이스틱(Joystick)과 머릿글자가 같다.
+  //    계약 시험 「수식키 필요 모드에서도 닿는다」가 이 충돌을 잡는다.
+  { id: 'drive.enter', scope: 'global', codes: ['KeyJ'], label: 'J', desc: '고른 휠체어 하나를 직접 몰기', letterKey: true },
 
   // ── 편집 ────────────────────────────────────────────────────────────────
   { id: 'edit.undo', scope: 'global', codes: ['KeyZ'], mod: true, label: 'Ctrl/⌘+Z', desc: '실행 취소' },
@@ -290,6 +301,18 @@ export const KEYMAP: readonly KeyDef[] = [
     label: 'Delete',
     desc: '고른 개체 지우기 — 하나든 여럿이든',
   },
+
+  // ── 휠체어 조정 모드(drive) — 모드 안에서만 ─────────────────────────────────
+  // 실제 파워체어 조종(계획서 결정 B3): 위 = 보는 쪽으로 전진, 아래 = 후진, 좌우 = 피벗을 축으로 회전, 동시 누름 = 호.
+  // 화면 방향과 무관하다 — 코트가 돌아 있어도 W 는 "휠체어가 보는 쪽" 이다(실제 조이스틱과 같다).
+  // Shift 는 아무 뜻이 없다(`any`) — 쥐고 있어도 키가 죽지 않게. 뗄 때는 수식키를 안 보고 물리 키로만 푼다(useDriveSession).
+  { id: 'drive.forward', scope: 'drive', codes: ['KeyW', 'ArrowUp'], shift: 'any', label: 'W · ↑', desc: '앞으로' },
+  { id: 'drive.back', scope: 'drive', codes: ['KeyS', 'ArrowDown'], shift: 'any', label: 'S · ↓', desc: '뒤로' },
+  { id: 'drive.left', scope: 'drive', codes: ['KeyA', 'ArrowLeft'], shift: 'any', label: 'A · ←', desc: '왼쪽으로 돌기' },
+  { id: 'drive.right', scope: 'drive', codes: ['KeyD', 'ArrowRight'], shift: 'any', label: 'D · →', desc: '오른쪽으로 돌기' },
+  // 주행 중에만 숫자줄이 속도가 된다(평소 `obj.face` 1–9 는 꺼진다 — 이 층이 먼저 먹는다). 6–9 는 아무 일도 안 하게 일부러 비워 둔다.
+  { id: 'drive.speed', scope: 'drive', codes: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'], label: '1 – 5', desc: '속도 단계' },
+  { id: 'drive.exit', scope: 'drive', codes: ['Escape'], label: 'Esc', desc: '몰기 끝' },
 
   // ── 시연 ────────────────────────────────────────────────────────────────
   // 편집기와 **같은 규칙**으로 맞췄다(2026-08-16). 개편 전에는 Space 가 여기서만 '다음 스텝'

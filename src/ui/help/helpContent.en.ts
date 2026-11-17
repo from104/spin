@@ -377,6 +377,7 @@ export const HELP_EN: HelpContent = {
             ],
           },
           { kind: 'p', text: 'For the last few pixels, use the keyboard. On a tablet with no keyboard, double-tap the object (except notes), or long-press it and choose [Fine-tune] — a translucent pad appears in place with six cells: four to nudge up, down, left and right, and two to rotate left and right. With a single wheelchair selected, a direction grid sits above them — the eight arrows turn the wheelchair to face that way on screen, and the U-turn button in the middle turns it around (press it again and it keeps turning the same way). On a keyboard, with the wheelchair selected, the number keys `1`–`8` (clockwise from 12 o’clock) and `9` (180°) do the same.' },
+          { kind: 'p', text: '**Wheelchair drive mode** — with [Physics & interaction] on, select one wheelchair and press `J`, or long-press it and choose [Wheelchair drive mode], to drive it like a real powerchair. `W`·`↑` go forward, `S`·`↓` reverse, `A`·`←` and `D`·`→` turn on the spot, and pressing them together drives an arc — directions follow **where the wheelchair is facing**, not the screen. The digits `1`–`5` set the speed level (level 5 is fastest, 10 km/h forward and back). Leave with `Esc` or [Done] on the strip at the top. Everything from entering to leaving is one undo step, so pushed balls and cones go back too. Locked objects block you; ignored wheelchairs are passed through. Not available in simple mode.' },
         ],
       },
       {

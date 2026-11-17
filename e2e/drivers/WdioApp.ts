@@ -465,6 +465,21 @@ export class WdioApp implements SpinApp {
     ]);
   }
 
+  async keyDown(key: string): Promise<void> {
+    await this.wd.performActions([{ type: 'key', id: 'keyboard', actions: [{ type: 'keyDown', value: this.keyValue(key) }] }]);
+  }
+
+  async keyUp(key: string): Promise<void> {
+    await this.wd.performActions([{ type: 'key', id: 'keyboard', actions: [{ type: 'keyUp', value: this.keyValue(key) }] }]);
+  }
+
+  /** Playwright 표기 한 키 → WebDriver 키 값(pressKey 와 같은 표). */
+  private keyValue(key: string): string {
+    const code = KEY_CODES[key] ?? (key.length === 1 ? key : undefined);
+    if (!code) throw new Error(`keyDown/keyUp: 모르는 키 ${key}`);
+    return code;
+  }
+
   async resize(width: number, height: number): Promise<void> {
     // 창 바깥 크기를 청한다 — 창 관리자가 없는 Xvfb 에서는 바깥 = 웹뷰다. 앱의 최소 크기(tauri.conf.json minWidth·minHeight)
     // 아래로는 GTK 가 줄이지 않으므로 'resize' 능력은 주지 않는다(웹 시나리오의 휴대폰 크기를 정직하게 못 만든다)

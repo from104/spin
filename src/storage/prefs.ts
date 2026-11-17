@@ -3,7 +3,7 @@
 // 문자열 필드로, `'light'` 값을 영구 불변식으로 전제한다(§4.1 예외 1건) — 이 필드의 위치·타입을
 // 바꾸는 마이그레이션은 index.html 부트 스크립트도 같은 커밋에서 함께 고쳐야 한다.
 import { clamp } from '../core/geom.ts';
-import { DEFAULT_ZONES } from '../core/constants.ts';
+import { DEFAULT_ZONES, DRIVE } from '../core/constants.ts';
 import type { ZoneConfig } from '../model/chair.ts';
 import type { Repair } from '../model/validate.ts';
 import { migrateDoc, PREFS_MIGRATIONS } from '../model/migrate.ts';
@@ -116,6 +116,10 @@ export interface Preferences {
    *  다르게 열리는 쪽이 "같은 드릴이 기기마다 다르게 저장돼 보이는" 쪽보다 낫다. 기본 끔.
    *  스키마 도장은 올리지 않는다(옵셔널 키 추가 — `a11y.sound` 전례, 없으면 기본값). */
   board: { simple: boolean };
+  /** 휠체어 조정 모드(docs/PLAN-SIMPLE-DRIVE.md 결정 B4) — 마지막으로 쓴 **속도 단계**(1…DRIVE.levels, 기본 3). 다음에 들어가도 같은
+   *  단계다. 기기 설정인 이유는 board 와 같다(손에 익은 빠르기는 드릴이 아니라 사람·기기의 것). 스키마 도장은 올리지 않는다(옵셔널
+   *  키 추가 — 없거나 범위 밖이면 기본값). */
+  drive: { speed: number };
   /** i18n C1. `'auto'` 는 브라우저 언어(navigator.languages)로 매 렌더 해석된다 — 값 자체는
    *  로케일이 아니라 "무엇을 볼지에 대한 취향"이라 기기를 옮겨도 따라오는 게 맞다(theme 과
    *  같은 결). 해석 로직은 i18n/locale.ts 가 단일 출처다. */
@@ -170,6 +174,7 @@ export const makeDefaultPrefs = (): Preferences => ({
   seeded: false,
   physics: {},
   board: { simple: false },
+  drive: { speed: DRIVE.defaultLevel },
   language: 'auto',
   sync: { enabled: false },
   tutorialsSeen: {},
@@ -226,6 +231,10 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
   const trayRaw = isRecord(raw.tray) ? raw.tray : {};
   const syncRaw = isRecord(raw.sync) ? raw.sync : {};
   const boardRaw = isRecord(raw.board) ? raw.board : {};
+  const driveRaw = isRecord(raw.drive) ? raw.drive : {};
+  // 1…levels 의 정수만 받는다 — 범위 밖·소수·문자열은 기본 단계로(조용히 고치되 운동학은 늘 정의된 속도를 쓴다).
+  const driveSpeed = (v: unknown, fallback: number): number =>
+    typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= DRIVE.levels ? v : fallback;
   const tutorialsSeenRaw = isRecord(raw.tutorialsSeen) ? raw.tutorialsSeen : {};
   const tutorialsSeen: Partial<Record<TutorialScreenKey, true>> = {};
   for (const k of TUTORIAL_SCREEN_KEYS) {
@@ -269,6 +278,7 @@ export function validatePrefs(raw: unknown): { value: Preferences; repairs: Repa
     seeded: bool(raw.seeded, d.seeded),
     physics: carryTwoZone(sanitizePhysicsOverride(raw.physics), a11yRaw.twoZone),
     board: { simple: bool(boardRaw.simple, d.board.simple) },
+    drive: { speed: driveSpeed(driveRaw.speed, d.drive.speed) },
     language,
     sync: { enabled: bool(syncRaw.enabled, d.sync.enabled) },
     tutorialsSeen,

@@ -807,6 +807,21 @@ export const ja: Record<DictKey, string> = {
 
   // ── C7 — オブジェクトメニュー ────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': 'オブジェクトメニュー',
+  // ── drive mode (PLAN-SIMPLE-DRIVE B8·C1) ──
+  'drive.name': '車椅子操縦モード',
+  'drive.strip.label': '{{name}}',
+  'drive.strip.status': '{{chair}} · 速度 {{level}}/5 · W A S D で操縦、1–5 で速度 · Esc で終了',
+  'drive.strip.end': '終了',
+  'drive.strip.endAria': '{{name}}を終える',
+  'drive.announce.enter': '{{name}} — {{chair}}、速度 {{level}}。W A S D で操縦、1〜5 で速度、Esc で終了。',
+  'drive.announce.switch': '{{chair}}を操縦',
+  'drive.announce.speed': '速度 {{level}}',
+  'drive.announce.exit': '{{name}}を終了',
+  'drive.unavailable.simple': 'シンプルモードでは{{name}}は使えません',
+  'drive.unavailable.interact': '{{name}}を使うには[ボード設定]の[物理・相互作用]をオンにしてください',
+  'drive.unavailable.locked': 'ロックした車椅子は操縦できません',
+  'drive.unavailable.ignored': '無視した車椅子は操縦できません',
+  'drive.unavailable.noChair': '車椅子を1台選んでから J を押してください',
   'editor.objectMenu.fineTune': '微調整',
   'editor.objectMenu.zOrder': '表示順序',
   'editor.objectMenu.zOrder.front': '最前面へ',

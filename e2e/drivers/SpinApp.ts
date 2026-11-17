@@ -207,6 +207,10 @@ export interface SpinApp {
   autosave(): Promise<string>;
   /** 키 조합 하나 (needs: keyboard) — Playwright 표기: 'ArrowRight', 'Control+z' */
   pressKey(chord: string): Promise<void>;
+  /** 키 하나를 **누른 채로** 둔다 / 뗀다 (needs: keyboard) — 휠체어 조정 모드처럼 누르는 동안만 움직이는 조작용(S19).
+   *  Playwright 표기 한 키('w', 'ArrowUp'). 누른 동안 무엇을 기다릴지는 시나리오가 `eventually` 로 정한다 — 고정 sleep 이 아니다. */
+  keyDown(key: string): Promise<void>;
+  keyUp(key: string): Promise<void>;
   /** 창 크기를 바꾸고 레이아웃이 따라올 때까지 기다린다 (needs: resize) */
   resize(width: number, height: number): Promise<void>;
 

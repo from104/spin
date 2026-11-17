@@ -812,6 +812,21 @@ export const en: Record<DictKey, string> = {
 
   // ── C7 — Object menu ────────────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': 'Object Menu',
+  // ── drive mode (PLAN-SIMPLE-DRIVE B8·C1) ──
+  'drive.name': 'Wheelchair drive mode',
+  'drive.strip.label': '{{name}}',
+  'drive.strip.status': '{{chair}} · speed {{level}}/5 · W A S D to drive, 1–5 for speed · Esc to finish',
+  'drive.strip.end': 'Done',
+  'drive.strip.endAria': 'Leave {{name}}',
+  'drive.announce.enter': '{{name}} — {{chair}}, speed {{level}}. Drive with W A S D, 1 to 5 sets speed, Esc to finish.',
+  'drive.announce.switch': 'Driving {{chair}}',
+  'drive.announce.speed': 'Speed {{level}}',
+  'drive.announce.exit': '{{name}} off',
+  'drive.unavailable.simple': '{{name}} is not available in simple mode',
+  'drive.unavailable.interact': 'Turn on [Physics & interaction] in [Board settings] to use {{name}}',
+  'drive.unavailable.locked': "A locked wheelchair can't be driven",
+  'drive.unavailable.ignored': "An ignored wheelchair can't be driven",
+  'drive.unavailable.noChair': 'Select one wheelchair, then press J',
   'editor.objectMenu.fineTune': 'Fine-tune',
   'editor.objectMenu.zOrder': 'Display order',
   'editor.objectMenu.zOrder.front': 'Bring to front',

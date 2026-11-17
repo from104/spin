@@ -928,6 +928,7 @@ export function EditorWorkspace({ mode = 'drill', board, onDrillInfo }: EditorWo
             >
               <EditorStage
                 ref={stageRef}
+                playing={playing}
                 drill={drill}
                 rot={stageRot}
                 step={step}

@@ -57,7 +57,8 @@ export function editorToolRows(locale: Locale): readonly HelpRow[] {
 /** 단축키 표 — mode 에 따라 스텝 관련 키 넷을 뺀다(전술판에는 스텝이 없다). */
 export function editorShortcutRows(mode: 'board' | 'drill', t: ReturnType<typeof useT>, locale: Locale): readonly HelpRow[] {
   const steps = mode === 'drill';
-  const keymapSourceRows: readonly HelpRow[] = [...helpRows('global', { steps }), ...helpRows('object', { steps })].map(
+  // 조정 모드(drive) 층은 개체 층 뒤에 — 모드 안에서만 사는 키라 맨 끝이 "들어가서 쓰는 키" 로 읽힌다(들어가는 `J` 는 전역 층에 있다).
+  const keymapSourceRows: readonly HelpRow[] = [...helpRows('global', { steps }), ...helpRows('object', { steps }), ...helpRows('drive', { steps })].map(
     ([key, desc]): HelpRow => [keymapLabel(key), desc],
   );
   const rows = dedupe([...keymapSourceRows, ...extraRows(steps, t)]).map(

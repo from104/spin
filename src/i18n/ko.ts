@@ -831,6 +831,21 @@ export const ko = {
 
   // ── C7 — 개체 메뉴 ──────────────────────────────────────────────────────────────────
   'editor.objectMenu.ariaLabel': '개체 메뉴',
+  // ── 휠체어 조정 모드(drive, docs/PLAN-SIMPLE-DRIVE.md B8·C1) — 모드 이름은 `drive.name` 한 곳이다(나머지는 {{name}} 으로 받는다) ──
+  'drive.name': '휠체어 조정 모드',
+  'drive.strip.label': '{{name}}',
+  'drive.strip.status': '{{chair}} · 속도 {{level}}/5 · W A S D 로 몰고 1–5 로 속도 · Esc 로 끝',
+  'drive.strip.end': '끝',
+  'drive.strip.endAria': '{{name}} 끝내기',
+  'drive.announce.enter': '{{name}} — {{chair}}, 속도 {{level}}. W A S D 로 몰고, 1부터 5 로 속도, Esc 로 끝.',
+  'drive.announce.switch': '{{chair}} 조종',
+  'drive.announce.speed': '속도 {{level}}',
+  'drive.announce.exit': '{{name}} 끝',
+  'drive.unavailable.simple': '심플 모드에서는 {{name}}를 쓸 수 없습니다',
+  'drive.unavailable.interact': '{{name}}는 [보드 설정]의 [물리·상호작용]을 켜야 쓸 수 있습니다',
+  'drive.unavailable.locked': '잠긴 휠체어는 몰 수 없습니다',
+  'drive.unavailable.ignored': '무시한 휠체어는 몰 수 없습니다',
+  'drive.unavailable.noChair': '휠체어 하나를 고른 뒤 J 를 누르세요',
   'editor.objectMenu.fineTune': '미세 조정',
   // [표시순서] 하위 화면(2026-09-06, PLAN-Z-ORDER 결정 7). 같은 패널이 하위 화면으로 바뀌므로
   // `zOrder` 는 여는 항목의 이름이자 그 화면의 제목(aria-label)이다.
