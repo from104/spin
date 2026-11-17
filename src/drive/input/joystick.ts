@@ -1,11 +1,10 @@
 // 화면 가상 조이스틱 입력원 — docs/PLAN-SIMPLE-DRIVE.md 결정 B5·B9 ②. 큰 원(받침) 안의 작은 원(손잡이)을 끈 만큼이 두 축이다.
 // 화면 축 그대로: 위로 끌면 fwd +, 오른쪽이면 turn + — 차가 돌아가 있어도 "위 = 앞으로"(실제 파워체어 조이스틱과 같다).
 //
-// ⚠️ 데드존(12 %)의 **재조정**은 운동학(model.ts stepDrive → applyDeadzone) 한 곳이다. 여기서도 다시 펴면 두 번 깎여 실효
-//    데드존이 ≈ 22.6 % 가 된다. 여기서는 데드존 안을 **정확히 0** 으로만 만든다 — 그 판정은 모델과 같아 두 번 해도 같고(멱등),
-//    키보드와 더할 때 손가락 떨림(작은 옆 기울임)이 키 입력에 섞여 새지 않는다(모델의 데드존은 **더한 값**의 반지름만 본다).
-// ⚠️ 정규화는 손잡이의 **실제 최대 이동 반경**으로 한다(받침 반경이 아니다) — 손잡이가 받침 안에 갇히는 만큼 덜 가는데 받침
-//    반경으로 나누면 끝까지 밀어도 1 에 못 닿아 최고 단계 속도가 안 나온다.
+// ⚠️ 데드존(DRIVE.deadzone, 20 %)은 **축마다** 이 파일 한 곳에서 깎는다(운동학은 모른다). 한 축이 그 안이면 그 축은 0 이고 손잡이는
+//    십자선에 **붙어 보인다**(snapKnob) — 앞으로 밀다 손가락이 조금 옆으로 새도 곧게 가고, 옆으로 밀면 제자리에서 돈다. 밖은
+//    0→1 로 다시 펴서 가운데서 멀수록 빠르다(선형). 두 축이 다 안이면(가운데 20 % 사각) 선다.
+// ⚠️ 정규화는 손잡이의 **실제 최대 이동 반경**으로 한다(받침 반경이 아니다) — 끝까지 밀면 1 에 닿아야 최고 단계 속도가 나온다.
 import { DRIVE } from '../../core/constants.ts';
 import type { DriveInput } from '../model.ts';
 import { ZERO_INPUT } from '../model.ts';
@@ -19,14 +18,27 @@ export function clampKnob(dx: number, dy: number, travel: number): { x: number; 
   return { x: dx * k, y: dy * k };
 }
 
-/** 손잡이의 화면 변위(px, 아래가 +y) → 두 축. 반경 travel 에서 길이 1, 데드존 안은 0(재조정은 모델이 한다 — 머리말). */
-export function stickToInput(dx: number, dy: number, travel: number, deadzone: number = DRIVE.deadzone): DriveInput {
+/** 받침 안에 가둔 뒤 데드존 안의 축을 십자선에 붙인 자리(px) — 손잡이를 그리는 자리이고, 입력도 이 자리에서 읽는다. */
+export function snapKnob(dx: number, dy: number, travel: number, deadzone: number = DRIVE.deadzone): { x: number; y: number } {
   const k = clampKnob(dx, dy, travel);
+  const band = deadzone * travel;
+  return { x: Math.abs(k.x) < band ? 0 : k.x, y: Math.abs(k.y) < band ? 0 : k.y };
+}
+
+/** 한 축: 데드존 안은 0, 밖은 0→1 로 다시 편다. */
+function rescale(v: number, dz: number): number {
+  const a = Math.abs(v);
+  if (a <= dz) return 0;
+  return Math.sign(v) * Math.min(1, (a - dz) / (1 - dz));
+}
+
+/** 손잡이의 화면 변위(px, 아래가 +y) → 두 축. 반경 travel 에서 길이 1, 축마다 데드존(머리말). */
+export function stickToInput(dx: number, dy: number, travel: number, deadzone: number = DRIVE.deadzone): DriveInput {
   if (travel <= 0) return ZERO_INPUT;
-  const turn = k.x / travel;
-  const fwd = (0 - k.y) / travel; // -k.y 는 가운데 줄에서 -0 이 된다
-  if (Math.hypot(fwd, turn) <= deadzone) return ZERO_INPUT;
-  return { fwd, turn };
+  const k = clampKnob(dx, dy, travel);
+  const turn = rescale(k.x / travel, deadzone);
+  const fwd = rescale(-k.y / travel, deadzone);
+  return fwd === 0 && turn === 0 ? ZERO_INPUT : { fwd: fwd + 0, turn: turn + 0 }; // + 0 은 -0 을 0 으로
 }
 
 export interface JoystickDriveSource extends DriveInputSource {

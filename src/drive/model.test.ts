@@ -66,16 +66,10 @@ describe('조정 모드 운동학', () => {
     expect(Math.hypot(s.x - start.x, s.y - start.y)).toBeLessThan(r * 0.15); // 돌아온다(나선이 아니다)
   });
 
-  it('후진: 보는 쪽 반대로 가고, 오른쪽을 밀면 차 뒤가 오른쪽으로(차체는 반시계)', () => {
+  it('후진: 보는 쪽 반대로 가고, 회전은 전진과 같다 — 오른쪽 = 시계, 왼쪽 = 반시계', () => {
     const back = run(origin(0), { fwd: -1, turn: 0 }, 3, 1);
     expect(back.x).toBeLessThan(-10);
-    const backRight = run(origin(0), { fwd: -1, turn: 1 }, 3, 0.3);
-    expect(backRight.theta).toBeLessThan(0);
-  });
-
-  it('데드존: 12 % 안쪽의 기울임은 움직이지 않는다', () => {
-    const s = run(origin(), { fwd: 0.1, turn: 0.05 }, 5, 1);
-    expect(s.x).toBe(0);
-    expect(s.theta).toBe(0);
+    expect(run(origin(0), { fwd: -1, turn: 1 }, 3, 0.3).theta).toBeGreaterThan(0);
+    expect(run(origin(0), { fwd: -1, turn: -1 }, 3, 0.3).theta).toBeLessThan(0);
   });
 });

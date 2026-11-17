@@ -16,14 +16,18 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { DRIVE } from '../../core/constants.ts';
-import { clampKnob, stickToInput, type JoystickDriveSource } from '../../drive/input/joystick.ts';
+import { snapKnob, stickToInput, type JoystickDriveSource } from '../../drive/input/joystick.ts';
 import { ZERO_INPUT } from '../../drive/model.ts';
 import { useT } from '../../i18n/useT.ts';
 
 /** 받침 지름(CSS px) — 계획서 B5. 큰 터치 타깃이면 180. */
 const SIZE = { normal: 140, large: 180 } as const;
-/** 손잡이 지름 ÷ 받침 지름. 손잡이가 받침 안에 갇히므로 이동 반경 = (받침 − 손잡이) / 2. */
-const KNOB_RATIO = 0.42;
+/** 손잡이 지름 ÷ 받침 지름. */
+const KNOB_RATIO = 0.36;
+/** 손잡이가 받침 테두리 밖으로 나오는 정도(손잡이 지름의 몫). 이동 반경 = 받침 반경 − 손잡이 지름 × (½ − 이 값) — 손잡이를 받침 안에
+ *  가두면 이동이 짧아(140 px 에서 ≈ 40 px) 기운 만큼의 빠르기를 손가락으로 고르기 어렵다(2026-11-18 기현님: *"움직인 정도에 따라
+ *  최고 속도가 달라야"*). 모바일 게임 조이스틱처럼 손잡이 일부가 테두리 밖으로 나간다. */
+const KNOB_OVERHANG = 0.25;
 /** 판 가장자리에서 띄우는 거리(px). */
 const GAP = 12;
 
@@ -61,7 +65,9 @@ export function DriveJoystick({
 
   const size = large ? SIZE.large : SIZE.normal;
   const knob = Math.round(size * KNOB_RATIO);
-  const travel = (size - knob) / 2;
+  const travel = size / 2 - knob * (0.5 - KNOB_OVERHANG);
+  /** 손잡이가 테두리 밖으로 나오는 거리 — 속도 단추와 겹치지 않게 그만큼 띄운다. */
+  const overhang = Math.ceil(knob * KNOB_OVERHANG);
 
   // ── 자리: 판 컨테이너 오른쪽 아래 ──
   useLayoutEffect(() => {
@@ -125,7 +131,7 @@ export function DriveJoystick({
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const dx = e.clientX - centerRef.current.x;
       const dy = e.clientY - centerRef.current.y;
-      const k = clampKnob(dx, dy, travel);
+      const k = snapKnob(dx, dy, travel);
       placeKnob(k.x, k.y, false);
       source.set(stickToInput(dx, dy, travel));
     },
@@ -159,7 +165,7 @@ export function DriveJoystick({
   const btn = large ? 56 : 44;
   // 판이 판넬보다 좁으면(좁은 세로 창 + 큰 표적 — 2026-11-17 실측 412×839 에서 판 컨테이너 폭 ≈ 90 px) 판 오른쪽 아래에 맞추면 화면 왼쪽
   // 밖으로 나간다. 화면 안에 붙잡아 둔다 — 그때는 트레이 일부를 덮지만 몰 수단이 사라지는 것보다 낫다.
-  const panelW = size + 8 + btn;
+  const panelW = size + 8 + overhang + btn;
   const panelH = Math.max(size, 3 * btn + 8);
   const right = anchor ? Math.max(GAP, Math.min(anchor.right + GAP, anchor.vw - panelW - GAP)) : GAP;
   const bottom = anchor ? Math.max(GAP, Math.min(anchor.bottom + GAP, anchor.vh - panelH - GAP)) : GAP;
@@ -172,12 +178,18 @@ export function DriveJoystick({
     border: '1px solid var(--border-strong)',
     background: 'color-mix(in srgb, var(--panel) 92%, transparent)',
     color: 'var(--text)',
-    fontSize: '1.25rem',
-    fontWeight: 700,
-    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     cursor: 'pointer',
     padding: 0,
   } as const;
+  // [+]·[−] 는 글자가 아니라 그림으로 — 글꼴의 기준선·글리프 여백 때문에 원 가운데에서 비켜 보였다(2026-11-18 기현님).
+  const icon = (plus: boolean) => (
+    <svg aria-hidden="true" width={btn * 0.42} height={btn * 0.42} viewBox="0 0 16 16" style={{ display: 'block' }}>
+      <path d={plus ? 'M8 2v12M2 8h12' : 'M2 8h12'} stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" fill="none" />
+    </svg>
+  );
 
   return (
     <>
@@ -196,7 +208,7 @@ export function DriveJoystick({
               zIndex: 35,
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              gap: 8 + overhang,
               touchAction: 'none',
               userSelect: 'none',
               WebkitUserSelect: 'none',
@@ -219,7 +231,7 @@ export function DriveJoystick({
                 onClick={() => onLevel(level + 1)}
                 style={speedBtn}
               >
-                +
+                {icon(true)}
               </button>
               <span
                 data-testid="drive-speed-level"
@@ -245,7 +257,7 @@ export function DriveJoystick({
                 onClick={() => onLevel(level - 1)}
                 style={speedBtn}
               >
-                −
+                {icon(false)}
               </button>
             </div>
             <div
@@ -272,6 +284,23 @@ export function DriveJoystick({
                 cursor: 'grab',
               }}
             >
+              {/* 받침에 내접하는 점선 십자 — 데드존 안에서 손잡이가 이 선에 붙는다(snapKnob). */}
+              <svg
+                aria-hidden="true"
+                width={size - 4}
+                height={size - 4}
+                viewBox="-1 -1 2 2"
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
+              >
+                <path
+                  d="M0 -1V1M-1 0H1"
+                  stroke="color-mix(in srgb, var(--text) 45%, transparent)"
+                  strokeWidth={1.5}
+                  strokeDasharray="5 4"
+                  vectorEffect="non-scaling-stroke"
+                  fill="none"
+                />
+              </svg>
               <div
                 ref={knobRef}
                 aria-hidden="true"

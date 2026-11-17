@@ -40,14 +40,9 @@ export function levelLimits(level: number): { v: number; omega: number } {
   return { v: DRIVE.vMaxPxPerS * k, omega: DRIVE.omegaMaxRadPerS * k };
 }
 
-/** 데드존 — 반경 deadzone 안은 0, 밖은 0→1 로 다시 펴서 작은 기울임이 계단처럼 튀지 않게 한다. 축마다 [-1,1] 로 자른다. */
-export function applyDeadzone(input: DriveInput, dz: number = DRIVE.deadzone): DriveInput {
-  const fwd = Math.max(-1, Math.min(1, input.fwd));
-  const turn = Math.max(-1, Math.min(1, input.turn));
-  const mag = Math.hypot(fwd, turn);
-  if (mag <= dz) return ZERO_INPUT;
-  const k = Math.min(1, (mag - dz) / (1 - dz)) / mag;
-  return { fwd: fwd * k, turn: turn * k };
+/** 축마다 [-1,1] 로 자른다. 데드존은 입력원의 몫이다(조이스틱은 joystick.ts, 키보드는 필요 없다) — 여기서 또 깎으면 두 번 깎인다. */
+export function clampInput(input: DriveInput): DriveInput {
+  return { fwd: Math.max(-1, Math.min(1, input.fwd)), turn: Math.max(-1, Math.min(1, input.turn)) };
 }
 
 /** v 를 target 쪽으로 최대 step 만큼. */
@@ -80,12 +75,12 @@ export interface DriveStepOptions {
 export function stepDrive(s: DriveState, rawInput: DriveInput, level: number, dtS: number, opts: DriveStepOptions = {}): DriveState {
   const dt = Math.max(0, Math.min(DRIVE.maxFrameS, dtS));
   if (dt === 0) return s;
-  const input = applyDeadzone(rawInput);
+  const input = clampInput(rawInput);
   const lim = levelLimits(level);
   const rampS = opts.reduceMotion ? DRIVE.rampReducedS : DRIVE.rampS;
   const accel = DRIVE.vMaxPxPerS / rampS;
   const alpha = DRIVE.omegaMaxRadPerS / rampS;
-  // 후진 중 좌우는 민 쪽으로 **차 뒤가** 돈다(DRIVE.reverseSteerFlip) — 뒤로 가며 오른쪽을 밀면 뒤가 오른쪽으로, 즉 차체는 반시계.
+  // 좌우는 전후진과 상관없이 왼쪽 = 반시계·오른쪽 = 시계(DRIVE.reverseSteerFlip 이 false). true 면 후진 때만 뒤집힌다.
   const flip = DRIVE.reverseSteerFlip && input.fwd < 0 ? -1 : 1;
   const vTarget = input.fwd * lim.v;
   const omegaTarget = input.turn * lim.omega * flip;
