@@ -114,6 +114,56 @@ describe('driveStep 의 시간 — 한 프레임에 정확히 dt 만큼만 걷�
     expect(viaDrive).toBeCloseTo(roll('step'), 6);
   });
 
+  // 주사율이 120 Hz 의 약수가 아닌 화면(144 Hz = 6.9 ms, 90 Hz = 11.1 ms, 느린 기기 33 ms). 한 프레임의 변위를 정수 개의 substep 에
+  // 나눠 놓으므로 걸음에 실린 시간이 dt 와 다르다 — 그 변위가 그대로 접촉 속도로 읽히면 찬 공이 주사율에 따라 달리 나간다.
+  describe.each([6.9, 11.1, 33])('프레임 %s ms', (dtMs) => {
+    const dt = dtMs / 1000;
+    const V = DRIVE.vMaxPxPerS;
+    const PHASES = 12;
+    /** 0.5 s 몰아 공을 치고(직진으로 밀기 / 제자리 회전으로 차기) 그 자리에 선 뒤 공이 굴러간 거리 — 닿는 순간의 위상 PHASES 개의 평균. */
+    function kick(mode: 'push' | 'spin', frameS: number): { roll: number; chair: number } {
+      let roll = 0;
+      let chair = 0;
+      for (let k = 0; k < PHASES; k++) {
+        const probe = createPhysicsProbe(
+          mode === 'push'
+            ? { chairs: [{ id: chA, x: 200 + k * 0.3, y: Y }], balls: [{ id: bl, x: 250, y: Y }] }
+            : { chairs: [{ id: chA, x: 200, y: Y, angleDeg: -40 - k * 2.6 }], balls: [{ id: bl, x: 222, y: Y + 8 }] },
+        );
+        try {
+          const x0 = probe.api.read()[chA]!.x;
+          const n = Math.round(0.5 / frameS);
+          for (let i = 0; i < n; i++) {
+            const p = probe.api.read()[chA]!;
+            const pose = mode === 'push' ? { x: p.x + V * frameS, y: p.y, theta: p.theta } : { ...p, theta: p.theta + DRIVE.omegaMaxRadPerS * frameS };
+            probe.api.driveStep([{ id: chA, pose }], frameS);
+          }
+          const hold = probe.api.read()[chA]!;
+          chair += (hold.x - x0 - V * n * frameS) / PHASES;
+          for (let i = 0; i < Math.round(4 / frameS); i++) probe.api.driveStep([{ id: chA, pose: hold }], frameS);
+          const b = probe.api.read()[bl]!;
+          roll += (mode === 'push' ? b.x - hold.x : Math.hypot(b.x - 222, b.y - Y - 8)) / PHASES;
+        } finally {
+          probe.dispose();
+        }
+      }
+      return { roll, chair };
+    }
+
+    it('휠체어는 운동학이 말한 거리만큼 간다(걸음이 없는 프레임에도)', () => {
+      expect(kick('push', dt).chair).toBeCloseTo(0, 6);
+    });
+
+    it('밀다 선 뒤·돌며 찬 뒤 공이 굴러간 거리가 60 Hz 와 같다(± 8 %)', () => {
+      for (const mode of ['push', 'spin'] as const) {
+        const ref = kick(mode, DT).roll;
+        expect(ref).toBeGreaterThan(80); // 대조군 — 실제로 찼다
+        expect(kick(mode, dt).roll / ref, mode).toBeGreaterThan(0.92);
+        expect(kick(mode, dt).roll / ref, mode).toBeLessThan(1.08);
+      }
+    });
+  });
+
   it('최고 단계 제자리 회전이 앞 모서리 옆의 콘을 건너뛰지 않는다', () => {
     // 앞 모서리(26, 10)가 시계 방향으로 쓸고 가는 길 위 — 모서리에서 조금 앞, 조금 아래
     const probe = probeOf({ chairs: [{ id: chA, x: 300, y: Y }], cones: [{ id: cn, x: 300 + 20, y: Y + 18 }] });

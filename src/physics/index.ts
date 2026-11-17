@@ -349,7 +349,7 @@ export function createPhysicsWorld(
    *  ③ driven 으로 놓는다 — 걸음의 변위가 접촉 속도가 되어 밀린 쪽이 그 방향·빠르기로 굴러간다.
    *  ⚠️ 받는 것은 목표 자세가 아니라 **이 걸음의 증분**이다(지금 바디 자세 + d). 걸음마다 미리 나눠 둔 절대 자세를 쫓으면, 막혀 선
    *     칩의 목표가 장애물 너머로 달아난 뒤 `resolveMotion` 이 끝점만 보고 "안 막혔다" 며 건너뛴다(첫 판 실측: 잠긴 휠체어 뒤 420 에 섰다). */
-  function placeSweptChair(id: ChairId, d: ChairPose): void {
+  function placeSweptChair(id: ChairId, d: ChairPose, velScale = 1): void {
     const cur = world.chairPose(id);
     const target: ChairPose = { x: cur.x + d.x, y: cur.y + d.y, theta: cur.theta + d.theta };
     const c = pushChairIntoBounds(target, bounds);
@@ -359,7 +359,7 @@ export function createPhysicsWorld(
       blk.chairs.length > 0 || blk.circles.length > 0
         ? resolveMotion(cur, inBounds, blk.chairs, bounds, CHAIR_SEP_PX, RESOLVE_ITERS, blk.circles)
         : inBounds;
-    world.setChairPose(id, fin, true);
+    world.setChairPose(id, fin, true, velScale);
   }
 
   function substep(_dtS: number): void {
@@ -777,9 +777,15 @@ export function createPhysicsWorld(
       }
       if (n === PHYS.maxSubsteps) driveAccMs = 0;
       const steps = Math.max(1, n);
+      // 접촉 속도는 **프레임의 변위 ÷ 프레임 시간** 이다 — 걸음의 변위가 아니다. 한 프레임의 변위를 정수 개의 걸음에 고르게 나눠 놓으므로
+      // 주사율이 120 Hz 의 약수가 아니면 걸음마다 실린 시간이 dt 와 다르다(90 Hz: 한 걸음에 11.1 ms 치 → 다음 프레임은 두 걸음에 5.6 ms 치씩,
+      // 144 Hz: 걸음 없는 프레임 다음에 6.9 ms 치). 그대로 속도로 읽히면 찬 공이 주사율에 따라 달리 나간다(실측: 밀다 선 뒤 굴러간 거리
+      // 60 Hz 124 px · 90 Hz 175 px · 144 Hz 109 px). 자리는 그대로 두고 속도만 (걸음 수 × dt ÷ 프레임 시간)배로 고친다 — 60·120 Hz 는 1.
+      const frameS = Math.min(Math.max(0, dtS), DRIVE.maxFrameS);
+      const velScale = frameS > 0 ? (steps * PHYS.dtS) / frameS : 1;
       for (let i = 1; i <= steps; i++) {
         for (const p of plan) {
-          placeSweptChair(p.id, { x: (p.to.x - p.from.x) / steps, y: (p.to.y - p.from.y) / steps, theta: (p.to.theta - p.from.theta) / steps });
+          placeSweptChair(p.id, { x: (p.to.x - p.from.x) / steps, y: (p.to.y - p.from.y) / steps, theta: (p.to.theta - p.from.theta) / steps }, velScale);
         }
         if (n > 0) substep(PHYS.dtS);
       }

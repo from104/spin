@@ -82,7 +82,10 @@ export interface WorldHandles {
    *  저장되지 않고 코트 정의에서만 나온다(§5.4 GOAL). */
   addGoalPost(id: string, p: Vec2): void;
   remove(id: CastId): void;
-  setChairPose(id: ChairId, pose: ChairPose, driven: boolean): void;
+  /** `velScale`(driven 일 때만 뜻이 있다) — 접촉 속도를 **이 걸음의 변위 × velScale** 로 둔다. 자리는 그대로다.
+   *  조정 모드(driveStep)가 쓴다: 한 프레임의 변위를 정수 개의 substep 에 나눠 놓으므로, 주사율이 120 Hz 의 약수가 아니면 걸음의
+   *  변위가 실제 속도 × dt 와 어긋난다(90 Hz: 한 걸음에 11.1 ms 치 또는 5.6 ms 치). 기본 1 = 변위가 곧 속도(§5.4, 끌기·sweepTo). */
+  setChairPose(id: ChairId, pose: ChairPose, driven: boolean, velScale?: number): void;
   /** 드래그 중인 휠체어만 static 으로 바꾼다(§5.4 'push' 모드).
    *
    *  ⚠️ 이 구분이 없으면 §5.4 골든값이 전부 무너진다: **구동 중인 dynamic 바디는 static 처럼
@@ -194,12 +197,27 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
       // setStatic 은 어느 방향이든 restitution=0/friction=1 로 덮어쓴다(§5.3).
       applyStaticSurface(b, CHAIR.restitution, CHAIR.friction, CHAIR.frictionStatic);
     },
-    setChairPose(id, pose, driven) {
+    setChairPose(id, pose, driven, velScale = 1) {
       const b = requireChair(id);
       // §5.4: Engine.update 직전에 이 순서로 호출해야 Resolver.solveVelocity 가 position−positionPrev
       // 로 계산하는 접촉점 속도(스핀킥)가 물리적으로 맞게 나온다. θ 는 연속값을 그대로 넘긴다(seam 튐 방지).
       setPosition3(b, { x: pose.x, y: pose.y }, driven);
       setAngle3(b, pose.theta, driven);
+      if (driven && velScale !== 1) {
+        // 자리는 두고 prev 만 옮긴다 — 리졸버가 읽는 속도(position − positionPrev, angle − anglePrev)가 변위 × velScale 이 된다.
+        // setPosition/setAngle(updateVelocity) 이 방금 velocity·angularVelocity 에 이 걸음의 변위를 적어 두었다 — 같은 단위(걸음당)로 고친다.
+        // Body.setVelocity 는 쓰지 않는다: deltaTime/기준 dt 로 한 번 더 나눠 단위가 달라진다.
+        // (타입 선언은 이 필드들을 읽기 전용·비공개로 가린다 — Matter 자신이 setPosition 에서 쓰는 그 필드들이다.)
+        const m = b as unknown as { speed: number; angularVelocity: number; angularSpeed: number; positionPrev: Vec2; anglePrev: number };
+        b.velocity.x *= velScale;
+        b.velocity.y *= velScale;
+        m.speed *= Math.abs(velScale);
+        m.angularVelocity *= velScale;
+        m.angularSpeed *= Math.abs(velScale);
+        m.positionPrev.x = b.position.x - b.velocity.x;
+        m.positionPrev.y = b.position.y - b.velocity.y;
+        m.anglePrev = b.angle - m.angularVelocity;
+      }
     },
     setPoint(id, p, driven) {
       const b = bodies.get(id);
