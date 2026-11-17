@@ -300,7 +300,12 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
         else sourceRef.current.press(code);
         return;
       }
-      if (MODIFIER_CODES.has(code)) return;
+      if (MODIFIER_CODES.has(code)) {
+        // macOS 는 ⌘ 를 쥔 동안 **다른 키의 keyup 을 보내지 않는다** — W 를 쥔 채 ⌘ 를 눌렀다가 W 를 떼면 W 가 눌린 채로 남아
+        // 휠체어가 혼자 달아난다. ⌘ 가 닿는 순간 입력을 비운다(쥐고 있던 키는 다시 눌러야 간다 — 자동 반복은 아래에서 먹는다).
+        if (code === 'MetaLeft' || code === 'MetaRight') sourceRef.current.reset();
+        return;
+      }
       // 들어가던 키(J·Alt+J·메뉴의 Enter)를 쥐고 있으면 자동 반복이 모드 안으로 들어온다 — '아무 키 = 나가기' 로 읽으면 들어가자마자 나간다.
       if (e.repeat) {
         e.preventDefault();
@@ -317,7 +322,11 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     };
     const onKeyUp = (e: KeyboardEvent): void => {
       if (!chairRef.current) return;
-      if (sourceRef.current.release(eventCode(e))) {
+      const code = eventCode(e);
+      // 어느 키인지 모르는 keyup(입력기가 code 를 비워 보낸 것 — 일부 조합기·화면 키보드)은 **전부 놓는다**. 누른 키와 뗀 키를
+      // 물리 키로 짝짓는데(keyboard.ts 머리말) 짝을 못 찾으면 눌린 채 남는다 — 틀리게 놓는 쪽은 멈출 뿐이다.
+      if (code === '' || code === 'Unidentified' || code === 'Process') sourceRef.current.reset();
+      if (sourceRef.current.release(code)) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -337,12 +346,15 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     window.addEventListener('keyup', onKeyUp, true);
     window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('blur', clear);
+    // 브라우저의 오른쪽 단추 메뉴가 뜨면 그동안의 keyup 은 페이지에 안 온다(blur 도 안 난다).
+    window.addEventListener('contextmenu', clear, true);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('keyup', onKeyUp, true);
       window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('blur', clear);
+      window.removeEventListener('contextmenu', clear, true);
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [enter, exit, setLevel, commitNow]);

@@ -8,6 +8,7 @@
 //    저장에서 빠진다. 키로 나가면 keydown 이 먼저 커밋하지만 단추는 리듀서가 먼저 돌고 세션의 effect 가 뒤따른다. 언마운트면 그
 //    뒤늦은 dispatch 는 버려지고(자동저장은 마지막으로 **그려진** 상태를 쓴다), 스텝 복제면 새 스텝이 0.5 s 낡은 자세를 베낀다.
 //  · 한 번 들어가서 나올 때까지가 되돌리기 한 칸이 아니게 되는 것(갈아타기 포함), 안 움직였는데 칸이 생기는 것.
+//  · 떼는 사건(keyup)을 못 받는 상황 — macOS 의 ⌘, 브라우저 메뉴, 창 초점 잃음, code 없는 keyup — 에서 휠체어가 혼자 달아나는 것.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -252,5 +253,34 @@ describe('조정 모드 세션 — 키를 쥔 채 나가도 마지막 자세가 
     expect(h.result.current.state.past).toHaveLength(0);
     act(() => h.result.current.dispatch({ type: 'REDO' }));
     expect(stored(h, 0, a).x).toBeGreaterThan(320);
+  });
+});
+
+describe('조정 모드 세션 — 떼는 사건을 못 받아도 휠체어가 혼자 달아나지 않는다', () => {
+  /** W 를 쥔 채 `lose()` 가 일어나고 keyup 은 끝내 안 온다 — 그 뒤 1.5 s 에서 2 s 사이에 더 간 거리. */
+  function creepAfter(lose: () => void): number {
+    const { drill, a } = makeDrill();
+    const h = mount(drill);
+    act(() => h.result.current.drive.enter(a));
+    key('keydown', 'KeyW');
+    frames(20);
+    lose();
+    frames(90);
+    const x1 = poseOf(h, a).x;
+    frames(30);
+    const d = poseOf(h, a).x - x1;
+    h.unmount();
+    return d;
+  }
+
+  it('⌘ 를 누름(macOS 는 그동안 keyup 을 안 보낸다) · 브라우저 메뉴 · 창이 초점을 잃음 · 어느 키인지 모르는 keyup', () => {
+    expect(creepAfter(() => {})).toBeGreaterThan(10); // 대조군 — 아무 일도 없으면 계속 간다
+    expect(creepAfter(() => key('keydown', 'MetaLeft', { key: 'Meta', metaKey: true }))).toBe(0);
+    expect(creepAfter(() => act(() => void window.dispatchEvent(new Event('contextmenu'))))).toBe(0);
+    expect(creepAfter(() => act(() => void window.dispatchEvent(new Event('blur'))))).toBe(0);
+    expect(creepAfter(() => key('keyup', '', { key: 'Unidentified' }))).toBe(0);
+    // 한글 입력기 상태 — code 는 그대로 오고 key 만 자모·Process 다. 물리 키로 짝지으므로 떼면 선다(Shift 를 그새 눌렀어도).
+    expect(creepAfter(() => key('keyup', 'KeyW', { key: 'ㅈ', shiftKey: true }))).toBe(0);
+    expect(creepAfter(() => key('keyup', '', { key: 'ㅈ' }))).toBe(0);
   });
 });
