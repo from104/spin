@@ -630,6 +630,7 @@ export const en: Record<DictKey, string> = {
   'editor.functionBar.simple.label': 'Simple',
   'editor.functionBar.simple.name': 'Simple mode',
   'editor.functionBar.simple.titleOn': 'Wheelchairs are shown as circles. Physics interaction is off, and a circle moves straight wherever you drag it. The drill data is unchanged.',
+  'editor.functionBar.simple.wallFitToast': 'Moved {{n}} wheelchair(s) hanging over the wall back onto the court',
   'editor.functionBar.simple.titleOff': 'Wheelchairs are shown as real chair bodies. Turn on to see them as simple circles.',
   'editor.functionBar.courtModal.goalGroupLabel': 'Goals',
   'editor.functionBar.courtModal.interactText': 'Physics & interaction',

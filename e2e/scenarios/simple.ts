@@ -119,8 +119,9 @@ const wallTurn: Sc = {
 const simpleWall: Sc = {
   // 지우면 새는 실기 버그(2026-11-19 「기본, 심플 모드 완전 분리」): (1) 심플 모드의 원이 앞을 벽 쪽으로 두면 벽에 못 닿는다 —
   // 보이지 않는 차체 앞(1.04 m)이 먼저 벽에 걸려 원과 벽 사이에 0.5 m 틈이 남는다(옛 「원 ∪ 차체」 경계), (2) 원에는 방향이 없는데
-  // 숫자키·Q·E 가 보이지 않는 각도를 돌린다, (3) 심플을 끄는 것만으로(또는 그 뒤 다른 칩을 끌기만 해도) 벽에 붙인 칩이 튄다 —
-  // 표시 설정이 저장 좌표를 바꾼다. 판정은 앱 상수 없이: 원의 화면 상자가 판(court-surface = 벽 경계) 가장자리에 붙었는가.
+  // 숫자키·Q·E 가 보이지 않는 각도를 돌린다, (3) 심플을 끈 뒤 그 칩의 실물 차체가 벽 밖에 걸친 채 남아 다음 손짓에 벽에 밀려난다 —
+  // 끄는 순간 판 안으로 넣고 되돌리기 한 칸으로 남아야 한다(2026-11-19 「복귀 때 판 안으로」). 판정은 앱 상수 없이: 원·차체의 화면 상자가
+  // 판(court-surface = 벽 경계) 가장자리에 붙었는가 / 안인가.
   title: 'S18c 심플 — 원이 앞쪽으로도 벽에 닿는다',
   needs: ['keyboard'],
   run: async (app) => {
@@ -171,15 +172,33 @@ const simpleWall: Sc = {
       await app.settled();
       check(poseKey([await objectById(app, a)]) === parked, '심플에서 다른 칩을 끌었는데 벽에 붙인 원이 움직였다', { parked, after: await objectById(app, a) });
     }
-    await app.press('fn-simple'); // 평소 모드로 — 스위치만으로 칩이 튀면 안 된다
+    // 평소 모드로 — 실물 차체가 벽 밖에 걸친 칩은 **끄는 순간** 차체 앞이 벽에 서는 자리로 들어온다(2026-11-19 기현님 선택 「복귀 때 판 안으로」,
+    // 옛 계약 「스위치만으로 칩이 튀면 안 된다」를 뒤집었다). 방향은 그대로, 되돌리기 한 번에 원이 붙어 있던 자리.
+    await app.press('fn-simple');
     await app.settled();
-    check(poseKey([await objectById(app, a)]) === parked, '심플을 껐더니 벽에 붙인 칩이 움직였다', { parked, after: await objectById(app, a) });
+    const fitted = await objectById(app, a);
+    check(poseKey([fitted]) !== parked && fitted.angleDeg === facing.angleDeg, '심플을 껐는데 벽 밖에 걸친 칩이 판 안으로 안 들어왔다', { parked, fitted });
+    const field2 = await app.rectOf('court-surface');
+    const body = await app.objectBox(a);
+    check(field2 !== null && body !== null, '판·휠체어가 화면에 없다');
+    // 칩의 테두리 선은 차체 hull 바깥으로 반 굵기만큼 그려진다 — 허용치는 짧은 변의 15%(S18e 와 같다). 넣지 않으면 13.5 px(짧은 변 20 의 68%) 밖이다.
+    const tol2 = 0.15 * Math.min(body.right - body.left, body.bottom - body.top);
+    check(
+      body.left >= field2.left - tol2 && body.top >= field2.top - tol2 && body.right <= field2.right + tol2 && body.bottom <= field2.bottom + tol2,
+      '심플을 끈 뒤 차체가 판 밖이다',
+      { body, field2, fitted },
+    );
+    await app.undo();
+    await app.settled();
+    check(poseKey([await objectById(app, a)]) === parked, '되돌리기 한 번에 원이 붙어 있던 자리로 안 돌아왔다', { parked, after: await objectById(app, a) });
+    await app.redo();
+    await app.settled();
     if (app.capabilities.has('pointer')) {
       const from = await app.objectCenter(b);
       check(from !== null, '상대 휠체어가 화면에 없다');
       await app.drag(from, shift(from, -40, 0), { steps: 10 });
       await app.settled();
-      check(poseKey([await objectById(app, a)]) === parked, '평소 모드에서 다른 칩을 끌었는데 심플에서 벽에 붙인 칩이 밀렸다', { parked, after: await objectById(app, a) });
+      check(poseKey([await objectById(app, a)]) === poseKey([fitted]), '평소 모드에서 다른 칩을 끌었는데 판 안에 넣은 칩이 움직였다', { fitted, after: await objectById(app, a) });
     }
     await expectQuiet(app, 'S18c');
   },

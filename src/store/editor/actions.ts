@@ -232,6 +232,11 @@ export type EditorAction =
    *  `chairDisc` = 심플 모드(휠체어 상자 = 원 상자, 2026-11-19). 겹침이 아니라 **잴 모양**을 싣는다 — 기기 표시 설정이라
    *  리듀서는 모른다. 메뉴(EditorStage zMoves)와 같은 값을 넘겨야 메뉴가 켠 칸을 리듀서가 무시하지 않는다. */
   | { type: 'Z_ORDER'; id: string; op: ZOp; chairDisc?: boolean }
+  /** 심플 모드를 끌 때 실물 차체가 벽 밖에 걸친 휠체어를 판 안으로(physics/wallFit.ts, PLAN-SIMPLE-DRIVE A7 — 2026-11-19 기현님
+   *  *"복귀 때 판 안으로"*). 모든 스텝을 한 번에 — **되돌리기 한 칸**. EPOCH_BUMP_TYPES 에 넣지 않는다: 부르는 쪽(EditorProvider)이
+   *  지금 스텝의 바디를 같은 자리로 먼저 옮겨 두므로 월드를 다시 세울 이유가 없고, 다시 세우면(load → loop.stop) 상호작용을 켜는
+   *  순간 겹침을 풀려고 깨운 정착이 끊긴다. */
+  | { type: 'WALL_FIT'; poses: Record<StepId, Record<ChairId, StoredChairPose>> }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
@@ -274,6 +279,7 @@ export const COMMIT_TYPES: ReadonlySet<EditorAction['type']> = new Set([
   'STROKE_REMOVE',
   'FLAG_SET',
   'Z_ORDER',
+  'WALL_FIT',
 ]);
 
 /** COALESCE_TYPES(§6.7) — 연속 입력을 700ms/5s 창 안에서 병합한다. */

@@ -26,12 +26,29 @@ import { createTransformWriter } from '../../render/transformWriter.ts';
 import type { TransformWriter } from '../../render/transformWriter.ts';
 import { raf } from '../../render/rafLoop.ts';
 import { useSettingsState } from '../settings/SettingsProvider.tsx';
+import { useToast } from '../toast/ToastProvider.tsx';
+import type { ToastApi } from '../toast/ToastProvider.tsx';
+import { useT } from '../../i18n/useT.ts';
+import { wallFitPatch } from '../../physics/wallFit.ts';
+import type { CastId } from '../../core/ids.ts';
+import { poseFromStored } from '../../model/chair.ts';
 import type { EditorAction } from './actions.ts';
 import type { EditorState } from './reducer.ts';
 import { editorRootReducer, initEditorState, selectStepIndex } from './reducer.ts';
 import { effectiveReduceMotion, poseFrame, startTween, stepTransitionMs } from './tween.ts';
 import type { TweenHandle } from './tween.ts';
 
+
+/** ToastProvider 밖에서도 서는 토스트(없으면 null) — 이 공급자는 테스트·화면 조립에 따라 토스트 없이도 쓰인다. useToast 는 안에서
+ *  useContext 를 늘 부르므로 훅 순서가 흔들리지 않는다. ToastProvider.tsx 에 새 export 를 내지 않는 이유: 컴포넌트 파일이라 export 가 늘면
+ *  린트(only-export-components) 경고가 는다. */
+function useToastIfAny(): ToastApi | null {
+  try {
+    return useToast();
+  } catch {
+    return null;
+  }
+}
 export type EditorWorldRef = MutableRefObject<PhysicsWorldApi | null>;
 
 const EditorStateContext = createContext<EditorState | null>(null);
@@ -64,6 +81,12 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
   const simple = prefs.board.simple;
   const simpleRef = useRef(simple);
   simpleRef.current = simple;
+  /** 직전 effect 가 본 심플 값 — 끄는 **순간**(true → false)만 가린다(마운트 때 이미 꺼져 있으면 아무것도 안 쓴다). */
+  const prevSimpleRef = useRef(simple);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const toast = useToastIfAny();
+  const t = useT();
   const writerRef = useRef<TransformWriter | null>(null);
   if (!writerRef.current) writerRef.current = createTransformWriter();
   const tweenRef = useRef<TweenHandle | null>(null);
@@ -104,9 +127,26 @@ export function EditorProvider({ drill, init, children }: { drill: Drill; init?:
     // 전혀 반영되지 않았다**. 음영·커서는 EditorWorkspace → EditorStage 로 따로 흘러 슬라이더를
     // 따라갔으므로, 판이 '제자리 회전' 이라 칠한 곳을 잡으면 평행 이동이 되는 상태였다.
     worldRef.current?.setZones(physics.zones);
+    // ── 심플 모드를 끄는 순간(2026-11-19 기현님 선택 *"복귀 때 판 안으로"*, PLAN-SIMPLE-DRIVE A7) ─────────────────
+    // 심플의 벽은 원 하나라 앞을 벽에 댄 원은 실물 차체로 13.5 px 판 밖이다. 그대로 두면 [물리·상호작용] 이 켜진 판에서는 Matter 벽이
+    // 다음 손짓에 그 차체를 67 px 밀어내고(정착 커밋이 그 자리를 쓴다), 꺼진 판에서는 판 밖인 채 남는다. 그래서 **상호작용을 켜기 전에**
+    // 모든 스텝의 그런 칩을 최소로 밀어 넣어 되돌리기 한 칸(WALL_FIT)으로 쓰고, 지금 스텝의 바디도 같은 자리로 옮긴다 — 월드가 깨어날
+    // 때 벽에 닿은 차체가 없다. 넣을 것이 없으면 아무것도 안 쓴다(되돌리기 칸·토스트 없음). 켤 때는 쓰지 않는다.
+    if (prevSimpleRef.current && !simple) {
+      const patch = wallFitPatch(stateRef.current.present);
+      if (patch) {
+        const s = stateRef.current;
+        const cur = s.present.steps[selectStepIndex(s)];
+        const here = cur ? patch.poses[cur.id] : undefined;
+        if (here) for (const [id, p] of Object.entries(here)) worldRef.current?.setPose(id as CastId, poseFromStored(p));
+        dispatch({ type: 'WALL_FIT', poses: patch.poses });
+        toast?.show(t('editor.functionBar.simple.wallFitToast', { n: patch.chairs }));
+      }
+    }
+    prevSimpleRef.current = simple;
     worldRef.current?.setInteract(physics.interact && !simple);
     worldRef.current?.setDiscBounds(simple);
-  }, [physics, simple]);
+  }, [physics, simple]); // eslint-disable-line react-hooks/exhaustive-deps -- 토글 순간에만 돈다(toast·t 가 바뀌어도 다시 돌면 안 된다)
 
   // §6.7 물리 재동기화(blocker 수정): 로스터·코트가 바뀔 때 world.load 를 다시 부른다.
   // [state.present] 전체에 걸면 메모 6글자 타이핑에 25바디 월드가 6번 재생성되고, PLACE_COMMIT 이

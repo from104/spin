@@ -650,6 +650,7 @@ export const ko = {
   'editor.functionBar.simple.label': '심플',
   'editor.functionBar.simple.name': '심플 모드',
   'editor.functionBar.simple.titleOn': '휠체어를 원으로 보여 줍니다. 물리·상호작용은 꺼지고, 원은 어디를 끌어도 그대로 옮겨집니다. 판 데이터는 그대로입니다.',
+  'editor.functionBar.simple.wallFitToast': '벽 밖으로 걸친 휠체어 {{n}}대를 판 안으로 넣었습니다',
   'editor.functionBar.simple.titleOff': '휠체어를 실물 차체로 보여 줍니다. 켜면 원으로 단순하게 보입니다.',
   'editor.functionBar.courtModal.goalGroupLabel': '골대',
   'editor.functionBar.courtModal.interactText': '물리·상호작용',

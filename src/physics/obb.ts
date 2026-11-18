@@ -224,7 +224,7 @@ export function pushChairIntoBounds(p: ChairPose, b: Bounds): Vec2 {
  *  왜 필요한가(2026-11-19 「기본, 심플 모드 완전 분리」): 두 모드는 서로 다른 벽을 쓴다 — 심플은 원(앞을 댄 칩의 실물 차체가
  *  13.5 px 판 밖), 평소는 차체(뒤를 댄 칩의 원이 12.5 − 6.5 = 6 px 판 밖). 한쪽 모드에서 벽에 붙여 둔 칩은 다른 쪽 규칙으로는
  *  "판 밖"이다. 안전망이 지금 모드의 규칙만 쓰면 모드를 바꾼 뒤 **다른** 칩을 끌기만 해도 그 칩이 밀리고, 드래그 정착 커밋이
- *  스냅샷 전부를 드릴에 쓴다 — 표시 설정이 손대지 않은 칩의 저장 좌표를 바꾼다(simpleBounds.test.ts, simpleToggleBack.test.ts).
+ *  스냅샷 전부를 드릴에 쓴다 — 표시 설정이 손대지 않은 칩의 저장 좌표를 바꾼다(simpleBounds.test.ts, simpleWall.test.ts).
  *  손이 옮기는 칩은 이 함수를 안 탄다 — 끌기·순간이동·쓸기는 지금 모드의 규칙(boundsHull)으로 잰다. */
 export function pushChairIntoEither(p: ChairPose, b: Bounds): Vec2 {
   const body = pushChairIntoBounds(p, { w: b.w, h: b.h });

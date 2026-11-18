@@ -629,6 +629,7 @@ export const ja: Record<DictKey, string> = {
   'editor.functionBar.simple.label': 'シンプル',
   'editor.functionBar.simple.name': 'シンプルモード',
   'editor.functionBar.simple.titleOn': '車椅子を円で表示します。物理・相互作用はオフになり、円はどこをドラッグしてもそのまま移動します。ドリルのデータは変わりません。',
+  'editor.functionBar.simple.wallFitToast': '壁の外にはみ出した車椅子{{n}}台をコート内に戻しました',
   'editor.functionBar.simple.titleOff': '車椅子を実物の車体で表示します。オンにすると円でシンプルに表示されます。',
   'editor.functionBar.courtModal.goalGroupLabel': 'ゴール',
   'editor.functionBar.courtModal.interactText': '物理・相互作用',

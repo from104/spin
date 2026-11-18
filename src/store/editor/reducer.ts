@@ -410,6 +410,17 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
       return applyGroupNudge(d, i, a.ids, a.d);
     // 정착 재커밋(PLACE_SETTLE)은 좌표 교체라는 점에서 PLACE_COMMIT 과 완전히 같다 —
     // 다른 것은 히스토리 거동이 아니라 **시점**뿐이라 드릴 리듀서는 한 갈래를 공유한다.
+    case 'WALL_FIT': {
+      // 심플 모드를 끌 때 벽 밖에 걸친 휠체어를 판 안으로(physics/wallFit.ts) — 옮긴 칩만 덮어쓴다.
+      let changed = false;
+      const steps = d.steps.map((st) => {
+        const p = a.poses[st.id];
+        if (!p) return st;
+        changed = true;
+        return { ...st, chairs: { ...st.chairs, ...p } };
+      });
+      return changed ? { ...d, steps } : d;
+    }
     case 'PLACE_COMMIT':
     case 'PLACE_SETTLE': {
       const idx = d.steps.findIndex((st) => st.id === a.stepId);
