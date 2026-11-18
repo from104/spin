@@ -351,7 +351,8 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
             </button>
           )}
 
-          {/* [휠체어 조정 모드] — [미세 조정] 바로 아래, 같은 "움직이기" 뭉치(계획서 B2). 몰 수 없으면 죽여서 내고 이유를 말한다. */}
+          {/* [휠체어 조정 모드] — [미세 조정] 바로 아래, 같은 "움직이기" 뭉치(계획서 B2). 몰 수 없으면 흐리게 내고, 눌러도 들어가지 않고
+              **조건을 토스트로 말한다**(2026-11-18 기현님: *"조건이 안 될 때 … 주행모드 조건 토스트"* — title 만으로는 터치에서 안 보였다). */}
           {drive && (
             <button
               type="button"
@@ -359,7 +360,7 @@ export function ObjectMenu({ target, onClose, onToggleLock, onToggleIgnore, onRe
               data-testid="menu-drive"
               aria-disabled={drive.reason ? true : undefined}
               title={drive.reason ? t(drive.reason, { name: t('drive.name') }) : undefined}
-              onClick={drive.reason ? undefined : act(() => onDrive?.(target.ids[0]!))}
+              onClick={act(() => onDrive?.(target.ids[0]!))}
               style={{ ...ITEM, opacity: drive.reason ? 0.4 : 1, cursor: drive.reason ? 'default' : 'pointer' }}
             >
               <span aria-hidden style={{ width: '1.125rem', textAlign: 'center', opacity: 0.7 }}>

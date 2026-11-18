@@ -138,6 +138,8 @@ export interface ObjectLayerProps {
    *  (physics/index.ts 의 load). 여기서 흐리게만 하고 body 를 두면 "안 보이는데 부딪히는"
    *  유령이 되므로, 두 곳이 **같은 목록**을 봐야 한다. */
   ignored?: ReadonlySet<string>;
+  /** 휠체어 조정 모드로 지금 모는 칩 — 빛무리로 강조한다(ChairChip `driving`). */
+  drivingId?: string | null;
   /** 페이드 지속(ms). stepTransitionMs 와 같은 값이어야 위치 트윈과 한 시계로 끝난다. */
   fadeMs?: number;
   /** 아웃오브플레이(Law 9) 공 채움색 갱신 — 있으면(=규칙 존 스위치가 배선된 화면) 공마다
@@ -174,6 +176,7 @@ export function ObjectLayer({
   fadeMs,
   locked,
   ignored,
+  drivingId = null,
   rules,
   onObjectPointerDown,
   onObjectKeyDown,
@@ -396,6 +399,7 @@ export function ObjectLayer({
               ariaLabel={c.ariaLabel}
               zoneCursors={zoneCursors}
               disc={chairDisc}
+              driving={drivingId === c.id}
               onPointerDown={onObjectPointerDown}
               onKeyDown={onObjectKeyDown}
             />

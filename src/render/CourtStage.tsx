@@ -204,6 +204,8 @@ export interface CourtStageProps {
   locked?: ReadonlySet<string>;
   /** 무시된 휠체어 id — 흐리게 + 포인터 차단. 물리에서는 이미 빠져 있다. */
   ignored?: ReadonlySet<string>;
+  /** 휠체어 조정 모드로 지금 모는 칩 — ObjectLayer 로 그대로 내려간다(빛무리). */
+  drivingId?: string | null;
   onStageContextMenu?: (id: string | null, e: ReactPointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>) => void;
   /** 무대 pointerdown 을 **가로채지 않고** 곁에서 본다(긴 터치 타이머용). 기존 드래그 배선은
    *  그대로 흐른다 — 여기서 stopPropagation 하면 판 전체가 죽는다. */
@@ -329,6 +331,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
     onObjectPointerDown,
     locked,
     ignored,
+    drivingId,
     onStageContextMenu,
     onStagePointerDownRaw,
     onStageDoubleClick,
@@ -1027,6 +1030,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
           fadeMs={fadeMs}
           locked={locked}
           ignored={ignored}
+          drivingId={drivingId}
           rules={ruleOverlay?.rules}
           onObjectPointerDown={onObjectPointerDown}
           onObjectKeyDown={onObjectKeyDown}

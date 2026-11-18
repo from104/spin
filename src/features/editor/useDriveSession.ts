@@ -12,6 +12,11 @@
 // · 나오는 길(B2): Esc · [끝] · 도구 바꿈 · 스텝 바꿈 · 재생 · 심플 켬 · 상호작용 끔 · 개체 메뉴 열기 · **조정 키가 아닌 아무 키**.
 //   마지막 것이 되돌리기(Ctrl+Z)·스텝 키·도구 키를 한 길로 묶는다 — 먼저 커밋하고 나온 뒤 그 키가 제 일을 한다(Ctrl+Z 면 방금 몬 것
 //   통째로 한 칸이 물러난다). 되돌리기 단추처럼 키가 아닌 시점 점프(epoch)는 커밋 없이 끝낸다 — 상태가 이미 다른 시점이다.
+//   **판을 누르면**(조이스틱·단추는 판 밖이라 해당 없음) 나온다 — 다른 휠체어(몰 수 있는 것)를 누르면 그 휠체어로 갈아탄다
+//   (2026-11-18 기현님: *"조이스틱 영역 or 버튼 외에 경기장 클릭 시 주행 해제"*). 그 누름은 먹는다 — 나오자마자 끌기가 시작되지 않게.
+// · **되돌리기·다시 실행은 모드를 유지한다**(2026-11-18 기현님: *"주행모드에서 되돌려도(undo) 주행모드 유지"*). 키든 단추든 위처럼
+//   나왔다가 시점 점프 뒤 같은 휠체어로 **다시 들어간다**(몰 수 있으면). 다시 들어가기는 한 틱 뒤 — 부모(EditorProvider)의
+//   world.load 가 새 시점의 바디를 세운 다음이어야 컨트롤러가 그 바디를 쥔다.
 // · 키(B5): window **캡처** 단계에서 개체·전역 층보다 먼저 먹는다(keymap `drive.*`). 글 입력 칸·대화상자 안의 키는 안 건드린다.
 //   창이 초점을 잃거나 숨으면 입력을 0 으로 — 눌린 채 붙은 키로 휠체어가 혼자 달아나지 않게.
 // · 화면 조이스틱(B5): 입력원 `stick` 을 내보내고 DriveJoystick 이 값을 넣는다 — 키보드와 더해 한 입력원으로 컨트롤러에 간다.
@@ -104,6 +109,8 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
   const lastCommitRef = useRef(0);
   const wasActiveRef = useRef(false);
   const settleOffRef = useRef<(() => void) | null>(null);
+  /** 되돌리기·다시 실행 키로 나올 때 다시 들어갈 휠체어(시점 점프 effect 가 읽고 비운다). */
+  const resumeRef = useRef<string | null>(null);
   const announceSpeed = useThrottledAnnounce();
 
   // 세션의 스텝 사본은 같은 스텝일 때만 따라간다 — 커밋이 바꾼 자세를 다음 커밋의 '이전 값' 으로 써야 무변화 판정이 맞다.
@@ -258,6 +265,26 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     });
   }, [chairId, commitNow]);
 
+  // 시점 점프(되돌리기·다시 실행) — 상태가 이미 다른 시점이라 커밋하지 않는다. 아래 '나오는 길' effect 보다 **먼저** 둔다:
+  // 되돌리기가 스텝까지 바꾸면 그쪽이 먼저 돌아 낡은 자세를 새 시점에 커밋한다.
+  // 모드는 유지한다(머리말) — 몰던 휠체어(키로 먼저 나왔으면 resumeRef)로 한 틱 뒤 다시 들어간다.
+  const prevEpoch = useRef(deps.epoch);
+  useEffect(() => {
+    if (prevEpoch.current === deps.epoch) return;
+    prevEpoch.current = deps.epoch;
+    const resume = chairRef.current ?? resumeRef.current;
+    resumeRef.current = null;
+    // 키로 나올 때 열어 둔 정착 덧쓰기는 옛 시점의 것이다 — 새 시점에 쓰면 되돌린 것을 다시 덮는다.
+    settleOffRef.current?.();
+    settleOffRef.current = null;
+    finish(false);
+    if (!resume) return;
+    const tid = window.setTimeout(() => {
+      if (!chairRef.current && unavailable(resume) === null) enter(resume);
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, [deps.epoch, finish, enter, unavailable]);
+
   // ── 나오는 길: 도구·스텝·재생·심플·상호작용 ──
   const exitKey = `${deps.tool}|${deps.step.id}|${String(deps.playing)}|${String(deps.simple)}|${String(deps.interact)}`;
   const prevExitKey = useRef(exitKey);
@@ -266,13 +293,6 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     prevExitKey.current = exitKey;
     finish(true);
   }, [exitKey, finish]);
-  // 시점 점프(되돌리기 단추 등) — 상태가 이미 다른 시점이라 커밋하지 않는다.
-  const prevEpoch = useRef(deps.epoch);
-  useEffect(() => {
-    if (prevEpoch.current === deps.epoch) return;
-    prevEpoch.current = deps.epoch;
-    finish(false);
-  }, [deps.epoch, finish]);
   // 휠체어가 잠기거나 무시되거나 판에서 빠지면 끝낸다.
   useEffect(() => {
     const id = chairRef.current;
@@ -328,6 +348,9 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
         return;
       }
       // 조정 키가 아닌 아무 키 — 먼저 커밋하고 나온 뒤 그 키가 제 일을 하게 흘려보낸다(머리말 '나오는 길').
+      // 되돌리기·다시 실행이면 시점 점프 뒤 같은 휠체어로 다시 들어간다(머리말).
+      const g = lookupDef('global', e)?.id;
+      if (g === 'edit.undo' || g === 'edit.redo') resumeRef.current = chairRef.current;
       exit();
     };
     const onKeyUp = (e: KeyboardEvent): void => {
@@ -378,9 +401,10 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     (id: string | null): boolean => {
       if (!chairRef.current) return false;
       if (id && isId(id, 'ch') && id !== chairRef.current && unavailable(id) === null) enter(id);
+      else exit(); // 판을 누르면 나온다(머리말) — 누름은 먹는다
       return true;
     },
-    [enter, unavailable],
+    [enter, exit, unavailable],
   );
 
   const stick = stickRef.current;

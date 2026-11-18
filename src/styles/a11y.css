@@ -540,3 +540,18 @@
     forced-color-adjust: none;
   }
 }
+
+/* 휠체어 조정 모드 — 모는 칩의 빛무리(ChairChip `driving`). 바탕 상태가 "켜진 빛무리" 라 감축 모션(전역 * 규칙이 한 번 0.01ms 로
+ * 끝낸다)에서는 멈춘 빛무리로 남는다. */
+.drive-halo {
+  animation: drive-halo-pulse 1.1s ease-in-out infinite;
+}
+@keyframes drive-halo-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

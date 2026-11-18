@@ -1137,6 +1137,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       moveAnchor={moveAnchor}
       locked={lockedSet}
       ignored={ignoredSet}
+      drivingId={drive.chairId}
       onStageContextMenu={(id, e) => {
         if (stickHeldRef.current) return; // 조이스틱을 쥔 채 판에 닿은 둘째 손가락 — 아래 onStagePointerDownRaw 와 같은 이유
         // 브라우저 메뉴는 CourtStage 가 **맞히든 안 맞히든** 이미 막았다(거기 머리말 참고).

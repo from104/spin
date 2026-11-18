@@ -27,7 +27,9 @@ let clock = 0;
 let queue: Array<{ id: number; cb: FrameRequestCallback }> = [];
 let nextId = 0;
 
+let toasts: string[] = [];
 beforeEach(() => {
+  toasts = [];
   clock = 1000;
   queue = [];
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -116,7 +118,7 @@ function mount(drill: Drill) {
         onSpeedChange: () => {},
         chairName: (id) => id,
         t: (k) => k,
-        showToast: () => {},
+        showToast: (m) => void toasts.push(m),
       });
       return { state, dispatch, worldRef, drive };
     },
@@ -309,5 +311,64 @@ describe('조정 모드 세션 — 떼는 사건을 못 받아도 휠체어가 �
     frames(30);
     expect(poseOf(h, a).x - x1).toBeGreaterThan(10);
     h.unmount();
+  });
+});
+
+// 2026-11-18 기현님: *"주행모드에서 되돌려도(undo) 주행모드 유지"*, *"조이스틱 영역 or 버튼 외에 경기장 클릭 시 주행 해제"*,
+// *"조건이 안 될 때 주행모드를 키려고 하면 주행모드 조건 토스트"*. 지우면 새는 실기 버그: Ctrl+Z·되돌리기 단추에 모드가 꺼져 다시
+// J 를 눌러야 하는 것, 판을 눌러도 모드가 남아 눌림이 그냥 먹히는 것, 조건이 안 될 때 메뉴·J 가 아무 말 없이 무시되는 것.
+describe('조정 모드 세션 — 되돌리기는 모드를 유지, 판 누름은 끝, 못 들어가면 토스트', () => {
+  const tick = () => act(async () => void (await new Promise((r) => setTimeout(r, 0))));
+
+  it('Ctrl+Z — 몬 것은 한 칸 물러나고 같은 휠체어로 다시 든다', async () => {
+    const { drill, a } = makeDrill();
+    const h = mount(drill);
+    act(() => h.result.current.drive.enter(a));
+    key('keydown', 'KeyW');
+    frames(60);
+    key('keyup', 'KeyW');
+    key('keydown', 'KeyZ', { ctrlKey: true }); // 키 층: 커밋하고 나온 뒤 전역 층이 되돌린다
+    act(() => h.result.current.dispatch({ type: 'UNDO' }));
+    await tick();
+    expect(stored(h, 0, a).x).toBe(300);
+    expect(h.result.current.drive.chairId).toBe(a);
+    key('keydown', 'KeyW'); // 다시 든 모드에서 실제로 몬다
+    frames(60);
+    expect(poseOf(h, a).x).toBeGreaterThan(310);
+  });
+
+  it('되돌리기 단추(키 아닌 시점 점프)도 모드를 유지한다', async () => {
+    const { drill, a } = makeDrill();
+    const h = mount(drill);
+    act(() => h.result.current.drive.enter(a));
+    key('keydown', 'KeyW');
+    frames(60);
+    key('keyup', 'KeyW');
+    act(() => void window.dispatchEvent(new Event('pointerdown'))); // 단추를 누르는 손이 먼저 커밋한다
+    act(() => h.result.current.dispatch({ type: 'UNDO' }));
+    await tick();
+    expect(stored(h, 0, a).x).toBe(300);
+    expect(h.result.current.drive.chairId).toBe(a);
+  });
+
+  it('판의 빈 곳을 누르면 나오고(누름은 먹는다), 다른 휠체어를 누르면 갈아탄다', () => {
+    const { drill, a, b } = makeDrill();
+    const h = mount(drill);
+    act(() => h.result.current.drive.enter(a));
+    let eaten = false;
+    act(() => void (eaten = h.result.current.drive.press(b)));
+    expect([eaten, h.result.current.drive.chairId]).toEqual([true, b]);
+    act(() => void (eaten = h.result.current.drive.press(null)));
+    expect([eaten, h.result.current.drive.chairId]).toEqual([true, null]);
+  });
+});
+
+describe('조정 모드 세션 — 못 들어가면 조건을 토스트로', () => {
+  it('몰 수 없는 대상이면 들어가지 않고 이유를 토스트로 띄운다', () => {
+    const { drill, ball } = makeDrill();
+    const h = mount(drill);
+    act(() => h.result.current.drive.enter(ball));
+    expect(h.result.current.drive.chairId).toBeNull();
+    expect(toasts).toEqual(['drive.unavailable.noChair']);
   });
 });

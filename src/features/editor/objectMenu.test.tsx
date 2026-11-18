@@ -735,7 +735,7 @@ describe('[휠체어 조정 모드] 칸', () => {
       { wrapper: SettingsProvider },
     );
 
-  it('쓸 수 있으면 누를 때 그 휠체어로 들어가고, 못 쓰면 죽은 칸이 이유를 말하고 눌러도 안 들어간다', async () => {
+  it('쓸 수 있으면 누를 때 그 휠체어로 들어가고, 못 쓰면 흐린 칸이 이유를 말하고 누름은 세션으로 넘겨 토스트로 조건을 알린다', async () => {
     const got: string[] = [];
     openWith(null, (id) => got.push(id));
     await userEvent.click(screen.getByRole('menuitem', { name: '휠체어 조정 모드' }));
@@ -746,7 +746,9 @@ describe('[휠체어 조정 모드] 칸', () => {
     const item = screen.getByRole('menuitem', { name: '휠체어 조정 모드' });
     expect(item).toHaveAttribute('aria-disabled', 'true');
     expect(item).toHaveAccessibleDescription(/물리·상호작용/);
+    // 2026-11-18 — 눌러도 조용하던 것을 세션의 enter 로 넘긴다: enter 가 조건을 다시 보고 들어가지 않은 채 토스트를 띄운다
+    // (그 거절·토스트는 useDriveSession.test 가 지킨다).
     await userEvent.click(item);
-    expect(got).toEqual(['ch_1']);
+    expect(got).toEqual(['ch_1', 'ch_1']);
   });
 });
