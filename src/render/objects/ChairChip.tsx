@@ -9,7 +9,7 @@ import type { ChairId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import type { TeamSide } from '../../model/drill.ts';
-import { DISC_FOCUS_PAD, DISC_LABEL_FONT_PX, DISC_RADIUS_PX, DISC_SEL_PAD, discEyes } from '../../model/chairDisc.ts';
+import { DISC_FOCUS_PAD, DISC_LABEL_FONT_PX, DISC_RADIUS_PX, DISC_SEL_PAD, discEyes, DISC_EYE_FILL, DISC_EYE_RIM, DISC_EYE_RIM_W } from '../../model/chairDisc.ts';
 import { CHAIR_STROKE_W, teamPatternFor } from '../teamMark.ts';
 import { ZONE_CURSOR } from '../zoneCursors.ts';
 import { useUprightTransform } from '../stageRot.tsx';
@@ -140,10 +140,7 @@ export const ChairChip = memo(function ChairChip({
         )}
         <circle r={DISC_RADIUS_PX} fill={color} stroke={stroke} strokeWidth={CHAIR_STROKE_W} strokeDasharray={pattern.strokeDash} />
         {discEyes().map((e, i) => (
-          <g key={i}>
-            <circle data-disc-eye="" cx={e.cx} cy={e.cy} r={e.r} fill={color} stroke={stroke} strokeWidth={1.2} />
-            <circle cx={e.px} cy={e.py} r={e.pr} fill={stroke} />
-          </g>
+          <circle key={i} data-disc-eye="" cx={e.cx} cy={e.cy} r={e.r} fill={DISC_EYE_FILL} stroke={DISC_EYE_RIM} strokeWidth={DISC_EYE_RIM_W} />
         ))}
         <g ref={counterRef}>
           <g transform={upright}>

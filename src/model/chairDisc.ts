@@ -11,8 +11,8 @@
 //  · 원의 중심은 **피벗(원점)** 이다 — 자세(x, y, angleDeg)의 x, y 가 곧 중심이라, 돌려도 원이
 //    제자리에서 돈다(차체처럼 피벗을 축으로 궤도를 그리지 않는다). 모델(드릴 데이터)은 그대로다.
 //  · 지름 1.0 m(= 25 px) — 실물 차체 1.3 × 0.8 m 사이 값이라 포메이션 간격이 실물 판과 비슷하게 읽힌다.
-//  · 방향 표시는 +x(보는 쪽) 둘레에 **개구리 눈 둘**이 조금 튀어나온다(2026-11-18 기현님: *"앞을 표시하는 작은 돌기가 개구리 눈
-//    같이 조금 튀어나온 눈 같이 2개"* — 처음의 삼각 눈금 하나를 바꿨다). 방향판·숫자키 1–9·조정 모드가 모두 "보는 쪽"을 쓴다.
+//  · 방향 표시는 +x(보는 쪽) 앞쪽 원 안에 **플라나리아 눈 둘**(검은 작은 원)이다(2026-11-19 기현님: *"플라나리아 … 눈처럼 검은 작은
+//    원으로"* — 삼각 눈금 하나 → 튀어나온 개구리 눈 둘(11-18) → 이것). 방향판·숫자키 1–9·조정 모드가 모두 "보는 쪽"을 쓴다.
 //  · 규칙 화면 도해는 늘 실물 차체다(규칙 설명이 차체 크기에 걸려 있다) — 이 모듈을 쓰지 않는다.
 import { mToPx } from '../core/units.ts';
 
@@ -27,28 +27,22 @@ export const DISC_SEL_PAD = 3.5;
 /** 키보드 포커스 링 여백. 차체 칩은 3 이다. */
 export const DISC_FOCUS_PAD = 3;
 
-/** 방향 표시 — 개구리 눈 둘. 원 둘레 +x 쪽 ±EYE_ANGLE 에 걸쳐 바깥으로 조금 튀어나온 눈알(원 색·원 테두리)과 그 안의
- *  눈동자(테두리 색). `r` 을 받는 이유는 썸네일처럼 과장된 반지름으로도 같은 비율로 그리기 위해서다(기본은 실제 원).
- *  눈알은 몸 원 **위**에 그린다(튀어나온 눈이 몸에 얹혀 보이게). */
+/** 방향 표시 — 플라나리아 눈 둘. 원 안 앞쪽(+x) ±EYE_ANGLE 에 **검은 작은 원**이 둘, 둘레를 흰 테가 감싼다(플라나리아의 눈점처럼 —
+ *  흰 테는 어두운 팀 색 위에서도 점이 보이게). `r` 을 받는 이유는 썸네일처럼 과장된 반지름으로도 같은 비율로 그리기 위해서다.
+ *  번호는 원 가운데라 눈은 둘레 쪽(0.72 r)에 둔다. */
 export interface DiscEye {
   cx: number;
   cy: number;
-  /** 눈알 반지름. */
   r: number;
-  /** 눈동자 중심(눈알 중심에서 보는 쪽으로 조금) 과 반지름. */
-  px: number;
-  py: number;
-  pr: number;
 }
-const EYE_ANGLE = (38 * Math.PI) / 180;
+/** 눈 채움·테 색과 테 굵기(월드 px) — 다섯 갈래가 같은 값을 쓴다. */
+export const DISC_EYE_FILL = '#000';
+export const DISC_EYE_RIM = '#fff';
+export const DISC_EYE_RIM_W = 0.8;
+const EYE_ANGLE = (34 * Math.PI) / 180;
 export function discEyes(r: number = DISC_RADIUS_PX): readonly [DiscEye, DiscEye] {
-  const er = 0.27 * r;
-  const d = 0.9 * r; // 눈알 중심 — 둘레 조금 안쪽이라 눈알이 둘레 밖으로 ≈ 0.17 r 튀어나온다
-  const eye = (sign: 1 | -1): DiscEye => {
-    const cx = d * Math.cos(EYE_ANGLE);
-    const cy = sign * d * Math.sin(EYE_ANGLE);
-    return { cx, cy, r: er, px: cx + 0.3 * er, py: cy, pr: 0.45 * er };
-  };
+  const d = 0.72 * r;
+  const eye = (sign: 1 | -1): DiscEye => ({ cx: d * Math.cos(EYE_ANGLE), cy: sign * d * Math.sin(EYE_ANGLE), r: 0.13 * r });
   return [eye(-1), eye(1)];
 }
 

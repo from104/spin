@@ -59,7 +59,7 @@ describe('심플 모드 원 — 세 경로가 같은 기하', () => {
     const home = chipOf('home');
     expect(home).not.toContain('<rect'); // 차체·볼가드가 남아 있지 않다
     expect(home).toMatch(new RegExp(`<circle[^>]*\\br="${DISC_RADIUS_PX}"`));
-    // 방향 표시(개구리 눈 둘)도 같은 자리 — 눈알 둘이 보는 쪽(+x) 둘레에 대칭으로
+    // 방향 표시(플라나리아 눈 둘)도 같은 자리 — 검은 점 둘이 보는 쪽(+x) 앞에 대칭으로
     const eyes = [...home.matchAll(/<circle data-disc-eye="" cx="([-\d.]+)" cy="([-\d.]+)" r="([\d.]+)"/g)].map((m) => m.slice(1).map(Number));
     const want = discEyes().map((e) => [e.cx, e.cy, e.r]);
     expect(eyes).toHaveLength(2);
