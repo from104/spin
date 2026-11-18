@@ -267,9 +267,9 @@ describe('속도 클램프(§5.9 — maxSpeedMatter 를 반드시 써야 하는 
 });
 
 describe('정착(settle) 조기 종료(§5.9)', () => {
-  it('8 m/s 킥 후 구름 감속 포함 시 6.6±0.4s 에 allAtRest() 가 참이 된다', () => {
-    const w = createWorld(4000, 4000);
-    w.addBall(ballId(), { x: 2000, y: 2000 });
+  it('30×18 m 판에서 8 m/s 킥은 벽에 튀다가 상한 전에 선다(2026-11-18 영상 실측값 ≈ 15 s)', () => {
+    const w = createWorld(750, 450);
+    w.addBall(ballId(), { x: 375, y: 225 });
     const ball = findBody(w, 'ball');
     Body.setVelocity(ball, { x: pxPerSToMatterV(8 * PX_PER_M), y: 0 });
 
@@ -284,8 +284,9 @@ describe('정착(settle) 조기 종료(§5.9)', () => {
     // 강슛의 정지가 2.58 → 6.55 초가 됐고, settleMaxMs 도 8 초로 함께 올렸다 — 그래야
     // 굴러가는 도중에 루프가 끊기지 않는다. **하드컷이 아니라 조기 종료로 끝난다**는
     // D32 의 취지는 그대로다(6.55 < 8).
-    expect(elapsedMs / 1000).toBeGreaterThan(6.2);
-    expect(elapsedMs / 1000).toBeLessThan(7.0);
+    // 2026-11-18 영상 실측 재조정(BALL 머리말): 옛 6.55 s → ≈ 15 s. 판의 벽(반발 0.5)이 공을 세우는 몫이 크다.
+    expect(elapsedMs / 1000).toBeGreaterThan(12);
+    expect(elapsedMs / 1000).toBeLessThan(18);
     expect(elapsedMs).toBeLessThan(PHYS.settleMaxMs); // 하드컷에 걸리지 않는다
   });
 
@@ -307,11 +308,11 @@ describe('정착(settle) 조기 종료(§5.9)', () => {
 });
 
 describe('frictionAir 시정수(§2.7 실측)', () => {
-  function timeConstant(body: Matter.Body, engine: Matter.Engine, v0Mps: number): number {
+  function timeConstant(body: Matter.Body, engine: Matter.Engine, v0Mps: number, maxMs = 10000): number {
     Body.setVelocity(body, { x: pxPerSToMatterV(v0Mps * PX_PER_M), y: 0 });
     const target = v0Mps / Math.E;
     let elapsedMs = 0;
-    while (elapsedMs < 10000) {
+    while (elapsedMs < maxMs) {
       Engine.update(engine, PHYS.dtMs);
       elapsedMs += PHYS.dtMs;
       const speedMps = matterVToPxPerS(Body.getSpeed(body)) / PX_PER_M;
@@ -320,12 +321,12 @@ describe('frictionAir 시정수(§2.7 실측)', () => {
     return Infinity;
   }
 
-  it('공 frictionAir 0.004 → 4.17 s ±2%', () => {
+  it('공 frictionAir → 시정수 1 / (60·fA) (0.0006 → 27.8 s)', () => {
     const engine = Engine.create(ENGINE_OPTS);
     const ball = createBallBody({ x: 0, y: 0 });
     Composite.add(engine.world, ball);
-    const tau = timeConstant(ball, engine, 8);
-    expect(tau).toBeCloseTo(4.1667, 1);
+    const tau = timeConstant(ball, engine, 8, 60000);
+    expect(tau / (1 / (60 * BALL.frictionAir))).toBeCloseTo(1, 1);
   });
 
   it('콘 frictionAir 0.065 → 0.2522 s ±2%', () => {
@@ -556,7 +557,7 @@ describe('clampBodySpeed / applyRollingDecel 단위 함수', () => {
   it('applyRollingDecel 이 유한 시간에 정확히 0 으로 수렴한다', () => {
     const b = createBallBody({ x: 0, y: 0 });
     Body.setVelocity(b, { x: pxPerSToMatterV(50), y: 0 });
-    for (let i = 0; i < 1000 && Body.getSpeed(b) > 0; i++) {
+    for (let i = 0; i < 3000 && Body.getSpeed(b) > 0; i++) {
       applyRollingDecel(b, BALL.rollDecelPxPerS2, PHYS.dtS);
     }
     expect(Body.getSpeed(b)).toBe(0);
@@ -679,7 +680,8 @@ describe('골대 — 공에는 안 밀리고 휠체어에는 밀린다', () => {
 
   it('경기에서 흔한 속도의 공에는 사실상 부동이다', () => {
     // 규정 최고속의 1/3 (≈5.6 m/s) — 실제 패스·슛 대부분이 이 아래다.
-    expect(ballHitShift(BALL.maxSpeedMatter / 3)).toBeLessThan(1.5);
+    // 2026-11-18 공 감속이 실측대로 줄어 같은 출발 속도에서 더 세게 닿는다(≈ 1.9 px = 8 cm).
+    expect(ballHitShift(BALL.maxSpeedMatter / 3)).toBeLessThan(2.5);
   });
 
   it('규정 최고속(16.8 m/s) 직격에도 자리를 지킨다 — 살짝 흔들릴 뿐', () => {
@@ -841,8 +843,8 @@ describe('공 구름 거리 — 강슛이 코트를 가로지른다', () => {
     expect(rollDistanceM()).toBeGreaterThan(15);
   });
 
-  it('그래도 무한정 가지는 않는다 — 유한 시간에 선다(D32)', () => {
-    expect(rollDistanceM()).toBeLessThan(30);
+  it('그래도 무한정 가지는 않는다 — 벽 없는 긴 바닥에서도 유한 거리에 선다(D32, 2026-11-18 실측값 ≈ 85 m)', () => {
+    expect(rollDistanceM()).toBeLessThan(100);
   });
 
   // (한때 "구름저항이 주역" 을 단언하려 했으나 사실이 아니다: 공기저항은 속도에 비례해

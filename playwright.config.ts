@@ -28,7 +28,7 @@ export default defineConfig<E2EOptions>({
   forbidOnly: !!process.env.CI,
   retries: 0, // 흔들리는 시험은 숨기지 않고 드러낸다(결정 7)
   ...(process.env.CI ? { workers: 2 } : {}),
-  timeout: 30_000,
+  timeout: 60_000, // 2026-11-18 공이 실측대로 오래 구른다(정착 상한 20 s) — 공을 미는 시나리오가 25 s 가까이 걸린다
   expect: { timeout: 5_000 },
   reporter: [
     ['list'],

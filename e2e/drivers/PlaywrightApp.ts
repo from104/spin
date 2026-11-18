@@ -77,7 +77,8 @@ import { applySeed, seedPayload, type SeedState } from '../fixtures/seed.ts';
 const BLANK_PATH = '/__e2e__/blank';
 
 /** 화면이 다 서기를 기다리는 상한 — 손을 뗀 뒤 체이스(최대 4초)와 정착 상한을 넉넉히 덮는다 */
-const SETTLE_TIMEOUT_MS = 10_000;
+// 물리 정착 상한 PHYS.settleMaxMs(20 s, 2026-11-18 공 감속 영상 실측)보다 길어야 한다 — 공이 구르는 동안은 busy 다.
+const SETTLE_TIMEOUT_MS = 25_000;
 
 /**
  * 문서마다 먼저 심는 감시자 — aria-modal 대화 상자가 서고 지는 것을 DOM 변이마다 센다(S3 첫 방문 순서).

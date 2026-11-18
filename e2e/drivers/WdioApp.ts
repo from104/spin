@@ -66,7 +66,8 @@ import { KEY_CODES, type ActionSequence, type WebDriverSession } from './webdriv
 import { applySeed, seedPayload, type SeedState } from '../fixtures/seed.ts';
 
 /** 화면이 다 서기를 기다리는 상한 — PlaywrightApp 과 같다 */
-const SETTLE_TIMEOUT_MS = 10_000;
+// 물리 정착 상한 PHYS.settleMaxMs(20 s, 2026-11-18 공 감속 영상 실측)보다 길어야 한다 — 공이 구르는 동안은 busy 다.
+const SETTLE_TIMEOUT_MS = 25_000;
 
 export interface WdioAppOptions {
   platform: string;

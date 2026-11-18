@@ -31,7 +31,7 @@ describe('sweepTo — 키보드 이동도 이웃과 상호작용', () => {
     });
     // 120 px 를 실물 최고 속도(10 km/h)로 — 공을 지나는 큰 이동
     expect(probe.api.sweepTo([{ id: chA, pose: { x: 420, y: Y, theta: 0 } }], 120 / kmhToPxPerS(DEFAULT_LIMITS.linearKmh))).toBe(true);
-    probe.runUntilLoopStops({ maxFrames: 900 });
+    probe.runUntilLoopStops({ maxFrames: 3000 }); // 2026-11-18 공이 실측대로 오래 구른다
     const s = probe.api.read();
     expect(seen).toBe(1);
     expect(s[chA]!.x).toBeCloseTo(420, 1); // 손의 권위 — 공에 밀려 되돌아가지 않는다

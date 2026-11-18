@@ -209,7 +209,7 @@ describe('P0-1 — 상한 8초와 기하 분리 폴백', () => {
   //    시나리오가 통째로 무의미해진다. 강제 겹침 10 px 을 유지하도록 h = 2·widthPx − 10.
   const COURT = { w: 60, h: 2 * CHAIR.widthPx - 10 };
 
-  it('겹침이 영영 안 풀리는 배치에서도 8초 안에 반드시 멎고, 나가기 전에 기하로 한 번 뗀다', () => {
+  it('겹침이 영영 안 풀리는 배치에서도 상한(settleMaxMs) 안에 반드시 멎고, 나가기 전에 기하로 한 번 뗀다', () => {
     const probe = createPhysicsProbe({
       court: COURT,
       chairs: [
@@ -228,7 +228,7 @@ describe('P0-1 — 상한 8초와 기하 분리 폴백', () => {
 
     const separate = vi.spyOn(obbModule, 'separateOverlaps');
     probe.api.resetGoals(); // 정착 구간을 연다
-    const frames = probe.runUntilLoopStops({ maxFrames: 1200 });
+    const frames = probe.runUntilLoopStops({ maxFrames: Math.round(PHYS.settleMaxMs / PHYS.dtMs) + 600 });
 
     // ★ 상한에 딱 맞춰 멎는다. 무릎 위 태블릿에서 이 상한이 없으면 rAF 가 영원히 돈다.
     expect(frames).toBe(Math.round(PHYS.settleMaxMs / PHYS.dtMs));

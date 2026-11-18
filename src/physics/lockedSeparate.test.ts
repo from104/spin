@@ -30,7 +30,7 @@ function settleInCrampedCourt(locked?: readonly string[]): { bx: number; by: num
   p.moveTo({ x: 25, y: 20 });
   p.stepFrames(10);
   p.endDrag();
-  p.runUntilLoopStops({ maxFrames: 2000 });
+  p.runUntilLoopStops({ maxFrames: 3000 }); // 상한 settleMaxMs 20 s = 2400 프레임
   const b = p.api.read()[chB]!;
   const out = { bx: b.x, by: b.y };
   p.dispose();
