@@ -48,7 +48,7 @@ import {
   noteLines,
 } from '../../render/objects/noteChip.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
-import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX, discTickPoints } from '../../model/chairDisc.ts';
+import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX, discEyes } from '../../model/chairDisc.ts';
 import { PRINT_COURT_CLASS } from './printDom.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
@@ -276,7 +276,7 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
                 opacity={(chairOpacity.get(c.id) ?? 1) < 1 ? chairOpacity.get(c.id) : undefined}
               >
                 {view.chairDisc ? (
-                  // 심플 모드 — 원 + 방향 눈금 + 가운데 번호(기하는 model/chairDisc.ts, 화면·PNG 와 같은 출처).
+                  // 심플 모드 — 원 + 방향 표시(개구리 눈 둘) + 가운데 번호(기하는 model/chairDisc.ts, 화면·PNG 와 같은 출처).
                   <>
                     <circle
                       cx={0}
@@ -287,7 +287,12 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
                       strokeWidth={mark.strokeWidth}
                       strokeDasharray={mark.strokeDash}
                     />
-                    <polygon points={discTickPoints()} fill={mark.stroke} stroke={mark.stroke} strokeWidth={1} strokeLinejoin="round" />
+                    {discEyes().map((e, i) => (
+                      <g key={i}>
+                        <circle data-disc-eye="" cx={e.cx} cy={e.cy} r={e.r} fill={mark.fill} stroke={mark.stroke} strokeWidth={1.2} />
+                        <circle cx={e.px} cy={e.py} r={e.pr} fill={mark.stroke} />
+                      </g>
+                    ))}
                     <g transform={`rotate(${-pose.angleDeg})`}>
                       <text x={0} y={0} fontFamily={NUM_FONT} fontSize={DISC_LABEL_FONT_PX} fontWeight={700} fill={mark.ink} textAnchor="middle" dominantBaseline="central">
                         {c.number}

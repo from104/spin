@@ -10,7 +10,7 @@ import type { ChairId } from '../core/ids.ts';
 import type { ChairDef, Drill, DrillStep, TeamSide, TeamStyle } from '../model/drill.ts';
 import type { RenderFrame } from '../model/playback.ts';
 import { DEFAULT_TEAMS } from '../model/defaults.ts';
-import { DISC_RADIUS_PX, discTickPoints } from '../model/chairDisc.ts';
+import { DISC_RADIUS_PX, discEyes } from '../model/chairDisc.ts';
 import { buildStaticSvg, buildStaticScene } from '../features/export/buildStaticSvg.ts';
 import { PrintCourt } from '../features/print/PrintCourt.tsx';
 import { ChairChip } from './objects/ChairChip.tsx';
@@ -59,7 +59,11 @@ describe('심플 모드 원 — 세 경로가 같은 기하', () => {
     const home = chipOf('home');
     expect(home).not.toContain('<rect'); // 차체·볼가드가 남아 있지 않다
     expect(home).toMatch(new RegExp(`<circle[^>]*\\br="${DISC_RADIUS_PX}"`));
-    expect(home).toContain(discTickPoints()); // 방향 눈금도 같은 점
+    // 방향 표시(개구리 눈 둘)도 같은 자리 — 눈알 둘이 보는 쪽(+x) 둘레에 대칭으로
+    const eyes = [...home.matchAll(/<circle data-disc-eye="" cx="([-\d.]+)" cy="([-\d.]+)" r="([\d.]+)"/g)].map((m) => m.slice(1).map(Number));
+    const want = discEyes().map((e) => [e.cx, e.cy, e.r]);
+    expect(eyes).toHaveLength(2);
+    eyes.forEach((e, i) => e.forEach((v, j) => expect(v).toBeCloseTo(want[i]![j]!, 1))); // PNG 는 소수 둘째 자리로 적는다
     // 팀 구분 파선(색 밖 채널)은 원에서도 산다 — 상대팀만 dasharray 를 단다
     expect(chipOf('away')).toContain('stroke-dasharray');
     expect(home).not.toContain('stroke-dasharray');

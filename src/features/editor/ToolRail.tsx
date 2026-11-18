@@ -16,7 +16,7 @@ import type { ToolId } from '../../physics/index.ts';
 import { LOCKABLE_TOOLS } from '../../store/editor/reducer.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
 import { CHAIR } from '../../core/constants.ts';
-import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX, discTickPoints } from '../../model/chairDisc.ts';
+import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX, discEyes } from '../../model/chairDisc.ts';
 import { numberedName } from '../../model/chairLabel.ts';
 import { IconPin, IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
@@ -367,7 +367,13 @@ function TrayChairArt({ color, ink, number, empty, disc = false }: { color?: str
       >
         <g transform="rotate(-90)">
           <circle r={R} fill={empty ? 'none' : color} stroke={lineColor} strokeWidth={2.2} strokeDasharray={empty ? '5 4' : undefined} />
-          {!empty && <polygon points={discTickPoints()} fill={lineColor} stroke={lineColor} strokeWidth={1} strokeLinejoin="round" />}
+          {!empty &&
+            discEyes().map((e, i) => (
+              <g key={i}>
+                <circle cx={e.cx} cy={e.cy} r={e.r} fill={color} stroke={lineColor} strokeWidth={1.4} />
+                <circle cx={e.px} cy={e.py} r={e.pr} fill={lineColor} />
+              </g>
+            ))}
           <g transform="rotate(90)">
             <text x={0} y={0} textAnchor="middle" dominantBaseline="central" fill={empty ? 'var(--faint-text)' : ink} style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: DISC_LABEL_FONT_PX }}>
               {number}

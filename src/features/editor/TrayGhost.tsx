@@ -8,7 +8,7 @@ import { CONE_COLORS, inkFor } from '../../core/colors.ts';
 import type { Drill } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { placeHeadingDeg } from '../../model/rules.ts';
-import { DISC_RADIUS_PX, DISC_LABEL_FONT_PX, discTickPoints } from '../../model/chairDisc.ts';
+import { DISC_RADIUS_PX, DISC_LABEL_FONT_PX, discEyes } from '../../model/chairDisc.ts';
 import { strokeFor } from '../../core/colors.ts';
 import type { TrayDragItem } from './useTrayDrag.ts';
 
@@ -76,7 +76,12 @@ export function TrayGhost({ item, pxPerUnit, drill, coneSlot, simple = false }: 
       >
         <svg width={d} height={d} viewBox={`${-DISC_RADIUS_PX} ${-DISC_RADIUS_PX} ${DISC_RADIUS_PX * 2} ${DISC_RADIUS_PX * 2}`} style={{ position: 'absolute', inset: 0, overflow: 'visible' }} aria-hidden>
           <circle r={DISC_RADIUS_PX} fill={color} stroke={stroke} strokeWidth={Math.max(1, 0.6 * k) / k} />
-          <polygon points={discTickPoints()} fill={stroke} stroke={stroke} strokeWidth={1} strokeLinejoin="round" />
+          {discEyes().map((e, i) => (
+            <g key={i}>
+              <circle cx={e.cx} cy={e.cy} r={e.r} fill={color} stroke={stroke} strokeWidth={Math.max(1, 0.6 * k) / k} />
+              <circle cx={e.px} cy={e.py} r={e.pr} fill={stroke} />
+            </g>
+          ))}
         </svg>
         <span
           style={{
