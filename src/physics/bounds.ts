@@ -33,6 +33,7 @@ import { BALL, CONE } from '../core/constants.ts';
 import type { Vec2 } from '../core/units.ts';
 import { chairCorners, poseFromStored } from '../model/chair.ts';
 import type { ChairPose } from '../model/chair.ts';
+import { DISC_RADIUS_PX } from '../model/chairDisc.ts';
 import { ARROW_STYLE, headFromOf, headToOf } from '../model/arrow.ts';
 import { arrowHeadExtentPx } from '../render/arrowHeadGeom.ts';
 import type { Arrow } from '../model/arrow.ts';
@@ -199,14 +200,17 @@ interface Entry {
  *  ⚠️ 캐스트 개체(휠체어·공·콘)는 **cast 정의 + 그 스텝의 포즈**가 둘 다 있어야 센다.
  *  `model/thumb.ts` 가 쓰는 것과 같은 규약이다 — 스텝에 포즈가 없는 개체는 그 스텝에 안
  *  보이므로 겹칠 수가 없고, 포즈만 있고 cast 정의가 없는 것은 고아다(결정 13). */
-function stepEntries(step: DrillStep, cast: DrillCast): Entry[] {
+function stepEntries(step: DrillStep, cast: DrillCast, chairDisc: boolean): Entry[] {
   const out: Entry[] = [];
   const push = (id: string, box: AABB | null): void => {
     if (box) out.push({ id, box });
   };
   for (const def of cast.chairs) {
     const stored = step.chairs[def.id];
-    if (stored) push(def.id, objectBounds('chair', poseFromStored(stored)));
+    if (!stored) continue;
+    // 심플 모드(2026-11-19 「기본, 심플 모드 완전 분리」)에서 휠체어는 어디서나 원이다 — 상자도 피벗 중심 원의 상자.
+    // 차체 상자를 쓰면 이동 앵커의 점선 상자가 보이지 않는 차체 앞까지 늘어나고, [표시순서] 가 안 겹친 원을 겹쳤다고 본다.
+    push(def.id, chairDisc ? boxAround(stored, DISC_RADIUS_PX, DISC_RADIUS_PX) : objectBounds('chair', poseFromStored(stored)));
   }
   for (const def of cast.balls) {
     const p = step.balls[def.id];
@@ -240,10 +244,10 @@ function stepEntries(step: DrillStep, cast: DrillCast): Entry[] {
  *  ⚠️ 여기서 상자를 새로 재지 않고 `stepEntries` 를 그대로 쓰는 것이 계약이다. 겹침 판정과
  *  앵커가 다른 상자를 쓰면 "앵커는 저기 떠 있는데 개체는 여기 있다" 가 된다 — 머리말이 말하는
  *  두 벌 문제와 같은 사고다. */
-export function selectionBounds(step: DrillStep, cast: DrillCast, ids: ReadonlySet<string>): AABB | null {
+export function selectionBounds(step: DrillStep, cast: DrillCast, ids: ReadonlySet<string>, chairDisc = false): AABB | null {
   if (ids.size === 0) return null;
   let out: AABB | null = null;
-  for (const e of stepEntries(step, cast)) {
+  for (const e of stepEntries(step, cast, chairDisc)) {
     if (!ids.has(e.id)) continue;
     out = out
       ? {
@@ -257,8 +261,8 @@ export function selectionBounds(step: DrillStep, cast: DrillCast, ids: ReadonlyS
   return out;
 }
 
-export function overlappingIds(step: DrillStep, cast: DrillCast, id: string): Set<string> {
-  const entries = stepEntries(step, cast);
+export function overlappingIds(step: DrillStep, cast: DrillCast, id: string, chairDisc = false): Set<string> {
+  const entries = stepEntries(step, cast, chairDisc);
   const me = entries.find((e) => e.id === id);
   const out = new Set<string>();
   if (!me) return out;

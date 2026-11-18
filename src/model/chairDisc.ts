@@ -4,7 +4,7 @@
 //
 // ⚠️ 이 파일이 있는 이유: 휠체어를 그리는 갈래가 일곱(편집 칩 · 시연 · 트레이 칩 · 트레이 고스트 ·
 // PNG/영상 · 인쇄 · 선택/잠금 테두리)이고 판정이 하나다. 원을 갈래마다 따로 적으면 반드시 한쪽이
-// 어긋난다(트레이 고스트 사고 72a6a12 와 같은 교훈). 지름·번호 글자·방향 눈금·테두리 여백·히트
+// 어긋난다(트레이 고스트 사고 72a6a12 와 같은 교훈). 지름·번호 글자·테두리 여백·히트
 // 반지름은 **여기만** 적고, 부르는 쪽은 `import` 만 한다.
 //
 // 기하의 약속:
@@ -13,6 +13,9 @@
 //  · 지름 1.0 m(= 25 px) — 실물 차체 1.3 × 0.8 m 사이 값이라 포메이션 간격이 실물 판과 비슷하게 읽힌다.
 //  · 방향 표시는 +x(보는 쪽) 앞쪽 원 안에 **플라나리아 눈 둘**(검은 작은 원)이다(2026-11-19 기현님: *"플라나리아 … 눈처럼 검은 작은
 //    원으로"* — 삼각 눈금 하나 → 튀어나온 개구리 눈 둘(11-18) → 이것). 방향판·숫자키 1–9·조정 모드가 모두 "보는 쪽"을 쓴다.
+//    ── ⚠️ 2026-11-19 오후: 위 줄은 기현님 지시 *"전면 표시 없애고 … 기본, 심플 모드 완전 분리"* 로 뒤집혔다 — 방향 표시는 없고,
+//    방향도 없다(방향판·숫자키·Q·E 가 원에는 안 먹는다). 저장된 각도는 그대로 둔다(평소 모드가 쓴다). 원은 어디서나 원이다:
+//    그림·잡기(원 안만, 패드 없음)·벽(원 하나, obb.ts boundsHull)·상자(physics/bounds.ts)·규칙 경계선(model/chairOverlap.ts).
 //  · 규칙 화면 도해는 늘 실물 차체다(규칙 설명이 차체 크기에 걸려 있다) — 이 모듈을 쓰지 않는다.
 import { mToPx } from '../core/units.ts';
 
@@ -27,24 +30,10 @@ export const DISC_SEL_PAD = 3.5;
 /** 키보드 포커스 링 여백. 차체 칩은 3 이다. */
 export const DISC_FOCUS_PAD = 3;
 
-/** 방향 표시 — 플라나리아 눈 둘. 원 안 앞쪽(+x) ±EYE_ANGLE 에 **검은 작은 원**이 둘, 둘레를 흰 테가 감싼다(플라나리아의 눈점처럼 —
- *  흰 테는 어두운 팀 색 위에서도 점이 보이게). `r` 을 받는 이유는 썸네일처럼 과장된 반지름으로도 같은 비율로 그리기 위해서다.
- *  번호는 원 가운데라 눈은 둘레 쪽(0.72 r)에 둔다. */
-export interface DiscEye {
-  cx: number;
-  cy: number;
-  r: number;
-}
-/** 눈 채움·테 색과 테 굵기(월드 px) — 다섯 갈래가 같은 값을 쓴다. */
-export const DISC_EYE_FILL = '#000';
-export const DISC_EYE_RIM = '#fff';
-export const DISC_EYE_RIM_W = 0.8;
-const EYE_ANGLE = (34 * Math.PI) / 180;
-export function discEyes(r: number = DISC_RADIUS_PX): readonly [DiscEye, DiscEye] {
-  const d = 0.72 * r;
-  const eye = (sign: 1 | -1): DiscEye => ({ cx: d * Math.cos(EYE_ANGLE), cy: sign * d * Math.sin(EYE_ANGLE), r: 0.13 * r });
-  return [eye(-1), eye(1)];
-}
+/* (2026-11-19 폐기) 방향 표시 `discEyes`·`DISC_EYE_*` — 원 안 앞쪽(+x) ±34° 에 검은 작은 원 둘(플라나리아 눈, 11-19 오전),
+ * 그 전에는 튀어나온 개구리 눈 둘(11-18)·삼각 눈금 하나(11-16). 다섯 갈래(ChairChip·TrayGhost·ToolRail·buildStaticSvg·
+ * PrintCourt)가 같은 값을 그렸다. 기현님 지시 *"전면 표시 없애고 … 그야말로 심플하게 바둑을 모양으로 전술에 집중할 수 있도록"*
+ * 으로 통째로 지웠다 — 심플 모드의 원에는 **방향이 없다**(돌리는 입력도 막힌다: features/editor/nudgeCaps.ts). */
 
 /** 월드 점 p 가 중심 c 의 원 안인가 — `pad`(월드 px)만큼 부풀려서. 편집기 히트가 쓴다. */
 export function inDisc(c: { x: number; y: number }, p: { x: number; y: number }, pad = 0): boolean {

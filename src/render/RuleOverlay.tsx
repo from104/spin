@@ -196,9 +196,11 @@ export interface RuleOverlayProps {
    *  이 값이 골 지역 3인을 **수비 팀에만** 걸고, 2-on-1 의 골키퍼 면제를 **자기 골 지역**으로
    *  좁힌다(model/rules.ts 머리말 ✅ 2026-08-15). */
   defense?: TeamSide;
+  /** 심플 모드 — 판정의 경계선이 원이다(model/chairOverlap.ts 머리말 2026-11-19). 그리는 원과 **같은 값**을 넘긴다. */
+  chairDisc?: boolean;
 }
 
-export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballRings, ballOwners, roster, teams, defense }: RuleOverlayProps) {
+export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballRings, ballOwners, roster, teams, defense, chairDisc = false }: RuleOverlayProps) {
   const locale = useLocale();
   const def = courtDefFor(mode, size);
   const zones = def.ruleZones;
@@ -225,8 +227,9 @@ export function RuleOverlay({ mode, size, visible, writer, rules, ballIds, ballR
       teamLabels: { home: teams.home.label, away: teams.away.label },
       locale,
       court: { mode, surface: def.surface },
+      chairDisc,
     });
-  }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, cornerKicks, teams, locale, mode, def]);
+  }, [rules, visible, roster, goalAreas, mouths, fiveMeterDefense, cornerKicks, teams, locale, mode, def, chairDisc]);
 
   const ringOf = (id: string): BallRing => ballRings?.[id] ?? 'none';
   // 소유 화살표의 방향 — **코트당 한 번만** 계산한다(공마다 코트 정의를 다시 읽지 않는다).

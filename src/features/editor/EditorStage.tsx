@@ -472,7 +472,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   }, [dispatch, worldRef]);
 
   /** 순간이동(sweepTo → false: 상호작용 끔·심플 모드)으로 옮기거나 돌린 휠체어를 **끌기와 같은 벽 경계**로 판 안에 넣는다
-   *  (world.fitToBounds — 휠체어는 심플이면 원 ∪ 차체·평소면 차체, 공·콘은 반지름 원). 순간이동에는 엔진이 없어 아무도 벽을 지키지 않았다 —
+   *  (world.fitToBounds — 휠체어는 심플이면 원(2026-11-19 — 옛 원 ∪ 차체)·평소면 차체, 공·콘은 반지름 원). 순간이동에는 엔진이 없어 아무도 벽을 지키지 않았다 —
    *  벽 앞에서 180° 돌면 차체 앞이 판 밖인 채 저장됐고, 나중에 아무 칩이나 끌면 안전망이 그 칩을 밀어 커밋했다.
    *  밀었으면 PLACE_SETTLE 로 덧쓴다 — past 를 안 건드리므로 방금 한 이동의 되돌리기 한 칸에 함께 돌아간다. */
   const fitTeleported = useCallback(
@@ -522,6 +522,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       //   §7.5 접근성 요건상 키보드는 마우스와 **같은 일을 할 수 있어야** 하고, 그 대칭은
       //   "할 수 있는 것" 뿐 아니라 "할 수 없는 것" 에도 걸린다.
       if (lockedSet.has(id)) return;
+      // 심플 모드의 원에는 방향이 없다(2026-11-19) — 키·패드가 이 통로로 회전을 보내도 아무 일도 없다(nudgeCaps canRotateKind).
+      if (dThetaRad !== 0 && !canRotateKind(id, simple)) return;
       // 여럿을 골라 두고 그중 하나에 포커스가 있으면 **통째로 간다**(§6.10b) — 포인터의
       // 덩어리 드래그와 같은 규칙이라, 마우스로 되는 일이 키보드로 안 되는 자리가 없다.
       // 회전(dThetaRad)은 무리에 없다: 무리의 회전축이 무엇인지 답이 하나로 안 나온다
@@ -616,7 +618,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         dispatch({ type: 'STROKE_SET', stroke: nudgeStroke(stroke, { x: dx, y: dy }) });
       }
     },
-    [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet, moveBodies, armNudgeCommit, fitTeleported, nudgeDurationS],
+    [dispatch, step.arrows, step.notes, step.strokes, step.shapes, worldRef, selection, lockedSet, ignoredSet, moveBodies, armNudgeCommit, fitTeleported, nudgeDurationS, simple],
   );
 
   // ── 방향판 회전 애니메이션(2026-11-16 기현님 지시 "회전시 0.3초 동안 적당한 애니메이션") ──────────────
@@ -640,8 +642,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   /** 휠체어를 화면 방향으로 보게 / 180° — 방향판(NudgePad)과 숫자키 1–9(`obj.face`)가 함께 쓰는 **한 길**이다. */
   const turnHeading = useCallback(
     (id: string, cmd: HeadingCmd) => {
-      // 휠체어만. 잠금은 Q·E 와 같이 막는다(nudge 첫 줄과 같은 규칙).
-      if (!isId(id, 'ch') || lockedSet.has(id)) return;
+      // 휠체어만. 잠금은 Q·E 와 같이 막는다(nudge 첫 줄과 같은 규칙). 심플 모드의 원에는 방향이 없다(canRotateKind).
+      if (!isId(id, 'ch') || !canRotateKind(id, simple) || lockedSet.has(id)) return;
       const cur = worldRef.current?.read()[id];
       if (!cur) return;
       // 도는 중에 또 누르면 **논리 각도(앞 애니메이션의 끝)** 에서 잰다 — 화면에 보이는 중간 각도에서 재면
@@ -692,7 +694,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       });
       headingAnimRef.current = anim;
     },
-    [dispatch, lockedSet, reduceMotion, stageRef, worldRef, moveBodies, armNudgeCommit, fitTeleported],
+    [dispatch, lockedSet, reduceMotion, stageRef, worldRef, moveBodies, armNudgeCommit, fitTeleported, simple],
   );
 
   const handleObjectKeyDown = useCallback(
@@ -742,6 +744,9 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           // 종류 판정 하나(`canRotateKind`)로 바꾼다 — 패드·메뉴와 **같은 함수**다.
           e.preventDefault();
           e.stopPropagation();
+          // 심플 모드의 원(2026-11-19)은 방향이 없다 — 무리 안내보다 **먼저** 조용히 끝낸다(원을 여럿 골라 E 를 눌렀을 때
+          // "무리는 안 돈다"는 틀린 이유를 읽어 주지 않게). 도형·화살표·획은 그대로 아래로 간다.
+          if (isId(id, 'ch') && !canRotateKind(id, simple)) return;
           // 다중 선택에서는 회전이 없다(기현님이 명시한 예외). 여태는 **막힌 것이 아니라**
           // 포커스가 앉은 하나만 조용히 돌았다 — 여럿을 골라 놓고 E 를 눌렀는데 하나만 도는
           // 것은 «무리»라는 말과 어긋난다. 이제 아무것도 안 돌리고, 왜 안 도는지 읽어 준다.
@@ -749,15 +754,16 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
             liveRegion.say(translate(locale, 'editor.announce.rotateMulti'));
             return;
           }
-          if (!canRotateKind(id)) return;
+          if (!canRotateKind(id, simple)) return;
           nudge(id, 0, 0, (eventCode(e) === 'KeyQ' ? -1 : 1) * deg * RAD);
           return;
         }
         case 'obj.face': {
           // 숫자줄 1–8 = 12시부터 시계 방향, 9 = 180°(2026-11-16 기현님 지시). 방향판과 같은 길(turnHeading)이라
           // 화면 기준·0.3초 회전·180° 연타 한 방향이 그대로다. 휠체어가 아니면 키를 그냥 흘려보낸다.
+          // 심플 모드의 원에는 방향이 없다(2026-11-19) — 휠체어가 아닐 때처럼 키를 그냥 흘려보낸다(안내 없이).
           const cmd = FACE_KEYS[eventCode(e)];
-          if (!cmd || !isId(id, 'ch')) return;
+          if (!cmd || !isId(id, 'ch') || !canRotateKind(id, simple)) return;
           e.preventDefault();
           e.stopPropagation();
           if (selection.size > 1 && selection.has(id)) {
@@ -812,7 +818,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           return;
       }
     },
-    [dispatch, nudge, onEraseIds, order, stageRef, selection, turnHeading],
+    [dispatch, nudge, onEraseIds, order, stageRef, selection, turnHeading, simple],
   );
 
   const handleContainerKeyDown = useCallback(
@@ -934,8 +940,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
   const moveAnchor = useMemo(() => {
     const ids = moveAnchorIds(selection, lockedSet, ignoredSet);
     if (ids.length === 0) return { bounds: null, guide: false };
-    return { bounds: selectionBounds(step, drill.cast, new Set(ids)), guide: moveAnchorGuide(ids) };
-  }, [selection, lockedSet, ignoredSet, step, drill.cast]);
+    return { bounds: selectionBounds(step, drill.cast, new Set(ids), simple), guide: moveAnchorGuide(ids) };
+  }, [selection, lockedSet, ignoredSet, step, drill.cast, simple]);
 
   /** 선택이 정확히 하나이고 그것이 도형일 때만 손잡이를 띄운다 — 여럿을 고른 채로 손잡이를
    *  내면 "무엇의 가로인가" 가 사라진다(화살표 핸들이 간 길과 같다). */
@@ -1032,8 +1038,8 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
     if (!menu || menu.ids.length !== 1) return null;
     const id = menu.ids[0]!;
     if (lockedSet.has(id)) return null;
-    return zMoves(step, drill.cast, id, overlappingIds(step, drill.cast, id));
-  }, [menu, step, drill.cast, lockedSet]);
+    return zMoves(step, drill.cast, id, overlappingIds(step, drill.cast, id, simple));
+  }, [menu, step, drill.cast, lockedSet, simple]);
 
   /** 판이 그릴 순서(아래→위) — 시연·인쇄·PNG 와 **같은 함수**다(PLAN-Z-ORDER 결정 2·12).
    *  ⚠️ 이 한 줄이 빠지면 `Z_ORDER` 가 모델을 바꿔도 판은 기본층으로 접혀 **화면이 안 따라간다**
@@ -1235,7 +1241,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 순서를 어떻게 바꿀지는 리듀서가 순수 함수(model/zOrder.moveZ)에 통째로 맡긴다 —
       // 여기서 계산하는 것이 없다. 불가능한 명령이면 그 함수가 같은 스텝 참조를 돌려주고
       // 되돌리기에 칸이 안 쌓인다(reducer 의 Z_ORDER 갈래 주석).
-      onZOrder={(id, op) => dispatch({ type: 'Z_ORDER', id, op })}
+      onZOrder={(id, op) => dispatch({ type: 'Z_ORDER', id, op, chairDisc: simple })}
       // [휠체어 조정 모드] — 휠체어 하나일 때만 칸이 서고, 못 쓰면 이유와 함께 죽어서 선다(ObjectMenuProps.drive).
       drive={menu && menu.ids.length === 1 && isId(menu.ids[0]!, 'ch') ? { reason: drive.unavailable(menu.ids[0]!) } : null}
       onDrive={drive.enter}
@@ -1245,6 +1251,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           어긋나 개체가 옆으로 간다(키 처리부의 그 ★ 주석과 같은 사고). */}
     <NudgePad
       target={nudgePad}
+      chairDisc={simple}
       onClose={() => {
         finishHeadingAnim();
         setNudgePad(null);

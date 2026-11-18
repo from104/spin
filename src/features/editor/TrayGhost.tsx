@@ -8,7 +8,7 @@ import { CONE_COLORS, inkFor } from '../../core/colors.ts';
 import type { Drill } from '../../model/drill.ts';
 import { courtDefFor } from '../../model/court.ts';
 import { placeHeadingDeg } from '../../model/rules.ts';
-import { DISC_RADIUS_PX, DISC_LABEL_FONT_PX, discEyes, DISC_EYE_FILL, DISC_EYE_RIM, DISC_EYE_RIM_W } from '../../model/chairDisc.ts';
+import { DISC_RADIUS_PX, DISC_LABEL_FONT_PX } from '../../model/chairDisc.ts';
 import { strokeFor } from '../../core/colors.ts';
 import type { TrayDragItem } from './useTrayDrag.ts';
 
@@ -71,14 +71,11 @@ export function TrayGhost({ item, pxPerUnit, drill, coneSlot, simple = false }: 
           height: d,
           filter: shadow,
           opacity: 0.9,
-          transform: `rotate(${headingDeg}deg)`,
+          // 돌리지 않는다 — 원에는 방향이 없다(2026-11-19 「전면 표시 없애고」). 차체 고스트만 놓일 방향(headingDeg)으로 돈다.
         }}
       >
         <svg width={d} height={d} viewBox={`${-DISC_RADIUS_PX} ${-DISC_RADIUS_PX} ${DISC_RADIUS_PX * 2} ${DISC_RADIUS_PX * 2}`} style={{ position: 'absolute', inset: 0, overflow: 'visible' }} aria-hidden>
           <circle r={DISC_RADIUS_PX} fill={color} stroke={stroke} strokeWidth={Math.max(1, 0.6 * k) / k} />
-          {discEyes().map((e, i) => (
-          <circle key={i} data-disc-eye="" cx={e.cx} cy={e.cy} r={e.r} fill={DISC_EYE_FILL} stroke={DISC_EYE_RIM} strokeWidth={DISC_EYE_RIM_W} />
-        ))}
         </svg>
         <span
           style={{
@@ -91,7 +88,6 @@ export function TrayGhost({ item, pxPerUnit, drill, coneSlot, simple = false }: 
             fontFamily: "'Space Grotesk', sans-serif",
             fontSize: Math.max(9, DISC_LABEL_FONT_PX * k),
             fontWeight: 700,
-            transform: `rotate(${-headingDeg}deg)`,
           }}
         >
           {def.number}

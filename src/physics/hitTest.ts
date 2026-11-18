@@ -526,8 +526,11 @@ function scanPass(p: Vec2, scene: SceneSnapshot, ctx: HitContext, r: PickRadii):
   let padBest: { id: string; s: number; lat: number } | null = null;
   for (const c of scene.chairs) {
     // 심플 모드 — 원 반지름 + 패드. 가장 가까운 중심이 이긴다(차체의 |lat| 최소와 같은 결).
+    // ── ⚠️ 2026-11-19: 패드가 빠졌다(기현님 지시 *"드래그 판정 포인트도 원 안으로 한정해"*) — 원은 **원 안만** 잡힌다.
+    // [큰 표적]이 키우는 grabPadPx 도 원에는 안 붙는다: 보이는 원 = 잡히는 원. 갈래는 남긴다 — 1차 패스가 모든 칩을 훑는다는
+    // 데 기대지 않고, 겹친 원 중 가장 가까운 중심이 이기는 규칙도 그대로 둔다.
     if (ctx.chairDisc) {
-      if (inDisc(c.pose, p, r.chairPad)) {
+      if (inDisc(c.pose, p)) {
         const d = Math.hypot(p.x - c.pose.x, p.y - c.pose.y);
         if (!padBest || d < padBest.lat) padBest = { id: c.id, s: 0.5, lat: d };
       }

@@ -23,7 +23,16 @@
 // 여기서 보는 사각형은 `chairCorners`(chair.ts:64) · `obb.ts` 의 hull 과 **같은 사각형**이다
 // (로컬 x ∈ [−7.5, 30], y ∈ [−12.5, 12.5]). 그 일치를 chairOverlap.test.ts 가 네 꼭짓점으로
 // 직접 잰다 — 세 곳이 각자 차체를 정의하면 "물리는 부딪히는데 반칙은 아니다" 가 된다.
+//
+// ── 2026-11-19 심플 모드의 경계선은 **원**이다 ─────────────────────────────────────────────────────────────
+// 기현님 지시: *"심플 모드에서 룰에 명시되는 경계선이 0.8 x 1.3 차체가 아니라 원이라는 것이다. 그래서 심플모드에서 괜찮은
+// 위반이 기본모드에서는 아닐 수 있다는 뜻이다."* — 위 「에누리 없다」의 경계선이 모드마다 다르다. 심플 모드(prefs.board.simple)
+// 에서 휠체어는 어디서나 피벗 중심 원(model/chairDisc.ts, 지름 1.0 m)이라, 규칙도 **그 원**으로 잰다. 같은 판이 심플에서는
+// 깨끗하고 평소에서는 반칙일 수 있다 — 의도한 것이다(앞범퍼 26 px 가 3 m 선을 밟는 자세는 원으로는 13.5 px 밖이다).
+// 그래서 아래 네 판정은 끝 인자 `disc` 하나로 원/차체를 가른다 — 갈래를 규칙마다 두지 않고 **여기 한 곳**에 둔다.
+// 원 판정도 접선은 안이다(TOUCH_EPS_PX 그대로).
 import { CHAIR } from '../core/constants.ts';
+import { DISC_RADIUS_PX } from './chairDisc.ts';
 
 /** 피벗에서 **뒤**로(0.3 m). 로컬 축 좌표로는 −BACK_PX 가 뒷변이다. */
 const BACK_PX = CHAIR.pivotToRearPx;
@@ -62,7 +71,13 @@ export function chairPointDist2(
   theta: number,
   px: number,
   py: number,
+  disc = false,
 ): number {
+  if (disc) {
+    // 원 — 중심(피벗)에서 반지름을 뺀 거리. 안이면 0.
+    const d = Math.hypot(px - chairX, py - chairY) - DISC_RADIUS_PX;
+    return d > 0 ? d * d : 0;
+  }
   const ux = Math.cos(theta);
   const uy = Math.sin(theta);
   const rx = px - chairX;
@@ -85,9 +100,10 @@ export function chairOverlapsCircle(
   px: number,
   py: number,
   r: number,
+  disc = false,
 ): boolean {
   const lim = r + TOUCH_EPS_PX;
-  return chairPointDist2(chairX, chairY, theta, px, py) <= lim * lim;
+  return chairPointDist2(chairX, chairY, theta, px, py, disc) <= lim * lim;
 }
 
 /** 차체 사각형 ∩ **축정렬** 사각형(골 지역 같은 `Rect`). **접촉 포함**.
@@ -106,7 +122,15 @@ export function chairOverlapsRect(
   rectY: number,
   rectW: number,
   rectH: number,
+  disc = false,
 ): boolean {
+  if (disc) {
+    // 원 ∩ 축정렬 사각형 — 사각형에서 중심에 가장 가까운 점까지의 거리 ≤ 반지름.
+    const qx = chairX < rectX ? rectX : chairX > rectX + rectW ? rectX + rectW : chairX;
+    const qy = chairY < rectY ? rectY : chairY > rectY + rectH ? rectY + rectH : chairY;
+    const lim = DISC_RADIUS_PX + TOUCH_EPS_PX;
+    return (chairX - qx) * (chairX - qx) + (chairY - qy) * (chairY - qy) <= lim * lim;
+  }
   const ux = Math.cos(theta);
   const uy = Math.sin(theta);
   const aux = ux < 0 ? -ux : ux;
@@ -151,7 +175,14 @@ export function chairInsideBounds(
   maxX: number,
   minY: number,
   maxY: number,
+  disc = false,
 ): boolean {
+  if (disc) {
+    const r = DISC_RADIUS_PX;
+    return (
+      chairX - r >= minX - TOUCH_EPS_PX && chairX + r <= maxX + TOUCH_EPS_PX && chairY - r >= minY - TOUCH_EPS_PX && chairY + r <= maxY + TOUCH_EPS_PX
+    );
+  }
   const ux = Math.cos(theta);
   const uy = Math.sin(theta);
   const aux = ux < 0 ? -ux : ux;

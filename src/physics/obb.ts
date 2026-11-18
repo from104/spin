@@ -38,12 +38,18 @@ function chairHullCorners(p: ChairPose): [Vec2, Vec2, Vec2, Vec2] {
 
 /** 판(경계)에 대해 쓰는 차체 외곽. 심플 모드(`b.disc`)에서는 **원 ∪ 실물 차체**다 — 피벗 중심 원의 AABB(반지름 R
  *  정사각형) 꼭짓점과 실물 hull 꼭짓점을 함께 돌려줘, 둘 다 판 안에 들어와야 통과한다.
- *  ⚠️ 원만 쓰면 앞벽에 붙인 자세가 실물 차체로는 판 밖이고, 그 자세가 드릴에 저장된다(심플은 기기 표시 설정일 뿐). */
+ *  ⚠️ 원만 쓰면 앞벽에 붙인 자세가 실물 차체로는 판 밖이고, 그 자세가 드릴에 저장된다(심플은 기기 표시 설정일 뿐).
+ *
+ *  ── ⚠️ 2026-11-19: 위 문단은 기현님 지시로 뒤집혔다 ──────────────────────────────────────────────
+ *  *"전면 표시 없애고 … 그야말로 심플하게 바둑을 모양으로 전술에 집중할 수 있도록 … 기본, 심플 모드 완전 분리"* —
+ *  심플 모드의 휠체어는 어디서나 원이고 방향이 없다. 그래서 경계도 **원 하나**다: 원이 어느 쪽으로든 벽에 닿는다(틈 0).
+ *  대가(숫자): 앞을 벽에 댄 자세는 실물 차체로 재면 앞이 `pivotToFrontPx − R` = 26 − 12.5 = **13.5 px** 판 밖이고(옆으로 대면
+ *  반폭 10 < R 이라 0), 그 자세가 드릴에 그대로 저장된다 — 옛 근거가 막던 바로 그 유출을 받아들인다. 평소 모드로 돌아갔을 때
+ *  그 칩을 아무도 몰래 옮기지 않게 하는 것은 안전망 쪽 일이다(world.ts escapePinnedAll 의 `lenientChairs`). */
 function boundsHull(p: ChairPose, b: Bounds): Vec2[] {
   if (!b.disc) return chairHullCorners(p);
   const r = DISC_RADIUS_PX;
   return [
-    ...chairHullCorners(p),
     { x: p.x - r, y: p.y - r },
     { x: p.x + r, y: p.y - r },
     { x: p.x + r, y: p.y + r },
@@ -51,7 +57,7 @@ function boundsHull(p: ChairPose, b: Bounds): Vec2[] {
   ];
 }
 
-/** 판(경계)에 대해 쓰는 외곽의 축정렬 범위 — boundsHull 그대로(심플이면 원 ∪ 차체). 무리 이동의 벽 판정이 쓴다. */
+/** 판(경계)에 대해 쓰는 외곽의 축정렬 범위 — boundsHull 그대로(심플이면 원, 평소면 차체). 무리 이동의 벽 판정이 쓴다. */
 export function boundsExtent(p: ChairPose, b: Bounds): { minX: number; maxX: number; minY: number; maxY: number } {
   let minX = Infinity;
   let maxX = -Infinity;
@@ -210,6 +216,22 @@ export function pushChairIntoBounds(p: ChairPose, b: Bounds): Vec2 {
   if (maxY > b.h) dy = b.h - maxY;
   if (minY < 0) dy = -minY;
   return { x: p.x + dx, y: p.y + dy };
+}
+
+/** 안전망의 **관대한** 휠체어 경계 — 원(심플 모드 규칙)과 실물 차체(평소 규칙) 중 **하나라도** 판 안이면 그대로 둔다.
+ *  둘 다 판 밖일 때만 덜 옮기는 쪽으로 민다. 각도는 건드리지 않는다(pushChairIntoBounds 와 같은 이유).
+ *
+ *  왜 필요한가(2026-11-19 「기본, 심플 모드 완전 분리」): 두 모드는 서로 다른 벽을 쓴다 — 심플은 원(앞을 댄 칩의 실물 차체가
+ *  13.5 px 판 밖), 평소는 차체(뒤를 댄 칩의 원이 12.5 − 6.5 = 6 px 판 밖). 한쪽 모드에서 벽에 붙여 둔 칩은 다른 쪽 규칙으로는
+ *  "판 밖"이다. 안전망이 지금 모드의 규칙만 쓰면 모드를 바꾼 뒤 **다른** 칩을 끌기만 해도 그 칩이 밀리고, 드래그 정착 커밋이
+ *  스냅샷 전부를 드릴에 쓴다 — 표시 설정이 손대지 않은 칩의 저장 좌표를 바꾼다(simpleBounds.test.ts, simpleToggleBack.test.ts).
+ *  손이 옮기는 칩은 이 함수를 안 탄다 — 끌기·순간이동·쓸기는 지금 모드의 규칙(boundsHull)으로 잰다. */
+export function pushChairIntoEither(p: ChairPose, b: Bounds): Vec2 {
+  const body = pushChairIntoBounds(p, { w: b.w, h: b.h });
+  if (body.x === p.x && body.y === p.y) return body;
+  const disc = pushChairIntoBounds(p, { w: b.w, h: b.h, disc: true });
+  if (disc.x === p.x && disc.y === p.y) return disc;
+  return Math.hypot(disc.x - p.x, disc.y - p.y) < Math.hypot(body.x - p.x, body.y - p.y) ? disc : body;
 }
 
 /** 원으로 막는 장애물(공·콘). 휠체어는 OBB 라 `others` 로 가고, 이쪽은 반지름을 가진 점이다.

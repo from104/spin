@@ -4,7 +4,7 @@
 // → ChairChip 배선), (2) **저장된 물리·상호작용이 켜져 있는데** 심플 모드가 그것을 끄지 못해 원을 겹쳐 끌면 서로 밀려 나가는 것
 // ("원천적으로 물리 없음" 위반 — 월드 setInteract 강제), (3) 화면은 원인데 내보낸 그림만 차체인 것("보이는 것 = 내보내지는 것",
 // ExportSheet 의 chairDisc 배선). 원/차체의 구분은 속성이 아니라 **기하**로 본다 — 차체(1.3×0.8 m)는 가로세로비가 1.6 이고
-// 원(지름 1.0 m + 방향 눈금)은 1.15 라, 코트가 돌아 있어도 비율 `max(r, 1/r)` 로 가른다. 지름·비율 상수는 베끼지 않고 임계 하나만 둔다.
+// 원(지름 1.0 m — 2026-11-19 부터 방향 표시 없음)은 1.0 부근이라, 코트가 돌아 있어도 비율 `max(r, 1/r)` 로 가른다. 지름·비율 상수는 베끼지 않고 임계 하나만 둔다.
 import type { SpinApp } from '../drivers/SpinApp.ts';
 import { at, check, defineGroup, eventually, expectQuiet, objectById, poseKey, shift } from './kit.ts';
 import { decoded, difference, exportPng } from './export.ts';
@@ -40,20 +40,19 @@ async function interactOn(app: SpinApp): Promise<void> {
 
 type Sc = Parameters<typeof defineGroup>[1][number];
 
-const wallTurn = (interact: boolean): Sc => ({
+const wallTurn: Sc = {
   // 지우면 새는 실기 버그: 상호작용이 꺼져 있으면(심플 모드는 늘 끔) 키보드·방향판 이동·회전이 **순간이동**이라 아무도 벽을
   // 지키지 않았다. 방향키만 눌러도 차체가 판 밖으로 나가고, 벽 앞에서 벽 쪽으로 돌면 차체 앞이 판 밖인 채 **저장**된다 —
   // 심플 모드에서는 차체를 안 그리니 보이지도 않는다. 그 칩은 나중에 다른 칩을 끌기만 해도 안전망이 밀어 커밋한다.
   // 판정은 앱 상수 없이: 심플을 끈 뒤 **보이는 차체 상자**가 판(court-surface = 벽 경계, 라인 바깥 여백까지) 상자 안인가, 다른 칩을 끈 뒤 자세가 그대로인가.
-  title: interact
-    ? 'S18e 상호작용 켬 — 키로 벽까지 밀고 벽 쪽으로 돌아도 차체는 판 안'
-    : 'S18c 심플 모드 — 키로 벽까지 밀고 벽 쪽으로 돌아도 차체는 판 안',
+  // ── 2026-11-19: 이 시나리오는 (상호작용 켬 | 심플) 둘로 돌았다. 심플 갈래(옛 S18c 「심플 모드 — 키로 벽까지 밀고 벽 쪽으로 돌아도
+  // 차체는 판 안」)는 옛 계약이라 뺐다 — 심플의 원은 방향이 없고 경계가 원 하나다(새 S18c 는 아래 simpleWall). 남은 것은 S18e.
+  title: 'S18e 상호작용 켬 — 키로 벽까지 밀고 벽 쪽으로 돌아도 차체는 판 안',
   needs: ['keyboard'],
   run: async (app) => {
     const a = await app.placeFromTray('chair', at(0.5, 0.5), { via: 'drag', team: 'home' });
     const b = await app.placeFromTray('chair', at(0.5, 0.85), { via: 'drag', team: 'away' });
-    if (interact) await interactOn(app);
-    else await app.press('fn-simple');
+    await interactOn(app);
 
     // 화면에서 월드 −x 벽(왼쪽 골라인 쪽)이 어느 쪽인가 — 세로 창에서는 코트가 돌아 있다
     const pa = await objectById(app, a);
@@ -92,7 +91,6 @@ const wallTurn = (interact: boolean): Sc => ({
     await app.settled();
     await app.pressKey('Escape'); // 선택 테두리를 걷는다 — 상자는 차체만
 
-    if (!interact) await app.press('fn-simple'); // 심플을 끄고 실물 차체로 잰다
     const field = await app.rectOf('court-surface');
     const box = await app.objectBox(a);
     check(field !== null && box !== null, '판·휠체어가 화면에 없다');
@@ -114,9 +112,78 @@ const wallTurn = (interact: boolean): Sc => ({
       await app.settled();
       check(poseKey([await objectById(app, a)]) === before, '다른 칩을 끌었는데 벽 앞의 칩이 움직였다', { before, after: await objectById(app, a) });
     }
+    await expectQuiet(app, 'S18e');
+  },
+};
+
+const simpleWall: Sc = {
+  // 지우면 새는 실기 버그(2026-11-19 「기본, 심플 모드 완전 분리」): (1) 심플 모드의 원이 앞을 벽 쪽으로 두면 벽에 못 닿는다 —
+  // 보이지 않는 차체 앞(1.04 m)이 먼저 벽에 걸려 원과 벽 사이에 0.5 m 틈이 남는다(옛 「원 ∪ 차체」 경계), (2) 원에는 방향이 없는데
+  // 숫자키·Q·E 가 보이지 않는 각도를 돌린다, (3) 심플을 끄는 것만으로(또는 그 뒤 다른 칩을 끌기만 해도) 벽에 붙인 칩이 튄다 —
+  // 표시 설정이 저장 좌표를 바꾼다. 판정은 앱 상수 없이: 원의 화면 상자가 판(court-surface = 벽 경계) 가장자리에 붙었는가.
+  title: 'S18c 심플 — 원이 앞쪽으로도 벽에 닿는다',
+  needs: ['keyboard'],
+  run: async (app) => {
+    const a = await app.placeFromTray('chair', at(0.5, 0.5), { via: 'drag', team: 'home' });
+    const b = await app.placeFromTray('chair', at(0.5, 0.85), { via: 'drag', team: 'away' });
+
+    await app.press('fn-simple');
+    await app.settled();
+
+    // 놓인 휠체어가 **보는 쪽**의 벽으로 민다(앞이 벽 쪽 — 옛 경계에서 보이지 않는 차체가 먼저 닿던 방향). 세로 창에서는 코트가 돌아 있다
+    const pa = await objectById(app, a);
+    const s0 = await app.worldToScreen(pa);
+    const rad = (pa.angleDeg * Math.PI) / 180;
+    const s1 = await app.worldToScreen({ x: pa.x + 100 * Math.cos(rad), y: pa.y + 100 * Math.sin(rad) });
+    const dx = s1.x - s0.x;
+    const dy = s1.y - s0.y;
+    const toWall = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'ArrowRight' : 'ArrowLeft') : dy > 0 ? 'ArrowDown' : 'ArrowUp';
+
+    const facing = await objectById(app, a);
+    const c = await app.objectCenter(a);
+    check(c !== null, '원이 화면에 없다');
+    await app.tap(c);
+    await app.settled();
+    for (const k of ['5', '9', 'e', 'Shift+q']) await app.pressKey(k); // 방향 키 — 원에는 방향이 없다
+    await app.settled();
+    check((await objectById(app, a)).angleDeg === facing.angleDeg, '심플 모드인데 방향 키가 원의 각도를 돌렸다', { facing, after: await objectById(app, a) });
+
+    for (let i = 0; i < 24; i++) await app.pressKey(`Shift+${toWall}`); // 큰 걸음으로 반 코트 넘게 — 원이 벽에 닿아 멈춘다
+    await app.settled();
+    const moved = await objectById(app, a);
+    // 전제: 키가 이 원에 닿았다(방향 키 단언이 빈손으로 초록이 아니다)
+    check(Math.hypot(moved.x - pa.x, moved.y - pa.y) > 50, '방향키로 원이 안 움직였다(전제 실패 — 선택·포커스)', { pa, moved });
+    await app.pressKey('Escape'); // 선택 테두리를 걷는다 — 상자는 원만
+    const field = await app.rectOf('court-surface');
+    const box = await app.objectBox(a);
+    check(field !== null && box !== null, '판·원이 화면에 없다');
+    const gap = { ArrowLeft: box.left - field.left, ArrowRight: field.right - box.right, ArrowUp: box.top - field.top, ArrowDown: field.bottom - box.bottom }[toWall]!;
+    // 원의 테두리 선은 반 굵기만큼 바깥으로 그려진다 — 허용치는 지름의 15%. 옛 경계(원 ∪ 차체)의 틈은 지름의 54%(13.5/25)라 넉넉히 갈린다.
+    const tol = 0.15 * (box.right - box.left);
+    check(Math.abs(gap) <= tol, '앞을 벽 쪽으로 둔 원이 벽에 안 닿는다(보이지 않는 차체가 막는다)', { gap, tol, box, field, pose: await objectById(app, a) });
+
+    const parked = poseKey([await objectById(app, a)]);
+    if (app.capabilities.has('pointer')) {
+      // 다른 칩을 끈다 — 손대지 않은 원은 한 픽셀도 안 움직인다
+      const from = await app.objectCenter(b);
+      check(from !== null, '상대 휠체어가 화면에 없다');
+      await app.drag(from, shift(from, 40, 0), { steps: 10 });
+      await app.settled();
+      check(poseKey([await objectById(app, a)]) === parked, '심플에서 다른 칩을 끌었는데 벽에 붙인 원이 움직였다', { parked, after: await objectById(app, a) });
+    }
+    await app.press('fn-simple'); // 평소 모드로 — 스위치만으로 칩이 튀면 안 된다
+    await app.settled();
+    check(poseKey([await objectById(app, a)]) === parked, '심플을 껐더니 벽에 붙인 칩이 움직였다', { parked, after: await objectById(app, a) });
+    if (app.capabilities.has('pointer')) {
+      const from = await app.objectCenter(b);
+      check(from !== null, '상대 휠체어가 화면에 없다');
+      await app.drag(from, shift(from, -40, 0), { steps: 10 });
+      await app.settled();
+      check(poseKey([await objectById(app, a)]) === parked, '평소 모드에서 다른 칩을 끌었는데 심플에서 벽에 붙인 칩이 밀렸다', { parked, after: await objectById(app, a) });
+    }
     await expectQuiet(app, 'S18c');
   },
-});
+};
 
 const groupWall = (interact: boolean): Sc => ({
   // 지우면 새는 실기 버그(113154c): 휠체어 여럿을 골라 벽 쪽으로 밀면 칩마다 따로 벽에 서서 **벽 쪽 칩만 멈추고 나머지가
@@ -185,8 +252,9 @@ export default defineGroup('simple', [
       await app.press('court-toggle-interact');
       await closeCourtModal(app);
       await app.press('fn-simple'); // 기능 바 맨 위 토글(2026-11-16 — 모달에서 이사)
+      // [보드 설정] 의 이동 스위치 셋은 심플 모드에서 **안 보인다**(2026-11-19 「보드 다이얼로그에서 숨겨」 — 옛 계약은 disabled + 이유 문구)
       await openCourtModal(app);
-      await eventually('잠금 이유 문구', () => app.present('court-simple-note'), true);
+      check(!(await app.present('court-toggle-interact')), '심플 모드인데 [물리·상호작용] 스위치가 보인다');
       await closeCourtModal(app);
 
       check((await aspectOf(app, a)) < DISC_MAX_ASPECT, '심플 모드를 켰는데 휠체어가 원이 아니다', await app.objectBox(a));
@@ -223,8 +291,8 @@ export default defineGroup('simple', [
       await expectQuiet(app, 'S18b');
     },
   },
-  wallTurn(false),
-  wallTurn(true),
+  simpleWall,
+  wallTurn,
   groupWall(false),
   groupWall(true),
 ]);

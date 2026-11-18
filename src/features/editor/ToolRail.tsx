@@ -16,7 +16,7 @@ import type { ToolId } from '../../physics/index.ts';
 import { LOCKABLE_TOOLS } from '../../store/editor/reducer.ts';
 import { CONE_COLORS } from '../../core/colors.ts';
 import { CHAIR } from '../../core/constants.ts';
-import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX, discEyes, DISC_EYE_FILL, DISC_EYE_RIM, DISC_EYE_RIM_W } from '../../model/chairDisc.ts';
+import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX } from '../../model/chairDisc.ts';
 import { numberedName } from '../../model/chairLabel.ts';
 import { IconPin, IconToolRoute } from '../../ui/icons.tsx';
 import { TOOLS, type ToolDef } from './toolDefs.ts';
@@ -351,32 +351,21 @@ function TrayChairArt({ color, ink, number, empty, disc = false }: { color?: str
   const half = CHAIR.widthPx / 2;
   if (disc) {
     // 심플 모드 — 트레이 칩도 원(model/chairDisc.ts). 앞(눈금)이 위를 보게 -90° 돌린다 — 차체 칩과 같은 약속이다.
+    // ── 2026-11-19: 방향 표시가 없어져(기현님 *"전면 표시 없애고"*) 돌릴 것도, 위로 남길 눈금 자리도 없다 — 뷰박스는 원 하나(±R)이고
+    //    지름은 아래 옛 값(CHIP_H × 2/2.32, 44 기준 33 px)을 그대로 둔다(정사각 상자, 크기 회귀 없음).
     // ⚠️ 크기는 코트 축척이 아니라 **아이콘 무게**로 잡는다(2026-11-16 기현님 *"심플모드 트레이 휠체어 칩이 작다."*).
     //    처음엔 정사각 뷰박스(±1.4R)를 차체 칩의 **좁은 폭**(CHIP_W) 상자에 넣어 지름이 칩 폭의 0.71(44 기준 18 px)이었다.
     //    이제 원 + 위 눈금(끝 1.3R)이 차체 칩의 **긴 변**(CHIP_H) 높이를 꽉 채운다 — 지름 = CHIP_H × 2/2.32(44 기준 33 px),
     //    폭 33 은 상자(--hit 44, 테두리 2×2) 안이다. 끌어 나올 때 고스트(TrayGhost)는 코트 위 실제 크기 그대로다.
     const R = DISC_RADIUS_PX;
     const lineColor = empty ? 'var(--border-strong)' : 'rgba(255,255,255,.92)';
-    const top = R * 1.32; // 눈금 끝(1.3R) + 획 여유
+    const d = `calc(${CHIP_H_CSS} * ${(2 / (2 + 0.32)).toFixed(4)})`;
     return (
-      <svg
-        aria-hidden
-        data-shape="disc"
-        viewBox={`${-R} ${-top} ${R * 2} ${top + R}`}
-        style={{ display: 'block', overflow: 'visible', width: `calc(${CHIP_H_CSS} * ${(2 / (2 + 0.32)).toFixed(4)})`, height: CHIP_H_CSS }}
-      >
-        <g transform="rotate(-90)">
-          <circle r={R} fill={empty ? 'none' : color} stroke={lineColor} strokeWidth={2.2} strokeDasharray={empty ? '5 4' : undefined} />
-          {!empty &&
-            discEyes().map((e, i) => (
-          <circle key={i} data-disc-eye="" cx={e.cx} cy={e.cy} r={e.r} fill={DISC_EYE_FILL} stroke={DISC_EYE_RIM} strokeWidth={DISC_EYE_RIM_W} />
-        ))}
-          <g transform="rotate(90)">
-            <text x={0} y={0} textAnchor="middle" dominantBaseline="central" fill={empty ? 'var(--faint-text)' : ink} style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: DISC_LABEL_FONT_PX }}>
-              {number}
-            </text>
-          </g>
-        </g>
+      <svg aria-hidden data-shape="disc" viewBox={`${-R} ${-R} ${R * 2} ${R * 2}`} style={{ display: 'block', overflow: 'visible', width: d, height: d }}>
+        <circle r={R} fill={empty ? 'none' : color} stroke={lineColor} strokeWidth={2.2} strokeDasharray={empty ? '5 4' : undefined} />
+        <text x={0} y={0} textAnchor="middle" dominantBaseline="central" fill={empty ? 'var(--faint-text)' : ink} style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: DISC_LABEL_FONT_PX }}>
+          {number}
+        </text>
       </svg>
     );
   }

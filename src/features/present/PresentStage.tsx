@@ -342,7 +342,7 @@ export function PresentStage({ drill, showRuleZones, showGrid = false, showGridL
       {/* 진영 표시 — 편집 화면과 **같은 컴포넌트**다. 시연에서 빠지면 코치가 팀에 보여 주는
           화면만 진영을 안 알려 주게 된다(골 지역 붉은 표시는 진영을 따라 나오는데도). */}
       <SideMarks mode={mode} size={drill.courtSize} teams={drill.teams} defense={drill.defense} />
-      <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} ballRings={ballRings} ballOwners={ballOwners} roster={ruleRoster} teams={drill.teams} defense={drill.defense} />
+      <RuleOverlay mode={mode} size={drill.courtSize} visible={showRuleZones} writer={writer} rules={rules} ballIds={ruleBallIds} ballRings={ballRings} ballOwners={ballOwners} roster={ruleRoster} teams={drill.teams} defense={drill.defense} chairDisc={chairDisc} />
       {/* 골대(받침판+기둥) — 규칙 표시 **뒤**, 개체 **앞**. 편집 화면이 골대를 `ObjectLayer`
           맨 아래에서 그리는 그 자리다(2026-09-06 기현 지시: *"골대 밑판 위에 코트 라인이
           보임"*). 그 전에는 `CourtSurface` 안(코트 라인 그룹의 끝)이라 격자·존·깃발보다

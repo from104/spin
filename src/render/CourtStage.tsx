@@ -993,6 +993,7 @@ export const CourtStage = forwardRef<CourtStageHandle, CourtStageProps>(function
             roster={ruleOverlay.roster}
             defense={ruleOverlay.defense}
             teams={ruleOverlay.teams}
+            chairDisc={chairDisc}
           />
         )}
         {/* ★ 작도 도형은 **ObjectLayer 안**에 있다(2026-08-14 지시: *"레이어는 코트보다는 높고

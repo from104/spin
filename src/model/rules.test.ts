@@ -37,6 +37,7 @@ import { attackDir, cornerKickZones, COURT_DEFS, COURT_MODES, COURT_SIZES, court
 import { chairOverlapsCircle, chairOverlapsRect } from './chairOverlap.ts';
 import { BALL as BALL_CONST, CHAIR } from '../core/constants.ts';
 import { PX_PER_M } from '../core/units.ts';
+import { DISC_RADIUS_PX } from './chairDisc.ts';
 
 const BALL = { x: 400, y: 260 };
 /** 골 지역 하나(풀 코트 좌측). 예외 ① 검증에 쓴다. */
@@ -955,5 +956,22 @@ describe('rules — 코너킥: 골 지역 안 수비는 1 m 마크 뒤', () => {
     const { ball, corners, zones, mouths } = big;
     // 물러날 팀 away → home 수비는 대상이 아니고, 띠도 켜지지 않는다.
     expect(ballRingViolation('5m', ball, [inStrip], zones, mouths, 'away', corners)).toBe(0);
+  });
+});
+
+// 심플 모드의 경계선은 원이다(2026-11-19 기현님 지시: *"심플 모드에서 룰에 명시되는 경계선이 0.8 x 1.3 차체가 아니라 원이라는
+// 것이다. 그래서 심플모드에서 괜찮은 위반이 기본모드에서는 아닐 수 있다는 뜻이다."*).
+// 지우면 새는 실기 버그: 심플 모드 판에서 원은 링 밖에 서 있는데 보이지 않는 차체 앞범퍼(26 px)로 판정해 링이 붉어진다 —
+// 화면에 없는 경계선으로 반칙을 가르친다. 반대로 평소 모드에 원 규칙이 새면 앞범퍼로 3 m 를 밟은 진짜 2-on-1 을 놓친다.
+describe('rules — 심플 모드는 원으로 잰다(같은 판이 심플에서는 깨끗, 평소에서는 반칙)', () => {
+  it('★ 공을 마주 본 홈 둘의 앞범퍼만 3 m 를 밟는 판 — 원이면 깨끗, 차체면 2-on-1', () => {
+    const d = RING_R_PX + (DISC_RADIUS_PX + FRONT) / 2; // 원은 링 밖, 앞범퍼는 링 안
+    const pose = (disc: boolean): RuleActor[] => [
+      { ...actor('home', at(d), BALL.y, false, Math.PI), disc },
+      { ...actor('home', BALL.x, BALL.y + d, false, -Math.PI / 2), disc },
+      { ...actor('away', at(-20), BALL.y), disc },
+    ];
+    expect(ringViolation(BALL, pose(true), [GZ_HOME])).toBe(0);
+    expect(ringViolation(BALL, pose(false), [GZ_HOME])).not.toBe(0);
   });
 });

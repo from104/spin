@@ -37,7 +37,7 @@
 import { DEG } from '../../core/angle.ts';
 import { ARROW_CASING, BALL_FILL, CONE_COLORS, COURT_BG, GOAL_BASE_FILL, GOAL_POST_EDGE, GOAL_POST_FILL, NOTE_FILL, NOTE_FOLD_FILL, OBJ_STROKE } from '../../core/colors.ts';
 import { BALL, CHAIR } from '../../core/constants.ts';
-import { DISC_RADIUS_PX, discEyes, DISC_EYE_FILL, DISC_EYE_RIM, DISC_EYE_RIM_W } from '../../model/chairDisc.ts';
+import { DISC_RADIUS_PX } from '../../model/chairDisc.ts';
 import { CONE_BASE_D, CONE_STROKE_W, CONE_TRIANGLE_D } from '../../render/objects/coneGeom.ts';
 import { attackDir, cornerKickZones, courtDefFor, goalBaseRect, goalMouths, SPOT_CROSS_HALF_PX } from '../../model/court.ts';
 import type { CourtDef } from '../../model/court.ts';
@@ -412,11 +412,12 @@ function gridMarkup(opts: StaticSceneOpts): string {
  *  재므로(model/chairOverlap.ts) 방향이 없으면 사각형이 안 만들어진다 — 그런데 `RuleActor.theta`
  *  가 필수라 여기를 빠뜨리면 컴파일이 먼저 막는다. 그 배선을 실제로 재는 것은
  *  buildStaticSvg.test.ts 의 '차체 방향이 PNG 판정까지 온다' 다. */
-function ruleActors(frame: RenderFrame): RuleActor[] {
+function ruleActors(frame: RenderFrame, disc: boolean): RuleActor[] {
   const out: RuleActor[] = [];
   for (const c of frame.chairs) {
     if (c.opacity <= 0) continue;
-    out.push({ id: c.id, team: c.def.team, isGk: c.def.isGk, x: c.x, y: c.y, theta: c.theta });
+    // 심플 모드면 경계선이 원이다(model/chairOverlap.ts 머리말 2026-11-19) — 화면(ruleOverlay.ts fillActors)과 같은 규칙.
+    out.push({ id: c.id, team: c.def.team, isGk: c.def.isGk, x: c.x, y: c.y, theta: c.theta, disc });
   }
   return out;
 }
@@ -432,7 +433,7 @@ function ruleActors(frame: RenderFrame): RuleActor[] {
  *  이쪽으로 온다. 새 규칙 표시를 더할 때 **여기 하나만 고치면 두 경로가 같이 따라온다.** */
 export function ruleMarkup(frame: RenderFrame, opts: StaticSceneOpts): string {
   const def = courtDefFor(opts.mode, opts.size);
-  const actors = ruleActors(frame);
+  const actors = ruleActors(frame, opts.chairDisc === true);
   // 진영을 입힌 골 지역. 화면(RuleOverlay)과 **같은 함수**를 지나야 PNG 만 다른 팀을 칠하는 일이 없다.
   const side = opts.defense ?? defaultDefense(opts.mode);
   const zones = defendedZones(def.ruleZones, side);
@@ -593,17 +594,11 @@ function chairMarkup(c: RenderFrame['chairs'][number], opts: StaticSceneOpts): s
   const m = teamMarkFor(c.def, opts.teams);
   const dash = m.strokeDash ? ` stroke-dasharray="${m.strokeDash}"` : '';
   if (opts.chairDisc) {
-    // 심플 모드 — 원 + 방향 표시(플라나리아 눈 둘). 기하는 model/chairDisc.ts 한 곳(화면 ChairChip 과 같은 출처). 번호는
+    // 심플 모드 — 원 하나(방향 표시 없음, 2026-11-19 「전면 표시 없애고」). 기하는 model/chairDisc.ts 한 곳(화면 ChairChip 과 같은 출처). 번호는
     // 차체와 같이 캔버스가 그린다(buildTextPlacements — 피벗에 앉는다).
     return (
       `<g id="obj-${safeId(c.id)}" transform="${poseTransform(c.x, c.y, c.theta)}"${attrOpacity(c.opacity)} data-shape="disc">` +
       `<circle cx="0" cy="0" r="${num(DISC_RADIUS_PX)}" fill="${safeColor(m.fill, '#888888')}" stroke="${m.stroke}" stroke-width="${num(m.strokeWidth)}"${dash}/>` +
-      discEyes()
-        .map(
-          (e) =>
-            `<circle data-disc-eye="" cx="${num(e.cx)}" cy="${num(e.cy)}" r="${num(e.r)}" fill="${DISC_EYE_FILL}" stroke="${DISC_EYE_RIM}" stroke-width="${DISC_EYE_RIM_W}"/>`,
-        )
-        .join('') +
       `</g>`
     );
   }

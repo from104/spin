@@ -9,7 +9,7 @@ import type { ChairId } from '../../core/ids.ts';
 import type { TransformWriter } from '../transformWriter.ts';
 import type { ZoneConfig } from '../../model/chair.ts';
 import type { TeamSide } from '../../model/drill.ts';
-import { DISC_FOCUS_PAD, DISC_LABEL_FONT_PX, DISC_RADIUS_PX, DISC_SEL_PAD, discEyes, DISC_EYE_FILL, DISC_EYE_RIM, DISC_EYE_RIM_W } from '../../model/chairDisc.ts';
+import { DISC_FOCUS_PAD, DISC_LABEL_FONT_PX, DISC_RADIUS_PX, DISC_SEL_PAD } from '../../model/chairDisc.ts';
 import { CHAIR_STROKE_W, teamPatternFor } from '../teamMark.ts';
 import { ZONE_CURSOR } from '../zoneCursors.ts';
 import { useUprightTransform } from '../stageRot.tsx';
@@ -98,11 +98,14 @@ export const ChairChip = memo(function ChairChip({
   useEffect(() => {
     writer.register(id, bodyRef.current);
     return () => writer.register(id, null);
-  }, [writer, id]);
+  }, [writer, id, disc]); // disc — 아래 번호 등록과 같은 이유(갈래가 바뀌어도 쥔 노드가 실제 노드이게)
+  // ⚠️ `disc` 도 deps 다(2026-11-19). 심플을 켜고 끄면 번호를 담은 `<g>` 가 **새 노드**로 바뀌는데(차체·원 갈래의 자식 배치가
+  // 다르다) 등록이 옛 노드를 쥔 채 남아, 새 번호는 역회전(rotate(−θ))을 한 번도 못 받고 차체 각도대로 누웠다 — 원정(θ = 180°)의
+  // 번호가 거꾸로 섰다(e2e S18c 스크린숏). 다시 등록하면 writer 가 마지막 프레임의 각도로 곧바로 세운다.
   useEffect(() => {
     writer.registerCounter(id, counterRef.current);
     return () => writer.registerCounter(id, null);
-  }, [writer, id]);
+  }, [writer, id, disc]);
 
   const ink = inkFor(color);
   // ⚠️ 6.5 — 칩의 선 색은 차체 밝기로 뒤집힌다(밝은 차체 → 어두운 선). 리터럴
@@ -139,9 +142,7 @@ export const ChairChip = memo(function ChairChip({
           </g>
         )}
         <circle r={DISC_RADIUS_PX} fill={color} stroke={stroke} strokeWidth={CHAIR_STROKE_W} strokeDasharray={pattern.strokeDash} />
-        {discEyes().map((e, i) => (
-          <circle key={i} data-disc-eye="" cx={e.cx} cy={e.cy} r={e.r} fill={DISC_EYE_FILL} stroke={DISC_EYE_RIM} strokeWidth={DISC_EYE_RIM_W} />
-        ))}
+        {/* 방향 표시 없음(2026-11-19 기현님 *"전면 표시 없애고"*) — 심플 모드의 원에는 방향이 없다(model/chairDisc.ts 머리말). */}
         <g ref={counterRef}>
           <g transform={upright}>
             <text x={0} y={0} fontFamily={FONT} fontSize={DISC_LABEL_FONT_PX} fontWeight={700} fill={ink} textAnchor="middle" dominantBaseline="central">

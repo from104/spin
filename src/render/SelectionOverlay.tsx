@@ -6,8 +6,11 @@ import { forwardRef, useImperativeHandle, useRef } from 'react';
 import type { Vec2 } from '../core/units.ts';
 import { DEG } from '../core/angle.ts';
 import { NOTE } from '../core/constants.ts';
+import { DISC_RADIUS_PX, DISC_SEL_PAD } from '../model/chairDisc.ts';
 
-export type SelectionShape = 'chair' | 'ball' | 'cone' | 'note';
+/** `disc` = 심플 모드의 휠체어(원, 2026-11-19 기현님 *"드래그 때도 차체 경계선도 없애고"*). 끄는 동안의 링·고스트가
+ *  차체 사각형이면 원 위에 보이지 않던 차체 경계선이 그때만 드러난다 — 원 링으로 그린다. */
+export type SelectionShape = 'chair' | 'disc' | 'ball' | 'cone' | 'note';
 
 export interface SelectionOverlayHandle {
   /** 선택 링. shape=null 이면 숨긴다.
@@ -22,7 +25,7 @@ export interface SelectionOverlayHandle {
 
 /** 메모만 상수에서 온다 — 링·히트 상한·쪽지 칩이 같은 숫자를 쓰지 않으면 §4.3 P1-5 의
  *  "보이는데 안 잡힌다" 가 되살아난다(NOTE 머리말 참고). */
-const RING_ROUND_R: Record<Exclude<SelectionShape, 'chair'>, number> = { ball: 12, cone: 9, note: NOTE.ringRadiusPx };
+const RING_ROUND_R: Record<Exclude<SelectionShape, 'chair'>, number> = { disc: DISC_RADIUS_PX + DISC_SEL_PAD, ball: 12, cone: 9, note: NOTE.ringRadiusPx };
 const hide = (el: SVGElement | null): void => {
   if (el) el.style.display = 'none';
 };

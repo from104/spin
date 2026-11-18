@@ -182,8 +182,9 @@ function polylineLength(pts: readonly Vec2[]): number {
   return sum;
 }
 
-function shapeOf(kind: HitResult['kind']): SelectionShape | null {
-  if (kind === 'chair') return 'chair';
+function shapeOf(kind: HitResult['kind'], chairDisc = false): SelectionShape | null {
+  // 심플 모드의 휠체어는 끄는 동안에도 원이다(SelectionOverlay 'disc' — 차체 사각형 링·고스트를 안 그린다).
+  if (kind === 'chair') return chairDisc ? 'disc' : 'chair';
   if (kind === 'ball') return 'ball';
   if (kind === 'cone') return 'cone';
   if (kind === 'note') return 'note';
@@ -761,7 +762,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         const handle = ctx.worldRef.current?.beginDrag(hit, world) ?? null;
         dragHandleRef.current = handle;
         draggedIdRef.current = hit.id;
-        dragKindRef.current = 'chair';
+        dragKindRef.current = shapeOf('chair', ctx.chairDisc === true);
         // 견인 손잡이로 끌어도 트레이에 놓으면 빠진다 — 잡은 곳이 차체냐 손잡이냐로 결과가
         // 갈리면 그것은 규칙이 아니라 사고다. revert 가 빈 이유는 trayCargoRef 주석 참고.
         trayCargoRef.current = { ids: [hit.id], revert: () => {} };
@@ -773,7 +774,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         // 드래그 중에는 60fps 로 따라가야 해서 React 를 거칠 수 없다(§6.1 규칙 1).
         if (handle) {
           const cur = ctx.worldRef.current?.read()?.[hit.id];
-          if (cur) selectionOverlayRef.current?.setRing('chair', cur.x, cur.y, cur.theta);
+          if (cur) selectionOverlayRef.current?.setRing(dragKindRef.current, cur.x, cur.y, cur.theta);
         }
         setActiveZone(handle?.zone ?? hit.zone ?? null);
         if (handle?.zone) liveRegion.say(`${ZONE_LABEL[locale][handle.zone]} 잡음`);
@@ -805,7 +806,7 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
         const handle = ctx.worldRef.current?.beginDrag(hit, world) ?? null;
         dragHandleRef.current = handle;
         draggedIdRef.current = hit.id;
-        dragKindRef.current = shapeOf(hit.kind);
+        dragKindRef.current = shapeOf(hit.kind, ctx.chairDisc === true);
         trayCargoRef.current = { ids: [hit.id], revert: () => {} };
         // 잡힌 개체는 판에서 뜬다(§4.3 P1-1). 실제로 물리 드래그가 시작된 경우에만 —
         // 손을 대기만 하고 잡히지 않았는데 뜨면 그 신호는 거짓말이 된다.

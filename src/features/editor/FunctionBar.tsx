@@ -756,49 +756,51 @@ export function FunctionBar({
             />
           </div>
 
-          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
+          {/* ── 2026-11-19 기현님 지시 *"기본, 심플 모드 완전 분리. 심플모드에서는 물리상호, 앵커로 잡아 끌기, 마우스로 끌어 회전
+              모두 보드 다이얼로그에서 숨겨."* — 심플 모드에서는 [이동] 묶음(스위치 셋)과 그 앞 구분선을 **통째로** 안 그린다.
+              옛 계약(지우지 않는다): 스위치를 끈 채 disabled 로 두고 「심플 모드에서는 쓸 수 없습니다 …」 문구를 달았다(11-16).
+              숨겨도 저장값(prefs.physics.interact·dragRotate·anchors)은 손대지 않는다 — 심플을 끄면 원래 값으로 돌아온다
+              (월드·편집기는 `&& !simple` 로 읽을 뿐 쓰지 않는다, FunctionBar.simple.test.tsx). */}
+          {!simple && (
+            <>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
 
-          <div role="group" aria-label={t('editor.functionBar.courtModal.moveGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.moveGroupLabel')}</p>
-            {/* (2026-11-16 기현님 지시로 [실제 속도로 제한] 스위치 폐기 — 편집기는 늘 상한 없음, EditorProvider EDITOR_LIMITS) */}
-            {/* ── 2026-11-13 기현님 지시: 스위치 셋, **셋 다 기본 끔** ──────────────────────────
-                판을 짜는 손이 주인이 되게 한다 — 끄면 개체는 서로 겹쳐 지나가고(물리), 차체는
-                어디를 잡아도 그대로 옮겨지며(회전), 고른 휠체어 앞뒤에 손잡이가 안 뜬다(앵커).
-                값은 prefs.physics 에 살고(storage/prefs.ts PhysicsParams 주석) 판정·그림이 같은
-                값을 본다. 옛 접근성 [2존 모드]는 회전 끔 + 앵커 켬을 한 스위치로 묶던 것이라
-                이 둘로 갈라지며 폐기됐다. */}
-            <ModalToggle
-              testId="court-toggle-interact"
-              on={physics.interact && !simple}
-              disabled={simple}
-              onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, interact: !physics.interact }) })}
-              icon={<IconCollide />}
-              text={t('editor.functionBar.courtModal.interactText')}
-              hint={simple ? t('editor.functionBar.courtModal.simpleLockedReason') : physics.interact ? t('editor.functionBar.courtModal.interactOn') : t('editor.functionBar.courtModal.interactOff')}
-            />
-            <ModalToggle
-              on={physics.dragRotate && !simple}
-              disabled={simple}
-              onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, dragRotate: !physics.dragRotate }) })}
-              icon={<IconDragRotate />}
-              text={t('editor.functionBar.courtModal.dragRotateText')}
-              hint={simple ? t('editor.functionBar.courtModal.simpleLockedReason') : physics.dragRotate ? t('editor.functionBar.courtModal.dragRotateOn') : t('editor.functionBar.courtModal.dragRotateOff')}
-            />
-            <ModalToggle
-              on={physics.anchors && !simple}
-              disabled={simple}
-              onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, anchors: !physics.anchors }) })}
-              icon={<IconAnchors />}
-              text={t('editor.functionBar.courtModal.anchorsText')}
-              hint={simple ? t('editor.functionBar.courtModal.simpleLockedReason') : physics.anchors ? t('editor.functionBar.courtModal.anchorsOn') : t('editor.functionBar.courtModal.anchorsOff')}
-            />
-            {/* 이유를 눈에 보이게 적는다 — title 은 터치에서 안 보이고, 꺼진 스위치가 왜 꺼졌는지는 이 줄이 말한다. */}
-            {simple && (
-              <p data-testid="court-simple-note" style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted)' }}>
-                {t('editor.functionBar.courtModal.simpleLockedReason')}
-              </p>
-            )}
-          </div>
+              <div role="group" aria-label={t('editor.functionBar.courtModal.moveGroupLabel')} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <p style={SECTION_LABEL}>{t('editor.functionBar.courtModal.moveGroupLabel')}</p>
+                {/* (2026-11-16 기현님 지시로 [실제 속도로 제한] 스위치 폐기 — 편집기는 늘 상한 없음, EditorProvider EDITOR_LIMITS) */}
+                {/* ── 2026-11-13 기현님 지시: 스위치 셋, **셋 다 기본 끔** ──────────────────────────
+                    판을 짜는 손이 주인이 되게 한다 — 끄면 개체는 서로 겹쳐 지나가고(물리), 차체는
+                    어디를 잡아도 그대로 옮겨지며(회전), 고른 휠체어 앞뒤에 손잡이가 안 뜬다(앵커).
+                    값은 prefs.physics 에 살고(storage/prefs.ts PhysicsParams 주석) 판정·그림이 같은
+                    값을 본다. 옛 접근성 [2존 모드]는 회전 끔 + 앵커 켬을 한 스위치로 묶던 것이라
+                    이 둘로 갈라지며 폐기됐다. */}
+                <ModalToggle
+                  testId="court-toggle-interact"
+                  on={physics.interact}
+                  onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, interact: !physics.interact }) })}
+                  icon={<IconCollide />}
+                  text={t('editor.functionBar.courtModal.interactText')}
+                  hint={physics.interact ? t('editor.functionBar.courtModal.interactOn') : t('editor.functionBar.courtModal.interactOff')}
+                />
+                <ModalToggle
+                  testId="court-toggle-dragRotate"
+                  on={physics.dragRotate}
+                  onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, dragRotate: !physics.dragRotate }) })}
+                  icon={<IconDragRotate />}
+                  text={t('editor.functionBar.courtModal.dragRotateText')}
+                  hint={physics.dragRotate ? t('editor.functionBar.courtModal.dragRotateOn') : t('editor.functionBar.courtModal.dragRotateOff')}
+                />
+                <ModalToggle
+                  testId="court-toggle-anchors"
+                  on={physics.anchors}
+                  onClick={() => setPrefs({ physics: prunePhysics({ ...prefs.physics, anchors: !physics.anchors }) })}
+                  icon={<IconAnchors />}
+                  text={t('editor.functionBar.courtModal.anchorsText')}
+                  hint={physics.anchors ? t('editor.functionBar.courtModal.anchorsOn') : t('editor.functionBar.courtModal.anchorsOff')}
+                />
+              </div>
+            </>
+          )}
 
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} aria-hidden />
 

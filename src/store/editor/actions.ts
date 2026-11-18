@@ -228,8 +228,10 @@ export type EditorAction =
    *  아니라 메뉴 자체가 단일 선택 전용이다(계획서 결정 10) — id 를 배열로 열어 두면 부르는
    *  쪽이 언젠가 그 답 없는 조작을 시도한다.
    *  겹침 판정(어느 것을 건너뛰는가)은 리듀서가 `physics/bounds.overlappingIds` 로 그 자리에서
-   *  다시 뜬다 — 액션에 실어 보내면 메뉴를 연 시점의 낡은 겹침으로 판이 바뀔 수 있다. */
-  | { type: 'Z_ORDER'; id: string; op: ZOp }
+   *  다시 뜬다 — 액션에 실어 보내면 메뉴를 연 시점의 낡은 겹침으로 판이 바뀔 수 있다.
+   *  `chairDisc` = 심플 모드(휠체어 상자 = 원 상자, 2026-11-19). 겹침이 아니라 **잴 모양**을 싣는다 — 기기 표시 설정이라
+   *  리듀서는 모른다. 메뉴(EditorStage zMoves)와 같은 값을 넘겨야 메뉴가 켠 칸을 리듀서가 무시하지 않는다. */
+  | { type: 'Z_ORDER'; id: string; op: ZOp; chairDisc?: boolean }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 

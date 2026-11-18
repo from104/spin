@@ -451,7 +451,7 @@ export function drillReducer(s: EditorState, a: EditorAction): Drill {
     case 'Z_ORDER': {
       const step = d.steps[i];
       if (!step) return d;
-      const next = moveZ(step, d.cast, a.id, a.op, overlappingIds(step, d.cast, a.id));
+      const next = moveZ(step, d.cast, a.id, a.op, overlappingIds(step, d.cast, a.id, a.chairDisc));
       if (next === step) return d;
       const steps = d.steps.slice();
       steps[i] = next;

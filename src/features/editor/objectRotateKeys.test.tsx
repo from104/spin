@@ -32,6 +32,13 @@ describe('회전이 걸리는 종류', () => {
     for (const id of ['nt_1', 'bl_1', 'cn_1']) expect(canRotateKind(id), id).toBe(false);
   });
 
+  it('★ 심플 모드(chairDisc)의 휠체어는 안 돈다 — 키(Q·E·숫자 1–9)·패드·방향판이 모두 이 판정을 지난다(2026-11-19)', () => {
+    expect(canRotateKind('ch_1', true)).toBe(false);
+    expect(canRotate(['ch_1'], true)).toBe(false);
+    // 방향이 없어지는 것은 원뿐이다 — 도형·선·자유선은 심플에서도 돈다
+    for (const id of ['sh_1', 'ar_1', 'fh_1']) expect(canRotateKind(id, true), id).toBe(true);
+  });
+
   it('여럿이면 종류와 무관하게 안 돈다 — 무리의 회전축은 답이 하나로 안 나온다', () => {
     expect(canRotate(['sh_1'])).toBe(true);
     expect(canRotate(['sh_1', 'sh_2'])).toBe(false);

@@ -1,0 +1,62 @@
+// 심플 모드에서 원을 벽에 붙이고(앞이 벽 쪽 — 실물 차체로는 13.5 px 판 밖) 평소 모드로 돌아간다(2026-11-19 「기본, 심플 모드
+// 완전 분리」, PLAN-SIMPLE-DRIVE 결정 A4 개정).
+// 지우면 새는 실기 버그: (1) 심플에서 원을 벽까지 끌어 놓는 순간 안전망이 실물 차체 규칙으로 밀어 원이 벽에서 13.5 px 떨어진다
+// (바둑돌을 벽에 못 붙인다), (2) 평소 모드로 돌아가 **다른** 칩을 끌기만 해도 그 칩이 13.5 px 밀리고, 드래그 정착 커밋이 스냅샷
+// 전부를 드릴에 써서 손대지 않은 칩의 저장 좌표가 바뀐다(simpleBounds.test.ts 와 같은 사고의 반대 방향).
+// 상호작용 켬(평소 모드)은 여기서 재지 않는다 — Matter 벽이 실물 차체에 닿아 그 칩을 밀어낸다(정착 커밋에 쓰인다). 그건
+// 상호작용을 켠 판의 물리이고 막을 장치가 없다(계획서 A4 개정의 남은 결정).
+import { describe, expect, it } from 'vitest';
+import { createPhysicsWorld } from './index.ts';
+import type { DrillCast, DrillStep } from '../model/drill.ts';
+import { PHYS } from '../core/constants.ts';
+import type { ChairId, StepId } from '../core/ids.ts';
+import { DISC_RADIUS_PX } from '../model/chairDisc.ts';
+
+const mover = 'ch_mover' as ChairId;
+const parked = 'ch_parked' as ChairId;
+const W = 825;
+const cast: DrillCast = {
+  chairs: [
+    { id: mover, team: 'home', number: '2', isGk: false },
+    { id: parked, team: 'away', number: '3', isGk: false },
+  ],
+  balls: [],
+  cones: [],
+};
+
+function drag(api: ReturnType<typeof createPhysicsWorld>, id: ChairId, from: { x: number; y: number }, to: { x: number; y: number }, s: number): void {
+  const h = api.beginDrag({ kind: 'chair', id, s }, from)!;
+  let now = 0;
+  for (let i = 0; i < 1400; i++) {
+    now += PHYS.dtMs;
+    h.move(to, now);
+    api.step(PHYS.dtS);
+  }
+  h.end();
+  for (let i = 0; i < 240; i++) api.step(PHYS.dtS);
+}
+
+describe('심플에서 벽에 붙인 원 → 평소 모드(상호작용 끔)', () => {
+  it('★ 원은 앞을 벽 쪽으로 두고도 벽까지 닿고, 평소로 돌아가 다른 칩을 끌어도 그 자리 그대로다', () => {
+    const api = createPhysicsWorld(W, 525);
+    api.setInteract(false); // EditorProvider 의 심플 effect 와 같은 두 줄
+    api.setDiscBounds(true);
+    const step: DrillStep = {
+      id: 'st_x' as StepId, name: '', note: '',
+      // θ = 0 — 앞(+x)이 오른쪽 벽을 본다
+      chairs: { [mover]: { x: 400, y: 300, angleDeg: 0 }, [parked]: { x: 300, y: 100, angleDeg: 0 } },
+      balls: {}, cones: {}, arrows: [], notes: [], shapes: [],
+    };
+    api.load(cast, step, 'full');
+    drag(api, parked, { x: 300, y: 100 }, { x: 900, y: 100 }, 0.5);
+    const parkedX = api.read()[parked]!.x;
+    expect(W - DISC_RADIUS_PX - parkedX).toBeLessThan(0.05); // 원이 벽에 닿았다(놓은 뒤 정착까지 지나도)
+
+    api.setDiscBounds(false); // 심플 끔 — 저장값(끔) 그대로
+    drag(api, mover, { x: 400, y: 300 }, { x: 500, y: 300 }, 0.25);
+    const snap = api.read();
+    api.dispose();
+    expect(snap[mover]!.x).toBeGreaterThan(450); // 전제: 다른 칩은 실제로 끌렸다
+    expect(snap[parked]!.x).toBe(parkedX);
+  });
+});

@@ -47,11 +47,13 @@ describe('무리 이동 — 한 덩어리로 벽에 선다', () => {
     expect(d.x).toBeCloseTo(-(40 - CHAIR.pivotToRearPx));
     expect(d.y).toBe(0);
   });
-  it('심플: 원(반지름 12.5)이 먼저 닿는다', () => {
+  it('심플: 원(반지름 12.5)이 먼저 닿는다 — 뒤로도, **앞을 벽 쪽으로 두고도**(보이지 않는 차체 앞 26 이 세우지 않는다)', () => {
     const api = world(true);
-    const d = api.groupDelta([a, b, ball], { x: -100, y: 0 });
+    const back = api.groupDelta([a, b, ball], { x: -100, y: 0 });
+    const front = api.groupDelta([a, b], { x: 1000, y: 0 });
     api.dispose();
-    expect(d.x).toBeCloseTo(-(40 - 12.5));
+    expect(back.x).toBeCloseTo(-(40 - 12.5));
+    expect(front.x).toBeCloseTo(825 - 12.5 - 140);
   });
   it('공이 가장 먼저 닿으면 공이 세운다 — 공·콘도 판 밖으로 안 나간다', () => {
     const api = world(false);

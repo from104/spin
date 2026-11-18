@@ -176,6 +176,8 @@ export interface RuleActor {
   x: number;
   y: number;
   theta: number;
+  /** 심플 모드 — 이 휠체어의 경계선은 원이다(chairOverlap.ts 머리말 2026-11-19). 없으면 실물 차체. */
+  disc?: boolean;
 }
 
 /** 경계 위는 안이다 — 축구에서 라인 위는 언제나 그 구역 안이다.
@@ -218,7 +220,7 @@ export function isBallOutOfPlay(mode: CourtMode, surface: Rect, ball: Vec2, radi
 function chairInOwnGoalArea(zones: readonly DefendedZone[], a: RuleActor): boolean {
   for (const z of zones) {
     if (z.defender !== a.team) continue;
-    if (chairOverlapsRect(a.x, a.y, a.theta, z.rect.x, z.rect.y, z.rect.w, z.rect.h)) return true;
+    if (chairOverlapsRect(a.x, a.y, a.theta, z.rect.x, z.rect.y, z.rect.w, z.rect.h, a.disc)) return true;
   }
   return false;
 }
@@ -232,7 +234,7 @@ function chairInOwnGoalArea(zones: readonly DefendedZone[], a: RuleActor): boole
  *  한 함수로 뭉치면 둘 중 하나가 조용히 상대 쪽 규약으로 끌려간다. */
 function chairBehindMouth(m: DefendedMouth, a: RuleActor): boolean {
   if (m.defender !== a.team) return false;
-  return chairInsideBounds(a.x, a.y, a.theta, m.mouth.minX, m.mouth.maxX, m.mouth.minY, m.mouth.maxY);
+  return chairInsideBounds(a.x, a.y, a.theta, m.mouth.minX, m.mouth.maxX, m.mouth.minY, m.mouth.maxY, a.disc);
 }
 
 function chairBehindOwnGoalLine(mouths: readonly DefendedMouth[], a: RuleActor): boolean {
@@ -265,7 +267,7 @@ export function ringViolation(
   let countedHome = 0;
   let countedAway = 0;
   for (const a of actors) {
-    if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_R_PX)) continue;
+    if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_R_PX, a.disc)) continue;
     // 골키퍼 면제는 **자리가 둘**이다 — 자기 골 지역 안(예외 ①) 이거나 자기 골라인 완전히
     // 뒤(예외 ①-b). 둘의 문턱이 서로 반대라(걸치면 / 완전히) 함수도 갈라 둔다.
     const exempt = a.isGk && (chairInOwnGoalArea(goalAreas, a) || chairBehindOwnGoalLine(mouths, a));
@@ -317,7 +319,7 @@ export function zoneViolation(zone: DefendedZone, actors: readonly RuleActor[], 
   let count = 0;
   for (const a of actors) {
     if (a.team !== zone.defender) continue; // 공격은 제한 없다
-    const inZone = chairOverlapsRect(a.x, a.y, a.theta, zone.rect.x, zone.rect.y, zone.rect.w, zone.rect.h);
+    const inZone = chairOverlapsRect(a.x, a.y, a.theta, zone.rect.x, zone.rect.y, zone.rect.w, zone.rect.h, a.disc);
     // OR 이라 골라인에 걸친 채 양쪽을 다 만족하는 차체도 한 번만 세어진다.
     if (!inZone && !(behind !== undefined && chairBehindMouth(behind, a))) continue;
     count++;
@@ -393,9 +395,9 @@ export function fiveMeterViolation(
     if (a.isGk && chairBehindOwnGoalLine(mouths, a)) continue; // 예외 ④
     if (corner !== null) {
       const { area } = corner;
-      if (chairOverlapsRect(a.x, a.y, a.theta, area.x, area.y, area.w, area.h)) continue; // ②
+      if (chairOverlapsRect(a.x, a.y, a.theta, area.x, area.y, area.w, area.h, a.disc)) continue; // ②
     }
-    if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_5M_R_PX)) continue;
+    if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_5M_R_PX, a.disc)) continue;
     return TEAM_BIT[defense];
   }
   return 0;
@@ -415,7 +417,7 @@ export function cornerMarkViolation(
   for (const a of actors) {
     if (a.team !== defense) continue;
     if (a.isGk && chairBehindOwnGoalLine(mouths, a)) continue; // 예외 ④
-    if (chairOverlapsRect(a.x, a.y, a.theta, strip.x, strip.y, strip.w, strip.h)) return TEAM_BIT[defense];
+    if (chairOverlapsRect(a.x, a.y, a.theta, strip.x, strip.y, strip.w, strip.h, a.disc)) return TEAM_BIT[defense];
   }
   return 0;
 }

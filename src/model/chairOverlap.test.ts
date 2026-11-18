@@ -326,7 +326,8 @@ describe('chairOverlap — 매 프레임 도는 코드라 **할당이 없다**',
     for (const [, name, params, ret] of sigs) {
       const list = params!.split(',').map((s) => s.trim()).filter(Boolean);
       expect(list.length, `${name} 인자 없음`).toBeGreaterThan(0);
-      for (const p of list) expect(p, `${name} 의 ${p}`).toMatch(/:\s*number$/);
+      // 끝 인자 `disc = false`(심플 모드 원 판정, 2026-11-19)는 불리언 원시값이라 할당 규율에 걸리지 않는다.
+      for (const p of list) expect(p, `${name} 의 ${p}`).toMatch(/:\s*number$|^disc = false$/);
       expect(['number', 'boolean'], `${name} 반환`).toContain(ret);
     }
     // 반환값이 실제로 원시값이다(객체를 감싸 돌려주지 않는다).

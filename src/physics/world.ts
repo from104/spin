@@ -5,7 +5,7 @@ import type { Vec2 } from '../core/units.ts';
 import type { ChairPose } from '../model/chair.ts';
 import type { ChairId, BallId, ConeId, CastId } from '../core/ids.ts';
 import type { Bounds, PoseBuffer } from './types.ts';
-import { escapePinned, pushChairIntoBounds } from './obb.ts';
+import { escapePinned, pushChairIntoBounds, pushChairIntoEither } from './obb.ts';
 import { applyStaticSurface, createChairBody, createBallBody, createConeBody, createGoalPostBody, createWalls } from './bodies.ts';
 
 const { Engine, Body, Composite, Events } = Matter;
@@ -302,6 +302,11 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
  *  사이에 끼면 Resolver 가 넘치는 만큼을 양쪽에 반씩 나눠 주고, 그 절반이 곧 벽 너머다
  *  (실측: 825×525 코트에서 밀린 칩이 피벗 x=-5, 차체 뒤끝 -12.5 로 나가 그대로 굳었다). */
 export function escapePinnedAll(w: WorldHandles, bounds: Bounds, interact = true): void {
+  // 상호작용이 꺼져 있으면 휠체어를 판 밖으로 미는 것이 **없다**(충돌 마스크 0 — 이웃도 Matter 벽도 안 닿는다). 그때 판 밖인
+  // 칩은 다른 모드(심플 ↔ 평소)의 벽에 붙여 둔 칩뿐이라, 지금 모드의 규칙으로 밀면 표시 설정이 손대지 않은 칩을 옮긴다 —
+  // 원·차체 중 하나라도 판 안이면 둔다(obb.ts pushChairIntoEither, 2026-11-19 「기본, 심플 모드 완전 분리」).
+  // 켜져 있으면 옛 규칙 그대로 실물 차체(§4.2 P0-3 — 밀려난 칩을 되민다).
+  const lenientChairs = !interact;
   const allChairs: ChairPose[] = [];
   for (const b of Composite.allBodies(w.engine.world)) {
     if (b.label !== 'chair') continue;
@@ -309,7 +314,7 @@ export function escapePinnedAll(w: WorldHandles, bounds: Bounds, interact = true
     allChairs.push(pose);
     // 잡은 칩은 static 이고 drag.ts 가 이미 막는다 — 손이 쥔 것을 안전망이 옮기지 않는다.
     if (b.isStatic) continue;
-    const out = pushChairIntoBounds(pose, bounds);
+    const out = lenientChairs ? pushChairIntoEither(pose, bounds) : pushChairIntoBounds(pose, bounds);
     if (out.x === pose.x && out.y === pose.y) continue;
     setPosition3(b, out, false);
     // 아래 원(공·콘·골대) 탈출이 **되돌린 뒤의** 차체를 보게 같은 배열을 갱신한다.

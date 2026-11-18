@@ -149,9 +149,12 @@ export interface NudgePadProps {
   onNudge(ids: string[], dx: number, dy: number, dTheta: number): void;
   /** 방향판(휠체어 하나일 때만 뜬다) — 화면 방향을 보게 돌리기 또는 180°. 없으면 방향판을 안 그린다. */
   onHeading?(ids: string[], cmd: HeadingCmd): void;
+  /** 심플 모드(휠체어 = 원, 2026-11-19 기현님 지시 *"미세 조정 패널에서도 상하좌우 이동만 되고 방향 관련을 숨겨"*) — 원에는 방향이
+   *  없어 방향판·180°·회전 칸이 다 빠지고 ▲◀▼▶ 넷만 남는다. 판정은 nudgeCaps `canRotate` 하나다(키보드 Q·E·숫자키와 같은 답). */
+  chairDisc?: boolean;
 }
 
-export function NudgePad({ target, onClose, onNudge, onHeading }: NudgePadProps) {
+export function NudgePad({ target, onClose, onNudge, onHeading, chairDisc = false }: NudgePadProps) {
   const t = useT();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -183,7 +186,7 @@ export function NudgePad({ target, onClose, onNudge, onHeading }: NudgePadProps)
 
   if (!target) return null;
 
-  const rot = canRotate(target.ids);
+  const rot = canRotate(target.ids, chairDisc);
   // 방향판은 휠체어 하나일 때만(2026-11-16 기현님 지시 "휠체어의 미세 조종 패널 위에 8방향 설정과 중앙은 180도 회전").
   // 방향이 뜻을 갖는 캐스트는 휠체어뿐이고(nudgeCaps), 여럿이면 회전 칸과 같은 이유로 축이 하나로 안 정해진다.
   const heading = onHeading !== undefined && rot && isId(target.ids[0]!, 'ch');

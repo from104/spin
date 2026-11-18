@@ -152,6 +152,9 @@ export interface RuleOverlayContext {
    *  가려낸다(model/rules.ts). RuleOverlay.tsx 가 이미 계산해 둔 `courtDefFor(mode,size).surface`
    *  를 그대로 넘긴다 — 여기서 다시 계산하지 않는다. */
   court: { mode: CourtMode; surface: Rect };
+  /** 심플 모드 — 휠체어의 경계선을 원으로 잰다(model/chairOverlap.ts 머리말 2026-11-19). 같은 판이 심플에서는 깨끗하고
+   *  평소에서는 붉을 수 있다 — 의도한 것이다. 없으면 실물 차체. */
+  chairDisc?: boolean;
 }
 
 export interface RuleOverlayApi {
@@ -275,6 +278,7 @@ export function createRuleOverlay(deps: Partial<RuleOverlayDeps> = {}): RuleOver
       // 싣는다(위 write() 주석) — 여기가 `?? 0` 이라는 사실이 판정을 조용히 틀리게 하는
       // 유일한 통로이므로, 두 화면 테스트가 회전한 차체로 그 통로를 직접 찌른다.
       a.theta = p.theta ?? 0;
+      a.disc = ctx.chairDisc === true;
       live.push(a);
     }
   }

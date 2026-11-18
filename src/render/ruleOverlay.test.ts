@@ -436,3 +436,23 @@ describe('ruleOverlay — 아웃오브플레이(공 채움색)', () => {
     expect(h.say).toHaveBeenCalledTimes(1);
   });
 });
+
+// 심플 모드의 판정 경계선은 원이다(2026-11-19 기현님 지시 *"심플 모드에서 룰에 명시되는 경계선이 … 원이라는 것이다"*).
+// 지우면 새는 실기 버그: 판정 함수(model/chairOverlap.ts)는 원을 알아도 화면 배선(setContext → fillActors)이 그 값을 안 실으면 심플
+// 모드 판이 보이지 않는 차체로 붉어진다. 공을 마주 본 홈 둘의 앞범퍼(피벗 앞 26 px)만 3 m 를 밟는 배치 — 원(12.5)으로는 링 밖.
+describe('ruleOverlay — 심플 모드는 원으로 잰다', () => {
+  const FRONT_ONLY = {
+    [BALL_ID]: { x: 400, y: 260 },
+    ch_a: { x: 400 + 95, y: 260, theta: Math.PI }, // 피벗 3.8 m — 앞범퍼(26 px)만 링 안
+    ch_b: { x: 400, y: 260 + 95, theta: -Math.PI / 2 },
+    ch_c: { x: 420, y: 260, theta: 0 },
+  };
+  it('★ 같은 배치가 평소에는 붉고 심플에서는 깨끗하다', () => {
+    const body = harness();
+    body.api.write(FRONT_ONLY);
+    expect(body.ring.getAttribute('stroke')).toBe(RULE_ALERT_STROKE);
+    const disc = harness({ chairDisc: true });
+    disc.api.write(FRONT_ONLY);
+    expect(disc.ring.getAttribute('stroke')).toBe(RULE_OK_STROKE);
+  });
+});

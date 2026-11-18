@@ -48,7 +48,7 @@ import {
   noteLines,
 } from '../../render/objects/noteChip.ts';
 import { teamMarkFor } from '../../render/teamMark.ts';
-import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX, discEyes, DISC_EYE_FILL, DISC_EYE_RIM, DISC_EYE_RIM_W } from '../../model/chairDisc.ts';
+import { DISC_LABEL_FONT_PX, DISC_RADIUS_PX } from '../../model/chairDisc.ts';
 import { PRINT_COURT_CLASS } from './printDom.ts';
 import { useLocale } from '../../i18n/useLocale.ts';
 
@@ -97,8 +97,9 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
       teams: drill.teams,
       defense: drill.defense,
       showRuleZones: view.showRuleZones,
+      chairDisc: view.chairDisc, // 심플 모드면 규칙 경계선도 원(model/chairOverlap.ts 2026-11-19)
     });
-  }, [drill, frame, view.showRuleZones]);
+  }, [drill, frame, view.showRuleZones, view.chairDisc]);
   // 마커는 (색 × 굵기)마다 하나다 — 색은 화살표·획을 합쳐서, 굵기 축은 획만 갖는다
   // (render/arrowHeadGeom.ts). 여기서 획의 색을 빠뜨리면 촉을 켠 획만 종이에서 촉을 잃는다.
   const usedColors = Array.from(new Set([...step.arrows.map((a) => arrowColor(a)), ...(step.strokes ?? []).map((s) => strokeColor(s))]));
@@ -276,7 +277,7 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
                 opacity={(chairOpacity.get(c.id) ?? 1) < 1 ? chairOpacity.get(c.id) : undefined}
               >
                 {view.chairDisc ? (
-                  // 심플 모드 — 원 + 방향 표시(플라나리아 눈 둘) + 가운데 번호(기하는 model/chairDisc.ts, 화면·PNG 와 같은 출처).
+                  // 심플 모드 — 원 + 가운데 번호(방향 표시 없음, 2026-11-19 「전면 표시 없애고」)(기하는 model/chairDisc.ts, 화면·PNG 와 같은 출처).
                   <>
                     <circle
                       cx={0}
@@ -287,9 +288,6 @@ export function PrintCourt({ drill, step, ariaLabel, view }: PrintCourtProps) {
                       strokeWidth={mark.strokeWidth}
                       strokeDasharray={mark.strokeDash}
                     />
-                    {discEyes().map((e, i) => (
-          <circle key={i} data-disc-eye="" cx={e.cx} cy={e.cy} r={e.r} fill={DISC_EYE_FILL} stroke={DISC_EYE_RIM} strokeWidth={DISC_EYE_RIM_W} />
-        ))}
                     <g transform={`rotate(${-pose.angleDeg})`}>
                       <text x={0} y={0} fontFamily={NUM_FONT} fontSize={DISC_LABEL_FONT_PX} fontWeight={700} fill={mark.ink} textAnchor="middle" dominantBaseline="central">
                         {c.number}

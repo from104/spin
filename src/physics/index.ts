@@ -104,7 +104,7 @@ export interface PhysicsWorldApi {
    *  이걸 안 하면 상태와 물리가 어긋나 다음 드래그가 개체를 옛 자리로 되돌린다.
    *  순간이동이지 던지기가 아니므로 잔여 속도는 지운다. */
   setPose(id: CastId, pose: { x: number; y: number; theta?: number }): void;
-  /** 순간이동(setPose)으로 놓인 개체를 **끌기와 같은 벽 경계**로 판 안에 넣는다 — 휠체어는 심플 모드면 원 ∪ 차체, 평소면
+  /** 순간이동(setPose)으로 놓인 개체를 **끌기와 같은 벽 경계**로 판 안에 넣는다 — 휠체어는 심플 모드면 원(2026-11-19 — 옛 원 ∪ 차체), 평소면
    *  차체(각도는 그대로, 피벗만 민다), 공·콘은 반지름 원. 옮겼으면 true — 부르는 쪽이 그 자세를 상태에 덧쓴다. 골대는 false.
    *  안전망(escapePinnedAll)과 달리 **사용자가 방금 옮긴 개체에만** 부른다 — 표시 설정이 손대지 않은 칩을 옮기면 안 된다. */
   fitToBounds(id: CastId): boolean;
@@ -394,7 +394,11 @@ export function createPhysicsWorld(
     // (stepDrag → resolveMotion 이 bounds 그대로 받는다). 여기서 원 규칙을 쓰면 심플 모드에서 **다른** 개체를 끌기만 해도
     // 평소 모드에서 뒤를 벽에 붙인 칩(피벗 6.5 < 반지름 12.5)이 밀리고, 정착 커밋이 그 자세를 드릴에 쓴다 —
     // 표시 설정이 저장 데이터를 바꾼다(simpleBounds.test.ts).
-    escapePinnedAll(world, bounds.disc ? { w: bounds.w, h: bounds.h } : bounds, interact);
+    // ── ⚠️ 2026-11-19: 「실물 차체만」은 「상호작용이 꺼져 있으면 원·차체 중 하나라도 판 안이면 둔다」로 넓어졌다 ──
+    // 심플의 원 규칙이 원 하나가 되면서(obb.ts boundsHull) 심플에서 앞을 벽에 댄 칩은 실물로 13.5 px 판 밖이다 — 차체 규칙만
+    // 쓰면 심플 모드에서 그 칩을 놓는 순간 13.5 px 밀려 원이 벽에서 떨어지고, 평소 모드로 돌아가 다른 칩을 끌면 또 밀려 커밋된다.
+    // 판정은 escapePinnedAll 안(lenientChairs)에 있다. 평소 모드에서 상호작용이 켜져 있으면 옛 규칙(실물 차체) 그대로다.
+    escapePinnedAll(world, { w: bounds.w, h: bounds.h }, interact);
   }
 
   /** api.read() 의 알맹이. 정착 통지가 `api` 객체 리터럴보다 먼저 만들어지는 loop 안에서
@@ -751,7 +755,7 @@ export function createPhysicsWorld(
       // 첫 판(2026-11-16)은 driven=false 라 공을 비켜 세우기만 했다 — 기현님 "부딛힌 방향과 속도로 안 굴러간다".
           // ★ 걸음마다 벽 경계로 막는다(2026-11-17 기현님 "객체들이 키보드로 이동하면 코트 가장자리를 넘어감"). 쥔 칩은
           //   static 이라 Matter 벽도 안전망(escapePinnedAll)도 막지 않았다 — 방향키를 누르는 만큼 판 밖으로 나갔다.
-          //   끌기(drag.ts resolveMotion)·순간이동(fitToBounds)과 같은 경계: 휠체어는 심플이면 원 ∪ 차체, 평소면 차체,
+          //   끌기(drag.ts resolveMotion)·순간이동(fitToBounds)과 같은 경계: 휠체어는 심플이면 원(2026-11-19 — 옛 원 ∪ 차체), 평소면 차체,
           //   공·콘은 반지름 원. 벽에 선 뒤의 남은 걸음은 그 자리에서 미끄러질 뿐이라 접촉 속도도 0 으로 줄어든다.
           if (p.chair && r < 1) {
             // 막힌 걸음 — 모두가 같은 비율만큼 **곧게** 간다(칩마다 다시 풀면 막힌 칩만 접선으로 비킨다)

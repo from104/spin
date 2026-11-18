@@ -631,7 +631,6 @@ export const en: Record<DictKey, string> = {
   'editor.functionBar.simple.name': 'Simple mode',
   'editor.functionBar.simple.titleOn': 'Wheelchairs are shown as circles. Physics interaction is off, and a circle moves straight wherever you drag it. The drill data is unchanged.',
   'editor.functionBar.simple.titleOff': 'Wheelchairs are shown as real chair bodies. Turn on to see them as simple circles.',
-  'editor.functionBar.courtModal.simpleLockedReason': 'Not available in simple mode. Turn simple mode off to restore your setting.',
   'editor.functionBar.courtModal.goalGroupLabel': 'Goals',
   'editor.functionBar.courtModal.interactText': 'Physics & interaction',
   'editor.functionBar.courtModal.interactOn': 'Objects push and bump each other. A dragged wheelchair pushes balls, cones and other wheelchairs.',

@@ -47,6 +47,14 @@ describe('미세 조정 패드', () => {
     expect(calls).toEqual([[0, 0, -1]]);
   });
 
+  it('★ 심플 모드의 원은 ▲◀▼▶ 넷뿐 — 방향판·180°·회전 칸이 없다(2026-11-19 「방향 관련을 숨겨」)', () => {
+    // 지우면 새는 실기 버그: 방향 없는 원에 방향판이 남아 눌러도 아무 일이 없거나(게이트만 막힌 경우), 보이지 않는 각도가 돌아
+    // 평소 모드로 돌아갔을 때 차체가 엉뚱한 쪽을 본다.
+    render(<NudgePad target={{ ids: ['ch_1'], x: 20, y: 20 }} onClose={noop} onNudge={noop} onHeading={noop} chairDisc />, { wrapper: SettingsProvider });
+    const ids = [...screen.getByTestId('nudge-pad').querySelectorAll('button')].map((b) => b.getAttribute('data-testid'));
+    expect(ids.sort()).toEqual(['nudge-down', 'nudge-left', 'nudge-right', 'nudge-up']);
+  });
+
   it('★ 아무 키나 누르면 닫힌다 — 키가 있다는 것은 이 패드가 필요 없다는 뜻이다', () => {
     const { onClose } = open(['ch_1']);
     fireEvent.keyDown(window, { key: 'a' });

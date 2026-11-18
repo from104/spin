@@ -39,12 +39,15 @@ export const canNudge = (ids: readonly string[]): boolean =>
  *
  *  ⚠️ 2026-09-14 — 옛 주석의 *"화살표가 빠지는 것은 원리가 아니라 아직 안 이은 배선이다 …
  *  뒤집을 때 이 문장이 근거가 되라고 적어 둔다"* 는 그 약속대로 지금 뒤집혔다. */
-export const canRotateKind = (id: string): boolean =>
-  isId(id, 'ch') || isId(id, 'sh') || isId(id, 'ar') || isId(id, 'fh');
+export const canRotateKind = (id: string, chairDisc = false): boolean =>
+  (isId(id, 'ch') && !chairDisc) || isId(id, 'sh') || isId(id, 'ar') || isId(id, 'fh');
+// ── 2026-11-19 `chairDisc`(심플 모드) — 휠체어가 원이면 **방향이 없다**(기현님 지시 *"미세 조정 패널에서도 상하좌우 이동만 되고
+// 방향 관련을 숨겨"*). 원은 공처럼 돌아도 같은 그림이라 위 「빠지는 셋」과 같은 자리로 간다. 도형·화살표·획은 그대로 돈다.
+// 키(Q·E·숫자 1–9)·패드(회전 칸·방향판)·방향판 길(turnHeading)이 모두 이 판정을 읽는다 — 한 곳만 막으면 다른 문으로 돈다.
 
 /** 회전은 **하나일 때만**이다.
  *
  *  무리의 회전축은 답이 하나로 안 나온다(`applyGroupNudge` 주석) — 무게중심인지, 감싼 상자의
  *  중심인지, 포커스가 앉은 개체인지. 기현님도 같은 자리를 예외로 지정했다: *"다중 선택에서
  *  회전은 예외"*. 그래서 이 함수는 개수부터 본다. */
-export const canRotate = (ids: readonly string[]): boolean => ids.length === 1 && canRotateKind(ids[0]!);
+export const canRotate = (ids: readonly string[], chairDisc = false): boolean => ids.length === 1 && canRotateKind(ids[0]!, chairDisc);
