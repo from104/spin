@@ -35,8 +35,8 @@ export interface ChairChipProps {
   /** 심플 모드 — 차체 대신 **원**으로 그린다(기하는 `model/chairDisc.ts` 한 곳, 결정 A3). 원에는
    *  견인 존이 없으므로 `zoneCursors` 가 와도 존 음영·커서를 얹지 않는다. 기본 꺼짐(실물 차체). */
   disc?: boolean;
-  /** 휠체어 조정 모드로 지금 몰고 있는 칩(2026-11-18 기현님: *"대상 휠체어 … 반짝임 효과 등 강조 필요"*) — 차체 둘레에 액센트 빛무리가
-   *  숨 쉬듯 깜박인다(감축 모션이면 멈춘 빛무리). 선택 링과 겹쳐 그려 "고른 것" 과 "모는 것" 이 함께 보인다. */
+  /** 휠체어 조정 모드로 지금 몰고 있는 칩(2026-11-18 기현님: *"대상 휠체어 … 강조 필요"*) — 차체 안이 어두워졌다 밝아진다
+   *  (감축 모션이면 살짝 어두운 채로 멈춤). */
   driving?: boolean;
   onPointerDown?: (id: ChairId, e: ReactPointerEvent<SVGGElement>) => void;
   onKeyDown?: (id: ChairId, e: ReactKeyboardEvent<SVGGElement>) => void;
@@ -51,8 +51,6 @@ const LABEL_FONT_PX = (20 * 2) / 3;
 
 /** 선택 링 여백(월드 px). 차체 테두리(2.2)와 겹치지 않게 띄운다. */
 const SEL_PAD = 3.5;
-/** 조정 모드 빛무리의 여백 — 선택 링(SEL_PAD) 바깥으로 한 겹 더. */
-const DRIVE_PAD = 8;
 
 /** s∈[0,1] 을 차체 로컬 x 로 옮긴다. s=0 이 뒤끝(−pivotToRear), s=1 이 앞범퍼(+pivotToFront). */
 const sToX = (s: number): number => -CHAIR.pivotToRearPx + s * CHAIR.lengthPx;
@@ -170,21 +168,6 @@ export const ChairChip = memo(function ChairChip({
     >
       {/* 선택 링 — 차체보다 살짝 크게 둘러 그린다. 어두운 밑선 위에 액센트 파선을 얹어
           어떤 팀 색·코트 밝기에서도 보이게 한다(단색 한 겹이면 팀 색과 겹쳐 사라진다). */}
-      {driving && (
-        <rect
-          className="drive-halo"
-          data-testid="drive-halo"
-          pointerEvents="none"
-          x={-CHAIR.pivotToRearPx - DRIVE_PAD}
-          y={-HALF_W - DRIVE_PAD}
-          width={CHAIR.lengthPx + DRIVE_PAD * 2}
-          height={CHAIR.widthPx + DRIVE_PAD * 2}
-          rx={5 + DRIVE_PAD}
-          fill="color-mix(in srgb, var(--accent) 22%, transparent)"
-          stroke="var(--accent)"
-          strokeWidth={3}
-        />
-      )}
       {selected && (
         <g className="sel-ring" pointerEvents="none">
           <rect
@@ -235,6 +218,23 @@ export const ChairChip = memo(function ChairChip({
         stroke={stroke}
         strokeWidth={1.4}
       />
+      {/* 조정 모드로 모는 칩 — 차체 안이 어두워졌다 밝아지기를 되풀이한다(2026-11-18 기현님: *"경계선이 반짝이는 것보다는 휠체어
+          내부가 어두워졌다가 밝아지는 것이 낫겠다"*). 차체·볼가드 위, 등번호 아래 — 번호는 그대로 읽힌다. 감축 모션이면 바탕값
+          (opacity 속성)인 살짝 어두운 채로 멈춘다. */}
+      {driving && (
+        <rect
+          className="drive-shade"
+          data-testid="drive-shade"
+          pointerEvents="none"
+          x={-CHAIR.pivotToRearPx}
+          y={-HALF_W}
+          width={CHAIR.lengthPx}
+          height={CHAIR.widthPx}
+          rx={5}
+          fill="#000"
+          opacity={0.3}
+        />
+      )}
       {/* 두 구역의 음영. 어디를 잡으면 어떻게 되는지 커서만이 아니라 눈으로도 보여야 한다 —
           터치에는 커서가 없다(태블릿이 1순위 대상이다). 순수 시각용이라 pointer-events 를 끄고,
           커서·히트는 아래 최상단 레이어가 맡는다(등번호·머리 위에서도 커서가 바뀌게 하려면
