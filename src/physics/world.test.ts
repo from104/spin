@@ -267,7 +267,7 @@ describe('속도 클램프(§5.9 — maxSpeedMatter 를 반드시 써야 하는 
 });
 
 describe('정착(settle) 조기 종료(§5.9)', () => {
-  it('30×18 m 판에서 8 m/s 킥은 벽에 튀다가 상한 전에 선다(2026-11-18 영상 실측값 ≈ 15 s)', () => {
+  it('30×18 m 판에서 8 m/s 킥은 벽에 튀다가 상한 전에 선다(2026-11-18 영상 실측 5 표본 평균값 ≈ 11 s)', () => {
     const w = createWorld(750, 450);
     w.addBall(ballId(), { x: 375, y: 225 });
     const ball = findBody(w, 'ball');
@@ -284,9 +284,9 @@ describe('정착(settle) 조기 종료(§5.9)', () => {
     // 강슛의 정지가 2.58 → 6.55 초가 됐고, settleMaxMs 도 8 초로 함께 올렸다 — 그래야
     // 굴러가는 도중에 루프가 끊기지 않는다. **하드컷이 아니라 조기 종료로 끝난다**는
     // D32 의 취지는 그대로다(6.55 < 8).
-    // 2026-11-18 영상 실측 재조정(BALL 머리말): 옛 6.55 s → ≈ 15 s. 판의 벽(반발 0.5)이 공을 세우는 몫이 크다.
-    expect(elapsedMs / 1000).toBeGreaterThan(12);
-    expect(elapsedMs / 1000).toBeLessThan(18);
+    // 2026-11-18 영상 실측 재조정(BALL 머리말): 옛 6.55 s → ≈ 11 s. 판의 벽(반발 0.5)이 공을 세우는 몫이 크다.
+    expect(elapsedMs / 1000).toBeGreaterThan(9);
+    expect(elapsedMs / 1000).toBeLessThan(13);
     expect(elapsedMs).toBeLessThan(PHYS.settleMaxMs); // 하드컷에 걸리지 않는다
   });
 
@@ -843,7 +843,7 @@ describe('공 구름 거리 — 강슛이 코트를 가로지른다', () => {
     expect(rollDistanceM()).toBeGreaterThan(15);
   });
 
-  it('그래도 무한정 가지는 않는다 — 벽 없는 긴 바닥에서도 유한 거리에 선다(D32, 2026-11-18 실측값 ≈ 85 m)', () => {
+  it('그래도 무한정 가지는 않는다 — 벽 없는 긴 바닥에서도 유한 거리에 선다(D32, 2026-11-18 실측값 ≈ 60 m)', () => {
     expect(rollDistanceM()).toBeLessThan(100);
   });
 
