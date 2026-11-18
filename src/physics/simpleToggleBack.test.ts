@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { createPhysicsWorld } from './index.ts';
 import type { DrillCast, DrillStep } from '../model/drill.ts';
-import { PHYS } from '../core/constants.ts';
+import { CHAIR, PHYS } from '../core/constants.ts';
 import type { ChairId, StepId } from '../core/ids.ts';
 import { DISC_RADIUS_PX } from '../model/chairDisc.ts';
 
@@ -58,5 +58,23 @@ describe('심플에서 벽에 붙인 원 → 평소 모드(상호작용 끔)', (
     api.dispose();
     expect(snap[mover]!.x).toBeGreaterThan(450); // 전제: 다른 칩은 실제로 끌렸다
     expect(snap[parked]!.x).toBe(parkedX);
+  });
+
+  it('★ 평소 모드에서 그 칩을 **잡아 벽을 따라 끌면** 평소 규칙으로 놓인다 — 차체가 판 밖인 채 서지 않는다', () => {
+    // 지우면 새는 실기 버그: 끌기 경계는 이미 판 밖인 출발 자세를 "더 나가지 않게"만 막아, 관대한 안전망까지 두면 손으로 옮긴
+    // 칩의 차체가 13.5 px 밖인 채 저장됐다(2026-11-19 검수 실측). 잡았다 제자리에 놓은 것(탭)은 그대로다(simpleBounds.test.ts).
+    const api = createPhysicsWorld(W, 525);
+    api.setInteract(false);
+    const x = W - DISC_RADIUS_PX; // 심플에서 앞을 오른쪽 벽에 댄 자리
+    api.load(cast, {
+      id: 'st_x' as StepId, name: '', note: '',
+      chairs: { [mover]: { x: 400, y: 300, angleDeg: 0 }, [parked]: { x, y: 100, angleDeg: 0 } },
+      balls: {}, cones: {}, arrows: [], notes: [], shapes: [],
+    }, 'full');
+    drag(api, parked, { x, y: 100 }, { x, y: 400 }, 0.5);
+    const p = api.read()[parked]!;
+    api.dispose();
+    expect(p.y).toBeGreaterThan(300); // 전제: 실제로 벽을 따라 끌렸다
+    expect(p.x).toBeCloseTo(W - CHAIR.pivotToFrontPx, 1);
   });
 });

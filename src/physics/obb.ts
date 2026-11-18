@@ -219,7 +219,7 @@ export function pushChairIntoBounds(p: ChairPose, b: Bounds): Vec2 {
 }
 
 /** 안전망의 **관대한** 휠체어 경계 — 원(심플 모드 규칙)과 실물 차체(평소 규칙) 중 **하나라도** 판 안이면 그대로 둔다.
- *  둘 다 판 밖일 때만 덜 옮기는 쪽으로 민다. 각도는 건드리지 않는다(pushChairIntoBounds 와 같은 이유).
+ *  둘 다 판 밖일 때만 지금 모드의 규칙(`b.disc`)으로 민다. 각도는 건드리지 않는다(pushChairIntoBounds 와 같은 이유).
  *
  *  왜 필요한가(2026-11-19 「기본, 심플 모드 완전 분리」): 두 모드는 서로 다른 벽을 쓴다 — 심플은 원(앞을 댄 칩의 실물 차체가
  *  13.5 px 판 밖), 평소는 차체(뒤를 댄 칩의 원이 12.5 − 6.5 = 6 px 판 밖). 한쪽 모드에서 벽에 붙여 둔 칩은 다른 쪽 규칙으로는
@@ -231,7 +231,9 @@ export function pushChairIntoEither(p: ChairPose, b: Bounds): Vec2 {
   if (body.x === p.x && body.y === p.y) return body;
   const disc = pushChairIntoBounds(p, { w: b.w, h: b.h, disc: true });
   if (disc.x === p.x && disc.y === p.y) return disc;
-  return Math.hypot(disc.x - p.x, disc.y - p.y) < Math.hypot(body.x - p.x, body.y - p.y) ? disc : body;
+  // 둘 다 판 밖(깨진 자료·옛 기기)이면 **지금 모드의 규칙**으로 민다 — 덜 옮기는 쪽을 고르면 평소 모드에서 차체가 13.5 px 밖인 채,
+  // 심플에서 원이 6 px 밖인 채 설 수 있다.
+  return b.disc ? disc : body;
 }
 
 /** 원으로 막는 장애물(공·콘). 휠체어는 OBB 라 `others` 로 가고, 이쪽은 반지름을 가진 점이다.

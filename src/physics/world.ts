@@ -77,6 +77,8 @@ export interface WorldHandles {
    *  기현님이 말한 *"이동은 안 되지만 고정되어 상호작용은 하는"* 이 정확히 이 상태다.
    *  휠체어는 원래 static 이라(§5.4) 이 함수가 필요 없다 — 거기서 잠김은 끌기만 막는다. */
   setBodyStatic(id: CastId, on: boolean): void;
+  /** 개체의 바디(없으면 undefined). 안전망이 "이 모드에서 손이 옮긴 칩"을 가리는 데 쓴다(escapePinnedAll `handMoved`). */
+  bodyOf(id: CastId): Matter.Body | undefined;
   addCone(id: ConeId, p: Vec2): void;
   /** 골대 포스트. cast 가 아니므로 CastId 가 아닌 합성 id(`gp_0` …)를 쓴다 — 드릴 모델에
    *  저장되지 않고 코트 정의에서만 나온다(§5.4 GOAL). */
@@ -176,6 +178,10 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
       bodies.delete(id);
       ownMask.delete(b);
     },
+    bodyOf(id) {
+      return bodies.get(id);
+    },
+
     setBodyStatic(id, on) {
       const b = bodies.get(id);
       if (!b || b.isStatic === on) return;
@@ -301,11 +307,18 @@ export function createWorld(courtW: number, courtH: number): WorldHandles {
  *  움직이게 하지만 **밀려나는 쪽** 칩에는 그 보장이 없었다 — 잡은 칩(static)과 벽(static)
  *  사이에 끼면 Resolver 가 넘치는 만큼을 양쪽에 반씩 나눠 주고, 그 절반이 곧 벽 너머다
  *  (실측: 825×525 코트에서 밀린 칩이 피벗 x=-5, 차체 뒤끝 -12.5 로 나가 그대로 굳었다). */
-export function escapePinnedAll(w: WorldHandles, bounds: Bounds, interact = true): void {
+export function escapePinnedAll(
+  w: WorldHandles,
+  bounds: Bounds,
+  interact = true,
+  handMoved: (b: Matter.Body) => boolean = () => false,
+): void {
   // 상호작용이 꺼져 있으면 휠체어를 판 밖으로 미는 것이 **없다**(충돌 마스크 0 — 이웃도 Matter 벽도 안 닿는다). 그때 판 밖인
   // 칩은 다른 모드(심플 ↔ 평소)의 벽에 붙여 둔 칩뿐이라, 지금 모드의 규칙으로 밀면 표시 설정이 손대지 않은 칩을 옮긴다 —
   // 원·차체 중 하나라도 판 안이면 둔다(obb.ts pushChairIntoEither, 2026-11-19 「기본, 심플 모드 완전 분리」).
-  // 켜져 있으면 옛 규칙 그대로 실물 차체(§4.2 P0-3 — 밀려난 칩을 되민다).
+  // 단 **이 모드에서 손이 옮긴 칩**(`handMoved`)은 지금 모드의 규칙 그대로다 — 다른 모드의 벽에 붙어 있던 칩을 잡아 벽을 따라
+  // 끌면 끌기 경계는 "더 나가지 않게"만 막아(이미 판 밖인 출발 자세) 차체가 13.5 px 밖인 채 놓였다(2026-11-19 검수 실측).
+  // 켜져 있으면 옛 규칙 그대로(§4.2 P0-3 — 밀려난 칩을 되민다).
   const lenientChairs = !interact;
   const allChairs: ChairPose[] = [];
   for (const b of Composite.allBodies(w.engine.world)) {
@@ -314,7 +327,7 @@ export function escapePinnedAll(w: WorldHandles, bounds: Bounds, interact = true
     allChairs.push(pose);
     // 잡은 칩은 static 이고 drag.ts 가 이미 막는다 — 손이 쥔 것을 안전망이 옮기지 않는다.
     if (b.isStatic) continue;
-    const out = lenientChairs ? pushChairIntoEither(pose, bounds) : pushChairIntoBounds(pose, bounds);
+    const out = lenientChairs && !handMoved(b) ? pushChairIntoEither(pose, bounds) : pushChairIntoBounds(pose, bounds);
     if (out.x === pose.x && out.y === pose.y) continue;
     setPosition3(b, out, false);
     // 아래 원(공·콘·골대) 탈출이 **되돌린 뒤의** 차체를 보게 같은 배열을 갱신한다.
@@ -332,7 +345,7 @@ export function escapePinnedAll(w: WorldHandles, bounds: Bounds, interact = true
     const p = { x: b.position.x, y: b.position.y };
     // 상호작용이 꺼져 있으면 휠체어와 겹친 공·콘은 **겹친 채로 둔다** — 여기서 빼내면 안전망이
     // 꺼 둔 '밀기' 를 몰래 되살린다. 판 밖으로 나가지 않게 하는 경계만 남긴다.
-    const out = escapePinned(p, radius, interact ? allChairs : [], bounds);
+    const out = escapePinned(p, radius, interact ? allChairs : [], { w: bounds.w, h: bounds.h }); // 원(공·콘·골대) 경계는 모드와 무관
     if (out.x !== p.x || out.y !== p.y) setPosition3(b, out, false);
   }
 }

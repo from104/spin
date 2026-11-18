@@ -35,7 +35,9 @@ describe('안전망의 관대한 경계 — 원·차체 중 하나라도 판 안
     expect(pushChairIntoEither(discParked, b)).toEqual({ x: discParked.x, y: discParked.y });
     expect(pushChairIntoEither(bodyParked, b)).toEqual({ x: bodyParked.x, y: bodyParked.y });
   });
-  it('둘 다 판 밖이면 덜 옮기는 쪽으로 민다 — 앞이 벽 너머인 칩은 원 기준(반지름)까지만', () => {
-    expect(pushChairIntoEither(pose(W, 200, 0), b).x).toBeCloseTo(W - R);
+  it('둘 다 판 밖이면 **지금 모드의 규칙**으로 민다 — 평소면 차체 앞(26)까지, 심플이면 원(반지름)까지', () => {
+    // 덜 옮기는 쪽을 고르면 평소 모드에서 차체가 13.5 px 밖인 채 선다
+    expect(pushChairIntoEither(pose(W, 200, 0), b).x).toBeCloseTo(W - CHAIR.pivotToFrontPx);
+    expect(pushChairIntoEither(pose(W, 200, 0), { ...b, disc: true }).x).toBeCloseTo(W - R);
   });
 });

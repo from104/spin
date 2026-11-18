@@ -398,7 +398,17 @@ export function createPhysicsWorld(
     // 심플의 원 규칙이 원 하나가 되면서(obb.ts boundsHull) 심플에서 앞을 벽에 댄 칩은 실물로 13.5 px 판 밖이다 — 차체 규칙만
     // 쓰면 심플 모드에서 그 칩을 놓는 순간 13.5 px 밀려 원이 벽에서 떨어지고, 평소 모드로 돌아가 다른 칩을 끌면 또 밀려 커밋된다.
     // 판정은 escapePinnedAll 안(lenientChairs)에 있다. 평소 모드에서 상호작용이 켜져 있으면 옛 규칙(실물 차체) 그대로다.
-    escapePinnedAll(world, { w: bounds.w, h: bounds.h }, interact);
+    // 이 모드에서 손이 잡아 옮긴 칩은 지금 모드의 규칙(bounds 그대로 — 심플이면 원)으로 잰다(handMovedBody).
+    escapePinnedAll(world, bounds, interact, handMovedBody);
+  }
+
+  /** 이 모드(심플/평소)에서 **손이 잡은** 휠체어의 잡을 때 자세 — 거기서 움직였으면 안전망이 지금 모드의 규칙으로 잰다
+   *  (escapePinnedAll `handMoved`). 잡았다 그 자리에 놓은(선택 탭) 칩은 관대한 규칙 그대로라 안 튄다(simpleBounds.test.ts).
+   *  모드가 바뀌면(setDiscBounds) 비운다 — 바뀐 뒤 손대지 않은 칩은 다시 "손대지 않은 칩"이다. */
+  const grabbedAt = new Map<Matter.Body, { x: number; y: number }>();
+  function handMovedBody(b: Matter.Body): boolean {
+    const p = grabbedAt.get(b);
+    return p !== undefined && Math.hypot(b.position.x - p.x, b.position.y - p.y) > 0.5;
   }
 
   /** api.read() 의 알맹이. 정착 통지가 `api` 객체 리터럴보다 먼저 만들어지는 loop 안에서
@@ -565,6 +575,7 @@ export function createPhysicsWorld(
   const api: PhysicsWorldApi = {
     load(cast, step, mode, size) {
       nudgeHeld.clear(); // 바디를 통째로 다시 세운다 — 쥐고 있던 것도 새 바디는 dynamic 으로 태어난다
+      grabbedAt.clear(); // 새 바디 — 손대지 않은 칩이다
       for (const id of kindOf.keys()) world.remove(id);
       kindOf.clear();
       session = null;
@@ -651,6 +662,7 @@ export function createPhysicsWorld(
     },
 
     setDiscBounds(on) {
+      if (bounds.disc !== on) grabbedAt.clear();
       bounds.disc = on;
     },
 
@@ -860,7 +872,11 @@ export function createPhysicsWorld(
       session = beginDragSession(hit, grabWorld, internalHitContext(zones), pose);
       // 잡은 칩은 손의 권위를 갖는다 — static 이라야 §5.4 골든값(공 밀기·스핀킥)이 유지된다.
       // 대기 중인 칩만 dynamic 이어서 밀린다(world.setChairDragging 주석).
-      if (isId(session.id, 'ch')) world.setChairDragging(session.id as ChairId, true);
+      if (isId(session.id, 'ch')) {
+        world.setChairDragging(session.id as ChairId, true);
+        const b = world.bodyOf(session.id);
+        if (b && !grabbedAt.has(b)) grabbedAt.set(b, { x: pose.x, y: pose.y });
+      }
       loop.start();
 
       const handle: DragHandle = {

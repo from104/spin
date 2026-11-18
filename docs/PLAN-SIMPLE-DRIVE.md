@@ -97,7 +97,7 @@
 | 끄는 동안의 링·고스트 | 원(차체 사각형 링이 그때만 드러나던 것) | `SelectionOverlay` `'disc'`, `useEditorPointer` |
 | 잡기 | 원 안만. 패드(큰 표적의 grabPadPx 포함) 없음 | `physics/hitTest.ts` |
 | 벽 | **원 하나** — 사방 틈 0. 끌기·순간이동·무리·쓸기 경계 모두 | `obb.ts` `boundsHull` |
-| 안전망 | 상호작용 끔이면 원·차체 중 하나라도 판 안이면 둔다(`pushChairIntoEither`) | `world.ts` `escapePinnedAll` |
+| 안전망 | 상호작용 끔이면 원·차체 중 하나라도 판 안이면 둔다(`pushChairIntoEither`, 둘 다 밖이면 지금 모드 규칙). 단 **이 모드에서 손이 잡아 옮긴 칩**은 지금 모드 규칙(모드가 바뀌면 초기화, 제자리 탭은 제외) | `world.ts` `escapePinnedAll`, `index.ts` `grabbedAt` |
 | 상자 | 원의 AABB — 이동 앵커 점선 상자·[표시순서] 겹침 | `physics/bounds.ts` (`chairDisc` 인자), `Z_ORDER.chairDisc` |
 | 방향 입력 | 없음 — Q·E·숫자 1–9·방향판·180°·회전 칸. 이동 ▲◀▼▶ 만 | `nudgeCaps.canRotateKind(id, chairDisc)` 하나를 키·패드·`turnHeading`·`nudge` 가 읽는다 |
 | [보드 설정] | [개체 이동] 묶음(스위치 셋) 숨김. 저장값은 그대로 | `FunctionBar.tsx` |
