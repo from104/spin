@@ -147,7 +147,7 @@
 | D28 | `enableSleeping` | **반드시 `false`** | 실측: static 휠체어는 잠든 body 와 충돌 검사 자체가 스킵된다(`Detector.js:96`) → 완전 관통 |
 | D29 | 드래그 종료 | **`freezeKinematic()` 필수** | 실측: 미실행 시 정지한 휠체어가 1 초간 공을 47.3 px 밀고 1.30 m/s 를 준다 |
 | D30 | 공 속도 단위 | **matter 속도 단위 = px per 16.667 ms = px/s ÷ 60.** 상수명에 단위를 박는다 | 실측: `setVelocity(300)` → 18,000 px/s(716 m/s). `setVelocity(5)` → 300.00 px/s |
-| D31 | 반발계수 | `e=0.45` 는 접근속도 > 4.8 m/s 에서만 발동. **저속 반발 훅을 명시적으로 구현** | 실측: 4.8 m/s(=2.0 matter units) 경계에서 e_eff 0.0037 → 0.4500 계단. 훅 적용 후 1~12 m/s 전 구간 0.45 |
+| D31 | 반발계수 | `e=0.45` 는 접근속도 > 4.8 m/s 에서만 발동. **저속 반발 훅을 명시적으로 구현** | 실측: 4.8 m/s(=2.0 matter units) 경계에서 e_eff 0.0037 → 0.4500 계단. 훅 적용 후 1~12 m/s 전 구간 0.45 — **2026-11-18 기현님 지시로 e = 0.5**(`BALL.restitution`, 아래 표·실측의 0.45 는 당시 값) |
 | D32 | 정착(settle) | `frictionAir` 만으로는 8 m/s 공이 **6.53 초** 굴러야 멈춘다 → **쿨롱 구름 감속 25 px/s² 추가** | 실측: fA 0.012 + roll 25 → 2.58 s / 7.39 m 로 유한 정지. 조기 종료가 실제로 발동한다 |
 | D33 | 공·콘 드래그 | dynamic 유지 + 매 substep `setPosition(…, updateVelocity=false)` + `setVelocity(0)` + 경계 클램프 + substep 변위 상한 | `updateVelocity:true` 는 Verlet 되먹임으로 발산(실측 20프레임에 x = −4.3e6). static 전환은 Detector 스킵을 부른다 |
 | D34 | 재생 | **물리 미사용. 결정론적 보간** | 결정성·스크럽·역재생·썸네일 일치 |

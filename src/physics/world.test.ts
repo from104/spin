@@ -177,17 +177,17 @@ function measureRebound(engine: Matter.Engine, ball: Matter.Body, approachMps: n
 }
 
 describe('저속 반발 훅(§5.9 실측 — restitution 절벽)', () => {
-  it('훅 있음: 접근 1·2·3·4·5·8·12 m/s 전부 e_eff ≥ 0.40', () => {
+  it('훅 있음: 접근 1·2·3·4·5·8·12 m/s 전부 e_eff ≥ 0.45(공 반발 0.5)', () => {
     for (const mps of [1, 2, 3, 4, 5, 8, 12]) {
       const w = createWorld(500, 500); // createWorld 는 collisionStart 저속반발 훅을 자동으로 단다
       w.addBall(ballId(), { x: 480, y: 250 });
       const ball = findBody(w, 'ball');
       const rebound = measureRebound(w.engine, ball, mps);
-      expect(rebound / mps).toBeGreaterThanOrEqual(0.4);
+      expect(rebound / mps).toBeGreaterThanOrEqual(0.45);
     }
   });
 
-  it('훅 없음(구조적 성질 문서화): 4.8 m/s 는 e_eff<0.02, 5.0 m/s 는 0.45±0.01', () => {
+  it('훅 없음(구조적 성질 문서화): 4.8 m/s 는 e_eff<0.02, 5.0 m/s 는 공 반발 계수 그대로', () => {
     const engine = Engine.create(ENGINE_OPTS); // ★ collisionStart 훅을 달지 않은 raw 엔진
     Composite.add(engine.world, createWalls(500, 500));
     const ball = createBallBody({ x: 480, y: 250 });
@@ -197,7 +197,7 @@ describe('저속 반발 훅(§5.9 실측 — restitution 절벽)', () => {
     expect(rebound48 / 4.8).toBeLessThan(0.02);
 
     const rebound50 = measureRebound(engine, ball, 5.0);
-    expect(rebound50 / 5.0).toBeCloseTo(0.45, 1);
+    expect(rebound50 / 5.0).toBeCloseTo(BALL.restitution, 1);
   });
 });
 
