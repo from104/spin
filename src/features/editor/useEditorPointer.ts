@@ -1109,6 +1109,20 @@ export function useEditorPointer(opts: UseEditorPointerOptions): UseEditorPointe
       if (trayDrop) {
         dropToTray();
       } else if (grp.moved) {
+        // 끈 무리의 각 개체를 **지금 모드의 벽**에 넣는다(2026-11-19 「기본, 심플 모드 완전 분리」) — 하나 끌기(drag.ts 경계 +
+        // 안전망 handMoved)와 같은 규칙. groupDelta 는 이미 벽 너머인 개체를 "더 나가지 않게"만 막아, 다른 모드의 벽에 붙어 있던
+        // 칩(심플에서 앞을 댄 칩은 실물로 13.5 px, 평소에서 뒤를 댄 칩은 원으로 6 px 판 밖)이 벽을 따라 끌려도 판 밖인 채 저장됐다.
+        // 밀었으면 PLACE_SETTLE — past 를 안 건드려 방금 끈 GROUP_NUDGE 와 같은 되돌리기 칸이다(EditorStage fitTeleported 와 같은 길).
+        // COMMIT_BREAK **앞**이어야 그 칸에 든다.
+        const w = ctx.worldRef.current;
+        if (w) {
+          let fitted = false;
+          for (const id of grp.ids) if (w.fitToBounds(id as CastId)) fitted = true;
+          if (fitted) {
+            const { chairs, balls, cones } = stepPosesFromSnapshot(w.read(), ctx.step);
+            ctx.dispatch({ type: 'PLACE_SETTLE', stepId: ctx.step.id, chairs, balls, cones });
+          }
+        }
         // 병합 창을 닫는다 — 안 닫으면 700ms 안에 시작한 **다음** 드래그가 이번 것과 한 칸으로
         // 합쳐진다(같은 무리를 두 번 끌면 되돌리기가 한 번에 두 번치를 물린다).
         ctx.dispatch({ type: 'COMMIT_BREAK' });

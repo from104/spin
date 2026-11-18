@@ -96,7 +96,7 @@
 | 그림 | 원 + 번호. 방향 표시(`discEyes`) 폐기 — 다섯 갈래 전부 | `ChairChip`·`TrayGhost`(돌리지 않음)·`ToolRail`·`buildStaticSvg`·`PrintCourt` |
 | 끄는 동안의 링·고스트 | 원(차체 사각형 링이 그때만 드러나던 것) | `SelectionOverlay` `'disc'`, `useEditorPointer` |
 | 잡기 | 원 안만. 패드(큰 표적의 grabPadPx 포함) 없음 | `physics/hitTest.ts` |
-| 벽 | **원 하나** — 사방 틈 0. 끌기·순간이동·무리·쓸기 경계 모두 | `obb.ts` `boundsHull` |
+| 벽 | **원 하나** — 사방 틈 0. 끌기·순간이동·무리·쓸기 경계 모두. 덩어리 끌기는 손을 뗄 때 각 개체를 지금 모드의 벽에 넣는다(같은 되돌리기 칸) | `obb.ts` `boundsHull`, `useEditorPointer` 덩어리 끝 `fitToBounds` |
 | 안전망 | 상호작용 끔이면 원·차체 중 하나라도 판 안이면 둔다(`pushChairIntoEither`, 둘 다 밖이면 지금 모드 규칙). 단 **이 모드에서 손이 잡아 옮긴 칩**은 지금 모드 규칙(모드가 바뀌면 초기화, 제자리 탭은 제외) | `world.ts` `escapePinnedAll`, `index.ts` `grabbedAt` |
 | 상자 | 원의 AABB — 이동 앵커 점선 상자·[표시순서] 겹침 | `physics/bounds.ts` (`chairDisc` 인자), `Z_ORDER.chairDisc` |
 | 방향 입력 | 없음 — Q·E·숫자 1–9·방향판·180°·회전 칸. 이동 ▲◀▼▶ 만 | `nudgeCaps.canRotateKind(id, chairDisc)` 하나를 키·패드·`turnHeading`·`nudge` 가 읽는다 |

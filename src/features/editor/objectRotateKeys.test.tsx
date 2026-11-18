@@ -11,7 +11,15 @@
 //
 // 리듀서를 직접 돌린다 — 키 이벤트→DOM 경로는 jsdom 에서 좌표가 0 이라 못 재고, 여기서 재려는
 // 것은 «어느 값이 얼마나 바뀌는가» 이지 «키가 배선됐는가» 가 아니다(배선은 keymap.contract 가 잰다).
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render } from '@testing-library/react';
+import { EditorStage } from './EditorStage.tsx';
+import { SettingsProvider } from '../../store/settings/SettingsProvider.tsx';
+import { createTransformWriter } from '../../render/transformWriter.ts';
+import { createPhysicsWorld } from '../../physics/index.ts';
+import { createDrill } from '../../model/defaults.ts';
+import { DEFAULT_ZONES } from '../../core/constants.ts';
+import type { EditorWorldRef } from '../../store/editor/EditorProvider.tsx';
 import { canRotate, canRotateKind, canNudge } from './nudgeCaps.ts';
 import { rotateStrokeAbout, strokeCenter } from '../../model/stroke.ts';
 import { arrowMid, rotateArrowAbout } from '../../model/arrow.ts';
@@ -30,13 +38,6 @@ describe('회전이 걸리는 종류', () => {
     for (const id of ['ch_1', 'sh_1', 'ar_1', 'fh_1']) expect(canRotateKind(id), id).toBe(true);
     // 메모는 기현님이 명시한 예외이고, 공·콘은 모델에 각도 필드가 아예 없다.
     for (const id of ['nt_1', 'bl_1', 'cn_1']) expect(canRotateKind(id), id).toBe(false);
-  });
-
-  it('★ 심플 모드(chairDisc)의 휠체어는 안 돈다 — 키(Q·E·숫자 1–9)·패드·방향판이 모두 이 판정을 지난다(2026-11-19)', () => {
-    expect(canRotateKind('ch_1', true)).toBe(false);
-    expect(canRotate(['ch_1'], true)).toBe(false);
-    // 방향이 없어지는 것은 원뿐이다 — 도형·선·자유선은 심플에서도 돈다
-    for (const id of ['sh_1', 'ar_1', 'fh_1']) expect(canRotateKind(id, true), id).toBe(true);
   });
 
   it('여럿이면 종류와 무관하게 안 돈다 — 무리의 회전축은 답이 하나로 안 나온다', () => {
@@ -121,5 +122,37 @@ describe('회전축 — 흘러가는가', () => {
     for (let i = 0; i < 72; i++) a = rotateArrowAbout(a, arrowMid(a), FINE_DEG * RAD);
     const m1 = arrowMid(a);
     expect(Math.hypot(m1.x - m0.x, m1.y - m0.y), '매번 다시 재도 같은 자리다').toBeLessThan(0.01);
+  });
+});
+
+// 심플 모드의 원에는 방향이 없다(2026-11-19 기현님 *"미세 조정 패널에서도 상하좌우 이동만 되고 방향 관련을 숨겨"*).
+// 지우면 새는 실기 버그: 원은 그림이 안 바뀌니 화면으로는 모르는 채 Q·E·숫자키가 저장 각도를 돌리고, 평소 모드로 돌아가면 차체가
+// 엉뚱한 쪽을 본다. **진짜 키 경로**(EditorStage 개체 keydown → nudge·turnHeading)를 태워, 휠체어에 회전 액션이 나가는지만 본다.
+describe('심플 모드 — 휠체어의 방향 키는 아무 일도 안 한다', () => {
+  function keysOn(simple: boolean): number {
+    const drill = createDrill({ courtMode: 'full', formation: '1-2-1' });
+    const step = drill.steps[0]!;
+    const id = drill.cast.chairs.find((c) => step.chairs[c.id])!.id;
+    const world = createPhysicsWorld(825, 525);
+    world.setInteract(false);
+    world.load(drill.cast, step, 'full');
+    const dispatch = vi.fn();
+    const { container } = render(
+      <EditorStage
+        rot={0} drill={drill} step={step} stepIndex={0} tool="select" coneSlot={0} selection={new Set([id])} dispatch={dispatch}
+        worldRef={{ current: world } as EditorWorldRef} writer={createTransformWriter()} zones={DEFAULT_ZONES} ballMax={8}
+        pendingPlayerId={null} onPlayerPlaced={vi.fn()} showToast={vi.fn()} showGrid={false} showGridLabels={false} showRuleZones={false}
+        largeTargets={false} onEraseIds={vi.fn()} onDuplicateIds={vi.fn()} onEditNote={() => {}} simple={simple}
+      />,
+      { wrapper: SettingsProvider },
+    );
+    const chip = container.querySelector(`#obj-${id}`)!;
+    for (const code of ['KeyE', 'KeyQ', 'Digit5', 'Digit9']) fireEvent.keyDown(chip, { code, key: code.slice(-1).toLowerCase() });
+    world.dispose();
+    return dispatch.mock.calls.filter(([a]) => a.type === 'OBJECT_NUDGE' && a.dTheta !== 0).length;
+  }
+  it('★ 평소에는 Q·E·숫자키가 휠체어를 돌리고(대조군), 심플에서는 하나도 안 돌린다', () => {
+    expect(keysOn(false)).toBeGreaterThanOrEqual(3);
+    expect(keysOn(true)).toBe(0);
   });
 });
