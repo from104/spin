@@ -96,12 +96,14 @@ export function useAutosave(enabled: boolean = true): AutosaveApi {
     if (!enabled || conflictRef.current) return;
     clearTimer();
     const holdMs = state.settleHoldUntil - Date.now();
+    // 열려 있다 이미 지난 창(마감 > 0, 정착 덧쓰기가 닫지 않았다)은 '마감에 저장하기로 했던 것' 이라 바로 저장한다 — 디바운스로 넘기면
+    // 0.5 s 마다 커밋하는 조정 모드에서는 다음 커밋이 그 타이머를 지워 한 주기를 건너뛴다(useDriveSession commitNow). 닫힌 창(0)은 그대로 800 ms.
     timerRef.current = window.setTimeout(
       () => {
         timerRef.current = null;
         void flush();
       },
-      holdMs > 0 ? holdMs : AUTOSAVE_DEBOUNCE_MS,
+      holdMs > 0 ? holdMs : state.settleHoldUntil > 0 ? 0 : AUTOSAVE_DEBOUNCE_MS,
     );
     return clearTimer;
     // eslint-disable-next-line react-hooks/exhaustive-deps

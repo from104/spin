@@ -376,19 +376,21 @@ export function createPhysicsWorld(
 
   /** 무리를 이루는 하나 — 휠체어는 자세(OBB), 공·콘은 원. */
   type LockMover = { pose: ChairPose } | { p: Vec2; r: number };
-  /** `m` 을 (dx, dy) 옮겼을 때 잠긴 개체에 파고든 깊이(0 = 안 닿음). 휠체어는 끌기와 같은 간격(CHAIR_SEP_PX)을 둔다. */
-  function lockDepth(m: LockMover, dx: number, dy: number, blk: DragBlockers): number {
-    let worst = 0;
+  /** `m` 을 (dx, dy) 옮겼을 때 잠긴 개체 **하나하나에** 파고든 깊이(0 = 안 닿음, 휠체어 다음 공·콘 순). 휠체어는 끌기와 같은 간격
+   *  (CHAIR_SEP_PX)을 둔다. 하나로 합치지(최댓값) 않는 이유: A 에 이미 깊이 a 만큼 겹친 칩이 B 에 a 까지 파고들어도 '더 깊어지지
+   *  않았다' 가 된다(fable 검증 2026-11-19). */
+  function lockDepths(m: LockMover, dx: number, dy: number, blk: DragBlockers): number[] {
+    const out: number[] = [];
     if ('pose' in m) {
       const q: ChairPose = { x: m.pose.x + dx, y: m.pose.y + dy, theta: m.pose.theta };
-      for (const o of blk.chairs) worst = Math.max(worst, satOverlap(q, o, CHAIR_SEP_PX).depth);
-      for (const c of blk.circles) worst = Math.max(worst, circleObbPush(c.p, c.r + CHAIR_SEP_PX, q)?.depth ?? 0);
+      for (const o of blk.chairs) out.push(Math.max(0, satOverlap(q, o, CHAIR_SEP_PX).depth));
+      for (const c of blk.circles) out.push(circleObbPush(c.p, c.r + CHAIR_SEP_PX, q)?.depth ?? 0);
     } else {
       const q = { x: m.p.x + dx, y: m.p.y + dy };
-      for (const o of blk.chairs) worst = Math.max(worst, circleObbPush(q, m.r, o)?.depth ?? 0);
-      for (const c of blk.circles) worst = Math.max(worst, m.r + c.r - Math.hypot(q.x - c.p.x, q.y - c.p.y));
+      for (const o of blk.chairs) out.push(circleObbPush(q, m.r, o)?.depth ?? 0);
+      for (const c of blk.circles) out.push(Math.max(0, m.r + c.r - Math.hypot(q.x - c.p.x, q.y - c.p.y)));
     }
-    return worst;
+    return out;
   }
   /** 무리 전체가 `d` 가운데 **잠긴 개체에 안 막히고 함께 갈 수 있는 비율**(0…1) — 가장 먼저 닿는 하나가 정한다(벽의 groupDeltaWithin 과
    *  같은 규칙, 미끄러짐 없음). 끝점만 보지 않고 SWEEP_STEP_PX 간격으로 길을 따라 재 본다 — 손이 한 번에 크게 움직이면 끝점이 콘
@@ -397,8 +399,8 @@ export function createPhysicsWorld(
     if ((blk.chairs.length === 0 && blk.circles.length === 0) || ms.length === 0) return 1;
     const len = Math.hypot(d.x, d.y);
     if (len === 0) return 1;
-    const base = ms.map((m) => lockDepth(m, 0, 0, blk));
-    const hit = (t: number): boolean => ms.some((m, i) => lockDepth(m, d.x * t, d.y * t, blk) > base[i]! + 1e-6);
+    const base = ms.map((m) => lockDepths(m, 0, 0, blk));
+    const hit = (t: number): boolean => ms.some((m, i) => lockDepths(m, d.x * t, d.y * t, blk).some((v, j) => v > base[i]![j]! + 1e-6));
     const n = Math.min(400, Math.ceil(len / SWEEP_STEP_PX));
     let prev = 0;
     for (let k = 1; k <= n; k++) {
@@ -772,8 +774,17 @@ export function createPhysicsWorld(
       const w = groupDeltaWithin(members, d, bounds);
       // 잠긴 개체 앞에서도 무리 전체가 선다(2026-11-19 기현님 승인 — 키보드 무리 이동과 같은 규칙). 상호작용이 꺼져 있으면
       // lockedBlockers 가 비어 그대로 지나간다(막는 것도 상호작용이다). 무리 자신은 빼고 잰다.
-      const k = lockedProgress(movers, w, lockedBlockers(new Set(ids)));
-      return k === 1 ? w : { x: w.x * k, y: w.y * k };
+      const blk = lockedBlockers(new Set(ids));
+      const k = lockedProgress(movers, w, blk);
+      if (k === 1) return w;
+      // 막히면 벽처럼 **축마다** 미끄러진다 — 비율만 줄이면 잠긴 휠체어 옆을 스치는 손의 접선 이동까지 버려지고, 손(last)은 계속 가므로
+      // 무리와 손의 어긋남이 쌓인다(fable 검증 2026-11-19). 두 축을 함께 갈 수 있으면 함께, 아니면 셋 중 가장 멀리 가는 것.
+      const ax = { x: w.x * lockedProgress(movers, { x: w.x, y: 0 }, blk), y: 0 };
+      const ay = { x: 0, y: w.y * lockedProgress(movers, { x: 0, y: w.y }, blk) };
+      const both = { x: ax.x, y: ay.y };
+      if ((both.x !== 0 || both.y !== 0) && lockedProgress(movers, both, blk) === 1) return both;
+      const scaled = { x: w.x * k, y: w.y * k };
+      return [scaled, ax, ay].reduce((a, b) => (Math.hypot(b.x, b.y) > Math.hypot(a.x, a.y) ? b : a));
     },
 
     sweepTo(moves, durationS) {

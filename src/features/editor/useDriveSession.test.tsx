@@ -317,8 +317,19 @@ describe('조정 모드 세션 — 조정 키가 아닌 키(2026-11-19 기현님
     key('keydown', 'Numpad3', { key: '3' });
     expect(h.result.current.drive.level).toBe(3);
     expect(h.result.current.drive.chairId).toBe(a);
+    key('keydown', 'Numpad2', { key: 'ArrowDown' }); // NumLock 꺼짐 — 속도도 나가기도 아니다
+    expect(h.result.current.drive.level).toBe(3);
+    expect(h.result.current.drive.chairId).toBe(a);
     // 대조군 — 수식키를 쥔 오타 자리(Ctrl+Z)는 여전히 나가는 길이다(되돌리기)
     key('keydown', 'KeyZ', { ctrlKey: true });
+    expect(h.result.current.drive.chairId).toBeNull();
+  });
+
+  it('한글 입력 상태의 글자키(key = Process)도 영문 상태처럼 나가는 길이다', () => {
+    const { drill, a } = makeDrill();
+    const h = mount(drill);
+    act(() => h.result.current.drive.enter(a));
+    key('keydown', 'KeyB', { key: 'Process' });
     expect(h.result.current.drive.chairId).toBeNull();
   });
 

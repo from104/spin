@@ -119,6 +119,11 @@ describe('무리는 잠긴 개체 앞에서 한 덩어리로 선다', () => {
     const d = probe.api.groupDelta([chA, chB], { x: 200, y: 0 }); // 한 번의 포인터 이동으로 L 너머까지
     expect(d.x).toBeGreaterThan(stopX - 300 - 2);
     expect(d.x).toBeLessThan(stopX - 300 + 1);
+    // 비스듬히 끌면 벽처럼 축마다 미끄러진다 — 막힌 x 는 닿는 데서 서고, 막히지 않은 y 는 손을 그대로 따른다
+    const slide = probe.api.groupDelta([chA, chB], { x: 200, y: 60 });
+    expect(slide.y).toBeCloseTo(60, 6);
+    expect(slide.x).toBeGreaterThan(stopX - 300 - 2);
+    expect(slide.x).toBeLessThan(stopX - 300 + 1);
     // 상호작용이 꺼져 있으면 막지 않는다(막는 것도 상호작용이다)
     probe.api.setInteract(false);
     expect(probe.api.groupDelta([chA, chB], { x: 200, y: 0 }).x).toBe(200);

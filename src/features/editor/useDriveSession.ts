@@ -26,7 +26,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import type { Dispatch } from 'react';
-import { DRIVE } from '../../core/constants.ts';
+import { DRIVE, PHYS } from '../../core/constants.ts';
 import { isId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
@@ -92,7 +92,9 @@ const DIGITS_SWALLOWED = new Set(['Digit0', 'Digit6', 'Digit7', 'Digit8', 'Digit
 const TYPO_SWALLOWED = new Set(['KeyQ', 'KeyE', 'KeyR', 'KeyF', 'KeyZ', 'KeyX', 'KeyC']);
 /** 잠금·입력기 키 — 모드를 끝내지 않는다(한/영을 눌렀다고 몰던 차가 서면 안 된다). */
 const LOCK_IME_CODES = new Set(['CapsLock', 'NumLock', 'ScrollLock', 'Lang1', 'Lang2', 'Lang3', 'Lang4', 'Lang5', 'KanaMode', 'Convert', 'NonConvert']);
-const IME_KEYS = new Set(['HangulMode', 'HanjaMode', 'Process', 'Unidentified', 'CapsLock']);
+/** 입력기 **전환** 키(e.key). `Process`(한글 모드에서 조합 중인 글자키)는 넣지 않는다 — 넣으면 한글 상태에서 B·T·V 같은 도구 키가
+ *  모드를 못 끝낸다(영문 상태와 갈린다 — fable 검증 2026-11-19). 그런 글자키는 아래에서 code(물리 키)로 판정된다. */
+const IME_KEYS = new Set(['HangulMode', 'HanjaMode', 'KanaMode', 'CapsLock']);
 /** 조정 모드 화면 부품(조이스틱·띠)에 초점이 있을 때 단추를 누르고 초점을 옮기는 키 — 모드를 끝내지 않고 제 일을 하게 둔다. */
 const UI_KEYS = new Set(['Space', 'Enter', 'NumpadEnter', 'Tab']);
 
@@ -153,9 +155,12 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     // 자동저장 억제 창(드래그와 같은 SETTLE_ARM) — 몰고 있는 동안 0.5 s 마다 IDB 에 쓰지 않게. 나올 때 정착 덧쓰기가 닫는다.
     // ⚠️ 창을 커밋마다 '지금 + 정착 상한' 으로 밀면 계속 모는 동안 저장이 한 번도 안 나간다(2026-11-19 기현님 승인으로 고침) —
     //    마감을 DRIVE.autosaveEveryMs 주기의 다음 눈금에 고정해, 그 시각에 자동저장 타이머가 터지게 한다.
+    //    마감이 이미 지났으면(rAF 커밋이 타이머보다 먼저 돈 경우) 그 지난 마감을 그대로 보낸다 — useAutosave 는 지난 창을 '바로 저장'
+    //    으로 읽는다. 새 마감으로 밀면 그 타이머가 지워져 한 주기를 건너뛴다(fable 검증 2026-11-19). 새 눈금은 다음 커밋부터.
     const now = Date.now();
-    if (saveDueRef.current <= now) saveDueRef.current = now + DRIVE.autosaveEveryMs;
-    d.dispatch({ type: 'SETTLE_ARM', until: saveDueRef.current });
+    const due = saveDueRef.current;
+    if (due <= now) saveDueRef.current = now + DRIVE.autosaveEveryMs;
+    d.dispatch({ type: 'SETTLE_ARM', until: due });
     d.dispatch({ type: 'PLACE_COMMIT', stepId: st.id, chairs, balls, cones });
   }, []);
 
@@ -175,6 +180,9 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
       settleOffRef.current?.();
       settleOffRef.current = null;
       if (commit && beganRef.current && w && st) {
+        // 나올 때는 억제 창을 정착 상한까지 다시 연다 — 주기(3 s) 마감이 남은 채면 공이 3 s 넘게 구르는 동안 1차 쓰기가 나가고 정착 덧쓰기가
+        // 2차로 나가, 1차가 아직 저장 중이면 2차가 버려진다(useAutosave 의 한 번 쓰기 병합 — fable 검증 2026-11-19).
+        d.dispatch({ type: 'SETTLE_ARM', until: Date.now() + PHYS.settleMaxMs });
         // 밀린 공이 다 서면 그 자리까지 같은 칸에 덧쓴다(PLACE_SETTLE — past 를 안 건드린다, 억제 창도 닫는다)
         const off = w.onSettled((snap) => {
           off();
@@ -337,6 +345,12 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
         enter(ids[0]!);
         return;
       }
+      // NumLock 이 꺼진 숫자패드는 code 는 그대로 Numpad2 인데 화살표·Home 등이다 — 속도로도, 나가기로도 읽지 않고 먹는다
+      if (code.startsWith('Numpad') && /^Numpad\d$/.test(code) && !/^\d$/.test(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       const def = lookupDef('drive', e);
       if (def) {
         e.preventDefault();
@@ -349,7 +363,7 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
       // 조이스틱의 속도 단추·띠의 [끝]에 초점이 있으면 Space·Enter 는 그 단추를, Tab 은 초점 옮기기를 한다(모드는 그대로)
       if (UI_KEYS.has(code) && e.target instanceof Element && e.target.closest('[data-drive-ui]') && !e.ctrlKey && !e.metaKey && !e.altKey) return;
       // 잠금·입력기·기능 키는 모드를 끝내지 않는다. 앱 단축키로도 안 흘리되 브라우저 기본(F5·F11 등)은 막지 않는다 — 새로고침은 아래 pagehide 가 저장한다
-      if (LOCK_IME_CODES.has(code) || IME_KEYS.has(e.key) || e.isComposing || /^F\d{1,2}$/.test(code)) {
+      if (LOCK_IME_CODES.has(code) || IME_KEYS.has(e.key) || /^F\d{1,2}$/.test(code)) {
         e.stopPropagation();
         return;
       }
