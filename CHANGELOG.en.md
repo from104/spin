@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog], and this project follows [Semantic Versioning].
 
+## [Unreleased]
+
+### Added
+
+- [Simple] toggle at the top of the function bar — wheelchairs shown as plain numbered circles, like go stones. No facing; drag a circle from inside it, and rule checks, PNG, video and print use the circle too. The movement switches in [Board settings] and the direction grid on the [Fine-tune] pad are hidden (up, down, left, right only)
+- [Wheelchair drive mode] — select one wheelchair and press J (or use the object menu), then drive it with W A S D or the on-screen joystick. Five speed levels, each drive is one undo step, the driven chair darkens and brightens, and tapping the court or Esc finishes. Needs [Physics & interaction] on; a notice explains why when it can't start
+- Turning [Simple] off moves wheelchairs hanging over the wall back onto the court in every step — one undo restores them
+
+### Changed
+
+- Ball rolling and bounce tuned to real match video — rolls farther (a hard shot settles after about 15 s off the walls) and bounces a little more
+
+### Fixed
+
+- Fixed objects moved or turned with the keyboard or the [Fine-tune] pad leaving the court — several moved together now stop as one block at walls and locked objects
+- Fixed a goalkeeper behind the goal line beside the post not counting toward the goal area — behind the line, the goal-area width counts as goal area
+
 ## [0.6.14] 2026-11-16
 
 ### Added
