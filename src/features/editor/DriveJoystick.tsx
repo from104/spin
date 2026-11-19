@@ -202,6 +202,7 @@ export function DriveJoystick({
             role="group"
             aria-label={t('drive.stick.label')}
             data-testid="drive-joystick"
+            data-drive-ui=""
             style={{
               position: 'fixed',
               right: `max(${right}px, calc(env(safe-area-inset-right, 0px) + ${edge}px))`,

@@ -311,7 +311,8 @@ export const KEYMAP: readonly KeyDef[] = [
   { id: 'drive.left', scope: 'drive', codes: ['KeyA', 'ArrowLeft'], shift: 'any', label: 'A · ←', desc: '왼쪽으로 돌기' },
   { id: 'drive.right', scope: 'drive', codes: ['KeyD', 'ArrowRight'], shift: 'any', label: 'D · →', desc: '오른쪽으로 돌기' },
   // 주행 중에만 숫자줄이 속도가 된다(평소 `obj.face` 1–9 는 꺼진다 — 이 층이 먼저 먹는다). 6–9 는 아무 일도 안 하게 일부러 비워 둔다.
-  { id: 'drive.speed', scope: 'drive', codes: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'], label: '1 – 5', desc: '속도 단계' },
+  // 숫자패드 1–5 도, Shift 를 쥔 숫자도 속도다(2026-11-19 기현님 승인 — 손이 미끄러진 Shift 로 모드가 끝나지 않게).
+  { id: 'drive.speed', scope: 'drive', codes: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Numpad1', 'Numpad2', 'Numpad3', 'Numpad4', 'Numpad5'], shift: 'any', label: '1 – 5', desc: '속도 단계' },
   { id: 'drive.exit', scope: 'drive', codes: ['Escape'], label: 'Esc', desc: '몰기 끝' },
 
   // ── 시연 ────────────────────────────────────────────────────────────────

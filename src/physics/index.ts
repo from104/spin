@@ -20,7 +20,7 @@ import { courtDefFor } from '../model/court.ts';
 
 import type { DragLimits, Bounds } from './types.ts';
 import { createWorld, escapePinnedAll } from './world.ts';
-import { boundsExtent, clampPointToBounds, escapePinned, groupDeltaWithin, pushChairIntoBounds, resolveMotion, satOverlap, separateOverlaps } from './obb.ts';
+import { boundsExtent, circleObbPush, clampPointToBounds, escapePinned, groupDeltaWithin, pushChairIntoBounds, resolveMotion, satOverlap, separateOverlaps } from './obb.ts';
 import type { CircleObstacle } from './obb.ts';
 import type { WorldHandles } from './world.ts';
 import { createLoop } from './loop.ts';
@@ -328,11 +328,12 @@ export function createPhysicsWorld(
    *  ⚠️ 끌고 있는 칩 자신은 안 걸러도 된다 — 잠긴 개체는 애초에 끌 수 없다(화면 쪽
    *  `useEditorPointer` 가 막는다, lockedDrag.test). 여기서 한 번 더 거르면 그 계약이 깨졌을 때
    *  조용히 덮이므로, 걸러지지 않은 채로 두어 드러나게 한다. */
-  function lockedBlockers(): DragBlockers {
+  function lockedBlockers(exclude?: ReadonlySet<string>): DragBlockers {
     if (!interact || lockedIds.size === 0) return { chairs: [], circles: [] };
     const chairs: ChairPose[] = [];
     const circles: CircleObstacle[] = [];
     for (const id of lockedIds) {
+      if (exclude?.has(id)) continue;
       const kind = kindOf.get(id);
       if (kind === 'chair') chairs.push(world.chairPose(id as ChairId));
       else if (kind === 'ball') circles.push({ p: world.pointOf(id), r: BALL.radiusPx });
@@ -371,6 +372,51 @@ export function createPhysicsWorld(
     const fin = resolveMotion(cur, { x: c.x, y: c.y, theta: cur.theta + d.theta }, blk.chairs, bounds, CHAIR_SEP_PX, RESOLVE_ITERS, blk.circles);
     const r = ((fin.x - cur.x) * d.x + (fin.y - cur.y) * d.y) / len2;
     return r > 1 - 1e-6 ? 1 : Math.max(0, r);
+  }
+
+  /** 무리를 이루는 하나 — 휠체어는 자세(OBB), 공·콘은 원. */
+  type LockMover = { pose: ChairPose } | { p: Vec2; r: number };
+  /** `m` 을 (dx, dy) 옮겼을 때 잠긴 개체에 파고든 깊이(0 = 안 닿음). 휠체어는 끌기와 같은 간격(CHAIR_SEP_PX)을 둔다. */
+  function lockDepth(m: LockMover, dx: number, dy: number, blk: DragBlockers): number {
+    let worst = 0;
+    if ('pose' in m) {
+      const q: ChairPose = { x: m.pose.x + dx, y: m.pose.y + dy, theta: m.pose.theta };
+      for (const o of blk.chairs) worst = Math.max(worst, satOverlap(q, o, CHAIR_SEP_PX).depth);
+      for (const c of blk.circles) worst = Math.max(worst, circleObbPush(c.p, c.r + CHAIR_SEP_PX, q)?.depth ?? 0);
+    } else {
+      const q = { x: m.p.x + dx, y: m.p.y + dy };
+      for (const o of blk.chairs) worst = Math.max(worst, circleObbPush(q, m.r, o)?.depth ?? 0);
+      for (const c of blk.circles) worst = Math.max(worst, m.r + c.r - Math.hypot(q.x - c.p.x, q.y - c.p.y));
+    }
+    return worst;
+  }
+  /** 무리 전체가 `d` 가운데 **잠긴 개체에 안 막히고 함께 갈 수 있는 비율**(0…1) — 가장 먼저 닿는 하나가 정한다(벽의 groupDeltaWithin 과
+   *  같은 규칙, 미끄러짐 없음). 끝점만 보지 않고 SWEEP_STEP_PX 간격으로 길을 따라 재 본다 — 손이 한 번에 크게 움직이면 끝점이 콘
+   *  (반지름 3 px) 너머로 넘어가 "안 막혔다" 가 된다. 이미 겹쳐 있는 것은 **더 깊어질 때만** 막는다(빠져나오기는 된다). */
+  function lockedProgress(ms: readonly LockMover[], d: Vec2, blk: DragBlockers): number {
+    if ((blk.chairs.length === 0 && blk.circles.length === 0) || ms.length === 0) return 1;
+    const len = Math.hypot(d.x, d.y);
+    if (len === 0) return 1;
+    const base = ms.map((m) => lockDepth(m, 0, 0, blk));
+    const hit = (t: number): boolean => ms.some((m, i) => lockDepth(m, d.x * t, d.y * t, blk) > base[i]! + 1e-6);
+    const n = Math.min(400, Math.ceil(len / SWEEP_STEP_PX));
+    let prev = 0;
+    for (let k = 1; k <= n; k++) {
+      const t = k / n;
+      if (!hit(t)) {
+        prev = t;
+        continue;
+      }
+      let lo = prev;
+      let hi = t;
+      for (let j = 0; j < 8; j++) {
+        const mid = (lo + hi) / 2;
+        if (hit(mid)) hi = mid;
+        else lo = mid;
+      }
+      return lo;
+    }
+    return 1;
   }
 
   function substep(_dtS: number): void {
@@ -709,27 +755,37 @@ export function createPhysicsWorld(
 
     groupDelta(ids, d) {
       const members: Array<{ minX: number; maxX: number; minY: number; maxY: number }> = [];
+      const movers: LockMover[] = [];
       for (const id of ids) {
         const kind = kindOf.get(id as CastId);
-        if (kind === 'chair') members.push(boundsExtent(world.chairPose(id as ChairId), bounds));
-        else if (kind === 'ball' || kind === 'cone') {
+        if (kind === 'chair') {
+          const pose = world.chairPose(id as ChairId);
+          members.push(boundsExtent(pose, bounds));
+          movers.push({ pose });
+        } else if (kind === 'ball' || kind === 'cone') {
           const p = world.pointOf(id as CastId);
           const r = kind === 'ball' ? BALL.radiusPx : CONE.radiusPx;
           members.push({ minX: p.x - r, maxX: p.x + r, minY: p.y - r, maxY: p.y + r });
+          movers.push({ p, r });
         }
       }
-      return groupDeltaWithin(members, d, bounds);
+      const w = groupDeltaWithin(members, d, bounds);
+      // 잠긴 개체 앞에서도 무리 전체가 선다(2026-11-19 기현님 승인 — 키보드 무리 이동과 같은 규칙). 상호작용이 꺼져 있으면
+      // lockedBlockers 가 비어 그대로 지나간다(막는 것도 상호작용이다). 무리 자신은 빼고 잰다.
+      const k = lockedProgress(movers, w, lockedBlockers(new Set(ids)));
+      return k === 1 ? w : { x: w.x * k, y: w.y * k };
     },
 
     sweepTo(moves, durationS) {
       if (!interact || session) return false;
-      const plan: Array<{ id: CastId; chair: boolean; r: number; from: ChairPose; to: ChairPose }> = [];
+      /** `at` = 공·콘이 손에게 받은 자리(잠긴 개체에 막히면 거기 선다). 걸음 사이 물리가 되밀어도 이 값을 따라간다. */
+      const plan: Array<{ id: CastId; chair: boolean; r: number; from: ChairPose; to: ChairPose; at: Vec2; free: boolean }> = [];
       for (const m of moves) {
         const kind = kindOf.get(m.id);
         if (!kind || kind === 'goal' || lockedIds.has(m.id)) continue;
         const chair = kind === 'chair';
         const from: ChairPose = chair ? world.chairPose(m.id as ChairId) : { ...world.pointOf(m.id), theta: 0 };
-        plan.push({ id: m.id, chair, r: kind === 'ball' ? BALL.radiusPx : CONE.radiusPx, from, to: { x: m.pose.x, y: m.pose.y, theta: chair ? (m.pose.theta ?? from.theta) : 0 } });
+        plan.push({ id: m.id, chair, r: kind === 'ball' ? BALL.radiusPx : CONE.radiusPx, from, to: { x: m.pose.x, y: m.pose.y, theta: chair ? (m.pose.theta ?? from.theta) : 0 }, at: { x: from.x, y: from.y }, free: true });
         if (chair && !nudgeHeld.has(m.id as ChairId)) {
           world.setChairDragging(m.id as ChairId, true);
           nudgeHeld.add(m.id as ChairId);
@@ -755,7 +811,9 @@ export function createPhysicsWorld(
         let r = 1;
         if (lump) {
           for (const p of plan) {
-            if (p.chair) r = Math.min(r, sweptProgress(p.id as ChairId, { x: (p.to.x - p.from.x) / n, y: (p.to.y - p.from.y) / n, theta: 0 }, blk));
+            const step = { x: (p.to.x - p.from.x) / n, y: (p.to.y - p.from.y) / n };
+            // 공·콘도 잠긴 개체에 막힌다(2026-11-19 기현님 승인) — 무리 안의 공이 먼저 닿으면 무리 전체가 선다
+            r = Math.min(r, p.chair ? sweptProgress(p.id as ChairId, { ...step, theta: 0 }, blk) : lockedProgress([{ p: p.at, r: p.r }], step, blk));
           }
           progress += r / n;
         }
@@ -778,7 +836,16 @@ export function createPhysicsWorld(
           } else if (p.chair) {
             placeSweptChair(p.id as ChairId, { x: (p.to.x - p.from.x) / n, y: (p.to.y - p.from.y) / n, theta: (p.to.theta - p.from.theta) / n });
           } else {
-            world.setPoint(p.id, clampPointToBounds({ x, y }, p.r, bounds), true);
+            if (lump) p.at = { x, y };
+            else {
+              // 혼자 가는 공·콘 — 잠긴 개체 앞에서 선다(2026-11-17 까지는 휠체어만 막혀 공·콘은 잠긴 것을 뚫고 갔다)
+              const step = { x: (p.to.x - p.from.x) / n, y: (p.to.y - p.from.y) / n };
+              const k = lockedProgress([{ p: p.at, r: p.r }], step, blk);
+              // 한 번도 안 막혔으면 정확히 lerp 자리로(걸음을 더해 가면 끝이 목표에서 부동소수만큼 어긋난다)
+              if (k < 1) p.free = false;
+              p.at = p.free ? { x, y } : { x: p.at.x + step.x * k, y: p.at.y + step.y * k };
+            }
+            world.setPoint(p.id, clampPointToBounds(p.at, p.r, bounds), true);
           }
         }
         substep(PHYS.dtS);
@@ -786,8 +853,7 @@ export function createPhysicsWorld(
       // 공·콘은 dynamic 이라 걸음 사이에 되밀렸을 수 있다 — 손이 보낸 자리에 세운다(남은 겹침은 정착이 푼다)
       for (const p of plan) {
         if (p.chair) continue;
-        const end = lump ? { x: p.from.x + (p.to.x - p.from.x) * progress, y: p.from.y + (p.to.y - p.from.y) * progress } : p.to;
-        world.setPoint(p.id, clampPointToBounds(end, p.r, bounds), false);
+        world.setPoint(p.id, clampPointToBounds(p.at, p.r, bounds), false);
         world.freeze(p.id);
       }
       openSettle();

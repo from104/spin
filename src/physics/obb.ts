@@ -325,7 +325,7 @@ export function resolveMotion(
 
 /** 점(원)과 회전 사각형의 관통 깊이·법선. 원 중심이 사각형 내부면 4면 중 가장 가까운 쪽으로,
  *  외부면 가장 가까운 점 방향으로 판정한다. */
-function circleObbPush(
+export function circleObbPush(
   p: Vec2,
   r: number,
   pose: ChairPose,

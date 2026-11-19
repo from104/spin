@@ -11,7 +11,8 @@
 //      (React 는 자식 effect 를 먼저 부른다) — 그래서 커밋은 바디가 아직 그 자리에 있을 때 들어간다.
 // · 나오는 길(B2): Esc · [끝] · 도구 바꿈 · 스텝 바꿈 · 재생 · 심플 켬 · 상호작용 끔 · 개체 메뉴 열기 · **조정 키가 아닌 아무 키**.
 //   마지막 것이 되돌리기(Ctrl+Z)·스텝 키·도구 키를 한 길로 묶는다 — 먼저 커밋하고 나온 뒤 그 키가 제 일을 한다(Ctrl+Z 면 방금 몬 것
-//   통째로 한 칸이 물러난다). 되돌리기 단추처럼 키가 아닌 시점 점프(epoch)는 커밋 없이 끝낸다 — 상태가 이미 다른 시점이다.
+//   통째로 한 칸이 물러난다). 예외(2026-11-19 기현님 승인): W A S D 둘레 오타(Q E R F Z X C)·남는 숫자는 먹고, 잠금·입력기·기능 키는
+//   흘려보내고, 조정 화면 부품(조이스틱·띠) 위의 Space·Enter·Tab 은 그 단추·초점에 맡긴다 — 셋 다 모드를 끝내지 않는다. 되돌리기 단추처럼 키가 아닌 시점 점프(epoch)는 커밋 없이 끝낸다 — 상태가 이미 다른 시점이다.
 //   **판을 누르면**(조이스틱·단추는 판 밖이라 해당 없음) 나온다 — 다른 휠체어(몰 수 있는 것)를 누르면 그 휠체어로 갈아탄다
 //   (2026-11-18 기현님: *"조이스틱 영역 or 버튼 외에 경기장 클릭 시 주행 해제"*). 그 누름은 먹는다 — 나오자마자 끌기가 시작되지 않게.
 // · **되돌리기·다시 실행은 모드를 유지한다**(2026-11-18 기현님: *"주행모드에서 되돌려도(undo) 주행모드 유지"*). 키든 단추든 위처럼
@@ -23,8 +24,9 @@
 //   조이스틱은 판 밖(body 포털)이라 그 손짓은 drivePress·키 층 어느 '나오는 길' 도 타지 않는다.
 // · 세션 동안 매 프레임 tick 한다(입력이 없어도) — 이 동안 물리 시간은 driveStep 하나가 쥔다(controller.ts 머리말).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import type { Dispatch } from 'react';
-import { DRIVE, PHYS } from '../../core/constants.ts';
+import { DRIVE } from '../../core/constants.ts';
 import { isId } from '../../core/ids.ts';
 import type { ChairId } from '../../core/ids.ts';
 import { eventCode, lookupDef } from '../../core/keymap.ts';
@@ -85,7 +87,14 @@ export interface DriveSession {
 
 const MODIFIER_CODES = new Set(['ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight']);
 /** 주행 중 숫자줄의 남은 칸 — 속도가 아닌 숫자는 **아무 일도 안 한다**(평소의 obj.face 방향 바꾸기로 새면 몰던 차가 홱 돈다). */
-const DIGITS_SWALLOWED = new Set(['Digit0', 'Digit6', 'Digit7', 'Digit8', 'Digit9']);
+const DIGITS_SWALLOWED = new Set(['Digit0', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Numpad0', 'Numpad6', 'Numpad7', 'Numpad8', 'Numpad9']);
+/** W A S D 둘레의 오타 — 수식키 없이 누르면 먹고 모드를 유지한다(2026-11-19 기현님 승인). Ctrl+Z 같은 조합은 아래 '나오는 길' 로 간다. */
+const TYPO_SWALLOWED = new Set(['KeyQ', 'KeyE', 'KeyR', 'KeyF', 'KeyZ', 'KeyX', 'KeyC']);
+/** 잠금·입력기 키 — 모드를 끝내지 않는다(한/영을 눌렀다고 몰던 차가 서면 안 된다). */
+const LOCK_IME_CODES = new Set(['CapsLock', 'NumLock', 'ScrollLock', 'Lang1', 'Lang2', 'Lang3', 'Lang4', 'Lang5', 'KanaMode', 'Convert', 'NonConvert']);
+const IME_KEYS = new Set(['HangulMode', 'HanjaMode', 'Process', 'Unidentified', 'CapsLock']);
+/** 조정 모드 화면 부품(조이스틱·띠)에 초점이 있을 때 단추를 누르고 초점을 옮기는 키 — 모드를 끝내지 않고 제 일을 하게 둔다. */
+const UI_KEYS = new Set(['Space', 'Enter', 'NumpadEnter', 'Tab']);
 
 const inDialog = (t: EventTarget | null): boolean =>
   t instanceof Element && t.closest('[role="dialog"],[role="alertdialog"],[aria-modal="true"]') !== null;
@@ -111,6 +120,8 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
   const settleOffRef = useRef<(() => void) | null>(null);
   /** 되돌리기·다시 실행 키로 나올 때 다시 들어갈 휠체어(시점 점프 effect 가 읽고 비운다). */
   const resumeRef = useRef<string | null>(null);
+  /** 다음 자동저장 시각(Date.now 기준) — 몰고 있는 동안에도 이 주기로 저장이 나간다(아래 commitNow). */
+  const saveDueRef = useRef(0);
   const announceSpeed = useThrottledAnnounce();
 
   // 세션의 스텝 사본은 같은 스텝일 때만 따라간다 — 커밋이 바꾼 자세를 다음 커밋의 '이전 값' 으로 써야 무변화 판정이 맞다.
@@ -140,7 +151,11 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
       beganRef.current = true;
     }
     // 자동저장 억제 창(드래그와 같은 SETTLE_ARM) — 몰고 있는 동안 0.5 s 마다 IDB 에 쓰지 않게. 나올 때 정착 덧쓰기가 닫는다.
-    d.dispatch({ type: 'SETTLE_ARM', until: Date.now() + PHYS.settleMaxMs });
+    // ⚠️ 창을 커밋마다 '지금 + 정착 상한' 으로 밀면 계속 모는 동안 저장이 한 번도 안 나간다(2026-11-19 기현님 승인으로 고침) —
+    //    마감을 DRIVE.autosaveEveryMs 주기의 다음 눈금에 고정해, 그 시각에 자동저장 타이머가 터지게 한다.
+    const now = Date.now();
+    if (saveDueRef.current <= now) saveDueRef.current = now + DRIVE.autosaveEveryMs;
+    d.dispatch({ type: 'SETTLE_ARM', until: saveDueRef.current });
     d.dispatch({ type: 'PLACE_COMMIT', stepId: st.id, chairs, balls, cones });
   }, []);
 
@@ -212,6 +227,7 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
         driveStepRef.current = d.step;
         lastCommitRef.current = performance.now();
         wasActiveRef.current = false;
+        saveDueRef.current = Date.now() + DRIVE.autosaveEveryMs;
       }
       chairRef.current = cid;
       setChairId(cid);
@@ -330,6 +346,13 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
         else keysRef.current.press(code);
         return;
       }
+      // 조이스틱의 속도 단추·띠의 [끝]에 초점이 있으면 Space·Enter 는 그 단추를, Tab 은 초점 옮기기를 한다(모드는 그대로)
+      if (UI_KEYS.has(code) && e.target instanceof Element && e.target.closest('[data-drive-ui]') && !e.ctrlKey && !e.metaKey && !e.altKey) return;
+      // 잠금·입력기·기능 키는 모드를 끝내지 않는다. 앱 단축키로도 안 흘리되 브라우저 기본(F5·F11 등)은 막지 않는다 — 새로고침은 아래 pagehide 가 저장한다
+      if (LOCK_IME_CODES.has(code) || IME_KEYS.has(e.key) || e.isComposing || /^F\d{1,2}$/.test(code)) {
+        e.stopPropagation();
+        return;
+      }
       if (MODIFIER_CODES.has(code)) {
         // macOS 는 ⌘ 를 쥔 동안 **다른 키의 keyup 을 보내지 않는다** — W 를 쥔 채 ⌘ 를 눌렀다가 W 를 떼면 W 가 눌린 채로 남아
         // 휠체어가 혼자 달아난다. ⌘ 가 닿는 순간 입력을 비운다(쥐고 있던 키는 다시 눌러야 간다 — 자동 반복은 아래에서 먹는다).
@@ -342,7 +365,7 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
         e.stopPropagation();
         return;
       }
-      if (DIGITS_SWALLOWED.has(code) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if ((DIGITS_SWALLOWED.has(code) || TYPO_SWALLOWED.has(code)) && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         e.stopPropagation();
         return;
@@ -374,8 +397,16 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     const onPointerDown = (): void => {
       if (chairRef.current) commitNow();
     };
+    // 페이지를 떠나는 순간(탭 닫기·새로고침·뒤로 가기·탭 숨김) 지금 자세를 **동기로** 커밋한다(2026-11-19 기현님 승인) — 주기 커밋을
+    // 기다리면 마지막 ≤ 0.5 s 가 빠진다. flushSync 라야 자동저장의 즉시 저장(visibilitychange)·화면 언마운트 저장이 이 커밋을 본다
+    // (그쪽은 마지막으로 그려진 상태를 읽는다). 그래서 window **캡처**로 단다 — 자동저장(document)·라우터(window 버블)보다 먼저 돈다.
+    const onLeave = (): void => {
+      if (chairRef.current) flushSync(() => commitNow());
+    };
     const onVisibility = (): void => {
-      if (document.visibilityState === 'hidden') clear();
+      if (document.visibilityState !== 'hidden') return;
+      clear();
+      onLeave();
     };
     window.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('keyup', onKeyUp, true);
@@ -385,7 +416,9 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
     // 브라우저의 오른쪽 단추 메뉴가 뜨면 그동안의 keyup 은 페이지에 안 온다(blur 도 안 난다). **키보드 입력만** 비운다 —
     // 조이스틱을 쥔 손가락을 가만히 두면 안드로이드가 길게 누르기로 contextmenu 를 쏘는데, 그걸로 결합 입력을 비우면 휠체어가 선다.
     window.addEventListener('contextmenu', clearKeys, true);
-    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('visibilitychange', onVisibility, true);
+    window.addEventListener('pagehide', onLeave, true);
+    window.addEventListener('popstate', onLeave, true);
     return () => {
       window.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('keyup', onKeyUp, true);
@@ -393,7 +426,9 @@ export function useDriveSession(deps: DriveSessionDeps): DriveSession {
       window.removeEventListener('pointerup', onPointerDown, true);
       window.removeEventListener('blur', clear);
       window.removeEventListener('contextmenu', clearKeys, true);
-      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('visibilitychange', onVisibility, true);
+      window.removeEventListener('pagehide', onLeave, true);
+      window.removeEventListener('popstate', onLeave, true);
     };
   }, [enter, exit, setLevel, commitNow]);
 

@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog], and this project follows [Semantic Ve
 ### Fixed
 
 - Fixed objects moved or turned with the keyboard or the [Fine-tune] pad leaving the court — several moved together now stop as one block at walls and locked objects
+- Fixed dragging several objects together, or pushing a ball or cone with the keyboard, passing through locked objects while [Physics & interaction] is on
 - Fixed a goalkeeper behind the goal line beside the post not counting toward the goal area — behind the line, the goal-area width counts as goal area
 
 ## [0.6.14] 2026-11-16

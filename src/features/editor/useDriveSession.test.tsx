@@ -269,6 +269,90 @@ describe('조정 모드 세션 — 키를 쥔 채 나가도 마지막 자세가 
     act(() => h.result.current.dispatch({ type: 'REDO' }));
     expect(stored(h, 0, a).x).toBeGreaterThan(320);
   });
+
+  // 탭 닫기·새로고침(pagehide)·브라우저 뒤로 가기(popstate)·탭 숨김(visibilitychange) — 자동저장의 즉시 저장과 화면 언마운트 저장은
+  // 마지막으로 **그려진** 상태를 읽는다. 그래서 act 밖에서 쏘고 곧바로 본다: 동기로(flushSync) 그려 두지 않았으면 낡은 자세다.
+  it('페이지를 떠나는 순간(pagehide·popstate·탭 숨김) 동기로 커밋해 그려 둔다', () => {
+    const hide = (): void => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+    };
+    const fire: Record<string, () => void> = {
+      pagehide: () => void window.dispatchEvent(new Event('pagehide')),
+      popstate: () => void window.dispatchEvent(new Event('popstate')),
+      hidden: hide,
+    };
+    try {
+      for (const [name, go] of Object.entries(fire)) {
+        const { h, a } = drivingMidCommit();
+        const at = poseOf(h, a).x;
+        go();
+        expect(stored(h, 0, a).x, name).toBeCloseTo(at, 1);
+        h.unmount();
+      }
+    } finally {
+      delete (document as { visibilityState?: unknown }).visibilityState;
+    }
+  });
+});
+
+describe('조정 모드 세션 — 조정 키가 아닌 키(2026-11-19 기현님 승인 기본안)', () => {
+  it('오타·잠금·입력기·기능 키는 모드를 끝내지 않고, Shift 숫자·숫자패드는 속도다', () => {
+    const { drill, a } = makeDrill();
+    const h = mount(drill);
+    act(() => h.result.current.drive.enter(a));
+    for (const [code, init] of [
+      ['KeyQ', {}],
+      ['KeyE', {}],
+      ['KeyR', {}],
+      ['CapsLock', { key: 'CapsLock' }],
+      ['Lang1', { key: 'HangulMode' }],
+      ['F5', { key: 'F5' }],
+    ] as const) {
+      key('keydown', code, init);
+      expect(h.result.current.drive.chairId, code).toBe(a);
+    }
+    key('keydown', 'Digit2', { shiftKey: true, key: '@' });
+    expect(h.result.current.drive.level).toBe(2);
+    key('keydown', 'Numpad3', { key: '3' });
+    expect(h.result.current.drive.level).toBe(3);
+    expect(h.result.current.drive.chairId).toBe(a);
+    // 대조군 — 수식키를 쥔 오타 자리(Ctrl+Z)는 여전히 나가는 길이다(되돌리기)
+    key('keydown', 'KeyZ', { ctrlKey: true });
+    expect(h.result.current.drive.chairId).toBeNull();
+  });
+
+  it('조정 화면 부품(속도 단추)에 초점이 있으면 Space·Enter·Tab 은 모드를 끝내지 않는다 — 판에서는 끝낸다', () => {
+    const { drill, a } = makeDrill();
+    const h = mount(drill);
+    const ui = document.createElement('div');
+    ui.setAttribute('data-drive-ui', '');
+    const btn = document.createElement('button');
+    ui.appendChild(btn);
+    document.body.appendChild(ui);
+    try {
+      act(() => h.result.current.drive.enter(a));
+      for (const code of ['Space', 'Enter', 'Tab']) {
+        act(() => void btn.dispatchEvent(new KeyboardEvent('keydown', { code, key: code === 'Space' ? ' ' : code, bubbles: true, cancelable: true })));
+        expect(h.result.current.drive.chairId, code).toBe(a);
+      }
+      key('keydown', 'Enter', { key: 'Enter' }); // 대조군 — 부품 밖이면 아무 키 = 나가기
+      expect(h.result.current.drive.chairId).toBeNull();
+    } finally {
+      ui.remove();
+    }
+  });
+
+  it('계속 모는 동안에도 자동저장 창은 주기(3 s) 안에서 닫힌다 — 커밋마다 정착 상한(20 s)만큼 밀리지 않는다', () => {
+    const { drill, a } = makeDrill();
+    const h = mount(drill);
+    act(() => h.result.current.drive.enter(a));
+    key('keydown', 'KeyD'); // 제자리에서 돈다 — 벽에 안 닿고 오래 몬다
+    frames(60);
+    const hold = h.result.current.state.settleHoldUntil;
+    expect(hold).toBeGreaterThan(0); // 대조군 — 창은 열려 있다(0.5 s 커밋마다 IDB 에 쓰지 않는다)
+    expect(hold - Date.now()).toBeLessThanOrEqual(3000);
+  });
 });
 
 describe('조정 모드 세션 — 떼는 사건을 못 받아도 휠체어가 혼자 달아나지 않는다', () => {

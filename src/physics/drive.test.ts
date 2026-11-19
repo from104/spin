@@ -9,7 +9,7 @@
 //  · 최고 단계 회전(≈ 430 °/s)이 콘을 건너뜀 — 걸음을 시간으로만 나누므로 한 substep 의 앞 모서리 이동이 콘보다 작아야 한다.
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPhysicsProbe } from '../test/helpers/physicsProbe.ts';
-import { CHAIR, CONE, DRIVE } from '../core/constants.ts';
+import { BALL, CHAIR, CONE, DRIVE } from '../core/constants.ts';
 import type { BallId, ChairId, ConeId } from '../core/ids.ts';
 
 const chA = 'ch_a' as ChairId;
@@ -95,6 +95,33 @@ describe('무리는 잠긴 개체 앞에서 한 덩어리로 선다', () => {
     expect(s[chA]!.x).toBeLessThan(stopX + 1);
     expect(s[chA]!.x - s[chB]!.x).toBeCloseTo(45, 6);
     expect(s[bl]!.x - s[chA]!.x).toBeCloseTo(0, 1);
+  });
+
+  it('공·콘도 잠긴 개체에 막힌다 — 혼자 밀어도, 무리 맨 앞이어도', () => {
+    // 혼자: 잠긴 휠체어 L 의 뒤끝(350 − pivotToRear)에 공이 닿는 자리에서 선다(전에는 L 을 뚫고 420 에 섰다)
+    const ballStop = 350 - CHAIR.pivotToRearPx - BALL.radiusPx;
+    const p1 = probeOf({ chairs: [{ id: chL, x: 350, y: Y }], balls: [{ id: bl, x: 280, y: Y }], locked: [chL] });
+    p1.api.sweepTo([{ id: bl, pose: { x: 420, y: Y, theta: 0 } }], 0.5);
+    expect(p1.api.read()[bl]!.x).toBeGreaterThan(ballStop - 2);
+    expect(p1.api.read()[bl]!.x).toBeLessThan(ballStop + 1);
+    p1.dispose();
+    // 무리 맨 앞의 콘이 잠긴 콘에 닿으면 뒤 휠체어도 같이 선다
+    const cn2 = 'cn_b' as ConeId;
+    const p2 = probeOf({ chairs: [{ id: chA, x: 200, y: Y }], cones: [{ id: cn, x: 300, y: Y }, { id: cn2, x: 330, y: Y }], locked: [cn2] });
+    pushGroup(p2, [chA, cn], 10, 0, 6);
+    const s = p2.api.read();
+    expect(s[cn]!.x).toBeLessThan(330 - 2 * CONE.radiusPx + 1);
+    expect(s[cn]!.x - s[chA]!.x).toBeCloseTo(100, 6);
+  });
+
+  it('덩어리 끌기(groupDelta): 잠긴 개체 앞에서 무리 전체가 선다 — 손이 한 번에 크게 움직여도 건너뛰지 않는다', () => {
+    const probe = probeOf({ chairs: [{ id: chA, x: 300, y: Y }, { id: chB, x: 255, y: Y }, { id: chL, x: 350, y: Y }], cones: [{ id: cn, x: 250, y: Y - 60 }], locked: [chL] });
+    const d = probe.api.groupDelta([chA, chB], { x: 200, y: 0 }); // 한 번의 포인터 이동으로 L 너머까지
+    expect(d.x).toBeGreaterThan(stopX - 300 - 2);
+    expect(d.x).toBeLessThan(stopX - 300 + 1);
+    // 상호작용이 꺼져 있으면 막지 않는다(막는 것도 상호작용이다)
+    probe.api.setInteract(false);
+    expect(probe.api.groupDelta([chA, chB], { x: 200, y: 0 }).x).toBe(200);
   });
 });
 

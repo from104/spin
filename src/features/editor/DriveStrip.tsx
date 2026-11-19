@@ -14,6 +14,7 @@ export function DriveStrip({ chair, level, onEnd }: { chair: string; level: numb
       role="group"
       aria-label={name}
       data-testid="drive-strip"
+      data-drive-ui=""
       data-level={level}
       style={{
         position: 'absolute',
