@@ -45,6 +45,15 @@ export function useAutosave(enabled: boolean = true): AutosaveApi {
   // (§6.7 "딥카피 0회") 참조 동일성만으로 "저장할 내용이 있는지" 판단할 수 있다.
   // updatedAt 은 저장 시점에만 바뀌므로(§4.3 putDrill touch) 이 판단에 쓸 수 없다.
   const lastAttemptedRef = useRef(state.present);
+  // 화면이 내려간 뒤에 끝난 저장은 **쓰기만** 하고 상태는 안 건드린다 — 언마운트 플러시(아래)는 일부러 내려간 뒤에 돌고, 그 결과로
+  // setState·dispatch 를 부르면 이미 치운 트리를 만진다(시험에서는 jsdom 이 치워진 뒤라 'window is not defined' 로 터졌다 — v0.7.0 CI gate).
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
 
   const clearTimer = () => {
     if (timerRef.current !== null) {
@@ -65,10 +74,12 @@ export function useAutosave(enabled: boolean = true): AutosaveApi {
     try {
       const { repo } = await resolveDrillRepo();
       const saved = await repo.putDrill(s.present, { expectedUpdatedAt: s.baselineUpdatedAt });
+      if (!aliveRef.current) return;
       dispatch({ type: 'SAVED', at: saved.updatedAt });
       setSavedPresent(s.present);
       setStatus('saved');
     } catch (e) {
+      if (!aliveRef.current) return;
       if (e instanceof StorageError && e.code === 'E_CONFLICT') {
         conflictRef.current = true;
         setStatus('conflict');
