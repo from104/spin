@@ -656,7 +656,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         to = base + Math.PI;
       } else {
         // 화살표는 화면 방향이다 — 코트가 돌아가 있으면(세로 창) 이동 칸과 같은 환산으로 판 방향이 된다.
-        const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+        const rot = (stageRef as RefObject<CourtStageHandle | null> | null)?.current?.refreshMetrics()?.rot ?? 0;
         const w = screenDeltaToWorld({ rot }, cmd.sx, cmd.sy);
         to = base + shortestDelta(base, Math.atan2(w.y, w.x));
       }
@@ -730,7 +730,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           // ★ 이동은 **화면 기준**이다(§7.5). 스테이지가 90° 돌아 있으면 월드 축과 어긋나므로
           //   화면 델타를 월드 델타로 옮겨서 넘긴다 — 안 그러면 세로 화면에서 D(오른쪽)가
           //   개체를 아래로 내려보낸다(보이는 것과 손이 어긋난다).
-          const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+          const rot = (stageRef as RefObject<CourtStageHandle | null> | null)?.current?.refreshMetrics()?.rot ?? 0;
           const w = screenDeltaToWorld({ rot }, dir[0] * step, dir[1] * step);
           nudge(id, w.x, w.y, 0);
           return;
@@ -826,7 +826,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
       // 합성 사건이 code 를 안 실을 때를 위한 폴백 — 근거는 `core/keymap.ts` 의 eventCode.
       const code = eventCode(e);
       if (code === 'Escape') {
-        (stageRef as RefObject<CourtStageHandle | null>).current?.focusContainer();
+        (stageRef as RefObject<CourtStageHandle | null> | null)?.current?.focusContainer();
         // ⚠️ 2026-09-03 — **지우기 도구의 Esc 출구를 여기 두지 않았다.** 자연스러운 자리처럼
         //    보이지만 두 이유로 틀린다: (a) 이 핸들러는 무대 svg 의 onKeyDown 이라 포커스가
         //    코트 밖이면 안 불리고, (b) 여기는 stopPropagation 을 걸지 않으므로 같은 Esc 가
@@ -867,7 +867,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
         if (code.startsWith('Arrow')) {
           e.preventDefault();
           e.stopPropagation(); // §7.5d 배치 커서 이동이 useEditorKeyboard 전역 스텝 이동(ArrowLeft/Right)과 이중 발화하지 않도록 차단
-          const curRot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+          const curRot = (stageRef as RefObject<CourtStageHandle | null> | null)?.current?.refreshMetrics()?.rot ?? 0;
           if (e.shiftKey) {
             const step25 = 12.5;
             // 배치 커서도 화면 기준이어야 한다(§7.5) — 위 개체 이동과 같은 규칙.
@@ -1263,7 +1263,7 @@ export const EditorStage = forwardRef<CourtStageHandle, EditorStageProps>(functi
           nudge(id, 0, 0, ut * FINE_STEP_DEG * RAD);
           return;
         }
-        const rot = (stageRef as RefObject<CourtStageHandle | null>).current?.refreshMetrics()?.rot ?? 0;
+        const rot = (stageRef as RefObject<CourtStageHandle | null> | null)?.current?.refreshMetrics()?.rot ?? 0;
         const w = screenDeltaToWorld({ rot }, ux * FINE_STEP_PX, uy * FINE_STEP_PX);
         // 여럿이면 `nudge` 안의 무리 갈래가 받는다(ids 는 곧 선택이다 — NudgePadTarget.ids).
         nudge(id, w.x, w.y, 0);
