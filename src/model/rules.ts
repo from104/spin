@@ -217,12 +217,29 @@ export function isBallOutOfPlay(mode: CourtMode, surface: Rect, ball: Vec2, radi
  *  ⚠️ 2026-08-15 — `defender === a.team` 조건이 **새로 생겼다.** 그 전에는 진영 데이터가 없어
  *  *"아무 골 지역"* 으로 읽었고(rules.ts 머리말 (1)), 그래서 상대 골 지역까지 밀고 들어간
  *  골키퍼가 2-on-1 에서 면제를 받았다. 규정은 자기 골 지역에 있는 수비 골키퍼만 면제한다. */
-function chairInOwnGoalArea(zones: readonly DefendedZone[], a: RuleActor): boolean {
-  for (const z of zones) {
+function chairInOwnGoalArea(zones: readonly DefendedZone[], a: RuleActor, mouths: readonly DefendedMouth[] = []): boolean {
+  for (let i = 0; i < zones.length; i++) {
+    const z = zones[i]!;
     if (z.defender !== a.team) continue;
-    if (chairOverlapsRect(a.x, a.y, a.theta, z.rect.x, z.rect.y, z.rect.w, z.rect.h, a.disc)) return true;
+    const r = goalAreaReach(z.rect, mouths[i]?.mouth);
+    if (chairOverlapsRect(a.x, a.y, a.theta, r.x, r.y, r.w, r.h, a.disc)) return true;
   }
   return false;
+}
+
+/** 골 지역 사각형을 **골라인 너머 판 끝까지** 늘린 것 — 골라인 뒤에 있는 선수는 골 지역 안에 있는 것으로 친다(2026-11-19 기현님:
+ *  *"골키퍼가 골 라인 뒤에 있어도 골에어리어 안에 있는 것처럼 취급한다"*). 폭은 골 지역 폭 그대로다 — 골대 폭(6 m, `GoalMouth`)이
+ *  아니다. 전에는 골대 뒤를 "6 m 안에 **완전히** 나가 있을 때" 만 셌는데(`chairBehindMouth`), 골 지역(8 m)이 골대보다 넓어
+ *  기둥 바깥 골라인 뒤의 골키퍼가 인원에서 빠져 골 지역 반칙이 하얗게 남았다(기현님 화면: 골 지역 안 2대 + 기둥 옆 골라인 뒤 골키퍼).
+ *  어느 쪽이 골라인 너머인지는 `GoalMouth` 의 무한 변이 말한다(그 순서는 `ruleZones` 와 같다 — 계약). 골대가 없으면(플랫) 그대로. */
+const REACH = 1e6;
+function goalAreaReach(rect: Rect, mouth: GoalMouth | undefined): Rect {
+  if (!mouth) return rect;
+  if (mouth.minX === -Infinity) return { x: rect.x - REACH, y: rect.y, w: rect.w + REACH, h: rect.h };
+  if (mouth.maxX === Infinity) return { x: rect.x, y: rect.y, w: rect.w + REACH, h: rect.h };
+  if (mouth.minY === -Infinity) return { x: rect.x, y: rect.y - REACH, w: rect.w, h: rect.h + REACH };
+  if (mouth.maxY === Infinity) return { x: rect.x, y: rect.y, w: rect.w, h: rect.h + REACH };
+  return rect;
 }
 
 /** 차체가 **자기 팀이 지키는** 골대 뒤로 완전히 나가 있는가(골라인 밖 반평면 ∩ 6 m).
@@ -270,7 +287,7 @@ export function ringViolation(
     if (!chairOverlapsCircle(a.x, a.y, a.theta, ball.x, ball.y, RING_R_PX, a.disc)) continue;
     // 골키퍼 면제는 **자리가 둘**이다 — 자기 골 지역 안(예외 ①) 이거나 자기 골라인 완전히
     // 뒤(예외 ①-b). 둘의 문턱이 서로 반대라(걸치면 / 완전히) 함수도 갈라 둔다.
-    const exempt = a.isGk && (chairInOwnGoalArea(goalAreas, a) || chairBehindOwnGoalLine(mouths, a));
+    const exempt = a.isGk && (chairInOwnGoalArea(goalAreas, a, mouths) || chairBehindOwnGoalLine(mouths, a));
     if (a.team === 'home') {
       rawHome++;
       if (!exempt) countedHome++;
@@ -319,8 +336,10 @@ export function zoneViolation(zone: DefendedZone, actors: readonly RuleActor[], 
   let count = 0;
   for (const a of actors) {
     if (a.team !== zone.defender) continue; // 공격은 제한 없다
-    const inZone = chairOverlapsRect(a.x, a.y, a.theta, zone.rect.x, zone.rect.y, zone.rect.w, zone.rect.h, a.disc);
-    // OR 이라 골라인에 걸친 채 양쪽을 다 만족하는 차체도 한 번만 세어진다.
+    // 골라인 뒤도 골 지역이다(goalAreaReach — 골 지역 폭으로 판 끝까지). 골대 6 m 뒤 면제 구역(behind)은 그 안에 들어 있으나
+    // 넓이가 다르므로 OR 로 남겨 둔다 — 한 차체는 한 번만 세어진다.
+    const r = goalAreaReach(zone.rect, behind?.mouth);
+    const inZone = chairOverlapsRect(a.x, a.y, a.theta, r.x, r.y, r.w, r.h, a.disc);
     if (!inZone && !(behind !== undefined && chairBehindMouth(behind, a))) continue;
     count++;
   }

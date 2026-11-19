@@ -34,7 +34,7 @@ import {
 } from './rules.ts';
 import type { TeamSide } from './drill.ts';
 import { attackDir, cornerKickZones, COURT_DEFS, COURT_MODES, COURT_SIZES, courtDefFor, GOAL_HALF_PX, goalMouths } from './court.ts';
-import { chairOverlapsCircle, chairOverlapsRect } from './chairOverlap.ts';
+import { chairInsideBounds, chairOverlapsCircle, chairOverlapsRect } from './chairOverlap.ts';
 import { BALL as BALL_CONST, CHAIR } from '../core/constants.ts';
 import { PX_PER_M } from '../core/units.ts';
 import { DISC_RADIUS_PX } from './chairDisc.ts';
@@ -390,6 +390,28 @@ describe('rules — 골 지역 3인', () => {
       const three = [...twoInside(), actor('away', behindPivotX, MID_Y, true, Math.PI)];
       expect(zoneViolation(GZ_HOME, three, MOUTH)).toBe(0);
     });
+
+    // 2026-11-19 기현님(화면 두 장 — 기본·심플): *"골키퍼가 골 라인 뒤에 있어도 골에어리어 안에 있는 것처럼 취급한다. 그래서
+    // 두 경우 다 골에어리어 반칙임."* 골대(6 m)보다 넓은 골 지역 폭의 골라인 뒤 — 기둥 옆에 걸친 골키퍼도 센다.
+    it.each([
+      ['차체', false],
+      ['심플 원', true],
+    ] as const)('골라인 뒤 기둥 옆(골대 6 m 밖·골 지역 폭 안)의 골키퍼도 골 지역 인원이다 — %s', (_n, disc) => {
+      const postY = MOUTH.mouth.maxY; // 아래 기둥 쪽 골대 폭 끝
+      const y = Math.min(postY + 10, GZ.y + GZ.h - 12); // 골대 폭을 벗어나되 골 지역 폭 안
+      // 원이면 피벗이 원 중심이라 골라인에서 반지름만큼 더 물려야 통째로 뒤다(아니면 골 지역에 걸쳐 옛 경로로도 잡힌다).
+      const px = disc ? GOAL_LINE - DISC_RADIUS_PX - 5 : behindPivotX;
+      const gk: RuleActor = { ...actor('home', px, y, true, Math.PI), disc };
+      expect(chairOverlapsRect(gk.x, gk.y, gk.theta, GZ.x, GZ.y, GZ.w, GZ.h, disc), '전제: 골 지역 사각형에는 안 닿는다').toBe(false);
+      expect(chairBehindMouthForTest(gk), '전제: 옛 골대 뒤 판정으로는 안 잡힌다').toBe(false);
+      expect(zoneViolation(GZ_HOME, [...twoInside(), gk], MOUTH)).toBe(TEAM_BIT.home);
+      // 골 지역 폭 밖(코너 쪽)으로 나가면 세지 않는다 — 골라인 뒤 전체가 아니다.
+      const wide: RuleActor = { ...actor('home', px, GZ.y + GZ.h + 40, true, Math.PI), disc };
+      expect(zoneViolation(GZ_HOME, [...twoInside(), wide], MOUTH)).toBe(0);
+    });
+    /** 옛 경로(골대 6 m 뒤에 완전히)로 잡히는가 — chairInsideBounds 를 그대로 쓴다. */
+    const chairBehindMouthForTest = (g: RuleActor): boolean =>
+      chairInsideBounds(g.x, g.y, g.theta, MOUTH.mouth.minX, MOUTH.mouth.maxX, MOUTH.mouth.minY, MOUTH.mouth.maxY, g.disc);
 
     it('한 대를 두 번 세지 않는다 — 골라인에 걸쳐 양쪽을 다 만족해도 1명이다', () => {
       // 뒷변이 골라인에 정확히 닿는 자리. 사각형에도 닿고 골대 뒤 판정에도 걸릴 수 있다.
